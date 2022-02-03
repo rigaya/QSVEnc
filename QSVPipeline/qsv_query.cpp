@@ -237,7 +237,7 @@ mfxVersion get_mfx_libsw_version() {
 }
 
 QSVVideoParam::QSVVideoParam(uint32_t CodecId, mfxVersion mfxver_) :
-    mfxVer(mfxver_), isVppParam(false), videoPrmVpp(), videoPrm(), buf(), spsbuf(), ppsbuf(), spspps(), cop(), cop2(), cop3(), copVp8(), hevcPrm() {
+    mfxVer(mfxver_), isVppParam(false), videoPrmVpp(), videoPrm(), buf(), spsbuf(), ppsbuf(), spspps(), cop(), cop2(), cop3(), copVp8(), vp9Prm(), hevcPrm() {
     memset(spsbuf, 0, sizeof(spsbuf));
     memset(ppsbuf, 0, sizeof(ppsbuf));
     INIT_MFX_EXT_BUFFER(spspps, MFX_EXTBUFF_CODING_OPTION_SPSPPS);
@@ -251,9 +251,14 @@ QSVVideoParam::QSVVideoParam(uint32_t CodecId, mfxVersion mfxver_) :
     INIT_MFX_EXT_BUFFER(cop3, MFX_EXTBUFF_CODING_OPTION3);
     INIT_MFX_EXT_BUFFER(copVp8, MFX_EXTBUFF_VP8_CODING_OPTION);
     INIT_MFX_EXT_BUFFER(hevcPrm, MFX_EXTBUFF_HEVC_PARAM);
+    INIT_MFX_EXT_BUFFER(vp9Prm, MFX_EXTBUFF_VP9_PARAM);
 
-    buf.push_back((mfxExtBuffer *)&cop);
-    buf.push_back((mfxExtBuffer *)&spspps);
+    if (CodecId != MFX_CODEC_VP9 || !AVOID_VP9_COP) {
+        buf.push_back((mfxExtBuffer *)&cop);
+    }
+    if (CodecId == MFX_CODEC_AVC || CodecId == MFX_CODEC_HEVC) {
+        buf.push_back((mfxExtBuffer *)&spspps);
+    }
     if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_6)) {
         buf.push_back((mfxExtBuffer *)&cop2);
     }
@@ -262,6 +267,9 @@ QSVVideoParam::QSVVideoParam(uint32_t CodecId, mfxVersion mfxver_) :
     }
     if (CodecId == MFX_CODEC_VP8) {
         buf.push_back((mfxExtBuffer *)&copVp8);
+    }
+    if (CodecId == MFX_CODEC_VP9 && check_lib_version(mfxVer, MFX_LIB_VERSION_1_26)) {
+        buf.push_back((mfxExtBuffer *)&vp9Prm);
     }
     if (CodecId == MFX_CODEC_HEVC && check_lib_version(mfxVer, MFX_LIB_VERSION_1_26)) {
         buf.push_back((mfxExtBuffer *)&hevcPrm);
@@ -697,11 +705,12 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 code
     INIT_MFX_EXT_BUFFER(vp9, MFX_EXTBUFF_VP9_PARAM);
 
     std::vector<mfxExtBuffer *> buf;
-    buf.push_back((mfxExtBuffer *)&cop);
+    if (codecId != MFX_CODEC_VP9 || !AVOID_VP9_COP) { // VP9ではmfxExtCodingOptionはチェックしないようにしないと正常に動作しない
+        buf.push_back((mfxExtBuffer *)&cop);
+    }
     if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_6)) {
         buf.push_back((mfxExtBuffer *)&cop2);
     }
-#if ENABLE_FEATURE_COP3_AND_ABOVE
     if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_11)) {
         buf.push_back((mfxExtBuffer *)&cop3);
     }
@@ -713,7 +722,6 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 code
         && codecId == MFX_CODEC_VP9) {
         buf.push_back((mfxExtBuffer *)&vp9);
     }
-#endif //#if ENABLE_FEATURE_COP3_AND_ABOVE
 
     mfxVideoParam videoPrm;
     RGY_MEMSET_ZERO(videoPrm);
@@ -782,12 +790,22 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 code
         videoPrm.mfx.CodecProfile = MFX_PROFILE_VP9_0;
         videoPrm.mfx.GopRefDist = 1;
         videoPrm.mfx.NumRefFrame = 1;
-        videoPrm.AsyncDepth = 0;
-        videoPrm.IOPattern = MFX_IOPATTERN_IN_VIDEO_MEMORY;
+        //videoPrm.mfx.GopPicSize = 65535;
+        //videoPrm.mfx.NumThread = 1;
+        //videoPrm.AsyncDepth = 4;
+        //videoPrm.mfx.BRCParamMultiplier = 1;
+        //videoPrm.mfx.FrameInfo.BufferSize=47187200;
+        videoPrm.mfx.Interleaved = 0;
+        //なぜか1280x720でqueryしないと成功しない
+        videoPrm.mfx.FrameInfo.Width         = 1280;
+        videoPrm.mfx.FrameInfo.Height        = 720;
+        videoPrm.mfx.FrameInfo.CropW         = 1280;
+        videoPrm.mfx.FrameInfo.CropH         = 720;
         if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_9)) {
             videoPrm.mfx.FrameInfo.BitDepthLuma = 8;
             videoPrm.mfx.FrameInfo.BitDepthChroma = 8;
         }
+        //videoPrm.mfx.LowPower = MFX_CODINGOPTION_ON;
         break;
     default:
     case MFX_CODEC_AVC:
@@ -797,50 +815,10 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 code
     }
     set_default_quality_prm();
 
-    mfxExtCodingOption copOut;
-    mfxExtCodingOption2 cop2Out;
-    mfxExtCodingOption3 cop3Out;
-    mfxExtHEVCParam hevcOut;
-    mfxExtVP9Param vp9Out;
-    std::vector<mfxExtBuffer *> bufOut;
-    bufOut.push_back((mfxExtBuffer *)&copOut);
-    if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_6)) {
-        bufOut.push_back((mfxExtBuffer *)&cop2Out);
-    }
-#if ENABLE_FEATURE_COP3_AND_ABOVE
-    if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_11)) {
-        bufOut.push_back((mfxExtBuffer *)&cop3Out);
-    }
-    if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_15)
-        && codecId == MFX_CODEC_HEVC) {
-        hevc.PicWidthInLumaSamples  = videoPrm.mfx.FrameInfo.CropW;
-        hevc.PicHeightInLumaSamples = videoPrm.mfx.FrameInfo.CropH;
-        bufOut.push_back((mfxExtBuffer*)&hevcOut);
-    }
-    if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_26)
-        && codecId == MFX_CODEC_VP9) {
-        vp9.FrameWidth = videoPrm.mfx.FrameInfo.Width;
-        vp9.FrameHeight = videoPrm.mfx.FrameInfo.Height;
-        vp9.NumTileRows = 1;
-        vp9.NumTileColumns = 1;
-        bufOut.push_back((mfxExtBuffer *)&vp9Out);
-    }
-#endif //#if ENABLE_FEATURE_COP3_AND_ABOVE
-    mfxVideoParam videoPrmOut;
-    //In, Outのパラメータが同一となっているようにきちんとコピーする
-    //そうしないとQueryが失敗する
-    memcpy(&copOut,  &cop,  sizeof(cop));
-    memcpy(&cop2Out, &cop2, sizeof(cop2));
-    memcpy(&cop3Out, &cop3, sizeof(cop3));
-    memcpy(&hevcOut, &hevc, sizeof(hevc));
-    memcpy(&vp9Out, &vp9, sizeof(vp9));
-    memcpy(&videoPrmOut, &videoPrm, sizeof(videoPrm));
-    videoPrm.NumExtParam = (mfxU16)bufOut.size();
-    videoPrm.ExtParam = &bufOut[0];
+    auto ret = MFXVideoENCODE_Query(session, &videoPrm, &videoPrm);
+    //_ftprintf(stderr, _T("error checking %s: %s\n"), CodecIdToStr(codecId), get_err_mes(err_to_rgy(ret)));
 
-    mfxStatus ret = MFXVideoENCODE_Query(session, &videoPrm, &videoPrmOut);
-
-    mfxU64 result = (ret >= MFX_ERR_NONE && videoPrm.mfx.RateControlMethod == videoPrmOut.mfx.RateControlMethod) ? ENC_FEATURE_CURRENT_RC : 0x00;
+    mfxU64 result = (ret >= MFX_ERR_NONE && videoPrm.mfx.RateControlMethod == ratecontrol) ? ENC_FEATURE_CURRENT_RC : 0x00;
     if (result) {
 
         //まず、エンコードモードについてチェック
@@ -849,15 +827,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 code
                 mfxU16 original_method = videoPrm.mfx.RateControlMethod;
                 videoPrm.mfx.RateControlMethod = mode;
                 set_default_quality_prm();
-                memcpy(&copOut,  &cop,  sizeof(cop));
-                memcpy(&cop2Out, &cop2, sizeof(cop2));
-                memcpy(&cop3Out, &cop3, sizeof(cop3));
-                memcpy(&hevcOut, &hevc, sizeof(hevc));
-                memcpy(&vp9Out,  &vp9,  sizeof(vp9));
-                memcpy(&videoPrmOut, &videoPrm, sizeof(videoPrm));
-                videoPrm.NumExtParam = (mfxU16)bufOut.size();
-                videoPrm.ExtParam = &bufOut[0];
-                if (MFXVideoENCODE_Query(session, &videoPrm, &videoPrmOut) >= MFX_ERR_NONE && videoPrm.mfx.RateControlMethod == videoPrmOut.mfx.RateControlMethod)
+                if (MFXVideoENCODE_Query(session, &videoPrm, &videoPrm) >= MFX_ERR_NONE && videoPrm.mfx.RateControlMethod == ratecontrol)
                     result |= flag;
                 videoPrm.mfx.RateControlMethod = original_method;
                 set_default_quality_prm();
@@ -870,24 +840,19 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 code
         check_enc_mode(MFX_RATECONTROL_LA_HRD, ENC_FEATURE_LA_HRD, MFX_LIB_VERSION_1_11);
         check_enc_mode(MFX_RATECONTROL_QVBR,   ENC_FEATURE_QVBR,   MFX_LIB_VERSION_1_11);
 
-#define CHECK_FEATURE(membersIn, membersOut, flag, value, required_ver) { \
+#define CHECK_FEATURE(membersIn, flag, value, required_ver) { \
         if (check_lib_version(mfxVer, (required_ver))) { \
-            mfxU16 temp = (membersIn); \
+            const mfxU16 orig = (membersIn); \
             (membersIn) = (value); \
-            memcpy(&videoPrmOut,  &videoPrm,  sizeof(videoPrm)); \
-            memcpy(&copOut,  &cop,  sizeof(cop)); \
-            memcpy(&cop2Out, &cop2, sizeof(cop2)); \
-            memcpy(&cop3Out, &cop3, sizeof(cop3)); \
-            memcpy(&hevcOut, &hevc, sizeof(hevc)); \
-            auto check_ret = MFXVideoENCODE_Query(session, &videoPrm, &videoPrmOut); \
+            auto check_ret = MFXVideoENCODE_Query(session, &videoPrm, &videoPrm); \
             if (check_ret >= MFX_ERR_NONE \
-                && (membersIn) == (membersOut) \
-                && videoPrm.mfx.RateControlMethod == videoPrmOut.mfx.RateControlMethod) { \
+                && (membersIn) == (value) \
+                && videoPrm.mfx.RateControlMethod == ratecontrol) { \
                 result |= (flag); \
-            } else { \
-                /*_ftprintf(stderr, _T("error checking " # flag ": %s\n"), get_err_mes(err_to_rgy(check_ret)));*/ \
+            } else if (false) { \
+                _ftprintf(stderr, _T("error checking " # flag ": %s\n"), get_err_mes(err_to_rgy(check_ret))); \
             } \
-            (membersIn) = temp; \
+            (membersIn) = orig; \
         } \
     }
         //これはもう単純にAPIチェックでOK
@@ -899,57 +864,70 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 code
 #pragma warning(disable:4244) //'mfxU16' から 'mfxU8' への変換です。データが失われる可能性があります。
 #define PICTYPE mfx.FrameInfo.PicStruct
         const mfxU32 MFX_TRELLIS_ALL = MFX_TRELLIS_I | MFX_TRELLIS_P | MFX_TRELLIS_B;
-        CHECK_FEATURE(cop.AUDelimiter,           copOut.AUDelimiter,           ENC_FEATURE_AUD,           MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_1);
-        CHECK_FEATURE(videoPrm.PICTYPE,          videoPrmOut.PICTYPE,          ENC_FEATURE_INTERLACE,     MFX_PICSTRUCT_FIELD_TFF, MFX_LIB_VERSION_1_1);
-        CHECK_FEATURE(cop.PicTimingSEI,          copOut.PicTimingSEI,          ENC_FEATURE_PIC_STRUCT,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_1);
-        CHECK_FEATURE(cop.RateDistortionOpt,     copOut.RateDistortionOpt,     ENC_FEATURE_RDO,           MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_1);
-        CHECK_FEATURE(cop.CAVLC,                 copOut.CAVLC,                 ENC_FEATURE_CAVLC,         MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_1);
-        CHECK_FEATURE(cop2.ExtBRC,               cop2Out.ExtBRC,               ENC_FEATURE_EXT_BRC,       MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_6);
-        CHECK_FEATURE(cop2.MBBRC,                cop2Out.MBBRC,                ENC_FEATURE_MBBRC,         MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_6);
-        CHECK_FEATURE(cop2.Trellis,              cop2Out.Trellis,              ENC_FEATURE_TRELLIS,       MFX_TRELLIS_ALL,         MFX_LIB_VERSION_1_7);
-        cop2.IntRefCycleSize = 16;
-        CHECK_FEATURE(cop2.IntRefType,           cop2Out.IntRefType,           ENC_FEATURE_INTRA_REFRESH, 1,                       MFX_LIB_VERSION_1_7);
-        cop2.IntRefCycleSize = 0;
-        CHECK_FEATURE(cop2.AdaptiveI,            cop2Out.AdaptiveI,            ENC_FEATURE_ADAPTIVE_I,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_8);
-        CHECK_FEATURE(cop2.AdaptiveB,            cop2Out.AdaptiveB,            ENC_FEATURE_ADAPTIVE_B,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_8);
-        CHECK_FEATURE(cop2.BRefType,             cop2Out.BRefType,             ENC_FEATURE_B_PYRAMID,     MFX_B_REF_PYRAMID,       MFX_LIB_VERSION_1_8);
-        if (rc_is_type_lookahead(ratecontrol)) {
-            CHECK_FEATURE(cop2.LookAheadDS,      cop2Out.LookAheadDS,          ENC_FEATURE_LA_DS,         MFX_LOOKAHEAD_DS_2x,     MFX_LIB_VERSION_1_8);
+        CHECK_FEATURE(videoPrm.PICTYPE,          ENC_FEATURE_INTERLACE,     MFX_PICSTRUCT_FIELD_TFF, MFX_LIB_VERSION_1_1);
+        if (codecId != MFX_CODEC_VP9 || !AVOID_VP9_COP) { // VP9ではmfxExtCodingOptionはチェックしない
+            CHECK_FEATURE(cop.AUDelimiter,           ENC_FEATURE_AUD,           MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_1);
+            CHECK_FEATURE(cop.PicTimingSEI,          ENC_FEATURE_PIC_STRUCT,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_1);
+            CHECK_FEATURE(cop.RateDistortionOpt,     ENC_FEATURE_RDO,           MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_1);
+            CHECK_FEATURE(cop.CAVLC,                 ENC_FEATURE_CAVLC,         MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_1);
         }
-        CHECK_FEATURE(cop2.DisableDeblockingIdc, cop2Out.DisableDeblockingIdc, ENC_FEATURE_NO_DEBLOCK,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_9);
-        CHECK_FEATURE(cop2.MaxQPI,               cop2Out.MaxQPI,               ENC_FEATURE_QP_MINMAX,     48,                      MFX_LIB_VERSION_1_9);
+        CHECK_FEATURE(cop2.ExtBRC,               ENC_FEATURE_EXT_BRC,       MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_6);
+        CHECK_FEATURE(cop2.MBBRC,                ENC_FEATURE_MBBRC,         MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_6);
+        CHECK_FEATURE(cop2.Trellis,              ENC_FEATURE_TRELLIS,       MFX_TRELLIS_ALL,         MFX_LIB_VERSION_1_7);
+        cop2.IntRefCycleSize = 16;
+        CHECK_FEATURE(cop2.IntRefType,           ENC_FEATURE_INTRA_REFRESH, 1,                       MFX_LIB_VERSION_1_7);
+        cop2.IntRefCycleSize = 0;
+        CHECK_FEATURE(cop2.AdaptiveI,            ENC_FEATURE_ADAPTIVE_I,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_8);
+        CHECK_FEATURE(cop2.AdaptiveB,            ENC_FEATURE_ADAPTIVE_B,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_8);
+        CHECK_FEATURE(cop2.BRefType,             ENC_FEATURE_B_PYRAMID,     MFX_B_REF_PYRAMID,       MFX_LIB_VERSION_1_8);
+        if (rc_is_type_lookahead(ratecontrol)) {
+            CHECK_FEATURE(cop2.LookAheadDS,      ENC_FEATURE_LA_DS,         MFX_LOOKAHEAD_DS_2x,     MFX_LIB_VERSION_1_8);
+        }
+        CHECK_FEATURE(cop2.DisableDeblockingIdc, ENC_FEATURE_NO_DEBLOCK,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_9);
+        CHECK_FEATURE(cop2.MaxQPI,               ENC_FEATURE_QP_MINMAX,     48,                      MFX_LIB_VERSION_1_9);
         cop3.WinBRCMaxAvgKbps = 3000;
-        CHECK_FEATURE(cop3.WinBRCSize,           cop3Out.WinBRCSize,           ENC_FEATURE_WINBRC,        10,                      MFX_LIB_VERSION_1_11);
+        CHECK_FEATURE(cop3.WinBRCSize,           ENC_FEATURE_WINBRC,        10,                      MFX_LIB_VERSION_1_11);
         cop3.WinBRCMaxAvgKbps = 0;
-        CHECK_FEATURE(cop3.EnableMBQP,                 cop3Out.EnableMBQP,                 ENC_FEATURE_PERMBQP,                    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_13);
-        CHECK_FEATURE(cop3.DirectBiasAdjustment,       cop3Out.DirectBiasAdjustment,       ENC_FEATURE_DIRECT_BIAS_ADJUST,         MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_13);
-        CHECK_FEATURE(cop3.GlobalMotionBiasAdjustment, cop3Out.GlobalMotionBiasAdjustment, ENC_FEATURE_GLOBAL_MOTION_ADJUST,       MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_13);
+        CHECK_FEATURE(cop3.EnableMBQP,                 ENC_FEATURE_PERMBQP,                    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_13);
+        CHECK_FEATURE(cop3.DirectBiasAdjustment,       ENC_FEATURE_DIRECT_BIAS_ADJUST,         MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_13);
+        CHECK_FEATURE(cop3.GlobalMotionBiasAdjustment, ENC_FEATURE_GLOBAL_MOTION_ADJUST,       MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_13);
+        const auto orig_ref_dist = videoPrm.mfx.GopRefDist;
         videoPrm.mfx.GopRefDist = 1;
-        CHECK_FEATURE(videoPrm.mfx.LowPower,     videoPrmOut.mfx.LowPower,     ENC_FEATURE_FIXED_FUNC,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_15);
-        videoPrm.mfx.GopRefDist = 4;
-        CHECK_FEATURE(cop3.WeightedPred,         cop3Out.WeightedPred,         ENC_FEATURE_WEIGHT_P,      MFX_WEIGHTED_PRED_DEFAULT,     MFX_LIB_VERSION_1_16);
-        CHECK_FEATURE(cop3.WeightedBiPred,       cop3Out.WeightedBiPred,       ENC_FEATURE_WEIGHT_B,      MFX_WEIGHTED_PRED_DEFAULT,     MFX_LIB_VERSION_1_16);
-        CHECK_FEATURE(cop3.FadeDetection,        cop3Out.FadeDetection,        ENC_FEATURE_FADE_DETECT,   MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_1_17);
+        CHECK_FEATURE(videoPrm.mfx.LowPower,     ENC_FEATURE_FIXED_FUNC,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_15);
+        videoPrm.mfx.GopRefDist = orig_ref_dist;
+        CHECK_FEATURE(cop3.WeightedPred,         ENC_FEATURE_WEIGHT_P,      MFX_WEIGHTED_PRED_DEFAULT,     MFX_LIB_VERSION_1_16);
+        CHECK_FEATURE(cop3.WeightedBiPred,       ENC_FEATURE_WEIGHT_B,      MFX_WEIGHTED_PRED_DEFAULT,     MFX_LIB_VERSION_1_16);
+        CHECK_FEATURE(cop3.FadeDetection,        ENC_FEATURE_FADE_DETECT,   MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_1_17);
         cop2.ExtBRC = MFX_CODINGOPTION_ON;
         cop2.BitrateLimit = MFX_CODINGOPTION_OFF;
-        CHECK_FEATURE(cop3.ExtBrcAdaptiveLTR,    cop3Out.ExtBrcAdaptiveLTR,    ENC_FEATURE_EXT_BRC_ADAPTIVE_LTR, MFX_CODINGOPTION_ON,    MFX_LIB_VERSION_1_26);
+        CHECK_FEATURE(cop3.ExtBrcAdaptiveLTR,    ENC_FEATURE_EXT_BRC_ADAPTIVE_LTR, MFX_CODINGOPTION_ON,    MFX_LIB_VERSION_1_26);
         cop2.ExtBRC = MFX_CODINGOPTION_UNKNOWN;
         cop2.BitrateLimit = MFX_CODINGOPTION_UNKNOWN;
         if (codecId == MFX_CODEC_HEVC) {
-            CHECK_FEATURE(cop3.GPB,              cop3Out.GPB,                  ENC_FEATURE_DISABLE_GPB,       MFX_CODINGOPTION_ON,  MFX_LIB_VERSION_1_19);
-            CHECK_FEATURE(cop3.EnableQPOffset,   cop3Out.EnableQPOffset,       ENC_FEATURE_PYRAMID_QP_OFFSET, MFX_CODINGOPTION_ON,  MFX_LIB_VERSION_1_19);
+            CHECK_FEATURE(cop3.GPB,              ENC_FEATURE_DISABLE_GPB,       MFX_CODINGOPTION_ON,  MFX_LIB_VERSION_1_19);
+            CHECK_FEATURE(cop3.EnableQPOffset,   ENC_FEATURE_PYRAMID_QP_OFFSET, MFX_CODINGOPTION_ON,  MFX_LIB_VERSION_1_19);
             videoPrm.mfx.FrameInfo.BitDepthLuma = 10;
             videoPrm.mfx.FrameInfo.BitDepthChroma = 10;
             videoPrm.mfx.FrameInfo.Shift = 1;
             videoPrm.mfx.CodecProfile = MFX_PROFILE_HEVC_MAIN10;
-            CHECK_FEATURE(videoPrm.mfx.FrameInfo.FourCC, videoPrmOut.mfx.FrameInfo.FourCC, ENC_FEATURE_10BIT_DEPTH, MFX_FOURCC_P010, MFX_LIB_VERSION_1_19);
+            CHECK_FEATURE(videoPrm.mfx.FrameInfo.FourCC, ENC_FEATURE_10BIT_DEPTH, MFX_FOURCC_P010, MFX_LIB_VERSION_1_19);
             videoPrm.mfx.FrameInfo.BitDepthLuma = 0;
             videoPrm.mfx.FrameInfo.BitDepthChroma = 0;
             videoPrm.mfx.FrameInfo.Shift = 0;
             videoPrm.mfx.CodecProfile = MFX_PROFILE_HEVC_MAIN;
-            CHECK_FEATURE(cop3.TransformSkip, cop3Out.TransformSkip, ENC_FEATURE_HEVC_TSKIP, MFX_CODINGOPTION_ON, MFX_LIB_VERSION_1_26);
-            CHECK_FEATURE(hevc.SampleAdaptiveOffset, hevcOut.SampleAdaptiveOffset, ENC_FEATURE_HEVC_SAO, MFX_SAO_ENABLE_LUMA, MFX_LIB_VERSION_1_26);
-            CHECK_FEATURE(hevc.LCUSize, hevcOut.LCUSize, ENC_FEATURE_HEVC_CTU, 32, MFX_LIB_VERSION_1_26);
+            CHECK_FEATURE(cop3.TransformSkip, ENC_FEATURE_HEVC_TSKIP, MFX_CODINGOPTION_ON, MFX_LIB_VERSION_1_26);
+            CHECK_FEATURE(hevc.SampleAdaptiveOffset, ENC_FEATURE_HEVC_SAO, MFX_SAO_ENABLE_LUMA, MFX_LIB_VERSION_1_26);
+            CHECK_FEATURE(hevc.LCUSize, ENC_FEATURE_HEVC_CTU, 32, MFX_LIB_VERSION_1_26);
+        } else if (codecId == MFX_CODEC_VP9) {
+            videoPrm.mfx.FrameInfo.BitDepthLuma = 10;
+            videoPrm.mfx.FrameInfo.BitDepthChroma = 10;
+            videoPrm.mfx.FrameInfo.Shift = 1;
+            videoPrm.mfx.CodecProfile = MFX_PROFILE_VP9_2;
+            CHECK_FEATURE(videoPrm.mfx.FrameInfo.FourCC, ENC_FEATURE_10BIT_DEPTH, MFX_FOURCC_P010, MFX_LIB_VERSION_1_19);
+            videoPrm.mfx.FrameInfo.BitDepthLuma = 0;
+            videoPrm.mfx.FrameInfo.BitDepthChroma = 0;
+            videoPrm.mfx.FrameInfo.Shift = 0;
+            videoPrm.mfx.CodecProfile = MFX_PROFILE_VP9_0;
         }
 #undef PICTYPE
 #pragma warning(pop)
@@ -1129,12 +1107,18 @@ vector<mfxU64> MakeFeatureList(const vector<CX_DESC>& rateControlList, mfxU32 co
 vector<vector<mfxU64>> MakeFeatureListPerCodec(const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList, std::shared_ptr<RGYLog> log) {
     vector<vector<mfxU64>> codecFeatures;
     vector<std::future<vector<mfxU64>>> futures;
+    if (false) {
     for (auto codec : codecIdList) {
         auto f = std::async(MakeFeatureList, rateControlList, codec, log);
         futures.push_back(std::move(f));
     }
     for (uint32_t i = 0; i < futures.size(); i++) {
         codecFeatures.push_back(futures[i].get());
+    }
+    } else {
+    for (auto codec : codecIdList) {
+        codecFeatures.push_back(MakeFeatureList(rateControlList, codec, log));
+    }
     }
     return codecFeatures;
 }

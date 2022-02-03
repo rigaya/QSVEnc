@@ -43,6 +43,9 @@
 #include "gpu_info.h"
 #include "qsv_util.h"
 
+// VP9ではmfxExtCodingOptionはチェックしないようにしないと正常に動作しない
+#define AVOID_VP9_COP 1
+
 enum QSV_CPU_GEN {
     CPU_GEN_UNKNOWN = 0,
     CPU_GEN_SANDYBRIDGE,
@@ -360,6 +363,7 @@ struct QSVVideoParam {
     mfxExtCodingOption2 cop2;
     mfxExtCodingOption3 cop3;
     mfxExtVP8CodingOption copVp8;
+    mfxExtVP9Param vp9Prm;
     mfxExtHEVCParam hevcPrm;
 
     QSVVideoParam(uint32_t CodecId, mfxVersion mfxver_);

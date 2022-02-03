@@ -1009,8 +1009,9 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         //m_CodingOption.EndOfStream   = MFX_CODINGOPTION_ON; //hwモードでは効果なし 0x00, 0x00, 0x01, 0x0b
         PrintMes(RGY_LOG_DEBUG, _T("InitMfxEncParams: Adjusted param for Bluray encoding.\n"));
     }
-
-    m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption);
+    if (m_mfxEncParams.mfx.CodecId != MFX_CODEC_VP9 || !AVOID_VP9_COP) { // VP9ではmfxExtCodingOptionはチェックしないようにしないと正常に動作しない
+        m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption);
+    }
 
     //m_mfxEncParams.mfx.TimeStampCalc = MFX_TIMESTAMPCALC_UNKNOWN;
     //m_mfxEncParams.mfx.TimeStampCalc = (mfxU16)((pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_IT) ? MFX_TIMESTAMPCALC_TELECINE : MFX_TIMESTAMPCALC_UNKNOWN);
@@ -1094,6 +1095,17 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         INIT_MFX_EXT_BUFFER(m_ExtVP8CodingOption, MFX_EXTBUFF_VP8_CODING_OPTION);
         m_ExtVP8CodingOption.SharpnessLevel = (mfxU16)clamp_param_int(pInParams->nVP8Sharpness, 0, 8, _T("sharpness"));
         m_EncExtParams.push_back((mfxExtBuffer*)&m_ExtVP8CodingOption);
+    }
+
+    if (false
+        && m_mfxEncParams.mfx.CodecId == MFX_CODEC_VP9
+        && check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_26)) {
+        INIT_MFX_EXT_BUFFER(m_ExtVP9Param, MFX_EXTBUFF_VP9_PARAM);
+        //m_ExtVP9Param.FrameWidth = m_mfxEncParams.mfx.FrameInfo.Width;
+        //m_ExtVP9Param.FrameHeight = m_mfxEncParams.mfx.FrameInfo.Height;
+        m_ExtVP9Param.NumTileColumns = 2;
+        m_ExtVP9Param.NumTileRows = 2;
+        m_EncExtParams.push_back((mfxExtBuffer*)&m_ExtVP9Param);
     }
 
     if (!m_EncExtParams.empty()) {
@@ -1349,6 +1361,7 @@ CQSVPipeline::CQSVPipeline() :
     m_CodingOption2(),
     m_CodingOption3(),
     m_ExtVP8CodingOption(),
+    m_ExtVP9Param(),
     m_ExtHEVCParam(),
     m_mfxSession(),
     m_mfxDEC(),
@@ -1396,6 +1409,7 @@ CQSVPipeline::CQSVPipeline() :
     INIT_MFX_EXT_BUFFER(m_CodingOption2,      MFX_EXTBUFF_CODING_OPTION2);
     INIT_MFX_EXT_BUFFER(m_CodingOption3,      MFX_EXTBUFF_CODING_OPTION3);
     INIT_MFX_EXT_BUFFER(m_ExtVP8CodingOption, MFX_EXTBUFF_VP8_CODING_OPTION);
+    INIT_MFX_EXT_BUFFER(m_ExtVP9Param,        MFX_EXTBUFF_VP9_PARAM);
     INIT_MFX_EXT_BUFFER(m_ExtHEVCParam,       MFX_EXTBUFF_HEVC_PARAM);
 
     RGY_MEMSET_ZERO(m_DecInputBitstream);
@@ -3643,7 +3657,7 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
 
     auto [ err, outFrameInfo ] = GetOutputVideoInfo();
     if (err != RGY_ERR_NONE) {
-        PrintMes(RGY_LOG_ERROR, _T("Failed to get output frame info!\n"));
+        PrintMes(RGY_LOG_ERROR, _T("Failed to get output frame info!: %s\n"), get_err_mes(err));
         return err;
     }
 
