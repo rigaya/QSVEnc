@@ -45,6 +45,7 @@ QSVEncを使用したことによる、いかなる損害・トラブルにつ�
    - H.264/AVC
    - H.265/HEVC (8bit/10bit)
    - MPEG2
+   - VP9 (8bit/10bit)
 - QuickSyncVideoの各エンコードモード
    - CQP       固定量子化量
    - CBR       固定ビットレート

@@ -122,6 +122,7 @@ Specify the output codec
  - h264 (default)
  - hevc
  - mpeg2
+ - vp9
  - raw
 
 ### -o, --output &lt;string&gt;
@@ -447,6 +448,7 @@ Specify the Level of the codec to be encoded. If not specified, it will be autom
 h264: auto, 1, 1 b, 1.1, 1.2, 1.3, 2, 2.1, 2.2, 3, 3.1, 3.2, 4, 4.1, 4.2, 5, 5.1, 5.2, 6, 6.1, 6.2
 hevc: auto, 1, 2, 2.1, 3, 3.1, 4, 4.1, 5, 5.1, 5.2, 6, 6.1, 6.2
 mpeg2: auto, low, main, high, high1440
+vp9: 0, 1, 2, 3
 ```
 
 ### --profile &lt;string&gt;

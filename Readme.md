@@ -44,6 +44,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
    - H.264/AVC
    - H.265/HEVC (8bit/10bit)
    - MPEG2
+   - VP9 (8bit/10bit)
 - Encode mode of QuickSyncVideo
    - CQP       (Fixed Quantization)
    - CBR       (Constant bitrate)

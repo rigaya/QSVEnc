@@ -140,6 +140,7 @@ dllのバージョンを表示
  - h264 (デフォルト)
  - hevc
  - mpeg2
+ - vp9
  - raw
 
 ### -o, --output &lt;string&gt;
@@ -473,6 +474,7 @@ mpeg2: auto, low, main, high, high1440
 h264:  auto, baseline, main, high
 hevc:  auto, main, main10
 mpeg2: auto, Simple, Main, High
+vp9: 0, 1, 2, 3
 ```
 
 ### --tier &lt;string&gt;
