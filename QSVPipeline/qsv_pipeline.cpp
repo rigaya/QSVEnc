@@ -2933,6 +2933,8 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     sts = InitOpenCL(pParams->ctrl.enableOpenCL, pParams->vpp.checkPerformance);
     if (sts < RGY_ERR_NONE) return sts;
 
+    m_encTimestamp = std::make_unique<RGYTimestamp>();
+
     sts = InitMfxDecParams();
     if (sts < RGY_ERR_NONE) return sts;
 
@@ -2981,8 +2983,6 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
         PrintMes(RGY_LOG_DEBUG, _T("timeBeginPeriod(1)\n"));
     }
 #endif //#if defined(_WIN32) || defined(_WIN64)
-
-    m_encTimestamp = std::make_unique<RGYTimestamp>();
 
     if ((sts = ResetMFXComponents(pParams)) != RGY_ERR_NONE) {
         return sts;
