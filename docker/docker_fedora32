@@ -3,7 +3,8 @@ FROM fedora:32
 ARG LOCAL_USER_ID=1000 \
     LOCAL_GROUP_ID=1000
 
-RUN dnf install -y \
+RUN dnf update -y \
+    && dnf install -y \
     https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
     https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm \
     && dnf update -y \
