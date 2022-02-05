@@ -65,8 +65,6 @@ const char *get_encoder_version();
 
 #define LIBVA_SUPPORT 0
 
-#define ENABLE_FEATURE_COP3_AND_ABOVE 1
-
 #define ENABLE_ADVANCED_DEINTERLACE 0
 
 #define ENABLE_MVC_ENCODING 0
@@ -74,8 +72,6 @@ const char *get_encoder_version();
 #define ENABLE_FPS_CONVERSION 0
 
 #define ENABLE_SESSION_THREAD_CONFIG 0
-
-#define ENABLE_FADE_DETECT 1
 
 #define ENABLE_PERF_COUNTER 1
 
@@ -132,7 +128,6 @@ const char *get_encoder_version();
 
 #else //#if defined(WIN32) || defined(WIN64)
 #define USE_ONEVPL 1
-#define ENABLE_FADE_DETECT 1
 #define D3D_SURFACES_SUPPORT 0
 #define MFX_D3D11_SUPPORT 0
 #define FOR_AUO 0
