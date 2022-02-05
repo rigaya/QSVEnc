@@ -64,6 +64,29 @@ sudo apt install ./qsvencc_x.xx_Ubuntu20.04_amd64.deb
   ```Shell
   sudo ln -s /lib/x86_64-linux-gnu/libOpenCL.so.1 /lib/x86_64-linux-gnu/libOpenCL.so
   ```
+
+- qsvenccでH.264/HEVCのFixedFunctionモードが使用できない
+- VP9エンコードが使用できない
+  HuCファームウェアがロードされていない場合があります。[詳細](https://01.org/linuxgraphics/downloads/firmware)
+   
+  HuCがロードされているかは、下記で確認できます。
+  ```
+  sudo cat /sys/kernel/debug/dri/0/i915_huc_load_status
+  ```
+
+  HuCのモジュールが存在するかは、下記で確認できます。
+  ```
+  sudo modinfo i915 | grep -i "huc"
+  ```
+
+  ご使用のCPUの世代に該当するモジュールがあれば、HuCファームウェアのロードを有効にすれば
+  H.264/HEVCのFixedFunctionモードやVP9エンコードを利用可能です。
+
+  HuCファームウェアのロードを有効にするには、ファイル```/etc/modprobe.d/i915.conf```にカーネルパラメータを追加し、システムを再起動します。
+  なお、ファームウェアのロードにより、システムが不安定になる場合もあるようなので注意してください。   
+  ```
+  options i915 enable_guc=2
+  ```
   
 
 ## Linux (Fedora 32)

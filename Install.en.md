@@ -62,7 +62,27 @@ There are some features which require additional installations.
   ```Shell
   sudo ln -s /lib/x86_64-linux-gnu/libOpenCL.so.1 /lib/x86_64-linux-gnu/libOpenCL.so
   ```
+- Unsupported H.264/HEVC Fixed Function(FF) mode encode
+- Unsupported VP9 encode
+  HuC firmware might not be loaded. [See also](https://01.org/linuxgraphics/downloads/firmware)
+   
+  Please check whether HuC firmware is loaded.
+  ```
+  sudo cat /sys/kernel/debug/dri/0/i915_huc_load_status
+  ```
 
+  Check also Huc Firmware module is available on your system.
+  ```
+  sudo modinfo i915 | grep -i "huc"
+  ```
+
+  If the module for the CPU gen you are using is available,
+  you shall be able to enable H.264/HEVC FF or VP9 encode by loading HuC Firmware module.
+
+  By adding option below to ```/etc/modprobe.d/i915.conf```, HuC Firmware will be loaded after reboot.
+  ```
+  options i915 enable_guc=2
+  ```
 
 ## Linux (Fedora 32)
 
