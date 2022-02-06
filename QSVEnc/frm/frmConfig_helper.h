@@ -142,8 +142,11 @@ const CX_DESC list_outtype[] = {
     { "MPEG2", MFX_CODEC_MPEG2 },
 #endif
     //{ "VC-1", MFX_CODEC_VC1 },
+    { "VP9", MFX_CODEC_VP9 },
     { NULL, NULL }
 };
+//下記は一致していないといけない
+static_assert(_countof(list_outtype)-1/*NULLの分*/ == _countof(CODEC_LIST_AUO));
 
 const CX_DESC list_log_level_jp[] = {
     { "通常",                  RGY_LOG_INFO  },
@@ -480,10 +483,16 @@ namespace QSVEnc {
                         for (int i_rate_control = 0; i_rate_control < _countof(list_rate_control_ry); i_rate_control++) {
                             codecAvailableFeatures[i_rate_control] = 0;
                         }
-                        if (featureDataLines[iline]->Contains(L"H.264")) {
-                            codec = MFX_CODEC_AVC;
-                        } else if (featureDataLines[iline]->Contains(L"HEVC")) {
-                            codec = MFX_CODEC_HEVC;
+                        for (int icodec = 0; list_outtype[icodec].desc; icodec++) {
+                            array<wchar_t>^ delimiterChars = { L' ', L'/' };
+                            String^ codecName = String(list_outtype[icodec].desc).ToString();
+                            auto codecNames = codecName->Split(delimiterChars);
+                            for (int in = 0; in < codecNames->Length; in++) {
+                                if (featureDataLines[iline]->Contains(codecNames[in])) {
+                                    codec = list_outtype[icodec].value;
+                                    break;
+                                }
+                            }
                         }
                         i_feature = 0;
                         iline++;

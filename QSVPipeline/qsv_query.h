@@ -172,7 +172,8 @@ MFX_LIB_VERSION(2, 5, 27);
 
 static const mfxU32 CODEC_LIST_AUO[] = {
     MFX_CODEC_AVC,
-    MFX_CODEC_HEVC
+    MFX_CODEC_HEVC,
+    MFX_CODEC_VP9
 };
 
 BOOL Check_HWUsed(mfxIMPL impl);
