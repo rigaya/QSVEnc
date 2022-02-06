@@ -1,12 +1,12 @@
-QSVEncC (x64) 6.00 (r2447) by rigaya, Sep  4 2021 00:01:00 (gcc 9.3.0/Linux)
- Intel Media SDK API v2.04
- reader: raw, avs, vpy, avsw, avhw [H.264/AVC, H.265/HEVC, MPEG2, VP8, VP9, AV1]
+QSVEncC (x64) 6.07 (r2562) by rigaya, Feb  6 2022 10:06:55 (gcc 9.3.0/Linux)
+ Intel Media SDK API v2.05
+ reader: raw, avsw, avhw [H.264/AVC, H.265/HEVC, MPEG2, VP8, VP9, AV1]
  vpp:    resize, deinterlace, denoise, detail-enhance, image-stab, delego, sub
 Environment Info
-OS : Ubuntu 20.04.3 LTS (5.11.0-27-generic) x64
+OS : Ubuntu 20.04.3 LTS (5.13.0-28-generic) x64
 CPU: 11th Gen Intel Core i7-11700K @ 3.60GHz (8C/16T)
-RAM: Used 2136 MB, Total 15805 MB
-GPU: Intel Graphics / Driver : Intel iHD driver for Intel(R) Gen Graphics - 21.2.2 (67261a4)
+RAM: Used 2307 MB, Total 15797 MB
+GPU: Intel Graphics / Driver : Intel iHD driver for Intel(R) Gen Graphics - 21.4.1 (be92568)
 
 Media SDK Version: Hardware API v1.35
 
@@ -15,30 +15,30 @@ Codec: H.264/AVC
              CBR   VBR   AVBR  QVBR  CQP   LA    LAHRD ICQ   LAICQ VCM  
 RC mode       o     o     o     o     o     o     o     o     o     o    
 10bit depth   x     x     x     x     x     x     x     x     x     x    
-Fixed Func    x     x     x     x     o     x     x     x     x     x    
+Fixed Func    o     o     x     o     o     x     x     x     x     x    
 Interlace     o     o     o     o     o     o     o     o     o     x    
 VUI info      o     o     o     o     o     o     o     o     o     o    
-Trellis       o     o     o     o     o     o     o     o     o     o    
+Trellis       o     o     o     o     o     o     o     o     o     x    
 Adaptive_I    x     x     x     x     x     x     x     x     x     x    
 Adaptive_B    x     x     x     x     x     x     x     x     x     x    
-WeightP       o     o     o     o     o     o     o     o     o     o    
-WeightB       o     o     o     o     o     o     o     o     o     o    
-FadeDetect    o     o     o     o     o     o     o     o     o     o    
-B_Pyramid     o     o     o     o     o     o     o     o     o     o    
- +ManyBframes o     o     o     o     o     x     x     o     x     o    
+WeightP       o     o     x     o     o     x     x     x     x     x    
+WeightB       o     o     x     o     o     x     x     x     x     x    
+FadeDetect    o     o     x     o     o     x     x     x     x     x    
+B_Pyramid     x     x     x     x     x     x     x     x     x     x    
+ +ManyBframes x     x     x     x     x     x     x     x     x     x    
 PyramQPOffset x     x     x     x     x     x     x     x     x     x    
-MBBRC         o     o     o     o     x     x     x     o     x     o    
+MBBRC         o     o     o     o     x     x     x     o     x     x    
 ExtBRC        o     o     x     x     x     x     x     x     x     x    
-Adaptive_LTR  o     o     o     o     o     o     o     o     o     o    
+Adaptive_LTR  o     o     x     x     x     x     x     x     x     x    
 LA Quality    x     x     x     x     x     o     o     x     o     x    
-QP Min/Max    o     o     o     o     o     o     o     o     o     o    
+QP Min/Max    o     o     o     o     o     o     o     o     o     x    
 IntraRefresh  x     x     x     x     x     x     x     x     x     x    
 No Deblock    x     x     x     x     x     x     x     x     x     x    
 No GPB        x     x     x     x     x     x     x     x     x     x    
-Windowed BRC  o     o     o     o     o     o     o     o     o     o    
-PerMBQP(CQP)  o     o     o     o     o     o     o     o     o     o    
-DirectBiasAdj o     o     o     o     o     o     o     o     o     o    
-MVCostScaling o     o     o     o     o     o     o     o     o     o    
+Windowed BRC  x     x     x     x     x     o     o     x     x     x    
+PerMBQP(CQP)  x     x     x     x     o     x     x     x     x     x    
+DirectBiasAdj o     o     o     o     o     o     o     o     o     x    
+MVCostScaling o     o     o     o     o     o     o     o     o     x    
 SAO           x     x     x     x     x     x     x     x     x     x    
 Max CTU Size  x     x     x     x     x     x     x     x     x     x    
 TSkip         x     x     x     x     x     x     x     x     x     x    
@@ -49,30 +49,64 @@ Codec: HEVC
              CBR   VBR   AVBR  QVBR  CQP   LA    LAHRD ICQ   LAICQ VCM  
 RC mode       o     o     x     o     o     x     x     o     x     o    
 10bit depth   o     o     x     o     o     x     x     o     x     o    
-Fixed Func    x     x     x     x     o     x     x     x     x     x    
+Fixed Func    o     o     x     o     o     x     x     x     x     o    
 Interlace     x     x     x     x     o     x     x     x     x     x    
 VUI info      o     o     x     o     o     x     x     o     x     o    
 Trellis       x     x     x     x     x     x     x     x     x     x    
 Adaptive_I    x     x     x     x     x     x     x     x     x     x    
 Adaptive_B    x     x     x     x     x     x     x     x     x     x    
-WeightP       o     o     x     o     o     x     x     o     x     o    
-WeightB       o     o     x     o     o     x     x     o     x     o    
-FadeDetect    o     o     x     o     o     x     x     o     x     o    
+WeightP       o     o     x     o     o     x     x     x     x     o    
+WeightB       o     o     x     o     o     x     x     x     x     o    
+FadeDetect    o     o     x     o     o     x     x     x     x     o    
 B_Pyramid     o     o     x     o     o     x     x     o     x     o    
  +ManyBframes o     o     x     o     o     x     x     o     x     o    
-PyramQPOffset o     o     x     o     o     x     x     o     x     o    
+PyramQPOffset x     x     x     x     o     x     x     x     x     x    
 MBBRC         o     o     x     o     x     x     x     o     x     o    
 ExtBRC        o     o     x     x     x     x     x     x     x     x    
-Adaptive_LTR  o     o     x     o     o     x     x     o     x     o    
+Adaptive_LTR  x     x     x     x     x     x     x     x     x     x    
 LA Quality    x     x     x     x     x     x     x     x     x     x    
 QP Min/Max    x     x     x     x     x     x     x     x     x     x    
 IntraRefresh  x     x     x     x     x     x     x     x     x     x    
 No Deblock    o     o     x     o     o     x     x     o     x     o    
-No GPB        o     o     x     o     o     x     x     o     x     o    
-Windowed BRC  o     o     x     o     o     x     x     o     x     o    
+No GPB        o     o     x     o     o     x     x     x     x     o    
+Windowed BRC  x     x     x     x     x     x     x     x     x     x    
 PerMBQP(CQP)  o     o     x     o     o     x     x     o     x     o    
-DirectBiasAdj o     o     x     o     o     x     x     o     x     o    
-MVCostScaling o     o     x     o     o     x     x     o     x     o    
+DirectBiasAdj x     x     x     x     x     x     x     x     x     x    
+MVCostScaling x     x     x     x     x     x     x     x     x     x    
+SAO           x     x     x     x     x     x     x     x     x     x    
+Max CTU Size  x     x     x     x     x     x     x     x     x     x    
+TSkip         x     x     x     x     x     x     x     x     x     x    
+
+
+
+Codec: VP9
+             CBR   VBR   AVBR  QVBR  CQP   LA    LAHRD ICQ   LAICQ VCM  
+RC mode       o     o     x     x     o     x     x     o     x     x    
+10bit depth   o     o     x     x     o     x     x     o     x     x    
+Fixed Func    o     o     x     x     o     x     x     o     x     x    
+Interlace     x     x     x     x     x     x     x     x     x     x    
+VUI info      o     o     x     x     o     x     x     o     x     x    
+Trellis       x     x     x     x     x     x     x     x     x     x    
+Adaptive_I    x     x     x     x     x     x     x     x     x     x    
+Adaptive_B    x     x     x     x     x     x     x     x     x     x    
+WeightP       x     x     x     x     x     x     x     x     x     x    
+WeightB       x     x     x     x     x     x     x     x     x     x    
+FadeDetect    x     x     x     x     x     x     x     x     x     x    
+B_Pyramid     x     x     x     x     x     x     x     x     x     x    
+ +ManyBframes x     x     x     x     x     x     x     x     x     x    
+PyramQPOffset x     x     x     x     x     x     x     x     x     x    
+MBBRC         o     o     x     x     x     x     x     o     x     x    
+ExtBRC        x     x     x     x     x     x     x     x     x     x    
+Adaptive_LTR  x     x     x     x     x     x     x     x     x     x    
+LA Quality    x     x     x     x     x     x     x     x     x     x    
+QP Min/Max    x     x     x     x     x     x     x     x     x     x    
+IntraRefresh  x     x     x     x     x     x     x     x     x     x    
+No Deblock    x     x     x     x     x     x     x     x     x     x    
+No GPB        x     x     x     x     x     x     x     x     x     x    
+Windowed BRC  x     x     x     x     x     x     x     x     x     x    
+PerMBQP(CQP)  x     x     x     x     x     x     x     x     x     x    
+DirectBiasAdj x     x     x     x     x     x     x     x     x     x    
+MVCostScaling x     x     x     x     x     x     x     x     x     x    
 SAO           x     x     x     x     x     x     x     x     x     x    
 Max CTU Size  x     x     x     x     x     x     x     x     x     x    
 TSkip         x     x     x     x     x     x     x     x     x     x    
@@ -85,6 +119,7 @@ Resize                o
 Deinterlace           o
 Scaling Quality       o
 Denoise               o
+Denoise2              x
 Mctf                  o
 Rotate                x
 Mirror                o

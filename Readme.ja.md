@@ -133,6 +133,7 @@ QSVEncを使用したことによる、いかなる損害・トラブルにつ�
 | CommetLake  |                                                         |  |
 | IceLake     | [i5 1035G7](./GPUFeatures/QSVEnc_ICL_i5_1035G7_Win.txt) | [i5 1035G7](./GPUFeatures/QSVEnc_ICL_i5_1035G7_Ubuntu2004.txt)  |
 | RocketLake  | [i7 11700K](./GPUFeatures/QSVEnc_RKL_i7_11700K_Win.txt) | [i7 11700K](./GPUFeatures/QSVEnc_RKL_i7_11700K_Ubuntu2004.txt)  |
+| AlderLake   | [i9 12900K](./GPUFeatures/QSVEnc_ADL_i9_12900K_Win.txt) |  |
 
 ## ソースコードについて
 - MITライセンスです。

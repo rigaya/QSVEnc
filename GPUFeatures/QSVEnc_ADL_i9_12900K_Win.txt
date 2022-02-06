@@ -3,9 +3,9 @@ QSVEncC (x64) 6.08 (r2565) by rigaya, Feb  6 2022 09:57:15 (VC 1929/Win)
  reader: raw, avi, avs, vpy, avsw, avhw [H.264/AVC, H.265/HEVC, MPEG2, VP8, VP9, AV1]
 Environment Info
 OS : Windows 11 x64 (22000) [UTF-8]
-CPU: 11th Gen Intel Core i7-11700K @ 3.60GHz [TB: 4.92GHz] (8C/16T)
-RAM: Used 4001 MB, Total 16181 MB
-GPU: Intel UHD Graphics 750 (32EU) 350-1300MHz [125W] (30.0.101.1191)
+CPU: 12th Gen Intel Core i9-12900K [4.92GHz] (8P+8E,16C/24T)
+RAM: Used 5562 MB, Total 32587 MB
+GPU: Intel UHD Graphics 770 (32EU) 1550MHz (30.0.101.1191)
 
 Media SDK Version: Hardware API v2.06
 
