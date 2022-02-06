@@ -177,6 +177,7 @@ sInputParams::~sInputParams() {
 }
 
 void sInputParams::applyDOVIProfile() {
+#if !FOR_AUO
     if (CodecId != MFX_CODEC_HEVC) {
         return;
     }
@@ -203,4 +204,5 @@ void sInputParams::applyDOVIProfile() {
         //hdr10sei
         //maxcll
     }
+#endif
 }
