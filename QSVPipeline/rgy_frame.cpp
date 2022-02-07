@@ -119,13 +119,26 @@ RGY_ERR RGYFrameDataQP::transferToGPU(cudaStream_t stream) {
 #endif //#if !FOR_AUO && ENCODER_NVENC
 
 
-RGYFrameDataHDR10plus::RGYFrameDataHDR10plus() : m_timestamp(-1), m_data() { m_dataType = RGY_FRAME_DATA_HDR10PLUS; };
+RGYFrameDataMetadata::RGYFrameDataMetadata() : m_timestamp(-1), m_data() { m_dataType = RGY_FRAME_DATA_METADATA; };
 
-RGYFrameDataHDR10plus::RGYFrameDataHDR10plus(const uint8_t *data, size_t size, int64_t timestamp) {
-    m_dataType = RGY_FRAME_DATA_HDR10PLUS;
+RGYFrameDataMetadata::RGYFrameDataMetadata(const uint8_t *data, size_t size, int64_t timestamp) {
+    m_dataType = RGY_FRAME_DATA_METADATA;
     m_timestamp = timestamp;
     m_data = make_vector(data, size);
 }
 
-RGYFrameDataHDR10plus::~RGYFrameDataHDR10plus() { m_data.clear(); }
+RGYFrameDataMetadata::~RGYFrameDataMetadata() { m_data.clear(); }
 
+RGYFrameDataHDR10plus::RGYFrameDataHDR10plus() : RGYFrameDataMetadata() { m_dataType = RGY_FRAME_DATA_HDR10PLUS; };
+RGYFrameDataHDR10plus::RGYFrameDataHDR10plus(const uint8_t *data, size_t size, int64_t timestamp) :
+    RGYFrameDataMetadata(data, size, timestamp) {
+    m_dataType = RGY_FRAME_DATA_HDR10PLUS;
+};
+
+RGYFrameDataHDR10plus::~RGYFrameDataHDR10plus() {}
+
+RGYFrameDataDOVIRpu::RGYFrameDataDOVIRpu() : RGYFrameDataMetadata() { m_dataType = RGY_FRAME_DATA_DOVIRPU; };
+RGYFrameDataDOVIRpu::RGYFrameDataDOVIRpu(const uint8_t *data, size_t size, int64_t timestamp) : 
+    RGYFrameDataMetadata(data, size, timestamp) { m_dataType = RGY_FRAME_DATA_DOVIRPU; };
+
+RGYFrameDataDOVIRpu::~RGYFrameDataDOVIRpu() { }

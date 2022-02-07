@@ -1192,6 +1192,14 @@ RGYFrameDataHDR10plus *RGYInputAvcodec::getHDR10plusMetaData(const AVPacket *pkt
     return nullptr;
 }
 
+RGYFrameDataDoviRpu *RGYInputAvcodec::getDoviRpu(const AVFrame *frame) {
+    auto side_data = av_frame_get_side_data(frame, AV_FRAME_DATA_DOVI_RPU_BUFFER);
+    if (side_data) {
+        return new RGYFrameDataDoviRpu(side_data->data, side_data->size, frame->pts);
+    }
+    return nullptr;
+}
+
 RGY_ERR RGYInputAvcodec::initFormatCtx(const TCHAR *strFileName, const RGYInputAvcodecPrm *input_prm, const int iretry) {
     CloseFormat(&m_Demux.format);
     const auto retry_multi = rgy_pow_int(rgy_rational(3, 2), iretry); // input-retryを行うときに、probesize/analyzedurationにかける倍率
@@ -2340,8 +2348,10 @@ int RGYInputAvcodec::getSample(AVPacket *pkt, bool bTreatFirstPacketAsKeyframe) 
             if (m_Demux.video.bUseHEVCmp42AnnexB) {
                 hevcMp42Annexb(pkt);
             }
-            if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_HEVC && m_Demux.video.hdr10plusMetadataCopy) {
-                parseHDR10plus(pkt);
+            if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
+                if (m_Demux.video.hdr10plusMetadataCopy) {
+                    parseHDR10plus(pkt);
+                }
             }
             FramePos pos = { 0 };
             pos.pts = pkt->pts;
@@ -2832,7 +2842,6 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
         if (pSurface->picstruct() == RGY_PICSTRUCT_AUTO) { //autoの時は、frameのインタレ情報をセットする
             pSurface->setPicstruct(picstruct_avframe_to_rgy(m_Demux.video.frame));
         }
-#if ENCODER_NVENC || ENABLE_DHDR10_INFO
         pSurface->dataList().clear();
 #if ENCODER_NVENC
         if (m_Demux.video.qpTableListRef != nullptr) {
@@ -2862,7 +2871,12 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
             }
         }
 #endif //#if ENABLE_DHDR10_INFO
-#endif //#if ENCODER_NVENC || ENABLE_DHDR10_INFO
+        {
+            auto dovirpu = std::shared_ptr<RGYFrameData>(getDoviRpu(m_Demux.video.frame));
+            if (dovirpu) {
+                pSurface->dataList().push_back(dovirpu);
+            }
+        }
         //フレームデータをコピー
         void *dst_array[3];
         pSurface->ptrArray(dst_array, m_convert->getFunc()->csp_to == RGY_CSP_RGB24 || m_convert->getFunc()->csp_to == RGY_CSP_RGB32);
