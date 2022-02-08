@@ -303,7 +303,8 @@ RGYParamThreads::RGYParamThreads() :
         if (   targetType != RGYThreadType::DEC
             && targetType != RGYThreadType::ENC
             && targetType != RGYThreadType::OUTUT
-            && targetType != RGYThreadType::VIDEO_QUALITY) {
+            && targetType != RGYThreadType::VIDEO_QUALITY
+            && targetType != RGYThreadType::PERF_MONITOR) {
             get(targetType).throttling = RGYThreadPowerThrottlingMode::Auto;
         }
     }
