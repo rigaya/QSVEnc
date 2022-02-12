@@ -2925,6 +2925,7 @@ void RGYOutputAvcodec::AudioFlushStream(AVMuxAudio *muxAudio, int64_t *writtenDt
             audPkt.type = MUX_DATA_TYPE_FRAME;
             audPkt.frame = decodedFrames[i].release();
             audPkt.got_result = audPkt.frame && audPkt.frame->nb_samples > 0;
+            audPkt.muxAudio = muxAudio;
             audioFrames.push_back(audPkt);
         }
         //フィルタリングを行う
