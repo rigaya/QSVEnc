@@ -879,7 +879,10 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 code
         cop2.IntRefCycleSize = 0;
         CHECK_FEATURE(cop2.AdaptiveI,            ENC_FEATURE_ADAPTIVE_I,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_8);
         CHECK_FEATURE(cop2.AdaptiveB,            ENC_FEATURE_ADAPTIVE_B,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_8);
+        const auto orig_ref_dist = videoPrm.mfx.GopRefDist;
+        videoPrm.mfx.GopRefDist = 4;
         CHECK_FEATURE(cop2.BRefType,             ENC_FEATURE_B_PYRAMID,     MFX_B_REF_PYRAMID,       MFX_LIB_VERSION_1_8);
+        videoPrm.mfx.GopRefDist = orig_ref_dist;
         if (rc_is_type_lookahead(ratecontrol)) {
             CHECK_FEATURE(cop2.LookAheadDS,      ENC_FEATURE_LA_DS,         MFX_LOOKAHEAD_DS_2x,     MFX_LIB_VERSION_1_8);
         }
@@ -891,10 +894,10 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 code
         CHECK_FEATURE(cop3.EnableMBQP,                 ENC_FEATURE_PERMBQP,                    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_13);
         CHECK_FEATURE(cop3.DirectBiasAdjustment,       ENC_FEATURE_DIRECT_BIAS_ADJUST,         MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_13);
         CHECK_FEATURE(cop3.GlobalMotionBiasAdjustment, ENC_FEATURE_GLOBAL_MOTION_ADJUST,       MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_13);
-        const auto orig_ref_dist = videoPrm.mfx.GopRefDist;
+        const auto orig_ref_dist2 = videoPrm.mfx.GopRefDist;
         videoPrm.mfx.GopRefDist = 1;
         CHECK_FEATURE(videoPrm.mfx.LowPower,     ENC_FEATURE_FIXED_FUNC,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_15);
-        videoPrm.mfx.GopRefDist = orig_ref_dist;
+        videoPrm.mfx.GopRefDist = orig_ref_dist2;
         CHECK_FEATURE(cop3.WeightedPred,         ENC_FEATURE_WEIGHT_P,      MFX_WEIGHTED_PRED_DEFAULT,     MFX_LIB_VERSION_1_16);
         CHECK_FEATURE(cop3.WeightedBiPred,       ENC_FEATURE_WEIGHT_B,      MFX_WEIGHTED_PRED_DEFAULT,     MFX_LIB_VERSION_1_16);
         CHECK_FEATURE(cop3.FadeDetection,        ENC_FEATURE_FADE_DETECT,   MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_1_17);
