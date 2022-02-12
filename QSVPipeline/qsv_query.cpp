@@ -850,7 +850,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 code
                 && videoPrm.mfx.RateControlMethod == ratecontrol) { \
                 result |= (flag); \
             } else if (false) { \
-                _ftprintf(stderr, _T("error checking " # flag ": %s\n"), get_err_mes(err_to_rgy(check_ret))); \
+                _ftprintf(stderr, _T("error checking %s %s " # flag ": %s\n"), CodecIdToStr(codecId), EncmodeToStr(ratecontrol), get_err_mes(err_to_rgy(check_ret))); \
             } \
             (membersIn) = orig; \
         } \
