@@ -1453,11 +1453,11 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
         codecId = AV_CODEC_ID_ASS;
     }
 
-    auto copy_subtitle_header = [](AVCodecContext *dstCtx, const AVCodecContext *srcCtx) {
-        if (srcCtx->subtitle_header_size) {
-            dstCtx->subtitle_header_size = srcCtx->subtitle_header_size;
-            dstCtx->subtitle_header = (uint8_t *)av_mallocz(dstCtx->subtitle_header_size + AV_INPUT_BUFFER_PADDING_SIZE);
-            memcpy(dstCtx->subtitle_header, srcCtx->subtitle_header, srcCtx->subtitle_header_size);
+    auto copy_subtitle_header = [](AVCodecContext *dstCtx, const uint8_t *header, const size_t header_size) {
+        if (header) {
+            dstCtx->subtitle_header_size = header_size;
+            dstCtx->subtitle_header = (uint8_t *)av_mallocz(header_size + AV_INPUT_BUFFER_PADDING_SIZE);
+            memcpy(dstCtx->subtitle_header, header, header_size);
         }
     };
 
@@ -1541,11 +1541,13 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
 
         //subtitle_headerをここで設定しないとavcodec_open2に失敗する
         //基本的にはass形式のヘッダーを設定する
-        if (inputStream->src.stream && inputStream->src.subtitleHeader) {
-            SetExtraData(muxSub->streamOut->codecpar, (uint8_t *)inputStream->src.subtitleHeader, inputStream->src.subtitleHeaderSize);
-        } else if (inputStream->src.subtitleHeader) {
-            SetExtraData(muxSub->outCodecEncodeCtx, (uint8_t *)inputStream->src.subtitleHeader, inputStream->src.subtitleHeaderSize);
-        }
+        if (inputStream->src.subtitleHeader) {
+            copy_subtitle_header(muxSub->outCodecEncodeCtx, (uint8_t *)inputStream->src.subtitleHeader, inputStream->src.subtitleHeaderSize);
+        } else if (muxSub->outCodecDecodeCtx->subtitle_header) {
+            copy_subtitle_header(muxSub->outCodecEncodeCtx, (uint8_t *)muxSub->outCodecDecodeCtx->subtitle_header, muxSub->outCodecDecodeCtx->subtitle_header_size);
+        } else if (inputStream->src.stream && inputStream->src.stream->codecpar->extradata) {
+            copy_subtitle_header(muxSub->outCodecEncodeCtx, (uint8_t *)inputStream->src.stream->codecpar->extradata, inputStream->src.stream->codecpar->extradata_size);
+        } 
 
         AddMessage(RGY_LOG_DEBUG, _T("Subtitle Encoder Param: %s, %dx%d\n"), char_to_tstring(muxSub->outCodecEncode->name).c_str(),
             muxSub->outCodecEncodeCtx->width, muxSub->outCodecEncodeCtx->height);
@@ -1589,9 +1591,11 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
             muxSub->streamOut->codecpar->codec_tag = srcCodecParam->codec_tag;
         }
     }
-    if (inputStream->src.stream) {
+    if (muxSub->outCodecEncodeCtx) {
         SetExtraData(muxSub->streamOut->codecpar, (uint8_t *)muxSub->outCodecEncodeCtx->subtitle_header, muxSub->outCodecEncodeCtx->subtitle_header_size);
-    } else if (inputStream->src.stream && inputStream->src.subtitleHeader != nullptr) {
+    } else if (inputStream->src.stream && inputStream->src.stream->codecpar->extradata) {
+        SetExtraData(muxSub->streamOut->codecpar, (uint8_t *)inputStream->src.stream->codecpar->extradata, inputStream->src.stream->codecpar->extradata_size);
+    } else if (inputStream->src.subtitleHeader) {
         SetExtraData(muxSub->streamOut->codecpar, (uint8_t *)inputStream->src.subtitleHeader, inputStream->src.subtitleHeaderSize);
     }
 
