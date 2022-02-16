@@ -29,6 +29,9 @@
 #ifndef __RGY_ENV_H__
 #define __RGY_ENV_H__
 
+#include <memory>
+#include <vector>
+#include <functional>
 #include "rgy_util.h"
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -42,5 +45,12 @@ uint64_t getPhysicalRamSize(uint64_t *ramUsed);
 tstring getEnviromentInfo(int device_id = 0);
 
 BOOL check_OS_Win8orLater();
+
+#if defined(_WIN32) || defined(_WIN64)
+using unique_handle = std::unique_ptr<std::remove_pointer<HANDLE>::type, std::function<void(HANDLE)>>;
+
+std::vector<size_t> createChildProcessIDList(const size_t target_pid);
+std::vector<unique_handle> createProcessHandleList(const std::vector<size_t>& list_pid, const wchar_t *handle_type);
+#endif
 
 #endif //__RGY_ENV_H__
