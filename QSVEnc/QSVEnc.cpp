@@ -161,6 +161,7 @@ BOOL func_output( OUTPUT_INFO *oip ) {
     PRM_ENC pe = { 0 };
     CONF_GUIEX conf_out = { 0 };
     const DWORD tm_start_enc = timeGetTime();
+    char default_stg_file[MAX_PATH_LEN] = { 0 };
 
     //データの初期化
     init_SYSTEM_DATA(&g_sys_dat);
@@ -168,14 +169,20 @@ BOOL func_output( OUTPUT_INFO *oip ) {
 
     const bool conf_not_initialized = memcmp(&conf_out, &g_conf, sizeof(g_conf)) == 0;
     if (conf_not_initialized) {
-        init_CONF_GUIEX(&g_conf, FALSE);
+        PathCombine(default_stg_file, g_sys_dat.exstg->s_local.stg_dir, CONF_LAST_OUT);
+        if (!PathFileExists(default_stg_file)
+            || guiEx_config::load_guiEx_conf(&g_conf, default_stg_file) != CONF_ERROR_NONE) {
+            //前回出力した設定ファイルがない場合は、デフォルト設定をロード
+            init_CONF_GUIEX(&g_conf, FALSE);
+            memset(default_stg_file, 0, sizeof(default_stg_file));
+        }
     }
     conf_out = g_conf;
 
     //ログウィンドウを開く
     open_log_window(oip->savefile, &g_sys_dat, 1, 1);
     if (conf_not_initialized) {
-        warning_conf_not_initialized();
+        warning_conf_not_initialized(default_stg_file);
     }
     set_prevent_log_close(TRUE); //※1 start
 
@@ -215,6 +222,12 @@ BOOL func_output( OUTPUT_INFO *oip ) {
         ret |= run_bat_file(&conf_out, oip, &pe, &g_sys_dat, RUN_BAT_AFTER_PROCESS);
 
     log_process_events();
+    // エラーが発生しなかった場合は設定を保存
+    if (ret == AUO_RESULT_SUCCESS) {
+        memset(default_stg_file, 0, sizeof(default_stg_file));
+        PathCombine(default_stg_file, g_sys_dat.exstg->s_local.stg_dir, CONF_LAST_OUT);
+        guiEx_config::save_guiEx_conf(&conf_out, default_stg_file);
+    }
     free_enc_prm(&pe);
     return (ret & AUO_RESULT_ERROR) ? FALSE : TRUE;
 }

@@ -140,7 +140,7 @@ BOOL guiEx_config::adjust_conf_size(CONF_GUIEX *conf_buf, void *data, int old_si
     return ret;
 }
 
-int guiEx_config::load_qsvp_conf(CONF_GUIEX *conf, const char *stg_file) {
+int guiEx_config::load_guiEx_conf(CONF_GUIEX *conf, const char *stg_file) {
     size_t conf_size = 0;
     BYTE *dst, *filedat;
     //初期化
@@ -209,7 +209,7 @@ int guiEx_config::load_qsvp_conf(CONF_GUIEX *conf, const char *stg_file) {
     return 0;
 }
 
-int guiEx_config::save_qsvp_conf(const CONF_GUIEX *conf, const char *stg_file) {
+int guiEx_config::save_guiEx_conf(const CONF_GUIEX *conf, const char *stg_file) {
     CONF_GUIEX save_conf;
     memcpy(&save_conf, conf, sizeof(CONF_GUIEX));
     ZeroMemory(&save_conf.block_count, sizeof(save_conf.block_count));
