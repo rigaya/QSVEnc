@@ -1,0 +1,112 @@
+name: Build Windows Releases
+
+on:
+  push:
+    branches:
+      - master
+      - actions
+    tags:
+      - '*'
+
+jobs:
+  get_version_name:
+    name: Get version name
+    runs-on: ubuntu-latest
+    outputs:
+      rev_count: ${{ steps.rev.outputs.REVCOUNT }}
+      version_name: ${{ steps.rev.outputs.VERSION_NAME }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - name: Set version name
+      id: rev
+      run: |
+        cd ${{ github.workspace }}
+        REVCOUNT=`git rev-list --count HEAD`
+        echo "::set-output name=REV_COUNT::${REVCOUNT}"
+        if [[ "${{ github.ref }}" =~ "refs/tags/" ]]; then
+          VERSION=$(echo ${{ github.ref }} | sed -e "s#refs/tags/##g")
+        else
+          VERSION=r${REVCOUNT}
+        fi
+        echo "::set-output name=VERSION_NAME::${VERSION}"
+
+  build:
+    name: Upload Release Asset
+    runs-on: windows-2019
+    needs: get_version_name
+
+    defaults:
+      run:
+        shell: cmd
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86
+            platform: Win32
+          - arch: x64
+            platform: x64
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Checkout dependencies
+        run: |
+          git clone https://github.com/AviSynth/AviSynthPlus.git ..\AviSynthPlus
+          git clone https://github.com/vapoursynth/vapoursynth.git ..\vapoursynth
+          git clone https://github.com/KhronosGroup/OpenCL-Headers.git ..\openclheaders
+          git clone https://github.com/maki-rxrz/Caption2Ass_PCR.git ..\caption2ass
+
+      - name: Add msbuild to PATH
+        uses: microsoft/setup-msbuild@v1.1
+        with:
+          msbuild-architecture: ${{ matrix.arch }}
+
+      - name: MSBuild
+        run: |
+          set AVISYNTH_SDK=${{ github.workspace }}\..\AviSynthPlus\avs_core
+          set VAPOURSYNTH_SDK=${{ github.workspace }}\..\vapoursynth
+          set OPENCL_HEADERS=${{ github.workspace }}\..\openclheaders
+          set CAPTION2ASS_SRC=${{ github.workspace }}\..\caption2ass\src
+          msbuild QSVEnc.sln /t:build /p:configuration=ReleaseStatic /p:Platform=${{ matrix.platform }} -maxcpucount
+
+      - name: Create Archieve
+        id: archieve
+        run: |
+          mkdir QSVEncC_Release
+          copy _build\${{ matrix.platform }}\ReleaseStatic\QSVEncC*.exe QSVEncC_Release
+          copy _build\${{ matrix.platform }}\ReleaseStatic\*.dll QSVEncC_Release
+          7z a -mx9 QSVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z .\QSVEncC_Release\*
+          echo ::set-output name=pkgfile::QSVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name:     ${{ needs.get_version_name.outputs.version_name }}
+          release_name: ${{ needs.get_version_name.outputs.version_name }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset
+        id: upload_release_asset 
+        uses: actions/upload-release-asset@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ steps.build.archieve.pkgfile }}
+          asset_name: ${{ steps.build.archieve.pkgfile }}
+          asset_content_type: application/zip
