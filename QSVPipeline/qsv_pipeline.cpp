@@ -3969,7 +3969,7 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
             }
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
-            if (outFrameInfo->cop2.RepeatPPS) {
+            if (outFrameInfo->cop2.RepeatPPS == MFX_CODINGOPTION_ON) {
                 extFeatures += _T("RepeatPPS ");
             }
         }
