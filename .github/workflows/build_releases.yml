@@ -84,8 +84,7 @@ jobs:
           mkdir QSVEncC_Release
           copy _build\${{ matrix.platform }}\ReleaseStatic\QSVEncC*.exe QSVEncC_Release
           copy _build\${{ matrix.platform }}\ReleaseStatic\*.dll QSVEncC_Release
-          7z a -mx9 QSVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z .\QSVEncC_Release\*
-          echo ::set-output name=pkgfile::QSVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z
+          7z a -mx9 QSVEncC.7z .\QSVEncC_Release\*
 
       - name: Create Release
         id: create_release
@@ -107,6 +106,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ steps.build.archieve.pkgfile }}
-          asset_name: ${{ steps.build.archieve.pkgfile }}
-          asset_content_type: application/zip
+          asset_path: .\QSVEncC.7z
+          asset_name: QSVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z
+          asset_content_type: application/x-7z-compressed
