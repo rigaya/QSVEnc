@@ -1192,11 +1192,13 @@ RGYFrameDataHDR10plus *RGYInputAvcodec::getHDR10plusMetaData(const AVPacket *pkt
     return nullptr;
 }
 
-RGYFrameDataDoviRpu *RGYInputAvcodec::getDoviRpu(const AVFrame *frame) {
+RGYFrameDataDOVIRpu *RGYInputAvcodec::getDoviRpu(const AVFrame *frame) {
+#if ENAVLE_LIBAV_DOVI_PARSER
     auto side_data = av_frame_get_side_data(frame, AV_FRAME_DATA_DOVI_RPU_BUFFER);
     if (side_data) {
-        return new RGYFrameDataDoviRpu(side_data->data, side_data->size, frame->pts);
+        return new RGYFrameDataDOVIRpu(side_data->data, side_data->size, frame->pts);
     }
+#endif
     return nullptr;
 }
 
@@ -1307,7 +1309,7 @@ RGY_ERR RGYInputAvcodec::initFormatCtx(const TCHAR *strFileName, const RGYInputA
         }
     }
     //ファイルのオープン
-    if ((ret = avformat_open_input(&(m_Demux.format.formatCtx), filename_char.c_str(), inFormat, &m_Demux.format.formatOptions)) != 0) {
+    if ((ret = avformat_open_input(&(m_Demux.format.formatCtx), filename_char.c_str(), (RGYArgN<2U, decltype(avformat_open_input)>::type)inFormat, &m_Demux.format.formatOptions)) != 0) {
         AddMessage(RGY_LOG_ERROR, _T("error opening file \"%s\": %s\n"), char_to_tstring(filename_char, CP_UTF8).c_str(), qsv_av_err2str(ret).c_str());
         return RGY_ERR_FILE_OPEN; // Couldn't open file
     }
@@ -2842,6 +2844,7 @@ RGY_ERR RGYInputAvcodec::LoadNextFrame(RGYFrame *pSurface) {
         if (pSurface->picstruct() == RGY_PICSTRUCT_AUTO) { //autoの時は、frameのインタレ情報をセットする
             pSurface->setPicstruct(picstruct_avframe_to_rgy(m_Demux.video.frame));
         }
+#if ENCODER_NVENC || ENABLE_DHDR10_INFO
         pSurface->dataList().clear();
 #if ENCODER_NVENC
         if (m_Demux.video.qpTableListRef != nullptr) {

@@ -1696,7 +1696,7 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
     } else if (filename.c_str() == strstr(filename.c_str(), R"(\\.\pipe\)")) {
         m_Mux.format.isPipe = true;
     }
-    int err = avformat_alloc_output_context2(&m_Mux.format.formatCtx, m_Mux.format.outputFmt, nullptr, filename.c_str());
+    int err = avformat_alloc_output_context2(&m_Mux.format.formatCtx, (RGYArgN<1U, decltype(avformat_alloc_output_context2)>::type)m_Mux.format.outputFmt, nullptr, filename.c_str());
     if (m_Mux.format.formatCtx == nullptr) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate format context: %s.\n"), qsv_av_err2str(err).c_str());
         return RGY_ERR_NULL_PTR;

@@ -1542,6 +1542,7 @@ public:
                         m_encCtrlData.setHDR10PlusPayload(hdr10plus->getData());
                     }
                 }
+#if 0
                 auto dataDOVIRpu = std::find_if(frameDataList.begin(), frameDataList.end(), [](const std::shared_ptr<RGYFrameData>& frameData) {
                     return frameData->dataType() == RGY_FRAME_DATA_DOVIRPU;
                     });
@@ -1551,6 +1552,7 @@ public:
                         m_encCtrlData.setDOVIRpuPayload(dovirpu->getData());
                     }
                 }
+#endif
             }
         }
 
