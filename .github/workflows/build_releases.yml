@@ -84,28 +84,13 @@ jobs:
           mkdir QSVEncC_Release
           copy _build\${{ matrix.platform }}\ReleaseStatic\QSVEncC*.exe QSVEncC_Release
           copy _build\${{ matrix.platform }}\ReleaseStatic\*.dll QSVEncC_Release
-          7z a -mx9 QSVEncC.7z .\QSVEncC_Release\*
-
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name:     ${{ needs.get_version_name.outputs.version_name }}
-          release_name: ${{ needs.get_version_name.outputs.version_name }}
-          draft: false
-          prerelease: false
+          7z a -mx9 QSVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z .\QSVEncC_Release\*
 
       - name: Upload Release Asset
-        id: upload_release_asset 
-        uses: actions/upload-release-asset@v1
+        id: upload-release-asset 
+        uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: .\QSVEncC.7z
-          asset_name: QSVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z
-          asset_content_type: application/x-7z-compressed
+          files: .\QSVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z
