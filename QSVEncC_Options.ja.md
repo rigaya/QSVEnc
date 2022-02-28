@@ -574,6 +574,12 @@ Access Unit Delimiter NALを挿入する。
 ### --pic-struct
 picture timing SEIを挿入する。
 
+### --buf-period
+buffering period SEIを挿入する。
+
+### --no-repeat-pps
+PPSの定期的な挿入を無効化する。ただし、他のPPSの定期的な挿入を必要とするオプションを使用した場合、本オプションは無視される。
+
 ### --bluray [H.264のみ]
 Bluray用出力を行う。(デフォルト: オフ)  
 Bluray互換となるよう、一部の内部パラメータを自動的に調整する。BD用エンコードの場合は必須。また、ビットレート指定系のエンコモードしか使用できない(CQP/VQPは使用できない)。

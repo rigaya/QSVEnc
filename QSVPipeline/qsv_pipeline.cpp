@@ -885,12 +885,15 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         if (pInParams->bNoDeblock) {
             m_CodingOption2.DisableDeblockingIdc = MFX_CODINGOPTION_ON;
         }
-        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)
-            && (m_hdr10plus || m_hdr10plusMetadataCopy || m_dovirpu || pInParams->common.doviProfile != 0 || (m_hdrsei && m_hdrsei->gen_nal().size() > 0))) {
-            m_CodingOption2.RepeatPPS = MFX_CODINGOPTION_ON;
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
+            if (m_hdr10plus || m_hdr10plusMetadataCopy || m_dovirpu || pInParams->common.doviProfile != 0 || (m_hdrsei && m_hdrsei->gen_nal().size() > 0)) {
+                m_CodingOption2.RepeatPPS = MFX_CODINGOPTION_ON;
+            } else if (pInParams->disableRepeatPPS) {
+                m_CodingOption2.RepeatPPS = MFX_CODINGOPTION_OFF;
+            }
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_10)) {
-            m_CodingOption2.BufferingPeriodSEI = (mfxU16)((pInParams->bufPeriodSEI) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
+            m_CodingOption2.BufferingPeriodSEI = (mfxU16)((pInParams->bufPeriodSEI) ? MFX_BPSEI_IFRAME : MFX_BPSEI_DEFAULT);
         }
         for (int i = 0; i < 3; i++) {
             pInParams->nQPMin[i] = clamp_param_int(pInParams->nQPMin[i], 0, codecMaxQP, _T("qp min"));

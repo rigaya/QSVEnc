@@ -333,6 +333,7 @@ struct sInputParams {
     bool       bOutputAud;
     bool       bOutputPicStruct;
     bool       bufPeriodSEI;
+    bool       disableRepeatPPS;
     int16_t    pQPOffset[8];
 
     int        nRepartitionCheck;

@@ -390,7 +390,8 @@ tstring encoder_help() {
     str += strsprintf(_T("")
         _T("   --aud                        insert aud nal unit to ouput stream.\n")
         _T("   --pic-struct                 insert pic-timing SEI with pic_struct.\n")
-        _T("   --buf-period                 insert buffering period SEI.\n"));
+        _T("   --buf-period                 insert buffering period SEI.\n")
+        _T("   --no-repeat-pps              disable repeating insertion of PPS\n"));
 
     str += _T("\n");
     str += gen_cmd_help_common();
@@ -1333,6 +1334,10 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         pParams->bufPeriodSEI = true;
         return 0;
     }
+    if (0 == _tcscmp(option_name, _T("no-repeat-pps"))) {
+        pParams->disableRepeatPPS = true;
+        return 0;
+    }
     if (0 == _tcscmp(option_name, _T("async-depth"))) {
         i++;
         int v;
@@ -1998,6 +2003,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     OPT_BOOL(_T("--aud"), _T(""), bOutputAud);
     OPT_BOOL(_T("--pic-struct"), _T(""), bOutputPicStruct);
     OPT_BOOL(_T("--buf-period"), _T(""), bufPeriodSEI);
+    OPT_BOOL(_T("--no-repeat-pps"), _T(""), disableRepeatPPS);
     OPT_LST(_T("--level"), CodecLevel, get_level_list(pParams->CodecId));
     OPT_LST(_T("--profile"), CodecProfile, get_profile_list(pParams->CodecId));
     if (save_disabled_prm || pParams->CodecId == MFX_CODEC_HEVC) {

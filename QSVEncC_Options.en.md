@@ -555,6 +555,12 @@ Insert Access Unit Delimiter NAL.
 ### --pic-struct
 Insert picture timing SEI.
 
+### --buf-period
+Insert buffering period SEI.
+
+### --no-repeat-pps
+Disable repeating insertion of PPS. Might be ignored by other options which require repeating insertion of PPS.
+
 ### --bluray [H.264 only]
 Perform output for Bluray. (Default: off)
 

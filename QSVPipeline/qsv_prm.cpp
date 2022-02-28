@@ -155,6 +155,7 @@ sInputParams::sInputParams() :
     bOutputAud(false),
     bOutputPicStruct(false),
     bufPeriodSEI(false),
+    disableRepeatPPS(false),
     pQPOffset(),
     nRepartitionCheck(0),
     padding(),
