@@ -488,7 +488,7 @@ namespace QSVEnc {
                             String^ codecName = String(list_outtype[icodec].desc).ToString();
                             auto codecNames = codecName->Split(delimiterChars);
                             for (int in = 0; in < codecNames->Length; in++) {
-                                if (featureDataLines[iline]->Contains(codecNames[in])) {
+                                if (codecNames[in]->Length > 0 && featureDataLines[iline]->Contains(codecNames[in])) {
                                     codec = list_outtype[icodec].value;
                                     break;
                                 }
