@@ -48,6 +48,9 @@
 #include "auo_faw2aac.h"
 #include "qsv_query.h"
 
+static void create_aviutl_opened_file_list(PRM_ENC *pe);
+static bool check_file_is_aviutl_opened_file(const char *filepath, const PRM_ENC *pe);
+
 void get_audio_pipe_name(char *pipename, size_t nSize, int audIdx) {
     sprintf_s(pipename, nSize, AUO_NAMED_PIPE_BASE, GetCurrentProcessId(), audIdx);
 }
@@ -77,6 +80,11 @@ BOOL check_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, const PRM_ENC *pe, c
     //ファイル名長さ
     if (strlen(oip->savefile) > (MAX_PATH_LEN - MAX_APPENDIX_LEN - 1)) {
         error_filename_too_long();
+        check = FALSE;
+    }
+
+    if (check_file_is_aviutl_opened_file(oip->savefile, pe)) {
+        error_file_is_already_opened_by_aviutl();
         check = FALSE;
     }
 
@@ -262,6 +270,7 @@ void set_enc_prm(CONF_GUIEX *conf, PRM_ENC *pe, const OUTPUT_INFO *oip, const SY
     pe->drop_count = 0;
     memcpy(&pe->append, &sys_dat->exstg->s_append, sizeof(FILE_APPENDIX));
     ZeroMemory(&pe->append.aud, sizeof(pe->append.aud));
+    create_aviutl_opened_file_list(pe);
 
     char filename_replace[MAX_PATH_LEN];
 
