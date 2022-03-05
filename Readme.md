@@ -17,7 +17,10 @@ There are 2 types of software developed, one is command line version that runs i
 [github releases](https://github.com/rigaya/QSVEnc/releases)  
 
 ## Install
-[Install instructions for Windows and Linux](./Install.en.md).
+[Install instructions for Windows and Linux](./Install.en.md)
+
+## Build
+[Build instructions for Windows and Linux](./Build.en.md)
 
 ## System Requirements
 ### Windows
@@ -138,8 +141,6 @@ This depends on the version of QSVEnc, the generation of the GPU, and also the G
   [ttmath](http://www.ttmath.org/) &
   [Caption2Ass](https://github.com/maki-rxrz/Caption2Ass_PCR).
   For these licenses, please see the header part of the corresponding source and license.txt.
-
-- [How to build](./Build.en.md)
 
 ### About source code
 Windows ... VC build  

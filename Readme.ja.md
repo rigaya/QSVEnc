@@ -18,6 +18,9 @@ QSVEncC.exe … 上記のコマンドライン版です。
 ## インストール
 インストール方法は[こちら](./Install.ja.md)。
 
+## ビルド
+ビルド方法は[こちら](./Build.ja.md)。
+
 ## 想定動作環境
 ### Windows
 Windows 10/11 (x86/x64) (QSVEnc.auo / QSVEncC.exe x86版)  
@@ -147,8 +150,6 @@ QSVEncを使用したことによる、いかなる損害・トラブルにつ�
   [dtl](https://github.com/cubicdaiya/dtl),
   [Caption2Ass](https://github.com/maki-rxrz/Caption2Ass_PCR)を使用しています。
   これらのライセンスにつきましては、該当ソースのヘッダ部分や、license.txtをご覧ください。
-
-- [ビルド方法](./Build.ja.md)
 
 ### ソースの構成
 Windows ... VCビルド  
