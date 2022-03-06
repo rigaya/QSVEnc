@@ -1333,7 +1333,7 @@ public:
                 //bob化の際に増えたフレームのTimeStampには、MFX_TIMESTAMP_UNKNOWNが設定されているのでこれを補間して修正する
                 auto tsMap = m_timestamp.check(surfVppOut.frame()->timestamp());
                 surfVppOut.frame()->setTimestamp(tsMap.timestamp);
-                surfVppOut.frame()->setInputFrameId(tsMap.inputFrameId);
+                surfVppOut.frame()->setInputFrameId((int)tsMap.inputFrameId);
                 surfVppOut.frame()->setDataList(m_lastFrameDataList);
                 m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, lastSyncPoint));
             }
