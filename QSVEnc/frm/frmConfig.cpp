@@ -222,7 +222,8 @@ System::Boolean frmConfig::CheckLocalStg() {
     bool error = false;
     String^ err = "";
     //映像エンコーダのチェック
-    if (!File::Exists(LocalStg.vidEncPath)) {
+    if (LocalStg.vidEncPath->Length > 0
+        && !File::Exists(LocalStg.vidEncPath)) {
         if (!error) err += L"\n\n";
         error = true;
         err += L"指定された 動画エンコーダ は存在しません。\n [ " + LocalStg.vidEncPath + L" ]\n";
@@ -231,7 +232,8 @@ System::Boolean frmConfig::CheckLocalStg() {
     if (fcgCBAudioUseExt->Checked
         && LocalStg.audEncExeName[fcgCXAudioEncoder->SelectedIndex]->Length) {
         String^ AudioEncoderPath = LocalStg.audEncPath[fcgCXAudioEncoder->SelectedIndex];
-        if (!File::Exists(AudioEncoderPath)
+        if (AudioEncoderPath->Length > 0
+            && !File::Exists(AudioEncoderPath)
             && (fcgCXAudioEncoder->SelectedIndex != sys_dat->exstg->get_faw_index(!fcgCBAudioUseExt->Checked)
                 || !check_if_faw2aac_exists()) ) {
             //音声実行ファイルがない かつ
@@ -1266,6 +1268,13 @@ System::Void frmConfig::InitForm() {
         fcgtabControlMux->TabPages->RemoveAt(2);
     }
 #endif
+    fcgTXVideoEncoderPath_Leave(nullptr, nullptr);
+    fcgTXAudioEncoderPath_Leave(nullptr, nullptr);
+    fcgTXMP4MuxerPath_Leave(nullptr, nullptr);
+    fcgTXTC2MP4Path_Leave(nullptr, nullptr);
+    fcgTXMP4RawPath_Leave(nullptr, nullptr);
+    fcgTXMKVMuxerPath_Leave(nullptr, nullptr);
+    fcgTXMPGMuxerPath_Leave(nullptr, nullptr);
     //表示位置の調整
     AdjustLocation();
     //キー設定
