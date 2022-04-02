@@ -1,11 +1,11 @@
-call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars32.bat" %1
+call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars32.bat" %1
 cd %~dp0
 if not exist buildOneVPL mkdir buildOneVPL
 if not exist buildOneVPL\%1 mkdir buildOneVPL\%1
 if not exist buildOneVPL\%1\%2 mkdir buildOneVPL\%1\%2
 cd buildOneVPL\%1\%2
 if not exist oneVPL.sln (
-  cmake -G "Visual Studio 16 2019" -A %1 ^
+  cmake -G "Visual Studio 17 2022" -A %1 ^
     -DBUILD_DEV=OFF ^
     -DBUILD_TOOLS=OFF ^
     -DBUILD_SHARED_LIBS=OFF ^
@@ -18,4 +18,4 @@ if not exist oneVPL.sln (
     ..\..\..\oneVPL
 )
 cd ..\..\..
-MSBuild "buildOneVPL\%1\%2\dispatcher\VPL.vcxproj" /property:WindowsTargetPlatformVersion=10.0;PlatformToolset=v142;Configuration="%2";Platform=%1;WholeProgramOptimization=true;ConfigurationType=StaticLibrary;ForceImportBeforeCppTargets="BuildVPL.props" /p:BuildProjectReferences=true /p:SpectreMitigation=false
+MSBuild "buildOneVPL\%1\%2\dispatcher\VPL.vcxproj" /property:WindowsTargetPlatformVersion=10.0;PlatformToolset=v143;Configuration="%2";Platform=%1;WholeProgramOptimization=true;ConfigurationType=StaticLibrary;ForceImportBeforeCppTargets="BuildVPL.props" /p:BuildProjectReferences=true /p:SpectreMitigation=false
