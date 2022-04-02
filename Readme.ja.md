@@ -5,15 +5,16 @@ by rigaya
 [![Build Windows Releases](https://github.com/rigaya/QSVEnc/actions/workflows/build_releases.yml/badge.svg)](https://github.com/rigaya/QSVEnc/actions/workflows/build_releases.yml)  [![Build Linux Packages](https://github.com/rigaya/QSVEnc/actions/workflows/build_packages.yml/badge.svg)](https://github.com/rigaya/QSVEnc/actions/workflows/build_packages.yml)  
 
 このソフトウェアは、IntelのCPUに搭載されているHWエンコーダ(QSV)の画質や速度といった性能の実験を目的としています。
-Aviutlの出力プラグイン版と単体で動作するコマンドライン版があります。  
+単体で動作するコマンドライン版とAviutlの出力プラグイン版があります。  
 
-QSVEnc.auo … Intel Media SDK を使用してエンコードを行うAviutlの出力プラグインです。
+- QSVEncC.exe  
+  単体で動作するコマンドライン版です。本項で説明します。
 
-QSVEncC.exe … 上記のコマンドライン版です。
+- [QSVEnc.auo](./QSVEnc_auo_readme.md)  
+  Intel Media SDK を使用してエンコードを行うAviutlの出力プラグインの使用方法については、[こちら](./QSVEnc_auo_readme.md)を参照してください。
 
 ## ダウンロード & 更新履歴
-[rigayaの日記兼メモ帳＞＞](http://rigaya34589.blog135.fc2.com/blog-category-10.html)  
-[github releases](https://github.com/rigaya/QSVEnc/releases)  
+[こちら](https://github.com/rigaya/QSVEnc/releases)
 
 ## インストール
 インストール方法は[こちら](./Install.ja.md)。
