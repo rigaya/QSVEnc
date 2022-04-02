@@ -201,7 +201,7 @@ int RGYFilterDelogo::selectLogo(const tstring& selectStr, const tstring& inputFi
     }
 
     //自動ロゴ選択ファイルか?
-    std::string logoName = GetFullPath(tchar_to_string(selectStr).c_str());
+    std::string logoName = GetFullPathFrom(tchar_to_string(selectStr).c_str());
     if (!rgy_file_exists(selectStr.c_str())) {
         AddMessage(RGY_LOG_ERROR,
             _T("--vpp-delogo-select option has invalid param.\n")
