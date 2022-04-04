@@ -220,17 +220,19 @@ tstring encoder_help() {
     str += gen_cmd_help_input();
     str += strsprintf(_T("\n")
         _T("-c,--codec <string>             set encode codec\n")
-        _T("                                 - h264(default), hevc, mpeg2, vp9, raw\n"));
+        _T("                                 - h264(default), hevc, mpeg2, vp9, av1, raw\n"));
     str += PrintMultipleListOptions(_T("--level <string>"), _T("set codec level"),
         { { _T("H.264"), list_avc_level,   0 },
           { _T("HEVC"),  list_hevc_level,  0 },
-          { _T("MPEG2"), list_mpeg2_level, 0 }
+          { _T("MPEG2"), list_mpeg2_level, 0 },
+          { _T("AV1"),   list_av1_level,   0 }
         });
     str += PrintMultipleListOptions(_T("--profile <string>"), _T("set codec profile"),
         { { _T("H.264"), list_avc_profile,   0 },
           { _T("HEVC"),  list_hevc_profile,  0 },
           { _T("MPEG2"), list_mpeg2_profile, 0 },
-          { _T("VP9"),   list_vp9_profile,   0 }
+          { _T("VP9"),   list_vp9_profile,   0 },
+          { _T("AV1"),   list_av1_profile,   0 }
         });
     str += PrintMultipleListOptions(_T("--tier <string>"), _T("set codec tier"),
         { { _T("HEVC"),  list_hevc_tier,  0 },

@@ -1025,7 +1025,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         //m_CodingOption.EndOfStream   = MFX_CODINGOPTION_ON; //hwモードでは効果なし 0x00, 0x00, 0x01, 0x0b
         PrintMes(RGY_LOG_DEBUG, _T("InitMfxEncParams: Adjusted param for Bluray encoding.\n"));
     }
-    if (m_mfxEncParams.mfx.CodecId != MFX_CODEC_VP9 || !AVOID_VP9_COP) { // VP9ではmfxExtCodingOptionはチェックしないようにしないと正常に動作しない
+    if (add_cop(m_mfxEncParams.mfx.CodecId)) { // VP9ではmfxExtCodingOptionはチェックしないようにしないと正常に動作しない
         m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption);
     }
 
@@ -1122,6 +1122,22 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         //m_ExtVP9Param.NumTileColumns = 2;
         //m_ExtVP9Param.NumTileRows = 2;
         m_EncExtParams.push_back((mfxExtBuffer*)&m_ExtVP9Param);
+    }
+
+    if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_AV1
+        && check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_5)) {
+        INIT_MFX_EXT_BUFFER(m_ExtAV1BitstreamParam, MFX_EXTBUFF_AV1_BITSTREAM_PARAM);
+        //m_ExtVP9Param.FrameWidth = m_mfxEncParams.mfx.FrameInfo.Width;
+        //m_ExtVP9Param.FrameHeight = m_mfxEncParams.mfx.FrameInfo.Height;
+        m_ExtAV1BitstreamParam.WriteIVFHeaders = MFX_CODINGOPTION_OFF;
+        //m_ExtVP9Param.NumTileColumns = 2;
+        //m_ExtVP9Param.NumTileRows = 2;
+        m_EncExtParams.push_back((mfxExtBuffer*)&m_ExtAV1BitstreamParam);
+
+        INIT_MFX_EXT_BUFFER(m_ExtAV1ResolutionParam, MFX_EXTBUFF_AV1_RESOLUTION_PARAM);
+        INIT_MFX_EXT_BUFFER(m_ExtAV1TileParam, MFX_EXTBUFF_AV1_TILE_PARAM);
+        //m_EncExtParams.push_back((mfxExtBuffer*)&m_ExtAV1ResolutionParam);
+        //m_EncExtParams.push_back((mfxExtBuffer*)&m_ExtAV1TileParam);
     }
 
     if (!m_EncExtParams.empty()) {
@@ -1379,6 +1395,9 @@ CQSVPipeline::CQSVPipeline() :
     m_ExtVP8CodingOption(),
     m_ExtVP9Param(),
     m_ExtHEVCParam(),
+    m_ExtAV1BitstreamParam(),
+    m_ExtAV1ResolutionParam(),
+    m_ExtAV1TileParam(),
     m_mfxSession(),
     m_mfxDEC(),
     m_pmfxENC(),
@@ -1427,6 +1446,9 @@ CQSVPipeline::CQSVPipeline() :
     INIT_MFX_EXT_BUFFER(m_ExtVP8CodingOption, MFX_EXTBUFF_VP8_CODING_OPTION);
     INIT_MFX_EXT_BUFFER(m_ExtVP9Param,        MFX_EXTBUFF_VP9_PARAM);
     INIT_MFX_EXT_BUFFER(m_ExtHEVCParam,       MFX_EXTBUFF_HEVC_PARAM);
+    INIT_MFX_EXT_BUFFER(m_ExtAV1BitstreamParam,  MFX_EXTBUFF_AV1_BITSTREAM_PARAM);
+    INIT_MFX_EXT_BUFFER(m_ExtAV1ResolutionParam, MFX_EXTBUFF_AV1_RESOLUTION_PARAM);
+    INIT_MFX_EXT_BUFFER(m_ExtAV1TileParam,       MFX_EXTBUFF_AV1_TILE_PARAM);
 
     RGY_MEMSET_ZERO(m_DecInputBitstream);
 

@@ -44,7 +44,12 @@
 #include "qsv_util.h"
 
 // VP9ではmfxExtCodingOptionはチェックしないようにしないと正常に動作しない
-#define AVOID_VP9_COP 1
+#define AVOID_COP_EXCEPT_SAFE_CODECS 1
+
+static bool add_cop(const uint32_t CodecId) {
+    if (!AVOID_COP_EXCEPT_SAFE_CODECS) return true;
+    return CodecId == MFX_CODEC_AVC || CodecId == MFX_CODEC_HEVC || CodecId == MFX_CODEC_MPEG2;
+}
 
 enum QSV_CPU_GEN {
     CPU_GEN_UNKNOWN = 0,
@@ -366,6 +371,9 @@ struct QSVVideoParam {
     mfxExtVP8CodingOption copVp8;
     mfxExtVP9Param vp9Prm;
     mfxExtHEVCParam hevcPrm;
+    mfxExtAV1BitstreamParam av1BitstreamPrm;
+    mfxExtAV1ResolutionParam av1ResolutionPrm;
+    mfxExtAV1TileParam av1TilePrm;
 
     QSVVideoParam(uint32_t CodecId, mfxVersion mfxver_);
     QSVVideoParam() = delete;

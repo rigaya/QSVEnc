@@ -366,6 +366,7 @@ const CX_DESC list_codec[] = {
     { _T("vc-1"),     MFX_CODEC_VC1   },
     { _T("vp8"),      MFX_CODEC_VP8   },
     { _T("vp9"),      MFX_CODEC_VP9   },
+    { _T("av1"),      MFX_CODEC_AV1   },
     { _T("raw"),      MFX_CODEC_RAW   },
     { NULL, 0 }
 };
@@ -437,6 +438,14 @@ const CX_DESC list_vp9_profile[] = {
     { _T("1"),        MFX_PROFILE_VP9_1 },
     { _T("2"),        MFX_PROFILE_VP9_2 },
     { _T("3"),        MFX_PROFILE_VP9_3 },
+    { NULL, 0 }
+};
+
+const CX_DESC list_av1_level[] = {
+    { _T("auto"),     0 },
+    { _T("main"),     MFX_PROFILE_AV1_MAIN },
+    { _T("high"),     MFX_PROFILE_AV1_HIGH },
+    { _T("pro"),      MFX_PROFILE_AV1_PRO  },
     { NULL, 0 }
 };
 
@@ -557,6 +566,36 @@ const CX_DESC list_vp9_level[] = {
     { _T("auto"),     0                    },
     { NULL, 0 }
 };
+
+const CX_DESC list_av1_profile[] = {
+    { _T("auto"),     0 },
+    { _T("2"),        MFX_LEVEL_AV1_2  },
+    { _T("2.1"),      MFX_LEVEL_AV1_21 },
+    { _T("2.2"),      MFX_LEVEL_AV1_22 },
+    { _T("2.3"),      MFX_LEVEL_AV1_23 },
+    { _T("3"),        MFX_LEVEL_AV1_3  },
+    { _T("3.1"),      MFX_LEVEL_AV1_31 },
+    { _T("3.2"),      MFX_LEVEL_AV1_32 },
+    { _T("3.3"),      MFX_LEVEL_AV1_33 },
+    { _T("4"),        MFX_LEVEL_AV1_4  },
+    { _T("4.1"),      MFX_LEVEL_AV1_41 },
+    { _T("4.2"),      MFX_LEVEL_AV1_42 },
+    { _T("4.3"),      MFX_LEVEL_AV1_43 },
+    { _T("5"),        MFX_LEVEL_AV1_5  },
+    { _T("5.1"),      MFX_LEVEL_AV1_51 },
+    { _T("5.2"),      MFX_LEVEL_AV1_52 },
+    { _T("5.3"),      MFX_LEVEL_AV1_53 },
+    { _T("6"),        MFX_LEVEL_AV1_6  },
+    { _T("6.1"),      MFX_LEVEL_AV1_61 },
+    { _T("6.2"),      MFX_LEVEL_AV1_62 },
+    { _T("6.3"),      MFX_LEVEL_AV1_63 },
+    { _T("7"),        MFX_LEVEL_AV1_7  },
+    { _T("7.1"),      MFX_LEVEL_AV1_71 },
+    { _T("7.2"),      MFX_LEVEL_AV1_72 },
+    { _T("7.3"),      MFX_LEVEL_AV1_73 },
+    { NULL, 0 }
+};
+
 const CX_DESC list_avc_trellis[] = {
     { _T("Auto"),           MFX_TRELLIS_UNKNOWN },
     { _T("off"),            MFX_TRELLIS_OFF },

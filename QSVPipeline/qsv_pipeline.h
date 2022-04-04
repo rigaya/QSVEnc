@@ -146,6 +146,9 @@ protected:
     mfxExtVP8CodingOption m_ExtVP8CodingOption;
     mfxExtVP9Param m_ExtVP9Param;
     mfxExtHEVCParam m_ExtHEVCParam;
+    mfxExtAV1BitstreamParam m_ExtAV1BitstreamParam;
+    mfxExtAV1ResolutionParam m_ExtAV1ResolutionParam;
+    mfxExtAV1TileParam m_ExtAV1TileParam;
     MFXVideoSession2 m_mfxSession;
     std::unique_ptr<QSVMfxDec> m_mfxDEC;
     std::unique_ptr<MFXVideoENCODE> m_pmfxENC;
