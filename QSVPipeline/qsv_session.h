@@ -47,17 +47,17 @@ public:
     virtual ~MFXVideoSession2() {};
 
     void setParams(std::shared_ptr<RGYLog>& log, const MFXVideoSession2Params& params);
-    mfxStatus initD3D9();
-    mfxStatus initD3D11();
-    mfxStatus initVA();
+    mfxIMPL devNumToImpl(const QSVDeviceNum dev);
+    mfxStatus initD3D9(const QSVDeviceNum dev);
+    mfxStatus initD3D11(const QSVDeviceNum dev);
+    mfxStatus initVA(const QSVDeviceNum dev);
     mfxStatus initSW();
     std::vector<mfxImplDescription> getImplList();
 
     mfxSession get() { return m_session; }
 protected:
     RGY_ERR InitSessionInitParam();
-    mfxStatus initImpl(mfxIMPL& impl);
-    mfxStatus initHW(mfxIMPL& impl);
+    mfxStatus initHW(mfxIMPL& impl, const QSVDeviceNum dev);
     virtual void PrintMes(RGYLogLevel log_level, const TCHAR *format, ...);
 
     std::shared_ptr<RGYLog> m_log;
@@ -72,9 +72,9 @@ mfxIMPL GetDefaultMFXImpl();
 
 std::vector<mfxImplDescription> getVPLImplList(std::shared_ptr<RGYLog>& log);
 
-RGY_ERR InitSession(MFXVideoSession2& mfxSession, const MFXVideoSession2Params& params, const mfxIMPL impl, std::shared_ptr<RGYLog>& log);
+RGY_ERR InitSession(MFXVideoSession2& mfxSession, const MFXVideoSession2Params& params, const mfxIMPL implAcceleration, const QSVDeviceNum dev, std::shared_ptr<RGYLog>& log);
 
-RGY_ERR InitSessionAndDevice(std::unique_ptr<CQSVHWDevice>& hwdev, MFXVideoSession2& mfxSession, MemType& memType, const MFXVideoSession2Params& params, std::shared_ptr<RGYLog>& log);
+RGY_ERR InitSessionAndDevice(std::unique_ptr<CQSVHWDevice>& hwdev, MFXVideoSession2& mfxSession, MemType& memType, const QSVDeviceNum dev, const MFXVideoSession2Params& params, std::shared_ptr<RGYLog>& log);
 
 RGY_ERR CreateAllocator(
     std::unique_ptr<QSVAllocator>& allocator, bool& externalAlloc,

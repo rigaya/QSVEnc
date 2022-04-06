@@ -67,6 +67,14 @@ enum {
     MVC_VIEWOUTPUT        = 0x2,    // 2 output bitstreams
 };
 
+enum class QSVDeviceNum {
+    AUTO,
+    NUM1,
+    NUM2,
+    NUM3,
+    NUM4,
+};
+
 enum MemType {
     SYSTEM_MEMORY = 0x00,
     VA_MEMORY     = 0x01,
@@ -247,7 +255,7 @@ struct sInputParams {
     RGYParamControl ctrl;
     RGYParamVpp vpp;
     sVppParams vppmfx;
-
+    QSVDeviceNum device;
     int nEncMode;      // RateControl
     int nTargetUsage;  // Quality
     uint32_t CodecId;       // H.264 only for this
@@ -357,6 +365,15 @@ struct sInputParams {
 
 enum {
     MFX_CODEC_RAW = MFX_MAKEFOURCC('R', 'A', 'W', ' '),
+};
+
+const CX_DESC list_qsv_device[] = {
+    { _T("auto"), (int)QSVDeviceNum::AUTO  },
+    { _T("1"),    (int)QSVDeviceNum::NUM1 },
+    { _T("2"),    (int)QSVDeviceNum::NUM2 },
+    { _T("3"),    (int)QSVDeviceNum::NUM3 },
+    { _T("4"),    (int)QSVDeviceNum::NUM4 },
+    { NULL, 0 }
 };
 
 const CX_DESC list_codec[] = {

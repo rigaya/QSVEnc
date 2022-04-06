@@ -32,12 +32,13 @@
 #include "qsv_hw_device.h"
 
 QSVMfxDec::QSVMfxDec(CQSVHWDevice *hwdev, QSVAllocator *allocator,
-    mfxVersion mfxVer, mfxIMPL impl, MemType memType, std::shared_ptr<RGYLog> log) :
+    mfxVersion mfxVer, mfxIMPL impl, MemType memType, QSVDeviceNum deviceNum, std::shared_ptr<RGYLog> log) :
     m_mfxSession(),
     m_mfxVer(mfxVer),
     m_hwdev(hwdev),
     m_impl(impl),
     m_memType(memType),
+    m_deviceNum(deviceNum),
     m_allocator(allocator),
     m_allocatorInternal(),
     m_crop(),
@@ -72,7 +73,7 @@ RGY_ERR QSVMfxDec::InitMFXSession() {
     // init session, and set memory type
     m_mfxSession.Close();
     MFXVideoSession2Params params;
-    auto err = InitSession(m_mfxSession, params, m_impl, m_log);
+    auto err = InitSession(m_mfxSession, params, m_impl, m_deviceNum, m_log);
     if (err != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("Failed to Init session for DEC: %s.\n"), get_err_mes(err));
         return err;

@@ -90,7 +90,7 @@ static void show_option_list() {
     }
 }
 
-static int writeFeatureList(tstring filename, bool for_auo, FeatureListStrType type = FEATURE_LIST_STR_TYPE_UNKNOWN) {
+static int writeFeatureList(tstring filename, const QSVDeviceNum deviceNum, bool for_auo, FeatureListStrType type = FEATURE_LIST_STR_TYPE_UNKNOWN) {
     auto log = std::make_shared<RGYLog>(nullptr, RGY_LOG_INFO);
     static const tstring header = _T(R"(
 <!DOCTYPE html>
@@ -302,7 +302,7 @@ function showTable(idno) {
         if (type == FEATURE_LIST_STR_TYPE_HTML) {
             print_tstring(_T("<hr>\n"), false);
         }
-        mfxVersion lib = (impl_type) ? get_mfx_libsw_version() : get_mfx_libhw_version();
+        mfxVersion lib = (impl_type) ? get_mfx_libsw_version() : get_mfx_libhw_version(deviceNum);
         const TCHAR *impl_str = (impl_type) ?  _T("Software") : _T("Hardware");
         if (!check_lib_version(lib, test)) {
             if (impl_type == 0) {
@@ -384,7 +384,7 @@ function showTable(idno) {
                 print_tstring(strsprintf(_T("Media SDK %s unavailable.\n"), impl_str), true);
             }
         } else {
-            const auto codec_feature_list = (for_auo) ? MakeFeatureListStr(type, make_vector(CODEC_LIST_AUO), log) : MakeFeatureListStr(type, log);
+            const auto codec_feature_list = (for_auo) ? MakeFeatureListStr(deviceNum, type, make_vector(CODEC_LIST_AUO), log) : MakeFeatureListStr(deviceNum, type, log);
             if (codec_feature_list.size() == 0) {
                 if (type == FEATURE_LIST_STR_TYPE_HTML) {
                     print_tstring((bUseJapanese) ? _T("<b>QSVが使用できません。</b><br>") : _T("<b>QSV unavailable.</b><br>"), false);
@@ -452,7 +452,7 @@ function showTable(idno) {
                 }
                 if (!for_auo) {
                     const auto vppHeader = tstring((bUseJapanese) ? _T("利用可能なVPP") : _T("Supported Vpp features:\n"));
-                    const auto vppFeatures = MakeVppFeatureStr(type, log);
+                    const auto vppFeatures = MakeVppFeatureStr(deviceNum, type, log);
                     if (type == FEATURE_LIST_STR_TYPE_HTML) {
                         tstring str;
                         str += strsprintf(_T("<div class=table_block id=\"TableOpen%d\">\n"), i);
@@ -474,7 +474,7 @@ function showTable(idno) {
                     i++;
 
                     const auto decHeader = tstring((bUseJapanese) ? _T("利用可能なHWデコーダ") : _T("Supported Decode features:\n"));
-                    const auto decFeatures = MakeDecFeatureStr(type, log);
+                    const auto decFeatures = MakeDecFeatureStr(deviceNum, type, log);
                     if (type == FEATURE_LIST_STR_TYPE_HTML) {
                         tstring str;
                         str += strsprintf(_T("<div class=table_block id=\"TableOpen%d\">\n"), i);
@@ -512,8 +512,23 @@ function showTable(idno) {
     return 0;
 }
 
+int ParseDeviceOption(const TCHAR *option_name, const TCHAR *arg1, QSVDeviceNum& deviceNum) {
+    if (0 == _tcscmp(option_name, _T("device"))) {
+        if (arg1[0] != _T('-')) {
+            int value = 0;
+            if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_qsv_device, arg1))) {
+                deviceNum = (QSVDeviceNum)value;
+            } else {
+                print_cmd_error_invalid_value(option_name, arg1, list_qsv_device);
+                return 1;
+            }
+        }
+        return 0;
+    }
+    return 0;
+}
 
-int parse_print_options(const TCHAR *option_name, const TCHAR *arg1) {
+int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const QSVDeviceNum deviceNum) {
 
     // process multi-character options
     if (0 == _tcscmp(option_name, _T("help"))) {
@@ -537,7 +552,7 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1) {
     if (0 == _tcscmp(option_name, _T("check-environment-auo"))) {
         show_version();
         _ftprintf(stdout, _T("%s"), getEnviromentInfo().c_str());
-        mfxVersion lib = get_mfx_libhw_version();
+        mfxVersion lib = get_mfx_libhw_version(QSVDeviceNum::AUTO);
         mfxVersion test = { 0, 1 };
         if (check_lib_version(lib, test)) {
             _ftprintf(stdout, _T("Media SDK Version: Hardware API v%d.%02d\n\n"), lib.Major, lib.Minor);
@@ -546,23 +561,23 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1) {
     }
     if (0 == _tcscmp(option_name, _T("check-features"))) {
         tstring output = (arg1[0] != _T('-')) ? arg1 : _T("");
-        writeFeatureList(output, false);
+        writeFeatureList(output, deviceNum, false);
         return 1;
     }
     if (0 == _tcscmp(option_name, _T("check-features-auo"))) {
-        writeFeatureList(_T(""), true);
+        writeFeatureList(_T(""), deviceNum, true);
         return 1;
     }
     if (0 == _tcscmp(option_name, _T("check-features-html"))) {
         tstring output = (arg1[0] != _T('-')) ? arg1 : _T("");
-        writeFeatureList(output, false, FEATURE_LIST_STR_TYPE_HTML);
+        writeFeatureList(output, deviceNum, false, FEATURE_LIST_STR_TYPE_HTML);
         return 1;
     }
     if (0 == _tcscmp(option_name, _T("check-hw"))
         || 0 == _tcscmp(option_name, _T("hw-check"))) //互換性のため
     {
         mfxVersion ver = { 0, 1 };
-        if (check_lib_version(get_mfx_libhw_version(), ver) != 0) {
+        if (check_lib_version(get_mfx_libhw_version(deviceNum), ver) != 0) {
             _ftprintf(stdout, _T("Success: QuickSyncVideo (hw encoding) available\n"));
             return 1;
         } else {
@@ -573,7 +588,7 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1) {
     if (0 == _tcscmp(option_name, _T("lib-check"))
         || 0 == _tcscmp(option_name, _T("check-lib"))) {
         mfxVersion test = { 0, 1 };
-        mfxVersion hwlib = get_mfx_libhw_version();
+        mfxVersion hwlib = get_mfx_libhw_version(deviceNum);
         mfxVersion swlib = get_mfx_libsw_version();
         show_version();
 #ifdef _M_IX86
@@ -1046,6 +1061,8 @@ int run(int argc, TCHAR *argv[]) {
     }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
+    // device IDとlog-levelの取得
+    QSVDeviceNum deviceNum = QSVDeviceNum::AUTO;
     for (int iarg = 1; iarg < argc; iarg++) {
         const TCHAR *option_name = nullptr;
         if (argv[iarg][0] == _T('-')) {
@@ -1060,7 +1077,28 @@ int run(int argc, TCHAR *argv[]) {
             }
         }
         if (option_name != nullptr) {
-            int ret = parse_print_options(option_name, (iarg+1 < argc) ? argv[iarg+1] : _T(""));
+            int ret = ParseDeviceOption(option_name, (iarg + 1 < argc) ? argv[iarg + 1] : _T(""), deviceNum);
+            if (ret != 0) {
+                return ret == 1 ? 0 : 1;
+            }
+        }
+    }
+
+    for (int iarg = 1; iarg < argc; iarg++) {
+        const TCHAR *option_name = nullptr;
+        if (argv[iarg][0] == _T('-')) {
+            if (argv[iarg][1] == _T('\0')) {
+                continue;
+            } else if (argv[iarg][1] == _T('-')) {
+                option_name = &argv[iarg][2];
+            } else if (argv[iarg][2] == _T('\0')) {
+                if (nullptr == (option_name = cmd_short_opt_to_long(argv[iarg][1]))) {
+                    continue;
+                }
+            }
+        }
+        if (option_name != nullptr) {
+            int ret = parse_print_options(option_name, (iarg+1 < argc) ? argv[iarg+1] : _T(""), deviceNum);
             if (ret != 0) {
                 return ret == 1 ? 0 : 1;
             }

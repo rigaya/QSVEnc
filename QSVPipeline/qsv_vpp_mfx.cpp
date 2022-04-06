@@ -48,13 +48,14 @@ static const auto MFX_EXTBUFF_VPP_TO_VPPTYPE = make_array<std::pair<uint32_t, Vp
 MAP_PAIR_0_1(vpp, extbuff, uint32_t, rgy, VppType, MFX_EXTBUFF_VPP_TO_VPPTYPE, 0, VppType::VPP_NONE);
 
 QSVVppMfx::QSVVppMfx(CQSVHWDevice *hwdev, QSVAllocator *allocator,
-    mfxVersion mfxVer, mfxIMPL impl, MemType memType, int asyncDepth, std::shared_ptr<RGYLog> log) :
+    mfxVersion mfxVer, mfxIMPL impl, MemType memType, QSVDeviceNum deviceNum, int asyncDepth, std::shared_ptr<RGYLog> log) :
     m_mfxSession(),
     m_mfxVer(mfxVer),
     m_hwdev(hwdev),
     m_allocator(allocator),
     m_impl(impl),
     m_memType(memType),
+    m_deviceNum(deviceNum),
     m_asyncDepth(asyncDepth),
     m_crop(),
     m_mfxVPP(),
@@ -204,7 +205,7 @@ RGY_ERR QSVVppMfx::InitMFXSession() {
     // init session, and set memory type
     m_mfxSession.Close();
     MFXVideoSession2Params params;
-    auto err = InitSession(m_mfxSession, params, m_impl, m_log);
+    auto err = InitSession(m_mfxSession, params, m_impl, m_deviceNum, m_log);
     if (err != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("Failed to Init session for VPP: %s.\n"), get_err_mes(err));
         return err;

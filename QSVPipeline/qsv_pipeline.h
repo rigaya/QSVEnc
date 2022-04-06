@@ -175,6 +175,7 @@ protected:
     unique_ptr<QSVAllocator> m_pMFXAllocator;
     int m_nMFXThreads;
     MemType m_memType;
+    QSVDeviceNum m_deviceNum;
     bool m_bExternalAlloc;
     uint32_t m_nProcSpeedLimit;
 

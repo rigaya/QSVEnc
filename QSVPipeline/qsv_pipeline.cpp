@@ -369,7 +369,7 @@ RGY_ERR CQSVPipeline::InitMfxDecParams() {
         //デコーダの作成
         mfxIMPL impl;
         m_mfxSession.QueryIMPL(&impl);
-        m_mfxDEC = std::make_unique<QSVMfxDec>(m_hwdev.get(), m_pMFXAllocator.get(), m_mfxVer, impl, m_memType, m_pQSVLog);
+        m_mfxDEC = std::make_unique<QSVMfxDec>(m_hwdev.get(), m_pMFXAllocator.get(), m_mfxVer, impl, m_memType, m_deviceNum, m_pQSVLog);
 
         sts = m_mfxDEC->InitMFXSession();
         RGY_ERR(sts, _T("InitMfxDecParams: Failed init session for hw decoder."));
@@ -1418,6 +1418,7 @@ CQSVPipeline::CQSVPipeline() :
     m_pMFXAllocator(),
     m_nMFXThreads(-1),
     m_memType(SYSTEM_MEMORY),
+    m_deviceNum(QSVDeviceNum::AUTO),
     m_bExternalAlloc(false),
     m_nProcSpeedLimit(0),
     m_pAbortByUser(nullptr),
@@ -1589,7 +1590,7 @@ RGY_ERR CQSVPipeline::InitInput(sInputParams *inputParam) {
 #if ENABLE_RAW_READER
 #if ENABLE_AVSW_READER
     DeviceCodecCsp HWDecCodecCsp;
-    HWDecCodecCsp.push_back(std::make_pair(0, getHWDecCodecCsp(m_pQSVLog, inputParam->ctrl.skipHWDecodeCheck)));
+    HWDecCodecCsp.push_back(std::make_pair(0, getHWDecCodecCsp(m_deviceNum, m_pQSVLog, inputParam->ctrl.skipHWDecodeCheck)));
 #endif
     m_pStatus.reset(new EncodeStatus());
 
@@ -1972,7 +1973,7 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
 
     mfxIMPL impl;
     m_mfxSession.QueryIMPL(&impl);
-    auto mfxvpp = std::make_unique<QSVVppMfx>(m_hwdev.get(), m_pMFXAllocator.get(), m_mfxVer, impl, m_memType, m_nAsyncDepth, m_pQSVLog);
+    auto mfxvpp = std::make_unique<QSVVppMfx>(m_hwdev.get(), m_pMFXAllocator.get(), m_mfxVer, impl, m_memType, m_deviceNum, m_nAsyncDepth, m_pQSVLog);
     auto err = mfxvpp->SetParam(vppParams, frameInfo, frameIn, (vppType == VppType::MFX_CROP) ? crop : nullptr,
         fps, rgy_rational<int>(1,1), blockSize);
     if (err != RGY_ERR_NONE) {
@@ -2708,7 +2709,7 @@ RGY_ERR CQSVPipeline::InitSession() {
     m_mfxSession.Close();
     PrintMes(RGY_LOG_DEBUG, _T("InitSession: Start initializing... memType: %s\n"), MemTypeToStr(m_memType));
     MFXVideoSession2Params params;
-    err = InitSessionAndDevice(m_hwdev, m_mfxSession, m_memType, params, m_pQSVLog);
+    err = InitSessionAndDevice(m_hwdev, m_mfxSession, m_memType, m_deviceNum, params, m_pQSVLog);
     if (err != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("InitSession: failed to initialize: %s.\n"), get_err_mes(err));
         return err;
@@ -2745,7 +2746,7 @@ RGY_ERR CQSVPipeline::InitVideoQualityMetric(sInputParams *prm) {
         m_mfxSession.QueryIMPL(&impl);
         //場合によっては2つ目のhwデコーダを動作させることになる
         //このとき、個別のallocatorを持たないと正常に動作しないので、内部で独自のallocatorを作るようにする
-        auto mfxdec = std::make_unique<QSVMfxDec>(m_hwdev.get(), nullptr /*内部で独自のallocatorを作る必要がある*/, m_mfxVer, impl, m_memType, m_pQSVLog);
+        auto mfxdec = std::make_unique<QSVMfxDec>(m_hwdev.get(), nullptr /*内部で独自のallocatorを作る必要がある*/, m_mfxVer, impl, m_memType, m_deviceNum, m_pQSVLog);
 
         const auto formatOut = videooutputinfo(outFrameInfo->videoPrm.mfx, m_VideoSignalInfo, m_chromalocInfo);
         unique_ptr<RGYFilterSsim> filterSsim(new RGYFilterSsim(m_cl));
@@ -2940,6 +2941,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     m_nMFXThreads = pParams->nSessionThreads;
     m_nAVSyncMode = pParams->common.AVSyncMode;
     m_memType = pParams->memType;
+    m_deviceNum = pParams->device;
 
     m_pPerfMonitor = std::make_unique<CPerfMonitor>();
 

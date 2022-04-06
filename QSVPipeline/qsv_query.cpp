@@ -161,7 +161,7 @@ int GetAdapterID(MFXVideoSession *session) {
     return GetAdapterID(impl);
 }
 
-mfxVersion get_mfx_lib_version(mfxIMPL impl) {
+mfxVersion get_mfx_lib_version(const mfxIMPL impl, const QSVDeviceNum deviceNum) {
     if (impl == MFX_IMPL_SOFTWARE) {
         return LIB_VER_LIST[0];
     }
@@ -172,7 +172,7 @@ mfxVersion get_mfx_lib_version(mfxIMPL impl) {
         auto memType = HW_MEMORY;
         MFXVideoSession2Params params;
         auto log = std::make_shared<RGYLog>(nullptr, RGY_LOG_ERROR);
-        auto err = InitSessionAndDevice(hwdev, session, memType, params, log);
+        auto err = InitSessionAndDevice(hwdev, session, memType, deviceNum, params, log);
         if (err == RGY_ERR_NONE) {
             mfxVersion ver;
             auto sts = session.QueryVersion(&ver);
@@ -215,7 +215,7 @@ mfxVersion get_mfx_lib_version(mfxIMPL impl) {
     return (sts == MFX_ERR_NONE) ? ver : LIB_VER_LIST[0];
 }
 
-mfxVersion get_mfx_libhw_version() {
+mfxVersion get_mfx_libhw_version(const QSVDeviceNum deviceNum) {
     static const mfxU32 impl_list[] = {
         MFX_IMPL_HARDWARE_ANY | MFX_IMPL_VIA_D3D11,
         MFX_IMPL_HARDWARE_ANY,
@@ -226,14 +226,14 @@ mfxVersion get_mfx_libhw_version() {
     //デスクトップコンポジションが切られてしまう問題が発生すると報告を頂いたので、
     //D3D11をWin8以降に限定
     for (int i = (check_OS_Win8orLater() ? 0 : 1); i < _countof(impl_list); i++) {
-        test = get_mfx_lib_version(impl_list[i]);
+        test = get_mfx_lib_version(impl_list[i], deviceNum);
         if (check_lib_version(test, MFX_LIB_VERSION_1_1))
             break;
     }
     return test;
 }
 mfxVersion get_mfx_libsw_version() {
-    return get_mfx_lib_version(MFX_IMPL_SOFTWARE);
+    return LIB_VER_LIST[0];
 }
 
 QSVVideoParam::QSVVideoParam(uint32_t CodecId, mfxVersion mfxver_) :
@@ -642,7 +642,7 @@ mfxU64 CheckVppFeatures(MFXVideoSession& session) {
     return feature;
 }
 
-mfxU64 CheckVppFeatures(std::shared_ptr<RGYLog> log) {
+mfxU64 CheckVppFeatures(const QSVDeviceNum deviceNum, std::shared_ptr<RGYLog> log) {
     mfxU64 feature = 0x00;
     MemType memType = HW_MEMORY;
     std::unique_ptr<CQSVHWDevice> hwdev;
@@ -651,7 +651,7 @@ mfxU64 CheckVppFeatures(std::shared_ptr<RGYLog> log) {
     bool bexternalAlloc = true;
     std::unique_ptr<QSVAllocator> allocator;
     auto err = RGY_ERR_NONE;
-    if ((err = InitSessionAndDevice(hwdev, session, memType, params, log)) != RGY_ERR_NONE) {
+    if ((err = InitSessionAndDevice(hwdev, session, memType, deviceNum, params, log)) != RGY_ERR_NONE) {
         log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("InitSessionAndDevice: failed to initialize: %s.\n"), get_err_mes(err));
     } else if ((err = CreateAllocator(allocator, bexternalAlloc, memType, hwdev.get(), session, log)) != RGY_ERR_NONE) {
         log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("CreateAllocator: failed to create allocator: %s.\n"), get_err_mes(err));
@@ -1111,7 +1111,7 @@ const TCHAR *EncFeatureStr(mfxU64 enc_feature) {
     return NULL;
 }
 
-vector<mfxU64> MakeFeatureList(const vector<CX_DESC>& rateControlList, mfxU32 codecId, std::shared_ptr<RGYLog> log) {
+vector<mfxU64> MakeFeatureList(const QSVDeviceNum deviceNum, const vector<CX_DESC>& rateControlList, mfxU32 codecId, std::shared_ptr<RGYLog> log) {
     vector<mfxU64> availableFeatureForEachRC;
     availableFeatureForEachRC.reserve(rateControlList.size());
 #if LIBVA_SUPPORT
@@ -1124,7 +1124,7 @@ vector<mfxU64> MakeFeatureList(const vector<CX_DESC>& rateControlList, mfxU32 co
         bool bexternalAlloc = true;
         std::unique_ptr<QSVAllocator> allocator;
         auto err = RGY_ERR_NONE;
-        if ((err = InitSessionAndDevice(hwdev, session, memType, params, log)) != RGY_ERR_NONE) {
+        if ((err = InitSessionAndDevice(hwdev, session, memType, deviceNum, params, log)) != RGY_ERR_NONE) {
             log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("InitSessionAndDevice: failed to initialize: %s.\n"), get_err_mes(err));
         } else if ((err = CreateAllocator(allocator, bexternalAlloc, memType, hwdev.get(), session, log)) != RGY_ERR_NONE) {
             log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("CreateAllocator: failed to create allocator: %s.\n"), get_err_mes(err));
@@ -1146,12 +1146,12 @@ vector<mfxU64> MakeFeatureList(const vector<CX_DESC>& rateControlList, mfxU32 co
     return availableFeatureForEachRC;
 }
 
-vector<vector<mfxU64>> MakeFeatureListPerCodec(const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList, std::shared_ptr<RGYLog> log) {
+vector<vector<mfxU64>> MakeFeatureListPerCodec(const QSVDeviceNum deviceNum, const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList, std::shared_ptr<RGYLog> log) {
     vector<vector<mfxU64>> codecFeatures;
     vector<std::future<vector<mfxU64>>> futures;
     if (false) {
     for (auto codec : codecIdList) {
-        auto f = std::async(MakeFeatureList, rateControlList, codec, log);
+        auto f = std::async(MakeFeatureList, deviceNum, rateControlList, codec, log);
         futures.push_back(std::move(f));
     }
     for (uint32_t i = 0; i < futures.size(); i++) {
@@ -1159,7 +1159,7 @@ vector<vector<mfxU64>> MakeFeatureListPerCodec(const vector<CX_DESC>& rateContro
     }
     } else {
     for (auto codec : codecIdList) {
-        codecFeatures.push_back(MakeFeatureList(rateControlList, codec, log));
+        codecFeatures.push_back(MakeFeatureList(deviceNum, rateControlList, codec, log));
     }
     }
     return codecFeatures;
@@ -1192,7 +1192,7 @@ std::vector<RGY_CSP> CheckDecodeFeature(MFXVideoSession& session, mfxVersion ver
     return CheckDecFeaturesInternal(session, ver, codecId);
 }
 
-CodecCsp MakeDecodeFeatureList(const vector<RGY_CODEC>& codecIdList, std::shared_ptr<RGYLog> log, const bool skipHWDecodeCheck) {
+CodecCsp MakeDecodeFeatureList(const QSVDeviceNum deviceNum, const vector<RGY_CODEC>& codecIdList, std::shared_ptr<RGYLog> log, const bool skipHWDecodeCheck) {
     CodecCsp codecFeatures;
     MemType memType = HW_MEMORY;
     std::unique_ptr<CQSVHWDevice> hwdev;
@@ -1201,7 +1201,7 @@ CodecCsp MakeDecodeFeatureList(const vector<RGY_CODEC>& codecIdList, std::shared
     bool bexternalAlloc = true;
     std::unique_ptr<QSVAllocator> allocator;
     auto err = RGY_ERR_NONE;
-    if ((err = InitSessionAndDevice(hwdev, session, memType, params, log)) != RGY_ERR_NONE) {
+    if ((err = InitSessionAndDevice(hwdev, session, memType, deviceNum, params, log)) != RGY_ERR_NONE) {
         log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("InitSessionAndDevice: failed to initialize: %s.\n"), get_err_mes(err));
     } else if ((err = CreateAllocator(allocator, bexternalAlloc, memType, hwdev.get(), session, log)) != RGY_ERR_NONE) {
         log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("CreateAllocator: failed to create allocator: %s.\n"), get_err_mes(err));
@@ -1241,8 +1241,8 @@ tstring MakeFeatureListStr(mfxU64 feature) {
     return str;
 }
 
-vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(FeatureListStrType type, const vector<mfxU32>& codecLists, std::shared_ptr<RGYLog> log) {
-    auto featurePerCodec = MakeFeatureListPerCodec(make_vector(list_rate_control_ry), codecLists, log);
+vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(const QSVDeviceNum deviceNum, FeatureListStrType type, const vector<mfxU32>& codecLists, std::shared_ptr<RGYLog> log) {
+    auto featurePerCodec = MakeFeatureListPerCodec(deviceNum, make_vector(list_rate_control_ry), codecLists, log);
 
     vector<std::pair<vector<mfxU64>, tstring>> strPerCodec;
 
@@ -1329,13 +1329,13 @@ vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(FeatureListStrType
     return strPerCodec;
 }
 
-vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(FeatureListStrType type, std::shared_ptr<RGYLog> log) {
+vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(const QSVDeviceNum deviceNum, FeatureListStrType type, std::shared_ptr<RGYLog> log) {
     const vector<mfxU32> codecLists = { MFX_CODEC_AVC, MFX_CODEC_HEVC, MFX_CODEC_MPEG2, MFX_CODEC_VP8, MFX_CODEC_VP9, MFX_CODEC_AV1 };
-    return MakeFeatureListStr(type, codecLists, log);
+    return MakeFeatureListStr(deviceNum, type, codecLists, log);
 }
 
-tstring MakeVppFeatureStr(FeatureListStrType type, std::shared_ptr<RGYLog> log) {
-    uint64_t features = CheckVppFeatures(log);
+tstring MakeVppFeatureStr(const QSVDeviceNum deviceNum, FeatureListStrType type, std::shared_ptr<RGYLog> log) {
+    uint64_t features = CheckVppFeatures(deviceNum, log);
     const TCHAR *MARK_YES_NO[] = { _T(" x"), _T(" o") };
     tstring str;
     if (type == FEATURE_LIST_STR_TYPE_HTML) {
@@ -1370,13 +1370,13 @@ tstring MakeVppFeatureStr(FeatureListStrType type, std::shared_ptr<RGYLog> log) 
     return str;
 }
 
-tstring MakeDecFeatureStr(FeatureListStrType type, std::shared_ptr<RGYLog> log) {
+tstring MakeDecFeatureStr(const QSVDeviceNum deviceNum, FeatureListStrType type, std::shared_ptr<RGYLog> log) {
 #if ENABLE_AVSW_READER
     vector<RGY_CODEC> codecLists;
     for (int i = 0; i < _countof(HW_DECODE_LIST); i++) {
         codecLists.push_back(HW_DECODE_LIST[i].rgy_codec);
     }
-    auto decodeCodecCsp = MakeDecodeFeatureList(codecLists, log, false);
+    auto decodeCodecCsp = MakeDecodeFeatureList(deviceNum, codecLists, log, false);
 
     const auto chromafmts = make_array<RGY_CHROMAFMT>(RGY_CHROMAFMT_YUV420, RGY_CHROMAFMT_YUV422, RGY_CHROMAFMT_YUV444);
     std::map<RGY_CODEC, std::vector<int>> featurePerCodec;
@@ -1482,7 +1482,7 @@ tstring MakeDecFeatureStr(FeatureListStrType type, std::shared_ptr<RGYLog> log) 
 #endif
 }
 
-CodecCsp getHWDecCodecCsp(std::shared_ptr<RGYLog> log, const bool skipHWDecodeCheck) {
+CodecCsp getHWDecCodecCsp(const QSVDeviceNum deviceNum, std::shared_ptr<RGYLog> log, const bool skipHWDecodeCheck) {
 #if ENABLE_AVSW_READER
     vector<RGY_CODEC> codecLists;
     for (int i = 0; i < _countof(HW_DECODE_LIST); i++) {
@@ -1499,7 +1499,7 @@ CodecCsp getHWDecCodecCsp(std::shared_ptr<RGYLog> log, const bool skipHWDecodeCh
         }
         return codecFeatures;
     }
-    return MakeDecodeFeatureList(codecLists, log, skipHWDecodeCheck);
+    return MakeDecodeFeatureList(deviceNum, codecLists, log, skipHWDecodeCheck);
 #else
     return CodecCsp();
 #endif

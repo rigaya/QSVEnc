@@ -117,6 +117,9 @@ Show version of ffmpeg dll
 
 ## Basic encoding options
 
+### -d, --device &lt;string&gt; or &lt;int&gt;
+Select device number to use. (auto(default), 1 - 4)
+
 ### -c, --codec &lt;string&gt;
 Specify the output codec
  - h264 (default)

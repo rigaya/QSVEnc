@@ -38,7 +38,7 @@
 
 class QSVVppMfx {
 public:
-    QSVVppMfx(CQSVHWDevice *hwdev, QSVAllocator *allocator, mfxVersion mfxVer, mfxIMPL impl, MemType memType, int asyncDepth, std::shared_ptr<RGYLog> log);
+    QSVVppMfx(CQSVHWDevice *hwdev, QSVAllocator *allocator, mfxVersion mfxVer, mfxIMPL impl, MemType memType, QSVDeviceNum deviceNum, int asyncDepth, std::shared_ptr<RGYLog> log);
     virtual ~QSVVppMfx();
 
     RGY_ERR SetParam(sVppParams& params,
@@ -80,6 +80,7 @@ protected:
     QSVAllocator *m_allocator;             //mainから渡されるallocator
     mfxIMPL m_impl;
     MemType m_memType;             //パイプラインのSurfaceのメモリType;
+    QSVDeviceNum m_deviceNum;
     int m_asyncDepth;
 
     sInputCrop m_crop;

@@ -185,7 +185,7 @@ BOOL Check_HWUsed(mfxIMPL impl);
 int GetAdapterID(mfxIMPL impl);
 int GetAdapterID(mfxSession session);
 int GetAdapterID(MFXVideoSession *session);
-mfxVersion get_mfx_libhw_version();
+mfxVersion get_mfx_libhw_version(const QSVDeviceNum deviceNum);
 mfxVersion get_mfx_libsw_version();
 
 static BOOL check_lib_version(mfxVersion value, mfxVersion required) {
@@ -384,21 +384,21 @@ struct QSVVideoParam {
 
 mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 codecId);
 mfxU64 CheckEncodeFeatureWithPluginLoad(MFXVideoSession& session, int ratecontrol, mfxU32 codecId);
-vector<mfxU64> MakeFeatureList(const vector<CX_DESC>& rateControlList, mfxU32 codecId, std::shared_ptr<RGYLog> log);
-vector<vector<mfxU64>> MakeFeatureListPerCodec(const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList, std::shared_ptr<RGYLog> log);
+vector<mfxU64> MakeFeatureList(const QSVDeviceNum deviceNum, const vector<CX_DESC>& rateControlList, mfxU32 codecId, std::shared_ptr<RGYLog> log);
+vector<vector<mfxU64>> MakeFeatureListPerCodec(const QSVDeviceNum deviceNum, const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList, std::shared_ptr<RGYLog> log);
 
 tstring MakeFeatureListStr(mfxU64 feature);
-vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(FeatureListStrType outputType, std::shared_ptr<RGYLog> log);
-vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(FeatureListStrType outputType, const vector<mfxU32>& codecIdList, std::shared_ptr<RGYLog> log);
+vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(const QSVDeviceNum deviceNum, FeatureListStrType outputType, std::shared_ptr<RGYLog> log);
+vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(const QSVDeviceNum deviceNum, FeatureListStrType outputType, const vector<mfxU32>& codecIdList, std::shared_ptr<RGYLog> log);
 
 mfxU64 CheckVppFeatures(MFXVideoSession& session);
-mfxU64 CheckVppFeatures(std::shared_ptr<RGYLog> log);
-tstring MakeVppFeatureStr(FeatureListStrType outputType, std::shared_ptr<RGYLog> log);
+mfxU64 CheckVppFeatures(const QSVDeviceNum deviceNum, std::shared_ptr<RGYLog> log);
+tstring MakeVppFeatureStr(const QSVDeviceNum deviceNum, FeatureListStrType outputType, std::shared_ptr<RGYLog> log);
 
 std::vector<RGY_CSP> CheckDecFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer, mfxU32 codecId);
-CodecCsp MakeDecodeFeatureList(const vector<mfxU32>& codecIdList, std::shared_ptr<RGYLog> log, const bool skipHWDecodeCheck);
-tstring MakeDecFeatureStr(FeatureListStrType type, std::shared_ptr<RGYLog> log);
-CodecCsp getHWDecCodecCsp(std::shared_ptr<RGYLog> log, const bool skipHWDecodeCheck);
+CodecCsp MakeDecodeFeatureList(const QSVDeviceNum deviceNum, const vector<mfxU32>& codecIdList, std::shared_ptr<RGYLog> log, const bool skipHWDecodeCheck);
+tstring MakeDecFeatureStr(const QSVDeviceNum deviceNum, FeatureListStrType type, std::shared_ptr<RGYLog> log);
+CodecCsp getHWDecCodecCsp(const QSVDeviceNum deviceNum, std::shared_ptr<RGYLog> log, const bool skipHWDecodeCheck);
 
 int GetImplListStr(tstring& str);
 

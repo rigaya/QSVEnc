@@ -219,6 +219,8 @@ tstring encoder_help() {
         _T("Basic Encoding Options: \n"));
     str += gen_cmd_help_input();
     str += strsprintf(_T("\n")
+        _T("-d,--device <string> or <int>   set device number to encode\n")
+        _T("                                 - auto(default), 1, 2, 3, 4\n")
         _T("-c,--codec <string>             set encode codec\n")
         _T("                                 - h264(default), hevc, mpeg2, vp9, av1, raw\n"));
     str += PrintMultipleListOptions(_T("--level <string>"), _T("set codec level"),
@@ -460,6 +462,9 @@ const TCHAR *cmd_short_opt_to_long(TCHAR short_opt) {
     case _T('c'):
         option_name = _T("codec");
         break;
+    case _T('d'):
+        option_name = _T("device");
+        break;
     case _T('u'):
         option_name = _T("quality");
         break;
@@ -654,6 +659,17 @@ int parse_one_vppmfx_option(const TCHAR *option_name, const TCHAR *strInput[], i
 }
 
 int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, int nArgNum, sInputParams* pParams, sArgsData *argData) {
+    if (0 == _tcscmp(option_name, _T("device"))) {
+        i++;
+        int value = 0;
+        if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_qsv_device, strInput[i]))) {
+            pParams->device = (QSVDeviceNum)value;
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_qsv_device);
+            return 1;
+        }
+        return 0;
+    }
     if (0 == _tcscmp(option_name, _T("codec"))) {
         i++;
         int j = 0;
@@ -1846,6 +1862,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
 #define OPT_CHAR_PATH(str, opt) if ((pParams->opt) && (pParams->opt[0] != 0)) cmd << _T(" ") << str << _T(" \"") << (pParams->opt) << _T("\"");
 #define OPT_STR_PATH(str, opt) if (pParams->opt.length() > 0) cmd << _T(" ") << str << _T(" \"") << (pParams->opt.c_str()) << _T("\"");
 
+    cmd << _T(" -d ") << get_chr_from_value(list_qsv_device, (int)pParams->device);
     cmd << _T(" -c ") << get_chr_from_value(list_codec, pParams->CodecId);
 
     cmd << gen_cmd(&pParams->input, &encPrmDefault.input, save_disabled_prm);
