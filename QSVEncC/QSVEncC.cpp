@@ -324,26 +324,16 @@ function showTable(idno) {
                         } else {
                             print_tstring(tstring(_T("<li>お使いのCPU (") + cpuname + _T(")がQSVに対応しているか、確認してみてください。<br>\n")
                                 _T("<a target=\"_blank\" href=\"http://ark.intel.com/ja/search?q=") + cpuname + _T("\">こちらのリンク</a>から") +
-                                _T("「グラフィックスの仕様」のところの「インテル クイック・シンク・ビデオ」が「Yes」になっているかで確認できます。<br>\n")
-                                _T("<table class=simpleBlue><tr><td>QSVが使用できる例</td><td>QSVが使用できない例</td></tr>\n")
-                                _T("<tr><td rowspan=2><img src=\"setup/intel_ark_qsv.png\" alt=\"intel_ark_qsv\" border=\"0\" width=\"480\"/><br>QSVが使用可能</td>\n")
-                                _T("    <td><img src=\"setup/intel_ark_noqsv.png\" alt=\"intel_ark_noqsv\" border=\"0\" width=\"400\"/><br>GPUが搭載されていない場合</td></tr>\n")
-                                _T("<tr><td><img src=\"setup/intel_ark_noqsv2.png\" alt=\"intel_ark_noqsv2\" border=\"0\" width=\"400\"/><br>QSVが使用できない場合</td></tr>\n")
-                                _T("</tr></table></li><br>\n")), false);
+                                _T("「グラフィックスの仕様」のところの「インテル クイック・シンク・ビデオ」が「Yes」になっているかで確認できます。<br>\n")), false);
                             print_tstring(tstring(_T("<li>QSV利用に必要なIntel GPUがPCで認識されているか確認してください。<br>\n")
                                 _T("同梱の「デバイスマネージャを開く」をダブルクリックし、<br>\n")
-                                _T("<img src=\"setup/intel_gpu_device_manager_open.png\" alt=\"intel_gpu_device_manager_open\" border=\"0\" width=\"240\"/><br>\n")
                                 _T("デバイスマネージャの画面の「ディスプレイアダプタ」をクリックして")
                                 _T("「Intel HD Graphics ～～」などとIntelのGPUが表示されていれば問題ありません。<br>\n")
-                                _T("<img src=\"setup/intel_gpu_device_manager.png\" alt=\"intel_gpu_device_manager\" border=\"0\" width=\"280\"/><br>\n")
                                 _T("Intel GPU以外にGPUが搭載されている場合、ここでIntel GPUが表示されない場合があります。\n")
-                                _T("この場合、BIOS(UEFI)の「CPU Graphics Multi-Monitor」を有効(Enable)にする必要があります。<br>\n")
-                                _T("<a target=\"_blank\" href=\"setup/intel_gpu_uefi_setting.jpg\"><img src=\"setup/intel_gpu_uefi_settings.jpg\" alt=\"intel_gpu_uefi_settings\" border=\"0\" width=\"400\"/></a><span style=font-size:x-small>(クリックして拡大)</span><br\n>")
-                                _T("</li><br>\n")), false);
+                                _T("この場合、BIOS(UEFI)の「CPU Graphics Multi-Monitor」を有効(Enable)にする必要があります。<br>\n")), false);
                             print_tstring(tstring(_T("<li>Intel GPUのドライバがWindows Update経由でインストールされた場合など、Intel ドライバのインストールが不完全な場合に正しく動作しないことがあります。<br>\n")
                                 _T("<a target=\"_blank\" href=\"https://downloadcenter.intel.com/ja/search?keyword=") + cpuname + tstring(_T("\">こちらのリンク</a>から")) +
-                                getOSVersion() + _T(" ") + tstring(rgy_is_64bit_os() ? _T("64bit") : _T("32bit")) + _T("用のドライバをダウンロードし、インストールしてみて下さい。<br>\n")
-                                _T("<img src=\"setup/intel_driver_select.png\" alt=\"intel_driver_select\" border=\"0\" width=\"360\"/></li><br>\n")), false);
+                                getOSVersion() + _T(" ") + tstring(rgy_is_64bit_os() ? _T("64bit") : _T("32bit")) + _T("用のドライバをダウンロードし、インストールしてみて下さい。<br>\n")), false);
                             print_tstring(_T("</ol>\n"), false);
                             print_tstring(_T("<hr><br><br>\n"), false);
                             print_tstring(_T("導入方法等については、<a target=\"_blank\" href=\"http://rigaya34589.blog135.fc2.com/blog-entry-704.html\">こちら</a>もご覧ください。<br>\n"), false);
@@ -358,22 +348,14 @@ function showTable(idno) {
                         } else {
                             print_tstring(tstring(_T("<li>Please check wether your CPU (") + cpuname + _T(") supports QSV.<br>\n")
                                 _T("<a target=\"_blank\" href=\"http://ark.intel.com/search?q=") + cpuname + _T("\">Check from here</a>") +
-                                _T(" whether \"Intel Quick Sync Video\" in \"Graphics Specifications\" says \"Yes\".<br>\n")
-                                _T("<table class=simpleBlue><tr><td>QSV available</td><td>QSV unavailable</td></tr>\n")
-                                _T("<tr><td rowspan=2><img src=\"setup/intel_ark_qsv_en.png\" alt=\"intel_ark_qsv_en\" border=\"0\" width=\"480\"/></td>\n")
-                                _T("    <td><img src=\"setup/intel_ark_noqsv_en.png\" alt=\"intel_ark_noqsv_en\" border=\"0\" width=\"400\"/><br>example1</td></tr>\n")
-                                _T("<tr><td><img src=\"setup/intel_ark_noqsv2_en.png\" alt=\"intel_ark_noqsv2_en\" border=\"0\" width=\"400\"/><br>example2</td></tr>\n")
-                                _T("</tr></table></li><br>\n")), false);
+                                _T(" whether \"Intel Quick Sync Video\" in \"Graphics Specifications\" says \"Yes\".<br>\n")), false);
                             print_tstring(tstring(_T("<li>Please check for device manager if Intel GPU is recognized under \"Display Adapter\".<br>\n")
                                 _T("If you have discrete GPU on your PC, Intel GPU might not be shown.\n")
-                                _T("For that case, you need yto enable \"CPU Graphics Multi-Monitor\" in your BIOS(UEFI).<br>\n")
-                                _T("<a target=\"_blank\" href=\"setup/intel_gpu_uefi_setting.jpg\"><img src=\"setup/intel_gpu_uefi_settings.jpg\" alt=\"intel_gpu_uefi_settings\" border=\"0\" width=\"400\"/></a><span style=font-size:x-small>(Click ot enlarge)</span><br\n>")
-                                _T("</li><br>\n")), false);
+                                _T("For that case, you need yto enable \"CPU Graphics Multi-Monitor\" in your BIOS(UEFI).<br>\n")), false);
                             print_tstring(tstring(_T("<li>Sometimes Intel GPU driver is not installed properlly, especially when it is installed from Windows Update.<br>\n")
                                 _T("Please install Intel GPU driver for") + getOSVersion() + _T(" ") + tstring(rgy_is_64bit_os() ? _T("64bit") : _T("32bit")) + _T(" ")
                                 _T("<a target=\"_blank\" href=\"https://downloadcenter.intel.com/search?keyword=") + cpuname + tstring(_T("\">from here</a>")) +
-                                _T(" and reinstall the driver.<br>\n")
-                                _T("<img src=\"setup/intel_driver_select_en.png\" alt=\"intel_driver_select_en\" border=\"0\" width=\"320\"/></li><br>\n")), false);
+                                _T(" and reinstall the driver.<br>\n")), false);
                             print_tstring(_T("</ol>\n"), false);
                         }
                     }
