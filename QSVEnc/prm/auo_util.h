@@ -328,13 +328,11 @@ static DWORD cpu_core_count() {
     return si.dwNumberOfProcessors;
 }
 
-#if 0
 static BOOL is_64bit_os() {
     SYSTEM_INFO sinfo = { 0 };
     GetNativeSystemInfo(&sinfo);
     return sinfo.wProcessorArchitecture == PROCESSOR_ARCHITECTURE_AMD64;
 }
-#endif
 
 static size_t get_intlen(int i) {
     char str[256];
@@ -1019,5 +1017,7 @@ BOOL SetThreadAffinityForModule(DWORD TargetProcessId, const char *TargetModule,
 BOOL getProcessorCount(DWORD *physical_processor_core, DWORD *logical_processor_core);
 
 int getCPUNameAuo(char *buf, size_t nSize);
+
+std::string find_latest_videnc_for_frm();
 
 #endif //_AUO_UTIL_H_
