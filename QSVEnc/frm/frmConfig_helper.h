@@ -145,6 +145,7 @@ const CX_DESC list_outtype[] = {
 #endif
     //{ "VC-1", MFX_CODEC_VC1 },
     { "VP9", MFX_CODEC_VP9 },
+    { "AV1", MFX_CODEC_AV1 },
     { NULL, NULL }
 };
 //下記は一致していないといけない
