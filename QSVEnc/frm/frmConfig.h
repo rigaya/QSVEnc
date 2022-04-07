@@ -7199,6 +7199,13 @@ private: System::Windows::Forms::CheckBox^  fcgCBSsim;
             if (fcgTXVideoEncoderPath->Text == String(use_default_exe_path).ToString()) {
                 LocalStg.vidEncPath = L"";
                 fcgTXVideoEncoderPath->ForeColor = System::Drawing::SystemColors::ControlDark;
+                auto defaultExePath = find_latest_videnc_for_frm();
+                if (defaultExePath.length() > 0) {
+                    String^ exePath = String(defaultExePath.c_str()).ToString();
+                    if (System::IO::File::Exists(exePath)) {
+                        featuresHW = gcnew QSVFeatures(true, exePath);
+                    }
+                }
             } else {
                 fcgTXVideoEncoderPath->ForeColor = System::Drawing::SystemColors::WindowText;
                 LocalStg.vidEncPath = fcgTXVideoEncoderPath->Text;

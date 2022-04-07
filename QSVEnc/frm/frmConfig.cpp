@@ -1256,6 +1256,7 @@ System::Void frmConfig::InitForm() {
     //QSVLink
     CheckQSVLink(conf);
     //HWエンコードの可否
+    fcgTXVideoEncoderPath_Leave(nullptr, nullptr);
     UpdateMfxLibDetection();
     //パラメータセット
     ConfToFrm(conf);
@@ -1268,7 +1269,6 @@ System::Void frmConfig::InitForm() {
         fcgtabControlMux->TabPages->RemoveAt(2);
     }
 #endif
-    fcgTXVideoEncoderPath_Leave(nullptr, nullptr);
     fcgTXAudioEncoderPath_Leave(nullptr, nullptr);
     fcgTXMP4MuxerPath_Leave(nullptr, nullptr);
     fcgTXTC2MP4Path_Leave(nullptr, nullptr);
