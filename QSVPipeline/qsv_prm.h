@@ -679,6 +679,7 @@ static inline const CX_DESC *get_level_list(int CodecID) {
         case MFX_CODEC_HEVC:    return list_hevc_level;
         case MFX_CODEC_VP8:     return list_vp8_level;
         case MFX_CODEC_VP9:     return list_vp9_level;
+        case MFX_CODEC_AV1:     return list_av1_level;
         case MFX_CODEC_RAW:     return list_empty;
         case MFX_CODEC_CAPTURE: return list_empty;
         default:                return list_empty;
@@ -693,6 +694,7 @@ static inline const CX_DESC *get_profile_list(int CodecID) {
         case MFX_CODEC_HEVC:    return list_hevc_profile;
         case MFX_CODEC_VP8:     return list_vp8_profile;
         case MFX_CODEC_VP9:     return list_vp9_profile;
+        case MFX_CODEC_AV1:     return list_av1_profile;
         case MFX_CODEC_RAW:     return list_empty;
         case MFX_CODEC_CAPTURE: return list_empty;
         default:                return list_empty;

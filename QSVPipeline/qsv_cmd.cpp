@@ -1580,8 +1580,11 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, bool 
         }
         if (!bParsed) {
             print_cmd_error_invalid_value(_T("level"), argsData.cachedlevel, std::vector<std::pair<RGY_CODEC, const CX_DESC *>>{
-                { RGY_CODEC_H264, list_avc_level },
-                { RGY_CODEC_HEVC, list_hevc_level }
+                { RGY_CODEC_H264,  list_avc_level },
+                { RGY_CODEC_HEVC,  list_hevc_level },
+                { RGY_CODEC_MPEG2, list_mpeg2_level },
+                { RGY_CODEC_VP9,   list_vp9_level },
+                { RGY_CODEC_AV1,   list_av1_level }
             });
             return 1;
         }
@@ -1593,8 +1596,11 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, bool 
             pParams->CodecProfile = value;
         } else {
             print_cmd_error_invalid_value(_T("profile"), argsData.cachedprofile, std::vector<std::pair<RGY_CODEC, const CX_DESC *>>{
-                { RGY_CODEC_H264, list_avc_profile },
-                { RGY_CODEC_HEVC, list_hevc_profile }
+                { RGY_CODEC_H264,  list_avc_profile },
+                { RGY_CODEC_HEVC,  list_hevc_profile },
+                { RGY_CODEC_MPEG2, list_mpeg2_profile },
+                { RGY_CODEC_VP9,   list_vp9_profile },
+                { RGY_CODEC_AV1,   list_av1_profile }
             });
             return 1;
         }
@@ -1618,6 +1624,11 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, bool 
                 print_cmd_error_invalid_value(_T("tier"), argsData.cachedtier, list_hevc_tier);
                 return 1;
             }
+        }
+    }
+    if (pParams->CodecId == MFX_CODEC_AV1) {
+        if (pParams->outputCsp != RGY_CHROMAFMT_YUV420) {
+            pParams->CodecProfile = MFX_PROFILE_AV1_PRO;
         }
     }
 
