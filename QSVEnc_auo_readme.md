@@ -169,6 +169,7 @@ QSVEnc の Aviutl から削除するには、"plugins" フォルダ内の下記�
 
 - [フォルダ] QSVEnc_stg
 - [ファイル] QSVEnc.auo
+- [ファイル] QSVEnc.conf (存在する場合のみ)
 - [ファイル] QSVEnc(.ini)
 - [ファイル] auo_setup.auf
 
