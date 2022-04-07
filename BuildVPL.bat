@@ -1,4 +1,6 @@
-call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars32.bat" %1
+set BUILD_ARCH=x64
+if "%~1" == "Win32" set BUILD_ARCH=x86
+call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars32.bat" %BUILD_ARCH%
 cd %~dp0
 if not exist buildOneVPL mkdir buildOneVPL
 if not exist buildOneVPL\%1 mkdir buildOneVPL\%1
