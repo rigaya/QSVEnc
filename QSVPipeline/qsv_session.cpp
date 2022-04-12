@@ -233,7 +233,7 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
         for (int impl_idx = 0; ; impl_idx++) {
             mfxImplDescription *impl_desc = nullptr;
             sts = MFXEnumImplementations(loader, impl_idx, MFX_IMPLCAPS_IMPLDESCSTRUCTURE, (mfxHDL *)&impl_desc);
-            if (sts == MFX_ERR_NOT_FOUND) {
+            if (sts == MFX_ERR_UNSUPPORTED || sts == MFX_ERR_NOT_FOUND) {
                 break;
             } else if (sts != MFX_ERR_NONE) {
                 continue;
