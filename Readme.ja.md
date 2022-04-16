@@ -11,7 +11,7 @@ by rigaya
   単体で動作するコマンドライン版です。本項で説明します。
 
 - [QSVEnc.auo](./QSVEnc_auo_readme.md)  
-  Intel Media SDK を使用してエンコードを行うAviutlの出力プラグインの使用方法については、[こちら](./QSVEnc_auo_readme.md)を参照してください。
+  Intel Media SDK を使用してエンコードを行う[Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/)の出力プラグインの使用方法については、[こちら](./QSVEnc_auo_readme.md)を参照してください。
 
 ## ダウンロード & 更新履歴
 [こちら](https://github.com/rigaya/QSVEnc/releases)
