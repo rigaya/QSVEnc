@@ -73,7 +73,6 @@ std::wstring GetRelativePathFrom(const wchar_t *path, const wchar_t *baseDir) {
     std::error_code ec;
     return std::filesystem::proximate(p, basePath, ec).wstring();
 }
-
 //ルートディレクトリを取得
 std::string PathGetRoot(const char *path) {
     return std::filesystem::path(GetFullPathFrom(path)).root_name().string();
