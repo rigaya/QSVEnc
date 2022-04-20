@@ -1175,6 +1175,14 @@ mux時にオプションパラメータを渡す。&lt;string1&gt;にオプシ�
   limited, full, auto
 ```
 
+- lut3d=&lt;string&gt;  
+  3D LUTを適用する。(.cubeファイルのみの対応)
+  
+- lut3d_interp=&lt;string&gt;  
+  ```
+  nearest, trilinear, pyramid, prism, tetrahedral
+  ```
+
 - hdr2sdr=&lt;string&gt;  
   tone-mappingを指定してHDRからSDRへの変換を行う。 
   

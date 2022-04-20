@@ -1163,6 +1163,14 @@ Values for parameters will be copied from input file for "input".
   limited, full, auto
 ```
 
+- lut3d=&lt;string&gt;  
+  Apply a 3D LUT to an input video. Curretly supports .cube file only.
+  
+- lut3d_interp=&lt;string&gt;  
+  ```
+  nearest, trilinear, pyramid, prism, tetrahedral
+  ```
+
 - hdr2sdr=&lt;string&gt;  
   Enables HDR10 to SDR by selected tone-mapping.  
 

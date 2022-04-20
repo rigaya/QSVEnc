@@ -37,6 +37,7 @@ enum ColorspaceOpType {
     COLORSPACE_OP_TYPE_F2I,
     COLORSPACE_OP_TYPE_I2F,
     COLORSPACE_OP_TYPE_HDR2SDR,
+    COLORSPACE_OP_TYPE_LUT3D,
     COLORSPACE_OP_TYPE_NONE,
 };
 
@@ -70,6 +71,7 @@ public:
     void clearOperation() {
         operations.clear();
     }
+    RGY_ERR setLUT3D(const VideoVUIInfo& in, const VideoVUIInfo& out, double sdr_source_peak, bool approx_gamma, bool scene_ref, const LUT3DParams& prm, std::vector<uint8_t>& additionalParams, int height);
     RGY_ERR setHDR2SDR(const VideoVUIInfo &in, const VideoVUIInfo &out, double source_peak, bool approx_gamma, bool scene_ref, const HDR2SDRParams &prm, int height);
     RGY_ERR setPath(const VideoVUIInfo &in, const VideoVUIInfo &out, double source_peak, bool approx_gamma, bool scene_ref, int height);
     RGY_ERR setOperation(RGY_CSP csp_in, RGY_CSP csp_out);
@@ -81,6 +83,7 @@ private:
     RGY_ERR addColorspaceOpHDR2SDRMobius(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const HDR2SDRParams &prm);
     RGY_ERR addColorspaceOpHDR2SDRReinhard(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const HDR2SDRParams &prm);
     RGY_ERR addColorspaceOpHDR2SDRBT2390(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const HDR2SDRParams &prm);
+    RGY_ERR addColorspaceOpLUT3D(vector<ColorspaceOpInfo>& ops, const VideoVUIInfo& from, const LUT3DParams& prm, std::vector<uint8_t>& additionalParams);
     RGY_ERR addColorspaceOpNclYUV2RGB(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const VideoVUIInfo &to);
     RGY_ERR addColorspaceOpNclRGB2YUV(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const VideoVUIInfo &to);
     RGY_ERR addColorspaceOpClYUV2RGB(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const VideoVUIInfo &to, double source_peak);
@@ -142,10 +145,12 @@ protected:
     virtual void close() override;
     RGY_ERR check_param(shared_ptr<RGYFilterParamColorspace> prm);
     std::string getEmbeddedResourceStr(const tstring &name, const tstring &type);
-    virtual RGY_ERR procFrame(RGYFrameInfo *pFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    virtual RGY_ERR procFrame(RGYFrameInfo *pFrame, const RGYFrameInfo *pInputFrame, const RGYCLBuf *additionalParams, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
 
     bool m_bInterlacedWarn;
     unique_ptr<RGYFilterCspCrop> crop;
     unique_ptr<ColorspaceOpCtrl> opCtrl;
     RGYOpenCLProgramAsync m_colorspace;
+    std::vector<uint8_t> additionalParams;
+    std::unique_ptr<RGYCLBuf> additionalParamsDev;
 };

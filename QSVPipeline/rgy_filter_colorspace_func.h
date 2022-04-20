@@ -1,5 +1,6 @@
 ﻿#ifdef IS_OPENCL
 #define COLORSPACE_FUNC
+#define COLORSPACE_GLOBAL __global
 #define COLORSPACE_CONST __constant
 #define powf pow
 #define logf log
@@ -11,23 +12,35 @@
 #define fmaxf max
 #else
 #define COLORSPACE_FUNC static
+#define COLORSPACE_GLOBAL 
 #define COLORSPACE_CONST const
 #pragma once
 #include <cmath>
 #include <cfloat>
-#endif
+
+#ifndef float4
+typedef struct {
+    float x, y, z, w;
+} float4;
+#endif //#ifndef float4
 
 #ifndef float3
-struct float3 {
+typedef struct {
     float x, y, z;
-};
+} float3;
+#endif //#ifndef float3
+#endif
 
+#ifndef make_float3
 COLORSPACE_FUNC float3 make_float3(float x, float y, float z) {
     float3 f;
     f.x = x, f.y = y, f.z = z;
     return f;
 }
-#endif //#ifndef float3
+#endif
+
+typedef float4 LUTVEC;
+
 
 //以下zimgのsrc\zimg\colorspace\gamma.cppより拝借、一部改変
 
@@ -389,4 +402,265 @@ COLORSPACE_FUNC float colorspace_mix(float x, float y, float a) {
     a = (a < 0.0f) ? 0.0f : a;
     a = (a > 1.0f) ? 1.0f : a;
     return (x) * (1.0f - (a)) + (y) * (a);
+}
+
+COLORSPACE_FUNC float lut3d_linear_interp(float v0, float v1, float a) {
+    return v0 + (v1 - v0) * a;
+}
+
+COLORSPACE_FUNC float3 lut3d_linear_interp3(float3 v0, float3 v1, float a) {
+    float3 r;
+    r.x = lut3d_linear_interp(v0.x, v1.x, a);
+    r.y = lut3d_linear_interp(v0.y, v1.y, a);
+    r.z = lut3d_linear_interp(v0.z, v1.z, a);
+    return r;
+}
+
+COLORSPACE_FUNC int lut3d_prev_idx(float x) {
+    return (int)x;
+}
+
+COLORSPACE_FUNC int lut3d_near_idx(float x) {
+    return (int)(x + 0.5f);
+}
+
+COLORSPACE_FUNC int lut3d_next_idx(float x, int size) {
+    int next = lut3d_prev_idx(x) + 1;
+    return (next >= size) ? size - 1 : next;
+}
+
+COLORSPACE_FUNC float lut3d_prelut(const float s, const int idx, const int size,
+    const float prelutmin[3], const float prelutscale[3], const float * prelut) {
+    const float x = clamp((s - prelutmin[idx]) * prelutscale[idx], 0.0f, (float)(size - 1));
+    const float c0 = prelut[idx * size + lut3d_prev_idx(x)];
+    const float c1 = prelut[idx * size + lut3d_next_idx(x, size)];
+    return lut3d_linear_interp(c0, c1, x - lut3d_prev_idx(x));
+}
+
+COLORSPACE_FUNC float3 lut3d_prelut3(const float3 in, const int size,
+    const float prelutmin[3], const float prelutscale[3], const float * prelut) {
+    float3 out;
+    out.x = lut3d_prelut(in.x, 0, size, prelutmin, prelutscale, prelut);
+    out.y = lut3d_prelut(in.y, 1, size, prelutmin, prelutscale, prelut);
+    out.z = lut3d_prelut(in.z, 2, size, prelutmin, prelutscale, prelut);
+    return out;
+}
+
+COLORSPACE_FUNC float3 lut3d_get_table(const COLORSPACE_GLOBAL LUTVEC *lut, const int x, const int y, const int z, const int lutSize0, const int lutSize01) {
+    LUTVEC val = lut[x * lutSize01 + y * lutSize0 + z];
+    float3 out;
+    out.x = val.x;
+    out.y = val.y;
+    out.z = val.z;
+    return out;
+}
+
+COLORSPACE_FUNC float3 lut3d_interp_nearest(float3 in, const COLORSPACE_GLOBAL LUTVEC *lut, const int lutSize0, const int lutSize01) {
+    return lut3d_get_table(lut, lut3d_near_idx(in.x), lut3d_near_idx(in.y), lut3d_near_idx(in.z), lutSize0, lutSize01);
+}
+
+//参考: https://en.wikipedia.org/wiki/Trilinear_interpolation
+COLORSPACE_FUNC float3 lut3d_interp_trilinear(float3 in, const COLORSPACE_GLOBAL LUTVEC *lut, const int lutSize0, const int lutSize01) {
+    const int x0 = lut3d_prev_idx(in.x);
+    const int x1 = lut3d_next_idx(in.x, lutSize0);
+    const int y0 = lut3d_prev_idx(in.y);
+    const int y1 = lut3d_next_idx(in.y, lutSize0);
+    const int z0 = lut3d_prev_idx(in.z);
+    const int z1 = lut3d_next_idx(in.z, lutSize0);
+    const float scalex = in.x - x0;
+    const float scaley = in.y - y0;
+    const float scalez = in.z - z0;
+    const float3 c000  = lut3d_get_table(lut, x0, y0, z0, lutSize0, lutSize01);
+    const float3 c001  = lut3d_get_table(lut, x0, y0, z1, lutSize0, lutSize01);
+    const float3 c010  = lut3d_get_table(lut, x0, y1, z0, lutSize0, lutSize01);
+    const float3 c011  = lut3d_get_table(lut, x0, y1, z1, lutSize0, lutSize01);
+    const float3 c100  = lut3d_get_table(lut, x1, y0, z0, lutSize0, lutSize01);
+    const float3 c101  = lut3d_get_table(lut, x1, y0, z1, lutSize0, lutSize01);
+    const float3 c110  = lut3d_get_table(lut, x1, y1, z0, lutSize0, lutSize01);
+    const float3 c111  = lut3d_get_table(lut, x1, y1, z1, lutSize0, lutSize01);
+    const float3 c00   = lut3d_linear_interp3(c000, c100, scalex);
+    const float3 c10   = lut3d_linear_interp3(c010, c110, scalex);
+    const float3 c01   = lut3d_linear_interp3(c001, c101, scalex);
+    const float3 c11   = lut3d_linear_interp3(c011, c111, scalex);
+    const float3 c0    = lut3d_linear_interp3(c00,  c10,  scaley);
+    const float3 c1    = lut3d_linear_interp3(c01,  c11,  scaley);
+    const float3 c     = lut3d_linear_interp3(c0,   c1,   scalez);
+    return c;
+}
+
+//参考: http://www.filmlight.ltd.uk/pdf/whitepapers/FL-TL-TN-0057-SoftwareLib.pdf
+COLORSPACE_FUNC float3 lut3d_interp_tetrahedral(float3 in, const COLORSPACE_GLOBAL LUTVEC *lut, const int lutSize0, const int lutSize01) {
+    const int x0 = lut3d_prev_idx(in.x);
+    const int x1 = lut3d_next_idx(in.x, lutSize0);
+    const int y0 = lut3d_prev_idx(in.y);
+    const int y1 = lut3d_next_idx(in.y, lutSize0);
+    const int z0 = lut3d_prev_idx(in.z);
+    const int z1 = lut3d_next_idx(in.z, lutSize0);
+    const float scalex = in.x - x0;
+    const float scaley = in.y - y0;
+    const float scalez = in.z - z0;
+    float scale0, scale1, scale2;
+    int xA, yA, zA, xB, yB, zB;
+    if (scalex > scaley) {
+        if (scaley > scalez) {
+            scale0 = scalex;
+            scale1 = scaley;
+            scale2 = scalez;
+            xA = x1; yA = y0; zA = z0;
+            xB = x1; yB = y1; zB = z0;
+        } else if (scalex > scalez) {
+            scale0 = scalex;
+            scale1 = scalez;
+            scale2 = scaley;
+            xA = x1; yA = y0; zA = z0;
+            xB = x1; yB = y0; zB = z1;
+        } else {
+            scale0 = scalez;
+            scale1 = scalex;
+            scale2 = scaley;
+            xA = x0; yA = y0; zA = z1;
+            xB = x1; yB = y0; zB = z1;
+        }
+    } else {
+        if (scalez > scaley) {
+            scale0 = scalez;
+            scale1 = scaley;
+            scale2 = scalex;
+            xA = x0; yA = y0; zA = z1;
+            xB = x0; yB = y1; zB = z1;
+        } else if (scalez > scalex) {
+            scale0 = scaley;
+            scale1 = scalez;
+            scale2 = scalex;
+            xA = x0; yA = y1; zA = z0;
+            xB = x0; yB = y1; zB = z1;
+        } else {
+            scale0 = scaley;
+            scale1 = scalez;
+            scale2 = scalex;
+            xA = x0; yA = y1; zA = z0;
+            xB = x1; yB = y1; zB = z0;
+        }
+    }
+    const float3 c000 = lut3d_get_table(lut, x0, y0, z0, lutSize0, lutSize01);
+    const float3 c111 = lut3d_get_table(lut, x1, y1, z1, lutSize0, lutSize01);
+    const float3 cA   = lut3d_get_table(lut, xA, yA, zA, lutSize0, lutSize01);
+    const float3 cB   = lut3d_get_table(lut, xB, yB, zB, lutSize0, lutSize01);
+    const float  s0   = 1.0f   - scale0;
+    const float  s1   = scale0 - scale1;
+    const float  s2   = scale1 - scale2;
+    const float  s3   = scale2;
+    float3 c;
+    c.x = s0 * c000.x + s1 * cA.x + s2 * cB.x + s3 * c111.x;
+    c.y = s0 * c000.y + s1 * cA.y + s2 * cB.y + s3 * c111.y;
+    c.z = s0 * c000.z + s1 * cA.z + s2 * cB.z + s3 * c111.z;
+    return c;
+}
+
+COLORSPACE_FUNC float3 lut3d_interp_pyramid(float3 in, const COLORSPACE_GLOBAL LUTVEC *lut, const int lutSize0, const int lutSize01) {
+    const int x0 = lut3d_prev_idx(in.x);
+    const int x1 = lut3d_next_idx(in.x, lutSize0);
+    const int y0 = lut3d_prev_idx(in.y);
+    const int y1 = lut3d_next_idx(in.y, lutSize0);
+    const int z0 = lut3d_prev_idx(in.z);
+    const int z1 = lut3d_next_idx(in.z, lutSize0);
+    const float scalex = in.x - x0;
+    const float scaley = in.y - y0;
+    const float scalez = in.z - z0;
+
+    float scale0, scale1, scale2;
+    int xA, yA, zA, xB, yB, zB, xC, yC, zC;
+
+    if (scaley > scalex && scalez > scalex) {
+        xA = x0; yA = y0; zA = z1;
+        xB = x0; yB = y1; zB = z0;
+        xC = x0; yC = y1; zC = z1;
+        scale0 = scaley;
+        scale1 = scalez;
+        scale2 = scalex;
+    } else if (scalex > scaley && scalez > scaley) {
+        xA = x0; yA = y0; zA = z1;
+        xB = x1; yB = y0; zB = z0;
+        xC = x1; yC = y0; zC = z1;
+        scale0 = scalex;
+        scale1 = scalez;
+        scale2 = scaley;
+    } else {
+        xA = x0; yA = y1; zA = z0;
+        xB = x1; yB = y0; zB = z0;
+        xC = x1; yC = y1; zC = z0;
+        scale0 = scalex;
+        scale1 = scaley;
+        scale2 = scalez;
+    }
+    const float3 c000 = lut3d_get_table(lut, x0, y0, z0, lutSize0, lutSize01);
+    const float3 c111 = lut3d_get_table(lut, x1, y1, z1, lutSize0, lutSize01);
+    const float3 cA   = lut3d_get_table(lut, xA, yA, zA, lutSize0, lutSize01);
+    const float3 cB   = lut3d_get_table(lut, xB, yB, zB, lutSize0, lutSize01);
+    const float3 cC   = lut3d_get_table(lut, xC, yC, zC, lutSize0, lutSize01);
+    float3 c;
+    c.x = c000.x + (cB.x - c000.x) * scale0 + (c111.x - cC.x) * scale2 + (cA.x - c000.x) * scale1 + (cC.x - cA.x - cB.x + c000.x) * scale0 * scale1;
+    c.y = c000.y + (cB.y - c000.y) * scale0 + (c111.y - cC.y) * scale2 + (cA.y - c000.y) * scale1 + (cC.y - cA.y - cB.y + c000.y) * scale0 * scale1;
+    c.z = c000.z + (cB.z - c000.z) * scale0 + (c111.z - cC.z) * scale2 + (cA.z - c000.z) * scale1 + (cC.z - cA.z - cB.z + c000.z) * scale0 * scale1;
+    return c;
+}
+
+COLORSPACE_FUNC float3 lut3d_interp_prism(float3 in, const COLORSPACE_GLOBAL LUTVEC *lut, const int lutSize0, const int lutSize01) {
+    const int x0 = lut3d_prev_idx(in.x);
+    const int x1 = lut3d_next_idx(in.x, lutSize0);
+    const int y0 = lut3d_prev_idx(in.y);
+    const int y1 = lut3d_next_idx(in.y, lutSize0);
+    const int z0 = lut3d_prev_idx(in.z);
+    const int z1 = lut3d_next_idx(in.z, lutSize0);
+    const float scalex = in.x - x0;
+    const float scaley = in.y - y0;
+    const float scalez = in.z - z0;
+    float scale0, scale2;
+    int xA, yA, zA, xB, yB, zB;
+
+    if (scalez > scalex) {
+        scale0 = scalez;
+        scale2 = scalex;
+        xA = x0; yA = y1; zA = z1;
+        xB = x0; yB = y0; zB = z1;
+    } else {
+        scale0 = scalex;
+        scale2 = scalez;
+        xA = x1; yA = y1; zA = z0;
+        xB = x1; yB = y0; zB = z0;
+    }
+    const float3 c000 = lut3d_get_table(lut, x0, y0, z0, lutSize0, lutSize01);
+    const float3 c010 = lut3d_get_table(lut, x0, y1, z0, lutSize0, lutSize01);
+    const float3 c101 = lut3d_get_table(lut, x1, y0, z1, lutSize0, lutSize01);
+    const float3 c111 = lut3d_get_table(lut, x1, y1, z1, lutSize0, lutSize01);
+    const float3 cA   = lut3d_get_table(lut, xA, yA, zA, lutSize0, lutSize01);
+    const float3 cB   = lut3d_get_table(lut, xB, yB, zB, lutSize0, lutSize01);
+    float3 c;
+    c.x = c000.x + (cB.x - c000.x) * scale0 + (c101.x - cB.x) * scale2 + (c010.x - c000.x) * scaley + (c000.x - c010.x - cB.x + cA.x) * scale0 * scaley + (cB.x - cA.x - c101.x + c111.x) * scale2 * scaley;
+    c.y = c000.y + (cB.y - c000.y) * scale0 + (c101.y - cB.y) * scale2 + (c010.y - c000.y) * scaley + (c000.y - c010.y - cB.y + cA.y) * scale0 * scaley + (cB.y - cA.y - c101.y + c111.y) * scale2 * scaley;
+    c.z = c000.z + (cB.z - c000.z) * scale0 + (c101.z - cB.z) * scale2 + (c010.z - c000.z) * scaley + (c000.z - c010.z - cB.z + cA.z) * scale0 * scaley + (cB.z - cA.z - c101.z + c111.z) * scale2 * scaley;
+    return c;
+}
+
+typedef struct {
+    int lut_offset;
+    int prelut_offset;
+    // 以降はoffsetの示す位置にデータ
+    // データの取り出し方法は下記の関数を参照
+} RGYColorspaceDevParams;
+
+COLORSPACE_GLOBAL float *getDevParamsPrelut(COLORSPACE_GLOBAL void * ptr) {
+    return (COLORSPACE_GLOBAL float *)((COLORSPACE_GLOBAL char *)ptr + ((COLORSPACE_GLOBAL RGYColorspaceDevParams *)ptr)->prelut_offset);
+}
+
+const COLORSPACE_GLOBAL float *getDevParamsPrelutC(const COLORSPACE_GLOBAL void * ptr) {
+    return (const COLORSPACE_GLOBAL float *)((const COLORSPACE_GLOBAL char *)ptr + ((const COLORSPACE_GLOBAL RGYColorspaceDevParams *)ptr)->prelut_offset);
+}
+
+COLORSPACE_GLOBAL LUTVEC *getDevParamsLut(COLORSPACE_GLOBAL void * ptr) {
+    return (COLORSPACE_GLOBAL LUTVEC *)((COLORSPACE_GLOBAL char *)ptr + ((COLORSPACE_GLOBAL RGYColorspaceDevParams *)ptr)->lut_offset);
+}
+
+const COLORSPACE_GLOBAL LUTVEC *getDevParamsLutC(const COLORSPACE_GLOBAL void * ptr) {
+    return (const COLORSPACE_GLOBAL LUTVEC *)((const COLORSPACE_GLOBAL char *)ptr + ((const COLORSPACE_GLOBAL RGYColorspaceDevParams *)ptr)->lut_offset);
 }
