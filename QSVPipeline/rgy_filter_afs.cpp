@@ -1154,6 +1154,11 @@ RGY_ERR RGYFilterAfs::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
         }
 
         m_nFrame++;
+
+        // drain中にdropが発生した場合には、次のフレームを出力するようにする
+        if (pInputFrame->ptr[0] == nullptr && afs_duration == afsStreamStatus::AFS_SSTS_DROP) {
+            return run_filter(pInputFrame, ppOutputFrames, pOutputFrameNum, queue_main, {}, event);
+        }
     } else {
         //出力フレームなし
         *pOutputFrameNum = 0;
