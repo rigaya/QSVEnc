@@ -71,9 +71,10 @@ RGY_DISABLE_WARNING_POP
 #include "rgy_filter_mpdecimate.h"
 #include "rgy_filter_decimate.h"
 #include "rgy_filter_delogo.h"
+#include "rgy_filter_convolution3d.h"
+#include "rgy_filter_smooth.h"
 #include "rgy_filter_denoise_knn.h"
 #include "rgy_filter_denoise_pmd.h"
-#include "rgy_filter_smooth.h"
 #include "rgy_filter_subburn.h"
 #include "rgy_filter_transform.h"
 #include "rgy_filter_unsharp.h"
@@ -1889,9 +1890,10 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vppmfx.deinterlace != MFX_DEINTERLACE_NONE)  filterPipeline.push_back(VppType::MFX_DEINTERLACE);
     if (inputParam->vpp.decimate.enable)   filterPipeline.push_back(VppType::CL_DECIMATE);
     if (inputParam->vpp.mpdecimate.enable) filterPipeline.push_back(VppType::CL_MPDECIMATE);
+    if (inputParam->vpp.convolution3d.enable) filterPipeline.push_back(VppType::CL_CONVOLUTION3D);
+    if (inputParam->vpp.smooth.enable)     filterPipeline.push_back(VppType::CL_DENOISE_SMOOTH);
     if (inputParam->vpp.knn.enable)        filterPipeline.push_back(VppType::CL_DENOISE_KNN);
     if (inputParam->vpp.pmd.enable)        filterPipeline.push_back(VppType::CL_DENOISE_PMD);
-    if (inputParam->vpp.smooth.enable)     filterPipeline.push_back(VppType::CL_DENOISE_SMOOTH);
     if (inputParam->vppmfx.denoise.enable) filterPipeline.push_back(VppType::MFX_DENOISE);
     if (inputParam->vppmfx.imageStabilizer != 0) filterPipeline.push_back(VppType::MFX_IMAGE_STABILIZATION);
     if (inputParam->vppmfx.mctf.enable)    filterPipeline.push_back(VppType::MFX_MCTF);
@@ -2159,6 +2161,47 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         clfilters.push_back(std::move(filter));
         return RGY_ERR_NONE;
     }
+    //convolution3D
+    if (vppType == VppType::CL_CONVOLUTION3D) {
+        unique_ptr<RGYFilter> filter(new RGYFilterConvolution3D(m_cl));
+        shared_ptr<RGYFilterParamConvolution3D> param(new RGYFilterParamConvolution3D());
+        param->convolution3d = params->vpp.convolution3d;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        auto sts = filter->init(param, m_pQSVLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        //登録
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
+    }
+    //smooth
+    if (vppType == VppType::CL_DENOISE_SMOOTH) {
+        unique_ptr<RGYFilter> filter(new RGYFilterSmooth(m_cl));
+        shared_ptr<RGYFilterParamSmooth> param(new RGYFilterParamSmooth());
+        param->smooth = params->vpp.smooth;
+        param->qpTableRef = nullptr;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        auto sts = filter->init(param, m_pQSVLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        //登録
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
+    }
     //knn
     if (vppType == VppType::CL_DENOISE_KNN) {
         unique_ptr<RGYFilter> filter(new RGYFilterDenoiseKnn(m_cl));
@@ -2184,27 +2227,6 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         unique_ptr<RGYFilter> filter(new RGYFilterDenoisePmd(m_cl));
         shared_ptr<RGYFilterParamDenoisePmd> param(new RGYFilterParamDenoisePmd());
         param->pmd = params->vpp.pmd;
-        param->frameIn = inputFrame;
-        param->frameOut = inputFrame;
-        param->baseFps = m_encFps;
-        param->bOutOverwrite = false;
-        auto sts = filter->init(param, m_pQSVLog);
-        if (sts != RGY_ERR_NONE) {
-            return sts;
-        }
-        //入力フレーム情報を更新
-        inputFrame = param->frameOut;
-        m_encFps = param->baseFps;
-        //登録
-        clfilters.push_back(std::move(filter));
-        return RGY_ERR_NONE;
-    }
-    //smooth
-    if (vppType == VppType::CL_DENOISE_SMOOTH) {
-        unique_ptr<RGYFilter> filter(new RGYFilterSmooth(m_cl));
-        shared_ptr<RGYFilterParamSmooth> param(new RGYFilterParamSmooth());
-        param->smooth = params->vpp.smooth;
-        param->qpTableRef = nullptr;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;

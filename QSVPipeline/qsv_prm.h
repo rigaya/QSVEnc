@@ -175,8 +175,9 @@ enum class VppType : int {
     CL_DELOGO,
     CL_TRANSFORM,
 
-    CL_DENOISE_PMD,
+    CL_CONVOLUTION3D,
     CL_DENOISE_KNN,
+    CL_DENOISE_PMD,
     CL_DENOISE_SMOOTH,
 
     CL_RESIZE,

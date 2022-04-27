@@ -754,6 +754,7 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXVideoFormat,     list_videoformat, "auto");
 
     setComboBox(fcgCXVppDenoiseMethod, list_vpp_denoise);
+    setComboBox(fcgCXVppDenoiseConv3DMatrix, list_vpp_convolution3d_matrix);
     setComboBox(fcgCXVppDetailEnhance, list_vpp_detail_enahance);
 
     setComboBox(fcgCXVppResizeAlg,   list_vpp_resize);
@@ -1043,6 +1044,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     fcgPNVppDenoiseKnn->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("knn")));
     fcgPNVppDenoisePmd->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("pmd")));
     fcgPNVppDenoiseSmooth->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("smooth")));
+    fcgPNVppDenoiseConv3D->Visible = (fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("convolution3d")));
     fcgPNVppDetailEnhanceMFX->Visible = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("detail-enhance")));
     fcgPNVppUnsharp->Visible = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("unsharp")));
     fcgPNVppEdgelevel->Visible = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("edgelevel")));
@@ -1380,6 +1382,8 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
             denoise_idx = get_cx_index(list_vpp_denoise, _T("smooth"));
         } else if (prm_qsv.vppmfx.denoise.enable) {
             denoise_idx = get_cx_index(list_vpp_denoise, _T("denoise"));
+        } else if (prm_qsv.vpp.convolution3d.enable) {
+            denoise_idx = get_cx_index(list_vpp_denoise, _T("convolution3d"));
         }
         SetCXIndex(fcgCXVppDenoiseMethod, denoise_idx);
 
@@ -1416,6 +1420,11 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetNUValue(fcgNUVppDenoisePmdThreshold, prm_qsv.vpp.pmd.threshold);
         SetNUValue(fcgNUVppDenoiseSmoothQuality, prm_qsv.vpp.smooth.quality);
         SetNUValue(fcgNUVppDenoiseSmoothQP, prm_qsv.vpp.smooth.qp);
+        SetCXIndex(fcgCXVppDenoiseConv3DMatrix, get_cx_index(list_vpp_convolution3d_matrix, (int)prm_qsv.vpp.convolution3d.matrix));
+        SetNUValue(fcgNUVppDenoiseConv3DThreshYSpatial, prm_qsv.vpp.convolution3d.threshYspatial);
+        SetNUValue(fcgNUVppDenoiseConv3DThreshCSpatial, prm_qsv.vpp.convolution3d.threshCspatial);
+        SetNUValue(fcgNUVppDenoiseConv3DThreshYTemporal, prm_qsv.vpp.convolution3d.threshYtemporal);
+        SetNUValue(fcgNUVppDenoiseConv3DThreshCTemporal, prm_qsv.vpp.convolution3d.threshCtemporal);
         fcgCBVppDebandEnable->Checked = prm_qsv.vpp.deband.enable;
         SetNUValue(fcgNUVppDebandRange, prm_qsv.vpp.deband.range);
         SetNUValue(fcgNUVppDebandThreY, prm_qsv.vpp.deband.threY);

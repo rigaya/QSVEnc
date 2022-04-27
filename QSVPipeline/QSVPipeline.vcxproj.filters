@@ -300,6 +300,9 @@
     <ClCompile Include="rgy_bitstream_avx512bw.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="rgy_filter_convolution3d.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="qsv_prm.h">
@@ -584,6 +587,9 @@
     <ClInclude Include="rgy_thread_affinity.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="rgy_filter_convolution3d.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="rgy_filter.cl">
@@ -659,6 +665,9 @@
       <Filter>ソース ファイル</Filter>
     </None>
     <None Include="rgy_filter_ssim.cl">
+      <Filter>ソース ファイル</Filter>
+    </None>
+    <None Include="rgy_filter_convolution3d.cl">
       <Filter>ソース ファイル</Filter>
     </None>
   </ItemGroup>
