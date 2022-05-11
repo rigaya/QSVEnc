@@ -1198,11 +1198,13 @@ RGY_ERR RGYOpenCLContext::createContext(const cl_command_queue_properties queue_
 
     cl_int err = RGY_ERR_NONE;
     std::vector<cl_context_properties> props = { CL_CONTEXT_PLATFORM, (cl_context_properties)(m_platform->get()) };
+    bool enableInterop = false;
     #if ENABLE_RGY_OPENCL_D3D9
     if (m_platform->d3d9dev()) {
         props.push_back(CL_CONTEXT_ADAPTER_D3D9EX_KHR);
         props.push_back((cl_context_properties)m_platform->d3d9dev());
         CL_LOG(RGY_LOG_DEBUG, _T("Enable d3d9 interop for %p\n"), m_platform->d3d9dev());
+        enableInterop = true;
     }
     #endif //ENABLE_RGY_OPENCL_D3D9
     #if ENABLE_RGY_OPENCL_D3D11
@@ -1210,6 +1212,7 @@ RGY_ERR RGYOpenCLContext::createContext(const cl_command_queue_properties queue_
         props.push_back(CL_CONTEXT_D3D11_DEVICE_KHR);
         props.push_back((cl_context_properties)m_platform->d3d11dev());
         CL_LOG(RGY_LOG_DEBUG, _T("Enable d3d11 interop for %p\n"), m_platform->d3d11dev());
+        enableInterop = true;
     }
     #endif //#if ENABLE_RGY_OPENCL_D3D11
     #if ENABLE_RGY_OPENCL_VA
@@ -1217,10 +1220,13 @@ RGY_ERR RGYOpenCLContext::createContext(const cl_command_queue_properties queue_
         props.push_back(CL_CONTEXT_VA_API_DISPLAY_INTEL);
         props.push_back((cl_context_properties)m_platform->vadev());
         CL_LOG(RGY_LOG_DEBUG, _T("Enable va interop for %p\n"), m_platform->d3d11dev());
+        enableInterop = true;
     }
     #endif
-    props.push_back(CL_CONTEXT_INTEROP_USER_SYNC);
-    props.push_back((ENCODER_QSV) ? CL_TRUE : CL_FALSE);
+    if (enableInterop) {
+        props.push_back(CL_CONTEXT_INTEROP_USER_SYNC);
+        props.push_back((ENCODER_QSV) ? CL_TRUE : CL_FALSE);
+    }
     props.push_back(0);
     try {
         m_context = unique_context(clCreateContext(props.data(), (cl_uint)m_platform->devs().size(), m_platform->devs().data(), nullptr, nullptr, &err), clReleaseContext);
