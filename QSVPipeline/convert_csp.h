@@ -663,8 +663,7 @@ static bool cmpFrameInfoCspResolution(const RGYFrameInfo *pA, const RGYFrameInfo
     return pA->csp != pB->csp
         || pA->width != pB->width
         || pA->height != pB->height
-        || pA->mem_type != pB->mem_type
-        || pA->pitch != pB->pitch;
+        || pA->mem_type != pB->mem_type;
 }
 
 #ifdef __CUDACC__
