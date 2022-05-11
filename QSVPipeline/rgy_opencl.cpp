@@ -281,6 +281,7 @@ int initOpenCLGlobal() {
     LOAD(clCreateContext);
     LOAD(clGetCommandQueueInfo);
     LOAD(clReleaseContext);
+    LOAD(clGetSupportedImageFormats);
 
     LOAD(clCreateProgramWithSource);
     LOAD(clBuildProgram);
@@ -1748,6 +1749,29 @@ RGY_ERR RGYOpenCLQueue::finish() const {
 
 void RGYOpenCLQueue::clear() {
     m_queue.reset();
+}
+
+std::vector<cl_image_format> RGYOpenCLContext::getSupportedImageFormats(const cl_mem_object_type image_type) const {
+    std::vector<cl_image_format> result;
+    cl_uint num_formats = 0;
+    cl_int err = CL_SUCCESS;
+    if ((err = clGetSupportedImageFormats(m_context.get(), CL_MEM_READ_WRITE, image_type, 0, nullptr, &num_formats)) != CL_SUCCESS) {
+        return result;
+    }
+    result.resize(num_formats);
+    if ((err = clGetSupportedImageFormats(m_context.get(), CL_MEM_READ_WRITE, image_type, result.size(), result.data(), &num_formats)) != CL_SUCCESS) {
+        result.clear();
+    }
+    return result;
+}
+
+tstring RGYOpenCLContext::getSupportedImageFormatsStr(const cl_mem_object_type image_type) const {
+    const auto formatList = getSupportedImageFormats(image_type);
+    tstring str;
+    for (auto& format : formatList) {
+        str += strsprintf(_T("%s: %s\n"), clchannelorder_cl_to_str(format.image_channel_order), clchanneltype_cl_to_str(format.image_channel_data_type));
+    }
+    return str;
 }
 
 std::string RGYOpenCLContext::cspCopyOptions(const RGYFrameInfo& dst, const RGYFrameInfo& src) const {

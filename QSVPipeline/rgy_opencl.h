@@ -161,6 +161,7 @@ CL_EXTERN cl_int (CL_API_CALL* f_clReleaseContext) (cl_context context);
 CL_EXTERN cl_command_queue (CL_API_CALL* f_clCreateCommandQueue)(cl_context context, cl_device_id device, cl_command_queue_properties properties, cl_int * errcode_ret);
 CL_EXTERN cl_int (CL_API_CALL* f_clGetCommandQueueInfo)(cl_command_queue command_queue, cl_command_queue_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
 CL_EXTERN cl_int (CL_API_CALL* f_clReleaseCommandQueue) (cl_command_queue command_queue);
+CL_EXTERN cl_int (CL_API_CALL* f_clGetSupportedImageFormats)(cl_context context, cl_mem_flags flags, cl_mem_object_type image_type, cl_uint num_entries, cl_image_format * image_formats, cl_uint * num_image_formats);
 
 CL_EXTERN cl_program(CL_API_CALL* f_clCreateProgramWithSource) (cl_context context, cl_uint count, const char **strings, const size_t *lengths, cl_int *errcode_ret);
 CL_EXTERN cl_int (CL_API_CALL* f_clBuildProgram) (cl_program program, cl_uint num_devices, const cl_device_id *device_list, const char *options, void (CL_CALLBACK *pfn_notify)(cl_program program, void *user_data), void* user_data);
@@ -252,6 +253,7 @@ CL_EXTERN cl_int(CL_API_CALL* f_clEnqueueReleaseVA_APIMediaSurfacesINTEL)(cl_com
 #define clCreateCommandQueue f_clCreateCommandQueue
 #define clGetCommandQueueInfo f_clGetCommandQueueInfo
 #define clReleaseCommandQueue f_clReleaseCommandQueue
+#define clGetSupportedImageFormats f_clGetSupportedImageFormats
 
 #define clCreateProgramWithSource f_clCreateProgramWithSource
 #define clBuildProgram f_clBuildProgram
@@ -1054,6 +1056,9 @@ public:
     std::string cspCopyOptions(const RGYFrameInfo& dst, const RGYFrameInfo& src) const;
     void requestCSPCopy(const RGYFrameInfo& dst, const RGYFrameInfo& src);
     RGYOpenCLProgram *getCspCopyProgram(const RGYFrameInfo& dst, const RGYFrameInfo& src);
+
+    std::vector<cl_image_format> getSupportedImageFormats(const cl_mem_object_type image_type = CL_MEM_OBJECT_IMAGE2D) const;
+    tstring getSupportedImageFormatsStr(const cl_mem_object_type image_type = CL_MEM_OBJECT_IMAGE2D) const;
 protected:
     std::unique_ptr<RGYOpenCLProgram> buildProgram(std::string datacopy, const std::string options);
 
