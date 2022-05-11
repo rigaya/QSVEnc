@@ -634,11 +634,28 @@ RGYOpenCLDeviceInfo RGYOpenCLDevice::info() const {
 }
 
 bool RGYOpenCLDevice::checkExtension(const char* extension) const {
-    return info().checkExtension(extension);
+    std::string extensions;
+    try {
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_EXTENSIONS, &extensions);
+    } catch (...) {
+        return false;
+    }
+    return strstr(extensions.c_str(), extension) != 0;
 }
 
 bool RGYOpenCLDevice::checkVersion(int major, int minor) const {
-    return info().checkVersion(major, minor);
+    std::string version;
+    try {
+        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_VERSION, &version);
+    } catch (...) {
+        return false;
+    }
+    int a, b;
+    if (sscanf_s(version.c_str(), "OpenCL %d.%d", &a, &b) == 2) {
+        if (major < a) return true;
+        if (major == a) return minor <= b;
+    }
+    return false;
 }
 
 tstring RGYOpenCLDevice::infostr(bool full) const {
