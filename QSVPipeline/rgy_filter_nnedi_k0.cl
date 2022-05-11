@@ -227,3 +227,24 @@ __kernel void kernel_compute_network0(
         }
     }
 }
+
+
+__kernel void kernel_set_field_value(
+    __global uchar *__restrict__ pDst,
+    const int dstOffset, //top field / bottom field の考慮
+    const int dstPitch, //1行おきなので通常の2倍の値が入っている
+    const int dstWidth,
+    const int dstHeight,
+    const int value) {
+    const int gIdX = get_global_id(0) * 4;
+    const int gIdY = get_global_id(1);
+    if (gIdX < dstWidth && gIdY < dstHeight) {
+        __global TypePixel4 *const ptr_dst = (__global TypePixel4 *)((__global uchar *)pDst + gIdY * dstPitch + gIdX * sizeof(TypePixel) + dstOffset);
+        TypePixel4 out;
+        out.x = value;
+        out.y = value;
+        out.z = value;
+        out.w = value;
+        ptr_dst[0] = out;
+    }
+}

@@ -111,13 +111,16 @@ RGY_ERR nnedi_compute_network_0(RGYFrameInfo *pOutputPlane,
             weight0->mem(),
             (int)targetField);
     } else {
-        auto outputField = *pOutputPlane;
-        outputField.pitch[0] <<= 1;
-        outputField.height >>= 1;
-        sInputCrop dstOffset = initCrop();
-        dstOffset.e.up = pOutputPlane->pitch[0] * (targetField == NNEDI_GEN_FIELD_TOP ? 0 : 1); //生成するほうのフィールドを選択
-
-        err = cl->setPlane(-1, pOutputPlane, &dstOffset, queue);
+        RGYWorkSize global(
+            divCeil(pOutputPlane->width, 4 /*4ピクセル分一度に処理する*/),
+            pOutputPlane->height >> 1);
+        err = nnedi_k0->kernel("kernel_set_field_value").config(queue, local, global, wait_events, event).launch(
+            (cl_mem)pOutputPlane->ptr[0],
+            pOutputPlane->pitch[0] * (targetField == NNEDI_GEN_FIELD_TOP ? 0 : 1), //生成するほうのフィールドを選択
+            pOutputPlane->pitch[0] * 2,  //1行おきなので通常の2倍
+            pOutputPlane->width,
+            pOutputPlane->height,
+            -1);
     }
     return err;
 }
