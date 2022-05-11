@@ -603,6 +603,7 @@ public:
     const RGYOpenCLEvent &mapEvent() const { return m_mapped->event(); }
     const RGYFrameInfo &mappedHost() const { return m_mapped->host(); }
     RGYCLMemObjInfo getMemObjectInfo() const;
+    void resetMappedFrame() { m_mapped.reset(); }
 protected:
     RGYCLFrame(const RGYCLFrame &) = delete;
     void operator =(const RGYCLFrame &) = delete;
