@@ -1055,6 +1055,11 @@ RGYOpenCLSubGroupSupport RGYOpenCLPlatform::checkSubGroupSupport(const cl_device
     }
     RGYOpenCLDevice device(devid);
     CL_LOG(RGY_LOG_DEBUG, _T("checkSubGroupSupport\n"));
+    if (checkVersion(3, 0) && device.checkVersion(3, 0)) {
+        if (device.checkExtension("cl_khr_subgroups"))   return loadSubGroupKHR() == RGY_ERR_NONE ? RGYOpenCLSubGroupSupport::STD20KHR  : RGYOpenCLSubGroupSupport::NONE;
+        if (device.checkExtension("cl_intel_subgroups")) return loadSubGroupKHR() == RGY_ERR_NONE ? RGYOpenCLSubGroupSupport::INTEL_EXT : RGYOpenCLSubGroupSupport::NONE;
+        return RGYOpenCLSubGroupSupport::NONE;
+    }
     if (checkVersion(2, 2) && device.checkVersion(2, 2) && clGetKernelSubGroupInfo) {
         return RGYOpenCLSubGroupSupport::STD22;
     }
