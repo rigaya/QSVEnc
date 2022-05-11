@@ -1605,15 +1605,15 @@ bool RGYCLMemObjInfo::isImageNormalizedType() const {
 }
 
 RGY_ERR RGYCLBufMap::map(cl_map_flags map_flags, size_t size, RGYOpenCLQueue &queue) {
-    return map(map_flags, size, queue, {});
+    return map(map_flags, size, queue, {}, RGY_CL_MAP_BLOCK_NONE);
 }
 
-RGY_ERR RGYCLBufMap::map(cl_map_flags map_flags, size_t size, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events) {
+RGY_ERR RGYCLBufMap::map(cl_map_flags map_flags, size_t size, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, const RGYCLMapBlock block_map) {
     m_queue = queue.get();
     const std::vector<cl_event> v_wait_list = toVec(wait_events);
     const cl_event *wait_list = (v_wait_list.size() > 0) ? v_wait_list.data() : nullptr;
     cl_int err = 0;
-    m_hostPtr = clEnqueueMapBuffer(m_queue, m_mem, false, map_flags, 0, size, (int)v_wait_list.size(), wait_list, m_eventMap.reset_ptr(), &err);
+    m_hostPtr = clEnqueueMapBuffer(m_queue, m_mem, (block_map != RGY_CL_MAP_BLOCK_NONE) ? CL_TRUE : CL_FALSE, map_flags, 0, size, (int)v_wait_list.size(), wait_list, m_eventMap.reset_ptr(), &err);
     return err_cl_to_rgy(err);
 }
 
@@ -1636,9 +1636,9 @@ RGY_ERR RGYCLBufMap::unmap(cl_command_queue queue, const std::vector<RGYOpenCLEv
     return err;
 }
 
-RGY_ERR RGYCLBuf::queueMapBuffer(RGYOpenCLQueue &queue, cl_map_flags map_flags, const std::vector<RGYOpenCLEvent> &wait_events) {
+RGY_ERR RGYCLBuf::queueMapBuffer(RGYOpenCLQueue &queue, cl_map_flags map_flags, const std::vector<RGYOpenCLEvent> &wait_events, const RGYCLMapBlock block_map) {
     m_mapped = std::make_unique<RGYCLBufMap>(m_mem);
-    return m_mapped->map(map_flags, m_size, queue, wait_events);
+    return m_mapped->map(map_flags, m_size, queue, wait_events, block_map);
 }
 
 RGY_ERR RGYCLBuf::unmapBuffer() {
@@ -1659,10 +1659,10 @@ RGYCLMemObjInfo RGYCLBuf::getMemObjectInfo() const {
 RGYCLFrameMap::RGYCLFrameMap(RGYFrameInfo dev, RGYOpenCLQueue &queue) : m_dev(dev), m_queue(queue.get()), m_host(), m_eventMap() {};
 
 RGY_ERR RGYCLFrameMap::map(cl_map_flags map_flags, RGYOpenCLQueue& queue) {
-    return map(map_flags, queue, {});
+    return map(map_flags, queue, {}, RGY_CL_MAP_BLOCK_NONE);
 }
 
-RGY_ERR RGYCLFrameMap::map(cl_map_flags map_flags, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events) {
+RGY_ERR RGYCLFrameMap::map(cl_map_flags map_flags, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, const RGYCLMapBlock block_map) {
     std::vector<cl_event> v_wait_list = toVec(wait_events);
     cl_event *wait_list = (v_wait_list.size() > 0) ? v_wait_list.data() : nullptr;
     m_host = m_dev;
@@ -1672,8 +1672,15 @@ RGY_ERR RGYCLFrameMap::map(cl_map_flags map_flags, RGYOpenCLQueue &queue, const 
     }
     for (int i = 0; i < RGY_CSP_PLANES[m_dev.csp]; i++) {
         cl_int err = 0;
+        cl_bool block = CL_FALSE;
+        switch (block_map) {
+            case RGY_CL_MAP_BLOCK_ALL: block = CL_TRUE; break;
+            case RGY_CL_MAP_BLOCK_LAST: { if (i == (RGY_CSP_PLANES[m_dev.csp]-1)) block = CL_TRUE; } break;
+            case RGY_CL_MAP_BLOCK_NONE:
+            default: break;
+        }
         size_t size = (size_t)m_dev.pitch[i] * m_dev.height;
-        m_host.ptr[i] = (uint8_t *)clEnqueueMapBuffer(m_queue, (cl_mem)m_dev.ptr[i], CL_FALSE, map_flags, 0, size, (int)v_wait_list.size(), wait_list, m_eventMap.reset_ptr(), &err);
+        m_host.ptr[i] = (uint8_t *)clEnqueueMapBuffer(m_queue, (cl_mem)m_dev.ptr[i], block, map_flags, 0, size, (int)v_wait_list.size(), wait_list, m_eventMap.reset_ptr(), &err);
         if (err != 0) {
             return err_cl_to_rgy(err);
         }
@@ -1709,9 +1716,9 @@ RGY_ERR RGYCLFrameMap::unmap(cl_command_queue queue, const std::vector<RGYOpenCL
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYCLFrame::queueMapBuffer(RGYOpenCLQueue &queue, cl_map_flags map_flags, const std::vector<RGYOpenCLEvent> &wait_events) {
+RGY_ERR RGYCLFrame::queueMapBuffer(RGYOpenCLQueue &queue, cl_map_flags map_flags, const std::vector<RGYOpenCLEvent> &wait_events, const RGYCLMapBlock block_map) {
     m_mapped = std::make_unique<RGYCLFrameMap>(frame, queue);
-    return m_mapped->map(map_flags, queue, wait_events);
+    return m_mapped->map(map_flags, queue, wait_events, block_map);
 }
 
 RGY_ERR RGYCLFrame::unmapBuffer() {
