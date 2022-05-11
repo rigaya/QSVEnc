@@ -93,23 +93,19 @@ __kernel void kernel_compute_network0(
     const int gIdY       =(get_group_id(1) * NNEDI_BLOCK_Y /*blockDim.y*/ + thIdY) * thread_y_loop; //フィールド単位
 
     //sharedメモリのサイズと使途
-    __local char shared[
-        ssrc_dim * (NNEDI_BLOCK_Y * thread_y_loop + nny) * sizeof(TypeCalc) + //src 計算用
-        NNEDI_BLOCK_X * NNEDI_BLOCK_Y * thread_y_loop * stmp_dim * sizeof(TypeCalc) + //tmp (計算結果の一時保管用)
-        (NNEDI_BLOCK_X * pix_x_per_thread) * (NNEDI_BLOCK_Y * thread_y_loop + nny) * sizeof(TypePixel) //interp_retで補間に使うため
-    ];
-    __local TypeCalc *const ptr_src = (__local TypeCalc *)shared;
+    __local TypeCalc shared_src[ssrc_dim * (NNEDI_BLOCK_Y * thread_y_loop + nny)]; //src 計算用
+    __local TypeCalc shared_tmp[NNEDI_BLOCK_X * NNEDI_BLOCK_Y * thread_y_loop * stmp_dim]; //tmp (計算結果の一時保管用)
+    __local TypePixel shared_pix[(NNEDI_BLOCK_X * pix_x_per_thread) * (NNEDI_BLOCK_Y * thread_y_loop + nny)]; //interp_retで補間に使うため
+    __local TypeCalc *const ptr_src = (__local TypeCalc *)shared_src;
 
-    __local TypeCalc *const ptr_temp = (__local TypeCalc *)((__local char *)ptr_src
-        + (ssrc_dim * (NNEDI_BLOCK_Y * thread_y_loop + nny) * sizeof(ptr_src[0])));
+    __local TypeCalc *const ptr_temp = (__local TypeCalc *)shared_tmp;
 #define STMP_IDX(i,x,y) ( ((y)*(NNEDI_BLOCK_X)+(x)) * stmp_dim + (i))
 
     //interp_ret()で補間を行う時に使用するデータ
     //16bit精度(int)の場合、fp16では精度が落ちる可能性があるため、ptr_srcとは別に保持することにした
     //interp_ret()では縦方向にしか補間しないので、ptr_srcのようにnnx分余分に読む必要はない
     //ここではsharedメモリ節約のため、floatではなく整数で保持する
-    __local TypePixel *const ptr_pix = (__local TypePixel *)((__local char *)ptr_temp
-        + NNEDI_BLOCK_X * NNEDI_BLOCK_Y * thread_y_loop * stmp_dim * sizeof(TypeCalc));
+    __local TypePixel *const ptr_pix = (__local TypePixel *)shared_pix;
     const int spix_dim = NNEDI_BLOCK_X * pix_x_per_thread;
 
     pDst += dstOffset;

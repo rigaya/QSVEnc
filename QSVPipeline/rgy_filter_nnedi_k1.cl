@@ -400,11 +400,8 @@ __kernel void kernel_compute_network1(
     //sharedメモリのサイズと使途
     //1.src: (NNEDI_BLOCK_X + nnx) * (NNEDI_BLOCK_Y * thread_y_loop + nny) * sizeof(ptr_src[0])
     //2.tmp: (nny + NNEDI_BLOCK_Y * thread_y_loop) * NNEDI_BLOCK_X * 2 * sizeof(ptr_temp[0])
-    __local char shared[
-        (NNEDI_BLOCK_X + nnx) * (NNEDI_BLOCK_Y * thread_y_loop + nny) * sizeof(TypeCalc) + //src 計算用
-        (nny + NNEDI_BLOCK_Y * thread_y_loop) * NNEDI_BLOCK_X * 2 * sizeof(TypeCalc) //tmp (計算結果の一時保管用)
-    ];
-    __local TypeCalc *const ptr_src = (__local TypeCalc *)shared;
+    __local TypeCalc shared_src[(NNEDI_BLOCK_X + nnx) * (NNEDI_BLOCK_Y * thread_y_loop + nny)];////src 計算用
+    __local TypeCalc shared_tmp[(nny + NNEDI_BLOCK_Y * thread_y_loop) * NNEDI_BLOCK_X * 2]; //tmp (計算結果の一時保管用)
     const int ssrc_dim = NNEDI_BLOCK_X + nnx;
 
     pDst += dstOffset;
@@ -415,14 +412,11 @@ __kernel void kernel_compute_network1(
     //範囲外の折り返し等はtextureでやってくれるのでここでは無視
     const int nnx_2_m1 = nnx / 2 - 1;
     const int nny_2 = nny / 2 - (targetField == NNEDI_GEN_FIELD_BOTTOM ? 1 : 0);
-    load_texSrc(1, false, ptr_src, ssrc_dim, NULL, 0, pIn, inPitch, inWidth, inHeight, nnx, nny, nnx_2_m1, nny_2, thIdX, thIdY);
+    load_texSrc(1, false, shared_src, ssrc_dim, NULL, 0, pIn, inPitch, inWidth, inHeight, nnx, nny, nnx_2_m1, nny_2, thIdX, thIdY);
     barrier(CLK_LOCAL_MEM_FENCE);
 
-    __local TypeCalc *const ptr_temp = (__local TypeCalc *)((__local char *)shared
-        + (NNEDI_BLOCK_X + nnx) * (NNEDI_BLOCK_Y * thread_y_loop + nny) * sizeof(ptr_src[0]));
-
     float mstd[thread_y_loop][4];
-    kernel_comute_network1_calc_scale(mstd, ptr_temp, ptr_src, ssrc_dim, thIdX, thIdY);
+    kernel_comute_network1_calc_scale(mstd, shared_tmp, shared_src, ssrc_dim, thIdX, thIdY);
 
     __global uchar *const ptr_dst_base = (__global uchar *)pDst + gIdY * dstPitch + gIdX * sizeof(TypePixel);
     uint flag_sum = 0xffffffff; //処理するかどうかのフラグ
@@ -482,10 +476,10 @@ NNEDI_BLOCK_X   |                  |  |    | <-- 各スレッドはこの出力�
             }
             if (ENABLE_DP1_WEIGHT_LOOP_UNROLL) {
                 kernel_comute_network1_dot_product_opt(
-                    wsum, vsum, ptr_src, ssrc_dim, weight, mstd, thIdX, thIdY);
+                    wsum, vsum, shared_src, ssrc_dim, weight, mstd, thIdX, thIdY);
             } else {
                 kernel_comute_network1_dot_product(
-                    wsum, vsum, ptr_src, ssrc_dim, weight, mstd, thIdX, thIdY);
+                    wsum, vsum, shared_src, ssrc_dim, weight, mstd, thIdX, thIdY);
             }
 
             const float min_weight_sum = 1e-10f;
