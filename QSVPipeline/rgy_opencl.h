@@ -653,11 +653,13 @@ struct RGYOpenCLDeviceInfo {
     uint64_t global_mem_cache_size;
     uint32_t global_mem_cacheline_size;
     uint64_t local_mem_size;
+    uint32_t image_support;
     size_t image_2d_max_width;
     size_t image_2d_max_height;
     size_t image_3d_max_width;
     size_t image_3d_max_height;
-    size_t image_3d_max_depth;
+    uint32_t image_3d_max_depth;
+    int image_pitch_alignment;
     size_t profiling_timer_resolution;
     int max_const_args;
     uint64_t max_const_buffer_size;
@@ -678,8 +680,26 @@ struct RGYOpenCLDeviceInfo {
     std::string profile;
     std::string version;
     std::string extensions;
-    
-#if ENCODER_VCEENC
+
+#if ENCODER_QSV || CLFILTERS_AUF
+    int ip_version_intel;
+    uint32_t id_intel;
+    uint32_t num_slices_intel;
+    uint32_t num_subslices_intel;
+    uint32_t num_eus_per_subslice_intel;
+    uint32_t num_threads_per_eu_intel;
+    cl_device_feature_capabilities_intel feature_capabilities_intel;
+#endif
+#if ENCODER_NVENC || CLFILTERS_AUF
+    uint32_t cc_major_nv;
+    uint32_t cc_minor_nv;
+    uint32_t regs_per_block_nv;
+    uint32_t warp_size_nv;
+    int gpu_overlap_nv;
+    int kernel_exec_timeout_nv;
+    int integrated_mem_nv;
+#endif
+#if ENCODER_VCEENC || CLFILTERS_AUF
     std::string topology_amd;
     std::string board_name_amd;
     uint64_t global_free_mem_size_amd;
