@@ -129,7 +129,7 @@ __kernel void kernel_warpsharp_warp(
     const int ly = get_local_id(1);
     const int imgx = get_global_id(0);
     const int imgy = get_global_id(1);
-    __constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_LINEAR;
+    sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_LINEAR;
 
     if (imgx < width && imgy < height) {
         pDst  += imgy * dstPitch  + imgx * sizeof(Type);
