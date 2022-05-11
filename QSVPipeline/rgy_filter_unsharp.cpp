@@ -59,13 +59,17 @@ RGY_ERR RGYFilterUnsharp::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameIn
 }
 
 RGY_ERR RGYFilterUnsharp::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
-    auto srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY);
+    auto err = m_cl->createImageFromFrameBuffer(m_srcImage, *pInputFrame, true, CL_MEM_READ_ONLY);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to create image from buffer: %s.\n"), get_err_mes(err));
+        return err;
+    }
     for (int i = 0; i < RGY_CSP_PLANES[pOutputFrame->csp]; i++) {
         auto planeDst = getPlane(pOutputFrame, (RGY_PLANE)i);
-        auto planeSrc = getPlane(&srcImage->frame, (RGY_PLANE)i);
+        auto planeSrc = getPlane(&m_srcImage->frame, (RGY_PLANE)i);
         const std::vector<RGYOpenCLEvent> &plane_wait_event = (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>();
         RGYOpenCLEvent *plane_event = (i == RGY_CSP_PLANES[pOutputFrame->csp] - 1) ? event : nullptr;
-        auto err = procPlane(&planeDst, &planeSrc, (((RGY_PLANE)i) == RGY_PLANE_Y) ? m_pGaussWeightBufY.get() : m_pGaussWeightBufUV.get(), queue, plane_wait_event, plane_event);
+        err = procPlane(&planeDst, &planeSrc, (((RGY_PLANE)i) == RGY_PLANE_Y) ? m_pGaussWeightBufY.get() : m_pGaussWeightBufUV.get(), queue, plane_wait_event, plane_event);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to denoise(unsharp) frame(%d) %s: %s\n"), i, cl_errmes(err));
             return err_cl_to_rgy(err);
@@ -74,7 +78,7 @@ RGY_ERR RGYFilterUnsharp::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameIn
     return RGY_ERR_NONE;
 }
 
-RGYFilterUnsharp::RGYFilterUnsharp(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_unsharp() {
+RGYFilterUnsharp::RGYFilterUnsharp(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_unsharp(), m_srcImage() {
     m_name = _T("unsharp");
 }
 
@@ -213,6 +217,7 @@ RGY_ERR RGYFilterUnsharp::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
 }
 
 void RGYFilterUnsharp::close() {
+    m_srcImage.reset();
     m_frameBuf.clear();
     m_unsharp.clear();
     m_cl.reset();

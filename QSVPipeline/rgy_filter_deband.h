@@ -66,4 +66,5 @@ protected:
     std::unique_ptr<RGYCLBuf> m_randStreamBuf;
     std::unique_ptr<RGYCLFrame> m_randBufY;
     std::unique_ptr<RGYCLFrame> m_randBufUV;
+    std::unique_ptr<RGYCLFrame> m_srcImage;
 };

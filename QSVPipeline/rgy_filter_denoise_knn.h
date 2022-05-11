@@ -55,6 +55,7 @@ protected:
 
     bool m_bInterlacedWarn;
     RGYOpenCLProgramAsync m_knn;
+    std::unique_ptr<RGYCLFrame> m_srcImage;
 };
 
 #endif //__RGY_FILTER_DENOISE_KNN_H__

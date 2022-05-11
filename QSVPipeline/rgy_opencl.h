@@ -1052,7 +1052,7 @@ public:
     std::unique_ptr<RGYCLBuf> createBuffer(size_t size, cl_mem_flags flags = CL_MEM_READ_WRITE, void *host_ptr = nullptr);
     std::unique_ptr<RGYCLBuf> copyDataToBuffer(const void *host_ptr, size_t size, cl_mem_flags flags = CL_MEM_READ_WRITE, cl_command_queue queue = 0);
     RGY_ERR createImageFromPlane(cl_mem& image, cl_mem buffer, int bit_depth, int channel_order, bool normalized, int pitch, int width, int height, cl_mem_flags flags);
-    std::unique_ptr<RGYCLFrame> createImageFromFrameBuffer(const RGYFrameInfo &frame, bool normalized, cl_mem_flags flags);
+    RGY_ERR createImageFromFrameBuffer(std::unique_ptr<RGYCLFrame>& imgFrame, const RGYFrameInfo &frame, bool normalized, cl_mem_flags flags);
     std::unique_ptr<RGYCLFrame> createFrameBuffer(const int width, const int height, const RGY_CSP csp, const int bitdepth, const cl_mem_flags flags = CL_MEM_READ_WRITE);
     std::unique_ptr<RGYCLFrame> createFrameBuffer(const RGYFrameInfo &frame, cl_mem_flags flags = CL_MEM_READ_WRITE);
     std::unique_ptr<RGYCLFrameInterop> createFrameFromD3D9Surface(void *surf, HANDLE shared_handle, const RGYFrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags = CL_MEM_READ_WRITE);
