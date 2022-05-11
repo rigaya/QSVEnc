@@ -79,9 +79,9 @@ RGY_ERR RGYFilterConvolution3D::denoiseFrame(
         auto planeNext  = getPlane(pNextFrame,   ip);
         const std::vector<RGYOpenCLEvent> &plane_wait_event = (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>();
         RGYOpenCLEvent *plane_event = (i == RGY_CSP_PLANES[pOutputFrame->csp] - 1) ? event : nullptr;
-        const float threshold_spatial  = (ip == RGY_PLANE_Y) ? prm->convolution3d.threshYspatial  : prm->convolution3d.threshCspatial;
-        const float threshold_temporal = (ip == RGY_PLANE_Y) ? prm->convolution3d.threshYtemporal : prm->convolution3d.threshCtemporal;
-        const float thresholdMul = (float)(1 << (RGY_CSP_BIT_DEPTH[planeInput.csp] - 8));
+        const auto threshold_spatial  = (ip == RGY_PLANE_Y) ? prm->convolution3d.threshYspatial  : prm->convolution3d.threshCspatial;
+        const auto threshold_temporal = (ip == RGY_PLANE_Y) ? prm->convolution3d.threshYtemporal : prm->convolution3d.threshCtemporal;
+        const auto thresholdMul = (float)(1 << (RGY_CSP_BIT_DEPTH[planeInput.csp] - 8));
         auto err = denoisePlane(&planeDst, &planePrev, &planeInput, &planeNext, threshold_spatial * thresholdMul, threshold_temporal * thresholdMul, queue, plane_wait_event, plane_event);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to denoise(convolution3d) frame(%d) %s: %s\n"), i, RGY_CSP_NAMES[pInputFrame->csp], cl_errmes(err));
