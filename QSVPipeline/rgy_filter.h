@@ -34,6 +34,8 @@
 #include "convert_csp.h"
 #include "rgy_prm.h"
 
+struct AVPacket;
+
 class RGYFilterParam {
 public:
     RGYFrameInfo frameIn;
