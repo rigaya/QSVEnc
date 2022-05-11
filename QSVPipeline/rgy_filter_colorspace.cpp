@@ -1611,7 +1611,7 @@ __kernel void kernel_colorspace(
 )";
 
 
-RGY_ERR RGYFilterColorspace::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const RGYCLBuf *additionalParams, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterColorspace::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     auto prm = std::dynamic_pointer_cast<RGYFilterParamColorspace>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -1639,7 +1639,7 @@ RGY_ERR RGYFilterColorspace::procFrame(RGYFrameInfo *pOutputFrame, const RGYFram
         planeOutputY.pitch[0], planeOutputY.width, planeOutputY.height,
         (cl_mem)planeInputY.ptr[0], (cl_mem)planeInputU.ptr[0], (cl_mem)planeInputV.ptr[0],
         planeInputY.pitch[0], planeInputY.width, planeInputY.height,
-        (additionalParams) ? additionalParams->mem() : nullptr);
+        (additionalParamsDev) ? additionalParamsDev->mem() : nullptr);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("error at %s (procFrame(%s)): %s.\n"),
             char_to_tstring(kernel_name).c_str(), RGY_CSP_NAMES[planeOutputY.csp], get_err_mes(err));
@@ -1855,7 +1855,7 @@ RGY_ERR RGYFilterColorspace::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
         pInputFrame = pCropFilterOutput[0];
     }
 
-    sts = procFrame(ppOutputFrames[0], pInputFrame, additionalParamsDev.get(), queue, wait_events, event);
+    sts = procFrame(ppOutputFrames[0], pInputFrame, queue, wait_events, event);
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("error at procFrame (%s): %s.\n"),
             RGY_CSP_NAMES[pInputFrame->csp], get_err_mes(sts));

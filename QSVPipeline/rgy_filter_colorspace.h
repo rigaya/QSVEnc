@@ -144,7 +144,7 @@ protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;
     virtual void close() override;
     RGY_ERR check_param(shared_ptr<RGYFilterParamColorspace> prm);
-    virtual RGY_ERR procFrame(RGYFrameInfo *pFrame, const RGYFrameInfo *pInputFrame, const RGYCLBuf *additionalParams, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    virtual RGY_ERR procFrame(RGYFrameInfo *pFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
 
     bool m_bInterlacedWarn;
     unique_ptr<RGYFilterCspCrop> crop;
