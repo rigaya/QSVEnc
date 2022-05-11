@@ -1647,7 +1647,7 @@ static const ConvertCSP funcList[] = {
     FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_YUV444_16, false,  convert_yc48_to_yuv444_16bit_ssse3,  convert_yc48_to_yuv444_16bit_ssse3,  SSSE3|SSE2 )
     FUNC_SSE(  RGY_CSP_YC48,      RGY_CSP_YUV444_16, false,  convert_yc48_to_yuv444_16bit_sse2,   convert_yc48_to_yuv444_16bit_sse2,   SSE2 )
 #endif
-#if 0
+#if CLFILTERS_AUF
     FUNC_AVX2(RGY_CSP_YUV444_16,  RGY_CSP_YC48,      false,  convert_yuv444_16bit_to_yc48_avx2,   convert_yuv444_16bit_to_yc48_avx2,   AVX2 )
     FUNC_SSE( RGY_CSP_YUV444_16,  RGY_CSP_YC48,      false,  convert_yuv444_16bit_to_yc48_avx,    convert_yuv444_16bit_to_yc48_avx,    AVX )
     FUNC_SSE( RGY_CSP_YUV444_16,  RGY_CSP_YC48,      false,  convert_yuv444_16bit_to_yc48_sse41,  convert_yuv444_16bit_to_yc48_sse41,  SSE41|SSSE3|SSE2 )

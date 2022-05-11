@@ -30,12 +30,17 @@
 #include <iomanip>
 #include "rgy_util.h"
 #include "rgy_filesystem.h"
+#include "rgy_version.h"
+#if !CLFILTERS_AUF
 #include "rgy_avutil.h"
+#endif
 #include "rgy_prm.h"
 #include "rgy_err.h"
 #include "rgy_perf_monitor.h"
 #include "rgy_ini.h"
+#if ENABLE_VPP_FILTER_AFS
 #include "afs_stg.h"
+#endif
 
 RGY_VPP_RESIZE_TYPE getVppResizeType(RGY_VPP_RESIZE_ALGO resize) {
     if (resize == RGY_VPP_RESIZE_AUTO) {
@@ -432,6 +437,7 @@ int VppAfs::read_afs_inifile(const TCHAR *inifile) {
     if (!rgy_file_exists(inifile)) {
         return 1;
     }
+#if ENABLE_VPP_FILTER_AFS
     const auto filename = tchar_to_string(inifile);
     const auto section = AFS_STG_SECTION;
 
@@ -463,6 +469,9 @@ int VppAfs::read_afs_inifile(const TCHAR *inifile) {
 
     // GetPrivateProfileIntA(section, AFS_STG_PROC_MODE, g_afs.ex_data.proc_mode, filename.c_str());
     return 0;
+#else
+    return 1;
+#endif
 }
 
 tstring VppAfs::print() const {
@@ -1234,7 +1243,9 @@ RGYParamCommon::RGYParamCommon() :
     copyChapter(false),
     keyOnChapter(false),
     chapterNoTrim(false),
+#if ENABLE_CAPTION2ASS
     caption2ass(FORMAT_INVALID),
+#endif
     audioIgnoreDecodeError(DEFAULT_IGNORE_DECODE_ERROR),
     muxOpt(),
     disableMp4Opt(false),
