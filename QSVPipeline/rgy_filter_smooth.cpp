@@ -164,12 +164,15 @@ RGY_ERR RGYFilterSmooth::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
         || prmPrev->smooth.prec != prm->smooth.prec) {
         if (prm->smooth.prec != VPP_FP_PRECISION_FP32) {
             if (!RGYOpenCLDevice(m_cl->queue().devid()).checkExtension("cl_khr_fp16")) {
-                AddMessage(RGY_LOG_WARN, _T("fp16 not supported on this device, using fp32 mode.\n"));
+                AddMessage((prm->smooth.prec == VPP_FP_PRECISION_FP16) ? RGY_LOG_WARN : RGY_LOG_DEBUG, _T("fp16 not supported on this device, using fp32 mode.\n"));
                 prm->smooth.prec = VPP_FP_PRECISION_FP32;
             }
         }
+        const auto sub_group_ext_avail = m_cl->platform()->checkSubGroupSupport(m_cl->queue().devid());
         const bool cl_fp16_support = prm->smooth.prec != VPP_FP_PRECISION_FP32;
-        const bool usefp16DctFirst = cl_fp16_support && prm->smooth.prec == VPP_FP_PRECISION_FP16
+        const bool usefp16DctFirst = cl_fp16_support
+            && sub_group_ext_avail != RGYOpenCLSubGroupSupport::NONE
+            && prm->smooth.prec == VPP_FP_PRECISION_FP16
             && prm->smooth.quality > 0; // quality = 0の時には適用してはならない
         m_smooth.set(std::async(std::launch::async,
             [cl = m_cl, log = m_pLog, cl_fp16_support, usefp16DctOrg = usefp16DctFirst, frameOut = prm->frameOut]() {
@@ -199,30 +202,32 @@ RGY_ERR RGYFilterSmooth::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
                 log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to load RGY_FILTER_SMOOTH_CL(m_smooth)\n"));
                 return std::unique_ptr<RGYOpenCLProgram>();
             }
-            RGYWorkSize local(SPP_THREAD_BLOCK_X, SPP_THREAD_BLOCK_Y);
-            RGYWorkSize global(divCeil(frameOut.width, SPP_BLOCK_SIZE_X), divCeil(frameOut.height, SPP_LOOP_COUNT_BLOCK));
-            const auto subGroupSize = smooth->kernel("kernel_smooth").config(cl->queue(), local, global).subGroupSize();
-            if (subGroupSize == 0) {
-                if (usefp16Dct) {
-                    log->write(RGY_LOG_WARN, RGY_LOGT_VPP, _T("Could not get subGroupSize for kernel, fp16 dct disabled.\n"));
-                    usefp16Dct = false;
-                }
-            } else if ((subGroupSize & (subGroupSize - 1)) != 0) {
-                log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("subGroupSize(%d) is not pow2!\n"), subGroupSize);
-                return std::unique_ptr<RGYOpenCLProgram>();
-            } else if (subGroupSize < 8) {
-                log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("subGroupSize(%d) < 8 !\n"), subGroupSize);
-                return std::unique_ptr<RGYOpenCLProgram>();
-            } else if (subGroupSize < 32) {
-                if (usefp16Dct) {
-                    log->write(RGY_LOG_WARN, RGY_LOGT_VPP, _T("subGroupSize(%d) < 32, fp16 dct disabled.\n"), subGroupSize);
-                    usefp16Dct = false;
-                }
-            }
-            if (usefp16DctOrg && !usefp16Dct) {
-                smooth = cl->buildResource(_T("RGY_FILTER_SMOOTH_CL"), _T("EXE_DATA"), gen_options(false, cl_fp16_support).c_str());
-                if (!smooth) {
+            if (usefp16Dct) {
+                RGYWorkSize local(SPP_THREAD_BLOCK_X, SPP_THREAD_BLOCK_Y);
+                RGYWorkSize global(divCeil(frameOut.width, SPP_BLOCK_SIZE_X), divCeil(frameOut.height, SPP_LOOP_COUNT_BLOCK));
+                const auto subGroupSize = smooth->kernel("kernel_smooth").config(cl->queue(), local, global).subGroupSize();
+                if (subGroupSize == 0) {
+                    if (usefp16Dct) {
+                        log->write(RGY_LOG_WARN, RGY_LOGT_VPP, _T("Could not get subGroupSize for kernel, fp16 dct disabled.\n"));
+                        usefp16Dct = false;
+                    }
+                } else if ((subGroupSize & (subGroupSize - 1)) != 0) {
+                    log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("subGroupSize(%d) is not pow2!\n"), subGroupSize);
                     return std::unique_ptr<RGYOpenCLProgram>();
+                } else if (subGroupSize < 8) {
+                    log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("subGroupSize(%d) < 8 !\n"), subGroupSize);
+                    return std::unique_ptr<RGYOpenCLProgram>();
+                } else if (subGroupSize < 32) {
+                    if (usefp16Dct) {
+                        log->write(RGY_LOG_WARN, RGY_LOGT_VPP, _T("subGroupSize(%d) < 32, fp16 dct disabled.\n"), subGroupSize);
+                        usefp16Dct = false;
+                    }
+                }
+                if (usefp16DctOrg && !usefp16Dct) {
+                    smooth = cl->buildResource(_T("RGY_FILTER_SMOOTH_CL"), _T("EXE_DATA"), gen_options(false, cl_fp16_support).c_str());
+                    if (!smooth) {
+                        return std::unique_ptr<RGYOpenCLProgram>();
+                    }
                 }
             }
             return smooth;
