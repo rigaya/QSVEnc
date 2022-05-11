@@ -9,6 +9,8 @@
 // thread_y_loop
 // weight_loop
 // prescreen_new
+// ENABLE_DP1_SHUFFLE_OPT
+// COLLECT_FLAG_MODE 0...sub_group_any, 1...cl_khr_local_int32_base_atomics
 
 #if USE_FP16
 #pragma OPENCL EXTENSION cl_khr_fp16 : enable
@@ -89,7 +91,9 @@ void dot_product_frame1_fp16(
     const int thIdX, const int thIdY,
     const half2 weight_scale[thread_y_loop]
 ) {
+#if ENABLE_DP1_SHUFFLE_OPT
     const int laneid = get_sub_group_local_id();
+#endif
     #pragma unroll
     for (int ithy = 0; ithy < thread_y_loop; ithy++) {
         #pragma unroll
@@ -216,7 +220,9 @@ void dot_product_frame1_fp32(
     const int thIdX, const int thIdY,
     const float mstd[thread_y_loop][4]
 ) {
+#if ENABLE_DP1_SHUFFLE_OPT
     const int laneid = get_sub_group_local_id();
+#endif //#if ENABLE_DP1_SHUFFLE_OPT
     #pragma unroll
     for (int ithy = 0; ithy < thread_y_loop; ithy++) {
         #pragma unroll
@@ -402,6 +408,12 @@ __kernel void kernel_compute_network1(
     //2.tmp: (nny + NNEDI_BLOCK_Y * thread_y_loop) * NNEDI_BLOCK_X * 2 * sizeof(ptr_temp[0])
     __local TypeCalc shared_src[(NNEDI_BLOCK_X + nnx) * (NNEDI_BLOCK_Y * thread_y_loop + nny)];////src 計算用
     __local TypeCalc shared_tmp[(nny + NNEDI_BLOCK_Y * thread_y_loop) * NNEDI_BLOCK_X * 2]; //tmp (計算結果の一時保管用)
+#if COLLECT_FLAG_MODE == 1
+    __local uint flag_collect[NNEDI_BLOCK_Y];
+    if (thIdX == 0) {
+        flag_collect[thIdY] = 0; // 初期化
+    }
+#endif
     const int ssrc_dim = NNEDI_BLOCK_X + nnx;
 
     pDst += dstOffset;
@@ -466,7 +478,14 @@ NNEDI_BLOCK_X   |                  |  |    | <-- 各スレッドはこの出力�
 
 #endif
     //weightの先頭のポインタ
-    if (sub_group_any(flag_sum)) { //どのpixelも処理する必要がなければ、スキップする
+#if COLLECT_FLAG_MODE == 0
+    if (sub_group_any(flag_sum)) { //どのpixelも処理する必要がなければ、スキップする : cl_khr_subgroups
+#elif COLLECT_FLAG_MODE == 1
+    atom_or(&flag_collect[thIdY], flag_sum); // cl_khr_local_int32_extended_atomics
+    barrier(CLK_LOCAL_MEM_FENCE);
+    if (flag_collect[thIdY]) { //どのpixelも処理する必要がなければ、スキップする
+#endif //#if COLLECT_FLAG_MODE == 0 || 1
+
         for (int iquality = 0; iquality < quals; iquality++) {
             const __global TypeCalc *const weight = (iquality) ? weight11 : weight10;
             float wsum[thread_y_loop], vsum[thread_y_loop];
@@ -501,5 +520,7 @@ NNEDI_BLOCK_X   |                  |  |    | <-- 各スレッドはこの出力�
                 }
             }
         }
+#if COLLECT_FLAG_MODE == 0 || COLLECT_FLAG_MODE == 1 
     }
+#endif
 }

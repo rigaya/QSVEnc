@@ -575,9 +575,12 @@ RGY_ERR RGYFilterNnedi::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+    auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamNnedi>(m_param);
     if (   !m_nnedi_k0.get()
         || !m_nnedi_k1.get()
-        || std::dynamic_pointer_cast<RGYFilterParamNnedi>(m_param)->nnedi != prm->nnedi) {
+        || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]
+        || prmPrev->nnedi != prm->nnedi
+        ) {
         if ((sts = checkParam(prm)) != RGY_ERR_NONE) {
             return sts;
         }
@@ -595,11 +598,22 @@ RGY_ERR RGYFilterNnedi::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
         case RGYOpenCLSubGroupSupport::STD22:
         case RGYOpenCLSubGroupSupport::STD20KHR:
             clversionRequired = "-cl-std=CL2.0 "; break;
-        case RGYOpenCLSubGroupSupport::INTEL_EXT: break;
+        case RGYOpenCLSubGroupSupport::INTEL_EXT:
         case RGYOpenCLSubGroupSupport::NONE:
         default:
-            AddMessage(RGY_LOG_ERROR, _T("--vpp-nnedi requires OpenCL subgroup support!\n"));
-            return RGY_ERR_UNSUPPORTED;
+            break;
+        }
+        enum class NNediCollectFlagMode {
+            SubGroupAny = 0,
+            LocalAtomicOr = 1,
+            NoOptimization = 2
+        };
+        const auto cl_local_atomic_int32ext_support = RGYOpenCLDevice(m_cl->queue().devid()).checkExtension("cl_khr_local_int32_extended_atomics");
+        auto collect_flag_mode = NNediCollectFlagMode::NoOptimization;
+        if (sub_group_ext_avail != RGYOpenCLSubGroupSupport::NONE) {
+            collect_flag_mode = NNediCollectFlagMode::SubGroupAny;
+        } else if (RGYOpenCLDevice(m_cl->queue().devid()).checkExtension("cl_khr_local_int32_extended_atomics")) { // atomic_or
+            collect_flag_mode = NNediCollectFlagMode::LocalAtomicOr;
         }
         const int prescreen_new = ((prm->nnedi.pre_screen & VPP_NNEDI_PRE_SCREEN_MODE) == VPP_NNEDI_PRE_SCREEN_ORIGINAL) ? 0 : 1;
         const auto fields = make_array<NnediTargetField>(NNEDI_GEN_FIELD_TOP, NNEDI_GEN_FIELD_BOTTOM);
@@ -653,7 +667,7 @@ RGY_ERR RGYFilterNnedi::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
             return nnedi_k0;
         }));
         m_nnedi_k1.set(std::async(std::launch::async,
-            [cl = m_cl, log = m_pLog, clversionRequired, prescreen_new, prm]() {
+            [cl = m_cl, log = m_pLog, clversionRequired, collect_flag_mode, prescreen_new, prm]() {
             const auto nnedi_common_cl = getEmbeddedResourceStr(_T("RGY_FILTER_NNEDI_COMMON_CL"), _T("EXE_DATA"), cl->getModuleHandle());
             if (nnedi_common_cl.length() == 0) {
                 log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("Failed to load RGY_FILTER_NNEDI_COMMON_CL."));
@@ -674,7 +688,8 @@ RGY_ERR RGYFilterNnedi::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
                 "-D TypePixel=%s -D TypePixel2=%s -D TypePixel4=%s -D bit_depth=%d -D TypeCalc=%s -D USE_FP16=%d "
                 "-D nnx=%d -D nny=%d -D nnxy=%d -D nns=%d "
                 "-D thread_y_loop=%d -D weight_loop=%d -D prescreen_new=%d "
-                "-D ENABLE_DP1_WEIGHT_LOOP_UNROLL=%d -D ENABLE_DP1_WEIGHT_ARRAY_OPT=%d -D ENABLE_DP1_SHUFFLE_OPT=%d",
+                "-D ENABLE_DP1_WEIGHT_LOOP_UNROLL=%d -D ENABLE_DP1_WEIGHT_ARRAY_OPT=%d -D ENABLE_DP1_SHUFFLE_OPT=%d "
+                "-D COLLECT_FLAG_MODE=%d",
                 RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort"  : "uchar",
                 RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort2" : "uchar2",
                 RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort4" : "uchar4",
@@ -687,7 +702,8 @@ RGY_ERR RGYFilterNnedi::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
                 prescreen_new,
                 ENABLE_DP1_WEIGHT_LOOP_UNROLL ? 1 : 0,
                 ENABLE_DP1_WEIGHT_ARRAY_OPT ? 1 : 0,
-                ENABLE_DP1_SHUFFLE_OPT ? 1 : 0
+                ENABLE_DP1_SHUFFLE_OPT ? 1 : 0,
+                (int)collect_flag_mode
                 );
             //options += "-fbin-exe -save-temps=F:\\temp\\nnedi_";
             auto nnedi_k1 = cl->build(nnedi_k1_cl, options.c_str());
@@ -798,7 +814,6 @@ RGY_ERR RGYFilterNnedi::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         AddMessage(RGY_LOG_ERROR, _T("Not implemented yet.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-
     auto err = procFrame(ppOutputFrames[0], pInputFrame, targetField, queue, wait_events, event);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("error at procFrame(0): %s.\n"), get_err_mes(err));
