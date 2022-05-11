@@ -227,11 +227,16 @@ RGY_ERR RGYFilterDeband::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
         AddMessage(RGY_LOG_WARN, _T("mode must be in range of 0 - 2.\n"));
         prm->deband.sample = clamp(prm->deband.sample, 0, 2);
     }
+    auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamDeband>(m_param);
     if (!m_deband.get()
         || !m_debandGenRand.get()
+        || !prmPrev
         || std::dynamic_pointer_cast<RGYFilterParamDeband>(m_param)->deband != prm->deband) {
 
-        {
+        if (!m_deband.get()
+            || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[prm->frameOut.csp]
+            || prmPrev->deband.sample                   != prm->deband.sample
+            || prmPrev->deband.blurFirst                != prm->deband.blurFirst) {
             const auto options = strsprintf("-D Type=%s -D bit_depth=%d -D sample_mode=%d -D blur_first=%d"
                 " -D block_loop_x_inner=%d  -D block_loop_y_inner=%d  -D block_loop_x_outer=%d -D block_loop_y_outer=%d",
                 RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
@@ -242,8 +247,8 @@ RGY_ERR RGYFilterDeband::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
             m_deband.set(m_cl->buildResourceAsync(_T("RGY_FILTER_DEBAND_CL"), _T("EXE_DATA"), options.c_str()));
         }
 
-        {
-
+        if (!m_debandGenRand.get()
+            || RGY_CSP_CHROMA_FORMAT[prmPrev->frameOut.csp] != RGY_CSP_CHROMA_FORMAT[prm->frameOut.csp]) {
             auto deband_gen_rand_cl   = getEmbeddedResourceStr(_T("RGY_FILTER_DEBAND_GEN_RAND_CL"),        _T("EXE_DATA"), m_cl->getModuleHandle());
             auto clrng_clh            = getEmbeddedResourceStr(_T("RGY_FILTER_CLRNG_CLH"),                 _T("EXE_DATA"), m_cl->getModuleHandle());
             auto mrg31k3p_clh         = getEmbeddedResourceStr(_T("RGY_FILTER_CLRNG_MRG31K3P_CLH"),        _T("EXE_DATA"), m_cl->getModuleHandle());
@@ -271,7 +276,7 @@ RGY_ERR RGYFilterDeband::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
             //includeの反映
             mrg31k3p_clh = str_replace(mrg31k3p_clh, "#include <clRNG/clRNG.clh>", clrng_clh);
             mrg31k3p_clh = str_replace(mrg31k3p_clh, "#include <clRNG/private/mrg31k3p.c.h>", mrg31k3p_private_c_h);
-#if ENCODER_QSV // Intel OpenCLでコンパイルを通すための小細工を行う
+#if ENCODER_QSV || CLFILTERS_AUF // Intel OpenCLでコンパイルを通すための小細工を行う
             auto mrg31k3p_clh_lines = split(mrg31k3p_clh, "\n");
             mrg31k3p_clh.clear();
             for (auto& line : mrg31k3p_clh_lines) {
@@ -297,9 +302,11 @@ RGY_ERR RGYFilterDeband::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
                 GEN_RAND_BLOCK_LOOP_Y);
             m_debandGenRand.set(m_cl->buildAsync(deband_gen_rand_source, options.c_str()));
         }
-        {
-            RGYFrameInfo rndBufFrame = prm->frameOut;
-            rndBufFrame.csp = RGY_CSP_RGB32;
+        RGYFrameInfo rndBufFrame = prm->frameOut;
+        rndBufFrame.csp = RGY_CSP_RGB32;
+        if (!m_randBufY
+            || !m_randBufUV
+            || cmpFrameInfoCspResolution(&rndBufFrame, &m_randBufY->frame)) {
             m_randBufY = m_cl->createFrameBuffer(rndBufFrame, CL_MEM_READ_WRITE);
             if (!m_randBufY) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate buffer for Random numbers\n"));

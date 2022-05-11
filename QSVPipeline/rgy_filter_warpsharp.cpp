@@ -242,8 +242,11 @@ RGY_ERR RGYFilterWarpsharp::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<R
     if ((sts = checkParam(prm)) != RGY_ERR_NONE) {
         return sts;
     }
+    auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamWarpsharp>(m_param);
     if (!m_warpsharp.get()
-        || std::dynamic_pointer_cast<RGYFilterParamWarpsharp>(m_param)->warpsharp != prm->warpsharp) {
+        || !prmPrev
+        || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]
+        || prmPrev->warpsharp.type != prm->warpsharp.type) {
         const auto options = strsprintf("-D Type=%s -D bit_depth=%d -D blur_range=%d"
             " -D WARPSHARP_BLOCK_X=%d -D WARPSHARP_BLOCK_Y=%d",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",

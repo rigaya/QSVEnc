@@ -116,8 +116,10 @@ RGY_ERR RGYFilterEdgelevel::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<R
         prm->edgelevel.white = clamp(prm->edgelevel.white, 0.0f, 31.0f);
         AddMessage(RGY_LOG_WARN, _T("white should be in range of %.1f - %.1f.\n"), 0.0f, 31.0f);
     }
+    auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamEdgelevel>(m_param);
     if (!m_edgelevel.get()
-        || std::dynamic_pointer_cast<RGYFilterParamEdgelevel>(m_param)->edgelevel != prm->edgelevel) {
+        || !prmPrev
+        || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]) {
         const auto options = strsprintf("-D Type=%s -D bit_depth=%d",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp]);

@@ -142,8 +142,10 @@ RGY_ERR RGYFilterTweak::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
         AddMessage(RGY_LOG_WARN, _T("gamma should be in range of %.1f - %.1f.\n"), 0.1f, 10.0f);
     }
 
+    auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamTweak>(m_param);
     if (!m_tweak.get()
-        || std::dynamic_pointer_cast<RGYFilterParamTweak>(m_param)->tweak != prm->tweak) {
+        || !prmPrev
+        || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]) {
         const auto options = strsprintf("-D Type=%s -D Type4=%s -D bit_depth=%d",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort4" : "uchar4",

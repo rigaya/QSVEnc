@@ -157,8 +157,11 @@ RGY_ERR RGYFilterSmooth::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
         return RGY_ERR_INVALID_PARAM;
     }
 
+    auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamSmooth>(m_param);
     if (!m_param
-        || std::dynamic_pointer_cast<RGYFilterParamSmooth>(m_param)->smooth != prm->smooth) {
+        || !prmPrev
+        || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]
+        || prmPrev->smooth.prec != prm->smooth.prec) {
         if (prm->smooth.prec != VPP_FP_PRECISION_FP32) {
             if (!RGYOpenCLDevice(m_cl->queue().devid()).checkExtension("cl_khr_fp16")) {
                 AddMessage(RGY_LOG_WARN, _T("fp16 not supported on this device, using fp32 mode.\n"));
@@ -224,25 +227,25 @@ RGY_ERR RGYFilterSmooth::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
             }
             return smooth;
         }));
-
-        sts = AllocFrameBuf(prm->frameOut, 1);
-        if (sts != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
-            return RGY_ERR_MEMORY_ALLOC;
-        }
-        for (int i = 0; i < RGY_CSP_PLANES[m_frameBuf[0]->frame.csp]; i++) {
-            prm->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
-        }
-
-        const auto qpframe = RGYFrameInfo(qp_size(pParam->frameIn.width), qp_size(pParam->frameIn.height), RGY_CSP_Y8, RGY_CSP_BIT_DEPTH[RGY_CSP_Y8], RGY_PICSTRUCT_FRAME, RGY_MEM_TYPE_CPU);
+    }
+    const auto qpframe = RGYFrameInfo(qp_size(pParam->frameIn.width), qp_size(pParam->frameIn.height), RGY_CSP_Y8, RGY_CSP_BIT_DEPTH[RGY_CSP_Y8], RGY_PICSTRUCT_FRAME, RGY_MEM_TYPE_CPU);
+    if (!m_qp || cmpFrameInfoCspResolution(&m_qp->frame, &qpframe)) {
         m_qp = m_cl->createFrameBuffer(qpframe);
         if (!m_qp) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for qp table.\n"));
             return RGY_ERR_MEMORY_ALLOC;
         }
         AddMessage(RGY_LOG_DEBUG, _T("allocated qp table buffer: %dx%pixym1[3], pitch %pixym1[3], %s.\n"),
-            m_qp->frame.width, m_qp->frame.height, m_qp->frame.pitch, RGY_CSP_NAMES[m_qp->frame.csp]);
+                   m_qp->frame.width, m_qp->frame.height, m_qp->frame.pitch, RGY_CSP_NAMES[m_qp->frame.csp]);
+    }
 
+    sts = AllocFrameBuf(prm->frameOut, 1);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
+        return RGY_ERR_MEMORY_ALLOC;
+    }
+    for (int i = 0; i < RGY_CSP_PLANES[m_frameBuf[0]->frame.csp]; i++) {
+        prm->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
 
     //コピーを保存

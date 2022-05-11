@@ -141,8 +141,11 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
     for (int i = 0; i < 4; i++) {
         pResizeParam->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
+    auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamResize>(m_param);
     if (!m_resize.get()
-        || std::dynamic_pointer_cast<RGYFilterParamResize>(m_param)->interp != pResizeParam->interp) {
+        || !prmPrev
+        || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]
+        || prmPrev->interp != pResizeParam->interp) {
         int radius = 1;
         switch (pResizeParam->interp) {
         case RGY_VPP_RESIZE_LANCZOS2:

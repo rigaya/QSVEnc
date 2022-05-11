@@ -124,8 +124,11 @@ RGY_ERR RGYFilterDenoiseKnn::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
         AddMessage(RGY_LOG_ERROR, _T("th_weight should be 0.0 - 1.0.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+    auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamDenoiseKnn>(m_param);
     if (!m_knn.get()
-        || std::dynamic_pointer_cast<RGYFilterParamDenoiseKnn>(m_param)->knn != pKnnParam->knn) {
+        || !prmPrev
+        || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]
+        || prmPrev->knn.radius != pKnnParam->knn.radius) {
         const auto options = strsprintf("-D Type=%s -D bit_depth=%d -D knn_radius=%d",
             RGY_CSP_BIT_DEPTH[pKnnParam->frameOut.csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[pKnnParam->frameOut.csp],

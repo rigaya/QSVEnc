@@ -145,8 +145,11 @@ RGY_ERR RGYFilterUnsharp::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
         prm->unsharp.threshold = clamp(prm->unsharp.threshold, 0.0f, 255.0f);
         AddMessage(RGY_LOG_WARN, _T("threshold should be in range of %.1f - %.1f.\n"), 0.0f, 255.0f);
     }
+    auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamUnsharp>(m_param);
     if (!m_unsharp.get()
-        || std::dynamic_pointer_cast<RGYFilterParamUnsharp>(m_param)->unsharp != prm->unsharp) {
+        || !prmPrev
+        || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]
+        || prmPrev->unsharp.radius != prm->unsharp.radius) {
         const auto options = strsprintf("-D Type=%s -D radius=%d -D bit_depth=%d",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
             prm->unsharp.radius,

@@ -184,15 +184,19 @@ RGY_ERR RGYFilterDenoisePmd::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
         AddMessage(RGY_LOG_WARN, _T("strength must be in range of 0.0 - 255.0.\n"));
         pPmdParam->pmd.threshold = clamp(pPmdParam->pmd.threshold, 0.0f, 255.0f);
     }
+    auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamDenoisePmd>(m_param);
     if (!m_pmd.get()
-        || std::dynamic_pointer_cast<RGYFilterParamDenoisePmd>(m_param)->pmd != pPmdParam->pmd) {
+        || !prmPrev
+        || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]
+        || prmPrev->pmd.useExp != pPmdParam->pmd.useExp) {
         const auto options = strsprintf("-D Type=%s -D bit_depth=%d -D useExp=%d",
             RGY_CSP_BIT_DEPTH[pPmdParam->frameOut.csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[pPmdParam->frameOut.csp],
             pPmdParam->pmd.useExp ? 1 : 0);
         m_pmd.set(m_cl->buildResourceAsync(_T("RGY_FILTER_DENOISE_PMD_CL"), _T("EXE_DATA"), options.c_str()));
     }
-    if (!m_gauss) {
+    if (!m_gauss
+        || cmpFrameInfoCspResolution(&m_gauss->frame, &pPmdParam->frameOut)) {
         m_gauss = m_cl->createFrameBuffer(pPmdParam->frameOut, CL_MEM_READ_WRITE);
     }
 
