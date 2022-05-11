@@ -181,11 +181,11 @@ int getEmbeddedResource(void **data, const TCHAR *name, const TCHAR *type, HMODU
 #endif
 }
 
-std::string getEmbeddedResourceStr(const tstring& name, const tstring& type) {
+std::string getEmbeddedResourceStr(const tstring& name, const tstring& type, HMODULE hModule) {
     std::string data_str;
     {
         char* data = nullptr;
-        int size = getEmbeddedResource((void**)&data, name.c_str(), type.c_str());
+        int size = getEmbeddedResource((void**)&data, name.c_str(), type.c_str(), hModule);
         if (size == 0) {
             return "";
         } else {

@@ -1031,6 +1031,8 @@ public:
     RGYOpenCLQueue& queue(int idx=0) { return m_queue[idx]; };
     RGYOpenCLPlatform *platform() const { return m_platform.get(); };
 
+    void setModuleHandle(const HMODULE hmodule) { m_hmodule = hmodule; }
+    HMODULE getModuleHandle() const { return m_hmodule; }
     std::unique_ptr<RGYOpenCLProgram> build(const std::string& source, const char *options);
     std::unique_ptr<RGYOpenCLProgram> buildFile(const tstring filename, const std::string options);
     std::unique_ptr<RGYOpenCLProgram> buildResource(const tstring name, const tstring type, const std::string options);
@@ -1087,6 +1089,7 @@ protected:
     std::vector<RGYOpenCLQueue> m_queue;
     std::shared_ptr<RGYLog> m_log;
     std::unordered_map<std::string, RGYOpenCLProgramAsync> m_copy;
+    HMODULE m_hmodule;
 };
 
 class RGYOpenCL {

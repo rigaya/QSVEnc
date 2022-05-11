@@ -602,12 +602,12 @@ RGY_ERR RGYFilterNnedi::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
         const auto fields = make_array<NnediTargetField>(NNEDI_GEN_FIELD_TOP, NNEDI_GEN_FIELD_BOTTOM);
         m_nnedi_k0.set(std::async(std::launch::async,
             [cl = m_cl, log = m_pLog, prescreen_new, clversionRequired, prm]() {
-            const auto nnedi_common_cl = getEmbeddedResourceStr(_T("RGY_FILTER_NNEDI_COMMON_CL"), _T("EXE_DATA"));
+            const auto nnedi_common_cl = getEmbeddedResourceStr(_T("RGY_FILTER_NNEDI_COMMON_CL"), _T("EXE_DATA"), cl->getModuleHandle());
             if (nnedi_common_cl.length() == 0) {
                 log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("Failed to load RGY_FILTER_NNEDI_COMMON_CL."));
                 return std::unique_ptr<RGYOpenCLProgram>();
             }
-            auto nnedi_k0_cl = getEmbeddedResourceStr(_T("RGY_FILTER_NNEDI_K0_CL"), _T("EXE_DATA"));
+            auto nnedi_k0_cl = getEmbeddedResourceStr(_T("RGY_FILTER_NNEDI_K0_CL"), _T("EXE_DATA"), cl->getModuleHandle());
             if (nnedi_k0_cl.length() == 0) {
                 log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("Failed to load RGY_FILTER_NNEDI_K1_CL."));
                 return std::unique_ptr<RGYOpenCLProgram>();
@@ -651,12 +651,12 @@ RGY_ERR RGYFilterNnedi::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
         }));
         m_nnedi_k1.set(std::async(std::launch::async,
             [cl = m_cl, log = m_pLog, clversionRequired, prescreen_new, prm]() {
-            const auto nnedi_common_cl = getEmbeddedResourceStr(_T("RGY_FILTER_NNEDI_COMMON_CL"), _T("EXE_DATA"));
+            const auto nnedi_common_cl = getEmbeddedResourceStr(_T("RGY_FILTER_NNEDI_COMMON_CL"), _T("EXE_DATA"), cl->getModuleHandle());
             if (nnedi_common_cl.length() == 0) {
                 log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("Failed to load RGY_FILTER_NNEDI_COMMON_CL."));
                 return std::unique_ptr<RGYOpenCLProgram>();
             }
-            auto nnedi_k1_cl = getEmbeddedResourceStr(_T("RGY_FILTER_NNEDI_K1_CL"), _T("EXE_DATA"));
+            auto nnedi_k1_cl = getEmbeddedResourceStr(_T("RGY_FILTER_NNEDI_K1_CL"), _T("EXE_DATA"), cl->getModuleHandle());
             if (nnedi_k1_cl.length() == 0) {
                 log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("Failed to load RGY_FILTER_NNEDI_K1_CL."));
                 return std::unique_ptr<RGYOpenCLProgram>();

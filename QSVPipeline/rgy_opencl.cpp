@@ -1164,7 +1164,8 @@ RGYOpenCLContext::RGYOpenCLContext(shared_ptr<RGYOpenCLPlatform> platform, share
     m_context(nullptr, clReleaseContext),
     m_queue(),
     m_log(pLog),
-    m_copy() {
+    m_copy(),
+    m_hmodule(NULL) {
 
 }
 
@@ -2309,7 +2310,7 @@ std::future<std::unique_ptr<RGYOpenCLProgram>> RGYOpenCLContext::buildFileAsync(
 std::unique_ptr<RGYOpenCLProgram> RGYOpenCLContext::buildResource(const tstring name, const tstring type, const std::string options) {
     void *data = nullptr;
     CL_LOG(RGY_LOG_DEBUG, _T("Load resource type: %s, name: %s\n"), type.c_str(), name.c_str());
-    int size = getEmbeddedResource(&data, name.c_str(), type.c_str());
+    int size = getEmbeddedResource(&data, name.c_str(), type.c_str(), m_hmodule);
     if (data == nullptr || size == 0) {
         CL_LOG(RGY_LOG_ERROR, _T("Failed to load resource [%s] %s\n"), type.c_str(), name.c_str());
         return nullptr;

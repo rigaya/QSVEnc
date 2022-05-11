@@ -182,30 +182,6 @@ RGYFilterDeband::~RGYFilterDeband() {
     close();
 }
 
-std::string RGYFilterDeband::getEmbeddedResourceStr(const tstring &name, const tstring &type) {
-    std::string data_str;
-    AddMessage(RGY_LOG_DEBUG, _T("Load resource type: %s, name: %s\n"), type.c_str(), name.c_str());
-    {
-        char *data = nullptr;
-        int size = getEmbeddedResource((void **)&data, name.c_str(), type.c_str());
-        if (size == 0) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to load %s(m_deband)\n"), name.c_str());
-        } else {
-
-            auto datalen = size;
-            {
-                const uint8_t *ptr = (const uint8_t *)data;
-                if (ptr[0] == 0xEF && ptr[1] == 0xBB && ptr[2] == 0xBF) { //skip UTF-8 BOM
-                    data += 3;
-                    datalen -= 3;
-                }
-            }
-            data_str = std::string(data, datalen);
-        }
-    }
-    return data_str;
-}
-
 RGY_ERR RGYFilterDeband::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
     m_pLog = pPrintMes;
@@ -263,10 +239,11 @@ RGY_ERR RGYFilterDeband::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
         }
 
         {
-            auto deband_gen_rand_cl   = getEmbeddedResourceStr(_T("RGY_FILTER_DEBAND_GEN_RAND_CL"),        _T("EXE_DATA"));
-            auto clrng_clh            = getEmbeddedResourceStr(_T("RGY_FILTER_CLRNG_CLH"),                 _T("EXE_DATA"));
-            auto mrg31k3p_clh         = getEmbeddedResourceStr(_T("RGY_FILTER_CLRNG_MRG31K3P_CLH"),        _T("EXE_DATA"));
-            auto mrg31k3p_private_c_h = getEmbeddedResourceStr(_T("RGY_FILTER_CLRNG_MRG31K3P_PRIVATE_CH"), _T("EXE_DATA"));
+
+            auto deband_gen_rand_cl   = getEmbeddedResourceStr(_T("RGY_FILTER_DEBAND_GEN_RAND_CL"),        _T("EXE_DATA"), m_cl->getModuleHandle());
+            auto clrng_clh            = getEmbeddedResourceStr(_T("RGY_FILTER_CLRNG_CLH"),                 _T("EXE_DATA"), m_cl->getModuleHandle());
+            auto mrg31k3p_clh         = getEmbeddedResourceStr(_T("RGY_FILTER_CLRNG_MRG31K3P_CLH"),        _T("EXE_DATA"), m_cl->getModuleHandle());
+            auto mrg31k3p_private_c_h = getEmbeddedResourceStr(_T("RGY_FILTER_CLRNG_MRG31K3P_PRIVATE_CH"), _T("EXE_DATA"), m_cl->getModuleHandle());
 
             //includeをチェック
             {

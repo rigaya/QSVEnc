@@ -1648,32 +1648,8 @@ RGY_ERR RGYFilterColorspace::procFrame(RGYFrameInfo *pOutputFrame, const RGYFram
     return RGY_ERR_NONE;
 }
 
-std::string RGYFilterColorspace::getEmbeddedResourceStr(const tstring &name, const tstring &type) {
-    std::string data_str;
-    AddMessage(RGY_LOG_DEBUG, _T("Load resource type: %s, name: %s\n"), type.c_str(), name.c_str());
-    {
-        char *data = nullptr;
-        int size = getEmbeddedResource((void **)&data, name.c_str(), type.c_str());
-        if (size == 0) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to load %s(m_colorspace)\n"), name.c_str());
-        } else {
-
-            auto datalen = size;
-            {
-                const uint8_t *ptr = (const uint8_t *)data;
-                if (ptr[0] == 0xEF && ptr[1] == 0xBB && ptr[2] == 0xBF) { //skip UTF-8 BOM
-                    data += 3;
-                    datalen -= 3;
-                }
-            }
-            data_str = std::string(data, datalen);
-        }
-    }
-    return data_str;
-}
-
 std::string RGYFilterColorspace::genKernelCode() {
-    const auto colorspace_func_h_cl = getEmbeddedResourceStr(_T("RGY_FILTER_COLORSPACE_CL"), _T("EXE_DATA"));
+    const auto colorspace_func_h_cl = getEmbeddedResourceStr(_T("RGY_FILTER_COLORSPACE_CL"), _T("EXE_DATA"), m_cl->getModuleHandle());
 
     std::string kernel;
     kernel += colorspace_func_h_cl;
