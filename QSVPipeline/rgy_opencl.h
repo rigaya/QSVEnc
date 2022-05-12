@@ -77,6 +77,10 @@
 
 #define RGYDefaultQueue 0
 
+#ifndef cl_device_feature_capabilities_intel
+typedef cl_bitfield cl_device_feature_capabilities_intel;
+#endif
+
 #if ENABLE_RGY_OPENCL_D3D9
 // ---cl_dx9_media_sharing_intel ---
 #define cl_intel_dx9_media_sharing 1
