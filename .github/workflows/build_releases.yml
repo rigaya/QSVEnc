@@ -92,6 +92,17 @@ jobs:
           copy _build\${{ matrix.platform }}\ReleaseStatic\*.dll QSVEncC_Release
           7z a -mx9 QSVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z .\QSVEncC_Release\*
 
+      - name: Check dll
+        run: |
+          if ("${{ matrix.platform }}" == "x64")   "QSVEncC_Release\QSVEncC64.exe" --check-avcodec-dll
+          if ("${{ matrix.platform }}" == "Win32") "QSVEncC_Release\QSVEncC.exe" --check-avcodec-dll
+
+      - name: Check Version
+        if: startsWith(github.ref, 'refs/tags/')
+        id: check_ver
+        run: |
+          powershell "$ver = (Get-ItemProperty .\QSVEncC_Release\QSVEncC*.exe).VersionInfo.FileVersion; if ($ver -eq '${{ needs.get_version_name.outputs.version_name }}') { exit 0; } exit 1;"
+
       - name: Upload Release Asset
         id: upload-release-asset 
         uses: softprops/action-gh-release@v1
@@ -100,3 +111,108 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: .\QSVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: QSVEncC_release_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}
+          path: .\QSVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z
+
+
+  upload_aviutl_release:
+    name: Upload Aviutl Release Asset
+    runs-on: windows-2022
+    needs: [ get_version_name, build ]
+
+    defaults:
+      run:
+        shell: cmd
+
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Checkout dependencies
+        run: |
+          curl -s -o ffmpeg_lgpl_20220302.zip -L https://github.com/rigaya/ffmpeg5_dlls_for_hwenc/archive/refs/tags/20220302.zip
+          7z x -y ffmpeg_lgpl_20220302.zip
+          move ffmpeg5* ffmpeg_lgpl
+          git clone https://github.com/AviSynth/AviSynthPlus.git ..\AviSynthPlus
+          git clone https://github.com/vapoursynth/vapoursynth.git ..\vapoursynth
+          git clone https://github.com/KhronosGroup/OpenCL-Headers.git ..\openclheaders
+          git clone https://github.com/maki-rxrz/Caption2Ass_PCR.git ..\caption2ass
+
+      - name: Add msbuild to PATH
+        uses: microsoft/setup-msbuild@v1.1
+        with:
+          msbuild-architecture: Win32
+
+      - name: MSBuild
+        run: |
+          set AVISYNTH_SDK=${{ github.workspace }}\..\AviSynthPlus\avs_core
+          set VAPOURSYNTH_SDK=${{ github.workspace }}\..\vapoursynth
+          set OPENCL_HEADERS=${{ github.workspace }}\..\openclheaders
+          set CAPTION2ASS_SRC=${{ github.workspace }}\..\caption2ass\src
+          msbuild QSVEnc.sln /t:build /p:configuration=Release /p:Platform=Win32 -maxcpucount
+
+      - name: Download auo_setup
+        id: download_auosetup
+        run: |
+          curl -o auo_setup.zip -L https://github.com/rigaya/auo_setup/releases/download/2.01/auo_setup_2.01.zip
+
+      - name: Download QSVEncC Win32
+        uses: actions/download-artifact@v3
+        with:
+          name: QSVEncC_release_${{ needs.get_version_name.outputs.version_name }}_Win32
+          path: QSVEncC_${{ needs.get_version_name.outputs.version_name }}_Win32.7z
+
+      - name: Download QSVEncC x64
+        uses: actions/download-artifact@v3
+        with:
+          name: QSVEncC_release_${{ needs.get_version_name.outputs.version_name }}_x64
+          path: QSVEncC_${{ needs.get_version_name.outputs.version_name }}_x64.7z
+          
+      - name: Create package
+        id: archieve
+        run: |
+          mkdir Aviutl_QSVEnc_release
+          7z x -oAviutl_QSVEnc_release\ auo_setup.zip
+          mkdir Aviutl_QSVEnc_release\exe_files\QSVEncC
+          mkdir Aviutl_QSVEnc_release\exe_files\QSVEncC\x86
+          mkdir Aviutl_QSVEnc_release\exe_files\QSVEncC\x64
+          7z x -oAviutl_QSVEnc_release\exe_files\QSVEncC\x86\ QSVEncC_${{ needs.get_version_name.outputs.version_name }}_Win32.7z
+          7z x -oAviutl_QSVEnc_release\exe_files\QSVEncC\x64\ QSVEncC_${{ needs.get_version_name.outputs.version_name }}_x64.7z
+          copy /y _build\Win32\Release\QSVEnc.auo Aviutl_QSVEnc_release\plugins\
+          copy /y QSVEnc\QSVEnc.ini Aviutl_QSVEnc_release\plugins\
+          copy /y QSVEnc\auo_setup.ini Aviutl_QSVEnc_release\exe_files\
+          copy /y QSVEnc\QSVEnc_readme.txt Aviutl_QSVEnc_release\
+          copy /y "QSVEnc\QSVが利用可能か確認 [ダブルクリック].bat" Aviutl_QSVEnc_release\
+          copy /y "QSVEnc\デバイスマネージャを開く [ダブルクリック].bat" Aviutl_QSVEnc_release\
+          echo D | xcopy /y /e QSVEnc\stg Aviutl_QSVEnc_release\plugins\QSVEnc_stg
+          dir /b /s Aviutl_QSVEnc_release\
+          7z a -mx9 Aviutl_QSVEnc_${{ needs.get_version_name.outputs.version_name }}.zip .\Aviutl_QSVEnc_release\*
+
+      - name: Check Version
+        id: check_ver
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          powershell "$ver = (Get-ItemProperty .\Aviutl_QSVEnc_release\plugins\QSVEnc.auo).VersionInfo.FileVersion; if ($ver -eq '${{ needs.get_version_name.outputs.version_name }}') { exit 0; } exit 1;"
+
+      - name: Check dll
+        id: check_dll
+        run: |
+          "Aviutl_QSVEnc_release\exe_files\QSVEncC\x86\QSVEncC.exe" --check-avcodec-dll
+          "Aviutl_QSVEnc_release\exe_files\QSVEncC\x64\QSVEncC64.exe" --check-avcodec-dll
+
+      - name: Upload Release Asset
+        id: upload-release-asset 
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          files: .\Aviutl_QSVEnc_${{ needs.get_version_name.outputs.version_name }}.zip

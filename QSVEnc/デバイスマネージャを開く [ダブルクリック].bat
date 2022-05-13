@@ -1,0 +1,3 @@
+@echo off
+echo デバイスマネージャを開いています...
+start devmgmt.msc
