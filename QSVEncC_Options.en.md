@@ -1781,6 +1781,26 @@ Please note that [--avsync](./NVEncC_Options.en.md#--avsync-string) vfr is autom
   --vpp-convolution3d matrix=simple
   ```
 
+### --vpp-smooth [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
+
+- **parameters**
+  - quality=&lt;int&gt;  (default=3, 1-6)  
+    Quality of the filter. Larger value should result in higher quality but with lower speed.
+  
+  - qp=&lt;int&gt;  (default=12, 1 - 63)    
+    Strength of the filter.
+    
+  - prec  
+    Select precision.
+    - auto (default)  
+      Use fp16 whenever it is available and will be faster, otherwise use fp32.
+    
+    - fp16  
+      Force to use fp16. x64 only.
+    
+    - fp32  
+      Force to use fp32.
+
 ### --vpp-knn [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
 Strong noise reduction filter.
 
@@ -1802,26 +1822,6 @@ Strong noise reduction filter.
   Example: slightly stronger than default
   --vpp-knn radius=3,strength=0.10,lerp=0.1
   ```
-
-### --vpp-smooth [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
-
-- **parameters**
-  - quality=&lt;int&gt;  (default=3, 1-6)  
-    Quality of the filter. Larger value should result in higher quality but with lower speed.
-  
-  - qp=&lt;int&gt;  (default=12, 1 - 63)    
-    Strength of the filter.
-    
-  - prec  
-    Select precision.
-    - auto (default)  
-      Use fp16 whenever it is available and will be faster, otherwise use fp32.
-    
-    - fp16  
-      Force to use fp16. x64 only.
-    
-    - fp32  
-      Force to use fp32.
 
 ### --vpp-pmd [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
 Rather weak noise reduction by modified pmd method, aimed to preserve edge while noise reduction.
@@ -2145,7 +2145,7 @@ Using output thread increases memory usage, but sometimes improves encoding spee
 - **parameters**
   - -1 ... auto (default)
   - 0 ... do not use output thread
-  - 1 ... use output thread  
+  - 1 ... use output thread
 
 ### --min-memory
 Minimize memory usage of QSVEncC, same as option set below.
