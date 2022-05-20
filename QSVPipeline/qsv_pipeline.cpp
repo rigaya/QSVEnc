@@ -3458,7 +3458,7 @@ RGY_ERR CQSVPipeline::RunEncode2() {
     std::deque<PipelineTaskData> dataqueue;
     {
         auto checkContinue = [&checkAbort](RGY_ERR& err) {
-            if (checkAbort()) { err = RGY_ERR_ABORTED; return false; }
+            if (checkAbort() || stdInAbort()) { err = RGY_ERR_ABORTED; return false; }
             return err >= RGY_ERR_NONE || err == RGY_ERR_MORE_DATA || err == RGY_ERR_MORE_SURFACE;
         };
         while (checkContinue(err)) {
