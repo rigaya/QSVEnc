@@ -252,6 +252,7 @@ struct sVppParams {
 
 struct sInputParams {
     VideoInfo input;              //入力する動画の情報
+    RGYParamInput inprm;
     RGYParamCommon common;
     RGYParamControl ctrl;
     RGYParamVpp vpp;

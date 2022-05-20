@@ -439,9 +439,10 @@ Set interlace flag of **input** frame.
 
 Deinterlace is available through [--vpp-deinterlace](#--vpp-deinterlace-string). If deinterlacer is not activated for interlaced input, then interlaced encoding is performed.
 
-- none ... progressive
-- tff ... top field first
-- bff ... Bottom Field First
+- **パラメータ**
+  - none ... progressive
+  - tff ... top field first
+  - bff ... Bottom Field First
 
 ### --crop &lt;int&gt;,&lt;int&gt;,&lt;int&gt;,&lt;int&gt;
 Number of pixels to be cropped from left, top, right, bottom.
@@ -457,17 +458,27 @@ Set output resolution. When it is different from the input resolution, HW/GPU re
 
 If not specified, it will be same as the input resolution. (no resize)
 
-_Special Values_
-- 0 ... Will be same as input.
-- One of width or height as negative value    
-  Will be resized keeping aspect ratio, and a value which could be divided by the negative value will be chosen.
+- **Special Values**
+  - 0 ... Will be same as input.
+  - One of width or height as negative value    
+    Will be resized keeping aspect ratio, and a value which could be divided by the negative value will be chosen.
 
-```
-Example: input 1280x720
---output-res 1024x576 -> normal
---output-res 960x0    -> resize to 960x720 (0 will be replaced to 720, same as input)
---output-res 1920x-2  -> resize to 1920x1080 (calculated to keep aspect ratio)
-```
+- **parameters**
+  - preserve_aspect_ratio=&lt;string&gt;  
+    Resize to specified width **or** height, while preserving input aspect ratio.
+    - increase ... preserve aspect ratio by increasing resolution.
+    - decrease ... preserve aspect ratio by decreasing resolution.
+
+- Example
+  ```
+  When input is 1280x720...
+  --output-res 1024x576 -> normal
+  --output-res 960x0    -> resize to 960x720 (0 will be replaced to 720, same as input)
+  --output-res 1920x-2  -> resize to 1920x1080 (calculated to keep aspect ratio)
+  
+  --output-res 1440x1440,preserve_aspect_ratio=increase -> resize to 2560x1440
+  --output-res 1440x1440,preserve_aspect_ratio=decrease -> resize to 1440x810
+  ```
 
 ### --input-csp &lt;string&gt;
 Set input colorspace for --raw input. Default is yv12.

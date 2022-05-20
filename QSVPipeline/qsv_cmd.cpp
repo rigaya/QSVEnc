@@ -1474,7 +1474,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         return 0;
     }
 
-    auto ret = parse_one_input_option(option_name, strInput, i, nArgNum, &pParams->input, argData);
+    auto ret = parse_one_input_option(option_name, strInput, i, nArgNum, &pParams->input, &pParams->inprm, argData);
     if (ret >= 0) return ret;
 
     ret = parse_one_common_option(option_name, strInput, i, nArgNum, &pParams->common, argData);
@@ -1876,7 +1876,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     cmd << _T(" -d ") << get_chr_from_value(list_qsv_device, (int)pParams->device);
     cmd << _T(" -c ") << get_chr_from_value(list_codec, pParams->CodecId);
 
-    cmd << gen_cmd(&pParams->input, &encPrmDefault.input, save_disabled_prm);
+    cmd << gen_cmd(&pParams->input, &encPrmDefault.input, &pParams->inprm, &encPrmDefault.inprm, save_disabled_prm);
 
     OPT_LST(_T("--output-depth"), outputDepth, list_output_depth);
     OPT_LST(_T("--output-csp"), outputCsp, list_output_csp);

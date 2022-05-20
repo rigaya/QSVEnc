@@ -81,6 +81,7 @@ sVppParams::sVppParams() :
 
 sInputParams::sInputParams() :
     input(),
+    inprm(),
     common(),
     ctrl(),
     vpp(),

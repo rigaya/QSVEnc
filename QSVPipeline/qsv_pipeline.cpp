@@ -1818,7 +1818,7 @@ RGY_ERR CQSVPipeline::CheckParam(sInputParams *inputParam) {
     }
 
     set_auto_resolution(inputParam->input.dstWidth, inputParam->input.dstHeight, outpar.first, outpar.second,
-        inputParam->input.srcWidth, inputParam->input.srcHeight, inputParam->input.sar[0], inputParam->input.sar[1], inputParam->input.crop);
+        inputParam->input.srcWidth, inputParam->input.srcHeight, inputParam->input.sar[0], inputParam->input.sar[1], 2, 2, inputParam->inprm.resizeResMode, inputParam->input.crop);
 
     // 解像度の条件とcrop
     if (inputParam->input.dstWidth % 2 != 0) {
