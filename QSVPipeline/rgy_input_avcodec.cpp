@@ -296,8 +296,8 @@ RGY_ERR RGYInputAvcodec::initVideoBsfs() {
     }
     // NVEnc issue#70でm_Demux.video.bUseHEVCmp42AnnexBを使用することが効果的だあったため、採用したが、
     // NVEnc issue#389ではm_Demux.video.bUseHEVCmp42AnnexBを使用するとエラーとなることがわかった
-    // 現時点では、NVEnc issue#70の入力ファイルでも問題なさそうなため、無効化する
-    if (false && m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
+    // さらに、#389の問題はirapがありヘッダーがない場合の処理の問題と分かった。これを修正し、再度有効に
+    if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
         m_Demux.video.bUseHEVCmp42AnnexB = true;
     } else if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_H264 ||
         m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
@@ -563,45 +563,72 @@ bool RGYInputAvcodec::isSelectedCodecTrack(const std::string &selectCodec, const
 
 void RGYInputAvcodec::hevcMp42Annexb(AVPacket *pkt) {
     static const uint8_t SC[] = { 0, 0, 0, 1 };
-    const uint8_t *ptr, *ptr_fin;
     if (pkt == NULL) {
         m_hevcMp42AnnexbBuffer.reserve(m_Demux.video.extradataSize + 128);
-        ptr = m_Demux.video.extradata;
-        ptr_fin = ptr + m_Demux.video.extradataSize;
-        ptr += 0x16;
-    } else {
-        m_hevcMp42AnnexbBuffer.reserve(pkt->size + 128);
-        ptr = pkt->data;
-        ptr_fin = ptr + pkt->size;
-    }
-    const int numOfArrays = *ptr;
-    ptr += !!numOfArrays;
-
-    while (ptr + 6 < ptr_fin) {
-        ptr += !!numOfArrays;
-        const int count = readUB16(ptr); ptr += 2;
-        int units = (numOfArrays) ? count : 1;
-        for (int i = (std::max)(1, units); i; i--) {
-            uint32_t size = readUB16(ptr); ptr += 2;
-            uint32_t uppper = count << 16;
-            size += (numOfArrays) ? 0 : uppper;
-            m_hevcMp42AnnexbBuffer.insert(m_hevcMp42AnnexbBuffer.end(), SC, SC+4);
-            m_hevcMp42AnnexbBuffer.insert(m_hevcMp42AnnexbBuffer.end(), ptr, ptr+size); ptr += size;
+        const uint8_t *ptr = m_Demux.video.extradata;
+        const uint8_t *ptr_fin = ptr + m_Demux.video.extradataSize;
+        ptr += 21;
+        m_Demux.video.hevcNaluLengthSize = ((*ptr) & 3) + 1; ptr++;
+        const int numOfArrays = *ptr; ptr++;
+        for (int ia = 0; ia < numOfArrays; ia++) {
+            ptr++;
+            const int count = readUB16(ptr); ptr += 2;
+            for (int i = (std::max)(1, count); i; i--) {
+                uint32_t size = readUB16(ptr); ptr += 2;
+                m_hevcMp42AnnexbBuffer.insert(m_hevcMp42AnnexbBuffer.end(), SC, SC + 4);
+                m_hevcMp42AnnexbBuffer.insert(m_hevcMp42AnnexbBuffer.end(), ptr, ptr + size); ptr += size;
+            }
         }
-    }
-    if (pkt) {
-        if (pkt->buf->size < (int)m_hevcMp42AnnexbBuffer.size()) {
-            av_grow_packet(pkt, (int)m_hevcMp42AnnexbBuffer.size());
-        }
-        memcpy(pkt->data, m_hevcMp42AnnexbBuffer.data(), m_hevcMp42AnnexbBuffer.size());
-        pkt->size = (int)m_hevcMp42AnnexbBuffer.size();
-    } else {
         if (m_Demux.video.extradata) {
             av_free(m_Demux.video.extradata);
         }
-        m_Demux.video.extradata = (uint8_t *)av_malloc(m_hevcMp42AnnexbBuffer.size());
+        m_Demux.video.extradata = (uint8_t *)av_malloc(m_hevcMp42AnnexbBuffer.size() + AV_INPUT_BUFFER_PADDING_SIZE);
         m_Demux.video.extradataSize = (int)m_hevcMp42AnnexbBuffer.size();
         memcpy(m_Demux.video.extradata, m_hevcMp42AnnexbBuffer.data(), m_hevcMp42AnnexbBuffer.size());
+        memset(m_Demux.video.extradata + m_Demux.video.extradataSize, 0, AV_INPUT_BUFFER_PADDING_SIZE);
+        if (ptr != ptr_fin) {
+            AddMessage(RGY_LOG_WARN, _T("hevcMp42Annexb extradata: data left behind %d bytes"), (int)(ptr_fin - ptr));
+        }
+    } else {
+        bool vps_exist = false;
+        bool sps_exist = false;
+        bool pps_exist = false;
+        bool got_irap = false;
+        const int hevcNaluLengthSize = m_Demux.video.hevcNaluLengthSize;
+        m_hevcMp42AnnexbBuffer.reserve(pkt->size + 128);
+        const uint8_t *ptr = pkt->data;
+        const uint8_t *ptr_fin = ptr + pkt->size;
+        while (ptr + hevcNaluLengthSize < ptr_fin) {
+            uint32_t size = 0;
+            for (int i = 0; i < hevcNaluLengthSize; i++) {
+                size = (size << 8) | (*ptr); ptr++;
+            }
+            const int nalu_type = ((*ptr) >> 1) & 0x3f;
+            vps_exist |= nalu_type == NALU_HEVC_VPS;
+            sps_exist |= nalu_type == NALU_HEVC_SPS;
+            pps_exist |= nalu_type == NALU_HEVC_PPS;
+            const bool header_exist = vps_exist && sps_exist && pps_exist;
+            const bool is_irap = nalu_type >= 16 && nalu_type <= 23;
+            // ヘッダーがすでにある場合は、extra dataをつけないようにする (header_existでチェック)
+            // 1度つけていたら、もうつけない (got_irapでチェック)
+            const bool add_extradata = is_irap && !got_irap && !header_exist;
+            got_irap |= is_irap;
+
+            if (add_extradata) {
+                m_hevcMp42AnnexbBuffer.insert(m_hevcMp42AnnexbBuffer.end(), m_Demux.video.extradata, m_Demux.video.extradata + m_Demux.video.extradataSize);
+            }
+            m_hevcMp42AnnexbBuffer.insert(m_hevcMp42AnnexbBuffer.end(), SC, SC + 4);
+            m_hevcMp42AnnexbBuffer.insert(m_hevcMp42AnnexbBuffer.end(), ptr, ptr + size); ptr += size;
+        }
+        if (pkt->buf->size < (int)m_hevcMp42AnnexbBuffer.size() + AV_INPUT_BUFFER_PADDING_SIZE) {
+            av_grow_packet(pkt, (int)m_hevcMp42AnnexbBuffer.size() + AV_INPUT_BUFFER_PADDING_SIZE);
+        }
+        memcpy(pkt->data, m_hevcMp42AnnexbBuffer.data(), m_hevcMp42AnnexbBuffer.size());
+        memset(pkt->data + m_hevcMp42AnnexbBuffer.size(), 0, AV_INPUT_BUFFER_PADDING_SIZE);
+        pkt->size = (int)m_hevcMp42AnnexbBuffer.size();
+        if (ptr != ptr_fin) {
+            AddMessage(RGY_LOG_WARN, _T("hevcMp42Annexb: data left behind %d bytes"), (int)(ptr_fin - ptr));
+        }
     }
     m_hevcMp42AnnexbBuffer.clear();
 }
@@ -2743,45 +2770,6 @@ RGY_ERR RGYInputAvcodec::GetHeader(RGYBitstream *pBitstream) {
             m_Demux.video.extradata = nullptr;
             AddMessage(RGY_LOG_DEBUG, _T("Failed to get header: 0 byte."));
             return RGY_ERR_MORE_DATA;
-        }
-
-        //抽出されたextradataが大きすぎる場合、適当に縮める
-        //NVEncのデコーダが受け取れるヘッダは1024byteまで
-        if (m_Demux.video.extradataSize > 1024) {
-            if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_H264) {
-                std::vector<nal_info> nal_list = m_Demux.video.parse_nal_h264(m_Demux.video.extradata, m_Demux.video.extradataSize);
-                const auto h264_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_H264_SPS; });
-                const auto h264_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_H264_PPS; });
-                const bool header_check = (nal_list.end() != h264_sps_nal) && (nal_list.end() != h264_pps_nal);
-                if (header_check) {
-                    m_Demux.video.extradataSize = (int)(h264_sps_nal->size + h264_pps_nal->size);
-                    uint8_t *new_ptr = (uint8_t *)av_malloc(m_Demux.video.extradataSize + AV_INPUT_BUFFER_PADDING_SIZE);
-                    memcpy(new_ptr, h264_sps_nal->ptr, h264_sps_nal->size);
-                    memcpy(new_ptr + h264_sps_nal->size, h264_pps_nal->ptr, h264_pps_nal->size);
-                    if (m_Demux.video.extradata) {
-                        av_free(m_Demux.video.extradata);
-                    }
-                    m_Demux.video.extradata = new_ptr;
-                }
-            } else if (m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_HEVC) {
-                std::vector<nal_info> nal_list = m_Demux.video.parse_nal_hevc(m_Demux.video.extradata, m_Demux.video.extradataSize);
-                const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
-                const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
-                const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });
-                const bool header_check = (nal_list.end() != hevc_vps_nal) && (nal_list.end() != hevc_sps_nal) && (nal_list.end() != hevc_pps_nal);
-                if (header_check) {
-                    m_Demux.video.extradataSize = (int)(hevc_vps_nal->size + hevc_sps_nal->size + hevc_pps_nal->size);
-                    uint8_t *new_ptr = (uint8_t *)av_malloc(m_Demux.video.extradataSize + AV_INPUT_BUFFER_PADDING_SIZE);
-                    memcpy(new_ptr, hevc_vps_nal->ptr, hevc_vps_nal->size);
-                    memcpy(new_ptr + hevc_vps_nal->size, hevc_sps_nal->ptr, hevc_sps_nal->size);
-                    memcpy(new_ptr + hevc_vps_nal->size + hevc_sps_nal->size, hevc_pps_nal->ptr, hevc_pps_nal->size);
-                    if (m_Demux.video.extradata) {
-                        av_free(m_Demux.video.extradata);
-                    }
-                    m_Demux.video.extradata = new_ptr;
-                }
-            }
-            AddMessage(RGY_LOG_DEBUG, _T("GetHeader: shrinked header to %d bytes.\n"), m_Demux.video.extradataSize);
         }
     }
     pBitstream->copy(m_Demux.video.extradata, m_Demux.video.extradataSize);
