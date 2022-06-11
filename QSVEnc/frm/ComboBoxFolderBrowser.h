@@ -134,7 +134,7 @@ namespace QSVEnc
 			e->Graphics->DrawImage(FolderIcon, (float)(e->Bounds.X + FolderIcon->Width * DirLevelList[e->Index]), (float)e->Bounds.Y);
 			e->Graphics->DrawString(this->Items[e->Index]->ToString(),
 				this->Font,
-				gcnew SolidBrush(Color::Black),
+				gcnew SolidBrush(this->ForeColor),
 				(float)(e->Bounds.X + FolderIcon->Width * DirLevelList[e->Index] + FolderIcon->Width),
 				(float)e->Bounds.Y);
 		}

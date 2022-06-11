@@ -218,6 +218,12 @@
     <ClInclude Include="encode\exe_version.h">
       <Filter>ヘッダー ファイル\encode</Filter>
     </ClInclude>
+    <ClInclude Include="frm\ComboBoxFolderBrowser.h">
+      <Filter>フォーム</Filter>
+    </ClInclude>
+    <ClInclude Include="frm\frmNewFolderName.h">
+      <Filter>フォーム</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="frm\frmAutoSaveLogSettings.resx">
