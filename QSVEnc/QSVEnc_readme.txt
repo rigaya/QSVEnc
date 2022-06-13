@@ -302,12 +302,25 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
-2022.0x.xx (7.02)
+2022.06.14 (7.02)
 [QSVEncC]
+- vpp-colorspaceで3D LUTを適用可能に。(--vpp-colorspace lut3d )
+- 3次元ノイズ除去フィルタを追加。(--vpp-convolution3d)
+- vpp-colorspaceのhdr2sdr使用時に、ldr_nits, source_peakに関するエラーチェックを追加。
+- アスペクト比を維持しつつ、指定の解像度にリサイズするオプションを追加。
+- vpp-smoothでfp16やsubgroupがサポートされないときに対応。
+- hevc 10bitでavhw使用時に正常にデコードできない問題を修正。
+- YUV420でvpp-afs使用時に、二重化するフレームで縞模様が発生してしまう問題を修正。
+- Ubuntu 22.04向けパッケージを追加。
 
 [QSVEnc.auo]
+- 黒窓プラグイン使用時に設定画面の描画を調整。
+- ffmpeg (AAC)で -aac_coder twoloop を使用するように。
 - 簡易インストーラを直接実行した場合に、エラーメッセージを表示するように変更。
-
+- ディスク容量が足りない時にどのドライブが足りないか表示するように。
+- 外部muxer使用時に、なるべくremuxerで処理するよう変更。
+- ScrollToCaret()を使用しないように。
+- 音声の一時出力先が反映されなくなっていたのを修正。
 
 2022.04.16 (7.01)
 [QSVEncC]
