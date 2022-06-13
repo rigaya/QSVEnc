@@ -16,6 +16,8 @@ jobs:
         include:
           - dockerimg: ubuntu2004
             pkgtype: deb
+          - dockerimg: ubuntu2204
+            pkgtype: deb
           - dockerimg: fedora32
             pkgtype: rpm
 
