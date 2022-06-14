@@ -2013,6 +2013,7 @@ System::Void frmConfig::CheckTheme() {
         SetAllColor(this, themeTo, this->GetType(), dwStgReader);
         SetAllMouseMove(this, themeTo);
     }
+    fcgSetDataGridViewCellStyleHeader(fcgDGVFeatures, themeMode, dwStgReader);
     //一度ウィンドウの再描画を再開し、強制的に再描画させる
     SendMessage(reinterpret_cast<HWND>(this->Handle.ToPointer()), WM_SETREDRAW, 1, 0);
     this->Refresh();
@@ -2334,7 +2335,7 @@ System::Void frmConfig::UpdateFeatures() {
     fcgDGVFeatures->DefaultCellStyle->Font = dataGridViewFont;
     fcgDGVFeatures->ColumnHeadersDefaultCellStyle->Font = dataGridViewFont;
     fcgDGVFeatures->RowHeadersDefaultCellStyle->Font = dataGridViewFont;
-
+    fcgSetDataGridViewCellStyleHeader(fcgDGVFeatures, themeMode, dwStgReader);
     fcgCheckVppFeatures();
 }
 

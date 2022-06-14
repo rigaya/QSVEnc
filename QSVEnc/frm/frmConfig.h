@@ -7550,8 +7550,13 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
         }
     private:
         System::Void fcgDGVFeatures_CellFormatting(System::Object^  sender, System::Windows::Forms::DataGridViewCellFormattingEventArgs^  e) {
-            if (e->ColumnIndex)
+            if (e->ColumnIndex) {
                 e->CellStyle->BackColor = (0 <= Convert::ToString(e->Value)->IndexOf(L"×")) ? Color::LightSalmon : Color::LightGreen;
+                e->CellStyle->ForeColor = Color::DimGray;
+            } else {
+                //先頭の列
+                fcgSetDataGridViewCellStyleHeader(e->CellStyle, themeMode, dwStgReader);
+            }
         }
     private:
         System::Void fcgBTSaveFeatureList_Click(System::Object^  sender, System::EventArgs^  e) {
