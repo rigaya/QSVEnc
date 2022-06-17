@@ -270,7 +270,7 @@ function showTable(idno) {
         }
     };
 
-    fprintf(stderr, (bUseJapanese) ? "QSVの情報を取得しています...\n" : "Checking for QSV...\n");
+    _ftprintf(stderr, _T("%s...\n"), (bUseJapanese) ? _T("QSVの情報を取得しています") : _T("Checking for QSV"));
 
     if (type == FEATURE_LIST_STR_TYPE_HTML) {
         print_tstring(header, false);
