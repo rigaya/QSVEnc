@@ -216,3 +216,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: .\Aviutl_QSVEnc_${{ needs.get_version_name.outputs.version_name }}.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: Aviutl_QSVEnc_${{ needs.get_version_name.outputs.version_name }}
+          path: .\Aviutl_QSVEnc_${{ needs.get_version_name.outputs.version_name }}.zip
