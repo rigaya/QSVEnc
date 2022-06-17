@@ -302,6 +302,14 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2022.06.17 (7.03)
+[QSVEncC]
+- --vpp-colorspace lut3dが正常に動作しない場合があったのを修正。
+- --check-features-html使用時の文字化け対策。
+
+[QSVEnc.auo]
+- エンコード終了ログの文字化け対策。
+
 2022.06.14 (7.02)
 [QSVEncC]
 - vpp-colorspaceで3D LUTを適用可能に。(--vpp-colorspace lut3d )

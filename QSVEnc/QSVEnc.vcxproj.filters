@@ -256,4 +256,7 @@
       <Filter>リソース ファイル</Filter>
     </ResourceCompile>
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="QSVEnc_readme.txt" />
+  </ItemGroup>
 </Project>

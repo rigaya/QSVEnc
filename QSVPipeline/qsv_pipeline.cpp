@@ -1865,7 +1865,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
 
     if (cspConvRequired || cropRequired)   filterPipeline.push_back(VppType::MFX_CROP);
     if (inputParam->vpp.colorspace.enable) {
-        bool requireOpenCL = inputParam->vpp.colorspace.hdr2sdr.tonemap != HDR2SDR_DISABLED;
+        bool requireOpenCL = inputParam->vpp.colorspace.hdr2sdr.tonemap != HDR2SDR_DISABLED || inputParam->vpp.colorspace.lut3d.table_file.length() > 0;
         if (!requireOpenCL) {
             auto currentVUI = inputParam->input.vui;
             for (size_t i = 0; i < inputParam->vpp.colorspace.convs.size(); i++) {
