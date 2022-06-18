@@ -216,7 +216,7 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
     auto sts = MFX_ERR_NONE;
     auto loader = MFXLoaderProvider::getLoader();
     auto cfg = MFXCreateConfig(loader);
-    if (false) {
+    if (D3D_SURFACES_SUPPORT) {
         mfxVariant accMode;
         accMode.Version.Version = MFX_VARIANT_VERSION;
         accMode.Type = MFX_VARIANT_TYPE_U32;
@@ -225,6 +225,13 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
         if (sts != MFX_ERR_NONE) {
             m_log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("MFXVideoSession2::init: Failed to set mfxImplDescription.AccelerationMode %d: %s.\n"), accMode.Data.U32, get_err_mes(err_to_rgy(sts)));
             return sts;
+        }
+        if (dev != QSVDeviceNum::AUTO) {
+            mfxVariant devID;
+            devID.Version.Version = MFX_VARIANT_VERSION;
+            devID.Type = MFX_VARIANT_TYPE_U32;
+            devID.Data.U32 = (int)dev - 1;
+            sts = MFXSetConfigFilterProperty(cfg, (const mfxU8 *)"DXGIAdapterIndex", devID);
         }
         m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: try init by MFXCreateSession.\n"));
         sts = MFXCreateSession(loader, 0, (mfxSession *)&m_session);
