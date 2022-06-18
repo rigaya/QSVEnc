@@ -74,6 +74,9 @@ enum QSV_CPU_GEN {
     CPU_GEN_ALDERLAKE_P,
     CPU_GEN_ARCTICSOUND_P,
     CPU_GEN_XEHP_SDV,
+    CPU_GEN_DG2,
+    CPU_GEN_ATS_M,
+    CPU_GEN_ALDERLAKE_N,
     CPU_GEN_KEEMBAY,
 
     CPU_GEN_MAX,
@@ -102,6 +105,9 @@ static const TCHAR *const CPU_GEN_STR[] = {
     _T("AlderlakeP"),
     _T("ArcticSoundP"),
     _T("XeHP_SDV"),
+    _T("DG2"),
+    _T("ArcticSoundM"),
+    _T("AlderlakeN"),
     _T("Keembay")
 };
 
@@ -139,6 +145,7 @@ static constexpr mfxVersion LIB_VER_LIST[] = {
     {  3, 2 },
     {  4, 2 },
     {  5, 2 },
+    {  6, 2 },
     {  0, 0 }
 };
 
@@ -174,6 +181,7 @@ MFX_LIB_VERSION(2, 2, 24);
 MFX_LIB_VERSION(2, 3, 25);
 MFX_LIB_VERSION(2, 4, 26);
 MFX_LIB_VERSION(2, 5, 27);
+MFX_LIB_VERSION(2, 6, 28);
 
 static const mfxU32 CODEC_LIST_AUO[] = {
     MFX_CODEC_AVC,
