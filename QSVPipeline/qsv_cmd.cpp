@@ -246,6 +246,8 @@ tstring encoder_help() {
         _T("\n"));
     str += strsprintf(_T("\n")
         _T("   --fixed-func                 use fixed func instead of GPU EU (default:off)\n")
+        _T("   --hyper-mode <string>        set Deep Link Hyper Mode\n")
+        _T("                                 off, on, adaptive (=default).\n")
         _T("\n"));
     str += strsprintf(_T("Frame buffer Options:\n")
         _T(" frame buffers are selected automatically by default.\n")
@@ -1092,6 +1094,16 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         pParams->bUseFixedFunc = false;
         return 0;
     }
+    if (0 == _tcscmp(option_name, _T("hyper-mode"))) {
+        i++;
+        int v = 0;
+        if ((v = get_value_from_chr(list_hyper_mode, strInput[i])) == PARSE_ERROR_FLAG) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        pParams->hyperMode = (mfxHyperMode)v;
+        return 0;
+    }
     if (0 == _tcscmp(option_name, _T("ref"))) {
         i++;
         try {
@@ -1883,6 +1895,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
 
     OPT_LST(_T("--quality"), nTargetUsage, list_quality_for_option);
     OPT_BOOL(_T("--fixed-func"), _T("--no-fixed-func"), bUseFixedFunc);
+    OPT_LST(_T("--hyper-mode"), hyperMode, list_hyper_mode);
     OPT_NUM(_T("--async-depth"), nAsyncDepth);
     if (save_disabled_prm || ((pParams->memType) != (encPrmDefault.memType))) {
         switch (pParams->memType) {

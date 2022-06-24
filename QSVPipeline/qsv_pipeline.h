@@ -85,6 +85,10 @@ struct mfxParamSet {
     mfxExtCodingOption2 cop2;
     mfxExtCodingOption3 cop3;
     mfxExtHEVCParam hevc;
+    mfxExtAV1BitstreamParam av1BitstreamPrm;
+    mfxExtAV1ResolutionParam av1ResolutionPrm;
+    mfxExtAV1TileParam av1TilePrm;
+    mfxExtHyperModeParam hyperModePrm;
 };
 
 const uint32_t QSV_PTS_SORT_SIZE = 16u;
@@ -149,6 +153,7 @@ protected:
     mfxExtAV1BitstreamParam m_ExtAV1BitstreamParam;
     mfxExtAV1ResolutionParam m_ExtAV1ResolutionParam;
     mfxExtAV1TileParam m_ExtAV1TileParam;
+    mfxExtHyperModeParam m_hyperModeParam;
     MFXVideoSession2 m_mfxSession;
     std::unique_ptr<QSVMfxDec> m_mfxDEC;
     std::unique_ptr<MFXVideoENCODE> m_pmfxENC;

@@ -291,6 +291,8 @@ struct sInputParams {
 
     MemType memType;       //use d3d surface
 
+    mfxHyperMode hyperMode;
+
     int nInputBufSize; //input buf size
 
     int        nPAR[2]; //PAR比
@@ -659,6 +661,13 @@ const CX_DESC list_priority[] = {
     { _T("low"),    MFX_PRIORITY_LOW    },
     { _T("normal"), MFX_PRIORITY_NORMAL },
     { _T("high"),   MFX_PRIORITY_HIGH   },
+};
+
+const CX_DESC list_hyper_mode[] = {
+    { _T("off"),      MFX_HYPERMODE_OFF      },
+    { _T("on"),       MFX_HYPERMODE_ON       },
+    { _T("adaptive"), MFX_HYPERMODE_ADAPTIVE },
+    { NULL, 0 }
 };
 
 enum {

@@ -583,6 +583,14 @@ Use only fixed function (fully hw encoding) and not use GPU EU.
 In this mode, encoding will be done in very low GPU utilization in low power,
 but the quality will be poor compared to ordinary mode.
 
+### --hyper-mode &lt;string&gt;
+Enable encode speed boost using Deep Link Hyper Mode.
+
+- **パラメータ**
+  - off
+  - on
+  - adaptive (default)
+
 ### --max-bitrate &lt;int&gt;
 Maximum bitrate (in kbps).
 

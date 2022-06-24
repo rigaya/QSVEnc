@@ -241,7 +241,7 @@ mfxVersion get_mfx_libsw_version() {
 
 QSVVideoParam::QSVVideoParam(uint32_t CodecId, mfxVersion mfxver_) :
     mfxVer(mfxver_), isVppParam(false), videoPrmVpp(), videoPrm(), buf(), spsbuf(), ppsbuf(), spspps(),
-    cop(), cop2(), cop3(), copVp8(), vp9Prm(), hevcPrm(), av1BitstreamPrm(), av1ResolutionPrm(), av1TilePrm() {
+    cop(), cop2(), cop3(), copVp8(), vp9Prm(), hevcPrm(), av1BitstreamPrm(), av1ResolutionPrm(), av1TilePrm(), hyperModePrm() {
     memset(spsbuf, 0, sizeof(spsbuf));
     memset(ppsbuf, 0, sizeof(ppsbuf));
     INIT_MFX_EXT_BUFFER(spspps, MFX_EXTBUFF_CODING_OPTION_SPSPPS);
@@ -259,6 +259,7 @@ QSVVideoParam::QSVVideoParam(uint32_t CodecId, mfxVersion mfxver_) :
     INIT_MFX_EXT_BUFFER(av1BitstreamPrm, MFX_EXTBUFF_AV1_BITSTREAM_PARAM);
     INIT_MFX_EXT_BUFFER(av1ResolutionPrm, MFX_EXTBUFF_AV1_RESOLUTION_PARAM);
     INIT_MFX_EXT_BUFFER(av1TilePrm, MFX_EXTBUFF_AV1_TILE_PARAM);
+    INIT_MFX_EXT_BUFFER(hyperModePrm, MFX_EXTBUFF_HYPER_MODE_PARAM);
 
     if (add_cop(CodecId)) {
         buf.push_back((mfxExtBuffer *)&cop);
@@ -285,6 +286,10 @@ QSVVideoParam::QSVVideoParam(uint32_t CodecId, mfxVersion mfxver_) :
         buf.push_back((mfxExtBuffer *)&av1BitstreamPrm);
         //buf.push_back((mfxExtBuffer *)&av1ResolutionPrm);
         //buf.push_back((mfxExtBuffer *)&av1TilePrm);
+    }
+    if ((CodecId == MFX_CODEC_AVC || CodecId == MFX_CODEC_HEVC)
+        && check_lib_version(mfxVer, MFX_LIB_VERSION_2_5)) {
+        buf.push_back((mfxExtBuffer *)&hyperModePrm);
     }
 
     RGY_MEMSET_ZERO(videoPrm);
@@ -714,12 +719,14 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 code
     mfxExtHEVCParam hevc;
     mfxExtVP9Param vp9;
     mfxExtAV1BitstreamParam av1;
+    mfxExtHyperModeParam hyperMode;
     INIT_MFX_EXT_BUFFER(cop,  MFX_EXTBUFF_CODING_OPTION);
     INIT_MFX_EXT_BUFFER(cop2, MFX_EXTBUFF_CODING_OPTION2);
     INIT_MFX_EXT_BUFFER(cop3, MFX_EXTBUFF_CODING_OPTION3);
     INIT_MFX_EXT_BUFFER(hevc, MFX_EXTBUFF_HEVC_PARAM);
     INIT_MFX_EXT_BUFFER(vp9, MFX_EXTBUFF_VP9_PARAM);
     INIT_MFX_EXT_BUFFER(av1, MFX_EXTBUFF_AV1_BITSTREAM_PARAM);
+    INIT_MFX_EXT_BUFFER(hyperMode, MFX_EXTBUFF_HYPER_MODE_PARAM);
 
     std::vector<mfxExtBuffer *> buf;
     if (add_cop(codecId)) { // VP9ではmfxExtCodingOptionはチェックしないようにしないと正常に動作しない
@@ -742,6 +749,10 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 code
     if (check_lib_version(mfxVer, MFX_LIB_VERSION_2_5)
         && codecId == MFX_CODEC_AV1) {
         buf.push_back((mfxExtBuffer *)&av1);
+    }
+    if (check_lib_version(mfxVer, MFX_LIB_VERSION_2_5)
+        && (codecId == MFX_CODEC_AVC || codecId == MFX_CODEC_HEVC)) {
+        buf.push_back((mfxExtBuffer *)&hyperMode);
     }
 
     mfxVideoParam videoPrm;
@@ -876,7 +887,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 code
 
 #define CHECK_FEATURE(membersIn, flag, value, required_ver) { \
         if (check_lib_version(mfxVer, (required_ver))) { \
-            const mfxU16 orig = (membersIn); \
+            const decltype(membersIn) orig = (membersIn); \
             (membersIn) = (value); \
             auto check_ret = MFXVideoENCODE_Query(session, &videoPrm, &videoPrm); \
             if (check_ret >= MFX_ERR_NONE \
@@ -940,6 +951,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 code
         CHECK_FEATURE(cop3.ExtBrcAdaptiveLTR,    ENC_FEATURE_EXT_BRC_ADAPTIVE_LTR, MFX_CODINGOPTION_ON,    MFX_LIB_VERSION_1_26);
         cop2.ExtBRC = MFX_CODINGOPTION_UNKNOWN;
         cop2.BitrateLimit = MFX_CODINGOPTION_UNKNOWN;
+        CHECK_FEATURE(hyperMode.Mode, MFX_HYPERMODE_ON, MFX_HYPERMODE_OFF, MFX_LIB_VERSION_2_5);
         if (codecId == MFX_CODEC_HEVC) {
             CHECK_FEATURE(cop3.GPB,              ENC_FEATURE_DISABLE_GPB,       MFX_CODINGOPTION_ON,  MFX_LIB_VERSION_1_19);
             CHECK_FEATURE(cop3.EnableQPOffset,   ENC_FEATURE_PYRAMID_QP_OFFSET, MFX_CODINGOPTION_ON,  MFX_LIB_VERSION_1_19);

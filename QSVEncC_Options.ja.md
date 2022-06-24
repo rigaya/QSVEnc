@@ -601,6 +601,14 @@ vaビデオメモリを使用する。(Linux)
 従来の部分的にGPU EUを使用したエンコードではなく、エンコードの全工程で固定回路(Fixed Func)を使用し、完全HWエンコを行う。
 GPUに負荷をかけることなく、低電力でエンコード可能だが、品質はやや劣る。
 
+### --hyper-mode &lt;string&gt;
+Deep Linkを使用したエンコードの高速化を使用する。
+
+- **パラメータ**
+  - off
+  - on
+  - adaptive (デフォルト)
+
 ### --max-bitrate &lt;int&gt;
 最大ビットレート(kbps単位)。
 

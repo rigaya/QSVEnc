@@ -332,6 +332,15 @@ bool CQSVPipeline::CompareParam(const mfxParamSet& prmIn, const mfxParamSet& prm
         COMPARE_INT(hevc.SampleAdaptiveOffset,  MFX_SAO_UNKNOWN);
         COMPARE_INT(hevc.LCUSize, 0);
     }
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_5)) {
+        COMPARE_TRI(av1BitstreamPrm.WriteIVFHeaders, 0);
+        COMPARE_INT(av1ResolutionPrm.FrameWidth, 0);
+        COMPARE_INT(av1ResolutionPrm.FrameHeight, 0);
+        COMPARE_INT(av1TilePrm.NumTileRows, 0);
+        COMPARE_INT(av1TilePrm.NumTileColumns, 0);
+        COMPARE_INT(av1TilePrm.NumTileGroups, 0);
+        COMPARE_INT(hyperModePrm.Mode, 0);
+    }
     return ret;
 }
 
@@ -550,6 +559,12 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
     if (pInParams->bRDO && !(availableFeaures & ENC_FEATURE_RDO)) {
         print_feature_warnings(RGY_LOG_WARN, _T("RDO"));
         pInParams->bRDO = false;
+    }
+    if (pInParams->hyperMode != MFX_HYPERMODE_OFF && !(availableFeaures & ENC_FEATURE_HYPER_MODE)) {
+        if (pInParams->hyperMode == MFX_HYPERMODE_ON) {
+            print_feature_warnings(RGY_LOG_WARN, _T("HyperMode"));
+        }
+        pInParams->hyperMode = MFX_HYPERMODE_OFF;
     }
     if (((m_encPicstruct & RGY_PICSTRUCT_INTERLACED) != 0)
         && !(availableFeaures & ENC_FEATURE_INTERLACE)) {
@@ -1140,6 +1155,11 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         //m_EncExtParams.push_back((mfxExtBuffer*)&m_ExtAV1ResolutionParam);
         //m_EncExtParams.push_back((mfxExtBuffer*)&m_ExtAV1TileParam);
     }
+    if (pInParams->hyperMode != MFX_HYPERMODE_OFF) {
+        INIT_MFX_EXT_BUFFER(m_hyperModeParam, MFX_EXTBUFF_HYPER_MODE_PARAM);
+        m_hyperModeParam.Mode = pInParams->hyperMode;
+        m_EncExtParams.push_back((mfxExtBuffer*)&m_hyperModeParam);
+    }
 
     if (!m_EncExtParams.empty()) {
         m_mfxEncParams.ExtParam = &m_EncExtParams[0];
@@ -1399,6 +1419,7 @@ CQSVPipeline::CQSVPipeline() :
     m_ExtAV1BitstreamParam(),
     m_ExtAV1ResolutionParam(),
     m_ExtAV1TileParam(),
+    m_hyperModeParam(),
     m_mfxSession(),
     m_mfxDEC(),
     m_pmfxENC(),
@@ -1451,6 +1472,7 @@ CQSVPipeline::CQSVPipeline() :
     INIT_MFX_EXT_BUFFER(m_ExtAV1BitstreamParam,  MFX_EXTBUFF_AV1_BITSTREAM_PARAM);
     INIT_MFX_EXT_BUFFER(m_ExtAV1ResolutionParam, MFX_EXTBUFF_AV1_RESOLUTION_PARAM);
     INIT_MFX_EXT_BUFFER(m_ExtAV1TileParam,       MFX_EXTBUFF_AV1_TILE_PARAM);
+    INIT_MFX_EXT_BUFFER(m_hyperModeParam,        MFX_EXTBUFF_HYPER_MODE_PARAM);
 
     RGY_MEMSET_ZERO(m_DecInputBitstream);
 
@@ -3732,11 +3754,15 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
 
     if (m_pmfxENC) {
         mfxParamSet prmSetOut;
-        prmSetOut.vidprm = outFrameInfo->videoPrm;
-        prmSetOut.cop    = outFrameInfo->cop;
-        prmSetOut.cop2   = outFrameInfo->cop2;
-        prmSetOut.cop3   = outFrameInfo->cop3;
-        prmSetOut.hevc   = outFrameInfo->hevcPrm;
+        prmSetOut.vidprm           = outFrameInfo->videoPrm;
+        prmSetOut.cop              = outFrameInfo->cop;
+        prmSetOut.cop2             = outFrameInfo->cop2;
+        prmSetOut.cop3             = outFrameInfo->cop3;
+        prmSetOut.hevc             = outFrameInfo->hevcPrm;
+        prmSetOut.av1BitstreamPrm  = outFrameInfo->av1BitstreamPrm;
+        prmSetOut.av1ResolutionPrm = outFrameInfo->av1ResolutionPrm;
+        prmSetOut.av1TilePrm       = outFrameInfo->av1TilePrm;
+        prmSetOut.hyperModePrm     = outFrameInfo->hyperModePrm;
 
         CompareParam(m_prmSetIn, prmSetOut);
     }
@@ -3774,6 +3800,9 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         PRINT_INFO(    _T("Media SDK      software encoder, API v%d.%02d\n"), m_mfxVer.Major, m_mfxVer.Minor);
     }
     PRINT_INFO(    _T("Async Depth    %d frames\n"), m_nAsyncDepth);
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_5)) {
+        PRINT_INFO(_T("Hyper Mode     %s\n"), get_cx_desc(list_hyper_mode, outFrameInfo->hyperModePrm.Mode));
+    }
     PRINT_INFO(    _T("Buffer Memory  %s, %d work buffer\n"), MemTypeToStr(m_memType), workSurfaceCount);
     //PRINT_INFO(    _T("Input Frame Format   %s\n"), ColorFormatToStr(m_pFileReader->m_ColorFormat));
     //PRINT_INFO(    _T("Input Frame Type     %s\n"), list_interlaced_mfx[get_cx_index(list_interlaced_mfx, SrcPicInfo.PicStruct)].desc);

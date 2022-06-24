@@ -269,6 +269,7 @@ enum : uint64_t {
     ENC_FEATURE_HEVC_SAO               = 0x0000008000000000,
     ENC_FEATURE_HEVC_CTU               = 0x0000010000000000,
     ENC_FEATURE_HEVC_TSKIP             = 0x0000020000000000,
+    ENC_FEATURE_HYPER_MODE             = 0x0000040000000000,
 };
 
 enum : uint64_t {
@@ -307,6 +308,7 @@ static const FEATURE_DESC list_enc_feature[] = {
     { _T("RC mode      "), ENC_FEATURE_CURRENT_RC             },
     { _T("10bit depth  "), ENC_FEATURE_10BIT_DEPTH            },
     { _T("Fixed Func   "), ENC_FEATURE_FIXED_FUNC             },
+    { _T("Hyper Mode   "), ENC_FEATURE_HYPER_MODE             },
     { _T("Interlace    "), ENC_FEATURE_INTERLACE              },
     { _T("VUI info     "), ENC_FEATURE_VUI_INFO               },
     //{ _T("aud          "), ENC_FEATURE_AUD                    },
@@ -383,6 +385,7 @@ struct QSVVideoParam {
     mfxExtAV1BitstreamParam av1BitstreamPrm;
     mfxExtAV1ResolutionParam av1ResolutionPrm;
     mfxExtAV1TileParam av1TilePrm;
+    mfxExtHyperModeParam hyperModePrm;
 
     QSVVideoParam(uint32_t CodecId, mfxVersion mfxver_);
     QSVVideoParam() = delete;

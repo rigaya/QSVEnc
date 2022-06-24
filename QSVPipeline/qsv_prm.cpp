@@ -115,6 +115,7 @@ sInputParams::sInputParams() :
     nSlices(0),
     ColorFormat(MFX_FOURCC_NV12),
     memType(HW_MEMORY),
+    hyperMode(MFX_HYPERMODE_ADAPTIVE),
     nInputBufSize(QSV_DEFAULT_INPUT_BUF_HW),
     nPAR(),
     bCAVLC(false),

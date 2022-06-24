@@ -550,6 +550,7 @@ namespace QSVEnc {
                 { _T("モード有効      "), ENC_FEATURE_CURRENT_RC             },
                 { _T("10bit深度       "), ENC_FEATURE_10BIT_DEPTH            },
                 { _T("完全HWモード    "), ENC_FEATURE_FIXED_FUNC             },
+                { _T("DeepLink        "), ENC_FEATURE_HYPER_MODE             },
                 { _T("インタレ保持    "), ENC_FEATURE_INTERLACE              },
                 { _T("色設定等出力    "), ENC_FEATURE_VUI_INFO               },
                 //{ _T("aud             "), ENC_FEATURE_AUD                    },
