@@ -302,6 +302,18 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2022.06.28 (7.04)
+[QSVEncC]
+- oneVPLを更新し、API 2.6に対応。
+- HyperMode(DeepLink)を使用可能に。(--hyper-mode)
+- AVPacket関連の非推奨関数の使用を削減。
+- yuv422読み込み時にcropを併用すると、黒い横線が生じてしまう問題を修正。
+
+[QSVEnc.auo]
+- デフォルトの音声ビットレートを変更。
+- プリセットの音声ビットレートを変更。
+- exe_filesから実行ファイルを検出できない場合、plugins\exe_filesを検索するように。
+
 2022.06.17 (7.03)
 [QSVEncC]
 - --vpp-colorspace lut3dが正常に動作しない場合があったのを修正。
