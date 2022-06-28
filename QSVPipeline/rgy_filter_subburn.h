@@ -109,7 +109,7 @@ protected:
 
     unique_ptr<RGYFilterResize> m_resize;
 
-    RGYQueueSPSP<AVPacket> m_queueSubPackets; //入力から得られた字幕パケット
+    RGYQueueMPMP<AVPacket> m_queueSubPackets; //入力から得られた字幕パケット
 
     RGYOpenCLProgramAsync m_subburn;
 };

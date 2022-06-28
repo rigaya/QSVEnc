@@ -112,8 +112,8 @@ protected:
     amf::AMFComponentPtr m_decoder;
 #endif
 #if ENCODER_QSV
-    RGYQueueSPSP<RGYBitstream> m_encBitstream;
-    RGYQueueSPSP<RGYBitstream> m_encBitstreamUnused;
+    RGYQueueMPMP<RGYBitstream> m_encBitstream;
+    RGYQueueMPMP<RGYBitstream> m_encBitstreamUnused;
     std::unique_ptr<QSVMfxDec> m_mfxDEC;
     std::unique_ptr<PipelineTaskMFXDecode> m_taskDec;
     std::unordered_map<mfxFrameSurface1 *, std::unique_ptr<RGYCLFrameInterop>> m_surfVppInInterop;

@@ -1406,6 +1406,8 @@ CQSVPipeline::CQSVPipeline() :
     m_pFileWriter(),
     m_AudioReaders(),
     m_pFileReader(),
+    m_poolPkt(),
+    m_poolFrame(),
     m_nAsyncDepth(0),
     m_nAVSyncMode(RGY_AVSYNC_ASSUME_CFR),
     m_VideoSignalInfo(),
@@ -1592,6 +1594,7 @@ RGY_ERR CQSVPipeline::InitOutput(sInputParams *inputParams) {
         m_hdrsei.get(), m_dovirpu.get(), m_encTimestamp.get(),
         !check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6),
         inputParams->bBenchmark,
+        m_poolPkt.get(), m_poolFrame.get(),
         m_pStatus, m_pPerfMonitor, m_pQSVLog);
     if (err != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("failed to initialize file reader(s).\n"));
@@ -1632,10 +1635,14 @@ RGY_ERR CQSVPipeline::InitInput(sInputParams *inputParam) {
     //入力モジュールが、エンコーダに返すべき色空間をセット
     inputParam->input.csp = getEncoderCsp(inputParam, &inputParam->input.bitdepth);
 
+    m_poolPkt = std::make_unique<RGYPoolAVPacket>();
+    m_poolFrame = std::make_unique<RGYPoolAVFrame>();
+
     auto sts = initReaders(m_pFileReader, m_AudioReaders, &inputParam->input, inputCspOfRawReader,
         m_pStatus, &inputParam->common, &inputParam->ctrl, HWDecCodecCsp, subburnTrackId,
         (ENABLE_VPP_FILTER_RFF) ? inputParam->vpp.rff : false,
         (ENABLE_VPP_FILTER_AFS) ? inputParam->vpp.afs.enable : false,
+        m_poolPkt.get(), m_poolFrame.get(),
         nullptr, m_pPerfMonitor.get(), m_pQSVLog);
     if (sts != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("failed to initialize file reader(s).\n"));
@@ -3155,6 +3162,8 @@ void CQSVPipeline::Close() {
         m_pFileReader->Close();
         m_pFileReader.reset();
     }
+    m_poolFrame.reset();
+    m_poolPkt.reset();
 #if defined(_WIN32) || defined(_WIN64)
     if (m_bTimerPeriodTuning) {
         timeEndPeriod(1);

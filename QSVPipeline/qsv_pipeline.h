@@ -138,6 +138,8 @@ protected:
     shared_ptr<RGYOutput> m_pFileWriter;
     vector<shared_ptr<RGYInput>> m_AudioReaders;
     shared_ptr<RGYInput> m_pFileReader;
+    std::unique_ptr<RGYPoolAVPacket> m_poolPkt;
+    std::unique_ptr<RGYPoolAVFrame> m_poolFrame;
 
     int m_nAsyncDepth;
     RGYAVSync m_nAVSyncMode;

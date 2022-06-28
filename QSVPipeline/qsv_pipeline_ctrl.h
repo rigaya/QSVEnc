@@ -685,7 +685,7 @@ protected:
     bool m_getNextBitstream;
     int m_decFrameOutCount;
     RGYBitstream m_decInputBitstream;
-    RGYQueueSPSP<RGYFrameDataMetadata*> m_queueHDR10plusMetadata;
+    RGYQueueMPMP<RGYFrameDataMetadata*> m_queueHDR10plusMetadata;
 public:
     PipelineTaskMFXDecode(MFXVideoSession *mfxSession, int outMaxQueueSize, MFXVideoDECODE *mfxdec, mfxVideoParam& decParams, RGYInput *input, mfxVersion mfxVer, std::shared_ptr<RGYLog> log)
         : PipelineTask(PipelineTaskType::MFXDEC, outMaxQueueSize, mfxSession, mfxVer, log), m_dec(mfxdec), m_mfxDecParams(decParams), m_input(input), m_getNextBitstream(true), m_decFrameOutCount(0), m_decInputBitstream(), m_queueHDR10plusMetadata() {
@@ -1145,10 +1145,10 @@ public:
             }
             //パケットを各Writerに分配する
             for (uint32_t i = 0; i < packetList.size(); i++) {
-                const int nTrackId = (int)((uint32_t)packetList[i].flags >> 16);
+                AVPacket *pkt = packetList[i];
+                const int nTrackId = (int)((uint32_t)pkt->flags >> 16);
                 const bool sendToFilter = m_filterForStreams.count(nTrackId) > 0;
                 const bool sendToWriter = m_pWriterForAudioStreams.count(nTrackId) > 0;
-                AVPacket *pkt = &packetList[i];
                 if (sendToFilter) {
                     AVPacket *pktToFilter = nullptr;
                     if (sendToWriter) {
