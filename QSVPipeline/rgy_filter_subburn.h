@@ -61,9 +61,10 @@ public:
     VideoInfo       videoInfo;
     AVDemuxStream   streamIn;
     sInputCrop      crop;
+    RGYPoolAVPacket *poolPkt;
     std::vector<const AVStream *> attachmentStreams;
 
-    RGYFilterParamSubburn() : subburn(), videoOutTimebase(), videoInputStream(nullptr), videoInputFirstKeyPts(0), videoInfo(), streamIn(), crop(), attachmentStreams() {};
+    RGYFilterParamSubburn() : subburn(), videoOutTimebase(), videoInputStream(nullptr), videoInputFirstKeyPts(0), videoInfo(), streamIn(), crop(), poolPkt(nullptr), attachmentStreams() {};
     virtual ~RGYFilterParamSubburn() {};
     virtual tstring print() const override;
 };
@@ -109,7 +110,8 @@ protected:
 
     unique_ptr<RGYFilterResize> m_resize;
 
-    RGYQueueMPMP<AVPacket> m_queueSubPackets; //入力から得られた字幕パケット
+    RGYPoolAVPacket *m_poolPkt;
+    RGYQueueMPMP<AVPacket*> m_queueSubPackets; //入力から得られた字幕パケット
 
     RGYOpenCLProgramAsync m_subburn;
 };

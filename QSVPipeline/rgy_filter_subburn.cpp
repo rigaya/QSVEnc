@@ -424,9 +424,14 @@ RGYFilterSubburn::RGYFilterSubburn(shared_ptr<RGYOpenCLContext> context) : RGYFi
     m_outCodecDecode(nullptr),
     m_outCodecDecodeCtx(unique_ptr<AVCodecContext, decltype(&avcodec_close)>(nullptr, avcodec_close)),
     m_subData(),
+    m_subImages(),
     m_assLibrary(unique_ptr<ASS_Library, decltype(&ass_library_done)>(nullptr, ass_library_done)),
     m_assRenderer(unique_ptr<ASS_Renderer, decltype(&ass_renderer_done)>(nullptr, ass_renderer_done)),
-    m_assTrack(unique_ptr<ASS_Track, decltype(&ass_free_track)>(nullptr, ass_free_track)) {
+    m_assTrack(unique_ptr<ASS_Track, decltype(&ass_free_track)>(nullptr, ass_free_track)),
+    m_resize(),
+    m_poolPkt(nullptr),
+    m_queueSubPackets(),
+    m_subburn() {
     m_name = _T("subburn");
 }
 
@@ -692,13 +697,11 @@ RGY_ERR RGYFilterSubburn::InitLibAss(const std::shared_ptr<RGYFilterParamSubburn
 }
 
 RGY_ERR RGYFilterSubburn::readSubFile() {
-    AVPacket pkt;
-    av_init_packet(&pkt);
-    while (av_read_frame(m_formatCtx.get(), &pkt) >= 0) {
-        if (pkt.stream_index == m_subtitleStreamIndex) {
-            addStreamPacket(&pkt);
-        } else {
-            av_packet_unref(&pkt);
+    for (auto pkt = m_poolPkt->getFree();
+        av_read_frame(m_formatCtx.get(), pkt.get()) >= 0;
+        pkt = m_poolPkt->getFree()) {
+        if (pkt->stream_index == m_subtitleStreamIndex) {
+            addStreamPacket(pkt.release());
         }
     }
     return RGY_ERR_NONE;
@@ -712,6 +715,7 @@ RGY_ERR RGYFilterSubburn::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+    m_poolPkt = prm->poolPkt;
     //パラメータチェック
     if ((sts = checkParam(prm)) != RGY_ERR_NONE) {
         return sts;
@@ -786,7 +790,7 @@ int RGYFilterSubburn::targetTrackIdx() {
 }
 
 RGY_ERR RGYFilterSubburn::addStreamPacket(AVPacket *pkt) {
-    m_queueSubPackets.push(*pkt);
+    m_queueSubPackets.push(pkt);
     const auto log_level = RGY_LOG_TRACE;
     if (m_pLog != nullptr && log_level >= m_pLog->getLogLevel(RGY_LOGT_VPP)) {
         auto prm = std::dynamic_pointer_cast<RGYFilterParamSubburn>(m_param);
@@ -814,9 +818,9 @@ RGY_ERR RGYFilterSubburn::procFrame(RGYFrameInfo *pOutputFrame, RGYOpenCLQueue &
     const int64_t vidInputOffsetMs = (prm->videoInputStream && prm->subburn.vid_ts_offset) ? av_rescale_q(prm->videoInputFirstKeyPts, prm->videoInputStream->time_base, { 1, 1000 }) : 0;
     const int64_t tsOffsetMs = (int64_t)(prm->subburn.ts_offset * 1000.0 + 0.5);
 
-    AVPacket pkt;
+    AVPacket *pkt = nullptr;
     while (m_queueSubPackets.front_copy_no_lock(&pkt)) {
-        const auto pktTimeMs = av_rescale_q(pkt.pts, inputSubStream->time_base, { 1, 1000 }) - vidInputOffsetMs + tsOffsetMs;
+        const auto pktTimeMs = av_rescale_q(pkt->pts, inputSubStream->time_base, { 1, 1000 }) - vidInputOffsetMs + tsOffsetMs;
         if (!(m_subType & AV_CODEC_PROP_TEXT_SUB)) {
             //字幕パケットのptsが、フレームのptsより古ければ、処理する必要がある
             if (nFrameTimeMs < pktTimeMs) {
@@ -835,7 +839,7 @@ RGY_ERR RGYFilterSubburn::procFrame(RGYFrameInfo *pOutputFrame, RGYOpenCLQueue &
 
         //字幕パケットをデコードする
         int got_sub = 0;
-        if (0 > avcodec_decode_subtitle2(m_outCodecDecodeCtx.get(), m_subData.get(), &got_sub, &pkt)) {
+        if (0 > avcodec_decode_subtitle2(m_outCodecDecodeCtx.get(), m_subData.get(), &got_sub, pkt)) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to decode subtitle.\n"));
             return RGY_ERR_NONE;
         }
@@ -857,7 +861,7 @@ RGY_ERR RGYFilterSubburn::procFrame(RGYFrameInfo *pOutputFrame, RGYOpenCLQueue &
                 ass_process_chunk(m_assTrack.get(), ass, (int)strlen(ass), nStartTime, nDuration);
             }
         }
-        av_packet_unref(&pkt);
+        m_poolPkt->returnFree(&pkt);
     }
 
     if (m_subType & AV_CODEC_PROP_TEXT_SUB) {
