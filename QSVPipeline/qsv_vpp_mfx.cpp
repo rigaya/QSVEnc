@@ -439,7 +439,7 @@ RGY_ERR QSVVppMfx::SetVppExtBuffers(sVppParams& params) {
     m_VppDoNotUseList.push_back(MFX_EXTBUFF_VPP_PROCAMP);
 
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)
-        && (   MFX_FOURCC_RGB3 == m_mfxVppParams.vpp.In.FourCC
+        && (   MFX_FOURCC_RGBP == m_mfxVppParams.vpp.In.FourCC
             || MFX_FOURCC_RGB4 == m_mfxVppParams.vpp.In.FourCC
             || params.colorspace.enable)) {
         INIT_MFX_EXT_BUFFER(m_ExtVppVSI, MFX_EXTBUFF_VPP_VIDEO_SIGNAL_INFO);
