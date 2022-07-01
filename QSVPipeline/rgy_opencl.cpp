@@ -2484,10 +2484,9 @@ std::unique_ptr<RGYCLFrame> RGYOpenCLContext::createFrameBuffer(const RGYFrameIn
         break;
     }
 
-    int image_pitch_alignment = m_platform->dev(0).info().image_pitch_alignment;
-    if (image_pitch_alignment == 0) {
-        image_pitch_alignment = 256;
-    }
+    // convert系の関数でalignmentを前提としている箇所があるので、最低でも64にするようにする
+    // またQSVEncのfixed-funcに渡すとき、256でないと異常が生じる場合がある
+    const int image_pitch_alignment = std::max(m_platform->dev(0).info().image_pitch_alignment, 256);
 
     RGYFrameInfo clframe = frame;
     clframe.mem_type = RGY_MEM_TYPE_GPU;
