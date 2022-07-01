@@ -732,9 +732,9 @@ tstring RGYOpenCLDevice::infostr(bool full) const {
         ts << " (" << dev.driver_version << ")";
     }
     if (full) {
-        const bool is_intel = checkVendor(dev.vendor.c_str(), "Intel");
-        const bool is_nv    = checkVendor(dev.vendor.c_str(), "NVIDIA");
-        const bool is_amd = checkVendor(dev.vendor.c_str(), "AMD");
+        [[maybe_unused]] const bool is_intel = checkVendor(dev.vendor.c_str(), "Intel");
+        [[maybe_unused]] const bool is_nv    = checkVendor(dev.vendor.c_str(), "NVIDIA");
+        [[maybe_unused]] const bool is_amd   = checkVendor(dev.vendor.c_str(), "AMD");
         ts << std::endl;
 #if ENCODER_VCEENC || CLFILTERS_AUF
         if (is_amd) {
@@ -1893,7 +1893,7 @@ std::vector<cl_image_format> RGYOpenCLContext::getSupportedImageFormats(const cl
         return result;
     }
     result.resize(num_formats);
-    if ((err = clGetSupportedImageFormats(m_context.get(), CL_MEM_READ_WRITE, image_type, result.size(), result.data(), &num_formats)) != CL_SUCCESS) {
+    if ((err = clGetSupportedImageFormats(m_context.get(), CL_MEM_READ_WRITE, image_type, (cl_uint)result.size(), result.data(), &num_formats)) != CL_SUCCESS) {
         result.clear();
     }
     return result;
@@ -2085,7 +2085,6 @@ RGY_ERR RGYOpenCLContext::copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, 
         CL_LOG(RGY_LOG_ERROR, _T("in/out csp should be same in copyFrame.\n"));
         return RGY_ERR_INVALID_CALL;
     }
-    const int pixel_size = RGY_CSP_BIT_DEPTH[dst->csp] > 8 ? 2 : 1;
 
     RGY_ERR err = RGY_ERR_NONE;
     for (int i = 0; i < RGY_CSP_PLANES[dst->csp]; i++) {
@@ -2148,7 +2147,6 @@ RGY_ERR RGYOpenCLContext::setPlane(int value, RGYFrameInfo *dst, const sInputCro
     return setPlane(value, dst, dstOffset, queue, {}, event);
 }
 RGY_ERR RGYOpenCLContext::setPlane(int value, RGYFrameInfo *planeDst, const sInputCrop *dstOffset, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
-    const int pixel_size = RGY_CSP_BIT_DEPTH[planeDst->csp] > 8 ? 2 : 1;
     if (planeDst->mem_type == RGY_MEM_TYPE_CPU) {
         if (RGY_CSP_BIT_DEPTH[planeDst->csp] > 8) {
             for (int y = dstOffset->e.up; y < planeDst->height - dstOffset->e.bottom; y++) {
@@ -2210,8 +2208,6 @@ RGY_ERR RGYOpenCLContext::setFrame(int value, RGYFrameInfo *dst, const sInputCro
     return setFrame(value, dst, dstOffset, queue, {}, event);
 }
 RGY_ERR RGYOpenCLContext::setFrame(int value, RGYFrameInfo *dst, const sInputCrop *dstOffset, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
-    const int pixel_size = RGY_CSP_BIT_DEPTH[dst->csp] > 8 ? 2 : 1;
-
     RGY_ERR err = RGY_ERR_NONE;
     for (int i = 0; i < RGY_CSP_PLANES[dst->csp]; i++) {
         auto planeDst = getPlane(dst, (RGY_PLANE)i);

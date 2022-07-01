@@ -139,8 +139,6 @@ RGY_ERR QSVMfxDec::SetParam(
         PrintMes(RGY_LOG_ERROR, _T("Unknown codec %s for hw decoder.\n"), CodecToStr(inputCodec).c_str());
         return RGY_ERR_UNSUPPORTED;
     }
-    const bool bGotHeader = inputHeader.size() > 0;
-
     //デコーダの作成
     m_mfxDec.reset(new MFXVideoDECODE(m_mfxSession));
     if (!m_mfxDec) {

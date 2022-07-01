@@ -67,8 +67,7 @@ RGY_ERR nnedi_compute_network_0(RGYFrameInfo *pOutputPlane,
     RGYOpenCLQueue &queue,
     RGYOpenCLProgram *nnedi_k0,
     const std::vector<RGYOpenCLEvent> &wait_events,
-    RGYOpenCLEvent *event,
-    RGYOpenCLContext *cl
+    RGYOpenCLEvent *event
 ) {
     RGYWorkSize local(NNEDI_BLOCK_X, NNEDI_BLOCK_Y);
     const char *kernel_name = "kernel_compute_network0";
@@ -187,8 +186,7 @@ RGY_ERR RGYFilterNnedi::procPlane(
         m_weight0.get(),
         (prm->nnedi.pre_screen & VPP_NNEDI_PRE_SCREEN_MODE),
         targetField,
-        queue, m_nnedi_k0.get(), {}, nullptr,
-        m_cl.get());
+        queue, m_nnedi_k0.get(), {}, nullptr);
     if (err != RGY_ERR_NONE) {
         return err;
     }
@@ -608,7 +606,6 @@ RGY_ERR RGYFilterNnedi::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
             LocalAtomicOr = 1,
             NoOptimization = 2
         };
-        const auto cl_local_atomic_int32ext_support = RGYOpenCLDevice(m_cl->queue().devid()).checkExtension("cl_khr_local_int32_extended_atomics");
         auto collect_flag_mode = NNediCollectFlagMode::NoOptimization;
         if (sub_group_ext_avail != RGYOpenCLSubGroupSupport::NONE) {
             collect_flag_mode = NNediCollectFlagMode::SubGroupAny;
@@ -637,7 +634,6 @@ RGY_ERR RGYFilterNnedi::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
             const int wstep = prm->nnedi.precision == VPP_FP_PRECISION_FP16 ? 2 : 1; //half2なら2, floatなら1
             const int nnx = (prescreen_new) ? 16 : 12;
             const int nny = 4;
-            const int nnxy = nnx * nny;
             const int nns = 4 / wstep; //half2の場合、nns方向を2つ格納できる
             nnedi_k0_cl = str_replace(nnedi_k0_cl, "#include \"rgy_filter_nnedi_common.cl\"", nnedi_common_cl);
             const auto options = clversionRequired + strsprintf(" "

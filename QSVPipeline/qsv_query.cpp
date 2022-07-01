@@ -304,7 +304,7 @@ std::vector<RGY_CSP> CheckDecFeaturesInternal(MFXVideoSession& session, mfxVersi
     mfxIMPL impl;
     session.QueryIMPL(&impl);
     const auto HARDWARE_IMPL = make_array<mfxIMPL>(MFX_IMPL_HARDWARE, MFX_IMPL_HARDWARE_ANY, MFX_IMPL_HARDWARE2, MFX_IMPL_HARDWARE3, MFX_IMPL_HARDWARE4);
-    const bool bHardware = HARDWARE_IMPL.end() != std::find(HARDWARE_IMPL.begin(), HARDWARE_IMPL.end(), MFX_IMPL_BASETYPE(impl));
+    //const bool bHardware = HARDWARE_IMPL.end() != std::find(HARDWARE_IMPL.begin(), HARDWARE_IMPL.end(), MFX_IMPL_BASETYPE(impl));
 
     mfxVideoParam videoPrm, videoPrmOut;
     memset(&videoPrm,  0, sizeof(videoPrm));

@@ -287,7 +287,7 @@ RGY_ERR RGYFilterSsim::initDecode(const RGYBitstream *bitstream) {
     auto side_data = av_packet_get_side_data(&pkt, AV_PKT_DATA_NEW_EXTRADATA, &side_data_size);
     if (side_data) {
         prm->input.codecExtra = malloc(side_data_size);
-        prm->input.codecExtraSize = side_data_size;
+        prm->input.codecExtraSize = (decltype(prm->input.codecExtraSize))side_data_size;
         memcpy(prm->input.codecExtra, side_data, side_data_size);
         AddMessage(RGY_LOG_DEBUG, _T("Found extradata of codec %s: size %d\n"), char_to_tstring(avcodec_get_name(avcodecID)).c_str(), side_data_size);
     }
@@ -590,7 +590,9 @@ RGY_ERR RGYFilterSsim::compare_frames() {
         return RGY_ERR_INVALID_PARAM;
     }
     auto res = RGY_ERR_NONE;
+#if ENCODER_QSV
     bool flush = false;
+#endif //#if ENCODER_QSV
 
     while (!m_abort) {
 #if ENCODER_VCEENC
@@ -811,8 +813,6 @@ RGY_ERR RGYFilterSsim::build_kernel(const RGY_CSP csp) {
 }
 
 RGY_ERR RGYFilterSsim::calc_ssim_plane(const RGYFrameInfo *p0, const RGYFrameInfo *p1, std::unique_ptr<RGYCLBuf>& tmp, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent> &wait_events) {
-    const int width = p0->width & (~3);
-    const int height = p0->height & (~3);
     RGYWorkSize local(SSIM_BLOCK_X, SSIM_BLOCK_Y);
     RGYWorkSize global(divCeil(p0->width, 4), divCeil(p0->height, 4));
     RGYWorkSize groups = global.groups(local);
@@ -851,8 +851,6 @@ RGY_ERR RGYFilterSsim::calc_ssim_frame(const RGYFrameInfo *p0, const RGYFrameInf
 }
 
 RGY_ERR RGYFilterSsim::calc_psnr_plane(const RGYFrameInfo *p0, const RGYFrameInfo *p1, std::unique_ptr<RGYCLBuf> &tmp, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent> &wait_events) {
-    const int width = p0->width;
-    const int height = p0->height;
     RGYWorkSize local(SSIM_BLOCK_X, SSIM_BLOCK_Y);
     RGYWorkSize global(divCeil(p0->width, 4), p0->height);
     RGYWorkSize groups = global.groups(local);

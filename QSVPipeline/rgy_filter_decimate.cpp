@@ -152,7 +152,7 @@ RGYFilterDecimateFrameData::~RGYFilterDecimateFrameData() {
     m_log.reset();
 }
 
-RGY_ERR RGYFilterDecimateFrameData::set(const RGYFrameInfo *pInputFrame, int inputFrameId, int blockSizeX, int blockSizeY, RGYOpenCLQueue& queue, RGYOpenCLEvent& event) {
+RGY_ERR RGYFilterDecimateFrameData::set(const RGYFrameInfo *pInputFrame, int inputFrameId, int blockSizeX, int blockSizeY, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent& event) {
     m_inFrameId = inputFrameId;
     m_blockX = blockSizeX;
     m_blockY = blockSizeY;
@@ -161,7 +161,7 @@ RGY_ERR RGYFilterDecimateFrameData::set(const RGYFrameInfo *pInputFrame, int inp
     if (!m_buf) {
         m_buf = m_cl->createFrameBuffer(pInputFrame->width, pInputFrame->height, pInputFrame->csp, pInputFrame->bitdepth);
     }
-    auto err = m_cl->copyFrame(&m_buf->frame, pInputFrame, nullptr, queue, &event);
+    auto err = m_cl->copyFrame(&m_buf->frame, pInputFrame, nullptr, queue, wait_events, &event);
     if (err != RGY_ERR_NONE) {
         m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to set frame to data cache: %s.\n"), get_err_mes(err));
         return RGY_ERR_CUDA;
@@ -256,9 +256,9 @@ void RGYFilterDecimateCache::init(int bufCount, int blockX, int blockY, std::sha
     }
 }
 
-RGY_ERR RGYFilterDecimateCache::add(const RGYFrameInfo *pInputFrame, RGYOpenCLQueue& queue, RGYOpenCLEvent& event) {
+RGY_ERR RGYFilterDecimateCache::add(const RGYFrameInfo *pInputFrame, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent& event) {
     const int id = m_inputFrames++;
-    return frame(id)->set(pInputFrame, id, m_blockX, m_blockY, queue, event);
+    return frame(id)->set(pInputFrame, id, m_blockX, m_blockY, queue, wait_events, event);
 }
 
 RGYFilterDecimate::RGYFilterDecimate(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_flushed(false), m_frameLastDropped(-1), m_decimate(), m_cache(context), m_eventDiff(), m_streamDiff(), m_streamTransfer() {
@@ -289,6 +289,8 @@ RGY_ERR RGYFilterDecimate::checkParam(const std::shared_ptr<RGYFilterParamDecima
     return RGY_ERR_NONE;
 }
 
+#pragma warning(push)
+#pragma warning(disable: 4127) //C4127: 条件式が定数です。
 RGY_ERR RGYFilterDecimate::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
     m_pLog = pPrintMes;
@@ -383,6 +385,7 @@ RGY_ERR RGYFilterDecimate::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RG
     m_param = pParam;
     return sts;
 }
+#pragma warning(pop)
 
 tstring RGYFilterParamDecimate::print() const {
     auto str = decimate.print();
@@ -510,6 +513,8 @@ RGY_ERR RGYFilterDecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
     const int inframeId = m_cache.inframe();
     *pOutputFrameNum = 0;
     if (m_cache.inframe() > 0 && (m_cache.inframe() % prm->decimate.cycle == 0 || pInputFrame->ptr[0] == nullptr)) { //cycle分のフレームがそろったら
+        //dropFrameの計算が終わっている時点でフレームの準備は完了、待機するものはない
+        event = nullptr;
         auto ret = setOutputFrame((pInputFrame) ? pInputFrame->timestamp : AV_NOPTS_VALUE, ppOutputFrames, pOutputFrameNum);
         if (ret != RGY_ERR_NONE) {
             return ret;
@@ -521,7 +526,7 @@ RGY_ERR RGYFilterDecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
         }
     }
 
-    auto err = m_cache.add(pInputFrame, queue_main, m_eventDiff);
+    auto err = m_cache.add(pInputFrame, queue_main, wait_events, m_eventDiff);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to add frame to cache: %s.\n"), get_err_mes(err));
         return RGY_ERR_CUDA;

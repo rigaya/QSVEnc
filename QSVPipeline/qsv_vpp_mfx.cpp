@@ -442,9 +442,6 @@ RGY_ERR QSVVppMfx::SetVppExtBuffers(sVppParams& params) {
         && (   MFX_FOURCC_RGB3 == m_mfxVppParams.vpp.In.FourCC
             || MFX_FOURCC_RGB4 == m_mfxVppParams.vpp.In.FourCC
             || params.colorspace.enable)) {
-
-        const bool inputRGB = m_mfxVppParams.vpp.In.FourCC == MFX_FOURCC_RGB3 || m_mfxVppParams.vpp.In.FourCC == MFX_FOURCC_RGB4;
-
         INIT_MFX_EXT_BUFFER(m_ExtVppVSI, MFX_EXTBUFF_VPP_VIDEO_SIGNAL_INFO);
         m_ExtVppVSI.In.NominalRange    = (mfxU16)((params.colorspace.from.range  == RGY_COLORRANGE_FULL) ? MFX_NOMINALRANGE_0_255   : MFX_NOMINALRANGE_16_235);
         m_ExtVppVSI.In.TransferMatrix  = (mfxU16)((params.colorspace.from.matrix == RGY_MATRIX_ST170_M)  ? MFX_TRANSFERMATRIX_BT601 : MFX_TRANSFERMATRIX_BT709);

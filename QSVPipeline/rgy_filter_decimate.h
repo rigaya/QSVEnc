@@ -49,7 +49,7 @@ public:
     RGYCLFrame *get() { return m_buf.get(); }
     const RGYCLFrame *get() const { return m_buf.get(); }
     std::unique_ptr<RGYCLBuf>& tmp() { return m_tmp; }
-    RGY_ERR set(const RGYFrameInfo *pInputFrame, int inputFrameId, int blockSizeX, int blockSizeY, RGYOpenCLQueue& queue, RGYOpenCLEvent& event);
+    RGY_ERR set(const RGYFrameInfo *pInputFrame, int inputFrameId, int blockSizeX, int blockSizeY, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent& event);
     int id() const { return m_inFrameId; }
     void calcDiffFromTmp();
 
@@ -73,7 +73,7 @@ public:
     RGYFilterDecimateCache(shared_ptr<RGYOpenCLContext> context);
     ~RGYFilterDecimateCache();
     void init(int bufCount, int blockX, int blockY, std::shared_ptr<RGYLog> log);
-    RGY_ERR add(const RGYFrameInfo *pInputFrame, RGYOpenCLQueue& queue, RGYOpenCLEvent& event);
+    RGY_ERR add(const RGYFrameInfo *pInputFrame, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent& event);
     RGYFilterDecimateFrameData *frame(int iframe) {
         iframe = clamp(iframe, 0, m_inputFrames - 1);
         return m_frames[iframe % m_frames.size()].get();

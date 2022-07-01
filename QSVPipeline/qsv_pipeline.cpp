@@ -219,7 +219,7 @@ bool CQSVPipeline::CompareParam(const mfxParamSet& prmIn, const mfxParamSet& prm
     COMPARE_TRI(cop.RateDistortionOpt,    0);
     COMPARE_INT(cop.MECostType,           0);
     COMPARE_INT(cop.MESearchType,         0);
-    COMPARE_TRI(cop.EndOfSequence,        0);
+    //Deprecated: COMPARE_TRI(cop.EndOfSequence,        0);
     COMPARE_TRI(cop.FramePicture,         0);
     COMPARE_TRI(cop.CAVLC,                0);
     COMPARE_TRI(cop.ViewOutput,           0);
@@ -228,7 +228,7 @@ bool CQSVPipeline::CompareParam(const mfxParamSet& prmIn, const mfxParamSet& prm
     COMPARE_TRI(cop.ResetRefList,         0);
     COMPARE_INT(cop.MaxDecFrameBuffering, 0);
     COMPARE_TRI(cop.AUDelimiter,          0);
-    COMPARE_TRI(cop.EndOfStream,          0);
+    //Deprecated: COMPARE_TRI(cop.EndOfStream,          0);
     COMPARE_TRI(cop.PicTimingSEI,         0);
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_3)) {
         COMPARE_TRI(cop.RefPicMarkRep,       0);
@@ -1194,7 +1194,6 @@ RGY_ERR CQSVPipeline::InitOpenCL(const bool enableOpenCL, const bool checkVppPer
         PrintMes(RGY_LOG_DEBUG, _T("OpenCL disabled.\n"));
         return RGY_ERR_NONE;
     }
-    const auto cpu_gen = getCPUGen(&m_mfxSession);
     if (!CPUGenOpenCLSupported(getCPUGen(&m_mfxSession))) {
         PrintMes(RGY_LOG_DEBUG, _T("Skip OpenCL init as OpenCL is not supported in %s platform.\n"), CPU_GEN_STR[getCPUGen(&m_mfxSession)]);
         return RGY_ERR_NONE;
