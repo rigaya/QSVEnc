@@ -128,7 +128,6 @@ sInputParams::sInputParams() :
     nBluray(0),
     bMBBRC(false),
     extBRC(false),
-    extBrcAdaptiveLTR(false),
     nLookaheadDepth(0),
     nTrellis(0),
     nAsyncDepth(0),
