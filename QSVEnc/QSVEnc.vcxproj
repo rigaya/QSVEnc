@@ -171,7 +171,7 @@
       <DisableSpecificWarnings>4505;4564;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
-      <AdditionalOptions>/FS %(AdditionalOptions) /execution-charset:shift_jis</AdditionalOptions>
+      <AdditionalOptions>/execution-charset:shift_jis </AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -225,7 +225,7 @@ exit /B 0</Command>
       <DisableSpecificWarnings>4505;4564;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
-      <AdditionalOptions>/Zc:inline %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/execution-charset:shift_jis </AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -282,7 +282,7 @@ exit /B 0</Command>
       <DisableSpecificWarnings>4505;4564;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
-      <AdditionalOptions>/Zc:inline %(AdditionalOptions) /execution-charset:shift_jis</AdditionalOptions>
+      <AdditionalOptions>/execution-charset:shift_jis </AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -336,7 +336,7 @@ exit /B 0</Command>
       <DisableSpecificWarnings>4505;4564;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
-      <AdditionalOptions>/Zc:inline %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/execution-charset:shift_jis </AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -395,7 +395,7 @@ exit /B 0</Command>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalOptions>/Zc:inline /FS %(AdditionalOptions) /execution-charset:shift_jis</AdditionalOptions>
+      <AdditionalOptions>/execution-charset:shift_jis </AdditionalOptions>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
@@ -454,6 +454,7 @@ exit /B 0</Command>
       </AdditionalUsingDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalOptions>/execution-charset:shift_jis </AdditionalOptions>
     </ClCompile>
     <Link>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
@@ -513,7 +514,7 @@ exit /B 0</Command>
       </AdditionalUsingDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalOptions> /execution-charset:shift_jis</AdditionalOptions>
+      <AdditionalOptions>/execution-charset:shift_jis </AdditionalOptions>
     </ClCompile>
     <Link>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
@@ -571,6 +572,7 @@ exit /B 0</Command>
       </AdditionalUsingDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalOptions>/execution-charset:shift_jis </AdditionalOptions>
     </ClCompile>
     <Link>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
