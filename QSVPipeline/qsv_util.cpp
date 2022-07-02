@@ -89,7 +89,6 @@ static const auto RGY_CSP_TO_MFX = make_array<std::pair<RGY_CSP, mfxU32>>(
     std::make_pair(RGY_CSP_Y216,      MFX_FOURCC_Y216),
     std::make_pair(RGY_CSP_Y410,      MFX_FOURCC_Y410),
     std::make_pair(RGY_CSP_Y416,      MFX_FOURCC_Y416),
-    std::make_pair(RGY_CSP_RGB24,     MFX_FOURCC_RGBP),
     std::make_pair(RGY_CSP_RGB32,     MFX_FOURCC_RGB4),
     std::make_pair(RGY_CSP_YC48,      0)
     );
@@ -422,8 +421,6 @@ const TCHAR *ColorFormatToStr(uint32_t format) {
         return _T("yv12");
     case MFX_FOURCC_YUY2:
         return _T("yuy2");
-    case MFX_FOURCC_RGBP:
-        return _T("rgb24");
     case MFX_FOURCC_RGB4:
         return _T("rgb32");
     case MFX_FOURCC_BGR4:

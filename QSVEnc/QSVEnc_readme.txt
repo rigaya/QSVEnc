@@ -302,6 +302,11 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2022.07.02 (7.05)
+[QSVEncC]
+- oneVPLで非推奨となった--adapt-ltrを廃止。
+- QSVEnc 7.02から、--vpp-afsと--fixed-func使用時に画面の左端に色の異常がみられる問題を修正。
+
 2022.06.28 (7.04)
 [QSVEncC]
 - oneVPLを更新し、API 2.6に対応。
