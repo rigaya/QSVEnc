@@ -125,19 +125,19 @@ QSVEncを使用したことによる、いかなる損害・トラブルにつ�
 ## 各GPUで使用可能な機能
 下記はGPU、GPUドライバ、QSVEncのバージョンにより異なります。
 
-| CPU Gen     | Windows                                                 | Linux | 
-|:--          |:--                                                      |:--    |
-| SandyBridge | [i5 2410M](./GPUFeatures/QSVEnc_SND_i5_2410M_Win.txt)   |  |
-| IvyBridge   |                                                         |  |
-| Haswell     | [i3 4170](./GPUFeatures/QSVEnc_HSW_i3_4170_Win.txt)     |  |
-| Broadwell   | [i7 5500U](./GPUFeatures/QSVEnc_BDW_i7_5500U_Win.txt)   | [i7 5500U](./GPUFeatures/QSVEnc_BDW_i7_5500U_Ubuntu2004.txt)  |
-| SkyLake     |                                                         |  |
-| KabyLake    | [i7 7700K](./GPUFeatures/QSVEnc_KBL_i7_7700K_Win.txt)   | [i7 7700K](./GPUFeatures/QSVEnc_KBL_i7_7700K_Ubuntu2004.txt)  |
-| CoffeeLake  |                                                         |  |
-| CommetLake  |                                                         |  |
-| IceLake     | [i5 1035G7](./GPUFeatures/QSVEnc_ICL_i5_1035G7_Win.txt) | [i5 1035G7](./GPUFeatures/QSVEnc_ICL_i5_1035G7_Ubuntu2004.txt)  |
-| RocketLake  | [i7 11700K](./GPUFeatures/QSVEnc_RKL_i7_11700K_Win.txt) | [i7 11700K](./GPUFeatures/QSVEnc_RKL_i7_11700K_Ubuntu2004.txt)  |
-| AlderLake   | [i9 12900K](./GPUFeatures/QSVEnc_ADL_i9_12900K_Win.txt) |  |
+| CPU Gen     | GPU Gen |  Windows                                                 | Linux | 
+|:--          |:--      |:--                                                      |:--    |
+| SandyBridge | Gen6     | [i5 2410M](./GPUFeatures/QSVEnc_SND_i5_2410M_Win.txt)   |  |
+| IvyBridge   | Gen7     |                                                         |  |
+| Haswell     | Gen7.5   | [i3 4170](./GPUFeatures/QSVEnc_HSW_i3_4170_Win.txt)     |  |
+| Broadwell   | Gen8     | [i7 5500U](./GPUFeatures/QSVEnc_BDW_i7_5500U_Win.txt)   | [i7 5500U](./GPUFeatures/QSVEnc_BDW_i7_5500U_Ubuntu2004.txt)  |
+| SkyLake     | Gen9     |                                                         |  |
+| KabyLake    | Gen9.5   | [i7 7700K](./GPUFeatures/QSVEnc_KBL_i7_7700K_Win.txt)   | [i7 7700K](./GPUFeatures/QSVEnc_KBL_i7_7700K_Ubuntu2004.txt)  |
+| CoffeeLake  | Gen9.5   |                                                         |  |
+| CommetLake  | Gen9.5   |                                                         |  |
+| IceLake     | Gen11    | [i5 1035G7](./GPUFeatures/QSVEnc_ICL_i5_1035G7_Win.txt) | [i5 1035G7](./GPUFeatures/QSVEnc_ICL_i5_1035G7_Ubuntu2004.txt)  |
+| RocketLake  | Gen11    | [i7 11700K](./GPUFeatures/QSVEnc_RKL_i7_11700K_Win.txt) | [i7 11700K](./GPUFeatures/QSVEnc_RKL_i7_11700K_Ubuntu2004.txt)  |
+| AlderLake   | Gen12    | [i9 12900K](./GPUFeatures/QSVEnc_ADL_i9_12900K_Win.txt) |  |
 
 ## ソースコードについて
 - MITライセンスです。
