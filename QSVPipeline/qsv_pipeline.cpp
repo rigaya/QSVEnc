@@ -332,6 +332,9 @@ bool CQSVPipeline::CompareParam(const mfxParamSet& prmIn, const mfxParamSet& prm
         COMPARE_INT(hevc.SampleAdaptiveOffset,  MFX_SAO_UNKNOWN);
         COMPARE_INT(hevc.LCUSize, 0);
     }
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_4)) {
+        COMPARE_TRI(cop3.AdaptiveLTR, 0);
+    }
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_5)) {
         COMPARE_TRI(av1BitstreamPrm.WriteIVFHeaders, 0);
         COMPARE_INT(av1ResolutionPrm.FrameWidth, 0);
@@ -537,9 +540,9 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         print_feature_warnings(RGY_LOG_WARN, _T("ExtBRC"));
         pInParams->extBRC = false;
     }
-    if (pInParams->extBrcAdaptiveLTR && !(availableFeaures & ENC_FEATURE_EXT_BRC_ADAPTIVE_LTR)) {
+    if (pInParams->adaptiveLTR && !(availableFeaures & ENC_FEATURE_ADAPTIVE_LTR)) {
         print_feature_warnings(RGY_LOG_WARN, _T("AdaptiveLTR"));
-        pInParams->extBrcAdaptiveLTR = false;
+        pInParams->adaptiveLTR = false;
     }
     if (pInParams->bMBBRC && !(availableFeaures & ENC_FEATURE_MBBRC)) {
         print_feature_warnings(RGY_LOG_WARN, _T("MBBRC"));
@@ -887,10 +890,6 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
             m_CodingOption2.MBBRC = MFX_CODINGOPTION_ON;
         }
 
-        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_26)
-            && pInParams->extBrcAdaptiveLTR) {
-            m_CodingOption2.BitrateLimit = MFX_CODINGOPTION_OFF;
-        }
         if (pInParams->extBRC) {
             m_CodingOption2.ExtBRC = MFX_CODINGOPTION_ON;
         }
@@ -981,10 +980,12 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
             m_CodingOption3.RepartitionCheckEnable = (mfxU16)pInParams->nRepartitionCheck;
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_26)) {
-            m_CodingOption3.ExtBrcAdaptiveLTR = (mfxU16)(pInParams->extBrcAdaptiveLTR ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
             if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC) {
                 m_CodingOption3.TransformSkip = (mfxU16)pInParams->hevc_tskip;
             }
+        }
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_4)) {
+            m_CodingOption3.AdaptiveLTR = (mfxU16)(pInParams->adaptiveLTR ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
         }
         m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption3);
     }
@@ -4094,8 +4095,8 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
                 extFeatures += _T("QPOffset ");
             }
         }
-        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_26)) {
-            if (outFrameInfo->cop3.ExtBrcAdaptiveLTR == MFX_CODINGOPTION_ON) {
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_4)) {
+            if (outFrameInfo->cop3.AdaptiveLTR == MFX_CODINGOPTION_ON) {
                 extFeatures += _T("AdaptiveLTR ");
             }
         }

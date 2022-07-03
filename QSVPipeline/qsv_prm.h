@@ -308,7 +308,7 @@ struct sInputParams {
 
     bool       bMBBRC;
     bool       extBRC;
-    bool       extBrcAdaptiveLTR;
+    bool       adaptiveLTR;
 
     int        nLookaheadDepth;
     int        nTrellis;

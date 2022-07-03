@@ -1141,11 +1141,11 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("adapt-ltr"))) {
-        pParams->extBrcAdaptiveLTR = true;
+        pParams->adaptiveLTR = true;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-adapt-ltr"))) {
-        pParams->extBrcAdaptiveLTR = false;
+        pParams->adaptiveLTR = false;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("mbbrc"))) {
@@ -2038,7 +2038,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
 
     OPT_BOOL(_T("--extbrc"), _T("--no-extbrc"), extBRC);
     OPT_BOOL(_T("--mbbrc"), _T("--no-mbbrc"), bMBBRC);
-    OPT_BOOL(_T("--adapt-ltr"), _T("--no-adapt-ltr"), extBrcAdaptiveLTR);
+    OPT_BOOL(_T("--adapt-ltr"), _T("--no-adapt-ltr"), adaptiveLTR);
     OPT_BOOL(_T("--intra-refresh"), _T("--no-intra-refresh"), bIntraRefresh);
     OPT_BOOL(_T("--direct-bias-adjust"), _T("--no-direct-bias-adjust"), bDirectBiasAdjust);
     OPT_LST(_T("--intra-pred"), nIntraPred, list_pred_block_size);
