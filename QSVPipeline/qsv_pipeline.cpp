@@ -332,7 +332,11 @@ bool CQSVPipeline::CompareParam(const mfxParamSet& prmIn, const mfxParamSet& prm
         COMPARE_INT(hevc.SampleAdaptiveOffset,  MFX_SAO_UNKNOWN);
         COMPARE_INT(hevc.LCUSize, 0);
     }
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_2)) {
+        COMPARE_TRI(cop3.AdaptiveCQM, 0);
+    }
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_4)) {
+        COMPARE_TRI(cop3.AdaptiveRef, 0);
         COMPARE_TRI(cop3.AdaptiveLTR, 0);
     }
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_5)) {
@@ -540,9 +544,17 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         print_feature_warnings(RGY_LOG_WARN, _T("ExtBRC"));
         pInParams->extBRC = false;
     }
+    if (pInParams->adaptiveRef && !(availableFeaures & ENC_FEATURE_ADAPTIVE_REF)) {
+        print_feature_warnings(RGY_LOG_WARN, _T("adaptiveRef"));
+        pInParams->adaptiveRef = false;
+    }
     if (pInParams->adaptiveLTR && !(availableFeaures & ENC_FEATURE_ADAPTIVE_LTR)) {
         print_feature_warnings(RGY_LOG_WARN, _T("AdaptiveLTR"));
         pInParams->adaptiveLTR = false;
+    }
+    if (pInParams->adaptiveCQM && !(availableFeaures & ENC_FEATURE_ADAPTIVE_CQM)) {
+        print_feature_warnings(RGY_LOG_WARN, _T("AdaptiveCQM"));
+        pInParams->adaptiveCQM = false;
     }
     if (pInParams->bMBBRC && !(availableFeaures & ENC_FEATURE_MBBRC)) {
         print_feature_warnings(RGY_LOG_WARN, _T("MBBRC"));
@@ -985,6 +997,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
             }
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_4)) {
+            m_CodingOption3.AdaptiveRef = (mfxU16)(pInParams->adaptiveRef ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
             m_CodingOption3.AdaptiveLTR = (mfxU16)(pInParams->adaptiveLTR ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
         }
         m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption3);
@@ -4096,8 +4109,16 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
             }
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_4)) {
+            if (outFrameInfo->cop3.AdaptiveRef == MFX_CODINGOPTION_ON) {
+                extFeatures += _T("AdaptiveRef ");
+            }
             if (outFrameInfo->cop3.AdaptiveLTR == MFX_CODINGOPTION_ON) {
                 extFeatures += _T("AdaptiveLTR ");
+            }
+        }
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_2)) {
+            if (outFrameInfo->cop3.AdaptiveCQM == MFX_CODINGOPTION_ON) {
+                extFeatures += _T("AdaptiveCQM ");
             }
         }
         if (outFrameInfo->cop.AUDelimiter == MFX_CODINGOPTION_ON) {

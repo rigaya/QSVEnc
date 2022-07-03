@@ -339,8 +339,9 @@ tstring encoder_help() {
         _T("   --(no-)b-adapt               enables adaptive B frame insert (default:off)\n")
         _T("   --(no-)weightp               enable weighted prediction for P frame\n")
         _T("   --(no-)weightb               enable weighted prediction for B frame\n")
+        _T("   --(no-)adapt-ref             enable adaptive ref frames\n")
         _T("   --(no-)adapt-ltr             enable adaptive LTR frames\n")
-        _T("                                 --extbrc is also required.\n")
+        _T("   --(no-)adapt-cqm             enable adaptive CQM\n")
         _T("   --(no-)repartition-check     [H.264] enable prediction from small partitions\n")
 #if ENABLE_FADE_DETECT
         _T("   --(no-)fade-detect           enable fade detection\n")
@@ -1140,12 +1141,28 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         pParams->extBRC = false;
         return 0;
     }
+    if (0 == _tcscmp(option_name, _T("adapt-ref"))) {
+        pParams->adaptiveRef = true;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("no-adapt-ref"))) {
+        pParams->adaptiveRef = false;
+        return 0;
+    }
     if (0 == _tcscmp(option_name, _T("adapt-ltr"))) {
         pParams->adaptiveLTR = true;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-adapt-ltr"))) {
         pParams->adaptiveLTR = false;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("adapt-cqm"))) {
+        pParams->adaptiveCQM = true;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("no-adapt-cqm"))) {
+        pParams->adaptiveCQM = false;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("mbbrc"))) {
@@ -2038,7 +2055,9 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
 
     OPT_BOOL(_T("--extbrc"), _T("--no-extbrc"), extBRC);
     OPT_BOOL(_T("--mbbrc"), _T("--no-mbbrc"), bMBBRC);
+    OPT_BOOL(_T("--adapt-ref"), _T("--no-adapt-ref"), adaptiveRef);
     OPT_BOOL(_T("--adapt-ltr"), _T("--no-adapt-ltr"), adaptiveLTR);
+    OPT_BOOL(_T("--adapt-cqm"), _T("--no-adapt-cqm"), adaptiveCQM);
     OPT_BOOL(_T("--intra-refresh"), _T("--no-intra-refresh"), bIntraRefresh);
     OPT_BOOL(_T("--direct-bias-adjust"), _T("--no-direct-bias-adjust"), bDirectBiasAdjust);
     OPT_LST(_T("--intra-pred"), nIntraPred, list_pred_block_size);

@@ -72,6 +72,7 @@
   - [--va](#--va)
 - [Other Options for Encoder](#other-options-for-encoder)
   - [--fixed-func](#--fixed-func)
+  - [--hyper-mode &lt;string&gt;](#--hyper-mode-string)
   - [--max-bitrate &lt;int&gt;](#--max-bitrate-int)
   - [--vbv-bufsize &lt;int&gt;](#--vbv-bufsize-int)
   - [--qvbr-quality &lt;int&gt;](#--qvbr-quality-int)
@@ -96,7 +97,9 @@
   - [--weightb](#--weightb)
   - [--weightp](#--weightp)
   - [--direct-bias-adjust](#--direct-bias-adjust)
+  - [--adapt-ref](#--adapt-ref)
   - [--adapt-ltr](#--adapt-ltr)
+  - [--adapt-cqm](#--adapt-cqm)
   - [--mv-scaling &lt;string&gt;](#--mv-scaling-string)
   - [--fade-detect](#--fade-detect)
   - [--slices &lt;int&gt;](#--slices-int)
@@ -183,8 +186,8 @@
   - [--vpp-decimate [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]](#--vpp-decimate-param1value1param2value2)
   - [--vpp-mpdecimate [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]](#--vpp-mpdecimate-param1value1param2value2)
   - [--vpp-convolution3d [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]](#--vpp-convolution3d-param1value1param2value2)
-  - [--vpp-knn [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]](#--vpp-knn-param1value1param2value2)
   - [--vpp-smooth [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]](#--vpp-smooth-param1value1param2value2)
+  - [--vpp-knn [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]](#--vpp-knn-param1value1param2value2)
   - [--vpp-pmd [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]](#--vpp-pmd-param1value1param2value2)
   - [--vpp-denoise &lt;int&gt; or [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]](#--vpp-denoise-int-or-param1value1param2value2)
   - [--vpp-image-stab &lt;string&gt;](#--vpp-image-stab-string)
@@ -675,8 +678,15 @@ Enable weighted P frames.
 ### --direct-bias-adjust
 Lower usage of B frame Direct/Skip type.
 
+### --adapt-ref
+Adaptively select list of reference frames to imrove encoding quality.
+
 ### --adapt-ltr
-Enable adaptive LTR frames, --extbrc is required.
+Mark, modify, or remove LTR frames based on encoding parameters and content properties.
+
+### --adapt-cqm
+Adaptively select one of implementation-defined quantization matrices for each frame,
+to improve subjective visual quality under certain conditions.
 
 ### --mv-scaling &lt;string&gt;
 Set mv cost scaling.

@@ -308,16 +308,18 @@ struct sInputParams {
 
     bool       bMBBRC;
     bool       extBRC;
+    bool       adaptiveRef;
     bool       adaptiveLTR;
+    bool       adaptiveCQM;
+    bool       bBPyramid;
+    bool       bAdaptiveI;
+    bool       bAdaptiveB;
 
     int        nLookaheadDepth;
     int        nTrellis;
 
     int        nAsyncDepth;
 
-    bool       bBPyramid;
-    bool       bAdaptiveI;
-    bool       bAdaptiveB;
     int        nLookaheadDS;
 
     bool       bDisableTimerPeriodTuning;

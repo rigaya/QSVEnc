@@ -46,7 +46,7 @@
   - [--crop &lt;int&gt;,&lt;int&gt;,&lt;int&gt;,&lt;int&gt;](#--crop-intintintint)
   - [--fps &lt;int&gt;/&lt;int&gt; or &lt;float&gt;](#--fps-intint-or-float)
   - [--input-res &lt;int&gt;x&lt;int&gt;](#--input-res-intxint)
-  - [--output-res &lt;int&gt;x&lt;int&gt;](#--output-res-intxint)
+  - [--output-res &lt;int&gt;x&lt;int&gt;[,&lt;string&gt;=&lt;string&gt;]](#--output-res-intxintstringstring)
   - [--input-csp &lt;string&gt;](#--input-csp-string)
   - [--output-csp &lt;string&gt;](#--output-csp-string)
   - [--output-depth &lt;int&gt;](#--output-depth-int)
@@ -72,6 +72,7 @@
   - [--va](#--va)
 - [その他のオプション](#その他のオプション)
   - [--fixed-func](#--fixed-func)
+  - [--hyper-mode &lt;string&gt;](#--hyper-mode-string)
   - [--max-bitrate &lt;int&gt;](#--max-bitrate-int)
   - [--vbv-bufsize &lt;int&gt;](#--vbv-bufsize-int)
   - [--qvbr-quality &lt;int&gt;](#--qvbr-quality-int)
@@ -96,7 +97,9 @@
   - [--weightb](#--weightb)
   - [--weightp](#--weightp)
   - [--direct-bias-adjust](#--direct-bias-adjust)
+  - [--adapt-ref](#--adapt-ref)
   - [--adapt-ltr](#--adapt-ltr)
+  - [--adapt-cqm](#--adapt-cqm)
   - [--mv-scaling &lt;string&gt;](#--mv-scaling-string)
   - [--fade-detect](#--fade-detect)
   - [--slices &lt;int&gt;](#--slices-int)
@@ -701,8 +704,14 @@ Bフレームピラミッド参照を有効にする。
 ### --direct-bias-adjust
 B frame Direct/Skipの使用を最適化する。
 
+### --adapt-ref
+適応的に最適な参照フレームを選択し、エンコード品質の向上を図る。
+
 ### --adapt-ltr
-Adaptive LTRを有効にする。合わせて--extbrcの指定が必要。
+Adaptive LTRを有効にする。
+
+### --adapt-cqm
+各フレームごとに適応的に量子化テーブルを選択し、主に特定条件下で主観品質の向上を図る。
 
 ### --mv-scaling &lt;string&gt;
 動きベクトルのコストの調整。

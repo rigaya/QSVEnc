@@ -128,10 +128,9 @@ sInputParams::sInputParams() :
     nBluray(0),
     bMBBRC(false),
     extBRC(false),
+    adaptiveRef(false),
     adaptiveLTR(false),
-    nLookaheadDepth(0),
-    nTrellis(0),
-    nAsyncDepth(0),
+    adaptiveCQM(false),
 #if FOR_AUO
     bBPyramid(true),
 #else
@@ -139,6 +138,9 @@ sInputParams::sInputParams() :
 #endif
     bAdaptiveI(false),
     bAdaptiveB(false),
+    nLookaheadDepth(0),
+    nTrellis(0),
+    nAsyncDepth(0),
     nLookaheadDS(),
     bDisableTimerPeriodTuning(false),
     bIntraRefresh(false),

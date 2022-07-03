@@ -947,6 +947,8 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 code
         CHECK_FEATURE(cop3.WeightedBiPred,       ENC_FEATURE_WEIGHT_B,      MFX_WEIGHTED_PRED_DEFAULT,     MFX_LIB_VERSION_1_16);
         CHECK_FEATURE(cop3.FadeDetection,        ENC_FEATURE_FADE_DETECT,   MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_1_17);
         CHECK_FEATURE(cop3.AdaptiveLTR,          ENC_FEATURE_ADAPTIVE_LTR,  MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_2_4);
+        CHECK_FEATURE(cop3.AdaptiveRef,          ENC_FEATURE_ADAPTIVE_REF,  MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_2_4);
+        CHECK_FEATURE(cop3.AdaptiveCQM,          ENC_FEATURE_ADAPTIVE_CQM,  MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_2_2);
         CHECK_FEATURE(hyperMode.Mode, MFX_HYPERMODE_ON, MFX_HYPERMODE_OFF, MFX_LIB_VERSION_2_5);
         if (codecId == MFX_CODEC_HEVC) {
             CHECK_FEATURE(cop3.GPB,              ENC_FEATURE_DISABLE_GPB,       MFX_CODINGOPTION_ON,  MFX_LIB_VERSION_1_19);
