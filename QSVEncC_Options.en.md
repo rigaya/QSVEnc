@@ -96,6 +96,7 @@
   - [--weightb](#--weightb)
   - [--weightp](#--weightp)
   - [--direct-bias-adjust](#--direct-bias-adjust)
+  - [--adapt-ltr](#--adapt-ltr)
   - [--mv-scaling &lt;string&gt;](#--mv-scaling-string)
   - [--fade-detect](#--fade-detect)
   - [--slices &lt;int&gt;](#--slices-int)
@@ -636,7 +637,7 @@ Specify quality of lookahead.
 - slow
 
 ### --extbrc
-Enable Ext rate control.
+Enable Ext rate control, required for --adapt-ltr.
 
 ### --mbbrc
 Enable per macro block rate control.
@@ -673,6 +674,9 @@ Enable weighted P frames.
 
 ### --direct-bias-adjust
 Lower usage of B frame Direct/Skip type.
+
+### --adapt-ltr
+Enable adaptive LTR frames, --extbrc is required.
 
 ### --mv-scaling &lt;string&gt;
 Set mv cost scaling.

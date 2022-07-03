@@ -339,6 +339,8 @@ tstring encoder_help() {
         _T("   --(no-)b-adapt               enables adaptive B frame insert (default:off)\n")
         _T("   --(no-)weightp               enable weighted prediction for P frame\n")
         _T("   --(no-)weightb               enable weighted prediction for B frame\n")
+        _T("   --(no-)adapt-ltr             enable adaptive LTR frames\n")
+        _T("                                 --extbrc is also required.\n")
         _T("   --(no-)repartition-check     [H.264] enable prediction from small partitions\n")
 #if ENABLE_FADE_DETECT
         _T("   --(no-)fade-detect           enable fade detection\n")
@@ -1139,15 +1141,11 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("adapt-ltr"))) {
-        //削除されたが互換性のため何もしないオプションとして現状は残す
-        //pParams->extBrcAdaptiveLTR = true;
-        fprintf(stderr, "--adapt-ltr has been removed!\n");
+        pParams->extBrcAdaptiveLTR = true;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-adapt-ltr"))) {
-        //削除されたが互換性のため何もしないオプションとして現状は残す
-        //pParams->extBrcAdaptiveLTR = false;
-        fprintf(stderr, "--no-adapt-ltr has been removed!\n");
+        pParams->extBrcAdaptiveLTR = false;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("mbbrc"))) {
@@ -2040,6 +2038,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
 
     OPT_BOOL(_T("--extbrc"), _T("--no-extbrc"), extBRC);
     OPT_BOOL(_T("--mbbrc"), _T("--no-mbbrc"), bMBBRC);
+    OPT_BOOL(_T("--adapt-ltr"), _T("--no-adapt-ltr"), extBrcAdaptiveLTR);
     OPT_BOOL(_T("--intra-refresh"), _T("--no-intra-refresh"), bIntraRefresh);
     OPT_BOOL(_T("--direct-bias-adjust"), _T("--no-direct-bias-adjust"), bDirectBiasAdjust);
     OPT_LST(_T("--intra-pred"), nIntraPred, list_pred_block_size);

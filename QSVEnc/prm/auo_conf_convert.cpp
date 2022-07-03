@@ -558,8 +558,6 @@ static void init_qsvp_prm_oldv5(sInputParamsOld *prm) {
     prm->nSessionThreadPriority = (mfxU16)get_value_from_chr(list_priority, _T("normal"));
 }
 
-#pragma warning(push)
-#pragma warning(disable: 4127) //C4127: 条件式が定数です。
 static tstring gen_cmd_oldv5(const sInputParamsOld *pParams, bool save_disabled_prm) {
     std::basic_stringstream<TCHAR> tmp;
     std::basic_stringstream<TCHAR> cmd;
@@ -1001,4 +999,3 @@ static tstring gen_cmd_oldv5(const sInputParamsOld *pParams, bool save_disabled_
     OPT_BOOL(_T("--timer-period-tuning"), _T("--no-timer-period-tuning"), bDisableTimerPeriodTuning);
     return cmd.str();
 }
-#pragma warning(pop)

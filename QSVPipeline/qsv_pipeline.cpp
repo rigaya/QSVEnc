@@ -537,6 +537,10 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         print_feature_warnings(RGY_LOG_WARN, _T("ExtBRC"));
         pInParams->extBRC = false;
     }
+    if (pInParams->extBrcAdaptiveLTR && !(availableFeaures & ENC_FEATURE_EXT_BRC_ADAPTIVE_LTR)) {
+        print_feature_warnings(RGY_LOG_WARN, _T("AdaptiveLTR"));
+        pInParams->extBrcAdaptiveLTR = false;
+    }
     if (pInParams->bMBBRC && !(availableFeaures & ENC_FEATURE_MBBRC)) {
         print_feature_warnings(RGY_LOG_WARN, _T("MBBRC"));
         pInParams->bMBBRC = false;
@@ -883,6 +887,10 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
             m_CodingOption2.MBBRC = MFX_CODINGOPTION_ON;
         }
 
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_26)
+            && pInParams->extBrcAdaptiveLTR) {
+            m_CodingOption2.BitrateLimit = MFX_CODINGOPTION_OFF;
+        }
         if (pInParams->extBRC) {
             m_CodingOption2.ExtBRC = MFX_CODINGOPTION_ON;
         }
@@ -973,6 +981,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
             m_CodingOption3.RepartitionCheckEnable = (mfxU16)pInParams->nRepartitionCheck;
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_26)) {
+            m_CodingOption3.ExtBrcAdaptiveLTR = (mfxU16)(pInParams->extBrcAdaptiveLTR ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
             if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC) {
                 m_CodingOption3.TransformSkip = (mfxU16)pInParams->hevc_tskip;
             }
@@ -4083,6 +4092,11 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_19)) {
             if (outFrameInfo->cop3.EnableQPOffset == MFX_CODINGOPTION_ON) {
                 extFeatures += _T("QPOffset ");
+            }
+        }
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_26)) {
+            if (outFrameInfo->cop3.ExtBrcAdaptiveLTR == MFX_CODINGOPTION_ON) {
+                extFeatures += _T("AdaptiveLTR ");
             }
         }
         if (outFrameInfo->cop.AUDelimiter == MFX_CODINGOPTION_ON) {
