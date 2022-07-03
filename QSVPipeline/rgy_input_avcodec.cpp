@@ -2754,6 +2754,13 @@ RGY_ERR RGYInputAvcodec::GetHeader(RGYBitstream *pBitstream) {
         //ヘッダのデータをコピーしておく
         memcpy(m_Demux.video.extradata, m_Demux.video.stream->codecpar->extradata, m_Demux.video.extradataSize);
         memset(m_Demux.video.extradata + m_Demux.video.extradataSize, 0, AV_INPUT_BUFFER_PADDING_SIZE);
+        if (m_printMes != nullptr && RGY_LOG_DEBUG >= m_printMes->getLogLevel(RGY_LOGT_IN)) {
+            tstring header_str;
+            for (int i = 0; i < m_Demux.video.extradataSize; i++) {
+                header_str += strsprintf(_T("%02x "), m_Demux.video.extradata[i]);
+            }
+            AddMessage(RGY_LOG_DEBUG, _T("GetHeader extradata(%d): %s\n"), m_Demux.video.extradataSize, header_str.c_str());
+        }
 
         if (m_Demux.video.bUseHEVCmp42AnnexB) {
             hevcMp42Annexb(nullptr);
@@ -2780,6 +2787,13 @@ RGY_ERR RGYInputAvcodec::GetHeader(RGYBitstream *pBitstream) {
         }
     }
     pBitstream->copy(m_Demux.video.extradata, m_Demux.video.extradataSize);
+    if (m_Demux.video.extradataSize && m_printMes != nullptr && RGY_LOG_DEBUG >= m_printMes->getLogLevel(RGY_LOGT_IN)) {
+        tstring header_str;
+        for (int i = 0; i < m_Demux.video.extradataSize; i++) {
+            header_str += strsprintf(_T("%02x "), m_Demux.video.extradata[i]);
+        }
+        AddMessage(RGY_LOG_DEBUG, _T("GetHeader(%d): %s\n"), m_Demux.video.extradataSize, header_str.c_str());
+    }
     return RGY_ERR_NONE;
 }
 
