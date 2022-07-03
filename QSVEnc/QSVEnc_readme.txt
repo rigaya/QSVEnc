@@ -302,6 +302,12 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2022.07.03 (7.06)
+- API 2.2で追加されたAdaptiveCQMを有効にするオプションを追加。(--adapt-cqm)
+- API 2.4で追加されたAdaptiveRefを有効にするオプションを追加。(--adapt-ref)
+- API 2.4で追加されたAdaptiveLTRを有効にするオプションを追加。 (--adapt-ltr)
+- QSVEnc 6.10からAV1 hwデコードができないケースがあったのを回避。
+
 2022.07.02 (7.05)
 [QSVEncC]
 - QSVEnc 7.02から、--vpp-afsと--fixed-func使用時に画面の左端に色の異常がみられる問題を修正。
