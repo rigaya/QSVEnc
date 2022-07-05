@@ -4141,9 +4141,7 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
             }
         }
         if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC) {
-            if (0 && //正常に取得されていないctu,tskip,saoは表示しないようにする
-                     //常に以下の値が取得されてしまう (ctu=64, tskip=on, sao=all)
-                check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_26)) {
+            if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_26)) {
                 if (outFrameInfo->cop3.TransformSkip == MFX_CODINGOPTION_ON) {
                     extFeatures += _T("tskip ");
                 }
