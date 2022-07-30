@@ -464,7 +464,7 @@ const CX_DESC list_vp9_profile[] = {
     { NULL, 0 }
 };
 
-const CX_DESC list_av1_level[] = {
+const CX_DESC list_av1_profile[] = {
     { _T("auto"),     0 },
     { _T("main"),     MFX_PROFILE_AV1_MAIN },
     { _T("high"),     MFX_PROFILE_AV1_HIGH },
@@ -590,7 +590,7 @@ const CX_DESC list_vp9_level[] = {
     { NULL, 0 }
 };
 
-const CX_DESC list_av1_profile[] = {
+const CX_DESC list_av1_level[] = {
     { _T("auto"),     0 },
     { _T("2"),        MFX_LEVEL_AV1_2  },
     { _T("2.1"),      MFX_LEVEL_AV1_21 },
