@@ -904,6 +904,8 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 code
         if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_3)) {
             result |= ENC_FEATURE_VUI_INFO;
         }
+        //とりあえずAV1ではBフレームのチェックはしない
+        const auto bframesCheck = !(DISABLE_BFRAME_AV1 && codecId == MFX_CODEC_AV1);
         //ひとつひとつパラメータを入れ替えて試していく
 #pragma warning(push)
 #pragma warning(disable:4244) //'mfxU16' から 'mfxU8' への変換です。データが失われる可能性があります。
@@ -923,11 +925,15 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 code
         CHECK_FEATURE(cop2.IntRefType,           ENC_FEATURE_INTRA_REFRESH, 1,                       MFX_LIB_VERSION_1_7);
         cop2.IntRefCycleSize = 0;
         CHECK_FEATURE(cop2.AdaptiveI,            ENC_FEATURE_ADAPTIVE_I,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_8);
-        CHECK_FEATURE(cop2.AdaptiveB,            ENC_FEATURE_ADAPTIVE_B,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_8);
-        const auto orig_ref_dist = videoPrm.mfx.GopRefDist;
-        videoPrm.mfx.GopRefDist = 4;
-        CHECK_FEATURE(cop2.BRefType,             ENC_FEATURE_B_PYRAMID,     MFX_B_REF_PYRAMID,       MFX_LIB_VERSION_1_8);
-        videoPrm.mfx.GopRefDist = orig_ref_dist;
+        if (bframesCheck) {
+            CHECK_FEATURE(cop2.AdaptiveB, ENC_FEATURE_ADAPTIVE_B, MFX_CODINGOPTION_ON, MFX_LIB_VERSION_1_8);
+            const auto orig_ref_dist = videoPrm.mfx.GopRefDist;
+            videoPrm.mfx.GopRefDist = 4;
+            CHECK_FEATURE(cop2.BRefType, ENC_FEATURE_B_PYRAMID, MFX_B_REF_PYRAMID, MFX_LIB_VERSION_1_8);
+            videoPrm.mfx.GopRefDist = orig_ref_dist;
+            CHECK_FEATURE(cop3.WeightedBiPred, ENC_FEATURE_WEIGHT_B, MFX_WEIGHTED_PRED_DEFAULT, MFX_LIB_VERSION_1_16);
+        }
+        CHECK_FEATURE(cop3.WeightedPred, ENC_FEATURE_WEIGHT_P, MFX_WEIGHTED_PRED_DEFAULT, MFX_LIB_VERSION_1_16);
         if (rc_is_type_lookahead(ratecontrol)) {
             CHECK_FEATURE(cop2.LookAheadDS,      ENC_FEATURE_LA_DS,         MFX_LOOKAHEAD_DS_2x,     MFX_LIB_VERSION_1_8);
         }
@@ -943,8 +949,6 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 code
         videoPrm.mfx.GopRefDist = 1;
         CHECK_FEATURE(videoPrm.mfx.LowPower,     ENC_FEATURE_FIXED_FUNC,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_15);
         videoPrm.mfx.GopRefDist = orig_ref_dist2;
-        CHECK_FEATURE(cop3.WeightedPred,         ENC_FEATURE_WEIGHT_P,      MFX_WEIGHTED_PRED_DEFAULT,     MFX_LIB_VERSION_1_16);
-        CHECK_FEATURE(cop3.WeightedBiPred,       ENC_FEATURE_WEIGHT_B,      MFX_WEIGHTED_PRED_DEFAULT,     MFX_LIB_VERSION_1_16);
         CHECK_FEATURE(cop3.FadeDetection,        ENC_FEATURE_FADE_DETECT,   MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_1_17);
         CHECK_FEATURE(cop3.AdaptiveLTR,          ENC_FEATURE_ADAPTIVE_LTR,  MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_2_4);
         CHECK_FEATURE(cop3.AdaptiveRef,          ENC_FEATURE_ADAPTIVE_REF,  MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_2_4);

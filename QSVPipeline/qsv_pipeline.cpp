@@ -520,8 +520,14 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
             return RGY_ERR_INVALID_VIDEO_PARAM;
         }
     }
-    if (pInParams->nBframes == QSV_BFRAMES_AUTO) {
-        pInParams->nBframes = (pInParams->CodecId == MFX_CODEC_HEVC) ? QSV_DEFAULT_HEVC_BFRAMES : QSV_DEFAULT_H264_BFRAMES;
+    if (pInParams->CodecId == MFX_CODEC_AV1 && DISABLE_BFRAME_AV1) {
+        pInParams->nBframes = 0;
+    } else if (pInParams->nBframes == QSV_BFRAMES_AUTO) {
+        switch (pInParams->CodecId) {
+        case MFX_CODEC_HEVC: pInParams->nBframes = QSV_DEFAULT_HEVC_BFRAMES; break;
+        case MFX_CODEC_AVC:
+        default:             pInParams->nBframes = QSV_DEFAULT_H264_BFRAMES; break;
+        }
     }
     //その他機能のチェック
     if (pInParams->bAdaptiveI && !(availableFeaures & ENC_FEATURE_ADAPTIVE_I)) {
