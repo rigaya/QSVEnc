@@ -1554,3 +1554,51 @@ int GetImplListStr(tstring& str) {
     }
     return (int)implList.size();
 }
+
+
+std::vector<tstring> getDeviceList() {
+    std::vector<tstring> result;
+    auto log = std::make_shared<RGYLog>(nullptr, RGY_LOG_QUIET);
+    std::vector<std::shared_ptr<RGYOpenCLPlatform>> clPlatforms;
+    RGYOpenCL cl(log);
+    if (RGYOpenCL::openCLloaded()) {
+        clPlatforms = cl.getPlatforms("Intel");
+    }
+    for (int idev = 1; idev <= 4; idev++) {
+        MemType memType = D3D11_MEMORY;
+        std::unique_ptr<CQSVHWDevice> hwdev;
+        MFXVideoSession2 session;
+        MFXVideoSession2Params params;
+        bool bexternalAlloc = true;
+        std::unique_ptr<QSVAllocator> allocator;
+        auto err = RGY_ERR_NONE;
+        if ((err = InitSessionAndDevice(hwdev, session, memType, (QSVDeviceNum)idev, params, log)) != RGY_ERR_NONE) {
+            break;
+        }
+        if (clPlatforms.size() == 0) {
+            result.push_back(strsprintf(_T("Device #%d"), idev));
+            continue;
+        }
+        const mfxHandleType hdl_t = mfxHandleTypeFromMemType(memType, true);
+        mfxHDL hdl = nullptr;
+        if (hdl_t) {
+            auto sts = err_to_rgy(hwdev->GetHandle((hdl_t == MFX_HANDLE_DIRECT3D_DEVICE_MANAGER9) ? (mfxHandleType)0 : hdl_t, &hdl));
+            if (sts != RGY_ERR_NONE) break;
+        }
+
+        RGYOpenCLPlatform *selectedPlatform = nullptr;
+        tstring clErrMessage;
+        for (auto& platform : clPlatforms) {
+            if (platform->createDeviceListD3D11(CL_DEVICE_TYPE_GPU, (void *)hdl) == CL_SUCCESS) {
+                selectedPlatform = platform.get();
+                break;
+            }
+        }
+        if (selectedPlatform) {
+            result.push_back(strsprintf(_T("Device #%d: %s"), idev, char_to_tstring(selectedPlatform->dev(0).info().name).c_str()));
+        } else {
+            result.push_back(strsprintf(_T("Device #%d"), idev));
+        }
+    }
+    return result;
+}

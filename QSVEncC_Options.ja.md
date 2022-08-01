@@ -22,6 +22,7 @@
   - [--check-features](#--check-features)
   - [--check-features-html [&lt;string&gt;]](#--check-features-html-string)
   - [--check-environment](#--check-environment)
+  - [--check-device](#--check-device)
   - [--check-clinfo](#--check-clinfo)
   - [--check-codecs, --check-decoders, --check-encoders](#--check-codecs---check-decoders---check-encoders)
   - [--check-profiles &lt;string&gt;](#--check-profiles-string)
@@ -341,6 +342,9 @@ QSVEncの使用可能なエンコード機能情報を指定したファイル�
 
 ### --check-environment
 QSVEncCの認識している環境情報を表示
+
+### --check-device
+QSVを利用可能なデバイスを表示
 
 ### --check-clinfo
 OpenCLの情報を表示

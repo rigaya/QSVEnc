@@ -23,6 +23,7 @@
   - [--check-features](#--check-features)
   - [--check-features-html [&lt;string&gt;]](#--check-features-html-string)
   - [--check-environment](#--check-environment)
+  - [--check-device](#--check-device)
   - [--check-clinfo](#--check-clinfo)
   - [--check-codecs, --check-decoders, --check-encoders](#--check-codecs---check-decoders---check-encoders)
   - [--check-profiles &lt;string&gt;](#--check-profiles-string)
@@ -321,6 +322,9 @@ If path is not specified, the output will be "qsv_check.html".
 
 ### --check-environment
 Show environment information recognized by QSVEncC.
+
+### --check-device
+Show device(s) available for QSV.
 
 ### --check-clinfo
 Show OpenCL information.

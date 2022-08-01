@@ -201,6 +201,7 @@ tstring encoder_help() {
         _T("                                 specified path. With no value, \"qsv_check.html\"\n")
         _T("                                 will be created to current directory.\n")
         _T("   --check-environment          check environment info\n")
+        _T("   --check-device               check device available\n")
         _T("   --check-clinfo               check OpenCL info\n")
 #if ENABLE_AVSW_READER
         _T("   --check-avversion            show dll version\n")

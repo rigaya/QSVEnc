@@ -602,6 +602,17 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const QSVDe
         _ftprintf(stdout, _T("%s\n"), str.c_str());
         return 1;
     }
+    if (0 == _tcscmp(option_name, _T("check-device"))) {
+        auto devs = getDeviceList();
+        if (devs.size() > 0) {
+            for (auto& str : devs) {
+                _ftprintf(stdout, _T("%s\n"), str.c_str());
+            }
+            return 1;
+        } else {
+            return -1;
+        }
+    }
 #if ENABLE_AVSW_READER
     if (0 == _tcscmp(option_name, _T("check-avcodec-dll"))) {
         const auto ret = check_avcodec_dll();
