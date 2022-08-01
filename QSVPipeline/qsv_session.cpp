@@ -216,7 +216,7 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
     auto sts = MFX_ERR_NONE;
     auto loader = MFXLoaderProvider::getLoader();
     auto cfg = MFXCreateConfig(loader);
-    if (D3D_SURFACES_SUPPORT) {
+    if (false) {
         mfxVariant accMode;
         accMode.Version.Version = MFX_VARIANT_VERSION;
         accMode.Type = MFX_VARIANT_TYPE_U32;
@@ -236,8 +236,9 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
         m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: try init by MFXCreateSession.\n"));
         sts = MFXCreateSession(loader, 0, (mfxSession *)&m_session);
     } else {
+        const int MAX_DEV_CHECK = 1000;
         int adapterIDFirst = -1;
-        for (int impl_idx = 0; ; impl_idx++) {
+        for (int impl_idx = 0; impl_idx < MAX_DEV_CHECK; impl_idx++) {
             mfxImplDescription *impl_desc = nullptr;
             sts = MFXEnumImplementations(loader, impl_idx, MFX_IMPLCAPS_IMPLDESCSTRUCTURE, (mfxHDL *)&impl_desc);
             if (sts == MFX_ERR_UNSUPPORTED || sts == MFX_ERR_NOT_FOUND) {
@@ -246,7 +247,7 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
                 continue;
             }
             int id1 = -1, adapterID = -1;
-            if (sscanf_s(impl_desc->Dev.DeviceID, "%d/%d", &id1, &adapterID) == 2) {
+            if (sscanf_s(impl_desc->Dev.DeviceID, "%x/%d", &id1, &adapterID) == 2) {
                 if (adapterIDFirst < 0) {
                     adapterIDFirst = adapterID;
                 }
@@ -264,7 +265,7 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
             }
         }
     }
-    if (sts == MFX_ERR_NONE) return sts;
+    if (sts == MFX_ERR_NONE || dev != QSVDeviceNum::AUTO) return sts;
     m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: Failed to init by MFXCreateSession.\n"));
 #endif
     m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: try init by MFXInit.\n"));

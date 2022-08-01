@@ -1239,36 +1239,53 @@ RGY_ERR CQSVPipeline::InitOpenCL(const bool enableOpenCL, const bool checkVppPer
     }
     PrintMes(RGY_LOG_DEBUG, _T("Created Intel OpenCL platform.\n"));
 
-    auto& platform = platforms[0];
-    if (m_memType == D3D9_MEMORY && ENABLE_RGY_OPENCL_D3D9) {
-        if (platform->createDeviceListD3D9(CL_DEVICE_TYPE_GPU, (void *)hdl) != CL_SUCCESS || platform->devs().size() == 0) {
-            PrintMes(RGY_LOG_ERROR, _T("Failed to find d3d9 device.\n"));
-            return RGY_ERR_DEVICE_LOST;
+    std::shared_ptr<RGYOpenCLPlatform> selectedPlatform;
+    tstring clErrMessage;
+    for (auto& platform : platforms) {
+        if (m_memType == D3D9_MEMORY && ENABLE_RGY_OPENCL_D3D9) {
+            if (platform->createDeviceListD3D9(CL_DEVICE_TYPE_GPU, (void *)hdl) != CL_SUCCESS || platform->devs().size() == 0) {
+                auto mes = strsprintf(_T("Failed to find d3d9 device in platform %s.\n"), char_to_tstring(platform->info().name).c_str());
+                PrintMes(RGY_LOG_DEBUG, mes.c_str());
+                clErrMessage += mes;
+                continue;
+            }
+        } else if (m_memType == D3D11_MEMORY && ENABLE_RGY_OPENCL_D3D11) {
+            if (platform->createDeviceListD3D11(CL_DEVICE_TYPE_GPU, (void *)hdl) != CL_SUCCESS || platform->devs().size() == 0) {
+                auto mes = strsprintf(_T("Failed to find d3d11 device in platform %s.\n"), char_to_tstring(platform->info().name).c_str());
+                PrintMes(RGY_LOG_DEBUG, mes.c_str());
+                clErrMessage += mes;
+                continue;
+            }
+        } else if (m_memType == VA_MEMORY && ENABLE_RGY_OPENCL_VA) {
+            if (platform->createDeviceListVA(CL_DEVICE_TYPE_GPU, (void *)hdl) != CL_SUCCESS || platform->devs().size() == 0) {
+                auto mes = strsprintf(_T("Failed to find va device in platform %s.\n"), char_to_tstring(platform->info().name).c_str());
+                PrintMes(RGY_LOG_DEBUG, mes.c_str());
+                clErrMessage += mes;
+                continue;
+            }
+        } else {
+            if (platform->createDeviceList(CL_DEVICE_TYPE_GPU) != CL_SUCCESS || platform->devs().size() == 0) {
+                auto mes = _T("Failed to find gpu device.\n");
+                PrintMes(RGY_LOG_DEBUG, mes);
+                clErrMessage += mes;
+                continue;
+            }
         }
-    } else if (m_memType == D3D11_MEMORY && ENABLE_RGY_OPENCL_D3D11) {
-        if (platform->createDeviceListD3D11(CL_DEVICE_TYPE_GPU, (void *)hdl) != CL_SUCCESS || platform->devs().size() == 0) {
-            PrintMes(RGY_LOG_ERROR, _T("Failed to find d3d11 device.\n"));
-            return RGY_ERR_DEVICE_LOST;
-        }
-    } else if (m_memType == VA_MEMORY && ENABLE_RGY_OPENCL_VA) {
-        if (platform->createDeviceListVA(CL_DEVICE_TYPE_GPU, (void *)hdl) != CL_SUCCESS || platform->devs().size() == 0) {
-            PrintMes(RGY_LOG_ERROR, _T("Failed to find va device.\n"));
-            return RGY_ERR_DEVICE_LOST;
-        }
-    } else {
-        if (platform->createDeviceList(CL_DEVICE_TYPE_GPU) != CL_SUCCESS || platform->devs().size() == 0) {
-            PrintMes(RGY_LOG_ERROR, _T("Failed to find gpu device.\n"));
-            return RGY_ERR_DEVICE_LOST;
-        }
+        selectedPlatform = platform;
+        break;
     }
-    auto devices = platform->devs();
+    if (!selectedPlatform) {
+        PrintMes(RGY_LOG_ERROR, clErrMessage.c_str());
+        return RGY_ERR_DEVICE_LOST;
+    }
+    auto devices = selectedPlatform->devs();
     if ((int)devices.size() == 0) {
         PrintMes(RGY_LOG_ERROR, _T("Failed to OpenCL device.\n"));
         return RGY_ERR_DEVICE_LOST;
     }
-    platform->setDev(devices[0]);
+    selectedPlatform->setDev(devices[0]);
 
-    m_cl = std::make_shared<RGYOpenCLContext>(platform, m_pQSVLog);
+    m_cl = std::make_shared<RGYOpenCLContext>(selectedPlatform, m_pQSVLog);
     if (m_cl->createContext((checkVppPerformance) ? CL_QUEUE_PROFILING_ENABLE : 0) != CL_SUCCESS) {
         PrintMes(RGY_LOG_ERROR, _T("Failed to create OpenCL context.\n"));
         return RGY_ERR_UNKNOWN;
@@ -3802,7 +3819,7 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
 
     TCHAR gpu_info[1024] = { 0 };
     if (Check_HWUsed(impl)) {
-        getGPUInfo("Intel", gpu_info, _countof(gpu_info));
+        getGPUInfo("Intel", gpu_info, _countof(gpu_info), GetAdapterID(m_mfxSession.get()), m_cl->platform());
     }
     TCHAR info[4096] = { 0 };
     mfxU32 info_len = 0;

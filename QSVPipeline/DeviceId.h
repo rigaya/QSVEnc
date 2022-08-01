@@ -94,7 +94,8 @@ struct IntelDeviceInfoHeader
 
 bool getGraphicsDeviceInfo( unsigned int* VendorId,
                           unsigned int* DeviceId,
-                          unsigned int* VideoMemory);
+                          unsigned int* VideoMemory,
+                          const int adapterID);
 
 
 /*****************************************************************************************
@@ -130,7 +131,7 @@ PresetLevel getDefaultFidelityPresets( unsigned int VendorId, unsigned int Devic
  *     This function is only valid on Intel graphics devices SNB and later.
  *****************************************************************************************/
 
-long getIntelDeviceInfo( unsigned int VendorId, IntelDeviceInfoHeader *pIntelDeviceInfoHeader, void *pIntelDeviceInfoBuffer );
+long getIntelDeviceInfo( unsigned int VendorId, const int adapterID, IntelDeviceInfoHeader *pIntelDeviceInfoHeader, void *pIntelDeviceInfoBuffer );
 
 
 /*****************************************************************************************
