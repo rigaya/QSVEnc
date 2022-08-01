@@ -525,6 +525,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
     } else if (pInParams->nBframes == QSV_BFRAMES_AUTO) {
         switch (pInParams->CodecId) {
         case MFX_CODEC_HEVC: pInParams->nBframes = QSV_DEFAULT_HEVC_BFRAMES; break;
+        case MFX_CODEC_AV1:  pInParams->nBframes = QSV_DEFAULT_AV1_BFRAMES; break;
         case MFX_CODEC_AVC:
         default:             pInParams->nBframes = QSV_DEFAULT_H264_BFRAMES; break;
         }
