@@ -35,6 +35,7 @@
 #include "DeviceId.h"
 #include "rgy_osdep.h"
 #include "rgy_util.h"
+#include "gpu_info.h"
 
 typedef struct IntelDeviceInfo {
     unsigned int GPUMemoryBytes;
