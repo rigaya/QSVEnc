@@ -840,12 +840,13 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 code
         //videoPrm.mfx.LowPower = MFX_CODINGOPTION_ON;
         break;
     case MFX_CODEC_AV1:
-        videoPrm.mfx.CodecLevel = MFX_LEVEL_AV1_4;
+        videoPrm.mfx.CodecLevel = MFX_LEVEL_UNKNOWN;
         videoPrm.mfx.CodecProfile = MFX_PROFILE_AV1_MAIN;
         videoPrm.mfx.FrameInfo.Width = 1280;
         videoPrm.mfx.FrameInfo.Height = 720;
         videoPrm.mfx.FrameInfo.CropW = 1280;
         videoPrm.mfx.FrameInfo.CropH = 720;
+        videoPrm.mfx.GopRefDist = 1;
         av1.WriteIVFHeaders = MFX_CODINGOPTION_OFF;
         if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_9)) {
             videoPrm.mfx.FrameInfo.BitDepthLuma = 8;
@@ -949,11 +950,20 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 code
         videoPrm.mfx.GopRefDist = 1;
         CHECK_FEATURE(videoPrm.mfx.LowPower,     ENC_FEATURE_FIXED_FUNC,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_15);
         videoPrm.mfx.GopRefDist = orig_ref_dist2;
+        { // hyper modeのテスト
+            // low power off でテスト
+            videoPrm.mfx.GopRefDist = 1;
+            CHECK_FEATURE(hyperMode.Mode, ENC_FEATURE_HYPER_MODE, MFX_HYPERMODE_ON, MFX_LIB_VERSION_2_5);
+            // low power on でテスト
+            videoPrm.mfx.LowPower = MFX_CODINGOPTION_ON;
+            CHECK_FEATURE(hyperMode.Mode, ENC_FEATURE_HYPER_MODE, MFX_HYPERMODE_ON, MFX_LIB_VERSION_2_5);
+            videoPrm.mfx.LowPower = MFX_CODINGOPTION_UNKNOWN;
+            videoPrm.mfx.GopRefDist = orig_ref_dist2;
+        }
         CHECK_FEATURE(cop3.FadeDetection,        ENC_FEATURE_FADE_DETECT,   MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_1_17);
         CHECK_FEATURE(cop3.AdaptiveLTR,          ENC_FEATURE_ADAPTIVE_LTR,  MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_2_4);
         CHECK_FEATURE(cop3.AdaptiveRef,          ENC_FEATURE_ADAPTIVE_REF,  MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_2_4);
         CHECK_FEATURE(cop3.AdaptiveCQM,          ENC_FEATURE_ADAPTIVE_CQM,  MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_2_2);
-        CHECK_FEATURE(hyperMode.Mode, MFX_HYPERMODE_ON, MFX_HYPERMODE_OFF, MFX_LIB_VERSION_2_5);
         if (codecId == MFX_CODEC_HEVC) {
             CHECK_FEATURE(cop3.GPB,              ENC_FEATURE_DISABLE_GPB,       MFX_CODINGOPTION_ON,  MFX_LIB_VERSION_1_19);
             CHECK_FEATURE(cop3.EnableQPOffset,   ENC_FEATURE_PYRAMID_QP_OFFSET, MFX_CODINGOPTION_ON,  MFX_LIB_VERSION_1_19);
