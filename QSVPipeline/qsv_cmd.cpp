@@ -305,7 +305,7 @@ tstring encoder_help() {
     str += strsprintf(_T("Other Encode Options:\n")
         _T("   --fallback-rc                enable fallback of ratecontrol mode, when\n")
         _T("                                 platform does not support new ratecontrol modes.\n")
-        _T("-a,--async-depth                set async depth for QSV pipeline. (0-%d)\n")
+        _T("-a,--async-depth                set async depth for QSV pipeline.\n")
         _T("                                 default: 0 (=auto, %d)\n")
         _T("   --max-bitrate <int>          set max bitrate(kbps)\n")
         _T("   --qp-min <int> or            set min QP, default 0 (= unset)\n")
@@ -368,7 +368,7 @@ tstring encoder_help() {
         _T("                                 - auto(default), 16, 32, 64\n")
         //_T("   --sharpness <int>            [vp8] set sharpness level for vp8 enc\n")
         _T("\n"),
-        QSV_ASYNC_DEPTH_MAX, QSV_DEFAULT_ASYNC_DEPTH,
+        QSV_DEFAULT_ASYNC_DEPTH,
         QSV_LOOKAHEAD_DEPTH_MIN, QSV_LOOKAHEAD_DEPTH_MAX,
         QSV_DEFAULT_REF,
         QSV_DEFAULT_HEVC_BFRAMES, QSV_DEFAULT_H264_BFRAMES,
