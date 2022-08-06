@@ -423,7 +423,15 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
     PrintMes(RGY_LOG_DEBUG, _T("encodeBitDepth: %d, codecMaxQP: %d.\n"), encodeBitDepth, codecMaxQP);
 
     //エンコードモードのチェック
-    auto availableFeaures = CheckEncodeFeature(m_mfxSession, pInParams->nEncMode, pInParams->CodecId);
+    auto availableFeaures = CheckEncodeFeature(m_mfxSession, pInParams->nEncMode, codec_enc_to_rgy(pInParams->CodecId), pInParams->bUseFixedFunc);
+    if (availableFeaures == 0) {
+        availableFeaures = CheckEncodeFeature(m_mfxSession, pInParams->nEncMode, codec_enc_to_rgy(pInParams->CodecId), !pInParams->bUseFixedFunc);
+        if (availableFeaures) {
+            const TCHAR *PG_FF_STR[] = { _T("PG"), _T("FF") };
+            PrintMes(RGY_LOG_WARN, _T("%s is not supported on this platform, switched to %s mode.\n"), PG_FF_STR[!!pInParams->bUseFixedFunc], PG_FF_STR[!pInParams->bUseFixedFunc]);
+            pInParams->bUseFixedFunc = !pInParams->bUseFixedFunc;
+        }
+    }
     PrintMes(RGY_LOG_DEBUG, _T("Detected avaliable features for hw API v%d.%02d, %s, %s\n%s\n"),
         m_mfxVer.Major, m_mfxVer.Minor,
         CodecIdToStr(pInParams->CodecId), EncmodeToStr(pInParams->nEncMode), MakeFeatureListStr(availableFeaures).c_str());
@@ -432,7 +440,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         if (   pInParams->nEncMode == MFX_RATECONTROL_CQP
             || pInParams->nEncMode == MFX_RATECONTROL_VBR
             || pInParams->nEncMode == MFX_RATECONTROL_CBR
-            || !(CheckEncodeFeature(m_mfxSession, MFX_RATECONTROL_CQP, pInParams->CodecId) & ENC_FEATURE_CURRENT_RC)) {
+            || !(CheckEncodeFeature(m_mfxSession, MFX_RATECONTROL_CQP, codec_enc_to_rgy(pInParams->CodecId), pInParams->bUseFixedFunc) & ENC_FEATURE_CURRENT_RC)) {
             PrintMes(RGY_LOG_ERROR, _T("%s encoding is not supported on current platform.\n"), CodecIdToStr(pInParams->CodecId));
             return RGY_ERR_INVALID_VIDEO_PARAM;
         }
@@ -497,7 +505,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         //check_rc_listに設定したfallbackの候補リストをチェックする
         bool bFallbackSuccess = false;
         for (uint32_t i = 0; i < (uint32_t)check_rc_list.size(); i++) {
-            auto availRCFeatures = CheckEncodeFeature(m_mfxSession, (uint16_t)check_rc_list[i], pInParams->CodecId);
+            auto availRCFeatures = CheckEncodeFeature(m_mfxSession, (uint16_t)check_rc_list[i], codec_enc_to_rgy(pInParams->CodecId), pInParams->bUseFixedFunc);
             if (availRCFeatures & ENC_FEATURE_CURRENT_RC) {
                 pInParams->nEncMode = (uint16_t)check_rc_list[i];
                 if (pInParams->nEncMode == MFX_RATECONTROL_LA_ICQ) {
@@ -645,10 +653,6 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         print_feature_warnings(RGY_LOG_WARN, _T("MV Cost Scaling"));
         pInParams->bGlobalMotionAdjust = 0;
         pInParams->nMVCostScaling = 0;
-    }
-    if (pInParams->bUseFixedFunc && !(availableFeaures & ENC_FEATURE_FIXED_FUNC)) {
-        print_feature_warnings(RGY_LOG_WARN, _T("Fixed Func"));
-        pInParams->bUseFixedFunc = 0;
     }
     if (pInParams->nWeightP && !(availableFeaures & ENC_FEATURE_WEIGHT_P)) {
         if (pInParams->nWeightP == MFX_CODINGOPTION_ON) {

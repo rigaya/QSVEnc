@@ -684,7 +684,8 @@ mfxU64 CheckVppFeatures(const QSVDeviceNum deviceNum, std::shared_ptr<RGYLog> lo
     return feature;
 }
 
-mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 codecId) {
+uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, const RGY_CODEC codec, const bool lowPower) {
+    const mfxU32 codecId = codec_rgy_to_enc(codec);
     mfxVersion mfxVer;
     session.QueryVersion(&mfxVer);
     if (codecId == MFX_CODEC_HEVC && !check_lib_version(mfxVer, MFX_LIB_VERSION_1_15)) {
@@ -784,6 +785,8 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 code
         }
     };
 
+    const auto lowPowerMode = (decltype(videoPrm.mfx.LowPower))((lowPower) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
+
     videoPrm.NumExtParam = (mfxU16)buf.size();
     videoPrm.ExtParam = (buf.size()) ? &buf[0] : NULL;
     videoPrm.AsyncDepth                  = 3;
@@ -797,7 +800,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 code
     videoPrm.mfx.GopPicSize              = 30;
     videoPrm.mfx.IdrInterval             = 0;
     videoPrm.mfx.GopOptFlag              = 0;
-    videoPrm.mfx.GopRefDist              = 4;
+    videoPrm.mfx.GopRefDist              = 1;
     videoPrm.mfx.FrameInfo.FrameRateExtN = 30000;
     videoPrm.mfx.FrameInfo.FrameRateExtD = 1001;
     videoPrm.mfx.FrameInfo.FourCC        = MFX_FOURCC_NV12;
@@ -811,6 +814,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 code
     videoPrm.mfx.FrameInfo.CropY         = 0;
     videoPrm.mfx.FrameInfo.CropW         = 1920;
     videoPrm.mfx.FrameInfo.CropH         = 1080;
+    videoPrm.mfx.LowPower                = lowPowerMode;
     switch (codecId) {
     case MFX_CODEC_HEVC:
         videoPrm.mfx.CodecLevel = MFX_LEVEL_UNKNOWN;
@@ -865,7 +869,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 code
     auto ret = MFXVideoENCODE_Query(session, &videoPrm, &videoPrm);
     //_ftprintf(stderr, _T("error checking %s: %s\n"), CodecIdToStr(codecId), get_err_mes(err_to_rgy(ret)));
 
-    mfxU64 result = (ret >= MFX_ERR_NONE && videoPrm.mfx.RateControlMethod == ratecontrol) ? ENC_FEATURE_CURRENT_RC : 0x00;
+    uint64_t result = (ret >= MFX_ERR_NONE && videoPrm.mfx.RateControlMethod == ratecontrol && videoPrm.mfx.LowPower == lowPowerMode) ? ENC_FEATURE_CURRENT_RC : 0x00;
     if (result) {
 
         //まず、エンコードモードについてチェック
@@ -907,7 +911,6 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 code
             result |= ENC_FEATURE_VUI_INFO;
         }
         //とりあえずAV1ではBフレームのチェックはしない
-        const auto bframesCheck = !(DISABLE_BFRAME_AV1 && codecId == MFX_CODEC_AV1);
         //ひとつひとつパラメータを入れ替えて試していく
 #pragma warning(push)
 #pragma warning(disable:4244) //'mfxU16' から 'mfxU8' への変換です。データが失われる可能性があります。
@@ -920,6 +923,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 code
             CHECK_FEATURE(cop.RateDistortionOpt,     ENC_FEATURE_RDO,           MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_1);
             CHECK_FEATURE(cop.CAVLC,                 ENC_FEATURE_CAVLC,         MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_1);
         }
+        CHECK_FEATURE(videoPrm.mfx.GopRefDist,   ENC_FEATURE_BFRAME,        4,                       MFX_LIB_VERSION_1_1);
         CHECK_FEATURE(cop2.ExtBRC,               ENC_FEATURE_EXT_BRC,       MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_6);
         CHECK_FEATURE(cop2.MBBRC,                ENC_FEATURE_MBBRC,         MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_6);
         CHECK_FEATURE(cop2.Trellis,              ENC_FEATURE_TRELLIS,       MFX_TRELLIS_ALL,         MFX_LIB_VERSION_1_7);
@@ -927,6 +931,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 code
         CHECK_FEATURE(cop2.IntRefType,           ENC_FEATURE_INTRA_REFRESH, 1,                       MFX_LIB_VERSION_1_7);
         cop2.IntRefCycleSize = 0;
         CHECK_FEATURE(cop2.AdaptiveI,            ENC_FEATURE_ADAPTIVE_I,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_8);
+        const auto bframesCheck = !(DISABLE_BFRAME_AV1 && codecId == MFX_CODEC_AV1) && ((result & ENC_FEATURE_BFRAME) != 0);
         if (bframesCheck) {
             CHECK_FEATURE(cop2.AdaptiveB, ENC_FEATURE_ADAPTIVE_B, MFX_CODINGOPTION_ON, MFX_LIB_VERSION_1_8);
             const auto orig_ref_dist = videoPrm.mfx.GopRefDist;
@@ -947,20 +952,7 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 code
         CHECK_FEATURE(cop3.EnableMBQP,                 ENC_FEATURE_PERMBQP,                    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_13);
         CHECK_FEATURE(cop3.DirectBiasAdjustment,       ENC_FEATURE_DIRECT_BIAS_ADJUST,         MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_13);
         CHECK_FEATURE(cop3.GlobalMotionBiasAdjustment, ENC_FEATURE_GLOBAL_MOTION_ADJUST,       MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_13);
-        const auto orig_ref_dist2 = videoPrm.mfx.GopRefDist;
-        videoPrm.mfx.GopRefDist = 1;
-        CHECK_FEATURE(videoPrm.mfx.LowPower,     ENC_FEATURE_FIXED_FUNC,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_15);
-        videoPrm.mfx.GopRefDist = orig_ref_dist2;
-        { // hyper modeのテスト
-            // low power off でテスト
-            videoPrm.mfx.GopRefDist = 1;
-            CHECK_FEATURE(hyperMode.Mode, ENC_FEATURE_HYPER_MODE, MFX_HYPERMODE_ON, MFX_LIB_VERSION_2_5);
-            // low power on でテスト
-            videoPrm.mfx.LowPower = MFX_CODINGOPTION_ON;
-            CHECK_FEATURE(hyperMode.Mode, ENC_FEATURE_HYPER_MODE, MFX_HYPERMODE_ON, MFX_LIB_VERSION_2_5);
-            videoPrm.mfx.LowPower = MFX_CODINGOPTION_UNKNOWN;
-            videoPrm.mfx.GopRefDist = orig_ref_dist2;
-        }
+        CHECK_FEATURE(hyperMode.Mode,                  ENC_FEATURE_HYPER_MODE,                 MFX_HYPERMODE_ON,        MFX_LIB_VERSION_2_5);
         CHECK_FEATURE(cop3.FadeDetection,        ENC_FEATURE_FADE_DETECT,   MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_1_17);
         CHECK_FEATURE(cop3.AdaptiveLTR,          ENC_FEATURE_ADAPTIVE_LTR,  MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_2_4);
         CHECK_FEATURE(cop3.AdaptiveRef,          ENC_FEATURE_ADAPTIVE_REF,  MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_2_4);
@@ -1035,8 +1027,9 @@ mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 code
 //サポートする機能のチェックをAPIバージョンのみで行う
 //API v1.6以降はCheckEncodeFeatureを使うべき
 //同一のAPIバージョンでも環境により異なることが多くなるため
-static mfxU64 CheckEncodeFeatureStatic(mfxVersion mfxVer, int ratecontrol, mfxU32 codecId) {
-    mfxU64 feature = 0x00;
+static uint64_t CheckEncodeFeatureStatic(const mfxVersion mfxVer, const int ratecontrol, const RGY_CODEC codec) {
+    const mfxU32 codecId = codec_rgy_to_enc(codec);
+    uint64_t feature = 0x00;
     if (codecId != MFX_CODEC_AVC && codecId != MFX_CODEC_MPEG2) {
         return feature;
     }
@@ -1115,18 +1108,21 @@ static mfxU64 CheckEncodeFeatureStatic(mfxVersion mfxVer, int ratecontrol, mfxU3
     return feature;
 }
 
-mfxU64 CheckEncodeFeatureWithPluginLoad(MFXVideoSession& session, int ratecontrol, mfxU32 codecId) {
-    mfxU64 feature = 0x00;
+uint64_t CheckEncodeFeatureWithPluginLoad(MFXVideoSession& session, const int ratecontrol, const RGY_CODEC codec, const bool lowPower) {
+    uint64_t feature = 0x00;
     mfxVersion ver = MFX_LIB_VERSION_0_0;
     session.QueryVersion(&ver);
     if (!check_lib_version(ver, MFX_LIB_VERSION_1_0)) {
         ; //特にすることはない
+    } else if (lowPower && !check_lib_version(ver, MFX_LIB_VERSION_1_15)) {
+        ; // lowepowerはAPI 1.15以降の対応
+        ; //特にすることはない
     } else if (!check_lib_version(ver, MFX_LIB_VERSION_1_6)) {
         //API v1.6未満で実際にチェックする必要は殆ど無いので、
         //コードで決められた値を返すようにする
-        feature = CheckEncodeFeatureStatic(ver, ratecontrol, codecId);
+        feature = CheckEncodeFeatureStatic(ver, ratecontrol, codec);
     } else {
-        feature = CheckEncodeFeature(session, ratecontrol, codecId);
+        feature = CheckEncodeFeature(session, ratecontrol, codec, lowPower);
     }
 
     return feature;
@@ -1139,9 +1135,12 @@ const TCHAR *EncFeatureStr(mfxU64 enc_feature) {
     return NULL;
 }
 
-vector<mfxU64> MakeFeatureList(const QSVDeviceNum deviceNum, const vector<CX_DESC>& rateControlList, mfxU32 codecId, std::shared_ptr<RGYLog> log) {
-    vector<mfxU64> availableFeatureForEachRC;
-    availableFeatureForEachRC.reserve(rateControlList.size());
+QSVEncFeatureData MakeFeatureList(const QSVDeviceNum deviceNum, const std::vector<CX_DESC>& rateControlList, const RGY_CODEC codec, const bool lowPower, std::shared_ptr<RGYLog> log) {
+    QSVEncFeatureData availableFeatureForEachRC;
+    availableFeatureForEachRC.codec = codec;
+    availableFeatureForEachRC.dev = deviceNum;
+    availableFeatureForEachRC.lowPwer = lowPower;
+    availableFeatureForEachRC.feature.reserve(rateControlList.size());
 #if LIBVA_SUPPORT
     if (codecId != MFX_CODEC_MPEG2) {
 #endif
@@ -1161,11 +1160,11 @@ vector<mfxU64> MakeFeatureList(const QSVDeviceNum deviceNum, const vector<CX_DES
             session.QueryVersion(&ver);
             log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("InitSession: initialized allocator.\n"));
             for (const auto& ratecontrol : rateControlList) {
-                const mfxU64 ret = CheckEncodeFeatureWithPluginLoad(session, (mfxU16)ratecontrol.value, codecId);
+                const uint64_t ret = CheckEncodeFeatureWithPluginLoad(session, (mfxU16)ratecontrol.value, codec, lowPower);
                 if (ret == 0 && ratecontrol.value == MFX_RATECONTROL_CQP) {
                     ver = MFX_LIB_VERSION_0_0;
                 }
-                availableFeatureForEachRC.push_back(ret);
+                availableFeatureForEachRC.feature.push_back(ret);
             }
         }
 #if LIBVA_SUPPORT
@@ -1174,21 +1173,24 @@ vector<mfxU64> MakeFeatureList(const QSVDeviceNum deviceNum, const vector<CX_DES
     return availableFeatureForEachRC;
 }
 
-vector<vector<mfxU64>> MakeFeatureListPerCodec(const QSVDeviceNum deviceNum, const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList, std::shared_ptr<RGYLog> log) {
-    vector<vector<mfxU64>> codecFeatures;
-    vector<std::future<vector<mfxU64>>> futures;
-    if (false) {
-    for (auto codec : codecIdList) {
-        auto f = std::async(MakeFeatureList, deviceNum, rateControlList, codec, log);
-        futures.push_back(std::move(f));
-    }
-    for (uint32_t i = 0; i < futures.size(); i++) {
-        codecFeatures.push_back(futures[i].get());
-    }
+std::vector<QSVEncFeatureData> MakeFeatureListPerCodec(const QSVDeviceNum deviceNum, const vector<CX_DESC>& rateControlList, const vector<RGY_CODEC>& codecIdList, std::shared_ptr<RGYLog> log) {
+    std::vector<QSVEncFeatureData> codecFeatures;
+    vector<std::future<QSVEncFeatureData>> futures;
+    if (true) {
+        for (auto codec : codecIdList) {
+            auto f0 = std::async(MakeFeatureList, deviceNum, rateControlList, codec, false, log);
+            futures.push_back(std::move(f0));
+            auto f1 = std::async(MakeFeatureList, deviceNum, rateControlList, codec, true, log);
+            futures.push_back(std::move(f1));
+        }
+        for (uint32_t i = 0; i < futures.size(); i++) {
+            codecFeatures.push_back(futures[i].get());
+        }
     } else {
-    for (auto codec : codecIdList) {
-        codecFeatures.push_back(MakeFeatureList(deviceNum, rateControlList, codec, log));
-    }
+        for (auto codec : codecIdList) {
+            codecFeatures.push_back(MakeFeatureList(deviceNum, rateControlList, codec, false, log));
+            codecFeatures.push_back(MakeFeatureList(deviceNum, rateControlList, codec, true, log));
+        }
     }
     return codecFeatures;
 }
@@ -1258,7 +1260,7 @@ CodecCsp MakeDecodeFeatureList(const QSVDeviceNum deviceNum, const vector<RGY_CO
 static const TCHAR *const QSV_FEATURE_MARK_YES_NO[] = { _T("×"), _T("○") };
 static const TCHAR *const QSV_FEATURE_MARK_YES_NO_WITH_SPACE[] = { _T(" x    "), _T(" o    ") };
 
-tstring MakeFeatureListStr(mfxU64 feature) {
+tstring MakeFeatureListStr(const uint64_t feature) {
     tstring str;
     for (const FEATURE_DESC *ptr = list_enc_feature; ptr->desc; ptr++) {
         str += ptr->desc;
@@ -1269,21 +1271,28 @@ tstring MakeFeatureListStr(mfxU64 feature) {
     return str;
 }
 
-vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(const QSVDeviceNum deviceNum, FeatureListStrType type, const vector<mfxU32>& codecLists, std::shared_ptr<RGYLog> log) {
-    auto featurePerCodec = MakeFeatureListPerCodec(deviceNum, make_vector(list_rate_control_ry), codecLists, log);
+std::vector<std::pair<QSVEncFeatureData, tstring>> MakeFeatureListStr(const QSVDeviceNum deviceNum, const FeatureListStrType type, const vector<RGY_CODEC>& codecLists, std::shared_ptr<RGYLog> log) {
+    const auto featurePerCodec = MakeFeatureListPerCodec(deviceNum, make_vector(list_rate_control_ry), codecLists, log);
 
-    vector<std::pair<vector<mfxU64>, tstring>> strPerCodec;
+    std::vector<std::pair<QSVEncFeatureData, tstring>> strPerCodec;
 
-    for (mfxU32 i_codec = 0; i_codec < codecLists.size(); i_codec++) {
+    // H.264がサポートされているかチェック
+    const bool h264Supported = std::accumulate(featurePerCodec.begin(), featurePerCodec.end(), (uint64_t)0, [](uint64_t sum, const QSVEncFeatureData& value) {
+        if (value.codec == RGY_CODEC_H264) {
+            sum |= std::accumulate(value.feature.begin(), value.feature.end(), (uint64_t)0, [](uint64_t sum2, uint64_t v) { return sum2 | v; });
+        }
+        return sum;
+    }) != 0;
+
+    for (const auto& availableFeatureForEachRC : featurePerCodec) {
         tstring str;
-        auto& availableFeatureForEachRC = featurePerCodec[i_codec];
         //H.264以外で、ひとつもフラグが立っていなかったら、スキップする
-        if (codecLists[i_codec] != MFX_CODEC_AVC
-            && 0 == std::accumulate(availableFeatureForEachRC.begin(), availableFeatureForEachRC.end(), 0,
-            [](mfxU32 sum, mfxU64 value) { return sum | (mfxU32)(value & 0xffffffff) | (mfxU32)(value >> 32); })) {
+        if ((availableFeatureForEachRC.codec != RGY_CODEC_H264 || h264Supported || availableFeatureForEachRC.lowPwer)
+            && 0 == std::accumulate(availableFeatureForEachRC.feature.begin(), availableFeatureForEachRC.feature.end(), (uint64_t)0,
+                [](uint64_t sum, uint64_t value) { return sum | value; })) {
             continue;
         }
-        str += _T("Codec: ") + tstring(CodecIdToStr(codecLists[i_codec])) + _T("\n");
+        str += _T("Codec: ") + tstring(CodecToStr(availableFeatureForEachRC.codec)) + _T(" ") + (availableFeatureForEachRC.lowPwer ? _T("FF") : _T("PG")) + _T("\n");
 
         if (type == FEATURE_LIST_STR_TYPE_HTML) {
             str += _T("<table class=simpleOrange>");
@@ -1294,13 +1303,13 @@ vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(const QSVDeviceNum
         case FEATURE_LIST_STR_TYPE_TXT:
         default:
             //ヘッダ部分
-            const mfxU32 row_header_length = (mfxU32)_tcslen(list_enc_feature[0].desc);
-            for (mfxU32 i = 1; i < row_header_length; i++)
+            const size_t row_header_length = _tcslen(list_enc_feature[0].desc);
+            for (size_t i = 1; i < row_header_length; i++)
                 str += _T(" ");
             break;
         }
 
-        for (mfxU32 i = 0; i < _countof(list_rate_control_ry); i++) {
+        for (size_t i = 0; i < _countof(list_rate_control_ry); i++) {
             switch (type) {
             case FEATURE_LIST_STR_TYPE_CSV: str += _T(","); break;
             case FEATURE_LIST_STR_TYPE_HTML: str += _T("<th>"); break;
@@ -1328,14 +1337,14 @@ vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(const QSVDeviceNum
             case FEATURE_LIST_STR_TYPE_HTML: str += _T("</td>"); break;
             default: break;
             }
-            for (mfxU32 i = 0; i < _countof(list_rate_control_ry); i++) {
+            for (size_t i = 0; i < _countof(list_rate_control_ry); i++) {
                 if (type == FEATURE_LIST_STR_TYPE_HTML) {
-                    str += !!(availableFeatureForEachRC[i] & ptr->value) ? _T("<td class=ok>") : _T("<td class=fail>");
+                    str += !!(availableFeatureForEachRC.feature[i] & ptr->value) ? _T("<td class=ok>") : _T("<td class=fail>");
                 }
                 if (type == FEATURE_LIST_STR_TYPE_TXT) {
-                    str += QSV_FEATURE_MARK_YES_NO_WITH_SPACE[!!(availableFeatureForEachRC[i] & ptr->value)];
+                    str += QSV_FEATURE_MARK_YES_NO_WITH_SPACE[!!(availableFeatureForEachRC.feature[i] & ptr->value)];
                 } else {
-                    str += QSV_FEATURE_MARK_YES_NO[!!(availableFeatureForEachRC[i] & ptr->value)];
+                    str += QSV_FEATURE_MARK_YES_NO[!!(availableFeatureForEachRC.feature[i] & ptr->value)];
                 }
                 switch (type) {
                 case FEATURE_LIST_STR_TYPE_CSV: str += _T(","); break;
@@ -1357,8 +1366,8 @@ vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(const QSVDeviceNum
     return strPerCodec;
 }
 
-vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(const QSVDeviceNum deviceNum, FeatureListStrType type, std::shared_ptr<RGYLog> log) {
-    const vector<mfxU32> codecLists = { MFX_CODEC_AVC, MFX_CODEC_HEVC, MFX_CODEC_MPEG2, MFX_CODEC_VP8, MFX_CODEC_VP9, MFX_CODEC_AV1 };
+std::vector<std::pair<QSVEncFeatureData, tstring>> MakeFeatureListStr(const QSVDeviceNum deviceNum, const FeatureListStrType type, std::shared_ptr<RGYLog> log) {
+    const std::vector<RGY_CODEC> codecLists = { RGY_CODEC_H264, RGY_CODEC_HEVC, RGY_CODEC_MPEG2, RGY_CODEC_VP8, RGY_CODEC_VP9, RGY_CODEC_AV1 };
     return MakeFeatureListStr(deviceNum, type, codecLists, log);
 }
 

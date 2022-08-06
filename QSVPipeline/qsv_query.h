@@ -185,11 +185,11 @@ MFX_LIB_VERSION(2, 4, 26);
 MFX_LIB_VERSION(2, 5, 27);
 MFX_LIB_VERSION(2, 6, 28);
 
-static const mfxU32 CODEC_LIST_AUO[] = {
-    MFX_CODEC_AVC,
-    MFX_CODEC_HEVC,
-    MFX_CODEC_VP9,
-    MFX_CODEC_AV1,
+static const RGY_CODEC CODEC_LIST_AUO[] = {
+    RGY_CODEC_H264,
+    RGY_CODEC_HEVC,
+    RGY_CODEC_VP9,
+    RGY_CODEC_AV1,
 };
 
 BOOL Check_HWUsed(mfxIMPL impl);
@@ -261,7 +261,7 @@ enum : uint64_t {
     ENC_FEATURE_PERMBQP                = 0x0000000020000000,
     ENC_FEATURE_DIRECT_BIAS_ADJUST     = 0x0000000040000000,
     ENC_FEATURE_GLOBAL_MOTION_ADJUST   = 0x0000000080000000,
-    ENC_FEATURE_FIXED_FUNC             = 0x0000000100000000,
+    ENC_FEATURE_BFRAME                 = 0x0000000100000000,
     ENC_FEATURE_WEIGHT_P               = 0x0000000200000000,
     ENC_FEATURE_WEIGHT_B               = 0x0000000400000000,
     ENC_FEATURE_FADE_DETECT            = 0x0000000800000000,
@@ -309,7 +309,6 @@ static const CX_DESC list_rate_control_ry[] = {
 static const FEATURE_DESC list_enc_feature[] = {
     { _T("RC mode      "), ENC_FEATURE_CURRENT_RC             },
     { _T("10bit depth  "), ENC_FEATURE_10BIT_DEPTH            },
-    { _T("Fixed Func   "), ENC_FEATURE_FIXED_FUNC             },
     { _T("Hyper Mode   "), ENC_FEATURE_HYPER_MODE             },
     { _T("Interlace    "), ENC_FEATURE_INTERLACE              },
     { _T("VUI info     "), ENC_FEATURE_VUI_INFO               },
@@ -318,6 +317,7 @@ static const FEATURE_DESC list_enc_feature[] = {
     { _T("Trellis      "), ENC_FEATURE_TRELLIS                },
     //{ _T("rdo          "), ENC_FEATURE_RDO                    },
     //{ _T("CAVLC        "), ENC_FEATURE_CAVLC                  },
+    { _T("BFrame       "), ENC_FEATURE_BFRAME                 },
     { _T("Adaptive_I   "), ENC_FEATURE_ADAPTIVE_I             },
     { _T("Adaptive_B   "), ENC_FEATURE_ADAPTIVE_B             },
     { _T("WeightP      "), ENC_FEATURE_WEIGHT_P               },
@@ -363,6 +363,13 @@ static const FEATURE_DESC list_vpp_feature[] = {
     { NULL, 0 },
 };
 
+struct QSVEncFeatureData {
+    QSVDeviceNum dev;
+    RGY_CODEC codec;
+    bool lowPwer;
+    std::vector<uint64_t> feature;
+};
+
 enum FeatureListStrType {
     FEATURE_LIST_STR_TYPE_UNKNOWN,
     FEATURE_LIST_STR_TYPE_TXT,
@@ -398,14 +405,14 @@ struct QSVVideoParam {
     ~QSVVideoParam() {};
 };
 
-mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 codecId);
-mfxU64 CheckEncodeFeatureWithPluginLoad(MFXVideoSession& session, int ratecontrol, mfxU32 codecId);
-vector<mfxU64> MakeFeatureList(const QSVDeviceNum deviceNum, const vector<CX_DESC>& rateControlList, mfxU32 codecId, std::shared_ptr<RGYLog> log);
-vector<vector<mfxU64>> MakeFeatureListPerCodec(const QSVDeviceNum deviceNum, const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList, std::shared_ptr<RGYLog> log);
+uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, const RGY_CODEC codec, const bool lowPower);
+uint64_t CheckEncodeFeatureWithPluginLoad(MFXVideoSession& session, const int ratecontrol, const RGY_CODEC codec, const bool lowPower);
+QSVEncFeatureData MakeFeatureList(const QSVDeviceNum deviceNum, const std::vector<CX_DESC>& rateControlList, const RGY_CODEC codecId, const bool lowPower, std::shared_ptr<RGYLog> log);
+std::vector<QSVEncFeatureData> MakeFeatureListPerCodec(const QSVDeviceNum deviceNum, const std::vector<CX_DESC>& rateControlList, const std::vector<RGY_CODEC>& codecIdList, std::shared_ptr<RGYLog> log);
 
-tstring MakeFeatureListStr(mfxU64 feature);
-vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(const QSVDeviceNum deviceNum, FeatureListStrType outputType, std::shared_ptr<RGYLog> log);
-vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(const QSVDeviceNum deviceNum, FeatureListStrType outputType, const vector<mfxU32>& codecIdList, std::shared_ptr<RGYLog> log);
+tstring MakeFeatureListStr(const uint64_t feature);
+std::vector<std::pair<QSVEncFeatureData, tstring>> MakeFeatureListStr(const QSVDeviceNum deviceNum, const FeatureListStrType type, std::shared_ptr<RGYLog> log);
+std::vector<std::pair<QSVEncFeatureData, tstring>> MakeFeatureListStr(const QSVDeviceNum deviceNum, const FeatureListStrType type, const vector<RGY_CODEC>& codecLists, std::shared_ptr<RGYLog> log);
 
 mfxU64 CheckVppFeatures(MFXVideoSession& session);
 mfxU64 CheckVppFeatures(const QSVDeviceNum deviceNum, std::shared_ptr<RGYLog> log);
