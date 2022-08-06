@@ -35,8 +35,10 @@
 #include <string>
 #include <chrono>
 #include <memory>
+#include <optional>
 #include <type_traits>
 #include "rgy_osdep.h"
+#include "rgy_opencl.h"
 #include "rgy_util.h"
 #include "rgy_version.h"
 #include "cpu_info.h"
@@ -415,6 +417,7 @@ tstring MakeDecFeatureStr(const QSVDeviceNum deviceNum, FeatureListStrType type,
 CodecCsp getHWDecCodecCsp(const QSVDeviceNum deviceNum, std::shared_ptr<RGYLog> log, const bool skipHWDecodeCheck);
 
 int GetImplListStr(tstring& str);
+std::optional<RGYOpenCLDeviceInfo> getDeviceCLInfoQSV(const QSVDeviceNum dev);
 std::vector<tstring> getDeviceList();
 
 #endif //_QSV_QUERY_H_

@@ -37,6 +37,13 @@
 #include "rgy_util.h"
 #include "gpu_info.h"
 
+#if !FOR_AUO
+#include <optional>
+#include "qsv_prm.h"
+
+std::optional<RGYOpenCLDeviceInfo> getDeviceCLInfoQSV(const QSVDeviceNum dev);
+#endif
+
 typedef struct IntelDeviceInfo {
     unsigned int GPUMemoryBytes;
     unsigned int GPUMaxFreqMHz;
@@ -160,12 +167,17 @@ int getGPUInfo(const char *VendorName, TCHAR *buffer, const unsigned int buffer_
     IntelDeviceInfo* intelinfoptr = nullptr;
 #endif
 
-    int ret = CL_SUCCESS;
-    bool gotClInfo = true;
+
     RGYOpenCLDeviceInfo clinfo;
     if (clplatform) {
         clinfo = clplatform->dev(0).info();
     } else {
+#if !FOR_AUO
+        auto clinfoqsv = getDeviceCLInfoQSV((QSVDeviceNum)adapterID);
+        if (clinfoqsv.has_value()) {
+            clinfo = clinfoqsv.value();
+        }
+#else
         RGYOpenCL cl;
         auto platforms = cl.getPlatforms(VendorName);
         for (auto& p : platforms) {
@@ -174,9 +186,10 @@ int getGPUInfo(const char *VendorName, TCHAR *buffer, const unsigned int buffer_
                 break;
             }
         }
+#endif
     }
     cl_create_info_string((clinfo.name.length() > 0) ? &clinfo : nullptr, intelinfoptr, buffer, buffer_size);
-    return ret;
+    return 0;
 #else
     buffer[0] = _T('\0');
     return 1;
