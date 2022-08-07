@@ -2373,6 +2373,9 @@ System::Void frmConfig::UpdateFeatures() {
     if (featuresHW == nullptr) {
         return;
     }
+
+    fcgCheckFixedFunc();
+
     //表示更新
     const mfxU32 codecId = list_outtype[fcgCXOutputType->SelectedIndex].value;
     const mfxU32 currentLib = featuresHW->GetmfxLibVer();
@@ -2380,10 +2383,8 @@ System::Void frmConfig::UpdateFeatures() {
     const bool currentLibValid = 0 != check_lib_version(currentLib, MFX_LIB_VERSION_1_1.Version);
     String^ currentAPI = L"hw: ";
     currentAPI += (currentLibValid) ? L"API v" + ((currentLib>>16).ToString() + L"." + (currentLib & 0x0000ffff).ToString()) : L"-------";
-    fcgLBFeaturesCurrentAPIVer->Text = currentAPI + L" / codec: " + String(list_outtype[fcgCXOutputType->SelectedIndex].desc).ToString();
+    fcgLBFeaturesCurrentAPIVer->Text = currentAPI + L" / codec: " + String(list_outtype[fcgCXOutputType->SelectedIndex].desc).ToString() + L" " + String(fcgCBFixedFunc->Checked ? L"FF" : L"PG").ToString();
     fcgLBGPUInfoOnFeatureTab->Text = gpuname;
-
-    fcgCheckFixedFunc();
 
     auto dataGridViewFont = gcnew System::Drawing::Font(L"Meiryo UI", 8.25F, FontStyle::Regular, GraphicsUnit::Point, static_cast<Byte>(128));
 
