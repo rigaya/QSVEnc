@@ -765,6 +765,7 @@ System::Void frmConfig::InitComboBox() {
     //コンボボックスに値を設定する
     setComboBox(fcgCXEncMode,         list_encmode);
     setComboBox(fcgCXOutputType,      list_outtype);
+    setComboBox(fcgCXHyperMode,       list_hyper_mode);
     setComboBox(fcgCXCodecLevel,      list_avc_level);
     setComboBox(fcgCXCodecProfile,    list_avc_profile);
     setComboBox(fcgCXOutputCsp,       list_output_csp);
@@ -1399,6 +1400,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetCXIndex(fcgCXEncMode,      get_cx_index(list_encmode, prm_qsv.nEncMode));
     SetCXIndex(fcgCXQuality,      get_cx_index(list_quality, prm_qsv.nTargetUsage));
     SetCXIndex(fcgCXDevice,       (featuresHW) ? featuresHW->getDevIndex(prm_qsv.device) : 0);
+    SetCXIndex(fcgCXHyperMode,    get_cx_index(list_hyper_mode, prm_qsv.hyperMode));
     SetNUValue(fcgNUBitrate,      prm_qsv.nBitRate);
     SetNUValue(fcgNUMaxkbps,      prm_qsv.nMaxBitrate);
     SetNUValue(fcgNUQPI,          prm_qsv.nQPI);
@@ -1651,6 +1653,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->qsv.codec                 = prm_qsv.CodecId;
     prm_qsv.device                 = (featuresHW) ? (featuresHW->devCount() > 1 ? featuresHW->getDevID(fcgCXDevice->SelectedIndex) : QSVDeviceNum::AUTO) : QSVDeviceNum::AUTO;
     prm_qsv.nEncMode               = (int)list_encmode[fcgCXEncMode->SelectedIndex].value;
+    prm_qsv.hyperMode              = (mfxHyperMode)list_hyper_mode[fcgCXHyperMode->SelectedIndex].value;
     prm_qsv.nTargetUsage           = (int)list_quality[fcgCXQuality->SelectedIndex].value;
     prm_qsv.CodecProfile           = (int)get_profile_list(prm_qsv.CodecId)[fcgCXCodecProfile->SelectedIndex].value;
     prm_qsv.CodecLevel             = (int)get_level_list(prm_qsv.CodecId)[fcgCXCodecLevel->SelectedIndex].value;

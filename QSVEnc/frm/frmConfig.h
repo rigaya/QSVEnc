@@ -1198,6 +1198,8 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUVppDenoiseConv3DThreshYSpa
 private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
 private: System::Windows::Forms::ComboBox^  fcgCXDevice;
 private: System::Windows::Forms::Label^  fcgLBDevice;
+private: System::Windows::Forms::Label^  fcgLBHyperMode;
+private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
 
 
 
@@ -1413,6 +1415,8 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             this->fcgTTEx = (gcnew System::Windows::Forms::ToolTip(this->components));
             this->fcgtabControlQSV = (gcnew System::Windows::Forms::TabControl());
             this->tabPageVideoEnc = (gcnew System::Windows::Forms::TabPage());
+            this->fcgCXDevice = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgLBDevice = (gcnew System::Windows::Forms::Label());
             this->fcgCXOutputCsp = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBOutputCsp = (gcnew System::Windows::Forms::Label());
             this->fcgPNAVBR = (gcnew System::Windows::Forms::Panel());
@@ -1775,8 +1779,8 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             this->fcgCBAvqsv = (gcnew System::Windows::Forms::CheckBox());
             this->fcgTXCmd = (gcnew System::Windows::Forms::TextBox());
             this->fcgPNHideToolStripBorder = (gcnew System::Windows::Forms::Panel());
-            this->fcgLBDevice = (gcnew System::Windows::Forms::Label());
-            this->fcgCXDevice = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgLBHyperMode = (gcnew System::Windows::Forms::Label());
+            this->fcgCXHyperMode = (gcnew System::Windows::Forms::ComboBox());
             this->fcgtoolStripSettings->SuspendLayout();
             this->fcgtabControlMux->SuspendLayout();
             this->fcgtabPageMP4->SuspendLayout();
@@ -2720,6 +2724,8 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // 
             // tabPageVideoEnc
             // 
+            this->tabPageVideoEnc->Controls->Add(this->fcgLBHyperMode);
+            this->tabPageVideoEnc->Controls->Add(this->fcgCXHyperMode);
             this->tabPageVideoEnc->Controls->Add(this->fcgCXDevice);
             this->tabPageVideoEnc->Controls->Add(this->fcgLBDevice);
             this->tabPageVideoEnc->Controls->Add(this->fcgCXOutputCsp);
@@ -2796,6 +2802,27 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             this->tabPageVideoEnc->Text = L"動画エンコード";
             this->tabPageVideoEnc->UseVisualStyleBackColor = true;
             // 
+            // fcgCXDevice
+            // 
+            this->fcgCXDevice->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXDevice->FormattingEnabled = true;
+            this->fcgCXDevice->Items->AddRange(gcnew cli::array< System::Object^  >(3) { L"高品質", L"標準", L"高速" });
+            this->fcgCXDevice->Location = System::Drawing::Point(90, 46);
+            this->fcgCXDevice->Name = L"fcgCXDevice";
+            this->fcgCXDevice->Size = System::Drawing::Size(199, 22);
+            this->fcgCXDevice->TabIndex = 179;
+            this->fcgCXDevice->Tag = L"reCmd";
+            this->fcgCXDevice->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgCXDevice_SelectedIndexChanged);
+            // 
+            // fcgLBDevice
+            // 
+            this->fcgLBDevice->AutoSize = true;
+            this->fcgLBDevice->Location = System::Drawing::Point(14, 51);
+            this->fcgLBDevice->Name = L"fcgLBDevice";
+            this->fcgLBDevice->Size = System::Drawing::Size(41, 14);
+            this->fcgLBDevice->TabIndex = 178;
+            this->fcgLBDevice->Text = L"デバイス";
+            // 
             // fcgCXOutputCsp
             // 
             this->fcgCXOutputCsp->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
@@ -2823,7 +2850,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             this->fcgPNAVBR->Controls->Add(this->fcgNUAVBRConvergence);
             this->fcgPNAVBR->Controls->Add(this->fcgLBAVBRAccuarcy2);
             this->fcgPNAVBR->Controls->Add(this->fcgLBAVBRConvergence2);
-            this->fcgPNAVBR->Location = System::Drawing::Point(8, 184);
+            this->fcgPNAVBR->Location = System::Drawing::Point(8, 202);
             this->fcgPNAVBR->Name = L"fcgPNAVBR";
             this->fcgPNAVBR->Size = System::Drawing::Size(289, 50);
             this->fcgPNAVBR->TabIndex = 40;
@@ -2889,7 +2916,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // 
             // fcgBTVideoEncoderPath
             // 
-            this->fcgBTVideoEncoderPath->Location = System::Drawing::Point(282, 23);
+            this->fcgBTVideoEncoderPath->Location = System::Drawing::Point(282, 19);
             this->fcgBTVideoEncoderPath->Name = L"fcgBTVideoEncoderPath";
             this->fcgBTVideoEncoderPath->Size = System::Drawing::Size(30, 23);
             this->fcgBTVideoEncoderPath->TabIndex = 3;
@@ -2900,7 +2927,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // fcgTXVideoEncoderPath
             // 
             this->fcgTXVideoEncoderPath->AllowDrop = true;
-            this->fcgTXVideoEncoderPath->Location = System::Drawing::Point(28, 24);
+            this->fcgTXVideoEncoderPath->Location = System::Drawing::Point(28, 20);
             this->fcgTXVideoEncoderPath->Name = L"fcgTXVideoEncoderPath";
             this->fcgTXVideoEncoderPath->Size = System::Drawing::Size(248, 21);
             this->fcgTXVideoEncoderPath->TabIndex = 2;
@@ -2913,7 +2940,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // fcgLBVideoEncoderPath
             // 
             this->fcgLBVideoEncoderPath->AutoSize = true;
-            this->fcgLBVideoEncoderPath->Location = System::Drawing::Point(16, 6);
+            this->fcgLBVideoEncoderPath->Location = System::Drawing::Point(16, 3);
             this->fcgLBVideoEncoderPath->Name = L"fcgLBVideoEncoderPath";
             this->fcgLBVideoEncoderPath->Size = System::Drawing::Size(49, 14);
             this->fcgLBVideoEncoderPath->TabIndex = 175;
@@ -2946,7 +2973,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // fcgCBFadeDetect
             // 
             this->fcgCBFadeDetect->AutoSize = true;
-            this->fcgCBFadeDetect->Location = System::Drawing::Point(39, 368);
+            this->fcgCBFadeDetect->Location = System::Drawing::Point(39, 378);
             this->fcgCBFadeDetect->Name = L"fcgCBFadeDetect";
             this->fcgCBFadeDetect->Size = System::Drawing::Size(79, 18);
             this->fcgCBFadeDetect->TabIndex = 93;
@@ -2957,7 +2984,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // fcgCBWeightB
             // 
             this->fcgCBWeightB->AutoSize = true;
-            this->fcgCBWeightB->Location = System::Drawing::Point(195, 347);
+            this->fcgCBWeightB->Location = System::Drawing::Point(195, 357);
             this->fcgCBWeightB->Name = L"fcgCBWeightB";
             this->fcgCBWeightB->Size = System::Drawing::Size(106, 18);
             this->fcgCBWeightB->TabIndex = 92;
@@ -2968,7 +2995,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // fcgCBWeightP
             // 
             this->fcgCBWeightP->AutoSize = true;
-            this->fcgCBWeightP->Location = System::Drawing::Point(39, 347);
+            this->fcgCBWeightP->Location = System::Drawing::Point(39, 357);
             this->fcgCBWeightP->Name = L"fcgCBWeightP";
             this->fcgCBWeightP->Size = System::Drawing::Size(106, 18);
             this->fcgCBWeightP->TabIndex = 91;
@@ -2979,7 +3006,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // fcgCBFixedFunc
             // 
             this->fcgCBFixedFunc->AutoSize = true;
-            this->fcgCBFixedFunc->Location = System::Drawing::Point(232, 76);
+            this->fcgCBFixedFunc->Location = System::Drawing::Point(233, 72);
             this->fcgCBFixedFunc->Name = L"fcgCBFixedFunc";
             this->fcgCBFixedFunc->Size = System::Drawing::Size(80, 18);
             this->fcgCBFixedFunc->TabIndex = 6;
@@ -2991,7 +3018,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // fcgLBWinBRCSizeAuto
             // 
             this->fcgLBWinBRCSizeAuto->AutoSize = true;
-            this->fcgLBWinBRCSizeAuto->Location = System::Drawing::Point(212, 446);
+            this->fcgLBWinBRCSizeAuto->Location = System::Drawing::Point(212, 451);
             this->fcgLBWinBRCSizeAuto->Name = L"fcgLBWinBRCSizeAuto";
             this->fcgLBWinBRCSizeAuto->Size = System::Drawing::Size(107, 14);
             this->fcgLBWinBRCSizeAuto->TabIndex = 104;
@@ -2999,7 +3026,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // 
             // fcgNUWinBRCSize
             // 
-            this->fcgNUWinBRCSize->Location = System::Drawing::Point(132, 443);
+            this->fcgNUWinBRCSize->Location = System::Drawing::Point(132, 448);
             this->fcgNUWinBRCSize->Name = L"fcgNUWinBRCSize";
             this->fcgNUWinBRCSize->Size = System::Drawing::Size(77, 21);
             this->fcgNUWinBRCSize->TabIndex = 103;
@@ -3009,7 +3036,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // fcgLBWinBRCSize
             // 
             this->fcgLBWinBRCSize->AutoSize = true;
-            this->fcgLBWinBRCSize->Location = System::Drawing::Point(16, 446);
+            this->fcgLBWinBRCSize->Location = System::Drawing::Point(16, 451);
             this->fcgLBWinBRCSize->Name = L"fcgLBWinBRCSize";
             this->fcgLBWinBRCSize->Size = System::Drawing::Size(103, 14);
             this->fcgLBWinBRCSize->TabIndex = 102;
@@ -3066,7 +3093,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // 
             this->fcgPNICQ->Controls->Add(this->fcgNUICQQuality);
             this->fcgPNICQ->Controls->Add(this->fcgLBICQQuality);
-            this->fcgPNICQ->Location = System::Drawing::Point(8, 156);
+            this->fcgPNICQ->Location = System::Drawing::Point(8, 174);
             this->fcgPNICQ->Name = L"fcgPNICQ";
             this->fcgPNICQ->Size = System::Drawing::Size(289, 26);
             this->fcgPNICQ->TabIndex = 20;
@@ -3096,7 +3123,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // 
             this->fcgCXLookaheadDS->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXLookaheadDS->FormattingEnabled = true;
-            this->fcgCXLookaheadDS->Location = System::Drawing::Point(132, 415);
+            this->fcgCXLookaheadDS->Location = System::Drawing::Point(132, 422);
             this->fcgCXLookaheadDS->Name = L"fcgCXLookaheadDS";
             this->fcgCXLookaheadDS->Size = System::Drawing::Size(121, 22);
             this->fcgCXLookaheadDS->TabIndex = 101;
@@ -3105,7 +3132,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // fcgLBLookaheadDS
             // 
             this->fcgLBLookaheadDS->AutoSize = true;
-            this->fcgLBLookaheadDS->Location = System::Drawing::Point(14, 418);
+            this->fcgLBLookaheadDS->Location = System::Drawing::Point(14, 425);
             this->fcgLBLookaheadDS->Name = L"fcgLBLookaheadDS";
             this->fcgLBLookaheadDS->Size = System::Drawing::Size(73, 14);
             this->fcgLBLookaheadDS->TabIndex = 100;
@@ -3114,7 +3141,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // fcgCBBPyramid
             // 
             this->fcgCBBPyramid->AutoSize = true;
-            this->fcgCBBPyramid->Location = System::Drawing::Point(38, 391);
+            this->fcgCBBPyramid->Location = System::Drawing::Point(39, 400);
             this->fcgCBBPyramid->Name = L"fcgCBBPyramid";
             this->fcgCBBPyramid->Size = System::Drawing::Size(85, 18);
             this->fcgCBBPyramid->TabIndex = 95;
@@ -3125,7 +3152,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // fcgCBAdaptiveB
             // 
             this->fcgCBAdaptiveB->AutoSize = true;
-            this->fcgCBAdaptiveB->Location = System::Drawing::Point(195, 323);
+            this->fcgCBAdaptiveB->Location = System::Drawing::Point(195, 334);
             this->fcgCBAdaptiveB->Name = L"fcgCBAdaptiveB";
             this->fcgCBAdaptiveB->Size = System::Drawing::Size(121, 18);
             this->fcgCBAdaptiveB->TabIndex = 90;
@@ -3136,7 +3163,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // fcgCBAdaptiveI
             // 
             this->fcgCBAdaptiveI->AutoSize = true;
-            this->fcgCBAdaptiveI->Location = System::Drawing::Point(39, 323);
+            this->fcgCBAdaptiveI->Location = System::Drawing::Point(39, 334);
             this->fcgCBAdaptiveI->Name = L"fcgCBAdaptiveI";
             this->fcgCBAdaptiveI->Size = System::Drawing::Size(118, 18);
             this->fcgCBAdaptiveI->TabIndex = 89;
@@ -3224,7 +3251,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // fcgLBRefAuto
             // 
             this->fcgLBRefAuto->AutoSize = true;
-            this->fcgLBRefAuto->Location = System::Drawing::Point(215, 273);
+            this->fcgLBRefAuto->Location = System::Drawing::Point(215, 286);
             this->fcgLBRefAuto->Name = L"fcgLBRefAuto";
             this->fcgLBRefAuto->Size = System::Drawing::Size(66, 14);
             this->fcgLBRefAuto->TabIndex = 85;
@@ -3233,7 +3260,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // fcgLBGOPLengthAuto
             // 
             this->fcgLBGOPLengthAuto->AutoSize = true;
-            this->fcgLBGOPLengthAuto->Location = System::Drawing::Point(214, 245);
+            this->fcgLBGOPLengthAuto->Location = System::Drawing::Point(214, 258);
             this->fcgLBGOPLengthAuto->Name = L"fcgLBGOPLengthAuto";
             this->fcgLBGOPLengthAuto->Size = System::Drawing::Size(66, 14);
             this->fcgLBGOPLengthAuto->TabIndex = 82;
@@ -3242,7 +3269,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // fcgLBBframesAuto
             // 
             this->fcgLBBframesAuto->AutoSize = true;
-            this->fcgLBBframesAuto->Location = System::Drawing::Point(215, 299);
+            this->fcgLBBframesAuto->Location = System::Drawing::Point(215, 312);
             this->fcgLBBframesAuto->Name = L"fcgLBBframesAuto";
             this->fcgLBBframesAuto->Size = System::Drawing::Size(70, 14);
             this->fcgLBBframesAuto->TabIndex = 88;
@@ -3342,7 +3369,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // fcgCBOpenGOP
             // 
             this->fcgCBOpenGOP->AutoSize = true;
-            this->fcgCBOpenGOP->Location = System::Drawing::Point(195, 370);
+            this->fcgCBOpenGOP->Location = System::Drawing::Point(195, 380);
             this->fcgCBOpenGOP->Name = L"fcgCBOpenGOP";
             this->fcgCBOpenGOP->Size = System::Drawing::Size(81, 18);
             this->fcgCBOpenGOP->TabIndex = 94;
@@ -3423,7 +3450,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // 
             // fcgNUGopLength
             // 
-            this->fcgNUGopLength->Location = System::Drawing::Point(132, 243);
+            this->fcgNUGopLength->Location = System::Drawing::Point(132, 256);
             this->fcgNUGopLength->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 65535, 0, 0, 0 });
             this->fcgNUGopLength->Name = L"fcgNUGopLength";
             this->fcgNUGopLength->Size = System::Drawing::Size(77, 21);
@@ -3434,7 +3461,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // fcgLBGOPLength
             // 
             this->fcgLBGOPLength->AutoSize = true;
-            this->fcgLBGOPLength->Location = System::Drawing::Point(14, 245);
+            this->fcgLBGOPLength->Location = System::Drawing::Point(14, 258);
             this->fcgLBGOPLength->Name = L"fcgLBGOPLength";
             this->fcgLBGOPLength->Size = System::Drawing::Size(41, 14);
             this->fcgLBGOPLength->TabIndex = 80;
@@ -3480,7 +3507,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // 
             // fcgNUBframes
             // 
-            this->fcgNUBframes->Location = System::Drawing::Point(133, 296);
+            this->fcgNUBframes->Location = System::Drawing::Point(133, 309);
             this->fcgNUBframes->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 16, 0, 0, 0 });
             this->fcgNUBframes->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { -1, 0, 0, System::Int32::MinValue });
             this->fcgNUBframes->Name = L"fcgNUBframes";
@@ -3491,7 +3518,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // 
             // fcgNURef
             // 
-            this->fcgNURef->Location = System::Drawing::Point(133, 269);
+            this->fcgNURef->Location = System::Drawing::Point(133, 282);
             this->fcgNURef->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 16, 0, 0, 0 });
             this->fcgNURef->Name = L"fcgNURef";
             this->fcgNURef->Size = System::Drawing::Size(77, 21);
@@ -3502,7 +3529,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // fcgLBBframes
             // 
             this->fcgLBBframes->AutoSize = true;
-            this->fcgLBBframes->Location = System::Drawing::Point(13, 299);
+            this->fcgLBBframes->Location = System::Drawing::Point(13, 312);
             this->fcgLBBframes->Name = L"fcgLBBframes";
             this->fcgLBBframes->Size = System::Drawing::Size(80, 14);
             this->fcgLBBframes->TabIndex = 86;
@@ -3511,7 +3538,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // fcgLBRef
             // 
             this->fcgLBRef->AutoSize = true;
-            this->fcgLBRef->Location = System::Drawing::Point(13, 271);
+            this->fcgLBRef->Location = System::Drawing::Point(13, 284);
             this->fcgLBRef->Name = L"fcgLBRef";
             this->fcgLBRef->Size = System::Drawing::Size(51, 14);
             this->fcgLBRef->TabIndex = 83;
@@ -3520,7 +3547,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // fcgLBEncMode
             // 
             this->fcgLBEncMode->AutoSize = true;
-            this->fcgLBEncMode->Location = System::Drawing::Point(13, 132);
+            this->fcgLBEncMode->Location = System::Drawing::Point(13, 152);
             this->fcgLBEncMode->Name = L"fcgLBEncMode";
             this->fcgLBEncMode->Size = System::Drawing::Size(32, 14);
             this->fcgLBEncMode->TabIndex = 9;
@@ -3531,7 +3558,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             this->fcgCXEncMode->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXEncMode->FormattingEnabled = true;
             this->fcgCXEncMode->Items->AddRange(gcnew cli::array< System::Object^  >(3) { L"高品質", L"標準", L"高速" });
-            this->fcgCXEncMode->Location = System::Drawing::Point(61, 129);
+            this->fcgCXEncMode->Location = System::Drawing::Point(90, 149);
             this->fcgCXEncMode->Name = L"fcgCXEncMode";
             this->fcgCXEncMode->Size = System::Drawing::Size(199, 22);
             this->fcgCXEncMode->TabIndex = 10;
@@ -3541,7 +3568,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // fcgLBQuality
             // 
             this->fcgLBQuality->AutoSize = true;
-            this->fcgLBQuality->Location = System::Drawing::Point(13, 105);
+            this->fcgLBQuality->Location = System::Drawing::Point(13, 100);
             this->fcgLBQuality->Name = L"fcgLBQuality";
             this->fcgLBQuality->Size = System::Drawing::Size(29, 14);
             this->fcgLBQuality->TabIndex = 7;
@@ -3550,7 +3577,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // fcgLBOutputType
             // 
             this->fcgLBOutputType->AutoSize = true;
-            this->fcgLBOutputType->Location = System::Drawing::Point(13, 77);
+            this->fcgLBOutputType->Location = System::Drawing::Point(13, 73);
             this->fcgLBOutputType->Name = L"fcgLBOutputType";
             this->fcgLBOutputType->Size = System::Drawing::Size(29, 14);
             this->fcgLBOutputType->TabIndex = 4;
@@ -3561,7 +3588,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             this->fcgCXQuality->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXQuality->FormattingEnabled = true;
             this->fcgCXQuality->Items->AddRange(gcnew cli::array< System::Object^  >(3) { L"高品質", L"標準", L"高速" });
-            this->fcgCXQuality->Location = System::Drawing::Point(61, 102);
+            this->fcgCXQuality->Location = System::Drawing::Point(90, 97);
             this->fcgCXQuality->Name = L"fcgCXQuality";
             this->fcgCXQuality->Size = System::Drawing::Size(160, 22);
             this->fcgCXQuality->TabIndex = 8;
@@ -3571,7 +3598,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // 
             this->fcgCXOutputType->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXOutputType->FormattingEnabled = true;
-            this->fcgCXOutputType->Location = System::Drawing::Point(61, 75);
+            this->fcgCXOutputType->Location = System::Drawing::Point(90, 71);
             this->fcgCXOutputType->Name = L"fcgCXOutputType";
             this->fcgCXOutputType->Size = System::Drawing::Size(114, 22);
             this->fcgCXOutputType->TabIndex = 5;
@@ -3583,7 +3610,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             this->fcgPNLookahead->Controls->Add(this->label1);
             this->fcgPNLookahead->Controls->Add(this->fcgNULookaheadDepth);
             this->fcgPNLookahead->Controls->Add(this->fcgLBLookaheadDepth);
-            this->fcgPNLookahead->Location = System::Drawing::Point(8, 209);
+            this->fcgPNLookahead->Location = System::Drawing::Point(8, 227);
             this->fcgPNLookahead->Name = L"fcgPNLookahead";
             this->fcgPNLookahead->Size = System::Drawing::Size(289, 26);
             this->fcgPNLookahead->TabIndex = 60;
@@ -3623,7 +3650,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             this->fcgPNBitrate->Controls->Add(this->fcgNUMaxkbps);
             this->fcgPNBitrate->Controls->Add(this->fcgLBMaxkbps);
             this->fcgPNBitrate->Controls->Add(this->fcgLBMaxBitrate2);
-            this->fcgPNBitrate->Location = System::Drawing::Point(8, 156);
+            this->fcgPNBitrate->Location = System::Drawing::Point(8, 174);
             this->fcgPNBitrate->Name = L"fcgPNBitrate";
             this->fcgPNBitrate->Size = System::Drawing::Size(289, 54);
             this->fcgPNBitrate->TabIndex = 114;
@@ -3692,7 +3719,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             this->fcgPNQP->Controls->Add(this->fcgNUQPB);
             this->fcgPNQP->Controls->Add(this->fcgLBQPP);
             this->fcgPNQP->Controls->Add(this->fcgLBQPB);
-            this->fcgPNQP->Location = System::Drawing::Point(8, 156);
+            this->fcgPNQP->Location = System::Drawing::Point(8, 174);
             this->fcgPNQP->Name = L"fcgPNQP";
             this->fcgPNQP->Size = System::Drawing::Size(289, 79);
             this->fcgPNQP->TabIndex = 30;
@@ -3758,7 +3785,7 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             // 
             this->fcgPNQVBR->Controls->Add(this->fcgNUQVBR);
             this->fcgPNQVBR->Controls->Add(this->fcgLBQVBR);
-            this->fcgPNQVBR->Location = System::Drawing::Point(8, 209);
+            this->fcgPNQVBR->Location = System::Drawing::Point(8, 227);
             this->fcgPNQVBR->Name = L"fcgPNQVBR";
             this->fcgPNQVBR->Size = System::Drawing::Size(289, 26);
             this->fcgPNQVBR->TabIndex = 50;
@@ -6666,26 +6693,25 @@ private: System::Windows::Forms::Label^  fcgLBDevice;
             this->fcgPNHideToolStripBorder->TabIndex = 90;
             this->fcgPNHideToolStripBorder->Visible = false;
             // 
-            // fcgLBDevice
+            // fcgLBHyperMode
             // 
-            this->fcgLBDevice->AutoSize = true;
-            this->fcgLBDevice->Location = System::Drawing::Point(14, 55);
-            this->fcgLBDevice->Name = L"fcgLBDevice";
-            this->fcgLBDevice->Size = System::Drawing::Size(41, 14);
-            this->fcgLBDevice->TabIndex = 178;
-            this->fcgLBDevice->Text = L"デバイス";
+            this->fcgLBHyperMode->AutoSize = true;
+            this->fcgLBHyperMode->Location = System::Drawing::Point(13, 126);
+            this->fcgLBHyperMode->Name = L"fcgLBHyperMode";
+            this->fcgLBHyperMode->Size = System::Drawing::Size(68, 14);
+            this->fcgLBHyperMode->TabIndex = 180;
+            this->fcgLBHyperMode->Text = L"HyperMode";
             // 
-            // fcgCXDevice
+            // fcgCXHyperMode
             // 
-            this->fcgCXDevice->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-            this->fcgCXDevice->FormattingEnabled = true;
-            this->fcgCXDevice->Items->AddRange(gcnew cli::array< System::Object^  >(3) { L"高品質", L"標準", L"高速" });
-            this->fcgCXDevice->Location = System::Drawing::Point(61, 50);
-            this->fcgCXDevice->Name = L"fcgCXDevice";
-            this->fcgCXDevice->Size = System::Drawing::Size(199, 22);
-            this->fcgCXDevice->TabIndex = 179;
-            this->fcgCXDevice->Tag = L"reCmd";
-            this->fcgCXDevice->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgCXDevice_SelectedIndexChanged);
+            this->fcgCXHyperMode->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXHyperMode->FormattingEnabled = true;
+            this->fcgCXHyperMode->Items->AddRange(gcnew cli::array< System::Object^  >(3) { L"高品質", L"標準", L"高速" });
+            this->fcgCXHyperMode->Location = System::Drawing::Point(90, 123);
+            this->fcgCXHyperMode->Name = L"fcgCXHyperMode";
+            this->fcgCXHyperMode->Size = System::Drawing::Size(199, 22);
+            this->fcgCXHyperMode->TabIndex = 181;
+            this->fcgCXHyperMode->Tag = L"reCmd";
             // 
             // frmConfig
             // 
