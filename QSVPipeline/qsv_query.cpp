@@ -1142,7 +1142,7 @@ QSVEncFeatureData MakeFeatureList(const QSVDeviceNum deviceNum, const std::vecto
     availableFeatureForEachRC.lowPwer = lowPower;
     availableFeatureForEachRC.feature.reserve(rateControlList.size());
 #if LIBVA_SUPPORT
-    if (codecId != MFX_CODEC_MPEG2) {
+    if (codec != RGY_CODEC_MPEG2) {
 #endif
         MemType memType = HW_MEMORY;
         std::unique_ptr<CQSVHWDevice> hwdev;
