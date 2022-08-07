@@ -867,13 +867,40 @@ System::Void frmConfig::fcgCheckCodec() {
 
     for (int codecIdx = 1; list_outtype[codecIdx].desc; codecIdx++) {
         const mfxU32 codecId = list_outtype[codecIdx].value;
-        const bool codecAvail = featuresHW->getCodecAvail(codecId);
+        const bool codecAvail = featuresHW->getCodecAvail(fcgCXDevice->SelectedIndex, codecId);
         if (!codecAvail) {
             fcgCXOutputType->Items[codecIdx] = L"-----------------";
             if (fcgCXOutputType->SelectedIndex == codecIdx) {
                 fcgCXOutputType->SelectedIndex = 0;
             }
         }
+    }
+
+    fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
+    fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
+}
+
+System::Void frmConfig::fcgCheckFixedFunc() {
+    if (featuresHW == nullptr) {
+        return;
+    }
+    const mfxU32 codecId = list_outtype[fcgCXOutputType->SelectedIndex].value;
+    if (!featuresHW->getCodecAvail(fcgCXDevice->SelectedIndex, codecId)) {
+        return;
+    }
+
+    fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
+    fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
+
+    const bool codecFFAvail = featuresHW->getCodecAvail(fcgCXDevice->SelectedIndex, codecId, true);
+    const bool codecPGAvail = featuresHW->getCodecAvail(fcgCXDevice->SelectedIndex, codecId, false);
+    fcgCBFixedFunc->Enabled = false;
+    if (codecFFAvail && codecPGAvail) {
+        fcgCBFixedFunc->Enabled = true;
+    } else if (codecFFAvail) {
+        fcgCBFixedFunc->Checked = true;
+    } else if (codecPGAvail) {
+        fcgCBFixedFunc->Checked = false;
     }
 
     fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
@@ -921,6 +948,16 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU64 availab
 
     fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
     fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
+
+    if (available_features & ENC_FEATURE_BFRAME) {
+        if (!fcgNUBframes->Enabled) {
+            fcgNUBframes->Enabled = true;
+            fcgNUBframes->Value = -1;
+        }
+    } else {
+        fcgNUBframes->Enabled = false;
+        fcgNUBframes->Value = 0;
+    }
 
     //API v1.3 features
     fcgCheckRCModeLibVersion(MFX_RATECONTROL_AVBR, MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_AVBR));
@@ -989,10 +1026,6 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU64 availab
     if (!fcgCXMVCostScaling->Enabled)    fcgCXMVCostScaling->SelectedIndex = 0;
     if (!fcgCBDirectBiasAdjust->Enabled) fcgCBDirectBiasAdjust->Checked = false;
 
-    //API v1.15 features
-    fcgCBFixedFunc->Enabled        = 0 != (available_features & ENC_FEATURE_FIXED_FUNC);
-    if (!fcgCBFixedFunc->Enabled) fcgCBFixedFunc->Checked = false;
-
     //API v1.16 features
     fcgCBWeightP->Enabled          = 0 != (available_features & ENC_FEATURE_WEIGHT_P);
     fcgCBWeightB->Enabled          = 0 != (available_features & ENC_FEATURE_WEIGHT_B);
@@ -1017,14 +1050,16 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     fcgCheckCodec();
     const mfxU32 codecId = list_outtype[fcgCXOutputType->SelectedIndex].value;
 
+    fcgCheckFixedFunc();
+
     mfxVersion mfxlib_target;
     mfxlib_target.Version = featuresHW->GetmfxLibVer();
 
-    mfxU64 available_features = featuresHW->getFeatureOfRC(fcgCXEncMode->SelectedIndex, codecId);
+    mfxU64 available_features = featuresHW->getFeatureOfRC(fcgCXDevice->SelectedIndex, fcgCXEncMode->SelectedIndex, codecId, fcgCBFixedFunc->Checked);
     //まず、レート制御モードのみのチェックを行う
     //もし、レート制御モードの更新が必要ならavailable_featuresの更新も行う
     if (fcgCheckLibRateControl(mfxlib_target.Version, available_features))
-        available_features = featuresHW->getFeatureOfRC(fcgCXEncMode->SelectedIndex, codecId);
+        available_features = featuresHW->getFeatureOfRC(fcgCXDevice->SelectedIndex, fcgCXEncMode->SelectedIndex, codecId, fcgCBFixedFunc->Checked);
 
     //つぎに全体のチェックを行う
     fcgCheckLibVersion(mfxlib_target.Version, available_features);
@@ -1129,9 +1164,9 @@ System::Void frmConfig::fcgCBHWLibChanged(System::Object^  sender, System::Event
     UpdateFeatures();
 }
 
-System::Void frmConfig::fcgCXOutputType_SelectedIndexChanged(System::Object^  sender, System::EventArgs^  e) {
+System::Void frmConfig::fcgDevOutputTypeFFPGChanged(System::Object^  sender, System::EventArgs^  e) {
     if (featuresHW != nullptr) {
-        bool codecAvail = featuresHW->getCodecAvail(list_outtype[fcgCXOutputType->SelectedIndex].value);
+        bool codecAvail = featuresHW->getCodecAvail(fcgCXDevice->SelectedIndex, list_outtype[fcgCXOutputType->SelectedIndex].value);
         if (!codecAvail) {
             fcgCXOutputType->SelectedIndex = 0;
             return;
@@ -1140,7 +1175,7 @@ System::Void frmConfig::fcgCXOutputType_SelectedIndexChanged(System::Object^  se
 
     this->SuspendLayout();
 
-    setComboBox(fcgCXCodecLevel,   get_level_list(list_outtype[fcgCXOutputType->SelectedIndex].value));
+    setComboBox(fcgCXCodecLevel, get_level_list(list_outtype[fcgCXOutputType->SelectedIndex].value));
     setComboBox(fcgCXCodecProfile, get_profile_list(list_outtype[fcgCXOutputType->SelectedIndex].value));
     fcgCXCodecLevel->SelectedIndex = 0;
     fcgCXCodecProfile->SelectedIndex = 0;
@@ -1150,6 +1185,18 @@ System::Void frmConfig::fcgCXOutputType_SelectedIndexChanged(System::Object^  se
 
     this->ResumeLayout();
     this->PerformLayout();
+}
+
+System::Void frmConfig::fcgCBFixedFunc_CheckedChanged(System::Object^  sender, System::EventArgs^  e) {
+    fcgDevOutputTypeFFPGChanged(sender, e);
+}
+
+System::Void frmConfig::fcgCXDevice_SelectedIndexChanged(System::Object^  sender, System::EventArgs^  e) {
+    fcgDevOutputTypeFFPGChanged(sender, e);
+}
+
+System::Void frmConfig::frmConfig::fcgCXOutputType_SelectedIndexChanged(System::Object^  sender, System::EventArgs^  e) {
+    fcgDevOutputTypeFFPGChanged(sender, e);
 }
 
 System::Void frmConfig::fcgChangeMuxerVisible(System::Object^  sender, System::EventArgs^  e) {
@@ -1228,6 +1275,15 @@ System::Void frmConfig::UpdateMfxLibDetection() {
         UInt32 mfxlib_hw = featuresHW->GetmfxLibVer();
         fcgLBMFXLibDetectionHwValue->Text = (check_lib_version(mfxlib_hw, MFX_LIB_VERSION_1_1.Version)) ?
             L"v" + ((mfxlib_hw>>16).ToString() + L"." + (mfxlib_hw & 0x0000ffff).ToString()) : L"-----";
+
+        array<String^>^ deviceNames = featuresHW->GetDeviceNames();
+        fcgCXDevice->BeginUpdate();
+        fcgCXDevice->Items->Clear();
+        if (deviceNames) {
+            for (int i = 0; i < deviceNames->Length; i++)
+                fcgCXDevice->Items->Add(deviceNames[i]);
+        }
+        fcgCXDevice->EndUpdate();
     }
 }
 
@@ -1342,6 +1398,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetCXIndex(fcgCXOutputType,   get_cx_index(list_outtype, prm_qsv.CodecId));
     SetCXIndex(fcgCXEncMode,      get_cx_index(list_encmode, prm_qsv.nEncMode));
     SetCXIndex(fcgCXQuality,      get_cx_index(list_quality, prm_qsv.nTargetUsage));
+    SetCXIndex(fcgCXDevice,       (featuresHW) ? featuresHW->getDevIndex(prm_qsv.device) : 0);
     SetNUValue(fcgNUBitrate,      prm_qsv.nBitRate);
     SetNUValue(fcgNUMaxkbps,      prm_qsv.nMaxBitrate);
     SetNUValue(fcgNUQPI,          prm_qsv.nQPI);
@@ -1592,6 +1649,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
 
     prm_qsv.CodecId                = list_outtype[fcgCXOutputType->SelectedIndex].value;
     cnf->qsv.codec                 = prm_qsv.CodecId;
+    prm_qsv.device                 = (featuresHW) ? (featuresHW->devCount() > 1 ? featuresHW->getDevID(fcgCXDevice->SelectedIndex) : QSVDeviceNum::AUTO) : QSVDeviceNum::AUTO;
     prm_qsv.nEncMode               = (int)list_encmode[fcgCXEncMode->SelectedIndex].value;
     prm_qsv.nTargetUsage           = (int)list_quality[fcgCXQuality->SelectedIndex].value;
     prm_qsv.CodecProfile           = (int)get_profile_list(prm_qsv.CodecId)[fcgCXCodecProfile->SelectedIndex].value;
@@ -2322,6 +2380,8 @@ System::Void frmConfig::UpdateFeatures() {
     fcgLBFeaturesCurrentAPIVer->Text = currentAPI + L" / codec: " + String(list_outtype[fcgCXOutputType->SelectedIndex].desc).ToString();
     fcgLBGPUInfoOnFeatureTab->Text = gpuname;
 
+    fcgCheckFixedFunc();
+
     auto dataGridViewFont = gcnew System::Drawing::Font(L"Meiryo UI", 8.25F, FontStyle::Regular, GraphicsUnit::Point, static_cast<Byte>(128));
 
     fcgDGVFeatures->ReadOnly = true;
@@ -2329,9 +2389,11 @@ System::Void frmConfig::UpdateFeatures() {
     fcgDGVFeatures->AllowUserToResizeRows = false;
     fcgDGVFeatures->AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode::Fill;
 
-    fcgDGVFeatures->DataSource = featuresHW->getFeatureTable(codecId);
+    fcgDGVFeatures->DataSource = featuresHW->getFeatureTable(fcgCXDevice->SelectedIndex, codecId, fcgCBFixedFunc->Checked);
 
-    fcgDGVFeatures->Columns[0]->FillWeight = 240;
+    if (fcgDGVFeatures->Columns->Count > 0) {
+        fcgDGVFeatures->Columns[0]->FillWeight = 240;
+    }
     fcgDGVFeatures->DefaultCellStyle->Font = dataGridViewFont;
     fcgDGVFeatures->ColumnHeadersDefaultCellStyle->Font = dataGridViewFont;
     fcgDGVFeatures->RowHeadersDefaultCellStyle->Font = dataGridViewFont;

@@ -422,12 +422,13 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
     const int codecMaxQP = 51 + (encodeBitDepth - 8) * 6;
     PrintMes(RGY_LOG_DEBUG, _T("encodeBitDepth: %d, codecMaxQP: %d.\n"), encodeBitDepth, codecMaxQP);
 
+    const TCHAR *PG_FF_STR[] = { _T("PG"), _T("FF") };
+
     //エンコードモードのチェック
     auto availableFeaures = CheckEncodeFeature(m_mfxSession, pInParams->nEncMode, codec_enc_to_rgy(pInParams->CodecId), pInParams->bUseFixedFunc);
     if (availableFeaures == 0) {
         availableFeaures = CheckEncodeFeature(m_mfxSession, pInParams->nEncMode, codec_enc_to_rgy(pInParams->CodecId), !pInParams->bUseFixedFunc);
         if (availableFeaures) {
-            const TCHAR *PG_FF_STR[] = { _T("PG"), _T("FF") };
             PrintMes(RGY_LOG_WARN, _T("%s is not supported on this platform, switched to %s mode.\n"), PG_FF_STR[!!pInParams->bUseFixedFunc], PG_FF_STR[!pInParams->bUseFixedFunc]);
             pInParams->bUseFixedFunc = !pInParams->bUseFixedFunc;
         }
@@ -435,14 +436,19 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
     PrintMes(RGY_LOG_DEBUG, _T("Detected avaliable features for hw API v%d.%02d, %s, %s\n%s\n"),
         m_mfxVer.Major, m_mfxVer.Minor,
         CodecIdToStr(pInParams->CodecId), EncmodeToStr(pInParams->nEncMode), MakeFeatureListStr(availableFeaures).c_str());
+
     if (!(availableFeaures & ENC_FEATURE_CURRENT_RC)) {
         //このコーデックがサポートされているかどうか確認する
         if (   pInParams->nEncMode == MFX_RATECONTROL_CQP
             || pInParams->nEncMode == MFX_RATECONTROL_VBR
             || pInParams->nEncMode == MFX_RATECONTROL_CBR
             || !(CheckEncodeFeature(m_mfxSession, MFX_RATECONTROL_CQP, codec_enc_to_rgy(pInParams->CodecId), pInParams->bUseFixedFunc) & ENC_FEATURE_CURRENT_RC)) {
-            PrintMes(RGY_LOG_ERROR, _T("%s encoding is not supported on current platform.\n"), CodecIdToStr(pInParams->CodecId));
-            return RGY_ERR_INVALID_VIDEO_PARAM;
+            if (!(CheckEncodeFeature(m_mfxSession, MFX_RATECONTROL_CQP, codec_enc_to_rgy(pInParams->CodecId), !pInParams->bUseFixedFunc) & ENC_FEATURE_CURRENT_RC)) {
+                PrintMes(RGY_LOG_ERROR, _T("%s encoding is not supported on current platform.\n"), CodecIdToStr(pInParams->CodecId));
+                return RGY_ERR_INVALID_VIDEO_PARAM;
+            }
+            PrintMes(RGY_LOG_WARN, _T("%s is not supported on this platform, switched to %s mode.\n"), PG_FF_STR[!!pInParams->bUseFixedFunc], PG_FF_STR[!pInParams->bUseFixedFunc]);
+            pInParams->bUseFixedFunc = !pInParams->bUseFixedFunc;
         }
         const auto rc_error_log_level = (pInParams->nFallback) ? RGY_LOG_WARN : RGY_LOG_ERROR;
         PrintMes(rc_error_log_level, _T("%s mode is not supported on current platform.\n"), EncmodeToStr(pInParams->nEncMode));
@@ -528,6 +534,41 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
             return RGY_ERR_INVALID_VIDEO_PARAM;
         }
     }
+
+    // HyperModeがらみのチェック
+    if (pInParams->hyperMode != MFX_HYPERMODE_OFF && !(availableFeaures & ENC_FEATURE_HYPER_MODE)) {
+        if (pInParams->hyperMode == MFX_HYPERMODE_ON) {
+            print_feature_warnings(RGY_LOG_WARN, _T("HyperMode"));
+        }
+        pInParams->hyperMode = MFX_HYPERMODE_OFF;
+    }
+    if (pInParams->hyperMode == MFX_HYPERMODE_ON) {
+        //HyperModeの対象となるGPUのfeature取得を行い、andをとる
+        uint64_t dev2Feature = 0;
+        QSVDeviceNum dev2 = QSVDeviceNum::AUTO; //HyperModeの対象となるGPU
+        const QSVDeviceNum dev1 = (pInParams->device == QSVDeviceNum::AUTO) ? QSVDeviceNum::NUM1 : pInParams->device; // 自分自身
+        const auto target_rc_list = { list_rate_control_ry[get_cx_index(list_rate_control_ry, pInParams->nEncMode)] };
+        for (int idev = 1; idev <= (int)QSVDeviceNum::MAX; idev++) {
+            dev2 = (QSVDeviceNum)idev;
+            if (dev2 != dev1) { // 自分自身ではないGPUをチェックする
+                auto log = std::make_shared<RGYLog>(nullptr, RGY_LOG_QUIET);
+                const auto dev2FeatureList = MakeFeatureList(dev2, target_rc_list, codec_enc_to_rgy(pInParams->CodecId), pInParams->bUseFixedFunc, log);
+                dev2Feature = dev2FeatureList.feature.front();
+                if (dev2Feature & ENC_FEATURE_HYPER_MODE) { // HyperModeに対応するGPUを選択
+                    break;
+                }
+            }
+        }
+        if (dev2Feature) { // 検出できなかった場合は処理しない
+            PrintMes(RGY_LOG_DEBUG, _T("Detected avaliable features for hyper mode, dev %d, %s\n%s\n"), (int)dev2, EncmodeToStr(pInParams->nEncMode), MakeFeatureListStr(dev2Feature).c_str());
+            availableFeaures &= dev2Feature;
+        }
+    }
+
+    if (pInParams->nBframes != 0 && !(availableFeaures & ENC_FEATURE_BFRAME)) {
+        print_feature_warnings(RGY_LOG_WARN, _T("B frame"));
+        pInParams->nBframes = 0;
+    }
     if (pInParams->CodecId == MFX_CODEC_AV1 && DISABLE_BFRAME_AV1) {
         pInParams->nBframes = 0;
     } else if (pInParams->nBframes == QSV_BFRAMES_AUTO) {
@@ -589,12 +630,6 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
     if (pInParams->bRDO && !(availableFeaures & ENC_FEATURE_RDO)) {
         print_feature_warnings(RGY_LOG_WARN, _T("RDO"));
         pInParams->bRDO = false;
-    }
-    if (pInParams->hyperMode != MFX_HYPERMODE_OFF && !(availableFeaures & ENC_FEATURE_HYPER_MODE)) {
-        if (pInParams->hyperMode == MFX_HYPERMODE_ON) {
-            print_feature_warnings(RGY_LOG_WARN, _T("HyperMode"));
-        }
-        pInParams->hyperMode = MFX_HYPERMODE_OFF;
     }
     if (((m_encPicstruct & RGY_PICSTRUCT_INTERLACED) != 0)
         && !(availableFeaures & ENC_FEATURE_INTERLACE)) {

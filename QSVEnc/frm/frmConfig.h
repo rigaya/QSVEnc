@@ -1196,6 +1196,8 @@ private: System::Windows::Forms::Label^  fcgLBVppDenoiseConv3DThreshYSpatial;
 private: System::Windows::Forms::NumericUpDown^  fcgNUVppDenoiseConv3DThreshYTemporal;
 private: System::Windows::Forms::NumericUpDown^  fcgNUVppDenoiseConv3DThreshYSpatial;
 private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
+private: System::Windows::Forms::ComboBox^  fcgCXDevice;
+private: System::Windows::Forms::Label^  fcgLBDevice;
 
 
 
@@ -1773,6 +1775,8 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             this->fcgCBAvqsv = (gcnew System::Windows::Forms::CheckBox());
             this->fcgTXCmd = (gcnew System::Windows::Forms::TextBox());
             this->fcgPNHideToolStripBorder = (gcnew System::Windows::Forms::Panel());
+            this->fcgLBDevice = (gcnew System::Windows::Forms::Label());
+            this->fcgCXDevice = (gcnew System::Windows::Forms::ComboBox());
             this->fcgtoolStripSettings->SuspendLayout();
             this->fcgtabControlMux->SuspendLayout();
             this->fcgtabPageMP4->SuspendLayout();
@@ -2716,6 +2720,8 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             // 
             // tabPageVideoEnc
             // 
+            this->tabPageVideoEnc->Controls->Add(this->fcgCXDevice);
+            this->tabPageVideoEnc->Controls->Add(this->fcgLBDevice);
             this->tabPageVideoEnc->Controls->Add(this->fcgCXOutputCsp);
             this->tabPageVideoEnc->Controls->Add(this->fcgLBOutputCsp);
             this->tabPageVideoEnc->Controls->Add(this->fcgPNAVBR);
@@ -2817,7 +2823,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             this->fcgPNAVBR->Controls->Add(this->fcgNUAVBRConvergence);
             this->fcgPNAVBR->Controls->Add(this->fcgLBAVBRAccuarcy2);
             this->fcgPNAVBR->Controls->Add(this->fcgLBAVBRConvergence2);
-            this->fcgPNAVBR->Location = System::Drawing::Point(8, 179);
+            this->fcgPNAVBR->Location = System::Drawing::Point(8, 184);
             this->fcgPNAVBR->Name = L"fcgPNAVBR";
             this->fcgPNAVBR->Size = System::Drawing::Size(289, 50);
             this->fcgPNAVBR->TabIndex = 40;
@@ -2883,7 +2889,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             // 
             // fcgBTVideoEncoderPath
             // 
-            this->fcgBTVideoEncoderPath->Location = System::Drawing::Point(282, 26);
+            this->fcgBTVideoEncoderPath->Location = System::Drawing::Point(282, 23);
             this->fcgBTVideoEncoderPath->Name = L"fcgBTVideoEncoderPath";
             this->fcgBTVideoEncoderPath->Size = System::Drawing::Size(30, 23);
             this->fcgBTVideoEncoderPath->TabIndex = 3;
@@ -2894,7 +2900,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             // fcgTXVideoEncoderPath
             // 
             this->fcgTXVideoEncoderPath->AllowDrop = true;
-            this->fcgTXVideoEncoderPath->Location = System::Drawing::Point(28, 27);
+            this->fcgTXVideoEncoderPath->Location = System::Drawing::Point(28, 24);
             this->fcgTXVideoEncoderPath->Name = L"fcgTXVideoEncoderPath";
             this->fcgTXVideoEncoderPath->Size = System::Drawing::Size(248, 21);
             this->fcgTXVideoEncoderPath->TabIndex = 2;
@@ -2907,7 +2913,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             // fcgLBVideoEncoderPath
             // 
             this->fcgLBVideoEncoderPath->AutoSize = true;
-            this->fcgLBVideoEncoderPath->Location = System::Drawing::Point(16, 9);
+            this->fcgLBVideoEncoderPath->Location = System::Drawing::Point(16, 6);
             this->fcgLBVideoEncoderPath->Name = L"fcgLBVideoEncoderPath";
             this->fcgLBVideoEncoderPath->Size = System::Drawing::Size(49, 14);
             this->fcgLBVideoEncoderPath->TabIndex = 175;
@@ -2940,7 +2946,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             // fcgCBFadeDetect
             // 
             this->fcgCBFadeDetect->AutoSize = true;
-            this->fcgCBFadeDetect->Location = System::Drawing::Point(39, 363);
+            this->fcgCBFadeDetect->Location = System::Drawing::Point(39, 368);
             this->fcgCBFadeDetect->Name = L"fcgCBFadeDetect";
             this->fcgCBFadeDetect->Size = System::Drawing::Size(79, 18);
             this->fcgCBFadeDetect->TabIndex = 93;
@@ -2951,7 +2957,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             // fcgCBWeightB
             // 
             this->fcgCBWeightB->AutoSize = true;
-            this->fcgCBWeightB->Location = System::Drawing::Point(195, 342);
+            this->fcgCBWeightB->Location = System::Drawing::Point(195, 347);
             this->fcgCBWeightB->Name = L"fcgCBWeightB";
             this->fcgCBWeightB->Size = System::Drawing::Size(106, 18);
             this->fcgCBWeightB->TabIndex = 92;
@@ -2962,7 +2968,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             // fcgCBWeightP
             // 
             this->fcgCBWeightP->AutoSize = true;
-            this->fcgCBWeightP->Location = System::Drawing::Point(39, 342);
+            this->fcgCBWeightP->Location = System::Drawing::Point(39, 347);
             this->fcgCBWeightP->Name = L"fcgCBWeightP";
             this->fcgCBWeightP->Size = System::Drawing::Size(106, 18);
             this->fcgCBWeightP->TabIndex = 91;
@@ -2973,13 +2979,14 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             // fcgCBFixedFunc
             // 
             this->fcgCBFixedFunc->AutoSize = true;
-            this->fcgCBFixedFunc->Location = System::Drawing::Point(232, 63);
+            this->fcgCBFixedFunc->Location = System::Drawing::Point(232, 76);
             this->fcgCBFixedFunc->Name = L"fcgCBFixedFunc";
             this->fcgCBFixedFunc->Size = System::Drawing::Size(80, 18);
             this->fcgCBFixedFunc->TabIndex = 6;
             this->fcgCBFixedFunc->Tag = L"reCmd";
             this->fcgCBFixedFunc->Text = L"FixedFunc";
             this->fcgCBFixedFunc->UseVisualStyleBackColor = true;
+            this->fcgCBFixedFunc->CheckedChanged += gcnew System::EventHandler(this, &frmConfig::fcgCBFixedFunc_CheckedChanged);
             // 
             // fcgLBWinBRCSizeAuto
             // 
@@ -3059,7 +3066,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             // 
             this->fcgPNICQ->Controls->Add(this->fcgNUICQQuality);
             this->fcgPNICQ->Controls->Add(this->fcgLBICQQuality);
-            this->fcgPNICQ->Location = System::Drawing::Point(8, 151);
+            this->fcgPNICQ->Location = System::Drawing::Point(8, 156);
             this->fcgPNICQ->Name = L"fcgPNICQ";
             this->fcgPNICQ->Size = System::Drawing::Size(289, 26);
             this->fcgPNICQ->TabIndex = 20;
@@ -3107,7 +3114,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             // fcgCBBPyramid
             // 
             this->fcgCBBPyramid->AutoSize = true;
-            this->fcgCBBPyramid->Location = System::Drawing::Point(38, 386);
+            this->fcgCBBPyramid->Location = System::Drawing::Point(38, 391);
             this->fcgCBBPyramid->Name = L"fcgCBBPyramid";
             this->fcgCBBPyramid->Size = System::Drawing::Size(85, 18);
             this->fcgCBBPyramid->TabIndex = 95;
@@ -3118,7 +3125,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             // fcgCBAdaptiveB
             // 
             this->fcgCBAdaptiveB->AutoSize = true;
-            this->fcgCBAdaptiveB->Location = System::Drawing::Point(195, 318);
+            this->fcgCBAdaptiveB->Location = System::Drawing::Point(195, 323);
             this->fcgCBAdaptiveB->Name = L"fcgCBAdaptiveB";
             this->fcgCBAdaptiveB->Size = System::Drawing::Size(121, 18);
             this->fcgCBAdaptiveB->TabIndex = 90;
@@ -3129,7 +3136,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             // fcgCBAdaptiveI
             // 
             this->fcgCBAdaptiveI->AutoSize = true;
-            this->fcgCBAdaptiveI->Location = System::Drawing::Point(39, 318);
+            this->fcgCBAdaptiveI->Location = System::Drawing::Point(39, 323);
             this->fcgCBAdaptiveI->Name = L"fcgCBAdaptiveI";
             this->fcgCBAdaptiveI->Size = System::Drawing::Size(118, 18);
             this->fcgCBAdaptiveI->TabIndex = 89;
@@ -3217,7 +3224,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             // fcgLBRefAuto
             // 
             this->fcgLBRefAuto->AutoSize = true;
-            this->fcgLBRefAuto->Location = System::Drawing::Point(215, 268);
+            this->fcgLBRefAuto->Location = System::Drawing::Point(215, 273);
             this->fcgLBRefAuto->Name = L"fcgLBRefAuto";
             this->fcgLBRefAuto->Size = System::Drawing::Size(66, 14);
             this->fcgLBRefAuto->TabIndex = 85;
@@ -3226,7 +3233,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             // fcgLBGOPLengthAuto
             // 
             this->fcgLBGOPLengthAuto->AutoSize = true;
-            this->fcgLBGOPLengthAuto->Location = System::Drawing::Point(214, 240);
+            this->fcgLBGOPLengthAuto->Location = System::Drawing::Point(214, 245);
             this->fcgLBGOPLengthAuto->Name = L"fcgLBGOPLengthAuto";
             this->fcgLBGOPLengthAuto->Size = System::Drawing::Size(66, 14);
             this->fcgLBGOPLengthAuto->TabIndex = 82;
@@ -3235,7 +3242,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             // fcgLBBframesAuto
             // 
             this->fcgLBBframesAuto->AutoSize = true;
-            this->fcgLBBframesAuto->Location = System::Drawing::Point(215, 294);
+            this->fcgLBBframesAuto->Location = System::Drawing::Point(215, 299);
             this->fcgLBBframesAuto->Name = L"fcgLBBframesAuto";
             this->fcgLBBframesAuto->Size = System::Drawing::Size(70, 14);
             this->fcgLBBframesAuto->TabIndex = 88;
@@ -3335,7 +3342,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             // fcgCBOpenGOP
             // 
             this->fcgCBOpenGOP->AutoSize = true;
-            this->fcgCBOpenGOP->Location = System::Drawing::Point(195, 365);
+            this->fcgCBOpenGOP->Location = System::Drawing::Point(195, 370);
             this->fcgCBOpenGOP->Name = L"fcgCBOpenGOP";
             this->fcgCBOpenGOP->Size = System::Drawing::Size(81, 18);
             this->fcgCBOpenGOP->TabIndex = 94;
@@ -3416,7 +3423,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             // 
             // fcgNUGopLength
             // 
-            this->fcgNUGopLength->Location = System::Drawing::Point(132, 238);
+            this->fcgNUGopLength->Location = System::Drawing::Point(132, 243);
             this->fcgNUGopLength->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 65535, 0, 0, 0 });
             this->fcgNUGopLength->Name = L"fcgNUGopLength";
             this->fcgNUGopLength->Size = System::Drawing::Size(77, 21);
@@ -3427,7 +3434,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             // fcgLBGOPLength
             // 
             this->fcgLBGOPLength->AutoSize = true;
-            this->fcgLBGOPLength->Location = System::Drawing::Point(14, 240);
+            this->fcgLBGOPLength->Location = System::Drawing::Point(14, 245);
             this->fcgLBGOPLength->Name = L"fcgLBGOPLength";
             this->fcgLBGOPLength->Size = System::Drawing::Size(41, 14);
             this->fcgLBGOPLength->TabIndex = 80;
@@ -3473,7 +3480,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             // 
             // fcgNUBframes
             // 
-            this->fcgNUBframes->Location = System::Drawing::Point(133, 291);
+            this->fcgNUBframes->Location = System::Drawing::Point(133, 296);
             this->fcgNUBframes->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 16, 0, 0, 0 });
             this->fcgNUBframes->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { -1, 0, 0, System::Int32::MinValue });
             this->fcgNUBframes->Name = L"fcgNUBframes";
@@ -3484,7 +3491,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             // 
             // fcgNURef
             // 
-            this->fcgNURef->Location = System::Drawing::Point(133, 264);
+            this->fcgNURef->Location = System::Drawing::Point(133, 269);
             this->fcgNURef->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 16, 0, 0, 0 });
             this->fcgNURef->Name = L"fcgNURef";
             this->fcgNURef->Size = System::Drawing::Size(77, 21);
@@ -3495,7 +3502,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             // fcgLBBframes
             // 
             this->fcgLBBframes->AutoSize = true;
-            this->fcgLBBframes->Location = System::Drawing::Point(13, 294);
+            this->fcgLBBframes->Location = System::Drawing::Point(13, 299);
             this->fcgLBBframes->Name = L"fcgLBBframes";
             this->fcgLBBframes->Size = System::Drawing::Size(80, 14);
             this->fcgLBBframes->TabIndex = 86;
@@ -3504,7 +3511,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             // fcgLBRef
             // 
             this->fcgLBRef->AutoSize = true;
-            this->fcgLBRef->Location = System::Drawing::Point(13, 266);
+            this->fcgLBRef->Location = System::Drawing::Point(13, 271);
             this->fcgLBRef->Name = L"fcgLBRef";
             this->fcgLBRef->Size = System::Drawing::Size(51, 14);
             this->fcgLBRef->TabIndex = 83;
@@ -3513,7 +3520,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             // fcgLBEncMode
             // 
             this->fcgLBEncMode->AutoSize = true;
-            this->fcgLBEncMode->Location = System::Drawing::Point(13, 124);
+            this->fcgLBEncMode->Location = System::Drawing::Point(13, 132);
             this->fcgLBEncMode->Name = L"fcgLBEncMode";
             this->fcgLBEncMode->Size = System::Drawing::Size(32, 14);
             this->fcgLBEncMode->TabIndex = 9;
@@ -3524,7 +3531,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             this->fcgCXEncMode->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXEncMode->FormattingEnabled = true;
             this->fcgCXEncMode->Items->AddRange(gcnew cli::array< System::Object^  >(3) { L"高品質", L"標準", L"高速" });
-            this->fcgCXEncMode->Location = System::Drawing::Point(61, 121);
+            this->fcgCXEncMode->Location = System::Drawing::Point(61, 129);
             this->fcgCXEncMode->Name = L"fcgCXEncMode";
             this->fcgCXEncMode->Size = System::Drawing::Size(199, 22);
             this->fcgCXEncMode->TabIndex = 10;
@@ -3534,7 +3541,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             // fcgLBQuality
             // 
             this->fcgLBQuality->AutoSize = true;
-            this->fcgLBQuality->Location = System::Drawing::Point(13, 94);
+            this->fcgLBQuality->Location = System::Drawing::Point(13, 105);
             this->fcgLBQuality->Name = L"fcgLBQuality";
             this->fcgLBQuality->Size = System::Drawing::Size(29, 14);
             this->fcgLBQuality->TabIndex = 7;
@@ -3543,7 +3550,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             // fcgLBOutputType
             // 
             this->fcgLBOutputType->AutoSize = true;
-            this->fcgLBOutputType->Location = System::Drawing::Point(13, 64);
+            this->fcgLBOutputType->Location = System::Drawing::Point(13, 77);
             this->fcgLBOutputType->Name = L"fcgLBOutputType";
             this->fcgLBOutputType->Size = System::Drawing::Size(29, 14);
             this->fcgLBOutputType->TabIndex = 4;
@@ -3554,7 +3561,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             this->fcgCXQuality->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXQuality->FormattingEnabled = true;
             this->fcgCXQuality->Items->AddRange(gcnew cli::array< System::Object^  >(3) { L"高品質", L"標準", L"高速" });
-            this->fcgCXQuality->Location = System::Drawing::Point(61, 91);
+            this->fcgCXQuality->Location = System::Drawing::Point(61, 102);
             this->fcgCXQuality->Name = L"fcgCXQuality";
             this->fcgCXQuality->Size = System::Drawing::Size(160, 22);
             this->fcgCXQuality->TabIndex = 8;
@@ -3564,7 +3571,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             // 
             this->fcgCXOutputType->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXOutputType->FormattingEnabled = true;
-            this->fcgCXOutputType->Location = System::Drawing::Point(61, 62);
+            this->fcgCXOutputType->Location = System::Drawing::Point(61, 75);
             this->fcgCXOutputType->Name = L"fcgCXOutputType";
             this->fcgCXOutputType->Size = System::Drawing::Size(114, 22);
             this->fcgCXOutputType->TabIndex = 5;
@@ -3576,7 +3583,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             this->fcgPNLookahead->Controls->Add(this->label1);
             this->fcgPNLookahead->Controls->Add(this->fcgNULookaheadDepth);
             this->fcgPNLookahead->Controls->Add(this->fcgLBLookaheadDepth);
-            this->fcgPNLookahead->Location = System::Drawing::Point(8, 204);
+            this->fcgPNLookahead->Location = System::Drawing::Point(8, 209);
             this->fcgPNLookahead->Name = L"fcgPNLookahead";
             this->fcgPNLookahead->Size = System::Drawing::Size(289, 26);
             this->fcgPNLookahead->TabIndex = 60;
@@ -3616,7 +3623,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             this->fcgPNBitrate->Controls->Add(this->fcgNUMaxkbps);
             this->fcgPNBitrate->Controls->Add(this->fcgLBMaxkbps);
             this->fcgPNBitrate->Controls->Add(this->fcgLBMaxBitrate2);
-            this->fcgPNBitrate->Location = System::Drawing::Point(8, 151);
+            this->fcgPNBitrate->Location = System::Drawing::Point(8, 156);
             this->fcgPNBitrate->Name = L"fcgPNBitrate";
             this->fcgPNBitrate->Size = System::Drawing::Size(289, 54);
             this->fcgPNBitrate->TabIndex = 114;
@@ -3685,7 +3692,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             this->fcgPNQP->Controls->Add(this->fcgNUQPB);
             this->fcgPNQP->Controls->Add(this->fcgLBQPP);
             this->fcgPNQP->Controls->Add(this->fcgLBQPB);
-            this->fcgPNQP->Location = System::Drawing::Point(8, 151);
+            this->fcgPNQP->Location = System::Drawing::Point(8, 156);
             this->fcgPNQP->Name = L"fcgPNQP";
             this->fcgPNQP->Size = System::Drawing::Size(289, 79);
             this->fcgPNQP->TabIndex = 30;
@@ -3751,7 +3758,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             // 
             this->fcgPNQVBR->Controls->Add(this->fcgNUQVBR);
             this->fcgPNQVBR->Controls->Add(this->fcgLBQVBR);
-            this->fcgPNQVBR->Location = System::Drawing::Point(8, 204);
+            this->fcgPNQVBR->Location = System::Drawing::Point(8, 209);
             this->fcgPNQVBR->Name = L"fcgPNQVBR";
             this->fcgPNQVBR->Size = System::Drawing::Size(289, 26);
             this->fcgPNQVBR->TabIndex = 50;
@@ -6659,6 +6666,27 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
             this->fcgPNHideToolStripBorder->TabIndex = 90;
             this->fcgPNHideToolStripBorder->Visible = false;
             // 
+            // fcgLBDevice
+            // 
+            this->fcgLBDevice->AutoSize = true;
+            this->fcgLBDevice->Location = System::Drawing::Point(14, 55);
+            this->fcgLBDevice->Name = L"fcgLBDevice";
+            this->fcgLBDevice->Size = System::Drawing::Size(41, 14);
+            this->fcgLBDevice->TabIndex = 178;
+            this->fcgLBDevice->Text = L"デバイス";
+            // 
+            // fcgCXDevice
+            // 
+            this->fcgCXDevice->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXDevice->FormattingEnabled = true;
+            this->fcgCXDevice->Items->AddRange(gcnew cli::array< System::Object^  >(3) { L"高品質", L"標準", L"高速" });
+            this->fcgCXDevice->Location = System::Drawing::Point(61, 50);
+            this->fcgCXDevice->Name = L"fcgCXDevice";
+            this->fcgCXDevice->Size = System::Drawing::Size(199, 22);
+            this->fcgCXDevice->TabIndex = 179;
+            this->fcgCXDevice->Tag = L"reCmd";
+            this->fcgCXDevice->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgCXDevice_SelectedIndexChanged);
+            // 
             // frmConfig
             // 
             this->AutoScaleDimensions = System::Drawing::SizeF(96, 96);
@@ -6910,6 +6938,9 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
         System::String^ FrmToConf(CONF_GUIEX *cnf);
         System::Void SetChangedEvent(Control^ control, System::EventHandler^ _event);
         System::Void fcgCXOutputType_SelectedIndexChanged(System::Object^  sender, System::EventArgs^  e);
+        System::Void fcgCBFixedFunc_CheckedChanged(System::Object^  sender, System::EventArgs^  e);
+        System::Void fcgCXDevice_SelectedIndexChanged(System::Object^  sender, System::EventArgs^  e);
+        System::Void fcgDevOutputTypeFFPGChanged(System::Object^  sender, System::EventArgs^  e);
         System::Void SetAllCheckChangedEvents(Control ^top);
         System::Void SaveToStgFile(String^ stgName);
         System::Void DeleteStgFile(ToolStripMenuItem^ mItem);
@@ -6954,6 +6985,7 @@ private: System::Windows::Forms::Panel^  fcgPNHideToolStripBorder;
         System::Void fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU64 available_features);
         System::Boolean fcgCheckRCModeLibVersion(int rc_mode_target, int rc_mode_replace, bool mode_supported);
         System::Void fcgCheckCodec();
+        System::Void fcgCheckFixedFunc();
         System::Void UpdateMfxLibDetection();
         System::Void UpdateFeatures();
         System::Void fcgCheckVppFeatures();

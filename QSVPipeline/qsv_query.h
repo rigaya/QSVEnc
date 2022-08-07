@@ -317,7 +317,7 @@ static const FEATURE_DESC list_enc_feature[] = {
     { _T("Trellis      "), ENC_FEATURE_TRELLIS                },
     //{ _T("rdo          "), ENC_FEATURE_RDO                    },
     //{ _T("CAVLC        "), ENC_FEATURE_CAVLC                  },
-    { _T("BFrame       "), ENC_FEATURE_BFRAME                 },
+    { _T("B Frame      "), ENC_FEATURE_BFRAME                 },
     { _T("Adaptive_I   "), ENC_FEATURE_ADAPTIVE_I             },
     { _T("Adaptive_B   "), ENC_FEATURE_ADAPTIVE_B             },
     { _T("WeightP      "), ENC_FEATURE_WEIGHT_P               },
@@ -424,7 +424,9 @@ tstring MakeDecFeatureStr(const QSVDeviceNum deviceNum, FeatureListStrType type,
 CodecCsp getHWDecCodecCsp(const QSVDeviceNum deviceNum, std::shared_ptr<RGYLog> log, const bool skipHWDecodeCheck);
 
 int GetImplListStr(tstring& str);
-std::optional<RGYOpenCLDeviceInfo> getDeviceCLInfoQSV(const QSVDeviceNum dev);
 std::vector<tstring> getDeviceList();
+#if ENABLE_OPENCL
+std::optional<RGYOpenCLDeviceInfo> getDeviceCLInfoQSV(const QSVDeviceNum dev);
+#endif
 
 #endif //_QSV_QUERY_H_

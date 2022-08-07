@@ -73,6 +73,7 @@ enum class QSVDeviceNum {
     NUM2,
     NUM3,
     NUM4,
+    MAX = NUM4,
 };
 
 enum MemType {

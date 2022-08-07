@@ -539,6 +539,9 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const QSVDe
         if (check_lib_version(lib, test)) {
             _ftprintf(stdout, _T("Media SDK Version: Hardware API v%d.%02d\n\n"), lib.Major, lib.Minor);
         }
+        for (auto& str : getDeviceList()) {
+            _ftprintf(stdout, _T("%s\n"), str.c_str());
+        }
         return 1;
     }
     if (0 == _tcscmp(option_name, _T("check-features"))) {

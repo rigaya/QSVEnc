@@ -1183,7 +1183,7 @@ std::vector<QSVEncFeatureData> MakeFeatureListPerCodec(const QSVDeviceNum device
             auto f1 = std::async(MakeFeatureList, deviceNum, rateControlList, codec, true, log);
             futures.push_back(std::move(f1));
         }
-        for (uint32_t i = 0; i < futures.size(); i++) {
+        for (size_t i = 0; i < futures.size(); i++) {
             codecFeatures.push_back(futures[i].get());
         }
     } else {
@@ -1602,8 +1602,6 @@ std::optional<RGYOpenCLDeviceInfo> getDeviceCLInfoQSV(const QSVDeviceNum dev) {
     return std::optional<RGYOpenCLDeviceInfo>();
 }
 
-std::optional<RGYOpenCLDeviceInfo> getDeviceCLInfoQSV(const QSVDeviceNum dev);;
-
 std::vector<tstring> getDeviceList() {
     std::vector<tstring> result;
     auto log = std::make_shared<RGYLog>(nullptr, RGY_LOG_QUIET);
@@ -1612,11 +1610,14 @@ std::vector<tstring> getDeviceList() {
     if (RGYOpenCL::openCLloaded()) {
         clPlatforms = cl.getPlatforms("Intel");
     }
-    for (int idev = 1; idev <= 4; idev++) {
+    for (int idev = 1; idev <= (int)QSVDeviceNum::MAX; idev++) {
         const auto info = getDeviceCLInfoQSV((QSVDeviceNum)idev);
         if (info.has_value()) {
             if (info.value().name.length() > 0) {
-                result.push_back(strsprintf(_T("Device #%d: %s"), idev, char_to_tstring(info.value().name).c_str()));
+                auto gpu_name = info.value().name;
+                gpu_name = str_replace(gpu_name, "(R)", "");
+                gpu_name = str_replace(gpu_name, "(TM)", "");
+                result.push_back(strsprintf(_T("Device #%d: %s"), idev, char_to_tstring(gpu_name).c_str()));
             } else {
                 result.push_back(strsprintf(_T("Device #%d"), idev));
             }
