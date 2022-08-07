@@ -1,31 +1,31 @@
-QSVEncC (x64) 7.07 (r2746) by rigaya, Aug  1 2022 21:20:13 (VC 1932/Win)
+QSVEncC (x64) 7.08 (r2752) by rigaya, Aug  6 2022 18:11:31 (VC 1932/Win)
  Intel Media SDK API v2.07
  reader: raw, avi, avs, vpy, avsw, avhw [H.264/AVC, H.265/HEVC, MPEG2, VP8, VP9, AV1]
 Environment Info
 OS : Windows 11 x64 (22000) [UTF-8]
 CPU: 12th Gen Intel Core i9-12900K [4.92GHz] (8P+8E,16C/24T)
-RAM: Used 9262 MB, Total 32559 MB
+RAM: Used 7641 MB, Total 32559 MB
 GPU: Intel Arc A380  Graphics (128EU) 2450MHz (30.0.101.3259)
 
 Media SDK Version: Hardware API v2.07
 
 Supported Enc features:
-Codec: H.264/AVC
+Codec: H.264/AVC FF
              CBR   VBR   AVBR  QVBR  CQP   LA    LAHRD ICQ   LAICQ VCM  
 RC mode       o     o     x     o     o     x     x     o     x     o    
 10bit depth   x     x     x     x     x     x     x     x     x     x    
-Fixed Func    o     o     x     o     o     x     x     o     x     o    
-Hyper Mode    x     x     x     x     x     x     x     x     x     x    
+Hyper Mode    o     o     x     o     o     x     x     o     x     x    
 Interlace     x     x     x     x     x     x     x     x     x     x    
 VUI info      o     o     x     o     o     x     x     o     x     o    
 Trellis       o     o     x     o     o     x     x     o     x     o    
+B Frame       o     o     x     o     o     x     x     o     x     x    
 Adaptive_I    x     x     x     x     x     x     x     x     x     x    
 Adaptive_B    x     x     x     x     x     x     x     x     x     x    
 WeightP       o     o     x     o     o     x     x     o     x     o    
-WeightB       o     o     x     o     o     x     x     o     x     o    
+WeightB       o     o     x     o     o     x     x     o     x     x    
 FadeDetect    x     x     x     x     x     x     x     x     x     x    
-B_Pyramid     o     o     x     o     o     x     x     o     x     o    
- +ManyBframes o     o     x     o     o     x     x     o     x     o    
+B_Pyramid     o     o     x     o     o     x     x     o     x     x    
+ +ManyBframes o     o     x     o     o     x     x     o     x     x    
 PyramQPOffset x     x     x     x     x     x     x     x     x     x    
 MBBRC         o     o     x     o     x     x     x     o     x     o    
 ExtBRC        o     o     x     x     x     x     x     x     x     x    
@@ -47,15 +47,15 @@ TSkip         x     x     x     x     x     x     x     x     x     x
 
 
 
-Codec: HEVC
+Codec: H.265/HEVC FF
              CBR   VBR   AVBR  QVBR  CQP   LA    LAHRD ICQ   LAICQ VCM  
 RC mode       o     o     x     o     o     x     x     o     x     x    
 10bit depth   o     o     x     o     o     x     x     o     x     x    
-Fixed Func    o     o     x     o     o     x     x     o     x     x    
 Hyper Mode    x     x     x     x     x     x     x     x     x     x    
 Interlace     x     x     x     x     o     x     x     x     x     x    
 VUI info      o     o     x     o     o     x     x     o     x     x    
 Trellis       x     x     x     x     x     x     x     x     x     x    
+B Frame       o     o     x     o     o     x     x     o     x     x    
 Adaptive_I    o     o     x     o     o     x     x     o     x     x    
 Adaptive_B    o     o     x     o     o     x     x     o     x     x    
 WeightP       o     o     x     o     o     x     x     o     x     x    
@@ -71,7 +71,7 @@ AdaptiveLTR   o     o     x     o     o     x     x     o     x     x
 AdaptiveCQM   x     x     x     x     x     x     x     x     x     x    
 LA Quality    x     x     x     x     x     x     x     x     x     x    
 QP Min/Max    o     o     x     o     x     x     x     o     x     x    
-IntraRefresh  x     x     x     x     x     x     x     x     x     x    
+IntraRefresh  o     o     x     o     o     x     x     o     x     x    
 No Deblock    o     o     x     o     o     x     x     o     x     x    
 No GPB        o     o     x     o     o     x     x     o     x     x    
 Windowed BRC  x     x     x     x     x     x     x     x     x     x    
@@ -84,15 +84,15 @@ TSkip         o     o     x     o     o     x     x     o     x     x
 
 
 
-Codec: VP9
+Codec: VP9 FF
              CBR   VBR   AVBR  QVBR  CQP   LA    LAHRD ICQ   LAICQ VCM  
 RC mode       o     o     x     x     o     x     x     o     x     x    
 10bit depth   o     o     x     x     o     x     x     o     x     x    
-Fixed Func    o     o     x     x     o     x     x     o     x     x    
-Hyper Mode    x     x     x     x     x     x     x     x     x     x    
+Hyper Mode    o     o     x     x     o     x     x     o     x     x    
 Interlace     x     x     x     x     x     x     x     x     x     x    
 VUI info      o     o     x     x     o     x     x     o     x     x    
 Trellis       x     x     x     x     x     x     x     x     x     x    
+B Frame       x     x     x     x     x     x     x     x     x     x    
 Adaptive_I    x     x     x     x     x     x     x     x     x     x    
 Adaptive_B    x     x     x     x     x     x     x     x     x     x    
 WeightP       x     x     x     x     x     x     x     x     x     x    
@@ -121,15 +121,15 @@ TSkip         x     x     x     x     x     x     x     x     x     x
 
 
 
-Codec: AV1
+Codec: AV1 FF
              CBR   VBR   AVBR  QVBR  CQP   LA    LAHRD ICQ   LAICQ VCM  
 RC mode       o     o     x     x     o     x     x     o     x     x    
 10bit depth   o     o     x     x     o     x     x     o     x     x    
-Fixed Func    o     o     x     x     o     x     x     o     x     x    
-Hyper Mode    x     x     x     x     x     x     x     x     x     x    
+Hyper Mode    o     o     x     x     o     x     x     o     x     x    
 Interlace     x     x     x     x     x     x     x     x     x     x    
 VUI info      o     o     x     x     o     x     x     o     x     x    
 Trellis       x     x     x     x     x     x     x     x     x     x    
+B Frame       o     o     x     x     o     x     x     o     x     x    
 Adaptive_I    o     o     x     x     o     x     x     o     x     x    
 Adaptive_B    x     x     x     x     x     x     x     x     x     x    
 WeightP       x     x     x     x     x     x     x     x     x     x    
