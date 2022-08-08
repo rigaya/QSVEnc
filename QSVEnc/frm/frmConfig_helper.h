@@ -251,6 +251,17 @@ namespace QSVEnc {
         }
         void setFeatures(array<UInt64>^ features) {
             features_ = features;
+
+            UInt64 rc_features = 0;
+            rc_features |= ((features_[get_cx_index(list_rate_control_ry, MFX_RATECONTROL_AVBR)  ] & ENC_FEATURE_CURRENT_RC) != 0) ? ENC_FEATURE_AVBR   : 0;
+            rc_features |= ((features_[get_cx_index(list_rate_control_ry, MFX_RATECONTROL_LA)    ] & ENC_FEATURE_CURRENT_RC) != 0) ? ENC_FEATURE_LA     : 0;
+            rc_features |= ((features_[get_cx_index(list_rate_control_ry, MFX_RATECONTROL_ICQ)   ] & ENC_FEATURE_CURRENT_RC) != 0) ? ENC_FEATURE_ICQ    : 0;
+            rc_features |= ((features_[get_cx_index(list_rate_control_ry, MFX_RATECONTROL_LA_ICQ)] & ENC_FEATURE_CURRENT_RC) != 0) ? ENC_FEATURE_LA_ICQ : 0;
+            rc_features |= ((features_[get_cx_index(list_rate_control_ry, MFX_RATECONTROL_VCM)   ] & ENC_FEATURE_CURRENT_RC) != 0) ? ENC_FEATURE_VCM    : 0;
+
+            for (int i_rc = 0; i_rc < features_->Length; i_rc++) {
+                features_[i_rc] |= rc_features;
+            }
             GenerateTable();
         }
         UInt64 features(int rc_index) {

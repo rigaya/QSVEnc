@@ -70,6 +70,7 @@ namespace QSVEnc {
             //ライブラリのチェック
             InitData(_conf, _sys_dat);
             dwStgReader = nullptr;
+            updateFeatureTableFlag = false;
             themeMode = AuoTheme::DefaultLight;
             cnf_stgSelected = (CONF_GUIEX *)calloc(1, sizeof(CONF_GUIEX));
             conf_link_prm = (AUO_LINK_PARAM *)calloc(1, sizeof(AUO_LINK_PARAM));
@@ -6912,6 +6913,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
         }
 #pragma endregion
     private:
+        bool updateFeatureTableFlag;
         delegate void SetCPUInfoDelegate();
         String^ StrCPUInfo;
         SetCPUInfoDelegate ^getCPUInfoDelegate;
@@ -7007,15 +7009,14 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
         System::Void SetStgEscKey(bool Enable);
         System::Void SetToolStripEvents(ToolStrip^ TS, System::Windows::Forms::MouseEventHandler^ _event);
         System::Void SetInputBufRange();
-        System::Boolean fcgCheckLibRateControl(mfxU32 mfxlib_current, mfxU64 available_features);
-        System::Void fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU64 available_features);
+        System::Boolean fcgCheckLibRateControl(mfxU64 available_features);
+        System::Void fcgCheckLibVersion(mfxU64 available_features);
         System::Boolean fcgCheckRCModeLibVersion(int rc_mode_target, int rc_mode_replace, bool mode_supported);
-        System::Void fcgCheckCodec();
+        System::Boolean fcgCheckCodec();
         System::Void fcgCheckFixedFunc();
         System::Void UpdateMfxLibDetection();
         System::Void UpdateFeatures();
         System::Void fcgCheckVppFeatures();
-        System::Void fcgCBHWLibChanged(System::Object^  sender, System::EventArgs^  e);
         System::Void SaveQSVFeatureAsImg(String^ SavePath);
         System::Void SaveQSVFeatureAsTxt(String^ SavePath);
         System::Void SaveQSVFeature();

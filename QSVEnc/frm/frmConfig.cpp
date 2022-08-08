@@ -858,13 +858,11 @@ System::Void frmConfig::InitStgFileList() {
     CheckTSSettingsDropDownItem(nullptr);
 }
 
-System::Void frmConfig::fcgCheckCodec() {
+System::Boolean frmConfig::fcgCheckCodec() {
+    System::Boolean result = false;
     if (featuresHW == nullptr) {
-        return;
+        return result;
     }
-
-    fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
-    fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
 
     for (int codecIdx = 1; list_outtype[codecIdx].desc; codecIdx++) {
         const mfxU32 codecId = list_outtype[codecIdx].value;
@@ -873,12 +871,13 @@ System::Void frmConfig::fcgCheckCodec() {
             fcgCXOutputType->Items[codecIdx] = L"-----------------";
             if (fcgCXOutputType->SelectedIndex == codecIdx) {
                 fcgCXOutputType->SelectedIndex = 0;
+                result = true;
             }
+        } else {
+            fcgCXOutputType->Items[codecIdx] = String(list_outtype[codecIdx].desc).ToString();
         }
     }
-
-    fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
-    fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
+    return result;
 }
 
 System::Void frmConfig::fcgCheckFixedFunc() {
@@ -890,9 +889,6 @@ System::Void frmConfig::fcgCheckFixedFunc() {
         return;
     }
 
-    fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
-    fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
-
     const bool codecFFAvail = featuresHW->getCodecAvail(fcgCXDevice->SelectedIndex, codecId, true);
     const bool codecPGAvail = featuresHW->getCodecAvail(fcgCXDevice->SelectedIndex, codecId, false);
     fcgCBFixedFunc->Enabled = false;
@@ -903,9 +899,6 @@ System::Void frmConfig::fcgCheckFixedFunc() {
     } else if (codecPGAvail) {
         fcgCBFixedFunc->Checked = false;
     }
-
-    fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
-    fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
 }
 
 System::Boolean frmConfig::fcgCheckRCModeLibVersion(int rc_mode_target, int rc_mode_replace, bool mode_supported) {
@@ -925,31 +918,20 @@ System::Boolean frmConfig::fcgCheckRCModeLibVersion(int rc_mode_target, int rc_m
     return selected_idx_changed;
 }
 
-System::Boolean frmConfig::fcgCheckLibRateControl(mfxU32 mfxlib_current, mfxU64 available_features) {
+System::Boolean frmConfig::fcgCheckLibRateControl(mfxU64 available_features) {
     System::Boolean result = false;
-    fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
-    fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
-    if (   fcgCheckRCModeLibVersion(MFX_RATECONTROL_AVBR,   MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_AVBR))
-        || fcgCheckRCModeLibVersion(MFX_RATECONTROL_QVBR,   MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_QVBR))
-        || fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA,     MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_LA))
-        //|| fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA_EXT, MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_LA_EXT))
-        || fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA_HRD, MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_LA_HRD))
-        || fcgCheckRCModeLibVersion(MFX_RATECONTROL_ICQ,    MFX_RATECONTROL_CQP, 0 != (available_features & ENC_FEATURE_ICQ))
-        || fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA_ICQ, MFX_RATECONTROL_CQP, (ENC_FEATURE_LA | ENC_FEATURE_ICQ) == (available_features & (ENC_FEATURE_LA | ENC_FEATURE_ICQ)))
-        || fcgCheckRCModeLibVersion(MFX_RATECONTROL_VCM,    MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_VCM)))
-        result = true;
-    fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
-    fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
+    if (fcgCheckRCModeLibVersion(MFX_RATECONTROL_AVBR,   MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_AVBR))) result = true;
+    if (fcgCheckRCModeLibVersion(MFX_RATECONTROL_QVBR,   MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_QVBR))) result = true;
+    if (fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA,     MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_LA))) result = true;
+        //if (fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA_EXT, MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_LA_EXT))) result = true;
+    if (fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA_HRD, MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_LA_HRD))) result = true;
+    if (fcgCheckRCModeLibVersion(MFX_RATECONTROL_ICQ,    MFX_RATECONTROL_CQP, 0 != (available_features & ENC_FEATURE_ICQ))) result = true;
+    if (fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA_ICQ, MFX_RATECONTROL_CQP, (ENC_FEATURE_LA | ENC_FEATURE_ICQ) == (available_features & (ENC_FEATURE_LA | ENC_FEATURE_ICQ)))) result = true;
+    if (fcgCheckRCModeLibVersion(MFX_RATECONTROL_VCM,    MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_VCM))) result = true;
     return result;
 }
 
-System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU64 available_features) {
-    if (0 == mfxlib_current)
-        return;
-
-    fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
-    fcgCXEncMode->SelectedIndexChanged -= gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
-
+System::Void frmConfig::fcgCheckLibVersion(mfxU64 available_features) {
     if (available_features & ENC_FEATURE_BFRAME) {
         if (!fcgNUBframes->Enabled) {
             fcgNUBframes->Enabled = true;
@@ -1039,31 +1021,15 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU32 mfxlib_current, mfxU64 availab
 
 System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventArgs^  e) {
     //もしfeatureListが作成できていなければ、チェックを行わない
-    if (featuresHW == nullptr) {
+    if (featuresHW == nullptr || !featuresHW->checkIfGetFeaturesFinished()) {
         return;
     }
-    bool featureListAvialable = featuresHW->checkIfGetFeaturesFinished();
-    if (!featureListAvialable)
-        return;
 
     this->SuspendLayout();
-
-    fcgCheckCodec();
     const mfxU32 codecId = list_outtype[fcgCXOutputType->SelectedIndex].value;
-
-    fcgCheckFixedFunc();
-
-    mfxVersion mfxlib_target;
-    mfxlib_target.Version = featuresHW->GetmfxLibVer();
-
-    mfxU64 available_features = featuresHW->getFeatureOfRC(fcgCXDevice->SelectedIndex, fcgCXEncMode->SelectedIndex, codecId, fcgCBFixedFunc->Checked);
-    //まず、レート制御モードのみのチェックを行う
-    //もし、レート制御モードの更新が必要ならavailable_featuresの更新も行う
-    if (fcgCheckLibRateControl(mfxlib_target.Version, available_features))
-        available_features = featuresHW->getFeatureOfRC(fcgCXDevice->SelectedIndex, fcgCXEncMode->SelectedIndex, codecId, fcgCBFixedFunc->Checked);
+    const mfxU64 available_features = featuresHW->getFeatureOfRC(fcgCXDevice->SelectedIndex, fcgCXEncMode->SelectedIndex, codecId, fcgCBFixedFunc->Checked);
 
     //つぎに全体のチェックを行う
-    fcgCheckLibVersion(mfxlib_target.Version, available_features);
     int enc_mode = list_encmode[fcgCXEncMode->SelectedIndex].value;
     bool cqp_mode =     (enc_mode == MFX_RATECONTROL_CQP);
     bool avbr_mode =    (enc_mode == MFX_RATECONTROL_AVBR);
@@ -1161,31 +1127,43 @@ System::Void frmConfig::fcgCheckVppFeatures() {
 #endif
 }
 
-System::Void frmConfig::fcgCBHWLibChanged(System::Object^  sender, System::EventArgs^  e) {
-    UpdateFeatures();
-}
-
 System::Void frmConfig::fcgDevOutputTypeFFPGChanged(System::Object^  sender, System::EventArgs^  e) {
-    if (featuresHW != nullptr) {
-        bool codecAvail = featuresHW->getCodecAvail(fcgCXDevice->SelectedIndex, list_outtype[fcgCXOutputType->SelectedIndex].value);
-        if (!codecAvail) {
-            fcgCXOutputType->SelectedIndex = 0;
-            return;
-        }
+    if (updateFeatureTableFlag) {
+        return;
     }
+    if (featuresHW == nullptr || !featuresHW->checkIfGetFeaturesFinished()) {
+        return;
+    }
+
+    updateFeatureTableFlag = true;
 
     this->SuspendLayout();
 
-    setComboBox(fcgCXCodecLevel, get_level_list(list_outtype[fcgCXOutputType->SelectedIndex].value));
-    setComboBox(fcgCXCodecProfile, get_profile_list(list_outtype[fcgCXOutputType->SelectedIndex].value));
-    fcgCXCodecLevel->SelectedIndex = 0;
-    fcgCXCodecProfile->SelectedIndex = 0;
+    if (fcgCheckCodec() || sender == fcgCXOutputType) {
+        setComboBox(fcgCXCodecLevel, get_level_list(list_outtype[fcgCXOutputType->SelectedIndex].value));
+        setComboBox(fcgCXCodecProfile, get_profile_list(list_outtype[fcgCXOutputType->SelectedIndex].value));
+        fcgCXCodecLevel->SelectedIndex = 0;
+        fcgCXCodecProfile->SelectedIndex = 0;
+    }
+    fcgCheckFixedFunc();
+
+    const mfxU32 codecId = list_outtype[fcgCXOutputType->SelectedIndex].value;
+    mfxU64 available_features = featuresHW->getFeatureOfRC(fcgCXDevice->SelectedIndex, fcgCXEncMode->SelectedIndex, codecId, fcgCBFixedFunc->Checked);
+    //まず、レート制御モードのみのチェックを行う
+    //もし、レート制御モードの更新が必要ならavailable_featuresの更新も行う
+    if (fcgCheckLibRateControl(available_features))
+        available_features = featuresHW->getFeatureOfRC(fcgCXDevice->SelectedIndex, fcgCXEncMode->SelectedIndex, codecId, fcgCBFixedFunc->Checked);
+
+    //つぎに全体のチェックを行う
+    fcgCheckLibVersion(available_features);
 
     UpdateFeatures();
     fcgChangeEnabled(sender, e);
 
     this->ResumeLayout();
     this->PerformLayout();
+
+    updateFeatureTableFlag = false;
 }
 
 System::Void frmConfig::fcgCBFixedFunc_CheckedChanged(System::Object^  sender, System::EventArgs^  e) {
@@ -2373,8 +2351,6 @@ System::Void frmConfig::UpdateFeatures() {
     if (featuresHW == nullptr) {
         return;
     }
-
-    fcgCheckFixedFunc();
 
     //表示更新
     const mfxU32 codecId = list_outtype[fcgCXOutputType->SelectedIndex].value;

@@ -302,6 +302,18 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2022.08.08 (7.08)
+[QSVEncC]
+- HyperModeの検出を修正。
+- Bフレームのチェックを追加。
+- --check-featuresを拡張し、--fixed-func有効時(FF)と無効時(PG)の時の双方を別々にチェックするように。
+- --check-features, --check-environmentが--deviceで指定するデバイスで情報を取得できるように。
+- --async-depthの制限を解放。
+
+[QSVEnc.auo]
+- HyperModeの設定欄を追加。
+- デバイス選択欄を追加。
+
 2022.08.01 (7.07)
 - デバイス選択時、デフォルトデバイス以外では異常終了してしまっていた問題を修正。
 - 使用可能なデバイスの一覧を表示するオプションを追加。(--check-device)
