@@ -305,6 +305,7 @@ API v1.1  … Intel Media SDK v2.0
 2022.08.08 (7.08)
 [QSVEncC]
 - HyperModeの検出を修正。
+- --hyper-mode on の時になるべくHyperModeが使用できるようパラメータ調整を行うように。
 - Bフレームのチェックを追加。
 - --check-featuresを拡張し、--fixed-func有効時(FF)と無効時(PG)の時の双方を別々にチェックするように。
 - --check-features, --check-environmentが--deviceで指定するデバイスで情報を取得できるように。
