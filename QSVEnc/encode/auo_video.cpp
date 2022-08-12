@@ -119,7 +119,7 @@ int get_aviutl_color_format(int use_highbit, RGY_CSP csp) {
 
 void get_csp_and_bitdepth(bool& use_highbit, RGY_CSP& csp, const CONF_GUIEX *conf) {
     sInputParams enc_prm;
-    parse_cmd(&enc_prm, conf->qsv.cmd);
+    parse_cmd(&enc_prm, conf->enc.cmd);
     const int bitdepth = getEncoderBitdepth(&enc_prm);
     use_highbit = bitdepth > 8;
 
@@ -569,7 +569,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         return AUO_RESULT_SUCCESS;
 
     sInputParams enc_prm;
-    parse_cmd(&enc_prm, conf->qsv.cmd);
+    parse_cmd(&enc_prm, conf->enc.cmd);
     enc_prm.nBluray += (enc_prm.nBluray == 1 && sys_dat->exstg->s_local.force_bluray);
     enc_prm.bDisableTimerPeriodTuning = !sys_dat->exstg->s_local.timer_period_tuning;
     enc_prm.ctrl.loglevel.set((RGYLogLevel)sys_dat->exstg->s_log.log_level, RGY_LOGT_ALL);
@@ -945,10 +945,10 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
 
         }
 #endif //ENABLE_AVSW_READER
-        set_conf_qsvp_prm(&conf->qsv, oip, pe, sys_dat->exstg->s_local.force_bluray, sys_dat->exstg->s_local.timer_period_tuning, sys_dat->exstg->s_log.log_level);
+        set_conf_qsvp_prm(&conf->enc, oip, pe, sys_dat->exstg->s_local.force_bluray, sys_dat->exstg->s_local.timer_period_tuning, sys_dat->exstg->s_log.log_level);
     }
-    conf->qsv.nPerfMonitorSelect        = (sys_dat->exstg->s_local.perf_monitor) ? PERF_MONITOR_ALL : 0;
-    conf->qsv.nPerfMonitorSelectMatplot = (sys_dat->exstg->s_local.perf_monitor_plot) ?
+    conf->enc.nPerfMonitorSelect        = (sys_dat->exstg->s_local.perf_monitor) ? PERF_MONITOR_ALL : 0;
+    conf->enc.nPerfMonitorSelectMatplot = (sys_dat->exstg->s_local.perf_monitor_plot) ?
         PERF_MONITOR_CPU | PERF_MONITOR_CPU_KERNEL
         | PERF_MONITOR_THREAD_MAIN | PERF_MONITOR_THREAD_ENC | PERF_MONITOR_THREAD_OUT
         | PERF_MONITOR_FPS
@@ -969,7 +969,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         return AUO_RESULT_ERROR;
     }
 
-    if (conf->vid.afs && (conf->qsv.nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
+    if (conf->vid.afs && (conf->enc.nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
         sts = MFX_ERR_INVALID_VIDEO_PARAM; error_afs_interlace_stg();
     } else if ((jitter = (int *)calloc(oip->n + 1, sizeof(int))) == NULL) {
         sts = MFX_ERR_MEMORY_ALLOC; error_malloc_tc();
@@ -980,14 +980,14 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     } else {
         InputInfoAuo inputInfo = { 0 };
         set_input_info_auo(&inputInfo, oip, conf, pe, sys_dat, jitter);
-        conf->qsv.pPrivatePrm = &inputInfo;
-        if (MFX_ERR_NONE != (sts = pPipeline->Init(&conf->qsv))) {
+        conf->enc.pPrivatePrm = &inputInfo;
+        if (MFX_ERR_NONE != (sts = pPipeline->Init(&conf->enc))) {
             write_mfx_message(sts);
         } else if (MFX_ERR_NONE == (sts = pPipeline->CheckCurrentVideoParam())) {
             if (conf->vid.afs) write_log_auo_line(LOG_INFO, _T("自動フィールドシフト    on"));
 
             DWORD tm_qsv = timeGetTime();
-            const char * const encode_name = (conf->qsv.bUseHWLib) ? "QuickSyncVideoエンコード" : "IntelMediaSDKエンコード";
+            const char * const encode_name = (conf->enc.bUseHWLib) ? "QuickSyncVideoエンコード" : "IntelMediaSDKエンコード";
             set_window_title(encode_name, PROGRESSBAR_CONTINUOUS);
             log_process_events();
 
@@ -1006,7 +1006,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
                         break;
                     }
 
-                    if (MFX_ERR_NONE != (sts = pPipeline->ResetMFXComponents(&conf->qsv))) {
+                    if (MFX_ERR_NONE != (sts = pPipeline->ResetMFXComponents(&conf->enc))) {
                         write_mfx_message(sts);
                         break;
                     }

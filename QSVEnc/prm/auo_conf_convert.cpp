@@ -344,7 +344,7 @@ void write_conf_header_old5(CONF_GUIEX_OLD_V5 *save_conf) {
 void *guiEx_config::convert_qsvstgv1_to_stgv3(void *_conf, int size) {
     CONF_GUIEX_OLD_V5 *conf = (CONF_GUIEX_OLD_V5 *)calloc(sizeof(CONF_GUIEX_OLD_V5), 1);
     write_conf_header_old5(conf);
-    static_assert(sizeof(conf->qsv) == 3560, "sizeof(conf->qsv) not equal to 3560, which will break convert_qsvstgv2_to_stgv3().");
+    static_assert(sizeof(conf->qsv) == 3560, "sizeof(conf->enc) not equal to 3560, which will break convert_qsvstgv2_to_stgv3().");
     static_assert(sizeof(conf->vid) == 16,   "sizeof(conf->vid) not equal to 16,   which will break convert_qsvstgv2_to_stgv3().");
 
     //ブロック部分のコピー
@@ -462,7 +462,7 @@ void *guiEx_config::convert_qsvstgv5_to_stgv6(void *_conf) {
     COPY_BLOCK(oth, 4);
 #undef COPY_BLOCK
 
-    conf->qsv.codec          = conf_old->qsv.CodecId;
+    conf->enc.codec          = conf_old->qsv.CodecId;
     conf->vid.auo_tcfile_out = conf_old->vid.auo_tcfile_out;
     conf->vid.afs            = conf_old->vid.afs;
 
@@ -491,7 +491,7 @@ void *guiEx_config::convert_qsvstgv5_to_stgv6(void *_conf) {
 
     sInputParams prm;
     parse_cmd(&prm, cmd_full.c_str(), true);
-    strcpy_s(conf->qsv.cmd, gen_cmd(&prm, true).c_str());
+    strcpy_s(conf->enc.cmd, gen_cmd(&prm, true).c_str());
 
     strcpy_s(conf->conf_name, CONF_NAME_OLD_6);
 

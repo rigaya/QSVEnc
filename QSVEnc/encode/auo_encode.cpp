@@ -869,8 +869,8 @@ static void replace_aspect_ratio(char *cmd, size_t nSize, const CONF_GUIEX *conf
     const int w = oip->w;
     const int h = oip->h;
 
-    int sar_x = conf->qsv.nPAR[0];
-    int sar_y = conf->qsv.nPAR[1];
+    int sar_x = conf->enc.nPAR[0];
+    int sar_y = conf->enc.nPAR[1];
     int dar_x = 0;
     int dar_y = 0;
     if (sar_x * sar_y > 0) {

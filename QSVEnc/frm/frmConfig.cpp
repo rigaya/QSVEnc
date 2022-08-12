@@ -1278,8 +1278,8 @@ System::Void frmConfig::CheckQSVLink(CONF_GUIEX *cnf) {
     } else {
         memcpy(&cnf->oth.link_prm, &link_data.prm, sizeof(link_data.prm));
         memcpy(conf_link_prm, &link_data.prm, sizeof(link_data.prm));
-        strcpy(cnf->qsv.auo_link_src, link_data.input_file);
-        fcgTXAvqsvInputFile->Text = String(cnf->qsv.auo_link_src).ToString();
+        strcpy(cnf->enc.auo_link_src, link_data.input_file);
+        fcgTXAvqsvInputFile->Text = String(cnf->enc.auo_link_src).ToString();
 
         Point point = fcgTXCmd->Location;
         point.Y += fcggroupBoxAvqsv->Size.Height;
@@ -1372,7 +1372,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     this->SuspendLayout();
 
     sInputParams prm_qsv;
-    parse_cmd(&prm_qsv, cnf->qsv.cmd);
+    parse_cmd(&prm_qsv, cnf->enc.cmd);
 
     SetCXIndex(fcgCXOutputType,   get_cx_index(list_outtype, prm_qsv.CodecId));
     SetCXIndex(fcgCXEncMode,      get_cx_index(list_encmode, prm_qsv.nEncMode));
@@ -1628,7 +1628,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     sInputParams prm_qsv;
 
     prm_qsv.CodecId                = list_outtype[fcgCXOutputType->SelectedIndex].value;
-    cnf->qsv.codec                 = prm_qsv.CodecId;
+    cnf->enc.codec                 = prm_qsv.CodecId;
     prm_qsv.device                 = (featuresHW) ? (featuresHW->devCount() > 1 ? featuresHW->getDevID(fcgCXDevice->SelectedIndex) : QSVDeviceNum::AUTO) : QSVDeviceNum::AUTO;
     prm_qsv.nEncMode               = (int)list_encmode[fcgCXEncMode->SelectedIndex].value;
     prm_qsv.hyperMode              = (mfxHyperMode)list_hyper_mode[fcgCXHyperMode->SelectedIndex].value;
@@ -1884,7 +1884,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     GetCHARfromString(cnf->oth.batfile.after_audio,  sizeof(cnf->oth.batfile.after_audio),  fcgTXBatAfterAudioPath->Text);
 
     GetfcgTSLSettingsNotes(cnf->oth.notes, sizeof(cnf->oth.notes));
-    strcpy_s(cnf->qsv.cmd, gen_cmd(&prm_qsv, true).c_str());
+    strcpy_s(cnf->enc.cmd, gen_cmd(&prm_qsv, true).c_str());
 
     return String(gen_cmd(&prm_qsv, false).c_str()).ToString();
 }

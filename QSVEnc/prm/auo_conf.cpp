@@ -38,7 +38,7 @@
 #include "qsv_prm.h"
 
 const int guiEx_config::conf_block_data[CONF_BLOCK_COUNT] = {
-    sizeof(CONF_GUIEX::qsv),
+    sizeof(CONF_GUIEX::enc),
     sizeof(CONF_GUIEX::vid),
     sizeof(CONF_GUIEX::aud),
     sizeof(CONF_GUIEX::mux),
@@ -46,7 +46,7 @@ const int guiEx_config::conf_block_data[CONF_BLOCK_COUNT] = {
 };
 
 const size_t guiEx_config::conf_block_pointer[CONF_BLOCK_COUNT] = {
-    offsetof(CONF_GUIEX, qsv),
+    offsetof(CONF_GUIEX, enc),
     offsetof(CONF_GUIEX, vid),
     offsetof(CONF_GUIEX, aud),
     offsetof(CONF_GUIEX, mux),
