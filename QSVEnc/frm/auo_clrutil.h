@@ -52,6 +52,11 @@ static size_t GetCHARfromString(char *chr, DWORD nSize, System::String^ str) {
     return str_len;
 }
 
+template <size_t size>
+int GetCHARfromString(char(&chr)[size], System::String^ str) {
+    return GetCHARfromString(chr, size, str);
+}
+
 static std::string GetCHARfromString(System::String ^str) {
     System::IntPtr ptr = System::Runtime::InteropServices::Marshal::StringToHGlobalAnsi(str);
     char *ch_ptr = (char *)ptr.ToPointer();
