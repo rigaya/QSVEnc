@@ -81,8 +81,8 @@ int FAWCheck(short *audio_dat, int audio_n, int audio_rate, int audio_size) {
 
     //ゼロブロックをチェック
     BOOL check_result[3] = { FALSE, FALSE, FALSE };
-    int i;
-    for (i = 0; i < 3; i++) {
+    int i = 0;
+    for (; i < 3; i++) {
         if (zero_blocks[i].size() < (size_t)(audio_n * ZERO_BLOCK_COUNT_THRESHOLD / audio_rate))
             continue;
         int zero_sum = 0;
