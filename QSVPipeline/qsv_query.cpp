@@ -1582,7 +1582,7 @@ std::optional<RGYOpenCLDeviceInfo> getDeviceCLInfoQSV(const QSVDeviceNum dev) {
     if (RGYOpenCL::openCLloaded()) {
         auto clPlatforms = cl.getPlatforms("Intel");
         std::unique_ptr<CQSVHWDevice> hwdev;
-        MemType memType = D3D11_MEMORY;
+        MemType memType = HW_MEMORY;
         MFXVideoSession2 session;
         MFXVideoSession2Params params;
         if (InitSessionAndDevice(hwdev, session, memType, dev, params, log) == RGY_ERR_NONE) {
@@ -1591,12 +1591,25 @@ std::optional<RGYOpenCLDeviceInfo> getDeviceCLInfoQSV(const QSVDeviceNum dev) {
             if (hdl_t
                 && err_to_rgy(hwdev->GetHandle((hdl_t == MFX_HANDLE_DIRECT3D_DEVICE_MANAGER9) ? (mfxHandleType)0 : hdl_t, &hdl)) == RGY_ERR_NONE) {
                 for (auto& platform : clPlatforms) {
-                    if (platform->createDeviceListD3D11(CL_DEVICE_TYPE_GPU, (void *)hdl) == CL_SUCCESS) {
-                        return std::optional<RGYOpenCLDeviceInfo>(platform->dev(0).info());
+                    if (memType == D3D9_MEMORY && ENABLE_RGY_OPENCL_D3D9) {
+                        if (platform->createDeviceListD3D9(CL_DEVICE_TYPE_GPU, (void *)hdl) == CL_SUCCESS && platform->devs().size() > 0) {
+                            return std::optional<RGYOpenCLDeviceInfo>(platform->dev(0).info());
+                        }
+                    } else if (memType == D3D11_MEMORY && ENABLE_RGY_OPENCL_D3D11) {
+                        if (platform->createDeviceListD3D11(CL_DEVICE_TYPE_GPU, (void *)hdl) == CL_SUCCESS && platform->devs().size() > 0) {
+                            return std::optional<RGYOpenCLDeviceInfo>(platform->dev(0).info());
+                        }
+                    } else if (memType == VA_MEMORY && ENABLE_RGY_OPENCL_VA) {
+                        if (platform->createDeviceListVA(CL_DEVICE_TYPE_GPU, (void *)hdl) == CL_SUCCESS && platform->devs().size() > 0) {
+                            return std::optional<RGYOpenCLDeviceInfo>(platform->dev(0).info());
+                        }
+                    } else {
+                        if (platform->createDeviceList(CL_DEVICE_TYPE_GPU) == CL_SUCCESS && platform->devs().size() > 0) {
+                            return std::optional<RGYOpenCLDeviceInfo>(platform->dev(0).info());
+                        }
                     }
                 }
             }
-            return std::optional<RGYOpenCLDeviceInfo>(RGYOpenCLDeviceInfo());
         }
     }
     return std::optional<RGYOpenCLDeviceInfo>();
