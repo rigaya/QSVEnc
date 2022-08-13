@@ -70,7 +70,7 @@ const int CONF_BLOCK_MAX                 = 32;
 const int CONF_BLOCK_COUNT               = 6; //最大 CONF_BLOCK_MAXまで
 const int CONF_HEAD_SIZE                 = (3 + CONF_BLOCK_MAX) * sizeof(int) + CONF_BLOCK_MAX * sizeof(size_t) + CONF_NAME_BLOCK_LEN;
 
-static const char *const CONF_LAST_OUT = "前回出力.stg";
+static const char *const CONF_LAST_OUT   = "前回出力.stg";
 
 enum {
     CONF_ERROR_NONE = 0,
@@ -97,21 +97,21 @@ static const char *const AUDIO_DELAY_CUT_MODE[] = {
 const int CMDEX_MAX_LEN = 2048;    //追加コマンドラインの最大長
 
 #pragma pack(push, 1)
-typedef struct {
+typedef struct CONF_QSV {
     int codec;
     int reserved[128];
     char auo_link_src[1024];
     char cmd[3072];
 } CONF_QSV;
 
-typedef struct {
+typedef struct CONF_VIDEO {
     BOOL afs;                      //自動フィールドシフトの使用
     BOOL auo_tcfile_out;           //auo側でタイムコードを出力する
     int  reserved[2];
     BOOL resize_enable;
     int resize_width;
     int resize_height;
-} CONF_VIDEO;
+} CONF_VIDEO; //動画用設定(x264以外)
 
 typedef struct {
     int  encoder;             //使用する音声エンコーダ
@@ -127,13 +127,13 @@ typedef struct {
     int  delay_cut;           //エンコード遅延の削除
 } CONF_AUDIO_BASE; //音声用設定
 
-typedef struct {
+typedef struct CONF_AUDIO {
     CONF_AUDIO_BASE ext;
     CONF_AUDIO_BASE in;
     BOOL use_internal;
 } CONF_AUDIO; //音声用設定
 
-typedef struct {
+typedef struct CONF_MUX {
     BOOL disable_mp4ext;  //mp4出力時、外部muxerを使用する
     BOOL disable_mkvext;  //mkv出力時、外部muxerを使用する
     int  mp4_mode;        //mp4 外部muxer用追加コマンドの設定
@@ -148,11 +148,11 @@ typedef struct {
     int  internal_mode;   //内蔵muxer用のオプション
 } CONF_MUX; //muxer用設定
 
-typedef struct {
+typedef struct CONF_OTHER {
     //BOOL disable_guicmd;         //GUIによるコマンドライン生成を停止(CLIモード)
-    int  temp_dir;               //一時ディレクトリ
-    BOOL out_audio_only;         //音声のみ出力
-    char notes[128];             //メモ
+    int   temp_dir;               //一時ディレクトリ
+    BOOL  out_audio_only;         //音声のみ出力
+    char  notes[128];             //メモ
     DWORD run_bat;                //バッチファイルを実行するかどうか (RUN_BAT_xxx)
     DWORD dont_wait_bat_fin;      //バッチファイルの処理終了待機をするかどうか (RUN_BAT_xxx)
     union {
@@ -167,7 +167,7 @@ typedef struct {
     AUO_LINK_PARAM link_prm;
 } CONF_OTHER;
 
-typedef struct {
+typedef struct CONF_GUIEX {
     char        conf_name[CONF_NAME_BLOCK_LEN];  //保存時に使用
     int         size_all;                        //保存時: CONF_GUIEXの全サイズ / 設定中、エンコ中: CONF_INITIALIZED
     int         head_size;                       //ヘッダ部分の全サイズ
@@ -199,8 +199,7 @@ public:
     static int  save_guiEx_conf(const CONF_GUIEX *conf, const char *stg_file); //設定をstgファイルとして保存
 };
 
-//定義はQSVEnc.cpp
-void init_CONF_GUIEX(CONF_GUIEX *conf, BOOL use_10bit); //初期化し、デフォルトを設定
+void init_CONF_GUIEX(CONF_GUIEX *conf, BOOL use_highbit); //初期化し、デフォルトを設定
 
 //出力ファイルの拡張子フィルタを作成
 //filterがNULLならauoのOUTPUT_PLUGIN_TABLE用のフィルタを書き換える
