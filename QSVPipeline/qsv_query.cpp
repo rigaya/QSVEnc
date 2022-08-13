@@ -1605,11 +1605,6 @@ std::optional<RGYOpenCLDeviceInfo> getDeviceCLInfoQSV(const QSVDeviceNum dev) {
 std::vector<tstring> getDeviceList() {
     std::vector<tstring> result;
     auto log = std::make_shared<RGYLog>(nullptr, RGY_LOG_QUIET);
-    std::vector<std::shared_ptr<RGYOpenCLPlatform>> clPlatforms;
-    RGYOpenCL cl(log);
-    if (RGYOpenCL::openCLloaded()) {
-        clPlatforms = cl.getPlatforms("Intel");
-    }
     for (int idev = 1; idev <= (int)QSVDeviceNum::MAX; idev++) {
         const auto info = getDeviceCLInfoQSV((QSVDeviceNum)idev);
         if (info.has_value()) {
