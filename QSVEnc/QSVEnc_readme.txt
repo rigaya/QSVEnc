@@ -302,6 +302,16 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2022.08.14 (7.09)
+[QSVEncC]
+- --disable-opencl使用時にエラー終了してしまう問題を修正。
+- Linuxで--check-deviceでGPU名が取得できない問題を修正。
+- Linuxで標準入力から読み込ませたときに、意図せず処理が中断してしまう問題を修正。
+  なお、これに伴いLinuxではコンソールからの'q'あるいは'Q'でのプログラム終了はサポートしないよう変更した。(Ctrl+Cで代用のこと)
+
+[QSVEnc.auo]
+- qaac/fdkaacのコマンドラインに --gapless-mode 2 を追加。
+
 2022.08.08 (7.08)
 [QSVEncC]
 - HyperModeの検出を修正。
