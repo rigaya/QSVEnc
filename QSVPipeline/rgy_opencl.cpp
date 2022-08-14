@@ -262,11 +262,16 @@ int initOpenCLGlobal() {
         return 0;
     }
 #if defined(_WIN32) || defined(_WIN64)
-    static const TCHAR *opencl_dll_name = _T("OpenCL.dll");
+    static const std::array<const TCHAR *, 1> opencl_dll_names = { _T("OpenCL.dll") };
 #else
-    static const TCHAR *opencl_dll_name = _T("libOpenCL.so");
+    static const std::array<const TCHAR *, 2> opencl_dll_names = { _T("libOpenCL.so"), _T("libOpenCL.so.1") };
 #endif
-    if ((RGYOpenCL::openCLHandle = RGY_LOAD_LIBRARY(opencl_dll_name)) == nullptr) {
+    for (const auto dll_name : opencl_dll_names) {
+        if ((RGYOpenCL::openCLHandle = RGY_LOAD_LIBRARY(dll_name)) != nullptr) {
+            break;
+        }
+    }
+    if (RGYOpenCL::openCLHandle == nullptr) {
         return 1;
     }
 
