@@ -1,0 +1,76 @@
+QSVEncC (x64) 7.09 (r2785) by rigaya, Aug 16 2022 02:25:57 (gcc 11.2.0/Linux)
+ Intel Media SDK API v2.07
+ reader: raw, avs, vpy, avsw, avhw [H.264/AVC, H.265/HEVC, MPEG2, VP8, VP9, AV1]
+ vpp:    resize, deinterlace, denoise, detail-enhance, image-stab, delego, sub
+Environment Info
+OS : Ubuntu 22.04.1 LTS (5.15.0-46-generic) x64
+CPU: 11th Gen Intel Core i7-11700K @ 3.60GHz (8C/16T)
+RAM: Used 2385 MB, Total 15796 MB
+GPU: Intel Graphics / Driver : Intel iHD driver for Intel(R) Gen Graphics - 22.4.3 (74f40ee)
+
+Media SDK Version: Hardware API v2.07
+
+Supported Enc features:
+Codec: H.264/AVC PG
+             CBR   VBR   AVBR  QVBR  CQP   LA    LAHRD ICQ   LAICQ VCM  
+RC mode       x     x     x     x     x     x     x     x     x     x    
+10bit depth   x     x     x     x     x     x     x     x     x     x    
+Hyper Mode    x     x     x     x     x     x     x     x     x     x    
+Interlace     x     x     x     x     x     x     x     x     x     x    
+VUI info      x     x     x     x     x     x     x     x     x     x    
+Trellis       x     x     x     x     x     x     x     x     x     x    
+B Frame       x     x     x     x     x     x     x     x     x     x    
+Adaptive_I    x     x     x     x     x     x     x     x     x     x    
+Adaptive_B    x     x     x     x     x     x     x     x     x     x    
+WeightP       x     x     x     x     x     x     x     x     x     x    
+WeightB       x     x     x     x     x     x     x     x     x     x    
+FadeDetect    x     x     x     x     x     x     x     x     x     x    
+B_Pyramid     x     x     x     x     x     x     x     x     x     x    
+ +ManyBframes x     x     x     x     x     x     x     x     x     x    
+PyramQPOffset x     x     x     x     x     x     x     x     x     x    
+MBBRC         x     x     x     x     x     x     x     x     x     x    
+ExtBRC        x     x     x     x     x     x     x     x     x     x    
+AdaptiveRef   x     x     x     x     x     x     x     x     x     x    
+AdaptiveLTR   x     x     x     x     x     x     x     x     x     x    
+AdaptiveCQM   x     x     x     x     x     x     x     x     x     x    
+LA Quality    x     x     x     x     x     x     x     x     x     x    
+QP Min/Max    x     x     x     x     x     x     x     x     x     x    
+IntraRefresh  x     x     x     x     x     x     x     x     x     x    
+No Deblock    x     x     x     x     x     x     x     x     x     x    
+No GPB        x     x     x     x     x     x     x     x     x     x    
+Windowed BRC  x     x     x     x     x     x     x     x     x     x    
+PerMBQP(CQP)  x     x     x     x     x     x     x     x     x     x    
+DirectBiasAdj x     x     x     x     x     x     x     x     x     x    
+MVCostScaling x     x     x     x     x     x     x     x     x     x    
+SAO           x     x     x     x     x     x     x     x     x     x    
+Max CTU Size  x     x     x     x     x     x     x     x     x     x    
+TSkip         x     x     x     x     x     x     x     x     x     x    
+
+
+
+Supported Vpp features:
+
+Resize                o
+Deinterlace           o
+Scaling Quality       o
+Denoise               o
+Denoise2              o
+Mctf                  o
+Rotate                x
+Mirror                o
+Detail Enhancement    o
+Proc Amp.             o
+Image Stabilization   x
+Video Signal Info     o
+FPS Conversion        o
+FPS Conversion (Adv.) o
+
+
+Supported Decode features:
+
+        H.264  HEVC   MPEG2  VP8    VP9    AV1    
+yuv420  8bit  10bit   8bit         10bit  10bit 
+yuv422        10bit                             
+yuv444        12bit                12bit        
+
+
