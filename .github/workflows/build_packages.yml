@@ -37,7 +37,7 @@ jobs:
           IMAGE="build_qsvencc_"${{ env.DOCKER_IMAGE }}
           TAG=$(echo $GITHUB_SHA | head -c7)
           NPROC=$(grep 'processor' /proc/cpuinfo | wc -l)
-          OUTPUT_DIR=`pwd`/../output
+          OUTPUT_DIR=`pwd`/output
           LOCAL_USER_ID=$(id -u)
           LOCAL_GROUP_ID=$(id -g)
           echo ::set-output name=tagged_image::${IMAGE}:${TAG}
@@ -124,3 +124,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: ${{ steps.build_exec.outputs.pkgfile }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: QSVEncC_${{ matrix.dockerimg }}_${{ matrix.pkgtype }}
+          path: ${{ steps.build_exec.outputs.pkgfile }}
