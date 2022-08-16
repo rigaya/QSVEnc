@@ -84,15 +84,10 @@ sudo apt install build-essential libtool pkg-config git cmake
 ```
 
 ### 2. Install Intel driver
-OpenCL driver can be innstalled following instruction on [this link](https://dgpu-docs.intel.com/installation-guides/ubuntu/ubuntu-focal.html).
+OpenCL driver can be installed following instruction on [this link](https://dgpu-docs.intel.com/installation-guides/ubuntu/ubuntu-focal.html), but QSVEnc will require only part of it.
 
 ```Shell
-sudo apt-get install -y gpg-agent wget
-wget -qO - https://repositories.intel.com/graphics/intel-graphics.key | sudo apt-key add -
-sudo apt-add-repository 'deb [arch=amd64] https://repositories.intel.com/graphics/ubuntu focal main'
-sudo apt-get update
-sudo apt install intel-media-va-driver-non-free intel-opencl-icd intel-level-zero-gpu level-zero
-sudo apt install opencl-headers
+sudo apt install intel-media-va-driver-non-free intel-opencl-icd opencl-headers
 ```
 
 ### 3. Install required libraries
