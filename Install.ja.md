@@ -20,9 +20,13 @@
 ## Linux (Ubuntu 20.04)
 
 ### 1. Intel Media ドライバのインストール  
-OpenCL関連は[こちらのリンク](https://dgpu-docs.intel.com/installation-guides/ubuntu/ubuntu-focal.html)に従ってインストールします。
+OpenCL関連は[こちらのリンク](https://dgpu-docs.intel.com/installation-guides/ubuntu/ubuntu-focal.html)に従ってインストールする。
 
 ```Shell
+sudo apt-get install -y gpg-agent wget
+wget -qO - https://repositories.intel.com/graphics/intel-graphics.key | sudo apt-key add -
+sudo apt-add-repository 'deb [arch=amd64] https://repositories.intel.com/graphics/ubuntu focal main'
+sudo apt-get update
 sudo apt install intel-media-va-driver-non-free intel-opencl-icd
 ```
 
