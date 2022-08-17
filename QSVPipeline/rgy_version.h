@@ -31,9 +31,9 @@
 
 #include "rgy_rev.h"
 
-#define VER_FILEVERSION             0,7,9,0
-#define VER_STR_FILEVERSION          "7.09"
-#define VER_STR_FILEVERSION_TCHAR _T("7.09")
+#define VER_FILEVERSION             0,7,10,0
+#define VER_STR_FILEVERSION          "7.10"
+#define VER_STR_FILEVERSION_TCHAR _T("7.10")
 
 #ifdef _M_IX86
 #define BUILD_ARCH_STR _T("x86")
@@ -89,6 +89,8 @@ const char *get_encoder_version();
 #define ENABLE_KEYFRAME_INSERT 0
 #define ENABLE_AUTO_PICSTRUCT 0
 
+#define ENABLE_HYPER_MODE 1
+
 #ifdef BUILD_AUO
 #define ENCODER_NAME             "QSVEnc"
 #define DECODER_NAME             "qsv"
@@ -138,6 +140,7 @@ const char *get_encoder_version();
 #define ENABLE_METRIC_FRAMEWORK 0
 #define ENABLE_PERF_COUNTER 0
 #define ENABLE_CAPTION2ASS 0
+#define ENABLE_HYPER_MODE 0
 #include "rgy_config.h"
 #define ENCODER_NAME              "QSVEncC"
 #define DECODER_NAME              "qsv"

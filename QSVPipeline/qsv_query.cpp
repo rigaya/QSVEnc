@@ -288,7 +288,8 @@ QSVVideoParam::QSVVideoParam(uint32_t CodecId, mfxVersion mfxver_) :
         //buf.push_back((mfxExtBuffer *)&av1ResolutionPrm);
         //buf.push_back((mfxExtBuffer *)&av1TilePrm);
     }
-    if ((CodecId == MFX_CODEC_AVC || CodecId == MFX_CODEC_HEVC)
+    if (ENABLE_HYPER_MODE
+        && (CodecId == MFX_CODEC_AVC || CodecId == MFX_CODEC_HEVC || CodecId == MFX_CODEC_AV1)
         && check_lib_version(mfxVer, MFX_LIB_VERSION_2_5)) {
         buf.push_back((mfxExtBuffer *)&hyperModePrm);
     }
@@ -752,7 +753,7 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
         && codecId == MFX_CODEC_AV1) {
         buf.push_back((mfxExtBuffer *)&av1);
     }
-    if (check_lib_version(mfxVer, MFX_LIB_VERSION_2_5)
+    if (ENABLE_HYPER_MODE && check_lib_version(mfxVer, MFX_LIB_VERSION_2_5)
         && (codecId == MFX_CODEC_AVC || codecId == MFX_CODEC_HEVC)) {
         buf.push_back((mfxExtBuffer *)&hyperMode);
     }
@@ -860,7 +861,7 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
         break;
     default:
     case MFX_CODEC_AVC:
-        videoPrm.mfx.CodecLevel = MFX_LEVEL_AVC_41;
+        videoPrm.mfx.CodecLevel = MFX_LEVEL_UNKNOWN;
         videoPrm.mfx.CodecProfile = MFX_PROFILE_AVC_HIGH;
         break;
     }
@@ -952,7 +953,9 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
         CHECK_FEATURE(cop3.EnableMBQP,                 ENC_FEATURE_PERMBQP,                    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_13);
         CHECK_FEATURE(cop3.DirectBiasAdjustment,       ENC_FEATURE_DIRECT_BIAS_ADJUST,         MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_13);
         CHECK_FEATURE(cop3.GlobalMotionBiasAdjustment, ENC_FEATURE_GLOBAL_MOTION_ADJUST,       MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_13);
-        CHECK_FEATURE(hyperMode.Mode,                  ENC_FEATURE_HYPER_MODE,                 MFX_HYPERMODE_ON,        MFX_LIB_VERSION_2_5);
+        if (ENABLE_HYPER_MODE) {
+            CHECK_FEATURE(hyperMode.Mode,                  ENC_FEATURE_HYPER_MODE,                 MFX_HYPERMODE_ON,        MFX_LIB_VERSION_2_5);
+        }
         CHECK_FEATURE(cop3.FadeDetection,        ENC_FEATURE_FADE_DETECT,   MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_1_17);
         CHECK_FEATURE(cop3.AdaptiveLTR,          ENC_FEATURE_ADAPTIVE_LTR,  MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_2_4);
         CHECK_FEATURE(cop3.AdaptiveRef,          ENC_FEATURE_ADAPTIVE_REF,  MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_2_4);
