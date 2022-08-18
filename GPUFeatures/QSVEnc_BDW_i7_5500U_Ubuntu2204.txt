@@ -1,0 +1,76 @@
+QSVEncC (x64) 7.10 (r2780) by rigaya, Aug 17 2022 10:08:53 (gcc 11.2.0/Linux)
+ Intel Media SDK API v2.07
+ reader: raw, avs, vpy, avsw, avhw [H.264/AVC, H.265/HEVC, MPEG2, VP8, VP9, AV1]
+ vpp:    resize, deinterlace, denoise, detail-enhance, image-stab, delego, sub
+Environment Info
+OS : Ubuntu 22.04.1 LTS (5.15.0-46-generic) x64
+CPU: Intel Core i7-5500U @ 2.40GHz (2C/4T)
+RAM: Used 1871 MB, Total 7858 MB
+GPU: Intel Graphics / Driver : Intel iHD driver for Intel(R) Gen Graphics - 22.4.3 (74f40ee)
+
+Media SDK Version: Hardware API v1.35
+
+Supported Enc features:
+Codec: H.264/AVC PG
+             CBR   VBR   AVBR  QVBR  CQP   LA    LAHRD ICQ   LAICQ VCM  
+RC mode       o     o     o     o     o     o     o     o     o     o    
+10bit depth   x     x     x     x     x     x     x     x     x     x    
+Hyper Mode    x     x     x     x     x     x     x     x     x     x    
+Interlace     o     o     o     o     o     o     o     o     o     x    
+VUI info      o     o     o     o     o     o     o     o     o     o    
+Trellis       o     o     o     o     o     o     o     o     o     x    
+B Frame       o     o     o     o     o     o     o     o     o     x    
+Adaptive_I    x     x     x     x     x     x     x     x     x     x    
+Adaptive_B    x     x     x     x     x     x     x     x     x     x    
+WeightP       o     o     o     o     o     o     o     o     o     x    
+WeightB       o     o     o     o     o     o     o     o     o     x    
+FadeDetect    x     x     x     x     x     x     x     x     x     x    
+B_Pyramid     o     o     o     o     o     o     o     o     o     x    
+ +ManyBframes o     o     o     o     o     x     x     o     x     x    
+PyramQPOffset x     x     x     x     x     x     x     x     x     x    
+MBBRC         o     o     o     o     x     x     x     o     x     x    
+ExtBRC        o     o     x     x     x     x     x     x     x     x    
+AdaptiveRef   x     x     x     x     x     x     x     x     x     x    
+AdaptiveLTR   x     x     x     x     x     x     x     x     x     x    
+AdaptiveCQM   x     x     x     x     x     x     x     x     x     x    
+LA Quality    x     x     x     x     x     o     o     x     o     x    
+QP Min/Max    o     o     o     o     o     o     o     o     o     x    
+IntraRefresh  x     x     x     x     x     x     x     x     x     x    
+No Deblock    x     x     x     x     x     x     x     x     x     x    
+No GPB        x     x     x     x     x     x     x     x     x     x    
+Windowed BRC  x     x     x     x     x     o     o     x     x     x    
+PerMBQP(CQP)  x     x     x     x     o     x     x     x     x     x    
+DirectBiasAdj o     o     o     o     o     o     o     o     o     x    
+MVCostScaling o     o     o     o     o     o     o     o     o     x    
+SAO           x     x     x     x     x     x     x     x     x     x    
+Max CTU Size  x     x     x     x     x     x     x     x     x     x    
+TSkip         x     x     x     x     x     x     x     x     x     x    
+
+
+
+Supported Vpp features:
+
+Resize                o
+Deinterlace           o
+Scaling Quality       o
+Denoise               o
+Denoise2              x
+Mctf                  o
+Rotate                x
+Mirror                o
+Detail Enhancement    o
+Proc Amp.             o
+Image Stabilization   o
+Video Signal Info     o
+FPS Conversion        o
+FPS Conversion (Adv.) o
+
+
+Supported Decode features:
+
+        H.264  HEVC   MPEG2  VP8    VP9    AV1    
+yuv420  8bit          8bit   8bit         10bit 
+yuv422                                          
+yuv444                                    12bit 
+
+
