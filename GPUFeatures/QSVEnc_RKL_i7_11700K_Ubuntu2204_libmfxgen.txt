@@ -5,7 +5,7 @@ QSVEncC (x64) 7.10 (r2780) by rigaya, Aug 17 2022 10:08:53 (gcc 11.2.0/Linux)
 Environment Info
 OS : Ubuntu 22.04.1 LTS (5.15.0-46-generic) x64
 CPU: 11th Gen Intel Core i7-11700K @ 3.60GHz (8C/16T)
-RAM: Used 2920 MB, Total 15796 MB
+RAM: Used 1969 MB, Total 15796 MB
 GPU: Intel Graphics / Driver : Intel iHD driver for Intel(R) Gen Graphics - 22.4.3 (74f40ee)
 
 Media SDK Version: Hardware API v2.07
@@ -50,35 +50,35 @@ TSkip         x     x     x     x     x     x     x     x     x     x
 
 Codec: H.264/AVC FF
              CBR   VBR   AVBR  QVBR  CQP   LA    LAHRD ICQ   LAICQ VCM  
-RC mode       x     x     o     x     o     x     x     x     x     x    
+RC mode       o     o     o     o     o     x     x     x     x     x    
 10bit depth   x     x     x     x     x     x     x     x     x     x    
 Hyper Mode    x     x     x     x     x     x     x     x     x     x    
 Interlace     x     x     x     x     x     x     x     x     x     x    
-VUI info      x     x     o     x     o     x     x     x     x     x    
-Trellis       x     x     o     x     o     x     x     x     x     x    
+VUI info      o     o     o     o     o     x     x     x     x     x    
+Trellis       o     o     o     o     o     x     x     x     x     x    
 B Frame       x     x     x     x     x     x     x     x     x     x    
 Adaptive_I    x     x     x     x     x     x     x     x     x     x    
 Adaptive_B    x     x     x     x     x     x     x     x     x     x    
-WeightP       x     x     o     x     o     x     x     x     x     x    
+WeightP       o     o     o     o     o     x     x     x     x     x    
 WeightB       x     x     x     x     x     x     x     x     x     x    
-FadeDetect    x     x     o     x     o     x     x     x     x     x    
+FadeDetect    o     o     o     o     o     x     x     x     x     x    
 B_Pyramid     x     x     x     x     x     x     x     x     x     x    
  +ManyBframes x     x     x     x     x     x     x     x     x     x    
 PyramQPOffset x     x     x     x     x     x     x     x     x     x    
-MBBRC         x     x     o     x     x     x     x     x     x     x    
-ExtBRC        x     x     x     x     x     x     x     x     x     x    
-AdaptiveRef   x     x     o     x     o     x     x     x     x     x    
+MBBRC         o     o     o     o     x     x     x     x     x     x    
+ExtBRC        o     o     x     x     x     x     x     x     x     x    
+AdaptiveRef   o     o     o     o     o     x     x     x     x     x    
 AdaptiveLTR   x     x     x     x     x     x     x     x     x     x    
 AdaptiveCQM   x     x     x     x     x     x     x     x     x     x    
 LA Quality    x     x     x     x     x     x     x     x     x     x    
-QP Min/Max    x     x     o     x     o     x     x     x     x     x    
+QP Min/Max    o     o     o     o     o     x     x     x     x     x    
 IntraRefresh  x     x     x     x     x     x     x     x     x     x    
 No Deblock    x     x     x     x     x     x     x     x     x     x    
 No GPB        x     x     x     x     x     x     x     x     x     x    
 Windowed BRC  x     x     x     x     x     x     x     x     x     x    
-PerMBQP(CQP)  x     x     x     x     o     x     x     x     x     x    
-DirectBiasAdj x     x     o     x     o     x     x     x     x     x    
-MVCostScaling x     x     o     x     o     x     x     x     x     x    
+PerMBQP(CQP)  o     o     x     x     o     x     x     x     x     x    
+DirectBiasAdj o     o     o     o     o     x     x     x     x     x    
+MVCostScaling o     o     o     o     o     x     x     x     x     x    
 SAO           x     x     x     x     x     x     x     x     x     x    
 Max CTU Size  x     x     x     x     x     x     x     x     x     x    
 TSkip         x     x     x     x     x     x     x     x     x     x    
@@ -124,38 +124,75 @@ TSkip         o     o     x     o     o     x     x     o     x     o
 
 Codec: H.265/HEVC FF
              CBR   VBR   AVBR  QVBR  CQP   LA    LAHRD ICQ   LAICQ VCM  
-RC mode       x     x     x     x     o     x     x     x     x     x    
-10bit depth   x     x     x     x     o     x     x     x     x     x    
+RC mode       o     o     x     o     o     x     x     x     x     o    
+10bit depth   o     o     x     o     o     x     x     x     x     o    
 Hyper Mode    x     x     x     x     x     x     x     x     x     x    
 Interlace     x     x     x     x     o     x     x     x     x     x    
-VUI info      x     x     x     x     o     x     x     x     x     x    
+VUI info      o     o     x     o     o     x     x     x     x     o    
 Trellis       x     x     x     x     x     x     x     x     x     x    
-B Frame       x     x     x     x     o     x     x     x     x     x    
-Adaptive_I    x     x     x     x     o     x     x     x     x     x    
-Adaptive_B    x     x     x     x     o     x     x     x     x     x    
+B Frame       o     o     x     o     o     x     x     x     x     o    
+Adaptive_I    o     o     x     o     o     x     x     x     x     o    
+Adaptive_B    o     o     x     o     o     x     x     x     x     o    
 WeightP       x     x     x     x     x     x     x     x     x     x    
 WeightB       x     x     x     x     x     x     x     x     x     x    
 FadeDetect    x     x     x     x     x     x     x     x     x     x    
-B_Pyramid     x     x     x     x     o     x     x     x     x     x    
- +ManyBframes x     x     x     x     o     x     x     x     x     x    
+B_Pyramid     o     o     x     o     o     x     x     x     x     o    
+ +ManyBframes o     o     x     o     o     x     x     x     x     o    
 PyramQPOffset x     x     x     x     o     x     x     x     x     x    
-MBBRC         x     x     x     x     x     x     x     x     x     x    
-ExtBRC        x     x     x     x     x     x     x     x     x     x    
+MBBRC         o     o     x     o     x     x     x     x     x     o    
+ExtBRC        o     o     x     x     x     x     x     x     x     x    
 AdaptiveRef   x     x     x     x     x     x     x     x     x     x    
-AdaptiveLTR   x     x     x     x     o     x     x     x     x     x    
-AdaptiveCQM   x     x     x     x     o     x     x     x     x     x    
+AdaptiveLTR   o     o     x     o     o     x     x     x     x     o    
+AdaptiveCQM   o     o     x     o     o     x     x     x     x     o    
 LA Quality    x     x     x     x     x     x     x     x     x     x    
-QP Min/Max    x     x     x     x     x     x     x     x     x     x    
-IntraRefresh  x     x     x     x     o     x     x     x     x     x    
-No Deblock    x     x     x     x     o     x     x     x     x     x    
-No GPB        x     x     x     x     o     x     x     x     x     x    
+QP Min/Max    o     o     x     o     x     x     x     x     x     o    
+IntraRefresh  o     o     x     o     o     x     x     x     x     o    
+No Deblock    o     o     x     o     o     x     x     x     x     o    
+No GPB        o     o     x     o     o     x     x     x     x     o    
 Windowed BRC  x     x     x     x     x     x     x     x     x     x    
-PerMBQP(CQP)  x     x     x     x     o     x     x     x     x     x    
+PerMBQP(CQP)  o     o     x     o     o     x     x     x     x     o    
 DirectBiasAdj x     x     x     x     x     x     x     x     x     x    
 MVCostScaling x     x     x     x     x     x     x     x     x     x    
-SAO           x     x     x     x     o     x     x     x     x     x    
+SAO           o     o     x     o     o     x     x     x     x     o    
 Max CTU Size  x     x     x     x     x     x     x     x     x     x    
-TSkip         x     x     x     x     o     x     x     x     x     x    
+TSkip         o     o     x     o     o     x     x     x     x     o    
+
+
+
+Codec: VP9 FF
+             CBR   VBR   AVBR  QVBR  CQP   LA    LAHRD ICQ   LAICQ VCM  
+RC mode       o     o     x     x     o     x     x     o     x     x    
+10bit depth   o     o     x     x     o     x     x     o     x     x    
+Hyper Mode    x     x     x     x     x     x     x     x     x     x    
+Interlace     x     x     x     x     x     x     x     x     x     x    
+VUI info      o     o     x     x     o     x     x     o     x     x    
+Trellis       x     x     x     x     x     x     x     x     x     x    
+B Frame       x     x     x     x     x     x     x     x     x     x    
+Adaptive_I    x     x     x     x     x     x     x     x     x     x    
+Adaptive_B    x     x     x     x     x     x     x     x     x     x    
+WeightP       x     x     x     x     x     x     x     x     x     x    
+WeightB       x     x     x     x     x     x     x     x     x     x    
+FadeDetect    x     x     x     x     x     x     x     x     x     x    
+B_Pyramid     x     x     x     x     x     x     x     x     x     x    
+ +ManyBframes x     x     x     x     x     x     x     x     x     x    
+PyramQPOffset x     x     x     x     x     x     x     x     x     x    
+MBBRC         o     o     x     x     x     x     x     o     x     x    
+ExtBRC        x     x     x     x     x     x     x     x     x     x    
+AdaptiveRef   x     x     x     x     x     x     x     x     x     x    
+AdaptiveLTR   x     x     x     x     x     x     x     x     x     x    
+AdaptiveCQM   x     x     x     x     x     x     x     x     x     x    
+LA Quality    x     x     x     x     x     x     x     x     x     x    
+QP Min/Max    x     x     x     x     x     x     x     x     x     x    
+IntraRefresh  x     x     x     x     x     x     x     x     x     x    
+No Deblock    x     x     x     x     x     x     x     x     x     x    
+No GPB        x     x     x     x     x     x     x     x     x     x    
+Windowed BRC  x     x     x     x     x     x     x     x     x     x    
+PerMBQP(CQP)  x     x     x     x     x     x     x     x     x     x    
+DirectBiasAdj x     x     x     x     x     x     x     x     x     x    
+MVCostScaling x     x     x     x     x     x     x     x     x     x    
+SAO           x     x     x     x     x     x     x     x     x     x    
+Max CTU Size  x     x     x     x     x     x     x     x     x     x    
+TSkip         x     x     x     x     x     x     x     x     x     x    
 
 
 

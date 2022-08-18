@@ -1,11 +1,11 @@
-QSVEncC (x64) 7.08 (r2778) by rigaya, Aug 14 2022 09:29:41 (gcc 11.2.0/Linux)
+QSVEncC (x64) 7.10 (r2780) by rigaya, Aug 17 2022 10:08:53 (gcc 11.2.0/Linux)
  Intel Media SDK API v2.07
- reader: raw, avsw, avhw [H.264/AVC, H.265/HEVC, MPEG2, VP8, VP9, AV1]
+ reader: raw, avs, vpy, avsw, avhw [H.264/AVC, H.265/HEVC, MPEG2, VP8, VP9, AV1]
  vpp:    resize, deinterlace, denoise, detail-enhance, image-stab, delego, sub
 Environment Info
 OS : Ubuntu 22.04.1 LTS (5.15.0-46-generic) x64
 CPU: Intel Core i7-7700K @ 4.20GHz (4C/8T)
-RAM: Used 2799 MB, Total 7653 MB
+RAM: Used 1654 MB, Total 7653 MB
 GPU: Intel Graphics / Driver : Intel iHD driver for Intel(R) Gen Graphics - 22.4.3 (74f40ee)
 
 Media SDK Version: Hardware API v1.35
@@ -50,35 +50,35 @@ TSkip         x     x     x     x     x     x     x     x     x     x
 
 Codec: H.264/AVC FF
              CBR   VBR   AVBR  QVBR  CQP   LA    LAHRD ICQ   LAICQ VCM  
-RC mode       x     x     x     x     o     x     x     x     x     x    
+RC mode       o     o     x     o     o     x     x     x     x     x    
 10bit depth   x     x     x     x     x     x     x     x     x     x    
 Hyper Mode    x     x     x     x     x     x     x     x     x     x    
 Interlace     x     x     x     x     x     x     x     x     x     x    
-VUI info      x     x     x     x     o     x     x     x     x     x    
-Trellis       x     x     x     x     o     x     x     x     x     x    
+VUI info      o     o     x     o     o     x     x     x     x     x    
+Trellis       o     o     x     o     o     x     x     x     x     x    
 B Frame       x     x     x     x     x     x     x     x     x     x    
 Adaptive_I    x     x     x     x     x     x     x     x     x     x    
 Adaptive_B    x     x     x     x     x     x     x     x     x     x    
-WeightP       x     x     x     x     o     x     x     x     x     x    
+WeightP       o     o     x     o     o     x     x     x     x     x    
 WeightB       x     x     x     x     x     x     x     x     x     x    
-FadeDetect    x     x     x     x     o     x     x     x     x     x    
+FadeDetect    o     o     x     o     o     x     x     x     x     x    
 B_Pyramid     x     x     x     x     x     x     x     x     x     x    
  +ManyBframes x     x     x     x     x     x     x     x     x     x    
 PyramQPOffset x     x     x     x     x     x     x     x     x     x    
-MBBRC         x     x     x     x     x     x     x     x     x     x    
-ExtBRC        x     x     x     x     x     x     x     x     x     x    
+MBBRC         o     o     x     o     x     x     x     x     x     x    
+ExtBRC        o     o     x     x     x     x     x     x     x     x    
 AdaptiveRef   x     x     x     x     x     x     x     x     x     x    
 AdaptiveLTR   x     x     x     x     x     x     x     x     x     x    
 AdaptiveCQM   x     x     x     x     x     x     x     x     x     x    
 LA Quality    x     x     x     x     x     x     x     x     x     x    
-QP Min/Max    x     x     x     x     o     x     x     x     x     x    
+QP Min/Max    o     o     x     o     o     x     x     x     x     x    
 IntraRefresh  x     x     x     x     x     x     x     x     x     x    
 No Deblock    x     x     x     x     x     x     x     x     x     x    
 No GPB        x     x     x     x     x     x     x     x     x     x    
 Windowed BRC  x     x     x     x     x     x     x     x     x     x    
 PerMBQP(CQP)  x     x     x     x     x     x     x     x     x     x    
-DirectBiasAdj x     x     x     x     o     x     x     x     x     x    
-MVCostScaling x     x     x     x     o     x     x     x     x     x    
+DirectBiasAdj o     o     x     o     o     x     x     x     x     x    
+MVCostScaling o     o     x     o     o     x     x     x     x     x    
 SAO           x     x     x     x     x     x     x     x     x     x    
 Max CTU Size  x     x     x     x     x     x     x     x     x     x    
 TSkip         x     x     x     x     x     x     x     x     x     x    
