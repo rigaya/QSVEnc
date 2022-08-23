@@ -541,7 +541,7 @@ Using more complex encoding modes, such as ICQ, LA-ICQ, QVBR, LA modes, will res
 CQP will be the fastest and will provide stable quality, but with rather large output.
 
 Special encoding, such as encoding for Bluray, requires max bitrate to be set.
-In those cases VBR or AVBR must be used, as max bitrate can be set only with those modes. 
+In those cases VBR or CBR must be used, as max bitrate can be set only with those modes. 
 
 ## Options for Frame Buffer
 
