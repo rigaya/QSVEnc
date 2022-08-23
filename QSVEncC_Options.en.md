@@ -183,6 +183,7 @@
   - [--vpp-delogo &lt;string&gt;,&lt;param1&gt;=&lt;value1&gt;,...](#--vpp-delogo-stringparam1value1)
   - [--vpp-afs [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]](#--vpp-afs-param1value1param2value2)
   - [--vpp-nnedi [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]](#--vpp-nnedi-param1value1param2value2)
+  - [--vpp-yadif [&lt;param1&gt;=&lt;value1&gt;]](#--vpp-yadif-param1value1)
   - [--vpp-deinterlace &lt;string&gt;](#--vpp-deinterlace-string)
   - [--vpp-decimate [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]](#--vpp-decimate-param1value1param2value2)
   - [--vpp-mpdecimate [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]](#--vpp-mpdecimate-param1value1param2value2)
@@ -1404,6 +1405,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
   - [--vpp-delogo](#--vpp-delogo-stringparam1value1param2value2)
   - [--vpp-afs](#--vpp-afs-param1value1param2value2)
   - [--vpp-nnedi](#--vpp-nnedi-param1value1param2value2)
+  - [--vpp-yadif](#--vpp-yadif-param1value1)
   - [--vpp-deinterlace](#--vpp-deinterlace-string)
   - [--vpp-decimate](#--vpp-decimate-param1value1param2value2)
   - [--vpp-mpdecimate](#--vpp-mpdecimate-param1value1param2value2)
@@ -1731,6 +1733,25 @@ nnedi deinterlacer.
   ```
   example: --vpp-nnedi field=auto,nns=64,nsize=32x6,quality=slow,prescreen=none,prec=fp32
   ```
+
+### --vpp-yadif [&lt;param1&gt;=&lt;value1&gt;]
+Yadif deinterlacer.
+
+**parameters**
+- mode
+
+  - auto (default)  
+    Generate latter field from first field.
+  - tff  
+    Generate bottom field using top field.
+  - bff  
+    Generate top field using bottom field.
+  - bob   
+    Generate one frame from each field.
+  - bob_tff   
+    Generate one frame from each field assuming top field first.
+  - bob_bff   
+    Generate one frame from each field assuming bottom field first.
 
 ### --vpp-deinterlace &lt;string&gt;
 Activate GPU deinterlacer. 
