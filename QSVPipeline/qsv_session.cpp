@@ -237,7 +237,8 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
         sts = MFXCreateSession(loader, 0, (mfxSession *)&m_session);
     } else {
         const int MAX_DEV_CHECK = 1000;
-        int adapterIDFirst = -1;
+        int adapterIDPrev = -1;
+        int deviceCount = 0;
         for (int impl_idx = 0; impl_idx < MAX_DEV_CHECK; impl_idx++) {
             mfxImplDescription *impl_desc = nullptr;
             sts = MFXEnumImplementations(loader, impl_idx, MFX_IMPLCAPS_IMPLDESCSTRUCTURE, (mfxHDL *)&impl_desc);
@@ -248,9 +249,10 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
             }
             int id1 = -1, adapterID = -1;
             if (sscanf_s(impl_desc->Dev.DeviceID, "%x/%d", &id1, &adapterID) == 2) {
-                if (adapterIDFirst < 0) {
-                    adapterIDFirst = adapterID;
+                if (adapterIDPrev != adapterID) {
+                    deviceCount++;
                 }
+                adapterIDPrev = adapterID;
             }
             const mfxAccelerationMode acc = impl_desc->AccelerationMode;
             m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("Impl #%d: %d %s, acc %d, accdesc %d, adapter id %d\n"),
@@ -258,7 +260,7 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
                 impl_desc->AccelerationMode, impl_desc->AccelerationModeDescription, adapterID);
             MFXDispReleaseImplDescription(loader, impl_desc);
 
-            if (accelerationMode == acc && (adapterID - adapterIDFirst) == std::max((int)dev-1, 0)) {
+            if (accelerationMode == acc && deviceCount == std::max((int)dev, 0)) {
                 m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: try init by MFXCreateSession.\n"));
                 sts = MFXCreateSession(loader, impl_idx, (mfxSession *)&m_session);
                 if (sts == MFX_ERR_NONE) break;
