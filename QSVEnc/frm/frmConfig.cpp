@@ -1795,7 +1795,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
 
     if (!prm_qsv.vpp.afs.enable
         && !prm_qsv.vpp.nnedi.enable
-        //&& !prm_qsv.vpp.yadif.enable
+        && !prm_qsv.vpp.yadif.enable
     ) {
         prm_qsv.vppmfx.deinterlace = list_deinterlace_ja[fcgCXVppDeinterlace->SelectedIndex].value;
     }
