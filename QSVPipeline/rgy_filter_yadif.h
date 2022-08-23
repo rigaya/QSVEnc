@@ -39,7 +39,8 @@ enum YadifTargetField {
 class RGYFilterParamYadif : public RGYFilterParam {
 public:
     VppYadif yadif;
-    RGYFilterParamYadif() : yadif() {};
+    rgy_rational<int> timebase;
+    RGYFilterParamYadif() : yadif(), timebase() {};
     virtual ~RGYFilterParamYadif() {};
     virtual tstring print() const override { return yadif.print(); };
 };
