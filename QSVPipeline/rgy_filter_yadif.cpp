@@ -265,7 +265,7 @@ RGY_ERR RGYFilterYadif::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         YadifTargetField targetField = YADIF_GEN_FIELD_UNKNOWN;
         if (prm->yadif.mode & VPP_YADIF_MODE_AUTO) {
             //エラーチェック
-            const auto memcpyKind = getMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
+            const auto memcpyKind = getMemcpyKind(pSourceFrame->mem_type, ppOutputFrames[0]->mem_type);
             if (memcpyKind != RGYCLMemcpyD2D) {
                 AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
                 return RGY_ERR_INVALID_CALL;
