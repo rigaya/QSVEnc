@@ -346,8 +346,6 @@ RGY_ERR RGYFilterYadif::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         ppOutputFrames[0] = nullptr;
     }
     return sts;
-
-    return sts;
 }
 
 void RGYFilterYadif::close() {
