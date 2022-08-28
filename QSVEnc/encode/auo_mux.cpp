@@ -439,10 +439,10 @@ AUO_RESULT mux(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, cons
     //映像・音声のmux判定
     BOOL  enable_vid_mux = TRUE;
     DWORD enable_aud_mux = check_for_aud_mux(oip->flag, sys_dat->exstg->s_mux[pe->muxer_to_be_used].aud_cmd, pe);
-#if 0
-    //常にremuxerを使用するようにして、NVEncCでmp4コンテナに設定した「エンコードライブラリの情報」をmux後も保持するようにする
+#if 1
+    //常にremuxerを使用するようにして、mp4コンテナに設定した「エンコードライブラリの情報」やafs使用時のタイムコードをmux後も保持するようにする
     BOOL  aud_use_remuxer = TRUE;
-#elif 0
+#else
     BOOL  aud_use_remuxer = (!!enable_aud_mux && sys_dat->exstg->s_aud[conf->aud.encoder].mode[conf->aud.enc_mode].use_remuxer)
         //多重音声を扱う際、muxer.exeのコマンドを二重発行すると、--file-format m4aが重複して、muxer.exeがエラー終了してしまう。
         //これを回避するため、多重音声では各音声をmuxer.exeでmp4に格納してから、remuxer.exeで多重化する
