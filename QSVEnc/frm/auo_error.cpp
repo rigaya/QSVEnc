@@ -27,10 +27,10 @@
 
 #include "auo.h"
 #include "auo_version.h"
-#include "auo_frm.h" 
+#include "auo_frm.h"
 #include "auo_pipe.h"
 #include "auo_chapter.h"
-#include "convert.h"
+#include "auo_convert.h"
 
 void warning_conf_not_initialized(const char *default_stg_file) {
     if (default_stg_file && strlen(default_stg_file) > 0) {
