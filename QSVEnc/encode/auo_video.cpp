@@ -55,48 +55,17 @@
 #include "auo_util.h"
 #include "auo_system.h"
 #include "auo_version.h"
-#include "qsv_cmd.h"
-#include "rgy_avutil.h"
-#include "rgy_input_sm.h"
 
 #include "auo_encode.h"
 #include "auo_convert.h"
 #include "auo_video.h"
 #include "auo_audio_parallel.h"
 
-static const int MAX_CONV_THREADS = 4;
+#include "cpu_info.h"
+#include "rgy_input_sm.h"
+#include "qsv_cmd.h"
 
-static int getLwiRealPath(std::string& path) {
-    int ret = 1;
-    FILE *fp = fopen(path.c_str(), "rb");
-    if (fp) {
-        char buffer[2048] = { 0 };
-        while (nullptr != fgets(buffer, _countof(buffer), fp)) {
-            static const char *TARGET = "InputFilePath";
-            auto ptr = strstr(buffer, TARGET);
-            auto qtr = strrstr(buffer, TARGET);
-            if (ptr != nullptr && qtr != nullptr) {
-                ptr = strchr(ptr + strlen(TARGET), '>');
-                while (*qtr != '<') {
-                    qtr--;
-                    if (ptr >= qtr) {
-                        qtr = nullptr;
-                        break;
-                    }
-                }
-                if (ptr != nullptr && qtr != nullptr) {
-                    ptr++;
-                    *qtr = '\0';
-                    path = trim(ptr);
-                    ret = 0;
-                    break;
-                }
-            }
-        }
-        fclose(fp);
-    }
-    return ret;
-}
+static const int MAX_CONV_THREADS = 4;
 
 int get_aviutl_color_format(int use_highbit, RGY_CSP csp) {
     //Aviutlからの入力に使用するフォーマット
