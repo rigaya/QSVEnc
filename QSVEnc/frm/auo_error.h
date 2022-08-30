@@ -71,7 +71,6 @@ void warning_audio_length(const double video_length, const double audio_length, 
 void error_malloc_pixel_data();
 void error_malloc_tc();
 void error_malloc_8bit();
-void error_afs_auo_link();
 void error_afs_interlace_stg();
 void error_videnc_dead();
 void error_videnc_dead_and_nodiskspace(const char *drive, uint64_t diskspace);
