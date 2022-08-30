@@ -35,8 +35,6 @@
 #include "auo_settings.h"
 #include "auo_conf.h"
 
-#include "mfxstructures.h"
-
 #if _M_IX86
 #define ALIGN_PTR __declspec(align(4))
 #else
@@ -87,7 +85,7 @@ typedef struct {
 
 typedef struct {
     BOOL init;
-    char auo_path[MAX_PATH_LEN];    //QSVEnc.auoのフルパス
+    char auo_path[MAX_PATH_LEN];    //auoのフルパス
     char aviutl_dir[MAX_PATH_LEN];  //Aviutlのディレクトリ(\無し)
     guiEx_settings *exstg;          //ini設定
 } SYSTEM_DATA;
