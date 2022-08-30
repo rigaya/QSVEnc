@@ -284,7 +284,6 @@ typedef struct {
     BOOL   auto_afs_disable;                    //自動的にafsを無効化
     int    default_output_ext;                  //デフォルトで使用する拡張子
     BOOL   auto_del_chap;                       //チャプターファイルの自動削除
-    BOOL   keep_qp_file;                        //キーフレーム検出で作成したqpファイルを削除しない
     BOOL   disable_tooltip_help;                //ポップアップヘルプを抑制する
     BOOL   disable_visual_styles;               //視覚効果をオフにする
     BOOL   enable_stg_esc_key;                  //設定画面でEscキーを有効化する
