@@ -560,6 +560,11 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     const int input_csp_idx = get_aviutl_color_format(output_highbit_depth, rgy_output_csp);
     const RGY_CSP input_csp = (input_csp_idx == CF_YC48) ? RGY_CSP_YC48 : RGY_CSP_YUY2;
 
+    //自動フィールドシフト関連
+    if (pe->muxer_to_be_used != MUXER_DISABLED) {
+        enc_prm.vpp.afs.timecode = false;
+    }
+
     //コマンドライン生成
     build_full_cmd(exe_cmd, _countof(exe_cmd), conf, &enc_prm, oip, pe, sys_dat, PIPE_FN);
     write_log_auo_line(LOG_INFO, "QSVEncC options...");
