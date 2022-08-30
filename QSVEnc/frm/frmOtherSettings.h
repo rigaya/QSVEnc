@@ -116,7 +116,6 @@ namespace QSVEnc {
     private: System::Windows::Forms::Label^  fosLBDefaultAudioEncoder;
     private: System::Windows::Forms::CheckBox^  fosCBChapConvertToUTF8;
     private: System::Windows::Forms::CheckBox^  fosCBRunBatMinimized;
-    private: System::Windows::Forms::CheckBox^  fosCBTimerPeriodTuning;
     private: System::Windows::Forms::CheckBox^  fosCBAutoAFSDisable;
     private: System::Windows::Forms::CheckBox^  fosCBAutoDelChap;
     private: System::Windows::Forms::Label^  fosLBDefaultOutExt2;
@@ -178,7 +177,6 @@ namespace QSVEnc {
             this->fosLBDefaultAudioEncoder = (gcnew System::Windows::Forms::Label());
             this->fosCBChapConvertToUTF8 = (gcnew System::Windows::Forms::CheckBox());
             this->fosCBRunBatMinimized = (gcnew System::Windows::Forms::CheckBox());
-            this->fosCBTimerPeriodTuning = (gcnew System::Windows::Forms::CheckBox());
             this->fosCBAutoAFSDisable = (gcnew System::Windows::Forms::CheckBox());
             this->fosCBAutoDelChap = (gcnew System::Windows::Forms::CheckBox());
             this->fosLBDefaultOutExt2 = (gcnew System::Windows::Forms::Label());
@@ -254,7 +252,6 @@ namespace QSVEnc {
             this->fostabPageGeneral->Controls->Add(this->fosLBDefaultAudioEncoder);
             this->fostabPageGeneral->Controls->Add(this->fosCBChapConvertToUTF8);
             this->fostabPageGeneral->Controls->Add(this->fosCBRunBatMinimized);
-            this->fostabPageGeneral->Controls->Add(this->fosCBTimerPeriodTuning);
             this->fostabPageGeneral->Controls->Add(this->fosCBAutoAFSDisable);
             this->fostabPageGeneral->Controls->Add(this->fosCBAutoDelChap);
             this->fostabPageGeneral->Controls->Add(this->fosLBDefaultOutExt2);
@@ -325,16 +322,6 @@ namespace QSVEnc {
             this->fosCBRunBatMinimized->TabIndex = 29;
             this->fosCBRunBatMinimized->Text = L"エンコ前後バッチ処理を最小化で実行";
             this->fosCBRunBatMinimized->UseVisualStyleBackColor = true;
-            //
-            // fosCBTimerPeriodTuning
-            //
-            this->fosCBTimerPeriodTuning->AutoSize = true;
-            this->fosCBTimerPeriodTuning->Location = System::Drawing::Point(18, 233);
-            this->fosCBTimerPeriodTuning->Name = L"fosCBTimerPeriodTuning";
-            this->fosCBTimerPeriodTuning->Size = System::Drawing::Size(192, 19);
-            this->fosCBTimerPeriodTuning->TabIndex = 28;
-            this->fosCBTimerPeriodTuning->Text = L"エンコ中、タイマー精度を向上させる";
-            this->fosCBTimerPeriodTuning->UseVisualStyleBackColor = true;
             //
             // fosCBAutoAFSDisable
             //
@@ -581,7 +568,6 @@ namespace QSVEnc {
             fos_ex_stg->s_local.disable_visual_styles     = fosCBDisableVisualStyles->Checked;
             fos_ex_stg->s_local.enable_stg_esc_key        = fosCBStgEscKey->Checked;
             fos_ex_stg->s_local.chap_nero_convert_to_utf8 = fosCBChapConvertToUTF8->Checked;
-            fos_ex_stg->s_local.timer_period_tuning       = fosCBTimerPeriodTuning->Checked;
             fos_ex_stg->s_log.minimized                   = fosCBLogStartMinimized->Checked;
             fos_ex_stg->s_log.transparent                 = !fosCBLogDisableTransparency->Checked;
             fos_ex_stg->s_log.log_level                   = list_log_level_jp[fosCXLogLevel->SelectedIndex].value;
@@ -637,7 +623,6 @@ namespace QSVEnc {
             fosCBDisableVisualStyles->Checked       = fos_ex_stg->s_local.disable_visual_styles != 0;
             fosCBStgEscKey->Checked                 = fos_ex_stg->s_local.enable_stg_esc_key != 0;
             fosCBChapConvertToUTF8->Checked         = fos_ex_stg->s_local.chap_nero_convert_to_utf8 != 0;
-            fosCBTimerPeriodTuning->Checked         = fos_ex_stg->s_local.timer_period_tuning != 0;
             fosCBLogStartMinimized->Checked         = fos_ex_stg->s_log.minimized != 0;
             fosCBLogDisableTransparency->Checked    = fos_ex_stg->s_log.transparent == 0;
             fosCXLogLevel->SelectedIndex            = get_cx_index(list_log_level_jp, fos_ex_stg->s_log.log_level);

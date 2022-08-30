@@ -513,7 +513,6 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     sInputParams enc_prm;
     parse_cmd(&enc_prm, conf->enc.cmd);
     enc_prm.nBluray += (enc_prm.nBluray == 1 && sys_dat->exstg->s_local.force_bluray);
-    enc_prm.bDisableTimerPeriodTuning = !sys_dat->exstg->s_local.timer_period_tuning;
     enc_prm.ctrl.loglevel.set((RGYLogLevel)sys_dat->exstg->s_log.log_level, RGY_LOGT_ALL);
     enc_prm.input.srcHeight = 0;
     enc_prm.input.srcWidth = 0;
