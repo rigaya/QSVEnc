@@ -55,7 +55,6 @@
 #include "auo_error.h"
 #include "auo_audio.h"
 #include "auo_faw2aac.h"
-#include "qsv_query.h"
 #include "rgy_env.h"
 #include "rgy_filesystem.h"
 
@@ -1050,7 +1049,7 @@ AUO_RESULT move_temporary_files(const CONF_GUIEX *conf, const PRM_ENC *pe, const
         move_temp_file(muxout_appendix, pe->temp_filename, oip->savefile, ret, FALSE, "mux後ファイル", FALSE);
     }
     //qpファイル
-    move_temp_file(pe->append.qp,   pe->temp_filename, oip->savefile, ret, !sys_dat->exstg->s_local.keep_qp_file, "qp", FALSE);
+    //move_temp_file(pe->append.qp,   pe->temp_filename, oip->savefile, ret, TRUE, "qp", FALSE);
     //tcファイル
     BOOL erase_tc = conf->vid.afs && !conf->vid.auo_tcfile_out && pe->muxer_to_be_used != MUXER_DISABLED;
     move_temp_file(pe->append.tc,   pe->temp_filename, oip->savefile, ret, erase_tc, "タイムコード", FALSE);
@@ -1088,8 +1087,10 @@ DWORD GetExePriority(DWORD set, HANDLE h_aviutl) {
 int check_video_ouput(const char *filename) {
     if (check_ext(filename, ".mp4"))  return VIDEO_OUTPUT_MP4;
     if (check_ext(filename, ".mkv"))  return VIDEO_OUTPUT_MKV;
+#if ENCODER_QSV    
     if (check_ext(filename, ".mpg"))  return VIDEO_OUTPUT_MPEG2;
     if (check_ext(filename, ".mpeg")) return VIDEO_OUTPUT_MPEG2;
+#endif
     return VIDEO_OUTPUT_RAW;
 }
 
