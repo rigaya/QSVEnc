@@ -35,7 +35,6 @@
 #pragma comment(lib, "shlwapi.lib")
 #include "auo_util.h"
 #include "auo_conf.h"
-#include "qsv_prm.h"
 
 const int guiEx_config::conf_block_data[CONF_BLOCK_COUNT] = {
     sizeof(CONF_GUIEX::enc),

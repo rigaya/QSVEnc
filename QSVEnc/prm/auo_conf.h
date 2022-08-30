@@ -32,8 +32,7 @@
 #define NOMINMAX
 #include <Windows.h>
 #include "auo.h"
-#include "qsv_util.h"
-#include "qsv_prm.h"
+#include "auo_version.h"
 
 const int CONF_INITIALIZED = 1;
 
@@ -57,6 +56,10 @@ static inline int get_run_bat_idx(DWORD flag) {
     return (int)ret;
 }
 
+#if ENCODER_QSV
+#include "qsv_util.h"
+#include "qsv_prm.h"
+
 static const char *const CONF_NAME_OLD_1 = "QSVEnc ConfigFile";
 static const char *const CONF_NAME_OLD_2 = "QSVEnc ConfigFile v2";
 static const char *const CONF_NAME_OLD_3 = "QSVEnc ConfigFile v3";
@@ -68,8 +71,31 @@ const int CONF_NAME_BLOCK_LEN            = 32;
 const int CONF_BLOCK_MAX                 = 32;
 const int CONF_BLOCK_COUNT               = 6; //最大 CONF_BLOCK_MAXまで
 const int CONF_HEAD_SIZE                 = (3 + CONF_BLOCK_MAX) * sizeof(int) + CONF_BLOCK_MAX * sizeof(size_t) + CONF_NAME_BLOCK_LEN;
+#elif ENCODER_NVENC
+#include "NVEncParam.h"
 
-static const char *const CONF_LAST_OUT   = "前回出力.stg";
+static const char *const CONF_NAME_OLD_1 = "NVEnc ConfigFile";
+static const char *const CONF_NAME_OLD_2 = "NVEnc ConfigFile v2";
+static const char *const CONF_NAME_OLD_3 = "NVEnc ConfigFile v3";
+static const char *const CONF_NAME_OLD_4 = "NVEnc ConfigFile v4";
+static const char *const CONF_NAME       = CONF_NAME_OLD_4;
+const int CONF_NAME_BLOCK_LEN            = 32;
+const int CONF_BLOCK_MAX                 = 32;
+const int CONF_BLOCK_COUNT               = 5; //最大 CONF_BLOCK_MAXまで
+const int CONF_HEAD_SIZE                 = (3 + CONF_BLOCK_MAX) * sizeof(int) + CONF_BLOCK_MAX * sizeof(size_t) + CONF_NAME_BLOCK_LEN;
+#elif ENCODER_VCEENC
+#include "vce_param.h"
+
+static const char *CONF_NAME          = "VCEEnc ConfigFile v3";
+const int CONF_NAME_BLOCK_LEN         = 32;
+const int CONF_BLOCK_MAX              = 32;
+const int CONF_BLOCK_COUNT            = 5; //最大 CONF_BLOCK_MAXまで
+const int CONF_HEAD_SIZE              = (3 + CONF_BLOCK_MAX) * sizeof(int) + CONF_BLOCK_MAX * sizeof(size_t) + CONF_NAME_BLOCK_LEN;
+#else
+static_assert(false);
+#endif
+
+static const char *const CONF_LAST_OUT = "前回出力.stg";
 
 enum {
     CONF_ERROR_NONE = 0,
@@ -99,18 +125,24 @@ const int CMDEX_MAX_LEN = 2048;    //追加コマンドラインの最大長
 typedef struct CONF_ENC {
     int codec;
     int reserved[128];
-    char auo_link_src[1024];
+#if ENCODER_QSV
+    char reserved3[1024];
+#endif
     char cmd[3072];
+    char cmdex[512];
+    char reserved2[512];
 } CONF_ENC;
 
 typedef struct CONF_VIDEO {
     BOOL afs;                      //自動フィールドシフトの使用
     BOOL auo_tcfile_out;           //auo側でタイムコードを出力する
+#if ENCODER_QSV
     int  reserved[2];
+#endif
     BOOL resize_enable;
     int resize_width;
     int resize_height;
-} CONF_VIDEO; //動画用設定(x264以外)
+} CONF_VIDEO;
 
 typedef struct {
     int  encoder;             //使用する音声エンコーダ
@@ -172,7 +204,7 @@ typedef struct CONF_GUIEX {
     int         block_count;                     //ヘッダ部を除いた設定のブロック数
     int         block_size[CONF_BLOCK_MAX];      //各ブロックのサイズ
     size_t      block_head_p[CONF_BLOCK_MAX];    //各ブロックのポインタ位置
-    CONF_ENC    enc;                             //qsvについての設定
+    CONF_ENC    enc;                             //エンコーダについての設定
     CONF_VIDEO  vid;                             //その他動画についての設定
     CONF_AUDIO  aud;                             //音声についての設定
     CONF_MUX    mux;                             //muxについての設定
@@ -184,11 +216,19 @@ class guiEx_config {
 private:
     static const size_t conf_block_pointer[CONF_BLOCK_COUNT];
     static const int conf_block_data[CONF_BLOCK_COUNT];
+#if ENCODER_QSV
     static void *convert_qsvstgv1_to_stgv3(void *_conf, int size);
     static void *convert_qsvstgv2_to_stgv3(void *_conf);
     static void *convert_qsvstgv3_to_stgv4(void *_conf);
     static void *convert_qsvstgv4_to_stgv5(void *_conf);
     static void *convert_qsvstgv5_to_stgv6(void *_conf);
+#elif ENCODER_NVENC
+    static int  stgv3_block_size();
+    static void convert_nvencstg_to_nvencstgv4(CONF_GUIEX *conf, const void *dat);
+    static void convert_nvencstgv2_to_nvencstgv3(void *dat);
+    static void convert_nvencstgv2_to_nvencstgv4(CONF_GUIEX *conf, const void *dat);
+    static void convert_nvencstgv3_to_nvencstgv4(CONF_GUIEX *conf, const void *dat);
+#endif
 public:
     guiEx_config();
     static void write_conf_header(CONF_GUIEX *conf);
