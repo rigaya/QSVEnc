@@ -509,7 +509,6 @@ void guiEx_settings::load_local() {
     s_local.enable_stg_esc_key        = GetPrivateProfileInt(   ini_section_main, "enable_stg_esc_key",        DEFAULT_ENABLE_STG_ESC_KEY,    conf_fileName);
     s_local.chap_nero_convert_to_utf8 = GetPrivateProfileInt(   ini_section_main, "chap_nero_convert_to_utf8", DEFAULT_CHAP_NERO_TO_UTF8,     conf_fileName);
     s_local.get_relative_path         = GetPrivateProfileInt(   ini_section_main, "get_relative_path",         DEFAULT_SAVE_RELATIVE_PATH,    conf_fileName);
-    s_local.thread_tuning             = GetPrivateProfileInt(   ini_section_main, "thread_tuning",             DEFAULT_THREAD_TUNING,         conf_fileName);
     s_local.timer_period_tuning       = GetPrivateProfileInt(   ini_section_main, "timer_period_tuning",       DEFAULT_TIMER_PERIOD_TUNING,   conf_fileName);
     s_local.run_bat_minimized         = GetPrivateProfileInt(   ini_section_main, "run_bat_minimized",         DEFAULT_RUN_BAT_MINIMIZED,     conf_fileName);
     s_local.force_bluray              = GetPrivateProfileInt(   ini_section_main, "force_bluray",              DEFAULT_FORCE_BLURAY,          conf_fileName);
@@ -597,7 +596,6 @@ void guiEx_settings::save_local() {
     WritePrivateProfileIntWithDefault(   ini_section_main, "enable_stg_esc_key",        s_local.enable_stg_esc_key,        DEFAULT_ENABLE_STG_ESC_KEY,    conf_fileName);
     WritePrivateProfileIntWithDefault(   ini_section_main, "chap_nero_convert_to_utf8", s_local.chap_nero_convert_to_utf8, DEFAULT_CHAP_NERO_TO_UTF8,     conf_fileName);
     WritePrivateProfileIntWithDefault(   ini_section_main, "get_relative_path",         s_local.get_relative_path,         DEFAULT_SAVE_RELATIVE_PATH,    conf_fileName);
-    WritePrivateProfileIntWithDefault(   ini_section_main, "thread_tuning",             s_local.thread_tuning,             DEFAULT_THREAD_TUNING,         conf_fileName);
     WritePrivateProfileIntWithDefault(   ini_section_main, "timer_period_tuning",       s_local.timer_period_tuning,       DEFAULT_TIMER_PERIOD_TUNING,   conf_fileName);
     WritePrivateProfileIntWithDefault(   ini_section_main, "run_bat_minimized",         s_local.run_bat_minimized,         DEFAULT_RUN_BAT_MINIMIZED,     conf_fileName);
     WritePrivateProfileIntWithDefault(   ini_section_main, "force_bluray",              s_local.force_bluray,              DEFAULT_FORCE_BLURAY,          conf_fileName);

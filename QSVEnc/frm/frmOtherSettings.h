@@ -114,7 +114,6 @@ namespace QSVEnc {
     private: System::Windows::Forms::TabPage^  fostabPageGeneral;
     private: System::Windows::Forms::ComboBox^  fosCXDefaultAudioEncoder;
     private: System::Windows::Forms::Label^  fosLBDefaultAudioEncoder;
-    private: System::Windows::Forms::CheckBox^  fosCBThreadTuning;
     private: System::Windows::Forms::CheckBox^  fosCBChapConvertToUTF8;
     private: System::Windows::Forms::CheckBox^  fosCBRunBatMinimized;
     private: System::Windows::Forms::CheckBox^  fosCBTimerPeriodTuning;
@@ -177,7 +176,6 @@ namespace QSVEnc {
             this->fosCBPerfMonitor = (gcnew System::Windows::Forms::CheckBox());
             this->fosCXDefaultAudioEncoder = (gcnew System::Windows::Forms::ComboBox());
             this->fosLBDefaultAudioEncoder = (gcnew System::Windows::Forms::Label());
-            this->fosCBThreadTuning = (gcnew System::Windows::Forms::CheckBox());
             this->fosCBChapConvertToUTF8 = (gcnew System::Windows::Forms::CheckBox());
             this->fosCBRunBatMinimized = (gcnew System::Windows::Forms::CheckBox());
             this->fosCBTimerPeriodTuning = (gcnew System::Windows::Forms::CheckBox());
@@ -254,7 +252,6 @@ namespace QSVEnc {
             this->fostabPageGeneral->Controls->Add(this->fosCBPerfMonitor);
             this->fostabPageGeneral->Controls->Add(this->fosCXDefaultAudioEncoder);
             this->fostabPageGeneral->Controls->Add(this->fosLBDefaultAudioEncoder);
-            this->fostabPageGeneral->Controls->Add(this->fosCBThreadTuning);
             this->fostabPageGeneral->Controls->Add(this->fosCBChapConvertToUTF8);
             this->fostabPageGeneral->Controls->Add(this->fosCBRunBatMinimized);
             this->fostabPageGeneral->Controls->Add(this->fosCBTimerPeriodTuning);
@@ -308,17 +305,6 @@ namespace QSVEnc {
             this->fosLBDefaultAudioEncoder->Size = System::Drawing::Size(130, 15);
             this->fosLBDefaultAudioEncoder->TabIndex = 32;
             this->fosLBDefaultAudioEncoder->Text = L"デフォルトの音声エンコーダ";
-            //
-            // fosCBThreadTuning
-            //
-            this->fosCBThreadTuning->AutoSize = true;
-            this->fosCBThreadTuning->ForeColor = System::Drawing::SystemColors::ControlDarkDark;
-            this->fosCBThreadTuning->Location = System::Drawing::Point(18, 361);
-            this->fosCBThreadTuning->Name = L"fosCBThreadTuning";
-            this->fosCBThreadTuning->Size = System::Drawing::Size(113, 19);
-            this->fosCBThreadTuning->TabIndex = 31;
-            this->fosCBThreadTuning->Text = L"スレッドチューニング";
-            this->fosCBThreadTuning->UseVisualStyleBackColor = true;
             //
             // fosCBChapConvertToUTF8
             //
@@ -595,7 +581,6 @@ namespace QSVEnc {
             fos_ex_stg->s_local.disable_visual_styles     = fosCBDisableVisualStyles->Checked;
             fos_ex_stg->s_local.enable_stg_esc_key        = fosCBStgEscKey->Checked;
             fos_ex_stg->s_local.chap_nero_convert_to_utf8 = fosCBChapConvertToUTF8->Checked;
-            fos_ex_stg->s_local.thread_tuning             = fosCBThreadTuning->Checked;
             fos_ex_stg->s_local.timer_period_tuning       = fosCBTimerPeriodTuning->Checked;
             fos_ex_stg->s_log.minimized                   = fosCBLogStartMinimized->Checked;
             fos_ex_stg->s_log.transparent                 = !fosCBLogDisableTransparency->Checked;
@@ -652,7 +637,6 @@ namespace QSVEnc {
             fosCBDisableVisualStyles->Checked       = fos_ex_stg->s_local.disable_visual_styles != 0;
             fosCBStgEscKey->Checked                 = fos_ex_stg->s_local.enable_stg_esc_key != 0;
             fosCBChapConvertToUTF8->Checked         = fos_ex_stg->s_local.chap_nero_convert_to_utf8 != 0;
-            fosCBThreadTuning->Checked              = fos_ex_stg->s_local.thread_tuning != 0;
             fosCBTimerPeriodTuning->Checked         = fos_ex_stg->s_local.timer_period_tuning != 0;
             fosCBLogStartMinimized->Checked         = fos_ex_stg->s_log.minimized != 0;
             fosCBLogDisableTransparency->Checked    = fos_ex_stg->s_log.transparent == 0;

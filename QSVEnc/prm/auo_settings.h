@@ -294,7 +294,6 @@ typedef struct {
     int    default_audio_encoder_ext;           //デフォルトの音声エンコーダ
     int    default_audio_encoder_in;            //デフォルトの音声エンコーダ
     BOOL   get_relative_path;                   //相対パスで保存する
-    BOOL   thread_tuning;                       //スレッドチューニング
     BOOL   timer_period_tuning;                 //timeBeginPeriodにより、エンコ中タイマ分解能を向上させる
     BOOL   run_bat_minimized;                   //エンコ前後バッチ処理を最小化で実行
     BOOL   force_bluray;                        //VBR,CBR以外でもBluray用出力を許可する
