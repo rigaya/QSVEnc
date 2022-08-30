@@ -206,8 +206,9 @@ static size_t write_file(aud_data_t *aud_dat, const PRM_ENC *pe, const void *buf
         memset(&overlapped, 0, sizeof(overlapped));
         overlapped.hEvent = aud_dat->he_ov_aud_namedpipe;
         DWORD sizeWritten = 0;
+        //非同期処理中は0を返すことがある
         WriteFile(aud_dat->h_aud_namedpipe, buf, size, &sizeWritten, &overlapped);
-        while (WaitForSingleObject(overlapped.hEvent, 1000) != WAIT_OBJECT_0) {
+        while (WaitForSingleObject(aud_dat->he_ov_aud_namedpipe, 1000) != WAIT_OBJECT_0) {
             if (pe->aud_parallel.abort) {
                 return 0;
             }
