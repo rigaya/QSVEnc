@@ -375,7 +375,7 @@ static int send_frame(
                 //SIMDの要求する値で割り切れない場合は、一時バッファを使用してpitchがあるようにする
                 tempBufForNonModWidthPitch = ALIGN(oip->w, 128) * ((input_csp == RGY_CSP_YC48) ? 6 : 2);
                 tempBufForNonModWidth = std::unique_ptr<uint8_t, aligned_malloc_deleter>(
-                    (uint8_t*)_aligned_malloc(tempBufForNonModWidthPitch * oip->h, 128), aligned_malloc_deleter());;
+                    (uint8_t*)_aligned_malloc(tempBufForNonModWidthPitch * oip->h, 128), aligned_malloc_deleter());
             }
         }
         if (convert->getFunc(input_csp, prmsm->csp, false, simd) == nullptr) {
@@ -755,7 +755,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
         release_audio_parallel_events(pe);
 
         //タイムコード出力
-        if (!ret && (afs && pe->muxer_to_be_used != MUXER_DISABLED) || conf->vid.auo_tcfile_out)
+        if (!ret && ((afs && pe->muxer_to_be_used != MUXER_DISABLED) || conf->vid.auo_tcfile_out))
             tcfile_out(jitter, oip->n, (double)oip->rate / (double)oip->scale, afs, pe);
 
         //エンコーダ終了待機
