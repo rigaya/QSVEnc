@@ -231,13 +231,10 @@ static void build_full_cmd(char *cmd, size_t nSize, const CONF_GUIEX *conf, cons
     //apply_guiEx_auto_settings(&prm.x264, oip->w, oip->h, oip->rate, oip->scale, sys_dat->exstg->s_local.auto_ref_limit_by_level);
     //GUI部のコマンドライン生成
     strcpy_s(cmd, nSize, gen_cmd(encPrm, false).c_str());
-    //キーフレーム検出を行い、そのQPファイルが存在し、かつ--qpfileの指定がなければ、それをqpfileで読み込む
-    if (!conf->oth.link_prm.active) {
-        //出力ファイル
-        sprintf_s(cmd + strlen(cmd), nSize - strlen(cmd), " -o \"%s\"", pe->temp_filename);
-        //入力
-        sprintf_s(cmd + strlen(cmd), nSize - strlen(cmd), " --sm --parent-pid %08x -i -", GetCurrentProcessId());
-    }
+    //出力ファイル
+    sprintf_s(cmd + strlen(cmd), nSize - strlen(cmd), " -o \"%s\"", pe->temp_filename);
+    //入力
+    sprintf_s(cmd + strlen(cmd), nSize - strlen(cmd), " --sm --parent-pid %08x -i -", GetCurrentProcessId());
 }
 
 //並列処理時に音声データを取得する
@@ -483,61 +480,6 @@ static int send_frame(
     return AUO_RESULT_SUCCESS;
 }
 
-
-struct AVQSV_PARM {
-    int nSubtitleCopyAll;
-    AudioSelect audioSelect;
-    char audioCodec[128];
-    std::vector<AudioSelect *> audioSelectList;
-};
-
-void init_avqsv_prm(AVQSV_PARM *avqsv_prm) {
-    avqsv_prm->nSubtitleCopyAll = 0;
-    memset(&avqsv_prm->audioCodec,  0, sizeof(avqsv_prm->audioCodec));
-    avqsv_prm->audioSelectList.clear();
-}
-
-
-static void set_conf_qsvp_avqsv_prm(sInputParams *enc_prm, const CONF_GUIEX *conf, const PRM_ENC *pe, const SYSTEM_DATA *sys_dat, AVQSV_PARM *avqsv_prm) {
-    init_avqsv_prm(avqsv_prm);
-#if ENABLE_AVSW_READER
-    enc_prm->input.type = RGY_INPUT_FMT_AVHW;
-
-    avqsv_prm->audioSelectList.push_back(&avqsv_prm->audioSelect);
-
-
-    const CONF_AUDIO_BASE *cnf_aud = &conf->aud.in;
-    const AUDIO_SETTINGS *aud_stg = &sys_dat->exstg->s_aud_int[cnf_aud->encoder];
-
-    enc_prm->common.AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_AUDIO);
-    avqsv_prm->audioSelect.trackID = 1;
-    avqsv_prm->audioSelect.encCodec = aud_stg->codec;
-    strcpy_s(avqsv_prm->audioCodec, aud_stg->codec);
-    avqsv_prm->audioSelect.encBitrate = cnf_aud->bitrate;
-    enc_prm->common.ppAudioSelectList = avqsv_prm->audioSelectList.data();
-    enc_prm->common.nAudioSelectCount = 1;
-
-    enc_prm->common.nTrimCount = (uint16_t)conf->oth.link_prm.trim_count;
-    enc_prm->common.pTrimList = (enc_prm->common.nTrimCount) ? (sTrim *)conf->oth.link_prm.trim : nullptr;
-
-    if (avqsv_prm->nSubtitleCopyAll) {
-        enc_prm->common.nSubtitleSelectCount = 1;
-        enc_prm->common.ppSubtitleSelectList = (SubtitleSelect **)malloc(sizeof(enc_prm->common.ppSubtitleSelectList));
-        enc_prm->common.ppSubtitleSelectList[0] = new SubtitleSelect();
-        enc_prm->common.ppSubtitleSelectList[0]->encCodec = RGY_AVCODEC_COPY;
-        enc_prm->common.ppSubtitleSelectList[0]->trackID = 0;
-    }
-    enc_prm->common.outputFilename = pe->temp_filename;
-
-    if ((enc_prm->input.picstruct & (RGY_PICSTRUCT_INTERLACED)) == FALSE) {
-        enc_prm->vppmfx.deinterlace = MFX_DEINTERLACE_NONE;
-    }
-    if (check_ext(enc_prm->common.inputFilename.c_str(), { ".lwi" })) {
-        getLwiRealPath(enc_prm->common.inputFilename);
-    }
-#endif //#if ENABLE_AVSW_READER
-}
-
 static void error_videnc_failed(const PRM_ENC *pe) {
     ULARGE_INTEGER temp_drive_avail_space = { 0 };
     const uint64_t disk_warn_threshold = 4 * 1024 * 1024; //4MB
@@ -584,12 +526,6 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     enc_prm.common.AVSyncMode = (conf->vid.afs) ? RGY_AVSYNC_VFR : RGY_AVSYNC_ASSUME_CFR;
     enc_prm.common.disableMp4Opt = pe->muxer_to_be_used != MUXER_DISABLED;
 
-#if ENABLE_AUO_LINK
-    AVQSV_PARM avqsv_prm;
-    if (conf->oth.link_prm.active) {
-        set_conf_qsvp_avqsv_prm(&enc_prm, conf, pe, sys_dat, &avqsv_prm);
-    } else
-#endif //#if ENABLE_AUO_LINK
     if ((oip->flag & OUTPUT_INFO_FLAG_AUDIO) && conf->aud.use_internal) {
         if_valid_wait_for_single_object(pe->aud_parallel.he_vid_start, INFINITE);
         auto common = &enc_prm.common;
@@ -677,9 +613,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     int *jitter = NULL;
     int rp_ret = 0;
 
-    if (conf->vid.afs && conf->oth.link_prm.active) {
-        ret |= AUO_RESULT_ERROR; error_afs_auo_link();
-    } else if (conf->vid.afs && interlaced) {
+    if (conf->vid.afs && interlaced) {
         ret |= AUO_RESULT_ERROR; error_afs_interlace_stg();
     } else if (conf->vid.afs && NULL == (jitter = (int *)calloc(oip->n + 1, sizeof(int)))) {
         ret |= AUO_RESULT_ERROR; error_malloc_tc();
@@ -687,55 +621,6 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     } else if (!setup_afsvideo(oip, sys_dat, conf, pe)) {
         ret |= AUO_RESULT_ERROR; //Aviutl(afs)からのフレーム読み込みに失敗
     //x264プロセス開始
-    } else if (conf->oth.link_prm.active) {
-    	if ((rp_ret = RunProcess(exe_args, exe_dir, &pi_enc, &pipes, GetPriorityClass(pe->h_p_aviutl), TRUE, FALSE)) != RP_SUCCESS) {
-    		ret |= AUO_RESULT_ERROR; error_run_process("QSVEncC", rp_ret);
-    	} else {
-        //auo linkモード
-
-        //Aviutlの時間を取得
-        PROCESS_TIME time_aviutl;
-        GetProcessTime(pe->h_p_aviutl, &time_aviutl);
-
-        DWORD tm_vid_enc_start = timeGetTime();
-
-        while (ret == AUO_RESULT_SUCCESS) {
-            const int pipe_ret = read_from_pipe(&pipes, TRUE);
-            if (pipe_ret < 0) {
-                break;
-            }
-            if (pipe_ret > 0) {
-                write_log_exe_mes(pipes.read_buf, &pipes.buf_len, "QSVEncC", NULL);
-            }
-            Sleep(LOG_UPDATE_INTERVAL);
-            if (oip->func_is_abort()) {
-                char handleEvent[256];
-                sprintf_s(handleEvent, QSVENCC_ABORT_EVENT, pi_enc.dwProcessId);
-                HANDLE heAbort = OpenEvent(EVENT_MODIFY_STATE, FALSE, handleEvent);
-                if (heAbort) {
-                    SetEvent(heAbort);
-                }
-                ret |= AUO_RESULT_ABORT;
-            }
-            log_process_events();
-        }
-
-        //エンコーダ終了待機
-        while (WaitForSingleObject(pi_enc.hProcess, LOG_UPDATE_INTERVAL) == WAIT_TIMEOUT) {
-            if (read_from_pipe(&pipes, TRUE) > 0)
-                write_log_exe_mes(pipes.read_buf, &pipes.buf_len, "QSVEncC", NULL);
-            log_process_events();
-            Sleep(LOG_UPDATE_INTERVAL);
-        }
-
-        while (read_from_pipe(&pipes, TRUE) > 0) {
-            write_log_exe_mes(pipes.read_buf, &pipes.buf_len, "QSVEncC", NULL);
-        }
-
-        DWORD tm_vid_enc_fin = timeGetTime();
-        write_log_auo_line_fmt(LOG_INFO, "CPU使用率: Aviutl: %.2f%% / QSVEnc: %.2f%%", GetProcessAvgCPUUsage(pe->h_p_aviutl, &time_aviutl), GetProcessAvgCPUUsage(pi_enc.hProcess));
-        write_log_auo_enc_time("QSVEncエンコード時間", tm_vid_enc_fin - tm_vid_enc_start);
-        }
     } else if (video_create_event(heBufEmpty, heBufFilled)) {
         ret |= AUO_RESULT_ERROR; error_video_create_event();
     } else if ((prmSM = video_create_param_mem(oip, afs, rgy_output_csp, enc_prm.input.picstruct, heBufEmpty, heBufFilled)) == nullptr || !prmSM->is_open()) {
@@ -938,101 +823,6 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     if (jitter) free(jitter);
 
     return ret;
-#if 0
-    {
-#if ENABLE_AVSW_READER
-        if (!check_avcodec_dll() || !conf->vid.afs) {
-
-        }
-#endif //ENABLE_AVSW_READER
-        set_conf_qsvp_prm(&conf->enc, oip, pe, sys_dat->exstg->s_local.force_bluray, sys_dat->exstg->s_local.timer_period_tuning, sys_dat->exstg->s_log.log_level);
-    }
-    conf->enc.nPerfMonitorSelect        = (sys_dat->exstg->s_local.perf_monitor) ? PERF_MONITOR_ALL : 0;
-    conf->enc.nPerfMonitorSelectMatplot = (sys_dat->exstg->s_local.perf_monitor_plot) ?
-        PERF_MONITOR_CPU | PERF_MONITOR_CPU_KERNEL
-        | PERF_MONITOR_THREAD_MAIN | PERF_MONITOR_THREAD_ENC | PERF_MONITOR_THREAD_OUT
-        | PERF_MONITOR_FPS
-        : 0;
-    std::auto_ptr<CQSVPipeline> pPipeline;
-
-    mfxStatus sts = MFX_ERR_NONE;
-    int *jitter = NULL;
-
-    //sts = ParseInputString(argv, (mfxU8)argc, &Params);
-    //MSDK_CHECK_PARSE_RESULT(sts, MFX_ERR_NONE, 1);
-
-    //pPipeline.reset((Params.nRotationAngle) ? new CUserPipeline : new CQSVPipeline);
-    pPipeline.reset(new AuoPipeline);
-    //MSDK_CHECK_POINTER(pPipeline.get(), MFX_ERR_MEMORY_ALLOC);
-    if (!pPipeline.get()) {
-        write_log_auo_line(LOG_ERROR, "メモリの確保に失敗しました。");
-        return AUO_RESULT_ERROR;
-    }
-
-    if (conf->vid.afs && (conf->enc.nPicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
-        sts = MFX_ERR_INVALID_VIDEO_PARAM; error_afs_interlace_stg();
-    } else if ((jitter = (int *)calloc(oip->n + 1, sizeof(int))) == NULL) {
-        sts = MFX_ERR_MEMORY_ALLOC; error_malloc_tc();
-    //Aviutl(afs)からのフレーム読み込み
-    } else if (!setup_afsvideo(oip, sys_dat, conf, pe)) {
-        sts = MFX_ERR_UNKNOWN; //Aviutl(afs)からのフレーム読み込みに失敗
-    //QSVEncプロセス開始
-    } else {
-        InputInfoAuo inputInfo = { 0 };
-        set_input_info_auo(&inputInfo, oip, conf, pe, sys_dat, jitter);
-        conf->enc.pPrivatePrm = &inputInfo;
-        if (MFX_ERR_NONE != (sts = pPipeline->Init(&conf->enc))) {
-            write_mfx_message(sts);
-        } else if (MFX_ERR_NONE == (sts = pPipeline->CheckCurrentVideoParam())) {
-            if (conf->vid.afs) write_log_auo_line(LOG_INFO, _T("自動フィールドシフト    on"));
-
-            DWORD tm_qsv = timeGetTime();
-            const char * const encode_name = (conf->enc.bUseHWLib) ? "QuickSyncVideoエンコード" : "IntelMediaSDKエンコード";
-            set_window_title(encode_name, PROGRESSBAR_CONTINUOUS);
-            log_process_events();
-
-            DWORD_PTR subThreadAffinityMask = 0x00;
-            DWORD_PTR oldThreadAffinity = 0x00;
-            if (sys_dat->exstg->s_local.thread_tuning)
-                oldThreadAffinity = setThreadAffinityMaskforQSVEnc(NULL, &subThreadAffinityMask);
-
-            for (;;) {
-                sts = pPipeline->Run(subThreadAffinityMask);
-
-                if (MFX_ERR_DEVICE_LOST == sts || MFX_ERR_DEVICE_FAILED == sts) {
-                    write_log_auo_line(LOG_WARNING, "Hardware device was lost or returned an unexpected error. Recovering...");
-                    if (MFX_ERR_NONE != (sts = pPipeline->ResetDevice())) {
-                        write_mfx_message(sts);
-                        break;
-                    }
-
-                    if (MFX_ERR_NONE != (sts = pPipeline->ResetMFXComponents(&conf->enc))) {
-                        write_mfx_message(sts);
-                        break;
-                    }
-                    continue;
-                } else {
-                    //if (sts != MFX_ERR_NONE)
-                    //    write_mfx_message(sts);
-                    break;
-                }
-            }
-
-            pPipeline->Close();
-            resetThreadAffinityMaskforQSVEnc(oldThreadAffinity);
-            write_log_auo_enc_time(encode_name, timeGetTime() - tm_qsv);
-        }
-    }
-    //タイムコード出力
-    if (sts == MFX_ERR_NONE && (conf->vid.afs || conf->vid.auo_tcfile_out))
-        tcfile_out(jitter, oip->n, (double)oip->rate / (double)oip->scale, conf->vid.afs, pe);
-    if (sts == MFX_ERR_NONE && conf->vid.afs)
-        write_log_auo_line_fmt(LOG_INFO, "drop %d / %d frames", pe->drop_count, oip->n);
-    set_window_title(AUO_FULL_NAME, PROGRESSBAR_DISABLED);
-    if (jitter) free(jitter);
-
-    return (sts == MFX_ERR_NONE) ? AUO_RESULT_SUCCESS : AUO_RESULT_ERROR;
-#endif
 }
 #pragma warning( pop )
 

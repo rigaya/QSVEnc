@@ -1106,9 +1106,6 @@ BOOL check_output_has_chapter(const CONF_GUIEX *conf, const SYSTEM_DATA *sys_dat
 }
 
 int check_muxer_to_be_used(const CONF_GUIEX *conf, const PRM_ENC *pe, const SYSTEM_DATA *sys_dat, const char *temp_filename, int video_output_type, BOOL audio_output) {
-    if (conf->oth.link_prm.active) {
-        return MUXER_DISABLED;
-    }
     int muxer_to_be_used = MUXER_DISABLED;
     if (conf->mux.use_internal)
         muxer_to_be_used = MUXER_INTERNAL;

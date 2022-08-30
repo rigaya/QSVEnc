@@ -73,7 +73,6 @@ namespace QSVEnc {
             updateFeatureTableFlag = false;
             themeMode = AuoTheme::DefaultLight;
             cnf_stgSelected = (CONF_GUIEX *)calloc(1, sizeof(CONF_GUIEX));
-            conf_link_prm = (AUO_LINK_PARAM *)calloc(1, sizeof(AUO_LINK_PARAM));
             InitializeComponent();
             //
             //TODO: ここにコンストラクタ コードを追加します
@@ -94,7 +93,6 @@ namespace QSVEnc {
             if (dwStgReader != nullptr)
                 delete dwStgReader;
             if (cnf_stgSelected) free(cnf_stgSelected); cnf_stgSelected = nullptr;
-            if (conf_link_prm) free(conf_link_prm); conf_link_prm = nullptr;
             if (featuresHW != nullptr) delete featuresHW;
             if (nullptr != saveFileQSVFeautures)
                 delete saveFileQSVFeautures;
@@ -879,10 +877,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBWeightP;
 private: System::Windows::Forms::CheckBox^  fcgCBFadeDetect;
 private: System::Windows::Forms::ComboBox^  fcgCXRotate;
 private: System::Windows::Forms::Label^  fcgLBRotate;
-private: System::Windows::Forms::GroupBox^  fcggroupBoxAvqsv;
-
-private: System::Windows::Forms::CheckBox^  fcgCBAvqsv;
-private: System::Windows::Forms::Button^  fcgBTAvqsvInputFile;
 
 
 
@@ -893,15 +887,19 @@ private: System::Windows::Forms::Button^  fcgBTAvqsvInputFile;
 
 
 
-private: System::Windows::Forms::TextBox^  fcgTXAvqsvInputFile;
-
-private: System::Windows::Forms::Label^  fcgLBAvqsvInputFile;
-private: System::Windows::Forms::Label^  fcgLBAvqsvEncWarn;
 
 
-private: System::Windows::Forms::Label^  fcgLBTrimInfo;
-private: System::Windows::Forms::Label^  fcgLBTrim;
-private: System::Windows::Forms::CheckBox^  fcgCBTrim;
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1416,6 +1414,8 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgTTEx = (gcnew System::Windows::Forms::ToolTip(this->components));
             this->fcgtabControlQSV = (gcnew System::Windows::Forms::TabControl());
             this->tabPageVideoEnc = (gcnew System::Windows::Forms::TabPage());
+            this->fcgLBHyperMode = (gcnew System::Windows::Forms::Label());
+            this->fcgCXHyperMode = (gcnew System::Windows::Forms::ComboBox());
             this->fcgCXDevice = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBDevice = (gcnew System::Windows::Forms::Label());
             this->fcgCXOutputCsp = (gcnew System::Windows::Forms::ComboBox());
@@ -1769,19 +1769,8 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgCBRunBatBeforeAudio = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCXAudioPriority = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBAudioPriority = (gcnew System::Windows::Forms::Label());
-            this->fcggroupBoxAvqsv = (gcnew System::Windows::Forms::GroupBox());
-            this->fcgLBTrimInfo = (gcnew System::Windows::Forms::Label());
-            this->fcgLBTrim = (gcnew System::Windows::Forms::Label());
-            this->fcgCBTrim = (gcnew System::Windows::Forms::CheckBox());
-            this->fcgLBAvqsvEncWarn = (gcnew System::Windows::Forms::Label());
-            this->fcgBTAvqsvInputFile = (gcnew System::Windows::Forms::Button());
-            this->fcgTXAvqsvInputFile = (gcnew System::Windows::Forms::TextBox());
-            this->fcgLBAvqsvInputFile = (gcnew System::Windows::Forms::Label());
-            this->fcgCBAvqsv = (gcnew System::Windows::Forms::CheckBox());
             this->fcgTXCmd = (gcnew System::Windows::Forms::TextBox());
             this->fcgPNHideToolStripBorder = (gcnew System::Windows::Forms::Panel());
-            this->fcgLBHyperMode = (gcnew System::Windows::Forms::Label());
-            this->fcgCXHyperMode = (gcnew System::Windows::Forms::ComboBox());
             this->fcgtoolStripSettings->SuspendLayout();
             this->fcgtabControlMux->SuspendLayout();
             this->fcgtabPageMP4->SuspendLayout();
@@ -1905,7 +1894,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgPNAudioExt->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrate))->BeginInit();
             this->fcgtabPageAudioOther->SuspendLayout();
-            this->fcggroupBoxAvqsv->SuspendLayout();
             this->SuspendLayout();
             // 
             // fcgtoolStripSettings
@@ -2802,6 +2790,26 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->tabPageVideoEnc->TabIndex = 0;
             this->tabPageVideoEnc->Text = L"動画エンコード";
             this->tabPageVideoEnc->UseVisualStyleBackColor = true;
+            // 
+            // fcgLBHyperMode
+            // 
+            this->fcgLBHyperMode->AutoSize = true;
+            this->fcgLBHyperMode->Location = System::Drawing::Point(13, 126);
+            this->fcgLBHyperMode->Name = L"fcgLBHyperMode";
+            this->fcgLBHyperMode->Size = System::Drawing::Size(68, 14);
+            this->fcgLBHyperMode->TabIndex = 180;
+            this->fcgLBHyperMode->Text = L"HyperMode";
+            // 
+            // fcgCXHyperMode
+            // 
+            this->fcgCXHyperMode->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXHyperMode->FormattingEnabled = true;
+            this->fcgCXHyperMode->Items->AddRange(gcnew cli::array< System::Object^  >(3) { L"高品質", L"標準", L"高速" });
+            this->fcgCXHyperMode->Location = System::Drawing::Point(90, 123);
+            this->fcgCXHyperMode->Name = L"fcgCXHyperMode";
+            this->fcgCXHyperMode->Size = System::Drawing::Size(199, 22);
+            this->fcgCXHyperMode->TabIndex = 181;
+            this->fcgCXHyperMode->Tag = L"reCmd";
             // 
             // fcgCXDevice
             // 
@@ -5863,7 +5871,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgCBAuoTcfileout->Name = L"fcgCBAuoTcfileout";
             this->fcgCBAuoTcfileout->Size = System::Drawing::Size(98, 18);
             this->fcgCBAuoTcfileout->TabIndex = 31;
-            this->fcgCBAuoTcfileout->Tag = L"chValue,NoDirect";
+            this->fcgCBAuoTcfileout->Tag = L"chValue";
             this->fcgCBAuoTcfileout->Text = L"タイムコード出力";
             this->fcgCBAuoTcfileout->UseVisualStyleBackColor = true;
             // 
@@ -5874,7 +5882,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgCBAFS->Name = L"fcgCBAFS";
             this->fcgCBAFS->Size = System::Drawing::Size(183, 18);
             this->fcgCBAFS->TabIndex = 30;
-            this->fcgCBAFS->Tag = L"chValue,NoDirect";
+            this->fcgCBAFS->Tag = L"chValue";
             this->fcgCBAFS->Text = L"自動フィールドシフト(afs)を使用する";
             this->fcgCBAFS->UseVisualStyleBackColor = true;
             // 
@@ -5903,7 +5911,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgLBTempDir->Name = L"fcgLBTempDir";
             this->fcgLBTempDir->Size = System::Drawing::Size(60, 14);
             this->fcgLBTempDir->TabIndex = 1;
-            this->fcgLBTempDir->Tag = L"NoDirect";
             this->fcgLBTempDir->Text = L"一時フォルダ";
             // 
             // fcgBTCustomTempDir
@@ -5912,7 +5919,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgBTCustomTempDir->Name = L"fcgBTCustomTempDir";
             this->fcgBTCustomTempDir->Size = System::Drawing::Size(29, 23);
             this->fcgBTCustomTempDir->TabIndex = 4;
-            this->fcgBTCustomTempDir->Tag = L"NoDirect";
             this->fcgBTCustomTempDir->Text = L"...";
             this->fcgBTCustomTempDir->UseVisualStyleBackColor = true;
             this->fcgBTCustomTempDir->Click += gcnew System::EventHandler(this, &frmConfig::fcgBTCustomTempDir_Click);
@@ -5923,7 +5929,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgTXCustomTempDir->Name = L"fcgTXCustomTempDir";
             this->fcgTXCustomTempDir->Size = System::Drawing::Size(182, 21);
             this->fcgTXCustomTempDir->TabIndex = 3;
-            this->fcgTXCustomTempDir->Tag = L"NoDirect";
             this->fcgTXCustomTempDir->TextChanged += gcnew System::EventHandler(this, &frmConfig::fcgTXCustomTempDir_TextChanged);
             // 
             // fcgCXTempDir
@@ -5934,7 +5939,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgCXTempDir->Name = L"fcgCXTempDir";
             this->fcgCXTempDir->Size = System::Drawing::Size(209, 22);
             this->fcgCXTempDir->TabIndex = 2;
-            this->fcgCXTempDir->Tag = L"chValue,NoDirect";
+            this->fcgCXTempDir->Tag = L"chValue";
             // 
             // tabPageFeatures
             // 
@@ -6175,7 +6180,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgCBAudioUseExt->Name = L"fcgCBAudioUseExt";
             this->fcgCBAudioUseExt->Size = System::Drawing::Size(136, 18);
             this->fcgCBAudioUseExt->TabIndex = 78;
-            this->fcgCBAudioUseExt->Tag = L"chValue,NoDirect";
+            this->fcgCBAudioUseExt->Tag = L"chValue";
             this->fcgCBAudioUseExt->Text = L"外部エンコーダを使用する";
             this->fcgCBAudioUseExt->UseVisualStyleBackColor = true;
             this->fcgCBAudioUseExt->CheckedChanged += gcnew System::EventHandler(this, &frmConfig::fcgCBAudioUseExt_CheckedChanged);
@@ -6430,7 +6435,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgtabPageAudioOther->Padding = System::Windows::Forms::Padding(3);
             this->fcgtabPageAudioOther->Size = System::Drawing::Size(376, 269);
             this->fcgtabPageAudioOther->TabIndex = 1;
-            this->fcgtabPageAudioOther->Tag = L"NoDirect";
             this->fcgtabPageAudioOther->Text = L"その他";
             this->fcgtabPageAudioOther->UseVisualStyleBackColor = true;
             // 
@@ -6579,100 +6583,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgLBAudioPriority->TabIndex = 46;
             this->fcgLBAudioPriority->Text = L"音声優先度";
             // 
-            // fcggroupBoxAvqsv
-            // 
-            this->fcggroupBoxAvqsv->Controls->Add(this->fcgLBTrimInfo);
-            this->fcggroupBoxAvqsv->Controls->Add(this->fcgLBTrim);
-            this->fcggroupBoxAvqsv->Controls->Add(this->fcgCBTrim);
-            this->fcggroupBoxAvqsv->Controls->Add(this->fcgLBAvqsvEncWarn);
-            this->fcggroupBoxAvqsv->Controls->Add(this->fcgBTAvqsvInputFile);
-            this->fcggroupBoxAvqsv->Controls->Add(this->fcgTXAvqsvInputFile);
-            this->fcggroupBoxAvqsv->Controls->Add(this->fcgLBAvqsvInputFile);
-            this->fcggroupBoxAvqsv->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 8.25F, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
-                static_cast<System::Byte>(128)));
-            this->fcggroupBoxAvqsv->Location = System::Drawing::Point(4, 27);
-            this->fcggroupBoxAvqsv->Name = L"fcggroupBoxAvqsv";
-            this->fcggroupBoxAvqsv->Size = System::Drawing::Size(997, 96);
-            this->fcggroupBoxAvqsv->TabIndex = 52;
-            this->fcggroupBoxAvqsv->TabStop = false;
-            // 
-            // fcgLBTrimInfo
-            // 
-            this->fcgLBTrimInfo->AutoSize = true;
-            this->fcgLBTrimInfo->Location = System::Drawing::Point(761, 35);
-            this->fcgLBTrimInfo->Name = L"fcgLBTrimInfo";
-            this->fcgLBTrimInfo->Size = System::Drawing::Size(73, 14);
-            this->fcgLBTrimInfo->TabIndex = 135;
-            this->fcgLBTrimInfo->Text = L"カット編集情報";
-            // 
-            // fcgLBTrim
-            // 
-            this->fcgLBTrim->AutoSize = true;
-            this->fcgLBTrim->Location = System::Drawing::Point(629, 35);
-            this->fcgLBTrim->Name = L"fcgLBTrim";
-            this->fcgLBTrim->Size = System::Drawing::Size(51, 14);
-            this->fcgLBTrim->TabIndex = 134;
-            this->fcgLBTrim->Text = L"カット編集";
-            // 
-            // fcgCBTrim
-            // 
-            this->fcgCBTrim->AutoSize = true;
-            this->fcgCBTrim->Location = System::Drawing::Point(722, 37);
-            this->fcgCBTrim->Name = L"fcgCBTrim";
-            this->fcgCBTrim->Size = System::Drawing::Size(15, 14);
-            this->fcgCBTrim->TabIndex = 133;
-            this->fcgCBTrim->Tag = L"chValue";
-            this->fcgCBTrim->UseVisualStyleBackColor = true;
-            // 
-            // fcgLBAvqsvEncWarn
-            // 
-            this->fcgLBAvqsvEncWarn->AutoSize = true;
-            this->fcgLBAvqsvEncWarn->ForeColor = System::Drawing::Color::Red;
-            this->fcgLBAvqsvEncWarn->Location = System::Drawing::Point(52, 64);
-            this->fcgLBAvqsvEncWarn->Name = L"fcgLBAvqsvEncWarn";
-            this->fcgLBAvqsvEncWarn->Size = System::Drawing::Size(346, 14);
-            this->fcgLBAvqsvEncWarn->TabIndex = 132;
-            this->fcgLBAvqsvEncWarn->Text = L"本モードを有効にした場合、Aviutlでのフィルタ類による編集は反映されません。";
-            // 
-            // fcgBTAvqsvInputFile
-            // 
-            this->fcgBTAvqsvInputFile->Location = System::Drawing::Point(437, 29);
-            this->fcgBTAvqsvInputFile->Name = L"fcgBTAvqsvInputFile";
-            this->fcgBTAvqsvInputFile->Size = System::Drawing::Size(30, 23);
-            this->fcgBTAvqsvInputFile->TabIndex = 46;
-            this->fcgBTAvqsvInputFile->Text = L"...";
-            this->fcgBTAvqsvInputFile->UseVisualStyleBackColor = true;
-            // 
-            // fcgTXAvqsvInputFile
-            // 
-            this->fcgTXAvqsvInputFile->AllowDrop = true;
-            this->fcgTXAvqsvInputFile->Location = System::Drawing::Point(127, 30);
-            this->fcgTXAvqsvInputFile->Name = L"fcgTXAvqsvInputFile";
-            this->fcgTXAvqsvInputFile->Size = System::Drawing::Size(303, 21);
-            this->fcgTXAvqsvInputFile->TabIndex = 45;
-            this->fcgTXAvqsvInputFile->TextChanged += gcnew System::EventHandler(this, &frmConfig::fcgTXDirectInputFile_TextChanged);
-            // 
-            // fcgLBAvqsvInputFile
-            // 
-            this->fcgLBAvqsvInputFile->AutoSize = true;
-            this->fcgLBAvqsvInputFile->Location = System::Drawing::Point(22, 33);
-            this->fcgLBAvqsvInputFile->Name = L"fcgLBAvqsvInputFile";
-            this->fcgLBAvqsvInputFile->Size = System::Drawing::Size(90, 14);
-            this->fcgLBAvqsvInputFile->TabIndex = 47;
-            this->fcgLBAvqsvInputFile->Text = L"入力ファイルの指定";
-            // 
-            // fcgCBAvqsv
-            // 
-            this->fcgCBAvqsv->AutoSize = true;
-            this->fcgCBAvqsv->Location = System::Drawing::Point(11, 30);
-            this->fcgCBAvqsv->Name = L"fcgCBAvqsv";
-            this->fcgCBAvqsv->Size = System::Drawing::Size(167, 19);
-            this->fcgCBAvqsv->TabIndex = 89;
-            this->fcgCBAvqsv->Tag = L"chValue";
-            this->fcgCBAvqsv->Text = L"avqsvで直接エンコードを行う";
-            this->fcgCBAvqsv->UseVisualStyleBackColor = true;
-            this->fcgCBAvqsv->CheckedChanged += gcnew System::EventHandler(this, &frmConfig::fcgChangeVisibleDirectEnc);
-            // 
             // fcgTXCmd
             // 
             this->fcgTXCmd->Anchor = static_cast<System::Windows::Forms::AnchorStyles>(((System::Windows::Forms::AnchorStyles::Top | System::Windows::Forms::AnchorStyles::Left)
@@ -6694,26 +6604,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgPNHideToolStripBorder->TabIndex = 90;
             this->fcgPNHideToolStripBorder->Visible = false;
             // 
-            // fcgLBHyperMode
-            // 
-            this->fcgLBHyperMode->AutoSize = true;
-            this->fcgLBHyperMode->Location = System::Drawing::Point(13, 126);
-            this->fcgLBHyperMode->Name = L"fcgLBHyperMode";
-            this->fcgLBHyperMode->Size = System::Drawing::Size(68, 14);
-            this->fcgLBHyperMode->TabIndex = 180;
-            this->fcgLBHyperMode->Text = L"HyperMode";
-            // 
-            // fcgCXHyperMode
-            // 
-            this->fcgCXHyperMode->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-            this->fcgCXHyperMode->FormattingEnabled = true;
-            this->fcgCXHyperMode->Items->AddRange(gcnew cli::array< System::Object^  >(3) { L"高品質", L"標準", L"高速" });
-            this->fcgCXHyperMode->Location = System::Drawing::Point(90, 123);
-            this->fcgCXHyperMode->Name = L"fcgCXHyperMode";
-            this->fcgCXHyperMode->Size = System::Drawing::Size(199, 22);
-            this->fcgCXHyperMode->TabIndex = 181;
-            this->fcgCXHyperMode->Tag = L"reCmd";
-            // 
             // frmConfig
             // 
             this->AutoScaleDimensions = System::Drawing::SizeF(96, 96);
@@ -6731,8 +6621,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->Controls->Add(this->fcgBTCancel);
             this->Controls->Add(this->fcgTXCmd);
             this->Controls->Add(this->fcgtoolStripSettings);
-            this->Controls->Add(this->fcgCBAvqsv);
-            this->Controls->Add(this->fcggroupBoxAvqsv);
             this->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
                 static_cast<System::Byte>(128)));
             this->FormBorderStyle = System::Windows::Forms::FormBorderStyle::FixedDialog;
@@ -6905,8 +6793,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrate))->EndInit();
             this->fcgtabPageAudioOther->ResumeLayout(false);
             this->fcgtabPageAudioOther->PerformLayout();
-            this->fcggroupBoxAvqsv->ResumeLayout(false);
-            this->fcggroupBoxAvqsv->PerformLayout();
             this->ResumeLayout(false);
             this->PerformLayout();
 
@@ -6922,7 +6808,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
         SetGPUInfoDelegate ^getGPUInfoDelegate;
         const SYSTEM_DATA *sys_dat;
         CONF_GUIEX *conf;
-        AUO_LINK_PARAM *conf_link_prm;
         LocalSettings LocalStg;
         DarkenWindowStgReader *dwStgReader;
         AuoTheme themeMode;
@@ -6947,7 +6832,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
         System::Int32 GetCurrentAudioDefaultBitrate();
         delegate System::Void qualityTimerChangeDelegate();
         System::Void InitComboBox();
-        bool AudioIntEncoderEnabled(const AUDIO_SETTINGS *astg, bool isAuoLinkMode);
         System::Void setAudioExtDisplay();
         System::Void AudioExtEncodeModeChanged();
         System::Void setAudioIntDisplay();
@@ -7021,9 +6905,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
         System::Void SaveQSVFeatureAsTxt(String^ SavePath);
         System::Void SaveQSVFeature();
         System::Void SetCPUInfo();
-        System::Void CheckQSVLink(CONF_GUIEX *conf);
-        System::Void ChangeVisiableDirectEncPerControl(Control ^top, bool visible);
-        System::Void fcgChangeVisibleDirectEnc(System::Object^  sender, System::EventArgs^  e);
     public:
         System::Void InitData(CONF_GUIEX *set_config, const SYSTEM_DATA *system_data);
         System::Void SetVideoBitrate(int bitrate);
@@ -7128,11 +7009,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             fcgCXAudioEncoderInternal->BeginUpdate();
             fcgCXAudioEncoderInternal->Items->Clear();
             for (int i = 0; i < sys_dat->exstg->s_aud_int_count; i++) {
-                if (AudioIntEncoderEnabled(&sys_dat->exstg->s_aud_int[i], fcgCBAvqsv->Checked)) {
-                    fcgCXAudioEncoderInternal->Items->Add(String(sys_dat->exstg->s_aud_int[i].dispname).ToString());
-                } else {
-                    fcgCXAudioEncoderInternal->Items->Add(String(L"-----").ToString());
-                }
+                fcgCXAudioEncoderInternal->Items->Add(String(sys_dat->exstg->s_aud_int[i].dispname).ToString());
             }
             fcgCXAudioEncoderInternal->EndUpdate();
         }
@@ -7553,10 +7430,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
     private:
         System::Void fcgTXCustomTempDir_TextChanged(System::Object^  sender, System::EventArgs^  e) {
             LocalStg.CustomTmpDir = fcgTXCustomTempDir->Text;
-        }
-    private:
-        System::Void fcgTXDirectInputFile_TextChanged(System::Object^  sender, System::EventArgs^  e) {
-            LocalStg.AuoLinkSrcPath = fcgTXAvqsvInputFile->Text;
         }
     private:
         System::Void fcgSetDragDropFilename_Enter(System::Object^  sender, DragEventArgs^  e) {

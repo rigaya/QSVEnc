@@ -539,29 +539,12 @@ System::Void frmConfig::fcgCXAudioEncModeInternal_SelectedIndexChanged(System::O
     AudioIntEncodeModeChanged();
 }
 
-bool frmConfig::AudioIntEncoderEnabled(const AUDIO_SETTINGS *astg, bool isAuoLinkMode) {
-    if (isAuoLinkMode && astg->auolink_only < 0) {
-        return false;
-    } else if (!isAuoLinkMode && astg->auolink_only > 0) {
-        return false;
-    }
-    return true;
-}
-
 System::Void frmConfig::setAudioIntDisplay() {
     AUDIO_SETTINGS *astg = &sys_dat->exstg->s_aud_int[fcgCXAudioEncoderInternal->SelectedIndex];
-    if (!AudioIntEncoderEnabled(astg, false)) {
-        fcgCXAudioEncoderInternal->SelectedIndex = DEFAULT_AUDIO_ENCODER_IN;
-        astg = &sys_dat->exstg->s_aud_int[fcgCXAudioEncoderInternal->SelectedIndex];
-    }
     fcgCXAudioEncModeInternal->BeginUpdate();
     fcgCXAudioEncModeInternal->Items->Clear();
-    if (AudioIntEncoderEnabled(astg, fcgCBAvqsv->Checked)) {
-        for (int i = 0; i < astg->mode_count; i++) {
-            fcgCXAudioEncModeInternal->Items->Add(String(astg->mode[i].name).ToString());
-        }
-    } else {
-        fcgCXAudioEncModeInternal->Items->Add(String(L"-----").ToString());
+    for (int i = 0; i < astg->mode_count; i++) {
+        fcgCXAudioEncModeInternal->Items->Add(String(astg->mode[i].name).ToString());
     }
     fcgCXAudioEncModeInternal->EndUpdate();
     if (fcgCXAudioEncModeInternal->Items->Count > 0)
@@ -1266,45 +1249,6 @@ System::Void frmConfig::UpdateMfxLibDetection() {
     }
 }
 
-System::Void frmConfig::CheckQSVLink(CONF_GUIEX *cnf) {
-    AUO_LINK_DATA link_data = { 0 };
-    const bool auoLinkEnabled = ENABLE_AUO_LINK && !get_auo_link_data(&link_data);
-    fcggroupBoxAvqsv->Enabled = auoLinkEnabled;
-    fcgCBAvqsv->Enabled = auoLinkEnabled;
-    if (!auoLinkEnabled) {
-        memset(&cnf->oth.link_prm, 0, sizeof(cnf->oth.link_prm));
-        fcgCBAvqsv->Checked = false;
-        fcgCBAudioUseExt->Enabled = true;
-    } else {
-        memcpy(&cnf->oth.link_prm, &link_data.prm, sizeof(link_data.prm));
-        memcpy(conf_link_prm, &link_data.prm, sizeof(link_data.prm));
-        strcpy(cnf->enc.auo_link_src, link_data.input_file);
-        fcgTXAvqsvInputFile->Text = String(cnf->enc.auo_link_src).ToString();
-
-        Point point = fcgTXCmd->Location;
-        point.Y += fcggroupBoxAvqsv->Size.Height;
-        fcgTXCmd->Location = point;
-
-        //ウィンドウ位置の修正
-        auto formSize = this->Size;
-        formSize.Height += fcggroupBoxAvqsv->Size.Height;
-        this->Size = formSize;
-
-        point = fcgtabControlMux->Location;
-        point.Y += fcggroupBoxAvqsv->Size.Height;
-        fcgtabControlMux->Location = point;
-
-        point = fcgtabControlAudio->Location;
-        point.Y += fcggroupBoxAvqsv->Size.Height;
-        fcgtabControlAudio->Location = point;
-
-        point = fcgtabControlQSV->Location;
-        point.Y += fcggroupBoxAvqsv->Size.Height;
-        fcgtabControlQSV->Location = point;
-    }
-    fcgLBTrimInfo->Text = String(L"現在").ToString() + cnf->oth.link_prm.trim_count.ToString() + String(L"箇所選択されています。").ToString();
-}
-
 System::Void frmConfig::InitForm() {
     //UIテーマ切り替え
     CheckTheme();
@@ -1328,8 +1272,6 @@ System::Void frmConfig::InitForm() {
     fcgLBVersionDate->Text = L"build " + String(__DATE__).ToString() + L" " + String(__TIME__).ToString();
     //ツールチップ
     SetHelpToolTips();
-    //QSVLink
-    CheckQSVLink(conf);
     //HWエンコードの可否
     fcgTXVideoEncoderPath_Leave(nullptr, nullptr);
     UpdateMfxLibDetection();
@@ -1362,7 +1304,6 @@ System::Void frmConfig::InitForm() {
     EnableSettingsNoteChange(false);
     UpdateFeatures();
     fcgChangeEnabled(nullptr, nullptr);
-    fcgChangeVisibleDirectEnc(nullptr, nullptr);
     fcgCBAudioUseExt_CheckedChanged(nullptr, nullptr);
     fcgRebuildCmd(nullptr, nullptr);
 }
@@ -1604,9 +1545,6 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetCXIndex(fcgCXMuxPriority,         cnf->mux.priority);
         SetCXIndex(fcgCXInternalCmdEx,       cnf->mux.internal_mode);
 
-        //QSVLink
-        fcgCBAvqsv->Checked                = cnf->oth.link_prm.active != 0;
-        fcgCBTrim->Checked                 = cnf->oth.link_prm.use_trim != 0;
         fcgCBCopyChapter->Checked          = prm_qsv.common.copyChapter != 0;
         fcgCBCopySubtitle->Checked         = prm_qsv.common.nSubtitleSelectCount != 0;
 
@@ -1861,14 +1799,8 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->mux.priority               = fcgCXMuxPriority->SelectedIndex;
     cnf->mux.internal_mode          = fcgCXInternalCmdEx->SelectedIndex;
 
-    //QSVLink
-    memcpy(&cnf->oth.link_prm, conf_link_prm, sizeof(cnf->oth.link_prm));
-    cnf->oth.link_prm.active        = fcgCBAvqsv->Checked;
-    cnf->oth.link_prm.use_trim      = fcgCBTrim->Checked;
     prm_qsv.common.copyChapter           = fcgCBCopyChapter->Checked;
     prm_qsv.common.nSubtitleSelectCount   = fcgCBCopySubtitle->Checked;
-
-    prm_qsv.common.inputFilename = GetCHARfromString(fcgTXAvqsvInputFile->Text);
 
     cnf->oth.run_bat                = RUN_BAT_NONE;
     cnf->oth.run_bat               |= (fcgCBRunBatBeforeAudio->Checked) ? RUN_BAT_BEFORE_AUDIO   : NULL;
@@ -1932,42 +1864,6 @@ System::Void frmConfig::SetToolStripEvents(ToolStrip^ TS, System::Windows::Forms
         ToolStripButton^ TSB = dynamic_cast<ToolStripButton^>(TS->Items[i]);
         if (TSB != nullptr) TSB->MouseDown += _event;
     }
-}
-
-System::Void frmConfig::ChangeVisiableDirectEncPerControl(Control ^top, bool visible) {
-    //再帰を使用してすべてのコントロールのtagを調べ、NoDirect tagを持つものの表示非表示をセットする
-    for (int i = 0; i < top->Controls->Count; i++) {
-        if (top->Controls[i]->Tag != nullptr
-            && top->Controls[i]->Tag->ToString()->Contains(L"NoDirect"))
-            top->Controls[i]->Visible = visible;
-        ChangeVisiableDirectEncPerControl(top->Controls[i], visible);
-    }
-}
-
-System::Void frmConfig::fcgChangeVisibleDirectEnc(System::Object^  sender, System::EventArgs^  e) {
-    if (fcgCBAvqsv->Checked) {
-        fcgCBAudioUseExt->Checked = false;
-    }
-    fcgCBAudioUseExt->Enabled = !fcgCBAvqsv->Checked;
-    const int index = fcgCXAudioEncoderInternal->SelectedIndex;
-    fcgCXAudioEncoderInternal->BeginUpdate();
-    fcgCXAudioEncoderInternal->Items->Clear();
-    for (int i = 0; i < sys_dat->exstg->s_aud_int_count; i++) {
-        if (AudioIntEncoderEnabled(&sys_dat->exstg->s_aud_int[i], fcgCBAvqsv->Checked)) {
-            fcgCXAudioEncoderInternal->Items->Add(String(sys_dat->exstg->s_aud_int[i].dispname).ToString());
-        } else {
-            fcgCXAudioEncoderInternal->Items->Add(String(L"-----").ToString());
-        }
-    }
-    fcgCXAudioEncoderInternal->SelectedIndex = AudioIntEncoderEnabled(&sys_dat->exstg->s_aud_int[index], fcgCBAvqsv->Checked) ? index : DEFAULT_AUDIO_ENCODER_USE_IN;
-    fcgCXAudioEncoderInternal->EndUpdate();
-
-    fcggroupBoxAvqsv->Enabled  = fcgCBAvqsv->Checked;
-    fcgLBAvqsvEncWarn->Visible = fcgCBAvqsv->Checked;
-
-    fcgCBCopySubtitle->Visible = fcgCBAvqsv->Checked;
-    fcgCBCopyChapter->Visible = fcgCBAvqsv->Checked;
-    ChangeVisiableDirectEncPerControl(this, !fcgCBAvqsv->Checked);
 }
 
 System::Void frmConfig::TabControl_DarkDrawItem(System::Object^ sender, DrawItemEventArgs^ e) {

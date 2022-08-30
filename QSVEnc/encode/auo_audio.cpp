@@ -586,8 +586,6 @@ AUO_RESULT audio_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, c
     //音声エンコードの必要がなければ終了
     if (!(oip->flag & OUTPUT_INFO_FLAG_AUDIO))
         return ret;
-    if (conf->oth.link_prm.active)
-        return ret;
 
     //使用するエンコーダの設定を選択
     const CONF_AUDIO_BASE *cnf_aud = (conf->aud.use_internal) ? &conf->aud.in : &conf->aud.ext;

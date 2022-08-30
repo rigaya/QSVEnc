@@ -34,7 +34,6 @@
 #include "auo.h"
 #include "qsv_util.h"
 #include "qsv_prm.h"
-#include "auo_link.h"
 
 const int CONF_INITIALIZED = 1;
 
@@ -164,7 +163,6 @@ typedef struct CONF_OTHER {
             char after_audio[512];    //音声エンコ後バッチファイルのパス
         } batfile;
     };
-    AUO_LINK_PARAM link_prm;
 } CONF_OTHER;
 
 typedef struct CONF_GUIEX {
