@@ -51,7 +51,7 @@ using namespace System::Drawing;
 using namespace System::IO;
 
 
-namespace QSVEnc {
+namespace AUO_NAME_R {
 
     /// <summary>
     /// frmConfig の概要

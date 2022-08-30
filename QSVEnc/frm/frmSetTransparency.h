@@ -37,7 +37,7 @@ using namespace System::Drawing;
 #include "auo_settings.h"
 
 
-namespace QSVEnc {
+namespace AUO_NAME_R {
 
     /// <summary>
     /// frmSetTransparency の概要

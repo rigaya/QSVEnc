@@ -35,6 +35,7 @@
 #define AUO_NAME_WITHOUT_EXT "QSVEnc"
 #define AUO_NAME             "QSVEnc.auo"
 #define AUO_NAME_W          L"QSVEnc.auo"
+#define AUO_NAME_R            QSVEnc
 #define AUO_FULL_NAME        "拡張 QSV 出力"
 #define AUO_VERSION_NAME     "拡張 QSV 出力 " AUO_VERSION_STR
 #define AUO_VERSION_INFO     "拡張 QSV 出力 " AUO_VERSION_STR " by rigaya"

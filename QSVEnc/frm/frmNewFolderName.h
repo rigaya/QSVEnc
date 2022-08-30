@@ -37,7 +37,7 @@ using namespace System::Data;
 using namespace System::Drawing;
 
 
-namespace QSVEnc {
+namespace AUO_NAME_R {
 
 	/// <summary>
 	/// frmNewFolderName の概要
