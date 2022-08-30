@@ -122,8 +122,6 @@ namespace QSVEnc {
             richTextLog->Font = GetFontFrom_AUO_FONT_INFO(&exstg.s_log.log_font, richTextLog->Font);
             //ログ表示範囲の指定
             log_level = exstg.s_log.log_level;
-            //wine互換モードの設定
-            wine_compatible_mode = FALSE != exstg.s_log.wine_compat;
             //通常のステータスに戻す(false) -> 設定保存イベントで設定保存される
             prevent_log_closing = false;
             closed = true;
@@ -162,7 +160,6 @@ namespace QSVEnc {
         DWORD _start_time;//エンコ開始時間
         bool closed; //このウィンドウが閉じているか、開いているか
         bool prevent_log_closing; //ログウィンドウを閉じるを無効化するか・設定保存イベントのフラグでもある
-        bool wine_compatible_mode; //wine互換モード
         bool add_progress;
         int log_level;
         array<String^>^ log_type;
@@ -509,7 +506,6 @@ private: System::Windows::Forms::ToolStripMenuItem^  ToolStripMenuItemEncPause;
             guiEx_settings exstg;
             exstg.load_log_win();
             log_level                                = exstg.s_log.log_level;
-            wine_compatible_mode                     = exstg.s_log.wine_compat != 0;
             frmTransparency                          = exstg.s_log.transparency;
             ToolStripMenuItemTransparent->Checked    = exstg.s_log.transparent != 0;
             toolStripMenuItemAutoSave->Checked       = exstg.s_log.auto_save_log != 0;
@@ -665,9 +661,9 @@ private: System::Windows::Forms::ToolStripMenuItem^  ToolStripMenuItemEncPause;
                     richTextLog->SelectionColor = log_color_text[log_type_index];
                     richTextLog->AppendText(L"auo [" + log_type[log_type_index] + L"]: " + str + L"\n");
                     //richTextLog->SelectionStart = richTextLog->Text->Length;
-                    if (!wine_compatible_mode) {
+                    //if (!wine_compatible_mode) {
                         //richTextLog->ScrollToCaret(); // 頻繁に呼び出すと、最終的にSystem.AccessViolationExceptionが出ることがあるらしい
-                    }
+                    //}
                     richTextLog->ResumeLayout();
                 }
             }
@@ -690,9 +686,9 @@ private: System::Windows::Forms::ToolStripMenuItem^  ToolStripMenuItemEncPause;
                     richTextLog->SelectionColor = log_color_text[log_type_index];
                     richTextLog->AppendText(str + L"\n");
                     //richTextLog->SelectionStart = richTextLog->Text->Length;
-                    if (!wine_compatible_mode) {
+                    //if (!wine_compatible_mode) {
                         //richTextLog->ScrollToCaret(); // 頻繁に呼び出すと、最終的にSystem.AccessViolationExceptionが出ることがあるらしい
-                    }
+                    //}
                     richTextLog->ResumeLayout();
                 }
             }
