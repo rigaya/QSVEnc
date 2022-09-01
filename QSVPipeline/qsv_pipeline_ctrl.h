@@ -310,7 +310,7 @@ public:
         if (err != RGY_ERR_NONE) {
             return err;
         }
-        clframe->mapEvent().wait();
+        clframe->mapWait();
         auto mappedframe = std::make_unique<RGYFrameRef>(clframe->mappedHost());
         err = writer->WriteNextFrame(mappedframe.get());
         clframe->unmapBuffer();
@@ -637,7 +637,7 @@ public:
             PrintMes(RGY_LOG_ERROR, _T("Failed to map buffer: %s.\n"), get_err_mes(err));
             return err;
         }
-        clframe->mapEvent().wait(); //すぐ終わるはず
+        clframe->mapWait(); //すぐ終わるはず
         auto mappedframe = std::make_unique<RGYFrameRef>(clframe->mappedHost());
         err = m_input->LoadNextFrame(mappedframe.get());
         if (err != RGY_ERR_NONE) {

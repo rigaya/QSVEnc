@@ -414,8 +414,8 @@ public:
         *event_ = nullptr;
     }
 
-    void wait() const {
-        clWaitForEvents(1, &(*event_));
+    RGY_ERR wait() const {
+        return err_cl_to_rgy(clWaitForEvents(1, event_.get()));
     }
     void reset() {
         if (*event_ != nullptr) {
@@ -425,7 +425,7 @@ public:
     }
     cl_event *reset_ptr() {
         reset();
-        return &(*event_);
+        return event_.get();
     }
     RGY_ERR getProfilingTimeStart(uint64_t& time);
     RGY_ERR getProfilingTimeEnd(uint64_t& time);
@@ -434,14 +434,16 @@ public:
     RGY_ERR getProfilingTimeComplete(uint64_t& time);
     cl_event &operator()() { return *event_; }
     const cl_event &operator()() const { return *event_; }
-    const cl_event *ptr() const { return &(*event_); }
-    static void wait(std::vector<RGYOpenCLEvent>& events) {
+    const cl_event *ptr() const { return event_.get(); }
+    static RGY_ERR wait(std::vector<RGYOpenCLEvent>& events) {
+        auto err = CL_SUCCESS;
         if (events.size() > 0) {
             std::vector<cl_event> clevents(events.size());
             for (size_t i = 0; i < events.size(); i++)
                 clevents[i] = events[i]();
-            clWaitForEvents((int)events.size(), clevents.data());
+            err = clWaitForEvents((int)events.size(), clevents.data());
         }
+        return err_cl_to_rgy(err);
     }
     RGYOpenCLEventInfo getInfo() const;
 private:
@@ -570,8 +572,7 @@ public:
     RGY_ERR unmap(RGYOpenCLQueue &queue);
     RGY_ERR unmap(RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
 
-    const RGYOpenCLEvent &event() const { return m_eventMap; }
-    RGYOpenCLEvent &event() { return m_eventMap; }
+    RGY_ERR map_wait() { return RGYOpenCLEvent::wait(m_eventMap); };
     const RGYFrameInfo& host() const { return m_host; }
 protected:
     RGY_ERR unmap(cl_command_queue queue, const std::vector<RGYOpenCLEvent> &wait_events);
@@ -580,7 +581,7 @@ protected:
     RGYFrameInfo m_dev;
     cl_command_queue m_queue;
     RGYFrameInfo m_host;
-    RGYOpenCLEvent m_eventMap;
+    std::vector<RGYOpenCLEvent> m_eventMap;
 };
 
 enum RGYCLFrameInteropType {
@@ -604,7 +605,7 @@ public:
     RGY_ERR queueMapBuffer(RGYOpenCLQueue &queue, cl_map_flags map_flags, const std::vector<RGYOpenCLEvent> &wait_events = {}, const RGYCLMapBlock block_map = RGY_CL_MAP_BLOCK_NONE);
     RGY_ERR unmapBuffer();
     RGY_ERR unmapBuffer(RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events = {});
-    const RGYOpenCLEvent &mapEvent() const { return m_mapped->event(); }
+    RGY_ERR mapWait() const { return m_mapped->map_wait(); }
     const RGYFrameInfo &mappedHost() const { return m_mapped->host(); }
     RGYCLMemObjInfo getMemObjectInfo() const;
     void resetMappedFrame() { m_mapped.reset(); }

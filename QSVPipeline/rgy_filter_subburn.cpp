@@ -177,7 +177,7 @@ SubImageData RGYFilterSubburn::textRectToImage(const ASS_Image *image, RGYOpenCL
     const int y_offset = ((image->dst_y % 2) != 0) ? 1 : 0;
     auto frameTemp = m_cl->createFrameBuffer(ALIGN(image->w + x_offset, 2), ALIGN(image->h + y_offset, 2), RGY_CSP_YUVA444, RGY_CSP_BIT_DEPTH[RGY_CSP_YUVA444]);
     frameTemp->queueMapBuffer(queue, CL_MAP_WRITE, wait_events);
-    frameTemp->mapEvent().wait();
+    frameTemp->mapWait();
     auto img = frameTemp->mappedHost();
 
     auto planeY = getPlane(&img, RGY_PLANE_Y);
@@ -275,7 +275,7 @@ SubImageData RGYFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, con
     const int y_offset = ((rect->y % 2) != 0) ? 1 : 0;
     auto frameTemp = m_cl->createFrameBuffer(ALIGN(rect->w + x_offset, 2), ALIGN(rect->h + y_offset, 2), RGY_CSP_YUVA444, RGY_CSP_BIT_DEPTH[RGY_CSP_YUVA444]);
     frameTemp->queueMapBuffer(queue, CL_MAP_WRITE, wait_events);
-    frameTemp->mapEvent().wait();
+    frameTemp->mapWait();
     auto img = frameTemp->mappedHost();
 
     auto planeY = getPlane(&img, RGY_PLANE_Y);

@@ -136,7 +136,7 @@ RGY_ERR RGYFilterMpdecimateFrameData::set(const RGYFrameInfo *pInputFrame, int i
 }
 
 bool RGYFilterMpdecimateFrameData::checkIfFrameCanbeDropped(const int hi, const int lo, const float factor) {
-    m_tmp->mapEvent().wait();
+    m_tmp->mapWait();
     auto tmpMappedHost = m_tmp->mappedHost();
     const int threshold = (int)((float)tmpMappedHost.width * tmpMappedHost.height * factor + 0.5f);
     int loCount = 0;
