@@ -78,6 +78,7 @@ public:
     bool decodeStarted() { return m_decodeStarted; }
     virtual void showResult();
     RGY_ERR thread_func(RGYParamThread threadParam);
+    RGY_ERR thread_func_compare_frames();
     RGY_ERR compare_frames();
 
     virtual RGY_ERR addBitstream(const RGYBitstream *bitstream);
@@ -100,6 +101,7 @@ protected:
     std::thread m_thread; //スレッド本体
     std::mutex m_mtx;     //m_input, m_unused操作用のロック
     bool m_abort;         //スレッド中断用
+    bool m_dec_flush;
 
     int m_inputOriginal;
     int m_inputEnc;

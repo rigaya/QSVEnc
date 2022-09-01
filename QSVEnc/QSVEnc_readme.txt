@@ -302,6 +302,14 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2022.09.01 (7.14)
+[QSVEncC]
+- --ssim, --psnrの安定性を改善。
+- GPU使用率等の情報収集を改善。
+
+[QSVEnc.auo]
+- AuoLink機能を廃止。
+
 2022.08.25 (7.13)
 [QSVEncC]
 - --audio-streamの処理で、途中で音声のチャンネルが変化した場合にも対応。
