@@ -1642,7 +1642,7 @@ RGY_ERR RGYCLBufMap::unmap(RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEve
     return unmap(queue.get(), wait_events);
 }
 RGY_ERR RGYCLBufMap::unmap(cl_command_queue queue, const std::vector<RGYOpenCLEvent> &wait_events) {
-    if (m_hostPtr) return RGY_ERR_NONE;
+    if (!m_hostPtr) return RGY_ERR_NONE;
     m_queue = queue;
     const std::vector<cl_event> v_wait_list = toVec(wait_events);
     const cl_event *wait_list = (v_wait_list.size() > 0) ? v_wait_list.data() : nullptr;
