@@ -177,6 +177,7 @@
   - [--metadata &lt;string&gt; or &lt;string&gt;=&lt;string&gt;](#--metadata-string-or-stringstring)
   - [--avsync &lt;string&gt;](#--avsync-string)
   - [--timecode [&lt;string&gt;]](#--timecode-string)
+  - [--input-hevc-bsf &lt;string&gt;](#--input-hevc-bsf-string)
 - [vppオプション](#vppオプション)
   - [vppフィルタの適用順](#vppフィルタの適用順)
   - [--vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]](#--vpp-colorspace-param1value1param2value2)
@@ -1409,6 +1410,16 @@ mux時にオプションパラメータを渡す。&lt;string1&gt;にオプシ�
     
 ### --timecode [&lt;string&gt;]  
   指定のパスにtimecodeファイルを出力する。パスを省略した場合には、"&lt;出力ファイル名&gt;.timecode.txt"に出力する。
+
+### --input-hevc-bsf &lt;string&gt;  
+switch hevc bitstream filter used for hw decoder input. (for debug purpose)
+- パラメータ
+
+  - internal
+    内蔵の実装を使用する。 (default)
+
+  - libavcodec
+    libavcodec の hevc_mp4toannexb bitstream filter を使用する。
 
 ## vppオプション
 
