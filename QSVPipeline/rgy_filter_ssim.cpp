@@ -631,40 +631,40 @@ RGY_ERR RGYFilterSsim::thread_func_compare_frames() {
 
 RGY_ERR RGYFilterSsim::compare_frames() {
 #if ENCODER_VCEENC
+    if (!m_decoder) {
+        return RGY_ERR_MORE_DATA;
+    }
     amf::AMFSurfacePtr surf;
     auto ar = AMF_REPEAT;
     //auto timeS = std::chrono::system_clock::now();
-    while (true) {
-        amf::AMFDataPtr data;
-        ar = m_decoder->QueryOutput(&data);
-        if (ar == AMF_EOF) {
-            break;
-        }
-        if (ar == AMF_REPEAT) {
-            ar = AMF_OK; //これ重要...ここが欠けると最後の数フレームが欠落する
-        }
-        if (ar == AMF_OK && data != nullptr) {
-            surf = amf::AMFSurfacePtr(data);
-            break;
-        }
-        if (ar != AMF_OK || m_abort) break;
-        //if ((std::chrono::system_clock::now() - timeS) > std::chrono::seconds(10)) {
-        //    PrintMes(RGY_LOG_ERROR, _T("10 sec has passed after getting last frame from decoder.\n"));
-        //    PrintMes(RGY_LOG_ERROR, _T("Decoder seems to have crushed.\n"));
-        //    ar = AMF_FAIL;
-        //    break;
-        //}
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
+    amf::AMFDataPtr data;
+    ar = m_decoder->QueryOutput(&data);
     if (ar == AMF_EOF) {
         return RGY_ERR_MORE_DATA;
+    }
+    if (ar == AMF_REPEAT) {
+        ar = AMF_OK; //これ重要...ここが欠けると最後の数フレームが欠落する
+    }
+    if (ar == AMF_OK && data != nullptr) {
+        surf = amf::AMFSurfacePtr(data);
+    } else if (ar != AMF_OK) {
+        auto res = err_to_rgy(ar);
+        AddMessage(RGY_LOG_ERROR, _T("Failed to query output: %s.\n"), get_err_mes(res));
+        return res;
     } else if (m_abort) {
         return RGY_ERR_ABORTED;
-    } else if (ar != AMF_OK) {
-        res = err_to_rgy(ar);
-        AddMessage(RGY_LOG_ERROR, _T("Failed to load input frame.\n"));
-        return res;
+    } else {
+        if (m_thread.joinable()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        return RGY_ERR_MORE_BITSTREAM;
     }
+    //if ((std::chrono::system_clock::now() - timeS) > std::chrono::seconds(10)) {
+    //    PrintMes(RGY_LOG_ERROR, _T("10 sec has passed after getting last frame from decoder.\n"));
+    //    PrintMes(RGY_LOG_ERROR, _T("Decoder seems to have crushed.\n"));
+    //    ar = AMF_FAIL;
+    //    break;
+    //}
     auto decFrame = std::make_unique<RGYFrame>(surf);
     const auto &decAmf = decFrame->amf();
     {
@@ -677,8 +677,8 @@ RGY_ERR RGYFilterSsim::compare_frames() {
 #endif
         ar = decAmf->Convert(amf::AMF_MEMORY_OPENCL);
         if (ar != AMF_OK) {
-            res = err_to_rgy(ar);
-            AddMessage(RGY_LOG_ERROR, _T("Failed to load input frame.\n"));
+            auto res = err_to_rgy(ar);
+            AddMessage(RGY_LOG_ERROR, _T("Failed to load input frame: %s.\n"), get_err_mes(res));
             return res;
         }
     }
