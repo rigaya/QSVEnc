@@ -81,18 +81,18 @@ RGY_ERR RGYFilterSmooth::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameInf
 }
 
 RGY_ERR RGYFilterSmooth::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const RGYFrameInfo *targetQPTable, const float qpMul, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
-    auto err = m_cl->createImageFromFrameBuffer(m_srcImage, *pInputFrame, true, CL_MEM_READ_ONLY);
-    if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("Failed to create image from buffer: %s.\n"), get_err_mes(err));
-        return err;
+    auto srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY, &m_srcImagePool);
+    if (!srcImage) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to create image for input frame.\n"));
+        return RGY_ERR_MEM_OBJECT_ALLOCATION_FAILURE;
     }
     for (int i = 0; i < RGY_CSP_PLANES[pOutputFrame->csp]; i++) {
         auto planeDst = getPlane(pOutputFrame, (RGY_PLANE)i);
-        auto planeSrc = getPlane(&m_srcImage->frame, (RGY_PLANE)i);
+        auto planeSrc = getPlane(&srcImage->frame, (RGY_PLANE)i);
         const int qpBlockShift = (i > 0 && RGY_CSP_CHROMA_FORMAT[pOutputFrame->csp] == RGY_CHROMAFMT_YUV420) ? 0 : 1;
         const std::vector<RGYOpenCLEvent> &plane_wait_event = (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>();
         RGYOpenCLEvent *plane_event = (i == RGY_CSP_PLANES[pOutputFrame->csp] - 1) ? event : nullptr;
-        err = procPlane(&planeDst, &planeSrc, targetQPTable, qpBlockShift, qpMul, queue, plane_wait_event, plane_event);
+        auto err = procPlane(&planeDst, &planeSrc, targetQPTable, qpBlockShift, qpMul, queue, plane_wait_event, plane_event);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to denoise(smooth) frame(%d): %s\n"), i, cl_errmes(err));
             return err_cl_to_rgy(err);
@@ -116,7 +116,7 @@ RGY_ERR RGYFilterSmooth::setQP(RGYCLFrame *targetQPTable, const int qp, RGYOpenC
 }
 
 
-RGYFilterSmooth::RGYFilterSmooth(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_smooth(), m_qp(), m_qpSrc(), m_qpSrcB(), m_qpTableRef(nullptr), m_qpTableErrCount(0), m_srcImage() {
+RGYFilterSmooth::RGYFilterSmooth(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_smooth(), m_qp(), m_qpSrc(), m_qpSrcB(), m_qpTableRef(nullptr), m_qpTableErrCount(0), m_srcImagePool() {
     m_name = _T("smooth");
 }
 
@@ -379,7 +379,7 @@ RGY_ERR RGYFilterSmooth::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
 }
 
 void RGYFilterSmooth::close() {
-    m_srcImage.reset();
+    m_srcImagePool.clear();
     m_frameBuf.clear();
     m_smooth.clear();
     m_qp.reset();

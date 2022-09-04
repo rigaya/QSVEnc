@@ -137,18 +137,18 @@ RGY_ERR RGYFilterWarpsharp::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrame
     }
     const float threshold = prm->warpsharp.threshold;
     const float depth = prm->warpsharp.depth;
-    auto err = m_cl->createImageFromFrameBuffer(m_srcImage, *pInputFrame, true, CL_MEM_READ_ONLY);
-    if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("Failed to create image from buffer: %s.\n"), get_err_mes(err));
-        return err;
+    auto srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY, &m_srcImagePool);
+    if (!srcImage) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to create image for input frame.\n"));
+        return RGY_ERR_MEM_OBJECT_ALLOCATION_FAILURE;
     }
 
     const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
     const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
     const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
-    const auto planeInputImgY = getPlane(&m_srcImage->frame, RGY_PLANE_Y);
-    const auto planeInputImgU = getPlane(&m_srcImage->frame, RGY_PLANE_U);
-    const auto planeInputImgV = getPlane(&m_srcImage->frame, RGY_PLANE_V);
+    const auto planeInputImgY = getPlane(&srcImage->frame, RGY_PLANE_Y);
+    const auto planeInputImgU = getPlane(&srcImage->frame, RGY_PLANE_U);
+    const auto planeInputImgV = getPlane(&srcImage->frame, RGY_PLANE_V);
     auto planeMask0Y = getPlane(&m_mask[0]->frame, RGY_PLANE_Y);
     auto planeMask0U = getPlane(&m_mask[0]->frame, RGY_PLANE_U);
     auto planeMask0V = getPlane(&m_mask[0]->frame, RGY_PLANE_V);
@@ -158,7 +158,7 @@ RGY_ERR RGYFilterWarpsharp::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrame
     auto planeOutputY = getPlane(pOutputFrame, RGY_PLANE_Y);
     auto planeOutputU = getPlane(pOutputFrame, RGY_PLANE_U);
     auto planeOutputV = getPlane(pOutputFrame, RGY_PLANE_V);
-    err = procPlane(&planeOutputY, &planeMask0Y, &planeMask1Y, &planeInputY, &planeInputImgY, threshold, depth, queue, wait_events, nullptr);
+    auto err = procPlane(&planeOutputY, &planeMask0Y, &planeMask1Y, &planeInputY, &planeInputImgY, threshold, depth, queue, wait_events, nullptr);
     if (err != RGY_ERR_NONE) {
         return err;
     }
@@ -193,7 +193,7 @@ RGY_ERR RGYFilterWarpsharp::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrame
     return RGY_ERR_NONE;
 }
 
-RGYFilterWarpsharp::RGYFilterWarpsharp(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_warpsharp(), m_mask(), m_srcImage() {
+RGYFilterWarpsharp::RGYFilterWarpsharp(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_warpsharp(), m_mask(), m_srcImagePool() {
     m_name = _T("warpsharp");
 }
 
@@ -316,7 +316,7 @@ RGY_ERR RGYFilterWarpsharp::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
 }
 
 void RGYFilterWarpsharp::close() {
-    m_srcImage.reset();
+    m_srcImagePool.clear();
     m_frameBuf.clear();
     m_warpsharp.clear();
     m_cl.reset();

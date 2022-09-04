@@ -225,7 +225,7 @@ protected:
     bool m_bInterlacedWarn;
     unique_ptr<RGYCLBuf> m_weightSpline;
     RGYOpenCLProgramAsync m_resize;
-    std::unique_ptr<RGYCLFrame> m_srcImage;
+    RGYCLFramePool m_srcImagePool;
 };
 
 class RGYFilterParamPad : public RGYFilterParam {

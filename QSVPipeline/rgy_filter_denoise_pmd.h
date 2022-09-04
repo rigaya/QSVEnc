@@ -57,6 +57,6 @@ protected:
     int m_frameIdx;
     RGYOpenCLProgramAsync m_pmd;
     std::unique_ptr<RGYCLFrame> m_gauss;
-    std::unique_ptr<RGYCLFrame> m_srcImage;
-    std::unique_ptr<RGYCLFrame> m_gaussImage;
+    RGYCLFramePool m_srcImagePool;
+    RGYCLFramePool m_gaussImagePool;
 };

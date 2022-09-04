@@ -55,5 +55,5 @@ protected:
     RGYOpenCLProgramAsync m_unsharp;
     unique_ptr<RGYCLBuf> m_pGaussWeightBufY;
     unique_ptr<RGYCLBuf> m_pGaussWeightBufUV;
-    std::unique_ptr<RGYCLFrame> m_srcImage;
+    RGYCLFramePool m_srcImagePool;
 };

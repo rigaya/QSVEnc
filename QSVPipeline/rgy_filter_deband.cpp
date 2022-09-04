@@ -106,15 +106,15 @@ RGY_ERR RGYFilterDeband::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInf
         frame_wait_event = std::vector<RGYOpenCLEvent>();
     }
 
-    auto err = m_cl->createImageFromFrameBuffer(m_srcImage, *pInputFrame, true, CL_MEM_READ_ONLY);
-    if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("Failed to create image from buffer: %s.\n"), get_err_mes(err));
-        return err;
+    auto srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY, &m_srcImagePool);
+    if (!srcImage) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to create image for input frame.\n"));
+        return RGY_ERR_MEM_OBJECT_ALLOCATION_FAILURE;
     }
     for (int i = 0; i < RGY_CSP_PLANES[pOutputFrame->csp]; i++) {
         const auto iplane = (RGY_PLANE)i;
         auto planeDst = getPlane(pOutputFrame, iplane);
-        auto planeSrc = getPlane(&m_srcImage->frame, iplane);
+        auto planeSrc = getPlane(&srcImage->frame, iplane);
         auto frameRnd = (iplane == RGY_PLANE_Y) ? m_randBufY->frame : m_randBufUV->frame;
         const std::vector<RGYOpenCLEvent> &plane_wait_event = (i == 0) ? frame_wait_event : std::vector<RGYOpenCLEvent>();
         RGYOpenCLEvent *plane_event = (i == RGY_CSP_PLANES[pOutputFrame->csp] - 1) ? event : nullptr;
@@ -129,7 +129,7 @@ RGY_ERR RGYFilterDeband::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInf
 
         const int field_mask = (interlaced(*pInputFrame)) ? -2 : -1;
 
-        err = procPlane(&planeDst, &planeSrc, &frameRnd, range_plane, dither_range, threshold_float, field_mask, iplane, queue, plane_wait_event, plane_event);
+        auto err = procPlane(&planeDst, &planeSrc, &frameRnd, range_plane, dither_range, threshold_float, field_mask, iplane, queue, plane_wait_event, plane_event);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to denoise(deband) frame(%d) %s: %s\n"), i, cl_errmes(err));
             return err_cl_to_rgy(err);
@@ -178,7 +178,7 @@ RGY_ERR RGYFilterDeband::genRand(RGYOpenCLQueue &queue, const std::vector<RGYOpe
     return RGY_ERR_NONE;
 }
 
-RGYFilterDeband::RGYFilterDeband(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_randInitialized(false), m_deband(), m_debandGenRand(), m_rngStream(), m_randStreamBuf(), m_randBufY(), m_randBufUV(), m_srcImage() {
+RGYFilterDeband::RGYFilterDeband(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_randInitialized(false), m_deband(), m_debandGenRand(), m_rngStream(), m_randStreamBuf(), m_randBufY(), m_randBufUV(), m_srcImagePool() {
     m_name = _T("deband");
 }
 
@@ -391,7 +391,7 @@ RGY_ERR RGYFilterDeband::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
 }
 
 void RGYFilterDeband::close() {
-    m_srcImage.reset();
+    m_srcImagePool.clear();
     m_frameBuf.clear();
     m_randBufUV.reset();
     m_randBufY.reset();

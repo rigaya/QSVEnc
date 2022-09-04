@@ -60,17 +60,17 @@ RGY_ERR RGYFilterEdgelevel::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrame
 }
 
 RGY_ERR RGYFilterEdgelevel::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
-    auto err = m_cl->createImageFromFrameBuffer(m_srcImage, *pInputFrame, true, CL_MEM_READ_ONLY);
-    if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("Failed to create image from buffer: %s.\n"), get_err_mes(err));
-        return err;
+    auto srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY, &m_srcImagePool);
+    if (!srcImage) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to create image for input frame.\n"));
+        return RGY_ERR_MEM_OBJECT_ALLOCATION_FAILURE;
     }
     for (int i = 0; i < RGY_CSP_PLANES[pOutputFrame->csp]; i++) {
         auto planeDst = getPlane(pOutputFrame, (RGY_PLANE)i);
-        auto planeSrc = getPlane(&m_srcImage->frame, (RGY_PLANE)i);
+        auto planeSrc = getPlane(&srcImage->frame, (RGY_PLANE)i);
         const std::vector<RGYOpenCLEvent> &plane_wait_event = (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>();
         RGYOpenCLEvent *plane_event = (i == RGY_CSP_PLANES[pOutputFrame->csp] - 1) ? event : nullptr;
-        err = procPlane(&planeDst, &planeSrc, queue, plane_wait_event, plane_event);
+        auto err = procPlane(&planeDst, &planeSrc, queue, plane_wait_event, plane_event);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to denoise(edgelevel) frame(%d) %s: %s\n"), i, cl_errmes(err));
             return err_cl_to_rgy(err);
@@ -79,7 +79,7 @@ RGY_ERR RGYFilterEdgelevel::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrame
     return RGY_ERR_NONE;
 }
 
-RGYFilterEdgelevel::RGYFilterEdgelevel(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_edgelevel(), m_srcImage() {
+RGYFilterEdgelevel::RGYFilterEdgelevel(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_edgelevel(), m_srcImagePool() {
     m_name = _T("edgelevel");
 }
 
@@ -181,7 +181,7 @@ RGY_ERR RGYFilterEdgelevel::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
 }
 
 void RGYFilterEdgelevel::close() {
-    m_srcImage.reset();
+    m_srcImagePool.clear();
     m_frameBuf.clear();
     m_edgelevel.clear();
     m_cl.reset();

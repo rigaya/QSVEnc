@@ -62,6 +62,7 @@
 #include <unordered_map>
 #include <vector>
 #include <array>
+#include <deque>
 #include <memory>
 #include <future>
 #include <typeindex>
@@ -1032,6 +1033,27 @@ enum class RGYFrameCopyMode {
     FIELD_BOTTOM
 };
 
+class RGYCLFramePool;
+
+struct RGYCLImageFromBufferDeleter {
+    RGYCLImageFromBufferDeleter();
+    RGYCLImageFromBufferDeleter(RGYCLFramePool *pool);
+    void operator()(RGYCLFrame *frame);
+private:
+    RGYCLFramePool *m_pool;
+};
+
+class RGYCLFramePool {
+public:
+    RGYCLFramePool();
+    ~RGYCLFramePool();
+    void clear();
+    void add(RGYCLFrame *frame);
+    std::unique_ptr<RGYCLFrame, RGYCLImageFromBufferDeleter> get(const RGYFrameInfo &frame, const bool normalized, const cl_mem_flags flags);
+private:
+    std::deque<std::unique_ptr<RGYCLFrame>> m_pool;
+};
+
 class RGYOpenCLContext {
 public:
     RGYOpenCLContext(shared_ptr<RGYOpenCLPlatform> platform, shared_ptr<RGYLog> pLog);
@@ -1056,8 +1078,9 @@ public:
     RGYOpenCLQueue createQueue(const cl_device_id devid, const cl_command_queue_properties properties);
     std::unique_ptr<RGYCLBuf> createBuffer(size_t size, cl_mem_flags flags = CL_MEM_READ_WRITE, void *host_ptr = nullptr);
     std::unique_ptr<RGYCLBuf> copyDataToBuffer(const void *host_ptr, size_t size, cl_mem_flags flags = CL_MEM_READ_WRITE, cl_command_queue queue = 0);
-    RGY_ERR createImageFromPlane(cl_mem& image, cl_mem buffer, int bit_depth, int channel_order, bool normalized, int pitch, int width, int height, cl_mem_flags flags);
-    RGY_ERR createImageFromFrameBuffer(std::unique_ptr<RGYCLFrame>& imgFrame, const RGYFrameInfo &frame, bool normalized, cl_mem_flags flags);
+    RGY_ERR createImageFromPlane(cl_mem& image, const cl_mem buffer, const int bit_depth, const int channel_order, const bool normalized, const int pitch, const int width, const int height, const cl_mem_flags flags);
+    RGY_ERR createImageFromFrame(RGYFrameInfo& frameImage, const RGYFrameInfo& frame, const bool normalized, const bool cl_image2d_from_buffer_support, const cl_mem_flags flags);
+    std::unique_ptr<RGYCLFrame, RGYCLImageFromBufferDeleter> createImageFromFrameBuffer(const RGYFrameInfo &frame, const bool normalized, const cl_mem_flags flags, RGYCLFramePool *imgpool);
     std::unique_ptr<RGYCLFrame> createFrameBuffer(const int width, const int height, const RGY_CSP csp, const int bitdepth, const cl_mem_flags flags = CL_MEM_READ_WRITE);
     std::unique_ptr<RGYCLFrame> createFrameBuffer(const RGYFrameInfo &frame, cl_mem_flags flags = CL_MEM_READ_WRITE);
     std::unique_ptr<RGYCLFrameInterop> createFrameFromD3D9Surface(void *surf, HANDLE shared_handle, const RGYFrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags = CL_MEM_READ_WRITE);

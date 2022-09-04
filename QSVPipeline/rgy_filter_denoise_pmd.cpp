@@ -122,36 +122,36 @@ RGY_ERR RGYFilterDenoisePmd::denoiseFrame(RGYFrameInfo *pOutputFrame[2], const R
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    auto ret = m_cl->createImageFromFrameBuffer(m_srcImage, *pInputFrame, true, CL_MEM_READ_ONLY);
+    auto srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY, &m_srcImagePool);
+    if (!srcImage) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to create image for input frame.\n"));
+        return RGY_ERR_MEM_OBJECT_ALLOCATION_FAILURE;
+    }
+    auto ret = runGaussFrame(&m_gauss->frame, &srcImage->frame, queue, wait_events, nullptr);
     if (ret != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("Failed to create image from buffer: %s.\n"), get_err_mes(ret));
         return ret;
     }
-    ret = runGaussFrame(&m_gauss->frame, &m_srcImage->frame, queue, wait_events, nullptr);
-    if (ret != RGY_ERR_NONE) {
-        return ret;
-    }
-    ret = m_cl->createImageFromFrameBuffer(m_gaussImage, m_gauss->frame, true, CL_MEM_READ_ONLY);
-    if (ret != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("Failed to create image from buffer: %s.\n"), get_err_mes(ret));
-        return ret;
+    auto gaussImage = m_cl->createImageFromFrameBuffer(m_gauss->frame, true, CL_MEM_READ_ONLY, &m_gaussImagePool);
+    if (!gaussImage) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to create image for gauss frame.\n"));
+        return RGY_ERR_MEM_OBJECT_ALLOCATION_FAILURE;
     }
 
     for (int i = 0; i < prm->pmd.applyCount; i++) {
         const int dst_index = i & 1;
-        ret = runPmdFrame(pOutputFrame[dst_index], &m_srcImage->frame, &m_gaussImage->frame, queue, {}, (i == prm->pmd.applyCount - 1) ? event : nullptr);
+        ret = runPmdFrame(pOutputFrame[dst_index], &srcImage->frame, &gaussImage->frame, queue, {}, (i == prm->pmd.applyCount - 1) ? event : nullptr);
         if (i < prm->pmd.applyCount - 1) {
-            ret = m_cl->createImageFromFrameBuffer(m_srcImage, *(pOutputFrame[dst_index]), true, CL_MEM_READ_ONLY);
-            if (ret != RGY_ERR_NONE) {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to create image from buffer: %s.\n"), get_err_mes(ret));
-                return ret;
+            srcImage = m_cl->createImageFromFrameBuffer(*(pOutputFrame[dst_index]), true, CL_MEM_READ_ONLY, &m_srcImagePool);
+            if (!srcImage) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to create image for input frame (%d).\n"), i);
+                return RGY_ERR_MEM_OBJECT_ALLOCATION_FAILURE;
             }
         }
     }
     return RGY_ERR_NONE;
 }
 
-RGYFilterDenoisePmd::RGYFilterDenoisePmd(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_bInterlacedWarn(false), m_frameIdx(0), m_pmd(), m_gauss(), m_srcImage(), m_gaussImage() {
+RGYFilterDenoisePmd::RGYFilterDenoisePmd(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_bInterlacedWarn(false), m_frameIdx(0), m_pmd(), m_gauss(), m_srcImagePool(), m_gaussImagePool() {
     m_name = _T("pmd");
 }
 
@@ -258,8 +258,8 @@ RGY_ERR RGYFilterDenoisePmd::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
 }
 
 void RGYFilterDenoisePmd::close() {
-    m_gaussImage.reset();
-    m_srcImage.reset();
+    m_gaussImagePool.clear();
+    m_srcImagePool.clear();
     m_frameBuf.clear();
     m_gauss.reset();
     m_pmd.clear();

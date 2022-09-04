@@ -1822,6 +1822,50 @@ RGY_ERR RGYCLFrameInterop::release(RGYOpenCLEvent *event) {
     return RGY_ERR_NONE;
 }
 
+RGYCLImageFromBufferDeleter::RGYCLImageFromBufferDeleter() : m_pool(nullptr) {};
+RGYCLImageFromBufferDeleter::RGYCLImageFromBufferDeleter(RGYCLFramePool *pool) : m_pool(pool) {};
+
+void RGYCLImageFromBufferDeleter::operator()(RGYCLFrame *frame) {
+    if (frame) {
+        if (m_pool) {
+            m_pool->add(frame);
+        } else {
+            delete frame;
+        }
+        frame = nullptr;
+    }
+}
+
+RGYCLFramePool::RGYCLFramePool() : m_pool() {};
+RGYCLFramePool::~RGYCLFramePool() {
+    clear();
+};
+void RGYCLFramePool::clear() {
+    m_pool.clear();
+};
+
+void RGYCLFramePool::add(RGYCLFrame *frame) {
+    if (frame) {
+        m_pool.push_back(std::unique_ptr<RGYCLFrame>(frame));
+    }
+}
+
+std::unique_ptr<RGYCLFrame, RGYCLImageFromBufferDeleter> RGYCLFramePool::get(const RGYFrameInfo &frame, const bool normalized, const cl_mem_flags flags) {
+    const auto target_mem_type = (normalized) ? RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED : RGY_MEM_TYPE_GPU_IMAGE;
+    for (auto it = m_pool.begin(); it != m_pool.end(); it++) {
+        auto& poolFrame = (*it);
+        if (!cmpFrameInfoCspResolution(&poolFrame->frame, &frame)
+            && poolFrame->frame.mem_type == target_mem_type
+            && poolFrame->flags == flags) {
+            auto f = std::move(*it);
+            m_pool.erase(it);
+            return std::unique_ptr<RGYCLFrame, RGYCLImageFromBufferDeleter>(f.release(), RGYCLImageFromBufferDeleter(this));
+        }
+    }
+    return nullptr;
+}
+
+
 tstring clcommandqueueproperties_cl_to_str(const cl_command_queue_properties prop) {
     tstring str;
     if (prop & CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE) str += _T(", OoO exec");
@@ -2375,7 +2419,7 @@ std::unique_ptr<RGYCLBuf> RGYOpenCLContext::copyDataToBuffer(const void *host_pt
     return buffer;
 }
 
-RGY_ERR RGYOpenCLContext::createImageFromPlane(cl_mem &image, cl_mem buffer, int bit_depth, int channel_order, bool normalized, int pitch, int width, int height, cl_mem_flags flags) {
+RGY_ERR RGYOpenCLContext::createImageFromPlane(cl_mem &image, const cl_mem buffer, const int bit_depth, const int channel_order, const bool normalized, const int pitch, const int width, const int height, const cl_mem_flags flags) {
     cl_image_format format;
     format.image_channel_order = channel_order; //チャンネル数
     format.image_channel_data_type =  //データ型
@@ -2404,55 +2448,73 @@ RGY_ERR RGYOpenCLContext::createImageFromPlane(cl_mem &image, cl_mem buffer, int
     return err_cl_to_rgy(err);
 }
 
-RGY_ERR RGYOpenCLContext::createImageFromFrameBuffer(std::unique_ptr<RGYCLFrame>& imgFrame, const RGYFrameInfo &frame, bool normalized, cl_mem_flags flags) {
+RGY_ERR RGYOpenCLContext::createImageFromFrame(RGYFrameInfo& frameImage, const RGYFrameInfo& frame, const bool normalized, const bool cl_image2d_from_buffer_support, const cl_mem_flags flags) {
+    frameImage = frame;
+    frameImage.mem_type = (normalized) ? RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED : RGY_MEM_TYPE_GPU_IMAGE;
+
+    for (int i = 0; i < RGY_CSP_PLANES[frame.csp]; i++) {
+        const auto plane = getPlane(&frame, (RGY_PLANE)i);
+        cl_mem image;
+        auto err = createImageFromPlane(image,
+            (cl_image2d_from_buffer_support) ? (cl_mem)plane.ptr[0] : nullptr,
+            RGY_CSP_BIT_DEPTH[frame.csp], CL_R, normalized,
+            (cl_image2d_from_buffer_support) ? plane.pitch[0] : 0,
+            plane.width, plane.height,
+            (cl_image2d_from_buffer_support) ? flags : CL_MEM_READ_WRITE);
+        if (err != CL_SUCCESS) {
+            CL_LOG(RGY_LOG_ERROR, _T("Failed to create image for plane %d%s: %s\n"),
+                i,
+                cl_image2d_from_buffer_support ? _T(" from buffer memory") : _T(""),
+                cl_errmes(err));
+            for (int j = i - 1; j >= 0; j--) {
+                if (frameImage.ptr[j] != nullptr) {
+                    clReleaseMemObject((cl_mem)frameImage.ptr[j]);
+                    frameImage.ptr[j] = nullptr;
+                }
+            }
+            return err_cl_to_rgy(err);
+        }
+        frameImage.ptr[i] = (uint8_t *)image;
+    }
+    return RGY_ERR_NONE;
+}
+
+std::unique_ptr<RGYCLFrame, RGYCLImageFromBufferDeleter> RGYOpenCLContext::createImageFromFrameBuffer(const RGYFrameInfo &frame, const bool normalized, const cl_mem_flags flags, RGYCLFramePool *imgpool) {
     const auto device = RGYOpenCLDevice(queue().devid());
     // cl_khr_image2d_from_buffer は OpenCL 3.0 / 1.2 ではオプション、2.0 では必須
     // cl_khr_image2d_from_buffer のサポートがない場合は新しいimageをつくり、コピーする必要がある
     const bool cl_not_version_2_0 = device.checkVersion(3, 0) || !device.checkVersion(2, 0);
     const bool cl_image2d_from_buffer_support = (cl_not_version_2_0) ? device.checkExtension("cl_khr_image2d_from_buffer") : true;
 
-    if (cl_image2d_from_buffer_support
-        || !imgFrame
-        || imgFrame->frame.width != frame.width
-        || imgFrame->frame.height != frame.height
-        || imgFrame->frame.csp != frame.csp) {
-
-        RGYFrameInfo frameImage = frame;
-        frameImage.mem_type = (normalized) ? RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED : RGY_MEM_TYPE_GPU_IMAGE;
-
-        for (int i = 0; i < RGY_CSP_PLANES[frame.csp]; i++) {
-            const auto plane = getPlane(&frame, (RGY_PLANE)i);
-            cl_mem image;
-            auto err = createImageFromPlane(image,
-                (cl_image2d_from_buffer_support) ? (cl_mem)plane.ptr[0] : nullptr,
-                RGY_CSP_BIT_DEPTH[frame.csp], CL_R, normalized,
-                (cl_image2d_from_buffer_support) ? plane.pitch[0] : 0,
-                plane.width, plane.height,
-                (cl_image2d_from_buffer_support) ? flags : CL_MEM_READ_WRITE);
-            if (err != CL_SUCCESS) {
-                CL_LOG(RGY_LOG_ERROR, _T("Failed to create image from buffer memory: %s\n"), cl_errmes(err));
-                for (int j = i-1; j >= 0; j--) {
-                    if (frameImage.ptr[j] != nullptr) {
-                        clReleaseMemObject((cl_mem)frameImage.ptr[j]);
-                        frameImage.ptr[j] = nullptr;
-                    }
-                }
-                return err_cl_to_rgy(err);
-            }
-            frameImage.ptr[i] = (uint8_t *)image;
-        }
-        imgFrame = std::make_unique<RGYCLFrame>(frameImage, flags);
-    }
-    if (!cl_image2d_from_buffer_support) {
-        // メモリコピーが必要
-        auto err = copyFrame(&imgFrame->frame, &frame);
+    if (cl_image2d_from_buffer_support) {
+        RGYFrameInfo frameImage;
+        auto err = createImageFromFrame(frameImage, frame, normalized, cl_image2d_from_buffer_support, flags);
         if (err != RGY_ERR_NONE) {
-            imgFrame.reset();
-            return err_cl_to_rgy(err);
+            return nullptr;
         }
-        copyFrameProp(&imgFrame->frame, &frame);
+        return std::unique_ptr<RGYCLFrame, RGYCLImageFromBufferDeleter>(new RGYCLFrame(frameImage, flags), RGYCLImageFromBufferDeleter(nullptr));
     }
-    return RGY_ERR_NONE;
+
+    std::unique_ptr<RGYCLFrame, RGYCLImageFromBufferDeleter> imgFrame;
+    if (imgpool) {
+        imgFrame = imgpool->get(frame, normalized, flags);
+    }
+    if (!imgFrame) {
+        RGYFrameInfo frameImage;
+        auto err = createImageFromFrame(frameImage, frame, normalized, cl_image2d_from_buffer_support, flags);
+        if (err != RGY_ERR_NONE) {
+            return nullptr;
+        }
+        imgFrame = std::unique_ptr<RGYCLFrame, RGYCLImageFromBufferDeleter>(new RGYCLFrame(frameImage, flags), RGYCLImageFromBufferDeleter(imgpool));
+    }
+    // メモリコピーが必要
+    auto err = copyFrame(&imgFrame->frame, &frame);
+    if (err != RGY_ERR_NONE) {
+        imgFrame.reset();
+        return nullptr;
+    }
+    copyFrameProp(&imgFrame->frame, &frame);
+    return imgFrame;
 }
 
 std::unique_ptr<RGYCLFrame> RGYOpenCLContext::createFrameBuffer(const int width, const int height, const RGY_CSP csp, const int bitdepth, const cl_mem_flags flags) {

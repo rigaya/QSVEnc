@@ -52,5 +52,5 @@ protected:
 
     bool m_bInterlacedWarn;
     RGYOpenCLProgramAsync m_edgelevel;
-    std::unique_ptr<RGYCLFrame> m_srcImage;
+    RGYCLFramePool m_srcImagePool;
 };
