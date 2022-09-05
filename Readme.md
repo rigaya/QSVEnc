@@ -150,7 +150,7 @@ This depends on the version of QSVEnc, the generation of the GPU, and also the G
 | TigerLake   | Gen12    | 8bit   | 8bit     | 8bit     | 10bit   | 10bit   | 10bit  |        |
 | RocketLake  | Gen12    | 8bit   | 8bit     | 8bit     | 10bit   | 10bit   | 10bit  |        |
 | AlderLake   | Gen12    | 8bit   | 8bit     | 8bit     | 10bit   | 10bit   | 10bit  |        |
-|             | DG2      | 8bit   |          | 8bit     |         | 10bit   | 10bit  | 10bit  |
+|             | DG2      |        |          | 8bit     |         | 10bit   | 10bit  | 10bit  |
 
 ## Supported HW Decoder
 
