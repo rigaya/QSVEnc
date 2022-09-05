@@ -260,7 +260,7 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
                 impl_desc->AccelerationMode, impl_desc->AccelerationModeDescription, adapterID);
             MFXDispReleaseImplDescription(loader, impl_desc);
 
-            if (accelerationMode == acc && deviceCount == std::max((int)dev, 0)) {
+            if (accelerationMode == acc && deviceCount == std::max((int)dev, 1/*AUTOの時は最初のデバイスを選択*/)) {
                 m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: try init by MFXCreateSession.\n"));
                 sts = MFXCreateSession(loader, impl_idx, (mfxSession *)&m_session);
                 if (sts == MFX_ERR_NONE) break;
