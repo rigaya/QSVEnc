@@ -1,11 +1,11 @@
-QSVEncC (x64) 7.08 (r2752) by rigaya, Aug  6 2022 18:11:31 (VC 1932/Win)
+QSVEncC (x64) 7.15 (r2840) by rigaya, Sep  5 2022 18:45:59 (VC 1932/Win)
  Intel Media SDK API v2.07
  reader: raw, avi, avs, vpy, avsw, avhw [H.264/AVC, H.265/HEVC, MPEG2, VP8, VP9, AV1]
 Environment Info
 OS : Windows 11 x64 (22000) [UTF-8]
 CPU: 12th Gen Intel Core i9-12900K [4.92GHz] (8P+8E,16C/24T)
-RAM: Used 7641 MB, Total 32559 MB
-GPU: Intel Arc A380  Graphics (128EU) 2450MHz (30.0.101.3259)
+RAM: Used 9028 MB, Total 32555 MB
+GPU: Intel Arc A380  Graphics (128EU) 2450MHz (31.0.101.3276)
 
 Media SDK Version: Hardware API v2.07
 
@@ -51,7 +51,7 @@ Codec: H.265/HEVC FF
              CBR   VBR   AVBR  QVBR  CQP   LA    LAHRD ICQ   LAICQ VCM  
 RC mode       o     o     x     o     o     x     x     o     x     x    
 10bit depth   o     o     x     o     o     x     x     o     x     x    
-Hyper Mode    x     x     x     x     x     x     x     x     x     x    
+Hyper Mode    o     o     x     o     o     x     x     o     x     x    
 Interlace     x     x     x     x     o     x     x     x     x     x    
 VUI info      o     o     x     o     o     x     x     o     x     x    
 Trellis       x     x     x     x     x     x     x     x     x     x    
