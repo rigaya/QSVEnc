@@ -126,7 +126,7 @@ This depends on the version of QSVEnc, the generation of the GPU, and also the G
 | KabyLake    | Gen9.5   | [i7 7700K](./GPUFeatures/QSVEnc_KBL_i7_7700K_Win.txt)   | [i7 7700K](./GPUFeatures/QSVEnc_KBL_i7_7700K_Ubuntu2204.txt)  |
 | CoffeeLake  | Gen9.5   |                                                         |  |
 | CommetLake  | Gen9.5   |                                                         |  |
-| Cannonlake  | Gen10    |                                                         |  |
+| Cannonlake  | Gen10    | -                                                       | - |
 | IceLake     | Gen11    | [i5 1035G7](./GPUFeatures/QSVEnc_ICL_i5_1035G7_Win.txt) | [i5 1035G7](./GPUFeatures/QSVEnc_ICL_i5_1035G7_Ubuntu2004.txt)  |
 | TigerLake   | Gen12    |                                                         |  |
 | RocketLake  | Gen12    | [i7 11700K](./GPUFeatures/QSVEnc_RKL_i7_11700K_Win.txt) | [i7 11700K](./GPUFeatures/QSVEnc_RKL_i7_11700K_Ubuntu2204_libmfxgen.txt)  |
