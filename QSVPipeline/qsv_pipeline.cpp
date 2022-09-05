@@ -537,11 +537,25 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
     }
 
     // HyperModeがらみのチェック
-    if (pInParams->hyperMode != MFX_HYPERMODE_OFF && !(availableFeaures & ENC_FEATURE_HYPER_MODE)) {
-        if (pInParams->hyperMode == MFX_HYPERMODE_ON) {
-            print_feature_warnings(RGY_LOG_WARN, _T("HyperMode"));
+    if (pInParams->hyperMode != MFX_HYPERMODE_OFF) {
+        if (!(availableFeaures & ENC_FEATURE_HYPER_MODE)) {
+            if (ENABLE_HYPER_MODE
+                && pInParams->CodecId == MFX_CODEC_HEVC
+                && OVERRIDE_HYPER_MODE_HEVC_FROM_H264) {
+                // HEVCのhyper modeのチェックは使用できる場合でもなぜか成功しない
+                // 原因不明だが、まずはH.264の結果を参照するようにする
+                const auto availRCFeaturesH264 = CheckEncodeFeature(m_mfxSession, pInParams->nEncMode, codec_enc_to_rgy(RGY_CODEC_H264), pInParams->bUseFixedFunc);
+                if (!(availRCFeaturesH264 & ENC_FEATURE_HYPER_MODE)) {
+                    availableFeaures |= ENC_FEATURE_HYPER_MODE;
+                }
+            }
         }
-        pInParams->hyperMode = MFX_HYPERMODE_OFF;
+        if (!(availableFeaures & ENC_FEATURE_HYPER_MODE)) {
+            if (pInParams->hyperMode == MFX_HYPERMODE_ON) {
+                print_feature_warnings(RGY_LOG_WARN, _T("HyperMode"));
+            }
+            pInParams->hyperMode = MFX_HYPERMODE_OFF;
+        }
     }
     if (pInParams->hyperMode == MFX_HYPERMODE_ON) {
         //HyperModeの対象となるGPUのfeature取得を行い、andをとる

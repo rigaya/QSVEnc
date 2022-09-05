@@ -1195,6 +1195,30 @@ std::vector<QSVEncFeatureData> MakeFeatureListPerCodec(const QSVDeviceNum device
             codecFeatures.push_back(MakeFeatureList(deviceNum, rateControlList, codec, true, log));
         }
     }
+    // HEVCのhyper modeのチェックは使用できる場合でもなぜか成功しない
+    // 原因不明だが、まずはH.264の結果を参照するようにする
+    if (ENABLE_HYPER_MODE && OVERRIDE_HYPER_MODE_HEVC_FROM_H264) {
+        for (auto& lowPower : { false, true }) {
+            const auto it_h264 = std::find_if(codecFeatures.begin(), codecFeatures.end(), [lowPower](const QSVEncFeatureData& feature) {
+                return feature.codec == RGY_CODEC_H264 && feature.lowPwer == lowPower;
+            });
+            auto it_hevc = std::find_if(codecFeatures.begin(), codecFeatures.end(), [lowPower](const QSVEncFeatureData& feature) {
+                return feature.codec == RGY_CODEC_HEVC && feature.lowPwer == lowPower;
+            });
+            if (it_h264 != codecFeatures.end()
+                && it_hevc != codecFeatures.end()
+                && std::accumulate(it_hevc->feature.begin(), it_hevc->feature.end(), (uint64_t)0,
+                    [](uint64_t sum, uint64_t value) { return sum | value; }) > 0) {
+                for (size_t irc = 0; irc < rateControlList.size(); irc++) {
+                    if ((it_hevc->feature[irc] & ENC_FEATURE_HYPER_MODE) == 0) { // HEVCのHyperModeがオフで
+                        if ((it_h264->feature[irc] & ENC_FEATURE_HYPER_MODE) != 0) { //H.264のHyperModeは有効なら
+                            it_hevc->feature[irc] |= ENC_FEATURE_HYPER_MODE;
+                        }
+                    }
+                }
+            }
+        }
+    }
     return codecFeatures;
 }
 

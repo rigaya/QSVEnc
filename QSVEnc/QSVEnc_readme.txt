@@ -279,6 +279,15 @@ Core i9 12900K + MSI Z690 Tomahawk DDR4 WIFI
 Intel Graphics Driver 30.0.100.1002  (API v2.05)
 Intel Graphics Driver 30.0.101.1191  (API v2.06)
 
+【検証環境 2022.08～】
+Win11 x64
+Core i9 12900K + MSI Z690 Tomahawk DDR4 WIFI
+Arc A380
+32GB RAM
+Intel Graphics Driver 30.0.101.3221  (API v2.07)
+Intel Graphics Driver 30.0.101.3259  (API v2.07)
+Intel Graphics Driver 31.0.101.3276  (API v2.07)
+
 【Intel Media SDKとAPIの対応関係】
 API v1.32 … Intel Media SDK 2020 R1
 API v1.29 … Intel Media SDK 2019 R1
@@ -302,6 +311,12 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2022.09.05 (7.15)
+[QSVEncC]
+- HEVCでHyperModeが使用できるよう調整。
+- デバイスを自動選択する際、意図しないデバイスを掴んでしまうことがあったのを修正。
+- OpenCLフィルタの安定性改善。
+
 2022.09.01 (7.14)
 [QSVEncC]
 - --ssim, --psnrの安定性を改善。
