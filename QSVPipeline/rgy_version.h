@@ -31,9 +31,9 @@
 
 #include "rgy_rev.h"
 
-#define VER_FILEVERSION             0,7,15,0
-#define VER_STR_FILEVERSION          "7.15"
-#define VER_STR_FILEVERSION_TCHAR _T("7.15")
+#define VER_FILEVERSION             0,7,16,0
+#define VER_STR_FILEVERSION          "7.16"
+#define VER_STR_FILEVERSION_TCHAR _T("7.16")
 
 #ifdef _M_IX86
 #define BUILD_ARCH_STR _T("x86")
@@ -127,7 +127,7 @@ const char *get_encoder_version();
 #if defined(_M_IX86)
 #define ENABLE_METRIC_FRAMEWORK   0
 #else
-#define ENABLE_METRIC_FRAMEWORK   1
+#define ENABLE_METRIC_FRAMEWORK   0
 #endif
 #endif
 #define ENABLE_CAPTION2ASS        1

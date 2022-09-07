@@ -311,6 +311,10 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2022.09.07 (7.16)
+[QSVEncC]
+- QSVEnc 7.15で、Icelakeより前の環境でHEVCエンコードができなくなっていた問題を修正。
+
 2022.09.05 (7.15)
 [QSVEncC]
 - HEVCでHyperModeが使用できるよう調整。
