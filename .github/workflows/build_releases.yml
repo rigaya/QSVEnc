@@ -188,6 +188,7 @@ jobs:
           7z x -oAviutl_QSVEnc_release\exe_files\QSVEncC\x64\ QSVEncC_${{ needs.get_version_name.outputs.version_name }}_x64.7z
           copy /y _build\Win32\Release\QSVEnc.auo Aviutl_QSVEnc_release\plugins\
           copy /y QSVEnc\QSVEnc.ini Aviutl_QSVEnc_release\plugins\
+          copy /y QSVEnc\QSVEnc.en.ini Aviutl_QSVEnc_release\plugins\
           copy /y QSVEnc\auo_setup.ini Aviutl_QSVEnc_release\exe_files\
           copy /y QSVEnc\QSVEnc_readme.txt Aviutl_QSVEnc_release\
           copy /y "QSVEnc\QSVが利用可能か確認 [ダブルクリック].bat" Aviutl_QSVEnc_release\
