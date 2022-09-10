@@ -28,6 +28,8 @@
 #include <winver.h>
 #include "auo_version.h"
 
+QSVENC_JA_LNG EXE_DATA DISCARDABLE "QSVEnc.ja.lng"
+QSVENC_EN_LNG EXE_DATA DISCARDABLE "QSVEnc.en.lng"
 
 //
 // Version Information

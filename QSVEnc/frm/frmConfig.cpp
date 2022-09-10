@@ -39,7 +39,7 @@
 #include "frmBitrateCalculator.h"
 #include "mfxstructures.h"
 
-using namespace QSVEnc;
+using namespace AUO_NAME_R;
 
 /// -------------------------------------------------
 ///     設定画面の表示
@@ -62,13 +62,13 @@ System::Boolean frmSaveNewStg::checkStgFileName(String^ stgName) {
         return false;
 
     if (!ValidiateFileName(stgName)) {
-        MessageBox::Show(L"ファイル名に使用できない文字が含まれています。\n保存できません。", L"エラー", MessageBoxButtons::OK, MessageBoxIcon::Error);
+        MessageBox::Show(LOAD_CLI_STRING(AUO_CONFIG_ERR_INVALID_CHAR), LOAD_CLI_STRING(AUO_GUIEX_ERROR), MessageBoxButtons::OK, MessageBoxIcon::Error);
         return false;
     }
     if (String::Compare(Path::GetExtension(stgName), L".stg", true))
         stgName += L".stg";
     if (File::Exists(fileName = Path::Combine(fsnCXFolderBrowser->GetSelectedFolder(), stgName)))
-        if (MessageBox::Show(stgName + L" はすでに存在します。上書きしますか?", L"上書き確認", MessageBoxButtons::YesNo, MessageBoxIcon::Question)
+        if (MessageBox::Show(stgName + LOAD_CLI_STRING(AUO_CONFIG_ALREADY_EXISTS), LOAD_CLI_STRING(AUO_CONFIG_OVERWRITE_CHECK), MessageBoxButtons::YesNo, MessageBoxIcon::Question)
             != System::Windows::Forms::DialogResult::Yes)
             return false;
     StgFileName = fileName;
@@ -170,7 +170,6 @@ System::Void frmBitrateCalculator::SetAllMouseMove(Control ^top, const AuoTheme 
     }
 }
 
-
 /// -------------------------------------------------
 ///     frmConfig 関数  (frmBitrateCalculator関連)
 /// -------------------------------------------------
@@ -260,7 +259,7 @@ System::Boolean frmConfig::CheckLocalStg() {
         && !File::Exists(LocalStg.vidEncPath)) {
         if (!error) err += L"\n\n";
         error = true;
-        err += L"指定された 動画エンコーダ は存在しません。\n [ " + LocalStg.vidEncPath + L" ]\n";
+        err += LOAD_CLI_STRING(AUO_CONFIG_VID_ENC_NOT_EXIST) + L"\n [ " + LocalStg.vidEncPath + L" ]\n";
     }
     //音声エンコーダのチェック (実行ファイル名がない場合はチェックしない)
     if (fcgCBAudioUseExt->Checked
@@ -274,7 +273,7 @@ System::Boolean frmConfig::CheckLocalStg() {
             //選択された音声がfawでない または fawであってもfaw2aacがない
             if (!error) err += L"\n\n";
             error = true;
-            err += L"指定された 音声エンコーダ は存在しません。\n [ " + AudioEncoderPath + L" ]\n";
+            err += LOAD_CLI_STRING(AUO_CONFIG_AUD_ENC_NOT_EXIST) + L"\n [ " + AudioEncoderPath + L" ]\n";
         }
     }
     //FAWのチェック
@@ -282,21 +281,21 @@ System::Boolean frmConfig::CheckLocalStg() {
         if (sys_dat->exstg->get_faw_index(!fcgCBAudioUseExt->Checked) == FAW_INDEX_ERROR) {
             if (!error) err += L"\n\n";
             error = true;
-            err += L"FAWCheckが選択されましたが、QSVEnc.ini から\n"
-                + L"FAW の設定を読み込めませんでした。\n"
-                + L"QSVEnc.ini を確認してください。\n";
+            err += LOAD_CLI_STRING(AUO_CONFIG_FAW_STG_NOT_FOUND_IN_INI1) + L"\n"
+                +  LOAD_CLI_STRING(AUO_CONFIG_FAW_STG_NOT_FOUND_IN_INI2) + L"\n"
+                +  LOAD_CLI_STRING(AUO_CONFIG_FAW_STG_NOT_FOUND_IN_INI3);
         } else if (fcgCBAudioUseExt->Checked
                    && !File::Exists(LocalStg.audEncPath[sys_dat->exstg->get_faw_index(!fcgCBAudioUseExt->Checked)])
                    && !check_if_faw2aac_exists()) {
             //fawの実行ファイルが存在しない かつ faw2aacも存在しない
             if (!error) err += L"\n\n";
             error = true;
-            err += L"FAWCheckが選択されましたが、FAW(fawcl)へのパスが正しく指定されていません。\n"
-                +  L"一度設定画面でFAW(fawcl)へのパスを指定してください。\n";
+            err += LOAD_CLI_STRING(AUO_CONFIG_FAW_PATH_UNSET1) + L"\n"
+                +  LOAD_CLI_STRING(AUO_CONFIG_FAW_PATH_UNSET2);
         }
     }
     if (error)
-        MessageBox::Show(this, err, L"エラー", MessageBoxButtons::OK, MessageBoxIcon::Error);
+        MessageBox::Show(this, err, LOAD_CLI_STRING(AUO_GUIEX_ERROR), MessageBoxButtons::OK, MessageBoxIcon::Error);
     return error;
 }
 
@@ -330,12 +329,12 @@ System::Void frmConfig::SetLocalStg() {
     fcgTXCustomAudioTempDir->Text = LocalStg.CustomAudTmpDir;
     fcgTXCustomTempDir->Text      = LocalStg.CustomTmpDir;
     fcgTXMP4BoxTempDir->Text      = LocalStg.CustomMP4TmpDir;
-    fcgLBVideoEncoderPath->Text   = LocalStg.vidEncName + L" の指定";
-    fcgLBMP4MuxerPath->Text       = LocalStg.MP4MuxerExeName + L" の指定";
-    fcgLBMKVMuxerPath->Text       = LocalStg.MKVMuxerExeName + L" の指定";
-    fcgLBTC2MP4Path->Text         = LocalStg.TC2MP4ExeName   + L" の指定";
-    fcgLBMPGMuxerPath->Text       = LocalStg.MPGMuxerExeName + L" の指定";
-    fcgLBMP4RawPath->Text         = LocalStg.MP4RawExeName + L" の指定";
+    fcgLBVideoEncoderPath->Text   = LocalStg.vidEncName      + LOAD_CLI_STRING(AUO_CONFIG_SPECIFY_EXE_PATH);
+    fcgLBMP4MuxerPath->Text       = LocalStg.MP4MuxerExeName + LOAD_CLI_STRING(AUO_CONFIG_SPECIFY_EXE_PATH);
+    fcgLBMKVMuxerPath->Text       = LocalStg.MKVMuxerExeName + LOAD_CLI_STRING(AUO_CONFIG_SPECIFY_EXE_PATH);
+    fcgLBTC2MP4Path->Text         = LocalStg.TC2MP4ExeName   + LOAD_CLI_STRING(AUO_CONFIG_SPECIFY_EXE_PATH);
+    fcgLBMPGMuxerPath->Text       = LocalStg.MPGMuxerExeName + LOAD_CLI_STRING(AUO_CONFIG_SPECIFY_EXE_PATH);
+    fcgLBMP4RawPath->Text         = LocalStg.MP4RawExeName   + LOAD_CLI_STRING(AUO_CONFIG_SPECIFY_EXE_PATH);
 
     fcgTXVideoEncoderPath->SelectionStart = fcgTXVideoEncoderPath->Text->Length;
     fcgTXMP4MuxerPath->SelectionStart     = fcgTXMP4MuxerPath->Text->Length;
@@ -380,7 +379,7 @@ System::Boolean frmConfig::EnableSettingsNoteChange(bool Enable) {
         fcgTSLSettingsNotes->Visible == !Enable)
         return true;
     if (CountStringBytes(fcgTSTSettingsNotes->Text) > fcgTSTSettingsNotes->MaxLength - 1) {
-        MessageBox::Show(this, L"入力された文字数が多すぎます。減らしてください。", L"エラー", MessageBoxButtons::OK, MessageBoxIcon::Error);
+        MessageBox::Show(this, LOAD_CLI_STRING(AUO_CONFIG_TEXT_LIMIT_LENGTH), LOAD_CLI_STRING(AUO_GUIEX_ERROR), MessageBoxButtons::OK, MessageBoxIcon::Error);
         fcgTSTSettingsNotes->Focus();
         fcgTSTSettingsNotes->SelectionStart = fcgTSTSettingsNotes->Text->Length;
         return false;
@@ -390,7 +389,7 @@ System::Boolean frmConfig::EnableSettingsNoteChange(bool Enable) {
     if (Enable) {
         fcgTSTSettingsNotes->Text = fcgTSLSettingsNotes->Text;
         fcgTSTSettingsNotes->Focus();
-        bool isDefaultNote = String::Compare(fcgTSTSettingsNotes->Text, String(DefaultStgNotes).ToString()) == 0;
+        bool isDefaultNote = fcgTSLSettingsNotes->Overflow != ToolStripItemOverflow::Never;
         fcgTSTSettingsNotes->Select((isDefaultNote) ? 0 : fcgTSTSettingsNotes->Text->Length, fcgTSTSettingsNotes->Text->Length);
     } else {
         SetfcgTSLSettingsNotes(fcgTSTSettingsNotes->Text);
@@ -398,6 +397,9 @@ System::Boolean frmConfig::EnableSettingsNoteChange(bool Enable) {
     }
     return true;
 }
+
+
+///////////////////  メモ関連  ///////////////////////////////////////////////
 System::Void frmConfig::fcgTSLSettingsNotes_DoubleClick(System::Object^  sender, System::EventArgs^  e) {
     EnableSettingsNoteChange(true);
 }
@@ -442,7 +444,7 @@ System::Void frmConfig::setAudioExtDisplay() {
     AUDIO_SETTINGS *astg = &sys_dat->exstg->s_aud_ext[fcgCXAudioEncoder->SelectedIndex];
     //～の指定
     if (str_has_char(astg->filename)) {
-        fcgLBAudioEncoderPath->Text = String(astg->filename).ToString() + L" の指定";
+        fcgLBAudioEncoderPath->Text = String(astg->filename).ToString() + LOAD_CLI_STRING(AUO_CONFIG_SPECIFY_EXE_PATH);
         fcgTXAudioEncoderPath->Enabled = true;
         fcgTXAudioEncoderPath->Text = LocalStg.audEncPath[fcgCXAudioEncoder->SelectedIndex];
         fcgBTAudioEncoderPath->Enabled = true;
@@ -499,8 +501,16 @@ System::Void frmConfig::AudioExtEncodeModeChanged() {
         const int items_to_set = _countof(AUDIO_DELAY_CUT_MODE) - 1 - ((delay_cut_edts_available) ? 0 : 1);
         fcgCXAudioDelayCut->BeginUpdate();
         fcgCXAudioDelayCut->Items->Clear();
-        for (int i = 0; i < items_to_set; i++)
-            fcgCXAudioDelayCut->Items->Add(String(AUDIO_DELAY_CUT_MODE[i]).ToString());
+        for (int i = 0; i < items_to_set; i++) {
+            String^ string = nullptr;
+            if (AUDIO_DELAY_CUT_MODE[i].mes != AUO_MES_UNKNOWN) {
+                string = LOAD_CLI_STRING(AUDIO_DELAY_CUT_MODE[i].mes);
+            }
+            if (string == nullptr || string->Length == 0) {
+                string = String(AUDIO_DELAY_CUT_MODE[i].desc).ToString();
+            }
+            fcgCXAudioDelayCut->Items->Add(string);
+        }
         fcgCXAudioDelayCut->EndUpdate();
         fcgCXAudioDelayCut->SelectedIndex = (current_idx >= items_to_set) ? 0 : current_idx;
     } else {
@@ -595,7 +605,7 @@ System::Void frmConfig::UncheckAllDropDownItem(ToolStripItem^ mItem) {
 System::Void frmConfig::CheckTSSettingsDropDownItem(ToolStripMenuItem^ mItem) {
     UncheckAllDropDownItem(fcgTSSettings);
     CheckedStgMenuItem = mItem;
-    fcgTSSettings->Text = (mItem == nullptr) ? L"プロファイル" : mItem->Text;
+    fcgTSSettings->Text = (mItem == nullptr) ? LOAD_CLI_STRING(AUO_CONFIG_PROFILE) : mItem->Text;
     if (mItem != nullptr)
         mItem->Checked = true;
     fcgTSBSave->Enabled = false;
@@ -638,10 +648,10 @@ System::Void frmConfig::SaveToStgFile(String^ stgName) {
     free(stg_name);
     switch (result) {
         case CONF_ERROR_FILE_OPEN:
-            MessageBox::Show(L"設定ファイルオープンに失敗しました。", L"エラー", MessageBoxButtons::OK, MessageBoxIcon::Error);
+            MessageBox::Show(LOAD_CLI_STRING(AUO_CONFIG_ERR_OPEN_STG_FILE), LOAD_CLI_STRING(AUO_GUIEX_ERROR), MessageBoxButtons::OK, MessageBoxIcon::Error);
             return;
         case CONF_ERROR_INVALID_FILENAME:
-            MessageBox::Show(L"ファイル名に使用できない文字が含まれています。\n保存できません。", L"エラー", MessageBoxButtons::OK, MessageBoxIcon::Error);
+            MessageBox::Show(LOAD_CLI_STRING(AUO_CONFIG_ERR_INVALID_CHAR), LOAD_CLI_STRING(AUO_GUIEX_ERROR), MessageBoxButtons::OK, MessageBoxIcon::Error);
             return;
         default:
             break;
@@ -671,8 +681,8 @@ System::Void frmConfig::fcgTSBSaveNew_Click(System::Object^  sender, System::Eve
 
 System::Void frmConfig::DeleteStgFile(ToolStripMenuItem^ mItem) {
     if (System::Windows::Forms::DialogResult::OK ==
-        MessageBox::Show(L"設定ファイル " + mItem->Text + L" を削除してよろしいですか?",
-        L"エラー", MessageBoxButtons::OKCancel, MessageBoxIcon::Exclamation))
+        MessageBox::Show(LOAD_CLI_STRING(AUO_CONFIG_ASK_STG_FILE_DELETE) + L"[" + mItem->Text + L"]",
+        LOAD_CLI_STRING(AUO_GUIEX_ERROR), MessageBoxButtons::OKCancel, MessageBoxIcon::Exclamation))
     {
         File::Delete(mItem->Tag->ToString());
         RebuildStgFileDropDown(nullptr);
@@ -695,9 +705,9 @@ System::Void frmConfig::fcgTSSettings_DropDownItemClicked(System::Object^  sende
     char stg_path[MAX_PATH_LEN];
     GetCHARfromString(stg_path, sizeof(stg_path), ClickedMenuItem->Tag->ToString());
     if (guiEx_config::load_guiEx_conf(&load_stg, stg_path) == CONF_ERROR_FILE_OPEN) {
-        if (MessageBox::Show(L"設定ファイルオープンに失敗しました。\n"
-                           + L"このファイルを削除しますか?",
-                           L"エラー", MessageBoxButtons::YesNo, MessageBoxIcon::Error)
+        if (MessageBox::Show(LOAD_CLI_STRING(AUO_CONFIG_ERR_OPEN_STG_FILE) + L"\n"
+                           + LOAD_CLI_STRING(AUO_CONFIG_ASK_STG_FILE_DELETE),
+                           LOAD_CLI_STRING(AUO_GUIEX_ERROR), MessageBoxButtons::YesNo, MessageBoxIcon::Error)
                            == System::Windows::Forms::DialogResult::Yes)
             DeleteStgFile(ClickedMenuItem);
         return;
@@ -734,6 +744,80 @@ System::Void frmConfig::RebuildStgFileDropDown(String^ stgDir) {
     RebuildStgFileDropDown(fcgTSSettings, Path::GetFullPath(CurrentStgDir));
 }
 
+///////////////   言語ファイル関連   //////////////////////
+
+System::Void frmConfig::CheckTSLanguageDropDownItem(ToolStripMenuItem^ mItem) {
+    UncheckAllDropDownItem(fcgTSLanguage);
+    fcgTSLanguage->Text = (mItem == nullptr) ? LOAD_CLI_STRING(AuofcgTSSettings) : mItem->Text;
+    if (mItem != nullptr)
+        mItem->Checked = true;
+}
+System::Void frmConfig::SetSelectedLanguage(const char *language_text) {
+    for (int i = 0; i < fcgTSLanguage->DropDownItems->Count; i++) {
+        ToolStripMenuItem^ item = dynamic_cast<ToolStripMenuItem^>(fcgTSLanguage->DropDownItems[i]);
+        char item_text[MAX_PATH_LEN];
+        GetCHARfromString(item_text, sizeof(item_text), item->Tag->ToString());
+        if (strncmp(item_text, language_text, strlen(language_text)) == 0) {
+            CheckTSLanguageDropDownItem(item);
+            break;
+        }
+    }
+}
+
+System::Void frmConfig::SaveSelectedLanguage(const char *language_text) {
+    sys_dat->exstg->set_and_save_lang(language_text);
+}
+
+System::Void frmConfig::fcgTSLanguage_DropDownItemClicked(System::Object^  sender, System::Windows::Forms::ToolStripItemClickedEventArgs^  e) {
+    ToolStripMenuItem^ ClickedMenuItem = dynamic_cast<ToolStripMenuItem^>(e->ClickedItem);
+    if (ClickedMenuItem == nullptr)
+        return;
+    if (ClickedMenuItem->Tag == nullptr || ClickedMenuItem->Tag->ToString()->Length == 0)
+        return;
+
+    char language_text[MAX_PATH_LEN];
+    GetCHARfromString(language_text, sizeof(language_text), ClickedMenuItem->Tag->ToString());
+    SaveSelectedLanguage(language_text);
+    load_lng(language_text);
+    overwrite_aviutl_ini_auo_info();
+    LoadLangText();
+    CheckTSLanguageDropDownItem(ClickedMenuItem);
+}
+
+System::Void frmConfig::InitLangList() {
+    if (list_lng != nullptr) {
+        delete list_lng;
+    }
+#define ENABLE_LNG_FILE_DETECT 1
+#if ENABLE_LNG_FILE_DETECT
+    auto lnglist = find_lng_files();
+    list_lng = new std::vector<std::string>();
+    for (const auto& lang : lnglist) {
+        list_lng->push_back(lang);
+    }
+#endif
+
+    fcgTSLanguage->DropDownItems->Clear();
+
+    for (const auto& auo_lang : list_auo_languages) {
+        String^ label = String(auo_lang.code).ToString() + L" (" + String(auo_lang.name).ToString() + L")";
+        ToolStripMenuItem^ mItem = gcnew ToolStripMenuItem(label);
+        mItem->DropDownItemClicked += gcnew System::Windows::Forms::ToolStripItemClickedEventHandler(this, &frmConfig::fcgTSLanguage_DropDownItemClicked);
+        mItem->Tag = String(auo_lang.code).ToString();
+        fcgTSLanguage->DropDownItems->Add(mItem);
+    }
+#if ENABLE_LNG_FILE_DETECT
+    for (size_t i = 0; i < list_lng->size(); i++) {
+        auto filename = String(PathFindFileNameA((*list_lng)[i].c_str())).ToString();
+        ToolStripMenuItem^ mItem = gcnew ToolStripMenuItem(filename);
+        mItem->DropDownItemClicked += gcnew System::Windows::Forms::ToolStripItemClickedEventHandler(this, &frmConfig::fcgTSLanguage_DropDownItemClicked);
+        mItem->Tag = filename;
+        fcgTSLanguage->DropDownItems->Add(mItem);
+    }
+#endif
+    SetSelectedLanguage(sys_dat->exstg->get_lang());
+}
+
 //////////////   初期化関連     ////////////////
 System::Void frmConfig::InitData(CONF_GUIEX *set_config, const SYSTEM_DATA *system_data) {
     if (set_config->size_all != CONF_INITIALIZED) {
@@ -747,14 +831,14 @@ System::Void frmConfig::InitData(CONF_GUIEX *set_config, const SYSTEM_DATA *syst
 System::Void frmConfig::InitComboBox() {
     //コンボボックスに値を設定する
     setComboBox(fcgCXEncMode,         list_encmode);
-    setComboBox(fcgCXOutputType,      list_outtype);
+    setComboBox(fcgCXEncCodec,        list_out_enc_codec);
     setComboBox(fcgCXHyperMode,       list_hyper_mode);
     setComboBox(fcgCXCodecLevel,      list_avc_level);
     setComboBox(fcgCXCodecProfile,    list_avc_profile);
     setComboBox(fcgCXOutputCsp,       list_output_csp);
-    setComboBox(fcgCXQuality,         list_quality);
-    setComboBox(fcgCXInterlaced,      list_interlaced_mfx);
-    setComboBox(fcgCXAspectRatio,     list_aspect_ratio);
+    setComboBox(fcgCXQualityPreset,   list_quality);
+    setComboBox(fcgCXInterlaced,      list_interlaced_mfx_gui);
+    setComboBox(fcgCXAspectRatio,     aspect_desc);
     setComboBox(fcgCXTrellis,         list_avc_trellis);
     setComboBox(fcgCXLookaheadDS,     list_lookahead_ds);
 
@@ -764,9 +848,9 @@ System::Void frmConfig::InitComboBox() {
 
     setComboBox(fcgCXMVCostScaling,   list_mv_cost_scaling);
 
-    setComboBox(fcgCXAudioTempDir,    list_audtempdir);
-    setComboBox(fcgCXMP4BoxTempDir,   list_mp4boxtempdir);
-    setComboBox(fcgCXTempDir,         list_tempdir);
+    setComboBox(fcgCXAudioTempDir,    audtempdir_desc);
+    setComboBox(fcgCXMP4BoxTempDir,   mp4boxtempdir_desc);
+    setComboBox(fcgCXTempDir,    tempdir_desc);
 
     setComboBox(fcgCXColorPrim,       list_colorprim, "auto");
     setComboBox(fcgCXColorMatrix,     list_colormatrix, "auto");
@@ -778,7 +862,7 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXVppDetailEnhance, list_vpp_detail_enahance);
 
     setComboBox(fcgCXVppResizeAlg,   list_vpp_resize);
-    setComboBox(fcgCXVppDeinterlace, list_deinterlace_ja);
+    setComboBox(fcgCXVppDeinterlace, list_deinterlace_gui);
     setComboBox(fcgCXVppAfsAnalyze,  list_vpp_afs_analyze);
     setComboBox(fcgCXVppNnediNsize,  list_vpp_nnedi_nsize);
     setComboBox(fcgCXVppNnediNns,    list_vpp_nnedi_nns);
@@ -787,7 +871,7 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXVppNnediPrescreen, list_vpp_nnedi_pre_screen_gui);
     setComboBox(fcgCXVppNnediErrorType, list_vpp_nnedi_error_type);
     setComboBox(fcgCXVppYadifMode,      list_vpp_yadif_mode_gui);
-    setComboBox(fcgCXVppDebandSample,   list_vpp_deband);
+    setComboBox(fcgCXVppDebandSample,   list_vpp_deband_gui);
 
     setComboBox(fcgCXImageStabilizer, list_vpp_image_stabilizer);
     setComboBox(fcgCXRotate,          list_rotate_angle_ja);
@@ -847,17 +931,17 @@ System::Boolean frmConfig::fcgCheckCodec() {
         return result;
     }
 
-    for (int codecIdx = 1; list_outtype[codecIdx].desc; codecIdx++) {
-        const mfxU32 codecId = list_outtype[codecIdx].value;
+    for (int codecIdx = 1; list_out_enc_codec[codecIdx].desc; codecIdx++) {
+        const mfxU32 codecId = list_out_enc_codec[codecIdx].value;
         const bool codecAvail = featuresHW->getCodecAvail(fcgCXDevice->SelectedIndex, codecId);
         if (!codecAvail) {
-            fcgCXOutputType->Items[codecIdx] = L"-----------------";
-            if (fcgCXOutputType->SelectedIndex == codecIdx) {
-                fcgCXOutputType->SelectedIndex = 0;
+            fcgCXEncCodec->Items[codecIdx] = L"-----------------";
+            if (fcgCXEncCodec->SelectedIndex == codecIdx) {
+                fcgCXEncCodec->SelectedIndex = 0;
                 result = true;
             }
         } else {
-            fcgCXOutputType->Items[codecIdx] = String(list_outtype[codecIdx].desc).ToString();
+            fcgCXEncCodec->Items[codecIdx] = String(list_out_enc_codec[codecIdx].desc).ToString();
         }
     }
     return result;
@@ -867,7 +951,7 @@ System::Void frmConfig::fcgCheckFixedFunc() {
     if (featuresHW == nullptr) {
         return;
     }
-    const mfxU32 codecId = list_outtype[fcgCXOutputType->SelectedIndex].value;
+    const mfxU32 codecId = list_out_enc_codec[fcgCXEncCodec->SelectedIndex].value;
     if (!featuresHW->getCodecAvail(fcgCXDevice->SelectedIndex, codecId)) {
         return;
     }
@@ -890,7 +974,14 @@ System::Boolean frmConfig::fcgCheckRCModeLibVersion(int rc_mode_target, int rc_m
     if (encmode_idx < 0)
         return false;
     if (mode_supported) {
-        fcgCXEncMode->Items[encmode_idx] = String(list_encmode[encmode_idx].desc).ToString();
+        String^ encomodeName = nullptr;
+        if (list_encmode[encmode_idx].mes != AUO_MES_UNKNOWN) {
+            encomodeName = LOAD_CLI_STRING(list_encmode[encmode_idx].mes);
+        }
+        if (encomodeName == nullptr || encomodeName->Length == 0) {
+            encomodeName = String(list_encmode[encmode_idx].desc).ToString();
+        }
+        fcgCXEncMode->Items[encmode_idx] = encomodeName;
     } else {
         fcgCXEncMode->Items[encmode_idx] = L"-----------------";
         if (fcgCXEncMode->SelectedIndex == encmode_idx) {
@@ -931,10 +1022,10 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU64 available_features) {
     fcgCXVideoFormat->Enabled = 0 != (available_features & ENC_FEATURE_VUI_INFO);
     fcgLBFullrange->Enabled   = 0 != (available_features & ENC_FEATURE_VUI_INFO);
     fcgCBFullrange->Enabled   = 0 != (available_features & ENC_FEATURE_VUI_INFO);
-    fcggroupBoxColor->Enabled = 0 != (available_features & ENC_FEATURE_VUI_INFO);
+    fcggroupBoxColorMatrix->Enabled = 0 != (available_features & ENC_FEATURE_VUI_INFO);
     if (!fcgCXVideoFormat->Enabled) fcgCXVideoFormat->SelectedIndex = 0;
     if (!fcgCBFullrange->Enabled)   fcgCBFullrange->Checked = false;
-    if (!fcggroupBoxColor->Enabled) {
+    if (!fcggroupBoxColorMatrix->Enabled) {
         fcgCXColorMatrix->SelectedIndex = 0;
         fcgCXColorPrim->SelectedIndex = 0;
         fcgCXTransfer->SelectedIndex = 0;
@@ -1009,7 +1100,7 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     }
 
     this->SuspendLayout();
-    const mfxU32 codecId = list_outtype[fcgCXOutputType->SelectedIndex].value;
+    const mfxU32 codecId = list_out_enc_codec[fcgCXEncCodec->SelectedIndex].value;
     const mfxU64 available_features = featuresHW->getFeatureOfRC(fcgCXDevice->SelectedIndex, fcgCXEncMode->SelectedIndex, codecId, fcgCBFixedFunc->Checked);
 
     //つぎに全体のチェックを行う
@@ -1070,9 +1161,9 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     fcgPNVppUnsharp->Visible = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("unsharp")));
     fcgPNVppEdgelevel->Visible = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("edgelevel")));
     fcgPNVppWarpsharp->Visible = (fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("warpsharp")));
-    fcgPNVppAfs->Visible = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_ja, _T("自動フィールドシフト")));
-    fcgPNVppNnedi->Visible = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_ja, _T("nnedi")));
-    fcgPNVppYadif->Visible = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_ja, _T("yadif")));
+    fcgPNVppAfs->Visible = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_gui, L"自動フィールドシフト"));
+    fcgPNVppNnedi->Visible = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_gui, L"nnedi"));
+    fcgPNVppYadif->Visible = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_gui, L"yadif"));
     fcggroupBoxVppDeband->Enabled = fcgCBVppDebandEnable->Checked;
 
     this->ResumeLayout();
@@ -1122,15 +1213,15 @@ System::Void frmConfig::fcgDevOutputTypeFFPGChanged(System::Object^  sender, Sys
 
     this->SuspendLayout();
 
-    if (fcgCheckCodec() || sender == fcgCXOutputType) {
-        setComboBox(fcgCXCodecLevel, get_level_list(list_outtype[fcgCXOutputType->SelectedIndex].value));
-        setComboBox(fcgCXCodecProfile, get_profile_list(list_outtype[fcgCXOutputType->SelectedIndex].value));
+    if (fcgCheckCodec() || sender == fcgCXEncCodec) {
+        setComboBox(fcgCXCodecLevel, get_level_list(list_out_enc_codec[fcgCXEncCodec->SelectedIndex].value));
+        setComboBox(fcgCXCodecProfile, get_profile_list(list_out_enc_codec[fcgCXEncCodec->SelectedIndex].value));
         fcgCXCodecLevel->SelectedIndex = 0;
         fcgCXCodecProfile->SelectedIndex = 0;
     }
     fcgCheckFixedFunc();
 
-    const mfxU32 codecId = list_outtype[fcgCXOutputType->SelectedIndex].value;
+    const mfxU32 codecId = list_out_enc_codec[fcgCXEncCodec->SelectedIndex].value;
     mfxU64 available_features = featuresHW->getFeatureOfRC(fcgCXDevice->SelectedIndex, fcgCXEncMode->SelectedIndex, codecId, fcgCBFixedFunc->Checked);
     //まず、レート制御モードのみのチェックを行う
     //もし、レート制御モードの更新が必要ならavailable_featuresの更新も行う
@@ -1140,7 +1231,7 @@ System::Void frmConfig::fcgDevOutputTypeFFPGChanged(System::Object^  sender, Sys
     //つぎに全体のチェックを行う
     fcgCheckLibVersion(available_features);
 
-    UpdateFeatures();
+    UpdateFeatures(false);
     fcgChangeEnabled(sender, e);
 
     this->ResumeLayout();
@@ -1252,28 +1343,18 @@ System::Void frmConfig::UpdateMfxLibDetection() {
 System::Void frmConfig::InitForm() {
     //UIテーマ切り替え
     CheckTheme();
+    //言語設定ファイルのロード
+    InitLangList();
     //CPU情報の取得
     getCPUInfoDelegate = gcnew SetCPUInfoDelegate(this, &frmConfig::SetCPUInfo);
     getCPUInfoDelegate->BeginInvoke(nullptr, nullptr);
-    //ローカル設定のロード
-    LoadLocalStg();
-    //ローカル設定の反映
-    SetLocalStg();
     //設定ファイル集の初期化
     InitStgFileList();
-    //コンボボックスの値を設定
-    InitComboBox();
+    //言語表示
+    LoadLangText();
     //バッファサイズの最大最少をセット
     SetInputBufRange();
-    //タイトル表示
-    this->Text = String(AUO_FULL_NAME).ToString();
-    //バージョン情報,コンパイル日時
-    fcgLBVersion->Text     = Path::GetFileNameWithoutExtension(String(AUO_NAME_W).ToString()) + L" " + String(AUO_VERSION_STR).ToString();
-    fcgLBVersionDate->Text = L"build " + String(__DATE__).ToString() + L" " + String(__TIME__).ToString();
-    //ツールチップ
-    SetHelpToolTips();
     //HWエンコードの可否
-    fcgTXVideoEncoderPath_Leave(nullptr, nullptr);
     UpdateMfxLibDetection();
     //パラメータセット
     ConfToFrm(conf);
@@ -1286,12 +1367,6 @@ System::Void frmConfig::InitForm() {
         fcgtabControlMux->TabPages->RemoveAt(2);
     }
 #endif
-    fcgTXAudioEncoderPath_Leave(nullptr, nullptr);
-    fcgTXMP4MuxerPath_Leave(nullptr, nullptr);
-    fcgTXTC2MP4Path_Leave(nullptr, nullptr);
-    fcgTXMP4RawPath_Leave(nullptr, nullptr);
-    fcgTXMKVMuxerPath_Leave(nullptr, nullptr);
-    fcgTXMPGMuxerPath_Leave(nullptr, nullptr);
     //表示位置の調整
     AdjustLocation();
     //キー設定
@@ -1302,10 +1377,291 @@ System::Void frmConfig::InitForm() {
     //フォームの変更可不可を更新
     fcgChangeMuxerVisible(nullptr, nullptr);
     EnableSettingsNoteChange(false);
-    UpdateFeatures();
+    UpdateFeatures(false);
     fcgChangeEnabled(nullptr, nullptr);
     fcgCBAudioUseExt_CheckedChanged(nullptr, nullptr);
     fcgRebuildCmd(nullptr, nullptr);
+}
+
+System::Void frmConfig::LoadLangText() {
+    //一度ウィンドウの再描画を完全に抑止する
+    SendMessage(reinterpret_cast<HWND>(this->Handle.ToPointer()), WM_SETREDRAW, 0, 0);
+    //空白時にグレーで入れる文字列を言語変更のため一度空白に戻す
+    ExeTXPathEnter();
+    //言語更新開始
+    LOAD_CLI_TEXT(fcgtoolStripSettings);
+    LOAD_CLI_TEXT(fcgTSBSave);
+    LOAD_CLI_TEXT(fcgTSBSaveNew);
+    LOAD_CLI_TEXT(fcgTSBDelete);
+    LOAD_CLI_TEXT(fcgTSSettings);
+    LOAD_CLI_TEXT(fcgTSBBitrateCalc);
+    LOAD_CLI_TEXT(fcgTSBOtherSettings);
+    LOAD_CLI_TEXT(fcgTSLSettingsNotes);
+    LOAD_CLI_TEXT(fcgTSTSettingsNotes);
+    LOAD_CLI_TEXT(fcgtabPageMP4);
+    LOAD_CLI_TEXT(fcgBTMP4RawPath);
+    LOAD_CLI_TEXT(fcgLBMP4RawPath);
+    LOAD_CLI_TEXT(fcgCBMP4MuxApple);
+    LOAD_CLI_TEXT(fcgBTMP4BoxTempDir);
+    LOAD_CLI_TEXT(fcgLBMP4BoxTempDir);
+    LOAD_CLI_TEXT(fcgBTTC2MP4Path);
+    LOAD_CLI_TEXT(fcgBTMP4MuxerPath);
+    LOAD_CLI_TEXT(fcgLBTC2MP4Path);
+    LOAD_CLI_TEXT(fcgLBMP4MuxerPath);
+    LOAD_CLI_TEXT(fcgLBMP4CmdEx);
+    LOAD_CLI_TEXT(fcgCBMP4MuxerExt);
+    LOAD_CLI_TEXT(fcgtabPageMKV);
+    LOAD_CLI_TEXT(fcgBTMKVMuxerPath);
+    LOAD_CLI_TEXT(fcgLBMKVMuxerPath);
+    LOAD_CLI_TEXT(fcgLBMKVMuxerCmdEx);
+    LOAD_CLI_TEXT(fcgCBMKVMuxerExt);
+    LOAD_CLI_TEXT(fcgtabPageMPG);
+    LOAD_CLI_TEXT(fcgBTMPGMuxerPath);
+    LOAD_CLI_TEXT(fcgLBMPGMuxerPath);
+    LOAD_CLI_TEXT(fcgLBMPGMuxerCmdEx);
+    LOAD_CLI_TEXT(fcgCBMPGMuxerExt);
+    LOAD_CLI_TEXT(fcgtabPageMux);
+    LOAD_CLI_TEXT(fcgLBMuxPriority);
+    LOAD_CLI_TEXT(fcgCBMuxMinimize);
+    LOAD_CLI_TEXT(fcgtabPageBat);
+    LOAD_CLI_TEXT(fcgLBBatAfterString);
+    LOAD_CLI_TEXT(fcgLBBatBeforeString);
+    LOAD_CLI_TEXT(fcgBTBatBeforePath);
+    LOAD_CLI_TEXT(fcgLBBatBeforePath);
+    LOAD_CLI_TEXT(fcgCBWaitForBatBefore);
+    LOAD_CLI_TEXT(fcgCBRunBatBefore);
+    LOAD_CLI_TEXT(fcgBTBatAfterPath);
+    LOAD_CLI_TEXT(fcgLBBatAfterPath);
+    LOAD_CLI_TEXT(fcgCBWaitForBatAfter);
+    LOAD_CLI_TEXT(fcgCBRunBatAfter);
+    LOAD_CLI_TEXT(fcgtabPageInternal);
+    LOAD_CLI_TEXT(fcgLBInternalCmdEx);
+    LOAD_CLI_TEXT(fcgBTCancel);
+    LOAD_CLI_TEXT(fcgBTOK);
+    LOAD_CLI_TEXT(fcgBTDefault);
+    LOAD_CLI_TEXT(fcgLBVersionDate);
+    LOAD_CLI_TEXT(fcgLBVersion);
+    LOAD_CLI_TEXT(tabPageVideoEnc);
+    LOAD_CLI_TEXT(fcgLBVideoFormat);
+    LOAD_CLI_TEXT(fcggroupBoxColorMatrix);
+    LOAD_CLI_TEXT(fcgLBFullrange);
+    LOAD_CLI_TEXT(fcgLBTransfer);
+    LOAD_CLI_TEXT(fcgLBColorPrim);
+    LOAD_CLI_TEXT(fcgLBColorMatrix);
+    LOAD_CLI_TEXT(fcgGroupBoxAspectRatio);
+    LOAD_CLI_TEXT(fcgLBAspectRatio);
+    LOAD_CLI_TEXT(fcgLBInterlaced);
+    LOAD_CLI_TEXT(fcgBTVideoEncoderPath);
+    LOAD_CLI_TEXT(fcgLBVideoEncoderPath);
+    LOAD_CLI_TEXT(fcgCBAFS);
+    LOAD_CLI_TEXT(fcgLBBitrate);
+    LOAD_CLI_TEXT(fcgLBBitrate2);
+    LOAD_CLI_TEXT(fcgLBMaxkbps);
+    LOAD_CLI_TEXT(fcgLBMaxBitrate2);
+    LOAD_CLI_TEXT(fcgLBQPI);
+    LOAD_CLI_TEXT(fcgLBQPP);
+    LOAD_CLI_TEXT(fcgLBQPB);
+    LOAD_CLI_TEXT(fcgLBCodecLevel);
+    LOAD_CLI_TEXT(fcgLBCodecProfile);
+    LOAD_CLI_TEXT(fcgLBBframes);
+    LOAD_CLI_TEXT(fcgLBEncMode);
+    LOAD_CLI_TEXT(fcgLBRefFrames);
+    LOAD_CLI_TEXT(fcgLBGOPLengthAuto);
+    LOAD_CLI_TEXT(fcgLBGOPLength);
+    LOAD_CLI_TEXT(fcgLBQualityPreset);
+    LOAD_CLI_TEXT(fcgLBEncCodec);
+    LOAD_CLI_TEXT(fcgLBSlices);
+    LOAD_CLI_TEXT(fcgLBSlices2);
+    LOAD_CLI_TEXT(fcgLBHyperMode);
+    LOAD_CLI_TEXT(fcgLBDevice);
+    LOAD_CLI_TEXT(fcgLBOutputCsp);
+    LOAD_CLI_TEXT(fcgLBAVBRConvergence);
+    LOAD_CLI_TEXT(fcgLBAVBRAccuarcy);
+    LOAD_CLI_TEXT(fcgLBAVBRAccuarcy2);
+    LOAD_CLI_TEXT(fcgLBAVBRConvergence2);
+    //LOAD_CLI_TEXT(fcgLBMFXLibDetectionHwValue);
+    LOAD_CLI_TEXT(fcgLBMFXLibDetectionHwStatus);
+    LOAD_CLI_TEXT(fcgCBFadeDetect);
+    LOAD_CLI_TEXT(fcgCBWeightB);
+    LOAD_CLI_TEXT(fcgCBWeightP);
+    LOAD_CLI_TEXT(fcgCBFixedFunc);
+    LOAD_CLI_TEXT(fcgLBWinBRCSizeAuto);
+    LOAD_CLI_TEXT(fcgLBWinBRCSize);
+    LOAD_CLI_TEXT(fcgLBQPMinMaxAuto);
+    LOAD_CLI_TEXT(fcgLBQPMax);
+    LOAD_CLI_TEXT(fcgLBQPMinMAX);
+    LOAD_CLI_TEXT(fcgLBICQQuality);
+    LOAD_CLI_TEXT(fcgLBLookaheadDS);
+    LOAD_CLI_TEXT(fcgCBBPyramid);
+    LOAD_CLI_TEXT(fcgCBAdaptiveB);
+    LOAD_CLI_TEXT(fcgCBAdaptiveI);
+    LOAD_CLI_TEXT(fcgLBBlurayCompat);
+    LOAD_CLI_TEXT(fcgLBMFXLibDetection);
+    LOAD_CLI_TEXT(fcgLBRefAuto);
+    LOAD_CLI_TEXT(fcgLBBframesAuto);
+    LOAD_CLI_TEXT(fcgCBOpenGOP);
+    LOAD_CLI_TEXT(fcgCBOutputPicStruct);
+    LOAD_CLI_TEXT(fcgCBOutputAud);
+    LOAD_CLI_TEXT(fcggroupBoxDetail);
+    LOAD_CLI_TEXT(fcgCBDirectBiasAdjust);
+    LOAD_CLI_TEXT(fcgLBMVCostScaling);
+    LOAD_CLI_TEXT(fcgCBExtBRC);
+    LOAD_CLI_TEXT(fcgCBMBBRC);
+    LOAD_CLI_TEXT(fcgLBTrellis);
+    LOAD_CLI_TEXT(fcgCBIntraRefresh);
+    LOAD_CLI_TEXT(fcgCBDeblock);
+    LOAD_CLI_TEXT(fcgLBInterPred);
+    LOAD_CLI_TEXT(fcgLBIntraPred);
+    LOAD_CLI_TEXT(fcgLBMVPred);
+    LOAD_CLI_TEXT(fcgLBMVWindowSize);
+    LOAD_CLI_TEXT(fcgLBMVSearch);
+    LOAD_CLI_TEXT(fcgCBRDO);
+    LOAD_CLI_TEXT(fcgCBCABAC);
+    LOAD_CLI_TEXT(fcgCBD3DMemAlloc);
+    LOAD_CLI_TEXT(fcgLBLookaheadDepth2);
+    LOAD_CLI_TEXT(fcgLBLookaheadDepth);
+    LOAD_CLI_TEXT(fcgLBQVBR);
+    LOAD_CLI_TEXT(tabPageVpp);
+    LOAD_CLI_TEXT(fcgLBVppMctf);
+    LOAD_CLI_TEXT(fcgLBVppDetailEnhanceMFX);
+    LOAD_CLI_TEXT(fcgLBVppDenoiseMFX);
+    LOAD_CLI_TEXT(fcgLBImageStabilizer);
+    LOAD_CLI_TEXT(fcgLBRotate);
+    LOAD_CLI_TEXT(fcgCBVppDebandEnable);
+    LOAD_CLI_TEXT(fcgCBVppDebandRandEachFrame);
+    LOAD_CLI_TEXT(fcgCBVppDebandBlurFirst);
+    LOAD_CLI_TEXT(fcgLBVppDebandSample);
+    LOAD_CLI_TEXT(fcgLBVppDebandDitherC);
+    LOAD_CLI_TEXT(fcgLBVppDebandDitherY);
+    LOAD_CLI_TEXT(fcgLBVppDebandDither);
+    LOAD_CLI_TEXT(fcgLBVppDebandThreCr);
+    LOAD_CLI_TEXT(fcgLBVppDebandThreCb);
+    LOAD_CLI_TEXT(fcgLBVppDebandThreY);
+    LOAD_CLI_TEXT(fcgLBVppDebandThreshold);
+    LOAD_CLI_TEXT(fcgLBVppDebandRange);
+    LOAD_CLI_TEXT(fcggroupBoxVppDetailEnahance);
+    LOAD_CLI_TEXT(fcgLBVppWarpsharpDepth);
+    LOAD_CLI_TEXT(fcgLBVppWarpsharpThreshold);
+    LOAD_CLI_TEXT(fcgLBVppWarpsharpType);
+    LOAD_CLI_TEXT(fcgLBVppWarpsharpBlur);
+    LOAD_CLI_TEXT(fcgLBVppEdgelevelWhite);
+    LOAD_CLI_TEXT(fcgLBVppEdgelevelThreshold);
+    LOAD_CLI_TEXT(fcgLBVppEdgelevelBlack);
+    LOAD_CLI_TEXT(fcgLBVppEdgelevelStrength);
+    LOAD_CLI_TEXT(fcgLBVppUnsharpThreshold);
+    LOAD_CLI_TEXT(fcgLBVppUnsharpWeight);
+    LOAD_CLI_TEXT(fcgLBVppUnsharpRadius);
+    LOAD_CLI_TEXT(fcggroupBoxVppDenoise);
+    LOAD_CLI_TEXT(fcgLBVppDenoiseConv3DMatrix);
+    LOAD_CLI_TEXT(fcgLBVppDenoiseConv3DThreshTemporal);
+    LOAD_CLI_TEXT(fcgLBVppDenoiseConv3DThreshSpatial);
+    LOAD_CLI_TEXT(fcgLBVppDenoiseConv3DThreshCTemporal);
+    LOAD_CLI_TEXT(fcgLBVppDenoiseConv3DThreshCSpatial);
+    LOAD_CLI_TEXT(fcgLBVppDenoiseConv3DThreshYTemporal);
+    LOAD_CLI_TEXT(fcgLBVppDenoiseConv3DThreshYSpatial);
+    LOAD_CLI_TEXT(fcgLBVppDenoiseSmoothQP);
+    LOAD_CLI_TEXT(fcgLBVppDenoiseSmoothQuality);
+    LOAD_CLI_TEXT(fcgLBVppDenoiseKnnThreshold);
+    LOAD_CLI_TEXT(fcgLBVppDenoiseKnnStrength);
+    LOAD_CLI_TEXT(fcgLBVppDenoiseKnnRadius);
+    LOAD_CLI_TEXT(fcgLBVppDenoisePmdThreshold);
+    LOAD_CLI_TEXT(fcgLBVppDenoisePmdStrength);
+    LOAD_CLI_TEXT(fcgLBVppDenoisePmdApplyCount);
+    LOAD_CLI_TEXT(fcggroupBoxVppDeinterlace);
+    LOAD_CLI_TEXT(fcgLBVppDeinterlace);
+    LOAD_CLI_TEXT(fcgLBVppAfsThreCMotion);
+    LOAD_CLI_TEXT(fcgLBVppAfsThreYmotion);
+    LOAD_CLI_TEXT(fcgLBVppAfsThreDeint);
+    LOAD_CLI_TEXT(fcgLBVppAfsThreShift);
+    LOAD_CLI_TEXT(fcgLBVppAfsCoeffShift);
+    LOAD_CLI_TEXT(fcgLBVppAfsRight);
+    LOAD_CLI_TEXT(fcgLBVppAfsLeft);
+    LOAD_CLI_TEXT(fcgLBVppAfsBottom);
+    LOAD_CLI_TEXT(fcgLBVppAfsUp);
+    LOAD_CLI_TEXT(fcgCBVppAfs24fps);
+    LOAD_CLI_TEXT(fcgCBVppAfsTune);
+    LOAD_CLI_TEXT(fcgCBVppAfsSmooth);
+    LOAD_CLI_TEXT(fcgCBVppAfsDrop);
+    LOAD_CLI_TEXT(fcgCBVppAfsShift);
+    LOAD_CLI_TEXT(fcgLBVppAfsAnalyze);
+    LOAD_CLI_TEXT(fcgLBVppAfsMethodSwitch);
+    LOAD_CLI_TEXT(fcgLBVppYadifMode);
+    LOAD_CLI_TEXT(fcgLBVppNnediErrorType);
+    LOAD_CLI_TEXT(fcgLBVppNnediPrescreen);
+    LOAD_CLI_TEXT(fcgLBVppNnediPrec);
+    LOAD_CLI_TEXT(fcgLBVppNnediQual);
+    LOAD_CLI_TEXT(fcgLBVppNnediNsize);
+    LOAD_CLI_TEXT(fcgLBVppNnediNns);
+    LOAD_CLI_TEXT(fcgCBVppResize);
+    LOAD_CLI_TEXT(fcgLBVppResize);
+    LOAD_CLI_TEXT(fcgCBPsnr);
+    LOAD_CLI_TEXT(fcgCBSsim);
+    LOAD_CLI_TEXT(tabPageExOpt);
+    LOAD_CLI_TEXT(fcgCBAuoTcfileout);
+    LOAD_CLI_TEXT(fcgLBInputBufSize);
+    LOAD_CLI_TEXT(fcgLBTempDir);
+    LOAD_CLI_TEXT(fcgBTCustomTempDir);
+    LOAD_CLI_TEXT(tabPageFeatures);
+    LOAD_CLI_TEXT(fcgLBGPUInfoLabelOnFeatureTab);
+    //LOAD_CLI_TEXT(fcgLBCPUInfoOnFeatureTab);
+    //LOAD_CLI_TEXT(fcgLBGPUInfoOnFeatureTab);
+    LOAD_CLI_TEXT(fcgLBCPUInfoLabelOnFeatureTab);
+    LOAD_CLI_TEXT(fcgBTSaveFeatureList);
+    //LOAD_CLI_TEXT(fcgLBFeaturesCurrentAPIVer);
+    LOAD_CLI_TEXT(fcgLBFeaturesShowCurrentAPI);
+    LOAD_CLI_TEXT(fcgTSExeFileshelp);
+    LOAD_CLI_TEXT(fcgLBguiExBlog);
+    LOAD_CLI_TEXT(fcgtabPageAudioMain);
+    LOAD_CLI_TEXT(fcgLBAudioBitrateInternal);
+    LOAD_CLI_TEXT(fcgLBAudioEncModeInternal);
+    LOAD_CLI_TEXT(fcgCBAudioUseExt);
+    LOAD_CLI_TEXT(fcgCBFAWCheck);
+    LOAD_CLI_TEXT(fcgLBAudioDelayCut);
+    LOAD_CLI_TEXT(fcgCBAudioEncTiming);
+    LOAD_CLI_TEXT(fcgBTCustomAudioTempDir);
+    LOAD_CLI_TEXT(fcgCBAudioUsePipe);
+    LOAD_CLI_TEXT(fcgCBAudio2pass);
+    LOAD_CLI_TEXT(fcgLBAudioEncMode);
+    LOAD_CLI_TEXT(fcgBTAudioEncoderPath);
+    LOAD_CLI_TEXT(fcgLBAudioEncoderPath);
+    LOAD_CLI_TEXT(fcgCBAudioOnly);
+    LOAD_CLI_TEXT(fcgLBAudioTemp);
+    LOAD_CLI_TEXT(fcgLBAudioBitrate);
+    LOAD_CLI_TEXT(fcgtabPageAudioOther);
+    LOAD_CLI_TEXT(fcgLBBatAfterAudioString);
+    LOAD_CLI_TEXT(fcgLBBatBeforeAudioString);
+    LOAD_CLI_TEXT(fcgBTBatAfterAudioPath);
+    LOAD_CLI_TEXT(fcgLBBatAfterAudioPath);
+    LOAD_CLI_TEXT(fcgCBRunBatAfterAudio);
+    LOAD_CLI_TEXT(fcgBTBatBeforeAudioPath);
+    LOAD_CLI_TEXT(fcgLBBatBeforeAudioPath);
+    LOAD_CLI_TEXT(fcgCBRunBatBeforeAudio);
+    LOAD_CLI_TEXT(fcgLBAudioPriority);
+
+    //ローカル設定のロード(ini変更を反映)
+    LoadLocalStg();
+    //ローカル設定の反映
+    SetLocalStg();
+    //コンボボックスの値を設定
+    InitComboBox();
+    //ツールチップ
+    SetHelpToolTips();
+    ActivateToolTip(sys_dat->exstg->s_local.disable_tooltip_help == FALSE);
+    //タイムコードのappendix(後付修飾子)を反映
+    fcgCBAuoTcfileout->Text = LOAD_CLI_STRING(AUO_CONFIG_TC_FILE_OUT) + L" (" + String(sys_dat->exstg->s_append.tc).ToString() + L")";
+    { //タイトル表示,バージョン情報,コンパイル日時
+        auto auo_full_name = g_auo_mes.get(AUO_GUIEX_FULL_NAME);
+        if (auo_full_name == nullptr || wcslen(auo_full_name) == 0) auo_full_name = AUO_FULL_NAME_W;
+        this->Text = String(auo_full_name).ToString();
+        fcgLBVersion->Text = String(auo_full_name).ToString() + L" " + String(AUO_VERSION_STR).ToString();
+        fcgLBVersionDate->Text = L"build " + String(__DATE__).ToString() + L" " + String(__TIME__).ToString();
+    }
+    UpdateFeatures(true);
+    //空白時にグレーで入れる文字列を言語に即して復活させる
+    ExeTXPathLeave();
+    //一度ウィンドウの再描画を再開し、強制的に再描画させる
+    SendMessage(reinterpret_cast<HWND>(this->Handle.ToPointer()), WM_SETREDRAW, 1, 0);
+    this->Refresh();
 }
 
 /////////////         データ <-> GUI     /////////////
@@ -1315,9 +1671,9 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     sInputParams prm_qsv;
     parse_cmd(&prm_qsv, cnf->enc.cmd);
 
-    SetCXIndex(fcgCXOutputType,   get_cx_index(list_outtype, prm_qsv.CodecId));
+    SetCXIndex(fcgCXEncCodec,     get_cx_index(list_out_enc_codec, prm_qsv.CodecId));
     SetCXIndex(fcgCXEncMode,      get_cx_index(list_encmode, prm_qsv.nEncMode));
-    SetCXIndex(fcgCXQuality,      get_cx_index(list_quality, prm_qsv.nTargetUsage));
+    SetCXIndex(fcgCXQualityPreset,get_cx_index(list_quality, prm_qsv.nTargetUsage));
     SetCXIndex(fcgCXDevice,       (featuresHW) ? featuresHW->getDevIndex(prm_qsv.device) : 0);
     SetCXIndex(fcgCXHyperMode,    get_cx_index(list_hyper_mode, prm_qsv.hyperMode));
     SetNUValue(fcgNUBitrate,      prm_qsv.nBitRate);
@@ -1417,13 +1773,13 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 
         int deinterlacer_idx = 0;
         if (prm_qsv.vpp.afs.enable) {
-            deinterlacer_idx = get_cx_index(list_deinterlace_ja, _T("自動フィールドシフト"));
+            deinterlacer_idx = get_cx_index(list_deinterlace_gui, L"自動フィールドシフト");
         } else if (prm_qsv.vpp.nnedi.enable) {
-            deinterlacer_idx = get_cx_index(list_deinterlace_ja, _T("nnedi"));
+            deinterlacer_idx = get_cx_index(list_deinterlace_gui, L"nnedi");
         } else if (prm_qsv.vpp.yadif.enable) {
-            deinterlacer_idx = get_cx_index(list_deinterlace_ja, _T("yadif"));
+            deinterlacer_idx = get_cx_index(list_deinterlace_gui, L"yadif");
         } else if (prm_qsv.vppmfx.deinterlace > 0) {
-            deinterlacer_idx = get_cx_index(list_deinterlace_ja, prm_qsv.vppmfx.deinterlace);
+            deinterlacer_idx = get_cx_index(list_deinterlace_gui, prm_qsv.vppmfx.deinterlace);
         }
         SetCXIndex(fcgCXVppDeinterlace, deinterlacer_idx);
 
@@ -1448,7 +1804,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetNUValue(fcgNUVppDebandThreCr, prm_qsv.vpp.deband.threCr);
         SetNUValue(fcgNUVppDebandDitherY, prm_qsv.vpp.deband.ditherY);
         SetNUValue(fcgNUVppDebandDitherC, prm_qsv.vpp.deband.ditherC);
-        SetCXIndex(fcgCXVppDebandSample, prm_qsv.vpp.deband.sample);
+        SetCXIndex(fcgCXVppDebandSample, get_cx_index(list_vpp_deband_gui, prm_qsv.vpp.deband.sample));
         fcgCBVppDebandBlurFirst->Checked = prm_qsv.vpp.deband.blurFirst;
         fcgCBVppDebandRandEachFrame->Checked = prm_qsv.vpp.deband.randEachFrame;
         SetNUValue(fcgNUVppUnsharpRadius, prm_qsv.vpp.unsharp.radius);
@@ -1542,11 +1898,9 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetCXIndex(fcgCXMKVCmdEx,            cnf->mux.mkv_mode);
         fcgCBMPGMuxerExt->Checked          = cnf->mux.disable_mpgext == 0;
         SetCXIndex(fcgCXMPGCmdEx,            cnf->mux.mpg_mode);
+        fcgCBMuxMinimize->Checked          = cnf->mux.minimized != 0;
         SetCXIndex(fcgCXMuxPriority,         cnf->mux.priority);
         SetCXIndex(fcgCXInternalCmdEx,       cnf->mux.internal_mode);
-
-        fcgCBCopyChapter->Checked          = prm_qsv.common.copyChapter != 0;
-        fcgCBCopySubtitle->Checked         = prm_qsv.common.nSubtitleSelectCount != 0;
 
         fcgCBRunBatBefore->Checked         =(cnf->oth.run_bat & RUN_BAT_BEFORE_PROCESS) != 0;
         fcgCBRunBatAfter->Checked          =(cnf->oth.run_bat & RUN_BAT_AFTER_PROCESS)  != 0;
@@ -1565,12 +1919,12 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     //これもひたすら書くだけ。めんどい
     sInputParams prm_qsv;
 
-    prm_qsv.CodecId                = list_outtype[fcgCXOutputType->SelectedIndex].value;
+    prm_qsv.CodecId                = list_out_enc_codec[fcgCXEncCodec->SelectedIndex].value;
     cnf->enc.codec                 = prm_qsv.CodecId;
     prm_qsv.device                 = (featuresHW) ? (featuresHW->devCount() > 1 ? featuresHW->getDevID(fcgCXDevice->SelectedIndex) : QSVDeviceNum::AUTO) : QSVDeviceNum::AUTO;
     prm_qsv.nEncMode               = (int)list_encmode[fcgCXEncMode->SelectedIndex].value;
     prm_qsv.hyperMode              = (mfxHyperMode)list_hyper_mode[fcgCXHyperMode->SelectedIndex].value;
-    prm_qsv.nTargetUsage           = (int)list_quality[fcgCXQuality->SelectedIndex].value;
+    prm_qsv.nTargetUsage           = (int)list_quality[fcgCXQualityPreset->SelectedIndex].value;
     prm_qsv.CodecProfile           = (int)get_profile_list(prm_qsv.CodecId)[fcgCXCodecProfile->SelectedIndex].value;
     prm_qsv.CodecLevel             = (int)get_level_list(prm_qsv.CodecId)[fcgCXCodecLevel->SelectedIndex].value;
     prm_qsv.outputCsp              = (RGY_CHROMAFMT)list_output_csp[fcgCXOutputCsp->SelectedIndex].value;
@@ -1697,11 +2051,11 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     prm_qsv.vpp.deband.threCr = (int)fcgNUVppDebandThreCr->Value;
     prm_qsv.vpp.deband.ditherY = (int)fcgNUVppDebandDitherY->Value;
     prm_qsv.vpp.deband.ditherC = (int)fcgNUVppDebandDitherC->Value;
-    prm_qsv.vpp.deband.sample = fcgCXVppDebandSample->SelectedIndex;
+    prm_qsv.vpp.deband.sample = list_vpp_deband_gui[fcgCXVppDebandSample->SelectedIndex].value;
     prm_qsv.vpp.deband.blurFirst = fcgCBVppDebandBlurFirst->Checked;
     prm_qsv.vpp.deband.randEachFrame = fcgCBVppDebandRandEachFrame->Checked;
 
-    prm_qsv.vpp.afs.enable             = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_ja, _T("自動フィールドシフト")));
+    prm_qsv.vpp.afs.enable             = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_gui, L"自動フィールドシフト"));
     prm_qsv.vpp.afs.timecode           = false;
     prm_qsv.vpp.afs.clip.top           = (int)fcgNUVppAfsUp->Value;
     prm_qsv.vpp.afs.clip.bottom        = (int)fcgNUVppAfsBottom->Value;
@@ -1720,7 +2074,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     prm_qsv.vpp.afs.force24            = fcgCBVppAfs24fps->Checked;
     prm_qsv.vpp.afs.tune               = fcgCBVppAfsTune->Checked;
 
-    prm_qsv.vpp.nnedi.enable           = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_ja, _T("nnedi")));
+    prm_qsv.vpp.nnedi.enable           = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_gui, L"nnedi"));
     prm_qsv.vpp.nnedi.nsize            = (VppNnediNSize)list_vpp_nnedi_nsize[fcgCXVppNnediNsize->SelectedIndex].value;
     prm_qsv.vpp.nnedi.nns              = list_vpp_nnedi_nns[fcgCXVppNnediNns->SelectedIndex].value;
     prm_qsv.vpp.nnedi.quality          = (VppNnediQuality)list_vpp_nnedi_quality[fcgCXVppNnediQual->SelectedIndex].value;
@@ -1728,14 +2082,14 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     prm_qsv.vpp.nnedi.pre_screen       = (VppNnediPreScreen)list_vpp_nnedi_pre_screen_gui[fcgCXVppNnediPrescreen->SelectedIndex].value;
     prm_qsv.vpp.nnedi.errortype        = (VppNnediErrorType)list_vpp_nnedi_error_type[fcgCXVppNnediErrorType->SelectedIndex].value;
 
-    prm_qsv.vpp.yadif.enable = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_ja, _T("yadif")));
+    prm_qsv.vpp.yadif.enable = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_gui, L"yadif"));
     prm_qsv.vpp.yadif.mode = (VppYadifMode)list_vpp_yadif_mode_gui[fcgCXVppYadifMode->SelectedIndex].value;
 
     if (!prm_qsv.vpp.afs.enable
         && !prm_qsv.vpp.nnedi.enable
         && !prm_qsv.vpp.yadif.enable
     ) {
-        prm_qsv.vppmfx.deinterlace = list_deinterlace_ja[fcgCXVppDeinterlace->SelectedIndex].value;
+        prm_qsv.vppmfx.deinterlace = list_deinterlace_gui[fcgCXVppDeinterlace->SelectedIndex].value;
     }
 
     //prm_qsv.ssim                       = fcgCBSSIM->Checked;
@@ -1796,11 +2150,9 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->mux.mkv_mode               = fcgCXMKVCmdEx->SelectedIndex;
     cnf->mux.disable_mpgext         = !fcgCBMPGMuxerExt->Checked;
     cnf->mux.mpg_mode               = fcgCXMPGCmdEx->SelectedIndex;
+    cnf->mux.minimized              = fcgCBMuxMinimize->Checked;
     cnf->mux.priority               = fcgCXMuxPriority->SelectedIndex;
     cnf->mux.internal_mode          = fcgCXInternalCmdEx->SelectedIndex;
-
-    prm_qsv.common.copyChapter           = fcgCBCopyChapter->Checked;
-    prm_qsv.common.nSubtitleSelectCount   = fcgCBCopySubtitle->Checked;
 
     cnf->oth.run_bat                = RUN_BAT_NONE;
     cnf->oth.run_bat               |= (fcgCBRunBatBeforeAudio->Checked) ? RUN_BAT_BEFORE_AUDIO   : NULL;
@@ -1823,7 +2175,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
 
 System::Void frmConfig::GetfcgTSLSettingsNotes(char *notes, int nSize) {
     ZeroMemory(notes, nSize);
-    if (fcgTSLSettingsNotes->ForeColor == Color::FromArgb(StgNotesColor[0][0], StgNotesColor[0][1], StgNotesColor[0][2]))
+    if (fcgTSLSettingsNotes->Overflow != ToolStripItemOverflow::Never)
         GetCHARfromString(notes, nSize, fcgTSLSettingsNotes->Text);
 }
 
@@ -1831,19 +2183,23 @@ System::Void frmConfig::SetfcgTSLSettingsNotes(const char *notes) {
     if (str_has_char(notes)) {
         fcgTSLSettingsNotes->ForeColor = Color::FromArgb(StgNotesColor[0][0], StgNotesColor[0][1], StgNotesColor[0][2]);
         fcgTSLSettingsNotes->Text = String(notes).ToString();
+        fcgTSLSettingsNotes->Overflow = ToolStripItemOverflow::AsNeeded;
     } else {
         fcgTSLSettingsNotes->ForeColor = Color::FromArgb(StgNotesColor[1][0], StgNotesColor[1][1], StgNotesColor[1][2]);
-        fcgTSLSettingsNotes->Text = String(DefaultStgNotes).ToString();
+        fcgTSLSettingsNotes->Text = LOAD_CLI_STRING(AuofcgTSTSettingsNotes);
+        fcgTSLSettingsNotes->Overflow = ToolStripItemOverflow::Never;
     }
 }
 
 System::Void frmConfig::SetfcgTSLSettingsNotes(String^ notes) {
-    if (notes->Length && String::Compare(notes, String(DefaultStgNotes).ToString()) != 0) {
+    if (notes->Length && fcgTSLSettingsNotes->Overflow != ToolStripItemOverflow::Never) {
         fcgTSLSettingsNotes->ForeColor = Color::FromArgb(StgNotesColor[0][0], StgNotesColor[0][1], StgNotesColor[0][2]);
         fcgTSLSettingsNotes->Text = notes;
+        fcgTSLSettingsNotes->Overflow = ToolStripItemOverflow::AsNeeded;
     } else {
         fcgTSLSettingsNotes->ForeColor = Color::FromArgb(StgNotesColor[1][0], StgNotesColor[1][1], StgNotesColor[1][2]);
-        fcgTSLSettingsNotes->Text = String(DefaultStgNotes).ToString();
+        fcgTSLSettingsNotes->Text = LOAD_CLI_STRING(AuofcgTSTSettingsNotes);
+        fcgTSLSettingsNotes->Overflow = ToolStripItemOverflow::Never;
     }
 }
 
@@ -1979,227 +2335,64 @@ System::Void frmConfig::SetAllCheckChangedEvents(Control ^top) {
 
 System::Void frmConfig::SetHelpToolTips() {
 
+#define SET_TOOL_TIP_EX2(target, x) { fcgTTEx->SetToolTip(target, LOAD_CLI_STRING(AuofrmTT ## x)); }
+#define SET_TOOL_TIP_EX(target) { fcgTTEx->SetToolTip(target, LOAD_CLI_STRING(AuofrmTT ## target)); }
+
     //拡張
-    fcgTTEx->SetToolTip(fcgCXTempDir,      L""
-        + L"一時ファイル群\n"
-        + L"・音声一時ファイル(wav / エンコード後音声)\n"
-        + L"・動画一時ファイル\n"
-        + L"・タイムコードファイル\n"
-        + L"・qpファイル\n"
-        + L"・mux後ファイル\n"
-        + L"の作成場所を指定します。"
-        );
-    fcgTTEx->SetToolTip(fcgCBAFS,                L""
-        + L"自動フィールドシフト(afs)を使用してVFR化を行います。\n"
-        + L"エンコード時にタイムコードを作成し、mux時に埋め込んで\n"
-        + L"フレームレートを変更します。\n"
-        + L"\n"
-        + L"あとからフレームレートを変更するため、\n"
-        + L"ビットレート設定が正確に反映されなくなる点に注意してください。"
-        );
-    fcgTTEx->SetToolTip(fcgCBAuoTcfileout, L""
-        + L"タイムコードを出力します。このタイムコードは\n"
-        + L"自動フィールドシフト(afs)を反映したものになります。"
-        );
+    SET_TOOL_TIP_EX(fcgCBAFS);
+    SET_TOOL_TIP_EX(fcgCBAuoTcfileout);
+    SET_TOOL_TIP_EX(fcgCXTempDir);
+    SET_TOOL_TIP_EX(fcgBTCustomTempDir);
 
     //音声
-    fcgTTEx->SetToolTip(fcgCXAudioEncoder, L""
-        + L"使用する音声エンコーダを指定します。\n"
-        + L"これらの設定はQSVEnc.iniに記述されています。"
-        );
-    fcgTTEx->SetToolTip(fcgCBAudioOnly,    L""
-        + L"動画の出力を行わず、音声エンコードのみ行います。\n"
-        + L"音声エンコードに失敗した場合などに使用してください。"
-        );
-    fcgTTEx->SetToolTip(fcgCBFAWCheck,     L""
-        + L"音声エンコード時に音声がFakeAACWav(FAW)かどうかの判定を行い、\n"
-        + L"FAWだと判定された場合、設定を無視して、\n"
-        + L"自動的にFAWを使用するよう切り替えます。\n"
-        + L"\n"
-        + L"一度音声エンコーダからFAW(fawcl)を選択し、\n"
-        + L"実行ファイルの場所を指定しておく必要があります。"
-        );
-    fcgTTEx->SetToolTip(fcgBTAudioEncoderPath, L""
-        + L"音声エンコーダの場所を指定します。\n"
-        + L"\n"
-        + L"この設定はQSVEnc.confに保存され、\n"
-        + L"バッチ処理ごとの変更はできません。"
-        );
-    fcgTTEx->SetToolTip(fcgCXAudioEncMode, L""
-        + L"音声エンコーダのエンコードモードを切り替えます。\n"
-        + L"これらの設定はQSVEnc.iniに記述されています。"
-        );
-    fcgTTEx->SetToolTip(fcgCBAudio2pass,   L""
-        + L"音声エンコードを2passで行います。\n"
-        + L"2pass時はパイプ処理は行えません。"
-        );
-    fcgTTEx->SetToolTip(fcgCBAudioUsePipe, L""
-        + L"パイプを通して、音声データをエンコーダに渡します。\n"
-        + L"パイプと2passは同時に指定できません。"
-        );
-    fcgTTEx->SetToolTip(fcgNUAudioBitrate, L""
-        + L"音声ビットレートを指定します。"
-        );
-    fcgTTEx->SetToolTip(fcgCXAudioPriority, L""
-        + L"音声エンコーダのCPU優先度を設定します。\n"
-        + L"AviutlSync で Aviutlの優先度と同じになります。"
-        );
-    fcgTTEx->SetToolTip(fcgCXAudioEncTiming, L""
-        + L"音声を処理するタイミングを設定します。\n"
-        + L" 後　 … 映像→音声の順で処理します。\n"
-        + L" 前　 … 音声→映像の順で処理します。\n"
-        + L" 同時 … 映像と音声を同時に処理します。"
-        );
-    fcgTTEx->SetToolTip(fcgCXAudioTempDir, L""
-        + L"音声一時ファイル(エンコード後のファイル)\n"
-        + L"の出力先を変更します。"
-        );
-    fcgTTEx->SetToolTip(fcgBTCustomAudioTempDir, L""
-        + L"音声一時ファイルの場所を「カスタム」にした時に\n"
-        + L"使用される音声一時ファイルの場所を指定します。\n"
-        + L"\n"
-        + L"この設定はQSVEnc.confに保存され、\n"
-        + L"バッチ処理ごとの変更はできません。"
-        );
+    SET_TOOL_TIP_EX(fcgCXAudioEncoder);
+    SET_TOOL_TIP_EX(fcgCBAudioOnly);
+    SET_TOOL_TIP_EX(fcgCBFAWCheck);
+    SET_TOOL_TIP_EX(fcgBTAudioEncoderPath);
+    SET_TOOL_TIP_EX(fcgCXAudioEncMode);
+    SET_TOOL_TIP_EX(fcgCBAudio2pass);
+    SET_TOOL_TIP_EX(fcgCBAudioUsePipe);
+    SET_TOOL_TIP_EX(fcgNUAudioBitrate);
+    SET_TOOL_TIP_EX(fcgCXAudioPriority);
+    SET_TOOL_TIP_EX(fcgCXAudioEncTiming);
+    SET_TOOL_TIP_EX(fcgCXAudioTempDir);
+    SET_TOOL_TIP_EX(fcgBTCustomAudioTempDir);
     //音声バッチファイル実行
-    fcgTTEx->SetToolTip(fcgCBRunBatBeforeAudio, L""
-        + L"音声エンコード開始前にバッチファイルを実行します。"
-        );
-    fcgTTEx->SetToolTip(fcgCBRunBatAfterAudio, L""
-        + L"音声エンコード終了後、バッチファイルを実行します。"
-        );
-    fcgTTEx->SetToolTip(fcgBTBatBeforeAudioPath, L""
-        + L"音声エンコード終了後実行するバッチファイルを指定します。\n"
-        + L"実際のバッチ実行時には新たに\"<バッチファイル名>_tmp.bat\"を作成、\n"
-        + L"指定したバッチファイルの内容をコピーし、\n"
-        + L"さらに特定文字列を置換して実行します。\n"
-        + L"使用できる置換文字列はreadmeをご覧下さい。"
-        );
-    fcgTTEx->SetToolTip(fcgBTBatAfterAudioPath, L""
-        + L"音声エンコード終了後実行するバッチファイルを指定します。\n"
-        + L"実際のバッチ実行時には新たに\"<バッチファイル名>_tmp.bat\"を作成、\n"
-        + L"指定したバッチファイルの内容をコピーし、\n"
-        + L"さらに特定文字列を置換して実行します。\n"
-        + L"使用できる置換文字列はreadmeをご覧下さい。"
-        );
-
+    SET_TOOL_TIP_EX(fcgCBRunBatBeforeAudio);
+    SET_TOOL_TIP_EX(fcgCBRunBatAfterAudio);
+    SET_TOOL_TIP_EX(fcgBTBatBeforeAudioPath);
+    SET_TOOL_TIP_EX(fcgBTBatAfterAudioPath);
     //muxer
-    fcgTTEx->SetToolTip(fcgCBMP4MuxerExt, L""
-        + L"指定したmuxerでmuxを行います。\n"
-        + L"チェックを外すとmuxを行いません。"
-        );
-    fcgTTEx->SetToolTip(fcgCXMP4CmdEx,    L""
-        + L"muxerに渡す追加オプションを選択します。\n"
-        + L"これらの設定はQSVEnc.iniに記述されています。"
-        );
-    fcgTTEx->SetToolTip(fcgBTMP4MuxerPath, L""
-        + L"mp4用muxerの場所を指定します。\n"
-        + L"\n"
-        + L"この設定はQSVEnc.confに保存され、\n"
-        + L"バッチ処理ごとの変更はできません。"
-        );
-    fcgTTEx->SetToolTip(fcgBTMP4RawPath, L""
-        + L"raw用mp4muxerの場所を指定します。\n"
-        + L"\n"
-        + L"この設定はQSVEnc.confに保存され、\n"
-        + L"バッチ処理ごとの変更はできません。"
-        );
-    fcgTTEx->SetToolTip(fcgCXMP4BoxTempDir, L""
-        + L"mp4box用の一時フォルダの場所を指定します。"
-        );
-    fcgTTEx->SetToolTip(fcgBTMP4BoxTempDir, L""
-        + L"mp4box用一時フォルダの場所を「カスタム」に設定した際に\n"
-        + L"使用される一時フォルダの場所です。\n"
-        + L"\n"
-        + L"この設定はQSVEnc.confに保存され、\n"
-        + L"バッチ処理ごとの変更はできません。"
-        );
-    fcgTTEx->SetToolTip(fcgCBMKVMuxerExt, L""
-        + L"指定したmuxerでmuxを行います。\n"
-        + L"チェックを外すとmuxを行いません。"
-        );
-    fcgTTEx->SetToolTip(fcgCXMKVCmdEx,    L""
-        + L"muxerに渡す追加オプションを選択します。\n"
-        + L"これらの設定はQSVEnc.iniに記述されています。"
-        );
-    fcgTTEx->SetToolTip(fcgBTMKVMuxerPath, L""
-        + L"mkv用muxerの場所を指定します。\n"
-        + L"\n"
-        + L"この設定はQSVEnc.confに保存され、\n"
-        + L"バッチ処理ごとの変更はできません。"
-        );
-    fcgTTEx->SetToolTip(fcgCBMPGMuxerExt, L""
-        + L"指定したmuxerでmuxを行います。\n"
-        + L"チェックを外すとmuxを行いません。"
-        );
-    fcgTTEx->SetToolTip(fcgCXMPGCmdEx,    L""
-        + L"muxerに渡す追加オプションを選択します。\n"
-        + L"これらの設定はQSVEnc.iniに記述されています。"
-        );
-    fcgTTEx->SetToolTip(fcgBTMPGMuxerPath, L""
-        + L"mpg用muxerの場所を指定します。\n"
-        + L"\n"
-        + L"この設定はQSVEnc.confに保存され、\n"
-        + L"バッチ処理ごとの変更はできません。"
-        );
-    fcgTTEx->SetToolTip(fcgCXMuxPriority, L""
-        + L"muxerのCPU優先度を指定します。\n"
-        + L"AviutlSync で Aviutlの優先度と同じになります。"
-        );
+    SET_TOOL_TIP_EX(fcgCBMP4MuxerExt);
+    SET_TOOL_TIP_EX(fcgCXMP4CmdEx);
+    SET_TOOL_TIP_EX(fcgBTMP4MuxerPath);
+    SET_TOOL_TIP_EX(fcgBTTC2MP4Path);
+    SET_TOOL_TIP_EX(fcgBTMP4RawPath);
+    SET_TOOL_TIP_EX(fcgCXMP4BoxTempDir);
+    SET_TOOL_TIP_EX(fcgBTMP4BoxTempDir);
+    SET_TOOL_TIP_EX(fcgCBMKVMuxerExt);
+    SET_TOOL_TIP_EX(fcgCXMKVCmdEx);
+    SET_TOOL_TIP_EX(fcgBTMKVMuxerPath);
+    SET_TOOL_TIP_EX(fcgCBMPGMuxerExt);
+    SET_TOOL_TIP_EX(fcgCXMPGCmdEx);
+    SET_TOOL_TIP_EX(fcgBTMPGMuxerPath);
+    SET_TOOL_TIP_EX(fcgCXMuxPriority);
     //バッチファイル実行
-    fcgTTEx->SetToolTip(fcgCBRunBatBefore, L""
-        + L"エンコード開始前にバッチファイルを実行します。"
-        );
-    fcgTTEx->SetToolTip(fcgCBRunBatAfter, L""
-        + L"エンコード終了後、バッチファイルを実行します。"
-        );
-    fcgTTEx->SetToolTip(fcgCBWaitForBatBefore, L""
-        + L"バッチ処理開始後、バッチ処理が終了するまで待機します。"
-        );
-    fcgTTEx->SetToolTip(fcgCBWaitForBatAfter, L""
-        + L"バッチ処理開始後、バッチ処理が終了するまで待機します。"
-        );
-    fcgTTEx->SetToolTip(fcgBTBatBeforePath, L""
-        + L"エンコード終了後実行するバッチファイルを指定します。\n"
-        + L"実際のバッチ実行時には新たに\"<バッチファイル名>_tmp.bat\"を作成、\n"
-        + L"指定したバッチファイルの内容をコピーし、\n"
-        + L"さらに特定文字列を置換して実行します。\n"
-        + L"使用できる置換文字列はreadmeをご覧下さい。"
-        );
-    fcgTTEx->SetToolTip(fcgBTBatAfterPath, L""
-        + L"エンコード終了後実行するバッチファイルを指定します。\n"
-        + L"実際のバッチ実行時には新たに\"<バッチファイル名>_tmp.bat\"を作成、\n"
-        + L"指定したバッチファイルの内容をコピーし、\n"
-        + L"さらに特定文字列を置換して実行します。\n"
-        + L"使用できる置換文字列はreadmeをご覧下さい。"
-        );
+    SET_TOOL_TIP_EX(fcgCBRunBatBefore);
+    SET_TOOL_TIP_EX(fcgCBRunBatAfter);
+    SET_TOOL_TIP_EX(fcgCBWaitForBatBefore);
+    SET_TOOL_TIP_EX(fcgCBWaitForBatAfter);
+    SET_TOOL_TIP_EX(fcgBTBatBeforePath);
+    SET_TOOL_TIP_EX(fcgBTBatAfterPath);
     //上部ツールストリップ
-    fcgTSBDelete->ToolTipText = L""
-        + L"現在選択中のプロファイルを削除します。";
-
-    fcgTSBOtherSettings->ToolTipText = L""
-        + L"プロファイルの保存フォルダを変更します。";
-
-    fcgTSBSave->ToolTipText = L""
-        + L"現在の設定をプロファイルに上書き保存します。";
-
-    fcgTSBSaveNew->ToolTipText = L""
-        + L"現在の設定を新たなプロファイルに保存します。";
+    fcgTSBDelete->ToolTipText = LOAD_CLI_STRING(AuofrmTTfcgTSBDelete);
+    fcgTSBOtherSettings->ToolTipText = LOAD_CLI_STRING(AuofrmTTfcgTSBOtherSettings);
+    fcgTSBSave->ToolTipText = LOAD_CLI_STRING(AuofrmTTfcgTSBSave);
+    fcgTSBSaveNew->ToolTipText = LOAD_CLI_STRING(AuofrmTTfcgTSBSaveNew);
 
     //他
-    fcgTTEx->SetToolTip(fcgTXCmd,         L""
-        + L"QSVEncCに渡される予定のコマンドラインです。\n"
-        + L"エンコード時には更に\n"
-        + L"・「追加コマンド」の付加\n"
-        + L"・\"auto\"な設定項目の反映\n"
-        + L"・必要な情報の付加(--fps/-o/--input-res/--input-csp/--frames等)\n"
-        + L"が行われます。\n"
-        + L"\n"
-        + L"このウィンドウはダブルクリックで拡大縮小できます。"
-        );
-    fcgTTEx->SetToolTip(fcgBTDefault,     L""
-        + L"デフォルト設定をロードします。"
-        );
+    SET_TOOL_TIP_EX(fcgTXCmd);
+    SET_TOOL_TIP_EX(fcgBTDefault);
 }
 System::Void frmConfig::ShowExehelp(String^ ExePath, String^ args) {
     if (!File::Exists(ExePath)) {
@@ -2214,9 +2407,9 @@ System::Void frmConfig::ShowExehelp(String^ ExePath, String^ args) {
         array<String^>^ arg_list = args->Split(L';');
         for (int i = 0; i < arg_list->Length; i++) {
             if (i) {
-                StreamWriter^ sw;
+                System::IO::StreamWriter^ sw;
                 try {
-                    sw = gcnew StreamWriter(String(file_path).ToString(), true, System::Text::Encoding::GetEncoding("shift_jis"));
+                    sw = gcnew System::IO::StreamWriter(String(file_path).ToString(), true, System::Text::Encoding::GetEncoding("shift_jis"));
                     sw->WriteLine();
                     sw->WriteLine();
                 } catch (...) {
@@ -2240,8 +2433,8 @@ System::Void frmConfig::ShowExehelp(String^ ExePath, String^ args) {
     }
 }
 
-System::Void frmConfig::UpdateFeatures() {
-    if (fcgCXOutputType->SelectedIndex < 0 || _countof(list_outtype) == fcgCXOutputType->SelectedIndex) {
+System::Void frmConfig::UpdateFeatures(bool reGenerateTable) {
+    if (fcgCXEncCodec->SelectedIndex < 0 || _countof(list_out_enc_codec) == fcgCXEncCodec->SelectedIndex) {
         return;
     }
     if (featuresHW == nullptr) {
@@ -2249,13 +2442,13 @@ System::Void frmConfig::UpdateFeatures() {
     }
 
     //表示更新
-    const mfxU32 codecId = list_outtype[fcgCXOutputType->SelectedIndex].value;
+    const mfxU32 codecId = list_out_enc_codec[fcgCXEncCodec->SelectedIndex].value;
     const mfxU32 currentLib = featuresHW->GetmfxLibVer();
     String^ gpuname = featuresHW->GetGPUName();
     const bool currentLibValid = 0 != check_lib_version(currentLib, MFX_LIB_VERSION_1_1.Version);
     String^ currentAPI = L"hw: ";
     currentAPI += (currentLibValid) ? L"API v" + ((currentLib>>16).ToString() + L"." + (currentLib & 0x0000ffff).ToString()) : L"-------";
-    fcgLBFeaturesCurrentAPIVer->Text = currentAPI + L" / codec: " + String(list_outtype[fcgCXOutputType->SelectedIndex].desc).ToString() + L" " + String(fcgCBFixedFunc->Checked ? L"FF" : L"PG").ToString();
+    fcgLBFeaturesCurrentAPIVer->Text = currentAPI + L" / codec: " + String(list_out_enc_codec[fcgCXEncCodec->SelectedIndex].desc).ToString() + L" " + String(fcgCBFixedFunc->Checked ? L"FF" : L"PG").ToString();
     fcgLBGPUInfoOnFeatureTab->Text = gpuname;
 
     auto dataGridViewFont = gcnew System::Drawing::Font(L"Meiryo UI", 8.25F, FontStyle::Regular, GraphicsUnit::Point, static_cast<Byte>(128));
@@ -2265,7 +2458,7 @@ System::Void frmConfig::UpdateFeatures() {
     fcgDGVFeatures->AllowUserToResizeRows = false;
     fcgDGVFeatures->AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode::Fill;
 
-    fcgDGVFeatures->DataSource = featuresHW->getFeatureTable(fcgCXDevice->SelectedIndex, codecId, fcgCBFixedFunc->Checked);
+    fcgDGVFeatures->DataSource = featuresHW->getFeatureTable(fcgCXDevice->SelectedIndex, codecId, fcgCBFixedFunc->Checked, reGenerateTable);
 
     if (fcgDGVFeatures->Columns->Count > 0) {
         fcgDGVFeatures->Columns[0]->FillWeight = 240;

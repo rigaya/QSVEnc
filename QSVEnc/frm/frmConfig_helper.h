@@ -74,96 +74,147 @@ static const WCHAR * const list_mp4boxtempdir[] = {
     NULL
 };
 
-const CX_DESC list_deinterlace_ja[] = {
-    { "なし",                       MFX_DEINTERLACE_NONE        },
-    { "インタレ解除 (通常)",        MFX_DEINTERLACE_NORMAL      },
-    { "インタレ解除 (24fps化)",     MFX_DEINTERLACE_IT          },
-    { "インタレ解除 (Bob化)",       MFX_DEINTERLACE_BOB         },
-    { "自動フィールドシフト",       100 },
-    { "nnedi",                      101 },
-    { "yadif",                      102 },
-    { NULL, NULL }
+
+
+
+static const ENC_OPTION_STR aspect_desc[] = {
+    { NULL, AUO_CONFIG_CX_ASPECT_SAR, L"SAR比を指定 (デフォルト)" },
+    { NULL, AUO_CONFIG_CX_ASPECT_DAR, L"画面比から自動計算"       },
+    { NULL, AUO_MES_UNKNOWN, NULL }
 };
 
-static const wchar_t *const list_vpp_afs_analyze[] = {
-    L"0 - 解除なし",
-    L"1 - フィールド三重化",
-    L"2 - 縞検出二重化",
-    L"3 - 動き検出二重化",
-    L"4 - 動き検出補間",
-    NULL
+static const ENC_OPTION_STR tempdir_desc[] = {
+    { NULL, AUO_CONFIG_CX_TEMPDIR_OUTDIR, L"出力先と同じフォルダ (デフォルト)" },
+    { NULL, AUO_CONFIG_CX_TEMPDIR_SYSTEM, L"システムの一時フォルダ"            },
+    { NULL, AUO_CONFIG_CX_TEMPDIR_CUSTOM, L"カスタム"                          },
+    { NULL, AUO_MES_UNKNOWN, NULL }
 };
 
-const CX_DESC list_vpp_nnedi_pre_screen_gui[] = {
-    { _T("none"),           VPP_NNEDI_PRE_SCREEN_NONE },
-    { _T("original"),       VPP_NNEDI_PRE_SCREEN_ORIGINAL },
-    { _T("new"),            VPP_NNEDI_PRE_SCREEN_NEW },
-    { _T("original_block"), VPP_NNEDI_PRE_SCREEN_ORIGINAL_BLOCK },
-    { _T("new_block"),      VPP_NNEDI_PRE_SCREEN_NEW_BLOCK },
-    { NULL, NULL }
+static const ENC_OPTION_STR audtempdir_desc[] = {
+    { NULL, AUO_CONFIG_CX_AUDTEMP_DEFAULT, L"変更しない" },
+    { NULL, AUO_CONFIG_CX_AUDTEMP_CUSTOM,  L"カスタム"   },
+    { NULL, AUO_MES_UNKNOWN, NULL }
 };
 
-const CX_DESC list_vpp_yadif_mode_gui[] = {
-    { _T("normal"),        VPP_YADIF_MODE_AUTO },
-    { _T("bob"),           VPP_YADIF_MODE_BOB_AUTO },
-    { NULL, NULL }
+static const ENC_OPTION_STR mp4boxtempdir_desc[] = {
+    { NULL, AUO_CONFIG_CX_MP4BOXTEMP_DEFAULT, L"指定しない" },
+    { NULL, AUO_CONFIG_CX_MP4BOXTEMP_CUSTOM,  L"カスタム"   },
+    { NULL, AUO_MES_UNKNOWN, NULL }
 };
 
-const CX_DESC list_encmode[] = {
-    { "ビットレート指定 - CBR",           MFX_RATECONTROL_CBR    },
-    { "ビットレート指定 - VBR",           MFX_RATECONTROL_VBR    },
-    { "ビットレート指定 - AVBR",          MFX_RATECONTROL_AVBR   },
-    { "ビットレート指定 - QVBR",          MFX_RATECONTROL_QVBR   },
-    { "固定量子化量 (CQP)",               MFX_RATECONTROL_CQP    },
-    { "先行探索レート制御",               MFX_RATECONTROL_LA     },
-    { "先行探索レート制御 (HRD準拠)",     MFX_RATECONTROL_LA_HRD },
-    { "固定品質モード",                   MFX_RATECONTROL_ICQ    },
-    { "先行探索付き固定品質モード",       MFX_RATECONTROL_LA_ICQ },
-    { "ビデオ会議モード",                 MFX_RATECONTROL_VCM    },
-    { NULL, NULL }
+#if ENCODER_QSV
+static const ENC_OPTION_STR2 list_interlaced_mfx_gui[] = {
+    { AUO_CONFIG_CX_INTERLACE_PROGRESSIVE, L"progressive",     MFX_PICSTRUCT_PROGRESSIVE },
+    { AUO_CONFIG_CX_INTERLACE_TFF,         L"interlaced(tff)", MFX_PICSTRUCT_FIELD_TFF   },
+    { AUO_CONFIG_CX_INTERLACE_BFF,         L"interlaced(bff)", MFX_PICSTRUCT_FIELD_BFF   },
+    { AUO_MES_UNKNOWN, NULL, 0 }
 };
-
-const CX_DESC list_rotate_angle_ja[] = {
-    { _T("0°"),     MFX_ANGLE_0    },
-    { _T("90°"),    MFX_ANGLE_90   },
-    { _T("180°"),   MFX_ANGLE_180  },
-    { _T("270°"),   MFX_ANGLE_270  },
-    { NULL, 0 }
-};
-
-const WCHAR * const audio_enc_timing_desc[] = {
-    L"後",
-    L"前",
-    L"同時",
-    NULL
-};
-
-const CX_DESC list_outtype[] = {
-    { "H.264 / AVC",  MFX_CODEC_AVC  },
-    { "H.265 / HEVC", MFX_CODEC_HEVC },
-#ifndef HIDE_MPEG2
-    { "MPEG2", MFX_CODEC_MPEG2 },
 #endif
-    //{ "VC-1", MFX_CODEC_VC1 },
-    { "VP9", MFX_CODEC_VP9 },
-    { "AV1", MFX_CODEC_AV1 },
-    { NULL, NULL }
+
+static const ENC_OPTION_STR audio_enc_timing_desc[] = {
+    { NULL, AUO_CONFIG_CX_AUD_ENC_ORDER_AFTER,    L"後"   },
+    { NULL, AUO_CONFIG_CX_AUD_ENC_ORDER_BEFORE,   L"前"   },
+    { NULL, AUO_CONFIG_CX_AUD_ENC_ORDER_PARALLEL, L"同時" },
+    { NULL, AUO_MES_UNKNOWN, NULL }
+};
+
+static const ENC_OPTION_STR2 list_deinterlace_gui[] = {
+    { AUO_CONFIG_CX_DEINTERLACE_NONE,   L"なし",                   0 },
+#if ENCODER_QSV
+    { AUO_CONFIG_CX_DEINTERLACE_NORMAL, L"インタレ解除 (通常)",     MFX_DEINTERLACE_NORMAL      },
+    { AUO_CONFIG_CX_DEINTERLACE_IT,     L"インタレ解除 (24fps化)",  MFX_DEINTERLACE_IT          },
+    { AUO_CONFIG_CX_DEINTERLACE_BOB,    L"インタレ解除 (Bob化)",    MFX_DEINTERLACE_BOB         },
+#elif ENCODER_NVENC
+#elif ENCODER_VCEENC
+#else
+    static_assert(false);
+#endif
+    { AUO_CONFIG_CX_DEINTERLACE_AFS,    L"自動フィールドシフト",    100 },
+    { AUO_CONFIG_CX_DEINTERLACE_NNEDI,  L"nnedi",                   101 },
+    { AUO_CONFIG_CX_DEINTERLACE_YADIF,  L"yadif",                   102 },
+    { AUO_MES_UNKNOWN, NULL, NULL }
+};
+
+static const ENC_OPTION_STR list_vpp_afs_analyze[] = {
+    { NULL, AUO_CONFIG_CX_AFS_ANALYZE0, L"0 - 解除なし"         },
+    { NULL, AUO_CONFIG_CX_AFS_ANALYZE1, L"1 - フィールド三重化" },
+    { NULL, AUO_CONFIG_CX_AFS_ANALYZE2, L"2 - 縞検出二重化"     },
+    { NULL, AUO_CONFIG_CX_AFS_ANALYZE3, L"3 - 動き検出二重化"   },
+    { NULL, AUO_CONFIG_CX_AFS_ANALYZE4, L"4 - 動き検出補間"     },
+    { NULL, AUO_MES_UNKNOWN, NULL},
+};
+
+static const ENC_OPTION_STR2 list_vpp_nnedi_pre_screen_gui[] = {
+    { AUO_CONFIG_CX_NNEDI_PRESCREEN_NONE,           L"none",           VPP_NNEDI_PRE_SCREEN_NONE           },
+    { AUO_CONFIG_CX_NNEDI_PRESCREEN_ORIGINAL,       L"original",       VPP_NNEDI_PRE_SCREEN_ORIGINAL       },
+    { AUO_CONFIG_CX_NNEDI_PRESCREEN_NEW,            L"new",            VPP_NNEDI_PRE_SCREEN_NEW            },
+    { AUO_CONFIG_CX_NNEDI_PRESCREEN_ORIGINAL_BLOCK, L"original_block", VPP_NNEDI_PRE_SCREEN_ORIGINAL_BLOCK },
+    { AUO_CONFIG_CX_NNEDI_PRESCREEN_NEW_BLOCK,      L"new_block",      VPP_NNEDI_PRE_SCREEN_NEW_BLOCK      },
+    { AUO_MES_UNKNOWN, NULL, NULL }
+};
+
+static const ENC_OPTION_STR2 list_vpp_yadif_mode_gui[] = {
+    { AUO_CONFIG_CX_YADIF_MODE_NORMAL, L"normal",        VPP_YADIF_MODE_AUTO     },
+    { AUO_CONFIG_CX_YADIF_MODE_BOB,    L"bob",           VPP_YADIF_MODE_BOB_AUTO },
+    { AUO_MES_UNKNOWN, NULL, NULL }
+};
+
+static const ENC_OPTION_STR2 list_encmode[] = {
+#if ENCODER_QSV
+    { AUO_CONFIG_CX_RC_CBR,    L"ビットレート指定 - CBR",           MFX_RATECONTROL_CBR    },
+    { AUO_CONFIG_CX_RC_VBR,    L"ビットレート指定 - VBR",           MFX_RATECONTROL_VBR    },
+    { AUO_CONFIG_CX_RC_AVBR,   L"ビットレート指定 - AVBR",          MFX_RATECONTROL_AVBR   },
+    { AUO_CONFIG_CX_RC_QVBR,   L"ビットレート指定 - QVBR",          MFX_RATECONTROL_QVBR   },
+    { AUO_CONFIG_CX_RC_CQP,    L"固定量子化量 (CQP)",               MFX_RATECONTROL_CQP    },
+    { AUO_CONFIG_CX_RC_LA,     L"先行探索レート制御",               MFX_RATECONTROL_LA     },
+    { AUO_CONFIG_CX_RC_LA_HRD, L"先行探索レート制御 (HRD準拠)",     MFX_RATECONTROL_LA_HRD },
+    { AUO_CONFIG_CX_RC_ICQ,    L"固定品質モード",                   MFX_RATECONTROL_ICQ    },
+    { AUO_CONFIG_CX_RC_LA_ICQ, L"先行探索付き固定品質モード",       MFX_RATECONTROL_LA_ICQ },
+    { AUO_CONFIG_CX_RC_VCM,    L"ビデオ会議モード",                 MFX_RATECONTROL_VCM    },
+#elif ENCODER_NVENC
+#elif ENCODER_VCEENC
+#else
+    static_assert(false);
+#endif
+    { AUO_MES_UNKNOWN, NULL, NULL }
+};
+
+static const ENC_OPTION_STR2 list_vpp_deband_gui[] = {
+    { AUO_CONFIG_CX_DEBAND_0, L"0 - 1点参照",  0 },
+    { AUO_CONFIG_CX_DEBAND_1, L"1 - 2点参照",  1 },
+    { AUO_CONFIG_CX_DEBAND_2, L"2 - 4点参照",  2 },
+    { AUO_MES_UNKNOWN, NULL, 0 }
+};
+
+#if ENCODER_QSV
+static const ENC_OPTION_STR2 list_rotate_angle_ja[] = {
+    { AUO_MES_UNKNOWN,   L"0°",  MFX_ANGLE_0    },
+    { AUO_MES_UNKNOWN,  L"90°",  MFX_ANGLE_90   },
+    { AUO_MES_UNKNOWN, L"180°",  MFX_ANGLE_180  },
+    { AUO_MES_UNKNOWN, L"270°",  MFX_ANGLE_270  },
+    { AUO_MES_UNKNOWN, NULL, 0 }
+};
+
+static const ENC_OPTION_STR2 list_out_enc_codec[] = {
+    { AUO_MES_UNKNOWN, L"H.264 / AVC",  MFX_CODEC_AVC  },
+    { AUO_MES_UNKNOWN, L"H.265 / HEVC", MFX_CODEC_HEVC },
+#ifndef HIDE_MPEG2
+    { AUO_MES_UNKNOWN, L"MPEG2", MFX_CODEC_MPEG2 },
+#endif
+    //{ AUO_MES_UNKNOWN,"VC-1", MFX_CODEC_VC1 },
+    { AUO_MES_UNKNOWN, L"VP9", MFX_CODEC_VP9 },
+    { AUO_MES_UNKNOWN, L"AV1", MFX_CODEC_AV1 },
+    { AUO_MES_UNKNOWN, NULL, NULL }
 };
 //下記は一致していないといけない
-static_assert(_countof(list_outtype)-1/*NULLの分*/ == _countof(CODEC_LIST_AUO));
+static_assert(_countof(list_out_enc_codec)-1/*NULLの分*/ == _countof(CODEC_LIST_AUO));
+#endif
 
-const CX_DESC list_log_level_jp[] = {
-    { "通常",                  RGY_LOG_INFO  },
-    { "音声/muxのログも表示 ", RGY_LOG_MORE  },
-    { "デバッグ用出力も表示 ", RGY_LOG_DEBUG },
-    { NULL, NULL }
-};
-
-static const wchar_t *const list_vpp_deinterlacer[] = {
-    L"なし",
-    L"自動フィールドシフト",
-    L"nnedi",
-    NULL
+static const ENC_OPTION_STR2 list_log_level_jp[] = {
+    { AUO_CONFIG_CX_LOG_LEVEL_INFO,  L"通常",                  RGY_LOG_INFO  },
+    { AUO_CONFIG_CX_LOG_LEVEL_MORE,  L"音声/muxのログも表示 ", RGY_LOG_MORE  },
+    { AUO_CONFIG_CX_LOG_LEVEL_DEBUG, L"デバッグ用出力も表示 ", RGY_LOG_DEBUG },
+    { AUO_MES_UNKNOWN, NULL, NULL }
 };
 
 
@@ -282,38 +333,38 @@ namespace QSVEnc {
         DataTable^ table() { return dataTableCodec_; }
 
         System::Void GenerateTable() {
-            static const FEATURE_DESC list_enc_feature_jp[] = {
-                { _T("モード有効      "), ENC_FEATURE_CURRENT_RC             },
-                { _T("10bit深度       "), ENC_FEATURE_10BIT_DEPTH            },
-                { _T("Deep Link       "), ENC_FEATURE_HYPER_MODE             },
-                { _T("インタレ保持    "), ENC_FEATURE_INTERLACE              },
-                { _T("色設定等出力    "), ENC_FEATURE_VUI_INFO               },
-                //{ _T("aud             "), ENC_FEATURE_AUD                    },
-                //{ _T("pic_struct      "), ENC_FEATURE_PIC_STRUCT             },
-                //{ _T("rdo             "), ENC_FEATURE_RDO                    },
-                //{ _T("CAVLC           "), ENC_FEATURE_CAVLC                  },
-                { _T("Bフレーム       "), ENC_FEATURE_BFRAME                 },
-                { _T("適応的Iフレーム "), ENC_FEATURE_ADAPTIVE_I             },
-                { _T("適応的Bフレーム "), ENC_FEATURE_ADAPTIVE_B             },
-                { _T("重み付きPフレーム"), ENC_FEATURE_WEIGHT_P              },
-                { _T("重み付きBフレーム"), ENC_FEATURE_WEIGHT_B              },
-                { _T("フェード検出    "), ENC_FEATURE_FADE_DETECT            },
-                { _T("ピラミッド参照  "), ENC_FEATURE_B_PYRAMID              },
-                { _T(" +多Bframe     "),  ENC_FEATURE_B_PYRAMID_MANY_BFRAMES },
-                { _T("MB単位レート制御"), ENC_FEATURE_MBBRC                  },
-                //{ _T("ExtBRC          "), ENC_FEATURE_EXT_BRC                },
-                { _T("先行探索品質    "), ENC_FEATURE_LA_DS                  },
-                { _T("最大/最小 QP    "), ENC_FEATURE_QP_MINMAX              },
-                { _T("Trellis         "), ENC_FEATURE_TRELLIS                },
-                { _T("周期的ｲﾝﾄﾗ更新  "), ENC_FEATURE_INTRA_REFRESH          },
-                { _T("No-Deblock      "), ENC_FEATURE_NO_DEBLOCK             },
-                { _T("MBQP(CQP)       "), ENC_FEATURE_PERMBQP                },
-                { _T("ﾀﾞｲﾚｸﾄﾓｰﾄﾞ最適化"), ENC_FEATURE_DIRECT_BIAS_ADJUST     },
-                { _T("MVコスト調整    "), ENC_FEATURE_GLOBAL_MOTION_ADJUST   },
-                { _T("SAO             "), ENC_FEATURE_HEVC_SAO               },
-                { _T("最大 CTU Size   "), ENC_FEATURE_HEVC_CTU               },
-                { _T("TSkip           "), ENC_FEATURE_HEVC_TSKIP             },
-                { NULL, 0 },
+            static const ENC_OPTION_STR3 list_enc_feature_jp[] = {
+                { AUO_CONFIG_CX_FEATURE_CURRENT_RC,             L"モード有効       ", ENC_FEATURE_CURRENT_RC             },
+                { AUO_CONFIG_CX_FEATURE_10BIT_DEPTH,            L"10bit深度        ", ENC_FEATURE_10BIT_DEPTH            },
+                { AUO_CONFIG_CX_FEATURE_HYPER_MODE,             L"Deep Link        ", ENC_FEATURE_HYPER_MODE             },
+                { AUO_CONFIG_CX_FEATURE_INTERLACE,              L"インタレ保持     ", ENC_FEATURE_INTERLACE              },
+                { AUO_CONFIG_CX_FEATURE_VUI_INFO,               L"色設定等出力     ", ENC_FEATURE_VUI_INFO               },
+                //{ AUO_CONFIG_CX_FEATURE_AUD,                    L"aud              ", ENC_FEATURE_AUD                    },
+                //{ AUO_CONFIG_CX_FEATURE_PIC_STRUCT,             L"pic_struct       ", ENC_FEATURE_PIC_STRUCT             },
+                //{ AUO_CONFIG_CX_FEATURE_RDO,                    L"rdo              ", ENC_FEATURE_RDO                    },
+                //{ AUO_CONFIG_CX_FEATURE_CAVLC,                  L"CAVLC            ", ENC_FEATURE_CAVLC                  },
+                { AUO_CONFIG_CX_FEATURE_BFRAME,                 L"Bフレーム        ", ENC_FEATURE_BFRAME                 },
+                { AUO_CONFIG_CX_FEATURE_ADAPTIVE_I,             L"適応的Iフレーム  ", ENC_FEATURE_ADAPTIVE_I             },
+                { AUO_CONFIG_CX_FEATURE_ADAPTIVE_B,             L"適応的Bフレーム  ", ENC_FEATURE_ADAPTIVE_B             },
+                { AUO_CONFIG_CX_FEATURE_WEIGHT_P,               L"重み付きPフレーム", ENC_FEATURE_WEIGHT_P               },
+                { AUO_CONFIG_CX_FEATURE_WEIGHT_B,               L"重み付きBフレーム", ENC_FEATURE_WEIGHT_B               },
+                { AUO_CONFIG_CX_FEATURE_FADE_DETECT,            L"フェード検出     ", ENC_FEATURE_FADE_DETECT            },
+                { AUO_CONFIG_CX_FEATURE_B_PYRAMID,              L"ピラミッド参照   ", ENC_FEATURE_B_PYRAMID              },
+                { AUO_CONFIG_CX_FEATURE_B_PYRAMID_MANY_BFRAMES, L" +多Bframe       ", ENC_FEATURE_B_PYRAMID_MANY_BFRAMES },
+                { AUO_CONFIG_CX_FEATURE_MBBRC,                  L"MB単位レート制御 ", ENC_FEATURE_MBBRC                  },
+                //{ AUO_CONFIG_CX_FEATURE_EXT_BRC,                L"ExtBRC           ", ENC_FEATURE_EXT_BRC                },
+                { AUO_CONFIG_CX_FEATURE_LA_DS,                  L"先行探索品質     ", ENC_FEATURE_LA_DS                  },
+                { AUO_CONFIG_CX_FEATURE_QP_MINMAX,              L"最大/最小 QP     ", ENC_FEATURE_QP_MINMAX              },
+                { AUO_CONFIG_CX_FEATURE_TRELLIS,                L"Trellis          ", ENC_FEATURE_TRELLIS                },
+                { AUO_CONFIG_CX_FEATURE_INTRA_REFRESH,          L"周期的ｲﾝﾄﾗ更新   ", ENC_FEATURE_INTRA_REFRESH          },
+                { AUO_CONFIG_CX_FEATURE_NO_DEBLOCK,             L"No-Deblock       ", ENC_FEATURE_NO_DEBLOCK             },
+                { AUO_CONFIG_CX_FEATURE_PERMBQP,                L"MBQP(CQP)        ", ENC_FEATURE_PERMBQP                },
+                { AUO_CONFIG_CX_FEATURE_DIRECT_BIAS_ADJUST,     L"ﾀﾞｲﾚｸﾄﾓｰﾄﾞ最適化 ", ENC_FEATURE_DIRECT_BIAS_ADJUST     },
+                { AUO_CONFIG_CX_FEATURE_GLOBAL_MOTION_ADJUST,   L"MVコスト調整     ", ENC_FEATURE_GLOBAL_MOTION_ADJUST   },
+                { AUO_CONFIG_CX_FEATURE_HEVC_SAO,               L"SAO              ", ENC_FEATURE_HEVC_SAO               },
+                { AUO_CONFIG_CX_FEATURE_HEVC_CTU,               L"最大 CTU Size    ", ENC_FEATURE_HEVC_CTU               },
+                { AUO_CONFIG_CX_FEATURE_HEVC_TSKIP,             L"TSkip            ", ENC_FEATURE_HEVC_TSKIP             },
+                { AUO_MES_UNKNOWN, NULL, 0 },
             };
 
             dataTableCodec_ = gcnew DataTable();
@@ -325,7 +376,15 @@ namespace QSVEnc {
             //第2行以降を連続で追加していく
             for (int i = 0; list_enc_feature_jp[i].desc; i++) {
                 DataRow^ drb = dataTableCodec_->NewRow();
-                drb[0] = String(list_enc_feature_jp[i].desc).ToString();
+
+                String^ string = nullptr;
+                if (list_enc_feature_jp[i].mes != AUO_MES_UNKNOWN) {
+                    string = LOAD_CLI_STRING(list_enc_feature_jp[i].mes);
+                }
+                if (string == nullptr || string->Length == 0) {
+                    string = String(list_enc_feature_jp[i].desc).ToString();
+                }
+                drb[0] = string;
                 for (int j = 1; j < dataTableCodec_->Columns->Count; j++) {
                     drb[j] = String((features_[j - 1] & list_enc_feature_jp[i].value) ? L"○" : L"×").ToString();
                 }
@@ -358,7 +417,12 @@ namespace QSVEnc {
         UInt64 feature(const bool lowpower, const int rc_index) {
             return feature(lowpower)->features(rc_index);
         }
-        DataTable^ table(const bool lowpower) { return feature(lowpower)->table(); }
+        DataTable^ table(const bool lowpower, const bool reGenerateTable) {
+            if (reGenerateTable) {
+                generateTable();
+            }
+            return feature(lowpower)->table();
+        }
 
         void initDataTableColumns() {
             featureFF->initColumns();
@@ -407,12 +471,12 @@ namespace QSVEnc {
         bool getFeaturesFinished() { return getFeaturesFinished_; }
         void init() {
             int codecCount = 0;
-            while (list_outtype[codecCount].desc)
+            while (list_out_enc_codec[codecCount].desc)
                 codecCount++;
 
             codecFeatureList_ = gcnew array<CodecData^>(codecCount);
             for (int i_codec = 0; i_codec < codecCount; i_codec++) {
-                codecFeatureList_[i_codec] = gcnew CodecData(list_outtype[i_codec].value);
+                codecFeatureList_[i_codec] = gcnew CodecData(list_out_enc_codec[i_codec].value);
                 codecFeatureList_[i_codec]->init();
             }
         }
@@ -454,7 +518,7 @@ namespace QSVEnc {
             }
             return cdata->feature(lowpower, rc_index);
         }
-        DataTable^ getTable(const mfxU32 codecId, const bool lowpower) {
+        DataTable^ getTable(const mfxU32 codecId, const bool lowpower, const bool reGenerateTable) {
             if (thGetFeatures != nullptr && thGetFeatures->IsAlive) {
                 thGetFeatures->Join();
             }
@@ -462,7 +526,7 @@ namespace QSVEnc {
             if (cdata == nullptr) {
                 return nullptr;
             }
-            return cdata->table(lowpower);
+            return cdata->table(lowpower, reGenerateTable);
         }
         void startGetFeatures() {
             thGetFeatures = gcnew Thread(gcnew ThreadStart(this, &QSVDevFeatures::getFeatures));
@@ -567,13 +631,13 @@ namespace QSVEnc {
                         for (int i_rate_control = 0; i_rate_control < _countof(list_rate_control_ry); i_rate_control++) {
                             codecAvailableFeatures[i_rate_control] = 0;
                         }
-                        for (int icodec = 0; list_outtype[icodec].desc; icodec++) {
+                        for (int icodec = 0; list_out_enc_codec[icodec].desc; icodec++) {
                             array<wchar_t>^ delimiterChars = { L' ', L'/' };
-                            String^ codecName = String(list_outtype[icodec].desc).ToString();
+                            String^ codecName = String(list_out_enc_codec[icodec].desc).ToString();
                             auto codecNames = codecName->Split(delimiterChars);
                             for (int in = 0; in < codecNames->Length; in++) {
                                 if (codecNames[in]->Length > 0 && featureDataLines[iline]->Contains(codecNames[in])) {
-                                    mfxU32 codecId = list_outtype[icodec].value;
+                                    mfxU32 codecId = list_out_enc_codec[icodec].value;
                                     codecData = getCodecData(codecId);
                                     break;
                                 }
@@ -719,12 +783,12 @@ namespace QSVEnc {
             }
             return devf->featureOfRC(rc_index, codecId, lowpower);
         }
-        DataTable^ getFeatureTable(const int dev_index, const mfxU32 codecId, const bool lowpower) {
+        DataTable^ getFeatureTable(const int dev_index, const mfxU32 codecId, const bool lowpower, const bool reGenerateTable) {
             QSVDevFeatures^ devf = getDevFeatures(dev_index);
             if (devf == nullptr) {
                 return nullptr;
             }
-            return devf->getTable(codecId, lowpower);
+            return devf->getTable(codecId, lowpower, reGenerateTable);
         }
         bool checkIfGetFeaturesFinished() {
             if (devList) {

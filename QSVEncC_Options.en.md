@@ -593,12 +593,18 @@ In this mode, encoding will be done in very low GPU utilization in low power,
 but the quality will be poor compared to ordinary mode.
 
 ### --hyper-mode &lt;string&gt;
-Enable encode speed boost using Deep Link Hyper Mode.
+Enable encode speed boost using Intel Deep Link Hyper Encode.
+
+When using Hyper Encode, it is required to use encode settings which can be use both on iGPU and dGPU, thus please note that some options might be disabled.
 
 - **パラメータ**
   - off
-  - on
-  - adaptive (default)
+
+  - on  
+    Use Hyper Encode. (some options might be adjusted by the limitation of Hyper Encode)
+
+  - adaptive (default)  
+    Use Hyper Encode whenever possible, depending on the options specified.
 
 ### --max-bitrate &lt;int&gt;
 Maximum bitrate (in kbps).

@@ -114,6 +114,9 @@
       <Filter>ソース ファイル</Filter>
     </None>
     <None Include="QSVEnc.ini" />
+    <None Include="QSVEnc.en.lng" />
+    <None Include="QSVEnc.ja.lng" />
+    <None Include="QSVEnc.zh.lng" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="auo.h">

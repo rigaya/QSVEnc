@@ -611,12 +611,18 @@ vaビデオメモリを使用する。(Linux)
 GPUに負荷をかけることなく、低電力でエンコード可能だが、品質はやや劣る。
 
 ### --hyper-mode &lt;string&gt;
-Deep Linkを使用したエンコードの高速化を使用する。
+Intel Deep Linkを活用し、Intelの内蔵GPU(iGPU)と外部GPU(dGPU)を使用したエンコードの高速化(Hyper Encode)を使用する。
+
+エンコード設定が両方のGPUで共通で使用できるものとする必要があり、この制約により一部のオプションが自動的に無効になることがある点に注意。
 
 - **パラメータ**
   - off
-  - on
-  - adaptive (デフォルト)
+
+  - on  
+    オプション調整等を行い、可能な限りHyper Encodeを使用します。
+
+  - adaptive (デフォルト)  
+    オプション調整等はせず、可能な場合にHyper Encodeを使用します。
 
 ### --max-bitrate &lt;int&gt;
 最大ビットレート(kbps単位)。

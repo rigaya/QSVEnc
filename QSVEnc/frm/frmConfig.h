@@ -69,6 +69,7 @@ namespace AUO_NAME_R {
         {
             //ライブラリのチェック
             InitData(_conf, _sys_dat);
+            list_lng = nullptr;
             dwStgReader = nullptr;
             updateFeatureTableFlag = false;
             themeMode = AuoTheme::DefaultLight;
@@ -96,6 +97,8 @@ namespace AUO_NAME_R {
             if (featuresHW != nullptr) delete featuresHW;
             if (nullptr != saveFileQSVFeautures)
                 delete saveFileQSVFeautures;
+            if (list_lng != nullptr)
+                delete list_lng;
         }
 
 
@@ -569,9 +572,11 @@ private: System::Windows::Forms::Label^  fcgLBAVBRAccuarcy;
 
 
 private: System::Windows::Forms::NumericUpDown^  fcgNUAVBRAccuarcy;
-
-
 private: System::Windows::Forms::GroupBox^  fcgGroupBoxAspectRatio;
+
+
+
+
 private: System::Windows::Forms::Label^  fcgLBAspectRatio;
 private: System::Windows::Forms::NumericUpDown^  fcgNUAspectRatioY;
 private: System::Windows::Forms::NumericUpDown^  fcgNUAspectRatioX;
@@ -587,7 +592,8 @@ private: System::Windows::Forms::Label^  fcgLBCodecProfile;
 private: System::Windows::Forms::NumericUpDown^  fcgNUBframes;
 private: System::Windows::Forms::NumericUpDown^  fcgNURef;
 private: System::Windows::Forms::Label^  fcgLBBframes;
-private: System::Windows::Forms::Label^  fcgLBRef;
+private: System::Windows::Forms::Label^  fcgLBRefFrames;
+
 private: System::Windows::Forms::Label^  fcgLBMaxBitrate2;
 private: System::Windows::Forms::Label^  fcgLBEncMode;
 private: System::Windows::Forms::ComboBox^  fcgCXEncMode;
@@ -600,13 +606,17 @@ private: System::Windows::Forms::Label^  fcgLBQPI;
 private: System::Windows::Forms::NumericUpDown^  fcgNUQPB;
 private: System::Windows::Forms::NumericUpDown^  fcgNUQPP;
 private: System::Windows::Forms::NumericUpDown^  fcgNUQPI;
-private: System::Windows::Forms::Label^  fcgLBQuality;
-private: System::Windows::Forms::Label^  fcgLBOutputType;
-private: System::Windows::Forms::ComboBox^  fcgCXQuality;
+private: System::Windows::Forms::Label^  fcgLBQualityPreset;
+private: System::Windows::Forms::Label^  fcgLBEncCodec;
+
+
+private: System::Windows::Forms::ComboBox^  fcgCXQualityPreset;
+
 private: System::Windows::Forms::Label^  fcgLBBitrate2;
 private: System::Windows::Forms::NumericUpDown^  fcgNUBitrate;
 private: System::Windows::Forms::Label^  fcgLBBitrate;
-private: System::Windows::Forms::ComboBox^  fcgCXOutputType;
+private: System::Windows::Forms::ComboBox^  fcgCXEncCodec;
+
 
 
 
@@ -619,7 +629,8 @@ private: System::Windows::Forms::Label^  fcgLBAVBRAccuarcy2;
 private: System::Windows::Forms::Label^  fcgLBAVBRConvergence2;
 
 private: System::Windows::Forms::CheckBox^  fcgCBOpenGOP;
-private: System::Windows::Forms::GroupBox^  fcggroupBoxColor;
+private: System::Windows::Forms::GroupBox^  fcggroupBoxColorMatrix;
+
 private: System::Windows::Forms::CheckBox^  fcgCBFullrange;
 private: System::Windows::Forms::ComboBox^  fcgCXTransfer;
 
@@ -732,8 +743,9 @@ private: System::Windows::Forms::TextBox^  fcgTXMPGMuxerPath;
 private: System::Windows::Forms::Label^  fcgLBMPGMuxerPath;
 
 private: System::Windows::Forms::ComboBox^  fcgCXMPGCmdEx;
+private: System::Windows::Forms::Label^  fcgLBMPGMuxerCmdEx;
 
-private: System::Windows::Forms::Label^  label3;
+
 private: System::Windows::Forms::CheckBox^  fcgCBMPGMuxerExt;
 
 private: System::Windows::Forms::ContextMenuStrip^  fcgCSExeFiles;
@@ -774,9 +786,10 @@ private: System::Windows::Forms::Panel^  fcgPNLookahead;
 
 private: System::Windows::Forms::NumericUpDown^  fcgNULookaheadDepth;
 private: System::Windows::Forms::Label^  fcgLBLookaheadDepth;
+private: System::Windows::Forms::Label^  fcgLBLookaheadDepth2;
 
 
-private: System::Windows::Forms::Label^  label1;
+
 
 
 
@@ -973,7 +986,8 @@ private: System::Windows::Forms::Panel ^fcgPNAudioInternal;
 private: System::Windows::Forms::Label ^fcgLBAudioBitrateInternal;
 private: System::Windows::Forms::NumericUpDown ^fcgNUAudioBitrateInternal;
 private: System::Windows::Forms::ComboBox ^fcgCXAudioEncModeInternal;
-private: System::Windows::Forms::Label ^label4;
+private: System::Windows::Forms::Label^  fcgLBAudioEncModeInternal;
+
 private: System::Windows::Forms::ComboBox ^fcgCXAudioEncoderInternal;
 private: System::Windows::Forms::Panel ^fcgPNAudioExt;
 private: System::Windows::Forms::ComboBox ^fcgCXAudioDelayCut;
@@ -998,8 +1012,8 @@ private: System::Windows::Forms::Label ^fcgLBAudioBitrate;
 private: System::Windows::Forms::TabPage ^fcgtabPageInternal;
 private: System::Windows::Forms::ComboBox ^fcgCXInternalCmdEx;
 private: System::Windows::Forms::Label ^fcgLBInternalCmdEx;
-private: System::Windows::Forms::CheckBox ^fcgCBCopyChapter;
-private: System::Windows::Forms::CheckBox ^fcgCBCopySubtitle;
+
+
 private: System::Windows::Forms::ComboBox^  fcgCXOutputCsp;
 private: System::Windows::Forms::Label^  fcgLBOutputCsp;
 private: System::Windows::Forms::CheckBox^  fcgCBOutputPicStruct;
@@ -1057,8 +1071,8 @@ private: System::Windows::Forms::Label^  fcgLBVppEdgelevelStrength;
 private: System::Windows::Forms::NumericUpDown^  fcgNUVppEdgelevelThreshold;
 private: System::Windows::Forms::NumericUpDown^  fcgNUVppEdgelevelBlack;
 private: System::Windows::Forms::NumericUpDown^  fcgNUVppEdgelevelStrength;
-private: System::Windows::Forms::Label^  label10;
-private: System::Windows::Forms::NumericUpDown^  numericUpDown4;
+
+
 private: System::Windows::Forms::Panel^  fcgPNVppUnsharp;
 private: System::Windows::Forms::Label^  fcgLBVppUnsharpThreshold;
 private: System::Windows::Forms::Label^  fcgLBVppUnsharpWeight;
@@ -1117,9 +1131,12 @@ private: System::Windows::Forms::TrackBar^  fcgTBVppAfsThreShift;
 private: System::Windows::Forms::Label^  fcgLBVppAfsThreShift;
 private: System::Windows::Forms::TrackBar^  fcgTBVppAfsCoeffShift;
 private: System::Windows::Forms::Label^  fcgLBVppAfsCoeffShift;
-private: System::Windows::Forms::Label^  label20;
-private: System::Windows::Forms::Label^  label19;
-private: System::Windows::Forms::Label^  label2;
+private: System::Windows::Forms::Label^  fcgLBVppAfsRight;
+private: System::Windows::Forms::Label^  fcgLBVppAfsLeft;
+
+
+private: System::Windows::Forms::Label^  fcgLBVppAfsBottom;
+
 private: System::Windows::Forms::Label^  fcgLBVppAfsUp;
 private: System::Windows::Forms::NumericUpDown^  fcgNUVppAfsRight;
 private: System::Windows::Forms::NumericUpDown^  fcgNUVppAfsLeft;
@@ -1143,7 +1160,8 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUVppAfsMethodSwitch;
 private: System::Windows::Forms::CheckBox^  fcgCBVppResize;
 private: System::Windows::Forms::GroupBox^  fcggroupBoxResize;
 private: System::Windows::Forms::ComboBox^  fcgCXVppResizeAlg;
-private: System::Windows::Forms::Label^  fcgLBResize;
+private: System::Windows::Forms::Label^  fcgLBVppResize;
+
 private: System::Windows::Forms::NumericUpDown^  fcgNUResizeH;
 private: System::Windows::Forms::NumericUpDown^  fcgNUResizeW;
 
@@ -1162,8 +1180,8 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUVppDenoiseMFX;
 private: System::Windows::Forms::Panel^  fcgPNVppDetailEnhanceMFX;
 private: System::Windows::Forms::Label^  fcgLBVppDetailEnhanceMFX;
 private: System::Windows::Forms::NumericUpDown^  fcgNUVppDetailEnhanceMFX;
-private: System::Windows::Forms::Label^  label9;
-private: System::Windows::Forms::NumericUpDown^  numericUpDown6;
+
+
 private: System::Windows::Forms::Panel^  fcgPNVppWarpsharp;
 private: System::Windows::Forms::Label^  fcgLBVppWarpsharpDepth;
 private: System::Windows::Forms::NumericUpDown^  fcgNUVppWarpsharpDepth;
@@ -1174,8 +1192,8 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUVppWarpsharpThreshold;
 private: System::Windows::Forms::NumericUpDown^  fcgNUVppWarpsharpType;
 
 private: System::Windows::Forms::NumericUpDown^  fcgNUVppWarpsharpBlur;
-private: System::Windows::Forms::Label^  label11;
-private: System::Windows::Forms::NumericUpDown^  numericUpDown7;
+
+
 private: System::Windows::Forms::Label^  fcgLBVppMctf;
 private: System::Windows::Forms::NumericUpDown^  fcgNUVppMctf;
 private: System::Windows::Forms::CheckBox^  fcgCBPsnr;
@@ -1199,6 +1217,9 @@ private: System::Windows::Forms::ComboBox^  fcgCXDevice;
 private: System::Windows::Forms::Label^  fcgLBDevice;
 private: System::Windows::Forms::Label^  fcgLBHyperMode;
 private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
+private: System::Windows::Forms::CheckBox^  fcgCBMuxMinimize;
+private: System::Windows::Forms::ToolStripDropDownButton^  fcgTSLanguage;
+private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
 
 
 
@@ -1338,6 +1359,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
         void InitializeComponent(void)
         {
             this->components = (gcnew System::ComponentModel::Container());
+            System::ComponentModel::ComponentResourceManager^  resources = (gcnew System::ComponentModel::ComponentResourceManager(frmConfig::typeid));
             this->fcgtoolStripSettings = (gcnew System::Windows::Forms::ToolStrip());
             this->fcgTSBSave = (gcnew System::Windows::Forms::ToolStripButton());
             this->fcgTSBSaveNew = (gcnew System::Windows::Forms::ToolStripButton());
@@ -1346,6 +1368,8 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgTSSettings = (gcnew System::Windows::Forms::ToolStripDropDownButton());
             this->fcgTSBBitrateCalc = (gcnew System::Windows::Forms::ToolStripButton());
             this->toolStripSeparator2 = (gcnew System::Windows::Forms::ToolStripSeparator());
+            this->fcgTSLanguage = (gcnew System::Windows::Forms::ToolStripDropDownButton());
+            this->toolStripSeparator1 = (gcnew System::Windows::Forms::ToolStripSeparator());
             this->fcgTSBOtherSettings = (gcnew System::Windows::Forms::ToolStripButton());
             this->fcgTSLSettingsNotes = (gcnew System::Windows::Forms::ToolStripLabel());
             this->fcgTSTSettingsNotes = (gcnew System::Windows::Forms::ToolStripTextBox());
@@ -1380,9 +1404,10 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgTXMPGMuxerPath = (gcnew System::Windows::Forms::TextBox());
             this->fcgLBMPGMuxerPath = (gcnew System::Windows::Forms::Label());
             this->fcgCXMPGCmdEx = (gcnew System::Windows::Forms::ComboBox());
-            this->label3 = (gcnew System::Windows::Forms::Label());
+            this->fcgLBMPGMuxerCmdEx = (gcnew System::Windows::Forms::Label());
             this->fcgCBMPGMuxerExt = (gcnew System::Windows::Forms::CheckBox());
             this->fcgtabPageMux = (gcnew System::Windows::Forms::TabPage());
+            this->fcgCBMuxMinimize = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCXMuxPriority = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBMuxPriority = (gcnew System::Windows::Forms::Label());
             this->fcgtabPageBat = (gcnew System::Windows::Forms::TabPage());
@@ -1400,8 +1425,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgCBWaitForBatAfter = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCBRunBatAfter = (gcnew System::Windows::Forms::CheckBox());
             this->fcgtabPageInternal = (gcnew System::Windows::Forms::TabPage());
-            this->fcgCBCopyChapter = (gcnew System::Windows::Forms::CheckBox());
-            this->fcgCBCopySubtitle = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCXInternalCmdEx = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBInternalCmdEx = (gcnew System::Windows::Forms::Label());
             this->fcgBTCancel = (gcnew System::Windows::Forms::Button());
@@ -1465,7 +1488,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgLBBframesAuto = (gcnew System::Windows::Forms::Label());
             this->fcgCXVideoFormat = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBVideoFormat = (gcnew System::Windows::Forms::Label());
-            this->fcggroupBoxColor = (gcnew System::Windows::Forms::GroupBox());
+            this->fcggroupBoxColorMatrix = (gcnew System::Windows::Forms::GroupBox());
             this->fcgCXTransfer = (gcnew System::Windows::Forms::ComboBox());
             this->fcgCXColorPrim = (gcnew System::Windows::Forms::ComboBox());
             this->fcgCXColorMatrix = (gcnew System::Windows::Forms::ComboBox());
@@ -1489,15 +1512,15 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgNUBframes = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgNURef = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgLBBframes = (gcnew System::Windows::Forms::Label());
-            this->fcgLBRef = (gcnew System::Windows::Forms::Label());
+            this->fcgLBRefFrames = (gcnew System::Windows::Forms::Label());
             this->fcgLBEncMode = (gcnew System::Windows::Forms::Label());
             this->fcgCXEncMode = (gcnew System::Windows::Forms::ComboBox());
-            this->fcgLBQuality = (gcnew System::Windows::Forms::Label());
-            this->fcgLBOutputType = (gcnew System::Windows::Forms::Label());
-            this->fcgCXQuality = (gcnew System::Windows::Forms::ComboBox());
-            this->fcgCXOutputType = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgLBQualityPreset = (gcnew System::Windows::Forms::Label());
+            this->fcgLBEncCodec = (gcnew System::Windows::Forms::Label());
+            this->fcgCXQualityPreset = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgCXEncCodec = (gcnew System::Windows::Forms::ComboBox());
             this->fcgPNLookahead = (gcnew System::Windows::Forms::Panel());
-            this->label1 = (gcnew System::Windows::Forms::Label());
+            this->fcgLBLookaheadDepth2 = (gcnew System::Windows::Forms::Label());
             this->fcgNULookaheadDepth = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgLBLookaheadDepth = (gcnew System::Windows::Forms::Label());
             this->fcgPNBitrate = (gcnew System::Windows::Forms::Panel());
@@ -1541,6 +1564,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgNUVppDebandThreY = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgNUVppDebandRange = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcggroupBoxVppDetailEnahance = (gcnew System::Windows::Forms::GroupBox());
+            this->fcgCXVppDetailEnhance = (gcnew System::Windows::Forms::ComboBox());
             this->fcgPNVppWarpsharp = (gcnew System::Windows::Forms::Panel());
             this->fcgLBVppWarpsharpDepth = (gcnew System::Windows::Forms::Label());
             this->fcgNUVppWarpsharpDepth = (gcnew System::Windows::Forms::NumericUpDown());
@@ -1550,9 +1574,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgNUVppWarpsharpThreshold = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgNUVppWarpsharpType = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgNUVppWarpsharpBlur = (gcnew System::Windows::Forms::NumericUpDown());
-            this->label11 = (gcnew System::Windows::Forms::Label());
-            this->numericUpDown7 = (gcnew System::Windows::Forms::NumericUpDown());
-            this->fcgCXVppDetailEnhance = (gcnew System::Windows::Forms::ComboBox());
             this->fcgPNVppEdgelevel = (gcnew System::Windows::Forms::Panel());
             this->fcgLBVppEdgelevelWhite = (gcnew System::Windows::Forms::Label());
             this->fcgNUVppEdgelevelWhite = (gcnew System::Windows::Forms::NumericUpDown());
@@ -1562,8 +1583,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgNUVppEdgelevelThreshold = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgNUVppEdgelevelBlack = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgNUVppEdgelevelStrength = (gcnew System::Windows::Forms::NumericUpDown());
-            this->label10 = (gcnew System::Windows::Forms::Label());
-            this->numericUpDown4 = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgPNVppUnsharp = (gcnew System::Windows::Forms::Panel());
             this->fcgLBVppUnsharpThreshold = (gcnew System::Windows::Forms::Label());
             this->fcgLBVppUnsharpWeight = (gcnew System::Windows::Forms::Label());
@@ -1574,9 +1593,15 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgPNVppDetailEnhanceMFX = (gcnew System::Windows::Forms::Panel());
             this->fcgLBVppDetailEnhanceMFX = (gcnew System::Windows::Forms::Label());
             this->fcgNUVppDetailEnhanceMFX = (gcnew System::Windows::Forms::NumericUpDown());
-            this->label9 = (gcnew System::Windows::Forms::Label());
-            this->numericUpDown6 = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcggroupBoxVppDenoise = (gcnew System::Windows::Forms::GroupBox());
+            this->fcgCXVppDenoiseMethod = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgPNVppDenoisePmd = (gcnew System::Windows::Forms::Panel());
+            this->fcgLBVppDenoisePmdThreshold = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppDenoisePmdStrength = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppDenoisePmdApplyCount = (gcnew System::Windows::Forms::Label());
+            this->fcgNUVppDenoisePmdThreshold = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgNUVppDenoisePmdStrength = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgNUVppDenoisePmdApplyCount = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgPNVppDenoiseConv3D = (gcnew System::Windows::Forms::Panel());
             this->fcgCXVppDenoiseConv3DMatrix = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBVppDenoiseConv3DMatrix = (gcnew System::Windows::Forms::Label());
@@ -1605,14 +1630,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgNUVppDenoiseKnnThreshold = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgNUVppDenoiseKnnStrength = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgNUVppDenoiseKnnRadius = (gcnew System::Windows::Forms::NumericUpDown());
-            this->fcgCXVppDenoiseMethod = (gcnew System::Windows::Forms::ComboBox());
-            this->fcgPNVppDenoisePmd = (gcnew System::Windows::Forms::Panel());
-            this->fcgLBVppDenoisePmdThreshold = (gcnew System::Windows::Forms::Label());
-            this->fcgLBVppDenoisePmdStrength = (gcnew System::Windows::Forms::Label());
-            this->fcgLBVppDenoisePmdApplyCount = (gcnew System::Windows::Forms::Label());
-            this->fcgNUVppDenoisePmdThreshold = (gcnew System::Windows::Forms::NumericUpDown());
-            this->fcgNUVppDenoisePmdStrength = (gcnew System::Windows::Forms::NumericUpDown());
-            this->fcgNUVppDenoisePmdApplyCount = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcggroupBoxVppDeinterlace = (gcnew System::Windows::Forms::GroupBox());
             this->fcgLBVppDeinterlace = (gcnew System::Windows::Forms::Label());
             this->fcgCXVppDeinterlace = (gcnew System::Windows::Forms::ComboBox());
@@ -1627,9 +1644,9 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgLBVppAfsThreShift = (gcnew System::Windows::Forms::Label());
             this->fcgTBVppAfsCoeffShift = (gcnew System::Windows::Forms::TrackBar());
             this->fcgLBVppAfsCoeffShift = (gcnew System::Windows::Forms::Label());
-            this->label20 = (gcnew System::Windows::Forms::Label());
-            this->label19 = (gcnew System::Windows::Forms::Label());
-            this->label2 = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppAfsRight = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppAfsLeft = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppAfsBottom = (gcnew System::Windows::Forms::Label());
             this->fcgLBVppAfsUp = (gcnew System::Windows::Forms::Label());
             this->fcgNUVppAfsRight = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgNUVppAfsLeft = (gcnew System::Windows::Forms::NumericUpDown());
@@ -1669,7 +1686,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgCBVppResize = (gcnew System::Windows::Forms::CheckBox());
             this->fcggroupBoxResize = (gcnew System::Windows::Forms::GroupBox());
             this->fcgCXVppResizeAlg = (gcnew System::Windows::Forms::ComboBox());
-            this->fcgLBResize = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppResize = (gcnew System::Windows::Forms::Label());
             this->fcgNUResizeH = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgNUResizeW = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgLBImageStabilizer = (gcnew System::Windows::Forms::Label());
@@ -1726,12 +1743,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgLBguiExBlog = (gcnew System::Windows::Forms::LinkLabel());
             this->fcgtabControlAudio = (gcnew System::Windows::Forms::TabControl());
             this->fcgtabPageAudioMain = (gcnew System::Windows::Forms::TabPage());
-            this->fcgPNAudioInternal = (gcnew System::Windows::Forms::Panel());
-            this->fcgLBAudioBitrateInternal = (gcnew System::Windows::Forms::Label());
-            this->fcgNUAudioBitrateInternal = (gcnew System::Windows::Forms::NumericUpDown());
-            this->fcgCXAudioEncModeInternal = (gcnew System::Windows::Forms::ComboBox());
-            this->label4 = (gcnew System::Windows::Forms::Label());
-            this->fcgCXAudioEncoderInternal = (gcnew System::Windows::Forms::ComboBox());
             this->fcgCBAudioUseExt = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCBFAWCheck = (gcnew System::Windows::Forms::CheckBox());
             this->fcgPNAudioExt = (gcnew System::Windows::Forms::Panel());
@@ -1754,6 +1765,12 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgCXAudioEncoder = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBAudioTemp = (gcnew System::Windows::Forms::Label());
             this->fcgLBAudioBitrate = (gcnew System::Windows::Forms::Label());
+            this->fcgPNAudioInternal = (gcnew System::Windows::Forms::Panel());
+            this->fcgLBAudioBitrateInternal = (gcnew System::Windows::Forms::Label());
+            this->fcgNUAudioBitrateInternal = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgCXAudioEncModeInternal = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgLBAudioEncModeInternal = (gcnew System::Windows::Forms::Label());
+            this->fcgCXAudioEncoderInternal = (gcnew System::Windows::Forms::ComboBox());
             this->fcgtabPageAudioOther = (gcnew System::Windows::Forms::TabPage());
             this->panel2 = (gcnew System::Windows::Forms::Panel());
             this->fcgLBBatAfterAudioString = (gcnew System::Windows::Forms::Label());
@@ -1790,7 +1807,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgPNICQ->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUICQQuality))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUSlices))->BeginInit();
-            this->fcggroupBoxColor->SuspendLayout();
+            this->fcggroupBoxColorMatrix->SuspendLayout();
             this->fcgGroupBoxAspectRatio->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAspectRatioY))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAspectRatioX))->BeginInit();
@@ -1823,21 +1840,22 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpThreshold))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpType))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpBlur))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->numericUpDown7))->BeginInit();
             this->fcgPNVppEdgelevel->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppEdgelevelWhite))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppEdgelevelThreshold))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppEdgelevelBlack))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppEdgelevelStrength))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->numericUpDown4))->BeginInit();
             this->fcgPNVppUnsharp->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppUnsharpThreshold))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppUnsharpWeight))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppUnsharpRadius))->BeginInit();
             this->fcgPNVppDetailEnhanceMFX->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDetailEnhanceMFX))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->numericUpDown6))->BeginInit();
             this->fcggroupBoxVppDenoise->SuspendLayout();
+            this->fcgPNVppDenoisePmd->SuspendLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoisePmdThreshold))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoisePmdStrength))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoisePmdApplyCount))->BeginInit();
             this->fcgPNVppDenoiseConv3D->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseConv3DThreshCTemporal))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseConv3DThreshCSpatial))->BeginInit();
@@ -1852,10 +1870,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseKnnThreshold))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseKnnStrength))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseKnnRadius))->BeginInit();
-            this->fcgPNVppDenoisePmd->SuspendLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoisePmdThreshold))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoisePmdStrength))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoisePmdApplyCount))->BeginInit();
             this->fcggroupBoxVppDeinterlace->SuspendLayout();
             this->fcgPNVppAfs->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgTBVppAfsThreCMotion))->BeginInit();
@@ -1889,20 +1903,20 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgCSExeFiles->SuspendLayout();
             this->fcgtabControlAudio->SuspendLayout();
             this->fcgtabPageAudioMain->SuspendLayout();
-            this->fcgPNAudioInternal->SuspendLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrateInternal))->BeginInit();
             this->fcgPNAudioExt->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrate))->BeginInit();
+            this->fcgPNAudioInternal->SuspendLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrateInternal))->BeginInit();
             this->fcgtabPageAudioOther->SuspendLayout();
             this->SuspendLayout();
             // 
             // fcgtoolStripSettings
             // 
             this->fcgtoolStripSettings->ImageScalingSize = System::Drawing::Size(18, 18);
-            this->fcgtoolStripSettings->Items->AddRange(gcnew cli::array< System::Windows::Forms::ToolStripItem^  >(10) {
+            this->fcgtoolStripSettings->Items->AddRange(gcnew cli::array< System::Windows::Forms::ToolStripItem^  >(12) {
                 this->fcgTSBSave,
                     this->fcgTSBSaveNew, this->fcgTSBDelete, this->fcgtoolStripSeparator1, this->fcgTSSettings, this->fcgTSBBitrateCalc, this->toolStripSeparator2,
-                    this->fcgTSBOtherSettings, this->fcgTSLSettingsNotes, this->fcgTSTSettingsNotes
+                    this->fcgTSLanguage, this->toolStripSeparator1, this->fcgTSBOtherSettings, this->fcgTSLSettingsNotes, this->fcgTSTSettingsNotes
             });
             this->fcgtoolStripSettings->Location = System::Drawing::Point(0, 0);
             this->fcgtoolStripSettings->Name = L"fcgtoolStripSettings";
@@ -1964,6 +1978,23 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->toolStripSeparator2->Alignment = System::Windows::Forms::ToolStripItemAlignment::Right;
             this->toolStripSeparator2->Name = L"toolStripSeparator2";
             this->toolStripSeparator2->Size = System::Drawing::Size(6, 25);
+            // 
+            // fcgTSLanguage
+            // 
+            this->fcgTSLanguage->Alignment = System::Windows::Forms::ToolStripItemAlignment::Right;
+            this->fcgTSLanguage->DisplayStyle = System::Windows::Forms::ToolStripItemDisplayStyle::Text;
+            this->fcgTSLanguage->Image = (cli::safe_cast<System::Drawing::Image^>(resources->GetObject(L"fcgTSLanguage.Image")));
+            this->fcgTSLanguage->ImageTransparentColor = System::Drawing::Color::Magenta;
+            this->fcgTSLanguage->Name = L"fcgTSLanguage";
+            this->fcgTSLanguage->Size = System::Drawing::Size(44, 22);
+            this->fcgTSLanguage->Text = L"言語";
+            this->fcgTSLanguage->DropDownItemClicked += gcnew System::Windows::Forms::ToolStripItemClickedEventHandler(this, &frmConfig::fcgTSLanguage_DropDownItemClicked);
+            // 
+            // toolStripSeparator1
+            // 
+            this->toolStripSeparator1->Alignment = System::Windows::Forms::ToolStripItemAlignment::Right;
+            this->toolStripSeparator1->Name = L"toolStripSeparator1";
+            this->toolStripSeparator1->Size = System::Drawing::Size(6, 25);
             // 
             // fcgTSBOtherSettings
             // 
@@ -2309,7 +2340,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgtabPageMPG->Controls->Add(this->fcgTXMPGMuxerPath);
             this->fcgtabPageMPG->Controls->Add(this->fcgLBMPGMuxerPath);
             this->fcgtabPageMPG->Controls->Add(this->fcgCXMPGCmdEx);
-            this->fcgtabPageMPG->Controls->Add(this->label3);
+            this->fcgtabPageMPG->Controls->Add(this->fcgLBMPGMuxerCmdEx);
             this->fcgtabPageMPG->Controls->Add(this->fcgCBMPGMuxerExt);
             this->fcgtabPageMPG->Location = System::Drawing::Point(4, 23);
             this->fcgtabPageMPG->Name = L"fcgtabPageMPG";
@@ -2359,14 +2390,14 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgCXMPGCmdEx->TabIndex = 21;
             this->fcgCXMPGCmdEx->Tag = L"chValue";
             // 
-            // label3
+            // fcgLBMPGMuxerCmdEx
             // 
-            this->label3->AutoSize = true;
-            this->label3->Location = System::Drawing::Point(140, 62);
-            this->label3->Name = L"label3";
-            this->label3->Size = System::Drawing::Size(68, 14);
-            this->label3->TabIndex = 24;
-            this->label3->Text = L"拡張オプション";
+            this->fcgLBMPGMuxerCmdEx->AutoSize = true;
+            this->fcgLBMPGMuxerCmdEx->Location = System::Drawing::Point(140, 62);
+            this->fcgLBMPGMuxerCmdEx->Name = L"fcgLBMPGMuxerCmdEx";
+            this->fcgLBMPGMuxerCmdEx->Size = System::Drawing::Size(68, 14);
+            this->fcgLBMPGMuxerCmdEx->TabIndex = 24;
+            this->fcgLBMPGMuxerCmdEx->Text = L"拡張オプション";
             // 
             // fcgCBMPGMuxerExt
             // 
@@ -2381,6 +2412,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // 
             // fcgtabPageMux
             // 
+            this->fcgtabPageMux->Controls->Add(this->fcgCBMuxMinimize);
             this->fcgtabPageMux->Controls->Add(this->fcgCXMuxPriority);
             this->fcgtabPageMux->Controls->Add(this->fcgLBMuxPriority);
             this->fcgtabPageMux->Location = System::Drawing::Point(4, 23);
@@ -2389,6 +2421,17 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgtabPageMux->TabIndex = 2;
             this->fcgtabPageMux->Text = L"Mux共通設定";
             this->fcgtabPageMux->UseVisualStyleBackColor = true;
+            // 
+            // fcgCBMuxMinimize
+            // 
+            this->fcgCBMuxMinimize->AutoSize = true;
+            this->fcgCBMuxMinimize->Location = System::Drawing::Point(27, 24);
+            this->fcgCBMuxMinimize->Name = L"fcgCBMuxMinimize";
+            this->fcgCBMuxMinimize->Size = System::Drawing::Size(59, 18);
+            this->fcgCBMuxMinimize->TabIndex = 2;
+            this->fcgCBMuxMinimize->Tag = L"chValue";
+            this->fcgCBMuxMinimize->Text = L"最小化";
+            this->fcgCBMuxMinimize->UseVisualStyleBackColor = true;
             // 
             // fcgCXMuxPriority
             // 
@@ -2573,8 +2616,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // 
             // fcgtabPageInternal
             // 
-            this->fcgtabPageInternal->Controls->Add(this->fcgCBCopyChapter);
-            this->fcgtabPageInternal->Controls->Add(this->fcgCBCopySubtitle);
             this->fcgtabPageInternal->Controls->Add(this->fcgCXInternalCmdEx);
             this->fcgtabPageInternal->Controls->Add(this->fcgLBInternalCmdEx);
             this->fcgtabPageInternal->Location = System::Drawing::Point(4, 23);
@@ -2583,28 +2624,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgtabPageInternal->TabIndex = 6;
             this->fcgtabPageInternal->Text = L"mux";
             this->fcgtabPageInternal->UseVisualStyleBackColor = true;
-            // 
-            // fcgCBCopyChapter
-            // 
-            this->fcgCBCopyChapter->AutoSize = true;
-            this->fcgCBCopyChapter->Location = System::Drawing::Point(18, 78);
-            this->fcgCBCopyChapter->Name = L"fcgCBCopyChapter";
-            this->fcgCBCopyChapter->Size = System::Drawing::Size(100, 18);
-            this->fcgCBCopyChapter->TabIndex = 5;
-            this->fcgCBCopyChapter->Tag = L"chValue";
-            this->fcgCBCopyChapter->Text = L"チャプターをコピー";
-            this->fcgCBCopyChapter->UseVisualStyleBackColor = true;
-            // 
-            // fcgCBCopySubtitle
-            // 
-            this->fcgCBCopySubtitle->AutoSize = true;
-            this->fcgCBCopySubtitle->Location = System::Drawing::Point(18, 51);
-            this->fcgCBCopySubtitle->Name = L"fcgCBCopySubtitle";
-            this->fcgCBCopySubtitle->Size = System::Drawing::Size(81, 18);
-            this->fcgCBCopySubtitle->TabIndex = 4;
-            this->fcgCBCopySubtitle->Tag = L"chValue";
-            this->fcgCBCopySubtitle->Text = L"字幕をコピー";
-            this->fcgCBCopySubtitle->UseVisualStyleBackColor = true;
             // 
             // fcgCXInternalCmdEx
             // 
@@ -2756,7 +2775,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->tabPageVideoEnc->Controls->Add(this->fcgLBBframesAuto);
             this->tabPageVideoEnc->Controls->Add(this->fcgCXVideoFormat);
             this->tabPageVideoEnc->Controls->Add(this->fcgLBVideoFormat);
-            this->tabPageVideoEnc->Controls->Add(this->fcggroupBoxColor);
+            this->tabPageVideoEnc->Controls->Add(this->fcggroupBoxColorMatrix);
             this->tabPageVideoEnc->Controls->Add(this->fcgCBOpenGOP);
             this->tabPageVideoEnc->Controls->Add(this->fcgGroupBoxAspectRatio);
             this->tabPageVideoEnc->Controls->Add(this->fcgCXInterlaced);
@@ -2770,13 +2789,13 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->tabPageVideoEnc->Controls->Add(this->fcgNUBframes);
             this->tabPageVideoEnc->Controls->Add(this->fcgNURef);
             this->tabPageVideoEnc->Controls->Add(this->fcgLBBframes);
-            this->tabPageVideoEnc->Controls->Add(this->fcgLBRef);
+            this->tabPageVideoEnc->Controls->Add(this->fcgLBRefFrames);
             this->tabPageVideoEnc->Controls->Add(this->fcgLBEncMode);
             this->tabPageVideoEnc->Controls->Add(this->fcgCXEncMode);
-            this->tabPageVideoEnc->Controls->Add(this->fcgLBQuality);
-            this->tabPageVideoEnc->Controls->Add(this->fcgLBOutputType);
-            this->tabPageVideoEnc->Controls->Add(this->fcgCXQuality);
-            this->tabPageVideoEnc->Controls->Add(this->fcgCXOutputType);
+            this->tabPageVideoEnc->Controls->Add(this->fcgLBQualityPreset);
+            this->tabPageVideoEnc->Controls->Add(this->fcgLBEncCodec);
+            this->tabPageVideoEnc->Controls->Add(this->fcgCXQualityPreset);
+            this->tabPageVideoEnc->Controls->Add(this->fcgCXEncCodec);
             this->tabPageVideoEnc->Controls->Add(this->fcgPNLookahead);
             this->tabPageVideoEnc->Controls->Add(this->fcgPNBitrate);
             this->tabPageVideoEnc->Controls->Add(this->fcgPNQP);
@@ -3303,20 +3322,20 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgLBVideoFormat->TabIndex = 160;
             this->fcgLBVideoFormat->Text = L"videoformat";
             // 
-            // fcggroupBoxColor
+            // fcggroupBoxColorMatrix
             // 
-            this->fcggroupBoxColor->Controls->Add(this->fcgCXTransfer);
-            this->fcggroupBoxColor->Controls->Add(this->fcgCXColorPrim);
-            this->fcggroupBoxColor->Controls->Add(this->fcgCXColorMatrix);
-            this->fcggroupBoxColor->Controls->Add(this->fcgLBTransfer);
-            this->fcggroupBoxColor->Controls->Add(this->fcgLBColorPrim);
-            this->fcggroupBoxColor->Controls->Add(this->fcgLBColorMatrix);
-            this->fcggroupBoxColor->Location = System::Drawing::Point(349, 386);
-            this->fcggroupBoxColor->Name = L"fcggroupBoxColor";
-            this->fcggroupBoxColor->Size = System::Drawing::Size(241, 103);
-            this->fcggroupBoxColor->TabIndex = 170;
-            this->fcggroupBoxColor->TabStop = false;
-            this->fcggroupBoxColor->Text = L"色設定";
+            this->fcggroupBoxColorMatrix->Controls->Add(this->fcgCXTransfer);
+            this->fcggroupBoxColorMatrix->Controls->Add(this->fcgCXColorPrim);
+            this->fcggroupBoxColorMatrix->Controls->Add(this->fcgCXColorMatrix);
+            this->fcggroupBoxColorMatrix->Controls->Add(this->fcgLBTransfer);
+            this->fcggroupBoxColorMatrix->Controls->Add(this->fcgLBColorPrim);
+            this->fcggroupBoxColorMatrix->Controls->Add(this->fcgLBColorMatrix);
+            this->fcggroupBoxColorMatrix->Location = System::Drawing::Point(349, 386);
+            this->fcggroupBoxColorMatrix->Name = L"fcggroupBoxColorMatrix";
+            this->fcggroupBoxColorMatrix->Size = System::Drawing::Size(241, 103);
+            this->fcggroupBoxColorMatrix->TabIndex = 170;
+            this->fcggroupBoxColorMatrix->TabStop = false;
+            this->fcggroupBoxColorMatrix->Text = L"色設定";
             // 
             // fcgCXTransfer
             // 
@@ -3544,14 +3563,14 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgLBBframes->TabIndex = 86;
             this->fcgLBBframes->Text = L"連続Bフレーム数";
             // 
-            // fcgLBRef
+            // fcgLBRefFrames
             // 
-            this->fcgLBRef->AutoSize = true;
-            this->fcgLBRef->Location = System::Drawing::Point(13, 284);
-            this->fcgLBRef->Name = L"fcgLBRef";
-            this->fcgLBRef->Size = System::Drawing::Size(51, 14);
-            this->fcgLBRef->TabIndex = 83;
-            this->fcgLBRef->Text = L"参照距離";
+            this->fcgLBRefFrames->AutoSize = true;
+            this->fcgLBRefFrames->Location = System::Drawing::Point(13, 284);
+            this->fcgLBRefFrames->Name = L"fcgLBRefFrames";
+            this->fcgLBRefFrames->Size = System::Drawing::Size(51, 14);
+            this->fcgLBRefFrames->TabIndex = 83;
+            this->fcgLBRefFrames->Text = L"参照距離";
             // 
             // fcgLBEncMode
             // 
@@ -3574,49 +3593,49 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgCXEncMode->Tag = L"reCmd";
             this->fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
             // 
-            // fcgLBQuality
+            // fcgLBQualityPreset
             // 
-            this->fcgLBQuality->AutoSize = true;
-            this->fcgLBQuality->Location = System::Drawing::Point(13, 100);
-            this->fcgLBQuality->Name = L"fcgLBQuality";
-            this->fcgLBQuality->Size = System::Drawing::Size(29, 14);
-            this->fcgLBQuality->TabIndex = 7;
-            this->fcgLBQuality->Text = L"速度";
+            this->fcgLBQualityPreset->AutoSize = true;
+            this->fcgLBQualityPreset->Location = System::Drawing::Point(13, 100);
+            this->fcgLBQualityPreset->Name = L"fcgLBQualityPreset";
+            this->fcgLBQualityPreset->Size = System::Drawing::Size(29, 14);
+            this->fcgLBQualityPreset->TabIndex = 7;
+            this->fcgLBQualityPreset->Text = L"速度";
             // 
-            // fcgLBOutputType
+            // fcgLBEncCodec
             // 
-            this->fcgLBOutputType->AutoSize = true;
-            this->fcgLBOutputType->Location = System::Drawing::Point(13, 73);
-            this->fcgLBOutputType->Name = L"fcgLBOutputType";
-            this->fcgLBOutputType->Size = System::Drawing::Size(29, 14);
-            this->fcgLBOutputType->TabIndex = 4;
-            this->fcgLBOutputType->Text = L"出力";
+            this->fcgLBEncCodec->AutoSize = true;
+            this->fcgLBEncCodec->Location = System::Drawing::Point(13, 73);
+            this->fcgLBEncCodec->Name = L"fcgLBEncCodec";
+            this->fcgLBEncCodec->Size = System::Drawing::Size(29, 14);
+            this->fcgLBEncCodec->TabIndex = 4;
+            this->fcgLBEncCodec->Text = L"出力";
             // 
-            // fcgCXQuality
+            // fcgCXQualityPreset
             // 
-            this->fcgCXQuality->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-            this->fcgCXQuality->FormattingEnabled = true;
-            this->fcgCXQuality->Items->AddRange(gcnew cli::array< System::Object^  >(3) { L"高品質", L"標準", L"高速" });
-            this->fcgCXQuality->Location = System::Drawing::Point(90, 97);
-            this->fcgCXQuality->Name = L"fcgCXQuality";
-            this->fcgCXQuality->Size = System::Drawing::Size(160, 22);
-            this->fcgCXQuality->TabIndex = 8;
-            this->fcgCXQuality->Tag = L"reCmd";
+            this->fcgCXQualityPreset->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXQualityPreset->FormattingEnabled = true;
+            this->fcgCXQualityPreset->Items->AddRange(gcnew cli::array< System::Object^  >(3) { L"高品質", L"標準", L"高速" });
+            this->fcgCXQualityPreset->Location = System::Drawing::Point(90, 97);
+            this->fcgCXQualityPreset->Name = L"fcgCXQualityPreset";
+            this->fcgCXQualityPreset->Size = System::Drawing::Size(160, 22);
+            this->fcgCXQualityPreset->TabIndex = 8;
+            this->fcgCXQualityPreset->Tag = L"reCmd";
             // 
-            // fcgCXOutputType
+            // fcgCXEncCodec
             // 
-            this->fcgCXOutputType->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-            this->fcgCXOutputType->FormattingEnabled = true;
-            this->fcgCXOutputType->Location = System::Drawing::Point(90, 71);
-            this->fcgCXOutputType->Name = L"fcgCXOutputType";
-            this->fcgCXOutputType->Size = System::Drawing::Size(114, 22);
-            this->fcgCXOutputType->TabIndex = 5;
-            this->fcgCXOutputType->Tag = L"reCmd";
-            this->fcgCXOutputType->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgCXOutputType_SelectedIndexChanged);
+            this->fcgCXEncCodec->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXEncCodec->FormattingEnabled = true;
+            this->fcgCXEncCodec->Location = System::Drawing::Point(90, 71);
+            this->fcgCXEncCodec->Name = L"fcgCXEncCodec";
+            this->fcgCXEncCodec->Size = System::Drawing::Size(114, 22);
+            this->fcgCXEncCodec->TabIndex = 5;
+            this->fcgCXEncCodec->Tag = L"reCmd";
+            this->fcgCXEncCodec->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgCXOutputType_SelectedIndexChanged);
             // 
             // fcgPNLookahead
             // 
-            this->fcgPNLookahead->Controls->Add(this->label1);
+            this->fcgPNLookahead->Controls->Add(this->fcgLBLookaheadDepth2);
             this->fcgPNLookahead->Controls->Add(this->fcgNULookaheadDepth);
             this->fcgPNLookahead->Controls->Add(this->fcgLBLookaheadDepth);
             this->fcgPNLookahead->Location = System::Drawing::Point(8, 227);
@@ -3624,14 +3643,14 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgPNLookahead->Size = System::Drawing::Size(289, 26);
             this->fcgPNLookahead->TabIndex = 60;
             // 
-            // label1
+            // fcgLBLookaheadDepth2
             // 
-            this->label1->AutoSize = true;
-            this->label1->Location = System::Drawing::Point(206, 6);
-            this->label1->Name = L"label1";
-            this->label1->Size = System::Drawing::Size(66, 14);
-            this->label1->TabIndex = 63;
-            this->label1->Text = L"※\"0\"で自動";
+            this->fcgLBLookaheadDepth2->AutoSize = true;
+            this->fcgLBLookaheadDepth2->Location = System::Drawing::Point(206, 6);
+            this->fcgLBLookaheadDepth2->Name = L"fcgLBLookaheadDepth2";
+            this->fcgLBLookaheadDepth2->Size = System::Drawing::Size(66, 14);
+            this->fcgLBLookaheadDepth2->TabIndex = 63;
+            this->fcgLBLookaheadDepth2->Text = L"※\"0\"で自動";
             // 
             // fcgNULookaheadDepth
             // 
@@ -3935,7 +3954,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // fcgLBVppDebandDitherC
             // 
             this->fcgLBVppDebandDitherC->AutoSize = true;
-            this->fcgLBVppDebandDitherC->Location = System::Drawing::Point(147, 72);
+            this->fcgLBVppDebandDitherC->Location = System::Drawing::Point(169, 72);
             this->fcgLBVppDebandDitherC->Name = L"fcgLBVppDebandDitherC";
             this->fcgLBVppDebandDitherC->Size = System::Drawing::Size(14, 14);
             this->fcgLBVppDebandDitherC->TabIndex = 12;
@@ -3944,7 +3963,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // fcgLBVppDebandDitherY
             // 
             this->fcgLBVppDebandDitherY->AutoSize = true;
-            this->fcgLBVppDebandDitherY->Location = System::Drawing::Point(57, 72);
+            this->fcgLBVppDebandDitherY->Location = System::Drawing::Point(90, 72);
             this->fcgLBVppDebandDitherY->Name = L"fcgLBVppDebandDitherY";
             this->fcgLBVppDebandDitherY->Size = System::Drawing::Size(14, 14);
             this->fcgLBVppDebandDitherY->TabIndex = 10;
@@ -3962,7 +3981,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // fcgLBVppDebandThreCr
             // 
             this->fcgLBVppDebandThreCr->AutoSize = true;
-            this->fcgLBVppDebandThreCr->Location = System::Drawing::Point(233, 49);
+            this->fcgLBVppDebandThreCr->Location = System::Drawing::Point(245, 49);
             this->fcgLBVppDebandThreCr->Name = L"fcgLBVppDebandThreCr";
             this->fcgLBVppDebandThreCr->Size = System::Drawing::Size(19, 14);
             this->fcgLBVppDebandThreCr->TabIndex = 7;
@@ -3971,7 +3990,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // fcgLBVppDebandThreCb
             // 
             this->fcgLBVppDebandThreCb->AutoSize = true;
-            this->fcgLBVppDebandThreCb->Location = System::Drawing::Point(142, 49);
+            this->fcgLBVppDebandThreCb->Location = System::Drawing::Point(164, 49);
             this->fcgLBVppDebandThreCb->Name = L"fcgLBVppDebandThreCb";
             this->fcgLBVppDebandThreCb->Size = System::Drawing::Size(21, 14);
             this->fcgLBVppDebandThreCb->TabIndex = 5;
@@ -3980,7 +3999,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // fcgLBVppDebandThreY
             // 
             this->fcgLBVppDebandThreY->AutoSize = true;
-            this->fcgLBVppDebandThreY->Location = System::Drawing::Point(57, 48);
+            this->fcgLBVppDebandThreY->Location = System::Drawing::Point(90, 48);
             this->fcgLBVppDebandThreY->Name = L"fcgLBVppDebandThreY";
             this->fcgLBVppDebandThreY->Size = System::Drawing::Size(14, 14);
             this->fcgLBVppDebandThreY->TabIndex = 3;
@@ -3988,40 +4007,40 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // 
             // fcgNUVppDebandDitherC
             // 
-            this->fcgNUVppDebandDitherC->Location = System::Drawing::Point(165, 70);
+            this->fcgNUVppDebandDitherC->Location = System::Drawing::Point(187, 70);
             this->fcgNUVppDebandDitherC->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 31, 0, 0, 0 });
             this->fcgNUVppDebandDitherC->Name = L"fcgNUVppDebandDitherC";
-            this->fcgNUVppDebandDitherC->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppDebandDitherC->Size = System::Drawing::Size(50, 21);
             this->fcgNUVppDebandDitherC->TabIndex = 13;
             this->fcgNUVppDebandDitherC->Tag = L"reCmd";
             this->fcgNUVppDebandDitherC->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
             // 
             // fcgNUVppDebandDitherY
             // 
-            this->fcgNUVppDebandDitherY->Location = System::Drawing::Point(76, 70);
+            this->fcgNUVppDebandDitherY->Location = System::Drawing::Point(108, 70);
             this->fcgNUVppDebandDitherY->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 31, 0, 0, 0 });
             this->fcgNUVppDebandDitherY->Name = L"fcgNUVppDebandDitherY";
-            this->fcgNUVppDebandDitherY->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppDebandDitherY->Size = System::Drawing::Size(50, 21);
             this->fcgNUVppDebandDitherY->TabIndex = 11;
             this->fcgNUVppDebandDitherY->Tag = L"reCmd";
             this->fcgNUVppDebandDitherY->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
             // 
             // fcgNUVppDebandThreCr
             // 
-            this->fcgNUVppDebandThreCr->Location = System::Drawing::Point(254, 46);
+            this->fcgNUVppDebandThreCr->Location = System::Drawing::Point(266, 46);
             this->fcgNUVppDebandThreCr->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 31, 0, 0, 0 });
             this->fcgNUVppDebandThreCr->Name = L"fcgNUVppDebandThreCr";
-            this->fcgNUVppDebandThreCr->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppDebandThreCr->Size = System::Drawing::Size(45, 21);
             this->fcgNUVppDebandThreCr->TabIndex = 8;
             this->fcgNUVppDebandThreCr->Tag = L"reCmd";
             this->fcgNUVppDebandThreCr->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
             // 
             // fcgNUVppDebandThreCb
             // 
-            this->fcgNUVppDebandThreCb->Location = System::Drawing::Point(164, 46);
+            this->fcgNUVppDebandThreCb->Location = System::Drawing::Point(187, 46);
             this->fcgNUVppDebandThreCb->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 31, 0, 0, 0 });
             this->fcgNUVppDebandThreCb->Name = L"fcgNUVppDebandThreCb";
-            this->fcgNUVppDebandThreCb->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppDebandThreCb->Size = System::Drawing::Size(50, 21);
             this->fcgNUVppDebandThreCb->TabIndex = 6;
             this->fcgNUVppDebandThreCb->Tag = L"reCmd";
             this->fcgNUVppDebandThreCb->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
@@ -4048,36 +4067,36 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // 
             this->fcgCXVppDebandSample->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXVppDebandSample->FormattingEnabled = true;
-            this->fcgCXVppDebandSample->Location = System::Drawing::Point(76, 94);
+            this->fcgCXVppDebandSample->Location = System::Drawing::Point(108, 94);
             this->fcgCXVppDebandSample->Name = L"fcgCXVppDebandSample";
-            this->fcgCXVppDebandSample->Size = System::Drawing::Size(148, 22);
+            this->fcgCXVppDebandSample->Size = System::Drawing::Size(156, 22);
             this->fcgCXVppDebandSample->TabIndex = 15;
             this->fcgCXVppDebandSample->Tag = L"reCmd";
             // 
             // fcgNUVppDebandThreY
             // 
-            this->fcgNUVppDebandThreY->Location = System::Drawing::Point(76, 46);
+            this->fcgNUVppDebandThreY->Location = System::Drawing::Point(108, 46);
             this->fcgNUVppDebandThreY->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 31, 0, 0, 0 });
             this->fcgNUVppDebandThreY->Name = L"fcgNUVppDebandThreY";
-            this->fcgNUVppDebandThreY->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppDebandThreY->Size = System::Drawing::Size(50, 21);
             this->fcgNUVppDebandThreY->TabIndex = 4;
             this->fcgNUVppDebandThreY->Tag = L"reCmd";
             this->fcgNUVppDebandThreY->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
             // 
             // fcgNUVppDebandRange
             // 
-            this->fcgNUVppDebandRange->Location = System::Drawing::Point(76, 21);
+            this->fcgNUVppDebandRange->Location = System::Drawing::Point(108, 21);
             this->fcgNUVppDebandRange->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 127, 0, 0, 0 });
             this->fcgNUVppDebandRange->Name = L"fcgNUVppDebandRange";
-            this->fcgNUVppDebandRange->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppDebandRange->Size = System::Drawing::Size(50, 21);
             this->fcgNUVppDebandRange->TabIndex = 1;
             this->fcgNUVppDebandRange->Tag = L"reCmd";
             this->fcgNUVppDebandRange->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
             // 
             // fcggroupBoxVppDetailEnahance
             // 
-            this->fcggroupBoxVppDetailEnahance->Controls->Add(this->fcgPNVppWarpsharp);
             this->fcggroupBoxVppDetailEnahance->Controls->Add(this->fcgCXVppDetailEnhance);
+            this->fcggroupBoxVppDetailEnahance->Controls->Add(this->fcgPNVppWarpsharp);
             this->fcggroupBoxVppDetailEnahance->Controls->Add(this->fcgPNVppEdgelevel);
             this->fcggroupBoxVppDetailEnahance->Controls->Add(this->fcgPNVppUnsharp);
             this->fcggroupBoxVppDetailEnahance->Controls->Add(this->fcgPNVppDetailEnhanceMFX);
@@ -4087,6 +4106,17 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcggroupBoxVppDetailEnahance->TabIndex = 38;
             this->fcggroupBoxVppDetailEnahance->TabStop = false;
             this->fcggroupBoxVppDetailEnahance->Text = L"ディテール・輪郭強調";
+            // 
+            // fcgCXVppDetailEnhance
+            // 
+            this->fcgCXVppDetailEnhance->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXVppDetailEnhance->FormattingEnabled = true;
+            this->fcgCXVppDetailEnhance->Location = System::Drawing::Point(26, 20);
+            this->fcgCXVppDetailEnhance->Name = L"fcgCXVppDetailEnhance";
+            this->fcgCXVppDetailEnhance->Size = System::Drawing::Size(191, 22);
+            this->fcgCXVppDetailEnhance->TabIndex = 0;
+            this->fcgCXVppDetailEnhance->Tag = L"reCmd";
+            this->fcgCXVppDetailEnhance->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
             // 
             // fcgPNVppWarpsharp
             // 
@@ -4098,8 +4128,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgPNVppWarpsharp->Controls->Add(this->fcgNUVppWarpsharpThreshold);
             this->fcgPNVppWarpsharp->Controls->Add(this->fcgNUVppWarpsharpType);
             this->fcgPNVppWarpsharp->Controls->Add(this->fcgNUVppWarpsharpBlur);
-            this->fcgPNVppWarpsharp->Controls->Add(this->label11);
-            this->fcgPNVppWarpsharp->Controls->Add(this->numericUpDown7);
             this->fcgPNVppWarpsharp->Location = System::Drawing::Point(3, 43);
             this->fcgPNVppWarpsharp->Name = L"fcgPNVppWarpsharp";
             this->fcgPNVppWarpsharp->Size = System::Drawing::Size(311, 61);
@@ -4108,7 +4136,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // fcgLBVppWarpsharpDepth
             // 
             this->fcgLBVppWarpsharpDepth->AutoSize = true;
-            this->fcgLBVppWarpsharpDepth->Location = System::Drawing::Point(182, 37);
+            this->fcgLBVppWarpsharpDepth->Location = System::Drawing::Point(172, 37);
             this->fcgLBVppWarpsharpDepth->Name = L"fcgLBVppWarpsharpDepth";
             this->fcgLBVppWarpsharpDepth->Size = System::Drawing::Size(29, 14);
             this->fcgLBVppWarpsharpDepth->TabIndex = 7;
@@ -4116,7 +4144,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // 
             // fcgNUVppWarpsharpDepth
             // 
-            this->fcgNUVppWarpsharpDepth->Location = System::Drawing::Point(239, 34);
+            this->fcgNUVppWarpsharpDepth->Location = System::Drawing::Point(242, 34);
             this->fcgNUVppWarpsharpDepth->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 128, 0, 0, 0 });
             this->fcgNUVppWarpsharpDepth->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 128, 0, 0, System::Int32::MinValue });
             this->fcgNUVppWarpsharpDepth->Name = L"fcgNUVppWarpsharpDepth";
@@ -4129,7 +4157,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // fcgLBVppWarpsharpThreshold
             // 
             this->fcgLBVppWarpsharpThreshold->AutoSize = true;
-            this->fcgLBVppWarpsharpThreshold->Location = System::Drawing::Point(182, 9);
+            this->fcgLBVppWarpsharpThreshold->Location = System::Drawing::Point(172, 9);
             this->fcgLBVppWarpsharpThreshold->Name = L"fcgLBVppWarpsharpThreshold";
             this->fcgLBVppWarpsharpThreshold->Size = System::Drawing::Size(29, 14);
             this->fcgLBVppWarpsharpThreshold->TabIndex = 3;
@@ -4156,7 +4184,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // fcgNUVppWarpsharpThreshold
             // 
             this->fcgNUVppWarpsharpThreshold->Increment = System::Decimal(gcnew cli::array< System::Int32 >(4) { 5, 0, 0, 0 });
-            this->fcgNUVppWarpsharpThreshold->Location = System::Drawing::Point(239, 7);
+            this->fcgNUVppWarpsharpThreshold->Location = System::Drawing::Point(242, 7);
             this->fcgNUVppWarpsharpThreshold->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 255, 0, 0, 0 });
             this->fcgNUVppWarpsharpThreshold->Name = L"fcgNUVppWarpsharpThreshold";
             this->fcgNUVppWarpsharpThreshold->Size = System::Drawing::Size(60, 21);
@@ -4167,7 +4195,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // 
             // fcgNUVppWarpsharpType
             // 
-            this->fcgNUVppWarpsharpType->Location = System::Drawing::Point(68, 34);
+            this->fcgNUVppWarpsharpType->Location = System::Drawing::Point(77, 34);
             this->fcgNUVppWarpsharpType->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
             this->fcgNUVppWarpsharpType->Name = L"fcgNUVppWarpsharpType";
             this->fcgNUVppWarpsharpType->Size = System::Drawing::Size(60, 21);
@@ -4177,7 +4205,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // 
             // fcgNUVppWarpsharpBlur
             // 
-            this->fcgNUVppWarpsharpBlur->Location = System::Drawing::Point(68, 7);
+            this->fcgNUVppWarpsharpBlur->Location = System::Drawing::Point(78, 7);
             this->fcgNUVppWarpsharpBlur->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 16, 0, 0, 0 });
             this->fcgNUVppWarpsharpBlur->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
             this->fcgNUVppWarpsharpBlur->Name = L"fcgNUVppWarpsharpBlur";
@@ -4186,37 +4214,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgNUVppWarpsharpBlur->Tag = L"reCmd";
             this->fcgNUVppWarpsharpBlur->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
             this->fcgNUVppWarpsharpBlur->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 2, 0, 0, 0 });
-            // 
-            // label11
-            // 
-            this->label11->AutoSize = true;
-            this->label11->Location = System::Drawing::Point(69, 66);
-            this->label11->Name = L"label11";
-            this->label11->Size = System::Drawing::Size(29, 14);
-            this->label11->TabIndex = 11;
-            this->label11->Text = L"閾値";
-            // 
-            // numericUpDown7
-            // 
-            this->numericUpDown7->Location = System::Drawing::Point(129, 64);
-            this->numericUpDown7->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 255, 0, 0, 0 });
-            this->numericUpDown7->Name = L"numericUpDown7";
-            this->numericUpDown7->Size = System::Drawing::Size(60, 21);
-            this->numericUpDown7->TabIndex = 8;
-            this->numericUpDown7->Tag = L"chValue";
-            this->numericUpDown7->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
-            this->numericUpDown7->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 100, 0, 0, 0 });
-            // 
-            // fcgCXVppDetailEnhance
-            // 
-            this->fcgCXVppDetailEnhance->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-            this->fcgCXVppDetailEnhance->FormattingEnabled = true;
-            this->fcgCXVppDetailEnhance->Location = System::Drawing::Point(26, 20);
-            this->fcgCXVppDetailEnhance->Name = L"fcgCXVppDetailEnhance";
-            this->fcgCXVppDetailEnhance->Size = System::Drawing::Size(191, 22);
-            this->fcgCXVppDetailEnhance->TabIndex = 0;
-            this->fcgCXVppDetailEnhance->Tag = L"reCmd";
-            this->fcgCXVppDetailEnhance->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
             // 
             // fcgPNVppEdgelevel
             // 
@@ -4228,8 +4225,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgPNVppEdgelevel->Controls->Add(this->fcgNUVppEdgelevelThreshold);
             this->fcgPNVppEdgelevel->Controls->Add(this->fcgNUVppEdgelevelBlack);
             this->fcgPNVppEdgelevel->Controls->Add(this->fcgNUVppEdgelevelStrength);
-            this->fcgPNVppEdgelevel->Controls->Add(this->label10);
-            this->fcgPNVppEdgelevel->Controls->Add(this->numericUpDown4);
             this->fcgPNVppEdgelevel->Location = System::Drawing::Point(3, 43);
             this->fcgPNVppEdgelevel->Name = L"fcgPNVppEdgelevel";
             this->fcgPNVppEdgelevel->Size = System::Drawing::Size(311, 61);
@@ -4238,7 +4233,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // fcgLBVppEdgelevelWhite
             // 
             this->fcgLBVppEdgelevelWhite->AutoSize = true;
-            this->fcgLBVppEdgelevelWhite->Location = System::Drawing::Point(182, 37);
+            this->fcgLBVppEdgelevelWhite->Location = System::Drawing::Point(172, 37);
             this->fcgLBVppEdgelevelWhite->Name = L"fcgLBVppEdgelevelWhite";
             this->fcgLBVppEdgelevelWhite->Size = System::Drawing::Size(18, 14);
             this->fcgLBVppEdgelevelWhite->TabIndex = 7;
@@ -4247,7 +4242,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // fcgNUVppEdgelevelWhite
             // 
             this->fcgNUVppEdgelevelWhite->DecimalPlaces = 1;
-            this->fcgNUVppEdgelevelWhite->Location = System::Drawing::Point(239, 34);
+            this->fcgNUVppEdgelevelWhite->Location = System::Drawing::Point(242, 34);
             this->fcgNUVppEdgelevelWhite->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 31, 0, 0, 0 });
             this->fcgNUVppEdgelevelWhite->Name = L"fcgNUVppEdgelevelWhite";
             this->fcgNUVppEdgelevelWhite->Size = System::Drawing::Size(60, 21);
@@ -4259,7 +4254,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // fcgLBVppEdgelevelThreshold
             // 
             this->fcgLBVppEdgelevelThreshold->AutoSize = true;
-            this->fcgLBVppEdgelevelThreshold->Location = System::Drawing::Point(182, 9);
+            this->fcgLBVppEdgelevelThreshold->Location = System::Drawing::Point(172, 9);
             this->fcgLBVppEdgelevelThreshold->Name = L"fcgLBVppEdgelevelThreshold";
             this->fcgLBVppEdgelevelThreshold->Size = System::Drawing::Size(29, 14);
             this->fcgLBVppEdgelevelThreshold->TabIndex = 3;
@@ -4285,7 +4280,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // 
             // fcgNUVppEdgelevelThreshold
             // 
-            this->fcgNUVppEdgelevelThreshold->Location = System::Drawing::Point(239, 7);
+            this->fcgNUVppEdgelevelThreshold->Location = System::Drawing::Point(242, 7);
             this->fcgNUVppEdgelevelThreshold->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 255, 0, 0, 0 });
             this->fcgNUVppEdgelevelThreshold->Name = L"fcgNUVppEdgelevelThreshold";
             this->fcgNUVppEdgelevelThreshold->Size = System::Drawing::Size(60, 21);
@@ -4297,7 +4292,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // fcgNUVppEdgelevelBlack
             // 
             this->fcgNUVppEdgelevelBlack->DecimalPlaces = 1;
-            this->fcgNUVppEdgelevelBlack->Location = System::Drawing::Point(68, 34);
+            this->fcgNUVppEdgelevelBlack->Location = System::Drawing::Point(78, 34);
             this->fcgNUVppEdgelevelBlack->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 31, 0, 0, 0 });
             this->fcgNUVppEdgelevelBlack->Name = L"fcgNUVppEdgelevelBlack";
             this->fcgNUVppEdgelevelBlack->Size = System::Drawing::Size(60, 21);
@@ -4308,7 +4303,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // 
             // fcgNUVppEdgelevelStrength
             // 
-            this->fcgNUVppEdgelevelStrength->Location = System::Drawing::Point(68, 7);
+            this->fcgNUVppEdgelevelStrength->Location = System::Drawing::Point(78, 7);
             this->fcgNUVppEdgelevelStrength->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 31, 0, 0, 0 });
             this->fcgNUVppEdgelevelStrength->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 31, 0, 0, System::Int32::MinValue });
             this->fcgNUVppEdgelevelStrength->Name = L"fcgNUVppEdgelevelStrength";
@@ -4317,26 +4312,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgNUVppEdgelevelStrength->Tag = L"reCmd";
             this->fcgNUVppEdgelevelStrength->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
             this->fcgNUVppEdgelevelStrength->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 3, 0, 0, 0 });
-            // 
-            // label10
-            // 
-            this->label10->AutoSize = true;
-            this->label10->Location = System::Drawing::Point(69, 66);
-            this->label10->Name = L"label10";
-            this->label10->Size = System::Drawing::Size(29, 14);
-            this->label10->TabIndex = 11;
-            this->label10->Text = L"閾値";
-            // 
-            // numericUpDown4
-            // 
-            this->numericUpDown4->Location = System::Drawing::Point(129, 64);
-            this->numericUpDown4->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 255, 0, 0, 0 });
-            this->numericUpDown4->Name = L"numericUpDown4";
-            this->numericUpDown4->Size = System::Drawing::Size(60, 21);
-            this->numericUpDown4->TabIndex = 8;
-            this->numericUpDown4->Tag = L"chValue";
-            this->numericUpDown4->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
-            this->numericUpDown4->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 100, 0, 0, 0 });
             // 
             // fcgPNVppUnsharp
             // 
@@ -4354,7 +4329,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // fcgLBVppUnsharpThreshold
             // 
             this->fcgLBVppUnsharpThreshold->AutoSize = true;
-            this->fcgLBVppUnsharpThreshold->Location = System::Drawing::Point(184, 9);
+            this->fcgLBVppUnsharpThreshold->Location = System::Drawing::Point(172, 9);
             this->fcgLBVppUnsharpThreshold->Name = L"fcgLBVppUnsharpThreshold";
             this->fcgLBVppUnsharpThreshold->Size = System::Drawing::Size(29, 14);
             this->fcgLBVppUnsharpThreshold->TabIndex = 11;
@@ -4380,7 +4355,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // 
             // fcgNUVppUnsharpThreshold
             // 
-            this->fcgNUVppUnsharpThreshold->Location = System::Drawing::Point(244, 7);
+            this->fcgNUVppUnsharpThreshold->Location = System::Drawing::Point(242, 7);
             this->fcgNUVppUnsharpThreshold->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 255, 0, 0, 0 });
             this->fcgNUVppUnsharpThreshold->Name = L"fcgNUVppUnsharpThreshold";
             this->fcgNUVppUnsharpThreshold->Size = System::Drawing::Size(60, 21);
@@ -4393,7 +4368,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // 
             this->fcgNUVppUnsharpWeight->DecimalPlaces = 1;
             this->fcgNUVppUnsharpWeight->Increment = System::Decimal(gcnew cli::array< System::Int32 >(4) { 5, 0, 0, 65536 });
-            this->fcgNUVppUnsharpWeight->Location = System::Drawing::Point(70, 34);
+            this->fcgNUVppUnsharpWeight->Location = System::Drawing::Point(78, 34);
             this->fcgNUVppUnsharpWeight->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 10, 0, 0, 0 });
             this->fcgNUVppUnsharpWeight->Name = L"fcgNUVppUnsharpWeight";
             this->fcgNUVppUnsharpWeight->Size = System::Drawing::Size(60, 21);
@@ -4404,7 +4379,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // 
             // fcgNUVppUnsharpRadius
             // 
-            this->fcgNUVppUnsharpRadius->Location = System::Drawing::Point(70, 7);
+            this->fcgNUVppUnsharpRadius->Location = System::Drawing::Point(78, 7);
             this->fcgNUVppUnsharpRadius->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 9, 0, 0, 0 });
             this->fcgNUVppUnsharpRadius->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
             this->fcgNUVppUnsharpRadius->Name = L"fcgNUVppUnsharpRadius";
@@ -4418,8 +4393,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // 
             this->fcgPNVppDetailEnhanceMFX->Controls->Add(this->fcgLBVppDetailEnhanceMFX);
             this->fcgPNVppDetailEnhanceMFX->Controls->Add(this->fcgNUVppDetailEnhanceMFX);
-            this->fcgPNVppDetailEnhanceMFX->Controls->Add(this->label9);
-            this->fcgPNVppDetailEnhanceMFX->Controls->Add(this->numericUpDown6);
             this->fcgPNVppDetailEnhanceMFX->Location = System::Drawing::Point(3, 43);
             this->fcgPNVppDetailEnhanceMFX->Name = L"fcgPNVppDetailEnhanceMFX";
             this->fcgPNVppDetailEnhanceMFX->Size = System::Drawing::Size(311, 61);
@@ -4437,7 +4410,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // fcgNUVppDetailEnhanceMFX
             // 
             this->fcgNUVppDetailEnhanceMFX->Increment = System::Decimal(gcnew cli::array< System::Int32 >(4) { 5, 0, 0, 0 });
-            this->fcgNUVppDetailEnhanceMFX->Location = System::Drawing::Point(68, 7);
+            this->fcgNUVppDetailEnhanceMFX->Location = System::Drawing::Point(78, 7);
             this->fcgNUVppDetailEnhanceMFX->Name = L"fcgNUVppDetailEnhanceMFX";
             this->fcgNUVppDetailEnhanceMFX->Size = System::Drawing::Size(60, 21);
             this->fcgNUVppDetailEnhanceMFX->TabIndex = 2;
@@ -4445,40 +4418,103 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgNUVppDetailEnhanceMFX->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
             this->fcgNUVppDetailEnhanceMFX->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 3, 0, 0, 0 });
             // 
-            // label9
-            // 
-            this->label9->AutoSize = true;
-            this->label9->Location = System::Drawing::Point(69, 66);
-            this->label9->Name = L"label9";
-            this->label9->Size = System::Drawing::Size(29, 14);
-            this->label9->TabIndex = 11;
-            this->label9->Text = L"閾値";
-            // 
-            // numericUpDown6
-            // 
-            this->numericUpDown6->Location = System::Drawing::Point(129, 64);
-            this->numericUpDown6->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 255, 0, 0, 0 });
-            this->numericUpDown6->Name = L"numericUpDown6";
-            this->numericUpDown6->Size = System::Drawing::Size(60, 21);
-            this->numericUpDown6->TabIndex = 8;
-            this->numericUpDown6->Tag = L"chValue";
-            this->numericUpDown6->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
-            this->numericUpDown6->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 100, 0, 0, 0 });
-            // 
             // fcggroupBoxVppDenoise
             // 
+            this->fcggroupBoxVppDenoise->Controls->Add(this->fcgCXVppDenoiseMethod);
+            this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppDenoisePmd);
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppDenoiseConv3D);
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppDenoiseMFX);
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppDenoiseSmooth);
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppDenoiseKnn);
-            this->fcggroupBoxVppDenoise->Controls->Add(this->fcgCXVppDenoiseMethod);
-            this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppDenoisePmd);
             this->fcggroupBoxVppDenoise->Location = System::Drawing::Point(4, 79);
             this->fcggroupBoxVppDenoise->Name = L"fcggroupBoxVppDenoise";
             this->fcggroupBoxVppDenoise->Size = System::Drawing::Size(320, 139);
             this->fcggroupBoxVppDenoise->TabIndex = 37;
             this->fcggroupBoxVppDenoise->TabStop = false;
             this->fcggroupBoxVppDenoise->Text = L"ノイズ除去";
+            // 
+            // fcgCXVppDenoiseMethod
+            // 
+            this->fcgCXVppDenoiseMethod->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXVppDenoiseMethod->FormattingEnabled = true;
+            this->fcgCXVppDenoiseMethod->Location = System::Drawing::Point(26, 18);
+            this->fcgCXVppDenoiseMethod->Name = L"fcgCXVppDenoiseMethod";
+            this->fcgCXVppDenoiseMethod->Size = System::Drawing::Size(191, 22);
+            this->fcgCXVppDenoiseMethod->TabIndex = 0;
+            this->fcgCXVppDenoiseMethod->Tag = L"reCmd";
+            this->fcgCXVppDenoiseMethod->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
+            // 
+            // fcgPNVppDenoisePmd
+            // 
+            this->fcgPNVppDenoisePmd->Controls->Add(this->fcgLBVppDenoisePmdThreshold);
+            this->fcgPNVppDenoisePmd->Controls->Add(this->fcgLBVppDenoisePmdStrength);
+            this->fcgPNVppDenoisePmd->Controls->Add(this->fcgLBVppDenoisePmdApplyCount);
+            this->fcgPNVppDenoisePmd->Controls->Add(this->fcgNUVppDenoisePmdThreshold);
+            this->fcgPNVppDenoisePmd->Controls->Add(this->fcgNUVppDenoisePmdStrength);
+            this->fcgPNVppDenoisePmd->Controls->Add(this->fcgNUVppDenoisePmdApplyCount);
+            this->fcgPNVppDenoisePmd->Location = System::Drawing::Point(3, 42);
+            this->fcgPNVppDenoisePmd->Name = L"fcgPNVppDenoisePmd";
+            this->fcgPNVppDenoisePmd->Size = System::Drawing::Size(311, 92);
+            this->fcgPNVppDenoisePmd->TabIndex = 64;
+            // 
+            // fcgLBVppDenoisePmdThreshold
+            // 
+            this->fcgLBVppDenoisePmdThreshold->AutoSize = true;
+            this->fcgLBVppDenoisePmdThreshold->Location = System::Drawing::Point(50, 66);
+            this->fcgLBVppDenoisePmdThreshold->Name = L"fcgLBVppDenoisePmdThreshold";
+            this->fcgLBVppDenoisePmdThreshold->Size = System::Drawing::Size(29, 14);
+            this->fcgLBVppDenoisePmdThreshold->TabIndex = 11;
+            this->fcgLBVppDenoisePmdThreshold->Text = L"閾値";
+            // 
+            // fcgLBVppDenoisePmdStrength
+            // 
+            this->fcgLBVppDenoisePmdStrength->AutoSize = true;
+            this->fcgLBVppDenoisePmdStrength->Location = System::Drawing::Point(50, 39);
+            this->fcgLBVppDenoisePmdStrength->Name = L"fcgLBVppDenoisePmdStrength";
+            this->fcgLBVppDenoisePmdStrength->Size = System::Drawing::Size(26, 14);
+            this->fcgLBVppDenoisePmdStrength->TabIndex = 10;
+            this->fcgLBVppDenoisePmdStrength->Text = L"強さ";
+            // 
+            // fcgLBVppDenoisePmdApplyCount
+            // 
+            this->fcgLBVppDenoisePmdApplyCount->AutoSize = true;
+            this->fcgLBVppDenoisePmdApplyCount->Location = System::Drawing::Point(50, 12);
+            this->fcgLBVppDenoisePmdApplyCount->Name = L"fcgLBVppDenoisePmdApplyCount";
+            this->fcgLBVppDenoisePmdApplyCount->Size = System::Drawing::Size(29, 14);
+            this->fcgLBVppDenoisePmdApplyCount->TabIndex = 9;
+            this->fcgLBVppDenoisePmdApplyCount->Text = L"回数";
+            // 
+            // fcgNUVppDenoisePmdThreshold
+            // 
+            this->fcgNUVppDenoisePmdThreshold->Location = System::Drawing::Point(132, 64);
+            this->fcgNUVppDenoisePmdThreshold->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 255, 0, 0, 0 });
+            this->fcgNUVppDenoisePmdThreshold->Name = L"fcgNUVppDenoisePmdThreshold";
+            this->fcgNUVppDenoisePmdThreshold->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppDenoisePmdThreshold->TabIndex = 8;
+            this->fcgNUVppDenoisePmdThreshold->Tag = L"reCmd";
+            this->fcgNUVppDenoisePmdThreshold->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            this->fcgNUVppDenoisePmdThreshold->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 100, 0, 0, 0 });
+            // 
+            // fcgNUVppDenoisePmdStrength
+            // 
+            this->fcgNUVppDenoisePmdStrength->Location = System::Drawing::Point(132, 37);
+            this->fcgNUVppDenoisePmdStrength->Name = L"fcgNUVppDenoisePmdStrength";
+            this->fcgNUVppDenoisePmdStrength->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppDenoisePmdStrength->TabIndex = 7;
+            this->fcgNUVppDenoisePmdStrength->Tag = L"reCmd";
+            this->fcgNUVppDenoisePmdStrength->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            this->fcgNUVppDenoisePmdStrength->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 100, 0, 0, 0 });
+            // 
+            // fcgNUVppDenoisePmdApplyCount
+            // 
+            this->fcgNUVppDenoisePmdApplyCount->Location = System::Drawing::Point(132, 10);
+            this->fcgNUVppDenoisePmdApplyCount->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 5, 0, 0, 0 });
+            this->fcgNUVppDenoisePmdApplyCount->Name = L"fcgNUVppDenoisePmdApplyCount";
+            this->fcgNUVppDenoisePmdApplyCount->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppDenoisePmdApplyCount->TabIndex = 6;
+            this->fcgNUVppDenoisePmdApplyCount->Tag = L"reCmd";
+            this->fcgNUVppDenoisePmdApplyCount->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            this->fcgNUVppDenoisePmdApplyCount->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 2, 0, 0, 0 });
             // 
             // fcgPNVppDenoiseConv3D
             // 
@@ -4521,7 +4557,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // fcgLBVppDenoiseConv3DThreshTemporal
             // 
             this->fcgLBVppDenoiseConv3DThreshTemporal->AutoSize = true;
-            this->fcgLBVppDenoiseConv3DThreshTemporal->Location = System::Drawing::Point(5, 66);
+            this->fcgLBVppDenoiseConv3DThreshTemporal->Location = System::Drawing::Point(4, 66);
             this->fcgLBVppDenoiseConv3DThreshTemporal->Name = L"fcgLBVppDenoiseConv3DThreshTemporal";
             this->fcgLBVppDenoiseConv3DThreshTemporal->Size = System::Drawing::Size(73, 14);
             this->fcgLBVppDenoiseConv3DThreshTemporal->TabIndex = 11;
@@ -4530,7 +4566,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // fcgLBVppDenoiseConv3DThreshSpatial
             // 
             this->fcgLBVppDenoiseConv3DThreshSpatial->AutoSize = true;
-            this->fcgLBVppDenoiseConv3DThreshSpatial->Location = System::Drawing::Point(5, 40);
+            this->fcgLBVppDenoiseConv3DThreshSpatial->Location = System::Drawing::Point(4, 40);
             this->fcgLBVppDenoiseConv3DThreshSpatial->Name = L"fcgLBVppDenoiseConv3DThreshSpatial";
             this->fcgLBVppDenoiseConv3DThreshSpatial->Size = System::Drawing::Size(73, 14);
             this->fcgLBVppDenoiseConv3DThreshSpatial->TabIndex = 10;
@@ -4539,7 +4575,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // fcgLBVppDenoiseConv3DThreshCTemporal
             // 
             this->fcgLBVppDenoiseConv3DThreshCTemporal->AutoSize = true;
-            this->fcgLBVppDenoiseConv3DThreshCTemporal->Location = System::Drawing::Point(204, 67);
+            this->fcgLBVppDenoiseConv3DThreshCTemporal->Location = System::Drawing::Point(202, 67);
             this->fcgLBVppDenoiseConv3DThreshCTemporal->Name = L"fcgLBVppDenoiseConv3DThreshCTemporal";
             this->fcgLBVppDenoiseConv3DThreshCTemporal->Size = System::Drawing::Size(29, 14);
             this->fcgLBVppDenoiseConv3DThreshCTemporal->TabIndex = 8;
@@ -4548,7 +4584,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // fcgLBVppDenoiseConv3DThreshCSpatial
             // 
             this->fcgLBVppDenoiseConv3DThreshCSpatial->AutoSize = true;
-            this->fcgLBVppDenoiseConv3DThreshCSpatial->Location = System::Drawing::Point(204, 40);
+            this->fcgLBVppDenoiseConv3DThreshCSpatial->Location = System::Drawing::Point(202, 40);
             this->fcgLBVppDenoiseConv3DThreshCSpatial->Name = L"fcgLBVppDenoiseConv3DThreshCSpatial";
             this->fcgLBVppDenoiseConv3DThreshCSpatial->Size = System::Drawing::Size(29, 14);
             this->fcgLBVppDenoiseConv3DThreshCSpatial->TabIndex = 6;
@@ -4556,11 +4592,11 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // 
             // fcgNUVppDenoiseConv3DThreshCTemporal
             // 
-            this->fcgNUVppDenoiseConv3DThreshCTemporal->Location = System::Drawing::Point(239, 65);
+            this->fcgNUVppDenoiseConv3DThreshCTemporal->Location = System::Drawing::Point(252, 65);
             this->fcgNUVppDenoiseConv3DThreshCTemporal->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 255, 0, 0, 0 });
             this->fcgNUVppDenoiseConv3DThreshCTemporal->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
             this->fcgNUVppDenoiseConv3DThreshCTemporal->Name = L"fcgNUVppDenoiseConv3DThreshCTemporal";
-            this->fcgNUVppDenoiseConv3DThreshCTemporal->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppDenoiseConv3DThreshCTemporal->Size = System::Drawing::Size(50, 21);
             this->fcgNUVppDenoiseConv3DThreshCTemporal->TabIndex = 5;
             this->fcgNUVppDenoiseConv3DThreshCTemporal->Tag = L"reCmd";
             this->fcgNUVppDenoiseConv3DThreshCTemporal->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
@@ -4568,11 +4604,11 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // 
             // fcgNUVppDenoiseConv3DThreshCSpatial
             // 
-            this->fcgNUVppDenoiseConv3DThreshCSpatial->Location = System::Drawing::Point(239, 38);
+            this->fcgNUVppDenoiseConv3DThreshCSpatial->Location = System::Drawing::Point(252, 38);
             this->fcgNUVppDenoiseConv3DThreshCSpatial->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 255, 0, 0, 0 });
             this->fcgNUVppDenoiseConv3DThreshCSpatial->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
             this->fcgNUVppDenoiseConv3DThreshCSpatial->Name = L"fcgNUVppDenoiseConv3DThreshCSpatial";
-            this->fcgNUVppDenoiseConv3DThreshCSpatial->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppDenoiseConv3DThreshCSpatial->Size = System::Drawing::Size(50, 21);
             this->fcgNUVppDenoiseConv3DThreshCSpatial->TabIndex = 3;
             this->fcgNUVppDenoiseConv3DThreshCSpatial->Tag = L"reCmd";
             this->fcgNUVppDenoiseConv3DThreshCSpatial->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
@@ -4598,11 +4634,11 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // 
             // fcgNUVppDenoiseConv3DThreshYTemporal
             // 
-            this->fcgNUVppDenoiseConv3DThreshYTemporal->Location = System::Drawing::Point(128, 65);
+            this->fcgNUVppDenoiseConv3DThreshYTemporal->Location = System::Drawing::Point(134, 65);
             this->fcgNUVppDenoiseConv3DThreshYTemporal->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 255, 0, 0, 0 });
             this->fcgNUVppDenoiseConv3DThreshYTemporal->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
             this->fcgNUVppDenoiseConv3DThreshYTemporal->Name = L"fcgNUVppDenoiseConv3DThreshYTemporal";
-            this->fcgNUVppDenoiseConv3DThreshYTemporal->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppDenoiseConv3DThreshYTemporal->Size = System::Drawing::Size(50, 21);
             this->fcgNUVppDenoiseConv3DThreshYTemporal->TabIndex = 4;
             this->fcgNUVppDenoiseConv3DThreshYTemporal->Tag = L"reCmd";
             this->fcgNUVppDenoiseConv3DThreshYTemporal->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
@@ -4610,11 +4646,11 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // 
             // fcgNUVppDenoiseConv3DThreshYSpatial
             // 
-            this->fcgNUVppDenoiseConv3DThreshYSpatial->Location = System::Drawing::Point(128, 38);
+            this->fcgNUVppDenoiseConv3DThreshYSpatial->Location = System::Drawing::Point(134, 38);
             this->fcgNUVppDenoiseConv3DThreshYSpatial->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 255, 0, 0, 0 });
             this->fcgNUVppDenoiseConv3DThreshYSpatial->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
             this->fcgNUVppDenoiseConv3DThreshYSpatial->Name = L"fcgNUVppDenoiseConv3DThreshYSpatial";
-            this->fcgNUVppDenoiseConv3DThreshYSpatial->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppDenoiseConv3DThreshYSpatial->Size = System::Drawing::Size(50, 21);
             this->fcgNUVppDenoiseConv3DThreshYSpatial->TabIndex = 2;
             this->fcgNUVppDenoiseConv3DThreshYSpatial->Tag = L"reCmd";
             this->fcgNUVppDenoiseConv3DThreshYSpatial->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
@@ -4632,7 +4668,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // fcgLBVppDenoiseMFX
             // 
             this->fcgLBVppDenoiseMFX->AutoSize = true;
-            this->fcgLBVppDenoiseMFX->Location = System::Drawing::Point(69, 12);
+            this->fcgLBVppDenoiseMFX->Location = System::Drawing::Point(50, 12);
             this->fcgLBVppDenoiseMFX->Name = L"fcgLBVppDenoiseMFX";
             this->fcgLBVppDenoiseMFX->Size = System::Drawing::Size(29, 14);
             this->fcgLBVppDenoiseMFX->TabIndex = 2;
@@ -4641,7 +4677,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // fcgNUVppDenoiseMFX
             // 
             this->fcgNUVppDenoiseMFX->Increment = System::Decimal(gcnew cli::array< System::Int32 >(4) { 5, 0, 0, 0 });
-            this->fcgNUVppDenoiseMFX->Location = System::Drawing::Point(129, 10);
+            this->fcgNUVppDenoiseMFX->Location = System::Drawing::Point(132, 10);
             this->fcgNUVppDenoiseMFX->Name = L"fcgNUVppDenoiseMFX";
             this->fcgNUVppDenoiseMFX->Size = System::Drawing::Size(60, 21);
             this->fcgNUVppDenoiseMFX->TabIndex = 3;
@@ -4663,7 +4699,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // fcgLBVppDenoiseSmoothQP
             // 
             this->fcgLBVppDenoiseSmoothQP->AutoSize = true;
-            this->fcgLBVppDenoiseSmoothQP->Location = System::Drawing::Point(69, 39);
+            this->fcgLBVppDenoiseSmoothQP->Location = System::Drawing::Point(50, 39);
             this->fcgLBVppDenoiseSmoothQP->Name = L"fcgLBVppDenoiseSmoothQP";
             this->fcgLBVppDenoiseSmoothQP->Size = System::Drawing::Size(21, 14);
             this->fcgLBVppDenoiseSmoothQP->TabIndex = 4;
@@ -4672,7 +4708,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // fcgLBVppDenoiseSmoothQuality
             // 
             this->fcgLBVppDenoiseSmoothQuality->AutoSize = true;
-            this->fcgLBVppDenoiseSmoothQuality->Location = System::Drawing::Point(69, 12);
+            this->fcgLBVppDenoiseSmoothQuality->Location = System::Drawing::Point(50, 12);
             this->fcgLBVppDenoiseSmoothQuality->Name = L"fcgLBVppDenoiseSmoothQuality";
             this->fcgLBVppDenoiseSmoothQuality->Size = System::Drawing::Size(29, 14);
             this->fcgLBVppDenoiseSmoothQuality->TabIndex = 2;
@@ -4680,7 +4716,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // 
             // fcgNUVppDenoiseSmoothQP
             // 
-            this->fcgNUVppDenoiseSmoothQP->Location = System::Drawing::Point(129, 37);
+            this->fcgNUVppDenoiseSmoothQP->Location = System::Drawing::Point(132, 37);
             this->fcgNUVppDenoiseSmoothQP->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 63, 0, 0, 0 });
             this->fcgNUVppDenoiseSmoothQP->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
             this->fcgNUVppDenoiseSmoothQP->Name = L"fcgNUVppDenoiseSmoothQP";
@@ -4692,7 +4728,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // 
             // fcgNUVppDenoiseSmoothQuality
             // 
-            this->fcgNUVppDenoiseSmoothQuality->Location = System::Drawing::Point(129, 10);
+            this->fcgNUVppDenoiseSmoothQuality->Location = System::Drawing::Point(132, 10);
             this->fcgNUVppDenoiseSmoothQuality->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 6, 0, 0, 0 });
             this->fcgNUVppDenoiseSmoothQuality->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
             this->fcgNUVppDenoiseSmoothQuality->Name = L"fcgNUVppDenoiseSmoothQuality";
@@ -4718,7 +4754,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // fcgLBVppDenoiseKnnThreshold
             // 
             this->fcgLBVppDenoiseKnnThreshold->AutoSize = true;
-            this->fcgLBVppDenoiseKnnThreshold->Location = System::Drawing::Point(69, 66);
+            this->fcgLBVppDenoiseKnnThreshold->Location = System::Drawing::Point(50, 66);
             this->fcgLBVppDenoiseKnnThreshold->Name = L"fcgLBVppDenoiseKnnThreshold";
             this->fcgLBVppDenoiseKnnThreshold->Size = System::Drawing::Size(29, 14);
             this->fcgLBVppDenoiseKnnThreshold->TabIndex = 6;
@@ -4727,7 +4763,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // fcgLBVppDenoiseKnnStrength
             // 
             this->fcgLBVppDenoiseKnnStrength->AutoSize = true;
-            this->fcgLBVppDenoiseKnnStrength->Location = System::Drawing::Point(69, 39);
+            this->fcgLBVppDenoiseKnnStrength->Location = System::Drawing::Point(50, 39);
             this->fcgLBVppDenoiseKnnStrength->Name = L"fcgLBVppDenoiseKnnStrength";
             this->fcgLBVppDenoiseKnnStrength->Size = System::Drawing::Size(26, 14);
             this->fcgLBVppDenoiseKnnStrength->TabIndex = 4;
@@ -4736,7 +4772,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // fcgLBVppDenoiseKnnRadius
             // 
             this->fcgLBVppDenoiseKnnRadius->AutoSize = true;
-            this->fcgLBVppDenoiseKnnRadius->Location = System::Drawing::Point(69, 12);
+            this->fcgLBVppDenoiseKnnRadius->Location = System::Drawing::Point(50, 12);
             this->fcgLBVppDenoiseKnnRadius->Name = L"fcgLBVppDenoiseKnnRadius";
             this->fcgLBVppDenoiseKnnRadius->Size = System::Drawing::Size(29, 14);
             this->fcgLBVppDenoiseKnnRadius->TabIndex = 2;
@@ -4746,7 +4782,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // 
             this->fcgNUVppDenoiseKnnThreshold->DecimalPlaces = 2;
             this->fcgNUVppDenoiseKnnThreshold->Increment = System::Decimal(gcnew cli::array< System::Int32 >(4) { 5, 0, 0, 131072 });
-            this->fcgNUVppDenoiseKnnThreshold->Location = System::Drawing::Point(129, 64);
+            this->fcgNUVppDenoiseKnnThreshold->Location = System::Drawing::Point(132, 64);
             this->fcgNUVppDenoiseKnnThreshold->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
             this->fcgNUVppDenoiseKnnThreshold->Name = L"fcgNUVppDenoiseKnnThreshold";
             this->fcgNUVppDenoiseKnnThreshold->Size = System::Drawing::Size(60, 21);
@@ -4759,7 +4795,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // 
             this->fcgNUVppDenoiseKnnStrength->DecimalPlaces = 2;
             this->fcgNUVppDenoiseKnnStrength->Increment = System::Decimal(gcnew cli::array< System::Int32 >(4) { 5, 0, 0, 131072 });
-            this->fcgNUVppDenoiseKnnStrength->Location = System::Drawing::Point(129, 37);
+            this->fcgNUVppDenoiseKnnStrength->Location = System::Drawing::Point(132, 37);
             this->fcgNUVppDenoiseKnnStrength->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
             this->fcgNUVppDenoiseKnnStrength->Name = L"fcgNUVppDenoiseKnnStrength";
             this->fcgNUVppDenoiseKnnStrength->Size = System::Drawing::Size(60, 21);
@@ -4770,7 +4806,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // 
             // fcgNUVppDenoiseKnnRadius
             // 
-            this->fcgNUVppDenoiseKnnRadius->Location = System::Drawing::Point(129, 10);
+            this->fcgNUVppDenoiseKnnRadius->Location = System::Drawing::Point(132, 10);
             this->fcgNUVppDenoiseKnnRadius->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 5, 0, 0, 0 });
             this->fcgNUVppDenoiseKnnRadius->Name = L"fcgNUVppDenoiseKnnRadius";
             this->fcgNUVppDenoiseKnnRadius->Size = System::Drawing::Size(60, 21);
@@ -4778,89 +4814,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgNUVppDenoiseKnnRadius->Tag = L"reCmd";
             this->fcgNUVppDenoiseKnnRadius->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
             this->fcgNUVppDenoiseKnnRadius->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 3, 0, 0, 0 });
-            // 
-            // fcgCXVppDenoiseMethod
-            // 
-            this->fcgCXVppDenoiseMethod->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-            this->fcgCXVppDenoiseMethod->FormattingEnabled = true;
-            this->fcgCXVppDenoiseMethod->Location = System::Drawing::Point(26, 18);
-            this->fcgCXVppDenoiseMethod->Name = L"fcgCXVppDenoiseMethod";
-            this->fcgCXVppDenoiseMethod->Size = System::Drawing::Size(191, 22);
-            this->fcgCXVppDenoiseMethod->TabIndex = 0;
-            this->fcgCXVppDenoiseMethod->Tag = L"reCmd";
-            this->fcgCXVppDenoiseMethod->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
-            // 
-            // fcgPNVppDenoisePmd
-            // 
-            this->fcgPNVppDenoisePmd->Controls->Add(this->fcgLBVppDenoisePmdThreshold);
-            this->fcgPNVppDenoisePmd->Controls->Add(this->fcgLBVppDenoisePmdStrength);
-            this->fcgPNVppDenoisePmd->Controls->Add(this->fcgLBVppDenoisePmdApplyCount);
-            this->fcgPNVppDenoisePmd->Controls->Add(this->fcgNUVppDenoisePmdThreshold);
-            this->fcgPNVppDenoisePmd->Controls->Add(this->fcgNUVppDenoisePmdStrength);
-            this->fcgPNVppDenoisePmd->Controls->Add(this->fcgNUVppDenoisePmdApplyCount);
-            this->fcgPNVppDenoisePmd->Location = System::Drawing::Point(3, 42);
-            this->fcgPNVppDenoisePmd->Name = L"fcgPNVppDenoisePmd";
-            this->fcgPNVppDenoisePmd->Size = System::Drawing::Size(311, 92);
-            this->fcgPNVppDenoisePmd->TabIndex = 64;
-            // 
-            // fcgLBVppDenoisePmdThreshold
-            // 
-            this->fcgLBVppDenoisePmdThreshold->AutoSize = true;
-            this->fcgLBVppDenoisePmdThreshold->Location = System::Drawing::Point(69, 66);
-            this->fcgLBVppDenoisePmdThreshold->Name = L"fcgLBVppDenoisePmdThreshold";
-            this->fcgLBVppDenoisePmdThreshold->Size = System::Drawing::Size(29, 14);
-            this->fcgLBVppDenoisePmdThreshold->TabIndex = 11;
-            this->fcgLBVppDenoisePmdThreshold->Text = L"閾値";
-            // 
-            // fcgLBVppDenoisePmdStrength
-            // 
-            this->fcgLBVppDenoisePmdStrength->AutoSize = true;
-            this->fcgLBVppDenoisePmdStrength->Location = System::Drawing::Point(69, 39);
-            this->fcgLBVppDenoisePmdStrength->Name = L"fcgLBVppDenoisePmdStrength";
-            this->fcgLBVppDenoisePmdStrength->Size = System::Drawing::Size(26, 14);
-            this->fcgLBVppDenoisePmdStrength->TabIndex = 10;
-            this->fcgLBVppDenoisePmdStrength->Text = L"強さ";
-            // 
-            // fcgLBVppDenoisePmdApplyCount
-            // 
-            this->fcgLBVppDenoisePmdApplyCount->AutoSize = true;
-            this->fcgLBVppDenoisePmdApplyCount->Location = System::Drawing::Point(69, 12);
-            this->fcgLBVppDenoisePmdApplyCount->Name = L"fcgLBVppDenoisePmdApplyCount";
-            this->fcgLBVppDenoisePmdApplyCount->Size = System::Drawing::Size(29, 14);
-            this->fcgLBVppDenoisePmdApplyCount->TabIndex = 9;
-            this->fcgLBVppDenoisePmdApplyCount->Text = L"回数";
-            // 
-            // fcgNUVppDenoisePmdThreshold
-            // 
-            this->fcgNUVppDenoisePmdThreshold->Location = System::Drawing::Point(129, 64);
-            this->fcgNUVppDenoisePmdThreshold->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 255, 0, 0, 0 });
-            this->fcgNUVppDenoisePmdThreshold->Name = L"fcgNUVppDenoisePmdThreshold";
-            this->fcgNUVppDenoisePmdThreshold->Size = System::Drawing::Size(60, 21);
-            this->fcgNUVppDenoisePmdThreshold->TabIndex = 8;
-            this->fcgNUVppDenoisePmdThreshold->Tag = L"reCmd";
-            this->fcgNUVppDenoisePmdThreshold->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
-            this->fcgNUVppDenoisePmdThreshold->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 100, 0, 0, 0 });
-            // 
-            // fcgNUVppDenoisePmdStrength
-            // 
-            this->fcgNUVppDenoisePmdStrength->Location = System::Drawing::Point(129, 37);
-            this->fcgNUVppDenoisePmdStrength->Name = L"fcgNUVppDenoisePmdStrength";
-            this->fcgNUVppDenoisePmdStrength->Size = System::Drawing::Size(60, 21);
-            this->fcgNUVppDenoisePmdStrength->TabIndex = 7;
-            this->fcgNUVppDenoisePmdStrength->Tag = L"reCmd";
-            this->fcgNUVppDenoisePmdStrength->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
-            this->fcgNUVppDenoisePmdStrength->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 100, 0, 0, 0 });
-            // 
-            // fcgNUVppDenoisePmdApplyCount
-            // 
-            this->fcgNUVppDenoisePmdApplyCount->Location = System::Drawing::Point(129, 10);
-            this->fcgNUVppDenoisePmdApplyCount->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 5, 0, 0, 0 });
-            this->fcgNUVppDenoisePmdApplyCount->Name = L"fcgNUVppDenoisePmdApplyCount";
-            this->fcgNUVppDenoisePmdApplyCount->Size = System::Drawing::Size(60, 21);
-            this->fcgNUVppDenoisePmdApplyCount->TabIndex = 6;
-            this->fcgNUVppDenoisePmdApplyCount->Tag = L"reCmd";
-            this->fcgNUVppDenoisePmdApplyCount->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
-            this->fcgNUVppDenoisePmdApplyCount->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 2, 0, 0, 0 });
             // 
             // fcggroupBoxVppDeinterlace
             // 
@@ -4908,9 +4861,9 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgPNVppAfs->Controls->Add(this->fcgLBVppAfsThreShift);
             this->fcgPNVppAfs->Controls->Add(this->fcgTBVppAfsCoeffShift);
             this->fcgPNVppAfs->Controls->Add(this->fcgLBVppAfsCoeffShift);
-            this->fcgPNVppAfs->Controls->Add(this->label20);
-            this->fcgPNVppAfs->Controls->Add(this->label19);
-            this->fcgPNVppAfs->Controls->Add(this->label2);
+            this->fcgPNVppAfs->Controls->Add(this->fcgLBVppAfsRight);
+            this->fcgPNVppAfs->Controls->Add(this->fcgLBVppAfsLeft);
+            this->fcgPNVppAfs->Controls->Add(this->fcgLBVppAfsBottom);
             this->fcgPNVppAfs->Controls->Add(this->fcgLBVppAfsUp);
             this->fcgPNVppAfs->Controls->Add(this->fcgNUVppAfsRight);
             this->fcgPNVppAfs->Controls->Add(this->fcgNUVppAfsLeft);
@@ -5036,32 +4989,32 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgLBVppAfsCoeffShift->TabIndex = 11;
             this->fcgLBVppAfsCoeffShift->Text = L"判定比";
             // 
-            // label20
+            // fcgLBVppAfsRight
             // 
-            this->label20->AutoSize = true;
-            this->label20->Location = System::Drawing::Point(163, 29);
-            this->label20->Name = L"label20";
-            this->label20->Size = System::Drawing::Size(18, 14);
-            this->label20->TabIndex = 6;
-            this->label20->Text = L"右";
+            this->fcgLBVppAfsRight->AutoSize = true;
+            this->fcgLBVppAfsRight->Location = System::Drawing::Point(163, 29);
+            this->fcgLBVppAfsRight->Name = L"fcgLBVppAfsRight";
+            this->fcgLBVppAfsRight->Size = System::Drawing::Size(18, 14);
+            this->fcgLBVppAfsRight->TabIndex = 6;
+            this->fcgLBVppAfsRight->Text = L"右";
             // 
-            // label19
+            // fcgLBVppAfsLeft
             // 
-            this->label19->AutoSize = true;
-            this->label19->Location = System::Drawing::Point(57, 29);
-            this->label19->Name = L"label19";
-            this->label19->Size = System::Drawing::Size(18, 14);
-            this->label19->TabIndex = 4;
-            this->label19->Text = L"左";
+            this->fcgLBVppAfsLeft->AutoSize = true;
+            this->fcgLBVppAfsLeft->Location = System::Drawing::Point(57, 29);
+            this->fcgLBVppAfsLeft->Name = L"fcgLBVppAfsLeft";
+            this->fcgLBVppAfsLeft->Size = System::Drawing::Size(18, 14);
+            this->fcgLBVppAfsLeft->TabIndex = 4;
+            this->fcgLBVppAfsLeft->Text = L"左";
             // 
-            // label2
+            // fcgLBVppAfsBottom
             // 
-            this->label2->AutoSize = true;
-            this->label2->Location = System::Drawing::Point(163, 4);
-            this->label2->Name = L"label2";
-            this->label2->Size = System::Drawing::Size(18, 14);
-            this->label2->TabIndex = 2;
-            this->label2->Text = L"下";
+            this->fcgLBVppAfsBottom->AutoSize = true;
+            this->fcgLBVppAfsBottom->Location = System::Drawing::Point(163, 4);
+            this->fcgLBVppAfsBottom->Name = L"fcgLBVppAfsBottom";
+            this->fcgLBVppAfsBottom->Size = System::Drawing::Size(18, 14);
+            this->fcgLBVppAfsBottom->TabIndex = 2;
+            this->fcgLBVppAfsBottom->Text = L"下";
             // 
             // fcgLBVppAfsUp
             // 
@@ -5452,7 +5405,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // fcggroupBoxResize
             // 
             this->fcggroupBoxResize->Controls->Add(this->fcgCXVppResizeAlg);
-            this->fcggroupBoxResize->Controls->Add(this->fcgLBResize);
+            this->fcggroupBoxResize->Controls->Add(this->fcgLBVppResize);
             this->fcggroupBoxResize->Controls->Add(this->fcgNUResizeH);
             this->fcggroupBoxResize->Controls->Add(this->fcgNUResizeW);
             this->fcggroupBoxResize->Location = System::Drawing::Point(4, 19);
@@ -5471,14 +5424,14 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgCXVppResizeAlg->TabIndex = 3;
             this->fcgCXVppResizeAlg->Tag = L"reCmd";
             // 
-            // fcgLBResize
+            // fcgLBVppResize
             // 
-            this->fcgLBResize->AutoSize = true;
-            this->fcgLBResize->Location = System::Drawing::Point(85, 25);
-            this->fcgLBResize->Name = L"fcgLBResize";
-            this->fcgLBResize->Size = System::Drawing::Size(13, 14);
-            this->fcgLBResize->TabIndex = 1;
-            this->fcgLBResize->Text = L"x";
+            this->fcgLBVppResize->AutoSize = true;
+            this->fcgLBVppResize->Location = System::Drawing::Point(85, 25);
+            this->fcgLBVppResize->Name = L"fcgLBVppResize";
+            this->fcgLBVppResize->Size = System::Drawing::Size(13, 14);
+            this->fcgLBVppResize->TabIndex = 1;
+            this->fcgLBVppResize->Text = L"x";
             // 
             // fcgNUResizeH
             // 
@@ -6099,10 +6052,10 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // 
             // fcgtabPageAudioMain
             // 
-            this->fcgtabPageAudioMain->Controls->Add(this->fcgPNAudioInternal);
             this->fcgtabPageAudioMain->Controls->Add(this->fcgCBAudioUseExt);
             this->fcgtabPageAudioMain->Controls->Add(this->fcgCBFAWCheck);
             this->fcgtabPageAudioMain->Controls->Add(this->fcgPNAudioExt);
+            this->fcgtabPageAudioMain->Controls->Add(this->fcgPNAudioInternal);
             this->fcgtabPageAudioMain->Location = System::Drawing::Point(4, 23);
             this->fcgtabPageAudioMain->Name = L"fcgtabPageAudioMain";
             this->fcgtabPageAudioMain->Padding = System::Windows::Forms::Padding(3);
@@ -6110,68 +6063,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgtabPageAudioMain->TabIndex = 0;
             this->fcgtabPageAudioMain->Text = L"音声";
             this->fcgtabPageAudioMain->UseVisualStyleBackColor = true;
-            // 
-            // fcgPNAudioInternal
-            // 
-            this->fcgPNAudioInternal->Controls->Add(this->fcgLBAudioBitrateInternal);
-            this->fcgPNAudioInternal->Controls->Add(this->fcgNUAudioBitrateInternal);
-            this->fcgPNAudioInternal->Controls->Add(this->fcgCXAudioEncModeInternal);
-            this->fcgPNAudioInternal->Controls->Add(this->label4);
-            this->fcgPNAudioInternal->Controls->Add(this->fcgCXAudioEncoderInternal);
-            this->fcgPNAudioInternal->Location = System::Drawing::Point(0, 23);
-            this->fcgPNAudioInternal->Name = L"fcgPNAudioInternal";
-            this->fcgPNAudioInternal->Size = System::Drawing::Size(374, 246);
-            this->fcgPNAudioInternal->TabIndex = 80;
-            // 
-            // fcgLBAudioBitrateInternal
-            // 
-            this->fcgLBAudioBitrateInternal->AutoSize = true;
-            this->fcgLBAudioBitrateInternal->Location = System::Drawing::Point(285, 69);
-            this->fcgLBAudioBitrateInternal->Name = L"fcgLBAudioBitrateInternal";
-            this->fcgLBAudioBitrateInternal->Size = System::Drawing::Size(32, 14);
-            this->fcgLBAudioBitrateInternal->TabIndex = 76;
-            this->fcgLBAudioBitrateInternal->Text = L"kbps";
-            // 
-            // fcgNUAudioBitrateInternal
-            // 
-            this->fcgNUAudioBitrateInternal->Location = System::Drawing::Point(214, 67);
-            this->fcgNUAudioBitrateInternal->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1536, 0, 0, 0 });
-            this->fcgNUAudioBitrateInternal->Name = L"fcgNUAudioBitrateInternal";
-            this->fcgNUAudioBitrateInternal->Size = System::Drawing::Size(65, 21);
-            this->fcgNUAudioBitrateInternal->TabIndex = 74;
-            this->fcgNUAudioBitrateInternal->Tag = L"chValue";
-            this->fcgNUAudioBitrateInternal->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
-            // 
-            // fcgCXAudioEncModeInternal
-            // 
-            this->fcgCXAudioEncModeInternal->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-            this->fcgCXAudioEncModeInternal->FormattingEnabled = true;
-            this->fcgCXAudioEncModeInternal->Location = System::Drawing::Point(17, 66);
-            this->fcgCXAudioEncModeInternal->Name = L"fcgCXAudioEncModeInternal";
-            this->fcgCXAudioEncModeInternal->Size = System::Drawing::Size(189, 22);
-            this->fcgCXAudioEncModeInternal->TabIndex = 73;
-            this->fcgCXAudioEncModeInternal->Tag = L"chValue";
-            this->fcgCXAudioEncModeInternal->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgCXAudioEncModeInternal_SelectedIndexChanged);
-            // 
-            // label4
-            // 
-            this->label4->AutoSize = true;
-            this->label4->Location = System::Drawing::Point(9, 41);
-            this->label4->Name = L"label4";
-            this->label4->Size = System::Drawing::Size(32, 14);
-            this->label4->TabIndex = 75;
-            this->label4->Text = L"モード";
-            // 
-            // fcgCXAudioEncoderInternal
-            // 
-            this->fcgCXAudioEncoderInternal->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-            this->fcgCXAudioEncoderInternal->FormattingEnabled = true;
-            this->fcgCXAudioEncoderInternal->Location = System::Drawing::Point(17, 8);
-            this->fcgCXAudioEncoderInternal->Name = L"fcgCXAudioEncoderInternal";
-            this->fcgCXAudioEncoderInternal->Size = System::Drawing::Size(172, 22);
-            this->fcgCXAudioEncoderInternal->TabIndex = 70;
-            this->fcgCXAudioEncoderInternal->Tag = L"chValue";
-            this->fcgCXAudioEncoderInternal->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgCXAudioEncoderInternal_SelectedIndexChanged);
             // 
             // fcgCBAudioUseExt
             // 
@@ -6244,7 +6135,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             // fcgCBAudioEncTiming
             // 
             this->fcgCBAudioEncTiming->AutoSize = true;
-            this->fcgCBAudioEncTiming->Location = System::Drawing::Point(243, 28);
+            this->fcgCBAudioEncTiming->Location = System::Drawing::Point(231, 28);
             this->fcgCBAudioEncTiming->Name = L"fcgCBAudioEncTiming";
             this->fcgCBAudioEncTiming->Size = System::Drawing::Size(40, 14);
             this->fcgCBAudioEncTiming->TabIndex = 74;
@@ -6413,6 +6304,68 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgLBAudioBitrate->Size = System::Drawing::Size(32, 14);
             this->fcgLBAudioBitrate->TabIndex = 71;
             this->fcgLBAudioBitrate->Text = L"kbps";
+            // 
+            // fcgPNAudioInternal
+            // 
+            this->fcgPNAudioInternal->Controls->Add(this->fcgLBAudioBitrateInternal);
+            this->fcgPNAudioInternal->Controls->Add(this->fcgNUAudioBitrateInternal);
+            this->fcgPNAudioInternal->Controls->Add(this->fcgCXAudioEncModeInternal);
+            this->fcgPNAudioInternal->Controls->Add(this->fcgLBAudioEncModeInternal);
+            this->fcgPNAudioInternal->Controls->Add(this->fcgCXAudioEncoderInternal);
+            this->fcgPNAudioInternal->Location = System::Drawing::Point(0, 23);
+            this->fcgPNAudioInternal->Name = L"fcgPNAudioInternal";
+            this->fcgPNAudioInternal->Size = System::Drawing::Size(374, 246);
+            this->fcgPNAudioInternal->TabIndex = 80;
+            // 
+            // fcgLBAudioBitrateInternal
+            // 
+            this->fcgLBAudioBitrateInternal->AutoSize = true;
+            this->fcgLBAudioBitrateInternal->Location = System::Drawing::Point(285, 69);
+            this->fcgLBAudioBitrateInternal->Name = L"fcgLBAudioBitrateInternal";
+            this->fcgLBAudioBitrateInternal->Size = System::Drawing::Size(32, 14);
+            this->fcgLBAudioBitrateInternal->TabIndex = 76;
+            this->fcgLBAudioBitrateInternal->Text = L"kbps";
+            // 
+            // fcgNUAudioBitrateInternal
+            // 
+            this->fcgNUAudioBitrateInternal->Location = System::Drawing::Point(214, 67);
+            this->fcgNUAudioBitrateInternal->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1536, 0, 0, 0 });
+            this->fcgNUAudioBitrateInternal->Name = L"fcgNUAudioBitrateInternal";
+            this->fcgNUAudioBitrateInternal->Size = System::Drawing::Size(65, 21);
+            this->fcgNUAudioBitrateInternal->TabIndex = 74;
+            this->fcgNUAudioBitrateInternal->Tag = L"chValue";
+            this->fcgNUAudioBitrateInternal->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            // 
+            // fcgCXAudioEncModeInternal
+            // 
+            this->fcgCXAudioEncModeInternal->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXAudioEncModeInternal->FormattingEnabled = true;
+            this->fcgCXAudioEncModeInternal->Location = System::Drawing::Point(17, 66);
+            this->fcgCXAudioEncModeInternal->Name = L"fcgCXAudioEncModeInternal";
+            this->fcgCXAudioEncModeInternal->Size = System::Drawing::Size(189, 22);
+            this->fcgCXAudioEncModeInternal->TabIndex = 73;
+            this->fcgCXAudioEncModeInternal->Tag = L"chValue";
+            this->fcgCXAudioEncModeInternal->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgCXAudioEncModeInternal_SelectedIndexChanged);
+            // 
+            // fcgLBAudioEncModeInternal
+            // 
+            this->fcgLBAudioEncModeInternal->AutoSize = true;
+            this->fcgLBAudioEncModeInternal->Location = System::Drawing::Point(9, 41);
+            this->fcgLBAudioEncModeInternal->Name = L"fcgLBAudioEncModeInternal";
+            this->fcgLBAudioEncModeInternal->Size = System::Drawing::Size(32, 14);
+            this->fcgLBAudioEncModeInternal->TabIndex = 75;
+            this->fcgLBAudioEncModeInternal->Text = L"モード";
+            // 
+            // fcgCXAudioEncoderInternal
+            // 
+            this->fcgCXAudioEncoderInternal->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXAudioEncoderInternal->FormattingEnabled = true;
+            this->fcgCXAudioEncoderInternal->Location = System::Drawing::Point(17, 8);
+            this->fcgCXAudioEncoderInternal->Name = L"fcgCXAudioEncoderInternal";
+            this->fcgCXAudioEncoderInternal->Size = System::Drawing::Size(172, 22);
+            this->fcgCXAudioEncoderInternal->TabIndex = 70;
+            this->fcgCXAudioEncoderInternal->Tag = L"chValue";
+            this->fcgCXAudioEncoderInternal->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgCXAudioEncoderInternal_SelectedIndexChanged);
             // 
             // fcgtabPageAudioOther
             // 
@@ -6659,8 +6612,8 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgPNICQ->PerformLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUICQQuality))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUSlices))->EndInit();
-            this->fcggroupBoxColor->ResumeLayout(false);
-            this->fcggroupBoxColor->PerformLayout();
+            this->fcggroupBoxColorMatrix->ResumeLayout(false);
+            this->fcggroupBoxColorMatrix->PerformLayout();
             this->fcgGroupBoxAspectRatio->ResumeLayout(false);
             this->fcgGroupBoxAspectRatio->PerformLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAspectRatioY))->EndInit();
@@ -6701,14 +6654,12 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpThreshold))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpType))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppWarpsharpBlur))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->numericUpDown7))->EndInit();
             this->fcgPNVppEdgelevel->ResumeLayout(false);
             this->fcgPNVppEdgelevel->PerformLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppEdgelevelWhite))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppEdgelevelThreshold))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppEdgelevelBlack))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppEdgelevelStrength))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->numericUpDown4))->EndInit();
             this->fcgPNVppUnsharp->ResumeLayout(false);
             this->fcgPNVppUnsharp->PerformLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppUnsharpThreshold))->EndInit();
@@ -6717,8 +6668,12 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgPNVppDetailEnhanceMFX->ResumeLayout(false);
             this->fcgPNVppDetailEnhanceMFX->PerformLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDetailEnhanceMFX))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->numericUpDown6))->EndInit();
             this->fcggroupBoxVppDenoise->ResumeLayout(false);
+            this->fcgPNVppDenoisePmd->ResumeLayout(false);
+            this->fcgPNVppDenoisePmd->PerformLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoisePmdThreshold))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoisePmdStrength))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoisePmdApplyCount))->EndInit();
             this->fcgPNVppDenoiseConv3D->ResumeLayout(false);
             this->fcgPNVppDenoiseConv3D->PerformLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseConv3DThreshCTemporal))->EndInit();
@@ -6737,11 +6692,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseKnnThreshold))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseKnnStrength))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseKnnRadius))->EndInit();
-            this->fcgPNVppDenoisePmd->ResumeLayout(false);
-            this->fcgPNVppDenoisePmd->PerformLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoisePmdThreshold))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoisePmdStrength))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoisePmdApplyCount))->EndInit();
             this->fcggroupBoxVppDeinterlace->ResumeLayout(false);
             this->fcggroupBoxVppDeinterlace->PerformLayout();
             this->fcgPNVppAfs->ResumeLayout(false);
@@ -6785,12 +6735,12 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             this->fcgtabControlAudio->ResumeLayout(false);
             this->fcgtabPageAudioMain->ResumeLayout(false);
             this->fcgtabPageAudioMain->PerformLayout();
-            this->fcgPNAudioInternal->ResumeLayout(false);
-            this->fcgPNAudioInternal->PerformLayout();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrateInternal))->EndInit();
             this->fcgPNAudioExt->ResumeLayout(false);
             this->fcgPNAudioExt->PerformLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrate))->EndInit();
+            this->fcgPNAudioInternal->ResumeLayout(false);
+            this->fcgPNAudioInternal->PerformLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrateInternal))->EndInit();
             this->fcgtabPageAudioOther->ResumeLayout(false);
             this->fcgtabPageAudioOther->PerformLayout();
             this->ResumeLayout(false);
@@ -6807,6 +6757,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
         String^ StrGPUInfo;
         SetGPUInfoDelegate ^getGPUInfoDelegate;
         const SYSTEM_DATA *sys_dat;
+        std::vector<std::string> *list_lng;
         CONF_GUIEX *conf;
         LocalSettings LocalStg;
         DarkenWindowStgReader *dwStgReader;
@@ -6829,6 +6780,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
         System::Void fcgMouseLeave_SetColor(System::Object^  sender, System::EventArgs^  e);
         System::Void TabControl_DarkDrawItem(System::Object^ sender, DrawItemEventArgs^ e);
 
+        System::Void LoadLangText();
         System::Int32 GetCurrentAudioDefaultBitrate();
         delegate System::Void qualityTimerChangeDelegate();
         System::Void InitComboBox();
@@ -6874,6 +6826,13 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
         System::Void CheckTSSettingsDropDownItem(ToolStripMenuItem^ mItem);
         System::Void CheckTSItemsEnabled(CONF_GUIEX *current_conf);
         System::Void fcgChangeMuxerVisible(System::Object^  sender, System::EventArgs^  e);
+
+        System::Void InitLangList();
+        System::Void SaveSelectedLanguage(const char *language_text);
+        System::Void SetSelectedLanguage(const char *language_text);
+        System::Void CheckTSLanguageDropDownItem(ToolStripMenuItem^ mItem);
+        System::Void fcgTSLanguage_DropDownItemClicked(System::Object^  sender, System::Windows::Forms::ToolStripItemClickedEventArgs^  e);
+
         System::Void SetHelpToolTips();
         System::Void ShowExehelp(String^ ExePath, String^ args);
         System::Void fcgTSBOtherSettings_Click(System::Object^  sender, System::EventArgs^  e);
@@ -6899,7 +6858,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
         System::Boolean fcgCheckCodec();
         System::Void fcgCheckFixedFunc();
         System::Void UpdateMfxLibDetection();
-        System::Void UpdateFeatures();
+        System::Void UpdateFeatures(bool reGenerateTable);
         System::Void fcgCheckVppFeatures();
         System::Void SaveQSVFeatureAsImg(String^ SavePath);
         System::Void SaveQSVFeatureAsTxt(String^ SavePath);
@@ -6934,24 +6893,55 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
              NU->Select(0, NU->Text->Length);
          }
     private:
-        System::Void setComboBox(ComboBox^ CX, const X264_OPTION_STR * list) {
+        System::Void setComboBox(ComboBox^ CX, const ENC_OPTION_STR * list) {
             CX->BeginUpdate();
+            const int prevIdx = CX->SelectedIndex;
             CX->Items->Clear();
-            for (int i = 0; list[i].desc; i++)
-                CX->Items->Add(String(list[i].desc).ToString());
+            for (int i = 0; list[i].desc; i++) {
+                String^ string = nullptr;
+                if (list[i].mes != AUO_MES_UNKNOWN) {
+                    string = LOAD_CLI_STRING(list[i].mes);
+                }
+                if (string == nullptr || string->Length == 0) {
+                    string = String(list[i].desc).ToString();
+                }
+                CX->Items->Add(string);
+            }
+            SetCXIndex(CX, prevIdx);
+            CX->EndUpdate();
+        }
+    private:
+        System::Void setComboBox(ComboBox^ CX, const ENC_OPTION_STR2 * list) {
+            CX->BeginUpdate();
+            const int prevIdx = CX->SelectedIndex;
+            CX->Items->Clear();
+            for (int i = 0; list[i].desc; i++) {
+                String^ string = nullptr;
+                if (list[i].mes != AUO_MES_UNKNOWN) {
+                    string = LOAD_CLI_STRING(list[i].mes);
+                }
+                if (string == nullptr || string->Length == 0) {
+                    string = String(list[i].desc).ToString();
+                }
+                CX->Items->Add(string);
+            }
+            SetCXIndex(CX, prevIdx);
             CX->EndUpdate();
         }
     private:
         System::Void setComboBox(ComboBox^ CX, const CX_DESC * list) {
             CX->BeginUpdate();
+            const int prevIdx = CX->SelectedIndex;
             CX->Items->Clear();
             for (int i = 0; list[i].desc; i++)
                 CX->Items->Add(String(list[i].desc).ToString());
+            SetCXIndex(CX, prevIdx);
             CX->EndUpdate();
         }
     private:
         System::Void setComboBox(ComboBox ^CX, const CX_DESC *list, const TCHAR *ignore) {
             CX->BeginUpdate();
+            const int prevIdx = CX->SelectedIndex;
             CX->Items->Clear();
             for (int i = 0; list[i].desc; i++) {
                 if (ignore && strcmp(ignore, list[i].desc) == 0) {
@@ -6963,54 +6953,75 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
                     CX->Items->Add(String(list[i].desc).ToString());
                 }
             }
+            SetCXIndex(CX, prevIdx);
             CX->EndUpdate();
         }
     private:
         System::Void setComboBox(ComboBox^ CX, const char * const * list) {
             CX->BeginUpdate();
+            const int prevIdx = CX->SelectedIndex;
             CX->Items->Clear();
             for (int i = 0; list[i]; i++)
                 CX->Items->Add(String(list[i]).ToString());
+            SetCXIndex(CX, prevIdx);
             CX->EndUpdate();
         }
     private:
         System::Void setComboBox(ComboBox^ CX, const WCHAR * const * list) {
             CX->BeginUpdate();
+            const int prevIdx = CX->SelectedIndex;
             CX->Items->Clear();
             for (int i = 0; list[i]; i++)
                 CX->Items->Add(String(list[i]).ToString());
+            SetCXIndex(CX, prevIdx);
             CX->EndUpdate();
         }
     private:
         System::Void setPriorityList(ComboBox^ CX) {
             CX->BeginUpdate();
+            const int prevIdx = CX->SelectedIndex;
             CX->Items->Clear();
-            for (int i = 0; priority_table[i].text; i++)
-                CX->Items->Add(String(priority_table[i].text).ToString());
+            for (int i = 0; priority_table[i].text; i++) {
+                String^ string = nullptr;
+                if (priority_table[i].mes != AUO_MES_UNKNOWN) {
+                    string = LOAD_CLI_STRING(priority_table[i].mes);
+                }
+                if (string == nullptr || string->Length == 0) {
+                    string = String(priority_table[i].text).ToString();
+                }
+                CX->Items->Add(string);
+            }
+            SetCXIndex(CX, prevIdx);
             CX->EndUpdate();
         }
     private:
         System::Void setMuxerCmdExNames(ComboBox^ CX, int muxer_index) {
             CX->BeginUpdate();
+            const int prevIdx = CX->SelectedIndex;
             CX->Items->Clear();
             MUXER_SETTINGS *mstg = &sys_dat->exstg->s_mux[muxer_index];
             for (int i = 0; i < mstg->ex_count; i++)
                 CX->Items->Add(String(mstg->ex_cmd[i].name).ToString());
+            SetCXIndex(CX, prevIdx);
             CX->EndUpdate();
         }
     private:
         System::Void setAudioEncoderNames() {
             fcgCXAudioEncoder->BeginUpdate();
+            const int prevIdx = fcgCXAudioEncoder->SelectedIndex;
             fcgCXAudioEncoder->Items->Clear();
             //fcgCXAudioEncoder->Items->AddRange(reinterpret_cast<array<String^>^>(LocalStg.audEncName->ToArray(String::typeid)));
             fcgCXAudioEncoder->Items->AddRange(LocalStg.audEncName->ToArray());
+            SetCXIndex(fcgCXAudioEncoder, prevIdx);
             fcgCXAudioEncoder->EndUpdate();
 
             fcgCXAudioEncoderInternal->BeginUpdate();
+            const int prevIdxInternal = fcgCXAudioEncoderInternal->SelectedIndex;
             fcgCXAudioEncoderInternal->Items->Clear();
             for (int i = 0; i < sys_dat->exstg->s_aud_int_count; i++) {
                 fcgCXAudioEncoderInternal->Items->Add(String(sys_dat->exstg->s_aud_int[i].dispname).ToString());
             }
+            SetCXIndex(fcgCXAudioEncoderInternal, prevIdxInternal);
             fcgCXAudioEncoderInternal->EndUpdate();
         }
     private:
@@ -7024,7 +7035,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             maxLength = TX->MaxLength;
             if (stringBytes > maxLength - 1) {
                 e->Cancel = true;
-                MessageBox::Show(this, L"入力された文字数が多すぎます。減らしてください。", L"エラー", MessageBoxButtons::OK, MessageBoxIcon::Error);
+                MessageBox::Show(this, LOAD_CLI_STRING(AUO_CONFIG_TEXT_LIMIT_LENGTH), LOAD_CLI_STRING(AUO_GUIEX_ERROR), MessageBoxButtons::OK, MessageBoxIcon::Error);
             }
         }
     private:
@@ -7054,91 +7065,111 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             return ret;
         }
     private:
+        System::Void frmConfig::ExeTXPathEnter() {
+            fcgTXVideoEncoderPath_Enter(nullptr, nullptr);
+            fcgTXAudioEncoderPath_Enter(nullptr, nullptr);
+            fcgTXMP4MuxerPath_Enter(nullptr, nullptr);
+            fcgTXTC2MP4Path_Enter(nullptr, nullptr);
+            fcgTXMP4RawPath_Enter(nullptr, nullptr);
+            fcgTXMKVMuxerPath_Enter(nullptr, nullptr);
+            fcgTXMPGMuxerPath_Enter(nullptr, nullptr);
+        }
+    private:
+        System::Void frmConfig::ExeTXPathLeave() {
+            fcgTXVideoEncoderPath_Leave(nullptr, nullptr);
+            fcgTXAudioEncoderPath_Leave(nullptr, nullptr);
+            fcgTXMP4MuxerPath_Leave(nullptr, nullptr);
+            fcgTXTC2MP4Path_Leave(nullptr, nullptr);
+            fcgTXMP4RawPath_Leave(nullptr, nullptr);
+            fcgTXMKVMuxerPath_Leave(nullptr, nullptr);
+            fcgTXMPGMuxerPath_Leave(nullptr, nullptr);
+        }
+    private:
         System::Void fcgBTVideoEncoderPath_Click(System::Object^  sender, System::EventArgs^  e) {
             openExeFile(fcgTXVideoEncoderPath, LocalStg.vidEncName);
         }
     private:
         System::Void fcgTXVideoEncoderPath_Enter(System::Object^  sender, System::EventArgs^  e) {
-            if (fcgTXVideoEncoderPath->Text == String(use_default_exe_path).ToString()) {
+            if (fcgTXVideoEncoderPath->Text == LOAD_CLI_STRING(AUO_CONFIG_CX_USE_DEFAULT_EXE_PATH)) {
                 fcgTXVideoEncoderPath->Text = L"";
             }
         }
     private:
         System::Void fcgTXVideoEncoderPath_Leave(System::Object^  sender, System::EventArgs^  e) {
             if (fcgTXVideoEncoderPath->Text->Length == 0) {
-                fcgTXVideoEncoderPath->Text = String(use_default_exe_path).ToString();
+                fcgTXVideoEncoderPath->Text = LOAD_CLI_STRING(AUO_CONFIG_CX_USE_DEFAULT_EXE_PATH);
             }
         }
     private:
         System::Void fcgTXAudioEncoderPath_Enter(System::Object^  sender, System::EventArgs^  e) {
-            if (fcgTXAudioEncoderPath->Text == String(use_default_exe_path).ToString()) {
+            if (fcgTXAudioEncoderPath->Text == LOAD_CLI_STRING(AUO_CONFIG_CX_USE_DEFAULT_EXE_PATH)) {
                 fcgTXAudioEncoderPath->Text = L"";
             }
         }
     private:
         System::Void fcgTXAudioEncoderPath_Leave(System::Object^  sender, System::EventArgs^  e) {
             if (fcgTXAudioEncoderPath->Text->Length == 0) {
-                fcgTXAudioEncoderPath->Text = String(use_default_exe_path).ToString();
+                fcgTXAudioEncoderPath->Text = LOAD_CLI_STRING(AUO_CONFIG_CX_USE_DEFAULT_EXE_PATH);
             }
         }
     private:
         System::Void fcgTXMP4MuxerPath_Enter(System::Object^  sender, System::EventArgs^  e) {
-            if (fcgTXMP4MuxerPath->Text == String(use_default_exe_path).ToString()) {
+            if (fcgTXMP4MuxerPath->Text == LOAD_CLI_STRING(AUO_CONFIG_CX_USE_DEFAULT_EXE_PATH)) {
                 fcgTXMP4MuxerPath->Text = L"";
             }
         }
     private:
         System::Void fcgTXMP4MuxerPath_Leave(System::Object^  sender, System::EventArgs^  e) {
             if (fcgTXMP4MuxerPath->Text->Length == 0) {
-                fcgTXMP4MuxerPath->Text = String(use_default_exe_path).ToString();
+                fcgTXMP4MuxerPath->Text = LOAD_CLI_STRING(AUO_CONFIG_CX_USE_DEFAULT_EXE_PATH);
             }
         }
     private:
         System::Void fcgTXTC2MP4Path_Enter(System::Object^  sender, System::EventArgs^  e) {
-            if (fcgTXTC2MP4Path->Text == String(use_default_exe_path).ToString()) {
+            if (fcgTXTC2MP4Path->Text == LOAD_CLI_STRING(AUO_CONFIG_CX_USE_DEFAULT_EXE_PATH)) {
                 fcgTXTC2MP4Path->Text = L"";
             }
         }
     private:
         System::Void fcgTXTC2MP4Path_Leave(System::Object^  sender, System::EventArgs^  e) {
             if (fcgTXTC2MP4Path->Text->Length == 0) {
-                fcgTXTC2MP4Path->Text = String(use_default_exe_path).ToString();
+                fcgTXTC2MP4Path->Text = LOAD_CLI_STRING(AUO_CONFIG_CX_USE_DEFAULT_EXE_PATH);
             }
         }
     private:
         System::Void fcgTXMP4RawPath_Enter(System::Object^  sender, System::EventArgs^  e) {
-            if (fcgTXMP4RawPath->Text == String(use_default_exe_path).ToString()) {
+            if (fcgTXMP4RawPath->Text == LOAD_CLI_STRING(AUO_CONFIG_CX_USE_DEFAULT_EXE_PATH)) {
                 fcgTXMP4RawPath->Text = L"";
             }
         }
     private:
         System::Void fcgTXMP4RawPath_Leave(System::Object^  sender, System::EventArgs^  e) {
             if (fcgTXMP4RawPath->Text->Length == 0) {
-                fcgTXMP4RawPath->Text = String(use_default_exe_path).ToString();
+                fcgTXMP4RawPath->Text = LOAD_CLI_STRING(AUO_CONFIG_CX_USE_DEFAULT_EXE_PATH);
             }
         }
     private:
         System::Void fcgTXMKVMuxerPath_Enter(System::Object^  sender, System::EventArgs^  e) {
-            if (fcgTXMKVMuxerPath->Text == String(use_default_exe_path).ToString()) {
+            if (fcgTXMKVMuxerPath->Text == LOAD_CLI_STRING(AUO_CONFIG_CX_USE_DEFAULT_EXE_PATH)) {
                 fcgTXMKVMuxerPath->Text = L"";
             }
         }
     private:
         System::Void fcgTXMKVMuxerPath_Leave(System::Object^  sender, System::EventArgs^  e) {
             if (fcgTXMKVMuxerPath->Text->Length == 0) {
-                fcgTXMKVMuxerPath->Text = String(use_default_exe_path).ToString();
+                fcgTXMKVMuxerPath->Text = LOAD_CLI_STRING(AUO_CONFIG_CX_USE_DEFAULT_EXE_PATH);
             }
         }
     private:
         System::Void fcgTXMPGMuxerPath_Enter(System::Object^  sender, System::EventArgs^  e) {
-            if (fcgTXMPGMuxerPath->Text == String(use_default_exe_path).ToString()) {
+            if (fcgTXMPGMuxerPath->Text == LOAD_CLI_STRING(AUO_CONFIG_CX_USE_DEFAULT_EXE_PATH)) {
                 fcgTXMPGMuxerPath->Text = L"";
             }
         }
     private:
         System::Void fcgTXMPGMuxerPath_Leave(System::Object^  sender, System::EventArgs^  e) {
             if (fcgTXMPGMuxerPath->Text->Length == 0) {
-                fcgTXMPGMuxerPath->Text = String(use_default_exe_path).ToString();
+                fcgTXMPGMuxerPath->Text = LOAD_CLI_STRING(AUO_CONFIG_CX_USE_DEFAULT_EXE_PATH);
             }
         }
     private:
@@ -7233,28 +7264,30 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             return ret;
         }
     private:
-        System::Void fcgBTBatAfterPath_Click(System::Object^  sender, System::EventArgs^  e) {
-            if (openAndSetFilePath(fcgTXBatAfterPath, L"バッチファイル", ".bat", LocalStg.LastBatDir))
-                LocalStg.LastBatDir = Path::GetDirectoryName(fcgTXBatAfterPath->Text);
-        }
-    private:
         System::Void fcgBTBatBeforePath_Click(System::Object^  sender, System::EventArgs^  e) {
-            if (openAndSetFilePath(fcgTXBatBeforePath, L"バッチファイル", ".bat", LocalStg.LastBatDir))
+            if (openAndSetFilePath(fcgTXBatBeforePath, LOAD_CLI_STRING(AUO_CONFIG_BAT_FILE), ".bat", LocalStg.LastBatDir))
                 LocalStg.LastBatDir = Path::GetDirectoryName(fcgTXBatBeforePath->Text);
         }
     private:
+        System::Void fcgBTBatAfterPath_Click(System::Object^  sender, System::EventArgs^  e) {
+            if (openAndSetFilePath(fcgTXBatAfterPath, LOAD_CLI_STRING(AUO_CONFIG_BAT_FILE), ".bat", LocalStg.LastBatDir))
+                LocalStg.LastBatDir = Path::GetDirectoryName(fcgTXBatAfterPath->Text);
+        }
+    private:
         System::Void fcgBTBatBeforeAudioPath_Click(System::Object^  sender, System::EventArgs^  e) {
-            if (openAndSetFilePath(fcgTXBatBeforeAudioPath, L"バッチファイル", ".bat", LocalStg.LastBatDir))
+            if (openAndSetFilePath(fcgTXBatBeforeAudioPath, LOAD_CLI_STRING(AUO_CONFIG_BAT_FILE), ".bat", LocalStg.LastBatDir))
                 LocalStg.LastBatDir = Path::GetDirectoryName(fcgTXBatBeforeAudioPath->Text);
         }
     private:
         System::Void fcgBTBatAfterAudioPath_Click(System::Object^  sender, System::EventArgs^  e) {
-            if (openAndSetFilePath(fcgTXBatAfterAudioPath, L"バッチファイル", ".bat", LocalStg.LastBatDir))
+            if (openAndSetFilePath(fcgTXBatAfterAudioPath, LOAD_CLI_STRING(AUO_CONFIG_BAT_FILE), ".bat", LocalStg.LastBatDir))
                 LocalStg.LastBatDir = Path::GetDirectoryName(fcgTXBatAfterAudioPath->Text);
         }
     private:
         System::Void SetCXIndex(ComboBox^ CX, int index) {
-            CX->SelectedIndex = clamp(index, 0, CX->Items->Count - 1);
+            if (CX->Items->Count > 0) {
+                CX->SelectedIndex = clamp(index, 0, CX->Items->Count - 1);
+            }
         }
     private:
         System::Void SetNUValue(NumericUpDown^ NU, Decimal d) {
@@ -7334,7 +7367,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
         }
     private:
         System::Void fcgTXVideoEncoderPath_TextChanged(System::Object^  sender, System::EventArgs^  e) {
-            if (fcgTXVideoEncoderPath->Text == String(use_default_exe_path).ToString()) {
+            if (fcgTXVideoEncoderPath->Text == LOAD_CLI_STRING(AUO_CONFIG_CX_USE_DEFAULT_EXE_PATH)) {
                 LocalStg.vidEncPath = L"";
                 fcgTXVideoEncoderPath->ForeColor = getTextBoxForeColor(themeMode, dwStgReader, DarkenWindowState::Disabled);
                 auto defaultExePath = find_latest_videnc_for_frm();
@@ -7355,7 +7388,8 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
         }
     private:
         System::Void fcgTXAudioEncoderPath_TextChanged(System::Object^  sender, System::EventArgs^  e) {
-            if (fcgTXAudioEncoderPath->Text == String(use_default_exe_path).ToString()) {
+            if (fcgCXAudioEncoder->SelectedIndex < 0) return;
+            if (fcgTXAudioEncoderPath->Text == LOAD_CLI_STRING(AUO_CONFIG_CX_USE_DEFAULT_EXE_PATH)) {
                 LocalStg.audEncPath[fcgCXAudioEncoder->SelectedIndex] = L"";
                 fcgTXAudioEncoderPath->ForeColor = getTextBoxForeColor(themeMode, dwStgReader, DarkenWindowState::Disabled);
             } else {
@@ -7366,7 +7400,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
         }
     private:
         System::Void fcgTXMP4MuxerPath_TextChanged(System::Object^  sender, System::EventArgs^  e) {
-            if (fcgTXMP4MuxerPath->Text == String(use_default_exe_path).ToString()) {
+            if (fcgTXMP4MuxerPath->Text == LOAD_CLI_STRING(AUO_CONFIG_CX_USE_DEFAULT_EXE_PATH)) {
                 LocalStg.MP4MuxerPath = L"";
                 fcgTXMP4MuxerPath->ForeColor = getTextBoxForeColor(themeMode, dwStgReader, DarkenWindowState::Disabled);
             } else {
@@ -7377,7 +7411,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
         }
     private:
         System::Void fcgTXTC2MP4Path_TextChanged(System::Object^  sender, System::EventArgs^  e) {
-            if (fcgTXTC2MP4Path->Text == String(use_default_exe_path).ToString()) {
+            if (fcgTXTC2MP4Path->Text == LOAD_CLI_STRING(AUO_CONFIG_CX_USE_DEFAULT_EXE_PATH)) {
                 LocalStg.TC2MP4Path = L"";
                 fcgTXTC2MP4Path->ForeColor = getTextBoxForeColor(themeMode, dwStgReader, DarkenWindowState::Disabled);
             } else {
@@ -7388,7 +7422,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
         }
     private:
         System::Void fcgTXMP4RawMuxerPath_TextChanged(System::Object^  sender, System::EventArgs^  e) {
-            if (fcgTXMP4RawPath->Text == String(use_default_exe_path).ToString()) {
+            if (fcgTXMP4RawPath->Text == LOAD_CLI_STRING(AUO_CONFIG_CX_USE_DEFAULT_EXE_PATH)) {
                 LocalStg.MP4RawPath = L"";
                 fcgTXMP4RawPath->ForeColor = getTextBoxForeColor(themeMode, dwStgReader, DarkenWindowState::Disabled);
             } else {
@@ -7399,7 +7433,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
         }
     private:
         System::Void fcgTXMKVMuxerPath_TextChanged(System::Object^  sender, System::EventArgs^  e) {
-            if (fcgTXMKVMuxerPath->Text == String(use_default_exe_path).ToString()) {
+            if (fcgTXMKVMuxerPath->Text == LOAD_CLI_STRING(AUO_CONFIG_CX_USE_DEFAULT_EXE_PATH)) {
                 LocalStg.MKVMuxerPath = L"";
                 fcgTXMKVMuxerPath->ForeColor = getTextBoxForeColor(themeMode, dwStgReader, DarkenWindowState::Disabled);
             } else {
@@ -7410,7 +7444,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
         }
     private:
         System::Void fcgTXMPGMuxerPath_TextChanged(System::Object^  sender, System::EventArgs^  e) {
-            if (fcgTXMPGMuxerPath->Text == String(use_default_exe_path).ToString()) {
+            if (fcgTXMPGMuxerPath->Text == LOAD_CLI_STRING(AUO_CONFIG_CX_USE_DEFAULT_EXE_PATH)) {
                 LocalStg.MPGMuxerPath = L"";
                 fcgTXMPGMuxerPath->ForeColor = getTextBoxForeColor(themeMode, dwStgReader, DarkenWindowState::Disabled);
             } else {
@@ -7469,7 +7503,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
                     return;
                 }
             }
-            MessageBox::Show(L"ヘルプ表示用のコマンドが設定されていません。", L"エラー", MessageBoxButtons::OK, MessageBoxIcon::Error);
+            MessageBox::Show(LOAD_CLI_STRING(AUO_CONFIG_HELP_CMD_UNSET), LOAD_CLI_STRING(AUO_GUIEX_ERROR), MessageBoxButtons::OK, MessageBoxIcon::Error);
         }
     private:
         System::Void fcgLBguiExBlog_LinkClicked(System::Object^  sender, System::Windows::Forms::LinkLabelLinkClickedEventArgs^  e) {
@@ -7477,7 +7511,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
             try {
                 System::Diagnostics::Process::Start(String(sys_dat->exstg->blog_url).ToString());
             } catch (...) {
-                //いちいちメッセージとか出さない
+                //まあ放置
             };
         }
     private:
@@ -7496,7 +7530,7 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
         }
     private:
         System::Void fcgTBVppAfsScroll(System::Object ^sender, System::EventArgs ^e) {
-            System::Windows::Forms::TrackBar ^senderTB = dynamic_cast<System::Windows::Forms::TrackBar ^>(sender);
+            System::Windows::Forms::TrackBar^ senderTB = dynamic_cast<System::Windows::Forms::TrackBar^>(sender);
             if (senderTB == nullptr) return;
 
             array<TrackBarNU> ^targetList = {
