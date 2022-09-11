@@ -1707,6 +1707,7 @@ nnedi deinterlacer.
     quality settings.
   
     - fast (default)
+      Use one neural net to generate output.
   
     - slow  
       "slow" uses another neural net and blends 2 outputs from different network to enhance quality.
@@ -1737,7 +1738,7 @@ nnedi deinterlacer.
       Use fp16 whenever it is available and will be faster, otherwise use fp32.
     
     - fp16  
-      Force to use fp16. x64 only.
+      Force to use fp16. 
     
     - fp32  
       Force to use fp32.
@@ -1828,23 +1829,34 @@ Please note that [--avsync](./NVEncC_Options.en.md#--avsync-string) vfr is autom
 - **Parameters**
   - matrix=&lt;string&gt;  (default=original)  
     select matrix to use.  
+
     - standard
+      ```
+      1 2 1 2 4 2 1 2 1 
+      2 4 1 4 8 4 2 4 1 
+      1 2 1 2 4 2 1 2 1 
+      ```
     - simple
+      ```
+      1 1 1 1 1 1 1 1 1 
+      1 1 1 1 1 1 1 1 1 
+      1 1 1 1 1 1 1 1 1 
+      ```
     
   - fast=&lt;bool&gt  (default=false)  
     Use more simple fast mode.
   
   - ythresh=&lt;float&gt;  (default=3, 0-255)  
-    spatial luma threshold. 
+    Spatial luma threshold to take care of edges. Larger threshold will result stronger denoising, but blurring might occur arround edges.
   
   - cthresh=&lt;float&gt;  (default=4, 0-255)  
-    spatial chroma threshold.
+    Spatial chroma threshold. Larger threshold will result stronger denoising, but blurring might occur arround edges.
   
   - t_ythresh=&lt;float&gt;  (default=3, 0-255)  
-    temporal luma threshold. 
+    Temporal luma threshold. Larger threshold will result stronger denoising, but ghosting might occur. Threshold below 10 is recommended.
   
   - t_cthresh=&lt;float&gt;  (default=4, 0-255)  
-    temporal chroma threshold.
+    Temporal chroma threshold. Larger threshold will result stronger denoising, but ghosting might occur. Threshold below 10 is recommended.
   
 - examples
   ```
@@ -1859,7 +1871,7 @@ Please note that [--avsync](./NVEncC_Options.en.md#--avsync-string) vfr is autom
     Quality of the filter. Larger value should result in higher quality but with lower speed.
   
   - qp=&lt;int&gt;  (default=12, 1 - 63)    
-    Strength of the filter.
+    Strength of the filter. Larger value will result stronger denoise but with blurring.
     
   - prec  
     Select precision.
@@ -1877,10 +1889,10 @@ Strong noise reduction filter.
 
 - **Parameters**
   - radius=&lt;int&gt;  (default=3, 1-5)   
-    radius of filter.
+    radius of filter. Larger value will result stronger denosing, but will require more calculation.
   
   - strength=&lt;float&gt;  (default=0.08, 0.0 - 1.0)   
-    Strength of the filter.
+    Strength of the filter. Larger value will result stronger denosing.
   
   - lerp=&lt;float&gt;   (default=0.2, 0.0 - 1.0)  
     The degree of blending of the original pixel to the noise reduction pixel.
@@ -1899,7 +1911,7 @@ Rather weak noise reduction by modified pmd method, aimed to preserve edge while
 
 - **Parameters**
   - apply_count=&lt;int&gt;  (default=2, 1- )  
-    Number of times to apply the filter. 
+    Number of times to apply the filter. Applying filter many times will remove noise stronger.
   
   - strength=&lt;float&gt;  (default=100, 0-100)  
     Strength of the filter. 
