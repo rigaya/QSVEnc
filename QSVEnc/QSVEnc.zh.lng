@@ -826,6 +826,7 @@ AuofrmTTfcgCBInputAsLW48=启用 L-SMASH Works 的 LW48 功能。\n与 lwinput.au
 AuofrmTTfcgCXTempDir=指定临时文件组\n·临时音频文件(wav / 编码后的音频)\n·临时视频文件\n·时间码文件\n·qp文件\n·mux后文件\n的生成路径。
 AuofrmTTfcgBTCustomTempDir=将'导出临时文件'设定为[自定义]后，\n再指定临时文件导出目录。\\n\n该设定保存于QSVEnc.conf中，\n无法针对批处理中各项任务进行俢改。
 AuofrmTTfcgBTCmdEx=将输入的命令(选项)应用至GUI。
+    AuofrmTTfcgCBAudioUseExt=オフ\nQSVEncC内蔵の音声エンコーダを使用します。\n\nオン\n外部音声エンコーダを使用します。
 AuofrmTTfcgCXAudioEncoder=指定要使用的编码器。\n该设定保存于QSVEnc.ini中。
 AuofrmTTfcgCBAudioOnly=不导出视频，仅编码音频。\n请在音频编码失败时使用。
 AuofrmTTfcgCBFAWCheck=编码音频时，将判断该音频是否为FakeAACWav(FAW)，\n若为FAW，则无视设定，\n自动切换启用FAW。\n\n需要在音频编码器中选择FAW(fawcl)，\n并指定可执行文件的所在路径。

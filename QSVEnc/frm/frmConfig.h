@@ -6054,8 +6054,8 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
             // 
             this->fcgtabPageAudioMain->Controls->Add(this->fcgCBAudioUseExt);
             this->fcgtabPageAudioMain->Controls->Add(this->fcgCBFAWCheck);
-            this->fcgtabPageAudioMain->Controls->Add(this->fcgPNAudioExt);
             this->fcgtabPageAudioMain->Controls->Add(this->fcgPNAudioInternal);
+            this->fcgtabPageAudioMain->Controls->Add(this->fcgPNAudioExt);
             this->fcgtabPageAudioMain->Location = System::Drawing::Point(4, 23);
             this->fcgtabPageAudioMain->Name = L"fcgtabPageAudioMain";
             this->fcgtabPageAudioMain->Padding = System::Windows::Forms::Padding(3);

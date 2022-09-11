@@ -825,6 +825,7 @@ AuofrmTTfcgCBInputAsLW48=L-SMASH WorksのLW48機能を使用します。\nlwinpu
 AuofrmTTfcgCXTempDir=一時ファイル群\n・音声一時ファイル(wav / エンコード後音声)\n・動画一時ファイル\n・タイムコードファイル\n・qpファイル\n・mux後ファイル\nの作成場所を指定します。
 AuofrmTTfcgBTCustomTempDir=一時ファイルの場所を「カスタム」に設定した際に\n使用される一時ファイルの場所を指定します。\n\nこの設定はQSVEnc.confに保存され、\nバッチ処理ごとの変更はできません。
 AuofrmTTfcgBTCmdEx=入力したコマンド(オプション)をGUIに反映させます。
+AuofrmTTfcgCBAudioUseExt=オフ\nQSVEncC内蔵の音声エンコーダを使用します。\n\nオン\n外部音声エンコーダを使用します。
 AuofrmTTfcgCXAudioEncoder=使用する音声エンコーダを指定します。\nこれらの設定はQSVEnc.iniに記述されています。
 AuofrmTTfcgCBAudioOnly=動画の出力を行わず、音声エンコードのみ行います。\n音声エンコードに失敗した場合などに使用してください。
 AuofrmTTfcgCBFAWCheck=音声エンコード時に音声がFakeAACWav(FAW)かどうかの判定を行い、\nFAWだと判定された場合、設定を無視して、\n自動的にFAWを使用するよう切り替えます。\n\n一度音声エンコーダからFAW(fawcl)を選択し、\n実行ファイルの場所を指定しておく必要があります。

@@ -827,6 +827,7 @@ AuofrmTTfcgCBInputAsLW48=Use LW48 feature of L-SMASH Works.\nThis feature is exp
 AuofrmTTfcgCXTempDir=Set directory for the temporary files below.\n- audio temp files\n- video temp file\n- timecode file\n- qp file\n- muxed file
 AuofrmTTfcgBTCustomTempDir=Custom temporary directory path.\n\nThis setting is saved in QSVEnc.conf,\nand cannot be changed in each bat process.
 AuofrmTTfcgBTCmdEx=Apply command to GUI.
+AuofrmTTfcgCBAudioUseExt=Check Off\nUse QSVEncC internal audio encoder.\n\nCheck On\nUse external audio encoder.
 AuofrmTTfcgCXAudioEncoder=Select audio encoder.
 AuofrmTTfcgCBAudioOnly=Encode audio only (without video).
 AuofrmTTfcgCBFAWCheck=Check if the input is FakeAACWav(FAW),\nand process as FAW if the input is FAW.\n\nPath for FAW(fawcl) is requried to be set\nto use this feature.
