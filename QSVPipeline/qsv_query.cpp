@@ -723,6 +723,7 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
     mfxExtVP9Param vp9;
     mfxExtAV1BitstreamParam av1;
     mfxExtHyperModeParam hyperMode;
+    mfxExtVideoSignalInfo videoSignalInfo;
     INIT_MFX_EXT_BUFFER(cop,  MFX_EXTBUFF_CODING_OPTION);
     INIT_MFX_EXT_BUFFER(cop2, MFX_EXTBUFF_CODING_OPTION2);
     INIT_MFX_EXT_BUFFER(cop3, MFX_EXTBUFF_CODING_OPTION3);
@@ -730,10 +731,15 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
     INIT_MFX_EXT_BUFFER(vp9, MFX_EXTBUFF_VP9_PARAM);
     INIT_MFX_EXT_BUFFER(av1, MFX_EXTBUFF_AV1_BITSTREAM_PARAM);
     INIT_MFX_EXT_BUFFER(hyperMode, MFX_EXTBUFF_HYPER_MODE_PARAM);
+    INIT_MFX_EXT_BUFFER(videoSignalInfo, MFX_EXTBUFF_VIDEO_SIGNAL_INFO);
 
     std::vector<mfxExtBuffer *> buf;
     if (add_cop(codecId)) { // VP9ではmfxExtCodingOptionはチェックしないようにしないと正常に動作しない
         buf.push_back((mfxExtBuffer *)&cop);
+    }
+    if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_3)
+        && add_vui(codecId)) {
+        buf.push_back((mfxExtBuffer*)&videoSignalInfo);
     }
     if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_6)) {
         buf.push_back((mfxExtBuffer *)&cop2);
@@ -907,9 +913,15 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
             (membersIn) = orig; \
         } \
     }
-        //これはもう単純にAPIチェックでOK
-        if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_3)) {
-            result |= ENC_FEATURE_VUI_INFO;
+        if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_3) && add_vui(codecId)) {
+            if (true) {
+                //これはもう単純にAPIチェックでOK
+                result |= ENC_FEATURE_VUI_INFO;
+            } else {
+                videoSignalInfo.ColourDescriptionPresent = 1; //"1"と設定しないと正しく反映されない
+                CHECK_FEATURE(videoSignalInfo.MatrixCoefficients, ENC_FEATURE_VUI_INFO, (decltype(videoSignalInfo.MatrixCoefficients))RGY_MATRIX_BT709, MFX_LIB_VERSION_1_3);
+                videoSignalInfo.ColourDescriptionPresent = 0;
+            }
         }
         //とりあえずAV1ではBフレームのチェックはしない
         //ひとつひとつパラメータを入れ替えて試していく
