@@ -789,6 +789,15 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         || (int)m_encVUI.colorprim != get_cx_value(list_colorprim, _T("undef"))
         || (int)m_encVUI.transfer != get_cx_value(list_transfer, _T("undef"));
 
+    if (pInParams->bOutputAud && !(availableFeaures & ENC_FEATURE_AUD)) {
+        print_feature_warnings(RGY_LOG_WARN, _T("aud"));
+        pInParams->bOutputAud = false;
+    }
+    if (pInParams->bOutputPicStruct && !(availableFeaures & ENC_FEATURE_PIC_STRUCT)) {
+        print_feature_warnings(RGY_LOG_WARN, _T("pic-strcut"));
+        pInParams->bOutputPicStruct = false;
+    }
+
     //Intra Refereshが指定された場合は、GOP関連の設定を自動的に上書き
     if (pInParams->bIntraRefresh) {
         pInParams->bforceGOPSettings = true;
