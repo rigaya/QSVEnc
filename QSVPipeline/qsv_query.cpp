@@ -754,7 +754,7 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
         buf.push_back((mfxExtBuffer *)&av1);
     }
     if (ENABLE_HYPER_MODE && check_lib_version(mfxVer, MFX_LIB_VERSION_2_5)
-        && (codecId == MFX_CODEC_AVC || codecId == MFX_CODEC_HEVC)) {
+        && (codecId == MFX_CODEC_AVC || codecId == MFX_CODEC_HEVC || codecId == MFX_CODEC_AV1)) {
         buf.push_back((mfxExtBuffer *)&hyperMode);
     }
 
