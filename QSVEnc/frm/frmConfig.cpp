@@ -2333,11 +2333,93 @@ System::Void frmConfig::SetAllCheckChangedEvents(Control ^top) {
     }
 }
 
+System::Void frmConfig::SetHelpToolTipsColorMatrix(Control^ control, const CX_DESC *list, const wchar_t *type) {
+    fcgTTEx->SetToolTip(control, L"--" + String(type).ToString() + L"\n"
+        + LOAD_CLI_STRING(AuofrmTTColorMatrix1) + L"\n"
+        + LOAD_CLI_STRING(AuofrmTTColorMatrix2) + L"\n"
+        + LOAD_CLI_STRING(AuofrmTTColorMatrix3) + L" " + HD_HEIGHT_THRESHOLD + L" " + LOAD_CLI_STRING(AuofrmTTColorMatrix4) + L" … " + String(list[HD_INDEX].desc).ToString() + L"\n"
+        + LOAD_CLI_STRING(AuofrmTTColorMatrix3) + L" " + HD_HEIGHT_THRESHOLD + L" " + LOAD_CLI_STRING(AuofrmTTColorMatrix5) + L" … " + String(list[SD_INDEX].desc).ToString() + L"\n"
+        + LOAD_CLI_STRING(AuofrmTTColorMatrix6)
+    );
+}
+
 System::Void frmConfig::SetHelpToolTips() {
 
 #define SET_TOOL_TIP_EX2(target, x) { fcgTTEx->SetToolTip(target, LOAD_CLI_STRING(AuofrmTT ## x)); }
 #define SET_TOOL_TIP_EX(target) { fcgTTEx->SetToolTip(target, LOAD_CLI_STRING(AuofrmTT ## target)); }
 #define SET_TOOL_TIP_EX_AUD_INTERNAL(target) { fcgTTEx->SetToolTip(target ## Internal, LOAD_CLI_STRING(AuofrmTT ## target)); }
+
+    SET_TOOL_TIP_EX(fcgTXVideoEncoderPath);
+    SET_TOOL_TIP_EX(fcgCXDevice);
+    SET_TOOL_TIP_EX(fcgCXEncCodec);
+    SET_TOOL_TIP_EX(fcgCXQualityPreset);
+    SET_TOOL_TIP_EX(fcgCXHyperMode);
+    SET_TOOL_TIP_EX(fcgCXEncMode);
+    SET_TOOL_TIP_EX(fcgCBFixedFunc);
+    SET_TOOL_TIP_EX(fcgNUQPI);
+    SET_TOOL_TIP_EX(fcgNUQPP);
+    SET_TOOL_TIP_EX(fcgNUQPB);
+    SET_TOOL_TIP_EX(fcgNUICQQuality);
+    SET_TOOL_TIP_EX(fcgNUAVBRConvergence);
+    SET_TOOL_TIP_EX(fcgNUAVBRAccuarcy);
+    SET_TOOL_TIP_EX(fcgNUMaxkbps);
+    SET_TOOL_TIP_EX(fcgNULookaheadDepth);
+    SET_TOOL_TIP_EX(fcgNUGopLength);
+    SET_TOOL_TIP_EX(fcgNURef);
+    SET_TOOL_TIP_EX(fcgNUBframes);
+    SET_TOOL_TIP_EX(fcgCBAdaptiveI);
+    SET_TOOL_TIP_EX(fcgCBAdaptiveB);
+    SET_TOOL_TIP_EX(fcgCBWeightP);
+    SET_TOOL_TIP_EX(fcgCBWeightB);
+    SET_TOOL_TIP_EX(fcgCBFadeDetect);
+    SET_TOOL_TIP_EX(fcgCBOpenGOP);
+    SET_TOOL_TIP_EX(fcgCBBPyramid);
+    SET_TOOL_TIP_EX(fcgCXLookaheadDS);
+    SET_TOOL_TIP_EX(fcgNUWinBRCSize);
+    SET_TOOL_TIP_EX(fcgNUQPMin);
+    SET_TOOL_TIP_EX(fcgNUQPMax);
+    SET_TOOL_TIP_EX(fcgCBBlurayCompat);
+    SET_TOOL_TIP_EX(fcgCXInterlaced);
+    SET_TOOL_TIP_EX(fcgCXCodecProfile);
+    SET_TOOL_TIP_EX(fcgCXCodecLevel);
+    SET_TOOL_TIP_EX(fcgNUSlices);
+    SET_TOOL_TIP_EX(fcgCXVideoFormat);
+    SET_TOOL_TIP_EX(fcgCBFullrange);
+    SET_TOOL_TIP_EX(fcgNUInputBufSize);
+    SET_TOOL_TIP_EX(fcgCBD3DMemAlloc);
+    SET_TOOL_TIP_EX(fcgCBSsim);
+    SET_TOOL_TIP_EX(fcgCBPsnr);
+    SET_TOOL_TIP_EX(fcgCBOutputAud);
+    SET_TOOL_TIP_EX(fcgCBOutputPicStruct);
+    SET_TOOL_TIP_EX(fcgCBDeblock);
+    SET_TOOL_TIP_EX(fcgCBIntraRefresh);
+    SET_TOOL_TIP_EX(fcgCBDirectBiasAdjust);
+    SET_TOOL_TIP_EX(fcgCXMVCostScaling);
+    SET_TOOL_TIP_EX(fcgCXTrellis);
+    SET_TOOL_TIP_EX(fcgCBMBBRC);
+    SET_TOOL_TIP_EX(fcgCBExtBRC);
+    SET_TOOL_TIP_EX(fcgCXIntraPred);
+    SET_TOOL_TIP_EX(fcgCXInterPred);
+    SET_TOOL_TIP_EX(fcgNUMVSearchWindow);
+    SET_TOOL_TIP_EX(fcgCXMVPred);
+    SET_TOOL_TIP_EX(fcgCBCABAC);
+    SET_TOOL_TIP_EX(fcgCBRDO);
+
+    SET_TOOL_TIP_EX(fcgCXOutputCsp);
+
+    SetHelpToolTipsColorMatrix(fcgCXColorMatrix, list_colormatrix, L"colormatrix");
+    SetHelpToolTipsColorMatrix(fcgCXColorPrim, list_colorprim, L"colorprim");
+    SetHelpToolTipsColorMatrix(fcgCXTransfer, list_transfer, L"transfer");
+
+    fcgTTEx->SetToolTip(fcgCXAspectRatio, L""
+        + LOAD_CLI_STRING(aspect_desc[0].mes) + L"\n"
+        + L"   " + LOAD_CLI_STRING(AuofrmTTfcgCXAspectRatioSAR) + L"\n"
+        + L"\n"
+        + LOAD_CLI_STRING(aspect_desc[1].mes) + L"\n"
+        + L"   " + LOAD_CLI_STRING(AuofrmTTfcgCXAspectRatioDAR) + L"\n"
+    );
+    SET_TOOL_TIP_EX(fcgNUAspectRatioX, fcgNUAspectRatioX);
+    SET_TOOL_TIP_EX(fcgNUAspectRatioY, fcgNUAspectRatioY);
 
     //フィルタ
     SET_TOOL_TIP_EX(fcgCBVppResize);
