@@ -2337,8 +2337,8 @@ System::Void frmConfig::SetHelpToolTipsColorMatrix(Control^ control, const CX_DE
     fcgTTEx->SetToolTip(control, L"--" + String(type).ToString() + L"\n"
         + LOAD_CLI_STRING(AuofrmTTColorMatrix1) + L"\n"
         + LOAD_CLI_STRING(AuofrmTTColorMatrix2) + L"\n"
-        + LOAD_CLI_STRING(AuofrmTTColorMatrix3) + L" " + HD_HEIGHT_THRESHOLD + L" " + LOAD_CLI_STRING(AuofrmTTColorMatrix4) + L" … " + String(list[HD_INDEX].desc).ToString() + L"\n"
-        + LOAD_CLI_STRING(AuofrmTTColorMatrix3) + L" " + HD_HEIGHT_THRESHOLD + L" " + LOAD_CLI_STRING(AuofrmTTColorMatrix5) + L" … " + String(list[SD_INDEX].desc).ToString() + L"\n"
+        + LOAD_CLI_STRING(AuofrmTTColorMatrix3) + L" " + HD_HEIGHT_THRESHOLD + L" " + LOAD_CLI_STRING(AuofrmTTColorMatrix4) + L" … " + String(COLOR_VALUE_AUTO_HD_NAME).ToString() + L"\n"
+        + LOAD_CLI_STRING(AuofrmTTColorMatrix3) + L" " + HD_HEIGHT_THRESHOLD + L" " + LOAD_CLI_STRING(AuofrmTTColorMatrix5) + L" … " + String(COLOR_VALUE_AUTO_SD_NAME).ToString() + L"\n"
         + LOAD_CLI_STRING(AuofrmTTColorMatrix6)
     );
 }
@@ -2418,8 +2418,8 @@ System::Void frmConfig::SetHelpToolTips() {
         + LOAD_CLI_STRING(aspect_desc[1].mes) + L"\n"
         + L"   " + LOAD_CLI_STRING(AuofrmTTfcgCXAspectRatioDAR) + L"\n"
     );
-    SET_TOOL_TIP_EX(fcgNUAspectRatioX, fcgNUAspectRatioX);
-    SET_TOOL_TIP_EX(fcgNUAspectRatioY, fcgNUAspectRatioY);
+    SET_TOOL_TIP_EX(fcgNUAspectRatioX);
+    SET_TOOL_TIP_EX(fcgNUAspectRatioY);
 
     //フィルタ
     SET_TOOL_TIP_EX(fcgCBVppResize);
