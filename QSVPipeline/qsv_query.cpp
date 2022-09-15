@@ -716,6 +716,10 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
         }
     }
 
+    static const auto HYPER_MODE_ENABLED_CODECS = make_array<RGY_CODEC>(
+        RGY_CODEC_H264, RGY_CODEC_HEVC, RGY_CODEC_AV1
+    );
+
     mfxExtCodingOption cop;
     mfxExtCodingOption2 cop2;
     mfxExtCodingOption3 cop3;
@@ -966,7 +970,10 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
         CHECK_FEATURE(cop3.DirectBiasAdjustment,       ENC_FEATURE_DIRECT_BIAS_ADJUST,         MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_13);
         CHECK_FEATURE(cop3.GlobalMotionBiasAdjustment, ENC_FEATURE_GLOBAL_MOTION_ADJUST,       MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_13);
         if (ENABLE_HYPER_MODE) {
-            CHECK_FEATURE(hyperMode.Mode,                  ENC_FEATURE_HYPER_MODE,                 MFX_HYPERMODE_ON,        MFX_LIB_VERSION_2_5);
+            if (!LIMIT_HYPER_MODE_TO_KNOWN_CODECS
+                || std::find(HYPER_MODE_ENABLED_CODECS.begin(), HYPER_MODE_ENABLED_CODECS.end(), codec) != HYPER_MODE_ENABLED_CODECS.end()) {
+                CHECK_FEATURE(hyperMode.Mode, ENC_FEATURE_HYPER_MODE, MFX_HYPERMODE_ON, MFX_LIB_VERSION_2_5);
+            }
         }
         CHECK_FEATURE(cop3.FadeDetection,        ENC_FEATURE_FADE_DETECT,   MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_1_17);
         CHECK_FEATURE(cop3.AdaptiveLTR,          ENC_FEATURE_ADAPTIVE_LTR,  MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_2_4);

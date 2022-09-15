@@ -58,6 +58,7 @@ const char *get_encoder_version();
 
 #define DISABLE_BFRAME_AV1 1
 #define OVERRIDE_HYPER_MODE_HEVC_FROM_H264 1
+#define LIMIT_HYPER_MODE_TO_KNOWN_CODECS 1
 
 #if defined(_WIN32) || defined(_WIN64)
 
