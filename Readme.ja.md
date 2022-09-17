@@ -11,7 +11,7 @@ by rigaya
   単体で動作するコマンドライン版です。本項で説明します。
 
 - [QSVEnc.auo](./QSVEnc_auo_readme.md)  
-  Intel Media SDK を使用してエンコードを行う[Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/)の出力プラグインの使用方法については、[こちら](./QSVEnc_auo_readme.md)を参照してください。
+  oneVPL を使用してエンコードを行う[Aviutl](http://spring-fragrance.mints.ne.jp/aviutl/)の出力プラグインの使用方法については、[こちら](./QSVEnc_auo_readme.md)を参照してください。
 
 ## ダウンロード & 更新履歴
 [こちら](https://github.com/rigaya/QSVEnc/releases)
@@ -105,10 +105,12 @@ QSVEncを使用したことによる、いかなる損害・トラブルにつ�
       - edgelevel (エッジレベル調整)
       - warpsharp
 
-### QSVEnc
+### QSVEnc.auo
 - 音声エンコード
 - 音声及びチャプターとのmux機能
 - 自動フィールドシフト対応
+
+![QSVEnc.auo](./data/QSVEnc_auo_stg_window_ja.png)
 
 ### QSVEncC
 - HWデコードに対応

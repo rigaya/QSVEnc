@@ -42,7 +42,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 
 
 ## Major Features
-### Common to QSVEnc / QSVEncC
+### Common to QSVEnc.auo / QSVEncC
 - Encoding using QuickSyncVideo
    - H.264/AVC
    - H.265/HEVC (8bit/10bit)
@@ -112,6 +112,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 - Audio encoding
 - Mux audio and chapter
 - afs (Automatic field shift) support
+
+![QSVEnc.auo](./data/QSVEnc_auo_stg_window_en.png)
 
 ## Supported Features
 This depends on the version of QSVEnc, the generation of the GPU, and also the GPU driver.
