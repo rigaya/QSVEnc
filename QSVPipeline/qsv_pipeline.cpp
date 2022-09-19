@@ -3350,6 +3350,10 @@ RGY_ERR CQSVPipeline::InitMfxEncode() {
     m_prmSetIn.cop2 = m_CodingOption2;
     m_prmSetIn.cop3 = m_CodingOption3;
     m_prmSetIn.hevc = m_ExtHEVCParam;
+    m_prmSetIn.av1BitstreamPrm = m_ExtAV1BitstreamParam;
+    m_prmSetIn.av1ResolutionPrm = m_ExtAV1ResolutionParam;
+    m_prmSetIn.av1TilePrm = m_ExtAV1TileParam;
+    m_prmSetIn.hyperModePrm = m_hyperModeParam;
     auto sts = err_to_rgy(m_pmfxENC->Init(&m_mfxEncParams));
     m_pQSVLog->setLogLevelAll(log_level);
     if (sts == RGY_WRN_PARTIAL_ACCELERATION) {
