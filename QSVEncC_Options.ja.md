@@ -616,12 +616,12 @@ Intel Deep Linkを活用し、Intelの内蔵GPU(iGPU)と外部GPU(dGPU)を使用
 エンコード設定が両方のGPUで共通で使用できるものとする必要があり、この制約により一部のオプションが自動的に無効になることがある点に注意。
 
 - **パラメータ**
-  - off
+  - off (default)  
 
   - on  
     オプション調整等を行い、可能な限りHyper Encodeを使用します。
 
-  - adaptive (デフォルト)  
+  - adaptive  
     オプション調整等はせず、可能な場合にHyper Encodeを使用します。
 
 ### --max-bitrate &lt;int&gt;

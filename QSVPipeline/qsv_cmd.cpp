@@ -248,7 +248,7 @@ tstring encoder_help() {
     str += strsprintf(_T("\n")
         _T("   --fixed-func                 use fixed func instead of GPU EU (default:off)\n")
         _T("   --hyper-mode <string>        set Deep Link Hyper Mode\n")
-        _T("                                 off, on, adaptive (=default).\n")
+        _T("                                 off (=default), on, adaptive.\n")
         _T("\n"));
     str += strsprintf(_T("Frame buffer Options:\n")
         _T(" frame buffers are selected automatically by default.\n")

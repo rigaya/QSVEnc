@@ -598,12 +598,12 @@ Enable encode speed boost using Intel Deep Link Hyper Encode.
 When using Hyper Encode, it is required to use encode settings which can be use both on iGPU and dGPU, thus please note that some options might be disabled.
 
 - **パラメータ**
-  - off
+  - off (default)  
 
   - on  
     Use Hyper Encode. (some options might be adjusted by the limitation of Hyper Encode)
 
-  - adaptive (default)  
+  - adaptive  
     Use Hyper Encode whenever possible, depending on the options specified.
 
 ### --max-bitrate &lt;int&gt;
