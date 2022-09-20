@@ -34,6 +34,7 @@
 
 #if ENABLE_AVSW_READER
 #include <thread>
+#include <deque>
 #include <atomic>
 #include <cstdint>
 #include "rgy_avutil.h"
@@ -266,6 +267,7 @@ typedef struct AVMuxThread {
 typedef struct AVMux {
     AVMuxFormat         format;
     AVMuxVideo          video;
+    std::deque<std::unique_ptr<unit_info>> videoAV1Merge;
     vector<AVMuxAudio>  audio;
     vector<AVMuxOther>  other;
     vector<sTrim>       trim;
@@ -423,6 +425,8 @@ protected:
 
     //WriteNextFrameの本体
     RGY_ERR WriteNextFrameInternal(RGYBitstream *bitstream, int64_t *writtenDts);
+    RGY_ERR WriteNextFrameInternalOneFrame(RGYBitstream *bitstream, int64_t *writtenDts, const RGYTimestampMapVal& bs_framedata);
+    RGY_ERR WriteNextFrameFinish(RGYBitstream *bitstream, const RGY_FRAMETYPE frameType);
 
     //WriteNextPacketの本体
     RGY_ERR WriteNextPacketInternal(AVPktMuxData *pktData, int64_t maxDtsToWrite);
@@ -552,9 +556,7 @@ protected:
     //lastValidFrame ... true 最後の有効なフレーム+1のtimestampを返す / false .. AV_NOPTS_VALUEを返す
     int64_t AdjustTimestampTrimmed(int64_t nTimeIn, AVRational timescaleIn, AVRational timescaleOut, bool lastValidFrame);
 
-#if ENCODER_VCEENC
     RGY_ERR VidCheckStreamAVParser(RGYBitstream *pBitstream);
-#endif
 
     void CloseOther(AVMuxOther *pMuxOther);
     void CloseAudio(AVMuxAudio *muxAudio);

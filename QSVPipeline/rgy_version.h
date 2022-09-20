@@ -57,6 +57,7 @@ const char *get_encoder_version();
 #define GPU_VENDOR "Intel"
 
 #define DISABLE_BFRAME_AV1 0
+#define AV1_TIMESTAMP_OVERRIDE 1
 #define OVERRIDE_HYPER_MODE_HEVC_FROM_H264 1
 #define LIMIT_HYPER_MODE_TO_KNOWN_CODECS 1
 
