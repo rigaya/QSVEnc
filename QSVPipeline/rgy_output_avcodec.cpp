@@ -123,11 +123,9 @@ void RGYOutputAvcodec::CloseAudio(AVMuxAudio *muxAudio) {
 }
 
 void RGYOutputAvcodec::CloseVideo(AVMuxVideo *muxVideo) {
-#if ENCODER_VCEENC
     if (muxVideo->parserCtx) {
         av_parser_close(muxVideo->parserCtx);
     }
-#endif //#if ENCODER_VCEENC
     if (muxVideo->codecCtx) {
         avcodec_free_context(&muxVideo->codecCtx);
         AddMessage(RGY_LOG_DEBUG, _T("Closed video context.\n"));
@@ -905,15 +903,15 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
         }
     }
 
-#if ENCODER_VCEENC
-    //parserを初期化 (VCEのみで必要)
-    if (nullptr == (m_Mux.video.parserCtx = av_parser_init(m_Mux.format.formatCtx->video_codec_id))) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to init parser for %s.\n"), char_to_tstring(avcodec_get_name(m_Mux.format.formatCtx->video_codec_id)).c_str());
-        return RGY_ERR_NULL_PTR;
+    if (ENCODER_VCEENC || (ENCODER_QSV && videoOutputInfo->codec == RGY_CODEC_AV1)) {
+        //parserを初期化 (frameType取得に使用、H.264/HEVCではVCEのみで必要)
+        if (nullptr == (m_Mux.video.parserCtx = av_parser_init(m_Mux.format.formatCtx->video_codec_id))) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to init parser for %s.\n"), char_to_tstring(avcodec_get_name(m_Mux.format.formatCtx->video_codec_id)).c_str());
+            return RGY_ERR_NULL_PTR;
+        }
+        m_Mux.video.parserCtx->flags |= PARSER_FLAG_COMPLETE_FRAMES;
+        m_Mux.video.parserStreamPos = 0;
     }
-    m_Mux.video.parserCtx->flags |= PARSER_FLAG_COMPLETE_FRAMES;
-    m_Mux.video.parserStreamPos = 0;
-#endif //#if ENCODER_VCEENC
 
     if (prm->muxVidTsLogFile.length() > 0) {
         if (_tfopen_s(&m_Mux.video.fpTsLogFile, prm->muxVidTsLogFile.c_str(), _T("a"))) {
@@ -2263,8 +2261,9 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYBitstream *bitstream) {
     return WriteNextFrameInternal(bitstream, &dts);
 }
 
-#if ENCODER_VCEENC
 RGY_ERR RGYOutputAvcodec::VidCheckStreamAVParser(RGYBitstream *pBitstream) {
+    if (m_Mux.video.parserCtx == nullptr) return RGY_ERR_NONE;
+
     RGY_ERR err = RGY_ERR_NONE;
     m_Mux.video.parserStreamPos += pBitstream->size();
     AVPacket *pkt = m_Mux.video.pktParse;
@@ -2294,7 +2293,6 @@ RGY_ERR RGYOutputAvcodec::VidCheckStreamAVParser(RGYBitstream *pBitstream) {
     }
     return err;
 }
-#endif
 
 #pragma warning (push)
 #pragma warning (disable: 4127) //warning C4127: 条件式が定数です。
