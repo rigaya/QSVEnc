@@ -705,7 +705,7 @@ ExtBRCを有効にする。--adapt-ltrに必要。
 oneVPLでは、GopRefDist - 1 に相当する。
 
 ### --gop-ref-dist &lt;int&gt;
-GopRefDistパラメータを設定する。
+GopRefDistパラメータを設定する。1 より大きい値で指定する。
 
 oneVPLでは、H.264/HEVC/MPEGエンコードにおいて Bフレーム数+1 に相当する。
 

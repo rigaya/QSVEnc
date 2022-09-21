@@ -679,7 +679,7 @@ Set the number of consecutive B frames.
 In oneVPL, this is equivalent to "GopRefDist - 1".
 
 ### --gop-ref-dist &lt;int&gt;
-Set GopRefDist parameter.
+Set GopRefDist parameter. Value should be 1 or larger.
 
 In oneVPL, this is equivalent to "bframes + 1" in H.264/HEVC/MPEG encoding.
 

@@ -888,9 +888,9 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
 
     m_mfxEncParams.mfx.GopPicSize              = (pInParams->bIntraRefresh) ? 0 : (mfxU16)pInParams->nGOPLength;
     if (gopRefDistAsBframes) {
-        m_mfxEncParams.mfx.GopRefDist = (mfxU16)(clamp_param_int(pInParams->GopRefDist-1, -1, 16, _T("bframes"))+1);
+        m_mfxEncParams.mfx.GopRefDist = (mfxU16)(clamp_param_int(pInParams->GopRefDist-1, 0, 16, _T("bframes"))+1);
     } else {
-        m_mfxEncParams.mfx.GopRefDist = (mfxU16)pInParams->GopRefDist;
+        m_mfxEncParams.mfx.GopRefDist = (mfxU16)clamp_param_int(pInParams->GopRefDist, 1, 33, _T("GopRefDist"));
     }
 
     // specify memory type
