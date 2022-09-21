@@ -420,7 +420,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         PrintMes(RGY_LOG_ERROR, _T("Unknown codec.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
-    const int codecMaxQP = 51 + (encodeBitDepth - 8) * 6;
+    const int codecMaxQP = (pInParams->CodecId == MFX_CODEC_AV1) ? 63 : 51 + (encodeBitDepth - 8) * 6;
     PrintMes(RGY_LOG_DEBUG, _T("encodeBitDepth: %d, codecMaxQP: %d.\n"), encodeBitDepth, codecMaxQP);
 
     const TCHAR *PG_FF_STR[] = { _T("PG"), _T("FF") };
