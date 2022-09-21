@@ -92,7 +92,8 @@
   - [--strict-gop](#--strict-gop)
   - [--gop-len &lt;int&gt;](#--gop-len-int)
   - [--open-gop](#--open-gop)
-  - [-b, --bframes &lt;int&gt;](#-b---bframes-int)
+  - [-b, --bframes &lt;int&gt; [H.264/HEVC/MPEG2]](#-b---bframes-int-h264hevcmpeg2)
+  - [--gop-ref-dist &lt;int&gt;](#--gop-ref-dist-int)
   - [--ref &lt;int&gt;](#--ref-int)
   - [--b-pyramid](#--b-pyramid)
   - [--weightb](#--weightb)
@@ -698,8 +699,15 @@ ExtBRCを有効にする。--adapt-ltrに必要。
 ### --open-gop
 オープン GOPを使用する。
 
-### -b, --bframes &lt;int&gt;
+### -b, --bframes &lt;int&gt; [H.264/HEVC/MPEG2]
 連続Bフレーム数。
+
+oneVPLでは、GopRefDist - 1 に相当する。
+
+### --gop-ref-dist &lt;int&gt;
+GopRefDistパラメータを設定する。
+
+oneVPLでは、H.264/HEVC/MPEGエンコードにおいて Bフレーム数+1 に相当する。
 
 ### --ref &lt;int&gt;
 参照距離を設定する。QSVEncではあまり増やしても品質は向上しない。

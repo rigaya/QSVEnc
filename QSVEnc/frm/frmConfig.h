@@ -6855,6 +6855,7 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
         System::Void SetInputBufRange();
         System::Boolean fcgCheckLibRateControl(mfxU64 available_features);
         System::Void fcgCheckLibVersion(mfxU64 available_features);
+        System::Void fcgCheckBFrameAndGopRefDsit(mfxU64 available_features);
         System::Boolean fcgCheckRCModeLibVersion(int rc_mode_target, int rc_mode_replace, bool mode_supported);
         System::Boolean fcgCheckCodec();
         System::Void fcgCheckFixedFunc();

@@ -92,7 +92,8 @@
   - [--strict-gop](#--strict-gop)
   - [--gop-len &lt;int&gt;](#--gop-len-int)
   - [--open-gop](#--open-gop)
-  - [-b, --bframes &lt;int&gt;](#-b---bframes-int)
+  - [-b, --bframes &lt;int&gt; [H.264/HEVC/MPEG2]](#-b---bframes-int-h264hevcmpeg2)
+  - [--gop-ref-dist &lt;int&gt;](#--gop-ref-dist-int)
   - [--ref &lt;int&gt;](#--ref-int)
   - [--b-pyramid](#--b-pyramid)
   - [--weightb](#--weightb)
@@ -672,8 +673,15 @@ Set maximum GOP length.
 ### --open-gop
 Enable open gop.
 
-### -b, --bframes &lt;int&gt;
+### -b, --bframes &lt;int&gt; [H.264/HEVC/MPEG2]
 Set the number of consecutive B frames.
+
+In oneVPL, this is equivalent to "GopRefDist - 1".
+
+### --gop-ref-dist &lt;int&gt;
+Set GopRefDist parameter.
+
+In oneVPL, this is equivalent to "bframes + 1" in H.264/HEVC/MPEG encoding.
 
 ### --ref &lt;int&gt;
 Set the reference distance. In hw encoding, increasing ref frames will have minor effect on image quality or compression rate.

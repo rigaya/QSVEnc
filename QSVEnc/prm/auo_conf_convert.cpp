@@ -528,7 +528,7 @@ static void init_qsvp_prm_oldv5(sInputParamsOld *prm) {
     prm->nAVBRAccuarcy     = QSV_DEFAULT_ACCURACY;
     prm->nAVBRConvergence  = QSV_DEFAULT_CONVERGENCE;
     prm->nIdrInterval      = 0;
-    prm->nBframes          = QSV_BFRAMES_AUTO;
+    prm->nBframes          = QSV_GOP_REF_DIST_AUTO-1;
     prm->nGOPLength        = QSV_DEFAULT_GOP_LEN;
     prm->nRef              = QSV_DEFAULT_REF;
     prm->bopenGOP          = false;

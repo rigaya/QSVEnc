@@ -940,7 +940,7 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
             CHECK_FEATURE(cop.RateDistortionOpt,     ENC_FEATURE_RDO,           MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_1);
             CHECK_FEATURE(cop.CAVLC,                 ENC_FEATURE_CAVLC,         MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_1);
         }
-        CHECK_FEATURE(videoPrm.mfx.GopRefDist,   ENC_FEATURE_BFRAME,        4,                       MFX_LIB_VERSION_1_1);
+        CHECK_FEATURE(videoPrm.mfx.GopRefDist,   ENC_FEATURE_GOPREFDIST,    4,                       MFX_LIB_VERSION_1_1);
         CHECK_FEATURE(cop2.ExtBRC,               ENC_FEATURE_EXT_BRC,       MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_6);
         CHECK_FEATURE(cop2.MBBRC,                ENC_FEATURE_MBBRC,         MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_6);
         CHECK_FEATURE(cop2.Trellis,              ENC_FEATURE_TRELLIS,       MFX_TRELLIS_ALL,         MFX_LIB_VERSION_1_7);
@@ -948,7 +948,7 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
         CHECK_FEATURE(cop2.IntRefType,           ENC_FEATURE_INTRA_REFRESH, 1,                       MFX_LIB_VERSION_1_7);
         cop2.IntRefCycleSize = 0;
         CHECK_FEATURE(cop2.AdaptiveI,            ENC_FEATURE_ADAPTIVE_I,    MFX_CODINGOPTION_ON,     MFX_LIB_VERSION_1_8);
-        const auto bframesCheck = !(DISABLE_BFRAME_AV1 && codecId == MFX_CODEC_AV1) && ((result & ENC_FEATURE_BFRAME) != 0);
+        const auto bframesCheck = ((result & ENC_FEATURE_GOPREFDIST) != 0);
         if (bframesCheck) {
             CHECK_FEATURE(cop2.AdaptiveB, ENC_FEATURE_ADAPTIVE_B, MFX_CODINGOPTION_ON, MFX_LIB_VERSION_1_8);
             const auto orig_ref_dist = videoPrm.mfx.GopRefDist;

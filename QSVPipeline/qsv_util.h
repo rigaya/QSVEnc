@@ -118,6 +118,14 @@ static int getEncoderBitdepth(const sInputParams *pParams) {
     return 8;
 }
 
+static bool gopRefDistAsBframe(const int CodecID) {
+    return CodecID == MFX_CODEC_AVC || CodecID == MFX_CODEC_HEVC || CodecID == MFX_CODEC_MPEG2;
+}
+
+static bool gopRefDistAsBframe(RGY_CODEC codec) {
+    return gopRefDistAsBframe(codec_rgy_to_enc(codec));
+}
+
 static RGY_CSP getMFXCsp(const RGY_CHROMAFMT chroma, const int bitdepth) {
     if (bitdepth > 8) {
         switch (chroma) {

@@ -98,7 +98,7 @@ sInputParams::sInputParams() :
     nGOPLength(QSV_DEFAULT_GOP_LEN),
     bopenGOP(false),
     bforceGOPSettings(QSV_DEFAULT_FORCE_GOP_LEN),
-    nBframes(QSV_BFRAMES_AUTO),
+    GopRefDist(QSV_GOP_REF_DIST_AUTO),
     nRef(QSV_DEFAULT_REF),
     nBitRate(6000),
     nMaxBitrate(15000),

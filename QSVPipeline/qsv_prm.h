@@ -270,7 +270,7 @@ struct sInputParams {
     int nGOPLength;    // (Max) GOP Length
     bool bopenGOP;      // if false, GOP_CLOSED is set
     bool bforceGOPSettings; // if true, GOP_STRICT is set
-    int nBframes;      // set sequential Bframes num, -1 is auto.
+    int GopRefDist;    // set sequential Bframes num + 1, 0 is auto
     int nRef;          // set ref frames num.
     int nBitRate;
     int nMaxBitrate;
@@ -819,10 +819,10 @@ const int QSV_DEFAULT_QVBR = 23;
 const int QSV_DEFAULT_QPI = 24;
 const int QSV_DEFAULT_QPP = 26;
 const int QSV_DEFAULT_QPB = 27;
-const int QSV_BFRAMES_AUTO = -1;
-const int QSV_DEFAULT_H264_BFRAMES = 3;
-const int QSV_DEFAULT_HEVC_BFRAMES = 3;
-const int QSV_DEFAULT_AV1_BFRAMES = 0;
+const int QSV_GOP_REF_DIST_AUTO = 0;
+const int QSV_DEFAULT_H264_GOP_REF_DIST = 4;
+const int QSV_DEFAULT_HEVC_GOP_REF_DIST = 4;
+const int QSV_DEFAULT_AV1_GOP_REF_DIST = 4;
 const int QSV_DEFAULT_QUALITY = MFX_TARGETUSAGE_BALANCED;
 const int QSV_DEFAULT_INPUT_BUF_SW = 1;
 const int QSV_DEFAULT_INPUT_BUF_HW = 3;

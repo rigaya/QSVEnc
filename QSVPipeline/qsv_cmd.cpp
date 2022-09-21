@@ -329,7 +329,8 @@ tstring encoder_help() {
         _T("   --ref <int>                  reference frames\n")
         _T("                                  default %d (auto)\n")
         _T("-b,--bframes <int>              number of sequential b frames\n")
-        _T("                                  default %d(HEVC) / %d(others)\n")
+        _T("                                  default auto\n")
+        _T("   --gop-ref-dist <int>         <bframes>+1 for H.264/HEVC/MPEG2\n")
         _T("   --(no-)b-pyramid             enables B-frame pyramid reference (default:off)\n")
         _T("   --(no-)direct-bias-adjust    lower usage of B frame Direct/Skip type.\n")
         _T("   --gop-len <int>              (max) gop length, default %d (auto)\n")
@@ -371,7 +372,6 @@ tstring encoder_help() {
         QSV_DEFAULT_ASYNC_DEPTH,
         QSV_LOOKAHEAD_DEPTH_MIN, QSV_LOOKAHEAD_DEPTH_MAX,
         QSV_DEFAULT_REF,
-        QSV_DEFAULT_HEVC_BFRAMES, QSV_DEFAULT_H264_BFRAMES,
         QSV_DEFAULT_GOP_LEN);
 
 #if 0
@@ -1119,7 +1119,17 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     if (0 == _tcscmp(option_name, _T("bframes"))) {
         i++;
         try {
-            pParams->nBframes = std::stoi(strInput[i]);
+            pParams->GopRefDist = std::stoi(strInput[i])+1;
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("gop-ref-dist"))) {
+        i++;
+        try {
+            pParams->GopRefDist = std::stoi(strInput[i]);
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
@@ -2028,7 +2038,11 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
 
     OPT_NUM(_T("--slices"), nSlices);
     OPT_NUM(_T("--ref"), nRef);
-    OPT_NUM(_T("-b"), nBframes);
+    if (pParams->CodecId == MFX_CODEC_AVC || pParams->CodecId == MFX_CODEC_HEVC || pParams->CodecId == MFX_CODEC_MPEG2) {
+        OPT_NUM(_T("-b"), GopRefDist - 1);
+    } else {
+        OPT_NUM(_T("--gop-ref-dist"), GopRefDist);
+    }
     OPT_BOOL(_T("--b-pyramid"), _T("--no-b-pyramid"), bBPyramid);
     OPT_BOOL(_T("--open-gop"), _T("--no-open-gop"), bopenGOP);
     OPT_BOOL(_T("--strict-gop"), _T(""), bforceGOPSettings);

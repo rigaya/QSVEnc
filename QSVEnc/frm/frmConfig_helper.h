@@ -343,7 +343,7 @@ namespace QSVEnc {
                 //{ AUO_CONFIG_CX_FEATURE_PIC_STRUCT,             L"pic_struct       ", ENC_FEATURE_PIC_STRUCT             },
                 //{ AUO_CONFIG_CX_FEATURE_RDO,                    L"rdo              ", ENC_FEATURE_RDO                    },
                 //{ AUO_CONFIG_CX_FEATURE_CAVLC,                  L"CAVLC            ", ENC_FEATURE_CAVLC                  },
-                { AUO_CONFIG_CX_FEATURE_BFRAME,                 L"Bフレーム        ", ENC_FEATURE_BFRAME                 },
+                { AUO_CONFIG_CX_FEATURE_GOPREFDIST,             L"Bフレーム/GopRef ", ENC_FEATURE_GOPREFDIST             },
                 { AUO_CONFIG_CX_FEATURE_ADAPTIVE_I,             L"適応的Iフレーム  ", ENC_FEATURE_ADAPTIVE_I             },
                 { AUO_CONFIG_CX_FEATURE_ADAPTIVE_B,             L"適応的Bフレーム  ", ENC_FEATURE_ADAPTIVE_B             },
                 { AUO_CONFIG_CX_FEATURE_WEIGHT_P,               L"重み付きPフレーム", ENC_FEATURE_WEIGHT_P               },

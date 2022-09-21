@@ -581,18 +581,17 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         }
     }
 
-    if (pInParams->nBframes != 0 && !(availableFeaures & ENC_FEATURE_BFRAME)) {
-        print_feature_warnings(RGY_LOG_WARN, _T("B frame"));
-        pInParams->nBframes = 0;
+    const bool gopRefDistAsBframes = gopRefDistAsBframe(pInParams->CodecId);
+    if (pInParams->GopRefDist != 1 && !(availableFeaures & ENC_FEATURE_GOPREFDIST)) {
+        print_feature_warnings(RGY_LOG_WARN, (gopRefDistAsBframes) ? _T("B frame") : _T("GopRefDist"));
+        pInParams->GopRefDist = 1; //Bframe = 0
     }
-    if (pInParams->CodecId == MFX_CODEC_AV1 && DISABLE_BFRAME_AV1) {
-        pInParams->nBframes = 0;
-    } else if (pInParams->nBframes == QSV_BFRAMES_AUTO) {
+    if (pInParams->GopRefDist == QSV_GOP_REF_DIST_AUTO) {
         switch (pInParams->CodecId) {
-        case MFX_CODEC_HEVC: pInParams->nBframes = QSV_DEFAULT_HEVC_BFRAMES; break;
-        case MFX_CODEC_AV1:  pInParams->nBframes = QSV_DEFAULT_AV1_BFRAMES; break;
+        case MFX_CODEC_HEVC: pInParams->GopRefDist = QSV_DEFAULT_HEVC_GOP_REF_DIST; break;
+        case MFX_CODEC_AV1:  pInParams->GopRefDist = QSV_DEFAULT_AV1_GOP_REF_DIST; break;
         case MFX_CODEC_AVC:
-        default:             pInParams->nBframes = QSV_DEFAULT_H264_BFRAMES; break;
+        default:             pInParams->GopRefDist = QSV_DEFAULT_H264_GOP_REF_DIST; break;
         }
     }
     //その他機能のチェック
@@ -654,18 +653,18 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
     }
     if (pInParams->CodecId == MFX_CODEC_AVC
         && ((m_encPicstruct & RGY_PICSTRUCT_INTERLACED) != 0)
-        && pInParams->nBframes > 0
+        && pInParams->GopRefDist > 1 //Bframes > 0
         && getCPUGen(&m_mfxSession) == CPU_GEN_HASWELL
         && m_memType == D3D11_MEMORY) {
         PrintMes(RGY_LOG_WARN, _T("H.264 interlaced encoding with B frames on d3d11 mode results fuzzy outputs on Haswell CPUs.\n"));
         PrintMes(RGY_LOG_WARN, _T("B frames will be disabled.\n"));
-        pInParams->nBframes = 0;
+        pInParams->GopRefDist = 1; //Bframes = 0
     }
     //最近のドライバでは問題ない模様
     //if (pInParams->nBframes > 2 && pInParams->CodecId == MFX_CODEC_HEVC) {
     //    PrintMes(RGY_LOG_WARN, _T("HEVC encoding + B-frames > 2 might cause artifacts, please check the output.\n"));
     //}
-    if (pInParams->bBPyramid && pInParams->nBframes >= 10 && !(availableFeaures & ENC_FEATURE_B_PYRAMID_MANY_BFRAMES)) {
+    if (pInParams->bBPyramid && pInParams->GopRefDist-1 >= 10 && !(availableFeaures & ENC_FEATURE_B_PYRAMID_MANY_BFRAMES)) {
         PrintMes(RGY_LOG_WARN, _T("B pyramid with too many bframes is not supported on current platform, B pyramid disabled.\n"));
         pInParams->bBPyramid = false;
     }
@@ -805,7 +804,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
     //profileを守るための調整
     if (pInParams->CodecId == MFX_CODEC_AVC) {
         if (pInParams->CodecProfile == MFX_PROFILE_AVC_BASELINE) {
-            pInParams->nBframes = 0;
+            pInParams->GopRefDist = 1; //Bframe=0
             pInParams->bCAVLC = true;
         }
         if (pInParams->bCAVLC) {
@@ -888,7 +887,11 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
     //m_mfxEncParams.mfx.GopOptFlag             |= (pInParams->bforceGOPSettings) ? MFX_GOP_STRICT : NULL;
 
     m_mfxEncParams.mfx.GopPicSize              = (pInParams->bIntraRefresh) ? 0 : (mfxU16)pInParams->nGOPLength;
-    m_mfxEncParams.mfx.GopRefDist              = (mfxU16)(clamp_param_int(pInParams->nBframes, -1, 16, _T("bframes")) + 1);
+    if (gopRefDistAsBframes) {
+        m_mfxEncParams.mfx.GopRefDist = (mfxU16)(clamp_param_int(pInParams->GopRefDist-1, -1, 16, _T("bframes"))+1);
+    } else {
+        m_mfxEncParams.mfx.GopRefDist = (mfxU16)pInParams->GopRefDist;
+    }
 
     // specify memory type
     m_mfxEncParams.IOPattern = (mfxU16)((pInParams->memType != SYSTEM_MEMORY) ? MFX_IOPATTERN_IN_VIDEO_MEMORY : MFX_IOPATTERN_IN_SYSTEM_MEMORY);
@@ -4117,14 +4120,21 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         PRINT_INFO(_T("%s"), _T("Ref frames     "));
         PRINT_INT_AUTO(_T("%d frames\n"), outFrameInfo->videoPrm.mfx.NumRefFrame);
 
-        PRINT_INFO(_T("%s"), _T("Bframes        "));
-        switch (outFrameInfo->videoPrm.mfx.GopRefDist) {
-        case 0:  PRINT_INFO(_T("%s"), _T("Auto\n")); break;
-        case 1:  PRINT_INFO(_T("%s"), _T("none\n")); break;
-        default: PRINT_INFO(_T("%d frame%s%s%s\n"),
-            outFrameInfo->videoPrm.mfx.GopRefDist - 1, (outFrameInfo->videoPrm.mfx.GopRefDist > 2) ? _T("s") : _T(""),
-            check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8) ? _T(", B-pyramid: ") : _T(""),
-            (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8) ? ((MFX_B_REF_PYRAMID == outFrameInfo->cop2.BRefType) ? _T("on") : _T("off")) : _T(""))); break;
+        const bool showAsBframes = gopRefDistAsBframe(outFrameInfo->videoPrm.mfx.CodecId);
+        PRINT_INFO(_T("%s     "), (showAsBframes) ? _T("Bframes   ") : _T("GopRefDist"));
+        if (showAsBframes) {
+            switch (outFrameInfo->videoPrm.mfx.GopRefDist) {
+            case 0:  PRINT_INFO(_T("%s"), _T("Auto\n")); break;
+            case 1:  PRINT_INFO(_T("%s"), _T("none\n")); break;
+            default: PRINT_INFO(_T("%d frame%s%s%s\n"),
+                outFrameInfo->videoPrm.mfx.GopRefDist - 1, (outFrameInfo->videoPrm.mfx.GopRefDist > 2) ? _T("s") : _T(""),
+                check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8) ? _T(", B-pyramid: ") : _T(""),
+                (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8) ? ((MFX_B_REF_PYRAMID == outFrameInfo->cop2.BRefType) ? _T("on") : _T("off")) : _T(""))); break;
+            }
+        } else {
+            PRINT_INFO(_T("%d%s%s\n"), outFrameInfo->videoPrm.mfx.GopRefDist,
+                check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8) ? _T(", B-pyramid: ") : _T(""),
+                (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8) ? ((MFX_B_REF_PYRAMID == outFrameInfo->cop2.BRefType) ? _T("on") : _T("off")) : _T("")));
         }
 
         //PRINT_INFO(    _T("Idr Interval    %d\n"), outFrameInfo->videoPrm.mfx.IdrInterval);

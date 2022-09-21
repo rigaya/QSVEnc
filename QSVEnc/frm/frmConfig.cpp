@@ -1005,16 +1005,43 @@ System::Boolean frmConfig::fcgCheckLibRateControl(mfxU64 available_features) {
     return result;
 }
 
-System::Void frmConfig::fcgCheckLibVersion(mfxU64 available_features) {
-    if (available_features & ENC_FEATURE_BFRAME) {
+System::Void frmConfig::fcgCheckBFrameAndGopRefDsit(mfxU64 available_features) {
+    const mfxU32 codecId = list_out_enc_codec[fcgCXEncCodec->SelectedIndex].value;
+    const int currentNUBframes = (int)fcgNUBframes->Value;
+    if (gopRefDistAsBframe(codecId)) {
+        if (fcgLBBframes->Text == L"GopRefDist") {
+            LOAD_CLI_TEXT(fcgLBBframes);
+            LOAD_CLI_TEXT(fcgLBBframesAuto);
+            fcgNUBframes->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { -1, 0, 0, System::Int32::MinValue });;
+            fcgNUBframes->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 16, 0, 0, 0 });
+            SetNUValue(fcgNUBframes, currentNUBframes - 1);
+        }
+    } else {
+        if (fcgLBBframes->Text != L"GopRefDist") {
+            fcgLBBframes->Text = L"GopRefDist";
+            String^ autoStr = String(g_auo_mes.get(AuofcgLBRefAuto)).ToString();
+            if (autoStr->Length > 0) {
+                fcgLBBframesAuto->Text = autoStr;
+            }
+            fcgNUBframes->Minimum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 0, 0, 0, 0 });
+            fcgNUBframes->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 17, 0, 0, 0 });
+            SetNUValue(fcgNUBframes, currentNUBframes + 1);
+        }
+    }
+    if (available_features & ENC_FEATURE_GOPREFDIST) {
         if (!fcgNUBframes->Enabled) {
             fcgNUBframes->Enabled = true;
-            fcgNUBframes->Value = -1;
+            SetNUValue(fcgNUBframes, -1);
         }
     } else {
         fcgNUBframes->Enabled = false;
-        fcgNUBframes->Value = 0;
+        SetNUValue(fcgNUBframes, 0);
     }
+}
+
+System::Void frmConfig::fcgCheckLibVersion(mfxU64 available_features) {
+
+    fcgCheckBFrameAndGopRefDsit(available_features);
 
     //API v1.3 features
     fcgCheckRCModeLibVersion(MFX_RATECONTROL_AVBR, MFX_RATECONTROL_VBR, 0 != (available_features & ENC_FEATURE_AVBR));
@@ -1685,7 +1712,11 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetNUValue(fcgNUQVBR,         prm_qsv.nQVBRQuality);
     SetNUValue(fcgNUGopLength,    Convert::ToDecimal(prm_qsv.nGOPLength));
     SetNUValue(fcgNURef,          prm_qsv.nRef);
-    SetNUValue(fcgNUBframes,      prm_qsv.nBframes);
+    if (gopRefDistAsBframe(prm_qsv.CodecId)) {
+        SetNUValue(fcgNUBframes, prm_qsv.GopRefDist-1);
+    } else {
+        SetNUValue(fcgNUBframes, prm_qsv.GopRefDist);
+    }
     SetCXIndex(fcgCXTrellis,      get_cx_index(list_avc_trellis, prm_qsv.nTrellis));
     SetCXIndex(fcgCXCodecLevel,   get_cx_index(get_level_list(prm_qsv.CodecId),   prm_qsv.CodecLevel));
     SetCXIndex(fcgCXCodecProfile, get_cx_index(get_profile_list(prm_qsv.CodecId), prm_qsv.CodecProfile));
@@ -1939,7 +1970,11 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     prm_qsv.nQPB                   = (int)fcgNUQPB->Value;
     prm_qsv.nICQQuality            = (int)fcgNUICQQuality->Value;
     prm_qsv.nQVBRQuality           = (int)fcgNUQVBR->Value;
-    prm_qsv.nBframes               = (int)fcgNUBframes->Value;
+    if (gopRefDistAsBframe(prm_qsv.CodecId)) {
+        prm_qsv.GopRefDist = (int)fcgNUBframes->Value + 1;
+    } else {
+        prm_qsv.GopRefDist = (int)fcgNUBframes->Value;
+    }
     prm_qsv.nTrellis               = (int)list_avc_trellis[fcgCXTrellis->SelectedIndex].value;
     prm_qsv.input.picstruct        = (RGY_PICSTRUCT)list_interlaced[fcgCXInterlaced->SelectedIndex].value;
     prm_qsv.bAdaptiveI             = fcgCBAdaptiveI->Checked;
