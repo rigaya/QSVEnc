@@ -543,10 +543,13 @@ protected:
     void WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *pkt, int samples, int64_t *writtenDts);
 
     //extradataにH264のヘッダーを追加する
-    RGY_ERR AddH264HeaderToExtraData(const RGYBitstream *pBitstream);
+    RGY_ERR AddHeaderToExtraDataH264(const RGYBitstream *pBitstream);
 
     //extradataにHEVCのヘッダーを追加する
-    RGY_ERR AddHEVCHeaderToExtraData(const RGYBitstream *pBitstream);
+    RGY_ERR AddHeaderToExtraDataHEVC(const RGYBitstream *pBitstream);
+
+    //extradataにAV1のヘッダーを追加する
+    RGY_ERR AddHeaderToExtraDataAV1(const RGYBitstream *pBitstream);
 
     //ファイルヘッダーを書き出す
     RGY_ERR WriteFileHeader(const RGYBitstream *pBitstream);

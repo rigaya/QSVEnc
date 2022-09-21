@@ -1978,7 +1978,7 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYOutputAvcodec::AddH264HeaderToExtraData(const RGYBitstream *bitstream) {
+RGY_ERR RGYOutputAvcodec::AddHeaderToExtraDataH264(const RGYBitstream *bitstream) {
     std::vector<nal_info> nal_list = m_Mux.video.parse_nal_h264(bitstream->data(), bitstream->size());
     const auto h264_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_H264_SPS; });
     const auto h264_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_H264_PPS; });
@@ -1997,7 +1997,7 @@ RGY_ERR RGYOutputAvcodec::AddH264HeaderToExtraData(const RGYBitstream *bitstream
 }
 
 //extradataにHEVCのヘッダーを追加する
-RGY_ERR RGYOutputAvcodec::AddHEVCHeaderToExtraData(const RGYBitstream *bitstream) {
+RGY_ERR RGYOutputAvcodec::AddHeaderToExtraDataHEVC(const RGYBitstream *bitstream) {
     std::vector<nal_info> nal_list = m_Mux.video.parse_nal_hevc(bitstream->data(), bitstream->size());
     const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
     const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
@@ -2017,16 +2017,37 @@ RGY_ERR RGYOutputAvcodec::AddHEVCHeaderToExtraData(const RGYBitstream *bitstream
     return RGY_ERR_NONE;
 }
 
+//extradataにAV1のヘッダーを追加する
+RGY_ERR RGYOutputAvcodec::AddHeaderToExtraDataAV1(const RGYBitstream *bitstream) {
+    const auto unit_list = parse_unit_av1(bitstream->data(), bitstream->size());
+    auto it_seq_header = std::find_if(unit_list.begin(), unit_list.end(), [](const std::unique_ptr<unit_info>& unit) {
+        return unit->type == OBU_SEQUENCE_HEADER;
+    });
+    if (it_seq_header != unit_list.end()) {
+        const auto& seq_header = (it_seq_header->get())->unit_data;
+        m_Mux.video.streamOut->codecpar->extradata_size = seq_header.size();
+        uint8_t *new_ptr = (uint8_t *)av_malloc(m_Mux.video.streamOut->codecpar->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
+        memcpy(new_ptr, seq_header.data(), m_Mux.video.streamOut->codecpar->extradata_size);
+        if (m_Mux.video.streamOut->codecpar->extradata) {
+            av_free(m_Mux.video.streamOut->codecpar->extradata);
+        }
+        m_Mux.video.streamOut->codecpar->extradata = new_ptr;
+    }
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR RGYOutputAvcodec::WriteFileHeader(const RGYBitstream *bitstream) {
     if (m_Mux.video.streamOut && bitstream) {
         RGY_ERR sts = RGY_ERR_NONE;
         switch (m_Mux.video.streamOut->codecpar->codec_id) {
         case AV_CODEC_ID_H264:
-            sts = AddH264HeaderToExtraData(bitstream);
+            sts = AddHeaderToExtraDataH264(bitstream);
             break;
         case AV_CODEC_ID_HEVC:
-            sts = AddHEVCHeaderToExtraData(bitstream);
+            sts = AddHeaderToExtraDataHEVC(bitstream);
             break;
+        case AV_CODEC_ID_AV1:
+            sts = AddHeaderToExtraDataAV1(bitstream);
         default:
             break;
         }
@@ -2563,7 +2584,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
         // その次のOBU_AV1_TEMPORAL_DELIMITERが見つかったら、そこまでを一単位として送出する
         size_t next_delim = 0;
         for (size_t iunit = 1; iunit < m_Mux.videoAV1Merge.size(); iunit++) {
-            if (m_Mux.videoAV1Merge[iunit]->type == OBU_AV1_TEMPORAL_DELIMITER) {
+            if (m_Mux.videoAV1Merge[iunit]->type == OBU_TEMPORAL_DELIMITER) {
                 next_delim = iunit;
                 break;
             }
