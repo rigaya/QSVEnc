@@ -577,7 +577,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     m_Mux.video.codecCtx->sample_aspect_ratio.den = videoOutputInfo->sar[1];
     m_Mux.video.codecCtx->chroma_sample_location  = (AVChromaLocation)clamp(videoOutputInfo->vui.chromaloc, 0, 6);
     m_Mux.video.codecCtx->field_order             = picstrcut_rgy_to_avfieldorder(videoOutputInfo->picstruct);
-    m_Mux.video.codecCtx->delay                   = (m_VideoOutputInfo.codec == RGY_CODEC_AV1 && AV1_TIMESTAMP_OVERRIDE) ? 0 : videoOutputInfo->videoDelay;
+    m_Mux.video.codecCtx->delay                   = (m_VideoOutputInfo.codec == RGY_CODEC_AV1) ? 0 : videoOutputInfo->videoDelay;
     if (prm->videoCodecTag.length() > 0) {
         m_Mux.video.codecCtx->codec_tag           = tagFromStr(prm->videoCodecTag);
         AddMessage(RGY_LOG_DEBUG, _T("Set Video Codec Tag: %s\n"), char_to_tstring(tagToStr(m_Mux.video.codecCtx->codec_tag)).c_str());
@@ -2048,6 +2048,7 @@ RGY_ERR RGYOutputAvcodec::WriteFileHeader(const RGYBitstream *bitstream) {
             break;
         case AV_CODEC_ID_AV1:
             sts = AddHeaderToExtraDataAV1(bitstream);
+            break;
         default:
             break;
         }
@@ -2361,6 +2362,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream
             memcpy(pkt->data, sps_nal->ptr, sps_nal->size);
             int ret = 0;
             if (0 > (ret = av_bsf_send_packet(m_Mux.video.bsfc, pkt))) {
+                av_packet_unref(pkt);
                 AddMessage(RGY_LOG_ERROR, _T("failed to send packet to %s bitstream filter: %s.\n"),
                     char_to_tstring(m_Mux.video.bsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_UNKNOWN;
