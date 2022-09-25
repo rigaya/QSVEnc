@@ -283,15 +283,20 @@ public:
         UNREFERENCED_PARAMETER(avgQP);
     }
 
-    void clear() {
+    void free_mem() {
         if (m_bitstream.Data) {
             _aligned_free(m_bitstream.Data);
+            m_bitstream.Data = nullptr;
         }
+    }
+
+    void clear() {
+        free_mem();
         memset(&m_bitstream, 0, sizeof(m_bitstream));
     }
 
     RGY_ERR init(size_t nSize) {
-        clear();
+        free_mem();
 
         if (nSize > 0) {
             if (nullptr == (m_bitstream.Data = (uint8_t *)_aligned_malloc(nSize, 32))) {
@@ -315,7 +320,7 @@ public:
             return RGY_ERR_MORE_BITSTREAM;
         }
         if (m_bitstream.MaxLength < setSize) {
-            clear();
+            free_mem();
             auto sts = init(setSize);
             if (sts != RGY_ERR_NONE) {
                 return sts;
@@ -367,7 +372,7 @@ public:
         if (m_bitstream.DataLength) {
             memcpy(pData, m_bitstream.Data + m_bitstream.DataOffset, (std::min)(nDataLen, nNewSize));
         }
-        clear();
+        free_mem();
 
         m_bitstream.Data       = pData;
         m_bitstream.DataOffset = 0;
