@@ -383,7 +383,7 @@ public:
     }
 
     RGY_ERR append(const uint8_t *appendData, size_t appendSize) {
-        if (appendData) {
+        if (appendData && appendSize > 0) {
             const auto new_data_length = appendSize + m_bitstream.DataLength;
             if (m_bitstream.MaxLength < new_data_length) {
                 auto sts = changeSize(new_data_length);
@@ -403,7 +403,7 @@ public:
     }
 
     RGY_ERR append(const RGYBitstream *pBitstream) {
-        if (pBitstream != nullptr) {
+        if (pBitstream != nullptr && pBitstream->size() > 0) {
             return append(pBitstream->data(), pBitstream->size());
         }
         return RGY_ERR_NONE;

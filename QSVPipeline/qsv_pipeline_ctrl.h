@@ -853,12 +853,17 @@ protected:
             auto taskSurf = useTaskSurf(surfDecOut);
             taskSurf.frame()->clearDataList();
             taskSurf.frame()->setInputFrameId(m_decFrameOutCount++);
-            taskSurf.frame()->dataList().push_back(getHDR10plusMetadata(surfDecOut->Data.TimeStamp));
+            if (auto data = getMetadata(RGY_FRAME_DATA_HDR10PLUS, surfDecOut->Data.TimeStamp); data) {
+                taskSurf.frame()->dataList().push_back(data);
+            }
+            if (auto data = getMetadata(RGY_FRAME_DATA_DOVIRPU, surfDecOut->Data.TimeStamp); data) {
+                taskSurf.frame()->dataList().push_back(data);
+            }
             m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, taskSurf, lastSyncP));
         }
         return err_to_rgy(dec_sts);
     }
-    std::shared_ptr<RGYFrameData> getHDR10plusMetadata(int64_t timestamp) {
+    std::shared_ptr<RGYFrameData> getMetadata(const RGYFrameDataType datatype, const int64_t timestamp) {
         std::shared_ptr<RGYFrameData> frameData;
         RGYFrameDataMetadata *frameDataPtr = nullptr;
         while (m_queueHDR10plusMetadata.front_copy_no_lock(&frameDataPtr)) {
@@ -872,8 +877,18 @@ protected:
         size_t queueSize = m_queueHDR10plusMetadata.size();
         for (uint32_t i = 0; i < queueSize; i++) {
             if (m_queueHDR10plusMetadata.copy(&frameDataPtr, i, &queueSize)) {
-                if (frameDataPtr->timestamp() == timestamp) {
-                    frameData = std::make_shared<RGYFrameDataMetadata>(*frameDataPtr);
+                if (frameDataPtr->timestamp() == timestamp && frameDataPtr->dataType() == datatype) {
+                    if (frameDataPtr->dataType() == RGY_FRAME_DATA_HDR10PLUS) {
+                        auto ptr = dynamic_cast<RGYFrameDataHDR10plus*>(frameDataPtr);
+                        if (ptr) {
+                            frameData = std::make_shared<RGYFrameDataHDR10plus>(*ptr);
+                        }
+                    } else if (frameData->dataType() == RGY_FRAME_DATA_DOVIRPU) {
+                        auto ptr = dynamic_cast<RGYFrameDataDOVIRpu*>(frameDataPtr);
+                        if (ptr) {
+                            frameData = std::make_shared<RGYFrameDataDOVIRpu>(*ptr);
+                        }
+                    }
                     break;
                 }
             }
@@ -1287,7 +1302,7 @@ public:
         //vpp前に、vpp用のパラメータでFrameInfoを更新
         copy_crop_info(surfVppIn, &m_mfxVppParams.mfx.FrameInfo);
         if (surfVppIn) {
-            m_timestamp.add(surfVppIn->Data.TimeStamp, dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->inputFrameId(), 0);
+            m_timestamp.add(surfVppIn->Data.TimeStamp, dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->inputFrameId(), 0, {});
             surfVppIn->Data.DataFlag |= MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
             m_inFrames++;
         }
@@ -1525,34 +1540,14 @@ public:
             return RGY_ERR_NULL_PTR;
         }
 
-        if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC) {
+        std::vector<std::shared_ptr<RGYFrameData>> metadatalist;
+        if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC || m_mfxEncParams.mfx.CodecId == MFX_CODEC_AV1) {
             if (m_hdr10plus) {
-                const auto data = m_hdr10plus->getData(m_inFrames);
-                if (data && data->size() > 0) {
-                    m_encCtrlData.setHDR10PlusPayload(*data);
+                if (const auto data = m_hdr10plus->getData(m_inFrames); data) {
+                    metadatalist.push_back(std::make_shared<RGYFrameDataHDR10plus>(data->data(), data->size(), dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->timestamp()));
                 }
             } else if (m_hdr10plusMetadataCopy && frame) {
-                auto frameDataList = dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->dataList();
-                auto dataHdr10Plus = std::find_if(frameDataList.begin(), frameDataList.end(), [](const std::shared_ptr<RGYFrameData>& frameData) {
-                    return frameData->dataType() == RGY_FRAME_DATA_HDR10PLUS;
-                    });
-                if (dataHdr10Plus != frameDataList.end()) {
-                    auto hdr10plus = dynamic_cast<RGYFrameDataHDR10plus *>(dataHdr10Plus->get());
-                    if (hdr10plus && hdr10plus->getData().size() > 0) {
-                        m_encCtrlData.setHDR10PlusPayload(hdr10plus->getData());
-                    }
-                }
-#if 0
-                auto dataDOVIRpu = std::find_if(frameDataList.begin(), frameDataList.end(), [](const std::shared_ptr<RGYFrameData>& frameData) {
-                    return frameData->dataType() == RGY_FRAME_DATA_DOVIRPU;
-                    });
-                if (dataDOVIRpu != frameDataList.end()) {
-                    auto dovirpu = dynamic_cast<RGYFrameDataDOVIRpu *>(dataDOVIRpu->get());
-                    if (dovirpu && dovirpu->getData().size() > 0) {
-                        m_encCtrlData.setDOVIRpuPayload(dovirpu->getData());
-                    }
-                }
-#endif
+                metadatalist = dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->dataList();
             }
         }
 
@@ -1575,7 +1570,7 @@ public:
                 PrintMes(RGY_LOG_ERROR, _T("Invalid inputFrameId: %d.\n"), inputFrameId);
                 return RGY_ERR_UNKNOWN;
             }
-            m_encTimestamp->add(surfEncodeIn->Data.TimeStamp, inputFrameId, 0);
+            m_encTimestamp->add(surfEncodeIn->Data.TimeStamp, inputFrameId, 0, metadatalist);
             m_inFrames++;
             PrintMes(RGY_LOG_TRACE, _T("send encoder %6d/%6d.\n"), m_inFrames, inputFrameId);
         }
