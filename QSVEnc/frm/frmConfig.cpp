@@ -927,7 +927,7 @@ System::Void frmConfig::InitStgFileList() {
 
 System::Boolean frmConfig::fcgCheckCodec() {
     System::Boolean result = false;
-    if (featuresHW == nullptr) {
+    if (featuresHW == nullptr || fcgCXDevice->SelectedIndex < 0) {
         return result;
     }
 
@@ -948,7 +948,7 @@ System::Boolean frmConfig::fcgCheckCodec() {
 }
 
 System::Void frmConfig::fcgCheckFixedFunc() {
-    if (featuresHW == nullptr) {
+    if (featuresHW == nullptr || fcgCXDevice->SelectedIndex < 0) {
         return;
     }
     const mfxU32 codecId = list_out_enc_codec[fcgCXEncCodec->SelectedIndex].value;
@@ -1122,7 +1122,7 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU64 available_features) {
 
 System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventArgs^  e) {
     //もしfeatureListが作成できていなければ、チェックを行わない
-    if (featuresHW == nullptr || !featuresHW->checkIfGetFeaturesFinished()) {
+    if (featuresHW == nullptr || fcgCXDevice->SelectedIndex < 0 || !featuresHW->checkIfGetFeaturesFinished()) {
         return;
     }
 
@@ -1232,7 +1232,7 @@ System::Void frmConfig::fcgDevOutputTypeFFPGChanged(System::Object^  sender, Sys
     if (updateFeatureTableFlag) {
         return;
     }
-    if (featuresHW == nullptr || !featuresHW->checkIfGetFeaturesFinished()) {
+    if (featuresHW == nullptr || fcgCXDevice->SelectedIndex < 0 || !featuresHW->checkIfGetFeaturesFinished()) {
         return;
     }
 
