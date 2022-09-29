@@ -126,14 +126,18 @@
   - [--aud](#--aud)
   - [--pic-struct](#--pic-struct)
   - [--buf-period](#--buf-period)
+  - [--repeat-headers](#--repeat-headers)
   - [--no-repeat-headers](#--no-repeat-headers)
   - [--bluray [H.264 only]](#--bluray-h264-only)
   - [--repartition-check](#--repartition-check)
   - [--trellis &lt;string&gt; [H.264]](#--trellis-string-h264)
+  - [--intra-refresh-cycle &lt;int&gt](#--intra-refresh-cycle-intgt)
   - [--no-deblock](#--no-deblock)
   - [--tskip](#--tskip)
   - [--sao &lt;string&gt;](#--sao-string)
   - [--ctu &lt;int&gt;](#--ctu-int)
+  - [--hevc-gpb](#--hevc-gpb)
+  - [--no-hevc-gpb](#--no-hevc-gpb)
   - [--ssim](#--ssim)
   - [--psnr](#--psnr)
 - [IO / Audio / Subtitle Options](#io--audio--subtitle-options)
@@ -859,8 +863,10 @@ Set H.264 trellis mode.
 - ip
 - all
 
-### --intra-refresh
-Enable intra refresh.
+### --intra-refresh-cycle &lt;int&gt
+Enable intra refresh and set number of pictures within refresh cycle starting from 2.
+
+Default is 0, which means intra refresh is disabled.
 
 ### --no-deblock
 Disable deblock filter. [H.264]
@@ -878,6 +884,12 @@ Set modes for SAO. [HEVC]
 
 ### --ctu &lt;int&gt;
 Set max ctu size, from 16, 32 or 64. [HEVC]
+
+### --hevc-gpb
+Use GPB for P-frames in HEVC encoding.
+
+### --no-hevc-gpb
+Make HEVC encoder use regular P-frames instead of GPB.
 
 ### --ssim
 Calculate ssim of the encoded video.

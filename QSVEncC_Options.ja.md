@@ -126,14 +126,18 @@
   - [--aud](#--aud)
   - [--pic-struct](#--pic-struct)
   - [--buf-period](#--buf-period)
+  - [--repeat-headers](#--repeat-headers)
   - [--no-repeat-headers](#--no-repeat-headers)
   - [--bluray [H.264のみ]](#--bluray-h264のみ)
   - [--repartition-check](#--repartition-check)
   - [--trellis &lt;string&gt; [H.264のみ]](#--trellis-string-h264のみ)
+  - [--intra-refresh-cycle &lt;int&gt](#--intra-refresh-cycle-intgt)
   - [--no-deblock](#--no-deblock)
   - [--tskip](#--tskip)
   - [--sao &lt;string&gt;](#--sao-string)
   - [--ctu &lt;int&gt;](#--ctu-int)
+  - [--hevc-gpb](#--hevc-gpb)
+  - [--no-hevc-gpb](#--no-hevc-gpb)
   - [--ssim](#--ssim)
   - [--psnr](#--psnr)
 - [入出力 / 音声 / 字幕などのオプション](#入出力--音声--字幕などのオプション)
@@ -886,8 +890,10 @@ H.264の歪みレート最適化の適用範囲を指定する。
 - ip
 - all
 
-### --intra-refresh
-Intra refreshを使用する。
+### --intra-refresh-cycle &lt;int&gt
+周期的イントラ更新を有効にし、更新を行うフレームの周期を指定する。
+
+デフォルトは 0 (=無効) で、周期的イントラ更新を有効にする場合は2以上の値を指定する。
 
 ### --no-deblock
 H.264のデブロックフィルタを無効化する。[H.264]
@@ -905,6 +911,12 @@ SAOのモードの切り替え。 [HEVC]
 
 ### --ctu &lt;int&gt;
 エンコードで使用するctuサイズの最大値を指定。16, 32, 64のいずれか。 [HEVC]
+
+### --hevc-gpb
+HEVCエンコードでPフレームとしてGPBを使用します。
+
+### --no-hevc-gpb
+HEVCエンコードでPフレームとしてGPBの代わりに通常のPフレームを使用します。
 
 ### --ssim
 エンコード結果のSSIMを計算。
