@@ -399,7 +399,7 @@ tstring encoder_help() {
         _T("   --aud                        insert aud nal unit to ouput stream.\n")
         _T("   --pic-struct                 insert pic-timing SEI with pic_struct.\n")
         _T("   --buf-period                 insert buffering period SEI.\n")
-        _T("   --no-repeat-pps              disable repeating insertion of PPS\n"));
+        _T("   --(no-)repeat-headers        repeating insertion of headers\n"));
 
     str += _T("\n");
     str += gen_cmd_help_common();
@@ -1392,8 +1392,13 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         pParams->bufPeriodSEI = true;
         return 0;
     }
-    if (0 == _tcscmp(option_name, _T("no-repeat-pps"))) {
-        pParams->disableRepeatPPS = true;
+    if (0 == _tcscmp(option_name, _T("repeat-headers"))) {
+        pParams->repeatHeaders = true;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("no-repeat-pps"))
+        || 0 == _tcscmp(option_name, _T("no-repeat-headers"))) {
+        pParams->repeatHeaders = false;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("async-depth"))) {
@@ -1903,6 +1908,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     } \
 }
 #define OPT_BOOL(str_true, str_false, opt) if ((pParams->opt) != (encPrmDefault.opt)) cmd << _T(" ") << ((pParams->opt) ? (str_true) : (str_false));
+#define OPT_BOOL_OPT(str_true, str_false, opt) if (pParams->opt.has_value()) cmd << _T(" ") << ((pParams->opt.value()) ? (str_true) : (str_false));
 #define OPT_BOOL_VAL(str_true, str_false, opt, val) { \
     if ((pParams->opt) != (encPrmDefault.opt) || (save_disabled_prm && (pParams->val) != (encPrmDefault.val))) { \
         cmd << _T(" ") << ((pParams->opt) ? (str_true) : (str_false)) <<  _T(" ") << (pParams->val); \
@@ -2080,7 +2086,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     OPT_BOOL(_T("--aud"), _T(""), bOutputAud);
     OPT_BOOL(_T("--pic-struct"), _T(""), bOutputPicStruct);
     OPT_BOOL(_T("--buf-period"), _T(""), bufPeriodSEI);
-    OPT_BOOL(_T("--no-repeat-pps"), _T(""), disableRepeatPPS);
+    OPT_BOOL_OPT(_T("--repeat-headers"), _T("--no-repeat-headers"), repeatHeaders);
     OPT_LST(_T("--level"), CodecLevel, get_level_list(pParams->CodecId));
     OPT_LST(_T("--profile"), CodecProfile, get_profile_list(pParams->CodecId));
     if (save_disabled_prm || pParams->CodecId == MFX_CODEC_HEVC) {

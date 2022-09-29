@@ -30,6 +30,7 @@
 
 #include <climits>
 #include <vector>
+#include <optional>
 #include "rgy_version.h"
 #include "rgy_util.h"
 #pragma warning (push)
@@ -348,7 +349,7 @@ struct sInputParams {
     bool       bOutputAud;
     bool       bOutputPicStruct;
     bool       bufPeriodSEI;
-    bool       disableRepeatPPS;
+    std::optional<bool> repeatHeaders;
     int16_t    pQPOffset[8];
 
     int        nRepartitionCheck;

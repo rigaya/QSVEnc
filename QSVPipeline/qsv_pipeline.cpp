@@ -989,8 +989,10 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
             if (m_hdr10plus || m_hdr10plusMetadataCopy || m_dovirpu || pInParams->common.doviProfile != 0 || (m_hdrsei && m_hdrsei->gen_nal().size() > 0)) {
                 m_CodingOption2.RepeatPPS = MFX_CODINGOPTION_ON;
-            } else if (pInParams->disableRepeatPPS) {
-                m_CodingOption2.RepeatPPS = MFX_CODINGOPTION_OFF;
+            } else if (pInParams->repeatHeaders.has_value()) {
+                m_CodingOption2.RepeatPPS = (pInParams->repeatHeaders.value()) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF;
+            } else {
+                m_CodingOption2.RepeatPPS = MFX_CODINGOPTION_UNKNOWN;
             }
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_10)) {

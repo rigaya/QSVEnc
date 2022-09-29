@@ -126,7 +126,7 @@
   - [--aud](#--aud)
   - [--pic-struct](#--pic-struct)
   - [--buf-period](#--buf-period)
-  - [--no-repeat-pps](#--no-repeat-pps)
+  - [--no-repeat-headers](#--no-repeat-headers)
   - [--bluray [H.264 only]](#--bluray-h264-only)
   - [--repartition-check](#--repartition-check)
   - [--trellis &lt;string&gt; [H.264]](#--trellis-string-h264)
@@ -839,8 +839,11 @@ Insert picture timing SEI.
 ### --buf-period
 Insert buffering period SEI.
 
-### --no-repeat-pps
-Disable repeating insertion of PPS. Might be ignored by other options which require repeating insertion of PPS.
+### --repeat-headers
+Enable repeated insertion of PPS.
+
+### --no-repeat-headers
+Disable repeated insertion of PPS. Might be ignored by other options which require repeated insertion of PPS.
 
 ### --bluray [H.264 only]
 Perform output for Bluray. (Default: off)
