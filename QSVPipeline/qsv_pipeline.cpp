@@ -4184,6 +4184,7 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         if (m_hdrsei) {
             const auto masterdisplay = m_hdrsei->print_masterdisplay();
             const auto maxcll = m_hdrsei->print_maxcll();
+            const auto atcsei = (outFrameInfo->videoPrm.mfx.CodecId == MFX_CODEC_HEVC) ? m_hdrsei->print_atcsei() : "";
             if (masterdisplay.length() > 0) {
                 const tstring tstr = char_to_tstring(masterdisplay);
                 const auto splitpos = tstr.find(_T("WP("));
@@ -4197,6 +4198,9 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
             }
             if (maxcll.length() > 0) {
                 PRINT_INFO(_T("MaxCLL/MaxFALL %s\n"), char_to_tstring(maxcll).c_str());
+            }
+            if (atcsei.length() > 0) {
+                PRINT_INFO(_T("atcsei         %s\n"), char_to_tstring(atcsei).c_str());
             }
         }
         if (m_dovirpu) {
