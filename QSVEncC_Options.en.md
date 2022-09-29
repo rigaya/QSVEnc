@@ -859,6 +859,9 @@ Set H.264 trellis mode.
 - ip
 - all
 
+### --intra-refresh
+Enable intra refresh.
+
 ### --no-deblock
 Disable deblock filter. [H.264]
 

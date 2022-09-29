@@ -886,6 +886,9 @@ H.264の歪みレート最適化の適用範囲を指定する。
 - ip
 - all
 
+### --intra-refresh
+Intra refreshを使用する。
+
 ### --no-deblock
 H.264のデブロックフィルタを無効化する。[H.264]
 

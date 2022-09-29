@@ -357,6 +357,7 @@ tstring encoder_help() {
         _T("                                 - 3  set MV cost 1/8 of default\n")
         _T("   --slices <int>               number of slices, default 0 (auto)\n")
         _T("   --vbv-bufsize <int>          set vbv buffer size (kbit) / default: auto\n")
+        _T("   --intra-refresh              enable intra refresh feature.\n")
         _T("   --no-deblock                 [h264] disables H.264 deblock feature\n")
         _T("   --tskip                      [hevc] enable transform skip\n")
         _T("   --sao <string>               [hevc]\n")
