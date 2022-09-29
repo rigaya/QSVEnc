@@ -741,7 +741,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
             print_feature_warnings(RGY_LOG_WARN, _T("HEVC tskip"));
             pInParams->hevc_tskip = MFX_CODINGOPTION_UNKNOWN;
         }
-        if (pInParams->hevc_gpb != MFX_CODINGOPTION_UNKNOWN && !(availableFeaures & ENC_FEATURE_DISABLE_GPB)) {
+        if (pInParams->hevc_gpb.has_value() && !(availableFeaures & ENC_FEATURE_DISABLE_GPB)) {
             print_feature_warnings(RGY_LOG_WARN, _T("HEVC GPB"));
             pInParams->hevc_gpb = false;
         }
