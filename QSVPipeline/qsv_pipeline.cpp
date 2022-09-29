@@ -675,9 +675,9 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         print_feature_warnings(RGY_LOG_WARN, _T("No deblock"));
         pInParams->bNoDeblock = false;
     }
-    if (pInParams->bIntraRefresh && !(availableFeaures & ENC_FEATURE_INTRA_REFRESH)) {
+    if (pInParams->intraRefreshCycle > 0 && !(availableFeaures & ENC_FEATURE_INTRA_REFRESH)) {
         print_feature_warnings(RGY_LOG_WARN, _T("Intra Refresh"));
-        pInParams->bIntraRefresh = false;
+        pInParams->intraRefreshCycle = 0;
     }
     if (0 != (pInParams->nQPMin[0] | pInParams->nQPMin[1] | pInParams->nQPMin[2]
             | pInParams->nQPMax[0] | pInParams->nQPMax[1] | pInParams->nQPMax[2]) && !(availableFeaures & ENC_FEATURE_QP_MINMAX)) {
@@ -801,10 +801,6 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         pInParams->bOutputPicStruct = false;
     }
 
-    //Intra Refereshが指定された場合は、GOP関連の設定を自動的に上書き
-    if (pInParams->bIntraRefresh) {
-        pInParams->bforceGOPSettings = true;
-    }
     //profileを守るための調整
     if (pInParams->CodecId == MFX_CODEC_AVC) {
         if (pInParams->CodecProfile == MFX_PROFILE_AVC_BASELINE) {
@@ -890,7 +886,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
     //MFX_GOP_STRICTにより、インタレ保持時にフレームが壊れる場合があるため、無効とする
     //m_mfxEncParams.mfx.GopOptFlag             |= (pInParams->bforceGOPSettings) ? MFX_GOP_STRICT : NULL;
 
-    m_mfxEncParams.mfx.GopPicSize              = (pInParams->bIntraRefresh) ? 0 : (mfxU16)pInParams->nGOPLength;
+    m_mfxEncParams.mfx.GopPicSize              = (mfxU16)pInParams->nGOPLength;
     if (gopRefDistAsBframes) {
         m_mfxEncParams.mfx.GopRefDist = (mfxU16)(clamp_param_int(pInParams->GopRefDist-1, 0, 16, _T("bframes"))+1);
     } else {
@@ -983,9 +979,13 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         if (pInParams->extBRC) {
             m_CodingOption2.ExtBRC = MFX_CODINGOPTION_ON;
         }
-        if (pInParams->bIntraRefresh) {
-            m_CodingOption2.IntRefType = 1;
-            m_CodingOption2.IntRefCycleSize = (mfxU16)((pInParams->nGOPLength >= 2) ? pInParams->nGOPLength : ((m_encFps.n() + m_encFps.d() - 1) / m_encFps.d()) * 10);
+        if (pInParams->intraRefreshCycle > 0) {
+            m_CodingOption2.IntRefType = MFX_REFRESH_VERTICAL;
+            if (pInParams->intraRefreshCycle == 1) {
+                PrintMes(RGY_LOG_ERROR, _T("--intra-refresh-cycle must be 2 or larger.\n"));
+                return RGY_ERR_UNSUPPORTED;
+            }
+            m_CodingOption2.IntRefCycleSize = (mfxU16)pInParams->intraRefreshCycle;
         }
         if (pInParams->bNoDeblock) {
             m_CodingOption2.DisableDeblockingIdc = MFX_CODINGOPTION_ON;
@@ -4136,16 +4136,14 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         PRINT_INT_AUTO(_T("%d frames\n"), outFrameInfo->videoPrm.mfx.NumRefFrame);
 
         const bool showAsBframes = gopRefDistAsBframe(outFrameInfo->videoPrm.mfx.CodecId);
-        const TCHAR *HEVCBframeGPB = (outFrameInfo->videoPrm.mfx.CodecId == MFX_CODEC_HEVC && outFrameInfo->cop3.GPB) ? _T("(GPB)") : _T("");
         PRINT_INFO(_T("%s     "), (showAsBframes) ? _T("Bframes   ") : _T("GopRefDist"));
         const bool showBpyramid = check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8) && outFrameInfo->videoPrm.mfx.GopRefDist >= 2;
         if (showAsBframes) {
             switch (outFrameInfo->videoPrm.mfx.GopRefDist) {
             case 0:  PRINT_INFO(_T("%s"), _T("Auto\n")); break;
             case 1:  PRINT_INFO(_T("%s"), _T("none\n")); break;
-            default: PRINT_INFO(_T("%d frame%s%s%s%s\n"),
+            default: PRINT_INFO(_T("%d frame%s%s%s\n"),
                 outFrameInfo->videoPrm.mfx.GopRefDist - 1, (outFrameInfo->videoPrm.mfx.GopRefDist > 2) ? _T("s") : _T(""),
-                HEVCBframeGPB,
                 showBpyramid ? _T(", B-pyramid: ") : _T(""),
                 showBpyramid ? ((MFX_B_REF_PYRAMID == outFrameInfo->cop2.BRefType) ? _T("on") : _T("off")) : _T("")); break;
             }
@@ -4224,8 +4222,8 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
             if (outFrameInfo->cop2.DisableDeblockingIdc) {
                 extFeatures += _T("No-Deblock ");
             }
-            if (outFrameInfo->cop2.IntRefType) {
-                extFeatures += _T("Intra-Refresh ");
+            if (outFrameInfo->cop2.IntRefType != MFX_REFRESH_NO) {
+                extFeatures += strsprintf(_T("Intra-Refresh:%d "), outFrameInfo->cop2.IntRefCycleSize);
             }
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_13)) {
@@ -4247,6 +4245,13 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_17)) {
             if (outFrameInfo->cop3.FadeDetection == MFX_CODINGOPTION_ON) {
                 extFeatures += _T("FadeDetect ");
+            }
+        }
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_18) && outFrameInfo->videoPrm.mfx.CodecId == MFX_CODEC_HEVC) {
+            if (outFrameInfo->cop3.GPB == MFX_CODINGOPTION_ON) {
+                extFeatures += _T("GPB ");
+            } else if (outFrameInfo->cop3.GPB == MFX_CODINGOPTION_OFF) {
+                extFeatures += _T("NoGPB ");
             }
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_19)) {

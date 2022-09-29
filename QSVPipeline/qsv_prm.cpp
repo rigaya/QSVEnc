@@ -143,7 +143,7 @@ sInputParams::sInputParams() :
     nAsyncDepth(0),
     nLookaheadDS(),
     bDisableTimerPeriodTuning(false),
-    bIntraRefresh(false),
+    intraRefreshCycle(0),
     bNoDeblock(false),
     nWinBRCSize(0),
     nMVCostScaling(0),

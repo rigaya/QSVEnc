@@ -357,7 +357,8 @@ tstring encoder_help() {
         _T("                                 - 3  set MV cost 1/8 of default\n")
         _T("   --slices <int>               number of slices, default 0 (auto)\n")
         _T("   --vbv-bufsize <int>          set vbv buffer size (kbit) / default: auto\n")
-        _T("   --intra-refresh              enable intra refresh feature.\n")
+        _T("   --intra-refresh-cycle <int>  set intra refresh cycle (2 or larger).\n")
+        _T("                                  default = 0 (disabled)\n")
         _T("   --no-deblock                 [h264] disables H.264 deblock feature\n")
         _T("   --tskip                      [hevc] enable transform skip\n")
         _T("   --sao <string>               [hevc]\n")
@@ -1186,12 +1187,14 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         pParams->bMBBRC = false;
         return 0;
     }
-    if (0 == _tcscmp(option_name, _T("no-intra-refresh"))) {
-        pParams->bIntraRefresh = false;
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("intra-refresh"))) {
-        pParams->bIntraRefresh = true;
+    if (0 == _tcscmp(option_name, _T("intra-refresh-cycle"))) {
+        i++;
+        try {
+            pParams->intraRefreshCycle = std::stoi(strInput[i]) + 1;
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-deblock"))) {
@@ -2089,7 +2092,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     OPT_BOOL(_T("--adapt-ref"), _T("--no-adapt-ref"), adaptiveRef);
     OPT_BOOL(_T("--adapt-ltr"), _T("--no-adapt-ltr"), adaptiveLTR);
     OPT_BOOL(_T("--adapt-cqm"), _T("--no-adapt-cqm"), adaptiveCQM);
-    OPT_BOOL(_T("--intra-refresh"), _T("--no-intra-refresh"), bIntraRefresh);
+    OPT_NUM(_T("--intra-refresh-cycle"), intraRefreshCycle);
     OPT_BOOL(_T("--direct-bias-adjust"), _T("--no-direct-bias-adjust"), bDirectBiasAdjust);
     OPT_LST(_T("--intra-pred"), nIntraPred, list_pred_block_size);
     OPT_LST(_T("--inter-pred"), nInterPred, list_pred_block_size);

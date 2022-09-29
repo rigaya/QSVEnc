@@ -326,7 +326,7 @@ struct sInputParams {
 
     bool       bDisableTimerPeriodTuning;
 
-    bool       bIntraRefresh;
+    int        intraRefreshCycle;
     bool       bNoDeblock;
 
     int        nWinBRCSize;
