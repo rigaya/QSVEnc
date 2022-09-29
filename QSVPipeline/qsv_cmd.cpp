@@ -367,6 +367,7 @@ tstring encoder_help() {
         _T("                                 - all     enable sao for luma & chroma\n")
         _T("   --ctu <int>                  [hevc] max ctu size\n")
         _T("                                 - auto(default), 16, 32, 64\n")
+        _T("   --hevc-gpb                   [hevc] enable GPB\n")
         //_T("   --sharpness <int>            [vp8] set sharpness level for vp8 enc\n")
         _T("\n"),
         QSV_DEFAULT_ASYNC_DEPTH,
@@ -1224,6 +1225,14 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     }
     if (0 == _tcscmp(option_name, _T("tskip"))) {
         pParams->hevc_tskip = MFX_CODINGOPTION_ON;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("hevc-gpb"))) {
+        pParams->hevc_gpb = true;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("no-hevc-gpb"))) {
+        pParams->hevc_gpb = false;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("qpmax")) || 0 == _tcscmp(option_name, _T("qpmin"))
@@ -2093,6 +2102,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
         OPT_LST(_T("--ctu"), hevc_ctu, list_hevc_ctu);
         OPT_LST(_T("--sao"), hevc_sao, list_hevc_sao);
         OPT_BOOL(_T("--tskip"), _T("--no-tskip"), hevc_tskip);
+        OPT_BOOL_OPT(_T("--hevc-gpb"), _T("--no-hevc-gpb"), hevc_gpb);
     }
     if (save_disabled_prm || pParams->CodecId == MFX_CODEC_AVC) {
         OPT_LST(_T("--trellis"), nTrellis, list_avc_trellis_for_options);

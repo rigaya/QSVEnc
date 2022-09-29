@@ -359,6 +359,7 @@ struct sInputParams {
     int        hevc_sao;
     int        hevc_tskip;
     int        hevc_tier;
+    std::optional<bool> hevc_gpb;
 
     tstring    pythonPath;
 

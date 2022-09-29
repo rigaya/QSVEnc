@@ -741,6 +741,10 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
             print_feature_warnings(RGY_LOG_WARN, _T("HEVC tskip"));
             pInParams->hevc_tskip = MFX_CODINGOPTION_UNKNOWN;
         }
+        if (pInParams->hevc_gpb != MFX_CODINGOPTION_UNKNOWN && !(availableFeaures & ENC_FEATURE_DISABLE_GPB)) {
+            print_feature_warnings(RGY_LOG_WARN, _T("HEVC GPB"));
+            pInParams->hevc_gpb = false;
+        }
     }
     if (pInParams->CodecId == MFX_CODEC_VP9) {
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_15)) {
@@ -1057,6 +1061,15 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_17)) {
             m_CodingOption3.FadeDetection = check_coding_option((mfxU16)pInParams->nFadeDetect);
+        }
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_18)) {
+            if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC) {
+                if (pInParams->hevc_gpb.has_value()) {
+                    m_CodingOption3.GPB = pInParams->hevc_gpb.value() ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF;
+                } else {
+                    m_CodingOption3.GPB = MFX_CODINGOPTION_UNKNOWN;
+                }
+            }
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_19)) {
             if (bQPOffsetUsed) {
@@ -4123,14 +4136,16 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         PRINT_INT_AUTO(_T("%d frames\n"), outFrameInfo->videoPrm.mfx.NumRefFrame);
 
         const bool showAsBframes = gopRefDistAsBframe(outFrameInfo->videoPrm.mfx.CodecId);
+        const TCHAR *HEVCBframeGPB = (outFrameInfo->videoPrm.mfx.CodecId == MFX_CODEC_HEVC && outFrameInfo->cop3.GPB) ? _T("(GPB)") : _T("");
         PRINT_INFO(_T("%s     "), (showAsBframes) ? _T("Bframes   ") : _T("GopRefDist"));
         const bool showBpyramid = check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8) && outFrameInfo->videoPrm.mfx.GopRefDist >= 2;
         if (showAsBframes) {
             switch (outFrameInfo->videoPrm.mfx.GopRefDist) {
             case 0:  PRINT_INFO(_T("%s"), _T("Auto\n")); break;
             case 1:  PRINT_INFO(_T("%s"), _T("none\n")); break;
-            default: PRINT_INFO(_T("%d frame%s%s%s\n"),
+            default: PRINT_INFO(_T("%d frame%s%s%s%s\n"),
                 outFrameInfo->videoPrm.mfx.GopRefDist - 1, (outFrameInfo->videoPrm.mfx.GopRefDist > 2) ? _T("s") : _T(""),
+                HEVCBframeGPB,
                 showBpyramid ? _T(", B-pyramid: ") : _T(""),
                 showBpyramid ? ((MFX_B_REF_PYRAMID == outFrameInfo->cop2.BRefType) ? _T("on") : _T("off")) : _T("")); break;
             }
