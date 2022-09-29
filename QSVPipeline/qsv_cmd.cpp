@@ -368,7 +368,7 @@ tstring encoder_help() {
         _T("                                 - all     enable sao for luma & chroma\n")
         _T("   --ctu <int>                  [hevc] max ctu size\n")
         _T("                                 - auto(default), 16, 32, 64\n")
-        _T("   --hevc-gpb                   [hevc] enable GPB\n")
+        _T("   --(no-)hevc-gpb              [hevc] enable(disable) GPB\n")
         //_T("   --sharpness <int>            [vp8] set sharpness level for vp8 enc\n")
         _T("\n"),
         QSV_DEFAULT_ASYNC_DEPTH,
