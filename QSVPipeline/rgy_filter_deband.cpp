@@ -286,9 +286,8 @@ RGY_ERR RGYFilterDeband::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
                 }
                 if (line.find("clrngSetErrorString") != std::string::npos) { // clrngSetErrorStringマクロのコンパイルが通らないので削除
                     if (line.find("return ") != std::string::npos) { // return clrngSetErrorString(...) となっている場合
-                        const bool endWithBackSlash = line.back() == '\\'; //マクロとかで "\"で継続行となっている場合
                         line = line.substr(0, line.find("return ") + strlen("return ")) + " -1;";
-                        if (endWithBackSlash) line += " \\"; // もともと継続行だった場合は継続行とする
+                        line += " \\"; // もともとマクロ等で継続行だった場合があるので継続行とする
                     } else {
                         continue; // returnのつかない場合は単に削除
                     }
