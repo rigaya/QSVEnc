@@ -994,7 +994,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
             if (m_hdr10plus || m_hdr10plusMetadataCopy || m_dovirpu || pInParams->common.doviProfile != 0 || (m_hdrsei && m_hdrsei->gen_nal().size() > 0)) {
                 m_CodingOption2.RepeatPPS = MFX_CODINGOPTION_ON;
             } else if (pInParams->repeatHeaders.has_value()) {
-                m_CodingOption2.RepeatPPS = (pInParams->repeatHeaders.value()) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF;
+                m_CodingOption2.RepeatPPS = (mfxU16)((pInParams->repeatHeaders.value()) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
             } else {
                 m_CodingOption2.RepeatPPS = MFX_CODINGOPTION_UNKNOWN;
             }
@@ -1065,7 +1065,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_18)) {
             if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC) {
                 if (pInParams->hevc_gpb.has_value()) {
-                    m_CodingOption3.GPB = pInParams->hevc_gpb.value() ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF;
+                    m_CodingOption3.GPB = (mfxU16)(pInParams->hevc_gpb.value() ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
                 } else {
                     m_CodingOption3.GPB = MFX_CODINGOPTION_UNKNOWN;
                 }
