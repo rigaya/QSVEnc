@@ -1689,6 +1689,7 @@ RGY_ERR RGYCLFrameMap::map(cl_map_flags map_flags, RGYOpenCLQueue &queue, const 
         m_eventMap.resize(RGY_CSP_PLANES[m_dev.csp]);
     }
     for (int i = 0; i < RGY_CSP_PLANES[m_dev.csp]; i++) {
+        const auto plane = getPlane(&m_dev, (RGY_PLANE)i);
         cl_int err = 0;
         cl_bool block = CL_FALSE;
         switch (block_map) {
@@ -1697,8 +1698,8 @@ RGY_ERR RGYCLFrameMap::map(cl_map_flags map_flags, RGYOpenCLQueue &queue, const 
             case RGY_CL_MAP_BLOCK_NONE:
             default: break;
         }
-        size_t size = (size_t)m_dev.pitch[i] * m_dev.height;
-        m_host.ptr[i] = (uint8_t *)clEnqueueMapBuffer(m_queue, (cl_mem)m_dev.ptr[i], block, map_flags, 0, size, (int)v_wait_list.size(), wait_list, m_eventMap[i].reset_ptr(), &err);
+        size_t size = (size_t)plane.pitch[0] * plane.height;
+        m_host.ptr[i] = (uint8_t *)clEnqueueMapBuffer(m_queue, (cl_mem)plane.ptr[0], block, map_flags, 0, size, (int)v_wait_list.size(), wait_list, m_eventMap[i].reset_ptr(), &err);
         if (err != 0) {
             return err_cl_to_rgy(err);
         }
