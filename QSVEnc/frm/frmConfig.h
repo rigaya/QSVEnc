@@ -1026,7 +1026,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBExtBRC;
 private: System::Windows::Forms::CheckBox^  fcgCBMBBRC;
 private: System::Windows::Forms::ComboBox^  fcgCXTrellis;
 private: System::Windows::Forms::Label^  fcgLBTrellis;
-private: System::Windows::Forms::CheckBox^  fcgCBIntraRefresh;
+
 private: System::Windows::Forms::CheckBox^  fcgCBDeblock;
 private: System::Windows::Forms::Panel^  fcgPNExtSettings;
 private: System::Windows::Forms::Label^  fcgLBInterPred;
@@ -1220,6 +1220,8 @@ private: System::Windows::Forms::ComboBox^  fcgCXHyperMode;
 private: System::Windows::Forms::CheckBox^  fcgCBMuxMinimize;
 private: System::Windows::Forms::ToolStripDropDownButton^  fcgTSLanguage;
 private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
+private: System::Windows::Forms::Label^  fcgLBIntraRefreshCycle;
+private: System::Windows::Forms::NumericUpDown^  fcgNUIntraRefreshCycle;
 
 
 
@@ -1706,7 +1708,6 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
             this->fcgCBMBBRC = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCXTrellis = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBTrellis = (gcnew System::Windows::Forms::Label());
-            this->fcgCBIntraRefresh = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCBDeblock = (gcnew System::Windows::Forms::CheckBox());
             this->fcgPNExtSettings = (gcnew System::Windows::Forms::Panel());
             this->fcgLBInterPred = (gcnew System::Windows::Forms::Label());
@@ -1788,6 +1789,8 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
             this->fcgLBAudioPriority = (gcnew System::Windows::Forms::Label());
             this->fcgTXCmd = (gcnew System::Windows::Forms::TextBox());
             this->fcgPNHideToolStripBorder = (gcnew System::Windows::Forms::Panel());
+            this->fcgNUIntraRefreshCycle = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgLBIntraRefreshCycle = (gcnew System::Windows::Forms::Label());
             this->fcgtoolStripSettings->SuspendLayout();
             this->fcgtabControlMux->SuspendLayout();
             this->fcgtabPageMP4->SuspendLayout();
@@ -1908,6 +1911,7 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
             this->fcgPNAudioExt->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrate))->BeginInit();
             this->fcgtabPageAudioOther->SuspendLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUIntraRefreshCycle))->BeginInit();
             this->SuspendLayout();
             // 
             // fcgtoolStripSettings
@@ -5571,6 +5575,8 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
             // 
             // fcggroupBoxDetail
             // 
+            this->fcggroupBoxDetail->Controls->Add(this->fcgLBIntraRefreshCycle);
+            this->fcggroupBoxDetail->Controls->Add(this->fcgNUIntraRefreshCycle);
             this->fcggroupBoxDetail->Controls->Add(this->fcgCBDirectBiasAdjust);
             this->fcggroupBoxDetail->Controls->Add(this->fcgCXMVCostScaling);
             this->fcggroupBoxDetail->Controls->Add(this->fcgLBMVCostScaling);
@@ -5578,7 +5584,6 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
             this->fcggroupBoxDetail->Controls->Add(this->fcgCBMBBRC);
             this->fcggroupBoxDetail->Controls->Add(this->fcgCXTrellis);
             this->fcggroupBoxDetail->Controls->Add(this->fcgLBTrellis);
-            this->fcggroupBoxDetail->Controls->Add(this->fcgCBIntraRefresh);
             this->fcggroupBoxDetail->Controls->Add(this->fcgCBDeblock);
             this->fcggroupBoxDetail->Location = System::Drawing::Point(40, 273);
             this->fcggroupBoxDetail->Name = L"fcggroupBoxDetail";
@@ -5658,17 +5663,6 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
             this->fcgLBTrellis->Size = System::Drawing::Size(86, 14);
             this->fcgLBTrellis->TabIndex = 6;
             this->fcgLBTrellis->Text = L"歪みレート最適化";
-            // 
-            // fcgCBIntraRefresh
-            // 
-            this->fcgCBIntraRefresh->AutoSize = true;
-            this->fcgCBIntraRefresh->Location = System::Drawing::Point(129, 20);
-            this->fcgCBIntraRefresh->Name = L"fcgCBIntraRefresh";
-            this->fcgCBIntraRefresh->Size = System::Drawing::Size(113, 18);
-            this->fcgCBIntraRefresh->TabIndex = 2;
-            this->fcgCBIntraRefresh->Tag = L"reCmd";
-            this->fcgCBIntraRefresh->Text = L"周期的イントラ更新";
-            this->fcgCBIntraRefresh->UseVisualStyleBackColor = true;
             // 
             // fcgCBDeblock
             // 
@@ -6557,6 +6551,24 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
             this->fcgPNHideToolStripBorder->TabIndex = 90;
             this->fcgPNHideToolStripBorder->Visible = false;
             // 
+            // fcgNUIntraRefreshCycle
+            // 
+            this->fcgNUIntraRefreshCycle->Location = System::Drawing::Point(129, 156);
+            this->fcgNUIntraRefreshCycle->Name = L"fcgNUIntraRefreshCycle";
+            this->fcgNUIntraRefreshCycle->Size = System::Drawing::Size(70, 21);
+            this->fcgNUIntraRefreshCycle->TabIndex = 140;
+            this->fcgNUIntraRefreshCycle->Tag = L"reCmd";
+            this->fcgNUIntraRefreshCycle->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            // 
+            // fcgLBIntraRefreshCycle
+            // 
+            this->fcgLBIntraRefreshCycle->AutoSize = true;
+            this->fcgLBIntraRefreshCycle->Location = System::Drawing::Point(13, 158);
+            this->fcgLBIntraRefreshCycle->Name = L"fcgLBIntraRefreshCycle";
+            this->fcgLBIntraRefreshCycle->Size = System::Drawing::Size(83, 14);
+            this->fcgLBIntraRefreshCycle->TabIndex = 141;
+            this->fcgLBIntraRefreshCycle->Text = L"イントラ更新周期";
+            // 
             // frmConfig
             // 
             this->AutoScaleDimensions = System::Drawing::SizeF(96, 96);
@@ -6743,6 +6755,7 @@ private: System::Windows::Forms::ToolStripSeparator^  toolStripSeparator1;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUAudioBitrate))->EndInit();
             this->fcgtabPageAudioOther->ResumeLayout(false);
             this->fcgtabPageAudioOther->PerformLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUIntraRefreshCycle))->EndInit();
             this->ResumeLayout(false);
             this->PerformLayout();
 

@@ -1087,11 +1087,12 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU64 available_features) {
     //API v1.9 features
     fcgNUQPMin->Enabled        = 0 != (available_features & ENC_FEATURE_QP_MINMAX);
     fcgNUQPMax->Enabled        = 0 != (available_features & ENC_FEATURE_QP_MINMAX);
-    fcgCBIntraRefresh->Enabled = 0 != (available_features & ENC_FEATURE_INTRA_REFRESH);
+    fcgLBIntraRefreshCycle->Enabled = 0 != (available_features & ENC_FEATURE_INTRA_REFRESH);
+    fcgNUIntraRefreshCycle->Enabled = 0 != (available_features & ENC_FEATURE_INTRA_REFRESH);
     fcgCBDeblock->Enabled      = 0 != (available_features & ENC_FEATURE_NO_DEBLOCK);
     if (!fcgNUQPMin->Enabled)        fcgNUQPMin->Value = 0;
     if (!fcgNUQPMax->Enabled)        fcgNUQPMax->Value = 0;
-    if (!fcgCBIntraRefresh->Enabled) fcgCBIntraRefresh->Checked = false;
+    if (!fcgNUIntraRefreshCycle->Enabled) fcgNUIntraRefreshCycle->Value = 0;
     if (!fcgCBDeblock->Enabled)      fcgCBDeblock->Checked = true;
 
     //API v1.11 features
@@ -1535,7 +1536,7 @@ System::Void frmConfig::LoadLangText() {
     LOAD_CLI_TEXT(fcgCBExtBRC);
     LOAD_CLI_TEXT(fcgCBMBBRC);
     LOAD_CLI_TEXT(fcgLBTrellis);
-    LOAD_CLI_TEXT(fcgCBIntraRefresh);
+    LOAD_CLI_TEXT(fcgLBIntraRefreshCycle);
     LOAD_CLI_TEXT(fcgCBDeblock);
     LOAD_CLI_TEXT(fcgLBInterPred);
     LOAD_CLI_TEXT(fcgLBIntraPred);
@@ -1764,7 +1765,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetCXIndex(fcgCXMVCostScaling, (prm_qsv.bGlobalMotionAdjust) ? get_cx_index(list_mv_cost_scaling, prm_qsv.nMVCostScaling) : 0);
 
     fcgCBDeblock->Checked        = prm_qsv.bNoDeblock == 0;
-    fcgCBIntraRefresh->Checked   = prm_qsv.bIntraRefresh != 0;
+    SetNUValue(fcgNUIntraRefreshCycle, prm_qsv.intraRefreshCycle);
 
     SetCXIndex(fcgCXTransfer,    get_cx_index(list_transfer,    prm_qsv.common.out_vui.transfer));
     SetCXIndex(fcgCXColorMatrix, get_cx_index(list_colormatrix, prm_qsv.common.out_vui.matrix));
@@ -2002,7 +2003,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     prm_qsv.nBluray                = fcgCBBlurayCompat->Checked;
 
     prm_qsv.bNoDeblock             = !fcgCBDeblock->Checked;
-    prm_qsv.bIntraRefresh          = fcgCBIntraRefresh->Checked;
+    prm_qsv.intraRefreshCycle      = (int)fcgNUIntraRefreshCycle->Value;
 
     prm_qsv.bCAVLC                 = !fcgCBCABAC->Checked;
     prm_qsv.bRDO                   = fcgCBRDO->Checked;
@@ -2427,7 +2428,7 @@ System::Void frmConfig::SetHelpToolTips() {
     SET_TOOL_TIP_EX(fcgCBOutputAud);
     SET_TOOL_TIP_EX(fcgCBOutputPicStruct);
     SET_TOOL_TIP_EX(fcgCBDeblock);
-    SET_TOOL_TIP_EX(fcgCBIntraRefresh);
+    SET_TOOL_TIP_EX(fcgNUIntraRefreshCycle);
     SET_TOOL_TIP_EX(fcgCBDirectBiasAdjust);
     SET_TOOL_TIP_EX(fcgCXMVCostScaling);
     SET_TOOL_TIP_EX(fcgCXTrellis);
