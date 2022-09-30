@@ -1,11 +1,11 @@
-QSVEncC (x64) 7.15 (r2840) by rigaya, Sep  5 2022 18:45:59 (VC 1932/Win)
+QSVEncC (x64) 7.21 (r2900) by rigaya, Sep 30 2022 18:52:35 (VC 1933/Win)
  Intel Media SDK API v2.07
  reader: raw, avi, avs, vpy, avsw, avhw [H.264/AVC, H.265/HEVC, MPEG2, VP8, VP9, AV1]
 Environment Info
 OS : Windows 11 x64 (22000) [UTF-8]
 CPU: 12th Gen Intel Core i9-12900K [4.92GHz] (8P+8E,16C/24T)
-RAM: Used 9028 MB, Total 32555 MB
-GPU: Intel Arc A380  Graphics (128EU) 2450MHz (31.0.101.3276)
+RAM: Used 11850 MB, Total 32555 MB
+GPU: Intel Arc A380  Graphics (128EU) 2450MHz (31.0.101.3430)
 
 Media SDK Version: Hardware API v2.07
 
@@ -18,7 +18,7 @@ Hyper Mode    o     o     x     o     o     x     x     o     x     x
 Interlace     x     x     x     x     x     x     x     x     x     x    
 VUI info      o     o     x     o     o     x     x     o     x     o    
 Trellis       o     o     x     o     o     x     x     o     x     o    
-B Frame       o     o     x     o     o     x     x     o     x     x    
+BFrame/GopRef o     o     x     o     o     x     x     o     x     x    
 Adaptive_I    x     x     x     x     x     x     x     x     x     x    
 Adaptive_B    x     x     x     x     x     x     x     x     x     x    
 WeightP       o     o     x     o     o     x     x     o     x     o    
@@ -55,7 +55,7 @@ Hyper Mode    o     o     x     o     o     x     x     o     x     x
 Interlace     x     x     x     x     o     x     x     x     x     x    
 VUI info      o     o     x     o     o     x     x     o     x     x    
 Trellis       x     x     x     x     x     x     x     x     x     x    
-B Frame       o     o     x     o     o     x     x     o     x     x    
+BFrame/GopRef o     o     x     o     o     x     x     o     x     x    
 Adaptive_I    o     o     x     o     o     x     x     o     x     x    
 Adaptive_B    o     o     x     o     o     x     x     o     x     x    
 WeightP       o     o     x     o     o     x     x     o     x     x    
@@ -88,11 +88,11 @@ Codec: VP9 FF
              CBR   VBR   AVBR  QVBR  CQP   LA    LAHRD ICQ   LAICQ VCM  
 RC mode       o     o     x     x     o     x     x     o     x     x    
 10bit depth   o     o     x     x     o     x     x     o     x     x    
-Hyper Mode    o     o     x     x     o     x     x     o     x     x    
+Hyper Mode    x     x     x     x     x     x     x     x     x     x    
 Interlace     x     x     x     x     x     x     x     x     x     x    
-VUI info      o     o     x     x     o     x     x     o     x     x    
+VUI info      x     x     x     x     x     x     x     x     x     x    
 Trellis       x     x     x     x     x     x     x     x     x     x    
-B Frame       x     x     x     x     x     x     x     x     x     x    
+BFrame/GopRef x     x     x     x     x     x     x     x     x     x    
 Adaptive_I    x     x     x     x     x     x     x     x     x     x    
 Adaptive_B    x     x     x     x     x     x     x     x     x     x    
 WeightP       x     x     x     x     x     x     x     x     x     x    
@@ -129,14 +129,14 @@ Hyper Mode    o     o     x     x     o     x     x     o     x     x
 Interlace     x     x     x     x     x     x     x     x     x     x    
 VUI info      o     o     x     x     o     x     x     o     x     x    
 Trellis       x     x     x     x     x     x     x     x     x     x    
-B Frame       o     o     x     x     o     x     x     o     x     x    
+BFrame/GopRef o     o     x     x     o     x     x     o     x     x    
 Adaptive_I    o     o     x     x     o     x     x     o     x     x    
-Adaptive_B    x     x     x     x     x     x     x     x     x     x    
+Adaptive_B    o     o     x     x     o     x     x     o     x     x    
 WeightP       x     x     x     x     x     x     x     x     x     x    
 WeightB       x     x     x     x     x     x     x     x     x     x    
 FadeDetect    x     x     x     x     x     x     x     x     x     x    
-B_Pyramid     x     x     x     x     x     x     x     x     x     x    
- +ManyBframes x     x     x     x     x     x     x     x     x     x    
+B_Pyramid     o     o     x     x     o     x     x     o     x     x    
+ +ManyBframes o     o     x     x     o     x     x     o     x     x    
 PyramQPOffset x     x     x     x     x     x     x     x     x     x    
 MBBRC         o     o     x     x     x     x     x     o     x     x    
 ExtBRC        o     o     x     x     x     x     x     o     x     x    

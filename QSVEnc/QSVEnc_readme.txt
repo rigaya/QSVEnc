@@ -311,6 +311,22 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2022.09.21 (7.21)
+[QSVEncC]
+- --master-display/--maxcll/--dhdr10plusをAV1エンコードに対応。
+- 新たなオプションを追加。
+  - --repeat-headers
+  - --intra-refresh-cycle
+  - --hevc-gpb
+- --atcseiの情報をログに追加。
+- AV1のCQP/ICQの上限を255に変更。
+- AV1のGopRefDistのデフォルトを8に変更。
+- --vpp-debandでOpenCLコンパイルエラーが生じる問題を修正。
+- Arc GPUでOpenCLフィルタとavhw以外の読み込みを組み合わせたときのエラーを修正。
+
+[QSVEnc.auo]
+- 設定画面の挙動不審を修正。
+
 2022.09.21 (7.20)
 [QSVEncC]
 - AV1用に--gop-ref-distパラメータを追加。従来は "1" 固定であったが、これを "4" などに大きくすることで、圧縮率を大きく向上させる。
