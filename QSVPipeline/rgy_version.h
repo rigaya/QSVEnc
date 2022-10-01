@@ -86,7 +86,6 @@ const char *get_encoder_version();
 #define ENABLE_DTL 1
 
 #define ENABLE_AVCODEC_ITERATE 1
-#define ENABLE_DHDR10_INFO 1
 #define ENABLE_DOVI_METADATA_OPTIONS 1
 #define ENABLE_KEYFRAME_INSERT 0
 #define ENABLE_AUTO_PICSTRUCT 0
