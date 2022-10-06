@@ -836,6 +836,7 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXCodecLevel,      list_avc_level);
     setComboBox(fcgCXCodecProfile,    list_avc_profile);
     setComboBox(fcgCXOutputCsp,       list_output_csp);
+    setComboBox(fcgCXBitDepth,        bit_depth_desc);
     setComboBox(fcgCXQualityPreset,   list_quality);
     setComboBox(fcgCXInterlaced,      list_interlaced_mfx_gui);
     setComboBox(fcgCXAspectRatio,     aspect_desc);
@@ -1116,6 +1117,9 @@ System::Void frmConfig::fcgCheckLibVersion(mfxU64 available_features) {
     fcgCBWeightB->Enabled          = 0 != (available_features & ENC_FEATURE_WEIGHT_B);
     if (!fcgCBWeightP->Enabled) fcgCBWeightP->Checked = false;
     if (!fcgCBWeightB->Enabled) fcgCBWeightB->Checked = false;
+
+    fcgCXBitDepth->Enabled         = 0 != (available_features & ENC_FEATURE_10BIT_DEPTH);
+    if (!fcgCXBitDepth->Enabled)   fcgCXBitDepth->SelectedIndex = 0;
 
     fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgChangeEnabled);
     fcgCXEncMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::CheckOtherChanges);
@@ -1500,6 +1504,7 @@ System::Void frmConfig::LoadLangText() {
     LOAD_CLI_TEXT(fcgLBEncCodec);
     LOAD_CLI_TEXT(fcgLBSlices);
     LOAD_CLI_TEXT(fcgLBSlices2);
+    LOAD_CLI_TEXT(fcgLBBitDepth);
     LOAD_CLI_TEXT(fcgLBHyperMode);
     LOAD_CLI_TEXT(fcgLBDevice);
     LOAD_CLI_TEXT(fcgLBOutputCsp);
@@ -1746,6 +1751,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetNUValue(fcgNUAspectRatioY, abs(prm_qsv.nPAR[1]));
     fcgCBOpenGOP->Checked        = prm_qsv.bopenGOP;
     SetCXIndex(fcgCXOutputCsp,    get_cx_index(list_output_csp, prm_qsv.outputCsp));
+    SetCXIndex(fcgCXBitDepth,     get_bit_depth_idx(prm_qsv.outputDepth));
 
     SetNUValue(fcgNUSlices,       prm_qsv.nSlices);
 
@@ -1960,6 +1966,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     prm_qsv.CodecProfile           = (int)get_profile_list(prm_qsv.CodecId)[fcgCXCodecProfile->SelectedIndex].value;
     prm_qsv.CodecLevel             = (int)get_level_list(prm_qsv.CodecId)[fcgCXCodecLevel->SelectedIndex].value;
     prm_qsv.outputCsp              = (RGY_CHROMAFMT)list_output_csp[fcgCXOutputCsp->SelectedIndex].value;
+    prm_qsv.outputDepth            = get_bit_depth(fcgCXBitDepth->SelectedIndex);
     prm_qsv.nBitRate               = (int)fcgNUBitrate->Value;
     prm_qsv.nMaxBitrate            = (int)fcgNUMaxkbps->Value;
     prm_qsv.nLookaheadDepth        = (int)fcgNULookaheadDepth->Value;

@@ -441,6 +441,7 @@ AuofcgLBQualityPreset=质量
 AuofcgLBEncCodec=导出格式
 AuofcgLBSlices=分片数
 AuofcgLBSlices2=※"0"为自动
+AuofcgLBBitDepth=导出比特位深
 AuofcgLBHyperMode=超线程模式
 AuofcgLBDevice=设备
 AuofcgLBOutputCsp=色度格式

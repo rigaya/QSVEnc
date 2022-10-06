@@ -441,6 +441,7 @@ AuofcgLBQualityPreset=品質
 AuofcgLBEncCodec=出力形式
 AuofcgLBSlices=スライス数
 AuofcgLBSlices2=※"0"で自動
+AuofcgLBBitDepth=出力色深度
 AuofcgLBHyperMode=HyperMode
 AuofcgLBDevice=デバイス
 AuofcgLBOutputCsp=色フォーマット

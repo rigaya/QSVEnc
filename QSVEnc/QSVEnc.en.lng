@@ -443,6 +443,7 @@ AuofcgLBQualityPreset=Quality
 AuofcgLBEncCodec=Codec
 AuofcgLBSlices=Slices
 AuofcgLBSlices2=* "0" : auto
+AuofcgLBBitDepth=Bitdepth
 AuofcgLBHyperMode=HyperMode
 AuofcgLBDevice=Device
 AuofcgLBOutputCsp=Output CSP

@@ -574,6 +574,7 @@ enum AuoMes {
         AuofcgLBEncCodec,
         AuofcgLBSlices,
         AuofcgLBSlices2,
+        AuofcgLBBitDepth,
         AuofcgLBHyperMode,
         AuofcgLBDevice,
         AuofcgLBOutputCsp,

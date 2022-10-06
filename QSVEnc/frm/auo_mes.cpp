@@ -493,6 +493,7 @@ static const char * AUO_MES_ID_NAME_STR[] = {
 "AuofcgLBEncCodec",
 "AuofcgLBSlices",
 "AuofcgLBSlices2",
+"AuofcgLBBitDepth",
 "AuofcgLBHyperMode",
 "AuofcgLBDevice",
 "AuofcgLBOutputCsp",
