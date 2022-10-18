@@ -4549,6 +4549,10 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         return 0;
     }
 #endif
+    if (IS_OPTION("disable-av1-write-parser")) {
+        common->debugDirectAV1Out = true;
+        return 0;
+    }
     return -10;
 }
 
@@ -5995,6 +5999,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
             cmd << _T(" --vmaf ") << tmp.str().substr(1);
         }
     }
+    OPT_BOOL(_T("--disable-av1-write-parser"), _T("--no-disable-av1-write-parser"), debugDirectAV1Out);
     return cmd.str();
 }
 
