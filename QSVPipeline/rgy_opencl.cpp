@@ -860,7 +860,7 @@ RGYOpenCLPlatform::RGYOpenCLPlatform(cl_platform_id platform, shared_ptr<RGYLog>
     }
 
 
-RGY_ERR RGYOpenCLPlatform::createDeviceListD3D11(cl_device_type device_type, void *d3d11dev) {
+RGY_ERR RGYOpenCLPlatform::createDeviceListD3D11(cl_device_type device_type, void *d3d11dev, const bool tryMode) {
 #if !ENABLE_RGY_OPENCL_D3D11
     return RGY_ERR_UNSUPPORTED;
 #else
@@ -886,7 +886,7 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListD3D11(cl_device_type device_type, voi
             if ((ret = err_cl_to_rgy(clGetDeviceIDsFromD3D11KHR(m_platform, CL_D3D11_DEVICE_KHR, d3d11dev, select_dev_type, 0, NULL, &device_count))) != RGY_ERR_NONE) {
                 select_dev_type = CL_ALL_DEVICES_FOR_D3D11_KHR;
                 if ((ret = err_cl_to_rgy(clGetDeviceIDsFromD3D11KHR(m_platform, CL_D3D11_DEVICE_KHR, d3d11dev, select_dev_type, 0, NULL, &device_count))) != RGY_ERR_NONE) {
-                    CL_LOG(RGY_LOG_ERROR, _T("Error (clGetDeviceIDsFromD3D11KHR): %s\n"), get_err_mes(ret));
+                    CL_LOG((tryMode) ? RGY_LOG_DEBUG : RGY_LOG_ERROR, _T("Error (clGetDeviceIDsFromD3D11KHR): %s\n"), get_err_mes(ret));
                     return ret;
                 }
             }
@@ -918,7 +918,7 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListD3D11(cl_device_type device_type, voi
 #endif
 }
 
-RGY_ERR RGYOpenCLPlatform::createDeviceListD3D9(cl_device_type device_type, void *d3d9dev) {
+RGY_ERR RGYOpenCLPlatform::createDeviceListD3D9(cl_device_type device_type, void *d3d9dev, const bool tryMode) {
 #if !ENABLE_RGY_OPENCL_D3D9
     return RGY_ERR_UNSUPPORTED;
 #else
@@ -945,7 +945,10 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListD3D9(cl_device_type device_type, void
                 ret = err_cl_to_rgy(clGetDeviceIDsFromDX9MediaAdapterKHR(m_platform, 1, &type, &d3d9dev, CL_PREFERRED_DEVICES_FOR_DX9_MEDIA_ADAPTER_KHR, device_count, devs.data(), &device_count));
                 if (ret != RGY_ERR_NONE || device_count == 0) {
                     device_count = 1;
-                    ret = err_cl_to_rgy(clGetDeviceIDsFromDX9MediaAdapterKHR(m_platform, 1, &type, &d3d9dev, CL_ALL_DEVICES_FOR_DX9_MEDIA_ADAPTER_KHR, device_count, devs.data(), &device_count));
+                    if ((ret = err_cl_to_rgy(clGetDeviceIDsFromDX9MediaAdapterKHR(m_platform, 1, &type, &d3d9dev, CL_ALL_DEVICES_FOR_DX9_MEDIA_ADAPTER_KHR, device_count, devs.data(), &device_count))) != RGY_ERR_NONE) {
+                        CL_LOG((tryMode) ? RGY_LOG_DEBUG : RGY_LOG_ERROR, _T("Error (clGetDeviceIDsFromD3D11KHR): %s\n"), get_err_mes(ret));
+                        return ret;
+                    }
                 }
             }
             catch (...) {
@@ -999,7 +1002,7 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListD3D9(cl_device_type device_type, void
 #endif
 }
 
-RGY_ERR RGYOpenCLPlatform::createDeviceListVA(cl_device_type device_type, void *vadev) {
+RGY_ERR RGYOpenCLPlatform::createDeviceListVA(cl_device_type device_type, void *vadev, const bool tryMode) {
 #if !ENABLE_RGY_OPENCL_VA
     UNREFERENCED_PARAMETER(device_type);
     UNREFERENCED_PARAMETER(vadev);
@@ -1025,7 +1028,7 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListVA(cl_device_type device_type, void *
             if ((ret = err_cl_to_rgy(clGetDeviceIDsFromVA_APIMediaAdapterINTEL(m_platform, CL_VA_API_DISPLAY_INTEL, vadev, select_dev_type, 0, NULL, &device_count))) != RGY_ERR_NONE) {
                 select_dev_type = CL_ALL_DEVICES_FOR_VA_API_INTEL;
                 if ((ret = err_cl_to_rgy(clGetDeviceIDsFromVA_APIMediaAdapterINTEL(m_platform, CL_VA_API_DISPLAY_INTEL, vadev, select_dev_type, 0, NULL, &device_count))) != RGY_ERR_NONE) {
-                    CL_LOG(RGY_LOG_ERROR, _T("Error (clGetDeviceIDsFromVA_APIMediaAdapterINTEL): %s\n"), get_err_mes(ret));
+                    CL_LOG((tryMode) ? RGY_LOG_DEBUG : RGY_LOG_ERROR, _T("Error (clGetDeviceIDsFromVA_APIMediaAdapterINTEL): %s\n"), get_err_mes(ret));
                     return ret;
                 }
             }

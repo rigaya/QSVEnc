@@ -386,8 +386,8 @@ RGY_ERR CQSVPipeline::InitMfxDecParams() {
 
         //デコーダの作成
         mfxIMPL impl;
-        m_mfxSession.QueryIMPL(&impl);
-        m_mfxDEC = std::make_unique<QSVMfxDec>(m_hwdev.get(), m_pMFXAllocator.get(), m_mfxVer, impl, m_memType, m_deviceNum, m_pQSVLog);
+        m_device->mfxSession().QueryIMPL(&impl);
+        m_mfxDEC = std::make_unique<QSVMfxDec>(m_device->hwdev(), m_device->allocator(), m_mfxVer, impl, m_device->memType(), m_device->deviceNum(), m_pQSVLog);
 
         sts = m_mfxDEC->InitMFXSession();
         RGY_ERR(sts, _T("InitMfxDecParams: Failed init session for hw decoder."));
@@ -405,7 +405,7 @@ RGY_ERR CQSVPipeline::InitMfxDecParams() {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
+RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<std::unique_ptr<QSVDevice>>& devList) {
     if (pInParams->CodecId == MFX_CODEC_RAW) {
         PrintMes(RGY_LOG_DEBUG, _T("Raw codec is selected, disable encode.\n"));
         return RGY_ERR_NONE;
@@ -426,9 +426,9 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
     const TCHAR *PG_FF_STR[] = { _T("PG"), _T("FF") };
 
     //エンコードモードのチェック
-    auto availableFeaures = CheckEncodeFeature(m_mfxSession, pInParams->nEncMode, codec_enc_to_rgy(pInParams->CodecId), pInParams->bUseFixedFunc);
+    auto availableFeaures = m_device->getEncodeFeature(pInParams->nEncMode, codec_enc_to_rgy(pInParams->CodecId), pInParams->bUseFixedFunc);
     if (availableFeaures == 0) {
-        availableFeaures = CheckEncodeFeature(m_mfxSession, pInParams->nEncMode, codec_enc_to_rgy(pInParams->CodecId), !pInParams->bUseFixedFunc);
+        availableFeaures = m_device->getEncodeFeature(pInParams->nEncMode, codec_enc_to_rgy(pInParams->CodecId), !pInParams->bUseFixedFunc);
         if (availableFeaures) {
             PrintMes(RGY_LOG_WARN, _T("%s is not supported on this platform, switched to %s mode.\n"), PG_FF_STR[!!pInParams->bUseFixedFunc], PG_FF_STR[!pInParams->bUseFixedFunc]);
             pInParams->bUseFixedFunc = !pInParams->bUseFixedFunc;
@@ -443,8 +443,8 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         if (   pInParams->nEncMode == MFX_RATECONTROL_CQP
             || pInParams->nEncMode == MFX_RATECONTROL_VBR
             || pInParams->nEncMode == MFX_RATECONTROL_CBR
-            || !(CheckEncodeFeature(m_mfxSession, MFX_RATECONTROL_CQP, codec_enc_to_rgy(pInParams->CodecId), pInParams->bUseFixedFunc) & ENC_FEATURE_CURRENT_RC)) {
-            if (!(CheckEncodeFeature(m_mfxSession, MFX_RATECONTROL_CQP, codec_enc_to_rgy(pInParams->CodecId), !pInParams->bUseFixedFunc) & ENC_FEATURE_CURRENT_RC)) {
+            || !(m_device->getEncodeFeature(MFX_RATECONTROL_CQP, codec_enc_to_rgy(pInParams->CodecId), pInParams->bUseFixedFunc) & ENC_FEATURE_CURRENT_RC)) {
+            if (!(m_device->getEncodeFeature(MFX_RATECONTROL_CQP, codec_enc_to_rgy(pInParams->CodecId), !pInParams->bUseFixedFunc) & ENC_FEATURE_CURRENT_RC)) {
                 PrintMes(RGY_LOG_ERROR, _T("%s encoding is not supported on current platform.\n"), CodecIdToStr(pInParams->CodecId));
                 return RGY_ERR_INVALID_VIDEO_PARAM;
             }
@@ -512,7 +512,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         //check_rc_listに設定したfallbackの候補リストをチェックする
         bool bFallbackSuccess = false;
         for (uint32_t i = 0; i < (uint32_t)check_rc_list.size(); i++) {
-            auto availRCFeatures = CheckEncodeFeature(m_mfxSession, (uint16_t)check_rc_list[i], codec_enc_to_rgy(pInParams->CodecId), pInParams->bUseFixedFunc);
+            auto availRCFeatures = m_device->getEncodeFeature((uint16_t)check_rc_list[i], codec_enc_to_rgy(pInParams->CodecId), pInParams->bUseFixedFunc);
             if (availRCFeatures & ENC_FEATURE_CURRENT_RC) {
                 pInParams->nEncMode = (uint16_t)check_rc_list[i];
                 if (pInParams->nEncMode == MFX_RATECONTROL_LA_ICQ) {
@@ -545,7 +545,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
                 && check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_5)) {
                 // HEVCのhyper modeのチェックは使用できる場合でもなぜか成功しない
                 // 原因不明だが、まずはH.264の結果を参照するようにする
-                const auto availRCFeaturesH264 = CheckEncodeFeature(m_mfxSession, pInParams->nEncMode, RGY_CODEC_H264, pInParams->bUseFixedFunc);
+                const auto availRCFeaturesH264 = m_device->getEncodeFeature(pInParams->nEncMode, RGY_CODEC_H264, pInParams->bUseFixedFunc);
                 if (availRCFeaturesH264 & ENC_FEATURE_HYPER_MODE) {
                     availableFeaures |= ENC_FEATURE_HYPER_MODE;
                 }
@@ -561,22 +561,18 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
     if (pInParams->hyperMode == MFX_HYPERMODE_ON) {
         //HyperModeの対象となるGPUのfeature取得を行い、andをとる
         uint64_t dev2Feature = 0;
-        QSVDeviceNum dev2 = QSVDeviceNum::AUTO; //HyperModeの対象となるGPU
-        const QSVDeviceNum dev1 = (pInParams->device == QSVDeviceNum::AUTO) ? QSVDeviceNum::NUM1 : pInParams->device; // 自分自身
-        const auto target_rc_list = { list_rate_control_ry[get_cx_index(list_rate_control_ry, pInParams->nEncMode)] };
-        for (int idev = 1; idev <= (int)QSVDeviceNum::MAX; idev++) {
-            dev2 = (QSVDeviceNum)idev;
-            if (dev2 != dev1) { // 自分自身ではないGPUをチェックする
-                auto log = std::make_shared<RGYLog>(nullptr, RGY_LOG_QUIET);
-                const auto dev2FeatureList = MakeFeatureList(dev2, target_rc_list, codec_enc_to_rgy(pInParams->CodecId), pInParams->bUseFixedFunc, log);
-                dev2Feature = dev2FeatureList.feature.front();
+        QSVDeviceNum dev2Num = QSVDeviceNum::AUTO;
+        for (auto& dev2 : devList) {
+            if (dev2) { // 自分自身はすでにm_deviceにmoveして、devListにはいなくなっている
+                dev2Feature = dev2->getEncodeFeature(pInParams->nEncMode, codec_enc_to_rgy(pInParams->CodecId), pInParams->bUseFixedFunc);
                 if (dev2Feature & ENC_FEATURE_HYPER_MODE) { // HyperModeに対応するGPUを選択
+                    dev2Num = dev2->deviceNum();
                     break;
                 }
             }
         }
         if (dev2Feature) { // 検出できなかった場合は処理しない
-            PrintMes(RGY_LOG_DEBUG, _T("Detected avaliable features for hyper mode, dev %d, %s\n%s\n"), (int)dev2, EncmodeToStr(pInParams->nEncMode), MakeFeatureListStr(dev2Feature).c_str());
+            PrintMes(RGY_LOG_DEBUG, _T("Detected avaliable features for hyper mode, dev %d, %s\n%s\n"), (int)dev2Num, EncmodeToStr(pInParams->nEncMode), MakeFeatureListStr(dev2Feature).c_str());
             availableFeaures &= dev2Feature;
         }
     }
@@ -654,8 +650,8 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
     if (pInParams->CodecId == MFX_CODEC_AVC
         && ((m_encPicstruct & RGY_PICSTRUCT_INTERLACED) != 0)
         && pInParams->GopRefDist > 1 //Bframes > 0
-        && getCPUGen(&m_mfxSession) == CPU_GEN_HASWELL
-        && m_memType == D3D11_MEMORY) {
+        && m_device->CPUGen() == CPU_GEN_HASWELL
+        && m_device->memType() == D3D11_MEMORY) {
         PrintMes(RGY_LOG_WARN, _T("H.264 interlaced encoding with B frames on d3d11 mode results fuzzy outputs on Haswell CPUs.\n"));
         PrintMes(RGY_LOG_WARN, _T("B frames will be disabled.\n"));
         pInParams->GopRefDist = 1; //Bframes = 0
@@ -668,7 +664,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         PrintMes(RGY_LOG_WARN, _T("B pyramid with too many bframes is not supported on current platform, B pyramid disabled.\n"));
         pInParams->bBPyramid = false;
     }
-    if (pInParams->bBPyramid && getCPUGen(&m_mfxSession) < CPU_GEN_HASWELL) {
+    if (pInParams->bBPyramid && m_device->CPUGen() < CPU_GEN_HASWELL) {
         PrintMes(RGY_LOG_WARN, _T("B pyramid on IvyBridge generation might cause artifacts, please check your encoded video.\n"));
     }
     if (pInParams->bNoDeblock && !(availableFeaures & ENC_FEATURE_NO_DEBLOCK)) {
@@ -1277,7 +1273,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
         m_mfxEncParams.mfx.FrameInfo.BitDepthLuma, m_mfxEncParams.mfx.FrameInfo.Shift, MFXPicStructToStr(m_mfxEncParams.mfx.FrameInfo.PicStruct).c_str());
     PrintMes(RGY_LOG_DEBUG, _T("InitMfxEncParams: set all enc params.\n"));
 
-    m_pmfxENC.reset(new MFXVideoENCODE(m_mfxSession));
+    m_pmfxENC.reset(new MFXVideoENCODE(m_device->mfxSession()));
     if (!m_pmfxENC) {
         return RGY_ERR_MEMORY_ALLOC;
     }
@@ -1294,14 +1290,14 @@ RGY_ERR CQSVPipeline::InitOpenCL(const bool enableOpenCL, const bool checkVppPer
         PrintMes(RGY_LOG_DEBUG, _T("OpenCL disabled.\n"));
         return RGY_ERR_NONE;
     }
-    if (!CPUGenOpenCLSupported(getCPUGen(&m_mfxSession))) {
-        PrintMes(RGY_LOG_DEBUG, _T("Skip OpenCL init as OpenCL is not supported in %s platform.\n"), CPU_GEN_STR[getCPUGen(&m_mfxSession)]);
+    if (!CPUGenOpenCLSupported(m_device->CPUGen())) {
+        PrintMes(RGY_LOG_DEBUG, _T("Skip OpenCL init as OpenCL is not supported in %s platform.\n"), CPU_GEN_STR[m_device->CPUGen()]);
         return RGY_ERR_NONE;
     }
-    const mfxHandleType hdl_t = mfxHandleTypeFromMemType(m_memType, true);
+    const mfxHandleType hdl_t = mfxHandleTypeFromMemType(m_device->memType(), true);
     mfxHDL hdl = nullptr;
     if (hdl_t) {
-        auto sts = err_to_rgy(m_hwdev->GetHandle((hdl_t == MFX_HANDLE_DIRECT3D_DEVICE_MANAGER9) ? (mfxHandleType)0 : hdl_t, &hdl));
+        auto sts = err_to_rgy(m_device->hwdev()->GetHandle((hdl_t == MFX_HANDLE_DIRECT3D_DEVICE_MANAGER9) ? (mfxHandleType)0 : hdl_t, &hdl));
         RGY_ERR(sts, _T("Failed to get HW device handle."));
         PrintMes(RGY_LOG_DEBUG, _T("Got HW device handle: %p.\n"), hdl);
     }
@@ -1321,21 +1317,21 @@ RGY_ERR CQSVPipeline::InitOpenCL(const bool enableOpenCL, const bool checkVppPer
     std::shared_ptr<RGYOpenCLPlatform> selectedPlatform;
     tstring clErrMessage;
     for (auto& platform : platforms) {
-        if (m_memType == D3D9_MEMORY && ENABLE_RGY_OPENCL_D3D9) {
+        if (m_device->memType() == D3D9_MEMORY && ENABLE_RGY_OPENCL_D3D9) {
             if (platform->createDeviceListD3D9(CL_DEVICE_TYPE_GPU, (void *)hdl) != CL_SUCCESS || platform->devs().size() == 0) {
                 auto mes = strsprintf(_T("Failed to find d3d9 device in platform %s.\n"), char_to_tstring(platform->info().name).c_str());
                 PrintMes(RGY_LOG_DEBUG, mes.c_str());
                 clErrMessage += mes;
                 continue;
             }
-        } else if (m_memType == D3D11_MEMORY && ENABLE_RGY_OPENCL_D3D11) {
+        } else if (m_device->memType() == D3D11_MEMORY && ENABLE_RGY_OPENCL_D3D11) {
             if (platform->createDeviceListD3D11(CL_DEVICE_TYPE_GPU, (void *)hdl) != CL_SUCCESS || platform->devs().size() == 0) {
                 auto mes = strsprintf(_T("Failed to find d3d11 device in platform %s.\n"), char_to_tstring(platform->info().name).c_str());
                 PrintMes(RGY_LOG_DEBUG, mes.c_str());
                 clErrMessage += mes;
                 continue;
             }
-        } else if (m_memType == VA_MEMORY && ENABLE_RGY_OPENCL_VA) {
+        } else if (m_device->memType() == VA_MEMORY && ENABLE_RGY_OPENCL_VA) {
             if (platform->createDeviceListVA(CL_DEVICE_TYPE_GPU, (void *)hdl) != CL_SUCCESS || platform->devs().size() == 0) {
                 auto mes = strsprintf(_T("Failed to find va device in platform %s.\n"), char_to_tstring(platform->info().name).c_str());
                 PrintMes(RGY_LOG_DEBUG, mes.c_str());
@@ -1373,9 +1369,9 @@ RGY_ERR CQSVPipeline::InitOpenCL(const bool enableOpenCL, const bool checkVppPer
 }
 
 RGY_ERR CQSVPipeline::ResetDevice() {
-    if (m_memType & (D3D9_MEMORY | D3D11_MEMORY)) {
+    if (m_device->memType() & (D3D9_MEMORY | D3D11_MEMORY)) {
         PrintMes(RGY_LOG_DEBUG, _T("HWDevice: reset.\n"));
-        return err_to_rgy(m_hwdev->Reset());
+        return err_to_rgy(m_device->hwdev()->Reset());
     }
     return RGY_ERR_NONE;
 }
@@ -1477,7 +1473,7 @@ RGY_ERR CQSVPipeline::AllocFrames() {
             default: break;
             }
 
-            allocRequest.AllocId = (m_bExternalAlloc) ? m_pMFXAllocator->getExtAllocCounts() : 0u;
+            allocRequest.AllocId = (m_device->externalAlloc()) ? m_device->allocator()->getExtAllocCounts() : 0u;
             allocRequest.NumFrameSuggested = (mfxU16)requestNumFrames;
             allocRequest.NumFrameMin = allocRequest.NumFrameSuggested;
             PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: Id: %d, %s-%s, type: %s, %s %dx%d [%d,%d,%d,%d], request %d frames\n"),
@@ -1485,7 +1481,7 @@ RGY_ERR CQSVPipeline::AllocFrames() {
                 allocRequest.Info.Width, allocRequest.Info.Height, allocRequest.Info.CropX, allocRequest.Info.CropY, allocRequest.Info.CropW, allocRequest.Info.CropH,
                 allocRequest.NumFrameSuggested);
 
-            auto sts = t0->workSurfacesAlloc(allocRequest, m_bExternalAlloc, m_pMFXAllocator.get());
+            auto sts = t0->workSurfacesAlloc(allocRequest, m_device->externalAlloc(), m_device->allocator());
             if (sts != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, _T("AllocFrames:   Failed to allocate frames for %s-%s: %s."), t0->print().c_str(), t1->print().c_str(), get_err_mes(sts));
                 return sts;
@@ -1496,18 +1492,9 @@ RGY_ERR CQSVPipeline::AllocFrames() {
     return RGY_ERR_NONE;
 }
 
-void CQSVPipeline::DeleteHWDevice() {
-    m_hwdev.reset();
-}
-
-void CQSVPipeline::DeleteAllocator() {
-    m_pMFXAllocator.reset();
-
-    DeleteHWDevice();
-}
-
 CQSVPipeline::CQSVPipeline() :
     m_mfxVer({ 0 }),
+    m_device(),
     m_pStatus(),
     m_pPerfMonitor(),
     m_encWidth(0),
@@ -1538,7 +1525,6 @@ CQSVPipeline::CQSVPipeline() :
     m_ExtAV1ResolutionParam(),
     m_ExtAV1TileParam(),
     m_hyperModeParam(),
-    m_mfxSession(),
     m_mfxDEC(),
     m_pmfxENC(),
     m_mfxVPP(),
@@ -1555,11 +1541,7 @@ CQSVPipeline::CQSVPipeline() :
     m_hdr10plusMetadataCopy(false),
     m_dovirpu(),
     m_encTimestamp(),
-    m_pMFXAllocator(),
     m_nMFXThreads(-1),
-    m_memType(SYSTEM_MEMORY),
-    m_deviceNum(QSVDeviceNum::AUTO),
-    m_bExternalAlloc(false),
     m_nProcSpeedLimit(0),
     m_pAbortByUser(nullptr),
     m_heAbort(),
@@ -1567,7 +1549,6 @@ CQSVPipeline::CQSVPipeline() :
     m_cl(),
     m_vpFilters(),
     m_videoQualityMetric(),
-    m_hwdev(),
     m_pipelineTasks() {
     m_trimParam.offset = 0;
 
@@ -1728,11 +1709,13 @@ RGY_ERR CQSVPipeline::InitOutput(sInputParams *inputParams) {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR CQSVPipeline::InitInput(sInputParams *inputParam) {
+RGY_ERR CQSVPipeline::InitInput(sInputParams *inputParam, std::vector<std::unique_ptr<QSVDevice>>& devList) {
 #if ENABLE_RAW_READER
 #if ENABLE_AVSW_READER
     DeviceCodecCsp HWDecCodecCsp;
-    HWDecCodecCsp.push_back(std::make_pair(0, getHWDecCodecCsp(m_deviceNum, m_pQSVLog, inputParam->ctrl.skipHWDecodeCheck)));
+    for (const auto& dev : devList) {
+        HWDecCodecCsp.push_back(std::make_pair((int)dev->deviceNum(), dev->getDecodeCodecCsp(inputParam->ctrl.skipHWDecodeCheck)));
+    }
 #endif
     m_pStatus.reset(new EncodeStatus());
 
@@ -1905,7 +1888,7 @@ RGY_ERR CQSVPipeline::CheckParam(sInputParams *inputParam) {
     if (m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN) {
         inputParam->nInputBufSize = 1;
         //Haswell以前はHEVCデコーダを使用する場合はD3D11メモリを使用しないと正常に稼働しない (4080ドライバ)
-        if (getCPUGen(&m_mfxSession) <= CPU_GEN_HASWELL && m_pFileReader->getInputCodec() == RGY_CODEC_HEVC) {
+        if (m_device->CPUGen() <= CPU_GEN_HASWELL && m_pFileReader->getInputCodec() == RGY_CODEC_HEVC) {
             if (inputParam->memType & D3D9_MEMORY) {
                 inputParam->memType &= ~D3D9_MEMORY;
                 inputParam->memType |= D3D11_MEMORY;
@@ -2120,8 +2103,8 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
     frameInfo.bitdepth = outBitdepth;
 
     mfxIMPL impl;
-    m_mfxSession.QueryIMPL(&impl);
-    auto mfxvpp = std::make_unique<QSVVppMfx>(m_hwdev.get(), m_pMFXAllocator.get(), m_mfxVer, impl, m_memType, m_deviceNum, m_nAsyncDepth, m_pQSVLog);
+    m_device->mfxSession().QueryIMPL(&impl);
+    auto mfxvpp = std::make_unique<QSVVppMfx>(m_device->hwdev(), m_device->allocator(), m_mfxVer, impl, m_device->memType(), m_device->deviceNum(), m_nAsyncDepth, m_pQSVLog);
     auto err = mfxvpp->SetParam(vppParams, frameInfo, frameIn, (vppType == VppType::MFX_CROP) ? crop : nullptr,
         fps, rgy_rational<int>(1,1), blockSize);
     if (err != RGY_ERR_NONE) {
@@ -2273,7 +2256,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         param->decimate = params->vpp.decimate;
         //QSV:Broadwell以前の環境では、なぜか別のキューで実行しようとすると、永遠にqueueMapBufferが開始されず、フリーズしてしまう
         //こういうケースでは標準のキューを使って逐次実行する
-        param->useSeparateQueue = getCPUGen(&m_mfxSession) >= CPU_GEN_SKYLAKE;
+        param->useSeparateQueue = m_device->CPUGen() >= CPU_GEN_SKYLAKE;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
@@ -2296,7 +2279,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         param->mpdecimate = params->vpp.mpdecimate;
         //QSV:Broadwell以前の環境では、なぜか別のキューで実行しようとすると、永遠にqueueMapBufferが開始されず、フリーズしてしまう
         //こういうケースでは標準のキューを使って逐次実行する
-        param->useSeparateQueue = getCPUGen(&m_mfxSession) >= CPU_GEN_SKYLAKE;
+        param->useSeparateQueue = m_device->CPUGen() >= CPU_GEN_SKYLAKE;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
@@ -2739,6 +2722,7 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
 
     m_encVUI = inputParam->common.out_vui;
     m_encVUI.apply_auto(inputParam->input.vui, m_encHeight);
+    m_encVUI.setDescriptPreset();
 
     m_vpFilters.clear();
 
@@ -2752,7 +2736,7 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
         if (!inputParam->ctrl.enableOpenCL) {
             PrintMes(RGY_LOG_ERROR, _T("OpenCL filter not enabled.\n"));
         } else {
-            PrintMes(RGY_LOG_ERROR, _T("OpenCL filter not supported on this platform: %s.\n"), CPU_GEN_STR[getCPUGen(&m_mfxSession)]);
+            PrintMes(RGY_LOG_ERROR, _T("OpenCL filter not supported on this platform: %s.\n"), CPU_GEN_STR[m_device->CPUGen()]);
         }
         return RGY_ERR_UNSUPPORTED;
     }
@@ -2898,29 +2882,137 @@ bool CQSVPipeline::preferD3D11Mode(const sInputParams *inputParam) {
 #endif
 }
 
-RGY_ERR CQSVPipeline::InitSession() {
-    auto err = RGY_ERR_NONE;
-    m_mfxSession.Close();
-    PrintMes(RGY_LOG_DEBUG, _T("InitSession: Start initializing... memType: %s\n"), MemTypeToStr(m_memType));
-    MFXVideoSession2Params params;
-    err = InitSessionAndDevice(m_hwdev, m_mfxSession, m_memType, m_deviceNum, params, m_pQSVLog);
-    if (err != RGY_ERR_NONE) {
-        PrintMes(RGY_LOG_ERROR, _T("InitSession: failed to initialize: %s.\n"), get_err_mes(err));
-        return err;
-    }
-    PrintMes(RGY_LOG_DEBUG, _T("InitSession: initialized session with memType %s.\n"), MemTypeToStr(m_memType));
+RGY_ERR CQSVPipeline::checkGPUListByEncoder(const sInputParams *prm, std::vector<std::unique_ptr<QSVDevice>>& gpuList) {
+    PrintMes(RGY_LOG_DEBUG, _T("Check GPU List by Encoder from %d devices.\n"), (int)gpuList.size());
 
-    err = CreateAllocator(m_pMFXAllocator, m_bExternalAlloc, m_memType, m_hwdev.get(), m_mfxSession, m_pQSVLog);
-    if (err != RGY_ERR_NONE) {
-        PrintMes(RGY_LOG_ERROR, _T("InitSession: failed to create allocator: %s.\n"), get_err_mes(err));
-        return err;
+    const auto enc_codec = codec_enc_to_rgy(prm->CodecId);
+    const auto enc_csp = getEncoderCsp(prm);
+    const auto enc_bitdepth = getEncoderBitdepth(prm);
+    const auto rate_control = prm->nEncMode;
+    tstring message;
+    for (auto gpu = gpuList.begin(); gpu != gpuList.end(); ) {
+        PrintMes(RGY_LOG_DEBUG, _T("Checking GPU #%d (%s) for codec %s.\n"),
+            (*gpu)->deviceNum(), (*gpu)->name().c_str(), CodecToStr(enc_codec).c_str());
+        uint64_t deviceFeature = 0;
+        //コーデックのチェック
+        if (   (deviceFeature = (*gpu)->getEncodeFeature(rate_control, enc_codec, prm->bUseFixedFunc)) == 0
+            && (deviceFeature = (*gpu)->getEncodeFeature(rate_control, enc_codec, !prm->bUseFixedFunc)) == 0
+            && (deviceFeature = (*gpu)->getEncodeFeature(MFX_RATECONTROL_CQP, enc_codec, prm->bUseFixedFunc)) == 0
+            && (deviceFeature = (*gpu)->getEncodeFeature(MFX_RATECONTROL_CQP, enc_codec, !prm->bUseFixedFunc)) == 0) {
+            message += strsprintf(_T("GPU #%d (%s) does not support %s encoding.\n"),
+                (*gpu)->deviceNum(), (*gpu)->name().c_str(), CodecToStr(enc_codec).c_str());
+            gpu = gpuList.erase(gpu);
+            continue;
+        }
+        //10bit深度のチェック
+        if (enc_bitdepth > 8 && (deviceFeature & ENC_FEATURE_10BIT_DEPTH) != ENC_FEATURE_10BIT_DEPTH) {
+            message += strsprintf(_T("GPU #%d (%s) does not support %s %d bit encoding.\n"),
+                (*gpu)->deviceNum(), (*gpu)->name().c_str(), CodecToStr(enc_codec).c_str(), enc_bitdepth);
+            gpu = gpuList.erase(gpu);
+            continue;
+        }
+        //インタレ保持のチェック
+        const bool interlacedEncoding =
+            (prm->input.picstruct & RGY_PICSTRUCT_INTERLACED)
+            && prm->vppmfx.deinterlace == MFX_DEINTERLACE_NONE
+            && !prm->vpp.afs.enable
+            && !prm->vpp.nnedi.enable
+            && !prm->vpp.yadif.enable;
+        if (interlacedEncoding && (deviceFeature & ENC_FEATURE_INTERLACE) != ENC_FEATURE_INTERLACE) {
+            message += strsprintf(_T("GPU #%d (%s) does not support %s interlaced encoding.\n"),
+                (*gpu)->deviceNum(), (*gpu)->name().c_str(), CodecToStr(enc_codec).c_str());
+            gpu = gpuList.erase(gpu);
+            continue;
+        }
+        PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) available for %s encode.\n"), (*gpu)->deviceNum(), (*gpu)->name().c_str(), CodecToStr(enc_codec).c_str());
+        gpu++;
     }
-    PrintMes(RGY_LOG_DEBUG, _T("InitSession: initialized allocator.\n"));
+    PrintMes((gpuList.size() == 0) ? RGY_LOG_ERROR : RGY_LOG_DEBUG, _T("%s\n"), message.c_str());
+    if (gpuList.size() == 0) {
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (gpuList.size() == 1) {
+        return RGY_ERR_NONE;
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR CQSVPipeline::deviceAutoSelect(const sInputParams *prm, std::vector<std::unique_ptr<QSVDevice>>& gpuList) {
+    if (gpuList.size() <= 1) {
+        return RGY_ERR_NONE;
+    }
+#if ENABLE_PERF_COUNTER
+    PrintMes(RGY_LOG_DEBUG, _T("Auto select device from %d devices.\n"), (int)gpuList.size());
+    bool counterIsIntialized = m_pPerfMonitor->isPerfCounterInitialized();
+    for (int i = 0; i < 4 && !counterIsIntialized; i++) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        counterIsIntialized = m_pPerfMonitor->isPerfCounterInitialized();
+    }
+    if (!counterIsIntialized) {
+        return RGY_ERR_NONE;
+    }
+    while (!m_pPerfMonitor->isPerfCounterRefreshed()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+    auto entries = m_pPerfMonitor->GetPerfCountersSystem();
+
+    std::map<QSVDeviceNum, double> gpuscore;
+    for (const auto &gpu : gpuList) {
+        auto counters = RGYGPUCounterWinEntries(entries).filter_luid(gpu->luid()).get();
+        auto ve_utilization = std::max(
+            RGYGPUCounterWinEntries(counters).filter_type(L"codec").max(), //vce
+            RGYGPUCounterWinEntries(counters).filter_type(L"encode").max());
+        auto gpu_utilization = std::max(std::max(std::max(
+            RGYGPUCounterWinEntries(counters).filter_type(L"cuda").max(), //nvenc
+            RGYGPUCounterWinEntries(counters).filter_type(L"compute").max()), //vce-opencl
+            RGYGPUCounterWinEntries(counters).filter_type(L"3d").max()), //qsv
+            RGYGPUCounterWinEntries(counters).filter_type(L"videoprocessing").max());
+        double core_score = 0.0;
+        double cc_score = 0.0;
+        double ve_score = 100.0 * (1.0 - std::pow(ve_utilization / 100.0, 1.0)) * prm->ctrl.gpuSelect.ve;
+        double gpu_score = 100.0 * (1.0 - std::pow(gpu_utilization / 100.0, 1.5)) * prm->ctrl.gpuSelect.gpu;
+
+        gpuscore[gpu->deviceNum()] = cc_score + ve_score + gpu_score + core_score;
+        PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) score: %.1f: VE %.1f, GPU %.1f, CC %.1f, Core %.1f.\n"), gpu->deviceNum(), gpu->name().c_str(),
+            gpuscore[gpu->deviceNum()], ve_score, gpu_score, cc_score, core_score);
+    }
+    std::sort(gpuList.begin(), gpuList.end(), [&](const std::unique_ptr<QSVDevice> &a, const std::unique_ptr<QSVDevice> &b) {
+        if (gpuscore.at(a->deviceNum()) != gpuscore.at(b->deviceNum())) {
+            return gpuscore.at(a->deviceNum()) > gpuscore.at(b->deviceNum());
+        }
+        return a->deviceNum() < b->deviceNum();
+        });
+
+    PrintMes(RGY_LOG_DEBUG, _T("GPU Priority\n"));
+    for (const auto &gpu : gpuList) {
+        PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s): score %.1f\n"), gpu->deviceNum(), gpu->name().c_str(), gpuscore[gpu->deviceNum()]);
+    }
+#endif //#if ENABLE_PERF_COUNTER
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR CQSVPipeline::InitSession(const sInputParams *inputParam, std::vector<std::unique_ptr<QSVDevice>>& deviceList) {
+    auto err = RGY_ERR_NONE;
+    if (deviceList.size() == 0) {
+        PrintMes(RGY_LOG_DEBUG, _T("No device found for QSV encoding!\n"));
+        return RGY_ERR_DEVICE_NOT_FOUND;
+    } else if (deviceList.size() == 1) {
+        m_device = std::move(deviceList.front());
+    } else {
+        if ((err = checkGPUListByEncoder(inputParam, deviceList)) != RGY_ERR_NONE) {
+            return err;
+        }
+        if ((err = deviceAutoSelect(inputParam, deviceList)) != RGY_ERR_NONE) {
+            return err;
+        }
+        m_device = std::move(deviceList.front());
+        PrintMes(RGY_LOG_DEBUG, _T("InitSession: selected device #%d: %s.\n"), (int)m_device->deviceNum(), m_device->name().c_str());
+    }
 
     //使用できる最大のversionをチェック
-    m_mfxSession.QueryVersion(&m_mfxVer);
+    m_device->mfxSession().QueryVersion(&m_mfxVer);
     mfxIMPL impl;
-    m_mfxSession.QueryIMPL(&impl);
+    m_device->mfxSession().QueryIMPL(&impl);
     PrintMes(RGY_LOG_DEBUG, _T("InitSession: mfx lib version: %d.%02d, impl %s\n"), m_mfxVer.Major, m_mfxVer.Minor, MFXImplToStr(impl).c_str());
     return err;
 }
@@ -2937,10 +3029,10 @@ RGY_ERR CQSVPipeline::InitVideoQualityMetric(sInputParams *prm) {
             return err;
         }
         mfxIMPL impl;
-        m_mfxSession.QueryIMPL(&impl);
+        m_device->mfxSession().QueryIMPL(&impl);
         //場合によっては2つ目のhwデコーダを動作させることになる
         //このとき、個別のallocatorを持たないと正常に動作しないので、内部で独自のallocatorを作るようにする
-        auto mfxdec = std::make_unique<QSVMfxDec>(m_hwdev.get(), nullptr /*内部で独自のallocatorを作る必要がある*/, m_mfxVer, impl, m_memType, m_deviceNum, m_pQSVLog);
+        auto mfxdec = std::make_unique<QSVMfxDec>(m_device->hwdev(), nullptr /*内部で独自のallocatorを作る必要がある*/, m_mfxVer, impl, m_device->memType(), m_device->deviceNum(), m_pQSVLog);
 
         const auto formatOut = videooutputinfo(outFrameInfo->videoPrm.mfx, m_VideoSignalInfo, m_chromalocInfo);
         unique_ptr<RGYFilterSsim> filterSsim(new RGYFilterSsim(m_cl));
@@ -3123,6 +3215,11 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
         PrintMes(RGY_LOG_DEBUG, _T("Param adjusted for benchmark mode.\n"));
     }
 
+    m_pPerfMonitor = std::make_unique<CPerfMonitor>();
+#if ENABLE_PERF_COUNTER
+    m_pPerfMonitor->runCounterThread();
+#endif
+
     if (const auto affinity = pParams->ctrl.threadParams.get(RGYThreadType::PROCESS).affinity; affinity.mode != RGYThreadAffinityMode::ALL) {
         SetProcessAffinityMask(GetCurrentProcess(), affinity.getMask());
         PrintMes(RGY_LOG_DEBUG, _T("Set Process Affinity Mask: %s (0x%llx).\n"), affinity.to_string().c_str(), affinity.getMask());
@@ -3134,25 +3231,27 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
 
     m_nMFXThreads = pParams->nSessionThreads;
     m_nAVSyncMode = pParams->common.AVSyncMode;
-    m_memType = pParams->memType;
-    m_deviceNum = pParams->device;
 
-    m_pPerfMonitor = std::make_unique<CPerfMonitor>();
+    auto deviceList = getDeviceList(pParams->device, pParams->ctrl.enableOpenCL, pParams->memType, m_pQSVLog);
+    if (deviceList.size() == 0) {
+        PrintMes(RGY_LOG_DEBUG, _T("No device found for QSV encoding!\n"));
+        return RGY_ERR_DEVICE_NOT_FOUND;
+    }
 
-    sts = InitInput(pParams);
+    sts = InitInput(pParams, deviceList);
     if (sts < RGY_ERR_NONE) return sts;
     PrintMes(RGY_LOG_DEBUG, _T("InitInput: Success.\n"));
 
-    sts = CheckParam(pParams);
-    if (sts != RGY_ERR_NONE) return sts;
-    PrintMes(RGY_LOG_DEBUG, _T("CheckParam: Success.\n"));
-
-    sts = InitSession();
+    sts = InitSession(pParams, deviceList);
     RGY_ERR(sts, _T("Failed to initialize encode session."));
     PrintMes(RGY_LOG_DEBUG, _T("InitSession: Success.\n"));
 
     sts = InitOpenCL(pParams->ctrl.enableOpenCL, pParams->vpp.checkPerformance);
     if (sts < RGY_ERR_NONE) return sts;
+
+    sts = CheckParam(pParams);
+    if (sts != RGY_ERR_NONE) return sts;
+    PrintMes(RGY_LOG_DEBUG, _T("CheckParam: Success.\n"));
 
     m_encTimestamp = std::make_unique<RGYTimestamp>();
 
@@ -3162,8 +3261,10 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     sts = InitFilters(pParams);
     if (sts < RGY_ERR_NONE) return sts;
 
-    sts = InitMfxEncodeParams(pParams);
+    sts = InitMfxEncodeParams(pParams, deviceList);
     if (sts < RGY_ERR_NONE) return sts;
+
+    deviceList.clear();
 
     sts = InitPowerThrottoling(pParams);
     if (sts < RGY_ERR_NONE) return sts;
@@ -3269,12 +3370,8 @@ void CQSVPipeline::Close() {
 
     m_DecInputBitstream.clear();
 
-    PrintMes(RGY_LOG_DEBUG, _T("Closing mfxSession...\n"));
-    m_mfxSession.Close();
-
-    PrintMes(RGY_LOG_DEBUG, _T("DeleteAllocator...\n"));
-    // allocator if used as external for MediaSDK must be deleted after SDK components
-    DeleteAllocator();
+    PrintMes(RGY_LOG_DEBUG, _T("Closing device...\n"));
+    m_device.reset();
 
     m_trimParam.list.clear();
     m_trimParam.offset = 0;
@@ -3490,14 +3587,14 @@ RGY_ERR CQSVPipeline::CreatePipeline() {
     m_pipelineTasks.clear();
 
     if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskInput>(&m_mfxSession, m_pMFXAllocator.get(), 0, m_pFileReader.get(), m_mfxVer, m_cl, m_pQSVLog));
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskInput>(&m_device->mfxSession(), m_device->allocator(), 0, m_pFileReader.get(), m_mfxVer, m_cl, m_pQSVLog));
     } else {
-        auto err = err_to_rgy(m_mfxSession.JoinSession(m_mfxDEC->GetSession()));
+        auto err = err_to_rgy(m_device->mfxSession().JoinSession(m_mfxDEC->GetSession()));
         if (err != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("Failed to join mfx vpp session: %s.\n"), get_err_mes(err));
             return err;
         }
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXDecode>(&m_mfxSession, 1, m_mfxDEC->mfxdec(), m_mfxDEC->mfxparams(), m_pFileReader.get(), m_mfxVer, m_pQSVLog));
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXDecode>(&m_device->mfxSession(), 1, m_mfxDEC->mfxdec(), m_mfxDEC->mfxparams(), m_pFileReader.get(), m_mfxVer, m_pQSVLog));
     }
     if (m_pFileWriterListAudio.size() > 0) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskAudio>(m_pFileReader.get(), m_AudioReaders, m_pFileWriterListAudio, m_vpFilters, 0, m_mfxVer, m_pQSVLog));
@@ -3510,22 +3607,22 @@ RGY_ERR CQSVPipeline::CreatePipeline() {
     const auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
     const auto inputFpsTimebase = rgy_rational<int>((int)inputFrameInfo.fpsD, (int)inputFrameInfo.fpsN);
     const auto srcTimebase = (m_pFileReader->getInputTimebase().n() > 0 && m_pFileReader->getInputTimebase().is_valid()) ? m_pFileReader->getInputTimebase() : inputFpsTimebase;
-    m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(&m_mfxSession, srcTimebase, m_outputTimebase, outFrameDuration, m_nAVSyncMode, m_mfxVer, m_pQSVLog));
+    m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(&m_device->mfxSession(), srcTimebase, m_outputTimebase, outFrameDuration, m_nAVSyncMode, m_mfxVer, m_pQSVLog));
 
     for (auto& filterBlock : m_vpFilters) {
         if (filterBlock.type == VppFilterType::FILTER_MFX) {
-            auto err = err_to_rgy(m_mfxSession.JoinSession(filterBlock.vppmfx->GetSession()));
+            auto err = err_to_rgy(m_device->mfxSession().JoinSession(filterBlock.vppmfx->GetSession()));
             if (err != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, _T("Failed to join mfx vpp session: %s.\n"), get_err_mes(err));
                 return err;
             }
-            m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXVpp>(&m_mfxSession, 1, filterBlock.vppmfx->mfxvpp(), filterBlock.vppmfx->mfxparams(), filterBlock.vppmfx->mfxver(), m_pQSVLog));
+            m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXVpp>(&m_device->mfxSession(), 1, filterBlock.vppmfx->mfxvpp(), filterBlock.vppmfx->mfxparams(), filterBlock.vppmfx->mfxver(), m_pQSVLog));
         } else if (filterBlock.type == VppFilterType::FILTER_OPENCL) {
             if (!m_cl) {
-                PrintMes(RGY_LOG_ERROR, _T("OpenCL not enabled, OpenCL filters cannot be used.\n"), CPU_GEN_STR[getCPUGen(&m_mfxSession)]);
+                PrintMes(RGY_LOG_ERROR, _T("OpenCL not enabled, OpenCL filters cannot be used.\n"), CPU_GEN_STR[m_device->CPUGen()]);
                 return RGY_ERR_UNSUPPORTED;
             }
-            m_pipelineTasks.push_back(std::make_unique<PipelineTaskOpenCL>(filterBlock.vppcl, nullptr, m_cl, m_memType, m_pMFXAllocator.get(), &m_mfxSession, 1, m_pQSVLog));
+            m_pipelineTasks.push_back(std::make_unique<PipelineTaskOpenCL>(filterBlock.vppcl, nullptr, m_cl, m_device->memType(), m_device->allocator(), &m_device->mfxSession(), 1, m_pQSVLog));
         } else {
             PrintMes(RGY_LOG_ERROR, _T("Unknown filter type.\n"));
             return RGY_ERR_UNSUPPORTED;
@@ -3551,7 +3648,7 @@ RGY_ERR CQSVPipeline::CreatePipeline() {
                 PrintMes(RGY_LOG_ERROR, _T("m_vpFilters.size() != 1.\n"));
                 return RGY_ERR_UNDEFINED_BEHAVIOR;
             }
-            m_pipelineTasks.push_back(std::make_unique<PipelineTaskOpenCL>(m_vpFilters.front().vppcl, m_videoQualityMetric.get(), m_cl, m_memType, m_pMFXAllocator.get(), &m_mfxSession, 1, m_pQSVLog));
+            m_pipelineTasks.push_back(std::make_unique<PipelineTaskOpenCL>(m_vpFilters.front().vppcl, m_videoQualityMetric.get(), m_cl, m_device->memType(), m_device->allocator(), &m_device->mfxSession(), 1, m_pQSVLog));
         } else if (m_pipelineTasks[prevtask]->taskType() == PipelineTaskType::OPENCL) {
             auto taskOpenCL = dynamic_cast<PipelineTaskOpenCL*>(m_pipelineTasks[prevtask].get());
             if (taskOpenCL == nullptr) {
@@ -3560,13 +3657,13 @@ RGY_ERR CQSVPipeline::CreatePipeline() {
             }
             taskOpenCL->setVideoQualityMetricFilter(m_videoQualityMetric.get());
         } else {
-            m_pipelineTasks.push_back(std::make_unique<PipelineTaskVideoQualityMetric>(m_videoQualityMetric.get(), m_cl, m_memType, m_pMFXAllocator.get(), &m_mfxSession, 0, m_mfxVer, m_pQSVLog));
+            m_pipelineTasks.push_back(std::make_unique<PipelineTaskVideoQualityMetric>(m_videoQualityMetric.get(), m_cl, m_device->memType(), m_device->allocator(), &m_device->mfxSession(), 0, m_mfxVer, m_pQSVLog));
         }
     }
     if (m_pmfxENC) {
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXEncode>(&m_mfxSession, 1, m_pmfxENC.get(), m_mfxVer, m_mfxEncParams, m_timecode.get(), m_encTimestamp.get(), m_outputTimebase, m_hdr10plus.get(), m_hdr10plusMetadataCopy, m_pQSVLog));
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXEncode>(&m_device->mfxSession(), 1, m_pmfxENC.get(), m_mfxVer, m_mfxEncParams, m_timecode.get(), m_encTimestamp.get(), m_outputTimebase, m_hdr10plus.get(), m_hdr10plusMetadataCopy, m_pQSVLog));
     } else {
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskOutputRaw>(&m_mfxSession, 1, m_mfxVer, m_pQSVLog));
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskOutputRaw>(&m_device->mfxSession(), 1, m_mfxVer, m_pQSVLog));
     }
 
     if (m_pipelineTasks.size() == 0) {
@@ -3664,7 +3761,7 @@ RGY_ERR CQSVPipeline::RunEncode2() {
                         });
                     }
                 } else { // pipelineの最終的なデータを出力
-                    if ((err = d.data->write(m_pFileWriter.get(), m_pMFXAllocator.get(), (m_cl) ? &m_cl->queue() : nullptr, m_videoQualityMetric.get())) != RGY_ERR_NONE) {
+                    if ((err = d.data->write(m_pFileWriter.get(), m_device->allocator(), (m_cl) ? &m_cl->queue() : nullptr, m_videoQualityMetric.get())) != RGY_ERR_NONE) {
                         PrintMes(RGY_LOG_ERROR, _T("failed to write output: %s.\n"), get_err_mes(err));
                         break;
                     }
@@ -3721,7 +3818,7 @@ RGY_ERR CQSVPipeline::RunEncode2() {
                     });
                     RGY_IGNORE_STS(err, RGY_ERR_MORE_DATA); //VPPなどでsendFrameがRGY_ERR_MORE_DATAだったが、フレームが出てくる場合がある
                 } else { // pipelineの最終的なデータを出力
-                    if ((err = d.data->write(m_pFileWriter.get(), m_pMFXAllocator.get(), (m_cl) ? &m_cl->queue() : nullptr, m_videoQualityMetric.get())) != RGY_ERR_NONE) {
+                    if ((err = d.data->write(m_pFileWriter.get(), m_device->allocator(), (m_cl) ? &m_cl->queue() : nullptr, m_videoQualityMetric.get())) != RGY_ERR_NONE) {
                         PrintMes(RGY_LOG_ERROR, _T("failed to write output: %s.\n"), get_err_mes(err));
                         break;
                     }
@@ -3826,7 +3923,7 @@ void CQSVPipeline::PrintMes(RGYLogLevel log_level, const TCHAR *format, ...) {
 void CQSVPipeline::GetEncodeLibInfo(mfxVersion *ver, bool *hardware) {
     if (NULL != ver && NULL != hardware) {
         mfxIMPL impl;
-        m_mfxSession.QueryIMPL(&impl);
+        m_device->mfxSession().QueryIMPL(&impl);
         *hardware = !!Check_HWUsed(impl);
         *ver = m_mfxVer;
     }
@@ -3834,7 +3931,7 @@ void CQSVPipeline::GetEncodeLibInfo(mfxVersion *ver, bool *hardware) {
 }
 
 MemType CQSVPipeline::GetMemType() {
-    return m_memType;
+    return m_device->memType();
 }
 
 RGY_ERR CQSVPipeline::GetEncodeStatusData(EncodeStatusData *data) {
@@ -3891,7 +3988,7 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVideoParam>> CQSVPipeline::GetOutputVideoI
 
 RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
     mfxIMPL impl;
-    m_mfxSession.QueryIMPL(&impl);
+    m_device->mfxSession().QueryIMPL(&impl);
 
     mfxFrameInfo DstPicInfo = m_mfxEncParams.mfx.FrameInfo;
 
@@ -3924,11 +4021,11 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
     }
 
     TCHAR cpuInfo[256] = { 0 };
-    getCPUInfo(cpuInfo, _countof(cpuInfo), &m_mfxSession);
+    getCPUInfo(cpuInfo, _countof(cpuInfo), &m_device->mfxSession());
 
     TCHAR gpu_info[1024] = { 0 };
     if (Check_HWUsed(impl)) {
-        getGPUInfo("Intel", gpu_info, _countof(gpu_info), GetAdapterID(m_mfxSession.get()), (m_cl) ? m_cl->platform() : nullptr);
+        getGPUInfo("Intel", gpu_info, _countof(gpu_info), GetAdapterID(m_device->mfxSession().get()), (m_cl) ? m_cl->platform() : nullptr);
     }
     TCHAR info[4096] = { 0 };
     mfxU32 info_len = 0;
@@ -3949,7 +4046,7 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
     }
     if (Check_HWUsed(impl)) {
         static const TCHAR * const NUM_APPENDIX[] = { _T("st"), _T("nd"), _T("rd"), _T("th")};
-        mfxU32 iGPUID = GetAdapterID(m_mfxSession);
+        mfxU32 iGPUID = GetAdapterID(m_device->mfxSession());
         PRINT_INFO(    _T("Media SDK      QuickSyncVideo (hardware encoder)%s, %d%s GPU, API v%d.%02d\n"),
             get_low_power_str(outFrameInfo->videoPrm.mfx.LowPower), iGPUID + 1, NUM_APPENDIX[clamp(iGPUID, 0, _countof(NUM_APPENDIX) - 1)], m_mfxVer.Major, m_mfxVer.Minor);
     } else {
@@ -3959,7 +4056,7 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_5)) {
         PRINT_INFO(_T("Hyper Mode     %s\n"), get_cx_desc(list_hyper_mode, outFrameInfo->hyperModePrm.Mode));
     }
-    PRINT_INFO(    _T("Buffer Memory  %s, %d work buffer\n"), MemTypeToStr(m_memType), workSurfaceCount);
+    PRINT_INFO(    _T("Buffer Memory  %s, %d work buffer\n"), MemTypeToStr(m_device->memType()), workSurfaceCount);
     //PRINT_INFO(    _T("Input Frame Format   %s\n"), ColorFormatToStr(m_pFileReader->m_ColorFormat));
     //PRINT_INFO(    _T("Input Frame Type     %s\n"), list_interlaced_mfx[get_cx_index(list_interlaced_mfx, SrcPicInfo.PicStruct)].desc);
     tstring inputMes = m_pFileReader->GetInputMessage();

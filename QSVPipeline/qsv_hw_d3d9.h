@@ -55,6 +55,7 @@ public:
     virtual mfxStatus Reset();
     virtual mfxStatus GetHandle(mfxHandleType type, mfxHDL *pHdl) override;
     virtual void      Close() override;
+    virtual LUID      GetLUID() override;
 protected:
     mfxStatus CreateVideoProcessors();
 private:
@@ -64,7 +65,10 @@ private:
 
     unique_ptr<IDirectXVideoProcessorService, IUnknown_release> m_pDXVAVProcessorService;
     unique_ptr<IDirectXVideoProcessor,        IUnknown_release> m_pDXVAVProcessor;
-    
+
+    LUID m_devLUID;
+    std::wstring m_displayDeviceName;
+
     D3DPRESENT_PARAMETERS m_D3DPresentPrm;
     UINT                  m_resetToken;
     D3DSURFACE_DESC       m_backBufferDesc;

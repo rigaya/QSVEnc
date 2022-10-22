@@ -539,7 +539,7 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const QSVDe
         if (check_lib_version(lib, test)) {
             _ftprintf(stdout, _T("Media SDK Version: Hardware API v%d.%02d\n\n"), lib.Major, lib.Minor);
         }
-        for (auto& str : getDeviceList()) {
+        for (auto& str : getDeviceNameList()) {
             _ftprintf(stdout, _T("%s\n"), str.c_str());
         }
         return 1;
@@ -606,7 +606,7 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const QSVDe
         return 1;
     }
     if (0 == _tcscmp(option_name, _T("check-device"))) {
-        auto devs = getDeviceList();
+        auto devs = getDeviceNameList();
         if (devs.size() > 0) {
             for (auto& str : devs) {
                 _ftprintf(stdout, _T("%s\n"), str.c_str());

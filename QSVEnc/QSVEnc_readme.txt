@@ -311,6 +311,14 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2022.10.22 (7.22)
+[QSVEncC]
+- --vpp-afsとAV1エンコードを組み合わせた場合に正常に動作しない問題を修正。
+- 指定したオプションにより適切なGPUを自動的に選択するように。
+
+[QSVEnc.auo]
+- AV1のビット深度を指定する設定欄を追加。
+
 2022.09.21 (7.21)
 [QSVEncC]
 - --master-display/--maxcll/--dhdr10plusをAV1エンコードに対応。

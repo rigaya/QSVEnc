@@ -58,6 +58,7 @@
 #include "qsv_mfx_dec.h"
 #include "qsv_pipeline_ctrl.h"
 #include "qsv_session.h"
+#include "qsv_device.h"
 
 #include <vector>
 #include <memory>
@@ -121,6 +122,7 @@ public:
     bool CompareParam(const mfxParamSet& prmA, const mfxParamSet& prmB);
 protected:
     mfxVersion m_mfxVer;
+    std::unique_ptr<QSVDevice> m_device;
     shared_ptr<EncodeStatus> m_pStatus;
     shared_ptr<CPerfMonitor> m_pPerfMonitor;
 
@@ -156,7 +158,6 @@ protected:
     mfxExtAV1ResolutionParam m_ExtAV1ResolutionParam;
     mfxExtAV1TileParam m_ExtAV1TileParam;
     mfxExtHyperModeParam m_hyperModeParam;
-    MFXVideoSession2 m_mfxSession;
     std::unique_ptr<QSVMfxDec> m_mfxDEC;
     std::unique_ptr<MFXVideoENCODE> m_pmfxENC;
     std::vector<std::unique_ptr<QSVVppMfx>> m_mfxVPP;
@@ -179,11 +180,7 @@ protected:
     std::unique_ptr<DOVIRpu>      m_dovirpu;
     std::unique_ptr<RGYTimestamp> m_encTimestamp;
 
-    unique_ptr<QSVAllocator> m_pMFXAllocator;
     int m_nMFXThreads;
-    MemType m_memType;
-    QSVDeviceNum m_deviceNum;
-    bool m_bExternalAlloc;
     uint32_t m_nProcSpeedLimit;
 
     bool *m_pAbortByUser;
@@ -196,12 +193,11 @@ protected:
     std::vector<VppVilterBlock> m_vpFilters;
     unique_ptr<RGYFilterSsim> m_videoQualityMetric;
 
-    std::unique_ptr<CQSVHWDevice> m_hwdev;
     std::vector<std::unique_ptr<PipelineTask>> m_pipelineTasks;
 
     virtual RGY_ERR InitLog(sInputParams *pParams);
     virtual RGY_ERR InitPerfMonitor(const sInputParams *pParams);
-    virtual RGY_ERR InitInput(sInputParams *pParams);
+    virtual RGY_ERR InitInput(sInputParams *pParams, std::vector<std::unique_ptr<QSVDevice>>& devList);
     virtual RGY_ERR InitChapters(const sInputParams *inputParam);
     virtual RGY_ERR InitFilters(sInputParams *inputParam);
     virtual std::vector<VppType> InitFiltersCreateVppList(const sInputParams *inputParam, const bool cspConvRequired, const bool cropRequired, const RGY_VPP_RESIZE_TYPE resizeRequired);
@@ -213,12 +209,14 @@ protected:
     virtual RGY_ERR createOpenCLCopyFilterForPreVideoMetric();
     virtual RGY_ERR InitOutput(sInputParams *pParams);
     virtual RGY_ERR InitMfxDecParams();
-    virtual RGY_ERR InitMfxEncodeParams(sInputParams *pParams);
+    virtual RGY_ERR InitMfxEncodeParams(sInputParams *pParams, std::vector<std::unique_ptr<QSVDevice>>& devList);
     virtual RGY_ERR InitPowerThrottoling(sInputParams *pParams);
     virtual RGY_ERR InitMfxDec();
     virtual RGY_ERR InitMfxVpp();
     virtual RGY_ERR InitMfxEncode();
-    virtual RGY_ERR InitSession();
+    RGY_ERR checkGPUListByEncoder(const sInputParams *inputParam, std::vector<std::unique_ptr<QSVDevice>>& deviceList);
+    RGY_ERR deviceAutoSelect(const sInputParams *inputParam, std::vector<std::unique_ptr<QSVDevice>>& deviceList);
+    virtual RGY_ERR InitSession(const sInputParams *inputParam, std::vector<std::unique_ptr<QSVDevice>>& deviceList);
     virtual RGY_ERR InitVideoQualityMetric(sInputParams *pParams);
     void applyInputVUIToColorspaceParams(sInputParams *inputParam);
     bool preferD3D11Mode(const sInputParams *pParams);
@@ -228,9 +226,6 @@ protected:
 
     virtual bool CPUGenOpenCLSupported(const QSV_CPU_GEN cpu_gen);
     virtual RGY_ERR InitOpenCL(const bool enableOpenCL, const bool checkVppPerformance);
-    virtual void DeleteAllocator();
-
-    virtual void DeleteHWDevice();
 
     virtual RGY_ERR AllocFrames();
 

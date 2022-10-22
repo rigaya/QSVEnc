@@ -373,7 +373,16 @@ struct QSVEncFeatureData {
     QSVDeviceNum dev;
     RGY_CODEC codec;
     bool lowPwer;
-    std::vector<uint64_t> feature;
+    std::map<int, uint64_t> feature;
+
+    bool available() const {
+        for (const auto& [ratecontrol, value] : feature) {
+            if (value != 0) {
+                return true;
+            }
+        }
+        return false;
+    }
 };
 
 enum FeatureListStrType {
@@ -425,12 +434,13 @@ mfxU64 CheckVppFeatures(const QSVDeviceNum deviceNum, std::shared_ptr<RGYLog> lo
 tstring MakeVppFeatureStr(const QSVDeviceNum deviceNum, FeatureListStrType outputType, std::shared_ptr<RGYLog> log);
 
 std::vector<RGY_CSP> CheckDecFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer, mfxU32 codecId);
+CodecCsp MakeDecodeFeatureList(MFXVideoSession& session, const vector<RGY_CODEC>& codecIdList, std::shared_ptr<RGYLog> log, const bool skipHWDecodeCheck);
 CodecCsp MakeDecodeFeatureList(const QSVDeviceNum deviceNum, const vector<mfxU32>& codecIdList, std::shared_ptr<RGYLog> log, const bool skipHWDecodeCheck);
 tstring MakeDecFeatureStr(const QSVDeviceNum deviceNum, FeatureListStrType type, std::shared_ptr<RGYLog> log);
 CodecCsp getHWDecCodecCsp(const QSVDeviceNum deviceNum, std::shared_ptr<RGYLog> log, const bool skipHWDecodeCheck);
 
 int GetImplListStr(tstring& str);
-std::vector<tstring> getDeviceList();
+std::vector<tstring> getDeviceNameList();
 #if ENABLE_OPENCL
 std::optional<RGYOpenCLDeviceInfo> getDeviceCLInfoQSV(const QSVDeviceNum dev);
 #endif

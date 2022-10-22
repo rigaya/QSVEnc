@@ -677,7 +677,8 @@ convert_csp.cpp             convert_csp_avx.cpp \
 convert_csp_avx2.cpp        convert_csp_sse2.cpp        convert_csp_sse41.cpp          convert_csp_ssse3.cpp \
 cpu_info.cpp                gpu_info.cpp                gpuz_info.cpp                  logo.cpp \
 qsv_allocator.cpp           qsv_allocator_d3d11.cpp     qsv_allocator_d3d9.cpp         qsv_allocator_sys.cpp \
-qsv_allocator_va.cpp        qsv_cmd.cpp                 qsv_hw_d3d11.cpp               qsv_hw_d3d9.cpp \
+qsv_allocator_va.cpp        qsv_cmd.cpp                 qsv_device.cpp \
+qsv_hw_d3d11.cpp            qsv_hw_d3d9.cpp \
 qsv_hw_device.cpp           qsv_hw_va.cpp               qsv_hw_va_utils.cpp            qsv_hw_va_utils_drm.cpp \
 qsv_hw_va_utils_x11.cpp     qsv_mfx_dec.cpp             qsv_pipeline.cpp               qsv_prm.cpp \
 qsv_query.cpp               qsv_session.cpp             qsv_util.cpp                   qsv_vpp_mfx.cpp \

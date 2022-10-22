@@ -47,6 +47,7 @@
 #include "rgy_arch.h"
 #include "qsv_util.h"
 #include "qsv_prm.h"
+#include "qsv_device.h"
 #include "rgy_osdep.h"
 #include "rgy_env.h"
 #include "qsv_query.h"
@@ -1162,7 +1163,6 @@ QSVEncFeatureData MakeFeatureList(const QSVDeviceNum deviceNum, const std::vecto
     availableFeatureForEachRC.codec = codec;
     availableFeatureForEachRC.dev = deviceNum;
     availableFeatureForEachRC.lowPwer = lowPower;
-    availableFeatureForEachRC.feature.reserve(rateControlList.size());
 #if LIBVA_SUPPORT
     if (codec != RGY_CODEC_MPEG2) {
 #endif
@@ -1186,7 +1186,7 @@ QSVEncFeatureData MakeFeatureList(const QSVDeviceNum deviceNum, const std::vecto
                 if (ret == 0 && ratecontrol.value == MFX_RATECONTROL_CQP) {
                     ver = MFX_LIB_VERSION_0_0;
                 }
-                availableFeatureForEachRC.feature.push_back(ret);
+                availableFeatureForEachRC.feature[ratecontrol.value] = ret;
             }
         }
 #if LIBVA_SUPPORT
@@ -1226,12 +1226,11 @@ std::vector<QSVEncFeatureData> MakeFeatureListPerCodec(const QSVDeviceNum device
             });
             if (it_h264 != codecFeatures.end()
                 && it_hevc != codecFeatures.end()
-                && std::accumulate(it_hevc->feature.begin(), it_hevc->feature.end(), (uint64_t)0,
-                    [](uint64_t sum, uint64_t value) { return sum | value; }) > 0) {
-                for (size_t irc = 0; irc < rateControlList.size(); irc++) {
-                    if ((it_hevc->feature[irc] & ENC_FEATURE_HYPER_MODE) == 0) { // HEVCのHyperModeがオフで
-                        if ((it_h264->feature[irc] & ENC_FEATURE_HYPER_MODE) != 0) { //H.264のHyperModeは有効なら
-                            it_hevc->feature[irc] |= ENC_FEATURE_HYPER_MODE;
+                && it_hevc->available()) {
+                for (const auto& [rc, feature] : it_hevc->feature) {
+                    if ((feature & ENC_FEATURE_HYPER_MODE) == 0) { // HEVCのHyperModeがオフで
+                        if ((it_h264->feature[rc] & ENC_FEATURE_HYPER_MODE) != 0) { //H.264のHyperModeは有効なら
+                            it_hevc->feature[rc] |= ENC_FEATURE_HYPER_MODE;
                         }
                     }
                 }
@@ -1268,6 +1267,27 @@ std::vector<RGY_CSP> CheckDecodeFeature(MFXVideoSession& session, mfxVersion ver
     return CheckDecFeaturesInternal(session, ver, codecId);
 }
 
+CodecCsp MakeDecodeFeatureList(MFXVideoSession& session, const vector<RGY_CODEC>& codecIdList, std::shared_ptr<RGYLog> log, const bool skipHWDecodeCheck) {
+    CodecCsp codecFeatures;
+    mfxVersion ver = MFX_LIB_VERSION_0_0;
+    session.QueryVersion(&ver);
+    for (auto codec : codecIdList) {
+        if (skipHWDecodeCheck) {
+            codecFeatures[codec] = {
+                RGY_CSP_NV12, RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16,
+                RGY_CSP_YUV422, RGY_CSP_YUV422_09, RGY_CSP_YUV422_10, RGY_CSP_YUV422_12, RGY_CSP_YUV422_14, RGY_CSP_YUV422_16,
+                RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16
+            };
+        } else {
+            auto features = CheckDecodeFeature(session, ver, codec_rgy_to_enc(codec));
+            if (features.size() > 0) {
+                codecFeatures[codec] = features;
+            }
+        }
+    }
+    return codecFeatures;
+}
+
 CodecCsp MakeDecodeFeatureList(const QSVDeviceNum deviceNum, const vector<RGY_CODEC>& codecIdList, std::shared_ptr<RGYLog> log, const bool skipHWDecodeCheck) {
     CodecCsp codecFeatures;
     MemType memType = HW_MEMORY;
@@ -1282,23 +1302,8 @@ CodecCsp MakeDecodeFeatureList(const QSVDeviceNum deviceNum, const vector<RGY_CO
     } else if ((err = CreateAllocator(allocator, bexternalAlloc, memType, hwdev.get(), session, log)) != RGY_ERR_NONE) {
         log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("CreateAllocator: failed to create allocator: %s.\n"), get_err_mes(err));
     } else {
-        mfxVersion ver = MFX_LIB_VERSION_0_0;
-        session.QueryVersion(&ver);
         log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("InitSession: initialized allocator.\n"));
-        for (auto codec : codecIdList) {
-            if (skipHWDecodeCheck) {
-                codecFeatures[codec] = {
-                    RGY_CSP_NV12, RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16,
-                    RGY_CSP_YUV422, RGY_CSP_YUV422_09, RGY_CSP_YUV422_10, RGY_CSP_YUV422_12, RGY_CSP_YUV422_14, RGY_CSP_YUV422_16,
-                    RGY_CSP_YUV444, RGY_CSP_YUV444_09, RGY_CSP_YUV444_10, RGY_CSP_YUV444_12, RGY_CSP_YUV444_14, RGY_CSP_YUV444_16
-                };
-            } else {
-                auto features = CheckDecodeFeature(session, ver, codec_rgy_to_enc(codec));
-                if (features.size() > 0) {
-                    codecFeatures[codec] = features;
-                }
-            }
-        }
+        codecFeatures = MakeDecodeFeatureList(session, codecIdList, log, skipHWDecodeCheck);
     }
     return codecFeatures;
 }
@@ -1324,8 +1329,8 @@ std::vector<std::pair<QSVEncFeatureData, tstring>> MakeFeatureListStr(const QSVD
 
     // H.264がサポートされているかチェック
     const bool h264Supported = std::accumulate(featurePerCodec.begin(), featurePerCodec.end(), (uint64_t)0, [](uint64_t sum, const QSVEncFeatureData& value) {
-        if (value.codec == RGY_CODEC_H264) {
-            sum |= std::accumulate(value.feature.begin(), value.feature.end(), (uint64_t)0, [](uint64_t sum2, uint64_t v) { return sum2 | v; });
+        if (value.codec == RGY_CODEC_H264 && value.available()) {
+            sum++;
         }
         return sum;
     }) != 0;
@@ -1334,8 +1339,7 @@ std::vector<std::pair<QSVEncFeatureData, tstring>> MakeFeatureListStr(const QSVD
         tstring str;
         //H.264以外で、ひとつもフラグが立っていなかったら、スキップする
         if ((availableFeatureForEachRC.codec != RGY_CODEC_H264 || h264Supported || availableFeatureForEachRC.lowPwer)
-            && 0 == std::accumulate(availableFeatureForEachRC.feature.begin(), availableFeatureForEachRC.feature.end(), (uint64_t)0,
-                [](uint64_t sum, uint64_t value) { return sum | value; })) {
+            && availableFeatureForEachRC.available()) {
             continue;
         }
         str += _T("Codec: ") + tstring(CodecToStr(availableFeatureForEachRC.codec)) + _T(" ") + (availableFeatureForEachRC.lowPwer ? _T("FF") : _T("PG")) + _T("\n");
@@ -1355,14 +1359,14 @@ std::vector<std::pair<QSVEncFeatureData, tstring>> MakeFeatureListStr(const QSVD
             break;
         }
 
-        for (size_t i = 0; i < _countof(list_rate_control_ry); i++) {
+        for (const auto& [ratecontrol, feature] : availableFeatureForEachRC.feature) {
             switch (type) {
             case FEATURE_LIST_STR_TYPE_CSV: str += _T(","); break;
             case FEATURE_LIST_STR_TYPE_HTML: str += _T("<th>"); break;
             case FEATURE_LIST_STR_TYPE_TXT:
             default: str += _T(" "); break;
             }
-            str += list_rate_control_ry[i].desc;
+            str += get_cx_desc(list_rate_control_ry, ratecontrol);
             if (type == FEATURE_LIST_STR_TYPE_HTML) {
                 str += _T("</th>");
             }
@@ -1383,14 +1387,14 @@ std::vector<std::pair<QSVEncFeatureData, tstring>> MakeFeatureListStr(const QSVD
             case FEATURE_LIST_STR_TYPE_HTML: str += _T("</td>"); break;
             default: break;
             }
-            for (size_t i = 0; i < _countof(list_rate_control_ry); i++) {
+            for (const auto& [ratecontrol, feature]: availableFeatureForEachRC.feature) {
                 if (type == FEATURE_LIST_STR_TYPE_HTML) {
-                    str += !!(availableFeatureForEachRC.feature[i] & ptr->value) ? _T("<td class=ok>") : _T("<td class=fail>");
+                    str += !!(feature & ptr->value) ? _T("<td class=ok>") : _T("<td class=fail>");
                 }
                 if (type == FEATURE_LIST_STR_TYPE_TXT) {
-                    str += QSV_FEATURE_MARK_YES_NO_WITH_SPACE[!!(availableFeatureForEachRC.feature[i] & ptr->value)];
+                    str += QSV_FEATURE_MARK_YES_NO_WITH_SPACE[!!(feature & ptr->value)];
                 } else {
-                    str += QSV_FEATURE_MARK_YES_NO[!!(availableFeatureForEachRC.feature[i] & ptr->value)];
+                    str += QSV_FEATURE_MARK_YES_NO[!!(feature & ptr->value)];
                 }
                 switch (type) {
                 case FEATURE_LIST_STR_TYPE_CSV: str += _T(","); break;
@@ -1621,60 +1625,22 @@ int GetImplListStr(tstring& str) {
     return (int)implList.size();
 }
 
-std::optional<RGYOpenCLDeviceInfo> getDeviceCLInfoQSV(const QSVDeviceNum dev) {
-    auto log = std::make_shared<RGYLog>(nullptr, RGY_LOG_QUIET);
-
-    RGYOpenCL cl(log);
-    if (RGYOpenCL::openCLloaded()) {
-        auto clPlatforms = cl.getPlatforms("Intel");
-        std::unique_ptr<CQSVHWDevice> hwdev;
-        MemType memType = HW_MEMORY;
-        MFXVideoSession2 session;
-        MFXVideoSession2Params params;
-        if (InitSessionAndDevice(hwdev, session, memType, dev, params, log) == RGY_ERR_NONE) {
-            const mfxHandleType hdl_t = mfxHandleTypeFromMemType(memType, true);
-            mfxHDL hdl = nullptr;
-            if (hdl_t
-                && err_to_rgy(hwdev->GetHandle((hdl_t == MFX_HANDLE_DIRECT3D_DEVICE_MANAGER9) ? (mfxHandleType)0 : hdl_t, &hdl)) == RGY_ERR_NONE) {
-                for (auto& platform : clPlatforms) {
-                    if (memType == D3D9_MEMORY && ENABLE_RGY_OPENCL_D3D9) {
-                        if (platform->createDeviceListD3D9(CL_DEVICE_TYPE_GPU, (void *)hdl) == CL_SUCCESS && platform->devs().size() > 0) {
-                            return std::optional<RGYOpenCLDeviceInfo>(platform->dev(0).info());
-                        }
-                    } else if (memType == D3D11_MEMORY && ENABLE_RGY_OPENCL_D3D11) {
-                        if (platform->createDeviceListD3D11(CL_DEVICE_TYPE_GPU, (void *)hdl) == CL_SUCCESS && platform->devs().size() > 0) {
-                            return std::optional<RGYOpenCLDeviceInfo>(platform->dev(0).info());
-                        }
-                    } else if (memType == VA_MEMORY && ENABLE_RGY_OPENCL_VA) {
-                        if (platform->createDeviceListVA(CL_DEVICE_TYPE_GPU, (void *)hdl) == CL_SUCCESS && platform->devs().size() > 0) {
-                            return std::optional<RGYOpenCLDeviceInfo>(platform->dev(0).info());
-                        }
-                    } else {
-                        if (platform->createDeviceList(CL_DEVICE_TYPE_GPU) == CL_SUCCESS && platform->devs().size() > 0) {
-                            return std::optional<RGYOpenCLDeviceInfo>(platform->dev(0).info());
-                        }
-                    }
-                }
-            }
-        }
-    }
-    return std::optional<RGYOpenCLDeviceInfo>();
-}
-
-std::vector<tstring> getDeviceList() {
+std::vector<tstring> getDeviceNameList() {
     std::vector<tstring> result;
     auto log = std::make_shared<RGYLog>(nullptr, RGY_LOG_QUIET);
     for (int idev = 1; idev <= (int)QSVDeviceNum::MAX; idev++) {
-        const auto info = getDeviceCLInfoQSV((QSVDeviceNum)idev);
-        if (info.has_value()) {
-            if (info.value().name.length() > 0) {
-                auto gpu_name = info.value().name;
-                gpu_name = str_replace(gpu_name, "(R)", "");
-                gpu_name = str_replace(gpu_name, "(TM)", "");
-                result.push_back(strsprintf(_T("Device #%d: %s"), idev, char_to_tstring(gpu_name).c_str()));
-            } else {
-                result.push_back(strsprintf(_T("Device #%d"), idev));
-            }
+        auto dev = std::make_unique<QSVDevice>();
+        if (dev->init((QSVDeviceNum)idev, false, true) != RGY_ERR_NONE) {
+            break;
+        }
+        auto info = dev->devInfo();
+        if (info && info->name.length() > 0) {
+            auto gpu_name = info->name;
+            gpu_name = str_replace(gpu_name, "(R)", "");
+            gpu_name = str_replace(gpu_name, "(TM)", "");
+            result.push_back(strsprintf(_T("Device #%d: %s"), idev, char_to_tstring(gpu_name).c_str()));
+        } else {
+            result.push_back(strsprintf(_T("Device #%d"), idev));
         }
     }
     return result;

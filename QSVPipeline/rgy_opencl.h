@@ -777,9 +777,9 @@ public:
     RGYOpenCLPlatform(cl_platform_id platform, shared_ptr<RGYLog> pLog);
     virtual ~RGYOpenCLPlatform() {};
     RGY_ERR createDeviceList(cl_device_type device_type);
-    RGY_ERR createDeviceListD3D9(cl_device_type device_type, void *d3d9dev);
-    RGY_ERR createDeviceListD3D11(cl_device_type device_type, void *d3d11dev);
-    RGY_ERR createDeviceListVA(cl_device_type device_type, void *devVA);
+    RGY_ERR createDeviceListD3D9(cl_device_type device_type, void *d3d9dev, const bool tryMode = false);
+    RGY_ERR createDeviceListD3D11(cl_device_type device_type, void *d3d11dev, const bool tryMode = false);
+    RGY_ERR createDeviceListVA(cl_device_type device_type, void *devVA, const bool tryMode = false);
     RGY_ERR loadSubGroupKHR();
     RGYOpenCLSubGroupSupport checkSubGroupSupport(const cl_device_id devid);
     cl_platform_id get() const { return m_platform; };

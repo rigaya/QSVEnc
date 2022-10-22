@@ -297,31 +297,31 @@ mfxIMPL MFXVideoSession2::devNumToImpl(const QSVDeviceNum dev) {
     }
 }
 
-mfxStatus MFXVideoSession2::initD3D9(const QSVDeviceNum dev) {
+mfxStatus MFXVideoSession2::initD3D9(const QSVDeviceNum dev, const bool suppressErrorMessage) {
     mfxIMPL impl = MFX_IMPL_HARDWARE_ANY | MFX_IMPL_VIA_D3D9;
     auto err = initHW(impl, dev);
-    PrintMes((err) ? RGY_LOG_ERROR : RGY_LOG_DEBUG, _T("InitSession(d3d9): %s.\n"), get_err_mes(err));
+    PrintMes((err && !suppressErrorMessage) ? RGY_LOG_ERROR : RGY_LOG_DEBUG, _T("InitSession(d3d9): %s.\n"), get_err_mes(err));
     return err;
 }
 
-mfxStatus MFXVideoSession2::initD3D11(const QSVDeviceNum dev) {
+mfxStatus MFXVideoSession2::initD3D11(const QSVDeviceNum dev, const bool suppressErrorMessage) {
     mfxIMPL impl = MFX_IMPL_HARDWARE_ANY | MFX_IMPL_VIA_D3D11;
     auto err = initHW(impl, dev);
-    PrintMes((err) ? RGY_LOG_ERROR : RGY_LOG_DEBUG, _T("InitSession(d3d11): %s.\n"), get_err_mes(err));
+    PrintMes((err && !suppressErrorMessage) ? RGY_LOG_ERROR : RGY_LOG_DEBUG, _T("InitSession(d3d11): %s.\n"), get_err_mes(err));
     return err;
 }
 
-mfxStatus MFXVideoSession2::initVA(const QSVDeviceNum dev) {
+mfxStatus MFXVideoSession2::initVA(const QSVDeviceNum dev, const bool suppressErrorMessage) {
     mfxIMPL impl = MFX_IMPL_HARDWARE_ANY | MFX_IMPL_VIA_VAAPI;
     auto err = initHW(impl, dev);
-    PrintMes((err) ? RGY_LOG_ERROR : RGY_LOG_DEBUG, _T("InitSession(va): %s.\n"), get_err_mes(err));
+    PrintMes((err && !suppressErrorMessage) ? RGY_LOG_ERROR : RGY_LOG_DEBUG, _T("InitSession(va): %s.\n"), get_err_mes(err));
     return err;
 }
 
-mfxStatus MFXVideoSession2::initSW() {
+mfxStatus MFXVideoSession2::initSW(const bool suppressErrorMessage) {
     mfxIMPL impl = MFX_IMPL_SOFTWARE;
     auto err = initHW(impl, QSVDeviceNum::AUTO);
-    PrintMes((err) ? RGY_LOG_ERROR : RGY_LOG_DEBUG, _T("InitSession(sys): %s.\n"), get_err_mes(err));
+    PrintMes((err && !suppressErrorMessage) ? RGY_LOG_ERROR : RGY_LOG_DEBUG, _T("InitSession(sys): %s.\n"), get_err_mes(err));
     return err;
 }
 
@@ -332,21 +332,21 @@ std::vector<mfxImplDescription> getVPLImplList(std::shared_ptr<RGYLog>& log) {
     return session.getImplList();
 }
 
-RGY_ERR InitSession(MFXVideoSession2& mfxSession, const MFXVideoSession2Params& params, const mfxIMPL implAcceleration, const QSVDeviceNum dev, std::shared_ptr<RGYLog>& log) {
+RGY_ERR InitSession(MFXVideoSession2& mfxSession, const MFXVideoSession2Params& params, const mfxIMPL implAcceleration, const QSVDeviceNum dev, std::shared_ptr<RGYLog>& log, const bool suppressErrorMessage) {
     mfxSession.setParams(log, params);
 	auto err = RGY_ERR_NOT_INITIALIZED;
 #if D3D_SURFACES_SUPPORT
 #if MFX_D3D11_SUPPORT
 	if ((implAcceleration & MFX_IMPL_VIA_D3D11) == MFX_IMPL_VIA_D3D11) {
-		err = (DEBUG_WIN7) ? RGY_ERR_NOT_INITIALIZED : err_to_rgy(mfxSession.initD3D11(dev));
+		err = (DEBUG_WIN7) ? RGY_ERR_NOT_INITIALIZED : err_to_rgy(mfxSession.initD3D11(dev, suppressErrorMessage));
 		if (err != RGY_ERR_NONE) err = RGY_ERR_NOT_INITIALIZED;
 	}
 #endif
 	if ((implAcceleration & MFX_IMPL_VIA_D3D9) == MFX_IMPL_VIA_D3D9 && err == RGY_ERR_NOT_INITIALIZED) {
-		err = err_to_rgy(mfxSession.initD3D9(dev));
+		err = err_to_rgy(mfxSession.initD3D9(dev, suppressErrorMessage));
 	}
 #elif LIBVA_SUPPORT
-	err = err_to_rgy(mfxSession.initVA(dev));
+	err = err_to_rgy(mfxSession.initVA(dev, suppressErrorMessage));
 #endif
 	return err;
 }
@@ -368,7 +368,7 @@ mfxIMPL GetDefaultMFXImpl(MemType memType) {
 	return impl;
 }
 
-RGY_ERR InitSessionAndDevice(std::unique_ptr<CQSVHWDevice>& hwdev, MFXVideoSession2& mfxSession, MemType& memType, const QSVDeviceNum dev, const MFXVideoSession2Params& params, std::shared_ptr<RGYLog>& log) {
+RGY_ERR InitSessionAndDevice(std::unique_ptr<CQSVHWDevice>& hwdev, MFXVideoSession2& mfxSession, MemType& memType, const QSVDeviceNum dev, const MFXVideoSession2Params& params, std::shared_ptr<RGYLog>& log, const bool suppressErrorMessage) {
     auto sts = RGY_ERR_NONE;
     {
         auto targetImplAcceleration = GetDefaultMFXImpl(memType);
@@ -384,8 +384,8 @@ RGY_ERR InitSessionAndDevice(std::unique_ptr<CQSVHWDevice>& hwdev, MFXVideoSessi
         }
 #endif //#if D3D_SURFACES_SUPPORT
 
-        if ((sts = InitSession(mfxSession, params, targetImplAcceleration, dev, log)) != RGY_ERR_NONE) {
-            log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("Failed to init session: %s.\n"), get_err_mes(sts));
+        if ((sts = InitSession(mfxSession, params, targetImplAcceleration, dev, log, suppressErrorMessage)) != RGY_ERR_NONE) {
+            log->write((suppressErrorMessage) ? RGY_LOG_DEBUG : RGY_LOG_ERROR, RGY_LOGT_CORE, _T("Failed to init session: %s.\n"), get_err_mes(sts));
             return sts;
         }
     }
