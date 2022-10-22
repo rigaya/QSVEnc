@@ -787,10 +787,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams) {
             m_encVUI.colorprim = (CspColorprim)get_cx_value(list_colorprim, _T("undef"));
         }
     }
-    m_encVUI.descriptpresent =
-           (int)m_encVUI.matrix != get_cx_value(list_colormatrix, _T("undef"))
-        || (int)m_encVUI.colorprim != get_cx_value(list_colorprim, _T("undef"))
-        || (int)m_encVUI.transfer != get_cx_value(list_transfer, _T("undef"));
+    m_encVUI.setDescriptPreset();
 
     if (pInParams->bOutputAud && !(availableFeaures & ENC_FEATURE_AUD)) {
         print_feature_warnings(RGY_LOG_WARN, _T("aud"));
