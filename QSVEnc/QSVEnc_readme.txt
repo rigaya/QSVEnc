@@ -287,6 +287,8 @@ Arc A380
 Intel Graphics Driver 30.0.101.3221  (API v2.07)
 Intel Graphics Driver 30.0.101.3259  (API v2.07)
 Intel Graphics Driver 31.0.101.3276  (API v2.07)
+Intel Graphics Driver 31.0.101.3430  (API v2.07)
+Intel Graphics Driver 31.0.101.3491  (API v2.07)
 
 【Intel Media SDKとAPIの対応関係】
 API v1.32 … Intel Media SDK 2020 R1
@@ -311,7 +313,7 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
-2022.10.22 (7.22)
+2022.10.23 (7.22)
 [QSVEncC]
 - --vpp-afsとAV1エンコードを組み合わせた場合に正常に動作しない問題を修正。
 - 指定したオプションにより適切なGPUを自動的に選択するように。

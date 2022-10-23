@@ -3257,7 +3257,7 @@ private: System::Windows::Forms::Label^  fcgLBBitDepth;
             this->fcgLBMFXLibDetection->Name = L"fcgLBMFXLibDetection";
             this->fcgLBMFXLibDetection->Size = System::Drawing::Size(127, 19);
             this->fcgLBMFXLibDetection->TabIndex = 106;
-            this->fcgLBMFXLibDetection->Text = L"Intel Media SDK";
+            this->fcgLBMFXLibDetection->Text = L"Intel oneVPL";
             // 
             // fcgLBSlices2
             // 
