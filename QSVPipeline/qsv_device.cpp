@@ -180,12 +180,17 @@ std::optional<RGYOpenCLDeviceInfo> getDeviceCLInfoQSV(const QSVDeviceNum deviceN
 }
 
 std::vector<std::unique_ptr<QSVDevice>> getDeviceList(const QSVDeviceNum deviceNum, const bool enableOpenCL, const MemType memType, std::shared_ptr<RGYLog> log) {
+    auto openCLAvail = enableOpenCL;
+    if (enableOpenCL) {
+        RGYOpenCL cl(std::make_shared<RGYLog>(nullptr, RGY_LOG_QUIET));
+        openCLAvail = RGYOpenCL::openCLloaded();
+    }
     std::vector<std::unique_ptr<QSVDevice>> devList;
     const int idevstart = (deviceNum != QSVDeviceNum::AUTO) ? (int)deviceNum : 1;
     const int idevfin   = (deviceNum != QSVDeviceNum::AUTO) ? (int)deviceNum : (int)QSVDeviceNum::MAX;
     for (int idev = idevstart; idev <= idevfin; idev++) {
         auto dev = std::make_unique<QSVDevice>();
-        if (dev->init((QSVDeviceNum)idev, enableOpenCL, memType, log, idev != idevstart) != RGY_ERR_NONE) {
+        if (dev->init((QSVDeviceNum)idev, enableOpenCL && openCLAvail, memType, log, idev != idevstart) != RGY_ERR_NONE) {
             break;
         }
         devList.push_back(std::move(dev));
