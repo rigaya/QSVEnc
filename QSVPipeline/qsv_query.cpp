@@ -1339,7 +1339,7 @@ std::vector<std::pair<QSVEncFeatureData, tstring>> MakeFeatureListStr(const QSVD
         tstring str;
         //H.264以外で、ひとつもフラグが立っていなかったら、スキップする
         if ((availableFeatureForEachRC.codec != RGY_CODEC_H264 || h264Supported || availableFeatureForEachRC.lowPwer)
-            && availableFeatureForEachRC.available()) {
+            && !availableFeatureForEachRC.available()) {
             continue;
         }
         str += _T("Codec: ") + tstring(CodecToStr(availableFeatureForEachRC.codec)) + _T(" ") + (availableFeatureForEachRC.lowPwer ? _T("FF") : _T("PG")) + _T("\n");
