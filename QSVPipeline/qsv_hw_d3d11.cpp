@@ -185,6 +185,10 @@ LUID CQSVD3D11Device::GetLUID() {
     return m_devLUID;
 }
 
+tstring CQSVD3D11Device::GetName() {
+    return wstring_to_tstring(m_displayDeviceName);
+};
+
 void CQSVD3D11Device::Close() {
     m_HandleWindow = NULL;
     AddMessage(RGY_LOG_DEBUG, _T("D3D11Device: Closed.\n"));

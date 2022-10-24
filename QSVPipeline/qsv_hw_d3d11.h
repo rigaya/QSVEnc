@@ -48,6 +48,7 @@ public:
     virtual mfxStatus GetHandle(mfxHandleType type, mfxHDL *pHdl) override;
     virtual void      Close() override;
     virtual LUID      GetLUID() override;
+    virtual tstring   GetName() override;
 protected:
     void SetSCD1(DXGI_SWAP_CHAIN_DESC1& scd);
     mfxStatus CreateVideoProcessor(mfxFrameSurface1 *pSurface);

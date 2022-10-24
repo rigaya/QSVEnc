@@ -1640,7 +1640,15 @@ std::vector<tstring> getDeviceNameList() {
             gpu_name = str_replace(gpu_name, "(TM)", "");
             result.push_back(strsprintf(_T("Device #%d: %s"), idev, char_to_tstring(gpu_name).c_str()));
         } else {
-            result.push_back(strsprintf(_T("Device #%d"), idev));
+            tstring name;
+            if (dev->hwdev()) {
+                name = dev->hwdev()->GetName();
+            }
+            if (!name.empty()) {
+                result.push_back(strsprintf(_T("Device #%d: %s"), idev, name.c_str()));
+            } else {
+                result.push_back(strsprintf(_T("Device #%d"), idev));
+            }
         }
     }
     return result;
