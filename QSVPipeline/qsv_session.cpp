@@ -270,27 +270,29 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
     if (sts == MFX_ERR_NONE) return sts;
     m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: Failed to init by MFXCreateSession.\n"));
 #endif
-    m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: try init by MFXInit.\n"));
-    const auto impl2 = impl | devNumToImpl(dev);
-    sts = Init(impl2, &verRequired);
+    const auto impl2 = (impl & (~MFX_IMPL_BASETYPE(std::numeric_limits<mfxIMPL>::max())));
+    auto implTest = impl2 | devNumToImpl(dev);
+    m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: try init by MFXInit: impl %s.\n"), MFXImplToStr(implTest).c_str());
+    sts = Init(implTest, &verRequired);
     if (sts == MFX_ERR_NONE) {
-        impl = impl2;
-    } else {
-        auto impl3 = impl;
-        if (MFX_IMPL_BASETYPE(impl2) == MFX_IMPL_HARDWARE_ANY) {  //MFX_IMPL_HARDWARE_ANYがサポートされない場合もあり得るので、失敗したらこれをオフにしてもう一回試す
-            impl3 |= MFX_IMPL_HARDWARE;
-        } else if (
-               MFX_IMPL_BASETYPE(impl2) == MFX_IMPL_HARDWARE
-            || MFX_IMPL_BASETYPE(impl2) == MFX_IMPL_HARDWARE2
-            || MFX_IMPL_BASETYPE(impl2) == MFX_IMPL_HARDWARE3
-            || MFX_IMPL_BASETYPE(impl2) == MFX_IMPL_HARDWARE4) {  //MFX_IMPL_HARDWAREで失敗したら、MFX_IMPL_HARDWARE_ANYでもう一回試す
-            impl3 |= MFX_IMPL_HARDWARE_ANY;
-        }
-        m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: try init by MFXInit (retry).\n"));
-        sts = Init(impl3, &verRequired);
-        if (sts == MFX_ERR_NONE) {
-            impl = impl3;
-        }
+        impl = implTest;
+        return sts;
+    }
+    //MFX_IMPL_HARDWARE_ANYで試す
+    implTest = impl2 | MFX_IMPL_HARDWARE_ANY;
+    m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: try init by MFXInit: impl %s.\n"), MFXImplToStr(implTest).c_str());
+    sts = Init(implTest, &verRequired);
+    if (sts == MFX_ERR_NONE) {
+        impl = implTest;
+        return sts;
+    }
+    //MFX_IMPL_HARDWARE_ANYがサポートされない場合もあり得るので、失敗したらこれをオフにしてもう一回試す
+    implTest = impl2 | MFX_IMPL_HARDWARE;
+    m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: try init by MFXInit: impl %s.\n"), MFXImplToStr(implTest).c_str());
+    sts = Init(implTest, &verRequired);
+    if (sts == MFX_ERR_NONE) {
+        impl = implTest;
+        return sts;
     }
     return sts;
 }
