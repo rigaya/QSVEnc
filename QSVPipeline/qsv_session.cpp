@@ -267,7 +267,7 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
             }
         }
     }
-    if (sts == MFX_ERR_NONE) return sts;
+    if (sts == MFX_ERR_NONE || (dev != QSVDeviceNum::AUTO && dev != QSVDeviceNum::NUM1)) return sts;
     m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: Failed to init by MFXCreateSession.\n"));
 #endif
     const auto impl2 = (impl & (~MFX_IMPL_BASETYPE(std::numeric_limits<mfxIMPL>::max())));
