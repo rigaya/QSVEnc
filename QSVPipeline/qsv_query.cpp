@@ -1359,7 +1359,8 @@ std::vector<std::pair<QSVEncFeatureData, tstring>> MakeFeatureListStr(const QSVD
             break;
         }
 
-        for (const auto& [ratecontrol, feature] : availableFeatureForEachRC.feature) {
+        for (size_t i = 0; i < _countof(list_rate_control_ry); i++) {
+            const auto ratecontrol = list_rate_control_ry[i].value;
             switch (type) {
             case FEATURE_LIST_STR_TYPE_CSV: str += _T(","); break;
             case FEATURE_LIST_STR_TYPE_HTML: str += _T("<th>"); break;
@@ -1387,7 +1388,9 @@ std::vector<std::pair<QSVEncFeatureData, tstring>> MakeFeatureListStr(const QSVD
             case FEATURE_LIST_STR_TYPE_HTML: str += _T("</td>"); break;
             default: break;
             }
-            for (const auto& [ratecontrol, feature]: availableFeatureForEachRC.feature) {
+            for (size_t i = 0; i < _countof(list_rate_control_ry); i++) {
+                const auto ratecontrol = list_rate_control_ry[i].value;
+                const auto feature = availableFeatureForEachRC.feature.count(ratecontrol) > 0 ? availableFeatureForEachRC.feature.at(ratecontrol) : 0;
                 if (type == FEATURE_LIST_STR_TYPE_HTML) {
                     str += !!(feature & ptr->value) ? _T("<td class=ok>") : _T("<td class=fail>");
                 }
