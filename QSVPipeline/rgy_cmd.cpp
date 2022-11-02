@@ -2518,7 +2518,6 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-#if ENCODER_NVENC
                 if (param_arg == _T("swapuv")) {
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
@@ -2529,16 +2528,13 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-#endif
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
                 return 1;
             } else {
-#if ENCODER_NVENC
                 if (param == _T("swapuv")) {
                     vpp->tweak.swapuv = true;
                     continue;
                 }
-#endif
                 print_cmd_error_unknown_opt_param(option_name, param, paramList);
                 return 1;
             }

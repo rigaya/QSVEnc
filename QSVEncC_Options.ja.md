@@ -2230,6 +2230,8 @@ GPUによるディテールの強調を行う。0 - 100 の間でディテール
   
   - hue=&lt;float&gt; (default=0.0, -180 - 180)  
   
+  - swapuv=&lt;bool&gt;  (default=false)
+  
 - 使用例
   ```
   例:
