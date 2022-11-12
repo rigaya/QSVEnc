@@ -51,7 +51,7 @@ __kernel void kernel_tweak_uv(
     __global uchar *restrict pFrameU,
     __global uchar *restrict pFrameV,
     const int pitch, const int width, const int height,
-    const float saturation, const float hue_sin, const float hue_cos, const int swap_uv) {
+    const float saturation, const float hue_sin, const float hue_cos, const int swapuv) {
     const int ix = get_global_id(0);
     const int iy = get_global_id(1);
 
