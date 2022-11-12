@@ -46,6 +46,7 @@
   - [--avhw [&lt;string&gt;]](#--avhw-string)
   - [--interlace &lt;string&gt;](#--interlace-string)
   - [--crop &lt;int&gt;,&lt;int&gt;,&lt;int&gt;,&lt;int&gt;](#--crop-intintintint)
+  - [--frames &lt;int&gt;](#--frames-int)
   - [--fps &lt;int&gt;/&lt;int&gt; or &lt;float&gt;](#--fps-intint-or-float)
   - [--input-res &lt;int&gt;x&lt;int&gt;](#--input-res-intxint)
   - [--output-res &lt;int&gt;x&lt;int&gt;](#--output-res-intxint)
@@ -460,6 +461,9 @@ Deinterlace is available through [--vpp-deinterlace](#--vpp-deinterlace-string).
 
 ### --crop &lt;int&gt;,&lt;int&gt;,&lt;int&gt;,&lt;int&gt;
 Number of pixels to be cropped from left, top, right, bottom.
+
+### --frames &lt;int&gt;
+Number of frames to input. (Note: input base, not output base)
 
 ### --fps &lt;int&gt;/&lt;int&gt; or &lt;float&gt;
 Set the input frame rate. Required for raw format.

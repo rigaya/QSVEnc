@@ -45,6 +45,7 @@
   - [--avhw](#--avhw)
   - [--interlace &lt;string&gt;](#--interlace-string)
   - [--crop &lt;int&gt;,&lt;int&gt;,&lt;int&gt;,&lt;int&gt;](#--crop-intintintint)
+  - [--frames &lt;int&gt;](#--frames-int)
   - [--fps &lt;int&gt;/&lt;int&gt; or &lt;float&gt;](#--fps-intint-or-float)
   - [--input-res &lt;int&gt;x&lt;int&gt;](#--input-res-intxint)
   - [--output-res &lt;int&gt;x&lt;int&gt;[,&lt;string&gt;=&lt;string&gt;]](#--output-res-intxintstringstring)
@@ -472,6 +473,9 @@ avformat + QSV decoderを使用して読み込む。
 
 ### --crop &lt;int&gt;,&lt;int&gt;,&lt;int&gt;,&lt;int&gt;
 左、上、右、下の切り落とし画素数。
+
+### --frames &lt;int&gt;
+読み込むフレーム数。 (注: 入力ベースである点に注意、出力ベースではない)
 
 ### --fps &lt;int&gt;/&lt;int&gt; or &lt;float&gt;
 入力フレームレートの設定。raw形式の場合は必須。
