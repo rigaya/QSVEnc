@@ -382,12 +382,19 @@ SubImageData RGYFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, con
 }
 
 
-RGY_ERR RGYFilterSubburn::procFrameBitmap(RGYFrameInfo *pOutputFrame, const sInputCrop &crop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterSubburn::procFrameBitmap(RGYFrameInfo *pOutputFrame, const int64_t frameTimeMs, const sInputCrop &crop, const bool forced_subs_only, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     if (m_subData) {
         if (m_subData->num_rects != m_subImages.size()) {
             for (uint32_t irect = 0; irect < m_subData->num_rects; irect++) {
                 const AVSubtitleRect *rect = m_subData->rects[irect];
-                if (rect->w > 0 && rect->h > 0) {
+                if (forced_subs_only && !(rect->flags & AV_SUBTITLE_FLAG_FORCED)) {
+                    AddMessage(RGY_LOG_DEBUG, _T("skipping non-forced sub at %s\n"), getTimestampString(frameTimeMs, av_make_q(1, 1000)).c_str());
+                    // 空の値をいれる
+                    m_subImages.push_back(SubImageData(std::unique_ptr<RGYCLFrame>(), std::unique_ptr<RGYCLFrame>(), 0, 0));
+                } else if (rect->w == 0 || rect->h == 0) {
+                    // 空の値をいれる
+                    m_subImages.push_back(SubImageData(std::unique_ptr<RGYCLFrame>(), std::unique_ptr<RGYCLFrame>(), 0, 0));
+                } else {
                     m_subImages.push_back(bitmapRectToImage(rect, pOutputFrame, crop, queue, wait_events));
                 }
             }
@@ -402,14 +409,16 @@ RGY_ERR RGYFilterSubburn::procFrameBitmap(RGYFrameInfo *pOutputFrame, const sInp
             return RGY_ERR_INVALID_PARAM;
         }
         for (uint32_t irect = 0; irect < m_subImages.size(); irect++) {
-            const RGYFrameInfo *pSubImg = &m_subImages[irect].image->frame;
-            auto err = procFrame(pOutputFrame, pSubImg, m_subImages[irect].x, m_subImages[irect].y,
-                prm->subburn.transparency_offset, prm->subburn.brightness, prm->subburn.contrast, queue, wait_events, event);
-            if (err != RGY_ERR_NONE) {
-                AddMessage(RGY_LOG_ERROR, _T("error at subburn(%s): %s.\n"),
-                    RGY_CSP_NAMES[pOutputFrame->csp],
-                    get_err_mes(err));
-                return RGY_ERR_CUDA;
+            if (m_subImages[irect].image) {
+                const RGYFrameInfo *pSubImg = &m_subImages[irect].image->frame;
+                auto err = procFrame(pOutputFrame, pSubImg, m_subImages[irect].x, m_subImages[irect].y,
+                    prm->subburn.transparency_offset, prm->subburn.brightness, prm->subburn.contrast, queue, wait_events, event);
+                if (err != RGY_ERR_NONE) {
+                    AddMessage(RGY_LOG_ERROR, _T("error at subburn(%s): %s.\n"),
+                        RGY_CSP_NAMES[pOutputFrame->csp],
+                        get_err_mes(err));
+                    return RGY_ERR_CUDA;
+                }
             }
         }
     }
@@ -883,7 +892,7 @@ RGY_ERR RGYFilterSubburn::procFrame(RGYFrameInfo *pOutputFrame, RGYOpenCLQueue &
             }
             AddMessage(RGY_LOG_TRACE, _T("burn subtitle into video frame (%s)"),
                 getTimestampString(nFrameTimeMs, av_make_q(1, 1000)).c_str());
-            return procFrameBitmap(pOutputFrame, prm->crop, queue, wait_events, event);
+            return procFrameBitmap(pOutputFrame, nFrameTimeMs, prm->crop, prm->subburn.forced_subs_only, queue, wait_events, event);
         }
     }
     return RGY_ERR_NONE;

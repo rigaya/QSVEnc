@@ -2027,7 +2027,10 @@ Enable Motion Compensate Temporal Filter (MCTF), if no param specified, then str
     add offset in seconds to the subtitle timestamps (for debug perpose).  
   
   - fontsdir=&lt;string&gt;  
-    directory with fonts used.
+    directory with fonts used.  
+
+  - forced_subs_only=&lt;bool&gt;  
+    render forced subs only (default: off).
   
 - examples
   ```
