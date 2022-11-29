@@ -257,7 +257,7 @@ echo "ENABLE_LIBASS=${ENABLE_LIBASS}" >> ${CNF_LOG}
 echo "ENABLE_DTL=${ENABLE_DTL}" >> ${CNF_LOG}
 
 for file in "${CXX}" "${LD}"; do
-    if [ ! `which $file 2> /dev/null` ]; then
+    if [ ! `type -p $file 2> /dev/null` ]; then
         cnf_write $file not found
         exit 1
     fi
@@ -368,7 +368,7 @@ fi
 
 cnf_print "checking for pkg-config..."
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$PREFIX/lib/pkgconfig
-which $PKGCONFIG 2>/dev/null 1>/dev/null
+type -p $PKGCONFIG 2>/dev/null 1>/dev/null
 if [ $? -ne 0 ]; then
     cnf_write "${PKGCONFIG} does not exist."
     USE_PKGCONFIG=0
@@ -470,7 +470,7 @@ else
 fi
 
 if [ ! -e ./buildVPL/lib/libvpl.a ]; then
-    if [ ! `which cmake 2> /dev/null` ]; then
+    if [ ! `type -p cmake 2> /dev/null` ]; then
         cnf_write "cmake not found which is required to build vpl!"
         exit 1
     fi
