@@ -252,7 +252,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\swresample-*.dll" "$(OutD
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
     <PreBuildEvent>
-      <Command>"$(SolutionDir)BuildVPL.bat" $(Platform) Debug</Command>
+      <Command>"$(SolutionDir)BuildVPL.bat" $(Platform) Debug $(DefaultPlatformToolset)</Command>
     </PreBuildEvent>
     <PreBuildEvent>
       <Message>
@@ -371,7 +371,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\swresample-*.dll" "$(OutD
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
     <PreBuildEvent>
-      <Command>"$(SolutionDir)BuildVPL.bat" $(Platform) Debug</Command>
+      <Command>"$(SolutionDir)BuildVPL.bat" $(Platform) Debug $(DefaultPlatformToolset)</Command>
       <Message>
       </Message>
     </PreBuildEvent>
@@ -503,7 +503,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\swresample-*.dll" "$(OutD
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
     <PreBuildEvent>
-      <Command>"$(SolutionDir)BuildVPL.bat" $(Platform) Release</Command>
+      <Command>"$(SolutionDir)BuildVPL.bat" $(Platform) Release $(DefaultPlatformToolset)</Command>
     </PreBuildEvent>
     <PreBuildEvent>
       <Message>
@@ -642,7 +642,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\swresample-*.dll" "$(OutD
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
     <PreBuildEvent>
-      <Command>"$(SolutionDir)BuildVPL.bat" $(Platform) Release</Command>
+      <Command>"$(SolutionDir)BuildVPL.bat" $(Platform) Release $(DefaultPlatformToolset)</Command>
       <Message>
       </Message>
     </PreBuildEvent>
