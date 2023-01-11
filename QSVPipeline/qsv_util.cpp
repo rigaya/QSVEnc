@@ -608,6 +608,15 @@ tstring MFXAccelerationModeToStr(mfxAccelerationMode impl) {
 }
 
 RGY_NOINLINE
+tstring MFXImplTypeToStr(mfxImplType impl) {
+    if (impl == 0) return _T("auto");
+    tstring str;
+    if ((impl & MFX_IMPL_TYPE_SOFTWARE) == MFX_IMPL_TYPE_SOFTWARE) str += _T(",sw");
+    if ((impl & MFX_IMPL_TYPE_HARDWARE) == MFX_IMPL_TYPE_HARDWARE) str += _T(",hw");
+    return str.substr(1);
+}
+
+RGY_NOINLINE
 const TCHAR *get_vpp_image_stab_mode_str(int mode) {
     switch (mode) {
     case MFX_IMAGESTAB_MODE_UPSCALE: return _T("upscale");

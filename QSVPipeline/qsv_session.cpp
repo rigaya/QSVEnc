@@ -213,6 +213,7 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
         accelerationMode = MFX_ACCEL_MODE_VIA_VAAPI;
     }
 #endif
+    PrintMes(RGY_LOG_DEBUG, _T("initHW(%s: dev#%d)...\n"), MFXAccelerationModeToStr(accelerationMode).c_str(), dev);
     auto sts = MFX_ERR_NONE;
     auto loader = MFXLoaderProvider::getLoader();
     auto cfg = MFXCreateConfig(loader);
@@ -254,10 +255,12 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
                 }
                 adapterIDPrev = adapterID;
             }
+            m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("Found deviceID %s, adapterID %d/%d -> device count %d\n"), impl_desc->Dev.DeviceID, deviceCount, id1, adapterID, deviceCount);
+
             const mfxAccelerationMode acc = impl_desc->AccelerationMode;
-            m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("Impl #%d: %d %s, acc %d, accdesc %d, adapter id %d\n"),
-                impl_idx, impl_desc->Impl, char_to_tstring(impl_desc->ImplName).c_str(),
-                impl_desc->AccelerationMode, impl_desc->AccelerationModeDescription, adapterID);
+            m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("Impl #%d: %s %s, acc %d (%s), accdesc 0x%04x, adapter id %d\n"),
+                impl_idx, MFXImplTypeToStr(impl_desc->Impl).c_str(), char_to_tstring(impl_desc->ImplName).c_str(),
+                impl_desc->AccelerationMode, MFXAccelerationModeToStr(impl_desc->AccelerationMode).c_str(), impl_desc->AccelerationModeDescription, adapterID);
             MFXDispReleaseImplDescription(loader, impl_desc);
 
             if (accelerationMode == acc && deviceCount == std::max((int)dev, 1/*AUTOの時は最初のデバイスを選択*/)) {
@@ -309,6 +312,7 @@ mfxIMPL MFXVideoSession2::devNumToImpl(const QSVDeviceNum dev) {
 }
 
 mfxStatus MFXVideoSession2::initD3D9(const QSVDeviceNum dev, const bool suppressErrorMessage) {
+    PrintMes(RGY_LOG_DEBUG, _T("InitSession(d3d9: dev#%d)...\n"), dev);
     mfxIMPL impl = MFX_IMPL_HARDWARE_ANY | MFX_IMPL_VIA_D3D9;
     auto err = initHW(impl, dev);
     PrintMes((err && !suppressErrorMessage) ? RGY_LOG_ERROR : RGY_LOG_DEBUG, _T("InitSession(d3d9): %s.\n"), get_err_mes(err));
@@ -316,6 +320,7 @@ mfxStatus MFXVideoSession2::initD3D9(const QSVDeviceNum dev, const bool suppress
 }
 
 mfxStatus MFXVideoSession2::initD3D11(const QSVDeviceNum dev, const bool suppressErrorMessage) {
+    PrintMes(RGY_LOG_DEBUG, _T("InitSession(d3d11: dev#%d)...\n"), dev);
     mfxIMPL impl = MFX_IMPL_HARDWARE_ANY | MFX_IMPL_VIA_D3D11;
     auto err = initHW(impl, dev);
     PrintMes((err && !suppressErrorMessage) ? RGY_LOG_ERROR : RGY_LOG_DEBUG, _T("InitSession(d3d11): %s.\n"), get_err_mes(err));
@@ -323,6 +328,7 @@ mfxStatus MFXVideoSession2::initD3D11(const QSVDeviceNum dev, const bool suppres
 }
 
 mfxStatus MFXVideoSession2::initVA(const QSVDeviceNum dev, const bool suppressErrorMessage) {
+    PrintMes(RGY_LOG_DEBUG, _T("InitSession(va: dev#%d)...\n"), dev);
     mfxIMPL impl = MFX_IMPL_HARDWARE_ANY | MFX_IMPL_VIA_VAAPI;
     auto err = initHW(impl, dev);
     PrintMes((err && !suppressErrorMessage) ? RGY_LOG_ERROR : RGY_LOG_DEBUG, _T("InitSession(va): %s.\n"), get_err_mes(err));
@@ -330,6 +336,7 @@ mfxStatus MFXVideoSession2::initVA(const QSVDeviceNum dev, const bool suppressEr
 }
 
 mfxStatus MFXVideoSession2::initSW(const bool suppressErrorMessage) {
+    PrintMes(RGY_LOG_DEBUG, _T("InitSession(sys)...\n"));
     mfxIMPL impl = MFX_IMPL_SOFTWARE;
     auto err = initHW(impl, QSVDeviceNum::AUTO);
     PrintMes((err && !suppressErrorMessage) ? RGY_LOG_ERROR : RGY_LOG_DEBUG, _T("InitSession(sys): %s.\n"), get_err_mes(err));

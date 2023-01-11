@@ -615,6 +615,7 @@ const TCHAR *MemTypeToStr(uint32_t memType);
 tstring MFXPicStructToStr(uint32_t picstruct);
 tstring MFXImplToStr(uint32_t impl);
 tstring MFXAccelerationModeToStr(mfxAccelerationMode impl);
+tstring MFXImplTypeToStr(mfxImplType impl);
 
 mfxStatus mfxBitstreamInit(mfxBitstream *pBitstream, uint32_t nSize);
 mfxStatus mfxBitstreamCopy(mfxBitstream *pBitstreamCopy, const mfxBitstream *pBitstream);
