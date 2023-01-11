@@ -120,6 +120,8 @@ RGY_ERR QSVDevice::init(const QSVDeviceNum dev, const bool enableOpenCL, const b
                 }
             }
         }
+        PrintMes((suppressErrorMessage) ? RGY_LOG_DEBUG : RGY_LOG_ERROR, _T("QSVDevice::init:   failed to find OpenCL device for dev #%d.\n"), dev);
+        return RGY_ERR_NOT_FOUND;
     }
     return RGY_ERR_NONE;
 }
@@ -185,10 +187,13 @@ std::vector<std::unique_ptr<QSVDevice>> getDeviceList(const QSVDeviceNum deviceN
         RGYOpenCL cl(std::make_shared<RGYLog>(nullptr, RGY_LOG_QUIET));
         openCLAvail = RGYOpenCL::openCLloaded();
     }
+    log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Start Create DeviceList, openCLAvail: %s.\n"), openCLAvail ? _T("yes") : _T("no"));
+
     std::vector<std::unique_ptr<QSVDevice>> devList;
     const int idevstart = (deviceNum != QSVDeviceNum::AUTO) ? (int)deviceNum : 1;
     const int idevfin   = (deviceNum != QSVDeviceNum::AUTO) ? (int)deviceNum : (int)QSVDeviceNum::MAX;
     for (int idev = idevstart; idev <= idevfin; idev++) {
+        log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Check device %d...\n"), idev);
         auto dev = std::make_unique<QSVDevice>();
         if (dev->init((QSVDeviceNum)idev, enableOpenCL && openCLAvail, memType, log, idev != idevstart) != RGY_ERR_NONE) {
             break;
