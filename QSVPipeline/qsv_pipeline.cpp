@@ -840,7 +840,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         } else {
             //CBR, VBR
             m_mfxEncParams.mfx.MaxKbps         = (mfxU16)pInParams->nMaxBitrate;
-            m_mfxEncParams.mfx.BufferSizeInKB  = (mfxU16)pInParams->VBVBufsize / 8; //これはbyte単位の指定
+            m_mfxEncParams.mfx.BufferSizeInKB  = (mfxU16)(pInParams->VBVBufsize / 8); //これはbyte単位の指定
             m_mfxEncParams.mfx.InitialDelayInKB = m_mfxEncParams.mfx.BufferSizeInKB / 2;
         }
     }
@@ -4184,7 +4184,7 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
                 }
             }
             if (outFrameInfo->videoPrm.mfx.BufferSizeInKB > 0) {
-                PRINT_INFO(_T("VBV Bufsize    %d kbps\n"), outFrameInfo->videoPrm.mfx.BufferSizeInKB * 8 * (std::max<int>)(m_mfxEncParams.mfx.BRCParamMultiplier, 1));
+                PRINT_INFO(_T("VBV Bufsize    %d kb\n"), outFrameInfo->videoPrm.mfx.BufferSizeInKB * 8 * (std::max<int>)(m_mfxEncParams.mfx.BRCParamMultiplier, 1));
             }
             if (outFrameInfo->cop2.LookAheadDepth > 0) {
                 PRINT_INFO(_T("LookaheadDepth %d\n"), outFrameInfo->cop2.LookAheadDepth);
