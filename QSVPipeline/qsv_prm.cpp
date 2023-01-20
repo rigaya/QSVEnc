@@ -196,7 +196,7 @@ void sInputParams::applyDOVIProfile() {
         return;
     }
 
-    common.out_vui = profile->vui;
+    common.out_vui.setIfUnset(profile->vui);
     if (profile->aud) {
         bOutputAud = true;
     }
