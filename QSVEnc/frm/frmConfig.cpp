@@ -842,7 +842,8 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXAspectRatio,     aspect_desc);
     setComboBox(fcgCXTrellis,         list_avc_trellis);
     setComboBox(fcgCXLookaheadDS,     list_lookahead_ds);
-
+    
+    setComboBox(fcgCXScenarioInfo,    list_scenario_info);
     setComboBox(fcgCXMVPred,          list_mv_presicion);
     setComboBox(fcgCXInterPred,       list_pred_block_size);
     setComboBox(fcgCXIntraPred,       list_pred_block_size);
@@ -1753,6 +1754,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetCXIndex(fcgCXOutputCsp,    get_cx_index(list_output_csp, prm_qsv.outputCsp));
     SetCXIndex(fcgCXBitDepth,     get_bit_depth_idx(prm_qsv.outputDepth));
 
+    SetCXIndex(fcgCXScenarioInfo, get_cx_index(list_scenario_info, prm_qsv.scenarioInfo));
     SetNUValue(fcgNUSlices,       prm_qsv.nSlices);
 
     fcgCBBlurayCompat->Checked   = prm_qsv.nBluray != 0;
@@ -1999,6 +2001,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     prm_qsv.memType                = (fcgCBD3DMemAlloc->Checked) ? HW_MEMORY : SYSTEM_MEMORY;
     prm_qsv.nAVBRAccuarcy          = (int)(fcgNUAVBRAccuarcy->Value * 10);
     prm_qsv.nAVBRConvergence       = (int)fcgNUAVBRConvergence->Value;
+    prm_qsv.scenarioInfo           = (int)list_scenario_info[fcgCXScenarioInfo->SelectedIndex].value;
     prm_qsv.nSlices                = (int)fcgNUSlices->Value;
     prm_qsv.nQPMin[0]              = (int)fcgNUQPMin->Value;
     prm_qsv.nQPMin[1]              = (int)fcgNUQPMin->Value;

@@ -323,6 +323,11 @@ tstring encoder_help() {
         _T("                                  and set the window size in frames.\n")
         _T("   --la-quality <string>        set lookahead quality.\n")
         _T("                                 - auto(default), fast, medium, slow\n")
+        _T("   --scenario-info <string>     set scenarios for the encoding.\n")
+        _T("                                 unknown (default), display_remoting,\n")
+        _T("                                 video_conference, archieve, live_streaming,\n")
+        _T("                                 camera_capture, video_survillance,\n")
+        _T("                                 game_streaming, remote_gaming\n")
         _T("   --(no-)extbrc                enables extbrc\n")
         _T("   --(no-)mbbrc                 enables per macro block rate control\n")
         _T("                                 default: auto\n")
@@ -1145,6 +1150,16 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     }
     if (0 == _tcscmp(option_name, _T("rdo"))) {
         pParams->bRDO = true;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("scenario-info"))) {
+        i++;
+        int v = 0;
+        if ((v = get_value_from_chr(list_scenario_info, strInput[i])) == PARSE_ERROR_FLAG) {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_scenario_info);
+            return 1;
+        }
+        pParams->scenarioInfo = v;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("extbrc"))) {
@@ -2087,6 +2102,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
         cmd << _T(" --dar ") << -1 * pParams->nPAR[0] << _T(":") << -1 * pParams->nPAR[1];
     }
 
+    OPT_LST(_T("--scenario-info"), scenarioInfo, list_scenario_info);
     OPT_BOOL(_T("--extbrc"), _T("--no-extbrc"), extBRC);
     OPT_BOOL(_T("--mbbrc"), _T("--no-mbbrc"), bMBBRC);
     OPT_BOOL(_T("--adapt-ref"), _T("--no-adapt-ref"), adaptiveRef);

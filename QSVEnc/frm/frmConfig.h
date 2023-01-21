@@ -1224,6 +1224,8 @@ private: System::Windows::Forms::Label^  fcgLBIntraRefreshCycle;
 private: System::Windows::Forms::NumericUpDown^  fcgNUIntraRefreshCycle;
 private: System::Windows::Forms::ComboBox^  fcgCXBitDepth;
 private: System::Windows::Forms::Label^  fcgLBBitDepth;
+private: System::Windows::Forms::ComboBox^  fcgCXScenarioInfo;
+private: System::Windows::Forms::Label^  fcgLBScenarioInfo;
 
 
 
@@ -1441,6 +1443,8 @@ private: System::Windows::Forms::Label^  fcgLBBitDepth;
             this->fcgTTEx = (gcnew System::Windows::Forms::ToolTip(this->components));
             this->fcgtabControlQSV = (gcnew System::Windows::Forms::TabControl());
             this->tabPageVideoEnc = (gcnew System::Windows::Forms::TabPage());
+            this->fcgCXBitDepth = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgLBBitDepth = (gcnew System::Windows::Forms::Label());
             this->fcgLBHyperMode = (gcnew System::Windows::Forms::Label());
             this->fcgCXHyperMode = (gcnew System::Windows::Forms::ComboBox());
             this->fcgCXDevice = (gcnew System::Windows::Forms::ComboBox());
@@ -1793,8 +1797,8 @@ private: System::Windows::Forms::Label^  fcgLBBitDepth;
             this->fcgLBAudioPriority = (gcnew System::Windows::Forms::Label());
             this->fcgTXCmd = (gcnew System::Windows::Forms::TextBox());
             this->fcgPNHideToolStripBorder = (gcnew System::Windows::Forms::Panel());
-            this->fcgLBBitDepth = (gcnew System::Windows::Forms::Label());
-            this->fcgCXBitDepth = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgCXScenarioInfo = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgLBScenarioInfo = (gcnew System::Windows::Forms::Label());
             this->fcgtoolStripSettings->SuspendLayout();
             this->fcgtabControlMux->SuspendLayout();
             this->fcgtabPageMP4->SuspendLayout();
@@ -2740,6 +2744,8 @@ private: System::Windows::Forms::Label^  fcgLBBitDepth;
             // 
             // tabPageVideoEnc
             // 
+            this->tabPageVideoEnc->Controls->Add(this->fcgCXScenarioInfo);
+            this->tabPageVideoEnc->Controls->Add(this->fcgLBScenarioInfo);
             this->tabPageVideoEnc->Controls->Add(this->fcgCXBitDepth);
             this->tabPageVideoEnc->Controls->Add(this->fcgLBBitDepth);
             this->tabPageVideoEnc->Controls->Add(this->fcgLBHyperMode);
@@ -2820,6 +2826,25 @@ private: System::Windows::Forms::Label^  fcgLBBitDepth;
             this->tabPageVideoEnc->Text = L"動画エンコード";
             this->tabPageVideoEnc->UseVisualStyleBackColor = true;
             // 
+            // fcgCXBitDepth
+            // 
+            this->fcgCXBitDepth->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXBitDepth->FormattingEnabled = true;
+            this->fcgCXBitDepth->Location = System::Drawing::Point(454, 253);
+            this->fcgCXBitDepth->Name = L"fcgCXBitDepth";
+            this->fcgCXBitDepth->Size = System::Drawing::Size(121, 22);
+            this->fcgCXBitDepth->TabIndex = 183;
+            this->fcgCXBitDepth->Tag = L"reCmd";
+            // 
+            // fcgLBBitDepth
+            // 
+            this->fcgLBBitDepth->AutoSize = true;
+            this->fcgLBBitDepth->Location = System::Drawing::Point(355, 256);
+            this->fcgLBBitDepth->Name = L"fcgLBBitDepth";
+            this->fcgLBBitDepth->Size = System::Drawing::Size(62, 14);
+            this->fcgLBBitDepth->TabIndex = 182;
+            this->fcgLBBitDepth->Text = L"出力色深度";
+            // 
             // fcgLBHyperMode
             // 
             this->fcgLBHyperMode->AutoSize = true;
@@ -2865,7 +2890,7 @@ private: System::Windows::Forms::Label^  fcgLBBitDepth;
             // 
             this->fcgCXOutputCsp->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXOutputCsp->FormattingEnabled = true;
-            this->fcgCXOutputCsp->Location = System::Drawing::Point(455, 250);
+            this->fcgCXOutputCsp->Location = System::Drawing::Point(454, 224);
             this->fcgCXOutputCsp->Name = L"fcgCXOutputCsp";
             this->fcgCXOutputCsp->Size = System::Drawing::Size(121, 22);
             this->fcgCXOutputCsp->TabIndex = 177;
@@ -2874,7 +2899,7 @@ private: System::Windows::Forms::Label^  fcgLBBitDepth;
             // fcgLBOutputCsp
             // 
             this->fcgLBOutputCsp->AutoSize = true;
-            this->fcgLBOutputCsp->Location = System::Drawing::Point(356, 253);
+            this->fcgLBOutputCsp->Location = System::Drawing::Point(356, 227);
             this->fcgLBOutputCsp->Name = L"fcgLBOutputCsp";
             this->fcgLBOutputCsp->Size = System::Drawing::Size(63, 14);
             this->fcgLBOutputCsp->TabIndex = 176;
@@ -2990,7 +3015,7 @@ private: System::Windows::Forms::Label^  fcgLBBitDepth;
             this->fcgLBMFXLibDetectionHwValue->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9.75F, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
                 static_cast<System::Byte>(128)));
             this->fcgLBMFXLibDetectionHwValue->ForeColor = System::Drawing::Color::DarkViolet;
-            this->fcgLBMFXLibDetectionHwValue->Location = System::Drawing::Point(515, 7);
+            this->fcgLBMFXLibDetectionHwValue->Location = System::Drawing::Point(515, 5);
             this->fcgLBMFXLibDetectionHwValue->Name = L"fcgLBMFXLibDetectionHwValue";
             this->fcgLBMFXLibDetectionHwValue->Size = System::Drawing::Size(32, 17);
             this->fcgLBMFXLibDetectionHwValue->TabIndex = 109;
@@ -3002,7 +3027,7 @@ private: System::Windows::Forms::Label^  fcgLBBitDepth;
             this->fcgLBMFXLibDetectionHwStatus->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9.75F, System::Drawing::FontStyle::Italic,
                 System::Drawing::GraphicsUnit::Point, static_cast<System::Byte>(128)));
             this->fcgLBMFXLibDetectionHwStatus->ForeColor = System::Drawing::Color::Blue;
-            this->fcgLBMFXLibDetectionHwStatus->Location = System::Drawing::Point(476, 7);
+            this->fcgLBMFXLibDetectionHwStatus->Location = System::Drawing::Point(476, 5);
             this->fcgLBMFXLibDetectionHwStatus->Name = L"fcgLBMFXLibDetectionHwStatus";
             this->fcgLBMFXLibDetectionHwStatus->Size = System::Drawing::Size(33, 17);
             this->fcgLBMFXLibDetectionHwStatus->TabIndex = 107;
@@ -3212,7 +3237,7 @@ private: System::Windows::Forms::Label^  fcgLBBitDepth;
             // fcgLBFullrange
             // 
             this->fcgLBFullrange->AutoSize = true;
-            this->fcgLBFullrange->Location = System::Drawing::Point(355, 362);
+            this->fcgLBFullrange->Location = System::Drawing::Point(355, 363);
             this->fcgLBFullrange->Name = L"fcgLBFullrange";
             this->fcgLBFullrange->Size = System::Drawing::Size(55, 14);
             this->fcgLBFullrange->TabIndex = 162;
@@ -3221,7 +3246,7 @@ private: System::Windows::Forms::Label^  fcgLBBitDepth;
             // fcgCBFullrange
             // 
             this->fcgCBFullrange->AutoSize = true;
-            this->fcgCBFullrange->Location = System::Drawing::Point(454, 366);
+            this->fcgCBFullrange->Location = System::Drawing::Point(454, 367);
             this->fcgCBFullrange->Name = L"fcgCBFullrange";
             this->fcgCBFullrange->Size = System::Drawing::Size(15, 14);
             this->fcgCBFullrange->TabIndex = 163;
@@ -3231,7 +3256,7 @@ private: System::Windows::Forms::Label^  fcgLBBitDepth;
             // fcgLBBlurayCompat
             // 
             this->fcgLBBlurayCompat->AutoSize = true;
-            this->fcgLBBlurayCompat->Location = System::Drawing::Point(355, 142);
+            this->fcgLBBlurayCompat->Location = System::Drawing::Point(355, 116);
             this->fcgLBBlurayCompat->Name = L"fcgLBBlurayCompat";
             this->fcgLBBlurayCompat->Size = System::Drawing::Size(85, 14);
             this->fcgLBBlurayCompat->TabIndex = 130;
@@ -3240,7 +3265,7 @@ private: System::Windows::Forms::Label^  fcgLBBitDepth;
             // fcgCBBlurayCompat
             // 
             this->fcgCBBlurayCompat->AutoSize = true;
-            this->fcgCBBlurayCompat->Location = System::Drawing::Point(454, 143);
+            this->fcgCBBlurayCompat->Location = System::Drawing::Point(454, 117);
             this->fcgCBBlurayCompat->Name = L"fcgCBBlurayCompat";
             this->fcgCBBlurayCompat->Size = System::Drawing::Size(15, 14);
             this->fcgCBBlurayCompat->TabIndex = 131;
@@ -3253,16 +3278,16 @@ private: System::Windows::Forms::Label^  fcgLBBitDepth;
             this->fcgLBMFXLibDetection->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 11.25F, System::Drawing::FontStyle::Italic, System::Drawing::GraphicsUnit::Point,
                 static_cast<System::Byte>(128)));
             this->fcgLBMFXLibDetection->ForeColor = System::Drawing::Color::Blue;
-            this->fcgLBMFXLibDetection->Location = System::Drawing::Point(335, 7);
+            this->fcgLBMFXLibDetection->Location = System::Drawing::Point(335, 5);
             this->fcgLBMFXLibDetection->Name = L"fcgLBMFXLibDetection";
-            this->fcgLBMFXLibDetection->Size = System::Drawing::Size(127, 19);
+            this->fcgLBMFXLibDetection->Size = System::Drawing::Size(102, 19);
             this->fcgLBMFXLibDetection->TabIndex = 106;
             this->fcgLBMFXLibDetection->Text = L"Intel oneVPL";
             // 
             // fcgLBSlices2
             // 
             this->fcgLBSlices2->AutoSize = true;
-            this->fcgLBSlices2->Location = System::Drawing::Point(536, 309);
+            this->fcgLBSlices2->Location = System::Drawing::Point(536, 311);
             this->fcgLBSlices2->Name = L"fcgLBSlices2";
             this->fcgLBSlices2->Size = System::Drawing::Size(66, 14);
             this->fcgLBSlices2->TabIndex = 140;
@@ -3270,7 +3295,7 @@ private: System::Windows::Forms::Label^  fcgLBBitDepth;
             // 
             // fcgNUSlices
             // 
-            this->fcgNUSlices->Location = System::Drawing::Point(455, 307);
+            this->fcgNUSlices->Location = System::Drawing::Point(454, 309);
             this->fcgNUSlices->Name = L"fcgNUSlices";
             this->fcgNUSlices->Size = System::Drawing::Size(70, 21);
             this->fcgNUSlices->TabIndex = 139;
@@ -3280,7 +3305,7 @@ private: System::Windows::Forms::Label^  fcgLBBitDepth;
             // fcgLBSlices
             // 
             this->fcgLBSlices->AutoSize = true;
-            this->fcgLBSlices->Location = System::Drawing::Point(355, 309);
+            this->fcgLBSlices->Location = System::Drawing::Point(355, 311);
             this->fcgLBSlices->Name = L"fcgLBSlices";
             this->fcgLBSlices->Size = System::Drawing::Size(50, 14);
             this->fcgLBSlices->TabIndex = 138;
@@ -3317,7 +3342,7 @@ private: System::Windows::Forms::Label^  fcgLBBitDepth;
             // 
             this->fcgCXVideoFormat->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXVideoFormat->FormattingEnabled = true;
-            this->fcgCXVideoFormat->Location = System::Drawing::Point(454, 334);
+            this->fcgCXVideoFormat->Location = System::Drawing::Point(454, 336);
             this->fcgCXVideoFormat->Name = L"fcgCXVideoFormat";
             this->fcgCXVideoFormat->Size = System::Drawing::Size(121, 22);
             this->fcgCXVideoFormat->TabIndex = 161;
@@ -3326,7 +3351,7 @@ private: System::Windows::Forms::Label^  fcgLBBitDepth;
             // fcgLBVideoFormat
             // 
             this->fcgLBVideoFormat->AutoSize = true;
-            this->fcgLBVideoFormat->Location = System::Drawing::Point(355, 335);
+            this->fcgLBVideoFormat->Location = System::Drawing::Point(355, 337);
             this->fcgLBVideoFormat->Name = L"fcgLBVideoFormat";
             this->fcgLBVideoFormat->Size = System::Drawing::Size(73, 14);
             this->fcgLBVideoFormat->TabIndex = 160;
@@ -3340,7 +3365,7 @@ private: System::Windows::Forms::Label^  fcgLBBitDepth;
             this->fcggroupBoxColorMatrix->Controls->Add(this->fcgLBTransfer);
             this->fcggroupBoxColorMatrix->Controls->Add(this->fcgLBColorPrim);
             this->fcggroupBoxColorMatrix->Controls->Add(this->fcgLBColorMatrix);
-            this->fcggroupBoxColorMatrix->Location = System::Drawing::Point(349, 386);
+            this->fcggroupBoxColorMatrix->Location = System::Drawing::Point(349, 387);
             this->fcggroupBoxColorMatrix->Name = L"fcggroupBoxColorMatrix";
             this->fcggroupBoxColorMatrix->Size = System::Drawing::Size(241, 103);
             this->fcggroupBoxColorMatrix->TabIndex = 170;
@@ -3421,9 +3446,9 @@ private: System::Windows::Forms::Label^  fcgLBBitDepth;
             this->fcgGroupBoxAspectRatio->Controls->Add(this->fcgNUAspectRatioY);
             this->fcgGroupBoxAspectRatio->Controls->Add(this->fcgNUAspectRatioX);
             this->fcgGroupBoxAspectRatio->Controls->Add(this->fcgCXAspectRatio);
-            this->fcgGroupBoxAspectRatio->Location = System::Drawing::Point(349, 41);
+            this->fcgGroupBoxAspectRatio->Location = System::Drawing::Point(349, 30);
             this->fcgGroupBoxAspectRatio->Name = L"fcgGroupBoxAspectRatio";
-            this->fcgGroupBoxAspectRatio->Size = System::Drawing::Size(219, 92);
+            this->fcgGroupBoxAspectRatio->Size = System::Drawing::Size(219, 80);
             this->fcgGroupBoxAspectRatio->TabIndex = 120;
             this->fcgGroupBoxAspectRatio->TabStop = false;
             this->fcgGroupBoxAspectRatio->Text = L"アスペクト比";
@@ -3431,7 +3456,7 @@ private: System::Windows::Forms::Label^  fcgLBBitDepth;
             // fcgLBAspectRatio
             // 
             this->fcgLBAspectRatio->AutoSize = true;
-            this->fcgLBAspectRatio->Location = System::Drawing::Point(102, 58);
+            this->fcgLBAspectRatio->Location = System::Drawing::Point(102, 53);
             this->fcgLBAspectRatio->Name = L"fcgLBAspectRatio";
             this->fcgLBAspectRatio->Size = System::Drawing::Size(12, 14);
             this->fcgLBAspectRatio->TabIndex = 3;
@@ -3439,7 +3464,7 @@ private: System::Windows::Forms::Label^  fcgLBBitDepth;
             // 
             // fcgNUAspectRatioY
             // 
-            this->fcgNUAspectRatioY->Location = System::Drawing::Point(120, 56);
+            this->fcgNUAspectRatioY->Location = System::Drawing::Point(120, 51);
             this->fcgNUAspectRatioY->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 65535, 0, 0, 0 });
             this->fcgNUAspectRatioY->Name = L"fcgNUAspectRatioY";
             this->fcgNUAspectRatioY->Size = System::Drawing::Size(70, 21);
@@ -3449,7 +3474,7 @@ private: System::Windows::Forms::Label^  fcgLBBitDepth;
             // 
             // fcgNUAspectRatioX
             // 
-            this->fcgNUAspectRatioX->Location = System::Drawing::Point(26, 56);
+            this->fcgNUAspectRatioX->Location = System::Drawing::Point(26, 51);
             this->fcgNUAspectRatioX->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 65535, 0, 0, 0 });
             this->fcgNUAspectRatioX->Name = L"fcgNUAspectRatioX";
             this->fcgNUAspectRatioX->Size = System::Drawing::Size(70, 21);
@@ -3461,7 +3486,7 @@ private: System::Windows::Forms::Label^  fcgLBBitDepth;
             // 
             this->fcgCXAspectRatio->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXAspectRatio->FormattingEnabled = true;
-            this->fcgCXAspectRatio->Location = System::Drawing::Point(26, 24);
+            this->fcgCXAspectRatio->Location = System::Drawing::Point(26, 21);
             this->fcgCXAspectRatio->Name = L"fcgCXAspectRatio";
             this->fcgCXAspectRatio->Size = System::Drawing::Size(174, 22);
             this->fcgCXAspectRatio->TabIndex = 0;
@@ -3471,7 +3496,7 @@ private: System::Windows::Forms::Label^  fcgLBBitDepth;
             // 
             this->fcgCXInterlaced->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXInterlaced->FormattingEnabled = true;
-            this->fcgCXInterlaced->Location = System::Drawing::Point(454, 166);
+            this->fcgCXInterlaced->Location = System::Drawing::Point(454, 140);
             this->fcgCXInterlaced->Name = L"fcgCXInterlaced";
             this->fcgCXInterlaced->Size = System::Drawing::Size(121, 22);
             this->fcgCXInterlaced->TabIndex = 133;
@@ -3480,7 +3505,7 @@ private: System::Windows::Forms::Label^  fcgLBBitDepth;
             // fcgLBInterlaced
             // 
             this->fcgLBInterlaced->AutoSize = true;
-            this->fcgLBInterlaced->Location = System::Drawing::Point(355, 169);
+            this->fcgLBInterlaced->Location = System::Drawing::Point(355, 143);
             this->fcgLBInterlaced->Name = L"fcgLBInterlaced";
             this->fcgLBInterlaced->Size = System::Drawing::Size(64, 14);
             this->fcgLBInterlaced->TabIndex = 132;
@@ -3509,7 +3534,7 @@ private: System::Windows::Forms::Label^  fcgLBBitDepth;
             // 
             this->fcgCXCodecLevel->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXCodecLevel->FormattingEnabled = true;
-            this->fcgCXCodecLevel->Location = System::Drawing::Point(454, 222);
+            this->fcgCXCodecLevel->Location = System::Drawing::Point(454, 196);
             this->fcgCXCodecLevel->Name = L"fcgCXCodecLevel";
             this->fcgCXCodecLevel->Size = System::Drawing::Size(121, 22);
             this->fcgCXCodecLevel->TabIndex = 137;
@@ -3519,7 +3544,7 @@ private: System::Windows::Forms::Label^  fcgLBBitDepth;
             // 
             this->fcgCXCodecProfile->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fcgCXCodecProfile->FormattingEnabled = true;
-            this->fcgCXCodecProfile->Location = System::Drawing::Point(454, 194);
+            this->fcgCXCodecProfile->Location = System::Drawing::Point(454, 168);
             this->fcgCXCodecProfile->Name = L"fcgCXCodecProfile";
             this->fcgCXCodecProfile->Size = System::Drawing::Size(121, 22);
             this->fcgCXCodecProfile->TabIndex = 135;
@@ -3528,7 +3553,7 @@ private: System::Windows::Forms::Label^  fcgLBBitDepth;
             // fcgLBCodecLevel
             // 
             this->fcgLBCodecLevel->AutoSize = true;
-            this->fcgLBCodecLevel->Location = System::Drawing::Point(355, 225);
+            this->fcgLBCodecLevel->Location = System::Drawing::Point(355, 199);
             this->fcgLBCodecLevel->Name = L"fcgLBCodecLevel";
             this->fcgLBCodecLevel->Size = System::Drawing::Size(33, 14);
             this->fcgLBCodecLevel->TabIndex = 136;
@@ -3537,7 +3562,7 @@ private: System::Windows::Forms::Label^  fcgLBBitDepth;
             // fcgLBCodecProfile
             // 
             this->fcgLBCodecProfile->AutoSize = true;
-            this->fcgLBCodecProfile->Location = System::Drawing::Point(355, 197);
+            this->fcgLBCodecProfile->Location = System::Drawing::Point(355, 171);
             this->fcgLBCodecProfile->Name = L"fcgLBCodecProfile";
             this->fcgLBCodecProfile->Size = System::Drawing::Size(53, 14);
             this->fcgLBCodecProfile->TabIndex = 134;
@@ -6575,24 +6600,24 @@ private: System::Windows::Forms::Label^  fcgLBBitDepth;
             this->fcgPNHideToolStripBorder->TabIndex = 90;
             this->fcgPNHideToolStripBorder->Visible = false;
             // 
-            // fcgLBBitDepth
+            // fcgCXScenarioInfo
             // 
-            this->fcgLBBitDepth->AutoSize = true;
-            this->fcgLBBitDepth->Location = System::Drawing::Point(355, 282);
-            this->fcgLBBitDepth->Name = L"fcgLBBitDepth";
-            this->fcgLBBitDepth->Size = System::Drawing::Size(62, 14);
-            this->fcgLBBitDepth->TabIndex = 182;
-            this->fcgLBBitDepth->Text = L"出力色深度";
+            this->fcgCXScenarioInfo->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXScenarioInfo->FormattingEnabled = true;
+            this->fcgCXScenarioInfo->Location = System::Drawing::Point(454, 281);
+            this->fcgCXScenarioInfo->Name = L"fcgCXScenarioInfo";
+            this->fcgCXScenarioInfo->Size = System::Drawing::Size(121, 22);
+            this->fcgCXScenarioInfo->TabIndex = 185;
+            this->fcgCXScenarioInfo->Tag = L"reCmd";
             // 
-            // fcgCXBitDepth
+            // fcgLBScenarioInfo
             // 
-            this->fcgCXBitDepth->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-            this->fcgCXBitDepth->FormattingEnabled = true;
-            this->fcgCXBitDepth->Location = System::Drawing::Point(454, 279);
-            this->fcgCXBitDepth->Name = L"fcgCXBitDepth";
-            this->fcgCXBitDepth->Size = System::Drawing::Size(121, 22);
-            this->fcgCXBitDepth->TabIndex = 183;
-            this->fcgCXBitDepth->Tag = L"reCmd";
+            this->fcgLBScenarioInfo->AutoSize = true;
+            this->fcgLBScenarioInfo->Location = System::Drawing::Point(356, 284);
+            this->fcgLBScenarioInfo->Name = L"fcgLBScenarioInfo";
+            this->fcgLBScenarioInfo->Size = System::Drawing::Size(61, 14);
+            this->fcgLBScenarioInfo->TabIndex = 184;
+            this->fcgLBScenarioInfo->Text = L"シナリオ情報";
             // 
             // frmConfig
             // 

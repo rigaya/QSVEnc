@@ -375,6 +375,7 @@ namespace QSVEnc {
                 { AUO_CONFIG_CX_FEATURE_FADE_DETECT,            L"フェード検出     ", ENC_FEATURE_FADE_DETECT            },
                 { AUO_CONFIG_CX_FEATURE_B_PYRAMID,              L"ピラミッド参照   ", ENC_FEATURE_B_PYRAMID              },
                 { AUO_CONFIG_CX_FEATURE_B_PYRAMID_MANY_BFRAMES, L" +多Bframe       ", ENC_FEATURE_B_PYRAMID_MANY_BFRAMES },
+                { AUO_CONFIG_CX_FEATURE_SCENARIO_INFO,          L"ScenarioInfo     ", ENC_FEATURE_SCENARIO_INFO          },
                 { AUO_CONFIG_CX_FEATURE_MBBRC,                  L"MB単位レート制御 ", ENC_FEATURE_MBBRC                  },
                 //{ AUO_CONFIG_CX_FEATURE_EXT_BRC,                L"ExtBRC           ", ENC_FEATURE_EXT_BRC                },
                 { AUO_CONFIG_CX_FEATURE_LA_DS,                  L"先行探索品質     ", ENC_FEATURE_LA_DS                  },

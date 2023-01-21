@@ -278,6 +278,7 @@ enum : uint64_t {
     ENC_FEATURE_HEVC_CTU               = 0x0000010000000000,
     ENC_FEATURE_HEVC_TSKIP             = 0x0000020000000000,
     ENC_FEATURE_HYPER_MODE             = 0x0000040000000000,
+    ENC_FEATURE_SCENARIO_INFO          = 0x0000080000000000,
 };
 
 enum : uint64_t {
@@ -332,6 +333,7 @@ static const FEATURE_DESC list_enc_feature[] = {
     { _T("B_Pyramid    "), ENC_FEATURE_B_PYRAMID              },
     { _T(" +ManyBframes"), ENC_FEATURE_B_PYRAMID_MANY_BFRAMES },
     { _T("PyramQPOffset"), ENC_FEATURE_PYRAMID_QP_OFFSET      },
+    { _T("ScenarioInfo "), ENC_FEATURE_SCENARIO_INFO          },
     { _T("MBBRC        "), ENC_FEATURE_MBBRC                  },
     { _T("ExtBRC       "), ENC_FEATURE_EXT_BRC                },
     { _T("AdaptiveRef  "), ENC_FEATURE_ADAPTIVE_REF           },

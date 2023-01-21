@@ -611,6 +611,10 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         print_feature_warnings(RGY_LOG_WARN, _T("ExtBRC"));
         pInParams->extBRC = false;
     }
+    if (pInParams->scenarioInfo != MFX_SCENARIO_UNKNOWN && !(availableFeaures & ENC_FEATURE_SCENARIO_INFO)) {
+        print_feature_warnings(RGY_LOG_WARN, _T("Scenario Info"));
+        pInParams->scenarioInfo = MFX_SCENARIO_UNKNOWN;
+    }
     if (pInParams->adaptiveRef && !(availableFeaures & ENC_FEATURE_ADAPTIVE_REF)) {
         print_feature_warnings(RGY_LOG_WARN, _T("adaptiveRef"));
         pInParams->adaptiveRef = false;
@@ -1051,6 +1055,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_16)) {
             m_CodingOption3.WeightedBiPred = (mfxU16)pInParams->nWeightB;
             m_CodingOption3.WeightedPred   = (mfxU16)pInParams->nWeightP;
+            m_CodingOption3.ScenarioInfo   = (mfxU16)(pInParams->scenarioInfo);
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_17)) {
             m_CodingOption3.FadeDetection = check_coding_option((mfxU16)pInParams->nFadeDetect);
@@ -4189,6 +4194,10 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
             if (outFrameInfo->cop2.LookAheadDepth > 0) {
                 PRINT_INFO(_T("LookaheadDepth %d\n"), outFrameInfo->cop2.LookAheadDepth);
             }
+        }
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_16)
+            && outFrameInfo->cop3.ScenarioInfo != MFX_SCENARIO_UNKNOWN) {
+            PRINT_INFO(_T("Scenario Info  %s\n"), get_cx_desc(list_scenario_info, outFrameInfo->cop3.ScenarioInfo));
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_9)) {
             auto qp_limit_str = [](mfxU8 limitI, mfxU8 limitP, mfxU8 limitB) {

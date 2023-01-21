@@ -976,6 +976,7 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
                 CHECK_FEATURE(hyperMode.Mode, ENC_FEATURE_HYPER_MODE, MFX_HYPERMODE_ON, MFX_LIB_VERSION_2_5);
             }
         }
+        CHECK_FEATURE(cop3.ScenarioInfo,         ENC_FEATURE_SCENARIO_INFO, MFX_SCENARIO_GAME_STREAMING,   MFX_LIB_VERSION_1_16);
         CHECK_FEATURE(cop3.FadeDetection,        ENC_FEATURE_FADE_DETECT,   MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_1_17);
         CHECK_FEATURE(cop3.AdaptiveLTR,          ENC_FEATURE_ADAPTIVE_LTR,  MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_2_4);
         CHECK_FEATURE(cop3.AdaptiveRef,          ENC_FEATURE_ADAPTIVE_REF,  MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_2_4);

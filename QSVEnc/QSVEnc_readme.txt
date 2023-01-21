@@ -313,10 +313,13 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
-2023.01.xx (7.26)
+2023.01.21 (7.26)
 [QSVEncC]
+- シナリオ情報を渡して画質の最適化を行うオプションを追加。(--scenario-info)
 - vbvbufsizeに65535以上の値を指定するとおかしな値が設定されることがある問題を修正。
 - dolby-vision-profileを使用した場合でも、指定したchromaloc等が優先されるよう動作を変更。
+- OpenGOPの際にIdrIntervalを変更しないように。
+- lookahead depthの最小値制限を外す。
 
 2023.01.11 (7.25)
 [QSVEncC]

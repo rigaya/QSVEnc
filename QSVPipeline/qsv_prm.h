@@ -323,6 +323,7 @@ struct sInputParams {
     int        nAsyncDepth;
 
     int        nLookaheadDS;
+    int        scenarioInfo;
 
     bool       bDisableTimerPeriodTuning;
 
@@ -738,6 +739,19 @@ const CX_DESC list_quality_for_option[] = {
     { _T("fast"),     5                            },
     { _T("faster"),   6                            },
     { _T("fastest"),  MFX_TARGETUSAGE_BEST_SPEED   },
+    { NULL, 0 }
+};
+
+const CX_DESC list_scenario_info[] = {
+    { _T("unknown"),           MFX_SCENARIO_UNKNOWN            },
+    { _T("display_remoting"),  MFX_SCENARIO_DISPLAY_REMOTING   },
+    { _T("video_conference"),  MFX_SCENARIO_VIDEO_CONFERENCE   },
+    { _T("archieve"),          MFX_SCENARIO_ARCHIVE            },
+    { _T("live_streaming"),    MFX_SCENARIO_LIVE_STREAMING     },
+    { _T("camera_capture"),    MFX_SCENARIO_CAMERA_CAPTURE     },
+    { _T("video_survillance"), MFX_SCENARIO_VIDEO_SURVEILLANCE },
+    { _T("game_streaming"),    MFX_SCENARIO_GAME_STREAMING     },
+    { _T("remote_gaming"),     MFX_SCENARIO_REMOTE_GAMING      },
     { NULL, 0 }
 };
 
