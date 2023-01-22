@@ -667,10 +667,10 @@ Set scenarios for the encoding.
 - unknown (default)
 - display_remoting
 - video_conference
-- archieve
+- archive
 - live_streaming
 - camera_capture
-- video_survillance
+- video_surveillance
 - game_streaming
 - remote_gaming
 
