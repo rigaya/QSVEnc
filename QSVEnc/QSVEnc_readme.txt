@@ -313,6 +313,13 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2023.01.22 (7.27)
+[QSVEncC]
+- --vpp-decimateに複数のフレームをdropさせるオプションを追加。
+- AV1のmaster-displayの取り扱いを改善。
+- maxcllあるいはmastering displayの片方がないときに、AV1エンコードで適切でないデータが発行されていた問題の修正。
+- 言語による--audio-copyの指定が適切に動作していなかった問題を修正。
+
 2023.01.21 (7.26)
 [QSVEncC]
 - シナリオ情報を渡して画質の最適化を行うオプションを追加。(--scenario-info)
