@@ -200,12 +200,15 @@ const CX_DESC list_vpp_denoise[] = {
     { _T("pmd"),     2 },
     { _T("smooth"),  3 },
     { _T("convolution3d"),  5 },
+#if ENCODER_VCEENC
+    { _T("preprocess"), 4 },
+#endif
     { NULL, 0 }
 };
 
 const CX_DESC list_vpp_detail_enahance[] = {
     { _T("none"),       0 },
-#if ENCODER_QSV
+#if ENCODER_QSV || ENCODER_VCEENC
     { _T("detail-enhance"), 4 },
 #endif
     { _T("unsharp"),    1 },
@@ -272,6 +275,13 @@ enum RGY_VPP_RESIZE_ALGO {
     RGY_VPP_RESIZE_NPPI_SMOOTH_EDGE, /**<  Smooth edge filtering. */
     RGY_VPP_RESIZE_NPPI_MAX,
 #endif
+#if ENCODER_VCEENC
+    RGY_VPP_RESIZE_AMF_BILINEAR,
+    RGY_VPP_RESIZE_AMF_BICUBIC,
+    RGY_VPP_RESIZE_AMF_FSR,
+    RGY_VPP_RESIZE_AMF_POINT,
+    RGY_VPP_RESIZE_AMF_MAX,
+#endif
     RGY_VPP_RESIZE_UNKNOWN,
 };
 
@@ -284,6 +294,9 @@ enum RGY_VPP_RESIZE_TYPE {
 #endif
 #if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)
     RGY_VPP_RESIZE_TYPE_NPPI,
+#endif
+#if ENCODER_VCEENC
+    RGY_VPP_RESIZE_TYPE_AMF,
 #endif
     RGY_VPP_RESIZE_TYPE_UNKNOWN,
 };
@@ -334,6 +347,12 @@ const CX_DESC list_vpp_resize[] = {
     { _T("lanczos"),       RGY_VPP_RESIZE_NPPI_INTER_LANCZOS },
     //{ _T("smooth_edge"),   RGY_VPP_RESIZE_NPPI_SMOOTH_EDGE },
 #endif
+#if ENCODER_VCEENC
+    { _T("amf_bilinear"), RGY_VPP_RESIZE_AMF_BILINEAR },
+    { _T("amf_bicubic"),  RGY_VPP_RESIZE_AMF_BICUBIC },
+    { _T("amf_fsr"),      RGY_VPP_RESIZE_AMF_FSR },
+    { _T("amf_point"),    RGY_VPP_RESIZE_AMF_POINT },
+#endif
     { NULL, 0 }
 };
 
@@ -366,6 +385,12 @@ const CX_DESC list_vpp_resize_help[] = {
     { _T("super"),         RGY_VPP_RESIZE_NPPI_INTER_SUPER },
     { _T("lanczos"),       RGY_VPP_RESIZE_NPPI_INTER_LANCZOS },
     //{ _T("smooth_edge"),   RGY_VPP_RESIZE_NPPI_SMOOTH_EDGE },
+#endif
+#if ENCODER_VCEENC
+    { _T("amf_bilinear"), RGY_VPP_RESIZE_AMF_BILINEAR },
+    { _T("amf_bicubic"),  RGY_VPP_RESIZE_AMF_BICUBIC },
+    { _T("amf_fsr"),      RGY_VPP_RESIZE_AMF_FSR },
+    { _T("amf_point"),    RGY_VPP_RESIZE_AMF_POINT },
 #endif
     { NULL, 0 }
 };
