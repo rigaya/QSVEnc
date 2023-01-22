@@ -118,11 +118,11 @@
   - [--colorprim \<string\>](#--colorprim-string)
   - [--transfer \<string\>](#--transfer-string)
   - [--chromaloc \<int\> or "auto"](#--chromaloc-int-or-auto)
-  - [--max-cll \<int\>,\<int\> or "copy" \[HEVC only\]](#--max-cll-intint-or-copy-hevc-only)
-  - [--master-display \<string\> or "copy" \[HEVC only\]](#--master-display-string-or-copy-hevc-only)
+  - [--max-cll \<int\>,\<int\> or "copy" \[HEVC, AV1\]](#--max-cll-intint-or-copy-hevc-av1)
+  - [--master-display \<string\> or "copy" \[HEVC, AV1\]](#--master-display-string-or-copy-hevc-av1)
   - [--atc-sei \<string\> or \<int\> \[HEVC only\]](#--atc-sei-string-or-int-hevc-only)
-  - [--dhdr10-info \<string\> \[HEVC only\]](#--dhdr10-info-string-hevc-only)
-  - [--dhdr10-info copy \[HEVC only, Experimental\]](#--dhdr10-info-copy-hevc-only-experimental)
+  - [--dhdr10-info \<string\> \[HEVC, AV1\]](#--dhdr10-info-string-hevc-av1)
+  - [--dhdr10-info copy \[HEVC, AV1\]](#--dhdr10-info-copy-hevc-av1)
   - [--dolby-vision-profile \<float\>](#--dolby-vision-profile-float)
   - [--dolby-vision-rpu \<string\>](#--dolby-vision-rpu-string)
   - [--aud](#--aud)
@@ -807,7 +807,7 @@ Set chroma location flag of the output bitstream from values 0 ... 5.
 "auto" will copy from input file (available when using [avhw](#--avhw)/[avsw](#--avsw) reader)
 default: 0 = unspecified
 
-### --max-cll &lt;int&gt;,&lt;int&gt; or "copy" [HEVC only]
+### --max-cll &lt;int&gt;,&lt;int&gt; or "copy" [HEVC, AV1]
 Set MaxCLL and MaxFall in nits.  "copy" will copy values from the input file. (available when using [avhw](#--avhw)/[avsw](#--avsw) reader)  
 
 Please note that this option will implicitly activate [--repeat-headers](#--repeat-headers).  
@@ -816,7 +816,7 @@ Example1: --max-cll 1000,300
 Example2: --max-cll copy  # copy values from source
 ```
 
-### --master-display &lt;string&gt; or "copy" [HEVC only]
+### --master-display &lt;string&gt; or "copy" [HEVC, AV1]
 Set Mastering display data. "copy" will copy values from the input file. (available when using [avhw](#--avhw)/[avsw](#--avsw) reader)  
 
 Please note that this option will implicitly activate [--repeat-headers](#--repeat-headers).  
@@ -833,10 +833,10 @@ Set alternative transfer characteristics SEI from below or by integer, Required 
   bt2020-10, bt2020-12, smpte2084, smpte428, arib-std-b67
 ```  
 
-### --dhdr10-info &lt;string&gt; [HEVC only]
+### --dhdr10-info &lt;string&gt; [HEVC, AV1]
 Apply HDR10+ dynamic metadata from specified json file. Requires [hdr10plus_gen.exe](https://github.com/rigaya/hdr10plus_gen) module  additionally.
 
-### --dhdr10-info copy [HEVC only, Experimental]
+### --dhdr10-info copy [HEVC, AV1]
 Copy HDR10+ dynamic metadata from input file.  
 Limitations for avhw reader: this option uses timestamps to reorder frames to decoded order to presentation order.
 Therefore, input files without timestamps (such as raw ES), are not supported. Please try for avsw reader for that case.

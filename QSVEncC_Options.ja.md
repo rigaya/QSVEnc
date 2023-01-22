@@ -118,11 +118,11 @@
   - [--colorprim \<string\>](#--colorprim-string)
   - [--transfer \<string\>](#--transfer-string)
   - [--chromaloc \<int\> or "auto"](#--chromaloc-int-or-auto)
-  - [--max-cll \<int\>,\<int\> or "copy" \[HEVCのみ\]](#--max-cll-intint-or-copy-hevcのみ)
-  - [--master-display \<string\> or "copy" \[HEVCのみ\]](#--master-display-string-or-copy-hevcのみ)
+  - [--max-cll \<int\>,\<int\> or "copy" \[HEVC, AV1\]](#--max-cll-intint-or-copy-hevc-av1)
+  - [--master-display \<string\> or "copy" \[HEVC, AV1\]](#--master-display-string-or-copy-hevc-av1)
   - [--atc-sei \<string\> or \<int\> \[HEVCのみ\]](#--atc-sei-string-or-int-hevcのみ)
-  - [--dhdr10-info \<string\> \[HEVC only\]](#--dhdr10-info-string-hevc-only)
-  - [--dhdr10-info copy \[HEVC only, Experimental\]](#--dhdr10-info-copy-hevc-only-experimental)
+  - [--dhdr10-info \<string\> \[HEVC, AV1\]](#--dhdr10-info-string-hevc-av1)
+  - [--dhdr10-info copy \[HEVC, AV1\]](#--dhdr10-info-copy-hevc-av1)
   - [--dolby-vision-profile \<float\>](#--dolby-vision-profile-float)
   - [--dolby-vision-rpu \<string\>](#--dolby-vision-rpu-string)
   - [--aud](#--aud)
@@ -832,7 +832,7 @@ DAR比 (画面アスペクト比) の指定。
 出力データのchroma location flagを 0 ～ 5 の範囲で指定する。  
 デフォルト = 0 (unspecified)
 
-### --max-cll &lt;int&gt;,&lt;int&gt; or "copy" [HEVCのみ]
+### --max-cll &lt;int&gt;,&lt;int&gt; or "copy" [HEVC, AV1]
 MaxCLL and MaxFall を nits で指定する。"copy"とすると入力ファイルの値を出力ファイルにそのまま設定します。([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)  
 
 [--repeat-headers](#--repeat-headers)が自動的に有効になる点に注意してください。  
@@ -841,7 +841,7 @@ MaxCLL and MaxFall を nits で指定する。"copy"とすると入力ファイ�
 例2: --max-cll copy  # 入力ファイルから値をコピー
 ```
 
-### --master-display &lt;string&gt; or "copy" [HEVCのみ]
+### --master-display &lt;string&gt; or "copy" [HEVC, AV1]
 Mastering display data の設定。"copy"とすると入力ファイルの値を出力ファイルにそのまま設定します。([avhw](#--avhw)/[avsw](#--avsw)読み込みのみ)  
 
 [--repeat-headers](#--repeat-headers)が自動的に有効になる点に注意してください。  
@@ -858,10 +858,10 @@ Alternative transfer characteristics SEI の設定。下記文字列または整
   bt2020-10, bt2020-12, smpte2084, smpte428, arib-std-b67
 ```  
 
-### --dhdr10-info &lt;string&gt; [HEVC only]
+### --dhdr10-info &lt;string&gt; [HEVC, AV1]
 指定したjsonファイルから、HDR10+のメタデータを読み込んで反映する。実行には追加で[hdr10plus_gen.exe](https://github.com/rigaya/hdr10plus_gen)が必要。
 
-### --dhdr10-info copy [HEVC only, Experimental]
+### --dhdr10-info copy [HEVC, AV1]
 HDR10+のメタデータを入力ファイルからそのままコピーします。
 avhw読み込みでは、フレームの並び替えにタイムスタンプを使用するため、タイムスタンプの取得できないraw ESのような入力ファイルでは使用できません。
 こうした場合には、avsw読み込みを使用してください。  
