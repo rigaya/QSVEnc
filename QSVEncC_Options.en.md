@@ -147,6 +147,7 @@
   - [--input-probesize \<int\>](#--input-probesize-int)
   - [--trim \<int\>:\<int\>\[,\<int\>:\<int\>\]\[,\<int\>:\<int\>\]...](#--trim-intintintintintint)
   - [--seek \[\[\<int\>:\]\<int\>:\]\<int\>\[.\<int\>\]](#--seek-intintintint)
+  - [--seekto \[\<int\>:\]\[\<int\>:\]\<int\>\[.\<int\>\]](#--seekto-intintintint)
   - [--input-format \<string\>](#--input-format-string)
   - [-f, --output-format \<string\>](#-f---output-format-string)
   - [--video-track \<int\>](#--video-track-int)
@@ -620,7 +621,7 @@ When using Hyper Encode, it is required to use encode settings which can be use 
 Maximum bitrate (in kbps).
 
 ### --vbv-bufsize &lt;int&gt;
-VBV buffersize (in kbps).
+VBV buffersize (in kb).
 
 ### --qvbr-quality &lt;int&gt;
 Set quality used in qvbr mode, should be used with --qvbr. (0 - 51, default = 23)
@@ -941,6 +942,16 @@ Seeking by this option is not exact but fast, compared to [--trim](#--trim-intin
 Example 1: --seek 0:01:15.400
 Example 2: --seek 1:15.4
 Example 3: --seek 75.4
+```
+
+### --seekto [&lt;int&gt;:][&lt;int&gt;:]&lt;int&gt;[.&lt;int&gt;]
+The format is hh:mm:ss.ms. "hh" or "mm" could be omitted.
+
+Set encode finish time. This might be inaccurate, so if you require exact number of frames to encode, use [--trim](#--trim-intintintintintint).
+```
+Example 1: --seekto 0:01:15.400
+Example 2: --seekto 1:15.4
+Example 3: --seekto 75.4
 ```
 
 ### --input-format &lt;string&gt;

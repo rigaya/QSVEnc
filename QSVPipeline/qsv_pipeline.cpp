@@ -3604,14 +3604,14 @@ RGY_ERR CQSVPipeline::CreatePipeline() {
     if (m_pFileWriterListAudio.size() > 0) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskAudio>(m_pFileReader.get(), m_AudioReaders, m_pFileWriterListAudio, m_vpFilters, 0, m_mfxVer, m_pQSVLog));
     }
-    if (m_trimParam.list.size() > 0) {
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskTrim>(m_trimParam, 0, m_mfxVer, m_pQSVLog));
-    }
 
     const int64_t outFrameDuration = std::max<int64_t>(1, rational_rescale(1, m_inputFps.inv(), m_outputTimebase)); //固定fpsを仮定した時の1フレームのduration (スケール: m_outputTimebase)
     const auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
     const auto inputFpsTimebase = rgy_rational<int>((int)inputFrameInfo.fpsD, (int)inputFrameInfo.fpsN);
     const auto srcTimebase = (m_pFileReader->getInputTimebase().n() > 0 && m_pFileReader->getInputTimebase().is_valid()) ? m_pFileReader->getInputTimebase() : inputFpsTimebase;
+    if (m_trimParam.list.size() > 0) {
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskTrim>(m_trimParam, m_pFileReader.get(), srcTimebase, 0, m_mfxVer, m_pQSVLog));
+    }
     m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(&m_device->mfxSession(), srcTimebase, m_outputTimebase, outFrameDuration, m_nAVSyncMode, m_mfxVer, m_pQSVLog));
 
     for (auto& filterBlock : m_vpFilters) {
@@ -3722,6 +3722,7 @@ RGY_ERR CQSVPipeline::RunEncode2() {
         }
         return true;
     };
+    auto time_prev = std::chrono::high_resolution_clock::now();
 
     RGY_ERR err = RGY_ERR_NONE;
     auto setloglevel = [](RGY_ERR err) {
@@ -3766,6 +3767,9 @@ RGY_ERR CQSVPipeline::RunEncode2() {
                         });
                     }
                 } else { // pipelineの最終的なデータを出力
+                    const auto time_now = std::chrono::high_resolution_clock::now();
+                    double elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(time_now - time_prev).count();
+                    time_prev = time_now;
                     if ((err = d.data->write(m_pFileWriter.get(), m_device->allocator(), (m_cl) ? &m_cl->queue() : nullptr, m_videoQualityMetric.get())) != RGY_ERR_NONE) {
                         PrintMes(RGY_LOG_ERROR, _T("failed to write output: %s.\n"), get_err_mes(err));
                         break;
