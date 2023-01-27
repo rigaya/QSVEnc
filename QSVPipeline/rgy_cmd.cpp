@@ -5201,6 +5201,13 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
 #define ADD_PATH(str, opt) if ((param->opt) && _tcslen(param->opt)) tmp << _T(",") << (str) << _T("=\"") << (param->opt) << _T("\"");
 #define ADD_STR(str, opt) if (param->opt.length() > 0) tmp << _T(",") << (str) << _T("=") << (param->opt.c_str());
 
+#define ADD_FLOAT2(str, prm, def, opt, prec) if ((prm.opt) != (def.opt)) tmp << _T(",") << (str) << _T("=") << std::setprecision(prec) << (prm.opt);
+#define ADD_NUM2(str, prm, def, opt) if ((prm.opt) != (def.opt)) tmp << _T(",") << (str) << _T("=") << (prm.opt);
+#define ADD_LST2(str, prm, def, opt, list) if ((prm.opt) != (def.opt)) tmp << _T(",") << (str) << _T("=") << get_chr_from_value(list, (int)(prm.opt));
+#define ADD_BOOL2(str, prm, def, opt) if ((prm.opt) != (def.opt)) tmp << _T(",") << (str) << _T("=") << ((prm.opt) ? (_T("true")) : (_T("false")));
+#define ADD_PATH2(str, prm, opt) if ((prm.opt) && _tcslen(prm.opt)) tmp << _T(",") << (str) << _T("=\"") << (prm.opt) << _T("\"");
+#define ADD_STR2(str, prm, opt) if (prm.opt.length() > 0) tmp << _T(",") << (str) << _T("=") << (prm.opt.c_str());
+
 tstring gen_cmd(const VideoInfo *param, const VideoInfo *defaultPrm, const RGYParamInput *inprm, const RGYParamInput *inprmDefault, bool save_disabled_prm) {
     std::basic_stringstream<TCHAR> cmd;
     switch (param->type) {
@@ -5559,24 +5566,25 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
         }
     }
     for (size_t i = 0; i < param->subburn.size(); i++) {
-        if (param->subburn[i] != VppSubburn()) {
+        const auto subburnDefault = VppSubburn();
+        if (param->subburn[i] != subburnDefault) {
             tmp.str(tstring());
             if (!param->subburn[i].enable && save_disabled_prm) {
                 tmp << _T(",enable=false");
             }
             if (param->subburn[i].enable || save_disabled_prm) {
-                ADD_NUM(_T("track"), subburn[i].trackId);
-                ADD_PATH(_T("filename"), subburn[i].filename.c_str());
-                ADD_STR(_T("charcode"), subburn[i].charcode);
-                ADD_LST(_T("shaping"), subburn[i].assShaping, list_vpp_ass_shaping);
-                ADD_FLOAT(_T("scale"), subburn[i].scale, 4);
-                ADD_FLOAT(_T("transparency"), subburn[i].transparency_offset, 4);
-                ADD_FLOAT(_T("brightness"), subburn[i].brightness, 4);
-                ADD_FLOAT(_T("contrast"), subburn[i].contrast, 4);
-                ADD_BOOL(_T("vid_ts_offset"), subburn[i].vid_ts_offset);
-                ADD_FLOAT(_T("ts_offset"), subburn[i].ts_offset, 4);
-                ADD_PATH(_T("fontsdir"), subburn[i].fontsdir.c_str());
-                ADD_BOOL(_T("forced_subs_only"), subburn[i].forced_subs_only);
+                ADD_NUM2(_T("track"), param->subburn[i], subburnDefault, trackId);
+                ADD_PATH2(_T("filename"), param->subburn[i], filename.c_str());
+                ADD_STR2(_T("charcode"), param->subburn[i], charcode);
+                ADD_LST2(_T("shaping"), param->subburn[i], subburnDefault, assShaping, list_vpp_ass_shaping);
+                ADD_FLOAT2(_T("scale"), param->subburn[i], subburnDefault, scale, 4);
+                ADD_FLOAT2(_T("transparency"), param->subburn[i], subburnDefault, transparency_offset, 4);
+                ADD_FLOAT2(_T("brightness"), param->subburn[i], subburnDefault, brightness, 4);
+                ADD_FLOAT2(_T("contrast"), param->subburn[i], subburnDefault, contrast, 4);
+                ADD_BOOL2(_T("vid_ts_offset"), param->subburn[i], subburnDefault, vid_ts_offset);
+                ADD_FLOAT2(_T("ts_offset"), param->subburn[i], subburnDefault, ts_offset, 4);
+                ADD_PATH2(_T("fontsdir"), param->subburn[i], fontsdir.c_str());
+                ADD_BOOL2(_T("forced_subs_only"), param->subburn[i], subburnDefault, forced_subs_only);
             }
             if (!tmp.str().empty()) {
                 cmd << _T(" --vpp-subburn ") << tmp.str().substr(1);
