@@ -2687,6 +2687,185 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-overlay") && ENABLE_VPP_FILTER_OVERLAY) {
+        VppOverlay overlay;
+        overlay.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+
+        vector<tstring> param_list;
+        bool flag_comma = false;
+        const TCHAR *pstr = strInput[i];
+        const TCHAR *qstr = strInput[i];
+        for (; *pstr; pstr++) {
+            if (*pstr == _T('\"')) {
+                flag_comma ^= true;
+            }
+            if (!flag_comma && *pstr == _T(',')) {
+                param_list.push_back(tstring(qstr, pstr - qstr));
+                qstr = pstr + 1;
+            }
+        }
+        param_list.push_back(tstring(qstr, pstr - qstr));
+
+        const auto paramList = std::vector<std::string>{
+            "pos", "posx", "posy",
+            "size", "width", "height",
+            "alpha", "alpha_mode", "loop", "file",
+            "lumakey_threshold", "lumakey_tolerance", "lumakey_softness"};
+
+        for (const auto& param : param_list) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        overlay.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("file")) {
+                    overlay.inputFile = trim(param_val, _T("\""));
+                    continue;
+                }
+                if (param_arg == _T("pos")) {
+                    int x = 0, y = 0;
+                    if (   _stscanf_s(param_val.c_str(), _T("%dx%d"), &x, &y) == 2
+                        || _stscanf_s(param_val.c_str(), _T("%d/%d"), &x, &y) == 2) {
+                        overlay.posX = x;
+                        overlay.posY = y;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("posx")) {
+                    try {
+                        overlay.posX = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("posy")) {
+                    try {
+                        overlay.posY = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("size")) {
+                    int w = 0, h = 0;
+                    if (   _stscanf_s(param_val.c_str(), _T("%dx%d"), &w, &h) == 2
+                        || _stscanf_s(param_val.c_str(), _T("%d/%d"), &w, &h) == 2) {
+                        overlay.width = w;
+                        overlay.height = h;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("width")) {
+                    try {
+                        overlay.width = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("height")) {
+                    try {
+                        overlay.height = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("alpha")) {
+                    try {
+                        overlay.alpha = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("alpha_mode")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_overlay_alpha_mode, param_val.c_str(), &value)) {
+                        overlay.alphaMode = (VppOverlayAlphaMode)value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_overlay_alpha_mode);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("lumakey_threshold")) {
+                    try {
+                        overlay.lumaKey.threshold = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("lumakey_tolerance")) {
+                    try {
+                        overlay.lumaKey.tolerance = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("lumakey_softness")) {
+                    try {
+                        overlay.lumaKey.shoftness = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("loop")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        overlay.loop = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                if (param == _T("loop")) {
+                    overlay.loop = true;
+                    continue;
+                }
+                overlay.inputFile = param;
+                return 0;
+            }
+        }
+        vpp->overlay.push_back(overlay);
+        return 0;
+    }
     if (IS_OPTION("vpp-deband") && ENABLE_VPP_FILTER_DEBAND) {
         vpp->deband.enable = true;
         if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
@@ -5695,6 +5874,37 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             }
         }
     }
+    for (size_t i = 0; i < param->overlay.size(); i++) {
+        const auto overlayDefault = VppOverlay();
+        if (param->overlay[i] != overlayDefault) {
+            tmp.str(tstring());
+            if (!param->overlay[i].enable && save_disabled_prm) {
+                tmp << _T(",enable=false");
+            }
+            if (param->overlay[i].enable || save_disabled_prm) {
+                ADD_PATH(_T("file"), overlay[i].inputFile.c_str());
+                if (   param->overlay[i].posX != overlayDefault.posX
+                    || param->overlay[i].posY != overlayDefault.posY) {
+                    tmp << _T(",pos=") << param->overlay[i].posX << _T("x") << param->overlay[i].posY;
+                }
+                if (   param->overlay[i].width  != overlayDefault.width
+                    || param->overlay[i].height != overlayDefault.height) {
+                    tmp << _T(",size=") << param->overlay[i].width << _T("x") << param->overlay[i].height;
+                }
+                ADD_FLOAT2(_T("alpha"), param->overlay[i], overlayDefault, alpha, 3);
+                ADD_LST2(_T("alpha_mode"), param->overlay[i], overlayDefault, alphaMode, list_vpp_overlay_alpha_mode);
+                ADD_FLOAT2(_T("lumakey_threshold"), param->overlay[i], overlayDefault, lumaKey.threshold, 3);
+                ADD_FLOAT2(_T("lumakey_tolerance"), param->overlay[i], overlayDefault, lumaKey.tolerance, 3);
+                ADD_FLOAT2(_T("lumakey_shoftness"), param->overlay[i], overlayDefault, lumaKey.shoftness, 3);
+                ADD_BOOL2(_T("loop"), param->overlay[i], overlayDefault, loop);
+            }
+            if (!tmp.str().empty()) {
+                cmd << _T(" --vpp-overlay ") << tmp.str().substr(1);
+            } else if (param->deband.enable) {
+                cmd << _T(" --vpp-overlay");
+            }
+        }
+    }
     if (param->deband != defaultPrm->deband) {
         tmp.str(tstring());
         if (!param->deband.enable && save_disabled_prm) {
@@ -6800,6 +7010,26 @@ tstring gen_cmd_help_vpp() {
         _T("      flip_y=<bool>\n")
         _T("      transpose=<bool>\n")
     );
+#if ENABLE_VPP_FILTER_OVERLAY
+    str += strsprintf(_T("\n")
+        _T("   --vpp-overlay [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("    params\n")
+        _T("      file=<string>             src file path of the image\n")
+        _T("      pos=<int>x<int>           position to add image\n")
+        _T("      size=<int>x<int>          size of image  (default: 0x0 = no resize)\n")
+        _T("      alpha=<float>             alpha value of overlay\n")
+        _T("                                  default: 1.0 (0.0 - 1.0)\n")
+        _T("      alpha_mode=<string>       override ... set value of alpha\n")
+        _T("                                mul      ... multiple original value\n")
+        _T("                                lumakey  ... set alpha depending on luma\n")
+        _T("      lumakey_threshold=<float> luma used for tranparency.\n")
+        _T("                                  default: 0.0 (dark: 0.0 - 1.0 :bright)\n")
+        _T("      lumakey_tolerance=<float> set luma range to be keyed out.\n")
+        _T("                                  default: 0.1 (0.0 - 1.0)\n")
+        _T("      lumakey_threshold=<float> set the range of softness for lumakey\n")
+        _T("      loop=<bool>\n")
+    );
+#endif
 #if ENABLE_VPP_FILTER_DEBAND
     str += strsprintf(_T("\n")
         _T("   --vpp-deband [<param1>=<value>][,<param2>=<value>][...]\n")

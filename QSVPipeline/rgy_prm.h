@@ -62,6 +62,7 @@ static const int DEFAULT_IGNORE_DECODE_ERROR = 10;
 #define ENABLE_VPP_FILTER_WARPSHARP    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_EDGELEVEL    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_TWEAK        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || CLFILTERS_AUF)
+#define ENABLE_VPP_FILTER_OVERLAY      (ENCODER_NVENC)
 #define ENABLE_VPP_FILTER_DEBAND       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || CLFILTERS_AUF)
 
 static const TCHAR* VMAF_DEFAULT_MODEL_VERSION = _T("vmaf_v0.6.1");
@@ -1098,6 +1099,48 @@ struct VppTransform {
     tstring print() const;
 };
 
+enum class VppOverlayAlphaMode {
+    Override,
+    Mul,
+    LumaKey,
+};
+
+const CX_DESC list_vpp_overlay_alpha_mode[] = {
+    { _T("override"),  (int)VppOverlayAlphaMode::Override },
+    { _T("mul"),       (int)VppOverlayAlphaMode::Mul      },
+    { _T("lumakey"),   (int)VppOverlayAlphaMode::LumaKey  },
+    { NULL, 0 }
+};
+
+struct VppOverlayAlphaKey {
+    float threshold;
+    float tolerance;
+    float shoftness;
+
+    VppOverlayAlphaKey();
+    bool operator==(const VppOverlayAlphaKey &x) const;
+    bool operator!=(const VppOverlayAlphaKey &x) const;
+    tstring print() const;
+};
+
+struct VppOverlay {
+    bool enable;
+    tstring inputFile;
+    int posX;
+    int posY;
+    int width;
+    int height;
+    float alpha; // 不透明度 透明(0.0 - 1.0)透明
+    VppOverlayAlphaMode alphaMode;
+    VppOverlayAlphaKey lumaKey;
+    bool loop;
+
+    VppOverlay();
+    bool operator==(const VppOverlay &x) const;
+    bool operator!=(const VppOverlay &x) const;
+    tstring print() const;
+};
+
 struct VppDeband {
     bool enable;
     int range;
@@ -1140,6 +1183,7 @@ struct RGYParamVpp {
     VppWarpsharp warpsharp;
     VppTweak tweak;
     VppTransform transform;
+    std::vector<VppOverlay> overlay;
     VppDeband deband;
     bool checkPerformance;
 

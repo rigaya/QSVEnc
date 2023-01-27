@@ -1028,6 +1028,86 @@ tstring VppTransform::print() const {
 #undef ON_OFF
 }
 
+VppOverlayAlphaKey::VppOverlayAlphaKey() :
+    threshold(0.0f),
+    tolerance(0.1f),
+    shoftness(0.0f) {
+
+}
+
+bool VppOverlayAlphaKey::operator==(const VppOverlayAlphaKey &x) const {
+    return threshold == x.threshold
+        && tolerance == x.tolerance
+        && shoftness == x.shoftness;
+}
+bool VppOverlayAlphaKey::operator!=(const VppOverlayAlphaKey &x) const {
+    return !(*this == x);
+}
+
+tstring VppOverlayAlphaKey::print() const {
+    return strsprintf(_T("threshold %.2f, tolerance %.2f, shoftness %.2f"),
+        threshold, tolerance, shoftness);
+}
+
+VppOverlay::VppOverlay() :
+    enable(false),
+    inputFile(),
+    posX(0),
+    posY(0),
+    width(0),
+    height(0),
+    alpha(0.0f),
+    alphaMode(VppOverlayAlphaMode::Override),
+    lumaKey(),
+    loop(false) {
+
+}
+
+bool VppOverlay::operator==(const VppOverlay &x) const {
+    return enable == x.enable
+        && inputFile == x.inputFile
+        && posX == x.posX
+        && posY == x.posY
+        && width == x.width
+        && height == x.height
+        && alpha == x.alpha
+        && alphaMode == x.alphaMode
+        && lumaKey == x.lumaKey
+        && loop == x.loop;
+}
+bool VppOverlay::operator!=(const VppOverlay &x) const {
+    return !(*this == x);
+}
+
+tstring VppOverlay::print() const {
+    tstring alphaStr = _T("auto");
+    if (alphaMode == VppOverlayAlphaMode::LumaKey) {
+        alphaStr = (alpha > 0.0f) ? strsprintf(_T("%.2f "), alpha) : _T("");
+        alphaStr += _T("lumakey ") + lumaKey.print();
+    } else {
+        if (alpha > 0.0f) {
+            switch (alphaMode) {
+            case VppOverlayAlphaMode::Override:
+                alphaStr = strsprintf(_T("%.2f"), alpha);
+                break;
+            case VppOverlayAlphaMode::Mul:
+                alphaStr = strsprintf(_T("*%.2f"), alpha);
+                break;
+            default:
+                break;
+            }
+        }
+    }
+    return strsprintf(_T("overlay: %s\n")
+        _T("                        pos (%d,%d), size %dx%d, loop %s\n")
+        _T("                        alpha %s"),
+        inputFile.c_str(),
+        posX, posY,
+        width, height,
+        (loop) ? _T("on") : _T("off"),
+        alphaStr.c_str());
+}
+
 VppDeband::VppDeband() :
     enable(false),
     range(FILTER_DEFAULT_DEBAND_RANGE),
@@ -1093,6 +1173,7 @@ RGYParamVpp::RGYParamVpp() :
     warpsharp(),
     tweak(),
     transform(),
+    overlay(),
     deband(),
     checkPerformance(false) {
 
