@@ -213,6 +213,7 @@
   - [--vpp-rotate \<int\>](#--vpp-rotate-int)
   - [--vpp-transform \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-transform-param1value1param2value2)
   - [--vpp-tweak \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-tweak-param1value1param2value2)
+  - [--vpp-overlay \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-overlay-param1value1param2value2)
   - [--vpp-deband \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-deband-param1value1param2value2)
   - [--vpp-pad \<int\>,\<int\>,\<int\>,\<int\>](#--vpp-pad-intintintint)
   - [--vpp-perf-monitor](#--vpp-perf-monitor)
@@ -2213,6 +2214,43 @@ Rotate video. 90, 180, 270 degrees is allowed.
   ```
   Example:
   --vpp-tweak brightness=0.1,contrast=1.5,gamma=0.75
+  ```
+
+### --vpp-overlay [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+Overlay image on top of base video.
+
+- **Parameters**
+  - file=&lt;string&gt;  
+    source file path of the image.
+    When video is used for file, video framerate should be equal to base video file.
+  
+  - pos=&lt;int&gt;x&lt;int&gt;  
+    position to add image.
+  
+  - size=&lt;int&gt;x&lt;int&gt;  
+    size of image.
+  
+  - alpha=&lt;float&gt; (default: 1.0 (0.0 - 1.0))  
+    alpha value of overlay.
+  
+  - alpha_mode=&lt;string&gt;  
+    - override ... set value of alpha
+    - mul      ... multiple original value
+    - lumakey  ... set alpha depending on luma
+  
+  - lumakey_threshold=&lt;float&gt; (default: 0.0 (dark: 0.0 - 1.0 :bright))  
+    luma used for tranparency.
+  
+  - lumakey_tolerance=&lt;float&gt; (default: 0.1 (0.0 - 1.0))  
+    set luma range to be keyed out.
+  
+  - lumakey_softness=&lt;float&gt; (default: 0.0 (0.0 - 1.0))  
+    set the range of softness for lumakey.
+
+- Example:
+  ```
+  --vpp-overlay file=logo.png,pos=1620x780,size=300x300
+  --vpp-overlay file=logo.mp4,pos=0x800,alpha_mode=lumakey,lumakey_threshold=0.0,lumakey_tolerance=0.1
   ```
 
 ### --vpp-deband [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]

@@ -309,6 +309,9 @@
     <ClCompile Include="qsv_device.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="rgy_filter_overlay.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="qsv_prm.h">
@@ -602,6 +605,9 @@
     <ClInclude Include="qsv_device.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="rgy_filter_overlay.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="rgy_filter.cl">
@@ -683,6 +689,9 @@
       <Filter>ソース ファイル</Filter>
     </None>
     <None Include="rgy_filter_yadif.cl">
+      <Filter>ソース ファイル</Filter>
+    </None>
+    <None Include="rgy_filter_overlay.cl">
       <Filter>ソース ファイル</Filter>
     </None>
   </ItemGroup>

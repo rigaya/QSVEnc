@@ -192,6 +192,8 @@ enum class VppType : int {
 
     CL_TWEAK,
 
+    CL_OVERLAY,
+
     CL_DEBAND,
 
     CL_PAD,
