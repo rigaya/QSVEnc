@@ -146,7 +146,7 @@
   - [--input-analyze \<float\>](#--input-analyze-float)
   - [--input-probesize \<int\>](#--input-probesize-int)
   - [--trim \<int\>:\<int\>\[,\<int\>:\<int\>\]\[,\<int\>:\<int\>\]...](#--trim-intintintintintint)
-  - [--seek \[\[\<int\>:\]\<int\>:\]\<int\>\[.\<int\>\]](#--seek-intintintint)
+  - [--seek \[\<int\>:\]\[\<int\>:\]\<int\>\[.\<int\>\]](#--seek-intintintint)
   - [--seekto \[\<int\>:\]\[\<int\>:\]\<int\>\[.\<int\>\]](#--seekto-intintintint)
   - [--input-format \<string\>](#--input-format-string)
   - [-f, --output-format \<string\>](#-f---output-format-string)
@@ -172,6 +172,8 @@
   - [--chapter \<string\>](#--chapter-string)
   - [--chapter-copy](#--chapter-copy)
   - [--chapter-no-trim](#--chapter-no-trim)
+  - [--key-on-chapter](#--key-on-chapter)
+  - [--keyfile \<string\>](#--keyfile-string)
   - [--sub-source \<string\>\[:{\<int\>?}\[;\<param1\>=\<value1\>\]...\]...](#--sub-source-stringintparam1value1)
   - [--sub-copy \[\<int/string\>;\[,\<int/string\>\]...\]](#--sub-copy-intstringintstring)
   - [--sub-disposition \[\<int/string\>?\]\<string\>](#--sub-disposition-intstringstring)
@@ -180,6 +182,7 @@
   - [--caption2ass \[\<string\>\]](#--caption2ass-string)
   - [--data-copy \[\<int\>\[,\<int\>\]...\]](#--data-copy-intint)
   - [--attachment-copy \[\<int\>\[,\<int\>\]...\]](#--attachment-copy-intint)
+  - [--attachment-source \<string\>\[:{\<int\>?}\[;\<param1\>=\<value1\>\]...\]...](#--attachment-source-stringintparam1value1)
   - [--input-option \<string1\>:\<string2\>](#--input-option-string1string2)
   - [-m, --mux-option \<string1\>:\<string2\>](#-m---mux-option-string1string2)
   - [--metadata \<string\> or \<string\>=\<string\>](#--metadata-string-or-stringstring)
@@ -930,30 +933,35 @@ Set the maximum size in bytes that libav parses for file analysis.
 ### --trim &lt;int&gt;:&lt;int&gt;[,&lt;int&gt;:&lt;int&gt;][,&lt;int&gt;:&lt;int&gt;]...
 Encode only frames in the specified range.
 
-```
-Example 1: --trim 0:1000,2000:3000    (encode from frame #0 to #1000 and from frame #2000 to #3000)
-Example 2: --trim 2000:0              (encode from frame #2000 to the end)
-```
+- Examples
+  ```
+  Example 1: --trim 0:1000,2000:3000    (encode from frame #0 to #1000 and from frame #2000 to #3000)
+  Example 2: --trim 2000:0              (encode from frame #2000 to the end)
+  ```
 
-### --seek [[&lt;int&gt;:]&lt;int&gt;:]&lt;int&gt;[.&lt;int&gt;]
+### --seek [&lt;int&gt;:][&lt;int&gt;:]&lt;int&gt;[.&lt;int&gt;]
 The format is hh:mm:ss.ms. "hh" or "mm" could be omitted. The transcode will start from the time specified.
 
 Seeking by this option is not exact but fast, compared to [--trim](#--trim-intintintintintint). If you require exact seek, use [--trim](#--trim-intintintintintint).
-```
-Example 1: --seek 0:01:15.400
-Example 2: --seek 1:15.4
-Example 3: --seek 75.4
-```
+
+- Examples
+  ```
+  Example 1: --seek 0:01:15.400
+  Example 2: --seek 1:15.4
+  Example 3: --seek 75.4
+  ```
 
 ### --seekto [&lt;int&gt;:][&lt;int&gt;:]&lt;int&gt;[.&lt;int&gt;]
 The format is hh:mm:ss.ms. "hh" or "mm" could be omitted.
 
 Set encode finish time. This might be inaccurate, so if you require exact number of frames to encode, use [--trim](#--trim-intintintintintint).
-```
-Example 1: --seekto 0:01:15.400
-Example 2: --seekto 1:15.4
-Example 3: --seekto 75.4
-```
+
+- Examples
+  ```
+  Example 1: --seekto 0:01:15.400
+  Example 2: --seekto 1:15.4
+  Example 3: --seekto 75.4
+  ```
 
 ### --input-format &lt;string&gt;
 Specify input format for avhw / avsw reader.
@@ -979,25 +987,28 @@ Set video track to encode in stream id.
 
 ### --video-tag &lt;string&gt;
 Specify video tag.
-```
- -o test.mp4 -c hevc --video-tag hvc1
-```
+
+- Examples
+  ```
+   -o test.mp4 -c hevc --video-tag hvc1
+  ```
 
 ### --video-metadata &lt;string&gt; or &lt;string&gt;=&lt;string&gt;
 Set metadata for video track.
   - copy  ... copy metadata from input if possible
   - clear ... do not copy metadata (default)
 
-```
-Example1: copy metadata from input file
---video-metadata 1?copy
-
-Example2: clear metadata from input file
---video-metadata 1?clear
-
-Example3: set metadata
---video-metadata 1?title="video title" --video-metadata 1?language=jpn
-```
+- Examples
+  ```
+  Example1: copy metadata from input file
+  --video-metadata 1?copy
+  
+  Example2: clear metadata from input file
+  --video-metadata 1?clear
+  
+  Example3: set metadata
+  --video-metadata 1?title="video title" --video-metadata 1?language=jpn
+  ```
 
 ### --audio-copy [&lt;int/string&gt;;[,&lt;int/string&gt;]...]
 Copy audio track into output file. Available only when avhw / avsw reader is used.
@@ -1006,16 +1017,17 @@ If it does not work well, try encoding with [--audio-codec](#--audio-codec-intst
 
 You can also specify the audio track (1, 2, ...) to extract with [&lt;int&gt;], or select audio track to copy by language with [&lt;string&gt;].
 
-```
-Example: Copy all audio tracks
---audio-copy
-
-Example: Extract track numbers #1 and #2
---audio-copy 1,2
-
-Example: Extract audio tracks marked as English and Japanese
---audio-copy eng,jpn
-```
+- Examples
+  ```
+  Example: Copy all audio tracks
+  --audio-copy
+  
+  Example: Extract track numbers #1 and #2
+  --audio-copy 1,2
+  
+  例: Extract audio tracks marked as English and Japanese
+  --audio-copy eng,jpn
+  ```
 
 ### --audio-codec [[&lt;int/string&gt;?]&lt;string&gt;[:&lt;string&gt;=&lt;string&gt;[,&lt;string&gt;=&lt;string&gt;]...]...]
 Encode audio track with the codec specified. If codec is not set, most suitable codec will be selected automatically. Codecs available could be checked with [--check-encoders](#--check-codecs---check-decoders---check-encoders).
@@ -1023,22 +1035,24 @@ Encode audio track with the codec specified. If codec is not set, most suitable 
 You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt;].
 
 Also, after ":" you can specify params for audio encoder,  after "#" you can specify params for audio decoder.
-```
-Example 1: encode all audio tracks to mp3
---audio-codec libmp3lame
 
-Example 2: encode the 2nd track of audio to aac
---audio-codec 2?aac
-
-Example 3: encode the English audio track to aac
---audio-codec eng?aac
-
-Example 4: encode the English audio track and Japanese audio track to aac
---audio-codec eng?aac --audio-codec jpn?aac
-
-Example 5: set param "aac_coder" to "twoloop" which will improve quality at low bitrate for aac encoder
---audio-codec aac:aac_coder=twoloop
-```
+- Examples
+  ```
+  Example 1: encode all audio tracks to mp3
+  --audio-codec libmp3lame
+  
+  Example 2: encode the 2nd track of audio to aac
+  --audio-codec 2?aac
+  
+  Example 3: encode the English audio track to aac
+  --audio-codec eng?aac
+  
+  Example 4: encode the English audio track and Japanese audio track to aac
+  --audio-codec eng?aac --audio-codec jpn?aac
+  
+  Example 5: set param "aac_coder" to "twoloop" which will improve quality at low bitrate for aac encoder
+  --audio-codec aac:aac_coder=twoloop
+  ```
 
 ### --audio-bitrate [&lt;int/string&gt;?]&lt;int&gt;
 Specify the bitrate in kbps when encoding audio.
@@ -1058,59 +1072,62 @@ Audio tracks specified with this option will always be encoded. (no copying avai
 
 By comma(",") separation, you can generate multiple tracks from the same input track.
 
-**format**
+- **format**
 
-Specify the track to be processed by &lt;int&gt;.
+  Specify the track to be processed by &lt;int&gt;.
+  
+  Specify the channel to be used as input by &lt;string1&gt;. If omitted, input will be all the input channels.
+  
+  Specify the output channel format by &lt;string2&gt;. If omitted, all the channels of &lt;string1&gt; will be used.
 
-Specify the channel to be used as input by &lt;string1&gt;. If omitted, input will be all the input channels.
+- Examples
+  ```
+  Example 1: --audio-stream FR,FL
+  Separate left and right channels of "dual mono" audio track, into two mono audio tracks.
+  
+  Example 2: --audio-stream :stereo
+  Convert any audio track to stereo.
+  
+  Example 3: --audio-stream 2?5.1,5.1:stereo
+  While encoding the 2nd 5.1 ch audio track of the input file as 5.1 ch,
+  another stereo downmixed audio track will be generated
+  from the same source audio track.
+  ```
 
-Specify the output channel format by &lt;string2&gt;. If omitted, all the channels of &lt;string1&gt; will be used.
-
-```
-Example 1: --audio-stream FR,FL
-Separate left and right channels of "dual mono" audio track, into two mono audio tracks.
-
-Example 2: --audio-stream :stereo
-Convert any audio track to stereo.
-
-Example 3: --audio-stream 2?5.1,5.1:stereo
-While encoding the 2nd 5.1 ch audio track of the input file as 5.1 ch,
-another stereo downmixed audio track will be generated
-from the same source audio track.
-```
-
-**Available symbols**
-```
-mono       = FC
-stereo     = FL + FR
-2.1        = FL + FR + LFE
-3.0        = FL + FR + FC
-3.0(back)  = FL + FR + BC
-3.1        = FL + FR + FC + LFE
-4.0        = FL + FR
-4.0        = FL + FR + FC + BC
-quad       = FL + FR + BL + BR
-quad(side) = FL + FR + SL + SR
-5.0        = FL + FR + FC + SL + SR
-5.1        = FL + FR + FC + LFE + SL + SR
-6.0        = FL + FR + FC + BC + SL + SR
-6.0(front) = FL + FR + FLC + FRC + SL + SR
-hexagonal  = FL + FR + FC + BL + BR + BC
-6.1        = FL + FR + FC + LFE + BC + SL + SR
-6.1(front) = FL + FR + LFE + FLC + FRC + SL + SR
-7.0        = FL + FR + FC + BL + BR + SL + SR
-7.0(front) = FL + FR + FC + FLC + FRC + SL + SR
-7.1        = FL + FR + FC + LFE + BL + BR + SL + SR
-7.1(wide)  = FL + FR + FC + LFE + FLC + FRC + SL + SR
-```
+- **Available symbols**
+  ```
+  mono       = FC
+  stereo     = FL + FR
+  2.1        = FL + FR + LFE
+  3.0        = FL + FR + FC
+  3.0(back)  = FL + FR + BC
+  3.1        = FL + FR + FC + LFE
+  4.0        = FL + FR
+  4.0        = FL + FR + FC + BC
+  quad       = FL + FR + BL + BR
+  quad(side) = FL + FR + SL + SR
+  5.0        = FL + FR + FC + SL + SR
+  5.1        = FL + FR + FC + LFE + SL + SR
+  6.0        = FL + FR + FC + BC + SL + SR
+  6.0(front) = FL + FR + FLC + FRC + SL + SR
+  hexagonal  = FL + FR + FC + BL + BR + BC
+  6.1        = FL + FR + FC + LFE + BC + SL + SR
+  6.1(front) = FL + FR + LFE + FLC + FRC + SL + SR
+  7.0        = FL + FR + FC + BL + BR + SL + SR
+  7.0(front) = FL + FR + FC + FLC + FRC + SL + SR
+  7.1        = FL + FR + FC + LFE + BL + BR + SL + SR
+  7.1(wide)  = FL + FR + FC + LFE + FLC + FRC + SL + SR
+  ```
 
 ### --audio-samplerate [&lt;int/string&gt;?]&lt;int&gt;
 Specify the sampling frequency of the sound in Hz.
 You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt].
-```
-Example 1: --audio-bitrate 44100 (converting sound to 44100 Hz)
-Example 2: --audio-bitrate 2?22050 (Convert the second track of voice to 22050 Hz)
-```
+
+- Examples
+  ```
+  Example 1: --audio-bitrate 44100 (converting sound to 44100 Hz)
+  Example 2: --audio-bitrate 2?22050 (Convert the second track of voice to 22050 Hz)
+  ```
 
 ### --audio-resampler &lt;string&gt;
 Specify the engine used for mixing audio channels and sampling frequency conversion.
@@ -1124,70 +1141,81 @@ Specify audio delay in milli seconds.　You can select audio track (1, 2, ...) t
 Extract audio track to the specified path. The output format is determined automatically from the output extension. Available only when avhw / avsw reader is used.
 
 You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt].
-```
-Example: extract audio track number #2 to test_out2.aac
---audio-file 2?"test_out2.aac"
-```
+
+- Examples
+  ```
+  Example: extract audio track number #2 to test_out2.aac
+  --audio-file 2?"test_out2.aac"
+  ```
 
 [&lt;string&gt;] allows you to specify the output format.
-```
-Example: Output in adts format without extension
---audio-file 2?adts:"test_out2"  
-```
+
+- Examples
+  ```
+  Example: Output in adts format without extension
+  --audio-file 2?adts:"test_out2"  
+  ```
 
 ### --audio-filter [&lt;int/string&gt;?]&lt;string&gt;
 Apply filters to audio track. Filters could be slected from [link](https://ffmpeg.org/ffmpeg-filters.html#Audio-Filters).
 
 You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt;].
 
-```
-Example 1: --audio-filter volume=0.2  (lowering the volume)
-Example 2: --audio-filter 2?volume=-4db (lowering the volume of the 2nd track)
-```
+- Examples
+  ```
+  Example 1: --audio-filter volume=0.2  (lowering the volume)
+  Example 2: --audio-filter 2?volume=-4db (lowering the volume of the 2nd track)
+  ```
 
 ### --audio-disposition [&lt;int/string&gt;?]&lt;string&gt;[,&lt;string&gt;][]...
 set disposition for the specified audio track.
 You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt;].
 
-```
- default
- dub
- original
- comment
- lyrics
- karaoke
- forced
- hearing_impaired
- visual_impaired
- clean_effects
- attached_pic
- captions
- descriptions
- dependent
- metadata
- copy
+- list of dispositions
+  ```
+  default
+  dub
+  original
+  comment
+  lyrics
+  karaoke
+  forced
+  hearing_impaired
+  visual_impaired
+  clean_effects
+  attached_pic
+  captions
+  descriptions
+  dependent
+  metadata
+  copy
+  ```
 
-Example:
---audio-disposition 2?default,forced
-```
+- Examples
+  ```
+  Example:
+  --audio-disposition 2?default,forced
+  ```
 
 ### --audio-metadata [&lt;int/string&gt;?]&lt;string&gt; or [&lt;int/string&gt;?]&lt;string&gt;=&lt;string&gt;
+
 Set metadata for audio track.
   - copy  ... copy metadata from input if possible (default)
   - clear ... do not copy metadata
 
 You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt;].
 
-```
-Example1: copy metadata from input file
---audio-metadata 1?copy
-
-Example2: clear metadata from input file
---audio-metadata 1?clear
-
-Example3: set metadata
---audio-metadata 1?title="audio title" --audio-metadata 1?language=jpn
-```
+- Examples
+  ```
+  Example1: copy metadata from input file
+  --audio-metadata 1?copy
+  
+  Example2: clear metadata from input file
+  --audio-metadata 1?clear
+  
+  Example3: set metadata
+  --audio-metadata 1?title="audio title" --audio-metadata 1?language=jpn
+  ```
 
 ### --audio-bsf [&lt;int/string&gt;?]&lt;string&gt;
 Apply [bitstream filter](https://ffmpeg.org/ffmpeg-bitstream-filters.html) to audio track.
@@ -1197,123 +1225,125 @@ Ignore the consecutive audio decode error, and continue transcoding within the t
 
 The default is 10.
 
-```
-Example1: Quit transcoding for a 5 consecutive audio decode error.
---audio-ignore-decode-error 5
-
-Example2: Quit transcoding for a single audio decode error.
---audio-ignore-decode-error 0
-```
+- Examples
+  ```
+  Example1: Quit transcoding for a 5 consecutive audio decode error.
+  --audio-ignore-decode-error 5
+  
+  Example2: Quit transcoding for a single audio decode error.
+  --audio-ignore-decode-error 0
+  ```
 
 ### --audio-source &lt;string&gt;[:{&lt;int&gt;?}[;&lt;param1&gt;=&lt;value1&gt;]...]...
 Mux an external audio file specified.
 
-**params** 
-- copy  
-  Copy audio track.
-
-- codec=&lt;string&gt;  
-  Encode audio to specified audio codec.
-
-- profile=&lt;string&gt;  
-  Specify audio codec profile when encoding audio.
-
-- bitrate=&lt;int&gt;  
-  Specify audio bitrate in kbps.
+- **params** 
+  - copy  
+    Copy audio track.
   
-- samplerate=&lt;int&gt;  
-  Specify audio sampling rate.
+  - codec=&lt;string&gt;  
+    Encode audio to specified audio codec.
   
-- delay=&lt;int&gt;  
-  Set audio delay in milli seconds.
-
-- dec_prm=&lt;string&gt;  
-  Specify params for audio decoder.
-
-- enc_prm=&lt;string&gt;  
-  Specify params for audio encoder.
-
-- filter=&lt;string&gt;  
-  Specify filters for audio.
-
-- disposition=&lt;string&gt;  
-  Specify disposition for audio.
+  - profile=&lt;string&gt;  
+    Specify audio codec profile when encoding audio.
   
-- metadata=&lt;string1&gt;=&lt;string2&gt;  
-  Specify metadata for audio track.
+  - bitrate=&lt;int&gt;  
+    Specify audio bitrate in kbps.
+    
+  - samplerate=&lt;int&gt;  
+    Specify audio sampling rate.
+    
+  - delay=&lt;int&gt;  
+    Set audio delay in milli seconds.
+  
+  - dec_prm=&lt;string&gt;  
+    Specify params for audio decoder.
+  
+  - enc_prm=&lt;string&gt;  
+    Specify params for audio encoder.
+  
+  - filter=&lt;string&gt;  
+    Specify filters for audio.
+  
+  - disposition=&lt;string&gt;  
+    Specify disposition for audio.
+    
+  - metadata=&lt;string1&gt;=&lt;string2&gt;  
+    Specify metadata for audio track.
+    
+  - bsf=&lt;string&gt;  
+    Specify bitstream filter for audio track.
 
-- bsf=&lt;string&gt;  
-  Specify bitstream filter for audio track.
-
-```
-Example1: --audio-source "<audio_file>":copy
-Example2: --audio-source "<audio_file>":codec=aac
-Example3: --audio-source "<audio_file>":1?codec=aac;bitrate=256:2?codec=aac;bitrate=192;metadata=language=jpn
-```
+- Examples
+  ```
+  Example1: --audio-source "<audio_file>":copy
+  Example2: --audio-source "<audio_file>":codec=aac
+  Example3: --audio-source "<audio_file>":1?codec=aac;bitrate=256:2?codec=aac;bitrate=192;metadata=language=jpn
+  ```
 
 ### --chapter &lt;string&gt;
 Set chapter in the (separate) chapter file.
 The chapter file could be in nero format, apple format or matroska format. Cannot be used with --chapter-copy.
 
-nero format  
-```
-CHAPTER01=00:00:39.706
-CHAPTER01NAME=chapter-1
-CHAPTER02=00:01:09.703
-CHAPTER02NAME=chapter-2
-CHAPTER03=00:01:28.288
-CHAPTER03NAME=chapter-3
-```
+- nero format  
+  ```
+  CHAPTER01=00:00:39.706
+  CHAPTER01NAME=chapter-1
+  CHAPTER02=00:01:09.703
+  CHAPTER02NAME=chapter-2
+  CHAPTER03=00:01:28.288
+  CHAPTER03NAME=chapter-3
+  ```
 
-apple format (should be in utf-8)  
-```
-<?xml version="1.0" encoding="UTF-8" ?>
-  <TextStream version="1.1">
-   <TextStreamHeader>
-    <TextSampleDescription>
-    </TextSampleDescription>
-  </TextStreamHeader>
-  <TextSample sampleTime="00:00:39.706">chapter-1</TextSample>
-  <TextSample sampleTime="00:01:09.703">chapter-2</TextSample>
-  <TextSample sampleTime="00:01:28.288">chapter-3</TextSample>
-  <TextSample sampleTime="00:01:28.289" text="" />
-</TextStream>
-```
+- apple format (should be in utf-8)  
+  ```
+  <?xml version="1.0" encoding="UTF-8" ?>
+    <TextStream version="1.1">
+     <TextStreamHeader>
+      <TextSampleDescription>
+      </TextSampleDescription>
+    </TextStreamHeader>
+    <TextSample sampleTime="00:00:39.706">chapter-1</TextSample>
+    <TextSample sampleTime="00:01:09.703">chapter-2</TextSample>
+    <TextSample sampleTime="00:01:28.288">chapter-3</TextSample>
+    <TextSample sampleTime="00:01:28.289" text="" />
+  </TextStream>
+  ```
 
-matroska format (hould be in utf-8)  
-[Other Samples&gt;&gt;](https://github.com/nmaier/mkvtoolnix/blob/master/examples/example-chapters-1.xml)
-```
-<?xml version="1.0" encoding="UTF-8"?>
-<Chapters>
-  <EditionEntry>
-    <ChapterAtom>
-      <ChapterTimeStart>00:00:00.000</ChapterTimeStart>
-      <ChapterDisplay>
-        <ChapterString>chapter-0</ChapterString>
-      </ChapterDisplay>
-    </ChapterAtom>
-    <ChapterAtom>
-      <ChapterTimeStart>00:00:39.706</ChapterTimeStart>
-      <ChapterDisplay>
-        <ChapterString>chapter-1</ChapterString>
-      </ChapterDisplay>
-    </ChapterAtom>
-    <ChapterAtom>
-      <ChapterTimeStart>00:01:09.703</ChapterTimeStart>
-      <ChapterDisplay>
-        <ChapterString>chapter-2</ChapterString>
-      </ChapterDisplay>
-    </ChapterAtom>
-    <ChapterAtom>
-      <ChapterTimeStart>00:01:28.288</ChapterTimeStart>
-      <ChapterTimeEnd>00:01:28.289</ChapterTimeEnd>
-      <ChapterDisplay>
-        <ChapterString>chapter-3</ChapterString>
-      </ChapterDisplay>
-    </ChapterAtom>
-  </EditionEntry>
-</Chapters>
-```
+- matroska format (hould be in utf-8)  
+  [Other Samples&gt;&gt;](https://github.com/nmaier/mkvtoolnix/blob/master/examples/example-chapters-1.xml)
+  ```
+  <?xml version="1.0" encoding="UTF-8"?>
+  <Chapters>
+    <EditionEntry>
+      <ChapterAtom>
+        <ChapterTimeStart>00:00:00.000</ChapterTimeStart>
+        <ChapterDisplay>
+          <ChapterString>chapter-0</ChapterString>
+        </ChapterDisplay>
+      </ChapterAtom>
+      <ChapterAtom>
+        <ChapterTimeStart>00:00:39.706</ChapterTimeStart>
+        <ChapterDisplay>
+          <ChapterString>chapter-1</ChapterString>
+        </ChapterDisplay>
+      </ChapterAtom>
+      <ChapterAtom>
+        <ChapterTimeStart>00:01:09.703</ChapterTimeStart>
+        <ChapterDisplay>
+          <ChapterString>chapter-2</ChapterString>
+        </ChapterDisplay>
+      </ChapterAtom>
+      <ChapterAtom>
+        <ChapterTimeStart>00:01:28.288</ChapterTimeStart>
+        <ChapterTimeEnd>00:01:28.289</ChapterTimeEnd>
+        <ChapterDisplay>
+          <ChapterString>chapter-3</ChapterString>
+        </ChapterDisplay>
+      </ChapterAtom>
+    </EditionEntry>
+  </Chapters>
+  ```
 
 ### --chapter-copy
 Copy chapters from input file.
@@ -1321,23 +1351,31 @@ Copy chapters from input file.
 ### --chapter-no-trim
 Do not apply --trim when reading chapters.
 
+### --key-on-chapter
+Set keyframes on chapter position.
+
+### --keyfile &lt;string&gt;
+Set keyframes on frames (starting from 0, 1, 2, ...) specified in the file.
+There should be one frame ID per line.
+
 ### --sub-source &lt;string&gt;[:{&lt;int&gt;?}[;&lt;param1&gt;=&lt;value1&gt;]...]...
 Read subtitle from the specified file and mux into the output file.
 
-**params** 
-- disposition=&lt;string&gt;  
-  Specify disposition for subtitle.
+- **params** 
+  - disposition=&lt;string&gt;  
+    Specify disposition for subtitle.
+    
+  - metadata=&lt;string1&gt;=&lt;string2&gt;  
+    Specify metadata for subtitle track.
+    
+  - bsf=&lt;string&gt;  
+    Specify bitstream filter for subtitle track.
   
-- metadata=&lt;string1&gt;=&lt;string2&gt;  
-  Specify metadata for subtitle track.
-
-- bsf=&lt;string&gt;  
-  Specify bitstream filter for subtitle track.
-
-```
-Example1: --sub-source "<sub_file>"
-Example2: --sub-source "<sub_file>":disposition=default;metadata=language=jpn
-```
+- Examples
+  ```
+  Example1: --sub-source "<sub_file>"
+  Example2: --sub-source "<sub_file>":disposition=default;metadata=language=jpn
+  ```
 
 ### --sub-copy [&lt;int/string&gt;;[,&lt;int/string&gt;]...]
 Copy subtitle tracks from input file. Available only when avhw / avsw reader is used.
@@ -1345,54 +1383,57 @@ It is also possible to specify subtitle tracks (1, 2, ...) to extract with [&lt;
 
 Supported subtitles are PGS / srt / txt / ttxt.
 
-```
-Example: Copy all subtitle tracks
---sub-copy
-
-Example: Copy subtitle track #1 and #2
---sub-copy 1,2
-
-Example: Copy subtitle tracks marked as English and Japanese
---sub-copy eng,jpn
-```
+- Examples
+  ```
+  Example: Copy all subtitle tracks
+  --sub-copy
+  
+  Example: Copy subtitle track #1 and #2
+  --sub-copy 1,2
+  
+  Example: Copy subtitle tracks marked as English and Japanese
+  --sub-copy eng,jpn
+  ```
 
 ### --sub-disposition [&lt;int/string&gt;?]&lt;string&gt;
 set disposition for the specified subtitle track.
 
-```
- default
- dub
- original
- comment
- lyrics
- karaoke
- forced
- hearing_impaired
- visual_impaired
- clean_effects
- attached_pic
- captions
- descriptions
- dependent
- metadata
- copy
-```
+- list of dispositions
+  ```
+   default
+   dub
+   original
+   comment
+   lyrics
+   karaoke
+   forced
+   hearing_impaired
+   visual_impaired
+   clean_effects
+   attached_pic
+   captions
+   descriptions
+   dependent
+   metadata
+   copy
+  ```
 
 ### --sub-metadata [&lt;int/string&gt;?]&lt;string&gt; or [&lt;int/string&gt;?]&lt;string&gt;=&lt;string&gt;
 Set metadata for subtitle track.
   - copy  ... copy metadata from input if possible (default)
   - clear ... do not copy metadata
 
-```
-Example1: copy metadata from input file
---sub-metadata 1?copy
-
-Example2: clear metadata from input file
---sub-metadata 1?clear
-
-Example3: set metadata
---sub-metadata 1?title="subtitle title" --sub-metadata 1?language=jpn
-```
+- Examples
+  ```
+  Example1: copy metadata from input file
+  --sub-metadata 1?copy
+  
+  Example2: clear metadata from input file
+  --sub-metadata 1?clear
+  
+  Example3: set metadata
+  --sub-metadata 1?title="subtitle title" --sub-metadata 1?language=jpn
+  ```
 
 ### --sub-bsf [&lt;int/string&gt;?]&lt;string&gt;
 Apply [bitstream filter](https://ffmpeg.org/ffmpeg-bitstream-filters.html) to subtitle track.
@@ -1410,40 +1451,55 @@ Copy data stream from input file. Available only when avhw / avsw reader is used
 ### --attachment-copy [&lt;int&gt;[,&lt;int&gt;]...]
 Copy attachment stream from input file. Available only when avhw / avsw reader is used.
 
+### --attachment-source &lt;string&gt;[:{&lt;int&gt;?}[;&lt;param1&gt;=&lt;value1&gt;]...]...
+Read attachment from the specified file and mux into the output file.
+
+- **params** 
+  - metadata=&lt;string1&gt;=&lt;string2&gt;  
+    Specify metadata for the attachment, setting mimetype is required.
+  
+- Examples
+  ```
+  Example1: --attachment-source "<png_file>":metadata=mimetype=image/png
+  ```
+
 ### --input-option &lt;string1&gt;:&lt;string2&gt;
 Pass optional parameters for input for avhw/avsw reader. Specify the option name in &lt;string1&gt;, and the option value in &lt;string2&gt;.
 
-```
-Example: Reading playlist 1 of bluray 
--i bluray:D:\ --input-option playlist:1
-```
+- Examples
+  ```
+  Example: Reading playlist 1 of bluray 
+  -i bluray:D:\ --input-option playlist:1
+  ```
 
 ### -m, --mux-option &lt;string1&gt;:&lt;string2&gt;
-Pass optional parameters to muxer. Specify the option name in &lt;string1&gt, and the option value in &lt;string2&gt;.
+Pass optional parameters to muxer. Specify the option name in &lt;string&gt;, and the option value in &lt;string2&gt;.
 
-```
-Example: Output for HLS
--i <input> -o test.m3u8 -f hls -m hls_time:5 -m hls_segment_filename:test_%03d.ts --gop-len 30
-
-Example: Pass through "default" disposition even if there are no "default" tracks in the output (mkv only)
--m default_mode:infer_no_subs
-```
+- Examples
+  ```
+  Example: Output for HLS
+  -i <input> -o test.m3u8 -f hls -m hls_time:5 -m hls_segment_filename:test_%03d.ts --gop-len 30
+  
+  Example: Pass through "default" disposition even if there are no "default" tracks in the output (mkv only)
+  -m default_mode:infer_no_subs
+  ```
 
 ### --metadata &lt;string&gt; or &lt;string&gt;=&lt;string&gt;
 Set global metadata for output file.
   - copy  ... copy metadata from input if possible (default)
   - clear ... do not copy metadata
 
-```
-Example1: copy metadata from input file
---metadata copy
-
-Example2: clear metadata from input file
---metadata clear
-
-Example3: set metadata
---metadata title="video title" --metadata language=jpn
-```
+- Examples
+  ```
+  Example1: copy metadata from input file
+  --metadata copy
+  
+  Example2: clear metadata from input file
+  --metadata clear
+  
+  Example3: set metadata
+  --metadata title="video title" --metadata language=jpn
+  ```
 
 ### --avsync &lt;string&gt;
   - cfr (default)
@@ -1587,7 +1643,7 @@ Values for parameters will be copied from input file for "input".
     This controls the brightness of which desaturated is going to start.
     Lower value will make the desaturation to start earlier.
 
-- examples
+- Examples
   ```
   example1: convert from BT.601 -> BT.709
   --vpp-colorspace matrix=smpte170m:bt709
@@ -1806,7 +1862,7 @@ nnedi deinterlacer.
   - weightfile  
     Set path of weight file. By default (not specified), internal weight params will be used.
   
-- examples
+- Examples
   ```
   example: --vpp-nnedi field=auto,nns=64,nsize=32x6,quality=slow,prescreen=none,prec=fp32
   ```
@@ -1814,21 +1870,22 @@ nnedi deinterlacer.
 ### --vpp-yadif [&lt;param1&gt;=&lt;value1&gt;]
 Yadif deinterlacer.
 
-**parameters**
-- mode
+- **parameters**
 
-  - auto (default)  
-    Generate latter field from first field.
-  - tff  
-    Generate bottom field using top field.
-  - bff  
-    Generate top field using bottom field.
-  - bob   
-    Generate one frame from each field.
-  - bob_tff   
-    Generate one frame from each field assuming top field first.
-  - bob_bff   
-    Generate one frame from each field assuming bottom field first.
+  - mode
+  
+    - auto (default)  
+      Generate latter field from first field.
+    - tff  
+      Generate bottom field using top field.
+    - bff  
+      Generate top field using bottom field.
+    - bob   
+      Generate one frame from each field.
+    - bob_tff   
+      Generate one frame from each field assuming top field first.
+    - bob_bff   
+      Generate one frame from each field assuming bottom field first.
 
 ### --vpp-deinterlace &lt;string&gt;
 Activate GPU deinterlacer. 
@@ -1920,7 +1977,7 @@ Please note that [--avsync](./NVEncC_Options.en.md#--avsync-string) vfr is autom
   - t_cthresh=&lt;float&gt;  (default=4, 0-255)  
     Temporal chroma threshold. Larger threshold will result stronger denoising, but ghosting might occur. Threshold below 10 is recommended.
   
-- examples
+- Examples
   ```
   Example: using simple matrix
   --vpp-convolution3d matrix=simple
@@ -1962,7 +2019,7 @@ Strong noise reduction filter.
   - th_lerp=&lt;float&gt;  (default=0.8, 0.0 - 1.0)  
     Threshold of edge detection. 
   
-- examples
+- Examples
   ```
   Example: slightly stronger than default
   --vpp-knn radius=3,strength=0.10,lerp=0.1
@@ -1981,7 +2038,7 @@ Rather weak noise reduction by modified pmd method, aimed to preserve edge while
   - threshold=&lt;float&gt;  (default=100, 0-255)  
     Threshold for edge detection. The smaller the value is, more will be detected as edge, which will be preserved.
   
-- examples
+- Examples
   ```
   Example: Slightly weak than default
   --vpp-pmd apply_count=2,strength=90,threshold=120

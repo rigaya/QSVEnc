@@ -313,6 +313,14 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2023.01.30 (7.28)
+[QSVEncC]
+- 画像を焼き込むフィルタを追加。 (--vpp-overlay)
+- lowlatency向けにmuxの挙動を調整。
+- 動画ファイルに添付ファイルをつけるオプションを追加。 (--attachement-source)
+- --perf-monitorでビットレート情報等が出力されないのを修正。
+- 音声エンコードスレッド (--thread-audio 1) が動作しなくなっていた問題を修正。
+
 2023.01.22 (7.27)
 [QSVEncC]
 - --vpp-decimateに複数のフレームをdropさせるオプションを追加。

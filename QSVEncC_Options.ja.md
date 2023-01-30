@@ -123,8 +123,8 @@
   - [--atc-sei \<string\> or \<int\> \[HEVCのみ\]](#--atc-sei-string-or-int-hevcのみ)
   - [--dhdr10-info \<string\> \[HEVC, AV1\]](#--dhdr10-info-string-hevc-av1)
   - [--dhdr10-info copy \[HEVC, AV1\]](#--dhdr10-info-copy-hevc-av1)
-  - [--dolby-vision-profile \<float\>](#--dolby-vision-profile-float)
-  - [--dolby-vision-rpu \<string\>](#--dolby-vision-rpu-string)
+  - [--dolby-vision-profile \<float\> \[HEVC\]](#--dolby-vision-profile-float-hevc)
+  - [--dolby-vision-rpu \<string\> \[HEVC\]](#--dolby-vision-rpu-string-hevc)
   - [--aud](#--aud)
   - [--pic-struct](#--pic-struct)
   - [--buf-period](#--buf-period)
@@ -172,6 +172,8 @@
   - [--chapter \<string\>](#--chapter-string)
   - [--chapter-copy](#--chapter-copy)
   - [--chapter-no-trim](#--chapter-no-trim)
+  - [--key-on-chapter](#--key-on-chapter)
+  - [--keyfile \<string\>](#--keyfile-string)
   - [--sub-source \<string\>\[:{\<int\>?}\[;\<param1\>=\<value1\>\]...\]...](#--sub-source-stringintparam1value1)
   - [--sub-copy \[\<int/string\>;\[,\<int/string\>\]...\]](#--sub-copy-intstringintstring)
   - [--sub-disposition \[\<int/string\>?\]\<string\>\[,\<string\>\]\[\]...](#--sub-disposition-intstringstringstring)
@@ -180,6 +182,7 @@
   - [--caption2ass \[\<string\>\]](#--caption2ass-string)
   - [--data-copy \[\<int\>\[,\<int\>\]...\]](#--data-copy-intint)
   - [--attachment-copy \[\<int\>\[,\<int\>\]...\]](#--attachment-copy-intint)
+  - [--attachment-source \<string\>\[:{\<int\>?}\[;\<param1\>=\<value1\>\]...\]...](#--attachment-source-stringintparam1value1)
   - [--input-option \<string1\>:\<string2\>](#--input-option-string1string2)
   - [-m, --mux-option \<string1\>:\<string2\>](#-m---mux-option-string1string2)
   - [--metadata \<string\> or \<string\>=\<string\>](#--metadata-string-or-stringstring)
@@ -421,7 +424,8 @@ QSVEncの入力方法は下の表のとおり。入力フォーマットをし�
 
 (*) yuv422はLinuxでは非対応となります。  
 ◎ … 8bit / 9bit / 10bit / 12bit / 14bit / 16bitに対応  
-○ … 8bitのみ対応
+○ … 8bitのみ対応  
+無印 ... 非対応
 
 ### --raw
 入力をraw形式に設定する。
@@ -490,11 +494,6 @@ avformat + QSV decoderを使用して読み込む。
 出力解像度の設定。入力解像度と異なる場合、自動的にHW/GPUリサイズを行う。
 
 指定がない場合、入力解像度と同じになり、リサイズは行われない。
-
-_特殊な値について_
-- 0 ... 入力解像度と同じ
-- 縦横のどちらかを負の値  
-  アスペクト比を維持したまま、片方に合わせてリサイズ。ただし、その負の値で割り切れる数にする。
 
 - **特殊な値について**
   - 0 ... 入力解像度と同じ
@@ -866,15 +865,15 @@ Alternative transfer characteristics SEI の設定。下記文字列または整
 ### --dhdr10-info copy [HEVC, AV1]
 HDR10+のメタデータを入力ファイルからそのままコピーします。
 avhw読み込みでは、フレームの並び替えにタイムスタンプを使用するため、タイムスタンプの取得できないraw ESのような入力ファイルでは使用できません。
-こうした場合には、avsw読み込みを使用してください。  
+こうした場合には、avsw読み込みを使用してください。 
 
-### --dolby-vision-profile &lt;float&gt;
+### --dolby-vision-profile &lt;float&gt; [HEVC]
 指定されたdolby visionプロファイルを適用します。
 ```
 5.0, 8.1, 8.2, 8.4
 ```
 
-### --dolby-vision-rpu &lt;string&gt;
+### --dolby-vision-rpu &lt;string&gt; [HEVC]
 指定のrpuファイルに含まれるdolby visionのmetadataを出力ファイルに挿入します。
 
 現時点(2022年1月実装時点)では、このオプションを使用して出力した動画ファイルは、MediaInfoによりDolby Vision情報が検出されません。
@@ -958,28 +957,33 @@ libavが読み込み時に解析する最大のサイズをbyte単位で指定�
 ### --trim &lt;int&gt;:&lt;int&gt;[,&lt;int&gt;:&lt;int&gt;][,&lt;int&gt;:&lt;int&gt;]...
 指定した範囲のフレームのみをエンコードする。
 
-```
-例1: --trim 0:1000,2000:3000    (0～1000フレーム目, 2000～3000フレーム目をエンコード)
-例2: --trim 2000:0              (2000～最終フレームまでをエンコード)
-```
+- 使用例
+  ```
+  例1: --trim 0:1000,2000:3000    (0～1000フレーム目, 2000～3000フレーム目をエンコード)
+  例2: --trim 2000:0              (2000～最終フレームまでをエンコード)
+  ```
 
 ### --seek [[&lt;int&gt;:]&lt;int&gt;:]&lt;int&gt;[.&lt;int&gt;]
 書式は、hh:mm:ss.ms。"hh"や"mm"は省略可。
 高速だが不正確なシークをしてからエンコードを開始する。正確な範囲指定を行いたい場合は[--trim](#--trim-intintintintintint)で行う。
-```
-例1: --seek 0:01:15.400
-例2: --seek 1:15.4
-例3: --seek 75.4
-```
+
+- 使用例
+  ```
+  例1: --seek 0:01:15.400
+  例2: --seek 1:15.4
+  例3: --seek 75.4
+  ```
 
 ### --seekto [[&lt;int&gt;:]&lt;int&gt;:]&lt;int&gt;[.&lt;int&gt;]
 書式は、hh:mm:ss.ms。"hh"や"mm"は省略可。
 エンコードの終了時刻を指定する。正確な範囲指定を行いたい場合は[--trim](#--trim-intintintintintint)で行う。
-```
-例1: --seekto 0:01:15.400
-例2: --seekto 1:15.4
-例3: --seekto 75.4
-```
+
+- 使用例
+  ```
+  例1: --seekto 0:01:15.400
+  例2: --seekto 1:15.4
+  例3: --seekto 75.4
+  ```
 
 ### --input-format &lt;string&gt;
 avhw/avswリーダー使用時に、入力のフォーマットを指定する。
@@ -1004,25 +1008,28 @@ muxerに出力フォーマットを指定して出力する。
 
 ### --video-tag &lt;string&gt;
 映像のcodec tagの指定。
-```
- -o test.mp4 -c hevc --video-tag hvc1
-```
+
+- 使用例
+  ```
+   -o test.mp4 -c hevc --video-tag hvc1
+  ```
 
 ### --video-metadata [&lt;int&gt;?]&lt;string&gt; or [&lt;int&gt;?]&lt;string&gt;=&lt;string&gt;
 映像トラックのmetadataを指定する。
   - copy  ... 入力ファイルからmetadataをコピーする。 
   - clear ... do not copy metadata (デフォルト)
 
-```
-例1: 入力ファイルからmetadataをコピー
---video-metadata 1?copy
-
-例2: 入力ファイルからのmetadataのコピーを行わない
---video-metadata 1?clear
-
-例3: 指定のmetadataを設定する
---video-metadata 1?title="音声の タイトル" --video-metadata 1?language=jpn
-```
+- 使用例
+  ```
+  例1: 入力ファイルからmetadataをコピー
+  --video-metadata 1?copy
+  
+  例2: 入力ファイルからのmetadataのコピーを行わない
+  --video-metadata 1?clear
+  
+  例3: 指定のmetadataを設定する
+  --video-metadata 1?title="音声の タイトル" --video-metadata 1?language=jpn
+  ```
 
 ### --audio-copy [&lt;int/string&gt;;[,&lt;int/string&gt;]...]
 音声をそのままコピーしながら映像とともに出力する。avhw/avswリーダー使用時のみ有効。
@@ -1031,16 +1038,17 @@ tsなどでエラーが出るなどしてうまく動作しない場合は、[--
 
 [&lt;int&gt;[,&lt;int&gt;]...]で、抽出する音声トラック(1,2,...)を指定したり、[&lt;string&gt;]で指定した言語の音声トラックをコピーすることもできる。
 
-```
-例: 全ての音声トラックを抽出
---audio-copy
-
-例: トラック番号#1,#2を抽出
---audio-copy 1,2
-
-例: 日本語と英語の音声トラックを抽出
---audio-copy jpn,eng
-```
+- 使用例
+  ```
+  例: 全ての音声トラックを抽出
+  --audio-copy
+  
+  例: トラック番号#1,#2を抽出
+  --audio-copy 1,2
+  
+  例: 日本語と英語の音声トラックを抽出
+  --audio-copy jpn,eng
+  ```
 
 ### --audio-codec [[&lt;int/string&gt;?]&lt;string&gt;[:&lt;string&gt;=&lt;string&gt;[,&lt;string&gt;=&lt;string&gt;]...]...]
 音声をエンコードして映像とともに出力する。使用可能なコーデックは[--check-encoders](#--check-codecs---check-decoders---check-encoders)で確認できる。
@@ -1048,31 +1056,35 @@ tsなどでエラーが出るなどしてうまく動作しない場合は、[--
 [&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
 
 さらに、[&lt;string&gt;=&lt;string&gt;]の形式で、音声エンコーダのオプションを指定することもできる。
-```
-例1: 音声をmp3に変換
---audio-codec libmp3lame
 
-例2: 音声の第2トラックをaacに変換
---audio-codec 2?aac
-
-例3: 日本語の音声をaacに変換
---audio-codec jpn?aac
-
-例4: 日本語と英語の音声をaacに変換
---audio-codec jpn?aac --audio-codec eng?aac
-
-例5: aacエンコーダのパラメータ"aac_coder"に低ビットレートでより高品質な"twoloop"を指定
---audio-codec aac:aac_coder=twoloop
-```
+- 使用例
+  ```
+  例1: 音声をmp3に変換
+  --audio-codec libmp3lame
+  
+  例2: 音声の第2トラックをaacに変換
+  --audio-codec 2?aac
+  
+  例3: 日本語の音声をaacに変換
+  --audio-codec jpn?aac
+  
+  例4: 日本語と英語の音声をaacに変換
+  --audio-codec jpn?aac --audio-codec eng?aac
+  
+  例5: aacエンコーダのパラメータ"aac_coder"に低ビットレートでより高品質な"twoloop"を指定
+  --audio-codec aac:aac_coder=twoloop
+  ```
 
 ### --audio-bitrate [&lt;int/string&gt;?]&lt;int&gt;
 音声をエンコードする際のビットレートをkbpsで指定する。
 
 [&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
-```
-例1: --audio-bitrate 192   (音声を192kbpsで変換)
-例2: --audio-bitrate 2?256 (音声の第2トラックを256kbpsで変換)
-```
+
+- 使用例
+  ```
+  例1: --audio-bitrate 192   (音声を192kbpsで変換)
+  例2: --audio-bitrate 2?256 (音声の第2トラックを256kbpsで変換)
+  ```
 
 ### --audio-profile [&lt;int/string&gt;?]&lt;string&gt;
 音声をエンコードする際、そのプロファイルを指定する。
@@ -1082,57 +1094,60 @@ tsなどでエラーが出るなどしてうまく動作しない場合は、[--
 --audio-streamが指定された音声トラックは常にエンコードされる。(コピー不可)
 ,(カンマ)で区切ることで、入力の同じトラックから複数のトラックを生成できる。
 
-**書式**  
-&lt;int&gt;に処理対象のトラックを指定する。
+- **書式**  
+  &lt;int&gt;に処理対象のトラックを指定する。
+  
+  &lt;string1&gt;に入力として使用するチャンネルを指定する。省略された場合は入力の全チャンネルを使用する。
+  
+  &lt;string2&gt;に出力チャンネル形式を指定する。省略された場合は、&lt;string1&gt;のチャンネルをすべて使用する。
 
-&lt;string1&gt;に入力として使用するチャンネルを指定する。省略された場合は入力の全チャンネルを使用する。
+- 使用例
+  ```
+  例1: --audio-stream FR,FL
+  デュアルモノから左右のチャンネルを2つのモノラル音声に分離する。
+  
+  例2: --audio-stream :stereo
+  どんな音声もステレオに変換する。
+  
+  例3: --audio-stream 2?5.1,5.1:stereo
+  入力ファイルの第２トラックを、5.1chの音声を5.1chとしてエンコードしつつ、ステレオにダウンミックスしたトラックを生成する。
+  実際に使うことがあるかは微妙だが、書式の紹介例としてはわかりやすいかと。
+  ```
 
-&lt;string2&gt;に出力チャンネル形式を指定する。省略された場合は、&lt;string1&gt;のチャンネルをすべて使用する。
-
-```
-例1: --audio-stream FR,FL
-デュアルモノから左右のチャンネルを2つのモノラル音声に分離する。
-
-例2: --audio-stream :stereo
-どんな音声もステレオに変換する。
-
-例3: --audio-stream 2?5.1,5.1:stereo
-入力ファイルの第２トラックを、5.1chの音声を5.1chとしてエンコードしつつ、ステレオにダウンミックスしたトラックを生成する。
-実際に使うことがあるかは微妙だが、書式の紹介例としてはわかりやすいかと。
-```
-
-**使用できる記号**  
-```
-mono       = FC
-stereo     = FL + FR
-2.1        = FL + FR + LFE
-3.0        = FL + FR + FC
-3.0(back)  = FL + FR + BC
-3.1        = FL + FR + FC + LFE
-4.0        = FL + FR
-4.0        = FL + FR + FC + BC
-quad       = FL + FR + BL + BR
-quad(side) = FL + FR + SL + SR
-5.0        = FL + FR + FC + SL + SR
-5.1        = FL + FR + FC + LFE + SL + SR
-6.0        = FL + FR + FC + BC + SL + SR
-6.0(front) = FL + FR + FLC + FRC + SL + SR
-hexagonal  = FL + FR + FC + BL + BR + BC
-6.1        = FL + FR + FC + LFE + BC + SL + SR
-6.1(front) = FL + FR + LFE + FLC + FRC + SL + SR
-7.0        = FL + FR + FC + BL + BR + SL + SR
-7.0(front) = FL + FR + FC + FLC + FRC + SL + SR
-7.1        = FL + FR + FC + LFE + BL + BR + SL + SR
-7.1(wide)  = FL + FR + FC + LFE + FLC + FRC + SL + SR
-```
+- **使用できる記号**  
+  ```
+  mono       = FC
+  stereo     = FL + FR
+  2.1        = FL + FR + LFE
+  3.0        = FL + FR + FC
+  3.0(back)  = FL + FR + BC
+  3.1        = FL + FR + FC + LFE
+  4.0        = FL + FR
+  4.0        = FL + FR + FC + BC
+  quad       = FL + FR + BL + BR
+  quad(side) = FL + FR + SL + SR
+  5.0        = FL + FR + FC + SL + SR
+  5.1        = FL + FR + FC + LFE + SL + SR
+  6.0        = FL + FR + FC + BC + SL + SR
+  6.0(front) = FL + FR + FLC + FRC + SL + SR
+  hexagonal  = FL + FR + FC + BL + BR + BC
+  6.1        = FL + FR + FC + LFE + BC + SL + SR
+  6.1(front) = FL + FR + LFE + FLC + FRC + SL + SR
+  7.0        = FL + FR + FC + BL + BR + SL + SR
+  7.0(front) = FL + FR + FC + FLC + FRC + SL + SR
+  7.1        = FL + FR + FC + LFE + BL + BR + SL + SR
+  7.1(wide)  = FL + FR + FC + LFE + FLC + FRC + SL + SR
+  ```
 
 ### --audio-samplerate [&lt;int/string&gt;?]&lt;int&gt;
 音声のサンプリング周波数をHzで指定する。
 [&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
-```
-例1: --audio-bitrate 44100   (音声を44100Hzに変換)
-例2: --audio-bitrate 2?22050 (音声の第2トラックを22050Hzに変換)
-```
+
+- 使用例
+  ```
+  例1: --audio-bitrate 44100   (音声を44100Hzに変換)
+  例2: --audio-bitrate 2?22050 (音声の第2トラックを22050Hzに変換)
+  ```
 
 ### --audio-resampler &lt;string&gt;
 音声チャンネルのmixやサンプリング周波数変換に使用されるエンジンの指定。
@@ -1146,53 +1161,62 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 指定したパスに音声を抽出する。出力フォーマットは出力拡張子から自動的に決定する。avhw/avswリーダー使用時のみ有効。
 
 [&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
-```
-例: test_out2.aacにトラック番号#2を抽出
---audio-file 2?"test_out2.aac"
-```
+
+- 使用例
+  ```
+  例: test_out2.aacにトラック番号#2を抽出
+  --audio-file 2?"test_out2.aac"
+  ```
 
 [&lt;string&gt;]では、出力フォーマットを指定することができる。
-```
-例: 拡張子なしでもadtsフォーマットで出力
---audio-file 2?adts:"test_out2"  
-```
+
+- 使用例
+  ```
+  例: 拡張子なしでもadtsフォーマットで出力
+  --audio-file 2?adts:"test_out2"  
+  ```
 
 ### --audio-filter [&lt;int/string&gt;?]&lt;string&gt;
 音声に音声フィルタを適用する。適用可能なフィルタは[こちら](https://ffmpeg.org/ffmpeg-filters.html#Audio-Filters)。
 
 [&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
 
-```
-例1: --audio-filter volume=0.2     (音量を下げる例)
-例2: --audio-filter 2?volume=-4db  (第2トラックの音量を下げる例)
-```
+- 使用例
+  ```
+  例1: --audio-filter volume=0.2     (音量を下げる例)
+  例2: --audio-filter 2?volume=-4db  (第2トラックの音量を下げる例)
+  ```
 
 ### --audio-disposition [&lt;int/string&gt;?]&lt;string&gt;[,&lt;string&gt;][]...
 音声のdispositionを指定する。
 
 [&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
 
-```
- default
- dub
- original
- comment
- lyrics
- karaoke
- forced
- hearing_impaired
- visual_impaired
- clean_effects
- attached_pic
- captions
- descriptions
- dependent
- metadata
- copy
+- 指定可能なdisposition
+  ```
+   default
+   dub
+   original
+   comment
+   lyrics
+   karaoke
+   forced
+   hearing_impaired
+   visual_impaired
+   clean_effects
+   attached_pic
+   captions
+   descriptions
+   dependent
+   metadata
+   copy
+  ```
 
-例:
---audio-disposition 2?default,forced
-```
+- 使用例
+  ```
+  例:
+  --audio-disposition 2?default,forced
+  ```
 
 ### --audio-metadata [&lt;int/string&gt;?]&lt;string&gt; or [&lt;int/string&gt;?]&lt;string&gt;=&lt;string&gt;
 音声トラックのmetadataを指定する。
@@ -1201,16 +1225,17 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 
 [&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
 
-```
-例1: 入力ファイルからmetadataをコピー
---audio-metadata 1?copy
-
-例2: 入力ファイルからのmetadataのコピーを行わない
---audio-metadata 1?clear
-
-例3: 指定のmetadataを設定する
---audio-metadata 1?title="音声の タイトル" --audio-metadata 1?language=jpn
-```
+- 使用例
+  ```
+  例1: 入力ファイルからmetadataをコピー
+  --audio-metadata 1?copy
+  
+  例2: 入力ファイルからのmetadataのコピーを行わない
+  --audio-metadata 1?clear
+  
+  例3: 指定のmetadataを設定する
+  --audio-metadata 1?title="音声の タイトル" --audio-metadata 1?language=jpn
+  ```
 
 ### --audio-bsf [&lt;int/string&gt;?]&lt;string&gt;
 音声トラックにbitstream filterを適用する。使用可能なフィルタは、[こちら](https://ffmpeg.org/ffmpeg-bitstream-filters.html)の中から選択可能。
@@ -1223,112 +1248,113 @@ hexagonal  = FL + FR + FC + BL + BR + BC
 ### --audio-source &lt;string&gt;[:{&lt;int&gt;?}[;&lt;param1&gt;=&lt;value1&gt;]...]...
 外部音声ファイルをmuxする。
 
-**パラメータ** 
-- copy  
-  音声トラックをそのままコピーする。
-
-- codec=&lt;string&gt;  
-  音声トラックを指定のコーデックにエンコードする。
-
-- profile=&lt;string&gt;  
-  音声エンコード時のプロファイルを指定する。
-
-- bitrate=&lt;int&gt;  
-  音声エンコード時のビットレートをkbps単位で指定する。
+- **パラメータ** 
+  - copy  
+    音声トラックをそのままコピーする。
   
-- samplerate=&lt;int&gt;  
-  音声エンコード時のサンプリングレートをHz単位で指定する。
+  - codec=&lt;string&gt;  
+    音声トラックを指定のコーデックにエンコードする。
   
-- delay=&lt;int&gt;  
-  音声を指定した時間遅延させる。(ms単位)
-
-- dec_prm=&lt;string&gt;  
-  音声デコード時のパラメータを指定する。
-
-- enc_prm=&lt;string&gt;  
-  音声エンコード時のパラメータを指定する。
-
-- filter=&lt;string&gt;  
-  音声エンコード時のフィルタを指定する。
+  - profile=&lt;string&gt;  
+    音声エンコード時のプロファイルを指定する。
   
-- disposition=&lt;string&gt;  
-  音声のdispositionを指定する。
+  - bitrate=&lt;int&gt;  
+    音声エンコード時のビットレートをkbps単位で指定する。
+    
+  - samplerate=&lt;int&gt;  
+    音声エンコード時のサンプリングレートをHz単位で指定する。
+    
+  - delay=&lt;int&gt;  
+    音声を指定した時間遅延させる。(ms単位)
   
-- metadata=&lt;string1&gt;=&lt;string2&gt;  
-  音声のmetadataを指定する。
+  - dec_prm=&lt;string&gt;  
+    音声デコード時のパラメータを指定する。
   
-- bsf=&lt;string&gt;  
-  音声に適用するbitstream filterを指定する。
+  - enc_prm=&lt;string&gt;  
+    音声エンコード時のパラメータを指定する。
+  
+  - filter=&lt;string&gt;  
+    音声エンコード時のフィルタを指定する。
+    
+  - disposition=&lt;string&gt;  
+    音声のdispositionを指定する。
+    
+  - metadata=&lt;string1&gt;=&lt;string2&gt;  
+    音声のmetadataを指定する。
+  
+  - bsf=&lt;string&gt;  
+    音声に適用するbitstream filterを指定する。
 
-```
-例1: --audio-source "<audio_file>":copy
-例2: --audio-source "<audio_file>":codec=aac
-例3: --audio-source "<audio_file>":1?codec=aac;bitrate=256:2?codec=aac;bitrate=192;metadata=language=jpn
-```
+- 使用例
+  ```
+  例1: --audio-source "<audio_file>":copy
+  例2: --audio-source "<audio_file>":codec=aac
+  例3: --audio-source "<audio_file>":1?codec=aac;bitrate=256:2?codec=aac;bitrate=192;metadata=language=jpn
+  ```
 
 ### --chapter &lt;string&gt;
 指定したチャプターファイルを読み込み反映させる。
 nero形式、apple形式、matroska形式に対応する。--chapter-copyとは併用できない。
 
-nero形式  
-```
-CHAPTER01=00:00:39.706
-CHAPTER01NAME=chapter-1
-CHAPTER02=00:01:09.703
-CHAPTER02NAME=chapter-2
-CHAPTER03=00:01:28.288
-CHAPTER03NAME=chapter-3
-```
+- nero形式  
+  ```
+  CHAPTER01=00:00:39.706
+  CHAPTER01NAME=chapter-1
+  CHAPTER02=00:01:09.703
+  CHAPTER02NAME=chapter-2
+  CHAPTER03=00:01:28.288
+  CHAPTER03NAME=chapter-3
+  ```
 
-apple形式 (UTF-8であること)  
-```
-<?xml version="1.0" encoding="UTF-8" ?>
-  <TextStream version="1.1">
-   <TextStreamHeader>
-    <TextSampleDescription>
-    </TextSampleDescription>
-  </TextStreamHeader>
-  <TextSample sampleTime="00:00:39.706">chapter-1</TextSample>
-  <TextSample sampleTime="00:01:09.703">chapter-2</TextSample>
-  <TextSample sampleTime="00:01:28.288">chapter-3</TextSample>
-  <TextSample sampleTime="00:01:28.289" text="" />
-</TextStream>
-```
+- apple形式 (UTF-8であること)  
+  ```
+  <?xml version="1.0" encoding="UTF-8" ?>
+    <TextStream version="1.1">
+     <TextStreamHeader>
+      <TextSampleDescription>
+      </TextSampleDescription>
+    </TextStreamHeader>
+    <TextSample sampleTime="00:00:39.706">chapter-1</TextSample>
+    <TextSample sampleTime="00:01:09.703">chapter-2</TextSample>
+    <TextSample sampleTime="00:01:28.288">chapter-3</TextSample>
+    <TextSample sampleTime="00:01:28.289" text="" />
+  </TextStream>
+  ```
 
-matroska形式 (UTF-8であること)  
-[その他のサンプル&gt;&gt;](https://github.com/nmaier/mkvtoolnix/blob/master/examples/example-chapters-1.xml)
-```
-<?xml version="1.0" encoding="UTF-8"?>
-<Chapters>
-  <EditionEntry>
-    <ChapterAtom>
-      <ChapterTimeStart>00:00:00.000</ChapterTimeStart>
-      <ChapterDisplay>
-        <ChapterString>chapter-0</ChapterString>
-      </ChapterDisplay>
-    </ChapterAtom>
-    <ChapterAtom>
-      <ChapterTimeStart>00:00:39.706</ChapterTimeStart>
-      <ChapterDisplay>
-        <ChapterString>chapter-1</ChapterString>
-      </ChapterDisplay>
-    </ChapterAtom>
-    <ChapterAtom>
-      <ChapterTimeStart>00:01:09.703</ChapterTimeStart>
-      <ChapterDisplay>
-        <ChapterString>chapter-2</ChapterString>
-      </ChapterDisplay>
-    </ChapterAtom>
-    <ChapterAtom>
-      <ChapterTimeStart>00:01:28.288</ChapterTimeStart>
-      <ChapterTimeEnd>00:01:28.289</ChapterTimeEnd>
-      <ChapterDisplay>
-        <ChapterString>chapter-3</ChapterString>
-      </ChapterDisplay>
-    </ChapterAtom>
-  </EditionEntry>
-</Chapters>
-```
+- matroska形式 (UTF-8であること)  
+  [その他のサンプル&gt;&gt;](https://github.com/nmaier/mkvtoolnix/blob/master/examples/example-chapters-1.xml)
+  ```
+  <?xml version="1.0" encoding="UTF-8"?>
+  <Chapters>
+    <EditionEntry>
+      <ChapterAtom>
+        <ChapterTimeStart>00:00:00.000</ChapterTimeStart>
+        <ChapterDisplay>
+          <ChapterString>chapter-0</ChapterString>
+        </ChapterDisplay>
+      </ChapterAtom>
+      <ChapterAtom>
+        <ChapterTimeStart>00:00:39.706</ChapterTimeStart>
+        <ChapterDisplay>
+          <ChapterString>chapter-1</ChapterString>
+        </ChapterDisplay>
+      </ChapterAtom>
+      <ChapterAtom>
+        <ChapterTimeStart>00:01:09.703</ChapterTimeStart>
+        <ChapterDisplay>
+          <ChapterString>chapter-2</ChapterString>
+        </ChapterDisplay>
+      </ChapterAtom>
+      <ChapterAtom>
+        <ChapterTimeStart>00:01:28.288</ChapterTimeStart>
+        <ChapterTimeEnd>00:01:28.289</ChapterTimeEnd>
+        <ChapterDisplay>
+          <ChapterString>chapter-3</ChapterString>
+        </ChapterDisplay>
+      </ChapterAtom>
+    </EditionEntry>
+  </Chapters>
+  ```
 
 ### --chapter-copy
 チャプターをコピーする。
@@ -1336,23 +1362,31 @@ matroska形式 (UTF-8であること)
 ### --chapter-no-trim
 チャプター読み込みの際、trimを反映させず、そのまま適用する。
 
+### --key-on-chapter
+キーフレーム位置にチャプターを挿入する。
+
+### --keyfile &lt;string&gt;
+キーフレームしたいフレーム番号を記載したファイルを読み込み、指定のフレームをキーフレームに設定する。
+フレーム番号は、先頭から0, 1, 2, .... として、複数指定する場合は都度改行する。
+
 ### --sub-source &lt;string&gt;[:{&lt;int&gt;?}[;&lt;param1&gt;=&lt;value1&gt;]...]...
 指定のファイルから字幕を読み込みmuxする。
 
-**パラメータ** 
-- disposition=&lt;string&gt;  
-  字幕のdispositionを指定する。
+- **パラメータ** 
+  - disposition=&lt;string&gt;  
+    字幕のdispositionを指定する。
+    
+  - metadata=&lt;string1&gt;=&lt;string2&gt;  
+    字幕のmetadataを指定する。
   
-- metadata=&lt;string1&gt;=&lt;string2&gt;  
-  字幕のmetadataを指定する。
-
-- bsf=&lt;string&gt;  
-  字幕に適用するbitstream filterを指定する。
-
-```
-例1: --sub-source "<sub_file>"
-例2: --sub-source "<sub_file>":disposition=default;metadata=language=jpn
-```
+  - bsf=&lt;string&gt;  
+    字幕に適用するbitstream filterを指定する。
+  
+- 使用例
+  ```
+  例1: --sub-source "<sub_file>"
+  例2: --sub-source "<sub_file>":disposition=default;metadata=language=jpn
+  ```
 
 ### --sub-copy [&lt;int/string&gt;;[,&lt;int/string&gt;]...]
 字幕をコピーする。avhw/avswリーダー使用時のみ有効。
@@ -1361,54 +1395,57 @@ matroska形式 (UTF-8であること)
 
 対応する字幕は、PGS/srt/txt/ttxtなど。
 
-```
-例: 全ての字幕トラックをコピー
---sub-copy
-
-例: 字幕トラック #1と#2をコピー
---sub-copy 1,2
-
-例: 日本語と英語の音声トラックを抽出
---sub-copy jpn,eng
-```
+- 使用例
+  ```
+  例: 全ての字幕トラックをコピー
+  --sub-copy
+  
+  例: 字幕トラック #1と#2をコピー
+  --sub-copy 1,2
+  
+  例: 日本語と英語の音声トラックを抽出
+  --sub-copy jpn,eng
+  ```
 
 ### --sub-disposition [&lt;int/string&gt;?]&lt;string&gt;[,&lt;string&gt;][]...
 字幕のdispositionを指定する。
 
-```
- default
- dub
- original
- comment
- lyrics
- karaoke
- forced
- hearing_impaired
- visual_impaired
- clean_effects
- attached_pic
- captions
- descriptions
- dependent
- metadata
- copy
-```
+- 指定可能なdisposition
+  ```
+   default
+   dub
+   original
+   comment
+   lyrics
+   karaoke
+   forced
+   hearing_impaired
+   visual_impaired
+   clean_effects
+   attached_pic
+   captions
+   descriptions
+   dependent
+   metadata
+   copy
+  ```
 
 ### --sub-metadata [&lt;int/string&gt;?]&lt;string&gt; or [&lt;int/string&gt;?]&lt;string&gt;=&lt;string&gt;
 字幕トラックのmetadataを指定する。
   - copy  ... 入力ファイルからmetadataをコピーする。 (デフォルト)
   - clear ... do not copy metadata
 
-```
-例1: 入力ファイルからmetadataをコピー
---sub-metadata 1?copy
-
-例2: 入力ファイルからのmetadataのコピーを行わない
---sub-metadata 1?clear
-
-例3: 指定のmetadataを設定する
---sub-metadata 1?title="字幕の タイトル" --sub-metadata 1?language=jpn
-```
+- 使用例
+  ```
+  例1: 入力ファイルからmetadataをコピー
+  --sub-metadata 1?copy
+  
+  例2: 入力ファイルからのmetadataのコピーを行わない
+  --sub-metadata 1?clear
+  
+  例3: 指定のmetadataを設定する
+  --sub-metadata 1?title="字幕の タイトル" --sub-metadata 1?language=jpn
+  ```
 
 ### --sub-bsf [&lt;int/string&gt;?]&lt;string&gt;
 字幕トラックにbitstream filterを適用する。使用可能なフィルタは、[こちら](https://ffmpeg.org/ffmpeg-bitstream-filters.html)の中から選択可能。
@@ -1418,9 +1455,9 @@ caption2assによる字幕抽出処理を行い、動画にmuxして出力する
 
 出力フォーマットがassかsrtのみなので、mkvなどで出力してください。
 
-**出力フォーマット**
-- srt (デフォルト)
-- ass
+- **出力フォーマット**
+  - srt (デフォルト)
+  - ass
 
 ### --data-copy [&lt;int&gt;[,&lt;int&gt;]...]
 データストリームをコピーする。avhw/avswリーダー使用時のみ有効。
@@ -1428,50 +1465,66 @@ caption2assによる字幕抽出処理を行い、動画にmuxして出力する
 ### --attachment-copy [&lt;int&gt;[,&lt;int&gt;]...]
 attachmentストリームをコピーする。avhw/avswリーダー使用時のみ有効。
 
+
+### --attachment-source &lt;string&gt;[:{&lt;int&gt;?}[;&lt;param1&gt;=&lt;value1&gt;]...]...
+指定のファイルを読み込み、attachmentとしてmuxする。
+
+- **params** 
+  - metadata=&lt;string1&gt;=&lt;string2&gt;  
+    attachmentのmetadataの指定。特に、mimetypeの指定は必須。
+  
+- 使用例
+  ```
+  例1: --attachment-source "<png_file>":metadata=mimetype=image/png
+  ```
+
 ### --input-option &lt;string1&gt;:&lt;string2&gt;
 avsw/avhwでの読み込み時にオプションパラメータを渡す。&lt;string1&gt;にオプション名、&lt;string2&gt;にオプションの値を指定する。
 
-```
-例: Blurayのplaylist 1を読み込み
--i bluray:D:\ --input-option playlist:1
-```
+- 使用例
+  ```
+  例: Blurayのplaylist 1を読み込み
+  -i bluray:D:\ --input-option playlist:1
+  ```
 
 ### -m, --mux-option &lt;string1&gt;:&lt;string2&gt;
 mux時にオプションパラメータを渡す。&lt;string1&gt;にオプション名、&lt;string2&gt;にオプションの値を指定する。
 
-```
-例: HLS用の出力
--i <input> -o test.m3u8 -f hls -m hls_time:5 -m hls_segment_filename:test_%03d.ts --gop-len 30
-
-例: "default"として設定されている字幕トラックがない場合に、自動的に"default"が付与されるのを抑止しする (mkvのみ)
--m default_mode:infer_no_subs
-```
+- 使用例
+  ```
+  例: HLS用の出力
+  -i <input> -o test.m3u8 -f hls -m hls_time:5 -m hls_segment_filename:test_%03d.ts --gop-len 30
+  
+  例: "default"として設定されている字幕トラックがない場合に、自動的に"default"が付与されるのを抑止しする (mkvのみ)
+  -m default_mode:infer_no_subs
+  ```
 
 ### --metadata &lt;string&gt; or &lt;string&gt;=&lt;string&gt;
 出力ファイルの(グローバルな)metadataを指定する。
   - copy  ... 入力ファイルからmetadataをコピーする。 (デフォルト)
   - clear ... do not copy metadata
 
-```
-例1: 入力ファイルからmetadataをコピー
---metadata copy
-
-例2: 入力ファイルからのmetadataのコピーを行わない
---metadata clear
-
-例3: 指定のmetadataを設定する
---metadata title="動画の タイトル" --metadata language=jpn
-```
+- 使用例
+  ```
+  例1: 入力ファイルからmetadataをコピー
+  --metadata copy
+  
+  例2: 入力ファイルからのmetadataのコピーを行わない
+  --metadata clear
+  
+  例3: 指定のmetadataを設定する
+  --metadata title="動画の タイトル" --metadata language=jpn
+  ```
 
 ### --avsync &lt;string&gt;
   - cfr (default)  
     入力はCFRを仮定し、入力ptsをチェックしない。
 
   - forcecfr  
-    入力ptsを見ながら、CFRに合うようフレームの水増し・間引きを行い、音声との同期が維持できるようにする。主に、入力がvfrやRFFなどのときに音ズレしてしまう問題への対策。
+    入力ptsを見ながら、CFRに合うようフレームの水増し・間引きを行い、音声との同期が維持できるようにする。主に、入力がvfrやRFFなどのときに音ズレしてしまう問題への対策。また、--trimとは併用できない。
 
   - vfr  
-    入力に従い、フレームのタイムスタンプをそのまま引き渡す。avsw/avhwリーダによる読み込みの時のみ使用可能。また、--trimとは併用できない。
+    入力に従い、フレームのタイムスタンプをそのまま引き渡す。avsw/avhwリーダによる読み込みの時のみ使用可能。
     
 ### --timecode [&lt;string&gt;]  
   指定のパスにtimecodeファイルを出力する。パスを省略した場合には、"&lt;出力ファイル名&gt;.timecode.txt"に出力する。
@@ -1480,10 +1533,10 @@ mux時にオプションパラメータを渡す。&lt;string1&gt;にオプシ�
 switch hevc bitstream filter used for hw decoder input. (for debug purpose)
 - パラメータ
 
-  - internal
+  - internal  
     内蔵の実装を使用する。 (default)
 
-  - libavcodec
+  - libavcodec  
     libavcodec の hevc_mp4toannexb bitstream filter を使用する。
 
 ## vppオプション
@@ -1626,7 +1679,7 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
   
     - ロゴ名
     - インデックス (1,2,...)
-    - 自動選択用iniファイル
+    - 自動選択用iniファイル  
       ```
        [LOGO_AUTO_SELECT]
        logo<連番数字>=<マッチパターン>,<リストに表示されているロゴ名(完全一致!)>
@@ -1791,6 +1844,12 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
     - YUY2補間
     - シフト・解除なし
 
+- 使用例
+  ```
+  例: --vpp-afs preset=24fpsと同じ設定をする例
+  --vpp-afs preset=anime,method_switch=92,thre_shift=448,24fps=true
+  ```
+
 ### --vpp-nnedi [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]  
 nnediによるインタレ解除を行う。基本的には片方フィールドは捨てて、もう片方のフィールドから
 ニューラルネットを使って輪郭を補正しながらフレームを再構築することでインタレ解除するが、とても重い…。
@@ -1816,7 +1875,7 @@ nnediによるインタレ解除を行う。基本的には片方フィールド
   - quality  (デフォルト: fast)  
     品質の設定。
   
-    - fast
+    - fast  
       ひとつのニューラルネットの出力で画像を構成する。
   
     - slow  
@@ -1870,21 +1929,22 @@ nnediによるインタレ解除を行う。基本的には片方フィールド
 ### --vpp-yadif [&lt;param1&gt;=&lt;value1&gt;]
 yadifによるインタレ解除を行う。
 
-**パラメータ**
-- mode
+- **パラメータ**
 
-  - auto (default)  
-    維持するフィールドを自動的に選択。
-  - tff  
-    トップフィールド維持。
-  - bff  
-    ボトムフィールド維持。
-  - bob   
-    60fps化を行う(field順は自動選択)。
-  - bob_tff   
-    60fps化を行う(tff)。
-  - bob_bff   
-    60fps化を行う(bff)。
+  - mode
+  
+    - auto (default)  
+      維持するフィールドを自動的に選択。
+    - tff  
+      トップフィールド維持。
+    - bff  
+      ボトムフィールド維持。
+    - bob   
+      60fps化を行う(field順は自動選択)。
+    - bob_tff   
+      60fps化を行う(tff)。
+    - bob_bff   
+      60fps化を行う(bff)。
 
 ### --vpp-deinterlace &lt;string&gt;
 GPUによるインタレ解除を使用する。"normal", "bob"はわりときれいに解除されるが、"it"はあまりきれいに解除できない。
@@ -2309,7 +2369,7 @@ GPUによるディテールの強調を行う。0 - 100 の間でディテール
   
   - loop=&lt;bool&gt;  (default=false)
   
-- **例**
+- 使用例
   ```
   --vpp-overlay file=logo.png,pos=1620x780,size=300x300
   --vpp-overlay file=logo.mp4,pos=0x800,alpha_mode=lumakey,lumakey_threshold=0.0,lumakey_tolerance=0.1
