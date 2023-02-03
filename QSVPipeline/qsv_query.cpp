@@ -1421,8 +1421,7 @@ std::vector<std::pair<QSVEncFeatureData, tstring>> MakeFeatureListStr(const QSVD
 }
 
 std::vector<std::pair<QSVEncFeatureData, tstring>> MakeFeatureListStr(const QSVDeviceNum deviceNum, const FeatureListStrType type, std::shared_ptr<RGYLog> log) {
-    const std::vector<RGY_CODEC> codecLists = { RGY_CODEC_H264, RGY_CODEC_HEVC, RGY_CODEC_MPEG2, RGY_CODEC_VP8, RGY_CODEC_VP9, RGY_CODEC_AV1 };
-    return MakeFeatureListStr(deviceNum, type, codecLists, log);
+    return MakeFeatureListStr(deviceNum, type, ENC_CODEC_LISTS, log);
 }
 
 tstring MakeVppFeatureStr(const QSVDeviceNum deviceNum, FeatureListStrType type, std::shared_ptr<RGYLog> log) {

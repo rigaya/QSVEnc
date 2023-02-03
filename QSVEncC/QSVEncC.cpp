@@ -510,7 +510,7 @@ int ParseDeviceOption(const TCHAR *option_name, const TCHAR *arg1, QSVDeviceNum&
     return 0;
 }
 
-int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const QSVDeviceNum deviceNum) {
+int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const QSVDeviceNum deviceNum, RGYParamLogLevel& loglevel) {
 
     // process multi-character options
     if (0 == _tcscmp(option_name, _T("help"))) {
@@ -563,7 +563,17 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const QSVDe
     {
         mfxVersion ver = { 0, 1 };
         if (check_lib_version(get_mfx_libhw_version(deviceNum), ver) != 0) {
+            tstring deviceName = (deviceNum == QSVDeviceNum::AUTO) ? _T("auto") : strsprintf(_T("%d"), (int)deviceNum);
             _ftprintf(stdout, _T("Success: QuickSyncVideo (hw encoding) available\n"));
+            _ftprintf(stdout, _T("Supported Encode Codecs for device %s:\n"), deviceName.c_str());
+            auto log = std::make_shared<RGYLog>(nullptr, loglevel);
+            const auto encodeFeature = MakeFeatureListPerCodec(
+                deviceNum, { { _T("CQP  "), MFX_RATECONTROL_CQP } }, ENC_CODEC_LISTS, log);
+            for (auto& enc : encodeFeature) {
+                if ((enc.feature.at(MFX_RATECONTROL_CQP) & ENC_FEATURE_CURRENT_RC) != 0) {
+                    _ftprintf(stdout, _T("%s %s\n"), CodecToStr(enc.codec).c_str(), enc.lowPwer ? _T("FF") : _T("PG"));
+                }
+            }
             return 1;
         } else {
             _ftprintf(stdout, _T("Error: QuickSyncVideo (hw encoding) unavailable\n"));
@@ -1057,7 +1067,16 @@ int run(int argc, TCHAR *argv[]) {
     }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
-    // device IDとlog-levelの取得
+    //log-levelの取得
+    RGYParamLogLevel loglevelPrint(RGY_LOG_ERROR);
+    for (int iarg = 1; iarg < argc - 1; iarg++) {
+        if (tstring(argv[iarg]) == _T("--log-level")) {
+            parse_log_level_param(argv[iarg], argv[iarg + 1], loglevelPrint);
+            break;
+        }
+    }
+
+    // device IDの取得
     QSVDeviceNum deviceNum = QSVDeviceNum::AUTO;
     for (int iarg = 1; iarg < argc; iarg++) {
         const TCHAR *option_name = nullptr;
@@ -1094,7 +1113,7 @@ int run(int argc, TCHAR *argv[]) {
             }
         }
         if (option_name != nullptr) {
-            int ret = parse_print_options(option_name, (iarg+1 < argc) ? argv[iarg+1] : _T(""), deviceNum);
+            int ret = parse_print_options(option_name, (iarg+1 < argc) ? argv[iarg+1] : _T(""), deviceNum, loglevelPrint);
             if (ret != 0) {
                 return ret == 1 ? 0 : 1;
             }
