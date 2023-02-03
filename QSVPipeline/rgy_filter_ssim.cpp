@@ -552,12 +552,14 @@ RGY_ERR RGYFilterSsim::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo 
         m_inputOriginal++;
     }
 
-    if (!m_thread.joinable()) {
-        while (sts == RGY_ERR_NONE) {
-            sts = compare_frames();
-        }
-        if (sts == RGY_ERR_MORE_BITSTREAM) {
-            sts = RGY_ERR_NONE;
+    if (m_decodeStarted) {
+        if (!m_thread.joinable()) {
+            while (sts == RGY_ERR_NONE) {
+                sts = compare_frames();
+            }
+            if (sts == RGY_ERR_MORE_BITSTREAM) {
+                sts = RGY_ERR_NONE;
+            }
         }
     }
 
