@@ -62,9 +62,13 @@ There are some features which require additional installations.
   ```Shell
   sudo ln -s /lib/x86_64-linux-gnu/libOpenCL.so.1 /lib/x86_64-linux-gnu/libOpenCL.so
   ```
-- Unsupported H.264/HEVC Fixed Function(FF) mode encode
-- Unsupported VP9 encode
-  HuC firmware might not be loaded. [See also](https://01.org/linuxgraphics/downloads/firmware)
+- Fixed Function(FF) mode not supported
+- Unable to encode on Arc GPUs or JasperLake
+
+  The problem might be caused by HuC firmware being not loaded. [See also](https://01.org/linuxgraphics/downloads/firmware)
+  
+  It is required to load HuC firmware to use FF mode (or Low Power mode).
+  Therefore, it is essential to load HuC firmware in oreder to encode on such GPUs which support FF mode only, like Arc GPUs or JasperLake.
    
   Please check whether HuC firmware is loaded.
   ```
@@ -77,7 +81,7 @@ There are some features which require additional installations.
   ```
 
   If the module for the CPU gen you are using is available,
-  you shall be able to enable H.264/HEVC FF or VP9 encode by loading HuC Firmware module.
+  you shall be able to use FF mode by loading HuC Firmware module.
 
   By adding option below to ```/etc/modprobe.d/i915.conf```, HuC Firmware will be loaded after reboot.
   ```
