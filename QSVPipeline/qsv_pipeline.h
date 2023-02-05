@@ -221,6 +221,7 @@ protected:
     void applyInputVUIToColorspaceParams(sInputParams *inputParam);
     bool preferD3D11Mode(const sInputParams *pParams);
     RGY_CSP getEncoderCsp(const sInputParams *pParams, int *pShift = nullptr) const;
+    bool VppAfsRffAware() const;
 
     virtual RGY_ERR readChapterFile(tstring chapfile);
 

@@ -3612,6 +3612,23 @@ RGY_ERR CQSVPipeline::Run() {
     return RunEncode2();
 }
 
+bool CQSVPipeline::VppAfsRffAware() const {
+    //vpp-afsのrffが使用されているか
+    bool vpp_afs_rff_aware = false;
+    for (const auto& filter_block : m_vpFilters) {
+        if (filter_block.type == VppFilterType::FILTER_OPENCL) {
+            const auto vpp_afs_filter = std::find_if(filter_block.vppcl.begin(), filter_block.vppcl.end(),
+                [](const unique_ptr<RGYFilter>& filter) { return typeid(*filter) == typeid(RGYFilterAfs); });
+            if (vpp_afs_filter == filter_block.vppcl.end()) continue;
+            auto afs_prm = reinterpret_cast<const RGYFilterParamAfs *>((*vpp_afs_filter)->GetFilterParam());
+            if (afs_prm != nullptr) {
+                vpp_afs_rff_aware |= afs_prm->afs.rff;
+            }
+        }
+    }
+    return vpp_afs_rff_aware;
+}
+
 RGY_ERR CQSVPipeline::CreatePipeline() {
     m_pipelineTasks.clear();
 
@@ -3636,7 +3653,7 @@ RGY_ERR CQSVPipeline::CreatePipeline() {
     if (m_trimParam.list.size() > 0) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskTrim>(m_trimParam, m_pFileReader.get(), srcTimebase, 0, m_mfxVer, m_pQSVLog));
     }
-    m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(&m_device->mfxSession(), srcTimebase, m_outputTimebase, outFrameDuration, m_nAVSyncMode, m_mfxVer, m_pQSVLog));
+    m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(&m_device->mfxSession(), srcTimebase, m_outputTimebase, outFrameDuration, m_nAVSyncMode, VppAfsRffAware(), m_mfxVer, m_pQSVLog));
 
     for (auto& filterBlock : m_vpFilters) {
         if (filterBlock.type == VppFilterType::FILTER_MFX) {

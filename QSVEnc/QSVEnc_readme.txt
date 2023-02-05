@@ -313,6 +313,20 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2023.02.05 (7.15)
+[QSVEncC]
+- ffmpegのライブラリを更新 (Windows版)
+  ffmpeg     5.0    -> 5.1
+  libpng     1.3.8  -> 1.3.9
+  expat      2.4.4  -> 2.5.0
+  libsndfile 1.0.31 -> 1.2.0
+  libxml2    2.9.12 -> 2.10.3
+  libbluray  1.3.0  -> 1.3.4
+  dav1d      0.9.2  -> 1.0.0
+- --sub-sourceでPGS字幕を読み込むと正常にmuxできない問題を回避。
+- --check-hwでエンコードをサポートするコーデック名も表示するように。
+- --check-hwや--check-featuresのログ出力を--log-levelで制御できるように。
+
 2023.01.30 (7.29)
 [QSVEncC]
 - 画像を焼き込むフィルタを追加。 (--vpp-overlay)

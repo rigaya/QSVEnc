@@ -680,6 +680,13 @@ public:
 
 class PipelineTaskMFXDecode : public PipelineTask {
 protected:
+    struct FrameFlags {
+        int64_t timestamp;
+        RGY_FRAME_FLAGS flags;
+
+        FrameFlags() : timestamp(AV_NOPTS_VALUE), flags(RGY_FRAME_FLAG_NONE) {};
+        FrameFlags(int64_t pts, RGY_FRAME_FLAGS f) : timestamp(pts), flags(f) {};
+    };
     MFXVideoDECODE *m_dec;
     mfxVideoParam& m_mfxDecParams;
     RGYInput *m_input;
@@ -687,10 +694,12 @@ protected:
     int m_decFrameOutCount;
     RGYBitstream m_decInputBitstream;
     RGYQueueMPMP<RGYFrameDataMetadata*> m_queueHDR10plusMetadata;
+    RGYQueueMPMP<FrameFlags> m_dataFlag;
 public:
     PipelineTaskMFXDecode(MFXVideoSession *mfxSession, int outMaxQueueSize, MFXVideoDECODE *mfxdec, mfxVideoParam& decParams, RGYInput *input, mfxVersion mfxVer, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::MFXDEC, outMaxQueueSize, mfxSession, mfxVer, log), m_dec(mfxdec), m_mfxDecParams(decParams), m_input(input), m_getNextBitstream(true), m_decFrameOutCount(0), m_decInputBitstream(), m_queueHDR10plusMetadata() {
+        : PipelineTask(PipelineTaskType::MFXDEC, outMaxQueueSize, mfxSession, mfxVer, log), m_dec(mfxdec), m_mfxDecParams(decParams), m_input(input), m_getNextBitstream(true), m_decFrameOutCount(0), m_decInputBitstream(), m_queueHDR10plusMetadata(), m_dataFlag() {
         m_decInputBitstream.init(AVCODEC_READER_INPUT_BUF_SIZE);
+        m_dataFlag.init();
         //TimeStampはQSVに自動的に計算させる
         m_decInputBitstream.setPts(MFX_TIMESTAMP_UNKNOWN);
         //ヘッダーがあれば読み込んでおく
@@ -780,6 +789,8 @@ public:
                     }
                 }
             }
+            const auto flags = FrameFlags(m_decInputBitstream.pts(), (RGY_FRAME_FLAGS)m_decInputBitstream.dataflag());
+            m_dataFlag.push(flags);
         }
         return sendBitstream();
     }
@@ -854,6 +865,9 @@ protected:
             auto taskSurf = useTaskSurf(surfDecOut);
             taskSurf.frame()->clearDataList();
             taskSurf.frame()->setInputFrameId(m_decFrameOutCount++);
+            if (getDataFlag(surfDecOut->Data.TimeStamp) & RGY_FRAME_FLAG_RFF) {
+                taskSurf.frame()->setFlags(RGY_FRAME_FLAG_RFF);
+            }
             if (auto data = getMetadata(RGY_FRAME_DATA_HDR10PLUS, surfDecOut->Data.TimeStamp); data) {
                 taskSurf.frame()->dataList().push_back(data);
             }
@@ -863,6 +877,25 @@ protected:
             m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, taskSurf, lastSyncP));
         }
         return err_to_rgy(dec_sts);
+    }
+    RGY_FRAME_FLAGS getDataFlag(const int64_t timestamp) {
+        FrameFlags pts_flag;
+        while (m_dataFlag.front_copy_no_lock(&pts_flag)) {
+            if (pts_flag.timestamp < timestamp || pts_flag.timestamp == AV_NOPTS_VALUE) {
+                m_dataFlag.pop();
+            } else {
+                break;
+            }
+        }
+        size_t queueSize = m_dataFlag.size();
+        for (uint32_t i = 0; i < queueSize; i++) {
+            if (m_dataFlag.copy(&pts_flag, i, &queueSize)) {
+                if (pts_flag.timestamp == timestamp) {
+                    return pts_flag.flags;
+                }
+            }
+        }
+        return RGY_FRAME_FLAG_NONE;
     }
     std::shared_ptr<RGYFrameData> getMetadata(const RGYFrameDataType datatype, const int64_t timestamp) {
         std::shared_ptr<RGYFrameData> frameData;
@@ -902,15 +935,17 @@ class PipelineTaskCheckPTS : public PipelineTask {
 protected:
     rgy_rational<int> m_srcTimebase;
     rgy_rational<int> m_outputTimebase;
+    bool m_vpp_rff;
+    bool m_vpp_afs_rff_aware;
     RGYAVSync m_avsync;
     int64_t m_outFrameDuration; //(m_outputTimebase基準)
     int64_t m_tsOutFirst;     //(m_outputTimebase基準)
     int64_t m_tsOutEstimated; //(m_outputTimebase基準)
     int64_t m_tsPrev;         //(m_outputTimebase基準)
 public:
-    PipelineTaskCheckPTS(MFXVideoSession *mfxSession, rgy_rational<int> srcTimebase, rgy_rational<int> outputTimebase, int64_t outFrameDuration, RGYAVSync avsync, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
+    PipelineTaskCheckPTS(MFXVideoSession *mfxSession, rgy_rational<int> srcTimebase, rgy_rational<int> outputTimebase, int64_t outFrameDuration, RGYAVSync avsync, bool vpp_afs_rff_aware, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
         PipelineTask(PipelineTaskType::CHECKPTS, /*outMaxQueueSize = */ 0 /*常に0である必要がある*/, mfxSession, mfxVer, log),
-        m_srcTimebase(srcTimebase), m_outputTimebase(outputTimebase), m_avsync(avsync), m_outFrameDuration(outFrameDuration), m_tsOutFirst(-1), m_tsOutEstimated(0), m_tsPrev(-1) {
+        m_srcTimebase(srcTimebase), m_outputTimebase(outputTimebase), m_avsync(avsync), m_vpp_rff(false), m_vpp_afs_rff_aware(vpp_afs_rff_aware), m_outFrameDuration(outFrameDuration), m_tsOutFirst(-1), m_tsOutEstimated(0), m_tsPrev(-1) {
     };
     virtual ~PipelineTaskCheckPTS() {};
 
@@ -932,8 +967,6 @@ public:
             //そのためm_outQeueueにまだフレームが残っている可能性がある
             return (m_outQeueue.size() > 0) ? RGY_ERR_MORE_SURFACE : RGY_ERR_MORE_DATA;
         }
-        const bool vpp_rff = false;
-        const bool vpp_afs_rff_aware = false;
         int64_t outPtsSource = m_tsOutEstimated; //(m_outputTimebase基準)
         int64_t outDuration = m_outFrameDuration; //入力fpsに従ったduration
 
@@ -944,7 +977,7 @@ public:
         }
 
         if ((m_srcTimebase.n() > 0 && m_srcTimebase.is_valid())
-            && ((m_avsync & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) || vpp_rff || vpp_afs_rff_aware)) {
+            && ((m_avsync & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) || m_vpp_rff || m_vpp_afs_rff_aware)) {
             //CFR仮定ではなく、オリジナルの時間を見る
             const auto srcTimestamp = taskSurf->surf().frame()->timestamp();
             outPtsSource = rational_rescale(srcTimestamp, m_srcTimebase, m_outputTimebase);
@@ -957,8 +990,8 @@ public:
         //最初のptsを0に修正
         outPtsSource -= m_tsOutFirst;
 
-        if ((m_avsync & RGY_AVSYNC_VFR) || vpp_rff || vpp_afs_rff_aware) {
-            if (vpp_rff || vpp_afs_rff_aware) {
+        if ((m_avsync & RGY_AVSYNC_VFR) || m_vpp_rff || m_vpp_afs_rff_aware) {
+            if (m_vpp_rff || m_vpp_afs_rff_aware) {
                 if (std::abs(outPtsSource - m_tsOutEstimated) >= 32 * m_outFrameDuration) {
                     PrintMes(RGY_LOG_TRACE, _T("check_pts: detected gap %lld, changing offset.\n"), outPtsSource, std::abs(outPtsSource - m_tsOutEstimated));
                     //timestampに一定以上の差があればそれを無視する

@@ -1770,6 +1770,9 @@ Activate Auto Field Shift (AFS) deinterlacer.
     | grey | stripe was detected|
     | light blue | motion & stripe was detected |
   
+  - rff=&lt;bool&gt;   
+    When this options is set true, rff flag from input will be checked, and when there is progressive frame coded with rff, then deinterlacing will not be applied.
+  
   - log=&lt;bool&gt;  
     Generate log of per frame afs status (for debug).
   
