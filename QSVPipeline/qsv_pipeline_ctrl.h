@@ -648,6 +648,7 @@ public:
                 PrintMes(RGY_LOG_ERROR, _T("Error in reader: %s.\n"), get_err_mes(err));
             }
         }
+        copyFrameProp(&clframe->frame, mappedframe->info());
         auto clerr = clframe->unmapBuffer();
         if (clerr != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("Failed to unmap buffer: %s.\n"), get_err_mes(err));

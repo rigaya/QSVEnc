@@ -561,6 +561,7 @@ protected:
     RGYFrameInfo frame;
 public:
     RGYFrameRef(const RGYFrameInfo& f) : frame(f) {};
+    const RGYFrameInfo *info() const { return &frame; }
     virtual int64_t timestamp() const override { return frame.timestamp; }
     virtual void setTimestamp(int64_t timestamp) override { frame.timestamp = timestamp; };
     virtual int inputFrameId() const override { return frame.inputFrameId; }
