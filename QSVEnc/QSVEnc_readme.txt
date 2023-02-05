@@ -324,6 +324,7 @@ API v1.1  … Intel Media SDK v2.0
   libbluray  1.3.0  -> 1.3.4
   dav1d      0.9.2  -> 1.0.0
 - --sub-sourceでPGS字幕を読み込むと正常にmuxできない問題を回避。
+- --vpp-afsにrffオプションを追加。
 - --check-hwでエンコードをサポートするコーデック名も表示するように。
 - --check-hwや--check-featuresのログ出力を--log-levelで制御できるように。
 
