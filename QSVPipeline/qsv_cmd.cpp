@@ -57,7 +57,7 @@ tstring GetQSVEncVersion() {
     if (ENABLE_AVISYNTH_READER)    version += _T(", avs");
     if (ENABLE_VAPOURSYNTH_READER) version += _T(", vpy");
 #if ENABLE_AVSW_READER && !FOR_AUO
-    version += strsprintf(_T(", avsw, avhw [%s]"), getHWDecSupportedCodecList().c_str());
+    version += strsprintf(_T(", avsw, avhw"));
 #endif
 #if !(defined(_WIN32) || defined(_WIN64))
     version += _T("\n vpp:    resize, deinterlace, denoise, detail-enhance, image-stab");
