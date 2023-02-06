@@ -4241,7 +4241,8 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
             }
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_16)
-            && outFrameInfo->cop3.ScenarioInfo != MFX_SCENARIO_UNKNOWN) {
+            && outFrameInfo->cop3.ScenarioInfo != MFX_SCENARIO_UNKNOWN
+            && get_cx_desc(list_scenario_info, outFrameInfo->cop3.ScenarioInfo) != nullptr) {
             PRINT_INFO(_T("Scenario Info  %s\n"), get_cx_desc(list_scenario_info, outFrameInfo->cop3.ScenarioInfo));
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_9)) {

@@ -313,6 +313,10 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2023.02.06 (7.16)
+[QSVEncC]
+- --vpp-afsにrffオプション使用時の誤検出でRFF部が12fpsになることがあったのを修正。
+
 2023.02.05 (7.15)
 [QSVEncC]
 - ffmpegのライブラリを更新 (Windows版)

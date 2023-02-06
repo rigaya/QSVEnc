@@ -863,11 +863,15 @@ protected:
         }
         if (surfDecOut != nullptr && lastSyncP != nullptr) {
             auto taskSurf = useTaskSurf(surfDecOut);
-            taskSurf.frame()->clearDataList();
             taskSurf.frame()->setInputFrameId(m_decFrameOutCount++);
+
+            auto flags = RGY_FRAME_FLAG_NONE;
             if (getDataFlag(surfDecOut->Data.TimeStamp) & RGY_FRAME_FLAG_RFF) {
-                taskSurf.frame()->setFlags(RGY_FRAME_FLAG_RFF);
+                flags |= RGY_FRAME_FLAG_RFF;
             }
+            taskSurf.frame()->setFlags(flags);
+
+            taskSurf.frame()->clearDataList();
             if (auto data = getMetadata(RGY_FRAME_DATA_HDR10PLUS, surfDecOut->Data.TimeStamp); data) {
                 taskSurf.frame()->dataList().push_back(data);
             }
