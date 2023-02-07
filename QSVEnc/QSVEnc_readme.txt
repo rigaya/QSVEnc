@@ -313,6 +313,10 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2023.02.07 (7.17)
+[QSVEncC]
+- 7.15から --vpp-resize spline16, spline36, spline64を使用すると、意図しない線やノイズが入る問題を修正。
+
 2023.02.06 (7.16)
 [QSVEncC]
 - --vpp-afsにrffオプション使用時の誤検出でRFF部が12fpsになることがあったのを修正。
