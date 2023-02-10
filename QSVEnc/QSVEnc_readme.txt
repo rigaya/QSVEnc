@@ -1,4 +1,4 @@
----------------------------------------------------
+﻿---------------------------------------------------
 
 
 	QSVEnc + QSVEncC
@@ -6,163 +6,163 @@
 
 ---------------------------------------------------
 
-QSVEnc �́A
-Intel Media SDK ���g�p���ăG���R�[�h���s��Aviutl�̏o�̓v���O�C���ł��B
-IntelMediaSDK��sample_encode.exe���������Ax264guiEx 1.xx�ɓ˂����݂܂����B
-QuickSyncVideo�ɂ��n�[�h�E�F�A�����G���R�[�h��ڎw���܂��B
+QSVEnc は、
+Intel Media SDK を使用してエンコードを行うAviutlの出力プラグインです。
+IntelMediaSDKのsample_encode.exeを改造し、x264guiEx 1.xxに突っ込みました。
+QuickSyncVideoによるハードウェア高速エンコードを目指します。
 
-QSVEncC �́A��L�̃R�}���h���C���łł��B
-�R�}���h���C���I�v�V�����ɂ��ẮA���Lurl���Q�Ƃ��������B
+QSVEncC は、上記のコマンドライン版です。
+コマンドラインオプションについては、下記urlを参照ください。
 https://github.com/rigaya/QSVEnc/blob/master/QSVEncC_Options.ja.md
 
 
-�y��{������z
-Windows 10/11 (x86/x64) (QSVEnc.auo / QSVEncC.exe x86��)
-Windows 10/11 (x64) (QSVEncC.exe x64��)
-Aviutl 1.00 �ȍ~ (QSVEnc.auo)
+【基本動作環境】
+Windows 10/11 (x86/x64) (QSVEnc.auo / QSVEncC.exe x86版)
+Windows 10/11 (x64) (QSVEncC.exe x64版)
+Aviutl 1.00 以降 (QSVEnc.auo)
 
-�y�n�[�h�E�F�A�G���R�[�h������z
-��L�u��{������v�ɉ����A
-QuickSyncVideo��H�̗L����CPU�ƑΉ������}�U�[�{�[�h
-�Ȃǂł����A���ɂ��F�X���������邩���Ȃ̂Ŋ撣���Ă��������B
-���ӓ_�Ƃ��Ă�
-�EWinXP��Ή�
-�EWindows Home Server �Ƃ����_�����ۂ��ł��B(�����ĂȂ��̂ł킩��񂯂ǂ�)
-  WHS�p��Intel�O���t�B�b�N�X�h���C�o���Ή����ĂȂ��c�͗l�B
+【ハードウェアエンコード動作環境】
+上記「基本動作環境」に加え、
+QuickSyncVideo回路の有効なCPUと対応したマザーボード
+などですが、他にも色々条件があるかもなので頑張ってください。
+注意点としては
+・WinXP非対応
+・Windows Home Server とかもダメっぽいです。(持ってないのでわからんけども)
+  WHS用のIntelグラフィックスドライバが対応してない…模様。
 
 
-�yQSVEnc �g�p�ɂ������Ă̒��ӎ����z
-���ۏ؂ł��B���ȐӔC�Ŏg�p���Ă��������B
-QSVEnc���g�p�������Ƃɂ��A�����Ȃ鑹�Q�E�g���u���ɂ��Ă��ӔC�𕉂��܂���B
-�o�O���������񂠂�A�悭�~�܂�܂��B�������������B
+【QSVEnc 使用にあたっての注意事項】
+無保証です。自己責任で使用してください。
+QSVEncを使用したことによる、いかなる損害・トラブルについても責任を負いません。
+バグがたくさんあり、よく止まります。ご了承下さい。
 
-�yQSVEnc �Ĕz�z(�񎟔z�z)�ɂ��āz
-���̃t�@�C��(QSVEnc_readme.txt)��Intel Media SDK EULA.rtf�ƈꏏ�ɔz�z���Ă��������B�O�̂��߁B
-�܂��ł���΃A�[�J�C�u�܂邲�ƂŁB
+【QSVEnc 再配布(二次配布)について】
+このファイル(QSVEnc_readme.txt)とIntel Media SDK EULA.rtfと一緒に配布してください。念のため。
+まあできればアーカイブまるごとで。
 
-�y�������@�z
-�� ���L�����N��ł͐}���g�p���Đ������Ă��܂��̂ŁA���킩��₷����������܂���B
-   https://github.com/rigaya/QSVEnc/blob/master/QSVEnc_auo_readme.md#QSVEnc-��-aviutl-�ւ̓����X�V
+【導入方法】
+※ 下記リンク先では図も使用して説明していますので、よりわかりやすいかもしれません。
+   https://github.com/rigaya/QSVEnc/blob/master/QSVEnc_auo_readme.md#QSVEnc-の-aviutl-への導入更新
 
 1.
-�_�E�����[�h����Aviutl_QSVEnc_7.xx.zip���J���܂��B
+ダウンロードしたAviutl_QSVEnc_7.xx.zipを開きます。
 
 2.
-zip�t�@�C�����̃t�H���_���ׂĂ�Aviutl�t�H���_�ɃR�s�[���܂��B
+zipファイル内のフォルダすべてをAviutlフォルダにコピーします。
 
 3.
-Aviutl���N�����܂��B
+Aviutlを起動します。
 
 4.
-���ɂ���ẮA�E�B���h�E���\������K�v�ȃ��W���[���̃C���X�g�[�����s���܂��B
-���̍ہA���̕s���Ȕ��s���̃A�v�����f�o�C�X�ɕύX�������邱�Ƃ������܂���? �Əo�邱�Ƃ�����܂����A
-�u�͂��v��I�����Ă��������B
+環境によっては、ウィンドウが表示され必要なモジュールのインストールが行われます。
+その際、この不明な発行元のアプリがデバイスに変更を加えることを許可しますか? と出ることがありますが、
+「はい」を選択してください。
 
 5.
-�u���̑��v>�u�o�̓v���O�C�����v��QSVEnc 7.xx�����邩�m���߂܂��B
-������QSVEnc�̕\�����Ȃ��ꍇ�A
-- zip�t�@�C�����̃t�H���_���ׂĂ��R�s�[�ł��Ă��Ȃ�
-- �K�v�ȃ��W���[���̃C���X�g�[���Ɏ��s����
-  - ���̕s���Ȕ��s���̃A�v�����f�o�C�X�ɕύX�������邱�Ƃ������܂���? �� �u�͂��v��I�����Ȃ�����
-  - (�܂�ȃP�[�X) �E�C���X�΍�\�t�g�ɂ��A�K�v�Ȏ��s�t�@�C�����폜���ꂽ
-�Ȃǂ̌������l�����܂��B
+「その他」>「出力プラグイン情報」にQSVEnc 7.xxがあるか確かめます。
+ここでQSVEncの表示がない場合、
+- zipファイル内のフォルダすべてをコピーできていない
+- 必要なモジュールのインストールに失敗した
+  - この不明な発行元のアプリがデバイスに変更を加えることを許可しますか? で 「はい」を選択しなかった
+  - (まれなケース) ウイルス対策ソフトにより、必要な実行ファイルが削除された
+などの原因が考えられます。
 
 
-�y�폜���@�z
-�� ���L�����N��ł͐}���g�p���Đ������Ă��܂��̂ŁA���킩��₷����������܂���B
-   https://github.com/rigaya/QSVEnc/blob/master/QSVEnc_auo_readme.md#QSVEnc-��-aviutl-����̍폜
+【削除方法】
+※ 下記リンク先では図も使用して説明していますので、よりわかりやすいかもしれません。
+   https://github.com/rigaya/QSVEnc/blob/master/QSVEnc_auo_readme.md#QSVEnc-の-aviutl-からの削除
 
-�EAviutl��pulgins�t�H���_�����牺�L�t�H���_�ƃt�@�C�����폜���Ă��������B
-  - [�t�H���_] QSVEnc_stg
-  - [�t�@�C��] QSVEnc.auo
-  - [�t�@�C��] QSVEnc.conf (���݂���ꍇ)
-  - [�t�@�C��] QSVEnc(.ini)
-  - [�t�@�C��] auo_setup.auf
+・Aviutlのpulginsフォルダ内から下記フォルダとファイルを削除してください。
+  - [フォルダ] QSVEnc_stg
+  - [ファイル] QSVEnc.auo
+  - [ファイル] QSVEnc.conf (存在する場合)
+  - [ファイル] QSVEnc(.ini)
+  - [ファイル] auo_setup.auf
 
-�yQSVEnc�ɂ��G���R�[�h�̒��ӓ_�z
-�E��{�I��QSVEncC��x86�ł̂ق���x64�ł�荂���ł��B
+【QSVEncによるエンコードの注意点】
+・基本的にQSVEncCのx86版のほうがx64版より高速です。
 
-�y�g�p�o�����ȋ@�\�z
- [QSVEnc/QSVEncC����]
-�EQuickSyncVideo���g�p�����G���R�[�h
+【使用出来る主な機能】
+ [QSVEnc/QSVEncC共通]
+・QuickSyncVideoを使用したエンコード
    - H.264/AVC
    - H.265/HEVC
    - MPEG2
-�EQuickSyncVideo�̊e�G���R�[�h���[�h
-   - CQP       �Œ�ʎq����
-   - CBR       �Œ�r�b�g���[�g
-   - VBR       �σr�b�g���[�g
-   - AVBR      �K���I�σr�b�g���[�g
-   - QVBR      �i���x�[�X�σr�b�g���[�g
-   - Lookahead ��s�T�����[�g����
-   - LA-HRD    ��s�T�����[�g���� (HRD�݊�)
-   - ICQ       �Œ�i�����[�h
-   - LA-ICQ    ��s�T���t���Œ�i�����[�h
-   - VCM       �r�f�I��c���[�h
-�E�G���R�[�h�i����7�i�K�ɂ��w��
-�E�C���^���ێ��G���R�[�h (PAFF����)
-�E�V�[���`�F���W���o
-�ESAR��w��
-�Ecolormatrix���̎w��
-�EH.264 Level / Profile�̎w��
-�EBluray�G���R�[�h���[�h
-�E�ő�r�b�g���[�g���̎w��
-�E�ő�GOP���̎w��
-�EAVX2�܂ł��g�p���������̍�����
-�EVpp�@�\ -- GPU���g�p���������t�B���^�����O
-   - ���T�C�Y
-   - �C���^������ (normal / bob / it)
-   - �G�b�W����
-   - �m�C�Y�ጸ
+・QuickSyncVideoの各エンコードモード
+   - CQP       固定量子化量
+   - CBR       固定ビットレート
+   - VBR       可変ビットレート
+   - AVBR      適応的可変ビットレート
+   - QVBR      品質ベース可変ビットレート
+   - Lookahead 先行探索レート制御
+   - LA-HRD    先行探索レート制御 (HRD互換)
+   - ICQ       固定品質モード
+   - LA-ICQ    先行探索付き固定品質モード
+   - VCM       ビデオ会議モード
+・エンコード品質の7段階による指定
+・インタレ保持エンコード (PAFF方式)
+・シーンチェンジ検出
+・SAR比指定
+・colormatrix等の指定
+・H.264 Level / Profileの指定
+・Blurayエンコードモード
+・最大ビットレート等の指定
+・最大GOP長の指定
+・AVX2までを使用した処理の高速化
+・Vpp機能 -- GPUを使用した高速フィルタリング
+   - リサイズ
+   - インタレ解除 (normal / bob / it)
+   - エッジ強調
+   - ノイズ低減
    - Image Stablizier
 [QSVEnc]
-�E�����G���R�[�h
-�E�����y�у`���v�^�[�Ƃ�mux�@�\
-�E�����t�B�[���h�V�t�g�Ή�
+・音声エンコード
+・音声及びチャプターとのmux機能
+・自動フィールドシフト対応
 [QSVEncC]
-�EQSV�f�R�[�h�ɑΉ��B
-�EQSV�ɂ��f�R�[�h/VPP/�G���R�[�h�����ꂼ�ꎩ�R�ȑg�ݍ��킹�Ŏg�p�\
-�E�G���R�[�h�Ȃ��̏o�͂��\�B
-�Eavi(vfw), avs, vpy, y4m, raw�ȂǊe��`���ɑΉ�
-�Elibavcodec/libavformat�𗘗p�������������ɑΉ�
-�Elibavcodec/libavformat�𗘗p���Amux���Ȃ���o�͂��\
+・QSVデコードに対応。
+・QSVによるデコード/VPP/エンコードをそれぞれ自由な組み合わせで使用可能
+・エンコードなしの出力も可能。
+・avi(vfw), avs, vpy, y4m, rawなど各種形式に対応
+・libavcodec/libavformatを利用した音声処理に対応
+・libavcodec/libavformatを利用し、muxしながら出力が可能
 
-�ق��B
+ほか。
 
-�yini�t�@�C���ɂ��g���z
-QSVEnc.ini�����������邱�Ƃɂ��A
-�����G���R�[�_��muxer�̃R�}���h���C����ύX�ł��܂��B
-�܂������G���R�[�_��ǉ����邱�Ƃ��ł��܂��B
+【iniファイルによる拡張】
+QSVEnc.iniを書き換えることにより、
+音声エンコーダやmuxerのコマンドラインを変更できます。
+また音声エンコーダを追加することもできます。
 
-�f�t�H���g�̐ݒ�ł͕s�\�����Ǝv�����ꍇ�́A
-ini�t�@�C���̉�����muxer�̃R�}���h���C���𒲐����Ă݂Ă��������B
+デフォルトの設定では不十分だと思った場合は、
+iniファイルの音声やmuxerのコマンドラインを調整してみてください。
 
-�y�R���p�C�����z
+【コンパイル環境】
 VC++ 2022 Community
 
-�ydtl�̎g�p�\�L�z
-�{�v���O�����́Adtl���C�u����������Ŏg�p���Ă��܂��B
+【dtlの使用表記】
+本プログラムは、dtlライブラリを内部で使用しています。
 https://github.com/cubicdaiya/dtl
 
-�ytinyxml2�̎g�p�\�L�z
-�{�v���O�����́Atinyxml2������Ŏg�p���Ă��܂��B
+【tinyxml2の使用表記】
+本プログラムは、tinyxml2を内部で使用しています。
 http://www.grinninglizard.com/tinyxml2/index.html
 
-�y���؊� �`2011.09.30�z
+【検証環境 ～2011.09.30】
 Win7 x64
 Core i5 2500 + H61
 4GB RAM
 Intel Graphics Driver 8.15.10.2376
 Intel Graphics Driver 8.15.10.2509
 
-�y���؊� 2011.10.01�`�z
+【検証環境 2011.10.01～】
 Win7 x64
 Core i5 2500 + Z68
 GeForce 8600GT as Primary GPU
 4GB RAM
 Intel Graphics Driver 8.15.10.2509
 
-�y���؊� 2012.01�`�z
+【検証環境 2012.01～】
 Win7 x64
 Core i5 2500 + Z68
 4GB RAM
@@ -171,7 +171,7 @@ Intel Graphics Driver 8.15.10.2559 (API v1.1)
 Intel Graphics Driver 8.15.10.2626 (API v1.3)
 Intel Graphics Driver 8.15.10.2653 (API v1.3)
 
-�y���؊� 2012.05�`�z
+【検証環境 2012.05～】
 Win7 x64
 Core i7 3770K + ASUS P8Z77-M
 16GB RAM
@@ -183,7 +183,7 @@ Intel Graphics Driver 8.15.10.2867 (API v1.4)
 Intel Graphics Driver 9.17.10.2932 (API v1.4)
 Intel Graphics Driver 9.17.10.3071 (API v1.4)
 
-�y���؊� 2013.06�`�z
+【検証環境 2013.06～】
 Win7 x64
 Core i7 4770K + Asrock Z87 Extreme4
 16GB RAM
@@ -198,7 +198,7 @@ Intel Graphics Driver 10.18.10.3464 (API v1.8)
 Intel Graphics Driver 10.18.10.3496 (API v1.8)
 Intel Graphics Driver 10.18.10.3612 (API v1.10)
 
-�y���؊� 2014.10�`�z
+【検証環境 2014.10～】
 Win8.1 x64
 Core i7 4770K + ASUS Z87 Gryphon
 16GB RAM
@@ -210,7 +210,7 @@ Intel Graphics Driver 10.18.14.4170 (API v1.14)
 Intel Graphics Driver 10.18.14.4222 (API v1.15)
 Intel Graphics Driver 10.18.14.4235 (API v1.15)
 
-�y���؊� 2015.08�`�z
+【検証環境 2015.08～】
 Win8.1 x64
 Core i7 6700K + Asrock Z170 Extreme7+
 16GB RAM
@@ -229,26 +229,26 @@ Intel Graphics Driver 20.19.15.4454 (API v1.17)
 Intel Graphics Driver 20.19.15.4463 (API v1.19)
 Intel Graphics Driver 21.20.16.4471 (API v1.19)
 
-�y���؊� 2016.07�`�z
+【検証環境 2016.07～】
 Win10 x64
 Core i7 6700K + ASUS Z170-PRO
 16GB RAM
 Intel Graphics Driver 20.19.15.4463 (API v1.19)
 
-�y���؊� 2017.01�`�z
+【検証環境 2017.01～】
 Win10 x64
 Core i7 7700K + Asrock Z270 Extreme4
 16GB RAM
 Intel Graphics Driver 21.20.16.4534 (API v1.19)
 
 
-�y���؊� 2017.05�`�z
+【検証環境 2017.05～】
 Win8.1 x64
 Core i3 4170 + Asrock Z97 Gryphon
 16GB RAM
 Intel Graphics Driver 4624 (API v1.19)
 
-�y���؊� 2017.05�`�z
+【検証環境 2017.05～】
 Win10 x64
 Core i7 7700K + Asrock Z270 Gaming-ITX/ac
 16GB RAM
@@ -264,7 +264,7 @@ Intel Graphics Driver 25.20.100.7327 (API v1.30)
 Intel Graphics Driver 27.20.100.8190 (API v1.32)
 Intel Graphics Driver 27.20.100.8681 (API v1.33)
 
-�y���؊� 2021.04�`�z
+【検証環境 2021.04～】
 Win10 x64
 Core i7 11700K + GIGABYTE Z590I AORUS ULTRA
 16GB RAM
@@ -272,14 +272,14 @@ Intel Graphics Driver 27.20.100.9466 (API v1.34)
 Intel Graphics Driver 30.0.100.9809  (API v2.03)
 Intel Graphics Driver 30.0.100.9955  (API v2.05)
 
-�y���؊� 2021.11�`�z
+【検証環境 2021.11～】
 Win11 x64
 Core i9 12900K + MSI Z690 Tomahawk DDR4 WIFI
 32GB RAM
 Intel Graphics Driver 30.0.100.1002  (API v2.05)
 Intel Graphics Driver 30.0.101.1191  (API v2.06)
 
-�y���؊� 2022.08�`�z
+【検証環境 2022.08～】
 Win11 x64
 Core i9 12900K + MSI Z690 Tomahawk DDR4 WIFI
 Arc A380
@@ -290,44 +290,44 @@ Intel Graphics Driver 31.0.101.3276  (API v2.07)
 Intel Graphics Driver 31.0.101.3430  (API v2.07)
 Intel Graphics Driver 31.0.101.3491  (API v2.07)
 
-�yIntel Media SDK��API�̑Ή��֌W�z
-API v1.32 �c Intel Media SDK 2020 R1
-API v1.29 �c Intel Media SDK 2019 R1
-API v1.27 �c Intel Media SDK 2018 R2
-API v1.26 �c Intel Media SDK 2018 R1
-API v1.23 �c Intel Media SDK 2017 R1
-API v1.19 �c Intel Media SDK 2016 Update 2
-API v1.17 �c Intel Media SDK 2016
-API v1.16 �c Intel Media SDK 2015 Update 2.1
-API v1.15 �c Intel Media SDK 2015 Update 2
-API v1.13 �c Intel Media SDK 2015 Update 1
-API v1.11 �c Intel Media SDK 2015
-API v1.9  �c Intel Media SDK 2014 R2 for Client
-API v1.8  �c Intel Media SDK 2014
-API v1.7  �c Intel Media SDK 2013 R2
-API v1.6  �c Intel Media SDK 2013
-API v1.4  �c Intel Media SDK 2012 R3
-API v1.4  �c Intel Media SDK 2012 R2
-API v1.3  �c Intel Media SDK 2012 (Intel Media SDK v3.0)
-API v1.1  �c Intel Media SDK v2.0
+【Intel Media SDKとAPIの対応関係】
+API v1.32 … Intel Media SDK 2020 R1
+API v1.29 … Intel Media SDK 2019 R1
+API v1.27 … Intel Media SDK 2018 R2
+API v1.26 … Intel Media SDK 2018 R1
+API v1.23 … Intel Media SDK 2017 R1
+API v1.19 … Intel Media SDK 2016 Update 2
+API v1.17 … Intel Media SDK 2016
+API v1.16 … Intel Media SDK 2015 Update 2.1
+API v1.15 … Intel Media SDK 2015 Update 2
+API v1.13 … Intel Media SDK 2015 Update 1
+API v1.11 … Intel Media SDK 2015
+API v1.9  … Intel Media SDK 2014 R2 for Client
+API v1.8  … Intel Media SDK 2014
+API v1.7  … Intel Media SDK 2013 R2
+API v1.6  … Intel Media SDK 2013
+API v1.4  … Intel Media SDK 2012 R3
+API v1.4  … Intel Media SDK 2012 R2
+API v1.3  … Intel Media SDK 2012 (Intel Media SDK v3.0)
+API v1.1  … Intel Media SDK v2.0
 
 
-�y�ǂ��ł����������z
+【どうでもいいメモ】
 2023.02.09 (7.33)
 [QSVEncC]
-- 7.30����PGS�����̃R�s�[�����܂����삵�Ȃ��Ȃ��Ă��������C���B
+- 7.30からPGS字幕のコピーがうまく動作しなくなっていた問題を修正。
 
 2023.02.07 (7.32)
 [QSVEncC]
-- 7.30���� --vpp-resize spline16, spline36, spline64���g�p����ƁA�Ӑ}���Ȃ�����m�C�Y����������C���B
+- 7.30から --vpp-resize spline16, spline36, spline64を使用すると、意図しない線やノイズが入る問題を修正。
 
 2023.02.06 (7.31)
 [QSVEncC]
-- --vpp-afs��rff�I�v�V�����g�p���̌댟�o��RFF����12fps�ɂȂ邱�Ƃ��������̂��C���B
+- --vpp-afsにrffオプション使用時の誤検出でRFF部が12fpsになることがあったのを修正。
 
 2023.02.05 (7.30)
 [QSVEncC]
-- ffmpeg�̃��C�u�������X�V (Windows��)
+- ffmpegのライブラリを更新 (Windows版)
   ffmpeg     5.0    -> 5.1
   libpng     1.3.8  -> 1.3.9
   expat      2.4.4  -> 2.5.0
@@ -335,276 +335,276 @@ API v1.1  �c Intel Media SDK v2.0
   libxml2    2.9.12 -> 2.10.3
   libbluray  1.3.0  -> 1.3.4
   dav1d      0.9.2  -> 1.0.0
-- --sub-source��PGS������ǂݍ��ނƐ����mux�ł��Ȃ���������B
-- --vpp-afs��rff�I�v�V������ǉ��B
-- --check-hw�ŃG���R�[�h���T�|�[�g����R�[�f�b�N�����\������悤�ɁB
-- --check-hw��--check-features�̃��O�o�͂�--log-level�Ő���ł���悤�ɁB
+- --sub-sourceでPGS字幕を読み込むと正常にmuxできない問題を回避。
+- --vpp-afsにrffオプションを追加。
+- --check-hwでエンコードをサポートするコーデック名も表示するように。
+- --check-hwや--check-featuresのログ出力を--log-levelで制御できるように。
 
 2023.01.30 (7.29)
 [QSVEncC]
-- �摜���Ă����ރt�B���^��ǉ��B (--vpp-overlay)
-- lowlatency������mux�̋����𒲐��B
-- ����t�@�C���ɓY�t�t�@�C��������I�v�V������ǉ��B (--attachement-source)
-- --perf-monitor�Ńr�b�g���[�g��񓙂��o�͂���Ȃ��̂��C���B
-- �����G���R�[�h�X���b�h (--thread-audio 1) �����삵�Ȃ��Ȃ��Ă��������C���B
+- 画像を焼き込むフィルタを追加。 (--vpp-overlay)
+- lowlatency向けにmuxの挙動を調整。
+- 動画ファイルに添付ファイルをつけるオプションを追加。 (--attachement-source)
+- --perf-monitorでビットレート情報等が出力されないのを修正。
+- 音声エンコードスレッド (--thread-audio 1) が動作しなくなっていた問題を修正。
 
 2023.01.22 (7.28)
 [QSVEncC]
-- --scenario-info�̌뎚�̏C���B
+- --scenario-infoの誤字の修正。
 
 2023.01.22 (7.27)
 [QSVEncC]
-- --vpp-decimate�ɕ����̃t���[����drop������I�v�V������ǉ��B
-- AV1��master-display�̎�舵�������P�B
-- maxcll���邢��mastering display�̕Е����Ȃ��Ƃ��ɁAAV1�G���R�[�h�œK�؂łȂ��f�[�^�����s����Ă������̏C���B
-- ����ɂ��--audio-copy�̎w�肪�K�؂ɓ��삵�Ă��Ȃ����������C���B
+- --vpp-decimateに複数のフレームをdropさせるオプションを追加。
+- AV1のmaster-displayの取り扱いを改善。
+- maxcllあるいはmastering displayの片方がないときに、AV1エンコードで適切でないデータが発行されていた問題の修正。
+- 言語による--audio-copyの指定が適切に動作していなかった問題を修正。
 
 2023.01.21 (7.26)
 [QSVEncC]
-- �V�i���I����n���ĉ掿�̍œK�����s���I�v�V������ǉ��B(--scenario-info)
-- vbvbufsize��65535�ȏ�̒l���w�肷��Ƃ������Ȓl���ݒ肳��邱�Ƃ���������C���B
-- dolby-vision-profile���g�p�����ꍇ�ł��A�w�肵��chromaloc�����D�悳���悤�����ύX�B
-- OpenGOP�̍ۂ�IdrInterval��ύX���Ȃ��悤�ɁB
-- lookahead depth�̍ŏ��l�������O���B
+- シナリオ情報を渡して画質の最適化を行うオプションを追加。(--scenario-info)
+- vbvbufsizeに65535以上の値を指定するとおかしな値が設定されることがある問題を修正。
+- dolby-vision-profileを使用した場合でも、指定したchromaloc等が優先されるよう動作を変更。
+- OpenGOPの際にIdrIntervalを変更しないように。
+- lookahead depthの最小値制限を外す。
 
 2023.01.11 (7.25)
 [QSVEncC]
-- �����[�g�f�X�N�g�b�v�g�p���ɏ������Ɏ��s��������C���B
-- �f�o�b�O���O�������B
-- lookahead depth��VBR/CBR�ł��L���ȏꍇ������̂ŁA���O�ɕ\������悤�ɁB
-- trellis��H.264�G���R�[�h���̂ݕ\������悤�ύX�B
+- リモートデスクトップ使用時に初期化に失敗する問題を修正。
+- デバッグログを強化。
+- lookahead depthはVBR/CBRでも有効な場合があるので、ログに表示するように。
+- trellisはH.264エンコード時のみ表示するよう変更。
 
 [QSVEnc.auo]
-- �G���[���b�Z�[�W�̕����������C���B
+- エラーメッセージの文字化けを修正。
 
 2022.11.12 (7.24)
 [QSVEncC]
-- �G���R�[�h����t���[�������w�肷��I�v�V����(--frames)��ǉ��B
-- --fps�œ��̓t���[�����[�g�������ł���悤�ɁB
-- --vpp-tweak��swapuv�I�v�V������ǉ��B
-- --vpp-subburn��foced flag�t���̎����̂ݏĂ����ރI�v�V������ǉ��B
-- �o�̓t�@�C������.raw�̏ꍇ��raw�o�͂Ƃ���悤�ɁB
+- エンコードするフレーム数を指定するオプション(--frames)を追加。
+- --fpsで入力フレームレートを強制できるように。
+- --vpp-tweakにswapuvオプションを追加。
+- --vpp-subburnにfoced flag付きの字幕のみ焼きこむオプションを追加。
+- 出力ファイル名が.rawの場合もraw出力とするように。
 
 2022.11.01 (7.23)
 [QSVEncC]
-- 7.22��--check-features�̃��[�g���䃂�[�h�̕\������������ւ���Ă����̂��C���B
+- 7.22で--check-featuresのレート制御モードの表示順序が入れ替わっていたのを修正。
 
 [QSVEnc.auo]
-- 7.22�œK�؂ȃ��[�g���䃂�[�h��I���ł��Ȃ��Ȃ��Ă����̂��C���B
+- 7.22で適切なレート制御モードを選択できなくなっていたのを修正。
 
 2022.10.30 (7.22)
 [QSVEncC]
-- --vpp-afs��AV1�G���R�[�h��g�ݍ��킹���ꍇ�ɐ���ɓ��삵�Ȃ������C���B
-- �w�肵���I�v�V�����ɂ��K�؂�GPU�������I�ɑI������悤�ɁB
+- --vpp-afsとAV1エンコードを組み合わせた場合に正常に動作しない問題を修正。
+- 指定したオプションにより適切なGPUを自動的に選択するように。
 
 [QSVEnc.auo]
-- AV1�̃r�b�g�[�x���w�肷��ݒ藓��ǉ��B
+- AV1のビット深度を指定する設定欄を追加。
 
 2022.09.21 (7.21)
 [QSVEncC]
-- --master-display/--maxcll/--dhdr10plus��AV1�G���R�[�h�ɑΉ��B
-- �V���ȃI�v�V������ǉ��B
+- --master-display/--maxcll/--dhdr10plusをAV1エンコードに対応。
+- 新たなオプションを追加。
   - --repeat-headers
   - --intra-refresh-cycle
   - --hevc-gpb
-- --atcsei�̏������O�ɒǉ��B
-- AV1��CQP/ICQ�̏����255�ɕύX�B
-- AV1��GopRefDist�̃f�t�H���g��8�ɕύX�B
-- --vpp-deband��OpenCL�R���p�C���G���[������������C���B
-- Arc GPU��OpenCL�t�B���^��avhw�ȊO�̓ǂݍ��݂�g�ݍ��킹���Ƃ��̃G���[���C���B
+- --atcseiの情報をログに追加。
+- AV1のCQP/ICQの上限を255に変更。
+- AV1のGopRefDistのデフォルトを8に変更。
+- --vpp-debandでOpenCLコンパイルエラーが生じる問題を修正。
+- Arc GPUでOpenCLフィルタとavhw以外の読み込みを組み合わせたときのエラーを修正。
 
 [QSVEnc.auo]
-- �ݒ��ʂ̋����s�R���C���B
+- 設定画面の挙動不審を修正。
 
 2022.09.21 (7.20)
 [QSVEncC]
-- AV1�p��--gop-ref-dist�p�����[�^��ǉ��B�]���� "1" �Œ�ł��������A����� "4" �Ȃǂɑ傫�����邱�ƂŁA���k����傫�����コ����B
-- AV1��--gop-ref-dist�̃f�t�H���g��4�ɕύX�B(�]���� "1" �Œ�)
+- AV1用に--gop-ref-distパラメータを追加。従来は "1" 固定であったが、これを "4" などに大きくすることで、圧縮率を大きく向上させる。
+- AV1の--gop-ref-distのデフォルトを4に変更。(従来は "1" 固定)
 
 2022.09.19 (7.19)
 [QSVEncC]
-- --hyper-mode�̃f�t�H���g��off�ɕύX����B
-  ��Ή����ŃG���[���������A����HEVC�G���R�[�h�ɂ����Č����_�ł͉��������ꍇ�����邽�߁B
+- --hyper-modeのデフォルトをoffに変更する。
+  非対応環境でエラーが発生し、特にHEVCエンコードにおいて現時点では回避が難しい場合があるため。
 
 [QSVEnc.auo]
-- �뎚�̏C���B
-- ������|����X�V�B
+- 誤字の修正。
+- 中国語翻訳を更新。
 
 2022.09.18 (7.18)
 [QSVEncC]
-- QSVEnc 7.17�ŁA--profile���w�肷��ƈُ�I������P�[�X���������̂��C���B
+- QSVEnc 7.17で、--profileを指定すると異常終了するケースがあったのを修正。
 
 [QSVEnc.auo]
-- Aviutl������Ή�������Ă���Nsyw�l�ɒ񋟂���������������Ή���ǉ��B
-  �|��̑Ή��A���肪�Ƃ��������܂����I
+- Aviutl中国語対応をされているNsyw様に提供いただいた中国語対応を追加。
+  翻訳の対応、ありがとうございました！
 
 2022.09.17 (7.17)
 [QSVEncC]
-�E�ꕔ���ŁA7.08�ȍ~VP9�G���R�[�h���ł��Ȃ��Ȃ��Ă����̂��C���B
-�Eaud/pic-struct���g�p�\���̃`�F�b�N��ǉ��B
+・一部環境で、7.08以降VP9エンコードができなくなっていたのを修正。
+・aud/pic-structが使用可能かのチェックを追加。
 
 [QSVEnc.auo]
-�E�ݒ��ʏ�Ƀc�[���`�b�v��ǉ��B
-�E�p��\���ɑΉ��B
+・設定画面上にツールチップを追加。
+・英語表示に対応。
 
 2022.09.07 (7.16)
 [QSVEncC]
-- QSVEnc 7.15�ŁAIcelake���O�̊���HEVC�G���R�[�h���ł��Ȃ��Ȃ��Ă��������C���B
+- QSVEnc 7.15で、Icelakeより前の環境でHEVCエンコードができなくなっていた問題を修正。
 
 2022.09.05 (7.15)
 [QSVEncC]
-- HEVC��HyperMode���g�p�ł���悤�����B
-- �f�o�C�X�������I������ہA�Ӑ}���Ȃ��f�o�C�X��͂�ł��܂����Ƃ��������̂��C���B
-- OpenCL�t�B���^�̈��萫���P�B
+- HEVCでHyperModeが使用できるよう調整。
+- デバイスを自動選択する際、意図しないデバイスを掴んでしまうことがあったのを修正。
+- OpenCLフィルタの安定性改善。
 
 2022.09.01 (7.14)
 [QSVEncC]
-- --ssim, --psnr�̈��萫�����P�B
-- GPU�g�p�����̏����W�����P�B
+- --ssim, --psnrの安定性を改善。
+- GPU使用率等の情報収集を改善。
 
 [QSVEnc.auo]
-- AuoLink�@�\��p�~�B
+- AuoLink機能を廃止。
 
 2022.08.25 (7.13)
 [QSVEncC]
-- --audio-stream�̏����ŁA�r���ŉ����̃`�����l�����ω������ꍇ�ɂ��Ή��B
+- --audio-streamの処理で、途中で音声のチャンネルが変化した場合にも対応。
 
 2022.08.24 (7.12)
 [QSVEncC]
-- --vpp-yadif���ŏI�t���[���ŃG���[�I�����Ă��܂����Ƃ���������C���B
+- --vpp-yadifが最終フレームでエラー終了してしまうことがある問題を修正。
 
 2022.08.23 (7.11)
 [QSVEncC]
-- �C���^�������t�B���^������ɒǉ��B(--vpp-yadif)
-- ���ɂ���āA�v���C�}���ȊO��GPU�����߂Ȃ��ꍇ���������̂��C���B
+- インタレ解除フィルタをさらに追加。(--vpp-yadif)
+- 環境によって、プライマリ以外のGPUがつかめない場合があったのを修正。
 
 [QSVEnc.auo]
-- AVX2�g�p����FAW��1/2���[�h������ɏ����ł��Ȃ������̂��C���B
+- AVX2使用時にFAWの1/2モードが正常に処理できなかったのを修正。
 
 2022.08.17 (7.10)
 [QSVEncC]
-- Linux���ŁAlibmfx-gen1.2�𓱓�����Ɛ���ɓ��삵�Ȃ��Ȃ��Ă��܂������C���B
+- Linux環境で、libmfx-gen1.2を導入すると正常に動作しなくなってしまう問題を修正。
 
 2022.08.14 (7.09)
 [QSVEncC]
-- --disable-opencl�g�p���ɃG���[�I�����Ă��܂������C���B
-- Linux��--check-device��GPU�����擾�ł��Ȃ������C���B
-- Linux�ŕW�����͂���ǂݍ��܂����Ƃ��ɁA�Ӑ}�������������f���Ă��܂������C���B
-  �Ȃ��A����ɔ���Linux�ł̓R���\�[�������'q'���邢��'Q'�ł̃v���O�����I���̓T�|�[�g���Ȃ��悤�ύX�����B(Ctrl+C�ő�p�̂���)
+- --disable-opencl使用時にエラー終了してしまう問題を修正。
+- Linuxで--check-deviceでGPU名が取得できない問題を修正。
+- Linuxで標準入力から読み込ませたときに、意図せず処理が中断してしまう問題を修正。
+  なお、これに伴いLinuxではコンソールからの'q'あるいは'Q'でのプログラム終了はサポートしないよう変更した。(Ctrl+Cで代用のこと)
 
 [QSVEnc.auo]
-- qaac/fdkaac�̃R�}���h���C���� --gapless-mode 2 ��ǉ��B
+- qaac/fdkaacのコマンドラインに --gapless-mode 2 を追加。
 
 2022.08.08 (7.08)
 [QSVEncC]
-- HyperMode�̌��o���C���B
-- --hyper-mode on �̎��ɂȂ�ׂ�HyperMode���g�p�ł���悤�p�����[�^�������s���悤�ɁB
-- B�t���[���̃`�F�b�N��ǉ��B
-- --check-features���g�����A--fixed-func�L����(FF)�Ɩ�����(PG)�̎��̑o����ʁX�Ƀ`�F�b�N����悤�ɁB
-- --check-features, --check-environment��--device�Ŏw�肷��f�o�C�X�ŏ����擾�ł���悤�ɁB
-- --async-depth�̐���������B
+- HyperModeの検出を修正。
+- --hyper-mode on の時になるべくHyperModeが使用できるようパラメータ調整を行うように。
+- Bフレームのチェックを追加。
+- --check-featuresを拡張し、--fixed-func有効時(FF)と無効時(PG)の時の双方を別々にチェックするように。
+- --check-features, --check-environmentが--deviceで指定するデバイスで情報を取得できるように。
+- --async-depthの制限を解放。
 
 [QSVEnc.auo]
-- HyperMode�̐ݒ藓��ǉ��B
-- �f�o�C�X�I�𗓂�ǉ��B
+- HyperModeの設定欄を追加。
+- デバイス選択欄を追加。
 
 2022.08.01 (7.07)
-- �f�o�C�X�I�����A�f�t�H���g�f�o�C�X�ȊO�łُ͈�I�����Ă��܂��Ă��������C���B
-- �g�p�\�ȃf�o�C�X�̈ꗗ��\������I�v�V������ǉ��B(--check-device)
-- AV1��level��profile������ւ���Ă��܂��Ă����̂��C���B
-- AV1�ł�B�t���[���w��𖳌��ɁB
-  B�t���[���ݒ���w�肵�܂��ƁA����ɍĐ��ł��Ȃ��t�@�C�����쐬����Ă����B
+- デバイス選択時、デフォルトデバイス以外では異常終了してしまっていた問題を修正。
+- 使用可能なデバイスの一覧を表示するオプションを追加。(--check-device)
+- AV1のlevelとprofileが入れ替わってしまっていたのを修正。
+- AV1ではBフレーム指定を無効に。
+  Bフレーム設定を指定しまうと、正常に再生できないファイルが作成されていた。
 
 2022.07.03 (7.06)
-- API 2.2�Œǉ����ꂽAdaptiveCQM��L���ɂ���I�v�V������ǉ��B(--adapt-cqm)
-- API 2.4�Œǉ����ꂽAdaptiveRef��L���ɂ���I�v�V������ǉ��B(--adapt-ref)
-- API 2.4�Œǉ����ꂽAdaptiveLTR��L���ɂ���I�v�V������ǉ��B (--adapt-ltr)
-- QSVEnc 6.10����AV1 hw�f�R�[�h���ł��Ȃ��P�[�X���������̂�����B
+- API 2.2で追加されたAdaptiveCQMを有効にするオプションを追加。(--adapt-cqm)
+- API 2.4で追加されたAdaptiveRefを有効にするオプションを追加。(--adapt-ref)
+- API 2.4で追加されたAdaptiveLTRを有効にするオプションを追加。 (--adapt-ltr)
+- QSVEnc 6.10からAV1 hwデコードができないケースがあったのを回避。
 
 2022.07.02 (7.05)
 [QSVEncC]
-- QSVEnc 7.02����A--vpp-afs��--fixed-func�g�p���ɉ�ʂ̍��[�ɐF�ُ̈킪�݂�������C���B
-- oneVPL�Ŕ񐄏��ƂȂ���--adapt-ltr��p�~�B
-- ���̑��񐄏��֐��̎g�p���팸�B
+- QSVEnc 7.02から、--vpp-afsと--fixed-func使用時に画面の左端に色の異常がみられる問題を修正。
+- oneVPLで非推奨となった--adapt-ltrを廃止。
+- その他非推奨関数の使用を削減。
 
 2022.06.28 (7.04)
 [QSVEncC]
-- oneVPL���X�V���AAPI 2.6�ɑΉ��B
-- HyperMode(DeepLink)���g�p�\�ɁB(--hyper-mode)
-- AVPacket�֘A�̔񐄏��֐��̎g�p���팸�B
-- yuv422�ǂݍ��ݎ���crop�𕹗p����ƁA���������������Ă��܂������C���B
+- oneVPLを更新し、API 2.6に対応。
+- HyperMode(DeepLink)を使用可能に。(--hyper-mode)
+- AVPacket関連の非推奨関数の使用を削減。
+- yuv422読み込み時にcropを併用すると、黒い横線が生じてしまう問題を修正。
 
 [QSVEnc.auo]
-- �f�t�H���g�̉����r�b�g���[�g��ύX�B
-- �v���Z�b�g�̉����r�b�g���[�g��ύX�B
-- exe_files������s�t�@�C�������o�ł��Ȃ��ꍇ�Aplugins\exe_files����������悤�ɁB
+- デフォルトの音声ビットレートを変更。
+- プリセットの音声ビットレートを変更。
+- exe_filesから実行ファイルを検出できない場合、plugins\exe_filesを検索するように。
 
 2022.06.17 (7.03)
 [QSVEncC]
-- --vpp-colorspace lut3d������ɓ��삵�Ȃ��ꍇ���������̂��C���B
-- --check-features-html�g�p���̕��������΍�B
+- --vpp-colorspace lut3dが正常に動作しない場合があったのを修正。
+- --check-features-html使用時の文字化け対策。
 
 [QSVEnc.auo]
-- �G���R�[�h�I�����O�̕��������΍�B
+- エンコード終了ログの文字化け対策。
 
 2022.06.14 (7.02)
 [QSVEncC]
-- vpp-colorspace��3D LUT��K�p�\�ɁB(--vpp-colorspace lut3d )
-- 3�����m�C�Y�����t�B���^��ǉ��B(--vpp-convolution3d)
-- vpp-colorspace��hdr2sdr�g�p���ɁAldr_nits, source_peak�Ɋւ���G���[�`�F�b�N��ǉ��B
-- �A�X�y�N�g����ێ����A�w��̉𑜓x�Ƀ��T�C�Y����I�v�V������ǉ��B
-- vpp-smooth��fp16��subgroup���T�|�[�g����Ȃ��Ƃ��ɑΉ��B
-- hevc 10bit��avhw�g�p���ɐ���Ƀf�R�[�h�ł��Ȃ������C���B
-- YUV420��vpp-afs�g�p���ɁA��d������t���[���ŎȖ͗l���������Ă��܂������C���B
-- Ubuntu 22.04�����p�b�P�[�W��ǉ��B
+- vpp-colorspaceで3D LUTを適用可能に。(--vpp-colorspace lut3d )
+- 3次元ノイズ除去フィルタを追加。(--vpp-convolution3d)
+- vpp-colorspaceのhdr2sdr使用時に、ldr_nits, source_peakに関するエラーチェックを追加。
+- アスペクト比を維持しつつ、指定の解像度にリサイズするオプションを追加。
+- vpp-smoothでfp16やsubgroupがサポートされないときに対応。
+- hevc 10bitでavhw使用時に正常にデコードできない問題を修正。
+- YUV420でvpp-afs使用時に、二重化するフレームで縞模様が発生してしまう問題を修正。
+- Ubuntu 22.04向けパッケージを追加。
 
 [QSVEnc.auo]
-- �����v���O�C���g�p���ɐݒ��ʂ̕`��𒲐��B
-- ffmpeg (AAC)�� -aac_coder twoloop ���g�p����悤�ɁB
-- �ȈՃC���X�g�[���𒼐ڎ��s�����ꍇ�ɁA�G���[���b�Z�[�W��\������悤�ɕύX�B
-- �f�B�X�N�e�ʂ�����Ȃ����ɂǂ̃h���C�u������Ȃ����\������悤�ɁB
-- �O��muxer�g�p���ɁA�Ȃ�ׂ�remuxer�ŏ�������悤�ύX�B
-- ScrollToCaret()���g�p���Ȃ��悤�ɁB
-- �����̈ꎞ�o�͐悪���f����Ȃ��Ȃ��Ă����̂��C���B
+- 黒窓プラグイン使用時に設定画面の描画を調整。
+- ffmpeg (AAC)で -aac_coder twoloop を使用するように。
+- 簡易インストーラを直接実行した場合に、エラーメッセージを表示するように変更。
+- ディスク容量が足りない時にどのドライブが足りないか表示するように。
+- 外部muxer使用時に、なるべくremuxerで処理するよう変更。
+- ScrollToCaret()を使用しないように。
+- 音声の一時出力先が反映されなくなっていたのを修正。
 
 2022.04.16 (7.01)
 [QSVEncC]
-- ���ɂ���ăG���R�[�h���J�n���ꂸ�A�t���[�Y���Ă��܂������C���B
-- �����̊J�n������0�łȂ��A���f���Ɖ�����timebase���قȂ�ꍇ�̉��Y�����C���B
+- 環境によってエンコードが開始されず、フリーズしてしまう問題を修正。
+- 音声の開始時刻が0でなく、かつ映像と音声のtimebaseが異なる場合の音ズレを修正。
 
 2022.04.07 (7.00)
 [QSVEncC]
-- Visual Studio 2022�Ɉڍs�B
-- AV1�G���R�[�h�Ή������B(-c av1)
-- �g�p�f�o�C�X��I������I�v�V������ǉ��B(--device)
+- Visual Studio 2022に移行。
+- AV1エンコード対応準備。(-c av1)
+- 使用デバイスを選択するオプションを追加。(--device)
 
 [QSVEnc.auo]
-- .NET Framework 4.8�Ɉڍs�B
-- �p�b�P�[�W�̃t�H���_�\����ύX�B
-- �ȈՃC���X�g�[���ɂ��C���X�g�[����p�~�B
-- �p�X���w�肳��Ă��Ȃ��ꍇ�Aexe_files���̎��s�t�@�C�����������Ďg�p����悤�ɁB
-- ���O�Ɏg�p�������s�t�@�C���̃p�X���o�͂���悤�ɁB
-- ���΃p�X�ł̃p�X�̕ۑ����f�t�H���g�ɁB
-- �g���ҏW�g�p���̉f���Ɖ����̒������قȂ�ꍇ�̓���̉��P�B
-  �g���ҏW�ŉ�����ǂݍ��܂������ƁA�قȂ�T���v�����O���[�g�̉�����Aviutl�{�̂ɓǂݍ��܂���ƁA
-  �����̃T���v�����͂��̂܂܂ɁA�T���v�����O���[�g�������ς���Ă��܂��A�����̎��Ԃ��ς���Ă��܂����Ƃ�����B
-  �g���ҏW�g�p���ɁA�f���Ɖ����̒����ɂ��ꂪ����ꍇ�A������^���ăT���v�����O���[�g�̂���̉\��������ꍇ��
-  �����̃T���v�������C������B
-- �G���R�[�h����t���[������0�̏ꍇ�̃G���[���b�Z�[�W��ǉ��B
-- ���O�̕ۑ��Ɏ��s����ƁA��O���������Ă����̂��C���B
-- ���O�̕ۑ��Ɏ��s�����ꍇ�ɂ��̌�����\������悤�ɁB
-- mux�G���[�̈ꕔ�������ڂ����\������悤�ɁB
-  mp4�o�͂őΉ����Ă��Ȃ������G���R�[�_��I�������ꍇ�̃G���[���b�Z�[�W��ǉ��B
-- �G���[���b�Z�[�W
-  �ux264���\�������r���I�����܂����Bx264�ɕs���ȃp�����[�^�i�I�v�V�����j���n���ꂽ�\��������܂��B�v
-    �̈ꕔ�������ڂ����\������悤�ɁB
-  1. �f�B�X�N�e�ʕs���ŃG���R�[�h�Ɏ��s�����ꍇ�̃G���[���b�Z�[�W��ǉ��B
-  2. ���ˑ��������܂ރt�@�C����- �t�H���_���ŏo�͂��悤�Ƃ����ꍇ�̃G���[���b�Z�[�W��ǉ��B
-  3. Windows�ɕی삳�ꂽ�t�H���_���A�A�N�Z�X���̂Ȃ��t�H���_�ɏo�͂��悤�Ƃ����ꍇ�̃G���[���b�Z�[�W��ǉ��B
+- .NET Framework 4.8に移行。
+- パッケージのフォルダ構成を変更。
+- 簡易インストーラによるインストールを廃止。
+- パスが指定されていない場合、exe_files内の実行ファイルを検索して使用するように。
+- ログに使用した実行ファイルのパスを出力するように。
+- 相対パスでのパスの保存をデフォルトに。
+- 拡張編集使用時の映像と音声の長さが異なる場合の動作の改善。
+  拡張編集で音声を読み込ませたあと、異なるサンプリングレートの音声をAviutl本体に読み込ませると、
+  音声のサンプル数はそのままに、サンプリングレートだけが変わってしまい、音声の時間が変わってしまうことがある。
+  拡張編集使用時に、映像と音声の長さにずれがある場合、これを疑ってサンプリングレートのずれの可能性がある場合は
+  音声のサンプル数を修正する。
+- エンコードするフレーム数が0の場合のエラーメッセージを追加。
+- ログの保存に失敗すると、例外が発生していたのを修正。
+- ログの保存に失敗した場合にその原因を表示するように。
+- muxエラーの一部原因を詳しく表示するように。
+  mp4出力で対応していない音声エンコーダを選択した場合のエラーメッセージを追加。
+- エラーメッセージ
+  「x264が予期せず途中終了しました。x264に不正なパラメータ（オプション）が渡された可能性があります。」
+    の一部原因を詳しく表示するように。
+  1. ディスク容量不足でエンコードに失敗した場合のエラーメッセージを追加。
+  2. 環境依存文字を含むファイル名- フォルダ名で出力しようとした場合のエラーメッセージを追加。
+  3. Windowsに保護されたフォルダ等、アクセス権のないフォルダに出力しようとした場合のエラーメッセージを追加。
 
 2022.03.06 (6.10)
 [QSVEncC]
-�Effmpeg�֘A��dll���X�V�B(Windows��)
+・ffmpeg関連のdllを更新。(Windows版)
   ffmpeg     4.x    -> 5.0
   expat      2.2.5  -> 2.4.4
   fribidi    1.0.1  -> 1.0.11
@@ -616,148 +616,148 @@ API v1.1  �c Intel Media SDK v2.0
   dav1d      0.6.0  -> 0.9.2
 
 [QSVEnc.auo]
-�E�o�͂̍ہAAviutl���J���Ă���t�@�C���ɏ㏑�����Ȃ��悤�ɁB
-�EH.264��features���ݒ��ʂŔF������Ȃ��̂��C���B
+・出力の際、Aviutlが開いているファイルに上書きしないように。
+・H.264のfeaturesが設定画面で認識されないのを修正。
 
 2022.02.26 (6.09)
 [QSVEncC]
-�E6.08��b-pyramid���g�p�ł��Ȃ��Ȃ��Ă�������C���B
+・6.08でb-pyramidが使用できなくなっている問題を修正。
 
 [QSVEnc.auo]
-�E�o�͂̍ہAAviutl���J���Ă���t�@�C���ɏ㏑�����Ȃ��悤�ɁB
-�E�ݒ肪�s���Ă��Ȃ��ꍇ�ɁA�O��o�͂����ݒ��ǂݍ��ނ悤�ɁB
-�E������Aviutl�v���Z�X�ŏo�͂��Ă��Ă�����Ƀ`���v�^�[��������悤�ɁB
-�E���O�o�͂̃��[�h��ύX����Ɛ���ɏo�͂ł��Ȃ����Ƃ��������̂��C���B
+・出力の際、Aviutlが開いているファイルに上書きしないように。
+・設定が行われていない場合に、前回出力した設定を読み込むように。
+・複数のAviutlプロセスで出力していても正常にチャプターを扱えるように。
+・ログ出力のモードを変更すると正常に出力できないことがあったのを修正。
 
 2022.02.08 (6.08v3)
 2022.02.08 (6.08v2)
-�ESetThreadInformation���g�p�ł��Ȃ����ł̖�������B
+・SetThreadInformationが使用できない環境での問題を回避。
 
 2022.02.06 (6.08)
-�EVP9�G���R�[�h�ɑΉ��B(-c vp9)
-�EDolby Vision��rpu��ǂݍ��ݔ��f������I�v�V������ǉ��B(--dolby-vision-rpu)
-�EDolby Vision�̃v���t�@�C�����w�肷��I�v�V������ǉ��B(--dolby-vision-profile)
+・VP9エンコードに対応。(-c vp9)
+・Dolby Visionのrpuを読み込み反映させるオプションを追加。(--dolby-vision-rpu)
+・Dolby Visionのプロファイルを指定するオプションを追加。(--dolby-vision-profile)
 
 2022.01.27 (6.07)
-�EVBR���[�h���̃r�b�g���[�g�w�胂�[�h�g�p���ɁA�����ԃG���R�[�h����ƃr�b�g���[�g���������ቺ���Ă��܂����������B
+・VBRモード等のビットレート指定モード使用時に、長時間エンコードするとビットレートが著しく低下してしまう問題を解消。
 
 2021.12.1 (6.06)
-�E�X���b�h�̗D��x��Power Throttoling���[�h���w�肷��I�v�V������ǉ��B(--thread-priority, --thread-throttling)
-�Ed3d11�������̎g�p�ł��Ȃ����ł̖��ɑΏ��B
-�E�ꕔ�̊��ŁAQSVEncC64.featureCache.txt�����݂����QSVEnc.auo�̐ݒ��ʂ�\������ۂɃN���b�V������̂��C���B
+・スレッドの優先度とPower Throttolingモードを指定するオプションを追加。(--thread-priority, --thread-throttling)
+・d3d11メモリの使用できない環境での問題に対処。
+・一部の環境で、QSVEncC64.featureCache.txtが存在するとQSVEnc.auoの設定画面を表示する際にクラッシュするのを修正。
 
 2021.11.01 (6.05)
-�E--dar�w�莞�ɕ��̉𑜓x���g�p����ƁAsar�����Ōv�Z����Ӑ}���Ȃ��𑜓x�ƂȂ�̂��C���B
-�EAPI v2.05��--vpp-denoise�̃��[�h�w��ɑΉ��B
-  �Ȃ��A9955�h���C�o�ł��g�p�ł��Ȃ��͗l�B
+・--dar指定時に負の解像度を使用すると、sar扱いで計算され意図しない解像度となるのを修正。
+・API v2.05の--vpp-denoiseのモード指定に対応。
+  なお、9955ドライバでも使用できない模様。
 
 2021.10.14 (6.04)
-�E�z�蓮�����Windows11��ǉ��B
-�EWindows11�̌��o��ǉ��B
-�E�X���b�h�A�t�B�j�e�B���w�肷��I�v�V������ǉ��B(--thread-affinity)
-�E���O�̊e�s�Ɏ�����\������I�v�V������ǉ�(�f�o�b�O�p)�B(--log-opt addtime)
-�Edynamic hdr10plus��metadata���R�s�[����I�v�V������ǉ��B(--dhdr10-info)
-�Ebitstream�̃w�b�_�T����AVX2/AVX512��p���č������B
-�E12bit�[�x��10bit�[�x�ɕϊ�����Ƃ��ȂǂɁA��ʂ̍���ɗΐF�̐������邱�Ƃ��������̂��C���B
+・想定動作環境にWindows11を追加。
+・Windows11の検出を追加。
+・スレッドアフィニティを指定するオプションを追加。(--thread-affinity)
+・ログの各行に時刻を表示するオプションを追加(デバッグ用)。(--log-opt addtime)
+・dynamic hdr10plusのmetadataをコピーするオプションを追加。(--dhdr10-info)
+・bitstreamのヘッダ探索をAVX2/AVX512を用いて高速化。
+・12bit深度を10bit深度に変換するときなどに、画面の左上に緑色の線が入ることがあったのを修正。
 
 2021.09.25 (6.03)
-�E�N�����x���킸���ɍ������B
-�E--caption2ass���g�p�ł��Ȃ������̂��C���B
-�EOpenCL�̏���\������I�v�V������ǉ��B(--check-clinfo)
-�E--vpp-smooth��quality=0�̂Ƃ��ɂ�prec=fp16���g�p�ł��Ȃ��̂ŁA�����I��prec=fp32�ɐ؂�ւ��B
-�E���O�̊e�s�Ɏ�����\������I�v�V������ǉ��B(--log-opt addtime)
+・起動速度をわずかに高速化。
+・--caption2assが使用できなかったのを修正。
+・OpenCLの情報を表示するオプションを追加。(--check-clinfo)
+・--vpp-smoothでquality=0のときにはprec=fp16を使用できないので、自動的にprec=fp32に切り替え。
+・ログの各行に時刻を表示するオプションを追加。(--log-opt addtime)
 
 2021.09.19 (6.02)
-�EVPL��2021.6�ɍX�V�B
-�EVPL�̎������g�p���āA���p�\�ȃ��[�h��񋓂���--check-impl��ǉ��B
-�E--vpp-resize lanczosx�̍œK���B11700K��50%�������B
-�E--vpp-smooth�̍œK���B11700K��25%�������B
-�E--vpp-knn�̍œK���B11700K�Ŗ�2�{�������B
-�EOpenCL�t�B���^�̃p�t�H�[�}���X����p�̃I�v�V������ǉ��B(--vpp-perf-monitor)
-�E������bitstream filter��K�p����--audio-bsf��ǉ��B
+・VPLを2021.6に更新。
+・VPLの実装を使用して、利用可能なモードを列挙する--check-implを追加。
+・--vpp-resize lanczosxの最適化。11700Kで50%高速化。
+・--vpp-smoothの最適化。11700Kで25%高速化。
+・--vpp-knnの最適化。11700Kで約2倍高速化。
+・OpenCLフィルタのパフォーマンス測定用のオプションを追加。(--vpp-perf-monitor)
+・音声にbitstream filterを適用する--audio-bsfを追加。
 
 2021.09.06 (6.01)
-�E6.00��--d3d9, --disable-d3d�������Ȃ������̂��C���B
-�E--vpp-colorspace�g�p���ɁA�𑜓x�ɂ���Ă͍ŏI�s�ɗ΂̐�����������C���B
-  6.00�ŏC��������Ă��Ȃ������B
+・6.00で--d3d9, --disable-d3dが効かなかったのを修正。
+・--vpp-colorspace使用時に、解像度によっては最終行に緑の線が入る問題を修正。
+  6.00で修正しきれていなかった。
 
 2021.09.05 (6.00)
-�EMediaSDK����oneAPI Video Processing Library(VPL)�Ɉڍs���AAPI 2.04�ɑΉ��B
-  API 2.xx �́ARocketlake/Tigerlake(Winodws��)����g�p�\(�̂͂�)�B
-�Eyuv444��nv12�Ŏw�肷�ׂ����𑜓x������Ă����̂��C���B����ɂ��ŏI�s�ɗ΂̐���������������B
-  (5.06�ŏC��������Ă��Ȃ�����)
-�Eaudio-delay�������Ă��Ȃ������̂��C���B
+・MediaSDKからoneAPI Video Processing Library(VPL)に移行し、API 2.04に対応。
+  API 2.xx は、Rocketlake/Tigerlake(Winodws版)から使用可能(のはず)。
+・yuv444→nv12で指定すべき横解像度が誤っていたのを修正。これにより最終行に緑の線が入る問題を解消。
+  (5.06で修正しきれていなかった)
+・audio-delayが効いていなかったのを修正。
 
 2021.08.12 (5.07)
-�Evpp-subburn�Ŏg�p�ł���t�H���g�̃^�C�v���X�V�B
-�Eaudio-delay�������Ă��Ȃ������̂��C���B
-�E--vpp-colorspace�g�p���ɍŏI�s�ɗ΂̐�����������C���B
+・vpp-subburnで使用できるフォントのタイプを更新。
+・audio-delayが効いていなかったのを修正。
+・--vpp-colorspace使用時に最終行に緑の線が入る問題を修正。
 
 2021.07.26 (5.06)
-�Essim/psnr���v�Z�ł���悤�ɁB(--ssim/--psnr)
-�Eyuv444��nv12�Ŏw�肷�ׂ����𑜓x������Ă����̂��C���B����ɂ��ŏI�s�ɗ΂̐������������������B
-�Eyuv444��p010��avx2�ł̐F������C���B
-�Ergb�ǂݍ��݂�OpenCL�t�B���^���g�ݍ��킹���Ȃ������̂��C���B
-�ELinux��--disable-va�œ��삵�Ȃ����������C���B
-�E--vpp-colorspace��Linux�œ��삵�Ȃ����������C���B
+・ssim/psnrを計算できるように。(--ssim/--psnr)
+・yuv444→nv12で指定すべき横解像度が誤っていたのを修正。これにより最終行に緑の線が入る問題を解消する。
+・yuv444→p010のavx2版の色ずれを修正。
+・rgb読み込みとOpenCLフィルタが組み合わせられなかったのを修正。
+・Linuxで--disable-vaで動作しなかった問題を修正。
+・--vpp-colorspaceがLinuxで動作しなかった問題を修正。
 
 2021.06.12 (5.05)
-�Eavhw�ȊO�̓ǂݍ��݂�OpenCL�t�B���^���Ȃ����Ă���ꍇ�̏������������B
-�E���̓t�@�C���Əo�̓t�@�C���������ł���ꍇ�ɃG���[�I������悤�ɁB
-�E--vpp-decimate�ňُ�I�����������邱�Ƃ��������̂��C���B
-�Ey4m�ǂݍ��݂̍ہA�w�肵���C���^���ݒ肪���f����Ȃ����Ƃ��������̂��C���B
-�E�ꕔ��Avisynth���Ő�����G���[�I��������B
+・avhw以外の読み込みとOpenCLフィルタがつながっている場合の処理を効率化。
+・入力ファイルと出力ファイルが同じである場合にエラー終了するように。
+・--vpp-decimateで異常終了が発生することがあったのを修正。
+・y4m読み込みの際、指定したインタレ設定が反映されないことがあったのを修正。
+・一部のAvisynth環境で生じるエラー終了を回避。
 
 2021.05.29 (5.04)
-�E�g�p�\�Ȋ��ł́A���d3d11��D�悵�Ďg�p����悤�ύX�B
-  MediaSDK�̃T���v���ł����̂悤�ȕύX���s���Ă����̂őΉ��B
+・使用可能な環境では、常にd3d11を優先して使用するよう変更。
+  MediaSDKのサンプルでもこのような変更が行われていたので対応。
   https://github.com/Intel-Media-SDK/MediaSDK/commit/c4fbaedd8a827ec36ee312e978e993d3f938201c
-�E5.02����AFailed to find d3d9 device�Əo�Ă��܂��̂��C���B
-�E5.01����Aavhw�ȊO�̓ǂݍ��݂��璼��OpenCL�t�B���^�ɓn���ƁA�t���[������������ւ�����肵�Ă��܂��Ă��������C���B
-�E5.01����AOpenCL��crop����ƐF�����������̂��C���B
-�EBroadwell�ȑO�̊���vpp-mpdecimate/decimate���t���[�Y���Ă��܂���������B
+・5.02から、Failed to find d3d9 deviceと出てしまうのを修正。
+・5.01から、avhw以外の読み込みから直接OpenCLフィルタに渡すと、フレーム順序が入れ替わったりしてしまっていた問題を修正。
+・5.01から、OpenCLでcropすると色成分がずれるのを修正。
+・Broadwell以前の環境でvpp-mpdecimate/decimateがフリーズしてしまう問題を回避。
 
 2021.05.23 (5.03)
-�Eraw�o�́Alog�o�͂̍ۂɃJ�����g�f�B���N�g���ɏo�͂��悤�Ƃ���ƈُ�I����������������C���B
-�EWin8.1��Sandybridge�ł̃f�R�[�h�G���[���C���B
-�Ecrop��OpenCL�t�B���^�𕹗p����ƁA�F����������Ă��܂��̂��C���B
+・raw出力、log出力の際にカレントディレクトリに出力しようとすると異常終了が発生する問題を修正。
+・Win8.1のSandybridgeでのデコードエラーを修正。
+・cropとOpenCLフィルタを併用すると、色成分がずれてしまうのを修正。
 
 2021.05.16 (5.02)
 [QSVEncC]
-�E5.01�ŁA�K�v�Ȃ���ʂł�d3d11���D�悵�Ďg�p����Ă����̂�d3d9���g�p����悤���Ƃɖ߂��B
-�E5.01�ŁA--avsync forcecfr�g�p���ɘA��16�t���[���ȏ�}�����ł��Ȃ������̂�18000�t���[��(���ۂ͖�����)�ɑ}���\�Ƃ���B
-  �A��16�t���[���ȏ�}�����悤�Ƃ���ƈُ�I�����������Ă����B
-�E5.01�ŁA--vpp-mpdecimate, --vpp-decimate���g�p����ƌ���ă��T�C�Y�s�����ԂɂȂ��Ă����̂��C���B
-�E5.01�ŁA--vpp-pad, --crop�Ő������Ȃ��𑜓x����E�ύX���Ȃ���Ă����̂��C���B
-�E5.01�ŁA--vpp-afs, --vpp-mpdecimate, --vpp-decimate�ňُ�I��(Failed to acquire OpenCL interop)���������Ă����̂��C���B
-�E5.01�ŁA--vpp-deinterlace bob�ňُ�I��(Application provided invalid, non monotonically increasing dts to muxer)���������Ă����̂��C���B
-�E5.01�ŁAWin7��Sandybridge���ł̓f�R�[�h������ɍs���Ȃ��Ȃ��Ă��܂�(�΂̊G���o��)�����������B
-�E5.01�ŁA-c raw�g�p����OpenCL�t�B���^���g�p����ƃG���[���������Ă����̂��C���B
-�E�f�o�b�O�p�̃��O���b�Z�[�W�̉��P�B
+・5.01で、必要ない場面でもd3d11が優先して使用されていたのをd3d9を使用するようもとに戻す。
+・5.01で、--avsync forcecfr使用時に連続16フレーム以上挿入ができなかったのを18000フレーム(実際は無制限)に挿入可能とする。
+  連続16フレーム以上挿入しようとすると異常終了が発生していた。
+・5.01で、--vpp-mpdecimate, --vpp-decimateを使用すると誤ってリサイズ行われる状態になっていたのを修正。
+・5.01で、--vpp-pad, --cropで正しくない解像度操作・変更がなされていたのを修正。
+・5.01で、--vpp-afs, --vpp-mpdecimate, --vpp-decimateで異常終了(Failed to acquire OpenCL interop)が発生していたのを修正。
+・5.01で、--vpp-deinterlace bobで異常終了(Application provided invalid, non monotonically increasing dts to muxer)が発生していたのを修正。
+・5.01で、Win7のSandybridge環境ではデコードが正常に行われなくなってしまう(緑の絵が出る)問題を回避する。
+・5.01で、-c raw使用時にOpenCLフィルタを使用するとエラーが発生していたのを修正。
+・デバッグ用のログメッセージの改善。
 
 [QSVEnc.auo]
-�E�ݒ��ʂ��烊�T�C�Y���w�肵�Ă����ʂ��Ȃ������̂��C���B
+・設定画面からリサイズを指定しても効果がなかったのを修正。
 
 2021.05.08 (5.01)
-�E5.00 beta1���瓮���Ȃ�����Linux�r���h���C���B
-�Eavsw/avhw�ł̃t�@�C���ǂݍ��ݎ��Ƀt�@�C����̓T�C�Y�̏����ݒ肷��I�v�V������ǉ��B(--input-probesize)
-�E--input-analyze�������_�Ŏw��\�Ȃ悤�g���B
-�E�ǂݍ��񂾃p�P�b�g�̏����o�͂���I�v�V������ǉ��B( --log-packets )
-�Edata stream�Ɍ���A�^�C���X�^���v�̓����Ă��Ȃ��p�P�b�g�����̂܂ܓ]������悤�ɂ���B
-�E�I�v�V�������L�ڂ����t�@�C����ǂݍ��ދ@�\��ǉ��B( --option-file )
-�E��������擾�ł��Ȃ��ꍇ�̃G���[���b�Z�[�W��ǉ��B
-�E�R�s�[����track���R�[�f�b�N���őI���\�ɁB
-�E�����̕ϊ����K�v�ȏꍇ�̏������L��������Ă��Ȃ������̂��C���B
-�E5.00beta��-c raw���w�肵�Ă�raw�o�͂���Ȃ��̂��C���B
-�E--vpp-subburn�ŃT�C�Y��0�̎���������ƈُ�I�������������̂��C���B
-�EOpenCL�t�B���^���g�p���A�܂���AV1�f�R�[�h���́Ad3d11���[�h��D�悷��悤�ɁB
+・5.00 beta1から動かなかったLinuxビルドを修正。
+・avsw/avhwでのファイル読み込み時にファイル解析サイズの上限を設定するオプションを追加。(--input-probesize)
+・--input-analyzeを小数点で指定可能なよう拡張。
+・読み込んだパケットの情報を出力するオプションを追加。( --log-packets )
+・data streamに限り、タイムスタンプの得られていないパケットをそのまま転送するようにする。
+・オプションを記載したファイルを読み込む機能を追加。( --option-file )
+・動画情報を取得できない場合のエラーメッセージを追加。
+・コピーするtrackをコーデック名で選択可能に。
+・字幕の変換が必要な場合の処理が有効化されていなかったのを修正。
+・5.00betaで-c rawを指定してもraw出力されないのを修正。
+・--vpp-subburnでサイズが0の字幕がくると異常終了が発生したのを修正。
+・OpenCLフィルタを使用時、またはAV1デコード時は、d3d11モードを優先するように。
 
-�E--videoformat�Ɋւ��Ă͓��͂���e�ՂɎ擾�ł��Ȃ��̂ŁA"auto"���폜�B
-�E--audio-source/--sub-source�𕡐��w�肵���ꍇ�̋��������P�B
-�E������metadata����d�ɏo�͂���Ă��܂��Ă��������C���B
-�E--sub-metadata, --audio-metadata���w�肵���ꍇ�ɂ����̓t�@�C�������metadata���R�s�[����悤�ɁB
+・--videoformatに関しては入力から容易に取得できないので、"auto"を削除。
+・--audio-source/--sub-sourceを複数指定した場合の挙動を改善。
+・字幕のmetadataが二重に出力されてしまっていた問題を修正。
+・--sub-metadata, --audio-metadataを指定した場合にも入力ファイルからのmetadataをコピーするように。
 
-�E���LOpenCL�ɂ��vpp�t�B���^��ǉ��B
+・下記OpenCLによるvppフィルタを追加。
   - --vpp-afs
   - --vpp-colorspace
   - --vpp-deband
@@ -772,220 +772,220 @@ API v1.1  �c Intel Media SDK v2.0
   - --vpp-unsharp
   - --vpp-warpsharp
 
-�Eyuv444��nv12/p010/ayuv/y410�ϊ���AVX2/SSE2�ł�ǉ��B
+・yuv444→nv12/p010/ayuv/y410変換のAVX2/SSE2版を追加。
 
-���m�̖��
-�EYUV422/YUV444�ł́Avpp�t�B���^�����삵�Ȃ��ꍇ������B
+既知の問題
+・YUV422/YUV444では、vppフィルタが動作しない場合がある。
 
 2021.04.07 (5.00 beta2)
-�ESandyBridge�Ȃ�OpenCL�̂Ȃ����œ��삷��悤�ɁB
-�EBroadwell�ȑO�̊��ŁAFailed to find d3d9 device.�œ��삵�Ȃ��Ȃ��Ă����̂��C���B
-�EBroadwell�ȑO�̊��ŁAOpenCL�ł̃R���p�C���G���[����������̂��C���B
-�E�s���肾����CPU�ł�--vpp-delogo��p�~���AOpenCL�ł�--vpp-delogo�������B
-�ERocketlake�ł�AV1��HW�f�R�[�h�ɑΉ��B�������A--d3d11�𕹂��Ďw�肷��K�v������B
-�E--fixed-func���w�肷���YUV444�G���R�[�h���ł��Ȃ��̂��C���B
-�E--async-depth�̃f�t�H���g�l��3�ɕύX�B�s�K�v�Ƀ������𑽂��g�p���Ă����B
-�E-c raw�g�p���ɁAOpenCL�t�B���^���g�p����ƈُ�I�����������邱�Ƃ��������̂��C���B
+・SandyBridgeなどOpenCLのない環境で動作するように。
+・Broadwell以前の環境で、Failed to find d3d9 device.で動作しなくなっていたのを修正。
+・Broadwell以前の環境で、OpenCLでのコンパイルエラーが発生するのを修正。
+・不安定だったCPU版の--vpp-delogoを廃止し、OpenCL版の--vpp-delogoを実装。
+・RocketlakeでのAV1をHWデコードに対応。ただし、--d3d11を併せて指定する必要がある。
+・--fixed-funcを指定するとYUV444エンコードができないのを修正。
+・--async-depthのデフォルト値を3に変更。不必要にメモリを多く使用していた。
+・-c raw使用時に、OpenCLフィルタを使用すると異常終了が発生することがあったのを修正。
 
-���m�̖��
-�ELinux���ł̓r���h�ł��Ȃ��B
-�EYUV422/YUV444�ł́Avpp�t�B���^�����삵�Ȃ��ꍇ������B
+既知の問題
+・Linux環境ではビルドできない。
+・YUV422/YUV444では、vppフィルタが動作しない場合がある。
 
 2021.03.30 (5.00 beta1)
-�V�@�\
-�EMediaSDK�̍X�V�AAPI 1.35�ɑΉ��B
-�EIcelake�ւ̑Ή����g�[�B
-�ERocketlake�Ή��̏��������B
-�E���������̍��V���AOpenCL�t�B���^��g�ݍ��݉\�ɁB
-�@�E--vpp-knn�̒ǉ��B
-�@�E--vpp-transpose�̒ǉ��B
-�EHEVC YUV422/YUV444�f�R�[�h�ɑΉ��B(Icelake/Rocketlake)
-�EHEVC YUV444�G���R�[�h�ɑΉ��B(--output-csp, Icelake/Rocketlake)
-�EVP9 YUV444�f�R�[�h�ɑΉ��B(Icelake/Rocketlake)
-�E--check-features�ŁAHW�f�R�[�h�ɑΉ����Ă���F��Ԃ̏���ǉ��B
-�E���T�C�U�̃A���S���Y�����w�肷��I�v�V������ǉ��B(--vpp-resize/--vpp-resize-mode)
-�EH.264 Level 6, 6.1, 6.2��ǉ��B
+新機能
+・MediaSDKの更新、API 1.35に対応。
+・Icelakeへの対応を拡充。
+・Rocketlake対応の初期実装。
+・内部実装の刷新し、OpenCLフィルタを組み込み可能に。
+　・--vpp-knnの追加。
+　・--vpp-transposeの追加。
+・HEVC YUV422/YUV444デコードに対応。(Icelake/Rocketlake)
+・HEVC YUV444エンコードに対応。(--output-csp, Icelake/Rocketlake)
+・VP9 YUV444デコードに対応。(Icelake/Rocketlake)
+・--check-featuresで、HWデコードに対応している色空間の情報を追加。
+・リサイザのアルゴリズムを指定するオプションを追加。(--vpp-resize/--vpp-resize-mode)
+・H.264 Level 6, 6.1, 6.2を追加。
 
-���m�̖��
-�ELinux���ł̓r���h�ł��Ȃ��B
-�E--vpp-delogo�����삵�Ȃ��B
-�Eavhw���[�_�[�ȊO���g�p����ۂɓ��삪�x���Ȃ�ꍇ������B
-�EYUV422/YUV444�ł́Avpp�t�B���^�����삵�Ȃ��ꍇ������B
+既知の問題
+・Linux環境ではビルドできない。
+・--vpp-delogoが動作しない。
+・avhwリーダー以外を使用する際に動作が遅くなる場合がある。
+・YUV422/YUV444では、vppフィルタが動作しない場合がある。
 
-�p�~
-�Evpp-half-turn��p�~�B--vpp-transform���ő�p�ł���B
+廃止
+・vpp-half-turnを廃止。--vpp-transform等で代用できる。
 
 2021.02.17 (4.13)
-�EAvisynth��Unicode�Ή���ǉ��B
-�EWindows 10��long path support�̒ǉ��B
-�E--audio-source / --sub-source ��metadata���w��\�Ȃ悤�g���B
-�E����ɂ�鉹���⎚���̑I���ɑΉ��B
-�Ebit�[�x��������Ƃ��̊ۂߕ��@��ύX�B
-�Echapter��ǂݍ��ލۂɁAms�̒l�𐳂����擾�ł��Ȃ��ꍇ���������̂��C���B
+・AvisynthのUnicode対応を追加。
+・Windows 10のlong path supportの追加。
+・--audio-source / --sub-source でmetadataを指定可能なよう拡張。
+・言語による音声や字幕の選択に対応。
+・bit深度を下げるときの丸め方法を変更。
+・chapterを読み込む際に、msの値を正しく取得できない場合があったのを修正。
 
 2020.11.23 (4.12)
-�Eextbrc��9025Beta�h���C�o�ɍX�V�����VBR���[�h�Ŏg�p�ł��Ȃ��Ȃ��Ă�����������B
-�Echromaloc��ݒ肷��Əo�͂��ُ�ɂȂ�ꍇ���������̂��C���B
+・extbrcが9025Betaドライバに更新するとVBRモードで使用できなくなっていた問題を回避。
+・chromalocを設定すると出力が異常になる場合があったのを修正。
 
 2020.11.22 (4.11)
-�Echapter��ǂݍ��ލۂɁAms�̒l�𐳂����擾�ł��Ȃ��ꍇ���������̂��C���B
-�EAVX/AVX2���g�p�ł��Ȃ��ꍇ��Linux�r���h���C���B
-�EWinBRC�̑Ώۂ̃��[�g���䃂�[�h���ǂ������`�F�b�N����悤�ɁB
+・chapterを読み込む際に、msの値を正しく取得できない場合があったのを修正。
+・AVX/AVX2が使用できない場合のLinuxビルドを修正。
+・WinBRCの対象のレート制御モードかどうかをチェックするように。
 
 2020.11.19 (4.10)
-�E4.09��B pyramid��Pyram QP Offset���g�p�ł��Ȃ��Ȃ��Ă����̂��C���B
-�Eextbrc�I�v�V������ǉ��B
+・4.09でB pyramidとPyram QP Offsetが使用できなくなっていたのを修正。
+・extbrcオプションを追加。
 
 2020.11.12 (4.09)
-�EMedia SDK 1.34�ɑΉ��B
-�Eyuv422����CPU��yuv420�ɕϊ�����悤�ɁB
-  dGPU���������GPU�ł�yuv422����yuv420�ւ̕ϊ�������ɓ��삵�Ȃ����Ƃ�����悤�Ȃ̂ŁB
-�E�p�t�H�[�}���X���j�^������Ɏ擾�ł��Ȃ����Ƃ�����̂����P�B
+・Media SDK 1.34に対応。
+・yuv422からCPUでyuv420に変換するように。
+  dGPUがある環境でGPUでのyuv422からyuv420への変換が正常に動作しないことがあるようなので。
+・パフォーマンスモニタが正常に取得できないことがあるのを改善。
 
 2020.09.30 (4.08)
-�EApple prores���f�R�[�h�ł��Ȃ��̂��C���B
-�Eraw�ǂݍ��ݎ��ɐF��Ԃ��w�肷��I�v�V������ǉ��B( --input-csp )
-  yuv420/422/444��8-16bit�̓ǂݍ��݂ɑΉ��B
-�E--check-lib�̌��ʂ̐��ۂɂ���ăv���O�����̖߂�l��ύX����悤�ɁB
-�EHEVC�G���R�[�h����--output-depth 10�w�莞�Ɏ����I��main10���g�p����悤�ɁB
-  ���܂܂ł�--profile main10�ƕ����Ďg�p���Ȃ���10bit�[�x�ŃG���R�[�h����Ȃ������B
-�ELinux�r���h���X�V�ABroadwell�ȍ~��Intel iGPU�ł�QSV�G���R�[�h���e�ՂɁB
-�ELinux�ł̃r���h���@�ɂ��ĒǋL�B
+・Apple proresがデコードできないのを修正。
+・raw読み込み時に色空間を指定するオプションを追加。( --input-csp )
+  yuv420/422/444の8-16bitの読み込みに対応。
+・--check-libの結果の成否によってプログラムの戻り値を変更するように。
+・HEVCエンコード時に--output-depth 10指定時に自動的にmain10を使用するように。
+  いままでは--profile main10と併せて使用しないと10bit深度でエンコードされなかった。
+・Linuxビルドを更新、Broadwell以降のIntel iGPUでのQSVエンコードが容易に。
+・Linuxでのビルド方法について追記。
 
 2020.08.06 (4.07)
-�E���[�h����Avisynth.dll���w�肷��I�v�V������ǉ��B(--avsdll)
+・ロードするAvisynth.dllを指定するオプションを追加。(--avsdll)
 
 2020.08.02 (4.06)
 [QSVEncC]
-�E�ꍇ�ɂ��A�ُ�I�����������邱�Ƃ��������̂��C���B
+・場合により、異常終了が発生することがあったのを修正。
 
 2020.07.29 (4.05)
 [QSVEncC]
-�EMedia SDK��2020 R1�ɍX�V�B
-�Effmpeg�֘A��dll���X�V�B
-  ����ɂ��Ats/m2ts�ւ�PGS��mux���\�Ƃ���B
-�E--audio-stream stereo�����삵�Ȃ��̂��C���B
-�Emkv�o�͎���default-duration���ݒ肳���悤�ɁB
-�E--chromaloc���g�p�ł��Ȃ��̂ɂ��ĉ����������B
+・Media SDKを2020 R1に更新。
+・ffmpeg関連のdllを更新。
+  これにより、ts/m2tsへのPGSのmuxを可能とする。
+・--audio-stream stereoが動作しないのを修正。
+・mkv出力時にdefault-durationが設定されるように。
+・--chromalocが使用できないのについて回避策を実装。
 
 2020.06.16 (4.04)
 [QSVEncC]
-�E�ꕔ��HEVC�t�@�C���ŁA����Ƀf�R�[�h�ł��Ȃ����Ƃ�����̂ɑ΂��A�\�ł����sw�f�R�[�_�Ńf�R�[�h�ł���悤�ɂ����B
-�E--audio-source�ł�delay���w��ł���悤�ɁB
-�Eavs�ǂݍ��݂ŁA���ڍׂ�Avisynth�̃o�[�W�������擾����悤�ɁB
-�E4.02����vpy�ǂݍ��݂��V���O���X���b�h����ɂȂ��Ă����̂�
-  �}���`�X���b�h����ɖ߂����B
+・一部のHEVCファイルで、正常にデコードできないことがあるのに対し、可能であればswデコーダでデコードできるようにした。
+・--audio-sourceでもdelayを指定できるように。
+・avs読み込みで、より詳細なAvisynthのバージョンを取得するように。
+・4.02からvpy読み込みがシングルスレッド動作になっていたのを
+  マルチスレッド動作に戻した。
 
 [QSVEnc.auo]
-�EQSVEnc.auo�̐ݒ��ʂł��A--output-res�ɓ���Ȓl(���̒l)���w��ł���悤�ɁB
+・QSVEnc.auoの設定画面でも、--output-resに特殊な値(負の値)を指定できるように。
 
 2020.05.31 (4.03)
 [QSVEncC]
-�E�x���𔺂��ꕔ��--audio-filter�ŉ����̍Ōオ�G���R�[�h����Ȃ��Ȃ��Ă��܂������C���B
-�Elowlatency���g�p�ł��Ȃ��̂��C���B
-�E--video-tag���w�肷��ƈُ�I�����Ă��܂��̂��C���B 
-�E�o�͂���metadata������s���I�v�V�����Q��ǉ��B
+・遅延を伴う一部の--audio-filterで音声の最後がエンコードされなくなってしまう問題を修正。
+・lowlatencyが使用できないのを修正。
+・--video-tagを指定すると異常終了してしまうのを修正。 
+・出力するmetadata制御を行うオプション群を追加。
   --metadata
   --video-metadata
   --audio-metadata
   --sub-metadata
-�Estream��disposition���w�肷��I�v�V������ǉ��B (--audio-disposition, --sub-disposition)
-�E--audio-source/--sub-source�ł��܂��t�@�C�������擾�ł��Ȃ����Ƃ�����̂��C���B
-�E--help�ɋL�ڂ̂Ȃ��������L�I�v�V������ǋL�B
+・streamのdispositionを指定するオプションを追加。 (--audio-disposition, --sub-disposition)
+・--audio-source/--sub-sourceでうまくファイル名を取得できないことがあるのを修正。
+・--helpに記載のなかった下記オプションを追記。
   --video-tag
   --keyfile
   --vpp-smooth
-�E�I�v�V�������X�g��\������I�v�V������ǉ��B (--option-list)
+・オプションリストを表示するオプションを追加。 (--option-list)
 
 2020.05.06 (4.02)
 [QSVEncC]
-�Eyuv444��yv12/p010�ϊ��̃}���`�X���b�h���̃������A�N�Z�X�G���[���C���B
-�E�x�����ŏ������郂�[�h��ǉ��B (--lowlatency)
-  �G���R�[�h�̃X���[�v�b�g���͉̂������Ă��܂��̂ŁA���܂�g�����͂Ȃ�����?
+・yuv444→yv12/p010変換のマルチスレッド時のメモリアクセスエラーを修正。
+・遅延を最小化するモードを追加。 (--lowlatency)
+  エンコードのスループット自体は下がってしまうので、あまり使い道はないかも?
 
 [QSVEnc.auo]
-�E�O���G���R�[�_�g�p���ɁA�����G���R�[�h���u�����v�ɍs���ƈُ�I������̂��C���B
+・外部エンコーダ使用時に、音声エンコードを「同時」に行うと異常終了するのを修正。
 
 2020.04.15 (4.01)
 [QSVEncC]
-�E3.33����IvyBridge�̊���vpp���g�p�ł��Ȃ���������B
+・3.33からIvyBridgeの環境でvppを使用できない問題を回避。
 
 [QSVEnc.auo]
-�E�f�t�H���g�����G���R�[�_�̐ݒ肪���f����Ȃ��̂��C���B
+・デフォルト音声エンコーダの設定が反映されないのを修正。
 
 2020.04.05 (4.00)
 [QSVEncC]
-�E�����f�R�[�_��G���R�[�_�ւ̃I�v�V�����w�肪����Ă����ꍇ�ɁA
-  �G���[�ňُ�I������̂ł͂Ȃ��A�x�����o���Čp������悤�ύX�B
-�E3.33����SandyBridge/IvyBridge�̊���vpp���g�p�ł��Ȃ���������B
-�E--chapter��avsw/avhw���p���ɂ��������Ȃ������̂��C���B
+・音声デコーダやエンコーダへのオプション指定が誤っていた場合に、
+  エラーで異常終了するのではなく、警告を出して継続するよう変更。
+・3.33からSandyBridge/IvyBridgeの環境でvppを使用できない問題を回避。
+・--chapterがavsw/avhw利用時にしか効かなかったのを修正。
 
 [QSVEnc.auo]
-�EQSVEnc.auo�œ����G���R�[�_���g�p���郂�[�h��ǉ��B
-  ������̓�����f�t�H���g�ɂ��A�O���G���R�[�_���g���ق��̓I�v�V�����ɁB
-�EQSV�̂Ȃ����Őݒ��ʂ��J�����Ƃ���ƈُ�I�����Ă��܂��̂��C���B
+・QSVEnc.auoで内部エンコーダを使用するモードを追加。
+  こちらの動作をデフォルトにし、外部エンコーダを使うほうはオプションに。
+・QSVのない環境で設定画面を開こうとすると異常終了してしまうのを修正。
 
 2020.03.07 (3.33)
 [QSVEncC]
-�Eavsw/avhw�ǂݍ��ݎ��̓��̓I�v�V�������w�肷��I�v�V������ǉ��B(--input-option)
-�EMedia SDK��color�t�B���^���g�p����e�X�g�R�[�h��ǉ��B(--vpp-colorspace)
-�EtrueHD�Ȃǂ̈ꕔ���������܂�mux�ł��Ȃ��̂����P�B
-�EIceLake���オ����ɔ��肳��Ȃ��̂��C���B
-�EQSVEnc.auo�̏C���ɑΉ�����ύX�����{�B
+・avsw/avhw読み込み時の入力オプションを指定するオプションを追加。(--input-option)
+・Media SDKのcolorフィルタを使用するテストコードを追加。(--vpp-colorspace)
+・trueHDなどの一部音声がうまくmuxできないのを改善。
+・IceLake世代が正常に判定されないのを修正。
+・QSVEnc.auoの修正に対応する変更を実施。
 
 [QSVEnc.auo]
-�EQSVEnc.auo����o�͂���Ƃ��ɁAAviutl�̃E�B���h�E���ŏ��������茳�ɖ߂��Ȃǂ���ƃt���[��������������C���B
+・QSVEnc.auoから出力するときに、Aviutlのウィンドウを最小化したり元に戻すなどするとフレームが化ける問題を修正。
 
 2020.02.29 (3.32)
 [QSVEncC]
-�Ecaption2ass������ɓ��삵�Ȃ��P�[�X���������̂��C���B
-�Ehelp�̌������B
-�E3.31��--cqp������ɓ��삵�Ȃ������C���B
+・caption2assが正常に動作しないケースがあったのを修正。
+・helpの見直し。
+・3.31で--cqpが正常に動作しない問題を修正。
 
 [QSVEnc.auo]
-�E�ȈՃC���X�g�[���̈��蓮���ڎw�������C�B
-  �K�v�Ȏ��s�t�@�C�����_�E�����[�h���ăC���X�g�[������`������A
-  ���炩���ߓ����������s�t�@�C����W�J���ăC���X�g�[����������ɕύX����B
-�E�f�t�H���g�̉����G���R�[�_��ffmpeg�ɂ��AAC�ɕύX�B
-�EQSVEnc.auo�̐ݒ��ʂ̃^�u�ɂ��J�ڏ��𒲐��B
+・簡易インストーラの安定動作を目指した改修。
+  必要な実行ファイルをダウンロードしてインストールする形式から、
+  あらかじめ同梱した実行ファイルを展開してインストールする方式に変更する。
+・デフォルトの音声エンコーダをffmpegによるAACに変更。
+・QSVEnc.auoの設定画面のタブによる遷移順を調整。
 
 2020.02.20 (3.31)
 [QSVEncC]
-�E�R�}���h���C���̎w��~�X�̍ۂ̃G���[���b�Z�[�W�����P�B
-�Emux�������������A�V�[�N���Â炭�Ȃ�Ȃǂ̏Ǐ�����P�B
+・コマンドラインの指定ミスの際のエラーメッセージを改善。
+・mux処理を見直し、シークしづらくなるなどの症状を改善。
 
 [QSVEnc.auo]
-�E�r�b�g���[�g����̉���B
+・ビットレート上限の解放。
 
 2020.02.02 (3.30)
 [QSVEncC]
-�Evpp-sub�͍ŋ߈��肵�ē��삵�Ȃ����߁A�������B
-�Ecolormatrix���̏�����̓t�@�C������R�s�[����@�\��ǉ��B
+・vpp-subは最近安定して動作しないため、無効化。
+・colormatrix等の情報を入力ファイルからコピーする機能を追加。
   --colormtarix auto
   --colorprim auto
   --transfer auto
   --chromaloc auto
   --colorrange auto
-�EVUI���Amastering display, maxcll�̏������O�ɕ\������悤�ɁB
-�E�I�����ɃG���[�I�����Ă��܂����Ƃ�����̂��C���B
-�E���O�ɏ�ɏo�̓t�@�C������\������悤�ɁB
-�EVUI���Amastering dsiplay, maxcll�̏������O�ɕ\������悤�ɁB
+・VUI情報、mastering display, maxcllの情報をログに表示するように。
+・終了時にエラー終了してしまうことがあるのを修正。
+・ログに常に出力ファイル名を表示するように。
+・VUI情報、mastering dsiplay, maxcllの情報をログに表示するように。
 
 [QSVEnc.auo]
-�EQSVEncC�Ƃ̘A�g�̂��߂̎�����ύX�B
-  ���܂ɗ΂̃t���[�����������肷��(?)�Ƃ������ɑΏ��ł��Ă���Ƃ悢���c�B
+・QSVEncCとの連携のための実装を変更。
+  たまに緑のフレームが入ったりする(?)という問題に対処できているとよいが…。
 
 2020.01.18 (3.29)
-[����]
-�E�������ύX�B
-�EMedia SDK��2019 R1�ɍX�V�B
-�E�v���Z�X��GPU�g�p�������g�p����悤�ɁB
+[共通]
+・動作環境を変更。
+・Media SDKを2019 R1に更新。
+・プロセスのGPU使用率情報を使用するように。
 
 [QSVEncC]
-�EHDR�֘A��meta������̓t�@�C������R�s�[�ł���悤�ɁB
+・HDR関連のmeta情報を入力ファイルからコピーできるように。
   (--master-display copy, --max-cll copy)
-�Effmpeg�֘A��dll���X�V�B
-  AV1�̃\�t�g�E�F�A�f�R�[�h���\�ɁB
+・ffmpeg関連のdllを更新。
+  AV1のソフトウェアデコードを可能に。
   libogg-1.3.3 -> 1.3.4
   twolame-0.3.13 -> 0.4.0
   wavpack-5.1.0 -> 5.2.0
@@ -994,690 +994,690 @@ API v1.1  �c Intel Media SDK v2.0
 
 2019.12.24 (3.28)
 [QSVEncC]
-�E���������ł̃��������[�N�������B
-�E�����G���R�[�h���̃G���[���b�Z�[�W�����B
-�E�����̃R�s�[���������Ȃ��Ȃ��Ă����̂��C���B
-�EtrueHD in mkv�ȂǂŁA�����f�R�[�h�Ɏ��s����ꍇ������̂��C���B
-�E�����ɒx����������I�v�V������ǉ��B ( --audio-delay )
-�Emkv�����VC-1���J�b�g��������̃G���R�[�h�Ɏ��s��������C���B
+・音声処理でのメモリリークを解消。
+・音声エンコード時のエラーメッセージ強化。
+・字幕のコピー等が動かなくなっていたのを修正。
+・trueHD in mkvなどで、音声デコードに失敗する場合があるのを修正。
+・音声に遅延を加えるオプションを追加。 ( --audio-delay )
+・mkv入りのVC-1をカットした動画のエンコードに失敗する問題を修正。
 
 [QSVEnc.auo]
-�E�ȈՃC���X�g�[�����X�V�B
-�EAVX2�ł�yuy2��nv12i�ϊ��̌����C���B
+・簡易インストーラを更新。
+・AVX2版のyuy2→nv12i変換の誤りを修正。
 
 2019.11.23 (3.27)
 [QSVEnc.auo]
-�E�v���t�@�C���̕ۑ����ł��Ȃ��Ȃ��Ă����̂��C���B
+・プロファイルの保存ができなくなっていたのを修正。
 
 2019.11.19 (3.26)
 [QSVEnc.auo]
-�E���T�C�Y���s���Ȃ��̂��C���B
-�Evpp-deinterlace bob������ɓ��삵�Ȃ������C���B
+・リサイズが行えないのを修正。
+・vpp-deinterlace bobが正常に動作しない問題を修正。
 
 [QSVEncC]
-�Eoutput-res�ɏc���̂ǂ��炩�𕉂̒l���w��ł���悤�ɁB
-�A�X�y�N�g����ێ������܂܁A�Е��ɍ��킹�ă��T�C�Y�B�������A���̕��̒l�Ŋ���؂�鐔�ɂ���B
+・output-resに縦横のどちらかを負の値を指定できるように。
+アスペクト比を維持したまま、片方に合わせてリサイズ。ただし、その負の値で割り切れる数にする。
 --output-res -4x1080
 
 2019.11.15 (3.25)
 [QSVEnc.auo]
-�EQSVEnc.auo-QSVEncC�Ԃ̃v���Z�X�ԒʐM���������B
-�EQSVEnc.auo�̏o�͂�mp4/mkv�o�͂ɕύX���A���Ɏ����t�B�[���h�V�t�g�g�p����mux�H�������팸����B
-  �܂��AQSVEncC��muxer���g�p���邱�ƂŁA�R���e�i���쐬�������C�u�����Ƃ�QSVEncC���L�ڂ���悤�ɂ���B
+・QSVEnc.auo-QSVEncC間のプロセス間通信を高速化。
+・QSVEnc.auoの出力をmp4/mkv出力に変更し、特に自動フィールドシフト使用時のmux工程数を削減する。
+  また、QSVEncCのmuxerを使用することで、コンテナを作成したライブラリとしQSVEncCを記載するようにする。
 
 [QSVEncC]
-�EVC-1���n�[�h�E�F�A�f�R�[�h�̑Ώۂ���O���B
-  3.04�ȍ~�AVC-1�̂ŃR�[�h���ł��Ȃ��Ȃ��Ă��邪�A�����ł��Ȃ������B
-�E�����׎��Ƀf�b�h���b�N����������������C���B
-�ECPU�̓�����g�����K�؂Ɏ擾�ł��Ȃ����Ƃ��������̂��C���B
-�E�����t�@�C����ǂݍ��ރI�v�V������ǉ��B (--sub-source )
-�E--audio-source�̎w����@���g���B
-�Eavs����̉����ǂݍ��݂��\�ɁB
-�E�����G���R�[�h������ɓ��삵�Ȃ��ꍇ���������̂��C���B
-�Emux����master-display��max-cll�̏�񂪉�����̂�����B
+・VC-1をハードウェアデコードの対象から外す。
+  3.04以降、VC-1のでコードができなくなっているが、復旧できなかった。
+・高負荷時にデッドロックが発生しうる問題を修正。
+・CPUの動作周波数が適切に取得できないことがあったのを修正。
+・字幕ファイルを読み込むオプションを追加。 (--sub-source )
+・--audio-sourceの指定方法を拡張。
+・avsからの音声読み込みを可能に。
+・音声エンコードが正常に動作しない場合があったのを修正。
+・mux時にmaster-displayやmax-cllの情報が化けるのを回避。
 
 2019.06.26 (3.24)
-�E--sub-copy asdata�̋����̌������B
-�E3.21����-c raw��--disable-d3d�Ȃǂ��g�p����ƁA"Failed to SynchronizeFirstTask : unknown error" ��
-  �G���[�I�����Ă��܂��悤�ɂȂ��Ă����̂��C���B
+・--sub-copy asdataの挙動の見直し。
+・3.21から-c rawや--disable-d3dなどを使用すると、"Failed to SynchronizeFirstTask : unknown error" で
+  エラー終了してしまうようになっていたのを修正。
 
 2019.06.26 (3.23)
 [QSVEncC]
-�E�f�[�^�X�g���[�����R�s�[����I�v�V������ǉ�����B(--data-copy)
+・データストリームをコピーするオプションを追加する。(--data-copy)
 
 2019.06.23 (3.22)
 [QSVEncC]
-�E--sub-copy�Ŏ������f�[�^�Ƃ��ăR�s�[���郂�[�h��ǉ��B
+・--sub-copyで字幕をデータとしてコピーするモードを追加。
   --sub-copy asdata
-�E--audio-codec�Ƀf�R�[�_�I�v�V�������w��ł���悤�ɁB
+・--audio-codecにデコーダオプションを指定できるように。
   --audio-codec aac#dual_mono_mode=main
-�ERGB�ǂݍ��݂��ł��Ȃ��Ȃ��Ă����̂��C���B
+・RGB読み込みができなくなっていたのを修正。
 
 2019.06.15 (3.21)
 [QSVEncC]
-�E--vpp-deinterlace none�ŃC���^���ێ����L���ɂȂ��Ă��܂������C���B
-�E--chapter��matroska�`���ɑΉ�����B
-�Effmpeg�Ɗ֘Adll��ǉ�/�X�V�B
-  - [�ǉ�] libxml2 2.9.9
-  - [�ǉ�] libbluray 1.1.2
-  - [�ǉ�] aribb24 rev85
-  - [�X�V] libpng 1.6.34 -> 1.6.37
-  - [�X�V] libvorbis 1.3.5 -> 1.3.6
-  - [�X�V] opus 1.2.1 -> 1.3.1
-  - [�X�V] soxr 0.1.2 -> 0.1.3
+・--vpp-deinterlace noneでインタレ保持が有効になってしまう問題を修正。
+・--chapterでmatroska形式に対応する。
+・ffmpegと関連dllを追加/更新。
+  - [追加] libxml2 2.9.9
+  - [追加] libbluray 1.1.2
+  - [追加] aribb24 rev85
+  - [更新] libpng 1.6.34 -> 1.6.37
+  - [更新] libvorbis 1.3.5 -> 1.3.6
+  - [更新] opus 1.2.1 -> 1.3.1
+  - [更新] soxr 0.1.2 -> 0.1.3
 
 2019.04.26 (3.20)
 [QSVEnc.auo]
-�E�C���^��������bob/it�Ȃǂ��g�p����ƁA�K�؂Ƀt���[�����[�g�����f���ꂸ�A
-  �����ꂵ�Ă��܂��̂��C���B
+・インタレ解除でbob/itなどを使用すると、適切にフレームレートが反映されず、
+  音ずれしてしまうのを修正。
 
 [QSVEncC]
-�E3.19��--mbbrc�������Ȃ��̂��C���B
+・3.19で--mbbrcが効かないのを修正。
 
 2019.04.19 (3.19)
-[����]
-�EVC++2019�Ɉڍs�B
+[共通]
+・VC++2019に移行。
 
 [QSVEnc.auo]
-�E�ȈՃC���X�g�[�����X�V�B(VC++2019�Ή�)
+・簡易インストーラを更新。(VC++2019対応)
 
 [QSVEncC]
-�E�ꕔ��H.264�X�g���[���ȂǂŁA�f�R�[�h����~���Ă��܂������C���B
-  �X�J�p�[�v���~�A���ȂǂŔ�������ƕ񍐂����������B
-�ETrueHD�Ȉꕔ�̉������R�s�[���悤�Ƃ��Ă�����ɃR�s�[����Ȃ��̂��C���B
-�EAdaptive LTR ��L���ɂ���I�v�V������ǉ��B(--adapt-ltr)
-  CBR, VBR�Ȃǈꕔ�̃��[�h�ł̂ݓ���B
+・一部のH.264ストリームなどで、デコードが停止してしまう問題を修正。
+  スカパープレミアムなどで発生すると報告いただいた。
+・TrueHDな一部の音声をコピーしようとしても正常にコピーされないのを修正。
+・Adaptive LTR を有効にするオプションを追加。(--adapt-ltr)
+  CBR, VBRなど一部のモードでのみ動作。
 
 2019.03.24 (3.18)
-[QSVEnc.auo/QSVEncC ����]
-�EHaswell����d3d11���[�h��B�t���[�������H.264�C���^���ێ��G���R���s���ƁA�f��������邱�Ƃ�����̂�
-  ���̏ꍇ�ɂ�B�t���[���𖳌�������悤�ɁB
+[QSVEnc.auo/QSVEncC 共通]
+・Haswell環境のd3d11モードでBフレームありのH.264インタレ保持エンコを行うと、映像が乱れることがあるので
+  その場合にはBフレームを無効化するように。
 
 [QSVEncC]
-�E�f����codec tag���w�肷��I�v�V������ǉ��B(--video-tag)
-�E�����G���R�[�h����timestamp����舵�������ǁAVFR���̉��Y����}���B
+・映像のcodec tagを指定するオプションを追加。(--video-tag)
+・音声エンコード時のtimestampを取り扱いを改良、VFR時の音ズレを抑制。
 
 2018.12.17 (3.17)
 [QSVEncC]
-�E--master-display������ɓ��삵�Ȃ��ꍇ���������̂��C���B
+・--master-displayが正常に動作しない場合があったのを修正。
 
 2018.12.11 (3.16)
 [QSVEnc.auo]
-�EAviutl����̃t���[���擾���Ԃ��G���R�[�h�𒆒f�����ꍇ�ɐ���Ɍv�Z����Ȃ��̂��C���B
+・Aviutlからのフレーム取得時間がエンコードを中断した場合に正常に計算されないのを修正。
 
 2018.12.10 (3.15)
 [QSVEnc.auo]
-�E�����t�B�[���h�V�t�g�g�p���Awidth��32�Ŋ���؂�Ȃ��ꍇ�ɔ͈͊O�A�N�Z�X�̗�O�ŗ�����\�����������̂��C���B
+・自動フィールドシフト使用時、widthが32で割り切れない場合に範囲外アクセスの例外で落ちる可能性があったのを修正。
 
 2018.12.04 (3.14)
 [QSVEncC]
-�Ebenchmark���[�h������ɓ��삵�Ȃ������̂��C���B
+・benchmarkモードが正常に動作しなかったのを修正。
 
 [QSVEnc.auo]
-�EAuoLink���[�h�ŁA�����G���R�[�_���g�p�ł��Ȃ��Ȃ��Ă����̂��C���B
+・AuoLinkモードで、音声エンコーダが使用できなくなっていたのを修正。
 
 2018.11.24 (3.13)
 [QSVEncC]
-�E�ǂݍ��݂�udp���̃v���g�R�����g�p����ꍇ�ɁA����ɏ����ł��Ȃ��Ȃ��Ă����̂��C���B
-�E--audio-file������ɓ��삵�Ȃ����Ƃ��������̂��C���B
+・読み込みにudp等のプロトコルを使用する場合に、正常に処理できなくなっていたのを修正。
+・--audio-fileが正常に動作しないことがあったのを修正。
 
 2018.11.18 (3.12)
 [QSVEncC]
-�ECaption.dll�ɂ�鎚�����o�����������B(--caption2ass)
-�E�Â�Avisynth���g���Ɛ���ɓ��삵�Ȃ��Ȃ��Ă����̂��C���B
+・Caption.dllによる字幕抽出処理を実装。(--caption2ass)
+・古いAvisynthを使うと正常に動作しなくなっていたのを修正。
 
 [QSVEnc.auo]
-�E�ȈՃC���X�g�[�����X�V�B
-  - Apple dll���_�E�����[�h�ł��Ȃ��Ȃ��Ă����̂őΉ��B
-  - �V�X�e���̃v���L�V�ݒ�������I�Ɏg�p����悤�ɁB
+・簡易インストーラを更新。
+  - Apple dllがダウンロードできなくなっていたので対応。
+  - システムのプロキシ設定を自動的に使用するように。
 
 2018.10.19 (3.11)
-[����]
-�ESandyBridge��IvyBridge�Ȃǂ�vpp���g�p����ƁA
-  �G���R�[�h�����s�ł��Ȃ��ꍇ���������̂ő΍�����{�B
+[共通]
+・SandyBridgeやIvyBridgeなどでvppを使用すると、
+  エンコードが実行できない場合があったので対策を実施。
 
 [QSVEnc.auo]
-�EQSVEnc.auo�̐ݒ��ʂ���wav�o�͂ł��Ȃ������̂��C���B
-  �w�肳�ꂽ����G���R�[�_�͑��݂��܂���B[ ]�ƃG���[���o�Ă��܂��Ă����B
-�EQSVEnc.ini��ffmpeg�ɂ��AAC�G���R�[�h�ƁA�f���A�����m�����̐ݒ��ǉ��B
-�Efaw2aac�g�p���ɂ������G���R��o�b�`������ǉ��B
-  (�������Afaw2aac�g�p���̉����G���R�O�o�b�`�����͎��{���Ȃ�)
+・QSVEnc.auoの設定画面からwav出力できなかったのを修正。
+  指定された動画エンコーダは存在しません。[ ]とエラーが出てしまっていた。
+・QSVEnc.iniにffmpegによるAACエンコードと、デュアルモノ分離の設定を追加。
+・faw2aac使用時にも音声エンコ後バッチ処理を追加。
+  (ただし、faw2aac使用時の音声エンコ前バッチ処理は実施しない)
 
 [QSVEncC]
-�E--check-features��--vpp-mctf�̃`�F�b�N��ǉ��B
+・--check-featuresに--vpp-mctfのチェックを追加。
 
 2018.10.12 (3.10)
-[����]
-�EIntel Media SDK 2018 R2 (API v1.27)�ɍX�V�B
-�EMotion Compensate Temporal Filter (MCTF) ��ǉ��B (--vpp-mctf)
+[共通]
+・Intel Media SDK 2018 R2 (API v1.27)に更新。
+・Motion Compensate Temporal Filter (MCTF) を追加。 (--vpp-mctf)
 
 [QSVEnc.auo]
-�E�ꎞ�t�H���_�̑��΃p�X�w��ɑΉ������B
-�E���d�����������ہAmuxer.exe���G���[�I�����Ă��܂��̂��C���B
+・一時フォルダの相対パス指定に対応した。
+・多重音声を扱う際、muxer.exeがエラー終了してしまうのを修正。
 
 [QSVEncC]
-�E--vbv-bufsize��ǉ��B
-�E�ꕔ��mp4/mkv���̃R���e�i�ɓ�����10bit HEVC�̓��̓t�@�C��������Ƀf�R�[�h�ł��Ȃ����������B
-�E�ꕔ�̓���t�@�C���ŁA���Y���̔�������P�[�X�ɑΏ��B
+・--vbv-bufsizeを追加。
+・一部のmp4/mkv等のコンテナに入った10bit HEVCの入力ファイルが正常にデコードできない問題を解消。
+・一部の動画ファイルで、音ズレの発生するケースに対処。
 
 2018.08.01 (3.09)
 [QSVEncC]
-�E�i���󋵂�trim���l������悤�ɁB
-�EOpenCL���܂Ƃ��ɓ��삵�Ȃ����ł̃N���b�V��������B
-  �܂�ɂ悭���邱�Ƃ炵���B
-�E3.00�ȍ~�A�p�C�v�o�͂ł��Ȃ��ꍇ���������̂��C���B
+・進捗状況でtrimを考慮するように。
+・OpenCLがまともに動作しない環境でのクラッシュを回避。
+  まれによくあることらしい。
+・3.00以降、パイプ出力できない場合があったのを修正。
 
 2018.07.10 (3.08)
 [QSVEncC]
-�E�����G���R�[�_�ɃI�v�V�����������n����悤�ɁB
-  ��: --audio-codec aac:aac_coder=twoloop
-�E�����G���R�[�h���Ƀv���t�@�C�����w��ł���悤�ɁB(--audio-profile)
-�E���r�b�g���[�g�ł̃������g�p�ʂ������팸�B
-�E�σt���[�����[�g�Ȃǂ̏ꍇ�ɁA���r���[�ȃt���[�����[�g�ƂȂ��Ă��܂��̂����P�B
-�E�����̂ق�����Ɏn�܂�ꍇ�̓��������P�B
-�EHEVC��tier���w�肷��I�v�V������ǉ��B(--tier)
+・音声エンコーダにオプションを引き渡せるように。
+  例: --audio-codec aac:aac_coder=twoloop
+・音声エンコード時にプロファイルを指定できるように。(--audio-profile)
+・高ビットレートでのメモリ使用量を少し削減。
+・可変フレームレートなどの場合に、中途半端なフレームレートとなってしまうのを改善。
+・音声のほうが先に始まる場合の同期を改善。
+・HEVCのtierを指定するオプションを追加。(--tier)
 
 2018.07.05 (3.07)
 [QSVEncC]
-�E--audio-file������ɓ��삵�Ă��Ȃ������̂��C���B
-�E--colorprim��--transfer�Ȃǂɕs�����Ă����I�v�V������ǉ��B
-�E--input-analyze�̌��ʂ����P�B
-�Eraw�o�͂̍ہA--vpp-deinterlace�������Ȃ��̂����P�B
+・--audio-fileが正常に動作していなかったのを修正。
+・--colorprimや--transferなどに不足していたオプションを追加。
+・--input-analyzeの効果を改善。
+・raw出力の際、--vpp-deinterlaceが効かないのを改善。
 
 2018.06.10 (3.06)
 [QSVEncC]
-�E--check-features���������B
-�E--avsync forcecfr/vfr������ɓ��삵�Ȃ����Ƃ�����̂��C���B
-�E�����G���R�[�h�n�̃I�v�V�������Ӑ}���Ȃ���������邱�Ƃ��������̂��C���B
+・--check-featuresを高速化。
+・--avsync forcecfr/vfrが正常に動作しないことがあるのを修正。
+・音声エンコード系のオプションが意図しない動作をすることがあったのを修正。
 
 2018.06.03 (3.05)
 [QSVEnc.auo]
-�E3.04�Ńv���O�C�����F������Ȃ����Ƃ��������̂��C���B
+・3.04でプラグインが認識されないことがあったのを修正。
 
 [QSVEncC]
-�Eavs/vpy/y4m���[�_�[���g�p����Ɨ����Ă����̂��C���B
+・avs/vpy/y4mリーダーを使用すると落ちていたのを修正。
 
 2018.06.02 (3.04)
 [QSVEncC]
-�Effmpeg�Ɗ֘A���C�u������dll���X�V�B
-�E--audio-codec / --audio-bitrate / --audio-samplerate / --audio-filter���̃R�}���h��
-  �g���b�N���w�肹���Ɏw�肵���ꍇ�A���̓t�@�C���̂��ׂẲ����g���b�N�������ΏۂɁB
-�Evfr��ێ������G���R�[�h�ɑΉ��B(--avsync vfr)
-�E--max-cll / --masterdisplay �g�p���̌݊��������P�B
-�Echroma location�̃t���O���w�肷��I�v�V������ǉ��B
-�E�C���^���ێ��G���R�[�h��mux���Ȃ���o�͂���ہA�t�B�[���h�P�ʂ�mux�����A�t���[���P�ʂ�mux����悤�ɁB
+・ffmpegと関連ライブラリのdllを更新。
+・--audio-codec / --audio-bitrate / --audio-samplerate / --audio-filter等のコマンドを
+  トラックを指定せずに指定した場合、入力ファイルのすべての音声トラックを処理対象に。
+・vfrを保持したエンコードに対応。(--avsync vfr)
+・--max-cll / --masterdisplay 使用時の互換性を改善。
+・chroma locationのフラグを指定するオプションを追加。
+・インタレ保持エンコードでmuxしながら出力する際、フィールド単位でmuxせず、フレーム単位でmuxするように。
 
 2018.05.14 (3.03)
 [QSVEncC]
-�EHDR�֘A��metadata�̎�舵�������P�B
-�E�f���Ɖ����̓��������P�B
-�E�v���Z�X�̃��P�[���𖾎��I�ɃV�X�e���̃��P�[���ɍ��킹��悤�ɁB
+・HDR関連のmetadataの取り扱いを改善。
+・映像と音声の同期を改善。
+・プロセスのロケールを明示的にシステムのロケールに合わせるように。
 
 2018.04.23 (3.02)
 [QSVEnc]
-�E�ݒ��ʂ̃R�}���h�\�����̃_�u���N���b�N���̋������C���B
-�E���T�C�Y�����f����Ȃ��̂��C���B
-�EAuoLink�g�p���̕s�R�ȋ������C���B
+・設定画面のコマンド表示欄のダブルクリック時の挙動を修正。
+・リサイズが反映されないのを修正。
+・AuoLink使用時の不審な挙動を修正。
 
 2018.04.21 (3.01)
 [QSVEnc]
-�E�ݒ��ʂ�120dpi�x�[�X�ɂȂ��Ă���A96dpi�ŕ\������ƃ��C�A�E�g�������̂��C���B
+・設定画面が120dpiベースになっており、96dpiで表示するとレイアウトが崩れるのを修正。
 
 2018.04.21 (3.00)
-[����]
-�EIntel Media SDK 2018 R1 (API v1.26)�ɑΉ��B
-�EVQP���[�h��p�~�BICQ�Ȃǂ̓o��ɂ���ڂ��I�����B
-�Eextbrc�I�v�V������p�~�B
-�E�V�[���`�F���W���o��p�~�B���܂�ڗ��������ʂ͂Ȃ������B
+[共通]
+・Intel Media SDK 2018 R1 (API v1.26)に対応。
+・VQPモードを廃止。ICQなどの登場により役目を終えた。
+・extbrcオプションを廃止。
+・シーンチェンジ検出を廃止。あまり目立った効果はなかった。
 
 [QSVEnc]
-�E�G���R�[�_���v���O�C���ɓ��������AQSVEncC�Ƀp�C�v�n������悤�ɁB
-  Aviutl�{�̃v���Z�X�̃������g�p�ʂ��팸����B
+・エンコーダをプラグインに内蔵せず、QSVEncCにパイプ渡しするように。
+  Aviutl本体プロセスのメモリ使用量を削減する。
 
 [QSVEncC]
-�EAPI 1.26�Œǉ����ꂽHEVC�֘A�̃I�v�V������ǉ��B(--tskip, --sao, --ctu)
-  ��{�I�ɂ́A����o�ꂷ��CPU�p(Kabylake����ł͎g�p�ł��Ȃ�)�B
-�EHDR�֘Ametadata��ݒ肷��I�v�V������ǉ��B(--max-cll, --master-display)
-�E"%"���܂ޏo�̓t�@�C�����ŏo�͂��悤�Ƃ���Ɨ�����̂��C���B
-�E"%"���܂ޏo�̓t�@�C������--log���w�肷��Ɨ�����̂��C���B
-�Eyv12(10bit)->p010[AVX2]�ł́AAVX2���g�p����Ă��Ȃ������̂��C���B
-�Eavsw�̃f�R�[�_�̃X���b�h����16�܂łɐ����B
-�Erotation��metadata�����̓t�@�C���ɑ��݂���΃R�s�[����悤�ɁB
+・API 1.26で追加されたHEVC関連のオプションを追加。(--tskip, --sao, --ctu)
+  基本的には、今後登場するCPU用(Kabylake世代では使用できない)。
+・HDR関連metadataを設定するオプションを追加。(--max-cll, --master-display)
+・"%"を含む出力ファイル名で出力しようとすると落ちるのを修正。
+・"%"を含む出力ファイル名で--logを指定すると落ちるのを修正。
+・yv12(10bit)->p010[AVX2]では、AVX2が使用されていなかったのを修正。
+・avswのデコーダのスレッド数を16までに制限。
+・rotationのmetadataが入力ファイルに存在すればコピーするように。
 
 2018.01.13 (2.74)
-[����]
-�EHEVC�G���R�[�h��weightb���g����悤�ɁB
-�EKabylake�ȍ~�ł́AHEVC��10bit depth�������I�ɗL���ɁB
-  Kabylake�ȍ~�ł́AHEVC��10bit depth�ɑΉ����Ă���͂������A���ꂪQuery�Ő���ɔ��肳��Ȃ����Ƃ�����B
-�E���O�o�͂����P�B
+[共通]
+・HEVCエンコードでweightbが使えるように。
+・Kabylake以降では、HEVCの10bit depthを強制的に有効に。
+  Kabylake以降では、HEVCの10bit depthに対応しているはずだが、これがQueryで正常に判定されないことがある。
+・ログ出力を改善。
 
 [QSVEncC]
-�E--audio-copy/--audio-codec/--sub-copy�w�莞�ɁA���̓t�@�C���ɉ���/�����g���b�N���Ȃ��ꍇ�ł��G���[�I�����Ȃ��悤�ɁB
-�Elinux�Ńr���h�ł��Ȃ��Ȃ��Ă����̂��C���B
-�Eavs�����yuv420/yuv422/yuv444�̍��r�b�g�[�x�ǂݍ��݂ɑΉ��B
-  �������A������high bitdepth hack�ɂ͑Ή����Ȃ��B
+・--audio-copy/--audio-codec/--sub-copy指定時に、入力ファイルに音声/字幕トラックがない場合でもエラー終了しないように。
+・linuxでビルドできなくなっていたのを修正。
+・avsからのyuv420/yuv422/yuv444の高ビット深度読み込みに対応。
+  ただし、いわゆるhigh bitdepth hackには対応しない。
 
 2017.08.22 (2.73)
 [QSVEncC]
-�E9/12/14/16bit�[�x��yuv422��y4m�ǂݍ��݂��C���B
+・9/12/14/16bit深度のyuv422をy4m読み込みを修正。
 
 2017.08.16 (2.72)
 [QSVEncC]
-�E2.63�ȍ~�Araw�o�͂�����ɓ��삵�Ȃ������̂��C���B
-�E���r�b�g�[�x��yuv422/yuv444��y4m����ǂݍ��ނƐF���������������Ȃ�̂��C���B 
-�E�w���v�̏C���B
+・2.63以降、raw出力が正常に動作しなかったのを修正。
+・高ビット深度のyuv422/yuv444をy4mから読み込むと色成分がおかしくなるのを修正。 
+・ヘルプの修正。
 
 2017.07.01 (2.71)
-[����]
-�E2.70��dGPU�t���̊����Ɛ���ɓ��삵�Ȃ����Ƃ��������̂��C���B
-�E2.70�ŋN�����x���Ȃ��Ă����̂��C���B
-�Ela/la-hrd�Ńr�b�g���[�g���\������Ă��Ȃ������̂��C���B
+[共通]
+・2.70でdGPU付きの環境だと正常に動作しないことがあったのを修正。
+・2.70で起動が遅くなっていたのを修正。
+・la/la-hrdでビットレートが表示されていなかったのを修正。
 
 2017.06.20 (2.70)
-[����]
-�EBraswell�Ȃǈꕔ�̊��Ő���ɓ��삵�Ȃ������̂��C���B
+[共通]
+・Braswellなど一部の環境で正常に動作しなかったのを修正。
 
 2017.06.18 (2.69)
 [QSVEncC]
-�E--audio-stream���g�p�����ۂɁA�����ɂ���ẮA�Đ��ł��Ȃ��t�@�C�����ł��Ă��܂��̂��C���B
+・--audio-streamを使用した際に、条件によっては、再生できないファイルができてしまうのを修正。
 
 2017.06.17 (2.68)
-[����]
-�EFadeDetect��Kabylake���O�̐���ł͖������B
-  ����ς�Kabylake�ȑO�ł́A�s����ŃG���R�[�h���r���ŏI�����邢�̓t���[�Y���Ă��܂��悤���c�B
+[共通]
+・FadeDetectをKabylakeより前の世代では無効化。
+  やっぱりKabylake以前では、不安定でエンコードが途中で終了あるいはフリーズしてしまうようだ…。
 
 [QSVEnc.auo]
-�E2.67�ŁAHEVC 10bit�ŃG���R�[�h����ƊG���j�]��������C���B
+・2.67で、HEVC 10bitでエンコードすると絵が破綻する問題を修正。
 
 2017.06.17 (2.67)
-[����]
-�EIntel Media SDK 2017 R1 (API v1.23)�ɑΉ��B
-�Efade-detect��L���ɁB
-�Eweightb/weightp�����삵�Ȃ��Ȃ��Ă����̂��C���B
+[共通]
+・Intel Media SDK 2017 R1 (API v1.23)に対応。
+・fade-detectを有効に。
+・weightb/weightpが動作しなくなっていたのを修正。
 
 [QSVEncC]
-�E--repartition-check�I�v�V������ǉ�(H.264�G���R�[�h���̂�)�B
-�Eavsw/y4m/vpy�ł�yuv422�ǂݍ��݂ɑΉ��B
-  �������Ad3d9/d3d11���������[�h�͎g�p�ł����Asw���������[�h�ɐ؂�ւ��B
-�Eavsw�ł�rgb�ǂݍ��݂ɑΉ��B
-�E--audio-stream�ɂ��f���A�����m�����̕����Ȃǂ�����ɓ��삵�Ȃ��̂��C���B
-�E--check-features�Ƀf�R�[�_�̋@�\��\������悤�ɁB
+・--repartition-checkオプションを追加(H.264エンコード時のみ)。
+・avsw/y4m/vpyでのyuv422読み込みに対応。
+  ただし、d3d9/d3d11メモリモードは使用できず、swメモリモードに切り替わる。
+・avswでのrgb読み込みに対応。
+・--audio-streamによるデュアルモノラルの分離などが正常に動作しないのを修正。
+・--check-featuresにデコーダの機能を表示するように。
 
 2017.06.12 (2.66)
 [QSVEnc.auo]
-�E16�Ŋ���؂�Ȃ��𑜓x�ȂǂŐF�Y�����������Ă����̂��C���B
+・16で割り切れない解像度などで色ズレが発生していたのを修正。
 
 [QSVEncC]
-�Eavs/avi����YUY2�œǂݍ��񂾍ہA16�Ŋ���؂�Ȃ��𑜓x�̏ꍇ�ɐF�Y�����������Ă����̂��C���B
+・avs/aviからYUY2で読み込んだ際、16で割り切れない解像度の場合に色ズレが発生していたのを修正。
 
 2017.06.11 (2.65)
 [QSVEncC]
-�E���r�b�g�[�x��y4m�n������ƁA�G���j�]����̂��C���B
+・高ビット深度をy4m渡しすると、絵が破綻するのを修正。
 
 2017.06.10 (2.64)
 [QSVEnc.auo]
-�E2.63��AuoLink���[�h��0xc0000094��O�Ő���ɓ��삵�Ȃ������̂��C���B
+・2.63でAuoLinkモードが0xc0000094例外で正常に動作しなかったのを修正。
 
 [QSVEncC]
-�E2.63��avi�ǂݍ��݂��悤�Ƃ���ƃG���[�I�����Ă��܂��ꍇ���������̂��C���B
+・2.63でavi読み込みしようとするとエラー終了してしまう場合があったのを修正。
 
 2017.06.08 (2.63)
-[����]
-�Ed3d11���[�h�ł�10bit�[�x�̃G���R�[�h���\�ɁB
-�EWindows�̃r���h�o�[�W���������O�ɕ\������悤�ɁB
-�E32�Ŋ��肫��Ȃ������̓�����C���^���ێ��G���R�[�h�ł��Ȃ��ꍇ���������̂��C���B
+[共通]
+・d3d11モードでも10bit深度のエンコードを可能に。
+・Windowsのビルドバージョンをログに表示するように。
+・32で割りきれない高さの動画をインタレ保持エンコードできない場合があったのを修正。
 
 [QSVEnc.auo]
-�E�ȈՃC���X�g�[�����X�V�B
+・簡易インストーラを更新。
 
 [QSVEncC]
-�Effmpeg�Ɗ֘A���C�u������dll���X�V�B
-�EHEVC��GPB���������g�p�ł��Ȃ��Ȃ��Ă����̂��C���B
-�EQSV�f�R�[�h���̈��萫�����P�B
-�Evpy���[�_�[�g�p���ɁA�G���R�[�h�𒆒f���悤�Ƃ���ƃt���[�Y���Ă��܂������C���B
-�Eavsw�ǂ݂�YUV444�̃\�[�X��ǂݍ��߂�悤�ɁB
-�E�����̃R�s�[������ɍs���Ȃ��ꍇ���������̂��C���B
-�EIntel Media SDK�̎g�p����X���b�h�����w�肷��I�v�V������ǉ��B(--mfx-thread <int>)
-  "2"�ȏ�Ŏw��ł��邪�A0��1�ɂ͂ł��Ȃ��B�f�t�H���g�͎���( = �_���v���Z�b�T��)�B
-  �Ȃ�ׂ�CPU�g�p�������������ꍇ�ɁA--mfx-thread 2 �Ƃ���ƁA�킸����CPU�g�p���������邩������Ȃ��B
+・ffmpegと関連ライブラリのdllを更新。
+・HEVCのGPB無効化が使用できなくなっていたのを修正。
+・QSVデコード時の安定性を改善。
+・vpyリーダー使用時に、エンコードを中断しようとするとフリーズしてしまう問題を修正。
+・avsw読みでYUV444のソースを読み込めるように。
+・字幕のコピーが正常に行われない場合があったのを修正。
+・Intel Media SDKの使用するスレッド数を指定するオプションを追加。(--mfx-thread <int>)
+  "2"以上で指定できるが、0や1にはできない。デフォルトは自動( = 論理プロセッサ数)。
+  なるべくCPU使用率を下げたい場合に、--mfx-thread 2 とすると、わずかにCPU使用率が下がるかもしれない。
 
 2017.01.08 (2.62)
 [QSVEncC]
-�EKabylake��HEVC 10bit�G���R�[�h�ɑΉ��B
-�EGPU�̏�񂪓K�؂ɂƂ�Ȃ��ꍇ���������̂��C���B
+・KabylakeのHEVC 10bitエンコードに対応。
+・GPUの情報が適切にとれない場合があったのを修正。
 
 2017.01.05 (2.61)
 [QSVEncC]
-�E2.57�ȍ~�Avpy���[�_�[������ɓ��삵�Ȃ��̂��C���B
+・2.57以降、vpyリーダーが正常に動作しないのを修正。
 
 2016.12.19 (2.60)
 [QSVEncC]
-�Emkv����͂Ƃ���HEVC�G���R�[�h�ŁA
-  �G���R�[�h�J�n����Ƀf�b�h���b�N���Ă��܂��̂������B
+・mkvを入力としたHEVCエンコードで、
+  エンコード開始直後にデッドロックしてしまうのを解消。
 
 [QSVEnc.auo]
-�E�ȈՃC���X�g�[�����X�V�B
+・簡易インストーラを更新。
 
 2016.12.05 (2.59)
 [QSVEncC]
-�Echapter�ǂݍ��ݎ���trim�𔽉f���Ȃ�--chapter-no-trim�I�v�V������ǉ��B
+・chapter読み込み時にtrimを反映しない--chapter-no-trimオプションを追加。
 
 [QSVEnc.auo]
-�E�ȈՃC���X�g�[�����X�V�B
+・簡易インストーラを更新。
 
 2016.11.06 (2.58)
 [QSVEncC]
-�E2.55����Aavsync forcecfr��������ɓ��삵�Ȃ����Ƃ��������̂��C���B
+・2.55から、avsync forcecfr時が正常に動作しないことがあったのを修正。
 
 [QSVEnc.auo]
-�E�ȈՃC���X�g�[�����X�V�B
+・簡易インストーラを更新。
 
 2016.09.29 (2.57)
 [QSVEncC]
-�Eavsw/vpy���[�_�[��10bit�ǂݍ��݂ɑΉ��B
-�E���S��t������I�v�V������ǉ��B(--vpp-delogo-add)
-  SSE4.1�o�[�W�����̂݁B
-�E--audio-source�����҂ǂ���ɓ��삵�Ȃ��ꍇ���������̂��C���B
-�E�G���R�[�h��s����ɂ���I�v�V����"--fade-detect"�𖳌����B
-�E�܂�ɃG���R�[�h�������Ńt���[�Y���Ă��܂�������B
-�E���������̃G���[�ϐ�������B
-�E�C���^�������w�莞�̓f�t�H���g��--tff�Ƃ��Ĉ����悤�ɁB
+・avsw/vpyリーダーで10bit読み込みに対応。
+・ロゴを付加するオプションを追加。(--vpp-delogo-add)
+  SSE4.1バージョンのみ。
+・--audio-sourceが期待どおりに動作しない場合があったのを修正。
+・エンコードを不安定にするオプション"--fade-detect"を無効化。
+・まれにエンコード完了時でフリーズしてしまうを回避。
+・音声処理のエラー耐性を向上。
+・インタレ解除指定時はデフォルトで--tffとして扱うように。
 
 2016.09.11 (2.56)
 [QSVEnc.auo]
-�EAuoLink���ɁA���29.97fps�ŃG���R�[�h�����悤�ɂȂ��Ă����̂��C���B
+・AuoLink時に、常に29.97fpsでエンコードされるようになっていたのを修正。
 
 2016.09.03 (2.55)
-[����]
-�Eaud / pic_struct��t������I�v�V������ǉ��B
+[共通]
+・aud / pic_structを付加するオプションを追加。
 
 [QSVEncC]
-�ESkylake��HW HEVC 10bit�f�R�[�h�ɑΉ��B
-�Effmpeg��dll���X�V�B
+・SkylakeのHW HEVC 10bitデコードに対応。
+・ffmpegのdllを更新。
 
 2016.07.09 (2.54)
 [QSVEnc]
-�E�g�p����Ă��Ȃ�sw�̏����擾�E�\�����Ȃ��悤�ɁB
+・使用されていないswの情報を取得・表示しないように。
 
 [QSVEncC]
-�Eavqsv/avsw���[�_�[�œǂݍ��ލۂ̓��̓t�@�C���̃t�H�[�}�b�g���w�肷��I�v�V������ǉ��B(--input-format)
-�Eflv�o�͂Ȃǂ��s���ۂɒ�����(6����37���ȏ�)�G���R�[�h����ƁAtimestamp���I�[�o�[�t���[��
+・avqsv/avswリーダーで読み込む際の入力ファイルのフォーマットを指定するオプションを追加。(--input-format)
+・flv出力などを行う際に長時間(6時間37分以上)エンコードすると、timestampがオーバーフローし
   "Application provided invalid, non monotonically increas ing dts to muxer in stream"
-  �Ƃ����G���[�Ő����mux�ł��Ȃ��Ȃ�����C���B
-�E2.46�ȍ~�A--avsync forcecfr���g�p�����"Failed to get free surface for vpp."�ŃG���[�I����������C���B
-�Effmpeg��sw�f�R�[�_���g�p���郂�[�h��ǉ��B(--avsw)
+  というエラーで正常にmuxできなくなる問題を修正。
+・2.46以降、--avsync forcecfrを使用すると"Failed to get free surface for vpp."でエラー終了する問題を修正。
+・ffmpegのswデコーダを使用するモードを追加。(--avsw)
 
 2016.06.23 (2.53)
-[����]
-�EAPI 1.19�Ή��̃h���C�o��vpp-rotate���g�p�ł��Ȃ��Ȃ��Ă��������C���B
+[共通]
+・API 1.19対応のドライバでvpp-rotateが使用できなくなっていた問題を修正。
 
 [QSVEncC]
-�EGPU�g�p�������ȒP�ɕ\���\�ɁB
-  �uGPU�g�p����\���\��.bat�v��[�E�N���b�N���Ǘ��҂Ƃ��Ď��s]���邾���ŕ\���\�ɁB
-�ELinux�����r���h���C���B
+・GPU使用率をより簡単に表示可能に。
+  「GPU使用率を表示可能に.bat」を[右クリック→管理者として実行]するだけで表示可能に。
+・Linux向けビルドを修正。
 
 2016.06.18 (2.52)
-�E�G���[���b�Z�[�W�̕s�����C���B
-�E�ȈՃC���X�g�[�����X�V�B
+・エラーメッセージの不備を修正。
+・簡易インストーラを更新。
 
 2016.06.12 (2.51)
-[����]
-�EAPI v1.19�ɑΉ��B
-�Evpp�ɂ�郊�T�C�Y�̕i�����w�肷��I�v�V������ǉ��B
+[共通]
+・API v1.19に対応。
+・vppによるリサイズの品質を指定するオプションを追加。
   --vpp-scaling <string>  simple, fine
-�Evpp�ɂ�鋾�����]�̃I�v�V������ǉ��B
+・vppによる鏡像反転のオプションを追加。
   --vpp-mirror <string>   h, v
-  "v"�Ȃ�c�����A"h"�Ȃ牡�����B
-�EHEVC�G���R�[�h���ɁA�s���~�b�h�Q�Ƃ̊K�w���Ƃ�QP�̃I�t�Z�b�g�l���w�肷��--qp-offset��ǉ��B
+  "v"なら縦方向、"h"なら横方向。
+・HEVCエンコード時に、ピラミッド参照の階層ごとにQPのオフセット値を指定する--qp-offsetを追加。
 
 2016.05.19 (2.50)
-[����]
-�E2.49�ŃC���^����������ƁA��O�ŗ����Ă��܂��̂��C���B
+[共通]
+・2.49でインタレ解除すると、例外で落ちてしまうのを修正。
 
 2016.05.18 (2.49)
-[����]
-�E�ꕔ���ŁA�f�t�H���g�ł�"Failed to initialize encoder. : invalid video parameters."�Ŏ���ł��܂��̂��C���B
-�E2.46�ȍ~�A--scenechange��VQP������ɓ��삵�Ă��Ȃ������̂��C���B
+[共通]
+・一部環境で、デフォルトでも"Failed to initialize encoder. : invalid video parameters."で死んでしまうのを修正。
+・2.46以降、--scenechangeやVQPが正常に動作していなかったのを修正。
 
 2016.05.04 (2.48)
 [QSVEncC]
-�E2.46�ȍ~�AWindows10�̃r�f�I�ȂǁA�ꕔ�̃v���C���[�ōĐ��ł��Ȃ�mp4���o�͂��������C���B
-�E�����̓���g���b�N������ۂɁA�����I������I�v�V������ǉ��B(--video-track, --video-streamid)
-  --video-track�͍ł��𑜓x�̍����g���b�N����1,2,3...�A���邢�͒Ⴂ�𑜓x���� -1,-2,-3,...�ƑI������B
-  �f�t�H���g��--video-track 1�A�܂�ł������𑜓x�̂��̂�ΏۂƂ���B
-  --video-streamid�͓���X�g���[���̂�stream id�Ŏw�肷��B
+・2.46以降、Windows10のビデオなど、一部のプレイヤーで再生できないmp4が出力される問題を修正。
+・複数の動画トラックがある際に、これを選択するオプションを追加。(--video-track, --video-streamid)
+  --video-trackは最も解像度の高いトラックから1,2,3...、あるいは低い解像度から -1,-2,-3,...と選択する。
+  デフォルトは--video-track 1、つまり最も高い解像度のものを対象とする。
+  --video-streamidは動画ストリームののstream idで指定する。
 
 2014.04.29 (2.47)
 [QSVEncC]
-�E--vpp-sub�ŉ摜�^�C�v�̎������Ă����߂�悤�ɁB
-  AVX2 / AVX / SSE4.1 / SSE4.1 pshufb slow�Ή��B
-�E--vpp-sub��GPU���������[�h�ł�����\�ɂ��đ啝�ɍ������B
-�E--vpp-sub�ŏĂ����ގ������Ȃ��Ƃ��̏�����啝�ɍ������B
-�E--vpp-sub�̃f�t�H���g�̕��񐔂�2��3�ցB���̂ق��������B
-�E--async-depth�̃f�t�H���g�l�����������炵���B���������򂤌����ƂȂ��Ă����B
-�E--avsync forcecfr + trim�ɑΉ��B
-�ESkylake�ŃT�|�[�g���ꂽVP8/VP9�f�R�[�h��ǉ��B(hybrid�炵��)
+・--vpp-subで画像タイプの字幕も焼き込めるように。
+  AVX2 / AVX / SSE4.1 / SSE4.1 pshufb slow対応。
+・--vpp-subがGPUメモリモードでも動作可能にして大幅に高速化。
+・--vpp-subで焼き込む字幕がないときの処理を大幅に高速化。
+・--vpp-subのデフォルトの並列数を2→3へ。そのほうが高速。
+・--async-depthのデフォルト値をすこし減らした。メモリを喰う原因となっていた。
+・--avsync forcecfr + trimに対応。
+・SkylakeでサポートされたVP8/VP9デコードを追加。(hybridらしい)
 
 2016.04.24 (2.46)
 [QSVEncC]
-�Elibass���g�p���Ď������Ă����ދ@�\��ǉ��B(--vpp-sub <int> or <string>)
-  �����w��̏ꍇ�́A���͓���t�@�C���̎w�肳�ꂽ�����g���b�N�𒊏o���ďĂ����ށB
-  ������w��̏ꍇ�́A���͓���t�@�C���Ƃ͕ʂ̎����t�@�C����ǂݍ��݁A������Ă����ށB
-  AVX2 / AVX / SSE4.1 / SSE4.1 pshufb slow��4���[�h����œK�Ȃ��̂������I�ɑI�������B
-  �ȉ�3�_�ɒ��ӁB
-  �E�e�L�X�g�`���̎����݂̂̑Ή��B
-  �E--sub-copy�Ƃ͕��p�ł��Ȃ��B
-  �Esystem���������[�h���K�{�̂��߁Ad3d11���[�h��v������@�\(--vpp-rotate��)�Ƃ͕��p�ł��Ȃ��B
-�Elibass��shaping��ݒ肷��I�v�V������ǉ��B(--vpp-sub-shaping)
-  simple(�f�t�H���g)��complex�B
-�E�����̕����R�[�h���w�肷��I�v�V������ǉ��B(--vpp-sub-charset)
-  �w�肵�Ȃ��ꍇ�͎����B���{��ɂ��Ă͂�����x�����ł��悢�����B
-  �w�肷��ꍇ�ɂ͉��L���Q�ƁB
+・libassを使用して字幕を焼きこむ機能を追加。(--vpp-sub <int> or <string>)
+  整数指定の場合は、入力動画ファイルの指定された字幕トラックを抽出して焼きこむ。
+  文字列指定の場合は、入力動画ファイルとは別の字幕ファイルを読み込み、これを焼きこむ。
+  AVX2 / AVX / SSE4.1 / SSE4.1 pshufb slowの4モードから最適なものが自動的に選択される。
+  以下3点に注意。
+  ・テキスト形式の字幕のみの対応。
+  ・--sub-copyとは併用できない。
+  ・systemメモリモードが必須のため、d3d11モードを要求する機能(--vpp-rotate等)とは併用できない。
+・libassのshapingを設定するオプションを追加。(--vpp-sub-shaping)
+  simple(デフォルト)かcomplex。
+・字幕の文字コードを指定するオプションを追加。(--vpp-sub-charset)
+  指定しない場合は自動。日本語についてはある程度自動でもよいかも。
+  指定する場合には下記を参照。
   https://trac.ffmpeg.org/attachment/ticket/2431/sub_charenc_parameters.txt
-�EH.264���͂ł�--avsync forcecfr���g�p�\�ɁB
-�E--check-features�Ńe�L�X�g�ŏo�͂��ׂ����ɂ�HTML�ŏo�͂���Ă����������������̂��C���B
+・H.264入力でも--avsync forcecfrが使用可能に。
+・--check-featuresでテキストで出力すべき時にもHTMLで出力されていた部分があったのを修正。
 
 2016.04.20 (2.45v2)
-�E�ȈՃC���X�g�[�����X�V�B
+・簡易インストーラを更新。
 
 2016.04.15 (2.45)
 [QSVEncC]
-�E--audio-copy�̍ۂ̃G���[�����ǉ��B
+・--audio-copyの際のエラー回避を追加。
 
 2016.04.03 (2.44)
 [QSVEncC]
-�EHaswell�ȍ~��vpp-detail-enhance�̌�����50�ŌŒ�ɂȂ��Ă����̂����P�B
-�Ex64�łŁAMFX/GPU�g�p�����擾�ł���悤�ɁB�����[�g�f�X�N�g�b�v���͎擾�ł��Ȃ��B
-�ELinux�Ńr���h�ł��Ȃ��Ȃ��Ă����̂��C���B
-�E�R�}���h���C���̃G���[���̃��b�Z�[�W�����P�B
+・Haswell以降でvpp-detail-enhanceの効きが50で固定になっていたのを改善。
+・x64版で、MFX/GPU使用率を取得できるように。リモートデスクトップ中は取得できない。
+・Linuxでビルドできなくなっていたのを修正。
+・コマンドラインのエラー時のメッセージを改善。
 
 2016.03.31 (2.43)
 [QSVEncC]
-�E�����֘A���O�̑̍ى��P�ƃt�B���^���̒ǉ��B
-�E�����t�B���^���g���b�N�ʂɎw��\�Ȃ悤�ɁB
-�E�����t�B���^��K�p����ƕs�K�v�ȃ��O���\�����������C���B
-�EQSV���g�p�\���̃`�F�b�N�ƁA�g�p�ł��Ȃ��ꍇ�̑΍��񎦂���o�b�`�t�@�C����ǉ��B
+・音声関連ログの体裁改善とフィルタ情報の追加。
+・音声フィルタをトラック別に指定可能なように。
+・音声フィルタを適用すると不必要なログが表示される問題を修正。
+・QSVが使用可能かのチェックと、使用できない場合の対策を提示するバッチファイルを追加。
 
 2016.03.27 (2.42)
 [QSVEncC]
-�E�����t�B���^�����O���\�ɁB (--audio-filter)
-  dll���܂߂čX�V���Ă��������B
-  ���ʕύX�̏ꍇ�́A"--audio-filter volume=0.2"�ȂǁB
-  ������ffmpeg��-af�Ɠ����B������simple filter (1 stream in 1 stream out) �Ȃ�g�p�\�Ȃ͂��B
-�Eavsync forcecfr + trim�͕��p�ł��Ȃ��̂ŁA�G���[�I������悤�ɁB
-�EHEVC�G���R�[�h���ɂ�mux�\�ɁB
-�EHEVC�G���R�[�h���ɘA��B�t���[�����̃f�t�H���g��2�ɂ��Ă����̂�3�ɖ߂����B
-  �܂��A�A��B�t���[������3�ȏ�ɂ����ꍇ�̌x����\�����Ȃ��悤�ɂ����B
-  �ŋ߂̃h���C�o�ł͖��Ȃ��͗l�B
+・音声フィルタリングを可能に。 (--audio-filter)
+  dllを含めて更新してください。
+  音量変更の場合は、"--audio-filter volume=0.2"など。
+  書式はffmpegの-afと同じ。いわゆるsimple filter (1 stream in 1 stream out) なら使用可能なはず。
+・avsync forcecfr + trimは併用できないので、エラー終了するように。
+・HEVCエンコード時にもmux可能に。
+・HEVCエンコード時に連続Bフレーム数のデフォルトを2にしていたのを3に戻した。
+  また、連続Bフレーム数を3以上にした場合の警告を表示しないようにした。
+  最近のドライバでは問題ない模様。
 
 2016.03.19 (2.41)
 [QSVEncC]
-�E2.40�ŏC��������Ă��Ȃ��������Y�����C���B
-�E�o�̓o�b�t�@�T�C�Y(--output-buf)�̃f�t�H���g��8MB�Ɍ��炷�B
-  �������ăp�t�H�[�}���X���ቺ����Ƃ����񍐂����������߁B
+・2.40で修正しきれていなかった音ズレを修正。
+・出力バッファサイズ(--output-buf)のデフォルトを8MBに減らす。
+  かえってパフォーマンスが低下するという報告があったため。
 
 2016.03.17 (2.40)
 [QSVEncC]
-�E�ꕔ���̓t�@�C���ŉ��Y������������̂��C���B
-�E�t���[�����[�g��������P�B
-�E�x���`�}�[�N�̌��ʃt�@�C���ɓ��̓t�@�C������ǋL�B
-�E--perf-monitor�œ��������ǉ��B
+・一部入力ファイルで音ズレが発生するのを修正。
+・フレームレート推定を改善。
+・ベンチマークの結果ファイルに入力ファイル名を追記。
+・--perf-monitorで得られる情報を追加。
 
 [QSVEnc]
-�E�ȈՃC���X�g�[�����X�V�B
+・簡易インストーラを更新。
 
 2016.03.13 (2.39)
-[����]
-�E2.37�ȍ~�A�G���R�[�h�J�n���Ƀt���[�Y���ăG���R�[�h���i�܂Ȃ��Ȃ��Ă��܂������C���B
-�E�����g���b�N��������Ȃ��ꍇ�̃G���[���b�Z�[�W���C���B����ɂ͉e���Ȃ��B
-�E�G���R�[�h�I�����̃��O���s���m�ł��邱�Ƃ��������̂��C���B
+[共通]
+・2.37以降、エンコード開始時にフリーズしてエンコードが進まなくなってしまう問題を修正。
+・音声トラックが見つからない場合のエラーメッセージを修正。動作には影響なし。
+・エンコード終了時のログが不正確であることがあったのを修正。
 
 [QSVEnc]
-�E�ȈՃC���X�g�[���X�V�B
+・簡易インストーラ更新。
 
 [QSVEncC]
-�E2.38�ȍ~�A�G���R�[�h�J�n���Ƀt���[�Y���ăG���R�[�h���i�܂Ȃ��Ȃ��Ă��܂������C���B
-�E�R�}���h���C���p�[�X�G���[��������ɂ����ꍇ���������̂����P�B
-�E�x���`�}�[�N���[�h�����삵�Ȃ��̂��C���B
+・2.38以降、エンコード開始時にフリーズしてエンコードが進まなくなってしまう問題を修正。
+・コマンドラインパースエラーが分かりにくい場合があったのを改善。
+・ベンチマークモードが動作しないのを修正。
 
 2016.03.08 (2.38)
-[����]
-�EAPI 1.4�ȉ��̃}�V���ŋ@�\���擾(--check-features)���s���m�������̂��C���B
+[共通]
+・API 1.4以下のマシンで機能情報取得(--check-features)が不正確だったのを修正。
 
 [QSVEncC]
-�E�����g���b�N���Ȃ��ꍇ�ɁA�G���[�I���������A�G���R�[�h�𑱍s����I�v�V������ǉ��B(--audio-ignore-notrack-error)
-�E�g�p�ł��Ȃ����[�g���䃂�[�h���w�肳�ꂽ�ꍇ�ɁA�G���[�I������̂ł͂Ȃ��A
-  �����I�ɂ���ʓI�ɃT�|�[�g����郌�[�g���䃂�[�h�Ƀt�H�[���o�b�N����I�v�V������ǉ��B(--fallback-rc)
-  �r�b�g���[�g�w��n�Ȃ�ŏI�I��vbr���A�i���w��n�Ȃ�ŏI�I��cqp���g�p����B
-�E--avsync forcecfr��--vpp-deinterlace it/bob�Ƃ͕��p�ł��Ȃ����Ƃւ̃G���[���b�Z�[�W��ǉ��B
-�E�p�����[�^�̒l�������I�Ɋۂ߂��ꍇ�́A�x����\������悤�ɁB
-�E���[�g���䃂�[�h���T�|�[�g����Ă��Ȃ��̂��A�R�[�f�b�N���T�|�[�g����Ă��Ȃ������킩��₷���\���B
-�E�ǂݍ��ݗp�X���b�h��ǉ��B--input-thread <int>�ŃI���I�t�\�B
-�E������������傫���ύX���A�ȗ����B��������啝�ɍ������B
+・音声トラックがない場合に、エラー終了させず、エンコードを続行するオプションを追加。(--audio-ignore-notrack-error)
+・使用できないレート制御モードが指定された場合に、エラー終了するのではなく、
+  自動的により一般的にサポートされるレート制御モードにフォールバックするオプションを追加。(--fallback-rc)
+  ビットレート指定系なら最終的にvbrを、品質指定系なら最終的にcqpを使用する。
+・--avsync forcecfrは--vpp-deinterlace it/bobとは併用できないことへのエラーメッセージを追加。
+・パラメータの値を自動的に丸めた場合は、警告を表示するように。
+・レート制御モードがサポートされていないのか、コーデックがサポートされていないかをわかりやすく表示。
+・読み込み用スレッドを追加。--input-thread <int>でオンオフ可能。
+・初期化処理を大きく変更し、簡略化。初期化を大幅に高速化。
 
 2016.02.29 (2.37)
 [QSVEncC]
-�E����������R����C���B
-�E2.27�ȍ~�A
+・メモリ解放漏れを修正。
+・2.27以降、
   "Failed to SynchronizeFirstTask"
   "Failed to get free surface for vpp pre."
-  �Ȃǂ̃G���[�ŏI�����Ă��܂����Ƃ���������C���B
+  などのエラーで終了してしまうことがある問題を修正。
 
 2016.02.24 (2.36)
 [QSVEncC]
-�E--seek�̌����Ȃ��P�[�X���������̂��C���B
-�E--avsync forcecfr��MPEG�f�R�[�h���������삵�Ȃ����A����ȊO�̏ꍇ�̓G���[�I���ł͂Ȃ��A
-  �x����\�����Ė������̏㑱�s����悤�ɁB
+・--seekの効かないケースがあったのを修正。
+・--avsync forcecfrはMPEGデコード時しか動作しないが、それ以外の場合はエラー終了ではなく、
+  警告を表示して無効化の上続行するように。
 
 2016.02.21 (2.35)
 [QSVEncC]
-�E--avsync forcecfr�ŁA�ŏ����班�������ꂵ�Ă���ꍇ���������̂��C���B
-�E--avsync forcecfr��H.264�f�R�[�h���ɂ͎g�p�ł��Ȃ��悤�ɂ����B(����MPEG2�f�R�[�h��p)
-�EH.264�f�R�[�h���ɗ�����ꍇ���������̂��C���B
+・--avsync forcecfrで、最初から少し音ずれしている場合があったのを修正。
+・--avsync forcecfrはH.264デコード時には使用できないようにした。(当面MPEG2デコード専用)
+・H.264デコード中に落ちる場合があったのを修正。
 
 2016.02.20 (2.34)
-[����]
-�E2.32�ȍ~�AHEVC�G���R�[�h���ł��Ȃ������̂��C���B
+[共通]
+・2.32以降、HEVCエンコードができなかったのを修正。
 
 [QSVEncC]
-�EQSV�̏������x�ɏ����݂������Ƃ��̐ݒ��ǉ��B(--max-procfps)
-  �f�t�H���g��0 (�����Ȃ�)�B�����{QSV�G���R�[�h�����Ă��āA�ЂƂ̃X�g���[����CPU/GPU�̑S�͂�D��ꂽ���Ȃ��Ƃ����Ƃ��̂��߂̃I�v�V�����B
-�E�f���Ɖ����̓�����ۂ��߂̃I�v�V������ǉ��B(--avsync)
-  ���݂́Athrough, forcecfr���[�h�̂ݎ����B
-  through(�f�t�H���g)�͂���܂œ��l�A���͂�CFR�����肵�A����pts���`�F�b�N���Ȃ��B
-  forcecfr�ł́A����pts�����Ȃ���ACFR�ɍ����悤�t���[���̐������E�Ԉ������s���A�����Ƃ̓������ێ��ł���悤�ɂ���B
-  ��ɁA���͂�vfr��RFF�Ȃǂ̂Ƃ��ɉ��Y�����Ă��܂����ւ̑΍�B
-  vfr�ɑ΂��Ďg�p����ۂɂ́A���킹�ăG���R�[�h������fps�𖾎��I��--fps�ŗ^���Ă��������B
-�E�V�[�N���Ă���G���R�[�h���J�n����I�v�V������ǉ��B(--seek)
-  ���������s���m�ȃV�[�N�����Ă���G���R�[�h���J�n����B���m�Ȕ͈͎w����s�������ꍇ�͏]���ʂ�--trim�ōs���B
-  �����́Ahh:mm:ss.ms�B"hh"��"mm"�͏ȗ��B
-�E�R�}���h���C���ŃG���[�ƂȂ������̏��\���������B
-�E����fps���������ɉ��P�BRFF�ł��딻�肵�Ȃ��悤�ɁB
-�E��ɒ�𑜓x�����������������B
+・QSVの処理速度に上限を設けたいときの設定を追加。(--max-procfps)
+  デフォルトは0 (制限なし)。複数本QSVエンコードをしていて、ひとつのストリームにCPU/GPUの全力を奪われたくないというときのためのオプション。
+・映像と音声の同期を保つためのオプションを追加。(--avsync)
+  現在は、through, forcecfrモードのみ実装。
+  through(デフォルト)はこれまで同様、入力はCFRを仮定し、入力ptsをチェックしない。
+  forcecfrでは、入力ptsを見ながら、CFRに合うようフレームの水増し・間引きを行い、音声との同期が維持できるようにする。
+  主に、入力がvfrやRFFなどのときに音ズレしてしまう問題への対策。
+  vfrに対して使用する際には、合わせてエンコードしたいfpsを明示的に--fpsで与えてください。
+・シークしてからエンコードを開始するオプションを追加。(--seek)
+  高速だが不正確なシークをしてからエンコードを開始する。正確な範囲指定を行いたい場合は従来通り--trimで行う。
+  書式は、hh:mm:ss.ms。"hh"や"mm"は省略可。
+・コマンドラインでエラーとなった時の情報表示を強化。
+・入力fps判定をさらに改善。RFFでも誤判定しないように。
+・主に低解像度向け処理を高速化。
 
 2016.02.15 (2.33)
 [QSVEnc]
-�E�[�����Z��O(0xc0000094)���C���B
+・ゼロ除算例外(0xc0000094)を修正。
 
 [QSVEncC]
-�E�����̃f�R�[�h�G���[�𖳎����ď������p������悤�ɂ����B�G���[�̉ӏ��͖����ɒu��������B
-  ��̓I�ɂ́A�A������f�R�[�h�G���[�̐����J�E���g���A臒l�ȓ��Ȃ�G���[�𖳎����ď������p������B
-  臒l��--audio-ignore-decode-error <int>�Őݒ肷��B�f�t�H���g��10�B
-  0�Ƃ���΁A1��ł��f�R�[�h�G���[���N����Ώ����𒆒f���ăG���[�I������B
+・音声のデコードエラーを無視して処理を継続するようにした。エラーの箇所は無音に置き換える。
+  具体的には、連続するデコードエラーの数をカウントし、閾値以内ならエラーを無視して処理を継続する。
+  閾値を--audio-ignore-decode-error <int>で設定する。デフォルトは10。
+  0とすれば、1回でもデコードエラーが起これば処理を中断してエラー終了する。
 
 2016.02.13 (2.32)
-[����]
-�E�G���R�[�h�J�n���̋@�\�`�F�b�N�̍ۂɁA�������ς�session���g�����ƂŃ`�F�b�N���������B
-�ESandybridge��d3d��������VPP���g�p����ۂɁA����ɓ��삷��ɂ�������炸�A�G���[���b�Z�[�W���\�������̂��C���B
+[共通]
+・エンコード開始時の機能チェックの際に、初期化済みsessionを使うことでチェックを高速化。
+・Sandybridgeでd3dメモリでVPPを使用する際に、正常に動作するにもかかわらず、エラーメッセージが表示されるのを修正。
 
 [QSVEnc]
-�Ebob���̍ہA�i���\����200%�ɂȂ��Ă����̂��C���B
-�Ebob���̍ہAfps���{�ɂȂ�Ȃ��Ȃ��Ă��������C���B
+・bob化の際、進捗表示が200%になっていたのを修正。
+・bob化の際、fpsが倍にならなくなっていた問題を修正。
 
 [QSVEncC]
-�E�����֘A�I�v�V�����𕡐��w�肷��ۂɁA--audio-stream���g�p����Ɠ���track�ւ̎w��Ƃ��Ĉ����Ȃ��̂��C���B
-�Effmpeg��dll�����݂��Ȃ��Ƃ���--audio-stream���g�p����Ɨ�O�ŗ����Ă��܂��̂��C���B
-�E�o�̓t�@�C���̃t�H���_�����݂��Ȃ��ƃG���[�I������̂��C���B
-�E--fade-detect�������Ă��Ȃ������̂��C���B
-�Ehelp�𐮗��B
-�Ehelp��vpp-denoise, vpp-detail-enhance�̒l�͈̔͂𖾋L�B
-�ELinux�������R���p�C���ł��Ȃ������̂��C���B
+・音声関連オプションを複数指定する際に、--audio-streamを使用すると同一trackへの指定として扱われないのを修正。
+・ffmpegのdllが存在しないときに--audio-streamを使用すると例外で落ちてしまうのを修正。
+・出力ファイルのフォルダが存在しないとエラー終了するのを修正。
+・--fade-detectが効いていなかったのを修正。
+・helpを整理。
+・helpにvpp-denoise, vpp-detail-enhanceの値の範囲を明記。
+・Linux向けがコンパイルできなかったのを修正。
 
 2016.02.10 (2.31)
-[����]
-�E2.29�ȍ~�Affmpeg��dll���Ȃ��ꏊ�Ŏ��s����ƃG���R�[�h�I�����ɗ����Ă����̂��C���B
-  Aviutl��QSVEnc.auo�ł�0xc06d007e��O(�s���ȃA�v���P�[�V������O)[kernelbase.dll]�ŗ����Ă����B
+[共通]
+・2.29以降、ffmpegのdllがない場所で実行するとエンコード終了時に落ちていたのを修正。
+  AviutlのQSVEnc.auoでは0xc06d007e例外(不明なアプリケーション例外)[kernelbase.dll]で落ちていた。
 
 2016.02.09 (2.30)
 [QSVEncC]
-�Ehls�o�͂ŁAm3u8�t�@�C��������ɏo�͂���Ȃ��̂��C���B
-�Effmpeg_dll���X�V�Budp�ǂݍ��ݎ��ɖ�肪�������̂��C������B--avqsv-analyze�����Ɏw�肷��K�v���Ȃ��Ȃ����B
-  ���L�̂悤�ɂ���Ζ��Ȃ����삷��B
+・hls出力で、m3u8ファイルが正常に出力されないのを修正。
+・ffmpeg_dllを更新。udp読み込み時に問題があったのを修正する。--avqsv-analyzeも特に指定する必要がなくなった。
+  下記のようにすれば問題なく動作する。
   -i udp://127.0.0.1:1234?pkt_size=262144^&fifo_size=8000000 -o test.mp4
-�E�`���v�^�[�t�@�C����ǂݍ��ރI�v�V������ǉ��B(--chapter <string>)
-  nero�`����apple�`���ɑΉ�����B
-  --chapter-copy�Ƃ͕��p�ł��Ȃ��B
+・チャプターファイルを読み込むオプションを追加。(--chapter <string>)
+  nero形式とapple形式に対応する。
+  --chapter-copyとは併用できない。
 
 2016.02.05 (2.29)
 [QSVEncC]
-�Effmpeg_dll���X�V�B���x�œK��(-O3)�ɐ؂�ւ��A�����G���R�[�h���Ȃǂɍ������B
-  �܂��Anetwork��protocols��L���ɂ��ăr���h�����B����ɂ��Audp�̃��A���^�C���G���R�[�h�Ȃǂ��\�B
+・ffmpeg_dllを更新。速度最適化(-O3)に切り替え、音声エンコード時などに高速化。
+  また、networkやprotocolsを有効にしてビルドした。これにより、udpのリアルタイムエンコードなどが可能。
   -i udp://127.0.0.1:1234?pkt_size=262144^&fifo_size=8000000 -o test.mp4 --output-thread 0 -a 1 --avqsv-analyze 10
-�Edll�̃o�[�W������\������I�v�V������ǉ��B(--check-avversion)
-�E�T�|�[�g����Ă���v���g�R����\������I�v�V������ǉ��B(--check-protocols)
-�Emux���ɃI�v�V�����p�����[�^��n���I�v�V������ǉ��B(-m <string1>:<string2>)
-  ���Http Live Streaming�o�͎��ɕK�v�ȃp�����[�^��n�����߂Ɏg�p����B
-  ��Ƃ��āAHLS�p�̏o�͂��s�������ꍇ�ɂ́A�ȉ��̂悤�ɐݒ肷��B
+・dllのバージョンを表示するオプションを追加。(--check-avversion)
+・サポートされているプロトコルを表示するオプションを追加。(--check-protocols)
+・mux時にオプションパラメータを渡すオプションを追加。(-m <string1>:<string2>)
+  主にHttp Live Streaming出力時に必要なパラメータを渡すために使用する。
+  例として、HLS用の出力を行いたい場合には、以下のように設定する。
   -i <input> -o test.m3u8 -f hls -m hls_time:5 -m hls_segment_filename:test_%03d.ts --gop-len 30
-�Elibavcodec/libavformat����̃G���[���b�Z�[�W�����O�t�@�C���ɏ����o����悤�ɂ����B
-  ����܂ł̓R���\�[���ɂ����\������Ă��Ȃ������B
-�E�����̃T���v�����O���g����ϊ�����@�\��ǉ��B(--audio-samplerate [<int>?]<int>)
-�E�����̃T���v�����O���g���ϊ����Ɏg�p����G���W����؂�ւ���I�v�V������ǉ��B(--audio-resampler <string>)
-  �I������"swr"(�f�t�H���g=swresampler)��"soxr"(libsoxr)�B
-�E�g���b�N���w�肵�āA�����`�����l���̕����E�����Ȃǂ��s���I�v�V������ǉ��B(--audio-stream [<int>?][<string>])
-  �T�^�I�ɂ̓f���A�����m�����Ȃǂɑ΂��A--audio-stream FR,FL�ȂǂƂ��ĕ�������B
-  �܂������ɁA�����̃`�����l�������w�肷��̂ɂ��g�p���邱�Ƃ��ł��A--audio-stream stereo�ȂǂƂ��邱�Ƃŏ�ɉ�����2ch�ɕϊ�������ł���B
+・libavcodec/libavformatからのエラーメッセージをログファイルに書き出せるようにした。
+  これまではコンソールにしか表示されていなかった。
+・音声のサンプリング周波数を変換する機能を追加。(--audio-samplerate [<int>?]<int>)
+・音声のサンプリング周波数変換時に使用するエンジンを切り替えるオプションを追加。(--audio-resampler <string>)
+  選択肢は"swr"(デフォルト=swresampler)と"soxr"(libsoxr)。
+・トラックを指定して、音声チャンネルの分離・統合などを行うオプションを追加。(--audio-stream [<int>?][<string>])
+  典型的にはデュアルモノ音声などに対し、--audio-stream FR,FLなどとして分離する。
+  また同時に、音声のチャンネル数を指定するのにも使用することができ、--audio-stream stereoなどとすることで常に音声を2chに変換したりできる。
   
-  �����`�����l���̕����E�����Ȃǂ��s���B
-  --audio-stream���w�肳�ꂽ�����g���b�N�͏�ɃG���R�[�h�����B
-  ,(�J���})�ŋ�؂邱�ƂŁA���͂̓����g���b�N���畡���̃g���b�N�𐶐��ł���B
+  音声チャンネルの分離・統合などを行う。
+  --audio-streamが指定された音声トラックは常にエンコードされる。
+  ,(カンマ)で区切ることで、入力の同じトラックから複数のトラックを生成できる。
 
-  ����:
-  <int>�ɏ����Ώۂ̃g���b�N���w�肷��B
-  <string1>�ɓ��͂Ƃ��Ďg�p����`�����l�����w�肷��B�ȗ����ꂽ�ꍇ�͓��͂̑S�`�����l�����g�p����B
-  <string2>�ɏo�̓`�����l���`�����w�肷��B�ȗ����ꂽ�ꍇ�́A<string1>�̃`�����l�������ׂĎg�p����B
+  書式:
+  <int>に処理対象のトラックを指定する。
+  <string1>に入力として使用するチャンネルを指定する。省略された場合は入力の全チャンネルを使用する。
+  <string2>に出力チャンネル形式を指定する。省略された場合は、<string1>のチャンネルをすべて使用する。
 
-  ��1: --audio-stream FR,FL
-  �ł��K�v���Ǝv����@�\�B�f���A�����m���獶�E�̃`�����l����2�̃��m���������ɕ�������B
+  例1: --audio-stream FR,FL
+  最も必要だと思われる機能。デュアルモノから左右のチャンネルを2つのモノラル音声に分離する。
 
-  ��2: --audio-stream :stereo
-  �ǂ�ȉ������X�e���I�ɕϊ�����B
+  例2: --audio-stream :stereo
+  どんな音声もステレオに変換する。
 
-  ��3: --audio-stream 2?5.1,5.1:stereo
-  ���̓t�@�C���̑�Q�g���b�N���A5.1ch�̉�����5.1ch�Ƃ��ăG���R�[�h���A�X�e���I�Ƀ_�E���~�b�N�X�����g���b�N�𐶐�����B
-  ���ۂɎg�����Ƃ����邩�͔��������A�����̏Љ��Ƃ��Ă͂킩��₷�����ƁB
+  例3: --audio-stream 2?5.1,5.1:stereo
+  入力ファイルの第２トラックを、5.1chの音声を5.1chとしてエンコードしつつ、ステレオにダウンミックスしたトラックを生成する。
+  実際に使うことがあるかは微妙だが、書式の紹介例としてはわかりやすいかと。
 
-  �g�p�ł���L��
+  使用できる記号
   mono       = FC
   stereo     = FL + FR
   2.1        = FL + FR + LFE
@@ -1701,1074 +1701,1074 @@ API v1.1  �c Intel Media SDK v2.0
   7.1(wide)  = FL + FR + FC + LFE + FLC + FRC + SL + SR
 
 2016.01.25 (2.28)
-[����]
-�E�����G���R�[�h���x��蓮��̃G���R�[�h���x�������Ȃ�ꍇ�ɁA�������g�p�ʂ��傫���c��オ���Ă����̂��C���B
-�Emux���̓����ɖ�肪����ꍇ���������̂��C���B
+[共通]
+・音声エンコード速度より動画のエンコード速度が速くなる場合に、メモリ使用量が大きく膨れ上がっていたのを修正。
+・mux時の同期に問題がある場合があったのを修正。
 
 [QSVEncC]
-�Eperf-monitor-plot��pyqtgraph�x�[�X�ɕύX�B
-  �ȑO��matplotlib�x�[�X��荂���B
-  python3.4�ȍ~ + pyqtgraph (+ numpy, PySide)���K�v�ɁB
+・perf-monitor-plotをpyqtgraphベースに変更。
+  以前のmatplotlibベースより高速。
+  python3.4以降 + pyqtgraph (+ numpy, PySide)が必要に。
 
 2016.01.17 (2.27)
-[����]
-�EGPU�f�o�C�X�̎擾��GPU�������擾�̂�����̃��O���E�G���[�����ׂ����擾�ł���悤�ɂ����B
+[共通]
+・GPUデバイスの取得とGPUメモリ取得のあたりのログ情報・エラー情報を細かく取得できるようにした。
 
 [QSVEnc]
-�EAuoLink���g�p�s�ł���ꍇ�ɂ��AAuoLink�֘A�̃^�u�������Ă����̂��C���B
-�E�ȈՃC���X�g�[����QuickTime���_�E�����[�h�ł��Ȃ��Ȃ��Ă����̂��C���B
+・AuoLinkが使用不可である場合にも、AuoLink関連のタブが見えていたのを修正。
+・簡易インストーラでQuickTimeがダウンロードできなくなっていたのを修正。
 
 [QSVEncC]
-�E�o�̓o�b�t�@�T�C�Y���w�肷��I�v�V������ǉ��B(--output-buf)
-  �o�̓o�b�t�@�T�C�Y��MB�P�ʂŎw�肷��B�f�t�H���g��64�A�ő�l��128�B0�Ŏg�p���Ȃ��B
-  ����܂ŏ��64MB�m�ۂ��Ă����̂�ύX�ł���悤�ɂ���B
-�E�o�̓X���b�h���g�p���Ȃ��I�v�V������ǉ��B(--no-output-thread)
-  �o�̓X���b�h�̓G���R�[�h���������������A����Ȃ�Ƀ������������B
-  �����Ń������ߖ�̂��߁A�o�̓X���b�h���g�p���Ȃ��I�v�V������ǉ��B
-  �f�t�H���g�ł͏o�̓X���b�h���g�p����B
-�E�������g�p�ʂ��ŏ�������I�v�V������ǉ�(--min-memory)�B
-  �����_�ł́A"-a 1 --no-output-thread --output-buf 0 --input-buf 1"�Ɠ����B
+・出力バッファサイズを指定するオプションを追加。(--output-buf)
+  出力バッファサイズをMB単位で指定する。デフォルトは64、最大値は128。0で使用しない。
+  これまで常に64MB確保していたのを変更できるようにする。
+・出力スレッドを使用しないオプションを追加。(--no-output-thread)
+  出力スレッドはエンコードを高速化する一方、それなりにメモリを消費する。
+  そこでメモリ節約のため、出力スレッドを使用しないオプションを追加。
+  デフォルトでは出力スレッドを使用する。
+・メモリ使用量を最小化するオプションを追加(--min-memory)。
+  現時点では、"-a 1 --no-output-thread --output-buf 0 --input-buf 1"と同じ。
 
 2015.12.30 (2.26)
 [QSVEncC]
-�Emkv�o�͎���SAR�䂪���f����Ȃ��̂��C���B
-�EGPU-Z���N�����Ă���΁AGPU�g�p�����擾�ł���悤�ɁB
-�E--audio-source�g�p���ɂ�--trim���g�p�ł���悤�ɁB
-�Eavqsv�ȊO�̃��[�_�[�ł�--trim���g�p�ł���悤�ɁB
+・mkv出力時にSAR比が反映されないのを修正。
+・GPU-Zが起動していれば、GPU使用率を取得できるように。
+・--audio-source使用時にも--trimを使用できるように。
+・avqsv以外のリーダーでも--trimを使用できるように。
 
 2015.12.24 (2.25)
 [QSVEncC]
-�Eavqsv���[�_�[�Ŏw�肳�ꂽfps�œǂݍ��ނ悤�ɁB
-�Ets�I�[�Ȃǂ̒��r���[�ȃp�P�b�g�ɂ�艹���̃w�b�_parser�����ŃG���[�����������ۂɁA
-  ���������f����A����ȃt�@�C�����o�͂ł��Ȃ������C���B
+・avqsvリーダーで指定されたfpsで読み込むように。
+・ts終端などの中途半端なパケットにより音声のヘッダparser部分でエラーが発生した際に、
+  処理が中断され、正常なファイルが出力できない問題を修正。
 
 2015.12.20 (2.24)
 [QSVEnc]
-�EAuoLink�Ƒg�ݍ��킹�āAavqsv���g�p�ł���悤�ɁB
+・AuoLinkと組み合わせて、avqsvを使用できるように。
 
 [QSVEncC]
-�E�G���R�[�h�p�C�v���C�����Ŕ��������G���[�̃G���[�R�[�h������ɉ������Ȃ����Ƃ�����̂��C���B
+・エンコードパイプライン内で発生したエラーのエラーコードが正常に回収されないことがあるのを修正。
 
 2015.11.24 (2.23)
 [QSVEncC]
-�EHaswell��HEVC���f�R�[�h�ł��Ȃ��̂��C���B
+・HaswellでHEVCがデコードできないのを修正。
 
 2015.11.20 (2.22)
-[����]
-�EAPI v1.17�ɑΉ��B
-�E�t�F�[�h���o�ɑΉ��B(--fade-detect)
-�E�摜��]�ɑΉ��B90��, 180��, 270���ɑΉ��B(--vpp-rotate)
-�ESkylake Pentium�ŁABroadwell�Ɣ��肳��Ă��܂��̂��C���ł��Ă���c��������Ȃ��B
+[共通]
+・API v1.17に対応。
+・フェード検出に対応。(--fade-detect)
+・画像回転に対応。90°, 180°, 270°に対応。(--vpp-rotate)
+・Skylake Pentiumで、Broadwellと判定されてしまうのを修正できている…かもしれない。
 
 [QSVEnc]
-�E�ݒ��ʂ�CBR���I���ł��Ȃ��Ȃ��Ă����̂��C���B
+・設定画面でCBRが選択できなくなっていたのを修正。
 
 [QSVEncC]
-�Emkv�ȂǂŎ��ԉ𑜓x���e��������A����؂�Ȃ������肷��ꍇ��
-  �V�[�N�����܂������Ȃ�(�V�[�N���ɉ������΂炭�Đ�����Ȃ�)�����C������B
-�E�w���v�̌뎚���C���B
+・mkvなどで時間解像度が粗かったり、割り切れなかったりする場合に
+  シークがうまくいかない(シーク時に音がしばらく再生されない)問題を修正する。
+・ヘルプの誤字を修正。
 
 2015.11.15 (2.21)
-[����]
-�Eqpmin/qpmax���w�肷��Ɨ����Ă��܂������C���B
+[共通]
+・qpmin/qpmaxを指定すると落ちてしまう問題を修正。
 
 [QSVEncC]
-�Ex64�ł�--check-environment���g�p����ƁA�����Ă��܂������C���B
-�E�x���`�}�[�N���ɑ��肷��i���ݒ�̑Ώۂ�ύX�ł���悤�ɁB�܂��f�t�H���g���u���ׂāv�łȂ��u1,4,7�v�ɕύX�B
-�E�p�t�H�[�}���X���͂��s���I�v�V������ǉ��B(--perf-monitor)
-�E�����G���R�[�h���̑��x��啝�ɉ��P�B(Windows�̂�)
+・x64版で--check-environmentを使用すると、落ちてしまう問題を修正。
+・ベンチマーク時に測定する品質設定の対象を変更できるように。またデフォルトを「すべて」でなく「1,4,7」に変更。
+・パフォーマンス分析を行うオプションを追加。(--perf-monitor)
+・音声エンコード時の速度を大幅に改善。(Windowsのみ)
 
 2015.11.02 (2.20)
-[����]
-�Erdseed�̃t���O�ʒu��1bit�Ԉ���Ă����̂ŏC���B
-  Broadwell��Haswell�ƌ��o����Ă����B
-�E100%�Ői������~���Ă��܂������C���B
+[共通]
+・rdseedのフラグ位置を1bit間違っていたので修正。
+  BroadwellがHaswellと検出されていた。
+・100%で進捗が停止してしまう問題を修正。
 
 [QSVEnc]
-�Efdk-aac (ffmpeg)�ɂ�audio delay cut�p�̃p�����[�^��QSVEnc.ini�ɒǉ��B
-�Elibmfxsw32.dll�̃`�F�b�N���܂��c���Ă����̂ō폜�B
+・fdk-aac (ffmpeg)にもaudio delay cut用のパラメータをQSVEnc.iniに追加。
+・libmfxsw32.dllのチェックがまだ残っていたので削除。
 
 [QSVEncC]
-�Ets�Ȃǂŉ������G���R�[�h����ۂɁA�ŏI�p�P�b�g�����r���[���ƃt���[�Y���Ă��܂������C���B
+・tsなどで音声をエンコードする際に、最終パケットが中途半端だとフリーズしてしまう問題を修正。
 
 2015.10.30 (2.19)
 [QSVEnc]
-�Elibmfxsw32.dll�̓ǂݍ��ݎ��G���[�����ɂȂ��Ă���̂ŁA�ЂƂ܂�sw�ł̃G���R�[�h�𖳌��������B
-�E���O�\�������ڍׂɁB
+・libmfxsw32.dllの読み込み時エラーが問題になっているので、ひとまずswでのエンコードを無効化した。
+・ログ表示をより詳細に。
 
 [QSVEncC]
-�E�����̃R�}���h���C���̃p�[�X�����܂������Ȃ������C���B 
-�Em2ts/ts��VC-1���f�R�[�h�ł��Ȃ��̂����P�B
-�Em2ts�Ȃǂɂ����鎚���̎�舵�������P�B
-�E������mux���Ȃ��ꍇ�A������mux����Ȃ����������C���B
-�E�f�o�b�O�p���O�o�͂������B 
-�E�����I�ȗl�X�ȏC���B
+・いつかのコマンドラインのパースがうまくいかない問題を修正。 
+・m2ts/tsのVC-1がデコードできないのを改善。
+・m2tsなどにおける字幕の取り扱いを改善。
+・音声をmuxしない場合、字幕もmuxされなかった問題を修正。
+・デバッグ用ログ出力を強化。 
+・内部的な様々な修正。
 
 2015.10.16 (2.18)
 [QSVEnc]
-�E�X�V�Ȃ�
+・更新なし
 
 [QSVEncC]
-�E�����𒊏o�E�R�s�[�E�G���R�[�h�����ꍇ�ɉf���Ƀu���b�N�m�C�Y����邱�Ƃ�����̂��C���B
+・音声を抽出・コピー・エンコードした場合に映像にブロックノイズが乗ることがあるのを修正。
 
 2015.10.11 (2.17)
 [QSVEnc]
-�E�d�ݕt��B�t���[���̐ݒ��ʂł̋������������̂��C���B
-�E�ݒ��ʂ���x���Ă���J����Ɨ�O���������邱�Ƃ��������̂��C���B
+・重み付きBフレームの設定画面での挙動が怪しいのを修正。
+・設定画面を一度閉じてから開けると例外が発生することがあったのを修正。
 
 [QSVEncC]
-�E�X�V�Ȃ�
+・更新なし
 
 2015.10.10 (2.16)
-[����]
-�EAPI 1.16�ɑΉ��B
-�E�d�ݕt��B�t���[���A�d�ݕt��P�t���[���̃I�v�V������ǉ��B
-  --weightb, --weightp�B
+[共通]
+・API 1.16に対応。
+・重み付きBフレーム、重み付きPフレームのオプションを追加。
+  --weightb, --weightp。
 
 [QSVEncC]
-�E�R�s�[���鎚����I���ł���悤�ɁB
-  --sub-copy�Ŏ����̔ԍ���1,2,3,...�Ŏw�肷��B
-  �����w�肵�Ȃ��ꍇ�A���܂Œʂ肷�ׂĂ̎������R�s�[����B
-�EVC-1 hw decode��ǉ��B
-�E--disable-d3d�������Ȃ��Ȃ��Ă��������C���B
-�E�������̎w�肪�����̏ꍇ�A�o�̓R�[�f�b�N��raw�Ȃ�Asystem�������������I�Ɏg�p����悤�ɁB
-  ���̂ق������|�I�ɍ����B
+・コピーする字幕を選択できるように。
+  --sub-copyで字幕の番号を1,2,3,...で指定する。
+  何も指定しない場合、今まで通りすべての字幕をコピーする。
+・VC-1 hw decodeを追加。
+・--disable-d3dが効かなくなっていた問題を修正。
+・メモリの指定が自動の場合、出力コーデックがrawなら、systemメモリを自動的に使用するように。
+  そのほうが圧倒的に高速。
 
 2015.10.03 (2.15)
 [QSVEncC]
-�EUTF-8 plain text�Ȏ����ɂ��Ή����Ă݂��B
+・UTF-8 plain textな字幕にも対応してみた。
 
 2015.10.03 (2.14)
 [QSVEncC]
-�E�Â�dll���`�F�b�N���Ă��āA���삵�Ȃ������̂��C���B
-�E�w���v��level, profile�̕\�L��H.264��2��\������Ă����̂��C���B
+・古いdllをチェックしていて、動作しなかったのを修正。
+・ヘルプのlevel, profileの表記でH.264が2回表示されていたのを修正。
 
 2015.10.03 (2.13)
-[����]
-�EH.264 Level 5.2��ǉ��B
+[共通]
+・H.264 Level 5.2を追加。
 
 [QSVEncC]
-�E�`���v�^�[���R�s�[����@�\��ǉ��B--chapter-copy
-�E�������R�s�[����@�\��ǉ��B--sub-copy
-�E���惁�^�����R�s�[����悤�ɁB
-�E�w���v�Ɏw��\��level, profile��\���\�ɁB
-�E���̑��A�w���v�̏C���B
+・チャプターをコピーする機能を追加。--chapter-copy
+・字幕をコピーする機能を追加。--sub-copy
+・動画メタ情報をコピーするように。
+・ヘルプに指定可能なlevel, profileを表示可能に。
+・その他、ヘルプの修正。
 
 2015.09.02 (2.12)
-[����]
-�EVC++2015�Ɉڍs�B
-�EHEVC�G���R�[�h���́u�A��B�t���[�����v�̃f�t�H���g��2�ɁB
-  3�ȏ�ɂ���ƁA�u���b�N��ɕ���錻�ۂ��ꕔ�̃f�R�[�_�Ŕ������邽�߁B
-�E�ꕔ���O�\�������P�E�C���B
+[共通]
+・VC++2015に移行。
+・HEVCエンコード時は「連続Bフレーム数」のデフォルトを2に。
+  3以上にすると、ブロック状に崩れる現象が一部のデコーダで発生するため。
+・一部ログ表示を改善・修正。
 
 [QSVEnc]
-�EVC++2015�ڍs�ɍ��킹�A�ȈՃC���X�g�[�����X�V�B
+・VC++2015移行に合わせ、簡易インストーラを更新。
   
 [QSVEncC]
-�E2.11��x64�ł�--check-features������ɏo�͂���Ȃ������C���B
+・2.11のx64版で--check-featuresが正常に出力されない問題を修正。
 
 2015.08.26 (2.11)
-[����]
-�ESkylake HEVC�ɑΉ��B(HW�G���R�[�h)
-  �������A�܂��s����ȉ\��������B
-  �܂��A���܂̂Ƃ���mux���Ȃ���̏o�͂ɂ͔�Ή��B
+[共通]
+・Skylake HEVCに対応。(HWエンコード)
+  ただし、まだ不安定な可能性がある。
+  また、いまのところmuxしながらの出力には非対応。
 
 [QSVEncC]
-�EVP8�ɑΉ����悤�Ƃ������Aplugin���Ȃ��ƌ���ꓮ���Ȃ������B
-�E--check-features�����ǁB
-  --check-features <�o�̓t�@�C����>�Ƃ��邱�ƂŁA�w�肵���t�@�C���ɏo�͂��A
-  �o�͌�A����̃A�v���P�[�V�����ł�����J���B
-  �o�̓t�@�C������".html"�Ȃ�html�`���A".csv"�Ȃ�csv�`���A����ȊO�͏]���ʂ��txt�`���ŏo�͂���B
-�E--audio-source��ǉ��B--audio-copy�Ƃ̕��p�ŁA�O�������t�@�C����mux�ł���B
+・VP8に対応しようとしたが、pluginがないと言われ動かなかった。
+・--check-featuresを改良。
+  --check-features <出力ファイル名>とすることで、指定したファイルに出力し、
+  出力後、既定のアプリケーションでそれを開く。
+  出力ファイル名が".html"ならhtml形式、".csv"ならcsv形式、それ以外は従来通りのtxt形式で出力する。
+・--audio-sourceを追加。--audio-copyとの併用で、外部音声ファイルをmuxできる。
 
 2015.08.20 (2.10)
-[����]
-�ESkylake��Fixed Func���g�p�������SHW�G���R���s���I�v�V������ǉ������B
+[共通]
+・SkylakeのFixed Funcを使用した完全HWエンコを行うオプションを追加した。
   QSVEnc: FixedFunc, QSVEncC: --fixed-func
 
 2015.08.13 (2.09)
-[����]
-�EWin10�Ŏ��s�����ꍇ�ɁA��O0xc0000005�ŗ���������C���B
-�ESkylake����̔����ǉ��B
-�EGPU����OpenCL�o�R�Ŏ擾�ł��Ȃ������ꍇ�̕\�L�����P�B
+[共通]
+・Win10で実行した場合に、例外0xc0000005で落ちる問題を修正。
+・Skylake世代の判定を追加。
+・GPU情報をOpenCL経由で取得できなかった場合の表記を改善。
 
 [QSVEncC]
-�Ed3d11���[�h�ŁAvpp-delogo���g�p����ƈُ�I����������C���B
-�E--level�w��ŁA�ꕔ�������w��ł��Ȃ������̂��C���B
-�E--dar�I�v�V������ǉ��B
-�E--format raw���w�肵�Ă�raw�o�͂ł��Ȃ��Ȃ��Ă��������C���B
+・d3d11モードで、vpp-delogoを使用すると異常終了する問題を修正。
+・--level指定で、一部正しく指定できなかったのを修正。
+・--darオプションを追加。
+・--format rawを指定してもraw出力できなくなっていた問題を修正。
 
 2015.08.03 (2.08)
-[����]
-�EOS�o�[�W�����̊m�F���@��ύX�B
+[共通]
+・OSバージョンの確認方法を変更。
 
 [QSVEnc]
-�E���O�E�B���h�E�����ɉB��Ă��܂����Ƃ���������C���B
+・ログウィンドウが裏に隠れてしまうことがある問題を修正。
 
 [QSVEncC]
-�E--avsync-depth�I�v�V������ǉ��B
-�E�I�v�V��������--lookahead-ds����--la-quality�ɉ����B
-  lookahead�֌W�͂ق���la-xxx�Ȃ̂ɁA���ꂾ��lookahead�ŋ؂����������B
-�E�G���R�[�h�����ɏo�͂��郂�[�h��ǉ��B-c raw���w�肷��B
-  QSV�f�R�[�h�AQSV VPP�AQSV�f�R�[�h+VPP�Ȃǂ݂̂��ғ�������y4m�ŏo�͂��邱�Ƃ��ł���B����ɂ��
-    QSVEncC.exe -i <avs�t�@�C��> -o - -c raw --tff --vpp-deinterlace bob | x264 --demuxer y4m -o <�o��mp4�t�@�C��> -
-    QSVEncC.exe --avqsv -i <mp4�t�@�C��> -o - -c raw --tff --vpp-deinterlace bob | x264 --demuxer y4m -o <�o��mp4�t�@�C��> -
-  �Ȃǂ̎��s���\�ɂȂ�B
-�E--profile���w�肵���ꍇ�̃G���[���C���B
+・--avsync-depthオプションを追加。
+・オプション名を--lookahead-dsから--la-qualityに改名。
+  lookahead関係はほかはla-xxxなのに、これだけlookaheadで筋が悪かった。
+・エンコードせずに出力するモードを追加。-c rawを指定する。
+  QSVデコード、QSV VPP、QSVデコード+VPPなどのみを稼働させてy4mで出力することができる。これにより
+    QSVEncC.exe -i <avsファイル> -o - -c raw --tff --vpp-deinterlace bob | x264 --demuxer y4m -o <出力mp4ファイル> -
+    QSVEncC.exe --avqsv -i <mp4ファイル> -o - -c raw --tff --vpp-deinterlace bob | x264 --demuxer y4m -o <出力mp4ファイル> -
+  などの実行が可能になる。
+・--profileを指定した場合のエラーを修正。
 
 2015.07.21 (2.07)
 [QSVEnc]
-�E�������G���R�[�h���Ȃ���mux����Ȃ��̂��C���B
+・音声をエンコードしないとmuxされないのを修正。
 
 2015.07.20 (2.06)
-[����]
-�EAPI v1.15�ɑΉ��B
-�ESkylake HEVC �G���R�[�h�ɉ��Ή��B
-�EIvyBridge�ł̓s���~�b�h�Q�Ƃ��f�t�H���g�ŃI�t�ɂ��A
-  �I�����w�肳�ꂽ�ꍇ�ɂ��x����\������悤�ɁB
+[共通]
+・API v1.15に対応。
+・Skylake HEVC エンコードに仮対応。
+・IvyBridgeではピラミッド参照をデフォルトでオフにし、
+  オンが指定された場合にも警告を表示するように。
 
 [QSVEncC]
-�Effmpeg_lgpl_dll�̃r���h��gcc 5.1.0�ɁB
-  swresample-1.dll��ǉ��B
-�EMPEG2 hw�G���R�[�h�ɑΉ��B
-�E--check-features�ŃR�[�f�b�N�ʂ̑Ή��\���쐬�B
-�E�����̃G���R�[�h�ɑΉ��B����ɔ����A--audio-codec, --audio-bitrate��ǉ��B
-�E--mv-scaling�̃w���v���C���B
-�E�g�p�\�ȃt�H�[�}�b�g�A�R�[�f�b�N���m�F�\�ɁB
+・ffmpeg_lgpl_dllのビルドをgcc 5.1.0に。
+  swresample-1.dllを追加。
+・MPEG2 hwエンコードに対応。
+・--check-featuresでコーデック別の対応表を作成。
+・音声のエンコードに対応。これに伴い、--audio-codec, --audio-bitrateを追加。
+・--mv-scalingのヘルプを修正。
+・使用可能なフォーマット、コーデックを確認可能に。
   --check-codecs, --check-encoders, --check-decoders, --check-formats
-�E�傫��timebase�̏ꍇ�ɁAavgDuration�̌v�Z��32bit�����������ӂꂵ�Ă�������fps�l�ɂȂ�̂��C���B
-�Ey4m reader�g�p���Ƀ��O�\�����������������̂��C���B
+・大きなtimebaseの場合に、avgDurationの計算で32bit整数が桁あふれしておかしなfps値になるのを修正。
+・y4m reader使用時にログ表示がおかしかったのを修正。
 
 2015.07.11 (2.05)
-[����]
-�E�f�o�b�O�p�o�͂�ǉ��B
+[共通]
+・デバッグ用出力を追加。
 
 [QSVEncC]
-�E--audio-file�Ő���ɏo�͂ł��Ȃ������C���B
+・--audio-fileで正常に出力できない問題を修正。
 
 2015.07.06 (2.04)
 [QSVEnc]
-�E�v���t�@�C����I������Ɨ�����̂������B
+・プロファイルを選択すると落ちるのを解消。
 
 2015.07.05 (2.03)
 [QSVEncC]
-�E�t�@�C�������o�͑��ŕ���������������C���B
+・ファイル名が出力側で文字化けする問題を修正。
 
 2015.07.05 (2.02)
 [QSVEncC]
-�Eavqsv���[�_�[��unicode�t�@�C�����ɑΉ��B
-�E--vpp-delogo, --vpp-half-turn��avqsv���[�_�[�g�p���ȊO�Ɏg�p�ł��Ȃ����������C���B
+・avqsvリーダーもunicodeファイル名に対応。
+・--vpp-delogo, --vpp-half-turnがavqsvリーダー使用時以外に使用できなかった問題を修正。
 
 2015.07.05 (2.01)
 [QSVEnc]
-�E.NET Framework 4.5�Ɉڍs�B
-�EWindows10�𐳂������o�ł���悤�ɁB
-�Eqaac�ł�ALAC���[�h��mux�o���Ȃ������̂��C���B
-�E�ݒ��ʂ̃T�C�Y���傫���Ȃ邱�Ƃ��������̂��C���B
+・.NET Framework 4.5に移行。
+・Windows10を正しく検出できるように。
+・qaacでのALACモードがmux出来なかったのを修正。
+・設定画面のサイズが大きくなることがあったのを修正。
 
 [QSVEncC]
-�Eavqsv���[�_�[�̕W�����͂���̓ǂݍ��݂ɑΉ��B
-�E--mux-video�I�v�V������p�~�B
-�E--format <string>�ŁAmux���Ȃ���o�͂���ۂ̃t�H�[�}�b�g���w��\�ɁB
-  �w�肵�Ȃ��ꍇ�́A�g���q���玩���I�ɔ��f����B
-  "raw"���w�肷�邱�Ƃŏ]���ʂ�H.264/ES�ŏo�͂���B
-�Emux���Ȃ���o�͂���ۂɁA�W���o�͂ɏo�͂ł���悤�ɁB
-�Evpp�Ƃ��ē��ߐ����S�t�B���^��ǉ��B--vpp-delogo-file���Ń��S�t�@�C�����w�肷��B".lgd",".ldp",".ldp2"�ɑΉ��B
-  ���S�p�b�N�̏ꍇ�́A--vpp-delogo-select�Ń��S�����w�肷�邩�A�����I��pini�t�@�C�����w�肷��B
-  ���̑��̃I�v�V�����Ƃ��āA
-   > --vpp-delogo-pos��1/4��f���x�̃��S�ʒu�̒���
-   > --vpp-delogo-depth�œ����x�̕␳
-   > --vpp-delogo-y, --vpp-delogo-cb, --vpp-delogo-cr�Ŋe�F�����̕␳
-  ������CPU��SSE4.1, AVX, AVX2�ɂ��s����B
-  Aviutl�p���l�AYC48-12bit�ŏ�������邪�A�F��������4:2:0�ŏ�������B
-  �܂��A�ŏI�I��8bit�Ɋۂ߂邽�߁A�����v�Z���x�͕K�v�Ȃ��̂ŁA�������̏�����[�܂��č��������Ă���B
+・avqsvリーダーの標準入力からの読み込みに対応。
+・--mux-videoオプションを廃止。
+・--format <string>で、muxしながら出力する際のフォーマットを指定可能に。
+  指定しない場合は、拡張子から自動的に判断する。
+  "raw"を指定することで従来通りH.264/ESで出力する。
+・muxしながら出力する際に、標準出力に出力できるように。
+・vppとして透過性ロゴフィルタを追加。--vpp-delogo-file等でロゴファイルを指定する。".lgd",".ldp",".ldp2"に対応。
+  ロゴパックの場合は、--vpp-delogo-selectでロゴ名を指定するか、自動選択用iniファイルを指定する。
+  その他のオプションとして、
+   > --vpp-delogo-posで1/4画素精度のロゴ位置の調整
+   > --vpp-delogo-depthで透明度の補正
+   > --vpp-delogo-y, --vpp-delogo-cb, --vpp-delogo-crで各色成分の補正
+  処理はCPUでSSE4.1, AVX, AVX2により行われる。
+  Aviutl用同様、YC48-12bitで処理されるが、色差成分は4:2:0で処理する。
+  また、最終的に8bitに丸めるため、高い計算精度は必要ないので、いくつかの処理を端折って高速化している。
 
-2015.06.28 (v2.00��12)
+2015.06.28 (v2.00β12)
 [QSVEncC]
-�E�w���v��--lookahead-ds�̈���������ċL�q����Ă����̂��C���B
-�E�w���v��--trellis�̈���������ċL�q����Ă����̂��C���B
-�E--lookahead-ds�̒l���Atrellis�ɔ��f����Ă��܂��o�O���C���B
-�EWindows10�𐳂������o�ł���悤�ɁB
-�Ey4m�ǂݍ��݂��ł��Ȃ��Ȃ��Ă��������C���B
-�E�ꕔ��mpeg�t�@�C���Ői�����������\������Ă��Ȃ����������C���B
+・ヘルプの--lookahead-dsの引数が誤って記述されていたのを修正。
+・ヘルプの--trellisの引数が誤って記述されていたのを修正。
+・--lookahead-dsの値が、trellisに反映されてしまうバグを修正。
+・Windows10を正しく検出できるように。
+・y4m読み込みができなくなっていた問題を修正。
+・一部のmpegファイルで進捗が正しく表示されていなかった問題を修正。
 
-2015.06.22 (v2.00��11)
+2015.06.22 (v2.00β11)
 [QSVEncC]
-�E2.00��10��mux���Ȃ���̃C���^���ێ��G���R���ł��Ȃ��Ȃ��Ă����̂��C���B
-�E2.00��10�ł��܂����Y�����������邱�Ƃ��������̂ւ̑΍�B
+・2.00β10でmuxしながらのインタレ保持エンコができなくなっていたのを修正。
+・2.00β10でもまだ音ズレが発生することがあったのへの対策。
 
-2015.06.21 (v2.00��10)
+2015.06.21 (v2.00β10)
 [QSVEncC]
-�Emkv/flv�G���R�[�h���ɉ��Y�����������邱�Ƃ��������̂ւ̑΍�B
-�E�ꕔ��MPEG2�t�@�C���ŁA�������G���R�[�h�ł��Ȃ��ꍇ���������̂��C���B
+・mkv/flvエンコード時に音ズレが発生することがあったのへの対策。
+・一部のMPEG2ファイルで、正しくエンコードできない場合があったのを修正。
 
-2015.06.14 (v2.00��9)
+2015.06.14 (v2.00β9)
 [QSVEncC]
-�E���T�C�Y���ɂ́ASAR��̎������f���s��Ȃ��悤�ɁB
-�E�������r������n�܂�ꍇ�ɁA���Y������\�������������̂��C���B
-�E�������f����蒷���ꍇ��trim���w�肵�Ă��Ȃ��Ă�����ɍ��킹�ĒZ���Ȃ��Ă��܂������C���B
-�Emkv�ȂǂŁA���Y����������C���B
-�E--copy-audio�ŉ����t�@�C���������݂̂̏ꍇ�A�t�@�C�����𐳏�ɓǂݎ��Ȃ��̂��C���B
-�E���͂�flv�Ȃǂ̏ꍇ�Ƀf�R�[�h�ł��Ȃ������C���B
+・リサイズ時には、SAR比の自動反映を行わないように。
+・音声が途中から始まる場合に、音ズレする可能性が高かったのを修正。
+・音声が映像より長い場合にtrimを指定していなくても動画に合わせて短くなってしまう問題を修正。
+・mkvなどで、音ズレする問題を修正。
+・--copy-audioで音声ファイルが数字のみの場合、ファイル名を正常に読み取れないのを修正。
+・入力がflvなどの場合にデコードできない問題を修正。
 
-2015.06.07 (v2.00��8)
+2015.06.07 (v2.00β8)
 [QSVEncC]
-�E�C���^���ێ��o�͂�mux�����ۂ̍Đ��݊���������B
-�E--audio-file�ŃR�s�[���鉹���g���b�N�̎w��A�����w����\�ɁB
-�Eavqsv + VQP�ɂ͔�Ή��Ȃ��Ƃ����b�Z�[�W�ɖ����B
-�E�������̃G���[���b�Z�[�W��ǉ��B
-�Em2ts�Ȃǂ�ac3�������K�؂ɒ��o�ł��Ȃ��̂����P�B
-�Em2ts�Ȃǂ�PAFF�̎�舵�������P�B
+・インタレ保持出力をmuxした際の再生互換性を向上。
+・--audio-fileでコピーする音声トラックの指定、複数指定を可能に。
+・avqsv + VQPには非対応なことをメッセージに明示。
+・いくつかのエラーメッセージを追加。
+・m2tsなどのac3音声が適切に抽出できないのを改善。
+・m2tsなどのPAFFの取り扱いを改善。
 
-2015.05.31 (v2.00��7)
+2015.05.31 (v2.00β7)
 [QSVEncC]
-�E�����mux�����ۂ̍Đ��݊���������B
-�E--copy-audio�ŕ��������g���b�N�������Ă��R�s�[�ł���悤�ɁB
-  �܂�--copy-audio�ŃR�s�[���鉹���g���b�N��I���ł���悤�ɁB
-�E�t���[�����[�g�̐�������P�B
-�EQSV�Ńf�R�[�h�ł��Ȃ��R�[�f�b�N����͂����ۂ̃G���[���������P�B
-�E�i���\���̐��x������B
+・動画をmuxした際の再生互換性を向上。
+・--copy-audioで複数音声トラックがあってもコピーできるように。
+  また--copy-audioでコピーする音声トラックを選択できるように。
+・フレームレートの推定を改善。
+・QSVでデコードできないコーデックを入力した際のエラー処理を改善。
+・進捗表示の精度を向上。
 
-2015.05.24 (v2.00��6)
+2015.05.24 (v2.00β6)
 [QSVEncC]
-�E2.00��5��avqsv���[�_�[�ȊO�����Ȃ��Ȃ��Ă����̂��C���B
+・2.00β5でavqsvリーダー以外動かなくなっていたのを修正。
 
-2015.05.24 (v2.00��5)
+2015.05.24 (v2.00β5)
 [QSVEncC]
-�Emp4/mkv/mov�ւ�mux��ǉ��B�o�̓t�@�C���̊g���q�Ŏ����I�ɗL���ɁB��������ꍇ��--mux-video�B
-�E--copy-audio�ŉ�����mux�B
-�Ets�n�ł̉��Y�������P�B(RFF�ȊO�ARFF�͔�Ή��ł�!)
-�E2.00��3�ł�H.264 PAFF������ƃt���[�����[�g���{�ɂȂ邱�Ƃ��������̂��C���B
+・mp4/mkv/movへのmuxを追加。出力ファイルの拡張子で自動的に有効に。強制する場合は--mux-video。
+・--copy-audioで音声もmux。
+・ts系での音ズレを改善。(RFF以外、RFFは非対応です!)
+・2.00β3でもH.264 PAFFを入れるとフレームレートが倍になることがあったのを修正。
 
-2015.05.21 (v2.00��4)
+2015.05.21 (v2.00β4)
 [QSVEncC]
-�E�t���[�����[�g����̐��x�����P(���ts)�B
-�Evpp��10bit��8bit�F�ϊ��e�X�g�p�ɁAvapoursynth����high bit depth�œǂݍ��߂�悤�ɁB
-�EBroadwell�ŁAHEVC 10bit�̃f�R�[�h������ɓ��삵�Ȃ������C���B
+・フレームレート推定の精度を改善(主にts)。
+・vppの10bit→8bit色変換テスト用に、vapoursynthからhigh bit depthで読み込めるように。
+・Broadwellで、HEVC 10bitのデコードが正常に動作しない問題を修正。
 
-2015.05.18 (v2.00��3)
+2015.05.18 (v2.00β3)
 [QSVEncC]
-�Eavqsv���[�_�[��H.264 PAFF������ƃt���[�����[�g���{�ɂȂ���������B
-�Eavqsv���[�_�[���g�p����--crop���g�p����ƁA"undefined behavior"�ŗ���������C���B
-�E�s�K�؂ȃR�}���h���C�����w�肳�ꂽ�ۂɁA������ƃG���[�Ƃ��ď�������Ă��Ȃ����������C���B
-�EGPU���̎擾�����P�B
-�E�t���[�����[�g����̐��x�����P�B
-�EPCM������wav�o�͂�����ɍs���Ȃ����Ƃ��������̂����P�B
+・avqsvリーダーにH.264 PAFFを入れるとフレームレートが倍になる問題を解決。
+・avqsvリーダーを使用時に--cropを使用すると、"undefined behavior"で落ちる問題を修正。
+・不適切なコマンドラインが指定された際に、きちんとエラーとして処理されていなかった問題を修正。
+・GPU情報の取得を改善。
+・フレームレート推定の精度を改善。
+・PCM音声のwav出力が正常に行われないことがあったのを改善。
 
-2015.05.16 (v2.00��2)
+2015.05.16 (v2.00β2)
 [QSVEncC]
-�EHEVC in mp4�̃f�R�[�h�ɑΉ��B
-�EDVD-Video/Bluray�Ȃǂ�PCM�����ł�wav�o�͂ł���悤�ɁB
-�Eavqsv���[�_�[�ł��i����\���ł���悤�ɁB
+・HEVC in mp4のデコードに対応。
+・DVD-Video/BlurayなどのPCM音声でもwav出力できるように。
+・avqsvリーダーでも進捗を表示できるように。
 
 2015.05.12 (v1.34)
 [QSVEnc]
-�E�����G���R�O��Ƀo�b�`�������s���@�\��ǉ��B
-�E1.31�ȍ~�Abob�������f����mux����ƃt���[�����[�g�������ɂȂ��Ă��������C���B
+・音声エンコ前後にバッチ処理を行う機能を追加。
+・1.31以降、bob化した映像をmuxするとフレームレートが半分になっていた問題を修正。
 
-2015.05.10 (v2.00��)
+2015.05.10 (v2.00β)
 [QSVEncC]
-�EQSV�Ńf�R�[�h����G���R�[�h�܂ł���т��čs�������ł���悤�ɂ����B
-  MPEG2, H.264, HEVC�̃f�R�[�h���T�|�[�g(������HEVC��raw format�̂ݑΉ�)�B
-  --avqsv, --audio-file, --trim��ǉ��B
-  �܂������i�K�ł��낢��s����Ȃ̂ŁA�e�X�g���邾���ɂ��Ă��������B
+・QSVでデコードからエンコードまでを一貫して行う事ができるようにした。
+  MPEG2, H.264, HEVCのデコードをサポート(ただしHEVCはraw formatのみ対応)。
+  --avqsv, --audio-file, --trimを追加。
+  まだ実験段階でいろいろ不安定なので、テストするだけにしてください。
 
 2015.04.05 (v1.33)
-[����]
-�E4156�h���C�o��1.31�ȍ~�C���^���������ł��Ȃ����ŁA
-  1.31�̍X�V���������đΏ��B
+[共通]
+・4156ドライバで1.31以降インタレ解除ができない問題で、
+  1.31の更新を取り消して対処。
 
 2015.03.21 (v1.32)
 [QSVEncC]
-�E�G���R�[�h���ʂ��o�͂���Ȃ����Ƃ�����̂��C���B
-�E���O��b-pyramid�̕\�������P�B
-�E--vpp-deinterlace�������Ȃ��Ȃ��Ă����̂��C���B
+・エンコード結果が出力されないことがあるのを修正。
+・ログのb-pyramidの表示を改善。
+・--vpp-deinterlaceが効かなくなっていたのを修正。
 
 2015.03.07 (v1.31)
-[����]
-�EAPI v1.13�ɑΉ��B
-  - �_�C���N�g���[�h�œK��(--direct-bias-adjust)��MV�R�X�g����(--mv-scaling)��ǉ��B
-  - �V���ȃC���^���������[�h��ǉ��B(�����A����(bob)�A24fps��(�Œ�))
-�E���O��b-pyramid�̕\�������P�B
-�E���O��QP���/�����̕\�������P�B
+[共通]
+・API v1.13に対応。
+  - ダイレクトモード最適化(--direct-bias-adjust)とMVコスト調整(--mv-scaling)を追加。
+  - 新たなインタレ解除モードを追加。(自動、自動(bob)、24fps化(固定))
+・ログのb-pyramidの表示を改善。
+・ログのQP上限/下限の表示を改善。
 
 2015.03.04 (v1.30)
-[����]
-�EQSVEnc�̃r�b�g���[�g�̏��(65535kbps)��P�p�B
+[共通]
+・QSVEncのビットレートの上限(65535kbps)を撤廃。
 
 2015.02.19 (v1.29v2)
 [QSVEnc]
-�E�ȈՃC���X�g�[���ŁAQuickTime�̒��o������Ɏ��s����Ȃ��̂��C���B
-  setup�t�H���_��7z.exe/7z.dll���Ȃ��������߁B
+・簡易インストーラで、QuickTimeの抽出が正常に実行されないのを修正。
+  setupフォルダに7z.exe/7z.dllがなかったため。
 
 2015.02.16 (v1.29)
 [QSVEnc]
-�E�ȈՃC���X�g�[���ɂ��C���X�g�[���ŁA
-  VC++2005 Runtime���C���X�g�[������Ă��Ȃ��ƁAqaac�������Ȃ������C���B
+・簡易インストーラによるインストールで、
+  VC++2005 Runtimeがインストールされていないと、qaacが動かない問題を修正。
 [QSVEncC]
-�Evpy���[�_�[�g�p���Ƀt���[�Y����\�����������̂��C���B
+・vpyリーダー使用時にフリーズする可能性があったのを修正。
 
 2015.02.08 (v1.28)
 [QSVEnc]
-�E�����t�B�[���h�V�t�g�g�p���ȊO�ŁAmux����H���팸�B
+・自動フィールドシフト使用時以外で、muxを一工程削減。
 
 2014.11.20 (1.27)
-[����]
-API v1.11�ɑΉ��B
-�ELA_HRD (��s�T�����[�g���� (HRD�݊�)) ���[�h�ɑΉ��B(--la-hrd)
-�EQVBR (�i���x�[�X�σ��[�g����) ���[�h�ɑΉ��B(--qvbr)
-�E��s�T�����[�g����Ɏg�p�\�ȁu�E�B���h�E�x�[�X���[�g����v��ǉ��B (--la-window-size)
-�EVpp��Image Stablizer��ǉ��B���ʂ̒��͓�B(--vpp-image-stab)
-�E�@�\���\�����g�[�B
-�E���O�\�������P�B
+[共通]
+API v1.11に対応。
+・LA_HRD (先行探索レート制御 (HRD互換)) モードに対応。(--la-hrd)
+・QVBR (品質ベース可変レート制御) モードに対応。(--qvbr)
+・先行探索レート制御に使用可能な「ウィンドウベースレート制御」を追加。 (--la-window-size)
+・VppのImage Stablizerを追加。効果の程は謎。(--vpp-image-stab)
+・機能情報表示を拡充。
+・ログ表示を改善。
 
 2014.11.10 (1.26)
-[����]
-�EOS�̃o�[�W�����������O�ɕ\������悤�ɁB
-�E�G���R�[�h����CPU�g�p����\������悤�ɁB
+[共通]
+・OSのバージョン情報をログに表示するように。
+・エンコード中のCPU使用率を表示するように。
 [QSVEnc]
-�Ex264guiEx 2.23�܂ł̋@�\�ǉ��ɒǏ]
-  - �f�t�H���g�̉����G���R�[�_��ύX����@�\��ǉ��B
-  - �^�X�N�o�[�ւ̐i���\���ňꎞ��~�����f����Ȃ����Ƃ�����̂������B
-  - qaac��fdk-aac�ɂ��āAedts�ɂ�艹���f�B���C�̃J�b�g������@�\��ǉ��B
-  - muxer�̃R�}���h��--file-format��ǉ��B
-    FAW���g�p�����ۂɁAapple�`���̃`���v�^�[�����f����Ȃ����������B
-  - ������muxer�̃��O���o�͂ł���悤�ɁB
-  - 0�b���_�Ƀ`���v�^�[���Ȃ��Ƃ��́A�_�~�[�̃`���v�^�[��ǉ�����悤�ɁB
-    Apple�`���̃`���v�^�[���ߍ��ݎ��ɍŏ��̃`���v�^�[��
-    ���Ԏw��𖳎�����0�b���_�ɐU���Ă��܂��̂�����B
-  - flac�̈��k����ύX�ł���悤�ɁB
-  - ���O��muxer/�����G���R�[�_�̃o�[�W������\������悤�ɁB
-  - �����G���R�[�_��opusenc��ǉ��B
+・x264guiEx 2.23までの機能追加に追従
+  - デフォルトの音声エンコーダを変更する機能を追加。
+  - タスクバーへの進捗表示で一時停止が反映されないことがあるのを解消。
+  - qaacとfdk-aacについて、edtsにより音声ディレイのカットをする機能を追加。
+  - muxerのコマンドに--file-formatを追加。
+    FAWを使用した際に、apple形式のチャプターが反映されない問題を解決。
+  - 音声やmuxerのログも出力できるように。
+  - 0秒時点にチャプターがないときは、ダミーのチャプターを追加するように。
+    Apple形式のチャプター埋め込み時に最初のチャプターが
+    時間指定を無視して0秒時点に振られてしまうのを回避。
+  - flacの圧縮率を変更できるように。
+  - ログにmuxer/音声エンコーダのバージョンを表示するように。
+  - 音声エンコーダにopusencを追加。
 [QSVEncC]
-�E�x���`�}�[�N���Ƀ������̎����x�𑪒肵�A�\������悤�ɁB
-�E�����x�^�C�}�[��QSVEncC��������p�\�ɁB�f�t�H���g�ŃI���B
-  �ǂ����Ă��I�t�ɂ������ꍇ��--no-timer-period-tuning���g���Ă��������B
+・ベンチマーク時にメモリの実速度を測定し、表示するように。
+・高精度タイマーをQSVEncCからも利用可能に。デフォルトでオン。
+  どうしてもオフにしたい場合は--no-timer-period-tuningを使ってください。
 
 2014.07.01 (1.25)
-[����]
-�E�s����Ȉȉ��̏����ł̃G���R�[�h�������I�ɉ������悤�ɂ����B
-  - API v1.8�ȍ~�ALookahead�n + scenechange�͕s����(�t���[�Y)
-  - Lookahead�n�ł�bframes >= 10 + b-pyramid�͕s����(�t���[�Y)
-  - b-pyramid + scenechange�͕s����(�摜����)
+[共通]
+・不安定な以下の条件でのエンコードを自動的に回避するようにした。
+  - API v1.8以降、Lookahead系 + scenechangeは不安定(フリーズ)
+  - Lookahead系でのbframes >= 10 + b-pyramidは不安定(フリーズ)
+  - b-pyramid + scenechangeは不安定(画像崩壊)
 
 2014.06.27 (1.24)
-[����]
-�ESandybridge�Ȃ�API v1.6�����̊��ŁA�C���^���ێ��G���R���ł��Ȃ��Ȃ��Ă��������C���B
+[共通]
+・SandybridgeなどAPI v1.6未満の環境で、インタレ保持エンコができなくなっていた問題を修正。
 
 2014.06.25 (1.23)
-[����]
-�EQSV�̋@�\�`�F�b�N�����P
-  - ICQ���g�p�\���A���������肳���悤��
-  - �e���[�h���C���^���Ή����A�`�F�b�N����悤��
-�E�G���R�[�h���\��������
-  - ICQ���Ƀr�b�g���[�g���\������Ă����̂��C��
-  - GPU���ƃh���C�o�̃o�[�W�������\������悤��
+[共通]
+・QSVの機能チェックを改善
+  - ICQが使用可能か、正しく判定されるように
+  - 各モードがインタレ対応か、チェックするように
+・エンコード情報表示を改良
+  - ICQ時にビットレートが表示されていたのを修正
+  - GPU情報とドライバのバージョンも表示するように
 [QSVEnc]
-�E�@�\����GPU���ƃh���C�o�ԍ���\��
-�ECBR,VBR�ȊO�ł̍ő�r�b�g���[�g�̎w��͖�����
+・機能情報にGPU名とドライバ番号を表示
+・CBR,VBR以外での最大ビットレートの指定は無効に
 [QSVEncC]
-�E�F�ϊ�������AVX2�ɑΉ�
-�Eavs���[�_�[��YUY2/RGB24/RGB32�ǂ݂ɑΉ�
+・色変換部分でAVX2に対応
+・avsリーダーもYUY2/RGB24/RGB32読みに対応
 
 2014.06.21 (1.22)
-[����]
-�ELookahead���[�h�ƃV�[���`�F���W���o�𕹗p����ƌł܂��Ă��܂����Ƃ�����̂ŁA
-  Lookahead���[�h�g�p���ɂ̓V�[���`�F���W���o�������I�ɖ���������悤�ɂ����B
+[共通]
+・Lookaheadモードとシーンチェンジ検出を併用すると固まってしまうことがあるので、
+  Lookaheadモード使用時にはシーンチェンジ検出を強制的に無効化するようにした。
 [QSVEnc]
-�Enero�`���̃`���v�^�[��UTF-8�ɕϊ�����@�\��ǉ��B���̑��̐ݒ肩��B
+・nero形式のチャプターをUTF-8に変換する機能を追加。その他の設定から。
 
 2014.04.01 (1.21)
 [QSVEnc]
-�E1.19�ȍ~�ŁuAviutl�̃v���t�@�C���v�ɕۑ������ݒ肪
-  1.18�ȑO�ƌ݊������Ȃ��Ȃ��Ă��������C���B
+・1.19以降で「Aviutlのプロファイル」に保存した設定が
+  1.18以前と互換性がなくなっていた問題を修正。
 
 2014.03.28 (1.20)
 [QSVEnc]
-�Efaw2aac�g�p���ȂǁAmuxer�݂̂ňꔭ��mux���\�ȏꍇ�ɁA
-  �`���v�^�[��mux����Ȃ������C��
-  �܂��A����ɍ��킹��mux���\�������P
+・faw2aac使用時など、muxerのみで一発でmuxが可能な場合に、
+  チャプターがmuxされない問題を修正
+  また、これに合わせてmux情報表示を改善
 
 2014.03.25 (1.19)
 [QSVEnc]
-�E�����G���R�[�h�f�B���C���J�b�g����@�\��ǉ� (�����J�b�g�̂�)
+・音声エンコードディレイをカットする機能を追加 (音声カットのみ)
 [QSVEncC]
-�E�x���`�}�[�N���O�̉��P
-  - �\�Ȃ�CPU��Boost�N���b�N��\��
-  - GPU�̏��擾������
-  - GPU�̃h���C�o�o�[�W������\��
+・ベンチマークログの改善
+  - 可能ならCPUのBoostクロックを表示
+  - GPUの情報取得を改良
+  - GPUのドライババージョンを表示
 
 2014.03.07 (1.18)
-[����]
-�E1.16�ȍ~�A�t�@�C��������ɏo�͂���Ȃ����Ƃ��������̂��C���B
+[共通]
+・1.16以降、ファイルが正常に出力されないことがあったのを修正。
 [QSVEnc]
-�E���O�����ۑ��̕ۑ��ꏊ��ύX����@�\��ǉ��B
+・ログ自動保存の保存場所を変更する機能を追加。
 
 2014.03.06 (1.17)
 [QSVEncC]
-�E�x���`�}�[�N���[�h�̏o�̓t�@�C���𒲐��B
-  - GPU�����\������悤�ɁB
-  - ���C�A�E�g�����B
-  - �g�p�������ʂ��A�c�胁�����ʂɂȂ��Ă����̂��C���B
-�EVapoursynth Reader��x64�Ή��ɁB
-�E1.08�ȍ~�Avpy�ǂ݂ŃG���R�[�h�𒆒f����ƃN���b�V������̂��C���B
+・ベンチマークモードの出力ファイルを調整。
+  - GPU情報も表示するように。
+  - レイアウト調整。
+  - 使用メモリ量が、残りメモリ量になっていたのを修正。
+・Vapoursynth Readerをx64対応に。
+・1.08以降、vpy読みでエンコードを中断するとクラッシュするのを修正。
 
 2014.03.04 (1.16)
-[����]
-�E1.12�ȍ~�AWin8 + dGPU��iGPU����o�͂��Ă��Ȃ��Ă�
-  QSV�G���R�o����@�\���g���Ȃ��Ȃ��Ă����̂��C���B
-  Intel Media SDK 2014�Ńr�f�I���������[�h����̃t���O�̈Ӗ���
-  �ς���Ă����̂ɑΉ��ł��Ă��Ȃ������B
+[共通]
+・1.12以降、Win8 + dGPUでiGPUから出力していなくても
+  QSVエンコ出来る機能が使えなくなっていたのを修正。
+  Intel Media SDK 2014でビデオメモリモード周りのフラグの意味が
+  変わっていたのに対応できていなかった。
 [QSVEncC]
-�ECQP���[�h�̃x���`�}�[�N���[�h��ǉ�(--benchmark)�B
-�E1.12�ȍ~�A�G�N�X�v���[�����猩����o�[�W�������
-  x86�łł�x64�ƕ\������Ă����̂��C���B
+・CQPモードのベンチマークモードを追加(--benchmark)。
+・1.12以降、エクスプローラから見えるバージョン情報が
+  x86版でもx64と表示されていたのを修正。
 
 2014.03.01 (1.15)
-[����]
-�E1.12�ȍ~�ALookaheadDepth�����������f����Ȃ������C���B
+[共通]
+・1.12以降、LookaheadDepthが正しく反映されない問題を修正。
 [QSVEnc]
-�E1.12�ȍ~�ASandy���ȂǁAAPI v1.6���T�|�[�g���Ȃ����ŁA
-  �ݒ��ʂ��J���ۂɃt���[�Y������������c��������B
+・1.12以降、Sandy環境など、API v1.6をサポートしない環境で、
+  設定画面を開く際にフリーズする問題を解決…したつもり。
 [QSVEncC]
-�E���_�C���N�g�����ꍇ�ł��i����񂪂����ɓǂݎ���悤flush����悤�ɁB
+・リダイレクトした場合でも進捗情報がすぐに読み取れるようflushするように。
 
 2014.02.22 (1.14)
 [QSVEnc]
-�E1.12�ȍ~�A�ݒ��ʂ��J���̂Ɏ��Ԃ��������Ă����̂��������P�B
-�E�w�肵�����O�ۑ��ꏊ�����݂��Ȃ��ƃG���[�ŏI�����Ă��܂��Ă����̂��C���B
+・1.12以降、設定画面を開くのに時間がかかっていたのを少し改善。
+・指定したログ保存場所が存在しないとエラーで終了してしまっていたのを修正。
 
 2014.02.20 (1.13)
-[����]
-�ESandy���ȂǁAAPI v1.6���T�|�[�g���Ȃ�����
-  ����ɓ��삵�Ȃ����������c��������B
+[共通]
+・Sandy環境など、API v1.6をサポートしない環境で
+  正常に動作しない問題を解決…したつもり。
 
 2014.02.18 (1.12)
-[����]
-�EIntel Media SDK 2014 �x�[�X�Ɉڍs�AAPI v1.8�ɑΉ��B
-�Elibmfxsw32.dll / libmfxsw64.dll ���X�V�B
-�E�J������VC++ 2013 Express for Desktop�Ɉڍs�B
-�E�����T�|�[�g���Ă���@�\�`�F�b�N������
-  - QSVEnc�ł͋@�\�\���^�u�ɕ\��
-  - QSVEncC�ł�--check-features�ɂ��m�F�ł���B
-�E�n�[�h�E�F�A�G���R�ł��F�ݒ肪�\��
+[共通]
+・Intel Media SDK 2014 ベースに移行、API v1.8に対応。
+・libmfxsw32.dll / libmfxsw64.dll を更新。
+・開発環境をVC++ 2013 Express for Desktopに移行。
+・環境がサポートしている機能チェックを強化
+  - QSVEncでは機能表示タブに表示
+  - QSVEncCでは--check-featuresにより確認できる。
+・ハードウェアエンコでも色設定が可能に
   - colormatrix / colorprim / transfer
-�EOpenGOP�I�v�V������ǉ��B
-�EAPI v1.6�̋@�\��ǉ��B
-  - �}�N���u���b�N�P�ʂ̃��[�g����
-  - �g�����[�g���� (�r�b�g���[�g�w�胂�[�h�̎��̂�)
-�EAPI v1.8�̋@�\��ǉ��B
-  - ���[�g���䃂�[�h�ǉ�
-    > �Œ�i�����[�h
-    > ��s�T���t���Œ�i�����[�h
-    > �r�f�I��c���[�h
-  - �K���II�t���[���}��
-  - �K���IB�t���[���}��
-  - B�t���[���s���~�b�h�Q��
-  - ��s�T���i���ݒ� (3�i�K)
-�E���̑����낢�������C�����邪�Y�ꂽ
+・OpenGOPオプションを追加。
+・API v1.6の機能を追加。
+  - マクロブロック単位のレート制御
+  - 拡張レート制御 (ビットレート指定モードの時のみ)
+・API v1.8の機能を追加。
+  - レート制御モード追加
+    > 固定品質モード
+    > 先行探索付き固定品質モード
+    > ビデオ会議モード
+  - 適応的Iフレーム挿入
+  - 適応的Bフレーム挿入
+  - Bフレームピラミッド参照
+  - 先行探索品質設定 (3段階)
+・その他いろいろやった気もするが忘れた
 [QSVEnc]
-�E�o�ߎ��Ԃ�\��
-�E���O�E�B���h�E�E�N���b�N����ꎞ��~�ł���悤��
-�E�o�b�`�o�͎��̈��萫�����������P�B
+・経過時間を表示
+・ログウィンドウ右クリックから一時停止できるように
+・バッチ出力時の安定性をすこし改善。
 
 2013.12.07 (1.11v3)
-�E�ȈՃC���X�g�[�����X�V
-  - �ȈՃC���X�g�[�����C���X�g�[�����Aviutl�t�H���_�ɓW�J�����
-    �ꕔ�t�@�C���̃R�s�[�Ɏ��s��������C��
+・簡易インストーラを更新
+  - 簡易インストーラをインストール先のAviutlフォルダに展開すると
+    一部ファイルのコピーに失敗する問題を修正
     
 2013.11.24 (1.11v2)
 [QSVEnc]
-�E�ȈՃC���X�g�[�����X�V
-  - L-SMASH���_�E�����[�h�ł��Ȃ��Ȃ��Ă����̂��C���B
-  - �C���X�g�[���悪�Ǘ��Ҍ�����K�v�Ƃ���ۂ́A
-    ������擾����_�C�A���O��\������悤�ɂ����B
+・簡易インストーラを更新
+  - L-SMASHがダウンロードできなくなっていたのを修正。
+  - インストール先が管理者権限を必要とする際は、
+    これを取得するダイアログを表示するようにした。
     
 2013.10.19 (v1.11)
 [QSVEnc]
-�E�ύX�����t�H���g��(�W���̎Α�)���ۑ�����Ȃ������C���B
-�E�ݒ�t�@�C���̃������ۑ�����Ȃ������C���B
-�E�ȈՃC���X�g�[�����X�V
-  - Windows 8.1�ɑΉ���������
-  - �A�b�v�f�[�g�̍ۂɃv���Z�b�g���㏑���X�V���邩��I���ł���悤�ɂ����B
+・変更したフォントの(標準⇔斜体)が保存されない問題を修正。
+・設定ファイルのメモが保存されない問題を修正。
+・簡易インストーラを更新
+  - Windows 8.1に対応したつもり
+  - アップデートの際にプリセットを上書き更新するかを選択できるようにした。
 [QSVEncC]
-�E�X�V�Ȃ�
+・更新なし
 
 2013.09.12 (v1.10)
-[����]
-�E���͂��C���^�[���[�X�Ƃ��Đݒ肳��Ă��Ȃ��ꍇ��VPP�̃C���^��������ݒ肷��ƁA�������Ȏ��ɂȂ�̂��C���B
+[共通]
+・入力がインターレースとして設定されていない場合にVPPのインタレ解除を設定すると、おかしな事になるのを修正。
 [QSVEncC]
-�EUnicode�ɑΉ�(��{�I�Ƀ��C�h������ŏ���)�B
-�E���O���t�@�C���ɕۑ��ł���悤�ɂ����B�ǋL�^�B(--log <�t�@�C����>)
+・Unicodeに対応(基本的にワイド文字列で処理)。
+・ログをファイルに保存できるようにした。追記型。(--log <ファイル名>)
 
 2013.08.25 (v1.09)
-[����]
-�E1.08�ŁA�ud3d11�������Ȃ��悤�Ɂv�Ƃ����̂��O�ꂳ��Ă��Ȃ����������C���B
-�Ed3d11�͊�{�I�ɂ�d3d9���x���悤�Ȃ̂ŁA�K�v�Ȏ��ȊO��d3d9���g���悤�ɂ����B
+[共通]
+・1.08で、「d3d11を試さないように」というのが徹底されていなかった問題を修正。
+・d3d11は基本的にはd3d9より遅いようなので、必要な時以外はd3d9を使うようにした。
 [QSVEncC]
-�E--d3d9/--d3d11 �I�v�V�����ɂ��A(�g�p�\�Ȃ�)�����I�Ƀ��[�h��ݒ�ł���悤�ɂ����B
+・--d3d9/--d3d11 オプションにより、(使用可能なら)強制的にモードを設定できるようにした。
 
 2013.08.21 (v1.08)
-[����]
-�EWin7�ł�d3d11�������Ȃ��悤�ɁB
+[共通]
+・Win7ではd3d11を試さないように。
 [QSVEncC]
-�Eavs/vpy reader�̃G���[���������P�B
-�Evpy�}���`�X���b�h���[�h��ǉ�(--vpy-mt)�B
-  VapourSynth�̎����X���b�h�����g�p����(�������ő�127�܂�)�B
+・avs/vpy readerのエラー処理を改善。
+・vpyマルチスレッドモードを追加(--vpy-mt)。
+  VapourSynthの示すスレッド数を使用する(ただし最大127まで)。
 
 2013.08.05 (v1.07)
-[����]
-�EWin8 + dGPU��iGPU����o�͂��Ă��Ȃ��Ă��AQSV�𗘗p�ł���悤�ɂ����B
-  BIOS(UEFI)��[iGPU Multi-Monitor]��Enabled�ɂ��邱�ƂŎg�p�\�B
-�Ed3d11���[�h�ɑΉ������B
+[共通]
+・Win8 + dGPUでiGPUから出力していなくても、QSVを利用できるようにした。
+  BIOS(UEFI)で[iGPU Multi-Monitor]をEnabledにすることで使用可能。
+・d3d11モードに対応した。
 [QSVEncC]
-�E1.05�ȍ~�Ay4m�o�R�Ő��������삵�Ȃ��Ȃ��Ă��������C���B
-  ���w�E���肪�Ƃ��������܂����B
-�ECtrl + C�Œ��f�����ۂɂ��r���܂ł̏���\������悤�ɂ����B
+・1.05以降、y4m経由で正しく動作しなくなっていた問題を修正。
+  ご指摘ありがとうございました。
+・Ctrl + Cで中断した際にも途中までの情報を表示するようにした。
 
 2013.08.02 (v1.06)
-[����]
-�Evpp�ɂ��u�ʏ�v���邢�́uBob���v�̃C���^���������s���ꍇ�ɁA
-  �V�[���`�F���W���o�EVQP���g�p�\�ɂ����B
-�E�C���^���ێ��G���R�ł�Lookahead���[�h���g�p�ł��Ȃ��Ƃ������b�Z�[�W��\������悤�ɂ����B
+[共通]
+・vppにより「通常」あるいは「Bob化」のインタレ解除を行う場合に、
+  シーンチェンジ検出・VQPを使用可能にした。
+・インタレ保持エンコではLookaheadモードを使用できないというメッセージを表示するようにした。
 [QSVEnc]
-�E�z�z�v���t�@�C����������
-  �������̐ݒ���ǉ��B
+・配布プロファイルを見直し
+  いくつかの設定例を追加。
 [QSVEncC]
-�Ex86�ł�Vapoursynth r19�preader��ǉ��B�g���qvpy�Ŏ�����Vapoursynth Reader���g�p�B
-  vfw�ǂ݂��኱(�`5%)�����B
-  yv12�ǂݍ��ݐ�p�B
-  yv12�ȊO(yuy2,RGB��)�̏ꍇ�͎����I��avi(vfw)�ǂ݂ɕύX�B
+・x86版にVapoursynth r19用readerを追加。拡張子vpyで自動でVapoursynth Readerを使用。
+  vfw読みより若干(～5%)高速。
+  yv12読み込み専用。
+  yv12以外(yuy2,RGB等)の場合は自動的にavi(vfw)読みに変更。
   
 2013.07.20 (v1.05v2)
 [QSVEncC]
-�E�w���v�\�����C���B
+・ヘルプ表示を修正。
 
 2013.07.20 (v1.05)
 [QSVEncC]
-�EAvisynth Reader��ǉ��B�g���qavs�Ŏ�����Avisynth Reader���g�p�B
-  vfw�ǂ݂��኱(�`10%)�����B
+・Avisynth Readerを追加。拡張子avsで自動でAvisynth Readerを使用。
+  vfw読みより若干(～10%)高速。
 
 2013.07.13 (v1.04)
 [QSVEnc]
-�ELookahead���[�h���ɍő�r�b�g���[�g�̎w�肪�ł��Ȃ����������C���B
+・Lookaheadモード時に最大ビットレートの指定ができなかった問題を修正。
 [QSVEncC]
-�ELookahead���[�h�̎w��ɑΉ��B
+・Lookaheadモードの指定に対応。
 
 2013.07.08 (v1.03)
-�E�f�o�b�O�p�̃��O�t�@�C���o�͂��s���Ă����̂��C���B
+・デバッグ用のログファイル出力が行われていたのを修正。
 
 2013.07.07 (v1.02)
 [QSVEnc]
-�E�V�����v���t�@�C����ۑ����悤�Ƃ���ƃG���[���o������C���B
-  ���w�E���ӂ��܂��B
-�E�v���t�@�C���������������B
+・新しいプロファイルを保存しようとするとエラーが出る問題を修正。
+  ご指摘感謝します。
+・プロファイルを少し見直し。
 [QSVEncC]
-�E���ɕύX�Ȃ��B
+・特に変更なし。
 
 2013.07.03 (v1.01)
-[����]
-�EIntel Media SDK 2013 �x�[�X�Ɉڍs�AAPI v1.7�ɑΉ��B
-�Elibmfxsw32.dll / libmfxsw64.dll ���X�V�B
-�E�w�肵�Ă����ʂ̂Ȃ�API v1.6�̋@�\���폜�B
-  - �}�N���u���b�N�P�ʂ̃��[�g����
-  - �g�����[�g���� (�r�b�g���[�g�w�胂�[�h�̎��̂�)
-�EAPI v1.7�̋@�\��ǉ��B
-  - ��s�T�����[�g���� (lookahead)
-  - �c�݃��[�g�œK�� (trellis)
+[共通]
+・Intel Media SDK 2013 ベースに移行、API v1.7に対応。
+・libmfxsw32.dll / libmfxsw64.dll を更新。
+・指定しても効果のないAPI v1.6の機能を削除。
+  - マクロブロック単位のレート制御
+  - 拡張レート制御 (ビットレート指定モードの時のみ)
+・API v1.7の機能を追加。
+  - 先行探索レート制御 (lookahead)
+  - 歪みレート最適化 (trellis)
 [QSVEncC]
-�Equality�I�v�V�������������ǂ߂Ȃ������C���B
+・qualityオプションが正しく読めない問題を修正。
 
 2013.07.01 (v1.00)
-[����]
-�E�J������VC++ 2012 Express for Desktop�Ɉڍs�B
-�E���킹��.NET Framework 4.0 Client �Ɉڍs�B
-�E���������Win Vista���O�����BIntel Media SDK �y�уh���C�o�̑Ή��������Ȃ��߁B
-�E�F��ԕϊ��E�V�[���`�F���W���o�Ȃǂ�AVX/AVX2�ɑΉ��B
-  �����ǂ��莩���I�ɍő��̂��̂�I���B
-�EIntel Media SDK 2013 �x�[�X�Ɉڍs�A����ɂ��API v1.6�ɑΉ��B
-�Elibmfxsw32.dll / libmfxsw64.dll ���X�V�B
-�E�ȉ���API v1.6�̋@�\��ǉ��B
-  - �}�N���u���b�N�P�ʂ̃��[�g����
-  - �g�����[�g���� (�r�b�g���[�g�w�胂�[�h�̎��̂�)
-�E�i���ݒ��3�i�K����7�i�K�Ɋg���B
-�Ev1.00�ɂ��킹�ĊȈՃC���X�g�[�����X�V�B
-�E�V�[���`�F���W���o���ɒi�K�I�ȃt�F�[�h�V�[����
-  �t���b�J�̂悤�ɂȂ��Ă��܂�����΍�B
+[共通]
+・開発環境をVC++ 2012 Express for Desktopに移行。
+・あわせて.NET Framework 4.0 Client に移行。
+・動作環境からWin Vistaを外した。Intel Media SDK 及びドライバの対応が微妙なため。
+・色空間変換・シーンチェンジ検出などでAVX/AVX2に対応。
+  いつもどおり自動的に最速のものを選択。
+・Intel Media SDK 2013 ベースに移行、これによりAPI v1.6に対応。
+・libmfxsw32.dll / libmfxsw64.dll を更新。
+・以下のAPI v1.6の機能を追加。
+  - マクロブロック単位のレート制御
+  - 拡張レート制御 (ビットレート指定モードの時のみ)
+・品質設定を3段階から7段階に拡張。
+・v1.00にあわせて簡易インストーラを更新。
+・シーンチェンジ検出時に段階的なフェードシーンで
+  フリッカのようになってしまう問題を対策。
 [QSVEnc]
-�E���O�E�B���h�E�ŏo�̓t�@�C�������E�N���b�N����
-  �u������Đ��v�u����̂���t�H���_���J���v�@�\��ǉ��B
+・ログウィンドウで出力ファイル名を右クリックから
+  「動画を再生」「動画のあるフォルダを開く」機能を追加。
 [QSVEncC]
-�E--quality�I�v�V�����̕ύX�B
-  best, higher, high, balanced(default), fast, faster, fastest��7�i�K�B
+・--qualityオプションの変更。
+  best, higher, high, balanced(default), fast, faster, fastestの7段階。
 
 2013.05.23 (v0.23v2)
-[����]
-�EBluray���[�h������ǉ��B
-  QSVEnc.conf��[QSVEnc]�Z�N�V������
+[共通]
+・Blurayモード強制を追加。
+  QSVEnc.confの[QSVEnc]セクションに
   force_bluray=1
-  �ƒǋL���Ă��������B
+  と追記してください。
 
 2013.05.12 (v0.23)
-[����]
-�E�G���R�[�h���\�������P�B
+[共通]
+・エンコード情報表示を改善。
 [QSVEncC]
-�EAVI(vfw)�ǂݍ��݂ɑΉ��B
-  - avi/avs/vpy�ȂǁAvfw�o�R�œǂݍ��߂���̂ɂ��āA���ړǂ߂�悤�ɂ����B
-  - �g���qavi/avs/vpy�Ŏ����I��avi�ǂݍ��݂ɐ؂�ւ��B�����I�Ȏw���--avi�B
-  - YV12/YUY2/RGB24/RGB32�ǂݍ��ݑΉ��AYV12�����B
-  - YV12/YUY2�ǂݍ��݂ɂ��Ă̓C���^���Ή��B
-  - RGB24/RGB32�ǂݍ��݂�vpp�ɂ�RGB32->NV12�ϊ����s�����߁A�C���^����Ή��B
-  - �i���󋵂Ǝc�莞�Ԃ�\���B
-�E�Ō�ɃG���R�[�h�ɂ����������Ԃ�\���B
+・AVI(vfw)読み込みに対応。
+  - avi/avs/vpyなど、vfw経由で読み込めるものについて、直接読めるようにした。
+  - 拡張子avi/avs/vpyで自動的にavi読み込みに切り替え。明示的な指定は--avi。
+  - YV12/YUY2/RGB24/RGB32読み込み対応、YV12推奨。
+  - YV12/YUY2読み込みについてはインタレ対応。
+  - RGB24/RGB32読み込みはvppにてRGB32->NV12変換を行うため、インタレ非対応。
+  - 進捗状況と残り時間を表示。
+・最後にエンコードにかかった時間を表示。
 
-��Avisynth��API�𒼐ڒ@�����@�́A�Ƃ��闝�R�ɂ���������\��͂���܂���B
+※AvisynthのAPIを直接叩く方法は、とある理由により実装する予定はありません。
 
 2013.05.05 (v0.22)
-[����]
-�Evpp�ɂ��C���^��������bob��(60fps��)��ǉ��B
-�E�ő�GOP����"0"�Ƃ��邱�Ƃ�fps�~10�������I�ɐݒ肷��悤�ɂ����B
+[共通]
+・vppによるインタレ解除にbob化(60fps化)を追加。
+・最大GOP長を"0"とすることでfps×10を自動的に設定するようにした。
 
 2013.05.05 (v0.21)
 [QSVEnc]
-�E�f���ꎞ�t�@�C�����c���Ă��܂������C���B
+・映像一時ファイルが残ってしまう問題を修正。
 [QSVEncC]
-�Ey4m���͎��ɃA�X�y�N�g���ǂݎ��悤�ɂ����B
+・y4m入力時にアスペクト比を読み取るようにした。
 
 2013.05.04 (v0.20)
-[����]
-�EHW�G���R���̓��̓t���[���o�b�t�@�̃f�t�H���g��4��3�B
-�E�����̃p�C�v���C���o�b�t�@���𒲐����A�����������B
+[共通]
+・HWエンコ時の入力フレームバッファのデフォルトを4→3。
+・内部のパイプラインバッファ数を調整し、少し高速化。
 [QSVEnc]
-�Eyuy2��nv12�ϊ��𒲐����Ă킸���ɍ������B
-�Ex264guiEx 1.75�܂ł̍X�V�𔽉f�B
-  - mux���Ƀf�B�X�N�̋󂫗e�ʂ̎擾�Ɏ��s�����ꍇ�ł��A�x�����o���đ��s����悤�ɂ����B
-  - �ݒ��ʂŁu�f�t�H���g�v���N���b�N�������̋������C���B
-  - �����ݒ�̃p�C�v - 2pass�̃`�F�b�N�{�b�N�X�̋������C���B
-  - �G���R�O��o�b�`�������ŏ����Ŏ��s����ݒ��ǉ��B
+・yuy2→nv12変換を調整してわずかに高速化。
+・x264guiEx 1.75までの更新を反映。
+  - mux時にディスクの空き容量の取得に失敗した場合でも、警告を出して続行するようにした。
+  - 設定画面で「デフォルト」をクリックした時の挙動を修正。
+  - 音声設定のパイプ - 2passのチェックボックスの挙動を修正。
+  - エンコ前後バッチ処理を最小化で実行する設定を追加。
 [QSVEncC]
-�E�t���[���ǂݍ��ݎ���yv12��nv12�ϊ��𒲐����č������B
-�Ecrop�I�v�V������ǉ��B
-�E�G���R�[�h��̌��ʕ\��������Ă����̂��C���B
+・フレーム読み込み時のyv12→nv12変換を調整して高速化。
+・cropオプションを追加。
+・エンコード後の結果表示が崩れていたのを修正。
 
 2013.03.08 (v0.19v2)
-[����][QSVEnc]
- �Ȃ��B
+[共通][QSVEnc]
+ なし。
 [QSVEncC]
-�Ey4m�̃J���[�t�H�[�}�b�g�̎w��`����ǉ��B
+・y4mのカラーフォーマットの指定形式を追加。
 
 2013.02.14 (v0.19)
-���̕񍐂��肪�Ƃ��������܂����B
-[����]
-�E0.15�ȍ~�ABaseline Profile�ł̃G���R�[�h�����s��������C���B
+問題の報告ありがとうございました。
+[共通]
+・0.15以降、Baseline Profileでのエンコードが失敗する問題を修正。
 [QSVEncC]
-�E�w���v��sar����d�ɕ\������Ă����̂��C���B
+・ヘルプでsarが二重に表示されていたのを修正。
 
 2013.01.31 (v0.18)
-[����]
-�E0.17�ŁA�ꕔ�̊��� "undefined behavior" �Əo�ăG���R�[�h���n�܂�Ȃ������C���B
-  �񍐂��肪�Ƃ��������܂��B
-�Ex86�̃V�[���`�F���W���o�E��QP�����v�Z������ɍ������B
+[共通]
+・0.17で、一部の環境で "undefined behavior" と出てエンコードが始まらない問題を修正。
+  報告ありがとうございます。
+・x86のシーンチェンジ検出・可変QP調整計算をさらに高速化。
 
 2013.01.26 (v0.17)
-[����]
-�E�C���^���ێ��G���R�[�h���ɁA
-  0.15�ȍ~�A���邢��0.14�ȑO�ŌŒ蒷GOP�Ƀ`�F�b�N�����Ă����ꍇ�ɁA
-  �����I�ɔj�]����t���[�����o�Ă����̂��C���B
-  �G���[�񍐂Ɋ��Ӓv���܂��B
-�E�V�[���`�F���W���o�E��QP�����v�Z���������B
+[共通]
+・インタレ保持エンコード時に、
+  0.15以降、あるいは0.14以前で固定長GOPにチェックを入れていた場合に、
+  周期的に破綻するフレームが出ていたのを修正。
+  エラー報告に感謝致します。
+・シーンチェンジ検出・可変QP調整計算を高速化。
 
 2013.01.23 (v0.16)
-[����]
-�E�V�[���`�F���W���o�E��QP���Ӑ}�ƈ����������w�肵�Ă����̂��C���B
-  ��ʂ̉������������Ă��Ȃ������B
+[共通]
+・シーンチェンジ検出・可変QPが意図と違った動作を指定していたのを修正。
+  画面の下半分しか見ていなかった。
 
 2013.01.22 (v0.15)
-[����]
-�E�V�[���`�F���W���o�ɂ�鋭��I�t���[���}���@�\��ǉ��B
-�E��QP���[�h�ǉ��B
-  �����Ƃ����͂��v���O���b�V�u(��C���^��)�̎��̂ݗL���B
-�E�G���R�[�h��A�t���[���^�C�v���Ƃ̑��T�C�Y��\���B
+[共通]
+・シーンチェンジ検出による強制Iフレーム挿入機能を追加。
+・可変QPモード追加。
+  両方とも入力がプログレッシブ(非インタレ)の時のみ有効。
+・エンコード後、フレームタイプごとの総サイズを表示。
 [QSVEnc]
-�E�����t�B�[���h�V�t�g�g�p���ɕs���肾���������C���B
-�E���̑��̐ݒ�Ƀ^�C�}�[���x�����コ����ݒ��ǉ��B
-�E�G���R�O��o�b�`�������ŏ����Ŏ��s����ݒ��ǉ��B
-  ���̑��̐ݒ肩��B
+・自動フィールドシフト使用時に不安定だった問題を修正。
+・その他の設定にタイマー精度を向上させる設定を追加。
+・エンコ前後バッチ処理を最小化で実行する設定を追加。
+  その他の設定から。
 
 2012.12.26 (v0.14)
 [QSVEnc]
-�E�o�̓t�@�C���̎�ނ̃f�t�H���g��ύX�ł���悤�ɂ����B
-  ���̑��̐ݒ肩��B���f�ɂ͐ݒ��Aviutl�̍ċN�����K�v�B
+・出力ファイルの種類のデフォルトを変更できるようにした。
+  その他の設定から。反映には設定後Aviutlの再起動が必要。
 
 2012.12.22 (v0.13)
 [QSVEnc]
-�E�����t�B�[���h�V�t�g�Ή��B
-  L-SMASH muxer�pini�t�@�C��(auo�ƈꏏ�ɓ����Ă���ق�)���g�p���Ă��������B
-  mp4box�pini�t�@�C���ł͓����܂���B
-�Ex264guiEx 1.65�܂ł̍X�V�𔽉f�B
-  - ���O�E�B���h�E�̈ʒu��ۑ�����悤�ɂ����B
-  - ��Dpi�ݒ莞�̕\���̕�����C���B
-  - �G���R�[�h�J�n���ɃN���b�V������\��������̂��C���B
+・自動フィールドシフト対応。
+  L-SMASH muxer用iniファイル(auoと一緒に入っているほう)を使用してください。
+  mp4box用iniファイルでは動きません。
+・x264guiEx 1.65までの更新を反映。
+  - ログウィンドウの位置を保存するようにした。
+  - 高Dpi設定時の表示の崩れを修正。
+  - エンコード開始時にクラッシュする可能性があるのを修正。
 
 2012.11.15 (v0.12)
 [QSVEnc]
-�Ex264guiEx 1.62�܂ł̍X�V�𔽉f�B
-  - ���O�E�B���h�E�̐F�̎w��B
-  - ��DPI���̕\������C���B
+・x264guiEx 1.62までの更新を反映。
+  - ログウィンドウの色の指定。
+  - 高DPI時の表示崩れ修正。
 
 2012.11.02 (v0.11)
 [QSVEnc]
-�Emuxer�R�}���h��fps�w���ǉ��B
-�Ex264guiEx 1.61�܂ł̍X�V�𔽉f�B
-  - �����G���R / muxer�̃��b�Z�[�W��荞�݂ƃG���[�\���B
-  - �f���E���������G���R�[�h���̕\���̉��P�B
-  - ���O�E�B���h�E���ߗ��̎w��B
+・muxerコマンドにfps指定を追加。
+・x264guiEx 1.61までの更新を反映。
+  - 音声エンコ / muxerのメッセージ取り込みとエラー表示。
+  - 映像・音声同時エンコード時の表示の改善。
+  - ログウィンドウ透過率の指定。
 
 2012.10.20 (v0.10)
-[����]
-�Ev0.08�ȍ~�AIntel iGPU���v���C�}��GPU(���C�����j�^�ɏo�͂��Ă���GPU)�łȂ��ꍇ�ɁA
-  �r�f�I���������[�h���g�p�ł����Aerror: null pointer �Ƃ����G���[�𔭐������Ă��������C���B
-�Ecolormatrix, coloprim, transfer�̐ݒ�́AHW�G���R(QSV)�ł͌����Ȃ��̂ŁA
-  �ݒ��ʂ�w���v�̕\�������̂悤�ɕύX�B
+[共通]
+・v0.08以降、Intel iGPUがプライマリGPU(メインモニタに出力しているGPU)でない場合に、
+  ビデオメモリモードが使用できず、error: null pointer というエラーを発生させていた問題を修正。
+・colormatrix, coloprim, transferの設定は、HWエンコ(QSV)では効かないので、
+  設定画面やヘルプの表示をそのように変更。
 [QSVEnc]
-�EBluray�݊��o�͂̃`�F�b�N�{�b�N�X���ύX�`�F�b�N����O��Ă����̂��C���B
-�Ex264guiEx 1.59�܂ł̍X�V�𔽉f�B
-  - �G���R"�O"�o�b�`������ǉ��B
-  - �u���O�ւ̃����N��ǉ��B
+・Bluray互換出力のチェックボックスが変更チェックから外れていたのを修正。
+・x264guiEx 1.59までの更新を反映。
+  - エンコ"前"バッチ処理を追加。
+  - ブログへのリンクを追加。
 
 2012.10.13 (v0.09)
-[����]
-�EBluray�����o�͐ݒ��ǉ��B
+[共通]
+・Bluray向け出力設定を追加。
 [QSVEnc]
-�EBluray�o�͗p�v���Z�b�g��ǉ��B
+・Bluray出力用プリセットを追加。
 
 2012.10.06 (v0.08)
-[����]
-�EIntel Media SDK 2012 R3 (API v1.4)�ɑΉ��B
-  - Windows8 + DirectX 11.1�Ή��A�Ƃ������Ƃ̂悤���B
-  - Win7�ł͓��ɈӖ��͖���?
+[共通]
+・Intel Media SDK 2012 R3 (API v1.4)に対応。
+  - Windows8 + DirectX 11.1対応、ということのようだ。
+  - Win7では特に意味は無い?
 [QSVEnc]
-�E�ȈՃC���X�g�[����ǉ��B
-�Ex264guiEx 1.57�܂ł̍X�V�𔽉f�B
-  - �f���Ɖ����̓����������[�h��ǉ��B
-    �����������̑I�����Ƃ���"��","�O","����"�B
-  - ���s�t�@�C�����w�肷��{�^�����E�N���b�N����ƁA
-    ���ݎw�蒆�̎��s�t�@�C����help��\���ł�����B
-  - QSVEnc.ini�ŁA����/mux�t�@�C�������L�q����Ƃ���ŁA2�ȏ㏑����悤��
-    ��̓I�ɂ́A
+・簡易インストーラを追加。
+・x264guiEx 1.57までの更新を反映。
+  - 映像と音声の同時処理モードを追加。
+    音声処理順の選択肢として"後","前","同時"。
+  - 実行ファイルを指定するボタンを右クリックすると、
+    現在指定中の実行ファイルのhelpを表示できたり。
+  - QSVEnc.iniで、音声/muxファイル名を記述するところで、2つ以上書けるように
+    具体的には、
     filename="ffmpeg.exe;avconv.exe"
-    �݂����A�ǂ���ł����p�ł���悤�ɁB
-  - �C���^��i420�ϊ��ŁA����܂ł̒P�����ςłȂ��A3,1-���d���ς��g�p�B
-  - �����̒����Ɠ���̒������傫���قȂ�ꍇ�Ɍx�����o���悤�ɂ����B
-  - 1/2�T�C�Y��FAWCheck�ŁA384kbps�𒴂���AAC�̏ꍇ��non-FAW�ƌ딻�肷��̂��C���B
-  - �����ݒ��flac / fdk-aac (ffmpeg/avconv)�̐ݒ��ǉ��B
+    みたく、どちらでも利用できるように。
+  - インタレi420変換で、これまでの単純平均でなく、3,1-加重平均を使用。
+  - 音声の長さと動画の長さが大きく異なる場合に警告を出すようにした。
+  - 1/2サイズのFAWCheckで、384kbpsを超えるAACの場合にnon-FAWと誤判定するのを修正。
+  - 音声設定にflac / fdk-aac (ffmpeg/avconv)の設定を追加。
 [QSVEncC]
-�E���ɂȂ��B
+・特になし。
 
 2012.07.08 (v0.07)
-[����]
-�Ev0.06�Œǉ������I�v�V�����ނ��\�t�g�G���R�̎��̂ݗL���Ƃ����B
-  - �n�[�h�E�F�A�G���R(QSV)�ł͂ǂ������f����Ȃ��̂ŁB
-�EMVC�֘A�̎g�p���Ă��Ȃ��R�[�h���ȗ�
-�E���̑��ׂ�������
+[共通]
+・v0.06で追加したオプション類をソフトエンコの時のみ有効とした。
+  - ハードウェアエンコ(QSV)ではどうも反映されないので。
+・MVC関連の使用していないコードを省略
+・その他細かい調整
 [QSVEnc]
-�vQSVEnc.ini�X�V
-�EL-SMASH�Ή�
-  - muken����L-SMASH muxer���X�V���Ă��������APAFF H.264/ES���C���|�[�g�ł���悤�ɂ��Ă��������܂����B
-    ���肪�Ƃ��������܂�!
-  - QSVEnc�ł́AL-SMASH�pini�t�@�C������{�ɕύX���܂��B
-    mp4box�ɑ���AL-SMASH muxer / remuxer���w�肵�Ă��������B
-  - L-SMASH rev600�ȍ~���g�p���Ă��������B
-  - �ꉞmp4box�pini������Ă����܂����c�B
-�Ex264guiEx 1.46�`1.49�܂ł̍X�V�𔽉f�B
-  - faw2aac.auo�Ή�
-    > faw2aac�̐i�������O�E�B���h�E�ɂ��\���B
-    > faw2aac.auo������΁Afawcl���Ȃ��Ă�FAW�����ł���悤�ɁB
-  - L-SMASH�Ή� (x264guiEx�Ɠ����R�[�h���g�p)
-  - �ׂ������̏C��
-    > ���s�t�@�C�����J��... ��ʂŁA�f�t�H���g�̃t�H���_�����������Ȃ邱�Ƃ�����̂��C���B
-    > �ۑ����Ă���"stg�ݒ�t�@�C���̏ꏊ"�̃��[�g�����݂��Ȃ��ꍇ�ɁA�G���[��f���̂��C���B
-  - �\���̏C��
-    > mux���̃G���[���b�Z�[�W�ŁA�����t�@�C�����Ȃ��̂�mux�ł��Ȃ��ꍇ�ɁA
-      �f���t�@�C�����Ȃ��Ƃ����\���ɂȂ��Ă����̂��C���B
-  - %{chpath}�̒u�����ꎞ�t�@�C���������ɍ���Ă����̂��A�o�̓t�@�C��������ɏC���B
+要QSVEnc.ini更新
+・L-SMASH対応
+  - muken氏にL-SMASH muxerを更新していただき、PAFF H.264/ESをインポートできるようにしていただきました。
+    ありがとうございます!
+  - QSVEncでは、L-SMASH用iniファイルを基本に変更します。
+    mp4boxに代わり、L-SMASH muxer / remuxerを指定してください。
+  - L-SMASH rev600以降を使用してください。
+  - 一応mp4box用iniも入れておきますが…。
+・x264guiEx 1.46～1.49までの更新を反映。
+  - faw2aac.auo対応
+    > faw2aacの進捗をログウィンドウにも表示。
+    > faw2aac.auoがあれば、fawclがなくてもFAW処理できるように。
+  - L-SMASH対応 (x264guiExと同じコードを使用)
+  - 細かい問題の修正
+    > 実行ファイルを開く... 画面で、デフォルトのフォルダがおかしくなることがあるのを修正。
+    > 保存していた"stg設定ファイルの場所"のルートが存在しない場合に、エラーを吐くのを修正。
+  - 表示の修正
+    > mux時のエラーメッセージで、音声ファイルがないのでmuxできない場合に、
+      映像ファイルがないという表示になっていたのを修正。
+  - %{chpath}の置換が一時ファイル名を元に作られていたのを、出力ファイル名からに修正。
 [QSVEncC]
-�E�Ƃ��ɂȂ��B
+・とくになし。
 
 2012.05.11 (v0.06)
 [QSVEnc]
-�Ex264guiEx 1.42�̍X�V�̈ꕔ�𔽉f�B
- - WinXP�ő��΃p�X������Ɏ擾����Ȃ����ւ̑΍�B
-   WinXP���ƁA���΃p�X���擾����Ƃ��Ɏg��PathRelativePathTo�֐����A".\dir"��Ԃ��ׂ��Ƃ���"\dir"��Ԃ����Ƃ�����悤�ŁA
-   QSVEnc��XP�͑ΏۊO�����A�O�̂��߁A����̂��߂̃R�[�h��ǉ������B
- - QSVEnc.ini��qtaaacenc/qaac�p�ݒ��CVBR���[�h�̐ݒ��ǉ������B
-   ���ԓI�Ɏ��R�ȁAABR��TVBR�̊Ԃɑ}�������̂ŁA
-   �ݒ�t�@�C���̃C���f�b�N�X������邱�Ƃ����邩������Ȃ��B
+・x264guiEx 1.42の更新の一部を反映。
+ - WinXPで相対パスが正常に取得されない問題への対策。
+   WinXPだと、相対パスを取得するときに使うPathRelativePathTo関数が、".\dir"を返すべきときに"\dir"を返すことがあるようで、
+   QSVEncはXPは対象外だが、念のため、回避のためのコードを追加した。
+ - QSVEnc.iniのqtaaacenc/qaac用設定にCVBRモードの設定を追加した。
+   順番的に自然な、ABRとTVBRの間に挿入したので、
+   設定ファイルのインデックスがずれることがあるかもしれない。
 [QSVEncC]
-�Ev0.05��y4m + �p�C�v�������Ȃ������C���B
+・v0.05でy4m + パイプが動かない問題を修正。
 
 2012.05.05 (v0.05)
-[����]
-�EIntel Media SDK 2012 R2 (API v1.4)�ɑΉ��B
-  - libmfxsw**.lib�̍X�V(API v1.4)
-  - API v1.4�ɓ��ɏd�v�ȍX�V�͂Ȃ��B
-�Evpp�̓�����C���B
-�E���\���̉��P�B�܂��\������G���R�[�h���̒ǉ��B
-�E����܂Łu�i���v�ł̎����ݒ肵���ł��Ȃ������ݒ荀�ڂ̒ǉ��B
-  �������A������x�u�i���v�̐ݒ�ɍ��E�����̂ŁA���̂Ƃ���ɂȂ�Ƃ͌���Ȃ��B
-  - MV�T���͈́AMV�T�����x�̐ݒ�B
-  - CAVLC/CABAC�̐ݒ�B
-  - �c�݃��[�g�œK��(RDO, �vCABAC)�̐ݒ�B
-  - �t���[���ԗ\��/�t���[�����\�����̃u���b�N�T�C�Y�̐ݒ�B
-�E�v���t�@�C���w�莞�̓�������P�B
-�E���̑������ׂ̍������P�E�ύX�B�����Y�ꂽ�B
+[共通]
+・Intel Media SDK 2012 R2 (API v1.4)に対応。
+  - libmfxsw**.libの更新(API v1.4)
+  - API v1.4に特に重要な更新はない。
+・vppの動作を修正。
+・情報表示の改善。また表示するエンコード情報の追加。
+・これまで「品質」での自動設定しかできなかった設定項目の追加。
+  ただし、ある程度「品質」の設定に左右されるので、そのとおりになるとは限らない。
+  - MV探索範囲、MV探索精度の設定。
+  - CAVLC/CABACの設定。
+  - 歪みレート最適化(RDO, 要CABAC)の設定。
+  - フレーム間予測/フレーム内予測時のブロックサイズの設定。
+・プロファイル指定時の動作を改善。
+・その他多くの細かい改善・変更。もう忘れた。
 [QSVEnc]
-���vQSVEnc.ini�X�V
-���ݒ�t�@�C���̌݊������ꕔ����܂���B(SAR�䓙)
-  ������x�Đݒ�����肢���܂��B
-�ESAR��mux���łȂ��A�G���R���Ɏw�肷��悤�ɂ����B
-�ESAR���mp4box�ōĎw�肷��I�v�V������ǉ������B
-�Ex264guiEx 1.34�`1.41�̍X�V�̂����A�ȉ��̂��̂𔽉f
-  - �ݒ�t�@�C��(stg�t�@�C��)�̕\�����A�t�H���_�\���𔽉f���ĕ\���ł���悤�ɂ����B
-    ���킹�āA�ݒ�t�@�C���̐V�K�ۑ����t�H���_���w��ł���悤�ɂ����B
-  - �ݒ�ۑ����������ǁB
-  - �ȈՃr�b�g���[�g�v�Z�@�ŁA����̒������t���[���� + �t���[�����[�g�ł��v�Z�ł���悤�ɂ����B
-    �����b <-> �t���[�����͉��̃{�^���Ő؂�ւ�����B
-  - chapter�t�@�C����mux���邱�Ƃ�I�����A������chapter�t�@�C�������݂��Ȃ����ɁA
-    L-SMASH remuxer��mkvmerge���g�p����mux�ł��A�Ƃ肠����mux�͒ʂ�悤�ɂ����B
-  - �u�t�@�C�����J��...�v�Ȃǂ��瓾����p�X���A���΃p�X�ɂ���ݒ��ǉ��B
-    ���̑��̐ݒ肩��B
+※要QSVEnc.ini更新
+※設定ファイルの互換性が一部ありません。(SAR比等)
+  もう一度再設定をお願いします。
+・SARをmux時でなく、エンコ時に指定するようにした。
+・SAR比をmp4boxで再指定するオプションを追加した。
+・x264guiEx 1.34～1.41の更新のうち、以下のものを反映
+  - 設定ファイル(stgファイル)の表示を、フォルダ構造を反映して表示できるようにした。
+    あわせて、設定ファイルの新規保存もフォルダを指定できるようにした。
+  - 設定保存処理を改良。
+  - 簡易ビットレート計算機で、動画の長さをフレーム数 + フレームレートでも計算できるようにした。
+    時分秒 <-> フレーム数は下のボタンで切り替えられる。
+  - chapterファイルをmuxすることを選択し、しかしchapterファイルが存在しない時に、
+    L-SMASH remuxerやmkvmergeを使用したmuxでも、とりあえずmuxは通るようにした。
+  - 「ファイルを開く...」などから得られるパスを、相対パスにする設定を追加。
+    その他の設定から。
 [QSVEncC]
-�E�I�v�V�����̒ǉ���help�̒ǉ��E�C���B
-[����̖��_] (Intel 2696�h���C�o from Windows Update, API v1.3)
-�E�C���^���ێ��G���R��������ł��Ȃ��B(�{�t���[�������)
-�Ehw�G���R(QSV)��colormatrix,colorprim,transfer�̎w�肪�����Ȃ��B
+・オプションの追加とhelpの追加・修正。
+[現状の問題点] (Intel 2696ドライバ from Windows Update, API v1.3)
+・インタレ保持エンコが事実上できない。(倍フレーム数問題)
+・hwエンコ(QSV)でcolormatrix,colorprim,transferの指定が効かない。
   (colour_description_present_flag = 0 (h264_parse))
-�Ehw�G���R(QSV)�ŃV�[���`�F���W���o�ł��Ȃ��B
-  �������Ă݂āA�\�t�g�E�F�A���[�h�ł͓����̂����Ahw�G���R�ł��܂������Ȃ��̂ŁA���������Ă���B
-  �Q�l: http://software.intel.com/en-us/forums/showthread.php?t=103385
+・hwエンコ(QSV)でシーンチェンジ検出できない。
+  実装してみて、ソフトウェアモードでは動くのだが、hwエンコでうまく動かないので、無効化してある。
+  参考: http://software.intel.com/en-us/forums/showthread.php?t=103385
 
 2012.02.27 (0.04v2)
 [QSVEncC]
-�E�ꕔ�̃R�}���h���C��������ɓ����Ȃ��̂��C���B
-�Ex86�̃o�C�i���Ȃ̂�x64�̃o�C�i���Ȃ̂��A
-  �E�N���b�N > �v���p�e�B����m�F�ł���悤�ɂ����B
+・一部のコマンドラインが正常に動かないのを修正。
+・x86のバイナリなのかx64のバイナリなのか、
+  右クリック > プロパティから確認できるようにした。
 
 2012.02.23 (v0.04)
-[����]
-�EIntel Media SDK 2012�ɉ��Ή� (API v1.3�ɉ��Ή�)
-  - �F�ݒ�̒ǉ�
-  - AVBR���[�h�̒ǉ�
-  - libmfxsw**.lib�̍X�V(API v1.3)
-  - API�o�[�W�����̌��o�ƕ\�� (QSVEnc�ł͐ݒ��ʂɁAQSVEncC�ł�--lib-check��)
+[共通]
+・Intel Media SDK 2012に仮対応 (API v1.3に仮対応)
+  - 色設定の追加
+  - AVBRモードの追加
+  - libmfxsw**.libの更新(API v1.3)
+  - APIバージョンの検出と表示 (QSVEncでは設定画面に、QSVEncCでは--lib-checkで)
 [QSVEnc]
-�Ex264guiEx 1.27�`1.33�̍X�V�𔽉f
-  - ���萫�̌���B
-  - ���O�E�B���h�E�̑傫����ۑ��ł���悤�ɂ����B
-  - STAThreadAttribute���w��B
-  - mux���s���Ă��Ȃ��ꍇ�Ɂu�G���R��o�b�`�����v�Ɏ��s����̂��C���B
-  - �^���o�b�`�����̃o�b�`�t�@�C���w�藓�̃h���b�O�h���b�v�Ή��B
-  - �����G���R�ŒP����WAV�o�͂ɑΉ������B
-  - �ݒ�t�@�C���ۑ������̉��ǁB
-  - �t�@�C���T�C�Y�擾�̉��ǁB
-  - �ݒ��ʂƃ��O�E�B���h�E�Ńt�H���g��ύX�ł���悤�ɂ����B
-  - QSVEnc.ini��oggenc2�R�}���h���C�����C���B�����I��44.1kHz�ɂȂ��Ă��܂��Ă����B
-  - QSVEnc.ini��qaac/refalac�p�ݒ��ǉ��B
-  - QSVEnc.ini��AnonEncoder�p�ݒ��ǉ��B
+・x264guiEx 1.27～1.33の更新を反映
+  - 安定性の向上。
+  - ログウィンドウの大きさを保存できるようにした。
+  - STAThreadAttributeを指定。
+  - muxを行っていない場合に「エンコ後バッチ処理」に失敗するのを修正。
+  - 録画後バッチ処理のバッチファイル指定欄のドラッグドロップ対応。
+  - 音声エンコで単純なWAV出力に対応した。
+  - 設定ファイル保存処理の改良。
+  - ファイルサイズ取得の改良。
+  - 設定画面とログウィンドウでフォントを変更できるようにした。
+  - QSVEnc.iniのoggenc2コマンドラインを修正。強制的に44.1kHzになってしまっていた。
+  - QSVEnc.iniにqaac/refalac用設定を追加。
+  - QSVEnc.iniにAnonEncoder用設定を追加。
 [QSVEncC]
-�Ex86�ł��ÓI�����N�B(QSVEncC�����Ȃ�AVC++2008 �ĔЕz�\�p�b�P�[�W�s�v)
-�E-o - ��stdout(�W���o��)�ɏo����悤�ɂ����B
+・x86版も静的リンク。(QSVEncCだけなら、VC++2008 再頒布可能パッケージ不要)
+・-o - でstdout(標準出力)に出せるようにした。
 
 2012.01.22 (v0.03v2)
-�E�ݒ��ʂ��o�Ȃ���Ԃ������B
+・設定画面が出ない状態を解消。
 
 2012.01.22 (v0.03)
-�vini�t�@�C���X�V(ini�t�@�C���o�[�W����1��2)
-�E�ʃX���b�h�Ńt���[���ǂݍ��݁B������҂荂��������͂��B
-  �t���[���ǂݍ��݃o�b�t�@�@�\��ǉ��B�o�b�t�@�T�C�Y��1�`16�t���[���B�������񉻌��������コ����B
-  QSVEnc�ł͓ǂݍ��݃o�b�t�@�T�C�Y(�^�u3����)�ŁAQSVEncC�ł�--input-buf�ő傫�����w��ł���B
-  ���܂葽������Ƌt�ɒx���Ȃ�̂Œ��ӁB(�L���b�V���T�C�Y�Ƃ̊֘A���Ǝv��)
-  �G���R���x  �K�؂ȃo�b�t�@�T�C�Y
-  �`50fps         1�`2
-  �`100fps        2�`3
-  �`200fps        3�`6
-  ����ȏ�        4�`8
-  �G���R���x��������Α����قǌ��ʂ�����͂��B
-  �t��fullHD�̃G���R�[�h�Ȃǂł͂������Č��ʂ͂Ȃ��B
-  QSV�g�p���Ƀo�b�t�@�T�C�Y������܂�傫�������GPU���������m�ۂł��Ȃ��Ȃ��Ă�����̂Œ��ӁB
-�Ex264guiEx v1.11�`v1.26�̒ǉ��@�\�̎�荞�݂ƃo�O�C���̔��f
-  �E���΃p�X���g�p�ł���悤�ɂ����B
-  �E�c�[���`�b�v�w���v�̗}��(���̑��̐ݒ肩��)
-  �E�u���̃E�B���h�E���ŏ����ŊJ�n�v����񂵂����͂𔭊������A��������Ă��܂������C���B
-  �E���o���ʂ��I�t�ɂł���悤�ɂ����B
-  �E�v���t�@�C���Ƀ������c����悤�ɂ����B�v���t�@�C���̉E���ɕ\���B�_�u���N���b�N�ŕύX�ł���B
-  �EQSVEnc.ini�����݂��Ȃ��A���邢�͌Â����ɃG���[���b�Z�[�W�̑O�ɗ�O������������������B
-  �EApple�n�ɑΉ�����mp4/chapter��mp4box��p���Ă��o�͂ł���悤�ɂ����B
-  �E���̑��̐ݒ�Ƀ��O�E�B���h�E�֘A�̐ݒ�(�u���߁v�Ɓu�ŏ����ŊJ�n�v)��ǉ��B
-  �E�ݒ�t�@�C���̃T�C�Y���قȂ��Ă��AAviutl���̃v���t�@�C���ɕۑ����ꂽ�ݒ���ǂ߂�悤�ɂ����B
-  �E�`���v�^�[�t�@�C���̎����폜���I���I�t�ł���悤�ɂ����B���̑��̐ݒ肩��B
-  �E�`���v�^�[�t�@�C�������݂��Ȃ��ꍇ�ł��Ƃ肠����mux�𐬌�������悤�ɂ����B
-  �E�G���R���łȂ��Ƃ��AEsc�L�[�Ń��O�E�B���h�E�����悤�ɂ����B
-  �E�G���R��o�b�`�t�@�C�����s��ǉ��B
-  �E�ݒ��ʂ�Esc�L�[�̃I���I�t�ݒ��ǉ��B
-  �Emux�G���[�΍�Bmux���`�F�b�N�����{�I�ɉ��P�B
-�EQSVEncC��x64�ł�ǉ��B�킸���ɑ����c��������Ȃ��B��{�������ĕς��Ȃ��B
-  �܂�x64�r���h���ł����A�Ƃ������ƁB
-�E�s�v�ȃ��������->�Ċm�ۂ�h�~�B
+要iniファイル更新(iniファイルバージョン1→2)
+・別スレッドでフレーム読み込み。ちょっぴり高速化するはず。
+  フレーム読み込みバッファ機能を追加。バッファサイズは1～16フレーム。部分並列化効率を向上させる。
+  QSVEncでは読み込みバッファサイズ(タブ3枚目)で、QSVEncCでは--input-bufで大きさを指定できる。
+  あまり多すぎると逆に遅くなるので注意。(キャッシュサイズとの関連だと思う)
+  エンコ速度  適切なバッファサイズ
+  ～50fps         1～2
+  ～100fps        2～3
+  ～200fps        3～6
+  それ以上        4～8
+  エンコ速度が速ければ速いほど効果があるはず。
+  逆にfullHDのエンコードなどではたいして効果はない。
+  QSV使用時にバッファサイズをあんまり大きくするとGPUメモリを確保できなくなってこけるので注意。
+・x264guiEx v1.11～v1.26の追加機能の取り込みとバグ修正の反映
+  ・相対パスを使用できるようにした。
+  ・ツールチップヘルプの抑制(その他の設定から)
+  ・「このウィンドウを最小化で開始」が一回しか効力を発揮せず、解除されてしまう問題を修正。
+  ・視覚効果をオフにできるようにした。
+  ・プロファイルにメモを残せるようにした。プロファイルの右側に表示。ダブルクリックで変更できる。
+  ・QSVEnc.iniが存在しない、あるいは古い時にエラーメッセージの前に例外が発生する問題を解決。
+  ・Apple系に対応したmp4/chapterをmp4boxを用いても出力できるようにした。
+  ・その他の設定にログウィンドウ関連の設定(「透過」と「最小化で開始」)を追加。
+  ・設定ファイルのサイズが異なっても、Aviutl側のプロファイルに保存された設定も読めるようにした。
+  ・チャプターファイルの自動削除をオンオフできるようにした。その他の設定から。
+  ・チャプターファイルが存在しない場合でもとりあえずmuxを成功させるようにした。
+  ・エンコ中でないとき、Escキーでログウィンドウを閉じるようにした。
+  ・エンコ後バッチファイル実行を追加。
+  ・設定画面でEscキーのオンオフ設定を追加。
+  ・muxエラー対策。mux時チェックを根本的に改善。
+・QSVEncCにx64版を追加。わずかに速い…かもしれない。基本たいして変わらない。
+  まあx64ビルドもできるよ、ということ。
+・不要なメモリ解放->再確保を防止。
 
 2012.01.16 (QSVEncC_20120116)
-�E�R���\�[���ւ̏o�͂��������stderr��stdout�ɐ����B��{stderr�B
+・コンソールへの出力をきちんとstderrとstdoutに整理。基本stderr。
 
 2011.10.02 (v0.02)
-�EIntel GPU ���v���C�}��GPU�łȂ��ꍇ�ł�QSV���g�p�ł���悤�ɂ����B
-  �܂����̎�d3d���������[�h���g�p�o���Ȃ����������B
-  (d3d���������[�h�łȂ���vpp�̃p�t�H�[�}���X���ቺ����)
-�EQSVEncC���킯�̂킩���G���[���b�Z�[�W��f���̂����P�B
+・Intel GPU がプライマリGPUでない場合でもQSVが使用できるようにした。
+  またその時d3dメモリモードが使用出来ない問題を解決。
+  (d3dメモリモードでないとvppのパフォーマンスが低下する)
+・QSVEncCがわけのわからんエラーメッセージを吐くのを改善。
 
 2011.09.27 (v0.01)
-�Efps�̕\�����������������C���B�G���R�ɉe���Ȃ��B
+・fpsの表示がおかしい問題を修正。エンコに影響なし。
 
 2011.09.26 (v0.00)
-�E���J��
+・公開版
 
 2011.09.26
-�E�������O�ۑ��̏ꏊ�w��ǉ��B
+・自動ログ保存の場所指定追加。
 
 2011.09.25
-�E��������o�O�C���B
-�E�G���R�[�h�����t���[���^�C�v�̓�������O�ɕ\���B
+・たくさんバグ修正。
+・エンコードしたフレームタイプの内訳をログに表示。
 
 2011.09.24
-�E���낢�냁�b�Z�[�W�ǉ��B
+・いろいろメッセージ追加。
 
 2011.09.23
-�Eslices�ݒ荀�ڒǉ��B
-�E�R�}���h���C���ł�����Ă݂��BQSVencC�B
-  �܂�BonTSDemux�ɑ΂���BonTSDemuxC�݂����Ȃ���B
-  �p�C�v���͂���Ă݂������������B�܂��ł������Avisynth�ł��g����͂��B
+・slices設定項目追加。
+・コマンドライン版を作ってみた。QSVencC。
+  まあBonTSDemuxに対するBonTSDemuxCみたいなもん。
+  パイプ入力やってみたかっただけ。まあでもこれでAvisynthでも使えるはず。
 
 2011.09.22
-vpp SceneChangeDetection���悭�킩���B����đΉ������B
+vpp SceneChangeDetectionがよくわからん。よって対応せず。
 
 2011.09.20
-vpp�C���^�������Ή�(IT�̎g�������悭�킩���)
+vppインタレ解除対応(ITの使い方がよくわからん)
 
 2011.09.19
-�Ԃ����Ⴏ�A�F�ϊ�(YUY2->NV12)������hw vpp�ł���Ă��x���Ȃ邾���Ƃ������Ƃ�0.02�ł킩�����B
-���傤���Ȃ����炻�̑���vpp(Resize,Denoise,DetailEnhancer)���ǉ�(�ǂ��������������c)
+ぶっちゃけ、色変換(YUY2->NV12)だけをhw vppでやっても遅くなるだけということが0.02でわかった。
+しょうがないからその他のvpp(Resize,Denoise,DetailEnhancer)も追加(どういう方向性だ…)
 
 2011.09.19
-hw vpp (YUY2 -> NV12) �Ή��B
-GPU EU�����ő����Ȃ邩�A���邢�̓������R�s�[�����Œx���Ȃ邩
-���x���Ȃ���orz
+hw vpp (YUY2 -> NV12) 対応。
+GPU EU処理で早くなるか、あるいはメモリコピー増加で遅くなるか
+→遅くなったorz
 
 2011.09.18
-B�t���[���ݒ�AGOP���Ad3d mem mode�Ȃǂ�ǉ��B
-�V�[�N�ł��Ȃ��Ȃ�������𖾁B
-YUY2->NV12�𒼐ڕϊ��ɉ��ǁB
+Bフレーム設定、GOP長、d3d mem modeなどを追加。
+シークできなくなる条件が解明。
+YUY2->NV12を直接変換に改良。
 
 2011.09.18
-������B
+動くよ。
 
 2011.09.17 (on sample_encode.exe)
-�C���^���ێ� + hw encode �͕ρB
+インタレ保持 + hw encode は変。
