@@ -570,7 +570,8 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const QSVDe
             const auto encodeFeature = MakeFeatureListPerCodec(
                 deviceNum, { { _T("CQP  "), MFX_RATECONTROL_CQP } }, ENC_CODEC_LISTS, log);
             for (auto& enc : encodeFeature) {
-                if ((enc.feature.at(MFX_RATECONTROL_CQP) & ENC_FEATURE_CURRENT_RC) != 0) {
+                if (enc.feature.count(MFX_RATECONTROL_CQP) > 0
+                    && (enc.feature.at(MFX_RATECONTROL_CQP) & ENC_FEATURE_CURRENT_RC) != 0) {
                     _ftprintf(stdout, _T("%s %s\n"), CodecToStr(enc.codec).c_str(), enc.lowPwer ? _T("FF") : _T("PG"));
                 }
             }
