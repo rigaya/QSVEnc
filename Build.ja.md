@@ -599,7 +599,7 @@ sudo gpasswd -a ${USER} render
 git clone https://github.com/rigaya/QSVEnc --recursive
 cd QSVEnc
 ./configure
-make8
+make
 ```
 動作するか確認します。
 ```Shell
