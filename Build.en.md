@@ -3,6 +3,7 @@
 
 - [Windows](./Build.en.md#windows)
 - Linux
+  - [Linux (Ubuntu 22.04)](./Build.en.md#linux-ubuntu-2204)
   - [Linux (Ubuntu 20.04)](./Build.en.md#linux-ubuntu-2004)
   - [Linux (Ubuntu 18.04)](./Build.en.md#linux-ubuntu-1804)
   - [Linux (Fedora 32)](./Build.en.md#linux-fedora-32)
@@ -63,6 +64,186 @@ Finally, open QSVEnc.sln, and start build of QSVEnc by Visual Studio.
 |QSVEncC(64).exe | DebugStatic | RelStatic |
 
 
+## Linux (Ubuntu 22.04)
+
+### 0. Requirements
+
+- C++17 Compiler
+- Intel Driver
+- git
+- cmake
+- libraries
+  - libva, libdrm 
+  - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
+  - libass9
+  - [Optional] VapourSynth
+
+### 1. Install build tools
+
+```Shell
+sudo apt install build-essential libtool pkg-config git cmake
+```
+
+### 2. Install Intel driver
+OpenCL driver can be installed following instruction on [this link](https://dgpu-docs.intel.com/installation-guides/ubuntu/ubuntu-focal.html), but QSVEnc will require only part of it.
+
+```Shell
+sudo apt install intel-media-va-driver-non-free intel-opencl-icd opencl-headers
+```
+
+### 3. Install required libraries
+
+```Shell
+sudo apt install \
+  libva-drm2 \
+  libva-x11-2 \
+  libva-glx2 \
+  libx11-dev \
+  libigfxcmrt7 \
+  libva-dev \
+  libdrm-dev
+
+sudo apt install ffmpeg \
+  libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev \
+  libass9 libass-dev
+```
+
+### 4. [Optional] Install VapourSynth
+VapourSynth is required only if you need VapourSynth(vpy) reader support.  
+
+Please go on to [5. Build QSVEncC] if you don't need vpy reader.
+
+<details><summary>How to build VapourSynth</summary>
+
+#### 4.1 Install build tools for VapourSynth
+```Shell
+sudo apt install python3-pip autoconf automake libtool meson
+```
+
+#### 4.2 Install zimg
+```Shell
+git clone https://github.com/sekrit-twc/zimg.git --recursive
+cd zimg
+./autogen.sh
+./configure
+make && sudo make install
+cd ..
+```
+
+#### 4.3 Install cython
+```Shell
+sudo pip3 install Cython
+```
+
+#### 4.4 Install VapourSynth
+```Shell
+git clone https://github.com/vapoursynth/vapoursynth.git
+cd vapoursynth
+./autogen.sh
+./configure
+make && sudo make install
+
+# Make sure vapoursynth could be imported from python
+# Change "python3.x" depending on your encironment
+sudo ln -s /usr/local/lib/python3.x/site-packages/vapoursynth.so /usr/lib/python3.x/lib-dynload/vapoursynth.so
+sudo ldconfig
+```
+
+#### 4.5 Check if VapourSynth has been installed properly
+Make sure you get version number without errors.
+```Shell
+vspipe --version
+```
+
+#### 4.6 [Option] Build vslsmashsource
+```Shell
+# Install lsmash
+git clone https://github.com/l-smash/l-smash.git
+cd l-smash
+./configure --enable-shared
+make && sudo make install
+cd ..
+ 
+# Install vslsmashsource
+git clone https://github.com/Mr-Ojii/L-SMASH-Works.git
+cd L-SMASH-Works/Avisynth
+meson build
+cd build
+ninja && sudo ninja install
+cd ../../../
+```
+
+</details>
+
+
+### 5. [Optional] Install AvisynthPlus
+AvisynthPlus is required only if you need AvisynthPlus(avs) reader support.  
+
+Please go on to [7. Build QSVEncC] if you don't need avs reader.
+
+<details><summary>How to build AvisynthPlus</summary>
+
+#### 5.1 Install build tools for AvisynthPlus
+```Shell
+sudo apt install cmake
+```
+
+#### 5.2 Install AvisynthPlus
+```Shell
+git clone https://github.com/AviSynth/AviSynthPlus.git
+cd AviSynthPlus
+mkdir avisynth-build && cd avisynth-build 
+cmake ../
+make && sudo make install
+cd ../..
+```
+
+#### 5.3 [Option] Build lsmashsource
+```Shell
+# Install lsmash
+git clone https://github.com/l-smash/l-smash.git
+cd l-smash
+./configure --enable-shared
+make && sudo make install
+cd ..
+ 
+# Install vslsmashsource
+git clone https://github.com/Mr-Ojii/L-SMASH-Works.git
+cd L-SMASH-Works/VapourSynth
+meson build
+cd build
+ninja && sudo ninja install
+cd ../../../
+```
+</details>
+
+
+### 6. Add user to proper group
+```Shell
+# QSV
+sudo gpasswd -a ${USER} video
+# OpenCL
+sudo gpasswd -a ${USER} render
+```
+
+### 7. Build QSVEncC
+```Shell
+git clone https://github.com/rigaya/QSVEnc --recursive
+cd QSVEnc
+./configure
+make
+```
+Check if it works properly.
+```Shell
+./qsvencc --check-hw
+```
+
+You shall get results below if Quick Sync Video works properly.
+```
+Success: QuickSyncVideo (hw encoding) available
+```
+
+
 ## Linux (Ubuntu 20.04)
 
 ### 0. Requirements
@@ -121,11 +302,11 @@ sudo apt install python3-pip autoconf automake libtool meson
 
 #### 4.2 Install zimg
 ```Shell
-git clone https://github.com/sekrit-twc/zimg.git
+git clone https://github.com/sekrit-twc/zimg.git --recursive
 cd zimg
 ./autogen.sh
 ./configure
-sudo make install -j16
+make && sudo make install
 cd ..
 ```
 
@@ -140,8 +321,7 @@ git clone https://github.com/vapoursynth/vapoursynth.git
 cd vapoursynth
 ./autogen.sh
 ./configure
-make -j16
-sudo make install
+make && sudo make install
 
 # Make sure vapoursynth could be imported from python
 # Change "python3.x" depending on your encironment
@@ -161,7 +341,7 @@ vspipe --version
 git clone https://github.com/l-smash/l-smash.git
 cd l-smash
 ./configure --enable-shared
-sudo make install -j16
+make && sudo make install
 cd ..
  
 # Install vslsmashsource
@@ -169,16 +349,62 @@ git clone https://github.com/HolyWu/L-SMASH-Works.git
 # As the latest version requires more recent ffmpeg libs, checkout the older version
 cd L-SMASH-Works
 git checkout -b 20200531 refs/tags/20200531
-cd VapourSynth
+cd Avisynth
 meson build
 cd build
-sudo ninja install
+ninja && sudo ninja install
 cd ../../../
 ```
 
 </details>
 
-### 5. Add user to proper group
+
+### 5. [Optional] Install AvisynthPlus
+AvisynthPlus is required only if you need AvisynthPlus(avs) reader support.  
+
+Please go on to [7. Build QSVEncC] if you don't need avs reader.
+
+<details><summary>How to build AvisynthPlus</summary>
+
+#### 5.1 Install build tools for AvisynthPlus
+```Shell
+sudo apt install cmake
+```
+
+#### 5.2 Install AvisynthPlus
+```Shell
+git clone https://github.com/AviSynth/AviSynthPlus.git
+cd AviSynthPlus
+mkdir avisynth-build && cd avisynth-build 
+cmake ../
+make && sudo make install
+cd ../..
+```
+
+#### 5.3 [Option] Build lsmashsource
+```Shell
+# Install lsmash
+git clone https://github.com/l-smash/l-smash.git
+cd l-smash
+./configure --enable-shared
+make && sudo make install
+cd ..
+ 
+# Install vslsmashsource
+git clone https://github.com/HolyWu/L-SMASH-Works.git
+cd L-SMASH-Works
+# Use older version to meet libavcodec lib version requirements
+git checkout -b 20200531 refs/tags/20200531
+cd VapourSynth
+meson build
+cd build
+ninja && sudo ninja install
+cd ../../../
+```
+</details>
+
+
+### 6. Add user to proper group
 ```Shell
 # QSV
 sudo gpasswd -a ${USER} video
@@ -186,12 +412,12 @@ sudo gpasswd -a ${USER} video
 sudo gpasswd -a ${USER} render
 ```
 
-### 6. Build QSVEncC
+### 7. Build QSVEncC
 ```Shell
 git clone https://github.com/rigaya/QSVEnc --recursive
 cd QSVEnc
 ./configure
-make -j8
+make
 ```
 Check if it works properly.
 ```Shell
@@ -255,7 +481,7 @@ Build with messaging ............. : yes
 
 Then, build and install.
 ```Shell
-make -j8 && sudo make install
+make && sudo make install
 cd ..
 ```
 
@@ -267,8 +493,7 @@ git clone https://github.com/intel/gmmlib.git
 cd gmmlib
 mkdir build && cd build
 cmake -DCMAKE_BUILD_TYPE=Release ..
-make -j8
-sudo make install
+make && sudo make install
 cd ../..
 ```
 
@@ -301,7 +526,7 @@ sudo apt install libdrm-dev xorg xorg-dev openbox libx11-dev libgl1-mesa-glx lib
 git clone https://github.com/intel/media-driver.git
 mkdir build_media && cd build_media
 cmake ../media-driver
-make -j8 && sudo make install
+make && sudo make install
 cd ..
 ```
 
@@ -343,11 +568,11 @@ sudo apt install python3-pip autoconf automake libtool meson
 
 #### 7.2 Install zimg
 ```Shell
-git clone https://github.com/sekrit-twc/zimg.git
+git clone https://github.com/sekrit-twc/zimg.git --recursive
 cd zimg
 ./autogen.sh
 ./configure
-sudo make install -j16
+make && sudo make install
 cd ..
 ```
 
@@ -362,8 +587,7 @@ git clone https://github.com/vapoursynth/vapoursynth.git
 cd vapoursynth
 ./autogen.sh
 ./configure
-make -j16
-sudo make install
+make && sudo make install
 
 # Make sure vapoursynth could be imported from python
 # Change "python3.x" depending on your encironment
@@ -383,7 +607,7 @@ vspipe --version
 git clone https://github.com/l-smash/l-smash.git
 cd l-smash
 ./configure --enable-shared
-sudo make install -j16
+make && sudo make install
 cd ..
  
 # Install vslsmashsource
@@ -394,7 +618,7 @@ git checkout -b 20200531 refs/tags/20200531
 cd VapourSynth
 meson build
 cd build
-sudo ninja install
+ninja && sudo ninja install
 cd ../../../
 ```
 
@@ -413,7 +637,7 @@ sudo gpasswd -a ${USER} render
 git clone https://github.com/rigaya/QSVEnc --recursive
 cd QSVEnc
 ./configure --extra-cxxflags="-I/opt/intel/mediasdk/include" --extra-ldflags="-L/opt/intel/mediasdk/lib"
-make -j8
+make
 ```
 Check if it works properly.
 ```Shell
@@ -485,11 +709,11 @@ sudo apt install python3-pip autoconf automake libtool meson
 
 #### 4.2 Install zimg
 ```Shell
-git clone https://github.com/sekrit-twc/zimg.git
+git clone https://github.com/sekrit-twc/zimg.git --recursive
 cd zimg
 ./autogen.sh
 ./configure
-sudo make install -j16
+make && sudo make install
 cd ..
 ```
 
@@ -504,8 +728,7 @@ git clone https://github.com/vapoursynth/vapoursynth.git
 cd vapoursynth
 ./autogen.sh
 ./configure
-make -j16
-sudo make install
+make && sudo make install
 
 # Make sure vapoursynth could be imported from python
 # Change "python3.x" depending on your encironment
@@ -525,7 +748,7 @@ vspipe --version
 git clone https://github.com/l-smash/l-smash.git
 cd l-smash
 ./configure --enable-shared
-sudo make install -j16
+make && sudo make install
 cd ..
  
 # Install vslsmashsource
@@ -536,7 +759,7 @@ git checkout -b 20200531 refs/tags/20200531
 cd VapourSynth
 meson build
 cd build
-sudo ninja install
+ninja && sudo ninja install
 cd ../../../
 ```
 
@@ -555,7 +778,7 @@ sudo gpasswd -a ${USER} render
 git clone https://github.com/rigaya/QSVEnc --recursive
 cd QSVEnc
 ./configure
-make -j8
+make
 ```
 Check if it works properly.
 ```Shell
