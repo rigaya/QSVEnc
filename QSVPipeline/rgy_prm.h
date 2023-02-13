@@ -1402,6 +1402,8 @@ struct RGYParamCommon {
     RGYAVSync AVSyncMode;     //avsyncの方法 (NV_AVSYNC_xxx)
     bool timecode;
     tstring timecodeFile;
+    tstring tcfileIn;
+    rgy_rational<int> timebase;
     RGYHEVCBsf hevcbsf;
 
     RGYVideoQualityMetric metric;
