@@ -338,6 +338,8 @@ CL_EXTERN cl_int(CL_API_CALL* f_clEnqueueReleaseVA_APIMediaSurfacesINTEL)(cl_com
 #define clEnqueueReleaseVA_APIMediaSurfacesINTEL f_clEnqueueReleaseVA_APIMediaSurfacesINTEL
 #endif //ENABLE_RGY_OPENCL_VA
 
+tstring checkOpenCLDLL();
+
 MAP_PAIR_0_1_PROTO(err, rgy, RGY_ERR, cl, cl_int);
 
 class RGYOpenCLQueue;

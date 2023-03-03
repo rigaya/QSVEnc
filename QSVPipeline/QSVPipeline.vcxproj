@@ -670,6 +670,12 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="rgy_filter_curves.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="rgy_filter_deband.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -946,6 +952,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_filter_colorspace.h" />
     <ClInclude Include="rgy_filter_colorspace_func.h" />
     <ClInclude Include="rgy_filter_convolution3d.h" />
+    <ClInclude Include="rgy_filter_curves.h" />
     <ClInclude Include="rgy_filter_deband.h" />
     <ClInclude Include="rgy_filter_decimate.h" />
     <ClInclude Include="rgy_filter_delogo.h" />
@@ -1004,6 +1011,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <None Include="rgy_filter_afs_merge.cl" />
     <None Include="rgy_filter_afs_synthesize.cl" />
     <None Include="rgy_filter_convolution3d.cl" />
+    <None Include="rgy_filter_curves.cl" />
     <None Include="rgy_filter_deband.cl" />
     <None Include="rgy_filter_deband_gen_rand.cl" />
     <None Include="rgy_filter_decimate.cl" />

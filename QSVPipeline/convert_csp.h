@@ -108,9 +108,18 @@ enum RGY_CSP {
     RGY_CSP_RGBA,  //planar
     RGY_CSP_GBR,   //planar
     RGY_CSP_GBRA,  //planar
+    RGY_CSP_RGB_16,   //planar
+    RGY_CSP_RGBA_16,  //planar
+    RGY_CSP_BGR_16,   //planar
+    RGY_CSP_BGRA_16,  //planar
+    RGY_CSP_RGB_F32,  //planar
+    RGY_CSP_RGBA_F32, //planar
+    RGY_CSP_BGR_F32,  //planar
+    RGY_CSP_BGRA_F32, //planar
     RGY_CSP_YC48,
     RGY_CSP_Y8,
-    RGY_CSP_Y16
+    RGY_CSP_Y16,
+    RGY_CSP_COUNT
 };
 
 static const TCHAR *RGY_CSP_NAMES[] = {
@@ -157,10 +166,19 @@ static const TCHAR *RGY_CSP_NAMES[] = {
     _T("rgba"),
     _T("gbr"),
     _T("gbra"),
+    _T("rgb(16bit)"),
+    _T("rgba(16bit)"),
+    _T("bgr(16bit)"),
+    _T("bgra(16bit)"),
+    _T("rgb(fp32)"),
+    _T("rgba(fp32)"),
+    _T("bgr(fp32)"),
+    _T("bgra(fp32)"),
     _T("yc48"),
     _T("y8"),
     _T("yc16")
 };
+static_assert(sizeof(RGY_CSP_NAMES) / sizeof(RGY_CSP_NAMES[0]) == RGY_CSP_COUNT, "_countof(RGY_CSP_NAMES) == RGY_CSP_COUNT");
 
 static const uint8_t RGY_CSP_BIT_DEPTH[] = {
      0, //RGY_CSP_NA
@@ -206,10 +224,19 @@ static const uint8_t RGY_CSP_BIT_DEPTH[] = {
      8, //RGY_CSP_RGBA
      8, //RGY_CSP_GBR
      8, //RGY_CSP_GBRA
+    16, //RGY_CSP_RGB_16
+    16, //RGY_CSP_RGBA_16
+    16, //RGY_CSP_BGR_16
+    16, //RGY_CSP_BGRA_16
+    32, //RGY_CSP_RGB_F32
+    32, //RGY_CSP_RGBA_F32
+    32, //RGY_CSP_BGR_F32
+    32, //RGY_CSP_BGRA_F32
     10, //RGY_CSP_YC48
      8, //RGY_CSP_Y8
     16, //RGY_CSP_Y16
 };
+static_assert(sizeof(RGY_CSP_BIT_DEPTH) / sizeof(RGY_CSP_BIT_DEPTH[0]) == RGY_CSP_COUNT, "_countof(RGY_CSP_BIT_DEPTH) == RGY_CSP_COUNT");
 
 static const uint8_t RGY_CSP_PLANES[] = {
      0, //RGY_CSP_NA
@@ -255,10 +282,19 @@ static const uint8_t RGY_CSP_PLANES[] = {
      3, //RGY_CSP_RGBA
      3, //RGY_CSP_GBR
      3, //RGY_CSP_GBRA
+     3, //RGY_CSP_RGB_16
+     4, //RGY_CSP_RGBA_16
+     3, //RGY_CSP_BGR_16
+     4, //RGY_CSP_BGRA_16
+     3, //RGY_CSP_RGB_F32
+     4, //RGY_CSP_RGBA_F32
+     3, //RGY_CSP_BGR_F32
+     4, //RGY_CSP_BGRA_F32
      1, //RGY_CSP_YC48
      1, //RGY_CSP_Y8
      1, //RGY_CSP_Y16
 };
+static_assert(sizeof(RGY_CSP_PLANES) / sizeof(RGY_CSP_PLANES[0]) == RGY_CSP_COUNT, "_countof(RGY_CSP_PLANES) == RGY_CSP_COUNT");
 
 enum RGY_CHROMAFMT {
     RGY_CHROMAFMT_UNKNOWN = 0,
@@ -325,10 +361,19 @@ static const RGY_CHROMAFMT RGY_CSP_CHROMA_FORMAT[] = {
     RGY_CHROMAFMT_RGB,
     RGY_CHROMAFMT_RGB,
     RGY_CHROMAFMT_RGB,
+    RGY_CHROMAFMT_RGB,
+    RGY_CHROMAFMT_RGB,
+    RGY_CHROMAFMT_RGB,
+    RGY_CHROMAFMT_RGB,
+    RGY_CHROMAFMT_RGB,
+    RGY_CHROMAFMT_RGB,
+    RGY_CHROMAFMT_RGB,
+    RGY_CHROMAFMT_RGB,
     RGY_CHROMAFMT_YUV444, //RGY_CSP_YC48
     RGY_CHROMAFMT_MONOCHROME,
     RGY_CHROMAFMT_MONOCHROME,
 };
+static_assert(sizeof(RGY_CSP_CHROMA_FORMAT) / sizeof(RGY_CSP_CHROMA_FORMAT[0]) == RGY_CSP_COUNT, "_countof(RGY_CSP_CHROMA_FORMAT) == RGY_CSP_COUNT");
 
 static const uint8_t RGY_CSP_BIT_PER_PIXEL[] = {
      0, //RGY_CSP_NA
@@ -374,10 +419,19 @@ static const uint8_t RGY_CSP_BIT_PER_PIXEL[] = {
     32, //RGY_CSP_RGBA
     24, //RGY_CSP_GBR
     32, //RGY_CSP_GBRA
+    48, //RGY_CSP_RGB_16
+    64, //RGY_CSP_RGBA_16
+    48, //RGY_CSP_BGR_16
+    64, //RGY_CSP_BGRA_16
+    96, //RGY_CSP_RGB_F32
+   128, //RGY_CSP_RGBA_F32
+    96, //RGY_CSP_BGR_F32
+   128, //RGY_CSP_BGRA_F32
     48, //RGY_CSP_YC48
      8, //RGY_CSP_Y8
     16, //RGY_CSP_Y16
 };
+static_assert(sizeof(RGY_CSP_BIT_PER_PIXEL) / sizeof(RGY_CSP_BIT_PER_PIXEL[0]) == RGY_CSP_COUNT, "_countof(RGY_CSP_BIT_PER_PIXEL) == RGY_CSP_COUNT");
 
 static bool cspShiftUsed(const RGY_CSP csp) {
     return csp == RGY_CSP_P010
@@ -554,6 +608,15 @@ static RGYFrameInfo getPlane(const RGYFrameInfo *frameInfo, RGY_PLANE plane) {
         switch (plane) {
         case RGY_PLANE_R: plane = RGY_PLANE_G; break;
         case RGY_PLANE_G: plane = RGY_PLANE_R; break;
+        default:
+            break;
+        }
+    }
+    if (   frameInfo->csp == RGY_CSP_BGR_16 || frameInfo->csp == RGY_CSP_BGRA_16
+        || frameInfo->csp == RGY_CSP_BGR_F32 || frameInfo->csp == RGY_CSP_BGRA_F32) {
+        switch (plane) {
+        case RGY_PLANE_R: plane = RGY_PLANE_B; break;
+        case RGY_PLANE_B: plane = RGY_PLANE_R; break;
         default:
             break;
         }

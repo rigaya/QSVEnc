@@ -205,7 +205,7 @@ protected:
         RGYFrameInfo& frameInfo, rgy_rational<int>& fps,
         const VppType vppType, const sVppParams *params, const RGY_CSP outCsp, const int outBitdepth, const sInputCrop *crop, const std::pair<int, int> resize, const int blockSize);
     virtual RGY_ERR AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& clfilters,
-        RGYFrameInfo& inputFrame, const VppType vppType, const sInputParams *params, const sInputCrop *crop, const std::pair<int, int> resize);
+        RGYFrameInfo& inputFrame, const VppType vppType, const sInputParams *params, const sInputCrop *crop, const std::pair<int, int> resize, VideoVUIInfo& vuiInfo);
     virtual RGY_ERR createOpenCLCopyFilterForPreVideoMetric();
     virtual RGY_ERR InitOutput(sInputParams *pParams);
     virtual RGY_ERR InitMfxDecParams();

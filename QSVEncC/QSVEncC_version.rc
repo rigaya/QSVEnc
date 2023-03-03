@@ -38,6 +38,7 @@ RGY_FILTER_UNSHARP_CL        EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_u
 RGY_FILTER_EDGELEVEL_CL      EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_edgelevel.cl"
 RGY_FILTER_WARPSHARP_CL      EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_warpsharp.cl"
 RGY_FILTER_OVERLAY_CL        EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_overlay.cl"
+RGY_FILTER_CURVES_CL         EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_curves.cl"
 RGY_FILTER_TWEAK_CL          EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_tweak.cl"
 
 RGY_FILTER_COLORSPACE_CL  EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_colorspace_func.h"

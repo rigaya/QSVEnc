@@ -190,6 +190,7 @@ enum class VppType : int {
     CL_EDGELEVEL,
     CL_WARPSHARP,
 
+    CL_CURVES,
     CL_TWEAK,
 
     CL_OVERLAY,

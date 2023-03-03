@@ -217,6 +217,7 @@
   - [--vpp-detail-enhance \<int\>](#--vpp-detail-enhance-int)
   - [--vpp-rotate \<int\>](#--vpp-rotate-int)
   - [--vpp-transform \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-transform-param1value1param2value2)
+  - [--vpp-curves \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-curves-param1value1param2value2)
   - [--vpp-tweak \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-tweak-param1value1param2value2)
   - [--vpp-overlay \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-overlay-param1value1param2value2)
   - [--vpp-deband \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-deband-param1value1param2value2)
@@ -2327,6 +2328,43 @@ GPUによるディテールの強調を行う。0 - 100 の間でディテール
   - flip_y=&lt;bool&gt;
   
   - transpose=&lt;bool&gt;
+### --vpp-curves [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
+指定した変換カーブに基づく色調整を行うフィルタ。
+
+- **パラメータ**
+  - preset=&lt;float&gt;  
+    - none
+    - color_negative
+    - process
+    - darker
+    - lighter
+    - increase_contrast
+    - linear_contrast
+    - medium_contrast
+    - strong_contrast
+    - negative
+    - vintage
+  
+  - m=&lt;string&gt;  
+    輝度調整用のカーブの指定。RGB処理後に、ポスト処理として実行される。
+
+  - r=&lt;string&gt;  
+    赤成分のカーブの指定。
+  
+  - g=&lt;string&gt;  
+    緑成分のカーブの指定。
+  
+  - b=&lt;string&gt;  
+    青成分のカーブの指定。
+  
+  - all=&lt;string&gt;  
+    全成分のカーブの指定。r,g,bの固有の指定がない場合には、これが適用される。
+
+- 使用例
+  ```
+  例:
+  --vpp-curves r="0/0.11 0.42/0.51 1/0.95":g="0/0 0.50/0.48 1/1":b="0/0.22 0.49/0.44 1/0.8"
+  ```
 
 ### --vpp-tweak [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
 

@@ -84,6 +84,7 @@ RGY_DISABLE_WARNING_POP
 #include "rgy_filter_deband.h"
 #include "rgy_filter_ssim.h"
 #include "rgy_filter_overlay.h"
+#include "rgy_filter_curves.h"
 #include "rgy_filter_tweak.h"
 #include "rgy_output_avcodec.h"
 #include "rgy_bitstream.h"
@@ -2045,6 +2046,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vppmfx.detail.enable)  filterPipeline.push_back(VppType::MFX_DETAIL_ENHANCE);
     if (inputParam->vppmfx.mirrorType != MFX_MIRRORING_DISABLED) filterPipeline.push_back(VppType::MFX_MIRROR);
     if (inputParam->vpp.transform.enable)  filterPipeline.push_back(VppType::CL_TRANSFORM);
+    if (inputParam->vpp.curves.enable)     filterPipeline.push_back(VppType::CL_CURVES);
     if (inputParam->vpp.tweak.enable)      filterPipeline.push_back(VppType::CL_TWEAK);
     if (inputParam->vpp.overlay.size() > 0)  filterPipeline.push_back(VppType::CL_OVERLAY);
     if (inputParam->vpp.deband.enable)     filterPipeline.push_back(VppType::CL_DEBAND);
@@ -2136,14 +2138,14 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
 }
 
 RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& clfilters,
-    RGYFrameInfo& inputFrame, const VppType vppType, const sInputParams *params, const sInputCrop *crop, const std::pair<int, int> resize) {
+    RGYFrameInfo& inputFrame, const VppType vppType, const sInputParams *params, const sInputCrop *crop, const std::pair<int, int> resize, VideoVUIInfo& vuiInfo) {
     //colorspace
     if (vppType == VppType::CL_COLORSPACE) {
         unique_ptr<RGYFilterColorspace> filter(new RGYFilterColorspace(m_cl));
         shared_ptr<RGYFilterParamColorspace> param(new RGYFilterParamColorspace());
         param->colorspace = params->vpp.colorspace;
         param->encCsp = inputFrame.csp;
-        param->VuiIn = params->input.vui;
+        param->VuiIn = vuiInfo;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
@@ -2154,6 +2156,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         //入力フレーム情報を更新
         inputFrame = param->frameOut;
         m_encFps = param->baseFps;
+        vuiInfo = filter->VuiOut();
         //登録
         clfilters.push_back(std::move(filter));
         return RGY_ERR_NONE;
@@ -2540,7 +2543,27 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         clfilters.push_back(std::move(filter));
         return RGY_ERR_NONE;
     }
-
+    //curves
+    if (vppType == VppType::CL_CURVES) {
+        unique_ptr<RGYFilter> filter(new RGYFilterCurves(m_cl));
+        shared_ptr<RGYFilterParamCurves> param(new RGYFilterParamCurves());
+        param->curves = params->vpp.curves;
+        param->vuiInfo = vuiInfo;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = true;
+        auto sts = filter->init(param, m_pQSVLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        //登録
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
+    }
     //tweak
     if (vppType == VppType::CL_TWEAK) {
         unique_ptr<RGYFilter> filter(new RGYFilterTweak(m_cl));
@@ -2829,7 +2852,7 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
                 vppOpenCLFilters.push_back(std::move(filterCrop));
             }
             if (filterPipeline[i] != VppType::CL_CROP) {
-                auto err = AddFilterOpenCL(vppOpenCLFilters, inputFrame, filterPipeline[i], inputParam, inputCrop, resize);
+                auto err = AddFilterOpenCL(vppOpenCLFilters, inputFrame, filterPipeline[i], inputParam, inputCrop, resize, VuiFiltered);
                 if (err != RGY_ERR_NONE) {
                     return err;
                 }

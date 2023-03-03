@@ -312,6 +312,9 @@
     <ClCompile Include="rgy_filter_overlay.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="rgy_filter_curves.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="qsv_prm.h">
@@ -608,6 +611,9 @@
     <ClInclude Include="rgy_filter_overlay.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="rgy_filter_curves.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="rgy_filter.cl">
@@ -692,6 +698,9 @@
       <Filter>ソース ファイル</Filter>
     </None>
     <None Include="rgy_filter_overlay.cl">
+      <Filter>ソース ファイル</Filter>
+    </None>
+    <None Include="rgy_filter_curves.cl">
       <Filter>ソース ファイル</Filter>
     </None>
   </ItemGroup>

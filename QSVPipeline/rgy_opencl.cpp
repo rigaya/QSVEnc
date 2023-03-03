@@ -34,6 +34,7 @@
 #define CL_EXTERN
 #include "rgy_opencl.h"
 #include "rgy_resource.h"
+#include "rgy_filesystem.h"
 
 #if ENABLE_OPENCL
 
@@ -257,15 +258,16 @@ std::vector<cl_event> toVec(const std::vector<RGYOpenCLEvent>& wait_list) {
     return events;
 }
 
+#if defined(_WIN32) || defined(_WIN64)
+static const std::array<const TCHAR *, 1> opencl_dll_names = { _T("OpenCL.dll") };
+#else
+static const std::array<const TCHAR *, 2> opencl_dll_names = { _T("libOpenCL.so"), _T("libOpenCL.so.1") };
+#endif
+
 int initOpenCLGlobal() {
     if (RGYOpenCL::openCLHandle != nullptr) {
         return 0;
     }
-#if defined(_WIN32) || defined(_WIN64)
-    static const std::array<const TCHAR *, 1> opencl_dll_names = { _T("OpenCL.dll") };
-#else
-    static const std::array<const TCHAR *, 2> opencl_dll_names = { _T("libOpenCL.so"), _T("libOpenCL.so.1") };
-#endif
     for (const auto dll_name : opencl_dll_names) {
         if ((RGYOpenCL::openCLHandle = RGY_LOAD_LIBRARY(dll_name)) != nullptr) {
             break;
@@ -348,6 +350,65 @@ int initOpenCLGlobal() {
     LOAD_NO_CHECK(clGetKernelSubGroupInfo);
     LOAD_NO_CHECK(clGetKernelSubGroupInfoKHR);
     return 0;
+}
+
+#if defined(_WIN32) || defined(_WIN64)
+tstring vendorOpenCLDLL() {
+#if ENCODER_NVENC
+#if _M_IX86
+    return _T("nvopencl32.dll");
+#else
+    return _T("nvopencl64.dll");
+#endif
+#elif ENCODER_QSV
+#if _M_IX86
+    return _T("igdrcl32.dll");
+#else
+    return _T("igdrcl64.dll");
+#endif
+#elif ENCODER_VCEENC
+#if _M_IX86
+    return _T("amdocl.dll");
+#else
+    return _T("amdocl64.dll");
+#endif
+#else
+    return _T("");
+#endif
+}
+#endif
+
+tstring checkOpenCLDLL() {
+    tstring str;
+    std::unique_ptr<std::remove_pointer_t<HMODULE>, module_deleter> handle;
+    for (const auto dll_name : opencl_dll_names) {
+        handle = std::unique_ptr<std::remove_pointer_t<HMODULE>, module_deleter>(RGY_LOAD_LIBRARY(dll_name), module_deleter());
+        if (handle) {
+            str += tstring(_T("Load success: ")) + dll_name;
+#if defined(_WIN32) || defined(_WIN64)
+            str += _T(" (") + getModulePath(handle.get()) + _T(")");
+#endif
+            str += _T("\n");
+            break;
+        }
+    }
+    handle.reset();
+#if defined(_WIN32) || defined(_WIN64)
+    if (vendorOpenCLDLL().length() > 0) {
+        const auto filelist = get_file_list_with_filter(_T(R"(C:\Windows\System32\DriverStore\FileRepository)"), vendorOpenCLDLL());
+        str += _T("\n");
+        if (filelist.size()) {
+            str += vendorOpenCLDLL() + _T(" found on following path...\n");
+            for (const auto& file : filelist) {
+                str += _T("  ") + file + _T("\n");
+            }
+            str += _T("\n");
+        } else {
+            str += vendorOpenCLDLL() + _T(" not found.\n");
+        }
+    }
+#endif
+    return str;
 }
 
 static const auto RGY_CLCOMMANDTYPE_TO_STR = make_array<std::pair<cl_mem_object_type, const TCHAR *>>(
@@ -1965,11 +2026,21 @@ tstring RGYOpenCLContext::getSupportedImageFormatsStr(const cl_mem_object_type i
 }
 
 std::string RGYOpenCLContext::cspCopyOptions(const RGYFrameInfo& dst, const RGYFrameInfo& src) const {
-    const auto options = strsprintf("-D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d",
+    const auto options = strsprintf("-D MEM_TYPE_SRC=%d -D MEM_TYPE_DST=%d -D in_bit_depth=%d -D out_bit_depth=%d"
+        " -D RGY_MATRIX_ST170_M=%d"
+        " -D RGY_MATRIX_ST240_M=%d"
+        " -D RGY_MATRIX_BT2020_NCL=%d"
+        " -D RGY_MATRIX_BT2020_CL=%d"
+        " -D RGY_MATRIX_BT709=%d",
         src.mem_type,
         dst.mem_type,
         RGY_CSP_BIT_DEPTH[src.csp],
-        RGY_CSP_BIT_DEPTH[dst.csp]);
+        RGY_CSP_BIT_DEPTH[dst.csp],
+        RGY_MATRIX_ST170_M,
+        RGY_MATRIX_ST240_M,
+        RGY_MATRIX_BT2020_NCL,
+        RGY_MATRIX_BT2020_CL,
+        RGY_MATRIX_BT709);
     return options;
 }
 
@@ -2775,7 +2846,9 @@ tstring getOpenCLInfo(const cl_device_type device_type) {
     RGYOpenCL cl(log);
     auto platforms = cl.getPlatforms(nullptr);
     if (platforms.size() == 0) {
-        return _T("No OpenCL Platform found on this system.");
+        tstring str = _T("No OpenCL Platform found on this system.\n\n");
+        str += checkOpenCLDLL();
+        return str;
     }
 
     tstring str;

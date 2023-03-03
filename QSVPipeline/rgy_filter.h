@@ -182,7 +182,9 @@ protected:
 class RGYFilterParamCrop : public RGYFilterParam {
 public:
     sInputCrop crop;
+    CspMatrix matrix;
 
+    RGYFilterParamCrop() : crop(initCrop()), matrix(RGY_MATRIX_ST170_M) {};
     virtual ~RGYFilterParamCrop() {};
 };
 
