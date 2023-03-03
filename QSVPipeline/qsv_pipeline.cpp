@@ -3835,9 +3835,6 @@ RGY_ERR CQSVPipeline::RunEncode2() {
                         });
                     }
                 } else { // pipelineの最終的なデータを出力
-                    const auto time_now = std::chrono::high_resolution_clock::now();
-                    double elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(time_now - time_prev).count();
-                    time_prev = time_now;
                     if ((err = d.data->write(m_pFileWriter.get(), m_device->allocator(), (m_cl) ? &m_cl->queue() : nullptr, m_videoQualityMetric.get())) != RGY_ERR_NONE) {
                         PrintMes(RGY_LOG_ERROR, _T("failed to write output: %s.\n"), get_err_mes(err));
                         break;
