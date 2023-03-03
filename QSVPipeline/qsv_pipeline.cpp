@@ -2056,6 +2056,25 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
         return filterPipeline;
     }
 
+    //OpenCLが使用できない場合
+    if (!m_cl) {
+        //置き換え
+        for (auto& filter : filterPipeline) {
+            if (filter == VppType::CL_RESIZE) filter = VppType::MFX_RESIZE;
+        }
+        //削除
+        decltype(filterPipeline) newPipeline;
+        for (auto& filter : filterPipeline) {
+            if (getVppFilterType(filter) != VppFilterType::FILTER_OPENCL) {
+                newPipeline.push_back(filter);
+            }
+        }
+        if (filterPipeline.size() != newPipeline.size()) {
+            PrintMes(RGY_LOG_WARN, _T("OpenCL disabled, OpenCL based vpp filters will be disabled!\n"));
+        }
+        filterPipeline = newPipeline;
+    }
+
     // cropとresizeはmfxとopencl両方ともあるので、前後のフィルタがどちらもOpenCLだったら、そちらに合わせる
     for (size_t i = 0; i < filterPipeline.size(); i++) {
         const VppFilterType prev = (i >= 1)                        ? getVppFilterType(filterPipeline[i - 1]) : VppFilterType::FILTER_NONE;
@@ -3016,7 +3035,7 @@ RGY_ERR CQSVPipeline::deviceAutoSelect(const sInputParams *prm, std::vector<std:
     for (const auto &gpu : gpuList) {
         auto counters = RGYGPUCounterWinEntries(entries).filter_luid(gpu->luid()).get();
         auto ve_utilization = std::max(
-            RGYGPUCounterWinEntries(counters).filter_type(L"codec").max(), //vce
+            RGYGPUCounterWinEntries(counters).filter_type(L"codec").sum(),
             RGYGPUCounterWinEntries(counters).filter_type(L"encode").max());
         auto gpu_utilization = std::max(std::max(std::max(
             RGYGPUCounterWinEntries(counters).filter_type(L"cuda").max(), //nvenc
