@@ -1175,6 +1175,25 @@ struct VppCurves {
     tstring print() const;
 };
 
+struct VppDeband {
+    bool enable;
+    int range;
+    int threY;
+    int threCb;
+    int threCr;
+    int ditherY;
+    int ditherC;
+    int sample;
+    int seed;
+    bool blurFirst;
+    bool randEachFrame;
+
+    VppDeband();
+    bool operator==(const VppDeband &x) const;
+    bool operator!=(const VppDeband &x) const;
+    tstring print() const;
+};
+
 enum class VppOverlayAlphaMode {
     Override,
     Mul,
@@ -1217,25 +1236,6 @@ struct VppOverlay {
     tstring print() const;
 };
 
-struct VppDeband {
-    bool enable;
-    int range;
-    int threY;
-    int threCb;
-    int threCr;
-    int ditherY;
-    int ditherC;
-    int sample;
-    int seed;
-    bool blurFirst;
-    bool randEachFrame;
-
-    VppDeband();
-    bool operator==(const VppDeband &x) const;
-    bool operator!=(const VppDeband &x) const;
-    tstring print() const;
-};
-
 struct RGYParamVpp {
     RGY_VPP_RESIZE_ALGO resize_algo;
     RGY_VPP_RESIZE_MODE resize_mode;
@@ -1260,8 +1260,8 @@ struct RGYParamVpp {
     VppCurves curves;
     VppTweak tweak;
     VppTransform transform;
-    std::vector<VppOverlay> overlay;
     VppDeband deband;
+    std::vector<VppOverlay> overlay;
     bool checkPerformance;
 
     RGYParamVpp();
