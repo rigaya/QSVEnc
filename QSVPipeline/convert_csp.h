@@ -178,7 +178,7 @@ static const TCHAR *RGY_CSP_NAMES[] = {
     _T("y8"),
     _T("yc16")
 };
-static_assert(sizeof(RGY_CSP_NAMES) / sizeof(RGY_CSP_NAMES[0]) == RGY_CSP_COUNT, "_countof(RGY_CSP_NAMES) == RGY_CSP_COUNT");
+static_assert(sizeof(RGY_CSP_NAMES)/sizeof(RGY_CSP_NAMES[0]) == RGY_CSP_COUNT, "_countof(RGY_CSP_NAMES) == RGY_CSP_COUNT");
 
 static const uint8_t RGY_CSP_BIT_DEPTH[] = {
      0, //RGY_CSP_NA
@@ -279,9 +279,9 @@ static const uint8_t RGY_CSP_PLANES[] = {
      1, //RGY_CSP_BGR24
      1, //RGY_CSP_BGR32
      3, //RGY_CSP_RGB
-     3, //RGY_CSP_RGBA
+     4, //RGY_CSP_RGBA
      3, //RGY_CSP_GBR
-     3, //RGY_CSP_GBRA
+     4, //RGY_CSP_GBRA
      3, //RGY_CSP_RGB_16
      4, //RGY_CSP_RGBA_16
      3, //RGY_CSP_BGR_16
@@ -305,6 +305,7 @@ enum RGY_CHROMAFMT {
     RGY_CHROMAFMT_YUVA444,
     RGY_CHROMAFMT_RGB_PACKED,
     RGY_CHROMAFMT_RGB,
+    RGY_CHROMAFMT_COUNT,
 };
 
 static const TCHAR *RGY_CHROMAFMT_NAMES[] = {
@@ -316,6 +317,7 @@ static const TCHAR *RGY_CHROMAFMT_NAMES[] = {
     _T("rgbp"),
     _T("rgb")
 };
+static_assert(sizeof(RGY_CHROMAFMT_NAMES) / sizeof(RGY_CHROMAFMT_NAMES[0]) == RGY_CHROMAFMT_COUNT, "_countof(RGY_CHROMAFMT_NAMES) == RGY_CHROMAFMT_COUNT");
 
 static const RGY_CHROMAFMT RGY_CSP_CHROMA_FORMAT[] = {
     RGY_CHROMAFMT_UNKNOWN, //RGY_CSP_NA
@@ -373,7 +375,7 @@ static const RGY_CHROMAFMT RGY_CSP_CHROMA_FORMAT[] = {
     RGY_CHROMAFMT_MONOCHROME,
     RGY_CHROMAFMT_MONOCHROME,
 };
-static_assert(sizeof(RGY_CSP_CHROMA_FORMAT) / sizeof(RGY_CSP_CHROMA_FORMAT[0]) == RGY_CSP_COUNT, "_countof(RGY_CSP_CHROMA_FORMAT) == RGY_CSP_COUNT");
+static_assert(sizeof(RGY_CSP_CHROMA_FORMAT)/sizeof(RGY_CSP_CHROMA_FORMAT[0]) == RGY_CSP_COUNT, "_countof(RGY_CSP_CHROMA_FORMAT) == RGY_CSP_COUNT");
 
 static const uint8_t RGY_CSP_BIT_PER_PIXEL[] = {
      0, //RGY_CSP_NA
@@ -519,8 +521,8 @@ static const int RGY_MAX_PLANES = 4;
 enum RGY_MEM_TYPE {
     RGY_MEM_TYPE_CPU = 0,
     RGY_MEM_TYPE_GPU,
-    RGY_MEM_TYPE_GPU_IMAGE,
-    RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED
+    RGY_MEM_TYPE_GPU_IMAGE,           // VCEのImage
+    RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED // QSVのImage
 };
 const TCHAR *get_memtype_str(RGY_MEM_TYPE type);
 
