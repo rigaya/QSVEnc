@@ -995,7 +995,7 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
             videoPrm.mfx.CodecProfile = MFX_PROFILE_HEVC_MAIN;
             CHECK_FEATURE(cop3.TransformSkip, ENC_FEATURE_HEVC_TSKIP, MFX_CODINGOPTION_ON, MFX_LIB_VERSION_1_26);
             CHECK_FEATURE(hevc.SampleAdaptiveOffset, ENC_FEATURE_HEVC_SAO, MFX_SAO_ENABLE_LUMA, MFX_LIB_VERSION_1_26);
-            CHECK_FEATURE(hevc.LCUSize, ENC_FEATURE_HEVC_CTU, 32, MFX_LIB_VERSION_1_26);
+            CHECK_FEATURE(hevc.LCUSize, ENC_FEATURE_HEVC_CTU, 64, MFX_LIB_VERSION_1_26);
         } else if (codecId == MFX_CODEC_VP9) {
             videoPrm.mfx.FrameInfo.BitDepthLuma = 10;
             videoPrm.mfx.FrameInfo.BitDepthChroma = 10;
