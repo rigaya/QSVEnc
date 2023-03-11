@@ -1201,7 +1201,7 @@ public:
             //パケットを各Writerに分配する
             for (uint32_t i = 0; i < packetList.size(); i++) {
                 AVPacket *pkt = packetList[i];
-                const int nTrackId = (int)((uint32_t)pkt->flags >> 16);
+                const int nTrackId = pktFlagGetTrackID(pkt);
                 const bool sendToFilter = m_filterForStreams.count(nTrackId) > 0;
                 const bool sendToWriter = m_pWriterForAudioStreams.count(nTrackId) > 0;
                 if (sendToFilter) {
