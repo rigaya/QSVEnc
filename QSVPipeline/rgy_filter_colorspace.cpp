@@ -1792,7 +1792,13 @@ RGY_ERR RGYFilterColorspace::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort4" : "uchar4",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp]);
-        m_colorspace.set(m_cl->buildAsync(genKernelCode(), options.c_str()));
+        const auto kernel = genKernelCode();
+        if (m_pLog->getLogLevel(RGY_LOGT_VPP_BUILD) <= RGY_LOG_DEBUG) {
+            const auto sep = _T("--------------------------------------------------------------------------\n");
+            const auto mes = tstring(sep) + _T("Generated colorspace kernel code...\n") + sep + char_to_tstring(kernel) + sep;
+            AddMessage(RGY_LOG_DEBUG, mes);
+        }
+        m_colorspace.set(m_cl->buildAsync(kernel, options.c_str()));
     }
 
     auto err = AllocFrameBuf(prm->frameOut, 1);

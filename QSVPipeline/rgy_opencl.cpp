@@ -2396,21 +2396,34 @@ std::unique_ptr<RGYOpenCLProgram> RGYOpenCLContext::buildProgram(const std::stri
             datalen -= 3;
         }
     }
-    const auto sep = _T("--------------------------------------------------------------------------\n");
-    if (m_log->getLogLevel(RGY_LOGT_VPP_BUILD) <= RGY_LOG_DEBUG) {
-        CL_LOG(RGY_LOG_DEBUG, _T("%sbuilding OpenCL source: size %u.\n"), sep, datalen);
-        CL_LOG(RGY_LOG_DEBUG, _T("options: %s\nsource\n"), char_to_tstring(options).c_str());
-        m_log->write_log(RGY_LOG_DEBUG, RGY_LOGT_VPP_BUILD, (char_to_tstring(std::string(data, datalen), CP_UTF8) + _T("\n") + sep).c_str());
-    }
+    CL_LOG(RGY_LOG_DEBUG, _T("building OpenCL source: size %u.\n"), datalen);
+
+    bool buildCrush = false;
     cl_int err = CL_SUCCESS;
-    cl_program program = clCreateProgramWithSource(m_context.get(), 1, &data, &datalen, &err);
-    if (err != CL_SUCCESS) {
-        CL_LOG(RGY_LOG_ERROR, _T("Error (clCreateProgramWithSource): %s\n"), cl_errmes(err));
+    cl_program program = nullptr;
+    try {
+        program = clCreateProgramWithSource(m_context.get(), 1, &data, &datalen, &err);
+        if (err != CL_SUCCESS) {
+            CL_LOG(RGY_LOG_ERROR, _T("Error (clCreateProgramWithSource): %s\n"), cl_errmes(err));
+        }
+    } catch (...) {
+        CL_LOG(RGY_LOG_ERROR, _T("Error (clCreateProgramWithSource): Crush!\n"));
         return nullptr;
     }
-    err = clBuildProgram(program, (cl_uint)m_platform->devs().size(), m_platform->devs().data(), options.c_str(), NULL, NULL);
+
+    try {
+        err = clBuildProgram(program, (cl_uint)m_platform->devs().size(), m_platform->devs().data(), options.c_str(), NULL, NULL);
+    } catch (...) {
+        err = CL_BUILD_PROGRAM_FAILURE;
+        buildCrush = true;
+    }
     if (err != CL_SUCCESS || m_log->getLogLevel(RGY_LOGT_VPP_BUILD) <= RGY_LOG_DEBUG) {
         const auto loglevel = (err != CL_SUCCESS) ? RGY_LOG_ERROR : RGY_LOG_DEBUG;
+
+        const auto sep = _T("--------------------------------------------------------------------------\n");
+        CL_LOG(loglevel, _T("%sbuilding OpenCL source: size %u.\n"), sep, datalen);
+        CL_LOG(loglevel, _T("options: %s\nsource\n"), char_to_tstring(options).c_str());
+        m_log->write_log(RGY_LOG_DEBUG, RGY_LOGT_VPP_BUILD, (char_to_tstring(str_replace(std::string(data, datalen), "\r\n", "\n"), CP_UTF8) + _T("\n") + sep).c_str(), true);
 
         for (const auto &device : m_platform->devs()) {
             size_t log_size = 0;
