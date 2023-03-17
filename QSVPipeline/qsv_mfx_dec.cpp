@@ -154,6 +154,13 @@ RGY_ERR QSVMfxDec::SetParam(
     m_mfxDecParams.mfx.CodecId = codec_rgy_to_enc(inputCodec);
     m_mfxDecParams.IOPattern = (uint16_t)((m_memType != SYSTEM_MEMORY) ? MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_OUT_SYSTEM_MEMORY);
     sts = err_to_rgy(m_mfxDec->DecodeHeader(&inputHeader.bitstream(), &m_mfxDecParams));
+    if (sts != RGY_ERR_NONE && inputCodec == RGY_CODEC_AV1) {
+        // AV1ではそのままのヘッダだと、DecodeHeaderに失敗する場合がある QSVEnc #122
+        // その場合、4byte飛ばすと読めるかも? https://github.com/FFmpeg/FFmpeg/commit/ffd1316e441a8310cf1746d86fed165e17e10018
+        inputHeader.addOffset(4);
+        PrintMes(RGY_LOG_DEBUG, _T("Skip 4 bytes of header and retry DecodeHeader: %s.\n"), get_err_mes(sts));
+        sts = err_to_rgy(m_mfxDec->DecodeHeader(&inputHeader.bitstream(), &m_mfxDecParams));
+    }
     if (sts != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("Failed to DecodeHeader: %s.\n"), get_err_mes(sts));
         return sts;
