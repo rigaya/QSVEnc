@@ -173,6 +173,28 @@ This depends on the version of QSVEnc, the generation of the GPU, and also the G
 | AlderLake   | Gen12    | 8bit   | 8bit   | 12bit  |        | 12bit  | 10bit  |
 |             | DG2      | 8bit   | 8bit   | 12bit  |        | 12bit  | 12bit  |
 
+## Auto GPU selection in multi GPU envinronment (Windows Only)
+QSVEncC will automatically select a GPU depending on the options used,
+when there are multiple GPUs available which support QSV.
+--device option can be used to specify on which GPU to run manually. 
+
+1. Select GPU which supports...  
+  Items below will be checked whether the GPU supports it or not  
+  - Codec, Profile, Level
+  - Additionally, below items will be checked if specified
+    - 10bit depth encoding
+    - HW decode
+  
+2. If there are multiple GPUs which suports all the items checked in 1. and 2., GPU below will be prefered.  
+  - GPU which has low Video Engine(VE) utilization
+  - GPU which has low GPU core utilization
+  
+  The purpose of selecting GPU with lower VE/GPU ulitization is to assign tasks to mulitple GPUs
+  and improve the throughput of the tasks.  
+  
+  Please note that VE and GPU ulitization are check at the initialization pahse of the app,
+  and there are delays in values taken. Therefore, it is likely that the multiple tasks started at the same time
+  to run on the same GPU, and divided into multiple GPUs, even if the options are supported in every GPUs.
 
 ## QSVEnc source code
 - MIT license.
