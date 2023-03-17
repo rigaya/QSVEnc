@@ -673,12 +673,20 @@ int parse_one_vppmfx_option(const TCHAR *option_name, const TCHAR *strInput[], i
 int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, int nArgNum, sInputParams* pParams, sArgsData *argData) {
     if (0 == _tcscmp(option_name, _T("device"))) {
         i++;
-        int value = 0;
-        if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_qsv_device, strInput[i]))) {
-            pParams->device = (QSVDeviceNum)value;
+        if (0 == _tcsnccmp(strInput[i], _T("auto"), _tcslen(_T("auto")))) {
+            pParams->device = QSVDeviceNum::AUTO;
         } else {
-            print_cmd_error_invalid_value(option_name, strInput[i], list_qsv_device);
-            return 1;
+            try {
+                int value = std::stoi(strInput[i]);
+                if (value >= 0) {
+                    pParams->device = (QSVDeviceNum)value;
+                } else {
+                    print_cmd_error_invalid_value(option_name, strInput[i]);
+                }
+            } catch (...) {
+                print_cmd_error_invalid_value(option_name, strInput[i]);
+                return 1;
+            }
         }
         return 0;
     }
@@ -1947,7 +1955,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
 #define OPT_CHAR_PATH(str, opt) if ((pParams->opt) && (pParams->opt[0] != 0)) cmd << _T(" ") << str << _T(" \"") << (pParams->opt) << _T("\"");
 #define OPT_STR_PATH(str, opt) if (pParams->opt.length() > 0) cmd << _T(" ") << str << _T(" \"") << (pParams->opt.c_str()) << _T("\"");
 
-    cmd << _T(" -d ") << get_chr_from_value(list_qsv_device, (int)pParams->device);
+    OPT_NUM(_T("-d"), device);
     cmd << _T(" -c ") << get_chr_from_value(list_codec, pParams->CodecId);
 
     cmd << gen_cmd(&pParams->input, &encPrmDefault.input, &pParams->inprm, &encPrmDefault.inprm, save_disabled_prm);

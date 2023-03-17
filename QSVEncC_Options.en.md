@@ -368,7 +368,7 @@ Show version of ffmpeg dll
 ## Basic encoding options
 
 ### -d, --device &lt;string&gt; or &lt;int&gt;
-Select device number to use. (auto(default), 1 - 4)
+Select device number to use. (auto(default), 1, 2, 3, ...)
 
 ### -c, --codec &lt;string&gt;
 Specify the output codec
