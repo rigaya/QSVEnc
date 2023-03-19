@@ -389,7 +389,7 @@ RGY_ERR CQSVPipeline::InitMfxDecParams() {
         //デコーダの作成
         mfxIMPL impl;
         m_device->mfxSession().QueryIMPL(&impl);
-        m_mfxDEC = std::make_unique<QSVMfxDec>(m_device->hwdev(), m_device->allocator(), m_mfxVer, impl, m_device->memType(), m_device->deviceNum(), m_pQSVLog);
+        m_mfxDEC = std::make_unique<QSVMfxDec>(m_device->hwdev(), m_device->allocator(), m_mfxVer, impl, m_device->memType(), m_sessionParams, m_device->deviceNum(), m_pQSVLog);
 
         sts = m_mfxDEC->InitMFXSession();
         RGY_ERR(sts, _T("InitMfxDecParams: Failed init session for hw decoder."));
@@ -1548,7 +1548,7 @@ CQSVPipeline::CQSVPipeline() :
     m_hdr10plusMetadataCopy(false),
     m_dovirpu(),
     m_encTimestamp(),
-    m_nMFXThreads(-1),
+    m_sessionParams(),
     m_nProcSpeedLimit(0),
     m_pAbortByUser(nullptr),
     m_heAbort(),
@@ -2136,7 +2136,7 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
 
     mfxIMPL impl;
     m_device->mfxSession().QueryIMPL(&impl);
-    auto mfxvpp = std::make_unique<QSVVppMfx>(m_device->hwdev(), m_device->allocator(), m_mfxVer, impl, m_device->memType(), m_device->deviceNum(), m_nAsyncDepth, m_pQSVLog);
+    auto mfxvpp = std::make_unique<QSVVppMfx>(m_device->hwdev(), m_device->allocator(), m_mfxVer, impl, m_device->memType(), m_sessionParams, m_device->deviceNum(), m_nAsyncDepth, m_pQSVLog);
     auto err = mfxvpp->SetParam(vppParams, frameInfo, frameIn, (vppType == VppType::MFX_CROP) ? crop : nullptr,
         fps, rgy_rational<int>(1,1), blockSize);
     if (err != RGY_ERR_NONE) {
@@ -3107,7 +3107,7 @@ RGY_ERR CQSVPipeline::InitVideoQualityMetric(sInputParams *prm) {
         m_device->mfxSession().QueryIMPL(&impl);
         //場合によっては2つ目のhwデコーダを動作させることになる
         //このとき、個別のallocatorを持たないと正常に動作しないので、内部で独自のallocatorを作るようにする
-        auto mfxdec = std::make_unique<QSVMfxDec>(m_device->hwdev(), nullptr /*内部で独自のallocatorを作る必要がある*/, m_mfxVer, impl, m_device->memType(), m_device->deviceNum(), m_pQSVLog);
+        auto mfxdec = std::make_unique<QSVMfxDec>(m_device->hwdev(), nullptr /*内部で独自のallocatorを作る必要がある*/, m_mfxVer, impl, m_device->memType(), m_sessionParams, m_device->deviceNum(), m_pQSVLog);
 
         const auto formatOut = videooutputinfo(outFrameInfo->videoPrm.mfx, m_VideoSignalInfo, m_chromalocInfo);
         unique_ptr<RGYFilterSsim> filterSsim(new RGYFilterSsim(m_cl));
@@ -3304,10 +3304,11 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
         PrintMes(RGY_LOG_DEBUG, _T("Set Process priority: %s.\n"), rgy_thread_priority_mode_to_str(priority));
     }
 
-    m_nMFXThreads = pParams->nSessionThreads;
+    m_sessionParams.threads = pParams->nSessionThreads;
+    m_sessionParams.deviceCopy = pParams->gpuCopy;
     m_nAVSyncMode = pParams->common.AVSyncMode;
 
-    auto deviceList = getDeviceList(pParams->device, pParams->ctrl.enableOpenCL, pParams->memType, m_pQSVLog);
+    auto deviceList = getDeviceList(pParams->device, pParams->ctrl.enableOpenCL, pParams->memType, m_sessionParams, m_pQSVLog);
     if (deviceList.size() == 0) {
         PrintMes(RGY_LOG_DEBUG, _T("No device found for QSV encoding!\n"));
         return RGY_ERR_DEVICE_NOT_FOUND;
@@ -3498,7 +3499,8 @@ void CQSVPipeline::Close() {
     m_hdr10plus.reset();
     m_hdrsei.reset();
 
-    m_nMFXThreads = -1;
+    m_sessionParams.threads = 0;
+    m_sessionParams.deviceCopy = false;
     m_pAbortByUser = nullptr;
     m_nAVSyncMode = RGY_AVSYNC_ASSUME_CFR;
     m_nProcSpeedLimit = 0;

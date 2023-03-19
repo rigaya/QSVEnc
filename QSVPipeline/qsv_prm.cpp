@@ -150,6 +150,7 @@ sInputParams::sInputParams() :
     bDirectBiasAdjust(false),
     bGlobalMotionAdjust(false),
     bUseFixedFunc(false),
+    gpuCopy(false),
     nSessionThreads(0),
     nSessionThreadPriority(get_value_from_chr(list_priority, _T("normal"))),
     nVP8Sharpness(0),

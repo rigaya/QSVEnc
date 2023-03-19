@@ -339,6 +339,7 @@ struct sInputParams {
     bool       bDirectBiasAdjust;
     bool       bGlobalMotionAdjust;
     bool       bUseFixedFunc;
+    bool       gpuCopy;
 
     int        nSessionThreads;
     int        nSessionThreadPriority;

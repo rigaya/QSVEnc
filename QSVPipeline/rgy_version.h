@@ -63,6 +63,7 @@ const char *get_encoder_version();
 #if defined(_WIN32) || defined(_WIN64)
 
 #define USE_ONEVPL 1
+#define ONEVPL_EXPERIMENTAL 1
 
 #define D3D_SURFACES_SUPPORT 1
 
@@ -135,6 +136,7 @@ const char *get_encoder_version();
 
 #else //#if defined(WIN32) || defined(WIN64)
 #define USE_ONEVPL 1
+#define ONEVPL_EXPERIMENTAL 1
 #define D3D_SURFACES_SUPPORT 0
 #define MFX_D3D11_SUPPORT 0
 #define FOR_AUO 0

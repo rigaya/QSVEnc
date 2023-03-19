@@ -180,7 +180,7 @@ protected:
     std::unique_ptr<DOVIRpu>      m_dovirpu;
     std::unique_ptr<RGYTimestamp> m_encTimestamp;
 
-    int m_nMFXThreads;
+    MFXVideoSession2Params m_sessionParams;
     uint32_t m_nProcSpeedLimit;
 
     bool *m_pAbortByUser;

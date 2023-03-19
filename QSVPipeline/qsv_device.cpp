@@ -34,6 +34,7 @@ QSVDevice::QSVDevice() :
     m_hwdev(),
     m_devInfo(),
     m_session(),
+    m_sessionParams(),
     m_allocator(),
     m_externalAlloc(false),
     m_memType(HW_MEMORY),
@@ -61,17 +62,17 @@ void QSVDevice::close() {
     m_log.reset();
 }
 
-RGY_ERR QSVDevice::init(const QSVDeviceNum dev, const bool enableOpenCL, MemType memType, std::shared_ptr<RGYLog> log, const bool suppressErrorMessage) {
+RGY_ERR QSVDevice::init(const QSVDeviceNum dev, const bool enableOpenCL, MemType memType, const MFXVideoSession2Params& params, std::shared_ptr<RGYLog> log, const bool suppressErrorMessage) {
     m_log = log;
     m_memType = memType;
+    m_sessionParams = params;
     return init(dev, enableOpenCL, suppressErrorMessage);
 }
 
 RGY_ERR QSVDevice::init(const QSVDeviceNum dev, const bool enableOpenCL, const bool suppressErrorMessage) {
     m_devNum = dev;
     PrintMes(RGY_LOG_DEBUG, _T("QSVDevice::init: Start initializing device %d... memType: %s\n"), m_devNum, MemTypeToStr(m_memType));
-    MFXVideoSession2Params params;
-    if (auto err = InitSessionAndDevice(m_hwdev, m_session, m_memType, m_devNum, params, m_log, suppressErrorMessage); err != RGY_ERR_NONE) {
+    if (auto err = InitSessionAndDevice(m_hwdev, m_session, m_memType, m_devNum, m_sessionParams, m_log, suppressErrorMessage); err != RGY_ERR_NONE) {
         PrintMes((suppressErrorMessage) ? RGY_LOG_DEBUG : RGY_LOG_ERROR, _T("QSVDevice::init: failed to initialize session: %s.\n"), get_err_mes(err));
         return err;
     }
@@ -181,7 +182,7 @@ std::optional<RGYOpenCLDeviceInfo> getDeviceCLInfoQSV(const QSVDeviceNum deviceN
     return std::optional<RGYOpenCLDeviceInfo>();
 }
 
-std::vector<std::unique_ptr<QSVDevice>> getDeviceList(const QSVDeviceNum deviceNum, const bool enableOpenCL, const MemType memType, std::shared_ptr<RGYLog> log) {
+std::vector<std::unique_ptr<QSVDevice>> getDeviceList(const QSVDeviceNum deviceNum, const bool enableOpenCL, const MemType memType, const MFXVideoSession2Params& params, std::shared_ptr<RGYLog> log) {
     auto openCLAvail = enableOpenCL;
     if (enableOpenCL) {
         RGYOpenCL cl(std::make_shared<RGYLog>(nullptr, RGY_LOG_QUIET));
@@ -195,7 +196,7 @@ std::vector<std::unique_ptr<QSVDevice>> getDeviceList(const QSVDeviceNum deviceN
     for (int idev = idevstart; idev <= idevfin; idev++) {
         log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Check device %d...\n"), idev);
         auto dev = std::make_unique<QSVDevice>();
-        if (dev->init((QSVDeviceNum)idev, enableOpenCL && openCLAvail, memType, log, idev != idevstart) != RGY_ERR_NONE) {
+        if (dev->init((QSVDeviceNum)idev, enableOpenCL && openCLAvail, memType, params, log, idev != idevstart) != RGY_ERR_NONE) {
             break;
         }
         devList.push_back(std::move(dev));

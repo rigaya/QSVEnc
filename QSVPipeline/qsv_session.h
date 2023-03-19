@@ -36,7 +36,8 @@
 
 struct MFXVideoSession2Params {
     int threads;
-    int priority;
+    int threadPriority;
+    bool deviceCopy;
 
     MFXVideoSession2Params();
 };

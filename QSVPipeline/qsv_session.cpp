@@ -127,7 +127,7 @@ private:
 
 mfxLoader MFXLoaderProvider::loader = nullptr;
 
-MFXVideoSession2Params::MFXVideoSession2Params() : threads(0), priority(0) {};
+MFXVideoSession2Params::MFXVideoSession2Params() : threads(0), threadPriority(0), deviceCopy(false) {};
 
 void MFXVideoSession2::PrintMes(RGYLogLevel log_level, const TCHAR *format, ...) {
     if (m_log == nullptr) {
@@ -237,6 +237,18 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
         m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: try init by MFXCreateSession.\n"));
         sts = MFXCreateSession(loader, 0, (mfxSession *)&m_session);
     } else {
+        if (m_prm.deviceCopy) {
+            mfxVariant devCopy;
+            devCopy.Version.Version = MFX_VARIANT_VERSION;
+            devCopy.Type = MFX_VARIANT_TYPE_U16;
+            devCopy.Data.U16 = MFX_GPUCOPY_ON;
+            sts = MFXSetConfigFilterProperty(cfg, (const mfxU8 *)"DeviceCopy", devCopy);
+            if (sts != MFX_ERR_NONE) {
+                m_log->write(RGY_LOG_WARN, RGY_LOGT_CORE, _T("MFXVideoSession2::init: Failed to set mfxImplDescription.AccelerationMode %d: %s.\n"), devCopy.Data.U16, get_err_mes(err_to_rgy(sts)));
+                return sts;
+            }
+        }
+
         const int MAX_DEV_CHECK = 1000;
         int adapterIDPrev = -1;
         int deviceCount = 0;

@@ -229,6 +229,7 @@
   - [--input-buf \<int\>](#--input-buf-int)
   - [--output-buf \<int\>](#--output-buf-int)
   - [--mfx-thread \<int\>](#--mfx-thread-int)
+  - [--gpu-copy](#--gpu-copy)
   - [--output-thread \<int\>](#--output-thread-int)
   - [--min-memory](#--min-memory)
   - [--(no-)timer-period-tuning](#--no-timer-period-tuning)
@@ -2508,6 +2509,9 @@ file以外のプロトコルを使用する場合には、この出力バッフ�
 
 ### --mfx-thread &lt;int&gt;
 QSVパイプライン駆動用のスレッド数を2以上の値から指定する。(デフォルト: -1 ( = 自動)) Windowsでのみ使用可能です。
+
+### --gpu-copy
+GPU-CPU間のメモリコピーをGPUを使用して実行します。
 
 ### --output-thread &lt;int&gt;
 出力スレッドを使用するかどうかを指定する。

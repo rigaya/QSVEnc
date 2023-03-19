@@ -321,6 +321,7 @@ API v1.1  … Intel Media SDK v2.0
 - OpenCLのビルドログの調整。
 - 音声・字幕のtimestampに負の値が入ることがあったのを回避。
 - デバイス選択時の4GPUまでの制限を解除。
+- --gpu-copyオプションを追加。
 
 [QSVEnc.auo]
 - 出力する動画の長さが短い場合の警告を追加。

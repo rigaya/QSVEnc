@@ -426,9 +426,10 @@ tstring encoder_help() {
         );
     str += strsprintf(_T("")
 #if defined(_WIN32) || defined(_WIN64)
-        _T("   --mfx-thread <int>          set mfx thread num (-1 (auto), 2, 3, ...)\n")
+        _T("   --mfx-thread <int>           set mfx thread num (-1 (auto), 2, 3, ...)\n")
         _T("                                 note that mfx thread cannot be less than 2.\n")
 #endif
+        _T("   --gpu-copy                   Enables gpu accelerated copying between device and host.\n")
         _T("   --min-memory                 minimize memory usage of QSVEncC.\n")
         _T("                                 same as --output-thread 0 --audio-thread 0\n")
         _T("                                   --mfx-thread 2 -a 1 --input-buf 1 --output-buf 0\n")
@@ -1504,6 +1505,10 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         return 0;
     }
 #endif
+    if (0 == _tcscmp(option_name, _T("gpu-copy"))) {
+        pParams->gpuCopy = true;
+        return 0;
+    }
     if (0 == _tcscmp(option_name, _T("min-memory"))) {
         pParams->ctrl.threadOutput = 0;
         pParams->ctrl.threadAudio = 0;
@@ -2159,6 +2164,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
 #if defined(_WIN32) || defined(_WIN64)
     OPT_NUM(_T("--mfx-thread"), nSessionThreads);
 #endif //#if defined(_WIN32) || defined(_WIN64)
+    OPT_BOOL(_T("--gpu-copy"), _T(""), gpuCopy);
     OPT_NUM(_T("--input-buf"), nInputBufSize);
 
     cmd << gen_cmd(&pParams->ctrl, &encPrmDefault.ctrl, save_disabled_prm);

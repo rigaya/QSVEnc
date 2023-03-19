@@ -476,7 +476,7 @@ if [ ! -e ./buildVPL/lib/libvpl.a ]; then
     fi
 fi
 
-VPL_CFLAGS="-Os"
+VPL_CFLAGS="-Os -DONEVPL_EXPERIMENTAL"
 if [ $ENABLE_DEBUG -eq 0 ] && [ $ENABLE_LTO -ne 0 ]; then
 	VPL_CFLAGS="${VPL_CFLAGS} -flto"
 fi

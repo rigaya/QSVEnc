@@ -39,7 +39,7 @@ public:
     virtual ~QSVDevice();
 
     RGY_ERR init(const QSVDeviceNum dev, const bool enableOpenCL, const bool suppressErrorMessage);
-    RGY_ERR init(const QSVDeviceNum dev, const bool enableOpenCL, MemType memType, std::shared_ptr<RGYLog> m_log, const bool suppressErrorMessage);
+    RGY_ERR init(const QSVDeviceNum dev, const bool enableOpenCL, MemType memType, const MFXVideoSession2Params& params, std::shared_ptr<RGYLog> m_log, const bool suppressErrorMessage);
 
     CodecCsp getDecodeCodecCsp(const bool skipHWDecodeCheck);
     uint64_t getEncodeFeature(const int ratecontrol, const RGY_CODEC codec, const bool lowpower);
@@ -86,6 +86,7 @@ protected:
     std::unique_ptr<CQSVHWDevice> m_hwdev;
     std::unique_ptr<RGYOpenCLDeviceInfo> m_devInfo;
     MFXVideoSession2 m_session;
+    MFXVideoSession2Params m_sessionParams;
     std::unique_ptr<QSVAllocator> m_allocator;
     bool m_externalAlloc;
     MemType m_memType;
@@ -93,6 +94,6 @@ protected:
     std::shared_ptr<RGYLog> m_log;
 };
 
-std::vector<std::unique_ptr<QSVDevice>> getDeviceList(const QSVDeviceNum dev, const bool enableOpenCL, const MemType memType, std::shared_ptr<RGYLog> log);
+std::vector<std::unique_ptr<QSVDevice>> getDeviceList(const QSVDeviceNum dev, const bool enableOpenCL, const MemType memType, const MFXVideoSession2Params& params, std::shared_ptr<RGYLog> log);
 
 #endif //_QSV_DEVICE_H_

@@ -229,6 +229,7 @@
   - [--input-buf \<int\>](#--input-buf-int)
   - [--output-buf \<int\>](#--output-buf-int)
   - [--mfx-thread \<int\>](#--mfx-thread-int)
+  - [--gpu-copy](#--gpu-copy)
   - [--output-thread \<int\>](#--output-thread-int)
   - [--min-memory](#--min-memory)
   - [--(no-)timer-period-tuning](#--no-timer-period-tuning)
@@ -2438,6 +2439,9 @@ If a protocol other than "file" is used, then this output buffer will not be use
 
 ### --mfx-thread &lt;int&gt;
 Set number of threads for QSV pipeline (must be more than 2). This option is supported only on Windows.
+
+### --gpu-copy
+Enables gpu accelerated copying between device and host.
 
 ### --output-thread &lt;int&gt;
 Specify whether to use a separate thread for output.

@@ -38,7 +38,7 @@ class RGYLog;
 class QSVMfxDec {
 public:
     QSVMfxDec(CQSVHWDevice *hwdev, QSVAllocator *allocator,
-        mfxVersion mfxVer, mfxIMPL impl, MemType memType, QSVDeviceNum deviceNum, std::shared_ptr<RGYLog> log);
+        mfxVersion mfxVer, mfxIMPL impl, MemType memType, const MFXVideoSession2Params& sessionParams, QSVDeviceNum deviceNum, std::shared_ptr<RGYLog> log);
     virtual ~QSVMfxDec();
 
     RGY_ERR InitMFXSession();
@@ -70,6 +70,7 @@ protected:
     CQSVHWDevice *m_hwdev; //mainから渡されるdevice情報
     mfxIMPL m_impl;
     MemType m_memType;             //パイプラインのSurfaceのメモリType;
+    MFXVideoSession2Params m_sessionParams;
     QSVDeviceNum m_deviceNum;
     QSVAllocator *m_allocator;             //mainから渡されるallocator
     std::unique_ptr<QSVAllocator> m_allocatorInternal;
