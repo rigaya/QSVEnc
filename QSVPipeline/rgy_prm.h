@@ -253,6 +253,7 @@ enum RGY_VPP_RESIZE_MODE {
 enum RGY_VPP_RESIZE_ALGO {
     RGY_VPP_RESIZE_AUTO,
     RGY_VPP_RESIZE_BILINEAR,
+    RGY_VPP_RESIZE_BICUBIC,
 #if ENCODER_NVENC
     RGY_VPP_RESIZE_NEAREST,
 #endif
@@ -342,6 +343,7 @@ const CX_DESC list_vpp_resize_mode[] = {
 const CX_DESC list_vpp_resize[] = {
     { _T("auto"),     RGY_VPP_RESIZE_AUTO },
     { _T("bilinear"), RGY_VPP_RESIZE_BILINEAR },
+    { _T("bicubic"),  RGY_VPP_RESIZE_BICUBIC },
 #if ENCODER_NVENC
     { _T("nearest"),  RGY_VPP_RESIZE_NEAREST },
 #endif
@@ -386,6 +388,7 @@ const CX_DESC list_vpp_resize[] = {
 const CX_DESC list_vpp_resize_help[] = {
     { _T("auto"),     RGY_VPP_RESIZE_AUTO },
     { _T("bilinear"), RGY_VPP_RESIZE_BILINEAR },
+    { _T("bicubic"),  RGY_VPP_RESIZE_BICUBIC },
 #if ENCODER_NVENC
     { _T("nearest"),  RGY_VPP_RESIZE_NEAREST },
 #endif

@@ -2226,9 +2226,10 @@ image stabilizerのモードの指定。
   | オプション名 | 説明 |
   |:---|:---|
   | auto     | 自動的に適切なものを選択 |
-  | bilinear | 線形補間 |
   | simple   | Nearest Neighbor法による高速なリサイズ |
   | advanced | 高品質なリサイズ |
+  | bilinear | 線形補間 |
+  | bicubic  | 双3次補間 |
   | spline16 | 4x4 Spline補間 |
   | spline36 | 6x6 Spline補間 |
   | spline64 | 8x8 Spline補間 |

@@ -41,6 +41,7 @@ static_assert(RESIZE_BLOCK_Y <= RESIZE_BLOCK_X, "RESIZE_BLOCK_Y <= RESIZE_BLOCK_
 static inline int get_radius(const RGY_VPP_RESIZE_ALGO interp) {
     int radius = 1;
     switch (interp) {
+    case RGY_VPP_RESIZE_BICUBIC:
     case RGY_VPP_RESIZE_LANCZOS2:
     case RGY_VPP_RESIZE_SPLINE16:
         radius = 2;
@@ -62,6 +63,8 @@ static inline int get_radius(const RGY_VPP_RESIZE_ALGO interp) {
 
 enum RESIZE_WEIGHT_TYPE {
     WEIGHT_UNKNOWN,
+    WEIGHT_BILINEAR,
+    WEIGHT_BICUBIC,
     WEIGHT_LANCZOS,
     WEIGHT_SPLINE,
 };
@@ -69,6 +72,12 @@ enum RESIZE_WEIGHT_TYPE {
 static inline RESIZE_WEIGHT_TYPE get_weight_type(const RGY_VPP_RESIZE_ALGO interp) {
     auto type = WEIGHT_UNKNOWN;
     switch (interp) {
+    case RGY_VPP_RESIZE_BILINEAR:
+        type = WEIGHT_BILINEAR;
+        break;
+    case RGY_VPP_RESIZE_BICUBIC:
+        type = WEIGHT_BICUBIC;
+        break;
     case RGY_VPP_RESIZE_LANCZOS2:
     case RGY_VPP_RESIZE_LANCZOS3:
     case RGY_VPP_RESIZE_LANCZOS4:
@@ -79,7 +88,6 @@ static inline RESIZE_WEIGHT_TYPE get_weight_type(const RGY_VPP_RESIZE_ALGO inter
     case RGY_VPP_RESIZE_SPLINE64:
         type = WEIGHT_SPLINE;
         break;
-    case RGY_VPP_RESIZE_BILINEAR:
     default:
         break;
     }
@@ -91,6 +99,12 @@ static float getSrcWindow(const int radius, const int dst_size, const int src_si
     const float ratioClamped = std::min(ratio, 1.0f);
     const float srcWindow = radius / ratioClamped;
     return srcWindow;
+}
+
+static bool useTextureBilinear(const RGYFilterParamResize *param) {
+    return param->interp == RGY_VPP_RESIZE_BILINEAR
+        && param->frameOut.width > param->frameIn.width
+        && param->frameOut.height > param->frameIn.height;
 }
 
 RGY_ERR RGYFilterResize::resizePlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
@@ -111,30 +125,20 @@ RGY_ERR RGYFilterResize::resizePlane(RGYFrameInfo *pOutputPlane, const RGYFrameI
         RGY_ERR err = RGY_ERR_NONE;
         RGYWorkSize local(RESIZE_BLOCK_X, RESIZE_BLOCK_Y);
         RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
-        switch (pResizeParam->interp) {
-        case RGY_VPP_RESIZE_BILINEAR:
+        if (useTextureBilinear(pResizeParam.get())) {
             kernel_name = "kernel_resize_texture_bilinear";
             err = m_resize.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
                 (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0], pOutputPlane->width, pOutputPlane->height,
                 (cl_mem)pInputPlane->ptr[0],
                 1.0f / ratioX, 1.0f / ratioY
             );
-            break;
-        case RGY_VPP_RESIZE_LANCZOS2:
-        case RGY_VPP_RESIZE_LANCZOS3:
-        case RGY_VPP_RESIZE_LANCZOS4:
-        case RGY_VPP_RESIZE_SPLINE16:
-        case RGY_VPP_RESIZE_SPLINE36:
-        case RGY_VPP_RESIZE_SPLINE64:
-        case RGY_VPP_RESIZE_AUTO:
-        default:
+        } else {
             kernel_name = "kernel_resize";
             err = m_resize.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
                 (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0], pOutputPlane->width, pOutputPlane->height,
                 (cl_mem)pInputPlane->ptr[0], pInputPlane->pitch[0], pInputPlane->width, pInputPlane->height,
                 ratioX, ratioY,
                 (m_weightSpline) ? (cl_mem)m_weightSpline->mem() : nullptr);
-            break;
         }
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at %s (resizePlane(%s)): %s.\n"),
@@ -153,7 +157,7 @@ RGY_ERR RGYFilterResize::resizeFrame(RGYFrameInfo *pOutputFrame, const RGYFrameI
     }
     const RGYFrameInfo *pInputPtr = pInputFrame;
     std::unique_ptr<RGYCLFrame, RGYCLImageFromBufferDeleter> srcImage;
-    if (pResizeParam->interp == RGY_VPP_RESIZE_BILINEAR) {
+    if (useTextureBilinear(pResizeParam.get())) {
         srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY, &m_srcImagePool);
         if (!srcImage) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to create image for input frame.\n"));
@@ -223,14 +227,16 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
         const float srcWindowY = getSrcWindow(radius, pParam->frameOut.height, pParam->frameIn.height);
         const int shared_weightYdim = (((int)ceil(srcWindowY) + 1) * 2);
 
+        const int use_local = (ENCODER_MPP) ? 0 : 1;
+
         const auto options = strsprintf("-D Type=%s -D bit_depth=%d -D radius=%d -D algo=%d"
             " -D block_x=%d -D block_y=%d -D shared_weightXdim=%d -D shared_weightYdim=%d"
-            " -D WEIGHT_SPLINE=%d -D WEIGHT_LANCZOS=%d",
+            " -D WEIGHT_BILINEAR=%d -D WEIGHT_BICUBIC=%d -D WEIGHT_SPLINE=%d -D WEIGHT_LANCZOS=%d -D USE_LOCAL=%d",
             RGY_CSP_BIT_DEPTH[pResizeParam->frameOut.csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[pResizeParam->frameOut.csp],
             radius, algo,
             RESIZE_BLOCK_X, RESIZE_BLOCK_Y, shared_weightXdim, shared_weightYdim,
-            WEIGHT_SPLINE, WEIGHT_LANCZOS);
+            WEIGHT_BILINEAR, WEIGHT_BICUBIC, WEIGHT_SPLINE, WEIGHT_LANCZOS, use_local);
         m_resize.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_RESIZE_CL"), _T("EXE_DATA"), options.c_str())));
         if (!m_weightSpline
             && algo == WEIGHT_SPLINE) {

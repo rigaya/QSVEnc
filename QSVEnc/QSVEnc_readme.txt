@@ -313,11 +313,12 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
-2023.03.18 (7.36)
+2023.03.29 (7.36)
 [QSVEncC]
 - mkvの中のAV1をhwデコードできずFailed to DecodeHeaderエラーで終了してしまうのを回避。
 - 色空間情報の記載のないy4mファイルの色がおかしくなるのを回避。
 - Linux環境で、 pgs_frame_mergeが見つからないというエラーを回避。
+- 縮小時のbilinear補間の精度を向上させるとともに、bicubicを追加。
 - OpenCLのビルドログの調整。
 - 音声・字幕のtimestampに負の値が入ることがあったのを回避。
 - デバイス選択時の4GPUまでの制限を解除。

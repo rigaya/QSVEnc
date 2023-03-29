@@ -2168,6 +2168,7 @@ Specify the resizing algorithm.
   | simple   | use simple scaling     |
   | advanced | use high quality scaling |
   | bilinear | linear interpolation |
+  | bicubic  | bicubic interpolation |
   | spline16 | 4x4 spline curve interpolation |
   | spline36 | 6x6 spline curve interpolation |
   | spline64 | 8x8 spline curve interpolation |
