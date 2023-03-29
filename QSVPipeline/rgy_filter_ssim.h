@@ -41,6 +41,9 @@ class QSVMfxDec;
 class PipelineTaskMFXDecode;
 struct RGYBitstream;
 #endif
+#if ENCODER_MPP
+#include "mpp_util.h"
+#endif
 #include <array>
 #include <thread>
 #include <deque>

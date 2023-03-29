@@ -52,6 +52,7 @@ const char *get_encoder_version();
 #define ENCODER_QSV    1
 #define ENCODER_NVENC  0
 #define ENCODER_VCEENC 0
+#define ENCODER_MPP    0
 #define CLFILTERS_AUF  0
 
 #define GPU_VENDOR "Intel"

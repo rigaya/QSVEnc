@@ -41,6 +41,10 @@
 #define ENABLE_RGY_OPENCL_D3D9  ENABLE_D3D9
 #define ENABLE_RGY_OPENCL_D3D11 ENABLE_D3D11
 #define ENABLE_RGY_OPENCL_VA    0
+#elif ENCODER_MPP
+#define ENABLE_RGY_OPENCL_D3D9  0
+#define ENABLE_RGY_OPENCL_D3D11 0
+#define ENABLE_RGY_OPENCL_VA    0
 #else
 #define ENABLE_RGY_OPENCL_D3D9  1
 #define ENABLE_RGY_OPENCL_D3D11 1
@@ -577,6 +581,7 @@ public:
 
     RGY_ERR map_wait() { return RGYOpenCLEvent::wait(m_eventMap); };
     const RGYFrameInfo& host() const { return m_host; }
+    std::vector<RGYOpenCLEvent>& mapEvents() { return m_eventMap; }
 protected:
     RGY_ERR unmap(cl_command_queue queue, const std::vector<RGYOpenCLEvent> &wait_events);
     RGYCLFrameMap(const RGYCLFrameMap &) = delete;
@@ -609,7 +614,9 @@ public:
     RGY_ERR unmapBuffer();
     RGY_ERR unmapBuffer(RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events = {});
     RGY_ERR mapWait() const { return m_mapped->map_wait(); }
+    bool isMapped() const { return m_mapped != nullptr;  }
     const RGYFrameInfo &mappedHost() const { return m_mapped->host(); }
+    std::vector<RGYOpenCLEvent>& mapEvents() { return m_mapped->mapEvents(); }
     RGYCLMemObjInfo getMemObjectInfo() const;
     void resetMappedFrame() { m_mapped.reset(); }
 protected:

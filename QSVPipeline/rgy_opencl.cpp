@@ -2842,7 +2842,7 @@ std::vector<shared_ptr<RGYOpenCLPlatform>> RGYOpenCL::getPlatforms(const char *v
             if (m_log->getLogLevel(RGY_LOGT_OPENCL) <= RGY_LOG_DEBUG) {
                 CL_LOG(RGY_LOG_DEBUG, _T("OpenCL platform #%d[%p]: %s\n"), i, platforms[i], platform->info().print().c_str());
             }
-            if (vendor == nullptr || platform->isVendor(vendor)) {
+            if (vendor == nullptr || strlen(vendor) == 0 || platform->isVendor(vendor)) {
                 CL_LOG(RGY_LOG_DEBUG, _T("Add platform #%d[%p] to list.\n"), i, platforms[i]);
                 platform_list.push_back(std::move(platform));
             }
