@@ -509,7 +509,7 @@ float3 conv_rgb_yuv(const float3 rgb, const int matrix) {
         0.5f, -0.418687589f, -0.081312411f
     };
     const float mat_bt709[9] = {
-        0.2126, 0.7152, 0.0722f,
+        0.2126f, 0.7152f, 0.0722f,
         -0.13500127f, -0.454152908f, 0.589154178f,
         0.424337142f, -0.385427894f, -0.038909248f
     };
@@ -553,7 +553,7 @@ float3 conv_yuv_rgb(const float3 yuv, const int matrix) {
     };
     const float mat_bt2020[9] = {
         1.0f, 0.0f, 1.8814f,
-        1.0f, -0.128973127	-0.728973127f,
+        1.0f, -0.128973127f, -0.728973127f,
         1.0f, 1.4746f, 0.0f
     };
     const float mat_st240m[9] = {
