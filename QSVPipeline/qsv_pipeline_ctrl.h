@@ -710,6 +710,7 @@ public:
     };
     virtual ~PipelineTaskMFXDecode() {
         m_queueHDR10plusMetadata.close([](RGYFrameDataMetadata **ptr) { if (*ptr) { delete *ptr; *ptr = nullptr; }; });
+        m_decInputBitstream.clear();
     };
     void setDec(MFXVideoDECODE *mfxdec) { m_dec = mfxdec; };
 
