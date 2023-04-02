@@ -144,6 +144,7 @@ const char *get_encoder_version();
 #define ENABLE_METRIC_FRAMEWORK 0
 #define ENABLE_PERF_COUNTER 0
 #define ENABLE_CAPTION2ASS 0
+#define ENABLE_DOVI_METADATA_OPTIONS 1
 #define ENABLE_HYPER_MODE 0
 #include "rgy_config.h"
 #define ENCODER_NAME              "QSVEncC"
