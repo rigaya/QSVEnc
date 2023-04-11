@@ -313,6 +313,11 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2023.04.12 (7.37)
+[QSVEncC]
+- oneVPL API 2.9に対応。
+- エンコード品質をチューニングするオプションを追加。(--tune)
+
 2023.03.29 (7.36)
 [QSVEncC]
 - mkvの中のAV1をhwデコードできずFailed to DecodeHeaderエラーで終了してしまうのを回避。

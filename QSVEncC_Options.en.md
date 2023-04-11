@@ -86,6 +86,7 @@
   - [--la-depth \<int\>](#--la-depth-int)
   - [--la-window-size \<int\> 0(auto)](#--la-window-size-int-0auto)
   - [--la-quality \<string\>](#--la-quality-string)
+  - [--tune \<string\>\[,\<string\>\]...](#--tune-stringstring)
   - [--scenario-info \<string\>](#--scenario-info-string)
   - [--extbrc](#--extbrc)
   - [--mbbrc](#--mbbrc)
@@ -670,6 +671,17 @@ Specify quality of lookahead.
 - fast
 - medium
 - slow
+
+### --tune &lt;string&gt;[,&lt;string&gt;]...
+Set tune encode quality mode.
+
+- **parameters**
+  - default
+  - psnr
+  - ssim
+  - ms_ssim
+  - vmaf
+  - perceptual
 
 ### --scenario-info &lt;string&gt;
 Set scenarios for the encoding.

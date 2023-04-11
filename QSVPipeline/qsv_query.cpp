@@ -243,7 +243,7 @@ mfxVersion get_mfx_libsw_version() {
 
 QSVVideoParam::QSVVideoParam(uint32_t CodecId, mfxVersion mfxver_) :
     mfxVer(mfxver_), isVppParam(false), videoPrmVpp(), videoPrm(), buf(), spsbuf(), ppsbuf(), spspps(),
-    cop(), cop2(), cop3(), copVp8(), vp9Prm(), hevcPrm(), av1BitstreamPrm(), av1ResolutionPrm(), av1TilePrm(), hyperModePrm() {
+    cop(), cop2(), cop3(), copVp8(), vp9Prm(), hevcPrm(), av1BitstreamPrm(), av1ResolutionPrm(), av1TilePrm(), hyperModePrm(), tuneEncQualityPrm() {
     memset(spsbuf, 0, sizeof(spsbuf));
     memset(ppsbuf, 0, sizeof(ppsbuf));
     INIT_MFX_EXT_BUFFER(spspps, MFX_EXTBUFF_CODING_OPTION_SPSPPS);
@@ -262,6 +262,7 @@ QSVVideoParam::QSVVideoParam(uint32_t CodecId, mfxVersion mfxver_) :
     INIT_MFX_EXT_BUFFER(av1ResolutionPrm, MFX_EXTBUFF_AV1_RESOLUTION_PARAM);
     INIT_MFX_EXT_BUFFER(av1TilePrm, MFX_EXTBUFF_AV1_TILE_PARAM);
     INIT_MFX_EXT_BUFFER(hyperModePrm, MFX_EXTBUFF_HYPER_MODE_PARAM);
+    INIT_MFX_EXT_BUFFER(tuneEncQualityPrm, MFX_EXTBUFF_TUNE_ENCODE_QUALITY);
 
     if (add_cop(CodecId)) {
         buf.push_back((mfxExtBuffer *)&cop);
@@ -293,6 +294,9 @@ QSVVideoParam::QSVVideoParam(uint32_t CodecId, mfxVersion mfxver_) :
         && (CodecId == MFX_CODEC_AVC || CodecId == MFX_CODEC_HEVC || CodecId == MFX_CODEC_AV1)
         && check_lib_version(mfxVer, MFX_LIB_VERSION_2_5)) {
         buf.push_back((mfxExtBuffer *)&hyperModePrm);
+    }
+    if (check_lib_version(mfxVer, MFX_LIB_VERSION_2_9)) {
+        buf.push_back((mfxExtBuffer *)&tuneEncQualityPrm);
     }
 
     RGY_MEMSET_ZERO(videoPrm);
@@ -729,6 +733,7 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
     mfxExtAV1BitstreamParam av1;
     mfxExtHyperModeParam hyperMode;
     mfxExtVideoSignalInfo videoSignalInfo;
+    mfxExtTuneEncodeQuality tuneEncQuality;
     INIT_MFX_EXT_BUFFER(cop,  MFX_EXTBUFF_CODING_OPTION);
     INIT_MFX_EXT_BUFFER(cop2, MFX_EXTBUFF_CODING_OPTION2);
     INIT_MFX_EXT_BUFFER(cop3, MFX_EXTBUFF_CODING_OPTION3);
@@ -737,6 +742,7 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
     INIT_MFX_EXT_BUFFER(av1, MFX_EXTBUFF_AV1_BITSTREAM_PARAM);
     INIT_MFX_EXT_BUFFER(hyperMode, MFX_EXTBUFF_HYPER_MODE_PARAM);
     INIT_MFX_EXT_BUFFER(videoSignalInfo, MFX_EXTBUFF_VIDEO_SIGNAL_INFO);
+    INIT_MFX_EXT_BUFFER(tuneEncQuality, MFX_EXTBUFF_TUNE_ENCODE_QUALITY);
 
     std::vector<mfxExtBuffer *> buf;
     if (add_cop(codecId)) { // VP9ではmfxExtCodingOptionはチェックしないようにしないと正常に動作しない
@@ -767,6 +773,9 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
     if (ENABLE_HYPER_MODE && check_lib_version(mfxVer, MFX_LIB_VERSION_2_5)
         && (codecId == MFX_CODEC_AVC || codecId == MFX_CODEC_HEVC || codecId == MFX_CODEC_AV1)) {
         buf.push_back((mfxExtBuffer *)&hyperMode);
+    }
+    if (check_lib_version(mfxVer, MFX_LIB_VERSION_2_9)) {
+        buf.push_back((mfxExtBuffer *)&tuneEncQuality);
     }
 
     mfxVideoParam videoPrm;
@@ -980,6 +989,7 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
         CHECK_FEATURE(cop3.FadeDetection,        ENC_FEATURE_FADE_DETECT,   MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_1_17);
         CHECK_FEATURE(cop3.AdaptiveLTR,          ENC_FEATURE_ADAPTIVE_LTR,  MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_2_4);
         CHECK_FEATURE(cop3.AdaptiveRef,          ENC_FEATURE_ADAPTIVE_REF,  MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_2_4);
+        CHECK_FEATURE(cop3.ScenarioInfo,         ENC_FEATURE_SCENARIO_INFO, MFX_SCENARIO_GAME_STREAMING,   MFX_LIB_VERSION_1_16);
         CHECK_FEATURE(cop3.AdaptiveCQM,          ENC_FEATURE_ADAPTIVE_CQM,  MFX_CODINGOPTION_ON,           MFX_LIB_VERSION_2_2);
         if (codecId == MFX_CODEC_HEVC) {
             CHECK_FEATURE(cop3.GPB,              ENC_FEATURE_DISABLE_GPB,       MFX_CODINGOPTION_ON,  MFX_LIB_VERSION_1_19);
@@ -1015,6 +1025,7 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
             videoPrm.mfx.FrameInfo.BitDepthChroma = 8;
             videoPrm.mfx.FrameInfo.Shift = 0;
         }
+        CHECK_FEATURE(tuneEncQuality.TuneQuality, MFX_ENCODE_TUNE_SSIM, MFX_ENCODE_TUNE_DEFAULT, MFX_LIB_VERSION_2_9);
 #undef PICTYPE
 #pragma warning(pop)
         //付随オプション

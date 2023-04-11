@@ -326,6 +326,7 @@ struct sInputParams {
     int        nAsyncDepth;
 
     int        nLookaheadDS;
+    uint32_t   tuneQuality;
     int        scenarioInfo;
 
     bool       bDisableTimerPeriodTuning;
@@ -679,6 +680,18 @@ const CX_DESC list_hyper_mode[] = {
     { _T("adaptive"), MFX_HYPERMODE_ADAPTIVE },
     { NULL, 0 }
 };
+
+const CX_DESC list_enc_tune_quality_mode[] = {
+    { _T("default"),    MFX_ENCODE_TUNE_DEFAULT    },
+    { _T("psnr"),       MFX_ENCODE_TUNE_PSNR       },
+    { _T("ssim"),       MFX_ENCODE_TUNE_SSIM       },
+    { _T("ms_ssim"),    MFX_ENCODE_TUNE_MS_SSIM    },
+    { _T("vmaf"),       MFX_ENCODE_TUNE_VMAF       },
+    { _T("perceptual"), MFX_ENCODE_TUNE_PERCEPTUAL },
+    { NULL, 0 }
+};
+
+tstring get_str_of_tune_bitmask(const uint32_t mask);
 
 enum {
     QSV_AUD_ENC_NONE = -1,

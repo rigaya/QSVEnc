@@ -323,6 +323,8 @@ tstring encoder_help() {
         _T("                                  and set the window size in frames.\n")
         _T("   --la-quality <string>        set lookahead quality.\n")
         _T("                                 - auto(default), fast, medium, slow\n")
+        _T("   --tune <string>[,...]        set tune encode quality mode.\n")
+        _T("                                 - default, psnr, ssim, ms_ssim, vmaf, perceptual\n")
         _T("   --scenario-info <string>     set scenarios for the encoding.\n")
         _T("                                 unknown (default), display_remoting,\n")
         _T("                                 video_conference, archive, live_streaming,\n")
@@ -1159,6 +1161,23 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     }
     if (0 == _tcscmp(option_name, _T("rdo"))) {
         pParams->bRDO = true;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("tune"))) {
+        i++;
+        auto values = split(strInput[i], _T(","), true);
+        if (values.size() == 0) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        for (auto& str : values) {
+            decltype(pParams->tuneQuality) v = 0;
+            if ((v = get_value_from_chr(list_enc_tune_quality_mode, str.c_str())) == PARSE_ERROR_FLAG) {
+                print_cmd_error_invalid_value(option_name, str, list_enc_tune_quality_mode);
+                return 1;
+            }
+            pParams->tuneQuality |= v;
+        }
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("scenario-info"))) {
@@ -2113,6 +2132,9 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
         cmd << _T(" --sar ") << pParams->nPAR[0] << _T(":") << pParams->nPAR[1];
     } else if (pParams->nPAR[0] < 0 && pParams->nPAR[1] < 0) {
         cmd << _T(" --dar ") << -1 * pParams->nPAR[0] << _T(":") << -1 * pParams->nPAR[1];
+    }
+    if (pParams->tuneQuality != 0) {
+        cmd << _T(" --tune ") << get_str_of_tune_bitmask(pParams->tuneQuality);
     }
 
     OPT_LST(_T("--scenario-info"), scenarioInfo, list_scenario_info);

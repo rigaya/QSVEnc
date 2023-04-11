@@ -86,6 +86,7 @@
   - [--la-depth \<int\>](#--la-depth-int)
   - [--la-window-size \<int\> 0(自動)](#--la-window-size-int-0自動)
   - [--la-quality \<string\>](#--la-quality-string)
+  - [--tune \<string\>\[,\<string\>\]...](#--tune-stringstring)
   - [--scenario-info \<string\>](#--scenario-info-string)
   - [--extbrc](#--extbrc)
   - [--mbbrc](#--mbbrc)
@@ -693,6 +694,16 @@ mediumやfastでは、先行探索を縮小されたフレームで行い、高�
 - medium ... x1/2の解像度で分析を行う。
 - slow　... 等倍のフレームで高品質な分析を行う。
 
+### --tune &lt;string&gt;[,&lt;string&gt;]...
+エンコード品質をチューニングする。
+
+- **parameters**
+  - default
+  - psnr
+  - ssim
+  - ms_ssim
+  - vmaf
+  - perceptual
 
 ### --scenario-info &lt;string&gt;
 エンコード対象のシーンを指定し、各シーンに合わせたビットレートの最適化を行う。

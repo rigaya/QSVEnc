@@ -351,6 +351,9 @@ bool CQSVPipeline::CompareParam(const mfxParamSet& prmIn, const mfxParamSet& prm
         COMPARE_INT(av1TilePrm.NumTileGroups, 0);
         COMPARE_INT(hyperModePrm.Mode, 0);
     }
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_9)) {
+        COMPARE_INT(tuneEncQualityPrm.TuneQuality, 0);
+    }
     return ret;
 }
 
@@ -612,6 +615,10 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
     if (pInParams->extBRC && !(availableFeaures & ENC_FEATURE_EXT_BRC)) {
         print_feature_warnings(RGY_LOG_WARN, _T("ExtBRC"));
         pInParams->extBRC = false;
+    }
+    if (pInParams->tuneQuality != MFX_ENCODE_TUNE_DEFAULT && !(availableFeaures & ENC_FEATURE_TUNE_ENCODE_QUALITY)) {
+        print_feature_warnings(RGY_LOG_WARN, _T("Tune Quality"));
+        pInParams->tuneQuality = MFX_ENCODE_TUNE_DEFAULT;
     }
     if (pInParams->scenarioInfo != MFX_SCENARIO_UNKNOWN && !(availableFeaures & ENC_FEATURE_SCENARIO_INFO)) {
         print_feature_warnings(RGY_LOG_WARN, _T("Scenario Info"));
@@ -1092,6 +1099,13 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption3);
     }
 
+
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_9)) {
+        INIT_MFX_EXT_BUFFER(m_tuneEncQualityPrm, MFX_EXTBUFF_TUNE_ENCODE_QUALITY);
+        m_tuneEncQualityPrm.TuneQuality = (decltype(m_tuneEncQualityPrm.TuneQuality))(pInParams->tuneQuality);
+        m_EncExtParams.push_back((mfxExtBuffer *)&m_tuneEncQualityPrm);
+    }
+
     //Bluray互換出力
     if (pInParams->nBluray) {
         if (   m_mfxEncParams.mfx.RateControlMethod != MFX_RATECONTROL_CBR
@@ -1532,6 +1546,7 @@ CQSVPipeline::CQSVPipeline() :
     m_ExtAV1ResolutionParam(),
     m_ExtAV1TileParam(),
     m_hyperModeParam(),
+    m_tuneEncQualityPrm(),
     m_mfxDEC(),
     m_pmfxENC(),
     m_mfxVPP(),
@@ -4289,6 +4304,11 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
             && outFrameInfo->cop3.ScenarioInfo != MFX_SCENARIO_UNKNOWN
             && get_cx_desc(list_scenario_info, outFrameInfo->cop3.ScenarioInfo) != nullptr) {
             PRINT_INFO(_T("Scenario Info  %s\n"), get_cx_desc(list_scenario_info, outFrameInfo->cop3.ScenarioInfo));
+        }
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_9)
+            && outFrameInfo->tuneEncQualityPrm.TuneQuality != MFX_ENCODE_TUNE_DEFAULT
+            && get_cx_desc(list_enc_tune_quality_mode, outFrameInfo->tuneEncQualityPrm.TuneQuality) != nullptr) {
+            PRINT_INFO(_T("Tune Quality   %s\n"), get_str_of_tune_bitmask(outFrameInfo->tuneEncQualityPrm.TuneQuality).c_str());
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_9)) {
             auto qp_limit_str = [](mfxU8 limitI, mfxU8 limitP, mfxU8 limitB) {

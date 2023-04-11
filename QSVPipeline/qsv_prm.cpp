@@ -31,6 +31,22 @@
 #endif
 #include "rgy_bitstream.h"
 
+tstring get_str_of_tune_bitmask(const uint32_t mask) {
+    if (mask == 0) {
+        return get_cx_desc(list_enc_tune_quality_mode, mask);
+    }
+    tstring str;
+    for (int i = 0; list_enc_tune_quality_mode[i].desc; i++) {
+        if (const uint32_t target = list_enc_tune_quality_mode[i].value; target != 0) {
+            if ((mask & target) == target) {
+                if (str.length()) str += _T(",");
+                str += list_enc_tune_quality_mode[i].desc;
+            }
+        }
+    }
+    return str;
+}
+
 VppDenoise::VppDenoise() :
     enable(false),
     mode(MFX_DENOISE_MODE_DEFAULT),
@@ -142,6 +158,8 @@ sInputParams::sInputParams() :
     nTrellis(0),
     nAsyncDepth(0),
     nLookaheadDS(),
+    tuneQuality(MFX_ENCODE_TUNE_DEFAULT),
+    scenarioInfo(MFX_SCENARIO_UNKNOWN),
     bDisableTimerPeriodTuning(false),
     intraRefreshCycle(0),
     bNoDeblock(false),

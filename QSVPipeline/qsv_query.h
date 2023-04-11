@@ -153,6 +153,8 @@ static constexpr mfxVersion LIB_VER_LIST[] = {
     {  4, 2 },
     {  5, 2 },
     {  6, 2 },
+    {  7, 2 },
+    {  9, 2 },
     {  0, 0 }
 };
 
@@ -190,6 +192,8 @@ MFX_LIB_VERSION(2, 3, 26);
 MFX_LIB_VERSION(2, 4, 27);
 MFX_LIB_VERSION(2, 5, 28);
 MFX_LIB_VERSION(2, 6, 29);
+MFX_LIB_VERSION(2, 7, 30);
+MFX_LIB_VERSION(2, 9, 31);
 
 static const std::vector<RGY_CODEC> ENC_CODEC_LISTS = {
     RGY_CODEC_H264, RGY_CODEC_HEVC, RGY_CODEC_MPEG2, RGY_CODEC_VP8, RGY_CODEC_VP9, RGY_CODEC_AV1
@@ -283,6 +287,7 @@ enum : uint64_t {
     ENC_FEATURE_HEVC_TSKIP             = 0x0000020000000000,
     ENC_FEATURE_HYPER_MODE             = 0x0000040000000000,
     ENC_FEATURE_SCENARIO_INFO          = 0x0000080000000000,
+    ENC_FEATURE_TUNE_ENCODE_QUALITY    = 0x0000100000000000,
 };
 
 enum : uint64_t {
@@ -337,6 +342,7 @@ static const FEATURE_DESC list_enc_feature[] = {
     { _T("B_Pyramid    "), ENC_FEATURE_B_PYRAMID              },
     { _T(" +ManyBframes"), ENC_FEATURE_B_PYRAMID_MANY_BFRAMES },
     { _T("PyramQPOffset"), ENC_FEATURE_PYRAMID_QP_OFFSET      },
+    { _T("TuneQuality  "), ENC_FEATURE_TUNE_ENCODE_QUALITY    },
     { _T("ScenarioInfo "), ENC_FEATURE_SCENARIO_INFO          },
     { _T("MBBRC        "), ENC_FEATURE_MBBRC                  },
     { _T("ExtBRC       "), ENC_FEATURE_EXT_BRC                },
@@ -418,6 +424,7 @@ struct QSVVideoParam {
     mfxExtAV1ResolutionParam av1ResolutionPrm;
     mfxExtAV1TileParam av1TilePrm;
     mfxExtHyperModeParam hyperModePrm;
+    mfxExtTuneEncodeQuality tuneEncQualityPrm;
 
     QSVVideoParam(uint32_t CodecId, mfxVersion mfxver_);
     QSVVideoParam() = delete;

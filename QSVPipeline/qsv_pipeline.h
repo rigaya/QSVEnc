@@ -90,6 +90,7 @@ struct mfxParamSet {
     mfxExtAV1ResolutionParam av1ResolutionPrm;
     mfxExtAV1TileParam av1TilePrm;
     mfxExtHyperModeParam hyperModePrm;
+    mfxExtTuneEncodeQuality tuneEncQualityPrm;
 };
 
 const uint32_t QSV_PTS_SORT_SIZE = 16u;
@@ -158,6 +159,7 @@ protected:
     mfxExtAV1ResolutionParam m_ExtAV1ResolutionParam;
     mfxExtAV1TileParam m_ExtAV1TileParam;
     mfxExtHyperModeParam m_hyperModeParam;
+    mfxExtTuneEncodeQuality m_tuneEncQualityPrm;
     std::unique_ptr<QSVMfxDec> m_mfxDEC;
     std::unique_ptr<MFXVideoENCODE> m_pmfxENC;
     std::vector<std::unique_ptr<QSVVppMfx>> m_mfxVPP;
