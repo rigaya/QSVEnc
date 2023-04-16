@@ -1171,12 +1171,12 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
             return 1;
         }
         for (auto& str : values) {
-            decltype(pParams->tuneQuality) v = 0;
+            int v = 0;
             if ((v = get_value_from_chr(list_enc_tune_quality_mode, str.c_str())) == PARSE_ERROR_FLAG) {
                 print_cmd_error_invalid_value(option_name, str, list_enc_tune_quality_mode);
                 return 1;
             }
-            pParams->tuneQuality |= v;
+            pParams->tuneQuality |= (decltype(pParams->tuneQuality))v;
         }
         return 0;
     }
