@@ -29,6 +29,8 @@ RUN apt-get update \
       libswresample-dev \
       libavfilter7 \
       libavfilter-dev \
+      libavdevice58 \
+      libavdevice-dev \
       libass9 \
       libass-dev \
     && apt-get clean \
