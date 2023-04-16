@@ -1254,7 +1254,14 @@ The default is 10.
 ### --audio-source &lt;string&gt;[:{&lt;int&gt;?}[;&lt;param1&gt;=&lt;value1&gt;]...]...
 Mux an external audio file specified.
 
-- **params** 
+- **file params**
+  - format=&lt;string&gt;  
+    Specify input format for the file.
+
+  - input_opt=&lt;string&gt;  
+    Specify input options for the file.
+
+- **track params**
   - copy  
     Copy audio track.
   
@@ -1296,6 +1303,7 @@ Mux an external audio file specified.
   Example1: --audio-source "<audio_file>":copy
   Example2: --audio-source "<audio_file>":codec=aac
   Example3: --audio-source "<audio_file>":1?codec=aac;bitrate=256:2?codec=aac;bitrate=192;metadata=language=jpn
+  Example4: --audio-source --audio-source "hw:1:format=alsa,codec=aac;bitrate=256"
   ```
 
 ### --chapter &lt;string&gt;
@@ -1378,7 +1386,14 @@ There should be one frame ID per line.
 ### --sub-source &lt;string&gt;[:{&lt;int&gt;?}[;&lt;param1&gt;=&lt;value1&gt;]...]...
 Read subtitle from the specified file and mux into the output file.
 
-- **params** 
+- **file params**
+  - format=&lt;string&gt;  
+    Specify input format for the file.
+
+  - input_opt=&lt;string&gt;  
+    Specify input options for the file.
+
+- **track params**
   - disposition=&lt;string&gt;  
     Specify disposition for subtitle.
     
