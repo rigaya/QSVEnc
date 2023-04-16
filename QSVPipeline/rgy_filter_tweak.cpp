@@ -46,7 +46,7 @@ RGY_ERR RGYFilterTweak::procFrame(RGYFrameInfo *pFrame, RGYOpenCLQueue &queue, c
     const float saturation = prm->tweak.saturation;
     const float gamma      = prm->tweak.gamma;
     const float hue_degree = prm->tweak.hue;
-    const bool  swapuv     = prm->tweak.swapuv;
+    const int   swapuv     = prm->tweak.swapuv ? 1 : 0;
 
     auto planeInputY = getPlane(pFrame, RGY_PLANE_Y);
     auto planeInputU = getPlane(pFrame, RGY_PLANE_U);
