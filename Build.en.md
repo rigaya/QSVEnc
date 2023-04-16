@@ -74,7 +74,7 @@ Finally, open QSVEnc.sln, and start build of QSVEnc by Visual Studio.
 - cmake
 - libraries
   - libva, libdrm 
-  - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
+  - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3, libavdevice58)
   - libass9
   - [Optional] VapourSynth
 
@@ -104,7 +104,7 @@ sudo apt install \
   libdrm-dev
 
 sudo apt install ffmpeg \
-  libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev \
+  libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev libavdevice-dev \
   libass9 libass-dev
 ```
 
@@ -254,7 +254,7 @@ Success: QuickSyncVideo (hw encoding) available
 - cmake
 - libraries
   - libva, libdrm 
-  - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
+  - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3, libavdevice58)
   - libass9
   - [Optional] VapourSynth
 
@@ -284,7 +284,7 @@ sudo apt install \
   libdrm-dev
 
 sudo apt install ffmpeg \
-  libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev \
+  libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev libavdevice-dev \
   libass9 libass-dev
 ```
 
@@ -439,7 +439,7 @@ In Ubuntu 18.04, you may additionally need to build libva, and media-driver your
 - git
 - cmake
 - libraries
-  - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
+  - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3, libavdevice58)
   - libass9
   - [Optional] VapourSynth
 
@@ -550,7 +550,7 @@ sudo apt install opencl-headers
 sudo add-apt-repository ppa:jonathonf/ffmpeg-4
 sudo apt update
 sudo apt install ffmpeg \
-  libavcodec-extra58 libavcodec-dev libavutil56 libavutil-dev libavformat58 libavformat-dev \
+  libavcodec-extra58 libavcodec-dev libavutil56 libavutil-dev libavformat58 libavformat-dev libavdevice58 libavdevice-dev \
   libswresample3 libswresample-dev libavfilter-extra7 libavfilter-dev libass9 libass-dev
 ```
 
@@ -660,7 +660,7 @@ Success: QuickSyncVideo (hw encoding) available
 - cmake
 - libraries
   - libva, libdrm 
-  - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3)
+  - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3, libavdevice58)
   - libass9
   - [Optional] VapourSynth
 
