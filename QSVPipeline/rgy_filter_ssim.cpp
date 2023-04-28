@@ -667,7 +667,7 @@ RGY_ERR RGYFilterSsim::compare_frames() {
     //    ar = AMF_FAIL;
     //    break;
     //}
-    auto decFrame = std::make_unique<RGYFrame>(surf);
+    auto decFrame = std::make_unique<RGYFrameAMF>(surf);
     const auto &decAmf = decFrame->amf();
     {
         VCEAMF(amf::AMFContext::AMFOpenCLLocker locker(m_context));
@@ -695,7 +695,7 @@ RGY_ERR RGYFilterSsim::compare_frames() {
         }
         int cropFilterOutputNum = 0;
         RGYFrameInfo *outInfo[1] = { &m_decFrameCopy->frame };
-        RGYFrameInfo decFrameInfo = decFrame->getInfo();
+        RGYFrameInfo decFrameInfo = decFrame->getInfoCopy();
         auto sts_filter = m_cropDec->filter(&decFrameInfo, (RGYFrameInfo **)&outInfo, &cropFilterOutputNum, m_queueCrop, &m_cropEvent);
         if (outInfo[0] == nullptr || cropFilterOutputNum != 1) {
             AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_cropDec->name().c_str());
@@ -771,7 +771,7 @@ RGY_ERR RGYFilterSsim::compare_frames() {
             return RGY_ERR_NULL_PTR;
         }
         RGYCLFrameInterop *clFrameInInterop = nullptr;
-        mfxFrameSurface1 *surfVppIn = taskSurf->surf().mfxsurf();
+        mfxFrameSurface1 *surfVppIn = taskSurf->surf().mfx()->surf();
         if (surfVppIn == nullptr) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to get mfx surface pointer.\n"));
             return RGY_ERR_NULL_PTR;

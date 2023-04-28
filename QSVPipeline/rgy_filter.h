@@ -1,5 +1,5 @@
 ﻿// -----------------------------------------------------------------------------------------
-//     QSVEnc/VCEEnc by rigaya
+//     QSVEnc/VCEEnc/rkmppenc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
 //
@@ -121,13 +121,13 @@ public:
     RGY_ERR filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue);
     RGY_ERR filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
     RGY_ERR filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event = nullptr);
-    const tstring GetInputMessage() {
+    const tstring GetInputMessage() const {
         return m_infoStr;
     }
-    const RGYFilterParam *GetFilterParam() {
+    const RGYFilterParam *GetFilterParam() const {
         return m_param.get();
     }
-    RGY_ERR AllocFrameBuf(const RGYFrameInfo &frame, int frames);
+    virtual RGY_ERR AllocFrameBuf(const RGYFrameInfo &frame, int frames);
     //virtual RGY_ERR addStreamPacket(AVPacket *pkt) { UNREFERENCED_PARAMETER(pkt); return RGY_ERR_UNSUPPORTED; };
     virtual int targetTrackIdx() { return 0; };
     void setCheckPerformance(const bool check) { m_perfMonitor.setCheckPerformance(check); }

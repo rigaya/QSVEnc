@@ -74,6 +74,7 @@
 #include "rgy_def.h"
 #include "rgy_log.h"
 #include "rgy_util.h"
+#include "rgy_frame.h"
 #include "convert_csp.h"
 
 #ifndef CL_EXTERN
@@ -567,9 +568,58 @@ protected:
     std::unique_ptr<RGYCLBufMap> m_mapped;
 };
 
-class RGYCLFrameMap {
+class RGYCLFrameMap;
+
+struct RGYCLFrame : public RGYFrame {
 public:
-    RGYCLFrameMap(RGYFrameInfo dev, RGYOpenCLQueue &queue);
+    RGYFrameInfo frame;
+    cl_mem_flags clflags;
+    std::unique_ptr<RGYCLFrameMap> m_mapped;
+    RGYCLFrame()
+        : frame(), clflags(0), m_mapped() {
+    };
+    RGYCLFrame(const RGYFrameInfo &info_, cl_mem_flags flags_ = CL_MEM_READ_WRITE)
+        : frame(info_), clflags(flags_), m_mapped() {
+    };
+    RGY_ERR queueMapBuffer(RGYOpenCLQueue &queue, cl_map_flags map_flags, const std::vector<RGYOpenCLEvent> &wait_events = {}, const RGYCLMapBlock block_map = RGY_CL_MAP_BLOCK_NONE);
+    RGY_ERR unmapBuffer();
+    RGY_ERR unmapBuffer(RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events = {});
+    RGY_ERR mapWait() const;
+    bool isMapped() const;
+    RGYCLFrameMap *mappedHost();
+    const RGYCLFrameMap *mappedHost() const;
+    std::vector<RGYOpenCLEvent>& mapEvents();
+    RGYCLMemObjInfo getMemObjectInfo() const;
+    void resetMappedFrame();
+protected:
+    RGYCLFrame(const RGYCLFrame &) = delete;
+    void operator =(const RGYCLFrame &) = delete;
+    virtual RGYFrameInfo getInfo() const override { return frameInfo(); };
+public:
+    virtual const RGYFrameInfo& frameInfo() const { return frame; }
+    virtual bool isempty() const { return frame.ptr[0] == nullptr; }
+    virtual void setTimestamp(uint64_t timestamp) override { frame.timestamp = timestamp; }
+    virtual void setDuration(uint64_t duration) override { frame.duration = duration; }
+    virtual void setPicstruct(RGY_PICSTRUCT picstruct) override { frame.picstruct = picstruct; }
+    virtual void setInputFrameId(int id) override { frame.inputFrameId = id; }
+    virtual void setFlags(RGY_FRAME_FLAGS frameflags) override { frame.flags = frameflags; }
+    virtual void clearDataList() override { frame.dataList.clear(); }
+    virtual const std::vector<std::shared_ptr<RGYFrameData>>& dataList() const override { return frame.dataList; }
+    virtual std::vector<std::shared_ptr<RGYFrameData>>& dataList() override { return frame.dataList; }
+    virtual void setDataList(const std::vector<std::shared_ptr<RGYFrameData>>& dataList) override { frame.dataList = dataList; }
+    cl_mem mem(int i) const {
+        return (cl_mem)frame.ptr[i];
+    }
+    void clear();
+    virtual ~RGYCLFrame() {
+        m_mapped.reset();
+        clear();
+    }
+};
+
+class RGYCLFrameMap : public RGYCLFrame {
+public:
+    RGYCLFrameMap(RGYCLFrame *dev, RGYOpenCLQueue &queue);
     ~RGYCLFrameMap() {
         unmap();
     }
@@ -580,15 +630,25 @@ public:
     RGY_ERR unmap(RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
 
     RGY_ERR map_wait() { return RGYOpenCLEvent::wait(m_eventMap); };
-    const RGYFrameInfo& host() const { return m_host; }
+    const RGYFrameInfo& host() const { return frame; }
     std::vector<RGYOpenCLEvent>& mapEvents() { return m_eventMap; }
+public:
+    virtual bool isempty() const { return frame.ptr[0] == nullptr; }
+    virtual void setTimestamp(uint64_t timestamp) override;
+    virtual void setDuration(uint64_t duration) override;
+    virtual void setPicstruct(RGY_PICSTRUCT picstruct) override;
+    virtual void setInputFrameId(int id) override;
+    virtual void setFlags(RGY_FRAME_FLAGS frameflags) override;
+    virtual void clearDataList() override;
+    virtual const std::vector<std::shared_ptr<RGYFrameData>>& dataList() const override;
+    virtual std::vector<std::shared_ptr<RGYFrameData>>& dataList() override;
+    virtual void setDataList(const std::vector<std::shared_ptr<RGYFrameData>>& dataList) override;
 protected:
     RGY_ERR unmap(cl_command_queue queue, const std::vector<RGYOpenCLEvent> &wait_events);
     RGYCLFrameMap(const RGYCLFrameMap &) = delete;
     void operator =(const RGYCLFrameMap &) = delete;
-    RGYFrameInfo m_dev;
+    RGYCLFrame *m_dev;
     cl_command_queue m_queue;
-    RGYFrameInfo m_host;
     std::vector<RGYOpenCLEvent> m_eventMap;
 };
 
@@ -597,42 +657,6 @@ enum RGYCLFrameInteropType {
     RGY_INTEROP_DX9,
     RGY_INTEROP_DX11,
     RGY_INTEROP_VA,
-};
-
-struct RGYCLFrame {
-public:
-    RGYFrameInfo frame;
-    cl_mem_flags flags;
-    std::unique_ptr<RGYCLFrameMap> m_mapped;
-    RGYCLFrame()
-        : frame(), flags(0), m_mapped() {
-    };
-    RGYCLFrame(const RGYFrameInfo &info_, cl_mem_flags flags_ = CL_MEM_READ_WRITE)
-        : frame(info_), flags(flags_), m_mapped() {
-    };
-    RGY_ERR queueMapBuffer(RGYOpenCLQueue &queue, cl_map_flags map_flags, const std::vector<RGYOpenCLEvent> &wait_events = {}, const RGYCLMapBlock block_map = RGY_CL_MAP_BLOCK_NONE);
-    RGY_ERR unmapBuffer();
-    RGY_ERR unmapBuffer(RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events = {});
-    RGY_ERR mapWait() const { return m_mapped->map_wait(); }
-    bool isMapped() const { return m_mapped != nullptr;  }
-    const RGYFrameInfo &mappedHost() const { return m_mapped->host(); }
-    std::vector<RGYOpenCLEvent>& mapEvents() { return m_mapped->mapEvents(); }
-    RGYCLMemObjInfo getMemObjectInfo() const;
-    void resetMappedFrame() { m_mapped.reset(); }
-protected:
-    RGYCLFrame(const RGYCLFrame &) = delete;
-    void operator =(const RGYCLFrame &) = delete;
-public:
-    const RGYFrameInfo& frameInfo() const { return frame; }
-    RGYFrameInfo& frameInfo() { return frame; }
-    cl_mem mem(int i) const {
-        return (cl_mem)frame.ptr[i];
-    }
-    void clear();
-    virtual ~RGYCLFrame() {
-        m_mapped.reset();
-        clear();
-    }
 };
 
 struct RGYCLFrameInterop : public RGYCLFrame {

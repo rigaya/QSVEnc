@@ -421,73 +421,47 @@ static inline RGYBitstream RGYBitstreamInit() {
 
 static_assert(std::is_pod<RGYBitstream>::value == true, "RGYBitstream should be POD type.");
 
-struct RGYCLFrame;
-
-class RGYFrame {
-protected:
-    std::vector<std::shared_ptr<RGYFrameData>> frameDataList;
-public:
-    RGYFrame() : frameDataList() {};
-    virtual ~RGYFrame() {};
-    virtual mfxFrameSurface1 *surf() { return nullptr; };
-    virtual const mfxFrameSurface1 *surf() const { return nullptr; };
-    virtual RGYCLFrame *clframe() { return nullptr; };
-    virtual const RGYCLFrame *clframe() const { return nullptr; };
-    virtual void ptrArray(void *array[3], bool bRGB) = 0;
-    virtual uint8_t *ptrY() = 0;
-    virtual uint8_t *ptrUV() = 0;
-    virtual uint8_t *ptrU() = 0;
-    virtual uint8_t *ptrV() = 0;
-    virtual uint8_t *ptrRGB() = 0;
-    virtual uint32_t pitch() const = 0;
-    virtual uint32_t width() const = 0;
-    virtual uint32_t height() const = 0;
-    virtual sInputCrop crop() const = 0;
-    virtual RGY_CSP csp() const = 0;
-    virtual int64_t timestamp() const = 0;
-    virtual void setTimestamp(int64_t timestamp) = 0;
-    virtual int64_t duration() const = 0;
-    virtual void setDuration(int64_t frame_duration) = 0;
-    virtual RGY_PICSTRUCT picstruct() const = 0;
-    virtual void setPicstruct(RGY_PICSTRUCT picstruct) = 0;
-    virtual int inputFrameId() const = 0;
-    virtual void setInputFrameId(int inputFrameId) = 0;
-    virtual uint64_t flags() const { return RGY_FRAME_FLAG_NONE; };
-    virtual void setFlags(uint64_t flag) { UNREFERENCED_PARAMETER(flag); };
-    virtual const std::vector<std::shared_ptr<RGYFrameData>>& dataList() const { return frameDataList; }
-    virtual std::vector<std::shared_ptr<RGYFrameData>>& dataList() { return frameDataList; }
-    virtual void setDataList(std::vector<std::shared_ptr<RGYFrameData>>& dataList) { frameDataList = dataList; }
-    virtual void clearDataList() { frameDataList.clear(); }
-};
+static inline RGYFrameInfo frameinfo_enc_to_rgy(const mfxFrameSurface1& mfx) {
+    RGYFrameInfo info;
+    info.width = mfx.Info.CropW;
+    info.height = mfx.Info.CropH;
+    info.csp = csp_enc_to_rgy(mfx.Info.FourCC);
+    info.bitdepth = (mfx.Info.BitDepthLuma == 0) ? 8 : mfx.Info.BitDepthLuma;
+    info.picstruct = picstruct_enc_to_rgy(mfx.Info.PicStruct);
+    info.mem_type = RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED;
+    info.timestamp = mfx.Data.TimeStamp;
+    info.duration = 0;
+    info.inputFrameId = mfx.Data.FrameOrder;
+    info.flags = (RGY_FRAME_FLAGS)mfx.Data.DataFlag;
+    memset(info.ptr, 0, sizeof(info.ptr));
+    if (mfx.Info.FourCC == MFX_FOURCC_Y410) {
+        info.ptr[0] = (uint8_t *)mfx.Data.Y410;
+    } else if (mfx.Info.FourCC == MFX_FOURCC_RGB3
+            || mfx.Info.FourCC == MFX_FOURCC_RGB4) {
+        info.ptr[0] = (uint8_t *)(std::min)((std::min)(mfx.Data.R, mfx.Data.G), mfx.Data.B);
+    } else {
+        info.ptr[0] = (uint8_t *)mfx.Data.Y;
+        info.ptr[1] = (uint8_t *)mfx.Data.UV;
+        info.ptr[2] = (uint8_t *)mfx.Data.V;
+    }
+    memset(info.pitch, 0, sizeof(info.pitch));
+    for (int i = 0; i < RGY_CSP_PLANES[info.csp]; i++) {
+        info.pitch[i] = mfx.Data.Pitch;
+    }
+    return info;
+}
 
 class RGYFrameMFXSurf : public RGYFrame {
 protected:
     mfxFrameSurface1 m_surface;
+    uint64_t m_duration;
+    std::vector<std::shared_ptr<RGYFrameData>> m_dataList;
 public:
-    RGYFrameMFXSurf(mfxFrameSurface1& s) : m_surface(s) { };
-    virtual mfxFrameSurface1 *surf() override { return &m_surface; };
-    virtual const mfxFrameSurface1 *surf() const override { return &m_surface; };
-    virtual int64_t timestamp() const override { return m_surface.Data.TimeStamp; }
-    virtual void setTimestamp(int64_t timestamp) override { m_surface.Data.TimeStamp = timestamp; }
-    virtual int inputFrameId() const override { return m_surface.Data.FrameOrder; }
-    virtual void setInputFrameId(int inputFrameId) override { m_surface.Data.FrameOrder = inputFrameId; }
-    virtual uint64_t flags() const  override { return m_surface.Data.DataFlag; }
-    virtual void setFlags(uint64_t flag) override { m_surface.Data.DataFlag = (decltype(m_surface.Data.DataFlag))flag; };
-
-    virtual void ptrArray(void *array[3], bool bRGB) override {
-        array[0] = (m_surface.Info.FourCC == MFX_FOURCC_Y410) ? (void *)m_surface.Data.Y410 : ((bRGB) ? ptrRGB() : m_surface.Data.Y);
-        array[1] = m_surface.Data.UV;
-        array[2] = m_surface.Data.V;
-    }
-    virtual uint8_t *ptrY() override { return m_surface.Data.Y; }
-    virtual uint8_t *ptrUV() override { return m_surface.Data.UV; }
-    virtual uint8_t *ptrU() override { return m_surface.Data.U; }
-    virtual uint8_t *ptrV() override { return m_surface.Data.V; }
-    virtual uint8_t *ptrRGB() override { return (std::min)((std::min)(m_surface.Data.R, m_surface.Data.G), m_surface.Data.B); }
-    virtual uint32_t pitch() const override { return m_surface.Data.Pitch; }
-    virtual uint32_t width() const override { return m_surface.Info.CropW; }
-    virtual uint32_t height() const override { return m_surface.Info.CropH; }
-    virtual sInputCrop crop() const override {
+    RGYFrameMFXSurf(mfxFrameSurface1& s) : m_surface(s), m_duration(0), m_dataList() { };
+    virtual mfxFrameSurface1 *surf() { return &m_surface; };
+    virtual const mfxFrameSurface1 *surf() const { return &m_surface; };
+    virtual bool isempty() const { return false; };
+    virtual sInputCrop crop() const {
         sInputCrop cr;
         cr.e.left = m_surface.Info.CropX;
         cr.e.up = m_surface.Info.CropY;
@@ -495,112 +469,26 @@ public:
         cr.e.bottom = m_surface.Info.Height - m_surface.Info.CropH - m_surface.Info.CropY;
         return cr;
     }
-    virtual RGY_CSP csp() const override { return csp_enc_to_rgy(m_surface.Info.FourCC); }
-    virtual int64_t duration() const override { return m_surface.Data.FrameOrder; }
-    virtual void setDuration(int64_t frame_duration) override { m_surface.Data.FrameOrder = (decltype(m_surface.Data.FrameOrder))frame_duration; }
-    virtual RGY_PICSTRUCT picstruct() const override { return picstruct_enc_to_rgy(m_surface.Info.PicStruct); }
+    virtual void setTimestamp(uint64_t timestamp) override { m_surface.Data.TimeStamp = timestamp; }
+    virtual void setDuration(uint64_t frame_duration) override { m_surface.Data.FrameOrder = (decltype(m_surface.Data.FrameOrder))frame_duration; }
     virtual void setPicstruct(RGY_PICSTRUCT picstruct) override { m_surface.Info.PicStruct = picstruct_rgy_to_enc(picstruct); }
+    virtual void setInputFrameId(int inputFrameId) override { m_surface.Data.FrameOrder = inputFrameId; }
+    virtual void setFlags(RGY_FRAME_FLAGS flag) override { m_surface.Data.DataFlag = (decltype(m_surface.Data.DataFlag))flag; };
+    virtual void clearDataList() override { m_dataList.clear(); };
+    virtual const std::vector<std::shared_ptr<RGYFrameData>>& dataList() const override { return m_dataList; };
+    virtual std::vector<std::shared_ptr<RGYFrameData>>& dataList() override { return m_dataList; };
+    virtual void setDataList(const std::vector<std::shared_ptr<RGYFrameData>>& dataList) override { m_dataList = dataList; };
+    RGYFrameInfo getInfoCopy() const { return getInfo(); }
+    uint32_t locked() const { return m_surface.Data.Locked; }
+protected:
+    virtual RGYFrameInfo getInfo() const override {
+        RGYFrameInfo info = frameinfo_enc_to_rgy(m_surface);
+        info.duration = m_duration;
+        info.dataList = m_dataList;
+        return info;
+    }
 };
 
-#if !FOR_AUO
-class RGYFrameCL : public RGYFrame {
-protected:
-    std::unique_ptr<RGYCLFrame> openclframe;
-public:
-    RGYFrameCL(std::unique_ptr<RGYCLFrame>& f) : openclframe(std::move(f)) {};
-    virtual RGYCLFrame *clframe() override { return openclframe.get(); };
-    virtual const RGYCLFrame *clframe() const override { return openclframe.get(); };
-    virtual int64_t timestamp() const override { return openclframe->frameInfo().timestamp; }
-    virtual void setTimestamp(int64_t timestamp) override { openclframe->frameInfo().timestamp = timestamp; };
-    virtual int inputFrameId() const override { return openclframe->frameInfo().inputFrameId; }
-    virtual void setInputFrameId(int inputFrameId) override { openclframe->frameInfo().inputFrameId = inputFrameId; }
-    virtual uint64_t flags() const override { return openclframe->frameInfo().flags; }
-    virtual void setFlags(uint64_t flag) override { openclframe->frameInfo().flags = (RGY_FRAME_FLAGS)flag; };
-    virtual void ptrArray(void *array[3], bool bRGB) override {
-        UNREFERENCED_PARAMETER(bRGB);
-        auto frame = openclframe->frameInfo();
-        array[0] = frame.ptr[0];
-        array[1] = frame.ptr[1];
-        array[2] = frame.ptr[2];
-    }
-    virtual uint8_t *ptrY() override {
-        auto frame = openclframe->frameInfo();
-        auto plane = getPlane(&frame, RGY_PLANE_Y);
-        return plane.ptr[0];
-    }
-    virtual uint8_t *ptrUV() override {
-        auto frame = openclframe->frameInfo();
-        auto plane = getPlane(&frame, RGY_PLANE_C);
-        return plane.ptr[0];
-    }
-    virtual uint8_t *ptrU() override {
-        auto frame = openclframe->frameInfo();
-        auto plane = getPlane(&frame, RGY_PLANE_U);
-        return plane.ptr[0];
-    }
-    virtual uint8_t *ptrV() override {
-        auto frame = openclframe->frameInfo();
-        auto plane = getPlane(&frame, RGY_PLANE_U);
-        return plane.ptr[0];
-    }
-    virtual uint8_t *ptrRGB() override { return nullptr; }
-    virtual uint32_t pitch() const override { return openclframe->frameInfo().pitch[0]; }
-    virtual uint32_t width() const override { return openclframe->frameInfo().width; }
-    virtual uint32_t height() const override { return openclframe->frameInfo().height; }
-    virtual sInputCrop crop() const override { return sInputCrop(); }
-    virtual RGY_CSP csp() const override { return openclframe->frameInfo().csp; }
-    virtual int64_t duration() const override { return openclframe->frameInfo().duration; }
-    virtual void setDuration(int64_t frame_duration) override { openclframe->frameInfo().duration = frame_duration; }
-    virtual RGY_PICSTRUCT picstruct() const override { return openclframe->frameInfo().picstruct; }
-    virtual void setPicstruct(RGY_PICSTRUCT picstruct) override { openclframe->frameInfo().picstruct = picstruct; }
-};
-#endif
-
-class RGYFrameRef : public RGYFrame {
-protected:
-    RGYFrameInfo frame;
-public:
-    RGYFrameRef(const RGYFrameInfo& f) : frame(f) {};
-    const RGYFrameInfo *info() const { return &frame; }
-    virtual int64_t timestamp() const override { return frame.timestamp; }
-    virtual void setTimestamp(int64_t timestamp) override { frame.timestamp = timestamp; };
-    virtual int inputFrameId() const override { return frame.inputFrameId; }
-    virtual void setInputFrameId(int inputFrameId) override { frame.inputFrameId = inputFrameId; }
-    virtual uint64_t flags() const override { return frame.flags; }
-    virtual void setFlags(uint64_t flag) override { frame.flags = (RGY_FRAME_FLAGS)flag; };
-    virtual void ptrArray(void *array[3], bool bRGB) override {
-        UNREFERENCED_PARAMETER(bRGB);
-        array[0] = frame.ptr[0];
-        array[1] = frame.ptr[1];
-        array[2] = frame.ptr[2];
-    }
-    virtual uint8_t *ptrY() override {
-        auto plane = getPlane(&frame, RGY_PLANE_Y);
-        return plane.ptr[0];
-    }
-    virtual uint8_t *ptrUV() override {
-        auto plane = getPlane(&frame, RGY_PLANE_C);
-        return plane.ptr[0];
-    }
-    virtual uint8_t *ptrU() override {
-        auto plane = getPlane(&frame, RGY_PLANE_U);
-        return plane.ptr[0];
-    }
-    virtual uint8_t *ptrV() override {
-        auto plane = getPlane(&frame, RGY_PLANE_U);
-        return plane.ptr[0];
-    }
-    virtual uint8_t *ptrRGB() override { return nullptr; }
-    virtual uint32_t pitch() const override { return frame.pitch[0]; }
-    virtual uint32_t width() const override { return frame.width; }
-    virtual uint32_t height() const override { return frame.height; }
-    virtual sInputCrop crop() const override { return sInputCrop(); }
-    virtual RGY_CSP csp() const override { return frame.csp; }
-    virtual int64_t duration() const override { return frame.duration; }
-    virtual void setDuration(int64_t frame_duration) override { frame.duration = frame_duration; }
-    virtual RGY_PICSTRUCT picstruct() const override { return frame.picstruct; }
-    virtual void setPicstruct(RGY_PICSTRUCT picstruct) override { frame.picstruct = picstruct; }
-};
 const TCHAR *get_low_power_str(uint32_t LowPower);
 const TCHAR *get_err_mes(int sts);
 static void print_err_mes(int sts) {

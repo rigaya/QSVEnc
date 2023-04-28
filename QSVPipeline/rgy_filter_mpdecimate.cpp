@@ -143,7 +143,7 @@ RGY_ERR RGYFilterMpdecimateFrameData::set(const RGYFrameInfo *pInputFrame, int i
 
 bool RGYFilterMpdecimateFrameData::checkIfFrameCanbeDropped(const int hi, const int lo, const float factor) {
     m_tmp->mapWait();
-    auto tmpMappedHost = m_tmp->mappedHost();
+    const auto tmpMappedHost = m_tmp->mappedHost()->frameInfo();
     const int threshold = (int)((float)tmpMappedHost.width * tmpMappedHost.height * factor + 0.5f);
     int loCount = 0;
     for (int iplane = 0; iplane < RGY_CSP_PLANES[tmpMappedHost.csp]; iplane++) {

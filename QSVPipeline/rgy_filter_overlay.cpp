@@ -559,7 +559,7 @@ RGY_ERR RGYFilterOverlay::getFrame(RGYOpenCLQueue& queue) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to wait map buffer for frame: %s.\n"), get_err_mes(ret));
             return ret;
         }
-        auto frameHost = m_frame.dev->mappedHost();
+        const auto frameHost = m_frame.dev->mappedHost()->frameInfo();
         sInputCrop crop = { 0 };
         void *dst_array_frame[3] = {
             getPlane(&frameHost, RGY_PLANE_Y).ptr[0],
@@ -592,7 +592,7 @@ RGY_ERR RGYFilterOverlay::getFrame(RGYOpenCLQueue& queue) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to wait map buffer for alpha: %s.\n"), get_err_mes(ret));
             return ret;
         }
-        auto frameHostAlpha = m_alpha.dev->mappedHost();
+        const auto frameHostAlpha = m_alpha.dev->mappedHost()->frameInfo();
         auto prm = std::dynamic_pointer_cast<RGYFilterParamOverlay>(m_param);
         if (!prm) {
             AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
