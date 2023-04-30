@@ -20,12 +20,14 @@ QSVEncC could be run directly from the extracted directory.
 ## Linux (Ubuntu 22.04)
 
 ### 1. Install Intel Media driver  
-OpenCL driver can be installed following instruction on [this link](https://dgpu-docs.intel.com/installation-guides/ubuntu/ubuntu-focal.html).
+OpenCL driver can be installed following instruction on [this link](https://dgpu-docs.intel.com/installation-guides/ubuntu/ubuntu-jammy-arc.html).
 
 ```Shell
 sudo apt-get install -y gpg-agent wget
-wget -qO - https://repositories.intel.com/graphics/intel-graphics.key | sudo apt-key add -
-sudo apt-add-repository 'deb [arch=amd64] https://repositories.intel.com/graphics/ubuntu jammy main'
+wget -qO - https://repositories.intel.com/graphics/intel-graphics.key | \
+  sudo gpg --dearmor --output /usr/share/keyrings/intel-graphics.gpg
+echo 'deb [arch=amd64,i386 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/graphics/ubuntu jammy arc' | \
+  sudo tee  /etc/apt/sources.list.d/intel.gpu.jammy.list
 sudo apt-get update
 sudo apt install intel-media-va-driver-non-free intel-opencl-icd
 ```
@@ -91,12 +93,14 @@ There are some features which require additional installations.
 ## Linux (Ubuntu 20.04)
 
 ### 1. Install Intel Media driver  
-OpenCL driver can be installed following instruction on [this link](https://dgpu-docs.intel.com/installation-guides/ubuntu/ubuntu-focal.html).
+OpenCL driver can be installed following instruction on [this link](https://dgpu-docs.intel.com/installation-guides/ubuntu/ubuntu-focal-arc.html).
 
 ```Shell
 sudo apt-get install -y gpg-agent wget
-wget -qO - https://repositories.intel.com/graphics/intel-graphics.key | sudo apt-key add -
-sudo apt-add-repository 'deb [arch=amd64] https://repositories.intel.com/graphics/ubuntu focal main'
+wget -qO - https://repositories.intel.com/graphics/intel-graphics.key | \
+  sudo gpg --dearmor --output /usr/share/keyrings/intel-graphics.gpg
+echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/graphics/ubuntu focal-devel main' | \
+  sudo tee  /etc/apt/sources.list.d/intel.gpu.focal.list
 sudo apt-get update
 sudo apt install intel-media-va-driver-non-free intel-opencl-icd
 ```

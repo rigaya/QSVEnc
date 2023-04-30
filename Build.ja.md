@@ -89,6 +89,202 @@ sudo apt install build-essential libtool git cmake
 OpenCL関連のインストール方法は[こちらのリンク](https://dgpu-docs.intel.com/installation-guides/ubuntu/ubuntu-focal.html)にあるが、すべて必要ではなく、下記で問題ない。
 
 ```Shell
+sudo apt-get install -y gpg-agent wget
+wget -qO - https://repositories.intel.com/graphics/intel-graphics.key | \
+  sudo gpg --dearmor --output /usr/share/keyrings/intel-graphics.gpg
+echo 'deb [arch=amd64,i386 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/graphics/ubuntu jammy arc' | \
+  sudo tee  /etc/apt/sources.list.d/intel.gpu.jammy.list
+sudo apt update
+sudo apt install intel-media-va-driver-non-free intel-opencl-icd opencl-headers
+```
+
+### 3. ビルドに必要なライブラリのインストール
+
+```Shell
+sudo apt install \
+  libva-drm2 \
+  libva-x11-2 \
+  libva-glx2 \
+  libx11-dev \
+  libigfxcmrt7 \
+  libva-dev \
+  libdrm-dev
+
+sudo apt install ffmpeg \
+  libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev libavdevice-dev \
+  libass9 libass-dev
+```
+
+### 4. [オプション] VapourSynthのビルド
+VapourSynthのインストールは必須ではありませんが、インストールしておくとvpyを読み込めるようになります。
+
+必要のない場合は 5. QSVEncCのビルド に進んでください。
+
+<details><summary>VapourSynthのビルドの詳細はこちら</summary>
+
+#### 4.1 ビルドに必要なツールのインストール
+```Shell
+sudo apt install python3-pip autoconf automake libtool meson
+```
+
+#### 4.2 zimgのインストール
+```Shell
+git clone https://github.com/sekrit-twc/zimg.git --recursive
+cd zimg
+./autogen.sh
+./configure
+make && sudo make install
+cd ..
+```
+
+#### 4.3 cythonのインストール
+```Shell
+sudo pip3 install Cython
+```
+
+#### 4.4 VapourSynthのビルド
+```Shell
+git clone https://github.com/vapoursynth/vapoursynth.git
+cd vapoursynth
+./autogen.sh
+./configure
+make && sudo make install
+
+# vapoursynthが自動的にロードされるようにする
+# "python3.x" は環境に応じて変えてください。これを書いた時点ではpython3.7でした
+sudo ln -s /usr/local/lib/python3.x/site-packages/vapoursynth.so /usr/lib/python3.x/lib-dynload/vapoursynth.so
+sudo ldconfig
+```
+
+#### 4.5 VapourSynthの動作確認
+エラーが出ずにバージョンが表示されればOK。
+```Shell
+vspipe --version
+```
+
+#### 4.6 [おまけ] vslsmashsourceのビルド
+```Shell
+# lsmashのビルド
+git clone https://github.com/l-smash/l-smash.git
+cd l-smash
+./configure --enable-shared
+make && sudo make install
+cd ..
+ 
+# vslsmashsourceのビルド
+git clone https://github.com/HolyWu/L-SMASH-Works.git
+# ffmpegのバージョンが合わないので、下記バージョンを取得する
+cd L-SMASH-Works
+git checkout -b 20200531 refs/tags/20200531
+cd VapourSynth
+meson build
+cd build
+ninja && sudo ninja install
+cd ../../../
+```
+</details>
+
+### 5. [オプション] AvisynthPlusのビルド
+
+AvisynthPlusのインストールは必須ではありませんが、インストールしておくとavsを読み込めるようになります。
+
+必要のない場合は 7. NVEncCのビルド に進んでください。
+
+<details><summary>AvisynthPlusのビルドの詳細はこちら</summary>
+#### 5.1 ビルドに必要なツールのインストール
+```Shell
+sudo apt install cmake
+```
+
+#### 5.2 AvisynthPlusのインストール
+```Shell
+git clone https://github.com/AviSynth/AviSynthPlus.git
+cd AviSynthPlus
+mkdir avisynth-build && cd avisynth-build 
+cmake ../
+make && sudo make install
+cd ../..
+```
+
+#### 5.3 [おまけ] lsmashsourceのビルド
+```Shell
+# lsmashのビルド
+git clone https://github.com/l-smash/l-smash.git
+cd l-smash
+./configure --enable-shared
+make && sudo make install
+cd ..
+
+# lsmashsourceのビルド
+git clone https://github.com/HolyWu/L-SMASH-Works.git
+cd L-SMASH-Works
+# libavcodec の要求バージョンをクリアするためバージョンを下げる
+git checkout -b 20200531 refs/tags/20200531
+cd AviSynth
+meson build
+cd build
+ninja && sudo ninja install
+cd ../../../
+```
+
+</details>
+
+### 5. QSVとOpenCLの使用のため、ユーザーを下記グループに追加
+```Shell
+# QSV
+sudo gpasswd -a ${USER} video
+# OpenCL
+sudo gpasswd -a ${USER} render
+```
+
+### 5. QSVEncCのビルド
+```Shell
+git clone https://github.com/rigaya/QSVEnc --recursive
+cd QSVEnc
+./configure
+make
+```
+動作するか確認します。
+```Shell
+./qsvencc --check-hw
+```
+
+うまく動作するようなら下記のように表示されます。
+```
+Success: QuickSyncVideo (hw encoding) available
+```
+
+
+## Linux (Ubuntu 20.04)
+
+### 0. ビルドに必要なもの
+
+- C++17 Compiler
+- Intel Driver
+- git
+- cmake
+- libraries
+  - libva, libdrm 
+  - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3, libavdevice58)
+  - libass9
+  - [Optional] VapourSynth
+
+### 1. コンパイラ等のインストール
+
+```Shell
+sudo apt install build-essential libtool git cmake
+```
+
+### 2. Intel ドライバのインストール
+OpenCL関連のインストール方法は[こちらのリンク](https://dgpu-docs.intel.com/installation-guides/ubuntu/ubuntu-focal.html)にあるが、すべて必要ではなく、下記で問題ない。
+
+```Shell
+sudo apt-get install -y gpg-agent wget
+wget -qO - https://repositories.intel.com/graphics/intel-graphics.key | \
+  sudo gpg --dearmor --output /usr/share/keyrings/intel-graphics.gpg
+echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/graphics/ubuntu focal-devel main' | \
+  sudo tee  /etc/apt/sources.list.d/intel.gpu.focal.list
+sudo apt update
 sudo apt install intel-media-va-driver-non-free intel-opencl-icd opencl-headers
 ```
 

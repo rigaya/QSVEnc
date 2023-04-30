@@ -88,6 +88,12 @@ sudo apt install build-essential libtool pkg-config git cmake
 OpenCL driver can be installed following instruction on [this link](https://dgpu-docs.intel.com/installation-guides/ubuntu/ubuntu-focal.html), but QSVEnc will require only part of it.
 
 ```Shell
+sudo apt-get install -y gpg-agent wget
+wget -qO - https://repositories.intel.com/graphics/intel-graphics.key | \
+  sudo gpg --dearmor --output /usr/share/keyrings/intel-graphics.gpg
+echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/graphics/ubuntu jammy main' | \
+  sudo tee  /etc/apt/sources.list.d/intel.gpu.focal.list
+sudo apt update
 sudo apt install intel-media-va-driver-non-free intel-opencl-icd opencl-headers
 ```
 
@@ -268,6 +274,12 @@ sudo apt install build-essential libtool pkg-config git cmake
 OpenCL driver can be installed following instruction on [this link](https://dgpu-docs.intel.com/installation-guides/ubuntu/ubuntu-focal.html), but QSVEnc will require only part of it.
 
 ```Shell
+sudo apt-get install -y gpg-agent wget
+wget -qO - https://repositories.intel.com/graphics/intel-graphics.key | \
+  sudo gpg --dearmor --output /usr/share/keyrings/intel-graphics.gpg
+echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/graphics/ubuntu focal-devel main' | \
+  sudo tee  /etc/apt/sources.list.d/intel.gpu.focal.list
+sudo apt update
 sudo apt install intel-media-va-driver-non-free intel-opencl-icd opencl-headers
 ```
 

@@ -21,13 +21,15 @@
 ## Linux (Ubuntu 22.04)
 
 ### 1. Intel Media ドライバのインストール  
-OpenCL関連は[こちらのリンク](https://dgpu-docs.intel.com/installation-guides/ubuntu/ubuntu-focal.html)に従ってインストールする。
+OpenCL関連は[こちらのリンク](https://dgpu-docs.intel.com/installation-guides/ubuntu/ubuntu-jammy-arc.html)に従ってインストールする。
 
 ```Shell
 sudo apt-get install -y gpg-agent wget
-wget -qO - https://repositories.intel.com/graphics/intel-graphics.key | sudo apt-key add -
-sudo apt-add-repository 'deb [arch=amd64] https://repositories.intel.com/graphics/ubuntu jammy main'
-sudo apt-get update
+wget -qO - https://repositories.intel.com/graphics/intel-graphics.key | \
+  sudo gpg --dearmor --output /usr/share/keyrings/intel-graphics.gpg
+echo 'deb [arch=amd64,i386 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/graphics/ubuntu jammy arc' | \
+  sudo tee  /etc/apt/sources.list.d/intel.gpu.jammy.list
+sudo apt update
 sudo apt install intel-media-va-driver-non-free intel-opencl-icd
 ```
 
@@ -97,12 +99,14 @@ sudo apt install ./qsvencc_x.xx_Ubuntu22.04_amd64.deb
 ## Linux (Ubuntu 20.04)
 
 ### 1. Intel Media ドライバのインストール  
-OpenCL関連は[こちらのリンク](https://dgpu-docs.intel.com/installation-guides/ubuntu/ubuntu-focal.html)に従ってインストールする。
+OpenCL関連は[こちらのリンク](https://dgpu-docs.intel.com/installation-guides/ubuntu/ubuntu-focal-arc.html)に従ってインストールする。
 
 ```Shell
 sudo apt-get install -y gpg-agent wget
-wget -qO - https://repositories.intel.com/graphics/intel-graphics.key | sudo apt-key add -
-sudo apt-add-repository 'deb [arch=amd64] https://repositories.intel.com/graphics/ubuntu focal main'
+wget -qO - https://repositories.intel.com/graphics/intel-graphics.key | \
+  sudo gpg --dearmor --output /usr/share/keyrings/intel-graphics.gpg
+echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/graphics/ubuntu focal-devel main' | \
+  sudo tee  /etc/apt/sources.list.d/intel.gpu.focal.list
 sudo apt-get update
 sudo apt install intel-media-va-driver-non-free intel-opencl-icd
 ```

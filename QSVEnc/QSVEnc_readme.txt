@@ -313,6 +313,14 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2023.05.02 (7.38)
+[QSVEncC]
+- --audio-source/--sub-sourceでファイルのフォーマット等を指定できるように。
+- libavdeviceのサポートを追加。
+- timestampが0で始まらない音声を--audio-sourceで読み込むと、映像と正しく同期が取れない問題を修正。
+- Linux版(Ubuntu 22.04)の依存パッケージの変更。
+  libmfx-gen1.2 -> libmfxgen1
+
 2023.04.12 (7.37)
 [QSVEncC]
 - oneVPL API 2.9に対応。
