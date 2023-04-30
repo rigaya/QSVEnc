@@ -1723,8 +1723,8 @@ public:
                 PrintMes(RGY_LOG_ERROR, _T("Invalid task surface.\n"));
                 return RGY_ERR_NULL_PTR;
             }
-            mfxFrameSurface1 *surfVppIn = taskSurf->surf().mfx()->surf();
-            if (surfVppIn != nullptr) {
+            if (taskSurf->surf().mfx()) {
+                mfxFrameSurface1 *surfVppIn = taskSurf->surf().mfx()->surf();
                 if (m_surfVppInInterop.count(surfVppIn) == 0) {
                     m_surfVppInInterop[surfVppIn] = getOpenCLFrameInterop(surfVppIn, m_memType, CL_MEM_READ_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_vpFilters.front()->GetFilterParam()->frameIn);
                 }
