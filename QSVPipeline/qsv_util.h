@@ -451,6 +451,7 @@ static inline RGYFrameInfo frameinfo_enc_to_rgy(const mfxFrameSurface1& mfx) {
     return info;
 }
 
+#if !FOR_AUO
 class RGYFrameMFXSurf : public RGYFrame {
 protected:
     mfxFrameSurface1 m_surface;
@@ -488,6 +489,7 @@ protected:
         return info;
     }
 };
+#endif
 
 const TCHAR *get_low_power_str(uint32_t LowPower);
 const TCHAR *get_err_mes(int sts);
