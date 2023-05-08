@@ -1330,8 +1330,8 @@ RGY_ERR CQSVPipeline::InitOpenCL(const bool enableOpenCL, const bool checkVppPer
     }
     auto platforms = cl.getPlatforms("Intel");
     if (platforms.size() == 0) {
-        PrintMes(RGY_LOG_ERROR, _T("Failed to find OpenCL platforms.\n"));
-        return RGY_ERR_DEVICE_LOST;
+        PrintMes(RGY_LOG_WARN, _T("Skip OpenCL init as OpenCL platforms not found.\n"));
+        return RGY_ERR_NONE;
     }
     PrintMes(RGY_LOG_DEBUG, _T("Created Intel OpenCL platform.\n"));
 
@@ -1371,20 +1371,21 @@ RGY_ERR CQSVPipeline::InitOpenCL(const bool enableOpenCL, const bool checkVppPer
         break;
     }
     if (!selectedPlatform) {
-        PrintMes(RGY_LOG_ERROR, clErrMessage.c_str());
-        return RGY_ERR_DEVICE_LOST;
+        PrintMes(RGY_LOG_WARN, clErrMessage.c_str());
+        return RGY_ERR_NONE;
     }
     auto devices = selectedPlatform->devs();
     if ((int)devices.size() == 0) {
-        PrintMes(RGY_LOG_ERROR, _T("Failed to OpenCL device.\n"));
-        return RGY_ERR_DEVICE_LOST;
+        PrintMes(RGY_LOG_WARN, _T("Failed to find OpenCL device.\n"));
+        return RGY_ERR_NONE;
     }
     selectedPlatform->setDev(devices[0]);
 
     m_cl = std::make_shared<RGYOpenCLContext>(selectedPlatform, m_pQSVLog);
     if (m_cl->createContext((checkVppPerformance) ? CL_QUEUE_PROFILING_ENABLE : 0) != CL_SUCCESS) {
-        PrintMes(RGY_LOG_ERROR, _T("Failed to create OpenCL context.\n"));
-        return RGY_ERR_UNKNOWN;
+        PrintMes(RGY_LOG_WARN, _T("Failed to create OpenCL context.\n"));
+        m_cl.reset();
+        return RGY_ERR_NONE;
     }
     return RGY_ERR_NONE;
 }
