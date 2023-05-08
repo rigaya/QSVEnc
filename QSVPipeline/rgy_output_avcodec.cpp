@@ -60,6 +60,71 @@ static int64_t funcSeek(void *opaque, int64_t offset, int whence) {
 
 const AVRational RGYOutputAvcodec::QUEUE_DTS_TIMEBASE = av_make_q(1, 90000);
 
+AVMuxThreadWorker::AVMuxThreadWorker() :
+    thread(),
+    thAbort(false),
+    sentEOS(false),
+    heEventPktAdded(nullptr),
+    heEventClosing(nullptr),
+    qPackets() {}
+
+AVMuxThreadWorker::~AVMuxThreadWorker() {
+    if (heEventPktAdded) {
+        CloseEvent(heEventPktAdded);
+        heEventPktAdded = nullptr;
+    }
+    if (heEventClosing) {
+        CloseEvent(heEventClosing);
+        heEventClosing = nullptr;
+    }
+    qPackets.close();
+}
+
+void AVMuxThreadWorker::close() {
+    thAbort = true;
+    if (thread.joinable()) {
+        //ここに来た時に、まだメインスレッドがループ中の可能性がある
+        //その場合、SetEvent(thread.heEventPktAddedOutput)を一度やるだけだと、
+        //そのあとにResetEvent(thread.heEventPktAddedOutput)が発生してしまい、
+        //ここでスレッドが停止してしまう。
+        //これを回避するため、thread.heEventClosingOutputがセットされるまで、
+        //SetEvent(thread.heEventPktAddedOutput)を実行し続ける必要がある。
+        while (WAIT_TIMEOUT == WaitForSingleObject(heEventClosing, 100)) {
+            SetEvent(heEventPktAdded);
+        }
+        thread.join();
+        if (heEventPktAdded) {
+            CloseEvent(heEventPktAdded);
+            heEventPktAdded = nullptr;
+        }
+        if (heEventClosing) {
+            CloseEvent(heEventClosing);
+            heEventClosing = nullptr;
+        }
+        qPackets.close();
+    }
+}
+
+AVMuxThreadAudio::AVMuxThreadAudio() : encode(), process() {};
+
+AVMuxThreadAudio::~AVMuxThreadAudio() {}
+
+void AVMuxThreadAudio::closeEncode() {
+    encode.close();
+}
+
+void AVMuxThreadAudio::closeProcess() {
+    process.close();
+}
+
+bool AVMuxThreadAudio::threadActiveEncode() {
+    return encode.thread.joinable();
+}
+
+bool AVMuxThreadAudio::threadActiveProcess() {
+    return process.thread.joinable();
+}
+
 RGYOutputAvcodec::RGYOutputAvcodec() : m_Mux(), m_AudPktBufFileHead() {
     memset(&m_Mux.format, 0, sizeof(m_Mux.format));
     memset(&m_Mux.video,  0, sizeof(m_Mux.video));
@@ -188,65 +253,35 @@ void RGYOutputAvcodec::CloseFormat(AVMuxFormat *muxFormat) {
 
 void RGYOutputAvcodec::CloseQueues() {
 #if ENABLE_AVCODEC_OUT_THREAD
-    m_Mux.thread.thAudEncodeAbort = true;
-    m_Mux.thread.thAudProcessAbort = true;
-    m_Mux.thread.abortOutput = true;
     m_Mux.thread.qVideobitstream.close();
     m_Mux.thread.qVideobitstreamFreeI.close([](RGYBitstream *pBitstream) { pBitstream->clear(); });
     m_Mux.thread.qVideobitstreamFreePB.close([](RGYBitstream *pBitstream) { pBitstream->clear(); });
-    m_Mux.thread.qAudioPacketOut.close();
-    m_Mux.thread.qAudioFrameEncode.close();
-    m_Mux.thread.qAudioPacketProcess.close();
     AddMessage(RGY_LOG_DEBUG, _T("closed queues...\n"));
 #endif
 }
 
 void RGYOutputAvcodec::CloseThread() {
 #if ENABLE_AVCODEC_OUT_THREAD
-    m_Mux.thread.thAudEncodeAbort = true;
-    if (m_Mux.thread.thAudEncode.joinable()) {
-        //下記同様に、m_Mux.thread.heEventThOutputClosingがセットされるまで、
-        //SetEvent(m_Mux.thread.heEventThOutputPktAdded)を実行し続ける必要がある。
-        while (WAIT_TIMEOUT == WaitForSingleObject(m_Mux.thread.heEventClosingAudEncode, 100)) {
-            SetEvent(m_Mux.thread.heEventPktAddedAudEncode);
+    // process -> encode -> output の順に終了させる
+    for (auto& [mux, thread] : m_Mux.thread.thAud) {
+        if (thread->process.thread.joinable()) {
+            thread->closeProcess();
+            const auto target = (mux) ? strsprintf(_T("%d.%d"), trackID(mux->inTrackId), mux->inSubStream) : tstring(_T("default"));
+            AddMessage(RGY_LOG_DEBUG, _T("closed audio process thread %s.\n"), target.c_str());
         }
-        m_Mux.thread.thAudEncode.join();
-        CloseEvent(m_Mux.thread.heEventPktAddedAudEncode);
-        CloseEvent(m_Mux.thread.heEventClosingAudEncode);
-        AddMessage(RGY_LOG_DEBUG, _T("closed audio encode thread...\n"));
     }
-    m_Mux.thread.thAudProcessAbort = true;
-    if (m_Mux.thread.thAudProcess.joinable()) {
-        //下記同様に、m_Mux.thread.heEventThOutputClosingがセットされるまで、
-        //SetEvent(m_Mux.thread.heEventThOutputPktAdded)を実行し続ける必要がある。
-        while (WAIT_TIMEOUT == WaitForSingleObject(m_Mux.thread.heEventClosingAudProcess, 100)) {
-            SetEvent(m_Mux.thread.heEventPktAddedAudProcess);
+    for (auto& [mux, thread] : m_Mux.thread.thAud) {
+        if (thread->encode.thread.joinable()) {
+            thread->closeEncode();
+            const auto target = (mux) ? strsprintf(_T("%d.%d"), trackID(mux->inTrackId), mux->inSubStream) : tstring(_T("default"));
+            AddMessage(RGY_LOG_DEBUG, _T("closed audio encode thread %s.\n"), target.c_str());
         }
-        m_Mux.thread.thAudProcess.join();
-        CloseEvent(m_Mux.thread.heEventPktAddedAudProcess);
-        CloseEvent(m_Mux.thread.heEventClosingAudProcess);
-        AddMessage(RGY_LOG_DEBUG, _T("closed audio process thread...\n"));
     }
-    m_Mux.thread.abortOutput = true;
-    if (m_Mux.thread.thOutput.joinable()) {
-        //ここに来た時に、まだメインスレッドがループ中の可能性がある
-        //その場合、SetEvent(m_Mux.thread.heEventPktAddedOutput)を一度やるだけだと、
-        //そのあとにResetEvent(m_Mux.thread.heEventPktAddedOutput)が発生してしまい、
-        //ここでスレッドが停止してしまう。
-        //これを回避するため、m_Mux.thread.heEventClosingOutputがセットされるまで、
-        //SetEvent(m_Mux.thread.heEventPktAddedOutput)を実行し続ける必要がある。
-        while (WAIT_TIMEOUT == WaitForSingleObject(m_Mux.thread.heEventClosingOutput, 100)) {
-            SetEvent(m_Mux.thread.heEventPktAddedOutput);
-        }
-        m_Mux.thread.thOutput.join();
-        CloseEvent(m_Mux.thread.heEventPktAddedOutput);
-        CloseEvent(m_Mux.thread.heEventClosingOutput);
+    if (m_Mux.thread.thOutput) {
+        m_Mux.thread.thOutput->close();
         AddMessage(RGY_LOG_DEBUG, _T("closed output thread...\n"));
     }
     CloseQueues();
-    m_Mux.thread.abortOutput = false;
-    m_Mux.thread.thAudProcessAbort = false;
-    m_Mux.thread.thAudEncodeAbort = false;
 #endif
 }
 
@@ -2022,7 +2057,7 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
     }
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
     if (prm->threadAudio == RGY_AUDIO_THREAD_AUTO) {
-        prm->threadAudio = 0;
+        prm->threadAudio = 3;
     }
     m_Mux.thread.enableAudProcessThread = prm->threadOutput > 0 && prm->threadAudio > 0;
     m_Mux.thread.enableAudEncodeThread  = prm->threadOutput > 0 && prm->threadAudio > 1;
@@ -2031,32 +2066,44 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
     if (m_Mux.thread.enableOutputThread) {
         AddMessage(RGY_LOG_DEBUG, _T("starting output thread...\n"));
         const int audioQueueCapacity = 4096;
-        m_Mux.thread.abortOutput = false;
-        m_Mux.thread.thAudProcessAbort = false;
-        m_Mux.thread.thAudEncodeAbort = false;
-        m_Mux.thread.qAudioPacketOut.init(16384, audioQueueCapacity * std::max(1, (int)m_Mux.audio.size())); //字幕のみコピーするときのため、最低でもある程度は確保する
         m_Mux.thread.qVideobitstream.init(4096, (std::max)(256, (m_Mux.video.outputFps.den) ? m_Mux.video.outputFps.num * 4 / m_Mux.video.outputFps.den : 0));
         m_Mux.thread.qVideobitstreamFreeI.init(256);
         m_Mux.thread.qVideobitstreamFreePB.init(3840);
-        m_Mux.thread.heEventPktAddedOutput = CreateEvent(NULL, TRUE, FALSE, NULL);
-        m_Mux.thread.heEventClosingOutput  = CreateEvent(NULL, TRUE, FALSE, NULL);
-        m_Mux.thread.thOutput = std::thread(&RGYOutputAvcodec::WriteThreadFunc, this, prm->threadParamOutput);
+        m_Mux.thread.thOutput = std::make_unique<AVMuxThreadWorker>();
+        m_Mux.thread.thOutput->thAbort = false;
+        m_Mux.thread.thOutput->qPackets.init(16384, audioQueueCapacity * std::max(1, (int)m_Mux.audio.size())); //字幕のみコピーするときのため、最低でもある程度は確保する
+        m_Mux.thread.thOutput->heEventPktAdded = CreateEvent(NULL, TRUE, FALSE, NULL);
+        m_Mux.thread.thOutput->heEventClosing = CreateEvent(NULL, TRUE, FALSE, NULL);
+        m_Mux.thread.thOutput->thread = std::thread(&RGYOutputAvcodec::WriteThreadFunc, this, prm->threadParamOutput);
         AddMessage(RGY_LOG_DEBUG, _T("Set output thread param: %s.\n"), prm->threadParamOutput.desc().c_str());
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
         if (m_Mux.thread.enableAudProcessThread) {
-            AddMessage(RGY_LOG_DEBUG, _T("starting audio process thread...\n"));
-            m_Mux.thread.qAudioPacketProcess.init(16384, audioQueueCapacity * std::max(2, (int)m_Mux.audio.size()), 4);
-            m_Mux.thread.heEventPktAddedAudProcess = CreateEvent(NULL, TRUE, FALSE, NULL);
-            m_Mux.thread.heEventClosingAudProcess  = CreateEvent(NULL, TRUE, FALSE, NULL);
-            m_Mux.thread.thAudProcess = std::thread(&RGYOutputAvcodec::ThreadFuncAudThread, this, prm->threadParamAudio);
-            AddMessage(RGY_LOG_DEBUG, _T("Set audio process thread param: %s.\n"), prm->threadParamAudio.desc().c_str());
-            if (m_Mux.thread.enableAudEncodeThread) {
-                AddMessage(RGY_LOG_DEBUG, _T("starting audio encode thread...\n"));
-                m_Mux.thread.qAudioFrameEncode.init(16384, audioQueueCapacity * std::max(2, (int)m_Mux.audio.size()), 4);
-                m_Mux.thread.heEventPktAddedAudEncode = CreateEvent(NULL, TRUE, FALSE, NULL);
-                m_Mux.thread.heEventClosingAudEncode  = CreateEvent(NULL, TRUE, FALSE, NULL);
-                m_Mux.thread.thAudEncode = std::thread(&RGYOutputAvcodec::ThreadFuncAudEncodeThread, this, prm->threadParamAudio);
-                AddMessage(RGY_LOG_DEBUG, _T("Set audio encode thread param: %s.\n"), prm->threadParamAudio.desc().c_str());
+            auto muxAudioPtr = std::vector<const AVMuxAudio*>{ nullptr };
+            if (prm->threadAudio > 2) {
+                for (auto& aud : m_Mux.audio) {
+                    muxAudioPtr.push_back(&aud);
+                }
+            }
+            const auto audioQueueMultiplizer = (prm->threadAudio > 2) ? 2 : std::max(2, (int)m_Mux.audio.size());
+            for (auto mux : muxAudioPtr) {
+                const auto target = (mux) ? strsprintf(_T("%d.%d"), trackID(mux->inTrackId), mux->inSubStream) : tstring(_T("default"));
+                AddMessage(RGY_LOG_DEBUG, _T("starting audio process thread %s...\n"), target.c_str());
+                m_Mux.thread.thAud[mux] = std::make_unique<AVMuxThreadAudio>();
+                m_Mux.thread.thAud[mux]->process.thAbort = false;
+                m_Mux.thread.thAud[mux]->process.qPackets.init(16384, audioQueueCapacity * audioQueueMultiplizer, 4);
+                m_Mux.thread.thAud[mux]->process.heEventPktAdded = CreateEvent(NULL, TRUE, FALSE, NULL);
+                m_Mux.thread.thAud[mux]->process.heEventClosing = CreateEvent(NULL, TRUE, FALSE, NULL);
+                m_Mux.thread.thAud[mux]->process.thread = std::thread(&RGYOutputAvcodec::ThreadFuncAudThread, this, mux, prm->threadParamAudio);
+                AddMessage(RGY_LOG_DEBUG, _T("Set audio process thread param %s: %s.\n"), target.c_str(), prm->threadParamAudio.desc().c_str());
+                if (m_Mux.thread.enableAudEncodeThread) {
+                    AddMessage(RGY_LOG_DEBUG, _T("starting audio encode thread %s...\n"), target.c_str());
+                    m_Mux.thread.thAud[mux]->encode.thAbort = false;
+                    m_Mux.thread.thAud[mux]->encode.qPackets.init(16384, audioQueueCapacity * audioQueueMultiplizer, 4);
+                    m_Mux.thread.thAud[mux]->encode.heEventPktAdded = CreateEvent(NULL, TRUE, FALSE, NULL);
+                    m_Mux.thread.thAud[mux]->encode.heEventClosing = CreateEvent(NULL, TRUE, FALSE, NULL);
+                    m_Mux.thread.thAud[mux]->encode.thread = std::thread(&RGYOutputAvcodec::ThreadFuncAudEncodeThread, this, mux, prm->threadParamAudio);
+                    AddMessage(RGY_LOG_DEBUG, _T("Set audio encode thread param %s: %s.\n"), target.c_str(), prm->threadParamAudio.desc().c_str());
+                }
             }
         }
 #endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
@@ -2380,7 +2427,7 @@ uint32_t RGYOutputAvcodec::getH264PAFFFieldLength(const uint8_t *ptr, uint32_t s
 
 RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYBitstream *bitstream) {
 #if ENABLE_AVCODEC_OUT_THREAD
-    if (m_Mux.thread.thOutput.joinable()) {
+    if (m_Mux.thread.thOutput) {
         RGYBitstream copyStream = RGYBitstreamInit();
         bool bFrameI = (bitstream->frametype() & RGY_FRAMETYPE_I) != 0;
         bool bFrameP = (bitstream->frametype() & RGY_FRAMETYPE_P) != 0;
@@ -2413,7 +2460,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYBitstream *bitstream) {
         }
         bitstream->setSize(0);
         bitstream->setOffset(0);
-        SetEvent(m_Mux.thread.heEventPktAddedOutput);
+        SetEvent(m_Mux.thread.thOutput->heEventPktAdded);
         return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
     }
 #endif
@@ -2458,7 +2505,7 @@ RGY_ERR RGYOutputAvcodec::VidCheckStreamAVParser(RGYBitstream *pBitstream) {
 RGY_ERR RGYOutputAvcodec::WriteNextFrameFinish(RGYBitstream *bitstream, const RGY_FRAMETYPE frameType) {
 #if ENABLE_AVCODEC_OUT_THREAD
     //最初のヘッダーを書いたパケットはコピーではないので、キューに入れない
-    if (m_Mux.thread.thOutput.joinable()) {
+    if (m_Mux.thread.thOutput) {
         //確保したメモリ領域を使いまわすためにキューに格納
         const auto frameI = (frameType & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_I)) != 0;
         auto& qVideoQueueFree = (frameI) ? m_Mux.thread.qVideobitstreamFreeI : m_Mux.thread.qVideobitstreamFreePB;
@@ -2872,10 +2919,10 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYFrame *surface) {
 vector<int> RGYOutputAvcodec::GetStreamTrackIdList() {
     vector<int> streamTrackId;
     streamTrackId.reserve(m_Mux.audio.size());
-    for (auto audio : m_Mux.audio) {
+    for (const auto& audio : m_Mux.audio) {
         streamTrackId.push_back(audio.inTrackId);
     }
-    for (auto sub : m_Mux.other) {
+    for (const auto& sub : m_Mux.other) {
         streamTrackId.push_back(sub.inTrackId);
     }
     return streamTrackId;
@@ -2990,12 +3037,25 @@ RGY_ERR RGYOutputAvcodec::applyBitstreamFilterAudio(AVPacket *pkt, AVMuxAudio *m
 // dts       ... [o]  書き出したパケットの最終的なdtsをHW_NATIVE_TIMEBASEで返す
 void RGYOutputAvcodec::WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *pkt, int samples, int64_t *writtenDts) {
     if (pkt == nullptr || pkt->buf == nullptr) {
-        //音声の全トラックにnullパケット送信
-        for (uint32_t i = 0; i < m_Mux.audio.size(); i++) {
-            AudioFlushStream(&m_Mux.audio[i], writtenDts);
+        //muxAudioのnullpacketが到着した
+        muxAudio->flushed = true;
+        //送出したEOSがすべて来たか確認しないといけない
+        const auto loglevel_flush = RGY_LOG_DEBUG;
+        if (std::find_if(m_Mux.audio.begin(), m_Mux.audio.end(), [](const auto& audio) {
+            return !audio.flushed;
+        }) == m_Mux.audio.end()) {
+            *writtenDts = INT64_MAX;
+            AddMessage(RGY_LOG_DEBUG, _T("Flushed audio buffer.\n"));
+        } else if (m_printMes && loglevel_flush >= m_printMes->getLogLevel(RGY_LOGT_OUT)) { // ログ出力用
+            tstring tracks;
+            for (auto& aud : m_Mux.audio) {
+                if (!aud.flushed) {
+                    if (tracks.length() > 0) tracks += _T(", ");
+                    tracks += strsprintf(_T("%d"), trackID(aud.inTrackId));
+                }
+            }
+            AddMessage(loglevel_flush, _T("null packet from %d, waiting for EOS to come from other tracks: [%s].\n"), muxAudio ? trackID(muxAudio->inTrackId) : 0, tracks.c_str());
         }
-        *writtenDts = INT64_MAX;
-        AddMessage(RGY_LOG_DEBUG, _T("Flushed audio buffer.\n"));
         return;
     }
     //durationについて、sample数から出力ストリームのtimebaseに変更する
@@ -3295,6 +3355,9 @@ vector<AVPktMuxData> RGYOutputAvcodec::AudioEncodeFrame(AVMuxAudio *muxAudio, AV
 }
 
 void RGYOutputAvcodec::AudioFlushStream(AVMuxAudio *muxAudio, int64_t *writtenDts) {
+    if (muxAudio->flushed) { // AudioFlushStream は一度のみでOK
+        return;
+    }
     while (muxAudio->outCodecDecodeCtx && !muxAudio->encodeError) {
         auto decodedFrames = AudioDecodePacket(muxAudio, nullptr);
         if (decodedFrames.size() == 0) {
@@ -3330,6 +3393,7 @@ void RGYOutputAvcodec::AudioFlushStream(AVMuxAudio *muxAudio, int64_t *writtenDt
             WriteNextPacketProcessed(&pktMux, writtenDts);
         }
     }
+    muxAudio->flushed = true; // AudioFlushStream を完了したフラグ
 }
 
 RGY_ERR RGYOutputAvcodec::SubtitleTranscode(const AVMuxOther *muxSub, AVPacket *pkt) {
@@ -3453,32 +3517,80 @@ AVPktMuxData RGYOutputAvcodec::pktMuxData(AVFrame *pFrame) {
     return data;
 }
 
+//対象パケットの担当スレッドを探す
+AVMuxThreadWorker *RGYOutputAvcodec::getPacketWorker(const AVMuxAudio *muxAudio, const int type) {
+    if (type == AUD_QUEUE_OUT) {
+        return m_Mux.thread.thOutput.get();
+    }
+    auto worker = m_Mux.thread.thAud.find(muxAudio);
+    if (worker == m_Mux.thread.thAud.end()) {
+        worker = m_Mux.thread.thAud.find(nullptr);
+    }
+    return (type == AUD_QUEUE_PROCESS) ? &worker->second->process : &worker->second->encode;
+}
+
 RGY_ERR RGYOutputAvcodec::WriteNextPacket(AVPacket *pkt) {
     AVPktMuxData pktData = pktMuxData(pkt);
 #if ENABLE_AVCODEC_OUT_THREAD
-    if (m_Mux.thread.thOutput.joinable()) {
-        auto& audioQueue   = (m_Mux.thread.thAudProcess.joinable()) ? m_Mux.thread.qAudioPacketProcess : m_Mux.thread.qAudioPacketOut;
-        auto heEventPktAdd = (m_Mux.thread.thAudProcess.joinable()) ? m_Mux.thread.heEventPktAddedAudProcess : m_Mux.thread.heEventPktAddedOutput;
-        //pkt = nullptrの代理として、pkt.buf == nullptrなパケットを投入
-        AVPktMuxData zeroFilled = { 0 };
-        if (!audioQueue.push((pkt == nullptr) ? zeroFilled : pktData)) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to allocate memory for audio packet queue.\n"));
-            m_Mux.format.streamError = true;
+    if (m_Mux.thread.thOutput) {
+        if (pkt == nullptr) {
+            //音声の全トラックにnullパケット送信
+            for (uint32_t i = 0; i < m_Mux.audio.size(); i++) {
+                auto mux = &m_Mux.audio[i];
+                if (m_Mux.thread.threadActiveAudioEncode()) {
+                    getPacketWorker(mux, AUD_QUEUE_ENCODE)->qPackets.set_keep_length(0);
+                }
+                if (m_Mux.thread.threadActiveAudioProcess()) {
+                    getPacketWorker(mux, AUD_QUEUE_PROCESS)->qPackets.set_keep_length(0);
+                }
+                if (mux->inSubStream == 0) { // サブトラックには送信しない
+                    const auto worker = getPacketWorker(mux, (m_Mux.thread.threadActiveAudioProcess()) ? AUD_QUEUE_PROCESS : AUD_QUEUE_OUT);
+                    AddMessage(RGY_LOG_DEBUG, _T("Send null packet to worker %d.\n"), trackID(mux->inTrackId));
+                    AVPktMuxData zeroFilled = { 0 };
+                    zeroFilled.muxAudio = mux;
+                    if (!worker->qPackets.push(zeroFilled)) {
+                        AddMessage(RGY_LOG_ERROR, _T("Failed to allocate memory for audio packet queue.\n"));
+                        m_Mux.format.streamError = true;
+                    }
+                }
+            }
+        } else {
+            AVMuxThreadWorker *worker = (m_Mux.thread.threadActiveAudioProcess()) ? getPacketWorker(pktData.muxAudio, AUD_QUEUE_PROCESS) : m_Mux.thread.thOutput.get();
+            auto& audioQueue = worker->qPackets;
+            auto heEventPktAdd = worker->heEventPktAdded;
+            if (!audioQueue.push(pktData)) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to allocate memory for audio packet queue.\n"));
+                m_Mux.format.streamError = true;
+            }
+            SetEvent(heEventPktAdd);
         }
-        SetEvent(heEventPktAdd);
         return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
     }
 #endif
+    if (pkt == nullptr) {
+        //音声の全トラックにnullパケット送信
+        for (uint32_t i = 0; i < m_Mux.audio.size(); i++) {
+            AVPktMuxData pktDataCopy = pktData;
+            pktDataCopy.muxAudio = &m_Mux.audio[i];
+            auto err = WriteNextPacketInternal(&pktDataCopy, INT64_MAX);
+            if (err != RGY_ERR_NONE) return err;
+        }
+        return RGY_ERR_NONE;
+    }
     return WriteNextPacketInternal(&pktData, INT64_MAX);
 }
 
 //指定された音声キューに追加する
 RGY_ERR RGYOutputAvcodec::AddAudQueue(AVPktMuxData *pktData, int type) {
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
-    if (m_Mux.thread.thAudProcess.joinable()) {
+    if (m_Mux.thread.threadActiveAudioProcess()) {
+        // もともとはこうだった
+        // (type == AUD_QUEUE_OUT) ? m_Mux.thread.thOutput.get() : ((type == AUD_QUEUE_PROCESS) ? m_Mux.thread.qAudioPacketProcess : m_Mux.thread.qAudioFrameEncode;
+        AVMuxThreadWorker *worker = getPacketWorker(pktData->muxAudio, type);
+
         //出力キューに追加する
-        auto& qAudio       = (type == AUD_QUEUE_OUT) ? m_Mux.thread.qAudioPacketOut       : ((type == AUD_QUEUE_PROCESS) ? m_Mux.thread.qAudioPacketProcess       : m_Mux.thread.qAudioFrameEncode);
-        auto& heEventAdded = (type == AUD_QUEUE_OUT) ? m_Mux.thread.heEventPktAddedOutput : ((type == AUD_QUEUE_PROCESS) ? m_Mux.thread.heEventPktAddedAudProcess : m_Mux.thread.heEventPktAddedAudEncode);
+        auto& qAudio       = worker->qPackets;
+        auto& heEventAdded = worker->heEventPktAdded;
         if (!qAudio.push(*pktData)) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to allocate memory for audio queue.\n"));
             m_Mux.format.streamError = true;
@@ -3498,53 +3610,51 @@ RGY_ERR RGYOutputAvcodec::AddAudQueue(AVPktMuxData *pktData, int type) {
 //maxDtsToWriteはm_AudPktBufFileHeadにキャッシュしてあるパケットを処理する際に、
 //処理するdtsの上限を決める
 RGY_ERR RGYOutputAvcodec::WriteNextPacketInternal(AVPktMuxData *pktData, int64_t maxDtsToWrite) {
-    if (!m_Mux.format.fileHeaderWritten) {
-        //まだフレームヘッダーが書かれていなければ、パケットをキャッシュして終了
-        m_AudPktBufFileHead.push_back(*pktData);
-        return RGY_ERR_NONE;
-    }
-    //m_AudPktBufFileHeadにキャッシュしてあるパケットかどうかを調べる
-    if (m_AudPktBufFileHead.end() == std::find_if(m_AudPktBufFileHead.begin(), m_AudPktBufFileHead.end(),
-        [pktData](const AVPktMuxData& data) { return pktData->pkt == data.pkt; })) {
-        //キャッシュしてあるパケットでないなら、キャッシュしてあるパケットをまず処理する
-        for (auto bufPkt : m_AudPktBufFileHead) {
-            RGY_ERR sts = WriteNextPacketInternal(&bufPkt, maxDtsToWrite);
-            //処理するdtsの上限を超えたかチェック
-            if (bufPkt.dts > maxDtsToWrite) {
-                pktData->dts = bufPkt.dts;
-                return RGY_ERR_NONE;
-            }
-            if (sts != RGY_ERR_NONE) {
-                return sts;
-            }
+    if (m_Mux.thread.threadActiveAudio()) {
+        // 音声スレッドがある場合はファイルヘッダが書かれてからここに来るはず
+        if (!m_Mux.format.fileHeaderWritten) {
+            AddMessage(RGY_LOG_ERROR, _T("File header not written, unexpected error!\n"));
+            return RGY_ERR_UNKNOWN;
         }
-        //キャッシュをすべて書き出したらクリア
-        m_AudPktBufFileHead.clear();
+        // 音声スレッドがある場合はm_AudPktBufFileHeadはたまっていないはず
+        if (!m_AudPktBufFileHead.empty()) {
+            AddMessage(RGY_LOG_ERROR, _T("m_AudPktBufFileHead not empty, unexpected error!\n"));
+            return RGY_ERR_UNKNOWN;
+        }
+    } else {
+        if (!m_Mux.format.fileHeaderWritten) {
+            //まだフレームヘッダーが書かれていなければ、パケットをキャッシュして終了
+            m_AudPktBufFileHead.push_back(*pktData);
+            return RGY_ERR_NONE;
+        }
+        //m_AudPktBufFileHeadにキャッシュしてあるパケットかどうかを調べる
+        if (m_AudPktBufFileHead.end() == std::find_if(m_AudPktBufFileHead.begin(), m_AudPktBufFileHead.end(),
+            [pktData](const AVPktMuxData& data) { return pktData->pkt == data.pkt; })) {
+            //キャッシュしてあるパケットでないなら、キャッシュしてあるパケットをまず処理する
+            for (auto bufPkt : m_AudPktBufFileHead) {
+                RGY_ERR sts = WriteNextPacketInternal(&bufPkt, maxDtsToWrite);
+                //処理するdtsの上限を超えたかチェック
+                if (bufPkt.dts > maxDtsToWrite) {
+                    pktData->dts = bufPkt.dts;
+                    return RGY_ERR_NONE;
+                }
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
+            }
+            //キャッシュをすべて書き出したらクリア
+            m_AudPktBufFileHead.clear();
+        }
     }
 
-    if (pktData->pkt == nullptr || pktData->pkt->data == nullptr) {
+    if (pktData->pkt == nullptr) {
+        return WriteNextPacketAudio(pktData);
+    } else if (trackMediaType(pktFlagGetTrackID(pktData->pkt)) != AVMEDIA_TYPE_AUDIO) {
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
-        if (m_Mux.thread.thAudProcess.joinable()) {
-            //音声処理を別スレッドでやっている場合は、AddAudOutputQueueを後段の出力スレッドで行う必要がある
-            //WriteNextPacketInternalでは音声キューに追加するだけにして、WriteNextPacketProcessedで対応する
-            //ひとまず、ここでは処理せず、次のキューに回す
-            return AddAudQueue(pktData, (m_Mux.thread.thAudEncode.joinable()) ? AUD_QUEUE_ENCODE : AUD_QUEUE_OUT);
-        }
-#endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
-        for (uint32_t i = 0; i < m_Mux.audio.size(); i++) {
-            AudioFlushStream(&m_Mux.audio[i], &pktData->dts);
-        }
-        pktData->dts = INT64_MAX;
-        AddMessage(RGY_LOG_DEBUG, _T("Flushed audio buffer.\n"));
-        return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
-    }
-
-    if (trackMediaType(pktFlagGetTrackID(pktData->pkt)) != AVMEDIA_TYPE_AUDIO) {
-#if ENABLE_AVCODEC_AUDPROCESS_THREAD
-        if (m_Mux.thread.thAudProcess.joinable()) {
+        if (m_Mux.thread.threadActiveAudioProcess()) {
             //音声処理を別スレッドでやっている場合は、字幕パケットもその流れに乗せてやる必要がある
             //ひとまず、ここでは処理せず、次のキューに回す
-            return AddAudQueue(pktData, (m_Mux.thread.thAudEncode.joinable()) ? AUD_QUEUE_ENCODE : AUD_QUEUE_OUT);
+            return AddAudQueue(pktData, (m_Mux.thread.threadActiveAudioEncode()) ? AUD_QUEUE_ENCODE : AUD_QUEUE_OUT);
         }
 #endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
         return WriteOtherPacket(pktData->pkt);
@@ -3563,6 +3673,51 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketAudio(AVPktMuxData *pktData) {
         m_Mux.format.streamError = true;
         m_Mux.poolPkt->returnFree(&pktData->pkt);
         return RGY_ERR_NULL_PTR;
+    }
+
+    if (pktData->pkt == nullptr || pktData->pkt->data == nullptr) {
+        //デコーダをflush
+        while (muxAudio->outCodecDecodeCtx && !muxAudio->encodeError) {
+            auto decodedFrames = AudioDecodePacket(muxAudio, nullptr);
+            if (decodedFrames.size() == 0) {
+                break;
+            }
+            vector<AVPktMuxData> audioFrames;
+            for (size_t i = 0; i < decodedFrames.size(); i++) {
+                AVPktMuxData audPkt;
+                audPkt.pkt = m_Mux.poolPkt->getFree().release();
+                pktFlagSetTrackID(audPkt.pkt, muxAudio->inTrackId);
+                audPkt.dts = AV_NOPTS_VALUE;
+                audPkt.samples = 0;
+                audPkt.type = MUX_DATA_TYPE_FRAME;
+                audPkt.frame = decodedFrames[i].release();
+                audPkt.got_result = audPkt.frame && audPkt.frame->nb_samples > 0;
+                audPkt.muxAudio = muxAudio;
+                audioFrames.push_back(audPkt);
+            }
+            //フィルタリングを行う
+            WriteNextPacketToAudioSubtracks(std::move(audioFrames));
+        }
+
+        //終わったら後段にnull packetを渡してflushの指示を伝える
+        //サブストリームが存在すれば、null packetをそれぞれに渡す
+        AVMuxAudio *pMuxAudioSubStream = nullptr;
+        for (int iSubStream = 1; nullptr != (pMuxAudioSubStream = getAudioStreamData(muxAudio->inTrackId, iSubStream)); iSubStream++) {
+            auto pktDataCopy = *pktData;
+            pktDataCopy.muxAudio = pMuxAudioSubStream;
+            if (m_Mux.thread.threadActiveAudioProcess()) {
+                AddAudQueue(&pktDataCopy, (m_Mux.thread.threadActiveAudioEncode()) ? AUD_QUEUE_ENCODE : AUD_QUEUE_OUT);
+            } else {
+                WriteNextAudioFrame(&pktDataCopy);
+            }
+        }
+        //メインストリームにnull packetを渡してflushの指示を伝える
+        if (m_Mux.thread.threadActiveAudioProcess()) {
+            AddAudQueue(pktData, (m_Mux.thread.threadActiveAudioEncode()) ? AUD_QUEUE_ENCODE : AUD_QUEUE_OUT);
+        } else {
+            WriteNextAudioFrame(pktData);
+        }
+        return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
     }
 
     //AACBsfでのエラーを無音挿入で回避する(音声エンコード時のみ)
@@ -3596,9 +3751,9 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketAudio(AVPktMuxData *pktData) {
     muxAudio->packetWritten++;
     auto writeOrSetNextPacketAudioProcessed = [this](AVPktMuxData *pktData) {
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
-        if (m_Mux.thread.thAudProcess.joinable()) {
+        if (m_Mux.thread.threadActiveAudioProcess()) {
             //ひとまず、ここでは処理せず、次のキューに回す
-            AddAudQueue(pktData, (m_Mux.thread.thAudEncode.joinable()) ? AUD_QUEUE_ENCODE : AUD_QUEUE_OUT);
+            AddAudQueue(pktData, (m_Mux.thread.threadActiveAudioEncode()) ? AUD_QUEUE_ENCODE : AUD_QUEUE_OUT);
         } else {
 #endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
             WriteNextPacketProcessed(pktData);
@@ -3684,7 +3839,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketToAudioSubtracks(vector<AVPktMuxData> a
 //フレームをresampleして後段に渡す
 RGY_ERR RGYOutputAvcodec::WriteNextPacketAudioFrame(vector<AVPktMuxData> audioFrames) {
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
-    const bool bAudEncThread = m_Mux.thread.thAudEncode.joinable();
+    const bool bAudEncThread = m_Mux.thread.threadActiveAudioEncode();
 #else
     const bool bAudEncThread = false;
 #endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
@@ -3708,21 +3863,57 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketAudioFrame(vector<AVPktMuxData> audioFr
 //出力スレッドがなければメインエンコードスレッドが処理する
 RGY_ERR RGYOutputAvcodec::WriteNextAudioFrame(AVPktMuxData *pktData) {
     if (pktData->type != MUX_DATA_TYPE_FRAME) {
-#if ENABLE_AVCODEC_AUDPROCESS_THREAD
-        if (m_Mux.thread.thAudEncode.joinable()) {
+        if (pktData->muxAudio) {
             //音声エンコードスレッドがこの関数を処理
-            //AVPacketは字幕やnull終端パケットなどが流れてきたもの
+            if (pktData->pkt == nullptr) {
+                //null終端パケットなどが流れてきたもの
+                while (pktData->muxAudio->outCodecEncodeCtx) {
+                    auto encPktDatas = AudioEncodeFrame(pktData->muxAudio, nullptr);
+                    if (encPktDatas.size() == 0) {
+                        break;
+                    }
+                    if (pktData->muxAudio->decodeError > pktData->muxAudio->ignoreDecodeError)
+                        break;
+                    if (m_Mux.thread.threadActiveAudioProcess()) {
+                        for (auto& pktMux : encPktDatas) {
+                            AddAudQueue(&pktMux, AUD_QUEUE_OUT);
+                        }
+                    } else {
+                        for (auto& pktMux : encPktDatas) {
+                            WriteNextPacketProcessed(&pktMux, &pktData->dts);
+                        }
+                    }
+                }
+                if (m_Mux.thread.threadActiveAudioProcess()) {
+                    //終わったら後段にflushの指示を伝える
+                    AddAudQueue(pktData, AUD_QUEUE_OUT);
+                } else {
+                    WriteNextPacketProcessed(pktData);
+                }
+            } else {
+                //音声コピーなどの際にパケットが流れてきたもの
+                if (m_Mux.thread.threadActiveAudioProcess()) {
+                    //終わったら後段にflushの指示を伝える
+                    AddAudQueue(pktData, AUD_QUEUE_OUT);
+                } else {
+                    WriteNextPacketProcessed(pktData);
+                }
+            }
+        } else if (m_Mux.thread.thOutput) {
+            //AVPacketは字幕が流れてきたもの
             //これはそのまま出力キューに追加する
             AddAudQueue(pktData, AUD_QUEUE_OUT);
+        } else {
+            // ここには来ないはず
+            AddMessage(RGY_LOG_ERROR, _T("Unexpected non-audio packet!\n"));
+            return RGY_ERR_UNSUPPORTED;
         }
-#endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
-        //音声エンコードスレッドが存在しない場合、ここにAVPacketは流れてこないはず
-        return RGY_ERR_UNSUPPORTED;
+        return RGY_ERR_NONE;
     }
     auto encPktDatas = AudioEncodeFrame(pktData->muxAudio, pktData->frame);
     m_Mux.poolFrame->returnFree(&pktData->frame);
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
-    if (m_Mux.thread.thAudProcess.joinable()) {
+    if (m_Mux.thread.threadActiveAudioProcess()) {
         for (auto& pktMux : encPktDatas) {
             AddAudQueue(&pktMux, AUD_QUEUE_OUT);
         }
@@ -3737,16 +3928,17 @@ RGY_ERR RGYOutputAvcodec::WriteNextAudioFrame(AVPktMuxData *pktData) {
     return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
 }
 
-RGY_ERR RGYOutputAvcodec::ThreadFuncAudEncodeThread(RGYParamThread threadParam) {
+RGY_ERR RGYOutputAvcodec::ThreadFuncAudEncodeThread(const AVMuxAudio *const muxAudio, RGYParamThread threadParam) {
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
     threadParam.apply(GetCurrentThread());
-    WaitForSingleObject(m_Mux.thread.heEventPktAddedAudEncode, INFINITE);
-    while (!m_Mux.thread.thAudEncodeAbort) {
+    auto worker = getPacketWorker(muxAudio, AUD_QUEUE_ENCODE);
+    WaitForSingleObject(worker->heEventPktAdded, INFINITE);
+    while (!worker->thAbort) {
         if (!m_Mux.format.fileHeaderWritten) {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         } else {
             AVPktMuxData pktData = { 0 };
-            while (m_Mux.thread.qAudioFrameEncode.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_enc : nullptr)) {
+            while (worker->qPackets.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_enc : nullptr)) {
                 //音声エンコードを実行、出力キューに追加する
                 WriteNextAudioFrame(&pktData);
             }
@@ -3754,31 +3946,32 @@ RGY_ERR RGYOutputAvcodec::ThreadFuncAudEncodeThread(RGYParamThread threadParam) 
         if (m_Mux.format.lowlatency) {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         } else {
-            ResetEvent(m_Mux.thread.heEventPktAddedAudEncode);
-            WaitForSingleObject(m_Mux.thread.heEventPktAddedAudEncode, 16);
+            ResetEvent(worker->heEventPktAdded);
+            WaitForSingleObject(worker->heEventPktAdded, 16);
         }
     }
     {   //音声をすべてエンコード
         AVPktMuxData pktData = { 0 };
-        while (m_Mux.thread.qAudioFrameEncode.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_enc : nullptr)) {
+        while (worker->qPackets.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_enc : nullptr)) {
             WriteNextAudioFrame(&pktData);
         }
     }
-    SetEvent(m_Mux.thread.heEventClosingAudEncode);
+    SetEvent(worker->heEventClosing);
 #endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
     return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
 }
 
-RGY_ERR RGYOutputAvcodec::ThreadFuncAudThread(RGYParamThread threadParam) {
+RGY_ERR RGYOutputAvcodec::ThreadFuncAudThread(const AVMuxAudio *const muxAudio, RGYParamThread threadParam) {
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
     threadParam.apply(GetCurrentThread());
-    WaitForSingleObject(m_Mux.thread.heEventPktAddedAudProcess, INFINITE);
-    while (!m_Mux.thread.thAudProcessAbort) {
+    auto worker = getPacketWorker(muxAudio, AUD_QUEUE_PROCESS);
+    WaitForSingleObject(worker->heEventPktAdded, INFINITE);
+    while (!worker->thAbort) {
         if (!m_Mux.format.fileHeaderWritten) {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         } else {
             AVPktMuxData pktData = { 0 };
-            while (m_Mux.thread.qAudioPacketProcess.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_proc : nullptr)) {
+            while (worker->qPackets.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_proc : nullptr)) {
                 //音声処理を実行、出力キューに追加する
                 WriteNextPacketInternal(&pktData, INT64_MAX);
             }
@@ -3786,18 +3979,18 @@ RGY_ERR RGYOutputAvcodec::ThreadFuncAudThread(RGYParamThread threadParam) {
         if (m_Mux.format.lowlatency) {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         } else {
-            ResetEvent(m_Mux.thread.heEventPktAddedAudProcess);
-            WaitForSingleObject(m_Mux.thread.heEventPktAddedAudProcess, 16);
+            ResetEvent(worker->heEventPktAdded);
+            WaitForSingleObject(worker->heEventPktAdded, 16);
         }
     }
     {   //音声をすべて書き出す
         AVPktMuxData pktData = { 0 };
-        while (m_Mux.thread.qAudioPacketProcess.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_proc : nullptr)) {
+        while (worker->qPackets.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_proc : nullptr)) {
             //音声処理を実行、出力キューに追加する
             WriteNextPacketInternal(&pktData, INT64_MAX);
         }
     }
-    SetEvent(m_Mux.thread.heEventClosingAudProcess);
+    SetEvent(worker->heEventClosing);
 #endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
     return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
 }
@@ -3818,9 +4011,6 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
     const int64_t syncIgnoreDts = INT64_MAX - dtsThreshold;
     int64_t audioDts = (m_Mux.audio.size() + m_Mux.other.size()) ? 0 : syncIgnoreDts;
     int64_t videoDts = (m_Mux.video.streamOut) ? 0 : syncIgnoreDts;
-    WaitForSingleObject(m_Mux.thread.heEventPktAddedOutput, INFINITE);
-    //bThAudProcessは出力開始した後で取得する(この前だとまだ起動していないことがある)
-    const bool bThAudProcess = m_Mux.thread.thAudProcess.joinable();
     auto writeProcessedPacket = [this](AVPktMuxData *pktData) {
         //音声処理スレッドが別にあるなら、出力スレッドがすべきことは単に出力するだけ
         auto sts = RGY_ERR_NONE;
@@ -3835,20 +4025,36 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
         }
         return sts;
     };
+    bool bThAudProcess = false;
     int audPacketsPerSec = 64;
     int nWaitAudio = 0;
     int nWaitVideo = 0;
-    while (!m_Mux.thread.abortOutput) {
+    while (!m_Mux.thread.thOutput->thAbort) {
+        // 起動遅れの場合がありえるのでここでチェック
+        if (!bThAudProcess && m_Mux.thread.threadActiveAudioProcess()) {
+            bThAudProcess = true;
+        }
         do {
             if (!m_Mux.format.fileHeaderWritten) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 //ヘッダー取得前に音声キューのサイズが足りず、エンコードが進まなくなってしまうことがある
                 //キューのcapcityを増やすことでこれを回避する
-                auto type = (m_Mux.thread.thAudEncode.joinable()) ? AUD_QUEUE_ENCODE : AUD_QUEUE_OUT;
-                auto& qAudio = (type == AUD_QUEUE_OUT) ? m_Mux.thread.qAudioPacketOut : m_Mux.thread.qAudioFrameEncode;
-                const auto nQueueCapacity = qAudio.capacity();
-                if (qAudio.size() >= nQueueCapacity) {
-                    qAudio.set_capacity(nQueueCapacity * 3 / 2);
+                if (!m_Mux.thread.threadActiveAudioProcess()) {
+                    auto worker = m_Mux.thread.thOutput.get();
+                    auto& qAudio = worker->qPackets;
+                    const auto nQueueCapacity = qAudio.capacity();
+                    if (qAudio.size() >= nQueueCapacity) {
+                        qAudio.set_capacity(nQueueCapacity * 3 / 2);
+                    }
+                } else {
+                    for (auto& [mux, thAud] : m_Mux.thread.thAud) {
+                        auto worker = getPacketWorker(mux, AUD_QUEUE_PROCESS);
+                        auto& qAudio = worker->qPackets;
+                        const auto nQueueCapacity = qAudio.capacity();
+                        if (qAudio.size() >= nQueueCapacity) {
+                            qAudio.set_capacity(nQueueCapacity * 3 / 2);
+                        }
+                    }
                 }
                 //動画キューになにもなかったら再度待機する
                 if (m_Mux.thread.qVideobitstream.size() == 0) {
@@ -3870,18 +4076,18 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
             }
             AVPktMuxData pktData = { 0 };
             while ((videoDts < 0 || audioDts <= videoDts + dtsThreshold)
-                && false != (bAudioExists = m_Mux.thread.qAudioPacketOut.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_out : nullptr))) {
-                if (pktData.muxAudio && pktData.muxAudio->streamIn) {
+                && false != (bAudioExists = m_Mux.thread.thOutput->qPackets.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_out : nullptr))) {
+                if (pktData.muxAudio && pktData.muxAudio->streamIn && pktData.pkt) {
                     audPacketsPerSec = std::max(audPacketsPerSec, (int)(1.0 / (av_q2d(pktData.muxAudio->streamIn->time_base) * pktData.pkt->duration) + 0.5));
                     const auto videoDelay = (audioDts - videoDts) * av_q2d(QUEUE_DTS_TIMEBASE);
                     const auto streamQueueCapacity = (int)(audPacketsPerSec * std::max(5.0, videoDelay * 1.5) * std::max((int)m_Mux.audio.size(), 1) + 0.5);
-                    if ((int)m_Mux.thread.qAudioPacketOut.capacity() < streamQueueCapacity) {
-                        m_Mux.thread.qAudioPacketOut.set_capacity(streamQueueCapacity);
+                    if ((int)m_Mux.thread.thOutput->qPackets.capacity() < streamQueueCapacity) {
+                        m_Mux.thread.thOutput->qPackets.set_capacity(streamQueueCapacity);
                     }
                 }
                 const int64_t maxDts = (videoDts >= 0) ? videoDts + dtsThreshold : syncIgnoreDts;
                 //音声処理スレッドが別にあるなら、出力スレッドがすべきことは単に出力するだけ
-                (bThAudProcess) ? writeProcessedPacket(&pktData) : WriteNextPacketInternal(&pktData, maxDts);
+                (m_Mux.thread.threadActiveAudioProcess()) ? writeProcessedPacket(&pktData) : WriteNextPacketInternal(&pktData, maxDts);
                 //複数のstreamがあり得るので最大値をとる
                 if (pktData.dts != AV_NOPTS_VALUE && pktData.dts != (int64_t)((uint64_t)AV_NOPTS_VALUE - 1)) {
                     audioDts = (std::max)(audioDts, (std::max)(pktData.dts, m_Mux.thread.streamOutMaxDts.load()));
@@ -3896,7 +4102,7 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
             //音声を無視して動画フレームの処理を開始させる
             //音声が途中までしかなかったり、途中からしかなかったりする場合にこうした処理が必要
             const size_t videoPacketThreshold = std::min<size_t>(3072, m_Mux.thread.qVideobitstream.capacity()) - nWaitThreshold;
-            if (m_Mux.thread.qAudioPacketOut.size() == 0 && m_Mux.thread.qVideobitstream.size() > videoPacketThreshold) {
+            if (m_Mux.thread.thOutput->qPackets.size() == 0 && m_Mux.thread.qVideobitstream.size() > videoPacketThreshold) {
                 nWaitAudio++;
                 if (nWaitAudio <= nWaitThreshold) {
                     //時折まだパケットが来ているのにタイミングによってsize() == 0が成立することがある
@@ -3911,15 +4117,15 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
             }
             //一定以上の音声フレームがキューにたまっており、動画キューになにもなければ、
             //動画を無視して音声フレームの処理を開始させる
-            const size_t audioPacketThreshold = std::min<size_t>(6144, m_Mux.thread.qAudioPacketOut.capacity()) - nWaitThreshold;
-            if (m_Mux.thread.qVideobitstream.size() == 0 && m_Mux.thread.qAudioPacketOut.size() > audioPacketThreshold) {
+            const size_t audioPacketThreshold = std::min<size_t>(6144, m_Mux.thread.thOutput->qPackets.capacity()) - nWaitThreshold;
+            if (m_Mux.thread.qVideobitstream.size() == 0 && m_Mux.thread.thOutput->qPackets.size() > audioPacketThreshold) {
                 nWaitVideo++;
                 if (nWaitVideo <= nWaitThreshold) {
                     //時折まだパケットが来ているのにタイミングによってsize() == 0が成立することがある
                     //なのである程度連続でパケットが来ていないときのみ無視するようにする
                     //このようにすることで適切に同期がとれる
                     //また、音声キューのサイズが足りないことが考えられるので、拡大する
-                    m_Mux.thread.qAudioPacketOut.set_capacity(m_Mux.thread.qAudioPacketOut.capacity() * 3 / 2);
+                    m_Mux.thread.thOutput->qPackets.set_capacity(m_Mux.thread.thOutput->qPackets.capacity() * 3 / 2);
                     break;
                 }
                 videoDts = audioDts;
@@ -3930,28 +4136,28 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
         //キューの容量が両方とも半分以下なら、すこし待ってみる
         //一方、どちらかのキューが半分以上使われていれば、なるべく早く処理する必要がある
         if (   m_Mux.thread.qVideobitstream.size() / (double)m_Mux.thread.qVideobitstream.capacity() < 0.5
-            && m_Mux.thread.qAudioPacketOut.size() / (double)m_Mux.thread.qAudioPacketOut.capacity() < 0.5) {
+            && m_Mux.thread.thOutput->qPackets.size() / (double)m_Mux.thread.thOutput->qPackets.capacity() < 0.5) {
             if (m_Mux.format.lowlatency) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
             } else {
-                ResetEvent(m_Mux.thread.heEventPktAddedOutput);
-                WaitForSingleObject(m_Mux.thread.heEventPktAddedOutput, 16);
+                ResetEvent(m_Mux.thread.thOutput->heEventPktAdded);
+                WaitForSingleObject(m_Mux.thread.thOutput->heEventPktAdded, 16);
             }
         } else {
             std::this_thread::yield();
         }
     }
     //メインループを抜けたことを通知する
-    SetEvent(m_Mux.thread.heEventClosingOutput);
-    m_Mux.thread.qAudioPacketOut.set_keep_length(0);
+    SetEvent(m_Mux.thread.thOutput->heEventClosing);
+    m_Mux.thread.thOutput->qPackets.set_keep_length(0);
     m_Mux.thread.qVideobitstream.set_keep_length(0);
-    bAudioExists = !m_Mux.thread.qAudioPacketOut.empty();
+    bAudioExists = !m_Mux.thread.thOutput->qPackets.empty();
     bVideoExists = !m_Mux.thread.qVideobitstream.empty();
     //まずは映像と音声の同期をとって出力するためのループ
     while (bAudioExists && bVideoExists) {
         AVPktMuxData pktData = { 0 };
         while (audioDts <= videoDts + dtsThreshold
-            && false != (bAudioExists = m_Mux.thread.qAudioPacketOut.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_out : nullptr))) {
+            && false != (bAudioExists = m_Mux.thread.thOutput->qPackets.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_out : nullptr))) {
             //音声処理スレッドが別にあるなら、出力スレッドがすべきことは単に出力するだけ
             const int64_t maxDts = (videoDts >= 0) ? videoDts + dtsThreshold : INT64_MAX;
             (bThAudProcess) ? writeProcessedPacket(&pktData) : WriteNextPacketInternal(&pktData, maxDts);
@@ -3965,12 +4171,12 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
             && false != (bVideoExists = m_Mux.thread.qVideobitstream.front_copy_and_pop_no_lock(&bitstream, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_vid_out : nullptr))) {
             WriteNextFrameInternal(&bitstream, &videoDts);
         }
-        bAudioExists = !m_Mux.thread.qAudioPacketOut.empty();
+        bAudioExists = !m_Mux.thread.thOutput->qPackets.empty();
         bVideoExists = !m_Mux.thread.qVideobitstream.empty();
     }
     { //音声を書き出す
         AVPktMuxData pktData = { 0 };
-        while (m_Mux.thread.qAudioPacketOut.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_out : nullptr)) {
+        while (m_Mux.thread.thOutput->qPackets.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_out : nullptr)) {
             //音声処理スレッドが別にあるなら、出力スレッドがすべきことは単に出力するだけ
             (bThAudProcess) ? writeProcessedPacket(&pktData) : WriteNextPacketInternal(&pktData, INT64_MAX);
         }
@@ -3994,7 +4200,7 @@ void RGYOutputAvcodec::WaitFin() {
 
 HANDLE RGYOutputAvcodec::getThreadHandleOutput() {
 #if ENABLE_AVCODEC_OUT_THREAD
-    return (HANDLE)m_Mux.thread.thOutput.native_handle();
+    return (m_Mux.thread.thOutput) ? (HANDLE)m_Mux.thread.thOutput->thread.native_handle() : nullptr;
 #else
     return NULL;
 #endif
@@ -4002,7 +4208,7 @@ HANDLE RGYOutputAvcodec::getThreadHandleOutput() {
 
 HANDLE RGYOutputAvcodec::getThreadHandleAudProcess() {
 #if ENABLE_AVCODEC_OUT_THREAD && ENABLE_AVCODEC_AUDPROCESS_THREAD
-    return (HANDLE)m_Mux.thread.thAudProcess.native_handle();
+    return (m_Mux.thread.threadActiveAudioProcess()) ? (HANDLE)m_Mux.thread.thAud[nullptr]->process.thread.native_handle() : nullptr;
 #else
     return NULL;
 #endif
@@ -4010,7 +4216,7 @@ HANDLE RGYOutputAvcodec::getThreadHandleAudProcess() {
 
 HANDLE RGYOutputAvcodec::getThreadHandleAudEncode() {
 #if ENABLE_AVCODEC_OUT_THREAD && ENABLE_AVCODEC_AUDPROCESS_THREAD
-    return (HANDLE)m_Mux.thread.thAudEncode.native_handle();
+    return (m_Mux.thread.threadActiveAudioEncode()) ? (HANDLE)m_Mux.thread.thAud[nullptr]->encode.thread.native_handle() : nullptr;
 #else
     return NULL;
 #endif
