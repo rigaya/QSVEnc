@@ -115,6 +115,7 @@ public:
     virtual std::vector<uint8_t> gen_nal() const override;
     virtual std::vector<uint8_t> gen_obu() const override;
 };
+#if !ENCODER_NVENC
 struct RGYFrame {
 public:
     RGYFrame() {};
@@ -201,6 +202,7 @@ public:
 protected:
     virtual RGYFrameInfo getInfo() const = 0;
 };
+#endif
 
 #if 0
 struct RGYSysFrame : public RGYFrame {
