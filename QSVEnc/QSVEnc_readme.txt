@@ -313,6 +313,12 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2023.05.14 (7.25)
+[QSVEncC]
+- dshowのカメラ入力等に対応。
+- --audio-source, --sub-sourceのコマンドラインの区切りを変更。
+- --vpp-colorspaceの調整。
+
 2023.05.10 (7.39)
 [QSVEncC]
 - OpenCLの初期化が失敗した場合でも処理を続行するよう変更。
