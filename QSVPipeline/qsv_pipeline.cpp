@@ -1100,7 +1100,8 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
     }
 
 
-    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_9)) {
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_9)
+        && pInParams->tuneQuality != MFX_ENCODE_TUNE_DEFAULT) {
         INIT_MFX_EXT_BUFFER(m_tuneEncQualityPrm, MFX_EXTBUFF_TUNE_ENCODE_QUALITY);
         m_tuneEncQualityPrm.TuneQuality = (decltype(m_tuneEncQualityPrm.TuneQuality))(pInParams->tuneQuality);
         m_EncExtParams.push_back((mfxExtBuffer *)&m_tuneEncQualityPrm);

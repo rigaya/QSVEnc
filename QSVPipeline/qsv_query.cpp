@@ -295,7 +295,8 @@ QSVVideoParam::QSVVideoParam(uint32_t CodecId, mfxVersion mfxver_) :
         && check_lib_version(mfxVer, MFX_LIB_VERSION_2_5)) {
         buf.push_back((mfxExtBuffer *)&hyperModePrm);
     }
-    if (check_lib_version(mfxVer, MFX_LIB_VERSION_2_9)) {
+    if (ENABLE_QSV_TUNE_QUERY
+        && check_lib_version(mfxVer, MFX_LIB_VERSION_2_9)) {
         buf.push_back((mfxExtBuffer *)&tuneEncQualityPrm);
     }
 
@@ -774,7 +775,7 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
         && (codecId == MFX_CODEC_AVC || codecId == MFX_CODEC_HEVC || codecId == MFX_CODEC_AV1)) {
         buf.push_back((mfxExtBuffer *)&hyperMode);
     }
-    if (check_lib_version(mfxVer, MFX_LIB_VERSION_2_9)) {
+    if (ENABLE_QSV_TUNE_QUERY && check_lib_version(mfxVer, MFX_LIB_VERSION_2_9)) {
         buf.push_back((mfxExtBuffer *)&tuneEncQuality);
     }
 
@@ -1025,7 +1026,13 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
             videoPrm.mfx.FrameInfo.BitDepthChroma = 8;
             videoPrm.mfx.FrameInfo.Shift = 0;
         }
-        CHECK_FEATURE(tuneEncQuality.TuneQuality, MFX_ENCODE_TUNE_SSIM, MFX_ENCODE_TUNE_DEFAULT, MFX_LIB_VERSION_2_9);
+        if (check_lib_version(mfxVer, MFX_LIB_VERSION_2_9)) {
+            if (ENABLE_QSV_TUNE_QUERY) {
+                CHECK_FEATURE(tuneEncQuality.TuneQuality, ENC_FEATURE_TUNE_ENCODE_QUALITY, MFX_ENCODE_TUNE_SSIM, MFX_LIB_VERSION_2_9);
+            } else {
+                result |= ENC_FEATURE_TUNE_ENCODE_QUALITY;
+            }
+        }
 #undef PICTYPE
 #pragma warning(pop)
         //付随オプション
