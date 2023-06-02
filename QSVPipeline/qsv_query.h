@@ -342,7 +342,7 @@ static const FEATURE_DESC list_enc_feature[] = {
     { _T("B_Pyramid    "), ENC_FEATURE_B_PYRAMID              },
     { _T(" +ManyBframes"), ENC_FEATURE_B_PYRAMID_MANY_BFRAMES },
     { _T("PyramQPOffset"), ENC_FEATURE_PYRAMID_QP_OFFSET      },
-    { _T("TuneQuality  "), ENC_FEATURE_TUNE_ENCODE_QUALITY    },
+    //{ _T("TuneQuality  "), ENC_FEATURE_TUNE_ENCODE_QUALITY    },
     { _T("ScenarioInfo "), ENC_FEATURE_SCENARIO_INFO          },
     { _T("MBBRC        "), ENC_FEATURE_MBBRC                  },
     { _T("ExtBRC       "), ENC_FEATURE_EXT_BRC                },
