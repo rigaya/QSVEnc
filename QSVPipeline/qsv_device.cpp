@@ -122,7 +122,7 @@ RGY_ERR QSVDevice::init(const QSVDeviceNum dev, const bool enableOpenCL, const b
             }
         }
         PrintMes((suppressErrorMessage) ? RGY_LOG_DEBUG : RGY_LOG_ERROR, _T("QSVDevice::init:   failed to find OpenCL device for dev #%d.\n"), dev);
-        return RGY_ERR_NOT_FOUND;
+        return RGY_ERR_NONE;
     }
     return RGY_ERR_NONE;
 }
