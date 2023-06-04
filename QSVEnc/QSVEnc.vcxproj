@@ -961,9 +961,11 @@ exit /B 0</Command>
   </ItemGroup>
   <ItemGroup>
     <None Include="QSVEnc.def" />
+    <None Include="QSVEnc.en.ini" />
     <None Include="QSVEnc.en.lng" />
     <None Include="QSVEnc.ini" />
     <None Include="QSVEnc.ja.lng" />
+    <None Include="QSVEnc.zh.ini" />
     <None Include="QSVEnc.zh.lng" />
   </ItemGroup>
   <ItemGroup>

@@ -1,9 +1,9 @@
 ﻿// -----------------------------------------------------------------------------------------
-// x264guiEx/x265guiEx/svtAV1guiEx/ffmpegOut/QSVEnc/NVEnc/VCEEnc by rigaya
+// QSVEnc/NVEnc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
 //
-// Copyright (c) 2010-2022 rigaya
+// Copyright (c) 2023 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,17 +25,27 @@
 //
 // --------------------------------------------------------------------------------------------
 
-#ifndef _AUO_FAW2AAC_H_
-#define _AUO_FAW2AAC_H_
+#ifndef __RGY_WAV_PARSER_H__
+#define __RGY_WAV_PARSER_H__
 
-#include "output.h"
-#include "auo.h"
-#include "auo_version.h"
-#include "auo_util.h"
-#include "auo_conf.h"
-#include "auo_settings.h"
-#include "auo_system.h"
+#include <cstdint>
 
-AUO_RESULT audio_faw2aac(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, const SYSTEM_DATA *sys_dat);
+struct RGYWAVHeader {
+    char file_id[5]; // "RIFF"
+    uint32_t file_size;
+    char format[5]; // "WAVE"
+    char subchunk_id[5]; // "fmt "
+    uint32_t subchunk_size; // 16 for PCM
+    uint16_t audio_format; // PCM = 1
+    uint16_t number_of_channels;
+    uint32_t sample_rate;
+    uint32_t byte_rate; // sample_rate * number of channels * bits per sample / 8
+    uint16_t block_align;
+    uint16_t bits_per_sample;
+    char data_id[5]; //"data"
+    uint32_t data_size; // samples * number of channels * bits per sample / 8 (Actual number of bytes)
 
-#endif //_AUO_FAW2AAC_H_
+    uint32_t parseHeader(const uint8_t *data);
+};
+
+#endif //__RGY_WAV_PARSER_H__

@@ -1,9 +1,9 @@
 ﻿// -----------------------------------------------------------------------------------------
-// x264guiEx/x265guiEx/svtAV1guiEx/ffmpegOut/QSVEnc/NVEnc/VCEEnc by rigaya
+// QSVEnc/NVEnc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
 //
-// Copyright (c) 2010-2022 rigaya
+// Copyright (c) 2023 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,17 +25,11 @@
 //
 // --------------------------------------------------------------------------------------------
 
-#ifndef _AUO_FAW2AAC_H_
-#define _AUO_FAW2AAC_H_
+#define RGY_MEMMEM_AVX2
+#include "rgy_memmem.h"
 
-#include "output.h"
-#include "auo.h"
-#include "auo_version.h"
-#include "auo_util.h"
-#include "auo_conf.h"
-#include "auo_settings.h"
-#include "auo_system.h"
-
-AUO_RESULT audio_faw2aac(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, const SYSTEM_DATA *sys_dat);
-
-#endif //_AUO_FAW2AAC_H_
+#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
+size_t rgy_memmem_avx2(const void *data_, const size_t data_size, const void *target_, const size_t target_size) {
+    return rgy_memmem_avx2_imp(data_, data_size, target_, target_size);
+}
+#endif
