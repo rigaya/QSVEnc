@@ -3063,10 +3063,11 @@ RGY_ERR CQSVPipeline::deviceAutoSelect(const sInputParams *prm, std::vector<std:
         double cc_score = 0.0;
         double ve_score = 100.0 * (1.0 - std::pow(ve_utilization / 100.0, 1.0)) * prm->ctrl.gpuSelect.ve;
         double gpu_score = 100.0 * (1.0 - std::pow(gpu_utilization / 100.0, 1.5)) * prm->ctrl.gpuSelect.gpu;
+        double cl_score = gpu->devInfo() ? 0.0 : -100.0; // openclの初期化に成功したか?
 
-        gpuscore[gpu->deviceNum()] = cc_score + ve_score + gpu_score + core_score;
-        PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) score: %.1f: VE %.1f, GPU %.1f, CC %.1f, Core %.1f.\n"), gpu->deviceNum(), gpu->name().c_str(),
-            gpuscore[gpu->deviceNum()], ve_score, gpu_score, cc_score, core_score);
+        gpuscore[gpu->deviceNum()] = cc_score + ve_score + gpu_score + core_score + cl_score;
+        PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) score: %.1f: VE %.1f, GPU %.1f, CC %.1f, Core %.1f, CL %.1f.\n"), gpu->deviceNum(), gpu->name().c_str(),
+            gpuscore[gpu->deviceNum()], ve_score, gpu_score, cc_score, core_score, cl_score);
     }
     std::sort(gpuList.begin(), gpuList.end(), [&](const std::unique_ptr<QSVDevice> &a, const std::unique_ptr<QSVDevice> &b) {
         if (gpuscore.at(a->deviceNum()) != gpuscore.at(b->deviceNum())) {
