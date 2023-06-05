@@ -313,6 +313,9 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2023.06.xx (7.44)
+- tsファイルで--audio-copyを使用すると、"AAC bitstream not in ADTS format and extradata missing"というエラーが出るのを回避。
+
 2023.06.04 (7.43)
 [QSVEncC]
 - HEVCエンコードでcolormatrix等の指定時の出力を改善。
