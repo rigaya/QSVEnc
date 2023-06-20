@@ -136,12 +136,15 @@
   - [--repartition-check](#--repartition-check)
   - [--trellis \<string\> \[H.264\]](#--trellis-string-h264)
   - [--intra-refresh-cycle \<int\&gt](#--intra-refresh-cycle-intgt)
+  - [--max-framesize \<int\&gt](#--max-framesize-intgt)
   - [--no-deblock](#--no-deblock)
   - [--tskip](#--tskip)
   - [--sao \<string\>](#--sao-string)
   - [--ctu \<int\>](#--ctu-int)
   - [--hevc-gpb](#--hevc-gpb)
   - [--no-hevc-gpb](#--no-hevc-gpb)
+  - [--tile-row \<int\&gt](#--tile-row-intgt)
+  - [--tile-col \<int\&gt](#--tile-col-intgt)
   - [--ssim](#--ssim)
   - [--psnr](#--psnr)
 - [IO / Audio / Subtitle Options](#io--audio--subtitle-options)
@@ -912,6 +915,9 @@ Enable intra refresh and set number of pictures within refresh cycle starting fr
 
 Default is 0, which means intra refresh is disabled.
 
+### --max-framesize &lt;int&gt
+Set max frame size in bytes.
+
 ### --no-deblock
 Disable deblock filter. [H.264]
 
@@ -934,6 +940,12 @@ Use GPB for P-frames in HEVC encoding.
 
 ### --no-hevc-gpb
 Make HEVC encoder use regular P-frames instead of GPB.
+
+### --tile-row &lt;int&gt
+Number of tile rows. [AV1]
+
+### --tile-col &lt;int&gt
+Number of tile columns. [AV1]
 
 ### --ssim
 Calculate ssim of the encoded video.

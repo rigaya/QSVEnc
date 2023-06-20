@@ -136,12 +136,15 @@
   - [--repartition-check](#--repartition-check)
   - [--trellis \<string\> \[H.264のみ\]](#--trellis-string-h264のみ)
   - [--intra-refresh-cycle \<int\&gt](#--intra-refresh-cycle-intgt)
+  - [--max-framesize \<int\&gt](#--max-framesize-intgt)
   - [--no-deblock](#--no-deblock)
   - [--tskip](#--tskip)
   - [--sao \<string\>](#--sao-string)
   - [--ctu \<int\>](#--ctu-int)
   - [--hevc-gpb](#--hevc-gpb)
   - [--no-hevc-gpb](#--no-hevc-gpb)
+  - [--tile-row \<int\&gt](#--tile-row-intgt)
+  - [--tile-col \<int\&gt](#--tile-col-intgt)
   - [--ssim](#--ssim)
   - [--psnr](#--psnr)
 - [入出力 / 音声 / 字幕などのオプション](#入出力--音声--字幕などのオプション)
@@ -935,6 +938,9 @@ H.264の歪みレート最適化の適用範囲を指定する。
 
 デフォルトは 0 (=無効) で、周期的イントラ更新を有効にする場合は2以上の値を指定する。
 
+### --max-framesize &lt;int&gt
+フレームの最大サイズの指定(byte単位)。
+
 ### --no-deblock
 H.264のデブロックフィルタを無効化する。[H.264]
 
@@ -957,6 +963,12 @@ HEVCエンコードでPフレームとしてGPBを使用します。
 
 ### --no-hevc-gpb
 HEVCエンコードでPフレームとしてGPBの代わりに通常のPフレームを使用します。
+
+### --tile-row &lt;int&gt
+エンコード時の分割タイルの行数。 [AV1]
+
+### --tile-col &lt;int&gt
+エンコード時の分割タイルの列数。 [AV1]
 
 ### --ssim
 エンコード結果のSSIMを計算。

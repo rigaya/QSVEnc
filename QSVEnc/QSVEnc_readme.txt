@@ -313,6 +313,14 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2023.06.20 (7.45)
+[QSVEncC]
+--tile-row, --tile-col, --max-framesizeを追加。
+
+
+[QSVEnc.auo]
+- QSVEnc 7.43のfaw処理に問題があり、異常終了してしまうケースがあったのを修正。
+
 2023.06.xx (7.44)
 - tsファイルで--audio-copyを使用すると、"AAC bitstream not in ADTS format and extradata missing"というエラーが出るのを回避。
 

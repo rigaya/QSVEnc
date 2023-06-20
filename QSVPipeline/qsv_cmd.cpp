@@ -365,6 +365,7 @@ tstring encoder_help() {
         _T("                                 - 3  set MV cost 1/8 of default\n")
         _T("   --slices <int>               number of slices, default 0 (auto)\n")
         _T("   --vbv-bufsize <int>          set vbv buffer size (kbit) / default: auto\n")
+        _T("   --max-framesize <int>        set max frmae size (bytes) / default: auto\n")
         _T("   --intra-refresh-cycle <int>  set intra refresh cycle (2 or larger).\n")
         _T("                                  default = 0 (disabled)\n")
         _T("   --no-deblock                 [h264] disables H.264 deblock feature\n")
@@ -378,6 +379,8 @@ tstring encoder_help() {
         _T("   --ctu <int>                  [hevc] max ctu size\n")
         _T("                                 - auto(default), 16, 32, 64\n")
         _T("   --(no-)hevc-gpb              [hevc] enable(disable) GPB\n")
+        _T("   --tile-row <int>             [av1] number of tile rows\n")
+        _T("   --tile-col <int>             [av1] number of tile columns\n")
         //_T("   --sharpness <int>            [vp8] set sharpness level for vp8 enc\n")
         _T("\n"),
         QSV_DEFAULT_ASYNC_DEPTH,
@@ -1241,6 +1244,16 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         }
         return 0;
     }
+    if (0 == _tcscmp(option_name, _T("max-framesize"))) {
+        i++;
+        try {
+            pParams->maxFrameSize = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
     if (0 == _tcscmp(option_name, _T("no-deblock"))) {
         pParams->bNoDeblock = true;
         return 0;
@@ -1281,6 +1294,26 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     }
     if (0 == _tcscmp(option_name, _T("no-hevc-gpb"))) {
         pParams->hevc_gpb = false;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("tile-row"))) {
+        i++;
+        try {
+            pParams->av1.tile_row = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("tile-col"))) {
+        i++;
+        try {
+            pParams->av1.tile_col = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("qpmax")) || 0 == _tcscmp(option_name, _T("qpmin"))
@@ -2145,6 +2178,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     OPT_BOOL(_T("--adapt-ltr"), _T("--no-adapt-ltr"), adaptiveLTR);
     OPT_BOOL(_T("--adapt-cqm"), _T("--no-adapt-cqm"), adaptiveCQM);
     OPT_NUM(_T("--intra-refresh-cycle"), intraRefreshCycle);
+    OPT_NUM(_T("--max-framesize"), maxFrameSize);
     OPT_BOOL(_T("--direct-bias-adjust"), _T("--no-direct-bias-adjust"), bDirectBiasAdjust);
     OPT_LST(_T("--intra-pred"), nIntraPred, list_pred_block_size);
     OPT_LST(_T("--inter-pred"), nInterPred, list_pred_block_size);
@@ -2159,6 +2193,10 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
         OPT_LST(_T("--sao"), hevc_sao, list_hevc_sao);
         OPT_BOOL(_T("--tskip"), _T("--no-tskip"), hevc_tskip);
         OPT_BOOL_OPT(_T("--hevc-gpb"), _T("--no-hevc-gpb"), hevc_gpb);
+    }
+    if (save_disabled_prm || pParams->CodecId == MFX_CODEC_AV1) {
+        OPT_NUM(_T("--tile-row"), av1.tile_row);
+        OPT_NUM(_T("--tile-col"), av1.tile_col);
     }
     if (save_disabled_prm || pParams->CodecId == MFX_CODEC_AVC) {
         OPT_LST(_T("--trellis"), nTrellis, list_avc_trellis_for_options);

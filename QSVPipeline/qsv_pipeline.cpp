@@ -996,6 +996,9 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         if (pInParams->bNoDeblock) {
             m_CodingOption2.DisableDeblockingIdc = MFX_CODINGOPTION_ON;
         }
+        if (pInParams->maxFrameSize) {
+            m_CodingOption2.MaxFrameSize = (decltype(m_CodingOption2.MaxFrameSize))pInParams->maxFrameSize;
+        }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
             if (m_hdr10plus || m_hdr10plusMetadataCopy || m_dovirpu || pInParams->common.doviProfile != 0 || (m_hdrsei && m_hdrsei->gen_nal().size() > 0)) {
                 m_CodingOption2.RepeatPPS = MFX_CODINGOPTION_ON;
@@ -1271,7 +1274,13 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         INIT_MFX_EXT_BUFFER(m_ExtAV1ResolutionParam, MFX_EXTBUFF_AV1_RESOLUTION_PARAM);
         INIT_MFX_EXT_BUFFER(m_ExtAV1TileParam, MFX_EXTBUFF_AV1_TILE_PARAM);
         //m_EncExtParams.push_back((mfxExtBuffer*)&m_ExtAV1ResolutionParam);
-        //m_EncExtParams.push_back((mfxExtBuffer*)&m_ExtAV1TileParam);
+
+        if (pInParams->av1.tile_row != 0 || pInParams->av1.tile_col != 0) {
+            m_ExtAV1TileParam.NumTileRows    = (mfxU16)std::max(pInParams->av1.tile_row, 1);
+            m_ExtAV1TileParam.NumTileColumns = (mfxU16)std::max(pInParams->av1.tile_col, 1);
+
+            m_EncExtParams.push_back((mfxExtBuffer*)&m_ExtAV1TileParam);
+        }
     }
     if (pInParams->hyperMode != MFX_HYPERMODE_OFF) {
         INIT_MFX_EXT_BUFFER(m_hyperModeParam, MFX_EXTBUFF_HYPER_MODE_PARAM);

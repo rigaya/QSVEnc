@@ -255,6 +255,14 @@ struct sVppParams {
     ~sVppParams() {};
 };
 
+
+struct QSVAV1Params {
+    int tile_row;
+    int tile_col;
+
+    QSVAV1Params();
+};
+
 struct sInputParams {
     VideoInfo input;              //入力する動画の情報
     RGYParamInput inprm;
@@ -334,6 +342,7 @@ struct sInputParams {
     int        intraRefreshCycle;
     bool       bNoDeblock;
 
+    int        maxFrameSize;
     int        nWinBRCSize;
 
     int        nMVCostScaling;
@@ -366,6 +375,8 @@ struct sInputParams {
     int        hevc_tskip;
     int        hevc_tier;
     std::optional<bool> hevc_gpb;
+
+    QSVAV1Params av1;
 
     tstring    pythonPath;
 

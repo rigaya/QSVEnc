@@ -95,6 +95,12 @@ sVppParams::sVppParams() :
 
 }
 
+QSVAV1Params::QSVAV1Params() :
+    tile_row(0),
+    tile_col(0) {
+
+}
+
 sInputParams::sInputParams() :
     input(),
     inprm(),
@@ -163,6 +169,7 @@ sInputParams::sInputParams() :
     bDisableTimerPeriodTuning(false),
     intraRefreshCycle(0),
     bNoDeblock(false),
+    maxFrameSize(0),
     nWinBRCSize(0),
     nMVCostScaling(0),
     bDirectBiasAdjust(false),
@@ -188,6 +195,7 @@ sInputParams::sInputParams() :
     hevc_tskip(0),
     hevc_tier(0),
     hevc_gpb(),
+    av1(),
     pythonPath(),
     bBenchmark(false),
     nBenchQuality(QSV_DEFAULT_BENCH)
