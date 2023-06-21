@@ -276,7 +276,7 @@ RGY_ERR QSVVppMfx::checkVppParams(sVppParams& params, const bool inputInterlaced
 #endif
 
     if (params.denoise.enable) {
-        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_5) || !(availableFeaures & VPP_FEATURE_DENOISE2)) {
+        if (!check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_5) || !(availableFeaures & VPP_FEATURE_DENOISE2)) {
             if (params.denoise.mode != MFX_DENOISE_MODE_DEFAULT) {
                 PrintMes(RGY_LOG_WARN, _T("setting mode to vpp-denoise is not supported on this platform.\n"));
                 PrintMes(RGY_LOG_WARN, _T("switching to legacy denoise mode.\n"));
