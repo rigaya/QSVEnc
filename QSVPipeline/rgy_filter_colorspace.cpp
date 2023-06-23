@@ -1458,7 +1458,7 @@ RGY_ERR ColorspaceOpCtrl::setHDR2SDR(const VideoVUIInfo &in, const VideoVUIInfo 
     if (csp_from2.transfer == RGY_TRANSFER_UNSPECIFIED) {
         csp_from2 = csp_from2.to(RGY_TRANSFER_LINEAR);
     }
-    if (csp_from2.transfer == RGY_PRIM_UNSPECIFIED) {
+    if (csp_from2.colorprim == RGY_PRIM_UNSPECIFIED) {
         csp_from2 = csp_from2.to(RGY_PRIM_BT2020);
     }
     CHECK(setPath(csp_from2, csp_to2, sdr_source_peak, approx_gamma, scene_ref, height));
