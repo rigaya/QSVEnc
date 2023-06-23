@@ -807,7 +807,7 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
         }
     };
 
-    const auto lowPowerMode = (decltype(videoPrm.mfx.LowPower))((lowPower) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
+    const auto lowPowerMode = (decltype(videoPrm.mfx.LowPower))((lowPower) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
 
     videoPrm.NumExtParam = (mfxU16)buf.size();
     videoPrm.ExtParam = (buf.size()) ? &buf[0] : NULL;
@@ -841,6 +841,10 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
     case MFX_CODEC_HEVC:
         videoPrm.mfx.CodecLevel = MFX_LEVEL_UNKNOWN;
         videoPrm.mfx.CodecProfile = MFX_PROFILE_HEVC_MAIN;
+        if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_9)) {
+            videoPrm.mfx.FrameInfo.BitDepthLuma = 8;
+            videoPrm.mfx.FrameInfo.BitDepthChroma = 8;
+        }
         break;
     case MFX_CODEC_VP8:
         break;
@@ -889,7 +893,9 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
     set_default_quality_prm();
 
     auto ret = MFXVideoENCODE_Query(session, &videoPrm, &videoPrm);
-    //_ftprintf(stderr, _T("error checking %s: %s\n"), CodecIdToStr(codecId), get_err_mes(err_to_rgy(ret)));
+    if (ret < MFX_ERR_NONE) {
+        _ftprintf(stderr, _T("error checking %s %s %s: %s\n"), CodecIdToStr(codecId), (lowPower) ? _T("FF") : _T("PG"), EncmodeToStr(ratecontrol), get_err_mes(err_to_rgy(ret)));
+    }
 
     uint64_t result = (ret >= MFX_ERR_NONE && videoPrm.mfx.RateControlMethod == ratecontrol && videoPrm.mfx.LowPower == lowPowerMode) ? ENC_FEATURE_CURRENT_RC : 0x00;
     if (result) {
@@ -900,8 +906,12 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
                 mfxU16 original_method = videoPrm.mfx.RateControlMethod;
                 videoPrm.mfx.RateControlMethod = mode;
                 set_default_quality_prm();
-                if (MFXVideoENCODE_Query(session, &videoPrm, &videoPrm) >= MFX_ERR_NONE && videoPrm.mfx.RateControlMethod == ratecontrol)
+                auto check_ret = MFXVideoENCODE_Query(session, &videoPrm, &videoPrm);
+                if (check_ret >= MFX_ERR_NONE && videoPrm.mfx.RateControlMethod == ratecontrol) {
                     result |= flag;
+                } else if (false) {
+                    _ftprintf(stderr, _T("error checking %s %s %s: %s\n"), CodecIdToStr(codecId), (lowPower) ? _T("FF") : _T("PG"), EncmodeToStr(mode), get_err_mes(err_to_rgy(check_ret)));
+                }
                 videoPrm.mfx.RateControlMethod = original_method;
                 set_default_quality_prm();
             }
@@ -923,7 +933,7 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
                 && videoPrm.mfx.RateControlMethod == ratecontrol) { \
                 result |= (flag); \
             } else if (false) { \
-                _ftprintf(stderr, _T("error checking %s %s " # flag ": %s\n"), CodecIdToStr(codecId), EncmodeToStr(ratecontrol), get_err_mes(err_to_rgy(check_ret))); \
+                _ftprintf(stderr, _T("error checking %s %s %s " # flag ": %s\n"), CodecIdToStr(codecId), (lowPower) ? _T("FF") : _T("PG"), EncmodeToStr(ratecontrol), get_err_mes(err_to_rgy(check_ret))); \
             } \
             (membersIn) = orig; \
         } \
@@ -1217,7 +1227,7 @@ QSVEncFeatureData MakeFeatureList(const QSVDeviceNum deviceNum, const std::vecto
 std::vector<QSVEncFeatureData> MakeFeatureListPerCodec(const QSVDeviceNum deviceNum, const vector<CX_DESC>& rateControlList, const vector<RGY_CODEC>& codecIdList, std::shared_ptr<RGYLog> log) {
     std::vector<QSVEncFeatureData> codecFeatures;
     vector<std::future<QSVEncFeatureData>> futures;
-    if (true) {
+    if (false) {
         for (auto codec : codecIdList) {
             auto f0 = std::async(MakeFeatureList, deviceNum, rateControlList, codec, false, log);
             futures.push_back(std::move(f0));
