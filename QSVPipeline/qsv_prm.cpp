@@ -170,6 +170,8 @@ sInputParams::sInputParams() :
     intraRefreshCycle(0),
     bNoDeblock(false),
     maxFrameSize(0),
+    maxFrameSizeI(0),
+    maxFrameSizeP(0),
     nWinBRCSize(0),
     nMVCostScaling(0),
     bDirectBiasAdjust(false),

@@ -317,6 +317,7 @@ API v1.1  … Intel Media SDK v2.0
 [QSVEncC]
 - --vpp-denoiseのauto_xx等が動作するよう修正。
 - 入力のcolorprimの指定がない場合に、--vpp-colorspaceのhdr2sdrが正常に動作しない問題を修正。
+- --max-framesize-i, --max-framesize-pを追加。
 
 [QSVEnc.auo]
 - faw処理時に音声がブツブツ切れる場合があったのを修正。

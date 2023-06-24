@@ -343,6 +343,8 @@ struct sInputParams {
     bool       bNoDeblock;
 
     int        maxFrameSize;
+    int        maxFrameSizeI;
+    int        maxFrameSizeP;
     int        nWinBRCSize;
 
     int        nMVCostScaling;

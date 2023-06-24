@@ -135,16 +135,18 @@
   - [--bluray \[H.264のみ\]](#--bluray-h264のみ)
   - [--repartition-check](#--repartition-check)
   - [--trellis \<string\> \[H.264のみ\]](#--trellis-string-h264のみ)
-  - [--intra-refresh-cycle \<int\&gt](#--intra-refresh-cycle-intgt)
-  - [--max-framesize \<int\&gt](#--max-framesize-intgt)
+  - [--intra-refresh-cycle \<int\>](#--intra-refresh-cycle-int)
+  - [--max-framesize \<int\>](#--max-framesize-int)
+  - [--max-framesize-i \<int\>](#--max-framesize-i-int)
+  - [--max-framesize-p \<int\>](#--max-framesize-p-int)
   - [--no-deblock](#--no-deblock)
   - [--tskip](#--tskip)
   - [--sao \<string\>](#--sao-string)
   - [--ctu \<int\>](#--ctu-int)
   - [--hevc-gpb](#--hevc-gpb)
   - [--no-hevc-gpb](#--no-hevc-gpb)
-  - [--tile-row \<int\&gt](#--tile-row-intgt)
-  - [--tile-col \<int\&gt](#--tile-col-intgt)
+  - [--tile-row \<int\>](#--tile-row-int)
+  - [--tile-col \<int\>](#--tile-col-int)
   - [--ssim](#--ssim)
   - [--psnr](#--psnr)
 - [入出力 / 音声 / 字幕などのオプション](#入出力--音声--字幕などのオプション)
@@ -933,13 +935,17 @@ H.264の歪みレート最適化の適用範囲を指定する。
 - ip
 - all
 
-### --intra-refresh-cycle &lt;int&gt
+### --intra-refresh-cycle &lt;int&gt;
 周期的イントラ更新を有効にし、更新を行うフレームの周期を指定する。
 
 デフォルトは 0 (=無効) で、周期的イントラ更新を有効にする場合は2以上の値を指定する。
 
-### --max-framesize &lt;int&gt
+### --max-framesize &lt;int&gt;
+### --max-framesize-i &lt;int&gt;
+### --max-framesize-p &lt;int&gt;
 フレームの最大サイズの指定(byte単位)。
+
+--max-framesize-iはIフレームに対する指定、--max-framesize-pはP/Bフレームに対する指定。
 
 ### --no-deblock
 H.264のデブロックフィルタを無効化する。[H.264]
@@ -964,10 +970,10 @@ HEVCエンコードでPフレームとしてGPBを使用します。
 ### --no-hevc-gpb
 HEVCエンコードでPフレームとしてGPBの代わりに通常のPフレームを使用します。
 
-### --tile-row &lt;int&gt
+### --tile-row &lt;int&gt;
 エンコード時の分割タイルの行数。 [AV1]
 
-### --tile-col &lt;int&gt
+### --tile-col &lt;int&gt;
 エンコード時の分割タイルの列数。 [AV1]
 
 ### --ssim

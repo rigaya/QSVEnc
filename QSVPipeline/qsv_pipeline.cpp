@@ -1086,6 +1086,12 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
                 m_CodingOption3.EnableQPOffset = MFX_CODINGOPTION_ON;
                 memcpy(m_CodingOption3.QPOffset, pInParams->pQPOffset, sizeof(pInParams->pQPOffset));
             }
+            if (pInParams->maxFrameSize || pInParams->maxFrameSizeI) {
+                m_CodingOption3.MaxFrameSizeI = (decltype(m_CodingOption3.MaxFrameSizeI))((pInParams->maxFrameSizeI) ? pInParams->maxFrameSizeI : pInParams->maxFrameSize);
+            }
+            if (pInParams->maxFrameSize || pInParams->maxFrameSizeP) {
+                m_CodingOption3.MaxFrameSizeP = (decltype(m_CodingOption3.MaxFrameSizeP))((pInParams->maxFrameSizeP) ? pInParams->maxFrameSizeP : pInParams->maxFrameSize);
+            }
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_23)) {
             m_CodingOption3.RepartitionCheckEnable = (mfxU16)pInParams->nRepartitionCheck;

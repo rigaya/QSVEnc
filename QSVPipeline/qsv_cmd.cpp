@@ -365,7 +365,9 @@ tstring encoder_help() {
         _T("                                 - 3  set MV cost 1/8 of default\n")
         _T("   --slices <int>               number of slices, default 0 (auto)\n")
         _T("   --vbv-bufsize <int>          set vbv buffer size (kbit) / default: auto\n")
-        _T("   --max-framesize <int>        set max frmae size (bytes) / default: auto\n")
+        _T("   --max-framesize <int         set max frame size (bytes) / default: auto>\n")
+        _T("   --max-framesize-i <int>      set max I frame size (bytes) / default: auto\n")
+        _T("   --max-framesize-p <int>      set max P/B frame size (bytes) / default: auto\n")
         _T("   --intra-refresh-cycle <int>  set intra refresh cycle (2 or larger).\n")
         _T("                                  default = 0 (disabled)\n")
         _T("   --no-deblock                 [h264] disables H.264 deblock feature\n")
@@ -1248,6 +1250,26 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         i++;
         try {
             pParams->maxFrameSize = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("max-framesize-i"))) {
+        i++;
+        try {
+            pParams->maxFrameSizeI = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("max-framesize-p"))) {
+        i++;
+        try {
+            pParams->maxFrameSizeP = std::stoi(strInput[i]);
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
@@ -2179,6 +2201,8 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     OPT_BOOL(_T("--adapt-cqm"), _T("--no-adapt-cqm"), adaptiveCQM);
     OPT_NUM(_T("--intra-refresh-cycle"), intraRefreshCycle);
     OPT_NUM(_T("--max-framesize"), maxFrameSize);
+    OPT_NUM(_T("--max-framesize-i"), maxFrameSizeI);
+    OPT_NUM(_T("--max-framesize-p"), maxFrameSizeP);
     OPT_BOOL(_T("--direct-bias-adjust"), _T("--no-direct-bias-adjust"), bDirectBiasAdjust);
     OPT_LST(_T("--intra-pred"), nIntraPred, list_pred_block_size);
     OPT_LST(_T("--inter-pred"), nInterPred, list_pred_block_size);
