@@ -74,6 +74,20 @@
 #include "qsv_allocator_va.h"
 #endif
 
+#define ENABLE_QUERY_IGNORE_DEVICE_FAILURE 1
+
+mfxStatus queryIgnoreDeviceFailure(const mfxStatus x, const int ratecontrol, const mfxU32 codecId, const bool lowPower) {
+#if ENABLE_QUERY_IGNORE_DEVICE_FAILURE
+    // なぜか HEVC PG のチェックはMFX_ERR_DEVICE_FAILEDを返すのでこれを回避する
+    if (x == MFX_ERR_DEVICE_FAILED
+        && codecId == MFX_CODEC_HEVC
+        && (ratecontrol == MFX_RATECONTROL_ICQ || ratecontrol == MFX_RATECONTROL_CQP)
+        && !lowPower)
+        return MFX_ERR_NONE;
+#endif
+    return x;
+}
+
 #if 1
 QSV_CPU_GEN getCPUGenCpuid() {
 #if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
@@ -807,7 +821,7 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
         }
     };
 
-    const auto lowPowerMode = (decltype(videoPrm.mfx.LowPower))((lowPower) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
+    const auto lowPowerMode = (decltype(videoPrm.mfx.LowPower))((lowPower) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
 
     videoPrm.NumExtParam = (mfxU16)buf.size();
     videoPrm.ExtParam = (buf.size()) ? &buf[0] : NULL;
@@ -841,10 +855,6 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
     case MFX_CODEC_HEVC:
         videoPrm.mfx.CodecLevel = MFX_LEVEL_UNKNOWN;
         videoPrm.mfx.CodecProfile = MFX_PROFILE_HEVC_MAIN;
-        if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_9)) {
-            videoPrm.mfx.FrameInfo.BitDepthLuma = 8;
-            videoPrm.mfx.FrameInfo.BitDepthChroma = 8;
-        }
         break;
     case MFX_CODEC_VP8:
         break;
@@ -892,12 +902,15 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
     }
     set_default_quality_prm();
 
-    auto ret = MFXVideoENCODE_Query(session, &videoPrm, &videoPrm);
-    if (ret < MFX_ERR_NONE) {
+    auto ret = queryIgnoreDeviceFailure(MFXVideoENCODE_Query(session, &videoPrm, &videoPrm), ratecontrol, codecId, lowPower);
+    if (false && ret < MFX_ERR_NONE) {
         _ftprintf(stderr, _T("error checking %s %s %s: %s\n"), CodecIdToStr(codecId), (lowPower) ? _T("FF") : _T("PG"), EncmodeToStr(ratecontrol), get_err_mes(err_to_rgy(ret)));
     }
 
-    uint64_t result = (ret >= MFX_ERR_NONE && videoPrm.mfx.RateControlMethod == ratecontrol && videoPrm.mfx.LowPower == lowPowerMode) ? ENC_FEATURE_CURRENT_RC : 0x00;
+    uint64_t result = (ret >= MFX_ERR_NONE
+        && videoPrm.mfx.RateControlMethod == ratecontrol
+        && (videoPrm.mfx.LowPower == lowPowerMode || (!lowPower && videoPrm.mfx.LowPower == MFX_CODINGOPTION_OFF)))
+        ? ENC_FEATURE_CURRENT_RC : 0x00;
     if (result) {
 
         //まず、エンコードモードについてチェック
@@ -906,7 +919,7 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
                 mfxU16 original_method = videoPrm.mfx.RateControlMethod;
                 videoPrm.mfx.RateControlMethod = mode;
                 set_default_quality_prm();
-                auto check_ret = MFXVideoENCODE_Query(session, &videoPrm, &videoPrm);
+                auto check_ret = queryIgnoreDeviceFailure(MFXVideoENCODE_Query(session, &videoPrm, &videoPrm), ratecontrol, codecId, lowPower);
                 if (check_ret >= MFX_ERR_NONE && videoPrm.mfx.RateControlMethod == ratecontrol) {
                     result |= flag;
                 } else if (false) {
@@ -927,7 +940,7 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
         if (check_lib_version(mfxVer, (required_ver))) { \
             const decltype(membersIn) orig = (membersIn); \
             (membersIn) = (value); \
-            auto check_ret = MFXVideoENCODE_Query(session, &videoPrm, &videoPrm); \
+            auto check_ret = queryIgnoreDeviceFailure(MFXVideoENCODE_Query(session, &videoPrm, &videoPrm), ratecontrol, codecId, lowPower); \
             if (check_ret >= MFX_ERR_NONE \
                 && (membersIn) == (value) \
                 && videoPrm.mfx.RateControlMethod == ratecontrol) { \
@@ -1227,7 +1240,7 @@ QSVEncFeatureData MakeFeatureList(const QSVDeviceNum deviceNum, const std::vecto
 std::vector<QSVEncFeatureData> MakeFeatureListPerCodec(const QSVDeviceNum deviceNum, const vector<CX_DESC>& rateControlList, const vector<RGY_CODEC>& codecIdList, std::shared_ptr<RGYLog> log) {
     std::vector<QSVEncFeatureData> codecFeatures;
     vector<std::future<QSVEncFeatureData>> futures;
-    if (false) {
+    if (true) {
         for (auto codec : codecIdList) {
             auto f0 = std::async(MakeFeatureList, deviceNum, rateControlList, codec, false, log);
             futures.push_back(std::move(f0));
