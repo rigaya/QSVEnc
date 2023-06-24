@@ -74,19 +74,10 @@
 #include "qsv_allocator_va.h"
 #endif
 
-#define ENABLE_QUERY_IGNORE_DEVICE_FAILURE 1
-
-mfxStatus queryIgnoreDeviceFailure(const mfxStatus x, const int ratecontrol, const mfxU32 codecId, const bool lowPower) {
-#if ENABLE_QUERY_IGNORE_DEVICE_FAILURE
-    // なぜか HEVC PG のチェックはMFX_ERR_DEVICE_FAILEDを返すのでこれを回避する
-    if (x == MFX_ERR_DEVICE_FAILED
-        && codecId == MFX_CODEC_HEVC
-        && (ratecontrol == MFX_RATECONTROL_ICQ || ratecontrol == MFX_RATECONTROL_CQP)
-        && !lowPower)
-        return MFX_ERR_NONE;
-#endif
-    return x;
-}
+// sessionを使いまわして異なるRCモードのチェックをすると、
+// 適切な結果が返らない場合がある
+// HEVC PG ICQ CQPのチェックでMFX_ERR_DEVICE_FAILEDが返ったりする
+#define RESET_QUERY_SESSION_PER_RC 1
 
 #if 1
 QSV_CPU_GEN getCPUGenCpuid() {
@@ -902,7 +893,7 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
     }
     set_default_quality_prm();
 
-    auto ret = queryIgnoreDeviceFailure(MFXVideoENCODE_Query(session, &videoPrm, &videoPrm), ratecontrol, codecId, lowPower);
+    auto ret = MFXVideoENCODE_Query(session, &videoPrm, &videoPrm);
     if (false && ret < MFX_ERR_NONE) {
         _ftprintf(stderr, _T("error checking %s %s %s: %s\n"), CodecIdToStr(codecId), (lowPower) ? _T("FF") : _T("PG"), EncmodeToStr(ratecontrol), get_err_mes(err_to_rgy(ret)));
     }
@@ -919,7 +910,7 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
                 mfxU16 original_method = videoPrm.mfx.RateControlMethod;
                 videoPrm.mfx.RateControlMethod = mode;
                 set_default_quality_prm();
-                auto check_ret = queryIgnoreDeviceFailure(MFXVideoENCODE_Query(session, &videoPrm, &videoPrm), ratecontrol, codecId, lowPower);
+                auto check_ret = MFXVideoENCODE_Query(session, &videoPrm, &videoPrm);
                 if (check_ret >= MFX_ERR_NONE && videoPrm.mfx.RateControlMethod == ratecontrol) {
                     result |= flag;
                 } else if (false) {
@@ -940,7 +931,7 @@ uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, con
         if (check_lib_version(mfxVer, (required_ver))) { \
             const decltype(membersIn) orig = (membersIn); \
             (membersIn) = (value); \
-            auto check_ret = queryIgnoreDeviceFailure(MFXVideoENCODE_Query(session, &videoPrm, &videoPrm), ratecontrol, codecId, lowPower); \
+            auto check_ret = MFXVideoENCODE_Query(session, &videoPrm, &videoPrm); \
             if (check_ret >= MFX_ERR_NONE \
                 && (membersIn) == (value) \
                 && videoPrm.mfx.RateControlMethod == ratecontrol) { \
@@ -1231,6 +1222,9 @@ QSVEncFeatureData MakeFeatureList(const QSVDeviceNum deviceNum, const std::vecto
                 availableFeatureForEachRC.feature[ratecontrol.value] = ret;
             }
         }
+        session.Close();
+        hwdev.reset();
+        allocator.reset();
 #if LIBVA_SUPPORT
     }
 #endif
@@ -1241,20 +1235,56 @@ std::vector<QSVEncFeatureData> MakeFeatureListPerCodec(const QSVDeviceNum device
     std::vector<QSVEncFeatureData> codecFeatures;
     vector<std::future<QSVEncFeatureData>> futures;
     if (true) {
-        for (auto codec : codecIdList) {
-            auto f0 = std::async(MakeFeatureList, deviceNum, rateControlList, codec, false, log);
-            futures.push_back(std::move(f0));
-            auto f1 = std::async(MakeFeatureList, deviceNum, rateControlList, codec, true, log);
-            futures.push_back(std::move(f1));
+        if (RESET_QUERY_SESSION_PER_RC) {
+            for (auto codec : codecIdList) {
+                for (const auto& ratecontrol : rateControlList) {
+                    auto f0 = std::async(MakeFeatureList, deviceNum, std::vector<CX_DESC>{ ratecontrol }, codec, false, log);
+                    futures.push_back(std::move(f0));
+                    auto f1 = std::async(MakeFeatureList, deviceNum, std::vector<CX_DESC>{ ratecontrol }, codec, true, log);
+                    futures.push_back(std::move(f1));
+                }
+            }
+        } else {
+            for (auto codec : codecIdList) {
+                auto f0 = std::async(MakeFeatureList, deviceNum, rateControlList, codec, false, log);
+                futures.push_back(std::move(f0));
+                auto f1 = std::async(MakeFeatureList, deviceNum, rateControlList, codec, true, log);
+                futures.push_back(std::move(f1));
+            }
         }
         for (size_t i = 0; i < futures.size(); i++) {
             codecFeatures.push_back(futures[i].get());
         }
     } else {
-        for (auto codec : codecIdList) {
-            codecFeatures.push_back(MakeFeatureList(deviceNum, rateControlList, codec, false, log));
-            codecFeatures.push_back(MakeFeatureList(deviceNum, rateControlList, codec, true, log));
+        if (RESET_QUERY_SESSION_PER_RC) {
+            for (auto codec : codecIdList) {
+                for (const auto& ratecontrol : rateControlList) {
+                    codecFeatures.push_back(MakeFeatureList(deviceNum, std::vector<CX_DESC>{ ratecontrol }, codec, false, log));
+                    codecFeatures.push_back(MakeFeatureList(deviceNum, std::vector<CX_DESC>{ ratecontrol }, codec, true, log));
+                }
+            }
+        } else {
+            for (auto codec : codecIdList) {
+                codecFeatures.push_back(MakeFeatureList(deviceNum, rateControlList, codec, false, log));
+                codecFeatures.push_back(MakeFeatureList(deviceNum, rateControlList, codec, true, log));
+            }
         }
+    }
+    if (RESET_QUERY_SESSION_PER_RC) {
+        std::vector<QSVEncFeatureData> codecFeaturesMerged;
+        for (auto& feature : codecFeatures) {
+            auto target = std::find_if(codecFeaturesMerged.begin(), codecFeaturesMerged.end(), [&feature](auto featureMerged) {
+                return featureMerged.codec   == feature.codec
+                    && featureMerged.dev     == feature.dev
+                    && featureMerged.lowPwer == feature.lowPwer;
+            });
+            if (target == codecFeaturesMerged.end()) {
+                codecFeaturesMerged.push_back(feature);
+            } else {
+                target->feature.merge(feature.feature);
+            }
+        }
+        codecFeatures = codecFeaturesMerged;
     }
     // HEVCのhyper modeのチェックは使用できる場合でもなぜか成功しない
     // 原因不明だが、まずはH.264の結果を参照するようにする
