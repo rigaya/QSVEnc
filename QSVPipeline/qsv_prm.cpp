@@ -91,7 +91,8 @@ sVppParams::sVppParams() :
     useProAmp(false),
     denoise(),
     mctf(),
-    detail() {
+    detail(),
+    percPreEnc(false) {
 
 }
 

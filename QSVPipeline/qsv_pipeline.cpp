@@ -2082,6 +2082,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vpp.tweak.enable)      filterPipeline.push_back(VppType::CL_TWEAK);
     if (inputParam->vpp.deband.enable)     filterPipeline.push_back(VppType::CL_DEBAND);
     if (inputParam->vpp.pad.enable)        filterPipeline.push_back(VppType::CL_PAD);
+    if (inputParam->vppmfx.percPreEnc)     filterPipeline.push_back(VppType::MFX_PERC_ENC_PREFILTER);
     if (inputParam->vpp.overlay.size() > 0)  filterPipeline.push_back(VppType::CL_OVERLAY);
 
     if (filterPipeline.size() == 0) {
@@ -2151,6 +2152,7 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
     case VppType::MFX_ROTATE:              vppParams.rotate = params->rotate; break;
     case VppType::MFX_MIRROR:              vppParams.mirrorType = params->mirrorType; break;
     case VppType::MFX_MCTF:                vppParams.mctf = params->mctf; break;
+    case VppType::MFX_PERC_ENC_PREFILTER:  vppParams.percPreEnc = params->percPreEnc; break;
     case VppType::MFX_RESIZE:              vppParams.bUseResize = true;
                                            vppParams.resizeInterp = params->resizeInterp;
                                            vppParams.resizeMode = params->resizeMode;

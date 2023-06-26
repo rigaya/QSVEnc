@@ -154,6 +154,8 @@ tstring gen_cmd_help_vppmfx() {
 #endif
         _T("   --vpp-image-stab <string>    set image stabilizer mode\n")
         _T("                                 - none, upscale, box\n"));
+    str += strsprintf(_T("")
+        _T("   --vpp-perc-pre-enc           enable perceptual pre enc filter\n"));
     return str;
 }
 
@@ -674,6 +676,14 @@ int parse_one_vppmfx_option(const TCHAR *option_name, const TCHAR *strInput[], i
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("vpp-perc-pre-enc"))) {
+        vppmfx->percPreEnc = true;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("no-vpp-perc-pre-enc"))) {
+        vppmfx->percPreEnc = false;
         return 0;
     }
     return -10;
@@ -1908,6 +1918,7 @@ tstring gen_cmd(const sVppParams *param, const sVppParams *defaultPrm, bool save
     }
     OPT_LST(_T("--vpp-fps-conv"), fpsConversion, list_vpp_fps_conversion);
     OPT_LST(_T("--vpp-image-stab"), imageStabilizer, list_vpp_image_stabilizer);
+    OPT_BOOL(_T("--vpp-perc-pre-enc"), _T("--no-vpp-perc-pre-enc"), percPreEnc);
 
 #if 0
     if (param->colorspace != defaultPrm->colorspace) {

@@ -161,6 +161,7 @@ enum class VppType : int {
     MFX_RESIZE,
     MFX_DETAIL_ENHANCE,
     MFX_FPS_CONV,
+    MFX_PERC_ENC_PREFILTER,
     MFX_COPY,
 
     MFX_MAX,
@@ -250,6 +251,8 @@ struct sVppParams {
     VppDenoise denoise;
     VppMCTF mctf;
     VppDetailEnhance detail;
+
+    bool percPreEnc;
 
     sVppParams();
     ~sVppParams() {};

@@ -42,7 +42,8 @@ static const auto MFX_EXTBUFF_VPP_TO_VPPTYPE = make_array<std::pair<uint32_t, Vp
     std::make_pair(MFX_EXTBUFF_VPP_SCALING,               VppType::MFX_RESIZE),
     std::make_pair(MFX_EXTBUFF_VPP_DETAIL,                VppType::MFX_DETAIL_ENHANCE),
     std::make_pair(MFX_EXTBUFF_VPP_FRAME_RATE_CONVERSION, VppType::MFX_FPS_CONV),
-    std::make_pair(MFX_EXTBUFF_VPP_IMAGE_STABILIZATION,   VppType::MFX_IMAGE_STABILIZATION)
+    std::make_pair(MFX_EXTBUFF_VPP_IMAGE_STABILIZATION,   VppType::MFX_IMAGE_STABILIZATION),
+    std::make_pair(MFX_EXTBUFF_VPP_PERC_ENC_PREFILTER,    VppType::MFX_PERC_ENC_PREFILTER)
     );
 
 MAP_PAIR_0_1(vpp, extbuff, uint32_t, rgy, VppType, MFX_EXTBUFF_VPP_TO_VPPTYPE, 0, VppType::VPP_NONE);
@@ -74,6 +75,7 @@ QSVVppMfx::QSVVppMfx(CQSVHWDevice *hwdev, QSVAllocator *allocator,
     m_ExtImageStab(),
     m_ExtMirror(),
     m_ExtScaling(),
+    m_ExtPercEncPrefilter(),
     m_VppDoNotUseList(),
     m_VppDoUseList(),
     m_VppExtParams(),
@@ -97,6 +99,7 @@ void QSVVppMfx::InitStructs() {
     RGY_MEMSET_ZERO(m_ExtImageStab);
     RGY_MEMSET_ZERO(m_ExtMirror);
     RGY_MEMSET_ZERO(m_ExtScaling);
+    RGY_MEMSET_ZERO(m_ExtPercEncPrefilter);
 }
 
 QSVVppMfx::~QSVVppMfx() { clear(); };
@@ -608,6 +611,18 @@ RGY_ERR QSVVppMfx::SetVppExtBuffers(sVppParams& params) {
             default:
                 break;
             }
+    }
+
+    if (params.percPreEnc) {
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_9)) {
+            INIT_MFX_EXT_BUFFER(m_ExtPercEncPrefilter, MFX_EXTBUFF_VPP_PERC_ENC_PREFILTER);
+            m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtPercEncPrefilter);
+            m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_PERC_ENC_PREFILTER);
+            vppExtAddMes(_T("Perceptual Pre Enc\n"));
+        } else {
+            PrintMes(RGY_LOG_WARN, _T("--vpp-perc-pre-enc not supported on this platform, disabled.\n"));
+            params.percPreEnc = false;
+        }
     }
 
     if (m_VppDoUseList.size()) {

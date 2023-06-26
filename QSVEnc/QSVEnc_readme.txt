@@ -313,6 +313,10 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2023.06.26 (7.47)
+[QSVEncC]
+- perceptual pre encode filterを有効にするオプションを追加。(--vpp-perc-pre-enc)
+
 2023.06.24 (7.46)
 [QSVEncC]
 - --vpp-denoiseのauto_xx等が動作するよう修正。
