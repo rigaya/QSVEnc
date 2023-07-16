@@ -179,8 +179,6 @@
   - [--chapter \<string\>](#--chapter-string)
   - [--chapter-copy](#--chapter-copy)
   - [--chapter-no-trim](#--chapter-no-trim)
-  - [--key-on-chapter](#--key-on-chapter)
-  - [--keyfile \<string\>](#--keyfile-string)
   - [--sub-source \<string\>\[:{\<int\>?}\[;\<param1\>=\<value1\>...\]/\[\]...\]](#--sub-source-stringintparam1value1)
   - [--sub-copy \[\<int/string\>;\[,\<int/string\>\]...\]](#--sub-copy-intstringintstring)
   - [--sub-disposition \[\<int/string\>?\]\<string\>](#--sub-disposition-intstringstring)
@@ -1398,13 +1396,6 @@ Copy chapters from input file.
 
 ### --chapter-no-trim
 Do not apply --trim when reading chapters.
-
-### --key-on-chapter
-Set keyframes on chapter position.
-
-### --keyfile &lt;string&gt;
-Set keyframes on frames (starting from 0, 1, 2, ...) specified in the file.
-There should be one frame ID per line.
 
 ### --sub-source &lt;string&gt;[:{&lt;int&gt;?}[;&lt;param1&gt;=&lt;value1&gt;...]/[]...]
 Read subtitle from the specified file and mux into the output file.

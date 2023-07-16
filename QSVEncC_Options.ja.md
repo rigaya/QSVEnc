@@ -179,8 +179,6 @@
   - [--chapter \<string\>](#--chapter-string)
   - [--chapter-copy](#--chapter-copy)
   - [--chapter-no-trim](#--chapter-no-trim)
-  - [--key-on-chapter](#--key-on-chapter)
-  - [--keyfile \<string\>](#--keyfile-string)
   - [--sub-source \<string\>\[:{\<int\>?}\[;\<param1\>=\<value1\>\]...\]...](#--sub-source-stringintparam1value1)
   - [--sub-copy \[\<int/string\>;\[,\<int/string\>\]...\]](#--sub-copy-intstringintstring)
   - [--sub-disposition \[\<int/string\>?\]\<string\>\[,\<string\>\]\[\]...](#--sub-disposition-intstringstringstring)
@@ -1408,13 +1406,6 @@ nero形式、apple形式、matroska形式に対応する。--chapter-copyとは�
 
 ### --chapter-no-trim
 チャプター読み込みの際、trimを反映させず、そのまま適用する。
-
-### --key-on-chapter
-キーフレーム位置にチャプターを挿入する。
-
-### --keyfile &lt;string&gt;
-キーフレームしたいフレーム番号を記載したファイルを読み込み、指定のフレームをキーフレームに設定する。
-フレーム番号は、先頭から0, 1, 2, .... として、複数指定する場合は都度改行する。
 
 ### --sub-source &lt;string&gt;[:{&lt;int&gt;?}[;&lt;param1&gt;=&lt;value1&gt;]...]...
 指定のファイルから字幕を読み込みmuxする。
