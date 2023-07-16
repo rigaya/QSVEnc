@@ -620,7 +620,7 @@ public:
 class RGYCLFrameMap : public RGYCLFrame {
 public:
     RGYCLFrameMap(RGYCLFrame *dev, RGYOpenCLQueue &queue);
-    ~RGYCLFrameMap() {
+    virtual ~RGYCLFrameMap() {
         unmap();
     }
     RGY_ERR map(cl_map_flags map_flags, RGYOpenCLQueue &queue);
