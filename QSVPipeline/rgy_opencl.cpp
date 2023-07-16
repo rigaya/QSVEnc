@@ -954,7 +954,6 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListD3D11(cl_device_type device_type, voi
             CL_LOG(RGY_LOG_DEBUG, _T("D3D11 device count = %d\n"), device_count);
         } catch (...) {
             CL_LOG(RGY_LOG_ERROR, _T("Crush (clGetDeviceIDsFromD3D11KHR)\n"));
-            RGYOpenCL::openCLCrush = true; //クラッシュフラグを立てる
             return RGY_ERR_OPENCL_CRUSH;
         }
         if (device_count > 0) {
@@ -963,7 +962,6 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListD3D11(cl_device_type device_type, voi
                 ret = err_cl_to_rgy(clGetDeviceIDsFromD3D11KHR(m_platform, CL_D3D11_DEVICE_KHR, d3d11dev, select_dev_type, device_count, devs.data(), &device_count));
             } catch (...) {
                 CL_LOG(RGY_LOG_ERROR, _T("Crush (clGetDeviceIDsFromD3D11KHR)\n"));
-                RGYOpenCL::openCLCrush = true; //クラッシュフラグを立てる
                 return RGY_ERR_OPENCL_CRUSH;
             }
             if (ret == RGY_ERR_NONE) {
@@ -1014,7 +1012,6 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListD3D9(cl_device_type device_type, void
             }
             catch (...) {
                 CL_LOG(RGY_LOG_ERROR, _T("Crush (clGetDeviceIDsFromDX9MediaAdapterKHR)\n"));
-                RGYOpenCL::openCLCrush = true; //クラッシュフラグを立てる
                 return RGY_ERR_OPENCL_CRUSH;
             }
             if (ret == RGY_ERR_NONE) {
