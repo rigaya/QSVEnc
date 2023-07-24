@@ -313,8 +313,10 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
-2023.06.26 (7.47)
+2023.07.24 (7.47)
 [QSVEncC]
+- 4575ドライバで--check-featuresが正しく動作しない問題を修正。
+- --audio-streamをavs読み込み時にも対応。
 - perceptual pre encode filterを有効にするオプションを追加。(--vpp-perc-pre-enc)
 
 2023.06.24 (7.46)
