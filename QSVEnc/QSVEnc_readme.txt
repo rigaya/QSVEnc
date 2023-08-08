@@ -313,6 +313,13 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2023.08.08 (7.48)
+[QSVEncC]
+- --hyper-mode on時には--open-gopを無効に。
+- マルチGPU環境での--hyper-mode on指定時の動作を改善。
+- --video-tagの指定がない場合、HEVCでは再生互換性改善のため、 "hvc1"をデフォルトとする。
+  (libavformatのデフォルトは"hev1")
+
 2023.07.24 (7.47)
 [QSVEncC]
 - 4575ドライバで--check-featuresが正しく動作しない問題を修正。

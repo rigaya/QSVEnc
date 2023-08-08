@@ -565,20 +565,14 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
     }
     if (pInParams->hyperMode == MFX_HYPERMODE_ON) {
         //HyperModeの対象となるGPUのfeature取得を行い、andをとる
-        uint64_t dev2Feature = 0;
-        QSVDeviceNum dev2Num = QSVDeviceNum::AUTO;
         for (auto& dev2 : devList) {
             if (dev2) { // 自分自身はすでにm_deviceにmoveして、devListにはいなくなっている
-                dev2Feature = dev2->getEncodeFeature(pInParams->nEncMode, codec_enc_to_rgy(pInParams->CodecId), pInParams->bUseFixedFunc);
+                const auto dev2Feature = dev2->getEncodeFeature(pInParams->nEncMode, codec_enc_to_rgy(pInParams->CodecId), pInParams->bUseFixedFunc);
                 if (dev2Feature & ENC_FEATURE_HYPER_MODE) { // HyperModeに対応するGPUを選択
-                    dev2Num = dev2->deviceNum();
-                    break;
+                    PrintMes(RGY_LOG_DEBUG, _T("Detected avaliable features for hyper mode, dev %d, %s\n%s\n"), (int)dev2->deviceNum(), EncmodeToStr(pInParams->nEncMode), MakeFeatureListStr(dev2Feature).c_str());
+                    availableFeaures &= dev2Feature;
                 }
             }
-        }
-        if (dev2Feature) { // 検出できなかった場合は処理しない
-            PrintMes(RGY_LOG_DEBUG, _T("Detected avaliable features for hyper mode, dev %d, %s\n%s\n"), (int)dev2Num, EncmodeToStr(pInParams->nEncMode), MakeFeatureListStr(dev2Feature).c_str());
-            availableFeaures &= dev2Feature;
         }
         if (pInParams->bopenGOP) {
             PrintMes(RGY_LOG_WARN, _T("OpenGOP is not supported with hyper-mode on, disabled.\n"));
