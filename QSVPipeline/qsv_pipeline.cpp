@@ -580,6 +580,10 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
             PrintMes(RGY_LOG_DEBUG, _T("Detected avaliable features for hyper mode, dev %d, %s\n%s\n"), (int)dev2Num, EncmodeToStr(pInParams->nEncMode), MakeFeatureListStr(dev2Feature).c_str());
             availableFeaures &= dev2Feature;
         }
+        if (pInParams->bopenGOP) {
+            PrintMes(RGY_LOG_WARN, _T("OpenGOP is not supported with hyper-mode on, disabled.\n"));
+            pInParams->bopenGOP = false;
+        }
     }
 
     const bool gopRefDistAsBframes = gopRefDistAsBframe(pInParams->CodecId);
