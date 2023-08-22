@@ -2664,6 +2664,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         param->frameOut = inputFrame;
         param->frameOut.width += params->vpp.pad.left + params->vpp.pad.right;
         param->frameOut.height += params->vpp.pad.top + params->vpp.pad.bottom;
+        param->encoderCsp = getEncoderCsp(params);
         param->baseFps = m_encFps;
         param->bOutOverwrite = false;
         auto sts = filter->init(param, m_pQSVLog);
