@@ -15,4 +15,4 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Build the Docker image
-      run: docker build . --file docker/docker_ubuntu2204 --tag qsvenc:$(date +%s)
+      run: docker build . --tag qsvenc:$(date +%s)
