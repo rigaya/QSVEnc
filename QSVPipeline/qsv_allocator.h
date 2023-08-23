@@ -32,6 +32,7 @@
 #include <memory>
 #include <cstring>
 #include <functional>
+#include "rgy_version.h"
 #include "rgy_util.h"
 #pragma warning (push)
 #pragma warning (disable: 4201) //C4201: 非標準の拡張機能が使用されています: 無名の構造体または共用体です。

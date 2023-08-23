@@ -40,6 +40,8 @@
 
 static const char* AFS_ANALYZE_KERNEL_NAME = "kernel_afs_analyze_12";
 
+#pragma warning(push)
+#pragma warning(disable: 4127) //C4127: 条件式が定数です。
 RGY_ERR RGYFilterAfs::build_analyze(const RGY_CSP csp, const bool tb_order) {
     if (!m_analyze.get()) {
         auto options = strsprintf("-D BIT_DEPTH=%d -D YUV420=%d -D TB_ORDER=%d -D BLOCK_INT_X=%d -D BLOCK_Y=%d -D BLOCK_LOOP_Y=%d",
@@ -78,6 +80,7 @@ RGY_ERR RGYFilterAfs::build_analyze(const RGY_CSP csp, const bool tb_order) {
     }
     return RGY_ERR_NONE;
 }
+#pragma warning(pop)
 
 typedef uint8_t Flag;
 

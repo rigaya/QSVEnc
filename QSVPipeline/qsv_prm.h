@@ -30,6 +30,7 @@
 
 #include <climits>
 #include <vector>
+#include <optional>
 #include "rgy_version.h"
 #include "rgy_util.h"
 #pragma warning (push)
@@ -73,6 +74,7 @@ enum class QSVDeviceNum {
     NUM2,
     NUM3,
     NUM4,
+    MAX = 64,
 };
 
 enum MemType {
@@ -159,6 +161,7 @@ enum class VppType : int {
     MFX_RESIZE,
     MFX_DETAIL_ENHANCE,
     MFX_FPS_CONV,
+    MFX_PERC_ENC_PREFILTER,
     MFX_COPY,
 
     MFX_MAX,
@@ -175,8 +178,9 @@ enum class VppType : int {
     CL_DELOGO,
     CL_TRANSFORM,
 
-    CL_DENOISE_PMD,
+    CL_CONVOLUTION3D,
     CL_DENOISE_KNN,
+    CL_DENOISE_PMD,
     CL_DENOISE_SMOOTH,
 
     CL_RESIZE,
@@ -187,7 +191,10 @@ enum class VppType : int {
     CL_EDGELEVEL,
     CL_WARPSHARP,
 
+    CL_CURVES,
     CL_TWEAK,
+
+    CL_OVERLAY,
 
     CL_DEBAND,
 
@@ -245,12 +252,23 @@ struct sVppParams {
     VppMCTF mctf;
     VppDetailEnhance detail;
 
+    bool percPreEnc;
+
     sVppParams();
     ~sVppParams() {};
 };
 
+
+struct QSVAV1Params {
+    int tile_row;
+    int tile_col;
+
+    QSVAV1Params();
+};
+
 struct sInputParams {
     VideoInfo input;              //入力する動画の情報
+    RGYParamInput inprm;
     RGYParamCommon common;
     RGYParamControl ctrl;
     RGYParamVpp vpp;
@@ -267,7 +285,7 @@ struct sInputParams {
     int nGOPLength;    // (Max) GOP Length
     bool bopenGOP;      // if false, GOP_CLOSED is set
     bool bforceGOPSettings; // if true, GOP_STRICT is set
-    int nBframes;      // set sequential Bframes num, -1 is auto.
+    int GopRefDist;    // set sequential Bframes num + 1, 0 is auto
     int nRef;          // set ref frames num.
     int nBitRate;
     int nMaxBitrate;
@@ -289,6 +307,8 @@ struct sInputParams {
 
     MemType memType;       //use d3d surface
 
+    mfxHyperMode hyperMode;
+
     int nInputBufSize; //input buf size
 
     int        nPAR[2]; //PAR比
@@ -304,29 +324,37 @@ struct sInputParams {
 
     bool       bMBBRC;
     bool       extBRC;
-    bool       extBrcAdaptiveLTR;
+    bool       adaptiveRef;
+    bool       adaptiveLTR;
+    bool       adaptiveCQM;
+    bool       bBPyramid;
+    bool       bAdaptiveI;
+    bool       bAdaptiveB;
 
     int        nLookaheadDepth;
     int        nTrellis;
 
     int        nAsyncDepth;
 
-    bool       bBPyramid;
-    bool       bAdaptiveI;
-    bool       bAdaptiveB;
     int        nLookaheadDS;
+    uint32_t   tuneQuality;
+    int        scenarioInfo;
 
     bool       bDisableTimerPeriodTuning;
 
-    bool       bIntraRefresh;
+    int        intraRefreshCycle;
     bool       bNoDeblock;
 
+    int        maxFrameSize;
+    int        maxFrameSizeI;
+    int        maxFrameSizeP;
     int        nWinBRCSize;
 
     int        nMVCostScaling;
     bool       bDirectBiasAdjust;
     bool       bGlobalMotionAdjust;
     bool       bUseFixedFunc;
+    bool       gpuCopy;
 
     int        nSessionThreads;
     int        nSessionThreadPriority;
@@ -341,7 +369,7 @@ struct sInputParams {
     bool       bOutputAud;
     bool       bOutputPicStruct;
     bool       bufPeriodSEI;
-    bool       disableRepeatPPS;
+    std::optional<bool> repeatHeaders;
     int16_t    pQPOffset[8];
 
     int        nRepartitionCheck;
@@ -351,6 +379,9 @@ struct sInputParams {
     int        hevc_sao;
     int        hevc_tskip;
     int        hevc_tier;
+    std::optional<bool> hevc_gpb;
+
+    QSVAV1Params av1;
 
     tstring    pythonPath;
 
@@ -458,7 +489,7 @@ const CX_DESC list_vp9_profile[] = {
     { NULL, 0 }
 };
 
-const CX_DESC list_av1_level[] = {
+const CX_DESC list_av1_profile[] = {
     { _T("auto"),     0 },
     { _T("main"),     MFX_PROFILE_AV1_MAIN },
     { _T("high"),     MFX_PROFILE_AV1_HIGH },
@@ -584,7 +615,7 @@ const CX_DESC list_vp9_level[] = {
     { NULL, 0 }
 };
 
-const CX_DESC list_av1_profile[] = {
+const CX_DESC list_av1_level[] = {
     { _T("auto"),     0 },
     { _T("2"),        MFX_LEVEL_AV1_2  },
     { _T("2.1"),      MFX_LEVEL_AV1_21 },
@@ -659,6 +690,25 @@ const CX_DESC list_priority[] = {
     { _T("high"),   MFX_PRIORITY_HIGH   },
 };
 
+const CX_DESC list_hyper_mode[] = {
+    { _T("off"),      MFX_HYPERMODE_OFF      },
+    { _T("on"),       MFX_HYPERMODE_ON       },
+    { _T("adaptive"), MFX_HYPERMODE_ADAPTIVE },
+    { NULL, 0 }
+};
+
+const CX_DESC list_enc_tune_quality_mode[] = {
+    { _T("default"),    MFX_ENCODE_TUNE_DEFAULT    },
+    { _T("psnr"),       MFX_ENCODE_TUNE_PSNR       },
+    { _T("ssim"),       MFX_ENCODE_TUNE_SSIM       },
+    { _T("ms_ssim"),    MFX_ENCODE_TUNE_MS_SSIM    },
+    { _T("vmaf"),       MFX_ENCODE_TUNE_VMAF       },
+    { _T("perceptual"), MFX_ENCODE_TUNE_PERCEPTUAL },
+    { NULL, 0 }
+};
+
+tstring get_str_of_tune_bitmask(const uint32_t mask);
+
 enum {
     QSV_AUD_ENC_NONE = -1,
     QSV_AUD_ENC_COPY = 0,
@@ -722,6 +772,19 @@ const CX_DESC list_quality_for_option[] = {
     { _T("fast"),     5                            },
     { _T("faster"),   6                            },
     { _T("fastest"),  MFX_TARGETUSAGE_BEST_SPEED   },
+    { NULL, 0 }
+};
+
+const CX_DESC list_scenario_info[] = {
+    { _T("unknown"),            MFX_SCENARIO_UNKNOWN            },
+    { _T("display_remoting"),   MFX_SCENARIO_DISPLAY_REMOTING   },
+    { _T("video_conference"),   MFX_SCENARIO_VIDEO_CONFERENCE   },
+    { _T("archive"),            MFX_SCENARIO_ARCHIVE            },
+    { _T("live_streaming"),     MFX_SCENARIO_LIVE_STREAMING     },
+    { _T("camera_capture"),     MFX_SCENARIO_CAMERA_CAPTURE     },
+    { _T("video_surveillance"), MFX_SCENARIO_VIDEO_SURVEILLANCE },
+    { _T("game_streaming"),     MFX_SCENARIO_GAME_STREAMING     },
+    { _T("remote_gaming"),      MFX_SCENARIO_REMOTE_GAMING      },
     { NULL, 0 }
 };
 
@@ -805,9 +868,10 @@ const int QSV_DEFAULT_QVBR = 23;
 const int QSV_DEFAULT_QPI = 24;
 const int QSV_DEFAULT_QPP = 26;
 const int QSV_DEFAULT_QPB = 27;
-const int QSV_BFRAMES_AUTO = -1;
-const int QSV_DEFAULT_H264_BFRAMES = 3;
-const int QSV_DEFAULT_HEVC_BFRAMES = 3;
+const int QSV_GOP_REF_DIST_AUTO = 0;
+const int QSV_DEFAULT_H264_GOP_REF_DIST = 4;
+const int QSV_DEFAULT_HEVC_GOP_REF_DIST = 4;
+const int QSV_DEFAULT_AV1_GOP_REF_DIST = 8;
 const int QSV_DEFAULT_QUALITY = MFX_TARGETUSAGE_BALANCED;
 const int QSV_DEFAULT_INPUT_BUF_SW = 1;
 const int QSV_DEFAULT_INPUT_BUF_HW = 3;
@@ -824,10 +888,10 @@ const int QSV_DEFAULT_VQP_SENSITIVITY = 50;
 const int QSV_DEFAULT_SC_SENSITIVITY = 80;
 
 const int QSV_DEFAULT_ASYNC_DEPTH = 3;
-const int QSV_ASYNC_DEPTH_MAX = 16;
+const int QSV_ASYNC_DEPTH_MAX = 1024;
 const int QSV_SESSION_THREAD_MAX = 64;
 
-const int QSV_LOOKAHEAD_DEPTH_MIN = 10;
+const int QSV_LOOKAHEAD_DEPTH_MIN = 0;
 const int QSV_LOOKAHEAD_DEPTH_MAX = 100;
 
 const uint32_t QSV_DEFAULT_AUDIO_IGNORE_DECODE_ERROR = 10;

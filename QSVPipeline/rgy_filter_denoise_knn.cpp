@@ -59,7 +59,12 @@ RGY_ERR RGYFilterDenoiseKnn::denoisePlane(RGYFrameInfo *pOutputPlane, const RGYF
 }
 
 RGY_ERR RGYFilterDenoiseKnn::denoiseFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
-    auto srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY);
+    auto srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY, &m_srcImagePool);
+    if (!srcImage) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to create image for input frame.\n"));
+        return RGY_ERR_MEM_OBJECT_ALLOCATION_FAILURE;
+    }
+
     for (int i = 0; i < RGY_CSP_PLANES[pOutputFrame->csp]; i++) {
         auto planeDst = getPlane(pOutputFrame, (RGY_PLANE)i);
         auto planeSrc = getPlane(&srcImage->frame, (RGY_PLANE)i);
@@ -74,7 +79,7 @@ RGY_ERR RGYFilterDenoiseKnn::denoiseFrame(RGYFrameInfo *pOutputFrame, const RGYF
     return RGY_ERR_NONE;
 }
 
-RGYFilterDenoiseKnn::RGYFilterDenoiseKnn(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_knn() {
+RGYFilterDenoiseKnn::RGYFilterDenoiseKnn(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_knn(), m_srcImagePool() {
     m_name = _T("knn");
 }
 
@@ -119,8 +124,11 @@ RGY_ERR RGYFilterDenoiseKnn::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
         AddMessage(RGY_LOG_ERROR, _T("th_weight should be 0.0 - 1.0.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+    auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamDenoiseKnn>(m_param);
     if (!m_knn.get()
-        || std::dynamic_pointer_cast<RGYFilterParamDenoiseKnn>(m_param)->knn != pKnnParam->knn) {
+        || !prmPrev
+        || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]
+        || prmPrev->knn.radius != pKnnParam->knn.radius) {
         const auto options = strsprintf("-D Type=%s -D bit_depth=%d -D knn_radius=%d",
             RGY_CSP_BIT_DEPTH[pKnnParam->frameOut.csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[pKnnParam->frameOut.csp],
@@ -183,6 +191,7 @@ RGY_ERR RGYFilterDenoiseKnn::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
 }
 
 void RGYFilterDenoiseKnn::close() {
+    m_srcImagePool.clear();
     m_frameBuf.clear();
     m_knn.clear();
     m_cl.reset();

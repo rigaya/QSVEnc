@@ -58,6 +58,8 @@ public:
     virtual mfxStatus Reset() = 0;
     virtual mfxStatus GetHandle(mfxHandleType type, mfxHDL *pHdl) = 0;
     virtual void      Close() = 0;
+    virtual LUID      GetLUID() { return LUID(); };
+    virtual tstring   GetName() { return _T(""); };
 protected:
     void AddMessage(RGYLogLevel log_level, const tstring &str);
     void AddMessage(RGYLogLevel log_level, const TCHAR *format, ...);

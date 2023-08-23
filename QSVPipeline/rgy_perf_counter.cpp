@@ -1,5 +1,5 @@
 ﻿// -----------------------------------------------------------------------------------------
-// QSVEnc/NVEnc/VCEEnc by rigaya
+// QSVEnc/NVEnc/VCEEnc/rkmppenc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
 //
@@ -181,6 +181,11 @@ int RGYGPUCounterWinEntries::sum() const {
         [](int sum, const CounterEntry *e) { return sum + e->val; });
 }
 
+int RGYGPUCounterWinEntries::max() const {
+    return std::accumulate(entries.begin(), entries.end(), 0,
+        [](int maxval, const CounterEntry *e) { return std::max(maxval, e->val); });
+}
+
 std::wstring RGYGPUCounterWinEntries::tolowercase(const std::wstring &str) {
     auto temp = _wcsdup(str.data());
     _wcslwr(temp);
@@ -229,16 +234,16 @@ void RGYGPUCounterWin::close() {
 }
 
 int RGYGPUCounterWin::init() {
-    auto hr = S_OK;
-
-    if (FAILED(hr = CoInitializeSecurity(
+    auto hr = CoInitializeSecurity(
         NULL,
         -1,
         NULL,
         NULL,
         RPC_C_AUTHN_LEVEL_NONE,
         RPC_C_IMP_LEVEL_IMPERSONATE,
-        NULL, EOAC_NONE, 0))) {
+        NULL, EOAC_NONE, 0);
+    // 2度目の呼び出しでは、RPC_E_TOO_LATEが生じる場合がある
+    if (hr != RPC_E_TOO_LATE && FAILED(hr)) {
         return 1;
     }
 

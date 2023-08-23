@@ -105,7 +105,7 @@ void EncodeStatus::SetOutputData(RGY_FRAMETYPE picType, uint64_t outputBytes, ui
 #pragma warning(push)
 #pragma warning(disable: 4100)
 void EncodeStatus::UpdateDisplay(const TCHAR *mes, double progressPercent) {
-    if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel(RGY_LOGT_CORE) > RGY_LOG_INFO) {
+    if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel(RGY_LOGT_CORE_PROGRESS) > RGY_LOG_INFO) {
         return;
     }
 #if UNICODE
@@ -134,7 +134,7 @@ RGY_ERR EncodeStatus::UpdateDisplayByCurrentDuration(double currentDuration) {
     return UpdateDisplay(progressPercent);
 }
 RGY_ERR EncodeStatus::UpdateDisplay(double progressPercent) {
-    if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel(RGY_LOGT_CORE) > RGY_LOG_INFO) {
+    if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel(RGY_LOGT_CORE_PROGRESS) > RGY_LOG_INFO) {
         return RGY_ERR_NONE;
     }
     if (m_sData.frameOut + m_sData.frameDrop <= 0) {
@@ -168,16 +168,16 @@ RGY_ERR EncodeStatus::UpdateDisplay(double progressPercent) {
         if (bVideoEngineUsage) {
             if (!qsv_metric) { //QSVではMETRIC_FRAMEWORKを優先
                 gpuencoder_usage = std::max(
-                    RGYGPUCounterWinEntries(counters).filter_type(L"encode").sum(),
-                    RGYGPUCounterWinEntries(counters).filter_type(L"codec").sum()); //vce rx5xxx
+                    RGYGPUCounterWinEntries(counters).filter_type(L"encode").max(),
+                    RGYGPUCounterWinEntries(counters).filter_type(L"codec").max()); //vce rx5xxx
                 bVideoEngineUsage = !ENCODER_QSV || gpuencoder_usage > 0.0; //QSVのMFX使用率はこれでは取れない
             }
             gpuusage = std::max(std::max(std::max(
-                RGYGPUCounterWinEntries(counters).filter_type(L"cuda").sum(), //nvenc
-                RGYGPUCounterWinEntries(counters).filter_type(L"compute").sum()), //vce-opencl
-                RGYGPUCounterWinEntries(counters).filter_type(L"3d").sum()), //qsv
-                RGYGPUCounterWinEntries(counters).filter_type(L"videoprocessing").sum()); //qsv
-            gpudecoder_usage = RGYGPUCounterWinEntries(counters).filter_type(L"decode").sum();
+                RGYGPUCounterWinEntries(counters).filter_type(L"cuda").max(), //nvenc
+                RGYGPUCounterWinEntries(counters).filter_type(L"compute").max()), //vce-opencl
+                RGYGPUCounterWinEntries(counters).filter_type(L"3d").max()), //qsv
+                RGYGPUCounterWinEntries(counters).filter_type(L"videoprocessing").max()); //qsv
+            gpudecoder_usage = RGYGPUCounterWinEntries(counters).filter_type(L"decode").max();
         }
     }
 #endif //#if ENABLE_PERF_COUNTER
@@ -280,12 +280,12 @@ RGY_ERR EncodeStatus::UpdateDisplay(double progressPercent) {
             chunks[MES_DROP].len = _stprintf_s(chunks[MES_DROP].str, _T(", afs drop %d/%d"), m_sData.frameDrop, (m_sData.frameOut + m_sData.frameDrop));
         }
         if (bGPUUsage) {
-            chunks[MES_GPU].len = _stprintf_s(chunks[MES_GPU].str, _T(", GPU %d%%"), (int)(gpuusage + 0.5));
+            chunks[MES_GPU].len = _stprintf_s(chunks[MES_GPU].str, _T(", GPU %d%%"), std::min((int)(gpuusage + 0.5), 100));
             if (bVideoEngineUsage) {
-                chunks[MES_GPU].len += _stprintf_s(chunks[MES_GPU].str + chunks[MES_GPU].len, _countof(chunks[MES_GPU].str) - chunks[MES_GPU].len, _T(", %s %d%%"), (ENCODER_QSV) ? _T("MFX") : _T("VE"), (int)(gpuencoder_usage + 0.5));
+                chunks[MES_GPU].len += _stprintf_s(chunks[MES_GPU].str + chunks[MES_GPU].len, _countof(chunks[MES_GPU].str) - chunks[MES_GPU].len, _T(", %s %d%%"), (ENCODER_QSV) ? _T("MFX") : _T("VE"), std::min((int)(gpuencoder_usage + 0.5), 100));
             }
             if (gpudecoder_usage > 0) {
-                chunks[MES_GPU_DEC].len += _stprintf_s(chunks[MES_GPU_DEC].str, _countof(chunks[MES_GPU_DEC].str), _T(", VD %d%%"), (int)(gpudecoder_usage + 0.5));
+                chunks[MES_GPU_DEC].len += _stprintf_s(chunks[MES_GPU_DEC].str, _countof(chunks[MES_GPU_DEC].str), _T(", VD %d%%"), std::min((int)(gpudecoder_usage + 0.5), 100));
             }
         }
 
@@ -344,7 +344,7 @@ void EncodeStatus::WriteResults() {
     TCHAR mes[512] = { 0 };
     for (int i = 0; i < std::max(consoleWidth-1, 79); i++)
         mes[i] = ' ';
-    WriteLine(mes);
+    WriteResultLine(mes);
 
     m_sData.encodeFps = (m_sData.frameOut + m_sData.frameDrop) * 1000.0 / (double)time_elapsed64;
     m_sData.bitrateKbps = (m_sData.frameOut + m_sData.frameDrop == 0) ? 0 : (double)m_sData.outFileSize * (m_sData.outputFPSRate / (double)m_sData.outputFPSScale) / ((1000 / 8) * (m_sData.frameOut + m_sData.frameDrop));
@@ -356,7 +356,7 @@ void EncodeStatus::WriteResults() {
         m_sData.bitrateKbps,
         (double)m_sData.outFileSize / (double)(1024 * 1024)
     );
-    WriteLine(mes);
+    WriteResultLine(mes);
 
     int hh = (int)(time_elapsed64 / (60*60*1000));
     int time_elapsed = (int)(time_elapsed64 - (hh * (60*60*1000)));
@@ -371,13 +371,13 @@ void EncodeStatus::WriteResults() {
         const int gpu_clock_avg = (int)(m_sData.GPUClockTotal / m_sData.GPUInfoCountSuccess + 0.5);
         tstring tmes = strsprintf(_T("encode time %d:%02d:%02d, CPU: %.1f%%"), hh, mm, ss, m_sData.CPUUsagePercent);
         if (gpu_load > 0.0) {
-            tmes += strsprintf(_T(", GPU: %.1f%%"), gpu_load);
+            tmes += strsprintf(_T(", GPU: %.1f%%"), std::min(gpu_load, 100.0));
         }
         if (vee_load > 0.0) {
-            tmes += strsprintf(_T(", %s: %.1f%%"), (ENCODER_QSV) ? _T("MFX") : _T("VE"), vee_load);
+            tmes += strsprintf(_T(", %s: %.1f%%"), (ENCODER_QSV) ? _T("MFX") : _T("VE"), std::min(vee_load, 100.0));
         }
         if (ved_load > 0.0) {
-            tmes += strsprintf(_T(", VD: %.1f%%"), ved_load);
+            tmes += strsprintf(_T(", VD: %.1f%%"), std::min(ved_load, 100.0));
         }
         if (gpu_clock_avg > 0) {
             tmes += strsprintf(_T(", GPUClock: %dMHz"), gpu_clock_avg);
@@ -389,10 +389,10 @@ void EncodeStatus::WriteResults() {
         }
 #endif //#if ENABLE_NVML
         tmes += _T("\n");
-        WriteLineDirect(tmes.c_str());
+        WriteResultLineDirect(tmes.c_str());
     } else {
         _stprintf_s(mes, _T("encode time %d:%02d:%02d, CPULoad: %.1f%%\n"), hh, mm, ss, m_sData.CPUUsagePercent);
-        WriteLineDirect(mes);
+        WriteResultLineDirect(mes);
     }
 
     uint32_t maxCount = (std::max)(m_sData.frameOutI, (std::max)(m_sData.frameOutP, m_sData.frameOutB));
@@ -423,17 +423,17 @@ EncodeStatusData EncodeStatus::GetEncodeData() {
     return m_sData;
 }
 
-void EncodeStatus::WriteLine(const TCHAR *mes) {
-    if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel(RGY_LOGT_CORE) > RGY_LOG_INFO) {
+void EncodeStatus::WriteResultLine(const TCHAR *mes) {
+    if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel(RGY_LOGT_CORE_RESULT) > RGY_LOG_INFO) {
         return;
     }
-    m_pRGYLog->write(RGY_LOG_INFO, RGY_LOGT_CORE, _T("%s\n"), mes);
+    m_pRGYLog->write(RGY_LOG_INFO, RGY_LOGT_CORE_RESULT, _T("%s\n"), mes);
 }
-void EncodeStatus::WriteLineDirect(const TCHAR *mes) {
-    if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel(RGY_LOGT_CORE) > RGY_LOG_INFO) {
+void EncodeStatus::WriteResultLineDirect(const TCHAR *mes) {
+    if (m_pRGYLog != nullptr && m_pRGYLog->getLogLevel(RGY_LOGT_CORE_RESULT) > RGY_LOG_INFO) {
         return;
     }
-    m_pRGYLog->write_log(RGY_LOG_INFO, RGY_LOGT_CORE, mes);
+    m_pRGYLog->write_log(RGY_LOG_INFO, RGY_LOGT_CORE_RESULT, mes);
 }
 void EncodeStatus::WriteFrameTypeResult(const TCHAR *header, uint32_t count, uint32_t maxCount, uint64_t frameSize, uint64_t maxFrameSize, double avgQP) {
     if (count) {
@@ -464,7 +464,7 @@ void EncodeStatus::WriteFrameTypeResult(const TCHAR *header, uint32_t count, uin
             mes_len += _stprintf_s(mes + mes_len, _countof(mes) - mes_len, _T("%.2f MB"), (double)frameSize / (double)(1024 * 1024));
         }
 
-        WriteLine(mes);
+        WriteResultLine(mes);
     }
 }
 

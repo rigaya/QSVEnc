@@ -168,7 +168,12 @@ RGYInput::RGYInput() :
     m_printMes(),
     m_inputInfo(),
     m_readerName(_T("unknown")),
-    m_trimParam() {
+    m_seek(std::make_pair(0.0f, 0.0f)),
+    m_trimParam(),
+    m_poolPkt(nullptr),
+    m_poolFrame(nullptr),
+    m_timecode(),
+    m_timebase({ 0, 0 }) {
     m_trimParam.list.clear();
     m_trimParam.offset = 0;
 }
@@ -180,6 +185,8 @@ RGYInput::~RGYInput() {
 void RGYInput::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Closing...\n"));
 
+    m_timecode.reset();
+
     m_encSatusInfo.reset();
     m_convert = nullptr;
 
@@ -187,8 +194,62 @@ void RGYInput::Close() {
 
     m_trimParam.list.clear();
     m_trimParam.offset = 0;
+    m_poolPkt = nullptr;
+    m_poolFrame = nullptr;
     AddMessage(RGY_LOG_DEBUG, _T("Close...\n"));
     m_printMes.reset();
+}
+
+RGY_ERR RGYInput::Init(const TCHAR *strFileName, VideoInfo *inputInfo, const RGYInputPrm *prm, shared_ptr<RGYLog> log, shared_ptr<EncodeStatus> encSatusInfo) {
+    Close();
+    m_printMes = log;
+    m_encSatusInfo = encSatusInfo;
+    m_poolPkt = prm->poolPkt;
+    m_poolFrame = prm->poolFrame;
+    m_timebase = prm->timebase;
+    if (prm->tcfileIn.length() > 0) {
+        m_timecode = std::make_unique<RGYTimecodeReader>();
+        auto err = m_timecode->init(prm->tcfileIn, m_timebase.is_valid() ? m_timebase : rgy_rational<int>(1, 120000));
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to open timecode file \"%s\".\n"), prm->tcfileIn.c_str());
+            return RGY_ERR_FILE_OPEN;
+        }
+        AddMessage(RGY_LOG_DEBUG, _T("Opened file: \"%s\", timebase %d/%d.\n"), prm->tcfileIn.c_str(), m_timecode->timebase().n(), m_timecode->timebase().d());
+    }
+    return Init(strFileName, inputInfo, prm);
+};
+
+RGY_ERR RGYInput::readTimecode(int64_t& pts, int64_t& duration) {
+    auto err = m_timecode->read(pts, duration);
+    if (err == RGY_ERR_INVALID_DATA_TYPE) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid data found at timecode file.\n"));
+        return err;
+    } else if (err == RGY_ERR_MORE_DATA) {
+        AddMessage(RGY_LOG_ERROR, _T("Timecode file reached End OF File.\n"));
+        return err;
+    } else if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("Error reading timecode file: %s.\n"), get_err_mes(err));
+        return err;
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYInput::LoadNextFrame(RGYFrame *surface) {
+    auto err = LoadNextFrameInternal(surface);
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
+    if (m_timecode) {
+        int64_t pts = -1, duration = 0;
+        if ((err = readTimecode(pts, duration)) != RGY_ERR_NONE) {
+            return err;
+        }
+        pts      = rational_rescale(pts, m_timecode->timebase(), getInputTimebase());
+        duration = rational_rescale(duration, m_timecode->timebase(), getInputTimebase());
+        surface->setTimestamp(pts);
+        surface->setDuration(duration);
+    }
+    return RGY_ERR_NONE;
 }
 
 void RGYInput::CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *inputCSpName, const TCHAR *outputCSpName, const TCHAR *convSIMD, const VideoInfo *inputPrm) {
@@ -205,7 +266,15 @@ void RGYInput::CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *inputCSp
     ss << inputPrm->fpsN << _T("/") << inputPrm->fpsD << _T(" fps");
 
     if (cropEnabled(inputPrm->crop)) {
-        ss << " crop(" << inputPrm->crop.e.left << "," << inputPrm->crop.e.up << "," << inputPrm->crop.e.right << "," << inputPrm->crop.e.bottom << ")";
+        ss << _T(" crop(") << inputPrm->crop.e.left << _T(",") << inputPrm->crop.e.up << _T(",") << inputPrm->crop.e.right << _T(",") << inputPrm->crop.e.bottom << _T(")");
+    }
+    if (m_timecode) {
+        ss << std::endl;
+        ss << _T("  timecode: yes");
+    }
+    if (m_timebase.is_valid()) {
+        ss << std::endl;
+        ss << _T("  timebase: ") << m_timebase.n() << _T("/") << m_timebase.d();
     }
 
     m_inputInfo = ss.str();
@@ -230,6 +299,8 @@ static RGY_ERR initOtherReaders(
     const VideoInfo *input,
     const RGYParamCommon *common,
     const RGYParamControl *ctrl,
+    RGYPoolAVPacket *poolPkt,
+    RGYPoolAVFrame *poolFrame,
     shared_ptr<RGYLog> log
 ) {
     RGYInputPrm inputPrm;
@@ -248,11 +319,15 @@ static RGY_ERR initOtherReaders(
         }
 
         RGYInputAvcodecPrm inputInfoAVAudioReader(inputPrm);
+        inputInfoAVAudioReader.poolPkt = poolPkt;
+        inputInfoAVAudioReader.poolFrame = poolFrame;
         inputInfoAVAudioReader.readVideo = false;
         inputInfoAVAudioReader.readChapter = false;
         inputInfoAVAudioReader.readData = false;
         inputInfoAVAudioReader.fileIndex = ifile;
         inputInfoAVAudioReader.videoAvgFramerate = rgy_rational<int>(inputInfo.fpsN, inputInfo.fpsD);
+        inputInfoAVAudioReader.pInputFormat = (src.format.length() > 0) ? src.format.c_str() : nullptr;
+        inputInfoAVAudioReader.inputOpt = src.inputOpt;
         inputInfoAVAudioReader.inputRetry = common->inputRetry;
         inputInfoAVAudioReader.analyzeSec = common->demuxAnalyzeSec;
         inputInfoAVAudioReader.probesize = common->demuxProbesize;
@@ -275,9 +350,12 @@ static RGY_ERR initOtherReaders(
         inputInfoAVAudioReader.procSpeedLimit = ctrl->procSpeedLimit;
         inputInfoAVAudioReader.AVSyncMode = RGY_AVSYNC_ASSUME_CFR;
         inputInfoAVAudioReader.seekSec = common->seekSec;
+        inputInfoAVAudioReader.seekToSec = common->seekToSec;
         inputInfoAVAudioReader.logFramePosList = (ctrl->logFramePosList) ? src.filename + _T(".framelist.csv") : _T("");
         inputInfoAVAudioReader.threadInput = 0;
         inputInfoAVAudioReader.threadParamInput = ctrl->threadParams.get(RGYThreadType::INPUT);
+        inputInfoAVAudioReader.lowLatency = ctrl->lowLatency;
+        inputInfoAVAudioReader.hevcbsf = common->hevcbsf;
 
         shared_ptr<RGYInput> audioReader(new RGYInputAvcodec());
         auto ret = audioReader->Init(src.filename.c_str(), &inputInfo, &inputInfoAVAudioReader, log, nullptr);
@@ -321,6 +399,8 @@ RGY_ERR initReaders(
     const int subburnTrackId,
     const bool vpp_afs,
     const bool vpp_rff,
+    RGYPoolAVPacket *poolPkt,
+    RGYPoolAVFrame *poolFrame,
     RGYListRef<RGYFrameDataQP> *qpTableListRef,
     CPerfMonitor *perfMonitor,
     shared_ptr<RGYLog> log
@@ -396,6 +476,10 @@ RGY_ERR initReaders(
     inputPrm.threadCsp = ctrl->threadCsp;
     inputPrm.simdCsp = ctrl->simdCsp;
     inputPrm.threadParamCsp = ctrl->threadParams.get(RGYThreadType::CSP);
+    inputPrm.poolPkt = poolPkt;
+    inputPrm.poolFrame = poolFrame;
+    inputPrm.tcfileIn = common->tcfileIn;
+    inputPrm.timebase = common->timebase;
     log->write(RGY_LOG_DEBUG, RGY_LOGT_IN, _T("Set csp thread param: %s.\n"), inputPrm.threadParamCsp.desc().c_str());
     RGYInputPrm *pInputPrm = &inputPrm;
 
@@ -433,7 +517,8 @@ RGY_ERR initReaders(
 #endif //ENABLE_AVI_READER
 #if ENABLE_AVISYNTH_READER
     case RGY_INPUT_FMT_AVS:
-        inputPrmAvs.readAudio = common->nAudioSelectCount > 0;
+        inputPrmAvs.nAudioSelectCount = common->nAudioSelectCount;
+        inputPrmAvs.ppAudioSelect = common->ppAudioSelectList;
         inputPrmAvs.avsdll = ctrl->avsdll;
         pInputPrm = &inputPrmAvs;
         log->write(RGY_LOG_DEBUG, RGY_LOGT_IN, _T("avs reader selected.\n"));
@@ -483,6 +568,7 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.procSpeedLimit = ctrl->procSpeedLimit;
         inputInfoAVCuvid.AVSyncMode = RGY_AVSYNC_ASSUME_CFR;
         inputInfoAVCuvid.seekSec = common->seekSec;
+        inputInfoAVCuvid.seekToSec = common->seekToSec;
         inputInfoAVCuvid.logFramePosList = (ctrl->logFramePosList) ? common->outputFilename + _T(".framelist.csv") : _T("");
         inputInfoAVCuvid.logPackets = (ctrl->logPacketsList) ? common->outputFilename + _T(".packets.csv") : _T("");
         inputInfoAVCuvid.threadInput = ctrl->threadInput;
@@ -497,6 +583,7 @@ RGY_ERR initReaders(
         inputInfoAVCuvid.qpTableListRef = qpTableListRef;
         inputInfoAVCuvid.inputOpt = common->inputOpt;
         inputInfoAVCuvid.lowLatency = ctrl->lowLatency;
+        inputInfoAVCuvid.hevcbsf = common->hevcbsf;
         pInputPrm = &inputInfoAVCuvid;
         log->write(RGY_LOG_DEBUG, RGY_LOGT_IN, _T("avhw reader selected.\n"));
         pFileReader.reset(new RGYInputAvcodec());
@@ -549,12 +636,12 @@ RGY_ERR initReaders(
 #endif //#if ENABLE_AVSW_READER
     if ((ret = initOtherReaders<false>(otherReaders,
         sourceAudioTrackIdStart, sourceSubtitleTrackIdStart, sourceDataTrackIdStart,
-        common->audioSource, input, common, ctrl, log)) != RGY_ERR_NONE) {
+        common->audioSource, input, common, ctrl, poolPkt, poolFrame, log)) != RGY_ERR_NONE) {
         return ret;
     }
     if ((ret = initOtherReaders<true>(otherReaders,
         sourceAudioTrackIdStart, sourceSubtitleTrackIdStart, sourceDataTrackIdStart,
-        common->subSource, input, common, ctrl, log)) != RGY_ERR_NONE) {
+        common->subSource, input, common, ctrl, poolPkt, poolFrame, log)) != RGY_ERR_NONE) {
         return ret;
     }
     return RGY_ERR_NONE;

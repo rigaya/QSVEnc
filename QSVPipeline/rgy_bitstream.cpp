@@ -28,6 +28,7 @@
 #include <regex>
 #include "rgy_util.h"
 #include "rgy_bitstream.h"
+#include "rgy_memmem.h"
 
 std::vector<uint8_t> unnal(const uint8_t *ptr, size_t len) {
     std::vector<uint8_t> data;
@@ -44,7 +45,7 @@ std::vector<uint8_t> unnal(const uint8_t *ptr, size_t len) {
     return data;
 }
 
-static void to_nal(std::vector<uint8_t>& data) {
+void to_nal(std::vector<uint8_t>& data) {
     for (auto it = data.begin(); it < data.end() - 2; it++) {
         if (*it == 0
             && *(it + 1) == 0
@@ -54,32 +55,83 @@ static void to_nal(std::vector<uint8_t>& data) {
     }
 }
 
-static void add_u16(std::vector<uint8_t>& data, uint16_t u16) {
+void add_u16(std::vector<uint8_t>& data, uint16_t u16) {
     data.push_back((uint8_t)((u16 & 0xff00) >> 8));
     data.push_back((uint8_t)(u16 & 0x00ff));
 }
 
-static void add_u32(std::vector<uint8_t>& data, uint32_t u32) {
+void add_u32(std::vector<uint8_t>& data, uint32_t u32) {
     data.push_back((uint8_t)((u32 & 0xff000000) >> 24));
     data.push_back((uint8_t)((u32 & 0x00ff0000) >> 16));
     data.push_back((uint8_t)((u32 & 0x0000ff00) >>  8));
     data.push_back((uint8_t)((u32 & 0x000000ff) >>  0));
 }
 
-HEVCHDRSeiPrm::HEVCHDRSeiPrm() : maxcll(-1), maxfall(-1), contentlight_set(false), masterdisplay(), masterdisplay_set(false), atcSei(RGY_TRANSFER_UNKNOWN) {
+uint8_t gen_obu_header(const uint8_t obu_type) {
+    const uint8_t extension_flag = 0;
+    const uint8_t has_size_flag = 1;
+    return (obu_type << 3)
+        | (extension_flag << 2)
+        | (has_size_flag << 1);
+}
+
+size_t get_av1_uleb_size_bytes(uint64_t value) {
+    size_t size = 0;
+    do {
+        size++;
+    } while ((value >>= 7) != 0);
+    return size;
+}
+
+std::vector<uint8_t> get_av1_uleb_size_data(uint64_t value) {
+    std::vector<uint8_t> buffer(get_av1_uleb_size_bytes(value));
+    for (size_t i = 0; i < buffer.size(); i++) {
+        uint8_t byte = value & 0x7f;
+        value >>= 7;
+        if (value != 0) {
+            byte |= 0x80; // 続きがある
+        }
+        buffer[i] = byte;
+    }
+    return buffer;
+}
+
+std::vector<uint8_t> gen_av1_obu_metadata(const uint8_t metadata_type, const std::vector<uint8_t>& metadata) {
+    if (metadata.size() == 0) {
+        return metadata;
+    }
+    std::vector<uint8_t> metadata_buf;
+    metadata_buf.reserve(128);
+    const uint8_t obu_header = gen_obu_header(OBU_METADATA);
+    const size_t payload_size = sizeof(metadata_type) + metadata.size() + 1 /*last 0x80*/;
+    metadata_buf.push_back(obu_header);
+    vector_cat(metadata_buf, get_av1_uleb_size_data(payload_size));
+    metadata_buf.push_back(metadata_type);
+    vector_cat(metadata_buf, metadata);
+    metadata_buf.push_back(0x80);
+    return metadata_buf;
+}
+
+RGYHDRMetadataPrm::RGYHDRMetadataPrm() : maxcll(-1), maxfall(-1), contentlight_set(false), masterdisplay(), masterdisplay_set(false), atcSei(RGY_TRANSFER_UNKNOWN) {
     memset(&masterdisplay, 0, sizeof(masterdisplay));
 }
 
-HEVCHDRSei::HEVCHDRSei() : prm() {
+bool RGYHDRMetadataPrm::hasPrmSet() const {
+    return contentlight_set
+        || masterdisplay_set
+        || atcSei != RGY_TRANSFER_UNKNOWN;
 }
 
-void HEVCHDRSei::set_maxcll(int maxcll, int maxfall) {
+RGYHDRMetadata::RGYHDRMetadata() : prm() {
+}
+
+void RGYHDRMetadata::set_maxcll(int maxcll, int maxfall) {
     prm.maxcll = maxcll;
     prm.maxfall = maxfall;
     prm.contentlight_set = true;
 }
 
-int HEVCHDRSei::parse_maxcll(std::string str_maxcll) {
+int RGYHDRMetadata::parse_maxcll(std::string str_maxcll) {
     if (str_maxcll.length()) {
         std::regex re_maxcll(R"((\d+),(\d+))");
         std::smatch match_maxcll;
@@ -98,14 +150,14 @@ int HEVCHDRSei::parse_maxcll(std::string str_maxcll) {
     return 0;
 }
 
-void HEVCHDRSei::set_masterdisplay(const int masterdisplay[10]) {
+void RGYHDRMetadata::set_masterdisplay(const rgy_rational<int> *masterdisplay) {
     for (int i = 0; i < 10; i++) {
         prm.masterdisplay[i] = masterdisplay[i];
     }
     prm.masterdisplay_set = true;
 }
 
-int HEVCHDRSei::parse_masterdisplay(std::string str_masterdisplay) {
+int RGYHDRMetadata::parse_masterdisplay(std::string str_masterdisplay) {
     if (str_masterdisplay.length()) {
         std::regex re_masterdisplay(R"(G\((\d+),(\d+)\)B\((\d+),(\d+)\)R\((\d+),(\d+)\)WP\((\d+),(\d+)\)L\((\d+),(\d+)\))");
         std::smatch match_masterdisplay;
@@ -114,8 +166,11 @@ int HEVCHDRSei::parse_masterdisplay(std::string str_masterdisplay) {
         }
 
         try {
-            for (int i = 0; i < 10; i++) {
-                prm.masterdisplay[i] = std::stoi(match_masterdisplay[i + 1]);
+            for (int i = 0; i < 8; i++) {
+                prm.masterdisplay[i] = rgy_rational<int>(std::stoi(match_masterdisplay[i + 1]), 50000);
+            }
+            for (int i = 8; i < 10; i++) {
+                prm.masterdisplay[i] = rgy_rational<int>(std::stoi(match_masterdisplay[i + 1]), 10000);
             }
             prm.masterdisplay_set = true;
         } catch (...) {
@@ -125,32 +180,32 @@ int HEVCHDRSei::parse_masterdisplay(std::string str_masterdisplay) {
     return 0;
 }
 
-void HEVCHDRSei::set_atcsei(CspTransfer atcSei) {
+void RGYHDRMetadata::set_atcsei(CspTransfer atcSei) {
     prm.atcSei = atcSei;
 }
 
-HEVCHDRSeiPrm HEVCHDRSei::getprm() const {
+RGYHDRMetadataPrm RGYHDRMetadata::getprm() const {
     return prm;
 }
-std::string HEVCHDRSei::print_masterdisplay() const {
+std::string RGYHDRMetadata::print_masterdisplay() const {
     std::string str;
     if (prm.masterdisplay_set) {
         str += strsprintf("G(%f %f) B(%f %f) R(%f %f) WP(%f %f) L(%f %f)",
-            (float)prm.masterdisplay[0] * (1.0f / 50000.0f),
-            (float)prm.masterdisplay[1] * (1.0f / 50000.0f),
-            (float)prm.masterdisplay[2] * (1.0f / 50000.0f),
-            (float)prm.masterdisplay[3] * (1.0f / 50000.0f),
-            (float)prm.masterdisplay[4] * (1.0f / 50000.0f),
-            (float)prm.masterdisplay[5] * (1.0f / 50000.0f),
-            (float)prm.masterdisplay[6] * (1.0f / 50000.0f),
-            (float)prm.masterdisplay[7] * (1.0f / 50000.0f),
-            (float)prm.masterdisplay[8] * (1.0f / 10000.0f),
-            (float)prm.masterdisplay[9] * (1.0f / 10000.0f));
+            prm.masterdisplay[0].qfloat(),
+            prm.masterdisplay[1].qfloat(),
+            prm.masterdisplay[2].qfloat(),
+            prm.masterdisplay[3].qfloat(),
+            prm.masterdisplay[4].qfloat(),
+            prm.masterdisplay[5].qfloat(),
+            prm.masterdisplay[6].qfloat(),
+            prm.masterdisplay[7].qfloat(),
+            prm.masterdisplay[8].qfloat(),
+            prm.masterdisplay[9].qfloat());
     }
     return str;
 }
 
-std::string HEVCHDRSei::print_maxcll() const {
+std::string RGYHDRMetadata::print_maxcll() const {
     std::string str;
     if (prm.contentlight_set && prm.maxcll >= 0 && prm.maxfall >= 0) {
         str += strsprintf("%d/%d", prm.maxcll, prm.maxfall);
@@ -158,7 +213,7 @@ std::string HEVCHDRSei::print_maxcll() const {
     return str;
 }
 
-std::string HEVCHDRSei::print_atcsei() const {
+std::string RGYHDRMetadata::print_atcsei() const {
     std::string str;
     if (prm.atcSei != RGY_TRANSFER_UNKNOWN) {
         str += tchar_to_string(get_cx_desc(list_transfer, prm.atcSei));
@@ -166,7 +221,7 @@ std::string HEVCHDRSei::print_atcsei() const {
     return str;
 }
 
-std::string HEVCHDRSei::print() const {
+std::string RGYHDRMetadata::print() const {
     std::string str = print_masterdisplay();
     std::string str1 = print_maxcll();
     std::string str2 = print_atcsei();
@@ -182,12 +237,12 @@ std::string HEVCHDRSei::print() const {
     return str;
 }
 
-std::vector<uint8_t> HEVCHDRSei::gen_nal(HEVCHDRSeiPrm prm_set) {
+std::vector<uint8_t> RGYHDRMetadata::gen_nal(RGYHDRMetadataPrm prm_set) {
     prm = prm_set;
     return gen_nal();
 }
 
-std::vector<uint8_t> HEVCHDRSei::gen_nal() const {
+std::vector<uint8_t> RGYHDRMetadata::gen_nal() const {
     std::vector<uint8_t> data;
     data.reserve(128);
 
@@ -269,42 +324,105 @@ std::vector<uint8_t> HEVCHDRSei::gen_nal() const {
     return data;
 }
 
+std::vector<uint8_t> RGYHDRMetadata::raw_maxcll() const {
+    std::vector<uint8_t> data;
+    add_u16(data, (uint16_t)prm.maxcll);
+    add_u16(data, (uint16_t)prm.maxfall);
+    return data;
+}
 
-std::vector<uint8_t> HEVCHDRSei::sei_maxcll() const {
+std::vector<uint8_t> RGYHDRMetadata::raw_masterdisplay(const bool forAV1) const {
+    std::vector<uint8_t> data;
+    if (forAV1) {
+        const double ratio = (double)(1 << 16);
+        add_u16(data, (uint16_t)(prm.masterdisplay[4].qdouble() * ratio + 0.5)); //R
+        add_u16(data, (uint16_t)(prm.masterdisplay[5].qdouble() * ratio + 0.5)); //R
+        add_u16(data, (uint16_t)(prm.masterdisplay[0].qdouble() * ratio + 0.5)); //G
+        add_u16(data, (uint16_t)(prm.masterdisplay[1].qdouble() * ratio + 0.5)); //G
+        add_u16(data, (uint16_t)(prm.masterdisplay[2].qdouble() * ratio + 0.5)); //B
+        add_u16(data, (uint16_t)(prm.masterdisplay[3].qdouble() * ratio + 0.5)); //B
+        add_u16(data, (uint16_t)(prm.masterdisplay[6].qdouble() * ratio + 0.5));
+        add_u16(data, (uint16_t)(prm.masterdisplay[7].qdouble() * ratio + 0.5));
+    } else {
+        const double ratio = 50000;
+        for (int i = 0; i < 8; i++) {
+            add_u16(data, (uint16_t)(prm.masterdisplay[i].qdouble() * ratio + 0.5));
+        }
+    }
+    const double lumaMinRatio = forAV1 ? 16384 : 10000;
+    const double lumaMaxRatio = forAV1 ?   256 : 10000;
+    add_u32(data, (uint32_t)(prm.masterdisplay[8].qdouble() * lumaMaxRatio + 0.5));
+    add_u32(data, (uint32_t)(prm.masterdisplay[9].qdouble() * lumaMinRatio + 0.5));
+    return data;
+}
+
+std::vector<uint8_t> RGYHDRMetadata::raw_atcsei() const {
+    std::vector<uint8_t> data;
+    data.push_back((uint8_t)prm.atcSei);
+    return data;
+}
+
+std::vector<uint8_t> RGYHDRMetadata::sei_maxcll() const {
     std::vector<uint8_t> data;
     data.reserve(256);
     if (prm.contentlight_set && prm.maxcll >= 0 && prm.maxfall >= 0) {
+        const auto maxcll = raw_maxcll();
+        assert(maxcll.size() == 4);
+
         data.push_back(CONTENT_LIGHT_LEVEL_INFO);
-        data.push_back(4);
-        add_u16(data, (uint16_t)prm.maxcll);
-        add_u16(data, (uint16_t)prm.maxfall);
+        data.push_back((uint8_t)maxcll.size());
+        vector_cat(data, maxcll);
     }
     return data;
 }
 
-std::vector<uint8_t> HEVCHDRSei::sei_masterdisplay() const {
+std::vector<uint8_t> RGYHDRMetadata::sei_masterdisplay() const {
     std::vector<uint8_t> data;
     data.reserve(256);
     if (prm.masterdisplay_set) {
+        const auto masterdisplay = raw_masterdisplay(false);
+        assert(masterdisplay.size() == 24);
+
         data.push_back(MASTERING_DISPLAY_COLOUR_VOLUME);
-        data.push_back(24);
-        for (int i = 0; i < 8; i++) {
-            add_u16(data, (uint16_t)prm.masterdisplay[i]);
-        }
-        add_u32(data, (uint32_t)prm.masterdisplay[8]);
-        add_u32(data, (uint32_t)prm.masterdisplay[9]);
+        data.push_back((uint8_t)masterdisplay.size());
+        vector_cat(data, raw_masterdisplay(false));
     }
     return data;
 }
 
-std::vector<uint8_t> HEVCHDRSei::sei_atcsei() const {
+std::vector<uint8_t> RGYHDRMetadata::sei_atcsei() const {
     std::vector<uint8_t> data;
     data.reserve(8);
     if (prm.atcSei != RGY_TRANSFER_UNKNOWN) {
+        const auto atcsei = raw_atcsei();
+        assert(atcsei.size() == 1);
+
         data.push_back(ALTERNATIVE_TRANSFER_CHARACTERISTICS);
-        data.push_back(1);
-        data.push_back((uint8_t)prm.atcSei);
+        data.push_back((uint8_t)atcsei.size());
+        vector_cat(data, atcsei);
     }
+    return data;
+}
+
+std::vector<uint8_t> RGYHDRMetadata::gen_maxcll_obu() const {
+    if (prm.contentlight_set && prm.maxcll >= 0 && prm.maxfall >= 0) {
+        return gen_av1_obu_metadata(AV1_METADATA_TYPE_HDR_CLL, raw_maxcll());
+    }
+    return {};
+}
+
+std::vector<uint8_t> RGYHDRMetadata::gen_masterdisplay_obu() const {
+    if (prm.masterdisplay_set) {
+        return gen_av1_obu_metadata(AV1_METADATA_TYPE_HDR_MDCV, raw_masterdisplay(true));
+    }
+    return {};
+}
+
+std::vector<uint8_t> RGYHDRMetadata::gen_obu() const {
+    std::vector<uint8_t> data;
+    data.reserve(128);
+    vector_cat(data, gen_masterdisplay_obu());
+    vector_cat(data, gen_maxcll_obu());
     return data;
 }
 
@@ -362,7 +480,7 @@ int DOVIRpu::get_next_rpu(std::vector<uint8_t>& bytes) {
     for (;;) {
         auto dataptr = m_buffer.data() + m_dataoffset;
         const auto pos = m_find_header(dataptr, m_datasize);
-        if (pos >= 0) {
+        if (pos != RGY_MEMMEM_NOT_FOUND) {
             const auto next_header = dataptr + pos;
             next_size = next_header - dataptr;
             break;
@@ -422,16 +540,6 @@ int DOVIRpu::get_next_rpu_nal(std::vector<uint8_t>& bytes, const int64_t id) {
     return 0;
 }
 
-static inline int64_t memmem_c(const void *data_, const int64_t data_size, const void *target_, const int64_t target_size) {
-    const uint8_t *data = (const uint8_t *)data_;
-    for (int64_t i = 0; i <= data_size - target_size; i++) {
-        if (memcmp(data + i, target_, target_size) == 0) {
-            return i;
-        }
-    }
-    return -1;
-}
-
 const DOVIProfile *getDOVIProfile(const int id) {
     static const std::array<DOVIProfile, 4> DOVI_PROFILES = {
         DOVIProfile{ 50, true, true, true, VideoVUIInfo(1, RGY_PRIM_UNSPECIFIED, RGY_MATRIX_UNSPECIFIED, RGY_TRANSFER_UNSPECIFIED, 5, RGY_COLORRANGE_FULL,    RGY_CHROMALOC_UNSPECIFIED) },
@@ -454,8 +562,8 @@ std::vector<nal_info> parse_nal_unit_h264_c(const uint8_t *data, size_t size) {
         nal_info nal_start = { nullptr, 0, 0 };
         int64_t i = 0;
         for (;;) {
-            const int64_t next = memmem_c((const void *)(data + i), size - i, (const void *)header, sizeof(header));
-            if (next < 0) break;
+            const auto next = rgy_memmem_c((const void *)(data + i), size - i, (const void *)header, sizeof(header));
+            if (next == RGY_MEMMEM_NOT_FOUND) break;
 
             i += next;
             if (nal_start.ptr) {
@@ -484,8 +592,8 @@ std::vector<nal_info> parse_nal_unit_hevc_c(const uint8_t *data, size_t size) {
         nal_info nal_start = { nullptr, 0, 0 };
         int64_t i = 0;
         for (;;) {
-            const int64_t next = memmem_c((const void *)(data + i), size - i, (const void *)header, sizeof(header));
-            if (next < 0) break;
+            const auto next = rgy_memmem_c((const void *)(data + i), size - i, (const void *)header, sizeof(header));
+            if (next == RGY_MEMMEM_NOT_FOUND) break;
 
             i += next;
             if (nal_start.ptr) {
@@ -507,8 +615,8 @@ std::vector<nal_info> parse_nal_unit_hevc_c(const uint8_t *data, size_t size) {
     return nal_list;
 }
 
-int64_t find_header_c(const uint8_t *data, size_t size) {
-    return memmem_c(data, size, DOVIRpu::rpu_header, sizeof(DOVIRpu::rpu_header));
+size_t find_header_c(const uint8_t *data, size_t size) {
+    return rgy_memmem_c(data, size, DOVIRpu::rpu_header, sizeof(DOVIRpu::rpu_header));
 }
 
 #include "rgy_simd.h"
@@ -543,4 +651,58 @@ decltype(find_header_c)* get_find_header_func() {
     if ((simd & RGY_SIMD::AVX2) == RGY_SIMD::AVX2) return find_header_avx2;
 #endif
     return find_header_c;
+}
+
+static std::unique_ptr<unit_info> get_unit(const uint8_t *data, const size_t size) {
+    std::unique_ptr<unit_info> unit;
+    if (size <= 1) {
+        return unit;
+    }
+    const uint8_t *const start_pos = data;
+    const uint8_t firstbyte = *data++;
+    const uint8_t type = (firstbyte & (0x78)) >> 3;
+    const uint8_t extension_flag = (firstbyte & 0x04) >> 2;
+    const uint8_t has_size_flag = (firstbyte & 0x02) >> 1;
+
+    unit = std::make_unique<unit_info>();
+    unit->type = type;
+
+    if (extension_flag) {
+        data++;
+    }
+    if (!has_size_flag) {
+        size_t ret = size - 1 - extension_flag;
+        unit->unit_data.resize(ret);
+    } else {
+        size_t obu_size = 0;
+        for (int i = 0; i < 8; i++) {
+            uint8_t byte = *data++;
+            obu_size |= (int64_t)(byte & 0x7f) << (i * 7);
+            if (!(byte & 0x80))
+                break;
+        }
+
+        const size_t ret = obu_size + (data - start_pos);
+        unit->unit_data.resize(ret);
+    }
+    if (unit->unit_data.size() > 0) {
+        memcpy(unit->unit_data.data(), start_pos, unit->unit_data.size());
+    }
+    return unit;
+}
+
+std::deque<std::unique_ptr<unit_info>> parse_unit_av1(const uint8_t *data, const size_t size) {
+    std::deque<std::unique_ptr<unit_info>> list;
+    int64_t size_remain = (int64_t)size;
+    while (size_remain > 0) {
+        auto unit = get_unit(data, size);
+        const auto unit_size = unit->unit_data.size();
+        if (unit_size == 0) {
+            break;
+        }
+        list.push_back(std::move(unit));
+        data += unit_size;
+        size_remain -= unit_size;
+    }
+    return list;
 }

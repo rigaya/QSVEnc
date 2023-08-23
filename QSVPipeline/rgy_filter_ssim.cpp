@@ -81,6 +81,7 @@ RGYFilterSsim::RGYFilterSsim(shared_ptr<RGYOpenCLContext> context) :
     m_thread(),
     m_mtx(),
     m_abort(false),
+    m_dec_flush(false),
     m_inputOriginal(0),
     m_inputEnc(0),
     m_input(),
@@ -287,19 +288,30 @@ RGY_ERR RGYFilterSsim::initDecode(const RGYBitstream *bitstream) {
     auto side_data = av_packet_get_side_data(&pkt, AV_PKT_DATA_NEW_EXTRADATA, &side_data_size);
     if (side_data) {
         prm->input.codecExtra = malloc(side_data_size);
-        prm->input.codecExtraSize = side_data_size;
+        prm->input.codecExtraSize = (decltype(prm->input.codecExtraSize))side_data_size;
         memcpy(prm->input.codecExtra, side_data, side_data_size);
         AddMessage(RGY_LOG_DEBUG, _T("Found extradata of codec %s: size %d\n"), char_to_tstring(avcodec_get_name(avcodecID)).c_str(), side_data_size);
     }
     av_packet_unref(&pkt);
 
-    //比較用のスレッドの開始
-    m_thread = std::thread(&RGYFilterSsim::thread_func, this, prm->threadParam);
-    AddMessage(RGY_LOG_DEBUG, _T("Started ssim/psnr calculation thread.\n"));
+    // QSVでは別スレッドで行うと、デコードでエラーが発生したり、黙って異常終了したり、SSIMの計算結果が安定しない
+    // そのため、同一スレッド内で処理するよう変更する
+    if (false) {
+        //比較用のスレッドの開始
+        m_thread = std::thread(&RGYFilterSsim::thread_func, this, prm->threadParam);
+        AddMessage(RGY_LOG_DEBUG, _T("Started ssim/psnr calculation thread.\n"));
 
-    //デコードの開始を待つ必要がある
-    while (m_thread.joinable() && !m_decodeStarted) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        //デコードの開始を待つ必要がある
+        while (m_thread.joinable() && !m_decodeStarted) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+    } else {
+        //シングルスレッド動作時
+        auto sts = init_cl_resources();
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        m_decodeStarted = true;
     }
 
     AddMessage(RGY_LOG_DEBUG, _T("initDecode(): fin.\n"));
@@ -495,49 +507,62 @@ RGY_ERR RGYFilterSsim::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo 
     UNREFERENCED_PARAMETER(ppOutputFrames);
     UNREFERENCED_PARAMETER(pOutputFrameNum);
     RGY_ERR sts = RGY_ERR_NONE;
-
-    std::lock_guard<std::mutex> lock(m_mtx); //ロックを忘れないこと
-    if (m_unused.size() == 0) {
-        //待機中のフレームバッファがなければ新たに作成する
-        m_unused.push_back(m_cl->createFrameBuffer(m_param->frameOut));
-    }
-    auto &copyFrame = m_unused.front();
-    if (m_param->frameOut.csp == pInputFrame->csp) {
-        m_cl->copyFrame(&copyFrame->frame, pInputFrame, nullptr, queue, wait_events, event);
-    } else {
-        if (!m_cropOrg) {
-            unique_ptr<RGYFilterCspCrop> filterCrop(new RGYFilterCspCrop(m_cl));
-            shared_ptr<RGYFilterParamCrop> paramCrop(new RGYFilterParamCrop());
-            paramCrop->frameIn = *pInputFrame;
-            paramCrop->frameOut = m_param->frameOut;
-            paramCrop->frameOut.mem_type = RGY_MEM_TYPE_GPU;
-            paramCrop->baseFps = m_param->baseFps;
-            paramCrop->bOutOverwrite = false;
-            sts = filterCrop->init(paramCrop, m_pLog);
-            if (sts != RGY_ERR_NONE) {
-                return sts;
+    {
+        std::lock_guard<std::mutex> lock(m_mtx); //ロックを忘れないこと
+        if (m_unused.size() == 0) {
+            //待機中のフレームバッファがなければ新たに作成する
+            m_unused.push_back(m_cl->createFrameBuffer(m_param->frameOut));
+        }
+        auto &copyFrame = m_unused.front();
+        if (m_param->frameOut.csp == pInputFrame->csp) {
+            m_cl->copyFrame(&copyFrame->frame, pInputFrame, nullptr, queue, wait_events, event);
+        } else {
+            if (!m_cropOrg) {
+                unique_ptr<RGYFilterCspCrop> filterCrop(new RGYFilterCspCrop(m_cl));
+                shared_ptr<RGYFilterParamCrop> paramCrop(new RGYFilterParamCrop());
+                paramCrop->frameIn = *pInputFrame;
+                paramCrop->frameOut = m_param->frameOut;
+                paramCrop->frameOut.mem_type = RGY_MEM_TYPE_GPU;
+                paramCrop->baseFps = m_param->baseFps;
+                paramCrop->bOutOverwrite = false;
+                sts = filterCrop->init(paramCrop, m_pLog);
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
+                m_cropOrg = std::move(filterCrop);
+                AddMessage(RGY_LOG_DEBUG, _T("created %s.\n"), m_cropOrg->GetInputMessage().c_str());
             }
-            m_cropOrg = std::move(filterCrop);
-            AddMessage(RGY_LOG_DEBUG, _T("created %s.\n"), m_cropOrg->GetInputMessage().c_str());
+            int cropFilterOutputNum = 0;
+            RGYFrameInfo *outInfo[1] = { &copyFrame->frame };
+            RGYFrameInfo cropInput = *pInputFrame;
+            auto sts_filter = m_cropOrg->filter(&cropInput, (RGYFrameInfo **)&outInfo, &cropFilterOutputNum, queue, wait_events, event);
+            if (outInfo[0] == nullptr || cropFilterOutputNum != 1) {
+                AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_cropOrg->name().c_str());
+                return sts_filter;
+            }
+            if (sts_filter != RGY_ERR_NONE || cropFilterOutputNum != 1) {
+                AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_cropOrg->name().c_str());
+                return sts_filter;
+            }
         }
-        int cropFilterOutputNum = 0;
-        RGYFrameInfo *outInfo[1] = { &copyFrame->frame };
-        RGYFrameInfo cropInput = *pInputFrame;
-        auto sts_filter = m_cropOrg->filter(&cropInput, (RGYFrameInfo **)&outInfo, &cropFilterOutputNum, queue, wait_events, event);
-        if (outInfo[0] == nullptr || cropFilterOutputNum != 1) {
-            AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_cropOrg->name().c_str());
-            return sts_filter;
-        }
-        if (sts_filter != RGY_ERR_NONE || cropFilterOutputNum != 1) {
-            AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_cropOrg->name().c_str());
-            return sts_filter;
+
+        //フレームをm_unusedからm_inputに移す
+        m_input.push_back(std::move(copyFrame));
+        m_unused.pop_front();
+        m_inputOriginal++;
+    }
+
+    if (m_decodeStarted) {
+        if (!m_thread.joinable()) {
+            while (sts == RGY_ERR_NONE) {
+                sts = compare_frames();
+            }
+            if (sts == RGY_ERR_MORE_BITSTREAM) {
+                sts = RGY_ERR_NONE;
+            }
         }
     }
 
-    //フレームをm_unusedからm_inputに移す
-    m_input.push_back(std::move(copyFrame));
-    m_unused.pop_front();
-    m_inputOriginal++;
     AddMessage(RGY_LOG_TRACE, _T("m_inputOriginal = %d.\n"), m_inputOriginal);
     return sts;
 }
@@ -550,6 +575,12 @@ void RGYFilterSsim::showResult() {
     if (m_thread.joinable()) {
         AddMessage(RGY_LOG_DEBUG, _T("Waiting for ssim/psnr calculation thread to finish.\n"));
         m_thread.join();
+    } else {
+        //シングルスレッド動作時はここで最終処理を行う
+        auto sts = RGY_ERR_NONE;
+        while (sts == RGY_ERR_NONE) {
+            sts = compare_frames();
+        }
     }
     if (prm->metric.ssim) {
         auto str = strsprintf(_T("\nSSIM YUV:"));
@@ -577,222 +608,233 @@ RGY_ERR RGYFilterSsim::thread_func(RGYParamThread threadParam) {
     threadParam.apply(GetCurrentThread());
     AddMessage(RGY_LOG_DEBUG, _T("Set ssim/psnr calculation thread param: %s.\n"), threadParam.desc().c_str());
     m_decodeStarted = true;
-    auto ret = compare_frames();
+    auto ret = thread_func_compare_frames();
     AddMessage(RGY_LOG_DEBUG, _T("Finishing ssim/psnr calculation thread: %s.\n"), get_err_mes(ret));
     close_cl_resources();
     return ret;
 }
 
-RGY_ERR RGYFilterSsim::compare_frames() {
+RGY_ERR RGYFilterSsim::thread_func_compare_frames() {
     auto prm = std::dynamic_pointer_cast<RGYFilterParamSsim>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
     auto res = RGY_ERR_NONE;
-    bool flush = false;
 
     while (!m_abort) {
-#if ENCODER_VCEENC
-        amf::AMFSurfacePtr surf;
-        auto ar = AMF_REPEAT;
-        //auto timeS = std::chrono::system_clock::now();
-        while (true) {
-            amf::AMFDataPtr data;
-            ar = m_decoder->QueryOutput(&data);
-            if (ar == AMF_EOF) {
-                break;
-            }
-            if (ar == AMF_REPEAT) {
-                ar = AMF_OK; //これ重要...ここが欠けると最後の数フレームが欠落する
-            }
-            if (ar == AMF_OK && data != nullptr) {
-                surf = amf::AMFSurfacePtr(data);
-                break;
-            }
-            if (ar != AMF_OK || m_abort) break;
-            //if ((std::chrono::system_clock::now() - timeS) > std::chrono::seconds(10)) {
-            //    PrintMes(RGY_LOG_ERROR, _T("10 sec has passed after getting last frame from decoder.\n"));
-            //    PrintMes(RGY_LOG_ERROR, _T("Decoder seems to have crushed.\n"));
-            //    ar = AMF_FAIL;
-            //    break;
-            //}
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        }
-        if (ar == AMF_EOF || m_abort) {
-            break;
-        } else if (ar != AMF_OK) {
-            res = err_to_rgy(ar);
-            AddMessage(RGY_LOG_ERROR, _T("Failed to load input frame.\n"));
+        res = compare_frames();
+        if (res != RGY_ERR_NONE && res != RGY_ERR_MORE_BITSTREAM) {
             break;
         }
-        auto decFrame = std::make_unique<RGYFrame>(surf);
-        const auto &decAmf = decFrame->amf();
-        {
-            VCEAMF(amf::AMFContext::AMFOpenCLLocker locker(m_context));
-#if 1
-            //dummyのCPUへのメモリコピーを行う
-            //こうしないとデコーダからの出力をOpenCLに渡したときに、フレームが壊れる(フレーム順序が入れ替わってガクガクする)
-            amf::AMFDataPtr data;
-            decAmf->Duplicate(amf::AMF_MEMORY_HOST, &data);
-#endif
-            ar = decAmf->Convert(amf::AMF_MEMORY_OPENCL);
-            if (ar != AMF_OK) {
-                res = err_to_rgy(ar);
-                AddMessage(RGY_LOG_ERROR, _T("Failed to load input frame.\n"));
-                break;
-            }
-        }
-        {
-            if (!m_cropDec) {
-                AddMessage(RGY_LOG_ERROR, _T("m_cropDec not set.\n"));
-                return RGY_ERR_UNKNOWN;
-            }
-            VCEAMF(amf::AMFContext::AMFOpenCLLocker locker(m_context));
-            if (!m_decFrameCopy) {
-                m_decFrameCopy = m_cl->createFrameBuffer(m_cropDec->GetFilterParam()->frameOut);
-            }
-            int cropFilterOutputNum = 0;
-            RGYFrameInfo *outInfo[1] = { &m_decFrameCopy->frame };
-            RGYFrameInfo decFrameInfo = decFrame->getInfo();
-            auto sts_filter = m_cropDec->filter(&decFrameInfo, (RGYFrameInfo **)&outInfo, &cropFilterOutputNum, m_queueCrop, &m_cropEvent);
-            if (outInfo[0] == nullptr || cropFilterOutputNum != 1) {
-                AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_cropDec->name().c_str());
-                return sts_filter;
-            }
-            if (sts_filter != RGY_ERR_NONE || cropFilterOutputNum != 1) {
-                AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_cropDec->name().c_str());
-                return sts_filter;
-            }
+    }
+    return res;
+}
 
-            //比較用のキューの先頭に積まれているものから順次比較していく
-            std::lock_guard<std::mutex> lock(m_mtx); //ロックを忘れないこと
-            auto &originalFrame = m_input.front();
-            sts_filter = calc_ssim_psnr(&originalFrame->frame, &m_decFrameCopy->frame);
-            if (sts_filter != RGY_ERR_NONE) {
-                return sts_filter;
-            }
-            //フレームをm_inputからm_unusedに移す
-            m_unused.push_back(std::move(originalFrame));
-            m_input.pop_front();
-            m_frames++;
-        }
-#endif //#if ENCODER_VCEENC
-#if ENCODER_QSV
-        RGYBitstream bitstream = RGYBitstreamInit();
-        if (!flush // flushでなく、キューに何もない場合はsleep
-            && !m_encBitstream.front_copy_no_lock(&bitstream)) { // ここではキューからpopしない(あとで行う)
+RGY_ERR RGYFilterSsim::compare_frames() {
+#if ENCODER_VCEENC
+    if (!m_decoder) {
+        return RGY_ERR_MORE_DATA;
+    }
+    amf::AMFSurfacePtr surf;
+    auto ar = AMF_REPEAT;
+    //auto timeS = std::chrono::system_clock::now();
+    amf::AMFDataPtr data;
+    ar = m_decoder->QueryOutput(&data);
+    if (ar == AMF_EOF) {
+        return RGY_ERR_MORE_DATA;
+    }
+    if (ar == AMF_REPEAT) {
+        ar = AMF_OK; //これ重要...ここが欠けると最後の数フレームが欠落する
+    }
+    if (ar == AMF_OK && data != nullptr) {
+        surf = amf::AMFSurfacePtr(data);
+    } else if (ar != AMF_OK) {
+        auto res = err_to_rgy(ar);
+        AddMessage(RGY_LOG_ERROR, _T("Failed to query output: %s.\n"), get_err_mes(res));
+        return res;
+    } else if (m_abort) {
+        return RGY_ERR_ABORTED;
+    } else {
+        if (m_thread.joinable()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            continue;
         }
-        auto err = RGY_ERR_NONE;
-        if (bitstream.size() > 0) {
-            err = m_taskDec->sendFrame(&bitstream);
-            if (err < RGY_ERR_NONE && err != RGY_ERR_MORE_DATA && err != RGY_ERR_MORE_SURFACE) {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to send frame to hw decoder.\n"));
-                return err;
-            }
-            //sendFrameでbitstreamが消費されたかをチェックする
-            //残っている場合は、キューに残したままにし、完全に消費された場合はキューから取り除く
-            if (bitstream.size() == 0) {
-                m_encBitstream.pop();
-                m_encBitstreamUnused.push(bitstream);
-            }
-        } else {
-            //flushのため、出力バッファを0に
-            m_taskDec->setOutputMaxQueueSize(0);
-            err = m_taskDec->sendFrame(nullptr); //flushのため。nullptrで呼ぶ
-            if (err == RGY_ERR_MORE_DATA) {
-                if (!flush) { // 1回目は内部のバッファを消化する場合がある
-                    err = RGY_ERR_NONE;
-                } else {
-                    break; //flush完了、もう出てない
-                }
-            } else if (err < RGY_ERR_NONE && err != RGY_ERR_MORE_SURFACE) {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to flush hw decoder.\n"));
-                return err;
-            }
-            flush = true;
+        return RGY_ERR_MORE_BITSTREAM;
+    }
+    //if ((std::chrono::system_clock::now() - timeS) > std::chrono::seconds(10)) {
+    //    PrintMes(RGY_LOG_ERROR, _T("10 sec has passed after getting last frame from decoder.\n"));
+    //    PrintMes(RGY_LOG_ERROR, _T("Decoder seems to have crushed.\n"));
+    //    ar = AMF_FAIL;
+    //    break;
+    //}
+    auto decFrame = std::make_unique<RGYFrameAMF>(surf);
+    const auto &decAmf = decFrame->amf();
+    {
+        VCEAMF(amf::AMFContext::AMFOpenCLLocker locker(m_context));
+#if 1
+        //dummyのCPUへのメモリコピーを行う
+        //こうしないとデコーダからの出力をOpenCLに渡したときに、フレームが壊れる(フレーム順序が入れ替わってガクガクする)
+        amf::AMFDataPtr data;
+        decAmf->Duplicate(amf::AMF_MEMORY_HOST, &data);
+#endif
+        ar = decAmf->Convert(amf::AMF_MEMORY_OPENCL);
+        if (ar != AMF_OK) {
+            auto res = err_to_rgy(ar);
+            AddMessage(RGY_LOG_ERROR, _T("Failed to load input frame: %s.\n"), get_err_mes(res));
+            return res;
         }
-        if (err != RGY_ERR_NONE) {
-            continue;
+    }
+    {
+        if (!m_cropDec) {
+            AddMessage(RGY_LOG_ERROR, _T("m_cropDec not set.\n"));
+            return RGY_ERR_UNKNOWN;
         }
+        VCEAMF(amf::AMFContext::AMFOpenCLLocker locker(m_context));
         if (!m_decFrameCopy) {
             m_decFrameCopy = m_cl->createFrameBuffer(m_cropDec->GetFilterParam()->frameOut);
         }
-        auto outputFrames = m_taskDec->getOutput(true);
-        for (auto& out : outputFrames) {
-            PipelineTaskOutputSurf *taskSurf = dynamic_cast<PipelineTaskOutputSurf *>(out.get());
-            if (taskSurf == nullptr) {
-                AddMessage(RGY_LOG_ERROR, _T("Invalid task surface.\n"));
-                return RGY_ERR_NULL_PTR;
-            }
-            RGYCLFrameInterop *clFrameInInterop = nullptr;
-            mfxFrameSurface1 *surfVppIn = taskSurf->surf().mfxsurf();
-            if (surfVppIn == nullptr) {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to get mfx surface pointer.\n"));
-                return RGY_ERR_NULL_PTR;
-            }
-            if (m_surfVppInInterop.count(surfVppIn) == 0) {
-                m_surfVppInInterop[surfVppIn] = getOpenCLFrameInterop(surfVppIn, m_mfxDEC->memType(), CL_MEM_READ_ONLY, m_mfxDEC->allocator(), m_cl.get(), m_cl->queue(), m_cropDec->GetFilterParam()->frameIn);
-            }
-            clFrameInInterop = m_surfVppInInterop[surfVppIn].get();
-            if (!clFrameInInterop) {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [in].\n"));
-                return RGY_ERR_NULL_PTR;
-            }
-            err = clFrameInInterop->acquire(m_cl->queue());
-            if (err != RGY_ERR_NONE) {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [in]: %s.\n"), get_err_mes(err));
-                return RGY_ERR_NULL_PTR;
-            }
-            clFrameInInterop->frame.flags = (RGY_FRAME_FLAGS)surfVppIn->Data.DataFlag;
-            clFrameInInterop->frame.timestamp = surfVppIn->Data.TimeStamp;
-            clFrameInInterop->frame.inputFrameId = surfVppIn->Data.FrameOrder;
-            clFrameInInterop->frame.picstruct = picstruct_enc_to_rgy(surfVppIn->Info.PicStruct);
-            int cropFilterOutputNum = 0;
-            RGYFrameInfo *outInfo[1] = { &m_decFrameCopy->frame };
-            RGYFrameInfo decFrameInfo = clFrameInInterop->frameInfo();
-            auto sts_filter = m_cropDec->filter(&decFrameInfo, (RGYFrameInfo **)&outInfo, &cropFilterOutputNum, m_queueCrop, &m_cropEvent);
-            if (outInfo[0] == nullptr || cropFilterOutputNum != 1) {
-                AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_cropDec->name().c_str());
-                return sts_filter;
-            }
-            if (sts_filter != RGY_ERR_NONE || cropFilterOutputNum != 1) {
-                AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_cropDec->name().c_str());
-                return sts_filter;
-            }
-            if (clFrameInInterop) {
-                RGYOpenCLEvent event;
-                clFrameInInterop->release(&event);
-                clFrameInInterop = nullptr;
-                taskSurf->addClEvent(event);
-            }
+        int cropFilterOutputNum = 0;
+        RGYFrameInfo *outInfo[1] = { &m_decFrameCopy->frame };
+        RGYFrameInfo decFrameInfo = decFrame->getInfoCopy();
+        auto sts_filter = m_cropDec->filter(&decFrameInfo, (RGYFrameInfo **)&outInfo, &cropFilterOutputNum, m_queueCrop, &m_cropEvent);
+        if (outInfo[0] == nullptr || cropFilterOutputNum != 1) {
+            AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_cropDec->name().c_str());
+            return sts_filter;
+        }
+        if (sts_filter != RGY_ERR_NONE || cropFilterOutputNum != 1) {
+            AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_cropDec->name().c_str());
+            return sts_filter;
+        }
 
-            //比較用のキューの先頭に積まれているものから順次比較していく
-            std::lock_guard<std::mutex> lock(m_mtx); //ロックを忘れないこと
-            auto &originalFrame = m_input.front();
-            sts_filter = calc_ssim_psnr(&originalFrame->frame, &m_decFrameCopy->frame);
-            if (sts_filter != RGY_ERR_NONE) {
-                return sts_filter;
-            }
-            //フレームをm_inputからm_unusedに移す
-            m_unused.push_back(std::move(originalFrame));
-            m_input.pop_front();
-            AddMessage(RGY_LOG_TRACE, _T("compared %d: 0x%p.\n"), m_frames, surfVppIn);
-            m_frames++;
+        //比較用のキューの先頭に積まれているものから順次比較していく
+        std::lock_guard<std::mutex> lock(m_mtx); //ロックを忘れないこと
+        auto &originalFrame = m_input.front();
+        sts_filter = calc_ssim_psnr(&originalFrame->frame, &m_decFrameCopy->frame);
+        if (sts_filter != RGY_ERR_NONE) {
+            return sts_filter;
         }
-        for (auto& out : outputFrames) {
-            PipelineTaskOutputSurf *taskSurf = dynamic_cast<PipelineTaskOutputSurf *>(out.get());
-            if (taskSurf == nullptr) {
-                AddMessage(RGY_LOG_ERROR, _T("Invalid task surface.\n"));
-                return RGY_ERR_NULL_PTR;
-            }
-            taskSurf->depend_clear();
-        }
-#endif //#if ENCODER_QSV
+        //フレームをm_inputからm_unusedに移す
+        m_unused.push_back(std::move(originalFrame));
+        m_input.pop_front();
+        m_frames++;
     }
-    return res;
+#endif //#if ENCODER_VCEENC
+#if ENCODER_QSV
+    RGYBitstream bitstream = RGYBitstreamInit();
+    if (!m_dec_flush // flushでなく、キューに何もない場合はsleep
+        && !m_encBitstream.front_copy_no_lock(&bitstream)) { // ここではキューからpopしない(あとで行う)
+        if (m_thread.joinable()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        return RGY_ERR_MORE_BITSTREAM;
+    }
+    auto err = RGY_ERR_NONE;
+    if (bitstream.size() > 0) {
+        err = m_taskDec->sendFrame(&bitstream);
+        if (err < RGY_ERR_NONE && err != RGY_ERR_MORE_DATA && err != RGY_ERR_MORE_SURFACE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to send frame to hw decoder.\n"));
+            return err;
+        }
+        //sendFrameでbitstreamが消費されたかをチェックする
+        //残っている場合は、キューに残したままにし、完全に消費された場合はキューから取り除く
+        if (bitstream.size() == 0) {
+            m_encBitstream.pop();
+            m_encBitstreamUnused.push(bitstream);
+        }
+    } else {
+        //flushのため、出力バッファを0に
+        m_taskDec->setOutputMaxQueueSize(0);
+        err = m_taskDec->sendFrame(nullptr); //flushのため。nullptrで呼ぶ
+        if (err == RGY_ERR_MORE_DATA) {
+            if (!m_dec_flush) { // 1回目は内部のバッファを消化する場合がある
+                err = RGY_ERR_NONE;
+            } else {
+                return RGY_ERR_MORE_DATA; //flush完了、もう出てない
+            }
+        } else if (err < RGY_ERR_NONE && err != RGY_ERR_MORE_SURFACE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to flush hw decoder.\n"));
+            return err;
+        }
+        m_dec_flush = true;
+    }
+    if (err != RGY_ERR_NONE) {
+        return RGY_ERR_NONE;
+    }
+    if (!m_decFrameCopy) {
+        m_decFrameCopy = m_cl->createFrameBuffer(m_cropDec->GetFilterParam()->frameOut);
+    }
+    auto outputFrames = m_taskDec->getOutput(true);
+    for (auto& out : outputFrames) {
+        PipelineTaskOutputSurf *taskSurf = dynamic_cast<PipelineTaskOutputSurf *>(out.get());
+        if (taskSurf == nullptr) {
+            AddMessage(RGY_LOG_ERROR, _T("Invalid task surface.\n"));
+            return RGY_ERR_NULL_PTR;
+        }
+        RGYCLFrameInterop *clFrameInInterop = nullptr;
+        mfxFrameSurface1 *surfVppIn = taskSurf->surf().mfx()->surf();
+        if (surfVppIn == nullptr) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to get mfx surface pointer.\n"));
+            return RGY_ERR_NULL_PTR;
+        }
+        if (m_surfVppInInterop.count(surfVppIn) == 0) {
+            m_surfVppInInterop[surfVppIn] = getOpenCLFrameInterop(surfVppIn, m_mfxDEC->memType(), CL_MEM_READ_ONLY, m_mfxDEC->allocator(), m_cl.get(), m_cl->queue(), m_cropDec->GetFilterParam()->frameIn);
+        }
+        clFrameInInterop = m_surfVppInInterop[surfVppIn].get();
+        if (!clFrameInInterop) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [in].\n"));
+            return RGY_ERR_NULL_PTR;
+        }
+        err = clFrameInInterop->acquire(m_cl->queue());
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [in]: %s.\n"), get_err_mes(err));
+            return RGY_ERR_NULL_PTR;
+        }
+        clFrameInInterop->frame.flags = (RGY_FRAME_FLAGS)surfVppIn->Data.DataFlag;
+        clFrameInInterop->frame.timestamp = surfVppIn->Data.TimeStamp;
+        clFrameInInterop->frame.inputFrameId = surfVppIn->Data.FrameOrder;
+        clFrameInInterop->frame.picstruct = picstruct_enc_to_rgy(surfVppIn->Info.PicStruct);
+        int cropFilterOutputNum = 0;
+        RGYFrameInfo *outInfo[1] = { &m_decFrameCopy->frame };
+        RGYFrameInfo decFrameInfo = clFrameInInterop->frameInfo();
+        auto sts_filter = m_cropDec->filter(&decFrameInfo, (RGYFrameInfo **)&outInfo, &cropFilterOutputNum, m_queueCrop, &m_cropEvent);
+        if (outInfo[0] == nullptr || cropFilterOutputNum != 1) {
+            AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_cropDec->name().c_str());
+            return sts_filter;
+        }
+        if (sts_filter != RGY_ERR_NONE || cropFilterOutputNum != 1) {
+            AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_cropDec->name().c_str());
+            return sts_filter;
+        }
+        if (clFrameInInterop) {
+            RGYOpenCLEvent event;
+            clFrameInInterop->release(&event);
+            clFrameInInterop = nullptr;
+            taskSurf->addClEvent(event);
+        }
+
+        //比較用のキューの先頭に積まれているものから順次比較していく
+        std::lock_guard<std::mutex> lock(m_mtx); //ロックを忘れないこと
+        auto &originalFrame = m_input.front();
+        sts_filter = calc_ssim_psnr(&originalFrame->frame, &m_decFrameCopy->frame);
+        if (sts_filter != RGY_ERR_NONE) {
+            return sts_filter;
+        }
+        //フレームをm_inputからm_unusedに移す
+        m_unused.push_back(std::move(originalFrame));
+        m_input.pop_front();
+        AddMessage(RGY_LOG_TRACE, _T("compared %d: 0x%p.\n"), m_frames, surfVppIn);
+        m_frames++;
+    }
+    for (auto& out : outputFrames) {
+        PipelineTaskOutputSurf *taskSurf = dynamic_cast<PipelineTaskOutputSurf *>(out.get());
+        if (taskSurf == nullptr) {
+            AddMessage(RGY_LOG_ERROR, _T("Invalid task surface.\n"));
+            return RGY_ERR_NULL_PTR;
+        }
+        taskSurf->depend_clear();
+    }
+#endif //#if ENCODER_QSV
+    return RGY_ERR_NONE;
 }
 
 RGY_ERR RGYFilterSsim::build_kernel(const RGY_CSP csp) {
@@ -811,8 +853,6 @@ RGY_ERR RGYFilterSsim::build_kernel(const RGY_CSP csp) {
 }
 
 RGY_ERR RGYFilterSsim::calc_ssim_plane(const RGYFrameInfo *p0, const RGYFrameInfo *p1, std::unique_ptr<RGYCLBuf>& tmp, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent> &wait_events) {
-    const int width = p0->width & (~3);
-    const int height = p0->height & (~3);
     RGYWorkSize local(SSIM_BLOCK_X, SSIM_BLOCK_Y);
     RGYWorkSize global(divCeil(p0->width, 4), divCeil(p0->height, 4));
     RGYWorkSize groups = global.groups(local);
@@ -851,8 +891,6 @@ RGY_ERR RGYFilterSsim::calc_ssim_frame(const RGYFrameInfo *p0, const RGYFrameInf
 }
 
 RGY_ERR RGYFilterSsim::calc_psnr_plane(const RGYFrameInfo *p0, const RGYFrameInfo *p1, std::unique_ptr<RGYCLBuf> &tmp, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent> &wait_events) {
-    const int width = p0->width;
-    const int height = p0->height;
     RGYWorkSize local(SSIM_BLOCK_X, SSIM_BLOCK_Y);
     RGYWorkSize global(divCeil(p0->width, 4), p0->height);
     RGYWorkSize groups = global.groups(local);

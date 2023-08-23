@@ -43,8 +43,11 @@ int64_t rational_rescale(int64_t v, rgy_rational<int> from, rgy_rational<int> to
 //必要なavcodecのdllがそろっているかを確認
 bool check_avcodec_dll() {
 #if defined(_WIN32) || defined(_WIN64)
+    // static変数として、一度存在を確認したら再度チェックはしないように
+    static bool check = false;
+    if (check) return check;
     std::vector<HMODULE> hDllList;
-    bool check = true;
+    check = true;
     for (int i = 0; i < _countof(AVCODEC_DLL_NAME); i++) {
         HMODULE hDll = NULL;
         if (NULL == (hDll = LoadLibrary(AVCODEC_DLL_NAME[i]))) {
@@ -172,16 +175,16 @@ tstring getAVCodecs(RGYAVCodecType flag) {
             bool alreadyExists = false;
             for (uint32_t i = 0; i < list.size(); i++) {
                 if (0 == strcmp(list[i].name, codec->name)) {
-                    list[i].type |= codec->decode ? RGY_AVCODEC_DEC : 0x00;
-                    list[i].type |= codec->encode2 ? RGY_AVCODEC_ENC : 0x00;
+                    list[i].type |= av_codec_is_decoder(codec) ? RGY_AVCODEC_DEC : 0x00;
+                    list[i].type |= av_codec_is_encoder(codec) ? RGY_AVCODEC_ENC : 0x00;
                     alreadyExists = true;
                     break;
                 }
             }
             if (!alreadyExists) {
                 uint32_t type = 0x00;
-                type |= codec->decode ? RGY_AVCODEC_DEC : 0x00;
-                type |= codec->encode2 ? RGY_AVCODEC_ENC : 0x00;
+                type |= av_codec_is_decoder(codec) ? RGY_AVCODEC_DEC : 0x00;
+                type |= av_codec_is_encoder(codec) ? RGY_AVCODEC_ENC : 0x00;
                 list.push_back({ type, codec->name, codec->long_name });
             }
         }
@@ -497,7 +500,6 @@ tstring getAVVersions() {
     if (!check_avcodec_dll()) {
         return error_mes_avcodec_dll_not_found();
     }
-    const uint32_t ver = avutil_version();
     auto ver2str = [](uint32_t ver) {
         return strsprintf("%3d.%3d.%4d", (ver >> 16) & 0xff, (ver >> 8) & 0xff, ver & 0xff);
     };
@@ -507,8 +509,94 @@ tstring getAVVersions() {
     mes += std::string("avcodec    version: ") + ver2str(avcodec_version()) + "\n";
     mes += std::string("avformat   version: ") + ver2str(avformat_version()) + "\n";
     mes += std::string("avfilter   version: ") + ver2str(avfilter_version()) + "\n";
+#if ENABLE_LIBAVDEVICE
+    mes += std::string("avdevice   version: ") + ver2str(avdevice_version()) + "\n";
+#endif
     mes += std::string("swresample version: ") + ver2str(swresample_version()) + "\n";
     return char_to_tstring(mes);
+}
+
+bool initAVDevices() {
+    static bool avdevice_init = false;
+#if ENABLE_LIBAVDEVICE
+    if (!check_avcodec_dll()) {
+        return avdevice_init;
+    }
+    if (!avdevice_init) {
+        avdevice_register_all();
+        avdevice_init = true;
+    }
+#endif
+    return avdevice_init;
+}
+
+vector<std::string> getAVDevicesist(int bOutput) {
+    vector<std::string> devices;
+#if ENABLE_LIBAVDEVICE
+    if (bOutput) {
+        decltype(av_output_video_device_next(nullptr)) ptr = nullptr;
+        while (nullptr != (ptr = av_output_video_device_next(ptr))) {
+            devices.push_back("V " + tolowercase(ptr->name));
+        }
+        while (nullptr != (ptr = av_output_audio_device_next(ptr))) {
+            devices.push_back("A " + tolowercase(ptr->name));
+        }
+    } else {
+        decltype(av_input_video_device_next(nullptr)) ptr = nullptr;
+        while (nullptr != (ptr = av_input_video_device_next(ptr))) {
+            devices.push_back("V " + tolowercase(ptr->name));
+        }
+        while (nullptr != (ptr = av_input_audio_device_next(ptr))) {
+            devices.push_back("A " + tolowercase(ptr->name));
+        }
+    }
+#endif
+    return devices;
+}
+
+tstring getAVDevices() {
+#if ENABLE_LIBAVDEVICE
+    if (!check_avcodec_dll()) {
+        return error_mes_avcodec_dll_not_found();
+    }
+
+    const auto inputDevices  = getAVDevicesist(0);
+    const auto outputDevices = getAVDevicesist(1);
+
+    auto max_len = std::accumulate(inputDevices.begin(),  inputDevices.end(), (size_t)0, [](const size_t max_len, const std::string& str) { return (std::max)(max_len, str.length()); });
+    max_len      = std::accumulate(outputDevices.begin(), outputDevices.end(), max_len,  [](const size_t max_len, const std::string& str) { return (std::max)(max_len, str.length()); });
+    max_len += 1;
+
+    std::string mes = "input devices:\n";
+    size_t len = 0;
+    for (const auto& devices : inputDevices) {
+        mes += devices;
+        for (auto i = devices.length(); i < max_len; i++) {
+            mes += " ";
+        }
+        len += max_len;
+        if (len >= 79 - max_len) {
+            mes += "\n";
+            len = 0;
+        }
+    }
+    mes += "\n\noutput devices:\n";
+    len = 0;
+    for (const auto& devices : outputDevices) {
+        mes += devices;
+        for (auto i = devices.length(); i < max_len; i++) {
+            mes += " ";
+        }
+        len += max_len;
+        if (len >= 79 - max_len) {
+            mes += "\n";
+            len = 0;
+        }
+    }
+    return char_to_tstring(mes);
+#else
+    return _T("Not compiled with avdevice support.\n");
+#endif
 }
 
 static const auto CSP_PIXFMT_RGY = make_array<std::pair<AVPixelFormat, RGY_CSP>>(
@@ -521,6 +609,7 @@ static const auto CSP_PIXFMT_RGY = make_array<std::pair<AVPixelFormat, RGY_CSP>>
     std::make_pair(AV_PIX_FMT_YUYV422,     RGY_CSP_YUY2),
     std::make_pair(AV_PIX_FMT_UYVY422,     RGY_CSP_NA),
     std::make_pair(AV_PIX_FMT_NV16,        RGY_CSP_NV16),
+    std::make_pair(AV_PIX_FMT_NV24,        RGY_CSP_NV24),
     std::make_pair(AV_PIX_FMT_YUV444P,     RGY_CSP_YUV444),
     std::make_pair(AV_PIX_FMT_YUVJ444P,    RGY_CSP_YUV444),
     std::make_pair(AV_PIX_FMT_YUV420P16LE, RGY_CSP_YV12_16),
@@ -538,10 +627,10 @@ static const auto CSP_PIXFMT_RGY = make_array<std::pair<AVPixelFormat, RGY_CSP>>
     std::make_pair(AV_PIX_FMT_YUV444P12LE, RGY_CSP_YUV444_12),
     std::make_pair(AV_PIX_FMT_YUV444P10LE, RGY_CSP_YUV444_10),
     std::make_pair(AV_PIX_FMT_YUV444P9LE,  RGY_CSP_YUV444_09),
-    std::make_pair(AV_PIX_FMT_RGB24,       RGY_CSP_BGR24),
-    std::make_pair(AV_PIX_FMT_RGBA,        RGY_CSP_BGR32),
-    std::make_pair(AV_PIX_FMT_BGR24,       RGY_CSP_RGB24),
-    std::make_pair(AV_PIX_FMT_BGRA,        RGY_CSP_RGB32),
+    std::make_pair(AV_PIX_FMT_RGB24,       RGY_CSP_RGB24),
+    std::make_pair(AV_PIX_FMT_RGBA,        RGY_CSP_RGB32),
+    std::make_pair(AV_PIX_FMT_BGR24,       RGY_CSP_BGR24),
+    std::make_pair(AV_PIX_FMT_BGRA,        RGY_CSP_BGR32),
     std::make_pair(AV_PIX_FMT_GBRP,        RGY_CSP_GBR),
     std::make_pair(AV_PIX_FMT_GBRAP,       RGY_CSP_GBRA)
 );

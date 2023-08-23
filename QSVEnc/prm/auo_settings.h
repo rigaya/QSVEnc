@@ -1,9 +1,9 @@
 ﻿// -----------------------------------------------------------------------------------------
-// QSVEnc by rigaya
+// x264guiEx/x265guiEx/svtAV1guiEx/ffmpegOut/QSVEnc/NVEnc/VCEEnc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
 //
-// Copyright (c) 2011-2016 rigaya
+// Copyright (c) 2010-2022 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -33,6 +33,8 @@
 #include <Windows.h>
 #include <vector>
 #include "auo.h"
+#include "auo_mes.h"
+#include "auo_util.h"
 
 //----    デフォルト値    ---------------------------------------------------
 
@@ -40,22 +42,20 @@ static const BOOL   DEFAULT_LARGE_CMD_BOX         = 0;
 static const BOOL   DEFAULT_AUTO_AFS_DISABLE      = 0;
 static const int    DEFAULT_OUTPUT_EXT            = 0;
 static const BOOL   DEFAULT_AUTO_DEL_CHAP         = 1;
-static const BOOL   DEFAULT_KEEP_QP_FILE          = 0;
-static const BOOL   DEFAULT_AUD_DELAY_CUT_MODE    = 0;
 static const BOOL   DEFAULT_DISABLE_TOOLTIP_HELP  = 0;
 static const BOOL   DEFAULT_DISABLE_VISUAL_STYLES = 0;
 static const BOOL   DEFAULT_ENABLE_STG_ESC_KEY    = 0;
 static const BOOL   DEFAULT_SAVE_RELATIVE_PATH    = 1;
 static const BOOL   DEFAULT_CHAP_NERO_TO_UTF8     = 0;
-static const BOOL   DEFAULT_AUDIO_ENCODER_EXT     = 15;
-static const BOOL   DEFAULT_AUDIO_ENCODER_IN      = 1;
+static const int    DEFAULT_AUDIO_ENCODER_EXT     = 15;
+static const int    DEFAULT_AUDIO_ENCODER_IN      = 1;
 static const BOOL   DEFAULT_AUDIO_ENCODER_USE_IN  = 1;
-static const BOOL   DEFAULT_THREAD_TUNING         = 0;
-static const BOOL   DEFAULT_TIMER_PERIOD_TUNING   = 1;
 static const BOOL   DEFAULT_RUN_BAT_MINIMIZED     = 0;
+#if ENCODER_QSV
 static const BOOL   DEFAULT_FORCE_BLURAY          = 0;
 static const BOOL   DEFAULT_PERF_MONITOR          = 0;
 static const BOOL   DEFAULT_PERF_MONITOR_PLOT     = 0;
+#endif
 
 static const int    DEFAULT_LOG_LEVEL            = 0;
 static const BOOL   DEFAULT_LOG_WINE_COMPAT      = 0;
@@ -71,11 +71,23 @@ static const int    DEFAULT_LOG_HEIGHT           = 0;
 static const int    DEFAULT_LOG_TRANSPARENCY     = 28;
 static const int    DEFAULT_LOG_POS[2]           = { 100, 100 };
 
+enum class AuoTheme : int {
+    DefaultLight,
+    DarkenWindowLight,
+    DarkenWindowDark,
+    CountMax
+};
+
 ///ログ表示で使う色                                        R    G    B
 static const int    DEFAULT_LOG_COLOR_BACKGROUND[3] =   {   0,   0,   0 };
 static const int    DEFAULT_LOG_COLOR_TEXT[3][3]    = { { 198, 253, 226 },   //LOG_INFO
                                                         { 245, 218,  90 },   //LOG_WARNING
                                                         { 253,  83, 121 } }; //LOG_ERROR
+static const int    DEFAULT_UI_COLOR_BASE_LIGHT[3]  =  { 240, 240, 240 };
+static const int    DEFAULT_UI_COLOR_TEXT_LIGHT[3]  =  {   0,   0,   0 };
+static const int    DEFAULT_UI_COLOR_BASE_DARK[3]   =  {  51,  51,  51 };
+static const int    DEFAULT_UI_COLOR_TEXT_DARK[3]   =  { 255, 255, 255 };
+static const int    DEFAULT_UI_COLOR_TEXT_DARK_DISABLED[3] = { 153, 153, 153 };
 
 static const BOOL   DEFAULT_FBC_CALC_BITRATE         = 1;
 static const BOOL   DEFAULT_FBC_CALC_TIME_FROM_FRAME = 0;
@@ -87,10 +99,23 @@ static const double DEFAULT_FBC_INITIAL_SIZE         = 39.8;
 static const char  *DEFAULT_EXE_DIR                  = "exe_files";
 static const char  *AUO_CHECK_FILEOPEN_NAME          = "auo_check_fileopen.exe";
 
-typedef struct {
-    char *name; //x264でのオプション名
-    WCHAR *desc; //GUIでの表示用
-} X264_OPTION_STR;
+typedef struct ENC_OPTION_STR {
+    const char *name; //エンコーダでのオプション名
+    AuoMes mes;  //GUIでの表示用
+    const wchar_t *desc; //GUIでの表示用
+} ENC_OPTION_STR;
+
+typedef struct ENC_OPTION_STR2 {
+    AuoMes mes;  //GUIでの表示用
+    const wchar_t *desc; //GUIでの表示用
+    int value;
+} ENC_OPTION_STR2;
+
+typedef struct ENC_OPTION_STR3 {
+    AuoMes mes;  //GUIでの表示用
+    const wchar_t *desc; //GUIでの表示用
+    int64_t value;
+} ENC_OPTION_STR3;
 
 const int FAW_INDEX_ERROR = -1;
 
@@ -102,6 +127,43 @@ enum {
     DISABLE_LOG_NORMAL     = 0x02,
     DISABLE_LOG_ALL        = DISABLE_LOG_PIPE_INPUT | DISABLE_LOG_NORMAL,
 };
+
+static size_t GetPrivateProfileSectionStg(const char *section, char *buf, size_t bufSize, const char *ini_file, const DWORD codepage) {
+    if (bufSize == 0) {
+        return 0;
+    }
+    size_t len = GetPrivateProfileSection(section, buf, (DWORD)bufSize, ini_file);
+    if (codepage == CP_THREAD_ACP) {
+        return len;
+    }
+    const auto str_thread_acp = wstring_to_string(char_to_wstring(buf, codepage), CP_THREAD_ACP);
+    strcpy_s(buf, bufSize, str_thread_acp.c_str());
+    return str_thread_acp.length();
+}
+static size_t GetPrivateProfileStringStg(const char *section, const char *keyname, const char *defaultString, char *buf, size_t bufSize, const char *ini_file, const DWORD codepage) {
+    if (bufSize == 0) {
+        return 0;
+    }
+    size_t len = GetPrivateProfileString(section, keyname, defaultString, buf, (DWORD)bufSize, ini_file);
+    if (codepage == CP_THREAD_ACP) {
+        return len;
+    }
+    const auto str_thread_acp = wstring_to_string(char_to_wstring(buf, codepage), CP_THREAD_ACP);
+    strcpy_s(buf, bufSize, str_thread_acp.c_str());
+    return str_thread_acp.length();
+}
+static size_t GetPrivateProfileWStringStg(const char *section, const char *keyname, const char *defaultString, char *buf, size_t bufSize, const char *ini_file, const DWORD codepage) {
+    if (bufSize == 0) {
+        return 0;
+    }
+    size_t len = GetPrivateProfileString(section, keyname, defaultString, buf, (DWORD)bufSize, ini_file);
+    if (codepage == CP_THREAD_ACP) {
+        return len;
+    }
+    const auto wstr = char_to_wstring(buf, codepage);
+    wcscpy_s((wchar_t *)buf, bufSize / sizeof(wchar_t), wstr.c_str());
+    return wstr.length();
+}
 
 //メモリーを切り刻みます。
 class mem_cutter {
@@ -140,13 +202,23 @@ public:
         mp_size -= size;
         return ptr;
     };
-    char *SetPrivateProfileString(const char *section, const char *keyname, const char *defaultString, const char *ini_file) {
+    char *SetPrivateProfileString(const char *section, const char *keyname, const char *defaultString, const char *ini_file, const DWORD codepage) {
         char *ptr = NULL;
         if (mp_size > 0) {
-            size_t len = GetPrivateProfileString(section, keyname, defaultString, mp, (DWORD)mp_size, ini_file);
+            size_t len = GetPrivateProfileStringStg(section, keyname, defaultString, mp, (DWORD)mp_size, ini_file, codepage);
             ptr = mp;
             mp += len + 1;
             mp_size -= len + 1;
+        }
+        return ptr;
+    };
+    wchar_t *SetPrivateProfileWString(const char *section, const char *keyname, const char *defaultString, const char *ini_file, const DWORD codepage) {
+        wchar_t *ptr = NULL;
+        if (mp_size > 0) {
+            size_t len = GetPrivateProfileWStringStg(section, keyname, defaultString, mp, (DWORD)mp_size, ini_file, codepage);
+            ptr = (wchar_t *)mp;
+            mp += (len + 1) * sizeof(wchar_t);
+            mp_size -= (len + 1) * sizeof(wchar_t);
         }
         return ptr;
     };
@@ -157,14 +229,19 @@ public:
         return mp_size;
     };
     void CutString(int sizeof_chr) {
-        size_t cut_size = (strlen(mp) + 1) * sizeof_chr;
+        size_t cut_size = 0;
+        if (sizeof_chr == sizeof(char)) {
+            cut_size = (strlen(mp) + 1) * sizeof_chr;
+        } else if (sizeof_chr == sizeof(wchar_t)) {
+            cut_size = (wcslen((wchar_t*)mp) + 1) * sizeof_chr;
+        }
         mp += cut_size;
         mp_size -= cut_size;
     };
 };
 
-typedef struct {
-    char *name;          //名前
+typedef struct AUDIO_ENC_MODE {
+    wchar_t *name;       //名前
     char *cmd;           //コマンドライン
     BOOL bitrate;        //ビットレート指定モード
     int bitrate_min;     //ビットレートの最小値
@@ -175,15 +252,14 @@ typedef struct {
     int enc_2pass;       //2passエンコを行う
     int use_8bit;        //8bitwavを入力する
     int use_remuxer;     //remuxerが必要
-    char *disp_list;     //表示名のリスト
+    wchar_t *disp_list;  //表示名のリスト
     char *cmd_list;      //コマンドラインのリスト
 } AUDIO_ENC_MODE;
 
-typedef struct {
+typedef struct AUDIO_SETTINGS {
     BOOL is_internal;            //内蔵エンコーダかどうか
-    int  auolink_only;           //auo link時のみ有効
     char *keyName;               //iniファイルでのセクション名
-    char *dispname;              //名前
+    wchar_t *dispname;           //名前
     char *codec;                 //コーデック名
     char *filename;              //拡張子付き名前
     char fullpath[MAX_PATH_LEN]; //エンコーダの場所(フルパス)
@@ -201,16 +277,16 @@ typedef struct {
     AUDIO_ENC_MODE *mode;        //エンコードモードの設定
 } AUDIO_SETTINGS;
 
-typedef struct {
-    char *name;      //拡張オプションの名前
+typedef struct MUXER_CMD_EX {
+    wchar_t *name;   //拡張オプションの名前
     char *cmd;       //拡張オプションのコマンドライン
     char *cmd_apple; //Apple用モードの時のコマンドライン
     char *chap_file; //チャプターファイル
 } MUXER_CMD_EX;
 
-typedef struct {
+typedef struct MUXER_SETTINGS {
     char *keyName;                //iniファイルでのセクション名
-    char *dispname;               //名前
+    wchar_t *dispname;            //名前
     char *filename;               //拡張子付き名前
     char fullpath[MAX_PATH_LEN];  //エンコーダの場所(フルパス)
     char *out_ext;                //mux後ファイルの拡張子
@@ -218,8 +294,8 @@ typedef struct {
     char *vid_cmd;                //映像mux用のコマンドライン
     char *aud_cmd;                //音声mux用のコマンドライン
     char *tc_cmd;                 //タイムコードmux用のコマンドライン
-    char *delay_cmd;              //音声エンコーダディレイ指定用のコマンドライン
     char *tmp_cmd;                //一時フォルダ指定用コマンドライン
+    char *delay_cmd;              //音声エンコーダディレイ指定用のコマンドライン
     char *help_cmd;               //ヘルプ表示用コマンドライン
     char *ver_cmd;                //バージョン表示用のコマンドライン
     int ex_count;                 //拡張オプションの数
@@ -227,21 +303,20 @@ typedef struct {
     int post_mux;                 //muxerを実行したあとに別のmuxerを実行する
 } MUXER_SETTINGS;
 
-typedef struct {
+typedef struct VIDEO_SETTINGS {
     char *filename;                      //動画エンコーダのファイル名
     char fullpath[MAX_PATH_LEN];         //動画エンコーダの場所(フルパス)
     char *default_cmd;                   //デフォルト設定用コマンドライン
     char *help_cmd;                      //ヘルプ表示用cmd
 } VIDEO_SETTINGS;
 
-typedef struct {
+typedef struct FILENAME_REPLACE {
     char *from; //置換元文字列
     char *to;   //置換先文字列
 } FILENAME_REPLACE;
 
-typedef struct {
+typedef struct LOG_WINDOW_SETTINGS {
     BOOL minimized;                        //最小化で起動
-    BOOL wine_compat;                      //wine互換モード
     int  log_level;                        //ログ出力のレベル
     BOOL transparent;                      //半透明で表示
     int  transparency;                     //透過度
@@ -259,7 +334,7 @@ typedef struct {
     AUO_FONT_INFO log_font;                //ログフォント
 } LOG_WINDOW_SETTINGS;
 
-typedef struct {
+typedef struct BITRATE_CALC_SETTINGS {
     BOOL   calc_bitrate;          //ビットレート計算モード
     BOOL   calc_time_from_frame;  //フレーム数とフレームレートから動画時間を計算
     int    last_frame_num;        //最後に指定したフレーム数
@@ -268,13 +343,12 @@ typedef struct {
     double initial_size;          //初期サイズ
 } BITRATE_CALC_SETTINGS;
 
-typedef struct {
+typedef struct LOCAL_SETTINGS {
     BOOL   large_cmdbox;                        //拡大サイズでコマンドラインプレビューを行う
     DWORD  audio_buffer_size;                   //音声用バッファサイズ
     BOOL   auto_afs_disable;                    //自動的にafsを無効化
     int    default_output_ext;                  //デフォルトで使用する拡張子
     BOOL   auto_del_chap;                       //チャプターファイルの自動削除
-    BOOL   keep_qp_file;                        //キーフレーム検出で作成したqpファイルを削除しない
     BOOL   disable_tooltip_help;                //ポップアップヘルプを抑制する
     BOOL   disable_visual_styles;               //視覚効果をオフにする
     BOOL   enable_stg_esc_key;                  //設定画面でEscキーを有効化する
@@ -284,12 +358,11 @@ typedef struct {
     int    default_audio_encoder_ext;           //デフォルトの音声エンコーダ
     int    default_audio_encoder_in;            //デフォルトの音声エンコーダ
     BOOL   get_relative_path;                   //相対パスで保存する
-    BOOL   thread_tuning;                       //スレッドチューニング
-    BOOL   timer_period_tuning;                 //timeBeginPeriodにより、エンコ中タイマ分解能を向上させる
     BOOL   run_bat_minimized;                   //エンコ前後バッチ処理を最小化で実行
+#if ENCODER_QSV
     BOOL   force_bluray;                        //VBR,CBR以外でもBluray用出力を許可する
     BOOL   perf_monitor;                        //パフォーマンスモニタリングを有効にする
-    BOOL   perf_monitor_plot;                   //パフォーマンスモニタリングをリアルタイム表示する
+#endif
     char   custom_tmp_dir[MAX_PATH_LEN];        //一時フォルダ
     char   custom_audio_tmp_dir[MAX_PATH_LEN];  //音声用一時フォルダ
     char   custom_mp4box_tmp_dir[MAX_PATH_LEN]; //mp4box用一時フォルダ
@@ -298,7 +371,7 @@ typedef struct {
     char   bat_dir[MAX_PATH_LEN];               //バッチファイルのフォルダ
 } LOCAL_SETTINGS;
 
-typedef struct {
+typedef struct FILE_APPENDIX {
     char aud[2][MAX_APPENDIX_LEN];     //音声ファイル名に追加する文字列...音声エンコード段階で設定する
     char tc[MAX_APPENDIX_LEN];         //タイムコードファイル名に追加する文字列
     char qp[MAX_APPENDIX_LEN];         //qpファイル名に追加する文字列
@@ -320,6 +393,12 @@ private:
     static char  ini_fileName[MAX_PATH_LEN];  //iniファイル(読み込み用)の場所
     static char  conf_fileName[MAX_PATH_LEN]; //configファイル(読み書き用)の場所
     static DWORD ini_filesize;                //iniファイル(読み込み用)のサイズ
+    static char  default_lang[4];             //デフォルトの言語
+    static int  ini_ver;                      //iniファイルのバージョン
+    static DWORD codepage_ini;                //iniファイルの文字コード
+    static DWORD codepage_cnf;                //confファイルの文字コード
+    static char language[MAX_PATH_LEN];       //言語設定
+    char last_out_stg[MAX_PATH_LEN];          //前回出力のstgファイル(多言語対応のため、デフォルトのCONF_LAST_OUTに加え、これも探す)
 
     void load_vid();          //動画エンコーダ関連の設定の読み込み・更新
     void load_aud();          //音声エンコーダ関連の設定の読み込み・更新
@@ -329,7 +408,8 @@ private:
     BOOL s_vid_refresh;              //動画設定の再ロード
 
     void make_default_stg_dir(char *default_stg_dir, DWORD nSize); //プロファイル設定ファイルの保存場所の作成
-    BOOL check_inifile();            //iniファイルが読めるかテスト
+    BOOL check_inifile();             //iniファイルが読めるかテスト
+    void convert_conf_if_necessary(); //x265guiExβのconfファイルからx265guiExのconfファイルに変換
 
 public:
     static char blog_url[MAX_PATH_LEN];      //ブログページのurl
@@ -350,6 +430,7 @@ public:
     guiEx_settings(BOOL disable_loading);
     guiEx_settings(BOOL disable_loading, const char *_auo_path, const char *main_section);
     ~guiEx_settings();
+    void clear_all();
 
     BOOL get_init_success();                 //iniファイルが存在し、正しいバージョンだったか
     BOOL get_init_success(BOOL no_message);  //iniファイルが存在し、正しいバージョンだったか
@@ -358,16 +439,24 @@ public:
     void load_log_win();                     //ログウィンドウ等の設定の読み込み・更新
     void load_append();                      //各種ファイルの設定の読み込み・更新
     void load_fbc();                         //簡易ビットレート計算機設定の読み込み・更新
+    void load_lang();                        //言語設定をロード
+    void load_last_out_stg();                //last_out_stgのロード
 
     void save_local();        //ファイルの場所等の設定の保存
     void save_log_win();      //ログウィンドウ等の設定の保存
     void save_fbc();          //簡易ビットレート計算機設定の保存
+    void save_lang();         //言語設定の保存
+    void save_last_out_stg(); //last_out_stgの保存
 
     void apply_fn_replace(char *target_filename, DWORD nSize);  //一時ファイル名置換の適用
 
     BOOL is_faw(const AUDIO_SETTINGS *aud_stg) const;
     int get_faw_index(BOOL internal) const; //FAWのインデックスを取得する
-
+    const char *get_lang() const;
+    const char *get_last_out_stg() const;
+    void set_and_save_lang(const char *lang);
+    void get_default_lang();
+    void set_last_out_stg(const char *stg);
 private:
     void initialize(BOOL disable_loading);
     void initialize(BOOL disable_loading, const char *_auo_path, const char *main_section);
@@ -381,5 +470,89 @@ private:
     void clear_append();      //各種ファイルの設定の消去
     void clear_fbc();         //簡易ビットレート計算機設定のクリア
 };
+
+struct ColorRGB {
+    int r, g, b;
+    ColorRGB() : r(0), g(0), b(0) {};
+    ColorRGB(int r_, int g_, int b_) : r(r_), g(g_), b(b_) {};
+    std::string print() const {
+        char buf[32];
+        sprintf_s(buf, "(%3d, %3d, %3d)", r, g, b);
+        return buf;
+    }
+    std::string printHex() const {
+        char buf[32];
+        sprintf_s(buf, "#%02x%02x%02x", r, g, b);
+        return buf;
+    }
+};
+
+class DarkenWindowStgNamedColor {
+public:
+    DarkenWindowStgNamedColor(const char *name, const char * fillColor, const char * edgeColor, const char * textForeColor, const char * textBackColor) :
+        name_((name) ? name : ""),
+        fillColor_((fillColor) ? fillColor : ""),
+        edgeColor_((edgeColor) ? edgeColor : ""),
+        textForeColor_((textForeColor) ? textForeColor : ""),
+        textBackColor_((textBackColor) ? textBackColor : "") {}
+    ~DarkenWindowStgNamedColor() {};
+    const std::string& name() const { return name_; };
+    ColorRGB fillColor() const { return parseColor(fillColor_); };
+    ColorRGB edgeColor() const { return parseColor(edgeColor_); };
+    ColorRGB textForeColor() const { return parseColor(textForeColor_); };
+    ColorRGB textBackColor() const { return parseColor(textBackColor_); };
+    ColorRGB parseColor(const std::string& colorStr) const;
+protected:
+    std::string name_;
+    std::string fillColor_;
+    std::string edgeColor_;
+    std::string textForeColor_;
+    std::string textBackColor_;
+};
+
+enum class DarkenWindowState {
+    Normal,
+    Hot,
+    Disabled,
+    MaxCout
+};
+
+static const char * DWSTATE_NAMES[] = {
+    "normal",
+    "hot",
+    "disabled"
+};
+
+class DarkenWindowStgReader {
+public:
+    DarkenWindowStgReader(const std::wstring& dir);
+    ~DarkenWindowStgReader();
+    int parseStg();
+
+    std::wstring getSelectedThemeXml() const { return selectedThemeXml; }
+    std::wstring getSelectedTheme() const;
+    const DarkenWindowStgNamedColor *getColorStatic(const DarkenWindowState state = DarkenWindowState::Normal) const;
+    const DarkenWindowStgNamedColor *getColorButton(const DarkenWindowState state = DarkenWindowState::Normal) const;
+    const DarkenWindowStgNamedColor *getColorCheckBox(const DarkenWindowState state = DarkenWindowState::Normal) const;
+    const DarkenWindowStgNamedColor *getColorTextBox(const DarkenWindowState state = DarkenWindowState::Normal) const;
+    const DarkenWindowStgNamedColor *getColorMenu(const DarkenWindowState state = DarkenWindowState::Normal) const;
+    const DarkenWindowStgNamedColor *getColorToolTip(const DarkenWindowState state = DarkenWindowState::Normal) const;
+    bool isDarkTheme() const;
+protected:
+    const DarkenWindowStgNamedColor *getColor(const char *name) const;
+    const DarkenWindowStgNamedColor *getColorFromNameAndState(const char *name, const DarkenWindowState state) const;
+    int parseRootStg();
+    int parseSelectedStg();
+    int parseSelectedStg2();
+    std::wstring rootDir;
+    std::wstring selectedThemeXml;
+    std::vector<std::wstring> selectedThemeXmlFileSets;
+    std::vector<DarkenWindowStgNamedColor> namedColors;
+
+    static std::string readWcharXml(const std::wstring& path);
+};
+
+DarkenWindowStgReader *createDarkenWindowStgReader(const char *aviutl_dir);
+std::tuple<AuoTheme, DarkenWindowStgReader *> check_current_theme(const char *aviutl_dir);
 
 #endif //_AUO_SETTINGS_H_

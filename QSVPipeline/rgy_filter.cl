@@ -3,6 +3,12 @@
 // in_bit_depth
 // out_bit_depth
 
+// RGY_MATRIX_ST170_M
+// RGY_MATRIX_ST240_M
+// RGY_MATRIX_BT2020_NCL
+// RGY_MATRIX_BT2020_CL
+// RGY_MATRIX_BT709
+
 const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_NONE | CLK_FILTER_NEAREST;
 
 #if in_bit_depth <= 8
@@ -494,18 +500,171 @@ __kernel void kernel_crop_c_yuv444_yv12(
     }
 }
 
-TypeOut4 conv_rgb_yuv(const TypeIn4 rgb) {
-    const float fr = (float)rgb.z;
-    const float fg = (float)rgb.y;
-    const float fb = (float)rgb.x;
-    const float fy =  0.257f * fr + 0.504f * fg + 0.098f * fb +  16.0f;
-    const float fu = -0.148f * fr - 0.291f * fg + 0.439f * fb + 128.0f;
-    const float fv =  0.439f * fr - 0.368f * fg - 0.071f * fb + 128.0f;
-    TypeOut4 yuv;
-    yuv.x = (TypeOut)(BIT_DEPTH_CONV_FLOAT(fy) + 0.5f);
-    yuv.y = (TypeOut)(BIT_DEPTH_CONV_FLOAT(fu) + 0.5f);
-    yuv.z = (TypeOut)(BIT_DEPTH_CONV_FLOAT(fv) + 0.5f);
+#define mat(i,j) (pmat[i*3+j])
+
+float3 conv_rgb_yuv(const float3 rgb, const int matrix) {
+    const float mat_bt601[9] = {
+        0.299f, 0.587f, 0.114f,
+        -0.168735892f, -0.331264108f, 0.5f,
+        0.5f, -0.418687589f, -0.081312411f
+    };
+    const float mat_bt709[9] = {
+        0.2126f, 0.7152f, 0.0722f,
+        -0.13500127f, -0.454152908f, 0.589154178f,
+        0.424337142f, -0.385427894f, -0.038909248f
+    };
+    const float mat_bt2020[9] = {
+        0.2627f, 0.678f, 0.0593f,
+        -0.178150007f, -0.459785705f, 0.637935711f,
+        0.391889019f, -0.360369937f, -0.031519082f
+    };
+    const float mat_st240m[9] = {
+        0.212f, 0.701f, 0.087f,
+        -0.134517766f, -0.444796954f, 0.579314721f,
+        0.431544359f, -0.383899233f, -0.047645126f
+    };
+    const float *pmat = mat_bt601;
+    switch (matrix) {
+        case RGY_MATRIX_BT709: pmat = mat_bt709; break;
+        case RGY_MATRIX_BT2020_NCL:
+        case RGY_MATRIX_BT2020_CL: pmat = mat_bt2020; break;
+        case RGY_MATRIX_ST240_M: pmat = mat_st240m; break;
+        case RGY_MATRIX_ST170_M:
+        default: break;
+    };
+
+    float3 yuv;
+    yuv.x = mat(0,0) * rgb.x + mat(0,1) * rgb.y + mat(0,2) * rgb.z;
+    yuv.y = mat(1,0) * rgb.x + mat(1,1) * rgb.y + mat(1,2) * rgb.z;
+    yuv.z = mat(2,0) * rgb.x + mat(2,1) * rgb.y + mat(2,2) * rgb.z;
     return yuv;
+}
+
+float3 conv_yuv_rgb(const float3 yuv, const int matrix) {
+    const float mat_bt601[9] = {
+        1.0f, 0.0f, 1.402f,
+        1.0f, -0.344136286f, -0.714136286f,
+        1.0f, 1.772f, 0.0f
+    };
+    const float mat_bt709[9] = {
+        1.0f, 0.0f, 1.8556f,
+        1.0f, -0.158977293f, -0.551594743f,
+        1.0f, 1.5748f, 0.0f
+    };
+    const float mat_bt2020[9] = {
+        1.0f, 0.0f, 1.8814f,
+        1.0f, -0.128973127f, -0.728973127f,
+        1.0f, 1.4746f, 0.0f
+    };
+    const float mat_st240m[9] = {
+        1.0f, 0.0f, 1.826f,
+        1.0f, -0.195594864f, -0.552228245f,
+        1.0f, 1.576f, 0.0f
+    };
+    const float *pmat = mat_bt601;
+    switch (matrix) {
+        case RGY_MATRIX_BT709: pmat = mat_bt709; break;
+        case RGY_MATRIX_BT2020_NCL:
+        case RGY_MATRIX_BT2020_CL: pmat = mat_bt2020; break;
+        case RGY_MATRIX_ST240_M: pmat = mat_st240m; break;
+        case RGY_MATRIX_ST170_M:
+        default: break;
+    };
+
+    float3 rgb;
+    rgb.x = mat(0,0) * yuv.x + mat(0,1) * yuv.y + mat(0,2) * yuv.z;
+    rgb.y = mat(1,0) * yuv.x + mat(1,1) * yuv.y + mat(1,2) * yuv.z;
+    rgb.z = mat(2,0) * yuv.x + mat(2,1) * yuv.y + mat(2,2) * yuv.z;
+    return rgb;
+}
+
+#undef mat
+
+TypeOut scaleRGBFloatToPix(float x) {
+    if (out_bit_depth == 32) {
+        return x;
+    }
+    const float range = (float)((1ll << out_bit_depth) - 1);
+    return (TypeOut)clamp(x * range + 0.5f, 0.0f, (float)(1ll << (out_bit_depth)) - 0.5f);
+}
+
+TypeOut scaleYFloatToPix(float x) {
+    if (out_bit_depth == 32) {
+        return x;
+    }
+    const float range = (float)(219 << (out_bit_depth - 8));
+    const float offset = (float)(16 << (out_bit_depth - 8));
+    return (TypeOut)clamp(x * range + offset + 0.5f, 0.0f, (float)(1ll << (out_bit_depth)) - 0.5f);
+}
+
+TypeOut scaleUVFloatToPix(float x) {
+    if (out_bit_depth == 32) {
+        return x;
+    }
+    const float range = (float)(224 << (out_bit_depth - 8));
+    const float offset = (float)(1 << (out_bit_depth - 1));
+    return (TypeOut)clamp(x * range + offset + 0.5f, 0.0f, (float)(1ll << (out_bit_depth)) - 0.5f);
+}
+
+float scaleRGBPixToFloat(TypeIn x) {
+    if (in_bit_depth == 32) {
+        return x;
+    }
+    const float range = (float)((1ll << in_bit_depth) - 1);
+    const float range_inv = 1.0f / range;
+    return clamp((float)x * range_inv, 0.0f, 1.0f);
+}
+
+float scaleYPixToFloat(TypeIn x) {
+    if (in_bit_depth == 32) {
+        return x;
+    }
+    const float range = (float)(219 << (in_bit_depth - 8));
+    const float offset = (float)(16 << (in_bit_depth - 8));
+    const float range_inv = 1.0f / range;
+    const float offset_inv = -offset * (1.0f / range);
+    return clamp((float)x * range_inv + offset_inv, 0.0f, 1.0f);
+}
+
+float scaleUVPixToFloat(TypeIn x) {
+    if (in_bit_depth == 32) {
+        return x;
+    }
+    const float range = (float)(224 << (in_bit_depth - 8));
+    const float offset = (float)(1 << (in_bit_depth - 1));
+    const float range_inv = 1.0f / range;
+    const float offset_inv = -offset * (1.0f / range);
+    return clamp((float)x * range_inv + offset_inv, -0.5f, 0.5f);
+}
+
+float3 make_float_yuv3(TypeIn y, TypeIn u, TypeIn v) {
+    if (in_bit_depth == 32) {
+        return (float3)(y, u, v);
+    }
+    return (float3)(
+        scaleYPixToFloat(y),
+        scaleUVPixToFloat(u),
+        scaleUVPixToFloat(v));
+}
+
+float3 make_float_rgb3(TypeIn r, TypeIn g, TypeIn b) {
+    if (in_bit_depth == 32) {
+        return (float3)(r, g, b);
+    }
+    return (float3)(
+        scaleRGBPixToFloat(r),
+        scaleRGBPixToFloat(g),
+        scaleRGBPixToFloat(b));
+}
+
+float3 make_float_rgb3_from_TypeIn4(TypeIn4 rgb) {
+    if (in_bit_depth == 32) {
+        return (float3)(rgb.x, rgb.y, rgb.z);
+    }
+    return (float3)(
+        scaleRGBPixToFloat(rgb.x),
+        scaleRGBPixToFloat(rgb.y),
+        scaleRGBPixToFloat(rgb.z));
 }
 
 __kernel void kernel_crop_rgb32_yuv444(
@@ -530,7 +689,8 @@ __kernel void kernel_crop_rgb32_yuv444(
     int srcWidth,
     int srcHeight,
     int cropX,
-    int cropY
+    int cropY,
+    int matrix
 ) {
     const int dst_x = get_global_id(0);
     const int dst_y = get_global_id(1);
@@ -539,10 +699,10 @@ __kernel void kernel_crop_rgb32_yuv444(
         const int loadx = dst_x + cropX;
         const int loady = dst_y + cropY;
         const TypeIn4 pixSrcRGB = LOAD_AYUV(src, loadx, loady);
-        TypeOut4 yuv = conv_rgb_yuv(pixSrcRGB);
-        STORE(dstY, dst_x, dst_y, yuv.x);
-        STORE(dstU, dst_x, dst_y, yuv.y);
-        STORE(dstV, dst_x, dst_y, yuv.z);
+        float3 yuv = conv_rgb_yuv(make_float_rgb3_from_TypeIn4(pixSrcRGB), matrix);
+        STORE(dstY, dst_x, dst_y, scaleYFloatToPix(yuv.x));
+        STORE(dstU, dst_x, dst_y, scaleUVFloatToPix(yuv.y));
+        STORE(dstV, dst_x, dst_y, scaleUVFloatToPix(yuv.z));
     }
 }
 
@@ -570,7 +730,8 @@ __kernel void kernel_crop_rgb32_yv12(
     int srcWidth,
     int srcHeight,
     int cropX,
-    int cropY
+    int cropY,
+    int matrix
 ) {
     const int dstC_x = get_global_id(0);
     const int dstC_y = get_global_id(1);
@@ -584,17 +745,17 @@ __kernel void kernel_crop_rgb32_yv12(
         const TypeIn4 pixSrcRGB01 = LOAD_AYUV(src, loadx+1, loady+0);
         const TypeIn4 pixSrcRGB10 = LOAD_AYUV(src, loadx+0, loady+1);
         const TypeIn4 pixSrcRGB11 = LOAD_AYUV(src, loadx+1, loady+1);
-        const TypeOut4 yuv00 = conv_rgb_yuv(pixSrcRGB00);
-        const TypeOut4 yuv01 = conv_rgb_yuv(pixSrcRGB01);
-        const TypeOut4 yuv10 = conv_rgb_yuv(pixSrcRGB10);
-        const TypeOut4 yuv11 = conv_rgb_yuv(pixSrcRGB11);
+        const float3 yuv00 = conv_rgb_yuv(make_float_rgb3_from_TypeIn4(pixSrcRGB00), matrix);
+        const float3 yuv01 = conv_rgb_yuv(make_float_rgb3_from_TypeIn4(pixSrcRGB01), matrix);
+        const float3 yuv10 = conv_rgb_yuv(make_float_rgb3_from_TypeIn4(pixSrcRGB10), matrix);
+        const float3 yuv11 = conv_rgb_yuv(make_float_rgb3_from_TypeIn4(pixSrcRGB11), matrix);
         int dstPitch = dstPitchY;
-        STORE(dstY, dstY_x+0, dstY_y+0, yuv00.x);
-        STORE(dstY, dstY_x+1, dstY_y+0, yuv01.x);
-        STORE(dstY, dstY_x+0, dstY_y+1, yuv10.x);
-        STORE(dstY, dstY_x+1, dstY_y+1, yuv11.x);
-        const TypeOut pixU = (TypeOut)(((int)yuv00.y + (int)yuv10.y + 1) >> 1);
-        const TypeOut pixV = (TypeOut)(((int)yuv00.z + (int)yuv10.z + 1) >> 1);
+        STORE(dstY, dstY_x+0, dstY_y+0, scaleYFloatToPix(yuv00.x));
+        STORE(dstY, dstY_x+1, dstY_y+0, scaleYFloatToPix(yuv01.x));
+        STORE(dstY, dstY_x+0, dstY_y+1, scaleYFloatToPix(yuv10.x));
+        STORE(dstY, dstY_x+1, dstY_y+1, scaleYFloatToPix(yuv11.x));
+        const TypeOut pixU = scaleUVFloatToPix((yuv00.y + yuv10.y) * 0.5f);
+        const TypeOut pixV = scaleUVFloatToPix((yuv00.z + yuv10.z) * 0.5f);
         dstPitch = dstPitchU;
         STORE(dstU, dstC_x, dstC_y, pixU);
         dstPitch = dstPitchV;
@@ -623,7 +784,8 @@ __kernel void kernel_crop_rgb32_nv12(
     int srcWidth,
     int srcHeight,
     int cropX,
-    int cropY
+    int cropY,
+    int matrix
 ) {
     const int dstC_x = get_global_id(0);
     const int dstC_y = get_global_id(1);
@@ -637,19 +799,450 @@ __kernel void kernel_crop_rgb32_nv12(
         const TypeIn4 pixSrcRGB01 = LOAD_AYUV(src, loadx+1, loady+0);
         const TypeIn4 pixSrcRGB10 = LOAD_AYUV(src, loadx+0, loady+1);
         const TypeIn4 pixSrcRGB11 = LOAD_AYUV(src, loadx+1, loady+1);
-        const TypeOut4 yuv00 = conv_rgb_yuv(pixSrcRGB00);
-        const TypeOut4 yuv01 = conv_rgb_yuv(pixSrcRGB01);
-        const TypeOut4 yuv10 = conv_rgb_yuv(pixSrcRGB10);
-        const TypeOut4 yuv11 = conv_rgb_yuv(pixSrcRGB11);
+        const float3 yuv00 = conv_rgb_yuv(make_float_rgb3_from_TypeIn4(pixSrcRGB00), matrix);
+        const float3 yuv01 = conv_rgb_yuv(make_float_rgb3_from_TypeIn4(pixSrcRGB01), matrix);
+        const float3 yuv10 = conv_rgb_yuv(make_float_rgb3_from_TypeIn4(pixSrcRGB10), matrix);
+        const float3 yuv11 = conv_rgb_yuv(make_float_rgb3_from_TypeIn4(pixSrcRGB11), matrix);
         int dstPitch = dstPitchY;
-        STORE(dstY, dstY_x+0, dstY_y+0, yuv00.x);
-        STORE(dstY, dstY_x+1, dstY_y+0, yuv01.x);
-        STORE(dstY, dstY_x+0, dstY_y+1, yuv10.x);
-        STORE(dstY, dstY_x+1, dstY_y+1, yuv11.x);
-        const TypeOut pixU = (TypeOut)(((int)yuv00.y + (int)yuv10.y + 1) >> 1);
-        const TypeOut pixV = (TypeOut)(((int)yuv00.z + (int)yuv10.z + 1) >> 1);
+        STORE(dstY, dstY_x+0, dstY_y+0, scaleYFloatToPix(yuv00.x));
+        STORE(dstY, dstY_x+1, dstY_y+0, scaleYFloatToPix(yuv01.x));
+        STORE(dstY, dstY_x+0, dstY_y+1, scaleYFloatToPix(yuv10.x));
+        STORE(dstY, dstY_x+1, dstY_y+1, scaleYFloatToPix(yuv11.x));
+        const TypeOut pixU = scaleUVFloatToPix((yuv00.y + yuv10.y) * 0.5f);
+        const TypeOut pixV = scaleUVFloatToPix((yuv00.z + yuv10.z) * 0.5f);
         dstPitch = dstPitchC;
         STORE_NV12_UV(dstC, dstC_x, dstC_y, pixU, pixV);
+    }
+}
+
+__kernel void kernel_crop_rgb_yv12(
+#if IMAGE_DST
+    __write_only image2d_t dstY,
+    __write_only image2d_t dstU,
+    __write_only image2d_t dstV,
+#else
+    __global uchar *dstY,
+    __global uchar *dstU,
+    __global uchar *dstV,
+#endif
+    int dstPitchY,
+    int dstPitchU,
+    int dstPitchV,
+    int dstWidth,
+    int dstHeight,
+#if IMAGE_SRC
+    __read_only image2d_t srcR,
+    __read_only image2d_t srcG,
+    __read_only image2d_t srcB,
+#else
+    __global uchar *srcR,
+    __global uchar *srcG,
+    __global uchar *srcB,
+#endif
+    int srcPitch,
+    int srcWidth,
+    int srcHeight,
+    int cropX,
+    int cropY,
+    int matrix
+) {
+    const int dstC_x = get_global_id(0);
+    const int dstC_y = get_global_id(1);
+    const int dstY_x = dstC_x << 1;
+    const int dstY_y = dstC_y << 1;
+
+    if (dstY_x+1 < dstWidth && dstY_y+1 < dstHeight) {
+        const int loadx = dstY_x + cropX;
+        const int loady = dstY_y + cropY;
+        const TypeIn pixSrcR00 = LOAD(srcR, loadx+0, loady+0);
+        const TypeIn pixSrcR01 = LOAD(srcR, loadx+1, loady+0);
+        const TypeIn pixSrcR10 = LOAD(srcR, loadx+0, loady+1);
+        const TypeIn pixSrcR11 = LOAD(srcR, loadx+1, loady+1);
+        const TypeIn pixSrcG00 = LOAD(srcG, loadx+0, loady+0);
+        const TypeIn pixSrcG01 = LOAD(srcG, loadx+1, loady+0);
+        const TypeIn pixSrcG10 = LOAD(srcG, loadx+0, loady+1);
+        const TypeIn pixSrcG11 = LOAD(srcG, loadx+1, loady+1);
+        const TypeIn pixSrcB00 = LOAD(srcB, loadx+0, loady+0);
+        const TypeIn pixSrcB01 = LOAD(srcB, loadx+1, loady+0);
+        const TypeIn pixSrcB10 = LOAD(srcB, loadx+0, loady+1);
+        const TypeIn pixSrcB11 = LOAD(srcB, loadx+1, loady+1);
+        const float3 rgb00 = make_float_rgb3(pixSrcR00, pixSrcG00, pixSrcB00);
+        const float3 rgb01 = make_float_rgb3(pixSrcR01, pixSrcG01, pixSrcB01);
+        const float3 rgb10 = make_float_rgb3(pixSrcR10, pixSrcG10, pixSrcB10);
+        const float3 rgb11 = make_float_rgb3(pixSrcR11, pixSrcG11, pixSrcB11);
+        const float3 yuv00 = conv_rgb_yuv(rgb00, matrix);
+        const float3 yuv01 = conv_rgb_yuv(rgb01, matrix);
+        const float3 yuv10 = conv_rgb_yuv(rgb10, matrix);
+        const float3 yuv11 = conv_rgb_yuv(rgb11, matrix);
+        int dstPitch = dstPitchY;
+        STORE(dstY, dstY_x+0, dstY_y+0, scaleYFloatToPix(yuv00.x));
+        STORE(dstY, dstY_x+1, dstY_y+0, scaleYFloatToPix(yuv01.x));
+        STORE(dstY, dstY_x+0, dstY_y+1, scaleYFloatToPix(yuv10.x));
+        STORE(dstY, dstY_x+1, dstY_y+1, scaleYFloatToPix(yuv11.x));
+        dstPitch = dstPitchU;
+        STORE(dstU, dstC_x, dstC_y, scaleUVFloatToPix((yuv00.y + yuv10.y) * 0.5f));
+        dstPitch = dstPitchV;
+        STORE(dstV, dstC_x, dstC_y, scaleUVFloatToPix((yuv00.z + yuv10.z) * 0.5f));
+    }
+}
+
+__kernel void kernel_crop_rgb_nv12(
+#if IMAGE_DST
+    __write_only image2d_t dstY,
+    __write_only image2d_t dstC,
+#else
+    __global uchar *dstY,
+    __global uchar *dstC,
+#endif
+    int dstPitchY,
+    int dstPitchC,
+    int dstWidth,
+    int dstHeight,
+#if IMAGE_SRC
+    __read_only image2d_t srcR,
+    __read_only image2d_t srcG,
+    __read_only image2d_t srcB,
+#else
+    __global uchar *srcR,
+    __global uchar *srcG,
+    __global uchar *srcB,
+#endif
+    int srcPitch,
+    int srcWidth,
+    int srcHeight,
+    int cropX,
+    int cropY,
+    int matrix
+) {
+    const int dstC_x = get_global_id(0);
+    const int dstC_y = get_global_id(1);
+    const int dstY_x = dstC_x << 1;
+    const int dstY_y = dstC_y << 1;
+
+    if (dstY_x+1 < dstWidth && dstY_y+1 < dstHeight) {
+        const int loadx = dstY_x + cropX;
+        const int loady = dstY_y + cropY;
+        const TypeIn pixSrcR00 = LOAD(srcR, loadx+0, loady+0);
+        const TypeIn pixSrcR01 = LOAD(srcR, loadx+1, loady+0);
+        const TypeIn pixSrcR10 = LOAD(srcR, loadx+0, loady+1);
+        const TypeIn pixSrcR11 = LOAD(srcR, loadx+1, loady+1);
+        const TypeIn pixSrcG00 = LOAD(srcG, loadx+0, loady+0);
+        const TypeIn pixSrcG01 = LOAD(srcG, loadx+1, loady+0);
+        const TypeIn pixSrcG10 = LOAD(srcG, loadx+0, loady+1);
+        const TypeIn pixSrcG11 = LOAD(srcG, loadx+1, loady+1);
+        const TypeIn pixSrcB00 = LOAD(srcB, loadx+0, loady+0);
+        const TypeIn pixSrcB01 = LOAD(srcB, loadx+1, loady+0);
+        const TypeIn pixSrcB10 = LOAD(srcB, loadx+0, loady+1);
+        const TypeIn pixSrcB11 = LOAD(srcB, loadx+1, loady+1);
+        const float3 rgb00 = make_float_rgb3(pixSrcR00, pixSrcG00, pixSrcB00);
+        const float3 rgb01 = make_float_rgb3(pixSrcR01, pixSrcG01, pixSrcB01);
+        const float3 rgb10 = make_float_rgb3(pixSrcR10, pixSrcG10, pixSrcB10);
+        const float3 rgb11 = make_float_rgb3(pixSrcR11, pixSrcG11, pixSrcB11);
+        const float3 yuv00 = conv_rgb_yuv(rgb00, matrix);
+        const float3 yuv01 = conv_rgb_yuv(rgb01, matrix);
+        const float3 yuv10 = conv_rgb_yuv(rgb10, matrix);
+        const float3 yuv11 = conv_rgb_yuv(rgb11, matrix);
+        int dstPitch = dstPitchY;
+        STORE(dstY, dstY_x+0, dstY_y+0, scaleYFloatToPix(yuv00.x));
+        STORE(dstY, dstY_x+1, dstY_y+0, scaleYFloatToPix(yuv01.x));
+        STORE(dstY, dstY_x+0, dstY_y+1, scaleYFloatToPix(yuv10.x));
+        STORE(dstY, dstY_x+1, dstY_y+1, scaleYFloatToPix(yuv11.x));
+        dstPitch = dstPitchC;
+        const TypeOut pixU = scaleUVFloatToPix((yuv00.y + yuv10.y) * 0.5f);
+        const TypeOut pixV = scaleUVFloatToPix((yuv00.z + yuv10.z) * 0.5f);
+        STORE_NV12_UV(dstC, dstC_x, dstC_y, pixU, pixV);
+    }
+}
+
+__kernel void kernel_crop_rgb_yuv444(
+#if IMAGE_DST
+    __write_only image2d_t dstY,
+    __write_only image2d_t dstU,
+    __write_only image2d_t dstV,
+#else
+    __global uchar *dstY,
+    __global uchar *dstU,
+    __global uchar *dstV,
+#endif
+    int dstPitch,
+    int dstWidth,
+    int dstHeight,
+#if IMAGE_SRC
+    __read_only image2d_t srcR,
+    __read_only image2d_t srcG,
+    __read_only image2d_t srcB,
+#else
+    __global uchar *srcR,
+    __global uchar *srcG,
+    __global uchar *srcB,
+#endif
+    int srcPitch,
+    int srcWidth,
+    int srcHeight,
+    int cropX,
+    int cropY,
+    int matrix
+) {
+    const int dst_x = get_global_id(0);
+    const int dst_y = get_global_id(1);
+
+    if (dst_x < dstWidth && dst_y < dstHeight) {
+        const int loadx = dst_x + cropX;
+        const int loady = dst_y + cropY;
+        const TypeIn pixSrcR = LOAD(srcR, loadx, loady);
+        const TypeIn pixSrcG = LOAD(srcG, loadx, loady);
+        const TypeIn pixSrcB = LOAD(srcB, loadx, loady);
+        const float3 rgb = make_float_rgb3(pixSrcR, pixSrcG, pixSrcB);
+        const float3 yuv = conv_rgb_yuv(rgb, matrix);
+        STORE(dstY, dst_x, dst_y, scaleYFloatToPix(yuv.x));
+        STORE(dstU, dst_x, dst_y, scaleUVFloatToPix(yuv.y));
+        STORE(dstV, dst_x, dst_y, scaleUVFloatToPix(yuv.z));
+    }
+}
+
+__kernel void kernel_crop_yv12_rgb(
+#if IMAGE_DST
+    __write_only image2d_t dstR,
+    __write_only image2d_t dstG,
+    __write_only image2d_t dstB,
+#else
+    __global uchar *dstR,
+    __global uchar *dstG,
+    __global uchar *dstB,
+#endif
+    int dstPitch,
+    int dstWidth,
+    int dstHeight,
+#if IMAGE_SRC
+    __read_only image2d_t srcY,
+    __read_only image2d_t srcU,
+    __read_only image2d_t srcV,
+#else
+    __global uchar *srcY,
+    __global uchar *srcU,
+    __global uchar *srcV,
+#endif
+    int srcPitchY,
+    int srcPitchU,
+    int srcPitchV,
+    int srcWidth,
+    int srcHeight,
+    int cropX,
+    int cropY,
+    int matrix
+) {
+    const int dstC_x = get_global_id(0);
+    const int dstC_y = get_global_id(1);
+    const int dstY_x = dstC_x << 1;
+    const int dstY_y = dstC_y << 1;
+
+    if (dstY_x < dstWidth && dstY_y < dstHeight) {
+        int loadx = dstY_x + cropX;
+        int loady = dstY_y + cropY;
+        int srcPitch = srcPitchY;
+        const TypeIn pixSrcY11 = LOAD(srcY, loadx+0, loady+0);
+        const TypeIn pixSrcY12 = LOAD(srcY, loadx+1, loady+0);
+        const TypeIn pixSrcY21 = LOAD(srcY, loadx+0, loady+1);
+        const TypeIn pixSrcY22 = LOAD(srcY, loadx+1, loady+1);
+
+        const int srcWidthUV  = srcWidth  >> 1;
+        const int srcHeightUV = srcHeight >> 1;
+        loadx = dstC_x + (cropX>>1);
+        loady = dstC_y + (cropY>>1);
+        srcPitch = srcPitchU;
+        const int pixSrcU01 = LOAD(srcU,     loadx,                  max(loady-1, 0)          );
+        const int pixSrcU02 = LOAD(srcU, min(loadx+1, srcWidthUV-1), max(loady-1, 0)          );
+        const int pixSrcU11 = LOAD(srcU,     loadx,                      loady                );
+        const int pixSrcU12 = LOAD(srcU, min(loadx+1, srcWidthUV-1),     loady                );
+        const int pixSrcU21 = LOAD(srcU,     loadx,                  min(loady+1, srcHeightUV-1));
+        const int pixSrcU22 = LOAD(srcU, min(loadx+1, srcWidthUV-1), min(loady+1, srcHeightUV-1));
+
+        int pixTmpU11, pixTmpU12, pixTmpU21, pixTmpU22;
+        conv_c_yuv420_yuv444_internal(
+            &pixTmpU11, &pixTmpU12, &pixTmpU21, &pixTmpU22,
+            pixSrcU01, pixSrcU02, pixSrcU11, pixSrcU12, pixSrcU21, pixSrcU22
+        );
+
+        srcPitch = srcPitchV;
+        const int pixSrcV01 = LOAD(srcV,     loadx,                  max(loady-1, 0)          );
+        const int pixSrcV02 = LOAD(srcV, min(loadx+1, srcWidthUV-1), max(loady-1, 0)          );
+        const int pixSrcV11 = LOAD(srcV,     loadx,                      loady                );
+        const int pixSrcV12 = LOAD(srcV, min(loadx+1, srcWidthUV-1),     loady                );
+        const int pixSrcV21 = LOAD(srcV,     loadx,                  min(loady+1, srcHeightUV-1));
+        const int pixSrcV22 = LOAD(srcV, min(loadx+1, srcWidthUV-1), min(loady+1, srcHeightUV-1));
+
+        int pixTmpV11, pixTmpV12, pixTmpV21, pixTmpV22;
+        conv_c_yuv420_yuv444_internal(
+            &pixTmpV11, &pixTmpV12, &pixTmpV21, &pixTmpV22,
+            pixSrcV01, pixSrcV02, pixSrcV11, pixSrcV12, pixSrcV21, pixSrcV22
+        );
+
+        const float3 yuv11 = make_float_yuv3(pixSrcY11, pixTmpU11, pixTmpV11);
+        const float3 yuv12 = make_float_yuv3(pixSrcY12, pixTmpU12, pixTmpV12);
+        const float3 yuv21 = make_float_yuv3(pixSrcY21, pixTmpU21, pixTmpV21);
+        const float3 yuv22 = make_float_yuv3(pixSrcY22, pixTmpU22, pixTmpV22);
+
+        const float3 rgb11 = conv_yuv_rgb(yuv11, matrix);
+        const float3 rgb12 = conv_yuv_rgb(yuv12, matrix);
+        const float3 rgb21 = conv_yuv_rgb(yuv21, matrix);
+        const float3 rgb22 = conv_yuv_rgb(yuv22, matrix);
+
+        STORE(dstR, dstY_x+0, dstY_y+0, scaleRGBFloatToPix(rgb11.x));
+        STORE(dstR, dstY_x+1, dstY_y+0, scaleRGBFloatToPix(rgb12.x));
+        STORE(dstR, dstY_x+0, dstY_y+1, scaleRGBFloatToPix(rgb21.x));
+        STORE(dstR, dstY_x+1, dstY_y+1, scaleRGBFloatToPix(rgb22.x));
+
+        STORE(dstG, dstY_x+0, dstY_y+0, scaleRGBFloatToPix(rgb11.y));
+        STORE(dstG, dstY_x+1, dstY_y+0, scaleRGBFloatToPix(rgb12.y));
+        STORE(dstG, dstY_x+0, dstY_y+1, scaleRGBFloatToPix(rgb21.y));
+        STORE(dstG, dstY_x+1, dstY_y+1, scaleRGBFloatToPix(rgb22.y));
+
+        STORE(dstB, dstY_x+0, dstY_y+0, scaleRGBFloatToPix(rgb11.z));
+        STORE(dstB, dstY_x+1, dstY_y+0, scaleRGBFloatToPix(rgb12.z));
+        STORE(dstB, dstY_x+0, dstY_y+1, scaleRGBFloatToPix(rgb21.z));
+        STORE(dstB, dstY_x+1, dstY_y+1, scaleRGBFloatToPix(rgb22.z));
+    }
+}
+
+__kernel void kernel_crop_nv12_rgb(
+#if IMAGE_DST
+    __write_only image2d_t dstR,
+    __write_only image2d_t dstG,
+    __write_only image2d_t dstB,
+#else
+    __global uchar *dstR,
+    __global uchar *dstG,
+    __global uchar *dstB,
+#endif
+    int dstPitch,
+    int dstWidth,
+    int dstHeight,
+#if IMAGE_SRC
+    __read_only image2d_t srcY,
+    __read_only image2d_t srcC,
+#else
+    __global uchar *srcY,
+    __global uchar *srcC,
+#endif
+    int srcPitchY,
+    int srcPitchC,
+    int srcWidth,
+    int srcHeight,
+    int cropX,
+    int cropY,
+    int matrix
+) {
+    const int dstC_x = get_global_id(0);
+    const int dstC_y = get_global_id(1);
+    const int dstY_x = dstC_x << 1;
+    const int dstY_y = dstC_y << 1;
+
+    if (dstY_x < dstWidth && dstY_y < dstHeight) {
+        int loadx = dstY_x + cropX;
+        int loady = dstY_y + cropY;
+        int srcPitch = srcPitchY;
+        const TypeIn pixSrcY11 = LOAD(srcY, loadx+0, loady+0);
+        const TypeIn pixSrcY12 = LOAD(srcY, loadx+1, loady+0);
+        const TypeIn pixSrcY21 = LOAD(srcY, loadx+0, loady+1);
+        const TypeIn pixSrcY22 = LOAD(srcY, loadx+1, loady+1);
+
+        const int srcWidthUV  = srcWidth  >> 1;
+        const int srcHeightUV = srcHeight >> 1;
+        loadx = dstC_x + (cropX>>1);
+        loady = dstC_y + (cropY>>1);
+
+        TypeIn pixSrcU01, pixSrcV01, pixSrcU02, pixSrcV02;
+        TypeIn pixSrcU11, pixSrcV11, pixSrcU12, pixSrcV12;
+        TypeIn pixSrcU21, pixSrcV21, pixSrcU22, pixSrcV22;
+        LOAD_NV12_UV(srcC, pixSrcU01, pixSrcV01,     loadx,                  max(loady-1, 0),             0, 0);
+        LOAD_NV12_UV(srcC, pixSrcU02, pixSrcV02, min(loadx+1, srcWidthUV-1), max(loady-1, 0),             0, 0);
+        LOAD_NV12_UV(srcC, pixSrcU11, pixSrcV11,     loadx,                      loady,                   0, 0);
+        LOAD_NV12_UV(srcC, pixSrcU12, pixSrcV12, min(loadx+1, srcWidthUV-1),     loady,                   0, 0);
+        LOAD_NV12_UV(srcC, pixSrcU21, pixSrcV21,     loadx,                  min(loady+1, srcHeightUV-1), 0, 0);
+        LOAD_NV12_UV(srcC, pixSrcU22, pixSrcV22, min(loadx+1, srcWidthUV-1), min(loady+1, srcHeightUV-1), 0, 0);
+
+        int pixTmpU11, pixTmpU12, pixTmpU21, pixTmpU22;
+        conv_c_yuv420_yuv444_internal(
+            &pixTmpU11, &pixTmpU12, &pixTmpU21, &pixTmpU22,
+            pixSrcU01, pixSrcU02, pixSrcU11, pixSrcU12, pixSrcU21, pixSrcU22
+        );
+        
+        int pixTmpV11, pixTmpV12, pixTmpV21, pixTmpV22;
+        conv_c_yuv420_yuv444_internal(
+            &pixTmpV11, &pixTmpV12, &pixTmpV21, &pixTmpV22,
+            pixSrcV01, pixSrcV02, pixSrcV11, pixSrcV12, pixSrcV21, pixSrcV22
+        );
+
+        const float3 yuv11 = make_float_yuv3(pixSrcY11, pixTmpU11, pixTmpV11);
+        const float3 yuv12 = make_float_yuv3(pixSrcY12, pixTmpU12, pixTmpV12);
+        const float3 yuv21 = make_float_yuv3(pixSrcY21, pixTmpU21, pixTmpV21);
+        const float3 yuv22 = make_float_yuv3(pixSrcY22, pixTmpU22, pixTmpV22);
+
+        const float3 rgb11 = conv_yuv_rgb(yuv11, matrix);
+        const float3 rgb12 = conv_yuv_rgb(yuv12, matrix);
+        const float3 rgb21 = conv_yuv_rgb(yuv21, matrix);
+        const float3 rgb22 = conv_yuv_rgb(yuv22, matrix);
+
+        STORE(dstR, dstY_x+0, dstY_y+0, scaleRGBFloatToPix(rgb11.x));
+        STORE(dstR, dstY_x+1, dstY_y+0, scaleRGBFloatToPix(rgb12.x));
+        STORE(dstR, dstY_x+0, dstY_y+1, scaleRGBFloatToPix(rgb21.x));
+        STORE(dstR, dstY_x+1, dstY_y+1, scaleRGBFloatToPix(rgb22.x));
+
+        STORE(dstG, dstY_x+0, dstY_y+0, scaleRGBFloatToPix(rgb11.y));
+        STORE(dstG, dstY_x+1, dstY_y+0, scaleRGBFloatToPix(rgb12.y));
+        STORE(dstG, dstY_x+0, dstY_y+1, scaleRGBFloatToPix(rgb21.y));
+        STORE(dstG, dstY_x+1, dstY_y+1, scaleRGBFloatToPix(rgb22.y));
+
+        STORE(dstB, dstY_x+0, dstY_y+0, scaleRGBFloatToPix(rgb11.z));
+        STORE(dstB, dstY_x+1, dstY_y+0, scaleRGBFloatToPix(rgb12.z));
+        STORE(dstB, dstY_x+0, dstY_y+1, scaleRGBFloatToPix(rgb21.z));
+        STORE(dstB, dstY_x+1, dstY_y+1, scaleRGBFloatToPix(rgb22.z));
+    }
+}
+
+__kernel void kernel_crop_yuv444_rgb(
+#if IMAGE_DST
+    __write_only image2d_t dstR,
+    __write_only image2d_t dstG,
+    __write_only image2d_t dstB,
+#else
+    __global uchar *dstR,
+    __global uchar *dstG,
+    __global uchar *dstB,
+#endif
+    int dstPitch,
+    int dstWidth,
+    int dstHeight,
+#if IMAGE_SRC
+    __read_only image2d_t srcY,
+    __read_only image2d_t srcU,
+    __read_only image2d_t srcV,
+#else
+    __global uchar *srcY,
+    __global uchar *srcU,
+    __global uchar *srcV,
+#endif
+    int srcPitch,
+    int srcWidth,
+    int srcHeight,
+    int cropX,
+    int cropY,
+    int matrix
+) {
+    const int dst_x = get_global_id(0);
+    const int dst_y = get_global_id(1);
+
+    if (dst_x < dstWidth && dst_y < dstHeight) {
+        const int loadx = dst_x + cropX;
+        const int loady = dst_y + cropY;
+        const TypeIn pixSrcY = LOAD(srcY, loadx, loady);
+        const TypeIn pixSrcU = LOAD(srcU, loadx, loady);
+        const TypeIn pixSrcV = LOAD(srcV, loadx, loady);
+        const float3 yuv = make_float_yuv3(pixSrcY, pixSrcU, pixSrcV);
+        const float3 rgb = conv_yuv_rgb(yuv, matrix);
+        STORE(dstR, dst_x, dst_y, scaleRGBFloatToPix(rgb.x));
+        STORE(dstG, dst_x, dst_y, scaleRGBFloatToPix(rgb.y));
+        STORE(dstB, dst_x, dst_y, scaleRGBFloatToPix(rgb.z));
     }
 }
 

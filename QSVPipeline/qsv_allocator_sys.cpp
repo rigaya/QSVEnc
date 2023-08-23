@@ -174,20 +174,12 @@ mfxStatus QSVAllocatorSys::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
         ptr->PitchLow = (mfxU16)((2 * WidthAlign) % (1 << 16));
         break;
 #endif
-    case MFX_FOURCC_RGB3:
-        ptr->G = ptr->B + 1;
-        ptr->R = ptr->B + 2;
-        ptr->PitchHigh = (mfxU16)((3 * WidthAlign) / (1 << 16));
-        ptr->PitchLow = (mfxU16)((3 * WidthAlign) % (1 << 16));
-        break;
-#if !(defined(_WIN32) || defined(_WIN64))
     case MFX_FOURCC_RGBP:
         ptr->G = ptr->B + WidthAlign * HeightAlign;
         ptr->R = ptr->B + WidthAlign * HeightAlign * 2;
         ptr->PitchHigh = (mfxU16)((WidthAlign) / (1 << 16));
         ptr->PitchLow = (mfxU16)((WidthAlign) % (1 << 16));
         break;
-#endif
     case MFX_FOURCC_RGB4:
     case MFX_FOURCC_A2RGB10:
         ptr->G = ptr->B + 1;
@@ -313,10 +305,7 @@ mfxStatus QSVAllocatorSys::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAllo
         nbytes = 2 * WidthAlign * HeightAlign;
         break;
 #endif
-#if !(defined(_WIN32) || defined(_WIN64))
     case MFX_FOURCC_RGBP:
-#endif
-    case MFX_FOURCC_RGB3:
         nbytes = WidthAlign * HeightAlign * 3;
         break;
     case MFX_FOURCC_RGB4:

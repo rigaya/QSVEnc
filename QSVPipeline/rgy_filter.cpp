@@ -1,5 +1,5 @@
 ﻿// -----------------------------------------------------------------------------------------
-//  QSVEnc/VCEEnc by rigaya
+//  QSVEnc/VCEEnc/rkmppenc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
 //
@@ -80,7 +80,6 @@ RGY_ERR RGYFilter::filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFram
 }
 RGY_ERR RGYFilter::filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue& queue, RGYOpenCLEvent *event) {
     return filter(pInputFrame, ppOutputFrames, pOutputFrameNum, queue, {}, event);
-
 }
 RGY_ERR RGYFilter::filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     if (pInputFrame == nullptr) {

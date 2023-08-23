@@ -44,12 +44,19 @@
 #include "nvEncodeAPI.h"
 #include "cuda.h"
 #include "cuda_runtime.h"
+#if ENABLE_NVVFX
+#include "nvCVStatus.h"
+#endif //#if ENABLE_NVVFX
 #pragma warning(pop)
 #endif
 #if ENCODER_VCEENC
 #include "core/Result.h"
 #include "rgy_vulkan.h"
 #endif
+#if ENCODER_MPP
+#include "mpp_err.h"
+#include "rga/im2d.hpp"
+#endif //#if ENCODER_MPP
 
 #include <algorithm>
 
@@ -191,6 +198,94 @@ enum RGY_ERR {
     RGY_ERR_VK_INVALID_OPAQUE_CAPTURE_ADDRESS_KHR  = -138,
     RGY_ERR_VK_PIPELINE_COMPILE_REQUIRED_EXT       = -139,
 
+    //NvCV_Status
+    RGY_ERR_NVCV_OFFSET                = -200,    //!< The procedure returned successfully.
+    RGY_ERR_NVCV_GENERAL               = RGY_ERR_NVCV_OFFSET -1,   //!< An otherwise unspecified error has occurred.
+    RGY_ERR_NVCV_UNIMPLEMENTED         = RGY_ERR_NVCV_OFFSET -2,   //!< The requested feature is not yet implemented.
+    RGY_ERR_NVCV_MEMORY                = RGY_ERR_NVCV_OFFSET -3,   //!< There is not enough memory for the requested operation.
+    RGY_ERR_NVCV_EFFECT                = RGY_ERR_NVCV_OFFSET -4,   //!< An invalid effect handle has been supplied.
+    RGY_ERR_NVCV_SELECTOR              = RGY_ERR_NVCV_OFFSET -5,   //!< The given parameter selector is not valid in this effect filter.
+    RGY_ERR_NVCV_BUFFER                = RGY_ERR_NVCV_OFFSET -6,   //!< An image buffer has not been specified.
+    RGY_ERR_NVCV_PARAMETER             = RGY_ERR_NVCV_OFFSET -7,   //!< An invalid parameter value has been supplied for this effect+selector.
+    RGY_ERR_NVCV_MISMATCH              = RGY_ERR_NVCV_OFFSET -8,   //!< Some parameters are not appropriately matched.
+    RGY_ERR_NVCV_PIXELFORMAT           = RGY_ERR_NVCV_OFFSET -9,   //!< The specified pixel format is not accommodated.
+    RGY_ERR_NVCV_MODEL                 = RGY_ERR_NVCV_OFFSET -10,  //!< Error while loading the TRT model.
+    RGY_ERR_NVCV_LIBRARY               = RGY_ERR_NVCV_OFFSET -11,  //!< Error loading the dynamic library.
+    RGY_ERR_NVCV_INITIALIZATION        = RGY_ERR_NVCV_OFFSET -12,  //!< The effect has not been properly initialized.
+    RGY_ERR_NVCV_FILE                  = RGY_ERR_NVCV_OFFSET -13,  //!< The file could not be found.
+    RGY_ERR_NVCV_FEATURENOTFOUND       = RGY_ERR_NVCV_OFFSET -14,  //!< The requested feature was not found
+    RGY_ERR_NVCV_MISSINGINPUT          = RGY_ERR_NVCV_OFFSET -15,  //!< A required parameter was not set
+    RGY_ERR_NVCV_RESOLUTION            = RGY_ERR_NVCV_OFFSET -16,  //!< The specified image resolution is not supported.
+    RGY_ERR_NVCV_UNSUPPORTEDGPU        = RGY_ERR_NVCV_OFFSET -17,  //!< The GPU is not supported
+    RGY_ERR_NVCV_WRONGGPU              = RGY_ERR_NVCV_OFFSET -18,  //!< The current GPU is not the one selected.
+    RGY_ERR_NVCV_UNSUPPORTEDDRIVER     = RGY_ERR_NVCV_OFFSET -19,  //!< The currently installed graphics driver is not supported
+    RGY_ERR_NVCV_MODELDEPENDENCIES     = RGY_ERR_NVCV_OFFSET -20,  //!< There is no model with dependencies that match this system
+    RGY_ERR_NVCV_PARSE                 = RGY_ERR_NVCV_OFFSET -21,  //!< There has been a parsing or syntax error while reading a file
+    RGY_ERR_NVCV_MODELSUBSTITUTION     = RGY_ERR_NVCV_OFFSET -22,  //!< The specified model does not exist and has been substituted.
+    RGY_ERR_NVCV_READ                  = RGY_ERR_NVCV_OFFSET -23,  //!< An error occurred while reading a file.
+    RGY_ERR_NVCV_WRITE                 = RGY_ERR_NVCV_OFFSET -24,  //!< An error occurred while writing a file.
+    RGY_ERR_NVCV_PARAMREADONLY         = RGY_ERR_NVCV_OFFSET -25,  //!< The selected parameter is read-only.
+    RGY_ERR_NVCV_TRT_ENQUEUE           = RGY_ERR_NVCV_OFFSET -26,  //!< TensorRT enqueue failed.
+    RGY_ERR_NVCV_TRT_BINDINGS          = RGY_ERR_NVCV_OFFSET -27,  //!< Unexpected TensorRT bindings.
+    RGY_ERR_NVCV_TRT_CONTEXT           = RGY_ERR_NVCV_OFFSET -28,  //!< An error occurred while creating a TensorRT context.
+    RGY_ERR_NVCV_TRT_INFER             = RGY_ERR_NVCV_OFFSET -29,  ///< The was a problem creating the inference engine.
+    RGY_ERR_NVCV_TRT_ENGINE            = RGY_ERR_NVCV_OFFSET -30,  ///< There was a problem deserializing the inference runtime engine.
+    RGY_ERR_NVCV_NPP                   = RGY_ERR_NVCV_OFFSET -31,  //!< An error has occurred in the NPP library.
+    RGY_ERR_NVCV_CONFIG                = RGY_ERR_NVCV_OFFSET -32,  //!< No suitable model exists for the specified parameter configuration.
+    RGY_ERR_NVCV_TOOSMALL              = RGY_ERR_NVCV_OFFSET -33,  //!< A supplied parameter or buffer is not large enough.
+    RGY_ERR_NVCV_TOOBIG                = RGY_ERR_NVCV_OFFSET -34,  //!< A supplied parameter is too big.
+    RGY_ERR_NVCV_WRONGSIZE             = RGY_ERR_NVCV_OFFSET -35,  //!< A supplied parameter is not the expected size.
+    RGY_ERR_NVCV_OBJECTNOTFOUND        = RGY_ERR_NVCV_OFFSET -36,  //!< The specified object was not found.
+    RGY_ERR_NVCV_SINGULAR              = RGY_ERR_NVCV_OFFSET -37,  //!< A mathematical singularity has been encountered.
+    RGY_ERR_NVCV_NOTHINGRENDERED       = RGY_ERR_NVCV_OFFSET -38,  //!< Nothing was rendered in the specified region.
+    RGY_ERR_NVCV_CONVERGENCE           = RGY_ERR_NVCV_OFFSET -39,  //!< An iteration did not converge satisfactorily.
+
+    RGY_ERR_NVCV_OPENGL                = RGY_ERR_NVCV_OFFSET -40,  //!< An OpenGL error has occurred.
+    RGY_ERR_NVCV_DIRECT3D              = RGY_ERR_NVCV_OFFSET -41,  //!< A Direct3D error has occurred.
+
+    RGY_ERR_NVCV_CUDA_BASE             = RGY_ERR_NVCV_OFFSET -50,  //!< CUDA errors are offset from this value.
+    RGY_ERR_NVCV_CUDA_VALUE            = RGY_ERR_NVCV_OFFSET -51,  //!< A CUDA parameter is not within the acceptable range.
+    RGY_ERR_NVCV_CUDA_MEMORY           = RGY_ERR_NVCV_OFFSET -52,  //!< There is not enough CUDA memory for the requested operation.
+    RGY_ERR_NVCV_CUDA_PITCH            = RGY_ERR_NVCV_OFFSET -53,  //!< A CUDA pitch is not within the acceptable range.
+    RGY_ERR_NVCV_CUDA_INIT             = RGY_ERR_NVCV_OFFSET -54,  //!< The CUDA driver and runtime could not be initialized.
+    RGY_ERR_NVCV_CUDA_LAUNCH           = RGY_ERR_NVCV_OFFSET -55,  //!< The CUDA kernel launch has failed.
+    RGY_ERR_NVCV_CUDA_KERNEL           = RGY_ERR_NVCV_OFFSET -56,  //!< No suitable kernel image is available for the device.
+    RGY_ERR_NVCV_CUDA_DRIVER           = RGY_ERR_NVCV_OFFSET -57,  //!< The installed NVIDIA CUDA driver is older than the CUDA runtime library.
+    RGY_ERR_NVCV_CUDA_UNSUPPORTED      = RGY_ERR_NVCV_OFFSET -58,  //!< The CUDA operation is not supported on the current system or device.
+    RGY_ERR_NVCV_CUDA_ILLEGAL_ADDRESS  = RGY_ERR_NVCV_OFFSET -59,  //!< CUDA tried to load or store on an invalid memory address.
+    RGY_ERR_NVCV_CUDA                  = RGY_ERR_NVCV_OFFSET -60, //!< An otherwise unspecified CUDA error has been reported.
+
+    //mpp
+    RGY_ERR_MPP_NOK = -300,
+    RGY_ERR_MPP_ERR_UNKNOW          = RGY_ERR_MPP_NOK -  1,
+    RGY_ERR_MPP_ERR_NULL_PTR        = RGY_ERR_MPP_NOK -  2,
+    RGY_ERR_MPP_ERR_MALLOC          = RGY_ERR_MPP_NOK -  3,
+    RGY_ERR_MPP_ERR_OPEN_FILE       = RGY_ERR_MPP_NOK -  4,
+    RGY_ERR_MPP_ERR_VALUE           = RGY_ERR_MPP_NOK -  5,
+    RGY_ERR_MPP_ERR_READ_BIT        = RGY_ERR_MPP_NOK -  6,
+    RGY_ERR_MPP_ERR_TIMEOUT         = RGY_ERR_MPP_NOK -  7,
+    RGY_ERR_MPP_ERR_PERM            = RGY_ERR_MPP_NOK -  8,
+    RGY_ERR_MPP_ERR_BASE            = RGY_ERR_MPP_NOK -  9,
+    RGY_ERR_MPP_ERR_LIST_STREAM     = RGY_ERR_MPP_NOK - 10,
+    RGY_ERR_MPP_ERR_INIT            = RGY_ERR_MPP_NOK - 11,
+    RGY_ERR_MPP_ERR_VPU_CODEC_INIT  = RGY_ERR_MPP_NOK - 12,
+    RGY_ERR_MPP_ERR_STREAM          = RGY_ERR_MPP_NOK - 13,
+    RGY_ERR_MPP_ERR_FATAL_THREAD    = RGY_ERR_MPP_NOK - 14,
+    RGY_ERR_MPP_ERR_NOMEM           = RGY_ERR_MPP_NOK - 15,
+    RGY_ERR_MPP_ERR_PROTOL          = RGY_ERR_MPP_NOK - 16,
+    RGY_ERR_MPP_FAIL_SPLIT_FRAME    = RGY_ERR_MPP_NOK - 17,
+    RGY_ERR_MPP_ERR_VPUHW           = RGY_ERR_MPP_NOK - 18,
+    RGY_ERR_MPP_EOS_STREAM_REACHED  = RGY_ERR_MPP_NOK - 19,
+    RGY_ERR_MPP_ERR_BUFFER_FULL     = RGY_ERR_MPP_NOK - 20,
+    RGY_ERR_MPP_ERR_DISPLAY_FULL    = RGY_ERR_MPP_NOK - 21,
+
+    //im2d
+    RGY_ERR_IM_STATUS_NOT_SUPPORTED = RGY_ERR_UNSUPPORTED,
+    RGY_ERR_IM_STATUS_OUT_OF_MEMORY = RGY_ERR_NULL_PTR,
+    RGY_ERR_IM_STATUS_INVALID_PARAM = RGY_ERR_INVALID_PARAM,
+    RGY_ERR_IM_STATUS_ILLEGAL_PARAM = RGY_ERR_INVALID_PARAM,
+    RGY_ERR_IM_STATUS_FAILED        = RGY_ERR_DEVICE_FAILED,
+
     RGY_WRN_IN_EXECUTION                = 1,
     RGY_WRN_DEVICE_BUSY                 = 2,
     RGY_WRN_VIDEO_PARAM_CHANGED         = 3,
@@ -217,6 +312,10 @@ RGY_ERR err_to_rgy(mfxStatus err);
 #if ENCODER_NVENC
 NVENCSTATUS err_to_nv(RGY_ERR err);
 RGY_ERR err_to_rgy(NVENCSTATUS err);
+#if ENABLE_NVVFX
+NvCV_Status err_to_nvcv(RGY_ERR err);
+RGY_ERR err_to_rgy(NvCV_Status err);
+#endif //#if ENABLE_NVVFX
 
 cudaError_t err_to_cuda(RGY_ERR err);
 RGY_ERR err_to_rgy(cudaError_t err);
@@ -231,6 +330,14 @@ VkResult err_to_vk(RGY_ERR err);
 RGY_ERR err_to_rgy(VkResult err);
 #endif //#if ENABLE_VULKAN
 #endif //#if ENCODER_VCEENC
+
+#if ENCODER_MPP
+MPP_RET err_to_mpp(RGY_ERR err);
+RGY_ERR err_to_rgy(MPP_RET err);
+IM_STATUS err_to_im2d(RGY_ERR err);
+RGY_ERR err_to_rgy(IM_STATUS err);
+#endif //#if ENCODER_MPP
+
 
 const TCHAR *get_err_mes(RGY_ERR sts);
 

@@ -31,6 +31,22 @@
 #endif
 #include "rgy_bitstream.h"
 
+tstring get_str_of_tune_bitmask(const uint32_t mask) {
+    if (mask == 0) {
+        return get_cx_desc(list_enc_tune_quality_mode, mask);
+    }
+    tstring str;
+    for (int i = 0; list_enc_tune_quality_mode[i].desc; i++) {
+        if (const uint32_t target = list_enc_tune_quality_mode[i].value; target != 0) {
+            if ((mask & target) == target) {
+                if (str.length()) str += _T(",");
+                str += list_enc_tune_quality_mode[i].desc;
+            }
+        }
+    }
+    return str;
+}
+
 VppDenoise::VppDenoise() :
     enable(false),
     mode(MFX_DENOISE_MODE_DEFAULT),
@@ -75,12 +91,20 @@ sVppParams::sVppParams() :
     useProAmp(false),
     denoise(),
     mctf(),
-    detail() {
+    detail(),
+    percPreEnc(false) {
+
+}
+
+QSVAV1Params::QSVAV1Params() :
+    tile_row(0),
+    tile_col(0) {
 
 }
 
 sInputParams::sInputParams() :
     input(),
+    inprm(),
     common(),
     ctrl(),
     vpp(),
@@ -97,7 +121,7 @@ sInputParams::sInputParams() :
     nGOPLength(QSV_DEFAULT_GOP_LEN),
     bopenGOP(false),
     bforceGOPSettings(QSV_DEFAULT_FORCE_GOP_LEN),
-    nBframes(QSV_BFRAMES_AUTO),
+    GopRefDist(QSV_GOP_REF_DIST_AUTO),
     nRef(QSV_DEFAULT_REF),
     nBitRate(6000),
     nMaxBitrate(15000),
@@ -114,6 +138,7 @@ sInputParams::sInputParams() :
     nSlices(0),
     ColorFormat(MFX_FOURCC_NV12),
     memType(HW_MEMORY),
+    hyperMode(MFX_HYPERMODE_OFF),
     nInputBufSize(QSV_DEFAULT_INPUT_BUF_HW),
     nPAR(),
     bCAVLC(false),
@@ -126,10 +151,9 @@ sInputParams::sInputParams() :
     nBluray(0),
     bMBBRC(false),
     extBRC(false),
-    extBrcAdaptiveLTR(false),
-    nLookaheadDepth(0),
-    nTrellis(0),
-    nAsyncDepth(0),
+    adaptiveRef(false),
+    adaptiveLTR(false),
+    adaptiveCQM(false),
 #if FOR_AUO
     bBPyramid(true),
 #else
@@ -137,15 +161,24 @@ sInputParams::sInputParams() :
 #endif
     bAdaptiveI(false),
     bAdaptiveB(false),
+    nLookaheadDepth(0),
+    nTrellis(0),
+    nAsyncDepth(0),
     nLookaheadDS(),
+    tuneQuality(MFX_ENCODE_TUNE_DEFAULT),
+    scenarioInfo(MFX_SCENARIO_UNKNOWN),
     bDisableTimerPeriodTuning(false),
-    bIntraRefresh(false),
+    intraRefreshCycle(0),
     bNoDeblock(false),
+    maxFrameSize(0),
+    maxFrameSizeI(0),
+    maxFrameSizeP(0),
     nWinBRCSize(0),
     nMVCostScaling(0),
     bDirectBiasAdjust(false),
     bGlobalMotionAdjust(false),
     bUseFixedFunc(false),
+    gpuCopy(false),
     nSessionThreads(0),
     nSessionThreadPriority(get_value_from_chr(list_priority, _T("normal"))),
     nVP8Sharpness(0),
@@ -156,7 +189,7 @@ sInputParams::sInputParams() :
     bOutputAud(false),
     bOutputPicStruct(false),
     bufPeriodSEI(false),
-    disableRepeatPPS(false),
+    repeatHeaders(),
     pQPOffset(),
     nRepartitionCheck(0),
     padding(),
@@ -164,6 +197,8 @@ sInputParams::sInputParams() :
     hevc_sao(0),
     hevc_tskip(0),
     hevc_tier(0),
+    hevc_gpb(),
+    av1(),
     pythonPath(),
     bBenchmark(false),
     nBenchQuality(QSV_DEFAULT_BENCH)
@@ -191,7 +226,7 @@ void sInputParams::applyDOVIProfile() {
         return;
     }
 
-    common.out_vui = profile->vui;
+    common.out_vui.setIfUnset(profile->vui);
     if (profile->aud) {
         bOutputAud = true;
     }

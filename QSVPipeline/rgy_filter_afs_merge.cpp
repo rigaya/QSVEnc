@@ -38,6 +38,8 @@
 
 static const char* AFS_MERGE_SCAN_KERNEL_NAME = "kernel_afs_merge_scan";
 
+#pragma warning(push)
+#pragma warning(disable: 4127) //C4127: 条件式が定数です。
 RGY_ERR RGYFilterAfs::build_merge_scan() {
     if (!m_mergeScan.get()) {
         auto options = strsprintf("-D Type=uint -D MERGE_BLOCK_INT_X=%d -D MERGE_BLOCK_Y=%d -D MERGE_BLOCK_LOOP_Y=%d",
@@ -73,6 +75,7 @@ RGY_ERR RGYFilterAfs::build_merge_scan() {
     }
     return RGY_ERR_NONE;
 }
+#pragma warning(pop)
 
 template<typename Type>
 RGY_ERR run_merge_scan(uint8_t *dst,

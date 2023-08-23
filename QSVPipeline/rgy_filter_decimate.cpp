@@ -152,7 +152,7 @@ RGYFilterDecimateFrameData::~RGYFilterDecimateFrameData() {
     m_log.reset();
 }
 
-RGY_ERR RGYFilterDecimateFrameData::set(const RGYFrameInfo *pInputFrame, int inputFrameId, int blockSizeX, int blockSizeY, RGYOpenCLQueue& queue, RGYOpenCLEvent& event) {
+RGY_ERR RGYFilterDecimateFrameData::set(const RGYFrameInfo *pInputFrame, int inputFrameId, int blockSizeX, int blockSizeY, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent& event) {
     m_inFrameId = inputFrameId;
     m_blockX = blockSizeX;
     m_blockY = blockSizeY;
@@ -161,7 +161,7 @@ RGY_ERR RGYFilterDecimateFrameData::set(const RGYFrameInfo *pInputFrame, int inp
     if (!m_buf) {
         m_buf = m_cl->createFrameBuffer(pInputFrame->width, pInputFrame->height, pInputFrame->csp, pInputFrame->bitdepth);
     }
-    auto err = m_cl->copyFrame(&m_buf->frame, pInputFrame, nullptr, queue, &event);
+    auto err = m_cl->copyFrame(&m_buf->frame, pInputFrame, nullptr, queue, wait_events, &event);
     if (err != RGY_ERR_NONE) {
         m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to set frame to data cache: %s.\n"), get_err_mes(err));
         return RGY_ERR_CUDA;
@@ -187,7 +187,13 @@ RGY_ERR RGYFilterDecimate::calcDiff(RGYFilterDecimateFrameData *current, const R
         if (err != RGY_ERR_NONE) {
             return err;
         }
-        if ((err = current->tmp()->queueMapBuffer(queue_main, CL_MAP_READ)) != RGY_ERR_NONE) {
+#if ENCODER_VCEENC
+        //非同期モードで転送するとなぜかエラー終了したり、予期せぬ結果を招くため、同期転送する
+        RGYCLMapBlock map_mode = RGY_CL_MAP_BLOCK_LAST;
+#else
+        RGYCLMapBlock map_mode = RGY_CL_MAP_BLOCK_NONE;
+#endif
+        if ((err = current->tmp()->queueMapBuffer(queue_main, CL_MAP_READ, {}, map_mode)) != RGY_ERR_NONE) {
             m_pLog->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to queueMapBuffer in calcDiff: %s.\n"), get_err_mes(err));
             return err;
         }
@@ -256,12 +262,12 @@ void RGYFilterDecimateCache::init(int bufCount, int blockX, int blockY, std::sha
     }
 }
 
-RGY_ERR RGYFilterDecimateCache::add(const RGYFrameInfo *pInputFrame, RGYOpenCLQueue& queue, RGYOpenCLEvent& event) {
+RGY_ERR RGYFilterDecimateCache::add(const RGYFrameInfo *pInputFrame, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent& event) {
     const int id = m_inputFrames++;
-    return frame(id)->set(pInputFrame, id, m_blockX, m_blockY, queue, event);
+    return frame(id)->set(pInputFrame, id, m_blockX, m_blockY, queue, wait_events, event);
 }
 
-RGYFilterDecimate::RGYFilterDecimate(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_flushed(false), m_frameLastDropped(-1), m_decimate(), m_cache(context), m_eventDiff(), m_streamDiff(), m_streamTransfer() {
+RGYFilterDecimate::RGYFilterDecimate(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_flushed(false), m_frameLastDropped(-1), m_frameLastInputDuration(0), m_decimate(), m_cache(context), m_eventDiff(), m_streamDiff(), m_streamTransfer() {
     m_name = _T("decimate");
 }
 
@@ -275,7 +281,19 @@ RGY_ERR RGYFilterDecimate::checkParam(const std::shared_ptr<RGYFilterParamDecima
         return RGY_ERR_INVALID_PARAM;
     }
     if (prm->decimate.cycle <= 1) {
-        AddMessage(RGY_LOG_ERROR, _T("cycle must be 2 or bigger.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("cycle must be 2 or bigger: cycle = %d.\n"), prm->decimate.cycle);
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->decimate.cycle >= DecimateSelectResult::ORDER) {
+        AddMessage(RGY_LOG_ERROR, _T("cycle must be less than %d.\n"), (int)DecimateSelectResult::ORDER);
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->decimate.drop <= 0) {
+        AddMessage(RGY_LOG_ERROR, _T("drop must be 1 or bigger: drop = %d.\n"), prm->decimate.drop);
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->decimate.drop >= prm->decimate.cycle) {
+        AddMessage(RGY_LOG_ERROR, _T("cycle must be larger than drop: cycle = %d, drop = %d.\n"), prm->decimate.cycle, prm->decimate.drop);
         return RGY_ERR_INVALID_PARAM;
     }
     if (prm->decimate.blockX < 4 || 64 < prm->decimate.blockX || (prm->decimate.blockX & (prm->decimate.blockX-1)) != 0) {
@@ -289,6 +307,8 @@ RGY_ERR RGYFilterDecimate::checkParam(const std::shared_ptr<RGYFilterParamDecima
     return RGY_ERR_NONE;
 }
 
+#pragma warning(push)
+#pragma warning(disable: 4127) //C4127: 条件式が定数です。
 RGY_ERR RGYFilterDecimate::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
     m_pLog = pPrintMes;
@@ -340,7 +360,7 @@ RGY_ERR RGYFilterDecimate::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RG
 
         m_cache.init(prm->decimate.cycle + 1, prm->decimate.blockX, prm->decimate.blockY, m_pLog);
 
-        pParam->baseFps *= rgy_rational<int>(prm->decimate.cycle - 1, prm->decimate.cycle);
+        pParam->baseFps *= rgy_rational<int>(prm->decimate.cycle - prm->decimate.drop, prm->decimate.cycle);
 
         if (prm->useSeparateQueue) {
             m_streamDiff = m_cl->createQueue(m_cl->queue().devid(), m_cl->queue().getProperties());
@@ -383,6 +403,7 @@ RGY_ERR RGYFilterDecimate::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RG
     m_param = pParam;
     return sts;
 }
+#pragma warning(pop)
 
 tstring RGYFilterParamDecimate::print() const {
     auto str = decimate.print();
@@ -390,6 +411,52 @@ tstring RGYFilterParamDecimate::print() const {
         str += _T(", no queue opt");
     }
     return str;
+}
+
+std::vector<DecimateSelectResult> RGYFilterDecimate::selectDropFrame(const int iframeStart) {
+    std::vector<DecimateSelectResult> selectResults(m_cache.inframe() - iframeStart, DecimateSelectResult::NONE);
+
+    auto prm = std::dynamic_pointer_cast<RGYFilterParamDecimate>(m_param);
+    int cycle = prm->decimate.cycle;
+    for (int idrop = 0; idrop < prm->decimate.drop; idrop++, cycle--) {
+        int frameLowest = iframeStart;
+        int frameDuplicate = -1;
+        int frameSceneChange = -1;
+        for (int iframe = iframeStart; iframe < m_cache.inframe(); iframe++) {
+            if (selectResults[iframe - iframeStart] & DecimateSelectResult::DROP) {
+                if (iframe == frameLowest) {
+                    frameLowest++;
+                }
+            } else {
+                if (m_cache.frame(iframe)->diffTotal() > m_threSceneChange) {
+                    frameSceneChange = iframe;
+                }
+                if (m_cache.frame(iframe)->diffMaxBlock() < m_cache.frame(frameLowest)->diffMaxBlock()) {
+                    frameLowest = iframe;
+                }
+            }
+        }
+        if (m_cache.frame(frameLowest)->diffMaxBlock() < m_threDuplicate) {
+            frameDuplicate = frameLowest;
+        }
+        //判定結果を設定
+        if (frameDuplicate >= 0) selectResults[frameDuplicate - iframeStart] |= DecimateSelectResult::DUPLICATE;
+        if (frameSceneChange >= 0) selectResults[frameSceneChange - iframeStart] |= DecimateSelectResult::SCENE_CHANGE;
+        if (frameLowest >= 0) selectResults[frameLowest - iframeStart] |= (uint32_t)(idrop + 1); //そのままだと0がフラグとして認識できないので+1する
+        //ドロップするフレームの選択
+        const int frameDrop = (frameSceneChange >= 0 && frameDuplicate < 0) ? frameSceneChange : frameLowest;
+        //cycle分のフレームがそろっている場合は、必ずいずれかのフレームをドロップする
+        if (m_cache.inframe() - iframeStart == cycle) {
+            ;
+        } else if (m_frameLastDropped + cycle >= m_cache.inframe()) {
+            //cycle分のフレームがそろっていない(flushする)場合は、
+            //dropすべきものがなければ、dropしない(-1)とする
+            break;
+        }
+        selectResults[frameDrop - iframeStart] |= DecimateSelectResult::DROP;
+    }
+    return selectResults;
+
 }
 
 RGY_ERR RGYFilterDecimate::setOutputFrame(int64_t nextTimestamp, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum) {
@@ -407,34 +474,13 @@ RGY_ERR RGYFilterDecimate::setOutputFrame(int64_t nextTimestamp, RGYFrameInfo **
     }
 
     //判定
-    int frameDuplicate = -1;
-    int frameSceneChange = -1;
-    int frameLowest = iframeStart;
-    for (int iframe = iframeStart; iframe < m_cache.inframe(); iframe++) {
-        if (m_cache.frame(iframe)->diffTotal() > m_threSceneChange) {
-            frameSceneChange = iframe;
-        }
-        if (m_cache.frame(iframe)->diffMaxBlock() < m_cache.frame(frameLowest)->diffMaxBlock()) {
-            frameLowest = iframe;
-        }
+    const auto selectResults = selectDropFrame(iframeStart);
+    if (selectResults.size() != m_cache.inframe() - iframeStart) {
+        AddMessage(RGY_LOG_ERROR, _T("NVEncFilterDecimate::setOutputFrame: unexpected error, %d != %d - %d.\n"), (int)selectResults.size(), m_cache.inframe(), iframeStart);
+        return RGY_ERR_UNKNOWN;
     }
-    if (m_cache.frame(frameLowest)->diffMaxBlock() < m_threDuplicate) {
-        frameDuplicate = frameLowest;
-    }
-    //ドロップするフレームの選択
-    auto selectDropFrame = [&]() {
-        if (m_cache.inframe() - iframeStart == prm->decimate.cycle) {
-            //cycle分のフレームがそろっている場合は、必ずいずれかのフレームをドロップする
-            return (frameSceneChange >= 0 && frameDuplicate < 0) ? frameSceneChange : frameLowest;
-        }
-        //cycle分のフレームがそろっていない(flushする)場合は、
-        //dropすべきものがなければ、dropしない(-1)とする
-        if (m_frameLastDropped + prm->decimate.cycle >= m_cache.inframe()) {
-            return -1;
-        }
-        return (frameSceneChange >= 0 && frameDuplicate < 0) ? frameSceneChange : frameLowest;
-    };
-    const int frameDrop = selectDropFrame();
+    const auto dropFrameCount = std::count_if(selectResults.begin(), selectResults.end(),
+        [](const auto& flag) { return (flag & DecimateSelectResult::DROP) != DecimateSelectResult::NONE; });
 
     //入力フレームのtimestamp取得
     bool ptsInvalid = false;
@@ -448,44 +494,101 @@ RGY_ERR RGYFilterDecimate::setOutputFrame(int64_t nextTimestamp, RGYFrameInfo **
         cycleInPts.push_back(timestamp);
     }
     if (nextTimestamp == AV_NOPTS_VALUE && !ptsInvalid) {
-        nextTimestamp = (cycleInPts.back() - cycleInPts.front()) * cycleInPts.size() / (cycleInPts.size() - 1);
+        if (cycleInPts.size() > 1) {
+            nextTimestamp = (cycleInPts.back() - cycleInPts.front()) * cycleInPts.size() / (cycleInPts.size() - 1); // 単純外挿
+        } else {
+            nextTimestamp = cycleInPts.back() + m_frameLastInputDuration;
+        }
     }
     cycleInPts.push_back(nextTimestamp);
-    if (frameDrop < 0 && !ptsInvalid) {
-        cycleInPts.push_back((cycleInPts.back() - cycleInPts.front()) * cycleInPts.size() / (cycleInPts.size() - 1));
+    if (selectResults.size() == 0 && !ptsInvalid) {
+        if (cycleInPts.size() > 1) {
+            cycleInPts.push_back((cycleInPts.back() - cycleInPts.front()) * cycleInPts.size() / (cycleInPts.size() - 1)); // 単純外挿
+        } else {
+            cycleInPts.push_back(cycleInPts.back() + m_frameLastInputDuration);
+        }
+    }
+    if (cycleInPts.size() > 1) {
+        m_frameLastInputDuration = (cycleInPts.back() - cycleInPts.front()) / (cycleInPts.size() - 1);
     }
 
     //出力フレームのtimestampの調整
-    std::vector<int64_t> cycleOutPts;
-    cycleOutPts.reserve(cycleInPts.size());
-    for (int i = 0; i < (int)cycleInPts.size() - 1; i++) {
-        cycleOutPts.push_back((ptsInvalid) ? AV_NOPTS_VALUE : (cycleInPts[i] + (cycleInPts[i + 1] - cycleInPts[i]) * i / (prm->decimate.cycle - 1)));
+    std::vector<int64_t> cycleOutPts(m_cache.inframe() - iframeStart - dropFrameCount + 1, AV_NOPTS_VALUE);
+    if (!ptsInvalid) {
+        // dropしたフレームの合計時間の計算
+        int64_t dropFramesDuration = 0;
+        for (size_t i = 0; i < selectResults.size(); i++) {
+            if (selectResults[i] & DecimateSelectResult::DROP) {
+                dropFramesDuration += cycleInPts[i + 1] - cycleInPts[i];
+            }
+        }
+        //フレームの時間分配の最小単位は cycle - drop
+        const int timeFrameDivBase = prm->decimate.cycle - prm->decimate.drop;
+        //この最小単位を基準に、フレームを進めるごとに追加する時間はdrop
+        const int timeFrameDivInc = prm->decimate.drop;
+        int timeFrameOffset = 0;
+        int outframe = 0;
+        for (size_t i = 0; i < selectResults.size(); i++) {
+            if (selectResults[i] & DecimateSelectResult::DROP) {
+                timeFrameOffset -= timeFrameDivBase;
+            } else {
+                cycleOutPts[outframe++] = cycleInPts[i] + (timeFrameOffset * dropFramesDuration) / (prm->decimate.drop * timeFrameDivBase);
+                timeFrameOffset += timeFrameDivInc;
+            }
+        }
+        cycleOutPts[outframe++] = cycleInPts.back();
+        if (outframe != cycleOutPts.size()) {
+            AddMessage(RGY_LOG_ERROR, _T("RGYFilterDecimate::setOutputFrame: unexpected error, outframe = %d, cycleOutPts.size() = %d.\n"), outframe, (int)cycleOutPts.size());
+            return RGY_ERR_UNKNOWN;
+        }
     }
+
+    //cycleをあらわすのに必要な桁数
+    const int cycle_digit_num = (int)std::log10(prm->decimate.cycle) + 1;
+    std::string cycle_digit_space(cycle_digit_num + 1, ' ');
 
     //出力フレームの設定
     *pOutputFrameNum = 0;
-    for (int i = 0, iframe = iframeStart; iframe < m_cache.inframe(); iframe++) {
+    for (int i = 0, iout = 0, iframe = iframeStart; iframe < m_cache.inframe(); iframe++, i++) {
         auto iframeData = m_cache.frame(iframe);
-        if (iframe != frameDrop) {
+        if (selectResults[i] & DecimateSelectResult::DROP) {
+            m_frameLastDropped = iframe;
+        } else {
             auto frame = &iframeData->get()->frame;
-            frame->timestamp = cycleOutPts[i];
-            frame->duration = cycleOutPts[i + 1] - cycleOutPts[i];
-            ppOutputFrames[i++] = frame;
-            *pOutputFrameNum = i;
+            frame->timestamp = cycleOutPts[iout];
+            frame->duration = cycleOutPts[iout + 1] - cycleOutPts[iout];
+            if (frame->duration < 0) {
+                AddMessage(RGY_LOG_WARN, _T("Unexpected frame duration %d for frame = %d.\n"), frame->duration, iframe);
+            }
+            ppOutputFrames[iout++] = frame;
+            *pOutputFrameNum = iout;
         }
         if (m_fpLog) {
-            fprintf(m_fpLog.get(), "[%s%s%s%s] %8d: diff total %10lld, max %10lld\n",
-                iframe == frameSceneChange ? "S" : " ",
-                iframe == frameDuplicate ? "P" : " ",
-                iframe == frameLowest ? "L" : " ",
-                iframe == frameDrop ? "D" : " ",
+            fprintf(m_fpLog.get(), "[%s%s%s%s] %8d: %10lld: diff total %10lld, max %10lld\n",
+                (selectResults[i] & DecimateSelectResult::SCENE_CHANGE) ? "S" : " ",
+                (selectResults[i] & DecimateSelectResult::DUPLICATE)    ? "P" : " ",
+                (selectResults[i] & DecimateSelectResult::DROP)         ? "D" : " ",
+                (selectResults[i] & DecimateSelectResult::ORDER)        ? strsprintf("L%0d", (int)(selectResults[i] & DecimateSelectResult::ORDER)).c_str() : cycle_digit_space.c_str(),
                 iframe,
+                (selectResults[i] & DecimateSelectResult::DROP)         ? -1 : cycleOutPts[iout-1],
                 (long long int)iframeData->diffTotal(),
                 (long long int)iframeData->diffMaxBlock());
         }
     }
-    m_frameLastDropped = frameDrop;
     return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterDecimate::calcDiffWithPrevFrameAndSetDiffToCurr(const int curr, const int prev, RGYOpenCLQueue& queue_main) {
+    //前のフレームとの差分をとる
+    auto frameCurrent = m_cache.frame(curr);
+    auto framePrev = m_cache.frame(prev);
+    auto err = calcDiff(frameCurrent, framePrev, queue_main);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("error at calc_block_diff_frame: %s.\n"),
+            get_err_mes(err));
+        return err;
+    }
+    return err;
 }
 
 RGY_ERR RGYFilterDecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue& queue_main, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event) {
@@ -510,6 +613,8 @@ RGY_ERR RGYFilterDecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
     const int inframeId = m_cache.inframe();
     *pOutputFrameNum = 0;
     if (m_cache.inframe() > 0 && (m_cache.inframe() % prm->decimate.cycle == 0 || pInputFrame->ptr[0] == nullptr)) { //cycle分のフレームがそろったら
+        //dropFrameの計算が終わっている時点でフレームの準備は完了、待機するものはない
+        event = nullptr;
         auto ret = setOutputFrame((pInputFrame) ? pInputFrame->timestamp : AV_NOPTS_VALUE, ppOutputFrames, pOutputFrameNum);
         if (ret != RGY_ERR_NONE) {
             return ret;
@@ -521,22 +626,16 @@ RGY_ERR RGYFilterDecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
         }
     }
 
-    auto err = m_cache.add(pInputFrame, queue_main, m_eventDiff);
+    auto err = m_cache.add(pInputFrame, queue_main, wait_events, m_eventDiff);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to add frame to cache: %s.\n"), get_err_mes(err));
         return RGY_ERR_CUDA;
     }
 
     if (inframeId > 0) {
-        //前のフレームとの差分をとる
-        auto frameCurrent = m_cache.frame(inframeId + 0);
-        auto framePrev    = m_cache.frame(inframeId - 1);
-        err = calcDiff(frameCurrent, framePrev, queue_main);
-        if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("error at calc_block_diff_frame(%s): %s.\n"),
-                RGY_CSP_NAMES[pInputFrame->csp],
-                get_err_mes(err));
-            return RGY_ERR_CUDA;
+        auto ret = calcDiffWithPrevFrameAndSetDiffToCurr(inframeId + 0, inframeId - 1, queue_main);
+        if (ret != RGY_ERR_NONE) {
+            return ret;
         }
     }
     return sts;

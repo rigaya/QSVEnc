@@ -42,12 +42,13 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 
 
 ## Major Features
-### Common to QSVEnc / QSVEncC
+### Common to QSVEnc.auo / QSVEncC
 - Encoding using QuickSyncVideo
    - H.264/AVC
    - H.265/HEVC (8bit/10bit)
    - MPEG2
    - VP9 (8bit/10bit)
+   - AV1 (8bit/10bit)
 - Encode mode of QuickSyncVideo
    - CQP       (Fixed Quantization)
    - CBR       (Constant bitrate)
@@ -102,6 +103,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
   - HEVC
   - VP8
   - VP9
+  - AV1
 - Supports various formats such as avs, vpy, y4m, and raw
 - Supports demux/muxing using libavformat
 - Supports decode using libavcodec
@@ -111,23 +113,88 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 - Mux audio and chapter
 - afs (Automatic field shift) support
 
+![QSVEnc.auo](./data/QSVEnc_auo_stg_window_en.png)
+
 ## Supported Features
 This depends on the version of QSVEnc, the generation of the GPU, and also the GPU driver.
 
-| CPU Gen     | Windows                                                 | Linux | 
-|:--          |:--                                                      |:--    |
-| SandyBridge | [i5 2410M](./GPUFeatures/QSVEnc_SND_i5_2410M_Win.txt)   |  |
-| IvyBridge   |                                                         |  |
-| Haswell     | [i3 4170](./GPUFeatures/QSVEnc_HSW_i3_4170_Win.txt)     |  |
-| Broadwell   | [i7 5500U](./GPUFeatures/QSVEnc_BDW_i7_5500U_Win.txt)   | [i7 5500U](./GPUFeatures/QSVEnc_BDW_i7_5500U_Ubuntu2004.txt)  |
-| SkyLake     |                                                         |  |
-| KabyLake    | [i7 7700K](./GPUFeatures/QSVEnc_KBL_i7_7700K_Win.txt)   | [i7 7700K](./GPUFeatures/QSVEnc_KBL_i7_7700K_Ubuntu2004.txt)  |
-| CoffeeLake  |                                                         |  |
-| CommetLake  |                                                         |  |
-| IceLake     | [i5 1035G7](./GPUFeatures/QSVEnc_ICL_i5_1035G7_Win.txt) | [i5 1035G7](./GPUFeatures/QSVEnc_ICL_i5_1035G7_Ubuntu2004.txt)  |
-| RocketLake  | [i7 11700K](./GPUFeatures/QSVEnc_RKL_i7_11700K_Win.txt) | [i7 11700K](./GPUFeatures/QSVEnc_RKL_i7_11700K_Ubuntu2004.txt)  |
-| AlderLake   | [i9 12900K](./GPUFeatures/QSVEnc_ADL_i9_12900K_Win.txt) |  |
+| CPU Gen     | GPU Gen |  Windows                                                 | Linux | 
+|:--          |:--      |:--                                                      |:--    |
+| SandyBridge | Gen6     | [i5 2410M](./GPUFeatures/QSVEnc_SND_i5_2410M_Win.txt)   |  |
+| IvyBridge   | Gen7     |                                                         |  |
+| Haswell     | Gen7.5   | [i3 4170](./GPUFeatures/QSVEnc_HSW_i3_4170_Win.txt)     |  |
+| Broadwell   | Gen8     | [i7 5500U](./GPUFeatures/QSVEnc_BDW_i7_5500U_Win.txt)   | [i7 5500U](./GPUFeatures/QSVEnc_BDW_i7_5500U_Ubuntu2004.txt)  |
+| SkyLake     | Gen9     |                                                         |  |
+| KabyLake    | Gen9.5   | [i7 7700K](./GPUFeatures/QSVEnc_KBL_i7_7700K_Win.txt)   | [i7 7700K](./GPUFeatures/QSVEnc_KBL_i7_7700K_Ubuntu2204.txt)  |
+| CoffeeLake  | Gen9.5   |                                                         |  |
+| CommetLake  | Gen9.5   |                                                         |  |
+| Cannonlake  | Gen10    | -                                                       | - |
+| IceLake     | Gen11    | [i5 1035G7](./GPUFeatures/QSVEnc_ICL_i5_1035G7_Win.txt) | [i5 1035G7](./GPUFeatures/QSVEnc_ICL_i5_1035G7_Ubuntu2004.txt)  |
+| TigerLake   | Gen12    |                                                         |  |
+| RocketLake  | Gen12    | [i7 11700K](./GPUFeatures/QSVEnc_RKL_i7_11700K_Win.txt) | [i7 11700K](./GPUFeatures/QSVEnc_RKL_i7_11700K_Ubuntu2204_libmfxgen.txt)  |
+| AlderLake   | Gen12    | [i9 12900K](./GPUFeatures/QSVEnc_ADL_i9_12900K_Win.txt) | [i9 12900K](./GPUFeatures/QSVEnc_ADL_i9_12900K_Ubuntu2004.txt) |
+|             | DG2      | [Arc A380](./GPUFeatures/QSVEnc_DG2_Arc_A380_Win.txt)   |  |
 
+## Supported HW Encoder (@ Windows OS)
+
+| CPU Gen     | GPU Gen  | MPEG2  | H.264 PG | H.264 FF | HEVC PG | HEVC FF | VP9 FF | AV1 FF |
+|:--         |:--       |:--:     |:--:     |:--:     |:--:     |:--:     |:--:   |:--:    |
+| SandyBridge | Gen6     | 8bit   | 8bit     |          |         |         |        |        |
+| IvyBridge   | Gen7     | 8bit   | 8bit     |          |         |         |        |        |
+| Haswell     | Gen7.5   | 8bit   | 8bit     |          |         |         |        |        |
+| Broadwell   | Gen8     | 8bit   | 8bit     |          |         |         |        |        |
+| SkyLake     | Gen9     | 8bit   | 8bit     |          | 8bit    |         |        |        |
+| KabyLake    | Gen9.5   | 8bit   | 8bit     | 8bit     | 10bit   |         |        |        |
+| CoffeeLake  | Gen9.5   | 8bit   | 8bit     | 8bit     | 10bit   |         |        |        |
+| CommetLake  | Gen9.5   | 8bit   | 8bit     | 8bit     | 10bit   |         |        |        |
+| CannonLake  | Gen10    | -      | -        | -        | -       | -       | -      | -      |
+| IceLake     | Gen11    | 8bit   | 8bit     | 8bit     | 10bit   | 10bit   | 10bit  |        |
+| TigerLake   | Gen12    | 8bit   | 8bit     | 8bit     | 10bit   | 10bit   | 10bit  |        |
+| RocketLake  | Gen12    | 8bit   | 8bit     | 8bit     | 10bit   | 10bit   | 10bit  |        |
+| AlderLake   | Gen12    | 8bit   | 8bit     | 8bit     | 10bit   | 10bit   | 10bit  |        |
+|             | DG2      |        |          | 8bit     |         | 10bit   | 10bit  | 10bit  |
+
+## Supported HW Decoder
+
+| CPU Gen     | GPU Gen  | MPEG2  | H.264 | HEVC    | VP8    | VP9    | AV1    |
+|:--         |:--       |:--:     |:--:    |:--:    |:--:    |:--:   |:--:    |
+| SandyBridge | Gen6     | 8bit   | 8bit   |        |        |        |        |
+| IvyBridge   | Gen7     | 8bit   | 8bit   |        |        |        |        |
+| Haswell     | Gen7.5   | 8bit   | 8bit   |        |        |        |        |
+| Broadwell   | Gen8     | 8bit   | 8bit   |        | 8bit   |        |        |
+| SkyLake     | Gen9     | 8bit   | 8bit   | 8bit   | 8bit   |        |        |
+| KabyLake    | Gen9.5   | 8bit   | 8bit   | 10bit  | 8bit   | 8bit   |        |
+| CoffeeLake  | Gen9.5   | 8bit   | 8bit   | 10bit  | 8bit   | 8bit   |        |
+| CommetLake  | Gen9.5   | 8bit   | 8bit   | 10bit  | 8bit   | 8bit   |        |
+| CannonLake  | Gen10    | -      | -      | -      |-       | -      | -      |
+| IceLake     | Gen11    | 8bit   | 8bit   | 10bit  | 8bit   | 10bit  |        |
+| TigerLake   | Gen12    | 8bit   | 8bit   | 12bit  |        | 12bit  | 10bit  |
+| RocketLake  | Gen12    | 8bit   | 8bit   | 12bit  |        | 12bit  | 10bit  |
+| AlderLake   | Gen12    | 8bit   | 8bit   | 12bit  |        | 12bit  | 10bit  |
+|             | DG2      | 8bit   | 8bit   | 12bit  |        | 12bit  | 12bit  |
+
+## Auto GPU selection in multi GPU envinronment (Windows Only)
+QSVEncC will automatically select a GPU depending on the options used,
+when there are multiple GPUs available which support QSV.
+--device option can be used to specify on which GPU to run manually. 
+
+1. Select GPU which supports...  
+  Items below will be checked whether the GPU supports it or not  
+  - Codec, Profile, Level
+  - Additionally, below items will be checked if specified
+    - 10bit depth encoding
+    - HW decode
+  
+2. If there are multiple GPUs which suports all the items checked in 1. and 2., GPU below will be prefered.  
+  - GPU which has low Video Engine(VE) utilization
+  - GPU which has low GPU core utilization
+  
+  The purpose of selecting GPU with lower VE/GPU ulitization is to assign tasks to mulitple GPUs
+  and improve the throughput of the tasks.  
+  
+  Please note that VE and GPU ulitization are check at the initialization pahse of the app,
+  and there are delays in values taken. Therefore, it is likely that the multiple tasks started at the same time
+  to run on the same GPU, and divided into multiple GPUs, even if the options are supported in every GPUs.
 
 ## QSVEnc source code
 - MIT license.

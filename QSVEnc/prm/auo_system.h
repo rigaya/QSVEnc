@@ -1,9 +1,9 @@
 ﻿// -----------------------------------------------------------------------------------------
-// QSVEnc by rigaya
+// x264guiEx/x265guiEx/svtAV1guiEx/ffmpegOut/QSVEnc/NVEnc/VCEEnc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
 //
-// Copyright (c) 2011-2016 rigaya
+// Copyright (c) 2010-2022 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -34,8 +34,6 @@
 #include "auo.h"
 #include "auo_settings.h"
 #include "auo_conf.h"
-
-#include "mfxstructures.h"
 
 #if _M_IX86
 #define ALIGN_PTR __declspec(align(4))
@@ -87,7 +85,7 @@ typedef struct {
 
 typedef struct {
     BOOL init;
-    char auo_path[MAX_PATH_LEN];    //QSVEnc.auoのフルパス
+    char auo_path[MAX_PATH_LEN];    //auoのフルパス
     char aviutl_dir[MAX_PATH_LEN];  //Aviutlのディレクトリ(\無し)
     guiEx_settings *exstg;          //ini設定
 } SYSTEM_DATA;

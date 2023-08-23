@@ -1,9 +1,9 @@
 ﻿// -----------------------------------------------------------------------------------------
-// QSVEnc by rigaya
+// x264guiEx/x265guiEx/svtAV1guiEx/ffmpegOut/QSVEnc/NVEnc/VCEEnc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
 //
-// Copyright (c) 2011-2016 rigaya
+// Copyright (c) 2010-2022 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -23,7 +23,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 //
-// ------------------------------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -158,9 +158,9 @@ int chapter_file::write_chapter_apple(const char *out_filepath) {
     } else {
         write_chapter_apple_header(ostream);
         for (const auto& chap : chapters) {
-            ostream << to_utf8(strprintf(
+            ostream << conv_cp_part_to_utf8(to_utf8(strprintf(
                 L"<TextSample sampleTime=\"%02d:%02d:%02d.%03d\">%s</TextSample>\r\n",
-                chap->h, chap->m, chap->s, chap->ms, chap->name.c_str()  ));
+                chap->h, chap->m, chap->s, chap->ms, chap->name.c_str()  )));
         }
         write_chapter_apple_foot(ostream);
         ostream.close();
@@ -193,7 +193,7 @@ int chapter_file::write_chapter_nero(const char *out_filepath, bool utf8) {
                 return AUO_CHAP_ERR_CONVERTION;
 
             ostream << strprintf("%s%02d=%02d:%02d:%02d.%03d\r\n", KEY_BASE, i+1, chap->h, chap->m, chap->s, chap->ms);
-            ostream << strprintf("%s%02d%s=%s\r\n", KEY_BASE, i+1, KEY_NAME, &char_buffer[0]);
+            ostream << strprintf("%s%02d%s=%s\r\n", KEY_BASE, i+1, KEY_NAME, conv_cp_part_to_utf8(char_buffer.data()).c_str());
         }
         ostream.close();
     }

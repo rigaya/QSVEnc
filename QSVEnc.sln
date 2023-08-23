@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.28729.10
+# Visual Studio Version 17
+VisualStudioVersion = 17.2.32526.322
 MinimumVisualStudioVersion = 11.0.50727.42
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "QSVEnc", "QSVEnc\QSVEnc.vcxproj", "{05D4409E-70DD-489B-9A83-268E6CB1B4C5}"
 EndProject
@@ -93,6 +93,7 @@ Global
 		{AAFD9B24-85E4-4D10-ACA5-9C0A439C4D61}.ReleaseStatic|x64.ActiveCfg = Release|Any CPU
 		{A34CA86D-6C2B-482F-984E-2687459E65E9}.Debug|Any CPU.ActiveCfg = Debug|Win32
 		{A34CA86D-6C2B-482F-984E-2687459E65E9}.Debug|Win32.ActiveCfg = Debug|Win32
+		{A34CA86D-6C2B-482F-984E-2687459E65E9}.Debug|Win32.Build.0 = Debug|Win32
 		{A34CA86D-6C2B-482F-984E-2687459E65E9}.Debug|x64.ActiveCfg = Debug|x64
 		{A34CA86D-6C2B-482F-984E-2687459E65E9}.DebugStatic|Any CPU.ActiveCfg = Release|x64
 		{A34CA86D-6C2B-482F-984E-2687459E65E9}.DebugStatic|Any CPU.Build.0 = Release|x64
@@ -102,6 +103,7 @@ Global
 		{A34CA86D-6C2B-482F-984E-2687459E65E9}.DebugStatic|x64.Build.0 = DebugStatic|x64
 		{A34CA86D-6C2B-482F-984E-2687459E65E9}.Release|Any CPU.ActiveCfg = Release|Win32
 		{A34CA86D-6C2B-482F-984E-2687459E65E9}.Release|Win32.ActiveCfg = Release|Win32
+		{A34CA86D-6C2B-482F-984E-2687459E65E9}.Release|Win32.Build.0 = Release|Win32
 		{A34CA86D-6C2B-482F-984E-2687459E65E9}.Release|x64.ActiveCfg = Release|x64
 		{A34CA86D-6C2B-482F-984E-2687459E65E9}.ReleaseStatic|Any CPU.ActiveCfg = Release|x64
 		{A34CA86D-6C2B-482F-984E-2687459E65E9}.ReleaseStatic|Any CPU.Build.0 = Release|x64

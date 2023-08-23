@@ -83,9 +83,14 @@ RGY_ERR RGYInputAvi::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
             rgy_reduce(sinfo.dwRate, sinfo.dwScale);
             m_inputVideoInfo.srcWidth = sinfo.rcFrame.right - sinfo.rcFrame.left;
             m_inputVideoInfo.srcHeight = sinfo.rcFrame.bottom - sinfo.rcFrame.top;
-            m_inputVideoInfo.fpsN = sinfo.dwRate;
-            m_inputVideoInfo.fpsD = sinfo.dwScale;
-            m_inputVideoInfo.frames = sinfo.dwLength - sinfo.dwStart;
+            if (!rgy_rational<int>(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD).is_valid()) {
+                m_inputVideoInfo.fpsN = sinfo.dwRate;
+                m_inputVideoInfo.fpsD = sinfo.dwScale;
+            }
+            if (m_inputVideoInfo.frames == 0) {
+                m_inputVideoInfo.frames = std::numeric_limits<decltype(m_inputVideoInfo.frames)>::max();
+            }
+            m_inputVideoInfo.frames = std::min(m_inputVideoInfo.frames, (int)(sinfo.dwLength - sinfo.dwStart));
 
             m_inputCsp = codec_fcc_to_rgy(sinfo.fccHandler);
 
@@ -196,7 +201,7 @@ void RGYInputAvi::Close() {
     m_encSatusInfo.reset();
 }
 
-RGY_ERR RGYInputAvi::LoadNextFrame(RGYFrame *pSurface) {
+RGY_ERR RGYInputAvi::LoadNextFrameInternal(RGYFrame *pSurface) {
     if ((int)m_encSatusInfo->m_sData.frameIn >= m_inputVideoInfo.frames
         //m_encSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
         //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく

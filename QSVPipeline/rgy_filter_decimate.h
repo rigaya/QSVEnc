@@ -41,6 +41,37 @@ public:
     virtual tstring print() const override;
 };
 
+enum DecimateSelectResult : uint32_t {
+    NONE         = 0x00000,
+    ORDER        = 0x0ffff,
+    DROP         = 0x10000,
+    DUPLICATE    = 0x20000,
+    SCENE_CHANGE = 0x40000,
+};
+
+static DecimateSelectResult operator|(DecimateSelectResult a, DecimateSelectResult b) {
+    return (DecimateSelectResult)((uint32_t)a | (uint32_t)b);
+}
+
+static DecimateSelectResult operator|=(DecimateSelectResult &a, DecimateSelectResult b) {
+    a = a | b;
+    return a;
+}
+
+static DecimateSelectResult operator|=(DecimateSelectResult &a, uint32_t b) {
+    a = a | (DecimateSelectResult)b;
+    return a;
+}
+
+static DecimateSelectResult operator&(DecimateSelectResult a, DecimateSelectResult b) {
+    return (DecimateSelectResult)((uint32_t)a & (uint32_t)b);
+}
+
+static DecimateSelectResult operator&=(DecimateSelectResult &a, DecimateSelectResult b) {
+    a = (DecimateSelectResult)((uint32_t)a & (uint32_t)b);
+    return a;
+}
+
 class RGYFilterDecimateFrameData {
 public:
     RGYFilterDecimateFrameData(std::shared_ptr<RGYOpenCLContext> context, std::shared_ptr<RGYLog> log);
@@ -49,7 +80,7 @@ public:
     RGYCLFrame *get() { return m_buf.get(); }
     const RGYCLFrame *get() const { return m_buf.get(); }
     std::unique_ptr<RGYCLBuf>& tmp() { return m_tmp; }
-    RGY_ERR set(const RGYFrameInfo *pInputFrame, int inputFrameId, int blockSizeX, int blockSizeY, RGYOpenCLQueue& queue, RGYOpenCLEvent& event);
+    RGY_ERR set(const RGYFrameInfo *pInputFrame, int inputFrameId, int blockSizeX, int blockSizeY, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent& event);
     int id() const { return m_inFrameId; }
     void calcDiffFromTmp();
 
@@ -73,7 +104,7 @@ public:
     RGYFilterDecimateCache(shared_ptr<RGYOpenCLContext> context);
     ~RGYFilterDecimateCache();
     void init(int bufCount, int blockX, int blockY, std::shared_ptr<RGYLog> log);
-    RGY_ERR add(const RGYFrameInfo *pInputFrame, RGYOpenCLQueue& queue, RGYOpenCLEvent& event);
+    RGY_ERR add(const RGYFrameInfo *pInputFrame, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent& event);
     RGYFilterDecimateFrameData *frame(int iframe) {
         iframe = clamp(iframe, 0, m_inputFrames - 1);
         return m_frames[iframe % m_frames.size()].get();
@@ -102,6 +133,9 @@ protected:
     virtual RGY_ERR checkParam(const std::shared_ptr<RGYFilterParamDecimate> pParam);
     RGY_ERR setOutputFrame(int64_t nextTimestamp, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum);
 
+    std::vector<DecimateSelectResult> selectDropFrame(const int iframeStart);
+    RGY_ERR calcDiffWithPrevFrameAndSetDiffToCurr(const int curr, const int prev, RGYOpenCLQueue& queue_main);
+
     RGY_ERR calcDiff(RGYFilterDecimateFrameData *current, const RGYFilterDecimateFrameData *prev, RGYOpenCLQueue& queue_main);
     RGY_ERR procPlane(const bool useKernel2, const bool firstPlane, const RGYFrameInfo *p0, const RGYFrameInfo *p1, std::unique_ptr<RGYCLBuf>& tmp, const int blockHalfX, const int blockHalfY,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
@@ -110,6 +144,7 @@ protected:
 
     bool m_flushed;
     int m_frameLastDropped;
+    int64_t m_frameLastInputDuration;
     int64_t m_threSceneChange;
     int64_t m_threDuplicate;
     RGYOpenCLProgramAsync m_decimate;

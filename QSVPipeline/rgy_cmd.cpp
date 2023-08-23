@@ -429,13 +429,27 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             return 0;
         }
         i++;
+        vector<tstring> param_list;
+        bool flag_comma = false;
+        const TCHAR *pstr = strInput[i];
+        const TCHAR *qstr = strInput[i];
+        for (; *pstr; pstr++) {
+            if (*pstr == _T('\"')) {
+                flag_comma ^= true;
+            }
+            if (!flag_comma && *pstr == _T(',')) {
+                param_list.push_back(tstring(qstr, pstr - qstr));
+                qstr = pstr + 1;
+            }
+        }
+        param_list.push_back(tstring(qstr, pstr - qstr));
 
         const auto paramList = std::vector<std::string>{
             "matrix", "colormatrix", "colorprim", "transfer", "range", "colorrange", "source_peak", "approx_gamma",
             "hdr2sdr", "ldr_nits", "a", "b", "c", "d", "e", "f", "contrast", "peak",
-            "desat_base", "desat_strength", "desat_exp" };
+            "desat_base", "desat_strength", "desat_exp", "lut3d", "lut3d_interp" };
 
-        for (const auto &param : split(strInput[i], _T(","))) {
+        for (const auto &param : param_list) {
             auto pos = param.find_first_of(_T("="));
             if (pos != std::string::npos) {
                 auto parse = [](int *from, int *to, tstring param_val, const CX_DESC *list) {
@@ -667,6 +681,20 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
+                if (param_arg == _T("lut3d")) {
+                    vpp->colorspace.lut3d.table_file = param_val;
+                    continue;
+                }
+                if (param_arg == _T("lut3d_interp")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_colorspace_lut3d_interp, param_val.c_str(), &value)) {
+                        vpp->colorspace.lut3d.interp = (LUT3DInterp)value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_colorspace_lut3d_interp);
+                        return 1;
+                    }
+                    continue;
+                }
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
                 return 1;
             } else {
@@ -710,7 +738,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
 #endif
         };
 
-        for (const auto& param : split(strInput[i], _T(","))) {
+        for (const auto& param : param_list) {
             auto pos = param.find_first_of(_T("="));
             if (pos != std::string::npos) {
                 auto param_arg = param.substr(0, pos);
@@ -748,6 +776,16 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
                         vpp->delogo.mode = (b) ? DELOGO_MODE_ADD : DELOGO_MODE_REMOVE;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (ENABLE_VPP_FILTER_DELOGO_MULTIADD && param_arg == _T("multi_add")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->delogo.mode = (b) ? DELOGO_MODE_ADD_MULTI : DELOGO_MODE_REMOVE;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -847,6 +885,26 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                         if (!cmd_string_to_bool(&b, param_val)) {
                             vpp->delogo.log = b;
                         } else {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                            return 1;
+                        }
+                        continue;
+                    }
+                }
+                if (ENABLE_VPP_FILTER_DELOGO_MULTIADD) {
+                    if (param_arg == _T("multi_add_depth_min")) {
+                        try {
+                            vpp->delogo.multiaddDepthMin = std::stof(param_val);
+                        } catch (...) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                            return 1;
+                        }
+                        continue;
+                    }
+                    if (param_arg == _T("multi_add_depth_max")) {
+                        try {
+                            vpp->delogo.multiaddDepthMax = std::stof(param_val);
+                        } catch (...) {
                             print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                             return 1;
                         }
@@ -1162,7 +1220,6 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-#if ENCODER_NVENC
                 if (param_arg == _T("rff")) {
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
@@ -1173,7 +1230,6 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-#endif
                 if (param_arg == _T("timecode")) {
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
@@ -1450,7 +1506,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             return 0;
         }
         i++;
-        const auto paramList = std::vector<std::string>{ "cycle", "thresc", "thredup", "blockx", "blocky", "chroma", "log" /*, "pp"*/ };
+        const auto paramList = std::vector<std::string>{ "cycle", "drop", "thresc", "thredup", "blockx", "blocky", "chroma", "log" /*, "pp"*/ };
 
         for (const auto &param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
@@ -1471,6 +1527,15 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 if (param_arg == _T("cycle")) {
                     try {
                         vpp->decimate.cycle = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("drop")) {
+                    try {
+                        vpp->decimate.drop = std::stoi(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -1720,6 +1785,96 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     return 0;
                 }
                 print_cmd_error_invalid_value(option_name, strInput[i]);
+                return 1;
+            }
+        }
+        return 0;
+    }
+    if (IS_OPTION("vpp-convolution3d") && ENABLE_VPP_FILTER_CONVOLUTION3D) {
+        vpp->convolution3d.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{
+            "matrix", "fast", "ythresh", "cthresh", "t_ythresh", "t_cthresh" };
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    if (param_val == _T("true")) {
+                        vpp->convolution3d.enable = true;
+                    } else if (param_val == _T("false")) {
+                        vpp->convolution3d.enable = false;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("matrix")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_convolution3d_matrix, param_val.c_str(), &value)) {
+                        vpp->convolution3d.matrix = (VppConvolution3dMatrix)value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_fp_prec);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("fast")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->convolution3d.fast = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("ythresh")) {
+                    try {
+                        vpp->convolution3d.threshYspatial = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("cthresh")) {
+                    try {
+                        vpp->convolution3d.threshCspatial = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("t_ythresh")) {
+                    try {
+                        vpp->convolution3d.threshYtemporal = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("t_cthresh")) {
+                    try {
+                        vpp->convolution3d.threshCtemporal = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
                 return 1;
             }
         }
@@ -2011,7 +2166,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         param_list.push_back(tstring(qstr, pstr - qstr));
 
-        const auto paramList = std::vector<std::string>{ "track", "filename", "charcode", "shaping", "scale", "transparency", "brightness", "contrast", "vid_ts_offset", "ts_offset", "fontsdir" };
+        const auto paramList = std::vector<std::string>{ "track", "filename", "charcode", "shaping", "scale", "transparency", "brightness", "contrast", "vid_ts_offset", "ts_offset", "fontsdir", "forced_subs_only" };
 
         for (const auto &param : param_list) {
             auto pos = param.find_first_of(_T("="));
@@ -2113,6 +2268,16 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 }
                 if (param_arg == _T("fontsdir")) {
                     subburn.fontsdir = trim(param_val, _T("\""));
+                    continue;
+                }
+                if (param_arg == _T("forced_subs_only")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        subburn.forced_subs_only = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
                     continue;
                 }
                 print_cmd_error_unknown_opt_param(option_name, param, paramList);
@@ -2326,6 +2491,71 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         return 0;
     }
 
+    if (IS_OPTION("vpp-curves") && ENABLE_VPP_FILTER_CURVES) {
+        vpp->curves.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+
+        const auto paramList = std::vector<std::string>{ "r", "g", "b", "m", "red", "green", "blue", "master", "all", "preset" };
+
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->curves.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("r") || param_arg == _T("red")) {
+                    vpp->curves.prm.r = param_val;
+                    continue;
+                }
+                if (param_arg == _T("g") || param_arg == _T("green")) {
+                    vpp->curves.prm.g = param_val;
+                    continue;
+                }
+                if (param_arg == _T("b") || param_arg == _T("blue")) {
+                    vpp->curves.prm.b = param_val;
+                    continue;
+                }
+                if (param_arg == _T("m") || param_arg == _T("master")) {
+                    vpp->curves.prm.m = param_val;
+                    continue;
+                }
+                if (param_arg == _T("all")) {
+                    vpp->curves.prm.m = param_val;
+                    continue;
+                }
+                if (param_arg == _T("preset")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_curves_preset, param_val.c_str(), &value)) {
+                        vpp->curves.preset = (VppCurvesPreset)value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_curves_preset);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
+
     if (IS_OPTION("vpp-tweak") && ENABLE_VPP_FILTER_TWEAK) {
         vpp->tweak.enable = true;
         if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
@@ -2333,11 +2563,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         i++;
 
-        const auto paramList = std::vector<std::string>{ "contrast, ""brightness", "gamma", "saturation",
-#if ENCODER_NVENC
-            "swapuv",
-#endif
-            "hue" };
+        const auto paramList = std::vector<std::string>{ "contrast", "brightness", "gamma", "saturation", "swapuv", "hue" };
 
         for (const auto& param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
@@ -2400,7 +2626,6 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-#if ENCODER_NVENC
                 if (param_arg == _T("swapuv")) {
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
@@ -2411,16 +2636,13 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-#endif
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
                 return 1;
             } else {
-#if ENCODER_NVENC
                 if (param == _T("swapuv")) {
                     vpp->tweak.swapuv = true;
                     continue;
                 }
-#endif
                 print_cmd_error_unknown_opt_param(option_name, param, paramList);
                 return 1;
             }
@@ -2712,6 +2934,185 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-overlay") && ENABLE_VPP_FILTER_OVERLAY) {
+        VppOverlay overlay;
+        overlay.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+
+        vector<tstring> param_list;
+        bool flag_comma = false;
+        const TCHAR *pstr = strInput[i];
+        const TCHAR *qstr = strInput[i];
+        for (; *pstr; pstr++) {
+            if (*pstr == _T('\"')) {
+                flag_comma ^= true;
+            }
+            if (!flag_comma && *pstr == _T(',')) {
+                param_list.push_back(tstring(qstr, pstr - qstr));
+                qstr = pstr + 1;
+            }
+        }
+        param_list.push_back(tstring(qstr, pstr - qstr));
+
+        const auto paramList = std::vector<std::string>{
+            "pos", "posx", "posy",
+            "size", "width", "height",
+            "alpha", "alpha_mode", "loop", "file",
+            "lumakey_threshold", "lumakey_tolerance", "lumakey_softness"};
+
+        for (const auto& param : param_list) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        overlay.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("file")) {
+                    overlay.inputFile = trim(param_val, _T("\""));
+                    continue;
+                }
+                if (param_arg == _T("pos")) {
+                    int x = 0, y = 0;
+                    if (   _stscanf_s(param_val.c_str(), _T("%dx%d"), &x, &y) == 2
+                        || _stscanf_s(param_val.c_str(), _T("%d/%d"), &x, &y) == 2) {
+                        overlay.posX = x;
+                        overlay.posY = y;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("posx")) {
+                    try {
+                        overlay.posX = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("posy")) {
+                    try {
+                        overlay.posY = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("size")) {
+                    int w = 0, h = 0;
+                    if (   _stscanf_s(param_val.c_str(), _T("%dx%d"), &w, &h) == 2
+                        || _stscanf_s(param_val.c_str(), _T("%d/%d"), &w, &h) == 2) {
+                        overlay.width = w;
+                        overlay.height = h;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("width")) {
+                    try {
+                        overlay.width = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("height")) {
+                    try {
+                        overlay.height = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("alpha")) {
+                    try {
+                        overlay.alpha = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("alpha_mode")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_overlay_alpha_mode, param_val.c_str(), &value)) {
+                        overlay.alphaMode = (VppOverlayAlphaMode)value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_overlay_alpha_mode);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("lumakey_threshold")) {
+                    try {
+                        overlay.lumaKey.threshold = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("lumakey_tolerance")) {
+                    try {
+                        overlay.lumaKey.tolerance = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("lumakey_softness")) {
+                    try {
+                        overlay.lumaKey.shoftness = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("loop")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        overlay.loop = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                if (param == _T("loop")) {
+                    overlay.loop = true;
+                    continue;
+                }
+                overlay.inputFile = param;
+                return 0;
+            }
+        }
+        vpp->overlay.push_back(overlay);
+        return 0;
+    }
     if (IS_OPTION("vpp-perf-monitor")) {
         vpp->checkPerformance = true;
         return 0;
@@ -2723,7 +3124,17 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
     return -1;
 }
 
-int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, VideoInfo *input, sArgsData *argData) {
+int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, VideoInfo *input, RGYParamInput *inprm, sArgsData *argData) {
+    if (IS_OPTION("frames")) {
+        i++;
+        int v = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &v)) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        input->frames = v;
+        return 0;
+    }
     if (IS_OPTION("fps")) {
         i++;
         int a[2] = { 0 };
@@ -2755,8 +3166,7 @@ int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], in
         i++;
         int a[2] = { 0 };
         if (   2 == _stscanf_s(strInput[i], _T("%dx%d"), &a[0], &a[1])
-            || 2 == _stscanf_s(strInput[i], _T("%d:%d"), &a[0], &a[1])
-            || 2 == _stscanf_s(strInput[i], _T("%d,%d"), &a[0], &a[1])) {
+            || 2 == _stscanf_s(strInput[i], _T("%d:%d"), &a[0], &a[1])) {
             input->srcWidth  = a[0];
             input->srcHeight = a[1];
         } else {
@@ -2766,16 +3176,43 @@ int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], in
         return 0;
     }
     if (IS_OPTION("output-res")) {
+        if (i + 1 >= nArgNum) {
+            return 0;
+        }
         i++;
-        int a[2] = { 0 };
-        if (   2 == _stscanf_s(strInput[i], _T("%dx%d"), &a[0], &a[1])
-            || 2 == _stscanf_s(strInput[i], _T("%d:%d"), &a[0], &a[1])
-            || 2 == _stscanf_s(strInput[i], _T("%d,%d"), &a[0], &a[1])) {
-            input->dstWidth  = a[0];
-            input->dstHeight = a[1];
-        } else {
-            print_cmd_error_invalid_value(option_name, strInput[i]);
-            return 1;
+
+        const auto paramList = std::vector<std::string>{ "preserve_aspect_ratio" };
+
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("preserve_aspect_ratio")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_resize_res_mode, param_val.c_str(), &value)) {
+                        inprm->resizeResMode = (RGYResizeResMode)value;
+                        continue;
+                    } else {
+                        print_cmd_error_invalid_value(option_name, strInput[i], list_vpp_resize_res_mode);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                int a[2] = { 0 };
+                if (   2 == _stscanf_s(strInput[i], _T("%dx%d"), &a[0], &a[1])
+                    || 2 == _stscanf_s(strInput[i], _T("%d:%d"), &a[0], &a[1])) {
+                    input->dstWidth  = a[0];
+                    input->dstHeight = a[1];
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
         }
         return 0;
     }
@@ -2902,8 +3339,50 @@ int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], in
     return -1;
 }
 
+int parse_log_level_param(const TCHAR *option_name, const TCHAR *arg_value, RGYParamLogLevel& loglevel) {
+    std::vector<std::string> paramList;
+    for (const auto& param : RGY_LOG_TYPE_STR) {
+        paramList.push_back(tchar_to_string(param.second));
+    }
+
+    for (const auto &param : split(arg_value, _T(","))) {
+        auto pos = param.find_first_of(_T("="));
+        if (pos != std::string::npos) {
+            auto param_arg = param.substr(0, pos);
+            auto param_val = param.substr(pos + 1);
+            param_arg = tolowercase(param_arg);
+            int value = 0;
+            if (get_list_value(list_log_level, param_val.c_str(), &value)) {
+                auto type_ret = std::find_if(RGY_LOG_TYPE_STR.begin(), RGY_LOG_TYPE_STR.end(), [param_arg](decltype(RGY_LOG_TYPE_STR[0])& type) {
+                    return param_arg == type.second;
+                    });
+                if (type_ret != RGY_LOG_TYPE_STR.end()) {
+                    loglevel.set((RGYLogLevel)value, type_ret->first);
+                    continue;
+                } else {
+                    print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                    return 1;
+                }
+            } else {
+                print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_log_level);
+                return 1;
+            }
+        } else {
+            int value = 0;
+            if (get_list_value(list_log_level, param.c_str(), &value)) {
+                loglevel.set((RGYLogLevel)value, RGY_LOGT_ALL);
+                continue;
+            } else {
+                print_cmd_error_invalid_value(option_name, arg_value, list_log_level);
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
 int parse_one_audio_param(AudioSelect& chSel, const tstring& str, const TCHAR *option_name) {
-    const auto paramList = std::vector<std::string>{ "codec", "bitrate", "samplerate", "profile", "filter", "enc_prm", "copy", "disposition", "delay", "metadata" };
+    const auto paramList = std::vector<std::string>{ "codec", "bitrate", "samplerate", "delay", "profile", "disposition", "filter", "dec_prm", "enc_prm", "lang", "select-codec", "metadata", "bsf", "copy" };
     for (const auto &param : split(str, _T(";"))) {
         auto pos = param.find_first_of(_T("="));
         if (pos != std::string::npos) {
@@ -2938,6 +3417,8 @@ int parse_one_audio_param(AudioSelect& chSel, const tstring& str, const TCHAR *o
                 chSel.disposition = param_val;
             } else if (param_arg == _T("filter")) {
                 chSel.filter = param_val;
+            } else if (param_arg == _T("dec_prm")) {
+                chSel.decCodecPrm = param_val;
             } else if (param_arg == _T("enc_prm")) {
                 chSel.encCodecPrm = param_val;
             } else if (param_arg == _T("lang")) {
@@ -2969,7 +3450,7 @@ int parse_one_audio_param(AudioSelect& chSel, const tstring& str, const TCHAR *o
 }
 
 int parse_one_subtitle_param(SubtitleSelect& chSel, const tstring& str, const TCHAR *option_name) {
-    const auto paramList = std::vector<std::string>{ "codec", "metadata", "enc_prm", "copy", "disposition" };
+    const auto paramList = std::vector<std::string>{ "codec", "dec_prm", "enc_prm", "disposition", "select-codec", "metadata", "lang", "bsf", "copy", "asdata" };
     for (const auto &param : split(str, _T(";"))) {
         auto pos = param.find_first_of(_T("="));
         if (pos != std::string::npos) {
@@ -2977,6 +3458,8 @@ int parse_one_subtitle_param(SubtitleSelect& chSel, const tstring& str, const TC
             auto param_val = param.substr(pos + 1);
             if (param_arg == _T("codec")) {
                 chSel.encCodec = param_val;
+            } else if (param_arg == _T("dec_prm")) {
+                chSel.decCodecPrm = param_val;
             } else if (param_arg == _T("enc_prm")) {
                 chSel.encCodecPrm = param_val;
             } else if (param_arg == _T("disposition")) {
@@ -2985,6 +3468,8 @@ int parse_one_subtitle_param(SubtitleSelect& chSel, const tstring& str, const TC
                 chSel.selectCodec = tchar_to_string(param_val);
             } else if (param_arg == _T("metadata")) {
                 chSel.metadata.push_back(param_val);
+            } else if (param_arg == _T("lang")) {
+                chSel.lang = tchar_to_string(param_val);
             } else if (param_arg == _T("bsf")) {
                 chSel.bsf = param_val;
             } else {
@@ -2998,6 +3483,8 @@ int parse_one_subtitle_param(SubtitleSelect& chSel, const tstring& str, const TC
         } else {
             if (param == _T("copy")) {
                 chSel.encCodec = RGY_AVCODEC_COPY;
+            } else if (param == _T("asdata")) {
+                chSel.asdata = true;
             } else {
                 print_cmd_error_unknown_opt_param(option_name, param, paramList);
                 return 1;
@@ -3128,7 +3615,8 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
-    if (IS_OPTION("seek")) {
+    if (IS_OPTION("seek") || IS_OPTION("seekto")) {
+        const bool seekTo = IS_OPTION("seekto");
         i++;
         int ret = 0;
         int hh = 0, mm = 0;
@@ -3158,7 +3646,11 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        common->seekSec = sec + mm * 60;
+        if (seekTo) {
+            common->seekToSec = sec + mm * 60;
+        } else {
+            common->seekSec = sec + mm * 60;
+        }
         return 0;
     }
 #if ENABLE_AVSW_READER && !FOR_AUO
@@ -3184,8 +3676,22 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             return 0;
         }
         src.filename = tstring(strInput[i]).substr(0, qtr - ptr);
-        auto channel_select_list = split(qtr+1, _T(":"));
-        for (auto channel : channel_select_list) {
+        auto channel_select_list = split(qtr+1, _T("/"));
+        for (size_t ichannel = 0; ichannel < channel_select_list.size(); ichannel++) {
+            auto& channel = channel_select_list[ichannel];
+            {
+                auto option_split = channel.find(_T('='));
+                if (option_split != std::string::npos) {
+                    if (channel.substr(0, option_split) == _T("format")) {
+                        src.format = channel.substr(option_split + 1);
+                        continue;
+                    } else if (channel.substr(0, option_split) == _T("input_opt")) {
+                        src.inputOpt.push_back(std::make_pair<tstring, tstring>(tstring(channel.substr(option_split + 1)), tstring(channel_select_list[ichannel + 1])));
+                        ichannel++;
+                        continue;
+                    }
+                }
+            }
             int trackId = 0;
             auto channel_id_split = channel.find(_T('?'));
             if (channel_id_split != std::string::npos) {
@@ -3445,7 +3951,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                     if (rgy_lang_exist(tempc)) {
                         trackId = TRACK_SELECT_BY_LANG;
                         lang = tempc;
-                    } else if (avcodec_exists(tempc), AVMEDIA_TYPE_DATA) {
+                    } else if (avcodec_exists(tempc, AVMEDIA_TYPE_DATA)) {
                         trackId = TRACK_SELECT_BY_CODEC;
                         selectCodec = tempc;
                     }
@@ -3499,15 +4005,17 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             auto trackListStr = split(strInput[i], _T(","));
             for (auto str : trackListStr) {
                 int iTrack = 0;
-                if (1 == _stscanf(str.c_str(), _T("%d"), &iTrack) || iTrack < 1) {
-                    trackSet.insert(std::make_pair(iTrack, ""));
-                } else if (rgy_lang_exist(tchar_to_string(str))) {
-                    trackSet.insert(std::make_pair(TRACK_SELECT_BY_LANG, tchar_to_string(str)));
-                } else if (avcodec_exists(tchar_to_string(str), AVMEDIA_TYPE_AUDIO)) {
-                    trackSet.insert(std::make_pair(TRACK_SELECT_BY_CODEC, tchar_to_string(str)));
+                if (1 != _stscanf(str.c_str(), _T("%d"), &iTrack) || iTrack < 1) {
+                    if (rgy_lang_exist(tchar_to_string(str))) {
+                        trackSet.insert(std::make_pair(TRACK_SELECT_BY_LANG, tchar_to_string(str)));
+                    } else if (avcodec_exists(tchar_to_string(str), AVMEDIA_TYPE_AUDIO)) {
+                        trackSet.insert(std::make_pair(TRACK_SELECT_BY_CODEC, tchar_to_string(str)));
+                    } else {
+                        print_cmd_error_invalid_value(option_name, strInput[i]);
+                        return 1;
+                    }
                 } else {
-                    print_cmd_error_invalid_value(option_name, strInput[i]);
-                    return 1;
+                    trackSet.insert(std::make_pair(iTrack, ""));
                 }
             }
         } else {
@@ -3914,9 +4422,24 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             return 0;
         }
         src.filename = tstring(strInput[i]).substr(0, qtr - ptr);
-        const auto paramList = std::vector<std::string>{ "codec", "enc_prm", "copy", "disposition", "select-codec" };
-        auto channel_select_list = split(qtr+1, _T(":"));
-        for (auto channel : channel_select_list) {
+        const auto paramList = std::vector<std::string>{ "codec", "enc_prm", "copy", "disposition", "select-codec", "bsf" };
+        auto channel_select_list = split(qtr+1, _T("/"));
+
+        for (size_t ichannel = 0; ichannel < channel_select_list.size(); ichannel++) {
+            auto& channel = channel_select_list[ichannel];
+            {
+                auto option_split = channel.find(_T('='));
+                if (option_split != std::string::npos) {
+                    if (channel.substr(0, option_split) == _T("format")) {
+                        src.format = channel.substr(option_split + 1);
+                        continue;
+                    } else if (channel.substr(0, option_split) == _T("input_opt")) {
+                        src.inputOpt.push_back(std::make_pair<tstring, tstring>(tstring(channel.substr(option_split + 1)), tstring(channel_select_list[ichannel + 1])));
+                        ichannel++;
+                        continue;
+                    }
+                }
+            }
             int trackId = 0;
             auto channel_id_split = channel.find(_T('?'));
             if (channel_id_split != std::string::npos) {
@@ -3987,7 +4510,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                         auto track = std::make_pair(TRACK_SELECT_BY_LANG, tchar_to_string(str));
                         trackSet[track].trackID = TRACK_SELECT_BY_LANG;
                         trackSet[track].lang = tchar_to_string(str);
-                    } else if (avcodec_exists(tchar_to_string(str)), AVMEDIA_TYPE_DATA) {
+                    } else if (avcodec_exists(tchar_to_string(str), AVMEDIA_TYPE_DATA)) {
                         auto track = std::make_pair(TRACK_SELECT_BY_CODEC, tchar_to_string(str));
                         trackSet[track].trackID = TRACK_SELECT_BY_CODEC;
                         trackSet[track].selectCodec = tchar_to_string(str);
@@ -4053,7 +4576,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
     }
     if (IS_OPTION("attachment-copy")) {
-        common->AVMuxTarget |= (RGY_MUX_VIDEO | RGY_MUX_SUBTITLE);
+        common->AVMuxTarget |= RGY_MUX_VIDEO;
         std::map<int, DataSelect> trackSet; //重複しないように
         if (i + 1 < nArgNum && (strInput[i + 1][0] != _T('-') && strInput[i + 1][0] != _T('\0'))) {
             i++;
@@ -4090,6 +4613,52 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                 common->nAttachmentSelectCount++;
             }
         }
+        return 0;
+    }
+    if (IS_OPTION("attachment-source")) {
+        i++;
+        common->AVMuxTarget |= RGY_MUX_VIDEO;
+        SubSource src;
+        const TCHAR *ptr = strInput[i];
+        const TCHAR *qtr = _tcsrchr(ptr, _T(':'));
+#if defined(_WIN32) || defined(_WIN64)
+        if (qtr
+            && (qtr - ptr == 1 || qtr - ptr == 2)
+            && qtr[1] == _T('\\')
+            && _istalpha(qtr[-1])
+            && (qtr - ptr == 1 || qtr[-2] == _T('\"'))) {
+            qtr = _tcsrchr(qtr + 1, _T(':'));
+        }
+#endif
+        if (qtr == nullptr) {
+            src.filename = strInput[i];
+            src.select[0].encCodec = RGY_AVCODEC_COPY;
+            common->attachmentSource.push_back(src);
+            return 0;
+        }
+        src.filename = tstring(strInput[i]).substr(0, qtr - ptr);
+        auto channel_select_list = split(qtr + 1, _T(":"));
+        for (auto channel : channel_select_list) {
+            int trackId = 0;
+            auto channel_id_split = channel.find(_T('?'));
+            if (channel_id_split != std::string::npos) {
+                try {
+                    trackId = std::stoi(channel.substr(0, channel_id_split));
+                } catch (...) {
+                    print_cmd_error_invalid_value(option_name, strInput[i], _T("invalid track ID."));
+                    return 1;
+                }
+                channel = channel.substr(channel_id_split + 1);
+            }
+            SubtitleSelect &chSel = src.select[trackId];
+            chSel.trackID = trackId;
+            int ret = parse_one_subtitle_param(chSel, channel, option_name);
+            if (ret != 0) return ret;
+            if (chSel.encCodec.length() == 0) {
+                chSel.encCodec = RGY_AVCODEC_COPY;
+            }
+        }
+        common->attachmentSource.push_back(src);
         return 0;
     }
 #endif //#if ENABLE_AVSW_READER
@@ -4246,7 +4815,6 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
-#if ENABLE_DHDR10_INFO
     if (IS_OPTION("dhdr10-info")) {
         i++;
         if (strInput[i] == tstring(_T("copy"))) {
@@ -4256,7 +4824,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
-#endif //#if ENABLE_DHDR10_INFO
+#if ENABLE_DOVI_METADATA_OPTIONS
     if (IS_OPTION("dolby-vision-profile")) {
         i++;
         int value = 0;
@@ -4275,6 +4843,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         common->doviRpuFile = strInput[i];
         return 0;
     }
+#endif //#if ENABLE_DOVI_METADATA_OPTIONS
     if (IS_OPTION("timecode")) {
         common->timecode = true;
         if (i + 1 < nArgNum && strInput[i+1][0] != _T('-')) {
@@ -4291,6 +4860,47 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
+    if (IS_OPTION("tcfile-in")) {
+        i++;
+        common->tcfileIn = strInput[i];
+        return 0;
+    }
+    if (IS_OPTION("timebase")) {
+        i++;
+        int a[2] = { 0 };
+        if (   2 == _stscanf_s(strInput[i], _T("%d/%d"), &a[0], &a[1])
+            || 2 == _stscanf_s(strInput[i], _T("%d:%d"), &a[0], &a[1])
+            || 2 == _stscanf_s(strInput[i], _T("%d,%d"), &a[0], &a[1])) {
+            common->timebase = rgy_rational<int>(a[0], a[1]);
+        } else {
+            double d = 0.0;
+            if (1 == _stscanf_s(strInput[i], _T("%lf"), &d)) {
+                int rate = (int)(d * 1001.0 + 0.5);
+                if (rate % 1000 == 0) {
+                    common->timebase = rgy_rational<int>(rate, 1001);
+                } else {
+                    common->timebase = rgy_rational<int>((int)(d * 100000 + 0.5), 100000);
+                }
+            } else {
+                print_cmd_error_invalid_value(option_name, strInput[i]);
+                return 1;
+            }
+        }
+        return 0;
+    }
+    if (IS_OPTION("input-hevc-bsf")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_hevc_bsf_mode, strInput[i], &value)) {
+            common->hevcbsf = (RGYHEVCBsf)value;
+        }
+        else {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_hevc_bsf_mode);
+            return -1;
+        }
+        return 0;
+    }
+#if !ENCODER_MPP
     if (IS_OPTION("ssim")) {
         common->metric.ssim = true;
         return 0;
@@ -4307,6 +4917,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         common->metric.psnr = false;
         return 0;
     }
+#endif
 #if ENABLE_VMAF
     if (IS_OPTION("no-vmaf")) {
         common->metric.vmaf.enable = false;
@@ -4393,6 +5004,35 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         return 0;
     }
 #endif
+    if (IS_OPTION("disable-av1-write-parser")) {
+        common->debugDirectAV1Out = true;
+        return 0;
+    }
+    if (IS_OPTION("debug-raw-out")) {
+        common->debugRawOut = true;
+        return 0;
+    }
+    if (IS_OPTION("allow-other-negative-pts")) {
+        common->allowOtherNegativePts = true;
+        return 0;
+    }
+    if (IS_OPTION("out-replay")) {
+        i++;
+        common->outReplayFile = strInput[i];
+        return 0;
+    }
+    if (IS_OPTION("out-replay-codec")) {
+        i++;
+        int value = 0;
+        if (get_list_value(list_rgy_codec, strInput[i], &value)) {
+            common->outReplayCodec = (RGY_CODEC)value;
+        }
+        else {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_rgy_codec);
+            return 1;
+        }
+        return 0;
+    }
     return -10;
 }
 
@@ -4471,46 +5111,7 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
             return 0;
         }
         i++;
-
-        std::vector<std::string> paramList;
-        for (const auto& param : RGY_LOG_TYPE_STR) {
-            paramList.push_back(tchar_to_string(param.second));
-        }
-
-        for (const auto &param : split(strInput[i], _T(","))) {
-            auto pos = param.find_first_of(_T("="));
-            if (pos != std::string::npos) {
-                auto param_arg = param.substr(0, pos);
-                auto param_val = param.substr(pos + 1);
-                param_arg = tolowercase(param_arg);
-                int value = 0;
-                if (get_list_value(list_log_level, param_val.c_str(), &value)) {
-                    auto type_ret = std::find_if(RGY_LOG_TYPE_STR.begin(), RGY_LOG_TYPE_STR.end(), [param_arg](decltype(RGY_LOG_TYPE_STR[0])& type) {
-                        return param_arg == type.second;
-                    });
-                    if (type_ret != RGY_LOG_TYPE_STR.end()) {
-                        ctrl->loglevel.set((RGYLogLevel)value, type_ret->first);
-                        continue;
-                    } else {
-                        print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
-                        return 1;
-                    }
-                } else {
-                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_log_level);
-                    return 1;
-                }
-            } else {
-                int value = 0;
-                if (get_list_value(list_log_level, param.c_str(), &value)) {
-                    ctrl->loglevel.set((RGYLogLevel)value, RGY_LOGT_ALL);
-                    continue;
-                } else {
-                    print_cmd_error_invalid_value(option_name, strInput[i], list_log_level);
-                    return 1;
-                }
-            }
-        }
-        return 0;
+        return parse_log_level_param(option_name, strInput[i], ctrl->loglevel);
     }
     if (IS_OPTION("log-framelist")) {
         ctrl->logFramePosList = true;
@@ -4582,8 +5183,8 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        if (value < -1 || value >= 3) {
-            print_cmd_error_invalid_value(option_name, strInput[i], _T("shoule be in range: 0 - 2"));
+        if (value < -1 || value >= 4) {
+            print_cmd_error_invalid_value(option_name, strInput[i], _T("shoule be in range: 0 - 3"));
             return 1;
         }
         ctrl->threadAudio = value;
@@ -4932,6 +5533,10 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         }
         return 0;
     }
+    if (IS_OPTION("skip-hwenc-check")) {
+        ctrl->skipHWEncodeCheck = true;
+        return 0;
+    }
     if (IS_OPTION("skip-hwdec-check")) {
         ctrl->skipHWDecodeCheck = true;
         return 0;
@@ -4953,7 +5558,7 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         return 0;
     }
 #endif //#if defined(_WIN32) || defined(_WIN64)
-#if ENCODER_QSV || ENCODER_VCEENC
+#if ENCODER_QSV || ENCODER_VCEENC || ENCODER_MPP
     if (IS_OPTION("disable-opencl")) {
         ctrl->enableOpenCL = false;
         return 0;
@@ -4980,13 +5585,20 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
 
 #define ADD_FLOAT(str, opt, prec) if ((param->opt) != (defaultPrm->opt)) tmp << _T(",") << (str) << _T("=") << std::setprecision(prec) << (param->opt);
 #define ADD_NUM(str, opt) if ((param->opt) != (defaultPrm->opt)) tmp << _T(",") << (str) << _T("=") << (param->opt);
-#define ADD_LST(str, opt, list) if ((param->opt) != (defaultPrm->opt)) tmp << _T(",") << (str) << _T("=") << get_chr_from_value(list, (param->opt));
+#define ADD_LST(str, opt, list) if ((param->opt) != (defaultPrm->opt)) tmp << _T(",") << (str) << _T("=") << get_chr_from_value(list, (int)(param->opt));
 #define ADD_BOOL(str, opt) if ((param->opt) != (defaultPrm->opt)) tmp << _T(",") << (str) << _T("=") << ((param->opt) ? (_T("true")) : (_T("false")));
 #define ADD_CHAR(str, opt) if ((param->opt) && _tcslen(param->opt)) tmp << _T(",") << (str) << _T("=") << (param->opt);
 #define ADD_PATH(str, opt) if ((param->opt) && _tcslen(param->opt)) tmp << _T(",") << (str) << _T("=\"") << (param->opt) << _T("\"");
 #define ADD_STR(str, opt) if (param->opt.length() > 0) tmp << _T(",") << (str) << _T("=") << (param->opt.c_str());
 
-tstring gen_cmd(const VideoInfo *param, const VideoInfo *defaultPrm, bool save_disabled_prm) {
+#define ADD_FLOAT2(str, prm, def, opt, prec) if ((prm.opt) != (def.opt)) tmp << _T(",") << (str) << _T("=") << std::setprecision(prec) << (prm.opt);
+#define ADD_NUM2(str, prm, def, opt) if ((prm.opt) != (def.opt)) tmp << _T(",") << (str) << _T("=") << (prm.opt);
+#define ADD_LST2(str, prm, def, opt, list) if ((prm.opt) != (def.opt)) tmp << _T(",") << (str) << _T("=") << get_chr_from_value(list, (int)(prm.opt));
+#define ADD_BOOL2(str, prm, def, opt) if ((prm.opt) != (def.opt)) tmp << _T(",") << (str) << _T("=") << ((prm.opt) ? (_T("true")) : (_T("false")));
+#define ADD_PATH2(str, prm, opt) if ((prm.opt) && _tcslen(prm.opt)) tmp << _T(",") << (str) << _T("=\"") << (prm.opt) << _T("\"");
+#define ADD_STR2(str, prm, opt) if (prm.opt.length() > 0) tmp << _T(",") << (str) << _T("=") << (prm.opt.c_str());
+
+tstring gen_cmd(const VideoInfo *param, const VideoInfo *defaultPrm, const RGYParamInput *inprm, const RGYParamInput *inprmDefault, bool save_disabled_prm) {
     std::basic_stringstream<TCHAR> cmd;
     switch (param->type) {
     case RGY_INPUT_FMT_RAW:    cmd << _T(" --raw"); break;
@@ -5009,6 +5621,9 @@ tstring gen_cmd(const VideoInfo *param, const VideoInfo *defaultPrm, bool save_d
         cmd << _T(" --crop ") << param->crop.e.left << _T(",") << param->crop.e.up
             << _T(",") << param->crop.e.right << _T(",") << param->crop.e.bottom;
     }
+    if (param->frames > 0) {
+        cmd << _T(" --frames ") << param->frames;
+    }
     if (param->fpsN * param->fpsD > 0) {
         cmd << _T(" --fps ") << param->fpsN << _T("/") << param->fpsD;
     }
@@ -5017,6 +5632,9 @@ tstring gen_cmd(const VideoInfo *param, const VideoInfo *defaultPrm, bool save_d
     }
     if (param->dstWidth * param->dstHeight != 0) {
         cmd << _T(" --output-res ") << param->dstWidth << _T("x") << param->dstHeight;
+        if (inprm->resizeResMode != inprmDefault->resizeResMode) {
+            cmd << _T(",preserve_aspect_ratio=") << get_chr_from_value(list_vpp_resize_res_mode, (int)(inprm->resizeResMode));
+        }
     }
     return cmd.str();
 }
@@ -5076,6 +5694,8 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
                 }
                 ADD_BOOL(_T("approx_gamma"), colorspace.convs[i].approx_gamma);
                 ADD_BOOL(_T("scene_ref"), colorspace.convs[i].scene_ref);
+                ADD_PATH(_T("lut3d"), colorspace.lut3d.table_file.c_str());
+                ADD_LST(_T("lut3d_interp"), colorspace.lut3d.interp, list_vpp_colorspace_lut3d_interp);
                 ADD_LST(_T("hdr2sdr"), colorspace.hdr2sdr.tonemap, list_vpp_hdr2sdr);
                 ADD_FLOAT(_T("ldr_nits"), colorspace.hdr2sdr.ldr_nits, 1);
                 ADD_FLOAT(_T("source_peak"), colorspace.hdr2sdr.hdr_source_peak, 1);
@@ -5115,7 +5735,11 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_NUM(_T("y"),  delogo.Y);
             ADD_NUM(_T("cb"), delogo.Cb);
             ADD_NUM(_T("cr"), delogo.Cr);
-            ADD_BOOL(_T("add"), delogo.mode);
+            if (param->delogo.mode == DELOGO_MODE_ADD) {
+                ADD_BOOL(_T("add"), delogo.mode);
+            } else if (param->delogo.mode == DELOGO_MODE_ADD_MULTI) {
+                ADD_BOOL(_T("multi_add"), delogo.mode);
+            }
             ADD_BOOL(_T("auto_fade"), delogo.autoFade);
             ADD_BOOL(_T("auto_nr"), delogo.autoNR);
             ADD_NUM(_T("nr_area"), delogo.NRArea);
@@ -5201,6 +5825,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
         }
         if (param->decimate.enable || save_disabled_prm) {
             ADD_NUM(_T("cycle"), decimate.cycle);
+            ADD_NUM(_T("drop"), decimate.drop);
             ADD_FLOAT(_T("thredup"), decimate.threDuplicate, 3);
             ADD_FLOAT(_T("thresc"), decimate.threSceneChange, 2);
             ADD_LST(_T("blockx"), decimate.blockX, list_vpp_decimate_block);
@@ -5257,6 +5882,25 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-pad ") << tmp.str().substr(1);
         } else if (param->pad.enable) {
             cmd << _T(" --vpp-pad");
+        }
+    }
+    if (param->convolution3d != defaultPrm->convolution3d) {
+        tmp.str(tstring());
+        if (!param->convolution3d.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->convolution3d.enable || save_disabled_prm) {
+            ADD_LST(_T("matrix"),    convolution3d.matrix, list_vpp_convolution3d_matrix);
+            ADD_BOOL(_T("fast"),     convolution3d.fast);
+            ADD_NUM(_T("ythresh"),   convolution3d.threshYspatial);
+            ADD_NUM(_T("cthresh"),   convolution3d.threshCspatial);
+            ADD_NUM(_T("t_ythresh"), convolution3d.threshYtemporal);
+            ADD_NUM(_T("t_cthresh"), convolution3d.threshCtemporal);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-convolution3d ") << tmp.str().substr(1);
+        } else if (param->convolution3d.enable) {
+            cmd << _T(" --vpp-convolution3d");
         }
     }
     if (param->knn != defaultPrm->knn) {
@@ -5316,23 +5960,25 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
         }
     }
     for (size_t i = 0; i < param->subburn.size(); i++) {
-        if (param->subburn[i] != VppSubburn()) {
+        const auto subburnDefault = VppSubburn();
+        if (param->subburn[i] != subburnDefault) {
             tmp.str(tstring());
             if (!param->subburn[i].enable && save_disabled_prm) {
                 tmp << _T(",enable=false");
             }
             if (param->subburn[i].enable || save_disabled_prm) {
-                ADD_NUM(_T("track"), subburn[i].trackId);
-                ADD_PATH(_T("filename"), subburn[i].filename.c_str());
-                ADD_STR(_T("charcode"), subburn[i].charcode);
-                ADD_LST(_T("shaping"), subburn[i].assShaping, list_vpp_ass_shaping);
-                ADD_FLOAT(_T("scale"), subburn[i].scale, 4);
-                ADD_FLOAT(_T("transparency"), subburn[i].transparency_offset, 4);
-                ADD_FLOAT(_T("brightness"), subburn[i].brightness, 4);
-                ADD_FLOAT(_T("contrast"), subburn[i].contrast, 4);
-                ADD_BOOL(_T("vid_ts_offset"), subburn[i].vid_ts_offset);
-                ADD_FLOAT(_T("ts_offset"), subburn[i].ts_offset, 4);
-                ADD_PATH(_T("fontsdir"), subburn[i].fontsdir.c_str());
+                ADD_NUM2(_T("track"), param->subburn[i], subburnDefault, trackId);
+                ADD_PATH2(_T("filename"), param->subburn[i], filename.c_str());
+                ADD_STR2(_T("charcode"), param->subburn[i], charcode);
+                ADD_LST2(_T("shaping"), param->subburn[i], subburnDefault, assShaping, list_vpp_ass_shaping);
+                ADD_FLOAT2(_T("scale"), param->subburn[i], subburnDefault, scale, 4);
+                ADD_FLOAT2(_T("transparency"), param->subburn[i], subburnDefault, transparency_offset, 4);
+                ADD_FLOAT2(_T("brightness"), param->subburn[i], subburnDefault, brightness, 4);
+                ADD_FLOAT2(_T("contrast"), param->subburn[i], subburnDefault, contrast, 4);
+                ADD_BOOL2(_T("vid_ts_offset"), param->subburn[i], subburnDefault, vid_ts_offset);
+                ADD_FLOAT2(_T("ts_offset"), param->subburn[i], subburnDefault, ts_offset, 4);
+                ADD_PATH2(_T("fontsdir"), param->subburn[i], fontsdir.c_str());
+                ADD_BOOL2(_T("forced_subs_only"), param->subburn[i], subburnDefault, forced_subs_only);
             }
             if (!tmp.str().empty()) {
                 cmd << _T(" --vpp-subburn ") << tmp.str().substr(1);
@@ -5390,6 +6036,24 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-warpsharp ") << tmp.str().substr(1);
         } else if (param->warpsharp.enable) {
             cmd << _T(" --vpp-warpsharp");
+        }
+    }
+    if (param->curves != defaultPrm->curves) {
+        tmp.str(tstring());
+        if (!param->curves.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->curves.enable || save_disabled_prm) {
+            ADD_LST(_T("preset"), curves.preset, list_vpp_curves_preset);
+            ADD_STR(_T("r"), curves.prm.r);
+            ADD_STR(_T("g"), curves.prm.g);
+            ADD_STR(_T("b"), curves.prm.b);
+            ADD_STR(_T("all"), curves.all);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-curves ") << tmp.str().substr(1);
+        } else if (param->curves.enable) {
+            cmd << _T(" --vpp-curves");
         }
     }
     if (param->tweak != defaultPrm->tweak) {
@@ -5461,6 +6125,37 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-deband");
         }
     }
+    for (size_t i = 0; i < param->overlay.size(); i++) {
+        const auto overlayDefault = VppOverlay();
+        if (param->overlay[i] != overlayDefault) {
+            tmp.str(tstring());
+            if (!param->overlay[i].enable && save_disabled_prm) {
+                tmp << _T(",enable=false");
+            }
+            if (param->overlay[i].enable || save_disabled_prm) {
+                ADD_PATH(_T("file"), overlay[i].inputFile.c_str());
+                if (   param->overlay[i].posX != overlayDefault.posX
+                    || param->overlay[i].posY != overlayDefault.posY) {
+                    tmp << _T(",pos=") << param->overlay[i].posX << _T("x") << param->overlay[i].posY;
+                }
+                if (   param->overlay[i].width  != overlayDefault.width
+                    || param->overlay[i].height != overlayDefault.height) {
+                    tmp << _T(",size=") << param->overlay[i].width << _T("x") << param->overlay[i].height;
+                }
+                ADD_FLOAT2(_T("alpha"), param->overlay[i], overlayDefault, alpha, 3);
+                ADD_LST2(_T("alpha_mode"), param->overlay[i], overlayDefault, alphaMode, list_vpp_overlay_alpha_mode);
+                ADD_FLOAT2(_T("lumakey_threshold"), param->overlay[i], overlayDefault, lumaKey.threshold, 3);
+                ADD_FLOAT2(_T("lumakey_tolerance"), param->overlay[i], overlayDefault, lumaKey.tolerance, 3);
+                ADD_FLOAT2(_T("lumakey_shoftness"), param->overlay[i], overlayDefault, lumaKey.shoftness, 3);
+                ADD_BOOL2(_T("loop"), param->overlay[i], overlayDefault, loop);
+            }
+            if (!tmp.str().empty()) {
+                cmd << _T(" --vpp-overlay ") << tmp.str().substr(1);
+            } else if (param->deband.enable) {
+                cmd << _T(" --vpp-overlay");
+            }
+        }
+    }
     OPT_BOOL(_T("--vpp-perf-monitor"), _T("--no-vpp-perf-monitor"), checkPerformance);
     return cmd.str();
 }
@@ -5484,6 +6179,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
         }
     }
     OPT_FLOAT(_T("--seek"), seekSec, 2);
+    OPT_FLOAT(_T("--seekto"), seekToSec, 2);
     OPT_TCHAR(_T("--input-format"), AVInputFormat);
     OPT_TSTR(_T("--output-format"), muxOutputFormat);
     OPT_STR(_T("--video-tag"), videoCodecTag);
@@ -5618,8 +6314,18 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     for (const auto &src : param->audioSource) {
         if (src.filename.length() > 0) {
             cmd << _T(" --audio-source ") << _T("\"") << src.filename << _T("\"");
-            for (const auto &channel : src.select) {
-                cmd << _T(":");
+            auto source_delim = _T(":");
+            if (src.format.length() > 0) {
+                cmd << source_delim << _T("format=") << src.format;
+                source_delim = _T("/");
+            }
+            for (auto& opt : src.inputOpt) {
+                cmd << source_delim << _T("input_opt=") << opt.first << _T("=") << opt.second;
+                source_delim = _T("/");
+            }
+            for (const auto& channel : src.select) {
+                cmd << source_delim;
+                source_delim = _T("/");
                 if (channel.first == TRACK_SELECT_BY_LANG) {
                     cmd << char_to_tstring(channel.second.lang) << _T("?");
                 } else if (channel.first > 0) {
@@ -5639,8 +6345,11 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
                     if (sel.addDelayMs > 0) {
                         tmp << _T(";delay=") << sel.addDelayMs;
                     }
+                    if (sel.decCodecPrm.length() > 0) {
+                        tmp << _T(";dec_prm=") << sel.decCodecPrm;
+                    }
                     if (sel.encCodecPrm.length() > 0) {
-                        tmp << _T(";prm=") << sel.encCodecPrm;
+                        tmp << _T(";enc_prm=") << sel.encCodecPrm;
                     }
                     if (sel.encCodecProfile.length() > 0) {
                         tmp << _T(";profile=") << sel.encCodecProfile;
@@ -5692,8 +6401,18 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     for (const auto &src : param->subSource) {
         if (src.filename.length() > 0) {
             cmd << _T(" --sub-source ") << _T("\"") << src.filename << _T("\"");
-            for (const auto &channel : src.select) {
-                cmd << _T(":");
+            auto source_delim = _T(":");
+            if (src.format.length() > 0) {
+                cmd << source_delim << _T("format=") << src.format;
+                source_delim = _T("/");
+            }
+            for (auto& opt : src.inputOpt) {
+                cmd << source_delim << _T("input_opt=") << opt.first << _T("=") << opt.second;
+                source_delim = _T("/");
+            }
+            for (const auto& channel : src.select) {
+                cmd << source_delim;
+                source_delim = _T("/");
                 if (channel.first == TRACK_SELECT_BY_LANG) {
                     cmd << char_to_tstring(channel.second.lang) << _T("?");
                 } else if (channel.first > 0) {
@@ -5759,6 +6478,22 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     }
     tmp.str(tstring());
 
+    for (const auto &src : param->attachmentSource) {
+        if (src.filename.length() > 0) {
+            cmd << _T(" --attachment-source ") << _T("\"") << src.filename << _T("\"");
+            for (const auto &channel : src.select) {
+                cmd << _T(":");
+                tmp.str(tstring());
+                for (const auto& metadata : channel.second.metadata) {
+                    tmp << _T(";metadata=") << metadata;
+                }
+                if (!tmp.str().empty()) {
+                    cmd << tmp.str().substr(1);
+                }
+            }
+        }
+    }
+
     OPT_STR_PATH(_T("--chapter"), chapterFile);
     OPT_BOOL(_T("--chapter-copy"), _T(""), copyChapter);
     OPT_BOOL(_T("--chapter-no-trim"), _T(""), chapterNoTrim);
@@ -5780,13 +6515,11 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     OPT_STR(_T("--max-cll"), maxCll);
     OPT_STR(_T("--master-display"), masterDisplay);
     OPT_LST(_T("--atc-sei"), atcSei, list_transfer);
-#if ENABLE_DHDR10_INFO
     if (param->hdr10plusMetadataCopy) {
         cmd << _T("--dhdr10-info copy");
     } else {
         OPT_TSTR(_T("--dhdr10-info"), dynamicHdr10plusJson);
     }
-#endif //#if ENABLE_DHDR10_INFO
     OPT_LST(_T("--dolby-vision-profile"), doviProfile, list_dovi_profile);
     OPT_STR_PATH(_T("--dolby-vision-rpu"), doviRpuFile);
     if (param->timecode || param->timecodeFile.length() > 0) {
@@ -5794,6 +6527,12 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
         if (param->timecodeFile.length() > 0) {
             cmd << param->timecodeFile;
         }
+    }
+
+    OPT_LST(_T("--input-hevc-bsf"), hevcbsf, list_hevc_bsf_mode);
+    OPT_STR_PATH(_T("--tcfile-in"), tcfileIn);
+    if (param->timebase != defaultPrm->timebase) {
+        cmd << _T("--timebase ") << param->timebase.n() << _T("/") << param->timebase.d();
     }
 
     OPT_BOOL(_T("--ssim"), _T("--no-ssim"), metric.ssim);
@@ -5815,6 +6554,9 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
             cmd << _T(" --vmaf ") << tmp.str().substr(1);
         }
     }
+    OPT_BOOL(_T("--allow-other-negative-pts"), _T(""), allowOtherNegativePts);
+    OPT_BOOL(_T("--disable-av1-write-parser"), _T("--no-disable-av1-write-parser"), debugDirectAV1Out);
+    OPT_BOOL(_T("--debug-raw-out"), _T("--no-debug-raw-out"), debugRawOut);
     return cmd.str();
 }
 
@@ -5851,6 +6593,7 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
     OPT_BOOL(_T("--log-framelist"), _T(""), logFramePosList);
     OPT_BOOL(_T("--log-packets"), _T(""), logPacketsList);
     OPT_CHAR_PATH(_T("--log-mux-ts"), logMuxVidTsFile);
+    OPT_BOOL(_T("--skip-hwenc-check"), _T(""), skipHWEncodeCheck);
     OPT_BOOL(_T("--skip-hwdec-check"), _T(""), skipHWDecodeCheck);
     OPT_STR_PATH(_T("--avsdll"), avsdll);
     if (param->perfMonitorSelect != defaultPrm->perfMonitorSelect) {
@@ -5883,7 +6626,7 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
             cmd << _T(" --gpu-select ") << tmp.str().substr(1);
         }
     }
-#if ENCODER_QSV
+#if ENCODER_QSV || ENCODER_VCEENC || ENCODER_MPP
     OPT_BOOL(_T("--enable-opencl"), _T("--disable-opencl"), enableOpenCL);
 #endif
     return cmd.str();
@@ -5965,7 +6708,14 @@ tstring gen_cmd_help_input() {
         _T("   --input-res <int>x<int>        set input resolution\n")
         _T("   --crop <int>,<int>,<int>,<int> crop pixels from left,top,right,bottom\n")
         _T("                                    left crop is unavailable with avhw reader\n")
-        _T("   --output-res <int>x<int>     set output resolution\n")
+        _T("   --output-res <int>x<int>[,<string>=<string>]...\n")
+        _T("                                set output resolution\n")
+        _T("    params\n")
+        _T("      preserve_aspect_ratio=<string>   preserve input aspect ratio.\n")
+        _T("        decrease ... preserve aspect ratio by decreasing resolution specified.\n")
+        _T("        increase ... preserve aspect ratio by increasing resolution specified.\n")
+        _T("\n")
+        _T("   --frames <int>               frames to encode (based on input frames)\n")
         _T("   --fps <int>/<int> or <float> set framerate\n")
         _T("   --interlace <string>         set input as interlaced\n")
         _T("                                  tff, bff\n");
@@ -5989,14 +6739,15 @@ tstring gen_cmd_help_common() {
         _T("   --master-display <string>    set Mastering display data.\n")
         _T("   e.g. \"G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)\"\n"));
     str += print_list_options(_T("--atc-sei <string> or <int>"), list_transfer, 1);
-#if ENABLE_DHDR10_INFO
     str += strsprintf(
         _T("   --dhdr10-info <string>       apply dynamic HDR10+ metadata from json file.\n")
         _T("   --dhdr10-info copy           Copy dynamic HDR10+ metadata from input file.\n"));
-#endif //#if ENABLE_DHDR10_INFO
+#if ENABLE_DOVI_METADATA_OPTIONS
     str += print_list_options(_T("--dolby-vision-profile <int>"), list_dovi_profile, 0);
     str += strsprintf(
-        _T("   --dolby-vision-rpu <string>  Copy dolby vision metadata from input rpu file.\n")
+        _T("   --dolby-vision-rpu <string>  Copy dolby vision metadata from input rpu file.\n"));
+#endif //#if ENABLE_DOVI_METADATA_OPTIONS
+    str += strsprintf(
         _T("   --input-analyze <int>        set time (sec) which reader analyze input file.\n")
         _T("                                 default: 5 (seconds).\n")
         _T("                                 could be only used with avhw/avsw reader.\n")
@@ -6030,6 +6781,8 @@ tstring gen_cmd_help_common() {
         _T("   --seek [<int>:][<int>:]<int>[.<int>] (hh:mm:ss.ms)\n")
         _T("                                skip video for the time specified,\n")
         _T("                                 seek will be inaccurate but fast.\n")
+        _T("   --seekto [<int>:][<int>:]<int>[.<int>] (hh:mm:ss.ms)\n")
+        _T("                                time to end encoding.\n")
         _T("   --input-format <string>      set input format of input file.\n")
         _T("                                 this requires use of avhw/avsw reader.\n")
         _T("-f,--output-format <string>     set output format of output file.\n")
@@ -6134,6 +6887,7 @@ tstring gen_cmd_help_common() {
 #endif //#if ENABLE_CAPTION2ASS
         _T("   --data-copy [<int>[,...]]       copy data stream to output file.\n")
         _T("   --attachment-copy [<int>[,...]] copy attachment stream to output file.\n")
+        _T("   --attachment-source <string> add file as attachment stream.\n")
         _T("\n")
         _T("   --avsync <string>            method for AV sync (default: cfr)\n")
         _T("                                 cfr      ... assume cfr\n")
@@ -6152,13 +6906,25 @@ tstring gen_cmd_help_common() {
         _T("                                 - copy ... copy metadata from input (default)\n")
         _T("                                 - clear ... do not set metadata\n")
         _T("\n")
-        _T("   --timecode [<string>]        output timecode file.\n"),
+        _T("   --timecode [<string>]        output timecode file.\n")
+        _T("\n")
+        _T("   --tcfile-in <string>         input timecode file, will not work with --avhw.\n")
+        _T("   --tc-timebase <int>/<int>    timebase of input timecode.\n")
+        _T("\n")
+        _T("   --input-hevc-bsf <string>    switch hevc bitstream filter used for hw decoder input\n")
+        _T("                                 - internal   ... use internal implementation (default)\n")
+        _T("                                 - libavcodec ... use hevc_mp4toannexb bsf\n"),
         DEFAULT_IGNORE_DECODE_ERROR);
+    str += _T("\n")
+        _T("   --allow-other-negative-pts  for debug\n")
+        _T("\n");
 #endif
+#if !ENCODER_MPP
     str += _T("\n")
         _T("   --ssim                       calc ssim\n")
         _T("   --psnr                       calc psnr\n")
         _T("\n");
+#endif //#if !ENCODER_MPP
 #if ENABLE_VMAF
     str += strsprintf(_T("")
         _T("   --vmaf [<param1>=<value>][,<param2>=<value>][...]\n")
@@ -6193,6 +6959,9 @@ tstring gen_cmd_help_vpp() {
         _T("        bt2020-10, bt2020-12, smpte2084, arib-srd-b67\n")
         _T("      range=<from>:<to>\n")
         _T("        limited, full\n")
+        _T("      lut3d=<path>\n")
+        _T("      lut3d_interp=<string>\n")
+        _T("        nearest, trilinear, tetrahedral, pyramid, prism\n")
         _T("      hdr2sdr=<string>     Enables HDR10 to SDR.\n")
         _T("                             hable, mobius, reinhard, bt2390, none\n")
         _T("      source_peak=<float>     (default: %.1f)\n")
@@ -6229,7 +6998,7 @@ tstring gen_cmd_help_vpp() {
         ,
         FILTER_DEFAULT_DELOGO_DEPTH);
 #if ENABLE_VPP_FILTER_AFS
-    str += strsprintf(_T("")
+    str += strsprintf(_T("\n")
         _T("   --vpp-afs [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable auto field shift deinterlacer\n")
         _T("    params\n")
@@ -6275,9 +7044,7 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_AFS_SMOOTH  ? _T("on") : _T("off"),
         FILTER_DEFAULT_AFS_FORCE24 ? _T("on") : _T("off"),
         FILTER_DEFAULT_AFS_TUNE    ? _T("on") : _T("off"),
-#if ENCODER_NVENC
         FILTER_DEFAULT_AFS_RFF     ? _T("on") : _T("off"),
-#endif
         FILTER_DEFAULT_AFS_TIMECODE ? _T("on") : _T("off"),
         FILTER_DEFAULT_AFS_LOG      ? _T("on") : _T("off"));
 #endif
@@ -6329,7 +7096,7 @@ tstring gen_cmd_help_vpp() {
         _T("   --vpp-rff                    apply rff flag, with avhw reader only.\n"));
 #endif
 #if ENABLE_VPP_FILTER_SELECT_EVERY
-    str += strsprintf(
+    str += strsprintf(_T("\n")
         _T("   --vpp-select-every <int>[,offset=<int>]\n")
         _T("     select one frame per specified frames and create output.\n"));
 #endif
@@ -6338,7 +7105,9 @@ tstring gen_cmd_help_vpp() {
         _T("   --vpp-decimate [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     drop duplicated frame.\n")
         _T("    params\n")
-        _T("      cycle=<int>               num of frame from which a frame will be droppped.\n")
+        _T("      cycle=<int>               num of frame to select frame(s) to be droppped.\n")
+        _T("                                  (default=%d)\n")
+        _T("      drop=<int>                num of frame(s) to drop within a cycle.\n")
         _T("                                  (default=%d)\n")
         _T("      thredup=<float>           duplicate threshold. (default=%.1f, 0 - 100)\n")
         _T("      thresc=<float>            scene change threshold. (default=%.1f, 0 - 100)\n")
@@ -6347,7 +7116,7 @@ tstring gen_cmd_help_vpp() {
         _T("                                  block size could be 4, 8, 16, 32, 64.\n")
         _T("      chroma=<bool>             consdier chroma (default: %s)\n")
         _T("      log=<bool>                output log file (default: %s).\n"),
-        FILTER_DEFAULT_DECIMATE_CYCLE,
+        FILTER_DEFAULT_DECIMATE_CYCLE, FILTER_DEFAULT_DECIMATE_DROP,
         FILTER_DEFAULT_DECIMATE_THRE_DUP, FILTER_DEFAULT_DECIMATE_THRE_SC,
         FILTER_DEFAULT_DECIMATE_BLOCK_X, FILTER_DEFAULT_DECIMATE_BLOCK_Y,
         FILTER_DEFAULT_DECIMATE_PREPROCESSED ? _T("on") : _T("off"),
@@ -6373,11 +7142,54 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_MPDECIMATE_FRAC, FILTER_DEFAULT_MPDECIMATE_MAX,
         FILTER_DEFAULT_DECIMATE_LOG ? _T("on") : _T("off"));
 #endif
+#if ENABLE_NVVFX
+    {
+        str += strsprintf(_T("\n")
+            _T("--vpp-resize <string> or [<param1>=<value>][,<param2>=<value>][...]")
+            _T("    params\n")
+            _T("      algo=<string>             select algorithm"));
+        const TCHAR *indent = _T("        ");
+        int length = 80;
+        for (int ia = 0; list_vpp_resize[ia].desc; ia++) {
+            if (length > 77) {
+                length = _tcslen(indent);
+                str += tstring(_T("\n")) + indent;
+            } else {
+                length += _tcslen(_T(", "));
+                str += _T(", ");
+            }
+            length += _tcslen(list_vpp_resize[ia].desc);
+            str += list_vpp_resize[ia].desc;
+        }
+        str += _T("        default: auto\n");
+        str += strsprintf(_T("\n")
+            _T("      superres-mode=<int>\n")
+            _T("        mode for nvvfx-superres     0 ... conservative (default)\n")
+            _T("                                    1 ... aggressive \n")
+            _T("      superres-strength=<float>\n")
+            _T("        strength for nvvfx-superres (0.0 - 1.0)\n"));
+    }
+#else
     str += print_list_options(_T("--vpp-resize <string>"), list_vpp_resize, 0);
+#endif
 #if ENCODER_QSV
     str += print_list_options(_T("--vpp-resize-mode <string>"), list_vpp_resize_mode, 0);
 #endif
-    str += strsprintf(_T("")
+#if ENABLE_VPP_FILTER_CONVOLUTION3D
+    str += strsprintf(_T("\n")
+        _T("   --vpp-convolution3d [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     enable denoise filter by convolution3d.\n")
+        _T("    params\n")
+        _T("      matrix=<string>  standard(default), simple\n")
+        _T("      fast=<bool>      use fast mode\n")
+        _T("      ythresh=<int>    spatial  luma threshold   (default=%d, 0 - 255)\n")
+        _T("      cthresh=<int>    spatial  chroma threshold (default=%d, 0 - 255)\n")
+        _T("      t_ythresh=<int>  temporal luma threshold   (default=%d, 0 - 255)\n")
+        _T("      t_cthresh=<int>  temporal chroma threshold (default=%d, 0 - 255)\n"),
+        FILTER_DEFAULT_CONVOLUTION3D_THRESH_Y_SPATIAL, FILTER_DEFAULT_CONVOLUTION3D_THRESH_C_SPATIAL,
+        FILTER_DEFAULT_CONVOLUTION3D_THRESH_Y_TEMPORAL, FILTER_DEFAULT_CONVOLUTION3D_THRESH_C_TEMPORAL);
+#endif
+    str += strsprintf(_T("\n")
         _T("   --vpp-knn [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable denoise filter by K-nearest neighbor.\n")
         _T("    params\n")
@@ -6431,7 +7243,8 @@ tstring gen_cmd_help_vpp() {
         _T("                                  the video file (default: on)\n")
         _T("                                  (when \"track\" is used this options is always on)\n")
         _T("      ts_offset=<float>         add offset in seconds to subtitle timestamps.\n")
-        _T("      fontsdir=<string>         directory with fonts used.\n"),
+        _T("      fontsdir=<string>         directory with fonts used.\n")
+        _T("      forced_subs_only=<bool>   render forced subs only.\n"),
         FILTER_DEFAULT_TWEAK_BRIGHTNESS, FILTER_DEFAULT_TWEAK_CONTRAST);
 #if ENABLE_VPP_FILTER_UNSHARP
     str += strsprintf(_T("\n")
@@ -6470,6 +7283,26 @@ tstring gen_cmd_help_vpp() {
         _T("                                  (default=%d)\n"),
         FILTER_DEFAULT_WARPSHARP_THRESHOLD, FILTER_DEFAULT_WARPSHARP_BLUR, FILTER_DEFAULT_WARPSHARP_TYPE,
         FILTER_DEFAULT_WARPSHARP_DEPTH, FILTER_DEFAULT_WARPSHARP_CHROMA);
+#endif
+#if ENABLE_VPP_FILTER_CURVES
+    str += strsprintf(_T("\n")
+        _T("   --vpp-curves [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     apply color adjustments using curves.\n")
+        _T("    params\n")
+        _T("      preset=<string>\n")
+        _T("        color_negative, process, darker, lighter, increase_contrast\n")
+        _T("        linear_contrast, medium_contrast, strong_contrast\n")
+        _T("        negative, vintage\n")
+        _T("      m=<string>\n")
+        _T("        set master curve points, post process for luminance.\n")
+        _T("      r=<string>\n")
+        _T("        set curve points for red. Will override preset settings.\n")
+        _T("      g=<string>\n")
+        _T("        set curve points for green. Will override preset settings.\n")
+        _T("      b=<string>\n")
+        _T("        set curve points for blue. Will override preset settings.\n")
+        _T("      all=<string>\n")
+        _T("        set curve points for r,g,b when not specified. Will override preset settings.\n"));
 #endif
 #if ENABLE_VPP_FILTER_TWEAK
     str += strsprintf(_T("\n")
@@ -6525,6 +7358,26 @@ tstring gen_cmd_help_vpp() {
     str += strsprintf(_T("\n")
         _T("   --vpp-pad <int>,<int>,<int>,<int>\n")
         _T("     add padding to left,top,right,bottom (in pixels)\n"));
+#endif
+#if ENABLE_VPP_FILTER_OVERLAY
+    str += strsprintf(_T("\n")
+        _T("   --vpp-overlay [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("    params\n")
+        _T("      file=<string>             src file path of the image\n")
+        _T("      pos=<int>x<int>           position to add image\n")
+        _T("      size=<int>x<int>          size of image  (default: 0x0 = no resize)\n")
+        _T("      alpha=<float>             alpha value of overlay\n")
+        _T("                                  default: 1.0 (0.0 - 1.0)\n")
+        _T("      alpha_mode=<string>       override ... set value of alpha\n")
+        _T("                                mul      ... multiple original value\n")
+        _T("                                lumakey  ... set alpha depending on luma\n")
+        _T("      lumakey_threshold=<float> luma used for tranparency.\n")
+        _T("                                  default: 0.0 (dark: 0.0 - 1.0 :bright)\n")
+        _T("      lumakey_tolerance=<float> set luma range to be keyed out.\n")
+        _T("                                  default: 0.1 (0.0 - 1.0)\n")
+        _T("      lumakey_threshold=<float> set the range of softness for lumakey\n")
+        _T("      loop=<bool>\n")
+    );
 #endif
     str += strsprintf(_T("\n")
         _T("   --vpp-perf-monitor           check vpp perfromance (for debug)\n")
@@ -6638,6 +7491,10 @@ tstring gen_cmd_help_ctrl() {
         _T("   --process-codepage <string>  utf8 ... use UTF-8 (default)\n")
         _T("                                os   ... use the codepage set in Operating System.\n"));
 #endif //#if defined(_WIN32) || defined(_WIN64)
+#if ENCODER_QSV || ENCODER_VCEENC || ENCODER_MPP
+    str += strsprintf(_T("\n")
+        _T("   --disable-opencl             disable opencl features.\n"));
+#endif
     str += strsprintf(_T("\n")
         _T("   --perf-monitor [<string>][,<string>]...\n")
         _T("       check performance info of encoder and output to log file\n")

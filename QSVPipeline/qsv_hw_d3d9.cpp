@@ -33,6 +33,7 @@ CQSVD3D9Device::CQSVD3D9Device(shared_ptr<RGYLog> pQSVLog) : CQSVHWDevice(pQSVLo
     m_name = _T("d3d9");
     RGY_MEMSET_ZERO(m_D3DPresentPrm);
     m_resetToken = 0;
+    m_devLUID = LUID();
 
     RGY_MEMSET_ZERO(m_backBufferDesc);
     RGY_MEMSET_ZERO(m_targetRect);
@@ -115,6 +116,9 @@ mfxStatus CQSVD3D9Device::Init(mfxHDL hWindow, [[maybe_unused]] uint32_t nViews,
     //
     m_D3DPresentPrm.Flags |= D3DPRESENTFLAG_LOCKABLE_BACKBUFFER;
     m_D3DPresentPrm.SwapEffect = D3DSWAPEFFECT_DISCARD;
+
+    //Get LUID
+    pD3D9->GetAdapterLUID((UINT)nAdapterNum, &m_devLUID);
 
     IDirect3DDevice9Ex *pD3DD9 = nullptr;
     if (FAILED(hr = m_pD3D9->CreateDeviceEx(
@@ -205,6 +209,10 @@ mfxStatus CQSVD3D9Device::GetHandle(mfxHandleType type, mfxHDL *pHdl) {
         }
     }
     return MFX_ERR_UNSUPPORTED;
+}
+
+LUID CQSVD3D9Device::GetLUID() {
+    return m_devLUID;
 }
 
 

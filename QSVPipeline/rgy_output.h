@@ -42,6 +42,7 @@
 #include "rgy_input.h"
 #if ENCODER_NVENC
 #include "NVEncUtil.h"
+#include "NVEncParam.h"
 #endif //#if ENCODER_NVENC
 #if ENCODER_QSV
 #include "qsv_util.h"
@@ -60,10 +61,14 @@ enum OutputType {
 };
 
 struct RGYTimestampMapVal {
-    int64_t timestamp, inputFrameId, duration;
+    int64_t timestamp, inputFrameId, encodeFrameId, duration;
+    std::vector<std::shared_ptr<RGYFrameData>> dataList;
 
-    RGYTimestampMapVal() : timestamp(-1), inputFrameId(-1), duration(-1) {};
-    RGYTimestampMapVal(int64_t timestamp_, int64_t inputFrameId_, int64_t duration_) : timestamp(timestamp_), inputFrameId(inputFrameId_), duration(duration_) {};
+    RGYTimestampMapVal() : timestamp(-1), inputFrameId(-1), encodeFrameId(-1), duration(-1), dataList() {};
+    RGYTimestampMapVal(int64_t timestamp_, int64_t inputFrameId_, int64_t encodeFrameId_, int64_t duration_, std::vector<std::shared_ptr<RGYFrameData>>& datalist)
+        : timestamp(timestamp_), inputFrameId(inputFrameId_), encodeFrameId(encodeFrameId_), duration(duration_), dataList(datalist) {};
+    void addMetadata(std::shared_ptr<RGYFrameData>& data) { dataList.push_back(data); }
+    void addMetadata(std::vector<std::shared_ptr<RGYFrameData>>& list) { dataList.insert(dataList.end(), list.begin(), list.end()); }
 };
 
 class RGYTimestamp {
@@ -84,14 +89,14 @@ public:
         last_check_pts = -1;
         offset = 0;
     }
-    void add(int64_t pts, int64_t inputFrameId, int64_t duration) {
+    void add(int64_t pts, int64_t inputFrameId, int64_t encodeFrameId, int64_t duration, std::vector<std::shared_ptr<RGYFrameData>> metadatalist) {
         std::lock_guard<std::mutex> lock(mtx);
         if (last_add_pts >= 0) { // 前のフレームのdurationの更新
             auto& last_add_pos = m_frame.find(last_add_pts)->second;
             last_add_pos.duration = pts - last_add_pos.timestamp;
             if (duration == 0) duration = last_add_pos.duration;
         }
-        m_frame[pts] = RGYTimestampMapVal(pts, inputFrameId, duration);
+        m_frame[pts] = RGYTimestampMapVal(pts, inputFrameId, encodeFrameId, duration, metadatalist);
         last_add_pts = pts;
     }
     RGYTimestampMapVal check(int64_t pts) {
@@ -106,12 +111,40 @@ public:
             pts = last_check_pos.timestamp + last_check_pos.duration / 2;
             auto next_pts = last_check_pos.timestamp + last_check_pos.duration;
             last_check_pos.duration = pts - last_check_pos.timestamp;
-            m_frame[pts] = RGYTimestampMapVal(pts, last_input_frame_id, next_pts - pts);
+            m_frame[pts] = RGYTimestampMapVal(pts, last_input_frame_id, last_check_pos.encodeFrameId, next_pts - pts, last_check_pos.dataList);
             pos = m_frame.find(pts);
         }
         last_input_frame_id = pos->second.inputFrameId;
         last_check_pts = pos->second.timestamp;
         return pos->second;
+    }
+    void clean(const int64_t current_id) {
+        if (current_id >= last_clean_id + 64) {
+            for (auto it = m_frame.begin(); it != m_frame.end();) {
+                if (it->second.inputFrameId < current_id - 32) {
+                    it = m_frame.erase(it);
+                } else {
+                    it++;
+                }
+            }
+            last_clean_id = current_id;
+        }
+    }
+    RGYTimestampMapVal getByEncodeFrameID(const int64_t id) {
+        std::lock_guard<std::mutex> lock(mtx);
+        auto pos = m_frame.end();
+        for (auto it = m_frame.begin(); it != m_frame.end(); it++) {
+            if (it->second.encodeFrameId == id) {
+                pos = it;
+                break;
+            }
+        }
+        if (pos == m_frame.end()) {
+            return RGYTimestampMapVal();
+        }
+        auto& ret = pos->second;
+        clean(ret.inputFrameId);
+        return ret;
     }
     RGYTimestampMapVal get(int64_t pts) {
         std::lock_guard<std::mutex> lock(mtx);
@@ -120,16 +153,7 @@ public:
             return RGYTimestampMapVal();
         }
         auto& ret = pos->second;
-        if (ret.inputFrameId >= last_clean_id + 64) {
-            for (auto it = m_frame.begin(); it != m_frame.end();) {
-                if (it->second.inputFrameId < ret.inputFrameId - 32) {
-                    it = m_frame.erase(it);
-                } else {
-                    it++;
-                }
-            }
-            last_clean_id = ret.inputFrameId;
-        }
+        clean(ret.inputFrameId);
         return ret;
     }
 };
@@ -143,6 +167,7 @@ public:
         Close();
         m_printMes = log;
         m_encSatusInfo = encSatusInfo;
+        m_outFilename = strFileName;
         if (videoOutputInfo) {
             m_VideoOutputInfo = *videoOutputInfo;
         }
@@ -194,10 +219,18 @@ public:
         AddMessage(log_level, buffer);
     }
 protected:
+    static const char* OUT_DEBUG_FILE_HEADER;
+
     virtual RGY_ERR Init(const TCHAR *strFileName, const VideoInfo *pOutputInfo, const void *prm) = 0;
 
+    RGY_ERR writeRawDebug(RGYBitstream *pBitstream);
+    RGY_ERR readRawDebug(RGYBitstream *pBitstream);
+
+    tstring     m_outFilename;
     shared_ptr<EncodeStatus> m_encSatusInfo;
-    unique_ptr<FILE, fp_deleter>  m_fDest;
+    unique_ptr<FILE, fp_deleter> m_fDest;
+    unique_ptr<FILE, fp_deleter> m_fpDebug;
+    unique_ptr<FILE, fp_deleter> m_fpOutReplay;
     bool        m_outputIsStdout;
     bool        m_inited;
     bool        m_noOutput;
@@ -215,9 +248,13 @@ protected:
 
 struct RGYOutputRawPrm {
     bool benchmark;
+    bool debugDirectAV1Out;
+    bool debugRawOut;
+    tstring outReplayFile;
+    RGY_CODEC outReplayCodec;
     int bufSizeMB;
     RGY_CODEC codecId;
-    const HEVCHDRSei *hedrsei;
+    const RGYHDRMetadata *hdrMetadata;
     DOVIRpu *doviRpu;
     RGYTimestamp *vidTimestamp;
 };
@@ -234,18 +271,23 @@ protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, const VideoInfo *pOutputInfo, const void *prm) override;
 
     vector<uint8_t> m_outputBuf2;
-    vector<uint8_t> m_seiNal;
+    vector<uint8_t> m_hdrBitstream;
     DOVIRpu *m_doviRpu;
     RGYTimestamp *m_timestamp;
     int64_t m_prevInputFrameId;
+    int64_t m_prevEncodeFrameId;
+    bool m_debugDirectAV1Out;
 #if ENABLE_AVSW_READER
-    unique_ptr<AVBSFContext, RGYAVDeleter<AVBSFContext>> m_pBsfc;
+    std::unique_ptr<AVBSFContext, RGYAVDeleter<AVBSFContext>> m_pBsfc;
+    std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>> m_pkt;
 #endif //#if ENABLE_AVSW_READER
+    uint8_t *bsfcBuffer;           //bitstreamfilter用のバッファ
+    size_t   bsfcBufferLength;     //bitstreamfilter用のバッファの長さ
     decltype(parse_nal_unit_h264_c) *parse_nal_h264; // H.264用のnal unit分解関数へのポインタ
     decltype(parse_nal_unit_hevc_c) *parse_nal_hevc; // HEVC用のnal unit分解関数へのポインタ
 };
 
-std::unique_ptr<HEVCHDRSei> createHEVCHDRSei(const std::string &maxCll, const std::string &masterDisplay, CspTransfer atcSei, const RGYInput *reader);
+std::unique_ptr<RGYHDRMetadata> createHEVCHDRSei(const std::string &maxCll, const std::string &masterDisplay, CspTransfer atcSei, const RGYInput *reader);
 
 RGY_ERR initWriters(
     shared_ptr<RGYOutput> &pFileWriter,
@@ -261,11 +303,13 @@ RGY_ERR initWriters(
 #if ENABLE_AVSW_READER
     const vector<unique_ptr<AVChapter>> &chapters,
 #endif //#if ENABLE_AVSW_READER
-    const HEVCHDRSei *hedrsei,
+    const RGYHDRMetadata *hdrMetadata,
     DOVIRpu *doviRpu,
     RGYTimestamp *vidTimestamp,
     const bool videoDtsUnavailable,
     const bool benchmark,
+    RGYPoolAVPacket *poolPkt,
+    RGYPoolAVFrame *poolFrame,
     shared_ptr<EncodeStatus> pStatus,
     shared_ptr<CPerfMonitor> pPerfMonitor,
     shared_ptr<RGYLog> log

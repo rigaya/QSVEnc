@@ -1,9 +1,9 @@
 ﻿// -----------------------------------------------------------------------------------------
-// QSVEnc by rigaya
+// x264guiEx/x265guiEx/svtAV1guiEx/ffmpegOut/QSVEnc/NVEnc/VCEEnc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
 //
-// Copyright (c) 2011-2016 rigaya
+// Copyright (c) 2010-2022 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -23,7 +23,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 //
-// ------------------------------------------------------------------------------------------
+// --------------------------------------------------------------------------------------------
+
 #ifndef _AUO_FAW2AAC_H_
 #define _AUO_FAW2AAC_H_
 
@@ -34,10 +35,6 @@
 #include "auo_conf.h"
 #include "auo_settings.h"
 #include "auo_system.h"
-
-static const char * const FAW2AAC_NAME[] = { "faw2aac.auo", "plugins\\faw2aac.auo" };
-
-BOOL check_if_faw2aac_exists();
 
 AUO_RESULT audio_faw2aac(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, const SYSTEM_DATA *sys_dat);
 

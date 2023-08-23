@@ -17,17 +17,92 @@ Windows binary can be found from [this link](https://github.com/rigaya/QSVEnc/re
 
 QSVEncC could be run directly from the extracted directory.
   
-## Linux (Ubuntu 20.04)
+## Linux (Ubuntu 22.04)
 
 ### 1. Install Intel Media driver  
-OpenCL driver can be installed following instruction on [this link](https://dgpu-docs.intel.com/installation-guides/ubuntu/ubuntu-focal.html).
+OpenCL driver can be installed following instruction on [this link](https://dgpu-docs.intel.com/installation-guides/ubuntu/ubuntu-jammy-arc.html).
 
 ```Shell
 sudo apt-get install -y gpg-agent wget
-wget -qO - https://repositories.intel.com/graphics/intel-graphics.key | sudo apt-key add -
-sudo apt-add-repository 'deb [arch=amd64] https://repositories.intel.com/graphics/ubuntu focal main'
+wget -qO - https://repositories.intel.com/graphics/intel-graphics.key | \
+  sudo gpg --dearmor --output /usr/share/keyrings/intel-graphics.gpg
+echo 'deb [arch=amd64,i386 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/graphics/ubuntu jammy arc' | \
+  sudo tee  /etc/apt/sources.list.d/intel.gpu.jammy.list
 sudo apt-get update
 sudo apt install intel-media-va-driver-non-free intel-opencl-icd intel-level-zero-gpu level-zero libmfx1
+```
+
+### 2. Add user to proper group to use QSV and OpenCL
+```Shell
+# QSV
+sudo gpasswd -a ${USER} video
+# OpenCL
+sudo gpasswd -a ${USER} render
+```
+
+### 3. Install qsvencc
+Download deb package from [this link](https://github.com/rigaya/QSVEnc/releases), and install running the following command line. Please note "x.xx" should be replaced to the target version name.
+
+```Shell
+sudo apt install ./qsvencc_x.xx_Ubuntu22.04_amd64.deb
+```
+
+### 4. Addtional Tools
+
+There are some features which require additional installations.  
+
+| Feature | Requirements |
+|:--      |:--           |
+| avs reader       | [AvisynthPlus](https://github.com/AviSynth/AviSynthPlus) |
+| vpy reader       | [VapourSynth](https://www.vapoursynth.com/)              |
+
+### 5. Others
+
+- Error: "Failed to load OpenCL." when running qsvencc  
+  Please check if /lib/x86_64-linux-gnu/libOpenCL.so exists. There are some cases that only libOpenCL.so.1 exists. In that case, please create a link using following command line.
+  
+  ```Shell
+  sudo ln -s /lib/x86_64-linux-gnu/libOpenCL.so.1 /lib/x86_64-linux-gnu/libOpenCL.so
+  ```
+- Fixed Function(FF) mode not supported
+- Unable to encode on Arc GPUs or JasperLake
+
+  The problem might be caused by HuC firmware being not loaded. [See also](https://01.org/linuxgraphics/downloads/firmware)
+  
+  It is required to load HuC firmware to use FF mode (or Low Power mode).
+  Therefore, it is essential to load HuC firmware in oreder to encode on such GPUs which support FF mode only, like Arc GPUs or JasperLake.
+   
+  Please check whether HuC firmware is loaded.
+  ```
+  sudo cat /sys/kernel/debug/dri/0/i915_huc_load_status
+  ```
+
+  Check also Huc Firmware module is available on your system.
+  ```
+  sudo modinfo i915 | grep -i "huc"
+  ```
+
+  If the module for the CPU gen you are using is available,
+  you shall be able to use FF mode by loading HuC Firmware module.
+
+  By adding option below to ```/etc/modprobe.d/i915.conf```, HuC Firmware will be loaded after reboot.
+  ```
+  options i915 enable_guc=2
+  ```
+  
+## Linux (Ubuntu 20.04)
+
+### 1. Install Intel Media driver  
+OpenCL driver can be installed following instruction on [this link](https://dgpu-docs.intel.com/installation-guides/ubuntu/ubuntu-focal-arc.html).
+
+```Shell
+sudo apt-get install -y gpg-agent wget
+wget -qO - https://repositories.intel.com/graphics/intel-graphics.key | \
+  sudo gpg --dearmor --output /usr/share/keyrings/intel-graphics.gpg
+echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/graphics/ubuntu focal-devel main' | \
+  sudo tee  /etc/apt/sources.list.d/intel.gpu.focal.list
+sudo apt-get update
+sudo apt install intel-media-va-driver-non-free intel-opencl-icd
 ```
 
 ### 2. Add user to proper group to use QSV and OpenCL
@@ -62,9 +137,13 @@ There are some features which require additional installations.
   ```Shell
   sudo ln -s /lib/x86_64-linux-gnu/libOpenCL.so.1 /lib/x86_64-linux-gnu/libOpenCL.so
   ```
-- Unsupported H.264/HEVC Fixed Function(FF) mode encode
-- Unsupported VP9 encode
-  HuC firmware might not be loaded. [See also](https://01.org/linuxgraphics/downloads/firmware)
+- Fixed Function(FF) mode not supported
+- Unable to encode on Arc GPUs or JasperLake
+
+  The problem might be caused by HuC firmware being not loaded. [See also](https://01.org/linuxgraphics/downloads/firmware)
+  
+  It is required to load HuC firmware to use FF mode (or Low Power mode).
+  Therefore, it is essential to load HuC firmware in oreder to encode on such GPUs which support FF mode only, like Arc GPUs or JasperLake.
    
   Please check whether HuC firmware is loaded.
   ```
@@ -77,7 +156,7 @@ There are some features which require additional installations.
   ```
 
   If the module for the CPU gen you are using is available,
-  you shall be able to enable H.264/HEVC FF or VP9 encode by loading HuC Firmware module.
+  you shall be able to use FF mode by loading HuC Firmware module.
 
   By adding option below to ```/etc/modprobe.d/i915.conf```, HuC Firmware will be loaded after reboot.
   ```

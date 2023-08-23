@@ -127,7 +127,7 @@ private:
 
 mfxLoader MFXLoaderProvider::loader = nullptr;
 
-MFXVideoSession2Params::MFXVideoSession2Params() : threads(0), priority(0) {};
+MFXVideoSession2Params::MFXVideoSession2Params() : threads(0), threadPriority(0), deviceCopy(false) {};
 
 void MFXVideoSession2::PrintMes(RGYLogLevel log_level, const TCHAR *format, ...) {
     if (m_log == nullptr) {
@@ -213,6 +213,7 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
         accelerationMode = MFX_ACCEL_MODE_VIA_VAAPI;
     }
 #endif
+    PrintMes(RGY_LOG_DEBUG, _T("initHW(%s: dev#%d)...\n"), MFXAccelerationModeToStr(accelerationMode).c_str(), dev);
     auto sts = MFX_ERR_NONE;
     auto loader = MFXLoaderProvider::getLoader();
     auto cfg = MFXCreateConfig(loader);
@@ -226,11 +227,32 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
             m_log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("MFXVideoSession2::init: Failed to set mfxImplDescription.AccelerationMode %d: %s.\n"), accMode.Data.U32, get_err_mes(err_to_rgy(sts)));
             return sts;
         }
+        if (dev != QSVDeviceNum::AUTO) {
+            mfxVariant devID;
+            devID.Version.Version = MFX_VARIANT_VERSION;
+            devID.Type = MFX_VARIANT_TYPE_U32;
+            devID.Data.U32 = (int)dev - 1;
+            sts = MFXSetConfigFilterProperty(cfg, (const mfxU8 *)"DXGIAdapterIndex", devID);
+        }
         m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: try init by MFXCreateSession.\n"));
         sts = MFXCreateSession(loader, 0, (mfxSession *)&m_session);
     } else {
-        int adapterIDFirst = -1;
-        for (int impl_idx = 0; ; impl_idx++) {
+        if (m_prm.deviceCopy) {
+            mfxVariant devCopy;
+            devCopy.Version.Version = MFX_VARIANT_VERSION;
+            devCopy.Type = MFX_VARIANT_TYPE_U16;
+            devCopy.Data.U16 = MFX_GPUCOPY_ON;
+            sts = MFXSetConfigFilterProperty(cfg, (const mfxU8 *)"DeviceCopy", devCopy);
+            if (sts != MFX_ERR_NONE) {
+                m_log->write(RGY_LOG_WARN, RGY_LOGT_CORE, _T("MFXVideoSession2::init: Failed to set mfxImplDescription.AccelerationMode %d: %s.\n"), devCopy.Data.U16, get_err_mes(err_to_rgy(sts)));
+                return sts;
+            }
+        }
+
+        const int MAX_DEV_CHECK = 1000;
+        int adapterIDPrev = -1;
+        int deviceCount = 0;
+        for (int impl_idx = 0; impl_idx < MAX_DEV_CHECK; impl_idx++) {
             mfxImplDescription *impl_desc = nullptr;
             sts = MFXEnumImplementations(loader, impl_idx, MFX_IMPLCAPS_IMPLDESCSTRUCTURE, (mfxHDL *)&impl_desc);
             if (sts == MFX_ERR_UNSUPPORTED || sts == MFX_ERR_NOT_FOUND) {
@@ -239,39 +261,53 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
                 continue;
             }
             int id1 = -1, adapterID = -1;
-            if (sscanf_s(impl_desc->Dev.DeviceID, "%d/%d", &id1, &adapterID) == 2) {
-                if (adapterIDFirst < 0) {
-                    adapterIDFirst = adapterID;
+            if (sscanf_s(impl_desc->Dev.DeviceID, "%x/%d", &id1, &adapterID) == 2) {
+                if (adapterIDPrev != adapterID) {
+                    deviceCount++;
                 }
+                adapterIDPrev = adapterID;
             }
+            m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("Found deviceID %s, adapterID %d/%d -> device count %d\n"), impl_desc->Dev.DeviceID, deviceCount, id1, adapterID, deviceCount);
+
             const mfxAccelerationMode acc = impl_desc->AccelerationMode;
-            m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("Impl #%d: %d %s, acc %d, accdesc %d, adapter id %d\n"),
-                impl_idx, impl_desc->Impl, char_to_tstring(impl_desc->ImplName).c_str(),
-                impl_desc->AccelerationMode, impl_desc->AccelerationModeDescription, adapterID);
+            m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("Impl #%d: %s %s, acc %d (%s), accdesc 0x%04x, adapter id %d\n"),
+                impl_idx, MFXImplTypeToStr(impl_desc->Impl).c_str(), char_to_tstring(impl_desc->ImplName).c_str(),
+                impl_desc->AccelerationMode, MFXAccelerationModeToStr(impl_desc->AccelerationMode).c_str(), impl_desc->AccelerationModeDescription, adapterID);
             MFXDispReleaseImplDescription(loader, impl_desc);
 
-            if (accelerationMode == acc && (adapterID - adapterIDFirst) == std::max((int)dev-1, 0)) {
+            if (accelerationMode == acc && deviceCount == std::max((int)dev, 1/*AUTOの時は最初のデバイスを選択*/)) {
                 m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: try init by MFXCreateSession.\n"));
                 sts = MFXCreateSession(loader, impl_idx, (mfxSession *)&m_session);
                 if (sts == MFX_ERR_NONE) break;
             }
         }
     }
-    if (sts == MFX_ERR_NONE) return sts;
+    if (sts == MFX_ERR_NONE || (dev != QSVDeviceNum::AUTO && dev != QSVDeviceNum::NUM1)) return sts;
     m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: Failed to init by MFXCreateSession.\n"));
 #endif
-    m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: try init by MFXInit.\n"));
-    impl |= devNumToImpl(dev);
-    sts = Init(impl, &verRequired);
-    if (sts != MFX_ERR_NONE) {
-        if (MFX_IMPL_BASETYPE(impl) == MFX_IMPL_HARDWARE_ANY) {  //MFX_IMPL_HARDWARE_ANYがサポートされない場合もあり得るので、失敗したらこれをオフにしてもう一回試す
-            impl &= (~MFX_IMPL_BASETYPE(std::numeric_limits<mfxIMPL>::max()));
-            impl |= MFX_IMPL_HARDWARE;
-        } else if (MFX_IMPL_BASETYPE(impl) == MFX_IMPL_HARDWARE) {  //MFX_IMPL_HARDWAREで失敗したら、MFX_IMPL_HARDWARE_ANYでもう一回試す
-            impl &= (~MFX_IMPL_BASETYPE(std::numeric_limits<mfxIMPL>::max()));
-            impl |= MFX_IMPL_HARDWARE_ANY;
-        }
-        sts = Init(impl, &verRequired);
+    const auto impl2 = (impl & (~MFX_IMPL_BASETYPE(std::numeric_limits<mfxIMPL>::max())));
+    auto implTest = impl2 | devNumToImpl(dev);
+    m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: try init by MFXInit: impl %s.\n"), MFXImplToStr(implTest).c_str());
+    sts = Init(implTest, &verRequired);
+    if (sts == MFX_ERR_NONE) {
+        impl = implTest;
+        return sts;
+    }
+    //MFX_IMPL_HARDWARE_ANYで試す
+    implTest = impl2 | MFX_IMPL_HARDWARE_ANY;
+    m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: try init by MFXInit: impl %s.\n"), MFXImplToStr(implTest).c_str());
+    sts = Init(implTest, &verRequired);
+    if (sts == MFX_ERR_NONE) {
+        impl = implTest;
+        return sts;
+    }
+    //MFX_IMPL_HARDWARE_ANYがサポートされない場合もあり得るので、失敗したらこれをオフにしてもう一回試す
+    implTest = impl2 | MFX_IMPL_HARDWARE;
+    m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: try init by MFXInit: impl %s.\n"), MFXImplToStr(implTest).c_str());
+    sts = Init(implTest, &verRequired);
+    if (sts == MFX_ERR_NONE) {
+        impl = implTest;
+        return sts;
     }
     return sts;
 }
@@ -287,31 +323,35 @@ mfxIMPL MFXVideoSession2::devNumToImpl(const QSVDeviceNum dev) {
     }
 }
 
-mfxStatus MFXVideoSession2::initD3D9(const QSVDeviceNum dev) {
+mfxStatus MFXVideoSession2::initD3D9(const QSVDeviceNum dev, const bool suppressErrorMessage) {
+    PrintMes(RGY_LOG_DEBUG, _T("InitSession(d3d9: dev#%d)...\n"), dev);
     mfxIMPL impl = MFX_IMPL_HARDWARE_ANY | MFX_IMPL_VIA_D3D9;
     auto err = initHW(impl, dev);
-    PrintMes((err) ? RGY_LOG_ERROR : RGY_LOG_DEBUG, _T("InitSession(d3d9): %s.\n"), get_err_mes(err));
+    PrintMes((err && !suppressErrorMessage) ? RGY_LOG_ERROR : RGY_LOG_DEBUG, _T("InitSession(d3d9): %s.\n"), get_err_mes(err));
     return err;
 }
 
-mfxStatus MFXVideoSession2::initD3D11(const QSVDeviceNum dev) {
+mfxStatus MFXVideoSession2::initD3D11(const QSVDeviceNum dev, const bool suppressErrorMessage) {
+    PrintMes(RGY_LOG_DEBUG, _T("InitSession(d3d11: dev#%d)...\n"), dev);
     mfxIMPL impl = MFX_IMPL_HARDWARE_ANY | MFX_IMPL_VIA_D3D11;
     auto err = initHW(impl, dev);
-    PrintMes((err) ? RGY_LOG_ERROR : RGY_LOG_DEBUG, _T("InitSession(d3d11): %s.\n"), get_err_mes(err));
+    PrintMes((err && !suppressErrorMessage) ? RGY_LOG_ERROR : RGY_LOG_DEBUG, _T("InitSession(d3d11): %s.\n"), get_err_mes(err));
     return err;
 }
 
-mfxStatus MFXVideoSession2::initVA(const QSVDeviceNum dev) {
+mfxStatus MFXVideoSession2::initVA(const QSVDeviceNum dev, const bool suppressErrorMessage) {
+    PrintMes(RGY_LOG_DEBUG, _T("InitSession(va: dev#%d)...\n"), dev);
     mfxIMPL impl = MFX_IMPL_HARDWARE_ANY | MFX_IMPL_VIA_VAAPI;
     auto err = initHW(impl, dev);
-    PrintMes((err) ? RGY_LOG_ERROR : RGY_LOG_DEBUG, _T("InitSession(va): %s.\n"), get_err_mes(err));
+    PrintMes((err && !suppressErrorMessage) ? RGY_LOG_ERROR : RGY_LOG_DEBUG, _T("InitSession(va): %s.\n"), get_err_mes(err));
     return err;
 }
 
-mfxStatus MFXVideoSession2::initSW() {
+mfxStatus MFXVideoSession2::initSW(const bool suppressErrorMessage) {
+    PrintMes(RGY_LOG_DEBUG, _T("InitSession(sys)...\n"));
     mfxIMPL impl = MFX_IMPL_SOFTWARE;
     auto err = initHW(impl, QSVDeviceNum::AUTO);
-    PrintMes((err) ? RGY_LOG_ERROR : RGY_LOG_DEBUG, _T("InitSession(sys): %s.\n"), get_err_mes(err));
+    PrintMes((err && !suppressErrorMessage) ? RGY_LOG_ERROR : RGY_LOG_DEBUG, _T("InitSession(sys): %s.\n"), get_err_mes(err));
     return err;
 }
 
@@ -322,21 +362,21 @@ std::vector<mfxImplDescription> getVPLImplList(std::shared_ptr<RGYLog>& log) {
     return session.getImplList();
 }
 
-RGY_ERR InitSession(MFXVideoSession2& mfxSession, const MFXVideoSession2Params& params, const mfxIMPL implAcceleration, const QSVDeviceNum dev, std::shared_ptr<RGYLog>& log) {
+RGY_ERR InitSession(MFXVideoSession2& mfxSession, const MFXVideoSession2Params& params, const mfxIMPL implAcceleration, const QSVDeviceNum dev, std::shared_ptr<RGYLog>& log, const bool suppressErrorMessage) {
     mfxSession.setParams(log, params);
 	auto err = RGY_ERR_NOT_INITIALIZED;
 #if D3D_SURFACES_SUPPORT
 #if MFX_D3D11_SUPPORT
 	if ((implAcceleration & MFX_IMPL_VIA_D3D11) == MFX_IMPL_VIA_D3D11) {
-		err = (DEBUG_WIN7) ? RGY_ERR_NOT_INITIALIZED : err_to_rgy(mfxSession.initD3D11(dev));
+		err = (DEBUG_WIN7) ? RGY_ERR_NOT_INITIALIZED : err_to_rgy(mfxSession.initD3D11(dev, suppressErrorMessage));
 		if (err != RGY_ERR_NONE) err = RGY_ERR_NOT_INITIALIZED;
 	}
 #endif
 	if ((implAcceleration & MFX_IMPL_VIA_D3D9) == MFX_IMPL_VIA_D3D9 && err == RGY_ERR_NOT_INITIALIZED) {
-		err = err_to_rgy(mfxSession.initD3D9(dev));
+		err = err_to_rgy(mfxSession.initD3D9(dev, suppressErrorMessage));
 	}
 #elif LIBVA_SUPPORT
-	err = err_to_rgy(mfxSession.initVA(dev));
+	err = err_to_rgy(mfxSession.initVA(dev, suppressErrorMessage));
 #endif
 	return err;
 }
@@ -358,7 +398,7 @@ mfxIMPL GetDefaultMFXImpl(MemType memType) {
 	return impl;
 }
 
-RGY_ERR InitSessionAndDevice(std::unique_ptr<CQSVHWDevice>& hwdev, MFXVideoSession2& mfxSession, MemType& memType, const QSVDeviceNum dev, const MFXVideoSession2Params& params, std::shared_ptr<RGYLog>& log) {
+RGY_ERR InitSessionAndDevice(std::unique_ptr<CQSVHWDevice>& hwdev, MFXVideoSession2& mfxSession, MemType& memType, const QSVDeviceNum dev, const MFXVideoSession2Params& params, std::shared_ptr<RGYLog>& log, const bool suppressErrorMessage) {
     auto sts = RGY_ERR_NONE;
     {
         auto targetImplAcceleration = GetDefaultMFXImpl(memType);
@@ -374,8 +414,8 @@ RGY_ERR InitSessionAndDevice(std::unique_ptr<CQSVHWDevice>& hwdev, MFXVideoSessi
         }
 #endif //#if D3D_SURFACES_SUPPORT
 
-        if ((sts = InitSession(mfxSession, params, targetImplAcceleration, dev, log)) != RGY_ERR_NONE) {
-            log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("Failed to init session: %s.\n"), get_err_mes(sts));
+        if ((sts = InitSession(mfxSession, params, targetImplAcceleration, dev, log, suppressErrorMessage)) != RGY_ERR_NONE) {
+            log->write((suppressErrorMessage) ? RGY_LOG_DEBUG : RGY_LOG_ERROR, RGY_LOGT_CORE, _T("Failed to init session: %s.\n"), get_err_mes(sts));
             return sts;
         }
     }

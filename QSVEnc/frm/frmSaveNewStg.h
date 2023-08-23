@@ -1,9 +1,9 @@
 ﻿// -----------------------------------------------------------------------------------------
-// QSVEnc by rigaya
+// x264guiEx/x265guiEx/svtAV1guiEx/ffmpegOut/QSVEnc/NVEnc/VCEEnc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
 //
-// Copyright (c) 2011-2016 rigaya
+// Copyright (c) 2010-2022 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -30,6 +30,7 @@
 #include "ComboBoxFolderBrowser.h"
 #include "frmNewFolderName.h"
 #include "auo_settings.h"
+#include "auo_mes.h"
 
 using namespace System;
 using namespace System::IO;
@@ -39,7 +40,7 @@ using namespace System::Windows::Forms;
 using namespace System::Data;
 using namespace System::Drawing;
 
-namespace QSVEnc {
+namespace AUO_NAME_R {
 
     /// <summary>
     /// frmSaveNewStg の概要
@@ -59,6 +60,8 @@ namespace QSVEnc {
             //
             //TODO: ここにコンストラクタ コードを追加します
             //
+            themeMode = AuoTheme::DefaultLight;
+            dwStgReader = nullptr;
         }
 
     protected:
@@ -198,6 +201,16 @@ namespace QSVEnc {
 
         }
 #pragma endregion
+    private:
+        AuoTheme themeMode;
+        const DarkenWindowStgReader *dwStgReader;
+    private:
+        System::Void LoadLangText() {
+            LOAD_CLI_TEXT(fsnBTOK);
+            LOAD_CLI_TEXT(fsnBTCancel);
+            LOAD_CLI_TEXT(fsnBTNewFolder);
+            LOAD_CLI_MAIN_TEXT(fsnMain);
+        }
     public:
         System::Void setStgDir(String^ _stgDir);
         System::Void setFilename(String^ fileName) {
@@ -217,7 +230,8 @@ namespace QSVEnc {
     private: 
         System::Void frmSaveNewStg_Load(System::Object^  sender, System::EventArgs^  e) {
             StgFileName = L"";
-            
+
+            LoadLangText();
             //フォントの設定
             guiEx_settings exstg;
             exstg.load_encode_stg();
@@ -227,6 +241,7 @@ namespace QSVEnc {
     private:
         System::Void fsnBTNewFolder_Click(System::Object^  sender, System::EventArgs^  e) {
             frmNewFolderName^ fnf = gcnew frmNewFolderName();
+            fnf->SetTheme(themeMode, dwStgReader);
             fnf->ShowDialog();
             String^ NewDir = Path::Combine(fsnCXFolderBrowser->GetSelectedFolder(), fnf->NewFolder);
             if (NewDir == nullptr || NewDir->Length == 0 || Directory::Exists(NewDir))
@@ -239,6 +254,24 @@ namespace QSVEnc {
         System::Void frmSaveNewStg_KeyDown(System::Object^  sender, System::Windows::Forms::KeyEventArgs^  e) {
             if (e->KeyCode == Keys::Escape)
                 this->Close();
+        }
+    public:
+        System::Void SetTheme(AuoTheme themeTo, const DarkenWindowStgReader *dwStg) {
+            dwStgReader = dwStg;
+            CheckTheme(themeTo);
+        }
+    private:
+        System::Void CheckTheme(const AuoTheme themeTo) {
+            //変更の必要がなければ終了
+            if (themeTo == themeMode) return;
+
+            //一度ウィンドウの再描画を完全に抑止する
+            SendMessage(reinterpret_cast<HWND>(this->Handle.ToPointer()), WM_SETREDRAW, 0, 0);
+            SetAllColor(this, themeTo, this->GetType(), dwStgReader);
+            //一度ウィンドウの再描画を再開し、強制的に再描画させる
+            SendMessage(reinterpret_cast<HWND>(this->Handle.ToPointer()), WM_SETREDRAW, 1, 0);
+            this->Refresh();
+            themeMode = themeTo;
         }
 };
 }

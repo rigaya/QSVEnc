@@ -38,6 +38,7 @@ CQSVD3D11Device::CQSVD3D11Device(std::shared_ptr<RGYLog> pQSVLog):
     m_bIsA2rgb10(FALSE),
     m_HandleWindow(NULL) {
     m_name = _T("d3d11");
+    m_devLUID = LUID();
 }
 
 CQSVD3D11Device::~CQSVD3D11Device() {
@@ -85,6 +86,11 @@ mfxStatus CQSVD3D11Device::Init(mfxHDL hWindow, [[maybe_unused]] uint32_t nViews
         return MFX_ERR_DEVICE_FAILED;
     }
     AddMessage(RGY_LOG_DEBUG, _T("D3D11Device: D3D11CreateDevice Success.\n"));
+
+    DXGI_ADAPTER_DESC desc;
+    m_pAdapter->GetDesc(&desc);
+    m_displayDeviceName = desc.Description;
+    m_devLUID = desc.AdapterLuid;
 
     m_pDXGIDev = m_pD3D11Device;
     m_pDX11VideoDevice = m_pD3D11Device;
@@ -174,6 +180,14 @@ mfxStatus CQSVD3D11Device::GetHandle(mfxHandleType type, mfxHDL *pHdl) {
     }
     return MFX_ERR_UNSUPPORTED;
 }
+
+LUID CQSVD3D11Device::GetLUID() {
+    return m_devLUID;
+}
+
+tstring CQSVD3D11Device::GetName() {
+    return wstring_to_tstring(m_displayDeviceName);
+};
 
 void CQSVD3D11Device::Close() {
     m_HandleWindow = NULL;

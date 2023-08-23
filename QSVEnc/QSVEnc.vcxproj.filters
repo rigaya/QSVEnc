@@ -87,9 +87,6 @@
     <ClCompile Include="frm\frmLog.cpp">
       <Filter>フォーム</Filter>
     </ClCompile>
-    <ClCompile Include="encode\convert_avx.cpp">
-      <Filter>ソース ファイル\encode</Filter>
-    </ClCompile>
     <ClCompile Include="encode\auo_faw2aac.cpp">
       <Filter>ソース ファイル\encode</Filter>
     </ClCompile>
@@ -102,20 +99,14 @@
     <ClCompile Include="prm\auo_conf_convert.cpp">
       <Filter>ソース ファイル\prm</Filter>
     </ClCompile>
-    <ClCompile Include="encode\convert_sse2.cpp">
-      <Filter>ソース ファイル\encode</Filter>
-    </ClCompile>
-    <ClCompile Include="encode\convert_sse41.cpp">
-      <Filter>ソース ファイル\encode</Filter>
-    </ClCompile>
-    <ClCompile Include="encode\convert_ssse3.cpp">
-      <Filter>ソース ファイル\encode</Filter>
-    </ClCompile>
     <ClCompile Include="encode\convert_avx2.cpp">
       <Filter>ソース ファイル\encode</Filter>
     </ClCompile>
     <ClCompile Include="encode\auo_convert.cpp">
       <Filter>ソース ファイル\encode</Filter>
+    </ClCompile>
+    <ClCompile Include="frm\auo_mes.cpp">
+      <Filter>ソース ファイル\frm</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -123,6 +114,11 @@
       <Filter>ソース ファイル</Filter>
     </None>
     <None Include="QSVEnc.ini" />
+    <None Include="QSVEnc.en.lng" />
+    <None Include="QSVEnc.ja.lng" />
+    <None Include="QSVEnc.zh.lng" />
+    <None Include="QSVEnc.en.ini" />
+    <None Include="QSVEnc.zh.ini" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="auo.h">
@@ -218,6 +214,15 @@
     <ClInclude Include="encode\exe_version.h">
       <Filter>ヘッダー ファイル\encode</Filter>
     </ClInclude>
+    <ClInclude Include="frm\ComboBoxFolderBrowser.h">
+      <Filter>フォーム</Filter>
+    </ClInclude>
+    <ClInclude Include="frm\frmNewFolderName.h">
+      <Filter>フォーム</Filter>
+    </ClInclude>
+    <ClInclude Include="frm\auo_mes.h">
+      <Filter>ヘッダー ファイル\frm</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="frm\frmAutoSaveLogSettings.resx">
@@ -249,5 +254,8 @@
     <ResourceCompile Include="auo_version.rc">
       <Filter>リソース ファイル</Filter>
     </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="QSVEnc_readme.txt" />
   </ItemGroup>
 </Project>

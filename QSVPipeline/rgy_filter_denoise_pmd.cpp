@@ -122,24 +122,36 @@ RGY_ERR RGYFilterDenoisePmd::denoiseFrame(RGYFrameInfo *pOutputFrame[2], const R
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    auto srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY);
+    auto srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY, &m_srcImagePool);
+    if (!srcImage) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to create image for input frame.\n"));
+        return RGY_ERR_MEM_OBJECT_ALLOCATION_FAILURE;
+    }
     auto ret = runGaussFrame(&m_gauss->frame, &srcImage->frame, queue, wait_events, nullptr);
     if (ret != RGY_ERR_NONE) {
         return ret;
     }
-    auto gaussImage = m_cl->createImageFromFrameBuffer(m_gauss->frame, true, CL_MEM_READ_ONLY);
+    auto gaussImage = m_cl->createImageFromFrameBuffer(m_gauss->frame, true, CL_MEM_READ_ONLY, &m_gaussImagePool);
+    if (!gaussImage) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to create image for gauss frame.\n"));
+        return RGY_ERR_MEM_OBJECT_ALLOCATION_FAILURE;
+    }
 
     for (int i = 0; i < prm->pmd.applyCount; i++) {
         const int dst_index = i & 1;
         ret = runPmdFrame(pOutputFrame[dst_index], &srcImage->frame, &gaussImage->frame, queue, {}, (i == prm->pmd.applyCount - 1) ? event : nullptr);
         if (i < prm->pmd.applyCount - 1) {
-            srcImage = m_cl->createImageFromFrameBuffer(*(pOutputFrame[dst_index]), true, CL_MEM_READ_ONLY);
+            srcImage = m_cl->createImageFromFrameBuffer(*(pOutputFrame[dst_index]), true, CL_MEM_READ_ONLY, &m_srcImagePool);
+            if (!srcImage) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to create image for input frame (%d).\n"), i);
+                return RGY_ERR_MEM_OBJECT_ALLOCATION_FAILURE;
+            }
         }
     }
     return RGY_ERR_NONE;
 }
 
-RGYFilterDenoisePmd::RGYFilterDenoisePmd(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_bInterlacedWarn(false), m_frameIdx(0), m_pmd(), m_gauss() {
+RGYFilterDenoisePmd::RGYFilterDenoisePmd(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_bInterlacedWarn(false), m_frameIdx(0), m_pmd(), m_gauss(), m_srcImagePool(), m_gaussImagePool() {
     m_name = _T("pmd");
 }
 
@@ -172,15 +184,19 @@ RGY_ERR RGYFilterDenoisePmd::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
         AddMessage(RGY_LOG_WARN, _T("strength must be in range of 0.0 - 255.0.\n"));
         pPmdParam->pmd.threshold = clamp(pPmdParam->pmd.threshold, 0.0f, 255.0f);
     }
+    auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamDenoisePmd>(m_param);
     if (!m_pmd.get()
-        || std::dynamic_pointer_cast<RGYFilterParamDenoisePmd>(m_param)->pmd != pPmdParam->pmd) {
+        || !prmPrev
+        || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]
+        || prmPrev->pmd.useExp != pPmdParam->pmd.useExp) {
         const auto options = strsprintf("-D Type=%s -D bit_depth=%d -D useExp=%d",
             RGY_CSP_BIT_DEPTH[pPmdParam->frameOut.csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[pPmdParam->frameOut.csp],
             pPmdParam->pmd.useExp ? 1 : 0);
         m_pmd.set(m_cl->buildResourceAsync(_T("RGY_FILTER_DENOISE_PMD_CL"), _T("EXE_DATA"), options.c_str()));
     }
-    if (!m_gauss) {
+    if (!m_gauss
+        || cmpFrameInfoCspResolution(&m_gauss->frame, &pPmdParam->frameOut)) {
         m_gauss = m_cl->createFrameBuffer(pPmdParam->frameOut, CL_MEM_READ_WRITE);
     }
 
@@ -242,6 +258,8 @@ RGY_ERR RGYFilterDenoisePmd::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
 }
 
 void RGYFilterDenoisePmd::close() {
+    m_gaussImagePool.clear();
+    m_srcImagePool.clear();
     m_frameBuf.clear();
     m_gauss.reset();
     m_pmd.clear();

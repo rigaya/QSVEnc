@@ -270,7 +270,7 @@ function showTable(idno) {
         }
     };
 
-    fprintf(stderr, (bUseJapanese) ? "QSVの情報を取得しています...\n" : "Checking for QSV...\n");
+    _ftprintf(stderr, _T("%s...\n"), (bUseJapanese) ? _T("QSVの情報を取得しています") : _T("Checking for QSV"));
 
     if (type == FEATURE_LIST_STR_TYPE_HTML) {
         print_tstring(header, false);
@@ -281,7 +281,7 @@ function showTable(idno) {
     if (type == FEATURE_LIST_STR_TYPE_HTML) {
         print_tstring(_T("<hr>\n"), false);
     }
-    tstring environmentInfo = getEnviromentInfo();
+    tstring environmentInfo = getEnviromentInfo((int)deviceNum);
     if (type == FEATURE_LIST_STR_TYPE_HTML) {
         environmentInfo = str_replace(environmentInfo, _T("Environment Info\n"), _T(""));
     }
@@ -510,7 +510,7 @@ int ParseDeviceOption(const TCHAR *option_name, const TCHAR *arg1, QSVDeviceNum&
     return 0;
 }
 
-int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const QSVDeviceNum deviceNum) {
+int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const QSVDeviceNum deviceNum, RGYParamLogLevel& loglevel) {
 
     // process multi-character options
     if (0 == _tcscmp(option_name, _T("help"))) {
@@ -528,16 +528,19 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const QSVDe
     }
     if (0 == _tcscmp(option_name, _T("check-environment"))) {
         show_version();
-        _ftprintf(stdout, _T("%s"), getEnviromentInfo().c_str());
+        _ftprintf(stdout, _T("%s"), getEnviromentInfo((int)deviceNum).c_str());
         return 1;
     }
     if (0 == _tcscmp(option_name, _T("check-environment-auo"))) {
         show_version();
-        _ftprintf(stdout, _T("%s"), getEnviromentInfo().c_str());
+        _ftprintf(stdout, _T("%s"), getEnviromentInfo((int)deviceNum).c_str());
         mfxVersion lib = get_mfx_libhw_version(QSVDeviceNum::AUTO);
         mfxVersion test = { 0, 1 };
         if (check_lib_version(lib, test)) {
             _ftprintf(stdout, _T("Media SDK Version: Hardware API v%d.%02d\n\n"), lib.Major, lib.Minor);
+        }
+        for (auto& str : getDeviceNameList()) {
+            _ftprintf(stdout, _T("%s\n"), str.c_str());
         }
         return 1;
     }
@@ -560,7 +563,18 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const QSVDe
     {
         mfxVersion ver = { 0, 1 };
         if (check_lib_version(get_mfx_libhw_version(deviceNum), ver) != 0) {
+            tstring deviceName = (deviceNum == QSVDeviceNum::AUTO) ? _T("auto") : strsprintf(_T("%d"), (int)deviceNum);
             _ftprintf(stdout, _T("Success: QuickSyncVideo (hw encoding) available\n"));
+            _ftprintf(stdout, _T("Supported Encode Codecs for device %s:\n"), deviceName.c_str());
+            auto log = std::make_shared<RGYLog>(nullptr, loglevel);
+            const auto encodeFeature = MakeFeatureListPerCodec(
+                deviceNum, { { _T("CQP  "), MFX_RATECONTROL_CQP } }, ENC_CODEC_LISTS, log);
+            for (auto& enc : encodeFeature) {
+                if (enc.feature.count(MFX_RATECONTROL_CQP) > 0
+                    && (enc.feature.at(MFX_RATECONTROL_CQP) & ENC_FEATURE_CURRENT_RC) != 0) {
+                    _ftprintf(stdout, _T("%s %s\n"), CodecToStr(enc.codec).c_str(), enc.lowPwer ? _T("FF") : _T("PG"));
+                }
+            }
             return 1;
         } else {
             _ftprintf(stdout, _T("Error: QuickSyncVideo (hw encoding) unavailable\n"));
@@ -602,6 +616,17 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const QSVDe
         _ftprintf(stdout, _T("%s\n"), str.c_str());
         return 1;
     }
+    if (0 == _tcscmp(option_name, _T("check-device"))) {
+        auto devs = getDeviceNameList();
+        if (devs.size() > 0) {
+            for (auto& str : devs) {
+                _ftprintf(stdout, _T("%s\n"), str.c_str());
+            }
+            return 1;
+        } else {
+            return -1;
+        }
+    }
 #if ENABLE_AVSW_READER
     if (0 == _tcscmp(option_name, _T("check-avcodec-dll"))) {
         const auto ret = check_avcodec_dll();
@@ -641,6 +666,10 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const QSVDe
     }
     if (0 == _tcscmp(option_name, _T("check-protocols"))) {
         _ftprintf(stdout, _T("%s\n"), getAVProtocols().c_str());
+        return 1;
+    }
+    if (0 == _tcscmp(option_name, _T("check-avdevices"))) {
+        _ftprintf(stdout, _T("%s\n"), getAVDevices().c_str());
         return 1;
     }
     if (0 == _tcscmp(option_name, _T("check-filters"))) {
@@ -693,7 +722,7 @@ static int run_on_os_codepage() {
         return 1;
     }
     void *manifest = nullptr;
-    int size = getEmbeddedResource(&manifest,_T("APP_OSCODEPAGE_MANIFEST"), _T("EXE_DATA"));
+    int size = getEmbeddedResource(&manifest,_T("APP_OSCODEPAGE_MANIFEST"), _T("EXE_DATA"), NULL);
     if (size == 0) {
         _ftprintf(stderr, _T("Failed to load manifest for OS codepage mode.\n"));
         return 1;
@@ -1043,7 +1072,16 @@ int run(int argc, TCHAR *argv[]) {
     }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
-    // device IDとlog-levelの取得
+    //log-levelの取得
+    RGYParamLogLevel loglevelPrint(RGY_LOG_ERROR);
+    for (int iarg = 1; iarg < argc - 1; iarg++) {
+        if (tstring(argv[iarg]) == _T("--log-level")) {
+            parse_log_level_param(argv[iarg], argv[iarg + 1], loglevelPrint);
+            break;
+        }
+    }
+
+    // device IDの取得
     QSVDeviceNum deviceNum = QSVDeviceNum::AUTO;
     for (int iarg = 1; iarg < argc; iarg++) {
         const TCHAR *option_name = nullptr;
@@ -1080,7 +1118,7 @@ int run(int argc, TCHAR *argv[]) {
             }
         }
         if (option_name != nullptr) {
-            int ret = parse_print_options(option_name, (iarg+1 < argc) ? argv[iarg+1] : _T(""), deviceNum);
+            int ret = parse_print_options(option_name, (iarg+1 < argc) ? argv[iarg+1] : _T(""), deviceNum, loglevelPrint);
             if (ret != 0) {
                 return ret == 1 ? 0 : 1;
             }

@@ -1,9 +1,9 @@
 ﻿// -----------------------------------------------------------------------------------------
-// QSVEnc by rigaya
+// x264guiEx/x265guiEx/svtAV1guiEx/ffmpegOut/QSVEnc/NVEnc/VCEEnc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
 //
-// Copyright (c) 2011-2016 rigaya
+// Copyright (c) 2010-2022 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -29,6 +29,7 @@
 
 #include "auo_util.h"
 #include "auo_clrutil.h"
+#include "auo_mes.h"
 #include "auo_settings.h"
 
 using namespace System;
@@ -40,7 +41,7 @@ using namespace System::Drawing;
 using namespace System::IO;
 
 
-namespace QSVEnc {
+namespace AUO_NAME_R {
 
     /// <summary>
     /// frmAutoSaveLogSettings の概要
@@ -64,6 +65,9 @@ namespace QSVEnc {
             //
             //TODO: ここにコンストラクタ コードを追加します
             //
+            themeMode = AuoTheme::DefaultLight;
+            dwStgReader = nullptr;
+            LoadLangText();
         }
 
     protected:
@@ -76,6 +80,8 @@ namespace QSVEnc {
             {
                 delete components;
             }
+            if (dwStgReader != nullptr)
+                delete dwStgReader;
             delete fas_ex_stg;
         }
     private:
@@ -89,11 +95,11 @@ namespace QSVEnc {
             }
         }
     private: System::Windows::Forms::Label^  fasLBAutoSaveLog;
-    protected: 
+    protected:
 
     private: System::Windows::Forms::ComboBox^  fasCXAutoSaveLog;
     private: System::Windows::Forms::TextBox^  fasTXAutoSaveLog;
-    protected: 
+    protected:
 
 
     private: System::Windows::Forms::Button^  fasBTAutoSaveLog;
@@ -122,18 +128,18 @@ namespace QSVEnc {
             this->fasBTCancel = (gcnew System::Windows::Forms::Button());
             this->fasBTOK = (gcnew System::Windows::Forms::Button());
             this->SuspendLayout();
-            // 
+            //
             // fasLBAutoSaveLog
-            // 
+            //
             this->fasLBAutoSaveLog->AutoSize = true;
             this->fasLBAutoSaveLog->Location = System::Drawing::Point(23, 28);
             this->fasLBAutoSaveLog->Name = L"fasLBAutoSaveLog";
             this->fasLBAutoSaveLog->Size = System::Drawing::Size(119, 15);
             this->fasLBAutoSaveLog->TabIndex = 0;
             this->fasLBAutoSaveLog->Text = L"自動ログ保存ファイル名";
-            // 
+            //
             // fasCXAutoSaveLog
-            // 
+            //
             this->fasCXAutoSaveLog->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
             this->fasCXAutoSaveLog->FormattingEnabled = true;
             this->fasCXAutoSaveLog->Items->AddRange(gcnew cli::array< System::Object^  >(2) {L"出力先と同じ", L"カスタム"});
@@ -141,16 +147,16 @@ namespace QSVEnc {
             this->fasCXAutoSaveLog->Name = L"fasCXAutoSaveLog";
             this->fasCXAutoSaveLog->Size = System::Drawing::Size(178, 23);
             this->fasCXAutoSaveLog->TabIndex = 1;
-            // 
+            //
             // fasTXAutoSaveLog
-            // 
+            //
             this->fasTXAutoSaveLog->Location = System::Drawing::Point(52, 54);
             this->fasTXAutoSaveLog->Name = L"fasTXAutoSaveLog";
             this->fasTXAutoSaveLog->Size = System::Drawing::Size(290, 23);
             this->fasTXAutoSaveLog->TabIndex = 2;
-            // 
+            //
             // fasBTAutoSaveLog
-            // 
+            //
             this->fasBTAutoSaveLog->Location = System::Drawing::Point(348, 53);
             this->fasBTAutoSaveLog->Name = L"fasBTAutoSaveLog";
             this->fasBTAutoSaveLog->Size = System::Drawing::Size(33, 23);
@@ -158,9 +164,9 @@ namespace QSVEnc {
             this->fasBTAutoSaveLog->Text = L"..";
             this->fasBTAutoSaveLog->UseVisualStyleBackColor = true;
             this->fasBTAutoSaveLog->Click += gcnew System::EventHandler(this, &frmAutoSaveLogSettings::fasBTAutoSaveLog_Click);
-            // 
+            //
             // fasBTCancel
-            // 
+            //
             this->fasBTCancel->DialogResult = System::Windows::Forms::DialogResult::Cancel;
             this->fasBTCancel->Location = System::Drawing::Point(227, 93);
             this->fasBTCancel->Name = L"fasBTCancel";
@@ -169,9 +175,9 @@ namespace QSVEnc {
             this->fasBTCancel->Text = L"キャンセル";
             this->fasBTCancel->UseVisualStyleBackColor = true;
             this->fasBTCancel->Click += gcnew System::EventHandler(this, &frmAutoSaveLogSettings::fasBTCancel_Click);
-            // 
+            //
             // fasBTOK
-            // 
+            //
             this->fasBTOK->Location = System::Drawing::Point(311, 93);
             this->fasBTOK->Name = L"fasBTOK";
             this->fasBTOK->Size = System::Drawing::Size(75, 32);
@@ -179,9 +185,9 @@ namespace QSVEnc {
             this->fasBTOK->Text = L"OK";
             this->fasBTOK->UseVisualStyleBackColor = true;
             this->fasBTOK->Click += gcnew System::EventHandler(this, &frmAutoSaveLogSettings::fasBTOK_Click);
-            // 
+            //
             // frmAutoSaveLogSettings
-            // 
+            //
             this->AcceptButton = this->fasBTOK;
             this->AutoScaleDimensions = System::Drawing::SizeF(96, 96);
             this->AutoScaleMode = System::Windows::Forms::AutoScaleMode::Dpi;
@@ -193,7 +199,7 @@ namespace QSVEnc {
             this->Controls->Add(this->fasTXAutoSaveLog);
             this->Controls->Add(this->fasCXAutoSaveLog);
             this->Controls->Add(this->fasLBAutoSaveLog);
-            this->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point, 
+            this->Font = (gcnew System::Drawing::Font(L"Meiryo UI", 9, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
                 static_cast<System::Byte>(0)));
             this->FormBorderStyle = System::Windows::Forms::FormBorderStyle::FixedDialog;
             this->KeyPreview = true;
@@ -210,8 +216,45 @@ namespace QSVEnc {
         }
 #pragma endregion
     private:
+        AuoTheme themeMode;
+        const DarkenWindowStgReader *dwStgReader;
+    private:
+        System::Void LoadLangText() {
+            LOAD_CLI_TEXT(fasLBAutoSaveLog);
+            LOAD_CLI_TEXT(fasBTAutoSaveLog);
+            LOAD_CLI_TEXT(fasBTCancel);
+            LOAD_CLI_TEXT(fasBTOK);
+            LOAD_CLI_MAIN_TEXT(fasMain);
+
+            const AuoMes listCXMes[] = {AUO_AUTO_SAVE_LOG_SAME_AS_OUTPUT, AUO_AUTO_SAVE_LOG_CUSTOM, AUO_MES_UNKNOWN };
+            setComboBox(fasCXAutoSaveLog, listCXMes);
+        }
+    private:
         System::Void SetCXIndex(ComboBox^ CX, int index) {
-            CX->SelectedIndex = clamp(index, 0, CX->Items->Count - 1);
+            if (CX->Items->Count > 0) {
+                CX->SelectedIndex = clamp(index, 0, CX->Items->Count - 1);
+            }
+        }
+    private:
+        System::Void setComboBox(ComboBox^ CX, const AuoMes * list) {
+            const int itemCount = CX->Items->Count;
+            bool textExists = true;
+            for (int i = 0; i < itemCount; i++) {
+                if (list[i] == AUO_MES_UNKNOWN) {
+                    textExists = false;
+                    break;
+                }
+            }
+            if (!textExists) return;
+
+            CX->BeginUpdate();
+            const int prevIdx = CX->SelectedIndex;
+            CX->Items->Clear();
+            for (int i = 0; i < itemCount; i++) {
+                CX->Items->Add(LOAD_CLI_STRING(list[i]));
+            }
+            SetCXIndex(CX, prevIdx);
+            CX->EndUpdate();
         }
     private:
         System::Void SavefasToStg() {
@@ -220,22 +263,23 @@ namespace QSVEnc {
             GetCHARfromString(fas_ex_stg->s_log.auto_save_log_path, sizeof(fas_ex_stg->s_log.auto_save_log_path), fasTXAutoSaveLog->Text);
             fas_ex_stg->save_log_win();
         }
-    private: 
+    private:
         System::Void frmAutoSaveLogSettings_Load(System::Object^  sender, System::EventArgs^  e) {
             fas_ex_stg->load_log_win();
+            LoadLangText();
             SetCXIndex(fasCXAutoSaveLog, fas_ex_stg->s_log.auto_save_log_mode);
             fasTXAutoSaveLog->Text = String(fas_ex_stg->s_log.auto_save_log_path).ToString();
         }
-    private: 
+    private:
         System::Void fasBTOK_Click(System::Object^  sender, System::EventArgs^  e) {
             SavefasToStg();
             this->Close();
         }
-    private: 
+    private:
         System::Void fasBTCancel_Click(System::Object^  sender, System::EventArgs^  e) {
             this->Close();
         }
-    private: 
+    private:
         System::Void fasBTAutoSaveLog_Click(System::Object^  sender, System::EventArgs^  e) {
             String^ CurrentDir = Directory::GetCurrentDirectory();
             SaveFileDialog^ sfd = gcnew SaveFileDialog();
@@ -250,7 +294,7 @@ namespace QSVEnc {
                 if (fileName != nullptr)
                     sfd->FileName = fileName;
             }
-            sfd->Filter = L"ログファイル(*.txt)|*.txt|すべてのファイル(*.*)|*.*";
+            sfd->Filter = LOAD_CLI_STRING(AUO_AUTO_SAVE_LOG_EXT_FILTER);
             if (sfd->ShowDialog() == System::Windows::Forms::DialogResult::OK) {
                 fasTXAutoSaveLog->Text = sfd->FileName;
                 fasTXAutoSaveLog->SelectionStart = fasTXAutoSaveLog->Text->Length;
@@ -262,6 +306,28 @@ namespace QSVEnc {
         System::Void frmAutoSaveLogSettings_KeyDown(System::Object^  sender, System::Windows::Forms::KeyEventArgs^  e) {
             if (e->KeyCode == Keys::Escape)
                 this->Close();
+        }
+    public:
+        System::Void InitTheme() {
+            if (dwStgReader != nullptr) delete dwStgReader;
+            char aviutl_dir[MAX_PATH_LEN];
+            get_aviutl_dir(aviutl_dir, _countof(aviutl_dir));
+            const auto [themeTo, dwStg] = check_current_theme(aviutl_dir);
+            dwStgReader = dwStg;
+            CheckTheme(themeTo);
+        }
+    private:
+        System::Void CheckTheme(const AuoTheme themeTo) {
+            //変更の必要がなければ終了
+            if (themeTo == themeMode) return;
+
+            //一度ウィンドウの再描画を完全に抑止する
+            SendMessage(reinterpret_cast<HWND>(this->Handle.ToPointer()), WM_SETREDRAW, 0, 0);
+            SetAllColor(this, themeTo, this->GetType(), dwStgReader);
+            //一度ウィンドウの再描画を再開し、強制的に再描画させる
+            SendMessage(reinterpret_cast<HWND>(this->Handle.ToPointer()), WM_SETREDRAW, 1, 0);
+            this->Refresh();
+            themeMode = themeTo;
         }
 };
 }

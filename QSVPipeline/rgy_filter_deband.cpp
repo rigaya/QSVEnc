@@ -106,7 +106,11 @@ RGY_ERR RGYFilterDeband::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInf
         frame_wait_event = std::vector<RGYOpenCLEvent>();
     }
 
-    auto srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY);
+    auto srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY, &m_srcImagePool);
+    if (!srcImage) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to create image for input frame.\n"));
+        return RGY_ERR_MEM_OBJECT_ALLOCATION_FAILURE;
+    }
     for (int i = 0; i < RGY_CSP_PLANES[pOutputFrame->csp]; i++) {
         const auto iplane = (RGY_PLANE)i;
         auto planeDst = getPlane(pOutputFrame, iplane);
@@ -174,36 +178,12 @@ RGY_ERR RGYFilterDeband::genRand(RGYOpenCLQueue &queue, const std::vector<RGYOpe
     return RGY_ERR_NONE;
 }
 
-RGYFilterDeband::RGYFilterDeband(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_randInitialized(false), m_deband(), m_debandGenRand(), m_rngStream(), m_randStreamBuf(), m_randBufY(), m_randBufUV() {
+RGYFilterDeband::RGYFilterDeband(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_randInitialized(false), m_deband(), m_debandGenRand(), m_rngStream(), m_randStreamBuf(), m_randBufY(), m_randBufUV(), m_srcImagePool() {
     m_name = _T("deband");
 }
 
 RGYFilterDeband::~RGYFilterDeband() {
     close();
-}
-
-std::string RGYFilterDeband::getEmbeddedResourceStr(const tstring &name, const tstring &type) {
-    std::string data_str;
-    AddMessage(RGY_LOG_DEBUG, _T("Load resource type: %s, name: %s\n"), type.c_str(), name.c_str());
-    {
-        char *data = nullptr;
-        int size = getEmbeddedResource((void **)&data, name.c_str(), type.c_str());
-        if (size == 0) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to load %s(m_deband)\n"), name.c_str());
-        } else {
-
-            auto datalen = size;
-            {
-                const uint8_t *ptr = (const uint8_t *)data;
-                if (ptr[0] == 0xEF && ptr[1] == 0xBB && ptr[2] == 0xBF) { //skip UTF-8 BOM
-                    data += 3;
-                    datalen -= 3;
-                }
-            }
-            data_str = std::string(data, datalen);
-        }
-    }
-    return data_str;
 }
 
 RGY_ERR RGYFilterDeband::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
@@ -247,11 +227,16 @@ RGY_ERR RGYFilterDeband::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
         AddMessage(RGY_LOG_WARN, _T("mode must be in range of 0 - 2.\n"));
         prm->deband.sample = clamp(prm->deband.sample, 0, 2);
     }
+    auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamDeband>(m_param);
     if (!m_deband.get()
         || !m_debandGenRand.get()
+        || !prmPrev
         || std::dynamic_pointer_cast<RGYFilterParamDeband>(m_param)->deband != prm->deband) {
 
-        {
+        if (!m_deband.get()
+            || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[prm->frameOut.csp]
+            || prmPrev->deband.sample                   != prm->deband.sample
+            || prmPrev->deband.blurFirst                != prm->deband.blurFirst) {
             const auto options = strsprintf("-D Type=%s -D bit_depth=%d -D sample_mode=%d -D blur_first=%d"
                 " -D block_loop_x_inner=%d  -D block_loop_y_inner=%d  -D block_loop_x_outer=%d -D block_loop_y_outer=%d",
                 RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
@@ -262,11 +247,12 @@ RGY_ERR RGYFilterDeband::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
             m_deband.set(m_cl->buildResourceAsync(_T("RGY_FILTER_DEBAND_CL"), _T("EXE_DATA"), options.c_str()));
         }
 
-        {
-            auto deband_gen_rand_cl   = getEmbeddedResourceStr(_T("RGY_FILTER_DEBAND_GEN_RAND_CL"),        _T("EXE_DATA"));
-            auto clrng_clh            = getEmbeddedResourceStr(_T("RGY_FILTER_CLRNG_CLH"),                 _T("EXE_DATA"));
-            auto mrg31k3p_clh         = getEmbeddedResourceStr(_T("RGY_FILTER_CLRNG_MRG31K3P_CLH"),        _T("EXE_DATA"));
-            auto mrg31k3p_private_c_h = getEmbeddedResourceStr(_T("RGY_FILTER_CLRNG_MRG31K3P_PRIVATE_CH"), _T("EXE_DATA"));
+        if (!m_debandGenRand.get()
+            || RGY_CSP_CHROMA_FORMAT[prmPrev->frameOut.csp] != RGY_CSP_CHROMA_FORMAT[prm->frameOut.csp]) {
+            auto deband_gen_rand_cl   = getEmbeddedResourceStr(_T("RGY_FILTER_DEBAND_GEN_RAND_CL"),        _T("EXE_DATA"), m_cl->getModuleHandle());
+            auto clrng_clh            = getEmbeddedResourceStr(_T("RGY_FILTER_CLRNG_CLH"),                 _T("EXE_DATA"), m_cl->getModuleHandle());
+            auto mrg31k3p_clh         = getEmbeddedResourceStr(_T("RGY_FILTER_CLRNG_MRG31K3P_CLH"),        _T("EXE_DATA"), m_cl->getModuleHandle());
+            auto mrg31k3p_private_c_h = getEmbeddedResourceStr(_T("RGY_FILTER_CLRNG_MRG31K3P_PRIVATE_CH"), _T("EXE_DATA"), m_cl->getModuleHandle());
 
             //includeをチェック
             {
@@ -290,7 +276,7 @@ RGY_ERR RGYFilterDeband::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
             //includeの反映
             mrg31k3p_clh = str_replace(mrg31k3p_clh, "#include <clRNG/clRNG.clh>", clrng_clh);
             mrg31k3p_clh = str_replace(mrg31k3p_clh, "#include <clRNG/private/mrg31k3p.c.h>", mrg31k3p_private_c_h);
-#if ENCODER_QSV // Intel OpenCLでコンパイルを通すための小細工を行う
+#if ENCODER_QSV || CLFILTERS_AUF // Intel OpenCLでコンパイルを通すための小細工を行う
             auto mrg31k3p_clh_lines = split(mrg31k3p_clh, "\n");
             mrg31k3p_clh.clear();
             for (auto& line : mrg31k3p_clh_lines) {
@@ -300,9 +286,8 @@ RGY_ERR RGYFilterDeband::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
                 }
                 if (line.find("clrngSetErrorString") != std::string::npos) { // clrngSetErrorStringマクロのコンパイルが通らないので削除
                     if (line.find("return ") != std::string::npos) { // return clrngSetErrorString(...) となっている場合
-                        const bool endWithBackSlash = line.back() == '\\'; //マクロとかで "\"で継続行となっている場合
                         line = line.substr(0, line.find("return ") + strlen("return ")) + " -1;";
-                        if (endWithBackSlash) line += " \\"; // もともと継続行だった場合は継続行とする
+                        line += " \\"; // もともとマクロ等で継続行だった場合があるので継続行とする
                     } else {
                         continue; // returnのつかない場合は単に削除
                     }
@@ -316,9 +301,11 @@ RGY_ERR RGYFilterDeband::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
                 GEN_RAND_BLOCK_LOOP_Y);
             m_debandGenRand.set(m_cl->buildAsync(deband_gen_rand_source, options.c_str()));
         }
-        {
-            RGYFrameInfo rndBufFrame = prm->frameOut;
-            rndBufFrame.csp = RGY_CSP_RGB32;
+        RGYFrameInfo rndBufFrame = prm->frameOut;
+        rndBufFrame.csp = RGY_CSP_RGB32;
+        if (!m_randBufY
+            || !m_randBufUV
+            || cmpFrameInfoCspResolution(&rndBufFrame, &m_randBufY->frame)) {
             m_randBufY = m_cl->createFrameBuffer(rndBufFrame, CL_MEM_READ_WRITE);
             if (!m_randBufY) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate buffer for Random numbers\n"));
@@ -403,6 +390,7 @@ RGY_ERR RGYFilterDeband::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
 }
 
 void RGYFilterDeband::close() {
+    m_srcImagePool.clear();
     m_frameBuf.clear();
     m_randBufUV.reset();
     m_randBufY.reset();

@@ -95,7 +95,13 @@ RGY_ERR RGYFilterMpdecimate::calcDiff(RGYFilterMpdecimateFrameData *target, cons
             AddMessage(RGY_LOG_ERROR, _T("failed to run calcDiff: %s.\n"), get_err_mes(err));
             return err;
         }
-        if ((err = target->tmp()->queueMapBuffer(queue_main, CL_MAP_READ)) != RGY_ERR_NONE) {
+#if ENCODER_VCEENC
+        //非同期モードで転送するとなぜかエラー終了したり、予期せぬ結果を招くため、同期転送する
+        RGYCLMapBlock map_mode = RGY_CL_MAP_BLOCK_LAST;
+#else
+        RGYCLMapBlock map_mode = RGY_CL_MAP_BLOCK_NONE;
+#endif
+        if ((err = target->tmp()->queueMapBuffer(queue_main, CL_MAP_READ, {}, map_mode)) != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to queueMapBuffer in calcDiff: %s.\n"), get_err_mes(err));
             return err;
         }
@@ -117,7 +123,7 @@ RGYFilterMpdecimateFrameData::~RGYFilterMpdecimateFrameData() {
     m_tmp.reset();
 }
 
-RGY_ERR RGYFilterMpdecimateFrameData::set(const RGYFrameInfo *pInputFrame, int inputFrameId, RGYOpenCLQueue& queue, RGYOpenCLEvent& event) {
+RGY_ERR RGYFilterMpdecimateFrameData::set(const RGYFrameInfo *pInputFrame, int inputFrameId, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent& event) {
     m_inFrameId = inputFrameId;
     if (!m_buf) {
         m_buf = m_cl->createFrameBuffer(pInputFrame->width, pInputFrame->height, pInputFrame->csp, pInputFrame->bitdepth);
@@ -127,7 +133,7 @@ RGY_ERR RGYFilterMpdecimateFrameData::set(const RGYFrameInfo *pInputFrame, int i
     }
     copyFrameProp(&m_buf->frame, pInputFrame);
 
-    auto err = m_cl->copyFrame(&m_buf->frame, pInputFrame, nullptr, queue, &event);
+    auto err = m_cl->copyFrame(&m_buf->frame, pInputFrame, nullptr, queue, wait_events, &event);
     if (err != RGY_ERR_NONE) {
         m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to set frame to data cache: %s.\n"), get_err_mes(err));
         return RGY_ERR_CUDA;
@@ -136,8 +142,8 @@ RGY_ERR RGYFilterMpdecimateFrameData::set(const RGYFrameInfo *pInputFrame, int i
 }
 
 bool RGYFilterMpdecimateFrameData::checkIfFrameCanbeDropped(const int hi, const int lo, const float factor) {
-    m_tmp->mapEvent().wait();
-    auto tmpMappedHost = m_tmp->mappedHost();
+    m_tmp->mapWait();
+    const auto tmpMappedHost = m_tmp->mappedHost()->frameInfo();
     const int threshold = (int)((float)tmpMappedHost.width * tmpMappedHost.height * factor + 0.5f);
     int loCount = 0;
     for (int iplane = 0; iplane < RGY_CSP_PLANES[tmpMappedHost.csp]; iplane++) {
@@ -179,9 +185,9 @@ void RGYFilterMpdecimateCache::init(int bufCount, std::shared_ptr<RGYLog> log) {
     }
 }
 
-RGY_ERR RGYFilterMpdecimateCache::add(const RGYFrameInfo *pInputFrame, RGYOpenCLQueue& queue, RGYOpenCLEvent& event) {
+RGY_ERR RGYFilterMpdecimateCache::add(const RGYFrameInfo *pInputFrame, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent& event) {
     const int id = m_inputFrames++;
-    return getEmpty()->set(pInputFrame, id, queue, event);
+    return getEmpty()->set(pInputFrame, id, queue, wait_events, event);
 }
 
 RGYFilterMpdecimate::RGYFilterMpdecimate(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_dropCount(0), m_ref(-1), m_target(-1), m_mpdecimate(), m_cache(context), m_eventDiff(), m_streamDiff(), m_streamTransfer() {
@@ -264,7 +270,6 @@ RGY_ERR RGYFilterMpdecimate::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
             AddMessage(RGY_LOG_DEBUG, _T("Opened log file: %s.\n"), logfilename.c_str());
         }
 
-        const int max_value = (1 << RGY_CSP_BIT_DEPTH[prm->frameIn.csp]) - 1;
         m_pathThrough &= (~(FILTER_PATHTHROUGH_TIMESTAMP));
         m_dropCount = 0;
         m_ref = -1;
@@ -323,7 +328,7 @@ RGY_ERR RGYFilterMpdecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
     }
     if (m_ref < 0) {
         m_ref = m_cache.inframe();
-        auto err = m_cache.add(pInputFrame, queue_main, m_eventDiff);
+        auto err = m_cache.add(pInputFrame, queue_main, wait_events, m_eventDiff);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to add frame to cache: %s.\n"), get_err_mes(err));
             return err;
@@ -355,10 +360,12 @@ RGY_ERR RGYFilterMpdecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
             *pOutputFrameNum = 1;
             ppOutputFrames[0] = &targetFrame->get()->frame;
         }
+        //dropFrameの計算が終わっている時点でフレームの準備は完了、待機するものはない
+        event = nullptr;
     }
     if (pInputFrame->ptr[0] != nullptr) {
         m_target = m_cache.inframe();
-        auto err = m_cache.add(pInputFrame, queue_main, m_eventDiff);
+        auto err = m_cache.add(pInputFrame, queue_main, wait_events, m_eventDiff);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to add frame to cache: %s.\n"), get_err_mes(err));
             return err;

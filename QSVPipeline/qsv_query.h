@@ -35,8 +35,10 @@
 #include <string>
 #include <chrono>
 #include <memory>
+#include <optional>
 #include <type_traits>
 #include "rgy_osdep.h"
+#include "rgy_opencl.h"
 #include "rgy_util.h"
 #include "rgy_version.h"
 #include "cpu_info.h"
@@ -49,6 +51,10 @@
 static bool add_cop(const uint32_t CodecId) {
     if (!AVOID_COP_EXCEPT_SAFE_CODECS) return true;
     return CodecId == MFX_CODEC_AVC || CodecId == MFX_CODEC_HEVC || CodecId == MFX_CODEC_MPEG2;
+}
+
+static bool add_vui(const uint32_t CodecId) {
+    return CodecId == MFX_CODEC_AVC || CodecId == MFX_CODEC_HEVC || CodecId == MFX_CODEC_MPEG2 || CodecId == MFX_CODEC_AV1;
 }
 
 enum QSV_CPU_GEN {
@@ -74,6 +80,9 @@ enum QSV_CPU_GEN {
     CPU_GEN_ALDERLAKE_P,
     CPU_GEN_ARCTICSOUND_P,
     CPU_GEN_XEHP_SDV,
+    CPU_GEN_DG2,
+    CPU_GEN_ATS_M,
+    CPU_GEN_ALDERLAKE_N,
     CPU_GEN_KEEMBAY,
 
     CPU_GEN_MAX,
@@ -102,6 +111,9 @@ static const TCHAR *const CPU_GEN_STR[] = {
     _T("AlderlakeP"),
     _T("ArcticSoundP"),
     _T("XeHP_SDV"),
+    _T("DG2"),
+    _T("ArcticSoundM"),
+    _T("AlderlakeN"),
     _T("Keembay")
 };
 
@@ -126,6 +138,7 @@ static constexpr mfxVersion LIB_VER_LIST[] = {
     { 15, 1 },
     { 16, 1 },
     { 17, 1 },
+    { 18, 1 },
     { 19, 1 },
     { 23, 1 },
     { 26, 1 },
@@ -139,6 +152,9 @@ static constexpr mfxVersion LIB_VER_LIST[] = {
     {  3, 2 },
     {  4, 2 },
     {  5, 2 },
+    {  6, 2 },
+    {  7, 2 },
+    {  9, 2 },
     {  0, 0 }
 };
 
@@ -161,25 +177,33 @@ MFX_LIB_VERSION(1,13, 11);
 MFX_LIB_VERSION(1,15, 12);
 MFX_LIB_VERSION(1,16, 13);
 MFX_LIB_VERSION(1,17, 14);
-MFX_LIB_VERSION(1,19, 15);
-MFX_LIB_VERSION(1,23, 16);
-MFX_LIB_VERSION(1,26, 17);
-MFX_LIB_VERSION(1,27, 18);
-MFX_LIB_VERSION(1,33, 19);
-MFX_LIB_VERSION(1,34, 20);
-MFX_LIB_VERSION(1,35, 21);
-MFX_LIB_VERSION(2, 0, 22);
-MFX_LIB_VERSION(2, 1, 23);
-MFX_LIB_VERSION(2, 2, 24);
-MFX_LIB_VERSION(2, 3, 25);
-MFX_LIB_VERSION(2, 4, 26);
-MFX_LIB_VERSION(2, 5, 27);
+MFX_LIB_VERSION(1,18, 15);
+MFX_LIB_VERSION(1,19, 16);
+MFX_LIB_VERSION(1,23, 17);
+MFX_LIB_VERSION(1,26, 18);
+MFX_LIB_VERSION(1,27, 19);
+MFX_LIB_VERSION(1,33, 20);
+MFX_LIB_VERSION(1,34, 21);
+MFX_LIB_VERSION(1,35, 22);
+MFX_LIB_VERSION(2, 0, 23);
+MFX_LIB_VERSION(2, 1, 24);
+MFX_LIB_VERSION(2, 2, 25);
+MFX_LIB_VERSION(2, 3, 26);
+MFX_LIB_VERSION(2, 4, 27);
+MFX_LIB_VERSION(2, 5, 28);
+MFX_LIB_VERSION(2, 6, 29);
+MFX_LIB_VERSION(2, 7, 30);
+MFX_LIB_VERSION(2, 9, 31);
 
-static const mfxU32 CODEC_LIST_AUO[] = {
-    MFX_CODEC_AVC,
-    MFX_CODEC_HEVC,
-    MFX_CODEC_VP9,
-    MFX_CODEC_AV1,
+static const std::vector<RGY_CODEC> ENC_CODEC_LISTS = {
+    RGY_CODEC_H264, RGY_CODEC_HEVC, RGY_CODEC_MPEG2, RGY_CODEC_VP8, RGY_CODEC_VP9, RGY_CODEC_AV1
+};
+
+static const RGY_CODEC CODEC_LIST_AUO[] = {
+    RGY_CODEC_H264,
+    RGY_CODEC_HEVC,
+    RGY_CODEC_VP9,
+    RGY_CODEC_AV1,
 };
 
 BOOL Check_HWUsed(mfxIMPL impl);
@@ -238,11 +262,11 @@ enum : uint64_t {
     ENC_FEATURE_MBBRC                  = 0x0000000000010000,
     ENC_FEATURE_LA_DS                  = 0x0000000000020000,
     ENC_FEATURE_INTERLACE              = 0x0000000000040000,
-    ENC_FEATURE_EXT_BRC_ADAPTIVE_LTR   = 0x0000000000080000,
-    ENC_FEATURE_UNUSED                 = 0x0000000000100000,
-    ENC_FEATURE_B_PYRAMID_MANY_BFRAMES = 0x0000000000200000,
-    ENC_FEATURE_LA_HRD                 = 0x0000000000400000,
-    ENC_FEATURE_LA_EXT                 = 0x0000000000800000,
+    ENC_FEATURE_ADAPTIVE_REF           = 0x0000000000080000,
+    ENC_FEATURE_ADAPTIVE_LTR           = 0x0000000000100000,
+    ENC_FEATURE_ADAPTIVE_CQM           = 0x0000000000200000,
+    ENC_FEATURE_B_PYRAMID_MANY_BFRAMES = 0x0000000000400000,
+    ENC_FEATURE_LA_HRD                 = 0x0000000000800000,
     ENC_FEATURE_QVBR                   = 0x0000000001000000,
     ENC_FEATURE_INTRA_REFRESH          = 0x0000000002000000,
     ENC_FEATURE_NO_DEBLOCK             = 0x0000000004000000,
@@ -251,7 +275,7 @@ enum : uint64_t {
     ENC_FEATURE_PERMBQP                = 0x0000000020000000,
     ENC_FEATURE_DIRECT_BIAS_ADJUST     = 0x0000000040000000,
     ENC_FEATURE_GLOBAL_MOTION_ADJUST   = 0x0000000080000000,
-    ENC_FEATURE_FIXED_FUNC             = 0x0000000100000000,
+    ENC_FEATURE_GOPREFDIST             = 0x0000000100000000,
     ENC_FEATURE_WEIGHT_P               = 0x0000000200000000,
     ENC_FEATURE_WEIGHT_B               = 0x0000000400000000,
     ENC_FEATURE_FADE_DETECT            = 0x0000000800000000,
@@ -261,6 +285,9 @@ enum : uint64_t {
     ENC_FEATURE_HEVC_SAO               = 0x0000008000000000,
     ENC_FEATURE_HEVC_CTU               = 0x0000010000000000,
     ENC_FEATURE_HEVC_TSKIP             = 0x0000020000000000,
+    ENC_FEATURE_HYPER_MODE             = 0x0000040000000000,
+    ENC_FEATURE_SCENARIO_INFO          = 0x0000080000000000,
+    ENC_FEATURE_TUNE_ENCODE_QUALITY    = 0x0000100000000000,
 };
 
 enum : uint64_t {
@@ -280,6 +307,7 @@ enum : uint64_t {
     VPP_FEATURE_SCALING_QUALITY       = 0x00002000,
     VPP_FEATURE_MCTF                  = 0x00004000,
     VPP_FEATURE_DENOISE2              = 0x00008000,
+    VPP_FEATURE_PERC_ENC_PRE          = 0x00010000,
 };
 
 static const CX_DESC list_rate_control_ry[] = {
@@ -298,7 +326,7 @@ static const CX_DESC list_rate_control_ry[] = {
 static const FEATURE_DESC list_enc_feature[] = {
     { _T("RC mode      "), ENC_FEATURE_CURRENT_RC             },
     { _T("10bit depth  "), ENC_FEATURE_10BIT_DEPTH            },
-    { _T("Fixed Func   "), ENC_FEATURE_FIXED_FUNC             },
+    { _T("Hyper Mode   "), ENC_FEATURE_HYPER_MODE             },
     { _T("Interlace    "), ENC_FEATURE_INTERLACE              },
     { _T("VUI info     "), ENC_FEATURE_VUI_INFO               },
     //{ _T("aud          "), ENC_FEATURE_AUD                    },
@@ -306,6 +334,7 @@ static const FEATURE_DESC list_enc_feature[] = {
     { _T("Trellis      "), ENC_FEATURE_TRELLIS                },
     //{ _T("rdo          "), ENC_FEATURE_RDO                    },
     //{ _T("CAVLC        "), ENC_FEATURE_CAVLC                  },
+    { _T("BFrame/GopRef"), ENC_FEATURE_GOPREFDIST             },
     { _T("Adaptive_I   "), ENC_FEATURE_ADAPTIVE_I             },
     { _T("Adaptive_B   "), ENC_FEATURE_ADAPTIVE_B             },
     { _T("WeightP      "), ENC_FEATURE_WEIGHT_P               },
@@ -314,9 +343,13 @@ static const FEATURE_DESC list_enc_feature[] = {
     { _T("B_Pyramid    "), ENC_FEATURE_B_PYRAMID              },
     { _T(" +ManyBframes"), ENC_FEATURE_B_PYRAMID_MANY_BFRAMES },
     { _T("PyramQPOffset"), ENC_FEATURE_PYRAMID_QP_OFFSET      },
+    //{ _T("TuneQuality  "), ENC_FEATURE_TUNE_ENCODE_QUALITY    },
+    { _T("ScenarioInfo "), ENC_FEATURE_SCENARIO_INFO          },
     { _T("MBBRC        "), ENC_FEATURE_MBBRC                  },
     { _T("ExtBRC       "), ENC_FEATURE_EXT_BRC                },
-    { _T("Adaptive_LTR "), ENC_FEATURE_EXT_BRC_ADAPTIVE_LTR   },
+    { _T("AdaptiveRef  "), ENC_FEATURE_ADAPTIVE_REF           },
+    { _T("AdaptiveLTR  "), ENC_FEATURE_ADAPTIVE_LTR           },
+    { _T("AdaptiveCQM  "), ENC_FEATURE_ADAPTIVE_CQM           },
     { _T("LA Quality   "), ENC_FEATURE_LA_DS                  },
     { _T("QP Min/Max   "), ENC_FEATURE_QP_MINMAX              },
     { _T("IntraRefresh "), ENC_FEATURE_INTRA_REFRESH          },
@@ -343,10 +376,27 @@ static const FEATURE_DESC list_vpp_feature[] = {
     { _T("Detail Enhancement   "), VPP_FEATURE_DETAIL_ENHANCEMENT  },
     { _T("Proc Amp.            "), VPP_FEATURE_PROC_AMP            },
     { _T("Image Stabilization  "), VPP_FEATURE_IMAGE_STABILIZATION },
+    { _T("Perceptual Pre Enc   "), VPP_FEATURE_PERC_ENC_PRE        },
     { _T("Video Signal Info    "), VPP_FEATURE_VIDEO_SIGNAL_INFO   },
     { _T("FPS Conversion       "), VPP_FEATURE_FPS_CONVERSION      },
     { _T("FPS Conversion (Adv.)"), VPP_FEATURE_FPS_CONVERSION_ADV  },
     { NULL, 0 },
+};
+
+struct QSVEncFeatureData {
+    QSVDeviceNum dev;
+    RGY_CODEC codec;
+    bool lowPwer;
+    std::map<int, uint64_t> feature;
+
+    bool available() const {
+        for (const auto& [ratecontrol, value] : feature) {
+            if (value != 0) {
+                return true;
+            }
+        }
+        return false;
+    }
 };
 
 enum FeatureListStrType {
@@ -375,6 +425,8 @@ struct QSVVideoParam {
     mfxExtAV1BitstreamParam av1BitstreamPrm;
     mfxExtAV1ResolutionParam av1ResolutionPrm;
     mfxExtAV1TileParam av1TilePrm;
+    mfxExtHyperModeParam hyperModePrm;
+    mfxExtTuneEncodeQuality tuneEncQualityPrm;
 
     QSVVideoParam(uint32_t CodecId, mfxVersion mfxver_);
     QSVVideoParam() = delete;
@@ -383,24 +435,29 @@ struct QSVVideoParam {
     ~QSVVideoParam() {};
 };
 
-mfxU64 CheckEncodeFeature(MFXVideoSession& session, int ratecontrol, mfxU32 codecId);
-mfxU64 CheckEncodeFeatureWithPluginLoad(MFXVideoSession& session, int ratecontrol, mfxU32 codecId);
-vector<mfxU64> MakeFeatureList(const QSVDeviceNum deviceNum, const vector<CX_DESC>& rateControlList, mfxU32 codecId, std::shared_ptr<RGYLog> log);
-vector<vector<mfxU64>> MakeFeatureListPerCodec(const QSVDeviceNum deviceNum, const vector<CX_DESC>& rateControlList, const vector<mfxU32>& codecIdList, std::shared_ptr<RGYLog> log);
+uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, const RGY_CODEC codec, const bool lowPower);
+uint64_t CheckEncodeFeatureWithPluginLoad(MFXVideoSession& session, const int ratecontrol, const RGY_CODEC codec, const bool lowPower);
+QSVEncFeatureData MakeFeatureList(const QSVDeviceNum deviceNum, const std::vector<CX_DESC>& rateControlList, const RGY_CODEC codecId, const bool lowPower, std::shared_ptr<RGYLog> log);
+std::vector<QSVEncFeatureData> MakeFeatureListPerCodec(const QSVDeviceNum deviceNum, const std::vector<CX_DESC>& rateControlList, const std::vector<RGY_CODEC>& codecIdList, std::shared_ptr<RGYLog> log);
 
-tstring MakeFeatureListStr(mfxU64 feature);
-vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(const QSVDeviceNum deviceNum, FeatureListStrType outputType, std::shared_ptr<RGYLog> log);
-vector<std::pair<vector<mfxU64>, tstring>> MakeFeatureListStr(const QSVDeviceNum deviceNum, FeatureListStrType outputType, const vector<mfxU32>& codecIdList, std::shared_ptr<RGYLog> log);
+tstring MakeFeatureListStr(const uint64_t feature);
+std::vector<std::pair<QSVEncFeatureData, tstring>> MakeFeatureListStr(const QSVDeviceNum deviceNum, const FeatureListStrType type, std::shared_ptr<RGYLog> log);
+std::vector<std::pair<QSVEncFeatureData, tstring>> MakeFeatureListStr(const QSVDeviceNum deviceNum, const FeatureListStrType type, const vector<RGY_CODEC>& codecLists, std::shared_ptr<RGYLog> log);
 
 mfxU64 CheckVppFeatures(MFXVideoSession& session);
 mfxU64 CheckVppFeatures(const QSVDeviceNum deviceNum, std::shared_ptr<RGYLog> log);
 tstring MakeVppFeatureStr(const QSVDeviceNum deviceNum, FeatureListStrType outputType, std::shared_ptr<RGYLog> log);
 
 std::vector<RGY_CSP> CheckDecFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer, mfxU32 codecId);
+CodecCsp MakeDecodeFeatureList(MFXVideoSession& session, const vector<RGY_CODEC>& codecIdList, std::shared_ptr<RGYLog> log, const bool skipHWDecodeCheck);
 CodecCsp MakeDecodeFeatureList(const QSVDeviceNum deviceNum, const vector<mfxU32>& codecIdList, std::shared_ptr<RGYLog> log, const bool skipHWDecodeCheck);
 tstring MakeDecFeatureStr(const QSVDeviceNum deviceNum, FeatureListStrType type, std::shared_ptr<RGYLog> log);
 CodecCsp getHWDecCodecCsp(const QSVDeviceNum deviceNum, std::shared_ptr<RGYLog> log, const bool skipHWDecodeCheck);
 
 int GetImplListStr(tstring& str);
+std::vector<tstring> getDeviceNameList();
+#if ENABLE_OPENCL
+std::optional<RGYOpenCLDeviceInfo> getDeviceCLInfoQSV(const QSVDeviceNum dev);
+#endif
 
 #endif //_QSV_QUERY_H_

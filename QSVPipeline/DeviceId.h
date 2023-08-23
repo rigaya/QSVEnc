@@ -20,18 +20,6 @@
 #define INITGUID
 #include <windows.h>
 
-// From DXUT.h
-#ifndef SAFE_DELETE
-#define SAFE_DELETE(p) { if (p) { delete (p); (p)=NULL; } }
-#endif    
-#ifndef SAFE_DELETE_ARRAY
-#define SAFE_DELETE_ARRAY(p) { if (p) { delete[] (p); (p)=NULL; } }
-#endif    
-#ifndef SAFE_RELEASE
-#define SAFE_RELEASE(p) { if (p) { (p)->Release(); (p)=NULL; } }
-#endif
-
-
 // Define settings to reflect Fidelity abstraction levels you need
 typedef enum
 {
@@ -94,7 +82,8 @@ struct IntelDeviceInfoHeader
 
 bool getGraphicsDeviceInfo( unsigned int* VendorId,
                           unsigned int* DeviceId,
-                          unsigned int* VideoMemory);
+                          unsigned int* VideoMemory,
+                          const int adapterID);
 
 
 /*****************************************************************************************
@@ -130,7 +119,7 @@ PresetLevel getDefaultFidelityPresets( unsigned int VendorId, unsigned int Devic
  *     This function is only valid on Intel graphics devices SNB and later.
  *****************************************************************************************/
 
-long getIntelDeviceInfo( unsigned int VendorId, IntelDeviceInfoHeader *pIntelDeviceInfoHeader, void *pIntelDeviceInfoBuffer );
+long getIntelDeviceInfo( unsigned int VendorId, const int adapterID, IntelDeviceInfoHeader *pIntelDeviceInfoHeader, void *pIntelDeviceInfoBuffer );
 
 
 /*****************************************************************************************

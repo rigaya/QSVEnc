@@ -81,7 +81,11 @@ RGY_ERR RGYFilterSmooth::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameInf
 }
 
 RGY_ERR RGYFilterSmooth::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const RGYFrameInfo *targetQPTable, const float qpMul, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
-    auto srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY);
+    auto srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY, &m_srcImagePool);
+    if (!srcImage) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to create image for input frame.\n"));
+        return RGY_ERR_MEM_OBJECT_ALLOCATION_FAILURE;
+    }
     for (int i = 0; i < RGY_CSP_PLANES[pOutputFrame->csp]; i++) {
         auto planeDst = getPlane(pOutputFrame, (RGY_PLANE)i);
         auto planeSrc = getPlane(&srcImage->frame, (RGY_PLANE)i);
@@ -112,7 +116,7 @@ RGY_ERR RGYFilterSmooth::setQP(RGYCLFrame *targetQPTable, const int qp, RGYOpenC
 }
 
 
-RGYFilterSmooth::RGYFilterSmooth(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_smooth(), m_qp(), m_qpSrc(), m_qpSrcB(), m_qpTableRef(nullptr), m_qpTableErrCount(0) {
+RGYFilterSmooth::RGYFilterSmooth(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_smooth(), m_qp(), m_qpSrc(), m_qpSrcB(), m_qpTableRef(nullptr), m_qpTableErrCount(0), m_srcImagePool() {
     m_name = _T("smooth");
 }
 
@@ -153,16 +157,22 @@ RGY_ERR RGYFilterSmooth::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
         return RGY_ERR_INVALID_PARAM;
     }
 
+    auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamSmooth>(m_param);
     if (!m_param
-        || std::dynamic_pointer_cast<RGYFilterParamSmooth>(m_param)->smooth != prm->smooth) {
+        || !prmPrev
+        || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]
+        || prmPrev->smooth.prec != prm->smooth.prec) {
         if (prm->smooth.prec != VPP_FP_PRECISION_FP32) {
             if (!RGYOpenCLDevice(m_cl->queue().devid()).checkExtension("cl_khr_fp16")) {
-                AddMessage(RGY_LOG_WARN, _T("fp16 not supported on this device, using fp32 mode.\n"));
+                AddMessage((prm->smooth.prec == VPP_FP_PRECISION_FP16) ? RGY_LOG_WARN : RGY_LOG_DEBUG, _T("fp16 not supported on this device, using fp32 mode.\n"));
                 prm->smooth.prec = VPP_FP_PRECISION_FP32;
             }
         }
+        const auto sub_group_ext_avail = m_cl->platform()->checkSubGroupSupport(m_cl->queue().devid());
         const bool cl_fp16_support = prm->smooth.prec != VPP_FP_PRECISION_FP32;
-        const bool usefp16DctFirst = cl_fp16_support && prm->smooth.prec == VPP_FP_PRECISION_FP16
+        const bool usefp16DctFirst = cl_fp16_support
+            && sub_group_ext_avail != RGYOpenCLSubGroupSupport::NONE
+            && prm->smooth.prec == VPP_FP_PRECISION_FP16
             && prm->smooth.quality > 0; // quality = 0の時には適用してはならない
         m_smooth.set(std::async(std::launch::async,
             [cl = m_cl, log = m_pLog, cl_fp16_support, usefp16DctOrg = usefp16DctFirst, frameOut = prm->frameOut]() {
@@ -192,53 +202,55 @@ RGY_ERR RGYFilterSmooth::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
                 log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to load RGY_FILTER_SMOOTH_CL(m_smooth)\n"));
                 return std::unique_ptr<RGYOpenCLProgram>();
             }
-            RGYWorkSize local(SPP_THREAD_BLOCK_X, SPP_THREAD_BLOCK_Y);
-            RGYWorkSize global(divCeil(frameOut.width, SPP_BLOCK_SIZE_X), divCeil(frameOut.height, SPP_LOOP_COUNT_BLOCK));
-            const auto subGroupSize = smooth->kernel("kernel_smooth").config(cl->queue(), local, global).subGroupSize();
-            if (subGroupSize == 0) {
-                if (usefp16Dct) {
-                    log->write(RGY_LOG_WARN, RGY_LOGT_VPP, _T("Could not get subGroupSize for kernel, fp16 dct disabled.\n"));
-                    usefp16Dct = false;
-                }
-            } else if ((subGroupSize & (subGroupSize - 1)) != 0) {
-                log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("subGroupSize(%d) is not pow2!\n"), subGroupSize);
-                return std::unique_ptr<RGYOpenCLProgram>();
-            } else if (subGroupSize < 8) {
-                log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("subGroupSize(%d) < 8 !\n"), subGroupSize);
-                return std::unique_ptr<RGYOpenCLProgram>();
-            } else if (subGroupSize < 32) {
-                if (usefp16Dct) {
-                    log->write(RGY_LOG_WARN, RGY_LOGT_VPP, _T("subGroupSize(%d) < 32, fp16 dct disabled.\n"), subGroupSize);
-                    usefp16Dct = false;
-                }
-            }
-            if (usefp16DctOrg && !usefp16Dct) {
-                smooth = cl->buildResource(_T("RGY_FILTER_SMOOTH_CL"), _T("EXE_DATA"), gen_options(false, cl_fp16_support).c_str());
-                if (!smooth) {
+            if (usefp16Dct) {
+                RGYWorkSize local(SPP_THREAD_BLOCK_X, SPP_THREAD_BLOCK_Y);
+                RGYWorkSize global(divCeil(frameOut.width, SPP_BLOCK_SIZE_X), divCeil(frameOut.height, SPP_LOOP_COUNT_BLOCK));
+                const auto subGroupSize = smooth->kernel("kernel_smooth").config(cl->queue(), local, global).subGroupSize();
+                if (subGroupSize == 0) {
+                    if (usefp16Dct) {
+                        log->write(RGY_LOG_WARN, RGY_LOGT_VPP, _T("Could not get subGroupSize for kernel, fp16 dct disabled.\n"));
+                        usefp16Dct = false;
+                    }
+                } else if ((subGroupSize & (subGroupSize - 1)) != 0) {
+                    log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("subGroupSize(%d) is not pow2!\n"), subGroupSize);
                     return std::unique_ptr<RGYOpenCLProgram>();
+                } else if (subGroupSize < 8) {
+                    log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("subGroupSize(%d) < 8 !\n"), subGroupSize);
+                    return std::unique_ptr<RGYOpenCLProgram>();
+                } else if (subGroupSize < 32) {
+                    if (usefp16Dct) {
+                        log->write(RGY_LOG_WARN, RGY_LOGT_VPP, _T("subGroupSize(%d) < 32, fp16 dct disabled.\n"), subGroupSize);
+                        usefp16Dct = false;
+                    }
+                }
+                if (usefp16DctOrg && !usefp16Dct) {
+                    smooth = cl->buildResource(_T("RGY_FILTER_SMOOTH_CL"), _T("EXE_DATA"), gen_options(false, cl_fp16_support).c_str());
+                    if (!smooth) {
+                        return std::unique_ptr<RGYOpenCLProgram>();
+                    }
                 }
             }
             return smooth;
         }));
-
-        sts = AllocFrameBuf(prm->frameOut, 1);
-        if (sts != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
-            return RGY_ERR_MEMORY_ALLOC;
-        }
-        for (int i = 0; i < RGY_CSP_PLANES[m_frameBuf[0]->frame.csp]; i++) {
-            prm->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
-        }
-
-        const auto qpframe = RGYFrameInfo(qp_size(pParam->frameIn.width), qp_size(pParam->frameIn.height), RGY_CSP_Y8, RGY_CSP_BIT_DEPTH[RGY_CSP_Y8], RGY_PICSTRUCT_FRAME, RGY_MEM_TYPE_CPU);
+    }
+    const auto qpframe = RGYFrameInfo(qp_size(pParam->frameIn.width), qp_size(pParam->frameIn.height), RGY_CSP_Y8, RGY_CSP_BIT_DEPTH[RGY_CSP_Y8], RGY_PICSTRUCT_FRAME, RGY_MEM_TYPE_CPU);
+    if (!m_qp || cmpFrameInfoCspResolution(&m_qp->frame, &qpframe)) {
         m_qp = m_cl->createFrameBuffer(qpframe);
         if (!m_qp) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for qp table.\n"));
             return RGY_ERR_MEMORY_ALLOC;
         }
         AddMessage(RGY_LOG_DEBUG, _T("allocated qp table buffer: %dx%pixym1[3], pitch %pixym1[3], %s.\n"),
-            m_qp->frame.width, m_qp->frame.height, m_qp->frame.pitch, RGY_CSP_NAMES[m_qp->frame.csp]);
+                   m_qp->frame.width, m_qp->frame.height, m_qp->frame.pitch, RGY_CSP_NAMES[m_qp->frame.csp]);
+    }
 
+    sts = AllocFrameBuf(prm->frameOut, 1);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
+        return RGY_ERR_MEMORY_ALLOC;
+    }
+    for (int i = 0; i < RGY_CSP_PLANES[m_frameBuf[0]->frame.csp]; i++) {
+        prm->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
 
     //コピーを保存
@@ -367,6 +379,7 @@ RGY_ERR RGYFilterSmooth::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
 }
 
 void RGYFilterSmooth::close() {
+    m_srcImagePool.clear();
     m_frameBuf.clear();
     m_smooth.clear();
     m_qp.reset();

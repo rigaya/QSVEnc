@@ -89,7 +89,6 @@ static const auto RGY_CSP_TO_MFX = make_array<std::pair<RGY_CSP, mfxU32>>(
     std::make_pair(RGY_CSP_Y216,      MFX_FOURCC_Y216),
     std::make_pair(RGY_CSP_Y410,      MFX_FOURCC_Y410),
     std::make_pair(RGY_CSP_Y416,      MFX_FOURCC_Y416),
-    std::make_pair(RGY_CSP_RGB24,     MFX_FOURCC_RGB3),
     std::make_pair(RGY_CSP_RGB32,     MFX_FOURCC_RGB4),
     std::make_pair(RGY_CSP_YC48,      0)
     );
@@ -178,7 +177,11 @@ VideoInfo videooutputinfo(const mfxInfoMFX& mfx, const mfxExtVideoSignalInfo& vu
     info.codec = codec_enc_to_rgy(mfx.CodecId);
     info.codecLevel = mfx.CodecLevel;
     info.codecProfile = mfx.CodecProfile;
-    info.videoDelay = ((mfx.GopRefDist - 1) > 0) + (((mfx.GopRefDist - 1) > 0) & ((mfx.GopRefDist - 1) > 2));
+    if (info.codec == RGY_CODEC_AV1) {
+        info.videoDelay = 0;
+    } else {
+        info.videoDelay = ((mfx.GopRefDist - 1) > 0) + (((mfx.GopRefDist - 1) > 0) & ((mfx.GopRefDist - 1) > 2));
+    }
     info.dstWidth = mfx.FrameInfo.CropW;
     info.dstHeight = mfx.FrameInfo.CropH;
     info.fpsN = mfx.FrameInfo.FrameRateExtN;
@@ -422,8 +425,6 @@ const TCHAR *ColorFormatToStr(uint32_t format) {
         return _T("yv12");
     case MFX_FOURCC_YUY2:
         return _T("yuy2");
-    case MFX_FOURCC_RGB3:
-        return _T("rgb24");
     case MFX_FOURCC_RGB4:
         return _T("rgb32");
     case MFX_FOURCC_BGR4:
@@ -603,6 +604,15 @@ tstring MFXAccelerationModeToStr(mfxAccelerationMode impl) {
     if ((impl & 0x0fff) == MFX_ACCEL_MODE_VIA_VAAPI_X11)         str += _T(",vaapi_x11");
     if ((impl & 0x0fff) == MFX_ACCEL_MODE_VIA_VAAPI_WAYLAND)     str += _T(",vaapi_wayland");
     if ((impl & 0xff00) == MFX_ACCEL_MODE_VIA_HDDLUNITE)         str += _T(",hddlunite");
+    return str.substr(1);
+}
+
+RGY_NOINLINE
+tstring MFXImplTypeToStr(mfxImplType impl) {
+    if (impl == 0) return _T("auto");
+    tstring str;
+    if ((impl & MFX_IMPL_TYPE_SOFTWARE) == MFX_IMPL_TYPE_SOFTWARE) str += _T(",sw");
+    if ((impl & MFX_IMPL_TYPE_HARDWARE) == MFX_IMPL_TYPE_HARDWARE) str += _T(",hw");
     return str.substr(1);
 }
 

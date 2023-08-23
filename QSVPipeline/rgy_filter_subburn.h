@@ -1,5 +1,5 @@
 ﻿// -----------------------------------------------------------------------------------------
-// QSVEnc/NVEnc/VCEEnc by rigaya
+// QSVEnc/NVEnc/VCEEnc/rkmppenc by rigaya
 // -----------------------------------------------------------------------------------------
 //
 // The MIT License
@@ -61,9 +61,10 @@ public:
     VideoInfo       videoInfo;
     AVDemuxStream   streamIn;
     sInputCrop      crop;
+    RGYPoolAVPacket *poolPkt;
     std::vector<const AVStream *> attachmentStreams;
 
-    RGYFilterParamSubburn() : subburn(), videoOutTimebase(), videoInputStream(nullptr), videoInputFirstKeyPts(0), videoInfo(), streamIn(), crop(), attachmentStreams() {};
+    RGYFilterParamSubburn() : subburn(), videoOutTimebase(), videoInputStream(nullptr), videoInputFirstKeyPts(0), videoInfo(), streamIn(), crop(), poolPkt(nullptr), attachmentStreams() {};
     virtual ~RGYFilterParamSubburn() {};
     virtual tstring print() const override;
 };
@@ -86,7 +87,7 @@ protected:
     SubImageData textRectToImage(const ASS_Image *image, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
     SubImageData bitmapRectToImage(const AVSubtitleRect *rect, const RGYFrameInfo *outputFrame, const sInputCrop &crop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
     RGY_ERR procFrameText(RGYFrameInfo *pOutputFrame, int64_t frameTimeMs, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    RGY_ERR procFrameBitmap(RGYFrameInfo *pOutputFrame, const sInputCrop &crop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    RGY_ERR procFrameBitmap(RGYFrameInfo *pOutputFrame, const int64_t frameTimeMs, const sInputCrop &crop, const bool forced_subs_only, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     RGY_ERR procFrame(RGYFrameInfo *pFrame,
         const RGYFrameInfo *pSubImg,
         int pos_x, int pos_y,
@@ -109,7 +110,8 @@ protected:
 
     unique_ptr<RGYFilterResize> m_resize;
 
-    RGYQueueSPSP<AVPacket> m_queueSubPackets; //入力から得られた字幕パケット
+    RGYPoolAVPacket *m_poolPkt;
+    RGYQueueMPMP<AVPacket*> m_queueSubPackets; //入力から得られた字幕パケット
 
     RGYOpenCLProgramAsync m_subburn;
 };

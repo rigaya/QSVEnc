@@ -30,6 +30,8 @@
 
 #include "rgy_tchar.h"
 
-int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, bool driver_version_only = false);
+class RGYOpenCLPlatform;
+
+int getGPUInfo(const char *VendorName, TCHAR *buffer, const unsigned int buffer_size, const int adapterID = 0, RGYOpenCLPlatform *clplatform = nullptr);
 
 #endif //_GPU_INFO_H_

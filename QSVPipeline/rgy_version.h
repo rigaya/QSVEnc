@@ -31,9 +31,9 @@
 
 #include "rgy_rev.h"
 
-#define VER_FILEVERSION             0,7,1,0
-#define VER_STR_FILEVERSION          "7.01"
-#define VER_STR_FILEVERSION_TCHAR _T("7.01")
+#define VER_FILEVERSION             0,7,48,0
+#define VER_STR_FILEVERSION          "7.48"
+#define VER_STR_FILEVERSION_TCHAR _T("7.48")
 
 #ifdef _M_IX86
 #define BUILD_ARCH_STR _T("x86")
@@ -52,12 +52,20 @@ const char *get_encoder_version();
 #define ENCODER_QSV    1
 #define ENCODER_NVENC  0
 #define ENCODER_VCEENC 0
+#define ENCODER_MPP    0
+#define CLFILTERS_AUF  0
 
 #define GPU_VENDOR "Intel"
+
+#define AV1_TIMESTAMP_OVERRIDE 1
+#define OVERRIDE_HYPER_MODE_HEVC_FROM_H264 1
+#define LIMIT_HYPER_MODE_TO_KNOWN_CODECS 1
+#define ENABLE_QSV_TUNE_QUERY 0
 
 #if defined(_WIN32) || defined(_WIN64)
 
 #define USE_ONEVPL 1
+#define ONEVPL_EXPERIMENTAL 1
 
 #define D3D_SURFACES_SUPPORT 1
 
@@ -81,9 +89,11 @@ const char *get_encoder_version();
 #define ENABLE_DTL 1
 
 #define ENABLE_AVCODEC_ITERATE 1
-#define ENABLE_DHDR10_INFO 1
+#define ENABLE_DOVI_METADATA_OPTIONS 1
 #define ENABLE_KEYFRAME_INSERT 0
 #define ENABLE_AUTO_PICSTRUCT 0
+
+#define ENABLE_HYPER_MODE 1
 
 #ifdef BUILD_AUO
 #define ENCODER_NAME             "QSVEnc"
@@ -99,6 +109,7 @@ const char *get_encoder_version();
 #define ENABLE_AVSW_READER        1
 #define ENABLE_SM_READER          0
 #define ENABLE_CUSTOM_VPP         1
+#define ENABLE_LIBAVDEVICE        0
 #define ENABLE_LIBASS_SUBBURN     0
 #define ENABLE_METRIC_FRAMEWORK   0
 #define ENABLE_CAPTION2ASS        0
@@ -116,11 +127,12 @@ const char *get_encoder_version();
 #define ENABLE_SM_READER          1
 #define ENABLE_LIBASS_SUBBURN     0
 #define ENABLE_CUSTOM_VPP         1
+#define ENABLE_LIBAVDEVICE        1
 #ifndef ENABLE_METRIC_FRAMEWORK
 #if defined(_M_IX86)
 #define ENABLE_METRIC_FRAMEWORK   0
 #else
-#define ENABLE_METRIC_FRAMEWORK   1
+#define ENABLE_METRIC_FRAMEWORK   0
 #endif
 #endif
 #define ENABLE_CAPTION2ASS        1
@@ -128,12 +140,15 @@ const char *get_encoder_version();
 
 #else //#if defined(WIN32) || defined(WIN64)
 #define USE_ONEVPL 1
+#define ONEVPL_EXPERIMENTAL 1
 #define D3D_SURFACES_SUPPORT 0
 #define MFX_D3D11_SUPPORT 0
 #define FOR_AUO 0
 #define ENABLE_METRIC_FRAMEWORK 0
 #define ENABLE_PERF_COUNTER 0
 #define ENABLE_CAPTION2ASS 0
+#define ENABLE_DOVI_METADATA_OPTIONS 1
+#define ENABLE_HYPER_MODE 0
 #include "rgy_config.h"
 #define ENCODER_NAME              "QSVEncC"
 #define DECODER_NAME              "qsv"

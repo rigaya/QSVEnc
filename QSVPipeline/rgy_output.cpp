@@ -66,9 +66,14 @@ static RGY_ERR WriteY4MHeader(FILE *fp, const VideoInfo *info) {
         return RGY_ERR_UNDEFINED_BEHAVIOR; \
     } }
 
+const char *RGYOutput::OUT_DEBUG_FILE_HEADER = "size %d, pts %lld, dts %lld, duration %lld, frametype %d, frameidx %d, picstruct %d";
+
 RGYOutput::RGYOutput() :
+    m_outFilename(),
     m_encSatusInfo(),
     m_fDest(),
+    m_fpDebug(),
+    m_fpOutReplay(),
     m_outputIsStdout(false),
     m_inited(false),
     m_noOutput(false),
@@ -91,11 +96,13 @@ RGYOutput::~RGYOutput() {
 }
 
 void RGYOutput::Close() {
-    AddMessage(RGY_LOG_DEBUG, _T("Closing...\n"));
+    AddMessage(RGY_LOG_DEBUG, _T("Closing file \"%s\"...\n"), m_outFilename.c_str());
     if (m_fDest) {
         m_fDest.reset();
         AddMessage(RGY_LOG_DEBUG, _T("Closed file pointer.\n"));
     }
+    m_fpOutReplay.reset();
+    m_fpDebug.reset();
     m_encSatusInfo.reset();
     m_outputBuffer.reset();
     m_readBuffer.reset();
@@ -109,15 +116,58 @@ void RGYOutput::Close() {
     m_printMes.reset();
 }
 
+RGY_ERR RGYOutput::writeRawDebug(RGYBitstream *pBitstream) {
+    if (!m_fpDebug) return RGY_ERR_NONE;
+
+    char frame_info[256] = { 0 };
+    sprintf_s(frame_info, OUT_DEBUG_FILE_HEADER,
+        (int)pBitstream->size(), pBitstream->pts(), pBitstream->dts(), pBitstream->duration(),
+        pBitstream->frametype(), pBitstream->frameIdx(), pBitstream->picstruct());
+    _fwrite_nolock(frame_info, 1, sizeof(frame_info), m_fpDebug.get());
+    _fwrite_nolock(pBitstream->data(), 1, pBitstream->size(), m_fpDebug.get());
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYOutput::readRawDebug(RGYBitstream *pBitstream) {
+    if (!m_fpOutReplay) return RGY_ERR_NONE;
+
+    char frame_info[256] = { 0 };
+    if (_fread_nolock(frame_info, 1, sizeof(frame_info), m_fpOutReplay.get()) != sizeof(frame_info)) {
+        return RGY_ERR_MORE_DATA;
+    }
+    int size = 0, frameIdx = 0;
+    int64_t pts = 0, dts = 0, duration = 0;
+    RGY_FRAMETYPE frametype = RGY_FRAMETYPE_UNKNOWN;
+    RGY_PICSTRUCT picstruct = RGY_PICSTRUCT_UNKNOWN;
+    if (sscanf_s(frame_info, OUT_DEBUG_FILE_HEADER, &size, &pts, &dts, &duration, &frametype, &frameIdx, &picstruct) != 7) {
+        return RGY_ERR_INVALID_DATA_TYPE;
+    }
+    std::vector<uint8_t> buffer(size, 0);
+    if (_fread_nolock(buffer.data(), 1, buffer.size(), m_fpOutReplay.get()) != buffer.size()) {
+        return RGY_ERR_MORE_DATA;
+    }
+    pBitstream->setDuration(duration);
+    pBitstream->setFrameIdx(frameIdx);
+    pBitstream->setFrametype(frametype);
+    pBitstream->setPicstruct(picstruct);
+    pBitstream->copy(buffer.data(), buffer.size(), dts, pts);
+    return RGY_ERR_NONE;
+}
+
 RGYOutputRaw::RGYOutputRaw() :
     m_outputBuf2(),
-    m_seiNal(),
+    m_hdrBitstream(),
     m_doviRpu(nullptr),
     m_timestamp(nullptr),
     m_prevInputFrameId(-1),
+    m_prevEncodeFrameId(-1),
+    m_debugDirectAV1Out(false),
 #if ENABLE_AVSW_READER
     m_pBsfc(),
+    m_pkt(),
 #endif //#if ENABLE_AVSW_READER
+    bsfcBuffer(nullptr),
+    bsfcBufferLength(0),
     parse_nal_h264(get_parse_nal_unit_h264_func()),
     parse_nal_hevc(get_parse_nal_unit_hevc_func()) {
     m_strWriterName = _T("bitstream");
@@ -125,9 +175,16 @@ RGYOutputRaw::RGYOutputRaw() :
 }
 
 RGYOutputRaw::~RGYOutputRaw() {
+    if (m_fpDebug) {
+        m_fpDebug.reset();
+    }
 #if ENABLE_AVSW_READER
     m_pBsfc.reset();
+    m_pkt.reset();
 #endif //#if ENABLE_AVSW_READER
+    if (bsfcBuffer) {
+        free(bsfcBuffer);
+    }
 }
 
 #pragma warning (push)
@@ -183,7 +240,15 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
                     || pVideoOutputInfo->vui.colorprim != 2
                     || pVideoOutputInfo->vui.transfer != 2
                     || pVideoOutputInfo->vui.matrix != 2
-                    || pVideoOutputInfo->vui.chromaloc != 0)))) {
+                    || pVideoOutputInfo->vui.chromaloc != 0)))
+            || (ENCODER_MPP
+                && ((pVideoOutputInfo->codec == RGY_CODEC_H264 || pVideoOutputInfo->codec == RGY_CODEC_HEVC) // HEVCの時は常に上書き)
+                    || (pVideoOutputInfo->sar[0] * pVideoOutputInfo->sar[1] > 0
+                    || (pVideoOutputInfo->vui.format != 5
+                        || pVideoOutputInfo->vui.colorprim != 2
+                        || pVideoOutputInfo->vui.transfer != 2
+                        || pVideoOutputInfo->vui.matrix != 2
+                        || pVideoOutputInfo->vui.chromaloc != 0))))) {
             if (!check_avcodec_dll()) {
                 AddMessage(RGY_LOG_ERROR, error_mes_avcodec_dll_not_found());
                 return RGY_ERR_NULL_PTR;
@@ -193,6 +258,7 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
             switch (pVideoOutputInfo->codec) {
             case RGY_CODEC_H264: bsf_name = "h264_metadata"; break;
             case RGY_CODEC_HEVC: bsf_name = "hevc_metadata"; break;
+            case RGY_CODEC_AV1:  bsf_name = "av1_metadata"; break;
             default:
                 break;
             }
@@ -239,7 +305,12 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
             }
             m_pBsfc = unique_ptr<AVBSFContext, RGYAVDeleter<AVBSFContext>>(bsfc, RGYAVDeleter<AVBSFContext>(av_bsf_free));
             AVDictionary *bsfPrm = nullptr;
-            if (ENCODER_NVENC) {
+            if (ENCODER_MPP) {
+                const auto level_str = get_cx_desc(get_level_list(pVideoOutputInfo->codec), pVideoOutputInfo->codecLevel);
+                av_dict_set(&bsfPrm, "level", tchar_to_string(level_str).c_str(), 0);
+                AddMessage(RGY_LOG_DEBUG, _T("set level %s by %s filter\n"), level_str, bsf_tname.c_str());
+            }
+            if ((ENCODER_NVENC || ENCODER_MPP) && pVideoOutputInfo->sar[0] * pVideoOutputInfo->sar[1] > 0) {
                 char sar[128];
                 sprintf_s(sar, "%d/%d", pVideoOutputInfo->sar[0], pVideoOutputInfo->sar[1]);
                 av_dict_set(&bsfPrm, "sample_aspect_ratio", sar, 0);
@@ -280,14 +351,48 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
                 return RGY_ERR_UNKNOWN;
             }
             AddMessage(RGY_LOG_DEBUG, _T("initialized %s filter\n"), bsf_tname.c_str());
+
+            m_pkt = std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>>(av_packet_alloc(), RGYAVDeleter<AVPacket>(av_packet_free));
         }
 #endif //#if ENABLE_AVSW_READER
-        if (rawPrm->codecId == RGY_CODEC_HEVC && rawPrm->hedrsei != nullptr) {
-            AddMessage(RGY_LOG_DEBUG, char_to_tstring(rawPrm->hedrsei->print()));
-            m_seiNal = rawPrm->hedrsei->gen_nal();
+        if (rawPrm->hdrMetadata != nullptr && rawPrm->hdrMetadata->getprm().hasPrmSet()) {
+            AddMessage(RGY_LOG_DEBUG, char_to_tstring(rawPrm->hdrMetadata->print()));
+            if (rawPrm->codecId == RGY_CODEC_HEVC) {
+                m_hdrBitstream = rawPrm->hdrMetadata->gen_nal();
+            } else if (rawPrm->codecId == RGY_CODEC_AV1) {
+                m_hdrBitstream = rawPrm->hdrMetadata->gen_obu();
+            } else {
+                AddMessage(RGY_LOG_ERROR, _T("Setting masterdisplay/contentlight not supported in %s encoding.\n"), CodecToStr(rawPrm->codecId).c_str());
+                return RGY_ERR_UNSUPPORTED;
+            }
         }
         m_doviRpu = rawPrm->doviRpu;
         m_timestamp = rawPrm->vidTimestamp;
+        m_debugDirectAV1Out = rawPrm->debugDirectAV1Out;
+        if (rawPrm->debugRawOut) {
+            const auto filename_debug = m_outFilename + _T(".debug");
+            m_fpDebug = std::unique_ptr<FILE, fp_deleter>(
+                _tfopen(filename_debug.c_str(), _T("wb")), fp_deleter());
+            if (!m_fpDebug) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to open raw frame debug out file \"%s\".\n"), filename_debug.c_str());
+                return RGY_ERR_FILE_OPEN;
+            }
+            AddMessage(RGY_LOG_INFO, _T("Raw frame debug out to file \"%s\".\n"), filename_debug.c_str());
+        }
+        if (!rawPrm->outReplayFile.empty()) {
+            m_fpOutReplay = std::unique_ptr<FILE, fp_deleter>(
+                _tfopen(rawPrm->outReplayFile.c_str(), _T("rb")), fp_deleter());
+            if (!m_fpOutReplay) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to open replay debug out from file \"%s\".\n"), rawPrm->outReplayFile.c_str());
+                return RGY_ERR_FILE_OPEN;
+            }
+
+            AddMessage(RGY_LOG_WARN, _T("replay debug out from file \"%s\".\n"), rawPrm->outReplayFile.c_str());
+            if (rawPrm->outReplayCodec != RGY_CODEC_UNKNOWN) {
+                m_VideoOutputInfo.codec = rawPrm->outReplayCodec;
+                AddMessage(RGY_LOG_WARN, _T("replay codec set to \"%s\".\n"), CodecToStr(m_VideoOutputInfo.codec).c_str());
+            }
+        }
     }
     m_inited = true;
     return RGY_ERR_NONE;
@@ -299,6 +404,8 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid call: WriteNextFrame\n"));
         return RGY_ERR_NULL_PTR;
     }
+
+    readRawDebug(pBitstream);
 
     size_t nBytesWritten = 0;
     if (!m_noOutput) {
@@ -313,84 +420,115 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
                 nal_type = NALU_H264_SPS;
                 nal_list = parse_nal_h264(pBitstream->data(), pBitstream->size());
             }
-            auto sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
+            auto sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [nal_type](nal_info info) { return info.type == nal_type; });
             if (sps_nal != nal_list.end()) {
-                AVPacket pkt = { 0 };
-                av_init_packet(&pkt);
-                av_new_packet(&pkt, (int)sps_nal->size);
-                memcpy(pkt.data, sps_nal->ptr, sps_nal->size);
+                AVPacket *pkt = m_pkt.get();
+                av_new_packet(pkt, (int)sps_nal->size);
+                memcpy(pkt->data, sps_nal->ptr, sps_nal->size);
                 int ret = 0;
-                if (0 > (ret = av_bsf_send_packet(m_pBsfc.get(), &pkt))) {
-                    av_packet_unref(&pkt);
+                if (0 > (ret = av_bsf_send_packet(m_pBsfc.get(), pkt))) {
+                    av_packet_unref(pkt);
                     AddMessage(RGY_LOG_ERROR, _T("failed to send packet to %s bitstream filter: %s.\n"),
                         char_to_tstring(m_pBsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
                     return RGY_ERR_UNKNOWN;
                 }
-                ret = av_bsf_receive_packet(m_pBsfc.get(), &pkt);
+                ret = av_bsf_receive_packet(m_pBsfc.get(), pkt);
                 if (ret == AVERROR(EAGAIN)) {
                     return RGY_ERR_NONE;
-                } else if ((ret < 0 && ret != AVERROR_EOF) || pkt.size < 0) {
+                } else if ((ret < 0 && ret != AVERROR_EOF) || pkt->size < 0) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to run %s bitstream filter: %s.\n"),
                         char_to_tstring(m_pBsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
                     return RGY_ERR_UNKNOWN;
                 }
-                const auto new_data_size = pBitstream->size() + pkt.size - sps_nal->size;
+                const auto new_data_size = pBitstream->size() + pkt->size - sps_nal->size;
                 const auto sps_nal_offset = sps_nal->ptr - pBitstream->data();
                 const auto next_nal_orig_offset = sps_nal_offset + sps_nal->size;
-                const auto next_nal_new_offset = sps_nal_offset + pkt.size;
+                const auto next_nal_new_offset = sps_nal_offset + pkt->size;
                 const auto stream_orig_length = pBitstream->size();
-                if ((decltype(new_data_size))pBitstream->bufsize() < new_data_size) {
-#if ENCODER_QSV
-                    pBitstream->changeSize(new_data_size);
-#else //NVEnc, VCEの場合はこうしないとメモリリークが発生する
-                    const auto org_data_size = pBitstream->size();
-                    m_outputBuf2.resize(new_data_size);
-                    memcpy(m_outputBuf2.data(), pBitstream->data(), org_data_size);
-                    pBitstream->release();
-                    pBitstream->ref(m_outputBuf2.data(), m_outputBuf2.size());
-#endif
-                } else if (pkt.size > (decltype(pkt.size))sps_nal->size) {
-                    pBitstream->trim();
+                if (bsfcBufferLength < new_data_size) {
+                    free(bsfcBuffer);
+                    bsfcBufferLength = new_data_size * 2;
+                    bsfcBuffer = (uint8_t *)malloc(bsfcBufferLength);
                 }
-                memmove(pBitstream->data() + next_nal_new_offset, pBitstream->data() + next_nal_orig_offset, stream_orig_length - next_nal_orig_offset);
-                memcpy(pBitstream->data() + sps_nal_offset, pkt.data, pkt.size);
-                pBitstream->setSize(new_data_size);
-                av_packet_unref(&pkt);
+                if (sps_nal_offset > 0) {
+                    memcpy(bsfcBuffer, pBitstream->data(), sps_nal_offset);
+                }
+                memcpy(bsfcBuffer + sps_nal_offset, pkt->data, pkt->size);
+                memcpy(bsfcBuffer + next_nal_new_offset, pBitstream->data() + next_nal_orig_offset, stream_orig_length - next_nal_orig_offset);
+                pBitstream->copy(bsfcBuffer, new_data_size);
+                av_packet_unref(pkt);
             }
         }
 #endif //#if ENABLE_AVSW_READER
-        const bool insertSEI = m_seiNal.size() > 0 && (pBitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_xIDR)) != 0;
-        if (insertSEI) {
-            const auto nal_list = parse_nal_hevc(pBitstream->data(), pBitstream->size());
-            const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
-            const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
-            const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });
-            const bool header_check = (nal_list.end() != hevc_vps_nal) && (nal_list.end() != hevc_sps_nal) && (nal_list.end() != hevc_pps_nal);
-            bool seiWritten = false;
-            if (!header_check) {
-                nBytesWritten += _fwrite_nolock(m_seiNal.data(), 1, m_seiNal.size(), m_fDest.get());
-                seiWritten = true;
-            }
-            for (size_t i = 0; i < nal_list.size(); i++) {
-                nBytesWritten += _fwrite_nolock(nal_list[i].ptr, 1, nal_list[i].size, m_fDest.get());
-                if (nal_list[i].type == NALU_HEVC_VPS || nal_list[i].type == NALU_HEVC_SPS || nal_list[i].type == NALU_HEVC_PPS) {
-                    if (!seiWritten
-                        && i+1 < nal_list.size()
-                        && (nal_list[i+1].type != NALU_HEVC_VPS && nal_list[i+1].type != NALU_HEVC_SPS && nal_list[i+1].type != NALU_HEVC_PPS)) {
-                        nBytesWritten += _fwrite_nolock(m_seiNal.data(), 1, m_seiNal.size(), m_fDest.get());
-                        seiWritten = true;
+        const bool isIDR = (pBitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_xIDR)) != 0;
+        writeRawDebug(pBitstream);
+        if (m_VideoOutputInfo.codec == RGY_CODEC_AV1) {
+            if (m_debugDirectAV1Out) {
+                nBytesWritten = _fwrite_nolock(pBitstream->data(), 1, pBitstream->size(), m_fDest.get());
+                WRITE_CHECK(nBytesWritten, pBitstream->size());
+            } else {
+                RGYTimestampMapVal bs_framedata;
+                bool hdr10plus_metadata_written = false;
+
+                const auto av1_units = parse_unit_av1(pBitstream->data(), pBitstream->size());
+                for (size_t i = 0; i < av1_units.size(); i++) {
+                    nBytesWritten += _fwrite_nolock(av1_units[i]->unit_data.data(), 1, av1_units[i]->unit_data.size(), m_fDest.get());
+
+                    auto writeHdr10PlusMetadata = [&]() {
+                        if (hdr10plus_metadata_written) {
+                            return RGY_ERR_NONE;
+                        }
+                        const auto frameDataHdr10plusMetadata = std::find_if(bs_framedata.dataList.begin(), bs_framedata.dataList.end(),
+                            [](const std::shared_ptr<RGYFrameData>& data) {
+                            return data->dataType() == RGY_FRAME_DATA_HDR10PLUS;
+                        });
+                        if (frameDataHdr10plusMetadata != bs_framedata.dataList.end()) {
+                            const auto frameDataPtr = dynamic_cast<RGYFrameDataHDR10plus *>((*frameDataHdr10plusMetadata).get());
+                            if (!frameDataPtr) {
+                                AddMessage(RGY_LOG_ERROR, _T("Invalid cast for hdr10plus metadata.\n"));
+                                return RGY_ERR_UNSUPPORTED;
+                            }
+                            const auto hdr10plusMetadata = frameDataPtr->gen_obu();
+                            if (hdr10plusMetadata.size() > 0) {
+                                nBytesWritten += _fwrite_nolock(hdr10plusMetadata.data(), 1, hdr10plusMetadata.size(), m_fDest.get());
+                            }
+                        }
+                        hdr10plus_metadata_written = true;
+                        return RGY_ERR_NONE;
+                    };
+
+                    if (av1_units[i]->type == OBU_TEMPORAL_DELIMITER) {
+                        //次のフレームの時刻情報を取得
+                        bs_framedata = m_timestamp->getByEncodeFrameID(m_prevEncodeFrameId + 1);
+                        if (bs_framedata.inputFrameId < 0) {
+                            bs_framedata.inputFrameId = m_prevInputFrameId;
+                            AddMessage(RGY_LOG_WARN, _T("Failed to get timestamp for id %lld, using %lld.\n"), pBitstream->pts(), bs_framedata.inputFrameId);
+                        } else {
+                            m_prevEncodeFrameId++;
+                            m_prevInputFrameId = bs_framedata.inputFrameId;
+                        }
+                        hdr10plus_metadata_written = false;
+
+                        if (i + 1 >= av1_units.size() || av1_units[i + 1]->type != OBU_SEQUENCE_HEADER) {
+                            if (auto err = writeHdr10PlusMetadata(); err != RGY_ERR_NONE) {
+                                return err;
+                            }
+                        }
+                    } else if (av1_units[i]->type == OBU_SEQUENCE_HEADER) {
+                        if (m_hdrBitstream.size() > 0 && (isIDR || av1_units[i]->type == OBU_SEQUENCE_HEADER)) {
+                            nBytesWritten += _fwrite_nolock(m_hdrBitstream.data(), 1, m_hdrBitstream.size(), m_fDest.get());
+                        }
+                        if (auto err = writeHdr10PlusMetadata(); err != RGY_ERR_NONE) {
+                            return err;
+                        }
                     }
                 }
-            }
-            if (insertSEI && !seiWritten) {
-                AddMessage(RGY_LOG_ERROR, _T("Unexpected HEVC header.\n"));
-                return RGY_ERR_UNDEFINED_BEHAVIOR;
+                if (m_doviRpu) {
+                    AddMessage(RGY_LOG_ERROR, _T("Adding dovi rpu not supported in %s encoding.\n"), CodecToStr(m_VideoOutputInfo.codec).c_str());
+                    return RGY_ERR_UNSUPPORTED;
+                }
             }
         } else {
-            nBytesWritten = _fwrite_nolock(pBitstream->data(), 1, pBitstream->size(), m_fDest.get());
-            WRITE_CHECK(nBytesWritten, pBitstream->size());
-        }
-        if (m_doviRpu) {
             RGYTimestampMapVal bs_framedata;
             if (m_timestamp) {
                 bs_framedata = m_timestamp->get(pBitstream->pts());
@@ -405,12 +543,89 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYBitstream *pBitstream) {
                 return RGY_ERR_UNDEFINED_BEHAVIOR;
             }
 
-            std::vector<uint8_t> dovi_nal;
-            if (m_doviRpu->get_next_rpu_nal(dovi_nal, bs_framedata.inputFrameId) != 0) {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to get dovi rpu for %lld.\n"), bs_framedata.inputFrameId);
+            const auto frameDataHdr10plusMetadata = std::find_if(bs_framedata.dataList.begin(), bs_framedata.dataList.end(), [](std::shared_ptr<RGYFrameData>& data) {
+                return data->dataType() == RGY_FRAME_DATA_HDR10PLUS;
+            });
+            std::vector<uint8_t> hdr10plusMetadata;
+            if (frameDataHdr10plusMetadata != bs_framedata.dataList.end()) {
+                auto frameDataPtr = dynamic_cast<RGYFrameDataHDR10plus *>((*frameDataHdr10plusMetadata).get());
+                if (!frameDataPtr) {
+                    AddMessage(RGY_LOG_ERROR, _T("Invalid cast for hdr10plus metadata.\n"));
+                    return RGY_ERR_UNSUPPORTED;
+                }
+                if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
+                    hdr10plusMetadata = frameDataPtr->gen_nal();
+                } else {
+                    AddMessage(RGY_LOG_ERROR, _T("Setting hdr10plus metadata not supported in %s encoding.\n"), CodecToStr(m_VideoOutputInfo.codec).c_str());
+                    return RGY_ERR_UNSUPPORTED;
+                }
             }
-            if (dovi_nal.size() > 0) {
-                nBytesWritten += _fwrite_nolock(dovi_nal.data(), 1, dovi_nal.size(), m_fDest.get());
+
+            const bool insertSEI = m_hdrBitstream.size() > 0 && isIDR;
+            if (insertSEI || hdr10plusMetadata.size() > 0) {
+                if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
+                    const auto nal_list = parse_nal_hevc(pBitstream->data(), pBitstream->size());
+                    const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
+                    const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
+                    const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });
+                    const bool header_check = (nal_list.end() != hevc_vps_nal) || (nal_list.end() != hevc_sps_nal) || (nal_list.end() != hevc_pps_nal);
+                    bool seiWritten = false;
+                    bool hdr10plus_metadata_written = false;
+                    if (!header_check) {
+                        if (m_hdrBitstream.size() > 0) {
+                            nBytesWritten += _fwrite_nolock(m_hdrBitstream.data(), 1, m_hdrBitstream.size(), m_fDest.get());
+                            seiWritten = true;
+                        }
+                        if (hdr10plusMetadata.size() > 0) {
+                            nBytesWritten += _fwrite_nolock(hdr10plusMetadata.data(), 1, hdr10plusMetadata.size(), m_fDest.get());
+                            hdr10plus_metadata_written = true;
+                        }
+                    }
+                    for (size_t i = 0; i < nal_list.size(); i++) {
+                        nBytesWritten += _fwrite_nolock(nal_list[i].ptr, 1, nal_list[i].size, m_fDest.get());
+                        if (nal_list[i].type == NALU_HEVC_VPS || nal_list[i].type == NALU_HEVC_SPS || nal_list[i].type == NALU_HEVC_PPS) {
+                            if (i + 1 < nal_list.size()
+                                && (nal_list[i + 1].type != NALU_HEVC_VPS && nal_list[i + 1].type != NALU_HEVC_SPS && nal_list[i + 1].type != NALU_HEVC_PPS)) {
+                                if (!seiWritten && insertSEI) {
+                                    nBytesWritten += _fwrite_nolock(m_hdrBitstream.data(), 1, m_hdrBitstream.size(), m_fDest.get());
+                                    seiWritten = true;
+                                }
+                                if (!hdr10plus_metadata_written && hdr10plusMetadata.size() > 0) {
+                                    nBytesWritten += _fwrite_nolock(hdr10plusMetadata.data(), 1, hdr10plusMetadata.size(), m_fDest.get());
+                                    hdr10plus_metadata_written = true;
+                                }
+                            }
+                        }
+                    }
+                    if (insertSEI && !seiWritten) {
+                        AddMessage(RGY_LOG_ERROR, _T("Unexpected HEVC header.\n"));
+                        return RGY_ERR_UNDEFINED_BEHAVIOR;
+                    }
+                    if (hdr10plusMetadata.size() > 0 && !hdr10plus_metadata_written) {
+                        AddMessage(RGY_LOG_ERROR, _T("hdr10plus metadata not written, unexpected behavior.\n"));
+                        return RGY_ERR_UNDEFINED_BEHAVIOR;
+                    }
+                } else {
+                    AddMessage(RGY_LOG_ERROR, _T("Setting masterdisplay/contentlight not supported in %s encoding.\n"), CodecToStr(m_VideoOutputInfo.codec).c_str());
+                    return RGY_ERR_UNSUPPORTED;
+                }
+            } else {
+                nBytesWritten = _fwrite_nolock(pBitstream->data(), 1, pBitstream->size(), m_fDest.get());
+                WRITE_CHECK(nBytesWritten, pBitstream->size());
+            }
+            if (m_doviRpu) {
+                if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
+                    std::vector<uint8_t> dovi_nal;
+                    if (m_doviRpu->get_next_rpu_nal(dovi_nal, bs_framedata.inputFrameId) != 0) {
+                        AddMessage(RGY_LOG_ERROR, _T("Failed to get dovi rpu for %lld.\n"), bs_framedata.inputFrameId);
+                    }
+                    if (dovi_nal.size() > 0) {
+                        nBytesWritten += _fwrite_nolock(dovi_nal.data(), 1, dovi_nal.size(), m_fDest.get());
+                    }
+                } else {
+                    AddMessage(RGY_LOG_ERROR, _T("Adding dovi rpu not supported in %s encoding.\n"), CodecToStr(m_VideoOutputInfo.codec).c_str());
+                    return RGY_ERR_UNSUPPORTED;
+                }
             }
         }
     }
@@ -486,7 +701,7 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
     }
 
     auto loadLineToBuffer = [](uint8_t *ptrBuf, uint8_t *ptrSrc, int pitch) {
-#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
+#if (defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)) && ENCODER_QSV
         for (int i = 0; i < pitch; i += 128, ptrSrc += 128, ptrBuf += 128) {
             __m128i x0 = _mm_stream_load_si128((__m128i *)(ptrSrc +   0));
             __m128i x1 = _mm_stream_load_si128((__m128i *)(ptrSrc +  16));
@@ -510,17 +725,19 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
 #endif
     };
 
+    const auto mfxsurf = dynamic_cast<RGYFrameMFXSurf*>(pSurface);
+    const auto crop = (mfxsurf) ? mfxsurf->crop() : initCrop();
     const uint32_t lumaWidthBytes = pSurface->width() << ((pSurface->csp() == RGY_CSP_P010) ? 1 : 0);
     if (   pSurface->csp() == RGY_CSP_YV12
         || pSurface->csp() == RGY_CSP_NV12
         || pSurface->csp() == RGY_CSP_P010) {
-        const uint32_t cropOffset = pSurface->crop().e.up * pSurface->pitch() + pSurface->crop().e.left;
+        const uint32_t cropOffset = crop.e.up * pSurface->pitch() + crop.e.left;
         if (m_sourceHWMem) {
             for (uint32_t j = 0; j < pSurface->height(); j++) {
                 uint8_t *ptrBuf = m_readBuffer.get();
-                uint8_t *ptrSrc = pSurface->ptrY() + (pSurface->crop().e.up + j) * pSurface->pitch();
+                uint8_t *ptrSrc = pSurface->ptrY() + (crop.e.up + j) * pSurface->pitch();
                 loadLineToBuffer(ptrBuf, ptrSrc, pSurface->pitch());
-                WRITE_CHECK(fwrite(ptrBuf + pSurface->crop().e.left, 1, lumaWidthBytes, m_fDest.get()), lumaWidthBytes);
+                WRITE_CHECK(fwrite(ptrBuf + crop.e.left, 1, lumaWidthBytes, m_fDest.get()), lumaWidthBytes);
             }
         } else {
             for (uint32_t j = 0; j < pSurface->height(); j++) {
@@ -538,12 +755,12 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
         uint32_t uvHeight = pSurface->height() >> 1;
         uint8_t *ptrBuf = m_readBuffer.get();
         for (uint32_t i = 0; i < uvHeight; i++) {
-            loadLineToBuffer(ptrBuf, pSurface->ptrU() + (pSurface->crop().e.up + i) * uvPitch, uvPitch);
-            WRITE_CHECK(fwrite(ptrBuf + (pSurface->crop().e.left >> 1), 1, uvWidth, m_fDest.get()), uvWidth);
+            loadLineToBuffer(ptrBuf, pSurface->ptrU() + (crop.e.up + i) * uvPitch, uvPitch);
+            WRITE_CHECK(fwrite(ptrBuf + (crop.e.left >> 1), 1, uvWidth, m_fDest.get()), uvWidth);
         }
         for (uint32_t i = 0; i < uvHeight; i++) {
-            loadLineToBuffer(ptrBuf, pSurface->ptrV() + (pSurface->crop().e.up + i) * uvPitch, uvPitch);
-            WRITE_CHECK(fwrite(ptrBuf + (pSurface->crop().e.left >> 1), 1, uvWidth, m_fDest.get()), uvWidth);
+            loadLineToBuffer(ptrBuf, pSurface->ptrV() + (crop.e.up + i) * uvPitch, uvPitch);
+            WRITE_CHECK(fwrite(ptrBuf + (crop.e.left >> 1), 1, uvWidth, m_fDest.get()), uvWidth);
         }
     } else if (pSurface->csp() == RGY_CSP_NV12) {
         frameSize = lumaWidthBytes * pSurface->height() * 3 / 2;
@@ -562,14 +779,14 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
 
         for (uint32_t j = 0; j < uvHeight; j++) {
             uint8_t *ptrBuf = m_readBuffer.get();
-            uint8_t *ptrSrc = pSurface->ptrUV() + (pSurface->crop().e.up + j) * pSurface->pitch();
+            uint8_t *ptrSrc = pSurface->ptrUV() + (crop.e.up + j) * pSurface->pitch();
             if (m_sourceHWMem) {
                 loadLineToBuffer(ptrBuf, ptrSrc, pSurface->pitch());
             } else {
                 ptrBuf = ptrSrc;
             }
 
-            uint8_t *ptrUV = ptrBuf + pSurface->crop().e.left;
+            uint8_t *ptrUV = ptrBuf + crop.e.left;
             uint8_t *ptrU = m_UVBuffer.get() + j * uvWidth;
             uint8_t *ptrV = ptrU + uvFrameOffset;
 #if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
@@ -592,8 +809,8 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
         frameSize = lumaWidthBytes * pSurface->height() * 3 / 2;
         uint8_t *ptrBuf = m_readBuffer.get();
         for (uint32_t i = 0; i < (uint32_t)(pSurface->height() >> 1); i++) {
-            loadLineToBuffer(ptrBuf, pSurface->ptrUV() + pSurface->crop().e.up * (pSurface->pitch() >> 1) + i * pSurface->pitch(), pSurface->pitch());
-            WRITE_CHECK(fwrite(ptrBuf + pSurface->crop().e.left, 1, (uint32_t)pSurface->width() << 1, m_fDest.get()), (uint32_t)pSurface->width() << 1);
+            loadLineToBuffer(ptrBuf, pSurface->ptrUV() + crop.e.up * (pSurface->pitch() >> 1) + i * pSurface->pitch(), pSurface->pitch());
+            WRITE_CHECK(fwrite(ptrBuf + crop.e.left, 1, (uint32_t)pSurface->width() << 1, m_fDest.get()), (uint32_t)pSurface->width() << 1);
         }
     } else if (pSurface->csp() == RGY_CSP_RGB32R
         /*|| pSurface->csp() == 100 //DXGI_FORMAT_AYUV
@@ -602,7 +819,7 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
         uint32_t w = pSurface->width();
         uint32_t h = pSurface->height();
 
-        uint8_t *ptr = pSurface->ptrRGB() + pSurface->crop().e.left + pSurface->crop().e.up * pSurface->pitch();
+        uint8_t *ptr = pSurface->ptrRGB() + crop.e.left + crop.e.up * pSurface->pitch();
 
         for (uint32_t i = 0; i < h; i++) {
             WRITE_CHECK(fwrite(ptr + i * pSurface->pitch(), 1, 4*w, m_fDest.get()), 4*w);
@@ -621,8 +838,8 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
 #include "rgy_input_avcodec.h"
 #include "rgy_output_avcodec.h"
 
-std::unique_ptr<HEVCHDRSei> createHEVCHDRSei(const std::string& maxCll, const std::string &masterDisplay, CspTransfer atcSei, const RGYInput *reader) {
-    auto hedrsei = std::make_unique<HEVCHDRSei>();
+std::unique_ptr<RGYHDRMetadata> createHEVCHDRSei(const std::string& maxCll, const std::string &masterDisplay, CspTransfer atcSei, const RGYInput *reader) {
+    auto hdrMetadata = std::make_unique<RGYHDRMetadata>();
     const AVMasteringDisplayMetadata *masteringDisplaySrc = nullptr;
     const AVContentLightMetadata *contentLightSrc = nullptr;
     { auto avcodecReader = dynamic_cast<const RGYInputAvcodec *>(reader);
@@ -634,36 +851,36 @@ std::unique_ptr<HEVCHDRSei> createHEVCHDRSei(const std::string& maxCll, const st
     int ret = 0;
     if (maxCll == maxCLLSource) {
         if (contentLightSrc != nullptr) {
-            hedrsei->set_maxcll(contentLightSrc->MaxCLL, contentLightSrc->MaxFALL);
+            hdrMetadata->set_maxcll(contentLightSrc->MaxCLL, contentLightSrc->MaxFALL);
         }
     } else {
-        ret = hedrsei->parse_maxcll(maxCll);
+        ret = hdrMetadata->parse_maxcll(maxCll);
     }
     if (masterDisplay == masterDisplaySource) {
         if (masteringDisplaySrc != nullptr) {
-            int masterdisplay[10];
-            masterdisplay[0] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->display_primaries[1][0], av_make_q(50000, 1))) + 0.5); //G
-            masterdisplay[1] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->display_primaries[1][1], av_make_q(50000, 1))) + 0.5); //G
-            masterdisplay[2] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->display_primaries[2][0], av_make_q(50000, 1))) + 0.5); //B
-            masterdisplay[3] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->display_primaries[2][1], av_make_q(50000, 1))) + 0.5); //B
-            masterdisplay[4] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->display_primaries[0][0], av_make_q(50000, 1))) + 0.5); //R
-            masterdisplay[5] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->display_primaries[0][1], av_make_q(50000, 1))) + 0.5); //R
-            masterdisplay[6] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->white_point[0], av_make_q(50000, 1))) + 0.5);
-            masterdisplay[7] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->white_point[1], av_make_q(50000, 1))) + 0.5);
-            masterdisplay[8] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->max_luminance, av_make_q(10000, 1))) + 0.5);
-            masterdisplay[9] = (int)(av_q2d(av_mul_q(masteringDisplaySrc->min_luminance, av_make_q(10000, 1))) + 0.5);
-            hedrsei->set_masterdisplay(masterdisplay);
+            rgy_rational<int> masterdisplay[10];
+            masterdisplay[0] = to_rgy(masteringDisplaySrc->display_primaries[1][0]); //G
+            masterdisplay[1] = to_rgy(masteringDisplaySrc->display_primaries[1][1]); //G
+            masterdisplay[2] = to_rgy(masteringDisplaySrc->display_primaries[2][0]); //B
+            masterdisplay[3] = to_rgy(masteringDisplaySrc->display_primaries[2][1]); //B
+            masterdisplay[4] = to_rgy(masteringDisplaySrc->display_primaries[0][0]); //R
+            masterdisplay[5] = to_rgy(masteringDisplaySrc->display_primaries[0][1]); //R
+            masterdisplay[6] = to_rgy(masteringDisplaySrc->white_point[0]);
+            masterdisplay[7] = to_rgy(masteringDisplaySrc->white_point[1]);
+            masterdisplay[8] = to_rgy(masteringDisplaySrc->max_luminance);
+            masterdisplay[9] = to_rgy(masteringDisplaySrc->min_luminance);
+            hdrMetadata->set_masterdisplay(masterdisplay);
         }
     } else {
-        ret = hedrsei->parse_masterdisplay(masterDisplay);
+        ret = hdrMetadata->parse_masterdisplay(masterDisplay);
     }
     if (atcSei != RGY_TRANSFER_UNKNOWN) {
-        hedrsei->set_atcsei(atcSei);
+        hdrMetadata->set_atcsei(atcSei);
     }
     if (ret) {
-        hedrsei.reset();
+        hdrMetadata.reset();
     }
-    return hedrsei;
+    return hdrMetadata;
 }
 
 static bool audioSelected(const AudioSelect *sel, const AVDemuxStream *stream) {
@@ -717,11 +934,13 @@ RGY_ERR initWriters(
 #if ENABLE_AVSW_READER
     const vector<unique_ptr<AVChapter>>& chapters,
 #endif //#if ENABLE_AVSW_READER
-    const HEVCHDRSei *hedrsei,
+    const RGYHDRMetadata *hdrMetadata,
     DOVIRpu *doviRpu,
     RGYTimestamp *vidTimestamp,
     const bool videoDtsUnavailable,
     const bool benchmark,
+    RGYPoolAVPacket *poolPkt,
+    RGYPoolAVFrame *poolFrame,
     shared_ptr<EncodeStatus> pStatus,
     shared_ptr<CPerfMonitor> pPerfMonitor,
     shared_ptr<RGYLog> log
@@ -732,7 +951,7 @@ RGY_ERR initWriters(
     bool useH264ESOutput =
         ((common->muxOutputFormat.length() > 0 && 0 == _tcscmp(common->muxOutputFormat.c_str(), _T("raw")))) //--formatにrawが指定されている
         || std::filesystem::path(common->outputFilename).extension().empty() //拡張子がない
-        || check_ext(common->outputFilename.c_str(), { ".m2v", ".264", ".h264", ".avc", ".avc1", ".x264", ".265", ".h265", ".hevc", ".vp9", ".av1" }); //特定の拡張子
+        || check_ext(common->outputFilename.c_str(), { ".m2v", ".264", ".h264", ".avc", ".avc1", ".x264", ".265", ".h265", ".hevc", ".vp9", ".av1", ".raw" }); //特定の拡張子
     if (!useH264ESOutput && outputVideoInfo.codec != RGY_CODEC_UNKNOWN) {
         common->AVMuxTarget |= RGY_MUX_VIDEO;
     }
@@ -784,7 +1003,8 @@ RGY_ERR initWriters(
         writerPrm.muxVidTsLogFile         = (ctrl->logMuxVidTsFile) ? ctrl->logMuxVidTsFile : _T("");
         writerPrm.bitstreamTimebase       = av_make_q(outputTimebase);
         writerPrm.chapterNoTrim           = common->chapterNoTrim;
-        writerPrm.HEVCHdrSei              = hedrsei;
+        writerPrm.attachments             = common->attachmentSource;
+        writerPrm.hdrMetadata             = hdrMetadata;
         writerPrm.doviRpu                 = doviRpu;
         writerPrm.vidTimestamp            = vidTimestamp;
         writerPrm.videoCodecTag           = common->videoCodecTag;
@@ -792,7 +1012,11 @@ RGY_ERR initWriters(
         writerPrm.formatMetadata          = common->formatMetadata;
         writerPrm.afs                     = isAfs;
         writerPrm.disableMp4Opt           = common->disableMp4Opt;
+        writerPrm.lowlatency              = ctrl->lowLatency;
+        writerPrm.debugDirectAV1Out       = common->debugDirectAV1Out;
         writerPrm.muxOpt                  = common->muxOpt;
+        writerPrm.poolPkt                 = poolPkt;
+        writerPrm.poolFrame               = poolFrame;
         auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(pFileReader);
         if (pAVCodecReader != nullptr) {
             writerPrm.inputFormatMetadata = pAVCodecReader->GetInputFormatMetadata();
@@ -907,6 +1131,7 @@ RGY_ERR initWriters(
                         prm.metadata = pAudioSelect->metadata;
                     }
                     if (pSubtitleSelect != nullptr) {
+                        prm.decodeCodecPrm = pSubtitleSelect->decCodecPrm;
                         prm.encodeCodec = pSubtitleSelect->encCodec;
                         prm.encodeCodecPrm = pSubtitleSelect->encCodecPrm;
                         prm.asdata = pSubtitleSelect->asdata;
@@ -1028,9 +1253,11 @@ RGY_ERR initWriters(
                         prm.metadata = pAudioSelect->metadata;
                     }
                     if (pSubtitleSelect != nullptr) {
+                        prm.decodeCodecPrm = pSubtitleSelect->decCodecPrm;
                         prm.encodeCodec = pSubtitleSelect->encCodec;
                         prm.encodeCodecPrm = pSubtitleSelect->encCodecPrm;
                         prm.asdata = pSubtitleSelect->asdata;
+                        prm.bsf = pSubtitleSelect->bsf;
                         prm.disposition = pSubtitleSelect->disposition;
                         prm.metadata = pSubtitleSelect->metadata;
                     }
@@ -1081,9 +1308,13 @@ RGY_ERR initWriters(
             rawPrm.bufSizeMB = ctrl->outputBufSizeMB;
             rawPrm.benchmark = benchmark;
             rawPrm.codecId = outputVideoInfo.codec;
-            rawPrm.hedrsei = hedrsei;
+            rawPrm.hdrMetadata = hdrMetadata;
             rawPrm.doviRpu = doviRpu;
             rawPrm.vidTimestamp = vidTimestamp;
+            rawPrm.debugDirectAV1Out = common->debugDirectAV1Out;
+            rawPrm.debugRawOut = common->debugRawOut;
+            rawPrm.outReplayFile = common->outReplayFile;
+            rawPrm.outReplayCodec = common->outReplayCodec;
             auto sts = pFileWriter->Init(common->outputFilename.c_str(), &outputVideoInfo, &rawPrm, log, pStatus);
             if (sts != RGY_ERR_NONE) {
                 log->write(RGY_LOG_ERROR, RGY_LOGT_OUT, pFileWriter->GetOutputMessage());
@@ -1095,8 +1326,11 @@ RGY_ERR initWriters(
 #if ENABLE_AVSW_READER
     }
 
-    //音声の抽出
-    if (common->nAudioSelectCount + common->nSubtitleSelectCount - (audioCopyAll ? 1 : 0) > (int)streamTrackUsed.size()) {
+    //音声の抽出(--audio-file)
+    const bool hasAudioExtract = std::find_if(common->ppAudioSelectList, common->ppAudioSelectList + common->nAudioSelectCount,
+        [](const AudioSelect *pAudioSelect) { return pAudioSelect->extractFilename.length() > 0; }) != common->ppAudioSelectList + common->nAudioSelectCount;
+    if (hasAudioExtract
+        && common->nAudioSelectCount + common->nSubtitleSelectCount - (audioCopyAll ? 1 : 0) > (int)streamTrackUsed.size()) {
         log->write(RGY_LOG_DEBUG, RGY_LOGT_OUT, _T("Output: Audio file output enabled.\n"));
         auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(pFileReader);
         if (pAVCodecReader == nullptr) {
@@ -1146,12 +1380,15 @@ RGY_ERR initWriters(
                 writerAudioPrm.bufSizeMB      = ctrl->outputBufSizeMB;
                 writerAudioPrm.outputFormat   = pAudioSelect->extractFormat;
                 writerAudioPrm.audioIgnoreDecodeError = common->audioIgnoreDecodeError;
+                writerAudioPrm.lowlatency = ctrl->lowLatency;
                 writerAudioPrm.audioResampler = common->audioResampler;
                 writerAudioPrm.inputStreamList.push_back(prm);
                 writerAudioPrm.trimList = trimParam.list;
                 writerAudioPrm.videoInputFirstKeyPts = pAVCodecReader->GetVideoFirstKeyPts();
                 writerAudioPrm.videoInputStream = pAVCodecReader->GetInputVideoStream();
                 writerAudioPrm.bitstreamTimebase = av_make_q(outputTimebase);
+                writerAudioPrm.poolPkt = poolPkt;
+                writerAudioPrm.poolFrame = poolFrame;
 
                 shared_ptr<RGYOutput> pWriter = std::make_shared<RGYOutputAvcodec>();
                 auto sts = pWriter->Init(pAudioSelect->extractFilename.c_str(), nullptr, &writerAudioPrm, log, pStatus);

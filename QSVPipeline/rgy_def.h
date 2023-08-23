@@ -177,8 +177,24 @@ typedef struct FEATURE_DESC {
     uint64_t value;
 } FEATURE_DESC;
 
+static int get_cx_desc_cmp(const wchar_t *str1, const wchar_t *str2) {
+#if defined(_WIN32) || defined(_WIN64)
+    return _wcsicmp(str1, str2);
+#else
+    return wcscasecmp(str1, str2);
+#endif
+}
+
+static int get_cx_desc_cmp(const char *str1, const char *str2) {
+#if defined(_WIN32) || defined(_WIN64)
+    return _stricmp(str1, str2);
+#else
+    return strcasecmp(str1, str2);
+#endif
+}
+
 template<typename T>
-static const TCHAR *get_chr_from_value(const T *list, decltype(T::value) v) {
+static const decltype(T::desc) get_chr_from_value(const T *list, decltype(T::value) v) {
     for (int i = 0; list[i].desc; i++)
         if (list[i].value == v)
             return list[i].desc;
@@ -194,32 +210,32 @@ static int get_cx_index(const T *list, decltype(T::value) v) {
 }
 
 template<typename T>
-static int get_cx_index(const T *list, const TCHAR *chr) {
+static int get_cx_index(const T *list, const decltype(T::desc) chr) {
     for (int i = 0; list[i].desc; i++)
-        if (0 == _tcscmp(list[i].desc, chr))
+        if (get_cx_desc_cmp(list[i].desc, chr) == 0)
             return i;
     return 0;
 }
 
 template<typename T>
-static decltype(T::value) get_cx_value(const T *list, const TCHAR *chr) {
+static decltype(T::value) get_cx_value(const T *list, const decltype(T::desc) chr) {
     for (int i = 0; list[i].desc; i++)
-        if (0 == _tcscmp(list[i].desc, chr))
+        if (get_cx_desc_cmp(list[i].desc, chr) == 0)
             return list[i].value;
     return 0;
 }
 
 static int PARSE_ERROR_FLAG = std::numeric_limits<int>::min();
 template<typename T>
-static decltype(T::value) get_value_from_chr(const T *list, const TCHAR *chr) {
+static decltype(T::value) get_value_from_chr(const T *list, const decltype(T::desc) chr) {
     for (int i = 0; list[i].desc; i++)
-        if (_tcsicmp(list[i].desc, chr) == 0)
+        if (get_cx_desc_cmp(list[i].desc, chr) == 0)
             return list[i].value;
     return PARSE_ERROR_FLAG;
 }
 
 template<typename T>
-static const TCHAR *get_cx_desc(const T *list, decltype(T::value) v) {
+static const decltype(T::desc) get_cx_desc(const T *list, decltype(T::value) v) {
     for (int i = 0; list[i].desc; i++)
         if (list[i].value == v)
             return list[i].desc;
@@ -227,14 +243,29 @@ static const TCHAR *get_cx_desc(const T *list, decltype(T::value) v) {
 }
 
 template<typename T>
-static bool get_list_value(const T *list, const TCHAR *chr, decltype(T::value) *value) {
+static bool get_list_value(const T *list, const decltype(T::desc) chr, decltype(T::value) *value) {
     for (int i = 0; list[i].desc; i++) {
-        if (_tcsicmp(list[i].desc, chr) == 0) {
+        if (get_cx_desc_cmp(list[i].desc, chr) == 0) {
             *value = list[i].value;
             return true;
         }
     }
     return false;
+};
+
+static const CX_DESC list_rgy_codec[] = {
+    { _T("h264"),  RGY_CODEC_H264 },
+    { _T("avc"),   RGY_CODEC_H264 },
+    { _T("h265"),  RGY_CODEC_HEVC },
+    { _T("hevc"),  RGY_CODEC_HEVC },
+    { _T("mpeg2"), RGY_CODEC_MPEG2 },
+    { _T("mpeg1"), RGY_CODEC_MPEG1 },
+    { _T("mpeg4"), RGY_CODEC_MPEG4 },
+    { _T("vc1"),   RGY_CODEC_VC1 },
+    { _T("vp8"),   RGY_CODEC_VP8 },
+    { _T("vp9"),   RGY_CODEC_VP9 },
+    { _T("av1"),   RGY_CODEC_AV1 },
+    { NULL, 0 }
 };
 
 enum {
@@ -245,13 +276,20 @@ enum {
 enum {
     DELOGO_MODE_REMOVE = 0,
     DELOGO_MODE_ADD,
+    DELOGO_MODE_ADD_MULTI,
 };
 
-const int COLOR_VALUE_AUTO = -1;
-const int COLOR_VALUE_AUTO_RESOLUTION = std::numeric_limits<int>::max();
-const int HD_HEIGHT_THRESHOLD = 720;
-const int HD_INDEX = 3;
-const int SD_INDEX = 4;
+enum class RGYResizeResMode {
+    Normal,
+    PreserveOrgAspectDec,
+    PreserveOrgAspectInc,
+};
+
+static const int COLOR_VALUE_AUTO = -1;
+static const int COLOR_VALUE_AUTO_RESOLUTION = std::numeric_limits<int>::max();
+static const TCHAR *COLOR_VALUE_AUTO_HD_NAME = _T("bt709");
+static const TCHAR *COLOR_VALUE_AUTO_SD_NAME = _T("smpte170m");
+static const int HD_HEIGHT_THRESHOLD = 720;
 
 enum CspMatrix {
     RGY_MATRIX_AUTO        = COLOR_VALUE_AUTO,
@@ -499,7 +537,7 @@ const CX_DESC list_colorrange[] = {
 template<typename T>
 void apply_auto_color_characteristic(T &value, const CX_DESC *list, int frame_height, T auto_val) {
     if (value == COLOR_VALUE_AUTO_RESOLUTION) {
-        value = (T)list[(frame_height >= HD_HEIGHT_THRESHOLD) ? HD_INDEX : SD_INDEX].value;
+        value = (T)get_cx_value(list, (frame_height >= HD_HEIGHT_THRESHOLD) ? COLOR_VALUE_AUTO_HD_NAME : COLOR_VALUE_AUTO_SD_NAME);
     } else if (value == COLOR_VALUE_AUTO) {
         value = auto_val;
     }
@@ -563,6 +601,35 @@ struct VideoVUIInfo {
         apply_auto_color_characteristic(matrix,     list_colormatrix, inputHeight, input.matrix);
         apply_auto_color_characteristic(colorrange, list_colorrange,  inputHeight, input.colorrange);
         apply_auto_color_characteristic(chromaloc,  list_chromaloc,   inputHeight, input.chromaloc);
+    }
+    void setDescriptPreset() {
+        descriptpresent =
+           get_cx_value(list_colormatrix, _T("undef")) != (int)matrix
+        || get_cx_value(list_colorprim,   _T("undef")) != (int)colorprim
+        || get_cx_value(list_transfer,    _T("undef")) != (int)transfer;
+    }
+
+    void setIfUnset(const VideoVUIInfo &x) {
+        const auto defaultVUI = VideoVUIInfo();
+        if (colorprim == defaultVUI.colorprim) {
+            colorprim = x.colorprim;
+        }
+        if (matrix == defaultVUI.matrix) {
+            matrix = x.matrix;
+        }
+        if (transfer == defaultVUI.transfer) {
+            transfer = x.transfer;
+        }
+        if (format == defaultVUI.format) {
+            format = x.format;
+        }
+        if (colorrange == defaultVUI.colorrange) {
+            colorrange = x.colorrange;
+        }
+        if (chromaloc == defaultVUI.chromaloc) {
+            chromaloc = x.chromaloc;
+        }
+        setDescriptPreset();
     }
 
     bool operator==(const VideoVUIInfo &x) const {
@@ -714,6 +781,10 @@ static RGYAVSync operator~(RGYAVSync a) {
 const CX_DESC list_empty[] = {
     { NULL, 0 }
 };
+
+static bool is_list_empty(const CX_DESC *list) {
+    return list[0].desc == nullptr;
+}
 
 extern const CX_DESC list_log_level[];
 

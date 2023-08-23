@@ -57,7 +57,7 @@ tstring GetQSVEncVersion() {
     if (ENABLE_AVISYNTH_READER)    version += _T(", avs");
     if (ENABLE_VAPOURSYNTH_READER) version += _T(", vpy");
 #if ENABLE_AVSW_READER && !FOR_AUO
-    version += strsprintf(_T(", avsw, avhw [%s]"), getHWDecSupportedCodecList().c_str());
+    version += strsprintf(_T(", avsw, avhw"));
 #endif
 #if !(defined(_WIN32) || defined(_WIN64))
     version += _T("\n vpp:    resize, deinterlace, denoise, detail-enhance, image-stab");
@@ -154,6 +154,8 @@ tstring gen_cmd_help_vppmfx() {
 #endif
         _T("   --vpp-image-stab <string>    set image stabilizer mode\n")
         _T("                                 - none, upscale, box\n"));
+    str += strsprintf(_T("")
+        _T("   --vpp-perc-pre-enc           enable perceptual pre enc filter\n"));
     return str;
 }
 
@@ -201,6 +203,7 @@ tstring encoder_help() {
         _T("                                 specified path. With no value, \"qsv_check.html\"\n")
         _T("                                 will be created to current directory.\n")
         _T("   --check-environment          check environment info\n")
+        _T("   --check-device               check device available\n")
         _T("   --check-clinfo               check OpenCL info\n")
 #if ENABLE_AVSW_READER
         _T("   --check-avversion            show dll version\n")
@@ -210,6 +213,7 @@ tstring encoder_help() {
         _T("   --check-profiles <string>    show profile names available for specified audio codec\n")
         _T("   --check-formats              show in/out formats available\n")
         _T("   --check-protocols            show in/out protocols available\n")
+        _T("   --check-avdevices            show in/out avdvices available\n")
         _T("   --check-filters              show filters available\n")
         _T("   --option-list                show option list\n")
 #endif
@@ -246,6 +250,8 @@ tstring encoder_help() {
         _T("\n"));
     str += strsprintf(_T("\n")
         _T("   --fixed-func                 use fixed func instead of GPU EU (default:off)\n")
+        _T("   --hyper-mode <string>        set Deep Link Hyper Mode\n")
+        _T("                                 off (=default), on, adaptive.\n")
         _T("\n"));
     str += strsprintf(_T("Frame buffer Options:\n")
         _T(" frame buffers are selected automatically by default.\n")
@@ -302,7 +308,7 @@ tstring encoder_help() {
     str += strsprintf(_T("Other Encode Options:\n")
         _T("   --fallback-rc                enable fallback of ratecontrol mode, when\n")
         _T("                                 platform does not support new ratecontrol modes.\n")
-        _T("-a,--async-depth                set async depth for QSV pipeline. (0-%d)\n")
+        _T("-a,--async-depth                set async depth for QSV pipeline.\n")
         _T("                                 default: 0 (=auto, %d)\n")
         _T("   --max-bitrate <int>          set max bitrate(kbps)\n")
         _T("   --qp-min <int> or            set min QP, default 0 (= unset)\n")
@@ -320,13 +326,21 @@ tstring encoder_help() {
         _T("                                  and set the window size in frames.\n")
         _T("   --la-quality <string>        set lookahead quality.\n")
         _T("                                 - auto(default), fast, medium, slow\n")
+        _T("   --tune <string>[,...]        set tune encode quality mode.\n")
+        _T("                                 - default, psnr, ssim, ms_ssim, vmaf, perceptual\n")
+        _T("   --scenario-info <string>     set scenarios for the encoding.\n")
+        _T("                                 unknown (default), display_remoting,\n")
+        _T("                                 video_conference, archive, live_streaming,\n")
+        _T("                                 camera_capture, video_surveillance,\n")
+        _T("                                 game_streaming, remote_gaming\n")
         _T("   --(no-)extbrc                enables extbrc\n")
         _T("   --(no-)mbbrc                 enables per macro block rate control\n")
         _T("                                 default: auto\n")
         _T("   --ref <int>                  reference frames\n")
         _T("                                  default %d (auto)\n")
         _T("-b,--bframes <int>              number of sequential b frames\n")
-        _T("                                  default %d(HEVC) / %d(others)\n")
+        _T("                                  default auto\n")
+        _T("   --gop-ref-dist <int>         <bframes>+1 for H.264/HEVC/MPEG2\n")
         _T("   --(no-)b-pyramid             enables B-frame pyramid reference (default:off)\n")
         _T("   --(no-)direct-bias-adjust    lower usage of B frame Direct/Skip type.\n")
         _T("   --gop-len <int>              (max) gop length, default %d (auto)\n")
@@ -337,8 +351,9 @@ tstring encoder_help() {
         _T("   --(no-)b-adapt               enables adaptive B frame insert (default:off)\n")
         _T("   --(no-)weightp               enable weighted prediction for P frame\n")
         _T("   --(no-)weightb               enable weighted prediction for B frame\n")
+        _T("   --(no-)adapt-ref             enable adaptive ref frames\n")
         _T("   --(no-)adapt-ltr             enable adaptive LTR frames\n")
-        _T("                                 --extbrc is also required.\n")
+        _T("   --(no-)adapt-cqm             enable adaptive CQM\n")
         _T("   --(no-)repartition-check     [H.264] enable prediction from small partitions\n")
 #if ENABLE_FADE_DETECT
         _T("   --(no-)fade-detect           enable fade detection\n")
@@ -352,6 +367,11 @@ tstring encoder_help() {
         _T("                                 - 3  set MV cost 1/8 of default\n")
         _T("   --slices <int>               number of slices, default 0 (auto)\n")
         _T("   --vbv-bufsize <int>          set vbv buffer size (kbit) / default: auto\n")
+        _T("   --max-framesize <int         set max frame size (bytes) / default: auto>\n")
+        _T("   --max-framesize-i <int>      set max I frame size (bytes) / default: auto\n")
+        _T("   --max-framesize-p <int>      set max P/B frame size (bytes) / default: auto\n")
+        _T("   --intra-refresh-cycle <int>  set intra refresh cycle (2 or larger).\n")
+        _T("                                  default = 0 (disabled)\n")
         _T("   --no-deblock                 [h264] disables H.264 deblock feature\n")
         _T("   --tskip                      [hevc] enable transform skip\n")
         _T("   --sao <string>               [hevc]\n")
@@ -362,12 +382,14 @@ tstring encoder_help() {
         _T("                                 - all     enable sao for luma & chroma\n")
         _T("   --ctu <int>                  [hevc] max ctu size\n")
         _T("                                 - auto(default), 16, 32, 64\n")
+        _T("   --(no-)hevc-gpb              [hevc] enable(disable) GPB\n")
+        _T("   --tile-row <int>             [av1] number of tile rows\n")
+        _T("   --tile-col <int>             [av1] number of tile columns\n")
         //_T("   --sharpness <int>            [vp8] set sharpness level for vp8 enc\n")
         _T("\n"),
-        QSV_ASYNC_DEPTH_MAX, QSV_DEFAULT_ASYNC_DEPTH,
+        QSV_DEFAULT_ASYNC_DEPTH,
         QSV_LOOKAHEAD_DEPTH_MIN, QSV_LOOKAHEAD_DEPTH_MAX,
         QSV_DEFAULT_REF,
-        QSV_DEFAULT_HEVC_BFRAMES, QSV_DEFAULT_H264_BFRAMES,
         QSV_DEFAULT_GOP_LEN);
 
 #if 0
@@ -395,7 +417,7 @@ tstring encoder_help() {
         _T("   --aud                        insert aud nal unit to ouput stream.\n")
         _T("   --pic-struct                 insert pic-timing SEI with pic_struct.\n")
         _T("   --buf-period                 insert buffering period SEI.\n")
-        _T("   --no-repeat-pps              disable repeating insertion of PPS\n"));
+        _T("   --(no-)repeat-headers        repeating insertion of headers\n"));
 
     str += _T("\n");
     str += gen_cmd_help_common();
@@ -414,9 +436,10 @@ tstring encoder_help() {
         );
     str += strsprintf(_T("")
 #if defined(_WIN32) || defined(_WIN64)
-        _T("   --mfx-thread <int>          set mfx thread num (-1 (auto), 2, 3, ...)\n")
+        _T("   --mfx-thread <int>           set mfx thread num (-1 (auto), 2, 3, ...)\n")
         _T("                                 note that mfx thread cannot be less than 2.\n")
 #endif
+        _T("   --gpu-copy                   Enables gpu accelerated copying between device and host.\n")
         _T("   --min-memory                 minimize memory usage of QSVEncC.\n")
         _T("                                 same as --output-thread 0 --audio-thread 0\n")
         _T("                                   --mfx-thread 2 -a 1 --input-buf 1 --output-buf 0\n")
@@ -655,18 +678,34 @@ int parse_one_vppmfx_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
+    if (0 == _tcscmp(option_name, _T("vpp-perc-pre-enc"))) {
+        vppmfx->percPreEnc = true;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("no-vpp-perc-pre-enc"))) {
+        vppmfx->percPreEnc = false;
+        return 0;
+    }
     return -10;
 }
 
 int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, int nArgNum, sInputParams* pParams, sArgsData *argData) {
     if (0 == _tcscmp(option_name, _T("device"))) {
         i++;
-        int value = 0;
-        if (PARSE_ERROR_FLAG != (value = get_value_from_chr(list_qsv_device, strInput[i]))) {
-            pParams->device = (QSVDeviceNum)value;
+        if (0 == _tcsnccmp(strInput[i], _T("auto"), _tcslen(_T("auto")))) {
+            pParams->device = QSVDeviceNum::AUTO;
         } else {
-            print_cmd_error_invalid_value(option_name, strInput[i], list_qsv_device);
-            return 1;
+            try {
+                int value = std::stoi(strInput[i]);
+                if (value >= 0) {
+                    pParams->device = (QSVDeviceNum)value;
+                } else {
+                    print_cmd_error_invalid_value(option_name, strInput[i]);
+                }
+            } catch (...) {
+                print_cmd_error_invalid_value(option_name, strInput[i]);
+                return 1;
+            }
         }
         return 0;
     }
@@ -1092,6 +1131,16 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         pParams->bUseFixedFunc = false;
         return 0;
     }
+    if (0 == _tcscmp(option_name, _T("hyper-mode"))) {
+        i++;
+        int v = 0;
+        if ((v = get_value_from_chr(list_hyper_mode, strInput[i])) == PARSE_ERROR_FLAG) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        pParams->hyperMode = (mfxHyperMode)v;
+        return 0;
+    }
     if (0 == _tcscmp(option_name, _T("ref"))) {
         i++;
         try {
@@ -1105,7 +1154,17 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     if (0 == _tcscmp(option_name, _T("bframes"))) {
         i++;
         try {
-            pParams->nBframes = std::stoi(strInput[i]);
+            pParams->GopRefDist = std::stoi(strInput[i])+1;
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("gop-ref-dist"))) {
+        i++;
+        try {
+            pParams->GopRefDist = std::stoi(strInput[i]);
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
@@ -1120,6 +1179,33 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         pParams->bRDO = true;
         return 0;
     }
+    if (0 == _tcscmp(option_name, _T("tune"))) {
+        i++;
+        auto values = split(strInput[i], _T(","), true);
+        if (values.size() == 0) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        for (auto& str : values) {
+            int v = 0;
+            if ((v = get_value_from_chr(list_enc_tune_quality_mode, str.c_str())) == PARSE_ERROR_FLAG) {
+                print_cmd_error_invalid_value(option_name, str, list_enc_tune_quality_mode);
+                return 1;
+            }
+            pParams->tuneQuality |= (decltype(pParams->tuneQuality))v;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("scenario-info"))) {
+        i++;
+        int v = 0;
+        if ((v = get_value_from_chr(list_scenario_info, strInput[i])) == PARSE_ERROR_FLAG) {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_scenario_info);
+            return 1;
+        }
+        pParams->scenarioInfo = v;
+        return 0;
+    }
     if (0 == _tcscmp(option_name, _T("extbrc"))) {
         pParams->extBRC = true;
         return 0;
@@ -1128,12 +1214,28 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         pParams->extBRC = false;
         return 0;
     }
+    if (0 == _tcscmp(option_name, _T("adapt-ref"))) {
+        pParams->adaptiveRef = true;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("no-adapt-ref"))) {
+        pParams->adaptiveRef = false;
+        return 0;
+    }
     if (0 == _tcscmp(option_name, _T("adapt-ltr"))) {
-        pParams->extBrcAdaptiveLTR = true;
+        pParams->adaptiveLTR = true;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-adapt-ltr"))) {
-        pParams->extBrcAdaptiveLTR = false;
+        pParams->adaptiveLTR = false;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("adapt-cqm"))) {
+        pParams->adaptiveCQM = true;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("no-adapt-cqm"))) {
+        pParams->adaptiveCQM = false;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("mbbrc"))) {
@@ -1144,12 +1246,44 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         pParams->bMBBRC = false;
         return 0;
     }
-    if (0 == _tcscmp(option_name, _T("no-intra-refresh"))) {
-        pParams->bIntraRefresh = false;
+    if (0 == _tcscmp(option_name, _T("intra-refresh-cycle"))) {
+        i++;
+        try {
+            pParams->intraRefreshCycle = std::stoi(strInput[i]) + 1;
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
         return 0;
     }
-    if (0 == _tcscmp(option_name, _T("intra-refresh"))) {
-        pParams->bIntraRefresh = true;
+    if (0 == _tcscmp(option_name, _T("max-framesize"))) {
+        i++;
+        try {
+            pParams->maxFrameSize = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("max-framesize-i"))) {
+        i++;
+        try {
+            pParams->maxFrameSizeI = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("max-framesize-p"))) {
+        i++;
+        try {
+            pParams->maxFrameSizeP = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-deblock"))) {
@@ -1184,6 +1318,34 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     }
     if (0 == _tcscmp(option_name, _T("tskip"))) {
         pParams->hevc_tskip = MFX_CODINGOPTION_ON;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("hevc-gpb"))) {
+        pParams->hevc_gpb = true;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("no-hevc-gpb"))) {
+        pParams->hevc_gpb = false;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("tile-row"))) {
+        i++;
+        try {
+            pParams->av1.tile_row = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("tile-col"))) {
+        i++;
+        try {
+            pParams->av1.tile_col = std::stoi(strInput[i]);
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("qpmax")) || 0 == _tcscmp(option_name, _T("qpmin"))
@@ -1352,8 +1514,13 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         pParams->bufPeriodSEI = true;
         return 0;
     }
-    if (0 == _tcscmp(option_name, _T("no-repeat-pps"))) {
-        pParams->disableRepeatPPS = true;
+    if (0 == _tcscmp(option_name, _T("repeat-headers"))) {
+        pParams->repeatHeaders = true;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("no-repeat-pps"))
+        || 0 == _tcscmp(option_name, _T("no-repeat-headers"))) {
+        pParams->repeatHeaders = false;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("async-depth"))) {
@@ -1423,6 +1590,10 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         return 0;
     }
 #endif
+    if (0 == _tcscmp(option_name, _T("gpu-copy"))) {
+        pParams->gpuCopy = true;
+        return 0;
+    }
     if (0 == _tcscmp(option_name, _T("min-memory"))) {
         pParams->ctrl.threadOutput = 0;
         pParams->ctrl.threadAudio = 0;
@@ -1474,7 +1645,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         return 0;
     }
 
-    auto ret = parse_one_input_option(option_name, strInput, i, nArgNum, &pParams->input, argData);
+    auto ret = parse_one_input_option(option_name, strInput, i, nArgNum, &pParams->input, &pParams->inprm, argData);
     if (ret >= 0) return ret;
 
     ret = parse_one_common_option(option_name, strInput, i, nArgNum, &pParams->common, argData);
@@ -1747,6 +1918,7 @@ tstring gen_cmd(const sVppParams *param, const sVppParams *defaultPrm, bool save
     }
     OPT_LST(_T("--vpp-fps-conv"), fpsConversion, list_vpp_fps_conversion);
     OPT_LST(_T("--vpp-image-stab"), imageStabilizer, list_vpp_image_stabilizer);
+    OPT_BOOL(_T("--vpp-perc-pre-enc"), _T("--no-vpp-perc-pre-enc"), percPreEnc);
 
 #if 0
     if (param->colorspace != defaultPrm->colorspace) {
@@ -1863,6 +2035,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     } \
 }
 #define OPT_BOOL(str_true, str_false, opt) if ((pParams->opt) != (encPrmDefault.opt)) cmd << _T(" ") << ((pParams->opt) ? (str_true) : (str_false));
+#define OPT_BOOL_OPT(str_true, str_false, opt) if (pParams->opt.has_value()) cmd << _T(" ") << ((pParams->opt.value()) ? (str_true) : (str_false));
 #define OPT_BOOL_VAL(str_true, str_false, opt, val) { \
     if ((pParams->opt) != (encPrmDefault.opt) || (save_disabled_prm && (pParams->val) != (encPrmDefault.val))) { \
         cmd << _T(" ") << ((pParams->opt) ? (str_true) : (str_false)) <<  _T(" ") << (pParams->val); \
@@ -1873,16 +2046,17 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
 #define OPT_CHAR_PATH(str, opt) if ((pParams->opt) && (pParams->opt[0] != 0)) cmd << _T(" ") << str << _T(" \"") << (pParams->opt) << _T("\"");
 #define OPT_STR_PATH(str, opt) if (pParams->opt.length() > 0) cmd << _T(" ") << str << _T(" \"") << (pParams->opt.c_str()) << _T("\"");
 
-    cmd << _T(" -d ") << get_chr_from_value(list_qsv_device, (int)pParams->device);
+    OPT_NUM(_T("-d"), device);
     cmd << _T(" -c ") << get_chr_from_value(list_codec, pParams->CodecId);
 
-    cmd << gen_cmd(&pParams->input, &encPrmDefault.input, save_disabled_prm);
+    cmd << gen_cmd(&pParams->input, &encPrmDefault.input, &pParams->inprm, &encPrmDefault.inprm, save_disabled_prm);
 
     OPT_LST(_T("--output-depth"), outputDepth, list_output_depth);
     OPT_LST(_T("--output-csp"), outputCsp, list_output_csp);
 
     OPT_LST(_T("--quality"), nTargetUsage, list_quality_for_option);
     OPT_BOOL(_T("--fixed-func"), _T("--no-fixed-func"), bUseFixedFunc);
+    OPT_LST(_T("--hyper-mode"), hyperMode, list_hyper_mode);
     OPT_NUM(_T("--async-depth"), nAsyncDepth);
     if (save_disabled_prm || ((pParams->memType) != (encPrmDefault.memType))) {
         switch (pParams->memType) {
@@ -1997,7 +2171,11 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
 
     OPT_NUM(_T("--slices"), nSlices);
     OPT_NUM(_T("--ref"), nRef);
-    OPT_NUM(_T("-b"), nBframes);
+    if (pParams->CodecId == MFX_CODEC_AVC || pParams->CodecId == MFX_CODEC_HEVC || pParams->CodecId == MFX_CODEC_MPEG2) {
+        OPT_NUM(_T("-b"), GopRefDist - 1);
+    } else {
+        OPT_NUM(_T("--gop-ref-dist"), GopRefDist);
+    }
     OPT_BOOL(_T("--b-pyramid"), _T("--no-b-pyramid"), bBPyramid);
     OPT_BOOL(_T("--open-gop"), _T("--no-open-gop"), bopenGOP);
     OPT_BOOL(_T("--strict-gop"), _T(""), bforceGOPSettings);
@@ -2022,24 +2200,38 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     } else if (pParams->nPAR[0] < 0 && pParams->nPAR[1] < 0) {
         cmd << _T(" --dar ") << -1 * pParams->nPAR[0] << _T(":") << -1 * pParams->nPAR[1];
     }
+    if (pParams->tuneQuality != 0) {
+        cmd << _T(" --tune ") << get_str_of_tune_bitmask(pParams->tuneQuality);
+    }
 
+    OPT_LST(_T("--scenario-info"), scenarioInfo, list_scenario_info);
     OPT_BOOL(_T("--extbrc"), _T("--no-extbrc"), extBRC);
     OPT_BOOL(_T("--mbbrc"), _T("--no-mbbrc"), bMBBRC);
-    OPT_BOOL(_T("--adapt-ltr"), _T("--no-adapt-ltr"), extBrcAdaptiveLTR);
-    OPT_BOOL(_T("--intra-refresh"), _T("--no-intra-refresh"), bIntraRefresh);
+    OPT_BOOL(_T("--adapt-ref"), _T("--no-adapt-ref"), adaptiveRef);
+    OPT_BOOL(_T("--adapt-ltr"), _T("--no-adapt-ltr"), adaptiveLTR);
+    OPT_BOOL(_T("--adapt-cqm"), _T("--no-adapt-cqm"), adaptiveCQM);
+    OPT_NUM(_T("--intra-refresh-cycle"), intraRefreshCycle);
+    OPT_NUM(_T("--max-framesize"), maxFrameSize);
+    OPT_NUM(_T("--max-framesize-i"), maxFrameSizeI);
+    OPT_NUM(_T("--max-framesize-p"), maxFrameSizeP);
     OPT_BOOL(_T("--direct-bias-adjust"), _T("--no-direct-bias-adjust"), bDirectBiasAdjust);
     OPT_LST(_T("--intra-pred"), nIntraPred, list_pred_block_size);
     OPT_LST(_T("--inter-pred"), nInterPred, list_pred_block_size);
     OPT_BOOL(_T("--aud"), _T(""), bOutputAud);
     OPT_BOOL(_T("--pic-struct"), _T(""), bOutputPicStruct);
     OPT_BOOL(_T("--buf-period"), _T(""), bufPeriodSEI);
-    OPT_BOOL(_T("--no-repeat-pps"), _T(""), disableRepeatPPS);
+    OPT_BOOL_OPT(_T("--repeat-headers"), _T("--no-repeat-headers"), repeatHeaders);
     OPT_LST(_T("--level"), CodecLevel, get_level_list(pParams->CodecId));
     OPT_LST(_T("--profile"), CodecProfile, get_profile_list(pParams->CodecId));
     if (save_disabled_prm || pParams->CodecId == MFX_CODEC_HEVC) {
         OPT_LST(_T("--ctu"), hevc_ctu, list_hevc_ctu);
         OPT_LST(_T("--sao"), hevc_sao, list_hevc_sao);
         OPT_BOOL(_T("--tskip"), _T("--no-tskip"), hevc_tskip);
+        OPT_BOOL_OPT(_T("--hevc-gpb"), _T("--no-hevc-gpb"), hevc_gpb);
+    }
+    if (save_disabled_prm || pParams->CodecId == MFX_CODEC_AV1) {
+        OPT_NUM(_T("--tile-row"), av1.tile_row);
+        OPT_NUM(_T("--tile-col"), av1.tile_col);
     }
     if (save_disabled_prm || pParams->CodecId == MFX_CODEC_AVC) {
         OPT_LST(_T("--trellis"), nTrellis, list_avc_trellis_for_options);
@@ -2068,6 +2260,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
 #if defined(_WIN32) || defined(_WIN64)
     OPT_NUM(_T("--mfx-thread"), nSessionThreads);
 #endif //#if defined(_WIN32) || defined(_WIN64)
+    OPT_BOOL(_T("--gpu-copy"), _T(""), gpuCopy);
     OPT_NUM(_T("--input-buf"), nInputBufSize);
 
     cmd << gen_cmd(&pParams->ctrl, &encPrmDefault.ctrl, save_disabled_prm);
