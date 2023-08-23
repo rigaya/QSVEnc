@@ -22,5 +22,5 @@ RUN apt install -y \
   ffmpeg \
   libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev libavdevice-dev \
   libass9 libass-dev
-RUN git clone https://github.com/rigaya/QSVEnc --recursive --depth=1 && cd QSVEnc && ./configure && cd QSVEnc && make -j`nproc`
+RUN git clone https://github.com/rigaya/QSVEnc --recursive --depth=1 && cd QSVEnc && ./configure && make -j`nproc`
 
