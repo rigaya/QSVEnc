@@ -117,7 +117,7 @@ LIBVA_DRM_SUPPORT=1
 
 OPENCL_HEADERS=""
 
-CHECK_LIBAV_NAMES="libswresample libavutil libavcodec libavformat libavfilter"
+CHECK_LIBAV_NAMES="libswresample libavutil libavcodec libavformat libavfilter libavdevice"
 LIBAV_CFLAGS=""
 LIBAV_LIBS=""
 ENABLE_AVSW_READER=1
@@ -257,7 +257,7 @@ echo "ENABLE_LIBASS=${ENABLE_LIBASS}" >> ${CNF_LOG}
 echo "ENABLE_DTL=${ENABLE_DTL}" >> ${CNF_LOG}
 
 for file in "${CXX}" "${LD}"; do
-    if [ ! `which $file 2> /dev/null` ]; then
+    if [ ! `type -p $file 2> /dev/null` ]; then
         cnf_write $file not found
         exit 1
     fi
@@ -368,7 +368,7 @@ fi
 
 cnf_print "checking for pkg-config..."
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$PREFIX/lib/pkgconfig
-which $PKGCONFIG 2>/dev/null 1>/dev/null
+type -p $PKGCONFIG 2>/dev/null 1>/dev/null
 if [ $? -ne 0 ]; then
     cnf_write "${PKGCONFIG} does not exist."
     USE_PKGCONFIG=0
@@ -470,13 +470,13 @@ else
 fi
 
 if [ ! -e ./buildVPL/lib/libvpl.a ]; then
-    if [ ! `which cmake 2> /dev/null` ]; then
+    if [ ! `type -p cmake 2> /dev/null` ]; then
         cnf_write "cmake not found which is required to build vpl!"
         exit 1
     fi
 fi
 
-VPL_CFLAGS="-Os"
+VPL_CFLAGS="-Os -DONEVPL_EXPERIMENTAL"
 if [ $ENABLE_DEBUG -eq 0 ] && [ $ENABLE_LTO -ne 0 ]; then
 	VPL_CFLAGS="${VPL_CFLAGS} -flto"
 fi
@@ -677,7 +677,8 @@ convert_csp.cpp             convert_csp_avx.cpp \
 convert_csp_avx2.cpp        convert_csp_sse2.cpp        convert_csp_sse41.cpp          convert_csp_ssse3.cpp \
 cpu_info.cpp                gpu_info.cpp                gpuz_info.cpp                  logo.cpp \
 qsv_allocator.cpp           qsv_allocator_d3d11.cpp     qsv_allocator_d3d9.cpp         qsv_allocator_sys.cpp \
-qsv_allocator_va.cpp        qsv_cmd.cpp                 qsv_hw_d3d11.cpp               qsv_hw_d3d9.cpp \
+qsv_allocator_va.cpp        qsv_cmd.cpp                 qsv_device.cpp \
+qsv_hw_d3d11.cpp            qsv_hw_d3d9.cpp \
 qsv_hw_device.cpp           qsv_hw_va.cpp               qsv_hw_va_utils.cpp            qsv_hw_va_utils_drm.cpp \
 qsv_hw_va_utils_x11.cpp     qsv_mfx_dec.cpp             qsv_pipeline.cpp               qsv_prm.cpp \
 qsv_query.cpp               qsv_session.cpp             qsv_util.cpp                   qsv_vpp_mfx.cpp \
@@ -685,30 +686,35 @@ rgy_aspect_ratio.cpp        rgy_avlog.cpp               rgy_avutil.cpp \
 rgy_bitstream.cpp           rgy_bitstream_avx2.cpp      rgy_bitstream_avx512bw.cpp \
 rgy_caption.cpp             rgy_chapter.cpp             rgy_cmd.cpp                    rgy_codepage.cpp \
 rgy_def.cpp                 rgy_env.cpp                 rgy_err.cpp                    rgy_event.cpp \
+rgy_faw.cpp                 rgy_faw_avx2.cpp            rgy_faw_avx512bw.cpp \
 rgy_filesystem.cpp          rgy_filter.cpp              rgy_filter_afs.cpp             rgy_filter_afs_analyze.cpp \
 rgy_filter_afs_filter.cpp   rgy_filter_afs_merge.cpp    rgy_filter_afs_synthesize.cpp  rgy_filter_colorspace.cpp \
-rgy_filter_crop.cpp         rgy_filter_deband.cpp       rgy_filter_decimate.cpp        rgy_filter_delogo.cpp \
+rgy_filter_convolution3d.cpp  rgy_filter_crop.cpp       rgy_filter_curves.cpp \
+rgy_filter_deband.cpp       rgy_filter_decimate.cpp     rgy_filter_delogo.cpp \
 rgy_filter_denoise_knn.cpp  rgy_filter_denoise_pmd.cpp  rgy_filter_edgelevel.cpp       rgy_filter_mpdecimate.cpp \
-rgy_filter_nnedi.cpp        rgy_filter_pad.cpp          rgy_filter_resize.cpp          rgy_filter_ssim.cpp \
-rgy_filter_smooth.cpp       rgy_filter_subburn.cpp      rgy_filter_transform.cpp       rgy_filter_tweak.cpp \
-rgy_filter_unsharp.cpp      rgy_filter_warpsharp.cpp    rgy_frame.cpp                  rgy_hdr10plus.cpp \
-rgy_ini.cpp \
+rgy_filter_nnedi.cpp        rgy_filter_overlay.cpp      rgy_filter_pad.cpp             rgy_filter_resize.cpp \
+rgy_filter_ssim.cpp         rgy_filter_smooth.cpp       rgy_filter_subburn.cpp         rgy_filter_transform.cpp \
+rgy_filter_tweak.cpp        rgy_filter_unsharp.cpp      rgy_filter_warpsharp.cpp       rgy_filter_yadif.cpp \
+rgy_frame.cpp               rgy_hdr10plus.cpp           rgy_ini.cpp \
 rgy_input.cpp               rgy_input_avcodec.cpp       rgy_input_avi.cpp              rgy_input_avs.cpp \
 rgy_input_raw.cpp           rgy_input_sm.cpp            rgy_input_vpy.cpp              rgy_language.cpp \
-rgy_log.cpp                 rgy_opencl.cpp              rgy_output.cpp                 rgy_output_avcodec.cpp \
+rgy_log.cpp                 rgy_memmem.cpp              rgy_memmem_avx2.cpp            rgy_memmem_avx512bw.cpp
+rgy_opencl.cpp              rgy_output.cpp              rgy_output_avcodec.cpp \
 rgy_perf_counter.cpp        rgy_perf_monitor.cpp        rgy_pipe.cpp                   rgy_pipe_linux.cpp \
 rgy_prm.cpp                 rgy_resource.cpp            rgy_simd.cpp                   rgy_status.cpp \
-rgy_thread_affinity.cpp     rgy_timecode.cpp            rgy_util.cpp                rgy_version.cpp \
+rgy_thread_affinity.cpp     rgy_timecode.cpp            rgy_util.cpp                   rgy_version.cpp \
+rgy_wav_parser.cpp \
 "
 
 SRC_QSVPIPELINE_CL=" \
 rgy_filter.cl                 rgy_filter_afs_analyze.cl   rgy_filter_afs_filter.cl       rgy_filter_afs_merge.cl \
-rgy_filter_afs_synthesize.cl  rgy_filter_deband.cl        rgy_filter_deband_gen_rand.cl  rgy_filter_decimate.cl \
+rgy_filter_afs_synthesize.cl  rgy_filter_convolution3d.cl rgy_filter_curves.cl \
+rgy_filter_deband.cl          rgy_filter_deband_gen_rand.cl  rgy_filter_decimate.cl \
 rgy_filter_delogo.cl          rgy_filter_denoise_knn.cl   rgy_filter_denoise_pmd.cl      rgy_filter_edgelevel.cl \
 rgy_filter_mpdecimate.cl      rgy_filter_nnedi_common.cl  rgy_filter_nnedi_k0.cl         rgy_filter_nnedi_k1.cl \
-rgy_filter_pad.cl             rgy_filter_resize.cl        rgy_filter_smooth.cl           rgy_filter_ssim.cl \
-rgy_filter_subburn.cl         rgy_filter_transform.cl     rgy_filter_tweak.cl            rgy_filter_unsharp.cl \
-rgy_filter_warpsharp.cl \
+rgy_filter_overlay.cl         rgy_filter_pad.cl           rgy_filter_resize.cl           rgy_filter_smooth.cl \
+rgy_filter_ssim.cl            rgy_filter_subburn.cl       rgy_filter_transform.cl        rgy_filter_tweak.cl \
+rgy_filter_unsharp.cl         rgy_filter_warpsharp.cl     rgy_filter_yadif.cl \
 "
 
 SRC_QSVPIPELINE_H=" \

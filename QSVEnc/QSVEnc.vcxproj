@@ -158,7 +158,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;..\tinyxml2;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;BUILD_AUO;WIN32;_DEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -171,7 +171,7 @@
       <DisableSpecificWarnings>4505;4564;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
-      <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/execution-charset:shift_jis </AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -195,7 +195,7 @@
     </Link>
     <PostBuildEvent>
       <Command>echo "依存関係を確認..."
-dumpbin.exe /DEPENDENTS "$(TargetPath)"   | findstr /i /r /c:"avutil-[0-9]*.dll" /c:"avcodec-[0-9]*.dll" /c:"avformat-[0-9]*.dll" /c:"avfilter-[0-9]*.dll" /c:"swresample-[0-9]*.dll"
+dumpbin.exe /DEPENDENTS "$(TargetPath)"   | findstr /i /r /c:"avutil-[0-9]*.dll" /c:"avcodec-[0-9]*.dll" /c:"avformat-[0-9]*.dll" /c:"avfilter-[0-9]*.dll" /c:"swresample-[0-9]*.dll" /c:"avdevice-[0-9]*.dll"
 if %ERRORLEVEL% == 0 exit /B 1
 exit /B 0</Command>
     </PostBuildEvent>
@@ -212,7 +212,7 @@ exit /B 0</Command>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;..\tinyxml2;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -225,7 +225,7 @@ exit /B 0</Command>
       <DisableSpecificWarnings>4505;4564;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
-      <AdditionalOptions>/Zc:inline %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/execution-charset:shift_jis </AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -249,7 +249,7 @@ exit /B 0</Command>
     </Link>
     <PostBuildEvent>
       <Command>echo "依存関係を確認..."
-dumpbin.exe /DEPENDENTS "$(TargetPath)"   | findstr /i /r /c:"avutil-[0-9]*.dll" /c:"avcodec-[0-9]*.dll" /c:"avformat-[0-9]*.dll" /c:"avfilter-[0-9]*.dll" /c:"swresample-[0-9]*.dll"
+dumpbin.exe /DEPENDENTS "$(TargetPath)"   | findstr /i /r /c:"avutil-[0-9]*.dll" /c:"avcodec-[0-9]*.dll" /c:"avformat-[0-9]*.dll" /c:"avfilter-[0-9]*.dll" /c:"swresample-[0-9]*.dll" /c:"avdevice-[0-9]*.dll"
 if %ERRORLEVEL% == 0 exit /B 1
 exit /B 0</Command>
     </PostBuildEvent>
@@ -269,7 +269,7 @@ exit /B 0</Command>
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;..\tinyxml2;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;QSVENC_AUO;WIN32;_DEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -282,7 +282,7 @@ exit /B 0</Command>
       <DisableSpecificWarnings>4505;4564;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
-      <AdditionalOptions>/Zc:inline %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/execution-charset:shift_jis </AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -305,7 +305,7 @@ exit /B 0</Command>
     </Link>
     <PostBuildEvent>
       <Command>echo "依存関係を確認..."
-dumpbin.exe /DEPENDENTS "$(TargetPath)"   | findstr /i /r /c:"avutil-[0-9]*.dll" /c:"avcodec-[0-9]*.dll" /c:"avformat-[0-9]*.dll" /c:"avfilter-[0-9]*.dll" /c:"swresample-[0-9]*.dll"
+dumpbin.exe /DEPENDENTS "$(TargetPath)"   | findstr /i /r /c:"avutil-[0-9]*.dll" /c:"avcodec-[0-9]*.dll" /c:"avformat-[0-9]*.dll" /c:"avfilter-[0-9]*.dll" /c:"swresample-[0-9]*.dll" /c:"avdevice-[0-9]*.dll"
 if %ERRORLEVEL% == 0 exit /B 1
 exit /B 0</Command>
     </PostBuildEvent>
@@ -323,7 +323,7 @@ exit /B 0</Command>
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;..\tinyxml2;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>false</MinimalRebuild>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -336,7 +336,7 @@ exit /B 0</Command>
       <DisableSpecificWarnings>4505;4564;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
-      <AdditionalOptions>/Zc:inline %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/execution-charset:shift_jis </AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -359,7 +359,7 @@ exit /B 0</Command>
     </Link>
     <PostBuildEvent>
       <Command>echo "依存関係を確認..."
-dumpbin.exe /DEPENDENTS "$(TargetPath)"   | findstr /i /r /c:"avutil-[0-9]*.dll" /c:"avcodec-[0-9]*.dll" /c:"avformat-[0-9]*.dll" /c:"avfilter-[0-9]*.dll" /c:"swresample-[0-9]*.dll"
+dumpbin.exe /DEPENDENTS "$(TargetPath)"   | findstr /i /r /c:"avutil-[0-9]*.dll" /c:"avcodec-[0-9]*.dll" /c:"avformat-[0-9]*.dll" /c:"avfilter-[0-9]*.dll" /c:"swresample-[0-9]*.dll" /c:"avdevice-[0-9]*.dll"
 if %ERRORLEVEL% == 0 exit /B 1
 exit /B 0</Command>
     </PostBuildEvent>
@@ -379,7 +379,7 @@ exit /B 0</Command>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;..\tinyxml2;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;BUILD_AUO;WIN32;NDEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -395,7 +395,7 @@ exit /B 0</Command>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalOptions>/Zc:inline /FS %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/execution-charset:shift_jis </AdditionalOptions>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
@@ -415,7 +415,7 @@ exit /B 0</Command>
     </Link>
     <PostBuildEvent>
       <Command>echo "依存関係を確認..."
-dumpbin.exe /DEPENDENTS "$(TargetPath)"   | findstr /i /r /c:"avutil-[0-9]*.dll" /c:"avcodec-[0-9]*.dll" /c:"avformat-[0-9]*.dll" /c:"avfilter-[0-9]*.dll" /c:"swresample-[0-9]*.dll"
+dumpbin.exe /DEPENDENTS "$(TargetPath)"   | findstr /i /r /c:"avutil-[0-9]*.dll" /c:"avcodec-[0-9]*.dll" /c:"avformat-[0-9]*.dll" /c:"avfilter-[0-9]*.dll" /c:"swresample-[0-9]*.dll" /c:"avdevice-[0-9]*.dll"
 if %ERRORLEVEL% == 0 exit /B 1
 exit /B 0</Command>
     </PostBuildEvent>
@@ -437,7 +437,7 @@ exit /B 0</Command>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;..\tinyxml2;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -454,6 +454,7 @@ exit /B 0</Command>
       </AdditionalUsingDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalOptions>/execution-charset:shift_jis </AdditionalOptions>
     </ClCompile>
     <Link>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
@@ -472,7 +473,7 @@ exit /B 0</Command>
     </Link>
     <PostBuildEvent>
       <Command>echo "依存関係を確認..."
-dumpbin.exe /DEPENDENTS "$(TargetPath)"   | findstr /i /r /c:"avutil-[0-9]*.dll" /c:"avcodec-[0-9]*.dll" /c:"avformat-[0-9]*.dll" /c:"avfilter-[0-9]*.dll" /c:"swresample-[0-9]*.dll"
+dumpbin.exe /DEPENDENTS "$(TargetPath)"   | findstr /i /r /c:"avutil-[0-9]*.dll" /c:"avcodec-[0-9]*.dll" /c:"avformat-[0-9]*.dll" /c:"avfilter-[0-9]*.dll" /c:"swresample-[0-9]*.dll" /c:"avdevice-[0-9]*.dll"
 if %ERRORLEVEL% == 0 exit /B 1
 exit /B 0</Command>
     </PostBuildEvent>
@@ -497,7 +498,7 @@ exit /B 0</Command>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;..\tinyxml2;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;QSVENC_AUO;WIN32;NDEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -513,6 +514,7 @@ exit /B 0</Command>
       </AdditionalUsingDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalOptions>/execution-charset:shift_jis </AdditionalOptions>
     </ClCompile>
     <Link>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
@@ -531,7 +533,7 @@ exit /B 0</Command>
     </Link>
     <PostBuildEvent>
       <Command>echo "依存関係を確認..."
-dumpbin.exe /DEPENDENTS "$(TargetPath)"   | findstr /i /r /c:"avutil-[0-9]*.dll" /c:"avcodec-[0-9]*.dll" /c:"avformat-[0-9]*.dll" /c:"avfilter-[0-9]*.dll" /c:"swresample-[0-9]*.dll"
+dumpbin.exe /DEPENDENTS "$(TargetPath)"   | findstr /i /r /c:"avutil-[0-9]*.dll" /c:"avcodec-[0-9]*.dll" /c:"avformat-[0-9]*.dll" /c:"avfilter-[0-9]*.dll" /c:"swresample-[0-9]*.dll" /c:"avdevice-[0-9]*.dll"
 if %ERRORLEVEL% == 0 exit /B 1
 exit /B 0</Command>
     </PostBuildEvent>
@@ -554,7 +556,7 @@ exit /B 0</Command>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;QSV;prm;encode;frm;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ChapterRW;..\AuoLink;..\ffmpeg_lgpl\include;..\tinyxml2;$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_WINDOWS;_USRDLL;QSVEnc_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -570,6 +572,7 @@ exit /B 0</Command>
       </AdditionalUsingDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalOptions>/execution-charset:shift_jis </AdditionalOptions>
     </ClCompile>
     <Link>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
@@ -588,7 +591,7 @@ exit /B 0</Command>
     </Link>
     <PostBuildEvent>
       <Command>echo "依存関係を確認..."
-dumpbin.exe /DEPENDENTS "$(TargetPath)"   | findstr /i /r /c:"avutil-[0-9]*.dll" /c:"avcodec-[0-9]*.dll" /c:"avformat-[0-9]*.dll" /c:"avfilter-[0-9]*.dll" /c:"swresample-[0-9]*.dll"
+dumpbin.exe /DEPENDENTS "$(TargetPath)"   | findstr /i /r /c:"avutil-[0-9]*.dll" /c:"avcodec-[0-9]*.dll" /c:"avformat-[0-9]*.dll" /c:"avfilter-[0-9]*.dll" /c:"swresample-[0-9]*.dll" /c:"avdevice-[0-9]*.dll"
 if %ERRORLEVEL% == 0 exit /B 1
 exit /B 0</Command>
     </PostBuildEvent>
@@ -661,22 +664,6 @@ exit /B 0</Command>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
     </ClCompile>
-    <ClCompile Include="encode\convert_avx.cpp">
-      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">/arch:AVX %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">/arch:AVX %(AdditionalOptions)</AdditionalOptions>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
-    </ClCompile>
     <ClCompile Include="encode\convert_avx2.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
@@ -688,36 +675,6 @@ exit /B 0</Command>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">false</CompileAsManaged>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AdvancedVectorExtensions</EnableEnhancedInstructionSet>
     </ClCompile>
-    <ClCompile Include="encode\convert_sse2.cpp">
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">false</CompileAsManaged>
-    </ClCompile>
-    <ClCompile Include="encode\convert_sse41.cpp">
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">false</CompileAsManaged>
-    </ClCompile>
-    <ClCompile Include="encode\convert_ssse3.cpp">
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">false</CompileAsManaged>
-    </ClCompile>
     <ClCompile Include="encode\exe_version.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
@@ -727,6 +684,16 @@ exit /B 0</Command>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
+    </ClCompile>
+    <ClCompile Include="frm\auo_mes.cpp">
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">false</CompileAsManaged>
     </ClCompile>
     <ClCompile Include="prm\auo_conf_convert.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
@@ -994,7 +961,12 @@ exit /B 0</Command>
   </ItemGroup>
   <ItemGroup>
     <None Include="QSVEnc.def" />
+    <None Include="QSVEnc.en.ini" />
+    <None Include="QSVEnc.en.lng" />
     <None Include="QSVEnc.ini" />
+    <None Include="QSVEnc.ja.lng" />
+    <None Include="QSVEnc.zh.ini" />
+    <None Include="QSVEnc.zh.lng" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="auo.h" />
@@ -1002,6 +974,11 @@ exit /B 0</Command>
     <ClInclude Include="encode\auo_audio_parallel.h" />
     <ClInclude Include="encode\auo_faw2aac.h" />
     <ClInclude Include="encode\exe_version.h" />
+    <ClInclude Include="frm\auo_mes.h" />
+    <ClInclude Include="frm\ComboBoxFolderBrowser.h" />
+    <ClInclude Include="frm\frmNewFolderName.h">
+      <FileType>CppForm</FileType>
+    </ClInclude>
     <ClInclude Include="frm\frmSetLogColor.h">
       <FileType>CppForm</FileType>
     </ClInclude>
@@ -1143,9 +1120,15 @@ exit /B 0</Command>
       <LinkLibraryDependencies>true</LinkLibraryDependencies>
       <UseLibraryDependencyInputs>false</UseLibraryDependencyInputs>
     </ProjectReference>
+    <ProjectReference Include="..\tinyxml2\tinyxml2.vcxproj">
+      <Project>{a34ca86d-6c2b-482f-984e-2687459e65e9}</Project>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="auo_version.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="QSVEnc_readme.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

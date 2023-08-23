@@ -52,4 +52,5 @@ protected:
 
     bool m_bInterlacedWarn;
     RGYOpenCLProgramAsync m_edgelevel;
+    RGYCLFramePool m_srcImagePool;
 };

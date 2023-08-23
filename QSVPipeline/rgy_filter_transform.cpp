@@ -123,8 +123,12 @@ RGY_ERR RGYFilterTransform::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<R
         prm->frameOut.width = prm->frameIn.height;
         prm->frameOut.height = prm->frameIn.width;
     }
+    auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamTransform>(m_param);
     if (!m_transform.get()
-        || std::dynamic_pointer_cast<RGYFilterParamTransform>(m_param)->trans != prm->trans) {
+        || !prmPrev
+        || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]
+        || prmPrev->trans.flipX != prm->trans.flipX
+        || prmPrev->trans.flipY != prm->trans.flipY) {
         const auto options = strsprintf("-D TypePixel=%s -D TypePixel4=%s -D flipX=%d -D flipY=%d -D FLIP_BLOCK_DIM=%d -D TRASNPOSE_BLOCK_DIM=%d -D TRASNPOSE_TILE_DIM=%d",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort"  : "uchar",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort4" : "uchar4",

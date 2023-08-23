@@ -41,6 +41,9 @@ class QSVMfxDec;
 class PipelineTaskMFXDecode;
 struct RGYBitstream;
 #endif
+#if ENCODER_MPP
+#include "mpp_util.h"
+#endif
 #include <array>
 #include <thread>
 #include <deque>
@@ -78,6 +81,7 @@ public:
     bool decodeStarted() { return m_decodeStarted; }
     virtual void showResult();
     RGY_ERR thread_func(RGYParamThread threadParam);
+    RGY_ERR thread_func_compare_frames();
     RGY_ERR compare_frames();
 
     virtual RGY_ERR addBitstream(const RGYBitstream *bitstream);
@@ -100,6 +104,7 @@ protected:
     std::thread m_thread; //スレッド本体
     std::mutex m_mtx;     //m_input, m_unused操作用のロック
     bool m_abort;         //スレッド中断用
+    bool m_dec_flush;
 
     int m_inputOriginal;
     int m_inputEnc;
@@ -112,8 +117,8 @@ protected:
     amf::AMFComponentPtr m_decoder;
 #endif
 #if ENCODER_QSV
-    RGYQueueSPSP<RGYBitstream> m_encBitstream;
-    RGYQueueSPSP<RGYBitstream> m_encBitstreamUnused;
+    RGYQueueMPMP<RGYBitstream> m_encBitstream;
+    RGYQueueMPMP<RGYBitstream> m_encBitstreamUnused;
     std::unique_ptr<QSVMfxDec> m_mfxDEC;
     std::unique_ptr<PipelineTaskMFXDecode> m_taskDec;
     std::unordered_map<mfxFrameSurface1 *, std::unique_ptr<RGYCLFrameInterop>> m_surfVppInInterop;

@@ -30,12 +30,17 @@
 #include <iomanip>
 #include "rgy_util.h"
 #include "rgy_filesystem.h"
+#include "rgy_version.h"
+#if !CLFILTERS_AUF
 #include "rgy_avutil.h"
+#endif
 #include "rgy_prm.h"
 #include "rgy_err.h"
 #include "rgy_perf_monitor.h"
 #include "rgy_ini.h"
+#if ENABLE_VPP_FILTER_AFS
 #include "afs_stg.h"
+#endif
 
 RGY_VPP_RESIZE_TYPE getVppResizeType(RGY_VPP_RESIZE_ALGO resize) {
     if (resize == RGY_VPP_RESIZE_AUTO) {
@@ -49,6 +54,14 @@ RGY_VPP_RESIZE_TYPE getVppResizeType(RGY_VPP_RESIZE_ALGO resize) {
 #if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)
     } else if (resize < RGY_VPP_RESIZE_NPPI_MAX) {
         return RGY_VPP_RESIZE_TYPE_NPPI;
+#endif
+#if ENCODER_VCEENC
+    } else if (resize < RGY_VPP_RESIZE_AMF_MAX) {
+        return RGY_VPP_RESIZE_TYPE_AMF;
+#endif
+#if ENCODER_MPP
+    } else if (resize < RGY_VPP_RESIZE_RGA_MAX) {
+        return RGY_VPP_RESIZE_TYPE_RGA;
 #endif
     } else {
         return RGY_VPP_RESIZE_TYPE_UNKNOWN;
@@ -99,7 +112,7 @@ TonemapMobius::TonemapMobius() :
 }
 bool TonemapMobius::operator==(const TonemapMobius &x) const {
     return transition == x.transition
-        &&peak == x.peak;
+        && peak == x.peak;
 }
 bool TonemapMobius::operator!=(const TonemapMobius &x) const {
     return !(*this == x);
@@ -132,15 +145,34 @@ bool HDR2SDRParams::operator==(const HDR2SDRParams &x) const {
     return tonemap == x.tonemap
         && hable == x.hable
         && mobius == x.mobius
-        && reinhard == x.reinhard;
+        && reinhard == x.reinhard
+        && ldr_nits == x.ldr_nits
+        && hdr_source_peak == x.hdr_source_peak
+        && desat_base == x.desat_base
+        && desat_strength == x.desat_strength
+        && desat_exp == x.desat_exp;
 }
 bool HDR2SDRParams::operator!=(const HDR2SDRParams &x) const {
+    return !(*this == x);
+}
+
+LUT3DParams::LUT3DParams() :
+    interp(FILTER_DEFAULT_LUT3D_INTERP),
+    table_file() {
+
+}
+bool LUT3DParams::operator==(const LUT3DParams &x) const {
+    return interp == x.interp
+        && table_file == x.table_file;
+}
+bool LUT3DParams::operator!=(const LUT3DParams &x) const {
     return !(*this == x);
 }
 
 VppColorspace::VppColorspace() :
     enable(false),
     hdr2sdr(),
+    lut3d(),
     convs() {
 
 }
@@ -148,6 +180,7 @@ VppColorspace::VppColorspace() :
 bool VppColorspace::operator==(const VppColorspace &x) const {
     if (enable != x.enable
         || x.hdr2sdr != this->hdr2sdr
+        || x.lut3d != this->lut3d
         || x.convs.size() != this->convs.size()) {
         return false;
     }
@@ -175,6 +208,8 @@ VppDelogo::VppDelogo() :
     autoNR(false),
     NRArea(0),
     NRValue(0),
+    multiaddDepthMin(0.0f),
+    multiaddDepthMax(128.0f),
     log(false) {
 }
 
@@ -193,6 +228,8 @@ bool VppDelogo::operator==(const VppDelogo& x) const {
         && autoNR == x.autoNR
         && NRArea == x.NRArea
         && NRValue == x.NRValue
+        && multiaddDepthMin == x.multiaddDepthMin
+        && multiaddDepthMax == x.multiaddDepthMax
         && log == x.log;
 }
 bool VppDelogo::operator!=(const VppDelogo& x) const {
@@ -204,6 +241,9 @@ tstring VppDelogo::print() const {
     switch (mode) {
     case DELOGO_MODE_ADD:
         str += _T(", add");
+        break;
+    case DELOGO_MODE_ADD_MULTI:
+        str += _T(", multi_add");
         break;
     case DELOGO_MODE_REMOVE:
     default:
@@ -232,6 +272,9 @@ tstring VppDelogo::print() const {
     }
     if (NRArea) {
         str += strsprintf(_T(", nr_area=%d"), NRArea);
+    }
+    if (mode == DELOGO_MODE_ADD_MULTI) {
+        str += strsprintf(_T(", multi_add_depth=%.1f-%.1f"), multiaddDepthMin, multiaddDepthMax);
     }
     return str;
 }
@@ -417,6 +460,7 @@ int VppAfs::read_afs_inifile(const TCHAR *inifile) {
     if (!rgy_file_exists(inifile)) {
         return 1;
     }
+#if ENABLE_VPP_FILTER_AFS
     const auto filename = tchar_to_string(inifile);
     const auto section = AFS_STG_SECTION;
 
@@ -448,6 +492,9 @@ int VppAfs::read_afs_inifile(const TCHAR *inifile) {
 
     // GetPrivateProfileIntA(section, AFS_STG_PROC_MODE, g_afs.ex_data.proc_mode, filename.c_str());
     return 0;
+#else
+    return 1;
+#endif
 }
 
 tstring VppAfs::print() const {
@@ -555,6 +602,7 @@ tstring VppSelectEvery::print() const {
 VppDecimate::VppDecimate() :
     enable(false),
     cycle(FILTER_DEFAULT_DECIMATE_CYCLE),
+    drop(FILTER_DEFAULT_DECIMATE_DROP),
     threDuplicate(FILTER_DEFAULT_DECIMATE_THRE_DUP),
     threSceneChange(FILTER_DEFAULT_DECIMATE_THRE_SC),
     blockX(FILTER_DEFAULT_DECIMATE_BLOCK_X),
@@ -581,9 +629,9 @@ bool VppDecimate::operator!=(const VppDecimate& x) const {
 }
 
 tstring VppDecimate::print() const {
-    return strsprintf(_T("decimate: cycle %d, threDup %.2f, threSC %.2f\n")
+    return strsprintf(_T("decimate: cycle %d, drop %d, threDup %.2f, threSC %.2f\n")
         _T("                         block %dx%d, chroma %s, log %s"),
-        cycle,
+        cycle, drop,
         threDuplicate, threSceneChange,
         blockX, blockY,
         /*preProcessed ? _T("on") : _T("off"),*/
@@ -736,6 +784,39 @@ tstring VppSmooth::print() const {
     return str;
 }
 
+VppConvolution3d::VppConvolution3d() :
+    enable(false),
+    fast(false),
+    matrix(VppConvolution3dMatrix::Standard),
+    threshYspatial(FILTER_DEFAULT_CONVOLUTION3D_THRESH_Y_SPATIAL),
+    threshCspatial(FILTER_DEFAULT_CONVOLUTION3D_THRESH_C_SPATIAL),
+    threshYtemporal(FILTER_DEFAULT_CONVOLUTION3D_THRESH_Y_TEMPORAL),
+    threshCtemporal(FILTER_DEFAULT_CONVOLUTION3D_THRESH_C_TEMPORAL) {
+
+}
+
+bool VppConvolution3d::operator==(const VppConvolution3d &x) const {
+    return enable == x.enable
+        && fast == x.fast
+        && matrix == x.matrix
+        && threshYspatial == x.threshYspatial
+        && threshCspatial == x.threshCspatial
+        && threshYtemporal == x.threshYtemporal
+        && threshCtemporal == x.threshCtemporal;
+}
+bool VppConvolution3d::operator!=(const VppConvolution3d &x) const {
+    return !(*this == x);
+}
+
+tstring VppConvolution3d::print() const {
+    tstring str = strsprintf(_T("convolution3d: matrix %s, mode %s\n")
+        _T("                       threshold spatial luma %d, chroma %d, temporal luma %d, chroma %d"),
+        get_cx_desc(list_vpp_convolution3d_matrix, (int)matrix),
+        fast ? _T("fast") : _T("normal"),
+        threshYspatial, threshCspatial, threshYtemporal, threshCtemporal);
+    return str;
+}
+
 VppSubburn::VppSubburn() :
     enable(false),
     filename(),
@@ -748,7 +829,8 @@ VppSubburn::VppSubburn() :
     brightness(FILTER_DEFAULT_TWEAK_BRIGHTNESS),
     contrast(FILTER_DEFAULT_TWEAK_CONTRAST),
     ts_offset(0.0),
-    vid_ts_offset(true) {
+    vid_ts_offset(true),
+    forced_subs_only(false) {
 }
 
 bool VppSubburn::operator==(const VppSubburn &x) const {
@@ -763,7 +845,8 @@ bool VppSubburn::operator==(const VppSubburn &x) const {
         && brightness == x.brightness
         && contrast == x.contrast
         && ts_offset == x.ts_offset
-        && vid_ts_offset == x.vid_ts_offset;
+        && vid_ts_offset == x.vid_ts_offset
+        && forced_subs_only == x.forced_subs_only;
 }
 bool VppSubburn::operator!=(const VppSubburn &x) const {
     return !(*this == x);
@@ -789,6 +872,9 @@ tstring VppSubburn::print() const {
     }
     if (!vid_ts_offset) {
         str += _T(", vid_ts_offset off");
+    }
+    if (forced_subs_only) {
+        str += _T(", forced_subs_only");
     }
     return str;
 }
@@ -894,6 +980,50 @@ tstring VppTweak::print() const {
         brightness, contrast, saturation, gamma, hue, swapuv ? _T("on") : _T("off"));
 }
 
+VppCurveParams::VppCurveParams() : r(), g(), b(), m() {};
+VppCurveParams::VppCurveParams(const tstring& r_, const tstring& g_, const tstring& b_, const tstring& m_) :
+    r(r_), g(g_), b(b_), m(m_) {};
+
+bool VppCurveParams::operator==(const VppCurveParams &x) const {
+    return r == x.r
+        && g == x.g
+        && b == x.b
+        && m == x.m;
+
+}
+bool VppCurveParams::operator!=(const VppCurveParams &x) const {
+    return !(*this == x);
+}
+
+VppCurves::VppCurves() :
+    enable(false),
+    preset(VppCurvesPreset::NONE),
+    prm(),
+    all() {
+}
+
+bool VppCurves::operator==(const VppCurves &x) const {
+    return enable == x.enable
+        && preset == x.preset
+        && prm == x.prm
+        && all == x.all;
+}
+bool VppCurves::operator!=(const VppCurves &x) const {
+    return !(*this == x);
+}
+
+tstring VppCurves::print() const {
+    tstring str    = _T("curves: ");
+    tstring indent = _T("                               ");
+    if (preset != VppCurvesPreset::NONE) str += tstring(_T("preset ")) + get_cx_desc(list_vpp_curves_preset, (int)preset);
+    if (prm.r.length() > 0) str += _T("\n") + indent + _T("r ") + prm.r;
+    if (prm.g.length() > 0) str += _T("\n") + indent + _T("g ") + prm.g;
+    if (prm.b.length() > 0) str += _T("\n") + indent + _T("b ") + prm.b;
+    if (prm.m.length() > 0) str += _T("\n") + indent + _T("master ") + prm.m;
+    if (all.length() > 0)   str += _T("\n") + indent + _T("all ") + all;
+    return str;
+}
+
 VppTransform::VppTransform() :
     enable(false),
     transpose(false),
@@ -956,6 +1086,86 @@ tstring VppTransform::print() const {
 #undef ON_OFF
 }
 
+VppOverlayAlphaKey::VppOverlayAlphaKey() :
+    threshold(0.0f),
+    tolerance(0.1f),
+    shoftness(0.0f) {
+
+}
+
+bool VppOverlayAlphaKey::operator==(const VppOverlayAlphaKey &x) const {
+    return threshold == x.threshold
+        && tolerance == x.tolerance
+        && shoftness == x.shoftness;
+}
+bool VppOverlayAlphaKey::operator!=(const VppOverlayAlphaKey &x) const {
+    return !(*this == x);
+}
+
+tstring VppOverlayAlphaKey::print() const {
+    return strsprintf(_T("threshold %.2f, tolerance %.2f, shoftness %.2f"),
+        threshold, tolerance, shoftness);
+}
+
+VppOverlay::VppOverlay() :
+    enable(false),
+    inputFile(),
+    posX(0),
+    posY(0),
+    width(0),
+    height(0),
+    alpha(0.0f),
+    alphaMode(VppOverlayAlphaMode::Override),
+    lumaKey(),
+    loop(false) {
+
+}
+
+bool VppOverlay::operator==(const VppOverlay &x) const {
+    return enable == x.enable
+        && inputFile == x.inputFile
+        && posX == x.posX
+        && posY == x.posY
+        && width == x.width
+        && height == x.height
+        && alpha == x.alpha
+        && alphaMode == x.alphaMode
+        && lumaKey == x.lumaKey
+        && loop == x.loop;
+}
+bool VppOverlay::operator!=(const VppOverlay &x) const {
+    return !(*this == x);
+}
+
+tstring VppOverlay::print() const {
+    tstring alphaStr = _T("auto");
+    if (alphaMode == VppOverlayAlphaMode::LumaKey) {
+        alphaStr = (alpha > 0.0f) ? strsprintf(_T("%.2f "), alpha) : _T("");
+        alphaStr += _T("lumakey ") + lumaKey.print();
+    } else {
+        if (alpha > 0.0f) {
+            switch (alphaMode) {
+            case VppOverlayAlphaMode::Override:
+                alphaStr = strsprintf(_T("%.2f"), alpha);
+                break;
+            case VppOverlayAlphaMode::Mul:
+                alphaStr = strsprintf(_T("*%.2f"), alpha);
+                break;
+            default:
+                break;
+            }
+        }
+    }
+    return strsprintf(_T("overlay: %s\n")
+        _T("                        pos (%d,%d), size %dx%d, loop %s\n")
+        _T("                        alpha %s"),
+        inputFile.c_str(),
+        posX, posY,
+        width, height,
+        (loop) ? _T("on") : _T("off"),
+        alphaStr.c_str());
+}
+
 VppDeband::VppDeband() :
     enable(false),
     range(FILTER_DEFAULT_DEBAND_RANGE),
@@ -1011,6 +1221,7 @@ RGYParamVpp::RGYParamVpp() :
     decimate(),
     mpdecimate(),
     pad(),
+    convolution3d(),
     knn(),
     pmd(),
     smooth(),
@@ -1018,9 +1229,11 @@ RGYParamVpp::RGYParamVpp() :
     unsharp(),
     edgelevel(),
     warpsharp(),
+    curves(),
     tweak(),
     transform(),
     deband(),
+    overlay(),
     checkPerformance(false) {
 
 }
@@ -1051,6 +1264,8 @@ AudioSelect::AudioSelect() :
 
 AudioSource::AudioSource() :
     filename(),
+    format(),
+    inputOpt(),
     select() {
 
 }
@@ -1071,6 +1286,8 @@ SubtitleSelect::SubtitleSelect() :
 
 SubSource::SubSource() :
     filename(),
+    format(),
+    inputOpt(),
     select() {
 
 }
@@ -1146,6 +1363,13 @@ bool GPUAutoSelectMul::operator!=(const GPUAutoSelectMul &x) const {
     return !(*this == x);
 }
 
+RGYParamInput::RGYParamInput() :
+    resizeResMode(RGYResizeResMode::Normal) {
+
+}
+
+RGYParamInput::~RGYParamInput() {};
+
 RGYParamCommon::RGYParamCommon() :
     inputFilename(),
     outputFilename(),
@@ -1163,6 +1387,7 @@ RGYParamCommon::RGYParamCommon() :
     videoMetadata(),
     formatMetadata(),
     seekSec(0.0f),               //指定された秒数分先頭を飛ばす
+    seekToSec(0.0f),
     nSubtitleSelectCount(0),
     ppSubtitleSelectList(nullptr),
     subSource(),
@@ -1173,6 +1398,7 @@ RGYParamCommon::RGYParamCommon() :
     ppDataSelectList(nullptr),
     nAttachmentSelectCount(0),
     ppAttachmentSelectList(nullptr),
+    attachmentSource(),
     audioResampler(RGY_RESAMPLER_SWR),
     inputRetry(0),
     demuxAnalyzeSec(-1),
@@ -1188,12 +1414,20 @@ RGYParamCommon::RGYParamCommon() :
     caption2ass(FORMAT_INVALID),
     audioIgnoreDecodeError(DEFAULT_IGNORE_DECODE_ERROR),
     muxOpt(),
+    allowOtherNegativePts(false),
     disableMp4Opt(false),
+    debugDirectAV1Out(false),
+    debugRawOut(false),
+    outReplayFile(),
+    outReplayCodec(RGY_CODEC_UNKNOWN),
     chapterFile(),
     AVInputFormat(nullptr),
     AVSyncMode(RGY_AVSYNC_ASSUME_CFR),     //avsyncの方法 (RGY_AVSYNC_xxx)
     timecode(false),
     timecodeFile(),
+    tcfileIn(),
+    timebase({ 0, 0 }),
+    hevcbsf(RGYHEVCBsf::INTERNAL),
     metric() {
 
 }
@@ -1220,6 +1454,7 @@ RGYParamControl::RGYParamControl() :
     parentProcessID(0),
     lowLatency(false),
     gpuSelect(),
+    skipHWEncodeCheck(false),
     skipHWDecodeCheck(false),
     avsdll(),
     enableOpenCL(true),

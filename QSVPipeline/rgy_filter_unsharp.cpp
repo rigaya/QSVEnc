@@ -59,7 +59,11 @@ RGY_ERR RGYFilterUnsharp::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameIn
 }
 
 RGY_ERR RGYFilterUnsharp::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
-    auto srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY);
+    auto srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY, &m_srcImagePool);
+    if (!srcImage) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to create image for input frame.\n"));
+        return RGY_ERR_MEM_OBJECT_ALLOCATION_FAILURE;
+    }
     for (int i = 0; i < RGY_CSP_PLANES[pOutputFrame->csp]; i++) {
         auto planeDst = getPlane(pOutputFrame, (RGY_PLANE)i);
         auto planeSrc = getPlane(&srcImage->frame, (RGY_PLANE)i);
@@ -74,7 +78,7 @@ RGY_ERR RGYFilterUnsharp::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameIn
     return RGY_ERR_NONE;
 }
 
-RGYFilterUnsharp::RGYFilterUnsharp(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_unsharp() {
+RGYFilterUnsharp::RGYFilterUnsharp(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_unsharp(), m_srcImagePool() {
     m_name = _T("unsharp");
 }
 
@@ -141,8 +145,11 @@ RGY_ERR RGYFilterUnsharp::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
         prm->unsharp.threshold = clamp(prm->unsharp.threshold, 0.0f, 255.0f);
         AddMessage(RGY_LOG_WARN, _T("threshold should be in range of %.1f - %.1f.\n"), 0.0f, 255.0f);
     }
+    auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamUnsharp>(m_param);
     if (!m_unsharp.get()
-        || std::dynamic_pointer_cast<RGYFilterParamUnsharp>(m_param)->unsharp != prm->unsharp) {
+        || !prmPrev
+        || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]
+        || prmPrev->unsharp.radius != prm->unsharp.radius) {
         const auto options = strsprintf("-D Type=%s -D radius=%d -D bit_depth=%d",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
             prm->unsharp.radius,
@@ -213,6 +220,7 @@ RGY_ERR RGYFilterUnsharp::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
 }
 
 void RGYFilterUnsharp::close() {
+    m_srcImagePool.clear();
     m_frameBuf.clear();
     m_unsharp.clear();
     m_cl.reset();

@@ -2,6 +2,16 @@
 // Type
 // bit_depth
 // radius
+// block_x
+// block_y
+// algo
+// WEIGHT_BILINEAR
+// WEIGHT_BICUBIC
+// WEIGHT_SPLINE
+// WEIGHT_LANCZOS
+// shared_weightXdim
+// shared_weightYdim
+// USE_LOCAL
 
 #ifndef MIN3
 #define MIN3(a,b,c) (min((a), min((b), (c))))
@@ -18,7 +28,7 @@ __kernel void kernel_resize_texture_bilinear(
     __global uchar *restrict pDst,
     const int dstPitch, const int dstWidth, const int dstHeight,
     __read_only image2d_t src,
-    const float ratioX, const float ratioY) {
+    const float ratioInvX, const float ratioInvY) {
     const int ix = get_global_id(0);
     const int iy = get_global_id(1);
     const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_LINEAR;
@@ -28,136 +38,198 @@ __kernel void kernel_resize_texture_bilinear(
         const float y = (float)iy + 0.5f;
 
         __global Type *ptr = (__global Type *)(pDst + iy * dstPitch + ix * sizeof(Type));
-        ptr[0] = (Type)(read_imagef(src, sampler, (int2)(x * ratioX, y * ratioY)).x * (float)((1<<bit_depth)-1));
+        ptr[0] = (Type)(read_imagef(src, sampler, (int2)(x * ratioInvX, y * ratioInvY)).x * (float)((1<<bit_depth)-1));
     }
 }
 
-__kernel void kernel_resize_spline(
-    __global uchar *restrict pDst,
-    const int dstPitch, const int dstWidth, const int dstHeight,
-    __read_only image2d_t src,
-    const float ratioX, const float ratioY,
-    const float ratioDistX, const float ratioDistY,
-    __global const float *restrict pgFactor) {
-    const int ix = get_global_id(0);
-    const int iy = get_global_id(1);
+float sinc(float x) {
+    const float pi = (float)3.14159265358979323846f;
+    const float pi_x = pi * x;
+    return native_sin(pi_x) * native_recip(pi_x);
+}
+
+float factor_lanczos(const float x) {
+    if (fabs(x) >= (float)radius) return 0.0f;
+    if (x == 0.0f) return 1.0f;
+    return sinc(x) * sinc(x * (1.0f / radius));
+}
+
+float factor_bilinear(const float x) {
+    if (fabs(x) >= (float)radius) return 0.0f;
+    return 1.0f - x * (1.0f / radius);
+}
+
+float factor_bicubic(float x, float B, float C) {
+    x = fabs(x);
+    if (x >= (float)radius) return 0.0f;
+    const float x2 = x*x;
+    const float x3 = x2*x;
+    if (x <= 1.0f) {
+        return ( 2.0f -  1.5f * B - 1.0f * C) * x3 +
+               (-3.0f +  2.0f * B + 1.0f * C) * x2 +
+               ( 1.0f -  (2.0f/6.0f) * B);
+    } else {
+        return (-(1.0f/6.0f) * B - 1.0f * C) * x3 +
+               (        1.0f * B + 5.0f * C) * x2 +
+               (       -2.0f * B - 8.0f * C) * x  +
+               ( (8.0f/6.0f) * B + 4.0f * C);
+    }
+}
+
+
+#if USE_LOCAL
+#define SPLINE_FACTOR_MEM_TYPE __local
+#else
+#define SPLINE_FACTOR_MEM_TYPE __global
+#endif
+
+float factor_spline(const float x_raw, SPLINE_FACTOR_MEM_TYPE const float *restrict psFactor) {
+    const float x = fabs(x_raw);
+    if (x >= (float)radius) return 0.0f;
+
+    const float4 weight = ((SPLINE_FACTOR_MEM_TYPE const float4 *)psFactor)[min((int)x, radius - 1)];
+    //重みを計算
+    float w = weight.w;
+    w += x * weight.z;
+    const float x2 = x * x;
+    w += x2 * weight.y;
+    w += x2 * x * weight.x;
+    return w;
+}
+
+float calc_weight(
+    const int targetPos, const float srcPos,
+    const float ratioClamped, SPLINE_FACTOR_MEM_TYPE const float *psCopyFactor) {
+    const float delta = ((targetPos + 0.5f) - srcPos) * ratioClamped;
+    float weight = 0.0f;
+    switch (algo) {
+    case WEIGHT_LANCZOS:  weight = factor_lanczos(delta); break;
+    case WEIGHT_SPLINE:   weight = factor_spline(delta, psCopyFactor); break;
+    case WEIGHT_BICUBIC:  weight = factor_bicubic(delta, 0.0f, 0.6f); break;
+    case WEIGHT_BILINEAR: weight = factor_bilinear(delta); break;
+    default:
+        break;
+    }
+    return weight;
+}
+
+#if USE_LOCAL
+void calc_weight_to_local(
+    __local float *pWeight, const float srcPos, const int srcFirst, const int srcEnd,
+    const float ratioClamped, __local const float *psCopyFactor) {
+    __local float *pW = pWeight;
+    for (int i = srcFirst; i <= srcEnd; i++, pW++) {
+        pW[0] = calc_weight(i, srcPos, ratioClamped, psCopyFactor);
+    }
+}
+#endif
+
+__kernel void kernel_resize(
+    __global uchar *restrict pDst, const int dstPitch, const int dstWidth, const int dstHeight,
+    __global const uchar *restrict pSrc, const int srcPitch, const int srcWidth, const int srcHeight,
+    const float ratioX, const float ratioY, __global const float *restrict pgFactor
+) {
+#if USE_LOCAL
+    __local float weightXshared[shared_weightXdim * block_x];
+    __local float weightYshared[shared_weightYdim * block_y];
+    __local float psCopyFactor[radius * 4];
+#endif
     const int threadIdX = get_local_id(0);
     const int threadIdY = get_local_id(1);
 
-    const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
+    const float ratioInvX = 1.0f / ratioX;
+    const float ratioClampedX = min(ratioX, 1.0f);
+    const float srcWindowX = radius / ratioClampedX;
 
-    //重みをsharedメモリにコピー
-    __local float psCopyFactor[radius][4];
-    if (threadIdY == 0 && threadIdX < radius * 4) {
-        ((__local float *)psCopyFactor[0])[threadIdX] = pgFactor[threadIdX];
+    const float ratioInvY = 1.0f / ratioY;
+    const float ratioClampedY = min(ratioY, 1.0f);
+    const float srcWindowY = radius / ratioClampedY;
+
+#if USE_LOCAL
+    if (algo == WEIGHT_SPLINE) {
+        if (threadIdY == 0) {
+            if (threadIdX < radius * 4) {
+                psCopyFactor[threadIdX] = pgFactor[threadIdX];
+            }
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+
+    if (threadIdY == 0) {
+        // threadIdY==0のスレッドが、x方向の重みをそれぞれ計算してsharedメモリに書き込み
+        const int dstX = get_group_id(0) * block_x + threadIdX;
+        const float srcX = ((float)(dstX + 0.5f)) * ratioInvX;
+        const int srcFirstX = max(0, (int)floor(srcX - srcWindowX));
+        const int srcEndX = min(srcWidth - 1, (int)ceil(srcX + srcWindowX));
+        calc_weight_to_local(weightXshared + threadIdX * shared_weightXdim, srcX, srcFirstX, srcEndX, ratioClampedX, psCopyFactor);
+
+        if (threadIdX < block_y) {
+            // threadIdY==0のスレッドが、y方向の重みをそれぞれ計算してsharedメモリに書き込み
+            const int thready = threadIdX;
+            const int dstY = get_group_id(1) * block_y + thready;
+            const float srcY = ((float)(dstY + 0.5f)) * ratioInvY;
+            const int srcFirstY = max(0, (int)floor(srcY - srcWindowY));
+            const int srcEndY = min(srcHeight - 1, (int)ceil(srcY + srcWindowY));
+            calc_weight_to_local(weightYshared + thready * shared_weightYdim, srcY, srcFirstY, srcEndY, ratioClampedY, psCopyFactor);
+        }
     }
     barrier(CLK_LOCAL_MEM_FENCE);
+#endif
+
+    const int ix = get_group_id(0) * block_x + threadIdX;
+    const int iy = get_group_id(1) * block_y + threadIdY;
 
     if (ix < dstWidth && iy < dstHeight) {
         //ピクセルの中心を算出してからスケール
         const float x = ((float)ix + 0.5f) * ratioX;
         const float y = ((float)iy + 0.5f) * ratioY;
 
-        float pWeightX[radius * 2];
-        float pWeightY[radius * 2];
+        const float srcX = ((float)(ix + 0.5f)) * ratioInvX;
+        const int srcFirstX = max(0, (int)floor(srcX - srcWindowX));
+        const int srcEndX = min(srcWidth - 1, (int)ceil(srcX + srcWindowX));
 
-        #pragma unroll
-        for (int i = 0; i < radius * 2; i++) {
-            //+0.5fはピクセル中心とするため
-            const float sx = floor(x) + i - radius + 1.0f + 0.5f;
-            const float sy = floor(y) + i - radius + 1.0f + 0.5f;
-            //拡大ならratioDistXは1.0f、縮小ならratioの逆数(縮小側の距離に変換)
-            const float dx = fabs(sx - x) * ratioDistX;
-            const float dy = fabs(sy - y) * ratioDistY;
-            __local float *psWeightX = psCopyFactor[min((int)dx, radius-1)];
-            __local float *psWeightY = psCopyFactor[min((int)dy, radius-1)];
-            //重みを計算
-            float wx = psWeightX[3];
-            float wy = psWeightY[3];
-            wx += dx * psWeightX[2];
-            wy += dy * psWeightY[2];
-            const float dx2 = dx * dx;
-            const float dy2 = dy * dy;
-            wx += dx2 * psWeightX[1];
-            wy += dy2 * psWeightY[1];
-            wx += dx2 * dx * psWeightX[0];
-            wy += dy2 * dy * psWeightY[0];
-            pWeightX[i] = wx;
-            pWeightY[i] = wy;
-        }
+        const float srcY = ((float)(iy + 0.5f)) * ratioInvY;
+        const int srcFirstY = max(0, (int)floor(srcY - srcWindowY));
+        const int srcEndY = min(srcHeight - 1, (int)ceil(srcY + srcWindowY));
+#if USE_LOCAL
+        __local const float *weightX = weightXshared + threadIdX * shared_weightXdim;
+        __local const float *weightY = weightYshared + threadIdY * shared_weightYdim;
+#endif
 
-        float weightSum = 0.0f;
+        const __global uchar *srcLine = pSrc + srcFirstY * srcPitch + srcFirstX * sizeof(Type);
         float clr = 0.0f;
-        for (int j = 0; j < radius * 2; j++) {
-            const float sy = floor(y) + j - radius + 1.0f + 0.5f;
-            const float weightY = pWeightY[j];
-            #pragma unroll
-            for (int i = 0; i < radius * 2; i++) {
-                const float sx = floor(x) + i - radius + 1.0f + 0.5f;
-                const float weightXY = pWeightX[i] * weightY;
-                clr += read_imagef(src, sampler, (int2)(sx, sy)).x * weightXY;
-                weightSum += weightXY;
+        float sumWeight = 0.0f;
+        for (int j = srcFirstY; j <= srcEndY; j++, srcLine += srcPitch
+#if USE_LOCAL
+            , weightY++
+#endif
+        ) {
+#if USE_LOCAL
+            const float wy = weightY[0];
+            __local const float *pwx = weightX;
+#else
+            const float wy = calc_weight(j, srcY, ratioClampedY, pgFactor);
+#endif
+            if (wy != 0.0f) {
+                __global const Type *srcPtr = (__global const Type*)srcLine;
+                for (int i = srcFirstX; i <= srcEndX; i++, srcPtr++
+#if USE_LOCAL
+                    , pwx++
+#endif
+                ) {
+#if USE_LOCAL
+                    const float wx = pwx[0];
+#else
+                    const float wx = calc_weight(i, srcX, ratioClampedX, pgFactor);
+#endif
+                    clr += srcPtr[0] * wx * wy;
+                    sumWeight += wx * wy;
+                }
             }
         }
-
-        __global Type *ptr = (__global Type *)(pDst + iy * dstPitch + ix * sizeof(Type));
-        ptr[0] = (Type)clamp(clr * (float)((1<<bit_depth)-1) * native_recip(weightSum), 0.0f, (1<<bit_depth) - 0.1f);
-    }
-}
-
-float lanczos_factor(float x) {
-    const float pi = 3.14159265358979323846f; //M_PI;
-    if (x == 0.0f) return 1.0f;
-    if (x >= (float)radius) return 0.0f;
-    const float pi_x = pi * x;
-    return (float)radius * native_sin(pi_x) * native_sin(pi_x * (1.0f / (float)radius)) *  native_recip(pi_x * pi_x);
-}
-
-__kernel void kernel_resize_lanczos(
-    __global uchar* restrict pDst,
-    const int dstPitch, const int dstWidth, const int dstHeight,
-    __read_only image2d_t src,
-    const float ratioX, const float ratioY, const float ratioDistX, const float ratioDistY) {
-    const int ix = get_global_id(0);
-    const int iy = get_global_id(1);
-
-    const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
-
-    if (ix < dstWidth && iy < dstHeight) {
-        //ピクセルの中心を算出してからスケール
-        const float x = ((float)ix + 0.5f) * ratioX;
-        const float y = ((float)iy + 0.5f) * ratioY;
-
-        float pWeightX[radius * 2];
-        float pWeightY[radius * 2];
-
-        #pragma unroll
-        for (int i = 0; i < radius * 2; i++) {
-            //+0.5fはピクセル中心とするため
-            const float sx = floor(x) + i - radius + 1.0f + 0.5f;
-            const float sy = floor(y) + i - radius + 1.0f + 0.5f;
-            //拡大ならratioDistXは1.0f、縮小ならratioの逆数(縮小側の距離に変換)
-            const float dx = fabs(sx - x) * ratioDistX;
-            const float dy = fabs(sy - y) * ratioDistY;
-            pWeightX[i] = lanczos_factor(dx);
-            pWeightY[i] = lanczos_factor(dy);
-        }
-
-        float weightSum = 0.0f;
-        float clr = 0.0f;
-        for (int j = 0; j < radius * 2; j++) {
-            const float sy = floor(y) + j - radius + 1.0f + 0.5f;
-            const float weightY = pWeightY[j];
-            #pragma unroll
-            for (int i = 0; i < radius * 2; i++) {
-                const float sx = floor(x) + i - radius + 1.0f + 0.5f;
-                const float weightXY = pWeightX[i] * weightY;
-                clr += read_imagef(src, sampler, (int2)(sx, sy)).x * weightXY;
-                weightSum += weightXY;
-            }
-        }
+        clr /= sumWeight;
 
         __global Type* ptr = (__global Type*)(pDst + iy * dstPitch + ix * sizeof(Type));
-        ptr[0] = (Type)clamp(clr * (float)((1<<bit_depth)-1) * native_recip(weightSum), 0.0f, (1<<bit_depth) - 0.1f);
+        ptr[0] = (Type)clamp(clr, 0.0f, (1 << bit_depth) - 0.1f);
     }
 }

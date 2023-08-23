@@ -45,7 +45,8 @@ struct avs_dll_t;
 
 class RGYInputAvsPrm : public RGYInputPrm {
 public:
-    bool readAudio;
+    int            nAudioSelectCount;       //muxする音声のトラック数
+    AudioSelect **ppAudioSelect;            //muxする音声のトラック番号のリスト 1,2,...(1から連番で指定)
     tstring avsdll;
     RGYInputAvsPrm(RGYInputPrm base);
 
@@ -57,14 +58,13 @@ public:
     RGYInputAvs();
     virtual ~RGYInputAvs();
 
-    virtual RGY_ERR LoadNextFrame(RGYFrame *pSurface) override;
     virtual void Close() override;
 
 #if ENABLE_AVSW_READER
     virtual int GetAudioTrackCount() override { return (int)m_audio.size(); };
 
     //音声・字幕パケットの配列を取得する
-    virtual vector<AVPacket> GetStreamDataPackets(int inputFrame) override;
+    virtual std::vector<AVPacket*> GetStreamDataPackets(int inputFrame) override;
 
     //音声・字幕のコーデックコンテキストを取得する
     virtual vector<AVDemuxStream> GetInputStreamInfo() override { return m_audio; };
@@ -72,6 +72,7 @@ public:
 
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) override;
+    virtual RGY_ERR LoadNextFrameInternal(RGYFrame *pSurface) override;
     RGY_ERR load_avisynth(const tstring& avsdll);
     void release_avisynth();
 
@@ -82,7 +83,7 @@ protected:
     std::unique_ptr<avs_dll_t> m_sAvisynth;
 
 #if ENABLE_AVSW_READER
-    RGY_ERR InitAudio();
+    RGY_ERR InitAudio(const RGYInputAvsPrm *input_prm);
 
     vector<AVDemuxStream> m_audio;
     unique_ptr<AVFormatContext, decltype(&avformat_free_context)> m_format;

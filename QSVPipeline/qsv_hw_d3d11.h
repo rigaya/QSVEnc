@@ -47,6 +47,8 @@ public:
     virtual mfxStatus Reset() override;
     virtual mfxStatus GetHandle(mfxHandleType type, mfxHDL *pHdl) override;
     virtual void      Close() override;
+    virtual LUID      GetLUID() override;
+    virtual tstring   GetName() override;
 protected:
     void SetSCD1(DXGI_SWAP_CHAIN_DESC1& scd);
     mfxStatus CreateVideoProcessor(mfxFrameSurface1 *pSurface);
@@ -61,6 +63,9 @@ protected:
     CComQIPtr<IDXGIAdapter>                 m_pAdapter;
 
     CComPtr<IDXGIFactory2>                  m_pDXGIFactory;
+
+    LUID                                    m_devLUID;
+    std::wstring                            m_displayDeviceName;
 
     CComPtr<IDXGISwapChain1>                m_pSwapChain;
     CComPtr<ID3D11VideoProcessor>           m_pVideoProcessor;

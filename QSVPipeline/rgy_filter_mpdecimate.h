@@ -50,7 +50,7 @@ public:
     RGYCLFrame *get() { return m_buf.get(); }
     RGYCLFrame *tmp() { return m_tmp.get(); }
     const RGYCLFrame *get() const { return m_buf.get(); }
-    RGY_ERR set(const RGYFrameInfo *pInputFrame, int inputFrameId, RGYOpenCLQueue& queue, RGYOpenCLEvent& event);
+    RGY_ERR set(const RGYFrameInfo *pInputFrame, int inputFrameId, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent& event);
     int id() const { return m_inFrameId; }
     void reset() { m_inFrameId = -1; }
     bool checkIfFrameCanbeDropped(const int hi, const int lo, const float factor);
@@ -67,7 +67,7 @@ public:
     RGYFilterMpdecimateCache(shared_ptr<RGYOpenCLContext> context);
     ~RGYFilterMpdecimateCache();
     void init(int bufCount, std::shared_ptr<RGYLog> log);
-    RGY_ERR add(const RGYFrameInfo *pInputFrame, RGYOpenCLQueue& queue, RGYOpenCLEvent& event);
+    RGY_ERR add(const RGYFrameInfo *pInputFrame, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent& event);
     void removeFromCache(int iframe) {
         for (auto &f : m_frames) {
             if (f->id() == iframe) {

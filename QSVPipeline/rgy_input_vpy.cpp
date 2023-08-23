@@ -187,7 +187,6 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     inputFile.close();
 
     const VSVideoInfo *vsvideoinfo = nullptr;
-    const VSCoreInfo *vscoreinfo = nullptr;
     if (!m_sVS.init()) {
         AddMessage(RGY_LOG_ERROR, _T("VapourSynth Initialize Error.\n"));
         return RGY_ERR_NULL_PTR;
@@ -199,15 +198,31 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         return RGY_ERR_NULL_PTR;
     } else if (m_sVS.evaluateScript(&m_sVSscript, script_data.c_str(), nullptr, efSetWorkingDir)
         || nullptr == (m_sVSnode = m_sVS.getOutput(m_sVSscript, 0))
-        || nullptr == (vsvideoinfo = m_sVSapi->getVideoInfo(m_sVSnode))
-        || nullptr == (vscoreinfo = m_sVSapi->getCoreInfo(m_sVS.getCore(m_sVSscript)))) {
+        || nullptr == (vsvideoinfo = m_sVSapi->getVideoInfo(m_sVSnode))) {
         AddMessage(RGY_LOG_ERROR, _T("VapourSynth script error.\n"));
         if (m_sVSscript) {
             AddMessage(RGY_LOG_ERROR, char_to_tstring(m_sVS.getError(m_sVSscript)).c_str());
         }
         return RGY_ERR_NULL_PTR;
     }
-    if (vscoreinfo->api < 3) {
+    auto vscoreinfo = VSCoreInfo();
+    if (m_sVSapi->getCoreInfo2) {
+        m_sVSapi->getCoreInfo2(m_sVS.getCore(m_sVSscript), &vscoreinfo);
+    } else {
+        #pragma warning(push)
+        #pragma warning(disable:4996) //warning C4996: 'VSAPI::getCoreInfo': getCoreInfo has been deprecated as of api 3.6, use getCoreInfo2 instead
+        RGY_DISABLE_WARNING_PUSH
+        RGY_DISABLE_WARNING_STR("-Wdeprecated-declarations")
+        auto infoptr = m_sVSapi->getCoreInfo(m_sVS.getCore(m_sVSscript));
+        RGY_DISABLE_WARNING_POP
+        #pragma warning(pop)
+        if (!infoptr) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to get VapourSynth core info.\n"));
+            return RGY_ERR_NULL_PTR;
+        }
+        vscoreinfo = *infoptr;
+    }
+    if (vscoreinfo.api < 3) {
         AddMessage(RGY_LOG_ERROR, _T("VapourSynth API v3 or later is necessary.\n"));
         return RGY_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
@@ -314,19 +329,24 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
         return RGY_ERR_INCOMPATIBLE_VIDEO_PARAM;
     }
 
-    const auto fps_gcd = rgy_gcd(vsvideoinfo->fpsNum, vsvideoinfo->fpsDen);
     m_inputVideoInfo.srcWidth = vsvideoinfo->width;
     m_inputVideoInfo.srcHeight = vsvideoinfo->height;
-    m_inputVideoInfo.fpsN = (int)(vsvideoinfo->fpsNum / fps_gcd);
-    m_inputVideoInfo.fpsD = (int)(vsvideoinfo->fpsDen / fps_gcd);
-    m_inputVideoInfo.frames = vsvideoinfo->numFrames;
+    if (!rgy_rational<int>(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD).is_valid()) {
+        const auto fps_gcd = rgy_gcd(vsvideoinfo->fpsNum, vsvideoinfo->fpsDen);
+        m_inputVideoInfo.fpsN = (int)(vsvideoinfo->fpsNum / fps_gcd);
+        m_inputVideoInfo.fpsD = (int)(vsvideoinfo->fpsDen / fps_gcd);
+    }
+    if (m_inputVideoInfo.frames == 0) {
+        m_inputVideoInfo.frames = std::numeric_limits<decltype(m_inputVideoInfo.frames)>::max();
+    }
+    m_inputVideoInfo.frames = std::min(m_inputVideoInfo.frames, vsvideoinfo->numFrames);
     m_inputVideoInfo.bitdepth = RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp];
     if (cspShiftUsed(m_inputVideoInfo.csp) && RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp] > RGY_CSP_BIT_DEPTH[m_inputCsp]) {
         m_inputVideoInfo.bitdepth = RGY_CSP_BIT_DEPTH[m_inputCsp];
     }
 
     m_nAsyncFrames = vsvideoinfo->numFrames;
-    m_nAsyncFrames = (std::min)(m_nAsyncFrames, vscoreinfo->numThreads);
+    m_nAsyncFrames = (std::min)(m_nAsyncFrames, vscoreinfo.numThreads);
     m_nAsyncFrames = (std::min)(m_nAsyncFrames, ASYNC_BUFFER_SIZE-1);
     if (m_inputVideoInfo.type != RGY_INPUT_FMT_VPY_MT) {
         m_nAsyncFrames = 1;
@@ -340,7 +360,7 @@ RGY_ERR RGYInputVpy::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     if (m_inputVideoInfo.type == RGY_INPUT_FMT_VPY_MT) {
         vs_ver += _T("MT");
     }
-    const int rev = getRevInfo(vscoreinfo->versionString);
+    const int rev = getRevInfo(vscoreinfo.versionString);
     if (0 != rev) {
         vs_ver += strsprintf(_T(" r%d"), rev);
     }
@@ -375,7 +395,7 @@ void RGYInputVpy::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
 }
 
-RGY_ERR RGYInputVpy::LoadNextFrame(RGYFrame *pSurface) {
+RGY_ERR RGYInputVpy::LoadNextFrameInternal(RGYFrame *pSurface) {
     if ((int)m_encSatusInfo->m_sData.frameIn >= m_inputVideoInfo.frames
         //m_encSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
         //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく

@@ -30,15 +30,22 @@
 #define __RGY_BITSTREAM_H__
 
 #include <vector>
+#include <deque>
 #include <unordered_map>
 #include <cstdint>
 #include <string>
 #include "rgy_def.h"
+#include "rgy_util.h"
 
 struct nal_info {
     const uint8_t *ptr;
     uint8_t type;
     size_t size;
+};
+
+struct unit_info {
+    uint8_t type;
+    std::vector<uint8_t> unit_data;
 };
 
 enum : uint8_t {
@@ -71,6 +78,24 @@ enum : uint8_t {
     NALU_HEVC_SUFFIX_SEI  = 40,
     NALU_HEVC_UNSPECIFIED = 62,
     NALU_HEVC_INVALID     = 64,
+
+    OBU_SEQUENCE_HEADER        = 1,
+    OBU_TEMPORAL_DELIMITER     = 2,
+    OBU_FRAME_HEADER           = 3,
+    OBU_TILE_GROUP             = 4,
+    OBU_METADATA               = 5,
+    OBU_FRAME                  = 6,
+    OBU_REDUNDANT_FRAME_HEADER = 7,
+    OBU_TILE_LIST              = 8,
+    OBU_PADDING                = 15,
+
+    AV1_METADATA_TYPE_AOM_RESERVED_0 = 0,
+    AV1_METADATA_TYPE_HDR_CLL        = 1,
+    AV1_METADATA_TYPE_HDR_MDCV       = 2,
+    AV1_METADATA_TYPE_SCALABILITY    = 3,
+    AV1_METADATA_TYPE_ITUT_T35       = 4,
+    AV1_METADATA_TYPE_TIMECODE       = 5,
+    AV1_METADATA_TYPE_FRAME_SIZE     = 6,
 };
 
 enum PayloadType {
@@ -122,6 +147,9 @@ enum PayloadType {
 };
 
 std::vector<uint8_t> unnal(const uint8_t *ptr, size_t len);
+void to_nal(std::vector<uint8_t>& data);
+void add_u16(std::vector<uint8_t>& data, uint16_t u16);
+void add_u32(std::vector<uint8_t>& data, uint32_t u32);
 
 std::vector<nal_info> parse_nal_unit_h264_c(const uint8_t *data, size_t size);
 std::vector<nal_info> parse_nal_unit_hevc_c(const uint8_t *data, size_t size);
@@ -133,43 +161,59 @@ std::vector<nal_info> parse_nal_unit_hevc_avx512bw(const uint8_t *data, size_t s
 decltype(parse_nal_unit_h264_c)* get_parse_nal_unit_h264_func();
 decltype(parse_nal_unit_hevc_c)* get_parse_nal_unit_hevc_func();
 
-int64_t find_header_c(const uint8_t *data, size_t size);
-int64_t find_header_avx2(const uint8_t *data, size_t size);
-int64_t find_header_avx512bw(const uint8_t *data, size_t size);
+size_t find_header_c(const uint8_t *data, size_t size);
+size_t find_header_avx2(const uint8_t *data, size_t size);
+size_t find_header_avx512bw(const uint8_t *data, size_t size);
 
 decltype(find_header_c)* get_find_header_func();
 
-struct HEVCHDRSeiPrm {
+std::deque<std::unique_ptr<unit_info>> parse_unit_av1(const uint8_t *data, const size_t size);
+
+uint8_t gen_obu_header(const uint8_t obu_type);
+size_t get_av1_uleb_size_bytes(uint64_t value);
+std::vector<uint8_t> get_av1_uleb_size_data(uint64_t value);
+std::vector<uint8_t> gen_av1_obu_metadata(const uint8_t metadata_type, const std::vector<uint8_t>& metadata);
+
+struct RGYHDRMetadataPrm {
     int maxcll;
     int maxfall;
     bool contentlight_set;
-    int masterdisplay[10];
+    rgy_rational<int> masterdisplay[10]; //G,B,R,WP,L(max,min)
     bool masterdisplay_set;
     CspTransfer atcSei;
 public:
-    HEVCHDRSeiPrm();
+    RGYHDRMetadataPrm();
+    bool hasPrmSet() const;
 };
 
-class HEVCHDRSei {
+class RGYHDRMetadata {
 private:
-    HEVCHDRSeiPrm prm;
+    RGYHDRMetadataPrm prm;
 
 public:
-    HEVCHDRSei();
+    RGYHDRMetadata();
 
     void set_maxcll(int maxcll, int maxfall);
     int parse_maxcll(std::string maxcll);
-    void set_masterdisplay(const int masterdisplay[10]);
+    void set_masterdisplay(const rgy_rational<int> *masterdisplay);
     int parse_masterdisplay(std::string masterdisplay);
     void set_atcsei(CspTransfer atcSei);
-    HEVCHDRSeiPrm getprm() const;
+    RGYHDRMetadataPrm getprm() const;
     std::string print_masterdisplay() const;
     std::string print_maxcll() const;
     std::string print_atcsei() const;
     std::string print() const;
     std::vector<uint8_t> gen_nal() const;
-    std::vector<uint8_t> gen_nal(HEVCHDRSeiPrm prm);
+    std::vector<uint8_t> gen_nal(RGYHDRMetadataPrm prm);
+
+    std::vector<uint8_t> gen_masterdisplay_obu() const;
+    std::vector<uint8_t> gen_maxcll_obu() const;
+    std::vector<uint8_t> gen_obu() const;
 private:
+    std::vector<uint8_t> raw_maxcll() const;
+    std::vector<uint8_t> raw_masterdisplay(const bool forAV1) const;
+    std::vector<uint8_t> raw_atcsei() const;
+
     std::vector<uint8_t> sei_maxcll() const;
     std::vector<uint8_t> sei_masterdisplay() const;
     std::vector<uint8_t> sei_atcsei() const;

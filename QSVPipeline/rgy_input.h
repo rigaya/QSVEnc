@@ -36,6 +36,7 @@
 #include "rgy_log.h"
 #include "rgy_event.h"
 #include "rgy_status.h"
+#include "rgy_timecode.h"
 #include "convert_csp.h"
 #include "rgy_err.h"
 #include "rgy_util.h"
@@ -51,6 +52,9 @@
 #if ENCODER_VCEENC
 #include "vce_util.h"
 #endif //#if ENCODER_VCEENC
+#if ENCODER_MPP
+#include "mpp_util.h"
+#endif //#if ENCODER_MPP
 
 std::vector<int> read_keyfile(tstring keyfile);
 
@@ -67,7 +71,7 @@ typedef struct AVDemuxStream {
     int64_t                   trimOffset;             //trimによる補正量 (stream timebase基準)
     int64_t                   aud0_fin;               //直前に有効だったパケットのpts(stream timebase基準)
     int                       appliedTrimBlock;       //trim blockをどこまで適用したか
-    AVPacket                  pktSample;              //サンプル用の音声・字幕データ
+    AVPacket                 *pktSample;              //サンプル用の音声・字幕データ
     uint64_t                  streamChannelSelect[MAX_SPLIT_CHANNELS]; //入力音声の使用するチャンネル
     uint64_t                  streamChannelOut[MAX_SPLIT_CHANNELS];    //出力音声のチャンネル
     AVRational                timebase;               //streamのtimebase [stream = nullptrの場合でも使えるように]
@@ -135,8 +139,13 @@ public:
     int threadCsp;
     RGY_SIMD simdCsp;
     RGYParamThread threadParamCsp;
+    RGYPoolAVPacket *poolPkt;
+    RGYPoolAVFrame *poolFrame;
+    tstring tcfileIn;
+    rgy_rational<int> timebase;
 
-    RGYInputPrm() : threadCsp(-1), simdCsp(RGY_SIMD::NONE), threadParamCsp() {};
+    RGYInputPrm() : threadCsp(-1), simdCsp(RGY_SIMD::NONE), threadParamCsp(), poolPkt(nullptr), poolFrame(nullptr),
+        tcfileIn(), timebase() {};
     virtual ~RGYInputPrm() {};
 };
 
@@ -145,14 +154,9 @@ public:
     RGYInput();
     virtual ~RGYInput();
 
-    RGY_ERR Init(const TCHAR *strFileName, VideoInfo *inputInfo, const RGYInputPrm *prm, shared_ptr<RGYLog> log, shared_ptr<EncodeStatus> encSatusInfo) {
-        Close();
-        m_printMes = log;
-        m_encSatusInfo = encSatusInfo;
-        return Init(strFileName, inputInfo, prm);
-    };
+    RGY_ERR Init(const TCHAR *strFileName, VideoInfo *inputInfo, const RGYInputPrm *prm, shared_ptr<RGYLog> log, shared_ptr<EncodeStatus> encSatusInfo);
 
-    virtual RGY_ERR LoadNextFrame(RGYFrame *surface) = 0;
+    RGY_ERR LoadNextFrame(RGYFrame *surface);
 
 #pragma warning(push)
 #pragma warning(disable: 4100)
@@ -178,9 +182,18 @@ public:
         m_trimParam = trim;
     }
 
+    RGY_ERR readTimecode(int64_t& pts, int64_t& duration);
+
     sTrimParam GetTrimParam() {
         return m_trimParam;
     }
+
+#pragma warning(push)
+#pragma warning(disable: 4100)
+    virtual bool checkTimeSeekTo(int64_t pts, rgy_rational<int> timebase, float marginSec = 0.0f) {
+        return true;
+    }
+#pragma warning(pop)
 
     sInputCrop GetInputCropInfo() {
         return m_inputVideoInfo.crop;
@@ -192,15 +205,20 @@ public:
         m_inputVideoInfo.frames = frames;
     }
     virtual rgy_rational<int> getInputTimebase() {
-        return rgy_rational<int>();
+    	if (m_timebase.is_valid()) return m_timebase;
+        auto inputFps = rgy_rational<int>(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
+        return inputFps.inv() * rgy_rational<int>(1, 4);
+    }
+    virtual bool rffAware() {
+        return false;
     }
 
 #if ENABLE_AVSW_READER
 #pragma warning(push)
 #pragma warning(disable: 4100)
     //音声・字幕パケットの配列を取得する
-    virtual vector<AVPacket> GetStreamDataPackets(int inputFrame) {
-        return vector<AVPacket>();
+    virtual std::vector<AVPacket*> GetStreamDataPackets(int inputFrame) {
+        return std::vector<AVPacket*>();
     }
 
     //音声・字幕のコーデックコンテキストを取得する
@@ -260,6 +278,7 @@ public:
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) = 0;
     virtual void CreateInputInfo(const TCHAR *inputTypeName, const TCHAR *inputCSpName, const TCHAR *outputCSpName, const TCHAR *convSIMD, const VideoInfo *inputPrm);
+    virtual RGY_ERR LoadNextFrameInternal(RGYFrame *surface) = 0;
 
     //trim listを参照し、動画の最大フレームインデックスを取得する
     int getVideoTrimMaxFramIdx() {
@@ -280,7 +299,12 @@ protected:
     tstring m_inputInfo;
     tstring m_readerName;    //読み込みの名前
 
+    std::pair<float, float> m_seek;
     sTrimParam m_trimParam;
+    RGYPoolAVPacket *m_poolPkt; //AVPacketのpool
+    RGYPoolAVFrame *m_poolFrame; //AVFrameのpool
+    std::unique_ptr<RGYTimecodeReader> m_timecode;
+    rgy_rational<int> m_timebase;
 };
 
 RGY_ERR initReaders(
@@ -295,6 +319,8 @@ RGY_ERR initReaders(
     const int subburnTrackId,
     const bool vpp_afs,
     const bool vpp_rff,
+    RGYPoolAVPacket *poolPkt,
+    RGYPoolAVFrame *poolFrame,
     RGYListRef<RGYFrameDataQP> *qpTableListRef,
     CPerfMonitor *perfMonitor,
     shared_ptr<RGYLog> log

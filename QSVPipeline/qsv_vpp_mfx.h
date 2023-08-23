@@ -38,7 +38,7 @@
 
 class QSVVppMfx {
 public:
-    QSVVppMfx(CQSVHWDevice *hwdev, QSVAllocator *allocator, mfxVersion mfxVer, mfxIMPL impl, MemType memType, QSVDeviceNum deviceNum, int asyncDepth, std::shared_ptr<RGYLog> log);
+    QSVVppMfx(CQSVHWDevice *hwdev, QSVAllocator *allocator, mfxVersion mfxVer, mfxIMPL impl, MemType memType, const MFXVideoSession2Params& sessionParams, QSVDeviceNum deviceNum, int asyncDepth, std::shared_ptr<RGYLog> log);
     virtual ~QSVVppMfx();
 
     RGY_ERR SetParam(sVppParams& params,
@@ -80,6 +80,7 @@ protected:
     QSVAllocator *m_allocator;             //mainから渡されるallocator
     mfxIMPL m_impl;
     MemType m_memType;             //パイプラインのSurfaceのメモリType;
+    MFXVideoSession2Params m_sessionParams;
     QSVDeviceNum m_deviceNum;
     int m_asyncDepth;
 
@@ -105,6 +106,7 @@ RGY_DISABLE_WARNING_POP
     mfxExtVPPImageStab m_ExtImageStab;
     mfxExtVPPMirroring m_ExtMirror;
     mfxExtVPPScaling m_ExtScaling;
+    mfxExtVPPPercEncPrefilter m_ExtPercEncPrefilter;
     std::vector<mfxU32> m_VppDoNotUseList;
     std::vector<mfxU32> m_VppDoUseList;
     std::vector<mfxExtBuffer*> m_VppExtParams;

@@ -1,9 +1,9 @@
 ﻿// -----------------------------------------------------------------------------------------
-// QSVEnc by rigaya
+// x264guiEx/x265guiEx/svtAV1guiEx/ffmpegOut/QSVEnc/NVEnc/VCEEnc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
 //
-// Copyright (c) 2011-2016 rigaya
+// Copyright (c) 2010-2022 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -35,10 +35,9 @@
 #pragma comment(lib, "shlwapi.lib")
 #include "auo_util.h"
 #include "auo_conf.h"
-#include "qsv_prm.h"
 
 const int guiEx_config::conf_block_data[CONF_BLOCK_COUNT] = {
-    sizeof(CONF_GUIEX::qsv),
+    sizeof(CONF_GUIEX::enc),
     sizeof(CONF_GUIEX::vid),
     sizeof(CONF_GUIEX::aud),
     sizeof(CONF_GUIEX::mux),
@@ -46,7 +45,7 @@ const int guiEx_config::conf_block_data[CONF_BLOCK_COUNT] = {
 };
 
 const size_t guiEx_config::conf_block_pointer[CONF_BLOCK_COUNT] = {
-    offsetof(CONF_GUIEX, qsv),
+    offsetof(CONF_GUIEX, enc),
     offsetof(CONF_GUIEX, vid),
     offsetof(CONF_GUIEX, aud),
     offsetof(CONF_GUIEX, mux),

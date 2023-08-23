@@ -42,19 +42,21 @@ static const auto MFX_EXTBUFF_VPP_TO_VPPTYPE = make_array<std::pair<uint32_t, Vp
     std::make_pair(MFX_EXTBUFF_VPP_SCALING,               VppType::MFX_RESIZE),
     std::make_pair(MFX_EXTBUFF_VPP_DETAIL,                VppType::MFX_DETAIL_ENHANCE),
     std::make_pair(MFX_EXTBUFF_VPP_FRAME_RATE_CONVERSION, VppType::MFX_FPS_CONV),
-    std::make_pair(MFX_EXTBUFF_VPP_IMAGE_STABILIZATION,   VppType::MFX_IMAGE_STABILIZATION)
+    std::make_pair(MFX_EXTBUFF_VPP_IMAGE_STABILIZATION,   VppType::MFX_IMAGE_STABILIZATION),
+    std::make_pair(MFX_EXTBUFF_VPP_PERC_ENC_PREFILTER,    VppType::MFX_PERC_ENC_PREFILTER)
     );
 
 MAP_PAIR_0_1(vpp, extbuff, uint32_t, rgy, VppType, MFX_EXTBUFF_VPP_TO_VPPTYPE, 0, VppType::VPP_NONE);
 
 QSVVppMfx::QSVVppMfx(CQSVHWDevice *hwdev, QSVAllocator *allocator,
-    mfxVersion mfxVer, mfxIMPL impl, MemType memType, QSVDeviceNum deviceNum, int asyncDepth, std::shared_ptr<RGYLog> log) :
+    mfxVersion mfxVer, mfxIMPL impl, MemType memType, const MFXVideoSession2Params& sessionParams, QSVDeviceNum deviceNum, int asyncDepth, std::shared_ptr<RGYLog> log) :
     m_mfxSession(),
     m_mfxVer(mfxVer),
     m_hwdev(hwdev),
     m_allocator(allocator),
     m_impl(impl),
     m_memType(memType),
+    m_sessionParams(sessionParams),
     m_deviceNum(deviceNum),
     m_asyncDepth(asyncDepth),
     m_crop(),
@@ -73,6 +75,7 @@ QSVVppMfx::QSVVppMfx(CQSVHWDevice *hwdev, QSVAllocator *allocator,
     m_ExtImageStab(),
     m_ExtMirror(),
     m_ExtScaling(),
+    m_ExtPercEncPrefilter(),
     m_VppDoNotUseList(),
     m_VppDoUseList(),
     m_VppExtParams(),
@@ -96,6 +99,7 @@ void QSVVppMfx::InitStructs() {
     RGY_MEMSET_ZERO(m_ExtImageStab);
     RGY_MEMSET_ZERO(m_ExtMirror);
     RGY_MEMSET_ZERO(m_ExtScaling);
+    RGY_MEMSET_ZERO(m_ExtPercEncPrefilter);
 }
 
 QSVVppMfx::~QSVVppMfx() { clear(); };
@@ -204,8 +208,7 @@ RGY_ERR QSVVppMfx::Close() {
 RGY_ERR QSVVppMfx::InitMFXSession() {
     // init session, and set memory type
     m_mfxSession.Close();
-    MFXVideoSession2Params params;
-    auto err = InitSession(m_mfxSession, params, m_impl, m_deviceNum, m_log);
+    auto err = InitSession(m_mfxSession, m_sessionParams, m_impl, m_deviceNum, m_log);
     if (err != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("Failed to Init session for VPP: %s.\n"), get_err_mes(err));
         return err;
@@ -276,7 +279,7 @@ RGY_ERR QSVVppMfx::checkVppParams(sVppParams& params, const bool inputInterlaced
 #endif
 
     if (params.denoise.enable) {
-        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_5) || !(availableFeaures & VPP_FEATURE_DENOISE2)) {
+        if (!check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_5) || !(availableFeaures & VPP_FEATURE_DENOISE2)) {
             if (params.denoise.mode != MFX_DENOISE_MODE_DEFAULT) {
                 PrintMes(RGY_LOG_WARN, _T("setting mode to vpp-denoise is not supported on this platform.\n"));
                 PrintMes(RGY_LOG_WARN, _T("switching to legacy denoise mode.\n"));
@@ -439,12 +442,9 @@ RGY_ERR QSVVppMfx::SetVppExtBuffers(sVppParams& params) {
     m_VppDoNotUseList.push_back(MFX_EXTBUFF_VPP_PROCAMP);
 
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)
-        && (   MFX_FOURCC_RGB3 == m_mfxVppParams.vpp.In.FourCC
+        && (   MFX_FOURCC_RGBP == m_mfxVppParams.vpp.In.FourCC
             || MFX_FOURCC_RGB4 == m_mfxVppParams.vpp.In.FourCC
             || params.colorspace.enable)) {
-
-        const bool inputRGB = m_mfxVppParams.vpp.In.FourCC == MFX_FOURCC_RGB3 || m_mfxVppParams.vpp.In.FourCC == MFX_FOURCC_RGB4;
-
         INIT_MFX_EXT_BUFFER(m_ExtVppVSI, MFX_EXTBUFF_VPP_VIDEO_SIGNAL_INFO);
         m_ExtVppVSI.In.NominalRange    = (mfxU16)((params.colorspace.from.range  == RGY_COLORRANGE_FULL) ? MFX_NOMINALRANGE_0_255   : MFX_NOMINALRANGE_16_235);
         m_ExtVppVSI.In.TransferMatrix  = (mfxU16)((params.colorspace.from.matrix == RGY_MATRIX_ST170_M)  ? MFX_TRANSFERMATRIX_BT601 : MFX_TRANSFERMATRIX_BT709);
@@ -611,6 +611,18 @@ RGY_ERR QSVVppMfx::SetVppExtBuffers(sVppParams& params) {
             default:
                 break;
             }
+    }
+
+    if (params.percPreEnc) {
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_9)) {
+            INIT_MFX_EXT_BUFFER(m_ExtPercEncPrefilter, MFX_EXTBUFF_VPP_PERC_ENC_PREFILTER);
+            m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtPercEncPrefilter);
+            m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_PERC_ENC_PREFILTER);
+            vppExtAddMes(_T("Perceptual Pre Enc\n"));
+        } else {
+            PrintMes(RGY_LOG_WARN, _T("--vpp-perc-pre-enc not supported on this platform, disabled.\n"));
+            params.percPreEnc = false;
+        }
     }
 
     if (m_VppDoUseList.size()) {

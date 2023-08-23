@@ -36,7 +36,8 @@
 
 struct MFXVideoSession2Params {
     int threads;
-    int priority;
+    int threadPriority;
+    bool deviceCopy;
 
     MFXVideoSession2Params();
 };
@@ -48,10 +49,10 @@ public:
 
     void setParams(std::shared_ptr<RGYLog>& log, const MFXVideoSession2Params& params);
     mfxIMPL devNumToImpl(const QSVDeviceNum dev);
-    mfxStatus initD3D9(const QSVDeviceNum dev);
-    mfxStatus initD3D11(const QSVDeviceNum dev);
-    mfxStatus initVA(const QSVDeviceNum dev);
-    mfxStatus initSW();
+    mfxStatus initD3D9(const QSVDeviceNum dev, const bool suppressErrorMessage);
+    mfxStatus initD3D11(const QSVDeviceNum dev, const bool suppressErrorMessage);
+    mfxStatus initVA(const QSVDeviceNum dev, const bool suppressErrorMessage);
+    mfxStatus initSW(const bool suppressErrorMessage);
     std::vector<mfxImplDescription> getImplList();
 
     mfxSession get() { return m_session; }
@@ -72,9 +73,9 @@ mfxIMPL GetDefaultMFXImpl();
 
 std::vector<mfxImplDescription> getVPLImplList(std::shared_ptr<RGYLog>& log);
 
-RGY_ERR InitSession(MFXVideoSession2& mfxSession, const MFXVideoSession2Params& params, const mfxIMPL implAcceleration, const QSVDeviceNum dev, std::shared_ptr<RGYLog>& log);
+RGY_ERR InitSession(MFXVideoSession2& mfxSession, const MFXVideoSession2Params& params, const mfxIMPL implAcceleration, const QSVDeviceNum dev, std::shared_ptr<RGYLog>& log, const bool suppressErrorMessage = false);
 
-RGY_ERR InitSessionAndDevice(std::unique_ptr<CQSVHWDevice>& hwdev, MFXVideoSession2& mfxSession, MemType& memType, const QSVDeviceNum dev, const MFXVideoSession2Params& params, std::shared_ptr<RGYLog>& log);
+RGY_ERR InitSessionAndDevice(std::unique_ptr<CQSVHWDevice>& hwdev, MFXVideoSession2& mfxSession, MemType& memType, const QSVDeviceNum dev, const MFXVideoSession2Params& params, std::shared_ptr<RGYLog>& log, const bool suppressErrorMessage = false);
 
 RGY_ERR CreateAllocator(
     std::unique_ptr<QSVAllocator>& allocator, bool& externalAlloc,

@@ -32,12 +32,13 @@
 #include "qsv_hw_device.h"
 
 QSVMfxDec::QSVMfxDec(CQSVHWDevice *hwdev, QSVAllocator *allocator,
-    mfxVersion mfxVer, mfxIMPL impl, MemType memType, QSVDeviceNum deviceNum, std::shared_ptr<RGYLog> log) :
+    mfxVersion mfxVer, mfxIMPL impl, MemType memType, const MFXVideoSession2Params& sessionParams, QSVDeviceNum deviceNum, std::shared_ptr<RGYLog> log) :
     m_mfxSession(),
     m_mfxVer(mfxVer),
     m_hwdev(hwdev),
     m_impl(impl),
     m_memType(memType),
+    m_sessionParams(sessionParams),
     m_deviceNum(deviceNum),
     m_allocator(allocator),
     m_allocatorInternal(),
@@ -72,8 +73,7 @@ void QSVMfxDec::clear() {
 RGY_ERR QSVMfxDec::InitMFXSession() {
     // init session, and set memory type
     m_mfxSession.Close();
-    MFXVideoSession2Params params;
-    auto err = InitSession(m_mfxSession, params, m_impl, m_deviceNum, m_log);
+    auto err = InitSession(m_mfxSession, m_sessionParams, m_impl, m_deviceNum, m_log);
     if (err != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("Failed to Init session for DEC: %s.\n"), get_err_mes(err));
         return err;
@@ -139,8 +139,6 @@ RGY_ERR QSVMfxDec::SetParam(
         PrintMes(RGY_LOG_ERROR, _T("Unknown codec %s for hw decoder.\n"), CodecToStr(inputCodec).c_str());
         return RGY_ERR_UNSUPPORTED;
     }
-    const bool bGotHeader = inputHeader.size() > 0;
-
     //デコーダの作成
     m_mfxDec.reset(new MFXVideoDECODE(m_mfxSession));
     if (!m_mfxDec) {
@@ -156,6 +154,13 @@ RGY_ERR QSVMfxDec::SetParam(
     m_mfxDecParams.mfx.CodecId = codec_rgy_to_enc(inputCodec);
     m_mfxDecParams.IOPattern = (uint16_t)((m_memType != SYSTEM_MEMORY) ? MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_OUT_SYSTEM_MEMORY);
     sts = err_to_rgy(m_mfxDec->DecodeHeader(&inputHeader.bitstream(), &m_mfxDecParams));
+    if (sts != RGY_ERR_NONE && inputCodec == RGY_CODEC_AV1) {
+        // AV1ではそのままのヘッダだと、DecodeHeaderに失敗する場合がある QSVEnc #122
+        // その場合、4byte飛ばすと読めるかも? https://github.com/FFmpeg/FFmpeg/commit/ffd1316e441a8310cf1746d86fed165e17e10018
+        inputHeader.addOffset(4);
+        PrintMes(RGY_LOG_DEBUG, _T("Skip 4 bytes of header and retry DecodeHeader: %s.\n"), get_err_mes(sts));
+        sts = err_to_rgy(m_mfxDec->DecodeHeader(&inputHeader.bitstream(), &m_mfxDecParams));
+    }
     if (sts != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("Failed to DecodeHeader: %s.\n"), get_err_mes(sts));
         return sts;

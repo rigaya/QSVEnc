@@ -46,6 +46,7 @@ RGY_ERR RGYFilterTweak::procFrame(RGYFrameInfo *pFrame, RGYOpenCLQueue &queue, c
     const float saturation = prm->tweak.saturation;
     const float gamma      = prm->tweak.gamma;
     const float hue_degree = prm->tweak.hue;
+    const int   swapuv     = prm->tweak.swapuv ? 1 : 0;
 
     auto planeInputY = getPlane(pFrame, RGY_PLANE_Y);
     auto planeInputU = getPlane(pFrame, RGY_PLANE_U);
@@ -73,7 +74,8 @@ RGY_ERR RGYFilterTweak::procFrame(RGYFrameInfo *pFrame, RGYOpenCLQueue &queue, c
 
     //UV
     if (   saturation != 1.0f
-        || hue_degree != 0.0f) {
+        || hue_degree != 0.0f
+        || swapuv) {
         if (   planeInputU.width    != planeInputV.width
             || planeInputU.height   != planeInputV.height
             || planeInputU.pitch[0] != planeInputV.pitch[0]) {
@@ -85,7 +87,7 @@ RGY_ERR RGYFilterTweak::procFrame(RGYFrameInfo *pFrame, RGYOpenCLQueue &queue, c
         const char *kernel_name = "kernel_tweak_uv";
         auto err = m_tweak.get()->kernel(kernel_name).config(queue, local, global, wait_events_copy, event).launch(
             (cl_mem)planeInputU.ptr[0], (cl_mem)planeInputV.ptr[0], planeInputU.pitch[0], planeInputU.width, planeInputU.height,
-            saturation, std::sin(hue) * saturation, std::cos(hue) * saturation);
+            saturation, std::sin(hue) * saturation, std::cos(hue) * saturation, swapuv);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at %s (procFrame(%s)): %s.\n"),
                 char_to_tstring(kernel_name).c_str(), RGY_CSP_NAMES[pFrame->csp], get_err_mes(err));
@@ -142,8 +144,10 @@ RGY_ERR RGYFilterTweak::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
         AddMessage(RGY_LOG_WARN, _T("gamma should be in range of %.1f - %.1f.\n"), 0.1f, 10.0f);
     }
 
+    auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamTweak>(m_param);
     if (!m_tweak.get()
-        || std::dynamic_pointer_cast<RGYFilterParamTweak>(m_param)->tweak != prm->tweak) {
+        || !prmPrev
+        || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]) {
         const auto options = strsprintf("-D Type=%s -D Type4=%s -D bit_depth=%d",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort4" : "uchar4",

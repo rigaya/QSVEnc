@@ -1,5 +1,5 @@
 ﻿// -----------------------------------------------------------------------------------------
-// QSVEnc/NVEnc/VCEEnc by rigaya
+// QSVEnc/NVEnc/VCEEnc/rkmppenc by rigaya
 // -----------------------------------------------------------------------------------------
 //
 // The MIT License
@@ -177,8 +177,8 @@ SubImageData RGYFilterSubburn::textRectToImage(const ASS_Image *image, RGYOpenCL
     const int y_offset = ((image->dst_y % 2) != 0) ? 1 : 0;
     auto frameTemp = m_cl->createFrameBuffer(ALIGN(image->w + x_offset, 2), ALIGN(image->h + y_offset, 2), RGY_CSP_YUVA444, RGY_CSP_BIT_DEPTH[RGY_CSP_YUVA444]);
     frameTemp->queueMapBuffer(queue, CL_MAP_WRITE, wait_events);
-    frameTemp->mapEvent().wait();
-    auto img = frameTemp->mappedHost();
+    frameTemp->mapWait();
+    auto img = frameTemp->mappedHost()->frameInfo();
 
     auto planeY = getPlane(&img, RGY_PLANE_Y);
     auto planeU = getPlane(&img, RGY_PLANE_U);
@@ -275,8 +275,8 @@ SubImageData RGYFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, con
     const int y_offset = ((rect->y % 2) != 0) ? 1 : 0;
     auto frameTemp = m_cl->createFrameBuffer(ALIGN(rect->w + x_offset, 2), ALIGN(rect->h + y_offset, 2), RGY_CSP_YUVA444, RGY_CSP_BIT_DEPTH[RGY_CSP_YUVA444]);
     frameTemp->queueMapBuffer(queue, CL_MAP_WRITE, wait_events);
-    frameTemp->mapEvent().wait();
-    auto img = frameTemp->mappedHost();
+    frameTemp->mapWait();
+    auto img = frameTemp->mappedHost()->frameInfo();
 
     auto planeY = getPlane(&img, RGY_PLANE_Y);
     auto planeU = getPlane(&img, RGY_PLANE_U);
@@ -382,12 +382,19 @@ SubImageData RGYFilterSubburn::bitmapRectToImage(const AVSubtitleRect *rect, con
 }
 
 
-RGY_ERR RGYFilterSubburn::procFrameBitmap(RGYFrameInfo *pOutputFrame, const sInputCrop &crop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterSubburn::procFrameBitmap(RGYFrameInfo *pOutputFrame, const int64_t frameTimeMs, const sInputCrop &crop, const bool forced_subs_only, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     if (m_subData) {
         if (m_subData->num_rects != m_subImages.size()) {
             for (uint32_t irect = 0; irect < m_subData->num_rects; irect++) {
                 const AVSubtitleRect *rect = m_subData->rects[irect];
-                if (rect->w > 0 && rect->h > 0) {
+                if (forced_subs_only && !(rect->flags & AV_SUBTITLE_FLAG_FORCED)) {
+                    AddMessage(RGY_LOG_DEBUG, _T("skipping non-forced sub at %s\n"), getTimestampString(frameTimeMs, av_make_q(1, 1000)).c_str());
+                    // 空の値をいれる
+                    m_subImages.push_back(SubImageData(std::unique_ptr<RGYCLFrame>(), std::unique_ptr<RGYCLFrame>(), 0, 0));
+                } else if (rect->w == 0 || rect->h == 0) {
+                    // 空の値をいれる
+                    m_subImages.push_back(SubImageData(std::unique_ptr<RGYCLFrame>(), std::unique_ptr<RGYCLFrame>(), 0, 0));
+                } else {
                     m_subImages.push_back(bitmapRectToImage(rect, pOutputFrame, crop, queue, wait_events));
                 }
             }
@@ -402,14 +409,16 @@ RGY_ERR RGYFilterSubburn::procFrameBitmap(RGYFrameInfo *pOutputFrame, const sInp
             return RGY_ERR_INVALID_PARAM;
         }
         for (uint32_t irect = 0; irect < m_subImages.size(); irect++) {
-            const RGYFrameInfo *pSubImg = &m_subImages[irect].image->frame;
-            auto err = procFrame(pOutputFrame, pSubImg, m_subImages[irect].x, m_subImages[irect].y,
-                prm->subburn.transparency_offset, prm->subburn.brightness, prm->subburn.contrast, queue, wait_events, event);
-            if (err != RGY_ERR_NONE) {
-                AddMessage(RGY_LOG_ERROR, _T("error at subburn(%s): %s.\n"),
-                    RGY_CSP_NAMES[pOutputFrame->csp],
-                    get_err_mes(err));
-                return RGY_ERR_CUDA;
+            if (m_subImages[irect].image) {
+                const RGYFrameInfo *pSubImg = &m_subImages[irect].image->frame;
+                auto err = procFrame(pOutputFrame, pSubImg, m_subImages[irect].x, m_subImages[irect].y,
+                    prm->subburn.transparency_offset, prm->subburn.brightness, prm->subburn.contrast, queue, wait_events, event);
+                if (err != RGY_ERR_NONE) {
+                    AddMessage(RGY_LOG_ERROR, _T("error at subburn(%s): %s.\n"),
+                        RGY_CSP_NAMES[pOutputFrame->csp],
+                        get_err_mes(err));
+                    return RGY_ERR_CUDA;
+                }
             }
         }
     }
@@ -424,9 +433,14 @@ RGYFilterSubburn::RGYFilterSubburn(shared_ptr<RGYOpenCLContext> context) : RGYFi
     m_outCodecDecode(nullptr),
     m_outCodecDecodeCtx(unique_ptr<AVCodecContext, decltype(&avcodec_close)>(nullptr, avcodec_close)),
     m_subData(),
+    m_subImages(),
     m_assLibrary(unique_ptr<ASS_Library, decltype(&ass_library_done)>(nullptr, ass_library_done)),
     m_assRenderer(unique_ptr<ASS_Renderer, decltype(&ass_renderer_done)>(nullptr, ass_renderer_done)),
-    m_assTrack(unique_ptr<ASS_Track, decltype(&ass_free_track)>(nullptr, ass_free_track)) {
+    m_assTrack(unique_ptr<ASS_Track, decltype(&ass_free_track)>(nullptr, ass_free_track)),
+    m_resize(),
+    m_poolPkt(nullptr),
+    m_queueSubPackets(),
+    m_subburn() {
     m_name = _T("subburn");
 }
 
@@ -593,11 +607,17 @@ RGY_ERR RGYFilterSubburn::initAVCodec(const std::shared_ptr<RGYFilterParamSubbur
             }
         }
         AddMessage(RGY_LOG_DEBUG, _T("set \"sub_charenc\" to \"%s\""), char_to_tstring(prm->subburn.charcode).c_str());
-        if (0 > (ret = av_dict_set(&pCodecOpts, "sub_text_format", "ass", 0))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to set \"sub_text_format\" option for subtitle decoder: %s\n"), qsv_av_err2str(ret).c_str());
-            return RGY_ERR_NULL_PTR;
+
+        const auto avcodec_ver = avcodec_version();
+        const auto avcodec_ver_major = (avcodec_ver >> 16) & 0xff;
+        const auto avcodec_ver_minor = (avcodec_ver >>  8) & 0xff;
+        if (avcodec_ver_major < 59 || (avcodec_ver_major == 59 && avcodec_ver_minor <= 8)) {
+            if (0 > (ret = av_dict_set(&pCodecOpts, "sub_text_format", "ass", 0))) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to set \"sub_text_format\" option for subtitle decoder: %s\n"), qsv_av_err2str(ret).c_str());
+                return RGY_ERR_NULL_PTR;
+            }
+            AddMessage(RGY_LOG_DEBUG, _T("set \"sub_text_format\" to \"ass\""));
         }
-        AddMessage(RGY_LOG_DEBUG, _T("set \"sub_text_format\" to \"ass\""));
     }
     if (0 > (ret = avcodec_open2(m_outCodecDecodeCtx.get(), m_outCodecDecode, &pCodecOpts))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to open decoder for %s: %s\n"),
@@ -683,7 +703,7 @@ RGY_ERR RGYFilterSubburn::InitLibAss(const std::shared_ptr<RGYFilterParamSubburn
     if (sar.num * sar.den > 0) {
         par = (double)sar.num / sar.den;
     }
-    ass_set_aspect_ratio(m_assRenderer.get(), 1, par);
+    ass_set_pixel_aspect(m_assRenderer.get(), par);
 
     if (m_outCodecDecodeCtx && m_outCodecDecodeCtx->subtitle_header && m_outCodecDecodeCtx->subtitle_header_size > 0) {
         ass_process_codec_private(m_assTrack.get(), (char *)m_outCodecDecodeCtx->subtitle_header, m_outCodecDecodeCtx->subtitle_header_size);
@@ -692,13 +712,11 @@ RGY_ERR RGYFilterSubburn::InitLibAss(const std::shared_ptr<RGYFilterParamSubburn
 }
 
 RGY_ERR RGYFilterSubburn::readSubFile() {
-    AVPacket pkt;
-    av_init_packet(&pkt);
-    while (av_read_frame(m_formatCtx.get(), &pkt) >= 0) {
-        if (pkt.stream_index == m_subtitleStreamIndex) {
-            addStreamPacket(&pkt);
-        } else {
-            av_packet_unref(&pkt);
+    for (auto pkt = m_poolPkt->getFree();
+        av_read_frame(m_formatCtx.get(), pkt.get()) >= 0;
+        pkt = m_poolPkt->getFree()) {
+        if (pkt->stream_index == m_subtitleStreamIndex) {
+            addStreamPacket(pkt.release());
         }
     }
     return RGY_ERR_NONE;
@@ -712,6 +730,7 @@ RGY_ERR RGYFilterSubburn::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+    m_poolPkt = prm->poolPkt;
     //パラメータチェック
     if ((sts = checkParam(prm)) != RGY_ERR_NONE) {
         return sts;
@@ -786,7 +805,7 @@ int RGYFilterSubburn::targetTrackIdx() {
 }
 
 RGY_ERR RGYFilterSubburn::addStreamPacket(AVPacket *pkt) {
-    m_queueSubPackets.push(*pkt);
+    m_queueSubPackets.push(pkt);
     const auto log_level = RGY_LOG_TRACE;
     if (m_pLog != nullptr && log_level >= m_pLog->getLogLevel(RGY_LOGT_VPP)) {
         auto prm = std::dynamic_pointer_cast<RGYFilterParamSubburn>(m_param);
@@ -814,9 +833,9 @@ RGY_ERR RGYFilterSubburn::procFrame(RGYFrameInfo *pOutputFrame, RGYOpenCLQueue &
     const int64_t vidInputOffsetMs = (prm->videoInputStream && prm->subburn.vid_ts_offset) ? av_rescale_q(prm->videoInputFirstKeyPts, prm->videoInputStream->time_base, { 1, 1000 }) : 0;
     const int64_t tsOffsetMs = (int64_t)(prm->subburn.ts_offset * 1000.0 + 0.5);
 
-    AVPacket pkt;
+    AVPacket *pkt = nullptr;
     while (m_queueSubPackets.front_copy_no_lock(&pkt)) {
-        const auto pktTimeMs = av_rescale_q(pkt.pts, inputSubStream->time_base, { 1, 1000 }) - vidInputOffsetMs + tsOffsetMs;
+        const auto pktTimeMs = av_rescale_q(pkt->pts, inputSubStream->time_base, { 1, 1000 }) - vidInputOffsetMs + tsOffsetMs;
         if (!(m_subType & AV_CODEC_PROP_TEXT_SUB)) {
             //字幕パケットのptsが、フレームのptsより古ければ、処理する必要がある
             if (nFrameTimeMs < pktTimeMs) {
@@ -835,7 +854,7 @@ RGY_ERR RGYFilterSubburn::procFrame(RGYFrameInfo *pOutputFrame, RGYOpenCLQueue &
 
         //字幕パケットをデコードする
         int got_sub = 0;
-        if (0 > avcodec_decode_subtitle2(m_outCodecDecodeCtx.get(), m_subData.get(), &got_sub, &pkt)) {
+        if (0 > avcodec_decode_subtitle2(m_outCodecDecodeCtx.get(), m_subData.get(), &got_sub, pkt)) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to decode subtitle.\n"));
             return RGY_ERR_NONE;
         }
@@ -857,7 +876,7 @@ RGY_ERR RGYFilterSubburn::procFrame(RGYFrameInfo *pOutputFrame, RGYOpenCLQueue &
                 ass_process_chunk(m_assTrack.get(), ass, (int)strlen(ass), nStartTime, nDuration);
             }
         }
-        av_packet_unref(&pkt);
+        m_poolPkt->returnFree(&pkt);
     }
 
     if (m_subType & AV_CODEC_PROP_TEXT_SUB) {
@@ -879,7 +898,7 @@ RGY_ERR RGYFilterSubburn::procFrame(RGYFrameInfo *pOutputFrame, RGYOpenCLQueue &
             }
             AddMessage(RGY_LOG_TRACE, _T("burn subtitle into video frame (%s)"),
                 getTimestampString(nFrameTimeMs, av_make_q(1, 1000)).c_str());
-            return procFrameBitmap(pOutputFrame, prm->crop, queue, wait_events, event);
+            return procFrameBitmap(pOutputFrame, nFrameTimeMs, prm->crop, prm->subburn.forced_subs_only, queue, wait_events, event);
         }
     }
     return RGY_ERR_NONE;

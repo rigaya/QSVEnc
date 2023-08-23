@@ -60,7 +60,11 @@ RGY_ERR RGYFilterEdgelevel::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrame
 }
 
 RGY_ERR RGYFilterEdgelevel::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
-    auto srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY);
+    auto srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY, &m_srcImagePool);
+    if (!srcImage) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to create image for input frame.\n"));
+        return RGY_ERR_MEM_OBJECT_ALLOCATION_FAILURE;
+    }
     for (int i = 0; i < RGY_CSP_PLANES[pOutputFrame->csp]; i++) {
         auto planeDst = getPlane(pOutputFrame, (RGY_PLANE)i);
         auto planeSrc = getPlane(&srcImage->frame, (RGY_PLANE)i);
@@ -75,7 +79,7 @@ RGY_ERR RGYFilterEdgelevel::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrame
     return RGY_ERR_NONE;
 }
 
-RGYFilterEdgelevel::RGYFilterEdgelevel(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_edgelevel() {
+RGYFilterEdgelevel::RGYFilterEdgelevel(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_edgelevel(), m_srcImagePool() {
     m_name = _T("edgelevel");
 }
 
@@ -112,8 +116,10 @@ RGY_ERR RGYFilterEdgelevel::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<R
         prm->edgelevel.white = clamp(prm->edgelevel.white, 0.0f, 31.0f);
         AddMessage(RGY_LOG_WARN, _T("white should be in range of %.1f - %.1f.\n"), 0.0f, 31.0f);
     }
+    auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamEdgelevel>(m_param);
     if (!m_edgelevel.get()
-        || std::dynamic_pointer_cast<RGYFilterParamEdgelevel>(m_param)->edgelevel != prm->edgelevel) {
+        || !prmPrev
+        || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]) {
         const auto options = strsprintf("-D Type=%s -D bit_depth=%d",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp]);
@@ -175,6 +181,7 @@ RGY_ERR RGYFilterEdgelevel::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
 }
 
 void RGYFilterEdgelevel::close() {
+    m_srcImagePool.clear();
     m_frameBuf.clear();
     m_edgelevel.clear();
     m_cl.reset();

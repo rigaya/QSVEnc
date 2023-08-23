@@ -137,7 +137,12 @@ RGY_ERR RGYFilterWarpsharp::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrame
     }
     const float threshold = prm->warpsharp.threshold;
     const float depth = prm->warpsharp.depth;
-    auto srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY);
+    auto srcImage = m_cl->createImageFromFrameBuffer(*pInputFrame, true, CL_MEM_READ_ONLY, &m_srcImagePool);
+    if (!srcImage) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to create image for input frame.\n"));
+        return RGY_ERR_MEM_OBJECT_ALLOCATION_FAILURE;
+    }
+
     const auto planeInputY = getPlane(pInputFrame, RGY_PLANE_Y);
     const auto planeInputU = getPlane(pInputFrame, RGY_PLANE_U);
     const auto planeInputV = getPlane(pInputFrame, RGY_PLANE_V);
@@ -188,7 +193,7 @@ RGY_ERR RGYFilterWarpsharp::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrame
     return RGY_ERR_NONE;
 }
 
-RGYFilterWarpsharp::RGYFilterWarpsharp(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_warpsharp(), m_mask() {
+RGYFilterWarpsharp::RGYFilterWarpsharp(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_warpsharp(), m_mask(), m_srcImagePool() {
     m_name = _T("warpsharp");
 }
 
@@ -237,8 +242,11 @@ RGY_ERR RGYFilterWarpsharp::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<R
     if ((sts = checkParam(prm)) != RGY_ERR_NONE) {
         return sts;
     }
+    auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamWarpsharp>(m_param);
     if (!m_warpsharp.get()
-        || std::dynamic_pointer_cast<RGYFilterParamWarpsharp>(m_param)->warpsharp != prm->warpsharp) {
+        || !prmPrev
+        || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]
+        || prmPrev->warpsharp.type != prm->warpsharp.type) {
         const auto options = strsprintf("-D Type=%s -D bit_depth=%d -D blur_range=%d"
             " -D WARPSHARP_BLOCK_X=%d -D WARPSHARP_BLOCK_Y=%d",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
@@ -308,6 +316,7 @@ RGY_ERR RGYFilterWarpsharp::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
 }
 
 void RGYFilterWarpsharp::close() {
+    m_srcImagePool.clear();
     m_frameBuf.clear();
     m_warpsharp.clear();
     m_cl.reset();

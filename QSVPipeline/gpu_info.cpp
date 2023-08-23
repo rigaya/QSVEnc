@@ -35,6 +35,14 @@
 #include "DeviceId.h"
 #include "rgy_osdep.h"
 #include "rgy_util.h"
+#include "gpu_info.h"
+
+#if !FOR_AUO
+#include <optional>
+#include "qsv_prm.h"
+
+std::optional<RGYOpenCLDeviceInfo> getDeviceCLInfoQSV(const QSVDeviceNum dev);
+#endif
 
 typedef struct IntelDeviceInfo {
     unsigned int GPUMemoryBytes;
@@ -105,18 +113,18 @@ static cl_int cl_create_info_string(const RGYOpenCLDeviceInfo *clinfo, const Int
 #endif //ENABLE_OPENCL
 
 #if (defined(_WIN32) || defined(_WIN64)) && !FOR_AUO
-int getIntelGPUInfo(IntelDeviceInfo *info) {
+int getIntelGPUInfo(IntelDeviceInfo *info, const int adapterID) {
     memset(info, 0, sizeof(info[0]));
 
     unsigned int VendorId, DeviceId, VideoMemory;
-    if (!getGraphicsDeviceInfo(&VendorId, &DeviceId, &VideoMemory)) {
+    if (!getGraphicsDeviceInfo(&VendorId, &DeviceId, &VideoMemory, adapterID)) {
         return 1;
     }
     info->GPUMemoryBytes = VideoMemory;
 
     IntelDeviceInfoHeader intelDeviceInfoHeader = { 0 };
     char intelDeviceInfoBuffer[1024];
-    if (GGF_SUCCESS != getIntelDeviceInfo(VendorId, &intelDeviceInfoHeader, &intelDeviceInfoBuffer)) {
+    if (GGF_SUCCESS != getIntelDeviceInfo(VendorId, adapterID, &intelDeviceInfoHeader, &intelDeviceInfoBuffer)) {
         return 1;
     }
 
@@ -145,45 +153,43 @@ tstring getGPUInfoVA() {
 
 #pragma warning (push)
 #pragma warning (disable: 4100)
-int getGPUInfo(const char *VendorName, TCHAR *buffer, unsigned int buffer_size, bool driver_version_only) {
+int getGPUInfo(const char *VendorName, TCHAR *buffer, const unsigned int buffer_size, const int adapterID, RGYOpenCLPlatform *clplatform) {
 #if LIBVA_SUPPORT
     _stprintf_s(buffer, buffer_size, _T("Intel Graphics / Driver : %s"), getGPUInfoVA().c_str());
     return 0;
 #elif ENABLE_OPENCL
-    int ret = CL_SUCCESS;
-    RGYOpenCL cl;
-    std::shared_ptr<RGYOpenCLPlatform> platform;
-    auto platforms = cl.getPlatforms(VendorName);
-    for (auto& p : platforms) {
-        if (p->createDeviceList(CL_DEVICE_TYPE_GPU) == RGY_ERR_NONE && p->devs().size() > 0) {
-            platform = p;
-            break;
-        }
-    }
-    if (driver_version_only) {
-        if (platform) {
-            _tcscpy_s(buffer, buffer_size, to_tchar(platform->dev(0).info().driver_version.c_str()).c_str());
-            return 0;
-        } else {
-            _tcscpy_s(buffer, buffer_size, _T("Unknown"));
-            return 1;
-        }
-    }
 
 #if !FOR_AUO
     IntelDeviceInfo info = { 0 };
-    const auto intelInfoRet = getIntelGPUInfo(&info);
+    const auto intelInfoRet = getIntelGPUInfo(&info, adapterID);
     IntelDeviceInfo* intelinfoptr = (intelInfoRet == 0) ? &info : nullptr;
 #else
     IntelDeviceInfo* intelinfoptr = nullptr;
 #endif
 
+
     RGYOpenCLDeviceInfo clinfo;
-    if (platform) {
-        clinfo = platform->dev(0).info();
+    if (clplatform) {
+        clinfo = clplatform->dev(0).info();
+    } else {
+#if !FOR_AUO
+        auto clinfoqsv = getDeviceCLInfoQSV((QSVDeviceNum)adapterID);
+        if (clinfoqsv.has_value()) {
+            clinfo = clinfoqsv.value();
+        }
+#else
+        RGYOpenCL cl;
+        auto platforms = cl.getPlatforms(VendorName);
+        for (auto& p : platforms) {
+            if (p->createDeviceList(CL_DEVICE_TYPE_GPU) == RGY_ERR_NONE && p->devs().size() > 0) {
+                clinfo = p->dev(0).info();
+                break;
+            }
+        }
+#endif
     }
-    cl_create_info_string((platform) ? &clinfo : nullptr, intelinfoptr, buffer, buffer_size);
-    return ret;
+    cl_create_info_string((clinfo.name.length() > 0) ? &clinfo : nullptr, intelinfoptr, buffer, buffer_size);
+    return 0;
 #else
     buffer[0] = _T('\0');
     return 1;

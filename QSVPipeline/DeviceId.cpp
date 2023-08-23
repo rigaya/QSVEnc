@@ -24,6 +24,7 @@
 #include <D3D11.h>
 #include <D3DCommon.h>
 #include <DXGI.h>
+#include <dxgi1_2.h>
 
 #include <oleauto.h>
 #include <initguid.h>
@@ -35,6 +36,16 @@
 
 static const int FIRST_GFX_ADAPTER = 0;
 
+// From DXUT.h
+#ifndef SAFE_DELETE
+#define SAFE_DELETE(p) { if (p) { delete (p); (p)=NULL; } }
+#endif    
+#ifndef SAFE_DELETE_ARRAY
+#define SAFE_DELETE_ARRAY(p) { if (p) { delete[] (p); (p)=NULL; } }
+#endif    
+#ifndef SAFE_RELEASE
+#define SAFE_RELEASE(p) { if (p) { (p)->Release(); (p)=NULL; } }
+#endif
 
 /*****************************************************************************************
  * getDXGIAdapterDesc
@@ -99,7 +110,7 @@ bool getDXGIAdapterDesc(DXGI_ADAPTER_DESC* AdapterDesc, unsigned int adapterNum 
                     // If secondary or multiple Gfx adapters will be used, the code needs to be 
                     // modified to accomodate that.
                     IDXGIAdapter* pAdapter;
-                    if( SUCCEEDED( pFactory->EnumAdapters( FIRST_GFX_ADAPTER, &pAdapter ) ) )
+                    if( SUCCEEDED( pFactory->EnumAdapters(adapterNum, &pAdapter ) ) )
                     {
                         pAdapter->GetDesc( AdapterDesc );
                         pAdapter->Release();
@@ -130,14 +141,15 @@ bool getDXGIAdapterDesc(DXGI_ADAPTER_DESC* AdapterDesc, unsigned int adapterNum 
 
 bool getGraphicsDeviceInfo( unsigned int* VendorId,
                             unsigned int* DeviceId,
-                            unsigned int* VideoMemory)
-{
+                            unsigned int* VideoMemory,
+                            const int adapterID
+) {
     bool retVal = false;
     if( ( VendorId == NULL ) || ( DeviceId == NULL ) )
         return retVal;
     
     DXGI_ADAPTER_DESC AdapterDesc;
-    if(getDXGIAdapterDesc(&AdapterDesc))
+    if(getDXGIAdapterDesc(&AdapterDesc, adapterID))
     {
         *VendorId = AdapterDesc.VendorId;
         *DeviceId = AdapterDesc.DeviceId;
@@ -344,7 +356,7 @@ bool getVideoMemory( unsigned int* pVideoMemory )
  *         GGF_E_UNSUPPORTED_DRIVER: Unsupported driver on Intel, data is invalid
  *****************************************************************************************************************************************/
 
-long getIntelDeviceInfo( unsigned int VendorId, IntelDeviceInfoHeader *pIntelDeviceInfoHeader, void *pIntelDeviceInfoBuffer )
+long getIntelDeviceInfo( unsigned int VendorId, const int adapterID, IntelDeviceInfoHeader *pIntelDeviceInfoHeader, void *pIntelDeviceInfoBuffer )
 {
     // The device information is stored in a D3D counter.
     // We must create a D3D device, find the Intel counter 
@@ -362,13 +374,31 @@ long getIntelDeviceInfo( unsigned int VendorId, IntelDeviceInfoHeader *pIntelDev
 
     ZeroMemory( &featureLevel, sizeof(D3D_FEATURE_LEVEL) );
 
+    IDXGIFactory2 *pDXGIFactory = nullptr;
+    if (FAILED(hr = CreateDXGIFactory(__uuidof(IDXGIFactory2), (void**)(&pDXGIFactory)))) {
+        return FALSE;
+    }
+    IDXGIAdapter *pAdapter = nullptr;
+    if (FAILED(hr = pDXGIFactory->EnumAdapters(adapterID, &pAdapter))) {
+        SAFE_RELEASE(pDXGIFactory);
+        return FALSE;
+    }
+    SAFE_RELEASE(pDXGIFactory);
+
+    static const D3D_FEATURE_LEVEL FeatureLevels[] = {
+        D3D_FEATURE_LEVEL_11_1,
+        D3D_FEATURE_LEVEL_11_0,
+        D3D_FEATURE_LEVEL_10_1,
+        D3D_FEATURE_LEVEL_10_0
+    };
     // First create the Device, must be SandyBridge or later to create D3D11 device
-    hr = D3D11CreateDevice( NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, NULL, NULL, NULL,
+    hr = D3D11CreateDevice( pAdapter, D3D_DRIVER_TYPE_UNKNOWN, NULL, 0, FeatureLevels, _countof(FeatureLevels),
                             D3D11_SDK_VERSION, &pDevice, &featureLevel, &pImmediateContext);
 
     if ( FAILED(hr) )
     {
         SAFE_RELEASE( pImmediateContext );
+        SAFE_RELEASE(pAdapter);
         SAFE_RELEASE( pDevice );
 
         printf("D3D11CreateDevice failed\n");
@@ -393,6 +423,7 @@ long getIntelDeviceInfo( unsigned int VendorId, IntelDeviceInfoHeader *pIntelDev
     if ( counterInfo.LastDeviceDependentCounter == 0 )
     {
         SAFE_RELEASE( pImmediateContext );
+        SAFE_RELEASE(pAdapter);
         SAFE_RELEASE( pDevice );
 
         printf("No device dependent counters\n");
@@ -455,6 +486,7 @@ long getIntelDeviceInfo( unsigned int VendorId, IntelDeviceInfoHeader *pIntelDev
     if ( pIntelCounterDesc.Counter == NULL )
     {
         SAFE_RELEASE( pImmediateContext );
+        SAFE_RELEASE(pAdapter);
         SAFE_RELEASE( pDevice );
 
         printf("Could not find counter\n");
@@ -472,6 +504,7 @@ long getIntelDeviceInfo( unsigned int VendorId, IntelDeviceInfoHeader *pIntelDev
     {
         SAFE_RELEASE( pIntelCounter );
         SAFE_RELEASE( pImmediateContext );
+        SAFE_RELEASE(pAdapter);
         SAFE_RELEASE( pDevice );
 
         printf("CreateCounter failed\n");
@@ -489,6 +522,7 @@ long getIntelDeviceInfo( unsigned int VendorId, IntelDeviceInfoHeader *pIntelDev
     {
         SAFE_RELEASE( pIntelCounter );
         SAFE_RELEASE( pImmediateContext );
+        SAFE_RELEASE(pAdapter);
         SAFE_RELEASE( pDevice );
 
         printf("Getdata failed \n");
@@ -503,6 +537,7 @@ long getIntelDeviceInfo( unsigned int VendorId, IntelDeviceInfoHeader *pIntelDev
     {
         SAFE_RELEASE( pIntelCounter );
         SAFE_RELEASE( pImmediateContext );
+        SAFE_RELEASE(pAdapter);
         SAFE_RELEASE( pDevice );
 
         printf("Getdata failed \n");
@@ -522,6 +557,7 @@ long getIntelDeviceInfo( unsigned int VendorId, IntelDeviceInfoHeader *pIntelDev
     //
     SAFE_RELEASE( pIntelCounter );
     SAFE_RELEASE( pImmediateContext );
+    SAFE_RELEASE(pAdapter);
     SAFE_RELEASE( pDevice );
 
     return GGF_SUCCESS;

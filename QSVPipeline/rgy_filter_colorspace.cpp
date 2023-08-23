@@ -36,6 +36,7 @@
 #include "rgy_filter_colorspace.h"
 #include "rgy_filter_colorspace_func.h"
 #include "rgy_resource.h"
+#include "rgy_filesystem.h"
 
 static const int COLORSPACE_BLOCK_X = 64;
 static const int COLORSPACE_BLOCK_Y = 4;
@@ -53,6 +54,7 @@ static const auto primXYList = make_array<std::pair<CspColorprim, mat3x3>>(
     make_pair(RGY_PRIM_ST170_M,   mat3x3(0.630, 0.340, 0.0,   0.310, 0.595, 0.0,   0.155, 0.070, 0.0) ),
     make_pair(RGY_PRIM_ST240_M,   mat3x3(0.630, 0.340, 0.0,   0.310, 0.595, 0.0,   0.155, 0.070, 0.0) ),
     make_pair(RGY_PRIM_ST431_2,   mat3x3(0.680, 0.320, 0.0,   0.265, 0.690, 0.0,   0.150, 0.060, 0.0) ),
+    make_pair(RGY_PRIM_ST432_1,   mat3x3(0.680, 0.320, 0.0,   0.265, 0.690, 0.0,   0.150, 0.060, 0.0) ), // RGY_PRIM_ST431_2 と同じ
     make_pair(RGY_PRIM_EBU3213_E, mat3x3(0.630, 0.340, 0.0,   0.295, 0.605, 0.0,   0.155, 0.077, 0.0) )
 );
 
@@ -98,6 +100,7 @@ mat3x3 matrixRGB2YUV(CspMatrix matrix) {
     case RGY_MATRIX_RGB:       return genMatrix(0.0,       0.0);
     case RGY_MATRIX_BT709:     return genMatrix(0.2126, 0.0722);
     case RGY_MATRIX_FCC:       return genMatrix(0.3,      0.11);
+    case RGY_MATRIX_BT470_BG:
     case RGY_MATRIX_ST170_M:   return genMatrix(0.299,   0.114);
     case RGY_MATRIX_ST240_M:   return genMatrix(0.212,   0.087);
     case RGY_MATRIX_BT2020_NCL:
@@ -561,6 +564,173 @@ protected:
     bool m_int2float;
 };
 
+enum class LUT3DIDX : int {
+    r,g,b
+};
+
+struct ColorspaceOpLUT3DPreLUT {
+    int size;
+    vec3f min;
+    vec3f max;
+    vec3f scale;
+};
+
+class ColorspaceOpLUT3D : public ColorspaceOp {
+public:
+    ColorspaceOpLUT3D() : m_table_file(), m_interp(LUT3DInterp::Nearest), m_rgbscale(), m_tableSize0(0), m_tableSize01(0), m_preLUT() { m_type = COLORSPACE_OP_TYPE_LUT3D; };
+    ColorspaceOpLUT3D(const tstring& table_file, LUT3DInterp interp, std::shared_ptr<RGYLog> log) : m_table_file(table_file), m_interp(interp), m_rgbscale(), m_tableSize0(0), m_tableSize01(0), m_preLUT(), m_log(log) {
+        m_type = COLORSPACE_OP_TYPE_LUT3D;
+    };
+    virtual ~ColorspaceOpLUT3D() {};
+    virtual std::string print() override;
+    virtual std::string printInfo() override;
+    virtual bool add(const ColorspaceOp *op) { UNREFERENCED_PARAMETER(op); return false; }
+    virtual RGY_ERR init(std::vector<uint8_t>& devParams);
+protected:
+    void setAdditionalParams(std::vector<uint8_t>& additionalParams, const std::vector<LUTVEC>& luttable);
+    RGY_ERR parseTable(std::vector<uint8_t>& additionalParams);
+    RGY_ERR parseCube(std::vector<uint8_t>& additionalParams);
+    void clearTable();
+    tstring m_table_file;
+    LUT3DInterp m_interp;
+    vec3f m_rgbscale;
+    int m_tableSize0;
+    int m_tableSize01;
+    ColorspaceOpLUT3DPreLUT m_preLUT;
+    std::shared_ptr<RGYLog> m_log;
+};
+
+RGY_ERR ColorspaceOpLUT3D::init(std::vector<uint8_t>& additionalParams) {
+    RGY_ERR err = parseTable(additionalParams);
+    if (err != RGY_ERR_NONE) return err;
+
+    return RGY_ERR_NONE;
+}
+
+std::string ColorspaceOpLUT3D::print() {
+    const vec3f scale_to_table = m_rgbscale * (float)(m_tableSize0 - 1);
+    auto str = strsprintf(R"(
+    { // lut3d
+    )");
+    if (m_preLUT.size > 0) {
+        str += strsprintf(R"(
+        //prelut
+        const int size = %d;
+        const float prelutmin[3]   = { %.16ef, %.16ef, %.16ef };
+        const float prelutscale[3] = { %.16ef, %.16ef, %.16ef };
+        x = lut3d_prelut3(x, size, prelutmin, prelutscale, getDevParamsPrelutC(params));
+        )",
+        m_preLUT.size,
+        m_preLUT.min(0), m_preLUT.min(1), m_preLUT.min(2),
+        m_preLUT.scale(0), m_preLUT.scale(1), m_preLUT.scale(2));
+    }
+    str += strsprintf(R"(
+        //lut3d main
+        const int lutSize0  = %d;
+        const int lutSize01 = %d;
+        const float lut_max_idx = (float)(lutSize0 - 1) + 1e-6f; 
+        x.x = clamp(x.x * %.16ef, 0.0f, lut_max_idx);
+        x.y = clamp(x.y * %.16ef, 0.0f, lut_max_idx);
+        x.z = clamp(x.z * %.16ef, 0.0f, lut_max_idx);
+        x = lut3d_interp_%s(x, getDevParamsLutC(params), lutSize0, lutSize01);
+    })",
+        m_tableSize0, m_tableSize01,
+        scale_to_table((int)LUT3DIDX::r), scale_to_table((int)LUT3DIDX::b), scale_to_table((int)LUT3DIDX::b),
+        tchar_to_string(get_cx_desc(list_vpp_colorspace_lut3d_interp, (int)m_interp)).c_str());
+    return str;
+}
+
+std::string ColorspaceOpLUT3D::printInfo() {
+    return strsprintf("lut3d: table=%s\n"
+        "                                  size=%d, interp=%s",
+        tchar_to_string(m_table_file).c_str(),
+        m_tableSize0, tchar_to_string(get_cx_desc(list_vpp_colorspace_lut3d_interp, (int)m_interp)).c_str());
+}
+
+void ColorspaceOpLUT3D::clearTable() {
+    m_preLUT.size = 0;
+    m_preLUT.max = vec3f(0.0f, 0.0f, 0.0f);
+    m_preLUT.min = vec3f(0.0f, 0.0f, 0.0f);
+    m_preLUT.scale = vec3f(0.0f, 0.0f, 0.0f);
+    m_tableSize0 = 0;
+    m_tableSize01 = 0;
+    m_rgbscale = vec3f(0.0f, 0.0f, 0.0f);
+}
+
+RGY_ERR ColorspaceOpLUT3D::parseTable(std::vector<uint8_t>& additionalParams) {
+    if (check_ext(m_table_file.c_str(), { ".cube" })) {
+        return parseCube(additionalParams);
+    }
+    m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("Unsupported lut3d file type: %s\n"), m_table_file.c_str());
+    return RGY_ERR_UNSUPPORTED;
+}
+
+RGY_ERR ColorspaceOpLUT3D::parseCube(std::vector<uint8_t>& additionalParams) {
+    clearTable();
+
+    FILE *fptmp = nullptr;
+    if (_tfopen_s(&fptmp, m_table_file.c_str(), _T("r")) != 0) {
+        m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("Failed to open lut3d cube file: %s\n"), m_table_file.c_str());
+        return RGY_ERR_FILE_OPEN;
+    }
+    m_log->write(RGY_LOG_DEBUG, RGY_LOGT_VPP, _T("Opened lut3d cube file: %s\n"), m_table_file.c_str());
+    std::unique_ptr<FILE, fp_deleter> fp(fptmp, fp_deleter());
+    char buffer[512];
+    float lutmin[3] = { 0.0f, 0.0f, 0.0f };
+    float lutmax[3] = { 1.0f, 1.0f, 1.0f };
+    LUTVEC value;
+    memset(&value, 0, sizeof(value));
+
+    std::vector<LUTVEC> luttable;
+    size_t tableidx = 0;
+    while (fgets(buffer, _countof(buffer), fp.get()) != nullptr) {
+        if (buffer[0] == '#') continue;
+        if (buffer[0] == '\n') continue;
+        if (m_tableSize01 > 0
+            && sscanf_s(buffer, "%f %f %f", &value.x, &value.y, &value.z) == 3) {
+            const auto b = tableidx / m_tableSize01;
+            const auto g = (tableidx - m_tableSize01 * b) / m_tableSize0;
+            const auto r = tableidx - m_tableSize01 * b - m_tableSize0 * g;
+            if (b >= (size_t)m_tableSize0 || g >= (size_t)m_tableSize0 || r >= (size_t)m_tableSize0) {
+                return RGY_ERR_INVALID_DATA_TYPE;
+            }
+            luttable[r * m_tableSize01 + g * m_tableSize0 + b] = value;
+            tableidx++;
+        } else if (sscanf_s(buffer, "LUT_3D_SIZE %d", &m_tableSize0) == 1) {
+            m_tableSize01 = m_tableSize0 * m_tableSize0;
+            if (m_tableSize01 <= 0) {
+                m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("Invalid lut3d cube file: size %d\n"), m_tableSize01);
+                return RGY_ERR_INVALID_DATA_TYPE;
+            }
+            m_log->write(RGY_LOG_DEBUG, RGY_LOGT_VPP, _T("lut3d cube file: size %d\n"), m_tableSize01);
+            luttable.resize(m_tableSize0 * m_tableSize0 * m_tableSize0);
+        } else if (sscanf_s(buffer, "DOMAIN_MIN %f %f %f", &lutmin[0], &lutmin[1], &lutmin[2]) == 3
+                || sscanf_s(buffer, "DOMAIN_MAX %f %f %f", &lutmax[0], &lutmax[1], &lutmax[2]) == 3) {
+            // なにもしない
+        } 
+    }
+    if (tableidx != luttable.size()) {
+        m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("Invalid lut3d cube file: found %llu entry, which should be %llu\n"), (uint64_t)tableidx, (uint64_t)luttable.size());
+        return RGY_ERR_INVALID_DATA_TYPE;
+    }
+    for (int i = 0; i < 3; i++) {
+        m_rgbscale(i) = clamp(1.0f / (lutmax[i] - lutmin[i]), 0.0f, 1.0f);
+        m_log->write(RGY_LOG_DEBUG, RGY_LOGT_VPP, _T("lut3d cube file: rgbscale(%d): %f\n"), i, m_rgbscale(i));
+    }
+    setAdditionalParams(additionalParams, luttable);
+    return RGY_ERR_NONE;
+}
+
+void ColorspaceOpLUT3D::setAdditionalParams(std::vector<uint8_t>& additionalParams, const std::vector<LUTVEC>& luttable) {
+    RGYColorspaceDevParams *addPrmPtr = (RGYColorspaceDevParams *)additionalParams.data();
+    // LUTVECのアライメントをとるため、最初の位置を調整する
+    addPrmPtr->lut_offset = (int)rgy_ceil_int(additionalParams.size(), sizeof(LUTVEC));
+    m_log->write(RGY_LOG_DEBUG, RGY_LOGT_VPP, _T("lut3d table: lut_offset: %d, luttable size %llu\n"), addPrmPtr->lut_offset, sizeof(luttable[0]) * luttable.size());
+    additionalParams.resize(addPrmPtr->lut_offset + sizeof(luttable[0]) * luttable.size());
+    addPrmPtr = nullptr; // resizeで失効
+    memcpy(getDevParamsLut(additionalParams.data()), luttable.data(), sizeof(luttable[0]) * luttable.size());
+}
+
 bool ColorspaceOpMatrix::add(const ColorspaceOp *op) {
     if (op->getType() != m_type) return false;
     const auto opMatrix = dynamic_cast<const ColorspaceOpMatrix *>(op);
@@ -898,7 +1068,8 @@ tstring ColorspaceOpCtrl::printInfoAll() const {
                 str += _T("\n                           ");
             }
             str += op_str.substr(1);
-        } else if (op.ops->getType() == COLORSPACE_OP_TYPE_HDR2SDR) {
+        } else if (op.ops->getType() == COLORSPACE_OP_TYPE_HDR2SDR
+                || op.ops->getType() == COLORSPACE_OP_TYPE_LUT3D) {
             if (str.length() > 0) {
                 str += _T("\n                           ");
             }
@@ -1090,6 +1261,15 @@ RGY_ERR ColorspaceOpCtrl::addColorspaceOpHDR2SDRBT2390(vector<ColorspaceOpInfo> 
     return RGY_ERR_NONE;
 }
 
+RGY_ERR ColorspaceOpCtrl::addColorspaceOpLUT3D(vector<ColorspaceOpInfo> &ops, const VideoVUIInfo &from, const LUT3DParams &prm, std::vector<uint8_t>& additionalParams) {
+    auto op = make_unique<ColorspaceOpLUT3D>(prm.table_file, prm.interp, m_log);
+    if (auto ret = op->init(additionalParams); ret != RGY_ERR_NONE) {
+        return ret;
+    }
+    ops.push_back(ColorspaceOpInfo(from, from, std::move(op)));
+    return RGY_ERR_NONE;
+}
+
 bool is_valid_2020cl(const VideoVUIInfo &csp) {
     return csp.matrix == RGY_MATRIX_BT2020_CL && transferEquivbt709(csp.transfer);
 }
@@ -1208,6 +1388,34 @@ struct ColorspaceHash {
     }
 };
 
+RGY_ERR ColorspaceOpCtrl::setLUT3D(const VideoVUIInfo &in, const VideoVUIInfo &out, double sdr_source_peak, bool approx_gamma, bool scene_ref, const LUT3DParams& prm, std::vector<uint8_t>& additionalParams, int height) {
+    auto csp_from1 = in;
+    if (csp_from1.matrix == RGY_MATRIX_UNSPECIFIED) {
+        csp_from1 = csp_from1.to(RGY_MATRIX_BT709);
+    }
+    if (csp_from1.transfer == RGY_TRANSFER_UNSPECIFIED) {
+        csp_from1 = csp_from1.to(RGY_TRANSFER_BT709);
+    }
+    const auto csp_to1 = csp_from1.to(RGY_MATRIX_RGB);
+    CHECK(setPath(csp_from1, csp_to1, sdr_source_peak, approx_gamma, scene_ref, height));
+
+    CHECK(addColorspaceOpLUT3D(m_path, csp_to1, prm, additionalParams));
+
+    auto csp_to2 = out;
+    csp_to2.apply_auto(csp_from1, height);
+    if (csp_to2.matrix == RGY_MATRIX_UNSPECIFIED) {
+        csp_to2 = csp_to2.to(csp_from1.matrix);
+    }
+    if (csp_to2.transfer == RGY_TRANSFER_UNSPECIFIED) {
+        csp_to2 = csp_to2.to(csp_from1.transfer);
+    }
+    if (csp_to2.colorprim == RGY_PRIM_UNSPECIFIED) {
+        csp_to2 = csp_to2.to(csp_from1.colorprim);
+    }
+    CHECK(setPath(csp_to1, csp_to2, sdr_source_peak, approx_gamma, scene_ref, height));
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR ColorspaceOpCtrl::setHDR2SDR(const VideoVUIInfo &in, const VideoVUIInfo &out, double sdr_source_peak, bool approx_gamma, bool scene_ref, const HDR2SDRParams& prm, int height) {
     auto csp_from1 = in;
     if (csp_from1.matrix == RGY_MATRIX_UNSPECIFIED) {
@@ -1235,6 +1443,7 @@ RGY_ERR ColorspaceOpCtrl::setHDR2SDR(const VideoVUIInfo &in, const VideoVUIInfo 
         CHECK(addColorspaceOpHDR2SDRBT2390(m_path, csp_to1, prm));
         break;
     default:
+        m_log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("Invalid tonemap type for hdr2sdr.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
     auto csp_to2 = out;
@@ -1242,7 +1451,16 @@ RGY_ERR ColorspaceOpCtrl::setHDR2SDR(const VideoVUIInfo &in, const VideoVUIInfo 
     if (csp_to2.matrix == RGY_MATRIX_UNSPECIFIED) {
         csp_to2 = csp_to2.to(RGY_MATRIX_BT709).to(RGY_TRANSFER_BT709).to(RGY_PRIM_BT709);
     }
-    const auto csp_from2 = csp_to2.to(RGY_PRIM_BT2020).to(RGY_TRANSFER_LINEAR).to(RGY_MATRIX_RGB);
+    auto csp_from2 = csp_to1;
+    if (csp_from2.matrix == RGY_MATRIX_UNSPECIFIED) {
+        csp_from2 = csp_from2.to(RGY_MATRIX_RGB);
+    }
+    if (csp_from2.transfer == RGY_TRANSFER_UNSPECIFIED) {
+        csp_from2 = csp_from2.to(RGY_TRANSFER_LINEAR);
+    }
+    if (csp_from2.colorprim == RGY_PRIM_UNSPECIFIED) {
+        csp_from2 = csp_from2.to(RGY_PRIM_BT2020);
+    }
     CHECK(setPath(csp_from2, csp_to2, sdr_source_peak, approx_gamma, scene_ref, height));
     return RGY_ERR_NONE;
 }
@@ -1346,7 +1564,7 @@ RGY_ERR ColorspaceOpCtrl::setOperation(RGY_CSP csp_in, RGY_CSP csp_out) {
 }
 
 const char *kernel_base1 = R"(
-float3 convert_colorspace_custom(float3 x) {
+float3 convert_colorspace_custom(float3 x, const __global RGYColorspaceDevParams *__restrict__ params) {
 )";
 
 
@@ -1365,8 +1583,9 @@ const char *kernel_base2 = R"(
 __kernel void kernel_colorspace(
     __global uchar *pDstY, __global uchar *pDstU, __global uchar *pDstV,
     const int dstPitch, const int dstWidth, const int dstHeight,
-    const __global uchar *__restrict__ pSrcY, const __global  uchar *pSrcU, const __global  uchar *pSrcV,
-    const int srcPitch, const int srcWidth, const int srcHeight) {
+    const __global uchar *__restrict__ pSrcY, const __global uchar *pSrcU, const __global uchar *pSrcV,
+    const int srcPitch, const int srcWidth, const int srcHeight,
+    const __global RGYColorspaceDevParams *__restrict__ params) {
     const int ix = get_global_id(0) * PIX_PER_THREAD;
     const int iy = get_global_id(1);
     if (ix + PIX_PER_THREAD - 1 < dstWidth && iy < dstHeight) {
@@ -1380,10 +1599,10 @@ __kernel void kernel_colorspace(
         float3 pix2 = make_float3((float)srcY.z, (float)srcU.z, (float)srcV.z);
         float3 pix3 = make_float3((float)srcY.w, (float)srcU.w, (float)srcV.w);
 
-        pix0 = convert_colorspace_custom(pix0);
-        pix1 = convert_colorspace_custom(pix1);
-        pix2 = convert_colorspace_custom(pix2);
-        pix3 = convert_colorspace_custom(pix3);
+        pix0 = convert_colorspace_custom(pix0, params);
+        pix1 = convert_colorspace_custom(pix1, params);
+        pix2 = convert_colorspace_custom(pix2, params);
+        pix3 = convert_colorspace_custom(pix3, params);
 
         TYPE4 dstY, dstU, dstV;
         dstY.x = toPix(pix0.x); dstU.x = toPix(pix0.y); dstV.x = toPix(pix0.z);
@@ -1430,7 +1649,8 @@ RGY_ERR RGYFilterColorspace::procFrame(RGYFrameInfo *pOutputFrame, const RGYFram
         (cl_mem)planeOutputY.ptr[0], (cl_mem)planeOutputU.ptr[0], (cl_mem)planeOutputV.ptr[0],
         planeOutputY.pitch[0], planeOutputY.width, planeOutputY.height,
         (cl_mem)planeInputY.ptr[0], (cl_mem)planeInputU.ptr[0], (cl_mem)planeInputV.ptr[0],
-        planeInputY.pitch[0], planeInputY.width, planeInputY.height);
+        planeInputY.pitch[0], planeInputY.width, planeInputY.height,
+        (additionalParamsDev) ? additionalParamsDev->mem() : nullptr);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("error at %s (procFrame(%s)): %s.\n"),
             char_to_tstring(kernel_name).c_str(), RGY_CSP_NAMES[planeOutputY.csp], get_err_mes(err));
@@ -1439,32 +1659,8 @@ RGY_ERR RGYFilterColorspace::procFrame(RGYFrameInfo *pOutputFrame, const RGYFram
     return RGY_ERR_NONE;
 }
 
-std::string RGYFilterColorspace::getEmbeddedResourceStr(const tstring &name, const tstring &type) {
-    std::string data_str;
-    AddMessage(RGY_LOG_DEBUG, _T("Load resource type: %s, name: %s\n"), type.c_str(), name.c_str());
-    {
-        char *data = nullptr;
-        int size = getEmbeddedResource((void **)&data, name.c_str(), type.c_str());
-        if (size == 0) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to load %s(m_colorspace)\n"), name.c_str());
-        } else {
-
-            auto datalen = size;
-            {
-                const uint8_t *ptr = (const uint8_t *)data;
-                if (ptr[0] == 0xEF && ptr[1] == 0xBB && ptr[2] == 0xBF) { //skip UTF-8 BOM
-                    data += 3;
-                    datalen -= 3;
-                }
-            }
-            data_str = std::string(data, datalen);
-        }
-    }
-    return data_str;
-}
-
 std::string RGYFilterColorspace::genKernelCode() {
-    const auto colorspace_func_h_cl = getEmbeddedResourceStr(_T("RGY_FILTER_COLORSPACE_CL"), _T("EXE_DATA"));
+    const auto colorspace_func_h_cl = getEmbeddedResourceStr(_T("RGY_FILTER_COLORSPACE_CL"), _T("EXE_DATA"), m_cl->getModuleHandle());
 
     std::string kernel;
     kernel += colorspace_func_h_cl;
@@ -1474,7 +1670,7 @@ std::string RGYFilterColorspace::genKernelCode() {
     return kernel;
 }
 
-RGYFilterColorspace::RGYFilterColorspace(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), crop(), opCtrl(), m_colorspace() {
+RGYFilterColorspace::RGYFilterColorspace(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), crop(), opCtrl(), m_colorspace(), additionalParams(), additionalParamsDev() {
     m_name = _T("colorspace");
 }
 
@@ -1484,6 +1680,14 @@ RGYFilterColorspace::~RGYFilterColorspace() {
 RGY_ERR RGYFilterColorspace::check_param(shared_ptr<RGYFilterParamColorspace> prm) {
     if (prm->frameOut.height <= 0 || prm->frameOut.width <= 0) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->colorspace.hdr2sdr.ldr_nits <= 0.0) {
+        AddMessage(RGY_LOG_ERROR, _T("ldr_nits must be positive value.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->colorspace.hdr2sdr.hdr_source_peak <= 0.0) {
+        AddMessage(RGY_LOG_ERROR, _T("source_peak must be positive value.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
     return RGY_ERR_NONE;
@@ -1532,6 +1736,11 @@ RGY_ERR RGYFilterColorspace::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
 
     auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamColorspace>(m_param);
     if (!prmPrev || prmPrev->colorspace != prm->colorspace) {
+        additionalParams.resize(sizeof(RGYColorspaceDevParams));
+        RGYColorspaceDevParams* addPrmPtr = (RGYColorspaceDevParams*)additionalParams.data();
+        addPrmPtr->lut_offset = 0;
+        addPrmPtr->prelut_offset = 0;
+
         const auto filterInCsp = prm->frameOut.csp;
         if (RGY_CSP_CHROMA_FORMAT[filterInCsp] == RGY_CHROMAFMT_RGB) {
             if (prm->colorspace.convs.begin()->from.matrix != RGY_MATRIX_RGB) {
@@ -1545,7 +1754,25 @@ RGY_ERR RGYFilterColorspace::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
             prm->frameOut.csp = RGY_CSP_YUV444;
         }
         opCtrl = std::make_unique<ColorspaceOpCtrl>(pPrintMes);
-        if (prm->colorspace.hdr2sdr.tonemap != HDR2SDR_DISABLED) {
+        if (prm->colorspace.lut3d.table_file.length() > 0) {
+            if (prm->colorspace.hdr2sdr.tonemap != HDR2SDR_DISABLED) {
+                AddMessage(RGY_LOG_ERROR, _T("lut3d and hdr2sdr cannot be used at the same time.\n"));
+                return RGY_ERR_UNSUPPORTED;
+            }
+            const auto &convbegin = prm->colorspace.convs.begin();
+            const auto from = convbegin->from;
+            const auto source_peak = convbegin->sdr_source_peak;
+            const auto approx_gamma = convbegin->approx_gamma;
+            const auto scene_ref = convbegin->scene_ref;
+            const auto& to = prm->colorspace.convs.back().to;
+            if ((sts = opCtrl->setLUT3D(from, to, source_peak, approx_gamma, scene_ref, prm->colorspace.lut3d, additionalParams, prm->frameIn.height)) != RGY_ERR_NONE) {
+                return sts;
+            }
+        } else if (prm->colorspace.hdr2sdr.tonemap != HDR2SDR_DISABLED) {
+            if (prm->colorspace.lut3d.table_file.length() > 0) {
+                AddMessage(RGY_LOG_ERROR, _T("lut3d and hdr2sdr cannot be used at the same time.\n"));
+                return RGY_ERR_UNSUPPORTED;
+            }
             const auto &convbegin = prm->colorspace.convs.begin();
             const auto from = convbegin->from;
             const auto source_peak = convbegin->sdr_source_peak;
@@ -1563,11 +1790,25 @@ RGY_ERR RGYFilterColorspace::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
             }
         }
         opCtrl->setOperation(filterInCsp, filterInCsp);
+        if (additionalParams.size() > 0) {
+            AddMessage(RGY_LOG_DEBUG, _T("additional param size: %llu.\n"), (uint64_t)additionalParams.size());
+            additionalParamsDev = m_cl->copyDataToBuffer(additionalParams.data(), additionalParams.size(), CL_MEM_READ_ONLY, m_cl->queue().get());
+            if (!additionalParamsDev) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to allocate memory for additional params.\n"));
+                return RGY_ERR_NULL_PTR;
+            }
+        }
         const auto options = strsprintf("-D TYPE=%s -D TYPE4=%s -D bit_depth=%d -D IS_OPENCL=1",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort4" : "uchar4",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp]);
-        m_colorspace.set(m_cl->buildAsync(genKernelCode(), options.c_str()));
+        const auto kernel = genKernelCode();
+        if (m_pLog->getLogLevel(RGY_LOGT_VPP_BUILD) <= RGY_LOG_DEBUG) {
+            const auto sep = _T("--------------------------------------------------------------------------\n");
+            const auto mes = tstring(sep) + _T("Generated colorspace kernel code...\n") + sep + char_to_tstring(kernel) + sep;
+            AddMessage(RGY_LOG_DEBUG, mes);
+        }
+        m_colorspace.set(m_cl->buildAsync(kernel, options.c_str()));
     }
 
     auto err = AllocFrameBuf(prm->frameOut, 1);
@@ -1651,6 +1892,7 @@ RGY_ERR RGYFilterColorspace::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
 
 void RGYFilterColorspace::close() {
     m_frameBuf.clear();
+    additionalParamsDev.reset();
     opCtrl.reset();
     crop.reset();
     m_colorspace.clear();

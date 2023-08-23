@@ -1,9 +1,9 @@
 ﻿// -----------------------------------------------------------------------------------------
-// QSVEnc by rigaya
+// x264guiEx/x265guiEx/svtAV1guiEx/ffmpegOut/QSVEnc/NVEnc/VCEEnc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
 //
-// Copyright (c) 2011-2016 rigaya
+// Copyright (c) 2010-2022 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -23,8 +23,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 //
-// ------------------------------------------------------------------------------------------
-
+// --------------------------------------------------------------------------------------------
 #pragma once
 #ifndef _EXE_VERSION_H_
 #define _EXE_VERSION_H_
@@ -38,6 +37,8 @@ int get_exe_version_info(const char *exe_path, int version[4]);
 int get_exe_version_from_cmd(const char *exe_path, const char *cmd_ver, int version[4]);
 
 int get_x264_rev(const char *x264fullpath);
+int get_x265_rev(const char *x265fullpath, int version[4]);
+int get_svtav1_rev(const char *svtav1fullpath, int version[4]);
 
 int get_x265ver_from_txt(const char *txt, int v[4]);
 

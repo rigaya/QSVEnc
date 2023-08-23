@@ -1,9 +1,9 @@
 ﻿// -----------------------------------------------------------------------------------------
-// QSVEnc by rigaya
+// x264guiEx/x265guiEx/svtAV1guiEx/ffmpegOut/QSVEnc/NVEnc/VCEEnc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
 //
-// Copyright (c) 2011-2016 rigaya
+// Copyright (c) 2010-2022 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -344,7 +344,7 @@ void write_conf_header_old5(CONF_GUIEX_OLD_V5 *save_conf) {
 void *guiEx_config::convert_qsvstgv1_to_stgv3(void *_conf, int size) {
     CONF_GUIEX_OLD_V5 *conf = (CONF_GUIEX_OLD_V5 *)calloc(sizeof(CONF_GUIEX_OLD_V5), 1);
     write_conf_header_old5(conf);
-    static_assert(sizeof(conf->qsv) == 3560, "sizeof(conf->qsv) not equal to 3560, which will break convert_qsvstgv2_to_stgv3().");
+    static_assert(sizeof(conf->qsv) == 3560, "sizeof(conf->enc) not equal to 3560, which will break convert_qsvstgv2_to_stgv3().");
     static_assert(sizeof(conf->vid) == 16,   "sizeof(conf->vid) not equal to 16,   which will break convert_qsvstgv2_to_stgv3().");
 
     //ブロック部分のコピー
@@ -462,7 +462,7 @@ void *guiEx_config::convert_qsvstgv5_to_stgv6(void *_conf) {
     COPY_BLOCK(oth, 4);
 #undef COPY_BLOCK
 
-    conf->qsv.codec          = conf_old->qsv.CodecId;
+    conf->enc.codec          = conf_old->qsv.CodecId;
     conf->vid.auo_tcfile_out = conf_old->vid.auo_tcfile_out;
     conf->vid.afs            = conf_old->vid.afs;
 
@@ -491,7 +491,7 @@ void *guiEx_config::convert_qsvstgv5_to_stgv6(void *_conf) {
 
     sInputParams prm;
     parse_cmd(&prm, cmd_full.c_str(), true);
-    strcpy_s(conf->qsv.cmd, gen_cmd(&prm, true).c_str());
+    strcpy_s(conf->enc.cmd, gen_cmd(&prm, true).c_str());
 
     strcpy_s(conf->conf_name, CONF_NAME_OLD_6);
 
@@ -528,7 +528,7 @@ static void init_qsvp_prm_oldv5(sInputParamsOld *prm) {
     prm->nAVBRAccuarcy     = QSV_DEFAULT_ACCURACY;
     prm->nAVBRConvergence  = QSV_DEFAULT_CONVERGENCE;
     prm->nIdrInterval      = 0;
-    prm->nBframes          = QSV_BFRAMES_AUTO;
+    prm->nBframes          = QSV_GOP_REF_DIST_AUTO-1;
     prm->nGOPLength        = QSV_DEFAULT_GOP_LEN;
     prm->nRef              = QSV_DEFAULT_REF;
     prm->bopenGOP          = false;
@@ -558,6 +558,8 @@ static void init_qsvp_prm_oldv5(sInputParamsOld *prm) {
     prm->nSessionThreadPriority = (mfxU16)get_value_from_chr(list_priority, _T("normal"));
 }
 
+#pragma warning(push)
+#pragma warning(disable: 4127) //C4127: 条件式が定数です。
 static tstring gen_cmd_oldv5(const sInputParamsOld *pParams, bool save_disabled_prm) {
     std::basic_stringstream<TCHAR> tmp;
     std::basic_stringstream<TCHAR> cmd;
@@ -999,3 +1001,4 @@ static tstring gen_cmd_oldv5(const sInputParamsOld *pParams, bool save_disabled_
     OPT_BOOL(_T("--timer-period-tuning"), _T("--no-timer-period-tuning"), bDisableTimerPeriodTuning);
     return cmd.str();
 }
+#pragma warning(pop)

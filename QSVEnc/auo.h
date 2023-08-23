@@ -1,9 +1,9 @@
 ﻿// -----------------------------------------------------------------------------------------
-// QSVEnc by rigaya
+// x264guiEx/x265guiEx/svtAV1guiEx/ffmpegOut/QSVEnc/NVEnc/VCEEnc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
 //
-// Copyright (c) 2011-2016 rigaya
+// Copyright (c) 2010-2022 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -31,11 +31,13 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <Windows.h>
+#include <string>
+#include "auo_version.h"
 
 const int   MAX_PATH_LEN          = 1024; //NTFSでは32768文字らしいが...いらんやろ
 const int   MAX_APPENDIX_LEN      = 63; //適当
 
-const int   MAX_CMD_LEN           = 8192; //コマンドラインの最大長はよくわからん
+const int   MAX_CMD_LEN           = 16 * 1024; //コマンドラインの最大長はよくわからん
 
 const DWORD AUDIO_BUFFER_DEFAULT  = 48000;
 const DWORD AUDIO_BUFFER_MAX      = AUDIO_BUFFER_DEFAULT * 30;
@@ -48,7 +50,29 @@ enum {
     VIDEO_OUTPUT_MPEG2    = 3,
 };
 
-static const char *const OUTPUT_FILE_EXT[]        = {  ".mp4",     ".mkv",     ".264" };
+#if ENCODER_QSV
+static const wchar_t *ENCODER_NAME_W = L"QSV";
+static const char    *ENOCDER_RAW_EXT = ".264";
+static const char    *ENCODER_APP_NAME = "QSVEnc";
+static const wchar_t *ENCODER_APP_NAME_W = L"QSVEnc";
+static const char    *ENCODER_REPLACE_MACRO = "%{qsvenccpath}";
+#elif ENCODER_NVENC
+static const wchar_t *ENCODER_NAME_W = L"NVENC";
+static const char    *ENOCDER_RAW_EXT = ".264";
+static const char    *ENCODER_APP_NAME = "NVEnc";
+static const wchar_t *ENCODER_APP_NAME_W = L"NVEnc";
+static const char    *ENCODER_REPLACE_MACRO = "%{nvenccpath}";
+#elif ENCODER_VCEENC
+static const wchar_t *ENCODER_NAME_W = L"VCE";
+static const char    *ENOCDER_RAW_EXT = ".264";
+static const char    *ENCODER_APP_NAME = "VCEEnc";
+static const wchar_t *ENCODER_APP_NAME_W = L"VCEEnc";
+static const char    *ENCODER_REPLACE_MACRO = "%{vceenccpath}";
+#else
+static_assert(false);
+#endif
+
+static const char *const OUTPUT_FILE_EXT[]        = {  ".mp4",     ".mkv",     ".264"    };
 static const char *const OUTPUT_FILE_EXT_FILTER[] = { "*.mp4",    "*.mkv",    "*.264"    };
 static const char *const OUTPUT_FILE_EXT_DESC[]   = { "mp4 file", "mkv file", "raw file" };
 
@@ -70,33 +94,20 @@ enum {
 };
 typedef DWORD AUO_RESULT;
 
-typedef struct {
-    WCHAR *text;
-    DWORD value;
-} PRIORITY_CLASS;
-
-const DWORD AVIUTLSYNC_PRIORITY_CLASS = 0;
-
-const PRIORITY_CLASS priority_table[] = {
-    {L"AviutlSync",       AVIUTLSYNC_PRIORITY_CLASS   },
-    {L"higher",           HIGH_PRIORITY_CLASS         },
-    {L"high",             ABOVE_NORMAL_PRIORITY_CLASS },
-    {L"normal",           NORMAL_PRIORITY_CLASS       },
-    {L"low",              BELOW_NORMAL_PRIORITY_CLASS },
-    {L"lower",            IDLE_PRIORITY_CLASS         },
-    {L"",                 NORMAL_PRIORITY_CLASS       },
-    {L"realtime(非推奨)", REALTIME_PRIORITY_CLASS     },
-    {NULL,                0                           }
-};
-
-typedef struct {
+typedef struct AUO_FONT_INFO {
     char   name[256]; //フォント名(family name)
     double size;      //フォントサイズ
     int    style;     //フォントスタイル
 } AUO_FONT_INFO;
 
-void write_log_line_fmt(int log_type_index, const char *format, ...);
-void write_log_auo_line_fmt(int log_type_index, const char *format, ... );
-void write_log_auo_enc_time(const char *mes, DWORD time);
+void write_log_line_fmt(int log_type_index, const wchar_t *format, ...);
+void write_log_auo_line_fmt(int log_type_index, const wchar_t *format, ...);
+void write_log_auo_enc_time(const wchar_t *mes, DWORD time);
+
+int load_lng(const char *lang);
+const char *get_auo_version_info();
+std::string get_last_out_stg_appendix();
+
+bool checkIfModuleLoaded(const wchar_t *moduleName);
 
 #endif //_AUO_H_

@@ -26,6 +26,9 @@
 #ifndef wrap
 #define wrap(x, low, high) (((x) < (low)) ? (((low)<<1)-(x)) : (((x) >= (high)) ? (((high)<<1) - (x)) : (x)))
 #endif
+#ifndef NULL
+#define NULL (0)
+#endif
 
 float exp_(float val) {
     return native_exp(clamp(val, -80.0f, 80.0f));
@@ -141,7 +144,9 @@ void dot_product0(
     const int pix_x_per_thread,
     const float mstd[thread_y_loop][4]
 ) {
+#if ENABLE_DP1_SHUFFLE_OPT
     const int laneid = get_sub_group_local_id();
+#endif
     #pragma unroll
     for (int ithy = 0; ithy < thread_y_loop; ithy++) {
         #pragma unroll

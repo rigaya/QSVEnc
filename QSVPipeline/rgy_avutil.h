@@ -59,23 +59,97 @@ extern "C" {
 #include <libavfilter/avfilter.h>
 #include <libavfilter/buffersink.h>
 #include <libavfilter/buffersrc.h>
+#if ENABLE_LIBAVDEVICE
+#include <libavdevice/avdevice.h>
+#endif
 }
 #pragma comment (lib, "avcodec.lib")
 #pragma comment (lib, "avformat.lib")
 #pragma comment (lib, "avutil.lib")
 #pragma comment (lib, "swresample.lib")
 #pragma comment (lib, "avfilter.lib")
+#if ENABLE_LIBAVDEVICE
+#pragma comment (lib, "avdevice.lib")
+#endif
 #pragma warning (pop)
 
 #include "rgy_log.h"
 #include "rgy_def.h"
 #include "rgy_util.h"
+#include "rgy_queue.h"
 
 #if _DEBUG
 #define RGY_AV_LOG_LEVEL AV_LOG_WARNING
 #else
 #define RGY_AV_LOG_LEVEL AV_LOG_ERROR
 #endif
+
+template<typename T>
+struct RGYAVDeleter {
+    RGYAVDeleter() : deleter(nullptr) {};
+    RGYAVDeleter(std::function<void(T**)> deleter) : deleter(deleter) {};
+    void operator()(T *p) { deleter(&p); }
+    std::function<void(T**)> deleter;
+};
+
+#define RGYPOOLAV_DEBUG 0
+#define RGYPOOLAV_COUNT 0
+
+template<typename T, T *Talloc(), void Tunref(T* ptr), void Tfree(T** ptr)>
+class RGYPoolAV {
+private:
+    RGYQueueMPMP<T*> queue;
+#if RGYPOOLAV_COUNT
+    std::atomic<uint64_t> allocated, reused;
+#endif
+public:
+    RGYPoolAV() : queue()
+#if RGYPOOLAV_COUNT
+        , allocated(0), reused(0)
+#endif
+    { queue.init(); }
+    ~RGYPoolAV() {
+#if RGYPOOLAV_COUNT
+        fprintf(stderr, "RGYPoolAV: allocated %lld, reused %lld\n", allocated, reused);
+#endif
+        queue.close([](T **ptr) { Tfree(ptr); });
+    }
+    std::unique_ptr<T, RGYAVDeleter<T>> getUnique(T *ptr) {
+        return std::unique_ptr<T, RGYAVDeleter<T>>(ptr, RGYAVDeleter<T>([this](T **ptr) { returnFree(ptr); }));
+    }
+    std::unique_ptr<T, RGYAVDeleter<T>> getFree() {
+#if RGYPOOLAV_DEBUG
+        T *ptr = Talloc();
+#else
+        T *ptr = nullptr;
+        if (!queue.front_copy_and_pop_no_lock(&ptr) || ptr == nullptr) {
+            ptr = Talloc();
+#if RGYPOOLAV_COUNT
+            allocated++;
+#endif
+        }
+#if RGYPOOLAV_COUNT
+        else {
+            reused++;
+        }
+#endif
+#endif
+        return getUnique(ptr);
+    }
+    void returnFree(T **ptr) {
+        if (ptr == nullptr || *ptr == nullptr) return;
+#if RGYPOOLAV_DEBUG
+        Tfree(ptr);
+#else
+        Tunref(*ptr);
+        queue.push(*ptr);
+        *ptr = nullptr;
+#endif
+    }
+};
+
+using RGYPoolAVPacket = RGYPoolAV<AVPacket, av_packet_alloc, av_packet_unref, av_packet_free>;
+using RGYPoolAVFrame = RGYPoolAV<AVFrame, av_frame_alloc, av_frame_unref, av_frame_free>;
 
 typedef struct CodecMap {
     AVCodecID avcodec_id;   //avcodecのコーデックID
@@ -98,9 +172,7 @@ static const CodecMap HW_DECODE_LIST[] = {
     { AV_CODEC_ID_MPEG1VIDEO, RGY_CODEC_MPEG1 },
     { AV_CODEC_ID_MPEG4,      RGY_CODEC_MPEG4 },
 #endif
-#if !ENCODER_VCEENC
     { AV_CODEC_ID_AV1,        RGY_CODEC_AV1 },
-#endif
     //{ AV_CODEC_ID_WMV3,       RGY_CODEC_VC1   },
 };
 
@@ -169,14 +241,9 @@ static tstring errorMesForCodec(const TCHAR *mes, AVCodecID targetCodec) {
 static const AVRational HW_NATIVE_TIMEBASE = { 1, (int)HW_TIMEBASE };
 static const TCHAR *AVCODEC_DLL_NAME[] = {
     _T("avcodec-59.dll"), _T("avformat-59.dll"), _T("avutil-57.dll"), _T("avfilter-8.dll"), _T("swresample-4.dll")
-};
-
-template<typename T>
-struct RGYAVDeleter {
-    RGYAVDeleter() : deleter(nullptr) {};
-    RGYAVDeleter(std::function<void(T**)> deleter) : deleter(deleter) {};
-    void operator()(T *p) { deleter(&p); }
-    std::function<void(T**)> deleter;
+#if ENABLE_LIBAVDEVICE
+    , _T("avdevice-59.dll")
+#endif
 };
 
 enum RGYAVCodecType : uint32_t {
@@ -188,6 +255,14 @@ enum RGYAVFormatType : uint32_t {
     RGY_AVFORMAT_DEMUX = 0x01,
     RGY_AVFORMAT_MUX   = 0x02,
 };
+
+static inline void pktFlagSetTrackID(AVPacket *pkt, const int trackID) {
+    pkt->flags = (int)(((uint32_t)pkt->flags & 0xffff) | ((uint32_t)trackID << 16)); //flagsの上位16bitには、trackIdへのポインタを格納しておく
+}
+
+static inline int pktFlagGetTrackID(const AVPacket *pkt) {
+    return (int)((uint32_t)pkt->flags >> 16);
+}
 
 int64_t rational_rescale(int64_t v, rgy_rational<int> from, rgy_rational<int> to);
 
@@ -260,6 +335,12 @@ bool usingAVProtocols(const std::string& filename, int bOutput);
 //バージョン情報の取得
 tstring getAVVersions();
 
+//avdeviceの初期化
+bool initAVDevices();
+
+//avdeviceのリストを取得
+tstring getAVDevices();
+
 MAP_PAIR_0_1_PROTO(csp, avpixfmt, AVPixelFormat, rgy, RGY_CSP);
 
 #define AV_DISPOSITION_UNSET (0x00000000)
@@ -271,6 +352,8 @@ tstring getDispositionStr(uint32_t disposition);
 
 #else
 #define AV_NOPTS_VALUE (-1)
+class RGYPoolAVPacket;
+class RGYPoolAVFrame;
 #endif //ENABLE_AVSW_READER
 
 #endif //__RGY_AVUTIL_H__

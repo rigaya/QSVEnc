@@ -131,7 +131,8 @@ const uint8_t* AVSC_CC rgy_avs_get_read_ptr_p(const AVS_VideoFrame * p, int plan
 
 RGYInputAvsPrm::RGYInputAvsPrm(RGYInputPrm base) :
     RGYInputPrm(base),
-    readAudio(false),
+    nAudioSelectCount(0),
+    ppAudioSelect(nullptr),
     avsdll() {
 
 }
@@ -223,7 +224,7 @@ RGY_ERR RGYInputAvs::load_avisynth(const tstring &avsdll) {
 }
 
 #if ENABLE_AVSW_READER
-RGY_ERR RGYInputAvs::InitAudio() {
+RGY_ERR RGYInputAvs::InitAudio(const RGYInputAvsPrm *input_prm) {
     auto format = avformat_alloc_context();
     if (format == nullptr) {
         AddMessage(RGY_LOG_ERROR, _T("failed to alloc format context.\n"));
@@ -278,14 +279,35 @@ RGY_ERR RGYInputAvs::InitAudio() {
     st.index = 0;
     st.timebase = st.stream->time_base;
     st.trackId = trackFullID(AVMEDIA_TYPE_AUDIO, (int)m_audio.size() + 1);
+
+    AudioSelect *pAudioSelect = nullptr; //トラックに対応するAudioSelect (字幕ストリームの場合はnullptrのまま)
+    for (int i = 0; i < input_prm->nAudioSelectCount; i++) {
+        if (input_prm->ppAudioSelect[i]->trackID == 1) {
+            pAudioSelect = input_prm->ppAudioSelect[i];
+        }
+    }
+    if (pAudioSelect == nullptr) {
+        //見つからなかったら、全指定(trackID = 0)のものを使用する
+        for (int i = 0; input_prm->nAudioSelectCount; i++) {
+            if (input_prm->ppAudioSelect[i]->trackID == 0) {
+                pAudioSelect = input_prm->ppAudioSelect[i];
+                break;
+            }
+        }
+    }
+    if (pAudioSelect) {
+        st.addDelayMs = pAudioSelect->addDelayMs;
+        memcpy(st.streamChannelSelect, pAudioSelect->streamChannelSelect, sizeof(st.streamChannelSelect));
+        memcpy(st.streamChannelOut,    pAudioSelect->streamChannelOut,    sizeof(st.streamChannelOut));
+    }
     m_audio.push_back(st);
     return RGY_ERR_NONE;
 }
 
-vector<AVPacket> RGYInputAvs::GetStreamDataPackets(int inputFrame) {
+std::vector<AVPacket*> RGYInputAvs::GetStreamDataPackets(int inputFrame) {
     UNREFERENCED_PARAMETER(inputFrame);
 
-    vector<AVPacket> pkts;
+    std::vector<AVPacket*> pkts;
     if (m_audio.size() == 0) {
         return pkts;
     }
@@ -301,23 +323,23 @@ vector<AVPacket> RGYInputAvs::GetStreamDataPackets(int inputFrame) {
     }
 
     const int size = avs_bytes_per_channel_sample(m_sAVSinfo) * samples * m_sAVSinfo->nchannels;
-    AVPacket pkt;
-    if (av_new_packet(&pkt, size) < 0) {
+    auto pkt = m_poolPkt->getFree();
+    if (av_new_packet(pkt.get(), size) < 0) {
         return pkts;
     }
-    pkt.pts = m_audioCurrentSample;
-    pkt.dts = m_audioCurrentSample;
-    pkt.duration = samples;
-    pkt.stream_index = m_audio.begin()->index;
-    pkt.flags = (pkt.flags & 0xffff) | ((uint32_t)m_audio.begin()->trackId << 16); //flagsの上位16bitには、trackIdへのポインタを格納しておく
+    pkt->pts = m_audioCurrentSample;
+    pkt->dts = m_audioCurrentSample;
+    pkt->duration = samples;
+    pkt->stream_index = m_audio.begin()->index;
+    pkt->flags = (pkt->flags & 0xffff) | ((uint32_t)m_audio.begin()->trackId << 16); //flagsの上位16bitには、trackIdへのポインタを格納しておく
 
-    m_sAvisynth->f_get_audio(m_sAVSclip, pkt.data, m_audioCurrentSample, samples);
+    m_sAvisynth->f_get_audio(m_sAVSclip, pkt->data, m_audioCurrentSample, samples);
     const auto avs_err = m_sAvisynth->f_clip_get_error(m_sAVSclip);
     if (avs_err) {
         AddMessage(RGY_LOG_ERROR, _T("Unknown error when reading audio frame from avisynth: %d.\n"), avs_err);
         return pkts;
     }
-    pkts.push_back(pkt);
+    pkts.push_back(pkt.release());
     m_audioCurrentSample += samples;
     return pkts;
 }
@@ -462,20 +484,25 @@ RGY_ERR RGYInputAvs::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
 
     m_inputVideoInfo.srcWidth = m_sAVSinfo->width;
     m_inputVideoInfo.srcHeight = m_sAVSinfo->height;
-    m_inputVideoInfo.fpsN = m_sAVSinfo->fps_numerator;
-    m_inputVideoInfo.fpsD = m_sAVSinfo->fps_denominator;
-    m_inputVideoInfo.frames = m_sAVSinfo->num_frames;
+    if (!rgy_rational<int>(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD).is_valid()) {
+        m_inputVideoInfo.fpsN = m_sAVSinfo->fps_numerator;
+        m_inputVideoInfo.fpsD = m_sAVSinfo->fps_denominator;
+    }
+    if (m_inputVideoInfo.frames == 0) {
+        m_inputVideoInfo.frames = std::numeric_limits<decltype(m_inputVideoInfo.frames)>::max();
+    }
+    m_inputVideoInfo.frames = std::min(m_inputVideoInfo.frames, m_sAVSinfo->num_frames);
     m_inputVideoInfo.bitdepth = RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp];
     if (cspShiftUsed(m_inputVideoInfo.csp) && RGY_CSP_BIT_DEPTH[m_inputVideoInfo.csp] > RGY_CSP_BIT_DEPTH[m_inputCsp]) {
         m_inputVideoInfo.bitdepth = RGY_CSP_BIT_DEPTH[m_inputCsp];
     }
     rgy_reduce(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
 
-    if (avsPrm != nullptr && avsPrm->readAudio) {
+    if (avsPrm != nullptr && avsPrm->nAudioSelectCount > 0) {
         if (!avs_has_audio(m_sAVSinfo)) {
             AddMessage(RGY_LOG_WARN, _T("avs has no audio.\n"));
         } else {
-            auto err = InitAudio();
+            auto err = InitAudio(avsPrm);
             if (err != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_DEBUG, _T("failed to initialize audio.\n"));
                 return err;
@@ -532,7 +559,7 @@ void RGYInputAvs::Close() {
     AddMessage(RGY_LOG_DEBUG, _T("Closed.\n"));
 }
 
-RGY_ERR RGYInputAvs::LoadNextFrame(RGYFrame *pSurface) {
+RGY_ERR RGYInputAvs::LoadNextFrameInternal(RGYFrame *pSurface) {
     if ((int)m_encSatusInfo->m_sData.frameIn >= m_inputVideoInfo.frames
         //m_encSatusInfo->m_nInputFramesがtrimの結果必要なフレーム数を大きく超えたら、エンコードを打ち切る
         //ちょうどのところで打ち切ると他のストリームに影響があるかもしれないので、余分に取得しておく

@@ -51,6 +51,7 @@
 #include <Windows.h>
 #include <process.h>
 #include <io.h>
+#include <conio.h>
 #include <mmsystem.h>
 #pragma comment(lib, "winmm.lib")
 #include <shellapi.h>
@@ -63,10 +64,27 @@ static bool RGYThreadStillActive(HANDLE handle) {
     return GetExitCodeThread(handle, &exitCode) == STILL_ACTIVE;
 }
 
+static int getStdInKey() {
+    static HANDLE hStdInHandle = NULL;
+    static bool stdin_from_console = false;
+    if (hStdInHandle == NULL) {
+        hStdInHandle = GetStdHandle(STD_INPUT_HANDLE);
+        DWORD mode = 0;
+        stdin_from_console = GetConsoleMode(hStdInHandle, &mode) != 0;
+    }
+    if (stdin_from_console) {
+        if (_kbhit()) {
+            return _getch();
+        }
+    }
+    return 0;
+}
+
 #else //#if defined(_WIN32) || defined(_WIN64)
 #include <sys/stat.h>
 #include <sys/times.h>
 #include <sys/types.h>
+#include <sys/select.h>
 #include <unistd.h>
 #include <cstdarg>
 #include <cstdlib>
@@ -82,7 +100,7 @@ static bool RGYThreadStillActive(HANDLE handle) {
 #include <dlfcn.h>
 
 static inline void *_aligned_malloc(size_t size, size_t alignment) {
-    void *p;
+    void *p = nullptr;
     int ret = posix_memalign(&p, alignment, size);
     return (ret == 0) ? p : 0;
 }
@@ -134,6 +152,9 @@ static inline char *strcpy_s(char *dst, const char *src) {
 static inline char *strncpy_s(char *dst, size_t numberOfElements, const char *src, size_t count) {
     return strncpy(dst, src, count);
 }
+static inline char *strncpy_s(char *dst, const char *src, size_t count) {
+    return strncpy(dst, src, count);
+}
 static inline char *strcat_s(char *dst, size_t size, const char *src) {
     return strcat(dst, src);
 }
@@ -147,6 +168,8 @@ static inline int _vsprintf_s(char *buffer, size_t size, const char *format, va_
 #define _strnicmp strncasecmp
 #define stricmp strcasecmp
 #define _stricmp stricmp
+#define wcsicmp wcscasecmp
+#define _wcsicmp wcsicmp
 
 static short _InterlockedIncrement16(volatile short *pVariable) {
     return __sync_add_and_fetch((volatile short*)pVariable, 1);
@@ -279,6 +302,24 @@ static void SetPriorityClass(pid_t thread, int priority) {
     return; //何もしない
 }
 
+static int getStdInKey() {
+#if 0 // stdinで読み込む場合と干渉してしまうので、無効化する
+    const int stdInFd = 0; // 0 = stdin
+    fd_set fdStdIn;
+    FD_ZERO(&fdStdIn);
+    FD_SET(stdInFd, &fdStdIn);
+
+    struct timeval timeout = { 0 };
+    if (select(stdInFd+1, &fdStdIn, NULL, NULL, &timeout) > 0) {
+        char key = 0;
+        if (read(0, &key, 1) == 1) {
+            return key;
+        }
+    }
+#endif
+    return 0;
+}
+
 #define _fread_nolock fread
 #define _fwrite_nolock fwrite
 #define _fgetc_nolock fgetc
@@ -286,5 +327,10 @@ static void SetPriorityClass(pid_t thread, int priority) {
 #define _ftelli64 ftell
 
 #endif //#if defined(_WIN32) || defined(_WIN64)
+
+static bool stdInAbort() {
+    const auto key = getStdInKey();
+    return (key == 'q' || key == 'Q');
+}
 
 #endif //__RGY_OSDEP_H__

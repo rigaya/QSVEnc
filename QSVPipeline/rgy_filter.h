@@ -1,5 +1,5 @@
 ﻿// -----------------------------------------------------------------------------------------
-//     QSVEnc/VCEEnc by rigaya
+//     QSVEnc/VCEEnc/rkmppenc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
 //
@@ -33,6 +33,8 @@
 #include "rgy_opencl.h"
 #include "convert_csp.h"
 #include "rgy_prm.h"
+
+struct AVPacket;
 
 class RGYFilterParam {
 public:
@@ -119,13 +121,13 @@ public:
     RGY_ERR filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue);
     RGY_ERR filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
     RGY_ERR filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event = nullptr);
-    const tstring GetInputMessage() {
+    const tstring GetInputMessage() const {
         return m_infoStr;
     }
-    const RGYFilterParam *GetFilterParam() {
+    const RGYFilterParam *GetFilterParam() const {
         return m_param.get();
     }
-    RGY_ERR AllocFrameBuf(const RGYFrameInfo &frame, int frames);
+    virtual RGY_ERR AllocFrameBuf(const RGYFrameInfo &frame, int frames);
     //virtual RGY_ERR addStreamPacket(AVPacket *pkt) { UNREFERENCED_PARAMETER(pkt); return RGY_ERR_UNSUPPORTED; };
     virtual int targetTrackIdx() { return 0; };
     void setCheckPerformance(const bool check) { m_perfMonitor.setCheckPerformance(check); }
@@ -180,7 +182,9 @@ protected:
 class RGYFilterParamCrop : public RGYFilterParam {
 public:
     sInputCrop crop;
+    CspMatrix matrix;
 
+    RGYFilterParamCrop() : crop(initCrop()), matrix(RGY_MATRIX_ST170_M) {};
     virtual ~RGYFilterParamCrop() {};
 };
 
@@ -223,6 +227,7 @@ protected:
     bool m_bInterlacedWarn;
     unique_ptr<RGYCLBuf> m_weightSpline;
     RGYOpenCLProgramAsync m_resize;
+    RGYCLFramePool m_srcImagePool;
 };
 
 class RGYFilterParamPad : public RGYFilterParam {

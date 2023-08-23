@@ -1,9 +1,9 @@
 ﻿// -----------------------------------------------------------------------------------------
-// QSVEnc by rigaya
+// x264guiEx/x265guiEx/svtAV1guiEx/ffmpegOut/QSVEnc/NVEnc/VCEEnc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
 //
-// Copyright (c) 2011-2016 rigaya
+// Copyright (c) 2010-2022 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -35,9 +35,10 @@ using namespace System::Data;
 using namespace System::Drawing;
 
 #include "auo_settings.h"
+#include "auo_mes.h"
 
 
-namespace QSVEnc {
+namespace AUO_NAME_R {
 
     /// <summary>
     /// frmSetTransparency の概要
@@ -57,6 +58,8 @@ namespace QSVEnc {
             //
             //TODO: ここにコンストラクタ コードを追加します
             //
+            themeMode = AuoTheme::DefaultLight;
+            dwStgReader = nullptr;
         }
 
     protected:
@@ -69,6 +72,8 @@ namespace QSVEnc {
             {
                 delete components;
             }
+            if (dwStgReader != nullptr)
+                delete dwStgReader;
         }
     //Instanceを介し、ひとつだけ生成
     private:
@@ -214,12 +219,23 @@ namespace QSVEnc {
 #pragma endregion
     private:
         int last_transparency;
+        AuoTheme themeMode;
+        const DarkenWindowStgReader *dwStgReader;
     private:
         System::Void fstSetLastTransparency();
         System::Void setTransparency(int value);
         System::Void frmSetTransparency_FormClosed(System::Object^  sender, System::Windows::Forms::FormClosedEventArgs^  e);
+    private:
+        System::Void LoadLangText() {
+            LOAD_CLI_TEXT(fstBTDefault);
+            LOAD_CLI_TEXT(fstBTOK);
+            LOAD_CLI_TEXT(fstBTCancel);
+            LOAD_CLI_TEXT(fstLBTransparency);
+            LOAD_CLI_MAIN_TEXT(fstMain);
+        }
     private: 
         System::Void frmSetTransparency_Load(System::Object^  sender, System::EventArgs^  e) {
+            LoadLangText();
             fstSetLastTransparency();
             setTransparency(last_transparency);
         }
@@ -252,6 +268,28 @@ namespace QSVEnc {
         System::Void frmSetTransparency_KeyDown(System::Object^  sender, System::Windows::Forms::KeyEventArgs^  e) {
              if (e->KeyCode == Keys::Escape)
                 this->Close();
+        }
+    public:
+        System::Void InitTheme() {
+            if (dwStgReader != nullptr) delete dwStgReader;
+            char aviutl_dir[MAX_PATH_LEN];
+            get_aviutl_dir(aviutl_dir, _countof(aviutl_dir));
+            const auto [themeTo, dwStg] = check_current_theme(aviutl_dir);
+            dwStgReader = dwStg;
+            CheckTheme(themeTo);
+        }
+    private:
+        System::Void CheckTheme(const AuoTheme themeTo) {
+            //変更の必要がなければ終了
+            if (themeTo == themeMode) return;
+
+            //一度ウィンドウの再描画を完全に抑止する
+            SendMessage(reinterpret_cast<HWND>(this->Handle.ToPointer()), WM_SETREDRAW, 0, 0);
+            SetAllColor(this, themeTo, this->GetType(), dwStgReader);
+            //一度ウィンドウの再描画を再開し、強制的に再描画させる
+            SendMessage(reinterpret_cast<HWND>(this->Handle.ToPointer()), WM_SETREDRAW, 1, 0);
+            this->Refresh();
+            themeMode = themeTo;
         }
 };
 }

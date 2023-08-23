@@ -30,6 +30,8 @@
 #include <cctype>
 #include <cmath>
 #include <memory>
+#include <fstream>
+#include <iostream>
 #include "rgy_osdep.h"
 #include "rgy_util.h"
 #include "rgy_filesystem.h"
@@ -57,6 +59,71 @@ static int64_t funcSeek(void *opaque, int64_t offset, int whence) {
 #endif //USE_CUSTOM_IO
 
 const AVRational RGYOutputAvcodec::QUEUE_DTS_TIMEBASE = av_make_q(1, 90000);
+
+AVMuxThreadWorker::AVMuxThreadWorker() :
+    thread(),
+    thAbort(false),
+    sentEOS(false),
+    heEventPktAdded(nullptr),
+    heEventClosing(nullptr),
+    qPackets() {}
+
+AVMuxThreadWorker::~AVMuxThreadWorker() {
+    if (heEventPktAdded) {
+        CloseEvent(heEventPktAdded);
+        heEventPktAdded = nullptr;
+    }
+    if (heEventClosing) {
+        CloseEvent(heEventClosing);
+        heEventClosing = nullptr;
+    }
+    qPackets.close();
+}
+
+void AVMuxThreadWorker::close() {
+    thAbort = true;
+    if (thread.joinable()) {
+        //ここに来た時に、まだメインスレッドがループ中の可能性がある
+        //その場合、SetEvent(thread.heEventPktAddedOutput)を一度やるだけだと、
+        //そのあとにResetEvent(thread.heEventPktAddedOutput)が発生してしまい、
+        //ここでスレッドが停止してしまう。
+        //これを回避するため、thread.heEventClosingOutputがセットされるまで、
+        //SetEvent(thread.heEventPktAddedOutput)を実行し続ける必要がある。
+        while (WAIT_TIMEOUT == WaitForSingleObject(heEventClosing, 100)) {
+            SetEvent(heEventPktAdded);
+        }
+        thread.join();
+        if (heEventPktAdded) {
+            CloseEvent(heEventPktAdded);
+            heEventPktAdded = nullptr;
+        }
+        if (heEventClosing) {
+            CloseEvent(heEventClosing);
+            heEventClosing = nullptr;
+        }
+        qPackets.close();
+    }
+}
+
+AVMuxThreadAudio::AVMuxThreadAudio() : encode(), process() {};
+
+AVMuxThreadAudio::~AVMuxThreadAudio() {}
+
+void AVMuxThreadAudio::closeEncode() {
+    encode.close();
+}
+
+void AVMuxThreadAudio::closeProcess() {
+    process.close();
+}
+
+bool AVMuxThreadAudio::threadActiveEncode() {
+    return encode.thread.joinable();
+}
+
+bool AVMuxThreadAudio::threadActiveProcess() {
+    return process.thread.joinable();
+}
 
 RGYOutputAvcodec::RGYOutputAvcodec() : m_Mux(), m_AudPktBufFileHead() {
     memset(&m_Mux.format, 0, sizeof(m_Mux.format));
@@ -123,11 +190,9 @@ void RGYOutputAvcodec::CloseAudio(AVMuxAudio *muxAudio) {
 }
 
 void RGYOutputAvcodec::CloseVideo(AVMuxVideo *muxVideo) {
-#if ENCODER_VCEENC
     if (muxVideo->parserCtx) {
         av_parser_close(muxVideo->parserCtx);
     }
-#endif //#if ENCODER_VCEENC
     if (muxVideo->codecCtx) {
         avcodec_free_context(&muxVideo->codecCtx);
         AddMessage(RGY_LOG_DEBUG, _T("Closed video context.\n"));
@@ -138,6 +203,19 @@ void RGYOutputAvcodec::CloseVideo(AVMuxVideo *muxVideo) {
     m_Mux.video.timestampList.clear();
     if (m_Mux.video.bsfc) {
         av_bsf_free(&m_Mux.video.bsfc);
+    }
+    if (m_Mux.video.pktOut) {
+        av_packet_unref(m_Mux.video.pktOut);
+        av_packet_free(&m_Mux.video.pktOut);
+    }
+    if (m_Mux.video.pktParse) {
+        av_packet_unref(m_Mux.video.pktParse);
+        av_packet_free(&m_Mux.video.pktParse);
+    }
+    if (m_Mux.video.bsfcBuffer) {
+        free(m_Mux.video.bsfcBuffer);
+        m_Mux.video.bsfcBuffer = nullptr;
+        m_Mux.video.bsfcBufferLength = 0;
     }
     memset(muxVideo, 0, sizeof(muxVideo[0]));
     AddMessage(RGY_LOG_DEBUG, _T("Closed video.\n"));
@@ -180,65 +258,35 @@ void RGYOutputAvcodec::CloseFormat(AVMuxFormat *muxFormat) {
 
 void RGYOutputAvcodec::CloseQueues() {
 #if ENABLE_AVCODEC_OUT_THREAD
-    m_Mux.thread.thAudEncodeAbort = true;
-    m_Mux.thread.thAudProcessAbort = true;
-    m_Mux.thread.abortOutput = true;
     m_Mux.thread.qVideobitstream.close();
     m_Mux.thread.qVideobitstreamFreeI.close([](RGYBitstream *pBitstream) { pBitstream->clear(); });
     m_Mux.thread.qVideobitstreamFreePB.close([](RGYBitstream *pBitstream) { pBitstream->clear(); });
-    m_Mux.thread.qAudioPacketOut.close();
-    m_Mux.thread.qAudioFrameEncode.close();
-    m_Mux.thread.qAudioPacketProcess.close();
     AddMessage(RGY_LOG_DEBUG, _T("closed queues...\n"));
 #endif
 }
 
 void RGYOutputAvcodec::CloseThread() {
 #if ENABLE_AVCODEC_OUT_THREAD
-    m_Mux.thread.thAudEncodeAbort = true;
-    if (m_Mux.thread.thAudEncode.joinable()) {
-        //下記同様に、m_Mux.thread.heEventThOutputClosingがセットされるまで、
-        //SetEvent(m_Mux.thread.heEventThOutputPktAdded)を実行し続ける必要がある。
-        while (WAIT_TIMEOUT == WaitForSingleObject(m_Mux.thread.heEventClosingAudEncode, 100)) {
-            SetEvent(m_Mux.thread.heEventPktAddedAudEncode);
+    // process -> encode -> output の順に終了させる
+    for (auto& [mux, thread] : m_Mux.thread.thAud) {
+        if (thread->process.thread.joinable()) {
+            thread->closeProcess();
+            const auto target = (mux) ? strsprintf(_T("%d.%d"), trackID(mux->inTrackId), mux->inSubStream) : tstring(_T("default"));
+            AddMessage(RGY_LOG_DEBUG, _T("closed audio process thread %s.\n"), target.c_str());
         }
-        m_Mux.thread.thAudEncode.join();
-        CloseEvent(m_Mux.thread.heEventPktAddedAudEncode);
-        CloseEvent(m_Mux.thread.heEventClosingAudEncode);
-        AddMessage(RGY_LOG_DEBUG, _T("closed audio encode thread...\n"));
     }
-    m_Mux.thread.thAudProcessAbort = true;
-    if (m_Mux.thread.thAudProcess.joinable()) {
-        //下記同様に、m_Mux.thread.heEventThOutputClosingがセットされるまで、
-        //SetEvent(m_Mux.thread.heEventThOutputPktAdded)を実行し続ける必要がある。
-        while (WAIT_TIMEOUT == WaitForSingleObject(m_Mux.thread.heEventClosingAudProcess, 100)) {
-            SetEvent(m_Mux.thread.heEventPktAddedAudProcess);
+    for (auto& [mux, thread] : m_Mux.thread.thAud) {
+        if (thread->encode.thread.joinable()) {
+            thread->closeEncode();
+            const auto target = (mux) ? strsprintf(_T("%d.%d"), trackID(mux->inTrackId), mux->inSubStream) : tstring(_T("default"));
+            AddMessage(RGY_LOG_DEBUG, _T("closed audio encode thread %s.\n"), target.c_str());
         }
-        m_Mux.thread.thAudProcess.join();
-        CloseEvent(m_Mux.thread.heEventPktAddedAudProcess);
-        CloseEvent(m_Mux.thread.heEventClosingAudProcess);
-        AddMessage(RGY_LOG_DEBUG, _T("closed audio process thread...\n"));
     }
-    m_Mux.thread.abortOutput = true;
-    if (m_Mux.thread.thOutput.joinable()) {
-        //ここに来た時に、まだメインスレッドがループ中の可能性がある
-        //その場合、SetEvent(m_Mux.thread.heEventPktAddedOutput)を一度やるだけだと、
-        //そのあとにResetEvent(m_Mux.thread.heEventPktAddedOutput)が発生してしまい、
-        //ここでスレッドが停止してしまう。
-        //これを回避するため、m_Mux.thread.heEventClosingOutputがセットされるまで、
-        //SetEvent(m_Mux.thread.heEventPktAddedOutput)を実行し続ける必要がある。
-        while (WAIT_TIMEOUT == WaitForSingleObject(m_Mux.thread.heEventClosingOutput, 100)) {
-            SetEvent(m_Mux.thread.heEventPktAddedOutput);
-        }
-        m_Mux.thread.thOutput.join();
-        CloseEvent(m_Mux.thread.heEventPktAddedOutput);
-        CloseEvent(m_Mux.thread.heEventClosingOutput);
+    if (m_Mux.thread.thOutput) {
+        m_Mux.thread.thOutput->close();
         AddMessage(RGY_LOG_DEBUG, _T("closed output thread...\n"));
     }
     CloseQueues();
-    m_Mux.thread.abortOutput = false;
-    m_Mux.thread.thAudProcessAbort = false;
-    m_Mux.thread.thAudEncodeAbort = false;
 #endif
 }
 
@@ -409,9 +457,29 @@ int RGYOutputAvcodec::AutoSelectSamplingRate(const int *samplingRateList, int sr
 }
 
 AVSampleFormat RGYOutputAvcodec::AutoSelectSampleFmt(const AVSampleFormat *samplefmtList, const AVCodecContext *srcAudioCtx) {
-    AVSampleFormat srcFormat = srcAudioCtx->sample_fmt;
+    const AVSampleFormat srcFormat = srcAudioCtx->sample_fmt;
     if (samplefmtList == nullptr) {
         return srcFormat;
+    }
+
+    static const auto sampleFmtLevel = make_array<AVSampleFormat>(
+        AV_SAMPLE_FMT_DBLP,
+        AV_SAMPLE_FMT_DBL,
+        AV_SAMPLE_FMT_FLTP,
+        AV_SAMPLE_FMT_FLT,
+        AV_SAMPLE_FMT_S32P,
+        AV_SAMPLE_FMT_S32,
+        AV_SAMPLE_FMT_S16P,
+        AV_SAMPLE_FMT_S16,
+        AV_SAMPLE_FMT_U8P,
+        AV_SAMPLE_FMT_U8
+    );
+    for (const auto fmt : sampleFmtLevel) {
+        for (int i = 0; samplefmtList[i] >= 0; i++) {
+            if (fmt == samplefmtList[i]) {
+                return fmt;
+            }
+        }
     }
     if (srcFormat == AV_SAMPLE_FMT_NONE) {
         return samplefmtList[0];
@@ -419,29 +487,6 @@ AVSampleFormat RGYOutputAvcodec::AutoSelectSampleFmt(const AVSampleFormat *sampl
     for (int i = 0; samplefmtList[i] >= 0; i++) {
         if (srcFormat == samplefmtList[i]) {
             return samplefmtList[i];
-        }
-    }
-    static const auto sampleFmtLevel = make_array<std::pair<AVSampleFormat, int>>(
-        std::make_pair(AV_SAMPLE_FMT_DBLP, 8),
-        std::make_pair(AV_SAMPLE_FMT_DBL,  8),
-        std::make_pair(AV_SAMPLE_FMT_FLTP, 6),
-        std::make_pair(AV_SAMPLE_FMT_FLT,  6),
-        std::make_pair(AV_SAMPLE_FMT_S32P, 4),
-        std::make_pair(AV_SAMPLE_FMT_S32,  4),
-        std::make_pair(AV_SAMPLE_FMT_S16P, 2),
-        std::make_pair(AV_SAMPLE_FMT_S16,  2),
-        std::make_pair(AV_SAMPLE_FMT_U8P,  1),
-        std::make_pair(AV_SAMPLE_FMT_U8,   1)
-    );
-    int srcFormatLevel = std::find_if(sampleFmtLevel.begin(), sampleFmtLevel.end(),
-        [srcFormat](const std::pair<AVSampleFormat, int>& targetFormat) { return targetFormat.first == srcFormat;})->second;
-    auto foundFormat = std::find_if(sampleFmtLevel.begin(), sampleFmtLevel.end(),
-        [srcFormatLevel](const std::pair<AVSampleFormat, int>& targetFormat) { return targetFormat.second == srcFormatLevel; });
-    for (; foundFormat != sampleFmtLevel.end(); foundFormat++) {
-        for (int i = 0; samplefmtList[i] >= 0; i++) {
-            if (foundFormat->first == samplefmtList[i]) {
-                return samplefmtList[i];
-            }
         }
     }
     return samplefmtList[0];
@@ -574,15 +619,18 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     m_Mux.video.codecCtx->sample_aspect_ratio.den = videoOutputInfo->sar[1];
     m_Mux.video.codecCtx->chroma_sample_location  = (AVChromaLocation)clamp(videoOutputInfo->vui.chromaloc, 0, 6);
     m_Mux.video.codecCtx->field_order             = picstrcut_rgy_to_avfieldorder(videoOutputInfo->picstruct);
-    m_Mux.video.codecCtx->delay                   = videoOutputInfo->videoDelay;
+    m_Mux.video.codecCtx->delay                   = (m_VideoOutputInfo.codec == RGY_CODEC_AV1) ? 0 : videoOutputInfo->videoDelay;
     if (prm->videoCodecTag.length() > 0) {
         m_Mux.video.codecCtx->codec_tag           = tagFromStr(prm->videoCodecTag);
         AddMessage(RGY_LOG_DEBUG, _T("Set Video Codec Tag: %s\n"), char_to_tstring(tagToStr(m_Mux.video.codecCtx->codec_tag)).c_str());
+    } else if (videoOutputInfo->codec == RGY_CODEC_HEVC) {
+        // 特に指定の場合、HEVCでは再生互換性改善のため、 "hvc1"をデフォルトとする (libavformatのデフォルトは"hev1")
+        m_Mux.video.codecCtx->codec_tag = tagFromStr("hvc1");
     }
     if (videoOutputInfo->vui.descriptpresent
         //atcSeiを設定する場合は、コンテナ側にはVUI情報をもたせないようにする
         //コンテナ側にはatcの情報をもたせられないので、勝ちあってしまう
-        && prm->HEVCHdrSei->getprm().atcSei == RGY_TRANSFER_UNKNOWN) {
+        && prm->hdrMetadata->getprm().atcSei == RGY_TRANSFER_UNKNOWN) {
         m_Mux.video.codecCtx->colorspace          = (AVColorSpace)videoOutputInfo->vui.matrix;
         m_Mux.video.codecCtx->color_primaries     = (AVColorPrimaries)videoOutputInfo->vui.colorprim;
         m_Mux.video.codecCtx->color_range         = (AVColorRange)videoOutputInfo->vui.colorrange;
@@ -617,14 +665,20 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
     m_Mux.video.streamOut->avg_frame_rate.num = videoOutputInfo->fpsN; //mkvのTRACKDEFAULTDURATIONの出力に必要
     m_Mux.video.streamOut->avg_frame_rate.den = videoOutputInfo->fpsD;
     m_Mux.video.streamOut->start_time          = 0;
-    m_Mux.video.dtsUnavailable   = prm->bVideoDtsUnavailable;
-    m_Mux.video.inputFirstKeyPts = prm->videoInputFirstKeyPts;
-    m_Mux.video.timestamp        = prm->vidTimestamp;
-    m_Mux.video.prevInputFrameId = -1;
-    m_Mux.video.afs              = prm->afs;
-    m_Mux.video.doviRpu          = prm->doviRpu;
-    m_Mux.video.parse_nal_h264 = get_parse_nal_unit_h264_func();
-    m_Mux.video.parse_nal_hevc = get_parse_nal_unit_hevc_func();
+    m_Mux.video.dtsUnavailable    = prm->bVideoDtsUnavailable;
+    m_Mux.video.inputFirstKeyPts  = prm->videoInputFirstKeyPts;
+    m_Mux.video.timestamp         = prm->vidTimestamp;
+    m_Mux.video.prevEncodeFrameId = -1;
+    m_Mux.video.prevInputFrameId  = -1;
+    m_Mux.video.pktOut            = av_packet_alloc();
+    m_Mux.video.pktParse          = av_packet_alloc();
+    m_Mux.video.afs               = prm->afs;
+    m_Mux.video.debugDirectAV1Out = prm->debugDirectAV1Out;
+    m_Mux.video.doviRpu           = prm->doviRpu;
+    m_Mux.video.parse_nal_h264    = get_parse_nal_unit_h264_func();
+    m_Mux.video.parse_nal_hevc    = get_parse_nal_unit_hevc_func();
+    m_Mux.video.bsfcBuffer        = nullptr;
+    m_Mux.video.bsfcBufferLength  = 0;
 
     auto retm = SetMetadata(&m_Mux.video.streamOut->metadata, (prm->videoInputStream) ? prm->videoInputStream->metadata : nullptr, prm->videoMetadata, RGY_METADATA_DEFAULT_COPY_LANG_ONLY, _T("Video"));
     if (retm != RGY_ERR_NONE) {
@@ -647,8 +701,7 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
             AddMessage(RGY_LOG_DEBUG, _T("copied rotation %d from input\n"), rotation);
             side_data_copy.release();
         }
-#if 0
-        if (videoOutputInfo->codec == RGY_CODEC_HEVC && prm->HEVCHdrSei == nullptr) {
+        if (videoOutputInfo->codec == RGY_CODEC_AV1 && prm->hdrMetadata != nullptr) {
             side_data = av_stream_get_side_data(prm->videoInputStream, AV_PKT_DATA_CONTENT_LIGHT_LEVEL, &side_data_size);
             if (side_data) {
                 unique_ptr<uint8_t, decltype(&av_freep)> side_data_copy((uint8_t *)av_malloc(side_data_size), av_freep);
@@ -687,187 +740,248 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
                 side_data_copy.release();
             }
         }
-#endif
     }
 
     m_Mux.video.timestampList.clear();
 
-    if (videoOutputInfo->codec == RGY_CODEC_HEVC && prm->HEVCHdrSei != nullptr) {
-        auto seiNal = prm->HEVCHdrSei->gen_nal();
-        if (seiNal.size() > 0) {
-            m_Mux.video.seiNal.copy(seiNal.data(), (uint32_t)seiNal.size());
-            AddMessage(RGY_LOG_DEBUG, char_to_tstring(prm->HEVCHdrSei->print()));
-
-            const auto HEVCHdrSeiPrm = prm->HEVCHdrSei->getprm();
-
-            if (false && HEVCHdrSeiPrm.masterdisplay_set) {
-                unique_ptr<AVMasteringDisplayMetadata, decltype(&av_freep)> mastering(av_mastering_display_metadata_alloc(), av_freep);
-
-                //streamのside dataとしてmasteringdisplay等を設定する
-                mastering->display_primaries[1][0] = av_make_q(HEVCHdrSeiPrm.masterdisplay[0], 50000); //G
-                mastering->display_primaries[1][1] = av_make_q(HEVCHdrSeiPrm.masterdisplay[1], 50000); //G
-                mastering->display_primaries[2][0] = av_make_q(HEVCHdrSeiPrm.masterdisplay[2], 50000); //B
-                mastering->display_primaries[2][1] = av_make_q(HEVCHdrSeiPrm.masterdisplay[3], 50000); //B
-                mastering->display_primaries[0][0] = av_make_q(HEVCHdrSeiPrm.masterdisplay[4], 50000); //R
-                mastering->display_primaries[0][1] = av_make_q(HEVCHdrSeiPrm.masterdisplay[5], 50000); //R
-                mastering->white_point[0] = av_make_q(HEVCHdrSeiPrm.masterdisplay[6], 50000);
-                mastering->white_point[1] = av_make_q(HEVCHdrSeiPrm.masterdisplay[7], 50000);
-                mastering->max_luminance = av_make_q(HEVCHdrSeiPrm.masterdisplay[8], 10000);
-                mastering->min_luminance = av_make_q(HEVCHdrSeiPrm.masterdisplay[9], 10000);
-                mastering->has_primaries = 1;
-                mastering->has_luminance = 1;
-
-                AddMessage(RGY_LOG_DEBUG, _T("Mastering Display: R(%f,%f) G(%f,%f) B(%f %f) WP(%f, %f) L(%f,%f)\n"),
-                    av_q2d(mastering->display_primaries[0][0]),
-                    av_q2d(mastering->display_primaries[0][1]),
-                    av_q2d(mastering->display_primaries[1][0]),
-                    av_q2d(mastering->display_primaries[1][1]),
-                    av_q2d(mastering->display_primaries[2][0]),
-                    av_q2d(mastering->display_primaries[2][1]),
-                    av_q2d(mastering->white_point[0]), av_q2d(mastering->white_point[1]),
-                    av_q2d(mastering->max_luminance), av_q2d(mastering->min_luminance));
-
-                int err = av_stream_add_side_data(m_Mux.video.streamOut, AV_PKT_DATA_MASTERING_DISPLAY_METADATA, (uint8_t *)mastering.get(), sizeof(mastering.get()[0]));
-                if (err < 0) {
-                    AddMessage(RGY_LOG_ERROR, _T("failed to set AV_PKT_DATA_MASTERING_DISPLAY_METADATA\n"));
-                    return RGY_ERR_INVALID_CALL;
-                }
-                mastering.release(); //av_stream_add_side_dataされたデータはこちらで開放してはいけない
-                AddMessage(RGY_LOG_DEBUG, _T("set AV_PKT_DATA_MASTERING_DISPLAY_METADATA\n"));
+    if (prm->hdrMetadata != nullptr && prm->hdrMetadata->getprm().hasPrmSet()) {
+        if (videoOutputInfo->codec == RGY_CODEC_HEVC) {
+            auto hdrBitstream = prm->hdrMetadata->gen_nal();
+            if (hdrBitstream.size() > 0) {
+                m_Mux.video.hdrBitstream.copy(hdrBitstream.data(), (uint32_t)hdrBitstream.size());
+                AddMessage(RGY_LOG_DEBUG, char_to_tstring(prm->hdrMetadata->print()));
             }
-
-            if (false && HEVCHdrSeiPrm.contentlight_set) {
-                size_t coll_size = 0;
-                unique_ptr<AVContentLightMetadata, decltype(&av_freep)> coll(av_content_light_metadata_alloc(&coll_size), av_freep);
-                coll->MaxCLL = HEVCHdrSeiPrm.maxcll;
-                coll->MaxFALL = HEVCHdrSeiPrm.maxfall;
-                AddMessage(RGY_LOG_DEBUG, _T("MaxCLL=%d, MaxFALL=%d\n"),
-                    coll->MaxCLL, coll->MaxFALL);
-                int err = av_stream_add_side_data(m_Mux.video.streamOut, AV_PKT_DATA_CONTENT_LIGHT_LEVEL, (uint8_t *)coll.get(), coll_size);
-                if (err < 0) {
-                    AddMessage(RGY_LOG_ERROR, _T("failed to set AV_PKT_DATA_CONTENT_LIGHT_LEVEL\n"));
-                    return RGY_ERR_INVALID_CALL;
-                }
-                coll.release(); //av_stream_add_side_dataされたデータはこちらで開放してはいけない
-                AddMessage(RGY_LOG_DEBUG, _T("set AV_PKT_DATA_CONTENT_LIGHT_LEVEL\n"));
+        } else if (videoOutputInfo->codec == RGY_CODEC_AV1) {
+            auto hdrBitstream = prm->hdrMetadata->gen_obu();
+            if (hdrBitstream.size() > 0) {
+                m_Mux.video.hdrBitstream.copy(hdrBitstream.data(), (uint32_t)hdrBitstream.size());
+                AddMessage(RGY_LOG_DEBUG, char_to_tstring(prm->hdrMetadata->print()));
             }
+        } else {
+            AddMessage(RGY_LOG_ERROR, _T("Setting masterdisplay/contentlight not supported in %s encoding.\n"), CodecToStr(videoOutputInfo->codec).c_str());
+            return RGY_ERR_UNSUPPORTED;
+        }
+
+        const auto HEVCHdrSeiPrm = prm->hdrMetadata->getprm();
+        if (false && HEVCHdrSeiPrm.masterdisplay_set) {
+            unique_ptr<AVMasteringDisplayMetadata, decltype(&av_freep)> mastering(av_mastering_display_metadata_alloc(), av_freep);
+
+            //streamのside dataとしてmasteringdisplay等を設定する
+            mastering->display_primaries[1][0] = av_make_q(HEVCHdrSeiPrm.masterdisplay[0]); //G
+            mastering->display_primaries[1][1] = av_make_q(HEVCHdrSeiPrm.masterdisplay[1]); //G
+            mastering->display_primaries[2][0] = av_make_q(HEVCHdrSeiPrm.masterdisplay[2]); //B
+            mastering->display_primaries[2][1] = av_make_q(HEVCHdrSeiPrm.masterdisplay[3]); //B
+            mastering->display_primaries[0][0] = av_make_q(HEVCHdrSeiPrm.masterdisplay[4]); //R
+            mastering->display_primaries[0][1] = av_make_q(HEVCHdrSeiPrm.masterdisplay[5]); //R
+            mastering->white_point[0] = av_make_q(HEVCHdrSeiPrm.masterdisplay[6]);
+            mastering->white_point[1] = av_make_q(HEVCHdrSeiPrm.masterdisplay[7]);
+            mastering->max_luminance = av_make_q(HEVCHdrSeiPrm.masterdisplay[8]);
+            mastering->min_luminance = av_make_q(HEVCHdrSeiPrm.masterdisplay[9]);
+            mastering->has_primaries = 1;
+            mastering->has_luminance = 1;
+
+            AddMessage(RGY_LOG_DEBUG, _T("Mastering Display: R(%f,%f) G(%f,%f) B(%f,%f) WP(%f,%f) L(%f,%f)\n"),
+                av_q2d(mastering->display_primaries[0][0]),
+                av_q2d(mastering->display_primaries[0][1]),
+                av_q2d(mastering->display_primaries[1][0]),
+                av_q2d(mastering->display_primaries[1][1]),
+                av_q2d(mastering->display_primaries[2][0]),
+                av_q2d(mastering->display_primaries[2][1]),
+                av_q2d(mastering->white_point[0]), av_q2d(mastering->white_point[1]),
+                av_q2d(mastering->max_luminance), av_q2d(mastering->min_luminance));
+
+            int err = av_stream_add_side_data(m_Mux.video.streamOut, AV_PKT_DATA_MASTERING_DISPLAY_METADATA, (uint8_t *)mastering.get(), sizeof(mastering.get()[0]));
+            if (err < 0) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to set AV_PKT_DATA_MASTERING_DISPLAY_METADATA\n"));
+                return RGY_ERR_INVALID_CALL;
+            }
+            mastering.release(); //av_stream_add_side_dataされたデータはこちらで開放してはいけない
+            AddMessage(RGY_LOG_DEBUG, _T("set AV_PKT_DATA_MASTERING_DISPLAY_METADATA\n"));
+        }
+
+        if (false && HEVCHdrSeiPrm.contentlight_set) {
+            size_t coll_size = 0;
+            unique_ptr<AVContentLightMetadata, decltype(&av_freep)> coll(av_content_light_metadata_alloc(&coll_size), av_freep);
+            coll->MaxCLL = HEVCHdrSeiPrm.maxcll;
+            coll->MaxFALL = HEVCHdrSeiPrm.maxfall;
+            AddMessage(RGY_LOG_DEBUG, _T("MaxCLL=%d, MaxFALL=%d\n"),
+                coll->MaxCLL, coll->MaxFALL);
+            int err = av_stream_add_side_data(m_Mux.video.streamOut, AV_PKT_DATA_CONTENT_LIGHT_LEVEL, (uint8_t *)coll.get(), coll_size);
+            if (err < 0) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to set AV_PKT_DATA_CONTENT_LIGHT_LEVEL\n"));
+                return RGY_ERR_INVALID_CALL;
+            }
+            coll.release(); //av_stream_add_side_dataされたデータはこちらで開放してはいけない
+            AddMessage(RGY_LOG_DEBUG, _T("set AV_PKT_DATA_CONTENT_LIGHT_LEVEL\n"));
         }
     }
-
-    if ((ENCODER_NVENC
-        && (videoOutputInfo->codec == RGY_CODEC_H264 || videoOutputInfo->codec == RGY_CODEC_HEVC)
-        && videoOutputInfo->sar[0] * videoOutputInfo->sar[1] > 0)
-        || (ENCODER_QSV
-            && (videoOutputInfo->codec == RGY_CODEC_H264 || videoOutputInfo->codec == RGY_CODEC_HEVC)
-            && videoOutputInfo->vui.chromaloc != 0)
-        || (ENCODER_VCEENC
-            && (videoOutputInfo->codec == RGY_CODEC_HEVC // HEVCの時は常に上書き
-                || (videoOutputInfo->vui.format != 5
-                || videoOutputInfo->vui.colorprim != 2
-                || videoOutputInfo->vui.transfer != 2
-                || videoOutputInfo->vui.matrix != 2
-                || videoOutputInfo->vui.chromaloc != 0)))) {
-        const char *bsf_name = nullptr;
-        switch (videoOutputInfo->codec) {
-        case RGY_CODEC_H264: bsf_name = "h264_metadata"; break;
-        case RGY_CODEC_HEVC: bsf_name = "hevc_metadata"; break;
-        default:
-            break;
-        }
-        if (bsf_name == nullptr) {
-            AddMessage(RGY_LOG_ERROR, _T("invalid codec to set metadata filter.\n"));
-            return RGY_ERR_INVALID_CALL;
-        }
-        const auto bsf_tname = char_to_tstring(bsf_name);
-        AddMessage(RGY_LOG_DEBUG, _T("start initialize %s filter...\n"), bsf_tname.c_str());
-        auto filter = av_bsf_get_by_name(bsf_name);
-        if (filter == nullptr) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to find %s.\n"), bsf_tname.c_str());
-            return RGY_ERR_NOT_FOUND;
-        }
+    { // bsfの作成
         unique_ptr<AVCodecParameters, RGYAVDeleter<AVCodecParameters>> codecpar(avcodec_parameters_alloc(), RGYAVDeleter<AVCodecParameters>(avcodec_parameters_free));
 
-        codecpar->codec_type              = AVMEDIA_TYPE_VIDEO;
-        codecpar->codec_id                = getAVCodecId(videoOutputInfo->codec);
-        codecpar->width                   = videoOutputInfo->dstWidth;
-        codecpar->height                  = videoOutputInfo->dstHeight;
-        codecpar->format                  = csp_rgy_to_avpixfmt(videoOutputInfo->csp);
-        codecpar->level                   = videoOutputInfo->codecLevel;
-        codecpar->profile                 = videoOutputInfo->codecProfile;
+        codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
+        codecpar->codec_id = getAVCodecId(videoOutputInfo->codec);
+        codecpar->width = videoOutputInfo->dstWidth;
+        codecpar->height = videoOutputInfo->dstHeight;
+        codecpar->format = csp_rgy_to_avpixfmt(videoOutputInfo->csp);
+        codecpar->level = videoOutputInfo->codecLevel;
+        codecpar->profile = videoOutputInfo->codecProfile;
         codecpar->sample_aspect_ratio.num = videoOutputInfo->sar[0];
         codecpar->sample_aspect_ratio.den = videoOutputInfo->sar[1];
-        codecpar->chroma_location         = (AVChromaLocation)videoOutputInfo->vui.chromaloc;
-        codecpar->field_order             = picstrcut_rgy_to_avfieldorder(videoOutputInfo->picstruct);
-        codecpar->video_delay             = videoOutputInfo->videoDelay;
+        codecpar->chroma_location = (AVChromaLocation)videoOutputInfo->vui.chromaloc;
+        codecpar->field_order = picstrcut_rgy_to_avfieldorder(videoOutputInfo->picstruct);
+        codecpar->video_delay = (m_VideoOutputInfo.codec == RGY_CODEC_AV1 && AV1_TIMESTAMP_OVERRIDE) ? 0 : videoOutputInfo->videoDelay;
         if (videoOutputInfo->vui.descriptpresent) {
-            codecpar->color_space         = (AVColorSpace)videoOutputInfo->vui.matrix;
-            codecpar->color_primaries     = (AVColorPrimaries)videoOutputInfo->vui.colorprim;
-            codecpar->color_range         = (AVColorRange)videoOutputInfo->vui.colorrange;
-            codecpar->color_trc           = (AVColorTransferCharacteristic)videoOutputInfo->vui.transfer;
+            codecpar->color_space = (AVColorSpace)videoOutputInfo->vui.matrix;
+            codecpar->color_primaries = (AVColorPrimaries)videoOutputInfo->vui.colorprim;
+            codecpar->color_range = (AVColorRange)videoOutputInfo->vui.colorrange;
+            codecpar->color_trc = (AVColorTransferCharacteristic)videoOutputInfo->vui.transfer;
         }
-        int ret = 0;
-        if (0 > (ret = av_bsf_alloc(filter, &m_Mux.video.bsfc))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for %s: %s.\n"), bsf_tname.c_str(), qsv_av_err2str(ret).c_str());
-            return RGY_ERR_NULL_PTR;
-        }
-        if (0 > (ret = avcodec_parameters_copy(m_Mux.video.bsfc->par_in, codecpar.get()))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to copy parameter for %s: %s.\n"), bsf_tname.c_str(), qsv_av_err2str(ret).c_str());
-            return RGY_ERR_UNKNOWN;
-        }
-        AVDictionary *bsfPrm = nullptr;
-        unique_ptr<AVDictionary*, decltype(&av_dict_free)> bsfPrmDictDeleter(&bsfPrm, av_dict_free);
-        if (ENCODER_NVENC) {
-            char sar[128];
-            sprintf_s(sar, "%d/%d", videoOutputInfo->sar[0], videoOutputInfo->sar[1]);
-            av_dict_set(&bsfPrm, "sample_aspect_ratio", sar, 0);
-            AddMessage(RGY_LOG_DEBUG, _T("set sar %d:%d by %s filter\n"), videoOutputInfo->sar[0], videoOutputInfo->sar[1], bsf_tname.c_str());
-        }
-        if (ENCODER_VCEENC) {
-            // HEVCの10bitの時、エンコーダがおかしなVUIを設定することがあるのでこれを常に上書き
-            const bool override_always = videoOutputInfo->codec == RGY_CODEC_HEVC;
-            if (override_always || videoOutputInfo->vui.format != 5 /*undef*/) {
-                av_dict_set_int(&bsfPrm, "video_format", videoOutputInfo->vui.format, 0);
-                AddMessage(RGY_LOG_DEBUG, _T("set video_format %d by %s filter\n"), videoOutputInfo->vui.format, bsf_tname.c_str());
+
+        std::vector<std::unique_ptr<AVBSFContext, RGYAVDeleter<AVBSFContext>>> bsfList;
+
+        // VUI情報設定用
+        if ((ENCODER_NVENC
+            && (videoOutputInfo->codec == RGY_CODEC_H264 || videoOutputInfo->codec == RGY_CODEC_HEVC)
+            && videoOutputInfo->sar[0] * videoOutputInfo->sar[1] > 0)
+            || (ENCODER_QSV
+                && (videoOutputInfo->codec == RGY_CODEC_H264 || videoOutputInfo->codec == RGY_CODEC_HEVC || videoOutputInfo->codec == RGY_CODEC_AV1)
+                && videoOutputInfo->vui.chromaloc != 0)
+            || (ENCODER_VCEENC
+                && (videoOutputInfo->codec == RGY_CODEC_HEVC // HEVCの時は常に上書き
+                    || (videoOutputInfo->vui.format != 5
+                        || videoOutputInfo->vui.colorprim != 2
+                        || videoOutputInfo->vui.transfer != 2
+                        || videoOutputInfo->vui.matrix != 2
+                        || videoOutputInfo->vui.chromaloc != 0)))
+            || (ENCODER_MPP
+                && ((videoOutputInfo->codec == RGY_CODEC_H264 || videoOutputInfo->codec == RGY_CODEC_HEVC) // HEVCの時は常に上書き)
+                    || (videoOutputInfo->sar[0] * videoOutputInfo->sar[1] > 0
+                    || (videoOutputInfo->vui.format != 5
+                        || videoOutputInfo->vui.colorprim != 2
+                        || videoOutputInfo->vui.transfer != 2
+                        || videoOutputInfo->vui.matrix != 2
+                        || videoOutputInfo->vui.chromaloc != 0))))) {
+            const char *bsf_name = nullptr;
+            switch (videoOutputInfo->codec) {
+            case RGY_CODEC_H264: bsf_name = "h264_metadata"; break;
+            case RGY_CODEC_HEVC: bsf_name = "hevc_metadata"; break;
+            case RGY_CODEC_AV1:  bsf_name = "av1_metadata"; break;
+            default:
+                break;
             }
-            if (override_always || videoOutputInfo->vui.colorprim != 2 /*undef*/) {
-                av_dict_set_int(&bsfPrm, "colour_primaries", videoOutputInfo->vui.colorprim, 0);
-                AddMessage(RGY_LOG_DEBUG, _T("set colorprim %d by %s filter\n"), videoOutputInfo->vui.colorprim, bsf_tname.c_str());
+            if (bsf_name == nullptr) {
+                AddMessage(RGY_LOG_ERROR, _T("invalid codec to set metadata filter.\n"));
+                return RGY_ERR_INVALID_CALL;
             }
-            if (override_always || videoOutputInfo->vui.transfer != 2 /*undef*/) {
-                av_dict_set_int(&bsfPrm, "transfer_characteristics", videoOutputInfo->vui.transfer, 0);
-                AddMessage(RGY_LOG_DEBUG, _T("set transfer %d by %s filter\n"), videoOutputInfo->vui.transfer, bsf_tname.c_str());
+            const auto bsf_tname = char_to_tstring(bsf_name);
+            AddMessage(RGY_LOG_DEBUG, _T("start initialize %s filter...\n"), bsf_tname.c_str());
+            auto filter = av_bsf_get_by_name(bsf_name);
+            if (filter == nullptr) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to find %s.\n"), bsf_tname.c_str());
+                return RGY_ERR_NOT_FOUND;
             }
-            if (override_always || videoOutputInfo->vui.matrix != 2 /*undef*/) {
-                av_dict_set_int(&bsfPrm, "matrix_coefficients", videoOutputInfo->vui.matrix, 0);
-                AddMessage(RGY_LOG_DEBUG, _T("set matrix %d by %s filter\n"), videoOutputInfo->vui.matrix, bsf_tname.c_str());
+            AVBSFContext *bsfctx = nullptr;
+            int ret = 0;
+            if (0 > (ret = av_bsf_alloc(filter, &bsfctx))) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for %s: %s.\n"), bsf_tname.c_str(), qsv_av_err2str(ret).c_str());
+                return RGY_ERR_NULL_PTR;
+            }
+            std::unique_ptr<AVBSFContext, RGYAVDeleter<AVBSFContext>> bsfCtx(bsfctx, RGYAVDeleter<AVBSFContext>(av_bsf_free));
+            bsfctx = nullptr;
+
+            if (0 > (ret = avcodec_parameters_copy(bsfCtx->par_in, codecpar.get()))) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to copy parameter for %s: %s.\n"), bsf_tname.c_str(), qsv_av_err2str(ret).c_str());
+                return RGY_ERR_UNKNOWN;
+            }
+            AVDictionary *bsfPrm = nullptr;
+            std::unique_ptr<AVDictionary*, decltype(&av_dict_free)> bsfPrmDictDeleter(&bsfPrm, av_dict_free);
+            if (ENCODER_MPP) {
+                const auto level_str = get_cx_desc(get_level_list(videoOutputInfo->codec), videoOutputInfo->codecLevel);
+                av_dict_set(&bsfPrm, "level", tchar_to_string(level_str).c_str(), 0);
+                AddMessage(RGY_LOG_DEBUG, _T("set level %s by %s filter\n"), level_str, bsf_tname.c_str());
+            }
+            if ((ENCODER_NVENC || ENCODER_MPP) && videoOutputInfo->sar[0] * videoOutputInfo->sar[1] > 0) {
+                char sar[128];
+                sprintf_s(sar, "%d/%d", videoOutputInfo->sar[0], videoOutputInfo->sar[1]);
+                av_dict_set(&bsfPrm, "sample_aspect_ratio", sar, 0);
+                AddMessage(RGY_LOG_DEBUG, _T("set sar %d:%d by %s filter\n"), videoOutputInfo->sar[0], videoOutputInfo->sar[1], bsf_tname.c_str());
+            }
+            if (ENCODER_VCEENC || ENCODER_MPP) {
+                // HEVCの10bitの時、エンコーダがおかしなVUIを設定することがあるのでこれを常に上書き
+                const bool override_always = ENCODER_VCEENC && videoOutputInfo->codec == RGY_CODEC_HEVC;
+                if (override_always || videoOutputInfo->vui.format != 5 /*undef*/) {
+                    if (videoOutputInfo->codec == RGY_CODEC_H264 || videoOutputInfo->codec == RGY_CODEC_HEVC) {
+                        av_dict_set_int(&bsfPrm, "video_format", videoOutputInfo->vui.format, 0);
+                        AddMessage(RGY_LOG_DEBUG, _T("set video_format %d by %s filter\n"), videoOutputInfo->vui.format, bsf_tname.c_str());
+                    }
+                }
+                if (override_always || videoOutputInfo->vui.colorprim != 2 /*undef*/) {
+                    av_dict_set_int(&bsfPrm, (videoOutputInfo->codec == RGY_CODEC_AV1) ? "color_primaries" : "colour_primaries", videoOutputInfo->vui.colorprim, 0);
+                    AddMessage(RGY_LOG_DEBUG, _T("set colorprim %d by %s filter\n"), videoOutputInfo->vui.colorprim, bsf_tname.c_str());
+                }
+                if (override_always || videoOutputInfo->vui.transfer != 2 /*undef*/) {
+                    av_dict_set_int(&bsfPrm, "transfer_characteristics", videoOutputInfo->vui.transfer, 0);
+                    AddMessage(RGY_LOG_DEBUG, _T("set transfer %d by %s filter\n"), videoOutputInfo->vui.transfer, bsf_tname.c_str());
+                }
+                if (override_always || videoOutputInfo->vui.matrix != 2 /*undef*/) {
+                    av_dict_set_int(&bsfPrm, "matrix_coefficients", videoOutputInfo->vui.matrix, 0);
+                    AddMessage(RGY_LOG_DEBUG, _T("set matrix %d by %s filter\n"), videoOutputInfo->vui.matrix, bsf_tname.c_str());
+                }
+            }
+            if (ENCODER_QSV || ENCODER_VCEENC || ENCODER_MPP) {
+                if (videoOutputInfo->vui.chromaloc != 0) {
+                    if (videoOutputInfo->codec == RGY_CODEC_AV1) {
+                        if (videoOutputInfo->vui.chromaloc == RGY_CHROMALOC_TOPLEFT) {
+                            av_dict_set(&bsfPrm, "chroma_sample_position", "colocated", 0);
+                        } else {
+                            av_dict_set(&bsfPrm, "chroma_sample_position", "vertical", 0);
+                        }
+                        AddMessage(RGY_LOG_DEBUG, _T("set chromaloc %d by %s filter\n"), videoOutputInfo->vui.chromaloc - 1, bsf_tname.c_str());
+                    } else if (videoOutputInfo->codec == RGY_CODEC_H264 || videoOutputInfo->codec == RGY_CODEC_HEVC) {
+                        av_dict_set_int(&bsfPrm, "chroma_sample_loc_type", videoOutputInfo->vui.chromaloc - 1, 0);
+                        AddMessage(RGY_LOG_DEBUG, _T("set chromaloc %d by %s filter\n"), videoOutputInfo->vui.chromaloc - 1, bsf_tname.c_str());
+                    }
+                }
+            }
+            if (0 > (ret = av_opt_set_dict2(bsfCtx.get(), &bsfPrm, AV_OPT_SEARCH_CHILDREN))) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to set parameters for %s: %s.\n"), bsf_tname.c_str(), qsv_av_err2str(ret).c_str());
+                return RGY_ERR_UNKNOWN;
+            }
+            if (0 > (ret = av_bsf_init(bsfCtx.get()))) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to init %s: %s.\n"), bsf_tname.c_str(), qsv_av_err2str(ret).c_str());
+                return RGY_ERR_UNKNOWN;
+            }
+            AddMessage(RGY_LOG_DEBUG, _T("initialized %s filter\n"), bsf_tname.c_str());
+            bsfList.push_back(std::move(bsfCtx));
+        }
+
+        if (bsfList.size() > 0) {
+            int ret = 0;
+            std::unique_ptr<AVBSFList, RGYAVDeleter<AVBSFList>> avBsfList(av_bsf_list_alloc(), RGYAVDeleter<AVBSFList>(av_bsf_list_free));
+            for (auto& bsf : bsfList) {
+                if (0 > (ret = av_bsf_list_append(avBsfList.get(), bsf.release()))) {
+                    AddMessage(RGY_LOG_ERROR, _T("failed to append bsf %s: %s.\n"), char_to_tstring(bsf->filter->name).c_str(), qsv_av_err2str(ret).c_str());
+                    return RGY_ERR_UNKNOWN;
+                }
+            }
+            auto bsfPtr = avBsfList.release();
+            if (0 > (ret = av_bsf_list_finalize(&bsfPtr, &m_Mux.video.bsfc))) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to finalize bsf list: %s.\n"), qsv_av_err2str(ret).c_str());
+                av_bsf_list_free(&bsfPtr);
+                return RGY_ERR_UNKNOWN;
             }
         }
-        if (ENCODER_QSV || ENCODER_VCEENC) {
-            if (videoOutputInfo->vui.chromaloc != 0) {
-                av_dict_set_int(&bsfPrm, "chroma_sample_loc_type", videoOutputInfo->vui.chromaloc-1, 0);
-                AddMessage(RGY_LOG_DEBUG, _T("set chromaloc %d by %s filter\n"), videoOutputInfo->vui.chromaloc-1, bsf_tname.c_str());
-            }
-        }
-        if (0 > (ret = av_opt_set_dict2(m_Mux.video.bsfc, &bsfPrm, AV_OPT_SEARCH_CHILDREN))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to set parameters for %s: %s.\n"), bsf_tname.c_str(), qsv_av_err2str(ret).c_str());
-            return RGY_ERR_UNKNOWN;
-        }
-        if (0 > (ret = av_bsf_init(m_Mux.video.bsfc))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to init %s: %s.\n"), bsf_tname.c_str(), qsv_av_err2str(ret).c_str());
-            return RGY_ERR_UNKNOWN;
-        }
-        AddMessage(RGY_LOG_DEBUG, _T("initialized %s filter\n"), bsf_tname.c_str());
     }
 
-#if ENCODER_VCEENC
-    //parserを初期化 (VCEのみで必要)
-    if (nullptr == (m_Mux.video.parserCtx = av_parser_init(m_Mux.format.formatCtx->video_codec_id))) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to init parser for %s.\n"), char_to_tstring(avcodec_get_name(m_Mux.format.formatCtx->video_codec_id)).c_str());
-        return RGY_ERR_NULL_PTR;
+    if (ENCODER_VCEENC || ENCODER_MPP || videoOutputInfo->codec == RGY_CODEC_AV1) {
+        //parserを初期化 (frameType取得に使用、H.264/HEVCではVCEのみで必要)
+        if (nullptr == (m_Mux.video.parserCtx = av_parser_init(m_Mux.format.formatCtx->video_codec_id))) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to init parser for %s.\n"), char_to_tstring(avcodec_get_name(m_Mux.format.formatCtx->video_codec_id)).c_str());
+            return RGY_ERR_NULL_PTR;
+        }
+        m_Mux.video.parserCtx->flags |= PARSER_FLAG_COMPLETE_FRAMES;
+        m_Mux.video.parserStreamPos = 0;
     }
-    m_Mux.video.parserCtx->flags |= PARSER_FLAG_COMPLETE_FRAMES;
-    m_Mux.video.parserStreamPos = 0;
-#endif //#if ENCODER_VCEENC
 
     if (prm->muxVidTsLogFile.length() > 0) {
         if (_tfopen_s(&m_Mux.video.fpTsLogFile, prm->muxVidTsLogFile.c_str(), _T("a"))) {
@@ -893,24 +1007,16 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
 
 //音声フィルタの初期化
 RGY_ERR RGYOutputAvcodec::InitAudioFilter(AVMuxAudio *muxAudio, int channels, uint64_t channel_layout, int sample_rate, AVSampleFormat sample_fmt) {
-    //必要ならfilterを初期化
-    if ((!muxAudio->filterGraph && (
-        //フィルタが初期化されていない場合
-        muxAudio->filter
-        || bSplitChannelsEnabled(muxAudio->streamChannelSelect)
-        || bSplitChannelsEnabled(muxAudio->streamChannelOut)
-        || muxAudio->outCodecDecodeCtx->frame_size != muxAudio->outCodecEncodeCtx->frame_size
-        || muxAudio->filterInChannels      != channels
-        || muxAudio->filterInChannelLayout != channel_layout
-        || muxAudio->filterInSampleRate    != sample_rate
-        || muxAudio->filterInSampleFmt      != sample_fmt
-        ))
+    //filterを初期化
+    //channelやsamplerate等の条件でfilterが必要なくとも、
+    //frame_size等のずれで必要になる場合があるため、素通りするのだとしても常に有効化する
+    if (!muxAudio->filterGraph  //フィルタが初期化されていない場合
         ||
-        //フィルタがすでに初期化されている場合
+        //フィルタがすでに初期化されている場合、再初期化
         (  muxAudio->filterInChannels      != channels
         || muxAudio->filterInChannelLayout != channel_layout
         || muxAudio->filterInSampleRate    != sample_rate
-        || muxAudio->filterInSampleFmt      != sample_fmt
+        || muxAudio->filterInSampleFmt     != sample_fmt
         )) {
         if (muxAudio->filterGraph) {
             //filterをflush
@@ -935,10 +1041,12 @@ RGY_ERR RGYOutputAvcodec::InitAudioFilter(AVMuxAudio *muxAudio, int channels, ui
 
         auto filterchain = tchar_to_string(muxAudio->filter);
 
+        const auto select_channel_layout = (muxAudio->streamChannelSelect[muxAudio->inSubStream] == RGY_CHANNEL_AUTO) ? channel_layout : muxAudio->streamChannelSelect[muxAudio->inSubStream];
+
         //チャンネルレイアウトの変更
         if (bSplitChannelsEnabled(muxAudio->streamChannelSelect)
-            && muxAudio->streamChannelSelect[muxAudio->inSubStream] != channel_layout
-            && av_get_channel_layout_nb_channels(muxAudio->streamChannelSelect[muxAudio->inSubStream]) < channels) {
+            && select_channel_layout != channel_layout
+            && av_get_channel_layout_nb_channels(select_channel_layout) < channels) {
             //初期化
             for (int inChannel = 0; inChannel < _countof(muxAudio->channelMapping); inChannel++) {
                 muxAudio->channelMapping[inChannel] = -1;
@@ -946,7 +1054,6 @@ RGY_ERR RGYOutputAvcodec::InitAudioFilter(AVMuxAudio *muxAudio, int channels, ui
             //時折channel_layoutが設定されていない場合がある
             const auto channelLayoutDec = (muxAudio->outCodecDecodeCtx->channel_layout) ? muxAudio->outCodecDecodeCtx->channel_layout : av_get_default_channel_layout(muxAudio->outCodecDecodeCtx->channels);
             //オプションによって指定されている、入力音声から抽出するべき音声レイアウト
-            const auto select_channel_layout = muxAudio->streamChannelSelect[muxAudio->inSubStream];
             const int select_channel_count = av_get_channel_layout_nb_channels(select_channel_layout);
             std::string channel_map = "pan=" + getChannelLayoutChar(select_channel_count, av_get_default_channel_layout(select_channel_count));
             for (int inChannel = 0; inChannel < select_channel_count; inChannel++) {
@@ -984,10 +1091,11 @@ RGY_ERR RGYOutputAvcodec::InitAudioFilter(AVMuxAudio *muxAudio, int channels, ui
             muxAudio->outCodecEncodeCtx->sample_rate,
             (unsigned long long int)muxAudio->outCodecEncodeCtx->channel_layout);
 
+        AddMessage(RGY_LOG_DEBUG, _T("Parse filter description: %s\n"), char_to_tstring(filterchain).c_str());
         AVFilterInOut *filter_inputs = nullptr;
         AVFilterInOut *filter_outputs = nullptr;
         if (0 > (ret = avfilter_graph_parse2(muxAudio->filterGraph, filterchain.c_str(), &filter_inputs, &filter_outputs))) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to parse filter description: %s: \"%s\"\n"), qsv_av_err2str(ret).c_str(), muxAudio->filter);
+            AddMessage(RGY_LOG_ERROR, _T("Failed to parse filter description: %s: \"%s\": %s\n"), qsv_av_err2str(ret).c_str(), muxAudio->filter, char_to_tstring(filterchain).c_str());
             return RGY_ERR_INVALID_AUDIO_PARAM;
         }
         unique_ptr<AVFilterInOut, RGYAVDeleter<AVFilterInOut>> inputs(filter_inputs, RGYAVDeleter<AVFilterInOut>(avfilter_inout_free));
@@ -1008,8 +1116,9 @@ RGY_ERR RGYOutputAvcodec::InitAudioFilter(AVMuxAudio *muxAudio, int channels, ui
             sample_rate, av_get_sample_fmt_name(sample_fmt), (unsigned long long int)channel_layout);
         const AVFilter *abuffersrc  = avfilter_get_by_name("abuffer");
         const auto inName = strsprintf("in_track_%d.%d", trackID(muxAudio->inTrackId), muxAudio->inSubStream);
+        AddMessage(RGY_LOG_DEBUG, _T("create abuffer \"%s\": %s\n"), char_to_tstring(inName).c_str(), char_to_tstring(inargs).c_str());
         if (0 > (ret = avfilter_graph_create_filter(&muxAudio->filterBufferSrcCtx, abuffersrc, inName.c_str(), inargs.c_str(), nullptr, muxAudio->filterGraph))) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to create abuffer: %s.\n"), qsv_av_err2str(ret).c_str());
+            AddMessage(RGY_LOG_ERROR, _T("failed to create abuffer: %s: %s.\n"), qsv_av_err2str(ret).c_str(), char_to_tstring(inargs).c_str());
             return RGY_ERR_UNSUPPORTED;
         }
         if (0 > (ret = avfilter_link(muxAudio->filterBufferSrcCtx, 0, inputs->filter_ctx, inputs->pad_idx))) {
@@ -1022,6 +1131,7 @@ RGY_ERR RGYOutputAvcodec::InitAudioFilter(AVMuxAudio *muxAudio, int channels, ui
         //出力の設定
         const AVFilter *abuffersink = avfilter_get_by_name("abuffersink");
         const auto outName = strsprintf("out_track_%d.%d", trackID(muxAudio->inTrackId), muxAudio->inSubStream);
+        AddMessage(RGY_LOG_DEBUG, _T("create abuffersink \"%s\"\n"), char_to_tstring(outName).c_str());
         if (0 > (ret = avfilter_graph_create_filter(&muxAudio->filterBufferSinkCtx, abuffersink, outName.c_str(), nullptr, nullptr, muxAudio->filterGraph))) {
             AddMessage(RGY_LOG_ERROR, _T("failed to create abuffersink: %s.\n"), qsv_av_err2str(ret).c_str());
             return RGY_ERR_UNSUPPORTED;
@@ -1206,21 +1316,19 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
             return RGY_ERR_NULL_PTR;
         }
 
-        //チャンネル選択の自動設定を反映
-        for (int i = 0; i < _countof(muxAudio->streamChannelSelect); i++) {
-            if (muxAudio->streamChannelSelect[i] == RGY_CHANNEL_AUTO) {
-                muxAudio->streamChannelSelect[i] = (muxAudio->outCodecDecodeCtx->channel_layout)
-                    ? muxAudio->outCodecDecodeCtx->channel_layout
-                    : av_get_default_channel_layout(muxAudio->outCodecDecodeCtx->channels);
-            }
-        }
-
         auto enc_channel_layout = AutoSelectChannelLayout(muxAudio->outCodecEncode->channel_layouts, muxAudio->outCodecDecodeCtx);
         //もしチャンネルの分離・変更があれば、それを反映してエンコーダの入力とする
         if (bSplitChannelsEnabled(muxAudio->streamChannelOut)) {
             enc_channel_layout = muxAudio->streamChannelOut[muxAudio->inSubStream];
             if (enc_channel_layout == RGY_CHANNEL_AUTO) {
-                auto channels = av_get_channel_layout_nb_channels(muxAudio->streamChannelSelect[muxAudio->inSubStream]);
+                auto channelSelect = muxAudio->streamChannelSelect[muxAudio->inSubStream];
+                //チャンネル選択の自動設定を反映
+                if (channelSelect == RGY_CHANNEL_AUTO) {
+                    channelSelect = (muxAudio->outCodecDecodeCtx->channel_layout)
+                        ? muxAudio->outCodecDecodeCtx->channel_layout
+                        : av_get_default_channel_layout(muxAudio->outCodecDecodeCtx->channels);
+                }
+                auto channels = av_get_channel_layout_nb_channels(channelSelect);
                 enc_channel_layout = av_get_default_channel_layout(channels);
             }
         }
@@ -1247,10 +1355,26 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
                     char_to_tstring(muxAudio->outCodecEncode->name).c_str(), trackID(inputAudio->src.trackId));
                 return RGY_ERR_INCOMPATIBLE_AUDIO_PARAM;
             }
-            muxAudio->outCodecEncodeCtx->profile = selected_profile;
-            AddMessage(RGY_LOG_DEBUG, _T("profile %d (%s) selected for codec %s (audio track %d)."),
-                selected_profile, inputAudio->encodeCodecProfile.c_str(),
-                char_to_tstring(muxAudio->outCodecEncode->name).c_str(), trackID(inputAudio->src.trackId));
+            if (muxAudio->outCodecEncode->profiles) {
+                bool profileSupported = false;
+                for (auto encoderProfile = muxAudio->outCodecEncode->profiles; encoderProfile->profile != FF_PROFILE_UNKNOWN; encoderProfile++) {
+                    if (selected_profile == encoderProfile->profile) {
+                        muxAudio->outCodecEncodeCtx->profile = selected_profile;
+                        AddMessage(RGY_LOG_DEBUG, _T("profile %d (%s) selected for codec %s (audio track %d).\n"),
+                            selected_profile, inputAudio->encodeCodecProfile.c_str(),
+                            char_to_tstring(muxAudio->outCodecEncode->name).c_str(), trackID(inputAudio->src.trackId));
+                        profileSupported = true;
+                    }
+                }
+                if (!profileSupported) {
+                    AddMessage(RGY_LOG_WARN, _T("profile %d (%s) is not supported for codec %s (audio track %d), will be ignored.\n"),
+                        char_to_tstring(muxAudio->outCodecEncode->name).c_str(), trackID(inputAudio->src.trackId));
+                }
+            } else {
+                AddMessage(RGY_LOG_WARN, _T("codec %s (audio track %d) does not have profile choice, profile settings to %d (%s) will be ignored and default profile will be used.\n"),
+                    char_to_tstring(muxAudio->outCodecEncode->name).c_str(), trackID(inputAudio->src.trackId),
+                    selected_profile, inputAudio->encodeCodecProfile.c_str());
+            }
         }
         //音声エンコーダのオプションの設定
         AVDictionary *codecPrmDict = nullptr;
@@ -1304,22 +1428,34 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
             av_get_channel_layout_nb_channels(channelLayoutDec),
             channelLayoutDec,
             muxAudio->outCodecDecodeCtx->sample_rate,
-            muxAudio->outCodecDecodeCtx->sample_fmt);
+            // sample_fmtはデコーダのavcodec_open2時には設定されていないばあがある
+            // そのときにはとりあえずAV_SAMPLE_FMT_S16で適当にフィルタを初期化しておく
+            // 実際のsample_fmtはAVFrameに設定されており、フィルタ実行前の再度のInitAudioFilterで
+            // 必要に応じて再初期化されるので、ここでは仮の値でも問題はない
+            av_get_sample_fmt_name(muxAudio->outCodecDecodeCtx->sample_fmt) ? muxAudio->outCodecDecodeCtx->sample_fmt : AV_SAMPLE_FMT_FLTP);
         if (sts != RGY_ERR_NONE) return sts;
-    } else if (muxAudio->bsfc == nullptr && muxAudio->streamIn->codecpar->codec_id == AV_CODEC_ID_AAC && muxAudio->streamIn->codecpar->extradata == NULL && m_Mux.video.streamOut) {
+    } else if (muxAudio->bsfc == nullptr && muxAudio->streamIn->codecpar->codec_id == AV_CODEC_ID_AAC && muxAudio->streamIn->codecpar->extradata == NULL && inputAudio->src.pktSample) {
         muxAudio->bsfc = InitStreamBsf(_T("aac_adtstoasc"), muxAudio->streamIn);
         if (muxAudio->bsfc == nullptr) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to find bsf \"%s\"\n."), _T("aac_adtstoasc"));
             return RGY_ERR_UNKNOWN;
         }
-        if (inputAudio->src.pktSample.data) {
+        if (inputAudio->src.pktSample) {
             //mkvではavformat_write_headerまでにAVCodecContextにextradataをセットしておく必要がある
-            for (AVPacket *inpkt = av_packet_clone(&inputAudio->src.pktSample); 0 == av_bsf_send_packet(muxAudio->bsfc, inpkt); inpkt = nullptr) {
-                AVPacket outpkt = { 0 };
-                av_init_packet(&outpkt);
-                int ret = av_bsf_receive_packet(muxAudio->bsfc, &outpkt);
+            std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>> inpkt(nullptr, RGYAVDeleter<AVPacket>(av_packet_free));
+            for (inpkt.reset(av_packet_clone(inputAudio->src.pktSample)); 0 == av_bsf_send_packet(muxAudio->bsfc, inpkt.get()); inpkt.reset()) {
+                std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>> outpkt(av_packet_alloc(), RGYAVDeleter<AVPacket>(av_packet_free));
+                int ret = av_bsf_receive_packet(muxAudio->bsfc, outpkt.get());
                 if (ret == 0) {
                     if (muxAudio->bsfc->par_out->extradata) {
                         SetExtraData(muxAudio->streamIn->codecpar, muxAudio->bsfc->par_out->extradata, muxAudio->bsfc->par_out->extradata_size);
+                    } else {
+                        for (int i = 0; i < outpkt->side_data_elems; i++) {
+                            if (outpkt->side_data[i].type == AV_PKT_DATA_NEW_EXTRADATA) {
+                                SetExtraData(muxAudio->streamIn->codecpar, outpkt->side_data[i].data, outpkt->side_data[i].size);
+                                break;
+                            }
+                        }
                     }
                     break;
                 }
@@ -1327,7 +1463,6 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
                     AddMessage(RGY_LOG_ERROR, _T("failed to run aac_adtstoasc.\n"));
                     return RGY_ERR_UNKNOWN;
                 }
-                av_packet_unref(&outpkt);
             }
             AddMessage(RGY_LOG_DEBUG, _T("successfully attached packet sample from AAC\n."));
         }
@@ -1405,6 +1540,46 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
     return RGY_ERR_NONE;
 }
 
+RGY_ERR RGYOutputAvcodec::InitAttachment(AVMuxOther *pMuxAttach, const AttachmentSource& attachment) {
+    std::ifstream ifs(attachment.filename, std::ios_base::in | std::ios_base::binary);
+    if (ifs.fail()) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to open file: \"%s\".\n"), attachment.filename.c_str());
+        return RGY_ERR_FILE_OPEN;
+    }
+    AddMessage(RGY_LOG_DEBUG, _T("Opened \"%s\" for attachment stream.\n"), attachment.filename.c_str());
+
+    std::istreambuf_iterator<char> it_ifs_begin(ifs);
+    std::istreambuf_iterator<char> it_ifs_end{};
+    std::vector<char> input_data(it_ifs_begin, it_ifs_end);
+    if (ifs.fail()) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to read file: \"%s\".\n"), attachment.filename.c_str());
+        return RGY_ERR_MORE_DATA;
+    }
+    AddMessage(RGY_LOG_DEBUG, _T("Read %lld bytes for attachment stream.\n"), (int64_t)input_data.size());
+
+    if (nullptr == (pMuxAttach->streamOut = avformat_new_stream(m_Mux.format.formatCtx, nullptr))) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to create new stream for subtitle.\n"));
+        return RGY_ERR_NULL_PTR;
+    }
+    pMuxAttach->streamOut->codecpar->codec_type = AVMEDIA_TYPE_ATTACHMENT;
+    pMuxAttach->streamOut->codecpar->extradata = (uint8_t *)av_malloc(input_data.size() + AV_INPUT_BUFFER_PADDING_SIZE);
+    memcpy(pMuxAttach->streamOut->codecpar->extradata, input_data.data(), input_data.size());
+    pMuxAttach->streamOut->codecpar->extradata_size = input_data.size();
+
+    const auto attach_name_utf8 = tchar_to_string(PathGetFilename(attachment.filename), CP_UTF8);
+    av_dict_set(&pMuxAttach->streamOut->metadata, "filename", attach_name_utf8.c_str(), AV_DICT_DONT_OVERWRITE);
+    
+    if (attachment.select.size() > 1) {
+        AddMessage(RGY_LOG_ERROR, _T("Multiple setting for attachment file is unsupported: \"%s\".\n"), attachment.filename.c_str());
+        return RGY_ERR_UNSUPPORTED;
+    } else if (attachment.select.size() == 1) {
+        //ユーザー指定のパラメータの指定
+        SetMetadata(&pMuxAttach->streamOut->metadata, nullptr, attachment.select.begin()->second.metadata, RGY_METADATA_DEFAULT_CLEAR, _T("Attachment"));
+    }
+    AddMessage(RGY_LOG_DEBUG, _T("Add attachment stream: \"%s\".\n"), attachment.filename.c_str());
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *inputStream, bool streamDispositionSet) {
     const auto mediaType = (inputStream->asdata) ? AVMEDIA_TYPE_UNKNOWN : trackMediaType(inputStream->src.trackId);
     const auto mediaTypeStr = char_to_tstring(av_get_media_type_string(mediaType));
@@ -1414,8 +1589,19 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
         ? inputStream->src.stream->codecpar->codec_id
         : (inputStream->src.caption2ass == FORMAT_ASS) ? AV_CODEC_ID_ASS : AV_CODEC_ID_SUBRIP;
 
+    if (avcodecIsCopy(inputStream->encodeCodec)
+        && inputStream->bsf.length() == 0
+        && codecId == AV_CODEC_ID_HDMV_PGS_SUBTITLE) {
+        inputStream->bsf = _T("pgs_frame_merge"); //これがないと正しくmuxできない
+        if (auto filter = av_bsf_get_by_name(tchar_to_string(inputStream->bsf).c_str()); filter != nullptr) {
+            AddMessage(RGY_LOG_DEBUG, _T("Auto insert %s bsf filter for %s\n"), inputStream->bsf.c_str(), char_to_tstring(avcodec_get_name(codecId)).c_str());
+        } else {
+            inputStream->bsf.clear();
+            AddMessage(RGY_LOG_DEBUG, _T("Failed to find %s bsf filter for %s, skipping...\n"), inputStream->bsf.c_str(), char_to_tstring(avcodec_get_name(codecId)).c_str());
+        }
+    }
     if (inputStream->bsf.length() > 0) {
-        muxSub->bsfc = InitStreamBsf(inputStream->bsf, muxSub->streamIn);
+        muxSub->bsfc = InitStreamBsf(inputStream->bsf, inputStream->src.stream);
         if (muxSub->bsfc == nullptr) {
             return RGY_ERR_UNKNOWN;
         }
@@ -1455,7 +1641,7 @@ RGY_ERR RGYOutputAvcodec::InitOther(AVMuxOther *muxSub, AVOutputStreamPrm *input
 
     auto copy_subtitle_header = [](AVCodecContext *dstCtx, const uint8_t *header, const size_t header_size) {
         if (header) {
-            dstCtx->subtitle_header_size = header_size;
+            dstCtx->subtitle_header_size = (decltype(dstCtx->subtitle_header_size))header_size;
             dstCtx->subtitle_header = (uint8_t *)av_mallocz(header_size + AV_INPUT_BUFFER_PADDING_SIZE);
             memcpy(dstCtx->subtitle_header, header, header_size);
         }
@@ -1703,6 +1889,8 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
     }
     m_Mux.format.isMatroska = 0 == strcmp(m_Mux.format.formatCtx->oformat->name, "matroska");
     m_Mux.format.disableMp4Opt = prm->disableMp4Opt;
+    m_Mux.format.lowlatency = prm->lowlatency;
+    m_Mux.format.allowOtherNegativePts = prm->allowOtherNegativePts;
 
 #if USE_CUSTOM_IO
     if (m_Mux.format.isPipe || usingAVProtocols(filename, 1) || (m_Mux.format.formatCtx->oformat->flags & (AVFMT_NEEDNUMBER | AVFMT_NOFILE))) {
@@ -1778,6 +1966,8 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
 #endif //#if USE_CUSTOM_IO
 
     m_Mux.trim = prm->trimList;
+    m_Mux.poolPkt = prm->poolPkt;
+    m_Mux.poolFrame = prm->poolFrame;
 
     if (videoOutputInfo) {
         RGY_ERR sts = InitVideo(videoOutputInfo, prm);
@@ -1845,6 +2035,15 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
         }
     }
 
+    for (const auto& attach : prm->attachments) {
+        AVMuxOther attachStream = { 0 };
+        RGY_ERR sts = InitAttachment(&attachStream, attach);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        m_Mux.other.push_back(attachStream);
+    }
+
     SetChapters(prm->chapterList, prm->chapterNoTrim);
 
     auto ret = SetMetadata(&m_Mux.format.formatCtx->metadata, prm->inputFormatMetadata, prm->formatMetadata, RGY_METADATA_DEFAULT_COPY, _T("Container"));
@@ -1876,7 +2075,7 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
     }
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
     if (prm->threadAudio == RGY_AUDIO_THREAD_AUTO) {
-        prm->threadAudio = 0;
+        prm->threadAudio = 3;
     }
     m_Mux.thread.enableAudProcessThread = prm->threadOutput > 0 && prm->threadAudio > 0;
     m_Mux.thread.enableAudEncodeThread  = prm->threadOutput > 0 && prm->threadAudio > 1;
@@ -1885,32 +2084,44 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
     if (m_Mux.thread.enableOutputThread) {
         AddMessage(RGY_LOG_DEBUG, _T("starting output thread...\n"));
         const int audioQueueCapacity = 4096;
-        m_Mux.thread.abortOutput = false;
-        m_Mux.thread.thAudProcessAbort = false;
-        m_Mux.thread.thAudEncodeAbort = false;
-        m_Mux.thread.qAudioPacketOut.init(16384, audioQueueCapacity * std::max(1, (int)m_Mux.audio.size())); //字幕のみコピーするときのため、最低でもある程度は確保する
         m_Mux.thread.qVideobitstream.init(4096, (std::max)(256, (m_Mux.video.outputFps.den) ? m_Mux.video.outputFps.num * 4 / m_Mux.video.outputFps.den : 0));
         m_Mux.thread.qVideobitstreamFreeI.init(256);
         m_Mux.thread.qVideobitstreamFreePB.init(3840);
-        m_Mux.thread.heEventPktAddedOutput = CreateEvent(NULL, TRUE, FALSE, NULL);
-        m_Mux.thread.heEventClosingOutput  = CreateEvent(NULL, TRUE, FALSE, NULL);
-        m_Mux.thread.thOutput = std::thread(&RGYOutputAvcodec::WriteThreadFunc, this, prm->threadParamOutput);
+        m_Mux.thread.thOutput = std::make_unique<AVMuxThreadWorker>();
+        m_Mux.thread.thOutput->thAbort = false;
+        m_Mux.thread.thOutput->qPackets.init(16384, audioQueueCapacity * std::max(1, (int)m_Mux.audio.size())); //字幕のみコピーするときのため、最低でもある程度は確保する
+        m_Mux.thread.thOutput->heEventPktAdded = CreateEvent(NULL, TRUE, FALSE, NULL);
+        m_Mux.thread.thOutput->heEventClosing = CreateEvent(NULL, TRUE, FALSE, NULL);
+        m_Mux.thread.thOutput->thread = std::thread(&RGYOutputAvcodec::WriteThreadFunc, this, prm->threadParamOutput);
         AddMessage(RGY_LOG_DEBUG, _T("Set output thread param: %s.\n"), prm->threadParamOutput.desc().c_str());
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
         if (m_Mux.thread.enableAudProcessThread) {
-            AddMessage(RGY_LOG_DEBUG, _T("starting audio process thread...\n"));
-            m_Mux.thread.qAudioPacketProcess.init(16384, audioQueueCapacity * std::max(2, (int)m_Mux.audio.size()), 4);
-            m_Mux.thread.heEventPktAddedAudProcess = CreateEvent(NULL, TRUE, FALSE, NULL);
-            m_Mux.thread.heEventClosingAudProcess  = CreateEvent(NULL, TRUE, FALSE, NULL);
-            m_Mux.thread.thAudProcess = std::thread(&RGYOutputAvcodec::ThreadFuncAudThread, this, prm->threadParamAudio);
-            AddMessage(RGY_LOG_DEBUG, _T("Set audio process thread param: %s.\n"), prm->threadParamAudio.desc().c_str());
-            if (m_Mux.thread.enableAudEncodeThread) {
-                AddMessage(RGY_LOG_DEBUG, _T("starting audio encode thread...\n"));
-                m_Mux.thread.qAudioFrameEncode.init(16384, audioQueueCapacity * std::max(2, (int)m_Mux.audio.size()), 4);
-                m_Mux.thread.heEventPktAddedAudEncode = CreateEvent(NULL, TRUE, FALSE, NULL);
-                m_Mux.thread.heEventClosingAudEncode  = CreateEvent(NULL, TRUE, FALSE, NULL);
-                m_Mux.thread.thAudEncode = std::thread(&RGYOutputAvcodec::ThreadFuncAudEncodeThread, this, prm->threadParamAudio);
-                AddMessage(RGY_LOG_DEBUG, _T("Set audio encode thread param: %s.\n"), prm->threadParamAudio.desc().c_str());
+            auto muxAudioPtr = std::vector<const AVMuxAudio*>{ nullptr };
+            if (prm->threadAudio > 2) {
+                for (auto& aud : m_Mux.audio) {
+                    muxAudioPtr.push_back(&aud);
+                }
+            }
+            const auto audioQueueMultiplizer = (prm->threadAudio > 2) ? 2 : std::max(2, (int)m_Mux.audio.size());
+            for (auto mux : muxAudioPtr) {
+                const auto target = (mux) ? strsprintf(_T("%d.%d"), trackID(mux->inTrackId), mux->inSubStream) : tstring(_T("default"));
+                AddMessage(RGY_LOG_DEBUG, _T("starting audio process thread %s...\n"), target.c_str());
+                m_Mux.thread.thAud[mux] = std::make_unique<AVMuxThreadAudio>();
+                m_Mux.thread.thAud[mux]->process.thAbort = false;
+                m_Mux.thread.thAud[mux]->process.qPackets.init(16384, audioQueueCapacity * audioQueueMultiplizer, 4);
+                m_Mux.thread.thAud[mux]->process.heEventPktAdded = CreateEvent(NULL, TRUE, FALSE, NULL);
+                m_Mux.thread.thAud[mux]->process.heEventClosing = CreateEvent(NULL, TRUE, FALSE, NULL);
+                m_Mux.thread.thAud[mux]->process.thread = std::thread(&RGYOutputAvcodec::ThreadFuncAudThread, this, mux, prm->threadParamAudio);
+                AddMessage(RGY_LOG_DEBUG, _T("Set audio process thread param %s: %s.\n"), target.c_str(), prm->threadParamAudio.desc().c_str());
+                if (m_Mux.thread.enableAudEncodeThread) {
+                    AddMessage(RGY_LOG_DEBUG, _T("starting audio encode thread %s...\n"), target.c_str());
+                    m_Mux.thread.thAud[mux]->encode.thAbort = false;
+                    m_Mux.thread.thAud[mux]->encode.qPackets.init(16384, audioQueueCapacity * audioQueueMultiplizer, 4);
+                    m_Mux.thread.thAud[mux]->encode.heEventPktAdded = CreateEvent(NULL, TRUE, FALSE, NULL);
+                    m_Mux.thread.thAud[mux]->encode.heEventClosing = CreateEvent(NULL, TRUE, FALSE, NULL);
+                    m_Mux.thread.thAud[mux]->encode.thread = std::thread(&RGYOutputAvcodec::ThreadFuncAudEncodeThread, this, mux, prm->threadParamAudio);
+                    AddMessage(RGY_LOG_DEBUG, _T("Set audio encode thread param %s: %s.\n"), target.c_str(), prm->threadParamAudio.desc().c_str());
+                }
             }
         }
 #endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
@@ -1927,16 +2138,55 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYOutputAvcodec::AddH264HeaderToExtraData(const RGYBitstream *bitstream) {
+RGY_ERR RGYOutputAvcodec::applyBsfToHeader(std::vector<uint8_t>& result, const uint8_t *target, const size_t target_size) {
+    if (!target || target_size == 0) {
+        return RGY_ERR_NONE;
+    }
+    if (!m_Mux.video.bsfc) {
+        result.resize(target_size);
+        memcpy(result.data(), target, target_size);
+        return RGY_ERR_NONE;
+    }
+    AVPacket *pkt = m_Mux.video.pktOut;
+    av_new_packet(pkt, target_size);
+    memcpy(pkt->data, target, target_size);
+    int ret = 0;
+    if (0 > (ret = av_bsf_send_packet(m_Mux.video.bsfc, pkt))) {
+        av_packet_unref(pkt);
+        AddMessage(RGY_LOG_ERROR, _T("failed to send packet to %s bitstream filter: %s.\n"),
+            char_to_tstring(m_Mux.video.bsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
+        return RGY_ERR_UNKNOWN;
+    }
+    ret = av_bsf_receive_packet(m_Mux.video.bsfc, pkt);
+    if (ret == AVERROR(EAGAIN)) {
+        return RGY_ERR_NONE;
+    } else if ((ret < 0 && ret != AVERROR_EOF) || pkt->size < 0) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to run %s bitstream filter: %s.\n"),
+            char_to_tstring(m_Mux.video.bsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
+        return RGY_ERR_UNKNOWN;
+    }
+    result.resize(pkt->size);
+    memcpy(result.data(), pkt->data, pkt->size);
+    av_packet_unref(pkt);
+    av_bsf_flush(m_Mux.video.bsfc);
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYOutputAvcodec::AddHeaderToExtraDataH264(const RGYBitstream *bitstream) {
     std::vector<nal_info> nal_list = m_Mux.video.parse_nal_h264(bitstream->data(), bitstream->size());
     const auto h264_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_H264_SPS; });
     const auto h264_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_H264_PPS; });
     const bool header_check = (nal_list.end() != h264_sps_nal) && (nal_list.end() != h264_pps_nal);
     if (header_check) {
-        m_Mux.video.streamOut->codecpar->extradata_size = (int)(h264_sps_nal->size + h264_pps_nal->size);
+        std::vector<uint8_t> buf_sps;
+        auto err = applyBsfToHeader(buf_sps, h264_sps_nal->ptr, h264_sps_nal->size);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        m_Mux.video.streamOut->codecpar->extradata_size = (int)(buf_sps.size() + h264_pps_nal->size);
         uint8_t *new_ptr = (uint8_t *)av_malloc(m_Mux.video.streamOut->codecpar->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
-        memcpy(new_ptr, h264_sps_nal->ptr, h264_sps_nal->size);
-        memcpy(new_ptr + h264_sps_nal->size, h264_pps_nal->ptr, h264_pps_nal->size);
+        memcpy(new_ptr, buf_sps.data(), buf_sps.size());
+        memcpy(new_ptr + buf_sps.size(), h264_pps_nal->ptr, h264_pps_nal->size);
         if (m_Mux.video.streamOut->codecpar->extradata) {
             av_free(m_Mux.video.streamOut->codecpar->extradata);
         }
@@ -1946,18 +2196,42 @@ RGY_ERR RGYOutputAvcodec::AddH264HeaderToExtraData(const RGYBitstream *bitstream
 }
 
 //extradataにHEVCのヘッダーを追加する
-RGY_ERR RGYOutputAvcodec::AddHEVCHeaderToExtraData(const RGYBitstream *bitstream) {
+RGY_ERR RGYOutputAvcodec::AddHeaderToExtraDataHEVC(const RGYBitstream *bitstream) {
     std::vector<nal_info> nal_list = m_Mux.video.parse_nal_hevc(bitstream->data(), bitstream->size());
     const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
     const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
     const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });
     const bool header_check = (nal_list.end() != hevc_vps_nal) && (nal_list.end() != hevc_sps_nal) && (nal_list.end() != hevc_pps_nal);
     if (header_check) {
-        m_Mux.video.streamOut->codecpar->extradata_size = (int)(hevc_vps_nal->size + hevc_sps_nal->size + hevc_pps_nal->size);
+        std::vector<uint8_t> buf_sps;
+        auto err = applyBsfToHeader(buf_sps, hevc_sps_nal->ptr, hevc_sps_nal->size);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        m_Mux.video.streamOut->codecpar->extradata_size = (int)(hevc_vps_nal->size + buf_sps.size() + hevc_pps_nal->size);
         uint8_t *new_ptr = (uint8_t *)av_malloc(m_Mux.video.streamOut->codecpar->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
         memcpy(new_ptr, hevc_vps_nal->ptr, hevc_vps_nal->size);
-        memcpy(new_ptr + hevc_vps_nal->size, hevc_sps_nal->ptr, hevc_sps_nal->size);
-        memcpy(new_ptr + hevc_vps_nal->size + hevc_sps_nal->size, hevc_pps_nal->ptr, hevc_pps_nal->size);
+        memcpy(new_ptr + hevc_vps_nal->size, buf_sps.data(), buf_sps.size());
+        memcpy(new_ptr + hevc_vps_nal->size + buf_sps.size(), hevc_pps_nal->ptr, hevc_pps_nal->size);
+        if (m_Mux.video.streamOut->codecpar->extradata) {
+            av_free(m_Mux.video.streamOut->codecpar->extradata);
+        }
+        m_Mux.video.streamOut->codecpar->extradata = new_ptr;
+    }
+    return RGY_ERR_NONE;
+}
+
+//extradataにAV1のヘッダーを追加する
+RGY_ERR RGYOutputAvcodec::AddHeaderToExtraDataAV1(const RGYBitstream *bitstream) {
+    const auto unit_list = parse_unit_av1(bitstream->data(), bitstream->size());
+    auto it_seq_header = std::find_if(unit_list.begin(), unit_list.end(), [](const std::unique_ptr<unit_info>& unit) {
+        return unit->type == OBU_SEQUENCE_HEADER;
+    });
+    if (it_seq_header != unit_list.end()) {
+        const auto& seq_header = (it_seq_header->get())->unit_data;
+        m_Mux.video.streamOut->codecpar->extradata_size = seq_header.size();
+        uint8_t *new_ptr = (uint8_t *)av_malloc(m_Mux.video.streamOut->codecpar->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
+        memcpy(new_ptr, seq_header.data(), m_Mux.video.streamOut->codecpar->extradata_size);
         if (m_Mux.video.streamOut->codecpar->extradata) {
             av_free(m_Mux.video.streamOut->codecpar->extradata);
         }
@@ -1971,10 +2245,13 @@ RGY_ERR RGYOutputAvcodec::WriteFileHeader(const RGYBitstream *bitstream) {
         RGY_ERR sts = RGY_ERR_NONE;
         switch (m_Mux.video.streamOut->codecpar->codec_id) {
         case AV_CODEC_ID_H264:
-            sts = AddH264HeaderToExtraData(bitstream);
+            sts = AddHeaderToExtraDataH264(bitstream);
             break;
         case AV_CODEC_ID_HEVC:
-            sts = AddHEVCHeaderToExtraData(bitstream);
+            sts = AddHeaderToExtraDataHEVC(bitstream);
+            break;
+        case AV_CODEC_ID_AV1:
+            sts = AddHeaderToExtraDataAV1(bitstream);
             break;
         default:
             break;
@@ -2169,7 +2446,7 @@ uint32_t RGYOutputAvcodec::getH264PAFFFieldLength(const uint8_t *ptr, uint32_t s
 
 RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYBitstream *bitstream) {
 #if ENABLE_AVCODEC_OUT_THREAD
-    if (m_Mux.thread.thOutput.joinable()) {
+    if (m_Mux.thread.thOutput) {
         RGYBitstream copyStream = RGYBitstreamInit();
         bool bFrameI = (bitstream->frametype() & RGY_FRAMETYPE_I) != 0;
         bool bFrameP = (bitstream->frametype() & RGY_FRAMETYPE_P) != 0;
@@ -2202,7 +2479,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYBitstream *bitstream) {
         }
         bitstream->setSize(0);
         bitstream->setOffset(0);
-        SetEvent(m_Mux.thread.heEventPktAddedOutput);
+        SetEvent(m_Mux.thread.thOutput->heEventPktAdded);
         return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
     }
 #endif
@@ -2210,21 +2487,21 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYBitstream *bitstream) {
     return WriteNextFrameInternal(bitstream, &dts);
 }
 
-#if ENCODER_VCEENC
 RGY_ERR RGYOutputAvcodec::VidCheckStreamAVParser(RGYBitstream *pBitstream) {
+    if (m_Mux.video.parserCtx == nullptr) return RGY_ERR_NONE;
+
     RGY_ERR err = RGY_ERR_NONE;
     m_Mux.video.parserStreamPos += pBitstream->size();
-    AVPacket pkt;
-    av_init_packet(&pkt);
-    av_new_packet(&pkt, (int)pBitstream->size());
-    memcpy(pkt.data, pBitstream->data(), pBitstream->size());
-    pkt.size = (int)pBitstream->size();
-    pkt.pts = pBitstream->pts();
-    pkt.dts = pBitstream->dts();
-    pkt.pos = m_Mux.video.parserStreamPos;
+    AVPacket *pkt = m_Mux.video.pktParse;
+    av_new_packet(pkt, (int)pBitstream->size());
+    memcpy(pkt->data, pBitstream->data(), pBitstream->size());
+    pkt->size = (int)pBitstream->size();
+    pkt->pts = pBitstream->pts();
+    pkt->dts = pBitstream->dts();
+    pkt->pos = m_Mux.video.parserStreamPos;
     uint8_t *dummy = nullptr;
     int dummy_size = 0;
-    if (0 < av_parser_parse2(m_Mux.video.parserCtx, m_Mux.video.codecCtx, &dummy, &dummy_size, pkt.data, pkt.size, pkt.pts, pkt.dts, pkt.pos)) {
+    if (0 < av_parser_parse2(m_Mux.video.parserCtx, m_Mux.video.codecCtx, &dummy, &dummy_size, pkt->data, pkt->size, pkt->pts, pkt->dts, pkt->pos)) {
         //pBitstream->PictStruct = m_Mux.video.parserCtx->picture_structure;
         //pBitstream->RepeatPict = m_Mux.video.parserCtx->repeat_pict;
 
@@ -2240,10 +2517,292 @@ RGY_ERR RGYOutputAvcodec::VidCheckStreamAVParser(RGYBitstream *pBitstream) {
         AddMessage(RGY_LOG_ERROR, _T("AVParser error parsing VCE output."));
         err = RGY_ERR_UNKNOWN;
     }
-    av_packet_unref(&pkt);
+    av_packet_unref(pkt);
     return err;
 }
+
+RGY_ERR RGYOutputAvcodec::WriteNextFrameFinish(RGYBitstream *bitstream, const RGY_FRAMETYPE frameType) {
+#if ENABLE_AVCODEC_OUT_THREAD
+    //最初のヘッダーを書いたパケットはコピーではないので、キューに入れない
+    if (m_Mux.thread.thOutput) {
+        //確保したメモリ領域を使いまわすためにキューに格納
+        const auto frameI = (frameType & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_I)) != 0;
+        auto& qVideoQueueFree = (frameI) ? m_Mux.thread.qVideobitstreamFreeI : m_Mux.thread.qVideobitstreamFreePB;
+        auto queueFavoredSize = (frameI) ? VID_BITSTREAM_QUEUE_SIZE_I : VID_BITSTREAM_QUEUE_SIZE_PB;
+        if ((int64_t)qVideoQueueFree.size() > queueFavoredSize) {
+            //あまり多すぎると無駄にメモリを使用するので減らす
+            bitstream->clear();
+        } else {
+            qVideoQueueFree.push(*bitstream);
+        }
+    } else {
 #endif
+        bitstream->setSize(0);
+        bitstream->setOffset(0);
+#if ENABLE_AVCODEC_OUT_THREAD
+    }
+#endif
+    m_Mux.format.fileHeaderWritten = true;
+    return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
+}
+
+RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream, int64_t *writtenDts, const RGYTimestampMapVal& bs_framedata) {
+    //AVParserを使用して必要に応じてframeTypeを取得する
+    VidCheckStreamAVParser(bitstream);
+
+    if (m_Mux.video.bsfc && m_VideoOutputInfo.codec != RGY_CODEC_AV1) {
+        int target_nal = 0;
+        std::vector<nal_info> nal_list;
+        if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
+            target_nal = NALU_HEVC_SPS;
+            nal_list = m_Mux.video.parse_nal_hevc(bitstream->data(), bitstream->size());
+        } else if (m_VideoOutputInfo.codec == RGY_CODEC_H264) {
+            target_nal = NALU_H264_SPS;
+            nal_list = m_Mux.video.parse_nal_h264(bitstream->data(), bitstream->size());
+        }
+        auto sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [target_nal](nal_info info) { return info.type == target_nal; });
+        if (sps_nal != nal_list.end()) {
+            AVPacket *pkt = m_Mux.video.pktOut;
+            av_new_packet(pkt, (int)sps_nal->size);
+            memcpy(pkt->data, sps_nal->ptr, sps_nal->size);
+            int ret = 0;
+            if (0 > (ret = av_bsf_send_packet(m_Mux.video.bsfc, pkt))) {
+                av_packet_unref(pkt);
+                AddMessage(RGY_LOG_ERROR, _T("failed to send packet to %s bitstream filter: %s.\n"),
+                    char_to_tstring(m_Mux.video.bsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
+                return RGY_ERR_UNKNOWN;
+            }
+            ret = av_bsf_receive_packet(m_Mux.video.bsfc, pkt);
+            if (ret == AVERROR(EAGAIN)) {
+                return RGY_ERR_NONE;
+            } else if ((ret < 0 && ret != AVERROR_EOF) || pkt->size < 0) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to run %s bitstream filter: %s.\n"),
+                    char_to_tstring(m_Mux.video.bsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
+                return RGY_ERR_UNKNOWN;
+            }
+            const auto new_data_size = bitstream->size() + pkt->size - sps_nal->size;
+            const auto sps_nal_offset = sps_nal->ptr - bitstream->data();
+            const auto next_nal_orig_offset = sps_nal_offset + sps_nal->size;
+            const auto next_nal_new_offset = sps_nal_offset + pkt->size;
+            const auto stream_orig_length = bitstream->size();
+            if (m_Mux.video.bsfcBufferLength < new_data_size) {
+                free(m_Mux.video.bsfcBuffer);
+                m_Mux.video.bsfcBufferLength = new_data_size * 2;
+                m_Mux.video.bsfcBuffer = (uint8_t *)malloc(m_Mux.video.bsfcBufferLength);
+            }
+            if (sps_nal_offset > 0) {
+                memcpy(m_Mux.video.bsfcBuffer, bitstream->data(), sps_nal_offset);
+            }
+            memcpy(m_Mux.video.bsfcBuffer + sps_nal_offset, pkt->data, pkt->size);
+            memcpy(m_Mux.video.bsfcBuffer + next_nal_new_offset, bitstream->data() + next_nal_orig_offset, stream_orig_length - next_nal_orig_offset);
+            bitstream->copy(m_Mux.video.bsfcBuffer, new_data_size);
+            av_packet_unref(pkt);
+
+            av_bsf_flush(m_Mux.video.bsfc);
+        }
+    }
+
+    bool isIDR = (bitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_xIDR)) != 0; //IDRかどうかのフラグ
+    bool isKey = (bitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_xIDR | RGY_FRAMETYPE_I | RGY_FRAMETYPE_xI)) != 0; //Keyフレームかどうかのフラグ
+    if (m_Mux.video.streamOut->codecpar->field_order != AV_FIELD_PROGRESSIVE) {
+        if (m_VideoOutputInfo.codec == RGY_CODEC_H264) {
+            const auto nal_list = m_Mux.video.parse_nal_h264(bitstream->data(), bitstream->size());
+            //インタレ保持の際、IDRかどうかのフラグが正しく設定されていないことがある
+            //どちらかのフィールドがIDRならIDRのフラグを立てる
+            isIDR = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_H264_IDR; }) != nal_list.end();
+            isKey |= isIDR;
+        } else if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
+            AddMessage(RGY_LOG_ERROR, _T("Interlaced HEVC encoding not supported!\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+    }
+
+    const auto frameDataHdr10plusMetadata = std::find_if(bs_framedata.dataList.begin(), bs_framedata.dataList.end(), [](const std::shared_ptr<RGYFrameData>& data) {
+        return data->dataType() == RGY_FRAME_DATA_HDR10PLUS;
+    });
+    std::vector<uint8_t> hdr10plusMetadata;
+    if (frameDataHdr10plusMetadata != bs_framedata.dataList.end()) {
+        auto frameDataPtr = dynamic_cast<RGYFrameDataHDR10plus *>((*frameDataHdr10plusMetadata).get());
+        if (!frameDataPtr) {
+            AddMessage(RGY_LOG_ERROR, _T("Invalid cast for hdr10plus metadata.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
+            hdr10plusMetadata = frameDataPtr->gen_nal();
+        } else if (m_VideoOutputInfo.codec == RGY_CODEC_AV1) {
+            hdr10plusMetadata = frameDataPtr->gen_obu();
+        } else {
+            AddMessage(RGY_LOG_ERROR, _T("Setting hdr10plus metadata not supported in %s encoding.\n"), CodecToStr(m_VideoOutputInfo.codec).c_str());
+            return RGY_ERR_UNSUPPORTED;
+        }
+    }
+
+    const bool insertSEI = (m_Mux.video.hdrBitstream.size() > 0 && isIDR);
+    if (insertSEI || hdr10plusMetadata.size() > 0) {
+        if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
+            RGYBitstream bsCopy = RGYBitstreamInit();
+            bsCopy.copy(bitstream);
+            const auto nal_list = m_Mux.video.parse_nal_hevc(bsCopy.data(), bsCopy.size());
+            const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
+            const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
+            const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });
+            const bool header_check = (nal_list.end() != hevc_vps_nal) || (nal_list.end() != hevc_sps_nal) || (nal_list.end() != hevc_pps_nal);
+
+            bitstream->setSize(0);
+            bitstream->setOffset(0);
+            bool seiWritten = false;
+            bool hdr10plus_metadata_written = false;
+            if (!header_check) {
+                if (insertSEI) {
+                    bitstream->append(&m_Mux.video.hdrBitstream);
+                    seiWritten = true;
+                }
+                if (hdr10plusMetadata.size() > 0) {
+                    bitstream->append(hdr10plusMetadata.data(), hdr10plusMetadata.size());
+                    hdr10plus_metadata_written = true;
+                }
+            }
+            for (int i = 0; i < (int)nal_list.size(); i++) {
+                bitstream->append(nal_list[i].ptr, nal_list[i].size);
+                if (nal_list[i].type == NALU_HEVC_VPS || nal_list[i].type == NALU_HEVC_SPS || nal_list[i].type == NALU_HEVC_PPS) {
+                    if (i + 1 < (int)nal_list.size()
+                        && (nal_list[i + 1].type != NALU_HEVC_VPS && nal_list[i + 1].type != NALU_HEVC_SPS && nal_list[i + 1].type != NALU_HEVC_PPS)) {
+                        if (!seiWritten && insertSEI) {
+                            bitstream->append(&m_Mux.video.hdrBitstream);
+                            seiWritten = true;
+                        }
+                        if (!hdr10plus_metadata_written && hdr10plusMetadata.size() > 0) {
+                            bitstream->append(hdr10plusMetadata.data(), hdr10plusMetadata.size());
+                            hdr10plus_metadata_written = true;
+                        }
+                    }
+                }
+            }
+            bsCopy.clear();
+            if (insertSEI && !seiWritten) {
+                AddMessage(RGY_LOG_ERROR, _T("Unexpected HEVC header.\n"));
+                return RGY_ERR_UNDEFINED_BEHAVIOR;
+            }
+            if (hdr10plusMetadata.size() > 0 && !hdr10plus_metadata_written) {
+                AddMessage(RGY_LOG_ERROR, _T("hdr10plus metadata not written, unexpected behavior.\n"));
+                return RGY_ERR_UNDEFINED_BEHAVIOR;
+            }
+        } else if (m_VideoOutputInfo.codec == RGY_CODEC_AV1) {
+            const auto av1_units = parse_unit_av1(bitstream->data(), bitstream->size());
+            bitstream->setSize(0);
+            bitstream->setOffset(0);
+
+            const auto has_seq_header = std::find_if(av1_units.begin(), av1_units.end(), [](const std::unique_ptr<unit_info>& info) { return info->type == OBU_SEQUENCE_HEADER; }) != av1_units.end();
+            bool hdr10plus_metadata_written = false;
+            if (!has_seq_header) {
+                bitstream->append(hdr10plusMetadata.data(), hdr10plusMetadata.size());
+                hdr10plus_metadata_written = true;
+            }
+
+            bool hdr_metadata_written = false;
+            for (size_t i = 0; i < av1_units.size(); i++) {
+                bitstream->append(av1_units[i]->unit_data.data(), av1_units[i]->unit_data.size());
+                if (av1_units[i]->type == OBU_TEMPORAL_DELIMITER) {
+                    if (i + 1 >= av1_units.size() || av1_units[i+1]->type != OBU_SEQUENCE_HEADER) {
+                        if (!hdr10plus_metadata_written) {
+                            bitstream->append(hdr10plusMetadata.data(), hdr10plusMetadata.size());
+                            hdr10plus_metadata_written = true;
+                        }
+                    }
+                } else if (av1_units[i]->type == OBU_SEQUENCE_HEADER) {
+                    if (!hdr_metadata_written) {
+                        bitstream->append(&m_Mux.video.hdrBitstream);
+                        hdr_metadata_written = true;
+                    }
+                    if (!hdr10plus_metadata_written) {
+                        bitstream->append(hdr10plusMetadata.data(), hdr10plusMetadata.size());
+                        hdr10plus_metadata_written = true;
+                    }
+                }
+            }
+            if (!hdr10plus_metadata_written) {
+                AddMessage(RGY_LOG_ERROR, _T("hdr10plus metadata not written, unexpected behavior.\n"));
+                return RGY_ERR_UNDEFINED_BEHAVIOR;
+            }
+        } else {
+            AddMessage(RGY_LOG_ERROR, _T("Setting masterdisplay/contentlight not supported in %s encoding.\n"), CodecToStr(m_VideoOutputInfo.codec).c_str());
+            return RGY_ERR_UNSUPPORTED;
+        }
+    }
+
+    if (m_Mux.video.doviRpu) {
+        if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
+            if (bs_framedata.inputFrameId < 0) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to get frame ID for pts %lld (%lld).\n"), bitstream->pts(), bs_framedata.inputFrameId);
+                return RGY_ERR_UNDEFINED_BEHAVIOR;
+            }
+            std::vector<uint8_t> dovi_nal;
+            if (m_Mux.video.doviRpu->get_next_rpu_nal(dovi_nal, bs_framedata.inputFrameId) != 0) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to get dovi rpu for %lld.\n"), bs_framedata.inputFrameId);
+            }
+            if (dovi_nal.size() > 0) {
+                bitstream->append(dovi_nal.data(), dovi_nal.size());
+            }
+        } else {
+            AddMessage(RGY_LOG_ERROR, _T("Adding dovi rpu not supported in %s encoding.\n"), CodecToStr(m_VideoOutputInfo.codec).c_str());
+            return RGY_ERR_UNSUPPORTED;
+        }
+    }
+
+    AVPacket *pkt = m_Mux.video.pktOut;
+    av_new_packet(pkt, (int)bitstream->size());
+    memcpy(pkt->data, bitstream->data(), bitstream->size());
+    pkt->size = (int)bitstream->size();
+
+    const AVRational streamTimebase = m_Mux.video.streamOut->time_base;
+    pkt->stream_index = m_Mux.video.streamOut->index;
+    pkt->flags = (isKey) ? AV_PKT_FLAG_KEY : 0;
+#if ENCODER_QSV
+    //QSVエンコーダでは、bitstreamからdurationの情報が取得できないので、別途取得する
+    pkt->duration = bs_framedata.duration;
+#else
+    pkt->duration = bitstream->duration();
+#endif
+    pkt->pts = bitstream->pts();
+#if ENCODER_QSV
+    //QSVエンコーダだけは、HW_NATIVE_TIMEBASEで送られてくる
+    pkt->duration = av_rescale_q(pkt->duration, HW_NATIVE_TIMEBASE, m_Mux.video.bitstreamTimebase);
+    pkt->pts = av_rescale_q(pkt->pts, HW_NATIVE_TIMEBASE, m_Mux.video.bitstreamTimebase);
+#endif
+    if (av_cmp_q(m_Mux.video.bitstreamTimebase, streamTimebase) != 0) {
+        pkt->duration = av_rescale_q(pkt->duration, m_Mux.video.bitstreamTimebase, streamTimebase);
+        pkt->pts = av_rescale_q(pkt->pts, m_Mux.video.bitstreamTimebase, streamTimebase);
+    }
+    if (false && !m_Mux.video.dtsUnavailable) {
+        pkt->dts = av_rescale_q(bitstream->dts(), m_Mux.video.bitstreamTimebase, streamTimebase);
+    } else {
+        m_Mux.video.timestampList.add(pkt->pts);
+        pkt->dts = m_Mux.video.timestampList.get_min_pts();
+    }
+    if (WRITE_PTS_DEBUG) {
+        AddMessage(RGY_LOG_WARN, _T("video pts %3d, %12s, pts, %lld (%d/%d) [%s]\n"),
+            pkt->stream_index, char_to_tstring(avcodec_get_name(m_Mux.format.formatCtx->streams[pkt->stream_index]->codecpar->codec_id)).c_str(),
+            pkt->pts, streamTimebase.num, streamTimebase.den, getTimestampString(pkt->pts, streamTimebase).c_str());
+    }
+    const auto pts = pkt->pts, dts = pkt->dts, duration = pkt->duration;
+    *writtenDts = av_rescale_q(pkt->dts, streamTimebase, QUEUE_DTS_TIMEBASE);
+    const auto ret_write = av_interleaved_write_frame(m_Mux.format.formatCtx, pkt);
+    if (ret_write != 0) {
+        AddMessage(RGY_LOG_ERROR, _T("Error: Failed to write video frame: %s.\n"), qsv_av_err2str(ret_write).c_str());
+        m_Mux.format.streamError = true;
+    }
+
+    //インタレ保持の際、IDRかどうかのフラグが正しく設定されていないことがある
+    //どちらかのフィールドがIDRならIDRのフラグを立ててているので、それを参照する
+    const auto frameType = (isIDR) ? RGY_FRAMETYPE_IDR : bitstream->frametype();
+    if (m_Mux.video.fpTsLogFile) {
+        const TCHAR *pFrameTypeStr =
+            (frameType & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_I)) ? _T("I") : (((frameType & RGY_FRAMETYPE_B) == 0) ? _T("P") : _T("B"));
+        _ftprintf(m_Mux.video.fpTsLogFile, _T("%s, %20lld, %20lld, %20lld, %20lld, %d, %7zd\n"), pFrameTypeStr, (lls)bitstream->pts(), (lls)bitstream->dts(), (lls)pts, (lls)dts, (int)duration, bitstream->size());
+    }
+    m_encSatusInfo->SetOutputData(frameType, bitstream->size(), bitstream->avgQP());
+    return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
+}
 
 #pragma warning (push)
 #pragma warning (disable: 4127) //warning C4127: 条件式が定数です。
@@ -2266,7 +2825,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
 #if ENCODER_QSV
         if (bitstream->dts() != MFX_TIMESTAMP_UNKNOWN) {
             const auto srcTimebase = (ENCODER_QSV) ? HW_NATIVE_TIMEBASE : m_Mux.video.bitstreamTimebase;
-            m_VideoOutputInfo.videoDelay = -1 * (int)av_rescale_q(bitstream->dts(), srcTimebase, av_inv_q(m_Mux.video.outputFps));
+            m_VideoOutputInfo.videoDelay = (m_VideoOutputInfo.codec == RGY_CODEC_AV1 && AV1_TIMESTAMP_OVERRIDE) ? 0 : -1 * (int)av_rescale_q(bitstream->dts(), srcTimebase, av_inv_q(m_Mux.video.outputFps));
         }
 #endif
         m_Mux.video.fpsBaseNextDts = 0 - m_VideoOutputInfo.videoDelay;
@@ -2279,207 +2838,100 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_
         }
     }
 
-    RGYTimestampMapVal bs_framedata;
-    if (m_Mux.video.timestamp) {
-        bs_framedata = m_Mux.video.timestamp->get(bitstream->pts());
+    const bool flush = bitstream->size() == 0;
+
+    if (m_VideoOutputInfo.codec != RGY_CODEC_AV1 || m_Mux.video.debugDirectAV1Out) { // AV1以外
+        if (flush) {
+            return RGY_ERR_NONE; // 特にflushするものはない
+        }
+        RGYTimestampMapVal bs_framedata;
+        if (m_Mux.video.timestamp) {
+            bs_framedata = m_Mux.video.timestamp->get(bitstream->pts());
+            if (bs_framedata.inputFrameId < 0) {
+                bs_framedata.inputFrameId = m_Mux.video.prevInputFrameId;
+                AddMessage(RGY_LOG_WARN, _T("Failed to get frame ID for pts %lld, using %lld.\n"), bitstream->pts(), bs_framedata.inputFrameId);
+            }
+            m_Mux.video.prevInputFrameId = bs_framedata.inputFrameId;
+            m_Mux.video.prevEncodeFrameId = bs_framedata.encodeFrameId;
+        }
+        auto err = WriteNextFrameInternalOneFrame(bitstream, writtenDts, bs_framedata);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        return WriteNextFrameFinish(bitstream, bitstream->frametype());
+    }
+
+    // AV1の場合、SDKの返すtimestampは滅茶苦茶
+    // また、TEMPORAL_DELIMITERベースの区切りになっていないため、区切りをやり直す必要がある
+    if (!m_Mux.video.timestamp && AV1_TIMESTAMP_OVERRIDE) {
+        AddMessage(RGY_LOG_ERROR, _T("m_Mux.video.timestamp == nullptr!\n"));
+        return RGY_ERR_NULL_PTR;
+    }
+
+    // まず、AV1をユニット単位に分割し、その種類を取得する
+    auto new_units = parse_unit_av1(bitstream->data(), bitstream->size());
+    // バッファに連結
+    m_Mux.videoAV1Merge.insert(m_Mux.videoAV1Merge.end(), std::make_move_iterator(new_units.begin()), std::make_move_iterator(new_units.end()));
+    bitstream->setSize(0);
+    bitstream->setOffset(0);
+
+    for (;;) {
+        // 先頭ユニットは、OBU_AV1_TEMPORAL_DELIMITERになるようになっている
+        // その次のOBU_AV1_TEMPORAL_DELIMITERが見つかったら、そこまでを一単位として送出する
+        size_t next_delim = 0;
+        for (size_t iunit = 1; iunit < m_Mux.videoAV1Merge.size(); iunit++) {
+            if (m_Mux.videoAV1Merge[iunit]->type == OBU_TEMPORAL_DELIMITER) {
+                next_delim = iunit;
+                break;
+            }
+        }
+        if (next_delim == 0) { // 見つからなかった
+            if (flush) { // flushする場合は最後まで
+                next_delim = m_Mux.videoAV1Merge.size();
+            }
+            if (next_delim == 0) {
+                break; // 抜けて、次のデータが来るまで待つ
+            }
+        }
+        //次のフレームの時刻情報を取得
+        RGYTimestampMapVal bs_framedata = m_Mux.video.timestamp->getByEncodeFrameID(m_Mux.video.prevEncodeFrameId + 1);
         if (bs_framedata.inputFrameId < 0) {
             bs_framedata.inputFrameId = m_Mux.video.prevInputFrameId;
-            AddMessage(RGY_LOG_WARN, _T("Failed to get frame ID for pts %lld, using %lld.\n"), bitstream->pts(), bs_framedata.inputFrameId);
-        }
-        m_Mux.video.prevInputFrameId = bs_framedata.inputFrameId;
-    }
-
-#if ENCODER_VCEENC
-    VidCheckStreamAVParser(bitstream);
-#endif //#if ENCODER_VCEENC
-
-    if (m_Mux.video.bsfc) {
-        int target_nal = 0;
-        std::vector<nal_info> nal_list;
-        if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
-            target_nal = NALU_HEVC_SPS;
-            nal_list = m_Mux.video.parse_nal_hevc(bitstream->data(), bitstream->size());
-        } else if (m_VideoOutputInfo.codec == RGY_CODEC_H264) {
-            target_nal = NALU_H264_SPS;
-            nal_list = m_Mux.video.parse_nal_h264(bitstream->data(), bitstream->size());
-        }
-        auto sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [target_nal](nal_info info) { return info.type == target_nal; });
-        if (sps_nal != nal_list.end()) {
-            AVPacket pkt = { 0 };
-            av_init_packet(&pkt);
-            av_new_packet(&pkt, (int)sps_nal->size);
-            memcpy(pkt.data, sps_nal->ptr, sps_nal->size);
-            int ret = 0;
-            if (0 > (ret = av_bsf_send_packet(m_Mux.video.bsfc, &pkt))) {
-                av_packet_unref(&pkt);
-                AddMessage(RGY_LOG_ERROR, _T("failed to send packet to %s bitstream filter: %s.\n"),
-                    char_to_tstring(m_Mux.video.bsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
-                return RGY_ERR_UNKNOWN;
-            }
-            ret = av_bsf_receive_packet(m_Mux.video.bsfc, &pkt);
-            if (ret == AVERROR(EAGAIN)) {
-                return RGY_ERR_NONE;
-            } else if ((ret < 0 && ret != AVERROR_EOF) || pkt.size < 0) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to run %s bitstream filter: %s.\n"),
-                    char_to_tstring(m_Mux.video.bsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
-                return RGY_ERR_UNKNOWN;
-            }
-            const auto new_data_size = bitstream->size() + pkt.size - sps_nal->size;
-            const auto sps_nal_offset = sps_nal->ptr - bitstream->data();
-            const auto next_nal_orig_offset = sps_nal_offset + sps_nal->size;
-            const auto next_nal_new_offset = sps_nal_offset + pkt.size;
-            const auto stream_orig_length = bitstream->size();
-            if ((decltype(new_data_size))bitstream->bufsize() < new_data_size) {
-                bitstream->changeSize(new_data_size);
-            } else if (pkt.size > (decltype(pkt.size))sps_nal->size) {
-                bitstream->trim();
-            }
-            memmove(bitstream->data() + next_nal_new_offset, bitstream->data() + next_nal_orig_offset, stream_orig_length - next_nal_orig_offset);
-            memcpy(bitstream->data() + sps_nal_offset, pkt.data, pkt.size);
-            bitstream->setSize(new_data_size);
-            av_packet_unref(&pkt);
-        }
-    }
-
-    //IDRかどうかのフラグ
-    bool isIDR = (bitstream->frametype() & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_xIDR)) != 0;
-    if (m_Mux.video.streamOut->codecpar->field_order != AV_FIELD_PROGRESSIVE) {
-        if (m_VideoOutputInfo.codec == RGY_CODEC_H264) {
-            const auto nal_list = m_Mux.video.parse_nal_h264(bitstream->data(), bitstream->size());
-            //インタレ保持の際、IDRかどうかのフラグが正しく設定されていないことがある
-            //どちらかのフィールドがIDRならIDRのフラグを立てる
-            isIDR = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_H264_IDR; }) != nal_list.end();
-        } else if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
-            AddMessage(RGY_LOG_ERROR, _T("Interlaced HEVC encoding not supported!\n"));
-            return RGY_ERR_UNSUPPORTED;
-        }
-    }
-    if (m_VideoOutputInfo.codec == RGY_CODEC_HEVC) {
-        const bool insertSEI = m_Mux.video.seiNal.size() > 0 && isIDR;
-        if (insertSEI) {
-            RGYBitstream bsCopy = RGYBitstreamInit();
-            bsCopy.copy(bitstream);
-            const auto nal_list = m_Mux.video.parse_nal_hevc(bsCopy.data(), bsCopy.size());
-            const auto hevc_vps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_VPS; });
-            const auto hevc_sps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_SPS; });
-            const auto hevc_pps_nal = std::find_if(nal_list.begin(), nal_list.end(), [](nal_info info) { return info.type == NALU_HEVC_PPS; });
-            const bool header_check = (nal_list.end() != hevc_vps_nal) && (nal_list.end() != hevc_sps_nal) && (nal_list.end() != hevc_pps_nal);
-
-            bitstream->setSize(0);
-            bitstream->setOffset(0);
-            bool seiWritten = false;
-            if (!header_check && insertSEI) {
-                bitstream->append(&m_Mux.video.seiNal);
-                seiWritten = true;
-            }
-            for (int i = 0; i < (int)nal_list.size(); i++) {
-                bitstream->append(nal_list[i].ptr, nal_list[i].size);
-                if (nal_list[i].type == NALU_HEVC_VPS || nal_list[i].type == NALU_HEVC_SPS || nal_list[i].type == NALU_HEVC_PPS) {
-                    if (!seiWritten
-                        && i + 1 < nal_list.size()
-                        && (nal_list[i + 1].type != NALU_HEVC_VPS && nal_list[i + 1].type != NALU_HEVC_SPS && nal_list[i + 1].type != NALU_HEVC_PPS)) {
-                        bitstream->append(&m_Mux.video.seiNal);
-                        seiWritten = true;
-                    }
-                }
-            }
-            bsCopy.clear();
-            if (insertSEI && !seiWritten) {
-                AddMessage(RGY_LOG_ERROR, _T("Unexpected HEVC header.\n"));
-                return RGY_ERR_UNDEFINED_BEHAVIOR;
-            }
-        }
-
-        if (m_Mux.video.doviRpu) {
-            if (bs_framedata.inputFrameId < 0) {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to get frame ID for pts %lld (%lld).\n"), bitstream->pts(), bs_framedata.inputFrameId);
-                return RGY_ERR_UNDEFINED_BEHAVIOR;
-            }
-            std::vector<uint8_t> dovi_nal;
-            if (m_Mux.video.doviRpu->get_next_rpu_nal(dovi_nal, bs_framedata.inputFrameId) != 0) {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to get dovi rpu for %lld.\n"), bs_framedata.inputFrameId);
-            }
-            if (dovi_nal.size() > 0) {
-                bitstream->append(dovi_nal.data(), dovi_nal.size());
-            }
-        }
-    }
-
-    AVPacket pkt = { 0 };
-    av_init_packet(&pkt);
-    av_new_packet(&pkt, (int)bitstream->size());
-    memcpy(pkt.data, bitstream->data(), bitstream->size());
-    pkt.size = (int)bitstream->size();
-
-    const AVRational streamTimebase = m_Mux.video.streamOut->time_base;
-    pkt.stream_index = m_Mux.video.streamOut->index;
-    pkt.flags        = isIDR ? AV_PKT_FLAG_KEY : 0;
-#if ENCODER_QSV
-    //QSVエンコーダでは、bitstreamからdurationの情報が取得できないので、別途取得する
-    pkt.duration = bs_framedata.duration;
-#else
-    pkt.duration = bitstream->duration();
-#endif
-    pkt.pts = bitstream->pts();
-#if ENCODER_QSV
-    //QSVエンコーダだけは、HW_NATIVE_TIMEBASEで送られてくる
-    pkt.duration = av_rescale_q(pkt.duration, HW_NATIVE_TIMEBASE, m_Mux.video.bitstreamTimebase);
-    pkt.pts = av_rescale_q(pkt.pts, HW_NATIVE_TIMEBASE, m_Mux.video.bitstreamTimebase);
-#endif
-    if (av_cmp_q(m_Mux.video.bitstreamTimebase, streamTimebase) != 0) {
-        pkt.duration = av_rescale_q(pkt.duration, m_Mux.video.bitstreamTimebase, streamTimebase);
-        pkt.pts      = av_rescale_q(pkt.pts, m_Mux.video.bitstreamTimebase, streamTimebase);
-    }
-    if (false && !m_Mux.video.dtsUnavailable) {
-        pkt.dts = av_rescale_q(bitstream->dts(), m_Mux.video.bitstreamTimebase, streamTimebase);
-    } else {
-        m_Mux.video.timestampList.add(pkt.pts);
-        pkt.dts = m_Mux.video.timestampList.get_min_pts();
-    }
-    if (WRITE_PTS_DEBUG) {
-        AddMessage(RGY_LOG_WARN, _T("%3d, %12s, pts, %lld (%d/%d) [%s]\n"),
-            pkt.stream_index, char_to_tstring(avcodec_get_name(m_Mux.format.formatCtx->streams[pkt.stream_index]->codecpar->codec_id)).c_str(),
-            pkt.pts, streamTimebase.num, streamTimebase.den, getTimestampString(pkt.pts, streamTimebase).c_str());
-    }
-    const auto pts = pkt.pts, dts = pkt.dts, duration = pkt.duration;
-    *writtenDts = av_rescale_q(pkt.dts, streamTimebase, QUEUE_DTS_TIMEBASE);
-    const auto ret_write = av_interleaved_write_frame(m_Mux.format.formatCtx, &pkt);
-    if (ret_write != 0) {
-        AddMessage(RGY_LOG_ERROR, _T("Error: Failed to write video frame: %s.\n"), qsv_av_err2str(ret_write).c_str());
-        m_Mux.format.streamError = true;
-    }
-
-    //インタレ保持の際、IDRかどうかのフラグが正しく設定されていないことがある
-    //どちらかのフィールドがIDRならIDRのフラグを立ててているので、それを参照する
-    const auto frameType = (isIDR) ? RGY_FRAMETYPE_IDR : bitstream->frametype();
-    if (m_Mux.video.fpTsLogFile) {
-        const TCHAR *pFrameTypeStr =
-            (frameType & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_I)) ? _T("I") : (((frameType & RGY_FRAMETYPE_B) == 0) ? _T("P") : _T("B"));
-        _ftprintf(m_Mux.video.fpTsLogFile, _T("%s, %20lld, %20lld, %20lld, %20lld, %d, %7zd\n"), pFrameTypeStr, (lls)bitstream->pts(), (lls)bitstream->dts(), (lls)pts, (lls)dts, (int)duration, bitstream->size());
-    }
-    m_encSatusInfo->SetOutputData(frameType, bitstream->size(), bitstream->avgQP());
-#if ENABLE_AVCODEC_OUT_THREAD
-    //最初のヘッダーを書いたパケットはコピーではないので、キューに入れない
-    if (m_Mux.thread.thOutput.joinable()) {
-        //確保したメモリ領域を使いまわすためにキューに格納
-        const auto frameI = (frameType & (RGY_FRAMETYPE_IDR | RGY_FRAMETYPE_I)) != 0;
-        auto& qVideoQueueFree = (frameI) ? m_Mux.thread.qVideobitstreamFreeI : m_Mux.thread.qVideobitstreamFreePB;
-        auto queueFavoredSize = (frameI) ? VID_BITSTREAM_QUEUE_SIZE_I : VID_BITSTREAM_QUEUE_SIZE_PB;
-        if ((int64_t)qVideoQueueFree.size() > queueFavoredSize) {
-            //あまり多すぎると無駄にメモリを使用するので減らす
-            bitstream->clear();
+            AddMessage(RGY_LOG_WARN, _T("Failed to get timestamp for id %lld, using %lld.\n"), bitstream->pts(), bs_framedata.inputFrameId);
         } else {
-            qVideoQueueFree.push(*bitstream);
+            m_Mux.video.prevInputFrameId = bs_framedata.inputFrameId;
+            m_Mux.video.prevEncodeFrameId++;
         }
-    } else {
-#endif
-        bitstream->setSize(0);
-        bitstream->setOffset(0);
-#if ENABLE_AVCODEC_OUT_THREAD
+
+        //送出すべきデータサイズを取得
+        size_t data_size = 0;
+        for (size_t iunit = 0; iunit < next_delim; iunit++) {
+            data_size += m_Mux.videoAV1Merge[iunit]->unit_data.size();
+        }
+        //bitstreamを設定
+        bitstream->init(data_size);
+        bitstream->setSize(data_size);
+        bitstream->setPts(bs_framedata.timestamp);
+        bitstream->setDts(bs_framedata.timestamp);
+        bitstream->setDuration(bs_framedata.duration);
+
+        size_t copy_size = 0; // コピーしたデータサイズ
+        for (size_t iunit = 0; iunit < next_delim; iunit++) {
+            const auto& unit_data = m_Mux.videoAV1Merge[iunit]->unit_data;
+            memcpy(bitstream->data() + copy_size, unit_data.data(), unit_data.size());
+            copy_size += unit_data.size();
+        }
+        // コピーし終わったユニットを破棄
+        for (size_t iunit = 0; iunit < next_delim; iunit++) {
+            m_Mux.videoAV1Merge.pop_front();
+        }
+
+        auto err = WriteNextFrameInternalOneFrame(bitstream, writtenDts, bs_framedata);
+        if (err != RGY_ERR_NONE) {
+            break;
+        }
     }
-#endif
-    m_Mux.format.fileHeaderWritten = true;
-    return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
+    return WriteNextFrameFinish(bitstream, bitstream->frametype());
 }
 #pragma warning (pop)
 
@@ -2491,10 +2943,10 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYFrame *surface) {
 vector<int> RGYOutputAvcodec::GetStreamTrackIdList() {
     vector<int> streamTrackId;
     streamTrackId.reserve(m_Mux.audio.size());
-    for (auto audio : m_Mux.audio) {
+    for (const auto& audio : m_Mux.audio) {
         streamTrackId.push_back(audio.inTrackId);
     }
-    for (auto sub : m_Mux.other) {
+    for (const auto& sub : m_Mux.other) {
         streamTrackId.push_back(sub.inTrackId);
     }
     return streamTrackId;
@@ -2503,7 +2955,7 @@ vector<int> RGYOutputAvcodec::GetStreamTrackIdList() {
 AVMuxAudio *RGYOutputAvcodec::getAudioPacketStreamData(const AVPacket *pkt) {
     const int streamIndex = pkt->stream_index;
     //privには、trackIdへのポインタが格納してある…はず
-    const int inTrackId = (int)((uint32_t)pkt->flags >> 16);
+    const int inTrackId = pktFlagGetTrackID(pkt);
     for (int i = 0; i < (int)m_Mux.audio.size(); i++) {
         //streamIndexの一致とtrackIdの一致を確認する
         if (m_Mux.audio[i].streamIndexIn == streamIndex
@@ -2528,7 +2980,7 @@ AVMuxAudio *RGYOutputAvcodec::getAudioStreamData(int trackId, int subStreamId) {
 AVMuxOther *RGYOutputAvcodec::getOtherPacketStreamData(const AVPacket *pkt) {
     const int streamIndex = pkt->stream_index;
     //privには、trackIdへのポインタが格納してある…はず
-    const int inTrackId = (int)((uint32_t)pkt->flags >> 16);
+    const int inTrackId = pktFlagGetTrackID(pkt);
     for (int i = 0; i < (int)m_Mux.other.size(); i++) {
         //streamIndexの一致とtrackIdの一致を確認する
         if (m_Mux.other[i].streamIndexIn == streamIndex
@@ -2542,7 +2994,7 @@ AVMuxOther *RGYOutputAvcodec::getOtherPacketStreamData(const AVPacket *pkt) {
 RGY_ERR RGYOutputAvcodec::applyBitstreamFilterOther(AVPacket *pkt, const AVMuxOther *muxOther) {
     int ret = 0;
     if (0 > (ret = av_bsf_send_packet(muxOther->bsfc, pkt))) {
-        av_packet_unref(pkt);
+        m_Mux.poolPkt->returnFree(&pkt);
         AddMessage(RGY_LOG_ERROR, _T("failed to send packet to %s bitstream filter: %s.\n"), char_to_tstring(muxOther->bsfc->filter->name).c_str(), qsv_av_err2str(ret).c_str());
         return RGY_ERR_UNKNOWN;
     }
@@ -2573,7 +3025,7 @@ RGY_ERR RGYOutputAvcodec::applyBitstreamFilterAudio(AVPacket *pkt, AVMuxAudio *m
         }
     }
     if (0 > (ret = av_bsf_send_packet(muxAudio->bsfc, pkt))) {
-        av_packet_unref(pkt);
+        m_Mux.poolPkt->returnFree(&pkt);
         AddMessage(RGY_LOG_ERROR, _T("failed to send packet to %s bitstream filter: %s.\n"), filterName.c_str(), qsv_av_err2str(ret).c_str());
         return RGY_ERR_UNKNOWN;
     }
@@ -2609,11 +3061,25 @@ RGY_ERR RGYOutputAvcodec::applyBitstreamFilterAudio(AVPacket *pkt, AVMuxAudio *m
 // dts       ... [o]  書き出したパケットの最終的なdtsをHW_NATIVE_TIMEBASEで返す
 void RGYOutputAvcodec::WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *pkt, int samples, int64_t *writtenDts) {
     if (pkt == nullptr || pkt->buf == nullptr) {
-        for (uint32_t i = 0; i < m_Mux.audio.size(); i++) {
-            AudioFlushStream(&m_Mux.audio[i], writtenDts);
+        //muxAudioのnullpacketが到着した
+        muxAudio->flushed = true;
+        //送出したEOSがすべて来たか確認しないといけない
+        const auto loglevel_flush = RGY_LOG_DEBUG;
+        if (std::find_if(m_Mux.audio.begin(), m_Mux.audio.end(), [](const auto& audio) {
+            return !audio.flushed;
+        }) == m_Mux.audio.end()) {
+            *writtenDts = INT64_MAX;
+            AddMessage(RGY_LOG_DEBUG, _T("Flushed audio buffer.\n"));
+        } else if (m_printMes && loglevel_flush >= m_printMes->getLogLevel(RGY_LOGT_OUT)) { // ログ出力用
+            tstring tracks;
+            for (auto& aud : m_Mux.audio) {
+                if (!aud.flushed) {
+                    if (tracks.length() > 0) tracks += _T(", ");
+                    tracks += strsprintf(_T("%d"), trackID(aud.inTrackId));
+                }
+            }
+            AddMessage(loglevel_flush, _T("null packet from %d, waiting for EOS to come from other tracks: [%s].\n"), muxAudio ? trackID(muxAudio->inTrackId) : 0, tracks.c_str());
         }
-        *writtenDts = INT64_MAX;
-        AddMessage(RGY_LOG_DEBUG, _T("Flushed audio buffer.\n"));
         return;
     }
     //durationについて、sample数から出力ストリームのtimebaseに変更する
@@ -2654,7 +3120,7 @@ void RGYOutputAvcodec::WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *
                 AddMessage(loglevel, _T("                              previous: %s current: %s\n"),
                     getTimestampString(muxAudio->lastPtsOut, muxAudio->streamOut->time_base).c_str(),
                     getTimestampString(pkt->pts, muxAudio->streamOut->time_base).c_str());
-                AddMessage(loglevel, _T("Chaging timestamp to %lld(%s), this may corrupt av-synchronization.\n"),
+                AddMessage(loglevel, _T("Changing timestamp to %lld(%s), this may corrupt av-synchronization.\n"),
                     (long long int)maxPts, getTimestampString(maxPts, muxAudio->streamOut->time_base).c_str());
             }
             pkt->pts = maxPts;
@@ -2678,15 +3144,18 @@ void RGYOutputAvcodec::WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *
             pkt->stream_index, char_to_tstring(avcodec_get_name(m_Mux.format.formatCtx->streams[pkt->stream_index]->codecpar->codec_id)).c_str(),
             pkt->pts, muxAudio->streamOut->time_base.num, muxAudio->streamOut->time_base.den, getTimestampString(pkt->pts, muxAudio->streamOut->time_base).c_str());
     }
-    //av_interleaved_write_frameに渡ったパケットは開放する必要がない
-    const auto ret_write = av_interleaved_write_frame(m_Mux.format.formatCtx, pkt);
-    if (ret_write != 0) {
-        AddMessage(RGY_LOG_ERROR, _T("Error: Failed to write %s stream %d frame: %s.\n"),
-            get_media_type_string(muxAudio->streamOut->codecpar->codec_id).c_str(),
-            muxAudio->streamOut->index, qsv_av_err2str(ret_write).c_str());
-        m_Mux.format.streamError = true;
+    if (pkt->pts >= 0 || m_Mux.format.allowOtherNegativePts) {
+        //av_interleaved_write_frameに渡ったパケットは開放する必要がない
+        const auto ret_write = av_interleaved_write_frame(m_Mux.format.formatCtx, pkt);
+        if (ret_write != 0) {
+            AddMessage(RGY_LOG_ERROR, _T("Error: Failed to write %s stream %d frame: %s.\n"),
+                get_media_type_string(muxAudio->streamOut->codecpar->codec_id).c_str(),
+                muxAudio->streamOut->index, qsv_av_err2str(ret_write).c_str());
+            m_Mux.format.streamError = true;
+        }
+        muxAudio->outputSamples += samples;
     }
-    muxAudio->outputSamples += samples;
+    m_Mux.poolPkt->returnFree(&pkt);
 }
 
 //音声/字幕パケットを実際に書き出す (構造体版)
@@ -2695,11 +3164,11 @@ void RGYOutputAvcodec::WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *
 // pktData->samples   ... [i]  pktのsamples数 音声処理時のみ有効 / 字幕の際は0を渡すべき
 // &pktData->dts      ... [o]  書き出したパケットの最終的なdtsをHW_NATIVE_TIMEBASEで返す
 void RGYOutputAvcodec::WriteNextPacketProcessed(AVPktMuxData *pktData) {
-    WriteNextPacketProcessed(pktData->muxAudio, &pktData->pkt, pktData->samples, &pktData->dts);
+    WriteNextPacketProcessed(pktData->muxAudio, pktData->pkt, pktData->samples, &pktData->dts);
 }
 
 void RGYOutputAvcodec::WriteNextPacketProcessed(AVPktMuxData *pktData, int64_t *writtenDts) {
-    WriteNextPacketProcessed(pktData->muxAudio, &pktData->pkt, pktData->samples, &pktData->dts);
+    WriteNextPacketProcessed(pktData->muxAudio, pktData->pkt, pktData->samples, &pktData->dts);
     *writtenDts = pktData->dts;
 }
 
@@ -2708,8 +3177,7 @@ vector<unique_ptr<AVFrame, RGYAVDeleter<AVFrame>>> RGYOutputAvcodec::AudioDecode
     if (muxAudio->decodeError > muxAudio->ignoreDecodeError) {
         return decodedFrames;
     }
-    AVPacket pktInInfo;
-    av_packet_copy_props(&pktInInfo, pkt);
+    const auto in_pts = (pkt) ? pkt->pts : AV_NOPTS_VALUE;
 
     bool sent_packet = false;
 
@@ -2720,13 +3188,13 @@ vector<unique_ptr<AVFrame, RGYAVDeleter<AVFrame>>> RGYOutputAvcodec::AudioDecode
         unique_ptr<AVFrame, RGYAVDeleter<AVFrame>> receivedData(nullptr, RGYAVDeleter<AVFrame>(av_frame_free));
         int send_ret = 0;
         //必ず一度はパケットを送る
-        if (!sent_packet || pkt->size > 0) {
+        if (!sent_packet || (pkt && pkt->size > 0)) {
             sent_packet = true;
             //ひとつのパケットをデコーダに送る
             send_ret = avcodec_send_packet(muxAudio->outCodecDecodeCtx, pkt);
             //AVERROR(EAGAIN) -> パケットを送る前に受け取る必要がある (パケットが受け取られていないので解放しない)
             if (send_ret != AVERROR(EAGAIN)) {
-                av_packet_unref(pkt);
+                m_Mux.poolPkt->returnFree(&pkt);
             }
             if (send_ret == AVERROR_EOF) {
                 AddMessage(RGY_LOG_DEBUG, _T("avcodec writer: failed to send packet to audio decoder, already flushed.\n"));
@@ -2742,7 +3210,7 @@ vector<unique_ptr<AVFrame, RGYAVDeleter<AVFrame>>> RGYOutputAvcodec::AudioDecode
             AddMessage(RGY_LOG_ERROR, _T("failed to send packet to audio decoder: %s.\n"), qsv_av_err2str(send_ret).c_str());
             muxAudio->decodeError++;
         } else {
-            receivedData = unique_ptr<AVFrame, RGYAVDeleter<AVFrame>>(av_frame_alloc(), RGYAVDeleter<AVFrame>(av_frame_free));
+            receivedData = m_Mux.poolFrame->getFree();
             recv_ret = avcodec_receive_frame(muxAudio->outCodecDecodeCtx, receivedData.get());
             if (recv_ret == AVERROR(EAGAIN)   //もっとパケットを送る必要がある
                 || recv_ret == AVERROR_EOF) { //最後まで読み込んだ
@@ -2757,7 +3225,7 @@ vector<unique_ptr<AVFrame, RGYAVDeleter<AVFrame>>> RGYOutputAvcodec::AudioDecode
 
             if (receivedData) {
                 if (receivedData->pts == AV_NOPTS_VALUE) {
-                    receivedData->pts = pktInInfo.pts;
+                    receivedData->pts = in_pts;
                 }
                 if (receivedData->pts == AV_NOPTS_VALUE) {
                     const auto nextPts = muxAudio->decodeNextPts;
@@ -2793,7 +3261,7 @@ vector<unique_ptr<AVFrame, RGYAVDeleter<AVFrame>>> RGYOutputAvcodec::AudioDecode
                 decodedFrames.push_back(std::move(silentFrame));
 #else
                 AddMessage(RGY_LOG_WARN, _T("avcodec writer: ignore error(%d) on audio #%d decode at %lld(%s)\n"),
-                    muxAudio->decodeError, trackID(muxAudio->inTrackId), pktInInfo.pts, getTimestampString(pktInInfo.pts, muxAudio->streamIn->time_base).c_str());
+                    muxAudio->decodeError, trackID(muxAudio->inTrackId), in_pts, getTimestampString(in_pts, muxAudio->streamIn->time_base).c_str());
 #endif
             } else {
                 AddMessage(RGY_LOG_ERROR, _T("avcodec writer: failed to decode audio #%d for %d times.\n"), trackID(muxAudio->inTrackId), muxAudio->decodeError);
@@ -2828,7 +3296,7 @@ vector<AVPktMuxData> RGYOutputAvcodec::AudioFilterFrame(vector<AVPktMuxData> inp
             { //フィルターチェーンにフレームを追加
                 auto ret = av_buffersrc_add_frame_flags(muxAudio->filterBufferSrcCtx, pktData.frame, AV_BUFFERSRC_FLAG_PUSH);
                 // AVFrame構造体の破棄
-                av_frame_free(&pktData.frame);
+                m_Mux.poolFrame->returnFree(&pktData.frame);
                 if (ret < 0) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to feed the audio filtergraph\n"));
                     m_Mux.format.streamError = true;
@@ -2836,7 +3304,7 @@ vector<AVPktMuxData> RGYOutputAvcodec::AudioFilterFrame(vector<AVPktMuxData> inp
                 }
             }
             for (;;) {
-                unique_ptr<AVFrame, RGYAVDeleter<AVFrame>> filteredFrame(av_frame_alloc(), RGYAVDeleter<AVFrame>(av_frame_free));
+                auto filteredFrame = m_Mux.poolFrame->getFree();
                 auto ret = av_buffersink_get_frame_flags(muxAudio->filterBufferSinkCtx, filteredFrame.get(), (flush) ? AV_BUFFERSINK_FLAG_NO_REQUEST : 0);
                 if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
                     break;
@@ -2890,36 +3358,40 @@ vector<AVPktMuxData> RGYOutputAvcodec::AudioEncodeFrame(AVMuxAudio *muxAudio, AV
         return encPktDatas;
     }
 
-    AVPktMuxData pktData = { 0 };
-    memset(&pktData.pkt, 0, sizeof(pktData.pkt)); //av_init_packetでsizeなどは初期化されないので0をセット
-    pktData.type = MUX_DATA_TYPE_PACKET;
-    pktData.muxAudio = muxAudio;
     while (ret >= 0) {
-        av_init_packet(&pktData.pkt);
-        ret = avcodec_receive_packet(muxAudio->outCodecEncodeCtx, &pktData.pkt);
+        auto pkt = m_Mux.poolPkt->getFree();
+        ret = avcodec_receive_packet(muxAudio->outCodecEncodeCtx, pkt.get());
         if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
             break;
         } else if (ret < 0) {
             AddMessage(RGY_LOG_WARN, _T("avcodec writer: failed to encode audio #%d: %s\n"), trackID(muxAudio->inTrackId), qsv_av_err2str(ret).c_str());
             muxAudio->encodeError = true;
         }
-        pktData.samples = (int)av_rescale_q(pktData.pkt.duration, muxAudio->outCodecEncodeCtx->pkt_timebase, { 1, muxAudio->streamIn->codecpar->sample_rate });
+        AVPktMuxData pktData = { 0 };
+        pktData.type = MUX_DATA_TYPE_PACKET;
+        pktData.muxAudio = muxAudio;
+        pktData.pkt = pkt.release();
+        pktFlagSetTrackID(pktData.pkt, pktData.muxAudio->inTrackId);
+        pktData.samples = (int)av_rescale_q(pktData.pkt->duration, muxAudio->outCodecEncodeCtx->pkt_timebase, { 1, muxAudio->streamIn->codecpar->sample_rate });
         encPktDatas.push_back(pktData);
     }
     return encPktDatas;
 }
 
 void RGYOutputAvcodec::AudioFlushStream(AVMuxAudio *muxAudio, int64_t *writtenDts) {
+    if (muxAudio->flushed) { // AudioFlushStream は一度のみでOK
+        return;
+    }
     while (muxAudio->outCodecDecodeCtx && !muxAudio->encodeError) {
-        AVPacket pkt = { 0 };
-        auto decodedFrames = AudioDecodePacket(muxAudio, &pkt);
+        auto decodedFrames = AudioDecodePacket(muxAudio, nullptr);
         if (decodedFrames.size() == 0) {
             break;
         }
         vector<AVPktMuxData> audioFrames;
         for (size_t i = 0; i < decodedFrames.size(); i++) {
             AVPktMuxData audPkt;
-            av_init_packet(&audPkt.pkt);
+            audPkt.pkt = m_Mux.poolPkt->getFree().release();
+            pktFlagSetTrackID(audPkt.pkt, muxAudio->inTrackId);
             audPkt.dts = AV_NOPTS_VALUE;
             audPkt.samples = 0;
             audPkt.type = MUX_DATA_TYPE_FRAME;
@@ -2945,6 +3417,7 @@ void RGYOutputAvcodec::AudioFlushStream(AVMuxAudio *muxAudio, int64_t *writtenDt
             WriteNextPacketProcessed(&pktMux, writtenDts);
         }
     }
+    muxAudio->flushed = true; // AudioFlushStream を完了したフラグ
 }
 
 RGY_ERR RGYOutputAvcodec::SubtitleTranscode(const AVMuxOther *muxSub, AVPacket *pkt) {
@@ -2963,7 +3436,7 @@ RGY_ERR RGYOutputAvcodec::SubtitleTranscode(const AVMuxOther *muxSub, AVPacket *
         AddMessage(RGY_LOG_ERROR, _T("No buffer for encoding subtitle.\n"));
         m_Mux.format.streamError = true;
     }
-    av_packet_unref(pkt);
+    m_Mux.poolPkt->returnFree(&pkt);
     if (m_Mux.format.streamError)
         return RGY_ERR_UNKNOWN;
     if (!got_sub || sub.num_rects == 0)
@@ -2986,20 +3459,19 @@ RGY_ERR RGYOutputAvcodec::SubtitleTranscode(const AVMuxOther *muxSub, AVPacket *
             return RGY_ERR_UNKNOWN;
         }
 
-        AVPacket pktOut;
-        av_init_packet(&pktOut);
-        pktOut.data = muxSub->bufConvert;
-        pktOut.stream_index = muxSub->streamOut->index;
-        pktOut.size = sub_out_size;
+        auto pktOut = m_Mux.poolPkt->getFree();
+        pktOut->data = muxSub->bufConvert;
+        pktOut->stream_index = muxSub->streamOut->index;
+        pktOut->size = sub_out_size;
         // pts + duration <= 次のptsとなるよう、オリジナルのptsを使って再計算する
         auto end_ts = av_rescale_q(org_end_time,   muxSub->outCodecDecodeCtx->pkt_timebase, muxSub->streamOut->time_base);
-        pktOut.pts  = av_rescale_q(org_start_time, muxSub->outCodecDecodeCtx->pkt_timebase, muxSub->streamOut->time_base);
-        pktOut.duration = (int)av_rescale_q(end_ts - pktOut.pts, muxSub->outCodecDecodeCtx->pkt_timebase, muxSub->streamOut->time_base);
+        pktOut->pts  = av_rescale_q(org_start_time, muxSub->outCodecDecodeCtx->pkt_timebase, muxSub->streamOut->time_base);
+        pktOut->duration = (int)av_rescale_q(end_ts - pktOut->pts, muxSub->outCodecDecodeCtx->pkt_timebase, muxSub->streamOut->time_base);
         if (muxSub->outCodecEncodeCtx->codec_id == AV_CODEC_ID_DVB_SUBTITLE) {
-            pktOut.pts += 90 * ((i == 0) ? sub.start_display_time : sub.end_display_time);
+            pktOut->pts += 90 * ((i == 0) ? sub.start_display_time : sub.end_display_time);
         }
-        pktOut.dts = pktOut.pts;
-        const auto ret_write = av_interleaved_write_frame(m_Mux.format.formatCtx, &pktOut);
+        pktOut->dts = pktOut->pts;
+        const auto ret_write = av_interleaved_write_frame(m_Mux.format.formatCtx, pktOut.get());
         if (ret_write != 0) {
             AddMessage(RGY_LOG_ERROR, _T("Error: Failed to write %s stream %d frame: %s.\n"),
                 get_media_type_string(muxSub->streamOut->codecpar->codec_id).c_str(),
@@ -3018,15 +3490,6 @@ RGY_ERR RGYOutputAvcodec::WriteOtherPacket(AVPacket *pkt) {
         if (sts < RGY_ERR_NONE) {
             m_Mux.format.streamError = true;
             return RGY_ERR_UNDEFINED_BEHAVIOR;
-        }
-        //pktData->pkt.duration == 0 の場合はなにもせず終了する
-        if (pkt->duration == 0) {
-            av_packet_unref(pkt);
-            //特にエラーでなければそのまま終了
-            if (sts == RGY_ERR_NONE) {
-                return RGY_ERR_NONE;
-            }
-            return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
         }
     }
     if (pMuxOther->outCodecEncodeCtx) {
@@ -3057,14 +3520,15 @@ RGY_ERR RGYOutputAvcodec::WriteOtherPacket(AVPacket *pkt) {
             pMuxOther->streamOut->index, qsv_av_err2str(ret_write).c_str());
         m_Mux.format.streamError = true;
     }
+    m_Mux.poolPkt->returnFree(&pkt);
     return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
 }
 
-AVPktMuxData RGYOutputAvcodec::pktMuxData(const AVPacket *pkt) {
+AVPktMuxData RGYOutputAvcodec::pktMuxData(AVPacket *pkt) {
     AVPktMuxData data = { 0 };
     data.type = MUX_DATA_TYPE_PACKET;
     if (pkt) {
-        data.pkt = *pkt;
+        data.pkt = pkt;
         data.muxAudio = getAudioPacketStreamData(pkt);
     }
     return data;
@@ -3077,32 +3541,80 @@ AVPktMuxData RGYOutputAvcodec::pktMuxData(AVFrame *pFrame) {
     return data;
 }
 
+//対象パケットの担当スレッドを探す
+AVMuxThreadWorker *RGYOutputAvcodec::getPacketWorker(const AVMuxAudio *muxAudio, const int type) {
+    if (type == AUD_QUEUE_OUT) {
+        return m_Mux.thread.thOutput.get();
+    }
+    auto worker = m_Mux.thread.thAud.find(muxAudio);
+    if (worker == m_Mux.thread.thAud.end()) {
+        worker = m_Mux.thread.thAud.find(nullptr);
+    }
+    return (type == AUD_QUEUE_PROCESS) ? &worker->second->process : &worker->second->encode;
+}
+
 RGY_ERR RGYOutputAvcodec::WriteNextPacket(AVPacket *pkt) {
     AVPktMuxData pktData = pktMuxData(pkt);
 #if ENABLE_AVCODEC_OUT_THREAD
-    if (m_Mux.thread.thOutput.joinable()) {
-        auto& audioQueue   = (m_Mux.thread.thAudProcess.joinable()) ? m_Mux.thread.qAudioPacketProcess : m_Mux.thread.qAudioPacketOut;
-        auto heEventPktAdd = (m_Mux.thread.thAudProcess.joinable()) ? m_Mux.thread.heEventPktAddedAudProcess : m_Mux.thread.heEventPktAddedOutput;
-        //pkt = nullptrの代理として、pkt.buf == nullptrなパケットを投入
-        AVPktMuxData zeroFilled = { 0 };
-        if (!audioQueue.push((pkt == nullptr) ? zeroFilled : pktData)) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to allocate memory for audio packet queue.\n"));
-            m_Mux.format.streamError = true;
+    if (m_Mux.thread.thOutput) {
+        if (pkt == nullptr) {
+            //音声の全トラックにnullパケット送信
+            for (uint32_t i = 0; i < m_Mux.audio.size(); i++) {
+                auto mux = &m_Mux.audio[i];
+                if (m_Mux.thread.threadActiveAudioEncode()) {
+                    getPacketWorker(mux, AUD_QUEUE_ENCODE)->qPackets.set_keep_length(0);
+                }
+                if (m_Mux.thread.threadActiveAudioProcess()) {
+                    getPacketWorker(mux, AUD_QUEUE_PROCESS)->qPackets.set_keep_length(0);
+                }
+                if (mux->inSubStream == 0) { // サブトラックには送信しない
+                    const auto worker = getPacketWorker(mux, (m_Mux.thread.threadActiveAudioProcess()) ? AUD_QUEUE_PROCESS : AUD_QUEUE_OUT);
+                    AddMessage(RGY_LOG_DEBUG, _T("Send null packet to worker %d.\n"), trackID(mux->inTrackId));
+                    AVPktMuxData zeroFilled = { 0 };
+                    zeroFilled.muxAudio = mux;
+                    if (!worker->qPackets.push(zeroFilled)) {
+                        AddMessage(RGY_LOG_ERROR, _T("Failed to allocate memory for audio packet queue.\n"));
+                        m_Mux.format.streamError = true;
+                    }
+                }
+            }
+        } else {
+            AVMuxThreadWorker *worker = (m_Mux.thread.threadActiveAudioProcess()) ? getPacketWorker(pktData.muxAudio, AUD_QUEUE_PROCESS) : m_Mux.thread.thOutput.get();
+            auto& audioQueue = worker->qPackets;
+            auto heEventPktAdd = worker->heEventPktAdded;
+            if (!audioQueue.push(pktData)) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to allocate memory for audio packet queue.\n"));
+                m_Mux.format.streamError = true;
+            }
+            SetEvent(heEventPktAdd);
         }
-        SetEvent(heEventPktAdd);
         return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
     }
 #endif
+    if (pkt == nullptr) {
+        //音声の全トラックにnullパケット送信
+        for (uint32_t i = 0; i < m_Mux.audio.size(); i++) {
+            AVPktMuxData pktDataCopy = pktData;
+            pktDataCopy.muxAudio = &m_Mux.audio[i];
+            auto err = WriteNextPacketInternal(&pktDataCopy, INT64_MAX);
+            if (err != RGY_ERR_NONE) return err;
+        }
+        return RGY_ERR_NONE;
+    }
     return WriteNextPacketInternal(&pktData, INT64_MAX);
 }
 
 //指定された音声キューに追加する
 RGY_ERR RGYOutputAvcodec::AddAudQueue(AVPktMuxData *pktData, int type) {
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
-    if (m_Mux.thread.thAudProcess.joinable()) {
+    if (m_Mux.thread.threadActiveAudioProcess()) {
+        // もともとはこうだった
+        // (type == AUD_QUEUE_OUT) ? m_Mux.thread.thOutput.get() : ((type == AUD_QUEUE_PROCESS) ? m_Mux.thread.qAudioPacketProcess : m_Mux.thread.qAudioFrameEncode;
+        AVMuxThreadWorker *worker = getPacketWorker(pktData->muxAudio, type);
+
         //出力キューに追加する
-        auto& qAudio       = (type == AUD_QUEUE_OUT) ? m_Mux.thread.qAudioPacketOut       : ((type == AUD_QUEUE_PROCESS) ? m_Mux.thread.qAudioPacketProcess       : m_Mux.thread.qAudioFrameEncode);
-        auto& heEventAdded = (type == AUD_QUEUE_OUT) ? m_Mux.thread.heEventPktAddedOutput : ((type == AUD_QUEUE_PROCESS) ? m_Mux.thread.heEventPktAddedAudProcess : m_Mux.thread.heEventPktAddedAudEncode);
+        auto& qAudio       = worker->qPackets;
+        auto& heEventAdded = worker->heEventPktAdded;
         if (!qAudio.push(*pktData)) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to allocate memory for audio queue.\n"));
             m_Mux.format.streamError = true;
@@ -3122,57 +3634,54 @@ RGY_ERR RGYOutputAvcodec::AddAudQueue(AVPktMuxData *pktData, int type) {
 //maxDtsToWriteはm_AudPktBufFileHeadにキャッシュしてあるパケットを処理する際に、
 //処理するdtsの上限を決める
 RGY_ERR RGYOutputAvcodec::WriteNextPacketInternal(AVPktMuxData *pktData, int64_t maxDtsToWrite) {
-    if (!m_Mux.format.fileHeaderWritten) {
-        //まだフレームヘッダーが書かれていなければ、パケットをキャッシュして終了
-        m_AudPktBufFileHead.push_back(*pktData);
-        return RGY_ERR_NONE;
-    }
-    //m_AudPktBufFileHeadにキャッシュしてあるパケットかどうかを調べる
-    if (m_AudPktBufFileHead.end() == std::find_if(m_AudPktBufFileHead.begin(), m_AudPktBufFileHead.end(),
-        [pktData](const AVPktMuxData& data) { return pktData->pkt.buf == data.pkt.buf; })) {
-        //キャッシュしてあるパケットでないなら、キャッシュしてあるパケットをまず処理する
-        for (auto bufPkt : m_AudPktBufFileHead) {
-            RGY_ERR sts = WriteNextPacketInternal(&bufPkt, maxDtsToWrite);
-            //処理するdtsの上限を超えたかチェック
-            if (bufPkt.dts > maxDtsToWrite) {
-                pktData->dts = bufPkt.dts;
-                return RGY_ERR_NONE;
-            }
-            if (sts != RGY_ERR_NONE) {
-                return sts;
-            }
+    if (m_Mux.thread.threadActiveAudio()) {
+        // 音声スレッドがある場合はファイルヘッダが書かれてからここに来るはず
+        if (!m_Mux.format.fileHeaderWritten) {
+            AddMessage(RGY_LOG_ERROR, _T("File header not written, unexpected error!\n"));
+            return RGY_ERR_UNKNOWN;
         }
-        //キャッシュをすべて書き出したらクリア
-        m_AudPktBufFileHead.clear();
+        // 音声スレッドがある場合はm_AudPktBufFileHeadはたまっていないはず
+        if (!m_AudPktBufFileHead.empty()) {
+            AddMessage(RGY_LOG_ERROR, _T("m_AudPktBufFileHead not empty, unexpected error!\n"));
+            return RGY_ERR_UNKNOWN;
+        }
+    } else {
+        if (!m_Mux.format.fileHeaderWritten) {
+            //まだフレームヘッダーが書かれていなければ、パケットをキャッシュして終了
+            m_AudPktBufFileHead.push_back(*pktData);
+            return RGY_ERR_NONE;
+        }
+        //m_AudPktBufFileHeadにキャッシュしてあるパケットかどうかを調べる
+        if (m_AudPktBufFileHead.end() == std::find_if(m_AudPktBufFileHead.begin(), m_AudPktBufFileHead.end(),
+            [pktData](const AVPktMuxData& data) { return pktData->pkt == data.pkt; })) {
+            //キャッシュしてあるパケットでないなら、キャッシュしてあるパケットをまず処理する
+            for (auto bufPkt : m_AudPktBufFileHead) {
+                RGY_ERR sts = WriteNextPacketInternal(&bufPkt, maxDtsToWrite);
+                //処理するdtsの上限を超えたかチェック
+                if (bufPkt.dts > maxDtsToWrite) {
+                    pktData->dts = bufPkt.dts;
+                    return RGY_ERR_NONE;
+                }
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
+            }
+            //キャッシュをすべて書き出したらクリア
+            m_AudPktBufFileHead.clear();
+        }
     }
 
-    if (pktData->pkt.data == nullptr) {
+    if (pktData->pkt == nullptr) {
+        return WriteNextPacketAudio(pktData);
+    } else if (trackMediaType(pktFlagGetTrackID(pktData->pkt)) != AVMEDIA_TYPE_AUDIO) {
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
-        if (m_Mux.thread.thAudProcess.joinable()) {
-            //音声処理を別スレッドでやっている場合は、AddAudOutputQueueを後段の出力スレッドで行う必要がある
-            //WriteNextPacketInternalでは音声キューに追加するだけにして、WriteNextPacketProcessedで対応する
-            //ひとまず、ここでは処理せず、次のキューに回す
-            return AddAudQueue(pktData, (m_Mux.thread.thAudEncode.joinable()) ? AUD_QUEUE_ENCODE : AUD_QUEUE_OUT);
-        }
-#endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
-        for (uint32_t i = 0; i < m_Mux.audio.size(); i++) {
-            AudioFlushStream(&m_Mux.audio[i], &pktData->dts);
-        }
-        pktData->dts = INT64_MAX;
-        AddMessage(RGY_LOG_DEBUG, _T("Flushed audio buffer.\n"));
-        return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
-    }
-
-    const int trackID = ((uint32_t)pktData->pkt.flags >> 16);
-    if (trackMediaType(trackID) != AVMEDIA_TYPE_AUDIO) {
-#if ENABLE_AVCODEC_AUDPROCESS_THREAD
-        if (m_Mux.thread.thAudProcess.joinable()) {
+        if (m_Mux.thread.threadActiveAudioProcess()) {
             //音声処理を別スレッドでやっている場合は、字幕パケットもその流れに乗せてやる必要がある
             //ひとまず、ここでは処理せず、次のキューに回す
-            return AddAudQueue(pktData, (m_Mux.thread.thAudEncode.joinable()) ? AUD_QUEUE_ENCODE : AUD_QUEUE_OUT);
+            return AddAudQueue(pktData, (m_Mux.thread.threadActiveAudioEncode()) ? AUD_QUEUE_ENCODE : AUD_QUEUE_OUT);
         }
 #endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
-        return WriteOtherPacket(&pktData->pkt);
+        return WriteOtherPacket(pktData->pkt);
     }
     return WriteNextPacketAudio(pktData);
 }
@@ -3186,25 +3695,71 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketAudio(AVPktMuxData *pktData) {
     if (muxAudio == NULL) {
         AddMessage(RGY_LOG_ERROR, _T("failed to get stream for input stream.\n"));
         m_Mux.format.streamError = true;
-        av_packet_unref(&pktData->pkt);
+        m_Mux.poolPkt->returnFree(&pktData->pkt);
         return RGY_ERR_NULL_PTR;
+    }
+
+    if (pktData->pkt == nullptr || pktData->pkt->data == nullptr) {
+        //デコーダをflush
+        while (muxAudio->outCodecDecodeCtx && !muxAudio->encodeError) {
+            auto decodedFrames = AudioDecodePacket(muxAudio, nullptr);
+            if (decodedFrames.size() == 0) {
+                break;
+            }
+            vector<AVPktMuxData> audioFrames;
+            for (size_t i = 0; i < decodedFrames.size(); i++) {
+                AVPktMuxData audPkt;
+                audPkt.pkt = m_Mux.poolPkt->getFree().release();
+                pktFlagSetTrackID(audPkt.pkt, muxAudio->inTrackId);
+                audPkt.dts = AV_NOPTS_VALUE;
+                audPkt.samples = 0;
+                audPkt.type = MUX_DATA_TYPE_FRAME;
+                audPkt.frame = decodedFrames[i].release();
+                audPkt.got_result = audPkt.frame && audPkt.frame->nb_samples > 0;
+                audPkt.muxAudio = muxAudio;
+                audioFrames.push_back(audPkt);
+            }
+            //フィルタリングを行う
+            WriteNextPacketToAudioSubtracks(std::move(audioFrames));
+        }
+
+        //終わったら後段にnull packetを渡してflushの指示を伝える
+        //サブストリームが存在すれば、null packetをそれぞれに渡す
+        AVMuxAudio *pMuxAudioSubStream = nullptr;
+        for (int iSubStream = 1; nullptr != (pMuxAudioSubStream = getAudioStreamData(muxAudio->inTrackId, iSubStream)); iSubStream++) {
+            auto pktDataCopy = *pktData;
+            pktDataCopy.muxAudio = pMuxAudioSubStream;
+            if (m_Mux.thread.threadActiveAudioProcess()) {
+                AddAudQueue(&pktDataCopy, (m_Mux.thread.threadActiveAudioEncode()) ? AUD_QUEUE_ENCODE : AUD_QUEUE_OUT);
+            } else {
+                WriteNextAudioFrame(&pktDataCopy);
+            }
+        }
+        //メインストリームにnull packetを渡してflushの指示を伝える
+        if (m_Mux.thread.threadActiveAudioProcess()) {
+            AddAudQueue(pktData, (m_Mux.thread.threadActiveAudioEncode()) ? AUD_QUEUE_ENCODE : AUD_QUEUE_OUT);
+        } else {
+            WriteNextAudioFrame(pktData);
+        }
+        return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
     }
 
     //AACBsfでのエラーを無音挿入で回避する(音声エンコード時のみ)
     bool bSetSilenceDueToAACBsfError = false;
     AVRational samplerate = { 1, muxAudio->streamIn->codecpar->sample_rate };
     //このパケットのサンプル数
-    const int nSamples = (int)av_rescale_q(pktData->pkt.duration, muxAudio->streamIn->time_base, samplerate);
+    const int nSamples = (int)av_rescale_q(pktData->pkt->duration, muxAudio->streamIn->time_base, samplerate);
     if (muxAudio->bsfc) {
-        auto sts = applyBitstreamFilterAudio(&pktData->pkt, muxAudio);
+        auto sts = applyBitstreamFilterAudio(pktData->pkt, muxAudio);
         //bitstream filterを正常に起動できなかった
         if (sts < RGY_ERR_NONE) {
             m_Mux.format.streamError = true;
+            m_Mux.poolPkt->returnFree(&pktData->pkt);
             return RGY_ERR_UNDEFINED_BEHAVIOR;
         }
         //pktData->pkt.duration == 0 の場合はなにもせず終了する
-        if (pktData->pkt.duration == 0) {
-            av_packet_unref(&pktData->pkt);
+        if (pktData->pkt->duration == 0) {
+            m_Mux.poolPkt->returnFree(&pktData->pkt);
             //特にエラーでなければそのまま終了
             if (sts == RGY_ERR_NONE) {
                 return RGY_ERR_NONE;
@@ -3220,9 +3775,9 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketAudio(AVPktMuxData *pktData) {
     muxAudio->packetWritten++;
     auto writeOrSetNextPacketAudioProcessed = [this](AVPktMuxData *pktData) {
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
-        if (m_Mux.thread.thAudProcess.joinable()) {
+        if (m_Mux.thread.threadActiveAudioProcess()) {
             //ひとまず、ここでは処理せず、次のキューに回す
-            AddAudQueue(pktData, (m_Mux.thread.thAudEncode.joinable()) ? AUD_QUEUE_ENCODE : AUD_QUEUE_OUT);
+            AddAudQueue(pktData, (m_Mux.thread.threadActiveAudioEncode()) ? AUD_QUEUE_ENCODE : AUD_QUEUE_OUT);
         } else {
 #endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
             WriteNextPacketProcessed(pktData);
@@ -3231,9 +3786,9 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketAudio(AVPktMuxData *pktData) {
 #endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
     };
     if (!muxAudio->outCodecDecodeCtx) {
-        pktData->samples = av_get_audio_frame_duration2(muxAudio->streamIn->codecpar, pktData->pkt.size);
+        pktData->samples = av_get_audio_frame_duration2(muxAudio->streamIn->codecpar, pktData->pkt->size);
         if (!pktData->samples) {
-            pktData->samples = (int)av_rescale_q(pktData->pkt.duration, muxAudio->streamIn->time_base, samplerate);
+            pktData->samples = (int)av_rescale_q(pktData->pkt->duration, muxAudio->streamIn->time_base, samplerate);
             // 1/1000 timebaseは信じるに値しないので、frame_sizeがあればその値を使用する
             if (0 == av_cmp_q(muxAudio->streamIn->time_base, { 1, 1000 })
                 && muxAudio->streamIn->codecpar->frame_size) {
@@ -3242,39 +3797,39 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketAudio(AVPktMuxData *pktData) {
                 //このdurationから計算したsampleが信頼できるか計算する
                 //mkvではたまにptsの差分とdurationが一致しないことがある
                 //ptsDiffが動画の1フレーム分より小さいときのみ対象とする (カット編集によるものを混同する可能性がある)
-                int64_t ptsDiff = pktData->pkt.pts - muxAudio->lastPtsIn;
+                int64_t ptsDiff = pktData->pkt->pts - muxAudio->lastPtsIn;
                 if (0 < ptsDiff
                     && ptsDiff < av_rescale_q(1, av_inv_q(m_Mux.video.outputFps), samplerate)
                     && muxAudio->lastPtsIn != AV_NOPTS_VALUE
-                    && 1 < std::abs(ptsDiff - pktData->pkt.duration)) {
+                    && 1 < std::abs(ptsDiff - pktData->pkt->duration)) {
                     //ptsの差分から計算しなおす
                     pktData->samples = (int)av_rescale_q(ptsDiff, muxAudio->streamIn->time_base, samplerate);
                 }
             }
         }
-        muxAudio->lastPtsIn = pktData->pkt.pts;
+        muxAudio->lastPtsIn = pktData->pkt->pts;
         writeOrSetNextPacketAudioProcessed(pktData);
     } else if (!(muxAudio->decodeError > muxAudio->ignoreDecodeError) && !muxAudio->encodeError) {
         vector<AVPktMuxData> audioFrames;
         if (bSetSilenceDueToAACBsfError) {
             //無音挿入
-            AVFrame *silentFrame        = av_frame_alloc();
+            auto silentFrame = m_Mux.poolFrame->getFree();
             silentFrame->nb_samples     = nSamples;
             silentFrame->channels       = muxAudio->outCodecDecodeCtx->channels;
             silentFrame->channel_layout = muxAudio->outCodecDecodeCtx->channel_layout;
             silentFrame->sample_rate    = muxAudio->outCodecDecodeCtx->sample_rate;
             silentFrame->format         = muxAudio->outCodecDecodeCtx->sample_fmt;
-            silentFrame->pts            = pktData->pkt.pts;
-            av_frame_get_buffer(silentFrame, 32); //format, channel_layout, nb_samplesを埋めて、av_frame_get_buffer()により、メモリを確保する
+            silentFrame->pts            = pktData->pkt->pts;
+            av_frame_get_buffer(silentFrame.get(), 32); //format, channel_layout, nb_samplesを埋めて、av_frame_get_buffer()により、メモリを確保する
             av_samples_set_silence((uint8_t **)silentFrame->data, 0, silentFrame->nb_samples, silentFrame->channels, (AVSampleFormat)silentFrame->format);
 
             AVPktMuxData silentPkt = *pktData;
             silentPkt.type = MUX_DATA_TYPE_FRAME;
-            silentPkt.frame = silentFrame;
+            silentPkt.frame = silentFrame.release();
             silentPkt.got_result = silentFrame && silentFrame->nb_samples > 0;
             audioFrames.push_back(silentPkt);
         } else {
-            auto decodedFrames = AudioDecodePacket(muxAudio, &pktData->pkt);
+            auto decodedFrames = AudioDecodePacket(muxAudio, pktData->pkt);
             for (size_t i = 0; i < decodedFrames.size(); i++) {
                 AVPktMuxData audPkt = *pktData;
                 audPkt.type = MUX_DATA_TYPE_FRAME;
@@ -3308,7 +3863,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketToAudioSubtracks(vector<AVPktMuxData> a
 //フレームをresampleして後段に渡す
 RGY_ERR RGYOutputAvcodec::WriteNextPacketAudioFrame(vector<AVPktMuxData> audioFrames) {
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
-    const bool bAudEncThread = m_Mux.thread.thAudEncode.joinable();
+    const bool bAudEncThread = m_Mux.thread.threadActiveAudioEncode();
 #else
     const bool bAudEncThread = false;
 #endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
@@ -3332,21 +3887,57 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketAudioFrame(vector<AVPktMuxData> audioFr
 //出力スレッドがなければメインエンコードスレッドが処理する
 RGY_ERR RGYOutputAvcodec::WriteNextAudioFrame(AVPktMuxData *pktData) {
     if (pktData->type != MUX_DATA_TYPE_FRAME) {
-#if ENABLE_AVCODEC_AUDPROCESS_THREAD
-        if (m_Mux.thread.thAudEncode.joinable()) {
+        if (pktData->muxAudio) {
             //音声エンコードスレッドがこの関数を処理
-            //AVPacketは字幕やnull終端パケットなどが流れてきたもの
+            if (pktData->pkt == nullptr) {
+                //null終端パケットなどが流れてきたもの
+                while (pktData->muxAudio->outCodecEncodeCtx) {
+                    auto encPktDatas = AudioEncodeFrame(pktData->muxAudio, nullptr);
+                    if (encPktDatas.size() == 0) {
+                        break;
+                    }
+                    if (pktData->muxAudio->decodeError > pktData->muxAudio->ignoreDecodeError)
+                        break;
+                    if (m_Mux.thread.threadActiveAudioProcess()) {
+                        for (auto& pktMux : encPktDatas) {
+                            AddAudQueue(&pktMux, AUD_QUEUE_OUT);
+                        }
+                    } else {
+                        for (auto& pktMux : encPktDatas) {
+                            WriteNextPacketProcessed(&pktMux, &pktData->dts);
+                        }
+                    }
+                }
+                if (m_Mux.thread.threadActiveAudioProcess()) {
+                    //終わったら後段にflushの指示を伝える
+                    AddAudQueue(pktData, AUD_QUEUE_OUT);
+                } else {
+                    WriteNextPacketProcessed(pktData);
+                }
+            } else {
+                //音声コピーなどの際にパケットが流れてきたもの
+                if (m_Mux.thread.threadActiveAudioProcess()) {
+                    //終わったら後段にflushの指示を伝える
+                    AddAudQueue(pktData, AUD_QUEUE_OUT);
+                } else {
+                    WriteNextPacketProcessed(pktData);
+                }
+            }
+        } else if (m_Mux.thread.thOutput) {
+            //AVPacketは字幕が流れてきたもの
             //これはそのまま出力キューに追加する
             AddAudQueue(pktData, AUD_QUEUE_OUT);
+        } else {
+            // ここには来ないはず
+            AddMessage(RGY_LOG_ERROR, _T("Unexpected non-audio packet!\n"));
+            return RGY_ERR_UNSUPPORTED;
         }
-#endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
-        //音声エンコードスレッドが存在しない場合、ここにAVPacketは流れてこないはず
-        return RGY_ERR_UNSUPPORTED;
+        return RGY_ERR_NONE;
     }
     auto encPktDatas = AudioEncodeFrame(pktData->muxAudio, pktData->frame);
-    av_frame_free(&pktData->frame);
+    m_Mux.poolFrame->returnFree(&pktData->frame);
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
-    if (m_Mux.thread.thAudProcess.joinable()) {
+    if (m_Mux.thread.threadActiveAudioProcess()) {
         for (auto& pktMux : encPktDatas) {
             AddAudQueue(&pktMux, AUD_QUEUE_OUT);
         }
@@ -3361,59 +3952,69 @@ RGY_ERR RGYOutputAvcodec::WriteNextAudioFrame(AVPktMuxData *pktData) {
     return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
 }
 
-RGY_ERR RGYOutputAvcodec::ThreadFuncAudEncodeThread(RGYParamThread threadParam) {
+RGY_ERR RGYOutputAvcodec::ThreadFuncAudEncodeThread(const AVMuxAudio *const muxAudio, RGYParamThread threadParam) {
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
     threadParam.apply(GetCurrentThread());
-    WaitForSingleObject(m_Mux.thread.heEventPktAddedAudEncode, INFINITE);
-    while (!m_Mux.thread.thAudEncodeAbort) {
+    auto worker = getPacketWorker(muxAudio, AUD_QUEUE_ENCODE);
+    WaitForSingleObject(worker->heEventPktAdded, INFINITE);
+    while (!worker->thAbort) {
         if (!m_Mux.format.fileHeaderWritten) {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         } else {
             AVPktMuxData pktData = { 0 };
-            while (m_Mux.thread.qAudioFrameEncode.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_enc : nullptr)) {
+            while (worker->qPackets.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_enc : nullptr)) {
                 //音声エンコードを実行、出力キューに追加する
                 WriteNextAudioFrame(&pktData);
             }
         }
-        ResetEvent(m_Mux.thread.heEventPktAddedAudEncode);
-        WaitForSingleObject(m_Mux.thread.heEventPktAddedAudEncode, 16);
+        if (m_Mux.format.lowlatency) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        } else {
+            ResetEvent(worker->heEventPktAdded);
+            WaitForSingleObject(worker->heEventPktAdded, 16);
+        }
     }
     {   //音声をすべてエンコード
         AVPktMuxData pktData = { 0 };
-        while (m_Mux.thread.qAudioFrameEncode.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_enc : nullptr)) {
+        while (worker->qPackets.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_enc : nullptr)) {
             WriteNextAudioFrame(&pktData);
         }
     }
-    SetEvent(m_Mux.thread.heEventClosingAudEncode);
+    SetEvent(worker->heEventClosing);
 #endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
     return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
 }
 
-RGY_ERR RGYOutputAvcodec::ThreadFuncAudThread(RGYParamThread threadParam) {
+RGY_ERR RGYOutputAvcodec::ThreadFuncAudThread(const AVMuxAudio *const muxAudio, RGYParamThread threadParam) {
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
     threadParam.apply(GetCurrentThread());
-    WaitForSingleObject(m_Mux.thread.heEventPktAddedAudProcess, INFINITE);
-    while (!m_Mux.thread.thAudProcessAbort) {
+    auto worker = getPacketWorker(muxAudio, AUD_QUEUE_PROCESS);
+    WaitForSingleObject(worker->heEventPktAdded, INFINITE);
+    while (!worker->thAbort) {
         if (!m_Mux.format.fileHeaderWritten) {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         } else {
             AVPktMuxData pktData = { 0 };
-            while (m_Mux.thread.qAudioPacketProcess.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_proc : nullptr)) {
+            while (worker->qPackets.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_proc : nullptr)) {
                 //音声処理を実行、出力キューに追加する
                 WriteNextPacketInternal(&pktData, INT64_MAX);
             }
         }
-        ResetEvent(m_Mux.thread.heEventPktAddedAudProcess);
-        WaitForSingleObject(m_Mux.thread.heEventPktAddedAudProcess, 16);
+        if (m_Mux.format.lowlatency) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        } else {
+            ResetEvent(worker->heEventPktAdded);
+            WaitForSingleObject(worker->heEventPktAdded, 16);
+        }
     }
     {   //音声をすべて書き出す
         AVPktMuxData pktData = { 0 };
-        while (m_Mux.thread.qAudioPacketProcess.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_proc : nullptr)) {
+        while (worker->qPackets.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_proc : nullptr)) {
             //音声処理を実行、出力キューに追加する
             WriteNextPacketInternal(&pktData, INT64_MAX);
         }
     }
-    SetEvent(m_Mux.thread.heEventClosingAudProcess);
+    SetEvent(worker->heEventClosing);
 #endif //#if ENABLE_AVCODEC_AUDPROCESS_THREAD
     return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
 }
@@ -3427,40 +4028,57 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
     bool bAudioExists = false;
     bool bVideoExists = false;
     const auto fpsTimebase = av_inv_q(m_Mux.video.outputFps);
-    const auto dtsThreshold = std::max<int64_t>(av_rescale_q(4, fpsTimebase, QUEUE_DTS_TIMEBASE), 4);
+    const int VideoAudioPickSwitchThresholdFrames = m_Mux.format.lowlatency ? 1 : 4; // 映像-音声の切り替え間隔(フレーム数)
+    const auto dtsThreshold = std::max<int64_t>(av_rescale_q(VideoAudioPickSwitchThresholdFrames, fpsTimebase, QUEUE_DTS_TIMEBASE), 4);
     //syncIgnoreDtsは映像と音声の同期を行う必要がないことを意味する
     //dtsThresholdを加算したときにオーバーフローしないよう、dtsThresholdを引いておく
     const int64_t syncIgnoreDts = INT64_MAX - dtsThreshold;
     int64_t audioDts = (m_Mux.audio.size() + m_Mux.other.size()) ? 0 : syncIgnoreDts;
     int64_t videoDts = (m_Mux.video.streamOut) ? 0 : syncIgnoreDts;
-    WaitForSingleObject(m_Mux.thread.heEventPktAddedOutput, INFINITE);
-    //bThAudProcessは出力開始した後で取得する(この前だとまだ起動していないことがある)
-    const bool bThAudProcess = m_Mux.thread.thAudProcess.joinable();
     auto writeProcessedPacket = [this](AVPktMuxData *pktData) {
         //音声処理スレッドが別にあるなら、出力スレッドがすべきことは単に出力するだけ
         auto sts = RGY_ERR_NONE;
-        const int trackFullID = ((uint32_t)pktData->pkt.flags >> 16);
-        if (trackMediaType(trackFullID) == AVMEDIA_TYPE_AUDIO) {
+        if (pktData->pkt == nullptr) { // フラッシュ用
             WriteNextPacketProcessed(pktData);
         } else {
-            sts = WriteOtherPacket(&pktData->pkt);
+            if (trackMediaType(pktFlagGetTrackID(pktData->pkt)) == AVMEDIA_TYPE_AUDIO) {
+                WriteNextPacketProcessed(pktData);
+            } else {
+                sts = WriteOtherPacket(pktData->pkt);
+            }
         }
         return sts;
     };
+    bool bThAudProcess = false;
     int audPacketsPerSec = 64;
     int nWaitAudio = 0;
     int nWaitVideo = 0;
-    while (!m_Mux.thread.abortOutput) {
+    while (!m_Mux.thread.thOutput->thAbort) {
+        // 起動遅れの場合がありえるのでここでチェック
+        if (!bThAudProcess && m_Mux.thread.threadActiveAudioProcess()) {
+            bThAudProcess = true;
+        }
         do {
             if (!m_Mux.format.fileHeaderWritten) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 //ヘッダー取得前に音声キューのサイズが足りず、エンコードが進まなくなってしまうことがある
                 //キューのcapcityを増やすことでこれを回避する
-                auto type = (m_Mux.thread.thAudEncode.joinable()) ? AUD_QUEUE_ENCODE : AUD_QUEUE_OUT;
-                auto& qAudio = (type == AUD_QUEUE_OUT) ? m_Mux.thread.qAudioPacketOut : m_Mux.thread.qAudioFrameEncode;
-                const auto nQueueCapacity = qAudio.capacity();
-                if (qAudio.size() >= nQueueCapacity) {
-                    qAudio.set_capacity(nQueueCapacity * 3 / 2);
+                if (!m_Mux.thread.threadActiveAudioProcess()) {
+                    auto worker = m_Mux.thread.thOutput.get();
+                    auto& qAudio = worker->qPackets;
+                    const auto nQueueCapacity = qAudio.capacity();
+                    if (qAudio.size() >= nQueueCapacity) {
+                        qAudio.set_capacity(nQueueCapacity * 3 / 2);
+                    }
+                } else {
+                    for (auto& [mux, thAud] : m_Mux.thread.thAud) {
+                        auto worker = getPacketWorker(mux, AUD_QUEUE_PROCESS);
+                        auto& qAudio = worker->qPackets;
+                        const auto nQueueCapacity = qAudio.capacity();
+                        if (qAudio.size() >= nQueueCapacity) {
+                            qAudio.set_capacity(nQueueCapacity * 3 / 2);
+                        }
+                    }
                 }
                 //動画キューになにもなかったら再度待機する
                 if (m_Mux.thread.qVideobitstream.size() == 0) {
@@ -3482,20 +4100,20 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
             }
             AVPktMuxData pktData = { 0 };
             while ((videoDts < 0 || audioDts <= videoDts + dtsThreshold)
-                && false != (bAudioExists = m_Mux.thread.qAudioPacketOut.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_out : nullptr))) {
-                if (pktData.muxAudio && pktData.muxAudio->streamIn) {
-                    audPacketsPerSec = std::max(audPacketsPerSec, (int)(1.0 / (av_q2d(pktData.muxAudio->streamIn->time_base) * pktData.pkt.duration) + 0.5));
+                && false != (bAudioExists = m_Mux.thread.thOutput->qPackets.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_out : nullptr))) {
+                if (pktData.muxAudio && pktData.muxAudio->streamIn && pktData.pkt) {
+                    audPacketsPerSec = std::max(audPacketsPerSec, (int)(1.0 / (av_q2d(pktData.muxAudio->streamIn->time_base) * pktData.pkt->duration) + 0.5));
                     const auto videoDelay = (audioDts - videoDts) * av_q2d(QUEUE_DTS_TIMEBASE);
                     const auto streamQueueCapacity = (int)(audPacketsPerSec * std::max(5.0, videoDelay * 1.5) * std::max((int)m_Mux.audio.size(), 1) + 0.5);
-                    if ((int)m_Mux.thread.qAudioPacketOut.capacity() < streamQueueCapacity) {
-                        m_Mux.thread.qAudioPacketOut.set_capacity(streamQueueCapacity);
+                    if ((int)m_Mux.thread.thOutput->qPackets.capacity() < streamQueueCapacity) {
+                        m_Mux.thread.thOutput->qPackets.set_capacity(streamQueueCapacity);
                     }
                 }
                 const int64_t maxDts = (videoDts >= 0) ? videoDts + dtsThreshold : syncIgnoreDts;
                 //音声処理スレッドが別にあるなら、出力スレッドがすべきことは単に出力するだけ
-                (bThAudProcess) ? writeProcessedPacket(&pktData) : WriteNextPacketInternal(&pktData, maxDts);
+                (m_Mux.thread.threadActiveAudioProcess()) ? writeProcessedPacket(&pktData) : WriteNextPacketInternal(&pktData, maxDts);
                 //複数のstreamがあり得るので最大値をとる
-                if (pktData.dts != AV_NOPTS_VALUE) {
+                if (pktData.dts != AV_NOPTS_VALUE && pktData.dts != (int64_t)((uint64_t)AV_NOPTS_VALUE - 1)) {
                     audioDts = (std::max)(audioDts, (std::max)(pktData.dts, m_Mux.thread.streamOutMaxDts.load()));
                 }
                 nWaitAudio = 0;
@@ -3508,7 +4126,7 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
             //音声を無視して動画フレームの処理を開始させる
             //音声が途中までしかなかったり、途中からしかなかったりする場合にこうした処理が必要
             const size_t videoPacketThreshold = std::min<size_t>(3072, m_Mux.thread.qVideobitstream.capacity()) - nWaitThreshold;
-            if (m_Mux.thread.qAudioPacketOut.size() == 0 && m_Mux.thread.qVideobitstream.size() > videoPacketThreshold) {
+            if (m_Mux.thread.thOutput->qPackets.size() == 0 && m_Mux.thread.qVideobitstream.size() > videoPacketThreshold) {
                 nWaitAudio++;
                 if (nWaitAudio <= nWaitThreshold) {
                     //時折まだパケットが来ているのにタイミングによってsize() == 0が成立することがある
@@ -3523,15 +4141,15 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
             }
             //一定以上の音声フレームがキューにたまっており、動画キューになにもなければ、
             //動画を無視して音声フレームの処理を開始させる
-            const size_t audioPacketThreshold = std::min<size_t>(6144, m_Mux.thread.qAudioPacketOut.capacity()) - nWaitThreshold;
-            if (m_Mux.thread.qVideobitstream.size() == 0 && m_Mux.thread.qAudioPacketOut.size() > audioPacketThreshold) {
+            const size_t audioPacketThreshold = std::min<size_t>(6144, m_Mux.thread.thOutput->qPackets.capacity()) - nWaitThreshold;
+            if (m_Mux.thread.qVideobitstream.size() == 0 && m_Mux.thread.thOutput->qPackets.size() > audioPacketThreshold) {
                 nWaitVideo++;
                 if (nWaitVideo <= nWaitThreshold) {
                     //時折まだパケットが来ているのにタイミングによってsize() == 0が成立することがある
                     //なのである程度連続でパケットが来ていないときのみ無視するようにする
                     //このようにすることで適切に同期がとれる
                     //また、音声キューのサイズが足りないことが考えられるので、拡大する
-                    m_Mux.thread.qAudioPacketOut.set_capacity(m_Mux.thread.qAudioPacketOut.capacity() * 3 / 2);
+                    m_Mux.thread.thOutput->qPackets.set_capacity(m_Mux.thread.thOutput->qPackets.capacity() * 3 / 2);
                     break;
                 }
                 videoDts = audioDts;
@@ -3542,29 +4160,33 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
         //キューの容量が両方とも半分以下なら、すこし待ってみる
         //一方、どちらかのキューが半分以上使われていれば、なるべく早く処理する必要がある
         if (   m_Mux.thread.qVideobitstream.size() / (double)m_Mux.thread.qVideobitstream.capacity() < 0.5
-            && m_Mux.thread.qAudioPacketOut.size() / (double)m_Mux.thread.qAudioPacketOut.capacity() < 0.5) {
-            ResetEvent(m_Mux.thread.heEventPktAddedOutput);
-            WaitForSingleObject(m_Mux.thread.heEventPktAddedOutput, 16);
+            && m_Mux.thread.thOutput->qPackets.size() / (double)m_Mux.thread.thOutput->qPackets.capacity() < 0.5) {
+            if (m_Mux.format.lowlatency) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            } else {
+                ResetEvent(m_Mux.thread.thOutput->heEventPktAdded);
+                WaitForSingleObject(m_Mux.thread.thOutput->heEventPktAdded, 16);
+            }
         } else {
             std::this_thread::yield();
         }
     }
     //メインループを抜けたことを通知する
-    SetEvent(m_Mux.thread.heEventClosingOutput);
-    m_Mux.thread.qAudioPacketOut.set_keep_length(0);
+    SetEvent(m_Mux.thread.thOutput->heEventClosing);
+    m_Mux.thread.thOutput->qPackets.set_keep_length(0);
     m_Mux.thread.qVideobitstream.set_keep_length(0);
-    bAudioExists = !m_Mux.thread.qAudioPacketOut.empty();
+    bAudioExists = !m_Mux.thread.thOutput->qPackets.empty();
     bVideoExists = !m_Mux.thread.qVideobitstream.empty();
     //まずは映像と音声の同期をとって出力するためのループ
     while (bAudioExists && bVideoExists) {
         AVPktMuxData pktData = { 0 };
         while (audioDts <= videoDts + dtsThreshold
-            && false != (bAudioExists = m_Mux.thread.qAudioPacketOut.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_out : nullptr))) {
+            && false != (bAudioExists = m_Mux.thread.thOutput->qPackets.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_out : nullptr))) {
             //音声処理スレッドが別にあるなら、出力スレッドがすべきことは単に出力するだけ
             const int64_t maxDts = (videoDts >= 0) ? videoDts + dtsThreshold : INT64_MAX;
             (bThAudProcess) ? writeProcessedPacket(&pktData) : WriteNextPacketInternal(&pktData, maxDts);
             //複数のstreamがあり得るので最大値をとる
-            if (pktData.dts != AV_NOPTS_VALUE) {
+            if (pktData.dts != AV_NOPTS_VALUE && pktData.dts != (int64_t)((uint64_t)AV_NOPTS_VALUE - 1)) {
                 audioDts = (std::max)(audioDts, pktData.dts);
             }
         }
@@ -3573,12 +4195,12 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
             && false != (bVideoExists = m_Mux.thread.qVideobitstream.front_copy_and_pop_no_lock(&bitstream, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_vid_out : nullptr))) {
             WriteNextFrameInternal(&bitstream, &videoDts);
         }
-        bAudioExists = !m_Mux.thread.qAudioPacketOut.empty();
+        bAudioExists = !m_Mux.thread.thOutput->qPackets.empty();
         bVideoExists = !m_Mux.thread.qVideobitstream.empty();
     }
     { //音声を書き出す
         AVPktMuxData pktData = { 0 };
-        while (m_Mux.thread.qAudioPacketOut.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_out : nullptr)) {
+        while (m_Mux.thread.thOutput->qPackets.front_copy_and_pop_no_lock(&pktData, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_aud_out : nullptr)) {
             //音声処理スレッドが別にあるなら、出力スレッドがすべきことは単に出力するだけ
             (bThAudProcess) ? writeProcessedPacket(&pktData) : WriteNextPacketInternal(&pktData, INT64_MAX);
         }
@@ -3588,6 +4210,9 @@ RGY_ERR RGYOutputAvcodec::WriteThreadFunc(RGYParamThread threadParam) {
         while (m_Mux.thread.qVideobitstream.front_copy_and_pop_no_lock(&bitstream, (m_Mux.thread.queueInfo) ? &m_Mux.thread.queueInfo->usage_vid_out : nullptr)) {
             WriteNextFrameInternal(&bitstream, &videoDts);
         }
+        //空のbitstreamを送って終了を通知する
+        bitstream = RGYBitstreamInit();
+        WriteNextFrameInternal(&bitstream, &videoDts);
     }
 #endif
     return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
@@ -3599,7 +4224,7 @@ void RGYOutputAvcodec::WaitFin() {
 
 HANDLE RGYOutputAvcodec::getThreadHandleOutput() {
 #if ENABLE_AVCODEC_OUT_THREAD
-    return (HANDLE)m_Mux.thread.thOutput.native_handle();
+    return (m_Mux.thread.thOutput) ? (HANDLE)m_Mux.thread.thOutput->thread.native_handle() : nullptr;
 #else
     return NULL;
 #endif
@@ -3607,7 +4232,7 @@ HANDLE RGYOutputAvcodec::getThreadHandleOutput() {
 
 HANDLE RGYOutputAvcodec::getThreadHandleAudProcess() {
 #if ENABLE_AVCODEC_OUT_THREAD && ENABLE_AVCODEC_AUDPROCESS_THREAD
-    return (HANDLE)m_Mux.thread.thAudProcess.native_handle();
+    return (m_Mux.thread.threadActiveAudioProcess()) ? (HANDLE)m_Mux.thread.thAud[nullptr]->process.thread.native_handle() : nullptr;
 #else
     return NULL;
 #endif
@@ -3615,7 +4240,7 @@ HANDLE RGYOutputAvcodec::getThreadHandleAudProcess() {
 
 HANDLE RGYOutputAvcodec::getThreadHandleAudEncode() {
 #if ENABLE_AVCODEC_OUT_THREAD && ENABLE_AVCODEC_AUDPROCESS_THREAD
-    return (HANDLE)m_Mux.thread.thAudEncode.native_handle();
+    return (m_Mux.thread.threadActiveAudioEncode()) ? (HANDLE)m_Mux.thread.thAud[nullptr]->encode.thread.native_handle() : nullptr;
 #else
     return NULL;
 #endif

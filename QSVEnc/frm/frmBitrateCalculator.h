@@ -1,9 +1,9 @@
 ﻿// -----------------------------------------------------------------------------------------
-// QSVEnc by rigaya
+// x264guiEx/x265guiEx/svtAV1guiEx/ffmpegOut/QSVEnc/NVEnc/VCEEnc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
 //
-// Copyright (c) 2011-2016 rigaya
+// Copyright (c) 2010-2022 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -30,6 +30,7 @@
 #include "auo_frm.h"
 #include "auo_util.h"
 #include "auo_settings.h"
+#include "auo_mes.h"
 
 using namespace System;
 using namespace System::ComponentModel;
@@ -43,7 +44,7 @@ using namespace System::Drawing;
 #pragma warning( push )
 #pragma warning( disable: 4100 )
 
-namespace QSVEnc {
+namespace AUO_NAME_R {
 
     /// <summary>
     /// frmBitrateCalculator の概要
@@ -63,6 +64,8 @@ namespace QSVEnc {
             //
             //TODO: ここにコンストラクタ コードを追加します
             //
+            themeMode = AuoTheme::DefaultLight;
+            dwStgReader = nullptr;
         }
 
     protected:
@@ -311,7 +314,7 @@ namespace QSVEnc {
             // fbcNUBitrateAudio
             // 
             this->fbcNUBitrateAudio->Location = System::Drawing::Point(132, 156);
-            this->fbcNUBitrateAudio->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 13892, 0, 0, 0 });
+            this->fbcNUBitrateAudio->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 13824, 0, 0, 0 });
             this->fbcNUBitrateAudio->Name = L"fbcNUBitrateAudio";
             this->fbcNUBitrateAudio->Size = System::Drawing::Size(65, 21);
             this->fbcNUBitrateAudio->TabIndex = 5;
@@ -564,16 +567,46 @@ namespace QSVEnc {
     private:
         String^ LastStr;
         bool enable_events;
+        AuoTheme themeMode;
+        const DarkenWindowStgReader *dwStgReader;
         System::Void fbcBTVBApply_Click(System::Object^  sender, System::EventArgs^  e);
         System::Void fbcBTABApply_Click(System::Object^  sender, System::EventArgs^  e);
         System::Void frmBitrateCalculator_FormClosing(System::Object^  sender, System::Windows::Forms::FormClosingEventArgs^  e);
         System::Void fbcRBCalcRate_CheckedChanged(System::Object^  sender, System::EventArgs^  e);
+        System::Void CheckTheme(const AuoTheme themeTo);
+        System::Void SetAllMouseMove(Control ^top, const AuoTheme themeTo);
+        System::Void fbcMouseEnter_SetColor(System::Object^  sender, System::EventArgs^  e);
+        System::Void fbcMouseLeave_SetColor(System::Object^  sender, System::EventArgs^  e);
+    private:
+        System::Void LoadLangText() {
+            LOAD_CLI_MAIN_TEXT(fbcMain);
+            LOAD_CLI_TEXT(label1);
+            LOAD_CLI_TEXT(label2);
+            LOAD_CLI_TEXT(label3);
+            LOAD_CLI_TEXT(label4);
+            LOAD_CLI_TEXT(fbcLBVideoBitrate);
+            LOAD_CLI_TEXT(fbcLBAudioBitrate);
+            LOAD_CLI_TEXT(fbcLBMovieSize);
+            LOAD_CLI_TEXT(fbcLBVideoBitrateKbps);
+            LOAD_CLI_TEXT(fbcLBAudioBitrateKbps);
+            LOAD_CLI_TEXT(label10);
+            LOAD_CLI_TEXT(fbcBTVBApply);
+            LOAD_CLI_TEXT(fbcBTABApply);
+            LOAD_CLI_TEXT(fbcLBMovieBitrateKbps);
+            LOAD_CLI_TEXT(fbcLBMovieBitrate);
+            LOAD_CLI_TEXT(fbcRBCalcRate);
+            LOAD_CLI_TEXT(fbcRBCalcSize);
+            //LOAD_CLI_TEXT(fbcTXMovieFrameRate);
+            LOAD_CLI_TEXT(fbcLBFrames);
+            LOAD_CLI_TEXT(fbcLBMovieFrameRate);
+            LOAD_CLI_TEXT(fbcBTChangeLengthMode);
+        }
     public:
-        System::Void Init(int VideoBitrate, int AudioBitrate, bool BTVBEnable, bool BTABEnable, int ab_max);
+        System::Void Init(int VideoBitrate, int AudioBitrate, bool BTVBEnable, bool BTABEnable, int ab_max, const AuoTheme theme, const DarkenWindowStgReader *dwStg);
     private:
         System::Void fbcChangeTimeSetMode(bool use_frames) {
             fbcPNMovieFrames->Visible = use_frames;
-            fbcBTChangeLengthMode->Text = (use_frames) ? L"時間指定に変更" : L"フレーム数指定に変更";
+            fbcBTChangeLengthMode->Text = (use_frames) ? LOAD_CLI_STRING(AUO_FBC_LENGTH_MODE_TO_TIME) : LOAD_CLI_STRING(AUO_FBC_LENGTH_MODE_TO_FRAME_NUMBER);
         }
     private: 
         System::Void frmBitrateCalculator_Load(System::Object^  sender, System::EventArgs^  e) {
@@ -582,6 +615,7 @@ namespace QSVEnc {
             LastStr = L"";
             SetNUValue(fbcNUBitrateSum, fbcNUBitrateAudio->Value + fbcNUBitrateVideo->Value);
             fbcNULength_TextChanged(nullptr, nullptr);
+            LoadLangText();
             //フォントの設定
             guiEx_settings exstg;
             exstg.load_encode_stg();

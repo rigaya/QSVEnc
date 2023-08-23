@@ -1,9 +1,9 @@
 ﻿// -----------------------------------------------------------------------------------------
-// QSVEnc by rigaya
+// x264guiEx/x265guiEx/svtAV1guiEx/ffmpegOut/QSVEnc/NVEnc/VCEEnc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
 //
-// Copyright (c) 2011-2016 rigaya
+// Copyright (c) 2010-2022 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -28,6 +28,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <Windows.h>
+#include <string>
 #include <Math.h>
 #include <stdlib.h>
 #include <shlwapi.h>
@@ -48,10 +49,11 @@
 #include "auo_encode.h"
 #include "exe_version.h"
 #include "cpu_info.h"
+#include "auo_mes.h"
 
-static void show_mux_info(const MUXER_SETTINGS *mux_stg, BOOL vidmux, BOOL audmux, BOOL tcmux, BOOL chapmux, const char *muxer_mode_name) {
-    char mes[1024];
-    static const char * const ON_OFF_INFO[] = { "off", " on" };
+static void show_mux_info(const MUXER_SETTINGS *mux_stg, BOOL vidmux, BOOL audmux, BOOL tcmux, BOOL chapmux, const wchar_t *muxer_mode_name) {
+    wchar_t mes[1024];
+    static const wchar_t * const ON_OFF_INFO[] = { L"off", L" on" };
 
     std::string ver_str = "";
     int version[4] = { 0 };
@@ -59,24 +61,26 @@ static void show_mux_info(const MUXER_SETTINGS *mux_stg, BOOL vidmux, BOOL audmu
         ver_str = " (" + ver_string(version) + ")";
     }
 
-    sprintf_s(mes, _countof(mes), "%s%s でmuxを行います。映像:%s, 音声:%s, tc:%s, chap:%s, 拡張モード:%s",
+    swprintf_s(mes, _countof(mes), L"%s%s %s %s:%s, %s:%s, %s:%s, %s:%s, %s:%s", 
         mux_stg->dispname,
-        ver_str.c_str(),
-        ON_OFF_INFO[vidmux != 0],
-        ON_OFF_INFO[audmux != 0],
-        ON_OFF_INFO[tcmux != 0],
-        ON_OFF_INFO[chapmux != 0],
+        char_to_wstring(ver_str).c_str(),
+        g_auo_mes.get(AUO_MUX_RUN_START),
+        g_auo_mes.get(AUO_MUX_RUN_VIDEO), ON_OFF_INFO[vidmux != 0],
+        g_auo_mes.get(AUO_MUX_RUN_AUDIO), ON_OFF_INFO[audmux != 0],
+        g_auo_mes.get(AUO_MUX_RUN_TC),    ON_OFF_INFO[tcmux != 0],
+        g_auo_mes.get(AUO_MUX_RUN_CHAP),  ON_OFF_INFO[chapmux != 0],
+        g_auo_mes.get(AUO_MUX_RUN_EXT_MODE),
         muxer_mode_name);
     write_log_auo_line_fmt(LOG_INFO, mes);
 
-    sprintf_s(mes, _countof(mes), "%s で mux中...", mux_stg->dispname);
+    swprintf_s(mes, _countof(mes), L"%s %s", mux_stg->dispname, g_auo_mes.get(AUO_MUX_RUN));
     set_window_title(mes, PROGRESSBAR_MARQUEE);
 }
 
 //muxの空き容量などを計算し、行えるかを確認する
 static AUO_RESULT check_mux_disk_space(const MUXER_SETTINGS *mux_stg, const char *mux_tmpdir, const CONF_GUIEX *conf, const PRM_ENC *pe, UINT64 expected_filesize) {
     AUO_RESULT ret = AUO_RESULT_SUCCESS;
-    UINT64 required_space = (UINT64)(expected_filesize * 1.01); //ちょい多め
+    uint64_t required_space = (uint64_t)(expected_filesize * 1.01); //ちょい多め
     //出力先ドライブ
     char vid_root[MAX_PATH_LEN];
     strcpy_s(vid_root, _countof(vid_root), pe->temp_filename);
@@ -99,9 +103,9 @@ static AUO_RESULT check_mux_disk_space(const MUXER_SETTINGS *mux_stg, const char
             ret = AUO_RESULT_WARNING; warning_failed_mux_tmp_drive_space();
         //一時フォルダと出力先が同じフォルダかどうかで、一時フォルダの必要とされる空き領域が変わる
         } else {
-            tmp_same_drive_as_out = (_stricmp(vid_root, temp_root) == NULL);
-            if ((UINT64)temp_drive_avail_space.QuadPart < required_space * (1 + tmp_same_drive_as_out)) {
-                ret = AUO_RESULT_WARNING; warning_mux_tmp_not_enough_space();
+            tmp_same_drive_as_out = (_stricmp(vid_root, temp_root) == NULL) ? 1 : 0;
+            if ((uint64_t)temp_drive_avail_space.QuadPart < required_space * (1 + tmp_same_drive_as_out)) {
+                ret = AUO_RESULT_WARNING; warning_mux_tmp_not_enough_space(temp_root, (uint64_t)temp_drive_avail_space.QuadPart, required_space * (1 + tmp_same_drive_as_out));
             }
         }
         //一時フォルダと出力先が同じフォルダならさらなる検証の必要はない
@@ -123,9 +127,9 @@ static AUO_RESULT check_mux_disk_space(const MUXER_SETTINGS *mux_stg, const char
             warning_failed_muxer_drive_space(); return AUO_RESULT_WARNING;
         }
         //一時フォルダと出力先が同じフォルダかどうかで、一時フォルダの必要とされる空き領域が変わる
-        BOOL muxer_same_drive_as_out = (_stricmp(vid_root, muxer_root) == NULL);
-        if ((UINT64)muxer_drive_avail_space.QuadPart < required_space * (1 + muxer_same_drive_as_out)) {
-            error_muxer_drive_not_enough_space(); return AUO_RESULT_ERROR;
+        BOOL muxer_same_drive_as_out = (_stricmp(vid_root, muxer_root) == NULL) ? 1 : 0;
+        if ((uint64_t)muxer_drive_avail_space.QuadPart < required_space * (1 + muxer_same_drive_as_out)) {
+            error_muxer_drive_not_enough_space(muxer_root, (uint64_t)muxer_drive_avail_space.QuadPart, required_space * (1 + muxer_same_drive_as_out)); return AUO_RESULT_ERROR;
         }
         //一時フォルダと出力先が同じフォルダならさらなる検証の必要はない
         if (muxer_same_drive_as_out && ret == AUO_RESULT_SUCCESS)
@@ -137,8 +141,8 @@ static AUO_RESULT check_mux_disk_space(const MUXER_SETTINGS *mux_stg, const char
     if (!GetDiskFreeSpaceEx(vid_root, &out_drive_avail_space, NULL, NULL)) {
         warning_failed_out_drive_space(); return AUO_RESULT_WARNING;
     }
-    if ((UINT64)out_drive_avail_space.QuadPart < required_space) {
-        error_out_drive_not_enough_space(); return AUO_RESULT_ERROR;
+    if ((uint64_t)out_drive_avail_space.QuadPart < required_space) {
+        error_out_drive_not_enough_space(vid_root, (uint64_t)out_drive_avail_space.QuadPart, required_space); return AUO_RESULT_ERROR;
     }
     return ret;
 }
@@ -303,7 +307,7 @@ static AUO_RESULT build_mux_cmd(char *cmd, size_t nSize, const CONF_GUIEX *conf,
         } else {
             replace(cmd, nSize, "%{chapter}", chap_file);
             chapter_file chapter;
-            if (AUO_CHAP_ERR_NONE != (chapter.read_file(chap_file, CODE_PAGE_UNSET, get_duration(oip, pe)))) {
+            if (AUO_CHAP_ERR_NONE != (chapter.read_file(chap_file, CODE_PAGE_UNSET, get_duration(conf, sys_dat, pe, oip)))) {
                 warning_mux_chapter(chapter.get_result());
             } else {
                 chapter.add_dummy_chap_zero_pos();
@@ -438,10 +442,10 @@ AUO_RESULT mux(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, cons
     //映像・音声のmux判定
     BOOL  enable_vid_mux = TRUE;
     DWORD enable_aud_mux = check_for_aud_mux(oip->flag, sys_dat->exstg->s_mux[pe->muxer_to_be_used].aud_cmd, pe);
-#if 0
-    //常にremuxerを使用するようにして、NVEncCでmp4コンテナに設定した「エンコードライブラリの情報」をmux後も保持するようにする
+#if 1
+    //常にremuxerを使用するようにして、mp4コンテナに設定した「エンコードライブラリの情報」やafs使用時のタイムコードをmux後も保持するようにする
     BOOL  aud_use_remuxer = TRUE;
-#elif 0
+#else
     BOOL  aud_use_remuxer = (!!enable_aud_mux && sys_dat->exstg->s_aud[conf->aud.encoder].mode[conf->aud.enc_mode].use_remuxer)
         //多重音声を扱う際、muxer.exeのコマンドを二重発行すると、--file-format m4aが重複して、muxer.exeがエラー終了してしまう。
         //これを回避するため、多重音声では各音声をmuxer.exeでmp4に格納してから、remuxer.exeで多重化する
@@ -534,7 +538,7 @@ AUO_RESULT mux(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, cons
     if (ret & AUO_RESULT_ERROR)
         return AUO_RESULT_ERROR; //エラーメッセージはbuild_mux_cmd関数内で吐かれる
     sprintf_s(muxargs, _countof(muxargs), "\"%s\" %s", mux_stg->fullpath, muxcmd);
-    write_log_auo_line(LOG_MORE, muxargs);
+    write_log_auo_line(LOG_MORE, char_to_wstring(muxargs).c_str());
     //パイプの設定
     pipes.stdOut.mode = AUO_PIPE_ENABLE;
     pipes.stdErr.mode = AUO_PIPE_MUXED;
@@ -586,13 +590,13 @@ AUO_RESULT mux(const CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, cons
             change_mux_vid_filename(muxout, pe);
         }
         write_cached_lines(muxer_log_level, mux_stg->dispname, &log_line_cache);
-        write_log_auo_line_fmt(LOG_MORE, "%s CPU使用率: %.2f%%", mux_stg->dispname, GetProcessAvgCPUUsage(pi_mux.hProcess));
+        write_log_auo_line_fmt(LOG_MORE, L"%s %s: %.2f%%", mux_stg->dispname, g_auo_mes.get(AUO_MUX_CPU_USAGE), GetProcessAvgCPUUsage(pi_mux.hProcess));
         CloseHandle(pi_mux.hProcess);
         CloseHandle(pi_mux.hThread);
     }
 
     release_log_cache(&log_line_cache);
-    set_window_title(AUO_FULL_NAME, PROGRESSBAR_DISABLED);
+    set_window_title(g_auo_mes.get(AUO_GUIEX_FULL_NAME), PROGRESSBAR_DISABLED);
 
     //さらにmuxの必要があれば、それを行う(L-SMASH系 timelineeditor のあとの remuxer を想定)
     if (!ret && mux_stg->post_mux >= MUXER_MP4) {
