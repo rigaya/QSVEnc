@@ -115,12 +115,18 @@ RGY_ERR RGYFilterPad::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog>
          || prm->pad.top    % 2 != 0
          || prm->pad.right  % 2 != 0
          || prm->pad.bottom % 2 != 0)) {
-        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter, --vpp-pad only supports values which is multiple of 2 in YUV420.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
     if (pParam->frameOut.width != pParam->frameIn.width + prm->pad.right + prm->pad.left
         || pParam->frameOut.height != pParam->frameIn.height + prm->pad.top + prm->pad.bottom) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (RGY_CSP_CHROMA_FORMAT[prm->encoderCsp] == RGY_CHROMAFMT_YUV420
+        && (pParam->frameOut.width  % 2 != 0
+         || pParam->frameOut.height % 2 != 0)) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter, output resolution must be multiple of 2.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
     auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamPad>(m_param);
