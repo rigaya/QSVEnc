@@ -244,6 +244,11 @@ RGY_ERR RGYFilterNnedi::checkParam(const std::shared_ptr<RGYFilterParamNnedi> pr
         AddMessage(RGY_LOG_ERROR, _T("Invalid frame size.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+    const int hight_mul = (RGY_CSP_CHROMA_FORMAT[prm->frameOut.csp] == RGY_CHROMAFMT_YUV420) ? 4 : 2;
+    if ((prm->frameOut.height % hight_mul) != 0) {
+        AddMessage(RGY_LOG_ERROR, _T("Height must be multiple of %d.\n"), hight_mul);
+        return RGY_ERR_INVALID_PARAM;
+    }
     if (prm->nnedi.field <= VPP_NNEDI_FIELD_UNKNOWN || VPP_NNEDI_FIELD_MAX <= prm->nnedi.field) {
         AddMessage(RGY_LOG_ERROR, _T("invalid value for param \"field\": %d\n"), prm->nnedi.field);
         return RGY_ERR_INVALID_PARAM;
