@@ -149,18 +149,14 @@ sInputParams::sInputParams() :
     MVSearchWindow(std::make_pair(0,0)),
     MVC_flags(0),
     nBluray(0),
-    bMBBRC(false),
-    extBRC(false),
-    adaptiveRef(false),
-    adaptiveLTR(false),
-    adaptiveCQM(false),
-#if FOR_AUO
-    bBPyramid(true),
-#else
-    bBPyramid(getCPUGenCpuid() >= CPU_GEN_HASWELL),
-#endif
-    bAdaptiveI(false),
-    bAdaptiveB(false),
+    bBPyramid(),
+    bMBBRC(),
+    extBRC(),
+    adaptiveRef(),
+    adaptiveLTR(),
+    adaptiveCQM(),
+    bAdaptiveI(),
+    bAdaptiveB(),
     nLookaheadDepth(0),
     nTrellis(0),
     nAsyncDepth(0),
@@ -175,7 +171,7 @@ sInputParams::sInputParams() :
     maxFrameSizeP(0),
     nWinBRCSize(0),
     nMVCostScaling(0),
-    bDirectBiasAdjust(false),
+    bDirectBiasAdjust(),
     bGlobalMotionAdjust(false),
     bUseFixedFunc(false),
     gpuCopy(false),
@@ -184,14 +180,14 @@ sInputParams::sInputParams() :
     nVP8Sharpness(0),
     nWeightP(0),
     nWeightB(0),
-    nFadeDetect(0),
+    nFadeDetect(),
     nFallback(0),
     bOutputAud(false),
     bOutputPicStruct(false),
     bufPeriodSEI(false),
     repeatHeaders(),
     pQPOffset(),
-    nRepartitionCheck(0),
+    nRepartitionCheck(),
     padding(),
     hevc_ctu(0),
     hevc_sao(0),
@@ -201,8 +197,12 @@ sInputParams::sInputParams() :
     av1(),
     pythonPath(),
     bBenchmark(false),
-    nBenchQuality(QSV_DEFAULT_BENCH)
-{
+    nBenchQuality(QSV_DEFAULT_BENCH) {
+#if !FOR_AUO
+    if (getCPUGenCpuid() >= CPU_GEN_HASWELL) {
+        bBPyramid = false;
+    }
+#endif
     memset(nQPMin, 0, sizeof(nQPMin));
     memset(nQPMax, 0, sizeof(nQPMax));
     memset(pQPOffset, 0, sizeof(pQPOffset));

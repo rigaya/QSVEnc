@@ -886,19 +886,19 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("repartition-check"))) {
-        pParams->nRepartitionCheck = MFX_CODINGOPTION_ON;
+        pParams->nRepartitionCheck = true;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-repartition-check"))) {
-        pParams->nRepartitionCheck = MFX_CODINGOPTION_OFF;
+        pParams->nRepartitionCheck = false;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("fade-detect"))) {
-        pParams->nFadeDetect = MFX_CODINGOPTION_ON;
+        pParams->nFadeDetect = true;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-fade-detect"))) {
-        pParams->nFadeDetect = MFX_CODINGOPTION_OFF;
+        pParams->nFadeDetect = false;
         return 0;
     }
     if (   0 == _tcscmp(option_name, _T("lookahead-ds"))
@@ -2176,15 +2176,15 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     } else {
         OPT_NUM(_T("--gop-ref-dist"), GopRefDist);
     }
-    OPT_BOOL(_T("--b-pyramid"), _T("--no-b-pyramid"), bBPyramid);
+    OPT_BOOL_OPT(_T("--b-pyramid"), _T("--no-b-pyramid"), bBPyramid);
     OPT_BOOL(_T("--open-gop"), _T("--no-open-gop"), bopenGOP);
     OPT_BOOL(_T("--strict-gop"), _T(""), bforceGOPSettings);
-    OPT_BOOL(_T("--i-adapt"), _T("--no-i-adapt"), bAdaptiveI);
-    OPT_BOOL(_T("--b-adapt"), _T("--no-b-adapt"), bAdaptiveB);
+    OPT_BOOL_OPT(_T("--i-adapt"), _T("--no-i-adapt"), bAdaptiveI);
+    OPT_BOOL_OPT(_T("--b-adapt"), _T("--no-b-adapt"), bAdaptiveB);
     OPT_TRI(_T("--weightb"), _T("--no-weightb"), nWeightB, MFX_WEIGHTED_PRED_DEFAULT, MFX_WEIGHTED_PRED_UNKNOWN);
     OPT_TRI(_T("--weightp"), _T("--no-weightp"), nWeightP, MFX_WEIGHTED_PRED_DEFAULT, MFX_WEIGHTED_PRED_UNKNOWN);
-    OPT_TRI(_T("--repartition-check"), _T("--no-repartition-check"), nRepartitionCheck, MFX_CODINGOPTION_ON, MFX_CODINGOPTION_OFF);
-    OPT_TRI(_T("--fade-detect"), _T("--no-fade-detect"), nFadeDetect, MFX_CODINGOPTION_ON, MFX_CODINGOPTION_OFF);
+    OPT_BOOL_OPT(_T("--repartition-check"), _T("--no-repartition-check"), nRepartitionCheck);
+    OPT_BOOL_OPT(_T("--fade-detect"), _T("--no-fade-detect"), nFadeDetect);
     if (pParams->nGOPLength == 0 && pParams->nGOPLength != encPrmDefault.nGOPLength) {
         cmd << _T(" --gop-len auto");
     } else {
@@ -2205,16 +2205,16 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     }
 
     OPT_LST(_T("--scenario-info"), scenarioInfo, list_scenario_info);
-    OPT_BOOL(_T("--extbrc"), _T("--no-extbrc"), extBRC);
-    OPT_BOOL(_T("--mbbrc"), _T("--no-mbbrc"), bMBBRC);
-    OPT_BOOL(_T("--adapt-ref"), _T("--no-adapt-ref"), adaptiveRef);
-    OPT_BOOL(_T("--adapt-ltr"), _T("--no-adapt-ltr"), adaptiveLTR);
-    OPT_BOOL(_T("--adapt-cqm"), _T("--no-adapt-cqm"), adaptiveCQM);
+    OPT_BOOL_OPT(_T("--extbrc"), _T("--no-extbrc"), extBRC);
+    OPT_BOOL_OPT(_T("--mbbrc"), _T("--no-mbbrc"), bMBBRC);
+    OPT_BOOL_OPT(_T("--adapt-ref"), _T("--no-adapt-ref"), adaptiveRef);
+    OPT_BOOL_OPT(_T("--adapt-ltr"), _T("--no-adapt-ltr"), adaptiveLTR);
+    OPT_BOOL_OPT(_T("--adapt-cqm"), _T("--no-adapt-cqm"), adaptiveCQM);
     OPT_NUM(_T("--intra-refresh-cycle"), intraRefreshCycle);
     OPT_NUM(_T("--max-framesize"), maxFrameSize);
     OPT_NUM(_T("--max-framesize-i"), maxFrameSizeI);
     OPT_NUM(_T("--max-framesize-p"), maxFrameSizeP);
-    OPT_BOOL(_T("--direct-bias-adjust"), _T("--no-direct-bias-adjust"), bDirectBiasAdjust);
+    OPT_BOOL_OPT(_T("--direct-bias-adjust"), _T("--no-direct-bias-adjust"), bDirectBiasAdjust);
     OPT_LST(_T("--intra-pred"), nIntraPred, list_pred_block_size);
     OPT_LST(_T("--inter-pred"), nInterPred, list_pred_block_size);
     OPT_BOOL(_T("--aud"), _T(""), bOutputAud);

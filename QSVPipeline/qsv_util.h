@@ -163,6 +163,18 @@ static inline uint16_t check_coding_option(uint16_t value) {
     return MFX_CODINGOPTION_UNKNOWN;
 }
 
+template<typename T>
+static inline T get3state(const std::optional<bool>& value, const T valDefault, const T valOn, const T valOff) {
+    if (!value.has_value()) {
+        return valDefault;
+    }
+    return value.value() ? valOn : valOff;
+}
+
+static inline uint16_t get_codingopt(const std::optional<bool>& value) {
+    return (uint16_t)get3state(value, MFX_CODINGOPTION_UNKNOWN, MFX_CODINGOPTION_ON, MFX_CODINGOPTION_OFF);
+}
+
 VideoInfo videooutputinfo(const mfxInfoMFX& mfx, const mfxExtVideoSignalInfo& vui);
 
 bool isRCBitrateMode(int encmode);

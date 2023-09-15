@@ -596,11 +596,11 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
     //その他機能のチェック
     if (pInParams->bAdaptiveI && !(availableFeaures & ENC_FEATURE_ADAPTIVE_I)) {
         PrintMes(RGY_LOG_WARN, _T("Adaptve I-frame insert is not supported on current platform, disabled.\n"));
-        pInParams->bAdaptiveI = false;
+        pInParams->bAdaptiveI.reset();
     }
     if (pInParams->bAdaptiveB && !(availableFeaures & ENC_FEATURE_ADAPTIVE_B)) {
         PrintMes(RGY_LOG_WARN, _T("Adaptve B-frame insert is not supported on current platform, disabled.\n"));
-        pInParams->bAdaptiveB = false;
+        pInParams->bAdaptiveB.reset();
     }
     if (pInParams->bBPyramid && !(availableFeaures & ENC_FEATURE_B_PYRAMID)) {
         print_feature_warnings(RGY_LOG_WARN, _T("B pyramid"));
@@ -612,7 +612,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
     }
     if (pInParams->extBRC && !(availableFeaures & ENC_FEATURE_EXT_BRC)) {
         print_feature_warnings(RGY_LOG_WARN, _T("ExtBRC"));
-        pInParams->extBRC = false;
+        pInParams->extBRC.reset();
     }
     if (pInParams->tuneQuality != MFX_ENCODE_TUNE_DEFAULT && !(availableFeaures & ENC_FEATURE_TUNE_ENCODE_QUALITY)) {
         print_feature_warnings(RGY_LOG_WARN, _T("Tune Quality"));
@@ -624,19 +624,19 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
     }
     if (pInParams->adaptiveRef && !(availableFeaures & ENC_FEATURE_ADAPTIVE_REF)) {
         print_feature_warnings(RGY_LOG_WARN, _T("adaptiveRef"));
-        pInParams->adaptiveRef = false;
+        pInParams->adaptiveRef.reset();
     }
     if (pInParams->adaptiveLTR && !(availableFeaures & ENC_FEATURE_ADAPTIVE_LTR)) {
         print_feature_warnings(RGY_LOG_WARN, _T("AdaptiveLTR"));
-        pInParams->adaptiveLTR = false;
+        pInParams->adaptiveLTR.reset();
     }
     if (pInParams->adaptiveCQM && !(availableFeaures & ENC_FEATURE_ADAPTIVE_CQM)) {
         print_feature_warnings(RGY_LOG_WARN, _T("AdaptiveCQM"));
-        pInParams->adaptiveCQM = false;
+        pInParams->adaptiveCQM.reset();
     }
     if (pInParams->bMBBRC && !(availableFeaures & ENC_FEATURE_MBBRC)) {
         print_feature_warnings(RGY_LOG_WARN, _T("MBBRC"));
-        pInParams->bMBBRC = false;
+        pInParams->bMBBRC.reset();
     }
     if (   (MFX_RATECONTROL_LA     == pInParams->nEncMode
          || MFX_RATECONTROL_LA_ICQ == pInParams->nEncMode)
@@ -671,12 +671,16 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
     //if (pInParams->nBframes > 2 && pInParams->CodecId == MFX_CODEC_HEVC) {
     //    PrintMes(RGY_LOG_WARN, _T("HEVC encoding + B-frames > 2 might cause artifacts, please check the output.\n"));
     //}
-    if (pInParams->bBPyramid && pInParams->GopRefDist-1 >= 10 && !(availableFeaures & ENC_FEATURE_B_PYRAMID_MANY_BFRAMES)) {
-        PrintMes(RGY_LOG_WARN, _T("B pyramid with too many bframes is not supported on current platform, B pyramid disabled.\n"));
+    if (!pInParams->bBPyramid.value_or(true) && pInParams->GopRefDist-1 >= 10 && !(availableFeaures & ENC_FEATURE_B_PYRAMID_MANY_BFRAMES)) {
+        if (pInParams->bBPyramid.value_or(false)) {
+            PrintMes(RGY_LOG_WARN, _T("B pyramid with too many bframes is not supported on current platform, B pyramid disabled.\n"));
+        }
         pInParams->bBPyramid = false;
     }
-    if (pInParams->bBPyramid && m_device->CPUGen() < CPU_GEN_HASWELL) {
-        PrintMes(RGY_LOG_WARN, _T("B pyramid on IvyBridge generation might cause artifacts, please check your encoded video.\n"));
+    if (!pInParams->bBPyramid.value_or(true) && m_device->CPUGen() < CPU_GEN_HASWELL) {
+        if (pInParams->bBPyramid.value_or(false)) {
+            PrintMes(RGY_LOG_WARN, _T("B pyramid on IvyBridge generation might cause artifacts, please check your encoded video.\n"));
+        }
     }
     if (pInParams->bNoDeblock && !(availableFeaures & ENC_FEATURE_NO_DEBLOCK)) {
         print_feature_warnings(RGY_LOG_WARN, _T("No deblock"));
@@ -704,7 +708,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
     }
     if (pInParams->bDirectBiasAdjust && !(availableFeaures & ENC_FEATURE_DIRECT_BIAS_ADJUST)) {
         print_feature_warnings(RGY_LOG_WARN, _T("Direct Bias Adjust"));
-        pInParams->bDirectBiasAdjust = 0;
+        pInParams->bDirectBiasAdjust.reset();
     }
     if (pInParams->bGlobalMotionAdjust && !(availableFeaures & ENC_FEATURE_GLOBAL_MOTION_ADJUST)) {
         print_feature_warnings(RGY_LOG_WARN, _T("MV Cost Scaling"));
@@ -724,16 +728,16 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         pInParams->nWeightB = 0;
     }
 #if !ENABLE_FADE_DETECT
-    if (pInParams->nFadeDetect == MFX_CODINGOPTION_ON) {
+    if (pInParams->nFadeDetect.value_or(false)) {
         PrintMes(RGY_LOG_WARN, _T("fade-detect will be disabled due to instability.\n"));
-        pInParams->nFadeDetect = MFX_CODINGOPTION_UNKNOWN;
+        pInParams->nFadeDetect = MFX_CODINGOPTION_OFF;
     }
 #endif
-    if (pInParams->nFadeDetect != MFX_CODINGOPTION_UNKNOWN && !(availableFeaures & ENC_FEATURE_FADE_DETECT)) {
-        if (pInParams->nFadeDetect == MFX_CODINGOPTION_ON) {
+    if (pInParams->nFadeDetect.has_value() && !(availableFeaures & ENC_FEATURE_FADE_DETECT)) {
+        if (pInParams->nFadeDetect.value_or(false)) {
             print_feature_warnings(RGY_LOG_WARN, _T("FadeDetect"));
         }
-        pInParams->nFadeDetect = MFX_CODINGOPTION_UNKNOWN;
+        pInParams->nFadeDetect.reset();
     }
     if (pInParams->CodecId == MFX_CODEC_HEVC) {
         if (pInParams->hevc_ctu > 0 && !(availableFeaures & ENC_FEATURE_HEVC_CTU)) {
@@ -750,7 +754,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         }
         if (pInParams->hevc_gpb.has_value() && !(availableFeaures & ENC_FEATURE_DISABLE_GPB)) {
             print_feature_warnings(RGY_LOG_WARN, _T("HEVC GPB"));
-            pInParams->hevc_gpb = false;
+            pInParams->hevc_gpb.reset();
         }
     }
     if (pInParams->CodecId == MFX_CODEC_VP9) {
@@ -963,9 +967,9 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6)) {
         INIT_MFX_EXT_BUFFER(m_CodingOption2, MFX_EXTBUFF_CODING_OPTION2);
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
-            m_CodingOption2.AdaptiveI   = (mfxU16)((pInParams->bAdaptiveI) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
-            m_CodingOption2.AdaptiveB   = (mfxU16)((pInParams->bAdaptiveB) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
-            m_CodingOption2.BRefType    = (mfxU16)((pInParams->bBPyramid)  ? MFX_B_REF_PYRAMID   : MFX_B_REF_OFF);
+            m_CodingOption2.AdaptiveI   = get_codingopt(pInParams->bAdaptiveI);
+            m_CodingOption2.AdaptiveB   = get_codingopt(pInParams->bAdaptiveB);
+            m_CodingOption2.BRefType    = (decltype(m_CodingOption2.BRefType))get3state(pInParams->bBPyramid, MFX_B_REF_UNKNOWN, MFX_B_REF_PYRAMID, MFX_B_REF_OFF);
 
             CHECK_RANGE_LIST(pInParams->nLookaheadDS, list_lookahead_ds, "la-quality");
             m_CodingOption2.LookAheadDS = (mfxU16)pInParams->nLookaheadDS;
@@ -976,13 +980,8 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
             CHECK_RANGE_LIST(pInParams->nTrellis, list_avc_trellis_for_options, "trellis");
             m_CodingOption2.Trellis = (mfxU16)pInParams->nTrellis;
         }
-        if (pInParams->bMBBRC) {
-            m_CodingOption2.MBBRC = MFX_CODINGOPTION_ON;
-        }
-
-        if (pInParams->extBRC) {
-            m_CodingOption2.ExtBRC = MFX_CODINGOPTION_ON;
-        }
+        m_CodingOption2.MBBRC = get_codingopt(pInParams->bMBBRC);
+        m_CodingOption2.ExtBRC = get_codingopt(pInParams->extBRC);
         if (pInParams->intraRefreshCycle > 0) {
             m_CodingOption2.IntRefType = MFX_REFRESH_VERTICAL;
             if (pInParams->intraRefreshCycle == 1) {
@@ -1055,9 +1054,9 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
 
         //API v1.13の機能
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_13)) {
-            m_CodingOption3.DirectBiasAdjustment       = (mfxU16)((pInParams->bDirectBiasAdjust)   ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
-            m_CodingOption3.GlobalMotionBiasAdjustment = (mfxU16)((pInParams->bGlobalMotionAdjust) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
+            m_CodingOption3.DirectBiasAdjustment = get_codingopt(pInParams->bDirectBiasAdjust);
             if (pInParams->bGlobalMotionAdjust) {
+                m_CodingOption3.GlobalMotionBiasAdjustment = MFX_CODINGOPTION_ON;
                 CHECK_RANGE_LIST(pInParams->nMVCostScaling, list_mv_cost_scaling, "mv-scaling");
                 m_CodingOption3.MVCostScalingFactor    = (mfxU16)pInParams->nMVCostScaling;
             }
@@ -1068,15 +1067,11 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
             m_CodingOption3.ScenarioInfo   = (mfxU16)(pInParams->scenarioInfo);
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_17)) {
-            m_CodingOption3.FadeDetection = check_coding_option((mfxU16)pInParams->nFadeDetect);
+            m_CodingOption3.FadeDetection = get_codingopt(pInParams->nFadeDetect);
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_18)) {
             if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC) {
-                if (pInParams->hevc_gpb.has_value()) {
-                    m_CodingOption3.GPB = (mfxU16)(pInParams->hevc_gpb.value() ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
-                } else {
-                    m_CodingOption3.GPB = MFX_CODINGOPTION_UNKNOWN;
-                }
+                m_CodingOption3.GPB = get_codingopt(pInParams->hevc_gpb);
             }
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_19)) {
@@ -1092,16 +1087,19 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
             }
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_23)) {
-            m_CodingOption3.RepartitionCheckEnable = (mfxU16)pInParams->nRepartitionCheck;
+            m_CodingOption3.RepartitionCheckEnable = get_codingopt(pInParams->nRepartitionCheck);
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_26)) {
             if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC) {
                 m_CodingOption3.TransformSkip = (mfxU16)pInParams->hevc_tskip;
             }
         }
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_2)) {
+            m_CodingOption3.AdaptiveCQM = get_codingopt(pInParams->adaptiveCQM);
+        }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_4)) {
-            m_CodingOption3.AdaptiveRef = (mfxU16)(pInParams->adaptiveRef ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
-            m_CodingOption3.AdaptiveLTR = (mfxU16)(pInParams->adaptiveLTR ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
+            m_CodingOption3.AdaptiveRef = get_codingopt(pInParams->adaptiveRef);
+            m_CodingOption3.AdaptiveLTR = get_codingopt(pInParams->adaptiveLTR);
         }
         m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption3);
     }

@@ -322,14 +322,14 @@ struct sInputParams {
     int        MVC_flags;
     int        nBluray;
 
-    bool       bMBBRC;
-    bool       extBRC;
-    bool       adaptiveRef;
-    bool       adaptiveLTR;
-    bool       adaptiveCQM;
-    bool       bBPyramid;
-    bool       bAdaptiveI;
-    bool       bAdaptiveB;
+    std::optional<bool> bBPyramid;
+    std::optional<bool> bMBBRC;
+    std::optional<bool> extBRC;
+    std::optional<bool> adaptiveRef;
+    std::optional<bool> adaptiveLTR;
+    std::optional<bool> adaptiveCQM;
+    std::optional<bool> bAdaptiveI;
+    std::optional<bool> bAdaptiveB;
 
     int        nLookaheadDepth;
     int        nTrellis;
@@ -351,7 +351,7 @@ struct sInputParams {
     int        nWinBRCSize;
 
     int        nMVCostScaling;
-    bool       bDirectBiasAdjust;
+    std::optional<bool> bDirectBiasAdjust;
     bool       bGlobalMotionAdjust;
     bool       bUseFixedFunc;
     bool       gpuCopy;
@@ -363,7 +363,7 @@ struct sInputParams {
 
     int        nWeightP;
     int        nWeightB;
-    int        nFadeDetect;
+    std::optional<bool> nFadeDetect;
 
     uint32_t   nFallback;
     bool       bOutputAud;
@@ -372,7 +372,7 @@ struct sInputParams {
     std::optional<bool> repeatHeaders;
     int16_t    pQPOffset[8];
 
-    int        nRepartitionCheck;
+    std::optional<bool> nRepartitionCheck;
     int8_t     padding[2];
 
     int        hevc_ctu;
