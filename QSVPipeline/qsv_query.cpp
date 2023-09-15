@@ -1239,7 +1239,12 @@ QSVEncFeatureData MakeFeatureList(const QSVDeviceNum deviceNum, const std::vecto
 std::vector<QSVEncFeatureData> MakeFeatureListPerCodec(const QSVDeviceNum deviceNum, const vector<CX_DESC>& rateControlList, const vector<RGY_CODEC>& codecIdList, std::shared_ptr<RGYLog> log) {
     std::vector<QSVEncFeatureData> codecFeatures;
     vector<std::future<QSVEncFeatureData>> futures;
-    if (true) {
+#if defined(_DEBUG)
+    const bool debug = true;
+#else
+    const bool debug = false;
+#endif
+    if (!debug) {
         if (RESET_QUERY_SESSION_PER_RC) {
             for (auto codec : codecIdList) {
                 for (const auto& ratecontrol : rateControlList) {
