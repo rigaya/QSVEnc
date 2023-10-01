@@ -313,6 +313,12 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2023.10.01 (7.49)
+[QSVEncC]
+- Linuxで--deviceによるデバイス選択に対応。
+- --vpp-afs, --vpp-nnedi, --vpp-yadif, --vpp-padのエラーメッセージを拡充。
+- --vpp-decimateで最終フレームのタイムスタンプが適切に計算されず、異常終了する問題を修正。
+
 2023.08.08 (7.48)
 [QSVEncC]
 - --hyper-mode on時には--open-gopを無効に。

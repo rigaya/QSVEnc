@@ -48,7 +48,7 @@ int get_drm_driver_name(int fd, char *name, int name_size)
     return ioctl(fd, DRM_IOWR(0, drm_version), &version);
 }
 
-int open_first_intel_adapter(int type)
+int open_target_intel_adapter(const int type, const int targetIntelAdaptorNum, RGYLog *log)
 {
     std::string adapterPath = MFX_DRI_PATH;
     char driverName[MFX_DRM_DRIVER_NAME_LEN + 1] = {};
@@ -68,15 +68,27 @@ int open_first_intel_adapter(int type)
         throw std::invalid_argument("Wrong libVA backend type");
     }
 
-    for (mfxU32 i = 0; i < MFX_DRI_MAX_NODES_NUM; ++i) {
+    int intelAdaptorCount = 0;
+    for (mfxU32 i = 0; i < MFX_DRI_MAX_NODES_NUM; i++) {
         std::string curAdapterPath = adapterPath + std::to_string(nodeIndex + i);
 
-        int fd = open(curAdapterPath.c_str(), O_RDWR);
-        if (fd < 0) continue;
+        const int fd = open(curAdapterPath.c_str(), O_RDWR);
+        if (fd < 0) {
+            log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Adaptor #%d [%s]: Does not exist.\n"), i, char_to_tstring(curAdapterPath).c_str());
+            continue;
+        }
 
-        if (!get_drm_driver_name(fd, driverName, MFX_DRM_DRIVER_NAME_LEN) &&
-            !strcmp(driverName, MFX_DRM_INTEL_DRIVER_NAME)) {
-            return fd;
+        if (!get_drm_driver_name(fd, driverName, MFX_DRM_DRIVER_NAME_LEN)) {
+            log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Adaptor #%d [%s]: driver name %s\n"), i, char_to_tstring(curAdapterPath).c_str(), char_to_tstring(driverName).c_str());
+            if (!strcmp(driverName, MFX_DRM_INTEL_DRIVER_NAME)) {
+                log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Adaptor #%d [%s]: #%d Intel adaptor\n"), i, char_to_tstring(curAdapterPath).c_str(), intelAdaptorCount);
+                if (intelAdaptorCount == targetIntelAdaptorNum) {
+                    return fd;
+                }
+                intelAdaptorCount++;
+            }
+        } else {
+            log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Adaptor #%d [%s]: Failed to get adaptor %s driver name.\n"), i, char_to_tstring(curAdapterPath).c_str());
         }
         close(fd);
     }
@@ -84,10 +96,10 @@ int open_first_intel_adapter(int type)
     return -1;
 }
 
-int open_intel_adapter(const std::string& devicePath, int type, RGYLog *log)
+int open_intel_adapter(const std::string& devicePath, const int type, const int targetIntelAdaptorNum, RGYLog *log)
 {
     if(devicePath.empty())
-        return open_first_intel_adapter(type);
+        return open_target_intel_adapter(type, targetIntelAdaptorNum, log);
 
     int fd = open(devicePath.c_str(), O_RDWR);
 
@@ -100,44 +112,48 @@ int open_intel_adapter(const std::string& devicePath, int type, RGYLog *log)
     if (!get_drm_driver_name(fd, driverName, MFX_DRM_DRIVER_NAME_LEN) &&
         !strcmp(driverName, MFX_DRM_INTEL_DRIVER_NAME)) {
             return fd;
-    }
-    else {
+    } else {
         close(fd);
         log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("open_intel_adapter: Specified device is not Intel one\n"));
         return -1;
     }
 }
 
-DRMLibVA::DRMLibVA(const std::string& devicePath, int type, std::shared_ptr<RGYLog> log)
-    : CLibVA(type)
-    , m_fd(-1)
-    , m_log(log)
-{
+DRMLibVA::DRMLibVA(const std::string& devicePath, const int type, std::shared_ptr<RGYLog> log) :
+    CLibVA(type),
+    m_fd(-1),
+    m_devicePath(devicePath),
+    m_type(type),
+    m_log(log) { }
+
+bool DRMLibVA::init(const int targetIntelAdaptorNum) {
     mfxStatus sts = MFX_ERR_NONE;
 
-    m_fd = open_intel_adapter(devicePath, type, log.get());
+    m_fd = open_intel_adapter(m_devicePath, m_type, targetIntelAdaptorNum, m_log.get());
+    if (m_fd < 0 && targetIntelAdaptorNum > 0) {
+        m_log->write(RGY_LOG_WARN, RGY_LOGT_DEV, _T("DRMLibVA::DRMLibVA: Intel GPU #%d was not found, try to find any Intel GPU\n"), targetIntelAdaptorNum);
+        m_fd = open_intel_adapter(m_devicePath, m_type, 0, m_log.get());
+    }
     if (m_fd < 0) {
         m_log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("DRMLibVA::DRMLibVA: Intel GPU was not found\n"));
-        throw std::range_error("Intel GPU was not found");
+        return false;
     }
     m_va_dpy = m_vadrmlib.vaGetDisplayDRM(m_fd);
-    if (m_va_dpy)
-    {
+    if (m_va_dpy) {
         int major_version = 0, minor_version = 0;
         VAStatus va_res = m_libva.vaInitialize(m_va_dpy, &major_version, &minor_version);
         sts = va_to_mfx_status(va_res);
-    }
-    else {
+    } else {
         sts = MFX_ERR_NULL_PTR;
     }
 
-    if (MFX_ERR_NONE != sts)
-    {
+    if (MFX_ERR_NONE != sts) {
         if (m_va_dpy) m_libva.vaTerminate(m_va_dpy);
         close(m_fd);
         m_log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("DRMLibVA::DRMLibVA: Intel GPU was not found\n"));
-        throw std::runtime_error("Loading of VA display was failed");
+        return false;
     }
+    return true;
 }
 
 DRMLibVA::~DRMLibVA(void)
