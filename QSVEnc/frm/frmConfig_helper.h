@@ -329,12 +329,6 @@ namespace QSVEnc {
             features_ = features;
 
             UInt64 rc_features = 0;
-            rc_features |= ((features_[get_cx_index(list_rate_control_ry, MFX_RATECONTROL_AVBR)  ] & ENC_FEATURE_CURRENT_RC) != 0) ? ENC_FEATURE_AVBR   : 0;
-            rc_features |= ((features_[get_cx_index(list_rate_control_ry, MFX_RATECONTROL_LA)    ] & ENC_FEATURE_CURRENT_RC) != 0) ? ENC_FEATURE_LA     : 0;
-            rc_features |= ((features_[get_cx_index(list_rate_control_ry, MFX_RATECONTROL_ICQ)   ] & ENC_FEATURE_CURRENT_RC) != 0) ? ENC_FEATURE_ICQ    : 0;
-            rc_features |= ((features_[get_cx_index(list_rate_control_ry, MFX_RATECONTROL_LA_ICQ)] & ENC_FEATURE_CURRENT_RC) != 0) ? ENC_FEATURE_LA_ICQ : 0;
-            rc_features |= ((features_[get_cx_index(list_rate_control_ry, MFX_RATECONTROL_VCM)   ] & ENC_FEATURE_CURRENT_RC) != 0) ? ENC_FEATURE_VCM    : 0;
-
             for (int i_rc = 0; i_rc < features_->Length; i_rc++) {
                 features_[i_rc] |= rc_features;
             }
@@ -358,7 +352,7 @@ namespace QSVEnc {
 
         System::Void GenerateTable() {
             static const ENC_OPTION_STR3 list_enc_feature_jp[] = {
-                { AUO_CONFIG_CX_FEATURE_CURRENT_RC,             L"モード有効       ", ENC_FEATURE_CURRENT_RC             },
+                { AUO_CONFIG_CX_FEATURE_CURRENT_RC,             L"モード有効       ", ENC_FEATURE_CURRENT_RC               },
                 { AUO_CONFIG_CX_FEATURE_10BIT_DEPTH,            L"10bit深度        ", ENC_FEATURE_10BIT_DEPTH            },
                 { AUO_CONFIG_CX_FEATURE_HYPER_MODE,             L"Deep Link        ", ENC_FEATURE_HYPER_MODE             },
                 { AUO_CONFIG_CX_FEATURE_INTERLACE,              L"インタレ保持     ", ENC_FEATURE_INTERLACE              },
@@ -672,11 +666,11 @@ namespace QSVEnc {
                         iline++;
                     } else if (codecData != nullptr) {
                         int i_rate_control = 0;
-                        for (int j = _tcslen(list_enc_feature[0].desc)+1; j < featureDataLines[iline]->Length; j++) {
+                        for (int j = _tcslen(list_enc_feature_params[0].desc)+1; j < featureDataLines[iline]->Length; j++) {
                             auto line = featureDataLines[iline];
                             auto c = line[j];
                             if (c == L'o') {
-                                codecAvailableFeatures[i_rate_control] |= list_enc_feature[i_feature].value;
+                                codecAvailableFeatures[i_rate_control] |= list_enc_feature_params[i_feature].value;
                                 i_rate_control++;
                             } else if (c == L'x') {
                                 i_rate_control++;
@@ -800,6 +794,9 @@ namespace QSVEnc {
                 return false;
             }
             return devf->codecAvail(codecId, lowpower);
+        }
+        bool getRCAvail(const int dev_index, const int rc_index, const mfxU32 codecId, const bool lowpower) {
+            return (getFeatureOfRC(dev_index, rc_index, codecId, lowpower) & ENC_FEATURE_CURRENT_RC) != 0;
         }
         UInt64 getFeatureOfRC(const int dev_index, const int rc_index, const mfxU32 codecId, const bool lowpower) {
             QSVDevFeatures^ devf = getDevFeatures(dev_index);

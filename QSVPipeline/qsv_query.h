@@ -242,53 +242,135 @@ static bool inline rc_is_type_lookahead(int rc) {
         | (rc == MFX_RATECONTROL_LA_HRD));
 }
 
-enum : uint64_t {
-    ENC_FEATURE_CURRENT_RC             = 0x0000000000000001,
-    ENC_FEATURE_AVBR                   = 0x0000000000000002,
-    ENC_FEATURE_LA                     = 0x0000000000000004,
-    ENC_FEATURE_ICQ                    = 0x0000000000000008,
-    ENC_FEATURE_LA_ICQ                 = 0x0000000000000010,
-    ENC_FEATURE_VCM                    = 0x0000000000000020,
-    ENC_FEATURE_AUD                    = 0x0000000000000040,
-    ENC_FEATURE_PIC_STRUCT             = 0x0000000000000080,
-    ENC_FEATURE_VUI_INFO               = 0x0000000000000100,
-    ENC_FEATURE_CAVLC                  = 0x0000000000000200,
-    ENC_FEATURE_RDO                    = 0x0000000000000400,
-    ENC_FEATURE_ADAPTIVE_I             = 0x0000000000000800,
-    ENC_FEATURE_ADAPTIVE_B             = 0x0000000000001000,
-    ENC_FEATURE_B_PYRAMID              = 0x0000000000002000,
-    ENC_FEATURE_TRELLIS                = 0x0000000000004000,
-    ENC_FEATURE_EXT_BRC                = 0x0000000000008000,
-    ENC_FEATURE_MBBRC                  = 0x0000000000010000,
-    ENC_FEATURE_LA_DS                  = 0x0000000000020000,
-    ENC_FEATURE_INTERLACE              = 0x0000000000040000,
-    ENC_FEATURE_ADAPTIVE_REF           = 0x0000000000080000,
-    ENC_FEATURE_ADAPTIVE_LTR           = 0x0000000000100000,
-    ENC_FEATURE_ADAPTIVE_CQM           = 0x0000000000200000,
-    ENC_FEATURE_B_PYRAMID_MANY_BFRAMES = 0x0000000000400000,
-    ENC_FEATURE_LA_HRD                 = 0x0000000000800000,
-    ENC_FEATURE_QVBR                   = 0x0000000001000000,
-    ENC_FEATURE_INTRA_REFRESH          = 0x0000000002000000,
-    ENC_FEATURE_NO_DEBLOCK             = 0x0000000004000000,
-    ENC_FEATURE_QP_MINMAX              = 0x0000000008000000,
-    ENC_FEATURE_WINBRC                 = 0x0000000010000000,
-    ENC_FEATURE_PERMBQP                = 0x0000000020000000,
-    ENC_FEATURE_DIRECT_BIAS_ADJUST     = 0x0000000040000000,
-    ENC_FEATURE_GLOBAL_MOTION_ADJUST   = 0x0000000080000000,
-    ENC_FEATURE_GOPREFDIST             = 0x0000000100000000,
-    ENC_FEATURE_WEIGHT_P               = 0x0000000200000000,
-    ENC_FEATURE_WEIGHT_B               = 0x0000000400000000,
-    ENC_FEATURE_FADE_DETECT            = 0x0000000800000000,
-    ENC_FEATURE_PYRAMID_QP_OFFSET      = 0x0000001000000000,
-    ENC_FEATURE_DISABLE_GPB            = 0x0000002000000000,
-    ENC_FEATURE_10BIT_DEPTH            = 0x0000004000000000,
-    ENC_FEATURE_HEVC_SAO               = 0x0000008000000000,
-    ENC_FEATURE_HEVC_CTU               = 0x0000010000000000,
-    ENC_FEATURE_HEVC_TSKIP             = 0x0000020000000000,
-    ENC_FEATURE_HYPER_MODE             = 0x0000040000000000,
-    ENC_FEATURE_SCENARIO_INFO          = 0x0000080000000000,
-    ENC_FEATURE_TUNE_ENCODE_QUALITY    = 0x0000100000000000,
+enum QSVEncFeatureRCExt : uint64_t {
+    ENC_FEATURE_RCEXT_NONE             = 0x0000000000000000,
+    // ext options
+    ENC_FEATURE_EXT_COP                = 0x0000000000000100,
+    ENC_FEATURE_EXT_COP2               = 0x0000000000000200,
+    ENC_FEATURE_EXT_COP3               = 0x0000000000000400,
+    ENC_FEATURE_EXT_SPSPPS             = 0x0000000000000800,
+    ENC_FEATURE_EXT_HEVC_PRM           = 0x0000000000001000,
+    ENC_FEATURE_EXT_COP_VP8            = 0x0000000000002000,
+    ENC_FEATURE_EXT_VP9_PRM            = 0x0000000000004000,
+    ENC_FEATURE_EXT_AV1_BITSTREAM_PRM  = 0x0000000000008000,
+    ENC_FEATURE_EXT_AV1_RESOLUTION_PRM = 0x0000000000010000,
+    ENC_FEATURE_EXT_AV1_TILE_PRM       = 0x0000000000020000,
+    ENC_FEATURE_EXT_VIDEO_SIGNAL_INFO  = 0x0000000000040000,
+    ENC_FEATURE_EXT_TUNE_ENC_QUALITY   = 0x0000000000080000,
+    ENC_FEATURE_EXT_HYPER_MODE         = 0x0000000000100000,
 };
+
+enum QSVEncFeatureParams : uint64_t {
+    // features
+    ENC_FEATURE_PARAMS_NONE            = 0x0000000000000000,
+    ENC_FEATURE_CURRENT_RC             = 0x0000000000000001,
+    ENC_FEATURE_AUD                    = 0x0000000000000002,
+    ENC_FEATURE_PIC_STRUCT             = 0x0000000000000004,
+    ENC_FEATURE_VUI_INFO               = 0x0000000000000008,
+    ENC_FEATURE_CAVLC                  = 0x0000000000000010,
+    ENC_FEATURE_RDO                    = 0x0000000000000020,
+    ENC_FEATURE_ADAPTIVE_I             = 0x0000000000000040,
+    ENC_FEATURE_ADAPTIVE_B             = 0x0000000000000080,
+    ENC_FEATURE_B_PYRAMID              = 0x0000000000000100,
+    ENC_FEATURE_TRELLIS                = 0x0000000000000200,
+    ENC_FEATURE_EXT_BRC                = 0x0000000000000400,
+    ENC_FEATURE_MBBRC                  = 0x0000000000000800,
+    ENC_FEATURE_LA_DS                  = 0x0000000000001000,
+    ENC_FEATURE_INTERLACE              = 0x0000000000002000,
+    ENC_FEATURE_ADAPTIVE_REF           = 0x0000000000004000,
+    ENC_FEATURE_ADAPTIVE_LTR           = 0x0000000000008000,
+    ENC_FEATURE_ADAPTIVE_CQM           = 0x0000000000010000,
+    ENC_FEATURE_B_PYRAMID_MANY_BFRAMES = 0x0000000000020000,
+    ENC_FEATURE_INTRA_REFRESH          = 0x0000000000040000,
+    ENC_FEATURE_NO_DEBLOCK             = 0x0000000000080000,
+    ENC_FEATURE_QP_MINMAX              = 0x0000000000100000,
+    ENC_FEATURE_WINBRC                 = 0x0000000000200000,
+    ENC_FEATURE_PERMBQP                = 0x0000000000400000,
+    ENC_FEATURE_DIRECT_BIAS_ADJUST     = 0x0000000000800000,
+    ENC_FEATURE_GLOBAL_MOTION_ADJUST   = 0x0000000001000000,
+    ENC_FEATURE_GOPREFDIST             = 0x0000000002000000,
+    ENC_FEATURE_WEIGHT_P               = 0x0000000004000000,
+    ENC_FEATURE_WEIGHT_B               = 0x0000000008000000,
+    ENC_FEATURE_FADE_DETECT            = 0x0000000010000000,
+    ENC_FEATURE_PYRAMID_QP_OFFSET      = 0x0000000020000000,
+    ENC_FEATURE_DISABLE_GPB            = 0x0000000040000000,
+    ENC_FEATURE_10BIT_DEPTH            = 0x0000000080000000,
+    ENC_FEATURE_HEVC_SAO               = 0x0000000100000000,
+    ENC_FEATURE_HEVC_CTU               = 0x0000000200000000,
+    ENC_FEATURE_HEVC_TSKIP             = 0x0000000400000000,
+    ENC_FEATURE_HYPER_MODE             = 0x0000000800000000,
+    ENC_FEATURE_SCENARIO_INFO          = 0x0000001000000000,
+    ENC_FEATURE_TUNE_ENCODE_QUALITY    = 0x0000002000000000,
+};
+
+static QSVEncFeatureRCExt operator~(QSVEncFeatureRCExt a) {
+    return (QSVEncFeatureRCExt)(~(uint64_t)(a));
+}
+
+static QSVEncFeatureRCExt operator|(QSVEncFeatureRCExt a, QSVEncFeatureRCExt b) {
+    return (QSVEncFeatureRCExt)((uint64_t)a | (uint64_t)b);
+}
+
+static QSVEncFeatureRCExt operator|=(QSVEncFeatureRCExt& a, QSVEncFeatureRCExt b) {
+    a = a | b;
+    return a;
+}
+
+static QSVEncFeatureRCExt operator&(QSVEncFeatureRCExt a, QSVEncFeatureRCExt b) {
+    return (QSVEncFeatureRCExt)((uint64_t)a & (uint64_t)b);
+}
+
+static QSVEncFeatureRCExt operator&=(QSVEncFeatureRCExt& a, QSVEncFeatureRCExt b) {
+    a = (QSVEncFeatureRCExt)((uint64_t)a & (uint64_t)b);
+    return a;
+}
+
+static QSVEncFeatureParams operator~(QSVEncFeatureParams a) {
+    return (QSVEncFeatureParams)(~(uint64_t)(a));
+}
+
+static QSVEncFeatureParams operator|(QSVEncFeatureParams a, QSVEncFeatureParams b) {
+    return (QSVEncFeatureParams)((uint64_t)a | (uint64_t)b);
+}
+
+static QSVEncFeatureParams operator|=(QSVEncFeatureParams& a, QSVEncFeatureParams b) {
+    a = a | b;
+    return a;
+}
+
+static QSVEncFeatureParams operator&(QSVEncFeatureParams a, QSVEncFeatureParams b) {
+    return (QSVEncFeatureParams)((uint64_t)a & (uint64_t)b);
+}
+
+static QSVEncFeatureParams operator&=(QSVEncFeatureParams& a, QSVEncFeatureParams b) {
+    a = (QSVEncFeatureParams)((uint64_t)a & (uint64_t)b);
+    return a;
+}
+
+struct QSVEncFeatures {
+private:
+    QSVEncFeatureRCExt rc_ext;
+    QSVEncFeatureParams feature;
+public:
+    QSVEncFeatures() : rc_ext(ENC_FEATURE_RCEXT_NONE), feature(ENC_FEATURE_PARAMS_NONE) {};
+    QSVEncFeatures(QSVEncFeatureRCExt _rcext, QSVEncFeatureParams _feature) : rc_ext(_rcext), feature(_feature) {};
+    bool operator!() const { return (rc_ext & ENC_FEATURE_CURRENT_RC) == 0x00; }
+    QSVEncFeatures &operator|=(const QSVEncFeatures &x)      { rc_ext  |= x.rc_ext; feature |= x.feature; return *this; }
+    QSVEncFeatures &operator&=(const QSVEncFeatures &x)      { rc_ext  &= x.rc_ext; feature &= x.feature; return *this; }
+    QSVEncFeatures &operator|=(const QSVEncFeatureRCExt &x)  { rc_ext  |= x; return *this; }
+    QSVEncFeatures &operator&=(const QSVEncFeatureRCExt &x)  { rc_ext  &= x; return *this; }
+    QSVEncFeatures &operator|=(const QSVEncFeatureParams &x) { feature |= x; return *this; }
+    QSVEncFeatures &operator&=(const QSVEncFeatureParams &x) { feature &= x; return *this; }
+    QSVEncFeatureRCExt operator|(const QSVEncFeatureRCExt &x) const { return rc_ext | x; }
+    QSVEncFeatureRCExt operator&(const QSVEncFeatureRCExt &x) const { return rc_ext & x; }
+    QSVEncFeatureParams operator|(const QSVEncFeatureParams &x) const { return feature | x; }
+    QSVEncFeatureParams operator&(const QSVEncFeatureParams &x) const { return feature & x; }
+};
+
+MAP_PAIR_0_1_PROTO(qsv_feature_rc_ext, enm, QSVEncFeatureRCExt, str, tstring);
+MAP_PAIR_0_1_PROTO(qsv_feature_params, enm, QSVEncFeatureParams, str, tstring);
+tstring qsv_feature_enm_to_str(const QSVEncFeatureRCExt value);
+tstring qsv_feature_enm_to_str(const QSVEncFeatureParams value);
 
 enum : uint64_t {
     VPP_FEATURE_RESIZE                = 0x00000001,
@@ -323,8 +405,24 @@ static const CX_DESC list_rate_control_ry[] = {
     //{ _T("LAEXT"), MFX_RATECONTROL_LA_EXT },
     { _T("VCM  "), MFX_RATECONTROL_VCM    },
 };
-static const FEATURE_DESC list_enc_feature[] = {
+static const FEATURE_DESC list_enc_feature_rc_ext[] = {
     { _T("RC mode      "), ENC_FEATURE_CURRENT_RC             },
+    { _T("COP          "), ENC_FEATURE_EXT_COP                },
+    { _T("COP2         "), ENC_FEATURE_EXT_COP2               },
+    { _T("COP3         "), ENC_FEATURE_EXT_COP3               },
+    { _T("SPSPPS       "), ENC_FEATURE_EXT_SPSPPS             },
+    { _T("HEVC_PRM     "), ENC_FEATURE_EXT_HEVC_PRM           },
+    { _T("COP_VP8      "), ENC_FEATURE_EXT_COP_VP8            },
+    { _T("VP9_PRM      "), ENC_FEATURE_EXT_VP9_PRM            },
+    { _T("AV1BITSTREAM "), ENC_FEATURE_EXT_AV1_BITSTREAM_PRM  },
+    { _T("AV1RESOLUTION"), ENC_FEATURE_EXT_AV1_RESOLUTION_PRM },
+    { _T("AV1TILE      "), ENC_FEATURE_EXT_AV1_TILE_PRM       },
+    { _T("VIDEO_SIGNAL "), ENC_FEATURE_EXT_VIDEO_SIGNAL_INFO  },
+    { _T("TUNE_ENC_QUAL"), ENC_FEATURE_EXT_TUNE_ENC_QUALITY   },
+    { _T("HYPER_MODE   "), ENC_FEATURE_EXT_HYPER_MODE         },
+    { NULL, 0 },
+};
+static const FEATURE_DESC list_enc_feature_params[] = {
     { _T("10bit depth  "), ENC_FEATURE_10BIT_DEPTH            },
     { _T("Hyper Mode   "), ENC_FEATURE_HYPER_MODE             },
     { _T("Interlace    "), ENC_FEATURE_INTERLACE              },
@@ -343,7 +441,7 @@ static const FEATURE_DESC list_enc_feature[] = {
     { _T("B_Pyramid    "), ENC_FEATURE_B_PYRAMID              },
     { _T(" +ManyBframes"), ENC_FEATURE_B_PYRAMID_MANY_BFRAMES },
     { _T("PyramQPOffset"), ENC_FEATURE_PYRAMID_QP_OFFSET      },
-    //{ _T("TuneQuality  "), ENC_FEATURE_TUNE_ENCODE_QUALITY    },
+    { _T("TuneQuality  "), ENC_FEATURE_TUNE_ENCODE_QUALITY    },
     { _T("ScenarioInfo "), ENC_FEATURE_SCENARIO_INFO          },
     { _T("MBBRC        "), ENC_FEATURE_MBBRC                  },
     { _T("ExtBRC       "), ENC_FEATURE_EXT_BRC                },
@@ -387,11 +485,11 @@ struct QSVEncFeatureData {
     QSVDeviceNum dev;
     RGY_CODEC codec;
     bool lowPwer;
-    std::map<int, uint64_t> feature;
+    std::map<int, QSVEncFeatures> feature;
 
     bool available() const {
         for (const auto& [ratecontrol, value] : feature) {
-            if (value != 0) {
+            if (!!value) {
                 return true;
             }
         }
@@ -413,6 +511,7 @@ struct QSVVideoParam {
     mfxVideoParam videoPrm;
     std::vector<mfxExtBuffer *> buf;
 
+    mfxExtVideoSignalInfo videoSignalInfo;
     uint8_t spsbuf[256];
     uint8_t ppsbuf[256];
     mfxExtCodingOptionSPSPPS spspps;
@@ -435,12 +534,12 @@ struct QSVVideoParam {
     ~QSVVideoParam() {};
 };
 
-uint64_t CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, const RGY_CODEC codec, const bool lowPower);
-uint64_t CheckEncodeFeatureWithPluginLoad(MFXVideoSession& session, const int ratecontrol, const RGY_CODEC codec, const bool lowPower);
+QSVEncFeatures CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, const RGY_CODEC codec, const bool lowPower);
+QSVEncFeatures CheckEncodeFeatureWithPluginLoad(MFXVideoSession& session, const int ratecontrol, const RGY_CODEC codec, const bool lowPower);
 QSVEncFeatureData MakeFeatureList(const QSVDeviceNum deviceNum, const std::vector<CX_DESC>& rateControlList, const RGY_CODEC codecId, const bool lowPower, std::shared_ptr<RGYLog> log);
 std::vector<QSVEncFeatureData> MakeFeatureListPerCodec(const QSVDeviceNum deviceNum, const std::vector<CX_DESC>& rateControlList, const std::vector<RGY_CODEC>& codecIdList, std::shared_ptr<RGYLog> log);
 
-tstring MakeFeatureListStr(const uint64_t feature);
+tstring MakeFeatureListStr(const QSVEncFeatures feature);
 std::vector<std::pair<QSVEncFeatureData, tstring>> MakeFeatureListStr(const QSVDeviceNum deviceNum, const FeatureListStrType type, std::shared_ptr<RGYLog> log);
 std::vector<std::pair<QSVEncFeatureData, tstring>> MakeFeatureListStr(const QSVDeviceNum deviceNum, const FeatureListStrType type, const vector<RGY_CODEC>& codecLists, std::shared_ptr<RGYLog> log);
 

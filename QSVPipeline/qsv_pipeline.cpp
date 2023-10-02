@@ -432,9 +432,9 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
 
     //エンコードモードのチェック
     auto availableFeaures = m_device->getEncodeFeature(pInParams->nEncMode, codec_enc_to_rgy(pInParams->CodecId), pInParams->bUseFixedFunc);
-    if (availableFeaures == 0) {
+    if (!availableFeaures) {
         availableFeaures = m_device->getEncodeFeature(pInParams->nEncMode, codec_enc_to_rgy(pInParams->CodecId), !pInParams->bUseFixedFunc);
-        if (availableFeaures) {
+        if (!!availableFeaures) {
             PrintMes(RGY_LOG_WARN, _T("%s is not supported on this platform, switched to %s mode.\n"), PG_FF_STR[!!pInParams->bUseFixedFunc], PG_FF_STR[!pInParams->bUseFixedFunc]);
             pInParams->bUseFixedFunc = !pInParams->bUseFixedFunc;
         }
@@ -2999,12 +2999,12 @@ RGY_ERR CQSVPipeline::checkGPUListByEncoder(const sInputParams *prm, std::vector
     for (auto gpu = gpuList.begin(); gpu != gpuList.end(); ) {
         PrintMes(RGY_LOG_DEBUG, _T("Checking GPU #%d (%s) for codec %s.\n"),
             (*gpu)->deviceNum(), (*gpu)->name().c_str(), CodecToStr(enc_codec).c_str());
-        uint64_t deviceFeature = 0;
+        QSVEncFeatures deviceFeature;
         //コーデックのチェック
-        if (   (deviceFeature = (*gpu)->getEncodeFeature(rate_control, enc_codec, prm->bUseFixedFunc)) == 0
-            && (deviceFeature = (*gpu)->getEncodeFeature(rate_control, enc_codec, !prm->bUseFixedFunc)) == 0
-            && (deviceFeature = (*gpu)->getEncodeFeature(MFX_RATECONTROL_CQP, enc_codec, prm->bUseFixedFunc)) == 0
-            && (deviceFeature = (*gpu)->getEncodeFeature(MFX_RATECONTROL_CQP, enc_codec, !prm->bUseFixedFunc)) == 0) {
+        if (   !(deviceFeature = (*gpu)->getEncodeFeature(rate_control, enc_codec, prm->bUseFixedFunc))
+            && !(deviceFeature = (*gpu)->getEncodeFeature(rate_control, enc_codec, !prm->bUseFixedFunc))
+            && !(deviceFeature = (*gpu)->getEncodeFeature(MFX_RATECONTROL_CQP, enc_codec, prm->bUseFixedFunc))
+            && !(deviceFeature = (*gpu)->getEncodeFeature(MFX_RATECONTROL_CQP, enc_codec, !prm->bUseFixedFunc))) {
             message += strsprintf(_T("GPU #%d (%s) does not support %s encoding.\n"),
                 (*gpu)->deviceNum(), (*gpu)->name().c_str(), CodecToStr(enc_codec).c_str());
             gpu = gpuList.erase(gpu);

@@ -42,7 +42,7 @@ public:
     RGY_ERR init(const QSVDeviceNum dev, const bool enableOpenCL, MemType memType, const MFXVideoSession2Params& params, std::shared_ptr<RGYLog> m_log, const bool suppressErrorMessage);
 
     CodecCsp getDecodeCodecCsp(const bool skipHWDecodeCheck);
-    uint64_t getEncodeFeature(const int ratecontrol, const RGY_CODEC codec, const bool lowpower);
+    QSVEncFeatures getEncodeFeature(const int ratecontrol, const RGY_CODEC codec, const bool lowpower);
 
     void close();
 

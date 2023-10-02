@@ -153,7 +153,7 @@ CodecCsp QSVDevice::getDecodeCodecCsp(const bool skipHWDecodeCheck) {
     return MakeDecodeFeatureList(m_session, codecLists, m_log, skipHWDecodeCheck);
 }
 
-uint64_t QSVDevice::getEncodeFeature(const int ratecontrol, const RGY_CODEC codec, const bool lowpower) {
+QSVEncFeatures QSVDevice::getEncodeFeature(const int ratecontrol, const RGY_CODEC codec, const bool lowpower) {
     auto target = std::find_if(m_featureData.begin(), m_featureData.end(), [codec, lowpower](const QSVEncFeatureData& data) {
         return data.codec == codec && data.lowPwer == lowpower;
         });
