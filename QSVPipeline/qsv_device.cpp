@@ -160,17 +160,36 @@ QSVEncFeatures QSVDevice::getEncodeFeature(const int ratecontrol, const RGY_CODE
     if (target != m_featureData.end() && target->feature.count(ratecontrol) > 0) {
         return target->feature[ratecontrol];
     }
-    const auto result = CheckEncodeFeatureWithPluginLoad(m_session, ratecontrol, codec, lowpower);
-    if (target != m_featureData.end()) {
-        target->feature[ratecontrol] = result;
+    //チェックする際は専用のsessionを作成するようにしないと異常終了することがある
+    QSVEncFeatures result;
+    std::unique_ptr<CQSVHWDevice> hwdev;
+    MFXVideoSession2 session;
+    bool bexternalAlloc = true;
+    std::unique_ptr<QSVAllocator> allocator;
+    auto err = RGY_ERR_NONE;
+    if ((err = InitSessionAndDevice(hwdev, session, m_memType, m_devNum, m_sessionParams, m_log)) != RGY_ERR_NONE) {
+        PrintMes(RGY_LOG_ERROR, _T("getEncodeFeature: InitSessionAndDevice: failed to initialize: %s.\n"), get_err_mes(err));
+    } else if ((err = CreateAllocator(allocator, bexternalAlloc, m_memType, hwdev.get(), session, m_log)) != RGY_ERR_NONE) {
+        PrintMes(RGY_LOG_ERROR, _T("getEncodeFeature: CreateAllocator: failed to create allocator: %s.\n"), get_err_mes(err));
     } else {
-        QSVEncFeatureData data;
-        data.codec = codec;
-        data.lowPwer = lowpower;
-        data.dev = m_devNum;
-        data.feature[ratecontrol] = result;
-        m_featureData.push_back(data);
+        mfxVersion ver = MFX_LIB_VERSION_0_0;
+        session.QueryVersion(&ver);
+
+        result = CheckEncodeFeatureWithPluginLoad(session, ratecontrol, codec, lowpower);
+        if (target != m_featureData.end()) {
+            target->feature[ratecontrol] = result;
+        } else {
+            QSVEncFeatureData data;
+            data.codec = codec;
+            data.lowPwer = lowpower;
+            data.dev = m_devNum;
+            data.feature[ratecontrol] = result;
+            m_featureData.push_back(data);
+        }
     }
+    session.Close();
+    hwdev.reset();
+    allocator.reset();
     return result;
 }
 
