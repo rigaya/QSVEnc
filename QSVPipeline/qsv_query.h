@@ -354,7 +354,7 @@ private:
 public:
     QSVEncFeatures() : rc_ext(ENC_FEATURE_RCEXT_NONE), feature(ENC_FEATURE_PARAMS_NONE) {};
     QSVEncFeatures(QSVEncFeatureRCExt _rcext, QSVEncFeatureParams _feature) : rc_ext(_rcext), feature(_feature) {};
-    bool operator!() const { return (rc_ext & ENC_FEATURE_CURRENT_RC) == 0x00; }
+    bool operator!() const { return (feature & ENC_FEATURE_CURRENT_RC) == 0x00; }
     QSVEncFeatures &operator|=(const QSVEncFeatures &x)      { rc_ext  |= x.rc_ext; feature |= x.feature; return *this; }
     QSVEncFeatures &operator&=(const QSVEncFeatures &x)      { rc_ext  &= x.rc_ext; feature &= x.feature; return *this; }
     QSVEncFeatures &operator|=(const QSVEncFeatureRCExt &x)  { rc_ext  |= x; return *this; }
