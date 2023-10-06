@@ -568,7 +568,7 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const QSVDe
             _ftprintf(stdout, _T("Supported Encode Codecs for device %s:\n"), deviceName.c_str());
             auto log = std::make_shared<RGYLog>(nullptr, loglevel);
             const auto encodeFeature = MakeFeatureListPerCodec(
-                deviceNum, { { _T("CQP  "), MFX_RATECONTROL_CQP } }, ENC_CODEC_LISTS, log);
+                deviceNum, { MFX_RATECONTROL_CQP }, ENC_CODEC_LISTS, log);
             for (auto& enc : encodeFeature) {
                 if (enc.feature.count(MFX_RATECONTROL_CQP) > 0
                     && (enc.feature.at(MFX_RATECONTROL_CQP) & ENC_FEATURE_CURRENT_RC) != 0) {

@@ -1262,7 +1262,7 @@ const TCHAR *EncFeatureStr(const QSVEncFeatureParams enc_feature) {
     return NULL;
 }
 
-QSVEncFeatureData MakeFeatureList(const QSVDeviceNum deviceNum, const std::vector<CX_DESC>& rateControlList, const RGY_CODEC codec, const bool lowPower, std::shared_ptr<RGYLog> log) {
+QSVEncFeatureData MakeFeatureList(const QSVDeviceNum deviceNum, const std::vector<int>& rateControlList, const RGY_CODEC codec, const bool lowPower, std::shared_ptr<RGYLog> log) {
     QSVEncFeatureData availableFeatureForEachRC;
     availableFeatureForEachRC.codec = codec;
     availableFeatureForEachRC.dev = deviceNum;
@@ -1286,11 +1286,11 @@ QSVEncFeatureData MakeFeatureList(const QSVDeviceNum deviceNum, const std::vecto
             session.QueryVersion(&ver);
             log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("InitSession: initialized allocator.\n"));
             for (const auto& ratecontrol : rateControlList) {
-                const auto ret = CheckEncodeFeatureWithPluginLoad(session, (mfxU16)ratecontrol.value, codec, lowPower);
-                if (!ret && ratecontrol.value == MFX_RATECONTROL_CQP) {
+                const auto ret = CheckEncodeFeatureWithPluginLoad(session, (mfxU16)ratecontrol, codec, lowPower);
+                if (!ret && ratecontrol == MFX_RATECONTROL_CQP) {
                     ver = MFX_LIB_VERSION_0_0;
                 }
-                availableFeatureForEachRC.feature[ratecontrol.value] = ret;
+                availableFeatureForEachRC.feature[ratecontrol] = ret;
             }
         }
         session.Close();
@@ -1302,7 +1302,7 @@ QSVEncFeatureData MakeFeatureList(const QSVDeviceNum deviceNum, const std::vecto
     return availableFeatureForEachRC;
 }
 
-std::vector<QSVEncFeatureData> MakeFeatureListPerCodec(const QSVDeviceNum deviceNum, const vector<CX_DESC>& rateControlList, const vector<RGY_CODEC>& codecIdList, std::shared_ptr<RGYLog> log) {
+std::vector<QSVEncFeatureData> MakeFeatureListPerCodec(const QSVDeviceNum deviceNum, const vector<int>& rateControlList, const vector<RGY_CODEC>& codecIdList, std::shared_ptr<RGYLog> log) {
     std::vector<QSVEncFeatureData> codecFeatures;
     vector<std::future<QSVEncFeatureData>> futures;
 #if defined(_DEBUG)
@@ -1314,9 +1314,9 @@ std::vector<QSVEncFeatureData> MakeFeatureListPerCodec(const QSVDeviceNum device
         if (RESET_QUERY_SESSION_PER_RC) {
             for (auto codec : codecIdList) {
                 for (const auto& ratecontrol : rateControlList) {
-                    auto f0 = std::async(MakeFeatureList, deviceNum, std::vector<CX_DESC>{ ratecontrol }, codec, false, log);
+                    auto f0 = std::async(MakeFeatureList, deviceNum, std::vector<int>{ ratecontrol }, codec, false, log);
                     futures.push_back(std::move(f0));
-                    auto f1 = std::async(MakeFeatureList, deviceNum, std::vector<CX_DESC>{ ratecontrol }, codec, true, log);
+                    auto f1 = std::async(MakeFeatureList, deviceNum, std::vector<int>{ ratecontrol }, codec, true, log);
                     futures.push_back(std::move(f1));
                 }
             }
@@ -1335,8 +1335,8 @@ std::vector<QSVEncFeatureData> MakeFeatureListPerCodec(const QSVDeviceNum device
         if (RESET_QUERY_SESSION_PER_RC) {
             for (auto codec : codecIdList) {
                 for (const auto& ratecontrol : rateControlList) {
-                    codecFeatures.push_back(MakeFeatureList(deviceNum, std::vector<CX_DESC>{ ratecontrol }, codec, false, log));
-                    codecFeatures.push_back(MakeFeatureList(deviceNum, std::vector<CX_DESC>{ ratecontrol }, codec, true, log));
+                    codecFeatures.push_back(MakeFeatureList(deviceNum, std::vector<int>{ ratecontrol }, codec, false, log));
+                    codecFeatures.push_back(MakeFeatureList(deviceNum, std::vector<int>{ ratecontrol }, codec, true, log));
                 }
             }
         } else {
@@ -1476,7 +1476,11 @@ tstring MakeFeatureListStr(const QSVEncFeatures features) {
 }
 
 std::vector<std::pair<QSVEncFeatureData, tstring>> MakeFeatureListStr(const QSVDeviceNum deviceNum, const FeatureListStrType type, const vector<RGY_CODEC>& codecLists, std::shared_ptr<RGYLog> log) {
-    const auto featurePerCodec = MakeFeatureListPerCodec(deviceNum, make_vector(list_rate_control_ry), codecLists, log);
+    std::vector<int> rateControlList(_countof(list_rate_control_ry));
+    for (size_t i = 0; i < _countof(list_rate_control_ry); i++) {
+        rateControlList[i] = list_rate_control_ry[i].value;
+    }
+    const auto featurePerCodec = MakeFeatureListPerCodec(deviceNum, rateControlList, codecLists, log);
 
     std::vector<std::pair<QSVEncFeatureData, tstring>> strPerCodec;
 
