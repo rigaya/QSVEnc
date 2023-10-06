@@ -406,7 +406,6 @@ static const CX_DESC list_rate_control_ry[] = {
     { _T("VCM  "), MFX_RATECONTROL_VCM    },
 };
 static const FEATURE_DESC list_enc_feature_rc_ext[] = {
-    { _T("RC mode      "), ENC_FEATURE_CURRENT_RC             },
     { _T("COP          "), ENC_FEATURE_EXT_COP                },
     { _T("COP2         "), ENC_FEATURE_EXT_COP2               },
     { _T("COP3         "), ENC_FEATURE_EXT_COP3               },
@@ -423,6 +422,7 @@ static const FEATURE_DESC list_enc_feature_rc_ext[] = {
     { NULL, 0 },
 };
 static const FEATURE_DESC list_enc_feature_params[] = {
+    { _T("RC mode      "), ENC_FEATURE_CURRENT_RC             },
     { _T("10bit depth  "), ENC_FEATURE_10BIT_DEPTH            },
     { _T("Hyper Mode   "), ENC_FEATURE_HYPER_MODE             },
     { _T("Interlace    "), ENC_FEATURE_INTERLACE              },

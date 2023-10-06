@@ -1563,11 +1563,11 @@ std::vector<std::pair<QSVEncFeatureData, tstring>> MakeFeatureListStr(const QSVD
             }
             str += _T("\n");
         };
-        for (const FEATURE_DESC *ptr = list_enc_feature_rc_ext; ptr->desc; ptr++) {
-            create_table_line(ptr->desc, (QSVEncFeatureRCExt)ptr->value);
-        }
         for (const FEATURE_DESC *ptr = list_enc_feature_params; ptr->desc; ptr++) {
             create_table_line(ptr->desc, (QSVEncFeatureParams)ptr->value);
+        }
+        for (const FEATURE_DESC *ptr = list_enc_feature_rc_ext; ptr->desc; ptr++) {
+            create_table_line(ptr->desc, (QSVEncFeatureRCExt)ptr->value);
         }
         if (type == FEATURE_LIST_STR_TYPE_HTML) {
             str += _T("</table><br>");
