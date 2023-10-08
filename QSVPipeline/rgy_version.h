@@ -60,7 +60,7 @@ const char *get_encoder_version();
 #define AV1_TIMESTAMP_OVERRIDE 1
 #define OVERRIDE_HYPER_MODE_HEVC_FROM_H264 1
 #define LIMIT_HYPER_MODE_TO_KNOWN_CODECS 1
-#define ENABLE_QSV_TUNE_QUERY 0
+#define ENABLE_QSV_TUNE_QUERY 1
 
 #if defined(_WIN32) || defined(_WIN64)
 
