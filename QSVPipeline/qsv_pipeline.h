@@ -163,6 +163,7 @@ protected:
     std::unique_ptr<QSVMfxDec> m_mfxDEC;
     std::unique_ptr<MFXVideoENCODE> m_pmfxENC;
     std::vector<std::unique_ptr<QSVVppMfx>> m_mfxVPP;
+    QSVEncFeatures m_encFeatures;
 
     sTrimParam m_trimParam;
 

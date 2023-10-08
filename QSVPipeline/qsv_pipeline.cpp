@@ -964,7 +964,8 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
 
 
     //API v1.6の機能
-    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6)) {
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6)
+        && (availableFeaures & ENC_FEATURE_EXT_COP2)) {
         INIT_MFX_EXT_BUFFER(m_CodingOption2, MFX_EXTBUFF_CODING_OPTION2);
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
             m_CodingOption2.AdaptiveI   = get_codingopt(pInParams->bAdaptiveI);
@@ -1034,7 +1035,8 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
     }
 
     //API v1.11の機能
-    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_11)) {
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_11)
+        && (availableFeaures & ENC_FEATURE_EXT_COP3)) {
         INIT_MFX_EXT_BUFFER(m_CodingOption3, MFX_EXTBUFF_CODING_OPTION3);
         if (MFX_RATECONTROL_QVBR == m_mfxEncParams.mfx.RateControlMethod) {
             m_CodingOption3.QVBRQuality = (mfxU16)clamp_param_int(pInParams->nQVBRQuality, 1, codecMaxQP, _T("qvbr-q"));
@@ -1106,7 +1108,8 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
 
 
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_9)
-        && pInParams->tuneQuality != MFX_ENCODE_TUNE_DEFAULT) {
+        && pInParams->tuneQuality != MFX_ENCODE_TUNE_DEFAULT
+        && (availableFeaures & ENC_FEATURE_EXT_TUNE_ENC_QUALITY)) {
         INIT_MFX_EXT_BUFFER(m_tuneEncQualityPrm, MFX_EXTBUFF_TUNE_ENCODE_QUALITY);
         m_tuneEncQualityPrm.TuneQuality = (decltype(m_tuneEncQualityPrm.TuneQuality))(pInParams->tuneQuality);
         m_EncExtParams.push_back((mfxExtBuffer *)&m_tuneEncQualityPrm);
@@ -1164,7 +1167,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         //m_CodingOption.EndOfStream   = MFX_CODINGOPTION_ON; //hwモードでは効果なし 0x00, 0x00, 0x01, 0x0b
         PrintMes(RGY_LOG_DEBUG, _T("InitMfxEncParams: Adjusted param for Bluray encoding.\n"));
     }
-    if (add_cop(m_mfxEncParams.mfx.CodecId)) { // VP9ではmfxExtCodingOptionはチェックしないようにしないと正常に動作しない
+    if (availableFeaures & ENC_FEATURE_EXT_COP) { // VP9ではmfxExtCodingOptionはチェックしないようにしないと正常に動作しない
         m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption);
     }
 
@@ -1172,7 +1175,8 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
     //m_mfxEncParams.mfx.TimeStampCalc = (mfxU16)((pInParams->vpp.nDeinterlace == MFX_DEINTERLACE_IT) ? MFX_TIMESTAMPCALC_TELECINE : MFX_TIMESTAMPCALC_UNKNOWN);
     //m_mfxEncParams.mfx.ExtendedPicStruct = pInParams->nPicStruct;
 
-    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_3) &&
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_3)
+        && (availableFeaures & ENC_FEATURE_EXT_VIDEO_SIGNAL_INFO) &&
         (m_encVUI.format    != get_cx_value(list_videoformat, _T("undef")) ||
          m_encVUI.colorprim != get_cx_value(list_colorprim, _T("undef")) ||
          m_encVUI.transfer  != get_cx_value(list_transfer, _T("undef")) ||
@@ -1197,7 +1201,8 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
             m_EncExtParams.push_back((mfxExtBuffer *)&m_VideoSignalInfo);
     }
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_13)
-        && m_encVUI.chromaloc != RGY_CHROMALOC_UNSPECIFIED) {
+        && m_encVUI.chromaloc != RGY_CHROMALOC_UNSPECIFIED
+        && (availableFeaures & ENC_FEATURE_EXT_CHROMALOC)) {
         INIT_MFX_EXT_BUFFER(m_chromalocInfo, MFX_EXTBUFF_CHROMA_LOC_INFO);
         m_chromalocInfo.ChromaLocInfoPresentFlag = 1;
         m_chromalocInfo.ChromaSampleLocTypeTopField = (mfxU16)(m_encVUI.chromaloc-1);
@@ -1235,7 +1240,8 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
 
     // In case of HEVC when height and/or width divided with 8 but not divided with 16
     // add extended parameter to increase performance
-    if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC) {
+    if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_HEVC
+        && (availableFeaures & ENC_FEATURE_EXT_HEVC_PRM)) {
         INIT_MFX_EXT_BUFFER(m_ExtHEVCParam, MFX_EXTBUFF_HEVC_PARAM);
         m_ExtHEVCParam.PicWidthInLumaSamples = m_mfxEncParams.mfx.FrameInfo.CropW;
         m_ExtHEVCParam.PicHeightInLumaSamples = m_mfxEncParams.mfx.FrameInfo.CropH;
@@ -1246,14 +1252,16 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         m_EncExtParams.push_back((mfxExtBuffer*)&m_ExtHEVCParam);
     }
 
-    if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_VP8) {
+    if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_VP8
+        && (availableFeaures & ENC_FEATURE_EXT_COP_VP8)) {
         INIT_MFX_EXT_BUFFER(m_ExtVP8CodingOption, MFX_EXTBUFF_VP8_CODING_OPTION);
         m_ExtVP8CodingOption.SharpnessLevel = (mfxU16)clamp_param_int(pInParams->nVP8Sharpness, 0, 8, _T("sharpness"));
         m_EncExtParams.push_back((mfxExtBuffer*)&m_ExtVP8CodingOption);
     }
 
     if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_VP9
-        && check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_26)) {
+        && check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_26)
+        && (availableFeaures & ENC_FEATURE_EXT_VP9_PRM)) {
         INIT_MFX_EXT_BUFFER(m_ExtVP9Param, MFX_EXTBUFF_VP9_PARAM);
         //m_ExtVP9Param.FrameWidth = m_mfxEncParams.mfx.FrameInfo.Width;
         //m_ExtVP9Param.FrameHeight = m_mfxEncParams.mfx.FrameInfo.Height;
@@ -1265,26 +1273,33 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
 
     if (m_mfxEncParams.mfx.CodecId == MFX_CODEC_AV1
         && check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_5)) {
-        INIT_MFX_EXT_BUFFER(m_ExtAV1BitstreamParam, MFX_EXTBUFF_AV1_BITSTREAM_PARAM);
-        //m_ExtVP9Param.FrameWidth = m_mfxEncParams.mfx.FrameInfo.Width;
-        //m_ExtVP9Param.FrameHeight = m_mfxEncParams.mfx.FrameInfo.Height;
-        m_ExtAV1BitstreamParam.WriteIVFHeaders = MFX_CODINGOPTION_OFF;
-        //m_ExtVP9Param.NumTileColumns = 2;
-        //m_ExtVP9Param.NumTileRows = 2;
-        m_EncExtParams.push_back((mfxExtBuffer*)&m_ExtAV1BitstreamParam);
+        if (availableFeaures & ENC_FEATURE_EXT_AV1_BITSTREAM_PRM) {
+            INIT_MFX_EXT_BUFFER(m_ExtAV1BitstreamParam, MFX_EXTBUFF_AV1_BITSTREAM_PARAM);
+            //m_ExtVP9Param.FrameWidth = m_mfxEncParams.mfx.FrameInfo.Width;
+            //m_ExtVP9Param.FrameHeight = m_mfxEncParams.mfx.FrameInfo.Height;
+            m_ExtAV1BitstreamParam.WriteIVFHeaders = MFX_CODINGOPTION_OFF;
+            //m_ExtVP9Param.NumTileColumns = 2;
+            //m_ExtVP9Param.NumTileRows = 2;
+            m_EncExtParams.push_back((mfxExtBuffer*)&m_ExtAV1BitstreamParam);
+        }
 
-        INIT_MFX_EXT_BUFFER(m_ExtAV1ResolutionParam, MFX_EXTBUFF_AV1_RESOLUTION_PARAM);
-        INIT_MFX_EXT_BUFFER(m_ExtAV1TileParam, MFX_EXTBUFF_AV1_TILE_PARAM);
-        //m_EncExtParams.push_back((mfxExtBuffer*)&m_ExtAV1ResolutionParam);
+        if (availableFeaures & ENC_FEATURE_EXT_AV1_RESOLUTION_PRM) {
+            INIT_MFX_EXT_BUFFER(m_ExtAV1ResolutionParam, MFX_EXTBUFF_AV1_RESOLUTION_PARAM);
+            INIT_MFX_EXT_BUFFER(m_ExtAV1TileParam, MFX_EXTBUFF_AV1_TILE_PARAM);
+            //m_EncExtParams.push_back((mfxExtBuffer*)&m_ExtAV1ResolutionParam);
+        }
 
-        if (pInParams->av1.tile_row != 0 || pInParams->av1.tile_col != 0) {
-            m_ExtAV1TileParam.NumTileRows    = (mfxU16)std::max(pInParams->av1.tile_row, 1);
-            m_ExtAV1TileParam.NumTileColumns = (mfxU16)std::max(pInParams->av1.tile_col, 1);
+        if (availableFeaures & ENC_FEATURE_EXT_AV1_TILE_PRM) {
+            if (pInParams->av1.tile_row != 0 || pInParams->av1.tile_col != 0) {
+                m_ExtAV1TileParam.NumTileRows = (mfxU16)std::max(pInParams->av1.tile_row, 1);
+                m_ExtAV1TileParam.NumTileColumns = (mfxU16)std::max(pInParams->av1.tile_col, 1);
 
-            m_EncExtParams.push_back((mfxExtBuffer*)&m_ExtAV1TileParam);
+                m_EncExtParams.push_back((mfxExtBuffer*)&m_ExtAV1TileParam);
+            }
         }
     }
-    if (pInParams->hyperMode != MFX_HYPERMODE_OFF) {
+    if (pInParams->hyperMode != MFX_HYPERMODE_OFF
+        && (availableFeaures & ENC_FEATURE_EXT_HYPER_MODE)) {
         INIT_MFX_EXT_BUFFER(m_hyperModeParam, MFX_EXTBUFF_HYPER_MODE_PARAM);
         m_hyperModeParam.Mode = pInParams->hyperMode;
         m_EncExtParams.push_back((mfxExtBuffer*)&m_hyperModeParam);
@@ -1310,6 +1325,8 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
     if (!m_pmfxENC) {
         return RGY_ERR_MEMORY_ALLOC;
     }
+    //のちの使用のために保存
+    m_encFeatures = availableFeaures;
     return RGY_ERR_NONE;
 }
 
@@ -1563,6 +1580,7 @@ CQSVPipeline::CQSVPipeline() :
     m_mfxDEC(),
     m_pmfxENC(),
     m_mfxVPP(),
+    m_encFeatures(),
     m_trimParam(),
     m_mfxEncParams(),
     m_prmSetIn(),
@@ -4077,7 +4095,8 @@ const TCHAR *CQSVPipeline::GetInputMessage() {
 }
 
 std::pair<RGY_ERR, std::unique_ptr<QSVVideoParam>> CQSVPipeline::GetOutputVideoInfo() {
-    auto prmset = std::make_unique<QSVVideoParam>(m_mfxEncParams.mfx.CodecId, m_mfxVer);
+    auto prmset = std::make_unique<QSVVideoParam>(m_mfxVer);
+    prmset->setExtParams(m_mfxEncParams.mfx.CodecId, m_encFeatures);
     if (m_pmfxENC) {
         auto sts = err_to_rgy(m_pmfxENC->GetVideoParam(&prmset->videoPrm));
         if (sts == RGY_ERR_NOT_INITIALIZED) { // 未初期化の場合、設定しようとしたパラメータで代用する

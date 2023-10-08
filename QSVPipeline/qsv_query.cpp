@@ -318,10 +318,11 @@ mfxVersion get_mfx_libsw_version() {
     return LIB_VER_LIST[0];
 }
 
-QSVVideoParam::QSVVideoParam(uint32_t CodecId, mfxVersion mfxver_) :
-    mfxVer(mfxver_), isVppParam(false), videoPrmVpp(), videoPrm(), buf(), videoSignalInfo(), spsbuf(), ppsbuf(), spspps(),
+QSVVideoParam::QSVVideoParam(const mfxVersion mfxver_) :
+    mfxVer(mfxver_), isVppParam(false), videoPrmVpp(), videoPrm(), buf(), videoSignalInfo(), chromaLocInfo(), spsbuf(), ppsbuf(), spspps(),
     cop(), cop2(), cop3(), copVp8(), vp9Prm(), hevcPrm(), av1BitstreamPrm(), av1ResolutionPrm(), av1TilePrm(), hyperModePrm(), tuneEncQualityPrm() {
     INIT_MFX_EXT_BUFFER(videoSignalInfo, MFX_EXTBUFF_VIDEO_SIGNAL_INFO);
+    INIT_MFX_EXT_BUFFER(chromaLocInfo, MFX_EXTBUFF_CHROMA_LOC_INFO);
     memset(spsbuf, 0, sizeof(spsbuf));
     memset(ppsbuf, 0, sizeof(ppsbuf));
     INIT_MFX_EXT_BUFFER(spspps, MFX_EXTBUFF_CODING_OPTION_SPSPPS);
@@ -341,40 +342,56 @@ QSVVideoParam::QSVVideoParam(uint32_t CodecId, mfxVersion mfxver_) :
     INIT_MFX_EXT_BUFFER(av1TilePrm, MFX_EXTBUFF_AV1_TILE_PARAM);
     INIT_MFX_EXT_BUFFER(hyperModePrm, MFX_EXTBUFF_HYPER_MODE_PARAM);
     INIT_MFX_EXT_BUFFER(tuneEncQualityPrm, MFX_EXTBUFF_TUNE_ENCODE_QUALITY);
+}
 
-    if (add_cop(CodecId)) {
+void QSVVideoParam::setExtParams(const uint32_t CodecId, const QSVEncFeatures& features) {
+    if (features & ENC_FEATURE_EXT_VIDEO_SIGNAL_INFO) {
+        buf.push_back((mfxExtBuffer *)&videoSignalInfo);
+    }
+    if (features & ENC_FEATURE_EXT_CHROMALOC) {
+        buf.push_back((mfxExtBuffer *)&chromaLocInfo);
+    }
+    if (features & ENC_FEATURE_EXT_COP) {
         buf.push_back((mfxExtBuffer *)&cop);
     }
     if (CodecId == MFX_CODEC_AVC || CodecId == MFX_CODEC_HEVC) {
         buf.push_back((mfxExtBuffer *)&spspps);
     }
-    if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_6)) {
+    if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_6) && (features & ENC_FEATURE_EXT_COP2)) {
         buf.push_back((mfxExtBuffer *)&cop2);
     }
-    if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_11)) {
+    if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_11) && (features & ENC_FEATURE_EXT_COP3)) {
         buf.push_back((mfxExtBuffer *)&cop3);
     }
-    if (CodecId == MFX_CODEC_VP8) {
+    if ((CodecId == MFX_CODEC_VP8) && (features & ENC_FEATURE_EXT_COP_VP8)) {
         buf.push_back((mfxExtBuffer *)&copVp8);
     }
-    if (CodecId == MFX_CODEC_VP9 && check_lib_version(mfxVer, MFX_LIB_VERSION_1_26)) {
+    if (CodecId == MFX_CODEC_VP9 && check_lib_version(mfxVer, MFX_LIB_VERSION_1_26) && (features & ENC_FEATURE_EXT_VP9_PRM)) {
         buf.push_back((mfxExtBuffer *)&vp9Prm);
     }
-    if (CodecId == MFX_CODEC_HEVC && check_lib_version(mfxVer, MFX_LIB_VERSION_1_26)) {
+    if (CodecId == MFX_CODEC_HEVC && check_lib_version(mfxVer, MFX_LIB_VERSION_1_26) && (features & ENC_FEATURE_EXT_HEVC_PRM)) {
         buf.push_back((mfxExtBuffer *)&hevcPrm);
     }
     if (CodecId == MFX_CODEC_AV1 && check_lib_version(mfxVer, MFX_LIB_VERSION_2_5)) {
-        buf.push_back((mfxExtBuffer *)&av1BitstreamPrm);
-        //buf.push_back((mfxExtBuffer *)&av1ResolutionPrm);
-        //buf.push_back((mfxExtBuffer *)&av1TilePrm);
+        if (features & ENC_FEATURE_EXT_AV1_BITSTREAM_PRM) {
+            buf.push_back((mfxExtBuffer *)&av1BitstreamPrm);
+        }
+        //if (features & ENC_FEATURE_EXT_AV1_RESOLUTION_PRM) {
+            //buf.push_back((mfxExtBuffer *)&av1ResolutionPrm);
+        //}
+        //if (features & ENC_FEATURE_EXT_AV1_TILE_PRM) {
+            //buf.push_back((mfxExtBuffer *)&av1TilePrm);
+        //}
     }
     if (ENABLE_HYPER_MODE
         && (CodecId == MFX_CODEC_AVC || CodecId == MFX_CODEC_HEVC || CodecId == MFX_CODEC_AV1)
-        && check_lib_version(mfxVer, MFX_LIB_VERSION_2_5)) {
+        && check_lib_version(mfxVer, MFX_LIB_VERSION_2_5)
+        && (features & ENC_FEATURE_EXT_HYPER_MODE)) {
         buf.push_back((mfxExtBuffer *)&hyperModePrm);
     }
     if (ENABLE_QSV_TUNE_QUERY
-        && check_lib_version(mfxVer, MFX_LIB_VERSION_2_9)) {
+        && check_lib_version(mfxVer, MFX_LIB_VERSION_2_9)
+        && (features & ENC_FEATURE_EXT_TUNE_ENC_QUALITY)) {
         buf.push_back((mfxExtBuffer *)&tuneEncQualityPrm);
     }
 
@@ -812,7 +829,7 @@ QSVEncFeatures CheckEncodeFeature(MFXVideoSession& session, const int ratecontro
     const bool checkHyperMode = !LIMIT_HYPER_MODE_TO_KNOWN_CODECS
         || std::find(HYPER_MODE_ENABLED_CODECS.begin(), HYPER_MODE_ENABLED_CODECS.end(), codec) != HYPER_MODE_ENABLED_CODECS.end();
 
-    QSVVideoParam qsvprm(codecId, mfxVer);
+    QSVVideoParam qsvprm(mfxVer);
 
     std::vector<mfxExtBuffer *> buf;
     mfxVideoParam videoPrm;
@@ -966,6 +983,8 @@ QSVEncFeatures CheckEncodeFeature(MFXVideoSession& session, const int ratecontro
                 }
             }
         };
+        check_ext_buff(ENC_FEATURE_EXT_VIDEO_SIGNAL_INFO,  &qsvprm.videoSignalInfo,    MFX_LIB_VERSION_1_3);
+        check_ext_buff(ENC_FEATURE_EXT_CHROMALOC,          &qsvprm.chromaLocInfo,      MFX_LIB_VERSION_1_13);
         check_ext_buff(ENC_FEATURE_EXT_COP,                &qsvprm.cop,                MFX_LIB_VERSION_1_0);
         check_ext_buff(ENC_FEATURE_EXT_COP2,               &qsvprm.cop2,               MFX_LIB_VERSION_1_6);
         check_ext_buff(ENC_FEATURE_EXT_COP3,               &qsvprm.cop3,               MFX_LIB_VERSION_1_11);

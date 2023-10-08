@@ -256,8 +256,9 @@ enum QSVEncFeatureRCExt : uint64_t {
     ENC_FEATURE_EXT_AV1_RESOLUTION_PRM = 0x0000000000010000,
     ENC_FEATURE_EXT_AV1_TILE_PRM       = 0x0000000000020000,
     ENC_FEATURE_EXT_VIDEO_SIGNAL_INFO  = 0x0000000000040000,
-    ENC_FEATURE_EXT_TUNE_ENC_QUALITY   = 0x0000000000080000,
-    ENC_FEATURE_EXT_HYPER_MODE         = 0x0000000000100000,
+    ENC_FEATURE_EXT_CHROMALOC          = 0x0000000000080000,
+    ENC_FEATURE_EXT_TUNE_ENC_QUALITY   = 0x0000000000100000,
+    ENC_FEATURE_EXT_HYPER_MODE         = 0x0000000000200000,
 };
 
 enum QSVEncFeatureParams : uint64_t {
@@ -417,6 +418,7 @@ static const FEATURE_DESC list_enc_feature_rc_ext[] = {
     { _T("AV1RESOLUTION"), ENC_FEATURE_EXT_AV1_RESOLUTION_PRM },
     { _T("AV1TILE      "), ENC_FEATURE_EXT_AV1_TILE_PRM       },
     { _T("VIDEO_SIGNAL "), ENC_FEATURE_EXT_VIDEO_SIGNAL_INFO  },
+    { _T("CHROMALOC    "), ENC_FEATURE_EXT_CHROMALOC          },
     { _T("TUNE_ENC_QUAL"), ENC_FEATURE_EXT_TUNE_ENC_QUALITY   },
     { _T("HYPER_MODE   "), ENC_FEATURE_EXT_HYPER_MODE         },
     { NULL, 0 },
@@ -512,6 +514,7 @@ struct QSVVideoParam {
     std::vector<mfxExtBuffer *> buf;
 
     mfxExtVideoSignalInfo videoSignalInfo;
+    mfxExtChromaLocInfo chromaLocInfo;
     uint8_t spsbuf[256];
     uint8_t ppsbuf[256];
     mfxExtCodingOptionSPSPPS spspps;
@@ -527,10 +530,11 @@ struct QSVVideoParam {
     mfxExtHyperModeParam hyperModePrm;
     mfxExtTuneEncodeQuality tuneEncQualityPrm;
 
-    QSVVideoParam(uint32_t CodecId, mfxVersion mfxver_);
+    QSVVideoParam(mfxVersion mfxver_);
     QSVVideoParam() = delete;
     QSVVideoParam(const QSVVideoParam&) = delete;             // 禁止
     QSVVideoParam &operator=(const QSVVideoParam &) = delete; // 禁止
+    void setExtParams(const uint32_t CodecId, const QSVEncFeatures& features);
     ~QSVVideoParam() {};
 };
 
