@@ -276,7 +276,7 @@ struct sInputParams {
     QSVDeviceNum device;
     int nEncMode;      // RateControl
     int nTargetUsage;  // Quality
-    uint32_t CodecId;       // H.264 only for this
+    RGY_CODEC codec;
     int CodecProfile;
     int CodecLevel;
     int outputDepth;
@@ -407,7 +407,7 @@ const CX_DESC list_qsv_device[] = {
     { NULL, 0 }
 };
 
-const CX_DESC list_codec[] = {
+const CX_DESC list_codec_mfx[] = {
     { _T("h264"),     MFX_CODEC_AVC   },
     { _T("hevc"),     MFX_CODEC_HEVC  },
     { _T("mpeg2"),    MFX_CODEC_MPEG2 },
@@ -416,6 +416,18 @@ const CX_DESC list_codec[] = {
     { _T("vp9"),      MFX_CODEC_VP9   },
     { _T("av1"),      MFX_CODEC_AV1   },
     { _T("raw"),      MFX_CODEC_RAW   },
+    { NULL, 0 }
+};
+
+const CX_DESC list_codec_rgy[] = {
+    { _T("h264"),     RGY_CODEC_H264   },
+    { _T("hevc"),     RGY_CODEC_HEVC  },
+    { _T("mpeg2"),    RGY_CODEC_MPEG2 },
+    { _T("vc-1"),     RGY_CODEC_VC1   },
+    { _T("vp8"),      RGY_CODEC_VP8   },
+    { _T("vp9"),      RGY_CODEC_VP9   },
+    { _T("av1"),      RGY_CODEC_AV1   },
+    { _T("raw"),      RGY_CODEC_RAW   },
     { NULL, 0 }
 };
 
@@ -721,32 +733,30 @@ enum {
     QSV_AUD_ENC_AC3,
 };
 
-static inline const CX_DESC *get_level_list(int CodecID) {
-    switch (CodecID) {
-        case MFX_CODEC_AVC:     return list_avc_level;
-        case MFX_CODEC_MPEG2:   return list_mpeg2_level;
-        case MFX_CODEC_VC1:     return list_vc1_level;
-        case MFX_CODEC_HEVC:    return list_hevc_level;
-        case MFX_CODEC_VP8:     return list_vp8_level;
-        case MFX_CODEC_VP9:     return list_vp9_level;
-        case MFX_CODEC_AV1:     return list_av1_level;
-        case MFX_CODEC_RAW:     return list_empty;
-        case MFX_CODEC_CAPTURE: return list_empty;
+static inline const CX_DESC *get_level_list(const RGY_CODEC codec) {
+    switch (codec) {
+        case RGY_CODEC_H264:    return list_avc_level;
+        case RGY_CODEC_MPEG2:   return list_mpeg2_level;
+        case RGY_CODEC_VC1:     return list_vc1_level;
+        case RGY_CODEC_HEVC:    return list_hevc_level;
+        case RGY_CODEC_VP8:     return list_vp8_level;
+        case RGY_CODEC_VP9:     return list_vp9_level;
+        case RGY_CODEC_AV1:     return list_av1_level;
+        case RGY_CODEC_RAW:     return list_empty;
         default:                return list_empty;
     }
 }
 
-static inline const CX_DESC *get_profile_list(int CodecID) {
-    switch (CodecID) {
-        case MFX_CODEC_AVC:     return list_avc_profile;
-        case MFX_CODEC_MPEG2:   return list_mpeg2_profile;
-        case MFX_CODEC_VC1:     return list_vc1_profile;
-        case MFX_CODEC_HEVC:    return list_hevc_profile;
-        case MFX_CODEC_VP8:     return list_vp8_profile;
-        case MFX_CODEC_VP9:     return list_vp9_profile;
-        case MFX_CODEC_AV1:     return list_av1_profile;
-        case MFX_CODEC_RAW:     return list_empty;
-        case MFX_CODEC_CAPTURE: return list_empty;
+static inline const CX_DESC *get_profile_list(const RGY_CODEC codec) {
+    switch (codec) {
+        case RGY_CODEC_H264:    return list_avc_profile;
+        case RGY_CODEC_MPEG2:   return list_mpeg2_profile;
+        case RGY_CODEC_VC1:     return list_vc1_profile;
+        case RGY_CODEC_HEVC:    return list_hevc_profile;
+        case RGY_CODEC_VP8:     return list_vp8_profile;
+        case RGY_CODEC_VP9:     return list_vp9_profile;
+        case RGY_CODEC_AV1:     return list_av1_profile;
+        case RGY_CODEC_RAW:     return list_empty;
         default:                return list_empty;
     }
 }

@@ -190,7 +190,7 @@ RGY_ERR QSVMfxDec::SetParam(
         _T("InitMfxDecParams: QSVDec prm: %s, Level %d, Profile %d\n")
         _T("InitMfxDecParams: Frame: %s, %dx%d%s [%d,%d,%d,%d] %d:%d\n")
         _T("InitMfxDecParams: color format %s, chroma %s, bitdepth %d, shift %d, picstruct %s\n"),
-        CodecIdToStr(m_mfxDecParams.mfx.CodecId), m_mfxDecParams.mfx.CodecLevel, m_mfxDecParams.mfx.CodecProfile,
+        CodecToStr(codec_enc_to_rgy(m_mfxDecParams.mfx.CodecId)).c_str(), m_mfxDecParams.mfx.CodecLevel, m_mfxDecParams.mfx.CodecProfile,
         ColorFormatToStr(m_mfxDecParams.mfx.FrameInfo.FourCC), m_mfxDecParams.mfx.FrameInfo.Width, m_mfxDecParams.mfx.FrameInfo.Height,
         (m_mfxDecParams.mfx.FrameInfo.PicStruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF)) ? _T("i") : _T("p"),
         m_mfxDecParams.mfx.FrameInfo.CropX, m_mfxDecParams.mfx.FrameInfo.CropY, m_mfxDecParams.mfx.FrameInfo.CropW, m_mfxDecParams.mfx.FrameInfo.CropH,

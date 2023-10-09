@@ -712,14 +712,14 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     if (0 == _tcscmp(option_name, _T("codec"))) {
         i++;
         int j = 0;
-        for (; list_codec[j].desc; j++) {
-            if (_tcsicmp(list_codec[j].desc, strInput[i]) == 0) {
-                pParams->CodecId = list_codec[j].value;
+        for (; list_codec_rgy[j].desc; j++) {
+            if (_tcsicmp(list_codec_rgy[j].desc, strInput[i]) == 0) {
+                pParams->codec = (RGY_CODEC)list_codec_rgy[j].value;
                 break;
             }
         }
-        if (list_codec[j].desc == nullptr) {
-            print_cmd_error_invalid_value(option_name, strInput[i], list_codec);
+        if (list_codec_rgy[j].desc == nullptr) {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_codec_rgy);
             return 1;
         }
         return 0;
@@ -1725,7 +1725,7 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, bool 
 
     //parse cached profile and level
     if (argsData.cachedlevel.length() > 0) {
-        const auto desc = get_level_list(pParams->CodecId);
+        const auto desc = get_level_list(pParams->codec);
         int value = 0;
         bool bParsed = false;
         if (desc != nullptr) {
@@ -1761,7 +1761,7 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, bool 
         }
     }
     if (argsData.cachedprofile.length() > 0) {
-        const auto desc = get_profile_list(pParams->CodecId);
+        const auto desc = get_profile_list(pParams->codec);
         int value = 0;
         if (desc != nullptr && PARSE_ERROR_FLAG != (value = get_value_from_chr(desc, argsData.cachedprofile.c_str()))) {
             pParams->CodecProfile = value;
@@ -1776,7 +1776,7 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, bool 
             return 1;
         }
     }
-    if (pParams->CodecId == MFX_CODEC_HEVC) {
+    if (pParams->codec == RGY_CODEC_HEVC) {
         if (pParams->outputDepth > 8
             && (pParams->CodecProfile == 0 || pParams->CodecProfile == MFX_PROFILE_HEVC_MAIN)) {
             pParams->CodecProfile = MFX_PROFILE_HEVC_MAIN10;
@@ -1797,7 +1797,7 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, bool 
             }
         }
     }
-    if (pParams->CodecId == MFX_CODEC_AV1) {
+    if (pParams->codec == RGY_CODEC_AV1) {
         if (pParams->outputCsp != RGY_CHROMAFMT_YUV420) {
             pParams->CodecProfile = MFX_PROFILE_AV1_PRO;
         }
@@ -2047,7 +2047,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
 #define OPT_STR_PATH(str, opt) if (pParams->opt.length() > 0) cmd << _T(" ") << str << _T(" \"") << (pParams->opt.c_str()) << _T("\"");
 
     OPT_NUM(_T("-d"), device);
-    cmd << _T(" -c ") << get_chr_from_value(list_codec, pParams->CodecId);
+    cmd << _T(" -c ") << get_chr_from_value(list_codec_rgy, pParams->codec);
 
     cmd << gen_cmd(&pParams->input, &encPrmDefault.input, &pParams->inprm, &encPrmDefault.inprm, save_disabled_prm);
 
@@ -2171,7 +2171,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
 
     OPT_NUM(_T("--slices"), nSlices);
     OPT_NUM(_T("--ref"), nRef);
-    if (pParams->CodecId == MFX_CODEC_AVC || pParams->CodecId == MFX_CODEC_HEVC || pParams->CodecId == MFX_CODEC_MPEG2) {
+    if (gopRefDistAsBframe(pParams->codec)) {
         OPT_NUM(_T("-b"), GopRefDist - 1);
     } else {
         OPT_NUM(_T("--gop-ref-dist"), GopRefDist);
@@ -2221,19 +2221,19 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     OPT_BOOL(_T("--pic-struct"), _T(""), bOutputPicStruct);
     OPT_BOOL(_T("--buf-period"), _T(""), bufPeriodSEI);
     OPT_BOOL_OPT(_T("--repeat-headers"), _T("--no-repeat-headers"), repeatHeaders);
-    OPT_LST(_T("--level"), CodecLevel, get_level_list(pParams->CodecId));
-    OPT_LST(_T("--profile"), CodecProfile, get_profile_list(pParams->CodecId));
-    if (save_disabled_prm || pParams->CodecId == MFX_CODEC_HEVC) {
+    OPT_LST(_T("--level"), CodecLevel, get_level_list(pParams->codec));
+    OPT_LST(_T("--profile"), CodecProfile, get_profile_list(pParams->codec));
+    if (save_disabled_prm || pParams->codec == RGY_CODEC_HEVC) {
         OPT_LST(_T("--ctu"), hevc_ctu, list_hevc_ctu);
         OPT_LST(_T("--sao"), hevc_sao, list_hevc_sao);
         OPT_BOOL(_T("--tskip"), _T("--no-tskip"), hevc_tskip);
         OPT_BOOL_OPT(_T("--hevc-gpb"), _T("--no-hevc-gpb"), hevc_gpb);
     }
-    if (save_disabled_prm || pParams->CodecId == MFX_CODEC_AV1) {
+    if (save_disabled_prm || pParams->codec == RGY_CODEC_AV1) {
         OPT_NUM(_T("--tile-row"), av1.tile_row);
         OPT_NUM(_T("--tile-col"), av1.tile_col);
     }
-    if (save_disabled_prm || pParams->CodecId == MFX_CODEC_AVC) {
+    if (save_disabled_prm || pParams->codec == RGY_CODEC_H264) {
         OPT_LST(_T("--trellis"), nTrellis, list_avc_trellis_for_options);
         switch (pParams->nBluray) {
         case 1: cmd << _T(" --bluray"); break;
@@ -2245,7 +2245,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
         OPT_BOOL(_T("--cavlc"), _T(""), bCAVLC);
         OPT_BOOL(_T("--no-deblock"), _T(""), bNoDeblock);
     }
-    if (save_disabled_prm || pParams->CodecId == MFX_CODEC_VP8) {
+    if (save_disabled_prm || pParams->codec == RGY_CODEC_VP8) {
         OPT_NUM(_T("--sharpness"), nVP8Sharpness);
     }
 #if ENABLE_SESSION_THREAD_CONFIG

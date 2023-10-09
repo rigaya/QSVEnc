@@ -196,19 +196,23 @@ static const ENC_OPTION_STR2 list_rotate_angle_ja[] = {
 };
 
 static const ENC_OPTION_STR2 list_out_enc_codec[] = {
-    { AUO_MES_UNKNOWN, L"H.264 / AVC",  MFX_CODEC_AVC  },
-    { AUO_MES_UNKNOWN, L"H.265 / HEVC", MFX_CODEC_HEVC },
+    { AUO_MES_UNKNOWN, L"H.264 / AVC",  RGY_CODEC_H264  },
+    { AUO_MES_UNKNOWN, L"H.265 / HEVC", RGY_CODEC_HEVC },
 #ifndef HIDE_MPEG2
-    { AUO_MES_UNKNOWN, L"MPEG2", MFX_CODEC_MPEG2 },
+    { AUO_MES_UNKNOWN, L"MPEG2", RGY_CODEC_MPEG2 },
 #endif
-    //{ AUO_MES_UNKNOWN,"VC-1", MFX_CODEC_VC1 },
-    { AUO_MES_UNKNOWN, L"VP9", MFX_CODEC_VP9 },
-    { AUO_MES_UNKNOWN, L"AV1", MFX_CODEC_AV1 },
+    //{ AUO_MES_UNKNOWN,"VC-1", RGY_CODEC_VC1 },
+    { AUO_MES_UNKNOWN, L"VP9", RGY_CODEC_VP9 },
+    { AUO_MES_UNKNOWN, L"AV1", RGY_CODEC_AV1 },
     { AUO_MES_UNKNOWN, NULL, NULL }
 };
 //下記は一致していないといけない
 static_assert(_countof(list_out_enc_codec)-1/*NULLの分*/ == _countof(CODEC_LIST_AUO));
 #endif
+
+static RGY_CODEC get_out_enc_codec_by_index(const int index) {
+    return (index >= 0 && index < _countof(list_out_enc_codec)-1/*NULLの分*/) ? (RGY_CODEC)list_out_enc_codec[index].value : RGY_CODEC_UNKNOWN;
+}
 
 static const ENC_OPTION_STR2 list_log_level_jp[] = {
     { AUO_CONFIG_CX_LOG_LEVEL_INFO,  L"通常",                  RGY_LOG_INFO  },
@@ -413,11 +417,11 @@ namespace QSVEnc {
     };
 
     ref class CodecData {
-        mfxU32 codec_;
+        RGY_CODEC codec_;
         CodecFeature^ featureFF;
         CodecFeature^ featurePG;
     public:
-        CodecData(mfxU32 codec) {
+        CodecData(RGY_CODEC codec) {
             codec_ = codec;
             featureFF = gcnew CodecFeature();
             featurePG = gcnew CodecFeature();
@@ -426,7 +430,7 @@ namespace QSVEnc {
             delete featureFF;
             delete featurePG;
         };
-        mfxU32 codec() { return codec_; }
+        RGY_CODEC codec() { return codec_; }
         bool codecAvail(bool lowpower) { return feature(lowpower)->avail(); }
         bool codecAvail() { return featureFF->avail() || featurePG->avail(); }
         void setFeatures(const bool lowpower, array<UInt64>^ features) {
@@ -495,53 +499,53 @@ namespace QSVEnc {
 
             codecFeatureList_ = gcnew array<CodecData^>(codecCount);
             for (int i_codec = 0; i_codec < codecCount; i_codec++) {
-                codecFeatureList_[i_codec] = gcnew CodecData(list_out_enc_codec[i_codec].value);
+                codecFeatureList_[i_codec] = gcnew CodecData(get_out_enc_codec_by_index(i_codec));
                 codecFeatureList_[i_codec]->init();
             }
         }
-        CodecData^ getCodecData(const mfxU32 codecId) {
+        CodecData^ getCodecData(const RGY_CODEC codec) {
             for (int i = 0; i < (int)codecFeatureList_->Length; i++) {
-                if (codecFeatureList_[i]->codec() == codecId) {
+                if (codecFeatureList_[i]->codec() == codec) {
                     return codecFeatureList_[i];
                 }
             }
             return nullptr;
         }
-        bool codecAvail(const mfxU32 codecId) {
+        bool codecAvail(const RGY_CODEC codec) {
             if (thGetFeatures != nullptr && thGetFeatures->IsAlive) {
                 thGetFeatures->Join();
             }
-            CodecData^ cdata = getCodecData(codecId);
+            CodecData^ cdata = getCodecData(codec);
             if (cdata == nullptr) {
                 return false;
             }
             return cdata->codecAvail();
         }
-        bool codecAvail(const mfxU32 codecId, bool lowpower) {
+        bool codecAvail(const RGY_CODEC codec, bool lowpower) {
             if (thGetFeatures != nullptr && thGetFeatures->IsAlive) {
                 thGetFeatures->Join();
             }
-            CodecData^ cdata = getCodecData(codecId);
+            CodecData^ cdata = getCodecData(codec);
             if (cdata == nullptr) {
                 return false;
             }
             return cdata->codecAvail(lowpower);
         }
-        UInt64 featureOfRC(const int rc_index, const mfxU32 codecId, const bool lowpower) {
+        UInt64 featureOfRC(const int rc_index, const RGY_CODEC codec, const bool lowpower) {
             if (thGetFeatures != nullptr && thGetFeatures->IsAlive) {
                 thGetFeatures->Join();
             }
-            CodecData^ cdata = getCodecData(codecId);
+            CodecData^ cdata = getCodecData(codec);
             if (cdata == nullptr) {
                 return false;
             }
             return cdata->feature(lowpower, rc_index);
         }
-        DataTable^ getTable(const mfxU32 codecId, const bool lowpower, const bool reGenerateTable) {
+        DataTable^ getTable(const RGY_CODEC codec, const bool lowpower, const bool reGenerateTable) {
             if (thGetFeatures != nullptr && thGetFeatures->IsAlive) {
                 thGetFeatures->Join();
             }
-            CodecData^ cdata = getCodecData(codecId);
+            CodecData^ cdata = getCodecData(codec);
             if (cdata == nullptr) {
                 return nullptr;
             }
@@ -656,8 +660,8 @@ namespace QSVEnc {
                             auto codecNames = codecName->Split(delimiterChars);
                             for (int in = 0; in < codecNames->Length; in++) {
                                 if (codecNames[in]->Length > 0 && featureDataLines[iline]->Contains(codecNames[in])) {
-                                    mfxU32 codecId = list_out_enc_codec[icodec].value;
-                                    codecData = getCodecData(codecId);
+                                    const auto codec = get_out_enc_codec_by_index(icodec);
+                                    codecData = getCodecData(codec);
                                     break;
                                 }
                             }
@@ -781,36 +785,36 @@ namespace QSVEnc {
             }
             return devf->devID();
         }
-        bool getCodecAvail(const int dev_index, const mfxU32 codecId) {
+        bool getCodecAvail(const int dev_index, const RGY_CODEC codec) {
             QSVDevFeatures^ devf = getDevFeatures(dev_index);
             if (devf == nullptr) {
                 return false;
             }
-            return devf->codecAvail(codecId);
+            return devf->codecAvail(codec);
         }
-        bool getCodecAvail(const int dev_index, const mfxU32 codecId, bool lowpower) {
+        bool getCodecAvail(const int dev_index, const RGY_CODEC codec, bool lowpower) {
             QSVDevFeatures^ devf = getDevFeatures(dev_index);
             if (devf == nullptr) {
                 return false;
             }
-            return devf->codecAvail(codecId, lowpower);
+            return devf->codecAvail(codec, lowpower);
         }
-        bool getRCAvail(const int dev_index, const int rc_index, const mfxU32 codecId, const bool lowpower) {
-            return (getFeatureOfRC(dev_index, rc_index, codecId, lowpower) & ENC_FEATURE_CURRENT_RC) != 0;
+        bool getRCAvail(const int dev_index, const int rc_index, const RGY_CODEC codec, const bool lowpower) {
+            return (getFeatureOfRC(dev_index, rc_index, codec, lowpower) & ENC_FEATURE_CURRENT_RC) != 0;
         }
-        UInt64 getFeatureOfRC(const int dev_index, const int rc_index, const mfxU32 codecId, const bool lowpower) {
+        UInt64 getFeatureOfRC(const int dev_index, const int rc_index, const RGY_CODEC codec, const bool lowpower) {
             QSVDevFeatures^ devf = getDevFeatures(dev_index);
             if (devf == nullptr) {
                 return false;
             }
-            return devf->featureOfRC(rc_index, codecId, lowpower);
+            return devf->featureOfRC(rc_index, codec, lowpower);
         }
-        DataTable^ getFeatureTable(const int dev_index, const mfxU32 codecId, const bool lowpower, const bool reGenerateTable) {
+        DataTable^ getFeatureTable(const int dev_index, const RGY_CODEC codec, const bool lowpower, const bool reGenerateTable) {
             QSVDevFeatures^ devf = getDevFeatures(dev_index);
             if (devf == nullptr) {
                 return nullptr;
             }
-            return devf->getTable(codecId, lowpower, reGenerateTable);
+            return devf->getTable(codec, lowpower, reGenerateTable);
         }
         bool checkIfGetFeaturesFinished() {
             if (devList) {

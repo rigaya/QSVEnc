@@ -48,13 +48,13 @@
 // VP9ではmfxExtCodingOptionはチェックしないようにしないと正常に動作しない
 #define AVOID_COP_EXCEPT_SAFE_CODECS 1
 
-static bool add_cop(const uint32_t CodecId) {
+static bool add_cop(const RGY_CODEC codec) {
     if (!AVOID_COP_EXCEPT_SAFE_CODECS) return true;
-    return CodecId == MFX_CODEC_AVC || CodecId == MFX_CODEC_HEVC || CodecId == MFX_CODEC_MPEG2;
+    return codec == RGY_CODEC_H264 || codec == RGY_CODEC_HEVC || codec == RGY_CODEC_MPEG2;
 }
 
-static bool add_vui(const uint32_t CodecId) {
-    return CodecId == MFX_CODEC_AVC || CodecId == MFX_CODEC_HEVC || CodecId == MFX_CODEC_MPEG2 || CodecId == MFX_CODEC_AV1;
+static bool add_vui(const RGY_CODEC codec) {
+    return codec == RGY_CODEC_H264 || codec == RGY_CODEC_HEVC || codec == RGY_CODEC_MPEG2 || codec == RGY_CODEC_AV1;
 }
 
 enum QSV_CPU_GEN {

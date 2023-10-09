@@ -112,7 +112,7 @@ sInputParams::sInputParams() :
     device(QSVDeviceNum::AUTO),
     nEncMode(MFX_RATECONTROL_CQP),
     nTargetUsage(QSV_DEFAULT_QUALITY),
-    CodecId(MFX_CODEC_AVC),
+    codec(RGY_CODEC_H264),
     CodecProfile(0),
     CodecLevel(0),
     outputDepth(8),
@@ -215,7 +215,7 @@ sInputParams::~sInputParams() {
 
 void sInputParams::applyDOVIProfile() {
 #if !FOR_AUO
-    if (CodecId != MFX_CODEC_HEVC) {
+    if (codec != RGY_CODEC_HEVC) {
         return;
     }
     if (common.doviProfile == 0) {

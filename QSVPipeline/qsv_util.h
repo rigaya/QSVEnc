@@ -102,15 +102,16 @@ static bool fourccShiftUsed(const uint32_t fourcc) {
 }
 
 static int getEncoderBitdepth(const sInputParams *pParams) {
-    switch (pParams->CodecId) {
-    case MFX_CODEC_HEVC:
-    case MFX_CODEC_VP9:
-    case MFX_CODEC_AV1:
+    switch (pParams->codec) {
+    case RGY_CODEC_HEVC:
+    case RGY_CODEC_VP9:
+    case RGY_CODEC_AV1:
+    case RGY_CODEC_RAW:
         return pParams->outputDepth;
-    case MFX_CODEC_AVC:
-    case MFX_CODEC_VP8:
-    case MFX_CODEC_MPEG2:
-    case MFX_CODEC_VC1:
+    case RGY_CODEC_H264:
+    case RGY_CODEC_VP8:
+    case RGY_CODEC_MPEG2:
+    case RGY_CODEC_VC1:
         break;
     default:
         return 0;
@@ -118,12 +119,8 @@ static int getEncoderBitdepth(const sInputParams *pParams) {
     return 8;
 }
 
-static bool gopRefDistAsBframe(const int CodecID) {
-    return CodecID == MFX_CODEC_AVC || CodecID == MFX_CODEC_HEVC || CodecID == MFX_CODEC_MPEG2;
-}
-
-static bool gopRefDistAsBframe(RGY_CODEC codec) {
-    return gopRefDistAsBframe(codec_rgy_to_enc(codec));
+static bool gopRefDistAsBframe(const RGY_CODEC codec) {
+    return codec == RGY_CODEC_H264 || codec == RGY_CODEC_HEVC || codec == RGY_CODEC_MPEG2;
 }
 
 static RGY_CSP getMFXCsp(const RGY_CHROMAFMT chroma, const int bitdepth) {
@@ -511,7 +508,6 @@ static void print_err_mes(int sts) {
 
 const TCHAR *ChromaFormatToStr(uint32_t format);
 const TCHAR *ColorFormatToStr(uint32_t format);
-const TCHAR *CodecIdToStr(uint32_t nFourCC);
 const TCHAR *TargetUsageToStr(uint16_t tu);
 const TCHAR *EncmodeToStr(uint32_t enc_mode);
 const TCHAR *MemTypeToStr(uint32_t memType);

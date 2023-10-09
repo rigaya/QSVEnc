@@ -793,13 +793,12 @@ mfxU64 CheckVppFeatures(const QSVDeviceNum deviceNum, std::shared_ptr<RGYLog> lo
 
 QSVEncFeatures CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, const RGY_CODEC codec, const bool lowPower) {
     QSVEncFeatures result;
-    const mfxU32 codecId = codec_rgy_to_enc(codec);
     mfxVersion mfxVer;
     session.QueryVersion(&mfxVer);
-    if (codecId == MFX_CODEC_HEVC && !check_lib_version(mfxVer, MFX_LIB_VERSION_1_15)) {
+    if (codec == RGY_CODEC_HEVC && !check_lib_version(mfxVer, MFX_LIB_VERSION_1_15)) {
         return result;
     }
-    if (codecId == MFX_CODEC_AV1 && !check_lib_version(mfxVer, MFX_LIB_VERSION_2_5)) {
+    if (codec == RGY_CODEC_AV1 && !check_lib_version(mfxVer, MFX_LIB_VERSION_2_5)) {
         return result;
     }
     const std::vector<std::pair<int, mfxVersion>> rc_list = {
@@ -864,7 +863,7 @@ QSVEncFeatures CheckEncodeFeature(MFXVideoSession& session, const int ratecontro
 
     videoPrm.AsyncDepth                  = 3;
     videoPrm.IOPattern                   = MFX_IOPATTERN_IN_SYSTEM_MEMORY;
-    videoPrm.mfx.CodecId                 = codecId;
+    videoPrm.mfx.CodecId                 = codec_rgy_to_enc(codec);
     videoPrm.mfx.RateControlMethod       = (mfxU16)ratecontrol;
     videoPrm.mfx.TargetUsage             = MFX_TARGETUSAGE_BALANCED;
     videoPrm.mfx.EncodedOrder            = 0;
@@ -888,14 +887,14 @@ QSVEncFeatures CheckEncodeFeature(MFXVideoSession& session, const int ratecontro
     videoPrm.mfx.FrameInfo.CropW         = 1920;
     videoPrm.mfx.FrameInfo.CropH         = 1080;
     videoPrm.mfx.LowPower                = lowPowerMode;
-    switch (codecId) {
-    case MFX_CODEC_HEVC:
+    switch (codec) {
+    case RGY_CODEC_HEVC:
         videoPrm.mfx.CodecLevel = MFX_LEVEL_UNKNOWN;
         videoPrm.mfx.CodecProfile = MFX_PROFILE_HEVC_MAIN;
         break;
-    case MFX_CODEC_VP8:
+    case RGY_CODEC_VP8:
         break;
-    case MFX_CODEC_VP9:
+    case RGY_CODEC_VP9:
         videoPrm.mfx.CodecLevel = MFX_LEVEL_UNKNOWN;
         videoPrm.mfx.CodecProfile = MFX_PROFILE_VP9_0;
         videoPrm.mfx.GopRefDist = 1;
@@ -917,7 +916,7 @@ QSVEncFeatures CheckEncodeFeature(MFXVideoSession& session, const int ratecontro
         }
         //videoPrm.mfx.LowPower = MFX_CODINGOPTION_ON;
         break;
-    case MFX_CODEC_AV1:
+    case RGY_CODEC_AV1:
         videoPrm.mfx.CodecLevel = MFX_LEVEL_UNKNOWN;
         videoPrm.mfx.CodecProfile = MFX_PROFILE_AV1_MAIN;
         videoPrm.mfx.FrameInfo.Width = 1280;
@@ -930,8 +929,8 @@ QSVEncFeatures CheckEncodeFeature(MFXVideoSession& session, const int ratecontro
             videoPrm.mfx.FrameInfo.BitDepthChroma = 8;
         }
         break;
+    case RGY_CODEC_H264:
     default:
-    case MFX_CODEC_AVC:
         videoPrm.mfx.CodecLevel = MFX_LEVEL_UNKNOWN;
         videoPrm.mfx.CodecProfile = MFX_PROFILE_AVC_HIGH;
         break;
@@ -940,7 +939,7 @@ QSVEncFeatures CheckEncodeFeature(MFXVideoSession& session, const int ratecontro
 
     auto ret = MFXVideoENCODE_Query(session, &videoPrm, &videoPrm);
     if (false && ret < MFX_ERR_NONE) {
-        _ftprintf(stderr, _T("error checking %s %s %s: %s\n"), CodecIdToStr(codecId), (lowPower) ? _T("FF") : _T("PG"), EncmodeToStr(ratecontrol), get_err_mes(err_to_rgy(ret)));
+        _ftprintf(stderr, _T("error checking %s %s %s: %s\n"), CodecToStr(codec).c_str(), (lowPower) ? _T("FF") : _T("PG"), EncmodeToStr(ratecontrol), get_err_mes(err_to_rgy(ret)));
     }
 
     if (ret >= MFX_ERR_NONE
@@ -977,7 +976,7 @@ QSVEncFeatures CheckEncodeFeature(MFXVideoSession& session, const int ratecontro
                 } else {
                     buf.pop_back();
                     if (false) {
-                        _ftprintf(stderr, _T("error checking %s %s ext buff %s: %s\n"), CodecIdToStr(codecId), (lowPower) ? _T("FF") : _T("PG"),
+                        _ftprintf(stderr, _T("error checking %s %s ext buff %s: %s\n"), CodecToStr(codec).c_str(), (lowPower) ? _T("FF") : _T("PG"),
                             qsv_feature_enm_to_str(flag).c_str(), get_err_mes(err_to_rgy(check_ret)));
                     }
                 }
@@ -1013,13 +1012,13 @@ QSVEncFeatures CheckEncodeFeature(MFXVideoSession& session, const int ratecontro
                     && videoPrm.mfx.RateControlMethod == ratecontrol) {
                     result |= (flag);
                 } else if (false) {
-                    _ftprintf(stderr, _T("error checking %s %s %s %s: %s\n"), CodecIdToStr(codecId), (lowPower) ? _T("FF") : _T("PG"),
+                    _ftprintf(stderr, _T("error checking %s %s %s %s: %s\n"), CodecToStr(codec).c_str(), (lowPower) ? _T("FF") : _T("PG"),
                         EncmodeToStr(ratecontrol), qsv_feature_enm_to_str(flag).c_str(), get_err_mes(err_to_rgy(check_ret)));
                 }
                 (membersIn) = orig;
             }
         };
-        if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_3) && add_vui(codecId)) {
+        if (check_lib_version(mfxVer, MFX_LIB_VERSION_1_3) && add_vui(codec)) {
             if (true) {
                 //これはもう単純にAPIチェックでOK
                 result |= ENC_FEATURE_VUI_INFO;
@@ -1084,13 +1083,13 @@ QSVEncFeatures CheckEncodeFeature(MFXVideoSession& session, const int ratecontro
             CHECK_FEATURE(qsvprm.cop3.AdaptiveLTR,                ENC_FEATURE_ADAPTIVE_LTR,           MFX_CODINGOPTION_ON,         MFX_LIB_VERSION_2_4);
             CHECK_FEATURE(qsvprm.cop3.AdaptiveRef,                ENC_FEATURE_ADAPTIVE_REF,           MFX_CODINGOPTION_ON,         MFX_LIB_VERSION_2_4);
             CHECK_FEATURE(qsvprm.cop3.AdaptiveCQM,                ENC_FEATURE_ADAPTIVE_CQM,           MFX_CODINGOPTION_ON,         MFX_LIB_VERSION_2_2);
-            if (codecId == MFX_CODEC_HEVC) {
+            if (codec == RGY_CODEC_HEVC) {
                 CHECK_FEATURE(qsvprm.cop3.GPB,                    ENC_FEATURE_DISABLE_GPB,            MFX_CODINGOPTION_ON,         MFX_LIB_VERSION_1_19);
                 CHECK_FEATURE(qsvprm.cop3.EnableQPOffset,         ENC_FEATURE_PYRAMID_QP_OFFSET,      MFX_CODINGOPTION_ON,         MFX_LIB_VERSION_1_19);
                 CHECK_FEATURE(qsvprm.cop3.TransformSkip,          ENC_FEATURE_HEVC_TSKIP,             MFX_CODINGOPTION_ON,         MFX_LIB_VERSION_1_26);
             }
         }
-        if (codecId == MFX_CODEC_HEVC) {
+        if (codec == RGY_CODEC_HEVC) {
             videoPrm.mfx.FrameInfo.BitDepthLuma = 10;
             videoPrm.mfx.FrameInfo.BitDepthChroma = 10;
             videoPrm.mfx.FrameInfo.Shift = 1;
@@ -1104,7 +1103,7 @@ QSVEncFeatures CheckEncodeFeature(MFXVideoSession& session, const int ratecontro
                 CHECK_FEATURE(qsvprm.hevcPrm.SampleAdaptiveOffset, ENC_FEATURE_HEVC_SAO, MFX_SAO_ENABLE_LUMA, MFX_LIB_VERSION_1_26);
                 CHECK_FEATURE(qsvprm.hevcPrm.LCUSize, ENC_FEATURE_HEVC_CTU, 64, MFX_LIB_VERSION_1_26);
             }
-        } else if (codecId == MFX_CODEC_VP9) {
+        } else if (codec == RGY_CODEC_VP9) {
             videoPrm.mfx.FrameInfo.BitDepthLuma = 10;
             videoPrm.mfx.FrameInfo.BitDepthChroma = 10;
             videoPrm.mfx.FrameInfo.Shift = 1;
@@ -1114,7 +1113,7 @@ QSVEncFeatures CheckEncodeFeature(MFXVideoSession& session, const int ratecontro
             videoPrm.mfx.FrameInfo.BitDepthChroma = 0;
             videoPrm.mfx.FrameInfo.Shift = 0;
             videoPrm.mfx.CodecProfile = MFX_PROFILE_VP9_0;
-        } else if (codecId == MFX_CODEC_AV1) {
+        } else if (codec == RGY_CODEC_AV1) {
             videoPrm.mfx.FrameInfo.BitDepthLuma = 10;
             videoPrm.mfx.FrameInfo.BitDepthChroma = 10;
             videoPrm.mfx.FrameInfo.Shift = 1;
@@ -1156,7 +1155,7 @@ QSVEncFeatures CheckEncodeFeature(MFXVideoSession& session, const int ratecontro
             result &= ~ENC_FEATURE_FADE_DETECT;
         }
         //Kabylake以降では、10bit depthに対応しているはずだが、これが正常に判定されないことがある
-        if (codecId == MFX_CODEC_HEVC && cpu_gen >= CPU_GEN_KABYLAKE) {
+        if (codec == RGY_CODEC_HEVC && cpu_gen >= CPU_GEN_KABYLAKE) {
             result |= ENC_FEATURE_10BIT_DEPTH;
         }
     }
