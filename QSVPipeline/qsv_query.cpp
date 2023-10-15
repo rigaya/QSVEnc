@@ -956,7 +956,7 @@ QSVEncFeatures CheckEncodeFeature(MFXVideoSession& session, const int ratecontro
                 if (check_ret >= MFX_ERR_NONE && videoPrm.mfx.RateControlMethod == ratecontrol) {
                     result |= flag;
                 } else if (false) {
-                    _ftprintf(stderr, _T("error checking %s %s %s: %s\n"), CodecIdToStr(codecId), (lowPower) ? _T("FF") : _T("PG"), EncmodeToStr(mode), get_err_mes(err_to_rgy(check_ret)));
+                    _ftprintf(stderr, _T("error checking %s %s %s: %s\n"), CodecToStr(codec).c_str(), (lowPower) ? _T("FF") : _T("PG"), EncmodeToStr(mode), get_err_mes(err_to_rgy(check_ret)));
                 }
                 videoPrm.mfx.RateControlMethod = original_method;
                 set_default_quality_prm();

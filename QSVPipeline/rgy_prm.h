@@ -35,6 +35,7 @@
 #include "rgy_hdr10plus.h"
 #include "rgy_thread_affinity.h"
 #include "rgy_simd.h"
+#include "rgy_avutil.h"
 
 static const int BITSTREAM_BUFFER_SIZE =  4 * 1024 * 1024;
 static const int OUTPUT_BUF_SIZE       = 16 * 1024 * 1024;
@@ -1319,8 +1320,8 @@ struct AudioSelect {
     tstring  extractFilename;      //抽出する音声のファイル名のリスト
     tstring  extractFormat;        //抽出する音声ファイルのフォーマット
     tstring  filter;               //音声フィルタ
-    uint64_t streamChannelSelect[MAX_SPLIT_CHANNELS]; //入力音声の使用するチャンネル
-    uint64_t streamChannelOut[MAX_SPLIT_CHANNELS];    //出力音声のチャンネル
+    std::array<std::string, MAX_SPLIT_CHANNELS> streamChannelSelect; //入力音声の使用するチャンネル
+    std::array<std::string, MAX_SPLIT_CHANNELS> streamChannelOut;    //出力音声のチャンネル
     tstring  bsf;                  // 適用するbitstreamfilterの名前
     tstring  disposition;          // 指定のdisposition
     std::string lang;              // 言語選択
@@ -1548,10 +1549,10 @@ const FEATURE_DESC list_simd[] = {
 };
 
 template <uint32_t size>
-static bool bSplitChannelsEnabled(uint64_t(&streamChannels)[size]) {
+static bool bSplitChannelsEnabled(const std::array<std::string, size>& streamChannels) {
     bool bEnabled = false;
-    for (uint32_t i = 0; i < size; i++) {
-        bEnabled |= streamChannels[i] != 0;
+    for (const auto& st : streamChannels) {
+        bEnabled |= !st.empty();
     }
     return bEnabled;
 }
