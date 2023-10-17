@@ -58,7 +58,7 @@ class RGYFrameData;
 #define INIT_MFX_EXT_BUFFER(x, id) { RGY_MEMSET_ZERO(x); (x).Header.BufferId = (id); (x).Header.BufferSz = sizeof(x); }
 
 MAP_PAIR_0_1_PROTO(codec, rgy, RGY_CODEC, enc, mfxU32);
-MAP_PAIR_0_1_PROTO(chromafmt, rgy, RGY_CHROMAFMT, enc, mfxU32);
+MAP_PAIR_0_1_PROTO(chromafmt, rgy, RGY_CHROMAFMT, enc, mfxU16);
 MAP_PAIR_0_1_PROTO(csp, rgy, RGY_CSP, enc, mfxU32);
 MAP_PAIR_0_1_PROTO(resize_algo, rgy, RGY_VPP_RESIZE_ALGO, enc, int);
 MAP_PAIR_0_1_PROTO(resize_mode, rgy, RGY_VPP_RESIZE_MODE, enc, int);
@@ -232,7 +232,7 @@ public:
         return 0;
     }
 
-    void setDuration(int duration) {
+    void setDuration(int64_t duration) {
         UNREFERENCED_PARAMETER(duration);
     }
 

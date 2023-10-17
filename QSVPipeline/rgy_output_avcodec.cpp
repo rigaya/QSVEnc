@@ -1591,7 +1591,7 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
                     } else {
                         for (int i = 0; i < outpkt->side_data_elems; i++) {
                             if (outpkt->side_data[i].type == AV_PKT_DATA_NEW_EXTRADATA) {
-                                SetExtraData(muxAudio->streamIn->codecpar, outpkt->side_data[i].data, outpkt->side_data[i].size);
+                                SetExtraData(muxAudio->streamIn->codecpar, outpkt->side_data[i].data, (uint32_t)outpkt->side_data[i].size);
                                 break;
                             }
                         }
@@ -1703,7 +1703,7 @@ RGY_ERR RGYOutputAvcodec::InitAttachment(AVMuxOther *pMuxAttach, const Attachmen
     pMuxAttach->streamOut->codecpar->codec_type = AVMEDIA_TYPE_ATTACHMENT;
     pMuxAttach->streamOut->codecpar->extradata = (uint8_t *)av_malloc(input_data.size() + AV_INPUT_BUFFER_PADDING_SIZE);
     memcpy(pMuxAttach->streamOut->codecpar->extradata, input_data.data(), input_data.size());
-    pMuxAttach->streamOut->codecpar->extradata_size = input_data.size();
+    pMuxAttach->streamOut->codecpar->extradata_size = (int)input_data.size();
 
     const auto attach_name_utf8 = tchar_to_string(PathGetFilename(attachment.filename), CP_UTF8);
     av_dict_set(&pMuxAttach->streamOut->metadata, "filename", attach_name_utf8.c_str(), AV_DICT_DONT_OVERWRITE);
@@ -2287,7 +2287,7 @@ RGY_ERR RGYOutputAvcodec::applyBsfToHeader(std::vector<uint8_t>& result, const u
         return RGY_ERR_NONE;
     }
     AVPacket *pkt = m_Mux.video.pktOut;
-    av_new_packet(pkt, target_size);
+    av_new_packet(pkt, (int)target_size);
     memcpy(pkt->data, target, target_size);
     int ret = 0;
     if (0 > (ret = av_bsf_send_packet(m_Mux.video.bsfc, pkt))) {
@@ -2368,7 +2368,7 @@ RGY_ERR RGYOutputAvcodec::AddHeaderToExtraDataAV1(const RGYBitstream *bitstream)
     });
     if (it_seq_header != unit_list.end()) {
         const auto& seq_header = (it_seq_header->get())->unit_data;
-        m_Mux.video.streamOut->codecpar->extradata_size = seq_header.size();
+        m_Mux.video.streamOut->codecpar->extradata_size = (int)seq_header.size();
         uint8_t *new_ptr = (uint8_t *)av_malloc(m_Mux.video.streamOut->codecpar->extradata_size + AV_INPUT_BUFFER_PADDING_SIZE);
         memcpy(new_ptr, seq_header.data(), m_Mux.video.streamOut->codecpar->extradata_size);
         if (m_Mux.video.streamOut->codecpar->extradata) {
@@ -2685,6 +2685,8 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameFinish(RGYBitstream *bitstream, const RG
     return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
 }
 
+#pragma warning (push)
+#pragma warning (disable: 4127) //warning C4127: 条件式が定数です。
 RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream, int64_t *writtenDts, const RGYTimestampMapVal& bs_framedata) {
     //AVParserを使用して必要に応じてframeTypeを取得する
     VidCheckStreamAVParser(bitstream);
@@ -2943,8 +2945,6 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream
     return (m_Mux.format.streamError) ? RGY_ERR_UNKNOWN : RGY_ERR_NONE;
 }
 
-#pragma warning (push)
-#pragma warning (disable: 4127) //warning C4127: 条件式が定数です。
 RGY_ERR RGYOutputAvcodec::WriteNextFrameInternal(RGYBitstream *bitstream, int64_t *writtenDts) {
     if (!m_Mux.format.fileHeaderWritten) {
 #if 0 && ENCODER_QSV //HEVCエンコードやFixed Funcでは、DecodeTimeStampが正しく設定されないので無効化
@@ -3279,8 +3279,8 @@ void RGYOutputAvcodec::WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *
         atomic_max(m_Mux.thread.streamOutMaxDts, *writtenDts);
     }
     if (WRITE_PTS_DEBUG) {
-        AddMessage(RGY_LOG_WARN, _T("%3d, %12s, pts, %lld (%d/%d) [%s]\n"),
-            pkt->stream_index, char_to_tstring(avcodec_get_name(m_Mux.format.formatCtx->streams[pkt->stream_index]->codecpar->codec_id)).c_str(),
+        AddMessage(RGY_LOG_WARN, _T("audio %3d [%3d.%3d], %12s, pts, %lld (%d/%d) [%s]\n"),
+            pkt->stream_index,trackID(muxAudio->inTrackId), muxAudio->inSubStream, char_to_tstring(avcodec_get_name(m_Mux.format.formatCtx->streams[pkt->stream_index]->codecpar->codec_id)).c_str(),
             pkt->pts, muxAudio->streamOut->time_base.num, muxAudio->streamOut->time_base.den, getTimestampString(pkt->pts, muxAudio->streamOut->time_base).c_str());
     }
     if (pkt->pts >= 0 || m_Mux.format.allowOtherNegativePts) {
@@ -3814,7 +3814,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketInternal(AVPktMuxData *pktData, int64_t
         }
     }
 
-    if (pktData->pkt == NULL) {
+    if (pktData->pkt == nullptr) {
         return WriteNextPacketAudio(pktData);
     } else if (trackMediaType(pktFlagGetTrackID(pktData->pkt)) != AVMEDIA_TYPE_AUDIO) {
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD

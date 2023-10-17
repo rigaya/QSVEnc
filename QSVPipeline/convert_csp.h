@@ -496,7 +496,7 @@ typedef struct ConvertCSP {
 const ConvertCSP *get_convert_csp_func(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only, RGY_SIMD simd);
 const TCHAR *get_simd_str(RGY_SIMD simd);
 
-enum RGY_FRAME_FLAGS : uint64_t {
+enum RGY_FRAME_FLAGS : uint32_t {
     RGY_FRAME_FLAG_NONE     = 0x00u,
     RGY_FRAME_FLAG_RFF      = 0x01u,
     RGY_FRAME_FLAG_RFF_COPY = 0x02u,
@@ -505,7 +505,7 @@ enum RGY_FRAME_FLAGS : uint64_t {
 };
 
 static RGY_FRAME_FLAGS operator|(RGY_FRAME_FLAGS a, RGY_FRAME_FLAGS b) {
-    return (RGY_FRAME_FLAGS)((uint64_t)a | (uint64_t)b);
+    return (RGY_FRAME_FLAGS)((uint32_t)a | (uint32_t)b);
 }
 
 static RGY_FRAME_FLAGS operator|=(RGY_FRAME_FLAGS& a, RGY_FRAME_FLAGS b) {
@@ -514,7 +514,7 @@ static RGY_FRAME_FLAGS operator|=(RGY_FRAME_FLAGS& a, RGY_FRAME_FLAGS b) {
 }
 
 static RGY_FRAME_FLAGS operator&(RGY_FRAME_FLAGS a, RGY_FRAME_FLAGS b) {
-    return (RGY_FRAME_FLAGS)((uint64_t)a & (uint64_t)b);
+    return (RGY_FRAME_FLAGS)((uint32_t)a & (uint32_t)b);
 }
 
 static RGY_FRAME_FLAGS operator&=(RGY_FRAME_FLAGS& a, RGY_FRAME_FLAGS b) {
@@ -523,7 +523,7 @@ static RGY_FRAME_FLAGS operator&=(RGY_FRAME_FLAGS& a, RGY_FRAME_FLAGS b) {
 }
 
 static RGY_FRAME_FLAGS operator~(RGY_FRAME_FLAGS a) {
-    return (RGY_FRAME_FLAGS)(~((uint64_t)a));
+    return (RGY_FRAME_FLAGS)(~((uint32_t)a));
 }
 
 static const int RGY_MAX_PLANES = 4;

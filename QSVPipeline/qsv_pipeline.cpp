@@ -3012,7 +3012,7 @@ RGY_ERR CQSVPipeline::checkGPUListByEncoder(const sInputParams *prm, std::vector
         return RGY_ERR_NONE;
     }
 
-    const auto enc_csp = getEncoderCsp(prm);
+    //const auto enc_csp = getEncoderCsp(prm);
     const auto enc_bitdepth = getEncoderBitdepth(prm);
     const auto rate_control = prm->nEncMode;
     tstring message;
@@ -4140,14 +4140,14 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVideoParam>> CQSVPipeline::GetOutputVideoI
         prmset->videoPrm.mfx.FrameInfo.BitDepthLuma = RGY_CSP_BIT_DEPTH[frameInfo.csp];
         prmset->videoPrm.mfx.FrameInfo.BitDepthChroma = RGY_CSP_BIT_DEPTH[frameInfo.csp];
         prmset->videoPrm.mfx.FrameInfo.Shift = 0;
-        prmset->videoPrm.mfx.FrameInfo.Width = frameInfo.srcWidth;
-        prmset->videoPrm.mfx.FrameInfo.Height = frameInfo.srcHeight;
-        prmset->videoPrm.mfx.FrameInfo.CropW = frameInfo.srcWidth;
-        prmset->videoPrm.mfx.FrameInfo.CropH = frameInfo.srcHeight;
+        prmset->videoPrm.mfx.FrameInfo.Width = (mfxU16)frameInfo.srcWidth;
+        prmset->videoPrm.mfx.FrameInfo.Height = (mfxU16)frameInfo.srcHeight;
+        prmset->videoPrm.mfx.FrameInfo.CropW = (mfxU16)frameInfo.srcWidth;
+        prmset->videoPrm.mfx.FrameInfo.CropH = (mfxU16)frameInfo.srcHeight;
         prmset->videoPrm.mfx.FrameInfo.FrameRateExtN = frameInfo.fpsN;
         prmset->videoPrm.mfx.FrameInfo.FrameRateExtD = frameInfo.fpsD;
-        prmset->videoPrm.mfx.FrameInfo.AspectRatioW = frameInfo.sar[0];
-        prmset->videoPrm.mfx.FrameInfo.AspectRatioH = frameInfo.sar[1];
+        prmset->videoPrm.mfx.FrameInfo.AspectRatioW = (mfxU16)frameInfo.sar[0];
+        prmset->videoPrm.mfx.FrameInfo.AspectRatioH = (mfxU16)frameInfo.sar[1];
         return { RGY_ERR_NONE, std::move(prmset) };
     }
     PrintMes(RGY_LOG_ERROR, _T("GetOutputVideoInfo: None of the pipeline elements are detected!\n"));

@@ -50,15 +50,15 @@ static const auto RGY_CODEC_TO_MFX = make_array<std::pair<RGY_CODEC, mfxU32>>(
 
 MAP_PAIR_0_1(codec, rgy, RGY_CODEC, enc, mfxU32, RGY_CODEC_TO_MFX, RGY_CODEC_UNKNOWN, 0u);
 
-static const auto RGY_CHROMAFMT_TO_MFX = make_array<std::pair<RGY_CHROMAFMT, mfxU32>>(
-    std::make_pair(RGY_CHROMAFMT_MONOCHROME, MFX_CHROMAFORMAT_MONOCHROME),
-    std::make_pair(RGY_CHROMAFMT_YUV420,     MFX_CHROMAFORMAT_YUV420),
-    std::make_pair(RGY_CHROMAFMT_YUV422,     MFX_CHROMAFORMAT_YUV422),
-    std::make_pair(RGY_CHROMAFMT_YUV444,     MFX_CHROMAFORMAT_YUV444),
-    std::make_pair(RGY_CHROMAFMT_YUVA444,    MFX_CHROMAFORMAT_YUV444)
+static const auto RGY_CHROMAFMT_TO_MFX = make_array<std::pair<RGY_CHROMAFMT, mfxU16>>(
+    std::make_pair(RGY_CHROMAFMT_MONOCHROME, (mfxU16)MFX_CHROMAFORMAT_MONOCHROME),
+    std::make_pair(RGY_CHROMAFMT_YUV420,     (mfxU16)MFX_CHROMAFORMAT_YUV420),
+    std::make_pair(RGY_CHROMAFMT_YUV422,     (mfxU16)MFX_CHROMAFORMAT_YUV422),
+    std::make_pair(RGY_CHROMAFMT_YUV444,     (mfxU16)MFX_CHROMAFORMAT_YUV444),
+    std::make_pair(RGY_CHROMAFMT_YUVA444,    (mfxU16)MFX_CHROMAFORMAT_YUV444)
     );
 
-MAP_PAIR_0_1(chromafmt, rgy, RGY_CHROMAFMT, enc, mfxU32, RGY_CHROMAFMT_TO_MFX, RGY_CHROMAFMT_UNKNOWN, 0u);
+MAP_PAIR_0_1(chromafmt, rgy, RGY_CHROMAFMT, enc, mfxU16, RGY_CHROMAFMT_TO_MFX, RGY_CHROMAFMT_UNKNOWN, 0u);
 
 static const auto RGY_CSP_TO_MFX = make_array<std::pair<RGY_CSP, mfxU32>>(
     std::make_pair(RGY_CSP_NA,        0),
