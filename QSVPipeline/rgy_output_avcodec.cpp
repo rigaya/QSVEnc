@@ -1165,7 +1165,7 @@ RGY_ERR RGYOutputAvcodec::InitAudioFilter(AVMuxAudio *muxAudio, int channels, co
         if (muxAudio->filterGraph) {
             //filterをflush
             auto filteredFrames = AudioFilterFrameFlush(muxAudio);
-            WriteNextPacketToAudioSubtracks(filteredFrames);
+            WriteNextPacketAudioFrame(filteredFrames);
 
             //filterをclose
             avfilter_graph_free(&muxAudio->filterGraph);
@@ -1177,7 +1177,7 @@ RGY_ERR RGYOutputAvcodec::InitAudioFilter(AVMuxAudio *muxAudio, int channels, co
 
         int ret = 0;
         muxAudio->filterGraph = avfilter_graph_alloc();
-        //av_opt_set_int(muxAudio->filterGraph, "threads", 1, 0);
+        av_opt_set_int(muxAudio->filterGraph, "threads", 1, 0);
 
         auto filterchain = tchar_to_string(muxAudio->filter);
 
@@ -3814,7 +3814,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketInternal(AVPktMuxData *pktData, int64_t
         }
     }
 
-    if (pktData->pkt == nullptr) {
+    if (pktData->pkt == NULL) {
         return WriteNextPacketAudio(pktData);
     } else if (trackMediaType(pktFlagGetTrackID(pktData->pkt)) != AVMEDIA_TYPE_AUDIO) {
 #if ENABLE_AVCODEC_AUDPROCESS_THREAD
@@ -3835,7 +3835,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextPacketInternal(AVPktMuxData *pktData, int64_t
 RGY_ERR RGYOutputAvcodec::WriteNextPacketAudio(AVPktMuxData *pktData) {
     pktData->samples = 0;
     AVMuxAudio *muxAudio = pktData->muxAudio;
-    if (muxAudio == NULL) {
+    if (muxAudio == nullptr) {
         AddMessage(RGY_LOG_ERROR, _T("failed to get stream for input stream.\n"));
         m_Mux.format.streamError = true;
         m_Mux.poolPkt->returnFree(&pktData->pkt);
