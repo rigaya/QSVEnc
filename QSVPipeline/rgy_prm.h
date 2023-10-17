@@ -35,7 +35,6 @@
 #include "rgy_hdr10plus.h"
 #include "rgy_thread_affinity.h"
 #include "rgy_simd.h"
-#include "rgy_avutil.h"
 
 static const int BITSTREAM_BUFFER_SIZE =  4 * 1024 * 1024;
 static const int OUTPUT_BUF_SIZE       = 16 * 1024 * 1024;
@@ -1555,22 +1554,6 @@ static bool bSplitChannelsEnabled(const std::array<std::string, size>& streamCha
         bEnabled |= !st.empty();
     }
     return bEnabled;
-}
-
-template <uint32_t size>
-static void setSplitChannelAuto(uint64_t(&streamChannels)[size]) {
-    for (uint32_t i = 0; i < size; i++) {
-        streamChannels[i] = ((uint64_t)1) << i;
-    }
-}
-
-template <uint32_t size>
-static bool isSplitChannelAuto(uint64_t(&streamChannels)[size]) {
-    bool isAuto = true;
-    for (uint32_t i = 0; isAuto && i < size; i++) {
-        isAuto &= (streamChannels[i] == (((uint64_t)1) << i));
-    }
-    return isAuto;
 }
 
 unique_ptr<RGYHDR10Plus> initDynamicHDR10Plus(const tstring &dynamicHdr10plusJson, shared_ptr<RGYLog> log);
