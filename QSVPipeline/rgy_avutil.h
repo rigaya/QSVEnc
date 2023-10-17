@@ -92,7 +92,6 @@ using RGYChannelLayout = uint64_t;
 using uniuqeRGYChannelLayout = std::unique_ptr<RGYChannelLayout>;
 #endif
 
-
 template<typename T>
 struct RGYAVDeleter {
     RGYAVDeleter() : deleter(nullptr) {};
@@ -319,6 +318,9 @@ tstring getAVFormats(RGYAVFormatType flag);
 
 //利用可能なフィルターを表示
 tstring getAVFilters();
+
+// AVFrameのdeep copyを行う
+void av_frame_deep_copy(AVFrame *copyFrame, const AVFrame *frame);
 
 static bool channelLayoutSet(const RGYChannelLayout *a) {
 #if AV_CHANNEL_LAYOUT_STRUCT_AVAIL

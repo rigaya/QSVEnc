@@ -383,6 +383,25 @@ tstring getAVFilters() {
     return char_to_tstring(mes);
 }
 
+void av_frame_deep_copy(AVFrame *copyFrame, const AVFrame *frame) {
+    copyFrame->format = frame->format;
+    copyFrame->width = frame->width;
+    copyFrame->height = frame->height;
+    copyFrame->sample_rate = frame->sample_rate;
+    copyFrame->duration = frame->duration;
+    copyFrame->pts = frame->pts;
+#if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
+    av_channel_layout_copy(&copyFrame->ch_layout, &frame->ch_layout);
+#else
+    copyFrame->channels = frame->channels;
+    copyFrame->channel_layout = frame->channel_layout;
+#endif
+    copyFrame->nb_samples = frame->nb_samples;
+    av_frame_get_buffer(copyFrame, 32);
+    av_frame_copy(copyFrame, frame);
+    av_frame_copy_props(copyFrame, frame);
+}
+
 uniuqeRGYChannelLayout createChannelLayoutEmpty() {
 #if AV_CHANNEL_LAYOUT_STRUCT_AVAIL
     auto ch_layout = uniuqeRGYChannelLayout(new RGYChannelLayout(), av_channel_layout_uninit);
