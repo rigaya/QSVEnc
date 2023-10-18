@@ -138,7 +138,7 @@ jobs:
 
       - name: Checkout dependencies
         run: |
-          curl -s -o ffmpeg_lgpl_20220302.zip -L https://github.com/rigaya/ffmpeg5_dlls_for_hwenc/archive/refs/tags/20220302.zip
+          curl -s -o ffmpeg_lgpl_20220302.zip -L https://github.com/rigaya/ffmpeg5_dlls_for_hwenc/archive/refs/tags/20230204.zip
           7z x -y ffmpeg_lgpl_20220302.zip
           move ffmpeg5* ffmpeg_lgpl
           git clone https://github.com/AviSynth/AviSynthPlus.git ..\AviSynthPlus
