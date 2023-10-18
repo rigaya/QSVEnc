@@ -313,6 +313,13 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2023.10.18 (7.50)
+[QSVEncC]
+- 音声フィルターの切り替えがエンコード中に発生する時に--thread-audio > 1で異常終了する問題を修正。
+- --log-levelにquietを追加。
+- --check-featuresの処理を改良。
+- 新しいAVChannelLayout APIに対応(Windows版)。
+
 2023.10.01 (7.49)
 [QSVEncC]
 - Linuxで--deviceによるデバイス選択に対応。
