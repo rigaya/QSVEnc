@@ -455,6 +455,16 @@ static RGY_CODEC conv_codec_mfx_to_rgy(const uint32_t codecId) {
     }
 }
 
+const CX_DESC auo_list_log_level[7] = {
+    { _T("trace"), RGY_LOG_TRACE },
+    { _T("debug"), RGY_LOG_DEBUG },
+    { _T("more"),  RGY_LOG_MORE  },
+    { _T("info"),  RGY_LOG_INFO  },
+    { _T("warn"),  RGY_LOG_WARN  },
+    { _T("error"), RGY_LOG_ERROR },
+    { NULL, 0 }
+};
+
 void *guiEx_config::convert_qsvstgv5_to_stgv6(void *_conf) {
     CONF_GUIEX_OLD_V5 *conf_old = (CONF_GUIEX_OLD_V5 *)calloc(sizeof(CONF_GUIEX_OLD_V5), 1);
     write_conf_header_old5(conf_old);
@@ -974,7 +984,7 @@ static tstring gen_cmd_oldv5(const sInputParamsOld *pParams, bool save_disabled_
     OPT_NUM(_T("--audio-thread"), nAudioThread);
     OPT_NUM(_T("--max-procfps"), nProcSpeedLimit);
     OPT_CHAR_PATH(_T("--log"), pStrLogFile);
-    OPT_LST(_T("--log-level"), nLogLevel, list_log_level);
+    OPT_LST(_T("--log-level"), nLogLevel, auo_list_log_level);
     OPT_CHAR_PATH(_T("--log-framelist"), pFramePosListLog);
     OPT_CHAR_PATH(_T("--log-mux-ts"), pMuxVidTsLogFile);
     OPT_CHAR_PATH(_T("--log-copy-framedata"), pLogCopyFrameData);
