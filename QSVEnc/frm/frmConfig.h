@@ -1443,6 +1443,8 @@ private: System::Windows::Forms::Label^  fcgLBScenarioInfo;
             this->fcgTTEx = (gcnew System::Windows::Forms::ToolTip(this->components));
             this->fcgtabControlQSV = (gcnew System::Windows::Forms::TabControl());
             this->tabPageVideoEnc = (gcnew System::Windows::Forms::TabPage());
+            this->fcgCXScenarioInfo = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgLBScenarioInfo = (gcnew System::Windows::Forms::Label());
             this->fcgCXBitDepth = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBBitDepth = (gcnew System::Windows::Forms::Label());
             this->fcgLBHyperMode = (gcnew System::Windows::Forms::Label());
@@ -1797,8 +1799,6 @@ private: System::Windows::Forms::Label^  fcgLBScenarioInfo;
             this->fcgLBAudioPriority = (gcnew System::Windows::Forms::Label());
             this->fcgTXCmd = (gcnew System::Windows::Forms::TextBox());
             this->fcgPNHideToolStripBorder = (gcnew System::Windows::Forms::Panel());
-            this->fcgCXScenarioInfo = (gcnew System::Windows::Forms::ComboBox());
-            this->fcgLBScenarioInfo = (gcnew System::Windows::Forms::Label());
             this->fcgtoolStripSettings->SuspendLayout();
             this->fcgtabControlMux->SuspendLayout();
             this->fcgtabPageMP4->SuspendLayout();
@@ -2825,6 +2825,25 @@ private: System::Windows::Forms::Label^  fcgLBScenarioInfo;
             this->tabPageVideoEnc->TabIndex = 0;
             this->tabPageVideoEnc->Text = L"動画エンコード";
             this->tabPageVideoEnc->UseVisualStyleBackColor = true;
+            // 
+            // fcgCXScenarioInfo
+            // 
+            this->fcgCXScenarioInfo->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXScenarioInfo->FormattingEnabled = true;
+            this->fcgCXScenarioInfo->Location = System::Drawing::Point(454, 281);
+            this->fcgCXScenarioInfo->Name = L"fcgCXScenarioInfo";
+            this->fcgCXScenarioInfo->Size = System::Drawing::Size(121, 22);
+            this->fcgCXScenarioInfo->TabIndex = 185;
+            this->fcgCXScenarioInfo->Tag = L"reCmd";
+            // 
+            // fcgLBScenarioInfo
+            // 
+            this->fcgLBScenarioInfo->AutoSize = true;
+            this->fcgLBScenarioInfo->Location = System::Drawing::Point(356, 284);
+            this->fcgLBScenarioInfo->Name = L"fcgLBScenarioInfo";
+            this->fcgLBScenarioInfo->Size = System::Drawing::Size(61, 14);
+            this->fcgLBScenarioInfo->TabIndex = 184;
+            this->fcgLBScenarioInfo->Text = L"シナリオ情報";
             // 
             // fcgCXBitDepth
             // 
@@ -6599,25 +6618,6 @@ private: System::Windows::Forms::Label^  fcgLBScenarioInfo;
             this->fcgPNHideToolStripBorder->Size = System::Drawing::Size(1020, 4);
             this->fcgPNHideToolStripBorder->TabIndex = 90;
             this->fcgPNHideToolStripBorder->Visible = false;
-            // 
-            // fcgCXScenarioInfo
-            // 
-            this->fcgCXScenarioInfo->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-            this->fcgCXScenarioInfo->FormattingEnabled = true;
-            this->fcgCXScenarioInfo->Location = System::Drawing::Point(454, 281);
-            this->fcgCXScenarioInfo->Name = L"fcgCXScenarioInfo";
-            this->fcgCXScenarioInfo->Size = System::Drawing::Size(121, 22);
-            this->fcgCXScenarioInfo->TabIndex = 185;
-            this->fcgCXScenarioInfo->Tag = L"reCmd";
-            // 
-            // fcgLBScenarioInfo
-            // 
-            this->fcgLBScenarioInfo->AutoSize = true;
-            this->fcgLBScenarioInfo->Location = System::Drawing::Point(356, 284);
-            this->fcgLBScenarioInfo->Name = L"fcgLBScenarioInfo";
-            this->fcgLBScenarioInfo->Size = System::Drawing::Size(61, 14);
-            this->fcgLBScenarioInfo->TabIndex = 184;
-            this->fcgLBScenarioInfo->Text = L"シナリオ情報";
             // 
             // frmConfig
             // 
