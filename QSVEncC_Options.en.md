@@ -55,6 +55,8 @@
   - [--output-csp \<string\>](#--output-csp-string)
   - [--output-depth \<int\>](#--output-depth-int)
 - [Encode Mode Options](#encode-mode-options)
+  - [--icq \<int\> (ICQ, Intelligent Const. Quality mode, default: 23)](#--icq-int-icq-intelligent-const-quality-mode-default-23)
+  - [--la-icq \<int\> (LA-ICQ, Lookahead based ICQ mode: default: 23)](#--la-icq-int-la-icq-lookahead-based-icq-mode-default-23)
   - [--cqp \<int\> or \<int\>:\<int\>:\<int\>](#--cqp-int-or-intintint)
   - [--cbr \<int\>  (CBR, Constant Bitrate mode)](#--cbr-int--cbr-constant-bitrate-mode)
   - [--vbr \<int\>  (VBR, Variable Bitrate mode)](#--vbr-int--vbr-variable-bitrate-mode)
@@ -63,8 +65,6 @@
   - [--la-hrd \<int\> (LA-HRD, HRD-compliant LookAhead mode)](#--la-hrd-int-la-hrd-hrd-compliant-lookahead-mode)
   - [--vcm \<int\> (VCM, Video Conference Mode)](#--vcm-int-vcm-video-conference-mode)
   - [--qvbr \<int\>, --qvbr-q \<int\> (QVBR, Quality based VBR mode)](#--qvbr-int---qvbr-q-int-qvbr-quality-based-vbr-mode)
-  - [--icq \<int\> (ICQ, Intelligent Const. Quality mode, default: 23)](#--icq-int-icq-intelligent-const-quality-mode-default-23)
-  - [--la-icq \<int\> (LA-ICQ, Lookahead based ICQ mode: default: 23)](#--la-icq-int-la-icq-lookahead-based-icq-mode-default-23)
   - [--fallback-rc](#--fallback-rc)
 - [Options for Frame Buffer](#options-for-frame-buffer)
   - [--disable-d3d (Win)](#--disable-d3d-win)
@@ -540,7 +540,11 @@ Set output bit depth. Default is 8.
 
 ## Encode Mode Options
 
-The default is CQP (Constant quantization).
+The default is ICQ (Intelligent Const. Quality mode).
+
+### --icq &lt;int&gt; (ICQ, Intelligent Const. Quality mode, default: 23)
+### --la-icq &lt;int&gt; (LA-ICQ, Lookahead based ICQ mode: default: 23)
+Constant Quality encoding modes. (lower value => high quality)
 
 ### --cqp &lt;int&gt; or &lt;int&gt;:&lt;int&gt;:&lt;int&gt;
 Set the QP value of &lt;I frame&gt;:&lt;P frame&gt;:&lt;B frame&gt;
@@ -557,10 +561,6 @@ Encode in bitrate(kbps) specified.
 
 ### --qvbr &lt;int&gt;, --qvbr-q &lt;int&gt; (QVBR, Quality based VBR mode)
 Encode in bitrate specified with "--qvbr", based on quality specified by "--qvbr-quality" (default: 23, lower value => high quality).
-
-### --icq &lt;int&gt; (ICQ, Intelligent Const. Quality mode, default: 23)
-### --la-icq &lt;int&gt; (LA-ICQ, Lookahead based ICQ mode: default: 23)
-Constant Quality encoding modes. (lower value => high quality)
 
 ### --fallback-rc
 Enable fallback of ratecontrol mode, when platform does not support new ratecontrol modes.

@@ -110,7 +110,7 @@ sInputParams::sInputParams() :
     vpp(),
     vppmfx(),
     device(QSVDeviceNum::AUTO),
-    nEncMode(MFX_RATECONTROL_CQP),
+    nEncMode(MFX_RATECONTROL_ICQ),
     nTargetUsage(QSV_DEFAULT_QUALITY),
     codec(RGY_CODEC_H264),
     CodecProfile(0),

@@ -278,7 +278,7 @@ tstring encoder_help() {
 #endif //#if LIBVA_SUPPORT
             _T("\n"));
     str += strsprintf(_T("Encode Mode Options:\n")
-        _T(" EncMode default: --cqp\n")
+        _T(" EncMode default: --icq\n")
         _T("   --cqp <int> or               encode in Constant QP, default %d:%d:%d\n")
         _T("         <int>:<int>:<int>      set qp value for i:p:b frame\n")
         _T("   --la <int>                   set bitrate in Lookahead mode (kbps)\n")
