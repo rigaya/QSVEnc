@@ -181,7 +181,7 @@ sInputParams::sInputParams() :
     nWeightP(0),
     nWeightB(0),
     nFadeDetect(),
-    nFallback(0),
+    fallbackRC(true),
     bOutputAud(false),
     bOutputPicStruct(false),
     bufPeriodSEI(false),

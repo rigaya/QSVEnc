@@ -1044,7 +1044,11 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("fallback-rc"))) {
-        pParams->nFallback = 1;
+        pParams->fallbackRC = true;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("no-fallback-rc"))) {
+        pParams->fallbackRC = false;
         return 0;
     }
     if (   0 == _tcscmp(option_name, _T("max-bitrate"))
@@ -2153,7 +2157,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
         OPT_NUM(_T("--max-bitrate"), nMaxBitrate);
     }
     OPT_NUM(_T("--vbv-bufsize"), VBVBufsize);
-    OPT_BOOL(_T("--fallback-rc"), _T(""), nFallback);
+    OPT_BOOL(_T("--fallback-rc"), _T("--no-fallback-rc"), fallbackRC);
     OPT_QP(_T("--qp-min"), save_disabled_prm, nQPMin[0], nQPMin[1], nQPMin[2]);
     OPT_QP(_T("--qp-max"), save_disabled_prm, nQPMax[0], nQPMax[1], nQPMax[2]);
     if (memcmp(pParams->pQPOffset, encPrmDefault.pQPOffset, sizeof(encPrmDefault.pQPOffset))) {

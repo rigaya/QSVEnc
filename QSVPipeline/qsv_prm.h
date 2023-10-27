@@ -365,7 +365,7 @@ struct sInputParams {
     int        nWeightB;
     std::optional<bool> nFadeDetect;
 
-    uint32_t   nFallback;
+    bool       fallbackRC;
     bool       bOutputAud;
     bool       bOutputPicStruct;
     bool       bufPeriodSEI;

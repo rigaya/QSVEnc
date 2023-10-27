@@ -456,7 +456,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
             PrintMes(RGY_LOG_WARN, _T("%s is not supported on this platform, switched to %s mode.\n"), PG_FF_STR[!!pInParams->bUseFixedFunc], PG_FF_STR[!pInParams->bUseFixedFunc]);
             pInParams->bUseFixedFunc = !pInParams->bUseFixedFunc;
         }
-        const auto rc_error_log_level = (pInParams->nFallback) ? RGY_LOG_WARN : RGY_LOG_ERROR;
+        const auto rc_error_log_level = (pInParams->fallbackRC) ? RGY_LOG_WARN : RGY_LOG_ERROR;
         PrintMes(rc_error_log_level, _T("%s mode is not supported on current platform.\n"), EncmodeToStr(pInParams->nEncMode));
         if (MFX_RATECONTROL_LA == pInParams->nEncMode) {
             if (!check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_7)) {
@@ -476,7 +476,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
                 PrintMes(rc_error_log_level, _T("%s mode is only supported by API v1.11 or later.\n"), EncmodeToStr(pInParams->nEncMode));
             }
         }
-        if (!pInParams->nFallback) {
+        if (!pInParams->fallbackRC) {
             return RGY_ERR_INVALID_VIDEO_PARAM;
         }
         //fallback
