@@ -937,6 +937,14 @@ System::Boolean frmConfig::fcgCheckCodec() {
             fcgCXEncCodec->Items[codecIdx] = String(list_out_enc_codec[codecIdx].desc).ToString();
         }
     }
+    const auto codec = get_out_enc_codec_by_index(fcgCXEncCodec->SelectedIndex);
+    // codec が RGY_CODEC_AV1 の時、CQPの上限は255、それ以外なら51
+    const int qp_max = (codec == RGY_CODEC_AV1) ? 255 : 51;
+    fcgNUQPI->Maximum = qp_max;
+    fcgNUQPP->Maximum = qp_max;
+    fcgNUQPB->Maximum = qp_max;
+    fcgNUQPMin->Maximum = qp_max;
+    fcgNUQPMax->Maximum = qp_max;
     return result;
 }
 
