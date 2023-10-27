@@ -1855,18 +1855,21 @@ int parse_cmd(sInputParams *pParams, const char *cmda, bool ignore_parse_err) {
         return 0;
     }
     vector<tstring> argv_tstring;
+    if (wcslen(argvw[0]) != 0) {
+        argv_tstring.push_back(_T("")); // 最初は実行ファイルのパスが入っているのを模擬するため、空文字列を入れておく
+    }
     for (int i = 0; i < argc; i++) {
         argv_tstring.push_back(wstring_to_tstring(argvw[i]));
     }
     LocalFree(argvw);
 
     vector<TCHAR *> argv_tchar;
-    for (int i = 0; i < argc; i++) {
+    for (int i = 0; i < argv_tstring.size(); i++) {
         argv_tchar.push_back((TCHAR *)argv_tstring[i].data());
     }
-    argv_tchar.push_back(_T(""));
+    argv_tchar.push_back(_T("")); // 最後に空白を追加
     const TCHAR **strInput = (const TCHAR **)argv_tchar.data();
-    return parse_cmd(pParams, strInput, argc, ignore_parse_err);
+    return parse_cmd(pParams, strInput, (int)argv_tchar.size() - 1 /*最後の空白の分*/, ignore_parse_err);
 }
 #endif
 
