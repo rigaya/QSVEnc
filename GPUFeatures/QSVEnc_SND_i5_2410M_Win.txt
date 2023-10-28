@@ -1,10 +1,10 @@
-QSVEncC (x64) 7.08 (r2760) by rigaya, Aug 11 2022 09:01:31 (VC 1932/Win)
- Intel Media SDK API v2.07
- reader: raw, avi, avs, vpy, avsw, avhw [H.264/AVC, H.265/HEVC, MPEG2, VP8, VP9, AV1]
+QSVEncC (x64) 7.51 (r3155) by rigaya, Oct 28 2023 08:32:46 (VC 1937/Win)
+ Intel Media SDK API v2.09
+ reader: raw, avi, avs, vpy, avsw, avhw
 Environment Info
 OS : Windows 8.1 x64 (9600) [CP932]
 CPU: Intel Core i5-2410M @ 2.30GHz [TB: 2.90GHz] (2C/4T)
-RAM: Used 831 MB, Total 4011 MB
+RAM: Used 1772 MB, Total 4011 MB
 GPU:  650-1200MHz
 
 Media SDK Version: Hardware API v1.04
@@ -18,7 +18,7 @@ Hyper Mode    x     x     x     x     x     x     x     x     x     x
 Interlace     o     o     o     x     o     x     x     x     x     x    
 VUI info      o     o     o     x     o     x     x     x     x     x    
 Trellis       x     x     x     x     x     x     x     x     x     x    
-B Frame       x     x     x     x     x     x     x     x     x     x    
+BFrame/GopRef x     x     x     x     x     x     x     x     x     x    
 Adaptive_I    x     x     x     x     x     x     x     x     x     x    
 Adaptive_B    x     x     x     x     x     x     x     x     x     x    
 WeightP       x     x     x     x     x     x     x     x     x     x    
@@ -27,6 +27,8 @@ FadeDetect    x     x     x     x     x     x     x     x     x     x
 B_Pyramid     x     x     x     x     x     x     x     x     x     x    
  +ManyBframes x     x     x     x     x     x     x     x     x     x    
 PyramQPOffset x     x     x     x     x     x     x     x     x     x    
+TuneQuality   x     x     x     x     x     x     x     x     x     x    
+ScenarioInfo  x     x     x     x     x     x     x     x     x     x    
 MBBRC         x     x     x     x     x     x     x     x     x     x    
 ExtBRC        x     x     x     x     x     x     x     x     x     x    
 AdaptiveRef   x     x     x     x     x     x     x     x     x     x    
@@ -44,6 +46,20 @@ MVCostScaling x     x     x     x     x     x     x     x     x     x
 SAO           x     x     x     x     x     x     x     x     x     x    
 Max CTU Size  x     x     x     x     x     x     x     x     x     x    
 TSkip         x     x     x     x     x     x     x     x     x     x    
+COP           x     x     x     x     x     x     x     x     x     x    
+COP2          x     x     x     x     x     x     x     x     x     x    
+COP3          x     x     x     x     x     x     x     x     x     x    
+SPSPPS        x     x     x     x     x     x     x     x     x     x    
+HEVC_PRM      x     x     x     x     x     x     x     x     x     x    
+COP_VP8       x     x     x     x     x     x     x     x     x     x    
+VP9_PRM       x     x     x     x     x     x     x     x     x     x    
+AV1BITSTREAM  x     x     x     x     x     x     x     x     x     x    
+AV1RESOLUTION x     x     x     x     x     x     x     x     x     x    
+AV1TILE       x     x     x     x     x     x     x     x     x     x    
+VIDEO_SIGNAL  x     x     x     x     x     x     x     x     x     x    
+CHROMALOC     x     x     x     x     x     x     x     x     x     x    
+TUNE_ENC_QUAL x     x     x     x     x     x     x     x     x     x    
+HYPER_MODE    x     x     x     x     x     x     x     x     x     x    
 
 
 
@@ -55,7 +71,7 @@ Hyper Mode    x     x     x     x     x     x     x     x     x     x
 Interlace     o     o     o     x     o     x     x     x     x     x    
 VUI info      o     o     o     x     o     x     x     x     x     x    
 Trellis       x     x     x     x     x     x     x     x     x     x    
-B Frame       x     x     x     x     x     x     x     x     x     x    
+BFrame/GopRef x     x     x     x     x     x     x     x     x     x    
 Adaptive_I    x     x     x     x     x     x     x     x     x     x    
 Adaptive_B    x     x     x     x     x     x     x     x     x     x    
 WeightP       x     x     x     x     x     x     x     x     x     x    
@@ -64,6 +80,8 @@ FadeDetect    x     x     x     x     x     x     x     x     x     x
 B_Pyramid     x     x     x     x     x     x     x     x     x     x    
  +ManyBframes x     x     x     x     x     x     x     x     x     x    
 PyramQPOffset x     x     x     x     x     x     x     x     x     x    
+TuneQuality   x     x     x     x     x     x     x     x     x     x    
+ScenarioInfo  x     x     x     x     x     x     x     x     x     x    
 MBBRC         x     x     x     x     x     x     x     x     x     x    
 ExtBRC        x     x     x     x     x     x     x     x     x     x    
 AdaptiveRef   x     x     x     x     x     x     x     x     x     x    
@@ -81,6 +99,20 @@ MVCostScaling x     x     x     x     x     x     x     x     x     x
 SAO           x     x     x     x     x     x     x     x     x     x    
 Max CTU Size  x     x     x     x     x     x     x     x     x     x    
 TSkip         x     x     x     x     x     x     x     x     x     x    
+COP           x     x     x     x     x     x     x     x     x     x    
+COP2          x     x     x     x     x     x     x     x     x     x    
+COP3          x     x     x     x     x     x     x     x     x     x    
+SPSPPS        x     x     x     x     x     x     x     x     x     x    
+HEVC_PRM      x     x     x     x     x     x     x     x     x     x    
+COP_VP8       x     x     x     x     x     x     x     x     x     x    
+VP9_PRM       x     x     x     x     x     x     x     x     x     x    
+AV1BITSTREAM  x     x     x     x     x     x     x     x     x     x    
+AV1RESOLUTION x     x     x     x     x     x     x     x     x     x    
+AV1TILE       x     x     x     x     x     x     x     x     x     x    
+VIDEO_SIGNAL  x     x     x     x     x     x     x     x     x     x    
+CHROMALOC     x     x     x     x     x     x     x     x     x     x    
+TUNE_ENC_QUAL x     x     x     x     x     x     x     x     x     x    
+HYPER_MODE    x     x     x     x     x     x     x     x     x     x    
 
 
 
@@ -97,6 +129,7 @@ Mirror                x
 Detail Enhancement    o
 Proc Amp.             o
 Image Stabilization   x
+Perceptual Pre Enc    x
 Video Signal Info     x
 FPS Conversion        x
 FPS Conversion (Adv.) x
