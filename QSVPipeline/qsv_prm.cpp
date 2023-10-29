@@ -198,11 +198,6 @@ sInputParams::sInputParams() :
     pythonPath(),
     bBenchmark(false),
     nBenchQuality(QSV_DEFAULT_BENCH) {
-#if !FOR_AUO
-    if (getCPUGenCpuid() >= CPU_GEN_HASWELL) {
-        bBPyramid = false;
-    }
-#endif
     memset(nQPMin, 0, sizeof(nQPMin));
     memset(nQPMax, 0, sizeof(nQPMax));
     memset(pQPOffset, 0, sizeof(pQPOffset));
