@@ -871,9 +871,25 @@ protected:
         }
         if (surfDecOut != nullptr && lastSyncP != nullptr) {
             auto taskSurf = useTaskSurf(surfDecOut);
+            const auto picstruct = taskSurf.mfx()->surf()->Info.PicStruct;
+            auto flags = RGY_FRAME_FLAG_NONE;
+            // RFFの場合、MFX_PICSTRUCT_PROGRESSIVEに加えて、MFX_PICSTRUCT_FIELD_TFFまたはMFX_PICSTRUCT_FIELD_BFF、MFX_PICSTRUCT_FIELD_REPEATEDが立っている
+            // picstructにはprogressiveを設定し、flagsにRFF関係の情報を設定しなおす
+            // この情報の取得には、m_mfxDecParams.mfx.ExtendedPicStruct = 1 としてデコーダを初期化する必要がある
+            if ((picstruct & MFX_PICSTRUCT_PROGRESSIVE) && (picstruct & (MFX_PICSTRUCT_FIELD_TFF| MFX_PICSTRUCT_FIELD_BFF))) {
+                taskSurf.frame()->setPicstruct(RGY_PICSTRUCT_FRAME);
+                if (picstruct & MFX_PICSTRUCT_FIELD_REPEATED) {
+                    flags |= RGY_FRAME_FLAG_RFF;
+                }
+            }
+            if (picstruct & MFX_PICSTRUCT_FIELD_TFF) {
+                flags |= RGY_FRAME_FLAG_RFF_TFF;
+            }
+            if (picstruct & MFX_PICSTRUCT_FIELD_BFF) {
+                flags |= RGY_FRAME_FLAG_RFF_BFF;
+            }
             taskSurf.frame()->setInputFrameId(m_decFrameOutCount++);
 
-            auto flags = RGY_FRAME_FLAG_NONE;
             if (getDataFlag(surfDecOut->Data.TimeStamp) & RGY_FRAME_FLAG_RFF) {
                 flags |= RGY_FRAME_FLAG_RFF;
             }
@@ -993,6 +1009,9 @@ public:
             //CFR仮定ではなく、オリジナルの時間を見る
             const auto srcTimestamp = taskSurf->surf().frame()->timestamp();
             outPtsSource = rational_rescale(srcTimestamp, m_srcTimebase, m_outputTimebase);
+            if (taskSurf->surf().frame()->duration() > 0) {
+                taskSurf->surf().frame()->setDuration(rational_rescale(taskSurf->surf().frame()->duration(), m_srcTimebase, m_outputTimebase));
+            }
         }
         PrintMes(RGY_LOG_TRACE, _T("check_pts(%d/%d): nOutEstimatedPts %lld, outPtsSource %lld, outDuration %d\n"), taskSurf->surf().frame()->inputFrameId(), m_inFrames, m_tsOutEstimated, outPtsSource, outDuration);
         if (m_tsOutFirst < 0) {
@@ -1785,9 +1804,13 @@ public:
             #define clFrameOutInteropRelease { if (clFrameOutInterop) clFrameOutInterop->release(); }
             //フィルタリングするならここ
             for (uint32_t ifilter = filterframes.front().second; ifilter < m_vpFilters.size() - 1; ifilter++) {
+                // コピーを作ってそれをfilter関数に渡す
+                // vpp-rffなどoverwirteするフィルタのときに、filterframes.pop_front -> push がうまく動作しない
+                RGYFrameInfo input = filterframes.front().first;
+
                 int nOutFrames = 0;
                 RGYFrameInfo *outInfo[16] = { 0 };
-                auto sts_filter = m_vpFilters[ifilter]->filter(&filterframes.front().first, (RGYFrameInfo **)&outInfo, &nOutFrames);
+                auto sts_filter = m_vpFilters[ifilter]->filter(&input, (RGYFrameInfo **)&outInfo, &nOutFrames);
                 if (sts_filter != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_vpFilters[ifilter]->name().c_str());
                     clFrameOutInteropRelease;

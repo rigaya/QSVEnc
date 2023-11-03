@@ -701,6 +701,7 @@ rgy_filter_convolution3d.cpp  rgy_filter_crop.cpp       rgy_filter_curves.cpp \
 rgy_filter_deband.cpp       rgy_filter_decimate.cpp     rgy_filter_delogo.cpp \
 rgy_filter_denoise_knn.cpp  rgy_filter_denoise_pmd.cpp  rgy_filter_edgelevel.cpp       rgy_filter_mpdecimate.cpp \
 rgy_filter_nnedi.cpp        rgy_filter_overlay.cpp      rgy_filter_pad.cpp             rgy_filter_resize.cpp \
+rgy_filter_rff.cpp \
 rgy_filter_ssim.cpp         rgy_filter_smooth.cpp       rgy_filter_subburn.cpp         rgy_filter_transform.cpp \
 rgy_filter_tweak.cpp        rgy_filter_unsharp.cpp      rgy_filter_warpsharp.cpp       rgy_filter_yadif.cpp \
 rgy_frame.cpp               rgy_hdr10plus.cpp           rgy_ini.cpp \

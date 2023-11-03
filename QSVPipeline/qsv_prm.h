@@ -175,6 +175,7 @@ enum class VppType : int {
     CL_MPDECIMATE,
     CL_YADIF,
     CL_COLORSPACE,
+    CL_RFF,
     CL_DELOGO,
     CL_TRANSFORM,
 

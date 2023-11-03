@@ -93,7 +93,7 @@ const char *get_encoder_version();
 #define ENABLE_AVCODEC_ITERATE 1
 #define ENABLE_DOVI_METADATA_OPTIONS 1
 #define ENABLE_KEYFRAME_INSERT 0
-#define ENABLE_AUTO_PICSTRUCT 0
+#define ENABLE_AUTO_PICSTRUCT 1
 
 #define ENABLE_HYPER_MODE 1
 

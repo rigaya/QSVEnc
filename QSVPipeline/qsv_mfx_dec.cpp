@@ -153,6 +153,9 @@ RGY_ERR QSVMfxDec::SetParam(
     memset(&m_mfxDecParams, 0, sizeof(m_mfxDecParams));
     m_mfxDecParams.mfx.CodecId = codec_rgy_to_enc(inputCodec);
     m_mfxDecParams.IOPattern = (uint16_t)((m_memType != SYSTEM_MEMORY) ? MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_OUT_SYSTEM_MEMORY);
+    // RFF使用時に、フィールドの情報を取得するために必要
+    // RFFのときに MFX_PICSTRUCT_PROGRESSIVE に加え、MFX_PICSTRUCT_FIELD_TFFまたはMFX_PICSTRUCT_FIELD_BFF、MFX_PICSTRUCT_FIELD_REPEATEDが設定される
+    m_mfxDecParams.mfx.ExtendedPicStruct = 1;
     sts = err_to_rgy(m_mfxDec->DecodeHeader(&inputHeader.bitstream(), &m_mfxDecParams));
     if (sts != RGY_ERR_NONE && inputCodec == RGY_CODEC_AV1) {
         // AV1ではそのままのヘッダだと、DecodeHeaderに失敗する場合がある QSVEnc #122

@@ -66,6 +66,7 @@ RGY_DISABLE_WARNING_POP
 #include "rgy_input_avcodec.h"
 #include "rgy_filter.h"
 #include "rgy_filter_colorspace.h"
+#include "rgy_filter_rff.h"
 #include "rgy_filter_afs.h"
 #include "rgy_filter_nnedi.h"
 #include "rgy_filter_yadif.h"
@@ -1792,7 +1793,7 @@ RGY_ERR CQSVPipeline::InitInput(sInputParams *inputParam, std::vector<std::uniqu
 
     auto sts = initReaders(m_pFileReader, m_AudioReaders, &inputParam->input, inputCspOfRawReader,
         m_pStatus, &inputParam->common, &inputParam->ctrl, HWDecCodecCsp, subburnTrackId,
-        (ENABLE_VPP_FILTER_RFF) ? inputParam->vpp.rff : false,
+        (ENABLE_VPP_FILTER_RFF) ? inputParam->vpp.rff.enable : false,
         (ENABLE_VPP_FILTER_AFS) ? inputParam->vpp.afs.enable : false,
         m_poolPkt.get(), m_poolFrame.get(),
         nullptr, m_pPerfMonitor.get(), m_pQSVLog);
@@ -1838,14 +1839,17 @@ RGY_ERR CQSVPipeline::InitInput(sInputParams *inputParam, std::vector<std::uniqu
     auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
     if ((m_nAVSyncMode & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR))
 #if ENABLE_VPP_FILTER_RFF
-        || inputParam->vpp.rff
+        || inputParam->vpp.rff.enable
 #endif
         ) {
         tstring err_target;
         if (m_nAVSyncMode & RGY_AVSYNC_VFR)       err_target += _T("avsync vfr, ");
         if (m_nAVSyncMode & RGY_AVSYNC_FORCE_CFR) err_target += _T("avsync forcecfr, ");
 #if ENABLE_VPP_FILTER_RFF
-        if (inputParam->vpp.rff)                  err_target += _T("vpp-rff, ");
+        if (inputParam->vpp.rff.enable) {
+            err_target += _T("vpp-rff, ");
+            m_nAVSyncMode = RGY_AVSYNC_VFR;
+        }
 #endif
         err_target = err_target.substr(0, err_target.length()-2);
 
@@ -1877,7 +1881,7 @@ RGY_ERR CQSVPipeline::InitInput(sInputParams *inputParam, std::vector<std::uniqu
             m_nAVSyncMode |= RGY_AVSYNC_VFR;
             const auto timebaseStreamIn = to_rgy(pAVCodecReader->GetInputVideoStream()->time_base);
             if ((timebaseStreamIn.inv() * m_inputFps.inv()).d() == 1 || timebaseStreamIn.n() > 1000) { //fpsを割り切れるtimebaseなら
-                if (!inputParam->vpp.afs.enable && !inputParam->vpp.rff) {
+                if (!inputParam->vpp.afs.enable && !inputParam->vpp.rff.enable) {
                     m_outputTimebase = m_inputFps.inv() * rgy_rational<int>(1, 8);
                 }
             }
@@ -2069,6 +2073,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
         }
         filterPipeline.push_back((requireOpenCL) ? VppType::CL_COLORSPACE : VppType::MFX_COLORSPACE);
     }
+    if (inputParam->vpp.rff.enable)        filterPipeline.push_back(VppType::CL_RFF);
     if (inputParam->vpp.delogo.enable)     filterPipeline.push_back(VppType::CL_DELOGO);
     if (inputParam->vpp.afs.enable)        filterPipeline.push_back(VppType::CL_AFS);
     if (inputParam->vpp.nnedi.enable)      filterPipeline.push_back(VppType::CL_NNEDI);
@@ -2224,6 +2229,29 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         inputFrame = param->frameOut;
         m_encFps = param->baseFps;
         vuiInfo = filter->VuiOut();
+        //登録
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
+    }
+    //rff
+    if (vppType == VppType::CL_RFF) {
+        unique_ptr<RGYFilter> filter(new RGYFilterRff(m_cl));
+        shared_ptr<RGYFilterParamRff> param(new RGYFilterParamRff());
+        param->rff = params->vpp.rff;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->inFps = m_inputFps;
+        param->timebase = m_outputTimebase;
+        param->outFilename = params->common.outputFilename;
+        param->bOutOverwrite = true;
+        auto sts = filter->init(param, m_pQSVLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
         //登録
         clfilters.push_back(std::move(filter));
         return RGY_ERR_NONE;
@@ -2837,6 +2865,13 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
     if (deinterlacer >= 2) {
         PrintMes(RGY_LOG_ERROR, _T("Activating 2 or more deinterlacer is not supported.\n"));
         return RGY_ERR_UNSUPPORTED;
+    }
+    //vpp-rffの制約事項
+    if (inputParam->vpp.rff.enable) {
+        if (trim_active(&m_trimParam)) {
+            PrintMes(RGY_LOG_ERROR, _T("vpp-rff cannot be used with trim.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
     }
     //picStructの設定
     m_encPicstruct = (deinterlacer > 0) ? RGY_PICSTRUCT_FRAME : inputParam->input.picstruct;

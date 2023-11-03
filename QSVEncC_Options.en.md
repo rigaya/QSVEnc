@@ -200,6 +200,7 @@
 - [Vpp Options](#vpp-options)
   - [Vpp Filtering order](#vpp-filtering-order)
   - [--vpp-colorspace \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-colorspace-param1value1param2value2)
+  - [--vpp-rff](#--vpp-rff)
   - [--vpp-delogo \<string\>\[,\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-delogo-stringparam1value1param2value2)
   - [--vpp-afs \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-afs-param1value1param2value2)
   - [--vpp-nnedi \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-nnedi-param1value1param2value2)
@@ -1591,6 +1592,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 
 - filter list
   - [--vpp-colorspace](#--vpp-colorspace-param1value1param2value2)
+  - [--vpp-rff](#--vpp-rff)
   - [--vpp-delogo](#--vpp-delogo-stringparam1value1param2value2)
   - [--vpp-afs](#--vpp-afs-param1value1param2value2)
   - [--vpp-nnedi](#--vpp-nnedi-param1value1param2value2)
@@ -1715,6 +1717,10 @@ Values for parameters will be copied from input file for "input".
   --vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0,a=0.22,b=0.3,c=0.1,d=0.2,e=0.01,f=0.3
   ```
 
+### --vpp-rff
+Reflect the Repeat Field Flag. The avsync error caused by rff could be solved. Available only when [--avhw](#--avhw-string), [--avsw](#--avsw-string) is used.
+
+rff of 2 or more will not be supported (only  supports rff = 1). Also, it can not be used with [--trim](#--trim-intintintintintint).
 
 ### --vpp-delogo &lt;string&gt;[,&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 

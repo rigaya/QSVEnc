@@ -200,6 +200,7 @@
 - [vppオプション](#vppオプション)
   - [vppフィルタの適用順](#vppフィルタの適用順)
   - [--vpp-colorspace \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-colorspace-param1value1param2value2)
+  - [--vpp-rff](#--vpp-rff)
   - [--vpp-delogo \<string\>\[,\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\]...](#--vpp-delogo-stringparam1value1param2value2)
   - [--vpp-afs \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-afs-param1value1param2value2)
   - [--vpp-nnedi \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-nnedi-param1value1param2value2)
@@ -1604,6 +1605,7 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
 
 - フィルター一覧
   - [--vpp-colorspace](#--vpp-colorspace-param1value1param2value2)
+  - [--vpp-rff](#--vpp-rff)
   - [--vpp-delogo](#--vpp-delogo-stringparam1value1param2value2)
   - [--vpp-afs](#--vpp-afs-param1value1param2value2)
   - [--vpp-nnedi](#--vpp-nnedi-param1value1param2value2)
@@ -1727,6 +1729,10 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
   --vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0,a=0.22,b=0.3,c=0.1,d=0.2,e=0.01,f=0.3
   ```
 
+### --vpp-rff
+Repeat Field Flagを反映して、フレームを再構築する。rffによる音ズレ問題が解消できる。[--avhw](#--avhw-string), [--avsw](#--avsw-string)使用時のみ有効。
+
+rff=1の場合のみの対応。(rff > 1には対応しない) また、[--trim](#--trim-intintintintintint)とは併用できない。
 
 ### --vpp-delogo &lt;string&gt;[,&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;]...
 ロゴファイルとロゴ消しのオプションを指定する。ロゴファイルは、".lgd",".ldp",".ldp2"に対応。
