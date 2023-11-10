@@ -1722,9 +1722,9 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetCXIndex(fcgCXHyperMode,    get_cx_index(list_hyper_mode, prm_qsv.hyperMode));
     SetNUValue(fcgNUBitrate,      prm_qsv.nBitRate);
     SetNUValue(fcgNUMaxkbps,      prm_qsv.nMaxBitrate);
-    SetNUValue(fcgNUQPI,          prm_qsv.nQPI);
-    SetNUValue(fcgNUQPP,          prm_qsv.nQPP);
-    SetNUValue(fcgNUQPB,          prm_qsv.nQPB);
+    SetNUValue(fcgNUQPI,          prm_qsv.qp.qpI);
+    SetNUValue(fcgNUQPP,          prm_qsv.qp.qpP);
+    SetNUValue(fcgNUQPB,          prm_qsv.qp.qpB);
     SetNUValue(fcgNUICQQuality,   prm_qsv.nICQQuality);
     SetNUValue(fcgNUQVBR,         prm_qsv.nQVBRQuality);
     SetNUValue(fcgNUGopLength,    Convert::ToDecimal(prm_qsv.nGOPLength));
@@ -1769,8 +1769,8 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 
     fcgCBBlurayCompat->Checked   = prm_qsv.nBluray != 0;
 
-    SetNUValue(fcgNUQPMin,         prm_qsv.nQPMin[0]);
-    SetNUValue(fcgNUQPMax,         prm_qsv.nQPMax[0]);
+    SetNUValue(fcgNUQPMin,         prm_qsv.qpMin.qpI);
+    SetNUValue(fcgNUQPMax,         prm_qsv.qpMax.qpI);
 
     fcgCBCABAC->Checked          = !prm_qsv.bCAVLC;
     fcgCBRDO->Checked            = prm_qsv.bRDO;
@@ -1985,9 +1985,9 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     prm_qsv.nRef                   = (int)fcgNURef->Value;
     prm_qsv.bopenGOP               = fcgCBOpenGOP->Checked;
     prm_qsv.nGOPLength             = (int)fcgNUGopLength->Value;
-    prm_qsv.nQPI                   = (int)fcgNUQPI->Value;
-    prm_qsv.nQPP                   = (int)fcgNUQPP->Value;
-    prm_qsv.nQPB                   = (int)fcgNUQPB->Value;
+    prm_qsv.qp.qpI                 = (int)fcgNUQPI->Value;
+    prm_qsv.qp.qpP                 = (int)fcgNUQPP->Value;
+    prm_qsv.qp.qpB                 = (int)fcgNUQPB->Value;
     prm_qsv.nICQQuality            = (int)fcgNUICQQuality->Value;
     prm_qsv.nQVBRQuality           = (int)fcgNUQVBR->Value;
     if (gopRefDistAsBframe(prm_qsv.codec)) {
@@ -2013,12 +2013,8 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     prm_qsv.nAVBRConvergence       = (int)fcgNUAVBRConvergence->Value;
     prm_qsv.scenarioInfo           = (int)list_scenario_info[fcgCXScenarioInfo->SelectedIndex].value;
     prm_qsv.nSlices                = (int)fcgNUSlices->Value;
-    prm_qsv.nQPMin[0]              = (int)fcgNUQPMin->Value;
-    prm_qsv.nQPMin[1]              = (int)fcgNUQPMin->Value;
-    prm_qsv.nQPMin[2]              = (int)fcgNUQPMin->Value;
-    prm_qsv.nQPMax[0]              = (int)fcgNUQPMax->Value;
-    prm_qsv.nQPMax[1]              = (int)fcgNUQPMax->Value;
-    prm_qsv.nQPMax[2]              = (int)fcgNUQPMax->Value;
+    prm_qsv.qpMin                  = RGYQPSet((int)fcgNUQPMin->Value, (int)fcgNUQPMin->Value, (int)fcgNUQPMin->Value);
+    prm_qsv.qpMax                  = RGYQPSet((int)fcgNUQPMax->Value, (int)fcgNUQPMax->Value, (int)fcgNUQPMax->Value);
 
     prm_qsv.nBluray                = fcgCBBlurayCompat->Checked;
 

@@ -510,9 +510,9 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
                 nAdjustedQP[1] = pInParams->nICQQuality + 1;
                 nAdjustedQP[2] = pInParams->nICQQuality + 4;
             } else if (pInParams->nEncMode == MFX_RATECONTROL_CQP) {
-                nAdjustedQP[0] = pInParams->nQPI;
-                nAdjustedQP[1] = pInParams->nQPP;
-                nAdjustedQP[2] = pInParams->nQPB;
+                nAdjustedQP[0] = pInParams->qp.qpI;
+                nAdjustedQP[1] = pInParams->qp.qpP;
+                nAdjustedQP[2] = pInParams->qp.qpB;
             }
         }
         //check_rc_listに設定したfallbackの候補リストをチェックする
@@ -526,9 +526,9 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
                 } else if (pInParams->nEncMode == MFX_RATECONTROL_LA_ICQ) {
                     pInParams->nICQQuality = (uint16_t)clamp(nAdjustedQP[1], 1, codecMaxQP);
                 } else if (pInParams->nEncMode == MFX_RATECONTROL_CQP) {
-                    pInParams->nQPI = (uint16_t)clamp(nAdjustedQP[0], 0, codecMaxQP);
-                    pInParams->nQPP = (uint16_t)clamp(nAdjustedQP[1], 0, codecMaxQP);
-                    pInParams->nQPB = (uint16_t)clamp(nAdjustedQP[2], 0, codecMaxQP);
+                    pInParams->qp.qpI = clamp(nAdjustedQP[0], 0, codecMaxQP);
+                    pInParams->qp.qpP = clamp(nAdjustedQP[1], 0, codecMaxQP);
+                    pInParams->qp.qpB = clamp(nAdjustedQP[2], 0, codecMaxQP);
                 }
                 bFallbackSuccess = true;
                 availableFeaures = availRCFeatures;
@@ -691,11 +691,10 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         print_feature_warnings(RGY_LOG_WARN, _T("Intra Refresh"));
         pInParams->intraRefreshCycle = 0;
     }
-    if (0 != (pInParams->nQPMin[0] | pInParams->nQPMin[1] | pInParams->nQPMin[2]
-            | pInParams->nQPMax[0] | pInParams->nQPMax[1] | pInParams->nQPMax[2]) && !(availableFeaures & ENC_FEATURE_QP_MINMAX)) {
+    if ((pInParams->qpMin != RGYQPSet() || pInParams->qpMax != RGYQPSet()) && !(availableFeaures & ENC_FEATURE_QP_MINMAX)) {
         print_feature_warnings(RGY_LOG_WARN, _T("Min/Max QP"));
-        memset(pInParams->nQPMin, 0, sizeof(pInParams->nQPMin));
-        memset(pInParams->nQPMax, 0, sizeof(pInParams->nQPMax));
+        pInParams->qpMin = RGYQPSet();
+        pInParams->qpMax = RGYQPSet();
     }
     if (0 != pInParams->nWinBRCSize) {
         if (!(availableFeaures & ENC_FEATURE_WINBRC)) {
@@ -831,9 +830,9 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
     m_mfxEncParams.mfx.RateControlMethod       = (mfxU16)pInParams->nEncMode;
     if (MFX_RATECONTROL_CQP == m_mfxEncParams.mfx.RateControlMethod) {
         //CQP
-        m_mfxEncParams.mfx.QPI             = (mfxU16)clamp_param_int(pInParams->nQPI, 0, codecMaxQP, _T("qp-i"));
-        m_mfxEncParams.mfx.QPP             = (mfxU16)clamp_param_int(pInParams->nQPP, 0, codecMaxQP, _T("qp-p"));
-        m_mfxEncParams.mfx.QPB             = (mfxU16)clamp_param_int(pInParams->nQPB, 0, codecMaxQP, _T("qp-b"));
+        m_mfxEncParams.mfx.QPI             = (mfxU16)clamp_param_int(pInParams->qp.qpI, 0, codecMaxQP, _T("qp-i"));
+        m_mfxEncParams.mfx.QPP             = (mfxU16)clamp_param_int(pInParams->qp.qpP, 0, codecMaxQP, _T("qp-p"));
+        m_mfxEncParams.mfx.QPB             = (mfxU16)clamp_param_int(pInParams->qp.qpB, 0, codecMaxQP, _T("qp-b"));
     } else if (MFX_RATECONTROL_ICQ    == m_mfxEncParams.mfx.RateControlMethod
             || MFX_RATECONTROL_LA_ICQ == m_mfxEncParams.mfx.RateControlMethod) {
         m_mfxEncParams.mfx.ICQQuality      = (mfxU16)clamp_param_int(pInParams->nICQQuality, 1, codecMaxQP, _T("icq"));
@@ -1011,19 +1010,19 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
             m_CodingOption2.BufferingPeriodSEI = (mfxU16)((pInParams->bufPeriodSEI) ? MFX_BPSEI_IFRAME : MFX_BPSEI_DEFAULT);
         }
         for (int i = 0; i < 3; i++) {
-            pInParams->nQPMin[i] = clamp_param_int(pInParams->nQPMin[i], 0, codecMaxQP, _T("qp min"));
-            pInParams->nQPMax[i] = clamp_param_int(pInParams->nQPMax[i], 0, codecMaxQP, _T("qp max"));
-            const int qpMin = (std::min)(pInParams->nQPMin[i], pInParams->nQPMax[i]);
-            const int qpMax = (std::max)(pInParams->nQPMin[i], pInParams->nQPMax[i]);
-            pInParams->nQPMin[i] = (0 == pInParams->nQPMin[i]) ? 0 : qpMin;
-            pInParams->nQPMax[i] = (0 == pInParams->nQPMax[i]) ? 0 : qpMax;
+            pInParams->qpMin.qp(i) = clamp_param_int(pInParams->qpMin.qp(i), 0, codecMaxQP, _T("qp min"));
+            pInParams->qpMax.qp(i) = clamp_param_int(pInParams->qpMax.qp(i), 0, codecMaxQP, _T("qp max"));
+            const int qpMin = (std::min)(pInParams->qpMin.qp(i), pInParams->qpMax.qp(i));
+            const int qpMax = (std::max)(pInParams->qpMin.qp(i), pInParams->qpMax.qp(i));
+            pInParams->qpMin.qp(i) = (pInParams->qpMin.qp(i) == 0) ? 0 : qpMin;
+            pInParams->qpMax.qp(i) = (pInParams->qpMax.qp(i) == 0) ? 0 : qpMax;
         }
-        m_CodingOption2.MaxQPI = (mfxU8)pInParams->nQPMax[0];
-        m_CodingOption2.MaxQPP = (mfxU8)pInParams->nQPMax[1];
-        m_CodingOption2.MaxQPB = (mfxU8)pInParams->nQPMax[2];
-        m_CodingOption2.MinQPI = (mfxU8)pInParams->nQPMin[0];
-        m_CodingOption2.MinQPP = (mfxU8)pInParams->nQPMin[1];
-        m_CodingOption2.MinQPB = (mfxU8)pInParams->nQPMin[2];
+        m_CodingOption2.MaxQPI = (mfxU8)pInParams->qpMax.qpI;
+        m_CodingOption2.MaxQPP = (mfxU8)pInParams->qpMax.qpP;
+        m_CodingOption2.MaxQPB = (mfxU8)pInParams->qpMax.qpB;
+        m_CodingOption2.MinQPI = (mfxU8)pInParams->qpMin.qpI;
+        m_CodingOption2.MinQPP = (mfxU8)pInParams->qpMin.qpP;
+        m_CodingOption2.MinQPB = (mfxU8)pInParams->qpMin.qpB;
         m_EncExtParams.push_back((mfxExtBuffer *)&m_CodingOption2);
     }
 

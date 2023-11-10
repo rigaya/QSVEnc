@@ -1095,15 +1095,11 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     }
     if (0 == _tcscmp(option_name, _T("cqp"))) {
         i++;
-        int a[3] = { 0 };
-        int ret = parse_qp(a, strInput[i]);
-        if (ret == 0) {
+        int ret = pParams->qp.parse(strInput[i]);
+        if (ret != 0) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->nQPI = a[0];
-        pParams->nQPP = (ret > 1) ? a[1] : a[ret - 1];
-        pParams->nQPB = (ret > 2) ? a[2] : a[ret - 1];
         pParams->nEncMode = MFX_RATECONTROL_CQP;
         return 0;
     }
@@ -1352,18 +1348,21 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         }
         return 0;
     }
-    if (0 == _tcscmp(option_name, _T("qpmax")) || 0 == _tcscmp(option_name, _T("qpmin"))
-        || 0 == _tcscmp(option_name, _T("qp-max")) || 0 == _tcscmp(option_name, _T("qp-min"))) {
+    if (0 == _tcscmp(option_name, _T("qpmin")) || 0 == _tcscmp(option_name, _T("qp-min"))) {
         i++;
-        int qpLimit[3] = { 0 };
-        int ret = parse_qp(qpLimit, strInput[i]);
-        if (ret == 0) {
+        int ret = pParams->qpMin.parse(strInput[i]);
+        if (ret != 0) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        int *limit = (0 == _tcscmp(option_name, _T("qpmin")) || 0 == _tcscmp(option_name, _T("qp-min"))) ? pParams->nQPMin : pParams->nQPMax;
-        for (int j = 0; j < 3; j++) {
-            limit[j] = clamp((ret > j) ? qpLimit[j] : qpLimit[ret-1], 0, 51);
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("qpmax")) || 0 == _tcscmp(option_name, _T("qp-max"))) {
+        i++;
+        int ret = pParams->qpMax.parse(strInput[i]);
+        if (ret != 0) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
         }
         return 0;
     }
@@ -2029,15 +2028,17 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     }
 
 #define OPT_LST(str, opt, list) if ((pParams->opt) != (encPrmDefault.opt)) cmd << _T(" ") << (str) << _T(" ") << get_chr_from_value(list, (pParams->opt));
-#define OPT_QP(str, force, qpi, qpp, qpb) { \
+#define OPT_QP(str, qp, force) { \
     if ((force) \
-    || (pParams->qpi) != (encPrmDefault.qpi) \
-    || (pParams->qpp) != (encPrmDefault.qpp) \
-    || (pParams->qpb) != (encPrmDefault.qpb)) { \
-        if ((pParams->qpi) == (pParams->qpp) && (pParams->qpi) == (pParams->qpb)) { \
-            cmd << _T(" ") << (str) << _T(" ") << (int)(pParams->qpi); \
+    || (pParams->qp.qpI) != (encPrmDefault.qp.qpI) \
+    || (pParams->qp.qpP) != (encPrmDefault.qp.qpP) \
+    || (pParams->qp.qpB) != (encPrmDefault.qp.qpB)) { \
+        if ((pParams->qp.qpI) == (pParams->qp.qpP) && (pParams->qp.qpI) == (pParams->qp.qpB)) { \
+            cmd << _T(" ") << (str) << _T(" ") << (int)(pParams->qp.qpI); \
+        } else if ((pParams->qp.qpP) == (pParams->qp.qpB)) { \
+            cmd << _T(" ") << (str) << _T(" ") << (int)(pParams->qp.qpI) << _T(":") << (int)(pParams->qp.qpP); \
         } else { \
-            cmd << _T(" ") << (str) << _T(" ") << (int)(pParams->qpi) << _T(":") << (int)(pParams->qpp) << _T(":") << (int)(pParams->qpb); \
+            cmd << _T(" ") << (str) << _T(" ") << (int)(pParams->qp.qpI) << _T(":") << (int)(pParams->qp.qpP) << _T(":") << (int)(pParams->qp.qpB); \
         } \
     } \
 }
@@ -2094,12 +2095,12 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
         case MFX_RATECONTROL_LA:
         case MFX_RATECONTROL_LA_HRD:
         case MFX_RATECONTROL_VCM: {
-            OPT_QP(_T("--cqp"), true, nQPI, nQPP, nQPB);
+            OPT_QP(_T("--cqp"), qp, true);
             cmd << _T(" --icq ") << pParams->nICQQuality;
         } break;
         case MFX_RATECONTROL_ICQ:
         case MFX_RATECONTROL_LA_ICQ: {
-            OPT_QP(_T("--cqp"), true, nQPI, nQPP, nQPB);
+            OPT_QP(_T("--cqp"), qp, true);
             cmd << _T(" --vbr ") << pParams->nBitRate;
         } break;
         case MFX_RATECONTROL_CQP:
@@ -2139,7 +2140,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     } break;
     case MFX_RATECONTROL_CQP:
     default: {
-        OPT_QP(_T("--cqp"), true, nQPI, nQPP, nQPB);
+        OPT_QP(_T("--cqp"), qp, true);
     } break;
     }
     if (save_disabled_prm || pParams->nEncMode == MFX_RATECONTROL_AVBR) {
@@ -2158,8 +2159,8 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     }
     OPT_NUM(_T("--vbv-bufsize"), VBVBufsize);
     OPT_BOOL(_T("--fallback-rc"), _T("--no-fallback-rc"), fallbackRC);
-    OPT_QP(_T("--qp-min"), save_disabled_prm, nQPMin[0], nQPMin[1], nQPMin[2]);
-    OPT_QP(_T("--qp-max"), save_disabled_prm, nQPMax[0], nQPMax[1], nQPMax[2]);
+    OPT_QP(_T("--qp-min"), qpMin, save_disabled_prm);
+    OPT_QP(_T("--qp-max"), qpMax, save_disabled_prm);
     if (memcmp(pParams->pQPOffset, encPrmDefault.pQPOffset, sizeof(encPrmDefault.pQPOffset))) {
         tmp.str(tstring());
         bool exit_loop = false;

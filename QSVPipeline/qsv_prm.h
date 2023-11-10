@@ -291,11 +291,10 @@ struct sInputParams {
     int nBitRate;
     int nMaxBitrate;
     int VBVBufsize;
-    int nQPI;          // QP for I frames
-    int nQPP;          // QP for P frames
-    int nQPB;          // QP for B frames
-    int nQPMin[3];
-    int nQPMax[3];
+    RGYQPSet qp;
+    RGYQPSet qpMin;
+    RGYQPSet qpMax;
+
     int nAVBRAccuarcy;    // param for AVBR algorithm, for API v1.3
     int nAVBRConvergence; // param for AVBR algorithm, for API v1.3
 

@@ -126,11 +126,9 @@ sInputParams::sInputParams() :
     nBitRate(6000),
     nMaxBitrate(15000),
     VBVBufsize(0),
-    nQPI(QSV_DEFAULT_QPI),
-    nQPP(QSV_DEFAULT_QPP),
-    nQPB(QSV_DEFAULT_QPB),
-    nQPMin(),
-    nQPMax(),
+    qp({ QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB }),
+    qpMin(),
+    qpMax(),
     nAVBRAccuarcy(QSV_DEFAULT_ACCURACY),
     nAVBRConvergence(QSV_DEFAULT_CONVERGENCE),
     nICQQuality(QSV_DEFAULT_ICQ),
@@ -198,8 +196,6 @@ sInputParams::sInputParams() :
     pythonPath(),
     bBenchmark(false),
     nBenchQuality(QSV_DEFAULT_BENCH) {
-    memset(nQPMin, 0, sizeof(nQPMin));
-    memset(nQPMax, 0, sizeof(nQPMax));
     memset(pQPOffset, 0, sizeof(pQPOffset));
     input.vui = VideoVUIInfo();
 }
