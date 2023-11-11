@@ -267,6 +267,27 @@ struct QSVAV1Params {
     QSVAV1Params();
 };
 
+struct QSVRCParam {
+    int start;
+    int end;
+    int encMode;      // RateControl
+    int bitrate;
+    int maxBitrate;
+    int avbrAccuarcy;    // param for AVBR algorithm, for API v1.3
+    int avbrConvergence; // param for AVBR algorithm, for API v1.3
+    RGYQPSet qp;
+    int icqQuality;
+    int qvbrQuality;
+
+    QSVRCParam();
+    QSVRCParam(int encMode, int bitrate, int maxBitrate, int avbrAccuarcy, int avbrConvergence,
+        RGYQPSet qp, int icqQuality, int qvbrQuality);
+    tstring print() const;
+    bool operator==(const QSVRCParam &x) const;
+    bool operator!=(const QSVRCParam &x) const;
+};
+tstring printParams(const std::vector<QSVRCParam> &dynamicRC);
+
 struct sInputParams {
     VideoInfo input;              //入力する動画の情報
     RGYParamInput inprm;
@@ -275,7 +296,7 @@ struct sInputParams {
     RGYParamVpp vpp;
     sVppParams vppmfx;
     QSVDeviceNum device;
-    int nEncMode;      // RateControl
+    QSVRCParam rcParam;
     int nTargetUsage;  // Quality
     RGY_CODEC codec;
     int CodecProfile;
@@ -288,18 +309,9 @@ struct sInputParams {
     bool bforceGOPSettings; // if true, GOP_STRICT is set
     int GopRefDist;    // set sequential Bframes num + 1, 0 is auto
     int nRef;          // set ref frames num.
-    int nBitRate;
-    int nMaxBitrate;
     int VBVBufsize;
-    RGYQPSet qp;
     RGYQPSet qpMin;
     RGYQPSet qpMax;
-
-    int nAVBRAccuarcy;    // param for AVBR algorithm, for API v1.3
-    int nAVBRConvergence; // param for AVBR algorithm, for API v1.3
-
-    int         nICQQuality;
-    int         nQVBRQuality;
 
     int        nSlices;       // number of slices, 0 is auto
 
@@ -878,6 +890,8 @@ const int QSV_DEFAULT_QVBR = 23;
 const int QSV_DEFAULT_QPI = 24;
 const int QSV_DEFAULT_QPP = 26;
 const int QSV_DEFAULT_QPB = 27;
+const int QSV_DEFAULT_BITRATE = 6000;
+const int QSV_DEFAULT_MAX_BITRATE = 15000;
 const int QSV_GOP_REF_DIST_AUTO = 0;
 const int QSV_DEFAULT_H264_GOP_REF_DIST = 4;
 const int QSV_DEFAULT_HEVC_GOP_REF_DIST = 4;

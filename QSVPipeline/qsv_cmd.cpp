@@ -935,112 +935,112 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     if (0 == _tcscmp(option_name, _T("la"))) {
         i++;
         try {
-            pParams->nBitRate = std::stoi(strInput[i]);
+            pParams->rcParam.bitrate = std::stoi(strInput[i]);
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->nEncMode = MFX_RATECONTROL_LA;
+        pParams->rcParam.encMode = MFX_RATECONTROL_LA;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("icq"))) {
         i++;
         try {
-            pParams->nICQQuality = std::stoi(strInput[i]);
+            pParams->rcParam.icqQuality = std::stoi(strInput[i]);
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->nEncMode = MFX_RATECONTROL_ICQ;
+        pParams->rcParam.encMode = MFX_RATECONTROL_ICQ;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("la-icq"))) {
         i++;
         try {
-            pParams->nICQQuality = std::stoi(strInput[i]);
+            pParams->rcParam.icqQuality = std::stoi(strInput[i]);
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->nEncMode = MFX_RATECONTROL_LA_ICQ;
+        pParams->rcParam.encMode = MFX_RATECONTROL_LA_ICQ;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("la-hrd"))) {
         i++;
         try {
-            pParams->nBitRate = std::stoi(strInput[i]);
+            pParams->rcParam.bitrate = std::stoi(strInput[i]);
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->nEncMode = MFX_RATECONTROL_LA_HRD;
+        pParams->rcParam.encMode = MFX_RATECONTROL_LA_HRD;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("vcm"))) {
         i++;
         try {
-            pParams->nBitRate = std::stoi(strInput[i]);
+            pParams->rcParam.bitrate = std::stoi(strInput[i]);
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->nEncMode = MFX_RATECONTROL_VCM;
+        pParams->rcParam.encMode = MFX_RATECONTROL_VCM;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("vbr"))) {
         i++;
         try {
-            pParams->nBitRate = std::stoi(strInput[i]);
+            pParams->rcParam.bitrate = std::stoi(strInput[i]);
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->nEncMode = MFX_RATECONTROL_VBR;
+        pParams->rcParam.encMode = MFX_RATECONTROL_VBR;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("cbr"))) {
         i++;
         try {
-            pParams->nBitRate = std::stoi(strInput[i]);
+            pParams->rcParam.bitrate = std::stoi(strInput[i]);
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->nEncMode = MFX_RATECONTROL_CBR;
+        pParams->rcParam.encMode = MFX_RATECONTROL_CBR;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("avbr"))) {
         i++;
         try {
-            pParams->nBitRate = std::stoi(strInput[i]);
+            pParams->rcParam.bitrate = std::stoi(strInput[i]);
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->nEncMode = MFX_RATECONTROL_AVBR;
+        pParams->rcParam.encMode = MFX_RATECONTROL_AVBR;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("qvbr"))) {
         i++;
         try {
-            pParams->nBitRate = std::stoi(strInput[i]);
+            pParams->rcParam.bitrate = std::stoi(strInput[i]);
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->nEncMode = MFX_RATECONTROL_QVBR;
+        pParams->rcParam.encMode = MFX_RATECONTROL_QVBR;
         return 0;
     }
     if (   0 == _tcscmp(option_name, _T("qvbr-q"))
         || 0 == _tcscmp(option_name, _T("qvbr-quality"))) {
         i++;
         try {
-            pParams->nQVBRQuality = std::stoi(strInput[i]);
+            pParams->rcParam.qvbrQuality = std::stoi(strInput[i]);
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->nEncMode = MFX_RATECONTROL_QVBR;
+        pParams->rcParam.encMode = MFX_RATECONTROL_QVBR;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("fallback-rc"))) {
@@ -1056,7 +1056,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     {
         i++;
         try {
-            pParams->nMaxBitrate = std::stoi(strInput[i]);
+            pParams->rcParam.maxBitrate = std::stoi(strInput[i]);
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
@@ -1095,18 +1095,18 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     }
     if (0 == _tcscmp(option_name, _T("cqp"))) {
         i++;
-        int ret = pParams->qp.parse(strInput[i]);
+        int ret = pParams->rcParam.qp.parse(strInput[i]);
         if (ret != 0) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->nEncMode = MFX_RATECONTROL_CQP;
+        pParams->rcParam.encMode = MFX_RATECONTROL_CQP;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("avbr-unitsize"))) {
         i++;
         try {
-            pParams->nAVBRConvergence = std::stoi(strInput[i]);
+            pParams->rcParam.avbrConvergence = std::stoi(strInput[i]);
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
@@ -1120,7 +1120,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     //        print_cmd_error_invalid_value(option_name, strInput[i]);
     //        return 1;
     //    }
-    //    pParams->nAVBRAccuarcy = (mfxU16)(accuracy * 10 + 0.5);
+    //    pParams->rcParam.avbrAccuarcy = (mfxU16)(accuracy * 10 + 0.5);
     //    return 0;
     //}
     else if (0 == _tcscmp(option_name, _T("fixed-func"))) {
@@ -2083,11 +2083,11 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
         default: break;
         }
     }
-    if (save_disabled_prm || pParams->nEncMode == MFX_RATECONTROL_QVBR) {
-        OPT_NUM(_T("--qvbr-quality"), nQVBRQuality);
+    if (save_disabled_prm || pParams->rcParam.encMode == MFX_RATECONTROL_QVBR) {
+        OPT_NUM(_T("--qvbr-quality"), rcParam.qvbrQuality);
     }
     if (save_disabled_prm) {
-        switch (pParams->nEncMode) {
+        switch (pParams->rcParam.encMode) {
         case MFX_RATECONTROL_CBR:
         case MFX_RATECONTROL_VBR:
         case MFX_RATECONTROL_AVBR:
@@ -2095,67 +2095,67 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
         case MFX_RATECONTROL_LA:
         case MFX_RATECONTROL_LA_HRD:
         case MFX_RATECONTROL_VCM: {
-            OPT_QP(_T("--cqp"), qp, true);
-            cmd << _T(" --icq ") << pParams->nICQQuality;
+            OPT_QP(_T("--cqp"), rcParam.qp, true);
+            cmd << _T(" --icq ") << pParams->rcParam.icqQuality;
         } break;
         case MFX_RATECONTROL_ICQ:
         case MFX_RATECONTROL_LA_ICQ: {
-            OPT_QP(_T("--cqp"), qp, true);
-            cmd << _T(" --vbr ") << pParams->nBitRate;
+            OPT_QP(_T("--cqp"), rcParam.qp, true);
+            cmd << _T(" --vbr ") << pParams->rcParam.bitrate;
         } break;
         case MFX_RATECONTROL_CQP:
         default: {
-            cmd << _T(" --icq ") << pParams->nICQQuality;
-            cmd << _T(" --vbr ") << pParams->nBitRate;
+            cmd << _T(" --icq ") << pParams->rcParam.icqQuality;
+            cmd << _T(" --vbr ") << pParams->rcParam.bitrate;
         } break;
         }
     }
-    switch (pParams->nEncMode) {
+    switch (pParams->rcParam.encMode) {
     case MFX_RATECONTROL_CBR: {
-        cmd << _T(" --cbr ") << pParams->nBitRate;
+        cmd << _T(" --cbr ") << pParams->rcParam.bitrate;
     } break;
     case MFX_RATECONTROL_VBR: {
-        cmd << _T(" --vbr ") << pParams->nBitRate;
+        cmd << _T(" --vbr ") << pParams->rcParam.bitrate;
     } break;
     case MFX_RATECONTROL_AVBR: {
-        cmd << _T(" --avbr ") << pParams->nBitRate;
+        cmd << _T(" --avbr ") << pParams->rcParam.bitrate;
     } break;
     case MFX_RATECONTROL_QVBR: {
-        cmd << _T(" --qvbr ") << pParams->nBitRate;
+        cmd << _T(" --qvbr ") << pParams->rcParam.bitrate;
     } break;
     case MFX_RATECONTROL_LA: {
-        cmd << _T(" --la ") << pParams->nBitRate;
+        cmd << _T(" --la ") << pParams->rcParam.bitrate;
     } break;
     case MFX_RATECONTROL_LA_HRD: {
-        cmd << _T(" --la-hrd ") << pParams->nBitRate;
+        cmd << _T(" --la-hrd ") << pParams->rcParam.bitrate;
     } break;
     case MFX_RATECONTROL_VCM: {
-        cmd << _T(" --vcm ") << pParams->nBitRate;
+        cmd << _T(" --vcm ") << pParams->rcParam.bitrate;
     } break;
     case MFX_RATECONTROL_ICQ: {
-        cmd << _T(" --icq ") << pParams->nICQQuality;
+        cmd << _T(" --icq ") << pParams->rcParam.icqQuality;
     } break;
     case MFX_RATECONTROL_LA_ICQ: {
-        cmd << _T(" --la-icq ") << pParams->nICQQuality;
+        cmd << _T(" --la-icq ") << pParams->rcParam.icqQuality;
     } break;
     case MFX_RATECONTROL_CQP:
     default: {
-        OPT_QP(_T("--cqp"), qp, true);
+        OPT_QP(_T("--cqp"), rcParam.qp, true);
     } break;
     }
-    if (save_disabled_prm || pParams->nEncMode == MFX_RATECONTROL_AVBR) {
-        OPT_NUM(_T("--avbr-unitsize"), nAVBRConvergence);
+    if (save_disabled_prm || pParams->rcParam.encMode == MFX_RATECONTROL_AVBR) {
+        OPT_NUM(_T("--avbr-unitsize"), rcParam.avbrConvergence);
     }
     if (save_disabled_prm
-        || pParams->nEncMode == MFX_RATECONTROL_LA
-        || pParams->nEncMode == MFX_RATECONTROL_LA_HRD
-        || pParams->nEncMode == MFX_RATECONTROL_LA_ICQ) {
+        || pParams->rcParam.encMode == MFX_RATECONTROL_LA
+        || pParams->rcParam.encMode == MFX_RATECONTROL_LA_HRD
+        || pParams->rcParam.encMode == MFX_RATECONTROL_LA_ICQ) {
         OPT_NUM(_T("--la-depth"), nLookaheadDepth);
         OPT_NUM(_T("--la-window-size"), nWinBRCSize);
         OPT_LST(_T("--la-quality"), nLookaheadDS, list_lookahead_ds);
     }
-    if (save_disabled_prm || pParams->nEncMode != MFX_RATECONTROL_CQP) {
-        OPT_NUM(_T("--max-bitrate"), nMaxBitrate);
+    if (save_disabled_prm || pParams->rcParam.encMode != MFX_RATECONTROL_CQP) {
+        OPT_NUM(_T("--max-bitrate"), rcParam.maxBitrate);
     }
     OPT_NUM(_T("--vbv-bufsize"), VBVBufsize);
     OPT_BOOL(_T("--fallback-rc"), _T("--no-fallback-rc"), fallbackRC);

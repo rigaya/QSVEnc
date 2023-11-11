@@ -1716,17 +1716,17 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     parse_cmd(&prm_qsv, cnf->enc.cmd);
 
     SetCXIndex(fcgCXEncCodec,     get_cx_index(list_out_enc_codec, prm_qsv.codec));
-    SetCXIndex(fcgCXEncMode,      get_cx_index(list_encmode, prm_qsv.nEncMode));
+    SetCXIndex(fcgCXEncMode,      get_cx_index(list_encmode, prm_qsv.rcParam.encMode));
     SetCXIndex(fcgCXQualityPreset,get_cx_index(list_quality, prm_qsv.nTargetUsage));
     SetCXIndex(fcgCXDevice,       (featuresHW) ? featuresHW->getDevIndex(prm_qsv.device) : 0);
     SetCXIndex(fcgCXHyperMode,    get_cx_index(list_hyper_mode, prm_qsv.hyperMode));
-    SetNUValue(fcgNUBitrate,      prm_qsv.nBitRate);
-    SetNUValue(fcgNUMaxkbps,      prm_qsv.nMaxBitrate);
-    SetNUValue(fcgNUQPI,          prm_qsv.qp.qpI);
-    SetNUValue(fcgNUQPP,          prm_qsv.qp.qpP);
-    SetNUValue(fcgNUQPB,          prm_qsv.qp.qpB);
-    SetNUValue(fcgNUICQQuality,   prm_qsv.nICQQuality);
-    SetNUValue(fcgNUQVBR,         prm_qsv.nQVBRQuality);
+    SetNUValue(fcgNUBitrate,      prm_qsv.rcParam.bitrate);
+    SetNUValue(fcgNUMaxkbps,      prm_qsv.rcParam.maxBitrate);
+    SetNUValue(fcgNUQPI,          prm_qsv.rcParam.qp.qpI);
+    SetNUValue(fcgNUQPP,          prm_qsv.rcParam.qp.qpP);
+    SetNUValue(fcgNUQPB,          prm_qsv.rcParam.qp.qpB);
+    SetNUValue(fcgNUICQQuality,   prm_qsv.rcParam.icqQuality);
+    SetNUValue(fcgNUQVBR,         prm_qsv.rcParam.qvbrQuality);
     SetNUValue(fcgNUGopLength,    Convert::ToDecimal(prm_qsv.nGOPLength));
     SetNUValue(fcgNURef,          prm_qsv.nRef);
     if (gopRefDistAsBframe(prm_qsv.codec)) {
@@ -1741,8 +1741,8 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         fcgCBFixedFunc->Checked = prm_qsv.bUseFixedFunc != 0;
     if (fcgCBD3DMemAlloc->Enabled)
         fcgCBD3DMemAlloc->Checked = prm_qsv.memType != SYSTEM_MEMORY;
-    SetNUValue(fcgNUAVBRAccuarcy, prm_qsv.nAVBRAccuarcy / Convert::ToDecimal(10.0));
-    SetNUValue(fcgNUAVBRConvergence, prm_qsv.nAVBRConvergence);
+    SetNUValue(fcgNUAVBRAccuarcy, prm_qsv.rcParam.avbrAccuarcy / Convert::ToDecimal(10.0));
+    SetNUValue(fcgNUAVBRConvergence, prm_qsv.rcParam.avbrConvergence);
     SetNUValue(fcgNULookaheadDepth, prm_qsv.nLookaheadDepth);
     fcgCBAdaptiveI->Checked     = prm_qsv.bAdaptiveI.value_or(false);
     fcgCBAdaptiveB->Checked     = prm_qsv.bAdaptiveB.value_or(false);
@@ -1972,24 +1972,24 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     prm_qsv.codec                  = get_out_enc_codec_by_index(fcgCXEncCodec->SelectedIndex);
     cnf->enc.codec_rgy             = prm_qsv.codec;
     prm_qsv.device                 = (featuresHW) ? (featuresHW->devCount() > 1 ? featuresHW->getDevID(fcgCXDevice->SelectedIndex) : QSVDeviceNum::AUTO) : QSVDeviceNum::AUTO;
-    prm_qsv.nEncMode               = (int)list_encmode[fcgCXEncMode->SelectedIndex].value;
+    prm_qsv.rcParam.encMode        = (int)list_encmode[fcgCXEncMode->SelectedIndex].value;
     prm_qsv.hyperMode              = (mfxHyperMode)list_hyper_mode[fcgCXHyperMode->SelectedIndex].value;
     prm_qsv.nTargetUsage           = (int)list_quality[fcgCXQualityPreset->SelectedIndex].value;
     prm_qsv.CodecProfile           = (int)get_profile_list(prm_qsv.codec)[fcgCXCodecProfile->SelectedIndex].value;
     prm_qsv.CodecLevel             = (int)get_level_list(prm_qsv.codec)[fcgCXCodecLevel->SelectedIndex].value;
     prm_qsv.outputCsp              = (RGY_CHROMAFMT)list_output_csp[fcgCXOutputCsp->SelectedIndex].value;
     prm_qsv.outputDepth            = get_bit_depth(fcgCXBitDepth->SelectedIndex);
-    prm_qsv.nBitRate               = (int)fcgNUBitrate->Value;
-    prm_qsv.nMaxBitrate            = (int)fcgNUMaxkbps->Value;
+    prm_qsv.rcParam.bitrate        = (int)fcgNUBitrate->Value;
+    prm_qsv.rcParam.maxBitrate     = (int)fcgNUMaxkbps->Value;
     prm_qsv.nLookaheadDepth        = (int)fcgNULookaheadDepth->Value;
     prm_qsv.nRef                   = (int)fcgNURef->Value;
     prm_qsv.bopenGOP               = fcgCBOpenGOP->Checked;
     prm_qsv.nGOPLength             = (int)fcgNUGopLength->Value;
-    prm_qsv.qp.qpI                 = (int)fcgNUQPI->Value;
-    prm_qsv.qp.qpP                 = (int)fcgNUQPP->Value;
-    prm_qsv.qp.qpB                 = (int)fcgNUQPB->Value;
-    prm_qsv.nICQQuality            = (int)fcgNUICQQuality->Value;
-    prm_qsv.nQVBRQuality           = (int)fcgNUQVBR->Value;
+    prm_qsv.rcParam.qp.qpI         = (int)fcgNUQPI->Value;
+    prm_qsv.rcParam.qp.qpP         = (int)fcgNUQPP->Value;
+    prm_qsv.rcParam.qp.qpB         = (int)fcgNUQPB->Value;
+    prm_qsv.rcParam.icqQuality     = (int)fcgNUICQQuality->Value;
+    prm_qsv.rcParam.qvbrQuality    = (int)fcgNUQVBR->Value;
     if (gopRefDistAsBframe(prm_qsv.codec)) {
         prm_qsv.GopRefDist = (int)fcgNUBframes->Value + 1;
     } else {
@@ -2009,8 +2009,8 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     prm_qsv.nWinBRCSize            = (int)fcgNUWinBRCSize->Value;
     prm_qsv.bUseFixedFunc          = fcgCBFixedFunc->Checked;
     prm_qsv.memType                = (fcgCBD3DMemAlloc->Checked) ? HW_MEMORY : SYSTEM_MEMORY;
-    prm_qsv.nAVBRAccuarcy          = (int)(fcgNUAVBRAccuarcy->Value * 10);
-    prm_qsv.nAVBRConvergence       = (int)fcgNUAVBRConvergence->Value;
+    prm_qsv.rcParam.avbrAccuarcy    = (int)(fcgNUAVBRAccuarcy->Value * 10);
+    prm_qsv.rcParam.avbrConvergence = (int)fcgNUAVBRConvergence->Value;
     prm_qsv.scenarioInfo           = (int)list_scenario_info[fcgCXScenarioInfo->SelectedIndex].value;
     prm_qsv.nSlices                = (int)fcgNUSlices->Value;
     prm_qsv.qpMin                  = RGYQPSet((int)fcgNUQPMin->Value, (int)fcgNUQPMin->Value, (int)fcgNUQPMin->Value);
