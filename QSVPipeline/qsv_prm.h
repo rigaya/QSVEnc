@@ -312,6 +312,7 @@ struct sInputParams {
     int VBVBufsize;
     RGYQPSet qpMin;
     RGYQPSet qpMax;
+    std::vector<QSVRCParam> dynamicRC;
 
     int        nSlices;       // number of slices, 0 is auto
 

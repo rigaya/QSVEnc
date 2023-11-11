@@ -84,6 +84,7 @@
   - [--qp-max \<int\> or \<int\>:\<int\>:\<int\>](#--qp-max-int-or-intintint)
   - [--qp-offset \<int\>\[:\<int\>\]\[:\<int\>\]...](#--qp-offset-intintint)
   - [-u, --quality \<string\>](#-u---quality-string)
+  - [--dynamic-rc \<int\>:\<int\>:\<int\>\<int\>,\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\],...](#--dynamic-rc-intintintintparam1value1param2value2)
   - [--la-depth \<int\>](#--la-depth-int)
   - [--la-window-size \<int\> 0(auto)](#--la-window-size-int-0auto)
   - [--la-quality \<string\>](#--la-quality-string)
@@ -666,6 +667,38 @@ Set encoding quality preset.
 ```
 best, higher, high, balanced(default), fast, faster, fastest
 ```
+
+### --dynamic-rc &lt;int&gt;:&lt;int&gt;:&lt;int&gt;&lt;int&gt;,&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;],...  
+Change the rate control mode and rate control params within the specified range of output frames.
+
+- **required parameters**
+  It is required to specify one of the params below.  
+  - [icq](https://github.com/rigaya/QSVEnc/blob/master/QSVEncC_Options.ja.md#--icq-int-icq-%E5%9B%BA%E5%AE%9A%E5%93%81%E8%B3%AA%E3%83%A2%E3%83%BC%E3%83%89-%E3%83%87%E3%83%95%E3%82%A9%E3%83%AB%E3%83%88-23)=&lt;int&gt;  
+  - [la-icq](https://github.com/rigaya/QSVEnc/blob/master/QSVEncC_Options.ja.md#--la-icq-int-la-icq-%E5%85%88%E8%A1%8C%E6%8E%A2%E7%B4%A2%E4%BB%98%E3%81%8D%E5%9B%BA%E5%AE%9A%E5%93%81%E8%B3%AA%E3%83%A2%E3%83%BC%E3%83%89-%E3%83%87%E3%83%95%E3%82%A9%E3%83%AB%E3%83%88-23)=&lt;int&gt;  
+  - [cqp](https://github.com/rigaya/QSVEnc/blob/master/QSVEncC_Options.ja.md#--cqp-int-or-intintintcqp-%E5%9B%BA%E5%AE%9A%E9%87%8F%E5%AD%90%E5%8C%96%E9%87%8F)=&lt;int&gt; or cqp=&lt;int&gt;:&lt;int&gt;:&lt;int&gt;  
+  - [cbr](https://github.com/rigaya/QSVEnc/blob/master/QSVEncC_Options.ja.md#--cbr-int--cbr-%E5%9B%BA%E5%AE%9A%E3%83%93%E3%83%83%E3%83%88%E3%83%AC%E3%83%BC%E3%83%88)=&lt;int&gt;  
+  - [vbr](https://github.com/rigaya/QSVEnc/blob/master/QSVEncC_Options.ja.md#--vbr-int--vbr-%E5%8F%AF%E5%A4%89%E3%83%93%E3%83%83%E3%83%88%E3%83%AC%E3%83%BC%E3%83%88)=&lt;int&gt;  
+  - [avbr](https://github.com/rigaya/QSVEnc/blob/master/QSVEncC_Options.ja.md#--avbr-int-avbr-%E9%81%A9%E5%BF%9C%E7%9A%84%E5%8F%AF%E5%A4%89%E3%83%93%E3%83%83%E3%83%88%E3%83%AC%E3%83%BC%E3%83%88)=&lt;int&gt;  
+  - [la](https://github.com/rigaya/QSVEnc/blob/master/QSVEncC_Options.ja.md#--la-int---la-%E5%85%88%E8%A1%8C%E6%8E%A2%E7%B4%A2%E3%83%AC%E3%83%BC%E3%83%88%E5%88%B6%E5%BE%A1-lookahead)=&lt;int&gt;  
+  - [la-hrd](https://github.com/rigaya/QSVEnc/blob/master/QSVEncC_Options.ja.md#--la-hrd-int-la-hrd-%E5%85%88%E8%A1%8C%E6%8E%A2%E7%B4%A2%E3%83%AC%E3%83%BC%E3%83%88%E5%88%B6%E5%BE%A1-hrd%E4%BA%92%E6%8F%9B-lookahead)=&lt;int&gt;  
+  - [vcm](https://github.com/rigaya/QSVEnc/blob/master/QSVEncC_Options.ja.md#--vcm-int-vcm-%E3%83%93%E3%83%87%E3%82%AA%E4%BC%9A%E8%AD%B0%E3%83%A2%E3%83%BC%E3%83%89)=&lt;int&gt;  
+  - [qvbr](https://github.com/rigaya/QSVEnc/blob/master/QSVEncC_Options.ja.md#--qvbr-int---qvbr-q-int-qvbr-%E5%93%81%E8%B3%AA%E3%83%99%E3%83%BC%E3%82%B9%E5%8F%AF%E5%A4%89%E3%83%93%E3%83%83%E3%83%88%E3%83%AC%E3%83%BC%E3%83%88)=&lt;int&gt;  
+
+- **additional parameters**
+  - [max-bitrate](./QSVEncC_Options.ja.md#--max-bitrate-int)=&lt;int&gt;  
+  - [qvbr-quality](./QSVEncC_Options.ja.md#--qvbr-quality-int)=&lt;int&gt;  
+
+- Examples
+  ```
+  Example1: Encode by vbr(12000kbps) in output frame range 3000-3999,
+            encode by constant quality mode(29.0) in output frame range 5000-5999,
+            and encode by constant quality mode(25.0) on other frame range.
+    --icq 25 --dynamic-rc 3000:3999,vbr=12000 --dynamic-rc 5000:5999,icq=29.0
+  
+  Example2: Encode by vbr(6000kbps) to output frame number 2999,
+            and encode by vbr(12000kbps) from output frame number 3000 and later.
+    --vbr 6000 --dynamic-rc start=3000,vbr=12000
+  ```
 
 ### --la-depth &lt;int&gt;
 Specify lookahead depth in frames. (10 - 100)  

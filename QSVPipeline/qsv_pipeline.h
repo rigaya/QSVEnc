@@ -163,6 +163,7 @@ protected:
     std::unique_ptr<QSVMfxDec> m_mfxDEC;
     std::unique_ptr<MFXVideoENCODE> m_pmfxENC;
     std::vector<std::unique_ptr<QSVVppMfx>> m_mfxVPP;
+    std::vector<QSVRCParam> m_dynamicRC;
     QSVEncFeatures m_encFeatures;
 
     sTrimParam m_trimParam;
@@ -212,6 +213,7 @@ protected:
     virtual RGY_ERR createOpenCLCopyFilterForPreVideoMetric();
     virtual RGY_ERR InitOutput(sInputParams *pParams);
     virtual RGY_ERR InitMfxDecParams();
+    std::pair<RGY_ERR, QSVEncFeatures> CheckMFXRCMode(QSVRCParam& rcParam, sInputParams *pParams, const int codecMaxQP);
     virtual RGY_ERR InitMfxEncodeParams(sInputParams *pParams, std::vector<std::unique_ptr<QSVDevice>>& devList);
     virtual RGY_ERR InitPowerThrottoling(sInputParams *pParams);
     virtual RGY_ERR InitMfxDec();

@@ -1043,6 +1043,157 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         pParams->rcParam.encMode = MFX_RATECONTROL_QVBR;
         return 0;
     }
+
+    if (IS_OPTION("dynamic-rc")) {
+        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        bool rc_mode_defined = false;
+        auto paramList = std::vector<std::string>{ "start", "end", "max-bitrate", "avbr-accuracy", "avbr-convergence", "qvbr-quality" };
+        for (int j = 0; list_rc_mode[j].desc; j++) {
+            paramList.push_back(tolowercase(tchar_to_string(list_rc_mode[j].desc)));
+        }
+        QSVRCParam rcPrm;
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos+1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("start")) {
+                    try {
+                        rcPrm.start = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("end")) {
+                    try {
+                        rcPrm.end = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("cqp")) {
+                    int ret = rcPrm.qp.parse(strInput[i]);
+                    if (ret != 0) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    rcPrm.encMode = MFX_RATECONTROL_CQP;
+                    rc_mode_defined = true;
+                    continue;
+                }
+                if (param_arg == _T("icq")) {
+                    try {
+                        rcPrm.icqQuality = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    rcPrm.encMode = MFX_RATECONTROL_ICQ;
+                    rc_mode_defined = true;
+                    continue;
+                }
+                if (param_arg == _T("la-icq")) {
+                    try {
+                        rcPrm.icqQuality = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    rcPrm.encMode = MFX_RATECONTROL_LA_ICQ;
+                    rc_mode_defined = true;
+                    continue;
+                }
+                int temp = 0;
+                if (get_list_value(list_rc_mode, tolowercase(param_arg).c_str(), &temp)) {
+                    try {
+                        rcPrm.bitrate = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    rcPrm.encMode = temp;
+                    rc_mode_defined = true;
+                    continue;
+                }
+                if (param_arg == _T("max-bitrate")) {
+                    try {
+                        rcPrm.maxBitrate = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("avbr-accuracy")) {
+                    try {
+                        rcPrm.avbrAccuarcy = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("avbr-convergence")) {
+                    try {
+                        rcPrm.avbrConvergence = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("qvbr-quality")) {
+                    try {
+                        rcPrm.qvbrQuality = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                pos = param.find_first_of(_T(":"));
+                if (pos != std::string::npos) {
+                    auto param_val0 = param.substr(0, pos);
+                    auto param_val1 = param.substr(pos+1);
+                    try {
+                        rcPrm.start = std::stoi(param_val0);
+                        rcPrm.end   = std::stoi(param_val1);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(option_name, param);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        if (!rc_mode_defined) {
+            print_cmd_error_invalid_value(option_name, strInput[i], _T("rate control mode unspecified!"));
+            return 1;
+        }
+        if (rcPrm.start < 0) {
+            print_cmd_error_invalid_value(option_name, strInput[i], _T("start frame ID unspecified!"));
+            return 1;
+        }
+        if (rcPrm.end > 0 && rcPrm.start > rcPrm.end) {
+            print_cmd_error_invalid_value(option_name, strInput[i], _T("start frame ID must be smaller than end frame ID!"));
+            return 1;
+        }
+        pParams->dynamicRC.push_back(rcPrm);
+        return 0;
+    }
     if (0 == _tcscmp(option_name, _T("fallback-rc"))) {
         pParams->fallbackRC = true;
         return 0;

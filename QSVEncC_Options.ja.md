@@ -84,6 +84,7 @@
   - [--qp-max \<int\> or \<int\>:\<int\>:\<int\>](#--qp-max-int-or-intintint)
   - [--qp-offset \<int\>\[:\<int\>\]\[:\<int\>\]...](#--qp-offset-intintint)
   - [-u, --quality \<string\>](#-u---quality-string)
+  - [--dynamic-rc \<int\>:\<int\>:\<int\>\<int\>,\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\],...](#--dynamic-rc-intintintintparam1value1param2value2)
   - [--la-depth \<int\>](#--la-depth-int)
   - [--la-window-size \<int\> 0(自動)](#--la-window-size-int-0自動)
   - [--la-quality \<string\>](#--la-quality-string)
@@ -687,6 +688,38 @@ AVBRモード時のビットレート配分単位を、100フレーム単位で�
 ```
 best, higher, high, balanced(default), fast, faster, fastest
 ```
+
+### --dynamic-rc &lt;int&gt;:&lt;int&gt;:&lt;int&gt;&lt;int&gt;,&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;],...  
+"開始フレーム番号:終了フレーム番号"で指定した出力フレーム番号について、レート制御のパラメータを変更する。指定可能なパラメータは各レート制御モードと、最大ビットレート、目標品質(qvbr-quality)。
+
+- **必須パラメータ**
+  下記パラメータのうち、必ずひとつは指定が必要。
+  - [icq](./QSVEncC_Options.en.md#--icq-int-icq-intelligent-const-quality-mode-default-23)=&lt;int&gt;  
+  - [la-icq](./QSVEncC_Options.en.md#--la-icq-int-la-icq-lookahead-based-icq-mode-default-23)=&lt;int&gt;  
+  - [cqp](./QSVEncC_Options.en.md#--cqp-int-or-intintint)=&lt;int&gt; or cqp=&lt;int&gt;:&lt;int&gt;:&lt;int&gt;  
+  - [cbr](./QSVEncC_Options.en.md#--cbr-int--cbr-constant-bitrate-mode)=&lt;int&gt;  
+  - [vbr](./QSVEncC_Options.en.md#--vbr-int--vbr-variable-bitrate-mode)=&lt;int&gt;  
+  - [avbr](./QSVEncC_Options.en.md#--avbr-int-avbr-adaptive-variable-bitrate-mode)=&lt;int&gt;  
+  - [la](./QSVEncC_Options.en.md#--la-int---la-lookahead-mode)=&lt;int&gt;  
+  - [la-hrd](./QSVEncC_Options.en.md#--la-hrd-int-la-hrd-hrd-compliant-lookahead-mode)=&lt;int&gt;  
+  - [vcm](./QSVEncC_Options.en.md#--vcm-int-vcm-video-conference-mode)=&lt;int&gt;  
+  - [qvbr](./QSVEncC_Options.en.md#--qvbr-int---qvbr-q-int-qvbr-quality-based-vbr-mode)=&lt;int&gt;  
+
+- **追加パラメータ**
+  - [max-bitrate](./QSVEncC_Options.en.md#--max-bitrate-int)=&lt;int&gt;  
+  - [qvbr-quality](./QSVEncC_Options.en.md#--qvbr-quality-int)=&lt;int&gt;  
+
+- Examples
+  ```
+  例1: 出力フレーム番号 3000-3999 の間はvbrの12000kbpsでエンコード、
+       出力フレーム番号 5000-5999 の間は固定品質の29.0でエンコードし、
+       その他の領域は固定品質の25.0でエンコードする。
+    --icq=25 --dynamic-rc 3000:3999,vbr=12000 --dynamic-rc 5000:5999,icq=29
+  
+  例2: 出力フレーム番号 3000までは、vbrの6000kbpsでエンコードし、
+       出力フレーム番号 3000以降はvbrの12000kbpsでエンコードする。
+    --vbr 6000 --dynamic-rc start=3000,vbr=12000
+  ```
 
 ### --la-depth &lt;int&gt;
 先行探索レート制御を使用した場合に、あらかじめ分析するフレームの枚数を指定する。(10-100)  

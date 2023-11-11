@@ -411,6 +411,125 @@ RGY_ERR CQSVPipeline::InitMfxDecParams() {
     return RGY_ERR_NONE;
 }
 
+std::pair<RGY_ERR, QSVEncFeatures> CQSVPipeline::CheckMFXRCMode(QSVRCParam& rcParam, sInputParams *pInParams, const int codecMaxQP) {
+
+    const TCHAR *PG_FF_STR[] = { _T("PG"), _T("FF") };
+
+    //エンコードモードのチェック
+    auto availableFeaures = m_device->getEncodeFeature(rcParam.encMode, pInParams->codec, pInParams->bUseFixedFunc);
+    if (!availableFeaures) {
+        availableFeaures = m_device->getEncodeFeature(rcParam.encMode, pInParams->codec, !pInParams->bUseFixedFunc);
+        if (!!availableFeaures) {
+            PrintMes(RGY_LOG_WARN, _T("%s is not supported on this platform, switched to %s mode.\n"), PG_FF_STR[!!pInParams->bUseFixedFunc], PG_FF_STR[!pInParams->bUseFixedFunc]);
+            pInParams->bUseFixedFunc = !pInParams->bUseFixedFunc;
+        }
+    }
+    PrintMes(RGY_LOG_DEBUG, _T("Detected avaliable features for hw API v%d.%02d, %s, %s\n%s\n"),
+        m_mfxVer.Major, m_mfxVer.Minor,
+        CodecToStr(pInParams->codec).c_str(), EncmodeToStr(rcParam.encMode), MakeFeatureListStr(availableFeaures).c_str());
+
+    // サポートされていたらOK
+    if (availableFeaures & ENC_FEATURE_CURRENT_RC) {
+        return { RGY_ERR_NONE, availableFeaures };
+    }
+    //そもそもこのコーデックがサポートされているかどうか確認する
+    if (   rcParam.encMode == MFX_RATECONTROL_CQP
+        || rcParam.encMode == MFX_RATECONTROL_VBR
+        || rcParam.encMode == MFX_RATECONTROL_CBR
+        || !(m_device->getEncodeFeature(MFX_RATECONTROL_CQP, pInParams->codec, pInParams->bUseFixedFunc) & ENC_FEATURE_CURRENT_RC)) {
+        if (!(m_device->getEncodeFeature(MFX_RATECONTROL_CQP, pInParams->codec, !pInParams->bUseFixedFunc) & ENC_FEATURE_CURRENT_RC)) {
+            PrintMes(RGY_LOG_ERROR, _T("%s encoding is not supported on current platform.\n"), CodecToStr(pInParams->codec).c_str());
+            return { RGY_ERR_INVALID_VIDEO_PARAM, availableFeaures };
+        }
+        PrintMes(RGY_LOG_WARN, _T("%s is not supported on this platform, switched to %s mode.\n"), PG_FF_STR[!!pInParams->bUseFixedFunc], PG_FF_STR[!pInParams->bUseFixedFunc]);
+        pInParams->bUseFixedFunc = !pInParams->bUseFixedFunc;
+    }
+    const auto rc_error_log_level = (pInParams->fallbackRC) ? RGY_LOG_WARN : RGY_LOG_ERROR;
+    PrintMes(rc_error_log_level, _T("%s mode is not supported on current platform.\n"), EncmodeToStr(rcParam.encMode));
+    if (MFX_RATECONTROL_LA == rcParam.encMode) {
+        if (!check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_7)) {
+            PrintMes(rc_error_log_level, _T("Lookahead mode is only supported by API v1.7 or later.\n"));
+        }
+    }
+    if (   MFX_RATECONTROL_ICQ    == rcParam.encMode
+        || MFX_RATECONTROL_LA_ICQ == rcParam.encMode
+        || MFX_RATECONTROL_VCM    == rcParam.encMode) {
+        if (!check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
+            PrintMes(rc_error_log_level, _T("%s mode is only supported by API v1.8 or later.\n"), EncmodeToStr(rcParam.encMode));
+        }
+    }
+    if (   MFX_RATECONTROL_LA_HRD == rcParam.encMode
+        || MFX_RATECONTROL_QVBR   == rcParam.encMode) {
+        if (!check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_11)) {
+            PrintMes(rc_error_log_level, _T("%s mode is only supported by API v1.11 or later.\n"), EncmodeToStr(rcParam.encMode));
+        }
+    }
+    if (!pInParams->fallbackRC) {
+        return { RGY_ERR_INVALID_VIDEO_PARAM, availableFeaures };
+    }
+    //fallback
+    //fallbackの候補リスト、優先度の高い順にセットする
+    std::vector<int> check_rc_list;
+    //現在のレート制御モードは使用できないので、それ以外を確認する
+    auto check_rc_add = [pInParams, &rcParam, &check_rc_list](const int rc_mode) {
+        if (rcParam.encMode != rc_mode) {
+            check_rc_list.push_back(rc_mode);
+        }
+    };
+
+    //品質指定系の場合、若干補正をかけた値を設定する
+    int nAdjustedQP[3] = { QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB };
+    if (isRCBitrateMode(rcParam.encMode)) {
+        //ビットレートモードなら、QVBR->VBRをチェックする
+        check_rc_add(MFX_RATECONTROL_QVBR);
+        check_rc_add(MFX_RATECONTROL_VBR);
+    } else {
+        //固定品質モードなら、ICQ->CQPをチェックする
+        check_rc_add(MFX_RATECONTROL_ICQ);
+        check_rc_add(MFX_RATECONTROL_CQP);
+        //品質指定系の場合、若干補正をかけた値を設定する
+        if (rcParam.encMode == MFX_RATECONTROL_LA_ICQ) {
+            nAdjustedQP[0] = rcParam.icqQuality - 8;
+            nAdjustedQP[1] = rcParam.icqQuality - 6;
+            nAdjustedQP[2] = rcParam.icqQuality - 3;
+        } else if (rcParam.encMode == MFX_RATECONTROL_ICQ) {
+            nAdjustedQP[0] = rcParam.icqQuality - 1;
+            nAdjustedQP[1] = rcParam.icqQuality + 1;
+            nAdjustedQP[2] = rcParam.icqQuality + 4;
+        } else if (rcParam.encMode == MFX_RATECONTROL_CQP) {
+            nAdjustedQP[0] = rcParam.qp.qpI;
+            nAdjustedQP[1] = rcParam.qp.qpP;
+            nAdjustedQP[2] = rcParam.qp.qpB;
+        }
+    }
+    //check_rc_listに設定したfallbackの候補リストをチェックする
+    bool bFallbackSuccess = false;
+    for (uint32_t i = 0; i < (uint32_t)check_rc_list.size(); i++) {
+        auto availRCFeatures = m_device->getEncodeFeature(check_rc_list[i], pInParams->codec, pInParams->bUseFixedFunc);
+        if (availRCFeatures & ENC_FEATURE_CURRENT_RC) {
+            rcParam.encMode = (uint16_t)check_rc_list[i];
+            if (rcParam.encMode == MFX_RATECONTROL_LA_ICQ) {
+                rcParam.icqQuality = (uint16_t)clamp(nAdjustedQP[1] + 6, 1, codecMaxQP);
+            } else if (rcParam.encMode == MFX_RATECONTROL_LA_ICQ) {
+                rcParam.icqQuality = (uint16_t)clamp(nAdjustedQP[1], 1, codecMaxQP);
+            } else if (rcParam.encMode == MFX_RATECONTROL_CQP) {
+                rcParam.qp.qpI = clamp(nAdjustedQP[0], 0, codecMaxQP);
+                rcParam.qp.qpP = clamp(nAdjustedQP[1], 0, codecMaxQP);
+                rcParam.qp.qpB = clamp(nAdjustedQP[2], 0, codecMaxQP);
+            }
+            bFallbackSuccess = true;
+            availableFeaures = availRCFeatures;
+            PrintMes(rc_error_log_level, _T("Falling back to %s mode.\n"), EncmodeToStr(rcParam.encMode));
+            break;
+        }
+    }
+    //なんらかの理由でフォールバックできなかったらエラー終了
+    if (!bFallbackSuccess) {
+        return { RGY_ERR_INVALID_VIDEO_PARAM, availableFeaures };
+    }
+    return { RGY_ERR_NONE, availableFeaures };
+}
+
 RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<std::unique_ptr<QSVDevice>>& devList) {
     if (pInParams->codec == RGY_CODEC_RAW) {
         PrintMes(RGY_LOG_DEBUG, _T("Raw codec is selected, disable encode.\n"));
@@ -429,118 +548,20 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
     const int codecMaxQP = (pInParams->codec == RGY_CODEC_AV1) ? 255 : 51 + (encodeBitDepth - 8) * 6;
     PrintMes(RGY_LOG_DEBUG, _T("encodeBitDepth: %d, codecMaxQP: %d.\n"), encodeBitDepth, codecMaxQP);
 
-    const TCHAR *PG_FF_STR[] = { _T("PG"), _T("FF") };
+    auto [ err, availableFeaures ] = CheckMFXRCMode(pInParams->rcParam, pInParams, codecMaxQP);
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
 
-    //エンコードモードのチェック
-    auto availableFeaures = m_device->getEncodeFeature(pInParams->rcParam.encMode, pInParams->codec, pInParams->bUseFixedFunc);
-    if (!availableFeaures) {
-        availableFeaures = m_device->getEncodeFeature(pInParams->rcParam.encMode, pInParams->codec, !pInParams->bUseFixedFunc);
-        if (!!availableFeaures) {
-            PrintMes(RGY_LOG_WARN, _T("%s is not supported on this platform, switched to %s mode.\n"), PG_FF_STR[!!pInParams->bUseFixedFunc], PG_FF_STR[!pInParams->bUseFixedFunc]);
-            pInParams->bUseFixedFunc = !pInParams->bUseFixedFunc;
+    for (auto& rc : pInParams->dynamicRC) {
+        auto [err2, availableFeaures2 ] = CheckMFXRCMode(rc, pInParams, codecMaxQP);
+        if (err2 != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_WARN, _T("Unsupported dynamic rc param for frame %d-%d, will be disabled.\n"), rc.start, rc.end);
+            PrintMes(RGY_LOG_WARN, _T("  paramter was %s.\n"), rc.print().c_str());
+            rc.start = rc.end = -1;
         }
     }
-    PrintMes(RGY_LOG_DEBUG, _T("Detected avaliable features for hw API v%d.%02d, %s, %s\n%s\n"),
-        m_mfxVer.Major, m_mfxVer.Minor,
-        CodecToStr(pInParams->codec).c_str(), EncmodeToStr(pInParams->rcParam.encMode), MakeFeatureListStr(availableFeaures).c_str());
-
-    if (!(availableFeaures & ENC_FEATURE_CURRENT_RC)) {
-        //このコーデックがサポートされているかどうか確認する
-        if (   pInParams->rcParam.encMode == MFX_RATECONTROL_CQP
-            || pInParams->rcParam.encMode == MFX_RATECONTROL_VBR
-            || pInParams->rcParam.encMode == MFX_RATECONTROL_CBR
-            || !(m_device->getEncodeFeature(MFX_RATECONTROL_CQP, pInParams->codec, pInParams->bUseFixedFunc) & ENC_FEATURE_CURRENT_RC)) {
-            if (!(m_device->getEncodeFeature(MFX_RATECONTROL_CQP, pInParams->codec, !pInParams->bUseFixedFunc) & ENC_FEATURE_CURRENT_RC)) {
-                PrintMes(RGY_LOG_ERROR, _T("%s encoding is not supported on current platform.\n"), CodecToStr(pInParams->codec).c_str());
-                return RGY_ERR_INVALID_VIDEO_PARAM;
-            }
-            PrintMes(RGY_LOG_WARN, _T("%s is not supported on this platform, switched to %s mode.\n"), PG_FF_STR[!!pInParams->bUseFixedFunc], PG_FF_STR[!pInParams->bUseFixedFunc]);
-            pInParams->bUseFixedFunc = !pInParams->bUseFixedFunc;
-        }
-        const auto rc_error_log_level = (pInParams->fallbackRC) ? RGY_LOG_WARN : RGY_LOG_ERROR;
-        PrintMes(rc_error_log_level, _T("%s mode is not supported on current platform.\n"), EncmodeToStr(pInParams->rcParam.encMode));
-        if (MFX_RATECONTROL_LA == pInParams->rcParam.encMode) {
-            if (!check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_7)) {
-                PrintMes(rc_error_log_level, _T("Lookahead mode is only supported by API v1.7 or later.\n"));
-            }
-        }
-        if (   MFX_RATECONTROL_ICQ    == pInParams->rcParam.encMode
-            || MFX_RATECONTROL_LA_ICQ == pInParams->rcParam.encMode
-            || MFX_RATECONTROL_VCM    == pInParams->rcParam.encMode) {
-            if (!check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
-                PrintMes(rc_error_log_level, _T("%s mode is only supported by API v1.8 or later.\n"), EncmodeToStr(pInParams->rcParam.encMode));
-            }
-        }
-        if (   MFX_RATECONTROL_LA_HRD == pInParams->rcParam.encMode
-            || MFX_RATECONTROL_QVBR   == pInParams->rcParam.encMode) {
-            if (!check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_11)) {
-                PrintMes(rc_error_log_level, _T("%s mode is only supported by API v1.11 or later.\n"), EncmodeToStr(pInParams->rcParam.encMode));
-            }
-        }
-        if (!pInParams->fallbackRC) {
-            return RGY_ERR_INVALID_VIDEO_PARAM;
-        }
-        //fallback
-        //fallbackの候補リスト、優先度の高い順にセットする
-        vector<int> check_rc_list;
-        //現在のレート制御モードは使用できないので、それ以外を確認する
-        auto check_rc_add = [pInParams, &check_rc_list](int rc_mode) {
-            if (pInParams->rcParam.encMode != rc_mode) {
-                check_rc_list.push_back(rc_mode);
-            }
-        };
-
-        //品質指定系の場合、若干補正をかけた値を設定する
-        int nAdjustedQP[3] = { QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB };
-        if (isRCBitrateMode(pInParams->rcParam.encMode)) {
-            //ビットレートモードなら、QVBR->VBRをチェックする
-            check_rc_add(MFX_RATECONTROL_QVBR);
-            check_rc_add(MFX_RATECONTROL_VBR);
-        } else {
-            //固定品質モードなら、ICQ->CQPをチェックする
-            check_rc_add(MFX_RATECONTROL_ICQ);
-            check_rc_add(MFX_RATECONTROL_CQP);
-            //品質指定系の場合、若干補正をかけた値を設定する
-            if (pInParams->rcParam.encMode == MFX_RATECONTROL_LA_ICQ) {
-                nAdjustedQP[0] = pInParams->rcParam.icqQuality - 8;
-                nAdjustedQP[1] = pInParams->rcParam.icqQuality - 6;
-                nAdjustedQP[2] = pInParams->rcParam.icqQuality - 3;
-            } else if (pInParams->rcParam.encMode == MFX_RATECONTROL_ICQ) {
-                nAdjustedQP[0] = pInParams->rcParam.icqQuality - 1;
-                nAdjustedQP[1] = pInParams->rcParam.icqQuality + 1;
-                nAdjustedQP[2] = pInParams->rcParam.icqQuality + 4;
-            } else if (pInParams->rcParam.encMode == MFX_RATECONTROL_CQP) {
-                nAdjustedQP[0] = pInParams->rcParam.qp.qpI;
-                nAdjustedQP[1] = pInParams->rcParam.qp.qpP;
-                nAdjustedQP[2] = pInParams->rcParam.qp.qpB;
-            }
-        }
-        //check_rc_listに設定したfallbackの候補リストをチェックする
-        bool bFallbackSuccess = false;
-        for (uint32_t i = 0; i < (uint32_t)check_rc_list.size(); i++) {
-            auto availRCFeatures = m_device->getEncodeFeature((uint16_t)check_rc_list[i], pInParams->codec, pInParams->bUseFixedFunc);
-            if (availRCFeatures & ENC_FEATURE_CURRENT_RC) {
-                pInParams->rcParam.encMode = (uint16_t)check_rc_list[i];
-                if (pInParams->rcParam.encMode == MFX_RATECONTROL_LA_ICQ) {
-                    pInParams->rcParam.icqQuality = (uint16_t)clamp(nAdjustedQP[1] + 6, 1, codecMaxQP);
-                } else if (pInParams->rcParam.encMode == MFX_RATECONTROL_LA_ICQ) {
-                    pInParams->rcParam.icqQuality = (uint16_t)clamp(nAdjustedQP[1], 1, codecMaxQP);
-                } else if (pInParams->rcParam.encMode == MFX_RATECONTROL_CQP) {
-                    pInParams->rcParam.qp.qpI = clamp(nAdjustedQP[0], 0, codecMaxQP);
-                    pInParams->rcParam.qp.qpP = clamp(nAdjustedQP[1], 0, codecMaxQP);
-                    pInParams->rcParam.qp.qpB = clamp(nAdjustedQP[2], 0, codecMaxQP);
-                }
-                bFallbackSuccess = true;
-                availableFeaures = availRCFeatures;
-                PrintMes(rc_error_log_level, _T("Falling back to %s mode.\n"), EncmodeToStr(pInParams->rcParam.encMode));
-                break;
-            }
-        }
-        //なんらかの理由でフォールバックできなかったらエラー終了
-        if (!bFallbackSuccess) {
-            return RGY_ERR_INVALID_VIDEO_PARAM;
-        }
-    }
+    m_dynamicRC = pInParams->dynamicRC;
 
     // HyperModeがらみのチェック
     if (pInParams->hyperMode != MFX_HYPERMODE_OFF) {
@@ -1580,6 +1601,7 @@ CQSVPipeline::CQSVPipeline() :
     m_mfxDEC(),
     m_pmfxENC(),
     m_mfxVPP(),
+    m_dynamicRC(),
     m_encFeatures(),
     m_trimParam(),
     m_mfxEncParams(),
@@ -3841,7 +3863,7 @@ RGY_ERR CQSVPipeline::CreatePipeline() {
         }
     }
     if (m_pmfxENC) {
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXEncode>(&m_device->mfxSession(), 1, m_pmfxENC.get(), m_mfxVer, m_mfxEncParams, m_timecode.get(), m_encTimestamp.get(), m_outputTimebase, m_hdr10plus.get(), m_hdr10plusMetadataCopy, m_pQSVLog));
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXEncode>(&m_device->mfxSession(), 1, m_pmfxENC.get(), m_mfxVer, m_mfxEncParams, m_timecode.get(), m_encTimestamp.get(), m_outputTimebase, m_dynamicRC, m_hdr10plus.get(), m_hdr10plusMetadataCopy, m_pQSVLog));
     } else {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskOutputRaw>(&m_device->mfxSession(), 1, m_mfxVer, m_pQSVLog));
     }
@@ -4394,6 +4416,13 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
             if (outFrameInfo->cop2.LookAheadDepth > 0) {
                 PRINT_INFO(_T("LookaheadDepth %d\n"), outFrameInfo->cop2.LookAheadDepth);
             }
+        }
+        if (m_dynamicRC.size() > 0) {
+            tstring strDynamicRC = tstring(_T("DynamicRC      ")) + m_dynamicRC[0].print();
+            for (int i = 1; i < (int)m_dynamicRC.size(); i++) {
+                strDynamicRC += _T("\n               ") + m_dynamicRC[i].print();
+            }
+            PRINT_INFO(_T("%s\n"), strDynamicRC.c_str());
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_16)
             && outFrameInfo->cop3.ScenarioInfo != MFX_SCENARIO_UNKNOWN

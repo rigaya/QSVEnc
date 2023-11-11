@@ -1550,19 +1550,79 @@ protected:
     mfxVideoParam& m_mfxEncParams;
     rgy_rational<int> m_outputTimebase;
     RGYListRef<RGYBitstream> m_bitStreamOut;
+    QSVRCParam m_baseRC;
+    std::vector<QSVRCParam>& m_dynamicRC;
+    int m_appliedDynamicRC;
     RGYHDR10Plus *m_hdr10plus;
     bool m_hdr10plusMetadataCopy;
     encCtrlData m_encCtrlData;
 public:
     PipelineTaskMFXEncode(
         MFXVideoSession *mfxSession, int outMaxQueueSize, MFXVideoENCODE *mfxencode, mfxVersion mfxVer, mfxVideoParam& encParams,
-        RGYTimecode *timecode, RGYTimestamp *encTimestamp, rgy_rational<int> outputTimebase, RGYHDR10Plus *hdr10plus, bool hdr10plusMetadataCopy, std::shared_ptr<RGYLog> log)
+        RGYTimecode *timecode, RGYTimestamp *encTimestamp, rgy_rational<int> outputTimebase, std::vector<QSVRCParam>& dynamicRC, RGYHDR10Plus *hdr10plus, bool hdr10plusMetadataCopy, std::shared_ptr<RGYLog> log)
         : PipelineTask(PipelineTaskType::MFXENCODE, outMaxQueueSize, mfxSession, mfxVer, log),
-        m_encode(mfxencode), m_timecode(timecode), m_encTimestamp(encTimestamp), m_mfxEncParams(encParams), m_outputTimebase(outputTimebase), m_bitStreamOut(), m_hdr10plus(hdr10plus), m_hdr10plusMetadataCopy(hdr10plusMetadataCopy), m_encCtrlData() {};
+        m_encode(mfxencode), m_timecode(timecode), m_encTimestamp(encTimestamp), m_mfxEncParams(encParams), m_outputTimebase(outputTimebase), m_bitStreamOut(),
+        m_baseRC(getRCParam(encParams)), m_dynamicRC(dynamicRC), m_appliedDynamicRC(-1),
+        m_hdr10plus(hdr10plus), m_hdr10plusMetadataCopy(hdr10plusMetadataCopy), m_encCtrlData() { };
     virtual ~PipelineTaskMFXEncode() {
         m_outQeueue.clear(); // m_bitStreamOutが解放されるよう前にこちらを解放する
     };
     void setEnc(MFXVideoENCODE *mfxencode) { m_encode = mfxencode; };
+
+    QSVRCParam getRCParam(const mfxVideoParam& encParams) {
+        mfxExtCodingOption3 *cop3 = nullptr;
+        for (size_t i = 0; i < encParams.NumExtParam; i++) {
+            if (encParams.ExtParam[i]->BufferId == MFX_EXTBUFF_CODING_OPTION3) {
+                cop3 = (mfxExtCodingOption3 *)encParams.ExtParam[i];
+                break;
+            }
+        }
+        return QSVRCParam(
+            // encParamsからQSVRCParamに必要な値を抽出する
+            encParams.mfx.RateControlMethod, encParams.mfx.TargetKbps, encParams.mfx.MaxKbps,
+            encParams.mfx.Accuracy, encParams.mfx.Convergence,
+            { encParams.mfx.QPI, encParams.mfx.QPP, encParams.mfx.QPB },
+            encParams.mfx.ICQQuality, (cop3) ? cop3->QVBRQuality : 0);
+    }
+
+    void setRCParam(mfxVideoParam& encParams, const QSVRCParam& rcParams) {
+        // rcParams の値を encParams に反映する
+        encParams.mfx.RateControlMethod = (decltype(encParams.mfx.RateControlMethod))rcParams.encMode;
+        if (rcParams.maxBitrate > 0) {
+            encParams.mfx.MaxKbps = (decltype(encParams.mfx.MaxKbps))rcParams.maxBitrate;
+        }
+        if (encParams.mfx.RateControlMethod == MFX_RATECONTROL_CQP) {
+            encParams.mfx.QPI = (decltype(encParams.mfx.QPI))rcParams.qp.qpI;
+            encParams.mfx.QPP = (decltype(encParams.mfx.QPP))rcParams.qp.qpP;
+            encParams.mfx.QPB = (decltype(encParams.mfx.QPB))rcParams.qp.qpB;
+        } else if (encParams.mfx.RateControlMethod == MFX_RATECONTROL_ICQ
+                || encParams.mfx.RateControlMethod == MFX_RATECONTROL_LA_ICQ) {
+            encParams.mfx.ICQQuality = (decltype(encParams.mfx.ICQQuality))rcParams.icqQuality;
+        } else {
+            encParams.mfx.TargetKbps = (decltype(encParams.mfx.TargetKbps))rcParams.bitrate;
+        }
+        if (encParams.mfx.RateControlMethod == MFX_RATECONTROL_AVBR) {
+            if (rcParams.avbrAccuarcy > 0) {
+                encParams.mfx.Accuracy = (decltype(encParams.mfx.Accuracy))rcParams.avbrAccuarcy;
+            }
+            if (rcParams.avbrConvergence > 0) {
+                encParams.mfx.Convergence = (decltype(encParams.mfx.Convergence))rcParams.avbrConvergence;
+            }
+        }
+        if (encParams.mfx.RateControlMethod == MFX_RATECONTROL_QVBR
+            && rcParams.qvbrQuality > 0) {
+            mfxExtCodingOption3 *cop3 = nullptr;
+            for (size_t i = 0; i < encParams.NumExtParam; i++) {
+                if (encParams.ExtParam[i]->BufferId == MFX_EXTBUFF_CODING_OPTION3) {
+                    cop3 = (mfxExtCodingOption3 *)encParams.ExtParam[i];
+                    break;
+                }
+            }
+            if (cop3) {
+                cop3->QVBRQuality = (decltype(cop3->QVBRQuality))rcParams.qvbrQuality;
+            }
+        }
+    }
 
     virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override {
         mfxFrameAllocRequest allocRequest = { 0 };
@@ -1579,6 +1639,16 @@ public:
         allocRequest.Info.Height = (mfxU16)ALIGN(allocRequest.Info.Height, blocksz);
         return std::optional<mfxFrameAllocRequest>(allocRequest);
     };
+
+    int getDynamicRCIndex() {
+        for (int i = 0; i < (int)m_dynamicRC.size(); i++) {
+            if (m_dynamicRC[i].start <= m_inFrames && m_inFrames <= m_dynamicRC[i].end) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override { return std::nullopt; };
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
         if (frame && frame->type() != PipelineTaskOutputType::SURFACE) {
@@ -1644,6 +1714,32 @@ public:
         //エンコーダまでたどり着いたフレームについてはdataListを解放
         if (frame) {
             dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->clearDataList();
+        }
+
+        const auto targetDynamicRC = getDynamicRCIndex();
+        if (targetDynamicRC != m_appliedDynamicRC) {
+            // 指定にしたがってエンコーダのパラメータを変更する
+            setRCParam(m_mfxEncParams, (targetDynamicRC >= 0) ? m_dynamicRC[targetDynamicRC] : m_baseRC);
+            m_appliedDynamicRC = targetDynamicRC;
+
+            auto sts = RGY_ERR_NONE;
+            while (sts == RGY_ERR_NONE) {
+                auto flushFrame = std::unique_ptr<PipelineTaskOutput>();
+                sts = sendFrame(flushFrame); // flush
+                if (sts == RGY_ERR_MORE_DATA) {
+                    break; // flush 成功
+                } else if (sts != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to flush encoder for dynamic rc(%d): %s.\n"), targetDynamicRC, get_err_mes(sts));
+                    return sts;
+                }
+            }
+
+            sts = err_to_rgy(m_encode->Reset(&m_mfxEncParams));
+            if (sts != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to reset encoder for dynamic rc(%d): %s.\n"), targetDynamicRC, get_err_mes(sts));
+                PrintMes(RGY_LOG_ERROR, _T("  parameter was %s.\n"), m_dynamicRC[targetDynamicRC].print().c_str());
+                return sts;
+            }
         }
 
         auto enc_sts = MFX_ERR_NONE;

@@ -183,7 +183,7 @@ tstring QSVRCParam::print() const {
 
     }
     if (maxBitrate != 0) {
-        t << ",maxbitrate=" << maxBitrate;
+        t << ",max-bitrate=" << maxBitrate;
     }
     return t.str();
 }
@@ -231,6 +231,7 @@ sInputParams::sInputParams() :
     VBVBufsize(0),
     qpMin(),
     qpMax(),
+    dynamicRC(),
     nSlices(0),
     ColorFormat(MFX_FOURCC_NV12),
     memType(HW_MEMORY),
