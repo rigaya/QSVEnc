@@ -80,19 +80,6 @@ enum {
     SC_FIELDFLAG_INVALID_HIGH = 0xffff0000,
 };
 
-struct mfxParamSet {
-    mfxVideoParam vidprm;
-    mfxExtCodingOption cop;
-    mfxExtCodingOption2 cop2;
-    mfxExtCodingOption3 cop3;
-    mfxExtHEVCParam hevc;
-    mfxExtAV1BitstreamParam av1BitstreamPrm;
-    mfxExtAV1ResolutionParam av1ResolutionPrm;
-    mfxExtAV1TileParam av1TilePrm;
-    mfxExtHyperModeParam hyperModePrm;
-    mfxExtTuneEncodeQuality tuneEncQualityPrm;
-};
-
 const uint32_t QSV_PTS_SORT_SIZE = 16u;
 
 class CQSVPipeline
@@ -120,7 +107,7 @@ public:
     shared_ptr<RGYLog> m_pQSVLog;
 
     virtual RGY_ERR RunEncode2();
-    bool CompareParam(const mfxParamSet& prmA, const mfxParamSet& prmB);
+    bool CompareParam(const QSVVideoParam& prmA, const QSVVideoParam& prmB);
 protected:
     mfxVersion m_mfxVer;
     std::unique_ptr<QSVDevice> m_device;
@@ -147,19 +134,7 @@ protected:
     int m_nAsyncDepth;
     RGYAVSync m_nAVSyncMode;
 
-    mfxExtVideoSignalInfo m_VideoSignalInfo;
-    mfxExtChromaLocInfo m_chromalocInfo;
-    mfxExtCodingOption m_CodingOption;
-    mfxExtCodingOption2 m_CodingOption2;
-    mfxExtCodingOption3 m_CodingOption3;
-    mfxExtVP8CodingOption m_ExtVP8CodingOption;
-    mfxExtVP9Param m_ExtVP9Param;
-    mfxExtHEVCParam m_ExtHEVCParam;
-    mfxExtAV1BitstreamParam m_ExtAV1BitstreamParam;
-    mfxExtAV1ResolutionParam m_ExtAV1ResolutionParam;
-    mfxExtAV1TileParam m_ExtAV1TileParam;
-    mfxExtHyperModeParam m_hyperModeParam;
-    mfxExtTuneEncodeQuality m_tuneEncQualityPrm;
+    QSVVideoParam m_encParams;
     std::unique_ptr<QSVMfxDec> m_mfxDEC;
     std::unique_ptr<MFXVideoENCODE> m_pmfxENC;
     std::vector<std::unique_ptr<QSVVppMfx>> m_mfxVPP;
@@ -168,11 +143,7 @@ protected:
 
     sTrimParam m_trimParam;
 
-    mfxVideoParam m_mfxEncParams;
-
-    mfxParamSet m_prmSetIn;
-
-    vector<mfxExtBuffer*> m_EncExtParams;
+    QSVVideoParam m_prmSetIn;
 
 #if ENABLE_AVSW_READER
     vector<unique_ptr<AVChapter>> m_Chapters;

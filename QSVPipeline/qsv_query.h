@@ -532,9 +532,16 @@ struct QSVVideoParam {
 
     QSVVideoParam(mfxVersion mfxver_);
     QSVVideoParam() = delete;
-    QSVVideoParam(const QSVVideoParam&) = delete;             // 禁止
-    QSVVideoParam &operator=(const QSVVideoParam &) = delete; // 禁止
-    void setExtParams(const uint32_t CodecId, const QSVEncFeatures& features);
+    QSVVideoParam(const QSVVideoParam& o) = delete; // 禁止
+    QSVVideoParam &operator=(const QSVVideoParam &);
+    template<typename T>
+    void addExtParams(T *extParam) {
+        if (extParam) {
+            buf.push_back((mfxExtBuffer *)extParam);
+        }
+    }
+    void setExtParams();
+    void setAllExtParams(const uint32_t CodecId, const QSVEncFeatures& features);
     ~QSVVideoParam() {};
 };
 

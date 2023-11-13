@@ -344,7 +344,84 @@ QSVVideoParam::QSVVideoParam(const mfxVersion mfxver_) :
     INIT_MFX_EXT_BUFFER(tuneEncQualityPrm, MFX_EXTBUFF_TUNE_ENCODE_QUALITY);
 }
 
-void QSVVideoParam::setExtParams(const uint32_t CodecId, const QSVEncFeatures& features) {
+QSVVideoParam& QSVVideoParam::operator=(const QSVVideoParam &o) {
+    mfxVer = o.mfxVer;
+    isVppParam = o.isVppParam;
+    videoPrmVpp = o.videoPrmVpp;
+    videoPrm = o.videoPrm;
+    videoSignalInfo = o.videoSignalInfo;
+    chromaLocInfo = o.chromaLocInfo;
+    spspps = o.spspps;
+    cop = o.cop;
+    cop2 = o.cop2;
+    cop3 = o.cop3;
+    copVp8 = o.copVp8;
+    vp9Prm = o.vp9Prm;
+    hevcPrm = o.hevcPrm;
+    av1BitstreamPrm = o.av1BitstreamPrm;
+    av1ResolutionPrm = o.av1ResolutionPrm;
+    av1TilePrm = o.av1TilePrm;
+    hyperModePrm = o.hyperModePrm;
+    tuneEncQualityPrm = o.tuneEncQualityPrm;
+
+    memcpy(spsbuf, o.spsbuf, sizeof(spsbuf));
+    memcpy(ppsbuf, o.ppsbuf, sizeof(ppsbuf));
+    spspps.SPSBuffer = spsbuf;
+    spspps.PPSBuffer = ppsbuf;
+
+    // ポインタの付け替えをする必要がある
+    buf.clear();
+    for (auto& b : o.buf) {
+        switch (b->BufferId) {
+        case MFX_EXTBUFF_CODING_OPTION:
+            buf.push_back((mfxExtBuffer *)&cop);
+            break;
+        case MFX_EXTBUFF_CODING_OPTION2:
+            buf.push_back((mfxExtBuffer *)&cop2);
+            break;
+        case MFX_EXTBUFF_CODING_OPTION3:
+            buf.push_back((mfxExtBuffer *)&cop3);
+            break;
+        case MFX_EXTBUFF_VP8_CODING_OPTION:
+            buf.push_back((mfxExtBuffer *)&copVp8);
+            break;
+        case MFX_EXTBUFF_HEVC_PARAM:
+            buf.push_back((mfxExtBuffer *)&hevcPrm);
+            break;
+        case MFX_EXTBUFF_VP9_PARAM:
+            buf.push_back((mfxExtBuffer *)&vp9Prm);
+            break;
+        case MFX_EXTBUFF_AV1_BITSTREAM_PARAM:
+            buf.push_back((mfxExtBuffer *)&av1BitstreamPrm);
+            break;
+        case MFX_EXTBUFF_AV1_RESOLUTION_PARAM:
+            buf.push_back((mfxExtBuffer *)&av1ResolutionPrm);
+            break;
+        case MFX_EXTBUFF_AV1_TILE_PARAM:
+            buf.push_back((mfxExtBuffer *)&av1TilePrm);
+            break;
+        case MFX_EXTBUFF_HYPER_MODE_PARAM:
+            buf.push_back((mfxExtBuffer *)&hyperModePrm);
+            break;
+        case MFX_EXTBUFF_TUNE_ENCODE_QUALITY:
+            buf.push_back((mfxExtBuffer *)&tuneEncQualityPrm);
+            break;
+        default:
+            break;
+        }
+    }
+    videoPrm.NumExtParam = (mfxU16)buf.size();
+    videoPrm.ExtParam = &buf[0];
+    return *this;
+}
+
+void QSVVideoParam::setExtParams() {
+    videoPrm.NumExtParam = (mfxU16)buf.size();
+    videoPrm.ExtParam = (buf.size()) ? buf.data() : nullptr;
+}
+
+void QSVVideoParam::setAllExtParams(const uint32_t CodecId, const QSVEncFeatures& features) {
+    buf.clear();
     if (features & ENC_FEATURE_EXT_VIDEO_SIGNAL_INFO) {
         buf.push_back((mfxExtBuffer *)&videoSignalInfo);
     }
