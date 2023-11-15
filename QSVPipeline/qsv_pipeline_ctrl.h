@@ -699,12 +699,13 @@ protected:
     RGYInput *m_input;
     bool m_getNextBitstream;
     int m_decFrameOutCount;
+    int m_decRemoveRemainingBytesWarnCount; // removing %d bytes from input bitstream not read by decoder の表示回数
     RGYBitstream m_decInputBitstream;
     RGYQueueMPMP<RGYFrameDataMetadata*> m_queueHDR10plusMetadata;
     RGYQueueMPMP<FrameFlags> m_dataFlag;
 public:
     PipelineTaskMFXDecode(MFXVideoSession *mfxSession, int outMaxQueueSize, MFXVideoDECODE *mfxdec, mfxVideoParam& decParams, RGYInput *input, mfxVersion mfxVer, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::MFXDEC, outMaxQueueSize, mfxSession, mfxVer, log), m_dec(mfxdec), m_mfxDecParams(decParams), m_input(input), m_getNextBitstream(true), m_decFrameOutCount(0), m_decInputBitstream(), m_queueHDR10plusMetadata(), m_dataFlag() {
+        : PipelineTask(PipelineTaskType::MFXDEC, outMaxQueueSize, mfxSession, mfxVer, log), m_dec(mfxdec), m_mfxDecParams(decParams), m_input(input), m_getNextBitstream(true), m_decFrameOutCount(0), m_decRemoveRemainingBytesWarnCount(0), m_decInputBitstream(), m_queueHDR10plusMetadata(), m_dataFlag() {
         m_decInputBitstream.init(AVCODEC_READER_INPUT_BUF_SIZE);
         m_dataFlag.init();
         //TimeStampはQSVに自動的に計算させる
@@ -861,10 +862,14 @@ protected:
                 //pInputBitstreamの長さがDecodeFrameAsyncを経ても全く変わっていない場合は、そのデータは捨てる
                 //これを行わないとデコードが止まってしまう
                 if (dec_sts == MFX_ERR_MORE_DATA && inputBitstream && inputBitstream->DataLength == inputDataLen) {
-                    PrintMes((inputDataLen >= 10) ? RGY_LOG_WARN : RGY_LOG_DEBUG,
+                    PrintMes((inputDataLen >= 10) ? RGY_LOG_WARN : ((m_decRemoveRemainingBytesWarnCount >= 10) ? RGY_LOG_TRACE : RGY_LOG_DEBUG),
                         _T("DecodeFrameAsync: removing %d bytes from input bitstream not read by decoder.\n"), inputDataLen);
                     inputBitstream->DataLength = 0;
                     inputBitstream->DataOffset = 0;
+                    if (m_decRemoveRemainingBytesWarnCount == 10) {
+                        PrintMes(RGY_LOG_DEBUG, _T("DecodeFrameAsync:   This message was shown 10 times, will be only shown in trace log after this when removing bytes is samller than 10bytes.\n"));
+                    }
+                    m_decRemoveRemainingBytesWarnCount++;
                 }
                 break;
             }
