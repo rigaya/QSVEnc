@@ -1780,6 +1780,16 @@ RGY_ERR CQSVPipeline::InitInput(sInputParams *inputParam, std::vector<std::uniqu
     //入力モジュールが、エンコーダに返すべき色空間をセット
     inputParam->input.csp = getEncoderCsp(inputParam, &inputParam->input.bitdepth);
 
+    // インタレ解除が指定され、かつインタレの指定がない場合は、自動的にインタレの情報取得を行う
+    int deinterlacer = 0;
+    if (inputParam->vppmfx.deinterlace) deinterlacer++;
+    if (inputParam->vpp.afs.enable) deinterlacer++;
+    if (inputParam->vpp.nnedi.enable) deinterlacer++;
+    if (inputParam->vpp.yadif.enable) deinterlacer++;
+    if (deinterlacer > 0 && ((inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED) == 0)) {
+        inputParam->input.picstruct = RGY_PICSTRUCT_AUTO;
+    }
+
     m_poolPkt = std::make_unique<RGYPoolAVPacket>();
     m_poolFrame = std::make_unique<RGYPoolAVFrame>();
 
@@ -2271,14 +2281,12 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
     }
     //afs
     if (vppType == VppType::CL_AFS) {
-        if ((params->input.picstruct & (RGY_PICSTRUCT_TFF | RGY_PICSTRUCT_BFF)) == 0) {
-            PrintMes(RGY_LOG_ERROR, _T("Please set input interlace field order (--interlace tff/bff) for vpp-afs.\n"));
-            return RGY_ERR_INVALID_PARAM;
-        }
         unique_ptr<RGYFilter> filter(new RGYFilterAfs(m_cl));
         shared_ptr<RGYFilterParamAfs> param(new RGYFilterParamAfs());
         param->afs = params->vpp.afs;
-        param->afs.tb_order = (params->input.picstruct & RGY_PICSTRUCT_TFF) != 0;
+        param->afs.tb_order = 1;
+        if (params->input.picstruct & RGY_PICSTRUCT_BFF) param->afs.tb_order = 0;
+        if (params->input.picstruct & RGY_PICSTRUCT_TFF) param->afs.tb_order = 1;
         if (params->common.timecode && param->afs.timecode) {
             param->afs.timecode = 2;
         }
@@ -2303,10 +2311,6 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
     }
     //nnedi
     if (vppType == VppType::CL_NNEDI) {
-        if ((params->input.picstruct & (RGY_PICSTRUCT_TFF | RGY_PICSTRUCT_BFF)) == 0) {
-            PrintMes(RGY_LOG_ERROR, _T("Please set input interlace field order (--interlace tff/bff) for vpp-nnedi.\n"));
-            return RGY_ERR_INVALID_PARAM;
-        }
         unique_ptr<RGYFilter> filter(new RGYFilterNnedi(m_cl));
         shared_ptr<RGYFilterParamNnedi> param(new RGYFilterParamNnedi());
         param->nnedi = params->vpp.nnedi;
@@ -2327,10 +2331,6 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
     }
     //yadif
     if (vppType == VppType::CL_YADIF) {
-        if ((params->input.picstruct & (RGY_PICSTRUCT_TFF | RGY_PICSTRUCT_BFF)) == 0) {
-            PrintMes(RGY_LOG_ERROR, _T("Please set input interlace field order (--interlace tff/bff) for vpp-yadif.\n"));
-            return RGY_ERR_INVALID_PARAM;
-        }
         unique_ptr<RGYFilter> filter(new RGYFilterYadif(m_cl));
         shared_ptr<RGYFilterParamYadif> param(new RGYFilterParamYadif());
         param->yadif = params->vpp.yadif;
