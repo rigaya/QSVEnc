@@ -90,8 +90,8 @@ static void show_option_list() {
     }
 }
 
-static int writeFeatureList(tstring filename, const QSVDeviceNum deviceNum, bool for_auo, FeatureListStrType type = FEATURE_LIST_STR_TYPE_UNKNOWN) {
-    auto log = std::make_shared<RGYLog>(nullptr, RGY_LOG_INFO);
+static int writeFeatureList(tstring filename, const QSVDeviceNum deviceNum, bool for_auo, RGYParamLogLevel& loglevel, bool parallel, FeatureListStrType type = FEATURE_LIST_STR_TYPE_UNKNOWN) {
+    auto log = std::make_shared<RGYLog>(nullptr, loglevel);
     static const tstring header = _T(R"(
 <!DOCTYPE html>
 <html lang = "ja">
@@ -366,7 +366,7 @@ function showTable(idno) {
                 print_tstring(strsprintf(_T("Media SDK %s unavailable.\n"), impl_str), true);
             }
         } else {
-            const auto codec_feature_list = (for_auo) ? MakeFeatureListStr(deviceNum, type, make_vector(CODEC_LIST_AUO), log) : MakeFeatureListStr(deviceNum, type, log);
+            const auto codec_feature_list = (for_auo) ? MakeFeatureListStr(deviceNum, type, make_vector(CODEC_LIST_AUO), log, parallel) : MakeFeatureListStr(deviceNum, type, log, parallel);
             if (codec_feature_list.size() == 0) {
                 if (type == FEATURE_LIST_STR_TYPE_HTML) {
                     print_tstring((bUseJapanese) ? _T("<b>QSVが使用できません。</b><br>") : _T("<b>QSV unavailable.</b><br>"), false);
@@ -546,16 +546,16 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const QSVDe
     }
     if (0 == _tcscmp(option_name, _T("check-features"))) {
         tstring output = (arg1[0] != _T('-')) ? arg1 : _T("");
-        writeFeatureList(output, deviceNum, false);
+        writeFeatureList(output, deviceNum, false, loglevel, loglevel.get(RGY_LOGT_DEV) > RGY_LOG_DEBUG);
         return 1;
     }
     if (0 == _tcscmp(option_name, _T("check-features-auo"))) {
-        writeFeatureList(_T(""), deviceNum, true);
+        writeFeatureList(_T(""), deviceNum, true, loglevel, loglevel.get(RGY_LOGT_DEV) > RGY_LOG_DEBUG);
         return 1;
     }
     if (0 == _tcscmp(option_name, _T("check-features-html"))) {
         tstring output = (arg1[0] != _T('-')) ? arg1 : _T("");
-        writeFeatureList(output, deviceNum, false, FEATURE_LIST_STR_TYPE_HTML);
+        writeFeatureList(output, deviceNum, false, loglevel, loglevel.get(RGY_LOGT_DEV) > RGY_LOG_DEBUG, FEATURE_LIST_STR_TYPE_HTML);
         return 1;
     }
     if (0 == _tcscmp(option_name, _T("check-hw"))
@@ -568,7 +568,7 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const QSVDe
             _ftprintf(stdout, _T("Supported Encode Codecs for device %s:\n"), deviceName.c_str());
             auto log = std::make_shared<RGYLog>(nullptr, loglevel);
             const auto encodeFeature = MakeFeatureListPerCodec(
-                deviceNum, { MFX_RATECONTROL_CQP }, ENC_CODEC_LISTS, log);
+                deviceNum, { MFX_RATECONTROL_CQP }, ENC_CODEC_LISTS, log, loglevel.get(RGY_LOGT_DEV) > RGY_LOG_DEBUG);
             for (auto& enc : encodeFeature) {
                 if (enc.feature.count(MFX_RATECONTROL_CQP) > 0
                     && (enc.feature.at(MFX_RATECONTROL_CQP) & ENC_FEATURE_CURRENT_RC) != 0) {

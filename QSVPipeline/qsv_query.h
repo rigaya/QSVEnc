@@ -545,14 +545,14 @@ struct QSVVideoParam {
     ~QSVVideoParam() {};
 };
 
-QSVEncFeatures CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, const RGY_CODEC codec, const bool lowPower);
-QSVEncFeatures CheckEncodeFeatureWithPluginLoad(MFXVideoSession& session, const int ratecontrol, const RGY_CODEC codec, const bool lowPower);
+QSVEncFeatures CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, const RGY_CODEC codec, const bool lowPower, std::shared_ptr<RGYLog> log);
+QSVEncFeatures CheckEncodeFeatureWithPluginLoad(MFXVideoSession& session, const int ratecontrol, const RGY_CODEC codec, const bool lowPower, std::shared_ptr<RGYLog> log);
 QSVEncFeatureData MakeFeatureList(const QSVDeviceNum deviceNum, const std::vector<int>& rateControlList, const RGY_CODEC codecId, const bool lowPower, std::shared_ptr<RGYLog> log);
-std::vector<QSVEncFeatureData> MakeFeatureListPerCodec(const QSVDeviceNum deviceNum, const std::vector<int>& rateControlList, const std::vector<RGY_CODEC>& codecIdList, std::shared_ptr<RGYLog> log);
+std::vector<QSVEncFeatureData> MakeFeatureListPerCodec(const QSVDeviceNum deviceNum, const std::vector<int>& rateControlList, const std::vector<RGY_CODEC>& codecIdList, std::shared_ptr<RGYLog> log, const bool parallel = true);
 
 tstring MakeFeatureListStr(const QSVEncFeatures feature);
-std::vector<std::pair<QSVEncFeatureData, tstring>> MakeFeatureListStr(const QSVDeviceNum deviceNum, const FeatureListStrType type, std::shared_ptr<RGYLog> log);
-std::vector<std::pair<QSVEncFeatureData, tstring>> MakeFeatureListStr(const QSVDeviceNum deviceNum, const FeatureListStrType type, const vector<RGY_CODEC>& codecLists, std::shared_ptr<RGYLog> log);
+std::vector<std::pair<QSVEncFeatureData, tstring>> MakeFeatureListStr(const QSVDeviceNum deviceNum, const FeatureListStrType type, std::shared_ptr<RGYLog> log, const bool parallel);
+std::vector<std::pair<QSVEncFeatureData, tstring>> MakeFeatureListStr(const QSVDeviceNum deviceNum, const FeatureListStrType type, const vector<RGY_CODEC>& codecLists, std::shared_ptr<RGYLog> log, const bool parallel);
 
 mfxU64 CheckVppFeatures(MFXVideoSession& session);
 mfxU64 CheckVppFeatures(const QSVDeviceNum deviceNum, std::shared_ptr<RGYLog> log);

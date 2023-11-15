@@ -156,6 +156,7 @@ static const auto QSV_FEATURE_RC_EXT_TO_STR = make_array<std::pair<QSVEncFeature
     QSVFEATURE_2_STR(ENC_FEATURE_EXT_AV1_RESOLUTION_PRM),
     QSVFEATURE_2_STR(ENC_FEATURE_EXT_AV1_TILE_PRM),
     QSVFEATURE_2_STR(ENC_FEATURE_EXT_VIDEO_SIGNAL_INFO),
+    QSVFEATURE_2_STR(ENC_FEATURE_EXT_CHROMALOC),
     QSVFEATURE_2_STR(ENC_FEATURE_EXT_TUNE_ENC_QUALITY),
     QSVFEATURE_2_STR(ENC_FEATURE_EXT_HYPER_MODE)
 );
@@ -868,7 +869,7 @@ mfxU64 CheckVppFeatures(const QSVDeviceNum deviceNum, std::shared_ptr<RGYLog> lo
     return feature;
 }
 
-QSVEncFeatures CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, const RGY_CODEC codec, const bool lowPower) {
+QSVEncFeatures CheckEncodeFeature(MFXVideoSession& session, const int ratecontrol, const RGY_CODEC codec, const bool lowPower, std::shared_ptr<RGYLog> log) {
     QSVEncFeatures result;
     mfxVersion mfxVer;
     session.QueryVersion(&mfxVer);
@@ -1015,8 +1016,10 @@ QSVEncFeatures CheckEncodeFeature(MFXVideoSession& session, const int ratecontro
     set_default_quality_prm();
 
     auto ret = MFXVideoENCODE_Query(session, &videoPrm, &videoPrm);
-    if (false && ret < MFX_ERR_NONE) {
-        _ftprintf(stderr, _T("error checking %s %s %s: %s\n"), CodecToStr(codec).c_str(), (lowPower) ? _T("FF") : _T("PG"), EncmodeToStr(ratecontrol), get_err_mes(err_to_rgy(ret)));
+    if (ret < MFX_ERR_NONE) {
+        log->write(RGY_LOG_TRACE, RGY_LOGT_DEV, _T("  CheckEncodeFeature: %s %s %s: ERR %s\n"), CodecToStr(codec).c_str(), (lowPower) ? _T("FF") : _T("PG"), EncmodeToStr(ratecontrol), get_err_mes(err_to_rgy(ret)));
+    } else {
+        log->write(RGY_LOG_TRACE, RGY_LOGT_DEV, _T("  CheckEncodeFeature: %s %s %s: OK\n"), CodecToStr(codec).c_str(), (lowPower) ? _T("FF") : _T("PG"), EncmodeToStr(ratecontrol));
     }
 
     if (ret >= MFX_ERR_NONE
@@ -1032,8 +1035,9 @@ QSVEncFeatures CheckEncodeFeature(MFXVideoSession& session, const int ratecontro
                 auto check_ret = MFXVideoENCODE_Query(session, &videoPrm, &videoPrm);
                 if (check_ret >= MFX_ERR_NONE && videoPrm.mfx.RateControlMethod == ratecontrol) {
                     result |= flag;
-                } else if (false) {
-                    _ftprintf(stderr, _T("error checking %s %s %s: %s\n"), CodecToStr(codec).c_str(), (lowPower) ? _T("FF") : _T("PG"), EncmodeToStr(mode), get_err_mes(err_to_rgy(check_ret)));
+                    log->write(RGY_LOG_TRACE, RGY_LOGT_DEV, _T("   CheckEncodeFeature: %s %s %s: OK\n"), CodecToStr(codec).c_str(), (lowPower) ? _T("FF") : _T("PG"), EncmodeToStr(mode));
+                } else {
+                    log->write(RGY_LOG_TRACE, RGY_LOGT_DEV, _T("   CheckEncodeFeature: %s %s %s: ERR %s\n"), CodecToStr(codec).c_str(), (lowPower) ? _T("FF") : _T("PG"), EncmodeToStr(mode), get_err_mes(err_to_rgy(check_ret)));
                 }
                 videoPrm.mfx.RateControlMethod = original_method;
                 set_default_quality_prm();
@@ -1050,12 +1054,12 @@ QSVEncFeatures CheckEncodeFeature(MFXVideoSession& session, const int ratecontro
                 auto check_ret = MFXVideoENCODE_Query(session, &videoPrm, &videoPrm);
                 if (check_ret >= MFX_ERR_NONE && videoPrm.mfx.RateControlMethod == ratecontrol) {
                     result |= flag;
+                    log->write(RGY_LOG_TRACE, RGY_LOGT_DEV, _T("    CheckEncodeFeature: %s %s ext buff %s: OK\n"), CodecToStr(codec).c_str(), (lowPower) ? _T("FF") : _T("PG"),
+                        qsv_feature_enm_to_str(flag).c_str());
                 } else {
                     buf.pop_back();
-                    if (false) {
-                        _ftprintf(stderr, _T("error checking %s %s ext buff %s: %s\n"), CodecToStr(codec).c_str(), (lowPower) ? _T("FF") : _T("PG"),
-                            qsv_feature_enm_to_str(flag).c_str(), get_err_mes(err_to_rgy(check_ret)));
-                    }
+                    log->write(RGY_LOG_TRACE, RGY_LOGT_DEV, _T("    CheckEncodeFeature: %s %s ext buff %s: ERR %s\n"), CodecToStr(codec).c_str(), (lowPower) ? _T("FF") : _T("PG"),
+                        qsv_feature_enm_to_str(flag).c_str(), get_err_mes(err_to_rgy(check_ret)));
                 }
             }
         };
@@ -1088,8 +1092,10 @@ QSVEncFeatures CheckEncodeFeature(MFXVideoSession& session, const int ratecontro
                     && (membersIn) == decltype(membersIn)(value)
                     && videoPrm.mfx.RateControlMethod == ratecontrol) {
                     result |= (flag);
-                } else if (false) {
-                    _ftprintf(stderr, _T("error checking %s %s %s %s: %s\n"), CodecToStr(codec).c_str(), (lowPower) ? _T("FF") : _T("PG"),
+                    log->write(RGY_LOG_TRACE, RGY_LOGT_DEV, _T("    CheckEncodeFeature: %s %s %s %s: OK\n"), CodecToStr(codec).c_str(), (lowPower) ? _T("FF") : _T("PG"),
+                        EncmodeToStr(ratecontrol), qsv_feature_enm_to_str(flag).c_str());
+                } else {
+                    log->write(RGY_LOG_TRACE, RGY_LOGT_DEV, _T("    CheckEncodeFeature: %s %s %s %s: ERR %s\n"), CodecToStr(codec).c_str(), (lowPower) ? _T("FF") : _T("PG"),
                         EncmodeToStr(ratecontrol), qsv_feature_enm_to_str(flag).c_str(), get_err_mes(err_to_rgy(check_ret)));
                 }
                 (membersIn) = orig;
@@ -1323,7 +1329,7 @@ static QSVEncFeatures CheckEncodeFeatureStatic(const mfxVersion mfxVer, const in
     return feature;
 }
 
-QSVEncFeatures CheckEncodeFeatureWithPluginLoad(MFXVideoSession& session, const int ratecontrol, const RGY_CODEC codec, const bool lowPower) {
+QSVEncFeatures CheckEncodeFeatureWithPluginLoad(MFXVideoSession& session, const int ratecontrol, const RGY_CODEC codec, const bool lowPower, std::shared_ptr<RGYLog> log) {
     QSVEncFeatures feature;
     mfxVersion ver = MFX_LIB_VERSION_0_0;
     session.QueryVersion(&ver);
@@ -1337,7 +1343,7 @@ QSVEncFeatures CheckEncodeFeatureWithPluginLoad(MFXVideoSession& session, const 
         //コードで決められた値を返すようにする
         feature = CheckEncodeFeatureStatic(ver, ratecontrol, codec);
     } else {
-        feature = CheckEncodeFeature(session, ratecontrol, codec, lowPower);
+        feature = CheckEncodeFeature(session, ratecontrol, codec, lowPower, log);
     }
 
     return feature;
@@ -1381,7 +1387,8 @@ QSVEncFeatureData MakeFeatureList(const QSVDeviceNum deviceNum, const std::vecto
             session.QueryVersion(&ver);
             log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("InitSession: initialized allocator.\n"));
             for (const auto& ratecontrol : rateControlList) {
-                const auto ret = CheckEncodeFeatureWithPluginLoad(session, (mfxU16)ratecontrol, codec, lowPower);
+                log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Start check for %s %s %s.\n"), CodecToStr(codec).c_str(), (lowPower) ? _T("FF") : _T("PG"), EncmodeToStr(ratecontrol));
+                const auto ret = CheckEncodeFeatureWithPluginLoad(session, (mfxU16)ratecontrol, codec, lowPower, log);
                 if (!ret && ratecontrol == MFX_RATECONTROL_CQP) {
                     ver = MFX_LIB_VERSION_0_0;
                 }
@@ -1397,7 +1404,7 @@ QSVEncFeatureData MakeFeatureList(const QSVDeviceNum deviceNum, const std::vecto
     return availableFeatureForEachRC;
 }
 
-std::vector<QSVEncFeatureData> MakeFeatureListPerCodec(const QSVDeviceNum deviceNum, const vector<int>& rateControlList, const vector<RGY_CODEC>& codecIdList, std::shared_ptr<RGYLog> log) {
+std::vector<QSVEncFeatureData> MakeFeatureListPerCodec(const QSVDeviceNum deviceNum, const vector<int>& rateControlList, const vector<RGY_CODEC>& codecIdList, std::shared_ptr<RGYLog> log, const bool parallel) {
     std::vector<QSVEncFeatureData> codecFeatures;
     vector<std::future<QSVEncFeatureData>> futures;
 #if defined(_DEBUG)
@@ -1405,7 +1412,7 @@ std::vector<QSVEncFeatureData> MakeFeatureListPerCodec(const QSVDeviceNum device
 #else
     const bool debug = false;
 #endif
-    if (!debug) {
+    if (parallel && !debug) {
         if (RESET_QUERY_SESSION_PER_RC) {
             for (auto codec : codecIdList) {
                 for (const auto& ratecontrol : rateControlList) {
@@ -1570,12 +1577,12 @@ tstring MakeFeatureListStr(const QSVEncFeatures features) {
     return str;
 }
 
-std::vector<std::pair<QSVEncFeatureData, tstring>> MakeFeatureListStr(const QSVDeviceNum deviceNum, const FeatureListStrType type, const vector<RGY_CODEC>& codecLists, std::shared_ptr<RGYLog> log) {
+std::vector<std::pair<QSVEncFeatureData, tstring>> MakeFeatureListStr(const QSVDeviceNum deviceNum, const FeatureListStrType type, const vector<RGY_CODEC>& codecLists, std::shared_ptr<RGYLog> log, const bool parallel) {
     std::vector<int> rateControlList(_countof(list_rate_control_ry));
     for (size_t i = 0; i < _countof(list_rate_control_ry); i++) {
         rateControlList[i] = list_rate_control_ry[i].value;
     }
-    const auto featurePerCodec = MakeFeatureListPerCodec(deviceNum, rateControlList, codecLists, log);
+    const auto featurePerCodec = MakeFeatureListPerCodec(deviceNum, rateControlList, codecLists, log, parallel);
 
     std::vector<std::pair<QSVEncFeatureData, tstring>> strPerCodec;
 
@@ -1677,8 +1684,8 @@ std::vector<std::pair<QSVEncFeatureData, tstring>> MakeFeatureListStr(const QSVD
     return strPerCodec;
 }
 
-std::vector<std::pair<QSVEncFeatureData, tstring>> MakeFeatureListStr(const QSVDeviceNum deviceNum, const FeatureListStrType type, std::shared_ptr<RGYLog> log) {
-    return MakeFeatureListStr(deviceNum, type, ENC_CODEC_LISTS, log);
+std::vector<std::pair<QSVEncFeatureData, tstring>> MakeFeatureListStr(const QSVDeviceNum deviceNum, const FeatureListStrType type, std::shared_ptr<RGYLog> log, const bool parallel) {
+    return MakeFeatureListStr(deviceNum, type, ENC_CODEC_LISTS, log, parallel);
 }
 
 tstring MakeVppFeatureStr(const QSVDeviceNum deviceNum, FeatureListStrType type, std::shared_ptr<RGYLog> log) {
