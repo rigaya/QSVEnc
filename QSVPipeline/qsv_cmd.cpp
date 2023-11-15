@@ -1217,7 +1217,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     if (0 == _tcscmp(option_name, _T("vbv-bufsize"))) {
         i++;
         try {
-            pParams->VBVBufsize = std::stoi(strInput[i]);
+            pParams->rcParam.vbvBufSize = std::stoi(strInput[i]);
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
@@ -2308,7 +2308,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     if (save_disabled_prm || pParams->rcParam.encMode != MFX_RATECONTROL_CQP) {
         OPT_NUM(_T("--max-bitrate"), rcParam.maxBitrate);
     }
-    OPT_NUM(_T("--vbv-bufsize"), VBVBufsize);
+    OPT_NUM(_T("--vbv-bufsize"), rcParam.vbvBufSize);
     OPT_BOOL(_T("--fallback-rc"), _T("--no-fallback-rc"), fallbackRC);
     OPT_QP(_T("--qp-min"), qpMin, save_disabled_prm);
     OPT_QP(_T("--qp-max"), qpMax, save_disabled_prm);

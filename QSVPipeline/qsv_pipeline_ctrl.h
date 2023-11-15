@@ -1579,7 +1579,7 @@ public:
             }
         }
         return QSVRCParam(
-            encParams.videoPrm.mfx.RateControlMethod, encParams.videoPrm.mfx.TargetKbps, encParams.videoPrm.mfx.MaxKbps,
+            encParams.videoPrm.mfx.RateControlMethod, encParams.videoPrm.mfx.TargetKbps, encParams.videoPrm.mfx.MaxKbps, m_encParams.videoPrm.mfx.BufferSizeInKB*8,
             encParams.videoPrm.mfx.Accuracy, encParams.videoPrm.mfx.Convergence,
             { encParams.videoPrm.mfx.QPI, encParams.videoPrm.mfx.QPP, encParams.videoPrm.mfx.QPB },
             encParams.videoPrm.mfx.ICQQuality, encParams.cop3.QVBRQuality);
@@ -1595,8 +1595,13 @@ public:
         } else if (encParams.mfx.RateControlMethod == MFX_RATECONTROL_ICQ
                 || encParams.mfx.RateControlMethod == MFX_RATECONTROL_LA_ICQ) {
             encParams.mfx.ICQQuality = (decltype(encParams.mfx.ICQQuality))rcParams.icqQuality;
+            encParams.mfx.MaxKbps = 0;
         } else {
-            encParams.mfx.TargetKbps = (decltype(encParams.mfx.TargetKbps))rcParams.bitrate;
+            const int maxBitrate = (encParams.mfx.RateControlMethod == MFX_RATECONTROL_CQP) ? rcParams.bitrate : ((rcParams.maxBitrate) ? rcParams.maxBitrate : QSV_DEFAULT_MAX_BITRATE);
+            const auto maxRCRate = (std::max)((std::max)(rcParams.bitrate, maxBitrate),
+                rcParams.vbvBufSize / 8 /*これはbyte単位の指定*/);
+            m_encParams.videoPrm.mfx.BRCParamMultiplier = (maxRCRate > USHRT_MAX) ? (mfxU16)(maxRCRate / USHRT_MAX) + 1 : 1;
+            encParams.mfx.TargetKbps = (decltype(encParams.mfx.TargetKbps))rcParams.bitrate / m_encParams.videoPrm.mfx.BRCParamMultiplier;
             if (encParams.mfx.RateControlMethod == MFX_RATECONTROL_AVBR) {
                 if (rcParams.avbrAccuarcy > 0) {
                     encParams.mfx.Accuracy = (decltype(encParams.mfx.Accuracy))rcParams.avbrAccuarcy;
@@ -1605,7 +1610,11 @@ public:
                     encParams.mfx.Convergence = (decltype(encParams.mfx.Convergence))rcParams.avbrConvergence;
                 }
             } else {
-                encParams.mfx.MaxKbps = (decltype(encParams.mfx.MaxKbps))rcParams.maxBitrate;
+                encParams.mfx.MaxKbps = (decltype(encParams.mfx.MaxKbps))maxBitrate / m_encParams.videoPrm.mfx.BRCParamMultiplier;
+                if (rcParams.vbvBufSize > 0) {
+                    encParams.mfx.BufferSizeInKB = (decltype(encParams.mfx.BufferSizeInKB))((rcParams.vbvBufSize / 8 /*これはbyte単位の指定*/) / m_encParams.videoPrm.mfx.BRCParamMultiplier);
+                    encParams.mfx.InitialDelayInKB = encParams.mfx.BufferSizeInKB / 2;
+                }
             }
             if (encParams.mfx.RateControlMethod == MFX_RATECONTROL_QVBR && rcParams.qvbrQuality > 0) {
                 mfxExtCodingOption3 *cop3 = nullptr;
@@ -1723,6 +1732,8 @@ public:
                         return sts;
                     }
                 }
+
+                // m_encode->Reset()では、エラーが返る場合があるので、m_encode->Close() -> m_encode->Init()の順で行う
                 sts = err_to_rgy(m_encode->Close());
                 if (sts != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Failed to close encoder for dynamic rc(%d): %s.\n"), targetDynamicRC, get_err_mes(sts));

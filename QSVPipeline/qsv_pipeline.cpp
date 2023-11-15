@@ -860,12 +860,12 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         m_encParams.videoPrm.mfx.MaxKbps         = 0;
     } else {
         auto maxBitrate = (std::max)((std::max)(pInParams->rcParam.bitrate, pInParams->rcParam.maxBitrate),
-            pInParams->VBVBufsize / 8 /*これはbyte単位の指定*/);
+            pInParams->rcParam.vbvBufSize / 8 /*これはbyte単位の指定*/);
         if (maxBitrate > USHRT_MAX) {
             m_encParams.videoPrm.mfx.BRCParamMultiplier = (mfxU16)(maxBitrate / USHRT_MAX) + 1;
             pInParams->rcParam.bitrate    /= m_encParams.videoPrm.mfx.BRCParamMultiplier;
             pInParams->rcParam.maxBitrate /= m_encParams.videoPrm.mfx.BRCParamMultiplier;
-            pInParams->VBVBufsize         /= m_encParams.videoPrm.mfx.BRCParamMultiplier;
+            pInParams->rcParam.vbvBufSize /= m_encParams.videoPrm.mfx.BRCParamMultiplier;
         }
         m_encParams.videoPrm.mfx.TargetKbps      = (mfxU16)pInParams->rcParam.bitrate; // in kbps
         if (m_encParams.videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_AVBR) {
@@ -876,7 +876,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         } else {
             //CBR, VBR
             m_encParams.videoPrm.mfx.MaxKbps         = (mfxU16)pInParams->rcParam.maxBitrate;
-            m_encParams.videoPrm.mfx.BufferSizeInKB  = (mfxU16)(pInParams->VBVBufsize / 8); //これはbyte単位の指定
+            m_encParams.videoPrm.mfx.BufferSizeInKB  = (mfxU16)(pInParams->rcParam.vbvBufSize / 8); //これはbyte単位の指定
             m_encParams.videoPrm.mfx.InitialDelayInKB = m_encParams.videoPrm.mfx.BufferSizeInKB / 2;
         }
     }
@@ -4192,10 +4192,6 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
 
     if (m_pmfxENC) {
         CompareParam(m_prmSetIn, *outFrameInfo);
-
-        // dynamic-rc適用時のために、m_encParams.videoPrmを更新する
-        // ここで更新しておかないと、resetするときにエラーになってしまう
-        m_encParams = *outFrameInfo;
     }
 
     TCHAR cpuInfo[256] = { 0 };

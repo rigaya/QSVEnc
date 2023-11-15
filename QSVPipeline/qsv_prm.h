@@ -273,6 +273,7 @@ struct QSVRCParam {
     int encMode;      // RateControl
     int bitrate;
     int maxBitrate;
+    int vbvBufSize;
     int avbrAccuarcy;    // param for AVBR algorithm, for API v1.3
     int avbrConvergence; // param for AVBR algorithm, for API v1.3
     RGYQPSet qp;
@@ -280,7 +281,7 @@ struct QSVRCParam {
     int qvbrQuality;
 
     QSVRCParam();
-    QSVRCParam(int encMode, int bitrate, int maxBitrate, int avbrAccuarcy, int avbrConvergence,
+    QSVRCParam(int encMode, int bitrate, int maxBitrate, int vbvBufSize, int avbrAccuarcy, int avbrConvergence,
         RGYQPSet qp, int icqQuality, int qvbrQuality);
     tstring print() const;
     bool operator==(const QSVRCParam &x) const;
@@ -309,7 +310,6 @@ struct sInputParams {
     bool bforceGOPSettings; // if true, GOP_STRICT is set
     int GopRefDist;    // set sequential Bframes num + 1, 0 is auto
     int nRef;          // set ref frames num.
-    int VBVBufsize;
     RGYQPSet qpMin;
     RGYQPSet qpMax;
     std::vector<QSVRCParam> dynamicRC;

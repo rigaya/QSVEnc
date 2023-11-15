@@ -125,7 +125,7 @@ QSVRCParam::QSVRCParam() :
 }
 
 QSVRCParam::QSVRCParam(
-    int encMode_, int bitrate_, int maxBitrate_,
+    int encMode_, int bitrate_, int maxBitrate_, int vbvBufSize_,
     int avbrAccuarcy_, int avbrConvergence_,
     RGYQPSet qp_, int icqQuality_, int qvbrQuality_) :
     start(-1),
@@ -133,6 +133,7 @@ QSVRCParam::QSVRCParam(
     encMode(encMode_),
     bitrate(bitrate_),
     maxBitrate(maxBitrate_),
+    vbvBufSize(vbvBufSize_),
     avbrAccuarcy(avbrAccuarcy_),
     avbrConvergence(avbrConvergence_),
     qp(qp_),
@@ -193,6 +194,7 @@ bool QSVRCParam::operator==(const QSVRCParam &x) const {
         && encMode == x.encMode
         && bitrate == x.bitrate
         && maxBitrate == x.maxBitrate
+        && vbvBufSize == x.vbvBufSize
         && avbrAccuarcy == x.avbrAccuarcy
         && avbrConvergence == x.avbrConvergence
         && qp == x.qp
@@ -212,7 +214,7 @@ sInputParams::sInputParams() :
     vppmfx(),
     device(QSVDeviceNum::AUTO),
     rcParam(QSVRCParam(
-        MFX_RATECONTROL_ICQ, QSV_DEFAULT_BITRATE, QSV_DEFAULT_MAX_BITRATE,
+        MFX_RATECONTROL_ICQ, QSV_DEFAULT_BITRATE, QSV_DEFAULT_MAX_BITRATE, 0,
         QSV_DEFAULT_ACCURACY, QSV_DEFAULT_CONVERGENCE,
         { QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB },
         QSV_DEFAULT_ICQ, QSV_DEFAULT_QVBR)),
@@ -228,7 +230,6 @@ sInputParams::sInputParams() :
     bforceGOPSettings(QSV_DEFAULT_FORCE_GOP_LEN),
     GopRefDist(QSV_GOP_REF_DIST_AUTO),
     nRef(QSV_DEFAULT_REF),
-    VBVBufsize(0),
     qpMin(),
     qpMax(),
     dynamicRC(),
