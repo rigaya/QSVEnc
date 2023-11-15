@@ -1638,9 +1638,9 @@ public:
         return std::optional<mfxFrameAllocRequest>(allocRequest);
     };
 
-    int getDynamicRCIndex() {
+    int getDynamicRCIndex(const int inputFrameId) {
         for (int i = 0; i < (int)m_dynamicRC.size(); i++) {
-            if (m_dynamicRC[i].start <= m_inFrames && m_inFrames <= m_dynamicRC[i].end) {
+            if (m_dynamicRC[i].start <= inputFrameId && inputFrameId <= m_dynamicRC[i].end) {
                 return i;
             }
         }
@@ -1705,6 +1705,37 @@ public:
                 PrintMes(RGY_LOG_ERROR, _T("Invalid inputFrameId: %d.\n"), inputFrameId);
                 return RGY_ERR_UNKNOWN;
             }
+
+            const auto targetDynamicRC = getDynamicRCIndex(inputFrameId);
+            if (targetDynamicRC != m_appliedDynamicRC) {
+                // 指定にしたがってエンコーダのパラメータを変更する
+                setRCParam(m_encParams.videoPrm, (targetDynamicRC >= 0) ? m_dynamicRC[targetDynamicRC] : m_baseRC);
+                m_appliedDynamicRC = targetDynamicRC;
+
+                auto sts = RGY_ERR_NONE;
+                while (sts == RGY_ERR_NONE) {
+                    auto flushFrame = std::unique_ptr<PipelineTaskOutput>();
+                    sts = sendFrame(flushFrame); // flush
+                    if (sts == RGY_ERR_MORE_DATA) {
+                        break; // flush 成功
+                    } else if (sts != RGY_ERR_NONE) {
+                        PrintMes(RGY_LOG_ERROR, _T("Failed to flush encoder for dynamic rc(%d): %s.\n"), targetDynamicRC, get_err_mes(sts));
+                        return sts;
+                    }
+                }
+                sts = err_to_rgy(m_encode->Close());
+                if (sts != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to close encoder for dynamic rc(%d): %s.\n"), targetDynamicRC, get_err_mes(sts));
+                    return sts;
+                }
+
+                sts = err_to_rgy(m_encode->Init(&m_encParams.videoPrm));
+                if (sts != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to init encoder for dynamic rc(%d): %s.\n"), targetDynamicRC, get_err_mes(sts));
+                    PrintMes(RGY_LOG_ERROR, _T("  parameter was %s.\n"), m_dynamicRC[targetDynamicRC].print().c_str());
+                    return sts;
+                }
+            }
             m_encTimestamp->add(surfEncodeIn->Data.TimeStamp, inputFrameId, m_inFrames, 0, metadatalist);
             m_inFrames++;
             PrintMes(RGY_LOG_TRACE, _T("send encoder %6d/%6d.\n"), m_inFrames, inputFrameId);
@@ -1714,36 +1745,6 @@ public:
             dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->clearDataList();
         }
 
-        const auto targetDynamicRC = getDynamicRCIndex();
-        if (targetDynamicRC != m_appliedDynamicRC) {
-            // 指定にしたがってエンコーダのパラメータを変更する
-            setRCParam(m_encParams.videoPrm, (targetDynamicRC >= 0) ? m_dynamicRC[targetDynamicRC] : m_baseRC);
-            m_appliedDynamicRC = targetDynamicRC;
-
-            auto sts = RGY_ERR_NONE;
-            while (sts == RGY_ERR_NONE) {
-                auto flushFrame = std::unique_ptr<PipelineTaskOutput>();
-                sts = sendFrame(flushFrame); // flush
-                if (sts == RGY_ERR_MORE_DATA) {
-                    break; // flush 成功
-                } else if (sts != RGY_ERR_NONE) {
-                    PrintMes(RGY_LOG_ERROR, _T("Failed to flush encoder for dynamic rc(%d): %s.\n"), targetDynamicRC, get_err_mes(sts));
-                    return sts;
-                }
-            }
-            sts = err_to_rgy(m_encode->Close());
-            if (sts != RGY_ERR_NONE) {
-                PrintMes(RGY_LOG_ERROR, _T("Failed to close encoder for dynamic rc(%d): %s.\n"), targetDynamicRC, get_err_mes(sts));
-                return sts;
-            }
-
-            sts = err_to_rgy(m_encode->Init(&m_encParams.videoPrm));
-            if (sts != RGY_ERR_NONE) {
-                PrintMes(RGY_LOG_ERROR, _T("Failed to init encoder for dynamic rc(%d): %s.\n"), targetDynamicRC, get_err_mes(sts));
-                PrintMes(RGY_LOG_ERROR, _T("  parameter was %s.\n"), m_dynamicRC[targetDynamicRC].print().c_str());
-                return sts;
-            }
-        }
 
         auto enc_sts = MFX_ERR_NONE;
         mfxSyncPoint lastSyncP = nullptr;
