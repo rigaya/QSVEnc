@@ -148,7 +148,6 @@ static const auto QSV_FEATURE_RC_EXT_TO_STR = make_array<std::pair<QSVEncFeature
     QSVFEATURE_2_STR(ENC_FEATURE_EXT_COP),
     QSVFEATURE_2_STR(ENC_FEATURE_EXT_COP2),
     QSVFEATURE_2_STR(ENC_FEATURE_EXT_COP3),
-    QSVFEATURE_2_STR(ENC_FEATURE_EXT_SPSPPS),
     QSVFEATURE_2_STR(ENC_FEATURE_EXT_HEVC_PRM),
     QSVFEATURE_2_STR(ENC_FEATURE_EXT_COP_VP8),
     QSVFEATURE_2_STR(ENC_FEATURE_EXT_VP9_PRM),
@@ -1068,7 +1067,7 @@ QSVEncFeatures CheckEncodeFeature(MFXVideoSession& session, const int ratecontro
         check_ext_buff(ENC_FEATURE_EXT_COP,                &qsvprm.cop,                MFX_LIB_VERSION_1_0);
         check_ext_buff(ENC_FEATURE_EXT_COP2,               &qsvprm.cop2,               MFX_LIB_VERSION_1_6);
         check_ext_buff(ENC_FEATURE_EXT_COP3,               &qsvprm.cop3,               MFX_LIB_VERSION_1_11);
-        check_ext_buff(ENC_FEATURE_EXT_SPSPPS,             &qsvprm.spspps,             MFX_LIB_VERSION_1_0);
+        //check_ext_buff(ENC_FEATURE_EXT_SPSPPS,             &qsvprm.spspps,             MFX_LIB_VERSION_1_0); // spsのチェックは、Ubuntu 20.04環境で異常終了する場合がある行わないこと
         check_ext_buff(ENC_FEATURE_EXT_HEVC_PRM,           &qsvprm.hevcPrm,            MFX_LIB_VERSION_1_15, true, RGY_CODEC_HEVC);
         check_ext_buff(ENC_FEATURE_EXT_COP_VP8,            &qsvprm.copVp8,             MFX_LIB_VERSION_1_15, true, RGY_CODEC_VP8);
         check_ext_buff(ENC_FEATURE_EXT_VP9_PRM,            &qsvprm.vp9Prm,             MFX_LIB_VERSION_1_26, true, RGY_CODEC_VP9);
