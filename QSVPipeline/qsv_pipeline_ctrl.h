@@ -1761,7 +1761,7 @@ public:
             dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->clearDataList();
         }
 
-
+        std::unique_ptr<std::chrono::system_clock::time_point> device_busy;
         auto enc_sts = MFX_ERR_NONE;
         mfxSyncPoint lastSyncP = nullptr;
         bool bDeviceBusy = false;
@@ -1774,10 +1774,17 @@ public:
                 bDeviceBusy = true;
                 if (enc_sts == MFX_WRN_DEVICE_BUSY) {
                     sleep_hybrid(i);
-                }
-                if (i > 65536 * 1024 * 30) {
-                    PrintMes(RGY_LOG_ERROR, _T("device kept on busy for 30s, unknown error occurred.\n"));
-                    return RGY_ERR_GPU_HANG;
+                    if (!device_busy) {
+                        device_busy = std::make_unique<std::chrono::system_clock::time_point>(std::chrono::system_clock::now());
+                    } else if ((i & 1023) == 0) {
+                        // 15秒以上エンコーダがビジー状態が続いている場合、エンコーダが復帰しないと判断する
+                        const auto now = std::chrono::system_clock::now();
+                        const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - *device_busy).count();
+                        if (elapsed > 15) {
+                            PrintMes(RGY_LOG_ERROR, _T("device kept on busy for 30s, unknown error occurred.\n"));
+                            return RGY_ERR_GPU_HANG;
+                        }
+                    }
                 }
             } else if (MFX_ERR_NONE < enc_sts && lastSyncP != nullptr) {
                 enc_sts = MFX_ERR_NONE;
