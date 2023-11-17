@@ -1323,22 +1323,22 @@ public:
 
 class PipelineTaskMFXVpp : public PipelineTask {
 protected:
-    MFXVideoVPP *m_vpp;
+    QSVVppMfx *m_vpp;
     RGYTimestamp m_timestamp;
     mfxVideoParam& m_mfxVppParams;
     std::vector<std::shared_ptr<RGYFrameData>> m_lastFrameDataList;
 public:
-    PipelineTaskMFXVpp(MFXVideoSession *mfxSession, int outMaxQueueSize, MFXVideoVPP *mfxvpp, mfxVideoParam& vppParams, mfxVersion mfxVer, std::shared_ptr<RGYLog> log)
+    PipelineTaskMFXVpp(MFXVideoSession *mfxSession, int outMaxQueueSize, QSVVppMfx *mfxvpp, mfxVideoParam& vppParams, mfxVersion mfxVer, std::shared_ptr<RGYLog> log)
         : PipelineTask(PipelineTaskType::MFXVPP, outMaxQueueSize, mfxSession, mfxVer, log), m_vpp(mfxvpp), m_timestamp(), m_mfxVppParams(vppParams), m_lastFrameDataList() {};
     virtual ~PipelineTaskMFXVpp() {};
-    void setVpp(MFXVideoVPP *mfxvpp) { m_vpp = mfxvpp; };
+    void setVpp(QSVVppMfx *mfxvpp) { m_vpp = mfxvpp; };
 protected:
     RGY_ERR requiredSurfInOut(std::array<mfxFrameAllocRequest,2>& allocRequest) {
         for (auto& request : allocRequest) {
             memset(&request, 0, sizeof(request));
         }
         // allocRequest[0]はvppへの入力, allocRequest[1]はvppからの出力
-        auto err = err_to_rgy(m_vpp->QueryIOSurf(&m_mfxVppParams, allocRequest.data()));
+        auto err = err_to_rgy(m_vpp->mfxvpp()->QueryIOSurf(&m_mfxVppParams, allocRequest.data()));
         if (err < RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("  Failed to get required buffer size for %s: %s\n"), getPipelineTaskTypeName(m_type), get_err_mes(err));
             return err;
@@ -1384,7 +1384,37 @@ public:
             m_timestamp.add(surfVppIn->Data.TimeStamp, dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->inputFrameId(), 0 /*dummy*/, 0, {});
             surfVppIn->Data.DataFlag |= MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
             m_inFrames++;
+
+            // インタレ解除を使用中、入力フレームのインタレが変更になると、そのまま処理を継続すると device busyで処理がフリーズしてしまうことがある
+            // そのため、インタレ解除設定が変更になった場合は、フィルタをリセットする
+            if (m_vpp->isDeinterlace()
+                && surfVppIn->Info.PicStruct != m_mfxVppParams.vpp.In.PicStruct) {
+                const auto picStructPrev = m_mfxVppParams.vpp.In.PicStruct;
+                PrintMes(RGY_LOG_DEBUG, _T("Change deinterlace settings input: %s -> %s.\n"), MFXPicStructToStr(picStructPrev).c_str(), MFXPicStructToStr(surfVppIn->Info.PicStruct).c_str());
+
+                // まずflushする
+                auto sts = RGY_ERR_NONE;
+                while (sts == RGY_ERR_NONE) {
+                    auto flushFrame = std::unique_ptr<PipelineTaskOutput>();
+                    sts = sendFrame(flushFrame); // flush
+                    if (sts == RGY_ERR_MORE_DATA) {
+                        break; // flush 成功
+                    } else if (sts != RGY_ERR_NONE) {
+                        PrintMes(RGY_LOG_ERROR, _T("  Failed to flush filter to change interlace settings %s -> %s: %s.\n"), MFXPicStructToStr(picStructPrev).c_str(), MFXPicStructToStr(surfVppIn->Info.PicStruct).c_str(), get_err_mes(sts));
+                        return sts;
+                    }
+                }
+
+                // インタレ設定変更を反映してリセットする
+                m_mfxVppParams.vpp.In.PicStruct = surfVppIn->Info.PicStruct;
+                sts = m_vpp->Reset(m_mfxVppParams.vpp.Out, m_mfxVppParams.vpp.In);
+                if (sts != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_ERROR, _T("  Failed to reset filter to change interlace settings %s -> %s: %s.\n"), MFXPicStructToStr(picStructPrev).c_str(), MFXPicStructToStr(surfVppIn->Info.PicStruct).c_str(), get_err_mes(sts));
+                    return sts;
+                }
+            }
         }
+
 
         bool vppMoreOutput = false;
         do {
@@ -1396,7 +1426,7 @@ public:
                 //最初のフレームには設定したtimestamp、次のフレームにはMFX_TIMESTAMP_UNKNOWNが設定されて出てくる
                 //特別pSurfVppOut側のTimestampを設定する必要はなさそう
                 mfxSyncPoint VppSyncPoint = nullptr;
-                vpp_sts = m_vpp->RunFrameVPPAsync(surfVppIn, surfVppOut.mfx()->surf(), nullptr, &VppSyncPoint);
+                vpp_sts = m_vpp->mfxvpp()->RunFrameVPPAsync(surfVppIn, surfVppOut.mfx()->surf(), nullptr, &VppSyncPoint);
                 lastSyncPoint = VppSyncPoint;
 
                 if (MFX_ERR_NONE < vpp_sts && !VppSyncPoint) {

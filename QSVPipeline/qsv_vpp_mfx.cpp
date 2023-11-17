@@ -171,6 +171,20 @@ RGY_ERR QSVVppMfx::SetParam(
     return err;
 }
 
+RGY_ERR QSVVppMfx::Reset(
+    const mfxFrameInfo& frameOut,
+    const mfxFrameInfo& frameIn
+) {
+    m_mfxVppParams.vpp.In = frameIn;
+    m_mfxVppParams.vpp.Out = frameOut;
+
+    auto err = Close();
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
+    return Init();
+}
+
 RGY_ERR QSVVppMfx::Init() {
     //ここでの内部エラーは最終的にはmfxライブラリ内部で解決される場合もあり、これをログ上は無視するようにする。
     //具体的にはSandybridgeでd3dメモリでVPPを使用する際、m_pmfxVPP->Init()実行時に
