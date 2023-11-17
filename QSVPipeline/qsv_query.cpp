@@ -344,6 +344,10 @@ QSVVideoParam::QSVVideoParam(const mfxVersion mfxver_) :
     INIT_MFX_EXT_BUFFER(tuneEncQualityPrm, MFX_EXTBUFF_TUNE_ENCODE_QUALITY);
 }
 
+QSVVideoParam::QSVVideoParam(const QSVVideoParam& o) {
+    *this = o;
+}
+
 QSVVideoParam& QSVVideoParam::operator=(const QSVVideoParam &o) {
     mfxVer = o.mfxVer;
     isVppParam = o.isVppParam;

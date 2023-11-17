@@ -530,8 +530,8 @@ struct QSVVideoParam {
 
     QSVVideoParam(mfxVersion mfxver_);
     QSVVideoParam() = delete;
-    QSVVideoParam(const QSVVideoParam& o) = delete; // 禁止
-    QSVVideoParam &operator=(const QSVVideoParam &);
+    QSVVideoParam(const QSVVideoParam& o);
+    QSVVideoParam &operator=(const QSVVideoParam &o);
     template<typename T>
     void addExtParams(T *extParam) {
         if (extParam) {

@@ -4114,9 +4114,8 @@ const TCHAR *CQSVPipeline::GetInputMessage() {
 }
 
 std::pair<RGY_ERR, std::unique_ptr<QSVVideoParam>> CQSVPipeline::GetOutputVideoInfo() {
-    auto prmset = std::make_unique<QSVVideoParam>(m_mfxVer);
     if (m_pmfxENC) {
-        prmset->setAllExtParams(m_encParams.videoPrm.mfx.CodecId, m_encFeatures);
+        auto prmset = std::make_unique<QSVVideoParam>(m_encParams);
         auto sts = err_to_rgy(m_pmfxENC->GetVideoParam(&prmset->videoPrm));
         if (sts == RGY_ERR_NOT_INITIALIZED) { // 未初期化の場合、設定しようとしたパラメータで代用する
             prmset->videoPrm = m_encParams.videoPrm;
@@ -4124,6 +4123,7 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVideoParam>> CQSVPipeline::GetOutputVideoI
         }
         return { sts, std::move(prmset) };
     }
+    auto prmset = std::make_unique<QSVVideoParam>(m_mfxVer);
     if (m_vpFilters.size() > 0) {
         prmset->isVppParam = true;
         auto& lastFilter = m_vpFilters.back();
@@ -4192,6 +4192,8 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
 
     if (m_pmfxENC) {
         CompareParam(m_prmSetIn, *outFrameInfo);
+
+        m_encParams = *outFrameInfo;
     }
 
     TCHAR cpuInfo[256] = { 0 };
