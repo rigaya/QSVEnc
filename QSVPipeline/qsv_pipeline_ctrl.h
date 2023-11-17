@@ -1754,7 +1754,7 @@ public:
             }
             m_encTimestamp->add(surfEncodeIn->Data.TimeStamp, inputFrameId, m_inFrames, 0, metadatalist);
             m_inFrames++;
-            PrintMes(RGY_LOG_TRACE, _T("send encoder %6d/%6d.\n"), m_inFrames, inputFrameId);
+            PrintMes(RGY_LOG_TRACE, _T("send encoder %6d/%6d/%10lld.\n"), m_inFrames, inputFrameId, surfEncodeIn->Data.TimeStamp);
         }
         //エンコーダまでたどり着いたフレームについてはdataListを解放
         if (frame) {
