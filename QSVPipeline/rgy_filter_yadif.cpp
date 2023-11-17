@@ -243,7 +243,7 @@ RGY_ERR RGYFilterYadif::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         auto err = m_source.add(pInputFrame, queue);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to add frame to source buffer: %s.\n"), get_err_mes(err));
-            return RGY_ERR_CUDA;
+            return err;
         }
     }
 
@@ -281,13 +281,8 @@ RGY_ERR RGYFilterYadif::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
                 ppOutputFrames[0]->inputFrameId = pSourceFrame->inputFrameId;
                 m_cl->copyFrame(ppOutputFrames[0], pSourceFrame, nullptr, queue);
                 if (prm->yadif.mode & VPP_YADIF_MODE_BOB) {
-                    ppOutputFrames[1]->picstruct = RGY_PICSTRUCT_FRAME;
-                    ppOutputFrames[0]->timestamp = pSourceFrame->timestamp;
-                    ppOutputFrames[0]->duration = (pSourceFrame->duration + 1) / 2;
-                    ppOutputFrames[1]->timestamp = ppOutputFrames[0]->timestamp + ppOutputFrames[0]->duration;
-                    ppOutputFrames[1]->duration = pSourceFrame->duration - ppOutputFrames[0]->duration;
-                    ppOutputFrames[1]->inputFrameId = pSourceFrame->inputFrameId;
                     m_cl->copyFrame(ppOutputFrames[1], pSourceFrame, nullptr, queue);
+                    setBobTimestamp(iframe, ppOutputFrames);
                 }
                 m_nFrame++;
                 return RGY_ERR_NONE;
@@ -305,7 +300,7 @@ RGY_ERR RGYFilterYadif::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
             return RGY_ERR_INVALID_PARAM;
         }
 
-        procFrame(ppOutputFrames[0],
+        auto err = procFrame(ppOutputFrames[0],
             &m_source.get(m_nFrame - 1)->frame,
             &m_source.get(m_nFrame + 0)->frame,
             &m_source.get(m_nFrame + 1)->frame,
@@ -313,13 +308,17 @@ RGY_ERR RGYFilterYadif::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
             pSourceFrame->picstruct,
             queue, wait_events, event
             );
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to proc frame: %s.\n"), get_err_mes(err));
+            return err;
+        }
 
         ppOutputFrames[0]->picstruct = RGY_PICSTRUCT_FRAME;
         ppOutputFrames[0]->timestamp = pSourceFrame->timestamp;
         ppOutputFrames[0]->inputFrameId = pSourceFrame->inputFrameId;
         if (prm->yadif.mode & VPP_YADIF_MODE_BOB) {
             targetField = (targetField == YADIF_GEN_FIELD_BOTTOM) ? YADIF_GEN_FIELD_TOP : YADIF_GEN_FIELD_BOTTOM;
-            procFrame(ppOutputFrames[1],
+            err = procFrame(ppOutputFrames[1],
                 &m_source.get(m_nFrame - 1)->frame,
                 &m_source.get(m_nFrame + 0)->frame,
                 &m_source.get(m_nFrame + 1)->frame,
@@ -327,22 +326,11 @@ RGY_ERR RGYFilterYadif::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
                 pSourceFrame->picstruct,
                 queue, wait_events, event
                 );
-            auto frameDuration = pSourceFrame->duration;
-            if (frameDuration == 0) {
-                if (iframe <= 1) {
-                    frameDuration = (decltype(frameDuration))((prm->timebase / prm->baseFps * 2).qdouble() + 0.5);
-                } else if (m_nFrame + 1 >= iframe) {
-                    frameDuration = m_source.get(m_nFrame + 0)->frame.timestamp - m_source.get(m_nFrame - 1)->frame.timestamp;
-                } else {
-                    frameDuration = m_source.get(m_nFrame + 1)->frame.timestamp - m_source.get(m_nFrame + 0)->frame.timestamp;
-                }
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to proc frame (2nd field): %s.\n"), get_err_mes(err));
+                return err;
             }
-            ppOutputFrames[1]->picstruct = RGY_PICSTRUCT_FRAME;
-            ppOutputFrames[0]->timestamp = pSourceFrame->timestamp;
-            ppOutputFrames[0]->duration = (frameDuration + 1) / 2;
-            ppOutputFrames[1]->timestamp = ppOutputFrames[0]->timestamp + ppOutputFrames[0]->duration;
-            ppOutputFrames[1]->duration = frameDuration - ppOutputFrames[0]->duration;
-            ppOutputFrames[1]->inputFrameId = pSourceFrame->inputFrameId;
+            setBobTimestamp(iframe, ppOutputFrames);
         }
         m_nFrame++;
     } else {
@@ -351,6 +339,33 @@ RGY_ERR RGYFilterYadif::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         ppOutputFrames[0] = nullptr;
     }
     return sts;
+}
+
+void RGYFilterYadif::setBobTimestamp(const int iframe, RGYFrameInfo **ppOutputFrames) {
+    auto prm = std::dynamic_pointer_cast<RGYFilterParamYadif>(m_param);
+
+    auto frameDuration = m_source.get(m_nFrame + 0)->frame.duration;
+    if (frameDuration == 0) {
+        if (iframe <= 1) {
+            frameDuration = (decltype(frameDuration))((prm->timebase.inv() / prm->baseFps * 2).qdouble() + 0.5);
+        } else if (m_nFrame + 1 >= iframe) {
+            frameDuration = m_source.get(m_nFrame + 0)->frame.timestamp - m_source.get(m_nFrame - 1)->frame.timestamp;
+        } else {
+            frameDuration = m_source.get(m_nFrame + 1)->frame.timestamp - m_source.get(m_nFrame + 0)->frame.timestamp;
+        }
+    }
+    ppOutputFrames[1]->picstruct = RGY_PICSTRUCT_FRAME;
+    ppOutputFrames[0]->timestamp = m_source.get(m_nFrame + 0)->frame.timestamp;
+    ppOutputFrames[0]->duration = (frameDuration + 1) / 2;
+    ppOutputFrames[1]->timestamp = ppOutputFrames[0]->timestamp + ppOutputFrames[0]->duration;
+    ppOutputFrames[1]->duration = frameDuration - ppOutputFrames[0]->duration;
+    ppOutputFrames[1]->inputFrameId = m_source.get(m_nFrame + 0)->frame.inputFrameId;
+    if (ppOutputFrames[0]->duration < 0) {
+        ppOutputFrames[0]->duration = ppOutputFrames[0]->duration;
+    }
+    if (ppOutputFrames[1]->duration < 0) {
+        ppOutputFrames[1]->duration = ppOutputFrames[1]->duration;
+    }
 }
 
 void RGYFilterYadif::close() {
