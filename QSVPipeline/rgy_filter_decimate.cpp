@@ -284,7 +284,7 @@ RGY_ERR RGYFilterDecimate::checkParam(const std::shared_ptr<RGYFilterParamDecima
         AddMessage(RGY_LOG_ERROR, _T("cycle must be 2 or bigger: cycle = %d.\n"), prm->decimate.cycle);
         return RGY_ERR_INVALID_PARAM;
     }
-    if (prm->decimate.cycle >= DecimateSelectResult::ORDER) {
+    if (prm->decimate.cycle >= (int)DecimateSelectResult::ORDER) {
         AddMessage(RGY_LOG_ERROR, _T("cycle must be less than %d.\n"), (int)DecimateSelectResult::ORDER);
         return RGY_ERR_INVALID_PARAM;
     }
@@ -475,7 +475,7 @@ RGY_ERR RGYFilterDecimate::setOutputFrame(int64_t nextTimestamp, RGYFrameInfo **
 
     //判定
     const auto selectResults = selectDropFrame(iframeStart);
-    if (selectResults.size() != m_cache.inframe() - iframeStart) {
+    if ((int)selectResults.size() != m_cache.inframe() - iframeStart) {
         AddMessage(RGY_LOG_ERROR, _T("NVEncFilterDecimate::setOutputFrame: unexpected error, %d != %d - %d.\n"), (int)selectResults.size(), m_cache.inframe(), iframeStart);
         return RGY_ERR_UNKNOWN;
     }
@@ -537,7 +537,7 @@ RGY_ERR RGYFilterDecimate::setOutputFrame(int64_t nextTimestamp, RGYFrameInfo **
             }
         }
         cycleOutPts[outframe++] = cycleInPts.back();
-        if (outframe != cycleOutPts.size()) {
+        if (outframe != (int)cycleOutPts.size()) {
             AddMessage(RGY_LOG_ERROR, _T("RGYFilterDecimate::setOutputFrame: unexpected error, outframe = %d, cycleOutPts.size() = %d.\n"), outframe, (int)cycleOutPts.size());
             return RGY_ERR_UNKNOWN;
         }
@@ -570,7 +570,7 @@ RGY_ERR RGYFilterDecimate::setOutputFrame(int64_t nextTimestamp, RGYFrameInfo **
                 (selectResults[i] & DecimateSelectResult::DROP)         ? "D" : " ",
                 (selectResults[i] & DecimateSelectResult::ORDER)        ? strsprintf("L%0d", (int)(selectResults[i] & DecimateSelectResult::ORDER)).c_str() : cycle_digit_space.c_str(),
                 iframe,
-                (selectResults[i] & DecimateSelectResult::DROP)         ? -1 : cycleOutPts[iout-1],
+                (selectResults[i] & DecimateSelectResult::DROP)         ? -1ll : cycleOutPts[iout-1],
                 (long long int)iframeData->diffTotal(),
                 (long long int)iframeData->diffMaxBlock());
         }
