@@ -93,7 +93,6 @@ const char *get_encoder_version();
 #define ENABLE_AVCODEC_ITERATE 1
 #define ENABLE_DOVI_METADATA_OPTIONS 1
 #define ENABLE_KEYFRAME_INSERT 0
-#define ENABLE_AUTO_PICSTRUCT 1
 
 #define ENABLE_HYPER_MODE 1
 
@@ -115,6 +114,7 @@ const char *get_encoder_version();
 #define ENABLE_LIBASS_SUBBURN     0
 #define ENABLE_METRIC_FRAMEWORK   0
 #define ENABLE_CAPTION2ASS        0
+#define ENABLE_AUTO_PICSTRUCT     0
 #else
 #define ENCODER_NAME              "QSVEncC"
 #define DECODER_NAME              "qsv"
@@ -138,6 +138,7 @@ const char *get_encoder_version();
 #endif
 #endif
 #define ENABLE_CAPTION2ASS        1
+#define ENABLE_AUTO_PICSTRUCT     1
 #endif //#ifndef ENABLE_METRIC_FRAMEWORK
 
 #else //#if defined(WIN32) || defined(WIN64)
