@@ -1869,9 +1869,12 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, bool 
             return 1;
         }
         if (debug_cmd_parser) {
-            _ftprintf(stderr, _T("parsing %3d: %s\n"), i, strInput[i]);
+            _ftprintf(stderr, _T("parsing %3d: %s: "), i, strInput[i]);
         }
         auto sts = ParseOneOption(option_name, strInput, i, nArgNum, pParams, &argsData);
+        if (debug_cmd_parser) {
+            _ftprintf(stderr, _T("%s\n"), (sts == 0) ? _T("OK") : _T("ERR"));
+        }
         if (!ignore_parse_err && sts != 0) {
             return sts;
         }
