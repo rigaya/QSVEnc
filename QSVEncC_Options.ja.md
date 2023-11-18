@@ -487,12 +487,11 @@ avformat + QSV decoderを使用して読み込む。
 ### --interlace &lt;string&gt;
 **入力**フレームがインターレースかどうかと、そのフィールドオーダーを設定する。
 
-[--vpp-deinterlace](#--vpp-deinterlace-string)によりQSVEncC内でインタレ解除を行ったり、そのままインタレ保持エンコードを行う。(インタレ保持エンコードはH.264のみ)
-
 - **パラメータ**
   - none ... プログレッシブ
   - tff ... トップフィールドファースト
   - bff ... ボトムフィールドファースト
+  - auto ... 自動検出
 
 ### --crop &lt;int&gt;,&lt;int&gt;,&lt;int&gt;,&lt;int&gt;
 左、上、右、下の切り落とし画素数。
