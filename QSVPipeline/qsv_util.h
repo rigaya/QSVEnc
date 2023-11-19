@@ -465,9 +465,10 @@ class RGYFrameMFXSurf : public RGYFrame {
 protected:
     mfxFrameSurface1 m_surface;
     uint64_t m_duration;
+    int m_inputFrameId;
     std::vector<std::shared_ptr<RGYFrameData>> m_dataList;
 public:
-    RGYFrameMFXSurf(mfxFrameSurface1& s) : m_surface(s), m_duration(0), m_dataList() { };
+    RGYFrameMFXSurf(mfxFrameSurface1& s) : m_surface(s), m_duration(0), m_inputFrameId(-1), m_dataList() { };
     virtual mfxFrameSurface1 *surf() { return &m_surface; };
     virtual const mfxFrameSurface1 *surf() const { return &m_surface; };
     virtual bool isempty() const { return false; };
@@ -480,9 +481,9 @@ public:
         return cr;
     }
     virtual void setTimestamp(uint64_t timestamp) override { m_surface.Data.TimeStamp = timestamp; }
-    virtual void setDuration(uint64_t frame_duration) override { m_surface.Data.FrameOrder = (decltype(m_surface.Data.FrameOrder))frame_duration; }
+    virtual void setDuration(uint64_t frame_duration) override { m_duration = frame_duration; }
     virtual void setPicstruct(RGY_PICSTRUCT picstruct) override { m_surface.Info.PicStruct = picstruct_rgy_to_enc(picstruct); }
-    virtual void setInputFrameId(int inputFrameId) override { m_surface.Data.FrameOrder = inputFrameId; }
+    virtual void setInputFrameId(int inputFrameId) override { m_inputFrameId = inputFrameId; }
     virtual void setFlags(RGY_FRAME_FLAGS flag) override { m_surface.Data.DataFlag = (decltype(m_surface.Data.DataFlag))flag; };
     virtual void clearDataList() override { m_dataList.clear(); };
     virtual const std::vector<std::shared_ptr<RGYFrameData>>& dataList() const override { return m_dataList; };
@@ -494,6 +495,7 @@ protected:
     virtual RGYFrameInfo getInfo() const override {
         RGYFrameInfo info = frameinfo_enc_to_rgy(m_surface);
         info.duration = m_duration;
+        info.inputFrameId = m_inputFrameId;
         info.dataList = m_dataList;
         return info;
     }

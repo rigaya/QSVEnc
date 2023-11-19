@@ -899,6 +899,7 @@ protected:
                 flags |= RGY_FRAME_FLAG_RFF;
             }
             taskSurf.frame()->setFlags(flags);
+            taskSurf.frame()->setDuration(0); // QSVはdurationを返さない
 
             taskSurf.frame()->clearDataList();
             if (auto data = getMetadata(RGY_FRAME_DATA_HDR10PLUS, surfDecOut->Data.TimeStamp); data) {
@@ -1014,12 +1015,12 @@ public:
             //CFR仮定ではなく、オリジナルの時間を見る
             const auto srcTimestamp = taskSurf->surf().frame()->timestamp();
             outPtsSource = rational_rescale(srcTimestamp, m_srcTimebase, m_outputTimebase);
-            if (taskSurf->surf().frame()->duration() > 0) {
+            if (taskSurf->surf().frame()->duration() > 0 && (m_avsync | RGY_AVSYNC_FORCE_CFR) != RGY_AVSYNC_FORCE_CFR) {
                 outDuration = rational_rescale(taskSurf->surf().frame()->duration(), m_srcTimebase, m_outputTimebase);
                 taskSurf->surf().frame()->setDuration(outDuration);
             }
         }
-        PrintMes(RGY_LOG_TRACE, _T("check_pts(%d/%d): nOutEstimatedPts %lld, outPtsSource %lld, outDuration %d\n"), taskSurf->surf().frame()->inputFrameId(), m_inFrames, m_tsOutEstimated, outPtsSource, outDuration);
+        PrintMes(RGY_LOG_INFO, _T("check_pts(%d/%d): nOutEstimatedPts %lld, outPtsSource %lld, outDuration %d\n"), taskSurf->surf().frame()->inputFrameId(), m_inFrames, m_tsOutEstimated, outPtsSource, outDuration);
         if (m_tsOutFirst < 0) {
             m_tsOutFirst = outPtsSource; //最初のpts
             PrintMes(RGY_LOG_TRACE, _T("check_pts: m_tsOutFirst %lld\n"), outPtsSource);
@@ -1051,11 +1052,11 @@ public:
                 const auto orig_pts = rational_rescale(taskSurf->surf()->Data.TimeStamp, m_srcTimebase, to_rgy(streamIn->time_base));
                 //ptsからフレーム情報を取得する
                 const auto framePos = pReader->GetFramePosList()->findpts(orig_pts, &nInputFramePosIdx);
-                PrintMes(RGY_LOG_TRACE, _T("check_pts(%d):   estimetaed orig_pts %lld, framePos %d\n"), taskSurf->surf()->Data.FrameOrder, orig_pts, framePos.poc);
+                PrintMes(RGY_LOG_TRACE, _T("check_pts(%d):   estimetaed orig_pts %lld, framePos %d\n"), taskSurf->surf().frame()->inputFrameId(), orig_pts, framePos.poc);
                 if (framePos.poc != FRAMEPOS_POC_INVALID && framePos.duration > 0) {
                     //有効な値ならオリジナルのdurationを使用する
                     outDuration = rational_rescale(framePos.duration, to_rgy(streamIn->time_base), m_outputTimebase);
-                    PrintMes(RGY_LOG_TRACE, _T("check_pts(%d):   changing duration to original: %d\n"), taskSurf->surf()->Data.FrameOrder, outDuration);
+                    PrintMes(RGY_LOG_TRACE, _T("check_pts(%d):   changing duration to original: %d\n"), taskSurf->surf().frame()->inputFrameId(), outDuration);
                 }
             }
 #endif
@@ -1081,6 +1082,7 @@ public:
                 mfxSyncPoint lastSyncPoint = taskSurf->syncpoint();
                 surfVppOut.frame()->setInputFrameId(taskSurf->surf().frame()->inputFrameId());
                 surfVppOut.frame()->setTimestamp(m_tsOutEstimated);
+                surfVppOut.frame()->setDuration(m_outFrameDuration);
                 //timestampの上書き情報
                 //surfVppOut内部のmfxSurface1自体は同じデータを指すため、複数のタイムスタンプを持つことができない
                 //この問題をm_outQeueueのPipelineTaskOutput(これは個別)に与えるPipelineTaskOutputDataCheckPtsの値で、
@@ -1510,10 +1512,10 @@ public:
                 PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [in]: %s.\n"), get_err_mes(err));
                 return RGY_ERR_NULL_PTR;
             }
-            clFrameInInterop->frame.flags = (RGY_FRAME_FLAGS)surfVppIn->Data.DataFlag;
-            clFrameInInterop->frame.timestamp = surfVppIn->Data.TimeStamp;
-            clFrameInInterop->frame.inputFrameId = surfVppIn->Data.FrameOrder;
-            clFrameInInterop->frame.picstruct = picstruct_enc_to_rgy(surfVppIn->Info.PicStruct);
+            clFrameInInterop->frame.flags = taskSurf->surf().frame()->flags();
+            clFrameInInterop->frame.timestamp = taskSurf->surf().frame()->timestamp();
+            clFrameInInterop->frame.inputFrameId = taskSurf->surf().frame()->inputFrameId();
+            clFrameInInterop->frame.picstruct = taskSurf->surf().frame()->picstruct();
             inputFrame = clFrameInInterop->frameInfo();
         } else if (auto clframe = taskSurf->surf().cl(); clframe != nullptr) {
             //OpenCLフレームが出てきた時の場合
@@ -1912,10 +1914,10 @@ public:
                     PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [in]: %s.\n"), get_err_mes(err));
                     return RGY_ERR_NULL_PTR;
                 }
-                clFrameInInterop->frame.flags = (RGY_FRAME_FLAGS)surfVppIn->Data.DataFlag;
-                clFrameInInterop->frame.timestamp = surfVppIn->Data.TimeStamp;
-                clFrameInInterop->frame.inputFrameId = surfVppIn->Data.FrameOrder;
-                clFrameInInterop->frame.picstruct = picstruct_enc_to_rgy(surfVppIn->Info.PicStruct);
+                clFrameInInterop->frame.flags = taskSurf->surf().frame()->flags();
+                clFrameInInterop->frame.timestamp = taskSurf->surf().frame()->timestamp();
+                clFrameInInterop->frame.inputFrameId = taskSurf->surf().frame()->inputFrameId();
+                clFrameInInterop->frame.picstruct = taskSurf->surf().frame()->picstruct();
                 clFrameInInterop->frame.dataList = taskSurf->surf().frame()->dataList();
                 filterframes.push_back(std::make_pair(clFrameInInterop->frameInfo(), 0u));
             } else if (auto clframe = taskSurf->surf().cl(); clframe != nullptr) {
