@@ -360,12 +360,6 @@ void RGYFilterYadif::setBobTimestamp(const int iframe, RGYFrameInfo **ppOutputFr
     ppOutputFrames[1]->timestamp = ppOutputFrames[0]->timestamp + ppOutputFrames[0]->duration;
     ppOutputFrames[1]->duration = frameDuration - ppOutputFrames[0]->duration;
     ppOutputFrames[1]->inputFrameId = m_source.get(m_nFrame + 0)->frame.inputFrameId;
-    if (ppOutputFrames[0]->duration < 0) {
-        ppOutputFrames[0]->duration = ppOutputFrames[0]->duration;
-    }
-    if (ppOutputFrames[1]->duration < 0) {
-        ppOutputFrames[1]->duration = ppOutputFrames[1]->duration;
-    }
 }
 
 void RGYFilterYadif::close() {
