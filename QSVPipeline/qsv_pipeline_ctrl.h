@@ -1026,7 +1026,7 @@ public:
                 taskSurf->surf().frame()->setDuration(outDuration);
             }
         }
-        PrintMes(RGY_LOG_INFO, _T("check_pts(%d/%d): nOutEstimatedPts %lld, outPtsSource %lld, outDuration %d\n"), taskSurf->surf().frame()->inputFrameId(), m_inFrames, m_tsOutEstimated, outPtsSource, outDuration);
+        PrintMes(RGY_LOG_TRACE, _T("check_pts(%d/%d): nOutEstimatedPts %lld, outPtsSource %lld, outDuration %d\n"), taskSurf->surf().frame()->inputFrameId(), m_inFrames, m_tsOutEstimated, outPtsSource, outDuration);
         if (m_tsOutFirst < 0) {
             m_tsOutFirst = outPtsSource; //最初のpts
             PrintMes(RGY_LOG_TRACE, _T("check_pts: m_tsOutFirst %lld\n"), outPtsSource);
