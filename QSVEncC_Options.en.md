@@ -193,6 +193,7 @@
   - [-m, --mux-option \<string1\>:\<string2\>](#-m---mux-option-string1string2)
   - [--metadata \<string\> or \<string\>=\<string\>](#--metadata-string-or-stringstring)
   - [--avsync \<string\>](#--avsync-string)
+  - [--timestamp-passthrough](#--timestamp-passthrough)
   - [--timecode \[\<string\>\]](#--timecode-string)
   - [--tcfile-in \<string\>](#--tcfile-in-string)
   - [--timebase \<int\>/\<int\>](#--timebase-intint)
@@ -1591,6 +1592,10 @@ Set global metadata for output file.
   - vfr  
     Honor source timestamp and enable vfr output. Only available for avsw/avhw reader, and could not be used with --trim.
     
+### --timestamp-passthrough  
+
+Passthrough original timestamp. Implies ```--avsync vfr```.
+
 ### --timecode [&lt;string&gt;]  
   Write timecode file to the specified path. If the path is not set, it will be written to "&lt;output file path&gt;.timecode.txt".
 

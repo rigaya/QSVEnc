@@ -133,6 +133,7 @@ protected:
 
     int m_nAsyncDepth;
     RGYAVSync m_nAVSyncMode;
+    bool m_timestampPathThrough;
 
     QSVVideoParam m_encParams;
     std::unique_ptr<QSVMfxDec> m_mfxDEC;

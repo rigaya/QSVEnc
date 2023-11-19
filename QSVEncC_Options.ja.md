@@ -193,6 +193,7 @@
   - [-m, --mux-option \<string1\>:\<string2\>](#-m---mux-option-string1string2)
   - [--metadata \<string\> or \<string\>=\<string\>](#--metadata-string-or-stringstring)
   - [--avsync \<string\>](#--avsync-string)
+  - [--timestamp-passthrough](#--timestamp-passthrough)
   - [--timecode \[\<string\>\]](#--timecode-string)
   - [--tcfile-in \<string\>](#--tcfile-in-string)
   - [--timebase \<int\>/\<int\>](#--timebase-intint)
@@ -1604,6 +1605,10 @@ mux時にオプションパラメータを渡す。&lt;string1&gt;にオプシ�
 
   - vfr  
     入力に従い、フレームのタイムスタンプをそのまま引き渡す。avsw/avhwリーダによる読み込みの時のみ使用可能。
+    
+### --timestamp-passthrough  
+
+オリジナルのタイムスタンプをそのまま引き渡す。```--avsync vfr```が自動的に指定される。
     
 ### --timecode [&lt;string&gt;]  
   指定のパスにtimecodeファイルを出力する。パスを省略した場合には、"&lt;出力ファイル名&gt;.timecode.txt"に出力する。

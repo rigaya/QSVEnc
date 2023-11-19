@@ -63,8 +63,9 @@ public:
     sInputCrop      crop;
     RGYPoolAVPacket *poolPkt;
     std::vector<const AVStream *> attachmentStreams;
+    bool timestampPathThrough;
 
-    RGYFilterParamSubburn() : subburn(), videoOutTimebase(), videoInputStream(nullptr), videoInputFirstKeyPts(0), videoInfo(), streamIn(), crop(), poolPkt(nullptr), attachmentStreams() {};
+    RGYFilterParamSubburn() : subburn(), videoOutTimebase(), videoInputStream(nullptr), videoInputFirstKeyPts(0), videoInfo(), streamIn(), crop(), poolPkt(nullptr), attachmentStreams(), timestampPathThrough(false) {};
     virtual ~RGYFilterParamSubburn() {};
     virtual tstring print() const override;
 };

@@ -700,12 +700,13 @@ protected:
     bool m_getNextBitstream;
     int m_decFrameOutCount;
     int m_decRemoveRemainingBytesWarnCount; // removing %d bytes from input bitstream not read by decoder の表示回数
+    int64_t m_firstPts;
     RGYBitstream m_decInputBitstream;
     RGYQueueMPMP<RGYFrameDataMetadata*> m_queueHDR10plusMetadata;
     RGYQueueMPMP<FrameFlags> m_dataFlag;
 public:
     PipelineTaskMFXDecode(MFXVideoSession *mfxSession, int outMaxQueueSize, MFXVideoDECODE *mfxdec, mfxVideoParam& decParams, RGYInput *input, mfxVersion mfxVer, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::MFXDEC, outMaxQueueSize, mfxSession, mfxVer, log), m_dec(mfxdec), m_mfxDecParams(decParams), m_input(input), m_getNextBitstream(true), m_decFrameOutCount(0), m_decRemoveRemainingBytesWarnCount(0), m_decInputBitstream(), m_queueHDR10plusMetadata(), m_dataFlag() {
+        : PipelineTask(PipelineTaskType::MFXDEC, outMaxQueueSize, mfxSession, mfxVer, log), m_dec(mfxdec), m_mfxDecParams(decParams), m_input(input), m_getNextBitstream(true), m_decFrameOutCount(0), m_decRemoveRemainingBytesWarnCount(0), m_firstPts(-1), m_decInputBitstream(), m_queueHDR10plusMetadata(), m_dataFlag() {
         m_decInputBitstream.init(AVCODEC_READER_INPUT_BUF_SIZE);
         m_dataFlag.init();
         //TimeStampはQSVに自動的に計算させる
@@ -829,6 +830,8 @@ protected:
         if (inputBitstream != nullptr) {
             if (inputBitstream->TimeStamp == (mfxU64)AV_NOPTS_VALUE) {
                 inputBitstream->TimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
+            } else if (m_firstPts < 0) {
+                m_firstPts = inputBitstream->TimeStamp;
             }
             inputBitstream->DecodeTimeStamp = MFX_TIMESTAMP_UNKNOWN;
         }
@@ -874,7 +877,9 @@ protected:
                 break;
             }
         }
-        if (surfDecOut != nullptr && lastSyncP != nullptr) {
+        if (surfDecOut != nullptr && lastSyncP != nullptr
+            // 最初のフレームはOpenGOPのBフレームのために投入フレーム以前のデータの場合があるので、その場合はフレームを無視する
+            && (m_firstPts <= surfDecOut->Data.TimeStamp || m_decFrameOutCount > 0)) {
             auto taskSurf = useTaskSurf(surfDecOut);
             const auto picstruct = taskSurf.mfx()->surf()->Info.PicStruct;
             auto flags = RGY_FRAME_FLAG_NONE;
@@ -972,19 +977,20 @@ protected:
     bool m_vpp_rff;
     bool m_vpp_afs_rff_aware;
     RGYAVSync m_avsync;
+    bool m_timestampPassThrough;
     int64_t m_outFrameDuration; //(m_outputTimebase基準)
     int64_t m_tsOutFirst;     //(m_outputTimebase基準)
     int64_t m_tsOutEstimated; //(m_outputTimebase基準)
     int64_t m_tsPrev;         //(m_outputTimebase基準)
 public:
-    PipelineTaskCheckPTS(MFXVideoSession *mfxSession, rgy_rational<int> srcTimebase, rgy_rational<int> outputTimebase, int64_t outFrameDuration, RGYAVSync avsync, bool vpp_afs_rff_aware, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
+    PipelineTaskCheckPTS(MFXVideoSession *mfxSession, rgy_rational<int> srcTimebase, rgy_rational<int> outputTimebase, int64_t outFrameDuration, RGYAVSync avsync, bool timestampPassThrough, bool vpp_afs_rff_aware, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
         PipelineTask(PipelineTaskType::CHECKPTS, /*outMaxQueueSize = */ 0 /*常に0である必要がある*/, mfxSession, mfxVer, log),
-        m_srcTimebase(srcTimebase), m_outputTimebase(outputTimebase), m_avsync(avsync), m_vpp_rff(false), m_vpp_afs_rff_aware(vpp_afs_rff_aware), m_outFrameDuration(outFrameDuration), m_tsOutFirst(-1), m_tsOutEstimated(0), m_tsPrev(-1) {
+        m_srcTimebase(srcTimebase), m_outputTimebase(outputTimebase), m_avsync(avsync), m_timestampPassThrough(timestampPassThrough), m_vpp_rff(false), m_vpp_afs_rff_aware(vpp_afs_rff_aware), m_outFrameDuration(outFrameDuration), m_tsOutFirst(-1), m_tsOutEstimated(0), m_tsPrev(-1) {
     };
     virtual ~PipelineTaskCheckPTS() {};
 
     virtual bool isPassThrough() const override {
-        // そのまま渡すのでpaththrough
+        // そのまま渡すのでPassThrough
         return true;
     }
     static const int MAX_FORCECFR_INSERT_FRAMES = 1024; //事実上の無制限
@@ -1011,7 +1017,7 @@ public:
         }
 
         if ((m_srcTimebase.n() > 0 && m_srcTimebase.is_valid())
-            && ((m_avsync & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) || m_vpp_rff || m_vpp_afs_rff_aware)) {
+            && ((m_avsync & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) || m_vpp_rff || m_vpp_afs_rff_aware || m_timestampPassThrough)) {
             //CFR仮定ではなく、オリジナルの時間を見る
             const auto srcTimestamp = taskSurf->surf().frame()->timestamp();
             outPtsSource = rational_rescale(srcTimestamp, m_srcTimebase, m_outputTimebase);
@@ -1025,8 +1031,10 @@ public:
             m_tsOutFirst = outPtsSource; //最初のpts
             PrintMes(RGY_LOG_TRACE, _T("check_pts: m_tsOutFirst %lld\n"), outPtsSource);
         }
-        //最初のptsを0に修正
-        outPtsSource -= m_tsOutFirst;
+        if (!m_timestampPassThrough) {
+            //最初のptsを0に修正
+            outPtsSource -= m_tsOutFirst;
+        }
 
         if ((m_avsync & RGY_AVSYNC_VFR) || m_vpp_rff || m_vpp_afs_rff_aware) {
             if (m_vpp_rff || m_vpp_afs_rff_aware) {
@@ -1330,8 +1338,8 @@ protected:
     mfxVideoParam& m_mfxVppParams;
     std::vector<std::shared_ptr<RGYFrameData>> m_lastFrameDataList;
 public:
-    PipelineTaskMFXVpp(MFXVideoSession *mfxSession, int outMaxQueueSize, QSVVppMfx *mfxvpp, mfxVideoParam& vppParams, mfxVersion mfxVer, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::MFXVPP, outMaxQueueSize, mfxSession, mfxVer, log), m_vpp(mfxvpp), m_timestamp(), m_mfxVppParams(vppParams), m_lastFrameDataList() {};
+    PipelineTaskMFXVpp(MFXVideoSession *mfxSession, int outMaxQueueSize, QSVVppMfx *mfxvpp, mfxVideoParam& vppParams, mfxVersion mfxVer, bool timestampPassThrough, std::shared_ptr<RGYLog> log)
+        : PipelineTask(PipelineTaskType::MFXVPP, outMaxQueueSize, mfxSession, mfxVer, log), m_vpp(mfxvpp), m_timestamp(RGYTimestamp(timestampPassThrough)), m_mfxVppParams(vppParams), m_lastFrameDataList() {};
     virtual ~PipelineTaskMFXVpp() {};
     void setVpp(QSVVppMfx *mfxvpp) { m_vpp = mfxvpp; };
 protected:
