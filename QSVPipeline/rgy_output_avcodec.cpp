@@ -1149,6 +1149,8 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
             _ftprintf(m_Mux.video.fpTsLogFile, _T("%s\n"), strFileHeadSep.c_str());
             _ftprintf(m_Mux.video.fpTsLogFile, _T("%s\n"), m_Mux.format.filename);
             _ftprintf(m_Mux.video.fpTsLogFile, _T("%s\n"), strFileHeadSep.c_str());
+            _ftprintf(m_Mux.video.fpTsLogFile, _T("FrameType,      out pts,              out dts,                  pts,                dts, length,    size\n"));
+            _ftprintf(m_Mux.video.fpTsLogFile, _T("%s\n"), strFileHeadSep.c_str());
         }
     }
 
