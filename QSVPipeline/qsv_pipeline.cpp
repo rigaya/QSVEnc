@@ -1582,7 +1582,7 @@ CQSVPipeline::CQSVPipeline() :
     m_poolFrame(),
     m_nAsyncDepth(0),
     m_nAVSyncMode(RGY_AVSYNC_ASSUME_CFR),
-    m_timestampPathThrough(false),
+    m_timestampPassThrough(false),
     m_encParams(MFX_LIB_VERSION_0_0),
     m_mfxDEC(),
     m_pmfxENC(),
@@ -1808,8 +1808,8 @@ RGY_ERR CQSVPipeline::InitInput(sInputParams *inputParam, std::vector<std::uniqu
 
     m_inputFps = rgy_rational<int>(inputParam->input.fpsN, inputParam->input.fpsD);
     m_outputTimebase = (inputParam->common.timebase.is_valid()) ? inputParam->common.timebase : m_inputFps.inv() * rgy_rational<int>(1, 4);
-    m_timestampPathThrough = inputParam->common.timestampPathThrough;
-    if (inputParam->common.timestampPathThrough) {
+    m_timestampPassThrough = inputParam->common.timestampPassThrough;
+    if (inputParam->common.timestampPassThrough) {
         PrintMes(RGY_LOG_DEBUG, _T("Switching to VFR mode as --timestamp-paththrough is used.\n"));
         m_nAVSyncMode = RGY_AVSYNC_VFR;
     }
@@ -2517,7 +2517,9 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
             unique_ptr<RGYFilter> filter(new RGYFilterSubburn(m_cl));
             shared_ptr<RGYFilterParamSubburn> param(new RGYFilterParamSubburn());
             param->subburn = subburn;
-            param->timestampPathThrough = m_timestampPathThrough;
+            if (m_timestampPassThrough) {
+                param->subburn.vid_ts_offset = false;
+            }
 
             auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader);
             if (pAVCodecReader != nullptr) {
@@ -3416,7 +3418,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     if (sts != RGY_ERR_NONE) return sts;
     PrintMes(RGY_LOG_DEBUG, _T("CheckParam: Success.\n"));
 
-    m_encTimestamp = std::make_unique<RGYTimestamp>(pParams->common.timestampPathThrough);
+    m_encTimestamp = std::make_unique<RGYTimestamp>(pParams->common.timestampPassThrough);
 
     sts = InitMfxDecParams();
     if (sts < RGY_ERR_NONE) return sts;
@@ -3778,7 +3780,7 @@ RGY_ERR CQSVPipeline::CreatePipeline() {
     if (m_trimParam.list.size() > 0) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskTrim>(m_trimParam, m_pFileReader.get(), srcTimebase, 0, m_mfxVer, m_pQSVLog));
     }
-    m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(&m_device->mfxSession(), srcTimebase, m_outputTimebase, outFrameDuration, m_nAVSyncMode, m_timestampPathThrough, VppAfsRffAware() && m_pFileReader->rffAware(), m_mfxVer, m_pQSVLog));
+    m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(&m_device->mfxSession(), srcTimebase, m_outputTimebase, outFrameDuration, m_nAVSyncMode, m_timestampPassThrough, VppAfsRffAware() && m_pFileReader->rffAware(), m_mfxVer, m_pQSVLog));
 
     for (auto& filterBlock : m_vpFilters) {
         if (filterBlock.type == VppFilterType::FILTER_MFX) {
@@ -3787,7 +3789,7 @@ RGY_ERR CQSVPipeline::CreatePipeline() {
                 PrintMes(RGY_LOG_ERROR, _T("Failed to join mfx vpp session: %s.\n"), get_err_mes(err));
                 return err;
             }
-            m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXVpp>(&m_device->mfxSession(), 1, filterBlock.vppmfx.get(), filterBlock.vppmfx->mfxparams(), filterBlock.vppmfx->mfxver(), m_timestampPathThrough, m_pQSVLog));
+            m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXVpp>(&m_device->mfxSession(), 1, filterBlock.vppmfx.get(), filterBlock.vppmfx->mfxparams(), filterBlock.vppmfx->mfxver(), m_timestampPassThrough, m_pQSVLog));
         } else if (filterBlock.type == VppFilterType::FILTER_OPENCL) {
             if (!m_cl) {
                 PrintMes(RGY_LOG_ERROR, _T("OpenCL not enabled, OpenCL filters cannot be used.\n"), CPU_GEN_STR[m_device->CPUGen()]);

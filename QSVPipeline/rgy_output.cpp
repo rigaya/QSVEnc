@@ -1035,7 +1035,7 @@ RGY_ERR initWriters(
         AvcodecWriterPrm writerPrm;
         writerPrm.outputFormat            = common->muxOutputFormat;
         writerPrm.allowOtherNegativePts   = common->allowOtherNegativePts;
-        writerPrm.timestampPathThrough    = common->timestampPathThrough;
+        writerPrm.timestampPassThrough    = common->timestampPassThrough;
         writerPrm.trimList                = trimParam.list;
         writerPrm.bVideoDtsUnavailable    = videoDtsUnavailable;
         writerPrm.threadOutput            = ctrl->threadOutput;

@@ -4697,7 +4697,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         return 0;
     }
     if (IS_OPTION("timestamp-passthrough")) {
-        common->timestampPathThrough = true;
+        common->timestampPassThrough = true;
         common->AVSyncMode = RGY_AVSYNC_VFR;
         return 0;
     }
@@ -6540,7 +6540,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
 
     OPT_BOOL(_T("--no-mp4opt"), _T(""), disableMp4Opt);
     OPT_LST(_T("--avsync"), AVSyncMode, list_avsync);
-    OPT_BOOL(_T("--timestamp-passthrough"), _T(""), timestampPathThrough);
+    OPT_BOOL(_T("--timestamp-passthrough"), _T(""), timestampPassThrough);
     for (auto &m : param->formatMetadata) {
         cmd << _T(" --metadata ") << m;
     }

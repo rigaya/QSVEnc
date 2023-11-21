@@ -78,7 +78,7 @@ AVMuxFormat::AVMuxFormat() :
     disableMp4Opt(false),
     lowlatency(false),
     allowOtherNegativePts(false),
-    timestampPathThrough(false) {
+    timestampPassThrough(false) {
 }
 
 AVMuxVideo::AVMuxVideo() :
@@ -2043,7 +2043,7 @@ RGY_ERR RGYOutputAvcodec::Init(const TCHAR *strFileName, const VideoInfo *videoO
     m_Mux.format.disableMp4Opt = prm->disableMp4Opt;
     m_Mux.format.lowlatency = prm->lowlatency;
     m_Mux.format.allowOtherNegativePts = prm->allowOtherNegativePts;
-    m_Mux.format.timestampPathThrough = prm->timestampPathThrough;
+    m_Mux.format.timestampPassThrough = prm->timestampPassThrough;
 
 #if USE_CUSTOM_IO
     if (m_Mux.format.isPipe || usingAVProtocols(filename, 1) || (m_Mux.format.formatCtx->oformat->flags & (AVFMT_NEEDNUMBER | AVFMT_NOFILE))) {
@@ -3281,7 +3281,7 @@ void RGYOutputAvcodec::WriteNextPacketProcessed(AVMuxAudio *muxAudio, AVPacket *
     } else {
         pkt->pts = av_rescale_q(pkt->pts, muxAudio->outCodecEncodeCtx->time_base, muxAudio->streamOut->time_base);
     }
-    if (m_Mux.video.streamOut && m_Mux.video.inputFirstKeyPts != 0 && !m_Mux.format.timestampPathThrough) {
+    if (m_Mux.video.streamOut && m_Mux.video.inputFirstKeyPts != 0 && !m_Mux.format.timestampPassThrough) {
         pkt->pts -= av_rescale_q(m_Mux.video.inputFirstKeyPts, m_Mux.video.inputStreamTimebase, muxAudio->streamOut->time_base);
     }
     if (muxAudio->lastPtsOut != AV_NOPTS_VALUE) {
@@ -3679,7 +3679,7 @@ RGY_ERR RGYOutputAvcodec::WriteOtherPacket(AVPacket *pkt) {
     }
     //字幕を処理する
     const AVRational vid_pkt_timebase = av_isvalid_q(m_Mux.video.inputStreamTimebase) ? m_Mux.video.inputStreamTimebase : av_inv_q(m_Mux.video.outputFps);
-    const int64_t pts_offset = (m_Mux.format.timestampPathThrough) ? 0ll : av_rescale_q(m_Mux.video.inputFirstKeyPts, vid_pkt_timebase, pMuxOther->streamInTimebase);
+    const int64_t pts_offset = (m_Mux.format.timestampPassThrough) ? 0ll : av_rescale_q(m_Mux.video.inputFirstKeyPts, vid_pkt_timebase, pMuxOther->streamInTimebase);
     const AVRational timebase_conv = (pMuxOther->outCodecDecodeCtx) ? pMuxOther->outCodecDecodeCtx->pkt_timebase : pMuxOther->streamOut->time_base;
     if (pkt->pts != AV_NOPTS_VALUE) pkt->pts = av_rescale_q(std::max<int64_t>(0, pkt->pts - pts_offset), pMuxOther->streamInTimebase, timebase_conv);
     if (pkt->dts != AV_NOPTS_VALUE) pkt->dts = av_rescale_q(std::max<int64_t>(0, pkt->dts - pts_offset), pMuxOther->streamInTimebase, timebase_conv);

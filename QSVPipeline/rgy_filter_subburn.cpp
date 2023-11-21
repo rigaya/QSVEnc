@@ -814,7 +814,7 @@ RGY_ERR RGYFilterSubburn::addStreamPacket(AVPacket *pkt) {
             return RGY_ERR_INVALID_PARAM;
         }
         const auto inputSubStream = (prm->streamIn.stream) ? prm->streamIn.stream : m_formatCtx->streams[m_subtitleStreamIndex];
-        const int64_t vidInputOffsetMs = (prm->videoInputStream && prm->subburn.vid_ts_offset && !prm->timestampPathThrough) ? av_rescale_q(prm->videoInputFirstKeyPts, prm->videoInputStream->time_base, { 1, 1000 }) : 0;
+        const int64_t vidInputOffsetMs = (prm->videoInputStream && prm->subburn.vid_ts_offset) ? av_rescale_q(prm->videoInputFirstKeyPts, prm->videoInputStream->time_base, { 1, 1000 }) : 0;
         const int64_t tsOffsetMs = (int64_t)(prm->subburn.ts_offset * 1000.0 + 0.5);
         const auto pktTimeMs = av_rescale_q(pkt->pts, inputSubStream->time_base, { 1, 1000 }) - vidInputOffsetMs + tsOffsetMs;
         AddMessage(log_level, _T("Add subtitle packet: %s\n"), getTimestampString(pktTimeMs, av_make_q(1, 1000)).c_str());
@@ -830,7 +830,7 @@ RGY_ERR RGYFilterSubburn::procFrame(RGYFrameInfo *pOutputFrame, RGYOpenCLQueue &
     }
     const auto inputSubStream = (prm->streamIn.stream) ? prm->streamIn.stream : m_formatCtx->streams[m_subtitleStreamIndex];
     const int64_t nFrameTimeMs = av_rescale_q(pOutputFrame->timestamp, prm->videoOutTimebase, { 1, 1000 });
-    const int64_t vidInputOffsetMs = (prm->videoInputStream && prm->subburn.vid_ts_offset && !prm->timestampPathThrough) ? av_rescale_q(prm->videoInputFirstKeyPts, prm->videoInputStream->time_base, { 1, 1000 }) : 0;
+    const int64_t vidInputOffsetMs = (prm->videoInputStream && prm->subburn.vid_ts_offset) ? av_rescale_q(prm->videoInputFirstKeyPts, prm->videoInputStream->time_base, { 1, 1000 }) : 0;
     const int64_t tsOffsetMs = (int64_t)(prm->subburn.ts_offset * 1000.0 + 0.5);
 
     AVPacket *pkt = nullptr;
