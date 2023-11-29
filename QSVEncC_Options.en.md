@@ -589,8 +589,7 @@ Types of Frame Buffer will be set automatically by default as below.
 
 **Windows**  
 <u>When using QSV encode:</u>  
-As d3d9 memory mode is faster than d3d11 memory mode, QSVEnc will use d3d9 mode whenever possible.
-However, in some cases (such as systems with dGPU), d3d9 memory mode is not available. In this case d3d11 memory will be used.
+d3d11 which can be used with dGPU is used.
 
 <u>When not using QSV encode (QSV decode only):</u>  
 When graphic memory is used, QSV decode will be fast, but sending back frame data from graphics memory to system memory is **very** slow.
@@ -602,7 +601,7 @@ To enhance stability, system memory is used.
 
 ### --disable-d3d (Win)
 ### --disable-va (Linux)
-Disable use of graphics memory. (Use system memory.) Please note that OpencL filter cannot be used in this mode.
+Disable use of graphics memory. (Use system memory.) Please note that OpenCL filter cannot be used in this mode.
 
 ### --d3d
 Use d3d9 or d3d11 memory mode. (Windows only)

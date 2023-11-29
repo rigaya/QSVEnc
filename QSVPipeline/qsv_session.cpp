@@ -94,6 +94,8 @@ private:
     ~MFXLoaderProvider() = default;
 
     static mfxLoader loader;
+    static bool d3d9Checked; // d3d9のチェックを行ったか?
+    static bool d3d11FilterSet; // d3d11フィルタをセットしたか?
 
 public:
     MFXLoaderProvider(const MFXLoaderProvider&) = delete;
@@ -104,6 +106,28 @@ public:
     static mfxLoader getLoader() {
         create();
         return loader;
+    }
+    static void removeD3D11Filter() {
+        // d3d9無効でチェックしたloaderは、
+        // 初めてd3d9のチェックを行うときは、MFXLoaderの再初期化が必要
+        // これを行わないと、今後継続してうまく処理できなくなる
+        if (d3d11FilterSet) {
+            destroy();
+            create();
+        }
+        d3d11FilterSet = false;
+    }
+    static void setD3D11FilterSet() {
+        d3d11FilterSet = true;
+    }
+    static bool isD3d11FilterSet() {
+        return d3d11FilterSet;
+    }
+    static void setD3D9Checked() {
+        d3d9Checked = true;
+    }
+    static bool isD3d9Checked() {
+        return d3d9Checked;
     }
 private:
     static void create() {
@@ -121,11 +145,14 @@ private:
     }
 
     static void destroy() {
+        MFXUnload(loader);
         loader = nullptr;
     }
 };
 
 mfxLoader MFXLoaderProvider::loader = nullptr;
+bool MFXLoaderProvider::d3d9Checked = false;
+bool MFXLoaderProvider::d3d11FilterSet = false;
 
 MFXVideoSession2Params::MFXVideoSession2Params() : threads(0), threadPriority(0), deviceCopy(false) {};
 
@@ -207,6 +234,11 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
 #endif
     if ((impl & MFX_IMPL_VIA_D3D9) == MFX_IMPL_VIA_D3D9) {
         accelerationMode = MFX_ACCEL_MODE_VIA_D3D9;
+        // d3d9無効でチェックしたloaderは、
+        // 初めてd3d9のチェックを行うときは、MFXLoaderの再初期化が必要
+        // これを行わないと、今後継続してうまく処理できなくなる
+        MFXLoaderProvider::removeD3D11Filter();
+        MFXLoaderProvider::setD3D9Checked();
     }
 #elif LIBVA_SUPPORT
     if ((impl & MFX_IMPL_VIA_VAAPI) == MFX_IMPL_VIA_VAAPI) {
@@ -217,7 +249,13 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
     auto sts = MFX_ERR_NONE;
     auto loader = MFXLoaderProvider::getLoader();
     auto cfg = MFXCreateConfig(loader);
-    if (false) {
+
+#if D3D_SURFACES_SUPPORT
+#if MFX_D3D11_SUPPORT
+    // DX9のチェックは時間を要する
+    // DX11でよい場合はそれを指定してDX9のチェックを省略し高速化する
+    // 一度DX9のチェックをした場合は、その結果を破棄しないよう、この指定は行わない
+    if (!MFXLoaderProvider::isD3d9Checked() && !MFXLoaderProvider::isD3d11FilterSet()) {
         mfxVariant accMode;
         accMode.Version.Version = MFX_VARIANT_VERSION;
         accMode.Type = MFX_VARIANT_TYPE_U32;
@@ -227,6 +265,11 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
             m_log->write(RGY_LOG_ERROR, RGY_LOGT_CORE, _T("MFXVideoSession2::init: Failed to set mfxImplDescription.AccelerationMode %d: %s.\n"), accMode.Data.U32, get_err_mes(err_to_rgy(sts)));
             return sts;
         }
+        MFXLoaderProvider::setD3D11FilterSet();
+    }
+#endif
+#endif
+    if (false) {
         if (dev != QSVDeviceNum::AUTO) {
             mfxVariant devID;
             devID.Version.Version = MFX_VARIANT_VERSION;
@@ -244,7 +287,7 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
             devCopy.Data.U16 = MFX_GPUCOPY_ON;
             sts = MFXSetConfigFilterProperty(cfg, (const mfxU8 *)"DeviceCopy", devCopy);
             if (sts != MFX_ERR_NONE) {
-                m_log->write(RGY_LOG_WARN, RGY_LOGT_CORE, _T("MFXVideoSession2::init: Failed to set mfxImplDescription.AccelerationMode %d: %s.\n"), devCopy.Data.U16, get_err_mes(err_to_rgy(sts)));
+                m_log->write(RGY_LOG_WARN, RGY_LOGT_CORE, _T("MFXVideoSession2::init: Failed to set DeviceCopy %d: %s.\n"), devCopy.Data.U16, get_err_mes(err_to_rgy(sts)));
                 return sts;
             }
         }
@@ -369,10 +412,9 @@ RGY_ERR InitSession(MFXVideoSession2& mfxSession, const MFXVideoSession2Params& 
 #if MFX_D3D11_SUPPORT
 	if ((implAcceleration & MFX_IMPL_VIA_D3D11) == MFX_IMPL_VIA_D3D11) {
 		err = (DEBUG_WIN7) ? RGY_ERR_NOT_INITIALIZED : err_to_rgy(mfxSession.initD3D11(dev, suppressErrorMessage));
-		if (err != RGY_ERR_NONE) err = RGY_ERR_NOT_INITIALIZED;
-	}
+	} else
 #endif
-	if ((implAcceleration & MFX_IMPL_VIA_D3D9) == MFX_IMPL_VIA_D3D9 && err == RGY_ERR_NOT_INITIALIZED) {
+	if ((implAcceleration & MFX_IMPL_VIA_D3D9) == MFX_IMPL_VIA_D3D9) {
 		err = err_to_rgy(mfxSession.initD3D9(dev, suppressErrorMessage));
 	}
 #elif LIBVA_SUPPORT
@@ -393,7 +435,7 @@ mfxIMPL GetDefaultMFXImpl(MemType memType) {
     }
 #endif
 #elif LIBVA_SUPPORT
-	impl |= MFX_IMPL_VIA_VAAPI;
+	impl = MFX_IMPL_VIA_VAAPI;
 #endif
 	return impl;
 }
@@ -408,13 +450,30 @@ RGY_ERR InitSessionAndDevice(std::unique_ptr<CQSVHWDevice>& hwdev, MFXVideoSessi
         //D3D11をWin8以降に限定
         if (!check_OS_Win8orLater() || MFX_D3D11_SUPPORT == 0 || DEBUG_WIN7) {
             memType &= (MemType)(~D3D11_MEMORY);
-            targetImplAcceleration &= (~MFX_IMPL_VIA_D3D11);
-            targetImplAcceleration |= MFX_IMPL_VIA_D3D9;
+            memType |= (MemType)(D3D9_MEMORY);
+            targetImplAcceleration = MFX_IMPL_VIA_D3D9;
             log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("InitSession: OS is Win7, do not check for d3d11 mode.\n"));
+        }
+        //Win8以降ではd3d11で十分なので、自動選択のときはd3d9ではチェックしない
+        //d3d9のチェックを行うと、d3d9のチェックの分起動が遅くなる
+        if (check_OS_Win8orLater() && ((memType & HW_MEMORY) == HW_MEMORY)) {
+            memType &= (MemType)(~D3D9_MEMORY);
+            memType |= (MemType)(D3D11_MEMORY);
+            targetImplAcceleration = MFX_IMPL_VIA_D3D11;
+            log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("InitSession: check d3d11 only.\n"));
         }
 #endif //#if D3D_SURFACES_SUPPORT
 
         if ((sts = InitSession(mfxSession, params, targetImplAcceleration, dev, log, suppressErrorMessage)) != RGY_ERR_NONE) {
+#if D3D_SURFACES_SUPPORT
+            // d3d11で失敗したらd3d9でもう一度試す (Win8以降はd3d11、未満ならd3d9としたので、ここが動くことはもうないかも)
+            if (sts == RGY_ERR_NOT_INITIALIZED && targetImplAcceleration == MFX_IMPL_VIA_D3D11 && (memType & D3D9_MEMORY)) {
+                memType &= (MemType)(~D3D11_MEMORY);
+                memType |= (MemType)(D3D9_MEMORY);
+                targetImplAcceleration = MFX_IMPL_VIA_D3D9;
+                sts = InitSession(mfxSession, params, targetImplAcceleration, dev, log, suppressErrorMessage);
+            }
+#endif //#if D3D_SURFACES_SUPPORT
             log->write((suppressErrorMessage) ? RGY_LOG_DEBUG : RGY_LOG_ERROR, RGY_LOGT_CORE, _T("Failed to init session: %s.\n"), get_err_mes(sts));
             return sts;
         }

@@ -256,12 +256,6 @@ tstring encoder_help() {
     str += strsprintf(_T("Frame buffer Options:\n")
         _T(" frame buffers are selected automatically by default.\n")
 #if D3D_SURFACES_SUPPORT
-        _T(" d3d9 memory is faster than d3d11, so d3d9 frames are used whenever possible,\n")
-        _T(" except decode/vpp only mode (= no encoding mode, system frames are used).\n")
-        _T(" On particular cases, such as runnning on a system with dGPU, or running\n")
-        _T(" vpp-rotate, will require the uses of d3d11 surface.\n")
-        _T(" Options below will change this default behavior.\n")
-        _T("\n")
         _T("   --disable-d3d                disable using d3d surfaces\n")
 #if MFX_D3D11_SUPPORT
         _T("   --d3d                        use d3d9/d3d11 surfaces\n")

@@ -315,6 +315,7 @@ API v1.1  … Intel Media SDK v2.0
 【どうでもいいメモ】
 2023.11.28 (7.55)
 - 初期化のコードにAVX2命令が混入しているらしく、AVX2に対応しない環境で動作しないのを回避。
+- セッション初期化を高速化。 (Windows)
 - --audio-delayを小数点で渡せるように変更。
 - ts出力時にaacをコピーする時の処理を改善。
 
@@ -949,8 +950,8 @@ API v1.1  … Intel Media SDK v2.0
 ・Icelakeへの対応を拡充。
 ・Rocketlake対応の初期実装。
 ・内部実装の刷新し、OpenCLフィルタを組み込み可能に。
-　・--vpp-knnの追加。
-　・--vpp-transposeの追加。
+  ・--vpp-knnの追加。
+  ・--vpp-transposeの追加。
 ・HEVC YUV422/YUV444デコードに対応。(Icelake/Rocketlake)
 ・HEVC YUV444エンコードに対応。(--output-csp, Icelake/Rocketlake)
 ・VP9 YUV444デコードに対応。(Icelake/Rocketlake)

@@ -69,8 +69,6 @@ protected:
     mfxExtThreadsParam m_ThreadsParam;
 };
 
-mfxIMPL GetDefaultMFXImpl();
-
 std::vector<mfxImplDescription> getVPLImplList(std::shared_ptr<RGYLog>& log);
 
 RGY_ERR InitSession(MFXVideoSession2& mfxSession, const MFXVideoSession2Params& params, const mfxIMPL implAcceleration, const QSVDeviceNum dev, std::shared_ptr<RGYLog>& log, const bool suppressErrorMessage = false);
