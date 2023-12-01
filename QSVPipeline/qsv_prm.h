@@ -52,6 +52,16 @@ RGY_DISABLE_WARNING_POP
 
 #define QSVENCC_ABORT_EVENT _T("QSVEncC_abort_%u")
 
+struct IntelDeviceInfo {
+    unsigned int GPUMemoryBytes;
+    unsigned int GPUMaxFreqMHz;
+    unsigned int GPUMinFreqMHz;
+    unsigned int GTGeneration;
+    unsigned int EUCount;
+    unsigned int PackageTDP;
+    unsigned int MaxFillRate;
+};
+
 enum {
     MFX_DEINTERLACE_NONE        = 0,
     MFX_DEINTERLACE_NORMAL      = 1,

@@ -28,6 +28,7 @@
 #include "qsv_util.h"
 #include "qsv_session.h"
 #include "qsv_device.h"
+#include "gpu_info.h"
 
 QSVDevice::QSVDevice() :
     m_devNum(QSVDeviceNum::AUTO),
@@ -39,6 +40,7 @@ QSVDevice::QSVDevice() :
     m_externalAlloc(false),
     m_memType(HW_MEMORY),
     m_featureData(),
+    m_intelDeviceInfo(),
     m_log() {
     m_log = std::make_shared<RGYLog>(nullptr, RGY_LOG_QUIET);
 }
@@ -124,6 +126,7 @@ RGY_ERR QSVDevice::init(const QSVDeviceNum dev, const bool enableOpenCL, const b
         PrintMes((suppressErrorMessage) ? RGY_LOG_DEBUG : RGY_LOG_ERROR, _T("QSVDevice::init:   failed to find OpenCL device for dev #%d.\n"), dev);
         return RGY_ERR_NONE;
     }
+    getIntelGPUInfo(&m_intelDeviceInfo, (int)m_devNum);
     return RGY_ERR_NONE;
 }
 

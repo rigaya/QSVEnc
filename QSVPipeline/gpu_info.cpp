@@ -44,16 +44,6 @@
 std::optional<RGYOpenCLDeviceInfo> getDeviceCLInfoQSV(const QSVDeviceNum dev);
 #endif
 
-typedef struct IntelDeviceInfo {
-    unsigned int GPUMemoryBytes;
-    unsigned int GPUMaxFreqMHz;
-    unsigned int GPUMinFreqMHz;
-    unsigned int GTGeneration;
-    unsigned int EUCount;
-    unsigned int PackageTDP;
-    unsigned int MaxFillRate;
-} IntelDeviceInfo;
-
 #if ENABLE_OPENCL
 
 static std::basic_string<TCHAR> to_tchar(const char *string) {
@@ -153,7 +143,7 @@ tstring getGPUInfoVA() {
 
 #pragma warning (push)
 #pragma warning (disable: 4100)
-int getGPUInfo(const char *VendorName, TCHAR *buffer, const unsigned int buffer_size, const int adapterID, RGYOpenCLPlatform *clplatform) {
+int getGPUInfo(const char *VendorName, TCHAR *buffer, const unsigned int buffer_size, const int adapterID, RGYOpenCLPlatform *clplatform, const IntelDeviceInfo *inteldevInfo) {
 #if LIBVA_SUPPORT
     _stprintf_s(buffer, buffer_size, _T("Intel Graphics / Driver : %s"), getGPUInfoVA().c_str());
     return 0;
@@ -161,12 +151,11 @@ int getGPUInfo(const char *VendorName, TCHAR *buffer, const unsigned int buffer_
 
 #if !FOR_AUO
     IntelDeviceInfo info = { 0 };
-    const auto intelInfoRet = getIntelGPUInfo(&info, adapterID);
-    IntelDeviceInfo* intelinfoptr = (intelInfoRet == 0) ? &info : nullptr;
-#else
-    IntelDeviceInfo* intelinfoptr = nullptr;
+    if (!inteldevInfo) {
+        const auto intelInfoRet = getIntelGPUInfo(&info, adapterID);
+        inteldevInfo = (intelInfoRet == 0) ? &info : nullptr;
+    }
 #endif
-
 
     RGYOpenCLDeviceInfo clinfo;
     if (clplatform) {
@@ -188,7 +177,7 @@ int getGPUInfo(const char *VendorName, TCHAR *buffer, const unsigned int buffer_
         }
 #endif
     }
-    cl_create_info_string((clinfo.name.length() > 0) ? &clinfo : nullptr, intelinfoptr, buffer, buffer_size);
+    cl_create_info_string((clinfo.name.length() > 0) ? &clinfo : nullptr, inteldevInfo, buffer, buffer_size);
     return 0;
 #else
     buffer[0] = _T('\0');

@@ -54,6 +54,7 @@ public:
     MemType memType() const { return m_memType; };
     CQSVHWDevice *hwdev() { return m_hwdev.get(); }
     QSVAllocator *allocator() { return m_allocator.get(); }
+    const IntelDeviceInfo *intelDeviceInfo() const { return &m_intelDeviceInfo; }
     bool externalAlloc() const { return m_externalAlloc; }
     const RGYOpenCLDeviceInfo *devInfo() const { return m_devInfo.get(); }
     MFXVideoSession2& mfxSession() { return m_session; };
@@ -91,6 +92,7 @@ protected:
     bool m_externalAlloc;
     MemType m_memType;
     std::vector<QSVEncFeatureData> m_featureData;
+    IntelDeviceInfo m_intelDeviceInfo;
     std::shared_ptr<RGYLog> m_log;
 };
 

@@ -4211,7 +4211,7 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
 
     TCHAR gpu_info[1024] = { 0 };
     if (Check_HWUsed(impl)) {
-        getGPUInfo("Intel", gpu_info, _countof(gpu_info), GetAdapterID(m_device->mfxSession().get()), (m_cl) ? m_cl->platform() : nullptr);
+        getGPUInfo("Intel", gpu_info, _countof(gpu_info), GetAdapterID(m_device->mfxSession().get()), (m_cl) ? m_cl->platform() : nullptr, m_device->intelDeviceInfo());
     }
     TCHAR info[4096] = { 0 };
     mfxU32 info_len = 0;
