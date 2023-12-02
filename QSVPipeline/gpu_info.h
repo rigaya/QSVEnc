@@ -36,6 +36,6 @@ using IntelDeviceInfo = IntelDeviceInfoV2;
 
 int getIntelGPUInfo(IntelDeviceInfo *info, const int adapterID);
 
-int getGPUInfo(const char *VendorName, TCHAR *buffer, const unsigned int buffer_size, const int adapterID = 0, RGYOpenCLPlatform *clplatform = nullptr, const IntelDeviceInfo *inteldevInfo = nullptr);
+int getGPUInfo(const char *VendorName, TCHAR *buffer, const unsigned int buffer_size, const int adapterID = 0, RGYOpenCLPlatform *clplatform = nullptr, const bool disableOpenCL = false, const IntelDeviceInfo *inteldevInfo = nullptr);
 
 #endif //_GPU_INFO_H_

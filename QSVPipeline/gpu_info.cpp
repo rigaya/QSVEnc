@@ -145,7 +145,7 @@ tstring getGPUInfoVA() {
 
 #pragma warning (push)
 #pragma warning (disable: 4100)
-int getGPUInfo(const char *VendorName, TCHAR *buffer, const unsigned int buffer_size, const int adapterID, RGYOpenCLPlatform *clplatform, const IntelDeviceInfo *inteldevInfo) {
+int getGPUInfo(const char *VendorName, TCHAR *buffer, const unsigned int buffer_size, const int adapterID, RGYOpenCLPlatform *clplatform, const bool disableOpenCL, const IntelDeviceInfo *inteldevInfo) {
 #if LIBVA_SUPPORT
     _stprintf_s(buffer, buffer_size, _T("Intel Graphics / Driver : %s"), getGPUInfoVA().c_str());
     return 0;
@@ -160,7 +160,9 @@ int getGPUInfo(const char *VendorName, TCHAR *buffer, const unsigned int buffer_
 #endif
 
     RGYOpenCLDeviceInfo clinfo;
-    if (clplatform) {
+    if (disableOpenCL) {
+        ; // 何もしない
+    } else if (clplatform) {
         clinfo = clplatform->dev(0).info();
     } else {
 #if !FOR_AUO
