@@ -41,7 +41,16 @@
 #include <optional>
 #include "qsv_prm.h"
 
-using IntelDeviceInfo = IntelDeviceInfoV2;
+#if !(defined(_WIN32) || defined(_WIN64))
+struct IntelDeviceInfoV2 {
+    unsigned int GPUMaxFreq;
+    unsigned int GPUMinFreq;
+    unsigned int GTGeneration;
+    unsigned int EUCount;
+    unsigned int PackageTDP;
+    unsigned int MaxFillRate;
+};
+#endif
 
 std::optional<RGYOpenCLDeviceInfo> getDeviceCLInfoQSV(const QSVDeviceNum dev);
 #endif
