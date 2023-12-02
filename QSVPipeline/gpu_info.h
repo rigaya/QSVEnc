@@ -31,7 +31,8 @@
 #include "rgy_tchar.h"
 
 class RGYOpenCLPlatform;
-struct IntelDeviceInfo;
+struct IntelDeviceInfoV2;
+using IntelDeviceInfo = IntelDeviceInfoV2;
 
 int getIntelGPUInfo(IntelDeviceInfo *info, const int adapterID);
 

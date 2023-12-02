@@ -41,6 +41,8 @@
 #include <optional>
 #include "qsv_prm.h"
 
+using IntelDeviceInfo = IntelDeviceInfoV2;
+
 std::optional<RGYOpenCLDeviceInfo> getDeviceCLInfoQSV(const QSVDeviceNum dev);
 #endif
 
@@ -71,8 +73,8 @@ static cl_int cl_create_info_string(const RGYOpenCLDeviceInfo *clinfo, const Int
         str += strsprintf(" (%dEU)", numEU);
     }
 
-    int MaxFreqMHz = (info) ? info->GPUMaxFreqMHz : 0;
-    int MinFreqMHz = (info) ? info->GPUMinFreqMHz : 0;
+    int MaxFreqMHz = (info) ? info->GPUMaxFreq : 0;
+    int MinFreqMHz = (info) ? info->GPUMinFreq : 0;
     if (MaxFreqMHz == 0 && clinfo) {
         MaxFreqMHz = clinfo->max_clock_frequency;
     }
@@ -110,7 +112,7 @@ int getIntelGPUInfo(IntelDeviceInfo *info, const int adapterID) {
     if (!getGraphicsDeviceInfo(&VendorId, &DeviceId, &VideoMemory, adapterID)) {
         return 1;
     }
-    info->GPUMemoryBytes = VideoMemory;
+    //info->GPUMemoryBytes = VideoMemory;
 
     IntelDeviceInfoHeader intelDeviceInfoHeader = { 0 };
     char intelDeviceInfoBuffer[1024];
@@ -120,8 +122,8 @@ int getIntelGPUInfo(IntelDeviceInfo *info, const int adapterID) {
 
     IntelDeviceInfoV2 intelDeviceInfo = { 0 };
     memcpy(&intelDeviceInfo, intelDeviceInfoBuffer, intelDeviceInfoHeader.Size);
-    info->GPUMaxFreqMHz = intelDeviceInfo.GPUMaxFreq;
-    info->GPUMinFreqMHz = intelDeviceInfo.GPUMinFreq;
+    info->GPUMaxFreq = intelDeviceInfo.GPUMaxFreq;
+    info->GPUMinFreq = intelDeviceInfo.GPUMinFreq;
     if (intelDeviceInfoHeader.Version == 2) {
         info->EUCount      = intelDeviceInfo.EUCount;
         info->GTGeneration = intelDeviceInfo.GTGeneration;

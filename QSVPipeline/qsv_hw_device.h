@@ -50,6 +50,9 @@ RGY_DISABLE_WARNING_POP
 #pragma comment(lib, "dxgi.lib")
 #endif //#if MFX_D3D11_SUPPORT
 
+struct IntelDeviceInfoV2;
+using IntelDeviceInfo = IntelDeviceInfoV2;
+
 class CQSVHWDevice {
 public:
     CQSVHWDevice(std::shared_ptr<RGYLog> pQSVLog) : m_name(_T("hwdev")), m_pQSVLog(pQSVLog) {  };
@@ -60,6 +63,7 @@ public:
     virtual void      Close() = 0;
     virtual LUID      GetLUID() { return LUID(); };
     virtual tstring   GetName() { return _T(""); };
+    virtual IntelDeviceInfo *GetIntelDeviceInfo() { return nullptr; };
 protected:
     void AddMessage(RGYLogLevel log_level, const tstring &str);
     void AddMessage(RGYLogLevel log_level, const TCHAR *format, ...);

@@ -28,15 +28,23 @@
 #include "qsv_hw_d3d11.h"
 #if defined(_WIN32) || defined(_WIN64)
 #include "qsv_util.h"
+#include "DeviceId.h"
 
 #if MFX_D3D11_SUPPORT
+
+#define INTEL_VENDOR_ID 0x8086
+
+// The new device dependent counter
+#define INTEL_DEVICE_INFO_COUNTERS         "Intel Device Information"
 
 CQSVD3D11Device::CQSVD3D11Device(std::shared_ptr<RGYLog> pQSVLog):
     CQSVHWDevice(pQSVLog),
     m_nViews(0),
     m_bDefaultStereoEnabled(FALSE),
     m_bIsA2rgb10(FALSE),
-    m_HandleWindow(NULL) {
+    m_HandleWindow(NULL),
+    m_intelDeviceInfoHeader(),
+    m_intelDeviceInfo() {
     m_name = _T("d3d11");
     m_devLUID = LUID();
 }
@@ -122,6 +130,105 @@ mfxStatus CQSVD3D11Device::Init(mfxHDL hWindow, [[maybe_unused]] uint32_t nViews
         AddMessage(RGY_LOG_DEBUG, _T("D3D11Device: CreateSwapChainForHwnd Success.\n"));
     }
     AddMessage(RGY_LOG_DEBUG, _T("D3D11Device: Init Success.\n"));
+
+    getIntelDeviceInfo();
+
+    return MFX_ERR_NONE;
+}
+
+mfxStatus CQSVD3D11Device::getIntelDeviceInfo() {
+    HRESULT hr = 0;
+    // The counter is in a device dependent counter
+    D3D11_COUNTER_INFO counterInfo;
+    D3D11_COUNTER_DESC pIntelCounterDesc;
+    ZeroMemory(&counterInfo, sizeof(D3D11_COUNTER_INFO));
+    ZeroMemory(&pIntelCounterDesc, sizeof(D3D11_COUNTER_DESC));
+
+    // Query the device to find the number of device dependent counters.
+    m_pD3D11Device->CheckCounterInfo(&counterInfo);
+
+    if (counterInfo.LastDeviceDependentCounter == 0) {
+        return MFX_ERR_NOT_FOUND;
+    }
+
+    const int numDependentCounters = counterInfo.LastDeviceDependentCounter - D3D11_COUNTER_DEVICE_DEPENDENT_0 + 1;
+
+    // Search for the apporpriate counter - INTEL_DEVICE_INFO_COUNTERS
+    for (int i = 0; i < numDependentCounters; ++i) {
+        D3D11_COUNTER_DESC counterDescription;
+        counterDescription.Counter = static_cast<D3D11_COUNTER>(i + D3D11_COUNTER_DEVICE_DEPENDENT_0);
+        counterDescription.MiscFlags = 0;
+        D3D11_COUNTER_TYPE counterType = static_cast<D3D11_COUNTER_TYPE>(0);
+        UINT uiSlotsRequired = 0, uiNameLength = 0, uiUnitsLength = 0, uiDescLength = 0;
+
+        if (SUCCEEDED(hr = m_pD3D11Device->CheckCounter(&counterDescription, &counterType, &uiSlotsRequired, NULL, &uiNameLength, NULL, &uiUnitsLength, NULL, &uiDescLength))) {
+            std::vector<char> sName(uiNameLength   + 1, 0);
+            std::vector<char> sUnits(uiUnitsLength + 1, 0);
+            std::vector<char> sDesc(uiDescLength   + 1, 0);
+
+            if (SUCCEEDED(hr = m_pD3D11Device->CheckCounter(&counterDescription, &counterType, &uiSlotsRequired, sName.data(), &uiNameLength, sUnits.data(), &uiUnitsLength, sDesc.data(), &uiDescLength))) {
+                if (strcmp(sName.data(), INTEL_DEVICE_INFO_COUNTERS) == 0) {
+                    int IntelCounterMajorVersion;
+                    int IntelCounterSize;
+                    int argsFilled = 0;
+
+                    pIntelCounterDesc.Counter = counterDescription.Counter;
+
+                    argsFilled = sscanf_s(sDesc.data(), "Version %d", &IntelCounterMajorVersion);
+
+                    if (argsFilled != 1 || 1 != sscanf_s(sUnits.data(), "Size %d", &IntelCounterSize)) {
+                        // Fall back to version 1.0
+                        IntelCounterMajorVersion = 1;
+                        IntelCounterSize = sizeof(IntelDeviceInfoV1);
+                    }
+
+                    m_intelDeviceInfoHeader = std::make_unique<IntelDeviceInfoHeader>();
+                    m_intelDeviceInfoHeader->Version = IntelCounterMajorVersion;
+                    m_intelDeviceInfoHeader->Size = IntelCounterSize;
+                }
+            }
+        }
+    }
+
+    // Check if device info counter was found
+    if (pIntelCounterDesc.Counter == NULL) {
+        return MFX_ERR_NOT_FOUND;
+    }
+
+    // Intel Device Counter //
+    ID3D11Counter *pIntelCounter = NULL;
+
+    // Create the appropriate counter
+    hr = m_pD3D11Device->CreateCounter(&pIntelCounterDesc, &pIntelCounter);
+    if (FAILED(hr)) {
+        return MFX_ERR_NOT_FOUND;
+    }
+
+    // Begin and end counter capture
+    m_pD3D11Ctx->Begin(pIntelCounter);
+    m_pD3D11Ctx->End(pIntelCounter);
+
+    // Check for available data
+    hr = m_pD3D11Ctx->GetData(pIntelCounter, NULL, NULL, NULL);
+    if (FAILED(hr) || hr == S_FALSE) {
+        return MFX_ERR_NOT_FOUND;
+    }
+
+    DWORD pData[2] = { 0 };
+    // Get pointer to structure
+    hr = m_pD3D11Ctx->GetData(pIntelCounter, pData, 2 * sizeof(DWORD), NULL);
+
+    if (FAILED(hr) || hr == S_FALSE) {
+        return MFX_ERR_NOT_FOUND;
+    }
+
+    //
+    // Prepare data to be returned //
+    //
+    // Copy data to passed in parameter
+    void *pDeviceInfoBuffer = *(void**)pData;
+    m_intelDeviceInfo = std::make_unique<IntelDeviceInfo>();
+    memcpy(m_intelDeviceInfo.get(), pDeviceInfoBuffer, m_intelDeviceInfoHeader->Size);
     return MFX_ERR_NONE;
 }
 
