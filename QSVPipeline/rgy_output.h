@@ -80,8 +80,9 @@ private:
     int64_t last_input_frame_id;
     int64_t offset;
     int64_t last_clean_id;
+    bool timestampPassThrough;
 public:
-    RGYTimestamp() : m_frame(), mtx(), last_add_pts(-1), last_check_pts(-1), offset(0), last_clean_id(-1) {};
+    RGYTimestamp(bool timestampPassThrough_) : m_frame(), mtx(), last_add_pts(-1), last_check_pts(-1), offset(0), last_clean_id(-1), timestampPassThrough(timestampPassThrough_) {};
     ~RGYTimestamp() {};
     void clear() {
         std::lock_guard<std::mutex> lock(mtx);
@@ -100,7 +101,7 @@ public:
         last_add_pts = pts;
     }
     RGYTimestampMapVal check(int64_t pts) {
-        if (last_check_pts < 0 && pts > 0) {
+        if (last_check_pts < 0 && pts > 0 && !timestampPassThrough) {
             offset = -pts;
         }
         std::lock_guard<std::mutex> lock(mtx);
@@ -121,7 +122,7 @@ public:
     void clean(const int64_t current_id) {
         if (current_id >= last_clean_id + 64) {
             for (auto it = m_frame.begin(); it != m_frame.end();) {
-                if (it->second.inputFrameId < current_id - 32) {
+                if (it->second.inputFrameId < current_id - 64) {
                     it = m_frame.erase(it);
                 } else {
                     it++;
@@ -315,7 +316,7 @@ RGY_ERR initWriters(
     shared_ptr<RGYLog> log
 );
 
-#if ENCODER_QSV
+#if ENCODER_QSV || ENCODER_NVENC
 
 struct YUVWriterParam {
     bool bY4m;
@@ -335,6 +336,6 @@ protected:
     bool m_bY4m;
 };
 
-#endif //#if ENCODER_QSV
+#endif //#if ENCODER_QSV || ENCODER_NVENC
 
 #endif //__RGY_OUTPUT_H__

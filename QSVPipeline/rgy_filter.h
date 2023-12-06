@@ -233,7 +233,8 @@ protected:
 class RGYFilterParamPad : public RGYFilterParam {
 public:
     VppPad pad;
-    RGYFilterParamPad() : pad() {};
+    RGY_CSP encoderCsp;
+    RGYFilterParamPad() : pad(), encoderCsp(RGY_CSP_NA) {};
     virtual ~RGYFilterParamPad() {};
     virtual tstring print() const override;
 };

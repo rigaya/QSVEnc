@@ -55,6 +55,8 @@
   - [--output-csp \<string\>](#--output-csp-string)
   - [--output-depth \<int\>](#--output-depth-int)
 - [Encode Mode Options](#encode-mode-options)
+  - [--icq \<int\> (ICQ, Intelligent Const. Quality mode, default: 23)](#--icq-int-icq-intelligent-const-quality-mode-default-23)
+  - [--la-icq \<int\> (LA-ICQ, Lookahead based ICQ mode: default: 23)](#--la-icq-int-la-icq-lookahead-based-icq-mode-default-23)
   - [--cqp \<int\> or \<int\>:\<int\>:\<int\>](#--cqp-int-or-intintint)
   - [--cbr \<int\>  (CBR, Constant Bitrate mode)](#--cbr-int--cbr-constant-bitrate-mode)
   - [--vbr \<int\>  (VBR, Variable Bitrate mode)](#--vbr-int--vbr-variable-bitrate-mode)
@@ -63,8 +65,6 @@
   - [--la-hrd \<int\> (LA-HRD, HRD-compliant LookAhead mode)](#--la-hrd-int-la-hrd-hrd-compliant-lookahead-mode)
   - [--vcm \<int\> (VCM, Video Conference Mode)](#--vcm-int-vcm-video-conference-mode)
   - [--qvbr \<int\>, --qvbr-q \<int\> (QVBR, Quality based VBR mode)](#--qvbr-int---qvbr-q-int-qvbr-quality-based-vbr-mode)
-  - [--icq \<int\> (ICQ, Intelligent Const. Quality mode, default: 23)](#--icq-int-icq-intelligent-const-quality-mode-default-23)
-  - [--la-icq \<int\> (LA-ICQ, Lookahead based ICQ mode: default: 23)](#--la-icq-int-la-icq-lookahead-based-icq-mode-default-23)
   - [--fallback-rc](#--fallback-rc)
 - [Options for Frame Buffer](#options-for-frame-buffer)
   - [--disable-d3d (Win)](#--disable-d3d-win)
@@ -84,6 +84,7 @@
   - [--qp-max \<int\> or \<int\>:\<int\>:\<int\>](#--qp-max-int-or-intintint)
   - [--qp-offset \<int\>\[:\<int\>\]\[:\<int\>\]...](#--qp-offset-intintint)
   - [-u, --quality \<string\>](#-u---quality-string)
+  - [--dynamic-rc \<int\>:\<int\>:\<int\>\<int\>,\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\],...](#--dynamic-rc-intintintintparam1value1param2value2)
   - [--la-depth \<int\>](#--la-depth-int)
   - [--la-window-size \<int\> 0(auto)](#--la-window-size-int-0auto)
   - [--la-quality \<string\>](#--la-quality-string)
@@ -168,7 +169,7 @@
   - [--audio-stream \[\<int/string\>?\]{\<string1\>}\[:\<string2\>\]](#--audio-stream-intstringstring1string2)
   - [--audio-samplerate \[\<int/string\>?\]\<int\>](#--audio-samplerate-intstringint)
   - [--audio-resampler \<string\>](#--audio-resampler-string)
-  - [--audio-delay \[\<int/string\>?\]\<int\>](#--audio-delay-intstringint)
+  - [--audio-delay \[\<int/string\>?\]\<float\>](#--audio-delay-intstringfloat)
   - [--audio-file \[\<int/string\>?\]\[\<string\>\]\<string\>](#--audio-file-intstringstringstring)
   - [--audio-filter \[\<int/string\>?\]\<string\>](#--audio-filter-intstringstring)
   - [--audio-disposition \[\<int/string\>?\]\<string\>\[,\<string\>\]\[\]...](#--audio-disposition-intstringstringstring)
@@ -192,6 +193,7 @@
   - [-m, --mux-option \<string1\>:\<string2\>](#-m---mux-option-string1string2)
   - [--metadata \<string\> or \<string\>=\<string\>](#--metadata-string-or-stringstring)
   - [--avsync \<string\>](#--avsync-string)
+  - [--timestamp-passthrough](#--timestamp-passthrough)
   - [--timecode \[\<string\>\]](#--timecode-string)
   - [--tcfile-in \<string\>](#--tcfile-in-string)
   - [--timebase \<int\>/\<int\>](#--timebase-intint)
@@ -200,6 +202,7 @@
 - [Vpp Options](#vpp-options)
   - [Vpp Filtering order](#vpp-filtering-order)
   - [--vpp-colorspace \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-colorspace-param1value1param2value2)
+  - [--vpp-rff](#--vpp-rff)
   - [--vpp-delogo \<string\>\[,\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-delogo-stringparam1value1param2value2)
   - [--vpp-afs \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-afs-param1value1param2value2)
   - [--vpp-nnedi \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-nnedi-param1value1param2value2)
@@ -244,8 +247,9 @@
   - [--log \<string\>](#--log-string)
   - [--log-level \[\<param1\>=\]\<value\>\[,\<param2\>=\<value\>\]...](#--log-level-param1valueparam2value)
   - [--log-opt \<param1\>=\<value\>\[,\<param2\>=\<value\>\]...](#--log-opt-param1valueparam2value)
-  - [--log-framelist](#--log-framelist)
-  - [--log-packets](#--log-packets)
+  - [--log-framelist \[\<string\>\]](#--log-framelist-string)
+  - [--log-packets \[\<string\>\]](#--log-packets-string)
+  - [--log-mux-ts \[\<string\>\]](#--log-mux-ts-string)
   - [--thread-affinity \[\<string1\>=\]{\<string2\>\[#\<int\>\[:\<int\>\]\[\]...\] or 0x\<hex\>}](#--thread-affinity-string1string2intint-or-0xhex)
   - [--thread-priority \[\<string1\>=\]\<string2\>\[#\<int\>\[:\<int\>\]\[\]...\]](#--thread-priority-string1string2intint)
   - [--thread-throttling \[\<string1\>=\]\<string2\>\[#\<int\>\[:\<int\>\]\[\]...\]](#--thread-throttling-string1string2intint)
@@ -472,12 +476,11 @@ since entire transcode process will be run on the GPU.
 ### --interlace &lt;string&gt;
 Set interlace flag of **input** frame.
 
-Deinterlace is available through [--vpp-deinterlace](#--vpp-deinterlace-string). If deinterlacer is not activated for interlaced input, then interlaced encoding is performed.
-
-- **パラメータ**
+- **Parameters**
   - none ... progressive
   - tff ... top field first
   - bff ... Bottom Field First
+  - auto ... auto detect when possible
 
 ### --crop &lt;int&gt;,&lt;int&gt;,&lt;int&gt;,&lt;int&gt;
 Number of pixels to be cropped from left, top, right, bottom.
@@ -501,7 +504,7 @@ If not specified, it will be same as the input resolution. (no resize)
   - One of width or height as negative value    
     Will be resized keeping aspect ratio, and a value which could be divided by the negative value will be chosen.
 
-- **parameters**
+- **Parameters**
   - preserve_aspect_ratio=&lt;string&gt;  
     Resize to specified width **or** height, while preserving input aspect ratio.
     - increase ... preserve aspect ratio by increasing resolution.
@@ -540,7 +543,11 @@ Set output bit depth. Default is 8.
 
 ## Encode Mode Options
 
-The default is CQP (Constant quantization).
+The default is ICQ (Intelligent Const. Quality mode).
+
+### --icq &lt;int&gt; (ICQ, Intelligent Const. Quality mode, default: 23)
+### --la-icq &lt;int&gt; (LA-ICQ, Lookahead based ICQ mode: default: 23)
+Constant Quality encoding modes. (lower value => high quality)
 
 ### --cqp &lt;int&gt; or &lt;int&gt;:&lt;int&gt;:&lt;int&gt;
 Set the QP value of &lt;I frame&gt;:&lt;P frame&gt;:&lt;B frame&gt;
@@ -557,10 +564,6 @@ Encode in bitrate(kbps) specified.
 
 ### --qvbr &lt;int&gt;, --qvbr-q &lt;int&gt; (QVBR, Quality based VBR mode)
 Encode in bitrate specified with "--qvbr", based on quality specified by "--qvbr-quality" (default: 23, lower value => high quality).
-
-### --icq &lt;int&gt; (ICQ, Intelligent Const. Quality mode, default: 23)
-### --la-icq &lt;int&gt; (LA-ICQ, Lookahead based ICQ mode: default: 23)
-Constant Quality encoding modes. (lower value => high quality)
 
 ### --fallback-rc
 Enable fallback of ratecontrol mode, when platform does not support new ratecontrol modes.
@@ -586,8 +589,7 @@ Types of Frame Buffer will be set automatically by default as below.
 
 **Windows**  
 <u>When using QSV encode:</u>  
-As d3d9 memory mode is faster than d3d11 memory mode, QSVEnc will use d3d9 mode whenever possible.
-However, in some cases (such as systems with dGPU), d3d9 memory mode is not available. In this case d3d11 memory will be used.
+d3d11 which can be used with dGPU is used.
 
 <u>When not using QSV encode (QSV decode only):</u>  
 When graphic memory is used, QSV decode will be fast, but sending back frame data from graphics memory to system memory is **very** slow.
@@ -599,7 +601,7 @@ To enhance stability, system memory is used.
 
 ### --disable-d3d (Win)
 ### --disable-va (Linux)
-Disable use of graphics memory. (Use system memory.) Please note that OpencL filter cannot be used in this mode.
+Disable use of graphics memory. (Use system memory.) Please note that OpenCL filter cannot be used in this mode.
 
 ### --d3d
 Use d3d9 or d3d11 memory mode. (Windows only)
@@ -665,6 +667,38 @@ Set encoding quality preset.
 ```
 best, higher, high, balanced(default), fast, faster, fastest
 ```
+
+### --dynamic-rc &lt;int&gt;:&lt;int&gt;:&lt;int&gt;&lt;int&gt;,&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;],...  
+Change the rate control mode and rate control params within the specified range of output frames.
+
+- **required parameters**
+  It is required to specify one of the params below.  
+  - [icq](https://github.com/rigaya/QSVEnc/blob/master/QSVEncC_Options.ja.md#--icq-int-icq-%E5%9B%BA%E5%AE%9A%E5%93%81%E8%B3%AA%E3%83%A2%E3%83%BC%E3%83%89-%E3%83%87%E3%83%95%E3%82%A9%E3%83%AB%E3%83%88-23)=&lt;int&gt;  
+  - [la-icq](https://github.com/rigaya/QSVEnc/blob/master/QSVEncC_Options.ja.md#--la-icq-int-la-icq-%E5%85%88%E8%A1%8C%E6%8E%A2%E7%B4%A2%E4%BB%98%E3%81%8D%E5%9B%BA%E5%AE%9A%E5%93%81%E8%B3%AA%E3%83%A2%E3%83%BC%E3%83%89-%E3%83%87%E3%83%95%E3%82%A9%E3%83%AB%E3%83%88-23)=&lt;int&gt;  
+  - [cqp](https://github.com/rigaya/QSVEnc/blob/master/QSVEncC_Options.ja.md#--cqp-int-or-intintintcqp-%E5%9B%BA%E5%AE%9A%E9%87%8F%E5%AD%90%E5%8C%96%E9%87%8F)=&lt;int&gt; or cqp=&lt;int&gt;:&lt;int&gt;:&lt;int&gt;  
+  - [cbr](https://github.com/rigaya/QSVEnc/blob/master/QSVEncC_Options.ja.md#--cbr-int--cbr-%E5%9B%BA%E5%AE%9A%E3%83%93%E3%83%83%E3%83%88%E3%83%AC%E3%83%BC%E3%83%88)=&lt;int&gt;  
+  - [vbr](https://github.com/rigaya/QSVEnc/blob/master/QSVEncC_Options.ja.md#--vbr-int--vbr-%E5%8F%AF%E5%A4%89%E3%83%93%E3%83%83%E3%83%88%E3%83%AC%E3%83%BC%E3%83%88)=&lt;int&gt;  
+  - [avbr](https://github.com/rigaya/QSVEnc/blob/master/QSVEncC_Options.ja.md#--avbr-int-avbr-%E9%81%A9%E5%BF%9C%E7%9A%84%E5%8F%AF%E5%A4%89%E3%83%93%E3%83%83%E3%83%88%E3%83%AC%E3%83%BC%E3%83%88)=&lt;int&gt;  
+  - [la](https://github.com/rigaya/QSVEnc/blob/master/QSVEncC_Options.ja.md#--la-int---la-%E5%85%88%E8%A1%8C%E6%8E%A2%E7%B4%A2%E3%83%AC%E3%83%BC%E3%83%88%E5%88%B6%E5%BE%A1-lookahead)=&lt;int&gt;  
+  - [la-hrd](https://github.com/rigaya/QSVEnc/blob/master/QSVEncC_Options.ja.md#--la-hrd-int-la-hrd-%E5%85%88%E8%A1%8C%E6%8E%A2%E7%B4%A2%E3%83%AC%E3%83%BC%E3%83%88%E5%88%B6%E5%BE%A1-hrd%E4%BA%92%E6%8F%9B-lookahead)=&lt;int&gt;  
+  - [vcm](https://github.com/rigaya/QSVEnc/blob/master/QSVEncC_Options.ja.md#--vcm-int-vcm-%E3%83%93%E3%83%87%E3%82%AA%E4%BC%9A%E8%AD%B0%E3%83%A2%E3%83%BC%E3%83%89)=&lt;int&gt;  
+  - [qvbr](https://github.com/rigaya/QSVEnc/blob/master/QSVEncC_Options.ja.md#--qvbr-int---qvbr-q-int-qvbr-%E5%93%81%E8%B3%AA%E3%83%99%E3%83%BC%E3%82%B9%E5%8F%AF%E5%A4%89%E3%83%93%E3%83%83%E3%83%88%E3%83%AC%E3%83%BC%E3%83%88)=&lt;int&gt;  
+
+- **additional parameters**
+  - [max-bitrate](./QSVEncC_Options.ja.md#--max-bitrate-int)=&lt;int&gt;  
+  - [qvbr-quality](./QSVEncC_Options.ja.md#--qvbr-quality-int)=&lt;int&gt;  
+
+- Examples
+  ```
+  Example1: Encode by vbr(12000kbps) in output frame range 3000-3999,
+            encode by constant quality mode(29.0) in output frame range 5000-5999,
+            and encode by constant quality mode(25.0) on other frame range.
+    --icq 25 --dynamic-rc 3000:3999,vbr=12000 --dynamic-rc 5000:5999,icq=29.0
+  
+  Example2: Encode by vbr(6000kbps) to output frame number 2999,
+            and encode by vbr(12000kbps) from output frame number 3000 and later.
+    --vbr 6000 --dynamic-rc start=3000,vbr=12000
+  ```
 
 ### --la-depth &lt;int&gt;
 Specify lookahead depth in frames. (10 - 100)  
@@ -1172,7 +1206,7 @@ Specify the engine used for mixing audio channels and sampling frequency convers
 - swr ... swresampler (default)
 - soxr ... sox resampler (libsoxr)
 
-### --audio-delay [&lt;int/string&gt;?]&lt;int&gt;
+### --audio-delay [&lt;int/string&gt;?]&lt;float&gt;
 Specify audio delay in milli seconds.　You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt;].
 
 ### --audio-file [&lt;int/string&gt;?][&lt;string&gt;]&lt;string&gt;
@@ -1558,6 +1592,10 @@ Set global metadata for output file.
   - vfr  
     Honor source timestamp and enable vfr output. Only available for avsw/avhw reader, and could not be used with --trim.
     
+### --timestamp-passthrough  
+
+Passthrough original timestamp. Implies ```--avsync vfr```.
+
 ### --timecode [&lt;string&gt;]  
   Write timecode file to the specified path. If the path is not set, it will be written to "&lt;output file path&gt;.timecode.txt".
 
@@ -1591,6 +1629,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
 
 - filter list
   - [--vpp-colorspace](#--vpp-colorspace-param1value1param2value2)
+  - [--vpp-rff](#--vpp-rff)
   - [--vpp-delogo](#--vpp-delogo-stringparam1value1param2value2)
   - [--vpp-afs](#--vpp-afs-param1value1param2value2)
   - [--vpp-nnedi](#--vpp-nnedi-param1value1param2value2)
@@ -1715,6 +1754,10 @@ Values for parameters will be copied from input file for "input".
   --vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0,a=0.22,b=0.3,c=0.1,d=0.2,e=0.01,f=0.3
   ```
 
+### --vpp-rff
+Reflect the Repeat Field Flag. The avsync error caused by rff could be solved. Available only when [--avhw](#--avhw-string), [--avsw](#--avsw-string) is used.
+
+rff of 2 or more will not be supported (only  supports rff = 1). Also, it can not be used with [--trim](#--trim-intintintintintint).
 
 ### --vpp-delogo &lt;string&gt;[,&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
@@ -2520,11 +2563,12 @@ Output the log to the specified file.
 Select the level of log output.
 
 - **level**
-  - error ... Display only errors
-  - warn ... Show errors and warnings
-  - info ... Display general encoding information (default)
-  - debug ... Output additional information, mainly for debug
   - trace ... Output information for each frame (slow)
+  - debug ... Output additional information, mainly for debug
+  - info ... Display general encoding information (default)
+  - warn ... Show errors and warnings
+  - error ... Display only errors
+  - quiet ... Show no logs
 
 - **Target**  
   Target category of logs. Will be handled as ```all``` when omitted.
@@ -2563,11 +2607,14 @@ additional options for log output.
   - addtime (default=off)  
     Add time of to each line of the log.
 
-### --log-framelist
+### --log-framelist [&lt;string&gt;]
 FOR DEBUG ONLY! Output debug log for avsw/avhw reader.
 
-### --log-packets
+### --log-packets [&lt;string&gt;]
 FOR DEBUG ONLY! Output debug log for packets read in avsw/avhw reader.
+
+### --log-mux-ts [&lt;string&gt;]
+FOR DEBUG ONLY! Output debug log for packets written.
 
 ### --thread-affinity [&lt;string1&gt;=]{&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;][]...] or 0x&lt;hex&gt;}
 Set thread affinity to the process or threads of the application.

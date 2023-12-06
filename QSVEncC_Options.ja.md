@@ -54,6 +54,8 @@
   - [--output-csp \<string\>](#--output-csp-string)
   - [--output-depth \<int\>](#--output-depth-int)
 - [エンコードモードのオプション](#エンコードモードのオプション)
+  - [--icq \<int\> (ICQ, 固定品質モード: デフォルト 23)](#--icq-int-icq-固定品質モード-デフォルト-23)
+  - [--la-icq \<int\> (LA-ICQ, 先行探索付き固定品質モード: デフォルト 23)](#--la-icq-int-la-icq-先行探索付き固定品質モード-デフォルト-23)
   - [--cqp \<int\> or \<int\>:\<int\>:\<int\>　(CQP, 固定量子化量)](#--cqp-int-or-intintintcqp-固定量子化量)
   - [--cbr \<int\>  (CBR, 固定ビットレート)](#--cbr-int--cbr-固定ビットレート)
   - [--vbr \<int\>  (VBR, 可変ビットレート)](#--vbr-int--vbr-可変ビットレート)
@@ -63,8 +65,6 @@
   - [--vcm \<int\> (VCM, ビデオ会議モード)](#--vcm-int-vcm-ビデオ会議モード)
   - [--qvbr \<int\>, --qvbr-q \<int\> (QVBR, 品質ベース可変ビットレート)](#--qvbr-int---qvbr-q-int-qvbr-品質ベース可変ビットレート)
   - [--qvbr-qualityで指定した品質(デフォルト 23)をベースに、--qvbrで指定したビットレートでエンコードを行う。](#--qvbr-qualityで指定した品質デフォルト-23をベースに--qvbrで指定したビットレートでエンコードを行う)
-  - [--icq \<int\> (ICQ, 固定品質モード: デフォルト 23)](#--icq-int-icq-固定品質モード-デフォルト-23)
-  - [--la-icq \<int\> (LA-ICQ, 先行探索付き固定品質モード: デフォルト 23)](#--la-icq-int-la-icq-先行探索付き固定品質モード-デフォルト-23)
   - [--fallback-rc](#--fallback-rc)
 - [フレームバッファのオプション](#フレームバッファのオプション)
   - [--disable-d3d (Win)](#--disable-d3d-win)
@@ -84,6 +84,7 @@
   - [--qp-max \<int\> or \<int\>:\<int\>:\<int\>](#--qp-max-int-or-intintint)
   - [--qp-offset \<int\>\[:\<int\>\]\[:\<int\>\]...](#--qp-offset-intintint)
   - [-u, --quality \<string\>](#-u---quality-string)
+  - [--dynamic-rc \<int\>:\<int\>:\<int\>\<int\>,\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\],...](#--dynamic-rc-intintintintparam1value1param2value2)
   - [--la-depth \<int\>](#--la-depth-int)
   - [--la-window-size \<int\> 0(自動)](#--la-window-size-int-0自動)
   - [--la-quality \<string\>](#--la-quality-string)
@@ -168,7 +169,7 @@
   - [--audio-stream \[\<int/string\>?\]{\<string1\>}\[:\<string2\>\]](#--audio-stream-intstringstring1string2)
   - [--audio-samplerate \[\<int/string\>?\]\<int\>](#--audio-samplerate-intstringint)
   - [--audio-resampler \<string\>](#--audio-resampler-string)
-  - [--audio-delay \[\<int/string\>?\]\<int\>](#--audio-delay-intstringint)
+  - [--audio-delay \[\<int/string\>?\]\<float\>](#--audio-delay-intstringfloat)
   - [--audio-file \[\<int\>\]\[\<string\>?\]\<string\>](#--audio-file-intstringstring)
   - [--audio-filter \[\<int/string\>?\]\<string\>](#--audio-filter-intstringstring)
   - [--audio-disposition \[\<int/string\>?\]\<string\>\[,\<string\>\]\[\]...](#--audio-disposition-intstringstringstring)
@@ -192,6 +193,7 @@
   - [-m, --mux-option \<string1\>:\<string2\>](#-m---mux-option-string1string2)
   - [--metadata \<string\> or \<string\>=\<string\>](#--metadata-string-or-stringstring)
   - [--avsync \<string\>](#--avsync-string)
+  - [--timestamp-passthrough](#--timestamp-passthrough)
   - [--timecode \[\<string\>\]](#--timecode-string)
   - [--tcfile-in \<string\>](#--tcfile-in-string)
   - [--timebase \<int\>/\<int\>](#--timebase-intint)
@@ -200,6 +202,7 @@
 - [vppオプション](#vppオプション)
   - [vppフィルタの適用順](#vppフィルタの適用順)
   - [--vpp-colorspace \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-colorspace-param1value1param2value2)
+  - [--vpp-rff](#--vpp-rff)
   - [--vpp-delogo \<string\>\[,\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\]...](#--vpp-delogo-stringparam1value1param2value2)
   - [--vpp-afs \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-afs-param1value1param2value2)
   - [--vpp-nnedi \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-nnedi-param1value1param2value2)
@@ -242,8 +245,9 @@
   - [--log \<string\>](#--log-string)
   - [--log-level \[\<param1\>=\]\<value\>\[,\<param2\>=\<value\>\]...](#--log-level-param1valueparam2value)
   - [--log-opt \<param1\>=\<value\>\[,\<param2\>=\<value\>\]...](#--log-opt-param1valueparam2value)
-  - [--log-framelist](#--log-framelist)
-  - [--log-packets](#--log-packets)
+  - [--log-framelist \[\<string\>\]](#--log-framelist-string)
+  - [--log-packets \[\<string\>\]](#--log-packets-string)
+  - [--log-mux-ts \[\<string\>\]](#--log-mux-ts-string)
   - [--thread-affinity \[\<string1\>=\]{\<string2\>\[#\<int\>\[:\<int\>\]...\] or 0x\<hex\>}](#--thread-affinity-string1string2intint-or-0xhex)
   - [--thread-priority \[\<string1\>=\]\<string2\>\[#\<int\>\[:\<int\>\]...\]](#--thread-priority-string1string2intint)
   - [--thread-throttling \[\<string1\>=\]\<string2\>\[#\<int\>\[:\<int\>\]...\]](#--thread-throttling-string1string2intint)
@@ -485,12 +489,11 @@ avformat + QSV decoderを使用して読み込む。
 ### --interlace &lt;string&gt;
 **入力**フレームがインターレースかどうかと、そのフィールドオーダーを設定する。
 
-[--vpp-deinterlace](#--vpp-deinterlace-string)によりQSVEncC内でインタレ解除を行ったり、そのままインタレ保持エンコードを行う。(インタレ保持エンコードはH.264のみ)
-
 - **パラメータ**
   - none ... プログレッシブ
   - tff ... トップフィールドファースト
   - bff ... ボトムフィールドファースト
+  - auto ... 自動検出
 
 ### --crop &lt;int&gt;,&lt;int&gt;,&lt;int&gt;,&lt;int&gt;
 左、上、右、下の切り落とし画素数。
@@ -553,7 +556,11 @@ i420, i422, i444
 
 ## エンコードモードのオプション
 
-デフォルトはCQP(固定量子化量)。
+デフォルトはICQ(固定品質モード)。
+
+### --icq &lt;int&gt; (ICQ, 固定品質モード: デフォルト 23)
+### --la-icq &lt;int&gt; (LA-ICQ, 先行探索付き固定品質モード: デフォルト 23)
+固定品質系のモード。設定値は低い値ほど高品質になる。
 
 ### --cqp &lt;int&gt; or &lt;int&gt;:&lt;int&gt;:&lt;int&gt;　(CQP, 固定量子化量)
 CQP(固定量子化量)でエンコードを行う。&lt;Iフレーム&gt;:&lt;Pフレーム&gt;:&lt;Bフレーム&gt;のQP値を設定。
@@ -573,10 +580,6 @@ Lookaheadは更に多くのフレームをあらかじめ解析し、より最�
 ### --qvbr &lt;int&gt;, --qvbr-q &lt;int&gt; (QVBR, 品質ベース可変ビットレート)
 ### --qvbr-qualityで指定した品質(デフォルト 23)をベースに、--qvbrで指定したビットレートでエンコードを行う。
 設定値は低い値ほど高品質になる。
-
-### --icq &lt;int&gt; (ICQ, 固定品質モード: デフォルト 23)
-### --la-icq &lt;int&gt; (LA-ICQ, 先行探索付き固定品質モード: デフォルト 23)
-固定品質系のモード。設定値は低い値ほど高品質になる。
 
 ### --fallback-rc
 使用できないレート制御モードが指定された場合に、エラー終了するのではなく、自動的により一般的にサポートされるレート制御モードにフォールバックする。ビットレート指定系なら最終的にVBRを、品質指定系なら最終的にCQPを使用する。
@@ -603,7 +606,7 @@ CBR/VBR/AVBRなどのモードは高速なかわりに画質が悪い傾向が�
 
 **Windows**  
 <u>QSVエンコード使用時:</u>  
-基本的には、より高速なd3d9メモリを使用するが、dGPUが存在するシステムでは、d3d9メモリが使用できないため、d3d11メモリを使用する。
+特に指定のない場合、dGPUありでも利用可能なd3d11を使用する。
 
 <u>QSVエンコードを使用しない場合 (デコードのみの場合):</u>  
 ビデオメモリはQSVでの処理は高速だが、そのフレームをCPU側に転送するのが非常に遅い。このため、エンコードをせず、デコードやVPPの結果を他のアプリケーションに渡す場合、systemメモリを使用する。
@@ -686,6 +689,38 @@ AVBRモード時のビットレート配分単位を、100フレーム単位で�
 ```
 best, higher, high, balanced(default), fast, faster, fastest
 ```
+
+### --dynamic-rc &lt;int&gt;:&lt;int&gt;:&lt;int&gt;&lt;int&gt;,&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;],...  
+"開始フレーム番号:終了フレーム番号"で指定した出力フレーム番号について、レート制御のパラメータを変更する。指定可能なパラメータは各レート制御モードと、最大ビットレート、目標品質(qvbr-quality)。
+
+- **必須パラメータ**
+  下記パラメータのうち、必ずひとつは指定が必要。
+  - [icq](./QSVEncC_Options.en.md#--icq-int-icq-intelligent-const-quality-mode-default-23)=&lt;int&gt;  
+  - [la-icq](./QSVEncC_Options.en.md#--la-icq-int-la-icq-lookahead-based-icq-mode-default-23)=&lt;int&gt;  
+  - [cqp](./QSVEncC_Options.en.md#--cqp-int-or-intintint)=&lt;int&gt; or cqp=&lt;int&gt;:&lt;int&gt;:&lt;int&gt;  
+  - [cbr](./QSVEncC_Options.en.md#--cbr-int--cbr-constant-bitrate-mode)=&lt;int&gt;  
+  - [vbr](./QSVEncC_Options.en.md#--vbr-int--vbr-variable-bitrate-mode)=&lt;int&gt;  
+  - [avbr](./QSVEncC_Options.en.md#--avbr-int-avbr-adaptive-variable-bitrate-mode)=&lt;int&gt;  
+  - [la](./QSVEncC_Options.en.md#--la-int---la-lookahead-mode)=&lt;int&gt;  
+  - [la-hrd](./QSVEncC_Options.en.md#--la-hrd-int-la-hrd-hrd-compliant-lookahead-mode)=&lt;int&gt;  
+  - [vcm](./QSVEncC_Options.en.md#--vcm-int-vcm-video-conference-mode)=&lt;int&gt;  
+  - [qvbr](./QSVEncC_Options.en.md#--qvbr-int---qvbr-q-int-qvbr-quality-based-vbr-mode)=&lt;int&gt;  
+
+- **追加パラメータ**
+  - [max-bitrate](./QSVEncC_Options.en.md#--max-bitrate-int)=&lt;int&gt;  
+  - [qvbr-quality](./QSVEncC_Options.en.md#--qvbr-quality-int)=&lt;int&gt;  
+
+- Examples
+  ```
+  例1: 出力フレーム番号 3000-3999 の間はvbrの12000kbpsでエンコード、
+       出力フレーム番号 5000-5999 の間は固定品質の29.0でエンコードし、
+       その他の領域は固定品質の25.0でエンコードする。
+    --icq=25 --dynamic-rc 3000:3999,vbr=12000 --dynamic-rc 5000:5999,icq=29
+  
+  例2: 出力フレーム番号 3000までは、vbrの6000kbpsでエンコードし、
+       出力フレーム番号 3000以降はvbrの12000kbpsでエンコードする。
+    --vbr 6000 --dynamic-rc start=3000,vbr=12000
+  ```
 
 ### --la-depth &lt;int&gt;
 先行探索レート制御を使用した場合に、あらかじめ分析するフレームの枚数を指定する。(10-100)  
@@ -1191,7 +1226,7 @@ tsなどでエラーが出るなどしてうまく動作しない場合は、[--
 - swr  ... swresampler (デフォルト)
 - soxr ... sox resampler (libsoxr)
 
-### --audio-delay [&lt;int/string&gt;?]&lt;int&gt;
+### --audio-delay [&lt;int/string&gt;?]&lt;float&gt;
 音声に設定する遅延をms単位で指定する。[&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
 
 ### --audio-file [&lt;int&gt;][&lt;string&gt;?]&lt;string&gt;
@@ -1572,6 +1607,10 @@ mux時にオプションパラメータを渡す。&lt;string1&gt;にオプシ�
   - vfr  
     入力に従い、フレームのタイムスタンプをそのまま引き渡す。avsw/avhwリーダによる読み込みの時のみ使用可能。
     
+### --timestamp-passthrough  
+
+オリジナルのタイムスタンプをそのまま引き渡す。```--avsync vfr```が自動的に指定される。
+    
 ### --timecode [&lt;string&gt;]  
   指定のパスにtimecodeファイルを出力する。パスを省略した場合には、"&lt;出力ファイル名&gt;.timecode.txt"に出力する。
 
@@ -1604,6 +1643,7 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
 
 - フィルター一覧
   - [--vpp-colorspace](#--vpp-colorspace-param1value1param2value2)
+  - [--vpp-rff](#--vpp-rff)
   - [--vpp-delogo](#--vpp-delogo-stringparam1value1param2value2)
   - [--vpp-afs](#--vpp-afs-param1value1param2value2)
   - [--vpp-nnedi](#--vpp-nnedi-param1value1param2value2)
@@ -1727,6 +1767,10 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
   --vpp-colorspace hdr2sdr=hable,source_peak=1000.0,ldr_nits=100.0,a=0.22,b=0.3,c=0.1,d=0.2,e=0.01,f=0.3
   ```
 
+### --vpp-rff
+Repeat Field Flagを反映して、フレームを再構築する。rffによる音ズレ問題が解消できる。[--avhw](#--avhw-string), [--avsw](#--avsw-string)使用時のみ有効。
+
+rff=1の場合のみの対応。(rff > 1には対応しない) また、[--trim](#--trim-intintintintintint)とは併用できない。
 
 ### --vpp-delogo &lt;string&gt;[,&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;]...
 ロゴファイルとロゴ消しのオプションを指定する。ロゴファイルは、".lgd",".ldp",".ldp2"に対応。
@@ -2583,11 +2627,12 @@ Windowsのタイマー精度を向上させ、高速化する。いわゆるtime
 ログ出力の段階を選択する。不具合などあった場合には、```--log-level debug --log log.txt```のようにしてデバッグ用情報を出力したものをコメントなどで教えていただけると、不具合の原因が明確になる場合があります。
 
 - **レベル**
-  - error ... エラーのみ表示
-  - warn ... エラーと警告を表示
-  - info ... 一般的なエンコード情報を表示、デフォルト
-  - debug ... デバッグ情報を追加で出力
   - trace ... フレームごとに情報を出力
+  - debug ... デバッグ情報を追加で出力
+  - info ... 一般的なエンコード情報を表示、デフォルト
+  - warn ... エラーと警告を表示
+  - error ... エラーのみ表示
+  - quiet ... ログ出力を停止
 
 - **対象**  
   ログ出力レベルの設定対象の指定。省略した場合は、```all```として扱う。
@@ -2627,11 +2672,14 @@ Windowsのタイマー精度を向上させ、高速化する。いわゆるtime
   - addtime (デフォルト=off)  
     ログの各行に時刻を表示するように。
 
-### --log-framelist
+### --log-framelist [&lt;string&gt;]
 avsw/avhw読み込み時のデバッグ情報出力。
 
-### --log-packets
+### --log-packets [&lt;string&gt;]
 avsw/avhw読み込み時のデバッグ情報出力。
+
+### --log-mux-ts [&lt;string&gt;]
+デバッグ情報出力。
 
 ### --thread-affinity [&lt;string1&gt;=]{&lt;string2&gt;[#&lt;int&gt;[:&lt;int&gt;]...] or 0x&lt;hex&gt;}
 プロセスやスレッドのスレッドアフィニティを設定する。具体的な指定方法は例を確認してください。

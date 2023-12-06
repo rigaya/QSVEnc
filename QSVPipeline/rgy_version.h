@@ -31,9 +31,9 @@
 
 #include "rgy_rev.h"
 
-#define VER_FILEVERSION             0,7,48,0
-#define VER_STR_FILEVERSION          "7.48"
-#define VER_STR_FILEVERSION_TCHAR _T("7.48")
+#define VER_FILEVERSION             0,7,56,0
+#define VER_STR_FILEVERSION          "7.56"
+#define VER_STR_FILEVERSION_TCHAR _T("7.56")
 
 #ifdef _M_IX86
 #define BUILD_ARCH_STR _T("x86")
@@ -60,7 +60,7 @@ const char *get_encoder_version();
 #define AV1_TIMESTAMP_OVERRIDE 1
 #define OVERRIDE_HYPER_MODE_HEVC_FROM_H264 1
 #define LIMIT_HYPER_MODE_TO_KNOWN_CODECS 1
-#define ENABLE_QSV_TUNE_QUERY 0
+#define ENABLE_QSV_TUNE_QUERY 1
 
 #if defined(_WIN32) || defined(_WIN64)
 
@@ -88,10 +88,11 @@ const char *get_encoder_version();
 #define ENABLE_CPP_REGEX 1
 #define ENABLE_DTL 1
 
+#define AV_CHANNEL_LAYOUT_STRUCT_AVAIL 1
+
 #define ENABLE_AVCODEC_ITERATE 1
 #define ENABLE_DOVI_METADATA_OPTIONS 1
 #define ENABLE_KEYFRAME_INSERT 0
-#define ENABLE_AUTO_PICSTRUCT 0
 
 #define ENABLE_HYPER_MODE 1
 
@@ -113,6 +114,7 @@ const char *get_encoder_version();
 #define ENABLE_LIBASS_SUBBURN     0
 #define ENABLE_METRIC_FRAMEWORK   0
 #define ENABLE_CAPTION2ASS        0
+#define ENABLE_AUTO_PICSTRUCT     0
 #else
 #define ENCODER_NAME              "QSVEncC"
 #define DECODER_NAME              "qsv"
@@ -136,6 +138,7 @@ const char *get_encoder_version();
 #endif
 #endif
 #define ENABLE_CAPTION2ASS        1
+#define ENABLE_AUTO_PICSTRUCT     1
 #endif //#ifndef ENABLE_METRIC_FRAMEWORK
 
 #else //#if defined(WIN32) || defined(WIN64)

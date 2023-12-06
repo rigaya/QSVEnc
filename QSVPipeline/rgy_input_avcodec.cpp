@@ -113,6 +113,7 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     interlaceAutoFrame(false),
     qpTableListRef(nullptr),
     lowLatency(false),
+    timestampPassThrough(false),
     inputOpt(),
     hevcbsf(RGYHEVCBsf::INTERNAL) {
 
@@ -241,11 +242,23 @@ void RGYInputAvcodec::CloseStream(AVDemuxStream *stream) {
         AddMessage(RGY_LOG_DEBUG, _T("Free subtitleHeader...\n"));
         av_free(stream->subtitleHeader);
         AddMessage(RGY_LOG_DEBUG, _T("Freed subtitleHeader.\n"));
+        stream->subtitleHeader = nullptr;
+        stream->subtitleHeaderSize = 0;
     }
-    memset(stream, 0, sizeof(stream[0]));
+    memset(stream->lang, 0, sizeof(stream->lang));
+    stream->stream = nullptr;
     stream->appliedTrimBlock = -1;
     stream->aud0_fin = AV_NOPTS_VALUE;
     stream->index = -1;
+    stream->trackId = 0;
+    stream->subStreamId = 0;
+    stream->sourceFileIndex = 0;
+    stream->addDelayMs = 0.0;
+    stream->lastVidIndex = 0;
+    stream->extractErrExcess = 0;
+    stream->trimOffset = 0;
+    stream->aud0_fin = 0;
+    stream->appliedTrimBlock = 0;
 }
 
 void RGYInputAvcodec::Close() {
@@ -1267,6 +1280,7 @@ RGY_ERR RGYInputAvcodec::initFormatCtx(const TCHAR *strFileName, const RGYInputA
         || (0 == strncmp(filename_char.c_str(), "pipe:", strlen("pipe:")))
         || filename_char.c_str() == strstr(filename_char.c_str(), R"(\\.\pipe\)");
     m_Demux.format.analyzeSec = input_prm->analyzeSec;
+    m_Demux.format.timestampPassThrough = input_prm->timestampPassThrough;
     m_Demux.format.formatCtx = avformat_alloc_context();
     if (input_prm->probesize >= 0 || input_prm->analyzeSec >= 0) {
         // probesizeの設定
@@ -1456,6 +1470,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
     }
     if (input_prm->logPackets.length() > 0) {
         m_fpPacketList.reset(_tfopen(input_prm->logPackets.c_str(), _T("w")));
+        fprintf(m_fpPacketList.get(), " stream id,       codec,         pts,         dts, duration, flags, pos\n");
     }
 
     // input-probesizeやinput-analyzeが小さすぎて動画情報を得られなかったときのためのretryループ (デフォルトでは無効)
@@ -1625,27 +1640,13 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                 }
             }
             if (useStream) {
-                //存在するチャンネルまでのchannel_layoutのマスクを作成する
-                //特に引数を指定せず--audio-channel-layoutを指定したときには、
-                //pnStreamChannelsはchannelの存在しない不要なビットまで立っているのをここで修正
-                if (pAudioSelect //字幕ストリームの場合は無視
-                    && isSplitChannelAuto(pAudioSelect->streamChannelSelect)) {
-                    const uint64_t channel_layout_mask = UINT64_MAX >> (sizeof(channel_layout_mask) * 8 - m_Demux.format.formatCtx->streams[mediaStreams[iTrack]]->codecpar->channels);
-                    for (uint32_t iSubStream = 0; iSubStream < MAX_SPLIT_CHANNELS; iSubStream++) {
-                        pAudioSelect->streamChannelSelect[iSubStream] &= channel_layout_mask;
-                    }
-                    for (uint32_t iSubStream = 0; iSubStream < MAX_SPLIT_CHANNELS; iSubStream++) {
-                        pAudioSelect->streamChannelOut[iSubStream] &= channel_layout_mask;
-                    }
-                }
-
                 //必要であれば、サブストリームを追加する
                 for (uint32_t iSubStream = 0; iSubStream == 0 || //初回は字幕・音声含め、かならず登録する必要がある
                     (iSubStream < MAX_SPLIT_CHANNELS //最大サブストリームの上限
                         && pAudioSelect != nullptr //字幕ではない
-                        && pAudioSelect->streamChannelSelect[iSubStream]); //audio-splitが指定されている
+                        && !pAudioSelect->streamChannelSelect[iSubStream].empty()); //audio-splitが指定されている
                     iSubStream++) {
-                    AVDemuxStream stream = { 0 };
+                    AVDemuxStream stream;
                     switch (mediaType) {
                     case AVMEDIA_TYPE_SUBTITLE:
                         stream.trackId = trackFullID(AVMEDIA_TYPE_SUBTITLE, iTrack - m_Demux.format.audioTracks + input_prm->trackStartSubtitle);
@@ -1675,11 +1676,11 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                     strncpy_s(stream.lang, _countof(stream.lang), getTrackLang(m_Demux.format.formatCtx->streams[stream.index]).c_str(), 3);
                     if (pAudioSelect) {
                         stream.addDelayMs = pAudioSelect->addDelayMs;
-                        memcpy(stream.streamChannelSelect, pAudioSelect->streamChannelSelect, sizeof(stream.streamChannelSelect));
-                        memcpy(stream.streamChannelOut,    pAudioSelect->streamChannelOut,    sizeof(stream.streamChannelOut));
+                        stream.streamChannelSelect = pAudioSelect->streamChannelSelect;
+                        stream.streamChannelOut    = pAudioSelect->streamChannelOut;
                     }
                     m_Demux.stream.push_back(stream);
-                    AddMessage(RGY_LOG_DEBUG, _T("found %s stream, stream idx %d, trackID %d.%d, %s, frame_size %d, timebase %d/%d, delay %d ms\n"),
+                    AddMessage(RGY_LOG_DEBUG, _T("found %s stream, stream idx %d, trackID %d.%d, %s, frame_size %d, timebase %d/%d, delay %.3f ms\n"),
                         get_media_type_string(codecId).c_str(),
                         stream.index, trackID(stream.trackId), stream.subStreamId, char_to_tstring(avcodec_get_name(codecId)).c_str(),
                         stream.stream->codecpar->frame_size, stream.stream->time_base.num, stream.stream->time_base.den, stream.addDelayMs);
@@ -1734,6 +1735,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             m_Demux.video.stream->time_base.num, m_Demux.video.stream->time_base.den,
             av_stream_get_codec_timebase(m_Demux.video.stream).num, av_stream_get_codec_timebase(m_Demux.video.stream).den);
 
+        m_Demux.video.decRFFStatus = 0;
         m_Demux.video.findPosLastIdx = 0;
         m_logFramePosList.clear();
         if (input_prm->logFramePosList.length() > 0) {
@@ -2342,6 +2344,13 @@ bool RGYInputAvcodec::checkStreamPacketToAdd(AVPacket *pkt, AVDemuxStream *strea
 
     //該当フレームが-1フレーム未満なら、その音声はこの動画には含まれない
     if (stream->lastVidIndex < 0) {
+        //timestampをそのまま転送する場合、音声/字幕が映像に含まれなくてもそのまま転送する
+        if (m_Demux.format.timestampPassThrough) {
+            //時刻を補正
+            pkt->pts -= stream->trimOffset;
+            pkt->dts -= stream->trimOffset;
+            return true;
+        }
         return false;
     }
 
@@ -2471,9 +2480,11 @@ std::tuple<int, std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>>> RGYInputAvcod
             continue;
         }
         if (m_fpPacketList) {
-            fprintf(m_fpPacketList.get(), "stream %2d, %12s, pts, %s\n",
+            fprintf(m_fpPacketList.get(), "stream %2d, %12s, %s, %s,%5lld,%2d, %12lld\n",
                 pkt->stream_index, avcodec_get_name(m_Demux.format.formatCtx->streams[pkt->stream_index]->codecpar->codec_id),
-                pkt->pts == AV_NOPTS_VALUE ? "Unknown" : strsprintf("%lld", pkt->pts).c_str());
+                pkt->pts == AV_NOPTS_VALUE ? "     Unknown" : strsprintf("%12lld", (long long int)pkt->pts).c_str(),
+                pkt->dts == AV_NOPTS_VALUE ? "     Unknown" : strsprintf("%12lld", (long long int)pkt->dts).c_str(),
+                (long long int)pkt->duration, pkt->flags, (long long int)pkt->pos);
         }
         if (pkt->stream_index == m_Demux.video.index) {
             if (pkt->flags & AV_PKT_FLAG_CORRUPT) {
@@ -2573,17 +2584,6 @@ std::tuple<int, std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>>> RGYInputAvcod
                         (long long int)m_Demux.video.streamFirstKeyPts, getTimestampString(m_Demux.video.streamFirstKeyPts, m_Demux.video.stream->time_base).c_str(),
                         m_trimParam.offset);
                 }
-#if ENCODER_NVENC
-                //NVENCのhwデコーダでは、opengopなどでキーフレームのパケットよりあとにその前のフレームが来た場合、
-                //フレーム位置がさらにずれるので補正する
-                else if (!(pkt->flags & AV_PKT_FLAG_KEY)
-                    && (pkt->pts != AV_NOPTS_VALUE)
-                    && (m_Demux.video.streamFirstKeyPts != AV_NOPTS_VALUE)
-                    && pkt->pts < m_Demux.video.streamFirstKeyPts
-                    && m_Demux.video.HWDecodeDeviceId >= 0) { //trim調整の適用はavhwリーダーのみ
-                    m_trimParam.offset++;
-                }
-#endif //#if ENCODER_NVENC
                 m_Demux.frames.add(pos);
             }
             //ptsの確定したところまで、音声を出力する
@@ -2755,7 +2755,7 @@ void RGYInputAvcodec::GetAudioDataPacketsWhenNoVideoRead(int inputFrame) {
             pkt.reset();
         } else {
             AVDemuxStream *pStream = getPacketStreamData(pkt.get());
-            const auto delay_ts = av_rescale_q(pStream->addDelayMs, av_make_q(1, 1000), pStream->timebase);
+            const auto delay_ts = (int64_t)(pStream->addDelayMs * 0.001 / av_q2d(pStream->timebase) + 0.5);
             if (pkt->pts != AV_NOPTS_VALUE) pkt->pts += delay_ts;
             if (pkt->dts != AV_NOPTS_VALUE) pkt->dts += delay_ts;
             //最初のパケットは参照用にコピーしておく
@@ -2804,6 +2804,9 @@ double RGYInputAvcodec::GetInputVideoDuration() {
     if (m_seek.second > 0.0f) {
         duration = std::min<double>(duration, m_seek.second);
     }
+    if (m_seek.first > 0.0f) {
+        duration = std::max(0.0, duration - m_seek.first);
+    }
     return duration;
 }
 
@@ -2831,7 +2834,7 @@ void RGYInputAvcodec::CheckAndMoveStreamPacketList() {
     while (!m_Demux.qStreamPktL1.empty()) {
         auto pkt = m_Demux.qStreamPktL1.front();
         AVDemuxStream *pStream = getPacketStreamData(pkt);
-        const auto delay_ts = av_rescale_q(pStream->addDelayMs, av_make_q(1, 1000), pStream->timebase);
+        const auto delay_ts = (int64_t)(pStream->addDelayMs * 0.001 / av_q2d(pStream->timebase) + 0.5);
         if (!m_Demux.frames.isEof() // 最後まで読み込んでいたらすべて転送するようにする
             && 0 < av_compare_ts(pkt->pts + delay_ts, pStream->timebase, m_Demux.frames.getMaxPts() + audioReadOffsetPTS, vid_pkt_timebase)) { //音声のptsが映像の終わりのptsを行きすぎたらやめる
             break;
@@ -3006,15 +3009,20 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
         }
         auto flags = RGY_FRAME_FLAG_NONE;
         const auto findPos = m_Demux.frames.findpts(m_Demux.video.frame->pts, &m_Demux.video.findPosLastIdx);
-        if (findPos.poc != FRAMEPOS_POC_INVALID
-            && (findPos.pic_struct & RGY_PICSTRUCT_INTERLACED) == 0
-            && findPos.repeat_pict > 1) {
-            flags |= RGY_FRAME_FLAG_RFF;
+        if (findPos.poc != FRAMEPOS_POC_INVALID) {
+            if (findPos.repeat_pict > 1) {
+                flags |= RGY_FRAME_FLAG_RFF;
+                m_Demux.video.decRFFStatus ^= 1; // 反転させる
+            }
+            if (m_Demux.video.frame->top_field_first || findPos.repeat_pict > 1 || m_Demux.video.decRFFStatus) {
+                // RFF用のTFF/BFFを示すフラグを設定 (picstructとは別)
+                flags |= (m_Demux.video.frame->top_field_first) ? RGY_FRAME_FLAG_RFF_TFF : RGY_FRAME_FLAG_RFF_BFF;
+            }
         }
         pSurface->setFlags(flags);
         pSurface->setTimestamp(m_Demux.video.frame->pts);
         pSurface->setDuration(m_Demux.video.frame->pkt_duration);
-        if (pSurface->picstruct() == RGY_PICSTRUCT_AUTO) { //autoの時は、frameのインタレ情報をセットする
+        if (m_inputVideoInfo.picstruct == RGY_PICSTRUCT_AUTO) { //autoの時は、frameのインタレ情報をセットする
             pSurface->setPicstruct(picstruct_avframe_to_rgy(m_Demux.video.frame));
         }
         pSurface->dataList().clear();
@@ -3072,7 +3080,6 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
     if (m_Demux.format.formatCtx->duration) {
         progressPercent = m_Demux.frames.duration() * (m_Demux.video.stream->time_base.num / (double)m_Demux.video.stream->time_base.den);
     }
-    progressPercent += m_seek.first;
     return m_encSatusInfo->UpdateDisplayByCurrentDuration(progressPercent);
 }
 #pragma warning(pop)

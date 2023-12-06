@@ -42,7 +42,7 @@ public:
     RGY_ERR init(const QSVDeviceNum dev, const bool enableOpenCL, MemType memType, const MFXVideoSession2Params& params, std::shared_ptr<RGYLog> m_log, const bool suppressErrorMessage);
 
     CodecCsp getDecodeCodecCsp(const bool skipHWDecodeCheck);
-    uint64_t getEncodeFeature(const int ratecontrol, const RGY_CODEC codec, const bool lowpower);
+    QSVEncFeatures getEncodeFeature(const int ratecontrol, const RGY_CODEC codec, const bool lowpower);
 
     void close();
 
@@ -54,6 +54,7 @@ public:
     MemType memType() const { return m_memType; };
     CQSVHWDevice *hwdev() { return m_hwdev.get(); }
     QSVAllocator *allocator() { return m_allocator.get(); }
+    const IntelDeviceInfo *intelDeviceInfo() const { return m_hwdev->GetIntelDeviceInfo(); }
     bool externalAlloc() const { return m_externalAlloc; }
     const RGYOpenCLDeviceInfo *devInfo() const { return m_devInfo.get(); }
     MFXVideoSession2& mfxSession() { return m_session; };

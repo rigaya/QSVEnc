@@ -197,7 +197,7 @@ BOOL func_output( OUTPUT_INFO *oip ) {
     conf_out = g_conf;
 
     //ログウィンドウを開く
-    open_log_window(oip->savefile, &g_sys_dat, 1, 1);
+    open_log_window(oip, &g_sys_dat, 1, 1);
     if (conf_not_initialized) {
         warning_conf_not_initialized(default_stg_file);
     }
@@ -212,7 +212,7 @@ BOOL func_output( OUTPUT_INFO *oip ) {
 
         ret |= run_bat_file(&conf_out, oip, &pe, &g_sys_dat, RUN_BAT_BEFORE_PROCESS);
 
-        const auto audio_encode_timing = (conf_out.aud.use_internal) ? 2 : conf_out.aud.ext.audio_encode_timing;
+        const auto audio_encode_timing = (conf_out.aud.use_internal) ? 2 : 1;
         for (int i = 0; !ret && i < 2; i++)
             ret |= task[audio_encode_timing][i](&conf_out, oip, &pe, &g_sys_dat);
 

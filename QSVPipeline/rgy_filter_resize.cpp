@@ -114,9 +114,6 @@ RGY_ERR RGYFilterResize::resizePlane(RGYFrameInfo *pOutputPlane, const RGYFrameI
         return RGY_ERR_INVALID_PARAM;
     }
 
-    const int radius = get_radius(pResizeParam->interp);
-    const auto algo = get_weight_type(pResizeParam->interp);
-
     const float ratioX = (float)(pOutputPlane->width) / pInputPlane->width;
     const float ratioY = (float)(pOutputPlane->height) / pInputPlane->height;
 

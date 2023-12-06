@@ -789,10 +789,10 @@ RGY_ERR RGYFilterSsim::compare_frames() {
             AddMessage(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [in]: %s.\n"), get_err_mes(err));
             return RGY_ERR_NULL_PTR;
         }
-        clFrameInInterop->frame.flags = (RGY_FRAME_FLAGS)surfVppIn->Data.DataFlag;
-        clFrameInInterop->frame.timestamp = surfVppIn->Data.TimeStamp;
-        clFrameInInterop->frame.inputFrameId = surfVppIn->Data.FrameOrder;
-        clFrameInInterop->frame.picstruct = picstruct_enc_to_rgy(surfVppIn->Info.PicStruct);
+        clFrameInInterop->frame.flags = taskSurf->surf().frame()->flags();
+        clFrameInInterop->frame.timestamp = taskSurf->surf().frame()->timestamp();
+        clFrameInInterop->frame.inputFrameId = taskSurf->surf().frame()->inputFrameId();
+        clFrameInInterop->frame.picstruct = taskSurf->surf().frame()->picstruct();
         int cropFilterOutputNum = 0;
         RGYFrameInfo *outInfo[1] = { &m_decFrameCopy->frame };
         RGYFrameInfo decFrameInfo = clFrameInInterop->frameInfo();

@@ -47,6 +47,7 @@ public:
         const sInputCrop *crop, const rgy_rational<int> infps, const rgy_rational<int> sar, const int blockSize);
     RGY_ERR Init();
     RGY_ERR Close();
+    RGY_ERR Reset(const mfxFrameInfo& frameOut, const mfxFrameInfo& frameIn);
 
     void clear();
 
@@ -59,6 +60,7 @@ public:
     mfxVersion mfxver() const { return m_mfxVer; }
     int asyncDepth() const { return m_asyncDepth; }
     tstring print() const { return VppExtMes; }
+    bool isDeinterlace() const { return m_ExtDeinterlacing.Mode != 0;  }
 protected:
     void InitStructs();
     RGY_ERR InitMFXSession();

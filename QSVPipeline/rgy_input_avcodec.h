@@ -196,17 +196,19 @@ public:
         if (filename == nullptr) {
             return 1;
         }
-        FILE *fp = NULL;
-        if (0 != _tfopen_s(&fp, filename, _T("wb"))) {
+        FILE *fp = nullptr;
+        if (0 != _tfopen_s(&fp, filename, _T("wb")) || fp == nullptr) {
             return 1;
         }
-        fprintf(fp, "pts,dts,duration,duration2,poc,flags,pic_struct,repeat_pict,pict_type\r\n");
+        fprintf(fp, "     poc, T,flags,repeat,  pts,         dts,duration,duration2,pic_struct\r\n");
         for (int i = 0; i < nList; i++) {
-            fprintf(fp, "%lld,%lld,%d,%d,%d,%d,%d,%d,%d\r\n",
+            fprintf(fp, "%8d,%2s,%2d,%2d,%12lld, %12lld, %6d, %6d, %s\r\n",
+                m_list[i].data.poc,
+                (m_list[i].data.pict_type == 1) ? "I" : ((m_list[i].data.pict_type == 2) ? "P" : ((m_list[i].data.pict_type == 3) ? "B" : "X")),
+                (int)m_list[i].data.flags, m_list[i].data.repeat_pict,
                 (lls)m_list[i].data.pts, (lls)m_list[i].data.dts,
                 m_list[i].data.duration, m_list[i].data.duration2,
-                m_list[i].data.poc,
-                (int)m_list[i].data.flags, (int)m_list[i].data.pic_struct, (int)m_list[i].data.repeat_pict, (int)m_list[i].data.pict_type);
+                tchar_to_string(picstrcut_to_str((RGY_PICSTRUCT)m_list[i].data.pic_struct)).c_str());
         }
         fclose(fp);
         return 0;
@@ -692,6 +694,7 @@ typedef struct AVDemuxFormat {
     double                    analyzeSec;            //動画ファイルを先頭から分析する時間
     bool                      isPipe;                //入力がパイプ
     bool                      lowLatency;            //低遅延モード
+    bool                      timestampPassThrough;  //timestampをそのまま通す
     uint32_t                  preReadBufferIdx;      //先読みバッファの読み込み履歴
     int                       audioTracks;           //存在する音声のトラック数
     int                       subtitleTracks;        //存在する字幕のトラック数
@@ -728,6 +731,7 @@ typedef struct AVDemuxVideo {
     uint32_t                  findPosLastIdx;        //findpos用のindex
 
     int                       nSampleGetCount;       //sampleをGetNextBitstreamで取得した数
+    int                       decRFFStatus;          //swデコード時にRFF展開中かどうか
 
     AVCodecParserContext     *pParserCtx;            //動画ストリームのParser
     AVCodecContext           *pCodecCtxParser;       //動画ストリームのParser用
@@ -928,7 +932,6 @@ public:
     }
     AVDemuxStream stream() const {
         AVDemuxStream stream;
-        memset(&stream, 0, sizeof(AVDemuxStream));
         return stream;
     }
     RGY_ERR proc(uint8_t *buf, int buf_size, decltype(AVDemuxer::qStreamPktL1)& qStreamPkt) {
@@ -987,6 +990,7 @@ public:
     bool           interlaceAutoFrame;      //フレームごとにインタレの検出を行う
     RGYListRef<RGYFrameDataQP> *qpTableListRef; //qp tableを格納するときのベース構造体
     bool           lowLatency;
+    bool           timestampPassThrough;    //timestampをそのまま出力する
     RGYOptList     inputOpt;                //入力オプション
     RGYHEVCBsf     hevcbsf;
 

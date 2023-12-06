@@ -39,6 +39,10 @@
 #include <dxgi1_2.h>
 #include "qsv_util.h"
 
+struct IntelDeviceInfoV2;
+using IntelDeviceInfo = IntelDeviceInfoV2;
+struct IntelDeviceInfoHeader;
+
 class CQSVD3D11Device : public CQSVHWDevice {
 public:
     CQSVD3D11Device(std::shared_ptr<RGYLog> pQSVLog);
@@ -49,9 +53,11 @@ public:
     virtual void      Close() override;
     virtual LUID      GetLUID() override;
     virtual tstring   GetName() override;
+    virtual IntelDeviceInfo *GetIntelDeviceInfo() override { return m_intelDeviceInfo.get(); };
 protected:
     void SetSCD1(DXGI_SWAP_CHAIN_DESC1& scd);
     mfxStatus CreateVideoProcessor(mfxFrameSurface1 *pSurface);
+    mfxStatus getIntelDeviceInfo();
 
     CComPtr<ID3D11Device>                   m_pD3D11Device;
     CComPtr<ID3D11DeviceContext>            m_pD3D11Ctx;
@@ -83,6 +89,9 @@ private:
     BOOL                                    m_bDefaultStereoEnabled;
     BOOL                                    m_bIsA2rgb10;
     HWND                                    m_HandleWindow;
+
+    std::unique_ptr<IntelDeviceInfoHeader>  m_intelDeviceInfoHeader;
+    std::unique_ptr<IntelDeviceInfo>        m_intelDeviceInfo;
 };
 
 #endif //#if defined( _WIN32 ) || defined ( _WIN64 )

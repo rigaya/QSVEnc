@@ -40,8 +40,9 @@ class RGYFilterParamNnedi : public RGYFilterParam {
 public:
     VppNnedi nnedi;
     HMODULE hModule;
+    rgy_rational<int> timebase;
 
-    RGYFilterParamNnedi() : nnedi(), hModule(NULL) {};
+    RGYFilterParamNnedi() : nnedi(), hModule(NULL), timebase() {};
     virtual ~RGYFilterParamNnedi() {};
     virtual tstring print() const override { return nnedi.print(); };
 };
@@ -63,6 +64,7 @@ protected:
     virtual void close() override;
     virtual RGY_ERR checkParam(const std::shared_ptr<RGYFilterParamNnedi> pParam);
     virtual RGY_ERR initParams(const std::shared_ptr<RGYFilterParamNnedi> pNnediParam);
+    void setBobTimestamp(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames);
 
     template<typename TypeWeight>
     void setWeight0(TypeWeight *ptrDst, const float *ptrW, const std::shared_ptr<RGYFilterParamNnedi> pNnediParam);

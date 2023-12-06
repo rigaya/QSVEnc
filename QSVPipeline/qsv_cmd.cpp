@@ -256,12 +256,6 @@ tstring encoder_help() {
     str += strsprintf(_T("Frame buffer Options:\n")
         _T(" frame buffers are selected automatically by default.\n")
 #if D3D_SURFACES_SUPPORT
-        _T(" d3d9 memory is faster than d3d11, so d3d9 frames are used whenever possible,\n")
-        _T(" except decode/vpp only mode (= no encoding mode, system frames are used).\n")
-        _T(" On particular cases, such as runnning on a system with dGPU, or running\n")
-        _T(" vpp-rotate, will require the uses of d3d11 surface.\n")
-        _T(" Options below will change this default behavior.\n")
-        _T("\n")
         _T("   --disable-d3d                disable using d3d surfaces\n")
 #if MFX_D3D11_SUPPORT
         _T("   --d3d                        use d3d9/d3d11 surfaces\n")
@@ -278,7 +272,7 @@ tstring encoder_help() {
 #endif //#if LIBVA_SUPPORT
             _T("\n"));
     str += strsprintf(_T("Encode Mode Options:\n")
-        _T(" EncMode default: --cqp\n")
+        _T(" EncMode default: --icq\n")
         _T("   --cqp <int> or               encode in Constant QP, default %d:%d:%d\n")
         _T("         <int>:<int>:<int>      set qp value for i:p:b frame\n")
         _T("   --la <int>                   set bitrate in Lookahead mode (kbps)\n")
@@ -712,14 +706,14 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     if (0 == _tcscmp(option_name, _T("codec"))) {
         i++;
         int j = 0;
-        for (; list_codec[j].desc; j++) {
-            if (_tcsicmp(list_codec[j].desc, strInput[i]) == 0) {
-                pParams->CodecId = list_codec[j].value;
+        for (; list_codec_rgy[j].desc; j++) {
+            if (_tcsicmp(list_codec_rgy[j].desc, strInput[i]) == 0) {
+                pParams->codec = (RGY_CODEC)list_codec_rgy[j].value;
                 break;
             }
         }
-        if (list_codec[j].desc == nullptr) {
-            print_cmd_error_invalid_value(option_name, strInput[i], list_codec);
+        if (list_codec_rgy[j].desc == nullptr) {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_codec_rgy);
             return 1;
         }
         return 0;
@@ -886,19 +880,19 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("repartition-check"))) {
-        pParams->nRepartitionCheck = MFX_CODINGOPTION_ON;
+        pParams->nRepartitionCheck = true;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-repartition-check"))) {
-        pParams->nRepartitionCheck = MFX_CODINGOPTION_OFF;
+        pParams->nRepartitionCheck = false;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("fade-detect"))) {
-        pParams->nFadeDetect = MFX_CODINGOPTION_ON;
+        pParams->nFadeDetect = true;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("no-fade-detect"))) {
-        pParams->nFadeDetect = MFX_CODINGOPTION_OFF;
+        pParams->nFadeDetect = false;
         return 0;
     }
     if (   0 == _tcscmp(option_name, _T("lookahead-ds"))
@@ -935,116 +929,271 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     if (0 == _tcscmp(option_name, _T("la"))) {
         i++;
         try {
-            pParams->nBitRate = std::stoi(strInput[i]);
+            pParams->rcParam.bitrate = std::stoi(strInput[i]);
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->nEncMode = MFX_RATECONTROL_LA;
+        pParams->rcParam.encMode = MFX_RATECONTROL_LA;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("icq"))) {
         i++;
         try {
-            pParams->nICQQuality = std::stoi(strInput[i]);
+            pParams->rcParam.icqQuality = std::stoi(strInput[i]);
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->nEncMode = MFX_RATECONTROL_ICQ;
+        pParams->rcParam.encMode = MFX_RATECONTROL_ICQ;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("la-icq"))) {
         i++;
         try {
-            pParams->nICQQuality = std::stoi(strInput[i]);
+            pParams->rcParam.icqQuality = std::stoi(strInput[i]);
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->nEncMode = MFX_RATECONTROL_LA_ICQ;
+        pParams->rcParam.encMode = MFX_RATECONTROL_LA_ICQ;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("la-hrd"))) {
         i++;
         try {
-            pParams->nBitRate = std::stoi(strInput[i]);
+            pParams->rcParam.bitrate = std::stoi(strInput[i]);
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->nEncMode = MFX_RATECONTROL_LA_HRD;
+        pParams->rcParam.encMode = MFX_RATECONTROL_LA_HRD;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("vcm"))) {
         i++;
         try {
-            pParams->nBitRate = std::stoi(strInput[i]);
+            pParams->rcParam.bitrate = std::stoi(strInput[i]);
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->nEncMode = MFX_RATECONTROL_VCM;
+        pParams->rcParam.encMode = MFX_RATECONTROL_VCM;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("vbr"))) {
         i++;
         try {
-            pParams->nBitRate = std::stoi(strInput[i]);
+            pParams->rcParam.bitrate = std::stoi(strInput[i]);
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->nEncMode = MFX_RATECONTROL_VBR;
+        pParams->rcParam.encMode = MFX_RATECONTROL_VBR;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("cbr"))) {
         i++;
         try {
-            pParams->nBitRate = std::stoi(strInput[i]);
+            pParams->rcParam.bitrate = std::stoi(strInput[i]);
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->nEncMode = MFX_RATECONTROL_CBR;
+        pParams->rcParam.encMode = MFX_RATECONTROL_CBR;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("avbr"))) {
         i++;
         try {
-            pParams->nBitRate = std::stoi(strInput[i]);
+            pParams->rcParam.bitrate = std::stoi(strInput[i]);
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->nEncMode = MFX_RATECONTROL_AVBR;
+        pParams->rcParam.encMode = MFX_RATECONTROL_AVBR;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("qvbr"))) {
         i++;
         try {
-            pParams->nBitRate = std::stoi(strInput[i]);
+            pParams->rcParam.bitrate = std::stoi(strInput[i]);
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->nEncMode = MFX_RATECONTROL_QVBR;
+        pParams->rcParam.encMode = MFX_RATECONTROL_QVBR;
         return 0;
     }
     if (   0 == _tcscmp(option_name, _T("qvbr-q"))
         || 0 == _tcscmp(option_name, _T("qvbr-quality"))) {
         i++;
         try {
-            pParams->nQVBRQuality = std::stoi(strInput[i]);
+            pParams->rcParam.qvbrQuality = std::stoi(strInput[i]);
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->nEncMode = MFX_RATECONTROL_QVBR;
+        pParams->rcParam.encMode = MFX_RATECONTROL_QVBR;
+        return 0;
+    }
+
+    if (IS_OPTION("dynamic-rc")) {
+        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        bool rc_mode_defined = false;
+        auto paramList = std::vector<std::string>{ "start", "end", "max-bitrate", "avbr-accuracy", "avbr-convergence", "qvbr-quality" };
+        for (int j = 0; list_rc_mode[j].desc; j++) {
+            paramList.push_back(tolowercase(tchar_to_string(list_rc_mode[j].desc)));
+        }
+        QSVRCParam rcPrm;
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos+1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("start")) {
+                    try {
+                        rcPrm.start = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("end")) {
+                    try {
+                        rcPrm.end = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("cqp")) {
+                    int ret = rcPrm.qp.parse(strInput[i]);
+                    if (ret != 0) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    rcPrm.encMode = MFX_RATECONTROL_CQP;
+                    rc_mode_defined = true;
+                    continue;
+                }
+                if (param_arg == _T("icq")) {
+                    try {
+                        rcPrm.icqQuality = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    rcPrm.encMode = MFX_RATECONTROL_ICQ;
+                    rc_mode_defined = true;
+                    continue;
+                }
+                if (param_arg == _T("la-icq")) {
+                    try {
+                        rcPrm.icqQuality = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    rcPrm.encMode = MFX_RATECONTROL_LA_ICQ;
+                    rc_mode_defined = true;
+                    continue;
+                }
+                int temp = 0;
+                if (get_list_value(list_rc_mode, tolowercase(param_arg).c_str(), &temp)) {
+                    try {
+                        rcPrm.bitrate = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    rcPrm.encMode = temp;
+                    rc_mode_defined = true;
+                    continue;
+                }
+                if (param_arg == _T("max-bitrate")) {
+                    try {
+                        rcPrm.maxBitrate = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("avbr-accuracy")) {
+                    try {
+                        rcPrm.avbrAccuarcy = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("avbr-convergence")) {
+                    try {
+                        rcPrm.avbrConvergence = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("qvbr-quality")) {
+                    try {
+                        rcPrm.qvbrQuality = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                pos = param.find_first_of(_T(":"));
+                if (pos != std::string::npos) {
+                    auto param_val0 = param.substr(0, pos);
+                    auto param_val1 = param.substr(pos+1);
+                    try {
+                        rcPrm.start = std::stoi(param_val0);
+                        rcPrm.end   = std::stoi(param_val1);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(option_name, param);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        if (!rc_mode_defined) {
+            print_cmd_error_invalid_value(option_name, strInput[i], _T("rate control mode unspecified!"));
+            return 1;
+        }
+        if (rcPrm.start < 0) {
+            print_cmd_error_invalid_value(option_name, strInput[i], _T("start frame ID unspecified!"));
+            return 1;
+        }
+        if (rcPrm.end > 0 && rcPrm.start > rcPrm.end) {
+            print_cmd_error_invalid_value(option_name, strInput[i], _T("start frame ID must be smaller than end frame ID!"));
+            return 1;
+        }
+        pParams->dynamicRC.push_back(rcPrm);
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("fallback-rc"))) {
-        pParams->nFallback = 1;
+        pParams->fallbackRC = true;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("no-fallback-rc"))) {
+        pParams->fallbackRC = false;
         return 0;
     }
     if (   0 == _tcscmp(option_name, _T("max-bitrate"))
@@ -1052,7 +1201,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     {
         i++;
         try {
-            pParams->nMaxBitrate = std::stoi(strInput[i]);
+            pParams->rcParam.maxBitrate = std::stoi(strInput[i]);
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
@@ -1062,7 +1211,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     if (0 == _tcscmp(option_name, _T("vbv-bufsize"))) {
         i++;
         try {
-            pParams->VBVBufsize = std::stoi(strInput[i]);
+            pParams->rcParam.vbvBufSize = std::stoi(strInput[i]);
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
@@ -1091,22 +1240,18 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     }
     if (0 == _tcscmp(option_name, _T("cqp"))) {
         i++;
-        int a[3] = { 0 };
-        int ret = parse_qp(a, strInput[i]);
-        if (ret == 0) {
+        int ret = pParams->rcParam.qp.parse(strInput[i]);
+        if (ret != 0) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        pParams->nQPI = a[0];
-        pParams->nQPP = (ret > 1) ? a[1] : a[ret - 1];
-        pParams->nQPB = (ret > 2) ? a[2] : a[ret - 1];
-        pParams->nEncMode = MFX_RATECONTROL_CQP;
+        pParams->rcParam.encMode = MFX_RATECONTROL_CQP;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("avbr-unitsize"))) {
         i++;
         try {
-            pParams->nAVBRConvergence = std::stoi(strInput[i]);
+            pParams->rcParam.avbrConvergence = std::stoi(strInput[i]);
         } catch (...) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
@@ -1120,7 +1265,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     //        print_cmd_error_invalid_value(option_name, strInput[i]);
     //        return 1;
     //    }
-    //    pParams->nAVBRAccuarcy = (mfxU16)(accuracy * 10 + 0.5);
+    //    pParams->rcParam.avbrAccuarcy = (mfxU16)(accuracy * 10 + 0.5);
     //    return 0;
     //}
     else if (0 == _tcscmp(option_name, _T("fixed-func"))) {
@@ -1348,18 +1493,21 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         }
         return 0;
     }
-    if (0 == _tcscmp(option_name, _T("qpmax")) || 0 == _tcscmp(option_name, _T("qpmin"))
-        || 0 == _tcscmp(option_name, _T("qp-max")) || 0 == _tcscmp(option_name, _T("qp-min"))) {
+    if (0 == _tcscmp(option_name, _T("qpmin")) || 0 == _tcscmp(option_name, _T("qp-min"))) {
         i++;
-        int qpLimit[3] = { 0 };
-        int ret = parse_qp(qpLimit, strInput[i]);
-        if (ret == 0) {
+        int ret = pParams->qpMin.parse(strInput[i]);
+        if (ret != 0) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        int *limit = (0 == _tcscmp(option_name, _T("qpmin")) || 0 == _tcscmp(option_name, _T("qp-min"))) ? pParams->nQPMin : pParams->nQPMax;
-        for (int j = 0; j < 3; j++) {
-            limit[j] = clamp((ret > j) ? qpLimit[j] : qpLimit[ret-1], 0, 51);
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("qpmax")) || 0 == _tcscmp(option_name, _T("qp-max"))) {
+        i++;
+        int ret = pParams->qpMax.parse(strInput[i]);
+        if (ret != 0) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
         }
         return 0;
     }
@@ -1715,9 +1863,12 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, bool 
             return 1;
         }
         if (debug_cmd_parser) {
-            _ftprintf(stderr, _T("parsing %3d: %s\n"), i, strInput[i]);
+            _ftprintf(stderr, _T("parsing %3d: %s: "), i, strInput[i]);
         }
         auto sts = ParseOneOption(option_name, strInput, i, nArgNum, pParams, &argsData);
+        if (debug_cmd_parser) {
+            _ftprintf(stderr, _T("%s\n"), (sts == 0) ? _T("OK") : _T("ERR"));
+        }
         if (!ignore_parse_err && sts != 0) {
             return sts;
         }
@@ -1725,7 +1876,7 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, bool 
 
     //parse cached profile and level
     if (argsData.cachedlevel.length() > 0) {
-        const auto desc = get_level_list(pParams->CodecId);
+        const auto desc = get_level_list(pParams->codec);
         int value = 0;
         bool bParsed = false;
         if (desc != nullptr) {
@@ -1761,7 +1912,7 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, bool 
         }
     }
     if (argsData.cachedprofile.length() > 0) {
-        const auto desc = get_profile_list(pParams->CodecId);
+        const auto desc = get_profile_list(pParams->codec);
         int value = 0;
         if (desc != nullptr && PARSE_ERROR_FLAG != (value = get_value_from_chr(desc, argsData.cachedprofile.c_str()))) {
             pParams->CodecProfile = value;
@@ -1776,7 +1927,7 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, bool 
             return 1;
         }
     }
-    if (pParams->CodecId == MFX_CODEC_HEVC) {
+    if (pParams->codec == RGY_CODEC_HEVC) {
         if (pParams->outputDepth > 8
             && (pParams->CodecProfile == 0 || pParams->CodecProfile == MFX_PROFILE_HEVC_MAIN)) {
             pParams->CodecProfile = MFX_PROFILE_HEVC_MAIN10;
@@ -1797,7 +1948,7 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, bool 
             }
         }
     }
-    if (pParams->CodecId == MFX_CODEC_AV1) {
+    if (pParams->codec == RGY_CODEC_AV1) {
         if (pParams->outputCsp != RGY_CHROMAFMT_YUV420) {
             pParams->CodecProfile = MFX_PROFILE_AV1_PRO;
         }
@@ -1855,18 +2006,21 @@ int parse_cmd(sInputParams *pParams, const char *cmda, bool ignore_parse_err) {
         return 0;
     }
     vector<tstring> argv_tstring;
+    if (wcslen(argvw[0]) != 0) {
+        argv_tstring.push_back(_T("")); // 最初は実行ファイルのパスが入っているのを模擬するため、空文字列を入れておく
+    }
     for (int i = 0; i < argc; i++) {
         argv_tstring.push_back(wstring_to_tstring(argvw[i]));
     }
     LocalFree(argvw);
 
     vector<TCHAR *> argv_tchar;
-    for (int i = 0; i < argc; i++) {
+    for (int i = 0; i < argv_tstring.size(); i++) {
         argv_tchar.push_back((TCHAR *)argv_tstring[i].data());
     }
-    argv_tchar.push_back(_T(""));
+    argv_tchar.push_back(_T("")); // 最後に空白を追加
     const TCHAR **strInput = (const TCHAR **)argv_tchar.data();
-    return parse_cmd(pParams, strInput, argc, ignore_parse_err);
+    return parse_cmd(pParams, strInput, (int)argv_tchar.size() - 1 /*最後の空白の分*/, ignore_parse_err);
 }
 #endif
 
@@ -2022,15 +2176,17 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     }
 
 #define OPT_LST(str, opt, list) if ((pParams->opt) != (encPrmDefault.opt)) cmd << _T(" ") << (str) << _T(" ") << get_chr_from_value(list, (pParams->opt));
-#define OPT_QP(str, force, qpi, qpp, qpb) { \
+#define OPT_QP(str, qp, force) { \
     if ((force) \
-    || (pParams->qpi) != (encPrmDefault.qpi) \
-    || (pParams->qpp) != (encPrmDefault.qpp) \
-    || (pParams->qpb) != (encPrmDefault.qpb)) { \
-        if ((pParams->qpi) == (pParams->qpp) && (pParams->qpi) == (pParams->qpb)) { \
-            cmd << _T(" ") << (str) << _T(" ") << (int)(pParams->qpi); \
+    || (pParams->qp.qpI) != (encPrmDefault.qp.qpI) \
+    || (pParams->qp.qpP) != (encPrmDefault.qp.qpP) \
+    || (pParams->qp.qpB) != (encPrmDefault.qp.qpB)) { \
+        if ((pParams->qp.qpI) == (pParams->qp.qpP) && (pParams->qp.qpI) == (pParams->qp.qpB)) { \
+            cmd << _T(" ") << (str) << _T(" ") << (int)(pParams->qp.qpI); \
+        } else if ((pParams->qp.qpP) == (pParams->qp.qpB)) { \
+            cmd << _T(" ") << (str) << _T(" ") << (int)(pParams->qp.qpI) << _T(":") << (int)(pParams->qp.qpP); \
         } else { \
-            cmd << _T(" ") << (str) << _T(" ") << (int)(pParams->qpi) << _T(":") << (int)(pParams->qpp) << _T(":") << (int)(pParams->qpb); \
+            cmd << _T(" ") << (str) << _T(" ") << (int)(pParams->qp.qpI) << _T(":") << (int)(pParams->qp.qpP) << _T(":") << (int)(pParams->qp.qpB); \
         } \
     } \
 }
@@ -2047,7 +2203,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
 #define OPT_STR_PATH(str, opt) if (pParams->opt.length() > 0) cmd << _T(" ") << str << _T(" \"") << (pParams->opt.c_str()) << _T("\"");
 
     OPT_NUM(_T("-d"), device);
-    cmd << _T(" -c ") << get_chr_from_value(list_codec, pParams->CodecId);
+    cmd << _T(" -c ") << get_chr_from_value(list_codec_rgy, pParams->codec);
 
     cmd << gen_cmd(&pParams->input, &encPrmDefault.input, &pParams->inprm, &encPrmDefault.inprm, save_disabled_prm);
 
@@ -2075,11 +2231,11 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
         default: break;
         }
     }
-    if (save_disabled_prm || pParams->nEncMode == MFX_RATECONTROL_QVBR) {
-        OPT_NUM(_T("--qvbr-quality"), nQVBRQuality);
+    if (save_disabled_prm || pParams->rcParam.encMode == MFX_RATECONTROL_QVBR) {
+        OPT_NUM(_T("--qvbr-quality"), rcParam.qvbrQuality);
     }
     if (save_disabled_prm) {
-        switch (pParams->nEncMode) {
+        switch (pParams->rcParam.encMode) {
         case MFX_RATECONTROL_CBR:
         case MFX_RATECONTROL_VBR:
         case MFX_RATECONTROL_AVBR:
@@ -2087,72 +2243,72 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
         case MFX_RATECONTROL_LA:
         case MFX_RATECONTROL_LA_HRD:
         case MFX_RATECONTROL_VCM: {
-            OPT_QP(_T("--cqp"), true, nQPI, nQPP, nQPB);
-            cmd << _T(" --icq ") << pParams->nICQQuality;
+            OPT_QP(_T("--cqp"), rcParam.qp, true);
+            cmd << _T(" --icq ") << pParams->rcParam.icqQuality;
         } break;
         case MFX_RATECONTROL_ICQ:
         case MFX_RATECONTROL_LA_ICQ: {
-            OPT_QP(_T("--cqp"), true, nQPI, nQPP, nQPB);
-            cmd << _T(" --vbr ") << pParams->nBitRate;
+            OPT_QP(_T("--cqp"), rcParam.qp, true);
+            cmd << _T(" --vbr ") << pParams->rcParam.bitrate;
         } break;
         case MFX_RATECONTROL_CQP:
         default: {
-            cmd << _T(" --icq ") << pParams->nICQQuality;
-            cmd << _T(" --vbr ") << pParams->nBitRate;
+            cmd << _T(" --icq ") << pParams->rcParam.icqQuality;
+            cmd << _T(" --vbr ") << pParams->rcParam.bitrate;
         } break;
         }
     }
-    switch (pParams->nEncMode) {
+    switch (pParams->rcParam.encMode) {
     case MFX_RATECONTROL_CBR: {
-        cmd << _T(" --cbr ") << pParams->nBitRate;
+        cmd << _T(" --cbr ") << pParams->rcParam.bitrate;
     } break;
     case MFX_RATECONTROL_VBR: {
-        cmd << _T(" --vbr ") << pParams->nBitRate;
+        cmd << _T(" --vbr ") << pParams->rcParam.bitrate;
     } break;
     case MFX_RATECONTROL_AVBR: {
-        cmd << _T(" --avbr ") << pParams->nBitRate;
+        cmd << _T(" --avbr ") << pParams->rcParam.bitrate;
     } break;
     case MFX_RATECONTROL_QVBR: {
-        cmd << _T(" --qvbr ") << pParams->nBitRate;
+        cmd << _T(" --qvbr ") << pParams->rcParam.bitrate;
     } break;
     case MFX_RATECONTROL_LA: {
-        cmd << _T(" --la ") << pParams->nBitRate;
+        cmd << _T(" --la ") << pParams->rcParam.bitrate;
     } break;
     case MFX_RATECONTROL_LA_HRD: {
-        cmd << _T(" --la-hrd ") << pParams->nBitRate;
+        cmd << _T(" --la-hrd ") << pParams->rcParam.bitrate;
     } break;
     case MFX_RATECONTROL_VCM: {
-        cmd << _T(" --vcm ") << pParams->nBitRate;
+        cmd << _T(" --vcm ") << pParams->rcParam.bitrate;
     } break;
     case MFX_RATECONTROL_ICQ: {
-        cmd << _T(" --icq ") << pParams->nICQQuality;
+        cmd << _T(" --icq ") << pParams->rcParam.icqQuality;
     } break;
     case MFX_RATECONTROL_LA_ICQ: {
-        cmd << _T(" --la-icq ") << pParams->nICQQuality;
+        cmd << _T(" --la-icq ") << pParams->rcParam.icqQuality;
     } break;
     case MFX_RATECONTROL_CQP:
     default: {
-        OPT_QP(_T("--cqp"), true, nQPI, nQPP, nQPB);
+        OPT_QP(_T("--cqp"), rcParam.qp, true);
     } break;
     }
-    if (save_disabled_prm || pParams->nEncMode == MFX_RATECONTROL_AVBR) {
-        OPT_NUM(_T("--avbr-unitsize"), nAVBRConvergence);
+    if (save_disabled_prm || pParams->rcParam.encMode == MFX_RATECONTROL_AVBR) {
+        OPT_NUM(_T("--avbr-unitsize"), rcParam.avbrConvergence);
     }
     if (save_disabled_prm
-        || pParams->nEncMode == MFX_RATECONTROL_LA
-        || pParams->nEncMode == MFX_RATECONTROL_LA_HRD
-        || pParams->nEncMode == MFX_RATECONTROL_LA_ICQ) {
+        || pParams->rcParam.encMode == MFX_RATECONTROL_LA
+        || pParams->rcParam.encMode == MFX_RATECONTROL_LA_HRD
+        || pParams->rcParam.encMode == MFX_RATECONTROL_LA_ICQ) {
         OPT_NUM(_T("--la-depth"), nLookaheadDepth);
         OPT_NUM(_T("--la-window-size"), nWinBRCSize);
         OPT_LST(_T("--la-quality"), nLookaheadDS, list_lookahead_ds);
     }
-    if (save_disabled_prm || pParams->nEncMode != MFX_RATECONTROL_CQP) {
-        OPT_NUM(_T("--max-bitrate"), nMaxBitrate);
+    if (save_disabled_prm || pParams->rcParam.encMode != MFX_RATECONTROL_CQP) {
+        OPT_NUM(_T("--max-bitrate"), rcParam.maxBitrate);
     }
-    OPT_NUM(_T("--vbv-bufsize"), VBVBufsize);
-    OPT_BOOL(_T("--fallback-rc"), _T(""), nFallback);
-    OPT_QP(_T("--qp-min"), save_disabled_prm, nQPMin[0], nQPMin[1], nQPMin[2]);
-    OPT_QP(_T("--qp-max"), save_disabled_prm, nQPMax[0], nQPMax[1], nQPMax[2]);
+    OPT_NUM(_T("--vbv-bufsize"), rcParam.vbvBufSize);
+    OPT_BOOL(_T("--fallback-rc"), _T("--no-fallback-rc"), fallbackRC);
+    OPT_QP(_T("--qp-min"), qpMin, save_disabled_prm);
+    OPT_QP(_T("--qp-max"), qpMax, save_disabled_prm);
     if (memcmp(pParams->pQPOffset, encPrmDefault.pQPOffset, sizeof(encPrmDefault.pQPOffset))) {
         tmp.str(tstring());
         bool exit_loop = false;
@@ -2171,20 +2327,20 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
 
     OPT_NUM(_T("--slices"), nSlices);
     OPT_NUM(_T("--ref"), nRef);
-    if (pParams->CodecId == MFX_CODEC_AVC || pParams->CodecId == MFX_CODEC_HEVC || pParams->CodecId == MFX_CODEC_MPEG2) {
+    if (gopRefDistAsBframe(pParams->codec)) {
         OPT_NUM(_T("-b"), GopRefDist - 1);
     } else {
         OPT_NUM(_T("--gop-ref-dist"), GopRefDist);
     }
-    OPT_BOOL(_T("--b-pyramid"), _T("--no-b-pyramid"), bBPyramid);
+    OPT_BOOL_OPT(_T("--b-pyramid"), _T("--no-b-pyramid"), bBPyramid);
     OPT_BOOL(_T("--open-gop"), _T("--no-open-gop"), bopenGOP);
     OPT_BOOL(_T("--strict-gop"), _T(""), bforceGOPSettings);
-    OPT_BOOL(_T("--i-adapt"), _T("--no-i-adapt"), bAdaptiveI);
-    OPT_BOOL(_T("--b-adapt"), _T("--no-b-adapt"), bAdaptiveB);
+    OPT_BOOL_OPT(_T("--i-adapt"), _T("--no-i-adapt"), bAdaptiveI);
+    OPT_BOOL_OPT(_T("--b-adapt"), _T("--no-b-adapt"), bAdaptiveB);
     OPT_TRI(_T("--weightb"), _T("--no-weightb"), nWeightB, MFX_WEIGHTED_PRED_DEFAULT, MFX_WEIGHTED_PRED_UNKNOWN);
     OPT_TRI(_T("--weightp"), _T("--no-weightp"), nWeightP, MFX_WEIGHTED_PRED_DEFAULT, MFX_WEIGHTED_PRED_UNKNOWN);
-    OPT_TRI(_T("--repartition-check"), _T("--no-repartition-check"), nRepartitionCheck, MFX_CODINGOPTION_ON, MFX_CODINGOPTION_OFF);
-    OPT_TRI(_T("--fade-detect"), _T("--no-fade-detect"), nFadeDetect, MFX_CODINGOPTION_ON, MFX_CODINGOPTION_OFF);
+    OPT_BOOL_OPT(_T("--repartition-check"), _T("--no-repartition-check"), nRepartitionCheck);
+    OPT_BOOL_OPT(_T("--fade-detect"), _T("--no-fade-detect"), nFadeDetect);
     if (pParams->nGOPLength == 0 && pParams->nGOPLength != encPrmDefault.nGOPLength) {
         cmd << _T(" --gop-len auto");
     } else {
@@ -2205,35 +2361,35 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     }
 
     OPT_LST(_T("--scenario-info"), scenarioInfo, list_scenario_info);
-    OPT_BOOL(_T("--extbrc"), _T("--no-extbrc"), extBRC);
-    OPT_BOOL(_T("--mbbrc"), _T("--no-mbbrc"), bMBBRC);
-    OPT_BOOL(_T("--adapt-ref"), _T("--no-adapt-ref"), adaptiveRef);
-    OPT_BOOL(_T("--adapt-ltr"), _T("--no-adapt-ltr"), adaptiveLTR);
-    OPT_BOOL(_T("--adapt-cqm"), _T("--no-adapt-cqm"), adaptiveCQM);
+    OPT_BOOL_OPT(_T("--extbrc"), _T("--no-extbrc"), extBRC);
+    OPT_BOOL_OPT(_T("--mbbrc"), _T("--no-mbbrc"), bMBBRC);
+    OPT_BOOL_OPT(_T("--adapt-ref"), _T("--no-adapt-ref"), adaptiveRef);
+    OPT_BOOL_OPT(_T("--adapt-ltr"), _T("--no-adapt-ltr"), adaptiveLTR);
+    OPT_BOOL_OPT(_T("--adapt-cqm"), _T("--no-adapt-cqm"), adaptiveCQM);
     OPT_NUM(_T("--intra-refresh-cycle"), intraRefreshCycle);
     OPT_NUM(_T("--max-framesize"), maxFrameSize);
     OPT_NUM(_T("--max-framesize-i"), maxFrameSizeI);
     OPT_NUM(_T("--max-framesize-p"), maxFrameSizeP);
-    OPT_BOOL(_T("--direct-bias-adjust"), _T("--no-direct-bias-adjust"), bDirectBiasAdjust);
+    OPT_BOOL_OPT(_T("--direct-bias-adjust"), _T("--no-direct-bias-adjust"), bDirectBiasAdjust);
     OPT_LST(_T("--intra-pred"), nIntraPred, list_pred_block_size);
     OPT_LST(_T("--inter-pred"), nInterPred, list_pred_block_size);
     OPT_BOOL(_T("--aud"), _T(""), bOutputAud);
     OPT_BOOL(_T("--pic-struct"), _T(""), bOutputPicStruct);
     OPT_BOOL(_T("--buf-period"), _T(""), bufPeriodSEI);
     OPT_BOOL_OPT(_T("--repeat-headers"), _T("--no-repeat-headers"), repeatHeaders);
-    OPT_LST(_T("--level"), CodecLevel, get_level_list(pParams->CodecId));
-    OPT_LST(_T("--profile"), CodecProfile, get_profile_list(pParams->CodecId));
-    if (save_disabled_prm || pParams->CodecId == MFX_CODEC_HEVC) {
+    OPT_LST(_T("--level"), CodecLevel, get_level_list(pParams->codec));
+    OPT_LST(_T("--profile"), CodecProfile, get_profile_list(pParams->codec));
+    if (save_disabled_prm || pParams->codec == RGY_CODEC_HEVC) {
         OPT_LST(_T("--ctu"), hevc_ctu, list_hevc_ctu);
         OPT_LST(_T("--sao"), hevc_sao, list_hevc_sao);
         OPT_BOOL(_T("--tskip"), _T("--no-tskip"), hevc_tskip);
         OPT_BOOL_OPT(_T("--hevc-gpb"), _T("--no-hevc-gpb"), hevc_gpb);
     }
-    if (save_disabled_prm || pParams->CodecId == MFX_CODEC_AV1) {
+    if (save_disabled_prm || pParams->codec == RGY_CODEC_AV1) {
         OPT_NUM(_T("--tile-row"), av1.tile_row);
         OPT_NUM(_T("--tile-col"), av1.tile_col);
     }
-    if (save_disabled_prm || pParams->CodecId == MFX_CODEC_AVC) {
+    if (save_disabled_prm || pParams->codec == RGY_CODEC_H264) {
         OPT_LST(_T("--trellis"), nTrellis, list_avc_trellis_for_options);
         switch (pParams->nBluray) {
         case 1: cmd << _T(" --bluray"); break;
@@ -2245,7 +2401,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
         OPT_BOOL(_T("--cavlc"), _T(""), bCAVLC);
         OPT_BOOL(_T("--no-deblock"), _T(""), bNoDeblock);
     }
-    if (save_disabled_prm || pParams->CodecId == MFX_CODEC_VP8) {
+    if (save_disabled_prm || pParams->codec == RGY_CODEC_VP8) {
         OPT_NUM(_T("--sharpness"), nVP8Sharpness);
     }
 #if ENABLE_SESSION_THREAD_CONFIG

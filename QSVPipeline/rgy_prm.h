@@ -41,16 +41,18 @@ static const int OUTPUT_BUF_SIZE       = 16 * 1024 * 1024;
 
 static const int RGY_DEFAULT_PERF_MONITOR_INTERVAL = 500;
 static const int DEFAULT_IGNORE_DECODE_ERROR = 10;
+static const int DEFAULT_VIDEO_IGNORE_TIMESTAMP_ERROR = 10;
 
 #if ENCODER_NVENC
 #define ENABLE_VPP_FILTER_COLORSPACE   (ENABLE_NVRTC)
 #else
-#define ENABLE_VPP_FILTER_COLORSPACE   (ENCODER_QSV   || ENCODER_VCEENC || ENCODER_MPP ||                  CLFILTERS_AUF)
+#define ENABLE_VPP_FILTER_COLORSPACE   (ENCODER_QSV                    || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #endif
 #define ENABLE_VPP_FILTER_AFS          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_NNEDI        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_YADIF        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
-#define ENABLE_VPP_FILTER_RFF          (ENCODER_NVENC)
+#define ENABLE_VPP_FILTER_RFF          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
+#define ENABLE_VPP_FILTER_RFF_AVHW     (ENCODER_QSV   || ENCODER_NVENC                   || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_SELECT_EVERY (ENCODER_NVENC)
 #define ENABLE_VPP_FILTER_DECIMATE     (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_MPDECIMATE   (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
@@ -65,7 +67,7 @@ static const int DEFAULT_IGNORE_DECODE_ERROR = 10;
 #define ENABLE_VPP_FILTER_TWEAK        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_OVERLAY      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_DEBAND       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
-#define ENABLE_VPP_FILTER_DELOGO_MULTIADD  (                 ENCODER_NVENC)
+#define ENABLE_VPP_FILTER_DELOGO_MULTIADD  (             ENCODER_NVENC)
 
 static const TCHAR* VMAF_DEFAULT_MODEL_VERSION = _T("vmaf_v0.6.1");
 
@@ -108,7 +110,7 @@ static const bool  FILTER_DEFAULT_AFS_DROP = false;
 static const bool  FILTER_DEFAULT_AFS_SMOOTH = false;
 static const bool  FILTER_DEFAULT_AFS_FORCE24 = false;
 static const bool  FILTER_DEFAULT_AFS_TUNE = false;
-static const bool  FILTER_DEFAULT_AFS_RFF = false;
+static const bool  FILTER_DEFAULT_AFS_RFF = true;
 static const int   FILTER_DEFAULT_AFS_TIMECODE = 0;
 static const bool  FILTER_DEFAULT_AFS_LOG = false;
 
@@ -183,6 +185,20 @@ static const int   FILTER_DEFAULT_DEBAND_MODE = 1;
 static const int   FILTER_DEFAULT_DEBAND_SEED = 1234;
 static const bool  FILTER_DEFAULT_DEBAND_BLUR_FIRST = false;
 static const bool  FILTER_DEFAULT_DEBAND_RAND_EACH_FRAME = false;
+
+struct RGYQPSet {
+    bool enable;
+    int qpI, qpP, qpB;
+
+    RGYQPSet();
+    RGYQPSet(int i, int p, int b);
+    int qp(int i) const;
+    int& qp(int i);
+    bool operator==(const RGYQPSet &x) const;
+    bool operator!=(const RGYQPSet &x) const;
+    int parse(const TCHAR *str);
+    void applyQPMinMax(const int min, const int max);
+};
 
 enum class RGYHEVCBsf {
     INTERNAL,
@@ -290,7 +306,8 @@ enum RGY_VPP_RESIZE_ALGO {
 #if ENCODER_VCEENC
     RGY_VPP_RESIZE_AMF_BILINEAR,
     RGY_VPP_RESIZE_AMF_BICUBIC,
-    RGY_VPP_RESIZE_AMF_FSR,
+    RGY_VPP_RESIZE_AMF_FSR_10,
+    RGY_VPP_RESIZE_AMF_FSR_11,
     RGY_VPP_RESIZE_AMF_POINT,
     RGY_VPP_RESIZE_AMF_MAX,
 #endif
@@ -391,7 +408,8 @@ const CX_DESC list_vpp_resize[] = {
 #if ENCODER_VCEENC
     { _T("amf_bilinear"), RGY_VPP_RESIZE_AMF_BILINEAR },
     { _T("amf_bicubic"),  RGY_VPP_RESIZE_AMF_BICUBIC },
-    { _T("amf_fsr"),      RGY_VPP_RESIZE_AMF_FSR },
+    { _T("amf_fsr"),      RGY_VPP_RESIZE_AMF_FSR_10 },
+    { _T("amf_fsr_11"),   RGY_VPP_RESIZE_AMF_FSR_11 },
     { _T("amf_point"),    RGY_VPP_RESIZE_AMF_POINT },
 #endif
 #if ENCODER_MPP
@@ -432,12 +450,16 @@ const CX_DESC list_vpp_resize_help[] = {
     { _T("super"),         RGY_VPP_RESIZE_NPPI_INTER_SUPER },
     { _T("lanczos"),       RGY_VPP_RESIZE_NPPI_INTER_LANCZOS },
     //{ _T("smooth_edge"),   RGY_VPP_RESIZE_NPPI_SMOOTH_EDGE },
+    { _T("nvvfx-superres"),  RGY_VPP_RESIZE_NVVFX_SUPER_RES },
 #endif
 #if ENCODER_VCEENC
     { _T("amf_bilinear"), RGY_VPP_RESIZE_AMF_BILINEAR },
     { _T("amf_bicubic"),  RGY_VPP_RESIZE_AMF_BICUBIC },
-    { _T("amf_fsr"),      RGY_VPP_RESIZE_AMF_FSR },
+    { _T("amf_fsr"),      RGY_VPP_RESIZE_AMF_FSR_10 },
+#if !DONOTSHOW_AMF_POINT_FSR11
+    { _T("amf_fsr_11"),   RGY_VPP_RESIZE_AMF_FSR_11 },
     { _T("amf_point"),    RGY_VPP_RESIZE_AMF_POINT },
+#endif
 #endif
 #if ENCODER_MPP
     { _T("rga_nearest"),  RGY_VPP_RESIZE_RGA_NEAREST },
@@ -769,6 +791,16 @@ struct VppColorspace {
     VppColorspace();
     bool operator==(const VppColorspace &x) const;
     bool operator!=(const VppColorspace &x) const;
+};
+
+struct VppRff {
+    bool  enable;
+    bool  log;
+
+    VppRff();
+    bool operator==(const VppRff& x) const;
+    bool operator!=(const VppRff& x) const;
+    tstring print() const;
 };
 
 struct VppDelogo {
@@ -1271,7 +1303,7 @@ struct RGYParamVpp {
     VppAfs afs;
     VppNnedi nnedi;
     VppYadif yadif;
-    bool rff;
+    VppRff rff;
     VppSelectEvery selectevery;
     VppDecimate decimate;
     VppMpdecimate mpdecimate;
@@ -1315,12 +1347,12 @@ struct AudioSelect {
     tstring  encCodecProfile; //音声エンコードのコーデックのプロファイル
     int      encBitrate;      //音声エンコードに選択した音声トラックのビットレート
     int      encSamplingRate;      //サンプリング周波数
-    int      addDelayMs;           //追加する音声の遅延(millisecond)
+    double   addDelayMs;           //追加する音声の遅延(millisecond)
     tstring  extractFilename;      //抽出する音声のファイル名のリスト
     tstring  extractFormat;        //抽出する音声ファイルのフォーマット
     tstring  filter;               //音声フィルタ
-    uint64_t streamChannelSelect[MAX_SPLIT_CHANNELS]; //入力音声の使用するチャンネル
-    uint64_t streamChannelOut[MAX_SPLIT_CHANNELS];    //出力音声のチャンネル
+    std::array<std::string, MAX_SPLIT_CHANNELS> streamChannelSelect; //入力音声の使用するチャンネル
+    std::array<std::string, MAX_SPLIT_CHANNELS> streamChannelOut;    //出力音声のチャンネル
     tstring  bsf;                  // 適用するbitstreamfilterの名前
     tstring  disposition;          // 指定のdisposition
     std::string lang;              // 言語選択
@@ -1423,6 +1455,16 @@ struct GPUAutoSelectMul {
     bool operator!=(const GPUAutoSelectMul &x) const;
 };
 
+struct RGYDebugLogFile {
+    bool enable;
+    tstring filename;
+
+    RGYDebugLogFile();
+    bool operator==(const RGYDebugLogFile &x) const;
+    bool operator!=(const RGYDebugLogFile &x) const;
+    tstring getFilename(const tstring& outputFilename, const tstring& defaultAppendix) const;
+};
+
 struct RGYParamInput {
     RGYResizeResMode resizeResMode;
 
@@ -1474,6 +1516,7 @@ struct RGYParamCommon {
     bool chapterNoTrim;
     C2AFormat caption2ass;
     int audioIgnoreDecodeError;
+    int videoIgnoreTimestampError;
     RGYOptList muxOpt;
     bool allowOtherNegativePts;
     bool disableMp4Opt;
@@ -1485,6 +1528,7 @@ struct RGYParamCommon {
     tstring keyFile;
     TCHAR *AVInputFormat;
     RGYAVSync AVSyncMode;     //avsyncの方法 (NV_AVSYNC_xxx)
+    bool timestampPassThrough; //timestampをそのまま出力する
     bool timecode;
     tstring timecodeFile;
     tstring tcfileIn;
@@ -1503,9 +1547,9 @@ struct RGYParamControl {
     tstring logfile;              //ログ出力先
     RGYParamLogLevel loglevel; //ログ出力レベル
     bool logAddTime;
-    bool logFramePosList;     //framePosList出力
-    bool logPacketsList;
-    TCHAR *logMuxVidTsFile;
+    RGYDebugLogFile logFramePosList;     //framePosList出力
+    RGYDebugLogFile logPacketsList;
+    RGYDebugLogFile logMuxVidTs;
     int threadOutput;
     int threadAudio;
     int threadInput;
@@ -1548,30 +1592,16 @@ const FEATURE_DESC list_simd[] = {
 };
 
 template <uint32_t size>
-static bool bSplitChannelsEnabled(uint64_t(&streamChannels)[size]) {
+static bool bSplitChannelsEnabled(const std::array<std::string, size>& streamChannels) {
     bool bEnabled = false;
-    for (uint32_t i = 0; i < size; i++) {
-        bEnabled |= streamChannels[i] != 0;
+    for (const auto& st : streamChannels) {
+        bEnabled |= !st.empty();
     }
     return bEnabled;
 }
 
-template <uint32_t size>
-static void setSplitChannelAuto(uint64_t(&streamChannels)[size]) {
-    for (uint32_t i = 0; i < size; i++) {
-        streamChannels[i] = ((uint64_t)1) << i;
-    }
-}
-
-template <uint32_t size>
-static bool isSplitChannelAuto(uint64_t(&streamChannels)[size]) {
-    bool isAuto = true;
-    for (uint32_t i = 0; isAuto && i < size; i++) {
-        isAuto &= (streamChannels[i] == (((uint64_t)1) << i));
-    }
-    return isAuto;
-}
-
 unique_ptr<RGYHDR10Plus> initDynamicHDR10Plus(const tstring &dynamicHdr10plusJson, shared_ptr<RGYLog> log);
+
+bool invalid_with_raw_out(const RGYParamCommon &prm, shared_ptr<RGYLog> log);
 
 #endif //__RGY_PRM_H__

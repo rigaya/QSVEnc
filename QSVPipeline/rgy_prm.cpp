@@ -42,6 +42,97 @@
 #include "afs_stg.h"
 #endif
 
+RGYQPSet::RGYQPSet() :
+    enable(true),
+    qpI(0), qpP(0), qpB(0) {
+
+};
+
+RGYQPSet::RGYQPSet(int i, int p, int b) :
+    enable(true),
+    qpI(i), qpP(p), qpB(b) {
+
+};
+
+int RGYQPSet::qp(int i) const {
+    switch (i) {
+    case 0: return qpI;
+    case 1: return qpP;
+    case 2: return qpB;
+    default: return 0;
+    }
+}
+
+int& RGYQPSet::qp(int i) {
+    switch (i) {
+    case 0: return qpI;
+    case 1: return qpP;
+    case 2: return qpB;
+    default: return qpI;
+    }
+}
+
+bool RGYQPSet::operator==(const RGYQPSet &x) const {
+    return enable == x.enable
+        && qpI == x.qpI
+        && qpP == x.qpP
+        && qpB == x.qpB;
+}
+bool RGYQPSet::operator!=(const RGYQPSet &x) const {
+    return !(*this == x);
+}
+
+int RGYQPSet::parse(const TCHAR *str) {
+    int a[4] = { 0 };
+    if (   4 == _stscanf_s(str, _T("%d;%d:%d:%d"), &a[3], &a[0], &a[1], &a[2])
+        || 4 == _stscanf_s(str, _T("%d;%d/%d/%d"), &a[3], &a[0], &a[1], &a[2])
+        || 4 == _stscanf_s(str, _T("%d;%d.%d.%d"), &a[3], &a[0], &a[1], &a[2])
+        || 4 == _stscanf_s(str, _T("%d;%d,%d,%d"), &a[3], &a[0], &a[1], &a[2])) {
+        a[3] = a[3] ? 1 : 0;
+    } else if (
+           3 == _stscanf_s(str, _T("%d:%d:%d"), &a[0], &a[1], &a[2])
+        || 3 == _stscanf_s(str, _T("%d/%d/%d"), &a[0], &a[1], &a[2])
+        || 3 == _stscanf_s(str, _T("%d.%d.%d"), &a[0], &a[1], &a[2])
+        || 3 == _stscanf_s(str, _T("%d,%d,%d"), &a[0], &a[1], &a[2])) {
+        a[3] = 1;
+    } else if (
+           3 == _stscanf_s(str, _T("%d;%d:%d"), &a[3], &a[0], &a[1])
+        || 3 == _stscanf_s(str, _T("%d;%d/%d"), &a[3], &a[0], &a[1])
+        || 3 == _stscanf_s(str, _T("%d;%d.%d"), &a[3], &a[0], &a[1])
+        || 3 == _stscanf_s(str, _T("%d;%d,%d"), &a[3], &a[0], &a[1])) {
+        a[3] = a[3] ? 1 : 0;
+        a[2] = a[1];
+    } else if (
+           2 == _stscanf_s(str, _T("%d:%d"), &a[0], &a[1])
+        || 2 == _stscanf_s(str, _T("%d/%d"), &a[0], &a[1])
+        || 2 == _stscanf_s(str, _T("%d.%d"), &a[0], &a[1])
+        || 2 == _stscanf_s(str, _T("%d,%d"), &a[0], &a[1])) {
+        a[3] = 1;
+        a[2] = a[1];
+    } else if (2 == _stscanf_s(str, _T("%d;%d"), &a[3], &a[0])) {
+        a[3] = a[3] ? 1 : 0;
+        a[1] = a[0];
+        a[2] = a[0];
+    } else if (1 == _stscanf_s(str, _T("%d"), &a[0])) {
+        a[3] = 1;
+        a[1] = a[0];
+        a[2] = a[0];
+    } else {
+        return 1;
+    }
+    enable = a[3] != 0;
+    qpI = a[0];
+    qpP = a[1];
+    qpB = a[2];
+    return 0;
+}
+
+void RGYQPSet::applyQPMinMax(const int min, const int max) {
+    qpI = clamp(qpI, min, max);
+    qpP = clamp(qpP, min, max);
+    qpB = clamp(qpB, min, max);
+}
+
 RGY_VPP_RESIZE_TYPE getVppResizeType(RGY_VPP_RESIZE_ALGO resize) {
     if (resize == RGY_VPP_RESIZE_AUTO) {
         return RGY_VPP_RESIZE_TYPE_AUTO;
@@ -194,6 +285,27 @@ bool VppColorspace::operator==(const VppColorspace &x) const {
 }
 bool VppColorspace::operator!=(const VppColorspace &x) const {
     return !(*this == x);
+}
+
+VppRff::VppRff() :
+    enable(false),
+    log(false) {
+
+}
+
+bool VppRff::operator==(const VppRff &x) const {
+    if (  enable != x.enable
+        || log != x.log) {
+        return false;
+    }
+    return true;
+}
+bool VppRff::operator!=(const VppRff &x) const {
+    return !(*this == x);
+}
+
+tstring VppRff::print() const {
+    return strsprintf(_T("rff: log %s"), (log) ? _T("on") : _T("off"));
 }
 
 VppDelogo::VppDelogo() :
@@ -1216,7 +1328,7 @@ RGYParamVpp::RGYParamVpp() :
     afs(),
     nnedi(),
     yadif(),
-    rff(false),
+    rff(),
     selectevery(),
     decimate(),
     mpdecimate(),
@@ -1247,7 +1359,7 @@ AudioSelect::AudioSelect() :
     encCodecProfile(),
     encBitrate(0),
     encSamplingRate(0),
-    addDelayMs(0),
+    addDelayMs(0.0),
     extractFilename(),
     extractFormat(),
     filter(),
@@ -1258,8 +1370,6 @@ AudioSelect::AudioSelect() :
     lang(),
     selectCodec(),
     metadata() {
-    memset(streamChannelSelect, 0, sizeof(streamChannelSelect));
-    memset(streamChannelOut, 0, sizeof(streamChannelOut));
 }
 
 AudioSource::AudioSource() :
@@ -1363,6 +1473,23 @@ bool GPUAutoSelectMul::operator!=(const GPUAutoSelectMul &x) const {
     return !(*this == x);
 }
 
+RGYDebugLogFile::RGYDebugLogFile() : enable(false), filename() {}
+
+bool RGYDebugLogFile::operator==(const RGYDebugLogFile &x) const {
+    return enable == x.enable
+        && filename == x.filename;
+}
+bool RGYDebugLogFile::operator!=(const RGYDebugLogFile &x) const {
+    return !(*this == x);
+}
+tstring RGYDebugLogFile::getFilename(const tstring& outputFilename, const tstring& defaultAppendix) const {
+    if (!enable) return tstring();
+    if (filename.length() > 0) {
+        return filename;
+    }
+    return outputFilename + defaultAppendix;
+}
+
 RGYParamInput::RGYParamInput() :
     resizeResMode(RGYResizeResMode::Normal) {
 
@@ -1413,6 +1540,7 @@ RGYParamCommon::RGYParamCommon() :
     chapterNoTrim(false),
     caption2ass(FORMAT_INVALID),
     audioIgnoreDecodeError(DEFAULT_IGNORE_DECODE_ERROR),
+    videoIgnoreTimestampError(DEFAULT_VIDEO_IGNORE_TIMESTAMP_ERROR),
     muxOpt(),
     allowOtherNegativePts(false),
     disableMp4Opt(false),
@@ -1423,6 +1551,7 @@ RGYParamCommon::RGYParamCommon() :
     chapterFile(),
     AVInputFormat(nullptr),
     AVSyncMode(RGY_AVSYNC_ASSUME_CFR),     //avsyncの方法 (RGY_AVSYNC_xxx)
+    timestampPassThrough(false),
     timecode(false),
     timecodeFile(),
     tcfileIn(),
@@ -1440,9 +1569,9 @@ RGYParamControl::RGYParamControl() :
     logfile(),              //ログ出力先
     loglevel(RGY_LOG_INFO),                 //ログ出力レベル
     logAddTime(false),
-    logFramePosList(false),     //framePosList出力
-    logPacketsList(false),
-    logMuxVidTsFile(nullptr),
+    logFramePosList(),     //framePosList出力
+    logPacketsList(),
+    logMuxVidTs(),
     threadOutput(RGY_OUTPUT_THREAD_AUTO),
     threadAudio(RGY_AUDIO_THREAD_AUTO),
     threadInput(RGY_INPUT_THREAD_AUTO),
@@ -1551,3 +1680,34 @@ unique_ptr<RGYHDR10Plus> initDynamicHDR10Plus(const tstring &dynamicHdr10plusJso
     return hdr10plus;
 }
 #endif
+
+bool invalid_with_raw_out(const RGYParamCommon &prm, shared_ptr<RGYLog> log) {
+    bool error = false;
+#define INVALID_WITH_RAW_OUT(check, option_name) { \
+    if (check) { error = true; log->write(RGY_LOG_ERROR, RGY_LOGT_APP, _T("%s cannot be used with -c raw!\n"), _T(option_name)); } \
+}
+
+    INVALID_WITH_RAW_OUT(prm.maxCll.length() > 0, "--max-cll");
+    INVALID_WITH_RAW_OUT(prm.masterDisplay.length() > 0, "--master-display");
+    INVALID_WITH_RAW_OUT(prm.hdr10plusMetadataCopy, "--dhdr10-info copy");
+    INVALID_WITH_RAW_OUT(prm.dynamicHdr10plusJson.length() > 0, "--dhdr10-info");
+    INVALID_WITH_RAW_OUT(prm.doviRpuFile.length() > 0, "--dolby-vision-rpu");
+    INVALID_WITH_RAW_OUT(prm.nAudioSelectCount > 0, "audio related options");
+    INVALID_WITH_RAW_OUT(prm.audioSource.size() > 0, "--audio-source");
+    INVALID_WITH_RAW_OUT(prm.nSubtitleSelectCount > 0, "subtitle related options");
+    INVALID_WITH_RAW_OUT(prm.subSource.size() > 0, "--sub-source");
+    INVALID_WITH_RAW_OUT(prm.nDataSelectCount > 0, "data related options");
+    INVALID_WITH_RAW_OUT(prm.nAttachmentSelectCount > 0, "--attachment-copy");
+    INVALID_WITH_RAW_OUT(prm.chapterFile.length() > 0, "--chapter");
+    INVALID_WITH_RAW_OUT(prm.copyChapter, "--chapter-copy");
+    INVALID_WITH_RAW_OUT(prm.formatMetadata.size() > 0, "--metadata");
+    INVALID_WITH_RAW_OUT(prm.videoMetadata.size() > 0, "--video-metadata");
+    INVALID_WITH_RAW_OUT(prm.muxOpt.size() > 0, "-m");
+    INVALID_WITH_RAW_OUT(prm.keyFile.length() > 0, "--keyfile");
+    INVALID_WITH_RAW_OUT(prm.timecodeFile.length() > 0, "--timecode");
+    INVALID_WITH_RAW_OUT(prm.metric.ssim, "--ssim");
+    INVALID_WITH_RAW_OUT(prm.metric.psnr, "--psnr");
+    INVALID_WITH_RAW_OUT(prm.metric.vmaf.enable, "--vmaf");
+
+    return error;
+}

@@ -175,6 +175,7 @@ enum class VppType : int {
     CL_MPDECIMATE,
     CL_YADIF,
     CL_COLORSPACE,
+    CL_RFF,
     CL_DELOGO,
     CL_TRANSFORM,
 
@@ -266,6 +267,28 @@ struct QSVAV1Params {
     QSVAV1Params();
 };
 
+struct QSVRCParam {
+    int start;
+    int end;
+    int encMode;      // RateControl
+    int bitrate;
+    int maxBitrate;
+    int vbvBufSize;
+    int avbrAccuarcy;    // param for AVBR algorithm, for API v1.3
+    int avbrConvergence; // param for AVBR algorithm, for API v1.3
+    RGYQPSet qp;
+    int icqQuality;
+    int qvbrQuality;
+
+    QSVRCParam();
+    QSVRCParam(int encMode, int bitrate, int maxBitrate, int vbvBufSize, int avbrAccuarcy, int avbrConvergence,
+        RGYQPSet qp, int icqQuality, int qvbrQuality);
+    tstring print() const;
+    bool operator==(const QSVRCParam &x) const;
+    bool operator!=(const QSVRCParam &x) const;
+};
+tstring printParams(const std::vector<QSVRCParam> &dynamicRC);
+
 struct sInputParams {
     VideoInfo input;              //入力する動画の情報
     RGYParamInput inprm;
@@ -274,9 +297,9 @@ struct sInputParams {
     RGYParamVpp vpp;
     sVppParams vppmfx;
     QSVDeviceNum device;
-    int nEncMode;      // RateControl
+    QSVRCParam rcParam;
     int nTargetUsage;  // Quality
-    uint32_t CodecId;       // H.264 only for this
+    RGY_CODEC codec;
     int CodecProfile;
     int CodecLevel;
     int outputDepth;
@@ -287,19 +310,9 @@ struct sInputParams {
     bool bforceGOPSettings; // if true, GOP_STRICT is set
     int GopRefDist;    // set sequential Bframes num + 1, 0 is auto
     int nRef;          // set ref frames num.
-    int nBitRate;
-    int nMaxBitrate;
-    int VBVBufsize;
-    int nQPI;          // QP for I frames
-    int nQPP;          // QP for P frames
-    int nQPB;          // QP for B frames
-    int nQPMin[3];
-    int nQPMax[3];
-    int nAVBRAccuarcy;    // param for AVBR algorithm, for API v1.3
-    int nAVBRConvergence; // param for AVBR algorithm, for API v1.3
-
-    int         nICQQuality;
-    int         nQVBRQuality;
+    RGYQPSet qpMin;
+    RGYQPSet qpMax;
+    std::vector<QSVRCParam> dynamicRC;
 
     int        nSlices;       // number of slices, 0 is auto
 
@@ -322,14 +335,14 @@ struct sInputParams {
     int        MVC_flags;
     int        nBluray;
 
-    bool       bMBBRC;
-    bool       extBRC;
-    bool       adaptiveRef;
-    bool       adaptiveLTR;
-    bool       adaptiveCQM;
-    bool       bBPyramid;
-    bool       bAdaptiveI;
-    bool       bAdaptiveB;
+    std::optional<bool> bBPyramid;
+    std::optional<bool> bMBBRC;
+    std::optional<bool> extBRC;
+    std::optional<bool> adaptiveRef;
+    std::optional<bool> adaptiveLTR;
+    std::optional<bool> adaptiveCQM;
+    std::optional<bool> bAdaptiveI;
+    std::optional<bool> bAdaptiveB;
 
     int        nLookaheadDepth;
     int        nTrellis;
@@ -351,7 +364,7 @@ struct sInputParams {
     int        nWinBRCSize;
 
     int        nMVCostScaling;
-    bool       bDirectBiasAdjust;
+    std::optional<bool> bDirectBiasAdjust;
     bool       bGlobalMotionAdjust;
     bool       bUseFixedFunc;
     bool       gpuCopy;
@@ -363,16 +376,16 @@ struct sInputParams {
 
     int        nWeightP;
     int        nWeightB;
-    int        nFadeDetect;
+    std::optional<bool> nFadeDetect;
 
-    uint32_t   nFallback;
+    bool       fallbackRC;
     bool       bOutputAud;
     bool       bOutputPicStruct;
     bool       bufPeriodSEI;
     std::optional<bool> repeatHeaders;
     int16_t    pQPOffset[8];
 
-    int        nRepartitionCheck;
+    std::optional<bool> nRepartitionCheck;
     int8_t     padding[2];
 
     int        hevc_ctu;
@@ -407,7 +420,7 @@ const CX_DESC list_qsv_device[] = {
     { NULL, 0 }
 };
 
-const CX_DESC list_codec[] = {
+const CX_DESC list_codec_mfx[] = {
     { _T("h264"),     MFX_CODEC_AVC   },
     { _T("hevc"),     MFX_CODEC_HEVC  },
     { _T("mpeg2"),    MFX_CODEC_MPEG2 },
@@ -416,6 +429,18 @@ const CX_DESC list_codec[] = {
     { _T("vp9"),      MFX_CODEC_VP9   },
     { _T("av1"),      MFX_CODEC_AV1   },
     { _T("raw"),      MFX_CODEC_RAW   },
+    { NULL, 0 }
+};
+
+const CX_DESC list_codec_rgy[] = {
+    { _T("h264"),     RGY_CODEC_H264   },
+    { _T("hevc"),     RGY_CODEC_HEVC  },
+    { _T("mpeg2"),    RGY_CODEC_MPEG2 },
+    { _T("vc-1"),     RGY_CODEC_VC1   },
+    { _T("vp8"),      RGY_CODEC_VP8   },
+    { _T("vp9"),      RGY_CODEC_VP9   },
+    { _T("av1"),      RGY_CODEC_AV1   },
+    { _T("raw"),      RGY_CODEC_RAW   },
     { NULL, 0 }
 };
 
@@ -721,32 +746,30 @@ enum {
     QSV_AUD_ENC_AC3,
 };
 
-static inline const CX_DESC *get_level_list(int CodecID) {
-    switch (CodecID) {
-        case MFX_CODEC_AVC:     return list_avc_level;
-        case MFX_CODEC_MPEG2:   return list_mpeg2_level;
-        case MFX_CODEC_VC1:     return list_vc1_level;
-        case MFX_CODEC_HEVC:    return list_hevc_level;
-        case MFX_CODEC_VP8:     return list_vp8_level;
-        case MFX_CODEC_VP9:     return list_vp9_level;
-        case MFX_CODEC_AV1:     return list_av1_level;
-        case MFX_CODEC_RAW:     return list_empty;
-        case MFX_CODEC_CAPTURE: return list_empty;
+static inline const CX_DESC *get_level_list(const RGY_CODEC codec) {
+    switch (codec) {
+        case RGY_CODEC_H264:    return list_avc_level;
+        case RGY_CODEC_MPEG2:   return list_mpeg2_level;
+        case RGY_CODEC_VC1:     return list_vc1_level;
+        case RGY_CODEC_HEVC:    return list_hevc_level;
+        case RGY_CODEC_VP8:     return list_vp8_level;
+        case RGY_CODEC_VP9:     return list_vp9_level;
+        case RGY_CODEC_AV1:     return list_av1_level;
+        case RGY_CODEC_RAW:     return list_empty;
         default:                return list_empty;
     }
 }
 
-static inline const CX_DESC *get_profile_list(int CodecID) {
-    switch (CodecID) {
-        case MFX_CODEC_AVC:     return list_avc_profile;
-        case MFX_CODEC_MPEG2:   return list_mpeg2_profile;
-        case MFX_CODEC_VC1:     return list_vc1_profile;
-        case MFX_CODEC_HEVC:    return list_hevc_profile;
-        case MFX_CODEC_VP8:     return list_vp8_profile;
-        case MFX_CODEC_VP9:     return list_vp9_profile;
-        case MFX_CODEC_AV1:     return list_av1_profile;
-        case MFX_CODEC_RAW:     return list_empty;
-        case MFX_CODEC_CAPTURE: return list_empty;
+static inline const CX_DESC *get_profile_list(const RGY_CODEC codec) {
+    switch (codec) {
+        case RGY_CODEC_H264:    return list_avc_profile;
+        case RGY_CODEC_MPEG2:   return list_mpeg2_profile;
+        case RGY_CODEC_VC1:     return list_vc1_profile;
+        case RGY_CODEC_HEVC:    return list_hevc_profile;
+        case RGY_CODEC_VP8:     return list_vp8_profile;
+        case RGY_CODEC_VP9:     return list_vp9_profile;
+        case RGY_CODEC_AV1:     return list_av1_profile;
+        case RGY_CODEC_RAW:     return list_empty;
         default:                return list_empty;
     }
 }
@@ -868,6 +891,8 @@ const int QSV_DEFAULT_QVBR = 23;
 const int QSV_DEFAULT_QPI = 24;
 const int QSV_DEFAULT_QPP = 26;
 const int QSV_DEFAULT_QPB = 27;
+const int QSV_DEFAULT_BITRATE = 6000;
+const int QSV_DEFAULT_MAX_BITRATE = 15000;
 const int QSV_GOP_REF_DIST_AUTO = 0;
 const int QSV_DEFAULT_H264_GOP_REF_DIST = 4;
 const int QSV_DEFAULT_HEVC_GOP_REF_DIST = 4;

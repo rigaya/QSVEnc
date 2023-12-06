@@ -102,6 +102,109 @@ QSVAV1Params::QSVAV1Params() :
 
 }
 
+tstring printParams(const std::vector<QSVRCParam> &dynamicRC) {
+    TStringStream t;
+    for (const auto& a : dynamicRC) {
+        t << a.print() << std::endl;
+    }
+    return t.str();
+};
+
+QSVRCParam::QSVRCParam() :
+    start(-1),
+    end(-1),
+    encMode(0),
+    bitrate(0),
+    maxBitrate(0),
+    avbrAccuarcy(0),
+    avbrConvergence(0),
+    qp(),
+    icqQuality(-1),
+    qvbrQuality(-1) {
+
+}
+
+QSVRCParam::QSVRCParam(
+    int encMode_, int bitrate_, int maxBitrate_, int vbvBufSize_,
+    int avbrAccuarcy_, int avbrConvergence_,
+    RGYQPSet qp_, int icqQuality_, int qvbrQuality_) :
+    start(-1),
+    end(-1),
+    encMode(encMode_),
+    bitrate(bitrate_),
+    maxBitrate(maxBitrate_),
+    vbvBufSize(vbvBufSize_),
+    avbrAccuarcy(avbrAccuarcy_),
+    avbrConvergence(avbrConvergence_),
+    qp(qp_),
+    icqQuality(icqQuality_),
+    qvbrQuality(qvbrQuality_) {
+
+}
+
+tstring QSVRCParam::print() const {
+    TStringStream t;
+    if (start >= 0) {
+        if (end == INT_MAX || end <= 0) {
+            t << "frame=" << start << ":end";
+        } else {
+            t << "frame=" << start << ":" << end;
+        }
+        t << ",";
+    }
+    t << tolowercase(trim(get_chr_from_value(list_rc_mode, encMode))) << "=";
+    switch (encMode) {
+    case MFX_RATECONTROL_CQP:
+        t << qp.qpI << ":" << qp.qpP << ":" << qp.qpB;
+        break;
+    case MFX_RATECONTROL_ICQ:
+    case MFX_RATECONTROL_LA_ICQ:
+        t << icqQuality;
+        break;
+    case MFX_RATECONTROL_AVBR:
+        t << bitrate;
+        if (avbrAccuarcy > 0) {
+            t << ",avbr-accuracy=" << avbrAccuarcy;
+        }
+        if (avbrConvergence > 0) {
+            t << ",avbr-convergence=" << avbrConvergence;
+        }
+        break;
+    case MFX_RATECONTROL_QVBR:
+        t << bitrate;
+        t << ",qvbr-quality=" << qvbrQuality;
+        break;
+    case MFX_RATECONTROL_VBR:
+    case MFX_RATECONTROL_LA:
+    case MFX_RATECONTROL_LA_HRD:
+    case MFX_RATECONTROL_VCM:
+    default:
+        t << bitrate;
+        break;
+
+    }
+    if (maxBitrate != 0) {
+        t << ",max-bitrate=" << maxBitrate;
+    }
+    return t.str();
+}
+bool QSVRCParam::operator==(const QSVRCParam &x) const {
+    return start == x.start
+        && end == x.end
+        && encMode == x.encMode
+        && bitrate == x.bitrate
+        && maxBitrate == x.maxBitrate
+        && vbvBufSize == x.vbvBufSize
+        && avbrAccuarcy == x.avbrAccuarcy
+        && avbrConvergence == x.avbrConvergence
+        && qp == x.qp
+        && icqQuality == x.icqQuality
+        && qvbrQuality == x.qvbrQuality;
+}
+bool QSVRCParam::operator!=(const QSVRCParam &x) const {
+    return !(*this == x);
+}
+
 sInputParams::sInputParams() :
     input(),
     inprm(),
@@ -110,9 +213,13 @@ sInputParams::sInputParams() :
     vpp(),
     vppmfx(),
     device(QSVDeviceNum::AUTO),
-    nEncMode(MFX_RATECONTROL_CQP),
+    rcParam(QSVRCParam(
+        MFX_RATECONTROL_ICQ, QSV_DEFAULT_BITRATE, QSV_DEFAULT_MAX_BITRATE, 0,
+        QSV_DEFAULT_ACCURACY, QSV_DEFAULT_CONVERGENCE,
+        { QSV_DEFAULT_QPI, QSV_DEFAULT_QPP, QSV_DEFAULT_QPB },
+        QSV_DEFAULT_ICQ, QSV_DEFAULT_QVBR)),
     nTargetUsage(QSV_DEFAULT_QUALITY),
-    CodecId(MFX_CODEC_AVC),
+    codec(RGY_CODEC_H264),
     CodecProfile(0),
     CodecLevel(0),
     outputDepth(8),
@@ -123,18 +230,9 @@ sInputParams::sInputParams() :
     bforceGOPSettings(QSV_DEFAULT_FORCE_GOP_LEN),
     GopRefDist(QSV_GOP_REF_DIST_AUTO),
     nRef(QSV_DEFAULT_REF),
-    nBitRate(6000),
-    nMaxBitrate(15000),
-    VBVBufsize(0),
-    nQPI(QSV_DEFAULT_QPI),
-    nQPP(QSV_DEFAULT_QPP),
-    nQPB(QSV_DEFAULT_QPB),
-    nQPMin(),
-    nQPMax(),
-    nAVBRAccuarcy(QSV_DEFAULT_ACCURACY),
-    nAVBRConvergence(QSV_DEFAULT_CONVERGENCE),
-    nICQQuality(QSV_DEFAULT_ICQ),
-    nQVBRQuality(QSV_DEFAULT_QVBR),
+    qpMin(),
+    qpMax(),
+    dynamicRC(),
     nSlices(0),
     ColorFormat(MFX_FOURCC_NV12),
     memType(HW_MEMORY),
@@ -149,18 +247,14 @@ sInputParams::sInputParams() :
     MVSearchWindow(std::make_pair(0,0)),
     MVC_flags(0),
     nBluray(0),
-    bMBBRC(false),
-    extBRC(false),
-    adaptiveRef(false),
-    adaptiveLTR(false),
-    adaptiveCQM(false),
-#if FOR_AUO
-    bBPyramid(true),
-#else
-    bBPyramid(getCPUGenCpuid() >= CPU_GEN_HASWELL),
-#endif
-    bAdaptiveI(false),
-    bAdaptiveB(false),
+    bBPyramid(),
+    bMBBRC(),
+    extBRC(),
+    adaptiveRef(),
+    adaptiveLTR(),
+    adaptiveCQM(),
+    bAdaptiveI(),
+    bAdaptiveB(),
     nLookaheadDepth(0),
     nTrellis(0),
     nAsyncDepth(0),
@@ -175,7 +269,7 @@ sInputParams::sInputParams() :
     maxFrameSizeP(0),
     nWinBRCSize(0),
     nMVCostScaling(0),
-    bDirectBiasAdjust(false),
+    bDirectBiasAdjust(),
     bGlobalMotionAdjust(false),
     bUseFixedFunc(false),
     gpuCopy(false),
@@ -184,14 +278,14 @@ sInputParams::sInputParams() :
     nVP8Sharpness(0),
     nWeightP(0),
     nWeightB(0),
-    nFadeDetect(0),
-    nFallback(0),
+    nFadeDetect(),
+    fallbackRC(true),
     bOutputAud(false),
     bOutputPicStruct(false),
     bufPeriodSEI(false),
     repeatHeaders(),
     pQPOffset(),
-    nRepartitionCheck(0),
+    nRepartitionCheck(),
     padding(),
     hevc_ctu(0),
     hevc_sao(0),
@@ -201,10 +295,7 @@ sInputParams::sInputParams() :
     av1(),
     pythonPath(),
     bBenchmark(false),
-    nBenchQuality(QSV_DEFAULT_BENCH)
-{
-    memset(nQPMin, 0, sizeof(nQPMin));
-    memset(nQPMax, 0, sizeof(nQPMax));
+    nBenchQuality(QSV_DEFAULT_BENCH) {
     memset(pQPOffset, 0, sizeof(pQPOffset));
     input.vui = VideoVUIInfo();
 }
@@ -215,7 +306,7 @@ sInputParams::~sInputParams() {
 
 void sInputParams::applyDOVIProfile() {
 #if !FOR_AUO
-    if (CodecId != MFX_CODEC_HEVC) {
+    if (codec != RGY_CODEC_HEVC) {
         return;
     }
     if (common.doviProfile == 0) {

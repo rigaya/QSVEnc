@@ -41,18 +41,19 @@
 #include <optional>
 #include "qsv_prm.h"
 
-std::optional<RGYOpenCLDeviceInfo> getDeviceCLInfoQSV(const QSVDeviceNum dev);
-#endif
-
-typedef struct IntelDeviceInfo {
-    unsigned int GPUMemoryBytes;
-    unsigned int GPUMaxFreqMHz;
-    unsigned int GPUMinFreqMHz;
+#if !(defined(_WIN32) || defined(_WIN64))
+struct IntelDeviceInfoV2 {
+    unsigned int GPUMaxFreq;
+    unsigned int GPUMinFreq;
     unsigned int GTGeneration;
     unsigned int EUCount;
     unsigned int PackageTDP;
     unsigned int MaxFillRate;
-} IntelDeviceInfo;
+};
+#endif
+
+std::optional<RGYOpenCLDeviceInfo> getDeviceCLInfoQSV(const QSVDeviceNum dev);
+#endif
 
 #if ENABLE_OPENCL
 
@@ -81,8 +82,8 @@ static cl_int cl_create_info_string(const RGYOpenCLDeviceInfo *clinfo, const Int
         str += strsprintf(" (%dEU)", numEU);
     }
 
-    int MaxFreqMHz = (info) ? info->GPUMaxFreqMHz : 0;
-    int MinFreqMHz = (info) ? info->GPUMinFreqMHz : 0;
+    int MaxFreqMHz = (info) ? info->GPUMaxFreq : 0;
+    int MinFreqMHz = (info) ? info->GPUMinFreq : 0;
     if (MaxFreqMHz == 0 && clinfo) {
         MaxFreqMHz = clinfo->max_clock_frequency;
     }
@@ -120,7 +121,7 @@ int getIntelGPUInfo(IntelDeviceInfo *info, const int adapterID) {
     if (!getGraphicsDeviceInfo(&VendorId, &DeviceId, &VideoMemory, adapterID)) {
         return 1;
     }
-    info->GPUMemoryBytes = VideoMemory;
+    //info->GPUMemoryBytes = VideoMemory;
 
     IntelDeviceInfoHeader intelDeviceInfoHeader = { 0 };
     char intelDeviceInfoBuffer[1024];
@@ -130,8 +131,8 @@ int getIntelGPUInfo(IntelDeviceInfo *info, const int adapterID) {
 
     IntelDeviceInfoV2 intelDeviceInfo = { 0 };
     memcpy(&intelDeviceInfo, intelDeviceInfoBuffer, intelDeviceInfoHeader.Size);
-    info->GPUMaxFreqMHz = intelDeviceInfo.GPUMaxFreq;
-    info->GPUMinFreqMHz = intelDeviceInfo.GPUMinFreq;
+    info->GPUMaxFreq = intelDeviceInfo.GPUMaxFreq;
+    info->GPUMinFreq = intelDeviceInfo.GPUMinFreq;
     if (intelDeviceInfoHeader.Version == 2) {
         info->EUCount      = intelDeviceInfo.EUCount;
         info->GTGeneration = intelDeviceInfo.GTGeneration;
@@ -153,7 +154,7 @@ tstring getGPUInfoVA() {
 
 #pragma warning (push)
 #pragma warning (disable: 4100)
-int getGPUInfo(const char *VendorName, TCHAR *buffer, const unsigned int buffer_size, const int adapterID, RGYOpenCLPlatform *clplatform) {
+int getGPUInfo(const char *VendorName, TCHAR *buffer, const unsigned int buffer_size, const int adapterID, RGYOpenCLPlatform *clplatform, const bool disableOpenCL, const IntelDeviceInfo *inteldevInfo) {
 #if LIBVA_SUPPORT
     _stprintf_s(buffer, buffer_size, _T("Intel Graphics / Driver : %s"), getGPUInfoVA().c_str());
     return 0;
@@ -161,15 +162,16 @@ int getGPUInfo(const char *VendorName, TCHAR *buffer, const unsigned int buffer_
 
 #if !FOR_AUO
     IntelDeviceInfo info = { 0 };
-    const auto intelInfoRet = getIntelGPUInfo(&info, adapterID);
-    IntelDeviceInfo* intelinfoptr = (intelInfoRet == 0) ? &info : nullptr;
-#else
-    IntelDeviceInfo* intelinfoptr = nullptr;
+    if (!inteldevInfo) {
+        const auto intelInfoRet = getIntelGPUInfo(&info, adapterID);
+        inteldevInfo = (intelInfoRet == 0) ? &info : nullptr;
+    }
 #endif
 
-
     RGYOpenCLDeviceInfo clinfo;
-    if (clplatform) {
+    if (disableOpenCL) {
+        ; // 何もしない
+    } else if (clplatform) {
         clinfo = clplatform->dev(0).info();
     } else {
 #if !FOR_AUO
@@ -188,7 +190,7 @@ int getGPUInfo(const char *VendorName, TCHAR *buffer, const unsigned int buffer_
         }
 #endif
     }
-    cl_create_info_string((clinfo.name.length() > 0) ? &clinfo : nullptr, intelinfoptr, buffer, buffer_size);
+    cl_create_info_string((clinfo.name.length() > 0) ? &clinfo : nullptr, inteldevInfo, buffer, buffer_size);
     return 0;
 #else
     buffer[0] = _T('\0');

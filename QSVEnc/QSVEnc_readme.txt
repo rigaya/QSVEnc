@@ -313,6 +313,59 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2023.12.03 (7.56)
+- --seek使用時の進捗表示を改善。
+- --disable-opencl指定時にOpenCL情報を使用してGPU情報を表示しないようにして高速化。
+- DX11のチェック時にはこれを指定することでDX9のチェックを抑止し、セッション初期化を高速化。
+- --option-files指定時に対象ファイルが空だと異常終了する問題を修正。
+
+2023.11.28 (7.55)
+- 初期化のコードにAVX2命令が混入しているらしく、AVX2に対応しない環境で動作しないのを回避。
+- セッション初期化を高速化。 (Windows)
+- --audio-delayを小数点で渡せるように変更。
+- ts出力時にaacをコピーする時の処理を改善。
+
+2023.11.19 (7.54)
+- 7.53で追加した--dynamic-rcが正常に動作しない場合があったのを修正。
+
+2023.11.18 (7.53)
+- 動的にレート制御モードを変更するオプションを追加。(--dynamic-rc)
+- --vpp-afsでrffの考慮をデフォルトで有効に。
+- --vpp-yadif/--vpp-nnediでbob化する際、--vpp-rffなしでrffな動画を処理するとtimestamp周りの計算がおかしくなりエラー終了する問題を修正。
+- mfxのインタレ解除を使用しているとき、途中でフィールド順が変わったときにGPU busyに陥る問題を回避。
+- インタレ解除を指定したが、インタレ設定がされていない場合、自動的に--interlace auto相当の動作にするように。
+- エンコードを遅くする大量のメッセージを抑制。
+- --check-features/--check-hwのログ出力を拡張。
+
+2023.11.04 (7.52)
+[QSVEncC]
+- rffを展開するフィルタを追加。(--vpp-rff)
+- QSVEnc 7.50で、--b-pyramidがデフォルトで無効になっていたのを元に戻す。
+
+2023.10.28 (7.51)
+[QSVEncC]
+- ICQモードをデフォルトに。
+- --fallback-rcをデフォルトで有効に。
+
+[QSVEnc.auo]
+- 外部音声エンコーダを使用すると、muxerの制限でAV1が出力できない問題を修正。
+  外部muxerの使用を廃止し、内部muxerを使用するよう変更した。
+- AV1時のCQPの上限を255に。
+  ただ、基本的には固定品質(ICQ)の使用がおすすめ。
+
+2023.10.18 (7.50)
+[QSVEncC]
+- 音声フィルターの切り替えがエンコード中に発生する時に--thread-audio > 1で異常終了する問題を修正。
+- --log-levelにquietを追加。
+- --check-featuresの処理を改良。
+- 新しいAVChannelLayout APIに対応(Windows版)。
+
+2023.10.01 (7.49)
+[QSVEncC]
+- Linuxで--deviceによるデバイス選択に対応。
+- --vpp-afs, --vpp-nnedi, --vpp-yadif, --vpp-padのエラーメッセージを拡充。
+- --vpp-decimateで最終フレームのタイムスタンプが適切に計算されず、異常終了する問題を修正。
+
 2023.08.08 (7.48)
 [QSVEncC]
 - --hyper-mode on時には--open-gopを無効に。
@@ -903,8 +956,8 @@ API v1.1  … Intel Media SDK v2.0
 ・Icelakeへの対応を拡充。
 ・Rocketlake対応の初期実装。
 ・内部実装の刷新し、OpenCLフィルタを組み込み可能に。
-　・--vpp-knnの追加。
-　・--vpp-transposeの追加。
+  ・--vpp-knnの追加。
+  ・--vpp-transposeの追加。
 ・HEVC YUV422/YUV444デコードに対応。(Icelake/Rocketlake)
 ・HEVC YUV444エンコードに対応。(--output-csp, Icelake/Rocketlake)
 ・VP9 YUV444デコードに対応。(Icelake/Rocketlake)

@@ -28,6 +28,7 @@
 #include "qsv_util.h"
 #include "qsv_session.h"
 #include "qsv_device.h"
+#include "gpu_info.h"
 
 QSVDevice::QSVDevice() :
     m_devNum(QSVDeviceNum::AUTO),
@@ -153,14 +154,16 @@ CodecCsp QSVDevice::getDecodeCodecCsp(const bool skipHWDecodeCheck) {
     return MakeDecodeFeatureList(m_session, codecLists, m_log, skipHWDecodeCheck);
 }
 
-uint64_t QSVDevice::getEncodeFeature(const int ratecontrol, const RGY_CODEC codec, const bool lowpower) {
+QSVEncFeatures QSVDevice::getEncodeFeature(const int ratecontrol, const RGY_CODEC codec, const bool lowpower) {
     auto target = std::find_if(m_featureData.begin(), m_featureData.end(), [codec, lowpower](const QSVEncFeatureData& data) {
         return data.codec == codec && data.lowPwer == lowpower;
         });
     if (target != m_featureData.end() && target->feature.count(ratecontrol) > 0) {
         return target->feature[ratecontrol];
     }
-    const auto result = CheckEncodeFeatureWithPluginLoad(m_session, ratecontrol, codec, lowpower);
+    //チェックする際は専用のsessionを作成するようにしないと異常終了することがある
+    auto resultData = MakeFeatureList(m_devNum, { ratecontrol }, codec, lowpower, m_log);
+    QSVEncFeatures& result = resultData.feature[ratecontrol];
     if (target != m_featureData.end()) {
         target->feature[ratecontrol] = result;
     } else {

@@ -44,20 +44,21 @@ static const auto RGY_CODEC_TO_MFX = make_array<std::pair<RGY_CODEC, mfxU32>>(
     std::make_pair(RGY_CODEC_VP8,   MFX_CODEC_VP8),
     std::make_pair(RGY_CODEC_VP9,   MFX_CODEC_VP9),
     std::make_pair(RGY_CODEC_AV1,   MFX_CODEC_AV1),
-    std::make_pair(RGY_CODEC_VC1,   MFX_CODEC_VC1)
+    std::make_pair(RGY_CODEC_VC1,   MFX_CODEC_VC1),
+    std::make_pair(RGY_CODEC_RAW,   MFX_CODEC_RAW)
 );
 
 MAP_PAIR_0_1(codec, rgy, RGY_CODEC, enc, mfxU32, RGY_CODEC_TO_MFX, RGY_CODEC_UNKNOWN, 0u);
 
-static const auto RGY_CHROMAFMT_TO_MFX = make_array<std::pair<RGY_CHROMAFMT, mfxU32>>(
-    std::make_pair(RGY_CHROMAFMT_MONOCHROME, MFX_CHROMAFORMAT_MONOCHROME),
-    std::make_pair(RGY_CHROMAFMT_YUV420,     MFX_CHROMAFORMAT_YUV420),
-    std::make_pair(RGY_CHROMAFMT_YUV422,     MFX_CHROMAFORMAT_YUV422),
-    std::make_pair(RGY_CHROMAFMT_YUV444,     MFX_CHROMAFORMAT_YUV444),
-    std::make_pair(RGY_CHROMAFMT_YUVA444,    MFX_CHROMAFORMAT_YUV444)
+static const auto RGY_CHROMAFMT_TO_MFX = make_array<std::pair<RGY_CHROMAFMT, mfxU16>>(
+    std::make_pair(RGY_CHROMAFMT_MONOCHROME, (mfxU16)MFX_CHROMAFORMAT_MONOCHROME),
+    std::make_pair(RGY_CHROMAFMT_YUV420,     (mfxU16)MFX_CHROMAFORMAT_YUV420),
+    std::make_pair(RGY_CHROMAFMT_YUV422,     (mfxU16)MFX_CHROMAFORMAT_YUV422),
+    std::make_pair(RGY_CHROMAFMT_YUV444,     (mfxU16)MFX_CHROMAFORMAT_YUV444),
+    std::make_pair(RGY_CHROMAFMT_YUVA444,    (mfxU16)MFX_CHROMAFORMAT_YUV444)
     );
 
-MAP_PAIR_0_1(chromafmt, rgy, RGY_CHROMAFMT, enc, mfxU32, RGY_CHROMAFMT_TO_MFX, RGY_CHROMAFMT_UNKNOWN, 0u);
+MAP_PAIR_0_1(chromafmt, rgy, RGY_CHROMAFMT, enc, mfxU16, RGY_CHROMAFMT_TO_MFX, RGY_CHROMAFMT_UNKNOWN, 0u);
 
 static const auto RGY_CSP_TO_MFX = make_array<std::pair<RGY_CSP, mfxU32>>(
     std::make_pair(RGY_CSP_NA,        0),
@@ -204,7 +205,7 @@ VideoInfo videooutputinfo(const mfxInfoMFX& mfx, const mfxExtVideoSignalInfo& vu
 RGY_NOINLINE
 VideoInfo videooutputinfo(const mfxFrameInfo& frameinfo) {
     VideoInfo info;
-    info.codec = RGY_CODEC_UNKNOWN;
+    info.codec = RGY_CODEC_RAW;
     info.dstWidth = frameinfo.CropW;
     info.dstHeight = frameinfo.CropH;
     info.fpsN = frameinfo.FrameRateExtN;
@@ -461,30 +462,6 @@ const TCHAR *ChromaFormatToStr(uint32_t format) {
     case MFX_CHROMAFORMAT_YUV422V:    return _T("yuv422v");
     default:
         return _T("unsupported");
-    }
-}
-
-RGY_NOINLINE
-const TCHAR *CodecIdToStr(uint32_t nFourCC) {
-    switch (nFourCC) {
-    case MFX_CODEC_AVC:
-        return _T("H.264/AVC");
-    case MFX_CODEC_VC1:
-        return _T("VC-1");
-    case MFX_CODEC_HEVC:
-        return _T("HEVC");
-    case MFX_CODEC_MPEG2:
-        return _T("MPEG2");
-    case MFX_CODEC_AV1:
-        return _T("AV1");
-    case MFX_CODEC_VP8:
-        return _T("VP8");
-    case MFX_CODEC_VP9:
-        return _T("VP9");
-    case MFX_CODEC_JPEG:
-        return _T("JPEG");
-    default:
-        return _T("NOT_SUPPORTED");
     }
 }
 

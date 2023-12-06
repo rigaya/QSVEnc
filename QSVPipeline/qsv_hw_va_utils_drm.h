@@ -36,10 +36,13 @@ public:
     DRMLibVA(const std::string& devicePath = "", int type = MFX_LIBVA_DRM, std::shared_ptr<RGYLog> log = std::make_shared<RGYLog>(nullptr, RGY_LOG_ERROR));
     virtual ~DRMLibVA(void);
 
+    bool init(const int targetIntelAdaptorNum);
     inline int getFD() { return m_fd; }
 
 protected:
     int m_fd;
+    std::string m_devicePath;
+    int m_type;
     MfxLoader::VA_DRMProxy m_vadrmlib;
     std::shared_ptr<RGYLog> m_log;
 

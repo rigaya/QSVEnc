@@ -441,7 +441,7 @@ CHWDevice *CreateVAAPIDevice(void)
 #if defined(LIBVA_DRM_SUPPORT)
 
 CVAAPIDeviceDRM::CVAAPIDeviceDRM(const std::string &devicePath, int type, std::shared_ptr<RGYLog> pQSVLog)
-    : CQSVHWDevice(pQSVLog), m_DRMLibVA(devicePath, type), m_rndr(NULL)
+    : CQSVHWDevice(pQSVLog), m_DRMLibVA(devicePath, type, pQSVLog), m_rndr(NULL)
 {
     m_name = _T("vadrm");
 }
@@ -454,12 +454,13 @@ CVAAPIDeviceDRM::~CVAAPIDeviceDRM(void)
 mfxStatus CVAAPIDeviceDRM::Init(mfxHDL hWindow, uint32_t nViews, uint32_t nAdapterNum)
 {
     AddMessage(RGY_LOG_DEBUG, _T("VAAPIDeviceDRM: hWindow %p, Init nViews %d, nAdapterNum %d...\n"), hWindow, nViews, nAdapterNum);
-    if (0 == nViews)
-    {
+    if (!m_DRMLibVA.init(nAdapterNum)) {
+        return MFX_ERR_DEVICE_LOST;
+    }
+    if (0 == nViews) {
         return MFX_ERR_NONE;
     }
-    if (1 == nViews)
-    {
+    if (1 == nViews) {
         if (m_DRMLibVA.getBackendType() == MFX_LIBVA_DRM_RENDERNODE)
         {
             return MFX_ERR_NONE;

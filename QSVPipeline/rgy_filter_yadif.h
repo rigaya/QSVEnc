@@ -72,6 +72,7 @@ public:
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;
     virtual void close() override;
+    void setBobTimestamp(const int iframe, RGYFrameInfo **ppOutputFrames);
 
     RGY_ERR checkParam(const std::shared_ptr<RGYFilterParamYadif> prm);
 

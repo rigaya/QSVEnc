@@ -441,6 +441,30 @@ void *guiEx_config::convert_qsvstgv4_to_stgv5(void *_conf) {
 
 static tstring gen_cmd_oldv5(const sInputParamsOld *pParams, bool save_disabled_prm);
 
+
+static RGY_CODEC conv_codec_mfx_to_rgy(const uint32_t codecId) {
+    switch (codecId) {
+    case MFX_CODEC_AVC:   return RGY_CODEC_H264;
+    case MFX_CODEC_HEVC:  return RGY_CODEC_HEVC;
+    case MFX_CODEC_MPEG2: return RGY_CODEC_MPEG2;
+    case MFX_CODEC_VC1:   return RGY_CODEC_VC1;
+    case MFX_CODEC_VP8:   return RGY_CODEC_VP8;
+    case MFX_CODEC_VP9:   return RGY_CODEC_VP9;
+    case MFX_CODEC_AV1:   return RGY_CODEC_AV1;
+    default:              return RGY_CODEC_UNKNOWN;
+    }
+}
+
+const CX_DESC auo_list_log_level[7] = {
+    { _T("trace"), RGY_LOG_TRACE },
+    { _T("debug"), RGY_LOG_DEBUG },
+    { _T("more"),  RGY_LOG_MORE  },
+    { _T("info"),  RGY_LOG_INFO  },
+    { _T("warn"),  RGY_LOG_WARN  },
+    { _T("error"), RGY_LOG_ERROR },
+    { NULL, 0 }
+};
+
 void *guiEx_config::convert_qsvstgv5_to_stgv6(void *_conf) {
     CONF_GUIEX_OLD_V5 *conf_old = (CONF_GUIEX_OLD_V5 *)calloc(sizeof(CONF_GUIEX_OLD_V5), 1);
     write_conf_header_old5(conf_old);
@@ -462,7 +486,7 @@ void *guiEx_config::convert_qsvstgv5_to_stgv6(void *_conf) {
     COPY_BLOCK(oth, 4);
 #undef COPY_BLOCK
 
-    conf->enc.codec          = conf_old->qsv.CodecId;
+    conf->enc.codec_rgy      = conv_codec_mfx_to_rgy(conf_old->qsv.CodecId);
     conf->vid.auo_tcfile_out = conf_old->vid.auo_tcfile_out;
     conf->vid.afs            = conf_old->vid.afs;
 
@@ -601,7 +625,7 @@ static tstring gen_cmd_oldv5(const sInputParamsOld *pParams, bool save_disabled_
 #define OPT_CHAR_PATH(str, opt) if ((pParams->opt) && (pParams->opt[0] != 0)) cmd << _T(" ") << str << _T(" \"") << (pParams->opt) << _T("\"");
 #define OPT_STR_PATH(str, opt) if (pParams->opt.length() > 0) cmd << _T(" ") << str << _T(" \"") << (pParams->opt.c_str()) << _T("\"");
 
-    cmd << _T(" -c ") << get_chr_from_value(list_codec, pParams->CodecId);
+    cmd << _T(" -c ") << get_chr_from_value(list_codec_mfx, pParams->CodecId);
     OPT_CHAR_PATH(_T("-i"), strSrcFile);
     OPT_CHAR_PATH(_T("-o"), strDstFile);
     switch (pParams->nInputFmt) {
@@ -778,8 +802,8 @@ static tstring gen_cmd_oldv5(const sInputParamsOld *pParams, bool save_disabled_
     OPT_LST(_T("--colormatrix"), ColorMatrix, list_colormatrix);
     OPT_LST(_T("--colorprim"), ColorPrim, list_colorprim);
     OPT_LST(_T("--transfer"), Transfer, list_transfer);
-    OPT_LST(_T("--level"), CodecLevel, get_level_list(pParams->CodecId));
-    OPT_LST(_T("--profile"), CodecProfile, get_profile_list(pParams->CodecId));
+    OPT_LST(_T("--level"), CodecLevel, get_level_list(conv_codec_mfx_to_rgy(pParams->CodecId)));
+    OPT_LST(_T("--profile"), CodecProfile, get_profile_list(conv_codec_mfx_to_rgy(pParams->CodecId)));
     if (save_disabled_prm || pParams->CodecId == MFX_CODEC_HEVC) {
         OPT_CHAR(_T("--max-cll"), sMaxCll);
         OPT_CHAR(_T("--master-display"), sMasterDisplay);
@@ -960,7 +984,7 @@ static tstring gen_cmd_oldv5(const sInputParamsOld *pParams, bool save_disabled_
     OPT_NUM(_T("--audio-thread"), nAudioThread);
     OPT_NUM(_T("--max-procfps"), nProcSpeedLimit);
     OPT_CHAR_PATH(_T("--log"), pStrLogFile);
-    OPT_LST(_T("--log-level"), nLogLevel, list_log_level);
+    OPT_LST(_T("--log-level"), nLogLevel, auo_list_log_level);
     OPT_CHAR_PATH(_T("--log-framelist"), pFramePosListLog);
     OPT_CHAR_PATH(_T("--log-mux-ts"), pMuxVidTsLogFile);
     OPT_CHAR_PATH(_T("--log-copy-framedata"), pLogCopyFrameData);

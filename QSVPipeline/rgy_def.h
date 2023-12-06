@@ -51,7 +51,7 @@ static const int TRIM_MAX = std::numeric_limits<int>::max();
 static const int TRIM_OVERREAD_FRAMES = 128;
 
 static const int MAX_SPLIT_CHANNELS = 32;
-static const uint64_t RGY_CHANNEL_AUTO = std::numeric_limits<uint64_t>::max();
+static const char *RGY_CHANNEL_AUTO = "RGY_CHANNEL_AUTO";
 static const int RGY_OUTPUT_BUF_MB_DEFAULT = 8;
 static const int RGY_OUTPUT_BUF_MB_MAX = 128;
 
@@ -118,6 +118,7 @@ enum RGY_CODEC {
     RGY_CODEC_VP9,
     RGY_CODEC_VC1,
     RGY_CODEC_AV1,
+    RGY_CODEC_RAW,
 
     RGY_CODEC_NUM,
 };
@@ -133,6 +134,7 @@ static tstring CodecToStr(RGY_CODEC codec) {
     case RGY_CODEC_VP8:   return _T("VP8");
     case RGY_CODEC_VP9:   return _T("VP9");
     case RGY_CODEC_AV1:   return _T("AV1");
+    case RGY_CODEC_RAW:   return _T("RAW");
     default: return _T("unknown");
     }
 }
@@ -785,8 +787,6 @@ const CX_DESC list_empty[] = {
 static bool is_list_empty(const CX_DESC *list) {
     return list[0].desc == nullptr;
 }
-
-extern const CX_DESC list_log_level[];
 
 const CX_DESC list_avsync[] = {
     { _T("cfr"),      RGY_AVSYNC_ASSUME_CFR   },

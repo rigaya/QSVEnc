@@ -31,7 +31,11 @@
 #include "rgy_tchar.h"
 
 class RGYOpenCLPlatform;
+struct IntelDeviceInfoV2;
+using IntelDeviceInfo = IntelDeviceInfoV2;
 
-int getGPUInfo(const char *VendorName, TCHAR *buffer, const unsigned int buffer_size, const int adapterID = 0, RGYOpenCLPlatform *clplatform = nullptr);
+int getIntelGPUInfo(IntelDeviceInfo *info, const int adapterID);
+
+int getGPUInfo(const char *VendorName, TCHAR *buffer, const unsigned int buffer_size, const int adapterID = 0, RGYOpenCLPlatform *clplatform = nullptr, const bool disableOpenCL = false, const IntelDeviceInfo *inteldevInfo = nullptr);
 
 #endif //_GPU_INFO_H_
