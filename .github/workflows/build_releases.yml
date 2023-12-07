@@ -68,7 +68,6 @@ jobs:
           git clone https://github.com/AviSynth/AviSynthPlus.git ..\AviSynthPlus
           git clone https://github.com/vapoursynth/vapoursynth.git ..\vapoursynth
           git clone https://github.com/KhronosGroup/OpenCL-Headers.git ..\openclheaders
-          git clone https://github.com/maki-rxrz/Caption2Ass_PCR.git ..\caption2ass
 
       - name: Add msbuild to PATH
         uses: microsoft/setup-msbuild@v1.1
@@ -80,7 +79,6 @@ jobs:
           set AVISYNTH_SDK=${{ github.workspace }}\..\AviSynthPlus\avs_core
           set VAPOURSYNTH_SDK=${{ github.workspace }}\..\vapoursynth
           set OPENCL_HEADERS=${{ github.workspace }}\..\openclheaders
-          set CAPTION2ASS_SRC=${{ github.workspace }}\..\caption2ass\src
           msbuild QSVEnc.sln /t:build /p:configuration=ReleaseStatic /p:Platform=${{ matrix.platform }} -maxcpucount
 
       - name: Create Archieve
@@ -144,7 +142,6 @@ jobs:
           git clone https://github.com/AviSynth/AviSynthPlus.git ..\AviSynthPlus
           git clone https://github.com/vapoursynth/vapoursynth.git ..\vapoursynth
           git clone https://github.com/KhronosGroup/OpenCL-Headers.git ..\openclheaders
-          git clone https://github.com/maki-rxrz/Caption2Ass_PCR.git ..\caption2ass
 
       - name: Add msbuild to PATH
         uses: microsoft/setup-msbuild@v1.1
@@ -156,7 +153,6 @@ jobs:
           set AVISYNTH_SDK=${{ github.workspace }}\..\AviSynthPlus\avs_core
           set VAPOURSYNTH_SDK=${{ github.workspace }}\..\vapoursynth
           set OPENCL_HEADERS=${{ github.workspace }}\..\openclheaders
-          set CAPTION2ASS_SRC=${{ github.workspace }}\..\caption2ass\src
           msbuild QSVEnc.sln /t:build /p:configuration=Release /p:Platform=Win32 -maxcpucount
 
       - name: Download auo_setup

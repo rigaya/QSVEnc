@@ -37,19 +37,13 @@ git clone https://github.com/KhronosGroup/OpenCL-Headers.git <path-to-clone>
 setx OPENCL_HEADERS <path-to-clone>
 ```
 
-さらにビルドに必要な[Caption2Ass_PCR](https://github.com/maki-rxrz/Caption2Ass_PCR)をcloneし、環境変数 "CAPTION2ASS_SRC" を設定します。
-
-```Batchfile
-git clone https://github.com/maki-rxrz/Caption2Ass_PCR <path-to-clone>
-setx CAPTION2ASS_SRC <path-to-clone>/src
-```
-
 ### 1. ソースのダウンロード
 
 ```Batchfile
 git clone https://github.com/rigaya/QSVEnc --recursive
 cd QSVEnc
-git clone https://github.com/rigaya/ffmpeg5_dlls_for_hwenc.git ffmpeg_lgpl
+curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20231123/ffmpeg_dlls_for_hwenc_20231123.7z
+7z x -offmpeg_lgpl -y ffmpeg_lgpl.7z
 ```
 
 ### 2. QSVEnc.auo / QSVEncC のビルド

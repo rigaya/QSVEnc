@@ -29,6 +29,7 @@
 #include "qsv_session.h"
 #include "qsv_device.h"
 #include "gpu_info.h"
+#include "rgy_avutil.h"
 
 QSVDevice::QSVDevice() :
     m_devNum(QSVDeviceNum::AUTO),

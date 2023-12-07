@@ -46,7 +46,6 @@ RGY_DISABLE_WARNING_STR("-Wdeprecated-declarations")
 RGY_DISABLE_WARNING_POP
 #pragma warning (pop)
 #include "convert_csp.h"
-#include "rgy_caption.h"
 #include "rgy_simd.h"
 #include "rgy_prm.h"
 

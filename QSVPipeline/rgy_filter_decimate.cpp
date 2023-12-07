@@ -36,6 +36,7 @@
 #define _USE_MATH_DEFINES
 #include <cmath>
 #include "convert_csp.h"
+#include "rgy_avutil.h"
 #include "rgy_filter_decimate.h"
 
 #define DECIMATE_BLOCK_MAX (32)
