@@ -764,17 +764,6 @@ typedef struct AVDemuxer {
     RGYQueueMPMP<AVPacket*>  qStreamPktL2;
 } AVDemuxer;
 
-enum AVCAPTION_STATE {
-    //エラー
-    AVCAPTION_ERROR = -3,
-    AVCAPTION_DISABLED = -2,
-    AVCAPTION_NOT_TS = -1,
-    //初期状態
-    AVCAPTION_UNKNOWN = 0,
-    //ts処理中
-    AVCAPTION_IS_TS = 1,
-};
-
 class RGYInputAvcodecPrm : public RGYInputPrm {
 public:
     int            inputRetry;              //ファイルオープンを再試行する回数
