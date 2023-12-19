@@ -324,7 +324,7 @@ API v1.1  … Intel Media SDK v2.0
   - libaribcaption 1.1.1 (new!)
 
 - --caption2assを廃止。
-  --sub-codec#sub_type=ass,ass_single_rect=true で同等の処理が可能。
+  --sub-codec ass#sub_type=ass,ass_single_rect=true で同等の処理が可能。
 
 2023.12.03 (7.56)
 - --seek使用時の進捗表示を改善。
