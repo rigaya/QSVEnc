@@ -83,11 +83,11 @@ float factor_bicubic(float x, float B, float C) {
 #define SPLINE_FACTOR_MEM_TYPE __global
 #endif
 
-float factor_spline(const float x_raw, SPLINE_FACTOR_MEM_TYPE const float *restrict psFactor) {
+float factor_spline(const float x_raw, SPLINE_FACTOR_MEM_TYPE const float4 *restrict psFactor) {
     const float x = fabs(x_raw);
     if (x >= (float)radius) return 0.0f;
 
-    const float4 weight = ((SPLINE_FACTOR_MEM_TYPE const float4 *)psFactor)[min((int)x, radius - 1)];
+    const float4 weight = psFactor[min((int)x, radius - 1)];
     //重みを計算
     float w = weight.w;
     w += x * weight.z;
@@ -99,7 +99,7 @@ float factor_spline(const float x_raw, SPLINE_FACTOR_MEM_TYPE const float *restr
 
 float calc_weight(
     const int targetPos, const float srcPos,
-    const float ratioClamped, SPLINE_FACTOR_MEM_TYPE const float *psCopyFactor) {
+    const float ratioClamped, SPLINE_FACTOR_MEM_TYPE const float4 *psCopyFactor) {
     const float delta = ((targetPos + 0.5f) - srcPos) * ratioClamped;
     float weight = 0.0f;
     switch (algo) {
@@ -116,7 +116,7 @@ float calc_weight(
 #if USE_LOCAL
 void calc_weight_to_local(
     __local float *pWeight, const float srcPos, const int srcFirst, const int srcEnd,
-    const float ratioClamped, __local const float *psCopyFactor) {
+    const float ratioClamped, __local const float4 *psCopyFactor) {
     __local float *pW = pWeight;
     for (int i = srcFirst; i <= srcEnd; i++, pW++) {
         pW[0] = calc_weight(i, srcPos, ratioClamped, psCopyFactor);
@@ -127,12 +127,12 @@ void calc_weight_to_local(
 __kernel void kernel_resize(
     __global uchar *restrict pDst, const int dstPitch, const int dstWidth, const int dstHeight,
     __global const uchar *restrict pSrc, const int srcPitch, const int srcWidth, const int srcHeight,
-    const float ratioX, const float ratioY, __global const float *restrict pgFactor
+    const float ratioX, const float ratioY, __global const float4 *restrict pgFactor
 ) {
 #if USE_LOCAL
     __local float weightXshared[shared_weightXdim * block_x];
     __local float weightYshared[shared_weightYdim * block_y];
-    __local float psCopyFactor[radius * 4];
+    __local float4 psCopyFactor[radius];
 #endif
     const int threadIdX = get_local_id(0);
     const int threadIdY = get_local_id(1);
@@ -148,7 +148,7 @@ __kernel void kernel_resize(
 #if USE_LOCAL
     if (algo == WEIGHT_SPLINE) {
         if (threadIdY == 0) {
-            if (threadIdX < radius * 4) {
+            if (threadIdX < radius) {
                 psCopyFactor[threadIdX] = pgFactor[threadIdX];
             }
         }
