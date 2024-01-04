@@ -313,6 +313,9 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2024.01.04 (7.58)
+- spline系のresizeが正常に動作しない可能性があったのを修正。
+
 2023.12.08 (7.57)
 - ffmpeg 6.1に更新。(Windows版)
   - ffmpeg 5.1 -> 6.1
