@@ -137,7 +137,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ffmpeg_lgpl\include;..\ttmath;..\dtl;..\clRNG\src\include;..\cppcodec;..\tinyxml2;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ffmpeg_lgpl\include;..\ttmath;..\dtl;..\clRNG\src\include;..\cppcodec;..\tinyxml2;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;BUILD_AUO;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Async</ExceptionHandling>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -167,7 +167,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ffmpeg_lgpl\include;..\ttmath;..\dtl;..\clRNG\src\include;..\cppcodec;..\tinyxml2;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ffmpeg_lgpl\include;..\ttmath;..\dtl;..\clRNG\src\include;..\cppcodec;..\tinyxml2;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Async</ExceptionHandling>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -200,7 +200,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ffmpeg_lgpl\include;..\ttmath;..\dtl;..\clRNG\src\include;..\cppcodec;..\tinyxml2;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ffmpeg_lgpl\include;..\ttmath;..\dtl;..\clRNG\src\include;..\cppcodec;..\tinyxml2;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN64;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Async</ExceptionHandling>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -233,7 +233,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ffmpeg_lgpl\include;..\ttmath;..\dtl;..\clRNG\src\include;..\cppcodec;..\tinyxml2;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ffmpeg_lgpl\include;..\ttmath;..\dtl;..\clRNG\src\include;..\cppcodec;..\tinyxml2;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN64;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ExceptionHandling>Async</ExceptionHandling>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -269,7 +269,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ffmpeg_lgpl\include;..\ttmath;..\dtl;..\clRNG\src\include;..\cppcodec;..\tinyxml2;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ffmpeg_lgpl\include;..\ttmath;..\dtl;..\clRNG\src\include;..\cppcodec;..\tinyxml2;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;BUILD_AUO;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -306,7 +306,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ffmpeg_lgpl\include;..\ttmath;..\dtl;..\clRNG\src\include;..\cppcodec;..\tinyxml2;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ffmpeg_lgpl\include;..\ttmath;..\dtl;..\clRNG\src\include;..\cppcodec;..\tinyxml2;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -347,7 +347,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ffmpeg_lgpl\include;..\ttmath;..\dtl;..\clRNG\src\include;..\cppcodec;..\tinyxml2;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ffmpeg_lgpl\include;..\ttmath;..\dtl;..\clRNG\src\include;..\cppcodec;..\tinyxml2;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;QSVENC_AUO;WIN64;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -386,7 +386,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>.;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ffmpeg_lgpl\include;..\ttmath;..\dtl;..\clRNG\src\include;..\cppcodec;..\tinyxml2;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);$(CAPTION2ASS_SRC)\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.;..\oneVPL\api\vpl;..\QSVPipeline;..\QSVPlugins;..\ffmpeg_lgpl\include;..\ttmath;..\dtl;..\clRNG\src\include;..\cppcodec;..\tinyxml2;$(SolutionDir)libass\include;$(AVISYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include;$(VAPOURSYNTH_SDK)\include\vapoursynth;$(OPENCL_HEADERS);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN64;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -593,12 +593,6 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">AdvancedVectorExtensions512</EnableEnhancedInstructionSet>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="rgy_caption.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
@@ -988,7 +982,6 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_avlog.h" />
     <ClInclude Include="rgy_avutil.h" />
     <ClInclude Include="rgy_bitstream.h" />
-    <ClInclude Include="rgy_caption.h" />
     <ClInclude Include="rgy_chapter.h" />
     <ClInclude Include="rgy_cmd.h" />
     <ClInclude Include="rgy_codepage.h" />

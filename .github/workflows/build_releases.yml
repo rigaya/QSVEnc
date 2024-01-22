@@ -62,13 +62,11 @@ jobs:
         run: |
           curl -s -o hdr10plus_gen_0.00_${{ matrix.platform }}.7z -L https://github.com/rigaya/hdr10plus_gen/releases/download/0.00/hdr10plus_gen_0.00_${{ matrix.platform }}.7z
           7z x -ohdr10plus_gen\ hdr10plus_gen_0.00_${{ matrix.platform }}.7z
-          curl -s -o ffmpeg_lgpl.zip -L https://github.com/rigaya/ffmpeg5_dlls_for_hwenc/archive/refs/tags/20230204.zip
-          7z x -y ffmpeg_lgpl.zip
-          move ffmpeg5* ffmpeg_lgpl
+          curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20231123/ffmpeg_dlls_for_hwenc_20231123.7z
+          7z x -offmpeg_lgpl -y ffmpeg_lgpl.7z
           git clone https://github.com/AviSynth/AviSynthPlus.git ..\AviSynthPlus
           git clone https://github.com/vapoursynth/vapoursynth.git ..\vapoursynth
           git clone https://github.com/KhronosGroup/OpenCL-Headers.git ..\openclheaders
-          git clone https://github.com/maki-rxrz/Caption2Ass_PCR.git ..\caption2ass
 
       - name: Add msbuild to PATH
         uses: microsoft/setup-msbuild@v1.1
@@ -80,7 +78,6 @@ jobs:
           set AVISYNTH_SDK=${{ github.workspace }}\..\AviSynthPlus\avs_core
           set VAPOURSYNTH_SDK=${{ github.workspace }}\..\vapoursynth
           set OPENCL_HEADERS=${{ github.workspace }}\..\openclheaders
-          set CAPTION2ASS_SRC=${{ github.workspace }}\..\caption2ass\src
           msbuild QSVEnc.sln /t:build /p:configuration=ReleaseStatic /p:Platform=${{ matrix.platform }} -maxcpucount
 
       - name: Create Archieve
@@ -144,7 +141,6 @@ jobs:
           git clone https://github.com/AviSynth/AviSynthPlus.git ..\AviSynthPlus
           git clone https://github.com/vapoursynth/vapoursynth.git ..\vapoursynth
           git clone https://github.com/KhronosGroup/OpenCL-Headers.git ..\openclheaders
-          git clone https://github.com/maki-rxrz/Caption2Ass_PCR.git ..\caption2ass
 
       - name: Add msbuild to PATH
         uses: microsoft/setup-msbuild@v1.1
@@ -156,7 +152,6 @@ jobs:
           set AVISYNTH_SDK=${{ github.workspace }}\..\AviSynthPlus\avs_core
           set VAPOURSYNTH_SDK=${{ github.workspace }}\..\vapoursynth
           set OPENCL_HEADERS=${{ github.workspace }}\..\openclheaders
-          set CAPTION2ASS_SRC=${{ github.workspace }}\..\caption2ass\src
           msbuild QSVEnc.sln /t:build /p:configuration=Release /p:Platform=Win32 -maxcpucount
 
       - name: Download auo_setup
@@ -192,8 +187,8 @@ jobs:
           copy /y QSVEnc\QSVEnc.zh.ini Aviutl_QSVEnc_release\plugins\
           copy /y QSVEnc\auo_setup.ini Aviutl_QSVEnc_release\exe_files\
           copy /y QSVEnc\QSVEnc_readme.txt Aviutl_QSVEnc_release\
-          copy /y "QSVEnc\QSV‚ª—˜—p‰Â”\‚©Šm”F [ƒ_ƒuƒ‹ƒNƒŠƒbƒN].bat" Aviutl_QSVEnc_release\
-          copy /y "QSVEnc\ƒfƒoƒCƒXƒ}ƒl[ƒWƒƒ‚ğŠJ‚­ [ƒ_ƒuƒ‹ƒNƒŠƒbƒN].bat" Aviutl_QSVEnc_release\
+          copy /y "QSVEnc\QSVãŒåˆ©ç”¨å¯èƒ½ã‹ç¢ºèª [ãƒ€ãƒ–ãƒ«ã‚¯ãƒªãƒƒã‚¯].bat" Aviutl_QSVEnc_release\
+          copy /y "QSVEnc\ãƒ‡ãƒã‚¤ã‚¹ãƒãƒãƒ¼ã‚¸ãƒ£ã‚’é–‹ã [ãƒ€ãƒ–ãƒ«ã‚¯ãƒªãƒƒã‚¯].bat" Aviutl_QSVEnc_release\
           echo D | xcopy /y /e QSVEnc\stg Aviutl_QSVEnc_release\plugins\QSVEnc_stg
           dir /b /s Aviutl_QSVEnc_release\
           7z a -mx9 Aviutl_QSVEnc_${{ needs.get_version_name.outputs.version_name }}.zip .\Aviutl_QSVEnc_release\*

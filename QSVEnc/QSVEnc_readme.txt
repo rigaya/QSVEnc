@@ -313,6 +313,22 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2024.01.04 (7.58)
+- spline系のresizeが正常に動作しない可能性があったのを修正。
+
+2023.12.08 (7.57)
+- ffmpeg 6.1に更新。(Windows版)
+  - ffmpeg 5.1 -> 6.1
+  - libpng 1.3.9 -> 1.4.0
+  - opus 1.3.1 -> 1.4
+  - libsndfile 1.2.0 -> 1.2.2
+  - libxml2 2.10.3 -> 2.12.0
+  - dav1d 1.0.0 -> 1.3.0
+  - libaribcaption 1.1.1 (new!)
+
+- --caption2assを廃止。
+  --sub-codec ass#sub_type=ass,ass_single_rect=true で同等の処理が可能。
+
 2023.12.03 (7.56)
 - --seek使用時の進捗表示を改善。
 - --disable-opencl指定時にOpenCL情報を使用してGPU情報を表示しないようにして高速化。

@@ -812,15 +812,15 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
             void *ptrLineU = m_UVBuffer.get() + j * widthUV * pixSize;
             void *ptrLineV = m_UVBuffer.get() + j * widthUV * pixSize + planeOffsetUV;
             if (pSurface->csp() == RGY_CSP_NV12) {
+                const uint8_t *ptrUV = (const uint8_t *)ptrLineUV;
+                uint8_t *ptrU = (uint8_t *)ptrLineU;
+                uint8_t *ptrV = (uint8_t *)ptrLineV;
+#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
                 alignas(16) static const uint16_t MASK_LOW8[] = {
                     0x00ff, 0x00ff, 0x00ff, 0x00ff, 0x00ff, 0x00ff, 0x00ff, 0x00ff
                 };
                 const __m128i xMaskLow8 = _mm_load_si128((__m128i *)MASK_LOW8);
 
-                const uint8_t *ptrUV = (const uint8_t *)ptrLineUV;
-                uint8_t *ptrU = (uint8_t *)ptrLineU;
-                uint8_t *ptrV = (uint8_t *)ptrLineV;
-#if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
                 for (uint32_t i = 0; i < widthUV; i += 16, ptrUV += 32, ptrU += 16, ptrV += 16) {
                     __m128i x0 = _mm_loadu_si128((const __m128i *)(ptrUV + 0));
                     __m128i x1 = _mm_loadu_si128((const __m128i *)(ptrUV + 16));
@@ -1000,17 +1000,9 @@ RGY_ERR initWriters(
         common->AVMuxTarget |= RGY_MUX_VIDEO;
     }
 
-
     double inputFileDuration = 0.0;
-    { auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(pFileReader);
-    if (pAVCodecReader != nullptr) {
-        //caption2ass用の解像度情報の提供
-        //これをしないと入力ファイルのデータをずっとバッファし続けるので注意
-        pAVCodecReader->setOutputVideoInfo(outputVideoInfo.dstWidth, outputVideoInfo.dstHeight,
-            outputVideoInfo.sar[0], outputVideoInfo.sar[1],
-            (common->AVMuxTarget & RGY_MUX_VIDEO) != 0);
+    if (auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(pFileReader); pAVCodecReader != nullptr) {
         inputFileDuration = pAVCodecReader->GetInputVideoDuration();
-    }
     }
     bool isAfs = false;
 #if ENABLE_SM_READER
@@ -1156,10 +1148,7 @@ RGY_ERR initWriters(
                 if (pAudioSelect != nullptr || audioCopyAll || streamMediaType != AVMEDIA_TYPE_AUDIO) {
                     streamTrackUsed.push_back(stream.trackId);
                     if (pSubtitleSelect == nullptr && streamMediaType == AVMEDIA_TYPE_SUBTITLE) {
-                        if (common->caption2ass == FORMAT_INVALID) { //caption2assの字幕の場合はそのまま処理する
-                            continue;
-                        }
-                        //caption2assの字幕の場合、AVOutputStreamPrmのパラメータはデフォルト(copy)でよい
+                        continue;
                     }
                     AVOutputStreamPrm prm;
                     prm.src = stream;
