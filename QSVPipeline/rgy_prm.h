@@ -68,6 +68,74 @@ static const int DEFAULT_VIDEO_IGNORE_TIMESTAMP_ERROR = 10;
 #define ENABLE_VPP_FILTER_DEBAND       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_DELOGO_MULTIADD  (             ENCODER_NVENC)
 
+enum class VppType : int {
+    VPP_NONE,
+#if ENCODER_QSV
+    MFX_COLORSPACE,
+    MFX_CROP,
+    MFX_ROTATE,
+    MFX_MIRROR,
+    MFX_DEINTERLACE,
+    MFX_IMAGE_STABILIZATION,
+    MFX_MCTF,
+    MFX_DENOISE,
+    MFX_RESIZE,
+    MFX_DETAIL_ENHANCE,
+    MFX_FPS_CONV,
+    MFX_PERC_ENC_PREFILTER,
+    MFX_COPY,
+#endif //#if ENCODER_QSV
+    MFX_MAX,
+
+    CL_MIN = MFX_MAX,
+
+    CL_CROP,
+    CL_AFS,
+    CL_NNEDI,
+    CL_DECIMATE,
+    CL_MPDECIMATE,
+    CL_YADIF,
+    CL_COLORSPACE,
+    CL_RFF,
+    CL_DELOGO,
+    CL_TRANSFORM,
+
+    CL_CONVOLUTION3D,
+    CL_DENOISE_KNN,
+    CL_DENOISE_PMD,
+    CL_DENOISE_SMOOTH,
+
+    CL_RESIZE,
+
+    CL_SUBBURN,
+
+    CL_UNSHARP,
+    CL_EDGELEVEL,
+    CL_WARPSHARP,
+
+    CL_CURVES,
+    CL_TWEAK,
+
+    CL_OVERLAY,
+
+    CL_DEBAND,
+
+    CL_PAD,
+
+    CL_MAX,
+};
+
+enum class VppFilterType { FILTER_NONE, FILTER_MFX, FILTER_OPENCL };
+
+static VppFilterType getVppFilterType(VppType vpptype) {
+    if (vpptype == VppType::VPP_NONE) return VppFilterType::FILTER_NONE;
+#if ENCODER_QSV
+    if (vpptype < VppType::MFX_MAX) return VppFilterType::FILTER_MFX;
+#endif // #if ENCODER_QSV
+    if (vpptype < VppType::CL_MAX) return VppFilterType::FILTER_OPENCL;
+    return VppFilterType::FILTER_NONE;
+}
+
 static const TCHAR* VMAF_DEFAULT_MODEL_VERSION = _T("vmaf_v0.6.1");
 
 static const double FILTER_DEFAULT_COLORSPACE_LDRNITS = 100.0;
