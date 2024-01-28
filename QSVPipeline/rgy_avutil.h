@@ -32,9 +32,6 @@
 #include "rgy_version.h"
 #include "rgy_tchar.h"
 
-static const TCHAR *RGY_AVCODEC_AUTO = _T("auto");
-static const TCHAR *RGY_AVCODEC_COPY = _T("copy");
-
 #if ENABLE_AVSW_READER
 #include <algorithm>
 
@@ -290,6 +287,10 @@ bool avcodec_equal(const std::string& codec, const AVCodecID id);
 
 //コーデックが存在するか確認
 bool avcodec_exists(const std::string& codec, const AVMediaType type = AVMEDIA_TYPE_NB);
+bool avcodec_exists_video(const std::string& codec);
+bool avcodec_exists_audio(const std::string& codec);
+bool avcodec_exists_subtitle(const std::string& codec);
+bool avcodec_exists_data(const std::string& codec);
 
 //コーデックの種類を表示
 tstring get_media_type_string(AVCodecID codecId);
@@ -420,6 +421,10 @@ tstring getDispositionStr(uint32_t disposition);
 #define AV_NOPTS_VALUE (-1)
 class RGYPoolAVPacket;
 class RGYPoolAVFrame;
+static bool avcodec_exists_video(const std::string& codec) { return false; }
+static bool avcodec_exists_audio(const std::string& codec) { return false; }
+static bool avcodec_exists_subtitle(const std::string& codec) { return false; }
+static bool avcodec_exists_data(const std::string& codec) { return false; }
 #endif //ENABLE_AVSW_READER
 
 #endif //__RGY_AVUTIL_H__
