@@ -71,6 +71,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_CONVOLUTION3D,        _T("convolution3d")),
     std::make_pair(VppType::CL_DENOISE_KNN,          _T("knn")),
     std::make_pair(VppType::CL_DENOISE_PMD,          _T("pmd")),
+    std::make_pair(VppType::CL_DENOISE_DENOISE_DCT,  _T("denoise-dct")),
     std::make_pair(VppType::CL_DENOISE_SMOOTH,       _T("smooth")),
     std::make_pair(VppType::CL_RESIZE,               _T("resize")),
     std::make_pair(VppType::CL_UNSHARP,              _T("unsharp")),
@@ -947,6 +948,29 @@ tstring VppSmooth::print() const {
     return str;
 }
 
+VppDenoiseDct::VppDenoiseDct() :
+    enable(false),
+    sigma(FILTER_DEFAULT_DENOISE_DCT_SIGMA),
+    step(FILTER_DEFAULT_DENOISE_DCT_STEP),
+    block_size(FILTER_DEFAULT_DENOISE_DCT_BLOCK_SIZE) {
+
+}
+
+bool VppDenoiseDct::operator==(const VppDenoiseDct &x) const {
+    return enable == x.enable
+        && sigma == x.sigma
+        && step == x.step
+        && block_size == x.block_size;
+}
+bool VppDenoiseDct::operator!=(const VppDenoiseDct &x) const {
+    return !(*this == x);
+}
+
+tstring VppDenoiseDct::print() const {
+    tstring str = strsprintf(_T("denoise-dct: sigma %.2f, step %d, block_size %d"), sigma, step, block_size);
+    return str;
+}
+
 VppConvolution3d::VppConvolution3d() :
     enable(false),
     fast(false),
@@ -1388,6 +1412,7 @@ RGYParamVpp::RGYParamVpp() :
     convolution3d(),
     knn(),
     pmd(),
+    dct(),
     smooth(),
     subburn(),
     unsharp(),

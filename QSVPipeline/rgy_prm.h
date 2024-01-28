@@ -57,6 +57,7 @@ static const int DEFAULT_VIDEO_IGNORE_TIMESTAMP_ERROR = 10;
 #define ENABLE_VPP_FILTER_MPDECIMATE   (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_PAD          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_PMD          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
+#define ENABLE_VPP_FILTER_DENOISE_DCT  (ENCODER_QSV   || ENCODER_NVENC)
 #define ENABLE_VPP_FILTER_SMOOTH       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_CONVOLUTION3D (ENCODER_QSV  || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_UNSHARP      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
@@ -104,6 +105,7 @@ enum class VppType : int {
     CL_CONVOLUTION3D,
     CL_DENOISE_KNN,
     CL_DENOISE_PMD,
+    CL_DENOISE_DENOISE_DCT,
     CL_DENOISE_SMOOTH,
 
     CL_RESIZE,
@@ -226,6 +228,10 @@ static const int   FILTER_DEFAULT_SMOOTH_MODE = 0;
 static const float FILTER_DEFAULT_SMOOTH_B_RATIO = 0.5f;
 static const int   FILTER_DEFAULT_SMOOTH_MAX_QPTABLE_ERR = 10;
 
+static const float FILTER_DEFAULT_DENOISE_DCT_SIGMA = 4.0f;
+static const int   FILTER_DEFAULT_DENOISE_DCT_STEP = 2;
+static const int   FILTER_DEFAULT_DENOISE_DCT_BLOCK_SIZE = 8;
+
 static const float FILTER_DEFAULT_TWEAK_BRIGHTNESS = 0.0f;
 static const float FILTER_DEFAULT_TWEAK_CONTRAST = 1.0f;
 static const float FILTER_DEFAULT_TWEAK_GAMMA = 1.0f;
@@ -290,6 +296,9 @@ const CX_DESC list_vpp_denoise[] = {
 #endif
     { _T("knn"),     1 },
     { _T("pmd"),     2 },
+#if ENCODER_NVENC
+    { _T("denoise-dct"), 8 },
+#endif
     { _T("smooth"),  3 },
     { _T("convolution3d"),  5 },
 #if ENCODER_VCEENC
@@ -562,6 +571,20 @@ const CX_DESC list_vpp_fp_prec[] = {
     { _T("auto"), VPP_FP_PRECISION_AUTO },
     { _T("fp32"), VPP_FP_PRECISION_FP32 },
     { _T("fp16"), VPP_FP_PRECISION_FP16 },
+    { NULL, 0 }
+};
+
+const CX_DESC list_vpp_denoise_dct_block_size[] = {
+    { _T("8"), 8 },
+    { _T("16"), 16 },
+    { NULL, 0 }
+};
+
+const CX_DESC list_vpp_denoise_dct_step[] = {
+    { _T("1"), 1 },
+    { _T("2"), 2 },
+    { _T("4"), 4 },
+    { _T("8"), 8 },
     { NULL, 0 }
 };
 
@@ -1151,6 +1174,17 @@ struct VppSmooth {
     tstring print() const;
 };
 
+struct VppDenoiseDct {
+    bool enable;
+    float sigma;
+    int step;
+    int block_size;
+    VppDenoiseDct();
+    bool operator==(const VppDenoiseDct &x) const;
+    bool operator!=(const VppDenoiseDct &x) const;
+    tstring print() const;
+};
+
 struct VppSubburn {
     bool  enable;
     tstring filename;
@@ -1369,6 +1403,7 @@ struct RGYParamVpp {
     VppConvolution3d convolution3d;
     VppKnn knn;
     VppPmd pmd;
+    VppDenoiseDct dct;
     VppSmooth smooth;
     std::vector<VppSubburn> subburn;
     VppUnsharp unsharp;
