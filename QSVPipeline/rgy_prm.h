@@ -1417,6 +1417,8 @@ struct RGYParamVpp {
     bool checkPerformance;
 
     RGYParamVpp();
+    bool operator==(const RGYParamVpp& x) const;
+    bool operator!=(const RGYParamVpp& x) const;
 };
 
 
