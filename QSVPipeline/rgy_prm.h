@@ -90,12 +90,12 @@ enum class VppType : int {
     CL_MIN = MFX_MAX,
 
     CL_CROP,
+    CL_COLORSPACE,
     CL_AFS,
     CL_NNEDI,
+    CL_YADIF,
     CL_DECIMATE,
     CL_MPDECIMATE,
-    CL_YADIF,
-    CL_COLORSPACE,
     CL_RFF,
     CL_DELOGO,
     CL_TRANSFORM,
@@ -135,6 +135,9 @@ static VppFilterType getVppFilterType(VppType vpptype) {
     if (vpptype < VppType::CL_MAX) return VppFilterType::FILTER_OPENCL;
     return VppFilterType::FILTER_NONE;
 }
+
+tstring vppfilter_type_to_str(VppType type);
+VppType vppfilter_str_to_type(tstring str);
 
 static const TCHAR* VMAF_DEFAULT_MODEL_VERSION = _T("vmaf_v0.6.1");
 
