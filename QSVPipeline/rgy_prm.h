@@ -67,6 +67,7 @@ static const int DEFAULT_VIDEO_IGNORE_TIMESTAMP_ERROR = 10;
 #define ENABLE_VPP_FILTER_OVERLAY      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_DEBAND       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_DELOGO_MULTIADD  (             ENCODER_NVENC)
+#define ENABLE_VPP_ORDER 0
 
 enum class VppType : int {
     VPP_NONE,
@@ -138,6 +139,7 @@ static VppFilterType getVppFilterType(VppType vpptype) {
 
 tstring vppfilter_type_to_str(VppType type);
 VppType vppfilter_str_to_type(tstring str);
+std::vector<CX_DESC> get_list_vpp_filter();
 
 static const TCHAR* VMAF_DEFAULT_MODEL_VERSION = _T("vmaf_v0.6.1");
 
@@ -1366,6 +1368,7 @@ struct VppOverlay {
 };
 
 struct RGYParamVpp {
+    std::vector<VppType> filterOrder;
     RGY_VPP_RESIZE_ALGO resize_algo;
     RGY_VPP_RESIZE_MODE resize_mode;
     VppColorspace colorspace;

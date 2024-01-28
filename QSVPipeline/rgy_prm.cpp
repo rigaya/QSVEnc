@@ -50,7 +50,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::MFX_ROTATE,              _T("mfx_rotate")),
     std::make_pair(VppType::MFX_MIRROR,              _T("mfx_mirror")),
     std::make_pair(VppType::MFX_DEINTERLACE,         _T("mfx_deinterlace")),
-    std::make_pair(VppType::MFX_IMAGE_STABILIZATION, _T("mfx_image_stabilization")),
+    std::make_pair(VppType::MFX_IMAGE_STABILIZATION, _T("mfx_image_stab")),
     std::make_pair(VppType::MFX_MCTF,                _T("mfx_mctf")),
     std::make_pair(VppType::MFX_DENOISE,             _T("mfx_denoise")),
     std::make_pair(VppType::MFX_RESIZE,              _T("mfx_resize")),
@@ -82,6 +82,16 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_PAD,                  _T("pad"))
 );
 MAP_PAIR_0_1(vppfilter, type, VppType, str, tstring, VPPTYPE_TO_STR, VppType::VPP_NONE, _T("none"));
+
+std::vector<CX_DESC> get_list_vpp_filter() {
+    std::vector<CX_DESC> list_vpp_filter;
+    list_vpp_filter.reserve(VPPTYPE_TO_STR.size()+1);
+    for (const auto& vpp : VPPTYPE_TO_STR) {
+        list_vpp_filter.push_back({ vpp.second.c_str(), (int)vpp.first});
+    }
+    list_vpp_filter.push_back({ nullptr, 0 });
+    return list_vpp_filter;
+}
 
 RGYQPSet::RGYQPSet() :
     enable(true),
@@ -1362,6 +1372,7 @@ tstring VppDeband::print() const {
 }
 
 RGYParamVpp::RGYParamVpp() :
+    filterOrder(),
     resize_algo(RGY_VPP_RESIZE_AUTO),
     resize_mode(RGY_VPP_RESIZE_MODE_DEFAULT),
     colorspace(),
