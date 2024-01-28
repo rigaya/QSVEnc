@@ -88,8 +88,27 @@ enum class VppType : int {
     MFX_COPY,
 #endif //#if ENCODER_QSV
     MFX_MAX,
+#if ENCODER_VCEENC
+    AMF_CONVERTER,
+    AMF_PREPROCESS,
+    AMF_RESIZE,
+    AMF_VQENHANCE,
+#endif
+    AMF_MAX,
+#if ENCODER_MPP
+    IEP_MIN = AMF_MAX,
+    IEP_DEINTERLACE,
+#endif
+    IEP_MAX,
+#if ENCODER_MPP
+    RGA_MIN = IEP_MAX,
+    RGA_CROP,
+    RGA_CSPCONV,
+    RGA_RESIZE,
+#endif
+    RGA_MAX,
 
-    CL_MIN = MFX_MAX,
+    CL_MIN = RGA_MAX,
 
     CL_CROP,
     CL_COLORSPACE,
@@ -128,13 +147,20 @@ enum class VppType : int {
     CL_MAX,
 };
 
-enum class VppFilterType { FILTER_NONE, FILTER_MFX, FILTER_OPENCL };
+enum class VppFilterType { FILTER_NONE, FILTER_MFX, FILTER_AMF, FILTER_IEP, FILTER_RGA, FILTER_OPENCL };
 
 static VppFilterType getVppFilterType(VppType vpptype) {
     if (vpptype == VppType::VPP_NONE) return VppFilterType::FILTER_NONE;
 #if ENCODER_QSV
     if (vpptype < VppType::MFX_MAX) return VppFilterType::FILTER_MFX;
 #endif // #if ENCODER_QSV
+#if ENCODER_VCEENC
+    if (vpptype < VppType::AMF_MAX) return VppFilterType::FILTER_AMF;
+#endif
+#if ENCODER_MPP
+    if (vpptype < VppType::IEP_MAX) return VppFilterType::FILTER_IEP;
+    if (vpptype < VppType::RGA_MAX) return VppFilterType::FILTER_RGA;
+#endif
     if (vpptype < VppType::CL_MAX) return VppFilterType::FILTER_OPENCL;
     return VppFilterType::FILTER_NONE;
 }

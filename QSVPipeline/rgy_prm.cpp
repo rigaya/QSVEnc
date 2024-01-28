@@ -59,6 +59,18 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::MFX_PERC_ENC_PREFILTER,  _T("mfx_perc_enc_prefilter")),
     std::make_pair(VppType::MFX_COPY,                _T("mfx_copy")),
 #endif //#if ENCODER_QSV
+#if ENCODER_VCEENC
+    std::make_pair(VppType::AMF_CONVERTER,           _T("amf_perc_enc_prefilter")),
+    std::make_pair(VppType::AMF_PREPROCESS,          _T("amf_preprocess")),
+    std::make_pair(VppType::AMF_RESIZE,              _T("amf_resize")),
+    std::make_pair(VppType::AMF_VQENHANCE,           _T("amf_vqenhance")),
+#endif //#if ENCODER_VCEENC
+#if ENCODER_MPP
+    std::make_pair(VppType::IEP_DEINTERLACE,         _T("iep_deinterlace")),
+    std::make_pair(VppType::RGA_CROP,                _T("rga_crop")),
+    std::make_pair(VppType::RGA_CSPCONV,             _T("rga_cspconv")),
+    std::make_pair(VppType::RGA_RESIZE,              _T("rga_resize")),
+#endif //#if ENCODER_VCEENC
     std::make_pair(VppType::CL_COLORSPACE,           _T("colorspace")),
     std::make_pair(VppType::CL_AFS,                  _T("afs")),
     std::make_pair(VppType::CL_NNEDI,                _T("nnedi")),
