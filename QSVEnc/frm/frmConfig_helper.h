@@ -159,6 +159,15 @@ static const ENC_OPTION_STR2 list_vpp_yadif_mode_gui[] = {
     { AUO_MES_UNKNOWN, NULL, NULL }
 };
 
+static const ENC_OPTION_STR2 list_vpp_denoise_dct_step_gui[] = {
+    { AUO_CONFIG_CX_DENOISE_DCT_STEP_1, L"1 - 高品質",  1 },
+    { AUO_CONFIG_CX_DENOISE_DCT_STEP_2, L"2",           2 },
+    { AUO_CONFIG_CX_DENOISE_DCT_STEP_4, L"4",           4 },
+    { AUO_CONFIG_CX_DENOISE_DCT_STEP_8, L"8 - 高速",    8 },
+    { AUO_MES_UNKNOWN, NULL, NULL }
+};
+static_assert(_countof(list_vpp_denoise_dct_step) == _countof(list_vpp_denoise_dct_step_gui), "list_vpp_denoise_dct_step size");
+
 static const ENC_OPTION_STR2 list_encmode[] = {
 #if ENCODER_QSV
     { AUO_CONFIG_CX_RC_CBR,    L"ビットレート指定 - CBR",           MFX_RATECONTROL_CBR    },

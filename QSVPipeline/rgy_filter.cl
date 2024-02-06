@@ -19,6 +19,10 @@ const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_NONE | CLK_F
 #define TypeIn  ushort
 #define TypeIn4 ushort4
 #define convert_TypeIn4 convert_ushort4
+#elif in_bit_depth == 32
+#define TypeIn  float
+#define TypeIn4 float4
+#define convert_TypeIn4 convert_float4
 #endif
 
 #if out_bit_depth <= 8
@@ -29,6 +33,10 @@ const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_NONE | CLK_F
 #define TypeOut  ushort
 #define TypeOut4 ushort4
 #define convert_TypeOut4 convert_ushort4
+#elif out_bit_depth == 32
+#define TypeOut  float
+#define TypeOut4 float4
+#define convert_TypeOut4 convert_float4
 #endif
 
 // samplerでnormalizeした場合、0 -> 0.0f, 255 -> 1.0f
@@ -94,6 +102,9 @@ inline int conv_bit_depth(const int c, const int bit_depth_in, const int bit_dep
 #define BIT_DEPTH_CONV_3x1_AVG(a, b) (TypeOut)conv_bit_depth(((a)<<1)+(a)+(b), in_bit_depth, out_bit_depth, 2)
 
 #define BIT_DEPTH_CONV_7x1_AVG(a, b) (TypeOut)conv_bit_depth(((a)<<3)-(a)+(b), in_bit_depth, out_bit_depth, 3)
+
+#define AVG3x1(a, b) ((((a)<<1)+(a)+(b)+2)>>2)
+#define AVG7x1(a, b) ((((a)<<3)-(a)+(b)+4)>>3)
 
 #define LOAD_IMG(src_img, ix, iy) (TypeIn)(read_imageui((src_img), sampler, (int2)((ix), (iy))).x)
 #define LOAD_IMG_AYUV(src_img, ix, iy) convert_TypeIn4(read_imageui((src_img), sampler, (int2)((ix), (iy))))
@@ -191,6 +202,22 @@ void conv_c_yuv420_yuv444_internal(
     *pixDst12 = BIT_DEPTH_CONV_3x1_AVG(pixSrc12, pixSrc02);
     *pixDst21 = BIT_DEPTH_CONV_7x1_AVG(pixSrc11, pixSrc21);
     *pixDst22 = BIT_DEPTH_CONV_7x1_AVG(pixSrc12, pixSrc22);
+}
+void yuv420_yuv444_no_bitdepth_change(
+    int *pixDst11, int *pixDst12,
+    int *pixDst21, int *pixDst22,
+    int pixSrc01, int pixSrc02,
+    int pixSrc11, int pixSrc12,
+    int pixSrc21, int pixSrc22
+) {
+    pixSrc02 = (pixSrc01 + pixSrc02 + 1) >> 1;
+    pixSrc12 = (pixSrc11 + pixSrc12 + 1) >> 1;
+    pixSrc22 = (pixSrc21 + pixSrc22 + 1) >> 1;
+
+    *pixDst11 = AVG3x1(pixSrc11, pixSrc01);
+    *pixDst12 = AVG3x1(pixSrc12, pixSrc02);
+    *pixDst21 = AVG7x1(pixSrc11, pixSrc21);
+    *pixDst22 = AVG7x1(pixSrc12, pixSrc22);
 }
 
 void conv_c_yuv420_yuv444(
@@ -384,10 +411,10 @@ __kernel void kernel_crop_c_yuv444_nv12(
         const int src_y = dst_y << 1;
         const int loadx = src_x + cropX;
         const int loady = src_y + cropY;
-        const int pixSrcU00 = LOAD(srcU, loadx+0, loady+0);
-        const int pixSrcU10 = LOAD(srcU, loadx+0, loady+1);
-        const int pixSrcV00 = LOAD(srcV, loadx+0, loady+0);
-        const int pixSrcV10 = LOAD(srcV, loadx+0, loady+1);
+        const TypeIn pixSrcU00 = LOAD(srcU, loadx+0, loady+0);
+        const TypeIn pixSrcU10 = LOAD(srcU, loadx+0, loady+1);
+        const TypeIn pixSrcV00 = LOAD(srcV, loadx+0, loady+0);
+        const TypeIn pixSrcV10 = LOAD(srcV, loadx+0, loady+1);
         TypeOut pixDstU = BIT_DEPTH_CONV_AVG(pixSrcU00, pixSrcU10);
         TypeOut pixDstV = BIT_DEPTH_CONV_AVG(pixSrcV00, pixSrcV10);
         STORE_NV12_UV(dst, dst_x, dst_y, pixDstU, pixDstV);
@@ -1058,7 +1085,7 @@ __kernel void kernel_crop_yv12_rgb(
         const int pixSrcU22 = LOAD(srcU, min(loadx+1, srcWidthUV-1), min(loady+1, srcHeightUV-1));
 
         int pixTmpU11, pixTmpU12, pixTmpU21, pixTmpU22;
-        conv_c_yuv420_yuv444_internal(
+        yuv420_yuv444_no_bitdepth_change(
             &pixTmpU11, &pixTmpU12, &pixTmpU21, &pixTmpU22,
             pixSrcU01, pixSrcU02, pixSrcU11, pixSrcU12, pixSrcU21, pixSrcU22
         );
@@ -1072,7 +1099,7 @@ __kernel void kernel_crop_yv12_rgb(
         const int pixSrcV22 = LOAD(srcV, min(loadx+1, srcWidthUV-1), min(loady+1, srcHeightUV-1));
 
         int pixTmpV11, pixTmpV12, pixTmpV21, pixTmpV22;
-        conv_c_yuv420_yuv444_internal(
+        yuv420_yuv444_no_bitdepth_change(
             &pixTmpV11, &pixTmpV12, &pixTmpV21, &pixTmpV22,
             pixSrcV01, pixSrcV02, pixSrcV11, pixSrcV12, pixSrcV21, pixSrcV22
         );
@@ -1162,13 +1189,13 @@ __kernel void kernel_crop_nv12_rgb(
         LOAD_NV12_UV(srcC, pixSrcU22, pixSrcV22, min(loadx+1, srcWidthUV-1), min(loady+1, srcHeightUV-1), 0, 0);
 
         int pixTmpU11, pixTmpU12, pixTmpU21, pixTmpU22;
-        conv_c_yuv420_yuv444_internal(
+        yuv420_yuv444_no_bitdepth_change(
             &pixTmpU11, &pixTmpU12, &pixTmpU21, &pixTmpU22,
             pixSrcU01, pixSrcU02, pixSrcU11, pixSrcU12, pixSrcU21, pixSrcU22
         );
         
         int pixTmpV11, pixTmpV12, pixTmpV21, pixTmpV22;
-        conv_c_yuv420_yuv444_internal(
+        yuv420_yuv444_no_bitdepth_change(
             &pixTmpV11, &pixTmpV12, &pixTmpV21, &pixTmpV22,
             pixSrcV01, pixSrcV02, pixSrcV11, pixSrcV12, pixSrcV21, pixSrcV22
         );
