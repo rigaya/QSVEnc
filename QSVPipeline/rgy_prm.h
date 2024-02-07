@@ -1680,6 +1680,7 @@ struct RGYParamControl {
     int threadInput;
     RGYParamThreads threadParams;
     int procSpeedLimit;      //処理速度制限 (0で制限なし)
+    bool taskPerfMonitor;
     int64_t perfMonitorSelect;
     int64_t perfMonitorSelectMatplot;
     int     perfMonitorInterval;

@@ -258,6 +258,7 @@
   - [--lowlatency](#--lowlatency)
   - [--avsdll \<string\>](#--avsdll-string)
   - [--process-codepage \<string\> \[Windows OS only\]](#--process-codepage-string-windows-os-only)
+  - [--task-perf-monitor](#--task-perf-monitor)
   - [--perf-monitor \[\<string\>\[,\<string\>\]...\]](#--perf-monitor-stringstring)
   - [--perf-monitor-interval \<int\>](#--perf-monitor-interval-int)
 
@@ -2767,6 +2768,10 @@ Specifies AviSynth DLL location to use. When unspecified, the default AviSynth.d
     When this option is set, a copy of the exe file will be created in the same directory of the original exe file,
     and the manifest file of the copy will be modified using UpdateResourceW API to switch back code page
     to the default of the OS, and then the copied exe will be run, allowing us to handle the AviSynth scripts using legacy code page.
+
+### --task-perf-monitor
+
+  Enable performance monitoring of each task and print time required for each task at the end of log.
 
 ### --perf-monitor [&lt;string&gt;[,&lt;string&gt;]...]
 Outputs performance information. You can select the information name you want to output as a parameter from the following table. The default is all (all information).

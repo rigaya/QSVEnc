@@ -158,6 +158,7 @@ protected:
 
     MFXVideoSession2Params m_sessionParams;
     uint32_t m_nProcSpeedLimit;
+    bool m_taskPerfMonitor;
 
     bool *m_pAbortByUser;
     unique_ptr<std::remove_pointer<HANDLE>::type, handle_deleter> m_heAbort;

@@ -1603,6 +1603,7 @@ CQSVPipeline::CQSVPipeline() :
     m_encTimestamp(),
     m_sessionParams(),
     m_nProcSpeedLimit(0),
+    m_taskPerfMonitor(false),
     m_pAbortByUser(nullptr),
     m_heAbort(),
     m_DecInputBitstream(),
@@ -3466,6 +3467,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     if (sts < RGY_ERR_NONE) return sts;
 
     m_nProcSpeedLimit = pParams->ctrl.procSpeedLimit;
+    m_taskPerfMonitor = pParams->ctrl.taskPerfMonitor;
     m_nAsyncDepth = clamp_param_int((pParams->ctrl.lowLatency) ? 1 : pParams->nAsyncDepth, 0, QSV_ASYNC_DEPTH_MAX, _T("async-depth"));
     if (m_nAsyncDepth == 0) {
         m_nAsyncDepth = QSV_DEFAULT_ASYNC_DEPTH;
@@ -3613,6 +3615,7 @@ void CQSVPipeline::Close() {
     m_pAbortByUser = nullptr;
     m_nAVSyncMode = RGY_AVSYNC_ASSUME_CFR;
     m_nProcSpeedLimit = 0;
+    m_taskPerfMonitor = false;
 #if ENABLE_AVSW_READER
     av_qsv_log_free();
 #endif //#if ENABLE_AVSW_READER
@@ -3892,6 +3895,14 @@ RGY_ERR CQSVPipeline::RunEncode2() {
     m_pStatus->SetStart();
 
     CProcSpeedControl speedCtrl(m_nProcSpeedLimit);
+    for (auto& task : m_pipelineTasks) {
+        if (!task->isPassThrough()) {
+            task->setOutputMaxQueueSize(std::max(m_nAsyncDepth, 0));
+        }
+        if (m_taskPerfMonitor) {
+            task->setStopWatch();
+        }
+    }
 
     auto requireSync = [this](const size_t itask) {
         if (itask + 1 >= m_pipelineTasks.size()) return true; // 次が最後のタスクの時
