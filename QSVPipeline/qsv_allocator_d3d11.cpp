@@ -123,7 +123,7 @@ mfxStatus QSVAllocatorD3D11::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
     }
 
     HRESULT hRes = S_OK;
-    D3D11_MAP mapType = D3D11_MAP_READ;
+    D3D11_MAP mapType = MFXReadWriteMid(mid, MFXReadWriteMid::reuse).isRead() ? D3D11_MAP_READ : D3D11_MAP_WRITE;
     UINT mapFlags = D3D11_MAP_FLAG_DO_NOT_WAIT;
     D3D11_TEXTURE2D_DESC desc = {0};
     D3D11_MAPPED_SUBRESOURCE lockedRect = {0};
@@ -369,7 +369,7 @@ mfxStatus QSVAllocatorD3D11::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAl
         desc.ByteWidth           = request->Info.Width * request->Info.Height;
         desc.Usage               = D3D11_USAGE_STAGING;
         desc.BindFlags           = 0;
-        desc.CPUAccessFlags      = D3D11_CPU_ACCESS_READ;
+        desc.CPUAccessFlags      = D3D11_CPU_ACCESS_READ | D3D11_CPU_ACCESS_WRITE;
         desc.MiscFlags           = 0;
         desc.StructureByteStride = 0;
 
@@ -432,7 +432,7 @@ mfxStatus QSVAllocatorD3D11::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAl
 
         desc.ArraySize = 1;
         desc.Usage = D3D11_USAGE_STAGING;
-        desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+        desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ | D3D11_CPU_ACCESS_WRITE;
         desc.BindFlags = 0;
         desc.MiscFlags = 0;
 

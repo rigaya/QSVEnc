@@ -687,7 +687,7 @@ public:
         if (m_stopwatch) m_stopwatch->set(0);
         auto mfxSurf = surfWork.mfx()->surf();
         if (mfxSurf->Data.MemId) {
-            auto sts = m_allocator->Lock(m_allocator->pthis, mfxSurf->Data.MemId, &(mfxSurf->Data));
+            auto sts = m_allocator->Lock(m_allocator->pthis, MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::write), &(mfxSurf->Data));
             if (sts < MFX_ERR_NONE) {
                 return err_to_rgy(sts);
             }
@@ -704,7 +704,7 @@ public:
         }
         if (m_stopwatch) m_stopwatch->add(0, 3);
         if (mfxSurf->Data.MemId) {
-            m_allocator->Unlock(m_allocator->pthis, mfxSurf->Data.MemId, &(mfxSurf->Data));
+            m_allocator->Unlock(m_allocator->pthis, MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::write), &(mfxSurf->Data));
         }
         if (m_stopwatch) m_stopwatch->add(0, 4);
         return err;
