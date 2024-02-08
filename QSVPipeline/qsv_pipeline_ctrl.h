@@ -675,9 +675,16 @@ public:
 
     };
     virtual ~PipelineTaskInput() {};
+    virtual void setStopWatch() override {
+        m_stopwatch = std::make_unique<PipelineTaskStopWatch>(
+            std::vector<tstring>{ _T("getWorkSurf"), _T("allocatorLock"), _T("CLqueueMapBuffer"), _T("LoadNextFrame"), _T("allocatorUnLock"), _T("CLunmapBuffer") },
+            std::vector<tstring>{_T("")}
+        );
+    }
     virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override { return std::nullopt; };
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override { return std::nullopt; };
     RGY_ERR loadNextFrameMFX(PipelineTaskSurface& surfWork) {
+        if (m_stopwatch) m_stopwatch->set(0);
         auto mfxSurf = surfWork.mfx()->surf();
         if (mfxSurf->Data.MemId) {
             auto sts = m_allocator->Lock(m_allocator->pthis, mfxSurf->Data.MemId, &(mfxSurf->Data));
@@ -685,6 +692,7 @@ public:
                 return err_to_rgy(sts);
             }
         }
+        if (m_stopwatch) m_stopwatch->add(0, 1);
         auto err = m_input->LoadNextFrame(surfWork.frame());
         if (err != RGY_ERR_NONE) {
             //Unlockする必要があるので、ここに入ってもすぐにreturnしてはいけない
@@ -694,12 +702,15 @@ public:
                 PrintMes(RGY_LOG_ERROR, _T("Error in reader: %s.\n"), get_err_mes(err));
             }
         }
+        if (m_stopwatch) m_stopwatch->add(0, 3);
         if (mfxSurf->Data.MemId) {
             m_allocator->Unlock(m_allocator->pthis, mfxSurf->Data.MemId, &(mfxSurf->Data));
         }
+        if (m_stopwatch) m_stopwatch->add(0, 4);
         return err;
     }
     RGY_ERR loadNextFrameCL(PipelineTaskSurface& surfWork) {
+        if (m_stopwatch) m_stopwatch->set(0);
         auto clframe = surfWork.cl();
         auto err = clframe->queueMapBuffer(m_cl->queue(), CL_MAP_WRITE); // CPUが書き込むためにMapする
         if (err != RGY_ERR_NONE) {
@@ -707,6 +718,7 @@ public:
             return err;
         }
         clframe->mapWait(); //すぐ終わるはず
+        if (m_stopwatch) m_stopwatch->add(0, 2);
         auto mappedframe = clframe->mappedHost();
         err = m_input->LoadNextFrame(mappedframe);
         if (err != RGY_ERR_NONE) {
@@ -717,6 +729,7 @@ public:
                 PrintMes(RGY_LOG_ERROR, _T("Error in reader: %s.\n"), get_err_mes(err));
             }
         }
+        if (m_stopwatch) m_stopwatch->add(0, 3);
         clframe->setPropertyFrom(mappedframe);
         auto clerr = clframe->unmapBuffer();
         if (clerr != RGY_ERR_NONE) {
@@ -725,14 +738,17 @@ public:
                 err = clerr;
             }
         }
+        if (m_stopwatch) m_stopwatch->add(0, 5);
         return err;
     }
     virtual RGY_ERR sendFrame([[maybe_unused]] std::unique_ptr<PipelineTaskOutput>& frame) override {
+        if (m_stopwatch) m_stopwatch->set(0);
         auto surfWork = getWorkSurf();
         if (surfWork == nullptr) {
             PrintMes(RGY_LOG_ERROR, _T("failed to get work surface for input.\n"));
             return RGY_ERR_NOT_ENOUGH_BUFFER;
         }
+        if (m_stopwatch) m_stopwatch->add(0, 0);
         auto err = (surfWork.mfx() != nullptr) ? loadNextFrameMFX(surfWork) : loadNextFrameCL(surfWork);
         if (err == RGY_ERR_NONE) {
             surfWork.frame()->setInputFrameId(m_inFrames++);
@@ -779,17 +795,17 @@ public:
         }
         m_queueHDR10plusMetadata.init(256);
     };
+    virtual ~PipelineTaskMFXDecode() {
+        m_queueHDR10plusMetadata.close([](RGYFrameDataMetadata **ptr) { if (*ptr) { delete *ptr; *ptr = nullptr; }; });
+        m_decInputBitstream.clear();
+    };
+    void setDec(MFXVideoDECODE *mfxdec) { m_dec = mfxdec; };
     virtual void setStopWatch() override {
         m_stopwatch = std::make_unique<PipelineTaskStopWatch>(
             std::vector<tstring>{ _T("LoadNextFrame"), _T("getWorkSurf"), _T("DecodeFrameAsync"), _T("DecoderBusy"), _T("PushQueue") },
             std::vector<tstring>{_T("")}
         );
     }
-    virtual ~PipelineTaskMFXDecode() {
-        m_queueHDR10plusMetadata.close([](RGYFrameDataMetadata **ptr) { if (*ptr) { delete *ptr; *ptr = nullptr; }; });
-        m_decInputBitstream.clear();
-    };
-    void setDec(MFXVideoDECODE *mfxdec) { m_dec = mfxdec; };
 
     virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override { return std::nullopt; };
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override {
