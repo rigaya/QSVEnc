@@ -485,17 +485,20 @@ public:
         if (m_allocator) {
             m_allocator->Free(m_allocator->pthis, &m_allocResponse);
         }
-        if (m_stopwatch) {
-            const auto strlines = split(m_stopwatch->print(), _T("\n"));
-            PrintMes(RGY_LOG_INFO, _T("\n"));
-            for (auto& str : strlines) {
-                PrintMes(RGY_LOG_INFO, _T("%s\n"), str.c_str());
-            }
-            m_stopwatch.reset();
-        }
+        m_stopwatch.reset();
         m_workSurfs.clear();
     }
     virtual void setStopWatch() {};
+    virtual void printStopWatch() {
+        if (m_stopwatch) {
+            const auto strlines = split(m_stopwatch->print(), _T("\n"));
+            for (auto& str : strlines) {
+                if (str.length() > 0) {
+                    PrintMes(RGY_LOG_INFO, _T("%s\n"), str.c_str());
+                }
+            }
+        }
+    }
     virtual bool isPassThrough() const { return false; }
     virtual tstring print() const { return getPipelineTaskTypeName(m_type); }
     virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() = 0;

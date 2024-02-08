@@ -4075,6 +4075,13 @@ RGY_ERR CQSVPipeline::RunEncode2() {
     m_mfxDEC.reset();
     m_pmfxENC.reset();
     m_mfxVPP.clear();
+    // taskの集計結果を表示
+    if (m_taskPerfMonitor) {
+        PrintMes(RGY_LOG_INFO, _T("\nTask Performance\n"));
+        for (auto& task : m_pipelineTasks) {
+            task->printStopWatch();
+        }
+    }
     //この中でフレームの解放がなされる
     PrintMes(RGY_LOG_DEBUG, _T("Clear pipeline tasks and allocated frames...\n"));
     m_pipelineTasks.clear();
