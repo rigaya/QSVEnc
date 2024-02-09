@@ -879,10 +879,12 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     AddMessage(RGY_LOG_DEBUG, _T("Performace Monitor: %s\n"), CPerfMonitor::SelectedCounters(m_nSelectOutputLog).c_str());
     AddMessage(RGY_LOG_DEBUG, _T("Performace Plot   : %s\n"), CPerfMonitor::SelectedCounters(m_nSelectOutputPlot).c_str());
 
-    fprintf(m_fpLog.get(), "%s", write_header(m_nSelectOutputLog).c_str());
-    const auto str = write_header(m_nSelectOutputPlot);
-    m_pProcess->stdInFpWrite(str.c_str(), str.length());
-    m_pProcess->stdInFpFlush();
+    if (m_fpLog) fprintf(m_fpLog.get(), "%s", write_header(m_nSelectOutputLog).c_str());
+    if (m_pProcess) {
+        const auto str = write_header(m_nSelectOutputPlot);
+        m_pProcess->stdInFpWrite(str.c_str(), str.length());
+        m_pProcess->stdInFpFlush();
+    }
 
     m_thCheck = std::thread(loader, this);
     return 0;
@@ -1317,18 +1319,22 @@ void CPerfMonitor::run() {
                     m_nSelectOutputPlot = 0;
                 }
             }
-            fprintf(m_fpLog.get(), "%s", write(m_nSelectOutputLog).c_str());
-            const auto str = write(m_nSelectOutputPlot);
-            m_pProcess->stdInFpWrite(str.c_str(), str.length());
-            m_pProcess->stdInFpFlush();
+            if (m_fpLog)  fprintf(m_fpLog.get(), "%s", write(m_nSelectOutputLog).c_str());
+            if (m_pProcess) {
+                const auto str = write(m_nSelectOutputPlot);
+                m_pProcess->stdInFpWrite(str.c_str(), str.length());
+                m_pProcess->stdInFpFlush();
+            }
             m_refreshedTime = timenow;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds((m_nInterval <= 100) ? m_nInterval : 50));
     }
     check();
-    fprintf(m_fpLog.get(), "%s", write(m_nSelectOutputLog).c_str());
-    const auto str = write(m_nSelectOutputPlot);
-    m_pProcess->stdInFpWrite(str.c_str(), str.length());
-    m_pProcess->stdInFpFlush();
-    m_pProcess->close();
+    if (m_fpLog)  fprintf(m_fpLog.get(), "%s", write(m_nSelectOutputLog).c_str());
+    if (m_pProcess) {
+        const auto str = write(m_nSelectOutputPlot);
+        m_pProcess->stdInFpWrite(str.c_str(), str.length());
+        m_pProcess->stdInFpFlush();
+        m_pProcess->close();
+    }
 }
