@@ -4078,8 +4078,13 @@ RGY_ERR CQSVPipeline::RunEncode2() {
     // taskの集計結果を表示
     if (m_taskPerfMonitor) {
         PrintMes(RGY_LOG_INFO, _T("\nTask Performance\n"));
-        for (auto& task : m_pipelineTasks) {
-            task->printStopWatch();
+        const int64_t totalTicks = std::accumulate(m_pipelineTasks.begin(), m_pipelineTasks.end(), 0LL, [](int64_t total, const std::unique_ptr<PipelineTask>& task) {
+            return total + task->getStopWatchTotal();
+        });
+        if (totalTicks > 0) {
+            for (auto& task : m_pipelineTasks) {
+                task->printStopWatch(totalTicks);
+            }
         }
     }
     //この中でフレームの解放がなされる

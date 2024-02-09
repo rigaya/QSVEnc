@@ -109,10 +109,19 @@ public:
     }
     void add(const int type, const int idx) {
         auto now = std::chrono::high_resolution_clock::now();
-        m_ticks[type][idx].second += std::chrono::duration_cast<std::chrono::nanoseconds>(now - m_prevTimepoints[type]).count();
+        m_ticks[type][idx].second += std::chrono::duration_cast<std::chrono::microseconds>(now - m_prevTimepoints[type]).count();
         m_prevTimepoints[type] = now;
     }
-    tstring print() {
+    int64_t totalTicks() const {
+        int64_t total = 0;
+        for (int itype = 0; itype < 2; itype++) {
+            for (int i = 0; i < (int)m_ticks[itype].size(); i++) {
+                total += m_ticks[itype][i].second;
+            }
+        }
+        return total;
+    }
+    tstring print(const int64_t totalTicks) {
         const TCHAR *type[] = {_T("send"), _T("get ")};
         tstring str;
         for (size_t itype = 0; itype < m_ticks.size(); itype++) {
@@ -125,14 +134,14 @@ public:
                 str += type[itype] + tstring(_T(":"));
                 str += m_ticks[itype][i].first;
                 str += tstring(maxLen - m_ticks[itype][i].first.length(), _T(' '));
-                str += strsprintf(_T(" : %8d ms\n"), m_ticks[itype][i].second/(1000*1000));
+                str += strsprintf(_T(" : %8d ms [5.1f%%]\n"), ((m_ticks[itype][i].second + 500) / 1000), m_ticks[itype][i].second * 100.0 / totalTicks);
                 total += m_ticks[itype][i].second;
             }
             if (m_ticks[itype].size() > 1) {
                 str += type[itype] + tstring(_T(":"));
                 str += _T("total");
                 str += tstring(maxLen - _tcslen(_T("total")), _T(' '));
-                str += strsprintf(_T(" : %8d ms\n"), total / (1000 * 1000));
+                str += strsprintf(_T(" : %8d ms [5.1f%%]\n"), ((total + 500) / 1000), total * 100.0 / totalTicks);
             }
         }
         return str;
@@ -489,15 +498,18 @@ public:
         m_workSurfs.clear();
     }
     virtual void setStopWatch() {};
-    virtual void printStopWatch() {
+    virtual void printStopWatch(const int64_t totalTicks) {
         if (m_stopwatch) {
-            const auto strlines = split(m_stopwatch->print(), _T("\n"));
+            const auto strlines = split(m_stopwatch->print(totalTicks), _T("\n"));
             for (auto& str : strlines) {
                 if (str.length() > 0) {
                     PrintMes(RGY_LOG_INFO, _T("%s\n"), str.c_str());
                 }
             }
         }
+    }
+    virtual int64_t getStopWatchTotal() const {
+        return (m_stopwatch) ? m_stopwatch->totalTicks() : 0ll;
     }
     virtual bool isPassThrough() const { return false; }
     virtual tstring print() const { return getPipelineTaskTypeName(m_type); }
