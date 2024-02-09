@@ -352,14 +352,14 @@ public:
     RGY_ERR writeMFX(RGYOutput *writer, QSVAllocator *allocator) {
         auto mfxSurf = m_surf.mfx()->surf();
         if (mfxSurf->Data.MemId) {
-            auto sts = allocator->Lock(allocator->pthis, mfxSurf->Data.MemId, &(mfxSurf->Data));
+            auto sts = allocator->Lock(allocator->pthis, MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::read), &(mfxSurf->Data));
             if (sts < MFX_ERR_NONE) {
                 return err_to_rgy(sts);
             }
         }
         auto err = writer->WriteNextFrame(m_surf.frame());
         if (mfxSurf->Data.MemId) {
-            allocator->Unlock(allocator->pthis, mfxSurf->Data.MemId, &(mfxSurf->Data));
+            allocator->Unlock(allocator->pthis, MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::read), &(mfxSurf->Data));
         }
         return err;
     }
