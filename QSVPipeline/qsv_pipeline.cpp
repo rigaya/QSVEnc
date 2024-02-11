@@ -4084,8 +4084,14 @@ RGY_ERR CQSVPipeline::RunEncode2() {
             return total + task->getStopWatchTotal();
         });
         if (totalTicks > 0) {
+            const size_t maxWorkStrLenLen = std::accumulate(m_pipelineTasks.begin(), m_pipelineTasks.end(), (size_t)0, [](size_t maxStrLength, const std::unique_ptr<PipelineTask>& task) {
+                return std::max(maxStrLength, task->getStopWatchMaxWorkStrLen());
+            });
+            const size_t maxTaskStrLen = std::accumulate(m_pipelineTasks.begin(), m_pipelineTasks.end(), (size_t)0, [](size_t maxStrLength, const std::unique_ptr<PipelineTask>& task) {
+                return std::max(maxStrLength, _tcslen(getPipelineTaskTypeName(task->taskType())));
+            });
             for (auto& task : m_pipelineTasks) {
-                task->printStopWatch(totalTicks);
+                task->printStopWatch(totalTicks, maxWorkStrLenLen + maxTaskStrLen - _tcslen(getPipelineTaskTypeName(task->taskType())));
             }
         }
     }
