@@ -165,7 +165,9 @@ bool CQSVPipeline::CompareParam(const QSVVideoParam& prmIn, const QSVVideoParam&
     COMPARE_INT(videoPrm.AsyncDepth,             0);
     COMPARE_HEX(videoPrm.IOPattern,              0);
     COMPARE_INT(videoPrm.mfx.NumThread,          0);
-    COMPARE_INT(videoPrm.mfx.BRCParamMultiplier, -1);
+    if (prmOut.videoPrm.mfx.BRCParamMultiplier > 1) {
+        COMPARE_INT(videoPrm.mfx.BRCParamMultiplier, -1);
+    }
     COMPARE_INT(videoPrm.mfx.LowPower,           0);
     COMPARE_LST(videoPrm.mfx.CodecId,            0, list_codec_mfx);
     COMPARE_LST(videoPrm.mfx.CodecProfile,       0, get_profile_list(codec_enc_to_rgy(prmIn.videoPrm.mfx.CodecId)));
