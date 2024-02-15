@@ -3898,9 +3898,6 @@ RGY_ERR CQSVPipeline::RunEncode2() {
 
     CProcSpeedControl speedCtrl(m_nProcSpeedLimit);
     for (auto& task : m_pipelineTasks) {
-        if (!task->isPassThrough()) {
-            task->setOutputMaxQueueSize(std::max(m_nAsyncDepth, 0));
-        }
         if (m_taskPerfMonitor) {
             task->setStopWatch();
         }
