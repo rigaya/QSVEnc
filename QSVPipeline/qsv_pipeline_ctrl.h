@@ -356,15 +356,18 @@ public:
 
     RGY_ERR writeMFX(RGYOutput *writer, QSVAllocator *allocator) {
         auto mfxSurf = m_surf.mfx()->surf();
+        const bool allocatorD3D11 = dynamic_cast<QSVAllocatorD3D11 *>(allocator) != nullptr;
         if (mfxSurf->Data.MemId) {
-            auto sts = allocator->Lock(allocator->pthis, MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::read), &(mfxSurf->Data));
+            mfxMemId memid = (allocatorD3D11) ? MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::read) : mfxSurf->Data.MemId;
+            auto sts = allocator->Lock(allocator->pthis, memid, &(mfxSurf->Data));
             if (sts < MFX_ERR_NONE) {
                 return err_to_rgy(sts);
             }
         }
         auto err = writer->WriteNextFrame(m_surf.frame());
         if (mfxSurf->Data.MemId) {
-            allocator->Unlock(allocator->pthis, MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::read), &(mfxSurf->Data));
+            mfxMemId memid = (allocatorD3D11) ? MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::read) : mfxSurf->Data.MemId;
+            allocator->Unlock(allocator->pthis, memid, &(mfxSurf->Data));
         }
         return err;
     }
@@ -688,10 +691,11 @@ public:
 class PipelineTaskInput : public PipelineTask {
     RGYInput *m_input;
     QSVAllocator *m_allocator;
+    bool m_allocatorD3D11;
     std::shared_ptr<RGYOpenCLContext> m_cl;
 public:
     PipelineTaskInput(MFXVideoSession *mfxSession, QSVAllocator *allocator, int outMaxQueueSize, RGYInput *input, mfxVersion mfxVer, std::shared_ptr<RGYOpenCLContext> cl, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::INPUT, outMaxQueueSize, mfxSession, mfxVer, log), m_input(input), m_allocator(allocator), m_cl(cl) {
+        : PipelineTask(PipelineTaskType::INPUT, outMaxQueueSize, mfxSession, mfxVer, log), m_input(input), m_allocator(allocator), m_allocatorD3D11(dynamic_cast<QSVAllocatorD3D11 *>(allocator) != nullptr), m_cl(cl) {
 
     };
     virtual ~PipelineTaskInput() {};
@@ -707,7 +711,8 @@ public:
         if (m_stopwatch) m_stopwatch->set(0);
         auto mfxSurf = surfWork.mfx()->surf();
         if (mfxSurf->Data.MemId) {
-            auto sts = m_allocator->Lock(m_allocator->pthis, MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::write), &(mfxSurf->Data));
+            mfxMemId memid = (m_allocatorD3D11) ? MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::write) : mfxSurf->Data.MemId;
+            auto sts = m_allocator->Lock(m_allocator->pthis, memid, &(mfxSurf->Data));
             if (sts < MFX_ERR_NONE) {
                 return err_to_rgy(sts);
             }
@@ -724,7 +729,8 @@ public:
         }
         if (m_stopwatch) m_stopwatch->add(0, 3);
         if (mfxSurf->Data.MemId) {
-            m_allocator->Unlock(m_allocator->pthis, MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::write), &(mfxSurf->Data));
+            mfxMemId memid = (m_allocatorD3D11) ? MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::write) : mfxSurf->Data.MemId;
+            m_allocator->Unlock(m_allocator->pthis, memid, &(mfxSurf->Data));
         }
         if (m_stopwatch) m_stopwatch->add(0, 4);
         return err;
