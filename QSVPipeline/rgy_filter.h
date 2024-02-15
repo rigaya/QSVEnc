@@ -26,11 +26,13 @@
 // ------------------------------------------------------------------------------------------
 
 #pragma once
+#ifndef __RGY_FILTER_H__
+#define __RGY_FILTER_H__
 
 #include <cstdint>
 #include "rgy_util.h"
 #include "rgy_log.h"
-#include "rgy_opencl.h"
+#include "rgy_frame_info.h"
 #include "convert_csp.h"
 #include "rgy_prm.h"
 
@@ -83,58 +85,43 @@ static FILTER_PATHTHROUGH_FRAMEINFO operator~(FILTER_PATHTHROUGH_FRAMEINFO a) {
 
 class RGYFilterPerf {
 public:
-    RGYFilterPerf() : m_checkPerformance(false), m_filterTimeMs(0.0), m_runCount(0) {};
-    ~RGYFilterPerf() { };
+    RGYFilterPerf() : m_filterTimeMs(0.0), m_runCount(0) {};
+    virtual ~RGYFilterPerf() { };
 
-    bool checkPerformanceEnabled() const { return m_checkPerformance; }
-    void setCheckPerformance(const bool check) { m_checkPerformance = check; }
-    RGY_ERR checkPerformace(RGYOpenCLEvent *event_start, RGYOpenCLEvent *event_fin) {
-        uint64_t time_start = 0;
-        auto sts = event_start->getProfilingTimeEnd(time_start);
-        if (sts != RGY_ERR_NONE) return sts;
-        uint64_t time_end = 0;
-        sts = event_fin->getProfilingTimeStart(time_end);
-        if (sts != RGY_ERR_NONE) return sts;
-        m_runCount++;
-        m_filterTimeMs += (time_end - time_start) * 1e-6 /*ns -> ms*/;
-        return RGY_ERR_NONE;
-    }
     double GetAvgTimeElapsed() const {
         return (m_runCount > 0) ? m_filterTimeMs / (double)m_runCount : 0.0;
     }
+    virtual RGY_ERR checkPerformace(void *event_start, void *event_fin) = 0;
 protected:
-    bool m_checkPerformance;
+    void setTime(double time) {
+        m_filterTimeMs += time;
+        m_runCount++;
+    }
     double m_filterTimeMs;
-    int m_runCount;
+    int64_t m_runCount;
 };
 
-class RGYFilter {
+class RGYFilterBase {
 public:
-    RGYFilter(shared_ptr<RGYOpenCLContext> context);
-    virtual ~RGYFilter();
-    tstring name() {
+    RGYFilterBase();
+    virtual ~RGYFilterBase();
+    virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) = 0;
+
+    const tstring& name() const {
         return m_name;
     }
-    virtual RGY_ERR init(shared_ptr<RGYFilterParam> param, shared_ptr<RGYLog> pPrintMes) = 0;
-    virtual RGY_ERR addStreamPacket(AVPacket *pkt) { UNREFERENCED_PARAMETER(pkt); return RGY_ERR_UNSUPPORTED; };
-    RGY_ERR filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum);
-    RGY_ERR filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue);
-    RGY_ERR filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
-    RGY_ERR filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event = nullptr);
-    const tstring GetInputMessage() const {
+    const tstring& GetInputMessage() const {
         return m_infoStr;
     }
     const RGYFilterParam *GetFilterParam() const {
         return m_param.get();
     }
-    virtual RGY_ERR AllocFrameBuf(const RGYFrameInfo &frame, int frames);
     //virtual RGY_ERR addStreamPacket(AVPacket *pkt) { UNREFERENCED_PARAMETER(pkt); return RGY_ERR_UNSUPPORTED; };
     virtual int targetTrackIdx() { return 0; };
-    void setCheckPerformance(const bool check) { m_perfMonitor.setCheckPerformance(check); }
-    double GetAvgTimeElapsed() { return m_perfMonitor.GetAvgTimeElapsed(); }
+    virtual void setCheckPerformance(const bool check) = 0;
+    double GetAvgTimeElapsed() { return (m_perfMonitor) ? m_perfMonitor->GetAvgTimeElapsed() : 0.0; }
 protected:
-    RGY_ERR filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, RGYFrameInfo *pOutputFrame);
-    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) = 0;
+    virtual RGY_ERR AllocFrameBuf(const RGYFrameInfo &frame, int frames) = 0;
     virtual void close() = 0;
 
     void AddMessage(RGYLogLevel log_level, const tstring &str) {
@@ -170,87 +157,9 @@ protected:
     tstring m_name;
     tstring m_infoStr;
     shared_ptr<RGYLog> m_pLog;  //ログ出力
-    shared_ptr<RGYOpenCLContext> m_cl;
-    vector<unique_ptr<RGYCLFrame>> m_frameBuf;
-    unique_ptr<RGYCLFrame> m_pFieldPairIn;
-    unique_ptr<RGYCLFrame> m_pFieldPairOut;
-    shared_ptr<RGYFilterParam> m_param;
+    std::shared_ptr<RGYFilterParam> m_param;
     FILTER_PATHTHROUGH_FRAMEINFO m_pathThrough;
-    RGYFilterPerf m_perfMonitor;
+    std::unique_ptr<RGYFilterPerf> m_perfMonitor;
 };
 
-class RGYFilterParamCrop : public RGYFilterParam {
-public:
-    sInputCrop crop;
-    CspMatrix matrix;
-
-    RGYFilterParamCrop() : crop(initCrop()), matrix(RGY_MATRIX_ST170_M) {};
-    virtual ~RGYFilterParamCrop() {};
-};
-
-class RGYFilterCspCrop : public RGYFilter {
-public:
-    RGYFilterCspCrop(shared_ptr<RGYOpenCLContext> context);
-    virtual ~RGYFilterCspCrop();
-    virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
-protected:
-    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;
-    RGY_ERR convertYBitDepth(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    RGY_ERR convertCspFromNV12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    RGY_ERR convertCspFromYV12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    RGY_ERR convertCspFromNV16(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    RGY_ERR convertCspFromRGB(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    RGY_ERR convertCspFromYUV444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    RGY_ERR convertCspFromAYUVPacked444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    virtual void close() override;
-};
-
-class RGYFilterParamResize : public RGYFilterParam {
-public:
-    RGY_VPP_RESIZE_ALGO interp;
-    RGYFilterParamResize() : interp(RGY_VPP_RESIZE_AUTO) {};
-    virtual ~RGYFilterParamResize() {};
-};
-
-class RGYFilterResize : public RGYFilter {
-public:
-    RGYFilterResize(shared_ptr<RGYOpenCLContext> context);
-    virtual ~RGYFilterResize();
-    virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
-protected:
-    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;
-    virtual void close() override;
-
-    virtual RGY_ERR resizePlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    virtual RGY_ERR resizeFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-
-    bool m_bInterlacedWarn;
-    unique_ptr<RGYCLBuf> m_weightSpline;
-    RGYOpenCLProgramAsync m_resize;
-    RGYCLFramePool m_srcImagePool;
-};
-
-class RGYFilterParamPad : public RGYFilterParam {
-public:
-    VppPad pad;
-    RGY_CSP encoderCsp;
-    RGYFilterParamPad() : pad(), encoderCsp(RGY_CSP_NA) {};
-    virtual ~RGYFilterParamPad() {};
-    virtual tstring print() const override;
-};
-
-class RGYFilterPad : public RGYFilter {
-public:
-    RGYFilterPad(shared_ptr<RGYOpenCLContext> context);
-    virtual ~RGYFilterPad();
-    virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
-protected:
-    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;
-    virtual void close() override;
-
-    virtual RGY_ERR procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, int pad_color, const VppPad &pad, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    virtual RGY_ERR procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-
-    RGYOpenCLProgramAsync m_pad;
-    bool m_bInterlacedWarn;
-};
+#endif //__RGY_FILTER_H__

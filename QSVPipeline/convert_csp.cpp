@@ -2324,20 +2324,6 @@ const ConvertCSP *get_convert_csp_func(RGY_CSP csp_from, RGY_CSP csp_to, bool uv
     return convert;
 }
 
-std::basic_string<TCHAR> RGYFrameInfo::print() const {
-    TCHAR buf[1024];
-#if ENCODER_NVENC
-    _stprintf_s(buf, _T("%dx%d %s %dbit (%d) %s %s f0x%x"),
-        width, height, RGY_CSP_NAMES[csp], bitdepth, pitch,
-        picstrcut_to_str(picstruct), deivce_mem ? _T("deivce") : _T("host"), (uint32_t)flags);
-#else
-    _stprintf_s(buf, _T("%dx%d %s %dbit (%d, %d, %d, %d) %s %s f0x%x"),
-        width, height, RGY_CSP_NAMES[csp], bitdepth, pitch[0], pitch[1], pitch[2], pitch[3],
-        picstrcut_to_str(picstruct), get_memtype_str(mem_type), (uint32_t)flags);
-#endif
-    return std::basic_string<TCHAR>(buf);
-};
-
 const TCHAR *get_simd_str(RGY_SIMD simd) {
     static std::vector<std::pair<RGY_SIMD, const TCHAR*>> simd_str_list = {
         { AVX2,  _T("AVX2")   },

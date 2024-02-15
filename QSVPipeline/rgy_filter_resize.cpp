@@ -31,7 +31,7 @@
 #include <map>
 #include <array>
 #include "convert_csp.h"
-#include "rgy_filter.h"
+#include "rgy_filter_cl.h"
 #include "rgy_prm.h"
 
 static const int RESIZE_BLOCK_X = 32;

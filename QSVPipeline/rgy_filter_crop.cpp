@@ -29,7 +29,7 @@
 #include <map>
 #include <array>
 #include <cstdint>
-#include "rgy_filter.h"
+#include "rgy_filter_cl.h"
 
 RGY_ERR RGYFilterCspCrop::convertCspFromNV12(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     auto pCropParam = std::dynamic_pointer_cast<RGYFilterParamCrop>(m_param);

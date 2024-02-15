@@ -29,7 +29,7 @@
 #pragma once
 
 #include "logo.h"
-#include "rgy_filter.h"
+#include "rgy_filter_cl.h"
 #include "rgy_prm.h"
 
 #define DELOGO_BLOCK_X  (32)

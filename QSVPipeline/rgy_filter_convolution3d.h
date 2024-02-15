@@ -29,7 +29,7 @@
 #ifndef __RGY_FILTER_CONVOLUTION3D_H__
 #define __RGY_FILTER_CONVOLUTION3D_H__
 
-#include "rgy_filter.h"
+#include "rgy_filter_cl.h"
 #include "rgy_prm.h"
 #include <array>
 

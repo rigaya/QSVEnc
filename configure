@@ -697,14 +697,14 @@ rgy_def.cpp                 rgy_env.cpp                 rgy_err.cpp             
 rgy_faw.cpp                 rgy_faw_avx2.cpp            rgy_faw_avx512bw.cpp \
 rgy_filesystem.cpp          rgy_filter.cpp              rgy_filter_afs.cpp             rgy_filter_afs_analyze.cpp \
 rgy_filter_afs_filter.cpp   rgy_filter_afs_merge.cpp    rgy_filter_afs_synthesize.cpp  rgy_filter_colorspace.cpp \
-rgy_filter_convolution3d.cpp  rgy_filter_crop.cpp       rgy_filter_curves.cpp \
+rgy_filter_convolution3d.cpp  rgy_filter_crop.cpp       rgy_filter_cl.cpp              rgy_filter_curves.cpp \
 rgy_filter_deband.cpp       rgy_filter_decimate.cpp     rgy_filter_delogo.cpp          rgy_filter_denoise_dct.cpp \
 rgy_filter_denoise_knn.cpp  rgy_filter_denoise_pmd.cpp  rgy_filter_edgelevel.cpp       rgy_filter_mpdecimate.cpp \
 rgy_filter_nnedi.cpp        rgy_filter_overlay.cpp      rgy_filter_pad.cpp             rgy_filter_resize.cpp \
 rgy_filter_rff.cpp \
 rgy_filter_ssim.cpp         rgy_filter_smooth.cpp       rgy_filter_subburn.cpp         rgy_filter_transform.cpp \
 rgy_filter_tweak.cpp        rgy_filter_unsharp.cpp      rgy_filter_warpsharp.cpp       rgy_filter_yadif.cpp \
-rgy_frame.cpp               rgy_hdr10plus.cpp           rgy_ini.cpp \
+rgy_frame.cpp               rgy_frame_info.cpp          rgy_hdr10plus.cpp              rgy_ini.cpp \
 rgy_input.cpp               rgy_input_avcodec.cpp       rgy_input_avi.cpp              rgy_input_avs.cpp \
 rgy_input_raw.cpp           rgy_input_sm.cpp            rgy_input_vpy.cpp              rgy_language.cpp \
 rgy_log.cpp                 rgy_memmem.cpp              rgy_memmem_avx2.cpp            rgy_memmem_avx512bw.cpp

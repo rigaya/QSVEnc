@@ -27,7 +27,7 @@
 // ------------------------------------------------------------------------------------------
 
 #pragma once
-#include "rgy_filter.h"
+#include "rgy_filter_cl.h"
 #include "rgy_prm.h"
 
 class RGYFilterParamDecimate : public RGYFilterParam {

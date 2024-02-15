@@ -34,9 +34,10 @@
 #include "rgy_version.h"
 #include "rgy_err.h"
 #include "convert_csp.h"
-#if !FOR_AUO && ENCODER_NVENC
+#include "rgy_frame_info.h"
+#if ENABLE_VPP_SMOOTH_QP_FRAME
 #include "rgy_cuda_util.h"
-#endif //#if !FOR_AUO && ENCODER_NVENC
+#endif //#if ENABLE_VPP_SMOOTH_QP_FRAME
 
 enum RGYFrameDataType {
     RGY_FRAME_DATA_NONE,
@@ -64,22 +65,22 @@ public:
     RGYFrameDataQP();
     virtual ~RGYFrameDataQP();
     RGY_ERR setQPTable(const int8_t *qpTable, int qpw, int qph, int qppitch, int scaleType, int frameType, int64_t timestamp);
-#if !FOR_AUO && ENCODER_NVENC
+#if ENABLE_VPP_SMOOTH_QP_FRAME
     RGY_ERR transferToGPU(cudaStream_t stream);
-#endif //#if !FOR_AUO && ENCODER_NVENC
+#endif //#if ENABLE_VPP_SMOOTH_QP_FRAME
     int frameType() const { return m_frameType; }
     int qpScaleType() const { return m_qpScaleType; }
-#if !FOR_AUO && ENCODER_NVENC
+#if ENABLE_VPP_SMOOTH_QP_FRAME
     cudaEvent_t event() { return *m_event.get(); }
     CUFrameBuf *qpDev() { return m_qpDev.get(); }
-#endif //#if !FOR_AUO && ENCODER_NVENC
+#endif //#if ENABLE_VPP_SMOOTH_QP_FRAME
 protected:
     int m_frameType;
     int m_qpScaleType;
-#if !FOR_AUO && ENCODER_NVENC
+#if ENABLE_VPP_SMOOTH_QP_FRAME
     std::unique_ptr<CUFrameBuf> m_qpDev;
     std::unique_ptr<cudaEvent_t, cudaevent_deleter> m_event;
-#endif //#if !FOR_AUO && ENCODER_NVENC
+#endif //#if ENABLE_VPP_SMOOTH_QP_FRAME
     RGYFrameInfo m_qpHost;
 };
 
@@ -115,7 +116,7 @@ public:
     virtual std::vector<uint8_t> gen_nal() const override;
     virtual std::vector<uint8_t> gen_obu() const override;
 };
-#if !ENCODER_NVENC
+
 struct RGYFrame {
 public:
     RGYFrame() {};
@@ -130,8 +131,7 @@ public:
         return ptrarray;
     }
     void ptrArray(void *array[3], bool bRGB) {
-        auto frame = getInfo();
-        UNREFERENCED_PARAMETER(bRGB);
+        auto frame = getInfo(); bRGB;
         array[0] = (void *)frame.ptr[0];
         array[1] = (void *)frame.ptr[1];
         array[2] = (void *)frame.ptr[2];
@@ -208,9 +208,7 @@ public:
 protected:
     virtual RGYFrameInfo getInfo() const = 0;
 };
-#endif
 
-#if 0
 struct RGYSysFrame : public RGYFrame {
 public:
     RGYSysFrame();
@@ -229,7 +227,7 @@ public:
     virtual void clearDataList() override { frame.dataList.clear(); }
     virtual const std::vector<std::shared_ptr<RGYFrameData>>& dataList() const override { return frame.dataList; }
     virtual std::vector<std::shared_ptr<RGYFrameData>>& dataList() override { return frame.dataList; }
-    virtual void setDataList(std::vector<std::shared_ptr<RGYFrameData>>& dataList) override { frame.dataList = dataList; }
+    virtual void setDataList(const std::vector<std::shared_ptr<RGYFrameData>>& dataList) override { frame.dataList = dataList; }
 protected:
     RGYSysFrame(const RGYSysFrame &) = delete;
     void operator =(const RGYSysFrame &) = delete;
@@ -237,8 +235,30 @@ protected:
         return frame;
     }
     RGYFrameInfo frame;
-    bool allocatedFirstPlaneOnly; // 最初のplaneでフレーム全体を確保している
 };
-#endif
+
+struct RGYFrameRef : public RGYFrame {
+public:
+    RGYFrameRef(RGYFrameInfo& frame_);
+    virtual ~RGYFrameRef();
+    const RGYFrameInfo& frameInfo() { return frame; }
+    virtual bool isempty() const { return !frame.ptr[0]; }
+    virtual void setTimestamp(uint64_t timestamp) override { frame.timestamp = timestamp; }
+    virtual void setDuration(uint64_t duration) override { frame.duration = duration; }
+    virtual void setPicstruct(RGY_PICSTRUCT picstruct) override { frame.picstruct = picstruct; }
+    virtual void setInputFrameId(int id) override { frame.inputFrameId = id; }
+    virtual void setFlags(RGY_FRAME_FLAGS frameflags) override { frame.flags = frameflags; }
+    virtual void clearDataList() override { frame.dataList.clear(); }
+    virtual const std::vector<std::shared_ptr<RGYFrameData>>& dataList() const override { return frame.dataList; }
+    virtual std::vector<std::shared_ptr<RGYFrameData>>& dataList() override { return frame.dataList; }
+    virtual void setDataList(const std::vector<std::shared_ptr<RGYFrameData>>& dataList) override { frame.dataList = dataList; }
+protected:
+    RGYFrameRef(const RGYFrameRef &) = delete;
+    void operator =(const RGYFrameRef &) = delete;
+    virtual RGYFrameInfo getInfo() const override {
+        return frame;
+    }
+    RGYFrameInfo& frame;
+};
 
 #endif //__RGY_FRAME_H__
