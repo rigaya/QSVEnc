@@ -31,7 +31,7 @@
 
 #include "rgy_rev.h"
 
-#define VER_FILEVERSION             0,7,60,0
+#define VER_FILEVERSION             0,7,60,1
 #define VER_STR_FILEVERSION          "7.60"
 #define VER_STR_FILEVERSION_TCHAR _T("7.60")
 

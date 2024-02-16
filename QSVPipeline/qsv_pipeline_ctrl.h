@@ -358,18 +358,18 @@ public:
         auto mfxSurf = m_surf.mfx()->surf();
         const bool allocatorD3D11 = IS_ALLOCATOR_D3D11(allocator);
         if (mfxSurf->Data.MemId) {
-            // MFXReadWriteMid の使用はd3d11使用時のみにする必要がある
-            const mfxMemId memid = (allocatorD3D11) ? (mfxMemId)MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::read) : mfxSurf->Data.MemId;
-            auto sts = allocator->Lock(allocator->pthis, memid, &(mfxSurf->Data));
+            // MFXReadWriteMidの使用はd3d11使用時のみにする必要がある
+            // MFXReadWriteMidの寿命を考慮し、引数として渡す場所で三項演算子を使用する
+            auto sts = allocator->Lock(allocator->pthis, (allocatorD3D11) ? (mfxMemId)MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::read) : mfxSurf->Data.MemId, &(mfxSurf->Data));
             if (sts < MFX_ERR_NONE) {
                 return err_to_rgy(sts);
             }
         }
         auto err = writer->WriteNextFrame(m_surf.frame());
         if (mfxSurf->Data.MemId) {
-            // MFXReadWriteMid の使用はd3d11使用時のみにする必要がある
-            const mfxMemId memid = (allocatorD3D11) ? (mfxMemId)MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::read) : mfxSurf->Data.MemId;
-            allocator->Unlock(allocator->pthis, memid, &(mfxSurf->Data));
+            // MFXReadWriteMidの使用はd3d11使用時のみにする必要がある
+            // MFXReadWriteMidの寿命を考慮し、引数として渡す場所で三項演算子を使用する
+            allocator->Unlock(allocator->pthis, (allocatorD3D11) ? (mfxMemId)MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::read) : mfxSurf->Data.MemId, &(mfxSurf->Data));
         }
         return err;
     }
@@ -713,9 +713,9 @@ public:
         if (m_stopwatch) m_stopwatch->set(0);
         auto mfxSurf = surfWork.mfx()->surf();
         if (mfxSurf->Data.MemId) {
-            // MFXReadWriteMid の使用はd3d11使用時のみにする必要がある
-            const mfxMemId memid = (m_allocatorD3D11) ? (mfxMemId)MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::write) : mfxSurf->Data.MemId;
-            auto sts = m_allocator->Lock(m_allocator->pthis, memid, &(mfxSurf->Data));
+            // MFXReadWriteMidの使用はd3d11使用時のみにする必要がある
+            // MFXReadWriteMidの寿命を考慮し、引数として渡す場所で三項演算子を使用する
+            auto sts = m_allocator->Lock(m_allocator->pthis, (m_allocatorD3D11) ? (mfxMemId)MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::write) : mfxSurf->Data.MemId, &(mfxSurf->Data));
             if (sts < MFX_ERR_NONE) {
                 return err_to_rgy(sts);
             }
@@ -733,8 +733,8 @@ public:
         if (m_stopwatch) m_stopwatch->add(0, 3);
         if (mfxSurf->Data.MemId) {
             // MFXReadWriteMid の使用はd3d11使用時のみにする必要がある
-            const mfxMemId memid = (m_allocatorD3D11) ? (mfxMemId)MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::write) : mfxSurf->Data.MemId;
-            m_allocator->Unlock(m_allocator->pthis, memid, &(mfxSurf->Data));
+            // MFXReadWriteMidの寿命を考慮し、引数として渡す場所で三項演算子を使用する
+            m_allocator->Unlock(m_allocator->pthis, (m_allocatorD3D11) ? (mfxMemId)MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::write) : mfxSurf->Data.MemId, &(mfxSurf->Data));
         }
         if (m_stopwatch) m_stopwatch->add(0, 4);
         return err;
