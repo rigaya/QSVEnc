@@ -54,7 +54,7 @@ public:
     MemType memType() const { return m_memType; };
     CQSVHWDevice *hwdev() { return m_hwdev.get(); }
     QSVAllocator *allocator() { return m_allocator.get(); }
-    const IntelDeviceInfo *intelDeviceInfo() const { return m_hwdev->GetIntelDeviceInfo(); }
+    const IntelDeviceInfo *intelDeviceInfo() const { return (m_hwdev) ? m_hwdev->GetIntelDeviceInfo() : nullptr; }
     bool externalAlloc() const { return m_externalAlloc; }
     const RGYOpenCLDeviceInfo *devInfo() const { return m_devInfo.get(); }
     MFXVideoSession2& mfxSession() { return m_session; };
