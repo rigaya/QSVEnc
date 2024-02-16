@@ -26,6 +26,7 @@
 // ------------------------------------------------------------------------------------------
 
 #include "rgy_frame_info.h"
+#include "rgy_osdep.h"
 
 static RGYFrameInfo getPlaneSingleAlloc(const RGYFrameInfo *frameInfo, const RGY_PLANE plane) {
     RGYFrameInfo planeInfo = *frameInfo;

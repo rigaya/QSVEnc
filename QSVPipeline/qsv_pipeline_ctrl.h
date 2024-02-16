@@ -356,9 +356,10 @@ public:
 
     RGY_ERR writeMFX(RGYOutput *writer, QSVAllocator *allocator) {
         auto mfxSurf = m_surf.mfx()->surf();
-        const bool allocatorD3D11 = dynamic_cast<QSVAllocatorD3D11 *>(allocator) != nullptr;
+        const bool allocatorD3D11 = IS_ALLOCATOR_D3D11(allocator);
         if (mfxSurf->Data.MemId) {
-            mfxMemId memid = (allocatorD3D11) ? MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::read) : mfxSurf->Data.MemId;
+            // MFXReadWriteMid の使用はd3d11使用時のみにする必要がある
+            const mfxMemId memid = (allocatorD3D11) ? (mfxMemId)MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::read) : mfxSurf->Data.MemId;
             auto sts = allocator->Lock(allocator->pthis, memid, &(mfxSurf->Data));
             if (sts < MFX_ERR_NONE) {
                 return err_to_rgy(sts);
@@ -366,7 +367,8 @@ public:
         }
         auto err = writer->WriteNextFrame(m_surf.frame());
         if (mfxSurf->Data.MemId) {
-            mfxMemId memid = (allocatorD3D11) ? MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::read) : mfxSurf->Data.MemId;
+            // MFXReadWriteMid の使用はd3d11使用時のみにする必要がある
+            const mfxMemId memid = (allocatorD3D11) ? (mfxMemId)MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::read) : mfxSurf->Data.MemId;
             allocator->Unlock(allocator->pthis, memid, &(mfxSurf->Data));
         }
         return err;
@@ -695,7 +697,7 @@ class PipelineTaskInput : public PipelineTask {
     std::shared_ptr<RGYOpenCLContext> m_cl;
 public:
     PipelineTaskInput(MFXVideoSession *mfxSession, QSVAllocator *allocator, int outMaxQueueSize, RGYInput *input, mfxVersion mfxVer, std::shared_ptr<RGYOpenCLContext> cl, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::INPUT, outMaxQueueSize, mfxSession, mfxVer, log), m_input(input), m_allocator(allocator), m_allocatorD3D11(dynamic_cast<QSVAllocatorD3D11 *>(allocator) != nullptr), m_cl(cl) {
+        : PipelineTask(PipelineTaskType::INPUT, outMaxQueueSize, mfxSession, mfxVer, log), m_input(input), m_allocator(allocator), m_allocatorD3D11(IS_ALLOCATOR_D3D11(allocator)), m_cl(cl) {
 
     };
     virtual ~PipelineTaskInput() {};
@@ -711,7 +713,8 @@ public:
         if (m_stopwatch) m_stopwatch->set(0);
         auto mfxSurf = surfWork.mfx()->surf();
         if (mfxSurf->Data.MemId) {
-            mfxMemId memid = (m_allocatorD3D11) ? MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::write) : mfxSurf->Data.MemId;
+            // MFXReadWriteMid の使用はd3d11使用時のみにする必要がある
+            const mfxMemId memid = (m_allocatorD3D11) ? (mfxMemId)MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::write) : mfxSurf->Data.MemId;
             auto sts = m_allocator->Lock(m_allocator->pthis, memid, &(mfxSurf->Data));
             if (sts < MFX_ERR_NONE) {
                 return err_to_rgy(sts);
@@ -729,7 +732,8 @@ public:
         }
         if (m_stopwatch) m_stopwatch->add(0, 3);
         if (mfxSurf->Data.MemId) {
-            mfxMemId memid = (m_allocatorD3D11) ? MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::write) : mfxSurf->Data.MemId;
+            // MFXReadWriteMid の使用はd3d11使用時のみにする必要がある
+            const mfxMemId memid = (m_allocatorD3D11) ? (mfxMemId)MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::write) : mfxSurf->Data.MemId;
             m_allocator->Unlock(m_allocator->pthis, memid, &(mfxSurf->Data));
         }
         if (m_stopwatch) m_stopwatch->add(0, 4);
