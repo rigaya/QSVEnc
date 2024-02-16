@@ -2095,7 +2095,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vpp.mpdecimate.enable) filterPipeline.push_back(VppType::CL_MPDECIMATE);
     if (inputParam->vpp.convolution3d.enable) filterPipeline.push_back(VppType::CL_CONVOLUTION3D);
     if (inputParam->vpp.smooth.enable)     filterPipeline.push_back(VppType::CL_DENOISE_SMOOTH);
-    if (inputParam->vpp.dct.enable)        filterPipeline.push_back(VppType::CL_DENOISE_DENOISE_DCT);
+    if (inputParam->vpp.dct.enable)        filterPipeline.push_back(VppType::CL_DENOISE_DCT);
     if (inputParam->vpp.knn.enable)        filterPipeline.push_back(VppType::CL_DENOISE_KNN);
     if (inputParam->vpp.pmd.enable)        filterPipeline.push_back(VppType::CL_DENOISE_PMD);
     if (inputParam->vppmfx.denoise.enable) filterPipeline.push_back(VppType::MFX_DENOISE);
@@ -2470,7 +2470,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         return RGY_ERR_NONE;
     }
     //denoise-dct
-    if (vppType == VppType::CL_DENOISE_DENOISE_DCT) {
+    if (vppType == VppType::CL_DENOISE_DCT) {
         unique_ptr<RGYFilter> filter(new RGYFilterDenoiseDct(m_cl));
         shared_ptr<RGYFilterParamDenoiseDct> param(new RGYFilterParamDenoiseDct());
         param->dct = params->vpp.dct;
