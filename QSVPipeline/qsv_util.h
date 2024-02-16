@@ -45,6 +45,7 @@
 #include "convert_csp.h"
 #include "qsv_prm.h"
 #include "rgy_err.h"
+#include "rgy_frame_info.h"
 #include "rgy_opencl.h"
 
 using std::vector;
