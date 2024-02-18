@@ -1606,6 +1606,7 @@ CQSVPipeline::CQSVPipeline() :
     m_sessionParams(),
     m_nProcSpeedLimit(0),
     m_taskPerfMonitor(false),
+    m_dummyLoad(),
     m_pAbortByUser(nullptr),
     m_heAbort(),
     m_DecInputBitstream(),
@@ -1721,7 +1722,7 @@ RGY_ERR CQSVPipeline::InitOutput(sInputParams *inputParams) {
         return err;
     }
     if (!m_pmfxENC) {
-        outFrameInfo->videoPrm.mfx.CodecId = 0; //エンコードしない場合は出力コーデックはraw(=0)
+        outFrameInfo->videoPrm.mfx.CodecId = MFX_CODEC_RAW; //エンコードしない場合は出力コーデックはraw(=0)
     }
     const auto outputVideoInfo = (outFrameInfo->isVppParam) ? videooutputinfo(outFrameInfo->videoPrmVpp.vpp.Out) : videooutputinfo(outFrameInfo->videoPrm.mfx, m_encParams.videoSignalInfo, m_encParams.chromaLocInfo);
     if (outputVideoInfo.codec == RGY_CODEC_RAW) {
@@ -3316,6 +3317,52 @@ RGY_ERR CQSVPipeline::InitPowerThrottoling(sInputParams *pParams) {
     return RGY_ERR_NONE;
 }
 
+RGY_ERR CQSVPipeline::InitAvoidIdleClock(const sInputParams *pParams) {
+    if (!m_cl) return RGY_ERR_NONE;
+    if (pParams->ctrl.avoidIdleClock.mode == RGYParamAvoidIdleClockMode::Disabled) {
+        PrintMes(RGY_LOG_DEBUG, _T("avoid Idle clock is disabled.\n"));
+        return RGY_ERR_NONE;
+    }
+    if (pParams->ctrl.avoidIdleClock.mode == RGYParamAvoidIdleClockMode::Auto) {
+        // OpenCLフィルタが使用されている場合
+        if (std::count_if(m_vpFilters.begin(), m_vpFilters.end(), [](const VppVilterBlock& block) { return block.type == VppFilterType::FILTER_OPENCL; }) > 0) {
+            PrintMes(RGY_LOG_DEBUG, _T("OpenCL filter is used, avoid Idle clock is disabled.\n"));
+            return RGY_ERR_NONE;
+        }
+
+        // 内蔵GPUの場合
+        if (m_device->adapterType() == MFX_MEDIA_INTEGRATED) {
+            PrintMes(RGY_LOG_DEBUG, _T("Integrated GPU is used, avoid Idle clock is disabled.\n"));
+            return RGY_ERR_NONE;
+        }
+
+        // max-procfpsを使用している場合
+        if (pParams->ctrl.procSpeedLimit > 0) {
+            PrintMes(RGY_LOG_DEBUG, _T("max-procfps is used, avoid Idle clock is disabled.\n"));
+            return RGY_ERR_NONE;
+        }
+
+        if (pParams->codec != RGY_CODEC_RAW) { // エンコードする場合
+            // PGモードが使用されている場合
+            if (m_encParams.videoPrm.mfx.LowPower != MFX_CODINGOPTION_ON) {
+                PrintMes(RGY_LOG_DEBUG, _T("PG mode is used, avoid Idle clock is disabled.\n"));
+                return RGY_ERR_NONE;
+            }
+
+            // lowlatencyモードが使用されている場合
+            if (pParams->ctrl.lowLatency) {
+                PrintMes(RGY_LOG_DEBUG, _T("low latency is used, avoid Idle clock is disabled.\n"));
+                return RGY_ERR_NONE;
+            }
+        }
+    }
+
+    PrintMes(RGY_LOG_DEBUG, _T("Enable avoid Idle clock, target load %.2f.\n"), pParams->ctrl.avoidIdleClock.loadPercent);
+    m_dummyLoad = std::make_unique<RGYDummyLoadCL>(m_cl);
+    m_dummyLoad->run(pParams->ctrl.avoidIdleClock.loadPercent, m_pQSVLog);
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR CQSVPipeline::InitLog(sInputParams *pParams) {
     //ログの初期化
     m_pQSVLog.reset(new RGYLog(pParams->ctrl.logfile.c_str(), pParams->ctrl.loglevel, pParams->ctrl.logAddTime));
@@ -3497,6 +3544,9 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
+    if ((sts = InitAvoidIdleClock(pParams)) != RGY_ERR_NONE) {
+        return sts;
+    }
     if ((sts = ResetMFXComponents(pParams)) != RGY_ERR_NONE) {
         return sts;
     }
@@ -3549,6 +3599,8 @@ void CQSVPipeline::Close() {
     //この中でフレームの解放がなされる
     PrintMes(RGY_LOG_DEBUG, _T("Clear pipeline tasks and allocated frames...\n"));
     m_pipelineTasks.clear();
+
+    m_dummyLoad.reset();
 
     PrintMes(RGY_LOG_DEBUG, _T("Closing enc status...\n"));
     m_pStatus.reset();
@@ -4281,10 +4333,16 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         PRINT_INFO(_T("GPU Info       %s\n"), gpu_info);
     }
     if (Check_HWUsed(impl)) {
+        const TCHAR *adaptorType = _T("");
+        switch (m_device->adapterType()) {
+        case MFX_MEDIA_INTEGRATED: adaptorType = _T("i"); break;
+        case MFX_MEDIA_DISCRETE: adaptorType = _T("d"); break;
+        }
         static const TCHAR * const NUM_APPENDIX[] = { _T("st"), _T("nd"), _T("rd"), _T("th")};
         mfxU32 iGPUID = GetAdapterID(m_device->mfxSession());
-        PRINT_INFO(    _T("Media SDK      QuickSyncVideo (hardware encoder)%s, %d%s GPU, API v%d.%02d\n"),
-            get_low_power_str(outFrameInfo->videoPrm.mfx.LowPower), iGPUID + 1, NUM_APPENDIX[clamp(iGPUID, 0, _countof(NUM_APPENDIX) - 1)], m_mfxVer.Major, m_mfxVer.Minor);
+        PRINT_INFO(    _T("Media SDK      QuickSyncVideo (hardware encoder)%s, %d%s GPU(%s), API v%d.%02d\n"),
+            get_low_power_str(outFrameInfo->videoPrm.mfx.LowPower), iGPUID + 1, NUM_APPENDIX[clamp(iGPUID, 0, _countof(NUM_APPENDIX) - 1)],
+            adaptorType, m_mfxVer.Major, m_mfxVer.Minor);
     } else {
         PRINT_INFO(    _T("Media SDK      software encoder, API v%d.%02d\n"), m_mfxVer.Major, m_mfxVer.Minor);
     }

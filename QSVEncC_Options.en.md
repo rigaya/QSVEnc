@@ -255,6 +255,7 @@
   - [--thread-throttling \[\<string1\>=\]\<string2\>\[#\<int\>\[:\<int\>\]\[\]...\]](#--thread-throttling-string1string2intint)
   - [--option-file \<string\>](#--option-file-string)
   - [--max-procfps \<int\>](#--max-procfps-int)
+  - [--avoid-idle-clock \<string\>\[=\<float\>\]](#--avoid-idle-clock-stringfloat)
   - [--lowlatency](#--lowlatency)
   - [--avsdll \<string\>](#--avsdll-string)
   - [--process-codepage \<string\> \[Windows OS only\]](#--process-codepage-string-windows-os-only)
@@ -2747,6 +2748,28 @@ This could be used when you want to encode multiple stream and you do not want o
   ```
   Example: Limit maximum speed to 90 fps
   --max-procfps 90
+  ```
+
+### --avoid-idle-clock &lt;string&gt;[=&lt;float&gt;]  
+Add slight light load to prevent GPU clock from going to idle clock during encoding, thus preventing significant drop in encoding speed. The option value is target dummy load percentage. Requires OpenCL.
+
+- **mode** (&lt;string&gt;)  
+  - off
+  - auto [default]
+  - on
+
+  "auto" will run this function only when some conditions which makes this function appropriate, such as "dGPU used" and "OpenCL filter unused".
+
+- **value** (&lt;int&gt;)  
+  target load to be added. Default is 0.01% utilization.
+
+- examples
+  ```
+  Example: disable this feature
+  --avoid-idle-clock off
+
+  Example: always use the feature, and change target load to 0.02%
+  --avoid-idle-clock on=0.02
   ```
 
 ### --lowlatency

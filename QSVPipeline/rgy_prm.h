@@ -42,6 +42,8 @@ static const int RGY_DEFAULT_PERF_MONITOR_INTERVAL = 500;
 static const int DEFAULT_IGNORE_DECODE_ERROR = 10;
 static const int DEFAULT_VIDEO_IGNORE_TIMESTAMP_ERROR = 10;
 
+static const float DEFAULT_DUMMY_LOAD_PERCENT = 0.01f;
+
 #if ENCODER_NVENC
 #define ENABLE_VPP_FILTER_COLORSPACE   (ENABLE_NVRTC)
 #else
@@ -1666,6 +1668,28 @@ struct RGYParamCommon {
     ~RGYParamCommon();
 };
 
+enum class RGYParamAvoidIdleClockMode {
+    Disabled,
+    Auto,
+    Force
+};
+
+const CX_DESC list_avoid_idle_clock[] = {
+    { _T("off"),  (int)RGYParamAvoidIdleClockMode::Disabled },
+    { _T("auto"), (int)RGYParamAvoidIdleClockMode::Auto     },
+    { _T("on"),   (int)RGYParamAvoidIdleClockMode::Force    },
+    { NULL, 0 }
+};
+
+struct RGYParamAvoidIdleClock {
+    RGYParamAvoidIdleClockMode mode;
+    float loadPercent;
+
+    RGYParamAvoidIdleClock();
+    bool operator==(const RGYParamAvoidIdleClock &x) const;
+    bool operator!=(const RGYParamAvoidIdleClock &x) const;
+};
+
 struct RGYParamControl {
     int threadCsp;
     RGY_SIMD simdCsp;
@@ -1691,6 +1715,7 @@ struct RGYParamControl {
     bool skipHWDecodeCheck;
     tstring avsdll;
     bool enableOpenCL;
+    RGYParamAvoidIdleClock avoidIdleClock;
 
     int outputBufSizeMB;         //出力バッファサイズ
 

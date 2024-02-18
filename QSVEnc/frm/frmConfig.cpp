@@ -1646,6 +1646,7 @@ System::Void frmConfig::LoadLangText() {
     LOAD_CLI_TEXT(fcgLBVppResize);
     LOAD_CLI_TEXT(fcgCBPsnr);
     LOAD_CLI_TEXT(fcgCBSsim);
+    LOAD_CLI_TEXT(fcgCBAvoidIdleClock);
     LOAD_CLI_TEXT(tabPageExOpt);
     LOAD_CLI_TEXT(fcgCBAuoTcfileout);
     LOAD_CLI_TEXT(fcgLBInputBufSize);
@@ -1919,6 +1920,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
 
         fcgCBSsim->Checked = prm_qsv.common.metric.ssim;
         fcgCBPsnr->Checked = prm_qsv.common.metric.psnr;
+        fcgCBAvoidIdleClock->Checked = prm_qsv.ctrl.avoidIdleClock.mode != RGYParamAvoidIdleClockMode::Disabled;
 
         //SetCXIndex(fcgCXX264Priority,        cnf->vid.priority);
         const bool enable_tc2mp4_muxer = (0 != str_has_char(sys_dat->exstg->s_mux[MUXER_TC2MP4].base_cmd));
@@ -2182,6 +2184,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
 
     prm_qsv.common.metric.ssim     = fcgCBSsim->Checked;
     prm_qsv.common.metric.psnr     = fcgCBPsnr->Checked;
+    prm_qsv.ctrl.avoidIdleClock.mode = fcgCBAvoidIdleClock->Checked ? RGYParamAvoidIdleClockMode::Auto : RGYParamAvoidIdleClockMode::Disabled;
 
     //拡張部
     const bool enable_tc2mp4_muxer = (0 != str_has_char(sys_dat->exstg->s_mux[MUXER_TC2MP4].base_cmd));
@@ -2457,6 +2460,7 @@ System::Void frmConfig::SetHelpToolTips() {
     SET_TOOL_TIP_EX(fcgCBD3DMemAlloc);
     SET_TOOL_TIP_EX(fcgCBSsim);
     SET_TOOL_TIP_EX(fcgCBPsnr);
+    SET_TOOL_TIP_EX(fcgCBAvoidIdleClock);
     SET_TOOL_TIP_EX(fcgCBOutputAud);
     SET_TOOL_TIP_EX(fcgCBOutputPicStruct);
     SET_TOOL_TIP_EX(fcgCBDeblock);

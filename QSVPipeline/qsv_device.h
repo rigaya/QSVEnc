@@ -49,6 +49,7 @@ public:
     tstring name() const;
     LUID luid();
     QSV_CPU_GEN CPUGen();
+    int adapterType();
 
     QSVDeviceNum deviceNum() const { return m_devNum; };
     MemType memType() const { return m_memType; };

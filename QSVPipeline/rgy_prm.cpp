@@ -1682,6 +1682,19 @@ RGYParamCommon::RGYParamCommon() :
 
 }
 
+RGYParamAvoidIdleClock::RGYParamAvoidIdleClock() :
+    mode(RGYParamAvoidIdleClockMode::Auto),
+    loadPercent(DEFAULT_DUMMY_LOAD_PERCENT) {
+};
+
+bool RGYParamAvoidIdleClock::operator==(const RGYParamAvoidIdleClock &x) const {
+    return mode == x.mode
+        && loadPercent == x.loadPercent;
+}
+bool RGYParamAvoidIdleClock::operator!=(const RGYParamAvoidIdleClock &x) const {
+    return !(*this == x);
+}
+
 RGYParamCommon::~RGYParamCommon() {};
 
 RGYParamControl::RGYParamControl() :
@@ -1709,7 +1722,8 @@ RGYParamControl::RGYParamControl() :
     skipHWDecodeCheck(false),
     avsdll(),
     enableOpenCL(true),
-    outputBufSizeMB(RGY_OUTPUT_BUF_MB_DEFAULT) {
+    outputBufSizeMB(RGY_OUTPUT_BUF_MB_DEFAULT),
+    avoidIdleClock() {
 
 }
 RGYParamControl::~RGYParamControl() {};

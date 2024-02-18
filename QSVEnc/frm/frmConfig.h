@@ -1233,6 +1233,7 @@ private: System::Windows::Forms::Label^  fcgLBVppDenoiseDctBlockSize;
 private: System::Windows::Forms::Label^  fcgLBVppDenoiseDctSigma;
 private: System::Windows::Forms::ComboBox^  fcgCXVppDenoiseDctStep;
 private: System::Windows::Forms::Label^  fcgLBVppDenoiseDctStep;
+private: System::Windows::Forms::CheckBox^  fcgCBAvoidIdleClock;
 
 
 
@@ -1813,6 +1814,7 @@ private: System::Windows::Forms::Label^  fcgLBVppDenoiseDctStep;
             this->fcgLBAudioPriority = (gcnew System::Windows::Forms::Label());
             this->fcgTXCmd = (gcnew System::Windows::Forms::TextBox());
             this->fcgPNHideToolStripBorder = (gcnew System::Windows::Forms::Panel());
+            this->fcgCBAvoidIdleClock = (gcnew System::Windows::Forms::CheckBox());
             this->fcgtoolStripSettings->SuspendLayout();
             this->fcgtabControlMux->SuspendLayout();
             this->fcgtabPageMP4->SuspendLayout();
@@ -5642,6 +5644,7 @@ private: System::Windows::Forms::Label^  fcgLBVppDenoiseDctStep;
             // 
             // tabPageExOpt
             // 
+            this->tabPageExOpt->Controls->Add(this->fcgCBAvoidIdleClock);
             this->tabPageExOpt->Controls->Add(this->fcgCBPsnr);
             this->tabPageExOpt->Controls->Add(this->fcgCBSsim);
             this->tabPageExOpt->Controls->Add(this->fcgCBOutputPicStruct);
@@ -6707,6 +6710,17 @@ private: System::Windows::Forms::Label^  fcgLBVppDenoiseDctStep;
             this->fcgPNHideToolStripBorder->Size = System::Drawing::Size(1020, 4);
             this->fcgPNHideToolStripBorder->TabIndex = 90;
             this->fcgPNHideToolStripBorder->Visible = false;
+            // 
+            // fcgCBAvoidIdleClock
+            // 
+            this->fcgCBAvoidIdleClock->AutoSize = true;
+            this->fcgCBAvoidIdleClock->Location = System::Drawing::Point(18, 217);
+            this->fcgCBAvoidIdleClock->Name = L"fcgCBAvoidIdleClock";
+            this->fcgCBAvoidIdleClock->Size = System::Drawing::Size(245, 18);
+            this->fcgCBAvoidIdleClock->TabIndex = 108;
+            this->fcgCBAvoidIdleClock->Tag = L"reCmd";
+            this->fcgCBAvoidIdleClock->Text = L"エンコード中、GPUがアイドルクロックになるのを防止";
+            this->fcgCBAvoidIdleClock->UseVisualStyleBackColor = true;
             // 
             // frmConfig
             // 

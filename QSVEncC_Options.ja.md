@@ -255,6 +255,7 @@
   - [--benchmark \<string\>](#--benchmark-string)
   - [--bench-quality "all" or \<int\>\[,\<int\>\]...](#--bench-quality-all-or-intint)
   - [--max-procfps \<int\>](#--max-procfps-int)
+  - [--avoid-idle-clock \<string\>\[=\<float\>\]](#--avoid-idle-clock-stringfloat)
   - [--lowlatency](#--lowlatency)
   - [--avsdll \<string\>](#--avsdll-string)
   - [--process-codepage \<string\>](#--process-codepage-string)
@@ -2810,6 +2811,28 @@ avsw/avhw読み込み時のデバッグ情報出力。
   ```
   例: 最大速度を90fpsに制限
   --max-procfps 90
+  ```
+
+### --avoid-idle-clock &lt;string&gt;[=&lt;float&gt;]  
+わずかな軽い負荷をかけ、エンコード中GPUクロックがアイドルクロックになるのを防止し、エンコード速度が大きく低下するのを防ぐ。OpenCLが必要。
+
+- **mode** (&lt;string&gt;)  
+  - off
+  - auto [default]
+  - on
+
+  "auto"は、「dGPU使用」かつ「OpenCLフィルタを使用しない」など、本機能が有効と思われるいくつかの条件を満たすときのみ本機能を動作させる。
+
+- **value** (&lt;int&gt;)  
+  省略可。目標とするダミー負荷のパーセント。値を省略した時は、0.01%程度のわずかな負荷をかける。
+
+- 使用例
+  ```
+  Example: この機能を無効に
+  --avoid-idle-clock off
+
+  Example: この機能を常に使用し、目標負荷を0.02%に変更する例
+  --avoid-idle-clock on=0.02
   ```
 
 ### --lowlatency
