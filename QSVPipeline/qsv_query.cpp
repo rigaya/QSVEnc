@@ -243,7 +243,7 @@ int GetAdapterID(MFXVideoSession *session) {
     return GetAdapterID(impl);
 }
 
-mfxVersion get_mfx_lib_version(const mfxIMPL impl, const QSVDeviceNum deviceNum) {
+mfxVersion get_mfx_lib_version(const mfxIMPL impl, const QSVDeviceNum deviceNum, const RGYParamLogLevel& loglevel) {
     if (impl == MFX_IMPL_SOFTWARE) {
         return LIB_VER_LIST[0];
     }
@@ -253,7 +253,7 @@ mfxVersion get_mfx_lib_version(const mfxIMPL impl, const QSVDeviceNum deviceNum)
         MFXVideoSession2 session;
         auto memType = HW_MEMORY;
         MFXVideoSession2Params params;
-        auto log = std::make_shared<RGYLog>(nullptr, RGY_LOG_ERROR);
+        auto log = std::make_shared<RGYLog>(nullptr, loglevel);
         auto err = InitSessionAndDevice(hwdev, session, memType, deviceNum, params, log);
         if (err == RGY_ERR_NONE) {
             mfxVersion ver;
@@ -276,7 +276,7 @@ mfxVersion get_mfx_lib_version(const mfxIMPL impl, const QSVDeviceNum deviceNum)
     if (sts != MFX_ERR_NONE) {
         return LIB_VER_LIST[0];
     }
-    auto log = std::make_shared<RGYLog>(nullptr, RGY_LOG_ERROR);
+    auto log = std::make_shared<RGYLog>(nullptr, loglevel);
 #if D3D_SURFACES_SUPPORT
 #if MFX_D3D11_SUPPORT
     if ((impl & MFX_IMPL_VIA_D3D11) == MFX_IMPL_VIA_D3D11) {
@@ -297,7 +297,7 @@ mfxVersion get_mfx_lib_version(const mfxIMPL impl, const QSVDeviceNum deviceNum)
     return (sts == MFX_ERR_NONE) ? ver : LIB_VER_LIST[0];
 }
 
-mfxVersion get_mfx_libhw_version(const QSVDeviceNum deviceNum) {
+mfxVersion get_mfx_libhw_version(const QSVDeviceNum deviceNum, const RGYParamLogLevel& loglevel) {
     static const mfxU32 impl_list[] = {
         MFX_IMPL_HARDWARE_ANY | MFX_IMPL_VIA_D3D11,
         MFX_IMPL_HARDWARE_ANY,
@@ -308,7 +308,7 @@ mfxVersion get_mfx_libhw_version(const QSVDeviceNum deviceNum) {
     //デスクトップコンポジションが切られてしまう問題が発生すると報告を頂いたので、
     //D3D11をWin8以降に限定
     for (int i = (check_OS_Win8orLater() ? 0 : 1); i < _countof(impl_list); i++) {
-        test = get_mfx_lib_version(impl_list[i], deviceNum);
+        test = get_mfx_lib_version(impl_list[i], deviceNum, loglevel);
         if (check_lib_version(test, MFX_LIB_VERSION_1_1))
             break;
     }

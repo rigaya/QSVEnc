@@ -21,6 +21,7 @@ or https://software.intel.com/en-us/media-client-solutions-support.
 
 #include "qsv_hw_va_utils_drm.h"
 #include "qsv_allocator_va.h"
+#include "rgy_filesystem.h"
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
@@ -71,10 +72,15 @@ int open_target_intel_adapter(const int type, const int targetIntelAdaptorNum, R
     int intelAdaptorCount = 0;
     for (mfxU32 i = 0; i < MFX_DRI_MAX_NODES_NUM; i++) {
         std::string curAdapterPath = adapterPath + std::to_string(nodeIndex + i);
+        log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Adaptor #%d [%s]: try open.\n"), i, char_to_tstring(curAdapterPath).c_str());
 
         const int fd = open(curAdapterPath.c_str(), O_RDWR);
         if (fd < 0) {
-            log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Adaptor #%d [%s]: Does not exist.\n"), i, char_to_tstring(curAdapterPath).c_str());
+            if (!rgy_file_exists(curAdapterPath)) {
+                log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Adaptor #%d [%s]: Does not exist.\n"), i, char_to_tstring(curAdapterPath).c_str());
+            } else {
+                log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Adaptor #%d [%s]: Failed to open.\n"), i, char_to_tstring(curAdapterPath).c_str());
+            }
             continue;
         }
 
