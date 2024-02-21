@@ -33,6 +33,7 @@
 #include "rgy_simd.h"
 #include "rgy_version.h"
 #include "convert_csp.h"
+#include "rgy_frame_info.h"
 #include "rgy_osdep.h"
 
 void copy_nv12_to_nv12_sse2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop);
