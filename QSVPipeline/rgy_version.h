@@ -62,6 +62,7 @@ const char *get_encoder_version();
 #define LIMIT_HYPER_MODE_TO_KNOWN_CODECS 1
 #define ENABLE_QSV_TUNE_QUERY 1
 #define ENABLE_AVOID_IDLE_CLOCK 1
+#define ENABLE_VPP_SMOOTH_QP_FRAME 0
 
 #if defined(_WIN32) || defined(_WIN64)
 
