@@ -116,7 +116,7 @@ public:
     const RGYFilterParam *GetFilterParam() const {
         return m_param.get();
     }
-    //virtual RGY_ERR addStreamPacket(AVPacket *pkt) { UNREFERENCED_PARAMETER(pkt); return RGY_ERR_UNSUPPORTED; };
+    virtual RGY_ERR addStreamPacket(AVPacket *pkt) { UNREFERENCED_PARAMETER(pkt); return RGY_ERR_UNSUPPORTED; };
     virtual int targetTrackIdx() { return 0; };
     virtual void setCheckPerformance(const bool check) = 0;
     double GetAvgTimeElapsed() { return (m_perfMonitor) ? m_perfMonitor->GetAvgTimeElapsed() : 0.0; }
