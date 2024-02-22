@@ -1820,7 +1820,7 @@ RGY_ERR RGYFilterColorspace::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
         prm->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
     AddMessage(RGY_LOG_DEBUG, _T("allocated output buffer: %dx%d, picth %d, %s.\n"),
-        pParam->frameOut.width, pParam->frameOut.height, pParam->frameOut.pitch, RGY_CSP_NAMES[pParam->frameOut.csp]);
+        pParam->frameOut.width, pParam->frameOut.height, pParam->frameOut.pitch[0], RGY_CSP_NAMES[pParam->frameOut.csp]);
 
     tstring filterInfo = _T("colorspace: ");
     if (crop) {
