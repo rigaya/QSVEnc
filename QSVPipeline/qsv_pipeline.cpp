@@ -249,7 +249,7 @@ bool CQSVPipeline::CompareParam(const QSVVideoParam& prmIn, const QSVVideoParam&
 
         COMPARE_INT(cop2.MaxFrameSize,    0);
         COMPARE_INT(cop2.MaxSliceSize,    0);
-        COMPARE_TRI(cop2.BitrateLimit,    0);
+        //COMPARE_TRI(cop2.BitrateLimit,    0);
         COMPARE_TRI(cop2.MBBRC,           0);
         COMPARE_TRI(cop2.ExtBRC,          0);
     }

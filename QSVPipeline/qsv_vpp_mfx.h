@@ -36,6 +36,8 @@
 #include "qsv_hw_device.h"
 #include "qsv_session.h"
 
+static const auto MFX_EXTBUFF_VPP_DENOISE_OLD = MFX_MAKEFOURCC('D','N','I','S');
+
 class QSVVppMfx {
 public:
     QSVVppMfx(CQSVHWDevice *hwdev, QSVAllocator *allocator, mfxVersion mfxVer, mfxIMPL impl, MemType memType, const MFXVideoSession2Params& sessionParams, QSVDeviceNum deviceNum, int asyncDepth, std::shared_ptr<RGYLog> log);

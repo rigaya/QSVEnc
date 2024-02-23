@@ -446,7 +446,7 @@ static inline RGYFrameInfo frameinfo_enc_to_rgy(const mfxFrameSurface1& mfx) {
     memset(info.ptr, 0, sizeof(info.ptr));
     if (mfx.Info.FourCC == MFX_FOURCC_Y410) {
         info.ptr[0] = (uint8_t *)mfx.Data.Y410;
-    } else if (mfx.Info.FourCC == MFX_FOURCC_RGB3
+    } else if (mfx.Info.FourCC == MFX_MAKEFOURCC('R','G','B','3') // MFX_FOURCC_RGB3
             || mfx.Info.FourCC == MFX_FOURCC_RGB4) {
         info.ptr[0] = (uint8_t *)(std::min)((std::min)(mfx.Data.R, mfx.Data.G), mfx.Data.B);
     } else {

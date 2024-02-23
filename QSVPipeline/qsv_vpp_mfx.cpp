@@ -37,7 +37,7 @@ static const auto MFX_EXTBUFF_VPP_TO_VPPTYPE = make_array<std::pair<uint32_t, Vp
     std::make_pair(MFX_EXTBUFF_VPP_MIRRORING,             VppType::MFX_MIRROR),
     std::make_pair(MFX_EXTBUFF_VPP_DEINTERLACING,         VppType::MFX_DEINTERLACE),
     std::make_pair(MFX_EXTBUFF_VPP_MCTF,                  VppType::MFX_MCTF),
-    std::make_pair(MFX_EXTBUFF_VPP_DENOISE,               VppType::MFX_DENOISE),
+    std::make_pair(MFX_EXTBUFF_VPP_DENOISE_OLD,           VppType::MFX_DENOISE),
     std::make_pair(MFX_EXTBUFF_VPP_DENOISE2,              VppType::MFX_DENOISE),
     std::make_pair(MFX_EXTBUFF_VPP_SCALING,               VppType::MFX_RESIZE),
     std::make_pair(MFX_EXTBUFF_VPP_DETAIL,                VppType::MFX_DETAIL_ENHANCE),
@@ -554,15 +554,15 @@ RGY_ERR QSVVppMfx::SetVppExtBuffers(sVppParams& params) {
             }
             m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_DENOISE2);
         } else {
-            INIT_MFX_EXT_BUFFER(m_ExtDenoise, MFX_EXTBUFF_VPP_DENOISE);
+            INIT_MFX_EXT_BUFFER(m_ExtDenoise, MFX_EXTBUFF_VPP_DENOISE_OLD);
             m_ExtDenoise.DenoiseFactor = (mfxU16)clamp_param_int(params.denoise.strength, QSV_VPP_DENOISE_MIN, QSV_VPP_DENOISE_MAX, _T("vpp-denoise"));
             m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtDenoise);
 
             vppExtAddMes(strsprintf(_T("Denoise, strength %d\n"), m_ExtDenoise.DenoiseFactor));
-            m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_DENOISE);
+            m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_DENOISE_OLD);
         }
     } else {
-        m_VppDoNotUseList.push_back(MFX_EXTBUFF_VPP_DENOISE);
+        m_VppDoNotUseList.push_back(MFX_EXTBUFF_VPP_DENOISE_OLD);
     }
 
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_26)) {
