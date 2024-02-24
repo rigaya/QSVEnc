@@ -271,10 +271,10 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
         }
     }
 
-    m_infoStr = strsprintf(_T("resize(%s): %dx%d -> %dx%d"),
+    setFilterInfo(strsprintf(_T("resize(%s): %dx%d -> %dx%d"),
         get_chr_from_value(list_vpp_resize, pResizeParam->interp),
         pResizeParam->frameIn.width, pResizeParam->frameIn.height,
-        pResizeParam->frameOut.width, pResizeParam->frameOut.height);
+        pResizeParam->frameOut.width, pResizeParam->frameOut.height));
 
     //コピーを保存
     m_param = pResizeParam;
