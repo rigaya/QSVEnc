@@ -232,7 +232,7 @@ const int RGYFilterNnedi::sizeNX[] = { 8, 16, 32, 48, 8, 16, 32 };
 const int RGYFilterNnedi::sizeNY[] = { 6, 6, 6, 6, 4, 4, 4 };
 const int RGYFilterNnedi::sizeNN[] = { 16, 32, 64, 128, 256 };
 
-RGYFilterNnedi::RGYFilterNnedi(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_nnedi_k0(), m_nnedi_k1(), m_weight0(), m_weight1() {
+RGYFilterNnedi::RGYFilterNnedi(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_clfp16support(), m_nnedi_k0(), m_nnedi_k1(), m_weight0(), m_weight1() {
     m_name = _T("nnedi");
 }
 
@@ -326,9 +326,6 @@ RGY_ERR RGYFilterNnedi::initParams(const std::shared_ptr<RGYFilterParamNnedi> pr
     auto weights = readWeights(prm->nnedi.weightfile, prm->hModule);
     if (!weights) {
         return RGY_ERR_INVALID_PARAM;
-    }
-    if (prm->nnedi.precision == VPP_FP_PRECISION_AUTO) {
-        prm->nnedi.precision = VPP_FP_PRECISION_FP32;
     }
 
     const int weight1size = prm->nnedi.nns * 2 * (sizeNX[prm->nnedi.nsize] * sizeNY[prm->nnedi.nsize] + 1);
@@ -578,8 +575,19 @@ RGY_ERR RGYFilterNnedi::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+    if (prm->nnedi.precision == VPP_FP_PRECISION_AUTO) {
+        prm->nnedi.precision = VPP_FP_PRECISION_FP32;
+    }
+    if (!m_clfp16support.has_value()) {
+        m_clfp16support = RGYOpenCLDevice(m_cl->queue().devid()).checkExtension("cl_khr_fp16");
+    }
+    if (prm->nnedi.precision == VPP_FP_PRECISION_FP16 && !m_clfp16support.value_or(false)) {
+        AddMessage(RGY_LOG_WARN, _T("fp16 not supported on this device, switching to fp32 mode.\n"));
+        prm->nnedi.precision = VPP_FP_PRECISION_FP32;
+    }
     auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamNnedi>(m_param);
-    if (   !m_nnedi_k0.get()
+    if (!prmPrev
+        || !m_nnedi_k0.get()
         || !m_nnedi_k1.get()
         || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]
         || prmPrev->nnedi != prm->nnedi
@@ -589,11 +597,6 @@ RGY_ERR RGYFilterNnedi::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
         }
         if ((sts = initParams(prm)) != RGY_ERR_NONE) {
             return sts;
-        }
-        const auto cl_fp16_support = RGYOpenCLDevice(m_cl->queue().devid()).checkExtension("cl_khr_fp16");
-        if (prm->nnedi.precision == VPP_FP_PRECISION_FP16 && !cl_fp16_support) {
-            AddMessage(RGY_LOG_WARN, _T("fp16 not supported on this device, switching to fp32 mode.\n"));
-            prm->nnedi.precision = VPP_FP_PRECISION_FP32;
         }
         const auto sub_group_ext_avail = m_cl->platform()->checkSubGroupSupport(m_cl->queue().devid());
         std::string clversionRequired;
@@ -861,5 +864,4 @@ void RGYFilterNnedi::close() {
     m_nnedi_k0.clear();
     m_nnedi_k1.clear();
     m_cl.reset();
-    m_bInterlacedWarn = false;
 }

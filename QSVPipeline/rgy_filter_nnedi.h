@@ -29,6 +29,7 @@
 #include "rgy_filter_cl.h"
 #include "rgy_prm.h"
 #include <array>
+#include <optional>
 
 enum NnediTargetField {
     NNEDI_GEN_FIELD_UNKNOWN = -1,
@@ -76,7 +77,7 @@ protected:
     virtual RGY_ERR procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, const NnediTargetField targetField, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     virtual RGY_ERR procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const NnediTargetField targetField, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
 
-    bool m_bInterlacedWarn;
+    std::optional<bool> m_clfp16support;
     RGYOpenCLProgramAsync m_nnedi_k0;
     RGYOpenCLProgramAsync m_nnedi_k1;
     std::unique_ptr<RGYCLBuf> m_weight0;
