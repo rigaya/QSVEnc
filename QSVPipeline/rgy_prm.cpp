@@ -1407,6 +1407,32 @@ tstring VppDeband::print() const {
         randEachFrame ? _T("yes") : _T("no"));
 }
 
+VppFruc::VppFruc() :
+    enable(false),
+    mode(VppFrucMode::Disabled),
+    targetFps() {
+
+}
+
+bool VppFruc::operator==(const VppFruc &x) const {
+    return enable == x.enable
+        && mode == x.mode
+        && targetFps == x.targetFps;
+}
+bool VppFruc::operator!=(const VppFruc &x) const {
+    return !(*this == x);
+}
+
+tstring VppFruc::print() const {
+    if (mode == VppFrucMode::NVOFFRUCx2) {
+        return _T("nvof-fruc: double frames");
+    } else if (mode == VppFrucMode::NVOFFRUCFps) {
+        return strsprintf(_T("nvof-fruc: %.3f(%d/%d) fps"), targetFps.qdouble(), targetFps.n(), targetFps.d());
+    } else {
+        return _T("Unknown");
+    }
+}
+
 RGYParamVpp::RGYParamVpp() :
     filterOrder(),
     resize_algo(RGY_VPP_RESIZE_AUTO),
@@ -1435,6 +1461,7 @@ RGYParamVpp::RGYParamVpp() :
     transform(),
     deband(),
     overlay(),
+    fruc(),
     checkPerformance(false) {
 
 }
