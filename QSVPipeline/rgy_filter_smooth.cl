@@ -263,7 +263,7 @@ __kernel void kernel_smooth(
 
     for (int local_by = 0; local_by <= SPP_LOOP_COUNT_BLOCK; local_by++, global_by++) {
         const TypeQP qp = *(__global TypeQP *)(ptrQP + min(global_by >> qpBlockShift, qpHeight) * qpPitch + min(global_bx >> qpBlockShift, qpWidth) * sizeof(TypeQP));
-        const TypeDct threshold = (TypeDct)((1.0f / (8.0f * (float)(1<<bit_depth))) * (calcThreshold((float)qp * qpMul, threshA, threshB) * ((float)(1 << 2) + strength) - 1.0f));
+        const TypeDct threshold = (TypeDct)((1.0f / (8.0f * (float)(1<<8 /*閾値は8bitベースで対象は規格化済み*/))) * (calcThreshold((float)qp * qpMul, threshA, threshB) * ((float)(1 << 2) + strength) - 1.0f));
 
         load_8x8(shared_in, texSrc, thWorker, local_bx, local_by+1, global_bx - 1, global_by);
         zero_8x8(shared_out, thWorker, local_bx, local_by+1);
