@@ -1584,7 +1584,7 @@ CQSVPipeline::CQSVPipeline() :
     m_poolPkt(),
     m_poolFrame(),
     m_nAsyncDepth(0),
-    m_nAVSyncMode(RGY_AVSYNC_ASSUME_CFR),
+    m_nAVSyncMode(RGY_AVSYNC_AUTO),
     m_timestampPassThrough(false),
     m_encParams(MFX_LIB_VERSION_0_0),
     m_mfxDEC(),
@@ -3667,7 +3667,7 @@ void CQSVPipeline::Close() {
     m_sessionParams.threads = 0;
     m_sessionParams.deviceCopy = false;
     m_pAbortByUser = nullptr;
-    m_nAVSyncMode = RGY_AVSYNC_ASSUME_CFR;
+    m_nAVSyncMode = RGY_AVSYNC_AUTO;
     m_nProcSpeedLimit = 0;
     m_taskPerfMonitor = false;
 #if ENABLE_AVSW_READER

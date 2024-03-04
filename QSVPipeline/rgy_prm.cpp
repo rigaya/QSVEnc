@@ -1672,7 +1672,7 @@ RGYParamCommon::RGYParamCommon() :
     outReplayCodec(RGY_CODEC_UNKNOWN),
     chapterFile(),
     AVInputFormat(nullptr),
-    AVSyncMode(RGY_AVSYNC_ASSUME_CFR),     //avsyncの方法 (RGY_AVSYNC_xxx)
+    AVSyncMode(RGY_AVSYNC_AUTO),     //avsyncの方法 (RGY_AVSYNC_xxx)
     timestampPassThrough(false),
     timecode(false),
     timecodeFile(),
