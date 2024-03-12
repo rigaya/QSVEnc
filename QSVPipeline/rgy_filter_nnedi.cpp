@@ -745,6 +745,7 @@ RGY_ERR RGYFilterNnedi::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
     for (int i = 0; i < RGY_CSP_PLANES[m_frameBuf[0]->frame.csp]; i++) {
         prm->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
+    m_pathThrough &= (~(FILTER_PATHTHROUGH_PICSTRUCT));
 
     //コピーを保存
     setFilterInfo(prm->print());
