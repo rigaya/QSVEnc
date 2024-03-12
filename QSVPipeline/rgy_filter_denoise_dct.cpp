@@ -38,6 +38,8 @@
 
 #define DENOISE_LOOP_COUNT_BLOCK (8)
 
+#define DCT_IDCT_BARRIER (1)
+
 RGY_ERR RGYFilterDenoiseDct::denoiseDct(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue) {
     auto prm = std::dynamic_pointer_cast<RGYFilterParamDenoiseDct>(m_param);
     if (!prm) {
@@ -91,7 +93,7 @@ RGY_ERR RGYFilterDenoiseDct::colorDecorrelation(RGYFrameInfo *pOutputFrame, cons
     }
     {
         const char *kernel_name = "kernel_color_decorrelation";
-        RGYWorkSize local(64, 8);
+        RGYWorkSize local(64, 4);
         RGYWorkSize global(planeInputR.width, planeInputR.height);
         auto err = m_dct.get()->kernel(kernel_name).config(queue, local, global).launch(
             (cl_mem)planeOutputR.ptr[0], (cl_mem)planeOutputG.ptr[0], (cl_mem)planeOutputB.ptr[0], planeOutputR.pitch[0],
@@ -126,7 +128,7 @@ RGY_ERR RGYFilterDenoiseDct::colorCorrelation(RGYFrameInfo *pOutputFrame, const 
     }
     {
         const char *kernel_name = "kernel_color_correlation";
-        RGYWorkSize local(64, 8);
+        RGYWorkSize local(64, 4);
         RGYWorkSize global(planeInputR.width, planeInputR.height);
         auto err = m_dct.get()->kernel(kernel_name).config(queue, local, global).launch(
             (cl_mem)planeOutputR.ptr[0], (cl_mem)planeOutputG.ptr[0], (cl_mem)planeOutputB.ptr[0], planeOutputR.pitch[0],
@@ -289,9 +291,9 @@ RGY_ERR RGYFilterDenoiseDct::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
             }
         }
         const auto options = strsprintf("-D TypePixel=float -D bit_depth=32 -D TypeTmp=float -D BLOCK_SIZE=%d -D STEP=%d"
-            " -D DENOISE_BLOCK_SIZE_X=%d -D DENOISE_SHARED_BLOCK_NUM_X=%d -D DENOISE_SHARED_BLOCK_NUM_Y=%d -D DENOISE_LOOP_COUNT_BLOCK=%d",
+            " -D DENOISE_BLOCK_SIZE_X=%d -D DENOISE_SHARED_BLOCK_NUM_X=%d -D DENOISE_SHARED_BLOCK_NUM_Y=%d -D DENOISE_LOOP_COUNT_BLOCK=%d -D DCT_IDCT_BARRIER=%d",
             prm->dct.block_size, prm->dct.step,
-            DENOISE_BLOCK_SIZE_X, DENOISE_SHARED_BLOCK_NUM_X, DENOISE_SHARED_BLOCK_NUM_Y, DENOISE_LOOP_COUNT_BLOCK);
+            DENOISE_BLOCK_SIZE_X, DENOISE_SHARED_BLOCK_NUM_X, DENOISE_SHARED_BLOCK_NUM_Y, DENOISE_LOOP_COUNT_BLOCK, DCT_IDCT_BARRIER);
         m_dct.set(m_cl->buildResourceAsync(_T("RGY_FILTER_DENOISE_DCT_CL"), _T("EXE_DATA"), options.c_str()));
 
         auto err = AllocFrameBuf(prm->frameOut, 1);

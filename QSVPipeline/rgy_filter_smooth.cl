@@ -117,6 +117,7 @@ void CUDAsubroutineInplaceIDCTvector(__local TypeDct *Vect0, const int Step) {
 //こうしたバリアには全スレッドが通るようにしないとRX5500などでは正常に動作しない (他の箇所でbarrierしても意味がない)
 //なので、計算の有無はenableフラグで切り替える
 void dct8x8(bool enable, __local TypeDct shared_tmp[8][9], int thWorker) {
+    if (DCT_IDCT_BARRIER) barrier(CLK_LOCAL_MEM_FENCE);
     if (enable) CUDAsubroutineInplaceDCTvector((__local TypeDct *)&shared_tmp[thWorker][0], 1); // row
     if (DCT_IDCT_BARRIER) barrier(CLK_LOCAL_MEM_FENCE);
     if (enable) CUDAsubroutineInplaceDCTvector((__local TypeDct *)&shared_tmp[0][thWorker], 9); // column
@@ -124,6 +125,7 @@ void dct8x8(bool enable, __local TypeDct shared_tmp[8][9], int thWorker) {
 }
 
 void idct8x8(bool enable, __local TypeDct shared_tmp[8][9], int thWorker) {
+    if (DCT_IDCT_BARRIER) barrier(CLK_LOCAL_MEM_FENCE);
     if (enable) CUDAsubroutineInplaceIDCTvector((__local TypeDct *)&shared_tmp[0][thWorker], 9); // column
     if (DCT_IDCT_BARRIER) barrier(CLK_LOCAL_MEM_FENCE);
     if (enable) CUDAsubroutineInplaceIDCTvector((__local TypeDct *)&shared_tmp[thWorker][0], 1); // row

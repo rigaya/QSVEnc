@@ -7,6 +7,7 @@
 // DENOISE_SHARED_BLOCK_NUM_X
 // DENOISE_SHARED_BLOCK_NUM_Y
 // DENOISE_LOOP_COUNT_BLOCK
+// DCT_IDCT_BARRIER
 
 //#define DENOISE_BLOCK_SIZE_X (8) //ひとつのスレッドブロックの担当するx方向の8x8ブロックの数
 //
@@ -322,25 +323,37 @@ void  CUDAsubroutineInplaceIDCT16vector(__local TypeTmp *Vect00, const int Step)
     (*Vect15) = 0.176776695296637f * (x1d + x1f) - 0.25f*x1e;
 }
 
-void dctBlock(__local TypeTmp shared_tmp[BLOCK_SIZE][BLOCK_SIZE + 1], const int thWorker) {
+//こうしたバリアには全スレッドが通るようにしないとRX5500などでは正常に動作しない (他の箇所でbarrierしても意味がない)
+//なので、計算の有無はenableフラグで切り替える
+void dctBlock(const bool enable, __local TypeTmp shared_tmp[BLOCK_SIZE][BLOCK_SIZE + 1], const int thWorker) {
     //static_assert(BLOCK_SIZE == 8 || BLOCK_SIZE == 16, "BLOCK_SIZE must be 8 or 16");
     if (BLOCK_SIZE == 8) {
-        CUDAsubroutineInplaceDCT8vector((__local TypeTmp *)&shared_tmp[thWorker][0], 1); // row
-        CUDAsubroutineInplaceDCT8vector((__local TypeTmp *)&shared_tmp[0][thWorker], BLOCK_SIZE + 1); // column
+        if (enable) CUDAsubroutineInplaceDCT8vector((__local TypeTmp *)&shared_tmp[thWorker][0], 1); // row
+        if (DCT_IDCT_BARRIER) barrier(CLK_LOCAL_MEM_FENCE);
+        if (enable) CUDAsubroutineInplaceDCT8vector((__local TypeTmp *)&shared_tmp[0][thWorker], BLOCK_SIZE + 1); // column
+        if (DCT_IDCT_BARRIER) barrier(CLK_LOCAL_MEM_FENCE);
     } else if (BLOCK_SIZE == 16) {
-        CUDAsubroutineInplaceDCT16vector((__local TypeTmp *)&shared_tmp[thWorker][0], 1); // row
-        CUDAsubroutineInplaceDCT16vector((__local TypeTmp *)&shared_tmp[0][thWorker], BLOCK_SIZE + 1); // column
+        if (enable) CUDAsubroutineInplaceDCT16vector((__local TypeTmp *)&shared_tmp[thWorker][0], 1); // row
+        if (DCT_IDCT_BARRIER) barrier(CLK_LOCAL_MEM_FENCE);
+        if (enable) CUDAsubroutineInplaceDCT16vector((__local TypeTmp *)&shared_tmp[0][thWorker], BLOCK_SIZE + 1); // column
+        if (DCT_IDCT_BARRIER) barrier(CLK_LOCAL_MEM_FENCE);
     }
 }
 
-void idctBlock(__local TypeTmp shared_tmp[BLOCK_SIZE][BLOCK_SIZE + 1], const int thWorker) {
+void idctBlock(const bool enable, __local TypeTmp shared_tmp[BLOCK_SIZE][BLOCK_SIZE + 1], const int thWorker) {
     //static_assert(BLOCK_SIZE == 8 || BLOCK_SIZE == 16, "BLOCK_SIZE must be 8 or 16");
     if (BLOCK_SIZE == 8) {
-        CUDAsubroutineInplaceIDCT8vector((__local TypeTmp *)&shared_tmp[0][thWorker], BLOCK_SIZE + 1); // column
-        CUDAsubroutineInplaceIDCT8vector((__local TypeTmp *)&shared_tmp[thWorker][0], 1); // row
+        if (DCT_IDCT_BARRIER) barrier(CLK_LOCAL_MEM_FENCE);
+        if (enable) CUDAsubroutineInplaceIDCT8vector((__local TypeTmp *)&shared_tmp[0][thWorker], BLOCK_SIZE + 1); // column
+        if (DCT_IDCT_BARRIER) barrier(CLK_LOCAL_MEM_FENCE);
+        if (enable) CUDAsubroutineInplaceIDCT8vector((__local TypeTmp *)&shared_tmp[thWorker][0], 1); // row
+        if (DCT_IDCT_BARRIER) barrier(CLK_LOCAL_MEM_FENCE);
     } else if (BLOCK_SIZE == 16) {
-        CUDAsubroutineInplaceIDCT16vector((__local TypeTmp *)&shared_tmp[0][thWorker], BLOCK_SIZE + 1); // column
-        CUDAsubroutineInplaceIDCT16vector((__local TypeTmp *)&shared_tmp[thWorker][0], 1); // row
+        if (DCT_IDCT_BARRIER) barrier(CLK_LOCAL_MEM_FENCE);
+        if (enable) CUDAsubroutineInplaceIDCT16vector((__local TypeTmp *)&shared_tmp[0][thWorker], BLOCK_SIZE + 1); // column
+        if (DCT_IDCT_BARRIER) barrier(CLK_LOCAL_MEM_FENCE);
+        if (enable) CUDAsubroutineInplaceIDCT16vector((__local TypeTmp *)&shared_tmp[thWorker][0], 1); // row
+        if (DCT_IDCT_BARRIER) barrier(CLK_LOCAL_MEM_FENCE);
     }
 }
 
@@ -431,6 +444,7 @@ void directAddBlock(
 }
 
 void filter_block(
+    const bool enable,
     const __global char *const __restrict__ ptrSrc, const int srcPitch,
     SHARED_TMP,
     SHARED_OUT,
@@ -440,13 +454,13 @@ void filter_block(
     const int width, const int height,
     const float threshold) {
 #if 1
-    loadBlocktmp(shared_tmp, local_bx, thWorker, ptrSrc, srcPitch, block_x, block_y, width, height);
-    dctBlock(shared_tmp[local_bx], thWorker);
+    if (enable) loadBlocktmp(shared_tmp, local_bx, thWorker, ptrSrc, srcPitch, block_x, block_y, width, height);
+    dctBlock(enable, shared_tmp[local_bx], thWorker);
     thresholdBlock(shared_tmp[local_bx], thWorker, threshold);
-    idctBlock(shared_tmp[local_bx], thWorker);
-    addBlocktmp(shared_out, shared_block_x, shared_block_y, shared_tmp, local_bx, thWorker);
+    idctBlock(enable, shared_tmp[local_bx], thWorker);
+    if (enable) addBlocktmp(shared_out, shared_block_x, shared_block_y, shared_tmp, local_bx, thWorker);
 #else
-    directAddBlock(shared_out, shared_block_x, shared_block_y, thWorker, ptrSrc, srcPitch, block_x, block_y, width, height);
+    if (enable) directAddBlock(shared_out, shared_block_x, shared_block_y, thWorker, ptrSrc, srcPitch, block_x, block_y, width, height);
 #endif
 }
 
@@ -490,8 +504,8 @@ __kernel void kernel_denoise_dct(
     SHARED_TMP;
     SHARED_OUT;
 
-    #define FILTER_BLOCK(SHARED_X, SHARED_Y, X, Y) \
-        { filter_block(ptrSrc, srcPitch, shared_tmp, shared_out, local_bx, thWorker, (SHARED_X), (SHARED_Y), (X), (Y), width, height, threshold); }
+    #define FILTER_BLOCK(enable, SHARED_X, SHARED_Y, X, Y) \
+        { filter_block((enable), ptrSrc, srcPitch, shared_tmp, shared_out, local_bx, thWorker, (SHARED_X), (SHARED_Y), (X), (Y), width, height, threshold); }
 
     { // SHARED_OUTの初期化
         clearSharedOut(shared_out, local_bx, thWorker);
@@ -505,10 +519,10 @@ __kernel void kernel_denoise_dct(
             for (int ix_loop = 0; ix_loop < BLOCK_SIZE; ix_loop += STEP) {
                 const int x = block_x + ix_loop;
                 const int shared_x = local_bx * BLOCK_SIZE + ix_loop;
-                if (local_bx < 1) { // x方向の事前計算
-                    FILTER_BLOCK(shared_x, shared_y, x - BLOCK_SIZE, y);
+                { // local_bx < 1 のときのみ実行、enable引数で切りかえる
+                    FILTER_BLOCK(local_bx < 1, shared_x, shared_y, x - BLOCK_SIZE, y); // x方向の事前計算
                 }
-                FILTER_BLOCK(shared_x + BLOCK_SIZE, shared_y, x, y);
+                FILTER_BLOCK(true, shared_x + BLOCK_SIZE, shared_y, x, y);
                 barrier(CLK_LOCAL_MEM_FENCE);
             }
         }
@@ -521,10 +535,10 @@ __kernel void kernel_denoise_dct(
             for (int ix_loop = 0; ix_loop < BLOCK_SIZE; ix_loop += STEP) {
                 const int x = block_x + ix_loop;
                 const int shared_x = local_bx * BLOCK_SIZE + ix_loop;
-                if (local_bx < 1) { // x方向の事前計算
-                    FILTER_BLOCK(shared_x, shared_y, x - BLOCK_SIZE, y);
+                { // local_bx < 1 のときのみ実行、enable引数で切りかえる
+                    FILTER_BLOCK(local_bx < 1, shared_x, shared_y, x - BLOCK_SIZE, y);
                 }
-                FILTER_BLOCK(shared_x + BLOCK_SIZE, shared_y, x, y);
+                FILTER_BLOCK(true, shared_x + BLOCK_SIZE, shared_y, x, y);
                 barrier(CLK_LOCAL_MEM_FENCE);
             }
             for (int iy = 0; iy < STEP; iy++) {
