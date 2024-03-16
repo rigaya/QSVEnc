@@ -884,7 +884,7 @@ private: System::Windows::Forms::Label^  fcgLBBatBeforeAudioPath;
 private: System::Windows::Forms::CheckBox^  fcgCBRunBatBeforeAudio;
 private: System::Windows::Forms::ComboBox^  fcgCXAudioPriority;
 private: System::Windows::Forms::Label^  fcgLBAudioPriority;
-private: System::Windows::Forms::CheckBox^  fcgCBFixedFunc;
+
 private: System::Windows::Forms::CheckBox^  fcgCBWeightB;
 private: System::Windows::Forms::CheckBox^  fcgCBWeightP;
 private: System::Windows::Forms::CheckBox^  fcgCBFadeDetect;
@@ -1234,6 +1234,7 @@ private: System::Windows::Forms::Label^  fcgLBVppDenoiseDctSigma;
 private: System::Windows::Forms::ComboBox^  fcgCXVppDenoiseDctStep;
 private: System::Windows::Forms::Label^  fcgLBVppDenoiseDctStep;
 private: System::Windows::Forms::CheckBox^  fcgCBAvoidIdleClock;
+private: System::Windows::Forms::ComboBox^  fcgCXFunctionMode;
 
 
 
@@ -1451,6 +1452,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBAvoidIdleClock;
             this->fcgTTEx = (gcnew System::Windows::Forms::ToolTip(this->components));
             this->fcgtabControlQSV = (gcnew System::Windows::Forms::TabControl());
             this->tabPageVideoEnc = (gcnew System::Windows::Forms::TabPage());
+            this->fcgCXFunctionMode = (gcnew System::Windows::Forms::ComboBox());
             this->fcgCXScenarioInfo = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBScenarioInfo = (gcnew System::Windows::Forms::Label());
             this->fcgCXBitDepth = (gcnew System::Windows::Forms::ComboBox());
@@ -1476,7 +1478,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBAvoidIdleClock;
             this->fcgCBFadeDetect = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCBWeightB = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCBWeightP = (gcnew System::Windows::Forms::CheckBox());
-            this->fcgCBFixedFunc = (gcnew System::Windows::Forms::CheckBox());
             this->fcgLBWinBRCSizeAuto = (gcnew System::Windows::Forms::Label());
             this->fcgNUWinBRCSize = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgLBWinBRCSize = (gcnew System::Windows::Forms::Label());
@@ -1719,6 +1720,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBAvoidIdleClock;
             this->fcgLBRotate = (gcnew System::Windows::Forms::Label());
             this->fcgCXImageStabilizer = (gcnew System::Windows::Forms::ComboBox());
             this->tabPageExOpt = (gcnew System::Windows::Forms::TabPage());
+            this->fcgCBAvoidIdleClock = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCBPsnr = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCBSsim = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCBOutputPicStruct = (gcnew System::Windows::Forms::CheckBox());
@@ -1814,7 +1816,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBAvoidIdleClock;
             this->fcgLBAudioPriority = (gcnew System::Windows::Forms::Label());
             this->fcgTXCmd = (gcnew System::Windows::Forms::TextBox());
             this->fcgPNHideToolStripBorder = (gcnew System::Windows::Forms::Panel());
-            this->fcgCBAvoidIdleClock = (gcnew System::Windows::Forms::CheckBox());
             this->fcgtoolStripSettings->SuspendLayout();
             this->fcgtabControlMux->SuspendLayout();
             this->fcgtabPageMP4->SuspendLayout();
@@ -2762,6 +2763,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBAvoidIdleClock;
             // 
             // tabPageVideoEnc
             // 
+            this->tabPageVideoEnc->Controls->Add(this->fcgCXFunctionMode);
             this->tabPageVideoEnc->Controls->Add(this->fcgCXScenarioInfo);
             this->tabPageVideoEnc->Controls->Add(this->fcgLBScenarioInfo);
             this->tabPageVideoEnc->Controls->Add(this->fcgCXBitDepth);
@@ -2781,7 +2783,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBAvoidIdleClock;
             this->tabPageVideoEnc->Controls->Add(this->fcgCBFadeDetect);
             this->tabPageVideoEnc->Controls->Add(this->fcgCBWeightB);
             this->tabPageVideoEnc->Controls->Add(this->fcgCBWeightP);
-            this->tabPageVideoEnc->Controls->Add(this->fcgCBFixedFunc);
             this->tabPageVideoEnc->Controls->Add(this->fcgLBWinBRCSizeAuto);
             this->tabPageVideoEnc->Controls->Add(this->fcgNUWinBRCSize);
             this->tabPageVideoEnc->Controls->Add(this->fcgLBWinBRCSize);
@@ -2843,6 +2844,17 @@ private: System::Windows::Forms::CheckBox^  fcgCBAvoidIdleClock;
             this->tabPageVideoEnc->TabIndex = 0;
             this->tabPageVideoEnc->Text = L"動画エンコード";
             this->tabPageVideoEnc->UseVisualStyleBackColor = true;
+            // 
+            // fcgCXFunctionMode
+            // 
+            this->fcgCXFunctionMode->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXFunctionMode->FormattingEnabled = true;
+            this->fcgCXFunctionMode->Location = System::Drawing::Point(210, 71);
+            this->fcgCXFunctionMode->Name = L"fcgCXFunctionMode";
+            this->fcgCXFunctionMode->Size = System::Drawing::Size(79, 22);
+            this->fcgCXFunctionMode->TabIndex = 186;
+            this->fcgCXFunctionMode->Tag = L"reCmd";
+            this->fcgCXFunctionMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgCXFunctionMode_CheckedChanged);
             // 
             // fcgCXScenarioInfo
             // 
@@ -3102,18 +3114,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBAvoidIdleClock;
             this->fcgCBWeightP->Tag = L"reCmd";
             this->fcgCBWeightP->Text = L"重み付きPフレーム";
             this->fcgCBWeightP->UseVisualStyleBackColor = true;
-            // 
-            // fcgCBFixedFunc
-            // 
-            this->fcgCBFixedFunc->AutoSize = true;
-            this->fcgCBFixedFunc->Location = System::Drawing::Point(233, 72);
-            this->fcgCBFixedFunc->Name = L"fcgCBFixedFunc";
-            this->fcgCBFixedFunc->Size = System::Drawing::Size(80, 18);
-            this->fcgCBFixedFunc->TabIndex = 6;
-            this->fcgCBFixedFunc->Tag = L"reCmd";
-            this->fcgCBFixedFunc->Text = L"FixedFunc";
-            this->fcgCBFixedFunc->UseVisualStyleBackColor = true;
-            this->fcgCBFixedFunc->CheckedChanged += gcnew System::EventHandler(this, &frmConfig::fcgCBFixedFunc_CheckedChanged);
             // 
             // fcgLBWinBRCSizeAuto
             // 
@@ -5669,6 +5669,17 @@ private: System::Windows::Forms::CheckBox^  fcgCBAvoidIdleClock;
             this->tabPageExOpt->Text = L"その他";
             this->tabPageExOpt->UseVisualStyleBackColor = true;
             // 
+            // fcgCBAvoidIdleClock
+            // 
+            this->fcgCBAvoidIdleClock->AutoSize = true;
+            this->fcgCBAvoidIdleClock->Location = System::Drawing::Point(18, 217);
+            this->fcgCBAvoidIdleClock->Name = L"fcgCBAvoidIdleClock";
+            this->fcgCBAvoidIdleClock->Size = System::Drawing::Size(245, 18);
+            this->fcgCBAvoidIdleClock->TabIndex = 108;
+            this->fcgCBAvoidIdleClock->Tag = L"reCmd";
+            this->fcgCBAvoidIdleClock->Text = L"エンコード中、GPUがアイドルクロックになるのを防止";
+            this->fcgCBAvoidIdleClock->UseVisualStyleBackColor = true;
+            // 
             // fcgCBPsnr
             // 
             this->fcgCBPsnr->AutoSize = true;
@@ -6711,17 +6722,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBAvoidIdleClock;
             this->fcgPNHideToolStripBorder->TabIndex = 90;
             this->fcgPNHideToolStripBorder->Visible = false;
             // 
-            // fcgCBAvoidIdleClock
-            // 
-            this->fcgCBAvoidIdleClock->AutoSize = true;
-            this->fcgCBAvoidIdleClock->Location = System::Drawing::Point(18, 217);
-            this->fcgCBAvoidIdleClock->Name = L"fcgCBAvoidIdleClock";
-            this->fcgCBAvoidIdleClock->Size = System::Drawing::Size(245, 18);
-            this->fcgCBAvoidIdleClock->TabIndex = 108;
-            this->fcgCBAvoidIdleClock->Tag = L"reCmd";
-            this->fcgCBAvoidIdleClock->Text = L"エンコード中、GPUがアイドルクロックになるのを防止";
-            this->fcgCBAvoidIdleClock->UseVisualStyleBackColor = true;
-            // 
             // frmConfig
             // 
             this->AutoScaleDimensions = System::Drawing::SizeF(96, 96);
@@ -6971,7 +6971,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBAvoidIdleClock;
         System::String^ FrmToConf(CONF_GUIEX *cnf);
         System::Void SetChangedEvent(Control^ control, System::EventHandler^ _event);
         System::Void fcgCXOutputType_SelectedIndexChanged(System::Object^  sender, System::EventArgs^  e);
-        System::Void fcgCBFixedFunc_CheckedChanged(System::Object^  sender, System::EventArgs^  e);
+        System::Void fcgCXFunctionMode_CheckedChanged(System::Object^  sender, System::EventArgs^  e);
         System::Void fcgCXDevice_SelectedIndexChanged(System::Object^  sender, System::EventArgs^  e);
         System::Void fcgDevOutputTypeFFPGChanged(System::Object^  sender, System::EventArgs^  e);
         System::Void SetAllCheckChangedEvents(Control ^top);

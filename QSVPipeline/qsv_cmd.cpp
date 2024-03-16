@@ -1268,12 +1268,18 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     //    pParams->rcParam.avbrAccuarcy = (mfxU16)(accuracy * 10 + 0.5);
     //    return 0;
     //}
-    else if (0 == _tcscmp(option_name, _T("fixed-func"))) {
-        pParams->bUseFixedFunc = true;
+    if (0 == _tcscmp(option_name, _T("fixed-func"))) {
+        pParams->functionMode = QSVFunctionMode::FF;
         return 0;
     }
-    if (0 == _tcscmp(option_name, _T("no-fixed-func"))) {
-        pParams->bUseFixedFunc = false;
+    if (0 == _tcscmp(option_name, _T("function-mode"))) {
+        i++;
+        int v = 0;
+        if ((v = get_value_from_chr(list_qsv_function_mode, strInput[i])) == PARSE_ERROR_FLAG) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        pParams->functionMode = (QSVFunctionMode)v;
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("hyper-mode"))) {
@@ -2175,7 +2181,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
         } \
     }
 
-#define OPT_LST(str, opt, list) if ((pParams->opt) != (encPrmDefault.opt)) cmd << _T(" ") << (str) << _T(" ") << get_chr_from_value(list, (pParams->opt));
+#define OPT_LST(str, opt, list) if ((pParams->opt) != (encPrmDefault.opt)) cmd << _T(" ") << (str) << _T(" ") << get_chr_from_value(list, decltype(list[0].value)(pParams->opt));
 #define OPT_QP(str, qp, force) { \
     if ((force) \
     || (pParams->qp.qpI) != (encPrmDefault.qp.qpI) \
@@ -2211,7 +2217,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     OPT_LST(_T("--output-csp"), outputCsp, list_output_csp);
 
     OPT_LST(_T("--quality"), nTargetUsage, list_quality_for_option);
-    OPT_BOOL(_T("--fixed-func"), _T("--no-fixed-func"), bUseFixedFunc);
+    OPT_LST(_T("--function-mode"), functionMode, list_qsv_function_mode);
     OPT_LST(_T("--hyper-mode"), hyperMode, list_hyper_mode);
     OPT_NUM(_T("--async-depth"), nAsyncDepth);
     if (save_disabled_prm || ((pParams->memType) != (encPrmDefault.memType))) {

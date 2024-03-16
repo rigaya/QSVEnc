@@ -222,6 +222,12 @@ struct QSVRCParam {
 };
 tstring printParams(const std::vector<QSVRCParam> &dynamicRC);
 
+enum class QSVFunctionMode {
+    Auto,
+    PG,
+    FF,
+};
+
 struct sInputParams {
     VideoInfo input;              //入力する動画の情報
     RGYParamInput inprm;
@@ -299,7 +305,7 @@ struct sInputParams {
     int        nMVCostScaling;
     std::optional<bool> bDirectBiasAdjust;
     bool       bGlobalMotionAdjust;
-    bool       bUseFixedFunc;
+    QSVFunctionMode functionMode;
     bool       gpuCopy;
 
     int        nSessionThreads;
@@ -646,6 +652,13 @@ const CX_DESC list_priority[] = {
     { _T("low"),    MFX_PRIORITY_LOW    },
     { _T("normal"), MFX_PRIORITY_NORMAL },
     { _T("high"),   MFX_PRIORITY_HIGH   },
+};
+
+const CX_DESC list_qsv_function_mode[] = {
+    { _T("auto"),  (int)QSVFunctionMode::Auto  },
+    { _T("PG"),    (int)QSVFunctionMode::PG    },
+    { _T("FF"),    (int)QSVFunctionMode::FF    },
+    { NULL, 0 }
 };
 
 const CX_DESC list_hyper_mode[] = {

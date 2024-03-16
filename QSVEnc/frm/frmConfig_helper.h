@@ -808,15 +808,31 @@ namespace QSVEnc {
             }
             return devf->codecAvail(codec, lowpower);
         }
-        bool getRCAvail(const int dev_index, const int rc_index, const RGY_CODEC codec, const bool lowpower) {
-            return (getFeatureOfRC(dev_index, rc_index, codec, lowpower) & ENC_FEATURE_CURRENT_RC) != 0;
+        QSVFunctionMode getAutoSelectFunctionMode(const int dev_index, const int rc_index, const RGY_CODEC codec) {
+            QSVDevFeatures^ devf = getDevFeatures(dev_index);
+            if (devf == nullptr) {
+                return QSVFunctionMode::FF;
+            }
+            auto feature = devf->featureOfRC(rc_index, codec, true);
+            return ((feature & ENC_FEATURE_CURRENT_RC) != 0) ? QSVFunctionMode::FF : QSVFunctionMode::PG;
         }
-        UInt64 getFeatureOfRC(const int dev_index, const int rc_index, const RGY_CODEC codec, const bool lowpower) {
+        bool getRCAvail(const int dev_index, const int rc_index, const RGY_CODEC codec, const QSVFunctionMode mode) {
+            return (getFeatureOfRC(dev_index, rc_index, codec, mode) & ENC_FEATURE_CURRENT_RC) != 0;
+        }
+        UInt64 getFeatureOfRC(const int dev_index, const int rc_index, const RGY_CODEC codec, const QSVFunctionMode mode) {
             QSVDevFeatures^ devf = getDevFeatures(dev_index);
             if (devf == nullptr) {
                 return false;
             }
-            return devf->featureOfRC(rc_index, codec, lowpower);
+            if (mode == QSVFunctionMode::Auto) {
+                auto feature = devf->featureOfRC(rc_index, codec, true);
+                if ((feature & ENC_FEATURE_CURRENT_RC) == 0) {
+                    feature = devf->featureOfRC(rc_index, codec, false);
+                }
+                return feature;
+            } else {
+                return devf->featureOfRC(rc_index, codec, mode == QSVFunctionMode::FF);
+            }
         }
         DataTable^ getFeatureTable(const int dev_index, const RGY_CODEC codec, const bool lowpower, const bool reGenerateTable) {
             QSVDevFeatures^ devf = getDevFeatures(dev_index);
