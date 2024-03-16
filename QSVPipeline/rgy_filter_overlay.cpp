@@ -566,7 +566,7 @@ RGY_ERR RGYFilterOverlay::getFrame(RGYOpenCLQueue& queue) {
             getPlane(&frameHost, RGY_PLANE_U).ptr[0],
             getPlane(&frameHost, RGY_PLANE_V).ptr[0]
         };
-        m_convert->run(frame->interlaced_frame != 0,
+        m_convert->run(rgy_avframe_interlaced(frame.get()),
             dst_array_frame, (const void **)frame->data,
             frameHost.width, frame->linesize[0], frame->linesize[1], frameHost.pitch[0],
             frameHost.height, frameHost.height, crop.c);
