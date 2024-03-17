@@ -74,6 +74,7 @@
   - [--d3d11](#--d3d11)
   - [--va](#--va)
 - [その他のオプション](#その他のオプション)
+  - [--function-mode \<string\>](#--function-mode-string)
   - [--fixed-func](#--fixed-func)
   - [--hyper-mode \<string\>](#--hyper-mode-string)
   - [--max-bitrate \<int\>](#--max-bitrate-int)
@@ -636,9 +637,23 @@ vaビデオメモリを使用する。(Linux)
 
 ## その他のオプション
 
+### --function-mode &lt;string&gt;
+QSVの動作モードを選択。
+
+- **パラメータ**
+  - auto (default)  
+    適切なものを自動的に選択。
+
+  - PG  
+    部分的にGPU EUを使用したエンコードを行う。
+
+  - FF  
+    エンコードの全工程で固定回路(Fixed Func)を使用し、完全HWエンコを行う。
+    GPUに負荷をかけることなく、低電力でエンコード可能。使用可能な機能がPGと異なる場合がある。
+
+
 ### --fixed-func
-従来の部分的にGPU EUを使用したエンコードではなく、エンコードの全工程で固定回路(Fixed Func)を使用し、完全HWエンコを行う。
-GPUに負荷をかけることなく、低電力でエンコード可能だが、品質はやや劣る。
+```--function-mode FF```に同じ。
 
 ### --hyper-mode &lt;string&gt;
 Intel Deep Linkを活用し、Intelの内蔵GPU(iGPU)と外部GPU(dGPU)を使用したエンコードの高速化(Hyper Encode)を使用する。

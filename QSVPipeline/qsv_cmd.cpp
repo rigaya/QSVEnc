@@ -249,7 +249,9 @@ tstring encoder_help() {
         _T("                                 - i420, i422, i444\n")
         _T("\n"));
     str += strsprintf(_T("\n")
-        _T("   --fixed-func                 use fixed func instead of GPU EU (default:off)\n")
+        _T("   --function-mode              select QSV function mode.\n")
+        _T("                                 - auto, PG, FF\n")
+        _T("   --fixed-func                 same as \"--function-mode FF\"\n")
         _T("   --hyper-mode <string>        set Deep Link Hyper Mode\n")
         _T("                                 off (=default), on, adaptive.\n")
         _T("\n"));

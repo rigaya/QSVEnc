@@ -74,6 +74,7 @@
   - [--d3d11](#--d3d11)
   - [--va](#--va)
 - [Other Options for Encoder](#other-options-for-encoder)
+  - [--function-mode \<string\>](#--function-mode-string)
   - [--fixed-func](#--fixed-func)
   - [--hyper-mode \<string\>](#--hyper-mode-string)
   - [--max-bitrate \<int\>](#--max-bitrate-int)
@@ -620,10 +621,22 @@ Use va memory mode. (Linux only)
 
 ## Other Options for Encoder
 
+### --function-mode &lt;string&gt;
+Select QSV function mode.
+
+- **パラメータ**
+  - auto (default)  
+    Select suitable mode automatically.
+
+  - PG  
+    Encode partially using GPU EU.
+
+  - FF  
+    Use only fixed function (fully hw encoding) and not use GPU EU. In this mode, encoding will be done in very low GPU utilization in low power.
+    Available features might differ from PG.
+
 ### --fixed-func
-Use only fixed function (fully hw encoding) and not use GPU EU.
-In this mode, encoding will be done in very low GPU utilization in low power,
-but the quality will be poor compared to ordinary mode.
+Same as ```--function-mode FF```.
 
 ### --hyper-mode &lt;string&gt;
 Enable encode speed boost using Intel Deep Link Hyper Encode.
