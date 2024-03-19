@@ -10,7 +10,7 @@
 // SPP_SHARED_BLOCK_NUM_X
 // SPP_SHARED_BLOCK_NUM_Y
 // SPP_LOOP_COUNT_BLOCK
-// DCT_IDCT_BARRIER
+// DCT_IDCT_BARRIER_MODE // 0... off, 1... barrier(), 2... sub_group_barrier
 
 #if usefp16Dct || usefp16IO
 #pragma OPENCL EXTENSION cl_khr_fp16 : enable
@@ -30,6 +30,14 @@
 
 #ifndef clamp
 #define clamp(x, low, high) (((x) <= (high)) ? (((x) >= (low)) ? (x) : (low)) : (high))
+#endif
+
+#if DCT_IDCT_BARRIER_MODE == 1
+#define DCT_IDCT_BARRIER(x) barrier(x)
+#elif DCT_IDCT_BARRIER_MODE == 2
+#define DCT_IDCT_BARRIER(x) sub_group_barrier(x)
+#else
+#define DCT_IDCT_BARRIER(x)
 #endif
 
 //CUDA Sampleより拝借
@@ -117,19 +125,19 @@ void CUDAsubroutineInplaceIDCTvector(__local TypeDct *Vect0, const int Step) {
 //こうしたバリアには全スレッドが通るようにしないとRX5500などでは正常に動作しない (他の箇所でbarrierしても意味がない)
 //なので、計算の有無はenableフラグで切り替える
 void dct8x8(bool enable, __local TypeDct shared_tmp[8][9], int thWorker) {
-    if (DCT_IDCT_BARRIER) barrier(CLK_LOCAL_MEM_FENCE);
+    DCT_IDCT_BARRIER(CLK_LOCAL_MEM_FENCE);
     if (enable) CUDAsubroutineInplaceDCTvector((__local TypeDct *)&shared_tmp[thWorker][0], 1); // row
-    if (DCT_IDCT_BARRIER) barrier(CLK_LOCAL_MEM_FENCE);
+    DCT_IDCT_BARRIER(CLK_LOCAL_MEM_FENCE);
     if (enable) CUDAsubroutineInplaceDCTvector((__local TypeDct *)&shared_tmp[0][thWorker], 9); // column
-    if (DCT_IDCT_BARRIER) barrier(CLK_LOCAL_MEM_FENCE);
+    DCT_IDCT_BARRIER(CLK_LOCAL_MEM_FENCE);
 }
 
 void idct8x8(bool enable, __local TypeDct shared_tmp[8][9], int thWorker) {
-    if (DCT_IDCT_BARRIER) barrier(CLK_LOCAL_MEM_FENCE);
+    DCT_IDCT_BARRIER(CLK_LOCAL_MEM_FENCE);
     if (enable) CUDAsubroutineInplaceIDCTvector((__local TypeDct *)&shared_tmp[0][thWorker], 9); // column
-    if (DCT_IDCT_BARRIER) barrier(CLK_LOCAL_MEM_FENCE);
+    DCT_IDCT_BARRIER(CLK_LOCAL_MEM_FENCE);
     if (enable) CUDAsubroutineInplaceIDCTvector((__local TypeDct *)&shared_tmp[thWorker][0], 1); // row
-    if (DCT_IDCT_BARRIER) barrier(CLK_LOCAL_MEM_FENCE);
+    DCT_IDCT_BARRIER(CLK_LOCAL_MEM_FENCE);
 }
 float calcThreshold(const float qp, const float threshA, const float threshB) {
     return clamp(threshA * qp + threshB, 0.0f, qp);

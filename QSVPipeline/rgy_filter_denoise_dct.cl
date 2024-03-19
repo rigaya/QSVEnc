@@ -7,7 +7,7 @@
 // DENOISE_SHARED_BLOCK_NUM_X
 // DENOISE_SHARED_BLOCK_NUM_Y
 // DENOISE_LOOP_COUNT_BLOCK
-// DCT_IDCT_BARRIER
+// DCT_IDCT_BARRIER_MODE // 0... off, 1... barrier(), 2... sub_group_barrier
 
 //#define DENOISE_BLOCK_SIZE_X (8) //ひとつのスレッドブロックの担当するx方向の8x8ブロックの数
 //
@@ -15,6 +15,14 @@
 //#define DENOISE_SHARED_BLOCK_NUM_Y (2)                      //sharedメモリ上のy方向の8x8ブロックの数
 //
 //#define DENOISE_LOOP_COUNT_BLOCK (8)
+
+#if DCT_IDCT_BARRIER_MODE == 1
+#define DCT_IDCT_BARRIER(x) barrier(x)
+#elif DCT_IDCT_BARRIER_MODE == 2
+#define DCT_IDCT_BARRIER(x) sub_group_barrier(x)
+#else
+#define DCT_IDCT_BARRIER(x)
+#endif
 
 #define DCT3X3_0_0 ( 0.5773502691896258f) /*  1/sqrt(3) */
 #define DCT3X3_0_1 ( 0.5773502691896258f) /*  1/sqrt(3) */
@@ -328,32 +336,34 @@ void  CUDAsubroutineInplaceIDCT16vector(__local TypeTmp *Vect00, const int Step)
 void dctBlock(const bool enable, __local TypeTmp shared_tmp[BLOCK_SIZE][BLOCK_SIZE + 1], const int thWorker) {
     //static_assert(BLOCK_SIZE == 8 || BLOCK_SIZE == 16, "BLOCK_SIZE must be 8 or 16");
     if (BLOCK_SIZE == 8) {
+        DCT_IDCT_BARRIER(CLK_LOCAL_MEM_FENCE);
         if (enable) CUDAsubroutineInplaceDCT8vector((__local TypeTmp *)&shared_tmp[thWorker][0], 1); // row
-        if (DCT_IDCT_BARRIER) barrier(CLK_LOCAL_MEM_FENCE);
+        DCT_IDCT_BARRIER(CLK_LOCAL_MEM_FENCE);
         if (enable) CUDAsubroutineInplaceDCT8vector((__local TypeTmp *)&shared_tmp[0][thWorker], BLOCK_SIZE + 1); // column
-        if (DCT_IDCT_BARRIER) barrier(CLK_LOCAL_MEM_FENCE);
+        DCT_IDCT_BARRIER(CLK_LOCAL_MEM_FENCE);
     } else if (BLOCK_SIZE == 16) {
+        DCT_IDCT_BARRIER(CLK_LOCAL_MEM_FENCE);
         if (enable) CUDAsubroutineInplaceDCT16vector((__local TypeTmp *)&shared_tmp[thWorker][0], 1); // row
-        if (DCT_IDCT_BARRIER) barrier(CLK_LOCAL_MEM_FENCE);
+        DCT_IDCT_BARRIER(CLK_LOCAL_MEM_FENCE);
         if (enable) CUDAsubroutineInplaceDCT16vector((__local TypeTmp *)&shared_tmp[0][thWorker], BLOCK_SIZE + 1); // column
-        if (DCT_IDCT_BARRIER) barrier(CLK_LOCAL_MEM_FENCE);
+        DCT_IDCT_BARRIER(CLK_LOCAL_MEM_FENCE);
     }
 }
 
 void idctBlock(const bool enable, __local TypeTmp shared_tmp[BLOCK_SIZE][BLOCK_SIZE + 1], const int thWorker) {
     //static_assert(BLOCK_SIZE == 8 || BLOCK_SIZE == 16, "BLOCK_SIZE must be 8 or 16");
     if (BLOCK_SIZE == 8) {
-        if (DCT_IDCT_BARRIER) barrier(CLK_LOCAL_MEM_FENCE);
+        DCT_IDCT_BARRIER(CLK_LOCAL_MEM_FENCE);
         if (enable) CUDAsubroutineInplaceIDCT8vector((__local TypeTmp *)&shared_tmp[0][thWorker], BLOCK_SIZE + 1); // column
-        if (DCT_IDCT_BARRIER) barrier(CLK_LOCAL_MEM_FENCE);
+        DCT_IDCT_BARRIER(CLK_LOCAL_MEM_FENCE);
         if (enable) CUDAsubroutineInplaceIDCT8vector((__local TypeTmp *)&shared_tmp[thWorker][0], 1); // row
-        if (DCT_IDCT_BARRIER) barrier(CLK_LOCAL_MEM_FENCE);
+        DCT_IDCT_BARRIER(CLK_LOCAL_MEM_FENCE);
     } else if (BLOCK_SIZE == 16) {
-        if (DCT_IDCT_BARRIER) barrier(CLK_LOCAL_MEM_FENCE);
+        DCT_IDCT_BARRIER(CLK_LOCAL_MEM_FENCE);
         if (enable) CUDAsubroutineInplaceIDCT16vector((__local TypeTmp *)&shared_tmp[0][thWorker], BLOCK_SIZE + 1); // column
-        if (DCT_IDCT_BARRIER) barrier(CLK_LOCAL_MEM_FENCE);
+        DCT_IDCT_BARRIER(CLK_LOCAL_MEM_FENCE);
         if (enable) CUDAsubroutineInplaceIDCT16vector((__local TypeTmp *)&shared_tmp[thWorker][0], 1); // row
-        if (DCT_IDCT_BARRIER) barrier(CLK_LOCAL_MEM_FENCE);
+        DCT_IDCT_BARRIER(CLK_LOCAL_MEM_FENCE);
     }
 }
 

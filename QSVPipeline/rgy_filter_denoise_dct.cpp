@@ -38,7 +38,7 @@
 
 #define DENOISE_LOOP_COUNT_BLOCK (8)
 
-#define DCT_IDCT_BARRIER (1)
+#define DCT_IDCT_BARRIER_ENABLE (1)
 
 RGY_ERR RGYFilterDenoiseDct::denoiseDct(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue) {
     auto prm = std::dynamic_pointer_cast<RGYFilterParamDenoiseDct>(m_param);
@@ -290,10 +290,15 @@ RGY_ERR RGYFilterDenoiseDct::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
                 }
             }
         }
-        const auto options = strsprintf("-D TypePixel=float -D bit_depth=32 -D TypeTmp=float -D BLOCK_SIZE=%d -D STEP=%d"
-            " -D DENOISE_BLOCK_SIZE_X=%d -D DENOISE_SHARED_BLOCK_NUM_X=%d -D DENOISE_SHARED_BLOCK_NUM_Y=%d -D DENOISE_LOOP_COUNT_BLOCK=%d -D DCT_IDCT_BARRIER=%d",
+        const auto sub_group_ext_avail = m_cl->platform()->checkSubGroupSupport(m_cl->queue().devid());
+        const int dct_idct_barrier_mode = (DCT_IDCT_BARRIER_ENABLE) ? (sub_group_ext_avail != RGYOpenCLSubGroupSupport::NONE ? 2 : 1) : 0;
+        auto options = strsprintf("-D TypePixel=float -D bit_depth=32 -D TypeTmp=float -D BLOCK_SIZE=%d -D STEP=%d"
+            " -D DENOISE_BLOCK_SIZE_X=%d -D DENOISE_SHARED_BLOCK_NUM_X=%d -D DENOISE_SHARED_BLOCK_NUM_Y=%d -D DENOISE_LOOP_COUNT_BLOCK=%d -D DCT_IDCT_BARRIER_MODE=%d",
             prm->dct.block_size, prm->dct.step,
-            DENOISE_BLOCK_SIZE_X, DENOISE_SHARED_BLOCK_NUM_X, DENOISE_SHARED_BLOCK_NUM_Y, DENOISE_LOOP_COUNT_BLOCK, DCT_IDCT_BARRIER);
+            DENOISE_BLOCK_SIZE_X, DENOISE_SHARED_BLOCK_NUM_X, DENOISE_SHARED_BLOCK_NUM_Y, DENOISE_LOOP_COUNT_BLOCK, dct_idct_barrier_mode);
+        if (dct_idct_barrier_mode > 0 && sub_group_ext_avail == RGYOpenCLSubGroupSupport::STD20KHR) {
+            options += " -cl-std=CL2.0";
+        }
         m_dct.set(m_cl->buildResourceAsync(_T("RGY_FILTER_DENOISE_DCT_CL"), _T("EXE_DATA"), options.c_str()));
 
         auto err = AllocFrameBuf(prm->frameOut, 1);

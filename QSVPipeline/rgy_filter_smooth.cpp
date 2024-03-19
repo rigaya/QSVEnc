@@ -42,7 +42,7 @@
 
 #define SPP_LOOP_COUNT_BLOCK (8)
 
-#define DCT_IDCT_BARRIER (1)
+#define DCT_IDCT_BARRIER_ENABLE (1)
 
 RGY_ERR RGYFilterSmooth::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, const RGYFrameInfo *targetQPTable, const int qpBlockShift, const float qpMul, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     auto prm = std::dynamic_pointer_cast<RGYFilterParamSmooth>(m_param);
@@ -175,15 +175,16 @@ RGY_ERR RGYFilterSmooth::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
             && prm->smooth.prec == VPP_FP_PRECISION_FP16
             && prm->smooth.quality > 0; // quality = 0の時には適用してはならない
         m_smooth.set(std::async(std::launch::async,
-            [cl = m_cl, log = m_pLog, cl_fp16_support, usefp16DctOrg = usefp16DctFirst, frameOut = prm->frameOut]() {
+            [cl = m_cl, log = m_pLog, cl_fp16_support, sub_group_ext_avail, usefp16DctOrg = usefp16DctFirst, frameOut = prm->frameOut]() {
 
+            const int dct_idct_barrier_mode = (DCT_IDCT_BARRIER_ENABLE) ? (sub_group_ext_avail != RGYOpenCLSubGroupSupport::NONE ? 2 : 1) : 0;
             auto gen_options = [&](bool enable_fp16, bool cl_fp16_support) {
-                const auto options = strsprintf("-D TypePixel=%s -D bit_depth=%d"
+                auto options = strsprintf("-D TypePixel=%s -D bit_depth=%d"
                     " -D usefp16Dct=%d -D usefp16IO=%d -D TypeQP=uchar -D TypeQP4=uchar4"
                     " -D SPP_BLOCK_SIZE_X=%d"
                     " -D SPP_THREAD_BLOCK_X=%d -D SPP_THREAD_BLOCK_Y=%d"
                     " -D SPP_SHARED_BLOCK_NUM_X=%d -D SPP_SHARED_BLOCK_NUM_Y=%d"
-                    " -D SPP_LOOP_COUNT_BLOCK=%d -D DCT_IDCT_BARRIER=%d",
+                    " -D SPP_LOOP_COUNT_BLOCK=%d -D DCT_IDCT_BARRIER_MODE=%d",
                     RGY_CSP_BIT_DEPTH[frameOut.csp] > 8 ? "ushort" : "uchar",
                     RGY_CSP_BIT_DEPTH[frameOut.csp],
                     (enable_fp16) ? 1 : 0,
@@ -192,8 +193,11 @@ RGY_ERR RGYFilterSmooth::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
                     SPP_THREAD_BLOCK_X, SPP_THREAD_BLOCK_Y,
                     SPP_SHARED_BLOCK_NUM_X, SPP_SHARED_BLOCK_NUM_Y,
                     SPP_LOOP_COUNT_BLOCK,
-                    DCT_IDCT_BARRIER
+                    dct_idct_barrier_mode
                 );
+                if (dct_idct_barrier_mode > 0 && sub_group_ext_avail == RGYOpenCLSubGroupSupport::STD20KHR) {
+                    options += " -cl-std=CL2.0";
+                }
                 return options;
             };
             auto usefp16Dct = usefp16DctOrg;
