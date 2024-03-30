@@ -25,6 +25,6 @@ RUN apt install -y \
 RUN cd /tmp && curl https://www.ffmpeg.org/releases/ffmpeg-4.4.2.tar.xz |tar xJf - && cd ffmpeg-4.4.* && ./configure --prefix=/usr --enable-shared --enable-nonfree --enable-libfdk-aac --enable-libass && make -s -j`nproc` && make install && rm -r ../ffmpeg-4.4.*
 #RUN git clone https://github.com/rigaya/QSVEnc --recursive --depth=1
 #RUN cd QSVEnc && ./configure --prefix=/usr && make -s -j`nproc` && make install && rm -r ../QSVEnc
-ADD https://github.com/rigaya/QSVEnc/releases/download/7.48/qsvencc_7.48_Ubuntu22.04_amd64.deb /qsvencc.deb
+ADD https://github.com/rigaya/QSVEnc/releases/download/7.62/qsvencc_7.62_Ubuntu22.04_amd64.deb /qsvencc.deb
 RUN dpkg -i --force-depends /qsvencc.deb && rm qsvencc.deb
 ENTRYPOINT ["/usr/bin/qsvencc"]
