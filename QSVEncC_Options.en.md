@@ -74,6 +74,7 @@
   - [--d3d11](#--d3d11)
   - [--va](#--va)
 - [Other Options for Encoder](#other-options-for-encoder)
+  - [--function-mode \<string\>](#--function-mode-string)
   - [--fixed-func](#--fixed-func)
   - [--hyper-mode \<string\>](#--hyper-mode-string)
   - [--max-bitrate \<int\>](#--max-bitrate-int)
@@ -165,6 +166,7 @@
   - [--audio-copy \[\<int/string\>;\[,\<int/string\>\]...\]](#--audio-copy-intstringintstring)
   - [--audio-codec \[\[\<int/string\>?\]\<string\>\[:\<string\>=\<string\>\[,\<string\>=\<string\>\]...\]...\]](#--audio-codec-intstringstringstringstringstringstring)
   - [--audio-bitrate \[\<int/string\>?\]\<int\>](#--audio-bitrate-intstringint)
+  - [--audio-quality \[\<int/string\>?\]\<int\>](#--audio-quality-intstringint)
   - [--audio-profile \[\<int/string\>?\]\<string\>](#--audio-profile-intstringstring)
   - [--audio-stream \[\<int/string\>?\]{\<string1\>}\[:\<string2\>\]](#--audio-stream-intstringstring1string2)
   - [--audio-samplerate \[\<int/string\>?\]\<int\>](#--audio-samplerate-intstringint)
@@ -211,6 +213,7 @@
   - [--vpp-mpdecimate \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-mpdecimate-param1value1param2value2)
   - [--vpp-convolution3d \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-convolution3d-param1value1param2value2)
   - [--vpp-smooth \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-smooth-param1value1param2value2)
+  - [--vpp-denoise-dct \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-denoise-dct-param1value1param2value2)
   - [--vpp-knn \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-knn-param1value1param2value2)
   - [--vpp-pmd \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-pmd-param1value1param2value2)
   - [--vpp-denoise \<int\> or \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-denoise-int-or-param1value1param2value2)
@@ -254,9 +257,11 @@
   - [--thread-throttling \[\<string1\>=\]\<string2\>\[#\<int\>\[:\<int\>\]\[\]...\]](#--thread-throttling-string1string2intint)
   - [--option-file \<string\>](#--option-file-string)
   - [--max-procfps \<int\>](#--max-procfps-int)
+  - [--avoid-idle-clock \<string\>\[=\<float\>\]](#--avoid-idle-clock-stringfloat)
   - [--lowlatency](#--lowlatency)
   - [--avsdll \<string\>](#--avsdll-string)
   - [--process-codepage \<string\> \[Windows OS only\]](#--process-codepage-string-windows-os-only)
+  - [--task-perf-monitor](#--task-perf-monitor)
   - [--perf-monitor \[\<string\>\[,\<string\>\]...\]](#--perf-monitor-stringstring)
   - [--perf-monitor-interval \<int\>](#--perf-monitor-interval-int)
 
@@ -617,10 +622,22 @@ Use va memory mode. (Linux only)
 
 ## Other Options for Encoder
 
+### --function-mode &lt;string&gt;
+Select QSV function mode.
+
+- **パラメータ**
+  - auto (default)  
+    Select suitable mode automatically.
+
+  - PG  
+    Encode partially using GPU EU.
+
+  - FF  
+    Use only fixed function (fully hw encoding) and not use GPU EU. In this mode, encoding will be done in very low GPU utilization in low power.
+    Available features might differ from PG.
+
 ### --fixed-func
-Use only fixed function (fully hw encoding) and not use GPU EU.
-In this mode, encoding will be done in very low GPU utilization in low power,
-but the quality will be poor compared to ordinary mode.
+Same as ```--function-mode FF```.
 
 ### --hyper-mode &lt;string&gt;
 Enable encode speed boost using Intel Deep Link Hyper Encode.
@@ -1134,6 +1151,11 @@ Example 1: --audio-bitrate 192 (set bitrate of audio track to 192 kbps)
 Example 2: --audio-bitrate 2?256 (set bitrate of 2nd audio track to to 256 kbps)
 ```
 
+### --audio-quality [&lt;int/string&gt;?]&lt;int&gt;
+Specify the quality when encoding audio. The value depends on the codec used.
+
+You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt;].
+
 ### --audio-profile [&lt;int/string&gt;?]&lt;string&gt;
 Specify audio codec profile when encoding audio.You can select audio track (1, 2, ...) to encode with [&lt;int&gt;], or select audio track to encode by language with [&lt;string&gt;].
 
@@ -1575,8 +1597,7 @@ Set global metadata for output file.
   ```
 
 ### --avsync &lt;string&gt;
-  - cfr (default)
-    The input will be assumed as CFR and input pts will not be checked.
+  - auto (default)
 
   - forcecfr
     Check pts from the input file, and duplicate or remove frames if required to keep CFR, so that synchronization with the audio could be maintained. Please note that this could not be used with --trim.
@@ -1631,6 +1652,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
   - [--vpp-mpdecimate](#--vpp-mpdecimate-param1value1param2value2)
   - [--vpp-convolution3d](#--vpp-convolution3d-param1value1param2value2)
   - [--vpp-smooth](#--vpp-smooth-param1value1param2value2)
+  - [--vpp-denoise-dct](#--vpp-denoise-dct-param1value1param2value2)
   - [--vpp-knn](#--vpp-knn-param1value1param2value2)
   - [--vpp-pmd](#--vpp-pmd-param1value1param2value2)
   - [--vpp-denoise](#--vpp-denoise-int-or-param1value1param2value2)
@@ -2100,6 +2122,23 @@ Please note that [--avsync](./NVEncC_Options.en.md#--avsync-string) vfr is autom
     
     - fp32  
       Force to use fp32.
+
+### --vpp-denoise-dct [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+- **parameters**
+  - step=&lt;int&gt;  
+    Quality of the filter. Smaller value should result in higher quality but with lower speed.  
+    - 1 (high quality, slow)
+    - 2 (default)
+    - 4
+    - 8 (fast)
+  
+  - sigma=&lt;float&gt;  (default=4.0)    
+    Strength of the filter. Larger value will result stronger denoise but with blurring.
+    
+  - block_size=&lt;int&gt;  (default=8)  
+    - 8
+    - 16 (slow)
 
 ### --vpp-knn [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
 Strong noise reduction filter.
@@ -2729,6 +2768,28 @@ This could be used when you want to encode multiple stream and you do not want o
   --max-procfps 90
   ```
 
+### --avoid-idle-clock &lt;string&gt;[=&lt;float&gt;]  
+Add slight light load to prevent GPU clock from going to idle clock during encoding, thus preventing significant drop in encoding speed. The option value is target dummy load percentage. Requires OpenCL.
+
+- **mode** (&lt;string&gt;)  
+  - off
+  - auto [default]
+  - on
+
+  "auto" will run this function only when some conditions which makes this function appropriate, such as "dGPU used" and "OpenCL filter unused".
+
+- **value** (&lt;int&gt;)  
+  target load to be added. Default is 0.01% utilization.
+
+- examples
+  ```
+  Example: disable this feature
+  --avoid-idle-clock off
+
+  Example: always use the feature, and change target load to 0.02%
+  --avoid-idle-clock on=0.02
+  ```
+
 ### --lowlatency
 Tune for lower transcoding latency, but will hurt transcoding throughput. Not recommended in most cases.
 
@@ -2748,6 +2809,10 @@ Specifies AviSynth DLL location to use. When unspecified, the default AviSynth.d
     When this option is set, a copy of the exe file will be created in the same directory of the original exe file,
     and the manifest file of the copy will be modified using UpdateResourceW API to switch back code page
     to the default of the OS, and then the copied exe will be run, allowing us to handle the AviSynth scripts using legacy code page.
+
+### --task-perf-monitor
+
+  Enable performance monitoring of each task and print time required for each task at the end of log.
 
 ### --perf-monitor [&lt;string&gt;[,&lt;string&gt;]...]
 Outputs performance information. You can select the information name you want to output as a parameter from the following table. The default is all (all information).

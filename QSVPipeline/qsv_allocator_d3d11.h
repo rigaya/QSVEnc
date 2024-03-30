@@ -94,6 +94,12 @@ private:
     mfxMemId   m_mid_to_report;
 };
 
+#if MFX_D3D11_SUPPORT
+#define IS_ALLOCATOR_D3D11(allocator) (dynamic_cast<QSVAllocatorD3D11 *>(allocator) != nullptr)
+#else
+#define IS_ALLOCATOR_D3D11(allocator) (false)
+#endif
+
 #if (defined(_WIN32) || defined(_WIN64))
 
 #include <d3d11.h>

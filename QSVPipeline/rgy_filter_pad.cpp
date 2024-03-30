@@ -26,7 +26,7 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#include "rgy_filter.h"
+#include "rgy_filter_cl.h"
 
 tstring RGYFilterParamPad::print() const {
     return strsprintf(_T("pad: [%dx%d]->[%dx%d] "),

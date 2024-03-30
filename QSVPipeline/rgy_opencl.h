@@ -76,6 +76,7 @@
 #include "rgy_util.h"
 #include "rgy_frame.h"
 #include "convert_csp.h"
+#include "rgy_frame_info.h"
 
 #ifndef CL_EXTERN
 #define CL_EXTERN extern

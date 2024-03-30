@@ -884,7 +884,7 @@ private: System::Windows::Forms::Label^  fcgLBBatBeforeAudioPath;
 private: System::Windows::Forms::CheckBox^  fcgCBRunBatBeforeAudio;
 private: System::Windows::Forms::ComboBox^  fcgCXAudioPriority;
 private: System::Windows::Forms::Label^  fcgLBAudioPriority;
-private: System::Windows::Forms::CheckBox^  fcgCBFixedFunc;
+
 private: System::Windows::Forms::CheckBox^  fcgCBWeightB;
 private: System::Windows::Forms::CheckBox^  fcgCBWeightP;
 private: System::Windows::Forms::CheckBox^  fcgCBFadeDetect;
@@ -1226,6 +1226,15 @@ private: System::Windows::Forms::ComboBox^  fcgCXBitDepth;
 private: System::Windows::Forms::Label^  fcgLBBitDepth;
 private: System::Windows::Forms::ComboBox^  fcgCXScenarioInfo;
 private: System::Windows::Forms::Label^  fcgLBScenarioInfo;
+private: System::Windows::Forms::Panel^  fcgPNVppDenoiseDct;
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppDenoiseDctSigma;
+private: System::Windows::Forms::ComboBox^  fcgCXVppDenoiseDctBlockSize;
+private: System::Windows::Forms::Label^  fcgLBVppDenoiseDctBlockSize;
+private: System::Windows::Forms::Label^  fcgLBVppDenoiseDctSigma;
+private: System::Windows::Forms::ComboBox^  fcgCXVppDenoiseDctStep;
+private: System::Windows::Forms::Label^  fcgLBVppDenoiseDctStep;
+private: System::Windows::Forms::CheckBox^  fcgCBAvoidIdleClock;
+private: System::Windows::Forms::ComboBox^  fcgCXFunctionMode;
 
 
 
@@ -1443,6 +1452,7 @@ private: System::Windows::Forms::Label^  fcgLBScenarioInfo;
             this->fcgTTEx = (gcnew System::Windows::Forms::ToolTip(this->components));
             this->fcgtabControlQSV = (gcnew System::Windows::Forms::TabControl());
             this->tabPageVideoEnc = (gcnew System::Windows::Forms::TabPage());
+            this->fcgCXFunctionMode = (gcnew System::Windows::Forms::ComboBox());
             this->fcgCXScenarioInfo = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBScenarioInfo = (gcnew System::Windows::Forms::Label());
             this->fcgCXBitDepth = (gcnew System::Windows::Forms::ComboBox());
@@ -1468,7 +1478,6 @@ private: System::Windows::Forms::Label^  fcgLBScenarioInfo;
             this->fcgCBFadeDetect = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCBWeightB = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCBWeightP = (gcnew System::Windows::Forms::CheckBox());
-            this->fcgCBFixedFunc = (gcnew System::Windows::Forms::CheckBox());
             this->fcgLBWinBRCSizeAuto = (gcnew System::Windows::Forms::Label());
             this->fcgNUWinBRCSize = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgLBWinBRCSize = (gcnew System::Windows::Forms::Label());
@@ -1604,6 +1613,13 @@ private: System::Windows::Forms::Label^  fcgLBScenarioInfo;
             this->fcgLBVppDetailEnhanceMFX = (gcnew System::Windows::Forms::Label());
             this->fcgNUVppDetailEnhanceMFX = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcggroupBoxVppDenoise = (gcnew System::Windows::Forms::GroupBox());
+            this->fcgPNVppDenoiseDct = (gcnew System::Windows::Forms::Panel());
+            this->fcgNUVppDenoiseDctSigma = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgCXVppDenoiseDctBlockSize = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgLBVppDenoiseDctBlockSize = (gcnew System::Windows::Forms::Label());
+            this->fcgLBVppDenoiseDctSigma = (gcnew System::Windows::Forms::Label());
+            this->fcgCXVppDenoiseDctStep = (gcnew System::Windows::Forms::ComboBox());
+            this->fcgLBVppDenoiseDctStep = (gcnew System::Windows::Forms::Label());
             this->fcgCXVppDenoiseMethod = (gcnew System::Windows::Forms::ComboBox());
             this->fcgPNVppDenoisePmd = (gcnew System::Windows::Forms::Panel());
             this->fcgLBVppDenoisePmdThreshold = (gcnew System::Windows::Forms::Label());
@@ -1704,6 +1720,7 @@ private: System::Windows::Forms::Label^  fcgLBScenarioInfo;
             this->fcgLBRotate = (gcnew System::Windows::Forms::Label());
             this->fcgCXImageStabilizer = (gcnew System::Windows::Forms::ComboBox());
             this->tabPageExOpt = (gcnew System::Windows::Forms::TabPage());
+            this->fcgCBAvoidIdleClock = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCBPsnr = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCBSsim = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCBOutputPicStruct = (gcnew System::Windows::Forms::CheckBox());
@@ -1863,6 +1880,8 @@ private: System::Windows::Forms::Label^  fcgLBScenarioInfo;
             this->fcgPNVppDetailEnhanceMFX->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDetailEnhanceMFX))->BeginInit();
             this->fcggroupBoxVppDenoise->SuspendLayout();
+            this->fcgPNVppDenoiseDct->SuspendLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseDctSigma))->BeginInit();
             this->fcgPNVppDenoisePmd->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoisePmdThreshold))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoisePmdStrength))->BeginInit();
@@ -2744,6 +2763,7 @@ private: System::Windows::Forms::Label^  fcgLBScenarioInfo;
             // 
             // tabPageVideoEnc
             // 
+            this->tabPageVideoEnc->Controls->Add(this->fcgCXFunctionMode);
             this->tabPageVideoEnc->Controls->Add(this->fcgCXScenarioInfo);
             this->tabPageVideoEnc->Controls->Add(this->fcgLBScenarioInfo);
             this->tabPageVideoEnc->Controls->Add(this->fcgCXBitDepth);
@@ -2763,7 +2783,6 @@ private: System::Windows::Forms::Label^  fcgLBScenarioInfo;
             this->tabPageVideoEnc->Controls->Add(this->fcgCBFadeDetect);
             this->tabPageVideoEnc->Controls->Add(this->fcgCBWeightB);
             this->tabPageVideoEnc->Controls->Add(this->fcgCBWeightP);
-            this->tabPageVideoEnc->Controls->Add(this->fcgCBFixedFunc);
             this->tabPageVideoEnc->Controls->Add(this->fcgLBWinBRCSizeAuto);
             this->tabPageVideoEnc->Controls->Add(this->fcgNUWinBRCSize);
             this->tabPageVideoEnc->Controls->Add(this->fcgLBWinBRCSize);
@@ -2825,6 +2844,17 @@ private: System::Windows::Forms::Label^  fcgLBScenarioInfo;
             this->tabPageVideoEnc->TabIndex = 0;
             this->tabPageVideoEnc->Text = L"動画エンコード";
             this->tabPageVideoEnc->UseVisualStyleBackColor = true;
+            // 
+            // fcgCXFunctionMode
+            // 
+            this->fcgCXFunctionMode->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXFunctionMode->FormattingEnabled = true;
+            this->fcgCXFunctionMode->Location = System::Drawing::Point(210, 71);
+            this->fcgCXFunctionMode->Name = L"fcgCXFunctionMode";
+            this->fcgCXFunctionMode->Size = System::Drawing::Size(79, 22);
+            this->fcgCXFunctionMode->TabIndex = 186;
+            this->fcgCXFunctionMode->Tag = L"reCmd";
+            this->fcgCXFunctionMode->SelectedIndexChanged += gcnew System::EventHandler(this, &frmConfig::fcgCXFunctionMode_CheckedChanged);
             // 
             // fcgCXScenarioInfo
             // 
@@ -3084,18 +3114,6 @@ private: System::Windows::Forms::Label^  fcgLBScenarioInfo;
             this->fcgCBWeightP->Tag = L"reCmd";
             this->fcgCBWeightP->Text = L"重み付きPフレーム";
             this->fcgCBWeightP->UseVisualStyleBackColor = true;
-            // 
-            // fcgCBFixedFunc
-            // 
-            this->fcgCBFixedFunc->AutoSize = true;
-            this->fcgCBFixedFunc->Location = System::Drawing::Point(233, 72);
-            this->fcgCBFixedFunc->Name = L"fcgCBFixedFunc";
-            this->fcgCBFixedFunc->Size = System::Drawing::Size(80, 18);
-            this->fcgCBFixedFunc->TabIndex = 6;
-            this->fcgCBFixedFunc->Tag = L"reCmd";
-            this->fcgCBFixedFunc->Text = L"FixedFunc";
-            this->fcgCBFixedFunc->UseVisualStyleBackColor = true;
-            this->fcgCBFixedFunc->CheckedChanged += gcnew System::EventHandler(this, &frmConfig::fcgCBFixedFunc_CheckedChanged);
             // 
             // fcgLBWinBRCSizeAuto
             // 
@@ -4474,6 +4492,7 @@ private: System::Windows::Forms::Label^  fcgLBScenarioInfo;
             // 
             // fcggroupBoxVppDenoise
             // 
+            this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppDenoiseDct);
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgCXVppDenoiseMethod);
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppDenoisePmd);
             this->fcggroupBoxVppDenoise->Controls->Add(this->fcgPNVppDenoiseConv3D);
@@ -4486,6 +4505,78 @@ private: System::Windows::Forms::Label^  fcgLBScenarioInfo;
             this->fcggroupBoxVppDenoise->TabIndex = 37;
             this->fcggroupBoxVppDenoise->TabStop = false;
             this->fcggroupBoxVppDenoise->Text = L"ノイズ除去";
+            // 
+            // fcgPNVppDenoiseDct
+            // 
+            this->fcgPNVppDenoiseDct->Controls->Add(this->fcgNUVppDenoiseDctSigma);
+            this->fcgPNVppDenoiseDct->Controls->Add(this->fcgCXVppDenoiseDctBlockSize);
+            this->fcgPNVppDenoiseDct->Controls->Add(this->fcgLBVppDenoiseDctBlockSize);
+            this->fcgPNVppDenoiseDct->Controls->Add(this->fcgLBVppDenoiseDctSigma);
+            this->fcgPNVppDenoiseDct->Controls->Add(this->fcgCXVppDenoiseDctStep);
+            this->fcgPNVppDenoiseDct->Controls->Add(this->fcgLBVppDenoiseDctStep);
+            this->fcgPNVppDenoiseDct->Location = System::Drawing::Point(3, 42);
+            this->fcgPNVppDenoiseDct->Name = L"fcgPNVppDenoiseDct";
+            this->fcgPNVppDenoiseDct->Size = System::Drawing::Size(310, 92);
+            this->fcgPNVppDenoiseDct->TabIndex = 70;
+            // 
+            // fcgNUVppDenoiseDctSigma
+            // 
+            this->fcgNUVppDenoiseDctSigma->DecimalPlaces = 1;
+            this->fcgNUVppDenoiseDctSigma->Location = System::Drawing::Point(95, 36);
+            this->fcgNUVppDenoiseDctSigma->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 255, 0, 0, 0 });
+            this->fcgNUVppDenoiseDctSigma->Name = L"fcgNUVppDenoiseDctSigma";
+            this->fcgNUVppDenoiseDctSigma->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppDenoiseDctSigma->TabIndex = 21;
+            this->fcgNUVppDenoiseDctSigma->Tag = L"reCmd";
+            this->fcgNUVppDenoiseDctSigma->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            this->fcgNUVppDenoiseDctSigma->Value = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
+            // 
+            // fcgCXVppDenoiseDctBlockSize
+            // 
+            this->fcgCXVppDenoiseDctBlockSize->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXVppDenoiseDctBlockSize->FormattingEnabled = true;
+            this->fcgCXVppDenoiseDctBlockSize->Location = System::Drawing::Point(95, 62);
+            this->fcgCXVppDenoiseDctBlockSize->Name = L"fcgCXVppDenoiseDctBlockSize";
+            this->fcgCXVppDenoiseDctBlockSize->Size = System::Drawing::Size(156, 22);
+            this->fcgCXVppDenoiseDctBlockSize->TabIndex = 20;
+            this->fcgCXVppDenoiseDctBlockSize->Tag = L"reCmd";
+            // 
+            // fcgLBVppDenoiseDctBlockSize
+            // 
+            this->fcgLBVppDenoiseDctBlockSize->AutoSize = true;
+            this->fcgLBVppDenoiseDctBlockSize->Location = System::Drawing::Point(13, 67);
+            this->fcgLBVppDenoiseDctBlockSize->Name = L"fcgLBVppDenoiseDctBlockSize";
+            this->fcgLBVppDenoiseDctBlockSize->Size = System::Drawing::Size(63, 14);
+            this->fcgLBVppDenoiseDctBlockSize->TabIndex = 19;
+            this->fcgLBVppDenoiseDctBlockSize->Text = L"ブロックサイズ";
+            // 
+            // fcgLBVppDenoiseDctSigma
+            // 
+            this->fcgLBVppDenoiseDctSigma->AutoSize = true;
+            this->fcgLBVppDenoiseDctSigma->Location = System::Drawing::Point(13, 40);
+            this->fcgLBVppDenoiseDctSigma->Name = L"fcgLBVppDenoiseDctSigma";
+            this->fcgLBVppDenoiseDctSigma->Size = System::Drawing::Size(39, 14);
+            this->fcgLBVppDenoiseDctSigma->TabIndex = 17;
+            this->fcgLBVppDenoiseDctSigma->Text = L"sigma";
+            // 
+            // fcgCXVppDenoiseDctStep
+            // 
+            this->fcgCXVppDenoiseDctStep->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
+            this->fcgCXVppDenoiseDctStep->FormattingEnabled = true;
+            this->fcgCXVppDenoiseDctStep->Location = System::Drawing::Point(95, 9);
+            this->fcgCXVppDenoiseDctStep->Name = L"fcgCXVppDenoiseDctStep";
+            this->fcgCXVppDenoiseDctStep->Size = System::Drawing::Size(156, 22);
+            this->fcgCXVppDenoiseDctStep->TabIndex = 16;
+            this->fcgCXVppDenoiseDctStep->Tag = L"reCmd";
+            // 
+            // fcgLBVppDenoiseDctStep
+            // 
+            this->fcgLBVppDenoiseDctStep->AutoSize = true;
+            this->fcgLBVppDenoiseDctStep->Location = System::Drawing::Point(13, 13);
+            this->fcgLBVppDenoiseDctStep->Name = L"fcgLBVppDenoiseDctStep";
+            this->fcgLBVppDenoiseDctStep->Size = System::Drawing::Size(37, 14);
+            this->fcgLBVppDenoiseDctStep->TabIndex = 2;
+            this->fcgLBVppDenoiseDctStep->Text = L"ステップ";
             // 
             // fcgCXVppDenoiseMethod
             // 
@@ -5553,6 +5644,7 @@ private: System::Windows::Forms::Label^  fcgLBScenarioInfo;
             // 
             // tabPageExOpt
             // 
+            this->tabPageExOpt->Controls->Add(this->fcgCBAvoidIdleClock);
             this->tabPageExOpt->Controls->Add(this->fcgCBPsnr);
             this->tabPageExOpt->Controls->Add(this->fcgCBSsim);
             this->tabPageExOpt->Controls->Add(this->fcgCBOutputPicStruct);
@@ -5576,6 +5668,17 @@ private: System::Windows::Forms::Label^  fcgLBScenarioInfo;
             this->tabPageExOpt->TabIndex = 1;
             this->tabPageExOpt->Text = L"その他";
             this->tabPageExOpt->UseVisualStyleBackColor = true;
+            // 
+            // fcgCBAvoidIdleClock
+            // 
+            this->fcgCBAvoidIdleClock->AutoSize = true;
+            this->fcgCBAvoidIdleClock->Location = System::Drawing::Point(18, 217);
+            this->fcgCBAvoidIdleClock->Name = L"fcgCBAvoidIdleClock";
+            this->fcgCBAvoidIdleClock->Size = System::Drawing::Size(245, 18);
+            this->fcgCBAvoidIdleClock->TabIndex = 108;
+            this->fcgCBAvoidIdleClock->Tag = L"reCmd";
+            this->fcgCBAvoidIdleClock->Text = L"エンコード中、GPUがアイドルクロックになるのを防止";
+            this->fcgCBAvoidIdleClock->UseVisualStyleBackColor = true;
             // 
             // fcgCBPsnr
             // 
@@ -6731,6 +6834,9 @@ private: System::Windows::Forms::Label^  fcgLBScenarioInfo;
             this->fcgPNVppDetailEnhanceMFX->PerformLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDetailEnhanceMFX))->EndInit();
             this->fcggroupBoxVppDenoise->ResumeLayout(false);
+            this->fcgPNVppDenoiseDct->ResumeLayout(false);
+            this->fcgPNVppDenoiseDct->PerformLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseDctSigma))->EndInit();
             this->fcgPNVppDenoisePmd->ResumeLayout(false);
             this->fcgPNVppDenoisePmd->PerformLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoisePmdThreshold))->EndInit();
@@ -6865,7 +6971,7 @@ private: System::Windows::Forms::Label^  fcgLBScenarioInfo;
         System::String^ FrmToConf(CONF_GUIEX *cnf);
         System::Void SetChangedEvent(Control^ control, System::EventHandler^ _event);
         System::Void fcgCXOutputType_SelectedIndexChanged(System::Object^  sender, System::EventArgs^  e);
-        System::Void fcgCBFixedFunc_CheckedChanged(System::Object^  sender, System::EventArgs^  e);
+        System::Void fcgCXFunctionMode_CheckedChanged(System::Object^  sender, System::EventArgs^  e);
         System::Void fcgCXDevice_SelectedIndexChanged(System::Object^  sender, System::EventArgs^  e);
         System::Void fcgDevOutputTypeFFPGChanged(System::Object^  sender, System::EventArgs^  e);
         System::Void SetAllCheckChangedEvents(Control ^top);

@@ -37,7 +37,9 @@
 #include "rgy_perf_monitor.h"
 #include "rgy_osdep.h"
 
-#if !FOR_AUO
+#if FOR_AUO
+#pragma warning (disable: 4100)
+#else
 #if ENABLE_CPP_REGEX
 #include <regex>
 #endif //#if ENABLE_CPP_REGEX
@@ -388,6 +390,21 @@ static int getAttachmentTrackIdx(const RGYParamCommon *common, const int iTrack)
 #pragma warning(disable: 4127) //warning C4127: 条件式が定数です。
 
 int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, RGYParamVpp *vpp, sArgsData *argData) {
+    if (IS_OPTION("vpp-order") && ENABLE_VPP_ORDER) {
+        i++;
+        const auto list_vpp_filters = get_list_vpp_filter();
+        const auto vpp_list = split(strInput[i], _T(","));
+        vpp->filterOrder.clear();
+        for (auto& vppstr : vpp_list) {
+            const auto vpptype = vppfilter_str_to_type(vppstr);
+            if (vpptype == VppType::VPP_NONE) {
+                print_cmd_error_invalid_value(option_name, vppstr.c_str(), list_vpp_filters.data());
+                return 1;
+            }
+            vpp->filterOrder.push_back(vpptype);
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-resize")
         || (IS_OPTION("vpp-scaling") && ENCODER_QSV)) {
         i++;
@@ -2064,6 +2081,69 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-denoise-dct") && ENABLE_VPP_FILTER_DENOISE_DCT) {
+        vpp->dct.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{
+            "sigma", "overlap", "block_size" };
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    if (param_val == _T("true")) {
+                        vpp->dct.enable = true;
+                    } else if (param_val == _T("false")) {
+                        vpp->dct.enable = false;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("sigma")) {
+                    try {
+                        vpp->dct.sigma = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("step")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_denoise_dct_step, param_val.c_str(), &value)) {
+                        vpp->dct.step = value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_denoise_dct_step);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("block_size")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_denoise_dct_block_size, param_val.c_str(), &value)) {
+                        vpp->dct.block_size = value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_denoise_dct_block_size);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-smooth") && ENABLE_VPP_FILTER_SMOOTH) {
         vpp->smooth.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
@@ -3137,6 +3217,71 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         vpp->overlay.push_back(overlay);
         return 0;
     }
+    if (IS_OPTION("vpp-fruc") && ENABLE_VPP_FILTER_FRUC) {
+        vpp->fruc.enable = true;
+        if (ENCODER_NVENC) {
+            vpp->fruc.mode = VppFrucMode::NVOFFRUCx2;
+        }
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+
+        const auto paramList = std::vector<std::string>{ "fps" };
+
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->fruc.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("fps")) {
+                    int a[2] = { 0 };
+                    if (   2 == _stscanf_s(param_val.c_str(), _T("%d/%d"), &a[0], &a[1])
+                        || 2 == _stscanf_s(param_val.c_str(), _T("%d:%d"), &a[0], &a[1])
+                        || 2 == _stscanf_s(param_val.c_str(), _T("%d,%d"), &a[0], &a[1])) {
+                        vpp->fruc.targetFps = rgy_rational<int>(a[0], a[1]);
+                        vpp->fruc.mode = VppFrucMode::NVOFFRUCFps;
+                    } else {
+                        double d;
+                        if (1 == _stscanf_s(param_val.c_str(), _T("%lf"), &d)) {
+                            int rate = (int)(d * 1001.0 + 0.5);
+                            if (rate % 1000 == 0) {
+                                vpp->fruc.targetFps = rgy_rational<int>(rate, 1001);
+                            } else {
+                                vpp->fruc.targetFps = rgy_rational<int>((int)(d * 100000 + 0.5), 100000);
+                            }
+                            vpp->fruc.mode = VppFrucMode::NVOFFRUCFps;
+                        } else {
+                            print_cmd_error_invalid_value(option_name, strInput[i]);
+                            return 1;
+                        }
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                if (param == _T("double")) {
+                    vpp->fruc.mode = VppFrucMode::NVOFFRUCx2;
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-perf-monitor")) {
         vpp->checkPerformance = true;
         return 0;
@@ -3407,7 +3552,7 @@ int parse_log_level_param(const TCHAR *option_name, const TCHAR *arg_value, RGYP
 }
 
 int parse_one_audio_param(AudioSelect& chSel, const tstring& str, const TCHAR *option_name) {
-    const auto paramList = std::vector<std::string>{ "codec", "bitrate", "samplerate", "delay", "profile", "disposition", "filter", "dec_prm", "enc_prm", "lang", "select-codec", "metadata", "bsf", "copy" };
+    const auto paramList = std::vector<std::string>{ "codec", "bitrate", "quality", "samplerate", "delay", "profile", "disposition", "filter", "dec_prm", "enc_prm", "lang", "select-codec", "metadata", "bsf", "copy" };
     for (const auto &param : split(str, _T(";"))) {
         auto pos = param.find_first_of(_T("="));
         if (pos != std::string::npos) {
@@ -3418,6 +3563,13 @@ int parse_one_audio_param(AudioSelect& chSel, const tstring& str, const TCHAR *o
             } else if (param_arg == _T("bitrate")) {
                 try {
                     chSel.encBitrate = std::stoi(param_val);
+                } catch (...) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                    return 1;
+                }
+            } else if (param_arg == _T("quality")) {
+                try {
+                    chSel.encQuality = { true, std::stoi(param_val) };
                 } catch (...) {
                     print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                     return 1;
@@ -3844,7 +3996,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                     if (rgy_lang_exist(tempc)) {
                         trackId = TRACK_SELECT_BY_LANG;
                         lang = tempc;
-                    } else if (avcodec_exists(tempc, AVMEDIA_TYPE_AUDIO)) {
+                    } else if (avcodec_exists_audio(tempc)) {
                         trackId = TRACK_SELECT_BY_CODEC;
                         selectCodec = tempc;
                     }
@@ -3910,7 +4062,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                     if (rgy_lang_exist(tempc)) {
                         trackId = TRACK_SELECT_BY_LANG;
                         lang = tempc;
-                    } else if (avcodec_exists(tempc, AVMEDIA_TYPE_SUBTITLE)) {
+                    } else if (avcodec_exists_subtitle(tempc)) {
                         trackId = TRACK_SELECT_BY_CODEC;
                         selectCodec = tempc;
                     }
@@ -3976,7 +4128,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                     if (rgy_lang_exist(tempc)) {
                         trackId = TRACK_SELECT_BY_LANG;
                         lang = tempc;
-                    } else if (avcodec_exists(tempc, AVMEDIA_TYPE_DATA)) {
+                    } else if (avcodec_exists_data(tempc)) {
                         trackId = TRACK_SELECT_BY_CODEC;
                         selectCodec = tempc;
                     }
@@ -4033,7 +4185,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                 if (1 != _stscanf(str.c_str(), _T("%d"), &iTrack) || iTrack < 1) {
                     if (rgy_lang_exist(tchar_to_string(str))) {
                         trackSet.insert(std::make_pair(TRACK_SELECT_BY_LANG, tchar_to_string(str)));
-                    } else if (avcodec_exists(tchar_to_string(str), AVMEDIA_TYPE_AUDIO)) {
+                    } else if (avcodec_exists_audio(tchar_to_string(str))) {
                         trackSet.insert(std::make_pair(TRACK_SELECT_BY_CODEC, tchar_to_string(str)));
                     } else {
                         print_cmd_error_invalid_value(option_name, strInput[i]);
@@ -4108,6 +4260,19 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
             return ret;
         }
         return 0;
+    }
+    if (IS_OPTION("audio-quality")) {
+        try {
+            auto ret = set_audio_prm([](AudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr) {
+                if (trackId != 0 || !pAudioSelect->encQuality.first) {
+                    pAudioSelect->encQuality = { true, std::stoi(prmstr) };
+                }
+                });
+            return ret;
+        } catch (...) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
     }
     if (IS_OPTION("audio-bitrate")) {
         try {
@@ -4906,8 +5071,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         int value = 0;
         if (get_list_value(list_hevc_bsf_mode, strInput[i], &value)) {
             common->hevcbsf = (RGYHEVCBsf)value;
-        }
-        else {
+        } else {
             print_cmd_error_invalid_value(option_name, strInput[i], list_hevc_bsf_mode);
             return -1;
         }
@@ -5178,6 +5342,41 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
             return -0;
         }
         ctrl->procSpeedLimit = (std::min)(value, std::numeric_limits<decltype(ctrl->procSpeedLimit)>::max());
+        return 0;
+    }
+    if (IS_OPTION("no-avoid-idle-clock")) {
+        ctrl->avoidIdleClock.mode = RGYParamAvoidIdleClockMode::Disabled;
+    }
+    if (IS_OPTION("avoid-idle-clock")) {
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        i++;
+        auto params = split(strInput[i], _T("="));
+        int value = 0;
+        if (get_list_value(list_avoid_idle_clock, params[0].c_str(), &value)) {
+            ctrl->avoidIdleClock.mode = (RGYParamAvoidIdleClockMode)value;
+        } else {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_avoid_idle_clock);
+            return -1;
+        }
+        if (params.size() > 1) {
+            float load = 0.0f;
+            if (1 != _stscanf_s(params[1].c_str(), _T("%f"), &load)) {
+                print_cmd_error_invalid_value(option_name, strInput[i]);
+                return -1;
+            }
+            if (value < 0) {
+                print_cmd_error_invalid_value(option_name, strInput[i]);
+                return -1;
+            }
+            ctrl->avoidIdleClock.loadPercent = load;
+        }
+        return 0;
+    }
+    if (IS_OPTION("task-perf-monitor") && ENCODER_QSV) {
+        ctrl->taskPerfMonitor = true;
         return 0;
     }
     if (IS_OPTION("lowlatency")) {
@@ -5695,6 +5894,14 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
     std::basic_stringstream<TCHAR> cmd;
     std::basic_stringstream<TCHAR> tmp;
 
+    tmp.str(tstring());
+    for (auto& vpptype : param->filterOrder) {
+        tmp << _T(",") << vppfilter_type_to_str(vpptype);
+    }
+    if (!tmp.str().empty()) {
+        cmd << _T(" --vpp-order ") << tmp.str().substr(1);
+    }
+
     OPT_LST(_T("--vpp-resize"), resize_algo, list_vpp_resize);
 #if ENCODER_QSV
     OPT_LST(_T("--vpp-resize-mode"), resize_mode, list_vpp_resize_mode);
@@ -5707,52 +5914,60 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
         }
         if (param->colorspace.enable || save_disabled_prm) {
             for (size_t i = 0; i < param->colorspace.convs.size(); i++) {
-                auto from = param->colorspace.convs[i].from;
-                auto to = param->colorspace.convs[i].to;
-                if (from.matrix != to.matrix) {
+                const auto& from = param->colorspace.convs[i].from;
+                const auto& to = param->colorspace.convs[i].to;
+                // CLFILTERS_AUFではエントリを省略してしまうと入力側の情報が不明になるため、省略しない
+                if (from.matrix != to.matrix || CLFILTERS_AUF) {
                     tmp << _T(",matrix=");
                     tmp << get_cx_desc(list_colormatrix, from.matrix);
                     tmp << _T(":");
                     tmp << get_cx_desc(list_colormatrix, to.matrix);
                 }
-                if (from.colorprim != to.colorprim) {
+                if (from.colorprim != to.colorprim || CLFILTERS_AUF) {
                     tmp << _T(",colorprim=");
                     tmp << get_cx_desc(list_colorprim, from.colorprim);
                     tmp << _T(":");
                     tmp << get_cx_desc(list_colorprim, to.colorprim);
                 }
-                if (from.transfer != to.transfer) {
+                if (from.transfer != to.transfer || CLFILTERS_AUF) {
                     tmp << _T(",transfer=");
                     tmp << get_cx_desc(list_transfer, from.transfer);
                     tmp << _T(":");
                     tmp << get_cx_desc(list_transfer, to.transfer);
                 }
-                if (from.colorrange != to.colorrange) {
+                if (from.colorrange != to.colorrange || CLFILTERS_AUF) {
                     tmp << _T(",range=");
                     tmp << get_cx_desc(list_colorrange, from.colorrange);
                     tmp << _T(":");
                     tmp << get_cx_desc(list_colorrange, to.colorrange);
                 }
-                ADD_BOOL(_T("approx_gamma"), colorspace.convs[i].approx_gamma);
-                ADD_BOOL(_T("scene_ref"), colorspace.convs[i].scene_ref);
-                ADD_PATH(_T("lut3d"), colorspace.lut3d.table_file.c_str());
-                ADD_LST(_T("lut3d_interp"), colorspace.lut3d.interp, list_vpp_colorspace_lut3d_interp);
-                ADD_LST(_T("hdr2sdr"), colorspace.hdr2sdr.tonemap, list_vpp_hdr2sdr);
-                ADD_FLOAT(_T("ldr_nits"), colorspace.hdr2sdr.ldr_nits, 1);
-                ADD_FLOAT(_T("source_peak"), colorspace.hdr2sdr.hdr_source_peak, 1);
-                ADD_FLOAT(_T("a"), colorspace.hdr2sdr.hable.a, 3);
-                ADD_FLOAT(_T("b"), colorspace.hdr2sdr.hable.b, 3);
-                ADD_FLOAT(_T("c"), colorspace.hdr2sdr.hable.c, 3);
-                ADD_FLOAT(_T("d"), colorspace.hdr2sdr.hable.d, 3);
-                ADD_FLOAT(_T("e"), colorspace.hdr2sdr.hable.e, 3);
-                ADD_FLOAT(_T("f"), colorspace.hdr2sdr.hable.f, 3);
-                ADD_FLOAT(_T("transition"), colorspace.hdr2sdr.mobius.transition, 3);
-                ADD_FLOAT(_T("peak"), colorspace.hdr2sdr.mobius.peak, 3);
-                ADD_FLOAT(_T("contrast"), colorspace.hdr2sdr.reinhard.contrast, 3);
-                ADD_FLOAT(_T("desat_base"), colorspace.hdr2sdr.desat_base, 3);
-                ADD_FLOAT(_T("desat_strength"), colorspace.hdr2sdr.desat_strength, 3);
-                ADD_FLOAT(_T("desat_exp"), colorspace.hdr2sdr.desat_exp, 3);
+                ColorspaceConv convDefault;
+                if (param->colorspace.convs[i].approx_gamma != convDefault.approx_gamma) {
+                    tmp << _T(",approx_gamma=");
+                    tmp << param->colorspace.convs[i].approx_gamma ? _T("true") : _T("false");
+                }
+                if (param->colorspace.convs[i].scene_ref != convDefault.scene_ref) {
+                    tmp << _T(",scene_ref=");
+                    tmp << param->colorspace.convs[i].scene_ref ? _T("true") : _T("false");
+                }
             }
+            ADD_PATH(_T("lut3d"), colorspace.lut3d.table_file.c_str());
+            ADD_LST(_T("lut3d_interp"), colorspace.lut3d.interp, list_vpp_colorspace_lut3d_interp);
+            ADD_LST(_T("hdr2sdr"), colorspace.hdr2sdr.tonemap, list_vpp_hdr2sdr);
+            ADD_FLOAT(_T("ldr_nits"), colorspace.hdr2sdr.ldr_nits, 1);
+            ADD_FLOAT(_T("source_peak"), colorspace.hdr2sdr.hdr_source_peak, 1);
+            ADD_FLOAT(_T("a"), colorspace.hdr2sdr.hable.a, 3);
+            ADD_FLOAT(_T("b"), colorspace.hdr2sdr.hable.b, 3);
+            ADD_FLOAT(_T("c"), colorspace.hdr2sdr.hable.c, 3);
+            ADD_FLOAT(_T("d"), colorspace.hdr2sdr.hable.d, 3);
+            ADD_FLOAT(_T("e"), colorspace.hdr2sdr.hable.e, 3);
+            ADD_FLOAT(_T("f"), colorspace.hdr2sdr.hable.f, 3);
+            ADD_FLOAT(_T("transition"), colorspace.hdr2sdr.mobius.transition, 3);
+            ADD_FLOAT(_T("peak"), colorspace.hdr2sdr.mobius.peak, 3);
+            ADD_FLOAT(_T("contrast"), colorspace.hdr2sdr.reinhard.contrast, 3);
+            ADD_FLOAT(_T("desat_base"), colorspace.hdr2sdr.desat_base, 3);
+            ADD_FLOAT(_T("desat_strength"), colorspace.hdr2sdr.desat_strength, 3);
+            ADD_FLOAT(_T("desat_exp"), colorspace.hdr2sdr.desat_exp, 3);
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-colorspace ") << tmp.str().substr(1);
@@ -5991,6 +6206,22 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-pmd");
         }
     }
+    if (param->dct != defaultPrm->dct) {
+        tmp.str(tstring());
+        if (!param->dct.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->dct.enable || save_disabled_prm) {
+            ADD_FLOAT(_T("sigma"), dct.sigma, 3);
+            ADD_LST(_T("step"), dct.step, list_vpp_denoise_dct_step);
+            ADD_LST(_T("block_size"), dct.block_size, list_vpp_denoise_dct_block_size);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-denoise-dct ") << tmp.str().substr(1);
+        } else if (param->dct.enable) {
+            cmd << _T(" --vpp-denoise-dct");
+        }
+    }
     if (param->smooth != defaultPrm->smooth) {
         tmp.str(tstring());
         if (!param->smooth.enable && save_disabled_prm) {
@@ -6209,6 +6440,26 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             }
         }
     }
+    if (param->fruc != defaultPrm->fruc) {
+        tmp.str(tstring());
+        if (!param->fruc.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->fruc.enable || save_disabled_prm) {
+            if (param->fruc.mode == VppFrucMode::NVOFFRUCx2) {
+                tmp << _T(",double");
+            } else if (param->fruc.mode == VppFrucMode::NVOFFRUCFps) {
+                if (param->fruc.targetFps.is_valid()) {
+                    tmp << _T(",fps=") << param->fruc.targetFps.printt();
+                }
+            }
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-fruc ") << tmp.str().substr(1);
+        } else if (param->fruc.enable) {
+            cmd << _T(" --vpp-fruc");
+        }
+    }
     OPT_BOOL(_T("--vpp-perf-monitor"), _T("--no-vpp-perf-monitor"), checkPerformance);
     return cmd.str();
 }
@@ -6289,6 +6540,13 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
         if (pAudioSelect->encCodec != RGY_AVCODEC_COPY
             && pAudioSelect->encBitrate > 0) {
             cmd << _T(" --audio-bitrate ") << printTrack(pAudioSelect) << _T("?") << pAudioSelect->encBitrate;
+        }
+    }
+    for (int i = 0; i < param->nAudioSelectCount; i++) {
+        const AudioSelect *pAudioSelect = param->ppAudioSelectList[i];
+        if (pAudioSelect->encCodec != RGY_AVCODEC_COPY
+            && pAudioSelect->encQuality.first) {
+            cmd << _T(" --audio-quality ") << printTrack(pAudioSelect) << _T("?") << pAudioSelect->encQuality.second;
         }
     }
 #if !FOR_AUO
@@ -6390,6 +6648,9 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
                     tmp << _T(";codec=") << sel.encCodec;
                     if (sel.encBitrate > 0) {
                         tmp << _T(";bitrate=") << sel.encBitrate;
+                    }
+                    if (sel.encQuality.first) {
+                        tmp << _T(";quality=") << sel.encQuality.second;
                     }
                     if (sel.addDelayMs > 0) {
                         tmp << _T(";delay=") << sel.addDelayMs;
@@ -6624,6 +6885,14 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
     }
     OPT_LST(_T("--simd-csp"), simdCsp, list_simd);
     OPT_NUM(_T("--max-procfps"), procSpeedLimit);
+    if (param->avoidIdleClock != defaultPrm->avoidIdleClock) {
+        cmd << _T(" --avoid-idle-clock ") << get_chr_from_value(list_avoid_idle_clock, (int)param->avoidIdleClock.mode);
+        if (param->avoidIdleClock.mode != RGYParamAvoidIdleClockMode::Disabled
+            && param->avoidIdleClock.loadPercent != defaultPrm->avoidIdleClock.loadPercent) {
+            cmd << _T("=") << std::setprecision(2) << param->avoidIdleClock.loadPercent;
+        }
+    }
+    OPT_BOOL(_T("--task-perf-monitor"), _T(""), taskPerfMonitor);
     OPT_BOOL(_T("--lowlatency"), _T(""), lowLatency);
     OPT_STR_PATH(_T("--log"), logfile);
     if (param->loglevel != defaultPrm->loglevel) {
@@ -6869,6 +7138,9 @@ tstring gen_cmd_help_common() {
         _T("   --audio-bitrate [<int>?]<int>\n")
         _T("                                set encode bitrate for audio (kbps).\n")
         _T("                                  in [<int>?], specify track number of audio.\n")
+        _T("   --audio-quality [<int>?]<int>\n")
+        _T("                                set encode quality for audio.\n")
+        _T("                                  in [<int>?], specify track number of audio.\n")
         _T("   --audio-ignore-decode-error <int>  (default: %d)\n")
         _T("                                set numbers of continuous packets of audio decode\n")
         _T("                                 error to ignore, replaced by silence.\n")
@@ -7004,6 +7276,9 @@ tstring gen_cmd_help_common() {
 
 tstring gen_cmd_help_vpp() {
     tstring str;
+#if ENABLE_VPP_ORDER
+    str += print_list_options(_T("--vpp-order <string>"), get_list_vpp_filter().data(), 0);
+#endif
 #if ENABLE_VPP_FILTER_COLORSPACE
     str += strsprintf(_T("\n")
         _T("   --vpp-colorspace [<param1>=<value>][,<param2>=<value>][...]\n")
@@ -7284,6 +7559,18 @@ tstring gen_cmd_help_vpp() {
         _T("                              auto (default), fp16, fp32\n"),
         FILTER_DEFAULT_SMOOTH_QUALITY, FILTER_DEFAULT_SMOOTH_QP);
 #endif
+#if ENABLE_VPP_FILTER_DENOISE_DCT
+    str += strsprintf(_T("\n")
+        _T("   --vpp-denoise-dct [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     enable dct based denoise filter.\n")
+        _T("    params\n")
+        _T("      step=<int>            quality of filter (smaller value will result higher quality)\n")
+        _T("                             1, 2 (default), 4, 8\n")
+        _T("      sigma=<float>         strength of filter (default=%.2f)\n")
+        _T("      block_size=<int>      block size of calculation.\n")
+        _T("                              8 (default), 16\n"),
+        FILTER_DEFAULT_DENOISE_DCT_SIGMA);
+#endif
     str += strsprintf(_T("\n")
         _T("   --vpp-subburn [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     Burn in specified subtitle to the video.\n")
@@ -7439,6 +7726,14 @@ tstring gen_cmd_help_vpp() {
         _T("      loop=<bool>\n")
     );
 #endif
+#if ENABLE_VPP_FILTER_FRUC
+    str += strsprintf(_T("\n")
+        _T("   --vpp-fruc [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     enable frame rate up conversion filter.\n")
+        _T("    params\n")
+        _T("      double                     double frame rate (fast)\n")
+        _T("      fps=<int>/<int> or <float> target frame rate\n"));
+#endif
     str += strsprintf(_T("\n")
         _T("   --vpp-perf-monitor           check vpp perfromance (for debug)\n")
     );
@@ -7463,6 +7758,18 @@ tstring gen_cmd_help_ctrl() {
     str += strsprintf(_T("")
         _T("   --max-procfps <int>          limit encoding speed for lower utilization.\n")
         _T("                                 default:0 (no limit)\n")
+        _T("   --avoid-idle-clock <string>[=<float>]\n")
+        _T("                                add dummy load to avoid idle GPU clock.\n")
+        _T("                                - off\n")
+        _T("                                - auto [default]\n")
+        _T("                                - on\n")
+        _T("                                 the optional value is target dummy load percentage,\n")
+        _T("                                 when number omitted: %.2f percent load\n"),
+        DEFAULT_DUMMY_LOAD_PERCENT);
+    str += strsprintf(_T("")
+#if ENCODER_QSV
+        _T("   --task-perf-monitor          enable task performance monitoring.\n")
+#endif
         _T("   --lowlatency                 minimize latency (might have lower throughput).\n"));
     str += strsprintf(_T("")
         _T("   --output-buf <int>           buffer size for output in MByte\n")

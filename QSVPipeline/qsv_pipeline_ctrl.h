@@ -92,6 +92,67 @@ enum class PipelineTaskSurfaceType {
     MFX
 };
 
+class PipelineTaskStopWatch {
+    std::array<std::vector<std::pair<tstring, int64_t>>, 2> m_ticks;
+    std::array<std::chrono::high_resolution_clock::time_point, 2> m_prevTimepoints;
+public:
+    PipelineTaskStopWatch(const std::vector<tstring>& tickSend, const std::vector<tstring>& tickGet) : m_ticks(), m_prevTimepoints() {
+        for (size_t i = 0; i < tickSend.size(); i++) {
+            m_ticks[0].push_back({ tickSend[i], 0 });
+        }
+        for (size_t i = 0; i < tickGet.size(); i++) {
+            m_ticks[1].push_back({ tickGet[i], 0 });
+        }
+    };
+    void set(const int type) {
+        m_prevTimepoints[type] = std::chrono::high_resolution_clock::now();
+    }
+    void add(const int type, const int idx) {
+        auto now = std::chrono::high_resolution_clock::now();
+        m_ticks[type][idx].second += std::chrono::duration_cast<std::chrono::nanoseconds>(now - m_prevTimepoints[type]).count();
+        m_prevTimepoints[type] = now;
+    }
+    int64_t totalTicks() const {
+        int64_t total = 0;
+        for (int itype = 0; itype < 2; itype++) {
+            for (int i = 0; i < (int)m_ticks[itype].size(); i++) {
+                total += m_ticks[itype][i].second;
+            }
+        }
+        return total;
+    }
+    size_t maxWorkStrLen() const {
+        size_t maxLen = 0;
+        for (size_t itype = 0; itype < m_ticks.size(); itype++) {
+            for (int i = 0; i < (int)m_ticks[itype].size(); i++) {
+                maxLen = (std::max)(maxLen, m_ticks[itype][i].first.length());
+            }
+        }
+        return maxLen;
+    }
+    tstring print(const int64_t totalTicks, const size_t maxLen) {
+        const TCHAR *type[] = {_T("send"), _T("get ")};
+        tstring str;
+        for (size_t itype = 0; itype < m_ticks.size(); itype++) {
+            int64_t total = 0;
+            for (int i = 0; i < (int)m_ticks[itype].size(); i++) {
+                str += type[itype] + tstring(_T(":"));
+                str += m_ticks[itype][i].first;
+                str += tstring(maxLen - m_ticks[itype][i].first.length(), _T(' '));
+                str += strsprintf(_T(" : %8d ms [%5.1f]\n"), ((m_ticks[itype][i].second + 500000) / 1000000), m_ticks[itype][i].second * 100.0 / totalTicks);
+                total += m_ticks[itype][i].second;
+            }
+            if (m_ticks[itype].size() > 1) {
+                str += type[itype] + tstring(_T(":"));
+                str += _T("total");
+                str += tstring(maxLen - _tcslen(_T("total")), _T(' '));
+                str += strsprintf(_T(" : %8d ms [%5.1f]\n"), ((total + 500000) / 1000000), total * 100.0 / totalTicks);
+            }
+        }
+        return str;
+    }
+};
+
 class PipelineTaskSurface {
 private:
     RGYFrame *surf;
@@ -295,15 +356,20 @@ public:
 
     RGY_ERR writeMFX(RGYOutput *writer, QSVAllocator *allocator) {
         auto mfxSurf = m_surf.mfx()->surf();
+        const bool allocatorD3D11 = IS_ALLOCATOR_D3D11(allocator);
         if (mfxSurf->Data.MemId) {
-            auto sts = allocator->Lock(allocator->pthis, mfxSurf->Data.MemId, &(mfxSurf->Data));
+            // MFXReadWriteMidの使用はd3d11使用時のみにする必要がある
+            // MFXReadWriteMidの寿命を考慮し、引数として渡す場所で三項演算子を使用する
+            auto sts = allocator->Lock(allocator->pthis, (allocatorD3D11) ? (mfxMemId)MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::read) : mfxSurf->Data.MemId, &(mfxSurf->Data));
             if (sts < MFX_ERR_NONE) {
                 return err_to_rgy(sts);
             }
         }
         auto err = writer->WriteNextFrame(m_surf.frame());
         if (mfxSurf->Data.MemId) {
-            allocator->Unlock(allocator->pthis, mfxSurf->Data.MemId, &(mfxSurf->Data));
+            // MFXReadWriteMidの使用はd3d11使用時のみにする必要がある
+            // MFXReadWriteMidの寿命を考慮し、引数として渡す場所で三項演算子を使用する
+            allocator->Unlock(allocator->pthis, (allocatorD3D11) ? (mfxMemId)MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::read) : mfxSurf->Data.MemId, &(mfxSurf->Data));
         }
         return err;
     }
@@ -428,16 +494,35 @@ protected:
     int m_outMaxQueueSize;
     mfxVersion m_mfxVer;
     std::shared_ptr<RGYLog> m_log;
+    std::unique_ptr<PipelineTaskStopWatch> m_stopwatch;
 public:
-    PipelineTask() : m_type(PipelineTaskType::UNKNOWN), m_outQeueue(), m_workSurfs(), m_mfxSession(nullptr), m_allocator(nullptr), m_allocResponse({ 0 }), m_inFrames(0), m_outFrames(0), m_outMaxQueueSize(0), m_mfxVer({ 0 }), m_log() {};
+    PipelineTask() : m_type(PipelineTaskType::UNKNOWN), m_outQeueue(), m_workSurfs(), m_mfxSession(nullptr), m_allocator(nullptr), m_allocResponse({ 0 }), m_inFrames(0), m_outFrames(0), m_outMaxQueueSize(0), m_mfxVer({ 0 }), m_log(), m_stopwatch() {};
     PipelineTask(PipelineTaskType type, int outMaxQueueSize, MFXVideoSession *mfxSession, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
-        m_type(type), m_outQeueue(), m_workSurfs(), m_mfxSession(mfxSession), m_allocator(nullptr), m_allocResponse({ 0 }), m_inFrames(0), m_outFrames(0), m_outMaxQueueSize(outMaxQueueSize), m_mfxVer(mfxVer), m_log(log) {
+        m_type(type), m_outQeueue(), m_workSurfs(), m_mfxSession(mfxSession), m_allocator(nullptr), m_allocResponse({ 0 }), m_inFrames(0), m_outFrames(0), m_outMaxQueueSize(outMaxQueueSize), m_mfxVer(mfxVer), m_log(log), m_stopwatch() {
     };
     virtual ~PipelineTask() {
         if (m_allocator) {
             m_allocator->Free(m_allocator->pthis, &m_allocResponse);
         }
+        m_stopwatch.reset();
         m_workSurfs.clear();
+    }
+    virtual void setStopWatch() {};
+    virtual void printStopWatch(const int64_t totalTicks, const size_t maxLen) {
+        if (m_stopwatch) {
+            const auto strlines = split(m_stopwatch->print(totalTicks, maxLen), _T("\n"));
+            for (auto& str : strlines) {
+                if (str.length() > 0) {
+                    PrintMes(RGY_LOG_INFO, _T("%s\n"), str.c_str());
+                }
+            }
+        }
+    }
+    virtual int64_t getStopWatchTotal() const {
+        return (m_stopwatch) ? m_stopwatch->totalTicks() : 0ll;
+    }
+    virtual size_t getStopWatchMaxWorkStrLen() const {
+        return (m_stopwatch) ? m_stopwatch->maxWorkStrLen() : 0u;
     }
     virtual bool isPassThrough() const { return false; }
     virtual tstring print() const { return getPipelineTaskTypeName(m_type); }
@@ -446,6 +531,7 @@ public:
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) = 0;
     virtual RGY_ERR getOutputFrameInfo(mfxFrameInfo& info) { info = { 0 }; return RGY_ERR_INVALID_CALL; }
     virtual std::vector<std::unique_ptr<PipelineTaskOutput>> getOutput(const bool sync) {
+        if (m_stopwatch) m_stopwatch->set(1);
         std::vector<std::unique_ptr<PipelineTaskOutput>> output;
         while ((int)m_outQeueue.size() > m_outMaxQueueSize) {
             auto out = std::move(m_outQeueue.front());
@@ -457,6 +543,7 @@ public:
             m_outFrames++;
             output.push_back(std::move(out));
         }
+        if (m_stopwatch) m_stopwatch->add(1, 0);
         return output;
     }
     bool isMFXTask(const PipelineTaskType task) const {
@@ -606,23 +693,34 @@ public:
 class PipelineTaskInput : public PipelineTask {
     RGYInput *m_input;
     QSVAllocator *m_allocator;
+    bool m_allocatorD3D11;
     std::shared_ptr<RGYOpenCLContext> m_cl;
 public:
     PipelineTaskInput(MFXVideoSession *mfxSession, QSVAllocator *allocator, int outMaxQueueSize, RGYInput *input, mfxVersion mfxVer, std::shared_ptr<RGYOpenCLContext> cl, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::INPUT, outMaxQueueSize, mfxSession, mfxVer, log), m_input(input), m_allocator(allocator), m_cl(cl) {
+        : PipelineTask(PipelineTaskType::INPUT, outMaxQueueSize, mfxSession, mfxVer, log), m_input(input), m_allocator(allocator), m_allocatorD3D11(IS_ALLOCATOR_D3D11(allocator)), m_cl(cl) {
 
     };
     virtual ~PipelineTaskInput() {};
+    virtual void setStopWatch() override {
+        m_stopwatch = std::make_unique<PipelineTaskStopWatch>(
+            std::vector<tstring>{ _T("getWorkSurf"), _T("allocatorLock"), _T("CLqueueMapBuffer"), _T("LoadNextFrame"), _T("allocatorUnLock"), _T("CLunmapBuffer") },
+            std::vector<tstring>{_T("")}
+        );
+    }
     virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override { return std::nullopt; };
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override { return std::nullopt; };
     RGY_ERR loadNextFrameMFX(PipelineTaskSurface& surfWork) {
+        if (m_stopwatch) m_stopwatch->set(0);
         auto mfxSurf = surfWork.mfx()->surf();
         if (mfxSurf->Data.MemId) {
-            auto sts = m_allocator->Lock(m_allocator->pthis, mfxSurf->Data.MemId, &(mfxSurf->Data));
+            // MFXReadWriteMidの使用はd3d11使用時のみにする必要がある
+            // MFXReadWriteMidの寿命を考慮し、引数として渡す場所で三項演算子を使用する
+            auto sts = m_allocator->Lock(m_allocator->pthis, (m_allocatorD3D11) ? (mfxMemId)MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::write) : mfxSurf->Data.MemId, &(mfxSurf->Data));
             if (sts < MFX_ERR_NONE) {
                 return err_to_rgy(sts);
             }
         }
+        if (m_stopwatch) m_stopwatch->add(0, 1);
         auto err = m_input->LoadNextFrame(surfWork.frame());
         if (err != RGY_ERR_NONE) {
             //Unlockする必要があるので、ここに入ってもすぐにreturnしてはいけない
@@ -632,12 +730,17 @@ public:
                 PrintMes(RGY_LOG_ERROR, _T("Error in reader: %s.\n"), get_err_mes(err));
             }
         }
+        if (m_stopwatch) m_stopwatch->add(0, 3);
         if (mfxSurf->Data.MemId) {
-            m_allocator->Unlock(m_allocator->pthis, mfxSurf->Data.MemId, &(mfxSurf->Data));
+            // MFXReadWriteMid の使用はd3d11使用時のみにする必要がある
+            // MFXReadWriteMidの寿命を考慮し、引数として渡す場所で三項演算子を使用する
+            m_allocator->Unlock(m_allocator->pthis, (m_allocatorD3D11) ? (mfxMemId)MFXReadWriteMid(mfxSurf->Data.MemId, MFXReadWriteMid::write) : mfxSurf->Data.MemId, &(mfxSurf->Data));
         }
+        if (m_stopwatch) m_stopwatch->add(0, 4);
         return err;
     }
     RGY_ERR loadNextFrameCL(PipelineTaskSurface& surfWork) {
+        if (m_stopwatch) m_stopwatch->set(0);
         auto clframe = surfWork.cl();
         auto err = clframe->queueMapBuffer(m_cl->queue(), CL_MAP_WRITE); // CPUが書き込むためにMapする
         if (err != RGY_ERR_NONE) {
@@ -645,6 +748,7 @@ public:
             return err;
         }
         clframe->mapWait(); //すぐ終わるはず
+        if (m_stopwatch) m_stopwatch->add(0, 2);
         auto mappedframe = clframe->mappedHost();
         err = m_input->LoadNextFrame(mappedframe);
         if (err != RGY_ERR_NONE) {
@@ -655,6 +759,7 @@ public:
                 PrintMes(RGY_LOG_ERROR, _T("Error in reader: %s.\n"), get_err_mes(err));
             }
         }
+        if (m_stopwatch) m_stopwatch->add(0, 3);
         clframe->setPropertyFrom(mappedframe);
         auto clerr = clframe->unmapBuffer();
         if (clerr != RGY_ERR_NONE) {
@@ -663,14 +768,17 @@ public:
                 err = clerr;
             }
         }
+        if (m_stopwatch) m_stopwatch->add(0, 5);
         return err;
     }
     virtual RGY_ERR sendFrame([[maybe_unused]] std::unique_ptr<PipelineTaskOutput>& frame) override {
+        if (m_stopwatch) m_stopwatch->set(0);
         auto surfWork = getWorkSurf();
         if (surfWork == nullptr) {
             PrintMes(RGY_LOG_ERROR, _T("failed to get work surface for input.\n"));
             return RGY_ERR_NOT_ENOUGH_BUFFER;
         }
+        if (m_stopwatch) m_stopwatch->add(0, 0);
         auto err = (surfWork.mfx() != nullptr) ? loadNextFrameMFX(surfWork) : loadNextFrameCL(surfWork);
         if (err == RGY_ERR_NONE) {
             surfWork.frame()->setInputFrameId(m_inFrames++);
@@ -722,6 +830,12 @@ public:
         m_decInputBitstream.clear();
     };
     void setDec(MFXVideoDECODE *mfxdec) { m_dec = mfxdec; };
+    virtual void setStopWatch() override {
+        m_stopwatch = std::make_unique<PipelineTaskStopWatch>(
+            std::vector<tstring>{ _T("LoadNextFrame"), _T("getWorkSurf"), _T("DecodeFrameAsync"), _T("DecoderBusy"), _T("PushQueue") },
+            std::vector<tstring>{_T("")}
+        );
+    }
 
     virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override { return std::nullopt; };
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override {
@@ -762,6 +876,7 @@ public:
         return sendBitstream();
     }
     virtual RGY_ERR sendFrame([[maybe_unused]] std::unique_ptr<PipelineTaskOutput>& frame) override {
+        if (m_stopwatch) m_stopwatch->set(0);
         if (m_getNextBitstream
             //m_DecInputBitstream.size() > 0のときにbitstreamを連結してしまうと
             //環境によっては正常にフレームが取り出せなくなることがある
@@ -802,6 +917,7 @@ public:
             const auto flags = FrameFlags(m_decInputBitstream.pts(), (RGY_FRAME_FLAGS)m_decInputBitstream.dataflag());
             m_dataFlag.push(flags);
         }
+        if (m_stopwatch) m_stopwatch->add(0, 0);
         return sendBitstream();
     }
 protected:
@@ -838,15 +954,18 @@ protected:
         mfxSurfDecWork->Data.TimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
         mfxSurfDecWork->Data.DataFlag |= MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
         m_inFrames++;
+        if (m_stopwatch) m_stopwatch->add(0, 1);
 
         mfxStatus dec_sts = MFX_ERR_NONE;
         mfxSyncPoint lastSyncP = nullptr;
         mfxFrameSurface1 *surfDecOut = nullptr;
         for (int i = 0; ; i++) {
+            if (m_stopwatch) m_stopwatch->set(0);
             const auto inputDataLen = (inputBitstream) ? inputBitstream->DataLength : 0;
             mfxSyncPoint decSyncPoint = nullptr;
             dec_sts = m_dec->DecodeFrameAsync(inputBitstream, mfxSurfDecWork, &surfDecOut, &decSyncPoint);
             lastSyncP = decSyncPoint;
+            if (m_stopwatch) m_stopwatch->add(0, 2);
 
             if (MFX_ERR_NONE < dec_sts && !decSyncPoint) {
                 if (MFX_WRN_DEVICE_BUSY == dec_sts)
@@ -876,7 +995,9 @@ protected:
                 }
                 break;
             }
+            if (m_stopwatch) m_stopwatch->add(0, 3);
         }
+        if (m_stopwatch) m_stopwatch->add(0, 3);
         if (surfDecOut != nullptr && lastSyncP != nullptr
             // 最初のフレームはOpenGOPのBフレームのために投入フレーム以前のデータの場合があるので、その場合はフレームを無視する
             && (m_firstPts <= (int64_t)surfDecOut->Data.TimeStamp || m_decFrameOutCount > 0)) {
@@ -915,6 +1036,7 @@ protected:
             }
             m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, taskSurf, lastSyncP));
         }
+        if (m_stopwatch) m_stopwatch->add(0, 4);
         return err_to_rgy(dec_sts);
     }
     RGY_FRAME_FLAGS getDataFlag(const int64_t timestamp) {
@@ -989,6 +1111,12 @@ public:
     };
     virtual ~PipelineTaskCheckPTS() {};
 
+    virtual void setStopWatch() override {
+        m_stopwatch = std::make_unique<PipelineTaskStopWatch>(
+            std::vector<tstring>{ _T("") },
+            std::vector<tstring>{_T("")}
+        );
+    }
     virtual bool isPassThrough() const override {
         // そのまま渡すのでPassThrough
         return true;
@@ -1002,6 +1130,7 @@ public:
         return std::nullopt;
     };
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
+        if (m_stopwatch) m_stopwatch->set(0);
         if (!frame) {
             //PipelineTaskCheckPTSは、getOutputで1フレームずつしか取り出さない
             //そのためm_outQeueueにまだフレームが残っている可能性がある
@@ -1136,6 +1265,7 @@ public:
         outSurf.frame()->setDuration(outDuration);
         std::unique_ptr<PipelineTaskOutputDataCustom> timestampOverride(new PipelineTaskOutputDataCheckPts(outPtsSource));
         m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, outSurf, lastSyncPoint, timestampOverride));
+        if (m_stopwatch) m_stopwatch->add(0, 0);
         return RGY_ERR_NONE;
     }
     //checkptsではtimestampを上書きするため特別に常に1フレームしか取り出さない
@@ -1143,6 +1273,7 @@ public:
     //mfxSurface1自体は同じデータを指すため、複数のタイムスタンプを持つことができないため、
     //1フレームずつgetOutputし、都度タイムスタンプを上書きしてすぐに後続のタスクに投入してタイムスタンプを反映させる必要があるため
     virtual std::vector<std::unique_ptr<PipelineTaskOutput>> getOutput(const bool sync) override {
+        if (m_stopwatch) m_stopwatch->set(1);
         std::vector<std::unique_ptr<PipelineTaskOutput>> output;
         if ((int)m_outQeueue.size() > m_outMaxQueueSize) {
             auto out = std::move(m_outQeueue.front());
@@ -1166,6 +1297,7 @@ public:
         if (output.size() > 1) {
             PrintMes(RGY_LOG_ERROR, _T("output queue more than 1, invalid!\n"));
         }
+        if (m_stopwatch) m_stopwatch->add(1, 0);
         return output;
     }
 };
@@ -1310,11 +1442,18 @@ public:
     };
     virtual ~PipelineTaskTrim() {};
 
+    virtual void setStopWatch() override {
+        m_stopwatch = std::make_unique<PipelineTaskStopWatch>(
+            std::vector<tstring>{ _T("") },
+            std::vector<tstring>{_T("")}
+        );
+    }
     virtual bool isPassThrough() const override { return true; }
     virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override { return std::nullopt; };
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override { return std::nullopt; };
 
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
+        if (m_stopwatch) m_stopwatch->set(0);
         if (!frame) {
             return RGY_ERR_MORE_DATA;
         }
@@ -1327,6 +1466,7 @@ public:
             return RGY_ERR_NONE; //seektoにより脱落させるフレーム
         }
         m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, taskSurf->surf(), taskSurf->syncpoint()));
+        if (m_stopwatch) m_stopwatch->add(0, 0);
         return RGY_ERR_NONE;
     }
 };
@@ -1339,9 +1479,16 @@ protected:
     std::vector<std::shared_ptr<RGYFrameData>> m_lastFrameDataList;
 public:
     PipelineTaskMFXVpp(MFXVideoSession *mfxSession, int outMaxQueueSize, QSVVppMfx *mfxvpp, mfxVideoParam& vppParams, mfxVersion mfxVer, bool timestampPassThrough, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::MFXVPP, outMaxQueueSize, mfxSession, mfxVer, log), m_vpp(mfxvpp), m_timestamp(RGYTimestamp(timestampPassThrough)), m_mfxVppParams(vppParams), m_lastFrameDataList() {};
+        : PipelineTask(PipelineTaskType::MFXVPP, outMaxQueueSize, mfxSession, mfxVer, log), m_vpp(mfxvpp), m_timestamp(RGYTimestamp(timestampPassThrough)), m_mfxVppParams(vppParams), m_lastFrameDataList() {
+    };
     virtual ~PipelineTaskMFXVpp() {};
     void setVpp(QSVVppMfx *mfxvpp) { m_vpp = mfxvpp; };
+    virtual void setStopWatch() override {
+        m_stopwatch = std::make_unique<PipelineTaskStopWatch>(
+            std::vector<tstring>{ _T("Reset"), _T("getWorkSurf"), _T("RunFrameVppAsync"), _T("DeviceBusy"), _T("PushQueue") },
+            std::vector<tstring>{_T("")}
+        );
+    }
 protected:
     RGY_ERR requiredSurfInOut(std::array<mfxFrameAllocRequest,2>& allocRequest) {
         for (auto& request : allocRequest) {
@@ -1376,6 +1523,7 @@ public:
         return std::optional<mfxFrameAllocRequest>(allocRequest[1]);
     };
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
+        if (m_stopwatch) m_stopwatch->set(0);
         if (frame && frame->type() != PipelineTaskOutputType::SURFACE) {
             PrintMes(RGY_LOG_ERROR, _T("Invalid frame type.\n"));
             return RGY_ERR_UNSUPPORTED;
@@ -1424,20 +1572,25 @@ public:
                 }
             }
         }
+        if (m_stopwatch) m_stopwatch->add(0, 0);
 
 
         bool vppMoreOutput = false;
         do {
+            if (m_stopwatch) m_stopwatch->set(0);
             vppMoreOutput = false;
             auto surfVppOut = getWorkSurf();
             mfxSyncPoint lastSyncPoint = nullptr;
+            if (m_stopwatch) m_stopwatch->add(0, 1);
             for (int i = 0; ; i++) {
+                if (m_stopwatch) m_stopwatch->set(0);
                 //bob化の際、pSurfVppInに連続で同じフレーム(同じtimestamp)を投入すると、
                 //最初のフレームには設定したtimestamp、次のフレームにはMFX_TIMESTAMP_UNKNOWNが設定されて出てくる
                 //特別pSurfVppOut側のTimestampを設定する必要はなさそう
                 mfxSyncPoint VppSyncPoint = nullptr;
                 vpp_sts = m_vpp->mfxvpp()->RunFrameVPPAsync(surfVppIn, surfVppOut.mfx()->surf(), nullptr, &VppSyncPoint);
                 lastSyncPoint = VppSyncPoint;
+                if (m_stopwatch) m_stopwatch->add(0, 2);
 
                 if (MFX_ERR_NONE < vpp_sts && !VppSyncPoint) {
                     if (MFX_WRN_DEVICE_BUSY == vpp_sts)
@@ -1452,7 +1605,9 @@ public:
                 } else {
                     break;
                 }
+                if (m_stopwatch) m_stopwatch->add(0, 3);
             }
+            if (m_stopwatch) m_stopwatch->add(0, 3);
 
             if (surfVppIn && vpp_sts == MFX_ERR_MORE_DATA) {
                 vpp_sts = MFX_ERR_NONE;
@@ -1471,6 +1626,7 @@ public:
                 surfVppOut.frame()->setDataList(m_lastFrameDataList);
                 m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, lastSyncPoint));
             }
+            if (m_stopwatch) m_stopwatch->add(0, 4);
         } while (vppMoreOutput);
         return err_to_rgy(vpp_sts);
     }
@@ -1616,6 +1772,12 @@ public:
         m_outQeueue.clear(); // m_bitStreamOutが解放されるよう前にこちらを解放する
     };
     void setEnc(MFXVideoENCODE *mfxencode) { m_encode = mfxencode; };
+    virtual void setStopWatch() override {
+        m_stopwatch = std::make_unique<PipelineTaskStopWatch>(
+            std::vector<tstring>{ _T("GetBitstream"), _T("Reset"), _T("EncodeFrameAsync"), _T("EncoderBusy") },
+            std::vector<tstring>{_T("")}
+        );
+    }
 
     QSVRCParam getRCParam(const QSVVideoParam& encParams) {
         mfxExtCodingOption3 *cop3 = nullptr;
@@ -1705,6 +1867,7 @@ public:
 
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override { return std::nullopt; };
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
+        if (m_stopwatch) m_stopwatch->set(0);
         if (frame && frame->type() != PipelineTaskOutputType::SURFACE) {
             PrintMes(RGY_LOG_ERROR, _T("Invalid frame type.\n"));
             return RGY_ERR_UNSUPPORTED;
@@ -1730,6 +1893,7 @@ public:
         if (!bsOut) {
             return RGY_ERR_NULL_PTR;
         }
+        if (m_stopwatch) m_stopwatch->add(0, 0);
 
         std::vector<std::shared_ptr<RGYFrameData>> metadatalist;
         if (m_encParams.videoPrm.mfx.CodecId == MFX_CODEC_HEVC || m_encParams.videoPrm.mfx.CodecId == MFX_CODEC_AV1) {
@@ -1802,15 +1966,18 @@ public:
         if (frame) {
             dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->clearDataList();
         }
+        if (m_stopwatch) m_stopwatch->add(0, 1);
 
         std::unique_ptr<std::chrono::system_clock::time_point> device_busy;
         auto enc_sts = MFX_ERR_NONE;
         mfxSyncPoint lastSyncP = nullptr;
         bool bDeviceBusy = false;
         for (int i = 0; ; i++) {
+            if (m_stopwatch) m_stopwatch->set(0);
             auto ctrlPtr = (m_encCtrlData.hasData()) ? m_encCtrlData.getCtrlPtr() : nullptr;
             enc_sts = m_encode->EncodeFrameAsync(ctrlPtr, surfEncodeIn, bsOut->bsptr(), &lastSyncP);
             bDeviceBusy = false;
+            if (m_stopwatch) m_stopwatch->add(0, 2);
 
             if (MFX_ERR_NONE < enc_sts && lastSyncP == nullptr) {
                 bDeviceBusy = true;
@@ -1841,6 +2008,7 @@ public:
                 QSV_IGNORE_STS(enc_sts, MFX_ERR_MORE_BITSTREAM);
                 break;
             }
+            if (m_stopwatch) m_stopwatch->add(0, 3);
         }
         if (lastSyncP != nullptr) {
             m_outQeueue.push_back(std::make_unique<PipelineTaskOutputBitstream>(m_mfxSession, bsOut, lastSyncP));
@@ -1871,6 +2039,12 @@ public:
         m_cl.reset();
     };
 
+    virtual void setStopWatch() override {
+        m_stopwatch = std::make_unique<PipelineTaskStopWatch>(
+            std::vector<tstring>{ _T("Sync"), _T("Interop"), _T("Filtering") },
+            std::vector<tstring>{_T("")}
+        );
+    }
     void setVideoQualityMetricFilter(RGYFilterSsim *videoMetric) {
         m_videoMetric = videoMetric;
     }
@@ -1888,12 +2062,14 @@ public:
     virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override { return std::nullopt; };
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override { return std::nullopt; };
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
+        if (m_stopwatch) m_stopwatch->set(0);
         if (m_prevInputFrame.size() > 0) {
             //前回投入したフレームの処理が完了していることを確認したうえで参照を破棄することでロックを解放する
             auto prevframe = std::move(m_prevInputFrame.front());
             m_prevInputFrame.pop_front();
             prevframe->depend_clear();
         }
+        if (m_stopwatch) m_stopwatch->add(0, 0);
 
         deque<std::pair<RGYFrameInfo, uint32_t>> filterframes;
         RGYCLFrameInterop *clFrameInInterop = nullptr;
@@ -1939,6 +2115,7 @@ public:
             //これを行わないとこのフレームが再度使われてしまうことになる
             m_prevInputFrame.push_back(std::move(frame));
         }
+        if (m_stopwatch) m_stopwatch->add(0, 1);
 #define FRAME_COPY_ONLY 0
 #if !FRAME_COPY_ONLY
         std::vector<std::unique_ptr<PipelineTaskOutputSurf>> outputSurfs;
@@ -2073,6 +2250,7 @@ public:
             std::make_move_iterator(outputSurfs.begin()),
             std::make_move_iterator(outputSurfs.end())
         );
+        if (m_stopwatch) m_stopwatch->add(0, 2);
 #else
         auto surfVppOut = getWorkSurf();
         if (m_surfVppOutInterop.count(surfVppOut.get()) == 0) {

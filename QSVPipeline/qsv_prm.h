@@ -146,72 +146,6 @@ struct VppDetailEnhance {
     ~VppDetailEnhance() {};
 };
 
-enum class VppType : int {
-    VPP_NONE,
-
-    MFX_COLORSPACE,
-    MFX_CROP,
-    MFX_ROTATE,
-    MFX_MIRROR,
-    MFX_DEINTERLACE,
-    MFX_IMAGE_STABILIZATION,
-    MFX_MCTF,
-    MFX_DENOISE,
-    MFX_RESIZE,
-    MFX_DETAIL_ENHANCE,
-    MFX_FPS_CONV,
-    MFX_PERC_ENC_PREFILTER,
-    MFX_COPY,
-
-    MFX_MAX,
-
-    CL_MIN = MFX_MAX,
-
-    CL_CROP,
-    CL_AFS,
-    CL_NNEDI,
-    CL_DECIMATE,
-    CL_MPDECIMATE,
-    CL_YADIF,
-    CL_COLORSPACE,
-    CL_RFF,
-    CL_DELOGO,
-    CL_TRANSFORM,
-
-    CL_CONVOLUTION3D,
-    CL_DENOISE_KNN,
-    CL_DENOISE_PMD,
-    CL_DENOISE_SMOOTH,
-
-    CL_RESIZE,
-
-    CL_SUBBURN,
-
-    CL_UNSHARP,
-    CL_EDGELEVEL,
-    CL_WARPSHARP,
-
-    CL_CURVES,
-    CL_TWEAK,
-
-    CL_OVERLAY,
-
-    CL_DEBAND,
-
-    CL_PAD,
-
-    CL_MAX,
-};
-
-enum class VppFilterType { FILTER_NONE, FILTER_MFX, FILTER_OPENCL };
-
-static VppFilterType getVppFilterType(VppType vpptype) {
-    if (vpptype == VppType::VPP_NONE) return VppFilterType::FILTER_NONE;
-    if (vpptype < VppType::MFX_MAX) return VppFilterType::FILTER_MFX;
-    if (vpptype < VppType::CL_MAX) return VppFilterType::FILTER_OPENCL;
-    return VppFilterType::FILTER_NONE;
-}
-
 struct MFXVppColorspace {
     bool enable;
     struct {
@@ -287,6 +221,12 @@ struct QSVRCParam {
     bool operator!=(const QSVRCParam &x) const;
 };
 tstring printParams(const std::vector<QSVRCParam> &dynamicRC);
+
+enum class QSVFunctionMode {
+    Auto,
+    PG,
+    FF,
+};
 
 struct sInputParams {
     VideoInfo input;              //入力する動画の情報
@@ -365,7 +305,7 @@ struct sInputParams {
     int        nMVCostScaling;
     std::optional<bool> bDirectBiasAdjust;
     bool       bGlobalMotionAdjust;
-    bool       bUseFixedFunc;
+    QSVFunctionMode functionMode;
     bool       gpuCopy;
 
     int        nSessionThreads;
@@ -712,6 +652,13 @@ const CX_DESC list_priority[] = {
     { _T("low"),    MFX_PRIORITY_LOW    },
     { _T("normal"), MFX_PRIORITY_NORMAL },
     { _T("high"),   MFX_PRIORITY_HIGH   },
+};
+
+const CX_DESC list_qsv_function_mode[] = {
+    { _T("auto"),  (int)QSVFunctionMode::Auto  },
+    { _T("PG"),    (int)QSVFunctionMode::PG    },
+    { _T("FF"),    (int)QSVFunctionMode::FF    },
+    { NULL, 0 }
 };
 
 const CX_DESC list_hyper_mode[] = {

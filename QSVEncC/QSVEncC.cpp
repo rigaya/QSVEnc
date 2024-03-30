@@ -302,7 +302,7 @@ function showTable(idno) {
         if (type == FEATURE_LIST_STR_TYPE_HTML) {
             print_tstring(_T("<hr>\n"), false);
         }
-        mfxVersion lib = (impl_type) ? get_mfx_libsw_version() : get_mfx_libhw_version(deviceNum);
+        mfxVersion lib = (impl_type) ? get_mfx_libsw_version() : get_mfx_libhw_version(deviceNum, loglevel);
         const TCHAR *impl_str = (impl_type) ?  _T("Software") : _T("Hardware");
         if (!check_lib_version(lib, test)) {
             if (impl_type == 0) {
@@ -534,7 +534,7 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const QSVDe
     if (0 == _tcscmp(option_name, _T("check-environment-auo"))) {
         show_version();
         _ftprintf(stdout, _T("%s"), getEnviromentInfo((int)deviceNum).c_str());
-        mfxVersion lib = get_mfx_libhw_version(QSVDeviceNum::AUTO);
+        mfxVersion lib = get_mfx_libhw_version(QSVDeviceNum::AUTO, loglevel);
         mfxVersion test = { 0, 1 };
         if (check_lib_version(lib, test)) {
             _ftprintf(stdout, _T("Media SDK Version: Hardware API v%d.%02d\n\n"), lib.Major, lib.Minor);
@@ -562,7 +562,7 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const QSVDe
         || 0 == _tcscmp(option_name, _T("hw-check"))) //互換性のため
     {
         mfxVersion ver = { 0, 1 };
-        if (check_lib_version(get_mfx_libhw_version(deviceNum), ver) != 0) {
+        if (check_lib_version(get_mfx_libhw_version(deviceNum, loglevel), ver) != 0) {
             tstring deviceName = (deviceNum == QSVDeviceNum::AUTO) ? _T("auto") : strsprintf(_T("%d"), (int)deviceNum);
             _ftprintf(stdout, _T("Success: QuickSyncVideo (hw encoding) available\n"));
             _ftprintf(stdout, _T("Supported Encode Codecs for device %s:\n"), deviceName.c_str());
@@ -584,7 +584,7 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const QSVDe
     if (0 == _tcscmp(option_name, _T("lib-check"))
         || 0 == _tcscmp(option_name, _T("check-lib"))) {
         mfxVersion test = { 0, 1 };
-        mfxVersion hwlib = get_mfx_libhw_version(deviceNum);
+        mfxVersion hwlib = get_mfx_libhw_version(deviceNum, loglevel);
         mfxVersion swlib = get_mfx_libsw_version();
         show_version();
 #ifdef _M_IX86

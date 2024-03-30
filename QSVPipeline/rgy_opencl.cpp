@@ -1371,17 +1371,17 @@ RGY_ERR RGYOpenCLKernelLauncher::launch(std::vector<void *> arg_ptrs, std::vecto
         if (arg_type[i] == typeid(RGYOpenCLKernelDynamicLocal)) {
             auto ptr = reinterpret_cast<RGYOpenCLKernelDynamicLocal *>(arg_ptrs[i]);
             auto err = err_cl_to_rgy(clSetKernelArg(m_kernel, i, ptr->size(), nullptr));
-            if (err != CL_SUCCESS) {
-                CL_LOG(RGY_LOG_ERROR, _T("Error: Failed to set #%d arg (local array size: %d) to kernel \"%s\": %s\n"), i, ptr->size(), char_to_tstring(m_kernelName).c_str(), cl_errmes(err));
+            if (err != RGY_ERR_NONE) {
+                CL_LOG(RGY_LOG_ERROR, _T("Error: Failed to set #%d arg (local array size: %d) to kernel \"%s\": %s\n"), i, ptr->size(), char_to_tstring(m_kernelName).c_str(), get_err_mes(err));
                 return err;
             }
         } else {
             auto err = err_cl_to_rgy(clSetKernelArg(m_kernel, i, arg_size[i], arg_ptrs[i]));
-            if (err != CL_SUCCESS) {
+            if (err != RGY_ERR_NONE) {
                 uint64_t argvalue = *(uint64_t *)arg_ptrs[i];
                 argvalue &= std::numeric_limits<uint64_t>::max() >> ((8 - arg_size[i]) * 8);
                 CL_LOG(RGY_LOG_ERROR, _T("Error: Failed to set #%d arg to kernel \"%s\": %s, size: %d, ptr 0x%p, ptrvalue 0x%p\n"),
-                    i, char_to_tstring(m_kernelName).c_str(), cl_errmes(err), arg_size[i], arg_ptrs[i], argvalue);
+                    i, char_to_tstring(m_kernelName).c_str(), get_err_mes(err), arg_size[i], arg_ptrs[i], argvalue);
                 return err;
             }
         }
@@ -1391,8 +1391,8 @@ RGY_ERR RGYOpenCLKernelLauncher::launch(std::vector<void *> arg_ptrs, std::vecto
         (int)m_wait_events.size(),
         (m_wait_events.size() > 0) ? m_wait_events.data() : nullptr,
         (m_event) ? m_event->reset_ptr() : nullptr));
-    if (err != CL_SUCCESS) {
-        CL_LOG(RGY_LOG_ERROR, _T("Error: Failed to run kernel \"%s\": %s\n"), char_to_tstring(m_kernelName).c_str(), cl_errmes(err));
+    if (err != RGY_ERR_NONE) {
+        CL_LOG(RGY_LOG_ERROR, _T("Error: Failed to run kernel \"%s\": %s\n"), char_to_tstring(m_kernelName).c_str(), get_err_mes(err));
         return err;
     }
     return err;

@@ -54,6 +54,7 @@
 #include "rgy_input.h"
 #include "rgy_output.h"
 #include "rgy_opencl.h"
+#include "rgy_dummy_load.h"
 #include "qsv_vpp_mfx.h"
 #include "qsv_mfx_dec.h"
 #include "qsv_pipeline_ctrl.h"
@@ -158,6 +159,8 @@ protected:
 
     MFXVideoSession2Params m_sessionParams;
     uint32_t m_nProcSpeedLimit;
+    bool m_taskPerfMonitor;
+    std::unique_ptr<RGYDummyLoadCL> m_dummyLoad;
 
     bool *m_pAbortByUser;
     unique_ptr<std::remove_pointer<HANDLE>::type, handle_deleter> m_heAbort;
@@ -188,6 +191,7 @@ protected:
     std::pair<RGY_ERR, QSVEncFeatures> CheckMFXRCMode(QSVRCParam& rcParam, sInputParams *pParams, const int codecMaxQP);
     virtual RGY_ERR InitMfxEncodeParams(sInputParams *pParams, std::vector<std::unique_ptr<QSVDevice>>& devList);
     virtual RGY_ERR InitPowerThrottoling(sInputParams *pParams);
+    virtual RGY_ERR InitAvoidIdleClock(const sInputParams *pParams);
     virtual RGY_ERR InitMfxDec();
     virtual RGY_ERR InitMfxVpp();
     virtual RGY_ERR InitMfxEncode();

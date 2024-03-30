@@ -17,7 +17,7 @@ jobs:
       version_name: ${{ steps.rev.outputs.version_name }}
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0
     - name: Set version name
@@ -53,7 +53,7 @@ jobs:
     
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: true
           fetch-depth: 0
@@ -109,8 +109,13 @@ jobs:
         with:
           files: QSVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z
 
+      - name: Calc hash
+        id: calc_hash
+        run: |
+          7z h -scrc* QSVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z
+
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: QSVEncC_release_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}
           path: QSVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z
@@ -128,7 +133,7 @@ jobs:
     steps:
 
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: true
           fetch-depth: 0
@@ -160,13 +165,13 @@ jobs:
           curl -o auo_setup.zip -L https://github.com/rigaya/auo_setup/releases/download/2.01/auo_setup_2.01.zip
 
       - name: Download QSVEncC Win32
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: QSVEncC_release_${{ needs.get_version_name.outputs.version_name }}_Win32
           path: QSVEncC_${{ needs.get_version_name.outputs.version_name }}_Win32.7z
 
       - name: Download QSVEncC x64
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: QSVEncC_release_${{ needs.get_version_name.outputs.version_name }}_x64
           path: QSVEncC_${{ needs.get_version_name.outputs.version_name }}_x64.7z
@@ -205,6 +210,11 @@ jobs:
           "Aviutl_QSVEnc_release\exe_files\QSVEncC\x86\QSVEncC.exe" --check-avcodec-dll
           "Aviutl_QSVEnc_release\exe_files\QSVEncC\x64\QSVEncC64.exe" --check-avcodec-dll
 
+      - name: Calc hash
+        id: calc_hash
+        run: |
+          7z h -scrc* Aviutl_QSVEnc_${{ needs.get_version_name.outputs.version_name }}.zip
+
       - name: Upload Release Asset
         id: upload-release-asset 
         uses: softprops/action-gh-release@v1
@@ -215,7 +225,7 @@ jobs:
           files: Aviutl_QSVEnc_${{ needs.get_version_name.outputs.version_name }}.zip
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Aviutl_QSVEnc_${{ needs.get_version_name.outputs.version_name }}
           path: Aviutl_QSVEnc_${{ needs.get_version_name.outputs.version_name }}.zip

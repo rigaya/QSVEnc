@@ -336,6 +336,18 @@
     <ClCompile Include="rgy_filter_rff.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="rgy_filter_denoise_dct.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="rgy_filter_cl.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="rgy_frame_info.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="rgy_dummy_load.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="qsv_prm.h">
@@ -644,6 +656,15 @@
     <ClInclude Include="rgy_filter_rff.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="rgy_filter_denoise_dct.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="rgy_filter_cl.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="rgy_dummy_load.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="rgy_filter.cl">
@@ -731,6 +752,12 @@
       <Filter>ソース ファイル</Filter>
     </None>
     <None Include="rgy_filter_curves.cl">
+      <Filter>ソース ファイル</Filter>
+    </None>
+    <None Include="rgy_filter_denoise_dct.cl">
+      <Filter>ソース ファイル</Filter>
+    </None>
+    <None Include="rgy_dummy_load.cl">
       <Filter>ソース ファイル</Filter>
     </None>
   </ItemGroup>

@@ -81,7 +81,7 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     ppSubtitleSelect(nullptr),
     nDataSelectCount(0),
     ppDataSelect(nullptr),
-    AVSyncMode(RGY_AVSYNC_ASSUME_CFR),
+    AVSyncMode(RGY_AVSYNC_AUTO),
     procSpeedLimit(0),
     seekSec(0.0f),
     seekToSec(0.0f),
@@ -905,11 +905,8 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
                 nAvgFramerate64.den = fpsDecoder.den;
             } else if (codec_timebase.den > 0
                 && codec_timebase.num > 0) {
-                const AVCodec *codec = avcodec_find_decoder(m_Demux.video.stream->codecpar->codec_id);
-                AVCodecContext *pCodecCtx = avcodec_alloc_context3(codec);
-                nAvgFramerate64.num = codec_timebase.den * pCodecCtx->ticks_per_frame;
+                nAvgFramerate64.num = codec_timebase.den * getCodecTickPerFrames(m_Demux.video.stream->codecpar->codec_id);
                 nAvgFramerate64.den = codec_timebase.num;
-                avcodec_free_context(&pCodecCtx);
             }
         }
 
@@ -2110,13 +2107,8 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         //スレッド関連初期化
         m_Demux.format.lowLatency = input_prm->lowLatency;
         m_Demux.thread.bAbortInput = false;
-#if 1
         auto nPrmInputThread = input_prm->threadInput;
-        m_Demux.thread.threadInput = ((nPrmInputThread == RGY_INPUT_THREAD_AUTO) | (m_Demux.video.stream != nullptr)) ? 0 : nPrmInputThread;
-#else
-        //NVEncではいまのところ、常に無効
-        m_Demux.thread.threadInput = 0;
-#endif
+        m_Demux.thread.threadInput = (nPrmInputThread == RGY_INPUT_THREAD_AUTO) ? (input_prm->lowLatency ? 0 : 1) : nPrmInputThread;
         if (m_Demux.thread.threadInput) {
             m_Demux.thread.thInput = std::thread(&RGYInputAvcodec::ThreadFuncRead, this, input_prm->threadParamInput);
             //はじめcapacityを無限大にセットしたので、この段階で制限をかける
@@ -2941,14 +2933,14 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
                 flags |= RGY_FRAME_FLAG_RFF;
                 m_Demux.video.decRFFStatus ^= 1; // 反転させる
             }
-            if (m_Demux.video.frame->top_field_first || findPos.repeat_pict > 1 || m_Demux.video.decRFFStatus) {
+            if (rgy_avframe_tff_flag(m_Demux.video.frame) || findPos.repeat_pict > 1 || m_Demux.video.decRFFStatus) {
                 // RFF用のTFF/BFFを示すフラグを設定 (picstructとは別)
-                flags |= (m_Demux.video.frame->top_field_first) ? RGY_FRAME_FLAG_RFF_TFF : RGY_FRAME_FLAG_RFF_BFF;
+                flags |= (rgy_avframe_tff_flag(m_Demux.video.frame)) ? RGY_FRAME_FLAG_RFF_TFF : RGY_FRAME_FLAG_RFF_BFF;
             }
         }
         pSurface->setFlags(flags);
         pSurface->setTimestamp(m_Demux.video.frame->pts);
-        pSurface->setDuration(m_Demux.video.frame->pkt_duration);
+        pSurface->setDuration(rgy_avframe_get_duration(m_Demux.video.frame));
         if (m_inputVideoInfo.picstruct == RGY_PICSTRUCT_AUTO) { //autoの時は、frameのインタレ情報をセットする
             pSurface->setPicstruct(picstruct_avframe_to_rgy(m_Demux.video.frame));
         }
@@ -2987,8 +2979,8 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
         }
         //フレームデータをコピー
         void *dst_array[3];
-        pSurface->ptrArray(dst_array, m_convert->getFunc()->csp_to == RGY_CSP_RGB24 || m_convert->getFunc()->csp_to == RGY_CSP_RGB32);
-        m_convert->run(m_Demux.video.frame->interlaced_frame != 0,
+        pSurface->ptrArray(dst_array);
+        m_convert->run(rgy_avframe_interlaced(m_Demux.video.frame),
             dst_array, (const void **)m_Demux.video.frame->data,
             m_inputVideoInfo.srcWidth, m_Demux.video.frame->linesize[0], m_Demux.video.frame->linesize[1], pSurface->pitch(),
             m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);

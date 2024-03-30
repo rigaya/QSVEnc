@@ -68,6 +68,7 @@ _BINARY_VPP_FILTER_FILE(rgy_filter_deband_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_deband_gen_rand_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_decimate_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_delogo_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_denoise_dct_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_knn_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_pmd_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_edgelevel_cl);
@@ -86,6 +87,9 @@ _BINARY_VPP_FILTER_FILE(rgy_filter_tweak_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_unsharp_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_warpsharp_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_yadif_cl);
+#if ENABLE_AVOID_IDLE_CLOCK
+_BINARY_VPP_FILTER_FILE(rgy_dummy_load_cl);
+#endif //ENABLE_AVOID_IDLE_CLOCK
 
 #undef _BINARY_VPP_FILTER_FILE
 
@@ -104,8 +108,6 @@ struct RGYResourceData {
 };
 
 static const RGYResourceData RGY_RESOURCE_DATA[] = {
-    { _T("PERF_MONITOR_SRC"), _T("PERF_MONITOR_PYW"), _binary_PerfMonitor_perf_monitor_pyw_start, _binary_PerfMonitor_perf_monitor_pyw_end },
-    
     { _T("EXE_DATA"), _T("NNEDI_WEIGHTBIN"), _binary_resource_nnedi3_weights_bin_start, _binary_resource_nnedi3_weights_bin_end },
 
 #if ENCODER_QSV || ENCODER_VCEENC || ENCODER_MPP
@@ -133,6 +135,7 @@ static const RGYResourceData RGY_RESOURCE_DATA[] = {
     { _T("EXE_DATA"), _T("RGY_FILTER_DEBAND_GEN_RAND_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_deband_gen_rand_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_DECIMATE_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_decimate_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_DELOGO_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_delogo_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_DENOISE_DCT_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_dct_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_DENOISE_KNN_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_knn_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_DENOISE_PMD_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_pmd_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_EDGELEVEL_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_edgelevel_cl) },
@@ -150,14 +153,18 @@ static const RGYResourceData RGY_RESOURCE_DATA[] = {
     { _T("EXE_DATA"), _T("RGY_FILTER_TWEAK_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_tweak_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_UNSHARP_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_unsharp_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_WARPSHARP_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_warpsharp_cl) },
-    { _T("EXE_DATA"), _T("RGY_FILTER_YADIF_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_yadif_cl) }
+    { _T("EXE_DATA"), _T("RGY_FILTER_YADIF_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_yadif_cl) },
+#if ENABLE_AVOID_IDLE_CLOCK
+    { _T("EXE_DATA"), _T("RGY_DUMMY_LOAD_CL"), _BINARY_VPP_FILTER_FILE(rgy_dummy_load_cl) },
+#endif //ENABLE_AVOID_IDLE_CLOCK
 
 #undef _BINARY_VPP_FILTER_FILE
 
 #endif //#if ENCODER_QSV || ENCODER_VCEENC || ENCODER_MPP
 #if ENCODER_NVENC
-    { _T("EXE_DATA"), _T("NVENC_FILTER_COLRSPACE_FUNC_HEADER"), _binary_NVEncCore_NVEncFilterColorspaceFunc_h_start, _binary_NVEncCore_NVEncFilterColorspaceFunc_h_end }
+    { _T("EXE_DATA"), _T("NVENC_FILTER_COLRSPACE_FUNC_HEADER"), _binary_NVEncCore_NVEncFilterColorspaceFunc_h_start, _binary_NVEncCore_NVEncFilterColorspaceFunc_h_end },
 #endif //#if ENCODER_NVENC
+    { _T("PERF_MONITOR_SRC"), _T("PERF_MONITOR_PYW"), _binary_PerfMonitor_perf_monitor_pyw_start, _binary_PerfMonitor_perf_monitor_pyw_end }
 };
 #endif //#if !(defined(_WIN32) || defined(_WIN64))
 

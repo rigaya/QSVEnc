@@ -27,6 +27,7 @@ RGY_FILTER_MPDECIMATE_CL     EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_m
 RGY_FILTER_DECIMATE_CL       EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_decimate.cl"
 RGY_FILTER_DELOGO_CL         EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_delogo.cl"
 RGY_FILTER_CONVOLUTION3D_CL  EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_convolution3d.cl"
+RGY_FILTER_DENOISE_DCT_CL    EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_denoise_dct.cl"
 RGY_FILTER_DENOISE_KNN_CL    EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_denoise_knn.cl"
 RGY_FILTER_DENOISE_PMD_CL    EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_denoise_pmd.cl"
 RGY_FILTER_SMOOTH_CL         EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_smooth.cl"
@@ -50,6 +51,8 @@ RGY_FILTER_CLRNG_MRG31K3P_CLH        EXE_DATA DISCARDABLE "..\\clRNG\\src\\inclu
 RGY_FILTER_CLRNG_MRG31K3P_PRIVATE_CH EXE_DATA DISCARDABLE "..\\clRNG\\src\\include\\clRNG\\private\\mrg31k3p.c.h"
 
 RGY_FILTER_SSIM_CL EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_ssim.cl"
+
+RGY_DUMMY_LOAD_CL EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_dummy_load.cl"
 
 PERF_MONITOR_PYW PERF_MONITOR_SRC DISCARDABLE "..\\PerfMonitor\\perf_monitor.pyw"
 

@@ -602,6 +602,12 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClCompile Include="rgy_cmd.cpp" />
     <ClCompile Include="rgy_codepage.cpp" />
     <ClCompile Include="rgy_def.cpp" />
+    <ClCompile Include="rgy_dummy_load.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="rgy_env.cpp" />
     <ClCompile Include="rgy_event.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
@@ -667,6 +673,12 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="rgy_filter_cl.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="rgy_filter_colorspace.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -704,6 +716,12 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="rgy_filter_delogo.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="rgy_filter_denoise_dct.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
@@ -806,6 +824,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="rgy_frame.cpp" />
+    <ClCompile Include="rgy_frame_info.cpp" />
     <ClCompile Include="rgy_hdr10plus.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -986,12 +1005,14 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_cmd.h" />
     <ClInclude Include="rgy_codepage.h" />
     <ClInclude Include="rgy_def.h" />
+    <ClInclude Include="rgy_dummy_load.h" />
     <ClInclude Include="rgy_env.h" />
     <ClInclude Include="rgy_event.h" />
     <ClInclude Include="rgy_faw.h" />
     <ClInclude Include="rgy_filesystem.h" />
     <ClInclude Include="rgy_filter.h" />
     <ClInclude Include="rgy_filter_afs.h" />
+    <ClInclude Include="rgy_filter_cl.h" />
     <ClInclude Include="rgy_filter_colorspace.h" />
     <ClInclude Include="rgy_filter_colorspace_func.h" />
     <ClInclude Include="rgy_filter_convolution3d.h" />
@@ -999,6 +1020,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_filter_deband.h" />
     <ClInclude Include="rgy_filter_decimate.h" />
     <ClInclude Include="rgy_filter_delogo.h" />
+    <ClInclude Include="rgy_filter_denoise_dct.h" />
     <ClInclude Include="rgy_filter_denoise_knn.h" />
     <ClInclude Include="rgy_filter_denoise_pmd.h" />
     <ClInclude Include="rgy_filter_edgelevel.h" />
@@ -1051,6 +1073,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_wav_parser.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="rgy_dummy_load.cl" />
     <None Include="rgy_filter.cl" />
     <None Include="rgy_filter_afs_analyze.cl" />
     <None Include="rgy_filter_afs_filter.cl" />
@@ -1062,6 +1085,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <None Include="rgy_filter_deband_gen_rand.cl" />
     <None Include="rgy_filter_decimate.cl" />
     <None Include="rgy_filter_delogo.cl" />
+    <None Include="rgy_filter_denoise_dct.cl" />
     <None Include="rgy_filter_denoise_knn.cl" />
     <None Include="rgy_filter_denoise_pmd.cl" />
     <None Include="rgy_filter_edgelevel.cl" />

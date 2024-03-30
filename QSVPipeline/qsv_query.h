@@ -210,7 +210,7 @@ BOOL Check_HWUsed(mfxIMPL impl);
 int GetAdapterID(mfxIMPL impl);
 int GetAdapterID(mfxSession session);
 int GetAdapterID(MFXVideoSession *session);
-mfxVersion get_mfx_libhw_version(const QSVDeviceNum deviceNum);
+mfxVersion get_mfx_libhw_version(const QSVDeviceNum deviceNum, const RGYParamLogLevel& loglevel);
 mfxVersion get_mfx_libsw_version();
 
 static BOOL check_lib_version(mfxVersion value, mfxVersion required) {

@@ -68,20 +68,27 @@ int open_target_intel_adapter(const int type, const int targetIntelAdaptorNum, R
         throw std::invalid_argument("Wrong libVA backend type");
     }
 
+    RGYLogLevel logLevelFound = RGY_LOG_DEBUG;
     int intelAdaptorCount = 0;
     for (mfxU32 i = 0; i < MFX_DRI_MAX_NODES_NUM; i++) {
         std::string curAdapterPath = adapterPath + std::to_string(nodeIndex + i);
+        log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Adaptor #%d [%s]: try open.\n"), i, char_to_tstring(curAdapterPath).c_str());
 
         const int fd = open(curAdapterPath.c_str(), O_RDWR);
         if (fd < 0) {
-            log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Adaptor #%d [%s]: Does not exist.\n"), i, char_to_tstring(curAdapterPath).c_str());
+            if (access(curAdapterPath.c_str(), F_OK)) {
+                log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Adaptor #%d [%s]: Does not exist.\n"), i, char_to_tstring(curAdapterPath).c_str());
+            } else {
+                log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("Adaptor #%d [%s]: Exists, but failed to open.\n"), i, char_to_tstring(curAdapterPath).c_str());
+            }
+            logLevelFound = RGY_LOG_INFO;
             continue;
         }
 
         if (!get_drm_driver_name(fd, driverName, MFX_DRM_DRIVER_NAME_LEN)) {
             log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Adaptor #%d [%s]: driver name %s\n"), i, char_to_tstring(curAdapterPath).c_str(), char_to_tstring(driverName).c_str());
             if (!strcmp(driverName, MFX_DRM_INTEL_DRIVER_NAME)) {
-                log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Adaptor #%d [%s]: #%d Intel adaptor\n"), i, char_to_tstring(curAdapterPath).c_str(), intelAdaptorCount);
+                log->write(logLevelFound, RGY_LOGT_DEV, _T("Adaptor #%d [%s]: #%d Intel adaptor\n"), i, char_to_tstring(curAdapterPath).c_str(), intelAdaptorCount);
                 if (intelAdaptorCount == targetIntelAdaptorNum) {
                     return fd;
                 }

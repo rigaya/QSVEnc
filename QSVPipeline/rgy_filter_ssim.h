@@ -28,7 +28,7 @@
 
 #pragma once
 
-#include "rgy_filter.h"
+#include "rgy_filter_cl.h"
 #if ENCODER_VCEENC
 #include "vce_util.h"
 #include "Factory.h"

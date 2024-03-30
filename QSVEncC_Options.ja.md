@@ -74,6 +74,7 @@
   - [--d3d11](#--d3d11)
   - [--va](#--va)
 - [その他のオプション](#その他のオプション)
+  - [--function-mode \<string\>](#--function-mode-string)
   - [--fixed-func](#--fixed-func)
   - [--hyper-mode \<string\>](#--hyper-mode-string)
   - [--max-bitrate \<int\>](#--max-bitrate-int)
@@ -165,6 +166,7 @@
   - [--audio-copy \[\<int/string\>;\[,\<int/string\>\]...\]](#--audio-copy-intstringintstring)
   - [--audio-codec \[\[\<int/string\>?\]\<string\>\[:\<string\>=\<string\>\[,\<string\>=\<string\>\]...\]...\]](#--audio-codec-intstringstringstringstringstringstring)
   - [--audio-bitrate \[\<int/string\>?\]\<int\>](#--audio-bitrate-intstringint)
+  - [--audio-quality \[\<int/string\>?\]\<int\>](#--audio-quality-intstringint)
   - [--audio-profile \[\<int/string\>?\]\<string\>](#--audio-profile-intstringstring)
   - [--audio-stream \[\<int/string\>?\]{\<string1\>}\[:\<string2\>\]](#--audio-stream-intstringstring1string2)
   - [--audio-samplerate \[\<int/string\>?\]\<int\>](#--audio-samplerate-intstringint)
@@ -211,6 +213,7 @@
   - [--vpp-mpdecimate \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-mpdecimate-param1value1param2value2)
   - [--vpp-convolution3d \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-convolution3d-param1value1param2value2)
   - [--vpp-smooth \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-smooth-param1value1param2value2)
+  - [--vpp-denoise-dct \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-denoise-dct-param1value1param2value2)
   - [--vpp-knn \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-knn-param1value1param2value2)
   - [--vpp-pmd \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-pmd-param1value1param2value2)
   - [--vpp-denoise \<int\> or \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-denoise-int-or-param1value1param2value2)
@@ -254,9 +257,11 @@
   - [--benchmark \<string\>](#--benchmark-string)
   - [--bench-quality "all" or \<int\>\[,\<int\>\]...](#--bench-quality-all-or-intint)
   - [--max-procfps \<int\>](#--max-procfps-int)
+  - [--avoid-idle-clock \<string\>\[=\<float\>\]](#--avoid-idle-clock-stringfloat)
   - [--lowlatency](#--lowlatency)
   - [--avsdll \<string\>](#--avsdll-string)
   - [--process-codepage \<string\>](#--process-codepage-string)
+  - [--task-perf-monitor](#--task-perf-monitor)
   - [--perf-monitor \[\<string\>\[,\<string\>\]...\]](#--perf-monitor-stringstring)
   - [--perf-monitor-interval \<int\>](#--perf-monitor-interval-int)
 
@@ -633,9 +638,23 @@ vaビデオメモリを使用する。(Linux)
 
 ## その他のオプション
 
+### --function-mode &lt;string&gt;
+QSVの動作モードを選択。
+
+- **パラメータ**
+  - auto (default)  
+    適切なものを自動的に選択。
+
+  - PG  
+    部分的にGPU EUを使用したエンコードを行う。
+
+  - FF  
+    エンコードの全工程で固定回路(Fixed Func)を使用し、完全HWエンコを行う。
+    GPUに負荷をかけることなく、低電力でエンコード可能。使用可能な機能がPGと異なる場合がある。
+
+
 ### --fixed-func
-従来の部分的にGPU EUを使用したエンコードではなく、エンコードの全工程で固定回路(Fixed Func)を使用し、完全HWエンコを行う。
-GPUに負荷をかけることなく、低電力でエンコード可能だが、品質はやや劣る。
+```--function-mode FF```に同じ。
 
 ### --hyper-mode &lt;string&gt;
 Intel Deep Linkを活用し、Intelの内蔵GPU(iGPU)と外部GPU(dGPU)を使用したエンコードの高速化(Hyper Encode)を使用する。
@@ -1157,6 +1176,11 @@ tsなどでエラーが出るなどしてうまく動作しない場合は、[--
   例2: --audio-bitrate 2?256 (音声の第2トラックを256kbpsで変換)
   ```
 
+### --audio-quality [&lt;int/string&gt;?]&lt;int&gt;
+音声をエンコードする際の品質を指定する。値は使用するコーデックに依存する。
+
+[&lt;int&gt;]で音声トラック(1,2,...)を選択したり、[&lt;string&gt;]で指定した言語の音声トラックを選択することもできる。
+
 ### --audio-profile [&lt;int/string&gt;?]&lt;string&gt;
 音声をエンコードする際、そのプロファイルを指定する。
 
@@ -1588,8 +1612,7 @@ mux時にオプションパラメータを渡す。&lt;string1&gt;にオプシ�
   ```
 
 ### --avsync &lt;string&gt;
-  - cfr (default)  
-    入力はCFRを仮定し、入力ptsをチェックしない。
+  - auto (default)  
 
   - forcecfr  
     入力ptsを見ながら、CFRに合うようフレームの水増し・間引きを行い、音声との同期が維持できるようにする。主に、入力がvfrやRFFなどのときに音ズレしてしまう問題への対策。また、--trimとは併用できない。
@@ -1643,6 +1666,7 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
   - [--vpp-mpdecimate](#--vpp-mpdecimate-param1value1param2value2)
   - [--vpp-convolution3d](#--vpp-convolution3d-param1value1param2value2)
   - [--vpp-smooth](#--vpp-smooth-param1value1param2value2)
+  - [--vpp-denoise-dct](#--vpp-denoise-dct-param1value1param2value2)
   - [--vpp-knn](#--vpp-knn-param1value1param2value2)
   - [--vpp-pmd](#--vpp-pmd-param1value1param2value2)
   - [--vpp-denoise](#--vpp-denoise-int-or-param1value1param2value2)
@@ -2157,6 +2181,26 @@ GPUによるインタレ解除を使用する。"normal", "bob"はわりとき�
     
     - fp16  
       半精度浮動小数点をメインに使って計算する。
+
+
+### --vpp-denoise-dct [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+  もう一つのDCTベースのノイズ除去フィルタ。
+
+- **パラメータ**
+  - step=&lt;int&gt;  
+    処理の品質。値が小さいほど高精度だが遅くなる。  
+    - 1 (high quality, slow)
+    - 2 (default)
+    - 4
+    - 8 (fast)
+  
+  - sigma=&lt;float&gt;  (default=4.0)    
+    フィルタの強さ。値が大きいほど強さが増すが、輪郭がぼける等の副作用も強くなる。
+    
+  - block_size=&lt;int&gt;  (default=8)  
+    - 8
+    - 16 (slow)
     
   
 ### --vpp-knn [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
@@ -2789,6 +2833,28 @@ avsw/avhw読み込み時のデバッグ情報出力。
   --max-procfps 90
   ```
 
+### --avoid-idle-clock &lt;string&gt;[=&lt;float&gt;]  
+わずかな軽い負荷をかけ、エンコード中GPUクロックがアイドルクロックになるのを防止し、エンコード速度が大きく低下するのを防ぐ。OpenCLが必要。
+
+- **mode** (&lt;string&gt;)  
+  - off
+  - auto [default]
+  - on
+
+  "auto"は、「dGPU使用」かつ「OpenCLフィルタを使用しない」など、本機能が有効と思われるいくつかの条件を満たすときのみ本機能を動作させる。
+
+- **value** (&lt;int&gt;)  
+  省略可。目標とするダミー負荷のパーセント。値を省略した時は、0.01%程度のわずかな負荷をかける。
+
+- 使用例
+  ```
+  Example: この機能を無効に
+  --avoid-idle-clock off
+
+  Example: この機能を常に使用し、目標負荷を0.02%に変更する例
+  --avoid-idle-clock on=0.02
+  ```
+
 ### --lowlatency
 エンコード遅延を低減するモード。最大エンコード速度(スループット)は低下するので、通常は不要。
 
@@ -2808,6 +2874,10 @@ avsw/avhw読み込み時のデバッグ情報出力。
     実行ファイルに埋め込まれているmanifestという情報を変更する必要がある。
     このオプションを指定すると自動的に実行ファイルをコピーしてmanifestを書き換えた一時的な実行ファイルを作成し、
     それを実行するようになっている。
+
+### --task-perf-monitor
+
+  各タスクの所要時間を計測し、エンコード後にログ出力を行う。
 
 ### --perf-monitor [&lt;string&gt;[,&lt;string&gt;]...]
 エンコーダのパフォーマンス情報を出力する。パラメータとして出力したい情報名を下記から選択できる。デフォルトはall (すべての情報)。

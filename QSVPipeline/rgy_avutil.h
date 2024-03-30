@@ -32,9 +32,6 @@
 #include "rgy_version.h"
 #include "rgy_tchar.h"
 
-static const TCHAR *RGY_AVCODEC_AUTO = _T("auto");
-static const TCHAR *RGY_AVCODEC_COPY = _T("copy");
-
 #if ENABLE_AVSW_READER
 #include <algorithm>
 
@@ -276,8 +273,22 @@ static inline int pktFlagGetTrackID(const AVPacket *pkt) {
 
 int64_t rational_rescale(int64_t v, rgy_rational<int> from, rgy_rational<int> to);
 
+// AVCodecContext::ticks_per_frameの代わり
+// For some codecs, the time base is closer to the field rate than the frame rate.
+// Most notably, H.264 and MPEG-2 specify time_base as half of frame duration
+// if no telecine is used ...
+// Set to time_base ticks per frame. Default 1, e.g., H.264/MPEG-2 set it to 2.
+int getCodecTickPerFrames(const AVCodecID codecID);
+
 //NV_ENC_PIC_STRUCTから、AVFieldOrderを返す
 AVFieldOrder picstrcut_rgy_to_avfieldorder(RGY_PICSTRUCT picstruct);
+
+//AVFrameのdurationを取得
+int64_t rgy_avframe_get_duration(const AVFrame *frame);
+
+//AVFrameのインタレ関連フラグの確認
+bool rgy_avframe_interlaced(const AVFrame *frame);
+bool rgy_avframe_tff_flag(const AVFrame *frame);
 
 //AVFrameの情報からRGY_PICSTRUCTを返す
 RGY_PICSTRUCT picstruct_avframe_to_rgy(const AVFrame *frame);
@@ -290,6 +301,10 @@ bool avcodec_equal(const std::string& codec, const AVCodecID id);
 
 //コーデックが存在するか確認
 bool avcodec_exists(const std::string& codec, const AVMediaType type = AVMEDIA_TYPE_NB);
+bool avcodec_exists_video(const std::string& codec);
+bool avcodec_exists_audio(const std::string& codec);
+bool avcodec_exists_subtitle(const std::string& codec);
+bool avcodec_exists_data(const std::string& codec);
 
 //コーデックの種類を表示
 tstring get_media_type_string(AVCodecID codecId);
@@ -420,6 +435,10 @@ tstring getDispositionStr(uint32_t disposition);
 #define AV_NOPTS_VALUE (-1)
 class RGYPoolAVPacket;
 class RGYPoolAVFrame;
+static bool avcodec_exists_video([[maybe_unused]] const std::string& codec) { return false; }
+static bool avcodec_exists_audio([[maybe_unused]] const std::string& codec) { return false; }
+static bool avcodec_exists_subtitle([[maybe_unused]] const std::string& codec) { return false; }
+static bool avcodec_exists_data([[maybe_unused]] const std::string& codec) { return false; }
 #endif //ENABLE_AVSW_READER
 
 #endif //__RGY_AVUTIL_H__

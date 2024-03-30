@@ -271,7 +271,7 @@ sInputParams::sInputParams() :
     nMVCostScaling(0),
     bDirectBiasAdjust(),
     bGlobalMotionAdjust(false),
-    bUseFixedFunc(false),
+    functionMode(QSVFunctionMode::Auto),
     gpuCopy(false),
     nSessionThreads(0),
     nSessionThreadPriority(get_value_from_chr(list_priority, _T("normal"))),

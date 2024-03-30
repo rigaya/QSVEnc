@@ -74,6 +74,7 @@ RGY_DISABLE_WARNING_POP
 #include "rgy_filter_decimate.h"
 #include "rgy_filter_delogo.h"
 #include "rgy_filter_convolution3d.h"
+#include "rgy_filter_denoise_dct.h"
 #include "rgy_filter_smooth.h"
 #include "rgy_filter_denoise_knn.h"
 #include "rgy_filter_denoise_pmd.h"
@@ -164,7 +165,9 @@ bool CQSVPipeline::CompareParam(const QSVVideoParam& prmIn, const QSVVideoParam&
     COMPARE_INT(videoPrm.AsyncDepth,             0);
     COMPARE_HEX(videoPrm.IOPattern,              0);
     COMPARE_INT(videoPrm.mfx.NumThread,          0);
-    COMPARE_INT(videoPrm.mfx.BRCParamMultiplier, 0);
+    if (prmOut.videoPrm.mfx.BRCParamMultiplier > 1) {
+        COMPARE_INT(videoPrm.mfx.BRCParamMultiplier, -1);
+    }
     COMPARE_INT(videoPrm.mfx.LowPower,           0);
     COMPARE_LST(videoPrm.mfx.CodecId,            0, list_codec_mfx);
     COMPARE_LST(videoPrm.mfx.CodecProfile,       0, get_profile_list(codec_enc_to_rgy(prmIn.videoPrm.mfx.CodecId)));
@@ -246,7 +249,7 @@ bool CQSVPipeline::CompareParam(const QSVVideoParam& prmIn, const QSVVideoParam&
 
         COMPARE_INT(cop2.MaxFrameSize,    0);
         COMPARE_INT(cop2.MaxSliceSize,    0);
-        COMPARE_TRI(cop2.BitrateLimit,    0);
+        //COMPARE_TRI(cop2.BitrateLimit,    0);
         COMPARE_TRI(cop2.MBBRC,           0);
         COMPARE_TRI(cop2.ExtBRC,          0);
     }
@@ -412,21 +415,61 @@ RGY_ERR CQSVPipeline::InitMfxDecParams() {
 }
 
 std::pair<RGY_ERR, QSVEncFeatures> CQSVPipeline::CheckMFXRCMode(QSVRCParam& rcParam, sInputParams *pInParams, const int codecMaxQP) {
-
-    const TCHAR *PG_FF_STR[] = { _T("PG"), _T("FF") };
-
     //エンコードモードのチェック
-    auto availableFeaures = m_device->getEncodeFeature(rcParam.encMode, pInParams->codec, pInParams->bUseFixedFunc);
-    if (!availableFeaures) {
-        availableFeaures = m_device->getEncodeFeature(rcParam.encMode, pInParams->codec, !pInParams->bUseFixedFunc);
-        if (!!availableFeaures) {
-            PrintMes(RGY_LOG_WARN, _T("%s is not supported on this platform, switched to %s mode.\n"), PG_FF_STR[!!pInParams->bUseFixedFunc], PG_FF_STR[!pInParams->bUseFixedFunc]);
-            pInParams->bUseFixedFunc = !pInParams->bUseFixedFunc;
+    QSVEncFeatures availableFeaures;
+    if (pInParams->functionMode == QSVFunctionMode::Auto) {
+        auto availableFeauresPG = m_device->getEncodeFeature(rcParam.encMode, pInParams->codec, false);
+        auto availableFeauresFF = m_device->getEncodeFeature(rcParam.encMode, pInParams->codec, true);
+        if (!!availableFeauresPG && !!availableFeauresFF) {
+            // 両方サポートされている場合
+            if (pInParams->codec == RGY_CODEC_H264) {
+                availableFeaures = availableFeauresPG;
+                pInParams->functionMode = QSVFunctionMode::PG;
+            } else {
+                availableFeaures = availableFeauresFF;
+                pInParams->functionMode = QSVFunctionMode::FF;
+            }
+        } else if (!!availableFeauresPG) {
+            // PGのみがサポートされている場合
+            availableFeaures = availableFeauresPG;
+            pInParams->functionMode = QSVFunctionMode::PG;
+        } else if (!!availableFeauresFF) {
+            // FFのみがサポートされている場合
+            availableFeaures = availableFeauresFF;
+            pInParams->functionMode = QSVFunctionMode::FF;
+        } else {
+            // どちらもサポートされていない場合
+            if (pInParams->codec == RGY_CODEC_H264) {
+                availableFeaures = availableFeauresPG;
+                pInParams->functionMode = QSVFunctionMode::PG;
+            } else {
+                availableFeaures = availableFeauresFF;
+                pInParams->functionMode = QSVFunctionMode::FF;
+            }
+        }
+        PrintMes(RGY_LOG_DEBUG, _T("Auto select function mode for %s %s: %s\n"), CodecToStr(pInParams->codec).c_str(), EncmodeToStr(rcParam.encMode),
+            get_cx_desc(list_qsv_function_mode, (int)pInParams->functionMode));
+    } else {
+        availableFeaures = m_device->getEncodeFeature(rcParam.encMode, pInParams->codec, pInParams->functionMode == QSVFunctionMode::FF);
+        if (!availableFeaures) {
+            availableFeaures = m_device->getEncodeFeature(rcParam.encMode, pInParams->codec, pInParams->functionMode != QSVFunctionMode::FF);
+            if (!!availableFeaures) {
+                auto reverseMode = QSVFunctionMode::Auto;
+                switch (pInParams->functionMode) {
+                case QSVFunctionMode::FF: reverseMode = QSVFunctionMode::PG; break;
+                case QSVFunctionMode::PG: reverseMode = QSVFunctionMode::FF; break;
+                default: return { RGY_ERR_UNKNOWN, availableFeaures };
+                }
+                PrintMes(RGY_LOG_WARN, _T("%s is not supported on this platform, switched to %s mode.\n"),
+                    get_cx_desc(list_qsv_function_mode, (int)pInParams->functionMode), get_cx_desc(list_qsv_function_mode, (int)reverseMode));
+                pInParams->functionMode = reverseMode;
+            }
         }
     }
-    PrintMes(RGY_LOG_DEBUG, _T("Detected avaliable features for hw API v%d.%02d, %s, %s\n%s\n"),
+    PrintMes(RGY_LOG_DEBUG, _T("Detected avaliable features for hw API v%d.%02d, %s%s, %s\n%s\n"),
         m_mfxVer.Major, m_mfxVer.Minor,
-        CodecToStr(pInParams->codec).c_str(), EncmodeToStr(rcParam.encMode), MakeFeatureListStr(availableFeaures).c_str());
+        CodecToStr(pInParams->codec).c_str(), get_cx_desc(list_qsv_function_mode, (int)pInParams->functionMode),
+        EncmodeToStr(rcParam.encMode), MakeFeatureListStr(availableFeaures).c_str());
 
     // サポートされていたらOK
     if (availableFeaures & ENC_FEATURE_CURRENT_RC) {
@@ -436,13 +479,20 @@ std::pair<RGY_ERR, QSVEncFeatures> CQSVPipeline::CheckMFXRCMode(QSVRCParam& rcPa
     if (   rcParam.encMode == MFX_RATECONTROL_CQP
         || rcParam.encMode == MFX_RATECONTROL_VBR
         || rcParam.encMode == MFX_RATECONTROL_CBR
-        || !(m_device->getEncodeFeature(MFX_RATECONTROL_CQP, pInParams->codec, pInParams->bUseFixedFunc) & ENC_FEATURE_CURRENT_RC)) {
-        if (!(m_device->getEncodeFeature(MFX_RATECONTROL_CQP, pInParams->codec, !pInParams->bUseFixedFunc) & ENC_FEATURE_CURRENT_RC)) {
+        || !(m_device->getEncodeFeature(MFX_RATECONTROL_CQP, pInParams->codec, pInParams->functionMode == QSVFunctionMode::FF) & ENC_FEATURE_CURRENT_RC)) {
+        if (!(m_device->getEncodeFeature(MFX_RATECONTROL_CQP, pInParams->codec, pInParams->functionMode != QSVFunctionMode::FF) & ENC_FEATURE_CURRENT_RC)) {
             PrintMes(RGY_LOG_ERROR, _T("%s encoding is not supported on current platform.\n"), CodecToStr(pInParams->codec).c_str());
             return { RGY_ERR_INVALID_VIDEO_PARAM, availableFeaures };
         }
-        PrintMes(RGY_LOG_WARN, _T("%s is not supported on this platform, switched to %s mode.\n"), PG_FF_STR[!!pInParams->bUseFixedFunc], PG_FF_STR[!pInParams->bUseFixedFunc]);
-        pInParams->bUseFixedFunc = !pInParams->bUseFixedFunc;
+        auto reverseMode = QSVFunctionMode::Auto;
+        switch (pInParams->functionMode) {
+        case QSVFunctionMode::FF: reverseMode = QSVFunctionMode::PG; break;
+        case QSVFunctionMode::PG: reverseMode = QSVFunctionMode::FF; break;
+        default: return { RGY_ERR_UNKNOWN, availableFeaures };
+        }
+        PrintMes(RGY_LOG_WARN, _T("%s is not supported on this platform, switched to %s mode.\n"),
+            get_cx_desc(list_qsv_function_mode, (int)pInParams->functionMode), get_cx_desc(list_qsv_function_mode, (int)reverseMode));
+        pInParams->functionMode = reverseMode;
     }
     const auto rc_error_log_level = (pInParams->fallbackRC) ? RGY_LOG_WARN : RGY_LOG_ERROR;
     PrintMes(rc_error_log_level, _T("%s mode is not supported on current platform.\n"), EncmodeToStr(rcParam.encMode));
@@ -505,7 +555,7 @@ std::pair<RGY_ERR, QSVEncFeatures> CQSVPipeline::CheckMFXRCMode(QSVRCParam& rcPa
     //check_rc_listに設定したfallbackの候補リストをチェックする
     bool bFallbackSuccess = false;
     for (uint32_t i = 0; i < (uint32_t)check_rc_list.size(); i++) {
-        auto availRCFeatures = m_device->getEncodeFeature(check_rc_list[i], pInParams->codec, pInParams->bUseFixedFunc);
+        auto availRCFeatures = m_device->getEncodeFeature(check_rc_list[i], pInParams->codec, pInParams->functionMode == QSVFunctionMode::FF);
         if (availRCFeatures & ENC_FEATURE_CURRENT_RC) {
             rcParam.encMode = (uint16_t)check_rc_list[i];
             if (rcParam.encMode == MFX_RATECONTROL_LA_ICQ) {
@@ -548,6 +598,22 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
     const int codecMaxQP = (pInParams->codec == RGY_CODEC_AV1) ? 255 : 51 + (encodeBitDepth - 8) * 6;
     PrintMes(RGY_LOG_DEBUG, _T("encodeBitDepth: %d, codecMaxQP: %d.\n"), encodeBitDepth, codecMaxQP);
 
+    {
+        const auto encCsp = getEncoderCsp(pInParams);
+        if (RGY_CSP_CHROMA_FORMAT[encCsp] == RGY_CHROMAFMT_YUV444) {
+            if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_15)) {
+                if (pInParams->functionMode != QSVFunctionMode::FF) {
+                    PrintMes(RGY_LOG_WARN, _T("Switched to fixed function (FF) mode, as encoding in YUV444 requires FF mode.\n"));
+                    pInParams->functionMode = QSVFunctionMode::FF;
+                    m_encParams.videoPrm.mfx.LowPower = (mfxU16)MFX_CODINGOPTION_ON;
+                }
+            } else {
+                PrintMes(RGY_LOG_ERROR, _T("Encoding in YUV444 is not supported on this platform.\n"));
+                return RGY_ERR_UNSUPPORTED;
+            }
+        }
+    }
+
     auto [ err, availableFeaures ] = CheckMFXRCMode(pInParams->rcParam, pInParams, codecMaxQP);
     if (err != RGY_ERR_NONE) {
         return err;
@@ -572,7 +638,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
                 && check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_5)) {
                 // HEVCのhyper modeのチェックは使用できる場合でもなぜか成功しない
                 // 原因不明だが、まずはH.264の結果を参照するようにする
-                const auto availRCFeaturesH264 = m_device->getEncodeFeature(pInParams->rcParam.encMode, RGY_CODEC_H264, pInParams->bUseFixedFunc);
+                const auto availRCFeaturesH264 = m_device->getEncodeFeature(pInParams->rcParam.encMode, RGY_CODEC_H264, pInParams->functionMode == QSVFunctionMode::FF);
                 if (availRCFeaturesH264 & ENC_FEATURE_HYPER_MODE) {
                     availableFeaures |= ENC_FEATURE_HYPER_MODE;
                 }
@@ -589,7 +655,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         //HyperModeの対象となるGPUのfeature取得を行い、andをとる
         for (auto& dev2 : devList) {
             if (dev2) { // 自分自身はすでにm_deviceにmoveして、devListにはいなくなっている
-                const auto dev2Feature = dev2->getEncodeFeature(pInParams->rcParam.encMode, pInParams->codec, pInParams->bUseFixedFunc);
+                const auto dev2Feature = dev2->getEncodeFeature(pInParams->rcParam.encMode, pInParams->codec, pInParams->functionMode == QSVFunctionMode::FF);
                 if (dev2Feature & ENC_FEATURE_HYPER_MODE) { // HyperModeに対応するGPUを選択
                     PrintMes(RGY_LOG_DEBUG, _T("Detected avaliable features for hyper mode, dev %d, %s\n%s\n"), (int)dev2->deviceNum(), EncmodeToStr(pInParams->rcParam.encMode), MakeFeatureListStr(dev2Feature).c_str());
                     availableFeaures &= dev2Feature;
@@ -780,9 +846,9 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
     }
     if (pInParams->codec == RGY_CODEC_VP9) {
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_15)) {
-            if (!pInParams->bUseFixedFunc) {
+            if (pInParams->functionMode != QSVFunctionMode::FF) {
                 PrintMes(RGY_LOG_WARN, _T("Switched to fixed function (FF) mode, as VP9 encoding requires FF mode.\n"));
-                pInParams->bUseFixedFunc = true;
+                pInParams->functionMode = QSVFunctionMode::FF;
             }
         } else {
             PrintMes(RGY_LOG_ERROR, _T("VP9 encoding not supported on this platform.\n"));
@@ -881,7 +947,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         }
     }
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_15)) {
-        m_encParams.videoPrm.mfx.LowPower = (mfxU16)((pInParams->bUseFixedFunc) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
+        m_encParams.videoPrm.mfx.LowPower = (mfxU16)((pInParams->functionMode == QSVFunctionMode::FF) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
     }
     m_encParams.videoPrm.mfx.TargetUsage             = (mfxU16)clamp_param_int(pInParams->nTargetUsage, MFX_TARGETUSAGE_BEST_QUALITY, MFX_TARGETUSAGE_BEST_SPEED, _T("quality")); // trade-off between quality and speed
 
@@ -1249,8 +1315,9 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
 
     if (m_encParams.videoPrm.mfx.FrameInfo.ChromaFormat == MFX_CHROMAFORMAT_YUV444) {
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_15)) {
-            if (!pInParams->bUseFixedFunc) {
+            if (pInParams->functionMode != QSVFunctionMode::FF) {
                 PrintMes(RGY_LOG_WARN, _T("Switched to fixed function (FF) mode, as encoding in YUV444 requires FF mode.\n"));
+                pInParams->functionMode = QSVFunctionMode::FF;
                 m_encParams.videoPrm.mfx.LowPower = (mfxU16)MFX_CODINGOPTION_ON;
             }
         } else {
@@ -1581,7 +1648,7 @@ CQSVPipeline::CQSVPipeline() :
     m_poolPkt(),
     m_poolFrame(),
     m_nAsyncDepth(0),
-    m_nAVSyncMode(RGY_AVSYNC_ASSUME_CFR),
+    m_nAVSyncMode(RGY_AVSYNC_AUTO),
     m_timestampPassThrough(false),
     m_encParams(MFX_LIB_VERSION_0_0),
     m_mfxDEC(),
@@ -1602,6 +1669,8 @@ CQSVPipeline::CQSVPipeline() :
     m_encTimestamp(),
     m_sessionParams(),
     m_nProcSpeedLimit(0),
+    m_taskPerfMonitor(false),
+    m_dummyLoad(),
     m_pAbortByUser(nullptr),
     m_heAbort(),
     m_DecInputBitstream(),
@@ -1717,7 +1786,7 @@ RGY_ERR CQSVPipeline::InitOutput(sInputParams *inputParams) {
         return err;
     }
     if (!m_pmfxENC) {
-        outFrameInfo->videoPrm.mfx.CodecId = 0; //エンコードしない場合は出力コーデックはraw(=0)
+        outFrameInfo->videoPrm.mfx.CodecId = MFX_CODEC_RAW; //エンコードしない場合は出力コーデックはraw(=0)
     }
     const auto outputVideoInfo = (outFrameInfo->isVppParam) ? videooutputinfo(outFrameInfo->videoPrmVpp.vpp.Out) : videooutputinfo(outFrameInfo->videoPrm.mfx, m_encParams.videoSignalInfo, m_encParams.chromaLocInfo);
     if (outputVideoInfo.codec == RGY_CODEC_RAW) {
@@ -2091,6 +2160,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vpp.mpdecimate.enable) filterPipeline.push_back(VppType::CL_MPDECIMATE);
     if (inputParam->vpp.convolution3d.enable) filterPipeline.push_back(VppType::CL_CONVOLUTION3D);
     if (inputParam->vpp.smooth.enable)     filterPipeline.push_back(VppType::CL_DENOISE_SMOOTH);
+    if (inputParam->vpp.dct.enable)        filterPipeline.push_back(VppType::CL_DENOISE_DCT);
     if (inputParam->vpp.knn.enable)        filterPipeline.push_back(VppType::CL_DENOISE_KNN);
     if (inputParam->vpp.pmd.enable)        filterPipeline.push_back(VppType::CL_DENOISE_PMD);
     if (inputParam->vppmfx.denoise.enable) filterPipeline.push_back(VppType::MFX_DENOISE);
@@ -2449,6 +2519,26 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         shared_ptr<RGYFilterParamSmooth> param(new RGYFilterParamSmooth());
         param->smooth = params->vpp.smooth;
         param->qpTableRef = nullptr;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        auto sts = filter->init(param, m_pQSVLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        //登録
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
+    }
+    //denoise-dct
+    if (vppType == VppType::CL_DENOISE_DCT) {
+        unique_ptr<RGYFilter> filter(new RGYFilterDenoiseDct(m_cl));
+        shared_ptr<RGYFilterParamDenoiseDct> param(new RGYFilterParamDenoiseDct());
+        param->dct = params->vpp.dct;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
@@ -3056,12 +3146,13 @@ RGY_ERR CQSVPipeline::checkGPUListByEncoder(const sInputParams *prm, std::vector
     for (auto gpu = gpuList.begin(); gpu != gpuList.end(); ) {
         PrintMes(RGY_LOG_DEBUG, _T("Checking GPU #%d (%s) for codec %s.\n"),
             (*gpu)->deviceNum(), (*gpu)->name().c_str(), CodecToStr(prm->codec).c_str());
+        const bool lowPower = prm->codec != RGY_CODEC_H264;
         QSVEncFeatures deviceFeature;
         //コーデックのチェック
-        if (   !(deviceFeature = (*gpu)->getEncodeFeature(rate_control, prm->codec, prm->bUseFixedFunc))
-            && !(deviceFeature = (*gpu)->getEncodeFeature(rate_control, prm->codec, !prm->bUseFixedFunc))
-            && !(deviceFeature = (*gpu)->getEncodeFeature(MFX_RATECONTROL_CQP, prm->codec, prm->bUseFixedFunc))
-            && !(deviceFeature = (*gpu)->getEncodeFeature(MFX_RATECONTROL_CQP, prm->codec, !prm->bUseFixedFunc))) {
+        if (   !(deviceFeature = (*gpu)->getEncodeFeature(rate_control, prm->codec, lowPower))
+            && !(deviceFeature = (*gpu)->getEncodeFeature(rate_control, prm->codec, !lowPower))
+            && !(deviceFeature = (*gpu)->getEncodeFeature(MFX_RATECONTROL_CQP, prm->codec, lowPower))
+            && !(deviceFeature = (*gpu)->getEncodeFeature(MFX_RATECONTROL_CQP, prm->codec, !lowPower))) {
             message += strsprintf(_T("GPU #%d (%s) does not support %s encoding.\n"),
                 (*gpu)->deviceNum(), (*gpu)->name().c_str(), CodecToStr(prm->codec).c_str());
             gpu = gpuList.erase(gpu);
@@ -3291,6 +3382,52 @@ RGY_ERR CQSVPipeline::InitPowerThrottoling(sInputParams *pParams) {
     return RGY_ERR_NONE;
 }
 
+RGY_ERR CQSVPipeline::InitAvoidIdleClock(const sInputParams *pParams) {
+    if (!m_cl) return RGY_ERR_NONE;
+    if (pParams->ctrl.avoidIdleClock.mode == RGYParamAvoidIdleClockMode::Disabled) {
+        PrintMes(RGY_LOG_DEBUG, _T("avoid Idle clock is disabled.\n"));
+        return RGY_ERR_NONE;
+    }
+    if (pParams->ctrl.avoidIdleClock.mode == RGYParamAvoidIdleClockMode::Auto) {
+        // OpenCLフィルタが使用されている場合
+        if (std::count_if(m_vpFilters.begin(), m_vpFilters.end(), [](const VppVilterBlock& block) { return block.type == VppFilterType::FILTER_OPENCL; }) > 0) {
+            PrintMes(RGY_LOG_DEBUG, _T("OpenCL filter is used, avoid Idle clock is disabled.\n"));
+            return RGY_ERR_NONE;
+        }
+
+        // 内蔵GPUの場合
+        if (m_device->adapterType() == MFX_MEDIA_INTEGRATED) {
+            PrintMes(RGY_LOG_DEBUG, _T("Integrated GPU is used, avoid Idle clock is disabled.\n"));
+            return RGY_ERR_NONE;
+        }
+
+        // max-procfpsを使用している場合
+        if (pParams->ctrl.procSpeedLimit > 0) {
+            PrintMes(RGY_LOG_DEBUG, _T("max-procfps is used, avoid Idle clock is disabled.\n"));
+            return RGY_ERR_NONE;
+        }
+
+        if (pParams->codec != RGY_CODEC_RAW) { // エンコードする場合
+            // PGモードが使用されている場合
+            if (m_encParams.videoPrm.mfx.LowPower != MFX_CODINGOPTION_ON) {
+                PrintMes(RGY_LOG_DEBUG, _T("PG mode is used, avoid Idle clock is disabled.\n"));
+                return RGY_ERR_NONE;
+            }
+
+            // lowlatencyモードが使用されている場合
+            if (pParams->ctrl.lowLatency) {
+                PrintMes(RGY_LOG_DEBUG, _T("low latency is used, avoid Idle clock is disabled.\n"));
+                return RGY_ERR_NONE;
+            }
+        }
+    }
+
+    PrintMes(RGY_LOG_DEBUG, _T("Enable avoid Idle clock, target load %.2f.\n"), pParams->ctrl.avoidIdleClock.loadPercent);
+    m_dummyLoad = std::make_unique<RGYDummyLoadCL>(m_cl);
+    m_dummyLoad->run(pParams->ctrl.avoidIdleClock.loadPercent, m_pQSVLog);
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR CQSVPipeline::InitLog(sInputParams *pParams) {
     //ログの初期化
     m_pQSVLog.reset(new RGYLog(pParams->ctrl.logfile.c_str(), pParams->ctrl.loglevel, pParams->ctrl.logAddTime));
@@ -3444,6 +3581,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     if (sts < RGY_ERR_NONE) return sts;
 
     m_nProcSpeedLimit = pParams->ctrl.procSpeedLimit;
+    m_taskPerfMonitor = pParams->ctrl.taskPerfMonitor;
     m_nAsyncDepth = clamp_param_int((pParams->ctrl.lowLatency) ? 1 : pParams->nAsyncDepth, 0, QSV_ASYNC_DEPTH_MAX, _T("async-depth"));
     if (m_nAsyncDepth == 0) {
         m_nAsyncDepth = QSV_DEFAULT_ASYNC_DEPTH;
@@ -3471,6 +3609,9 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
+    if ((sts = InitAvoidIdleClock(pParams)) != RGY_ERR_NONE) {
+        return sts;
+    }
     if ((sts = ResetMFXComponents(pParams)) != RGY_ERR_NONE) {
         return sts;
     }
@@ -3523,6 +3664,8 @@ void CQSVPipeline::Close() {
     //この中でフレームの解放がなされる
     PrintMes(RGY_LOG_DEBUG, _T("Clear pipeline tasks and allocated frames...\n"));
     m_pipelineTasks.clear();
+
+    m_dummyLoad.reset();
 
     PrintMes(RGY_LOG_DEBUG, _T("Closing enc status...\n"));
     m_pStatus.reset();
@@ -3589,8 +3732,9 @@ void CQSVPipeline::Close() {
     m_sessionParams.threads = 0;
     m_sessionParams.deviceCopy = false;
     m_pAbortByUser = nullptr;
-    m_nAVSyncMode = RGY_AVSYNC_ASSUME_CFR;
+    m_nAVSyncMode = RGY_AVSYNC_AUTO;
     m_nProcSpeedLimit = 0;
+    m_taskPerfMonitor = false;
 #if ENABLE_AVSW_READER
     av_qsv_log_free();
 #endif //#if ENABLE_AVSW_READER
@@ -3870,6 +4014,11 @@ RGY_ERR CQSVPipeline::RunEncode2() {
     m_pStatus->SetStart();
 
     CProcSpeedControl speedCtrl(m_nProcSpeedLimit);
+    for (auto& task : m_pipelineTasks) {
+        if (m_taskPerfMonitor) {
+            task->setStopWatch();
+        }
+    }
 
     auto requireSync = [this](const size_t itask) {
         if (itask + 1 >= m_pipelineTasks.size()) return true; // 次が最後のタスクの時
@@ -4042,6 +4191,24 @@ RGY_ERR CQSVPipeline::RunEncode2() {
     m_mfxDEC.reset();
     m_pmfxENC.reset();
     m_mfxVPP.clear();
+    // taskの集計結果を表示
+    if (m_taskPerfMonitor) {
+        PrintMes(RGY_LOG_INFO, _T("\nTask Performance\n"));
+        const int64_t totalTicks = std::accumulate(m_pipelineTasks.begin(), m_pipelineTasks.end(), 0LL, [](int64_t total, const std::unique_ptr<PipelineTask>& task) {
+            return total + task->getStopWatchTotal();
+        });
+        if (totalTicks > 0) {
+            const size_t maxWorkStrLenLen = std::accumulate(m_pipelineTasks.begin(), m_pipelineTasks.end(), (size_t)0, [](size_t maxStrLength, const std::unique_ptr<PipelineTask>& task) {
+                return std::max(maxStrLength, task->getStopWatchMaxWorkStrLen());
+            });
+            const size_t maxTaskStrLen = std::accumulate(m_pipelineTasks.begin(), m_pipelineTasks.end(), (size_t)0, [](size_t maxStrLength, const std::unique_ptr<PipelineTask>& task) {
+                return std::max(maxStrLength, _tcslen(getPipelineTaskTypeName(task->taskType())));
+            });
+            for (auto& task : m_pipelineTasks) {
+                task->printStopWatch(totalTicks, maxWorkStrLenLen + maxTaskStrLen - _tcslen(getPipelineTaskTypeName(task->taskType())));
+            }
+        }
+    }
     //この中でフレームの解放がなされる
     PrintMes(RGY_LOG_DEBUG, _T("Clear pipeline tasks and allocated frames...\n"));
     m_pipelineTasks.clear();
@@ -4231,10 +4398,16 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         PRINT_INFO(_T("GPU Info       %s\n"), gpu_info);
     }
     if (Check_HWUsed(impl)) {
+        const TCHAR *adaptorType = _T("");
+        switch (m_device->adapterType()) {
+        case MFX_MEDIA_INTEGRATED: adaptorType = _T("i"); break;
+        case MFX_MEDIA_DISCRETE: adaptorType = _T("d"); break;
+        }
         static const TCHAR * const NUM_APPENDIX[] = { _T("st"), _T("nd"), _T("rd"), _T("th")};
         mfxU32 iGPUID = GetAdapterID(m_device->mfxSession());
-        PRINT_INFO(    _T("Media SDK      QuickSyncVideo (hardware encoder)%s, %d%s GPU, API v%d.%02d\n"),
-            get_low_power_str(outFrameInfo->videoPrm.mfx.LowPower), iGPUID + 1, NUM_APPENDIX[clamp(iGPUID, 0, _countof(NUM_APPENDIX) - 1)], m_mfxVer.Major, m_mfxVer.Minor);
+        PRINT_INFO(    _T("Media SDK      QuickSyncVideo (hardware encoder)%s, %d%s GPU(%s), API v%d.%02d\n"),
+            get_low_power_str(outFrameInfo->videoPrm.mfx.LowPower), iGPUID + 1, NUM_APPENDIX[clamp(iGPUID, 0, _countof(NUM_APPENDIX) - 1)],
+            adaptorType, m_mfxVer.Major, m_mfxVer.Minor);
     } else {
         PRINT_INFO(    _T("Media SDK      software encoder, API v%d.%02d\n"), m_mfxVer.Major, m_mfxVer.Minor);
     }

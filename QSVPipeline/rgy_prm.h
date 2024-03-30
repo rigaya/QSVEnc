@@ -42,6 +42,10 @@ static const int RGY_DEFAULT_PERF_MONITOR_INTERVAL = 500;
 static const int DEFAULT_IGNORE_DECODE_ERROR = 10;
 static const int DEFAULT_VIDEO_IGNORE_TIMESTAMP_ERROR = 10;
 
+static const float DEFAULT_DUMMY_LOAD_PERCENT = 0.01f;
+
+static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
+
 #if ENCODER_NVENC
 #define ENABLE_VPP_FILTER_COLORSPACE   (ENABLE_NVRTC)
 #else
@@ -57,6 +61,7 @@ static const int DEFAULT_VIDEO_IGNORE_TIMESTAMP_ERROR = 10;
 #define ENABLE_VPP_FILTER_MPDECIMATE   (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_PAD          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_PMD          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
+#define ENABLE_VPP_FILTER_DENOISE_DCT  (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_SMOOTH       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_CONVOLUTION3D (ENCODER_QSV  || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_UNSHARP      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
@@ -66,7 +71,118 @@ static const int DEFAULT_VIDEO_IGNORE_TIMESTAMP_ERROR = 10;
 #define ENABLE_VPP_FILTER_TWEAK        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_OVERLAY      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_DEBAND       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
+#define ENABLE_VPP_FILTER_FRUC         (                 ENCODER_NVENC)
 #define ENABLE_VPP_FILTER_DELOGO_MULTIADD  (             ENCODER_NVENC)
+#define ENABLE_VPP_ORDER                   (CLFILTERS_AUF)
+
+enum class VppType : int {
+    VPP_NONE,
+#if ENCODER_QSV
+    MFX_COLORSPACE,
+    MFX_CROP,
+    MFX_ROTATE,
+    MFX_MIRROR,
+    MFX_DEINTERLACE,
+    MFX_IMAGE_STABILIZATION,
+    MFX_MCTF,
+    MFX_DENOISE,
+    MFX_RESIZE,
+    MFX_DETAIL_ENHANCE,
+    MFX_FPS_CONV,
+    MFX_PERC_ENC_PREFILTER,
+    MFX_COPY,
+#endif //#if ENCODER_QSV
+    MFX_MAX,
+#if ENCODER_NVENC || CLFILTERS_AUF
+    NVVFX_DENOISE,
+    NVVFX_ARTIFACT_REDUCTION,
+#endif
+    NVVFX_MAX,
+#if ENCODER_VCEENC
+    AMF_CONVERTER,
+    AMF_PREPROCESS,
+    AMF_RESIZE,
+    AMF_VQENHANCE,
+#endif
+    AMF_MAX,
+#if ENCODER_MPP
+    IEP_MIN = AMF_MAX,
+    IEP_DEINTERLACE,
+#endif
+    IEP_MAX,
+#if ENCODER_MPP
+    RGA_MIN = IEP_MAX,
+    RGA_CROP,
+    RGA_CSPCONV,
+    RGA_RESIZE,
+#endif
+    RGA_MAX,
+
+    CL_MIN = RGA_MAX,
+
+    CL_CROP,
+    CL_COLORSPACE,
+    CL_AFS,
+    CL_NNEDI,
+    CL_YADIF,
+    CL_DECIMATE,
+    CL_MPDECIMATE,
+    CL_RFF,
+    CL_DELOGO,
+    CL_TRANSFORM,
+
+    CL_CONVOLUTION3D,
+    CL_DENOISE_KNN,
+    CL_DENOISE_PMD,
+    CL_DENOISE_DCT,
+    CL_DENOISE_SMOOTH,
+
+    CL_RESIZE,
+
+    CL_SUBBURN,
+
+    CL_UNSHARP,
+    CL_EDGELEVEL,
+    CL_WARPSHARP,
+
+    CL_CURVES,
+    CL_TWEAK,
+
+    CL_OVERLAY,
+
+    CL_DEBAND,
+
+    CL_FRUC,
+
+    CL_PAD,
+
+    CL_MAX,
+};
+
+enum class VppFilterType { FILTER_NONE, FILTER_MFX, FILTER_NVVFX, FILTER_AMF, FILTER_IEP, FILTER_RGA, FILTER_OPENCL };
+
+static VppFilterType getVppFilterType(VppType vpptype) {
+    if (vpptype == VppType::VPP_NONE) return VppFilterType::FILTER_NONE;
+#if ENCODER_QSV
+    if (vpptype < VppType::MFX_MAX) return VppFilterType::FILTER_MFX;
+#endif // #if ENCODER_QSV
+#if ENCODER_NVENC || CLFILTERS_AUF
+    if (vpptype < VppType::NVVFX_MAX) return VppFilterType::FILTER_NVVFX;
+#endif // #if ENCODER_NVENC || CLFILTERS_AUF
+#if ENCODER_VCEENC
+    if (vpptype < VppType::AMF_MAX) return VppFilterType::FILTER_AMF;
+#endif
+#if ENCODER_MPP
+    if (vpptype < VppType::IEP_MAX) return VppFilterType::FILTER_IEP;
+    if (vpptype < VppType::RGA_MAX) return VppFilterType::FILTER_RGA;
+#endif
+    if (vpptype < VppType::CL_MAX) return VppFilterType::FILTER_OPENCL;
+    return VppFilterType::FILTER_NONE;
+}
+
+tstring vppfilter_type_to_str(VppType type);
+VppType vppfilter_str_to_type(tstring str);
+std::vector<CX_DESC> get_list_vpp_filter();
 
 static const TCHAR* VMAF_DEFAULT_MODEL_VERSION = _T("vmaf_v0.6.1");
 
@@ -153,6 +269,10 @@ static const int   FILTER_DEFAULT_SMOOTH_MODE = 0;
 static const float FILTER_DEFAULT_SMOOTH_B_RATIO = 0.5f;
 static const int   FILTER_DEFAULT_SMOOTH_MAX_QPTABLE_ERR = 10;
 
+static const float FILTER_DEFAULT_DENOISE_DCT_SIGMA = 4.0f;
+static const int   FILTER_DEFAULT_DENOISE_DCT_STEP = 2;
+static const int   FILTER_DEFAULT_DENOISE_DCT_BLOCK_SIZE = 8;
+
 static const float FILTER_DEFAULT_TWEAK_BRIGHTNESS = 0.0f;
 static const float FILTER_DEFAULT_TWEAK_CONTRAST = 1.0f;
 static const float FILTER_DEFAULT_TWEAK_GAMMA = 1.0f;
@@ -191,6 +311,7 @@ struct RGYQPSet {
 
     RGYQPSet();
     RGYQPSet(int i, int p, int b);
+    RGYQPSet(int i, int p, int b, bool enable);
     int qp(int i) const;
     int& qp(int i);
     bool operator==(const RGYQPSet &x) const;
@@ -217,6 +338,7 @@ const CX_DESC list_vpp_denoise[] = {
 #endif
     { _T("knn"),     1 },
     { _T("pmd"),     2 },
+    { _T("denoise-dct"), 8 },
     { _T("smooth"),  3 },
     { _T("convolution3d"),  5 },
 #if ENCODER_VCEENC
@@ -270,7 +392,7 @@ enum RGY_VPP_RESIZE_ALGO {
     RGY_VPP_RESIZE_AUTO,
     RGY_VPP_RESIZE_BILINEAR,
     RGY_VPP_RESIZE_BICUBIC,
-#if ENCODER_NVENC
+#if ENCODER_NVENC || CUFILTERS
     RGY_VPP_RESIZE_NEAREST,
 #endif
     RGY_VPP_RESIZE_SPLINE16,
@@ -286,7 +408,7 @@ enum RGY_VPP_RESIZE_ALGO {
     RGY_VPP_RESIZE_MFX_ADVANCED,
     RGY_VPP_RESIZE_MFX_MAX,
 #endif
-#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)
+#if (ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
     RGY_VPP_RESIZE_NPPI_INTER_NN,        /**<  Nearest neighbor filtering. */
     RGY_VPP_RESIZE_NPPI_INTER_LINEAR,        /**<  Linear interpolation. */
     RGY_VPP_RESIZE_NPPI_INTER_CUBIC,        /**<  Cubic interpolation. */
@@ -298,7 +420,8 @@ enum RGY_VPP_RESIZE_ALGO {
     RGY_VPP_RESIZE_NPPI_INTER_LANCZOS3_ADVANCED,       /**<  Generic Lanczos filtering with order 3. */
     RGY_VPP_RESIZE_NPPI_SMOOTH_EDGE, /**<  Smooth edge filtering. */
     RGY_VPP_RESIZE_NPPI_MAX,
-
+#endif
+#if (ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
     RGY_VPP_RESIZE_NVVFX_SUPER_RES,
     RGY_VPP_RESIZE_NVVFX_MAX,
 #endif
@@ -319,24 +442,6 @@ enum RGY_VPP_RESIZE_ALGO {
     RGY_VPP_RESIZE_UNKNOWN,
 };
 
-static bool isNppResizeFiter(const RGY_VPP_RESIZE_ALGO interp) {
-#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)
-    return RGY_VPP_RESIZE_OPENCL_CUDA_MAX < interp && interp < RGY_VPP_RESIZE_NPPI_MAX;
-#else
-    UNREFERENCED_PARAMETER(interp);
-    return false;
-#endif
-}
-
-static bool isNvvfxResizeFiter(const RGY_VPP_RESIZE_ALGO interp) {
-#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)
-    return RGY_VPP_RESIZE_NPPI_MAX < interp && interp < RGY_VPP_RESIZE_NVVFX_MAX;
-#else
-    UNREFERENCED_PARAMETER(interp);
-    return false;
-#endif
-}
-
 enum RGY_VPP_RESIZE_TYPE {
     RGY_VPP_RESIZE_TYPE_NONE,
     RGY_VPP_RESIZE_TYPE_AUTO,
@@ -344,8 +449,11 @@ enum RGY_VPP_RESIZE_TYPE {
 #if ENCODER_QSV
     RGY_VPP_RESIZE_TYPE_MFX,
 #endif
-#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)
+#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
     RGY_VPP_RESIZE_TYPE_NPPI,
+#endif
+#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
+    RGY_VPP_RESIZE_TYPE_NVVFX,
 #endif
 #if ENCODER_VCEENC
     RGY_VPP_RESIZE_TYPE_AMF,
@@ -358,6 +466,24 @@ enum RGY_VPP_RESIZE_TYPE {
 
 RGY_VPP_RESIZE_TYPE getVppResizeType(RGY_VPP_RESIZE_ALGO resize);
 
+
+static bool isNppResizeFiter(const RGY_VPP_RESIZE_ALGO interp) {
+#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
+    return getVppResizeType(interp) == RGY_VPP_RESIZE_TYPE_NPPI;
+#else
+    UNREFERENCED_PARAMETER(interp);
+    return false;
+#endif
+}
+
+static bool isNvvfxResizeFiter(const RGY_VPP_RESIZE_ALGO interp) {
+#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
+    return getVppResizeType(interp) == RGY_VPP_RESIZE_TYPE_NVVFX;
+#else
+    UNREFERENCED_PARAMETER(interp);
+    return false;
+#endif
+}
 
 const CX_DESC list_vpp_resize_mode[] = {
     { _T("auto"),     RGY_VPP_RESIZE_MODE_DEFAULT },
@@ -391,7 +517,7 @@ const CX_DESC list_vpp_resize[] = {
     { _T("fine"),     RGY_VPP_RESIZE_MFX_ADVANCED },
   #endif
 #endif
-#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)
+#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
     { _T("nn"),            RGY_VPP_RESIZE_NPPI_INTER_NN },
     { _T("npp_linear"),    RGY_VPP_RESIZE_NPPI_INTER_LINEAR },
     { _T("cubic"),         RGY_VPP_RESIZE_NPPI_INTER_CUBIC },
@@ -402,6 +528,8 @@ const CX_DESC list_vpp_resize[] = {
     { _T("super"),         RGY_VPP_RESIZE_NPPI_INTER_SUPER },
     { _T("lanczos"),       RGY_VPP_RESIZE_NPPI_INTER_LANCZOS },
     //{ _T("smooth_edge"),   RGY_VPP_RESIZE_NPPI_SMOOTH_EDGE },
+#endif
+#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
     { _T("nvvfx-superres"),  RGY_VPP_RESIZE_NVVFX_SUPER_RES },
 #endif
 #if ENCODER_VCEENC
@@ -438,7 +566,7 @@ const CX_DESC list_vpp_resize_help[] = {
     { _T("simple"),   RGY_VPP_RESIZE_MFX_NEAREST_NEIGHBOR },
     { _T("fine"),     RGY_VPP_RESIZE_MFX_ADVANCED },
 #endif
-#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)
+#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
     { _T("nn"),            RGY_VPP_RESIZE_NPPI_INTER_NN },
     { _T("npp_linear"),    RGY_VPP_RESIZE_NPPI_INTER_LINEAR },
     { _T("cubic"),         RGY_VPP_RESIZE_NPPI_INTER_CUBIC },
@@ -449,6 +577,8 @@ const CX_DESC list_vpp_resize_help[] = {
     { _T("super"),         RGY_VPP_RESIZE_NPPI_INTER_SUPER },
     { _T("lanczos"),       RGY_VPP_RESIZE_NPPI_INTER_LANCZOS },
     //{ _T("smooth_edge"),   RGY_VPP_RESIZE_NPPI_SMOOTH_EDGE },
+#endif
+#if ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
     { _T("nvvfx-superres"),  RGY_VPP_RESIZE_NVVFX_SUPER_RES },
 #endif
 #if ENCODER_VCEENC
@@ -489,6 +619,20 @@ const CX_DESC list_vpp_fp_prec[] = {
     { _T("auto"), VPP_FP_PRECISION_AUTO },
     { _T("fp32"), VPP_FP_PRECISION_FP32 },
     { _T("fp16"), VPP_FP_PRECISION_FP16 },
+    { NULL, 0 }
+};
+
+const CX_DESC list_vpp_denoise_dct_block_size[] = {
+    { _T("8"), 8 },
+    { _T("16"), 16 },
+    { NULL, 0 }
+};
+
+const CX_DESC list_vpp_denoise_dct_step[] = {
+    { _T("1"), 1 },
+    { _T("2"), 2 },
+    { _T("4"), 4 },
+    { _T("8"), 8 },
     { NULL, 0 }
 };
 
@@ -619,21 +763,6 @@ const CX_DESC list_vpp_nnedi_error_type[] = {
     { NULL, 0 }
 };
 
-const CX_DESC list_vpp_deband[] = {
-    { _T("0 - 1点参照"),  0 },
-    { _T("1 - 2点参照"),  1 },
-    { _T("2 - 4点参照"),  2 },
-    { NULL, 0 }
-};
-
-const CX_DESC list_vpp_deband_en[] = {
-    { _T("0 - 1pixel ref"),  0 },
-    { _T("1 - 2pixel ref"),  1 },
-    { _T("2 - 4pixel ref"),  2 },
-    { NULL, 0 }
-};
-static_assert(_countof(list_vpp_deband) == _countof(list_vpp_deband_en), "_countof(list_vpp_deband) == _countof(list_vpp_deband_en)");
-
 const CX_DESC list_vpp_rotate[] = {
     { _T("90"),   90 },
     { _T("180"), 180 },
@@ -680,6 +809,13 @@ const CX_DESC list_vpp_smooth_quality[] = {
     { _T("4"),  4 },
     { _T("5"),  5 },
     { _T("6 - high quality"),  6 },
+    { NULL, 0 }
+};
+
+const CX_DESC list_vpp_deband[] = {
+    { _T("0"),  0 },
+    { _T("1"),  1 },
+    { _T("2"),  2 },
     { NULL, 0 }
 };
 
@@ -1093,6 +1229,17 @@ struct VppSmooth {
     tstring print() const;
 };
 
+struct VppDenoiseDct {
+    bool enable;
+    float sigma;
+    int step;
+    int block_size;
+    VppDenoiseDct();
+    bool operator==(const VppDenoiseDct &x) const;
+    bool operator!=(const VppDenoiseDct &x) const;
+    tstring print() const;
+};
+
 struct VppSubburn {
     bool  enable;
     tstring filename;
@@ -1294,7 +1441,25 @@ struct VppOverlay {
     tstring print() const;
 };
 
+enum class VppFrucMode {
+    Disabled,
+    NVOFFRUCx2,
+    NVOFFRUCFps,
+};
+
+struct VppFruc {
+    bool enable;
+    VppFrucMode mode;
+    rgy_rational<int> targetFps;
+
+    VppFruc();
+    bool operator==(const VppFruc &x) const;
+    bool operator!=(const VppFruc &x) const;
+    tstring print() const;
+};
+
 struct RGYParamVpp {
+    std::vector<VppType> filterOrder;
     RGY_VPP_RESIZE_ALGO resize_algo;
     RGY_VPP_RESIZE_MODE resize_mode;
     VppColorspace colorspace;
@@ -1310,6 +1475,7 @@ struct RGYParamVpp {
     VppConvolution3d convolution3d;
     VppKnn knn;
     VppPmd pmd;
+    VppDenoiseDct dct;
     VppSmooth smooth;
     std::vector<VppSubburn> subburn;
     VppUnsharp unsharp;
@@ -1320,9 +1486,12 @@ struct RGYParamVpp {
     VppTransform transform;
     VppDeband deband;
     std::vector<VppOverlay> overlay;
+    VppFruc fruc;
     bool checkPerformance;
 
     RGYParamVpp();
+    bool operator==(const RGYParamVpp& x) const;
+    bool operator!=(const RGYParamVpp& x) const;
 };
 
 
@@ -1345,6 +1514,7 @@ struct AudioSelect {
     tstring  encCodecPrm;     //音声エンコードのコーデックのパラメータ
     tstring  encCodecProfile; //音声エンコードのコーデックのプロファイル
     int      encBitrate;      //音声エンコードに選択した音声トラックのビットレート
+    std::pair<bool, int> encQuality;      //音声エンコードに選択した音声トラックの品質 <値が設定されているかと値のペア>
     int      encSamplingRate;      //サンプリング周波数
     double   addDelayMs;           //追加する音声の遅延(millisecond)
     tstring  extractFilename;      //抽出する音声のファイル名のリスト
@@ -1539,6 +1709,28 @@ struct RGYParamCommon {
     ~RGYParamCommon();
 };
 
+enum class RGYParamAvoidIdleClockMode {
+    Disabled,
+    Auto,
+    Force
+};
+
+const CX_DESC list_avoid_idle_clock[] = {
+    { _T("off"),  (int)RGYParamAvoidIdleClockMode::Disabled },
+    { _T("auto"), (int)RGYParamAvoidIdleClockMode::Auto     },
+    { _T("on"),   (int)RGYParamAvoidIdleClockMode::Force    },
+    { NULL, 0 }
+};
+
+struct RGYParamAvoidIdleClock {
+    RGYParamAvoidIdleClockMode mode;
+    float loadPercent;
+
+    RGYParamAvoidIdleClock();
+    bool operator==(const RGYParamAvoidIdleClock &x) const;
+    bool operator!=(const RGYParamAvoidIdleClock &x) const;
+};
+
 struct RGYParamControl {
     int threadCsp;
     RGY_SIMD simdCsp;
@@ -1553,6 +1745,7 @@ struct RGYParamControl {
     int threadInput;
     RGYParamThreads threadParams;
     int procSpeedLimit;      //処理速度制限 (0で制限なし)
+    bool taskPerfMonitor;
     int64_t perfMonitorSelect;
     int64_t perfMonitorSelectMatplot;
     int     perfMonitorInterval;
@@ -1563,6 +1756,7 @@ struct RGYParamControl {
     bool skipHWDecodeCheck;
     tstring avsdll;
     bool enableOpenCL;
+    RGYParamAvoidIdleClock avoidIdleClock;
 
     int outputBufSizeMB;         //出力バッファサイズ
 

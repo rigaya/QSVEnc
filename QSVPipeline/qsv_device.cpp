@@ -143,6 +143,12 @@ QSV_CPU_GEN QSVDevice::CPUGen() {
     return getCPUGen(&m_session);
 }
 
+int QSVDevice::adapterType() {
+    mfxPlatform platform = { 0 };
+    m_session.QueryPlatform(&platform);
+    return platform.MediaAdapterType;
+}
+
 LUID QSVDevice::luid() {
     return (m_hwdev) ? m_hwdev->GetLUID() : LUID();
 }

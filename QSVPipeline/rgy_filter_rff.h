@@ -29,7 +29,7 @@
 #pragma once
 
 #include <array>
-#include "rgy_filter.h"
+#include "rgy_filter_cl.h"
 #include "rgy_prm.h"
 #include "rgy_input.h"
 
