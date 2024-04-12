@@ -1655,7 +1655,8 @@ tstring RGYDebugLogFile::getFilename(const tstring& outputFilename, const tstrin
 }
 
 RGYParamInput::RGYParamInput() :
-    resizeResMode(RGYResizeResMode::Normal) {
+    resizeResMode(RGYResizeResMode::Normal),
+    ignoreSAR(false) {
 
 }
 

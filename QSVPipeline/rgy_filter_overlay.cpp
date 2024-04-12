@@ -379,7 +379,7 @@ RGY_ERR RGYFilterOverlay::initInput(RGYFilterParamOverlay *prm) {
         prm->overlay.width, prm->overlay.height, 1, 1,
         m_frame.dev->frame.width, m_frame.dev->frame.height,
         m_stream->codecpar->sample_aspect_ratio.num, m_stream->codecpar->sample_aspect_ratio.den, mod, mod,
-        RGYResizeResMode::Normal, crop);
+        RGYResizeResMode::Normal, false, crop);
 
     if (!m_frame.resize
         && ((prm->overlay.width > 0 && m_frame.dev->frame.width != prm->overlay.width)
