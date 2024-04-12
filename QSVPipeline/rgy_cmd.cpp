@@ -3565,7 +3565,7 @@ int parse_log_level_param(const TCHAR *option_name, const TCHAR *arg_value, RGYP
 }
 
 int parse_one_audio_param(AudioSelect& chSel, const tstring& str, const TCHAR *option_name) {
-    const auto paramList = std::vector<std::string>{ "codec", "bitrate", "quality", "samplerate", "delay", "profile", "disposition", "filter", "dec_prm", "enc_prm", "lang", "select-codec", "metadata", "bsf", "copy" };
+    const auto paramList = std::vector<std::string>{ "codec", "bitrate", "quality", "samplerate", "delay", "profile", "disposition", "filter", "dec_prm", "enc_prm", "lang", "select-codec", "metadata", "bsf", "resampler", "copy" };
     for (const auto &param : split(str, _T(";"))) {
         auto pos = param.find_first_of(_T("="));
         if (pos != std::string::npos) {
@@ -3617,6 +3617,8 @@ int parse_one_audio_param(AudioSelect& chSel, const tstring& str, const TCHAR *o
                 chSel.selectCodec = tchar_to_string(param_val);
             } else if (param_arg == _T("metadata")) {
                 chSel.metadata.push_back(param_val);
+            } else if (param_arg == _T("resampler")) {
+                chSel.resamplerPrm = tchar_to_string(param_val);
             } else if (param_arg == _T("bsf")) {
                 chSel.bsf = param_val;
             } else {
@@ -4351,15 +4353,22 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
     }
     if (IS_OPTION("audio-resampler")) {
-        i++;
         int v = 0;
-        if (PARSE_ERROR_FLAG != (v = get_value_from_chr(list_resampler, strInput[i]))) {
-            common->audioResampler = v;
-        } else if (1 == _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < _countof(list_resampler) - 1) {
+        if (PARSE_ERROR_FLAG != (v = get_value_from_chr(list_resampler, strInput[i+1]))) {
+            i++;
             common->audioResampler = v;
         } else {
-            print_cmd_error_invalid_value(option_name, strInput[i], list_resampler);
-            return 1;
+            try {
+                auto ret = set_audio_prm([](AudioSelect* pAudioSelect, int trackId, const TCHAR* prmstr) {
+                    if (trackId != 0 || pAudioSelect->resamplerPrm.length() == 0) {
+                        pAudioSelect->resamplerPrm = tchar_to_string(prmstr);
+                    }
+                    });
+                return ret;
+            } catch (...) {
+                print_cmd_error_invalid_value(option_name, strInput[i]);
+                return 1;
+            }
         }
         return 0;
     }
@@ -6597,6 +6606,13 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
         }
     }
     OPT_LST(_T("--audio-resampler"), audioResampler, list_resampler);
+    for (int i = 0; i < param->nAudioSelectCount; i++) {
+        const AudioSelect *pAudioSelect = param->ppAudioSelectList[i];
+        if (pAudioSelect->encCodec != RGY_AVCODEC_COPY
+            && pAudioSelect->filter.length() > 0) {
+            cmd << _T(" --audio-resampler ") << printTrack(pAudioSelect) << _T("?") << char_to_tstring(pAudioSelect->resamplerPrm);
+        }
+    }
 
     for (int i = 0; i < param->nAudioSelectCount; i++) {
         const AudioSelect *pAudioSelect = param->ppAudioSelectList[i];
@@ -7064,6 +7080,7 @@ tstring gen_cmd_help_input() {
         _T("      preserve_aspect_ratio=<string>   preserve input aspect ratio.\n")
         _T("        decrease ... preserve aspect ratio by decreasing resolution specified.\n")
         _T("        increase ... preserve aspect ratio by increasing resolution specified.\n")
+        _T("      ignore_sar=<bool>                ignore sar when using negative value.\n")
         _T("\n")
         _T("   --frames <int>               frames to encode (based on input frames)\n")
         _T("   --fps <int>/<int> or <float> set framerate\n")
@@ -7163,7 +7180,8 @@ tstring gen_cmd_help_common() {
         _T("   --audio-samplerate [<int>?]<int>\n")
         _T("                                set sampling rate for audio (Hz).\n")
         _T("                                  in [<int>?], specify track number of audio.\n")
-        _T("   --audio-resampler <string>   set audio resampler.\n")
+        _T("   --audio-resampler [<int>?]<string>\n")
+        _T("                                set audio resampler or resampler params.\n")
         _T("                                  swr (swresampler: default), soxr (libsoxr)\n")
         _T("   --audio-delay [<int>?]<float>  set audio delay (ms).\n")
         _T("   --audio-stream [<int>?][<string1>][:<string2>][,[<string1>][:<string2>]][..\n")
