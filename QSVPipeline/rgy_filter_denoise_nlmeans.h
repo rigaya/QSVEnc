@@ -33,6 +33,9 @@
 #include "rgy_prm.h"
 #include <array>
 
+// dxdyのペアを何並列で同時計算するか
+static const int RGY_NLMEANS_DXDY_STEP = 8;
+
 class RGYFilterParamDenoiseNLMeans : public RGYFilterParam {
 public:
     VppNLMeans nlmeans;
@@ -53,7 +56,7 @@ protected:
     virtual RGY_ERR denoisePlane(
         RGYFrameInfo *pOutputPlane,
         RGYFrameInfo *pTmpUPlane, RGYFrameInfo *pTmpVPlane,
-        RGYFrameInfo *pTmpIW0Plane, RGYFrameInfo *pTmpIW1Plane, RGYFrameInfo *pTmpIW2Plane, RGYFrameInfo *pTmpIW3Plane, RGYFrameInfo *pTmpIW4Plane,
+        RGYFrameInfo *pTmpIWPlane,
         const RGYFrameInfo *pInputPlane,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     virtual RGY_ERR denoiseFrame(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
@@ -61,7 +64,7 @@ protected:
     bool m_bInterlacedWarn;
     RGYOpenCLProgramAsync m_nlmeans;
     RGYCLFramePool m_srcImagePool;
-    std::array<std::unique_ptr<RGYCLFrame>, 7> m_tmpBuf;
+    std::array<std::unique_ptr<RGYCLFrame>, 2 + 1 + RGY_NLMEANS_DXDY_STEP> m_tmpBuf;
 };
 
 #endif //__RGY_FILTER_DENOISE_KNN_H__

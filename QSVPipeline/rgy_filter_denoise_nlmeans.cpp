@@ -44,14 +44,19 @@ enum RGYFilterDenoiseNLMeansTmpBufIdx {
     TMP_IW2,
     TMP_IW3,
     TMP_IW4,
-    TMP_LAST,
+    TMP_IW5,
+    TMP_IW6,
+    TMP_IW7,
+    TMP_IW8,
+    TMP_LAST = TMP_IW8,
+    TMP_TOTAL,
 };
 
 // https://lcondat.github.io/publis/condat_resreport_NLmeansv3.pdf
 RGY_ERR RGYFilterDenoiseNLMeans::denoisePlane(
     RGYFrameInfo *pOutputPlane,
     RGYFrameInfo *pTmpUPlane, RGYFrameInfo *pTmpVPlane,
-    RGYFrameInfo *pTmpIW0Plane, RGYFrameInfo *pTmpIW1Plane, RGYFrameInfo *pTmpIW2Plane, RGYFrameInfo *pTmpIW3Plane, RGYFrameInfo *pTmpIW4Plane,
+    RGYFrameInfo *pTmpIWPlane,
     const RGYFrameInfo *pInputPlane,
     RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     auto prm = std::dynamic_pointer_cast<RGYFilterParamDenoiseNLMeans>(m_param);
@@ -61,30 +66,17 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoisePlane(
     }
 
     // 一時バッファを初期化
-    auto err = m_cl->setPlane(0, pTmpIW0Plane, nullptr, queue, wait_events, nullptr);
+    auto err = m_cl->setPlane(0, &pTmpIWPlane[0], nullptr, queue, wait_events, nullptr);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("error at %s (denoisePlane(setPlane[IW0])): %s.\n"), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
         return err;
     }
-    err = m_cl->setPlane(0, pTmpIW1Plane, nullptr, queue);
-    if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("error at %s (denoisePlane(setPlane[IW1])): %s.\n"), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
-        return err;
-    }
-    err = m_cl->setPlane(0, pTmpIW2Plane, nullptr, queue);
-    if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("error at %s (denoisePlane(setPlane[IW2])): %s.\n"), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
-        return err;
-    }
-    err = m_cl->setPlane(0, pTmpIW3Plane, nullptr, queue);
-    if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("error at %s (denoisePlane(setPlane[IW3])): %s.\n"), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
-        return err;
-    }
-    err = m_cl->setPlane(0, pTmpIW4Plane, nullptr, queue);
-    if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("error at %s (denoisePlane(setPlane[IW4])): %s.\n"), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
-        return err;
+    for (int i = 1; i < RGY_NLMEANS_DXDY_STEP+1; i++) {
+        auto err = m_cl->setPlane(0, &pTmpIWPlane[i], nullptr, queue, {}, nullptr);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at %s (denoisePlane(setPlane[IW0])): %s.\n"), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
+            return err;
+        }
     }
 
     // 計算すべきnx-nyの組み合わせを列挙
@@ -92,30 +84,27 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoisePlane(
     std::vector<std::pair<int, int>> nxny;
     for (int ny = -support_radius; ny <= 0; ny++) {
         for (int nx = -support_radius; nx <= support_radius; nx++) {
-            if (ny * (2 * support_radius - 1) + nx < 0) {
+            if (ny * (2 * support_radius - 1) + nx < 0) { // nx-nyの対称性を使って半分のみ計算 (0,0)
                 nxny.push_back(std::make_pair(nx, ny));
             }
         }
     }
-    for (size_t inxny = 0; inxny < nxny.size(); inxny += 4) {
-        // nx-nyは2つずつ計算する
-        const cl_int4 nx0 = {
-            nxny[inxny+0].first, 
-            (inxny + 1 < nxny.size()) ? nxny[inxny+1].first : 0,
-            (inxny + 2 < nxny.size()) ? nxny[inxny+2].first : 0,
-            (inxny + 3 < nxny.size()) ? nxny[inxny+3].first : 0
-        };
-        const cl_int4 ny0 = {
-            nxny[inxny+0].second,
-            (inxny + 1 < nxny.size()) ? nxny[inxny+1].second : 0,
-            (inxny + 2 < nxny.size()) ? nxny[inxny+2].second : 0,
-            (inxny + 3 < nxny.size()) ? nxny[inxny+3].second : 0
-        };
+    // nx-nyの組み合わせをRGY_NLMEANS_DXDY_STEP個ずつまとめて計算して高速化
+    for (size_t inxny = 0; inxny < nxny.size(); inxny += RGY_NLMEANS_DXDY_STEP) {
+        cl_int nx0arr[RGY_NLMEANS_DXDY_STEP], ny0arr[RGY_NLMEANS_DXDY_STEP];
+        for (int i = 0; i < RGY_NLMEANS_DXDY_STEP; i++) {
+            nx0arr[i] = (inxny + i < nxny.size()) ? nxny[inxny + i].first : 0;
+            ny0arr[i] = (inxny + i < nxny.size()) ? nxny[inxny + i].second : 0;
+        }
+        //kernel引数に渡すために、cl_int8に押し込む
+        cl_int8 nx0, ny0;
+        memcpy(&nx0, nx0arr, sizeof(nx0));
+        memcpy(&ny0, ny0arr, sizeof(ny0));
         {
             const char *kernel_name = "kernel_calc_diff_square";
             RGYWorkSize local(NLEANS_BLOCK_X, NLEANS_BLOCK_Y);
             RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
-            err = m_nlmeans.get()->kernel(kernel_name).config(queue, local, global, wait_events, nullptr).launch(
+            auto err = m_nlmeans.get()->kernel(kernel_name).config(queue, local, global, {}, nullptr).launch(
                 (cl_mem)pTmpUPlane->ptr[0], pTmpUPlane->pitch[0],
                 (cl_mem)pInputPlane->ptr[0], pInputPlane->pitch[0],
                 pOutputPlane->width, pOutputPlane->height,
@@ -130,7 +119,7 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoisePlane(
             const char *kernel_name = "kernel_denoise_nlmeans_calc_v";
             RGYWorkSize local(NLEANS_BLOCK_X, NLEANS_BLOCK_Y);
             RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
-            err = m_nlmeans.get()->kernel(kernel_name).config(queue, local, global, wait_events, nullptr).launch(
+            auto err = m_nlmeans.get()->kernel(kernel_name).config(queue, local, global, {}, nullptr).launch(
                 (cl_mem)pTmpVPlane->ptr[0], pTmpVPlane->pitch[0],
                 (cl_mem)pTmpUPlane->ptr[0], pTmpUPlane->pitch[0],
                 pOutputPlane->width, pOutputPlane->height);
@@ -144,9 +133,11 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoisePlane(
             const char *kernel_name = "kernel_denoise_nlmeans_calc_weight";
             RGYWorkSize local(NLEANS_BLOCK_X, NLEANS_BLOCK_Y);
             RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
-            err = m_nlmeans.get()->kernel(kernel_name).config(queue, local, global, wait_events, nullptr).launch(
-                (cl_mem)pTmpIW0Plane->ptr[0], (cl_mem)pTmpIW1Plane->ptr[0], (cl_mem)pTmpIW2Plane->ptr[0], (cl_mem)pTmpIW3Plane->ptr[0], (cl_mem)pTmpIW4Plane->ptr[0],
-                pTmpIW0Plane->pitch[0],
+            auto err = m_nlmeans.get()->kernel(kernel_name).config(queue, local, global, {}, nullptr).launch(
+                (cl_mem)pTmpIWPlane[0].ptr[0],
+                (cl_mem)pTmpIWPlane[1].ptr[0], (cl_mem)pTmpIWPlane[2].ptr[0], (cl_mem)pTmpIWPlane[3].ptr[0], (cl_mem)pTmpIWPlane[4].ptr[0],
+                (cl_mem)pTmpIWPlane[5].ptr[0], (cl_mem)pTmpIWPlane[6].ptr[0], (cl_mem)pTmpIWPlane[7].ptr[0], (cl_mem)pTmpIWPlane[8].ptr[0],
+                pTmpIWPlane[0].pitch[0],
                 (cl_mem)pTmpVPlane->ptr[0], pTmpVPlane->pitch[0],
                 (cl_mem)pInputPlane->ptr[0], pInputPlane->pitch[0],
                 pOutputPlane->width, pOutputPlane->height,
@@ -164,10 +155,12 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoisePlane(
         const char *kernel_name = "kernel_denoise_nlmeans_normalize";
         RGYWorkSize local(NLEANS_BLOCK_X, NLEANS_BLOCK_Y);
         RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
-        err = m_nlmeans.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
+        auto err = m_nlmeans.get()->kernel(kernel_name).config(queue, local, global, {}, event).launch(
             (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0],
-            (cl_mem)pTmpIW0Plane->ptr[0], (cl_mem)pTmpIW1Plane->ptr[0], (cl_mem)pTmpIW2Plane->ptr[0], (cl_mem)pTmpIW3Plane->ptr[0], (cl_mem)pTmpIW4Plane->ptr[0],
-            pTmpIW0Plane->pitch[0],
+            (cl_mem)pTmpIWPlane[0].ptr[0],
+            (cl_mem)pTmpIWPlane[1].ptr[0], (cl_mem)pTmpIWPlane[2].ptr[0], (cl_mem)pTmpIWPlane[3].ptr[0], (cl_mem)pTmpIWPlane[4].ptr[0],
+            (cl_mem)pTmpIWPlane[5].ptr[0], (cl_mem)pTmpIWPlane[6].ptr[0], (cl_mem)pTmpIWPlane[7].ptr[0], (cl_mem)pTmpIWPlane[8].ptr[0],
+            pTmpIWPlane[0].pitch[0],
             pOutputPlane->width, pOutputPlane->height);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at %s (denoisePlane(%s)): %s.\n"),
@@ -184,14 +177,13 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoiseFrame(RGYFrameInfo *pOutputFrame, const 
         auto planeSrc = getPlane(pInputFrame, (RGY_PLANE)i);
         auto planeTmpU = getPlane(&m_tmpBuf[TMP_U]->frame, (RGY_PLANE)i);
         auto planeTmpV = getPlane(&m_tmpBuf[TMP_V]->frame, (RGY_PLANE)i);
-        auto planeTmpIW0 = getPlane(&m_tmpBuf[TMP_IW0]->frame, (RGY_PLANE)i);
-        auto planeTmpIW1 = getPlane(&m_tmpBuf[TMP_IW1]->frame, (RGY_PLANE)i);
-        auto planeTmpIW2 = getPlane(&m_tmpBuf[TMP_IW2]->frame, (RGY_PLANE)i);
-        auto planeTmpIW3 = getPlane(&m_tmpBuf[TMP_IW3]->frame, (RGY_PLANE)i);
-        auto planeTmpIW4 = getPlane(&m_tmpBuf[TMP_IW4]->frame, (RGY_PLANE)i);
+        std::array<RGYFrameInfo, RGY_NLMEANS_DXDY_STEP+1> pTmpIWPlane;
+        for (int j = 0; j < RGY_NLMEANS_DXDY_STEP; j++) {
+            pTmpIWPlane[j] = getPlane(&m_tmpBuf[TMP_IW0 + j]->frame, (RGY_PLANE)i);
+        }
         const std::vector<RGYOpenCLEvent> &plane_wait_event = (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>();
         RGYOpenCLEvent *plane_event = (i == RGY_CSP_PLANES[pOutputFrame->csp] - 1) ? event : nullptr;
-        auto err = denoisePlane(&planeDst, &planeTmpU, &planeTmpV, &planeTmpIW0, &planeTmpIW1, &planeTmpIW2, &planeTmpIW3, &planeTmpIW4, &planeSrc,
+        auto err = denoisePlane(&planeDst, &planeTmpU, &planeTmpV, pTmpIWPlane.data(), &planeSrc,
             queue, plane_wait_event, plane_event);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to denoise(nlmeans) frame(%d) %s: %s\n"), i, cl_errmes(err));
@@ -254,7 +246,7 @@ RGY_ERR RGYFilterDenoiseNLMeans::init(shared_ptr<RGYFilterParam> pParam, shared_
             prm->nlmeans.prec = VPP_FP_PRECISION_FP32;
         }
     }
-    const bool use_vtype2_fp16 = prm->nlmeans.prec != VPP_FP_PRECISION_FP32;
+    const bool use_vtype_fp16 = prm->nlmeans.prec != VPP_FP_PRECISION_FP32;
     auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamDenoiseNLMeans>(m_param);
     if (!m_nlmeans.get()
         || !prmPrev
@@ -266,12 +258,12 @@ RGY_ERR RGYFilterDenoiseNLMeans::init(shared_ptr<RGYFilterParam> pParam, shared_
         const int template_radius = prm->nlmeans.patchSize / 2;
         const int shared_radius = std::max(support_radius, template_radius);
         const auto options = strsprintf("-D Type=%s -D bit_depth=%d"
-            " -D TmpVType4=%s -D TmpVTypeFP16=%d -D TmpWPType=float -D TmpWPType2=float2 -D TmpWPType4=float4"
+            " -D TmpVType8=%s -D TmpVTypeFP16=%d -D TmpWPType=float -D TmpWPType2=float2 -D TmpWPType8=float8"
             " -D support_radius=%d -D template_radius=%d -D shared_radius=%d"
             " -D NLEANS_BLOCK_X=%d -D NLEANS_BLOCK_Y=%d",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp],
-            use_vtype2_fp16 ? "half4" : "float4", use_vtype2_fp16 ? 1 : 0,
+            use_vtype_fp16 ? "half8" : "float8", use_vtype_fp16 ? 1 : 0,
             support_radius, template_radius, shared_radius,
             NLEANS_BLOCK_X, NLEANS_BLOCK_Y);
         m_nlmeans.set(m_cl->buildResourceAsync(_T("RGY_FILTER_DENOISE_NLMEANS_CL"), _T("EXE_DATA"), options.c_str()));
@@ -279,21 +271,10 @@ RGY_ERR RGYFilterDenoiseNLMeans::init(shared_ptr<RGYFilterParam> pParam, shared_
 
     for (size_t i = 0; i < m_tmpBuf.size(); i++) {
         int tmpBufWidth = 0;
-        switch (i) {
-            case TMP_U:
-            case TMP_V:
-                tmpBufWidth = prm->frameOut.width * ((use_vtype2_fp16) ? 2 : 4);
-                break;
-            case TMP_IW0:
-            case TMP_IW1:
-            case TMP_IW2:
-            case TMP_IW3:
-            case TMP_IW4:
-                tmpBufWidth = prm->frameOut.width * 2;
-                break;
-            default:
-                AddMessage(RGY_LOG_ERROR, _T("Unknown tmpBuf index %d.\n"), i);
-                return RGY_ERR_UNKNOWN;
+        if (i == TMP_U || i == TMP_V) {
+            tmpBufWidth = prm->frameOut.width * ((use_vtype_fp16) ? 4 : 8);
+        } else {
+            tmpBufWidth = prm->frameOut.width * 2;
         }
         const int tmpBufHeight = prm->frameOut.height;
         if (m_tmpBuf[i]
