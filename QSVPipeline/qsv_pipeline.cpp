@@ -77,6 +77,7 @@ RGY_DISABLE_WARNING_POP
 #include "rgy_filter_denoise_dct.h"
 #include "rgy_filter_smooth.h"
 #include "rgy_filter_denoise_knn.h"
+#include "rgy_filter_denoise_nlmeans.h"
 #include "rgy_filter_denoise_pmd.h"
 #include "rgy_filter_subburn.h"
 #include "rgy_filter_transform.h"
@@ -2162,6 +2163,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vpp.smooth.enable)     filterPipeline.push_back(VppType::CL_DENOISE_SMOOTH);
     if (inputParam->vpp.dct.enable)        filterPipeline.push_back(VppType::CL_DENOISE_DCT);
     if (inputParam->vpp.knn.enable)        filterPipeline.push_back(VppType::CL_DENOISE_KNN);
+    if (inputParam->vpp.nlmeans.enable)    filterPipeline.push_back(VppType::CL_DENOISE_NLMEANS);
     if (inputParam->vpp.pmd.enable)        filterPipeline.push_back(VppType::CL_DENOISE_PMD);
     if (inputParam->vppmfx.denoise.enable) filterPipeline.push_back(VppType::MFX_DENOISE);
     if (inputParam->vppmfx.imageStabilizer != 0) filterPipeline.push_back(VppType::MFX_IMAGE_STABILIZATION);
@@ -2559,6 +2561,26 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         unique_ptr<RGYFilter> filter(new RGYFilterDenoiseKnn(m_cl));
         shared_ptr<RGYFilterParamDenoiseKnn> param(new RGYFilterParamDenoiseKnn());
         param->knn = params->vpp.knn;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        auto sts = filter->init(param, m_pQSVLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        //登録
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
+    }
+    //nlmeans
+    if (vppType == VppType::CL_DENOISE_NLMEANS) {
+        unique_ptr<RGYFilter> filter(new RGYFilterDenoiseNLMeans(m_cl));
+        shared_ptr<RGYFilterParamDenoiseNLMeans> param(new RGYFilterParamDenoiseNLMeans());
+        param->nlmeans = params->vpp.nlmeans;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;

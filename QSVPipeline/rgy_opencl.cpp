@@ -2311,6 +2311,10 @@ RGY_ERR RGYOpenCLContext::setPlane(int value, RGYFrameInfo *dst, const sInputCro
     return setPlane(value, dst, dstOffset, queue, {}, event);
 }
 RGY_ERR RGYOpenCLContext::setPlane(int value, RGYFrameInfo *planeDst, const sInputCrop *dstOffset, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+    sInputCrop planeCropNone = { 0 };
+    if (dstOffset == nullptr) {
+        dstOffset = &planeCropNone;
+    }
     if (planeDst->mem_type == RGY_MEM_TYPE_CPU) {
         if (RGY_CSP_BIT_DEPTH[planeDst->csp] > 8) {
             for (int y = dstOffset->e.up; y < planeDst->height - dstOffset->e.bottom; y++) {

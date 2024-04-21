@@ -733,6 +733,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="rgy_filter_denoise_nlmeans.cpp" />
     <ClCompile Include="rgy_filter_denoise_pmd.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -1022,6 +1023,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_filter_delogo.h" />
     <ClInclude Include="rgy_filter_denoise_dct.h" />
     <ClInclude Include="rgy_filter_denoise_knn.h" />
+    <ClInclude Include="rgy_filter_denoise_nlmeans.h" />
     <ClInclude Include="rgy_filter_denoise_pmd.h" />
     <ClInclude Include="rgy_filter_edgelevel.h" />
     <ClInclude Include="rgy_filter_mpdecimate.h" />
@@ -1087,6 +1089,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <None Include="rgy_filter_delogo.cl" />
     <None Include="rgy_filter_denoise_dct.cl" />
     <None Include="rgy_filter_denoise_knn.cl" />
+    <None Include="rgy_filter_denoise_nlmeans.cl" />
     <None Include="rgy_filter_denoise_pmd.cl" />
     <None Include="rgy_filter_edgelevel.cl" />
     <None Include="rgy_filter_mpdecimate.cl" />
