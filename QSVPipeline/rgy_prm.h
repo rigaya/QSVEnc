@@ -260,7 +260,7 @@ static const float FILTER_DEFAULT_KNN_LERPC_THRESHOLD = 0.80f;
 
 static const float FILTER_DEFAULT_NLMEANS_FILTER_SIGMA = 0.1f;
 static const int   FILTER_DEFAULT_NLMEANS_PATCH_SIZE = 7;
-static const int   FILTER_DEFAULT_NLMEANS_SUPPORT_SIZE = 15;
+static const int   FILTER_DEFAULT_NLMEANS_SEARCH_SIZE = 15;
 static const float FILTER_DEFAULT_NLMEANS_H = 0.1f;
 
 static const float FILTER_DEFAULT_PMD_STRENGTH = 100.0f;
@@ -1212,7 +1212,7 @@ struct VppNLMeans {
     bool  enable;
     float sigma;
     int   patchSize;
-    int   supportSize;
+    int   searchSize;
     float h;
     VppFpPrecision prec;
 

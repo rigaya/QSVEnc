@@ -80,11 +80,11 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoisePlane(
     }
 
     // 計算すべきnx-nyの組み合わせを列挙
-    const int support_radius = prm->nlmeans.supportSize / 2;
+    const int search_radius = prm->nlmeans.searchSize / 2;
     std::vector<std::pair<int, int>> nxny;
-    for (int ny = -support_radius; ny <= 0; ny++) {
-        for (int nx = -support_radius; nx <= support_radius; nx++) {
-            if (ny * (2 * support_radius - 1) + nx < 0) { // nx-nyの対称性を使って半分のみ計算 (0,0)
+    for (int ny = -search_radius; ny <= 0; ny++) {
+        for (int nx = -search_radius; nx <= search_radius; nx++) {
+            if (ny * (2 * search_radius - 1) + nx < 0) { // nx-nyの対称性を使って半分のみ計算 (0,0)
                 nxny.push_back(std::make_pair(nx, ny));
             }
         }
@@ -221,10 +221,10 @@ RGY_ERR RGYFilterDenoiseNLMeans::init(shared_ptr<RGYFilterParam> pParam, shared_
         AddMessage(RGY_LOG_ERROR, _T("patch must be 3 or bigger.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (prm->nlmeans.supportSize % 2 == 0) {
-        prm->nlmeans.supportSize++; // 奇数にする
+    if (prm->nlmeans.searchSize % 2 == 0) {
+        prm->nlmeans.searchSize++; // 奇数にする
     }
-    if (prm->nlmeans.supportSize <= 2) {
+    if (prm->nlmeans.searchSize <= 2) {
         AddMessage(RGY_LOG_ERROR, _T("support must be a 3 or bigger.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
@@ -252,19 +252,19 @@ RGY_ERR RGYFilterDenoiseNLMeans::init(shared_ptr<RGYFilterParam> pParam, shared_
         || !prmPrev
         || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]
         || prmPrev->nlmeans.patchSize != prm->nlmeans.patchSize
-        || prmPrev->nlmeans.supportSize != prm->nlmeans.supportSize
+        || prmPrev->nlmeans.searchSize != prm->nlmeans.searchSize
         || prmPrev->nlmeans.prec != prm->nlmeans.prec) {
-        const int support_radius = prm->nlmeans.supportSize / 2;
+        const int search_radius = prm->nlmeans.searchSize / 2;
         const int template_radius = prm->nlmeans.patchSize / 2;
-        const int shared_radius = std::max(support_radius, template_radius);
+        const int shared_radius = std::max(search_radius, template_radius);
         const auto options = strsprintf("-D Type=%s -D bit_depth=%d"
             " -D TmpVType8=%s -D TmpVTypeFP16=%d -D TmpWPType=float -D TmpWPType2=float2 -D TmpWPType8=float8"
-            " -D support_radius=%d -D template_radius=%d -D shared_radius=%d"
+            " -D search_radius=%d -D template_radius=%d -D shared_radius=%d"
             " -D NLEANS_BLOCK_X=%d -D NLEANS_BLOCK_Y=%d",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp],
             use_vtype_fp16 ? "half8" : "float8", use_vtype_fp16 ? 1 : 0,
-            support_radius, template_radius, shared_radius,
+            search_radius, template_radius, shared_radius,
             NLEANS_BLOCK_X, NLEANS_BLOCK_Y);
         m_nlmeans.set(m_cl->buildResourceAsync(_T("RGY_FILTER_DENOISE_NLMEANS_CL"), _T("EXE_DATA"), options.c_str()));
     }

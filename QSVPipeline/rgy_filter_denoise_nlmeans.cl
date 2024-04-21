@@ -7,9 +7,9 @@
 // TmpWPType8
 // bit_depth
 
-// support_radius
+// search_radius
 // template_radius
-// shared_radius = max(support_radius, template_radius)
+// shared_radius = max(search_radius, template_radius)
 
 // NLEANS_BLOCK_X
 // NLEANS_BLOCK_Y
@@ -196,8 +196,8 @@ __kernel void kernel_denoise_nlmeans(
         
         float sumWeights = 0.0f;
         float sum = 0.0f;
-        for (int j = - support_radius; j <= support_radius; j++) {
-            for (int i = - support_radius; i <= support_radius; i++) {
+        for (int j = - search_radius; j <= search_radius; j++) {
+            for (int i = - search_radius; i <= search_radius; i++) {
                 const int tx = shared_x + i;
                 const int ty = shared_y + j;
                 float dist = 0.0f;

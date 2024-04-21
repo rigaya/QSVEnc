@@ -916,7 +916,7 @@ VppNLMeans::VppNLMeans() :
     enable(false),
     sigma(FILTER_DEFAULT_NLMEANS_FILTER_SIGMA),
     patchSize(FILTER_DEFAULT_NLMEANS_PATCH_SIZE),
-    supportSize(FILTER_DEFAULT_NLMEANS_SUPPORT_SIZE),
+    searchSize(FILTER_DEFAULT_NLMEANS_SEARCH_SIZE),
     h(FILTER_DEFAULT_NLMEANS_H),
     prec(VppFpPrecision::VPP_FP_PRECISION_AUTO) {
 }
@@ -925,7 +925,7 @@ bool VppNLMeans::operator==(const VppNLMeans &x) const {
     return enable == x.enable
         && sigma == x.sigma
         && patchSize == x.patchSize
-        && supportSize == x.supportSize
+        && searchSize == x.searchSize
         && h == x.h
         && prec == x.prec;
 }
@@ -935,8 +935,8 @@ bool VppNLMeans::operator!=(const VppNLMeans &x) const {
 
 tstring VppNLMeans::print() const {
     return strsprintf(
-        _T("denoise(nlmeans): sigma %.2f, h %.2f, patchsize %d, support %d, prec %s"),
-        sigma, h, patchSize, supportSize, get_cx_desc(list_vpp_fp_prec, prec));
+        _T("denoise(nlmeans): sigma %.2f, h %.2f, patch %d, search %d, prec %s"),
+        sigma, h, patchSize, searchSize, get_cx_desc(list_vpp_fp_prec, prec));
 }
 
 VppPmd::VppPmd() :

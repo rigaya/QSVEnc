@@ -2013,7 +2013,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         i++;
 
-        const auto paramList = std::vector<std::string>{ "sigma", "patchsize", "supportsize", "h", "prec"};
+        const auto paramList = std::vector<std::string>{ "sigma", "patch", "search", "h", "prec"};
 
         for (const auto& param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
@@ -2040,9 +2040,9 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("support")) {
+                if (param_arg == _T("search")) {
                     try {
-                        vpp->nlmeans.supportSize = std::stoi(param_val);
+                        vpp->nlmeans.searchSize = std::stoi(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -6302,7 +6302,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
         if (param->knn.enable || save_disabled_prm) {
             ADD_FLOAT(_T("sigma"), nlmeans.sigma, 3);
             ADD_NUM(_T("patch"), nlmeans.patchSize);
-            ADD_NUM(_T("support"), nlmeans.supportSize);
+            ADD_NUM(_T("search"), nlmeans.searchSize);
             ADD_FLOAT(_T("h"), nlmeans.h, 3);
             ADD_LST(_T("prec"), nlmeans.prec, list_vpp_fp_prec);
         }
@@ -7676,12 +7676,12 @@ tstring gen_cmd_help_vpp() {
         _T("      sigma=<float>  sigma (default=%.2, 0.0 - 1.0)\n")
         _T("      h=<float>      h (default=%.2f, 0.0 - 1.0)\n")
         _T("      patch=<int>    patch size (default=%d, 3-)\n")
-        _T("      support=<int>  support size (default=%d, 3-)\n")
+        _T("      search=<int>   search size (default=%d, 3-)\n")
         _T("      prec=<string>  select weight calculation precision.\n")
         _T("                       auto (default), fp16, fp32\n")
         ,
         FILTER_DEFAULT_NLMEANS_FILTER_SIGMA, FILTER_DEFAULT_NLMEANS_H,
-        FILTER_DEFAULT_NLMEANS_PATCH_SIZE, FILTER_DEFAULT_NLMEANS_SUPPORT_SIZE
+        FILTER_DEFAULT_NLMEANS_PATCH_SIZE, FILTER_DEFAULT_NLMEANS_SEARCH_SIZE
         //,FILTER_DEFAULT_NLMEANS_FILTER_SIGMA, FILTER_DEFAULT_NLMEANS_PATCH_SIGMA,
         );
 #endif
