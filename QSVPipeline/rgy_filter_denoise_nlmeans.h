@@ -53,9 +53,7 @@ protected:
     virtual RGY_ERR denoisePlane(
         RGYFrameInfo *pOutputPlane,
         RGYFrameInfo *pTmpUPlane, RGYFrameInfo *pTmpVPlane,
-        RGYFrameInfo *pTmpI0Plane, RGYFrameInfo *pTmpW0Plane,
-        RGYFrameInfo *pTmpI1Plane, RGYFrameInfo *pTmpW1Plane,
-        RGYFrameInfo *pTmpI2Plane, RGYFrameInfo *pTmpW2Plane,
+        RGYFrameInfo *pTmpIW0Plane, RGYFrameInfo *pTmpIW1Plane, RGYFrameInfo *pTmpIW2Plane, RGYFrameInfo *pTmpIW3Plane, RGYFrameInfo *pTmpIW4Plane,
         const RGYFrameInfo *pInputPlane,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     virtual RGY_ERR denoiseFrame(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
@@ -63,7 +61,7 @@ protected:
     bool m_bInterlacedWarn;
     RGYOpenCLProgramAsync m_nlmeans;
     RGYCLFramePool m_srcImagePool;
-    std::array<std::unique_ptr<RGYCLFrame>, 8> m_tmpBuf;
+    std::array<std::unique_ptr<RGYCLFrame>, 7> m_tmpBuf;
 };
 
 #endif //__RGY_FILTER_DENOISE_KNN_H__

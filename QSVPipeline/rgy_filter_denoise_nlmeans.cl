@@ -1,9 +1,10 @@
 ﻿
 // Type
 // TmpVTypeFP16
-// TmpVType2
+// TmpVType4
 // TmpWPType
 // TmpWPType2
+// TmpWPType4
 // bit_depth
 
 // support_radius
@@ -29,7 +30,7 @@ Type get_xyoffset_pix(
 __kernel void kernel_calc_diff_square(
     __global uchar *restrict pDst, const int dstPitch,
     const __global uchar *restrict pSrc, const int srcPitch,
-    const int width, const int height, int2 xoffset, int2 yoffset
+    const int width, const int height, int4 xoffset, int4 yoffset
 ) {
     const int ix = get_global_id(0);
     const int iy = get_global_id(1);
@@ -38,14 +39,14 @@ __kernel void kernel_calc_diff_square(
         const __global uchar *ptr0 = pSrc + iy * srcPitch + ix * sizeof(Type);
         const Type val0 = *(const __global Type *)ptr0;
 
-        TmpVType2 val1;
+        TmpVType4 val1;
         val1.x = get_xyoffset_pix(pSrc, srcPitch, ix, iy, xoffset.x, yoffset.x, width, height);
         val1.y = get_xyoffset_pix(pSrc, srcPitch, ix, iy, xoffset.y, yoffset.y, width, height);
-        //val1.z = get_xyoffset_pix(pSrc, srcPitch, ix, iy, xoffset.z, yoffset.z, width, height);
-        //val1.w = get_xyoffset_pix(pSrc, srcPitch, ix, iy, xoffset.w, yoffset.w, width, height);
+        val1.z = get_xyoffset_pix(pSrc, srcPitch, ix, iy, xoffset.z, yoffset.z, width, height);
+        val1.w = get_xyoffset_pix(pSrc, srcPitch, ix, iy, xoffset.w, yoffset.w, width, height);
 
-        __global TmpVType2 *ptrDst = (__global TmpVType2 *)(pDst + iy * dstPitch + ix * sizeof(TmpVType2));
-        const TmpVType2 fdiff = (((TmpVType2)val0) - val1) * (TmpVType2)(1.0f / ((1<<bit_depth) - 1));
+        __global TmpVType4 *ptrDst = (__global TmpVType4 *)(pDst + iy * dstPitch + ix * sizeof(TmpVType4));
+        const TmpVType4 fdiff = (((TmpVType4)val0) - val1) * (TmpVType4)(1.0f / ((1<<bit_depth) - 1));
         ptrDst[0] = fdiff * fdiff;
     }
 }
@@ -59,91 +60,83 @@ __kernel void kernel_denoise_nlmeans_calc_v(
     const int iy = get_global_id(1);
 
     if (ix < width && iy < height) {
-        TmpVType2 sum = (TmpVType2)0.0f;
+        TmpVType4 sum = (TmpVType4)0.0f;
         for (int j = - template_radius; j <= template_radius; j++) {
             const int srcy = clamp(iy + j, 0, height - 1);
             for (int i = - template_radius; i <= template_radius; i++) {
                 const int srcx = clamp(ix + i, 0, width - 1);
-                const __global TmpVType2 *ptr = (__global TmpVType2 *)(pSrc + srcy * srcPitch + srcx * sizeof(TmpVType2));
+                const __global TmpVType4 *ptr = (__global TmpVType4 *)(pSrc + srcy * srcPitch + srcx * sizeof(TmpVType4));
                 sum += ptr[0];
             }
         }
-        __global TmpVType2 *ptr = (__global TmpVType2 *)(pDst + iy * dstPitch + ix * sizeof(TmpVType2));
+        __global TmpVType4 *ptr = (__global TmpVType4 *)(pDst + iy * dstPitch + ix * sizeof(TmpVType4));
         ptr[0] = sum;
     }
 }
 
-TmpWPType2 tmpv2_2_tmpwp2(TmpVType2 v) {
+TmpWPType4 tmpv4_2_tmpwp4(TmpVType4 v) {
 #if TmpVTypeFP16
-    return convert_float2(v);
+    return convert_float4(v);
 #else
     return v;
 #endif 
 }
 
+void add_reverse_side_offset(__global uchar *restrict pImgW, const int tmpPitch, const __global uchar *restrict pSrc, const int srcPitch, const int width, const int height, const int jx, const int jy, const TmpWPType weight) {
+    if (0 <= jx && jx < width && 0 <= jy && jy < height) {
+        __global TmpWPType2 *ptrImgW = (__global TmpWPType2 *)(pImgW + jy * tmpPitch + jx * sizeof(TmpWPType2));
+        const Type pix = *(const __global Type *)(pSrc + jy * srcPitch + jx * sizeof(Type));
+        TmpWPType2 weight_pix_2 = { weight * (TmpWPType)(pix * (1.0f / ((1<<bit_depth) - 1))), weight };
+        ptrImgW[0] += weight_pix_2;
+    }
+}
+
 __kernel void kernel_denoise_nlmeans_calc_weight(
-    __global uchar *restrict pImgW0, __global uchar *restrict pImgW1, __global uchar *restrict pImgW2,
-    __global uchar *restrict pWeight0, __global uchar *restrict pWeight1, __global uchar *restrict pWeight2, const int tmpPitch,
+    __global uchar *restrict pImgW0, __global uchar *restrict pImgW1, __global uchar *restrict pImgW2, __global uchar *restrict pImgW3, __global uchar *restrict pImgW4, const int tmpPitch,
     const __global uchar *restrict pV, const int vPitch,
     const __global uchar *restrict pSrc, const int srcPitch,
     const int width, const int height, const float sigma, const float inv_param_h_h,
-    const int2 xoffset, const int2 yoffset
+    const int4 xoffset, const int4 yoffset
 ) {
     const int ix = get_global_id(0);
     const int iy = get_global_id(1);
 
     if (ix < width && iy < height) {
-        const TmpVType2 v = *(const __global TmpVType2 *)(pV + iy * vPitch + ix * sizeof(TmpVType2));
-        const TmpVType2 weightvt2 = native_exp(-max(v - (TmpVType2)(2.0f * sigma), (TmpVType2)0.0f) * (TmpVType2)inv_param_h_h);
-        const TmpWPType2 weight = tmpv2_2_tmpwp2(weightvt2);
+        const TmpVType4 v_vt4 = *(const __global TmpVType4 *)(pV + iy * vPitch + ix * sizeof(TmpVType4));
+        const TmpWPType4 v_tmpv4 = tmpv4_2_tmpwp4(v_vt4);
+        const TmpWPType4 weight = native_exp(-max(v_tmpv4 - (TmpWPType4)(2.0f * sigma), (TmpWPType4)0.0f) * (TmpWPType4)inv_param_h_h);
 
         {
-            __global TmpWPType *ptrImgW0   = (__global TmpWPType *)(pImgW0   + iy * tmpPitch + ix * sizeof(TmpWPType));
-            __global TmpWPType *ptrWeight0 = (__global TmpWPType *)(pWeight0 + iy * tmpPitch + ix * sizeof(TmpWPType));
+            __global TmpWPType2 *ptrImgW0 = (__global TmpWPType2 *)(pImgW0 + iy * tmpPitch + ix * sizeof(TmpWPType2));
             const Type pix = *(const __global Type *)(pSrc + iy * srcPitch + ix * sizeof(Type));
-            const TmpWPType2 weight_pix = (TmpWPType2)weight * (TmpWPType2)(pix * (1.0f / ((1<<bit_depth) - 1)));
-            ptrImgW0[0] += weight_pix.x + weight_pix.y;
-            ptrWeight0[0] += weight.x + weight.y;
+            const TmpWPType4 weight_pix = (TmpWPType4)weight * (TmpWPType4)(pix * (1.0f / ((1<<bit_depth) - 1)));
+            TmpWPType2 weight_pix_2 = { weight_pix.x + weight_pix.y + weight_pix.z + weight_pix.w, weight.x + weight.y + weight.z + weight.w };
+            ptrImgW0[0] += weight_pix_2;
         }
-        const int jx1 = ix + xoffset.x;
-        const int jy1 = iy + yoffset.x;
-        const int jx2 = ix + xoffset.y;
-        const int jy2 = iy + yoffset.y;
-        if (0 <= jx1 && jx1 < width && 0 <= jy1 && jy1 < height) {
-            __global TmpWPType *ptrImgW1   = (__global TmpWPType *)(pImgW1   + jy1 * tmpPitch + jx1 * sizeof(TmpWPType));
-            __global TmpWPType *ptrWeight1 = (__global TmpWPType *)(pWeight1 + jy1 * tmpPitch + jx1 * sizeof(TmpWPType));
-            const Type pix = *(const __global Type *)(pSrc + jy1 * srcPitch + jx1 * sizeof(Type));
-            ptrImgW1[0] += weight.x * (TmpWPType)(pix * (1.0f / ((1<<bit_depth) - 1)));
-            ptrWeight1[0] += weight.x;
-        }
-        if (0 <= jx2 && jx2 < width && 0 <= jy2 && jy2 < height) {
-            __global TmpWPType *ptrImgW2   = (__global TmpWPType *)(pImgW2   + jy2 * tmpPitch + jx2 * sizeof(TmpWPType));
-            __global TmpWPType *ptrWeight2 = (__global TmpWPType *)(pWeight2 + jy2 * tmpPitch + jx2 * sizeof(TmpWPType));
-            const Type pix = *(const __global Type *)(pSrc + jy2 * srcPitch + jx2 * sizeof(Type));
-            ptrImgW2[0] += weight.y * (TmpWPType)(pix * (1.0f / ((1<<bit_depth) - 1)));
-            ptrWeight2[0] += weight.y;
-        }
+        add_reverse_side_offset(pImgW1, tmpPitch, pSrc, srcPitch, width, height, ix + xoffset.x, iy + yoffset.x, weight.x);
+        add_reverse_side_offset(pImgW2, tmpPitch, pSrc, srcPitch, width, height, ix + xoffset.y, iy + yoffset.y, weight.y);
+        add_reverse_side_offset(pImgW3, tmpPitch, pSrc, srcPitch, width, height, ix + xoffset.z, iy + yoffset.z, weight.y);
+        add_reverse_side_offset(pImgW4, tmpPitch, pSrc, srcPitch, width, height, ix + xoffset.w, iy + yoffset.w, weight.y);
     }
 }
 
 __kernel void kernel_denoise_nlmeans_normalize(
     __global uchar *restrict pDst, const int dstPitch,
-    const __global uchar *restrict pImgW0, const __global uchar *restrict pImgW1, const __global uchar *restrict pImgW2,
-    const __global uchar *restrict pWeight0, const __global uchar *restrict pWeight1, const __global uchar *restrict pWeight2, const int tmpPitch,
+    const __global uchar *restrict pImgW0, const __global uchar *restrict pImgW1, const __global uchar *restrict pImgW2, const __global uchar *restrict pImgW3, const __global uchar *restrict pImgW4,
+    const int tmpPitch,
     const int width, const int height
 ) {
     const int ix = get_global_id(0);
     const int iy = get_global_id(1);
 
     if (ix < width && iy < height) {
-        const __global TmpWPType *ptrImgW0   = (const __global TmpWPType *)(pImgW0   + iy * tmpPitch + ix * sizeof(TmpWPType));
-        const __global TmpWPType *ptrWeight0 = (const __global TmpWPType *)(pWeight0 + iy * tmpPitch + ix * sizeof(TmpWPType));
-        const __global TmpWPType *ptrImgW1   = (const __global TmpWPType *)(pImgW1   + iy * tmpPitch + ix * sizeof(TmpWPType));
-        const __global TmpWPType *ptrWeight1 = (const __global TmpWPType *)(pWeight1 + iy * tmpPitch + ix * sizeof(TmpWPType));
-        const __global TmpWPType *ptrImgW2   = (const __global TmpWPType *)(pImgW2   + iy * tmpPitch + ix * sizeof(TmpWPType));
-        const __global TmpWPType *ptrWeight2 = (const __global TmpWPType *)(pWeight2 + iy * tmpPitch + ix * sizeof(TmpWPType));
-        const float imgW = ptrImgW0[0] + ptrImgW1[0] + ptrImgW2[0];
-        const float weight = ptrWeight0[0] + ptrWeight1[0] + ptrWeight2[0];
+        const TmpWPType2 imgW0 = *(const __global TmpWPType2 *)(pImgW0 + iy * tmpPitch + ix * sizeof(TmpWPType2));
+        const TmpWPType2 imgW1 = *(const __global TmpWPType2 *)(pImgW1 + iy * tmpPitch + ix * sizeof(TmpWPType2));
+        const TmpWPType2 imgW2 = *(const __global TmpWPType2 *)(pImgW2 + iy * tmpPitch + ix * sizeof(TmpWPType2));
+        const TmpWPType2 imgW3 = *(const __global TmpWPType2 *)(pImgW3 + iy * tmpPitch + ix * sizeof(TmpWPType2));
+        const TmpWPType2 imgW4 = *(const __global TmpWPType2 *)(pImgW4 + iy * tmpPitch + ix * sizeof(TmpWPType2));
+        const float imgW = imgW0.x + imgW1.x + imgW2.x + imgW3.x + imgW4.x;
+        const float weight = imgW0.y + imgW1.y + imgW2.y + imgW3.y + imgW4.y;
         __global Type *ptr = (__global Type *)(pDst + iy * dstPitch + ix * sizeof(Type));
         ptr[0] = (Type)clamp(imgW * native_recip(weight) * ((1<<bit_depth) - 1), 0.0f, (1<<bit_depth) - 0.1f);
     }
