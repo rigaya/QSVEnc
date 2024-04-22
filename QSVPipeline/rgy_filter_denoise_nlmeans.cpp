@@ -272,9 +272,9 @@ RGY_ERR RGYFilterDenoiseNLMeans::init(shared_ptr<RGYFilterParam> pParam, shared_
     for (size_t i = 0; i < m_tmpBuf.size(); i++) {
         int tmpBufWidth = 0;
         if (i == TMP_U || i == TMP_V) {
-            tmpBufWidth = prm->frameOut.width * ((use_vtype_fp16) ? 4 : 8);
+            tmpBufWidth = prm->frameOut.width * ((use_vtype_fp16) ? 16 /*half8*/ : 32/*float8*/);
         } else {
-            tmpBufWidth = prm->frameOut.width * 2;
+            tmpBufWidth = prm->frameOut.width * 8 /*float2*/;
         }
         const int tmpBufHeight = prm->frameOut.height;
         if (m_tmpBuf[i]
@@ -285,7 +285,17 @@ RGY_ERR RGYFilterDenoiseNLMeans::init(shared_ptr<RGYFilterParam> pParam, shared_
             RGYFrameInfo frameInfo = prm->frameOut;
             frameInfo.width = tmpBufWidth;
             frameInfo.height = tmpBufHeight;
-            frameInfo.csp = RGY_CSP_RGB_F32;
+            switch (RGY_CSP_CHROMA_FORMAT[prm->frameOut.csp]) {
+                case RGY_CHROMAFMT_YUV444:
+                    frameInfo.csp = RGY_CSP_YUV444;
+                    break;
+                case RGY_CHROMAFMT_YUV420:
+                    frameInfo.csp = RGY_CSP_YV12;
+                    break;
+                default:
+                    AddMessage(RGY_LOG_ERROR, _T("unsupported csp.\n"));
+                    return RGY_ERR_UNSUPPORTED;
+            }
             m_tmpBuf[i] = m_cl->createFrameBuffer(frameInfo);
         }
     }
