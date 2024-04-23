@@ -178,7 +178,7 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoiseFrame(RGYFrameInfo *pOutputFrame, const 
         auto planeTmpU = getPlane(&m_tmpBuf[TMP_U]->frame, (RGY_PLANE)i);
         auto planeTmpV = getPlane(&m_tmpBuf[TMP_V]->frame, (RGY_PLANE)i);
         std::array<RGYFrameInfo, RGY_NLMEANS_DXDY_STEP+1> pTmpIWPlane;
-        for (int j = 0; j < RGY_NLMEANS_DXDY_STEP; j++) {
+        for (size_t j = 0; j < pTmpIWPlane.size(); j++) {
             pTmpIWPlane[j] = getPlane(&m_tmpBuf[TMP_IW0 + j]->frame, (RGY_PLANE)i);
         }
         const std::vector<RGYOpenCLEvent> &plane_wait_event = (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>();
