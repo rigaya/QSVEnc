@@ -72,7 +72,7 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoisePlane(
         return err;
     }
     for (int i = 1; i < RGY_NLMEANS_DXDY_STEP+1; i++) {
-        auto err = m_cl->setPlane(0, &pTmpIWPlane[i], nullptr, queue, {}, nullptr);
+        err = m_cl->setPlane(0, &pTmpIWPlane[i], nullptr, queue, {}, nullptr);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at %s (denoisePlane(setPlane[IW0])): %s.\n"), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
             return err;
@@ -104,7 +104,7 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoisePlane(
             const char *kernel_name = "kernel_calc_diff_square";
             RGYWorkSize local(NLEANS_BLOCK_X, NLEANS_BLOCK_Y);
             RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
-            auto err = m_nlmeans.get()->kernel(kernel_name).config(queue, local, global, {}, nullptr).launch(
+            err = m_nlmeans.get()->kernel(kernel_name).config(queue, local, global, {}, nullptr).launch(
                 (cl_mem)pTmpUPlane->ptr[0], pTmpUPlane->pitch[0],
                 (cl_mem)pInputPlane->ptr[0], pInputPlane->pitch[0],
                 pOutputPlane->width, pOutputPlane->height,
@@ -119,7 +119,7 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoisePlane(
             const char *kernel_name = "kernel_denoise_nlmeans_calc_v";
             RGYWorkSize local(NLEANS_BLOCK_X, NLEANS_BLOCK_Y);
             RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
-            auto err = m_nlmeans.get()->kernel(kernel_name).config(queue, local, global, {}, nullptr).launch(
+            err = m_nlmeans.get()->kernel(kernel_name).config(queue, local, global, {}, nullptr).launch(
                 (cl_mem)pTmpVPlane->ptr[0], pTmpVPlane->pitch[0],
                 (cl_mem)pTmpUPlane->ptr[0], pTmpUPlane->pitch[0],
                 pOutputPlane->width, pOutputPlane->height);
@@ -133,7 +133,7 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoisePlane(
             const char *kernel_name = "kernel_denoise_nlmeans_calc_weight";
             RGYWorkSize local(NLEANS_BLOCK_X, NLEANS_BLOCK_Y);
             RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
-            auto err = m_nlmeans.get()->kernel(kernel_name).config(queue, local, global, {}, nullptr).launch(
+            err = m_nlmeans.get()->kernel(kernel_name).config(queue, local, global, {}, nullptr).launch(
                 (cl_mem)pTmpIWPlane[0].ptr[0],
                 (cl_mem)pTmpIWPlane[1].ptr[0], (cl_mem)pTmpIWPlane[2].ptr[0], (cl_mem)pTmpIWPlane[3].ptr[0], (cl_mem)pTmpIWPlane[4].ptr[0],
                 (cl_mem)pTmpIWPlane[5].ptr[0], (cl_mem)pTmpIWPlane[6].ptr[0], (cl_mem)pTmpIWPlane[7].ptr[0], (cl_mem)pTmpIWPlane[8].ptr[0],
@@ -155,7 +155,7 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoisePlane(
         const char *kernel_name = "kernel_denoise_nlmeans_normalize";
         RGYWorkSize local(NLEANS_BLOCK_X, NLEANS_BLOCK_Y);
         RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
-        auto err = m_nlmeans.get()->kernel(kernel_name).config(queue, local, global, {}, event).launch(
+        err = m_nlmeans.get()->kernel(kernel_name).config(queue, local, global, {}, event).launch(
             (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0],
             (cl_mem)pTmpIWPlane[0].ptr[0],
             (cl_mem)pTmpIWPlane[1].ptr[0], (cl_mem)pTmpIWPlane[2].ptr[0], (cl_mem)pTmpIWPlane[3].ptr[0], (cl_mem)pTmpIWPlane[4].ptr[0],
