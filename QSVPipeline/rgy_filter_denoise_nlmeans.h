@@ -61,9 +61,7 @@ protected:
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     virtual RGY_ERR denoiseFrame(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
 
-    bool m_bInterlacedWarn;
     RGYOpenCLProgramAsync m_nlmeans;
-    RGYCLFramePool m_srcImagePool;
     std::array<std::unique_ptr<RGYCLFrame>, 2 + 1 + RGY_NLMEANS_DXDY_STEP> m_tmpBuf;
 };
 

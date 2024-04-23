@@ -193,7 +193,7 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoiseFrame(RGYFrameInfo *pOutputFrame, const 
     return RGY_ERR_NONE;
 }
 
-RGYFilterDenoiseNLMeans::RGYFilterDenoiseNLMeans(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_nlmeans(), m_srcImagePool() {
+RGYFilterDenoiseNLMeans::RGYFilterDenoiseNLMeans(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_nlmeans(), m_tmpBuf() {
     m_name = _T("nlmeans");
 }
 
@@ -355,12 +355,10 @@ RGY_ERR RGYFilterDenoiseNLMeans::run_filter(const RGYFrameInfo *pInputFrame, RGY
 }
 
 void RGYFilterDenoiseNLMeans::close() {
-    m_srcImagePool.clear();
     m_frameBuf.clear();
     m_nlmeans.clear();
     for (auto& f : m_tmpBuf) {
         f.reset();
     }
     m_cl.reset();
-    m_bInterlacedWarn = false;
 }
