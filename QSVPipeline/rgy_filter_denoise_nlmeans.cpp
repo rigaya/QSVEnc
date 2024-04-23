@@ -68,13 +68,13 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoisePlane(
     // 一時バッファを初期化
     auto err = m_cl->setPlane(0, &pTmpIWPlane[0], nullptr, queue, wait_events, nullptr);
     if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("error at %s (denoisePlane(setPlane[IW0])): %s.\n"), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
+        AddMessage(RGY_LOG_ERROR, _T("error setPlane[IW0](%s): %s.\n"), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
         return err;
     }
     for (int i = 1; i < RGY_NLMEANS_DXDY_STEP+1; i++) {
         err = m_cl->setPlane(0, &pTmpIWPlane[i], nullptr, queue, {}, nullptr);
         if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("error at %s (denoisePlane(setPlane[IW0])): %s.\n"), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
+            AddMessage(RGY_LOG_ERROR, _T("error setPlane[IW%d](%s): %s.\n"), i, RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
             return err;
         }
     }
