@@ -257,15 +257,18 @@ RGY_ERR RGYFilterDenoiseNLMeans::init(shared_ptr<RGYFilterParam> pParam, shared_
     const int search_radius = prm->nlmeans.searchSize / 2;
     // メモリへの書き込みが衝突しないよう、ブロックごとに書き込み先のバッファを分けるが、それがブロックサイズを超えてはいけない
     // x方向は正負両方向にsearch_radius分はみ出し、y方向は負方向にのみsearch_radius分はみ出す
-    const bool use_shared_opt = search_radius * 2 <= NLEANS_BLOCK_X && search_radius <= NLEANS_BLOCK_Y;
+    const bool shared_mem_opt_possible = search_radius * 2 <= NLEANS_BLOCK_X && search_radius <= NLEANS_BLOCK_Y;
+    if (prm->nlmeans.sharedMem && !shared_mem_opt_possible) {
+        prm->nlmeans.sharedMem = false;
+    }
     auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamDenoiseNLMeans>(m_param);
     if (!m_nlmeans.get()
         || !prmPrev
         || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]
         || prmPrev->nlmeans.patchSize != prm->nlmeans.patchSize
         || prmPrev->nlmeans.searchSize != prm->nlmeans.searchSize
+        || prmPrev->nlmeans.sharedMem != prm->nlmeans.sharedMem
         || prmPrev->nlmeans.prec != prm->nlmeans.prec) {
-        const int search_radius = prm->nlmeans.searchSize / 2;
         const int template_radius = prm->nlmeans.patchSize / 2;
         const int shared_radius = std::max(search_radius, template_radius);
         const auto options = strsprintf("-D Type=%s -D bit_depth=%d"
@@ -276,7 +279,7 @@ RGY_ERR RGYFilterDenoiseNLMeans::init(shared_ptr<RGYFilterParam> pParam, shared_
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp],
             use_vtype_fp16 ? "half8" : "float8", use_vtype_fp16 ? 1 : 0,
             search_radius, template_radius, shared_radius,
-            use_shared_opt ? 1 : 0,
+            prm->nlmeans.sharedMem ? 1 : 0,
             NLEANS_BLOCK_X, NLEANS_BLOCK_Y);
         m_nlmeans.set(m_cl->buildResourceAsync(_T("RGY_FILTER_DENOISE_NLMEANS_CL"), _T("EXE_DATA"), options.c_str()));
     }
@@ -289,7 +292,7 @@ RGY_ERR RGYFilterDenoiseNLMeans::init(shared_ptr<RGYFilterParam> pParam, shared_
             tmpBufWidth = prm->frameOut.width * 8 /*float2*/;
         }
         // sharedメモリを使う場合、TMP_U, TMP_VとTMP_IW0～TMP_IW3のみ使用する(TMP_IW4以降は不要)
-        if (use_shared_opt && i >= 6) {
+        if (prm->nlmeans.sharedMem && i >= 6) {
             m_tmpBuf[i].reset();
             continue;
         }
