@@ -92,9 +92,11 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoisePlane(
     // nx-nyの組み合わせをRGY_NLMEANS_DXDY_STEP個ずつまとめて計算して高速化
     for (size_t inxny = 0; inxny < nxny.size(); inxny += RGY_NLMEANS_DXDY_STEP) {
         cl_int nx0arr[RGY_NLMEANS_DXDY_STEP], ny0arr[RGY_NLMEANS_DXDY_STEP];
+        int nymin = 0;
         for (int i = 0; i < RGY_NLMEANS_DXDY_STEP; i++) {
             nx0arr[i] = (inxny + i < nxny.size()) ? nxny[inxny + i].first : 0;
             ny0arr[i] = (inxny + i < nxny.size()) ? nxny[inxny + i].second : 0;
+            nymin = std::min(nymin, ny0arr[i]);
         }
         //kernel引数に渡すために、cl_int8に押し込む
         cl_int8 nx0, ny0;
@@ -142,7 +144,7 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoisePlane(
                 (cl_mem)pInputPlane->ptr[0], pInputPlane->pitch[0],
                 pOutputPlane->width, pOutputPlane->height,
                 prm->nlmeans.sigma, 1.0f / (prm->nlmeans.h * prm->nlmeans.h),
-                nx0, ny0);
+                nx0, ny0, nymin);
             if (err != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("error at %s (denoisePlane(%s)): %s.\n"),
                     char_to_tstring(kernel_name).c_str(), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
@@ -179,7 +181,11 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoiseFrame(RGYFrameInfo *pOutputFrame, const 
         auto planeTmpV = getPlane(&m_tmpBuf[TMP_V]->frame, (RGY_PLANE)i);
         std::array<RGYFrameInfo, RGY_NLMEANS_DXDY_STEP+1> pTmpIWPlane;
         for (size_t j = 0; j < pTmpIWPlane.size(); j++) {
-            pTmpIWPlane[j] = getPlane(&m_tmpBuf[TMP_IW0 + j]->frame, (RGY_PLANE)i);
+            if (m_tmpBuf[TMP_IW0 + j]) {
+                pTmpIWPlane[j] = getPlane(&m_tmpBuf[TMP_IW0 + j]->frame, (RGY_PLANE)i);
+            } else {
+                memset(&pTmpIWPlane[j], 0, sizeof(pTmpIWPlane[j]));
+            }
         }
         const std::vector<RGYOpenCLEvent> &plane_wait_event = (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>();
         RGYOpenCLEvent *plane_event = (i == RGY_CSP_PLANES[pOutputFrame->csp] - 1) ? event : nullptr;
@@ -247,6 +253,11 @@ RGY_ERR RGYFilterDenoiseNLMeans::init(shared_ptr<RGYFilterParam> pParam, shared_
         }
     }
     const bool use_vtype_fp16 = prm->nlmeans.prec != VPP_FP_PRECISION_FP32;
+
+    const int search_radius = prm->nlmeans.searchSize / 2;
+    // メモリへの書き込みが衝突しないよう、ブロックごとに書き込み先のバッファを分けるが、それがブロックサイズを超えてはいけない
+    // x方向は正負両方向にsearch_radius分はみ出し、y方向は負方向にのみsearch_radius分はみ出す
+    const bool use_shared_opt = search_radius * 2 <= NLEANS_BLOCK_X && search_radius <= NLEANS_BLOCK_Y;
     auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamDenoiseNLMeans>(m_param);
     if (!m_nlmeans.get()
         || !prmPrev
@@ -259,12 +270,13 @@ RGY_ERR RGYFilterDenoiseNLMeans::init(shared_ptr<RGYFilterParam> pParam, shared_
         const int shared_radius = std::max(search_radius, template_radius);
         const auto options = strsprintf("-D Type=%s -D bit_depth=%d"
             " -D TmpVType8=%s -D TmpVTypeFP16=%d -D TmpWPType=float -D TmpWPType2=float2 -D TmpWPType8=float8"
-            " -D search_radius=%d -D template_radius=%d -D shared_radius=%d"
+            " -D search_radius=%d -D template_radius=%d -D shared_radius=%d -D SHARED_OPT=%d"
             " -D NLEANS_BLOCK_X=%d -D NLEANS_BLOCK_Y=%d",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp],
             use_vtype_fp16 ? "half8" : "float8", use_vtype_fp16 ? 1 : 0,
             search_radius, template_radius, shared_radius,
+            use_shared_opt ? 1 : 0,
             NLEANS_BLOCK_X, NLEANS_BLOCK_Y);
         m_nlmeans.set(m_cl->buildResourceAsync(_T("RGY_FILTER_DENOISE_NLMEANS_CL"), _T("EXE_DATA"), options.c_str()));
     }
@@ -275,6 +287,11 @@ RGY_ERR RGYFilterDenoiseNLMeans::init(shared_ptr<RGYFilterParam> pParam, shared_
             tmpBufWidth = prm->frameOut.width * ((use_vtype_fp16) ? 16 /*half8*/ : 32/*float8*/);
         } else {
             tmpBufWidth = prm->frameOut.width * 8 /*float2*/;
+        }
+        // sharedメモリを使う場合、TMP_U, TMP_VとTMP_IW0～TMP_IW3のみ使用する(TMP_IW4以降は不要)
+        if (use_shared_opt && i >= 6) {
+            m_tmpBuf[i].reset();
+            continue;
         }
         const int tmpBufHeight = prm->frameOut.height;
         if (m_tmpBuf[i]
