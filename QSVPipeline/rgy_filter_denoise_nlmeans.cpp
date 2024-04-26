@@ -163,6 +163,7 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoisePlane(
             (cl_mem)pTmpIWPlane[1].ptr[0], (cl_mem)pTmpIWPlane[2].ptr[0], (cl_mem)pTmpIWPlane[3].ptr[0], (cl_mem)pTmpIWPlane[4].ptr[0],
             (cl_mem)pTmpIWPlane[5].ptr[0], (cl_mem)pTmpIWPlane[6].ptr[0], (cl_mem)pTmpIWPlane[7].ptr[0], (cl_mem)pTmpIWPlane[8].ptr[0],
             pTmpIWPlane[0].pitch[0],
+            (cl_mem)pInputPlane->ptr[0], pInputPlane->pitch[0],
             pOutputPlane->width, pOutputPlane->height);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at %s (denoisePlane(%s)): %s.\n"),
@@ -238,12 +239,12 @@ RGY_ERR RGYFilterDenoiseNLMeans::init(shared_ptr<RGYFilterParam> pParam, shared_
     //    AddMessage(RGY_LOG_ERROR, _T("radius must be <= %d.\n"), KNN_RADIUS_MAX);
     //    return RGY_ERR_INVALID_PARAM;
     //}
-    if (prm->nlmeans.sigma < 0.0 || 1.0 < prm->nlmeans.sigma) {
-        AddMessage(RGY_LOG_ERROR, _T("sigma should be 0.0 - 1.0.\n"));
+    if (prm->nlmeans.sigma <= 0.0) {
+        AddMessage(RGY_LOG_ERROR, _T("sigma should be positive value.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (prm->nlmeans.h < 0.0 || 1.0 < prm->nlmeans.h) {
-        AddMessage(RGY_LOG_ERROR, _T("h should be 0.0 - 1.0.\n"));
+    if (prm->nlmeans.h <= 0.0) {
+        AddMessage(RGY_LOG_ERROR, _T("h should be positive value.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
     if (prm->nlmeans.prec != VPP_FP_PRECISION_FP32) {

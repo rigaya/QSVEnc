@@ -89,7 +89,10 @@ TmpWPType8 tmpv8_2_tmpwp8(TmpVType8 v) {
 }
 
 
-void add_reverse_side_offset(__global uchar *restrict pImgW, const int tmpPitch, const int width, const int height, const int jx, const int jy, const TmpWPType pixNormalized, const TmpWPType weight) {
+void add_reverse_side_offset(__global uchar *restrict pImgW, const int tmpPitch, const int width, const int height, const int ix, const int iy, const int xoffset, const int yoffset, const TmpWPType pixNormalized, const TmpWPType weight) {
+    if ((xoffset | yoffset) == 0) return;
+    const int jx = ix + xoffset;
+    const int jy = iy + yoffset;
     if (0 <= jx && jx < width && 0 <= jy && jy < height) {
         __global TmpWPType2 *ptrImgW = (__global TmpWPType2 *)(pImgW + jy * tmpPitch + jx * sizeof(TmpWPType2));
         TmpWPType2 weight_pix_2 = { weight * pixNormalized, weight };
@@ -98,6 +101,7 @@ void add_reverse_side_offset(__global uchar *restrict pImgW, const int tmpPitch,
 }
 
 TmpWPType getSrcPixXYOffset(const __global uchar *restrict pSrc, const int srcPitch, const int width, const int height, const int ix, const int iy, const int xoffset, const int yoffset) {
+    if ((xoffset | yoffset) == 0) return (TmpWPType)0.0f;
     const Type pix = *(const __global Type *)(pSrc + clamp(iy+yoffset, 0, height-1) * srcPitch + clamp(ix+xoffset,0,width-1) * sizeof(Type));
     return pix * (1.0f / ((1<<bit_depth) - 1));
 }
@@ -115,8 +119,8 @@ TmpWPType8 getSrcPixXYOffset8(const __global uchar *restrict pSrc, const int src
     return pix8;
 }
 
-void add_tmpwp_local(__local TmpWPType2 tmpWP[search_radius + NLEANS_BLOCK_Y][search_radius * 2 + NLEANS_BLOCK_X], const TmpWPType pixNormalized, const TmpWPType weight, const int thx, const int thy) {
-    tmpWP[thy + search_radius][thx + search_radius] += (TmpWPType2){ weight * pixNormalized, weight };
+void add_tmpwp_local(__local TmpWPType2 tmpWP[search_radius + NLEANS_BLOCK_Y][search_radius * 2 + NLEANS_BLOCK_X], const TmpWPType pixNormalized, const TmpWPType weight, const int thx, const int thy, const int xoffset, const int yoffset) {
+    tmpWP[thy + yoffset + search_radius][thx + xoffset + search_radius] += (TmpWPType2){ weight * pixNormalized, weight };
 }
 
 __kernel void kernel_denoise_nlmeans_calc_weight(
@@ -194,14 +198,14 @@ __kernel void kernel_denoise_nlmeans_calc_weight(
 #if SHARED_OPT == 0
         const Type pix = *(const __global Type *)(pSrc + iy * srcPitch + ix * sizeof(Type));
         const TmpWPType pixNormalized = pix * (1.0f / ((1<<bit_depth) - 1));
-        add_reverse_side_offset(pImgW1, tmpPitch, width, height, ix + xoffset.s0, iy + yoffset.s0, pixNormalized, weight.s0);
-        add_reverse_side_offset(pImgW2, tmpPitch, width, height, ix + xoffset.s1, iy + yoffset.s1, pixNormalized, weight.s1);
-        add_reverse_side_offset(pImgW3, tmpPitch, width, height, ix + xoffset.s2, iy + yoffset.s2, pixNormalized, weight.s2);
-        add_reverse_side_offset(pImgW4, tmpPitch, width, height, ix + xoffset.s3, iy + yoffset.s3, pixNormalized, weight.s3);
-        add_reverse_side_offset(pImgW5, tmpPitch, width, height, ix + xoffset.s4, iy + yoffset.s4, pixNormalized, weight.s4);
-        add_reverse_side_offset(pImgW6, tmpPitch, width, height, ix + xoffset.s5, iy + yoffset.s5, pixNormalized, weight.s5);
-        add_reverse_side_offset(pImgW7, tmpPitch, width, height, ix + xoffset.s6, iy + yoffset.s6, pixNormalized, weight.s6);
-        add_reverse_side_offset(pImgW8, tmpPitch, width, height, ix + xoffset.s7, iy + yoffset.s7, pixNormalized, weight.s7);
+        add_reverse_side_offset(pImgW1, tmpPitch, width, height, ix, iy, xoffset.s0, yoffset.s0, pixNormalized, weight.s0);
+        add_reverse_side_offset(pImgW2, tmpPitch, width, height, ix, iy, xoffset.s1, yoffset.s1, pixNormalized, weight.s1);
+        add_reverse_side_offset(pImgW3, tmpPitch, width, height, ix, iy, xoffset.s2, yoffset.s2, pixNormalized, weight.s2);
+        add_reverse_side_offset(pImgW4, tmpPitch, width, height, ix, iy, xoffset.s3, yoffset.s3, pixNormalized, weight.s3);
+        add_reverse_side_offset(pImgW5, tmpPitch, width, height, ix, iy, xoffset.s4, yoffset.s4, pixNormalized, weight.s4);
+        add_reverse_side_offset(pImgW6, tmpPitch, width, height, ix, iy, xoffset.s5, yoffset.s5, pixNormalized, weight.s5);
+        add_reverse_side_offset(pImgW7, tmpPitch, width, height, ix, iy, xoffset.s6, yoffset.s6, pixNormalized, weight.s6);
+        add_reverse_side_offset(pImgW8, tmpPitch, width, height, ix, iy, xoffset.s7, yoffset.s7, pixNormalized, weight.s7);
 #endif
     }
 #if SHARED_OPT
@@ -213,21 +217,35 @@ __kernel void kernel_denoise_nlmeans_calc_weight(
         const Type pix = *(const __global Type *)(pSrc + iy * srcPitch + ix * sizeof(Type));
         pixNormalized = pix * (1.0f / ((1<<bit_depth) - 1));
     }
-    add_tmpwp_local(tmpWP, pixNormalized, weight.s0, thx + xoffset.s0, thy + yoffset.s0);
-    barrier(CLK_LOCAL_MEM_FENCE);
-    add_tmpwp_local(tmpWP, pixNormalized, weight.s1, thx + xoffset.s1, thy + yoffset.s1);
-    barrier(CLK_LOCAL_MEM_FENCE);
-    add_tmpwp_local(tmpWP, pixNormalized, weight.s2, thx + xoffset.s2, thy + yoffset.s2);
-    barrier(CLK_LOCAL_MEM_FENCE);
-    add_tmpwp_local(tmpWP, pixNormalized, weight.s3, thx + xoffset.s3, thy + yoffset.s3);
-    barrier(CLK_LOCAL_MEM_FENCE);
-    add_tmpwp_local(tmpWP, pixNormalized, weight.s4, thx + xoffset.s4, thy + yoffset.s4);
-    barrier(CLK_LOCAL_MEM_FENCE);
-    add_tmpwp_local(tmpWP, pixNormalized, weight.s5, thx + xoffset.s5, thy + yoffset.s5);
-    barrier(CLK_LOCAL_MEM_FENCE);
-    add_tmpwp_local(tmpWP, pixNormalized, weight.s6, thx + xoffset.s6, thy + yoffset.s6);
-    barrier(CLK_LOCAL_MEM_FENCE);
-    add_tmpwp_local(tmpWP, pixNormalized, weight.s7, thx + xoffset.s7, thy + yoffset.s7);
+    add_tmpwp_local(tmpWP, pixNormalized, weight.s0, thx, thy, xoffset.s0, yoffset.s0);
+    if ((xoffset.s1 | yoffset.s1) != 0) {
+        barrier(CLK_LOCAL_MEM_FENCE);
+        add_tmpwp_local(tmpWP, pixNormalized, weight.s1, thx, thy, xoffset.s1, yoffset.s1);
+    }
+    if ((xoffset.s2 | yoffset.s2) != 0) {
+        barrier(CLK_LOCAL_MEM_FENCE);
+        add_tmpwp_local(tmpWP, pixNormalized, weight.s2, thx, thy, xoffset.s2, yoffset.s2);
+    }
+    if ((xoffset.s3 | yoffset.s3) != 0) {
+        barrier(CLK_LOCAL_MEM_FENCE);
+        add_tmpwp_local(tmpWP, pixNormalized, weight.s3, thx, thy, xoffset.s3, yoffset.s3);
+    }
+    if ((xoffset.s4 | yoffset.s4) != 0) {
+        barrier(CLK_LOCAL_MEM_FENCE);
+        add_tmpwp_local(tmpWP, pixNormalized, weight.s4, thx, thy, xoffset.s4, yoffset.s4);
+    }
+    if ((xoffset.s5 | yoffset.s5) != 0) {
+        barrier(CLK_LOCAL_MEM_FENCE);
+        add_tmpwp_local(tmpWP, pixNormalized, weight.s5, thx, thy, xoffset.s5, yoffset.s5);
+    }
+    if ((xoffset.s6 | yoffset.s6) != 0) {
+        barrier(CLK_LOCAL_MEM_FENCE);
+        add_tmpwp_local(tmpWP, pixNormalized, weight.s6, thx, thy, xoffset.s6, yoffset.s6);
+    }
+    if ((xoffset.s7 | yoffset.s7) != 0) {
+        barrier(CLK_LOCAL_MEM_FENCE);
+        add_tmpwp_local(tmpWP, pixNormalized, weight.s7, thx, thy, xoffset.s7, yoffset.s7);
+    }
     barrier(CLK_LOCAL_MEM_FENCE);
     
     // tmpWPからpImgWにコピー
@@ -251,12 +269,14 @@ __kernel void kernel_denoise_nlmeans_normalize(
     const __global uchar *restrict pImgW1, const __global uchar *restrict pImgW2, const __global uchar *restrict pImgW3, const __global uchar *restrict pImgW4,
     const __global uchar *restrict pImgW5, const __global uchar *restrict pImgW6, const __global uchar *restrict pImgW7, const __global uchar *restrict pImgW8,
     const int tmpPitch,
+    const __global uchar *restrict pSrc, const int srcPitch,
     const int width, const int height
 ) {
     const int ix = get_global_id(0);
     const int iy = get_global_id(1);
 
     if (ix < width && iy < height) {
+        const Type      srcPix = *(const __global Type *      )(pSrc   + iy * srcPitch + ix * sizeof(Type)      );
         const TmpWPType2 imgW0 = *(const __global TmpWPType2 *)(pImgW0 + iy * tmpPitch + ix * sizeof(TmpWPType2));
         const TmpWPType2 imgW1 = *(const __global TmpWPType2 *)(pImgW1 + iy * tmpPitch + ix * sizeof(TmpWPType2));
         const TmpWPType2 imgW2 = *(const __global TmpWPType2 *)(pImgW2 + iy * tmpPitch + ix * sizeof(TmpWPType2));
@@ -278,8 +298,9 @@ __kernel void kernel_denoise_nlmeans_normalize(
             + imgW4.y + imgW5.y + imgW6.y + imgW7.y + imgW8.y
 #endif
         ;
+        const float srcPixF = (float)srcPix * (float)(1.0f / ((1<<bit_depth) - 1));
         __global Type *ptr = (__global Type *)(pDst + iy * dstPitch + ix * sizeof(Type));
-        ptr[0] = (Type)clamp(imgW * native_recip(weight) * ((1<<bit_depth) - 1), 0.0f, (1<<bit_depth) - 0.1f);
+        ptr[0] = (Type)clamp((imgW + srcPixF) * native_recip(weight + 1.0f) * ((1<<bit_depth) - 1), 0.0f, (1<<bit_depth) - 0.1f);
     }
 }
 
