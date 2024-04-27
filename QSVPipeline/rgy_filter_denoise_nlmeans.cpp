@@ -33,7 +33,7 @@
 #include "rgy_filter_denoise_nlmeans.h"
 
 static const int NLEANS_BLOCK_X = 32;
-static const int NLEANS_BLOCK_Y = 8;
+static const int NLEANS_BLOCK_Y = 16;
 
 
 enum RGYFilterDenoiseNLMeansTmpBufIdx {
