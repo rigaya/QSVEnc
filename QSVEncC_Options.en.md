@@ -2170,16 +2170,16 @@ Strong noise reduction filter.
 Non local means noise reduction filter.
 
 - **Parameters**
-  - sigma=&lt;float&gt;  (default=0.1, 0.0 - 1.0)   
+  - sigma=&lt;float&gt;  (default=0.005, 0.0 -)   
     Noise variance. Larger value will result stronger denosing.
   
-  - h=&lt;float&gt;  (default=0.3, 0.0 - 1.0)   
+  - h=&lt;float&gt;  (default=0.05, 0.0 -)   
     Parameter. Larger value will result the weight to be more flat.
   
-  - patch=&lt;int&gt;  (default=7, 3 - )  
+  - patch=&lt;int&gt;  (default=5, 3 - )  
     Set patch size. Must be odd number.
   
-  - search=&lt;int&gt;  (default=15, 3 - )  
+  - search=&lt;int&gt;  (default=11, 3 - )  
     Set search size. Must be odd number.
   
   - fp16=&lt;string&gt;  (default=blockdiff)  
