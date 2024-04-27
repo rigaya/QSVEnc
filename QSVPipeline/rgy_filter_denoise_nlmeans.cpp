@@ -249,12 +249,12 @@ RGY_ERR RGYFilterDenoiseNLMeans::init(shared_ptr<RGYFilterParam> pParam, shared_
     //    AddMessage(RGY_LOG_ERROR, _T("radius must be <= %d.\n"), KNN_RADIUS_MAX);
     //    return RGY_ERR_INVALID_PARAM;
     //}
-    if (prm->nlmeans.sigma <= 0.0) {
-        AddMessage(RGY_LOG_ERROR, _T("sigma should be positive value.\n"));
+    if (prm->nlmeans.sigma < 0.0) {
+        AddMessage(RGY_LOG_ERROR, _T("sigma should be 0 or larger.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
     if (prm->nlmeans.h <= 0.0) {
-        AddMessage(RGY_LOG_ERROR, _T("h should be positive value.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("h should be larger than 0.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
     if (prm->nlmeans.fp16 != VppNLMeansFP16Opt::None) {

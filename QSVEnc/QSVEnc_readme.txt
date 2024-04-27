@@ -313,8 +313,11 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
-2024.04.xx (7.63)
+2024.04.28 (7.63)
 - 新たなノイズ除去フィルタを追加。(--vpp-nlmeans)
+- --audio-resamplerを拡張し、文字列でパラメータ設定できるように。
+- --output-resにSAR比を無視して計算するオプションを追加。
+- subgroupでの同期を使用してvpp-smooth/vpp-denoise-dctをわずかに高速化。
 
 2024.03.17 (7.62)
 - HEVCではFFを使用できる場合にはFFを優先して使用するように。
