@@ -84,10 +84,12 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoisePlane(
         return err;
     }
     for (int i = 1; i < RGY_NLMEANS_DXDY_STEP+1; i++) {
-        err = m_cl->setPlane(0, &pTmpIWPlane[i], nullptr, queue, {}, nullptr);
-        if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("error setPlane[IW%d](%s): %s.\n"), i, RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
-            return err;
+        if (pTmpIWPlane[i].ptr[0]) {
+            err = m_cl->setPlane(0, &pTmpIWPlane[i], nullptr, queue, {}, nullptr);
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("error setPlane[IW%d](%s): %s.\n"), i, RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
+                return err;
+            }
         }
     }
 
