@@ -2182,11 +2182,15 @@ Non local means noise reduction filter.
   - search=&lt;int&gt;  (default=15, 3 - )  
     Set search size. Must be odd number.
   
-  - prec=&lt;string&gt;  (default=auto)  
-    Set weight calculation precision.
-    - auto
-    - fp32
+  - fp16=&lt;string&gt;  (default=blockdiff)  
+    - none
+      Do not use fp16 and use fp32. High precision but slow.
+
+    - blockdiff
+      Use fp16 in block diff calculation. Balanced between performace and precision.
+
     - fp16
+      Additionally use fp16 in weight calculation. Fast but low precision.
   
 - Examples
   ```

@@ -247,13 +247,14 @@ RGY_ERR RGYFilterDenoiseNLMeans::init(shared_ptr<RGYFilterParam> pParam, shared_
         AddMessage(RGY_LOG_ERROR, _T("h should be positive value.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (prm->nlmeans.prec != VPP_FP_PRECISION_FP32) {
+    if (prm->nlmeans.fp16 != VppNLMeansFP16Opt::None) {
         if (!RGYOpenCLDevice(m_cl->queue().devid()).checkExtension("cl_khr_fp16")) {
-            AddMessage((!m_param && prm->nlmeans.prec == VPP_FP_PRECISION_FP16) ? RGY_LOG_WARN : RGY_LOG_DEBUG, _T("fp16 not supported on this device, using fp32 mode.\n"));
-            prm->nlmeans.prec = VPP_FP_PRECISION_FP32;
+            AddMessage((!m_param) ? RGY_LOG_INFO : RGY_LOG_DEBUG, _T("fp16 not supported on this device, using fp32 mode.\n"));
+            prm->nlmeans.fp16 = VppNLMeansFP16Opt::None;
         }
     }
-    const bool use_vtype_fp16 = prm->nlmeans.prec != VPP_FP_PRECISION_FP32;
+    const bool use_vtype_fp16 = prm->nlmeans.fp16 != VppNLMeansFP16Opt::None;
+    const bool use_wptype_fp16 = prm->nlmeans.fp16 == VppNLMeansFP16Opt::All;
 
     const int search_radius = prm->nlmeans.searchSize / 2;
     // メモリへの書き込みが衝突しないよう、ブロックごとに書き込み先のバッファを分けるが、それがブロックサイズを超えてはいけない
@@ -269,16 +270,22 @@ RGY_ERR RGYFilterDenoiseNLMeans::init(shared_ptr<RGYFilterParam> pParam, shared_
         || prmPrev->nlmeans.patchSize != prm->nlmeans.patchSize
         || prmPrev->nlmeans.searchSize != prm->nlmeans.searchSize
         || prmPrev->nlmeans.sharedMem != prm->nlmeans.sharedMem
-        || prmPrev->nlmeans.prec != prm->nlmeans.prec) {
+        || prmPrev->nlmeans.fp16 != prm->nlmeans.fp16) {
         const int template_radius = prm->nlmeans.patchSize / 2;
         const int shared_radius = std::max(search_radius, template_radius);
         const auto options = strsprintf("-D Type=%s -D bit_depth=%d"
-            " -D TmpVType8=%s -D TmpVTypeFP16=%d -D TmpWPType=float -D TmpWPType2=float2 -D TmpWPType8=float8"
+            " -D TmpVType8=%s -D TmpVTypeFP16=%d"
+            " -D TmpWPType=%s -D TmpWPType2=%s -D TmpWPType8=%s -D TmpWPTypeFP16=%d"
             " -D search_radius=%d -D template_radius=%d -D shared_radius=%d -D SHARED_OPT=%d"
             " -D NLEANS_BLOCK_X=%d -D NLEANS_BLOCK_Y=%d",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp],
-            use_vtype_fp16 ? "half8" : "float8", use_vtype_fp16 ? 1 : 0,
+            use_vtype_fp16 ? "half8" : "float8",
+            use_vtype_fp16 ? 1 : 0,
+            use_wptype_fp16 ? "half"  : "float",
+            use_wptype_fp16 ? "half2" : "float2",
+            use_wptype_fp16 ? "half8" : "float8",
+            use_wptype_fp16 ? 1 : 0,
             search_radius, template_radius, shared_radius,
             prm->nlmeans.sharedMem ? 1 : 0,
             NLEANS_BLOCK_X, NLEANS_BLOCK_Y);
@@ -290,7 +297,7 @@ RGY_ERR RGYFilterDenoiseNLMeans::init(shared_ptr<RGYFilterParam> pParam, shared_
         if (i == TMP_U || i == TMP_V) {
             tmpBufWidth = prm->frameOut.width * ((use_vtype_fp16) ? 16 /*half8*/ : 32/*float8*/);
         } else {
-            tmpBufWidth = prm->frameOut.width * 8 /*float2*/;
+            tmpBufWidth = prm->frameOut.width * ((use_wptype_fp16) ? 4 /*half2*/ : 8 /*float2*/);
         }
         // sharedメモリを使う場合、TMP_U, TMP_VとTMP_IW0～TMP_IW3のみ使用する(TMP_IW4以降は不要)
         if (prm->nlmeans.sharedMem && i >= 6) {

@@ -2,6 +2,7 @@
 // Type
 // TmpVTypeFP16
 // TmpVType8
+// TmpWPTypeFP16
 // TmpWPType
 // TmpWPType2
 // TmpWPType8
@@ -81,7 +82,7 @@ __kernel void kernel_denoise_nlmeans_calc_v(
 }
 
 TmpWPType8 tmpv8_2_tmpwp8(TmpVType8 v) {
-#if TmpVTypeFP16
+#if TmpVTypeFP16 && (TmpWPTypeFP16==0)
     return convert_float8(v);
 #else
     return v;
