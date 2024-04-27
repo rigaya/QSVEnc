@@ -31,7 +31,7 @@
 
 #include "rgy_filter_cl.h"
 #include "rgy_prm.h"
-#include <array>
+#include <unordered_map>
 
 // dxdyのペアを何並列で同時計算するか
 static const int RGY_NLMEANS_DXDY_STEP = 8;
@@ -61,7 +61,7 @@ protected:
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     virtual RGY_ERR denoiseFrame(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
 
-    RGYOpenCLProgramAsync m_nlmeans;
+    std::unordered_map<int, std::unique_ptr<RGYOpenCLProgramAsync>> m_nlmeans;
     std::array<std::unique_ptr<RGYCLFrame>, 2 + 1 + RGY_NLMEANS_DXDY_STEP> m_tmpBuf;
 };
 

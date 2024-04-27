@@ -52,6 +52,18 @@ enum RGYFilterDenoiseNLMeansTmpBufIdx {
     TMP_TOTAL,
 };
 
+std::vector<std::pair<int, int>> nxnylist(const int search_radius) {
+    std::vector<std::pair<int, int>> nxny;
+    for (int ny = -search_radius; ny <= 0; ny++) {
+        for (int nx = -search_radius; nx <= search_radius; nx++) {
+            if (ny * (2 * search_radius - 1) + nx < 0) { // nx-nyの対称性を使って半分のみ計算 (0,0)
+                nxny.push_back(std::make_pair(nx, ny));
+            }
+        }
+    }
+    return nxny;
+}
+
 // https://lcondat.github.io/publis/condat_resreport_NLmeansv3.pdf
 RGY_ERR RGYFilterDenoiseNLMeans::denoisePlane(
     RGYFrameInfo *pOutputPlane,
@@ -81,16 +93,14 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoisePlane(
 
     // 計算すべきnx-nyの組み合わせを列挙
     const int search_radius = prm->nlmeans.searchSize / 2;
-    std::vector<std::pair<int, int>> nxny;
-    for (int ny = -search_radius; ny <= 0; ny++) {
-        for (int nx = -search_radius; nx <= search_radius; nx++) {
-            if (ny * (2 * search_radius - 1) + nx < 0) { // nx-nyの対称性を使って半分のみ計算 (0,0)
-                nxny.push_back(std::make_pair(nx, ny));
-            }
-        }
-    }
+    const std::vector<std::pair<int, int>> nxny = nxnylist(search_radius);
     // nx-nyの組み合わせをRGY_NLMEANS_DXDY_STEP個ずつまとめて計算して高速化
     for (size_t inxny = 0; inxny < nxny.size(); inxny += RGY_NLMEANS_DXDY_STEP) {
+        const int offset_count = std::min((int)(nxny.size() - inxny), RGY_NLMEANS_DXDY_STEP);
+        if (m_nlmeans.find(offset_count) == m_nlmeans.end()) {
+            AddMessage(RGY_LOG_ERROR, _T("program for offset_count=%d not found (denoisePlane(%s)).\n"), offset_count, RGY_CSP_NAMES[pInputPlane->csp]);
+            return RGY_ERR_UNKNOWN;
+        }
         cl_int nx0arr[RGY_NLMEANS_DXDY_STEP], ny0arr[RGY_NLMEANS_DXDY_STEP];
         int nymin = 0;
         for (int i = 0; i < RGY_NLMEANS_DXDY_STEP; i++) {
@@ -106,7 +116,7 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoisePlane(
             const char *kernel_name = "kernel_calc_diff_square";
             RGYWorkSize local(NLEANS_BLOCK_X, NLEANS_BLOCK_Y);
             RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
-            err = m_nlmeans.get()->kernel(kernel_name).config(queue, local, global, {}, nullptr).launch(
+            err = m_nlmeans[offset_count]->get()->kernel(kernel_name).config(queue, local, global, {}, nullptr).launch(
                 (cl_mem)pTmpUPlane->ptr[0], pTmpUPlane->pitch[0],
                 (cl_mem)pInputPlane->ptr[0], pInputPlane->pitch[0],
                 pOutputPlane->width, pOutputPlane->height,
@@ -121,7 +131,7 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoisePlane(
             const char *kernel_name = "kernel_denoise_nlmeans_calc_v";
             RGYWorkSize local(NLEANS_BLOCK_X, NLEANS_BLOCK_Y);
             RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
-            err = m_nlmeans.get()->kernel(kernel_name).config(queue, local, global, {}, nullptr).launch(
+            err = m_nlmeans[offset_count]->get()->kernel(kernel_name).config(queue, local, global, {}, nullptr).launch(
                 (cl_mem)pTmpVPlane->ptr[0], pTmpVPlane->pitch[0],
                 (cl_mem)pTmpUPlane->ptr[0], pTmpUPlane->pitch[0],
                 pOutputPlane->width, pOutputPlane->height);
@@ -135,7 +145,7 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoisePlane(
             const char *kernel_name = "kernel_denoise_nlmeans_calc_weight";
             RGYWorkSize local(NLEANS_BLOCK_X, NLEANS_BLOCK_Y);
             RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
-            err = m_nlmeans.get()->kernel(kernel_name).config(queue, local, global, {}, nullptr).launch(
+            err = m_nlmeans[offset_count]->get()->kernel(kernel_name).config(queue, local, global, {}, nullptr).launch(
                 (cl_mem)pTmpIWPlane[0].ptr[0],
                 (cl_mem)pTmpIWPlane[1].ptr[0], (cl_mem)pTmpIWPlane[2].ptr[0], (cl_mem)pTmpIWPlane[3].ptr[0], (cl_mem)pTmpIWPlane[4].ptr[0],
                 (cl_mem)pTmpIWPlane[5].ptr[0], (cl_mem)pTmpIWPlane[6].ptr[0], (cl_mem)pTmpIWPlane[7].ptr[0], (cl_mem)pTmpIWPlane[8].ptr[0],
@@ -157,7 +167,7 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoisePlane(
         const char *kernel_name = "kernel_denoise_nlmeans_normalize";
         RGYWorkSize local(NLEANS_BLOCK_X, NLEANS_BLOCK_Y);
         RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
-        err = m_nlmeans.get()->kernel(kernel_name).config(queue, local, global, {}, event).launch(
+        err = m_nlmeans.begin()->second->get()->kernel(kernel_name).config(queue, local, global, {}, event).launch(
             (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0],
             (cl_mem)pTmpIWPlane[0].ptr[0],
             (cl_mem)pTmpIWPlane[1].ptr[0], (cl_mem)pTmpIWPlane[2].ptr[0], (cl_mem)pTmpIWPlane[3].ptr[0], (cl_mem)pTmpIWPlane[4].ptr[0],
@@ -264,32 +274,39 @@ RGY_ERR RGYFilterDenoiseNLMeans::init(shared_ptr<RGYFilterParam> pParam, shared_
         prm->nlmeans.sharedMem = false;
     }
     auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamDenoiseNLMeans>(m_param);
-    if (!m_nlmeans.get()
+    if (m_nlmeans.size() == 0
         || !prmPrev
         || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]
         || prmPrev->nlmeans.patchSize != prm->nlmeans.patchSize
         || prmPrev->nlmeans.searchSize != prm->nlmeans.searchSize
         || prmPrev->nlmeans.sharedMem != prm->nlmeans.sharedMem
         || prmPrev->nlmeans.fp16 != prm->nlmeans.fp16) {
-        const int template_radius = prm->nlmeans.patchSize / 2;
-        const int shared_radius = std::max(search_radius, template_radius);
-        const auto options = strsprintf("-D Type=%s -D bit_depth=%d"
-            " -D TmpVType8=%s -D TmpVTypeFP16=%d"
-            " -D TmpWPType=%s -D TmpWPType2=%s -D TmpWPType8=%s -D TmpWPTypeFP16=%d"
-            " -D search_radius=%d -D template_radius=%d -D shared_radius=%d -D SHARED_OPT=%d"
-            " -D NLEANS_BLOCK_X=%d -D NLEANS_BLOCK_Y=%d",
-            RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
-            RGY_CSP_BIT_DEPTH[prm->frameOut.csp],
-            use_vtype_fp16 ? "half8" : "float8",
-            use_vtype_fp16 ? 1 : 0,
-            use_wptype_fp16 ? "half"  : "float",
-            use_wptype_fp16 ? "half2" : "float2",
-            use_wptype_fp16 ? "half8" : "float8",
-            use_wptype_fp16 ? 1 : 0,
-            search_radius, template_radius, shared_radius,
-            prm->nlmeans.sharedMem ? 1 : 0,
-            NLEANS_BLOCK_X, NLEANS_BLOCK_Y);
-        m_nlmeans.set(m_cl->buildResourceAsync(_T("RGY_FILTER_DENOISE_NLMEANS_CL"), _T("EXE_DATA"), options.c_str()));
+        std::vector<std::pair<int, int>> nxny = nxnylist(search_radius);
+        auto add_program = [&](const int offset_count) {
+            const int template_radius = prm->nlmeans.patchSize / 2;
+            const int shared_radius = std::max(search_radius, template_radius);
+            const auto options = strsprintf("-D Type=%s -D bit_depth=%d"
+                " -D TmpVType8=%s -D TmpVTypeFP16=%d"
+                " -D TmpWPType=%s -D TmpWPType2=%s -D TmpWPType8=%s -D TmpWPTypeFP16=%d"
+                " -D search_radius=%d -D template_radius=%d -D shared_radius=%d -D SHARED_OPT=%d"
+                " -D NLEANS_BLOCK_X=%d -D NLEANS_BLOCK_Y=%d -D offset_count=%d",
+                RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
+                RGY_CSP_BIT_DEPTH[prm->frameOut.csp],
+                use_vtype_fp16 ? "half8" : "float8",
+                use_vtype_fp16 ? 1 : 0,
+                use_wptype_fp16 ? "half" : "float",
+                use_wptype_fp16 ? "half2" : "float2",
+                use_wptype_fp16 ? "half8" : "float8",
+                use_wptype_fp16 ? 1 : 0,
+                search_radius, template_radius, shared_radius,
+                prm->nlmeans.sharedMem ? 1 : 0,
+                NLEANS_BLOCK_X, NLEANS_BLOCK_Y, offset_count);
+            m_nlmeans[offset_count] = std::make_unique<RGYOpenCLProgramAsync>();
+            m_nlmeans[offset_count]->set(m_cl->buildResourceAsync(_T("RGY_FILTER_DENOISE_NLMEANS_CL"), _T("EXE_DATA"), options.c_str()));
+        };
+        m_nlmeans.clear();
+        if (nxny.size() >= RGY_NLMEANS_DXDY_STEP) add_program(RGY_NLMEANS_DXDY_STEP);
+        if (nxny.size() % RGY_NLMEANS_DXDY_STEP) add_program(nxny.size() % RGY_NLMEANS_DXDY_STEP);
     }
 
     for (size_t i = 0; i < m_tmpBuf.size(); i++) {
@@ -358,9 +375,11 @@ RGY_ERR RGYFilterDenoiseNLMeans::run_filter(const RGYFrameInfo *pInputFrame, RGY
     //if (interlaced(*pInputFrame)) {
     //    return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
     //}
-    if (!m_nlmeans.get()) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_DENOISE_NLMEANS_CL(m_nlmeans)\n"));
-        return RGY_ERR_OPENCL_CRUSH;
+    for (auto& program : m_nlmeans) {
+        if (!program.second.get()) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_DENOISE_NLMEANS_CL(m_nlmeans)\n"));
+            return RGY_ERR_OPENCL_CRUSH;
+        }
     }
     const auto memcpyKind = getMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
     if (memcpyKind != RGYCLMemcpyD2D) {
