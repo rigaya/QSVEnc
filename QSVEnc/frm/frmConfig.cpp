@@ -2099,8 +2099,8 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     prm_qsv.vpp.knn.lerp_threshold = (float)fcgNUVppDenoiseKnnThreshold->Value;
 
     prm_qsv.vpp.nlmeans.enable = fcgCXVppDenoiseMethod->SelectedIndex == get_cx_index(list_vpp_denoise, _T("nlmeans"));
-    prm_qsv.vpp.nlmeans.patchSize = list_vpp_denoise_dct_step[fcgCXVppDenoiseNLMeansPatch->SelectedIndex].value;
-    prm_qsv.vpp.nlmeans.searchSize = list_vpp_denoise_dct_step[fcgCXVppDenoiseNLMeansSearch->SelectedIndex].value;
+    prm_qsv.vpp.nlmeans.patchSize = list_vpp_nlmeans_block_size[fcgCXVppDenoiseNLMeansPatch->SelectedIndex].value;
+    prm_qsv.vpp.nlmeans.searchSize = list_vpp_nlmeans_block_size[fcgCXVppDenoiseNLMeansSearch->SelectedIndex].value;
     prm_qsv.vpp.nlmeans.sigma = (float)fcgNUVppDenoiseNLMeansSigma->Value;
     prm_qsv.vpp.nlmeans.h = (float)fcgNUVppDenoiseNLMeansH->Value;
 
