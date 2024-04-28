@@ -44,7 +44,7 @@ __kernel void kernel_calc_diff_square(
         const __global uchar *ptr0 = pSrc + iy * srcPitch + ix * sizeof(Type);
         const Type val0 = *(const __global Type *)ptr0;
 
-        TmpVType8 val1;
+        int8 val1;
         val1.s0 =                       get_xyoffset_pix(pSrc, srcPitch, ix, iy, xoffset.s0, yoffset.s0, width, height);
         val1.s1 = (offset_count >= 2) ? get_xyoffset_pix(pSrc, srcPitch, ix, iy, xoffset.s1, yoffset.s1, width, height) : 0.0f;
         val1.s2 = (offset_count >= 3) ? get_xyoffset_pix(pSrc, srcPitch, ix, iy, xoffset.s2, yoffset.s2, width, height) : 0.0f;
@@ -55,8 +55,9 @@ __kernel void kernel_calc_diff_square(
         val1.s7 = (offset_count >= 8) ? get_xyoffset_pix(pSrc, srcPitch, ix, iy, xoffset.s7, yoffset.s7, width, height) : 0.0f;
 
         __global TmpVType8 *ptrDst = (__global TmpVType8 *)(pDst + iy * dstPitch + ix * sizeof(TmpVType8));
-        const TmpVType8 fdiff = (((TmpVType8)val0) - val1) * (TmpVType8)(1.0f / ((1<<bit_depth) - 1));
-        ptrDst[0] = fdiff * fdiff;
+        const float8 fdiff = (((int8)val0) - val1) * (float8)(1.0f / ((1<<bit_depth) - 1));
+        const TmpVType8 fdiff2vt8 = (TmpVType8)(fdiff * fdiff);
+        ptrDst[0] = fdiff2vt8;
     }
 }
 
