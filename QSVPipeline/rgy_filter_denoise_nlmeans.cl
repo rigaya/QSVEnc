@@ -19,6 +19,12 @@
 // NLEANS_BLOCK_X
 // NLEANS_BLOCK_Y
 
+#if TmpVTypeFP16
+#define convert_TmpVType8 convert_half8
+#else
+#define convert_TmpVType8 convert_float8
+#endif
+
 #ifndef clamp
 #define clamp(x, low, high) (((x) <= (high)) ? (((x) >= (low)) ? (x) : (low)) : (high))
 #endif
@@ -55,8 +61,8 @@ __kernel void kernel_calc_diff_square(
         val1.s7 = (offset_count >= 8) ? get_xyoffset_pix(pSrc, srcPitch, ix, iy, xoffset.s7, yoffset.s7, width, height) : 0.0f;
 
         __global TmpVType8 *ptrDst = (__global TmpVType8 *)(pDst + iy * dstPitch + ix * sizeof(TmpVType8));
-        const float8 fdiff = (((int8)val0) - val1) * (float8)(1.0f / ((1<<bit_depth) - 1));
-        const TmpVType8 fdiff2vt8 = (TmpVType8)(fdiff * fdiff);
+        const float8 fdiff = convert_float8(((int8)val0) - val1) * (float8)(1.0f / ((1<<bit_depth) - 1));
+        const TmpVType8 fdiff2vt8 = convert_TmpVType8(fdiff * fdiff);
         ptrDst[0] = fdiff2vt8;
     }
 }
