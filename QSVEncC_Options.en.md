@@ -261,6 +261,7 @@
   - [--avoid-idle-clock \<string\>\[=\<float\>\]](#--avoid-idle-clock-stringfloat)
   - [--lowlatency](#--lowlatency)
   - [--avsdll \<string\>](#--avsdll-string)
+  - [--vpydir \<string\>](#--vpydir-string)
   - [--process-codepage \<string\> \[Windows OS only\]](#--process-codepage-string-windows-os-only)
   - [--task-perf-monitor](#--task-perf-monitor)
   - [--perf-monitor \[\<string\>\[,\<string\>\]...\]](#--perf-monitor-stringstring)
@@ -2831,6 +2832,9 @@ Tune for lower transcoding latency, but will hurt transcoding throughput. Not re
 
 ### --avsdll &lt;string&gt;
 Specifies AviSynth DLL location to use. When unspecified, the default AviSynth.dll will be used.
+
+### --vpydir &lt;string&gt;
+Specifies vapoursynth portable directory to use. Supported on Windows only.
 
 ### --process-codepage &lt;string&gt; [Windows OS only]  
 - **parameters**  
