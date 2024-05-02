@@ -197,7 +197,7 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoiseFrame(RGYFrameInfo *pOutputFrame, const 
             if (m_tmpBuf[TMP_IW0 + j]) {
                 pTmpIWPlane[j] = getPlane(&m_tmpBuf[TMP_IW0 + j]->frame, (RGY_PLANE)i);
             } else {
-                memset(&pTmpIWPlane[j], 0, sizeof(pTmpIWPlane[j]));
+                pTmpIWPlane[j] = RGYFrameInfo();
             }
         }
         const std::vector<RGYOpenCLEvent> &plane_wait_event = (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>();
