@@ -171,7 +171,7 @@
       <TargetMachine>MachineX86</TargetMachine>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-60.dll;avformat-60.dll;avutil-58.dll;avfilter-9.dll;swresample-4.dll;avdevice-60.dll;libass-9.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-61.dll;avformat-61.dll;avutil-59.dll;avfilter-10.dll;swresample-5.dll;avdevice-61.dll;libass-10.dll</DelayLoadDLLs>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateMapFile>true</GenerateMapFile>
     </Link>
@@ -229,7 +229,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
       <TargetMachine>MachineX86</TargetMachine>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-60.dll;avformat-60.dll;avutil-58.dll;avfilter-9.dll;swresample-4.dll;avdevice-60.dll;libass-9.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-61.dll;avformat-61.dll;avutil-59.dll;avfilter-10.dll;swresample-5.dll;avdevice-61.dll;libass-10.dll</DelayLoadDLLs>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateMapFile>true</GenerateMapFile>
     </Link>
@@ -289,7 +289,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
       <TargetMachine>MachineX64</TargetMachine>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-60.dll;avformat-60.dll;avutil-58.dll;avfilter-9.dll;swresample-4.dll;avdevice-60.dll;libass-9.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-61.dll;avformat-61.dll;avutil-59.dll;avfilter-10.dll;swresample-5.dll;avdevice-61.dll;libass-10.dll</DelayLoadDLLs>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateMapFile>true</GenerateMapFile>
     </Link>
@@ -349,7 +349,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
       <TargetMachine>MachineX64</TargetMachine>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-60.dll;avformat-60.dll;avutil-58.dll;avfilter-9.dll;swresample-4.dll;avdevice-60.dll;libass-9.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-61.dll;avformat-61.dll;avutil-59.dll;avfilter-10.dll;swresample-5.dll;avdevice-61.dll;libass-10.dll</DelayLoadDLLs>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateMapFile>true</GenerateMapFile>
     </Link>
@@ -416,7 +416,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
       <TargetMachine>MachineX86</TargetMachine>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-60.dll;avformat-60.dll;avutil-58.dll;avfilter-9.dll;swresample-4.dll;avdevice-60.dll;libass-9.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-61.dll;avformat-61.dll;avutil-59.dll;avfilter-10.dll;swresample-5.dll;avdevice-61.dll;libass-10.dll</DelayLoadDLLs>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateMapFile>true</GenerateMapFile>
     </Link>
@@ -484,7 +484,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
       <TargetMachine>MachineX86</TargetMachine>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-60.dll;avformat-60.dll;avutil-58.dll;avfilter-9.dll;swresample-4.dll;avdevice-60.dll;libass-9.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-61.dll;avformat-61.dll;avutil-59.dll;avfilter-10.dll;swresample-5.dll;avdevice-61.dll;libass-10.dll</DelayLoadDLLs>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateMapFile>true</GenerateMapFile>
     </Link>
@@ -554,7 +554,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
       <TargetMachine>MachineX64</TargetMachine>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-60.dll;avformat-60.dll;avutil-58.dll;avfilter-9.dll;swresample-4.dll;avdevice-60.dll;libass-9.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-61.dll;avformat-61.dll;avutil-59.dll;avfilter-10.dll;swresample-5.dll;avdevice-61.dll;libass-10.dll</DelayLoadDLLs>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateMapFile>true</GenerateMapFile>
     </Link>
@@ -624,7 +624,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
       <TargetMachine>MachineX64</TargetMachine>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-60.dll;avformat-60.dll;avutil-58.dll;avfilter-9.dll;swresample-4.dll;avdevice-60.dll;libass-9.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-61.dll;avformat-61.dll;avutil-59.dll;avfilter-10.dll;swresample-5.dll;avdevice-61.dll;libass-10.dll</DelayLoadDLLs>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateMapFile>true</GenerateMapFile>
     </Link>
