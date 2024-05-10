@@ -1551,10 +1551,10 @@ RGY_ERR RGYOutputAvcodec::InitAudio(AVMuxAudio *muxAudio, AVOutputStreamPrm *inp
                 muxAudio->outCodecEncodeCtx->flags |= AV_CODEC_FLAG_QSCALE;
                 muxAudio->outCodecEncodeCtx->global_quality = inputAudio->quality.second * FF_QP2LAMBDA;
                 if (inputAudio->bitrate) {
-                    muxAudio->outCodecEncodeCtx->bit_rate = inputAudio->bitrate;
+                    muxAudio->outCodecEncodeCtx->bit_rate = ((inputAudio->bitrate >= 0) ? inputAudio->bitrate : AVQSV_DEFAULT_AUDIO_BITRATE) * 1000;
                 }
-            } else {
-                muxAudio->outCodecEncodeCtx->bit_rate = ((inputAudio->bitrate) ? inputAudio->bitrate : AVQSV_DEFAULT_AUDIO_BITRATE) * 1000;
+            } else if (inputAudio->bitrate) {
+                muxAudio->outCodecEncodeCtx->bit_rate = ((inputAudio->bitrate >= 0) ? inputAudio->bitrate : AVQSV_DEFAULT_AUDIO_BITRATE) * 1000;
             }
         }
         if (m_Mux.format.outputFmt->flags & AVFMT_GLOBALHEADER) {
