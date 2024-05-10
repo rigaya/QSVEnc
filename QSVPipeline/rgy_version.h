@@ -115,7 +115,7 @@ const char *get_encoder_version();
 #define ENABLE_SM_READER          0
 #define ENABLE_CUSTOM_VPP         1
 #define ENABLE_LIBAVDEVICE        0
-#define ENABLE_LIBASS_SUBBURN     0
+#define ENABLE_LIBASS_SUBBURN     1
 #define ENABLE_METRIC_FRAMEWORK   0
 #define ENABLE_CAPTION2ASS        0
 #define ENABLE_AUTO_PICSTRUCT     0
@@ -131,7 +131,7 @@ const char *get_encoder_version();
 #define ENABLE_VAPOURSYNTH_READER 1
 #define ENABLE_AVSW_READER        1
 #define ENABLE_SM_READER          1
-#define ENABLE_LIBASS_SUBBURN     0
+#define ENABLE_LIBASS_SUBBURN     1
 #define ENABLE_CUSTOM_VPP         1
 #define ENABLE_LIBAVDEVICE        1
 #ifndef ENABLE_METRIC_FRAMEWORK

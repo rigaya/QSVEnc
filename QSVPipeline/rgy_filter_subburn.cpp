@@ -35,7 +35,7 @@
 #include "rgy_filesystem.h"
 #include "rgy_codepage.h"
 
-#if ENABLE_AVSW_READER
+#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
 
 #pragma comment(lib, "libass-9.lib")
 
@@ -790,10 +790,6 @@ RGY_ERR RGYFilterSubburn::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
     setFilterInfo(prm->print());
     m_param = prm;
     return sts;
-}
-
-tstring RGYFilterParamSubburn::print() const {
-    return subburn.print();
 }
 
 int RGYFilterSubburn::targetTrackIdx() {

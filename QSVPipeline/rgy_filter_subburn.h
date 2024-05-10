@@ -34,6 +34,28 @@
 
 #if ENABLE_AVSW_READER
 
+class RGYFilterParamSubburn : public RGYFilterParam {
+public:
+    VppSubburn      subburn;
+    AVRational      videoOutTimebase;
+    const AVStream *videoInputStream;
+    int64_t         videoInputFirstKeyPts;
+    VideoInfo       videoInfo;
+    AVDemuxStream   streamIn;
+    sInputCrop      crop;
+    RGYPoolAVPacket *poolPkt;
+    std::vector<const AVStream *> attachmentStreams;
+
+    RGYFilterParamSubburn() : subburn(), videoOutTimebase(), videoInputStream(nullptr), videoInputFirstKeyPts(0), videoInfo(), streamIn(), crop(), poolPkt(nullptr), attachmentStreams() {};
+    virtual ~RGYFilterParamSubburn() {};
+    virtual tstring print() const override {
+        return subburn.print();
+    }
+};
+
+
+#if ENABLE_LIBASS_SUBBURN
+
 #include "ass/ass.h"
 
 struct subtitle_deleter {
@@ -50,23 +72,6 @@ struct SubImageData {
 
     SubImageData(unique_ptr<RGYCLFrame> img, unique_ptr<RGYCLFrame> imgTemp, int posX, int posY) :
         image(std::move(img)), imageTemp(std::move(imgTemp)), x(posX), y(posY) { }
-};
-
-class RGYFilterParamSubburn : public RGYFilterParam {
-public:
-    VppSubburn      subburn;
-    AVRational      videoOutTimebase;
-    const AVStream *videoInputStream;
-    int64_t         videoInputFirstKeyPts;
-    VideoInfo       videoInfo;
-    AVDemuxStream   streamIn;
-    sInputCrop      crop;
-    RGYPoolAVPacket *poolPkt;
-    std::vector<const AVStream *> attachmentStreams;
-
-    RGYFilterParamSubburn() : subburn(), videoOutTimebase(), videoInputStream(nullptr), videoInputFirstKeyPts(0), videoInfo(), streamIn(), crop(), poolPkt(nullptr), attachmentStreams() {};
-    virtual ~RGYFilterParamSubburn() {};
-    virtual tstring print() const override;
 };
 
 class RGYFilterSubburn : public RGYFilter {
@@ -115,5 +120,25 @@ protected:
 
     RGYOpenCLProgramAsync m_subburn;
 };
+
+#else //ENABLE_LIBASS_SUBBURN
+
+class RGYFilterSubburn : public RGYFilter {
+public:
+    RGYFilterSubburn(shared_ptr<RGYOpenCLContext> context) {};
+    virtual ~RGYFilterSubburn() {};
+    virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override {
+        AddMessage(RGY_LOG_ERROR, _T("subburn not supported in this build.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+protected:
+    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override {
+        AddMessage(RGY_LOG_ERROR, _T("subburn not supported in this build.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    virtual void close() override {};
+};
+
+#endif //#if ENABLE_LIBASS_SUBBURN
 
 #endif //#if ENABLE_AVSW_READER
