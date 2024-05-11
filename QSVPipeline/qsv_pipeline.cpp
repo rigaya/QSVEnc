@@ -1864,7 +1864,7 @@ RGY_ERR CQSVPipeline::InitInput(sInputParams *inputParam, std::vector<std::uniqu
     m_poolPkt = std::make_unique<RGYPoolAVPacket>();
     m_poolFrame = std::make_unique<RGYPoolAVFrame>();
 
-    auto sts = initReaders(m_pFileReader, m_AudioReaders, &inputParam->input, inputCspOfRawReader,
+    auto sts = initReaders(m_pFileReader, m_AudioReaders, &inputParam->input, &inputParam->inprm, inputCspOfRawReader,
         m_pStatus, &inputParam->common, &inputParam->ctrl, HWDecCodecCsp, subburnTrackId,
         (ENABLE_VPP_FILTER_RFF) ? inputParam->vpp.rff.enable : false,
         (ENABLE_VPP_FILTER_AFS) ? inputParam->vpp.afs.enable : false,

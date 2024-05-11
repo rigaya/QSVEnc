@@ -3579,6 +3579,10 @@ int parse_one_input_option(const TCHAR *option_name, const TCHAR *strInput[], in
     if (IS_OPTION("avsw")) {
 #if ENABLE_AVSW_READER
         input->type = RGY_INPUT_FMT_AVSW;
+        if (i + 1 <= nArgNum && strInput[i+1][0] != _T('-')) {
+            i++;
+            inprm->avswDecoder = strInput[i];
+        }
         return 0;
 #else
         _ftprintf(stderr, _T("avsw reader not supported in this build.\n"));
@@ -5973,7 +5977,7 @@ tstring gen_cmd(const VideoInfo *param, const VideoInfo *defaultPrm, const RGYPa
     case RGY_INPUT_FMT_VPY:    cmd << _T(" --vpy"); break;
     case RGY_INPUT_FMT_VPY_MT: cmd << _T(" --vpy-mt"); break;
     case RGY_INPUT_FMT_AVHW:   cmd << _T(" --avhw"); break;
-    case RGY_INPUT_FMT_AVSW:   cmd << _T(" --avsw"); break;
+    case RGY_INPUT_FMT_AVSW:   cmd << _T(" --avsw"); if (!inprm->avswDecoder.empty()) cmd << _T(" ") << inprm->avswDecoder; break;
     default: break;
     }
     if (param->csp != RGY_CSP_NA) {
@@ -7192,7 +7196,7 @@ tstring gen_cmd_help_input() {
 #endif
 #if ENABLE_AVSW_READER
         _T("   --avhw                       use libavformat + hw decode for input\n")
-        _T("   --avsw                       set input to use avcodec + sw decoder\n")
+        _T("   --avsw [<string>]            set input to use avcodec + sw decoder\n")
 #endif
         _T("   --input-res <int>x<int>        set input resolution\n")
         _T("   --crop <int>,<int>,<int>,<int> crop pixels from left,top,right,bottom\n")
