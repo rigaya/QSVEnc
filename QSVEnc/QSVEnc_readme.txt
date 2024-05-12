@@ -313,6 +313,21 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2024.05.12 (7.64)
+- ffmpeg 7.0に更新。(Windows版)
+  - ffmpeg     6.1    -> 7.0
+  - libpng     1.4.0  -> 1.4.3
+  - expat      2.5.0  -> 2.6.2
+  - opus       1.4    -> 1.5.2
+  - libxml2    2.12.0 -> 2.12.6
+  - dav1d      1.3.0  -> 1.4.1
+  - libvpl     2.11.0 (new!)
+  - nv-codec-headers 12.2.72.0 (new!)
+- avswで使用するデコーダを指定可能に。
+- --audio-bitrateの指定がないとき、デフォルトのビットレートを設定するのではなく、コーデックに任せるように。
+- --audio-bitrateあるいは--audio-copyで指定のない音声/字幕/データトラックは処理しないように。
+- QSVEnc 7.62以降のside_dataの扱いが誤っており、--master-display  copy/--max-cll copyが正常に行われていなかった問題を修正。
+
 2024.04.28 (7.63)
 - 新たなノイズ除去フィルタを追加。(--vpp-nlmeans)
 - --audio-resamplerを拡張し、文字列でパラメータ設定できるように。
