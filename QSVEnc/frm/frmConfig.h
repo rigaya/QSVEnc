@@ -1256,6 +1256,13 @@ private: System::Windows::Forms::Label^  fcgLBVppDenoiseNLMeansSigma;
 
 private: System::Windows::Forms::ComboBox^  fcgCXVppDenoiseNLMeansPatch;
 private: System::Windows::Forms::Label^  fcgLBVppDenoiseNLMeansPatch;
+private: System::Windows::Forms::Panel^  fcgPNVppDecomb;
+private: System::Windows::Forms::CheckBox^  fcgCBVppDecombBlend;
+private: System::Windows::Forms::CheckBox^  fcgCBVppDecombFull;
+private: System::Windows::Forms::Label^  fcgLBVppDecombDthreshold;
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppDecombDthreshold;
+private: System::Windows::Forms::Label^  fcgLBVppDecombThreshold;
+private: System::Windows::Forms::NumericUpDown^  fcgNUVppDecombThreshold;
 
 
 
@@ -1696,6 +1703,13 @@ private: System::Windows::Forms::Label^  fcgLBVppDenoiseNLMeansPatch;
             this->fcgLBVppDeinterlace = (gcnew System::Windows::Forms::Label());
             this->fcgCXVppDeinterlace = (gcnew System::Windows::Forms::ComboBox());
             this->fcgPNVppAfs = (gcnew System::Windows::Forms::Panel());
+            this->fcgPNVppDecomb = (gcnew System::Windows::Forms::Panel());
+            this->fcgCBVppDecombBlend = (gcnew System::Windows::Forms::CheckBox());
+            this->fcgCBVppDecombFull = (gcnew System::Windows::Forms::CheckBox());
+            this->fcgLBVppDecombDthreshold = (gcnew System::Windows::Forms::Label());
+            this->fcgNUVppDecombDthreshold = (gcnew System::Windows::Forms::NumericUpDown());
+            this->fcgLBVppDecombThreshold = (gcnew System::Windows::Forms::Label());
+            this->fcgNUVppDecombThreshold = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgTBVppAfsThreCMotion = (gcnew System::Windows::Forms::TrackBar());
             this->fcgLBVppAfsThreCMotion = (gcnew System::Windows::Forms::Label());
             this->fcgTBVppAfsThreYMotion = (gcnew System::Windows::Forms::TrackBar());
@@ -1941,6 +1955,9 @@ private: System::Windows::Forms::Label^  fcgLBVppDenoiseNLMeansPatch;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDenoiseKnnRadius))->BeginInit();
             this->fcggroupBoxVppDeinterlace->SuspendLayout();
             this->fcgPNVppAfs->SuspendLayout();
+            this->fcgPNVppDecomb->SuspendLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDecombDthreshold))->BeginInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDecombThreshold))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgTBVppAfsThreCMotion))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgTBVppAfsThreYMotion))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgTBVppAfsThreDeint))->BeginInit();
@@ -5099,6 +5116,7 @@ private: System::Windows::Forms::Label^  fcgLBVppDenoiseNLMeansPatch;
             // 
             // fcggroupBoxVppDeinterlace
             // 
+            this->fcggroupBoxVppDeinterlace->Controls->Add(this->fcgPNVppDecomb);
             this->fcggroupBoxVppDeinterlace->Controls->Add(this->fcgLBVppDeinterlace);
             this->fcggroupBoxVppDeinterlace->Controls->Add(this->fcgCXVppDeinterlace);
             this->fcggroupBoxVppDeinterlace->Controls->Add(this->fcgPNVppAfs);
@@ -5170,6 +5188,79 @@ private: System::Windows::Forms::Label^  fcgLBVppDenoiseNLMeansPatch;
             this->fcgPNVppAfs->Name = L"fcgPNVppAfs";
             this->fcgPNVppAfs->Size = System::Drawing::Size(251, 294);
             this->fcgPNVppAfs->TabIndex = 10;
+            // 
+            // fcgPNVppDecomb
+            // 
+            this->fcgPNVppDecomb->Controls->Add(this->fcgCBVppDecombBlend);
+            this->fcgPNVppDecomb->Controls->Add(this->fcgCBVppDecombFull);
+            this->fcgPNVppDecomb->Controls->Add(this->fcgLBVppDecombDthreshold);
+            this->fcgPNVppDecomb->Controls->Add(this->fcgNUVppDecombDthreshold);
+            this->fcgPNVppDecomb->Controls->Add(this->fcgLBVppDecombThreshold);
+            this->fcgPNVppDecomb->Controls->Add(this->fcgNUVppDecombThreshold);
+            this->fcgPNVppDecomb->Location = System::Drawing::Point(6, 41);
+            this->fcgPNVppDecomb->Name = L"fcgPNVppDecomb";
+            this->fcgPNVppDecomb->Size = System::Drawing::Size(251, 294);
+            this->fcgPNVppDecomb->TabIndex = 80;
+            // 
+            // fcgCBVppDecombBlend
+            // 
+            this->fcgCBVppDecombBlend->AutoSize = true;
+            this->fcgCBVppDecombBlend->Location = System::Drawing::Point(14, 29);
+            this->fcgCBVppDecombBlend->Name = L"fcgCBVppDecombBlend";
+            this->fcgCBVppDecombBlend->Size = System::Drawing::Size(58, 18);
+            this->fcgCBVppDecombBlend->TabIndex = 19;
+            this->fcgCBVppDecombBlend->Tag = L"reCmd";
+            this->fcgCBVppDecombBlend->Text = L"ブレンド";
+            this->fcgCBVppDecombBlend->UseVisualStyleBackColor = true;
+            // 
+            // fcgCBVppDecombFull
+            // 
+            this->fcgCBVppDecombFull->AutoSize = true;
+            this->fcgCBVppDecombFull->Location = System::Drawing::Point(14, 6);
+            this->fcgCBVppDecombFull->Name = L"fcgCBVppDecombFull";
+            this->fcgCBVppDecombFull->Size = System::Drawing::Size(100, 18);
+            this->fcgCBVppDecombFull->TabIndex = 18;
+            this->fcgCBVppDecombFull->Tag = L"reCmd";
+            this->fcgCBVppDecombFull->Text = L"全フレームを解除";
+            this->fcgCBVppDecombFull->UseVisualStyleBackColor = true;
+            // 
+            // fcgLBVppDecombDthreshold
+            // 
+            this->fcgLBVppDecombDthreshold->AutoSize = true;
+            this->fcgLBVppDecombDthreshold->Location = System::Drawing::Point(22, 78);
+            this->fcgLBVppDecombDthreshold->Name = L"fcgLBVppDecombDthreshold";
+            this->fcgLBVppDecombDthreshold->Size = System::Drawing::Size(51, 14);
+            this->fcgLBVppDecombDthreshold->TabIndex = 7;
+            this->fcgLBVppDecombDthreshold->Text = L"解除閾値";
+            // 
+            // fcgNUVppDecombDthreshold
+            // 
+            this->fcgNUVppDecombDthreshold->Location = System::Drawing::Point(92, 76);
+            this->fcgNUVppDecombDthreshold->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 255, 0, 0, 0 });
+            this->fcgNUVppDecombDthreshold->Name = L"fcgNUVppDecombDthreshold";
+            this->fcgNUVppDecombDthreshold->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppDecombDthreshold->TabIndex = 8;
+            this->fcgNUVppDecombDthreshold->Tag = L"reCmd";
+            this->fcgNUVppDecombDthreshold->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
+            // 
+            // fcgLBVppDecombThreshold
+            // 
+            this->fcgLBVppDecombThreshold->AutoSize = true;
+            this->fcgLBVppDecombThreshold->Location = System::Drawing::Point(22, 54);
+            this->fcgLBVppDecombThreshold->Name = L"fcgLBVppDecombThreshold";
+            this->fcgLBVppDecombThreshold->Size = System::Drawing::Size(51, 14);
+            this->fcgLBVppDecombThreshold->TabIndex = 5;
+            this->fcgLBVppDecombThreshold->Text = L"判定閾値";
+            // 
+            // fcgNUVppDecombThreshold
+            // 
+            this->fcgNUVppDecombThreshold->Location = System::Drawing::Point(92, 52);
+            this->fcgNUVppDecombThreshold->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 255, 0, 0, 0 });
+            this->fcgNUVppDecombThreshold->Name = L"fcgNUVppDecombThreshold";
+            this->fcgNUVppDecombThreshold->Size = System::Drawing::Size(60, 21);
+            this->fcgNUVppDecombThreshold->TabIndex = 6;
+            this->fcgNUVppDecombThreshold->Tag = L"reCmd";
+            this->fcgNUVppDecombThreshold->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
             // 
             // fcgTBVppAfsThreCMotion
             // 
@@ -7005,6 +7096,10 @@ private: System::Windows::Forms::Label^  fcgLBVppDenoiseNLMeansPatch;
             this->fcggroupBoxVppDeinterlace->PerformLayout();
             this->fcgPNVppAfs->ResumeLayout(false);
             this->fcgPNVppAfs->PerformLayout();
+            this->fcgPNVppDecomb->ResumeLayout(false);
+            this->fcgPNVppDecomb->PerformLayout();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDecombDthreshold))->EndInit();
+            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppDecombThreshold))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgTBVppAfsThreCMotion))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgTBVppAfsThreYMotion))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgTBVppAfsThreDeint))->EndInit();
