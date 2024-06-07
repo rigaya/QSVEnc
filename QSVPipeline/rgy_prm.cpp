@@ -91,6 +91,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_DENOISE_PMD,          _T("pmd")),
     std::make_pair(VppType::CL_DENOISE_DCT,          _T("denoise-dct")),
     std::make_pair(VppType::CL_DENOISE_SMOOTH,       _T("smooth")),
+    std::make_pair(VppType::CL_DENOISE_FFT3D,        _T("fft3d")),
     std::make_pair(VppType::CL_RESIZE,               _T("resize")),
     std::make_pair(VppType::CL_UNSHARP,              _T("unsharp")),
     std::make_pair(VppType::CL_EDGELEVEL,            _T("edgelevel")),
@@ -1056,6 +1057,41 @@ tstring VppDenoiseDct::print() const {
     return str;
 }
 
+VppDenoiseFFT3D::VppDenoiseFFT3D() :
+    enable(false),
+    sigma(FILTER_DEFAULT_DENOISE_FFT3D_SIGMA),
+    amount(FILTER_DEFAULT_DENOISE_FFT3D_AMOUNT),
+    block_size(FILTER_DEFAULT_DENOISE_FFT3D_BLOCK_SIZE),
+    overlap(FILTER_DEFAULT_DENOISE_FFT3D_OVERLAP),
+    overlap2(FILTER_DEFAULT_DENOISE_FFT3D_OVERLAP2),
+    method(FILTER_DEFAULT_DENOISE_FFT3D_METHOD),
+    temporal(FILTER_DEFAULT_DENOISE_FFT3D_TEMPORAL),
+    precision(VppFpPrecision::VPP_FP_PRECISION_AUTO) {
+
+}
+
+bool VppDenoiseFFT3D::operator==(const VppDenoiseFFT3D &x) const {
+    return enable == x.enable
+        && sigma == x.sigma
+        && amount == x.amount
+        && block_size == x.block_size
+        && overlap == x.overlap
+        && overlap2 == x.overlap2
+        && method == x.method
+        && temporal == x.temporal
+        && precision == x.precision;
+}
+bool VppDenoiseFFT3D::operator!=(const VppDenoiseFFT3D &x) const {
+    return !(*this == x);
+}
+
+tstring VppDenoiseFFT3D::print() const {
+    tstring str = strsprintf(_T("denoise-fft3d: sigma %.2f, strength %.2f, block_size %d\n"
+        "                         overlap %.2f:%.2f, method %d, temporal %d, precision %s"),
+        sigma, amount, block_size, overlap, overlap2, method, temporal, get_cx_desc(list_vpp_fp_prec, precision));
+    return str;
+}
+
 VppConvolution3d::VppConvolution3d() :
     enable(false),
     fast(false),
@@ -1527,6 +1563,7 @@ RGYParamVpp::RGYParamVpp() :
     pmd(),
     dct(),
     smooth(),
+    fft3d(),
     subburn(),
     unsharp(),
     edgelevel(),

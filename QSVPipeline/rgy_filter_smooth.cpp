@@ -228,6 +228,7 @@ RGY_ERR RGYFilterSmooth::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
                     }
                 }
                 if (usefp16DctOrg && !usefp16Dct) {
+                    log->write(RGY_LOG_DEBUG, RGY_LOGT_VPP, _T("Use fp16 opt: subGroupSize=%d.\n"), subGroupSize);
                     smooth = cl->buildResource(_T("RGY_FILTER_SMOOTH_CL"), _T("EXE_DATA"), gen_options(false, cl_fp16_support).c_str());
                     if (!smooth) {
                         return std::unique_ptr<RGYOpenCLProgram>();

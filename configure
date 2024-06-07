@@ -715,7 +715,7 @@ rgy_filesystem.cpp          rgy_filter.cpp              rgy_filter_afs.cpp      
 rgy_filter_afs_filter.cpp   rgy_filter_afs_merge.cpp    rgy_filter_afs_synthesize.cpp  rgy_filter_colorspace.cpp \
 rgy_filter_convolution3d.cpp  rgy_filter_crop.cpp       rgy_filter_cl.cpp              rgy_filter_curves.cpp \
 rgy_filter_deband.cpp       rgy_filter_decimate.cpp     rgy_filter_decomb.cpp          rgy_filter_delogo.cpp \
-rgy_filter_denoise_dct.cpp  rgy_filter_denoise_knn.cpp  rgy_filter_denoise_nlmeans.cpp \
+rgy_filter_denoise_dct.cpp  rgy_filter_denoise_fft3d.cpp rgy_filter_denoise_knn.cpp    rgy_filter_denoise_nlmeans.cpp \
 rgy_filter_denoise_pmd.cpp  rgy_filter_edgelevel.cpp    rgy_filter_mpdecimate.cpp \
 rgy_filter_nnedi.cpp        rgy_filter_overlay.cpp      rgy_filter_pad.cpp             rgy_filter_resize.cpp \
 rgy_filter_rff.cpp \
@@ -738,8 +738,8 @@ rgy_filter.cl                 rgy_filter_afs_analyze.cl   rgy_filter_afs_filter.
 rgy_filter_afs_synthesize.cl  rgy_filter_convolution3d.cl rgy_filter_curves.cl \
 rgy_filter_deband.cl          rgy_filter_deband_gen_rand.cl  rgy_filter_decimate.cl      rgy_filter_decomb.cl \
 rgy_filter_delogo.cl \
-rgy_filter_denoise_dct.cl     rgy_filter_denoise_knn.cl   rgy_filter_denoise_nlmeans.cl  rgy_filter_denoise_pmd.cl \
-rgy_filter_edgelevel.cl \
+rgy_filter_denoise_dct.cl     rgy_filter_denoise_fft3d.cl rgy_filter_denoise_knn.cl      rgy_filter_denoise_nlmeans.cl \
+rgy_filter_denoise_pmd.cl     rgy_filter_edgelevel.cl \
 rgy_filter_mpdecimate.cl      rgy_filter_nnedi_common.cl  rgy_filter_nnedi_k0.cl         rgy_filter_nnedi_k1.cl \
 rgy_filter_overlay.cl         rgy_filter_pad.cl           rgy_filter_resize.cl           rgy_filter_smooth.cl \
 rgy_filter_ssim.cl            rgy_filter_subburn.cl       rgy_filter_transform.cl        rgy_filter_tweak.cl \
