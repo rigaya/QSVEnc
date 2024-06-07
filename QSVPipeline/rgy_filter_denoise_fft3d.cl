@@ -9,6 +9,8 @@
 // SUB_GROUP_SIZE
 // filterMethod
 
+//#define TypeComplex half2
+
 #if FFT_BARRIER_MODE == 2 && BLOCK_SIZE <= SUB_GROUP_SIZE
 #define BLOCK_SYNC sub_group_barrier(CLK_LOCAL_MEM_FENCE)
 #else
@@ -16,6 +18,218 @@
 #endif
 
 #define FFT_M_PI (3.14159265358979323846f)
+
+/*
+以下の定数テーブルをコンパイル時に結合して定数の最適化を行う
+__constant int bitreverse_BLOCK_SIZE[BLOCK_SIZE]
+__constant TypeComplex FW_BLOCK_K_Ntrue[]
+__constant TypeComplex FW_BLOCK_K_Nfalse[]
+__constant TypeComplex FW_TEMPORAL3[2][5]
+*/
+
+#if 0
+__constant int bitreverse_BLOCK_SIZE[BLOCK_SIZE] = {
+    0,
+    16,
+    8,
+    24,
+    4,
+    20,
+    12,
+    28,
+    2,
+    18,
+    10,
+    26,
+    6,
+    22,
+    14,
+    30,
+    1,
+    17,
+    9,
+    25,
+    5,
+    21,
+    13,
+    29,
+    3,
+    19,
+    11,
+    27,
+    7,
+    23,
+    15,
+    31,
+};
+
+__constant TypeComplex FW_BLOCK_K_2true[] = {
+    (TypeComplex)(1.00000000f, 0.00000000f)
+};
+
+__constant TypeComplex FW_BLOCK_K_4true[] = {
+    (TypeComplex)(1.00000000f, 0.00000000f),
+    (TypeComplex)(-0.00000004f, 1.00000000f)
+};
+
+__constant TypeComplex FW_BLOCK_K_8true[] = {
+    (TypeComplex)(1.00000000f, 0.00000000f),
+    (TypeComplex)(0.70710677f, 0.70710677f),
+    (TypeComplex)(-0.00000004f, 1.00000000f),
+    (TypeComplex)(-0.70710677f, 0.70710677f)
+};
+
+__constant TypeComplex FW_BLOCK_K_16true[] = {
+    (TypeComplex)(1.00000000f, 0.00000000f),
+    (TypeComplex)(0.92387950f, 0.38268346f),
+    (TypeComplex)(0.70710677f, 0.70710677f),
+    (TypeComplex)(0.38268343f, 0.92387950f),
+    (TypeComplex)(-0.00000004f, 1.00000000f),
+    (TypeComplex)(-0.38268352f, 0.92387950f),
+    (TypeComplex)(-0.70710677f, 0.70710677f),
+    (TypeComplex)(-0.92387962f, 0.38268328f)
+};
+
+__constant TypeComplex FW_BLOCK_K_32true[] = {
+    (TypeComplex)(1.00000000f, 0.00000000f),
+    (TypeComplex)(0.98078525f, 0.19509032f),
+    (TypeComplex)(0.92387950f, 0.38268346f),
+    (TypeComplex)(0.83146960f, 0.55557024f),
+    (TypeComplex)(0.70710677f, 0.70710677f),
+    (TypeComplex)(0.55557019f, 0.83146966f),
+    (TypeComplex)(0.38268343f, 0.92387950f),
+    (TypeComplex)(0.19509023f, 0.98078531f),
+    (TypeComplex)(-0.00000004f, 1.00000000f),
+    (TypeComplex)(-0.19509032f, 0.98078525f),
+    (TypeComplex)(-0.38268352f, 0.92387950f),
+    (TypeComplex)(-0.55557036f, 0.83146954f),
+    (TypeComplex)(-0.70710677f, 0.70710677f),
+    (TypeComplex)(-0.83146966f, 0.55557019f),
+    (TypeComplex)(-0.92387962f, 0.38268328f),
+    (TypeComplex)(-0.98078531f, 0.19509031f)
+};
+
+__constant TypeComplex FW_BLOCK_K_64true[] = {
+    (TypeComplex)(1.00000000f, 0.00000000f),
+    (TypeComplex)(0.99518472f, 0.09801714f),
+    (TypeComplex)(0.98078525f, 0.19509032f),
+    (TypeComplex)(0.95694035f, 0.29028466f),
+    (TypeComplex)(0.92387950f, 0.38268346f),
+    (TypeComplex)(0.88192123f, 0.47139674f),
+    (TypeComplex)(0.83146960f, 0.55557024f),
+    (TypeComplex)(0.77301043f, 0.63439333f),
+    (TypeComplex)(0.70710677f, 0.70710677f),
+    (TypeComplex)(0.63439327f, 0.77301043f),
+    (TypeComplex)(0.55557019f, 0.83146966f),
+    (TypeComplex)(0.47139665f, 0.88192129f),
+    (TypeComplex)(0.38268343f, 0.92387950f),
+    (TypeComplex)(0.29028463f, 0.95694035f),
+    (TypeComplex)(0.19509023f, 0.98078531f),
+    (TypeComplex)(0.09801713f, 0.99518472f),
+    (TypeComplex)(-0.00000004f, 1.00000000f),
+    (TypeComplex)(-0.09801722f, 0.99518472f),
+    (TypeComplex)(-0.19509032f, 0.98078525f),
+    (TypeComplex)(-0.29028472f, 0.95694029f),
+    (TypeComplex)(-0.38268352f, 0.92387950f),
+    (TypeComplex)(-0.47139683f, 0.88192123f),
+    (TypeComplex)(-0.55557036f, 0.83146954f),
+    (TypeComplex)(-0.63439327f, 0.77301049f),
+    (TypeComplex)(-0.70710677f, 0.70710677f),
+    (TypeComplex)(-0.77301049f, 0.63439327f),
+    (TypeComplex)(-0.83146966f, 0.55557019f),
+    (TypeComplex)(-0.88192135f, 0.47139663f),
+    (TypeComplex)(-0.92387962f, 0.38268328f),
+    (TypeComplex)(-0.95694035f, 0.29028472f),
+    (TypeComplex)(-0.98078531f, 0.19509031f),
+    (TypeComplex)(-0.99518472f, 0.09801710f)
+};
+
+__constant TypeComplex FW_BLOCK_K_2false[] = {
+    (TypeComplex)(1.00000000f, -0.00000000f)
+};
+
+__constant TypeComplex FW_BLOCK_K_4false[] = {
+    (TypeComplex)(1.00000000f, -0.00000000f),
+    (TypeComplex)(-0.00000004f, -1.00000000f)
+};
+
+__constant TypeComplex FW_BLOCK_K_8false[] = {
+    (TypeComplex)(1.00000000f, -0.00000000f),
+    (TypeComplex)(0.70710677f, -0.70710677f),
+    (TypeComplex)(-0.00000004f, -1.00000000f),
+    (TypeComplex)(-0.70710677f, -0.70710677f)
+};
+
+__constant TypeComplex FW_BLOCK_K_16false[] = {
+    (TypeComplex)(1.00000000f, -0.00000000f),
+    (TypeComplex)(0.92387950f, -0.38268346f),
+    (TypeComplex)(0.70710677f, -0.70710677f),
+    (TypeComplex)(0.38268343f, -0.92387950f),
+    (TypeComplex)(-0.00000004f, -1.00000000f),
+    (TypeComplex)(-0.38268352f, -0.92387950f),
+    (TypeComplex)(-0.70710677f, -0.70710677f),
+    (TypeComplex)(-0.92387962f, -0.38268328f)
+};
+
+__constant TypeComplex FW_BLOCK_K_32false[] = {
+    (TypeComplex)(1.00000000f, -0.00000000f),
+    (TypeComplex)(0.98078525f, -0.19509032f),
+    (TypeComplex)(0.92387950f, -0.38268346f),
+    (TypeComplex)(0.83146960f, -0.55557024f),
+    (TypeComplex)(0.70710677f, -0.70710677f),
+    (TypeComplex)(0.55557019f, -0.83146966f),
+    (TypeComplex)(0.38268343f, -0.92387950f),
+    (TypeComplex)(0.19509023f, -0.98078531f),
+    (TypeComplex)(-0.00000004f, -1.00000000f),
+    (TypeComplex)(-0.19509032f, -0.98078525f),
+    (TypeComplex)(-0.38268352f, -0.92387950f),
+    (TypeComplex)(-0.55557036f, -0.83146954f),
+    (TypeComplex)(-0.70710677f, -0.70710677f),
+    (TypeComplex)(-0.83146966f, -0.55557019f),
+    (TypeComplex)(-0.92387962f, -0.38268328f),
+    (TypeComplex)(-0.98078531f, -0.19509031f)
+};
+
+__constant TypeComplex FW_BLOCK_K_64false[] = {
+    (TypeComplex)(1.00000000f, -0.00000000f),
+    (TypeComplex)(0.99518472f, -0.09801714f),
+    (TypeComplex)(0.98078525f, -0.19509032f),
+    (TypeComplex)(0.95694035f, -0.29028466f),
+    (TypeComplex)(0.92387950f, -0.38268346f),
+    (TypeComplex)(0.88192123f, -0.47139674f),
+    (TypeComplex)(0.83146960f, -0.55557024f),
+    (TypeComplex)(0.77301043f, -0.63439333f),
+    (TypeComplex)(0.70710677f, -0.70710677f),
+    (TypeComplex)(0.63439327f, -0.77301043f),
+    (TypeComplex)(0.55557019f, -0.83146966f),
+    (TypeComplex)(0.47139665f, -0.88192129f),
+    (TypeComplex)(0.38268343f, -0.92387950f),
+    (TypeComplex)(0.29028463f, -0.95694035f),
+    (TypeComplex)(0.19509023f, -0.98078531f),
+    (TypeComplex)(0.09801713f, -0.99518472f),
+    (TypeComplex)(-0.00000004f, -1.00000000f),
+    (TypeComplex)(-0.09801722f, -0.99518472f),
+    (TypeComplex)(-0.19509032f, -0.98078525f),
+    (TypeComplex)(-0.29028472f, -0.95694029f),
+    (TypeComplex)(-0.38268352f, -0.92387950f),
+    (TypeComplex)(-0.47139683f, -0.88192123f),
+    (TypeComplex)(-0.55557036f, -0.83146954f),
+    (TypeComplex)(-0.63439327f, -0.77301049f),
+    (TypeComplex)(-0.70710677f, -0.70710677f),
+    (TypeComplex)(-0.77301049f, -0.63439327f),
+    (TypeComplex)(-0.83146966f, -0.55557019f),
+    (TypeComplex)(-0.88192135f, -0.47139663f),
+    (TypeComplex)(-0.92387962f, -0.38268328f),
+    (TypeComplex)(-0.95694035f, -0.29028472f),
+    (TypeComplex)(-0.98078531f, -0.19509031f),
+    (TypeComplex)(-0.99518472f, -0.09801710f)
+};
+
+__constant TypeComplex FW_TEMPORAL3[2][5] = {
+  { (TypeComplex)(1.00000000f, 0.00000000f),(TypeComplex)(-0.50000006f, 0.86602539f),(TypeComplex)(-0.49999991f, -0.86602545f),(TypeComplex)(1.00000000f, 0.00000017f),(TypeComplex)(-0.50000018f, 0.86602527f) },
+  { (TypeComplex)(1.00000000f, -0.00000000f),(TypeComplex)(-0.50000006f, -0.86602539f),(TypeComplex)(-0.49999991f, 0.86602545f),(TypeComplex)(1.00000000f, -0.00000017f),(TypeComplex)(-0.50000018f, -0.86602527f) }
+};
+#endif
 
 
 const __global char *selectptr(const __global char *ptr0, const __global char *ptr1, const int idx) {
@@ -37,25 +251,6 @@ int wrap_idx(const int idx, const int min, const int max) {
     return idx;
 }
 
-int log2u(int n) {
-    int x = -1;
-    while (n > 0) {
-        x++;
-        n >>= 1;
-    }
-    return x;
-}
-
-// intのbitを逆順に並び替える
-int bitreverse(const int bitlength, int x) {
-    int y = 0;
-    for (int i = 0; i < bitlength; i++) {
-        y = (y << 1) + (x & 1);
-        x >>= 1;
-    }
-    return y;
-}
-
 TypeComplex cmul(const TypeComplex a, const TypeComplex b) {
 //    result.v.x = (a.x * b.x) - (a.y * b.y);
 //    result.v.y = (a.x * b.y) + (a.y * b.x);
@@ -71,54 +266,131 @@ float csquare(const TypeComplex a) {
     return ax * ax + ay * ay;
 }
 
-const TypeComplex fw(const bool forward, const int k, const int N) {
-    // cexp<T>(TypeComplex(0.0f, -2.0f * FFT_M_PI * k / (float)N));
-    const float theta = ((forward) ? -2.0f : +2.0f) * FFT_M_PI * k / (float)N;
-    return (TypeComplex)(cos(theta), sin(theta));
+
+const TypeComplex fw(const bool forward, const int k, const int N) { \
+    const float theta = ((forward) ? -2.0f : +2.0f) * FFT_M_PI * k / (float)N; \
+    return (TypeComplex)(cos(theta), sin(theta)); \
 }
 
-TypeComplex fft_calc0(const bool forward, TypeComplex c0, TypeComplex c1, const int k, const int N) {
-    return c0 + cmul(fw(forward, k, N), c1);
-}
-TypeComplex fft_calc1(const bool forward, TypeComplex c0, TypeComplex c1, const int k, const int N) {
-    return c0 - cmul(fw(forward, k, N), c1);
+#define FW_N_FORWARD(N, forward) \
+    const TypeComplex fw##N##forward(const int k) { \
+        return FW_BLOCK_K_##N##forward[k]; \
+    }
+
+FW_N_FORWARD(2, true)
+FW_N_FORWARD(2, false)
+FW_N_FORWARD(4, true)
+FW_N_FORWARD(4, false)
+FW_N_FORWARD(8, true)
+FW_N_FORWARD(8, false)
+FW_N_FORWARD(16, true)
+FW_N_FORWARD(16, false)
+FW_N_FORWARD(32, true)
+FW_N_FORWARD(32, false)
+FW_N_FORWARD(64, true)
+FW_N_FORWARD(64, false)
+
+#define FFT_CALC0(N, forward) \
+    TypeComplex fft_calc0_##N##forward(TypeComplex c0, TypeComplex c1, const int k) { \
+        return c0 + cmul(fw##N##forward(k), c1); \
+    }
+
+#define FFT_CALC1(N, forward) \
+    TypeComplex fft_calc1_##N##forward(TypeComplex c0, TypeComplex c1, const int k) { \
+        return c0 - cmul(fw##N##forward(k), c1); \
+    }
+
+FFT_CALC0(2, true)
+FFT_CALC0(2, false)
+FFT_CALC0(4, true)
+FFT_CALC0(4, false)
+FFT_CALC0(8, true)
+FFT_CALC0(8, false)
+FFT_CALC0(16, true)
+FFT_CALC0(16, false)
+FFT_CALC0(32, true)
+FFT_CALC0(32, false)
+FFT_CALC0(64, true)
+FFT_CALC0(64, false)
+
+FFT_CALC1(2, true)
+FFT_CALC1(2, false)
+FFT_CALC1(4, true)
+FFT_CALC1(4, false)
+FFT_CALC1(8, true)
+FFT_CALC1(8, false)
+FFT_CALC1(16, true)
+FFT_CALC1(16, false)
+FFT_CALC1(32, true)
+FFT_CALC1(32, false)
+FFT_CALC1(64, true)
+FFT_CALC1(64, false)
+
+
+#define fftpermute(N) static void fftpermute##N(const int step, __local TypeComplex *data) { \
+        TypeComplex work[N]; \
+        for (int i = 0; i < N; i++) { \
+            work[i] = data[i * step]; \
+        } \
+        for (int i = 0; i < N; i++) { \
+            data[i * step] = work[bitreverse_BLOCK_SIZE[i]]; \
+        } \
+    }
+
+fftpermute(2);
+fftpermute(4);
+fftpermute(8);
+fftpermute(16);
+fftpermute(32);
+fftpermute(64);
+
+void fft1true(const int step, __local TypeComplex *data) { }
+void fft1false(const int step, __local TypeComplex *data) { }
+
+#define FFT_N_FORWARD(N, Nhalf, forward) \
+    void fft##N##forward(const int step, __local TypeComplex *data) { \
+        if (N >= 4) { \
+            fft##Nhalf##forward(step, data); \
+            fft##Nhalf##forward(step, data + (N / 2) * step); \
+        } \
+        \
+        for (int i = 0; i < N / 2; i++) { \
+            TypeComplex c0 = data[(i        ) * step]; \
+            TypeComplex c1 = data[(i + N / 2) * step]; \
+            data[(i        ) * step] = fft_calc0_##N##forward(c0, c1, i); \
+            data[(i + N / 2) * step] = fft_calc1_##N##forward(c0, c1, i); \
+        } \
+    }
+
+FFT_N_FORWARD(2, 1, true)
+FFT_N_FORWARD(2, 1, false)
+FFT_N_FORWARD(4, 2, true)
+FFT_N_FORWARD(4, 2, false)
+FFT_N_FORWARD(8, 4, true)
+FFT_N_FORWARD(8, 4, false)
+FFT_N_FORWARD(16, 8, true)
+FFT_N_FORWARD(16, 8, false)
+FFT_N_FORWARD(32, 16, true)
+FFT_N_FORWARD(32, 16, false)
+FFT_N_FORWARD(64, 32, true)
+FFT_N_FORWARD(64, 32, false)
+
+
+
+#define IFFT_NORMALIZE(N) \
+void ifft_normalize##N(const int step, __local TypeComplex *data) { \
+    const TypeComplex invN = (TypeComplex)(1.0f / (float)N); \
+    for (int i = 0; i < N; i++) { \
+        data[i * step] *= invN; \
+    } \
 }
 
-static void fftpermute(const int N, const int step, __local TypeComplex *data) {
-    TypeComplex work[BLOCK_SIZE];
-    #pragma unroll
-    for (int i = 0; i < N; i++) {
-        work[i] = data[i * step];
-    }
-    #pragma unroll
-    for (int i = 0; i < N; i++) {
-        data[i * step] = work[bitreverse(log2u(N), i)];
-    }
-    return;
-}
-
-static void fft(const int N, const bool forward, const int step, __local TypeComplex *data) {
-    if (N >= 4) {
-        fft(N / 2, forward, step, data);
-        fft(N / 2, forward, step, data + (N / 2) * step);
-    }
-    
-    #pragma unroll
-    for (int i = 0; i < N / 2; i++) {
-        TypeComplex c0 = data[(i        ) * step];
-        TypeComplex c1 = data[(i + N / 2) * step];
-        data[(i        ) * step] = fft_calc0(forward, c0, c1, i, N);
-        data[(i + N / 2) * step] = fft_calc1(forward, c0, c1, i, N);
-    }
-}
-
-static void ifft_normalize(const int N, const int step, __local TypeComplex *data) {
-    const TypeComplex invN = (TypeComplex)(1.0f / (float)N);
-    #pragma unroll
-    for (int i = 0; i < N; i++) {
-        data[i * step] *= invN;
-    }
-}
+IFFT_NORMALIZE(2)
+IFFT_NORMALIZE(4)
+IFFT_NORMALIZE(8)
+IFFT_NORMALIZE(16)
+IFFT_NORMALIZE(32)
+IFFT_NORMALIZE(64)
 
 static void dft_tmprl(const bool forward, const int step, TypeComplex *data) {
     TypeComplex work[temporalCount];
@@ -130,7 +402,7 @@ static void dft_tmprl(const bool forward, const int step, TypeComplex *data) {
     for (int i = 0; i < temporalCount; i++) {
         #pragma unroll
         for (int k = 0; k < temporalCount; k++) {
-            work[k] += cmul(data[i * step], fw(forward, i*k, temporalCount));
+            work[k] += cmul(data[i * step], FW_TEMPORAL3[forward ? 1 : 0][i*k]);
         }
     }
     const TypeComplex invN = (forward) ? (TypeComplex)1.0f : (TypeComplex)(1.0f / (float)temporalCount);
@@ -140,26 +412,44 @@ static void dft_tmprl(const bool forward, const int step, TypeComplex *data) {
     }
 }
 
-void fftBlock(__local TypeComplex shared_tmp[BLOCK_SIZE][BLOCK_SIZE + 1], const int thWorker) {
-    // x方向の変換
-    fftpermute(BLOCK_SIZE, 1, &shared_tmp[thWorker][0]); BLOCK_SYNC;
-    fft(BLOCK_SIZE, true, 1, &shared_tmp[thWorker][0]); BLOCK_SYNC;
-    // y方向の変換
-    fftpermute(BLOCK_SIZE, BLOCK_SIZE+1, &shared_tmp[0][thWorker]); BLOCK_SYNC;
-    fft(BLOCK_SIZE, true, BLOCK_SIZE+1, &shared_tmp[0][thWorker]);
-}
+#define FFT_BLOCK(BLOCK_N) \
+    void fftBlock(__local TypeComplex shared_tmp[BLOCK_N][BLOCK_N + 1], const int thWorker) { \
+        fftpermute##BLOCK_N(1, &shared_tmp[thWorker][0]); BLOCK_SYNC; \
+        fft##BLOCK_N##true(1, &shared_tmp[thWorker][0]); BLOCK_SYNC; \
+        fftpermute##BLOCK_N(BLOCK_N+1, &shared_tmp[0][thWorker]); BLOCK_SYNC; \
+        fft##BLOCK_N##true(BLOCK_N+1, &shared_tmp[0][thWorker]); \
+    }
 
-void ifftBlock(__local TypeComplex shared_tmp[BLOCK_SIZE][BLOCK_SIZE + 1], const int thWorker) {
-    // y方向の逆変換
-    fftpermute(BLOCK_SIZE, BLOCK_SIZE + 1, &shared_tmp[0][thWorker]); BLOCK_SYNC;
-    fft(BLOCK_SIZE, false, BLOCK_SIZE + 1, &shared_tmp[0][thWorker]); BLOCK_SYNC;
-    ifft_normalize(BLOCK_SIZE, BLOCK_SIZE + 1, &shared_tmp[0][thWorker]); BLOCK_SYNC;
-    // x方向の逆変換
-    fftpermute(BLOCK_SIZE, 1, &shared_tmp[thWorker][0]); BLOCK_SYNC;
-    fft(BLOCK_SIZE, false, 1, &shared_tmp[thWorker][0]); BLOCK_SYNC;
-    ifft_normalize(BLOCK_SIZE, 1, &shared_tmp[thWorker][0]);
-}
 
+#define IFFT_BLOCK(BLOCK_N) \
+    void ifftBlock(__local TypeComplex shared_tmp[BLOCK_N][BLOCK_N + 1], const int thWorker) { \
+        fftpermute##BLOCK_N(BLOCK_N + 1, &shared_tmp[0][thWorker]); BLOCK_SYNC; \
+        fft##BLOCK_N##false(BLOCK_N + 1, &shared_tmp[0][thWorker]); BLOCK_SYNC; \
+        ifft_normalize##BLOCK_N(BLOCK_N + 1, &shared_tmp[0][thWorker]); BLOCK_SYNC; \
+        fftpermute##BLOCK_N(1, &shared_tmp[thWorker][0]); BLOCK_SYNC; \
+        fft##BLOCK_N##false(1, &shared_tmp[thWorker][0]); BLOCK_SYNC; \
+        ifft_normalize##BLOCK_N(1, &shared_tmp[thWorker][0]); \
+    }
+
+#if BLOCK_SIZE == 2
+FFT_BLOCK(2);
+IFFT_BLOCK(2);
+#elif BLOCK_SIZE == 4 
+FFT_BLOCK(4);
+IFFT_BLOCK(4);
+#elif BLOCK_SIZE == 8
+FFT_BLOCK(8);
+IFFT_BLOCK(8);
+#elif BLOCK_SIZE == 16
+FFT_BLOCK(16);
+IFFT_BLOCK(16);
+#elif BLOCK_SIZE == 32
+FFT_BLOCK(32);
+IFFT_BLOCK(32);
+#elif BLOCK_SIZE == 64
+FFT_BLOCK(64);
+IFFT_BLOCK(64);
+#endif
 
 __kernel void kernel_fft(
     __global char *const __restrict__ ptrDst0,

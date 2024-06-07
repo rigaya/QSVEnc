@@ -28,10 +28,14 @@
 
 #include <array>
 #include <map>
+#include <cmath>
 #include "convert_csp.h"
 #include "rgy_filter_denoise_fft3d.h"
+#include "rgy_resource.h"
 
 #define FFT_M_PI (3.14159265358979323846f)
+
+static const int MAX_BLOCK = 64;
 
 static constexpr int log2u(int n) {
     int x = -1;
@@ -40,6 +44,16 @@ static constexpr int log2u(int n) {
         n >>= 1;
     }
     return x;
+}
+
+// intのbitを逆順に並び替える
+static int bitreverse(const int bitlength, int x) {
+    int y = 0;
+    for (int i = 0; i < bitlength; i++) {
+        y = (y << 1) + (x & 1);
+        x >>= 1;
+    }
+    return y;
 }
 
 static int getDenoiseBlockSizeX(const int block_size) {
@@ -272,6 +286,10 @@ RGY_ERR RGYFilterDenoiseFFT3D::checkParam(const RGYFilterParamDenoiseFFT3D *prm)
         AddMessage(RGY_LOG_ERROR, _T("Invalid block_size.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+    if (prm->fft3d.block_size > MAX_BLOCK) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid block_size %d: MAX_BLOCK = %d.\n"), prm->fft3d.block_size, MAX_BLOCK);
+        return RGY_ERR_INVALID_PARAM;
+    }
     if (prm->fft3d.overlap < 0.0f || 0.8f < prm->fft3d.overlap) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter, overlap must be 0 - 0.8.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -334,6 +352,52 @@ RGY_ERR RGYFilterDenoiseFFT3D::init(shared_ptr<RGYFilterParam> pParam, shared_pt
         const int fft_barrier_mode = (true) ? (sub_group_ext_avail != RGYOpenCLSubGroupSupport::NONE ? 2 : 1) : 0;
         m_fft3d.set(std::async(std::launch::async,
             [cl = m_cl, log = m_pLog, prm = prm, ov1 = m_ov1, ov2 = m_ov2, fft_barrier_mode, sub_group_ext_avail]() {
+                // 必要な定数テーブルを作成
+                // bitreverse_BLOCK_SIZE
+                std::string fft_constants_str = "__constant int bitreverse_BLOCK_SIZE[BLOCK_SIZE] = {\n";
+                for (int i = 0; i < prm->fft3d.block_size; i++) {
+                    const int value = bitreverse(log2u(prm->fft3d.block_size), i);
+                    fft_constants_str += strsprintf("    %d,\n", value);
+                }
+                fft_constants_str += "};\n\n";
+                // FW_BLOCK_K_N
+                for (int forward = 0; forward < 2; forward++) {
+                    for (int block_size = 2; block_size <= MAX_BLOCK; block_size *= 2) {
+                        fft_constants_str += strsprintf("__constant TypeComplex FW_BLOCK_K_%d%s[] = {\n", block_size, forward ? "false" : "true");
+                        for (int k = 0; k < block_size / 2; k++) {
+                            if (k > 0) {
+                                fft_constants_str += ",\n";
+                            }
+                            const float theta = ((forward) ? -2.0f : +2.0f) * (float)k * FFT_M_PI / (float)block_size;
+                            const float cos_theta = std::cos(theta);
+                            const float sin_theta = std::sin(theta);
+                            fft_constants_str += strsprintf("    (TypeComplex)(%.8ff, %.8ff)", cos_theta, sin_theta);
+                        }
+                        fft_constants_str += "\n};\n\n";
+                    }
+                }
+                // FW_TEMPORAL3
+                fft_constants_str += "__constant TypeComplex FW_TEMPORAL3[2][5] = {\n";
+                for (int forward = 0; forward < 2; forward++) {
+                    if (forward > 0) {
+                        fft_constants_str += ",\n";
+                    }
+                    fft_constants_str += "  { ";
+                    const int fwTemporal = 3;
+                    for (int i = 0; i <= (fwTemporal-1)*(fwTemporal-1); i++) {
+                        if (i > 0) {
+                            fft_constants_str += ",";
+                        }
+                        const float theta = ((forward) ? -2.0f : +2.0f) * (float)(i) * FFT_M_PI / (float)(fwTemporal);
+                        const float cos_theta = std::cos(theta);
+                        const float sin_theta = std::sin(theta);
+                        fft_constants_str += strsprintf("(TypeComplex)(%.8ff, %.8ff)", cos_theta, sin_theta);
+                    }
+                    fft_constants_str += " }";
+                }
+                fft_constants_str += "\n};\n";
+                log->write(RGY_LOG_DEBUG, RGY_LOGT_VPP, _T("fft_constants_str.\n%s\n"), char_to_tstring(fft_constants_str).c_str());
+
                 auto gen_options = [&](const int sub_group_size) {
                     auto options = strsprintf("-D TypePixel=%s -D bit_depth=%d"
                         " -D TypeComplex=%s -D BLOCK_SIZE=%d -D DENOISE_BLOCK_SIZE_X=%d"
@@ -351,8 +415,9 @@ RGY_ERR RGYFilterDenoiseFFT3D::init(shared_ptr<RGYFilterParam> pParam, shared_pt
                     }
                     return options;
                 };
+                auto fft3d_cl = getEmbeddedResourceStr(_T("RGY_FILTER_DENOISE_FFT3D_CL"), _T("EXE_DATA"), cl->getModuleHandle());
                 // まず一度、sub_group_size=0でビルドを試み、sub_group_sizeが取得できたら、そのサイズで再ビルドする
-                auto fft3d = cl->buildResource(_T("RGY_FILTER_DENOISE_FFT3D_CL"), _T("EXE_DATA"), gen_options(0));
+                auto fft3d = cl->build(fft_constants_str + fft3d_cl, gen_options(0).c_str());
                 if (!fft3d) {
                     log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to load or build RGY_FILTER_DENOISE_FFT3D_CL(fft3d)\n"));
                     return std::unique_ptr<RGYOpenCLProgram>();
@@ -374,7 +439,7 @@ RGY_ERR RGYFilterDenoiseFFT3D::init(shared_ptr<RGYFilterParam> pParam, shared_pt
                     }
                     if (setSubGroupSize) {
                         log->write(RGY_LOG_DEBUG, RGY_LOGT_VPP, _T("Use sub group opt: subGroupSize=%d.\n"), subGroupSize);
-                        fft3d = cl->buildResource(_T("RGY_FILTER_DENOISE_FFT3D_CL"), _T("EXE_DATA"), gen_options((int)subGroupSize));
+                        fft3d = cl->build(fft_constants_str + fft3d_cl, gen_options((int)subGroupSize).c_str());
                         if (!fft3d) {
                             return std::unique_ptr<RGYOpenCLProgram>();
                         }
