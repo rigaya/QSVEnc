@@ -127,7 +127,7 @@ RGY_ERR RGYFilterDenoiseFFT3D::denoiseTFFTFilterIFFT(RGYFrameInfo *pOutputFrame,
     }
     const char *kernel_name = "kernel_tfft_filter_ifft";
     const int denoiseBlockSizeX = getDenoiseBlockSizeX(prm->fft3d.block_size);
-    const float sigma = prm->fft3d.sigma / (float)((1 << 8) - 1);
+    const float sigma = prm->fft3d.sigma / (float)((1 << 8) - 1); // sigmaは8bit基準なので 0 - 1 に変換する
     const float limit = 1.0f - prm->fft3d.amount;
     {
         const auto block_count = getBlockCount(prm->frameOut.width, prm->frameOut.height, prm->fft3d.block_size, m_ov1, m_ov2);
@@ -290,8 +290,8 @@ RGY_ERR RGYFilterDenoiseFFT3D::checkParam(const RGYFilterParamDenoiseFFT3D *prm)
         AddMessage(RGY_LOG_ERROR, _T("Invalid block_size %d: MAX_BLOCK = %d.\n"), prm->fft3d.block_size, MAX_BLOCK);
         return RGY_ERR_INVALID_PARAM;
     }
-    if (prm->fft3d.overlap < 0.0f || 0.8f < prm->fft3d.overlap) {
-        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter, overlap must be 0 - 0.8.\n"));
+    if (prm->fft3d.overlap < 0.2f || 0.8f < prm->fft3d.overlap) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter, overlap must be 0.2 - 0.8.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
     if (prm->fft3d.overlap2 < 0.0f || 0.8f < prm->fft3d.overlap2) {
