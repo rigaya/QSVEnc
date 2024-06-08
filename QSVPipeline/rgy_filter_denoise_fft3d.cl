@@ -27,211 +27,6 @@ __constant TypeComplex FW_BLOCK_K_Nfalse[]
 __constant TypeComplex FW_TEMPORAL3[2][5]
 */
 
-#if 0
-__constant int bitreverse_BLOCK_SIZE[BLOCK_SIZE] = {
-    0,
-    16,
-    8,
-    24,
-    4,
-    20,
-    12,
-    28,
-    2,
-    18,
-    10,
-    26,
-    6,
-    22,
-    14,
-    30,
-    1,
-    17,
-    9,
-    25,
-    5,
-    21,
-    13,
-    29,
-    3,
-    19,
-    11,
-    27,
-    7,
-    23,
-    15,
-    31,
-};
-
-__constant TypeComplex FW_BLOCK_K_2true[] = {
-    (TypeComplex)(1.00000000f, 0.00000000f)
-};
-
-__constant TypeComplex FW_BLOCK_K_4true[] = {
-    (TypeComplex)(1.00000000f, 0.00000000f),
-    (TypeComplex)(-0.00000004f, 1.00000000f)
-};
-
-__constant TypeComplex FW_BLOCK_K_8true[] = {
-    (TypeComplex)(1.00000000f, 0.00000000f),
-    (TypeComplex)(0.70710677f, 0.70710677f),
-    (TypeComplex)(-0.00000004f, 1.00000000f),
-    (TypeComplex)(-0.70710677f, 0.70710677f)
-};
-
-__constant TypeComplex FW_BLOCK_K_16true[] = {
-    (TypeComplex)(1.00000000f, 0.00000000f),
-    (TypeComplex)(0.92387950f, 0.38268346f),
-    (TypeComplex)(0.70710677f, 0.70710677f),
-    (TypeComplex)(0.38268343f, 0.92387950f),
-    (TypeComplex)(-0.00000004f, 1.00000000f),
-    (TypeComplex)(-0.38268352f, 0.92387950f),
-    (TypeComplex)(-0.70710677f, 0.70710677f),
-    (TypeComplex)(-0.92387962f, 0.38268328f)
-};
-
-__constant TypeComplex FW_BLOCK_K_32true[] = {
-    (TypeComplex)(1.00000000f, 0.00000000f),
-    (TypeComplex)(0.98078525f, 0.19509032f),
-    (TypeComplex)(0.92387950f, 0.38268346f),
-    (TypeComplex)(0.83146960f, 0.55557024f),
-    (TypeComplex)(0.70710677f, 0.70710677f),
-    (TypeComplex)(0.55557019f, 0.83146966f),
-    (TypeComplex)(0.38268343f, 0.92387950f),
-    (TypeComplex)(0.19509023f, 0.98078531f),
-    (TypeComplex)(-0.00000004f, 1.00000000f),
-    (TypeComplex)(-0.19509032f, 0.98078525f),
-    (TypeComplex)(-0.38268352f, 0.92387950f),
-    (TypeComplex)(-0.55557036f, 0.83146954f),
-    (TypeComplex)(-0.70710677f, 0.70710677f),
-    (TypeComplex)(-0.83146966f, 0.55557019f),
-    (TypeComplex)(-0.92387962f, 0.38268328f),
-    (TypeComplex)(-0.98078531f, 0.19509031f)
-};
-
-__constant TypeComplex FW_BLOCK_K_64true[] = {
-    (TypeComplex)(1.00000000f, 0.00000000f),
-    (TypeComplex)(0.99518472f, 0.09801714f),
-    (TypeComplex)(0.98078525f, 0.19509032f),
-    (TypeComplex)(0.95694035f, 0.29028466f),
-    (TypeComplex)(0.92387950f, 0.38268346f),
-    (TypeComplex)(0.88192123f, 0.47139674f),
-    (TypeComplex)(0.83146960f, 0.55557024f),
-    (TypeComplex)(0.77301043f, 0.63439333f),
-    (TypeComplex)(0.70710677f, 0.70710677f),
-    (TypeComplex)(0.63439327f, 0.77301043f),
-    (TypeComplex)(0.55557019f, 0.83146966f),
-    (TypeComplex)(0.47139665f, 0.88192129f),
-    (TypeComplex)(0.38268343f, 0.92387950f),
-    (TypeComplex)(0.29028463f, 0.95694035f),
-    (TypeComplex)(0.19509023f, 0.98078531f),
-    (TypeComplex)(0.09801713f, 0.99518472f),
-    (TypeComplex)(-0.00000004f, 1.00000000f),
-    (TypeComplex)(-0.09801722f, 0.99518472f),
-    (TypeComplex)(-0.19509032f, 0.98078525f),
-    (TypeComplex)(-0.29028472f, 0.95694029f),
-    (TypeComplex)(-0.38268352f, 0.92387950f),
-    (TypeComplex)(-0.47139683f, 0.88192123f),
-    (TypeComplex)(-0.55557036f, 0.83146954f),
-    (TypeComplex)(-0.63439327f, 0.77301049f),
-    (TypeComplex)(-0.70710677f, 0.70710677f),
-    (TypeComplex)(-0.77301049f, 0.63439327f),
-    (TypeComplex)(-0.83146966f, 0.55557019f),
-    (TypeComplex)(-0.88192135f, 0.47139663f),
-    (TypeComplex)(-0.92387962f, 0.38268328f),
-    (TypeComplex)(-0.95694035f, 0.29028472f),
-    (TypeComplex)(-0.98078531f, 0.19509031f),
-    (TypeComplex)(-0.99518472f, 0.09801710f)
-};
-
-__constant TypeComplex FW_BLOCK_K_2false[] = {
-    (TypeComplex)(1.00000000f, -0.00000000f)
-};
-
-__constant TypeComplex FW_BLOCK_K_4false[] = {
-    (TypeComplex)(1.00000000f, -0.00000000f),
-    (TypeComplex)(-0.00000004f, -1.00000000f)
-};
-
-__constant TypeComplex FW_BLOCK_K_8false[] = {
-    (TypeComplex)(1.00000000f, -0.00000000f),
-    (TypeComplex)(0.70710677f, -0.70710677f),
-    (TypeComplex)(-0.00000004f, -1.00000000f),
-    (TypeComplex)(-0.70710677f, -0.70710677f)
-};
-
-__constant TypeComplex FW_BLOCK_K_16false[] = {
-    (TypeComplex)(1.00000000f, -0.00000000f),
-    (TypeComplex)(0.92387950f, -0.38268346f),
-    (TypeComplex)(0.70710677f, -0.70710677f),
-    (TypeComplex)(0.38268343f, -0.92387950f),
-    (TypeComplex)(-0.00000004f, -1.00000000f),
-    (TypeComplex)(-0.38268352f, -0.92387950f),
-    (TypeComplex)(-0.70710677f, -0.70710677f),
-    (TypeComplex)(-0.92387962f, -0.38268328f)
-};
-
-__constant TypeComplex FW_BLOCK_K_32false[] = {
-    (TypeComplex)(1.00000000f, -0.00000000f),
-    (TypeComplex)(0.98078525f, -0.19509032f),
-    (TypeComplex)(0.92387950f, -0.38268346f),
-    (TypeComplex)(0.83146960f, -0.55557024f),
-    (TypeComplex)(0.70710677f, -0.70710677f),
-    (TypeComplex)(0.55557019f, -0.83146966f),
-    (TypeComplex)(0.38268343f, -0.92387950f),
-    (TypeComplex)(0.19509023f, -0.98078531f),
-    (TypeComplex)(-0.00000004f, -1.00000000f),
-    (TypeComplex)(-0.19509032f, -0.98078525f),
-    (TypeComplex)(-0.38268352f, -0.92387950f),
-    (TypeComplex)(-0.55557036f, -0.83146954f),
-    (TypeComplex)(-0.70710677f, -0.70710677f),
-    (TypeComplex)(-0.83146966f, -0.55557019f),
-    (TypeComplex)(-0.92387962f, -0.38268328f),
-    (TypeComplex)(-0.98078531f, -0.19509031f)
-};
-
-__constant TypeComplex FW_BLOCK_K_64false[] = {
-    (TypeComplex)(1.00000000f, -0.00000000f),
-    (TypeComplex)(0.99518472f, -0.09801714f),
-    (TypeComplex)(0.98078525f, -0.19509032f),
-    (TypeComplex)(0.95694035f, -0.29028466f),
-    (TypeComplex)(0.92387950f, -0.38268346f),
-    (TypeComplex)(0.88192123f, -0.47139674f),
-    (TypeComplex)(0.83146960f, -0.55557024f),
-    (TypeComplex)(0.77301043f, -0.63439333f),
-    (TypeComplex)(0.70710677f, -0.70710677f),
-    (TypeComplex)(0.63439327f, -0.77301043f),
-    (TypeComplex)(0.55557019f, -0.83146966f),
-    (TypeComplex)(0.47139665f, -0.88192129f),
-    (TypeComplex)(0.38268343f, -0.92387950f),
-    (TypeComplex)(0.29028463f, -0.95694035f),
-    (TypeComplex)(0.19509023f, -0.98078531f),
-    (TypeComplex)(0.09801713f, -0.99518472f),
-    (TypeComplex)(-0.00000004f, -1.00000000f),
-    (TypeComplex)(-0.09801722f, -0.99518472f),
-    (TypeComplex)(-0.19509032f, -0.98078525f),
-    (TypeComplex)(-0.29028472f, -0.95694029f),
-    (TypeComplex)(-0.38268352f, -0.92387950f),
-    (TypeComplex)(-0.47139683f, -0.88192123f),
-    (TypeComplex)(-0.55557036f, -0.83146954f),
-    (TypeComplex)(-0.63439327f, -0.77301049f),
-    (TypeComplex)(-0.70710677f, -0.70710677f),
-    (TypeComplex)(-0.77301049f, -0.63439327f),
-    (TypeComplex)(-0.83146966f, -0.55557019f),
-    (TypeComplex)(-0.88192135f, -0.47139663f),
-    (TypeComplex)(-0.92387962f, -0.38268328f),
-    (TypeComplex)(-0.95694035f, -0.29028472f),
-    (TypeComplex)(-0.98078531f, -0.19509031f),
-    (TypeComplex)(-0.99518472f, -0.09801710f)
-};
-
-__constant TypeComplex FW_TEMPORAL3[2][5] = {
-  { (TypeComplex)(1.00000000f, 0.00000000f),(TypeComplex)(-0.50000006f, 0.86602539f),(TypeComplex)(-0.49999991f, -0.86602545f),(TypeComplex)(1.00000000f, 0.00000017f),(TypeComplex)(-0.50000018f, 0.86602527f) },
-  { (TypeComplex)(1.00000000f, -0.00000000f),(TypeComplex)(-0.50000006f, -0.86602539f),(TypeComplex)(-0.49999991f, 0.86602545f),(TypeComplex)(1.00000000f, -0.00000017f),(TypeComplex)(-0.50000018f, -0.86602527f) }
-};
-#endif
-
-
 const __global char *selectptr(const __global char *ptr0, const __global char *ptr1, const int idx) {
     if (idx == 1) return ptr1;
     return ptr0;
@@ -254,10 +49,7 @@ int wrap_idx(const int idx, const int min, const int max) {
 TypeComplex cmul(const TypeComplex a, const TypeComplex b) {
 //    result.v.x = (a.x * b.x) - (a.y * b.y);
 //    result.v.y = (a.x * b.y) + (a.y * b.x);
-    TypeComplex a_x  = (TypeComplex)a.x;
-    TypeComplex a_y  = (TypeComplex)a.y;
-    TypeComplex b_yx = (TypeComplex)(-b.y, b.x);
-    return a_x * b + a_y * b_yx;
+    return a.xx * b + a.yy * b.yx * (TypeComplex)(-1.0f, 1.0f);
 }
 
 float csquare(const TypeComplex a) {
@@ -266,11 +58,10 @@ float csquare(const TypeComplex a) {
     return ax * ax + ay * ay;
 }
 
-
-const TypeComplex fw(const bool forward, const int k, const int N) { \
-    const float theta = ((forward) ? -2.0f : +2.0f) * FFT_M_PI * k / (float)N; \
-    return (TypeComplex)(cos(theta), sin(theta)); \
-}
+//const TypeComplex fw(const bool forward, const int k, const int N) { \
+//    const float theta = ((forward) ? -2.0f : +2.0f) * FFT_M_PI * k / (float)N; \
+//    return (TypeComplex)(cos(theta), sin(theta)); \
+//}
 
 #define FW_N_FORWARD(N, forward) \
     const TypeComplex fw##N##forward(const int k) { \
@@ -591,6 +382,7 @@ __kernel void kernel_tfft_filter_ifft(
                 (const __global TypeComplex *)(ptrSrcD + src_idx),
                 sigma, limit);
 #else
+            // デバッグ用
             const __global TypeComplex *ptr_src_a = (const __global TypeComplex *)(ptrSrcA + src_idx);
             stmp[local_bx][y][thWorker] = ptr_src_a[0];
 #endif
