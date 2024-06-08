@@ -426,20 +426,16 @@ RGY_ERR RGYFilterDenoiseFFT3D::init(shared_ptr<RGYFilterParam> pParam, shared_pt
                     auto block_count = getBlockCount(prm->frameOut.width, prm->frameOut.height, prm->fft3d.block_size, ov1, ov2);
                     RGYWorkSize local(prm->fft3d.block_size, getDenoiseBlockSizeX(prm->fft3d.block_size));
                     RGYWorkSize global(divCeil(block_count.first, getDenoiseBlockSizeX(prm->fft3d.block_size)) * local(0), block_count.second * local(1), 1);
-                    const auto subGroupSize = fft3d->kernel("kernel_fft").config(cl->queue(), local, global).subGroupSize();
-                    bool setSubGroupSize = (subGroupSize > 0);
-                    if (subGroupSize == 0) {
-                        if (setSubGroupSize) {
-                            log->write(RGY_LOG_WARN, RGY_LOGT_VPP, _T("Could not get subGroupSize for kernel, sub group opt disabled.\n"));
-                            setSubGroupSize = false;
-                        }
-                    } else if ((subGroupSize & (subGroupSize - 1)) != 0) {
-                        log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("subGroupSize(%d) is not pow2!\n"), subGroupSize);
-                        return std::unique_ptr<RGYOpenCLProgram>();
+                    const auto subGroupSizeFFT = fft3d->kernel("kernel_fft").config(cl->queue(), local, global).subGroupSize();
+                    const auto subGroupSizeIFFT = fft3d->kernel("kernel_tfft_filter_ifft").config(cl->queue(), local, global).subGroupSize();
+                    bool setSubGroupSize = (subGroupSizeFFT > 0 && subGroupSizeFFT == subGroupSizeIFFT);
+                    if ((subGroupSizeFFT & (subGroupSizeFFT - 1)) != 0) {
+                        log->write(RGY_LOG_DEBUG, RGY_LOGT_VPP, _T("subGroupSize(%d) is not pow2, sub group opt disabled!\n"), subGroupSizeFFT);
+                        setSubGroupSize = false;
                     }
                     if (setSubGroupSize) {
-                        log->write(RGY_LOG_DEBUG, RGY_LOGT_VPP, _T("Use sub group opt: subGroupSize=%d.\n"), subGroupSize);
-                        fft3d = cl->build(fft_constants_str + fft3d_cl, gen_options((int)subGroupSize).c_str());
+                        log->write(RGY_LOG_DEBUG, RGY_LOGT_VPP, _T("Use sub group opt: subGroupSize=%d.\n"), subGroupSizeFFT);
+                        fft3d = cl->build(fft_constants_str + fft3d_cl, gen_options((int)subGroupSizeFFT).c_str());
                         if (!fft3d) {
                             return std::unique_ptr<RGYOpenCLProgram>();
                         }

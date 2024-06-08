@@ -123,6 +123,7 @@ FFT_CALC1(64, false)
         for (int i = 0; i < N; i++) { \
             work[i] = data[i * step]; \
         } \
+        BLOCK_SYNC; \
         for (int i = 0; i < N; i++) { \
             data[i * step] = work[bitreverse_BLOCK_SIZE[i]]; \
         } \
