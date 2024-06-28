@@ -302,7 +302,7 @@ API v1.16 … Intel Media SDK 2015 Update 2.1
 API v1.15 … Intel Media SDK 2015 Update 2
 API v1.13 … Intel Media SDK 2015 Update 1
 API v1.11 … Intel Media SDK 2015
-API v1.9  … Intel Media SDK 2014 R2 for Client
+API v1.9  … Intel Media SDK 2014 R2 for Client 44
 API v1.8  … Intel Media SDK 2014
 API v1.7  … Intel Media SDK 2013 R2
 API v1.6  … Intel Media SDK 2013
@@ -313,6 +313,14 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2024.06.29 (7.67)
+[QSVEncC]
+- RGBなaviファイルからエンコードすると、フレームの上下が入れ替わってしまうことがある問題を修正。
+
+[QSVEnc.auo]
+- Nsyw様に提供いただき、中国語翻訳を更新。
+- 拡張編集使用時に映像と音声の長さが異なる場合には、警告を出して一時中断し、処理を継続するか判断してもらうよう変更。
+
 2024.06.08 (7.66)
 - 新たなノイズ除去フィルタを追加。(--vpp-fft3d)
 
