@@ -735,18 +735,18 @@ private: System::Windows::Forms::Label^  fcgLBMP4RawPath;
 
 
 
-private: System::Windows::Forms::TabPage^  fcgtabPageMPG;
-private: System::Windows::Forms::Button^  fcgBTMPGMuxerPath;
-
-private: System::Windows::Forms::TextBox^  fcgTXMPGMuxerPath;
-
-private: System::Windows::Forms::Label^  fcgLBMPGMuxerPath;
-
-private: System::Windows::Forms::ComboBox^  fcgCXMPGCmdEx;
-private: System::Windows::Forms::Label^  fcgLBMPGMuxerCmdEx;
 
 
-private: System::Windows::Forms::CheckBox^  fcgCBMPGMuxerExt;
+
+
+
+
+
+
+
+
+
+
 
 private: System::Windows::Forms::ContextMenuStrip^  fcgCSExeFiles;
 private: System::Windows::Forms::ToolStripMenuItem^  fcgTSExeFileshelp;
@@ -1482,13 +1482,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXVppDenoiseFFT3DPrecision;
             this->fcgCXMKVCmdEx = (gcnew System::Windows::Forms::ComboBox());
             this->fcgLBMKVMuxerCmdEx = (gcnew System::Windows::Forms::Label());
             this->fcgCBMKVMuxerExt = (gcnew System::Windows::Forms::CheckBox());
-            this->fcgtabPageMPG = (gcnew System::Windows::Forms::TabPage());
-            this->fcgBTMPGMuxerPath = (gcnew System::Windows::Forms::Button());
-            this->fcgTXMPGMuxerPath = (gcnew System::Windows::Forms::TextBox());
-            this->fcgLBMPGMuxerPath = (gcnew System::Windows::Forms::Label());
-            this->fcgCXMPGCmdEx = (gcnew System::Windows::Forms::ComboBox());
-            this->fcgLBMPGMuxerCmdEx = (gcnew System::Windows::Forms::Label());
-            this->fcgCBMPGMuxerExt = (gcnew System::Windows::Forms::CheckBox());
             this->fcgtabPageMux = (gcnew System::Windows::Forms::TabPage());
             this->fcgCBMuxMinimize = (gcnew System::Windows::Forms::CheckBox());
             this->fcgCXMuxPriority = (gcnew System::Windows::Forms::ComboBox());
@@ -1917,7 +1910,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXVppDenoiseFFT3DPrecision;
             this->fcgtabControlMux->SuspendLayout();
             this->fcgtabPageMP4->SuspendLayout();
             this->fcgtabPageMKV->SuspendLayout();
-            this->fcgtabPageMPG->SuspendLayout();
             this->fcgtabPageMux->SuspendLayout();
             this->fcgtabPageBat->SuspendLayout();
             this->fcgtabPageInternal->SuspendLayout();
@@ -2174,7 +2166,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXVppDenoiseFFT3DPrecision;
             // 
             this->fcgtabControlMux->Controls->Add(this->fcgtabPageMP4);
             this->fcgtabControlMux->Controls->Add(this->fcgtabPageMKV);
-            this->fcgtabControlMux->Controls->Add(this->fcgtabPageMPG);
             this->fcgtabControlMux->Controls->Add(this->fcgtabPageMux);
             this->fcgtabControlMux->Controls->Add(this->fcgtabPageBat);
             this->fcgtabControlMux->Controls->Add(this->fcgtabPageInternal);
@@ -2471,82 +2462,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXVppDenoiseFFT3DPrecision;
             this->fcgCBMKVMuxerExt->Tag = L"chValue";
             this->fcgCBMKVMuxerExt->Text = L"外部muxerを使用";
             this->fcgCBMKVMuxerExt->UseVisualStyleBackColor = true;
-            // 
-            // fcgtabPageMPG
-            // 
-            this->fcgtabPageMPG->Controls->Add(this->fcgBTMPGMuxerPath);
-            this->fcgtabPageMPG->Controls->Add(this->fcgTXMPGMuxerPath);
-            this->fcgtabPageMPG->Controls->Add(this->fcgLBMPGMuxerPath);
-            this->fcgtabPageMPG->Controls->Add(this->fcgCXMPGCmdEx);
-            this->fcgtabPageMPG->Controls->Add(this->fcgLBMPGMuxerCmdEx);
-            this->fcgtabPageMPG->Controls->Add(this->fcgCBMPGMuxerExt);
-            this->fcgtabPageMPG->Location = System::Drawing::Point(4, 23);
-            this->fcgtabPageMPG->Name = L"fcgtabPageMPG";
-            this->fcgtabPageMPG->Size = System::Drawing::Size(376, 189);
-            this->fcgtabPageMPG->TabIndex = 4;
-            this->fcgtabPageMPG->Text = L"mpg";
-            this->fcgtabPageMPG->UseVisualStyleBackColor = true;
-            // 
-            // fcgBTMPGMuxerPath
-            // 
-            this->fcgBTMPGMuxerPath->Location = System::Drawing::Point(341, 92);
-            this->fcgBTMPGMuxerPath->Name = L"fcgBTMPGMuxerPath";
-            this->fcgBTMPGMuxerPath->Size = System::Drawing::Size(30, 23);
-            this->fcgBTMPGMuxerPath->TabIndex = 23;
-            this->fcgBTMPGMuxerPath->Text = L"...";
-            this->fcgBTMPGMuxerPath->UseVisualStyleBackColor = true;
-            this->fcgBTMPGMuxerPath->Click += gcnew System::EventHandler(this, &frmConfig::fcgBTMPGMuxerPath_Click);
-            // 
-            // fcgTXMPGMuxerPath
-            // 
-            this->fcgTXMPGMuxerPath->Location = System::Drawing::Point(132, 93);
-            this->fcgTXMPGMuxerPath->Name = L"fcgTXMPGMuxerPath";
-            this->fcgTXMPGMuxerPath->Size = System::Drawing::Size(207, 21);
-            this->fcgTXMPGMuxerPath->TabIndex = 22;
-            this->fcgTXMPGMuxerPath->TextChanged += gcnew System::EventHandler(this, &frmConfig::fcgTXMPGMuxerPath_TextChanged);
-            this->fcgTXMPGMuxerPath->DragDrop += gcnew System::Windows::Forms::DragEventHandler(this, &frmConfig::fcgSetDragDropFilename_DragDrop);
-            this->fcgTXMPGMuxerPath->DragEnter += gcnew System::Windows::Forms::DragEventHandler(this, &frmConfig::fcgSetDragDropFilename_Enter);
-            this->fcgTXMPGMuxerPath->Enter += gcnew System::EventHandler(this, &frmConfig::fcgTXMPGMuxerPath_Enter);
-            this->fcgTXMPGMuxerPath->Leave += gcnew System::EventHandler(this, &frmConfig::fcgTXMPGMuxerPath_Leave);
-            // 
-            // fcgLBMPGMuxerPath
-            // 
-            this->fcgLBMPGMuxerPath->AutoSize = true;
-            this->fcgLBMPGMuxerPath->Location = System::Drawing::Point(5, 96);
-            this->fcgLBMPGMuxerPath->Name = L"fcgLBMPGMuxerPath";
-            this->fcgLBMPGMuxerPath->Size = System::Drawing::Size(49, 14);
-            this->fcgLBMPGMuxerPath->TabIndex = 25;
-            this->fcgLBMPGMuxerPath->Text = L"～の指定";
-            // 
-            // fcgCXMPGCmdEx
-            // 
-            this->fcgCXMPGCmdEx->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-            this->fcgCXMPGCmdEx->FormattingEnabled = true;
-            this->fcgCXMPGCmdEx->Location = System::Drawing::Point(214, 59);
-            this->fcgCXMPGCmdEx->Name = L"fcgCXMPGCmdEx";
-            this->fcgCXMPGCmdEx->Size = System::Drawing::Size(157, 22);
-            this->fcgCXMPGCmdEx->TabIndex = 21;
-            this->fcgCXMPGCmdEx->Tag = L"chValue";
-            // 
-            // fcgLBMPGMuxerCmdEx
-            // 
-            this->fcgLBMPGMuxerCmdEx->AutoSize = true;
-            this->fcgLBMPGMuxerCmdEx->Location = System::Drawing::Point(140, 62);
-            this->fcgLBMPGMuxerCmdEx->Name = L"fcgLBMPGMuxerCmdEx";
-            this->fcgLBMPGMuxerCmdEx->Size = System::Drawing::Size(68, 14);
-            this->fcgLBMPGMuxerCmdEx->TabIndex = 24;
-            this->fcgLBMPGMuxerCmdEx->Text = L"拡張オプション";
-            // 
-            // fcgCBMPGMuxerExt
-            // 
-            this->fcgCBMPGMuxerExt->AutoSize = true;
-            this->fcgCBMPGMuxerExt->Location = System::Drawing::Point(11, 61);
-            this->fcgCBMPGMuxerExt->Name = L"fcgCBMPGMuxerExt";
-            this->fcgCBMPGMuxerExt->Size = System::Drawing::Size(113, 18);
-            this->fcgCBMPGMuxerExt->TabIndex = 20;
-            this->fcgCBMPGMuxerExt->Tag = L"chValue";
-            this->fcgCBMPGMuxerExt->Text = L"外部muxerを使用";
-            this->fcgCBMPGMuxerExt->UseVisualStyleBackColor = true;
             // 
             // fcgtabPageMux
             // 
@@ -7177,8 +7092,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXVppDenoiseFFT3DPrecision;
             this->fcgtabPageMP4->PerformLayout();
             this->fcgtabPageMKV->ResumeLayout(false);
             this->fcgtabPageMKV->PerformLayout();
-            this->fcgtabPageMPG->ResumeLayout(false);
-            this->fcgtabPageMPG->PerformLayout();
             this->fcgtabPageMux->ResumeLayout(false);
             this->fcgtabPageMux->PerformLayout();
             this->fcgtabPageBat->ResumeLayout(false);
@@ -7374,9 +7287,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXVppDenoiseFFT3DPrecision;
         String^ lastQualityStr;
         SaveFileDialog^ saveFileQSVFeautures;
         QSVFeatures^ featuresHW;
-#ifdef HIDE_MPEG2
-        TabPage^ tabPageMpgMux;
-#endif
     private:
         System::Void CheckTheme();
         System::Void SetAllMouseMove(Control ^top, const AuoTheme themeTo);
@@ -7678,7 +7588,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXVppDenoiseFFT3DPrecision;
             fcgTXTC2MP4Path_Enter(nullptr, nullptr);
             fcgTXMP4RawPath_Enter(nullptr, nullptr);
             fcgTXMKVMuxerPath_Enter(nullptr, nullptr);
-            fcgTXMPGMuxerPath_Enter(nullptr, nullptr);
         }
     private:
         System::Void frmConfig::ExeTXPathLeave() {
@@ -7688,7 +7597,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXVppDenoiseFFT3DPrecision;
             fcgTXTC2MP4Path_Leave(nullptr, nullptr);
             fcgTXMP4RawPath_Leave(nullptr, nullptr);
             fcgTXMKVMuxerPath_Leave(nullptr, nullptr);
-            fcgTXMPGMuxerPath_Leave(nullptr, nullptr);
         }
     private:
         System::Void fcgBTVideoEncoderPath_Click(System::Object^  sender, System::EventArgs^  e) {
@@ -7767,18 +7675,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXVppDenoiseFFT3DPrecision;
             }
         }
     private:
-        System::Void fcgTXMPGMuxerPath_Enter(System::Object^  sender, System::EventArgs^  e) {
-            if (fcgTXMPGMuxerPath->Text == LOAD_CLI_STRING(AUO_CONFIG_CX_USE_DEFAULT_EXE_PATH)) {
-                fcgTXMPGMuxerPath->Text = L"";
-            }
-        }
-    private:
-        System::Void fcgTXMPGMuxerPath_Leave(System::Object^  sender, System::EventArgs^  e) {
-            if (fcgTXMPGMuxerPath->Text->Length == 0) {
-                fcgTXMPGMuxerPath->Text = LOAD_CLI_STRING(AUO_CONFIG_CX_USE_DEFAULT_EXE_PATH);
-            }
-        }
-    private:
         System::Void fcgBTMP4MuxerPath_Click(System::Object^  sender, System::EventArgs^  e) {
             openExeFile(fcgTXMP4MuxerPath, LocalStg.MP4MuxerExeName);
         }
@@ -7798,10 +7694,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXVppDenoiseFFT3DPrecision;
     private:
         System::Void fcgBTMKVMuxerPath_Click(System::Object^  sender, System::EventArgs^  e) {
             openExeFile(fcgTXMKVMuxerPath, LocalStg.MKVMuxerExeName);
-        }
-    private:
-        System::Void fcgBTMPGMuxerPath_Click(System::Object^  sender, System::EventArgs^  e) {
-            openExeFile(fcgTXMPGMuxerPath, LocalStg.MPGMuxerExeName);
         }
     private:
         System::Void openTempFolder(TextBox^ TX) {
@@ -8049,17 +7941,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXVppDenoiseFFT3DPrecision;
             }
         }
     private:
-        System::Void fcgTXMPGMuxerPath_TextChanged(System::Object^  sender, System::EventArgs^  e) {
-            if (fcgTXMPGMuxerPath->Text == LOAD_CLI_STRING(AUO_CONFIG_CX_USE_DEFAULT_EXE_PATH)) {
-                LocalStg.MPGMuxerPath = L"";
-                fcgTXMPGMuxerPath->ForeColor = getTextBoxForeColor(themeMode, dwStgReader, DarkenWindowState::Disabled);
-            } else {
-                fcgTXMPGMuxerPath->ForeColor = getTextBoxForeColor(themeMode, dwStgReader, DarkenWindowState::Normal);
-                LocalStg.MPGMuxerPath = fcgTXMPGMuxerPath->Text;
-                fcgBTMPGMuxerPath->ContextMenuStrip = (File::Exists(fcgTXMPGMuxerPath->Text)) ? fcgCSExeFiles : nullptr;
-            }
-        }
-    private:
         System::Void fcgTXMP4BoxTempDir_TextChanged(System::Object^  sender, System::EventArgs^  e) {
             LocalStg.CustomMP4TmpDir = fcgTXMP4BoxTempDir->Text;
         }
@@ -8101,7 +7982,6 @@ private: System::Windows::Forms::ComboBox^  fcgCXVppDenoiseFFT3DPrecision;
                 { fcgBTTC2MP4Path->Name,         fcgTXTC2MP4Path->Text,         sys_dat->exstg->s_mux[MUXER_TC2MP4].help_cmd },
                 { fcgBTMP4RawPath->Name,         fcgTXMP4RawPath->Text,         sys_dat->exstg->s_mux[MUXER_MP4_RAW].help_cmd },
                 { fcgBTMKVMuxerPath->Name,       fcgTXMKVMuxerPath->Text,       sys_dat->exstg->s_mux[MUXER_MKV].help_cmd },
-                { fcgBTMPGMuxerPath->Name,       fcgTXMPGMuxerPath->Text,       sys_dat->exstg->s_mux[MUXER_MPG].help_cmd }
             };
             for (int i = 0; i < ControlList->Length; i++) {
                 if (NULL == String::Compare(CS->SourceControl->Name, ControlList[i].Name)) {

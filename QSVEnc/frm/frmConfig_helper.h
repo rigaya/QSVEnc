@@ -38,8 +38,6 @@ using namespace System::Collections::Generic;
 #include "qsv_query.h"
 #include "mfxstructures.h"
 
-#define HIDE_MPEG2
-
 static const WCHAR *use_default_exe_path = L"exe_files内の実行ファイルを自動選択";
 
 const int fcgTBQualityTimerLatency = 600;
@@ -214,9 +212,6 @@ static const ENC_OPTION_STR2 list_rotate_angle_ja[] = {
 static const ENC_OPTION_STR2 list_out_enc_codec[] = {
     { AUO_MES_UNKNOWN, L"H.264 / AVC",  RGY_CODEC_H264  },
     { AUO_MES_UNKNOWN, L"H.265 / HEVC", RGY_CODEC_HEVC },
-#ifndef HIDE_MPEG2
-    { AUO_MES_UNKNOWN, L"MPEG2", RGY_CODEC_MPEG2 },
-#endif
     //{ AUO_MES_UNKNOWN,"VC-1", RGY_CODEC_VC1 },
     { AUO_MES_UNKNOWN, L"VP9", RGY_CODEC_VP9 },
     { AUO_MES_UNKNOWN, L"AV1", RGY_CODEC_AV1 },
@@ -286,8 +281,6 @@ namespace QSVEnc {
         String^ MKVMuxerPath;
         String^ TC2MP4ExeName;
         String^ TC2MP4Path;
-        String^ MPGMuxerExeName;
-        String^ MPGMuxerPath;
         String^ MP4RawExeName;
         String^ MP4RawPath;
         String^ CustomTmpDir;
