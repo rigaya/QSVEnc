@@ -26,4 +26,4 @@ if not exist oneVPL.sln (
     ..\..\..\oneVPL
 )
 cd ..\..\..
-MSBuild "buildOneVPL\%1\%2\dispatcher\VPL.vcxproj" /property:WindowsTargetPlatformVersion=10.0;PlatformToolset=%~3;Configuration="%2";Platform=%1;WholeProgramOptimization=true;ConfigurationType=StaticLibrary;ForceImportBeforeCppTargets="BuildVPL.props" /p:BuildProjectReferences=true /p:SpectreMitigation=false
+MSBuild "buildOneVPL\%1\%2\libvpl\VPL.vcxproj" /property:WindowsTargetPlatformVersion=10.0;PlatformToolset=%~3;Configuration="%2";Platform=%1;WholeProgramOptimization=true;ConfigurationType=StaticLibrary;ForceImportBeforeCppTargets="BuildVPL.props" /p:BuildProjectReferences=true /p:SpectreMitigation=false

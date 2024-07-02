@@ -669,7 +669,7 @@ const CX_DESC list_hyper_mode[] = {
 };
 
 const CX_DESC list_enc_tune_quality_mode[] = {
-    { _T("default"),    MFX_ENCODE_TUNE_DEFAULT    },
+    { _T("default"),    MFX_ENCODE_TUNE_OFF        },
     { _T("psnr"),       MFX_ENCODE_TUNE_PSNR       },
     { _T("ssim"),       MFX_ENCODE_TUNE_SSIM       },
     { _T("ms_ssim"),    MFX_ENCODE_TUNE_MS_SSIM    },

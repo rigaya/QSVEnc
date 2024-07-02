@@ -705,9 +705,9 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         print_feature_warnings(RGY_LOG_WARN, _T("ExtBRC"));
         pInParams->extBRC.reset();
     }
-    if (pInParams->tuneQuality != MFX_ENCODE_TUNE_DEFAULT && !(availableFeaures & ENC_FEATURE_TUNE_ENCODE_QUALITY)) {
+    if (pInParams->tuneQuality != MFX_ENCODE_TUNE_OFF && !(availableFeaures & ENC_FEATURE_TUNE_ENCODE_QUALITY)) {
         print_feature_warnings(RGY_LOG_WARN, _T("Tune Quality"));
-        pInParams->tuneQuality = MFX_ENCODE_TUNE_DEFAULT;
+        pInParams->tuneQuality = MFX_ENCODE_TUNE_OFF;
     }
     if (pInParams->scenarioInfo != MFX_SCENARIO_UNKNOWN && !(availableFeaures & ENC_FEATURE_SCENARIO_INFO)) {
         print_feature_warnings(RGY_LOG_WARN, _T("Scenario Info"));
@@ -1198,7 +1198,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
 
 
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_9)
-        && pInParams->tuneQuality != MFX_ENCODE_TUNE_DEFAULT
+        && pInParams->tuneQuality != MFX_ENCODE_TUNE_OFF
         && (availableFeaures & ENC_FEATURE_EXT_TUNE_ENC_QUALITY)) {
         INIT_MFX_EXT_BUFFER(m_encParams.tuneEncQualityPrm, MFX_EXTBUFF_TUNE_ENCODE_QUALITY);
         m_encParams.tuneEncQualityPrm.TuneQuality = (decltype(m_encParams.tuneEncQualityPrm.TuneQuality))(pInParams->tuneQuality);
@@ -4633,7 +4633,7 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
             PRINT_INFO(_T("Scenario Info  %s\n"), get_cx_desc(list_scenario_info, outFrameInfo->cop3.ScenarioInfo));
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_9)
-            && outFrameInfo->tuneEncQualityPrm.TuneQuality != MFX_ENCODE_TUNE_DEFAULT
+            && outFrameInfo->tuneEncQualityPrm.TuneQuality != MFX_ENCODE_TUNE_OFF
             && get_cx_desc(list_enc_tune_quality_mode, outFrameInfo->tuneEncQualityPrm.TuneQuality) != nullptr) {
             PRINT_INFO(_T("Tune Quality   %s\n"), get_str_of_tune_bitmask(outFrameInfo->tuneEncQualityPrm.TuneQuality).c_str());
         }

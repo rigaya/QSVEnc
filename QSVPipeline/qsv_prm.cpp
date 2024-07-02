@@ -259,7 +259,7 @@ sInputParams::sInputParams() :
     nTrellis(0),
     nAsyncDepth(0),
     nLookaheadDS(),
-    tuneQuality(MFX_ENCODE_TUNE_DEFAULT),
+    tuneQuality(MFX_ENCODE_TUNE_OFF),
     scenarioInfo(MFX_SCENARIO_UNKNOWN),
     bDisableTimerPeriodTuning(false),
     intraRefreshCycle(0),
