@@ -3,7 +3,7 @@
 
 - [Windows 10](./Install.en.md#windows)
 - Linux
-  - [Linux (Ubuntu 20.04 - 22.04)](./Install.en.md#linux-ubuntu-2004---2204)
+  - [Linux (Ubuntu 20.04 - 24.04)](./Install.en.md#linux-ubuntu-2004---2404)
   - [Linux (Fedora 32)](./Install.en.md#linux-fedora-32)
   - Other Linux OS  
     For other Linux OS, building from source will be needed. Please check the [build instrcutions](./Build.en.md).
@@ -17,7 +17,7 @@ Windows binary can be found from [this link](https://github.com/rigaya/QSVEnc/re
 
 QSVEncC could be run directly from the extracted directory.
   
-## Linux (Ubuntu 20.04 - 22.04)
+## Linux (Ubuntu 20.04 - 24.04)
 
 ### 1. Install Intel Media driver  
 Intel media driver can be installed following instruction on [this link](https://dgpu-docs.intel.com/driver/client/overview.html).
@@ -31,6 +31,9 @@ sudo apt-get install -y gpg-agent wget
 Next, add Intel package repository.
 
 ```Shell
+# Ubuntu 24.04
+# This step can be skipped.
+
 # Ubuntu 22.04
 wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | sudo gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
 echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy client" | \
@@ -61,6 +64,9 @@ sudo gpasswd -a ${USER} render
 Download deb package from [this link](https://github.com/rigaya/QSVEnc/releases), and install running the following command line. Please note "x.xx" should be replaced to the target version name.
 
 ```Shell
+# Ubuntu 24.04
+sudo apt install ./qsvencc_x.xx_Ubuntu24.04_amd64.deb
+
 # Ubuntu 22.04
 sudo apt install ./qsvencc_x.xx_Ubuntu22.04_amd64.deb
 
