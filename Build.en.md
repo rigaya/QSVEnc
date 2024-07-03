@@ -3,8 +3,7 @@
 
 - [Windows](./Build.en.md#windows)
 - Linux
-  - [Linux (Ubuntu 22.04)](./Build.en.md#linux-ubuntu-2204)
-  - [Linux (Ubuntu 20.04)](./Build.en.md#linux-ubuntu-2004)
+  - [Linux (Ubuntu 20.04 - 22.04)](./Build.en.md#linux-ubuntu-2004---2204)
   - [Linux (Ubuntu 18.04)](./Build.en.md#linux-ubuntu-1804)
   - [Linux (Fedora 32)](./Build.en.md#linux-fedora-32)
   - [Intel Drivers for Linux](/Build.en.md#Intel-Drivers-for-Linux)
@@ -14,7 +13,7 @@
 ### 0. Requirements
 To build QSVEnc, components below are required.
 
-- Visual Studio 2019
+- Visual Studio 2022
 - [Avisynth](https://github.com/AviSynth/AviSynthPlus) SDK
 - [VapourSynth](http://www.vapoursynth.com/) SDK
 
@@ -44,7 +43,7 @@ setx OPENCL_HEADERS <path-to-clone>
 ```Batchfile
 git clone https://github.com/rigaya/QSVEnc --recursive
 cd QSVEnc
-curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20231123/ffmpeg_dlls_for_hwenc_20231123.7z
+curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20240511/ffmpeg_dlls_for_hwenc_20240511.7z
 7z x -offmpeg_lgpl -y ffmpeg_lgpl.7z
 ```
 
@@ -58,7 +57,7 @@ Finally, open QSVEnc.sln, and start build of QSVEnc by Visual Studio.
 |QSVEncC(64).exe | DebugStatic | RelStatic |
 
 
-## Linux (Ubuntu 22.04)
+## Linux (Ubuntu 20.04 - 22.04)
 
 ### 0. Requirements
 
@@ -68,7 +67,7 @@ Finally, open QSVEnc.sln, and start build of QSVEnc by Visual Studio.
 - cmake
 - libraries
   - libva, libdrm 
-  - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3, libavdevice58)
+  - ffmpeg 4.x - 7.x libs (libavcodec*, libavformat*, libavfilter*, libavutil*, libswresample*, libavdevice*)
   - libass9
   - [Optional] VapourSynth
 
@@ -79,16 +78,33 @@ sudo apt install build-essential libtool pkg-config git cmake
 ```
 
 ### 2. Install Intel driver
-OpenCL driver can be installed following instruction on [this link](https://dgpu-docs.intel.com/installation-guides/ubuntu/ubuntu-focal.html), but QSVEnc will require only part of it.
+Intel media driver can be installed following instruction on [this link](https://dgpu-docs.intel.com/driver/client/overview.html).
+
+First, install required tools.
 
 ```Shell
 sudo apt-get install -y gpg-agent wget
-wget -qO - https://repositories.intel.com/graphics/intel-graphics.key | \
-  sudo gpg --dearmor --output /usr/share/keyrings/intel-graphics.gpg
-echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/graphics/ubuntu jammy main' | \
-  sudo tee  /etc/apt/sources.list.d/intel.gpu.focal.list
+```
+
+Next, add Intel package repository.
+
+```Shell
+# Ubuntu 22.04
+wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | sudo gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
+echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy client" | \
+  sudo tee /etc/apt/sources.list.d/intel-gpu-jammy.list
+
+# Ubuntu 20.04
+wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | sudo gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
+echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/gpu/ubuntu focal client' | \
+  sudo tee /etc/apt/sources.list.d/intel-graphics.list
+```
+
+Then install Intel Media driver.
+
+```
 sudo apt update
-sudo apt install intel-media-va-driver-non-free intel-opencl-icd opencl-headers
+sudo apt install intel-media-va-driver-non-free intel-opencl-icd
 ```
 
 ### 3. Install required libraries
@@ -101,7 +117,8 @@ sudo apt install \
   libx11-dev \
   libigfxcmrt7 \
   libva-dev \
-  libdrm-dev
+  libdrm-dev \
+  opencl-headers
 
 sudo apt install ffmpeg \
   libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev libavdevice-dev \
@@ -243,197 +260,6 @@ You shall get results below if Quick Sync Video works properly.
 Success: QuickSyncVideo (hw encoding) available
 ```
 
-
-## Linux (Ubuntu 20.04)
-
-### 0. Requirements
-
-- C++17 Compiler
-- Intel Driver
-- git
-- cmake
-- libraries
-  - libva, libdrm 
-  - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3, libavdevice58)
-  - libass9
-  - [Optional] VapourSynth
-
-### 1. Install build tools
-
-```Shell
-sudo apt install build-essential libtool pkg-config git cmake
-```
-
-### 2. Install Intel driver
-OpenCL driver can be installed following instruction on [this link](https://dgpu-docs.intel.com/installation-guides/ubuntu/ubuntu-focal.html), but QSVEnc will require only part of it.
-
-```Shell
-sudo apt-get install -y gpg-agent wget
-wget -qO - https://repositories.intel.com/graphics/intel-graphics.key | \
-  sudo gpg --dearmor --output /usr/share/keyrings/intel-graphics.gpg
-echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/graphics/ubuntu focal-devel main' | \
-  sudo tee  /etc/apt/sources.list.d/intel.gpu.focal.list
-sudo apt update
-sudo apt install intel-media-va-driver-non-free intel-opencl-icd opencl-headers
-```
-
-### 3. Install required libraries
-
-```Shell
-sudo apt install \
-  libva-drm2 \
-  libva-x11-2 \
-  libva-glx2 \
-  libx11-dev \
-  libigfxcmrt7 \
-  libva-dev \
-  libdrm-dev
-
-sudo apt install ffmpeg \
-  libavcodec-extra libavcodec-dev libavutil-dev libavformat-dev libswresample-dev libavfilter-dev libavdevice-dev \
-  libass9 libass-dev
-```
-
-### 4. [Optional] Install VapourSynth
-VapourSynth is required only if you need VapourSynth(vpy) reader support.  
-
-Please go on to [5. Build QSVEncC] if you don't need vpy reader.
-
-<details><summary>How to build VapourSynth</summary>
-
-#### 4.1 Install build tools for VapourSynth
-```Shell
-sudo apt install python3-pip autoconf automake libtool meson
-```
-
-#### 4.2 Install zimg
-```Shell
-git clone https://github.com/sekrit-twc/zimg.git --recursive
-cd zimg
-./autogen.sh
-./configure
-make && sudo make install
-cd ..
-```
-
-#### 4.3 Install cython
-```Shell
-sudo pip3 install Cython
-```
-
-#### 4.4 Install VapourSynth
-```Shell
-git clone https://github.com/vapoursynth/vapoursynth.git
-cd vapoursynth
-./autogen.sh
-./configure
-make && sudo make install
-
-# Make sure vapoursynth could be imported from python
-# Change "python3.x" depending on your encironment
-sudo ln -s /usr/local/lib/python3.x/site-packages/vapoursynth.so /usr/lib/python3.x/lib-dynload/vapoursynth.so
-sudo ldconfig
-```
-
-#### 4.5 Check if VapourSynth has been installed properly
-Make sure you get version number without errors.
-```Shell
-vspipe --version
-```
-
-#### 4.6 [Option] Build vslsmashsource
-```Shell
-# Install lsmash
-git clone https://github.com/l-smash/l-smash.git
-cd l-smash
-./configure --enable-shared
-make && sudo make install
-cd ..
- 
-# Install vslsmashsource
-git clone https://github.com/HolyWu/L-SMASH-Works.git
-# As the latest version requires more recent ffmpeg libs, checkout the older version
-cd L-SMASH-Works
-git checkout -b 20200531 refs/tags/20200531
-cd Avisynth
-meson build
-cd build
-ninja && sudo ninja install
-cd ../../../
-```
-
-</details>
-
-
-### 5. [Optional] Install AvisynthPlus
-AvisynthPlus is required only if you need AvisynthPlus(avs) reader support.  
-
-Please go on to [7. Build QSVEncC] if you don't need avs reader.
-
-<details><summary>How to build AvisynthPlus</summary>
-
-#### 5.1 Install build tools for AvisynthPlus
-```Shell
-sudo apt install cmake
-```
-
-#### 5.2 Install AvisynthPlus
-```Shell
-git clone https://github.com/AviSynth/AviSynthPlus.git
-cd AviSynthPlus
-mkdir avisynth-build && cd avisynth-build 
-cmake ../
-make && sudo make install
-cd ../..
-```
-
-#### 5.3 [Option] Build lsmashsource
-```Shell
-# Install lsmash
-git clone https://github.com/l-smash/l-smash.git
-cd l-smash
-./configure --enable-shared
-make && sudo make install
-cd ..
- 
-# Install vslsmashsource
-git clone https://github.com/HolyWu/L-SMASH-Works.git
-cd L-SMASH-Works
-# Use older version to meet libavcodec lib version requirements
-git checkout -b 20200531 refs/tags/20200531
-cd VapourSynth
-meson build
-cd build
-ninja && sudo ninja install
-cd ../../../
-```
-</details>
-
-
-### 6. Add user to proper group
-```Shell
-# QSV
-sudo gpasswd -a ${USER} video
-# OpenCL
-sudo gpasswd -a ${USER} render
-```
-
-### 7. Build QSVEncC
-```Shell
-git clone https://github.com/rigaya/QSVEnc --recursive
-cd QSVEnc
-./configure
-make
-```
-Check if it works properly.
-```Shell
-./qsvencc --check-hw
-```
-
-You shall get results below if Quick Sync Video works properly.
-```
-Success: QuickSyncVideo (hw encoding) available
-```
 
 ## Linux (Ubuntu 18.04)
 

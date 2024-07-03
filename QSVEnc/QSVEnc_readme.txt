@@ -313,6 +313,16 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2024.07.04 (7.68)
+[QSVEncC]
+- oneVPLベースからlibvplベースに変更。
+- API 2.11に対応。
+- API 2.11で追加されたAI Super Resolutionを追加。(--vpp-resize mfx-ai-superres)
+  が、まだドライバは未対応の模様。
+
+[QSVEnc.auo]
+- Windowsの登録拡張子の状況によっては、意図せず出力拡張子が設定されず、muxされなくなってしまう問題を回避。
+
 2024.06.29 (7.67)
 [QSVEncC]
 - RGBなaviファイルからエンコードすると、フレームの上下が入れ替わってしまうことがある問題を修正。
