@@ -10,6 +10,3 @@
 [submodule "build_pkg"]
 	path = build_pkg
 	url = https://github.com/rigaya/build_pkg.git
-[submodule "oneVPL"]
-	path = oneVPL
-	url = https://github.com/oneapi-src/oneVPL.git
