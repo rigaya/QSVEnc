@@ -84,6 +84,9 @@ enum QSV_CPU_GEN {
     CPU_GEN_ATS_M,
     CPU_GEN_ALDERLAKE_N,
     CPU_GEN_KEEMBAY,
+    CPU_GEN_METEORLAKE,
+    CPU_GEN_LUNARLAKE,
+    CPU_GEN_ARROWLAKE,
 
     CPU_GEN_MAX,
 };
@@ -114,7 +117,10 @@ static const TCHAR *const CPU_GEN_STR[] = {
     _T("DG2"),
     _T("ArcticSoundM"),
     _T("AlderlakeN"),
-    _T("Keembay")
+    _T("Keembay"),
+    _T("Meteorlake"),
+    _T("Lunarlake"),
+    _T("Arrowlake")
 };
 
 static_assert(_countof(CPU_GEN_STR) == CPU_GEN_MAX);

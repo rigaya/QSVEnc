@@ -135,7 +135,10 @@ static const auto RGY_CPU_GEN_TO_MFX = make_array<std::pair<QSV_CPU_GEN, uint32_
     std::make_pair(CPU_GEN_DG2, MFX_PLATFORM_DG2),
     std::make_pair(CPU_GEN_ATS_M, MFX_PLATFORM_ATS_M),
     std::make_pair(CPU_GEN_ALDERLAKE_N, MFX_PLATFORM_ALDERLAKE_N),
-    std::make_pair(CPU_GEN_KEEMBAY, MFX_PLATFORM_KEEMBAY)
+    std::make_pair(CPU_GEN_KEEMBAY, MFX_PLATFORM_KEEMBAY),
+    std::make_pair(CPU_GEN_METEORLAKE, MFX_PLATFORM_METEORLAKE),
+    std::make_pair(CPU_GEN_LUNARLAKE, MFX_PLATFORM_LUNARLAKE),
+    std::make_pair(CPU_GEN_ARROWLAKE, MFX_PLATFORM_ARROWLAKE)
     );
 MAP_PAIR_0_1(cpu_gen, rgy, QSV_CPU_GEN, enc, uint32_t, RGY_CPU_GEN_TO_MFX, CPU_GEN_UNKNOWN, MFX_PLATFORM_UNKNOWN);
 
