@@ -3,7 +3,7 @@
 
 - [Windows](./Build.ja.md#windows)
 - Linux
-  - [Linux (Ubuntu 20.04 - 22.04)](./Build.ja.md#linux-ubuntu-2004---2204)
+  - [Linux (Ubuntu 20.04 - 24.04)](./Build.ja.md#linux-ubuntu-2004---2404)
   - [Linux (Ubuntu 18.04)](./Build.ja.md#linux-ubuntu-1804)
   - [Linux (Fedora 32)](./Build.ja.md#linux-fedora-32)
   - [Intel Drivers for Linux](/Build.ja.md#Intel-Drivers-for-Linux)
@@ -58,7 +58,7 @@ QSVEnc.slnを開きます。
 
 
 
-## Linux (Ubuntu 20.04 - 22.04)
+## Linux (Ubuntu 20.04 - 24.04)
 
 ### 0. ビルドに必要なもの
 
@@ -92,6 +92,9 @@ sudo apt-get install -y gpg-agent wget
 次に、Intelのリポジトリを追加します。
 
 ```Shell
+# Ubuntu 24.04
+# このステップは不要です。
+
 # Ubuntu 22.04
 wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | sudo gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
 echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy client" | \

@@ -3,7 +3,7 @@
 
 - [Windows](./Install.ja.md#windows)
 - Linux
-  - [Linux (Ubuntu 20.04 - 22.04)](./Install.ja.md#linux-ubuntu-2004---2204)
+  - [Linux (Ubuntu 20.04 - 24.04)](./Install.ja.md#linux-ubuntu-2004---2404)
   - [Linux (Fedora 32)](./Install.ja.md#linux-fedora-32)
   - その他のLinux OS  
     その他のLinux OS向けには、ソースコードからビルドする必要があります。ビルド方法については、[こちら](./Build.ja.md)を参照してください。
@@ -17,7 +17,7 @@
 
 実行時は展開したフォルダからそのまま実行できます。
   
-## Linux (Ubuntu 20.04 - 22.04)
+## Linux (Ubuntu 20.04 - 24.04)
 
 ### 1. Intel Media ドライバのインストール  
 [こちらのリンク](https://dgpu-docs.intel.com/driver/client/overview.html)に沿って、ドライバをインストールします。
@@ -31,6 +31,9 @@ sudo apt-get install -y gpg-agent wget
 次に、Intelのリポジトリを追加します。
 
 ```Shell
+# Ubuntu 24.04
+# このステップは不要です。
+
 # Ubuntu 22.04
 wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | sudo gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
 echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy client" | \
@@ -63,6 +66,9 @@ qsvenccのdebファイルを[こちら](https://github.com/rigaya/QSVEnc/release
 その後、下記のようにインストールします。"x.xx"はインストールするバージョンに置き換えてください。
 
 ```Shell
+# Ubuntu 24.04
+sudo apt install ./qsvencc_x.xx_Ubuntu24.04_amd64.deb
+
 # Ubuntu 22.04
 sudo apt install ./qsvencc_x.xx_Ubuntu22.04_amd64.deb
 

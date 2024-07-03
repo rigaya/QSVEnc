@@ -3,7 +3,7 @@
 
 - [Windows](./Build.en.md#windows)
 - Linux
-  - [Linux (Ubuntu 20.04 - 22.04)](./Build.en.md#linux-ubuntu-2004---2204)
+  - [Linux (Ubuntu 20.04 - 24.04)](./Build.en.md#linux-ubuntu-2004---2404)
   - [Linux (Ubuntu 18.04)](./Build.en.md#linux-ubuntu-1804)
   - [Linux (Fedora 32)](./Build.en.md#linux-fedora-32)
   - [Intel Drivers for Linux](/Build.en.md#Intel-Drivers-for-Linux)
@@ -57,7 +57,7 @@ Finally, open QSVEnc.sln, and start build of QSVEnc by Visual Studio.
 |QSVEncC(64).exe | DebugStatic | RelStatic |
 
 
-## Linux (Ubuntu 20.04 - 22.04)
+## Linux (Ubuntu 20.04 - 24.04)
 
 ### 0. Requirements
 
@@ -89,6 +89,9 @@ sudo apt-get install -y gpg-agent wget
 Next, add Intel package repository.
 
 ```Shell
+# Ubuntu 24.04
+# This step can be skipped.
+
 # Ubuntu 22.04
 wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | sudo gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
 echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy client" | \

@@ -316,6 +316,7 @@ API v1.1  … Intel Media SDK v2.0
 2024.07.04 (7.68)
 [QSVEncC]
 - oneVPLベースからlibvplベースに変更。
+- Ubuntu 24.04用のパッケージを追加。
 - API 2.11に対応。
 - API 2.11で追加されたAI Super Resolutionを追加。(--vpp-resize mfx-ai-superres)
   が、まだドライバは未対応の模様。

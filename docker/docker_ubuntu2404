@@ -1,0 +1,44 @@
+FROM ubuntu:24.04
+
+ARG DEBIAN_FRONTEND=noninteractive \
+    LOCAL_USER_ID=1000 \
+    LOCAL_GROUP_ID=1000
+
+RUN apt-get update \
+    && apt install -y \
+      wget \
+      git \
+      cmake \
+      intel-media-va-driver-non-free \
+      libva-drm2 \
+      libva-x11-2 \
+      libva-glx2 \
+      libx11-dev \
+      libigfxcmrt7 \
+      libva-dev \
+      libdrm-dev \
+      opencl-headers \
+      build-essential \
+      libavcodec60 \
+      libavcodec-dev \
+      libavutil58 \
+      libavutil-dev \
+      libavformat60 \
+      libavformat-dev \
+      libswresample4 \
+      libswresample-dev \
+      libavfilter9 \
+      libavfilter-dev \
+      libavdevice60 \
+      libavdevice-dev \
+      libass9 \
+      libass-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN useradd -u $LOCAL_USER_ID -m --user-group --shell /bin/bash rigaya
+RUN groupmod -g $LOCAL_GROUP_ID rigaya
+WORKDIR /home/rigaya
+COPY . .
+RUN chown -R rigaya:rigaya .
+USER rigaya
