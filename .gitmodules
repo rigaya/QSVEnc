@@ -10,3 +10,6 @@
 [submodule "build_pkg"]
 	path = build_pkg
 	url = https://github.com/rigaya/build_pkg.git
+[submodule "libvpl"]
+	path = libvpl
+	url = https://github.com/intel/libvpl.git

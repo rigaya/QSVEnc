@@ -395,6 +395,7 @@ enum : uint64_t {
     VPP_FEATURE_DENOISE2              = 0x00008000,
     VPP_FEATURE_PERC_ENC_PRE          = 0x00010000,
     VPP_FEATURE_AI_SUPRERES           = 0x00020000,
+    VPP_FEATURE_AI_FRAMEINTERP        = 0x00040000,
 };
 
 static const CX_DESC list_rate_control_ry[] = {
@@ -484,6 +485,7 @@ static const FEATURE_DESC list_vpp_feature[] = {
     { _T("Video Signal Info    "), VPP_FEATURE_VIDEO_SIGNAL_INFO   },
     { _T("FPS Conversion       "), VPP_FEATURE_FPS_CONVERSION      },
     { _T("FPS Conversion (Adv.)"), VPP_FEATURE_FPS_CONVERSION_ADV  },
+    { _T("AI Frame Interp      "), VPP_FEATURE_AI_FRAMEINTERP      },
     { NULL, 0 },
 };
 
