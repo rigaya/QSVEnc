@@ -155,6 +155,8 @@ static constexpr mfxVersion LIB_VER_LIST[] = {
     {  6, 2 },
     {  7, 2 },
     {  9, 2 },
+    { 11, 2 },
+    { 12, 2 },
     {  0, 0 }
 };
 
@@ -194,6 +196,8 @@ MFX_LIB_VERSION(2, 5, 28);
 MFX_LIB_VERSION(2, 6, 29);
 MFX_LIB_VERSION(2, 7, 30);
 MFX_LIB_VERSION(2, 9, 31);
+MFX_LIB_VERSION(2,11, 32);
+MFX_LIB_VERSION(2,12, 33);
 
 static const std::vector<RGY_CODEC> ENC_CODEC_LISTS = {
     RGY_CODEC_H264, RGY_CODEC_HEVC, RGY_CODEC_MPEG2, RGY_CODEC_VP8, RGY_CODEC_VP9, RGY_CODEC_AV1
@@ -390,6 +394,7 @@ enum : uint64_t {
     VPP_FEATURE_MCTF                  = 0x00004000,
     VPP_FEATURE_DENOISE2              = 0x00008000,
     VPP_FEATURE_PERC_ENC_PRE          = 0x00010000,
+    VPP_FEATURE_AI_SUPRERES           = 0x00020000,
 };
 
 static const CX_DESC list_rate_control_ry[] = {
@@ -464,6 +469,7 @@ static const FEATURE_DESC list_enc_feature_params[] = {
 };
 static const FEATURE_DESC list_vpp_feature[] = {
     { _T("Resize               "), VPP_FEATURE_RESIZE              },
+    { _T("AI Super Res         "), VPP_FEATURE_AI_SUPRERES         },
     { _T("Deinterlace          "), VPP_FEATURE_DEINTERLACE         },
     { _T("Scaling Quality      "), VPP_FEATURE_SCALING_QUALITY     },
     { _T("Denoise              "), VPP_FEATURE_DENOISE             },

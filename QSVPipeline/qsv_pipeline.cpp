@@ -2257,9 +2257,11 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
     case VppType::MFX_MIRROR:              vppParams.mirrorType = params->mirrorType; break;
     case VppType::MFX_MCTF:                vppParams.mctf = params->mctf; break;
     case VppType::MFX_PERC_ENC_PREFILTER:  vppParams.percPreEnc = params->percPreEnc; break;
+    case VppType::MFX_AISUPRERES:
     case VppType::MFX_RESIZE:              vppParams.bUseResize = true;
                                            vppParams.resizeInterp = params->resizeInterp;
                                            vppParams.resizeMode = params->resizeMode;
+                                           vppParams.aiSuperRes.enable = params->aiSuperRes.enable;
                                            frameInfo.width = resize.first;
                                            frameInfo.height = resize.second; break;
     case VppType::MFX_CROP:                frameInfo.width  -= (crop) ? (crop->e.left + crop->e.right) : 0;
@@ -2993,6 +2995,7 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
     //リサイズアルゴリズムのパラメータはvpp側に設定されているので、設定をvppmfxに転写する
     inputParam->vppmfx.resizeInterp = resize_algo_rgy_to_enc(inputParam->vpp.resize_algo);
     inputParam->vppmfx.resizeMode = resize_mode_rgy_to_enc(inputParam->vpp.resize_mode);
+    inputParam->vppmfx.aiSuperRes.enable = inputParam->vpp.resize_algo == RGY_VPP_RESIZE_MFX_AI_SUPRERES;
 
     //フレームレートのチェック
     if (inputParam->input.fpsN == 0 || inputParam->input.fpsD == 0) {

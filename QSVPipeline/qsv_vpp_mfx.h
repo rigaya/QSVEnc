@@ -110,6 +110,7 @@ RGY_DISABLE_WARNING_POP
     mfxExtVPPImageStab m_ExtImageStab;
     mfxExtVPPMirroring m_ExtMirror;
     mfxExtVPPScaling m_ExtScaling;
+    mfxExtVPPAISuperResolution m_ExtAISuperRes;
     mfxExtVPPPercEncPrefilter m_ExtPercEncPrefilter;
     std::vector<mfxU32> m_VppDoNotUseList;
     std::vector<mfxU32> m_VppDoUseList;

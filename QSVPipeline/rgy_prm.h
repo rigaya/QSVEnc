@@ -90,6 +90,7 @@ enum class VppType : int {
     MFX_MCTF,
     MFX_DENOISE,
     MFX_RESIZE,
+    MFX_AISUPRERES,
     MFX_DETAIL_ENHANCE,
     MFX_FPS_CONV,
     MFX_PERC_ENC_PREFILTER,
@@ -432,6 +433,7 @@ enum RGY_VPP_RESIZE_ALGO {
     RGY_VPP_RESIZE_MFX_NEAREST_NEIGHBOR,
     RGY_VPP_RESIZE_MFX_BILINEAR,
     RGY_VPP_RESIZE_MFX_ADVANCED,
+    RGY_VPP_RESIZE_MFX_AI_SUPRERES,
     RGY_VPP_RESIZE_MFX_MAX,
 #endif
 #if (ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
@@ -552,6 +554,7 @@ const CX_DESC list_vpp_resize[] = {
     { _T("bilinear"), RGY_VPP_RESIZE_MFX_BILINEAR },
   #endif
     { _T("advanced"), RGY_VPP_RESIZE_MFX_ADVANCED },
+    { _T("mfx_ai_superres"), RGY_VPP_RESIZE_MFX_AI_SUPRERES },
     { _T("simple"),   RGY_VPP_RESIZE_MFX_NEAREST_NEIGHBOR },
   #if !FOR_AUO
     { _T("fine"),     RGY_VPP_RESIZE_MFX_ADVANCED },
@@ -606,6 +609,7 @@ const CX_DESC list_vpp_resize_help[] = {
 #if ENCODER_QSV
     { _T("bilinear"), RGY_VPP_RESIZE_MFX_BILINEAR },
     { _T("advanced"), RGY_VPP_RESIZE_MFX_ADVANCED },
+    { _T("mfx_ai_superres"), RGY_VPP_RESIZE_MFX_AI_SUPRERES },
     { _T("simple"),   RGY_VPP_RESIZE_MFX_NEAREST_NEIGHBOR },
     { _T("fine"),     RGY_VPP_RESIZE_MFX_ADVANCED },
 #endif

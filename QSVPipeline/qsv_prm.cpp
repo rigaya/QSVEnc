@@ -92,6 +92,7 @@ sVppParams::sVppParams() :
     denoise(),
     mctf(),
     detail(),
+    aiSuperRes(),
     percPreEnc(false) {
 
 }
@@ -116,6 +117,7 @@ QSVRCParam::QSVRCParam() :
     encMode(0),
     bitrate(0),
     maxBitrate(0),
+    vbvBufSize(0),
     avbrAccuarcy(0),
     avbrConvergence(0),
     qp(),

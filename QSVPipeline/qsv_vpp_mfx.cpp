@@ -40,6 +40,7 @@ static const auto MFX_EXTBUFF_VPP_TO_VPPTYPE = make_array<std::pair<uint32_t, Vp
     std::make_pair(MFX_EXTBUFF_VPP_DENOISE_OLD,           VppType::MFX_DENOISE),
     std::make_pair(MFX_EXTBUFF_VPP_DENOISE2,              VppType::MFX_DENOISE),
     std::make_pair(MFX_EXTBUFF_VPP_SCALING,               VppType::MFX_RESIZE),
+    std::make_pair(MFX_EXTBUFF_VPP_AI_SUPER_RESOLUTION,   VppType::MFX_AISUPRERES),
     std::make_pair(MFX_EXTBUFF_VPP_DETAIL,                VppType::MFX_DETAIL_ENHANCE),
     std::make_pair(MFX_EXTBUFF_VPP_FRAME_RATE_CONVERSION, VppType::MFX_FPS_CONV),
     std::make_pair(MFX_EXTBUFF_VPP_IMAGE_STABILIZATION,   VppType::MFX_IMAGE_STABILIZATION),
@@ -75,6 +76,7 @@ QSVVppMfx::QSVVppMfx(CQSVHWDevice *hwdev, QSVAllocator *allocator,
     m_ExtImageStab(),
     m_ExtMirror(),
     m_ExtScaling(),
+    m_ExtAISuperRes(),
     m_ExtPercEncPrefilter(),
     m_VppDoNotUseList(),
     m_VppDoUseList(),
@@ -99,6 +101,7 @@ void QSVVppMfx::InitStructs() {
     RGY_MEMSET_ZERO(m_ExtImageStab);
     RGY_MEMSET_ZERO(m_ExtMirror);
     RGY_MEMSET_ZERO(m_ExtScaling);
+    RGY_MEMSET_ZERO(m_ExtAISuperRes);
     RGY_MEMSET_ZERO(m_ExtPercEncPrefilter);
 }
 
@@ -327,6 +330,12 @@ RGY_ERR QSVVppMfx::checkVppParams(sVppParams& params, const bool inputInterlaced
         }
     }
 
+    if (params.aiSuperRes.enable
+        && !(availableFeaures & VPP_FEATURE_AI_SUPRERES)) {
+        PrintMes(RGY_LOG_WARN, _T("AI supreres is not supported on this platform, disabled.\n"));
+        params.aiSuperRes.enable = false;
+    }
+
     if ((params.resizeMode != MFX_SCALING_MODE_DEFAULT || params.resizeInterp != MFX_INTERPOLATION_DEFAULT)
         && !(availableFeaures & VPP_FEATURE_SCALING_QUALITY)) {
         PrintMes(RGY_LOG_WARN, _T("vpp scaling quality is not supported on this platform, disabled.\n"));
@@ -513,8 +522,14 @@ RGY_ERR QSVVppMfx::SetVppExtBuffers(sVppParams& params) {
     if (    m_mfxVppParams.vpp.Out.CropW != m_mfxVppParams.vpp.In.CropW
          || m_mfxVppParams.vpp.Out.CropH != m_mfxVppParams.vpp.In.CropH) {
         auto str = strsprintf(_T("Resize %dx%d -> %dx%d"), m_mfxVppParams.vpp.In.CropW, m_mfxVppParams.vpp.In.CropH, m_mfxVppParams.vpp.Out.CropW, m_mfxVppParams.vpp.Out.CropH);
-        if ((check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_19) && params.resizeMode != MFX_SCALING_MODE_DEFAULT)
-            || (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_33) && params.resizeInterp != MFX_INTERPOLATION_DEFAULT)) {
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_11) && params.aiSuperRes.enable) {
+            INIT_MFX_EXT_BUFFER(m_ExtAISuperRes, MFX_EXTBUFF_VPP_AI_SUPER_RESOLUTION);
+            m_ExtAISuperRes.SRMode = (mfxAISuperResolutionMode)params.aiSuperRes.mode;
+            vppExtAddMes(strsprintf(_T("AI SuperRes, mode %d\n"), m_ExtAISuperRes.SRMode));
+            m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtAISuperRes);
+            m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_AI_SUPER_RESOLUTION);
+        } else if ((check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_19) && params.resizeMode != MFX_SCALING_MODE_DEFAULT)
+                || (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_33) && params.resizeInterp != MFX_INTERPOLATION_DEFAULT)) {
             INIT_MFX_EXT_BUFFER(m_ExtScaling, MFX_EXTBUFF_VPP_SCALING);
             if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_33)) {
                 m_ExtScaling.ScalingMode = (mfxU16)params.resizeInterp; // API 1.33

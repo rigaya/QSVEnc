@@ -161,6 +161,14 @@ struct MFXVppColorspace {
     }
 };
 
+struct MFXVppAISuperRes {
+    bool enable;
+    int mode;
+
+    MFXVppAISuperRes() : enable(false), mode(MFX_AI_SUPER_RESOLUTION_MODE_DEFAULT) {};
+    ~MFXVppAISuperRes() {};
+};
+
 struct sVppParams {
     bool bEnable;             //use vpp
 
@@ -185,6 +193,7 @@ struct sVppParams {
     VppDenoise denoise;
     VppMCTF mctf;
     VppDetailEnhance detail;
+    MFXVppAISuperRes aiSuperRes;
 
     bool percPreEnc;
 
@@ -367,6 +376,7 @@ const CX_DESC list_codec_mfx[] = {
     { _T("vp8"),      MFX_CODEC_VP8   },
     { _T("vp9"),      MFX_CODEC_VP9   },
     { _T("av1"),      MFX_CODEC_AV1   },
+    { _T("vvc"),      MFX_CODEC_VVC   },
     { _T("raw"),      MFX_CODEC_RAW   },
     { NULL, 0 }
 };
@@ -379,6 +389,7 @@ const CX_DESC list_codec_rgy[] = {
     { _T("vp8"),      RGY_CODEC_VP8   },
     { _T("vp9"),      RGY_CODEC_VP9   },
     { _T("av1"),      RGY_CODEC_AV1   },
+    { _T("vvc"),      RGY_CODEC_VVC   },
     { _T("raw"),      RGY_CODEC_RAW   },
     { NULL, 0 }
 };
@@ -458,6 +469,12 @@ const CX_DESC list_av1_profile[] = {
     { _T("main"),     MFX_PROFILE_AV1_MAIN },
     { _T("high"),     MFX_PROFILE_AV1_HIGH },
     { _T("pro"),      MFX_PROFILE_AV1_PRO  },
+    { NULL, 0 }
+};
+
+const CX_DESC list_vvc_profile[] = {
+    { _T("auto"),     0                        },
+    { _T("main10"),   MFX_PROFILE_VVC_MAIN10   },
     { NULL, 0 }
 };
 
@@ -608,6 +625,24 @@ const CX_DESC list_av1_level[] = {
     { NULL, 0 }
 };
 
+const CX_DESC list_vvc_level[] = {
+    { _T("auto"),     0 },
+    { _T("1"),        MFX_LEVEL_VVC_1  },
+    { _T("2"),        MFX_LEVEL_VVC_2  },
+    { _T("2.1"),      MFX_LEVEL_VVC_21 },
+    { _T("3"),        MFX_LEVEL_VVC_3  },
+    { _T("3.1"),      MFX_LEVEL_VVC_31 },
+    { _T("4"),        MFX_LEVEL_VVC_4  },
+    { _T("4.1"),      MFX_LEVEL_VVC_41 },
+    { _T("5"),        MFX_LEVEL_VVC_5  },
+    { _T("5.1"),      MFX_LEVEL_VVC_51 },
+    { _T("5.2"),      MFX_LEVEL_VVC_52 },
+    { _T("6"),        MFX_LEVEL_VVC_6  },
+    { _T("6.1"),      MFX_LEVEL_VVC_61 },
+    { _T("6.2"),      MFX_LEVEL_VVC_62 },
+    { NULL, 0 }
+};
+
 const CX_DESC list_avc_trellis[] = {
     { _T("Auto"),           MFX_TRELLIS_UNKNOWN },
     { _T("off"),            MFX_TRELLIS_OFF },
@@ -701,6 +736,7 @@ static inline const CX_DESC *get_level_list(const RGY_CODEC codec) {
         case RGY_CODEC_VP8:     return list_vp8_level;
         case RGY_CODEC_VP9:     return list_vp9_level;
         case RGY_CODEC_AV1:     return list_av1_level;
+        case RGY_CODEC_VVC:     return list_vvc_level;
         case RGY_CODEC_RAW:     return list_empty;
         default:                return list_empty;
     }
@@ -715,6 +751,7 @@ static inline const CX_DESC *get_profile_list(const RGY_CODEC codec) {
         case RGY_CODEC_VP8:     return list_vp8_profile;
         case RGY_CODEC_VP9:     return list_vp9_profile;
         case RGY_CODEC_AV1:     return list_av1_profile;
+        case RGY_CODEC_VVC:     return list_vvc_profile;
         case RGY_CODEC_RAW:     return list_empty;
         default:                return list_empty;
     }
