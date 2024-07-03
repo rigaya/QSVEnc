@@ -98,7 +98,7 @@ echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://
   sudo tee /etc/apt/sources.list.d/intel-gpu-jammy.list
 
 # Ubuntu 20.04
-wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | sudo gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
+wget -qO - https://repositories.intel.com/graphics/intel-graphics.key | sudo gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
 echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/gpu/ubuntu focal client' | \
   sudo tee /etc/apt/sources.list.d/intel-graphics.list
 ```
