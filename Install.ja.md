@@ -19,7 +19,11 @@
   
 ## Linux (Ubuntu 20.04 - 24.04)
 
-### 1. Intel Media ドライバのインストール  
+### 1. Intel Media ドライバ用のリポジトリの登録
+
+> [!NOTE]
+> Ubuntu 24.04ではこのステップは不要ですので、2.に進んでください。
+
 [こちらのリンク](https://dgpu-docs.intel.com/driver/client/overview.html)に沿って、ドライバをインストールします。
 
 まず、必要なツールを導入します。
@@ -31,8 +35,6 @@ sudo apt-get install -y gpg-agent wget
 次に、Intelのリポジトリを追加します。
 
 ```Shell
-# Ubuntu 24.04
-# このステップは不要です。
 
 # Ubuntu 22.04
 wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | sudo gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
@@ -43,13 +45,6 @@ echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://
 wget -qO - https://repositories.intel.com/graphics/intel-graphics.key | sudo gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
 echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/gpu/ubuntu focal client' | \
   sudo tee /etc/apt/sources.list.d/intel-graphics.list
-```
-
-最後にドライバのインストールを行います。
-
-```
-sudo apt update
-sudo apt install intel-media-va-driver-non-free intel-opencl-icd
 ```
 
 ### 2. QSVとOpenCLの使用のため、ユーザーを下記グループに追加

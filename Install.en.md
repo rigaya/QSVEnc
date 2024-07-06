@@ -19,7 +19,11 @@ QSVEncC could be run directly from the extracted directory.
   
 ## Linux (Ubuntu 20.04 - 24.04)
 
-### 1. Install Intel Media driver  
+### 1. Add repository for Intel Media driver  
+
+> [!NOTE]
+> Please skip this step on Ubuntu 24.04 as Intel Media driver can be installed by default.
+
 Intel media driver can be installed following instruction on [this link](https://dgpu-docs.intel.com/driver/client/overview.html).
 
 First, install required tools.
@@ -31,9 +35,6 @@ sudo apt-get install -y gpg-agent wget
 Next, add Intel package repository.
 
 ```Shell
-# Ubuntu 24.04
-# This step can be skipped.
-
 # Ubuntu 22.04
 wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | sudo gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
 echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy client" | \
@@ -43,13 +44,6 @@ echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://
 wget -qO - https://repositories.intel.com/graphics/intel-graphics.key | sudo gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
 echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/gpu/ubuntu focal client' | \
   sudo tee /etc/apt/sources.list.d/intel-graphics.list
-```
-
-Then install Intel Media driver.
-
-```
-sudo apt update
-sudo apt install intel-media-va-driver-non-free intel-opencl-icd
 ```
 
 ### 2. Add user to proper group to use QSV and OpenCL
