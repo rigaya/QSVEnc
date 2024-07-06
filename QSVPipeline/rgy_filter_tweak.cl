@@ -1,6 +1,9 @@
 ﻿// Type
 // Type4
 // bit_depth
+// TWEAK_Y
+// TWEAK_CB
+// TWEAK_CR
 
 #ifndef clamp
 #define clamp(x, low, high) (((x) <= (high)) ? (((x) >= (low)) ? (x) : (low)) : (high))
@@ -13,10 +16,23 @@ Type apply_basic_tweak_y(Type y, const float contrast, const float brightness, c
     return (Type)clamp((int)(pixel * (1 << (bit_depth))), 0, (1 << (bit_depth)) - 1);
 }
 
+Type apply_basic_tweak_y_without_gamma(Type y, const float contrast, const float brightness) {
+    float pixel = (float)y * (1.0f / (1 << bit_depth));
+    pixel = contrast * (pixel - 0.5f) + 0.5f + brightness;
+    return (Type)clamp((int)(pixel * (1 << (bit_depth))), 0, (1 << (bit_depth)) - 1);
+}
+
+Type apply_basic_tweak_cbcr(Type y, const float contrast, const float brightness) {
+    float pixel = (float)y * (1.0f / (1 << bit_depth));
+    pixel = contrast * pixel + brightness;
+    return (Type)clamp((int)(pixel * (1 << (bit_depth))), 0, (1 << (bit_depth)) - 1);
+}
+
 __kernel void kernel_tweak_y(
     __global uchar *restrict pFrame,
     const int pitch, const int width, const int height,
-    const float contrast, const float brightness, const float gamma_inv) {
+    const float contrast, const float brightness, const float gamma_inv,
+    const float y_gain, const float y_offset) {
     const int ix = get_global_id(0);
     const int iy = get_global_id(1);
 
@@ -29,7 +45,13 @@ __kernel void kernel_tweak_y(
         ret.y = apply_basic_tweak_y(src.y, contrast, brightness, gamma_inv);
         ret.z = apply_basic_tweak_y(src.z, contrast, brightness, gamma_inv);
         ret.w = apply_basic_tweak_y(src.w, contrast, brightness, gamma_inv);
-
+        
+        if (TWEAK_Y) {
+            ret.x = apply_basic_tweak_y_without_gamma(ret.x, y_gain, y_offset);
+            ret.y = apply_basic_tweak_y_without_gamma(ret.y, y_gain, y_offset);
+            ret.z = apply_basic_tweak_y_without_gamma(ret.z, y_gain, y_offset);
+            ret.w = apply_basic_tweak_y_without_gamma(ret.w, y_gain, y_offset);
+        }
         ptr[0] = ret;
     }
 }
@@ -51,7 +73,9 @@ __kernel void kernel_tweak_uv(
     __global uchar *restrict pFrameU,
     __global uchar *restrict pFrameV,
     const int pitch, const int width, const int height,
-    const float saturation, const float hue_sin, const float hue_cos, const int swapuv) {
+    const float saturation, const float hue_sin, const float hue_cos, const int swapuv,
+    const float cb_gain, const float cb_offset,
+    const float cr_gain, const float cr_offset) {
     const int ix = get_global_id(0);
     const int iy = get_global_id(1);
 
@@ -72,6 +96,19 @@ __kernel void kernel_tweak_uv(
 
         pixelU.x = u0, pixelU.y = u1, pixelU.z = u2, pixelU.w = u3;
         pixelV.x = v0, pixelV.y = v1, pixelV.z = v2, pixelV.w = v3;
+        
+        if (TWEAK_CB) {
+            pixelU.x = apply_basic_tweak_cbcr(pixelU.x, cb_gain, cb_offset);
+            pixelU.y = apply_basic_tweak_cbcr(pixelU.y, cb_gain, cb_offset);
+            pixelU.z = apply_basic_tweak_cbcr(pixelU.z, cb_gain, cb_offset);
+            pixelU.w = apply_basic_tweak_cbcr(pixelU.w, cb_gain, cb_offset);
+        }
+        if (TWEAK_CR) {
+            pixelV.x = apply_basic_tweak_cbcr(pixelV.x, cr_gain, cr_offset);
+            pixelV.y = apply_basic_tweak_cbcr(pixelV.y, cr_gain, cr_offset);
+            pixelV.z = apply_basic_tweak_cbcr(pixelV.z, cr_gain, cr_offset);
+            pixelV.w = apply_basic_tweak_cbcr(pixelV.w, cr_gain, cr_offset);
+        }
 
         ptrU[0] = (swapuv) ? pixelV : pixelU;
         ptrV[0] = (swapuv) ? pixelU : pixelV;

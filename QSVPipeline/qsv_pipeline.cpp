@@ -2827,6 +2827,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         param->tweak = params->vpp.tweak;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
+        param->vui = vuiInfo;
         param->baseFps = m_encFps;
         param->bOutOverwrite = true;
         auto sts = filter->init(param, m_pQSVLog);

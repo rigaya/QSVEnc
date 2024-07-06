@@ -33,7 +33,8 @@
 class RGYFilterParamTweak : public RGYFilterParam {
 public:
     VppTweak tweak;
-    RGYFilterParamTweak() : tweak() {};
+    VideoVUIInfo vui;
+    RGYFilterParamTweak() : tweak(), vui() {};
     virtual ~RGYFilterParamTweak() {};
     virtual tstring print() const override { return tweak.print(); };
 };
@@ -48,7 +49,11 @@ protected:
     virtual void close() override;
 
     virtual RGY_ERR procFrame(RGYFrameInfo *pFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    virtual RGY_ERR procFrameRGB(RGYFrameInfo *pFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
 
     bool m_bInterlacedWarn;
     RGYOpenCLProgramAsync m_tweak;
+    RGYOpenCLProgramAsync m_tweakRGB;
+    std::unique_ptr<RGYFilter> m_convSrc;
+    std::unique_ptr<RGYFilter> m_convDst;
 };
