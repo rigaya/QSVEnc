@@ -689,7 +689,7 @@ mfxU64 CheckVppFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer) {
     INIT_MFX_EXT_BUFFER(vppAIFrameInterp, MFX_EXTBUFF_VPP_AI_FRAME_INTERPOLATION);
 
     vppFpsConv.Algorithm = MFX_FRCALGM_FRAME_INTERPOLATION;
-    vppImageStab.Mode = MFX_IMAGESTAB_MODE_UPSCALE;
+    vppImageStab.Mode = MFX_IMAGESTAB_MODE_BOXING;
     vppVSI.In.TransferMatrix = MFX_TRANSFERMATRIX_BT601;
     vppVSI.Out.TransferMatrix = MFX_TRANSFERMATRIX_BT709;
     vppVSI.In.NominalRange = MFX_NOMINALRANGE_16_235;
@@ -697,14 +697,11 @@ mfxU64 CheckVppFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer) {
     vppRotate.Angle = MFX_ANGLE_180;
     vppMirror.Type = MFX_MIRRORING_HORIZONTAL;
     vppScaleQuality.ScalingMode = MFX_SCALING_MODE_LOWPOWER;
-    vppMctf.FilterStrength = 0;
+    vppMctf.FilterStrength = 1;
     vppAISuperRes.SRMode = MFX_AI_SUPER_RESOLUTION_MODE_DEFAULT;
+    vppAIFrameInterp.FIMode = MFX_AI_FRAME_INTERPOLATION_MODE_DEFAULT;
 
     vector<mfxExtBuffer*> buf;
-    buf.push_back((mfxExtBuffer *)&vppDoUse);
-    if (bSetDoNotUseTag) {
-        buf.push_back((mfxExtBuffer *)&vppDoNotUse);
-    }
     buf.push_back((mfxExtBuffer *)nullptr);
 
     mfxVideoParam videoPrm;
@@ -733,104 +730,33 @@ mfxU64 CheckVppFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer) {
     videoPrm.vpp.Out.CropW        = 1920;
     videoPrm.vpp.Out.CropH        = 1088;
 
-    mfxExtVPPDoUse vppDoUseOut;
-    mfxExtVPPDoUse vppDoNotUseOut;
-    mfxExtVPPFrameRateConversion vppFpsConvOut;
-    mfxExtVPPImageStab vppImageStabOut;
-    mfxExtVPPVideoSignalInfo vppVSIOut;
-    mfxExtVPPRotation vppRotateOut;
-    mfxExtVPPMirroring vppMirrorOut;
-    mfxExtVPPScaling vppScaleQualityOut;
-    mfxExtVppMctf vppMctfOut;
-    mfxExtVPPDenoise2 vppDenoise2Out;
-    mfxExtVPPPercEncPrefilter vppPercEncPreOut;
-    mfxExtVPPAISuperResolution vppAISuperResOut;
-    mfxExtVPPAIFrameInterpolation vppAIFrameInterpOut;
-
-    memcpy(&vppDoUseOut,        &vppDoUse,        sizeof(vppDoUse));
-    memcpy(&vppDoNotUseOut,     &vppDoNotUse,     sizeof(vppDoNotUse));
-    memcpy(&vppFpsConvOut,      &vppFpsConv,      sizeof(vppFpsConv));
-    memcpy(&vppImageStabOut,    &vppImageStab,    sizeof(vppImageStab));
-    memcpy(&vppVSIOut,          &vppVSI,          sizeof(vppVSI));
-    memcpy(&vppRotateOut,       &vppRotate,       sizeof(vppRotate));
-    memcpy(&vppMirrorOut,       &vppMirror,       sizeof(vppMirror));
-    memcpy(&vppScaleQualityOut, &vppScaleQuality, sizeof(vppScaleQuality));
-    memcpy(&vppMctfOut,         &vppMctf,         sizeof(vppMctf));
-    memcpy(&vppDenoise2Out,     &vppDenoise2,     sizeof(vppDenoise2));
-    memcpy(&vppPercEncPreOut,   &vppPercEncPre,   sizeof(vppPercEncPre));
-    memcpy(&vppAISuperResOut,   &vppAISuperRes,   sizeof(vppAISuperRes));
-    memcpy(&vppAIFrameInterpOut,&vppAIFrameInterp,sizeof(vppAIFrameInterp));
-
-    vector<mfxExtBuffer *> bufOut;
-    bufOut.push_back((mfxExtBuffer *)&vppDoUse);
-    if (bSetDoNotUseTag) {
-        bufOut.push_back((mfxExtBuffer *)&vppDoNotUse);
-    }
-    bufOut.push_back((mfxExtBuffer *)nullptr);
-
-    mfxVideoParam videoPrmOut;
-    memcpy(&videoPrmOut, &videoPrm, sizeof(videoPrm));
-    videoPrmOut.NumExtParam = (mfxU16)bufOut.size();
-    videoPrmOut.ExtParam = (bufOut.size()) ? &bufOut[0] : NULL;
-
-    static const mfxU32 vppList[] = {
-        MFX_EXTBUFF_VPP_PROCAMP,
-        MFX_EXTBUFF_VPP_DENOISE,
-        MFX_EXTBUFF_VPP_DETAIL,
-        MFX_EXTBUFF_VPP_AUXDATA
-    };
-    auto check_feature = [&](mfxExtBuffer *structIn, mfxExtBuffer *structOut, mfxVersion requiredVer, mfxU64 featureNoErr, mfxU64 featureWarn) {
+    auto check_feature = [&](mfxExtBuffer *structIn, mfxVersion requiredVer, mfxU64 featureNoErr, mfxU64 featureWarn) {
         if (check_lib_version(mfxVer, requiredVer)) {
-            const mfxU32 target = structIn->BufferId;
-            //vppDoUseListとvppDoNotUseListを構築する
-            vector<mfxU32> vppDoUseList;
-            vector<mfxU32> vppDoNotUseList;
-            vppDoUseList.push_back(target);
-            for (int i = 0; i < _countof(vppList); i++)
-                vppDoNotUseList.push_back(vppList[i]);
-            //出力側に同じものをコピー
-            vector<mfxU32> vppDoUseListOut(vppDoUseList.size());
-            vector<mfxU32> vppDoNotUseListOut(vppDoNotUseList.size());
-            copy(vppDoUseList.begin(), vppDoUseList.end(), vppDoUseListOut.begin());
-            copy(vppDoNotUseList.begin(), vppDoNotUseList.end(), vppDoNotUseListOut.begin());
-            //入力側の設定
-            vppDoUse.NumAlg     = (mfxU32)vppDoUseList.size();
-            vppDoUse.AlgList    = &vppDoUseList[0];
-            vppDoNotUse.NumAlg  = (mfxU32)vppDoNotUseList.size();
-            vppDoNotUse.AlgList = &vppDoNotUseList[0];
-            //出力側の設定
-            vppDoUseOut.NumAlg     = (mfxU32)vppDoUseListOut.size();
-            vppDoUseOut.AlgList    = &vppDoUseListOut[0];
-            vppDoNotUseOut.NumAlg  = (mfxU32)vppDoNotUseListOut.size();
-            vppDoNotUseOut.AlgList = &vppDoNotUseListOut[0];
             //bufの一番端はチェック用に開けてあるので、そこに構造体へのポインタを入れる
             *(buf.end()    - 1) = (mfxExtBuffer *)structIn;
-            *(bufOut.end() - 1) = (mfxExtBuffer *)structOut;
-            mfxStatus ret = MFXVideoVPP_Query(session, &videoPrm, &videoPrmOut);
+            mfxStatus ret = MFXVideoVPP_Query(session, &videoPrm, &videoPrm);
             if (ret >= MFX_ERR_NONE) {// QSV_WRN_XXX (> 0) は無視する
                 result |= (MFX_ERR_NONE == ret || MFX_WRN_PARTIAL_ACCELERATION == ret) ? featureNoErr : featureWarn;
             }
         }
     };
 
-    check_feature((mfxExtBuffer *)&vppImageStab,    (mfxExtBuffer *)&vppImageStabOut,    MFX_LIB_VERSION_1_6,  VPP_FEATURE_IMAGE_STABILIZATION, 0x00);
-    check_feature((mfxExtBuffer *)&vppVSI,          (mfxExtBuffer *)&vppVSIOut,          MFX_LIB_VERSION_1_8,  VPP_FEATURE_VIDEO_SIGNAL_INFO,   0x00);
-#if defined(_WIN32) || defined(_WIN64)
-    check_feature((mfxExtBuffer *)&vppRotate,       (mfxExtBuffer *)&vppRotateOut,       MFX_LIB_VERSION_1_17, VPP_FEATURE_ROTATE,              0x00);
-#endif //#if defined(_WIN32) || defined(_WIN64)
-    check_feature((mfxExtBuffer *)&vppMirror,       (mfxExtBuffer *)&vppMirrorOut,       MFX_LIB_VERSION_1_19,  VPP_FEATURE_MIRROR,             0x00);
-    check_feature((mfxExtBuffer *)&vppScaleQuality, (mfxExtBuffer *)&vppScaleQualityOut, MFX_LIB_VERSION_1_19,  VPP_FEATURE_SCALING_QUALITY,    0x00);
-    check_feature((mfxExtBuffer *)&vppMctf,         (mfxExtBuffer *)&vppMctfOut,         MFX_LIB_VERSION_1_26,  VPP_FEATURE_MCTF,               0x00);
-    check_feature((mfxExtBuffer *)&vppDenoise2,     (mfxExtBuffer *)&vppDenoise2Out,     MFX_LIB_VERSION_2_5,   VPP_FEATURE_DENOISE2,           0x00);
-    check_feature((mfxExtBuffer *)&vppPercEncPre,   (mfxExtBuffer *)&vppPercEncPreOut,   MFX_LIB_VERSION_2_9,   VPP_FEATURE_PERC_ENC_PRE,       0x00);
-    check_feature((mfxExtBuffer *)&vppAISuperRes,   (mfxExtBuffer *)&vppAISuperResOut,   MFX_LIB_VERSION_2_11,  VPP_FEATURE_AI_SUPRERES,        0x00);
-    check_feature((mfxExtBuffer *)&vppAIFrameInterp,(mfxExtBuffer *)&vppAIFrameInterpOut,MFX_LIB_VERSION_2_12,  VPP_FEATURE_AI_FRAMEINTERP,     0x00);
+    check_feature((mfxExtBuffer *)&vppImageStab,     MFX_LIB_VERSION_1_6,  VPP_FEATURE_IMAGE_STABILIZATION, 0x00);
+    check_feature((mfxExtBuffer *)&vppVSI,           MFX_LIB_VERSION_1_8,  VPP_FEATURE_VIDEO_SIGNAL_INFO,   0x00);
+#if defined(_WIN32) || defined(_WIN64)               
+    check_feature((mfxExtBuffer *)&vppRotate,        MFX_LIB_VERSION_1_17, VPP_FEATURE_ROTATE,              0x00);
+#endif //#if defined(_WIN32) || defined(_WIN64)      
+    check_feature((mfxExtBuffer *)&vppMirror,        MFX_LIB_VERSION_1_19,  VPP_FEATURE_MIRROR,             0x00);
+    check_feature((mfxExtBuffer *)&vppScaleQuality,  MFX_LIB_VERSION_1_19,  VPP_FEATURE_SCALING_QUALITY,    0x00);
+    check_feature((mfxExtBuffer *)&vppMctf,          MFX_LIB_VERSION_1_26,  VPP_FEATURE_MCTF,               0x00);
+    check_feature((mfxExtBuffer *)&vppDenoise2,      MFX_LIB_VERSION_2_5,   VPP_FEATURE_DENOISE2,           0x00);
+    check_feature((mfxExtBuffer *)&vppPercEncPre,    MFX_LIB_VERSION_2_9,   VPP_FEATURE_PERC_ENC_PRE,       0x00);
+    check_feature((mfxExtBuffer *)&vppAISuperRes,    MFX_LIB_VERSION_2_11,  VPP_FEATURE_AI_SUPRERES,        0x00);
 
     videoPrm.vpp.Out.FrameRateExtN    = 60000;
     videoPrm.vpp.Out.FrameRateExtD    = 1001;
-    videoPrmOut.vpp.Out.FrameRateExtN = 60000;
-    videoPrmOut.vpp.Out.FrameRateExtD = 1001;
-    check_feature((mfxExtBuffer *)&vppFpsConv,   (mfxExtBuffer *)&vppFpsConvOut,   MFX_LIB_VERSION_1_3,  VPP_FEATURE_FPS_CONVERSION_ADV,  VPP_FEATURE_FPS_CONVERSION);
+    check_feature((mfxExtBuffer *)&vppFpsConv, MFX_LIB_VERSION_1_3,  VPP_FEATURE_FPS_CONVERSION_ADV,  VPP_FEATURE_FPS_CONVERSION);
+    check_feature((mfxExtBuffer *)&vppAIFrameInterp, MFX_LIB_VERSION_2_12, VPP_FEATURE_AI_FRAMEINTERP, 0x00);
     return result;
 }
 
