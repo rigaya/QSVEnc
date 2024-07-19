@@ -19,10 +19,16 @@
 // NLEANS_BLOCK_X
 // NLEANS_BLOCK_Y
 
+#if TmpVTypeFP16 || TmpWPTypeFP16
+#pragma OPENCL EXTENSION cl_khr_fp16 : enable
+#endif
+
 #if TmpVTypeFP16
 #define convert_TmpVType8 convert_half8
+#define tmpvtype_exp exp
 #else
 #define convert_TmpVType8 convert_float8
+#define tmpvtype_exp native_exp
 #endif
 
 #ifndef clamp
@@ -186,7 +192,7 @@ __kernel void kernel_denoise_nlmeans_calc_weight(
     if (ix < width && iy < height) {
         const TmpVType8 v_vt8 = *(const __global TmpVType8 *)(pV + iy * vPitch + ix * sizeof(TmpVType8));
         const TmpWPType8 v_tmpv8 = tmpv8_2_tmpwp8(v_vt8); // expを使う前にfp32に変換
-        weight = native_exp(-max(v_tmpv8 - (TmpWPType8)(2.0f * sigma), (TmpWPType8)0.0f) * (TmpWPType8)inv_param_h_h);
+        weight = tmpvtype_exp(-max(v_tmpv8 - (TmpWPType8)(2.0f * sigma), (TmpWPType8)0.0f) * (TmpWPType8)inv_param_h_h);
 
         // 自分のほうはここですべて同じバッファ(ptrImgW0)に足し込んでしまう
         {

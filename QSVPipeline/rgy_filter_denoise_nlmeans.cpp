@@ -33,7 +33,11 @@
 #include "rgy_filter_denoise_nlmeans.h"
 
 static const int NLEANS_BLOCK_X = 32;
+#if ENCODER_VCEENC
+static const int NLEANS_BLOCK_Y = 8;
+#else
 static const int NLEANS_BLOCK_Y = 16;
+#endif
 
 
 enum RGYFilterDenoiseNLMeansTmpBufIdx {
@@ -259,13 +263,13 @@ RGY_ERR RGYFilterDenoiseNLMeans::init(shared_ptr<RGYFilterParam> pParam, shared_
         AddMessage(RGY_LOG_ERROR, _T("h should be larger than 0.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (prm->nlmeans.fp16 != VppNLMeansFP16Opt::None) {
+    if (prm->nlmeans.fp16 != VppNLMeansFP16Opt::NoOpt) {
         if (!RGYOpenCLDevice(m_cl->queue().devid()).checkExtension("cl_khr_fp16")) {
             AddMessage((!m_param) ? RGY_LOG_INFO : RGY_LOG_DEBUG, _T("fp16 not supported on this device, using fp32 mode.\n"));
-            prm->nlmeans.fp16 = VppNLMeansFP16Opt::None;
+            prm->nlmeans.fp16 = VppNLMeansFP16Opt::NoOpt;
         }
     }
-    const bool use_vtype_fp16 = prm->nlmeans.fp16 != VppNLMeansFP16Opt::None;
+    const bool use_vtype_fp16 = prm->nlmeans.fp16 != VppNLMeansFP16Opt::NoOpt;
     const bool use_wptype_fp16 = prm->nlmeans.fp16 == VppNLMeansFP16Opt::All;
 
     const int search_radius = prm->nlmeans.searchSize / 2;

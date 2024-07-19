@@ -399,12 +399,13 @@ RGY_ERR RGYFilterDenoiseFFT3D::init(shared_ptr<RGYFilterParam> pParam, shared_pt
                 log->write(RGY_LOG_DEBUG, RGY_LOGT_VPP, _T("fft_constants_str.\n%s\n"), char_to_tstring(fft_constants_str).c_str());
 
                 auto gen_options = [&](const int sub_group_size) {
-                    auto options = strsprintf("-D TypePixel=%s -D bit_depth=%d"
+                    auto options = strsprintf("-D TypePixel=%s -D bit_depth=%d -D USE_FP16=%d"
                         " -D TypeComplex=%s -D BLOCK_SIZE=%d -D DENOISE_BLOCK_SIZE_X=%d"
                         " -D temporalCurrentIdx=%d -D temporalCount=%d"
                         " -D FFT_BARRIER_MODE=%d -D SUB_GROUP_SIZE=%d -D filterMethod=%d",
                         RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
                         RGY_CSP_BIT_DEPTH[prm->frameOut.csp],
+                        prm->fft3d.precision != VppFpPrecision::VPP_FP_PRECISION_FP32 ? 1 : 0,
                         prm->fft3d.precision != VppFpPrecision::VPP_FP_PRECISION_FP32 ? "half2" : "float2",
                         prm->fft3d.block_size, getDenoiseBlockSizeX(prm->fft3d.block_size),
                         prm->fft3d.temporal ? 1 : 0, prm->fft3d.temporal ? 3 : 1,

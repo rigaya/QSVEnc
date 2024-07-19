@@ -1,5 +1,6 @@
 ﻿// TypePixel
 // bit_depth
+// USE_FP16
 // TypeComplex
 // BLOCK_SIZE
 // DENOISE_BLOCK_SIZE_X
@@ -10,6 +11,10 @@
 // filterMethod
 
 //#define TypeComplex half2
+
+#if USE_FP16
+#pragma OPENCL EXTENSION cl_khr_fp16 : enable
+#endif
 
 #if FFT_BARRIER_MODE == 2 && BLOCK_SIZE <= SUB_GROUP_SIZE
 #define BLOCK_SYNC sub_group_barrier(CLK_LOCAL_MEM_FENCE)
