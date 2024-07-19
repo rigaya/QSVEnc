@@ -102,11 +102,16 @@ enum class VppType : int {
     NVVFX_ARTIFACT_REDUCTION,
 #endif
     NVVFX_MAX,
+#if ENCODER_NVENC || CLFILTERS_AUF
+    NGX_TRUEHDR,
+#endif
+    NGX_MAX,
 #if ENCODER_VCEENC
     AMF_CONVERTER,
     AMF_PREPROCESS,
     AMF_RESIZE,
     AMF_VQENHANCE,
+    AMF_FRC,
 #endif
     AMF_MAX,
 #if ENCODER_MPP
@@ -166,7 +171,7 @@ enum class VppType : int {
     CL_MAX,
 };
 
-enum class VppFilterType { FILTER_NONE, FILTER_MFX, FILTER_NVVFX, FILTER_AMF, FILTER_IEP, FILTER_RGA, FILTER_OPENCL };
+enum class VppFilterType { FILTER_NONE, FILTER_MFX, FILTER_NVVFX, FILTER_NGX, FILTER_AMF, FILTER_IEP, FILTER_RGA, FILTER_OPENCL };
 
 static VppFilterType getVppFilterType(VppType vpptype) {
     if (vpptype == VppType::VPP_NONE) return VppFilterType::FILTER_NONE;
@@ -175,6 +180,9 @@ static VppFilterType getVppFilterType(VppType vpptype) {
 #endif // #if ENCODER_QSV
 #if ENCODER_NVENC || CLFILTERS_AUF
     if (vpptype < VppType::NVVFX_MAX) return VppFilterType::FILTER_NVVFX;
+#endif // #if ENCODER_NVENC || CLFILTERS_AUF
+#if ENCODER_NVENC || CLFILTERS_AUF
+    if (vpptype < VppType::NGX_MAX) return VppFilterType::FILTER_NGX;
 #endif // #if ENCODER_NVENC || CLFILTERS_AUF
 #if ENCODER_VCEENC
     if (vpptype < VppType::AMF_MAX) return VppFilterType::FILTER_AMF;
@@ -453,7 +461,7 @@ enum RGY_VPP_RESIZE_ALGO {
     RGY_VPP_RESIZE_NVVFX_SUPER_RES,
     RGY_VPP_RESIZE_NVVFX_MAX,
 #endif
-#if (ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO))
+#if (ENCODER_NVENC && (!defined(_M_IX86) || FOR_AUO)) || CUFILTERS || CLFILTERS_AUF
     RGY_VPP_RESIZE_NGX_VSR,
     RGY_VPP_RESIZE_NGX_MAX,
 #endif
@@ -1265,13 +1273,13 @@ struct VppKnn {
 };
 
 enum VppNLMeansFP16Opt {
-    None,
+    NoOpt,
     BlockDiff,
     All
 };
 
 const CX_DESC list_vpp_nlmeans_fp16[] = {
-    { _T("none"),      (int)VppNLMeansFP16Opt::None      },
+    { _T("none"),      (int)VppNLMeansFP16Opt::NoOpt     },
     { _T("blockdiff"), (int)VppNLMeansFP16Opt::BlockDiff },
     { _T("all"),       (int)VppNLMeansFP16Opt::All       },
     { NULL, 0 }
