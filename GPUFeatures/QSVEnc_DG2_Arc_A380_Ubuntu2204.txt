@@ -1,0 +1,250 @@
+QSVEncC (x64) 7.68 (r3389) by rigaya, Jul  6 2024 09:11:41 (gcc 11.4.0/Linux)
+ Intel Media SDK API v2.12
+ reader: raw, avs, vpy, avsw, avhw
+ vpp:    resize, deinterlace, denoise, detail-enhance, image-stab, delego, sub
+Environment Info
+OS : Ubuntu 22.04.4 LTS (6.5.0-45-generic) x64
+CPU: 12th Gen Intel Core i9-12900K (16C/24T)
+RAM: Used 10433 MB, Total 31870 MB
+GPU: Intel Graphics / Driver : 
+
+Media SDK Version: Hardware API v2.11
+
+Supported Enc features:
+Codec: H.264/AVC FF
+             CBR   VBR   AVBR  QVBR  CQP   LA    LAHRD ICQ   LAICQ VCM  
+RC mode       o     o     x     o     o     x     x     o     x     x    
+10bit depth   x     x     x     x     x     x     x     x     x     x    
+Hyper Mode    x     x     x     x     x     x     x     x     x     x    
+Interlace     x     x     x     x     x     x     x     x     x     x    
+VUI info      o     o     x     o     o     x     x     o     x     x    
+Trellis       o     o     x     o     o     x     x     o     x     x    
+BFrame/GopRef o     o     x     o     o     x     x     o     x     x    
+Adaptive_I    x     x     x     x     x     x     x     x     x     x    
+Adaptive_B    x     x     x     x     x     x     x     x     x     x    
+WeightP       o     o     x     o     o     x     x     o     x     x    
+WeightB       o     o     x     o     o     x     x     o     x     x    
+FadeDetect    x     x     x     x     x     x     x     x     x     x    
+B_Pyramid     o     o     x     o     o     x     x     o     x     x    
+ +ManyBframes o     o     x     o     o     x     x     o     x     x    
+PyramQPOffset x     x     x     x     x     x     x     x     x     x    
+TuneQuality   x     x     x     x     x     x     x     x     x     x    
+ScenarioInfo  o     o     x     o     o     x     x     o     x     x    
+MBBRC         o     o     x     o     x     x     x     o     x     x    
+ExtBRC        o     o     x     x     x     x     x     x     x     x    
+AdaptiveRef   o     o     x     o     o     x     x     o     x     x    
+AdaptiveLTR   x     x     x     x     x     x     x     x     x     x    
+AdaptiveCQM   o     o     x     o     o     x     x     o     x     x    
+LA Quality    x     x     x     x     x     x     x     x     x     x    
+QP Min/Max    o     o     x     o     o     x     x     o     x     x    
+IntraRefresh  x     x     x     x     x     x     x     x     x     x    
+No Deblock    x     x     x     x     x     x     x     x     x     x    
+No GPB        x     x     x     x     x     x     x     x     x     x    
+Windowed BRC  x     x     x     x     x     x     x     x     x     x    
+PerMBQP(CQP)  o     o     x     x     o     x     x     x     x     x    
+DirectBiasAdj o     o     x     o     o     x     x     o     x     x    
+MVCostScaling o     o     x     o     o     x     x     o     x     x    
+SAO           x     x     x     x     x     x     x     x     x     x    
+Max CTU Size  x     x     x     x     x     x     x     x     x     x    
+TSkip         x     x     x     x     x     x     x     x     x     x    
+COP           o     o     x     o     o     x     x     o     x     x    
+COP2          o     o     x     o     o     x     x     o     x     x    
+COP3          o     o     x     o     o     x     x     o     x     x    
+HEVC_PRM      x     x     x     x     x     x     x     x     x     x    
+COP_VP8       x     x     x     x     x     x     x     x     x     x    
+VP9_PRM       x     x     x     x     x     x     x     x     x     x    
+AV1BITSTREAM  x     x     x     x     x     x     x     x     x     x    
+AV1RESOLUTION x     x     x     x     x     x     x     x     x     x    
+AV1TILE       x     x     x     x     x     x     x     x     x     x    
+VIDEO_SIGNAL  o     o     x     o     o     x     x     o     x     x    
+CHROMALOC     o     o     x     o     o     x     x     o     x     x    
+TUNE_ENC_QUAL x     x     x     x     x     x     x     x     x     x    
+HYPER_MODE    x     x     x     x     x     x     x     x     x     x    
+
+
+
+Codec: H.265/HEVC FF
+             CBR   VBR   AVBR  QVBR  CQP   LA    LAHRD ICQ   LAICQ VCM  
+RC mode       o     o     x     o     o     x     x     o     x     o    
+10bit depth   o     o     x     o     o     x     x     o     x     o    
+Hyper Mode    x     x     x     x     x     x     x     x     x     x    
+Interlace     x     x     x     x     o     x     x     x     x     x    
+VUI info      o     o     x     o     o     x     x     o     x     o    
+Trellis       x     x     x     x     x     x     x     x     x     x    
+BFrame/GopRef o     o     x     o     o     x     x     o     x     o    
+Adaptive_I    o     o     x     o     o     x     x     o     x     o    
+Adaptive_B    o     o     x     o     o     x     x     o     x     o    
+WeightP       o     o     x     o     o     x     x     o     x     o    
+WeightB       o     o     x     o     o     x     x     o     x     o    
+FadeDetect    o     o     x     o     o     x     x     o     x     o    
+B_Pyramid     o     o     x     o     o     x     x     o     x     o    
+ +ManyBframes o     o     x     o     o     x     x     o     x     o    
+PyramQPOffset x     x     x     x     o     x     x     x     x     x    
+TuneQuality   x     x     x     x     x     x     x     x     x     x    
+ScenarioInfo  o     o     x     o     o     x     x     o     x     o    
+MBBRC         o     o     x     o     x     x     x     o     x     o    
+ExtBRC        o     o     x     x     x     x     x     x     x     x    
+AdaptiveRef   x     x     x     x     x     x     x     x     x     x    
+AdaptiveLTR   o     o     x     o     o     x     x     o     x     o    
+AdaptiveCQM   o     o     x     o     o     x     x     o     x     o    
+LA Quality    x     x     x     x     x     x     x     x     x     x    
+QP Min/Max    o     o     x     o     x     x     x     o     x     o    
+IntraRefresh  x     x     x     x     x     x     x     x     x     x    
+No Deblock    o     o     x     o     o     x     x     o     x     o    
+No GPB        o     o     x     o     o     x     x     o     x     o    
+Windowed BRC  x     o     x     x     x     x     x     x     x     x    
+PerMBQP(CQP)  o     o     x     o     o     x     x     o     x     o    
+DirectBiasAdj x     x     x     x     x     x     x     x     x     x    
+MVCostScaling x     x     x     x     x     x     x     x     x     x    
+SAO           o     o     x     o     o     x     x     o     x     o    
+Max CTU Size  o     o     x     o     o     x     x     o     x     o    
+TSkip         o     o     x     o     o     x     x     o     x     o    
+COP           o     o     x     o     o     x     x     o     x     o    
+COP2          o     o     x     o     o     x     x     o     x     o    
+COP3          o     o     x     o     o     x     x     o     x     o    
+HEVC_PRM      o     o     x     o     o     x     x     o     x     o    
+COP_VP8       x     x     x     x     x     x     x     x     x     x    
+VP9_PRM       x     x     x     x     x     x     x     x     x     x    
+AV1BITSTREAM  x     x     x     x     x     x     x     x     x     x    
+AV1RESOLUTION x     x     x     x     x     x     x     x     x     x    
+AV1TILE       x     x     x     x     x     x     x     x     x     x    
+VIDEO_SIGNAL  o     o     x     o     o     x     x     o     x     o    
+CHROMALOC     o     o     x     o     o     x     x     o     x     o    
+TUNE_ENC_QUAL x     x     x     x     x     x     x     x     x     x    
+HYPER_MODE    x     x     x     x     x     x     x     x     x     x    
+
+
+
+Codec: VP9 FF
+             CBR   VBR   AVBR  QVBR  CQP   LA    LAHRD ICQ   LAICQ VCM  
+RC mode       o     o     x     x     o     x     x     o     x     x    
+10bit depth   o     o     x     x     o     x     x     o     x     x    
+Hyper Mode    x     x     x     x     x     x     x     x     x     x    
+Interlace     x     x     x     x     x     x     x     x     x     x    
+VUI info      x     x     x     x     x     x     x     x     x     x    
+Trellis       x     x     x     x     x     x     x     x     x     x    
+BFrame/GopRef x     x     x     x     x     x     x     x     x     x    
+Adaptive_I    x     x     x     x     x     x     x     x     x     x    
+Adaptive_B    x     x     x     x     x     x     x     x     x     x    
+WeightP       x     x     x     x     x     x     x     x     x     x    
+WeightB       x     x     x     x     x     x     x     x     x     x    
+FadeDetect    x     x     x     x     x     x     x     x     x     x    
+B_Pyramid     x     x     x     x     x     x     x     x     x     x    
+ +ManyBframes x     x     x     x     x     x     x     x     x     x    
+PyramQPOffset x     x     x     x     x     x     x     x     x     x    
+TuneQuality   x     x     x     x     x     x     x     x     x     x    
+ScenarioInfo  o     o     x     x     o     x     x     o     x     x    
+MBBRC         o     o     x     x     x     x     x     o     x     x    
+ExtBRC        x     x     x     x     x     x     x     x     x     x    
+AdaptiveRef   x     x     x     x     x     x     x     x     x     x    
+AdaptiveLTR   x     x     x     x     x     x     x     x     x     x    
+AdaptiveCQM   x     x     x     x     x     x     x     x     x     x    
+LA Quality    x     x     x     x     x     x     x     x     x     x    
+QP Min/Max    x     x     x     x     x     x     x     x     x     x    
+IntraRefresh  x     x     x     x     x     x     x     x     x     x    
+No Deblock    x     x     x     x     x     x     x     x     x     x    
+No GPB        x     x     x     x     x     x     x     x     x     x    
+Windowed BRC  x     x     x     x     x     x     x     x     x     x    
+PerMBQP(CQP)  x     x     x     x     x     x     x     x     x     x    
+DirectBiasAdj x     x     x     x     x     x     x     x     x     x    
+MVCostScaling x     x     x     x     x     x     x     x     x     x    
+SAO           x     x     x     x     x     x     x     x     x     x    
+Max CTU Size  x     x     x     x     x     x     x     x     x     x    
+TSkip         x     x     x     x     x     x     x     x     x     x    
+COP           x     x     x     x     x     x     x     x     x     x    
+COP2          o     o     x     x     o     x     x     o     x     x    
+COP3          o     o     x     x     o     x     x     o     x     x    
+HEVC_PRM      x     x     x     x     x     x     x     x     x     x    
+COP_VP8       x     x     x     x     x     x     x     x     x     x    
+VP9_PRM       o     o     x     x     o     x     x     o     x     x    
+AV1BITSTREAM  x     x     x     x     x     x     x     x     x     x    
+AV1RESOLUTION x     x     x     x     x     x     x     x     x     x    
+AV1TILE       x     x     x     x     x     x     x     x     x     x    
+VIDEO_SIGNAL  x     x     x     x     x     x     x     x     x     x    
+CHROMALOC     x     x     x     x     x     x     x     x     x     x    
+TUNE_ENC_QUAL x     x     x     x     x     x     x     x     x     x    
+HYPER_MODE    x     x     x     x     x     x     x     x     x     x    
+
+
+
+Codec: AV1 FF
+             CBR   VBR   AVBR  QVBR  CQP   LA    LAHRD ICQ   LAICQ VCM  
+RC mode       o     o     x     x     o     x     x     o     x     x    
+10bit depth   o     o     x     x     o     x     x     o     x     x    
+Hyper Mode    x     x     x     x     x     x     x     x     x     x    
+Interlace     x     x     x     x     x     x     x     x     x     x    
+VUI info      o     o     x     x     o     x     x     o     x     x    
+Trellis       x     x     x     x     x     x     x     x     x     x    
+BFrame/GopRef o     o     x     x     o     x     x     o     x     x    
+Adaptive_I    o     o     x     x     o     x     x     o     x     x    
+Adaptive_B    o     o     x     x     o     x     x     o     x     x    
+WeightP       x     x     x     x     x     x     x     x     x     x    
+WeightB       x     x     x     x     x     x     x     x     x     x    
+FadeDetect    x     x     x     x     x     x     x     x     x     x    
+B_Pyramid     o     o     x     x     o     x     x     o     x     x    
+ +ManyBframes o     o     x     x     o     x     x     o     x     x    
+PyramQPOffset x     x     x     x     x     x     x     x     x     x    
+TuneQuality   o     o     x     x     o     x     x     o     x     x    
+ScenarioInfo  o     o     x     x     o     x     x     o     x     x    
+MBBRC         o     o     x     x     x     x     x     o     x     x    
+ExtBRC        o     o     x     x     x     x     x     o     x     x    
+AdaptiveRef   x     x     x     x     x     x     x     x     x     x    
+AdaptiveLTR   o     o     x     x     o     x     x     o     x     x    
+AdaptiveCQM   o     o     x     x     o     x     x     o     x     x    
+LA Quality    x     x     x     x     x     x     x     x     x     x    
+QP Min/Max    o     o     x     x     x     x     x     o     x     x    
+IntraRefresh  x     x     x     x     x     x     x     x     x     x    
+No Deblock    x     x     x     x     x     x     x     x     x     x    
+No GPB        x     x     x     x     x     x     x     x     x     x    
+Windowed BRC  x     x     x     x     x     x     x     x     x     x    
+PerMBQP(CQP)  x     x     x     x     x     x     x     x     x     x    
+DirectBiasAdj x     x     x     x     x     x     x     x     x     x    
+MVCostScaling x     x     x     x     x     x     x     x     x     x    
+SAO           x     x     x     x     x     x     x     x     x     x    
+Max CTU Size  x     x     x     x     x     x     x     x     x     x    
+TSkip         x     x     x     x     x     x     x     x     x     x    
+COP           o     o     x     x     o     x     x     o     x     x    
+COP2          o     o     x     x     o     x     x     o     x     x    
+COP3          o     o     x     x     o     x     x     o     x     x    
+HEVC_PRM      x     x     x     x     x     x     x     x     x     x    
+COP_VP8       x     x     x     x     x     x     x     x     x     x    
+VP9_PRM       x     x     x     x     x     x     x     x     x     x    
+AV1BITSTREAM  o     o     x     x     o     x     x     o     x     x    
+AV1RESOLUTION o     o     x     x     o     x     x     o     x     x    
+AV1TILE       o     o     x     x     o     x     x     o     x     x    
+VIDEO_SIGNAL  o     o     x     x     o     x     x     o     x     x    
+CHROMALOC     x     x     x     x     x     x     x     x     x     x    
+TUNE_ENC_QUAL o     o     x     x     o     x     x     o     x     x    
+HYPER_MODE    x     x     x     x     x     x     x     x     x     x    
+
+
+
+Supported Vpp features:
+
+Resize                o
+AI Super Res          x
+Deinterlace           o
+Scaling Quality       o
+Denoise               o
+Denoise2              o
+Mctf                  x
+Rotate                x
+Mirror                o
+Detail Enhancement    o
+Proc Amp.             o
+Image Stabilization   x
+Perceptual Pre Enc    o
+Video Signal Info     o
+FPS Conversion        o
+FPS Conversion (Adv.) o
+AI Frame Interp       x
+
+
+Supported Decode features:
+
+        H.264  HEVC   MPEG2  VP8    VP9    AV1    
+yuv420  8bit  10bit   8bit         10bit  10bit 
+yuv422        10bit                             
+yuv444        12bit                12bit        
+
+

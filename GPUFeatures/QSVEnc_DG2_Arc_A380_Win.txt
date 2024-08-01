@@ -1,13 +1,13 @@
-QSVEncC (x64) 7.51 (r3155) by rigaya, Oct 28 2023 08:32:46 (VC 1937/Win)
- Intel Media SDK API v2.09
+QSVEncC (x64) 7.68 (r3391) by rigaya, Jul 17 2024 10:25:02 (VC 1940/Win)
+ Intel Media SDK API v2.12
  reader: raw, avi, avs, vpy, avsw, avhw
 Environment Info
-OS : Windows 11 x64 (22621) [UTF-8]
-CPU: 12th Gen Intel Core i9-12900K [4.92GHz] (8P+8E,16C/24T)
-RAM: Used 8263 MB, Total 32555 MB
-GPU: Intel Arc A380 Graphics (32EU) 300-1550MHz [125W] (31.0.101.4900)
+OS : Windows 11 x64 (22631) [UTF-8]
+CPU: 12th Gen Intel Core i9-12900K [4.89GHz] (8P+8E,16C/24T)
+RAM: Used 14449 MB, Total 32555 MB
+GPU: Intel Arc A380 Graphics (32EU) 300-1550MHz [125W] (32.0.101.5768)
 
-Media SDK Version: Hardware API v2.09
+Media SDK Version: Hardware API v2.11
 
 Supported Enc features:
 Codec: H.264/AVC FF
@@ -49,7 +49,6 @@ TSkip         x     x     x     x     x     x     x     x     x     x
 COP           o     o     x     o     o     x     x     o     x     o    
 COP2          o     o     x     o     o     x     x     o     x     o    
 COP3          o     o     x     o     o     x     x     o     x     o    
-SPSPPS        x     x     x     x     x     x     x     x     x     x    
 HEVC_PRM      x     x     x     x     x     x     x     x     x     x    
 COP_VP8       x     x     x     x     x     x     x     x     x     x    
 VP9_PRM       x     x     x     x     x     x     x     x     x     x    
@@ -102,7 +101,6 @@ TSkip         o     o     x     o     o     x     x     o     x     x
 COP           o     o     x     o     o     x     x     o     x     x    
 COP2          o     o     x     o     o     x     x     o     x     x    
 COP3          o     o     x     o     o     x     x     o     x     x    
-SPSPPS        x     x     x     x     x     x     x     x     x     x    
 HEVC_PRM      o     o     x     o     o     x     x     o     x     x    
 COP_VP8       x     x     x     x     x     x     x     x     x     x    
 VP9_PRM       x     x     x     x     x     x     x     x     x     x    
@@ -155,7 +153,6 @@ TSkip         x     x     x     x     x     x     x     x     x     x
 COP           x     x     x     x     x     x     x     x     x     x    
 COP2          o     o     x     x     o     x     x     o     x     x    
 COP3          o     o     x     x     o     x     x     o     x     x    
-SPSPPS        x     x     x     x     x     x     x     x     x     x    
 HEVC_PRM      x     x     x     x     x     x     x     x     x     x    
 COP_VP8       x     x     x     x     x     x     x     x     x     x    
 VP9_PRM       o     o     x     x     o     x     x     o     x     x    
@@ -194,7 +191,7 @@ AdaptiveRef   x     x     x     x     x     x     x     x     x     x
 AdaptiveLTR   o     o     x     x     o     x     x     o     x     x    
 AdaptiveCQM   o     o     x     x     o     x     x     o     x     x    
 LA Quality    x     x     x     x     x     x     x     x     x     x    
-QP Min/Max    x     x     x     x     x     x     x     x     x     x    
+QP Min/Max    o     o     x     x     x     x     x     o     x     x    
 IntraRefresh  x     x     x     x     x     x     x     x     x     x    
 No Deblock    x     x     x     x     x     x     x     x     x     x    
 No GPB        x     x     x     x     x     x     x     x     x     x    
@@ -208,7 +205,6 @@ TSkip         x     x     x     x     x     x     x     x     x     x
 COP           o     o     x     x     o     x     x     o     x     x    
 COP2          o     o     x     x     o     x     x     o     x     x    
 COP3          o     o     x     x     o     x     x     o     x     x    
-SPSPPS        x     x     x     x     x     x     x     x     x     x    
 HEVC_PRM      x     x     x     x     x     x     x     x     x     x    
 COP_VP8       x     x     x     x     x     x     x     x     x     x    
 VP9_PRM       x     x     x     x     x     x     x     x     x     x    
@@ -225,6 +221,7 @@ HYPER_MODE    o     o     x     x     o     x     x     o     x     x
 Supported Vpp features:
 
 Resize                o
+AI Super Res          x
 Deinterlace           o
 Scaling Quality       o
 Denoise               o
@@ -235,17 +232,18 @@ Mirror                o
 Detail Enhancement    o
 Proc Amp.             o
 Image Stabilization   x
-Perceptual Pre Enc    x
+Perceptual Pre Enc    o
 Video Signal Info     o
 FPS Conversion        o
 FPS Conversion (Adv.) o
+AI Frame Interp       x
 
 
 Supported Decode features:
 
         H.264  HEVC   MPEG2  VP8    VP9    AV1    
 yuv420  8bit  10bit   8bit         10bit  10bit 
-yuv422        10bit                             
+yuv422        10bit                10bit        
 yuv444        12bit                12bit  12bit 
 
 
