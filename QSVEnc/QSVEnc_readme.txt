@@ -313,6 +313,12 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2024.08.xx (7.69)
+- Dolby Vision profileのコピー機能を追加。(--dolby-vision-profile copy)
+- Dolby Vision rpu metadataのコピー機能を追加。(--dolby-vision-rpu copy)
+- H.264/HEVCのヘッダがうまく取得できない場合、最初のパケットから取得するように。( #196 )
+- 音声のmux用のバッファ不足になり、音声が同時刻の映像と違うfragmentにmuxされる問題を修正。
+
 2024.07.04 (7.68)
 [QSVEncC]
 - oneVPLベースからlibvplベースに変更。

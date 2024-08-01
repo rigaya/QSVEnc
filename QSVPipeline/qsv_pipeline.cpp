@@ -1669,6 +1669,8 @@ CQSVPipeline::CQSVPipeline() :
     m_hdr10plus(),
     m_hdr10plusMetadataCopy(false),
     m_dovirpu(),
+    m_dovirpuMetadataCopy(false),
+    m_doviProfile(RGY_DOVI_PROFILE_UNSET),
     m_encTimestamp(),
     m_sessionParams(),
     m_nProcSpeedLimit(0),
@@ -1992,7 +1994,10 @@ RGY_ERR CQSVPipeline::InitInput(sInputParams *inputParam, std::vector<std::uniqu
             PrintMes(RGY_LOG_ERROR, _T("Failed to open dovi rpu \"%s\".\n"), inputParam->common.doviRpuFile.c_str());
             return RGY_ERR_FILE_OPEN;
         }
+    } else if (inputParam->common.doviRpuMetadataCopy) {
+        m_dovirpuMetadataCopy = true;
     }
+    m_doviProfile = inputParam->common.doviProfile;
 #endif //#if ENABLE_AVSW_READER
     return RGY_ERR_NONE;
 #else
@@ -3564,8 +3569,6 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
 
     RGY_ERR sts = RGY_ERR_NONE;
 
-    pParams->applyDOVIProfile();
-
     if (pParams->bBenchmark) {
         pParams->common.AVMuxTarget = RGY_MUX_NONE;
         if (pParams->common.nAudioSelectCount) {
@@ -3616,6 +3619,8 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     sts = InitInput(pParams, deviceList);
     if (sts < RGY_ERR_NONE) return sts;
     PrintMes(RGY_LOG_DEBUG, _T("InitInput: Success.\n"));
+
+    pParams->applyDOVIProfile(m_pFileReader->getInputDOVIProfile());
 
     sts = InitSession(pParams, deviceList);
     RGY_ERR(sts, _T("Failed to initialize encode session."));
@@ -4751,8 +4756,22 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
                 PRINT_INFO(_T("atcsei         %s\n"), char_to_tstring(atcsei).c_str());
             }
         }
+        if (m_hdr10plus) {
+            PRINT_INFO(_T("Dynamic HDR10  %s\n"), m_hdr10plus->inputJson().c_str());
+        } else if (m_hdr10plusMetadataCopy) {
+            PRINT_INFO(_T("Dynamic HDR10  copy\n"));
+        }
+        if (m_doviProfile != RGY_DOVI_PROFILE_UNSET) {
+            tstring profile_copy;
+            if (m_doviProfile == RGY_DOVI_PROFILE_COPY) {
+                profile_copy = tstring(_T(" (")) + get_cx_desc(list_dovi_profile, m_pFileReader->getInputDOVIProfile()) + tstring(_T(")"));
+            }
+            PRINT_INFO(_T("dovi profile   %s%s\n"), get_cx_desc(list_dovi_profile, m_doviProfile), profile_copy.c_str());
+        }
         if (m_dovirpu) {
             PRINT_INFO(_T("dovi rpu       %s\n"), m_dovirpu->get_filepath().c_str());
+        } else if (m_dovirpuMetadataCopy) {
+            PRINT_INFO(_T("dovi rpu       copy\n"));
         }
 
         //last line

@@ -349,7 +349,7 @@ struct sInputParams {
     bool       bBenchmark;
     mfxU32     nBenchQuality; //ベンチマークの対象
 
-    void applyDOVIProfile();
+    void applyDOVIProfile(const RGYDOVIProfile inputProfile);
 
     sInputParams();
     ~sInputParams();

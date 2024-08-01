@@ -155,6 +155,8 @@ protected:
     std::unique_ptr<RGYHDR10Plus> m_hdr10plus;
     bool m_hdr10plusMetadataCopy;
     std::unique_ptr<DOVIRpu>      m_dovirpu;
+    bool                          m_dovirpuMetadataCopy;
+    RGYDOVIProfile                m_doviProfile;
     std::unique_ptr<RGYTimestamp> m_encTimestamp;
 
     MFXVideoSession2Params m_sessionParams;
