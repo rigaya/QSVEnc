@@ -34,7 +34,7 @@ __kernel void kernel_transpose_plane(
             const int srcX = srcBlockX * TRASNPOSE_TILE_DIM + get_local_id(0) * 4 + offsetX;
             const int srcY = srcBlockY * TRASNPOSE_TILE_DIM + j + offsetY;
             TypePixel4 val = { 128, 128, 128, 128 };
-            if (srcX < srcWidth && srcY < srcHeight) {
+            if (0 <= srcX && srcX < srcWidth && 0 <= srcY && srcY < srcHeight) {
                 const __global TypePixel4 *ptr_src = (const __global TypePixel4 *)(pSrc + srcY * srcPitch + srcX * sizeof(TypePixel));
                 if ((offsetX & 3) == 0) {
                     val = ptr_src[0];
@@ -95,7 +95,7 @@ __kernel void kernel_flip_plane(
     const int srcY = srcBlockY * FLIP_BLOCK_DIM + get_local_id(1) + offsetY;
 
     TypePixel4 val = { 128, 128, 128, 128 };
-    if (srcX < dstWidth && srcY < dstHeight) {
+    if (0 <= srcX && srcX < dstWidth && 0 <= srcY && srcY < dstHeight) {
         const __global TypePixel4 *ptr_src = (const __global TypePixel4 *)(pSrc + srcY * srcPitch + srcX * sizeof(TypePixel));
         if ((offsetX & 3) == 0) {
             val = ptr_src[0];
