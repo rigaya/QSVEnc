@@ -124,6 +124,8 @@ enum RGY_CSP {
     RGY_CSP_GBRA,  //planar
     RGY_CSP_RGB_16,   //planar
     RGY_CSP_RGBA_16,  //planar
+    RGY_CSP_GBR_16,   //planar
+    RGY_CSP_GBRA_16,  //planar
     RGY_CSP_BGR_16,   //planar
     RGY_CSP_BGRA_16,  //planar
     RGY_CSP_RGB_F32,  //planar
@@ -196,6 +198,8 @@ static const TCHAR *RGY_CSP_NAMES[] = {
     _T("gbra"),
     _T("rgb(16bit)"),
     _T("rgba(16bit)"),
+    _T("gbr(16bit)"),
+    _T("gbra(16bit)"),
     _T("bgr(16bit)"),
     _T("bgra(16bit)"),
     _T("rgb(fp32)"),
@@ -268,6 +272,8 @@ static const uint8_t RGY_CSP_BIT_DEPTH[] = {
      8, //RGY_CSP_GBRA
     16, //RGY_CSP_RGB_16
     16, //RGY_CSP_RGBA_16
+    16, //RGY_CSP_GBR_16
+    16, //RGY_CSP_GBRA_16
     16, //RGY_CSP_BGR_16
     16, //RGY_CSP_BGRA_16
     32, //RGY_CSP_RGB_F32
@@ -350,6 +356,8 @@ static const RGY_DATA_TYPE RGY_CSP_DATA_TYPE[] = {
      RGY_DATA_TYPE_U8, //RGY_CSP_GBRA
      RGY_DATA_TYPE_U16, //RGY_CSP_RGB_16
      RGY_DATA_TYPE_U16, //RGY_CSP_RGBA_16
+     RGY_DATA_TYPE_U16, //RGY_CSP_GBR_16
+     RGY_DATA_TYPE_U16, //RGY_CSP_GBRA_16
      RGY_DATA_TYPE_U16, //RGY_CSP_BGR_16
      RGY_DATA_TYPE_U16, //RGY_CSP_BGRA_16
      RGY_DATA_TYPE_FP32, //RGY_CSP_RGB_F32
@@ -429,6 +437,8 @@ static const uint8_t RGY_CSP_PLANES[] = {
      4, //RGY_CSP_GBRA
      3, //RGY_CSP_RGB_16
      4, //RGY_CSP_RGBA_16
+     3, //RGY_CSP_GBR_16
+     4, //RGY_CSP_GBRA_16
      3, //RGY_CSP_BGR_16
      4, //RGY_CSP_BGRA_16
      3, //RGY_CSP_RGB_F32
@@ -485,6 +495,9 @@ static RGY_CSP rgy_csp_alpha_base(const RGY_CSP csp) {
     case RGY_CSP_RGBA:       return RGY_CSP_RGB;
     case RGY_CSP_RGBA_16:    return RGY_CSP_RGB_16;
     case RGY_CSP_RGBA_F32:   return RGY_CSP_RGB_F32;
+    case RGY_CSP_GBRA:       return RGY_CSP_GBR;
+    case RGY_CSP_BGRA_16:    return RGY_CSP_BGR_16;
+    case RGY_CSP_BGRA_F32:   return RGY_CSP_BGR_F32;
     default: return RGY_CSP_NA;
     }
 }
@@ -564,6 +577,8 @@ static const RGY_CHROMAFMT RGY_CSP_CHROMA_FORMAT[] = {
     RGY_CHROMAFMT_RGB,
     RGY_CHROMAFMT_RGB,
     RGY_CHROMAFMT_RGB,
+    RGY_CHROMAFMT_RGB,
+    RGY_CHROMAFMT_RGB,
     RGY_CHROMAFMT_YUV444, //RGY_CSP_YC48
     RGY_CHROMAFMT_MONOCHROME,
     RGY_CHROMAFMT_MONOCHROME,
@@ -630,6 +645,8 @@ static const uint8_t RGY_CSP_BIT_PER_PIXEL[] = {
     32, //RGY_CSP_GBRA
     48, //RGY_CSP_RGB_16
     64, //RGY_CSP_RGBA_16
+    48, //RGY_CSP_GBR_16
+    64, //RGY_CSP_GBRA_16
     48, //RGY_CSP_BGR_16
     64, //RGY_CSP_BGRA_16
     96, //RGY_CSP_RGB_F32
@@ -691,7 +708,7 @@ typedef struct ConvertCSP {
 } ConvertCSP;
 
 const ConvertCSP *get_convert_csp_func(RGY_CSP csp_from, RGY_CSP csp_to, bool uv_only, RGY_SIMD simd);
-const funcConvertCSP get_copy_alpha_func(RGY_CSP csp_from, RGY_CSP csp_to);
+funcConvertCSP get_copy_alpha_func(RGY_CSP csp_from, RGY_CSP csp_to);
 const TCHAR *get_simd_str(RGY_SIMD simd);
 
 enum RGY_FRAME_FLAGS : uint32_t {
