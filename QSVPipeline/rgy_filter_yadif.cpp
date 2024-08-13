@@ -53,7 +53,7 @@ RGY_ERR RGYFilterYadifSource::alloc(const RGYFrameInfo& frameInfo) {
         //すべて確保されているか確認
         bool allocated = true;
         for (auto& buf : m_buf) {
-            if (buf->frame.ptr == nullptr) {
+            if (buf->frame.ptr[0] == nullptr) {
                 allocated = false;
                 break;
             }

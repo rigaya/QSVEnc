@@ -224,7 +224,7 @@ RGY_ERR RGYFilterConvolution3D::run_filter(const RGYFrameInfo *pInputFrame, RGYF
 
         auto framePrev = &m_prevFrames[std::max(m_cacheIdx-2, 0) % m_prevFrames.size()]->frame;
         auto frameCur  = &m_prevFrames[        (m_cacheIdx-1)    % m_prevFrames.size()]->frame;
-        if (frameNext->ptr == nullptr) {
+        if (frameNext->ptr[0] == nullptr) {
             frameNext = frameCur;
         }
 
