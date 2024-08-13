@@ -134,7 +134,7 @@ RGY_ERR RGYFilterPad::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog>
         || !prmPrev
         || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]) {
         const auto options = strsprintf("-D Type=%s", RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar");
-        m_pad.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_PAD_CL"), _T("EXE_DATA"), options.c_str())));
+        m_pad.set(m_cl->buildResourceAsync(_T("RGY_FILTER_PAD_CL"), _T("EXE_DATA"), options.c_str()));
     }
 
     sts = AllocFrameBuf(prm->frameOut, 1);

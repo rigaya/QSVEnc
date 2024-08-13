@@ -847,7 +847,7 @@ RGY_ERR RGYFilterSsim::build_kernel(const RGY_CSP csp) {
         const auto options = strsprintf("-D BIT_DEPTH=%d -D SSIM_BLOCK_X=%d -D SSIM_BLOCK_Y=%d",
             RGY_CSP_BIT_DEPTH[csp],
             SSIM_BLOCK_X, SSIM_BLOCK_Y);
-        m_kernel.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_SSIM_CL"), _T("EXE_DATA"), options.c_str())));
+        m_kernel.set(m_cl->buildResourceAsync(_T("RGY_FILTER_SSIM_CL"), _T("EXE_DATA"), options.c_str()));
     }
     return RGY_ERR_NONE;
 }

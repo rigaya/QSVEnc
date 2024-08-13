@@ -234,7 +234,7 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
             radius, algo,
             RESIZE_BLOCK_X, RESIZE_BLOCK_Y, shared_weightXdim, shared_weightYdim,
             WEIGHT_BILINEAR, WEIGHT_BICUBIC, WEIGHT_SPLINE, WEIGHT_LANCZOS, use_local);
-        m_resize.set(std::move(m_cl->buildResourceAsync(_T("RGY_FILTER_RESIZE_CL"), _T("EXE_DATA"), options.c_str())));
+        m_resize.set(m_cl->buildResourceAsync(_T("RGY_FILTER_RESIZE_CL"), _T("EXE_DATA"), options.c_str()));
         if (!m_weightSpline
             && algo == WEIGHT_SPLINE) {
             static const auto SPLINE16_WEIGHT = std::vector<float>{
