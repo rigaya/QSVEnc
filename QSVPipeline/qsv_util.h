@@ -59,13 +59,14 @@ class RGYFrameData;
 #define INIT_MFX_EXT_BUFFER(x, id) { RGY_MEMSET_ZERO(x); (x).Header.BufferId = (id); (x).Header.BufferSz = sizeof(x); }
 
 MAP_PAIR_0_1_PROTO(codec, rgy, RGY_CODEC, enc, mfxU32);
-MAP_PAIR_0_1_PROTO(chromafmt, rgy, RGY_CHROMAFMT, enc, mfxU16);
+//MAP_PAIR_0_1_PROTO(chromafmt, rgy, RGY_CHROMAFMT, enc, mfxU16);
 MAP_PAIR_0_1_PROTO(csp, rgy, RGY_CSP, enc, mfxU32);
 MAP_PAIR_0_1_PROTO(resize_algo, rgy, RGY_VPP_RESIZE_ALGO, enc, int);
 MAP_PAIR_0_1_PROTO(resize_mode, rgy, RGY_VPP_RESIZE_MODE, enc, int);
 
 mfxU16 picstruct_rgy_to_enc(RGY_PICSTRUCT picstruct);
 RGY_PICSTRUCT picstruct_enc_to_rgy(mfxU16 picstruct);
+mfxU16 mfx_fourcc_to_chromafmt(mfxU32 fourcc);
 mfxFrameInfo frameinfo_rgy_to_enc(VideoInfo info);
 mfxFrameInfo frameinfo_rgy_to_enc(const RGYFrameInfo& info, const rgy_rational<int> fps, const rgy_rational<int> sar, const int blockSize);
 VideoInfo videooutputinfo(const mfxInfoMFX& mfx, const mfxExtVideoSignalInfo& vui, const mfxExtChromaLocInfo& chromaloc);
@@ -124,19 +125,24 @@ static bool gopRefDistAsBframe(const RGY_CODEC codec) {
     return codec == RGY_CODEC_H264 || codec == RGY_CODEC_HEVC || codec == RGY_CODEC_MPEG2;
 }
 
+// QSVでRGBエンコードの際、RGY_CSP_VUYA扱いとする色空間
+static const RGY_CSP RGY_CSP_MFX_RGB = RGY_CSP_RBGA32;
+
 static RGY_CSP getMFXCsp(const RGY_CHROMAFMT chroma, const int bitdepth) {
     if (bitdepth > 8) {
         switch (chroma) {
         case RGY_CHROMAFMT_YUV420: return RGY_CSP_P010;
         case RGY_CHROMAFMT_YUV422: return RGY_CSP_Y210;
         case RGY_CHROMAFMT_YUV444: return (bitdepth > 10) ? RGY_CSP_Y416 : RGY_CSP_Y410;
+        case RGY_CHROMAFMT_RGB:    return (bitdepth > 10) ? RGY_CSP_RBGA64 : RGY_CSP_RBGA64_10;
         default: return RGY_CSP_NA;
         }
     }
     switch (chroma) {
     case RGY_CHROMAFMT_YUV420: return RGY_CSP_NV12;
     case RGY_CHROMAFMT_YUV422: return RGY_CSP_YUY2;
-    case RGY_CHROMAFMT_YUV444: return RGY_CSP_AYUV;
+    case RGY_CHROMAFMT_YUV444: return RGY_CSP_VUYA;
+    case RGY_CHROMAFMT_RGB:    return RGY_CSP_MFX_RGB;
     default: return RGY_CSP_NA;
     }
 }

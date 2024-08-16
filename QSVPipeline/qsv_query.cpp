@@ -603,7 +603,7 @@ std::vector<RGY_CSP> CheckDecFeaturesInternal(MFXVideoSession& session, mfxVersi
             break;
         }
         
-        videoPrm.mfx.FrameInfo.ChromaFormat = (mfxU16)chromafmt_rgy_to_enc(RGY_CSP_CHROMA_FORMAT[test]);
+        videoPrm.mfx.FrameInfo.ChromaFormat = mfx_fourcc_to_chromafmt(videoPrm.mfx.FrameInfo.FourCC);
         if (codecId == MFX_CODEC_HEVC) {
             if (RGY_CSP_CHROMA_FORMAT[test] == RGY_CHROMAFMT_YUV420) {
                 videoPrm.mfx.CodecProfile = (mfxU16)((RGY_CSP_BIT_DEPTH[test] > 8) ? MFX_PROFILE_HEVC_MAIN10 : MFX_PROFILE_HEVC_MAIN);

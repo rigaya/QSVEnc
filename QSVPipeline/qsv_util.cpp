@@ -85,12 +85,16 @@ static const auto RGY_CSP_TO_MFX = make_array<std::pair<RGY_CSP, mfxU32>>(
     std::make_pair(RGY_CSP_YUV444_12, 0),
     std::make_pair(RGY_CSP_YUV444_14, 0),
     std::make_pair(RGY_CSP_YUV444_16, 0),
-    std::make_pair(RGY_CSP_AYUV,      MFX_FOURCC_AYUV),
+    std::make_pair(RGY_CSP_VUYA,      MFX_FOURCC_AYUV),
     std::make_pair(RGY_CSP_Y210,      MFX_FOURCC_Y210),
     std::make_pair(RGY_CSP_Y216,      MFX_FOURCC_Y216),
     std::make_pair(RGY_CSP_Y410,      MFX_FOURCC_Y410),
     std::make_pair(RGY_CSP_Y416,      MFX_FOURCC_Y416),
-    std::make_pair(RGY_CSP_RGB32,     MFX_FOURCC_RGB4),
+    std::make_pair(RGY_CSP_RBGA64_10, MFX_FOURCC_Y410),
+    std::make_pair(RGY_CSP_RBGA64,    MFX_FOURCC_Y416),
+    std::make_pair(RGY_CSP_BGR32,     MFX_FOURCC_RGB4),
+    std::make_pair(RGY_CSP_RGB32,     MFX_FOURCC_BGR4),
+    std::make_pair(RGY_CSP_MFX_RGB,   MFX_FOURCC_AYUV),
     std::make_pair(RGY_CSP_YC48,      0)
     );
 
@@ -129,10 +133,33 @@ RGY_PICSTRUCT picstruct_enc_to_rgy(mfxU16 picstruct) {
 }
 
 RGY_NOINLINE
+mfxU16 mfx_fourcc_to_chromafmt(mfxU32 fourcc) {
+    switch (fourcc) {
+    case MFX_FOURCC_AYUV:
+    case MFX_FOURCC_RGB4:
+    case MFX_FOURCC_BGR4:
+    case MFX_FOURCC_Y410:
+    case MFX_FOURCC_Y416:
+        return MFX_CHROMAFORMAT_YUV444;
+    case MFX_FOURCC_YUY2:
+    case MFX_FOURCC_NV16:
+    case MFX_FOURCC_P210:
+    case MFX_FOURCC_Y210:
+    case MFX_FOURCC_Y216:
+        return MFX_CHROMAFORMAT_YUV422;
+    case MFX_FOURCC_NV12:
+    case MFX_FOURCC_YV12:
+    case MFX_FOURCC_P010:
+    default:
+        return MFX_CHROMAFORMAT_YUV420;
+    }
+}
+
+RGY_NOINLINE
 mfxFrameInfo frameinfo_rgy_to_enc(VideoInfo info) {
     mfxFrameInfo mfx = { 0 };
     mfx.FourCC = csp_rgy_to_enc(info.csp);
-    mfx.ChromaFormat = (mfxU16)chromafmt_rgy_to_enc(RGY_CSP_CHROMA_FORMAT[info.csp]);
+    mfx.ChromaFormat = mfx_fourcc_to_chromafmt(mfx.FourCC);
     mfx.BitDepthLuma = (mfxU16)(info.bitdepth > 8 ? info.bitdepth : 0);
     mfx.BitDepthChroma = (mfxU16)(info.bitdepth > 8 ? info.bitdepth : 0);
     mfx.Shift = (fourccShiftUsed(mfx.FourCC) && RGY_CSP_BIT_DEPTH[info.csp] - info.bitdepth > 0) ? 1 : 0;
@@ -154,7 +181,7 @@ RGY_NOINLINE
 mfxFrameInfo frameinfo_rgy_to_enc(const RGYFrameInfo& info, const rgy_rational<int> fps, const rgy_rational<int> sar, const int blockSize) {
     mfxFrameInfo mfx = { 0 };
     mfx.FourCC = csp_rgy_to_enc(info.csp);
-    mfx.ChromaFormat = (mfxU16)chromafmt_rgy_to_enc(RGY_CSP_CHROMA_FORMAT[info.csp]);
+    mfx.ChromaFormat = mfx_fourcc_to_chromafmt(mfx.FourCC);
     mfx.BitDepthLuma = (mfxU16)(info.bitdepth > 8 ? info.bitdepth : 0);
     mfx.BitDepthChroma = (mfxU16)(info.bitdepth > 8 ? info.bitdepth : 0);
     mfx.Shift = (fourccShiftUsed(mfx.FourCC) && RGY_CSP_BIT_DEPTH[info.csp] - info.bitdepth > 0) ? 1 : 0;
@@ -426,10 +453,10 @@ const TCHAR *ColorFormatToStr(uint32_t format) {
         return _T("yv12");
     case MFX_FOURCC_YUY2:
         return _T("yuy2");
-    case MFX_FOURCC_RGB4:
-        return _T("rgb32");
-    case MFX_FOURCC_BGR4:
+    case MFX_FOURCC_RGB4: // -> RGY_CSP_BGR32
         return _T("bgr32");
+    case MFX_FOURCC_BGR4: // -> RGY_CSP_RGB32
+        return _T("rgb32");
     case MFX_FOURCC_AYUV:
         return _T("AYUV");
     case MFX_FOURCC_P010:

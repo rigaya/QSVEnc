@@ -995,7 +995,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
     m_encParams.videoPrm.IOPattern = (mfxU16)((pInParams->memType != SYSTEM_MEMORY) ? MFX_IOPATTERN_IN_VIDEO_MEMORY : MFX_IOPATTERN_IN_SYSTEM_MEMORY);
 
     // frame info parameters
-    m_encParams.videoPrm.mfx.FrameInfo.ChromaFormat = (mfxU16)chromafmt_rgy_to_enc(RGY_CSP_CHROMA_FORMAT[getEncoderCsp(pInParams)]);
+    m_encParams.videoPrm.mfx.FrameInfo.ChromaFormat = mfx_fourcc_to_chromafmt(csp_rgy_to_enc(getEncoderCsp(pInParams)));
     m_encParams.videoPrm.mfx.FrameInfo.PicStruct    = (mfxU16)picstruct_rgy_to_enc(m_encPicstruct);
 
     // set sar info
@@ -1304,9 +1304,9 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
     const int encBitdepth = getEncoderBitdepth(pInParams);
     const auto encCsp = getEncoderCsp(pInParams);
     m_encParams.videoPrm.mfx.FrameInfo.FourCC = csp_rgy_to_enc(encCsp);
+    m_encParams.videoPrm.mfx.FrameInfo.ChromaFormat = mfx_fourcc_to_chromafmt(m_encParams.videoPrm.mfx.FrameInfo.FourCC);
     m_encParams.videoPrm.mfx.FrameInfo.BitDepthLuma = (mfxU16)encBitdepth;
     m_encParams.videoPrm.mfx.FrameInfo.BitDepthChroma = (mfxU16)encBitdepth;
-    m_encParams.videoPrm.mfx.FrameInfo.ChromaFormat = (mfxU16)chromafmt_rgy_to_enc(RGY_CSP_CHROMA_FORMAT[encCsp]);
     m_encParams.videoPrm.mfx.FrameInfo.Shift = (cspShiftUsed(encCsp) && RGY_CSP_BIT_DEPTH[encCsp] - encBitdepth > 0) ? 1 : 0;
     m_encParams.videoPrm.mfx.FrameInfo.Width  = (mfxU16)ALIGN(m_encWidth, blocksz);
     m_encParams.videoPrm.mfx.FrameInfo.Height = (mfxU16)ALIGN(m_encHeight, blocksz * ((MFX_PICSTRUCT_PROGRESSIVE == m_encParams.videoPrm.mfx.FrameInfo.PicStruct) ? 1:2));
@@ -1319,12 +1319,18 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
     if (m_encParams.videoPrm.mfx.FrameInfo.ChromaFormat == MFX_CHROMAFORMAT_YUV444) {
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_15)) {
             if (pInParams->functionMode != QSVFunctionMode::FF) {
-                PrintMes(RGY_LOG_WARN, _T("Switched to fixed function (FF) mode, as encoding in YUV444 requires FF mode.\n"));
+                PrintMes(RGY_LOG_WARN, _T("Switched to fixed function (FF) mode, as encoding in YUV444/RGB requires FF mode.\n"));
                 pInParams->functionMode = QSVFunctionMode::FF;
                 m_encParams.videoPrm.mfx.LowPower = (mfxU16)MFX_CODINGOPTION_ON;
             }
+            if (m_encParams.videoPrm.mfx.CodecId == MFX_CODEC_AVC) {
+                PrintMes(RGY_LOG_ERROR, _T("Encoding in H.264 YUV444/RGB is not supported.\n"));
+                return RGY_ERR_UNSUPPORTED;
+            } else if (m_encParams.videoPrm.mfx.CodecId == MFX_CODEC_HEVC) {
+                m_encParams.videoPrm.mfx.CodecProfile = MFX_PROFILE_HEVC_REXT;
+            }
         } else {
-            PrintMes(RGY_LOG_ERROR, _T("Encoding in YUV444 is not supported on this platform.\n"));
+            PrintMes(RGY_LOG_ERROR, _T("Encoding in YUV444/RGB is not supported on this platform.\n"));
             return RGY_ERR_UNSUPPORTED;
         }
     }
@@ -2138,7 +2144,9 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     std::vector<VppType> filterPipeline;
     filterPipeline.reserve((size_t)VppType::CL_MAX);
 
-    if (cspConvRequired || cropRequired)   filterPipeline.push_back(VppType::MFX_CROP);
+    if (cspConvRequired || cropRequired) {
+        filterPipeline.push_back((inputParam->outputCsp == RGY_CHROMAFMT_RGB) ? VppType::CL_CROP : VppType::MFX_CROP);
+    }
     if (inputParam->vpp.colorspace.enable) {
         bool requireOpenCL = inputParam->vpp.colorspace.hdr2sdr.tonemap != HDR2SDR_DISABLED || inputParam->vpp.colorspace.lut3d.table_file.length() > 0;
         if (!requireOpenCL) {
@@ -3052,6 +3060,14 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
     m_encVUI.apply_auto(inputParam->input.vui, m_encHeight);
     m_encVUI.setDescriptPreset();
 
+    if (inputParam->outputCsp == RGY_CHROMAFMT_RGB) {
+        m_encVUI.descriptpresent = 1;
+        if (m_encVUI.matrix     == RGY_MATRIX_UNSPECIFIED     || m_encVUI.matrix     == RGY_MATRIX_AUTO)     m_encVUI.matrix     = RGY_MATRIX_RGB;
+        if (m_encVUI.colorprim  == RGY_PRIM_UNSPECIFIED       || m_encVUI.colorprim  == RGY_PRIM_AUTO)       m_encVUI.colorprim  = RGY_PRIM_BT709;
+        if (m_encVUI.transfer   == RGY_TRANSFER_UNSPECIFIED   || m_encVUI.transfer   == RGY_TRANSFER_AUTO)   m_encVUI.transfer   = RGY_TRANSFER_IEC61966_2_1;
+        if (m_encVUI.colorrange == RGY_COLORRANGE_UNSPECIFIED || m_encVUI.colorrange == RGY_COLORRANGE_AUTO) m_encVUI.colorrange = RGY_COLORRANGE_FULL;
+    }
+
     m_vpFilters.clear();
 
     std::vector<VppType> filterPipeline = InitFiltersCreateVppList(inputParam, cspConvRequired, cropRequired, resizeRequired);
@@ -3099,9 +3115,10 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
                 switch (param->frameOut.csp) { // OpenCLフィルタの内部形式への変換
                 case RGY_CSP_NV12: param->frameOut.csp = RGY_CSP_YV12; break;
                 case RGY_CSP_P010: param->frameOut.csp = RGY_CSP_YV12_16; break;
-                case RGY_CSP_AYUV: param->frameOut.csp = RGY_CSP_YUV444; break;
+                case RGY_CSP_VUYA: param->frameOut.csp = RGY_CSP_YUV444; break;
                 case RGY_CSP_Y410: param->frameOut.csp = RGY_CSP_YUV444_16; break;
                 case RGY_CSP_Y416: param->frameOut.csp = RGY_CSP_YUV444_16; break;
+                case RGY_CSP_MFX_RGB: param->frameOut.csp = RGY_CSP_RGB; break;
                 default:
                     break;
                 }
@@ -3171,7 +3188,6 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
 
     m_encWidth  = inputFrame.width;
     m_encHeight = inputFrame.height;
-
     return RGY_ERR_NONE;
 }
 
@@ -4407,7 +4423,7 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVideoParam>> CQSVPipeline::GetOutputVideoI
         prmset->videoPrm.mfx.CodecId = 0;
         // frameInfo から prmset->videoPrm.mfx.FrameInfo に値をコピーする
         prmset->videoPrm.mfx.FrameInfo.FourCC = csp_rgy_to_enc(frameInfo.csp);
-        prmset->videoPrm.mfx.FrameInfo.ChromaFormat = chromafmt_rgy_to_enc(RGY_CSP_CHROMA_FORMAT[frameInfo.csp]);
+        prmset->videoPrm.mfx.FrameInfo.ChromaFormat = mfx_fourcc_to_chromafmt(prmset->videoPrm.mfx.FrameInfo.FourCC);
         prmset->videoPrm.mfx.FrameInfo.PicStruct = picstruct_rgy_to_enc(frameInfo.picstruct);
         prmset->videoPrm.mfx.FrameInfo.BitDepthLuma = RGY_CSP_BIT_DEPTH[frameInfo.csp];
         prmset->videoPrm.mfx.FrameInfo.BitDepthChroma = RGY_CSP_BIT_DEPTH[frameInfo.csp];

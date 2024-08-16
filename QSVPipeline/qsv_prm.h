@@ -486,6 +486,10 @@ const CX_DESC list_output_depth[] = {
 };
 
 const CX_DESC list_output_csp[] = {
+    { _T("yuv420"), RGY_CHROMAFMT_YUV420 },
+    { _T("yuv422"), RGY_CHROMAFMT_YUV422 },
+    { _T("yuv444"), RGY_CHROMAFMT_YUV444 },
+    { _T("rgb"),    RGY_CHROMAFMT_RGB },
     { _T("i420"), RGY_CHROMAFMT_YUV420 },
     { _T("i422"), RGY_CHROMAFMT_YUV422 },
     { _T("i444"), RGY_CHROMAFMT_YUV444 },

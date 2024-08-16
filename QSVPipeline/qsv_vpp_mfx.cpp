@@ -467,6 +467,7 @@ RGY_ERR QSVVppMfx::SetVppExtBuffers(sVppParams& params) {
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)
         && (   MFX_FOURCC_RGBP == m_mfxVppParams.vpp.In.FourCC
             || MFX_FOURCC_RGB4 == m_mfxVppParams.vpp.In.FourCC
+            || MFX_FOURCC_BGR4 == m_mfxVppParams.vpp.In.FourCC
             || params.colorspace.enable)) {
         INIT_MFX_EXT_BUFFER(m_ExtVppVSI, MFX_EXTBUFF_VPP_VIDEO_SIGNAL_INFO);
         m_ExtVppVSI.In.NominalRange    = (mfxU16)((params.colorspace.from.range  == RGY_COLORRANGE_FULL) ? MFX_NOMINALRANGE_0_255   : MFX_NOMINALRANGE_16_235);
