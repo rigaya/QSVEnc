@@ -138,7 +138,15 @@ RGY_ERR RGYFilterTweak::procFrameRGB(RGYFrameInfo *pFrame, RGYOpenCLQueue &queue
     return RGY_ERR_NONE;
 }
 
-RGYFilterTweak::RGYFilterTweak(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_tweak() {
+RGYFilterTweak::RGYFilterTweak(shared_ptr<RGYOpenCLContext> context) :
+    RGYFilter(context),
+    m_tweak(),
+    m_tweakRGB(),
+    m_tweakCSP(RGY_CSP_NA),
+    m_tweakRGBCSP(RGY_CSP_NA),
+    m_convA(),
+    m_convB(),
+    m_convC() {
     m_name = _T("tweak");
 }
 
@@ -201,82 +209,154 @@ RGY_ERR RGYFilterTweak::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
     }
 
     auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamTweak>(m_param);
-    if (!m_tweak.get()
+    auto csp_yuv = RGY_CSP_YUV444_16;
+    auto csp_rgb = RGY_CSP_RGB_16;
+
+    if (RGY_CSP_CHROMA_FORMAT[prm->frameOut.csp] == RGY_CHROMAFMT_RGB) {
+        csp_rgb = prm->frameOut.csp;
+        m_convC.reset();
+        if (prm->tweak.yuv_filter_enabled()) {
+            if (!m_convA
+                || !m_convB
+                || m_convA->GetFilterParam()->frameIn.csp  != pParam->frameIn.csp
+                || m_convA->GetFilterParam()->frameOut.csp != csp_yuv
+                || m_convB->GetFilterParam()->frameIn.csp  != csp_yuv
+                || m_convB->GetFilterParam()->frameOut.csp != pParam->frameIn.csp) {
+                VideoVUIInfo vui = VideoVUIInfo().to((CspMatrix)COLOR_VALUE_AUTO_RESOLUTION).to((CspColorprim)COLOR_VALUE_AUTO_RESOLUTION).to((CspTransfer)COLOR_VALUE_AUTO_RESOLUTION);
+                vui.apply_auto(VideoVUIInfo(), pParam->frameIn.height);
+                {
+                    auto filterCrop = std::make_unique<RGYFilterCspCrop>(m_cl);
+                    auto paramCrop = std::make_shared<RGYFilterParamCrop>();
+                    paramCrop->frameIn = pParam->frameIn;
+                    paramCrop->frameOut = pParam->frameIn;
+                    paramCrop->frameOut.csp = csp_yuv;
+                    paramCrop->baseFps = pParam->baseFps;
+                    paramCrop->matrix = vui.matrix;
+                    paramCrop->frameOut.mem_type = RGY_MEM_TYPE_GPU;
+                    paramCrop->bOutOverwrite = false;
+                    sts = filterCrop->init(paramCrop, m_pLog);
+                    if (sts != RGY_ERR_NONE) {
+                        return sts;
+                    }
+                    m_convA = std::move(filterCrop);
+                }
+                {
+                    auto filterCrop = std::make_unique<RGYFilterCspCrop>(m_cl);
+                    auto paramCrop = std::make_shared<RGYFilterParamCrop>();
+                    paramCrop->frameIn = pParam->frameIn;
+                    paramCrop->frameIn.csp = csp_yuv;
+                    paramCrop->frameOut = pParam->frameIn;
+                    paramCrop->baseFps = pParam->baseFps;
+                    paramCrop->matrix = vui.matrix;
+                    paramCrop->frameOut.mem_type = RGY_MEM_TYPE_GPU;
+                    paramCrop->bOutOverwrite = false;
+                    sts = filterCrop->init(paramCrop, m_pLog);
+                    if (sts != RGY_ERR_NONE) {
+                        return sts;
+                    }
+                    m_convB = std::move(filterCrop);
+                }
+            }
+        } else {
+            m_convA.reset();
+            m_convB.reset();
+        }
+    } else {
+        csp_yuv = prm->frameOut.csp;
+        m_convA.reset();
+        if (prm->tweak.rgb_filter_enabled()) {
+            if (!m_convB
+                || !m_convC
+                || m_convB->GetFilterParam()->frameIn.csp  != pParam->frameIn.csp
+                || m_convB->GetFilterParam()->frameOut.csp != csp_rgb
+                || m_convC->GetFilterParam()->frameIn.csp  != csp_rgb
+                || m_convC->GetFilterParam()->frameOut.csp != pParam->frameIn.csp) {
+                VideoVUIInfo vui = prm->vui;
+                vui.setIfUnset(VideoVUIInfo().to((CspMatrix)COLOR_VALUE_AUTO_RESOLUTION).to((CspColorprim)COLOR_VALUE_AUTO_RESOLUTION).to((CspTransfer)COLOR_VALUE_AUTO_RESOLUTION));
+                vui.apply_auto(VideoVUIInfo(), pParam->frameIn.height);
+                {
+                    auto filterCrop = std::make_unique<RGYFilterCspCrop>(m_cl);
+                    auto paramCrop = std::make_shared<RGYFilterParamCrop>();
+                    paramCrop->frameIn = pParam->frameIn;
+                    paramCrop->frameOut = pParam->frameIn;
+                    paramCrop->frameOut.csp = csp_rgb;
+                    paramCrop->baseFps = pParam->baseFps;
+                    paramCrop->matrix = vui.matrix;
+                    paramCrop->frameOut.mem_type = RGY_MEM_TYPE_GPU;
+                    paramCrop->bOutOverwrite = false;
+                    sts = filterCrop->init(paramCrop, m_pLog);
+                    if (sts != RGY_ERR_NONE) {
+                        return sts;
+                    }
+                    m_convB = std::move(filterCrop);
+                }
+                {
+                    auto filterCrop = std::make_unique<RGYFilterCspCrop>(m_cl);
+                    auto paramCrop = std::make_shared<RGYFilterParamCrop>();
+                    paramCrop->frameIn = pParam->frameIn;
+                    paramCrop->frameIn.csp = csp_rgb;
+                    paramCrop->frameOut = pParam->frameIn;
+                    paramCrop->baseFps = pParam->baseFps;
+                    paramCrop->matrix = vui.matrix;
+                    paramCrop->frameOut.mem_type = RGY_MEM_TYPE_GPU;
+                    paramCrop->bOutOverwrite = false;
+                    sts = filterCrop->init(paramCrop, m_pLog);
+                    if (sts != RGY_ERR_NONE) {
+                        return sts;
+                    }
+                    m_convC = std::move(filterCrop);
+                }
+            }
+        } else {
+            m_convB.reset();
+            m_convC.reset();
+        }
+    }
+    if (prm->tweak.yuv_filter_enabled()
+        && (!m_tweak.get()
         || !prmPrev
-        || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]
+        || RGY_CSP_BIT_DEPTH[m_tweakCSP] != RGY_CSP_BIT_DEPTH[csp_yuv]
         || prmPrev->tweak.y.enabled()  != prm->tweak.y.enabled()
         || prmPrev->tweak.cb.enabled() != prm->tweak.cb.enabled()
-        || prmPrev->tweak.cr.enabled() != prm->tweak.cr.enabled()) {
+        || prmPrev->tweak.cr.enabled() != prm->tweak.cr.enabled())) {
         const auto options = strsprintf("-D Type=%s -D Type4=%s -D bit_depth=%d"
             " -D TWEAK_Y=%d -D TWEAK_CB=%d -D TWEAK_CR=%d",
-            RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
-            RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort4" : "uchar4",
-            RGY_CSP_BIT_DEPTH[prm->frameOut.csp],
+            RGY_CSP_BIT_DEPTH[csp_yuv] > 8 ? "ushort" : "uchar",
+            RGY_CSP_BIT_DEPTH[csp_yuv] > 8 ? "ushort4" : "uchar4",
+            RGY_CSP_BIT_DEPTH[csp_yuv],
             prm->tweak.y.enabled() ? 1 : 0,
             prm->tweak.cb.enabled() ? 1 : 0,
             prm->tweak.cr.enabled() ? 1 : 0);
         m_tweak.set(m_cl->buildResourceAsync(_T("RGY_FILTER_TWEAK_CL"), _T("EXE_DATA"), options.c_str()));
+        m_tweakCSP = csp_yuv;
     }
-    if ((prm->tweak.r.enabled() || prm->tweak.g.enabled() || prm->tweak.b.enabled())
-        && (!m_convSrc || !m_convDst)) {
-        const auto csp_rgb = RGY_CSP_RGB_16;
-        VideoVUIInfo vui = prm->vui;
-        vui.setIfUnset(VideoVUIInfo().to((CspMatrix)COLOR_VALUE_AUTO_RESOLUTION).to((CspColorprim)COLOR_VALUE_AUTO_RESOLUTION).to((CspTransfer)COLOR_VALUE_AUTO_RESOLUTION));
-        vui.apply_auto(VideoVUIInfo(), pParam->frameIn.height);
-        {
-            auto filterCrop = std::make_unique<RGYFilterCspCrop>(m_cl);
-            auto paramCrop = std::make_shared<RGYFilterParamCrop>();
-            paramCrop->frameIn = pParam->frameIn;
-            paramCrop->frameOut = pParam->frameIn;
-            paramCrop->frameOut.csp = csp_rgb;
-            paramCrop->baseFps = pParam->baseFps;
-            paramCrop->matrix = vui.matrix;
-            paramCrop->frameOut.mem_type = RGY_MEM_TYPE_GPU;
-            paramCrop->bOutOverwrite = false;
-            sts = filterCrop->init(paramCrop, m_pLog);
-            if (sts != RGY_ERR_NONE) {
-                return sts;
-            }
-            m_convSrc = std::move(filterCrop);
-        }
-        {
-            auto filterCrop = std::make_unique<RGYFilterCspCrop>(m_cl);
-            auto paramCrop = std::make_shared<RGYFilterParamCrop>();
-            paramCrop->frameIn = pParam->frameIn;
-            paramCrop->frameIn.csp = csp_rgb;
-            paramCrop->frameOut = pParam->frameIn;
-            paramCrop->baseFps = pParam->baseFps;
-            paramCrop->matrix = vui.matrix;
-            paramCrop->frameOut.mem_type = RGY_MEM_TYPE_GPU;
-            paramCrop->bOutOverwrite = false;
-            sts = filterCrop->init(paramCrop, m_pLog);
-            if (sts != RGY_ERR_NONE) {
-                return sts;
-            }
-            m_convDst = std::move(filterCrop);
-        }
-
+    if (prm->tweak.rgb_filter_enabled()
+        && (!m_tweakRGB.get()
+        || RGY_CSP_BIT_DEPTH[m_tweakRGBCSP] != RGY_CSP_BIT_DEPTH[csp_rgb])) {
         const auto options = strsprintf("-D Type=%s -D Type4=%s -D bit_depth=%d"
             " -D TWEAK_Y=%d -D TWEAK_CB=%d -D TWEAK_CR=%d",
             RGY_CSP_BIT_DEPTH[csp_rgb] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[csp_rgb] > 8 ? "ushort4" : "uchar4",
             RGY_CSP_BIT_DEPTH[csp_rgb], 0, 0, 0);
         m_tweakRGB.set(m_cl->buildResourceAsync(_T("RGY_FILTER_TWEAK_CL"), _T("EXE_DATA"), options.c_str()));
+        m_tweakRGBCSP = csp_rgb;
     }
 
     //コピーを保存
-    if (prm->tweak.r.enabled() || prm->tweak.g.enabled() || prm->tweak.b.enabled()) {
-        tstring str = prm->tweak.print(false) + _T("\n");
-        const tstring indent = _T("       ");
-        str += indent + m_convSrc->GetInputMessage() + _T("\n");
+    const tstring indent = _T("       ");
+    tstring str;
+    if (m_convA) str += indent + m_convA->GetInputMessage() + _T("\n");
+    if (prm->tweak.yuv_filter_enabled()) {
+        str += indent + prm->tweak.print(false, false) + _T("\n");
+    }
+    if (m_convB) str += indent + m_convB->GetInputMessage() + _T("\n");
+    if (prm->tweak.rgb_filter_enabled()) {
         if (prm->tweak.r.enabled()) str += indent + _T("r: ") + prm->tweak.r.print() + _T("\n");
         if (prm->tweak.g.enabled()) str += indent + _T("g: ") + prm->tweak.g.print() + _T("\n");
         if (prm->tweak.b.enabled()) str += indent + _T("b: ") + prm->tweak.b.print() + _T("\n");
-        str += indent + m_convDst->GetInputMessage();
-        setFilterInfo(str);
-    } else {
-        setFilterInfo(prm->print());
     }
+    if (m_convC) str += indent + m_convC->GetInputMessage();
+    setFilterInfo(tstring(_T("tweak: ") + str.substr(_tcslen(_T("tweak: ")))));
     m_param = prm;
     return sts;
 }
@@ -294,10 +374,6 @@ RGY_ERR RGYFilterTweak::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         return RGY_ERR_INVALID_PARAM;
     }
 
-    if (!m_tweak.get()) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_TWEAK_CL(m_tweak)\n"));
-        return RGY_ERR_OPENCL_CRUSH;
-    }
     const auto memcpyKind = getMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
     if (memcpyKind != RGYCLMemcpyD2D) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
@@ -307,38 +383,59 @@ RGY_ERR RGYFilterTweak::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
-
-    sts = procFrame(ppOutputFrames[0], queue, wait_events, event);
-    if (sts != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("error at procFrame (%s): %s.\n"),
-            RGY_CSP_NAMES[pInputFrame->csp], get_err_mes(sts));
-        return sts;
-    }
     auto prm = std::dynamic_pointer_cast<RGYFilterParamTweak>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (prm->tweak.r.enabled() || prm->tweak.g.enabled() || prm->tweak.b.enabled()) {
+
+    RGYFrameInfo *targetFrame = ppOutputFrames[0];
+    if (m_convA) { // RGB -> YUV
+        int cropFilterOutputNum = 0;
+        RGYFrameInfo *pCropFilterOutput[1] = { nullptr };
+        RGYFrameInfo inFrame = *targetFrame;
+        auto sts_filter = m_convA->filter(&inFrame, (RGYFrameInfo **)&pCropFilterOutput, &cropFilterOutputNum, queue, {}, nullptr);
+        if (pCropFilterOutput[0] == nullptr || cropFilterOutputNum != 1) {
+            AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_convA->name().c_str());
+            return sts_filter;
+        }
+        if (sts_filter != RGY_ERR_NONE || cropFilterOutputNum != 1) {
+            AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_convA->name().c_str());
+            return sts_filter;
+        }
+        targetFrame = pCropFilterOutput[0];
+    }
+    if (prm->tweak.yuv_filter_enabled()) {
+        if (!m_tweak.get()) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_TWEAK_CL(m_tweak)\n"));
+            return RGY_ERR_OPENCL_CRUSH;
+        }
+        sts = procFrame(targetFrame, queue, wait_events, event);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at procFrame (%s): %s.\n"),
+                RGY_CSP_NAMES[pInputFrame->csp], get_err_mes(sts));
+            return sts;
+        }
+    }
+    if (m_convB) { // YUV -> RGB
+        int cropFilterOutputNum = 0;
+        RGYFrameInfo *pCropFilterOutput[1] = { (m_convB->GetFilterParam()->frameOut.csp == ppOutputFrames[0]->csp) ? ppOutputFrames[0] : nullptr };
+        RGYFrameInfo inFrame = *targetFrame;
+        auto sts_filter = m_convB->filter(&inFrame, (RGYFrameInfo **)&pCropFilterOutput, &cropFilterOutputNum, queue, {}, nullptr);
+        if (pCropFilterOutput[0] == nullptr || cropFilterOutputNum != 1) {
+            AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_convB->name().c_str());
+            return sts_filter;
+        }
+        if (sts_filter != RGY_ERR_NONE || cropFilterOutputNum != 1) {
+            AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_convB->name().c_str());
+            return sts_filter;
+        }
+        targetFrame = pCropFilterOutput[0];
+    }
+    if (prm->tweak.rgb_filter_enabled()) {
         if (!m_tweakRGB.get()) {
             AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_TWEAK_CL(m_tweakRGB)\n"));
             return RGY_ERR_OPENCL_CRUSH;
-        }
-        RGYFrameInfo *targetFrame = nullptr;
-        { // YUV -> RGB
-            int cropFilterOutputNum = 0;
-            RGYFrameInfo *pCropFilterOutput[1] = { nullptr };
-            RGYFrameInfo inFrame = *(ppOutputFrames[0]);
-            auto sts_filter = m_convSrc->filter(&inFrame, (RGYFrameInfo **)&pCropFilterOutput, &cropFilterOutputNum, queue, {}, nullptr);
-            if (pCropFilterOutput[0] == nullptr || cropFilterOutputNum != 1) {
-                AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_convSrc->name().c_str());
-                return sts_filter;
-            }
-            if (sts_filter != RGY_ERR_NONE || cropFilterOutputNum != 1) {
-                AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_convSrc->name().c_str());
-                return sts_filter;
-            }
-            targetFrame = pCropFilterOutput[0];
         }
         // RGBでの処理を実行
         sts = procFrameRGB(targetFrame, queue, {}, nullptr);
@@ -347,20 +444,17 @@ RGY_ERR RGYFilterTweak::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
                 RGY_CSP_NAMES[pInputFrame->csp], get_err_mes(sts));
             return sts;
         }
-        { // RGB -> YUV
-            int cropFilterOutputNum = 0;
-            RGYFrameInfo *pCropFilterOutput[1] = { nullptr };
-            RGYFrameInfo inFrame = *targetFrame;
-            auto sts_filter = m_convDst->filter(&inFrame, (RGYFrameInfo **)&pCropFilterOutput, &cropFilterOutputNum, queue, {}, event);
-            if (pCropFilterOutput[0] == nullptr || cropFilterOutputNum != 1) {
-                AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_convDst->name().c_str());
-                return sts_filter;
-            }
-            if (sts_filter != RGY_ERR_NONE || cropFilterOutputNum != 1) {
-                AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_convDst->name().c_str());
-                return sts_filter;
-            }
-            ppOutputFrames[0] = pCropFilterOutput[0];
+    }
+    if (m_convC) { // RGB -> YUV
+        RGYFrameInfo inFrame = *targetFrame;
+        auto sts_filter = m_convC->filter(&inFrame, ppOutputFrames, pOutputFrameNum, queue, {}, event);
+        if (ppOutputFrames[0] == nullptr || *pOutputFrameNum != 1) {
+            AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_convC->name().c_str());
+            return sts_filter;
+        }
+        if (sts_filter != RGY_ERR_NONE || *pOutputFrameNum != 1) {
+            AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_convC->name().c_str());
+            return sts_filter;
         }
     }
 
@@ -368,8 +462,9 @@ RGY_ERR RGYFilterTweak::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
 }
 
 void RGYFilterTweak::close() {
-    m_convSrc.reset();
-    m_convDst.reset();
+    m_convA.reset();
+    m_convB.reset();
+    m_convC.reset();
     m_frameBuf.clear();
     m_tweak.clear();
     m_tweakRGB.clear();

@@ -1707,6 +1707,7 @@ RGY_ERR RGYFilterColorspace::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
         return RGY_ERR_INVALID_PARAM;
     }
 
+    const auto outCsp = prm->frameOut.csp;
     prm->frameOut = pParam->frameIn;
     if (!crop || cmpFrameInfoCspResolution(&crop->GetFilterParam()->frameIn, &pParam->frameIn)) {
         crop.reset();
@@ -1717,7 +1718,11 @@ RGY_ERR RGYFilterColorspace::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
             shared_ptr<RGYFilterParamCrop> paramCrop(new RGYFilterParamCrop());
             paramCrop->frameIn = pParam->frameIn;
             paramCrop->frameOut = pParam->frameIn;
-            paramCrop->frameOut.csp = (std::max(RGY_CSP_BIT_DEPTH[paramCrop->frameIn.csp], RGY_CSP_BIT_DEPTH[prm->encCsp]) > 8) ? RGY_CSP_YUV444_16 : RGY_CSP_YUV444;
+            if (RGY_CSP_CHROMA_FORMAT[pParam->frameIn.csp] == RGY_CHROMAFMT_RGB || RGY_CSP_CHROMA_FORMAT[pParam->frameIn.csp] == RGY_CHROMAFMT_RGB_PACKED) {
+                paramCrop->frameOut.csp = RGY_CSP_RGB_F32;
+            } else {
+                paramCrop->frameOut.csp = (std::max(RGY_CSP_BIT_DEPTH[paramCrop->frameIn.csp], RGY_CSP_BIT_DEPTH[prm->encCsp]) > 8) ? RGY_CSP_YUV444_16 : RGY_CSP_YUV444;
+            }
             paramCrop->baseFps = pParam->baseFps;
             paramCrop->frameOut.mem_type = RGY_MEM_TYPE_GPU;
             paramCrop->bOutOverwrite = false;
@@ -1748,10 +1753,14 @@ RGY_ERR RGYFilterColorspace::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
                 return RGY_ERR_INVALID_PARAM;
             }
             if (prm->colorspace.convs.back().to.matrix == RGY_MATRIX_RGB) {
-                AddMessage(RGY_LOG_ERROR, _T("output matrix to \"GBR\" is not supported.\n"));
-                return RGY_ERR_INVALID_PARAM;
+                if (RGY_CSP_CHROMA_FORMAT[outCsp] == RGY_CHROMAFMT_RGB) {
+                    prm->frameOut.csp = outCsp;
+                } else {
+                    prm->frameOut.csp = (RGY_CSP_BIT_DEPTH[outCsp] > 8) ? RGY_CSP_RGB_16 : RGY_CSP_RGB;
+                }
+            } else {
+                prm->frameOut.csp = RGY_CSP_YUV444;
             }
-            prm->frameOut.csp = RGY_CSP_YUV444;
         }
         opCtrl = std::make_unique<ColorspaceOpCtrl>(pPrintMes);
         if (prm->colorspace.lut3d.table_file.length() > 0) {

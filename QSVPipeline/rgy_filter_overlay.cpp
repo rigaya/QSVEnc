@@ -124,6 +124,12 @@ RGY_ERR RGYFilterOverlay::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+
+    if (RGY_CSP_CHROMA_FORMAT[pParam->frameIn.csp] != RGY_CHROMAFMT_YUV420 && RGY_CSP_CHROMA_FORMAT[pParam->frameIn.csp] != RGY_CHROMAFMT_YUV444) {
+        AddMessage(RGY_LOG_ERROR, _T("this filter does not support csp %s.\n"), RGY_CSP_NAMES[pParam->frameIn.csp]);
+        return RGY_ERR_UNSUPPORTED;
+    }
+
     //パラメータチェック
     if (prm->frameOut.height <= 0 || prm->frameOut.width <= 0) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));

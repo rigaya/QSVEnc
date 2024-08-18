@@ -337,6 +337,9 @@ RGY_ERR RGYFilterDenoiseNLMeans::init(shared_ptr<RGYFilterParam> pParam, shared_
             frameInfo.width = tmpBufWidth;
             frameInfo.height = tmpBufHeight;
             switch (RGY_CSP_CHROMA_FORMAT[prm->frameOut.csp]) {
+                case RGY_CHROMAFMT_RGB:
+                    frameInfo.csp = RGY_CSP_RGB;
+                    break;
                 case RGY_CHROMAFMT_YUV444:
                     frameInfo.csp = RGY_CSP_YUV444;
                     break;

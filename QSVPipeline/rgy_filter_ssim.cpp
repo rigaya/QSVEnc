@@ -132,6 +132,11 @@ RGY_ERR RGYFilterSsim::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         return RGY_ERR_INVALID_PARAM;
     }
 
+    if (RGY_CSP_CHROMA_FORMAT[pParam->frameIn.csp] != RGY_CHROMAFMT_YUV420 && RGY_CSP_CHROMA_FORMAT[pParam->frameIn.csp] != RGY_CHROMAFMT_YUV444) {
+        AddMessage(RGY_LOG_ERROR, _T("this filter does not support csp %s.\n"), RGY_CSP_NAMES[pParam->frameIn.csp]);
+        return RGY_ERR_UNSUPPORTED;
+    }
+
     m_deviceId = prm->deviceId;
     m_cropOrg.reset();
     m_cropDec.reset();

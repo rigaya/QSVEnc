@@ -54,6 +54,9 @@ protected:
     bool m_bInterlacedWarn;
     RGYOpenCLProgramAsync m_tweak;
     RGYOpenCLProgramAsync m_tweakRGB;
-    std::unique_ptr<RGYFilter> m_convSrc;
-    std::unique_ptr<RGYFilter> m_convDst;
+    RGY_CSP m_tweakCSP;
+    RGY_CSP m_tweakRGBCSP;
+    std::unique_ptr<RGYFilter> m_convA;
+    std::unique_ptr<RGYFilter> m_convB;
+    std::unique_ptr<RGYFilter> m_convC;
 };

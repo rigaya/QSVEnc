@@ -116,7 +116,7 @@ RGY_ERR RGYFilterDecimate::procFrame(const RGYFrameInfo *p0, const RGYFrameInfo 
     }
     const bool useKernel2 = (prm->decimate.blockX / 2 <= DECIMATE_KERNEL2_BLOCK_X_THRESHOLD);
 
-    const int targetPlanes = (prm->decimate.chroma) ? (int)(RGY_CSP_PLANES[p0->csp]) : 1;
+    const int targetPlanes = (prm->decimate.chroma || RGY_CSP_CHROMA_FORMAT[p0->csp] == RGY_CHROMAFMT_RGB) ? (int)(RGY_CSP_PLANES[p0->csp]) : 1;
     for (int i = 0; i < targetPlanes; i++) {
         const auto plane0 = getPlane(p0, (RGY_PLANE)i);
         const auto plane1 = getPlane(p1, (RGY_PLANE)i);
