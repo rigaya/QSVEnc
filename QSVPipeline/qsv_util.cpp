@@ -60,6 +60,21 @@ static const auto RGY_CHROMAFMT_TO_MFX = make_array<std::pair<RGY_CHROMAFMT, mfx
 
 MAP_PAIR_0_1(chromafmt, rgy, RGY_CHROMAFMT, enc, mfxU16, RGY_CHROMAFMT_TO_MFX, RGY_CHROMAFMT_UNKNOWN, 0u);
 
+#define MFX_EXT_MAKEFOURCC(A,B,C,D)    (MFX_MAKEFOURCC(A,B,C,D) | 0x80808080)
+enum {
+    MFX_EXT_FOURCC_YUV420_16 = MFX_EXT_MAKEFOURCC('Y', '0', '1', '6'),
+    MFX_EXT_FOURCC_YUV420_12 = MFX_EXT_MAKEFOURCC('Y', '0', '1', '2'),
+    MFX_EXT_FOURCC_YUV420_10 = MFX_EXT_MAKEFOURCC('Y', '0', '1', '0'),
+    MFX_EXT_FOURCC_YUV422_16 = MFX_EXT_MAKEFOURCC('Y', '2', '1', '6'),
+    MFX_EXT_FOURCC_YUV422_12 = MFX_EXT_MAKEFOURCC('Y', '2', '1', '2'),
+    MFX_EXT_FOURCC_YUV422_10 = MFX_EXT_MAKEFOURCC('Y', '2', '1', '0'),
+    MFX_EXT_FOURCC_YUV444_16 = MFX_EXT_MAKEFOURCC('Y', '4', '1', '6'),
+    MFX_EXT_FOURCC_YUV444_12 = MFX_EXT_MAKEFOURCC('Y', '4', '1', '2'),
+    MFX_EXT_FOURCC_YUV444_10 = MFX_EXT_MAKEFOURCC('Y', '4', '1', '0'),
+    MFX_EXT_FOURCC_RGBP      = MFX_EXT_MAKEFOURCC('R', 'G', 'B', 'P'),
+};
+#undef MFX_EXT_MAKEFOURCC
+
 static const auto RGY_CSP_TO_MFX = make_array<std::pair<RGY_CSP, mfxU32>>(
     std::make_pair(RGY_CSP_NA,        0),
     std::make_pair(RGY_CSP_NV12,      MFX_FOURCC_NV12),
@@ -69,22 +84,22 @@ static const auto RGY_CSP_TO_MFX = make_array<std::pair<RGY_CSP, mfxU32>>(
     std::make_pair(RGY_CSP_YUV444,    0),
     std::make_pair(RGY_CSP_NV16,      MFX_FOURCC_NV16),
     std::make_pair(RGY_CSP_YV12_09,   0),
-    std::make_pair(RGY_CSP_YV12_10,   0),
+    std::make_pair(RGY_CSP_YV12_10,   MFX_EXT_FOURCC_YUV420_10),
     std::make_pair(RGY_CSP_YV12_12,   0),
     std::make_pair(RGY_CSP_YV12_14,   0),
-    std::make_pair(RGY_CSP_YV12_16,   0),
+    std::make_pair(RGY_CSP_YV12_16,   MFX_EXT_FOURCC_YUV420_16),
     std::make_pair(RGY_CSP_P010,      MFX_FOURCC_P010),
     std::make_pair(RGY_CSP_YUV422_09, 0),
-    std::make_pair(RGY_CSP_YUV422_10, 0),
+    std::make_pair(RGY_CSP_YUV422_10, MFX_EXT_FOURCC_YUV422_10),
     std::make_pair(RGY_CSP_YUV422_12, 0),
     std::make_pair(RGY_CSP_YUV422_14, 0),
-    std::make_pair(RGY_CSP_YUV422_16, 0),
+    std::make_pair(RGY_CSP_YUV422_16, MFX_EXT_FOURCC_YUV422_16),
     std::make_pair(RGY_CSP_P210,      MFX_FOURCC_P210),
     std::make_pair(RGY_CSP_YUV444_09, 0),
-    std::make_pair(RGY_CSP_YUV444_10, 0),
+    std::make_pair(RGY_CSP_YUV444_10, MFX_EXT_FOURCC_YUV444_10),
     std::make_pair(RGY_CSP_YUV444_12, 0),
     std::make_pair(RGY_CSP_YUV444_14, 0),
-    std::make_pair(RGY_CSP_YUV444_16, 0),
+    std::make_pair(RGY_CSP_YUV444_16, MFX_EXT_FOURCC_YUV444_16),
     std::make_pair(RGY_CSP_VUYA,      MFX_FOURCC_AYUV),
     std::make_pair(RGY_CSP_Y210,      MFX_FOURCC_Y210),
     std::make_pair(RGY_CSP_Y216,      MFX_FOURCC_Y216),
@@ -95,6 +110,7 @@ static const auto RGY_CSP_TO_MFX = make_array<std::pair<RGY_CSP, mfxU32>>(
     std::make_pair(RGY_CSP_BGR32,     MFX_FOURCC_RGB4),
     std::make_pair(RGY_CSP_RGB32,     MFX_FOURCC_BGR4),
     std::make_pair(RGY_CSP_MFX_RGB,   MFX_FOURCC_AYUV),
+    std::make_pair(RGY_CSP_RGB,       MFX_EXT_FOURCC_RGBP),
     std::make_pair(RGY_CSP_YC48,      0)
     );
 
