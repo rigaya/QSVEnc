@@ -805,6 +805,7 @@ protected:
     MFXVideoDECODE *m_dec;
     mfxVideoParam& m_mfxDecParams;
     RGYInput *m_input;
+    bool m_skipAV1C;
     bool m_getNextBitstream;
     int m_decFrameOutCount;
     int m_decRemoveRemainingBytesWarnCount; // removing %d bytes from input bitstream not read by decoder の表示回数
@@ -813,8 +814,8 @@ protected:
     RGYQueueMPMP<RGYFrameDataMetadata*> m_queueHDR10plusMetadata;
     RGYQueueMPMP<FrameFlags> m_dataFlag;
 public:
-    PipelineTaskMFXDecode(MFXVideoSession *mfxSession, int outMaxQueueSize, MFXVideoDECODE *mfxdec, mfxVideoParam& decParams, RGYInput *input, mfxVersion mfxVer, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::MFXDEC, outMaxQueueSize, mfxSession, mfxVer, log), m_dec(mfxdec), m_mfxDecParams(decParams), m_input(input), m_getNextBitstream(true), m_decFrameOutCount(0), m_decRemoveRemainingBytesWarnCount(0), m_firstPts(-1), m_decInputBitstream(), m_queueHDR10plusMetadata(), m_dataFlag() {
+    PipelineTaskMFXDecode(MFXVideoSession *mfxSession, int outMaxQueueSize, MFXVideoDECODE *mfxdec, mfxVideoParam& decParams, bool skipAV1C, RGYInput *input, mfxVersion mfxVer, std::shared_ptr<RGYLog> log)
+        : PipelineTask(PipelineTaskType::MFXDEC, outMaxQueueSize, mfxSession, mfxVer, log), m_dec(mfxdec), m_mfxDecParams(decParams), m_input(input), m_skipAV1C(skipAV1C), m_getNextBitstream(true), m_decFrameOutCount(0), m_decRemoveRemainingBytesWarnCount(0), m_firstPts(-1), m_decInputBitstream(), m_queueHDR10plusMetadata(), m_dataFlag() {
         m_decInputBitstream.init(AVCODEC_READER_INPUT_BUF_SIZE);
         m_dataFlag.init();
         //TimeStampはQSVに自動的に計算させる
@@ -944,6 +945,14 @@ protected:
             }
         }
         if (inputBitstream != nullptr) {
+            if (m_skipAV1C && m_mfxDecParams.mfx.CodecId == MFX_CODEC_AV1 && inputBitstream->DataLength > 4 && (inputBitstream->Data[0] & 0x80)) {
+                // AV1ではそのままのヘッダだと、Decodeに失敗する場合がある QSVEnc #122
+                // その場合、4byte飛ばすと読めるかも?
+                // https://github.com/FFmpeg/FFmpeg/commit/ffd1316e441a8310cf1746d86fed165e17e10018
+                // https://aomediacodec.github.io/av1-isobmff/
+                inputBitstream->DataOffset += 4;
+                inputBitstream->DataLength -= 4;
+            }
             if (inputBitstream->TimeStamp == (mfxU64)AV_NOPTS_VALUE) {
                 inputBitstream->TimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
             } else if (m_firstPts < 0) {

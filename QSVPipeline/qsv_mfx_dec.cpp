@@ -47,6 +47,7 @@ QSVMfxDec::QSVMfxDec(CQSVHWDevice *hwdev, QSVAllocator *allocator,
     m_DecExtParams(),
     m_DecVidProc(),
     m_mfxDecParams(),
+    m_skipAV1C(false),
     m_log(log) {
     RGY_MEMSET_ZERO(m_DecVidProc);
     RGY_MEMSET_ZERO(m_mfxDecParams);
@@ -156,13 +157,16 @@ RGY_ERR QSVMfxDec::SetParam(
     // RFF使用時に、フィールドの情報を取得するために必要
     // RFFのときに MFX_PICSTRUCT_PROGRESSIVE に加え、MFX_PICSTRUCT_FIELD_TFFまたはMFX_PICSTRUCT_FIELD_BFF、MFX_PICSTRUCT_FIELD_REPEATEDが設定される
     m_mfxDecParams.mfx.ExtendedPicStruct = 1;
+    m_skipAV1C = false;
     sts = err_to_rgy(m_mfxDec->DecodeHeader(&inputHeader.bitstream(), &m_mfxDecParams));
     if (sts != RGY_ERR_NONE && inputCodec == RGY_CODEC_AV1) {
         // AV1ではそのままのヘッダだと、DecodeHeaderに失敗する場合がある QSVEnc #122
         // その場合、4byte飛ばすと読めるかも? https://github.com/FFmpeg/FFmpeg/commit/ffd1316e441a8310cf1746d86fed165e17e10018
         inputHeader.addOffset(4);
+        inputHeader.setSize(inputHeader.size() - 4);
         PrintMes(RGY_LOG_DEBUG, _T("Skip 4 bytes of header and retry DecodeHeader: %s.\n"), get_err_mes(sts));
         sts = err_to_rgy(m_mfxDec->DecodeHeader(&inputHeader.bitstream(), &m_mfxDecParams));
+        m_skipAV1C = true;
     }
     if (sts != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("Failed to DecodeHeader: %s.\n"), get_err_mes(sts));

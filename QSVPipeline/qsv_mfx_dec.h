@@ -59,6 +59,7 @@ public:
     mfxVersion mfxver() const { return m_mfxVer; }
     MemType memType() const { return m_memType; }
     QSVAllocator *allocator() { return m_allocator; }
+    bool skipAV1C() const { return m_skipAV1C; }
 protected:
     void PrintMes(RGYLogLevel log_level, const TCHAR *format, ...);
     int clamp_param_int(int value, int low, int high, const TCHAR *param_name);
@@ -80,6 +81,7 @@ protected:
     std::vector<mfxExtBuffer*> m_DecExtParams;
     mfxExtDecVideoProcessing m_DecVidProc;
     mfxVideoParam m_mfxDecParams;
+    bool m_skipAV1C;
 
     std::shared_ptr<RGYLog> m_log;
 };

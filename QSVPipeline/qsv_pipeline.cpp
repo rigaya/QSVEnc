@@ -4005,7 +4005,7 @@ RGY_ERR CQSVPipeline::CreatePipeline() {
             PrintMes(RGY_LOG_ERROR, _T("Failed to join mfx vpp session: %s.\n"), get_err_mes(err));
             return err;
         }
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXDecode>(&m_device->mfxSession(), 1, m_mfxDEC->mfxdec(), m_mfxDEC->mfxparams(), m_pFileReader.get(), m_mfxVer, m_pQSVLog));
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXDecode>(&m_device->mfxSession(), 1, m_mfxDEC->mfxdec(), m_mfxDEC->mfxparams(), m_mfxDEC->skipAV1C(), m_pFileReader.get(), m_mfxVer, m_pQSVLog));
     }
     if (m_pFileWriterListAudio.size() > 0) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskAudio>(m_pFileReader.get(), m_AudioReaders, m_pFileWriterListAudio, m_vpFilters, 0, m_mfxVer, m_pQSVLog));
