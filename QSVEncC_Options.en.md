@@ -541,9 +541,9 @@ Set input colorspace for --raw input. Default is yv12.
 ```
 
 ### --output-csp &lt;string&gt;
-Set output colorspace. Default is i420.
+Set output colorspace. Default is yuv420.
 ```
-i420, i422, i444
+yuv420, yuv422, yuv444, rgb
 ```
 
 ### --output-depth &lt;int&gt;

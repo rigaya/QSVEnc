@@ -555,9 +555,9 @@ raw読み込み時の入力色空間の設定。デフォルトはyv12。
 ```
 
 ### --output-csp &lt;string&gt;
-出力色空間の設定。デフォルトは i420。
+出力色空間の設定。デフォルトは yuv420。
 ```
-i420, i422, i444
+yuv420, yuv422, yuv444, rgb
 ```
 
 ### --output-depth &lt;int&gt;

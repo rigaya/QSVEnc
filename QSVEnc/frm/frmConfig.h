@@ -7473,6 +7473,17 @@ private: System::Windows::Forms::ComboBox^  fcgCXVppDenoiseFFT3DPrecision;
             CX->EndUpdate();
         }
     private:
+        System::Void setComboBox(ComboBox ^CX, const CX_DESC *list, const int length) {
+            CX->BeginUpdate();
+            const int prevIdx = CX->SelectedIndex;
+            CX->Items->Clear();
+            for (int i = 0; list[i].desc && i < length; i++) {
+                CX->Items->Add(String(list[i].desc).ToString());
+            }
+            SetCXIndex(CX, prevIdx);
+            CX->EndUpdate();
+        }
+    private:
         System::Void setComboBox(ComboBox^ CX, const char * const * list) {
             CX->BeginUpdate();
             const int prevIdx = CX->SelectedIndex;

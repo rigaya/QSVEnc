@@ -827,7 +827,7 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXFunctionMode,    list_qsv_function_mode);
     setComboBox(fcgCXCodecLevel,      list_avc_level);
     setComboBox(fcgCXCodecProfile,    list_avc_profile);
-    setComboBox(fcgCXOutputCsp,       list_output_csp);
+    setComboBox(fcgCXOutputCsp,       list_output_csp, (int)_countof(list_output_csp) - 4);
     setComboBox(fcgCXBitDepth,        bit_depth_desc);
     setComboBox(fcgCXQualityPreset,   list_quality);
     setComboBox(fcgCXInterlaced,      list_interlaced_mfx_gui);

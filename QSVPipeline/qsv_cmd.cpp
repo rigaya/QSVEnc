@@ -245,8 +245,8 @@ tstring encoder_help() {
         });
     str += strsprintf(_T("\n")
         _T("   --output-depth <int>        output bit depth (default: 8)\n")
-        _T("   --output-csp <string>       output colorspace (default: i420)\n")
-        _T("                                 - i420, i422, i444\n")
+        _T("   --output-csp <string>       output colorspace (default: yuv420)\n")
+        _T("                                 - yuv420, yuv422, yuv444, rgb\n")
         _T("\n"));
     str += strsprintf(_T("\n")
         _T("   --function-mode              select QSV function mode.\n")
