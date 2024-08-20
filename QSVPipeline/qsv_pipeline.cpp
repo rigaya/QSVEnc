@@ -4787,7 +4787,7 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         if (m_dovirpu) {
             PRINT_INFO(_T("dovi rpu       %s\n"), m_dovirpu->get_filepath().c_str());
         } else if (m_dovirpuMetadataCopy) {
-            PRINT_INFO(_T("dovi rpu       copy\n"));
+            PRINT_INFO(_T("dovi rpu       %s\n"), _T("copy"));
         }
 
         //last line

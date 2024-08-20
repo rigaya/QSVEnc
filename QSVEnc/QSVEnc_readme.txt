@@ -313,7 +313,7 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
-2024.08.xx (7.69)
+2024.08.20 (7.69)
 - RGB出力機能を追加。(--output-csp rgb)
 - Dolby Vision profileのコピー機能を追加。(--dolby-vision-profile copy)
 - Dolby Vision rpu metadataのコピー機能を追加。(--dolby-vision-rpu copy)
