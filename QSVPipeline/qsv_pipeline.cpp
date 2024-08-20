@@ -4775,7 +4775,7 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         if (m_hdr10plus) {
             PRINT_INFO(_T("Dynamic HDR10  %s\n"), m_hdr10plus->inputJson().c_str());
         } else if (m_hdr10plusMetadataCopy) {
-            PRINT_INFO(_T("Dynamic HDR10  copy\n"));
+            PRINT_INFO(_T("Dynamic HDR10  %s\n"), _T("copy"));
         }
         if (m_doviProfile != RGY_DOVI_PROFILE_UNSET) {
             tstring profile_copy;

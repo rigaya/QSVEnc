@@ -314,10 +314,13 @@ API v1.1  … Intel Media SDK v2.0
 
 【どうでもいいメモ】
 2024.08.xx (7.69)
+- RGB出力機能を追加。(--output-csp rgb)
 - Dolby Vision profileのコピー機能を追加。(--dolby-vision-profile copy)
 - Dolby Vision rpu metadataのコピー機能を追加。(--dolby-vision-rpu copy)
 - H.264/HEVCのヘッダがうまく取得できない場合、最初のパケットから取得するように。( #196 )
+- mkvに入っているAV1がそのままのヘッダだと、Decodeに失敗する場合があるのを修正。
 - 音声のmux用のバッファ不足になり、音声が同時刻の映像と違うfragmentにmuxされる問題を修正。
+- --vpp-transformでフレームサイズが64で割り切れない場合に、不正なメモリアクセスが生じる問題を修正。
 
 2024.07.04 (7.68)
 [QSVEncC]

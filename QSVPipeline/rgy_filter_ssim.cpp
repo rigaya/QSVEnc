@@ -389,7 +389,7 @@ RGY_ERR RGYFilterSsim::init_cl_resources() {
         return sts;
     }
 
-    m_taskDec = std::make_unique<PipelineTaskMFXDecode>(m_mfxDEC->GetVideoSessionPtr(), 1, m_mfxDEC->mfxdec(), m_mfxDEC->mfxparams(), nullptr, m_mfxDEC->mfxver(), m_pLog);
+    m_taskDec = std::make_unique<PipelineTaskMFXDecode>(m_mfxDEC->GetVideoSessionPtr(), 1, m_mfxDEC->mfxdec(), m_mfxDEC->mfxparams(), m_mfxDEC->skipAV1C(), nullptr, m_mfxDEC->mfxver(), m_pLog);
     auto allocRequest = m_taskDec->requiredSurfOut();
     if (!allocRequest.has_value()) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to get required surface num for hw decoder.\n"));
