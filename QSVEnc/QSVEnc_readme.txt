@@ -313,6 +313,22 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2024.09.xx (7.70)
+[QSVEncC]
+- 使用するffmpegのライブラリを更新。(Windows版)
+  - ffmpeg     7.0    -> 20240902
+  - dav1d      1.4.1  -> 1.4.3
+  - libvpl     2.11.0 -> 2.12.0
+  - libvpx     2.14.0
+  - MMT/TLV対応パッチを組み込み (mmtsを読み込み可能に)
+- --vpp-smoothの誤ったhelpを修正。
+
+[QSVEnc.auo]
+- 6時間を超える長さのwav出力に対応。
+- ffmpeg系の音声出力で6時間を超える音声の出力に対応。
+- ffmpegのlibopusを使用したopusエンコードを追加。
+- VC runtimeインストーラを更新。
+
 2024.08.20 (7.69)
 - RGB出力機能を追加。(--output-csp rgb)
 - Dolby Vision profileのコピー機能を追加。(--dolby-vision-profile copy)
