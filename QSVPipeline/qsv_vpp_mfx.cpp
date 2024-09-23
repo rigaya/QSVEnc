@@ -655,7 +655,8 @@ RGY_ERR QSVVppMfx::SetVppExtBuffers(sVppParams& params) {
         }
     }
 
-    if (m_VppDoUseList.size()) {
+    // 最近はdo useは不要?
+    if (getCPUGen(&m_mfxSession) < CPU_GEN_HASWELL && m_VppDoUseList.size()) {
         INIT_MFX_EXT_BUFFER(m_VppDoUse, MFX_EXTBUFF_VPP_DOUSE);
         m_VppDoUse.NumAlg = (mfxU32)m_VppDoUseList.size();
         m_VppDoUse.AlgList = &m_VppDoUseList[0];

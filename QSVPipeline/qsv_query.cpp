@@ -711,7 +711,7 @@ mfxU64 CheckVppFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer) {
     videoPrm.ExtParam = (buf.size()) ? &buf[0] : NULL;
     videoPrm.AsyncDepth           = 3;
     videoPrm.IOPattern            = (bHardware) ? MFX_IOPATTERN_IN_VIDEO_MEMORY | MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_IN_SYSTEM_MEMORY | MFX_IOPATTERN_OUT_SYSTEM_MEMORY;
-    videoPrm.vpp.In.FrameRateExtN = 24000;
+    videoPrm.vpp.In.FrameRateExtN = 30000;
     videoPrm.vpp.In.FrameRateExtD = 1001;
     videoPrm.vpp.In.FourCC        = MFX_FOURCC_NV12;
     videoPrm.vpp.In.ChromaFormat  = MFX_CHROMAFORMAT_YUV420;
@@ -728,7 +728,7 @@ mfxU64 CheckVppFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer) {
     videoPrm.vpp.Out.Width        = 1920;
     videoPrm.vpp.Out.Height       = 1080;
     videoPrm.vpp.Out.CropW        = 1920;
-    videoPrm.vpp.Out.CropH        = 1088;
+    videoPrm.vpp.Out.CropH        = 1080;
 
     auto check_feature = [&](mfxExtBuffer *structIn, mfxVersion requiredVer, mfxU64 featureNoErr, mfxU64 featureWarn) {
         if (check_lib_version(mfxVer, requiredVer)) {
@@ -751,7 +751,15 @@ mfxU64 CheckVppFeaturesInternal(MFXVideoSession& session, mfxVersion mfxVer) {
     check_feature((mfxExtBuffer *)&vppMctf,          MFX_LIB_VERSION_1_26,  VPP_FEATURE_MCTF,               0x00);
     check_feature((mfxExtBuffer *)&vppDenoise2,      MFX_LIB_VERSION_2_5,   VPP_FEATURE_DENOISE2,           0x00);
     check_feature((mfxExtBuffer *)&vppPercEncPre,    MFX_LIB_VERSION_2_9,   VPP_FEATURE_PERC_ENC_PRE,       0x00);
+    videoPrm.vpp.Out.Width        = videoPrm.vpp.In.Width*2;
+    videoPrm.vpp.Out.Height       = videoPrm.vpp.In.Height*2;
+    videoPrm.vpp.Out.CropW        = videoPrm.vpp.In.Width*2;
+    videoPrm.vpp.Out.CropH        = videoPrm.vpp.In.Height*2;
     check_feature((mfxExtBuffer *)&vppAISuperRes,    MFX_LIB_VERSION_2_11,  VPP_FEATURE_AI_SUPRERES,        0x00);
+    videoPrm.vpp.Out.Width        = 1920;
+    videoPrm.vpp.Out.Height       = 1080;
+    videoPrm.vpp.Out.CropW        = 1920;
+    videoPrm.vpp.Out.CropH        = 1080;
 
     videoPrm.vpp.Out.FrameRateExtN    = 60000;
     videoPrm.vpp.Out.FrameRateExtD    = 1001;

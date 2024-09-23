@@ -313,8 +313,9 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
-2024.09.xx (7.70)
+2024.09.23 (7.70)
 [QSVEncC]
+- libplaceboによるリサイズフィルタを追加。(Windows x64版)
 - 使用するffmpegのライブラリを更新。(Windows版)
   - ffmpeg     7.0    -> 20240902
   - dav1d      1.4.1  -> 1.4.3
