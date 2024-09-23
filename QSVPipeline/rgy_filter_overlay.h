@@ -29,6 +29,7 @@
 #pragma once
 
 #include "rgy_filter_cl.h"
+#include "rgy_filter_resize.h"
 #include "rgy_prm.h"
 #include "rgy_input.h"
 

@@ -82,6 +82,8 @@ RGY_DISABLE_WARNING_POP
 #include "rgy_filter_denoise_nlmeans.h"
 #include "rgy_filter_denoise_pmd.h"
 #include "rgy_filter_subburn.h"
+#include "rgy_filter_resize.h"
+#include "rgy_filter_libplacebo.h"
 #include "rgy_filter_transform.h"
 #include "rgy_filter_unsharp.h"
 #include "rgy_filter_edgelevel.h"
@@ -2187,7 +2189,11 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vppmfx.imageStabilizer != 0) filterPipeline.push_back(VppType::MFX_IMAGE_STABILIZATION);
     if (inputParam->vppmfx.mctf.enable)    filterPipeline.push_back(VppType::MFX_MCTF);
     if (inputParam->vpp.subburn.size()>0)  filterPipeline.push_back(VppType::CL_SUBBURN);
-    if (     resizeRequired == RGY_VPP_RESIZE_TYPE_OPENCL) filterPipeline.push_back(VppType::CL_RESIZE);
+    if (     resizeRequired == RGY_VPP_RESIZE_TYPE_OPENCL
+#if ENABLE_LIBPLACEBO
+        || resizeRequired == RGY_VPP_RESIZE_TYPE_LIBPLACEBO
+#endif
+        ) filterPipeline.push_back(VppType::CL_RESIZE);
     else if (resizeRequired != RGY_VPP_RESIZE_TYPE_NONE)   filterPipeline.push_back(VppType::MFX_RESIZE);
     if (inputParam->vpp.unsharp.enable)    filterPipeline.push_back(VppType::CL_UNSHARP);
     if (inputParam->vpp.edgelevel.enable)  filterPipeline.push_back(VppType::CL_EDGELEVEL);
@@ -2741,6 +2747,11 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         param->frameOut.height = resize.second;
         param->baseFps = m_encFps;
         param->bOutOverwrite = false;
+        if (isLibplaceboResizeFiter(params->vpp.resize_algo)) {
+            param->libplaceboResample = std::make_shared<RGYFilterParamLibplaceboResample>();
+            param->libplaceboResample->resample = params->vpp.resize_libplacebo;
+            param->libplaceboResample->resize_algo = param->interp;
+        }
         auto sts = filter->init(param, m_pQSVLog);
         if (sts != RGY_ERR_NONE) {
             return sts;

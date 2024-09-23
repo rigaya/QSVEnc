@@ -2792,6 +2792,40 @@ std::unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D11Surface
 #endif
 }
 
+std::unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D11SurfacePlanar(const RGYFrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags) {
+#if !ENABLE_RGY_OPENCL_D3D11
+    CL_LOG(RGY_LOG_ERROR, _T("OpenCL d3d11 interop not supported in this build.\n"));
+    return std::unique_ptr<RGYCLFrameInterop>();
+#else
+    if (m_platform->d3d11dev() == nullptr) {
+        CL_LOG(RGY_LOG_ERROR, _T("OpenCL platform not associated with d3d11 device.\n"));
+        return std::unique_ptr<RGYCLFrameInterop>();
+    }
+    RGYFrameInfo clframe = frame;
+    for (int i = 0; i < _countof(clframe.ptr); i++) {
+        clframe.ptr[i] = nullptr;
+        clframe.pitch[i] = 0;
+    }
+    for (int i = 0; i < RGY_CSP_PLANES[frame.csp]; i++) {
+        cl_int err = CL_SUCCESS;
+        clframe.ptr[i] = (uint8_t *)clCreateFromD3D11Texture2DKHR(m_context.get(), flags, (ID3D11Texture2D *)frame.ptr[i], 0, &err);
+        if (err != CL_SUCCESS) {
+            CL_LOG(RGY_LOG_ERROR, _T("Failed to create image from DX11 texture 2D (planar %d): %s\n"), i, cl_errmes(err));
+            for (int j = i - 1; j >= 0; j--) {
+                if (clframe.ptr[j] != nullptr) {
+                    clReleaseMemObject((cl_mem)clframe.ptr[j]);
+                    clframe.ptr[j] = nullptr;
+                }
+            }
+            return std::unique_ptr<RGYCLFrameInterop>();
+        }
+    }
+    auto meminfo = getRGYCLMemObjectInfo((cl_mem)clframe.ptr[0]);
+    clframe.mem_type = (meminfo.isImageNormalizedType()) ? RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED : RGY_MEM_TYPE_GPU_IMAGE;
+    return std::make_unique<RGYCLFrameInterop>(clframe, flags, RGY_INTEROP_DX11, queue, m_log);
+#endif
+}
+
 std::unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromVASurface(void *surf, const RGYFrameInfo &frame, RGYOpenCLQueue& queue, cl_mem_flags flags) {
 #if !ENABLE_RGY_OPENCL_VA
     UNREFERENCED_PARAMETER(surf);

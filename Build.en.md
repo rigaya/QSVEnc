@@ -43,7 +43,7 @@ setx OPENCL_HEADERS <path-to-clone>
 ```Batchfile
 git clone https://github.com/rigaya/QSVEnc --recursive
 cd QSVEnc
-curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20240902/ffmpeg_dlls_for_hwenc_20240902.7z
+curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20240921/ffmpeg_dlls_for_hwenc_20240921.7z
 7z x -offmpeg_lgpl -y ffmpeg_lgpl.7z
 ```
 

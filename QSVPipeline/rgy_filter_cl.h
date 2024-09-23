@@ -67,6 +67,16 @@ protected:
     std::unique_ptr<RGYCLFrame> m_pFieldPairOut;
 };
 
+class RGYFilterDisabled : public RGYFilter {
+public:
+    RGYFilterDisabled(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context) {};
+    virtual ~RGYFilterDisabled() {};
+    virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
+    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;
+protected:
+    virtual void close() override;
+};
+
 class RGYFilterParamCrop : public RGYFilterParam {
 public:
     sInputCrop crop;
@@ -91,31 +101,6 @@ protected:
     RGY_ERR convertCspFromYUV444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     RGY_ERR convertCspFromAYUVPacked444(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     virtual void close() override;
-};
-
-class RGYFilterParamResize : public RGYFilterParam {
-public:
-    RGY_VPP_RESIZE_ALGO interp;
-    RGYFilterParamResize() : interp(RGY_VPP_RESIZE_AUTO) {};
-    virtual ~RGYFilterParamResize() {};
-};
-
-class RGYFilterResize : public RGYFilter {
-public:
-    RGYFilterResize(shared_ptr<RGYOpenCLContext> context);
-    virtual ~RGYFilterResize();
-    virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
-protected:
-    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;
-    virtual void close() override;
-
-    virtual RGY_ERR resizePlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    virtual RGY_ERR resizeFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-
-    bool m_bInterlacedWarn;
-    unique_ptr<RGYCLBuf> m_weightSpline;
-    RGYOpenCLProgramAsync m_resize;
-    RGYCLFramePool m_srcImagePool;
 };
 
 class RGYFilterParamPad : public RGYFilterParam {

@@ -2392,6 +2392,99 @@ Specify the resizing algorithm.
   | lanczos3 | 6x6 Lanczos resampling |
   | lanczos4 | 8x8 Lanczos resampling |
 
+- **options**
+  - algo=&lt;string&gt;  
+    When unspecified, it will be auto selected.
+    select which algorithm to use.
+
+    - VPL based hw resize filters.
+
+      | option name | description |
+      |:---|:---|
+      | auto     | auto select |
+      | simple   | use simple scaling     |
+      | advanced | use high quality scaling |
+
+    - OpenCL based resize filters.
+
+      | name | description |
+      |:---|:---|
+      | bilinear       | linear interpolation                                       |
+      | bicubic        | bicubic interpolation                                      |
+      | spline16       | 4x4 spline curve interpolation                             |
+      | spline36       | 6x6 spline curve interpolation                             |
+      | spline64       | 8x8 spline curve interpolation                             |
+      | lanczos2       | 4x4 Lanczos resampling                                     |
+      | lanczos3       | 6x6 Lanczos resampling                                     |
+      | lanczos4       | 8x8 Lanczos resampling                                     |
+      
+    - [libplacebo](https://code.videolan.org/videolan/libplacebo) library resize filters
+
+      | name | description | resizable |
+      |:---|:---|:---:|
+      | libplacebo-spline16       | 4x4 spline curve interpolation                      | |
+      | libplacebo-spline36       | 6x6 spline curve interpolation                      | |
+      | libplacebo-spline64       | 8x8 spline curve interpolation                      | |
+      | libplacebo-nearest        | nearest neighbor                                    | |
+      | libplacebo-bilinear       | linear interpolation                                | &check; |
+      | libplacebo-gaussian       | Gaussian filter                                     | &check; |
+      | libplacebo-sinc           | Sinc filter                                         | &check; |
+      | libplacebo-lanczos        | Lanczos resampling                                  | &check; |
+      | libplacebo-ginseng        | Ginseng filter                                      | &check; |
+      | libplacebo-ewa-jinc       | EWA Jinc resampling                                 | &check; |
+      | libplacebo-ewa-lanczos    | EWA Lanczos resampling                              | &check; |
+      | libplacebo-ewa-lanczossharp | EWA Lanczos sharp resampling                      | &check; |
+      | libplacebo-ewa-lanczos4sharpest | EWA Lanczos 4 sharpest resampling             | &check; |
+      | libplacebo-ewa-ginseng    | EWA Ginseng resampling                              | &check; |
+      | libplacebo-ewa-hann       | EWA Hann filter                                     | &check; |
+      | libplacebo-ewa-hanning    | EWA Hanning filter                                  | &check; |
+      | libplacebo-bicubic        | Bicubic interpolation                               | |
+      | libplacebo-triangle       | Triangle filter                                     | |
+      | libplacebo-hermite        | Hermite filter                                      | |
+      | libplacebo-catmull-rom    | Catmull-Rom spline interpolation                    | |
+      | libplacebo-mitchell       | Mitchell-Netravali filter                           | |
+      | libplacebo-mitchell-clamp | Mitchell-Netravali filter with clamping             | |
+      | libplacebo-robidoux       | Robidoux filter                                     | |
+      | libplacebo-robidouxsharp  | Robidoux sharp filter                               | |
+      | libplacebo-ewa-robidoux   | EWA Robidoux filter                                 | |
+      | libplacebo-ewa-robidouxsharp | EWA Robidoux sharp filter                        | |
+
+      These filters are supported on Windows x64 version only.
+
+      - Additional parameters
+      
+        - pl-radius=&lt;float&gt;
+
+          Radius used for resizable algorithm in libplacebo-resample. (0.0 - 16.0, default = auto)
+      
+        - pl-clamp=&lt;float&gt;
+
+          Clamp coefficient for negative weights used in libplacebo-resample, 1.0 will make weight 0 for negative weights. (0.0 - 1.0, default = 0.0)
+      
+        - pl-taper=&lt;float&gt;
+
+          Taper will flatten weight function in the center for libplacebo-resample. (0.0 - 1.0, default = 0.0)
+      
+        - pl-blur=&lt;float&gt;
+
+          Additional blur coefficient for libplacebo-resample. (0.0 - 100.0, default = 0.0)
+      
+        - pl-antiring=&lt;float&gt;
+
+          Antiringing strength for libplacebo-resample. (0.0 - 1.0, default = 0.0)
+
+- **Examples**
+  ```
+  Examples: Use spline64 (in short)
+  --vpp-resize spline64
+
+  Examples: Use spline64
+  --vpp-resize algo=spline64
+
+  Examples: Use libplacebo resize filters
+  --vpp-resize algo=libplacebo-sinc,pl-radius=3.0,pl-antiring=0.5
+  ```
+
 ### --vpp-resize-mode &lt;string&gt;
 Specify the resizer mode.
 

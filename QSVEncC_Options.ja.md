@@ -721,20 +721,20 @@ best, higher, high, balanced(default), fast, faster, fastest
 
 - **必須パラメータ**
   下記パラメータのうち、必ずひとつは指定が必要。
-  - [icq](./QSVEncC_Options.en.md#--icq-int-icq-intelligent-const-quality-mode-default-23)=&lt;int&gt;  
-  - [la-icq](./QSVEncC_Options.en.md#--la-icq-int-la-icq-lookahead-based-icq-mode-default-23)=&lt;int&gt;  
-  - [cqp](./QSVEncC_Options.en.md#--cqp-int-or-intintint)=&lt;int&gt; or cqp=&lt;int&gt;:&lt;int&gt;:&lt;int&gt;  
-  - [cbr](./QSVEncC_Options.en.md#--cbr-int--cbr-constant-bitrate-mode)=&lt;int&gt;  
-  - [vbr](./QSVEncC_Options.en.md#--vbr-int--vbr-variable-bitrate-mode)=&lt;int&gt;  
-  - [avbr](./QSVEncC_Options.en.md#--avbr-int-avbr-adaptive-variable-bitrate-mode)=&lt;int&gt;  
-  - [la](./QSVEncC_Options.en.md#--la-int---la-lookahead-mode)=&lt;int&gt;  
-  - [la-hrd](./QSVEncC_Options.en.md#--la-hrd-int-la-hrd-hrd-compliant-lookahead-mode)=&lt;int&gt;  
-  - [vcm](./QSVEncC_Options.en.md#--vcm-int-vcm-video-conference-mode)=&lt;int&gt;  
-  - [qvbr](./QSVEncC_Options.en.md#--qvbr-int---qvbr-q-int-qvbr-quality-based-vbr-mode)=&lt;int&gt;  
+  - [icq](./QSVEncC_Options.ja.md#--icq-int-icq-intelligent-const-quality-mode-default-23)=&lt;int&gt;  
+  - [la-icq](./QSVEncC_Options.ja.md#--la-icq-int-la-icq-lookahead-based-icq-mode-default-23)=&lt;int&gt;  
+  - [cqp](./QSVEncC_Options.ja.md#--cqp-int-or-intintint)=&lt;int&gt; or cqp=&lt;int&gt;:&lt;int&gt;:&lt;int&gt;  
+  - [cbr](./QSVEncC_Options.ja.md#--cbr-int--cbr-constant-bitrate-mode)=&lt;int&gt;  
+  - [vbr](./QSVEncC_Options.ja.md#--vbr-int--vbr-variable-bitrate-mode)=&lt;int&gt;  
+  - [avbr](./QSVEncC_Options.ja.md#--avbr-int-avbr-adaptive-variable-bitrate-mode)=&lt;int&gt;  
+  - [la](./QSVEncC_Options.ja.md#--la-int---la-lookahead-mode)=&lt;int&gt;  
+  - [la-hrd](./QSVEncC_Options.ja.md#--la-hrd-int-la-hrd-hrd-compliant-lookahead-mode)=&lt;int&gt;  
+  - [vcm](./QSVEncC_Options.ja.md#--vcm-int-vcm-video-conference-mode)=&lt;int&gt;  
+  - [qvbr](./QSVEncC_Options.ja.md#--qvbr-int---qvbr-q-int-qvbr-quality-based-vbr-mode)=&lt;int&gt;  
 
 - **追加パラメータ**
-  - [max-bitrate](./QSVEncC_Options.en.md#--max-bitrate-int)=&lt;int&gt;  
-  - [qvbr-quality](./QSVEncC_Options.en.md#--qvbr-quality-int)=&lt;int&gt;  
+  - [max-bitrate](./QSVEncC_Options.ja.md#--max-bitrate-int)=&lt;int&gt;  
+  - [qvbr-quality](./QSVEncC_Options.ja.md#--qvbr-quality-int)=&lt;int&gt;  
 
 - Examples
   ```
@@ -2454,6 +2454,98 @@ image stabilizerのモードの指定。
   | lanczos2 | 4x4 lanczos補間 |
   | lanczos3 | 6x6 lanczos補間 |
   | lanczos4 | 8x8 lanczos補間 |
+リサイズのアルゴリズムを指定する。
+
+- **オプション**
+  - algo=&lt;string&gt;  
+    デフォルトは "auto" で自動的に適切なものを選択する。
+
+    - VPLの高速hwリサイズフィルタ
+
+      | 名前 | 説明 |
+      |:---|:---|
+      | simple   | Nearest Neighbor法による高速なリサイズ |
+      | advanced | 高品質なリサイズ |
+
+    - OpenCLで実装したリサイズフィルタ
+  
+      | 名前 | 説明 |
+      |:---|:---|
+      | bilinear      | 線形補間                                   |
+      | bicubic       | 双3次補間                                  |
+      | spline16      | 4x4 Spline補間                             |
+      | spline36      | 6x6 Spline補間                             |
+      | spline64      | 8x8 Spline補間                             |
+      | lanczos2      | 4x4 lanczos補間                            |
+      | lanczos3      | 6x6 lanczos補間                            |
+      | lanczos4      | 8x8 lanczos補間                            |
+
+    - [libplacebo](https://code.videolan.org/videolan/libplacebo)ライブラリのリサイズフィルタ
+    
+      | 名前 | 説明 | resizable |
+      |:---|:---|:---:|
+      | libplacebo-spline16      | 4x4 Spline補間                       | |
+      | libplacebo-spline36      | 6x6 Spline補間                       | |
+      | libplacebo-spline64      | 8x8 Spline補間                       | |
+      | libplacebo-nearest       | 最近傍点選択                         | |
+      | libplacebo-bilinear      | 線形補間                             | &check; |
+      | libplacebo-gaussian      | ガウス補間                           | &check; |
+      | libplacebo-sinc          | Sinc補間                             | &check; |
+      | libplacebo-lanczos       | Lanczos補間                          | &check; |
+      | libplacebo-ginseng       | Ginseng補間                          | &check; |
+      | libplacebo-ewa-jinc      | EWA Jinc補間                         | &check; |
+      | libplacebo-ewa-lanczos   | EWA Lanczos補間                      | &check; |
+      | libplacebo-ewa-lanczossharp | EWA Lanczos Sharp補間             | &check; |
+      | libplacebo-ewa-lanczos4sharpest | EWA Lanczos 4 Sharpest補間    | &check; |
+      | libplacebo-ewa-ginseng  | EWA Ginseng補間                       | &check; |
+      | libplacebo-ewa-hann     | EWA Hann補間                          | &check; |
+      | libplacebo-ewa-hanning  | EWA Hanning補間                       | &check; |
+      | libplacebo-bicubic      | 双3次補間                             | |
+      | libplacebo-triangle     | 三角補間                              | |
+      | libplacebo-hermite      | Hermite補間                           | |
+      | libplacebo-catmull-rom  | Catmull-Rom補間                       | |
+      | libplacebo-mitchell     | Mitchell補間                          | |
+      | libplacebo-mitchell-clamp | Mitchell Clamp補間                  | |
+      | libplacebo-robidoux     | Robidoux補間                          | |
+      | libplacebo-robidouxsharp | Robidoux Sharp補間                   | |
+      | libplacebo-ewa-robidoux | EWA Robidoux補間                      | |
+      | libplacebo-ewa-robidouxsharp | EWA Robidoux Sharp補間           | |
+    
+      Windowsのx64版のみ対応です。
+
+      - 追加パラメータ
+
+        - pl-radius=&lt;float&gt;
+
+          libplacebo-resampleで使用される拡大縮小アルゴリズムの半径。表で "resizable" にチェックが入っているもののみ有効。 (0.0 - 16.0、デフォルト = 自動)
+      
+        - pl-clamp=&lt;float&gt;
+
+          libplacebo-resampleで使用される負の重みに対するクランプ係数。1.0にすると負の重みが0になります。(0.0 -   1.    0、デフォルト = 0.0)
+      
+        - pl-taper=&lt;float&gt;
+
+          libplacebo-resampleの重み関数の中心部分を平坦化します。(0.0 - 1.0、デフォルト = 0.0)
+      
+        - pl-blur=&lt;float&gt;
+
+          libplacebo-resampleの追加のぼかし係数。(0.0 - 100.0、デフォルト = 0.0)
+      
+        - pl-antiring=&lt;float&gt;
+
+          libplacebo-resampleのアンチリンギング強度。(0.0 - 1.0、デフォルト = 0.0)
+
+- **使用例**
+  ```
+  例: spline64を使用する (短縮表記)
+  --vpp-resize spline64
+
+  例: spline64を使用する
+  --vpp-resize algo=spline64
+
+  例: libplaceboのリサイズフィルタを使用する
+  --vpp-resize algo=libplacebo-sinc,pl-radius=3.0,pl-antiring=0.5
+  ```
 
 ### --vpp-resize-mode &lt;string&gt;
 リサイザのモードを指定する。

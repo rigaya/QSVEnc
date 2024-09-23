@@ -716,7 +716,7 @@ rgy_filter_afs_filter.cpp   rgy_filter_afs_merge.cpp    rgy_filter_afs_synthesiz
 rgy_filter_convolution3d.cpp  rgy_filter_crop.cpp       rgy_filter_cl.cpp              rgy_filter_curves.cpp \
 rgy_filter_deband.cpp       rgy_filter_decimate.cpp     rgy_filter_decomb.cpp          rgy_filter_delogo.cpp \
 rgy_filter_denoise_dct.cpp  rgy_filter_denoise_fft3d.cpp rgy_filter_denoise_knn.cpp    rgy_filter_denoise_nlmeans.cpp \
-rgy_filter_denoise_pmd.cpp  rgy_filter_edgelevel.cpp    rgy_filter_mpdecimate.cpp \
+rgy_filter_denoise_pmd.cpp  rgy_filter_edgelevel.cpp    rgy_filter_libplacebo.cpp      rgy_filter_mpdecimate.cpp \
 rgy_filter_nnedi.cpp        rgy_filter_overlay.cpp      rgy_filter_pad.cpp             rgy_filter_resize.cpp \
 rgy_filter_rff.cpp \
 rgy_filter_ssim.cpp         rgy_filter_smooth.cpp       rgy_filter_subburn.cpp         rgy_filter_transform.cpp \

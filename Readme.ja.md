@@ -94,6 +94,7 @@ QSVEncを使用したことによる、いかなる損害・トラブルにつ�
       - bilinear
       - spline16, spline36, spline64
       - lanczos2, lanczos3, lanczos4
+      - [libplacebo](https://code.videolan.org/videolan/libplacebo)
     - 回転 / 反転
     - パディング(黒帯)の追加
     - バンディング低減

@@ -85,6 +85,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
       - bilinear
       - spline16, spline36, spline64
       - lanczos2, lanczos3, lanczos4
+      - [libplacebo](https://code.videolan.org/videolan/libplacebo)
     - transpose / rotate / flip
     - padding
     - deband

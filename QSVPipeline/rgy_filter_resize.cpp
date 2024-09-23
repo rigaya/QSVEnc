@@ -31,7 +31,8 @@
 #include <map>
 #include <array>
 #include "convert_csp.h"
-#include "rgy_filter_cl.h"
+#include "rgy_filter_resize.h"
+#include "rgy_filter_libplacebo.h"
 #include "rgy_prm.h"
 
 static const int RESIZE_BLOCK_X = 32;
@@ -176,7 +177,7 @@ RGY_ERR RGYFilterResize::resizeFrame(RGYFrameInfo *pOutputFrame, const RGYFrameI
     return RGY_ERR_NONE;
 }
 
-RGYFilterResize::RGYFilterResize(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_bInterlacedWarn(false), m_weightSpline(), m_resize(), m_srcImagePool() {
+RGYFilterResize::RGYFilterResize(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_bInterlacedWarn(false), m_weightSpline(), m_libplaceboResample(), m_resize(), m_srcImagePool() {
     m_name = _T("resize");
 }
 
@@ -197,84 +198,104 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+    if (isLibplaceboResizeFiter(pResizeParam->interp)) {
+        if (!m_libplaceboResample) {
+            m_libplaceboResample = std::make_unique<RGYFilterLibplaceboResample>(m_cl);
+        }
+        pResizeParam->libplaceboResample->frameIn = pResizeParam->frameIn;
+        pResizeParam->libplaceboResample->frameOut = pResizeParam->frameOut;
+        sts = m_libplaceboResample->init(pResizeParam->libplaceboResample, m_pLog);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to init libplacebo resample filter: %s.\n"), get_err_mes(sts));
+            return sts;
+        }
+    } else {
+        m_libplaceboResample.reset(); // 不要になったら解放
+        pResizeParam->libplaceboResample.reset();
 
-    auto err = AllocFrameBuf(pResizeParam->frameOut, 1);
-    if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(err));
-        return RGY_ERR_MEMORY_ALLOC;
-    }
-    for (int i = 0; i < 4; i++) {
-        pResizeParam->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
-    }
-    auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamResize>(m_param);
-    if (!m_resize.get()
-        || !prmPrev
-        || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]
-        || prmPrev->interp != pResizeParam->interp
-        || prmPrev->frameIn.width != pResizeParam->frameIn.width
-        || prmPrev->frameIn.height != pResizeParam->frameIn.height
-        || prmPrev->frameOut.width != pResizeParam->frameOut.width
-        || prmPrev->frameOut.height != pResizeParam->frameOut.height) {
-        const int radius = get_radius(pResizeParam->interp);
-        const auto algo = get_weight_type(pResizeParam->interp);
+        auto err = AllocFrameBuf(pResizeParam->frameOut, 1);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(err));
+            return RGY_ERR_MEMORY_ALLOC;
+        }
+        for (int i = 0; i < 4; i++) {
+            pResizeParam->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
+        }
+        auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamResize>(m_param);
+        if (!m_resize.get()
+            || !prmPrev
+            || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]
+            || prmPrev->interp != pResizeParam->interp
+            || prmPrev->frameIn.width != pResizeParam->frameIn.width
+            || prmPrev->frameIn.height != pResizeParam->frameIn.height
+            || prmPrev->frameOut.width != pResizeParam->frameOut.width
+            || prmPrev->frameOut.height != pResizeParam->frameOut.height) {
+            const int radius = get_radius(pResizeParam->interp);
+            const auto algo = get_weight_type(pResizeParam->interp);
 
-        const float srcWindowX = getSrcWindow(radius, pParam->frameOut.width, pParam->frameIn.width);
-        const int shared_weightXdim = (((int)ceil(srcWindowX) + 1) * 2);
+            const float srcWindowX = getSrcWindow(radius, pParam->frameOut.width, pParam->frameIn.width);
+            const int shared_weightXdim = (((int)ceil(srcWindowX) + 1) * 2);
 
-        const float srcWindowY = getSrcWindow(radius, pParam->frameOut.height, pParam->frameIn.height);
-        const int shared_weightYdim = (((int)ceil(srcWindowY) + 1) * 2);
+            const float srcWindowY = getSrcWindow(radius, pParam->frameOut.height, pParam->frameIn.height);
+            const int shared_weightYdim = (((int)ceil(srcWindowY) + 1) * 2);
 
-        const int use_local = (ENCODER_MPP) ? 0 : 1;
+            const int use_local = (ENCODER_MPP) ? 0 : 1;
 
-        const auto options = strsprintf("-D Type=%s -D bit_depth=%d -D radius=%d -D algo=%d"
-            " -D block_x=%d -D block_y=%d -D shared_weightXdim=%d -D shared_weightYdim=%d"
-            " -D WEIGHT_BILINEAR=%d -D WEIGHT_BICUBIC=%d -D WEIGHT_SPLINE=%d -D WEIGHT_LANCZOS=%d -D USE_LOCAL=%d",
-            RGY_CSP_BIT_DEPTH[pResizeParam->frameOut.csp] > 8 ? "ushort" : "uchar",
-            RGY_CSP_BIT_DEPTH[pResizeParam->frameOut.csp],
-            radius, algo,
-            RESIZE_BLOCK_X, RESIZE_BLOCK_Y, shared_weightXdim, shared_weightYdim,
-            WEIGHT_BILINEAR, WEIGHT_BICUBIC, WEIGHT_SPLINE, WEIGHT_LANCZOS, use_local);
-        m_resize.set(m_cl->buildResourceAsync(_T("RGY_FILTER_RESIZE_CL"), _T("EXE_DATA"), options.c_str()));
-        if (!m_weightSpline
-            && algo == WEIGHT_SPLINE) {
-            static const auto SPLINE16_WEIGHT = std::vector<float>{
-                1.0f,       -9.0f/5.0f,  -1.0f/5.0f, 1.0f,
-                -1.0f/3.0f,  9.0f/5.0f, -46.0f/15.0f, 8.0f/5.0f
-            };
-            static const auto SPLINE36_WEIGHT = std::vector<float>{
-                13.0f/11.0f, -453.0f/209.0f,    -3.0f/209.0f,  1.0f,
-                -6.0f/11.0f,  612.0f/209.0f, -1038.0f/209.0f,  540.0f/209.0f,
-                 1.0f/11.0f, -159.0f/209.0f,   434.0f/209.0f, -384.0f/209.0f
-            };
-            static const auto SPLINE64_WEIGHT = std::vector<float>{
-                 49.0f/41.0f, -6387.0f/2911.0f,     -3.0f/2911.0f,  1.0f,
-                -24.0f/41.0f,  9144.0f/2911.0f, -15504.0f/2911.0f,  8064.0f/2911.0f,
-                  6.0f/41.0f, -3564.0f/2911.0f,   9726.0f/2911.0f, -8604.0f/2911.0f,
-                 -1.0f/41.0f,   807.0f/2911.0f,  -3022.0f/2911.0f,  3720.0f/2911.0f
-            };
-            const std::vector<float> *weight = nullptr;
-            switch (pResizeParam->interp) {
-            case RGY_VPP_RESIZE_SPLINE16: weight = &SPLINE16_WEIGHT; break;
-            case RGY_VPP_RESIZE_SPLINE36: weight = &SPLINE36_WEIGHT; break;
-            case RGY_VPP_RESIZE_SPLINE64: weight = &SPLINE64_WEIGHT; break;
-            default: {
-                AddMessage(RGY_LOG_ERROR, _T("unknown interpolation type: %d.\n"), pResizeParam->interp);
-                return RGY_ERR_INVALID_PARAM;
-            }
-            }
+            const auto options = strsprintf("-D Type=%s -D bit_depth=%d -D radius=%d -D algo=%d"
+                " -D block_x=%d -D block_y=%d -D shared_weightXdim=%d -D shared_weightYdim=%d"
+                " -D WEIGHT_BILINEAR=%d -D WEIGHT_BICUBIC=%d -D WEIGHT_SPLINE=%d -D WEIGHT_LANCZOS=%d -D USE_LOCAL=%d",
+                RGY_CSP_BIT_DEPTH[pResizeParam->frameOut.csp] > 8 ? "ushort" : "uchar",
+                RGY_CSP_BIT_DEPTH[pResizeParam->frameOut.csp],
+                radius, algo,
+                RESIZE_BLOCK_X, RESIZE_BLOCK_Y, shared_weightXdim, shared_weightYdim,
+                WEIGHT_BILINEAR, WEIGHT_BICUBIC, WEIGHT_SPLINE, WEIGHT_LANCZOS, use_local);
+            m_resize.set(m_cl->buildResourceAsync(_T("RGY_FILTER_RESIZE_CL"), _T("EXE_DATA"), options.c_str()));
+            if (!m_weightSpline
+                && algo == WEIGHT_SPLINE) {
+                static const auto SPLINE16_WEIGHT = std::vector<float>{
+                    1.0f,       -9.0f/5.0f,  -1.0f/5.0f, 1.0f,
+                    -1.0f/3.0f,  9.0f/5.0f, -46.0f/15.0f, 8.0f/5.0f
+                };
+                static const auto SPLINE36_WEIGHT = std::vector<float>{
+                    13.0f/11.0f, -453.0f/209.0f,    -3.0f/209.0f,  1.0f,
+                    -6.0f/11.0f,  612.0f/209.0f, -1038.0f/209.0f,  540.0f/209.0f,
+                    1.0f/11.0f, -159.0f/209.0f,   434.0f/209.0f, -384.0f/209.0f
+                };
+                static const auto SPLINE64_WEIGHT = std::vector<float>{
+                    49.0f/41.0f, -6387.0f/2911.0f,     -3.0f/2911.0f,  1.0f,
+                    -24.0f/41.0f,  9144.0f/2911.0f, -15504.0f/2911.0f,  8064.0f/2911.0f,
+                    6.0f/41.0f, -3564.0f/2911.0f,   9726.0f/2911.0f, -8604.0f/2911.0f,
+                    -1.0f/41.0f,   807.0f/2911.0f,  -3022.0f/2911.0f,  3720.0f/2911.0f
+                };
+                const std::vector<float> *weight = nullptr;
+                switch (pResizeParam->interp) {
+                case RGY_VPP_RESIZE_SPLINE16: weight = &SPLINE16_WEIGHT; break;
+                case RGY_VPP_RESIZE_SPLINE36: weight = &SPLINE36_WEIGHT; break;
+                case RGY_VPP_RESIZE_SPLINE64: weight = &SPLINE64_WEIGHT; break;
+                default: {
+                    AddMessage(RGY_LOG_ERROR, _T("unknown interpolation type: %d.\n"), pResizeParam->interp);
+                    return RGY_ERR_INVALID_PARAM;
+                }
+                }
 
-            m_weightSpline = m_cl->copyDataToBuffer(weight->data(), sizeof((*weight)[0]) * weight->size(), CL_MEM_READ_ONLY);
-            if (!m_weightSpline) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to send weight to gpu memory.\n"));
-                return RGY_ERR_NULL_PTR;
+                m_weightSpline = m_cl->copyDataToBuffer(weight->data(), sizeof((*weight)[0]) * weight->size(), CL_MEM_READ_ONLY);
+                if (!m_weightSpline) {
+                    AddMessage(RGY_LOG_ERROR, _T("failed to send weight to gpu memory.\n"));
+                    return RGY_ERR_NULL_PTR;
+                }
             }
         }
     }
 
-    setFilterInfo(strsprintf(_T("resize(%s): %dx%d -> %dx%d"),
+    auto str = strsprintf(_T("resize(%s): %dx%d -> %dx%d"),
         get_chr_from_value(list_vpp_resize, pResizeParam->interp),
         pResizeParam->frameIn.width, pResizeParam->frameIn.height,
-        pResizeParam->frameOut.width, pResizeParam->frameOut.height));
+        pResizeParam->frameOut.width, pResizeParam->frameOut.height);
+    if (m_libplaceboResample) {
+        str += _T("\n                 ");
+        str += pResizeParam->libplaceboResample->print();
+    }
+    setFilterInfo(str);
 
     //コピーを保存
     m_param = pResizeParam;
@@ -285,6 +306,20 @@ RGY_ERR RGYFilterResize::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
     RGY_ERR sts = RGY_ERR_NONE;
     if (pInputFrame->ptr[0] == nullptr) {
         return sts;
+    }
+
+    if (m_libplaceboResample) {
+        RGYFrameInfo inputFrame = *pInputFrame;
+        auto sts_filter = m_libplaceboResample->filter(&inputFrame, ppOutputFrames, pOutputFrameNum, queue, wait_events, event);
+        if (ppOutputFrames[0] == nullptr || *pOutputFrameNum != 1) {
+            AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_libplaceboResample->name().c_str());
+            return sts_filter;
+        }
+        if (sts_filter != RGY_ERR_NONE || *pOutputFrameNum != 1) {
+            AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_libplaceboResample->name().c_str());
+            return sts_filter;
+        }
+        return RGY_ERR_NONE;
     }
 
     *pOutputFrameNum = 1;
