@@ -313,8 +313,9 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
-2024.09.23 (7.70)
+2024.09.24 (7.70)
 [QSVEncC]
+- libvplを更新し、2.13に対応。
 - libplaceboによるリサイズフィルタを追加。(Windows x64版)
 - 使用するffmpegのライブラリを更新。(Windows版)
   - ffmpeg     7.0    -> 20240902
