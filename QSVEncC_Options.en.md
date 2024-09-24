@@ -2377,21 +2377,6 @@ Enable Motion Compensate Temporal Filter (MCTF), if no param specified, then str
 ### --vpp-resize &lt;string&gt;
 Specify the resizing algorithm.
 
-- **Parameters**
-  | option name | description |
-  |:---|:---|
-  | auto     | auto select |
-  | simple   | use simple scaling     |
-  | advanced | use high quality scaling |
-  | bilinear | linear interpolation |
-  | bicubic  | bicubic interpolation |
-  | spline16 | 4x4 spline curve interpolation |
-  | spline36 | 6x6 spline curve interpolation |
-  | spline64 | 8x8 spline curve interpolation |
-  | lanczos2 | 4x4 Lanczos resampling |
-  | lanczos3 | 6x6 Lanczos resampling |
-  | lanczos4 | 8x8 Lanczos resampling |
-
 - **options**
   - algo=&lt;string&gt;  
     When unspecified, it will be auto selected.
