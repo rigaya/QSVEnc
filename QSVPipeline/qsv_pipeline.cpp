@@ -2204,6 +2204,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vpp.curves.enable)     filterPipeline.push_back(VppType::CL_CURVES);
     if (inputParam->vpp.tweak.enable)      filterPipeline.push_back(VppType::CL_TWEAK);
     if (inputParam->vpp.deband.enable)     filterPipeline.push_back(VppType::CL_DEBAND);
+    if (inputParam->vpp.libplacebo_deband.enable)     filterPipeline.push_back(VppType::CL_LIBPLACEBO_DEBAND);
     if (inputParam->vpp.pad.enable)        filterPipeline.push_back(VppType::CL_PAD);
     if (inputParam->vppmfx.percPreEnc)     filterPipeline.push_back(VppType::MFX_PERC_ENC_PREFILTER);
     if (inputParam->vpp.overlay.size() > 0)  filterPipeline.push_back(VppType::CL_OVERLAY);
@@ -2874,6 +2875,26 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
         param->bOutOverwrite = false;
+        auto sts = filter->init(param, m_pQSVLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        //登録
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
+    }
+    //libplacebo deband
+    if (vppType == VppType::CL_LIBPLACEBO_DEBAND) {
+        auto filter = std::make_unique<RGYFilterLibplaceboDeband>(m_cl);
+        shared_ptr<RGYFilterParamLibplaceboDeband> param(new RGYFilterParamLibplaceboDeband());
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        param->deband = params->vpp.libplacebo_deband;
         auto sts = filter->init(param, m_pQSVLog);
         if (sts != RGY_ERR_NONE) {
             return sts;

@@ -49,6 +49,14 @@ public:
     virtual tstring print() const override;
 };
 
+class RGYFilterParamLibplaceboDeband : public RGYFilterParamLibplacebo {
+public:
+    VppLibplaceboDeband deband;
+    RGYFilterParamLibplaceboDeband() : RGYFilterParamLibplacebo(), deband() {};
+    virtual ~RGYFilterParamLibplaceboDeband() {};
+    virtual tstring print() const override;
+};
+
 #if ENABLE_LIBPLACEBO
 
 #pragma warning (push)
@@ -120,7 +128,7 @@ protected:
     virtual RGY_ERR initCommon(shared_ptr<RGYFilterParam> pParam);
     virtual RGY_ERR checkParam(const RGYFilterParam *param) = 0;
     virtual RGY_ERR setLibplaceboParam(const RGYFilterParam *param) = 0;
-    virtual RGY_ERR procPlane(pl_tex texOut, const RGYFrameInfo *pDstPlane, pl_tex texIn, const RGYFrameInfo *pSrcPlane) = 0;
+    virtual RGY_ERR procPlane(pl_tex texOut, const RGYFrameInfo *pDstPlane, pl_tex texIn, const RGYFrameInfo *pSrcPlane, [[maybe_unused]] const RGY_PLANE planeIdx) = 0;
     int getTextureBytePerPix(const DXGI_FORMAT format) const;
     virtual RGY_ERR initLibplacebo(const RGYFilterParam *param);
     RGY_CSP getTextureCsp(const RGY_CSP csp);
@@ -135,7 +143,7 @@ protected:
     std::unique_ptr<std::remove_pointer<pl_d3d11>::type, RGYLibplaceboDeleter<pl_d3d11>> m_d3d11;
     std::unique_ptr<std::remove_pointer<pl_dispatch>::type, RGYLibplaceboDeleter<pl_dispatch>> m_dispatch;
     std::unique_ptr<std::remove_pointer<pl_renderer>::type, RGYLibplaceboDeleter<pl_renderer>> m_renderer;
-    std::unique_ptr<std::remove_pointer<pl_shader_obj>::type, RGYLibplaceboDeleter<pl_shader_obj>> m_dither_state;
+    std::unique_ptr<pl_shader_obj, decltype(&pl_shader_obj_destroy)> m_dither_state;
 
     std::unique_ptr<RGYCLFrame> m_textFrameBufOut;
     std::unique_ptr<RGYFrameD3D11> m_textIn;
@@ -151,9 +159,24 @@ public:
 protected:
     virtual RGY_ERR checkParam(const RGYFilterParam *param) override;
     virtual RGY_ERR setLibplaceboParam(const RGYFilterParam *param) override;
-    virtual RGY_ERR procPlane(pl_tex texOut, const RGYFrameInfo *pDstPlane, pl_tex texIn, const RGYFrameInfo *pSrcPlane) override;
+    virtual RGY_ERR procPlane(pl_tex texOut, const RGYFrameInfo *pDstPlane, pl_tex texIn, const RGYFrameInfo *pSrcPlane, [[maybe_unused]] const RGY_PLANE planeIdx) override;
 
     std::unique_ptr<pl_sample_filter_params> m_filter_params;
+};
+
+class RGYFilterLibplaceboDeband : public RGYFilterLibplacebo {
+public:
+    RGYFilterLibplaceboDeband(shared_ptr<RGYOpenCLContext> context);
+    virtual ~RGYFilterLibplaceboDeband();
+protected:
+    virtual RGY_ERR checkParam(const RGYFilterParam *param) override;
+    virtual RGY_ERR setLibplaceboParam(const RGYFilterParam *param) override;
+    virtual RGY_ERR procPlane(pl_tex texOut, const RGYFrameInfo *pDstPlane, pl_tex texIn, const RGYFrameInfo *pSrcPlane, [[maybe_unused]] const RGY_PLANE planeIdx) override;
+
+    std::unique_ptr<pl_deband_params> m_filter_params;
+    std::unique_ptr<pl_deband_params> m_filter_params_c;
+    std::unique_ptr<pl_dither_params> m_dither_params;
+    int m_frame_index;
 };
 
 #else
@@ -162,6 +185,12 @@ class RGYFilterLibplaceboResample : public RGYFilterDisabled {
 public:
     RGYFilterLibplaceboResample(shared_ptr<RGYOpenCLContext> context);
     virtual ~RGYFilterLibplaceboResample();
+};
+
+class RGYFilterLibplaceboDeband : public RGYFilterDisabled {
+public:
+    RGYFilterLibplaceboDeband(shared_ptr<RGYOpenCLContext> context);
+    virtual ~RGYFilterLibplaceboDeband();
 };
 
 #endif // ENABLE_LIBPLACEBO

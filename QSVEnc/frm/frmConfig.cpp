@@ -873,6 +873,9 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXVppNnediErrorType, list_vpp_nnedi_error_type);
     setComboBox(fcgCXVppYadifMode,      list_vpp_yadif_mode_gui);
     setComboBox(fcgCXVppDebandSample,   list_vpp_deband_gui);
+    setComboBox(fcgCXVppDeband,         list_vpp_deband_names);
+    setComboBox(fcgCXVppLibplaceboDebandDither, list_vpp_libplacebo_deband_dither_mode);
+    setComboBox(fcgCXVppLibplaceboDebandLUTSize, list_vpp_libplacebo_deband_lut_size);
 
     setComboBox(fcgCXImageStabilizer, list_vpp_image_stabilizer);
     setComboBox(fcgCXRotate,          list_rotate_angle_ja);
@@ -1219,7 +1222,8 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     fcgPNVppNnedi->Visible = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_gui, L"nnedi"));
     fcgPNVppYadif->Visible = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_gui, L"yadif"));
     fcgPNVppDecomb->Visible = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_gui, L"decomb"));
-    fcggroupBoxVppDeband->Enabled = fcgCBVppDebandEnable->Checked;
+    fcgPNVppDeband->Visible = (fcgCXVppDeband->SelectedIndex == get_cx_index(list_vpp_deband_names, _T("deband")));
+    fcgPNVppLibplaceboDeband->Visible = (fcgCXVppDeband->SelectedIndex == get_cx_index(list_vpp_deband_names, _T("libplacebo-deband")));
 
     this->ResumeLayout();
     this->PerformLayout();
@@ -1567,7 +1571,7 @@ System::Void frmConfig::LoadLangText() {
     LOAD_CLI_TEXT(fcgLBVppDenoiseMFX);
     LOAD_CLI_TEXT(fcgLBImageStabilizer);
     LOAD_CLI_TEXT(fcgLBRotate);
-    LOAD_CLI_TEXT(fcgCBVppDebandEnable);
+    LOAD_CLI_TEXT(fcggroupBoxVppDeband);
     LOAD_CLI_TEXT(fcgCBVppDebandRandEachFrame);
     LOAD_CLI_TEXT(fcgCBVppDebandBlurFirst);
     LOAD_CLI_TEXT(fcgLBVppDebandSample);
@@ -1579,6 +1583,12 @@ System::Void frmConfig::LoadLangText() {
     LOAD_CLI_TEXT(fcgLBVppDebandThreY);
     LOAD_CLI_TEXT(fcgLBVppDebandThreshold);
     LOAD_CLI_TEXT(fcgLBVppDebandRange);
+    LOAD_CLI_TEXT(fcgLBVppLibplaceboDebandIteration);
+    LOAD_CLI_TEXT(fcgLBVppLibplaceboDebandRadius);
+    LOAD_CLI_TEXT(fcgLBVppLibplaceboDebandThreshold);
+    LOAD_CLI_TEXT(fcgLBVppLibplaceboDebandGrain);
+    LOAD_CLI_TEXT(fcgLBVppLibplaceboDebandDither);
+    LOAD_CLI_TEXT(fcgLBVppLibplaceboDebandLUTSize);
     LOAD_CLI_TEXT(fcggroupBoxVppDetailEnahance);
     LOAD_CLI_TEXT(fcgLBVppWarpsharpDepth);
     LOAD_CLI_TEXT(fcgLBVppWarpsharpThreshold);
@@ -1853,6 +1863,14 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
             deinterlacer_idx = get_cx_index(list_deinterlace_gui, prm_qsv.vppmfx.deinterlace);
         }
         SetCXIndex(fcgCXVppDeinterlace, deinterlacer_idx);
+ 
+        int deband_idx = 0;
+        if (prm_qsv.vpp.deband.enable) {
+            deband_idx = get_cx_index(list_vpp_deband_names, _T("deband"));
+        } else if (prm_qsv.vpp.libplacebo_deband.enable) {
+            deband_idx = get_cx_index(list_vpp_deband_names, _T("libplacebo-deband"));
+        }
+        SetCXIndex(fcgCXVppDeband, deband_idx);
 
         SetNUValue(fcgNUVppDenoiseMFX, prm_qsv.vppmfx.denoise.strength);
         SetNUValue(fcgNUVppDenoiseKnnRadius, prm_qsv.vpp.knn.radius);
@@ -1882,7 +1900,6 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetNUValue(fcgNUVppDenoiseConv3DThreshCSpatial, prm_qsv.vpp.convolution3d.threshCspatial);
         SetNUValue(fcgNUVppDenoiseConv3DThreshYTemporal, prm_qsv.vpp.convolution3d.threshYtemporal);
         SetNUValue(fcgNUVppDenoiseConv3DThreshCTemporal, prm_qsv.vpp.convolution3d.threshCtemporal);
-        fcgCBVppDebandEnable->Checked = prm_qsv.vpp.deband.enable;
         SetNUValue(fcgNUVppDebandRange, prm_qsv.vpp.deband.range);
         SetNUValue(fcgNUVppDebandThreY, prm_qsv.vpp.deband.threY);
         SetNUValue(fcgNUVppDebandThreCb, prm_qsv.vpp.deband.threCb);
@@ -1892,6 +1909,13 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetCXIndex(fcgCXVppDebandSample, get_cx_index(list_vpp_deband_gui, prm_qsv.vpp.deband.sample));
         fcgCBVppDebandBlurFirst->Checked = prm_qsv.vpp.deband.blurFirst;
         fcgCBVppDebandRandEachFrame->Checked = prm_qsv.vpp.deband.randEachFrame;
+        SetNUValue(fcgNUVppLibplaceboDebandIteration, prm_qsv.vpp.libplacebo_deband.iterations);
+        SetNUValue(fcgNUVppLibplaceboDebandRadius,    prm_qsv.vpp.libplacebo_deband.radius);
+        SetNUValue(fcgNUVppLibplaceboDebandThreshold, prm_qsv.vpp.libplacebo_deband.threshold);
+        SetNUValue(fcgNUVppLibplaceboDebandGrainY,    prm_qsv.vpp.libplacebo_deband.grainY);
+        SetNUValue(fcgNUVppLibplaceboDebandGrainC,    prm_qsv.vpp.libplacebo_deband.grainC >= 0.0f ? prm_qsv.vpp.libplacebo_deband.grainC : prm_qsv.vpp.libplacebo_deband.grainY);
+        SetCXIndex(fcgCXVppLibplaceboDebandDither,    get_cx_index(list_vpp_libplacebo_deband_dither_mode, (int)prm_qsv.vpp.libplacebo_deband.dither));
+        SetCXIndex(fcgCXVppLibplaceboDebandLUTSize,   get_cx_index(list_vpp_libplacebo_deband_lut_size, prm_qsv.vpp.libplacebo_deband.lut_size));
         SetNUValue(fcgNUVppUnsharpRadius, prm_qsv.vpp.unsharp.radius);
         SetNUValue(fcgNUVppUnsharpWeight, prm_qsv.vpp.unsharp.weight);
         SetNUValue(fcgNUVppUnsharpThreshold, prm_qsv.vpp.unsharp.threshold);
@@ -2153,7 +2177,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     prm_qsv.vppmfx.detail.enable = fcgCXVppDetailEnhance->SelectedIndex == get_cx_index(list_vpp_detail_enahance, _T("detail-enhance"));
     prm_qsv.vppmfx.detail.strength = (int)fcgNUVppDetailEnhanceMFX->Value;
 
-    prm_qsv.vpp.deband.enable = fcgCBVppDebandEnable->Checked;
+    prm_qsv.vpp.deband.enable = fcgCXVppDeband->SelectedIndex == get_cx_index(list_vpp_deband_names, _T("deband"));
     prm_qsv.vpp.deband.range = (int)fcgNUVppDebandRange->Value;
     prm_qsv.vpp.deband.threY = (int)fcgNUVppDebandThreY->Value;
     prm_qsv.vpp.deband.threCb = (int)fcgNUVppDebandThreCb->Value;
@@ -2163,6 +2187,15 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     prm_qsv.vpp.deband.sample = list_vpp_deband_gui[fcgCXVppDebandSample->SelectedIndex].value;
     prm_qsv.vpp.deband.blurFirst = fcgCBVppDebandBlurFirst->Checked;
     prm_qsv.vpp.deband.randEachFrame = fcgCBVppDebandRandEachFrame->Checked;
+ 
+    prm_qsv.vpp.libplacebo_deband.enable     = fcgCXVppDeband->SelectedIndex == get_cx_index(list_vpp_deband_names, _T("libplacebo-deband"));
+    prm_qsv.vpp.libplacebo_deband.iterations = (int)fcgNUVppLibplaceboDebandIteration->Value;
+    prm_qsv.vpp.libplacebo_deband.radius     = (float)fcgNUVppLibplaceboDebandRadius->Value;
+    prm_qsv.vpp.libplacebo_deband.threshold  = (float)fcgNUVppLibplaceboDebandThreshold->Value;
+    prm_qsv.vpp.libplacebo_deband.grainY     = (float)fcgNUVppLibplaceboDebandGrainY->Value;
+    prm_qsv.vpp.libplacebo_deband.grainC     = (float)fcgNUVppLibplaceboDebandGrainC->Value;
+    prm_qsv.vpp.libplacebo_deband.dither     = (VppLibplaceboDebandDitherMode)list_vpp_libplacebo_deband_dither_mode[fcgCXVppLibplaceboDebandDither->SelectedIndex].value;
+    prm_qsv.vpp.libplacebo_deband.lut_size   = list_vpp_libplacebo_deband_lut_size[fcgCXVppLibplaceboDebandLUTSize->SelectedIndex].value;
 
     prm_qsv.vpp.afs.enable             = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_gui, L"自動フィールドシフト"));
     prm_qsv.vpp.afs.timecode           = false;
@@ -2578,7 +2611,7 @@ System::Void frmConfig::SetHelpToolTips() {
     SET_TOOL_TIP_EX(fcgNUVppUnsharpRadius);
     SET_TOOL_TIP_EX(fcgNUVppUnsharpThreshold);
     SET_TOOL_TIP_EX(fcgNUVppUnsharpWeight);
-    SET_TOOL_TIP_EX(fcgCBVppDebandEnable);
+    SET_TOOL_TIP_EX(fcggroupBoxVppDeband);
     SET_TOOL_TIP_EX(fcgNUVppDebandRange);
     SET_TOOL_TIP_EX(fcgNUVppDebandThreY);
     SET_TOOL_TIP_EX(fcgNUVppDebandThreCb);
@@ -2588,6 +2621,13 @@ System::Void frmConfig::SetHelpToolTips() {
     SET_TOOL_TIP_EX(fcgCXVppDebandSample);
     SET_TOOL_TIP_EX(fcgCBVppDebandBlurFirst);
     SET_TOOL_TIP_EX(fcgCBVppDebandRandEachFrame);
+    SET_TOOL_TIP_EX(fcgNUVppLibplaceboDebandIteration);
+    SET_TOOL_TIP_EX(fcgNUVppLibplaceboDebandRadius);
+    SET_TOOL_TIP_EX(fcgNUVppLibplaceboDebandThreshold);
+    SET_TOOL_TIP_EX(fcgNUVppLibplaceboDebandGrainY);
+    SET_TOOL_TIP_EX(fcgNUVppLibplaceboDebandGrainC);
+    SET_TOOL_TIP_EX(fcgCXVppLibplaceboDebandDither);
+    SET_TOOL_TIP_EX(fcgCXVppLibplaceboDebandLUTSize);
     SET_TOOL_TIP_EX(fcgCXVppDeinterlace);
     SET_TOOL_TIP_EX(fcgNUVppAfsUp);
     SET_TOOL_TIP_EX(fcgNUVppAfsBottom);

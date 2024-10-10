@@ -235,6 +235,7 @@
   - [--vpp-curves \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-curves-param1value1param2value2)
   - [--vpp-tweak \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-tweak-param1value1param2value2)
   - [--vpp-deband \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-deband-param1value1param2value2)
+  - [--vpp-libplacebo-deband \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-libplacebo-deband-param1value1param2value2)
   - [--vpp-pad \<int\>,\<int\>,\<int\>,\<int\>](#--vpp-pad-intintintint)
   - [--vpp-overlay \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-overlay-param1value1param2value2)
   - [--vpp-perc-pre-enc](#--vpp-perc-pre-enc)
@@ -1699,6 +1700,7 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
   - [--vpp-curves](#--vpp-curves-param1value1param2value2)
   - [--vpp-tweak](#--vpp-tweak-param1value1param2value2)
   - [--vpp-deband](#--vpp-deband-param1value1param2value2)
+  - [--vpp-libplacebo-deband](#--vpp-libplacebo-deband-param1value1param2value2)
   - [--vpp-padding](#--vpp-pad-intintintint)
   - [--vpp-overlay](#--vpp-overlay-param1value1param2value2)
   - [--vpp-perc-pre-enc](#--vpp-perc-pre-enc)
@@ -2770,6 +2772,43 @@ GPUによるディテールの強調を行う。0 - 100 の間でディテール
   ```
 
 
+### --vpp-libplacebo-deband [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+  [libplacebo](https://code.videolan.org/videolan/libplacebo)を使用したバンディング低減フィルタ。
+
+- **Parameters**
+  - iterations=&lt;int&gt;  
+    イテレーション数。 (default=1, 0-)
+
+  - threshold=&lt;float&gt;  
+    カットオフ閾値。 (default=4.0, 0-)
+
+  - radius=&lt;float&gt;  
+    半径 (default=16.0, 0-)
+
+  - grain_y=&lt;float&gt;  
+    輝度用の追加ノイズ。 (default=6.0, 0-)
+
+  - grain_c=&lt;float&gt;  
+    色差用の追加ノイズ。 (default=grain_y, 0-)
+
+  - dither=&lt;string&gt;  
+    ディザリングモード、8bitのみ。
+    - none
+    - blue_noise (default)
+    - ordered_lut
+    - ordered_fixed
+    - white_noise
+
+  - lut_size=&lt;int&gt;  
+    ディザリング用のLUTのサイズ。 (default=64)
+    ```2, 4, 8, 16, 32, 64, 128, 256 ```
+  
+- 使用例
+  ```
+  例:
+  --vpp-libplacebo-deband iterations=1,radius=32
+  ```
 
 ### --vpp-pad &lt;int&gt;,&lt;int&gt;,&lt;int&gt;,&lt;int&gt;
 指定のピクセル数(偶数)分のパディングを行う。左、上、右、下の順にピクセル数で指定する。

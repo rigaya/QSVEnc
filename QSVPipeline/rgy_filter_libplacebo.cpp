@@ -32,6 +32,10 @@ tstring RGYFilterParamLibplaceboResample::print() const {
     return resample.print();
 }
 
+tstring RGYFilterParamLibplaceboDeband::print() const {
+    return deband.print();
+}
+
 #if ENABLE_LIBPLACEBO
 
 #pragma comment(lib, "libplacebo-349.lib")
@@ -168,7 +172,7 @@ RGYFilterLibplacebo::RGYFilterLibplacebo(shared_ptr<RGYOpenCLContext> context) :
     m_d3d11(),
     m_dispatch(),
     m_renderer(),
-    m_dither_state(),
+    m_dither_state(std::unique_ptr<pl_shader_obj, decltype(&pl_shader_obj_destroy)>(nullptr, pl_shader_obj_destroy)),
     m_textIn(),
     m_textOut() {
     m_name = _T("libplacebo");
@@ -505,7 +509,7 @@ RGY_ERR RGYFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
             return RGY_ERR_NULL_PTR;
         }
 
-        sts = procPlane(pl_tex_out.get(), &planeOut, pl_tex_in.get(), &planeIn);
+        sts = procPlane(pl_tex_out.get(), &planeOut, pl_tex_in.get(), &planeIn, (RGY_PLANE)iplane);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to process plane(%d): %s.\n"), iplane, get_err_mes(sts));
             return sts;
@@ -649,7 +653,7 @@ RGY_ERR RGYFilterLibplaceboResample::setLibplaceboParam(const RGYFilterParam *pa
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYFilterLibplaceboResample::procPlane(pl_tex texOut, const RGYFrameInfo *pDstPlane, pl_tex texIn, const RGYFrameInfo *pSrcPlane) {
+RGY_ERR RGYFilterLibplaceboResample::procPlane(pl_tex texOut, const RGYFrameInfo *pDstPlane, pl_tex texIn, const RGYFrameInfo *pSrcPlane, [[maybe_unused]] const RGY_PLANE planeIdx) {
     auto prm = dynamic_cast<RGYFilterParamLibplaceboResample*>(m_param.get());
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -780,10 +784,135 @@ RGY_ERR RGYFilterLibplaceboResample::procPlane(pl_tex texOut, const RGYFrameInfo
     }
     return RGY_ERR_NONE;
 }
+    
+RGYFilterLibplaceboDeband::RGYFilterLibplaceboDeband(shared_ptr<RGYOpenCLContext> context) :
+    RGYFilterLibplacebo(context),
+    m_filter_params(), m_filter_params_c(), m_dither_params(), m_frame_index(0) {
+    m_name = _T("libplacebo-deband");
+}
+
+RGYFilterLibplaceboDeband::~RGYFilterLibplaceboDeband() {
+}
+
+RGY_ERR RGYFilterLibplaceboDeband::checkParam(const RGYFilterParam *param) {
+    auto prm = dynamic_cast<const RGYFilterParamLibplaceboDeband*>(param);
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    // prm->debandの各値の範囲をチェック
+    if (prm->deband.iterations < 0) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid iterations value. iterations must be 0 or more.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->deband.threshold < 0.0f) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid threshold value. threshold must be 0 or more.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->deband.radius < 0.0f) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid radius value. radius must be 0 or more.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->deband.grainY < 0.0f) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid grain_y value. grain_y must be 0 or more.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    //if (prm->deband.grainC < 0.0f) {
+    //    AddMessage(RGY_LOG_ERROR, _T("Invalid grain_c value. grain_c must be 0 or more.\n"));
+    //    return RGY_ERR_INVALID_PARAM;
+    //}
+    if (prm->deband.lut_size < 0 || prm->deband.lut_size > 8) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid lut_size value. lut_size must be between 0 to 8.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterLibplaceboDeband::setLibplaceboParam(const RGYFilterParam *param) {
+    auto prm = dynamic_cast<const RGYFilterParamLibplaceboDeband*>(param);
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+
+    m_dither_params.reset();
+    m_filter_params.reset();
+    m_filter_params_c.reset();
+    auto prmPrev = dynamic_cast<RGYFilterParamLibplaceboDeband*>(m_param.get());
+    if (prmPrev && prmPrev->deband.dither != prm->deband.dither) {
+        m_dither_params.reset();
+        m_dither_state.reset();
+    }
+    if (prm->deband.dither != VppLibplaceboDebandDitherMode::None) {
+        if (!m_dither_params) {
+            m_dither_params = std::make_unique<pl_dither_params>();
+            m_dither_params->method = (pl_dither_method)((int)prm->deband.dither - 1);
+            m_dither_params->lut_size = prm->deband.lut_size;
+        }
+        if (!m_dither_state) {
+            m_dither_state = std::unique_ptr<pl_shader_obj, decltype(&pl_shader_obj_destroy)>(new pl_shader_obj, pl_shader_obj_destroy);
+            memset(m_dither_state.get(), 0, sizeof(pl_shader_obj));
+        }
+    }
+
+    m_filter_params = std::make_unique<pl_deband_params>();
+    m_filter_params->iterations = prm->deband.iterations;
+    m_filter_params->threshold = prm->deband.threshold;
+    m_filter_params->radius = prm->deband.radius;
+    m_filter_params->grain = prm->deband.grainY;
+    if (prm->deband.grainC >= 0.0f && prm->deband.grainY != prm->deband.grainC) {
+        m_filter_params_c = std::make_unique<pl_deband_params>(*m_filter_params.get());
+        m_filter_params->grain = prm->deband.grainC;
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterLibplaceboDeband::procPlane(pl_tex texOut, [[maybe_unused]] const RGYFrameInfo *pDstPlane, pl_tex texIn, const RGYFrameInfo *pSrcPlane, const RGY_PLANE planeIdx) {
+    auto prm = dynamic_cast<const RGYFilterParamLibplaceboDeband*>(m_param.get());
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    pl_shader shader = pl_dispatch_begin(m_dispatch.get());
+    if (!shader) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to begin shader.\n"));
+        return RGY_ERR_UNKNOWN;
+    }
+
+    pl_shader_params shader_params = { 0 };
+    shader_params.gpu = m_d3d11->gpu;
+    shader_params.index = (decltype(shader_params.index))m_frame_index++;
+
+    pl_shader_reset(shader, &shader_params);
+
+    pl_sample_src src = { 0 };
+    src.tex = texIn;
+
+    pl_deband_params *filter_params = (m_filter_params_c && RGY_CSP_CHROMA_FORMAT[pSrcPlane->csp] != RGY_CHROMAFMT_RGB && (planeIdx == RGY_PLANE_U || planeIdx == RGY_PLANE_V))
+        ? m_filter_params_c.get() : m_filter_params.get();
+    pl_shader_deband(shader, &src, filter_params);
+
+    if (m_dither_params) {
+        pl_shader_dither(shader, texOut->params.format->component_depth[0], m_dither_state.get(), m_dither_params.get());
+    }
+
+    pl_dispatch_params dispatch_params = { 0 };
+    dispatch_params.target = texOut;
+    dispatch_params.shader = &shader;
+
+    if (!pl_dispatch_finish(m_dispatch.get(), &dispatch_params)) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to dispatch.\n"));
+        return RGY_ERR_UNKNOWN;
+    }
+    return RGY_ERR_NONE;
+}
 
 #else
 
 RGYFilterLibplaceboResample::RGYFilterLibplaceboResample(shared_ptr<RGYOpenCLContext> context) : RGYFilterDisabled(context) { m_name = _T("libplacebo-resample"); }
 RGYFilterLibplaceboResample::~RGYFilterLibplaceboResample() {};
+
+RGYFilterLibplaceboDeband::RGYFilterLibplaceboDeband(shared_ptr<RGYOpenCLContext> context) : RGYFilterDisabled(context) { m_name = _T("libplacebo-deband"); }
+RGYFilterLibplaceboDeband::~RGYFilterLibplaceboDeband() {};
 
 #endif // ENABLE_LIBPLACEBO
