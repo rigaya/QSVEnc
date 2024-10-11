@@ -90,6 +90,7 @@ QSVEncを使用したことによる、いかなる損害・トラブルにつ�
     - 字幕焼きこみ
     - 色空間変換 (x64版のみ)
       - hdr2sdr
+      - tonemap ([libplacebo](https://code.videolan.org/videolan/libplacebo))
     - リサイズ  
       - bilinear
       - spline16, spline36, spline64
@@ -98,6 +99,8 @@ QSVEncを使用したことによる、いかなる損害・トラブルにつ�
     - 回転 / 反転
     - パディング(黒帯)の追加
     - バンディング低減
+      - deband
+      - [libplacebo](https://code.videolan.org/videolan/libplacebo)
     - ノイズ除去
       - knn (K-nearest neighbor)
       - pmd (正則化pmd法)
@@ -214,6 +217,8 @@ QSVEncCでは、QSVを実行可能なGPUが複数存在する場合、
 - 本ソフトウェアでは、
   [oneVPL](https://github.com/oneapi-src/oneVPL/),
   [ffmpeg](https://ffmpeg.org/),
+  [libplacebo](https://code.videolan.org/videolan/libplacebo),
+  [libdovi](https://github.com/quietvoid/dovi_tool),
   [libass](https://github.com/libass/libass),
   [tinyxml2](http://www.grinninglizard.com/tinyxml2/),
   [ttmath](http://www.ttmath.org/),

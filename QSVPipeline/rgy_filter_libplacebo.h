@@ -30,6 +30,7 @@
 #define __RGY_FILTER_LIBPLACEBO_H__
 
 #include "rgy_filter_cl.h"
+#include "rgy_bitstream.h"
 #include "rgy_prm.h"
 #include <array>
 
@@ -57,6 +58,17 @@ public:
     virtual tstring print() const override;
 };
 
+class RGYFilterParamLibplaceboToneMapping : public RGYFilterParamLibplacebo {
+public:
+    VppLibplaceboToneMapping toneMapping;
+    VideoVUIInfo vui;
+    const RGYHDRMetadata *hdrMetadataIn;
+    const RGYHDRMetadata *hdrMetadataOut;
+    RGYFilterParamLibplaceboToneMapping() : RGYFilterParamLibplacebo(), toneMapping(), vui(), hdrMetadataIn(nullptr), hdrMetadataOut(nullptr) {};
+    virtual ~RGYFilterParamLibplaceboToneMapping() {};
+    virtual tstring print() const override;
+};
+
 #if ENABLE_LIBPLACEBO
 
 #pragma warning (push)
@@ -68,6 +80,8 @@ public:
 #include <libplacebo/utils/upload.h>
 #include <libplacebo/d3d11.h>
 #pragma warning (pop)
+
+class LibplaceboLoader;
 
 template<typename T>
 struct RGYLibplaceboDeleter {
@@ -125,14 +139,20 @@ protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;
     virtual void close() override;
 
+    virtual RGY_ERR setFrameParam(const RGYFrameInfo * pInputFrame) { UNREFERENCED_PARAMETER(pInputFrame); return RGY_ERR_NONE; }
     virtual RGY_ERR initCommon(shared_ptr<RGYFilterParam> pParam);
     virtual RGY_ERR checkParam(const RGYFilterParam *param) = 0;
     virtual RGY_ERR setLibplaceboParam(const RGYFilterParam *param) = 0;
     virtual RGY_ERR procPlane(pl_tex texOut, const RGYFrameInfo *pDstPlane, pl_tex texIn, const RGYFrameInfo *pSrcPlane, [[maybe_unused]] const RGY_PLANE planeIdx) = 0;
-    int getTextureBytePerPix(const DXGI_FORMAT format) const;
+    virtual RGY_ERR procFrame(pl_tex texOut[RGY_MAX_PLANES], const RGYFrameInfo *pDstFrame, pl_tex texIn[RGY_MAX_PLANES], const RGYFrameInfo *pSrcFrame) = 0;
     virtual RGY_ERR initLibplacebo(const RGYFilterParam *param);
-    RGY_CSP getTextureCsp(const RGY_CSP csp);
-    DXGI_FORMAT getTextureDXGIFormat(const RGY_CSP csp);
+    virtual RGY_CSP getTextureCsp(const RGY_CSP csp);
+    virtual DXGI_FORMAT getTextureDXGIFormat(const RGY_CSP csp);
+    int getTextureBytePerPix(const DXGI_FORMAT format) const;
+    virtual tstring printParams(const RGYFilterParamLibplacebo * prm) const;
+    virtual void setFrameProp(RGYFrameInfo * pFrame, const RGYFrameInfo * pSrcFrame) const { copyFramePropWithoutRes(pFrame, pSrcFrame); }
+
+    bool m_procByFrame;
 
     RGY_CSP m_textCspIn;
     RGY_CSP m_textCspOut;
@@ -150,6 +170,7 @@ protected:
     std::unique_ptr<RGYFrameD3D11> m_textOut;
     std::unique_ptr<RGYFilter> m_srcCrop;
     std::unique_ptr<RGYFilter> m_dstCrop;
+    std::unique_ptr<LibplaceboLoader> m_libplaceboLoader;
 };
 
 class RGYFilterLibplaceboResample : public RGYFilterLibplacebo {
@@ -160,7 +181,10 @@ protected:
     virtual RGY_ERR checkParam(const RGYFilterParam *param) override;
     virtual RGY_ERR setLibplaceboParam(const RGYFilterParam *param) override;
     virtual RGY_ERR procPlane(pl_tex texOut, const RGYFrameInfo *pDstPlane, pl_tex texIn, const RGYFrameInfo *pSrcPlane, [[maybe_unused]] const RGY_PLANE planeIdx) override;
-
+    virtual RGY_ERR procFrame(pl_tex texOut[RGY_MAX_PLANES], const RGYFrameInfo *pDstFrame, pl_tex texIn[RGY_MAX_PLANES], const RGYFrameInfo *pSrcFrame) override {
+        UNREFERENCED_PARAMETER(texOut); UNREFERENCED_PARAMETER(pDstFrame); UNREFERENCED_PARAMETER(texIn); UNREFERENCED_PARAMETER(pSrcFrame);
+        return RGY_ERR_UNSUPPORTED;
+    };
     std::unique_ptr<pl_sample_filter_params> m_filter_params;
 };
 
@@ -172,11 +196,59 @@ protected:
     virtual RGY_ERR checkParam(const RGYFilterParam *param) override;
     virtual RGY_ERR setLibplaceboParam(const RGYFilterParam *param) override;
     virtual RGY_ERR procPlane(pl_tex texOut, const RGYFrameInfo *pDstPlane, pl_tex texIn, const RGYFrameInfo *pSrcPlane, [[maybe_unused]] const RGY_PLANE planeIdx) override;
+    virtual RGY_ERR procFrame(pl_tex texOut[RGY_MAX_PLANES], const RGYFrameInfo *pDstFrame, pl_tex texIn[RGY_MAX_PLANES], const RGYFrameInfo *pSrcFrame) override {
+        UNREFERENCED_PARAMETER(texOut); UNREFERENCED_PARAMETER(pDstFrame); UNREFERENCED_PARAMETER(texIn); UNREFERENCED_PARAMETER(pSrcFrame);
+        return RGY_ERR_UNSUPPORTED;
+    };
 
     std::unique_ptr<pl_deband_params> m_filter_params;
     std::unique_ptr<pl_deband_params> m_filter_params_c;
     std::unique_ptr<pl_dither_params> m_dither_params;
     int m_frame_index;
+};
+
+struct RGYLibplaceboToneMappingParams {
+    std::unique_ptr<pl_render_params> renderParams;
+    VppLibplaceboToneMappingCSP cspSrc;
+    VppLibplaceboToneMappingCSP cspDst;
+    pl_color_space plCspSrc;
+    pl_color_space plCspDst;
+    float src_max_org;
+    float src_min_org;
+    float dst_max_org;
+    float dst_min_org;
+    bool is_subsampled;
+    pl_chroma_location chromaLocation;
+    bool use_dovi;
+    std::unique_ptr<pl_color_map_params> colorMapParams;
+    std::unique_ptr<pl_peak_detect_params> peakDetectParams;
+    std::unique_ptr<pl_dovi_metadata> plDoviMeta;
+    std::unique_ptr<pl_color_repr> reprSrc;
+    std::unique_ptr<pl_color_repr> reprDst;
+    VideoVUIInfo outVui;
+};
+
+class RGYFilterLibplaceboToneMapping : public RGYFilterLibplacebo {
+public:
+    RGYFilterLibplaceboToneMapping(shared_ptr<RGYOpenCLContext> context);
+    virtual ~RGYFilterLibplaceboToneMapping();
+    VideoVUIInfo VuiOut() const;
+protected:
+    virtual RGY_ERR checkParam(const RGYFilterParam *param) override;
+    virtual RGY_ERR setLibplaceboParam(const RGYFilterParam *param) override;
+    virtual RGY_ERR setFrameParam(const RGYFrameInfo *pInputFrame) override;
+    virtual RGY_ERR procPlane(pl_tex texOut, const RGYFrameInfo *pDstPlane, pl_tex texIn, const RGYFrameInfo *pSrcPlane, const RGY_PLANE planeIdx) override {
+        UNREFERENCED_PARAMETER(texOut); UNREFERENCED_PARAMETER(pDstPlane); UNREFERENCED_PARAMETER(texIn); UNREFERENCED_PARAMETER(pSrcPlane); UNREFERENCED_PARAMETER(planeIdx);
+        return RGY_ERR_UNSUPPORTED;
+    };
+    virtual RGY_ERR procFrame(pl_tex texOut[RGY_MAX_PLANES], const RGYFrameInfo *pDstFrame, pl_tex texIn[RGY_MAX_PLANES], const RGYFrameInfo *pSrcFrame) override;
+
+    virtual RGY_CSP getTextureCsp(const RGY_CSP csp) override;
+    virtual DXGI_FORMAT getTextureDXGIFormat(const RGY_CSP csp) override;
+    virtual tstring printParams(const RGYFilterParamLibplacebo *prm) const override;
+    virtual void setFrameProp(RGYFrameInfo *pFrame, const RGYFrameInfo *pSrcFrame) const override;
+
+    RGYLibplaceboToneMappingParams m_tonemap;
 };
 
 #else
@@ -191,6 +263,12 @@ class RGYFilterLibplaceboDeband : public RGYFilterDisabled {
 public:
     RGYFilterLibplaceboDeband(shared_ptr<RGYOpenCLContext> context);
     virtual ~RGYFilterLibplaceboDeband();
+};
+
+class RGYFilterLibplaceboToneMapping : public RGYFilterDisabled {
+public:
+    RGYFilterLibplaceboToneMapping(shared_ptr<RGYOpenCLContext> context);
+    virtual ~RGYFilterLibplaceboToneMapping();
 };
 
 #endif // ENABLE_LIBPLACEBO

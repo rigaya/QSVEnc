@@ -100,12 +100,8 @@ const char *get_encoder_version();
 
 #define ENABLE_HYPER_MODE 1
 
-
-#ifdef _M_IX86
-#define ENABLE_LIBPLACEBO 0
-#else
 #define ENABLE_LIBPLACEBO 1
-#endif
+#define ENABLE_LIBDOVI 1
 
 #ifdef BUILD_AUO
 #define ENCODER_NAME             "QSVEnc"

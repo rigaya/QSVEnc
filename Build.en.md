@@ -43,7 +43,7 @@ setx OPENCL_HEADERS <path-to-clone>
 ```Batchfile
 git clone https://github.com/rigaya/QSVEnc --recursive
 cd QSVEnc
-curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20240921/ffmpeg_dlls_for_hwenc_20240921.7z
+curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20240929/ffmpeg_dlls_for_hwenc_20240929.7z
 7z x -offmpeg_lgpl -y ffmpeg_lgpl.7z
 ```
 
@@ -65,6 +65,7 @@ Finally, open QSVEnc.sln, and start build of QSVEnc by Visual Studio.
 - Intel Driver
 - git
 - cmake
+- rust + cargo-c
 - libraries
   - libva, libdrm 
   - ffmpeg 4.x - 7.x libs (libavcodec*, libavformat*, libavfilter*, libavutil*, libswresample*, libavdevice*)
@@ -73,9 +74,20 @@ Finally, open QSVEnc.sln, and start build of QSVEnc by Visual Studio.
 
 ### 1. Install build tools
 
-```Shell
-sudo apt install build-essential libtool pkg-config git cmake
-```
+- Install build tools
+
+  ```Shell
+  sudo apt install build-essential git libtool pkg-config git cmake
+  ```
+
+- Install rust + cargo-c (for libdovi build)
+
+  ```Shell
+  sudo apt install libssl-dev curl
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal \
+    && . ~/.cargo/env \
+    && cargo install cargo-c
+  ```
 
 ### 2. Install Intel driver
 Intel media driver can be installed following instruction on [this link](https://dgpu-docs.intel.com/driver/client/overview.html).
@@ -273,6 +285,7 @@ In Ubuntu 18.04, you may additionally need to build libva, and media-driver your
 - C++17 Compiler
 - git
 - cmake
+- rust + cargo-c
 - libraries
   - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3, libavdevice58)
   - libass9
@@ -280,9 +293,20 @@ In Ubuntu 18.04, you may additionally need to build libva, and media-driver your
 
 ### 1. Install build tools
 
-```Shell
-sudo apt install build-essential meson automake libtool cmake pkg-config git cmake
-```
+- Install build tools
+
+  ```Shell
+  sudo apt install build-essential meson automake libtool cmake pkg-config git cmake
+  ```
+
+- Install rust + cargo-c (for libdovi build)
+
+  ```Shell
+  sudo apt install libssl-dev curl
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal \
+    && . ~/.cargo/env \
+    && cargo install cargo-c
+  ```
 
 ### 2. Install libva
 
@@ -493,6 +517,7 @@ Success: QuickSyncVideo (hw encoding) available
 - Intel Driver
 - git
 - cmake
+- rust + cargo-c
 - libraries
   - libva, libdrm 
   - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3, libavdevice58)
@@ -501,9 +526,20 @@ Success: QuickSyncVideo (hw encoding) available
 
 ### 1. Install build tools
 
-```Shell
-sudo dnf install @development-tools cmake
-```
+- Install build tools
+
+  ```Shell
+  sudo dnf install @development-tools cmake
+  ```
+
+- Install rust + cargo-c (for libdovi build)
+
+  ```Shell
+  sudo apt install libssl-dev curl
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal \
+    && . ~/.cargo/env \
+    && cargo install cargo-c
+  ```
 
 ### 2. Install required libraries
 

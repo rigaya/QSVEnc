@@ -151,7 +151,8 @@ protected:
     vector<unique_ptr<AVChapter>> m_Chapters;
 #endif
     std::unique_ptr<RGYTimecode> m_timecode;
-    std::unique_ptr<RGYHDRMetadata> m_hdrsei;
+    std::unique_ptr<RGYHDRMetadata> m_hdrseiIn;
+    std::unique_ptr<RGYHDRMetadata> m_hdrseiOut;
     std::unique_ptr<RGYHDR10Plus> m_hdr10plus;
     bool m_hdr10plusMetadataCopy;
     std::unique_ptr<DOVIRpu>      m_dovirpu;

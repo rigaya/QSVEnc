@@ -12,6 +12,8 @@ RUN dnf update -y \
       which \ 
       @development-tools \
       cmake \
+      wget \
+      curl \
       intel-media-driver \
       libva-devel \
       libX11-devel \

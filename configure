@@ -107,6 +107,7 @@ EXTRALDFLAGS=""
 SRCS=""
 X86_64=1
 NO_RDTSCP_INTRIN=0
+CARGO=${CARGO:-cargo}
 ENABLE_LTO=0
 
 ENABLE_CPP_REGEX=1
@@ -138,6 +139,10 @@ CHECK_LIBASS_NAMES="libass"
 LIBASS_CFLAGS=""
 LIBASS_LIBS=""
 ENABLE_LIBASS=1
+
+LIBDOVI_CFLAGS=""
+LIBDOVI_LIBS=""
+ENABLE_LIBDOVI=1
 
 DTL_CFLAGS="-I./dtl"
 ENABLE_DTL=1
@@ -612,6 +617,35 @@ if [ $ENABLE_AVSW_READER -ne 0 ]; then
     fi
 fi
 
+cnf_print "checking for $CARGO..."
+type -p $CARGO 2>/dev/null 1>/dev/null
+if [ $? -ne 0 ]; then
+    cnf_write "${CARGO} does not exist."
+    ENABLE_LIBDOVI=0
+else
+    cnf_write "OK"
+fi
+if [ $ENABLE_LIBDOVI -ne 0 ]; then
+    CARGO=${CARGO} ./build_libdovi.sh
+    LIBDOVI_PC=$(find `pwd`/build_libdovi -name 'dovi.pc')
+    cnf_print "checking libdovi with pkg-config..."
+    if ! ${PKGCONFIG} --exists ${LIBDOVI_PC} ; then
+        cnf_write "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
+    else
+        cnf_write "OK"
+        LIBDOVI_LIBS=`${PKGCONFIG} --libs --static ${LIBDOVI_PC}`
+        LIBDOVI_CFLAGS=`${PKGCONFIG} --cflags ${LIBDOVI_PC}`
+    fi
+    if ! cxx_check "rpu_parser.h" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBDOVI_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBDOVI_LIBS}" "libdovi/rpu_parser.h" "" "dovi_parse_rpu(nullptr, 0);" ; then
+        cnf_write "no"
+        ENABLE_LIBDOVI=0
+        LIBDOVI_LIBS=""
+        LIBDOVI_CFLAGS=""
+    else
+        cnf_write "yes"
+    fi
+fi
+
 if [ $ENABLE_VAPOURSYNTH -ne 0 ]; then
     printf "checking vapoursynth with pkg-config..."
     if ! ${PKGCONFIG} --exists ${CHECK_VAPOURSYNTH_NAMES} ; then
@@ -833,8 +867,8 @@ write_config_mak "LD  = $LD"
 write_config_mak "PROGRAM = $PROGRAM"
 write_config_mak "ENABLE_DEBUG = $ENABLE_DEBUG"
 write_config_mak "CFLAGS = $CFLAGS"
-write_config_mak "CXXFLAGS = $CXXFLAGS $EXTRACXXFLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVISYNTH_CFLAGS $LIBASS_CFLAGS $DTL_CFLAGS $CPPCODEC_CFLAGS"
-write_config_mak "LDFLAGS = $LDFLAGS $EXTRALDFLAGS $LIBAV_LIBS $LIBASS_LIBS"
+write_config_mak "CXXFLAGS = $CXXFLAGS $EXTRACXXFLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVISYNTH_CFLAGS $LIBASS_CFLAGS $DTL_CFLAGS $CPPCODEC_CFLAGS $LIBDOVI_CFLAGS"
+write_config_mak "LDFLAGS = $LDFLAGS $EXTRALDFLAGS $LIBAV_LIBS $LIBASS_LIBS $LIBDOVI_LIBS"
 write_config_mak "PREFIX = $PREFIX"
 echo "X86_64 = ${X86_64}"
 write_app_rev    "#define ENCODER_REV                  \"$ENCODER_REV\""
@@ -857,6 +891,7 @@ write_enc_config "#define AV_FRAME_DURATION_AVAIL        $AV_FRAME_DURATION_AVAI
 write_enc_config "#define AVCODEC_PAR_CODED_SIDE_DATA_AVAIL $AVCODEC_PAR_CODED_SIDE_DATA_AVAIL"
 write_enc_config "#define ENABLE_CPP_REGEX              $ENABLE_CPP_REGEX"
 write_enc_config "#define ENABLE_DTL                    $ENABLE_DTL"
+write_enc_config "#define ENABLE_LIBDOVI                $ENABLE_LIBDOVI"
 
 cnf_write "successfully generated config.mak, rgy_config.h"
 

@@ -41,7 +41,7 @@ setx OPENCL_HEADERS <path-to-clone>
 ```Batchfile
 git clone https://github.com/rigaya/QSVEnc --recursive
 cd QSVEnc
-curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20240921/ffmpeg_dlls_for_hwenc_20240921.7z
+curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20240929/ffmpeg_dlls_for_hwenc_20240929.7z
 7z x -offmpeg_lgpl -y ffmpeg_lgpl.7z
 ```
 
@@ -66,6 +66,7 @@ QSVEnc.slnを開きます。
 - Intel Driver
 - git
 - cmake
+- rust + cargo-c (libdoviビルド用)
 - libraries
   - libva, libdrm 
   - ffmpeg 4.x - 7.x libs (libavcodec*, libavformat*, libavfilter*, libavutil*, libswresample*, libavdevice*)
@@ -74,9 +75,20 @@ QSVEnc.slnを開きます。
 
 ### 1. コンパイラ等のインストール
 
-```Shell
-sudo apt install build-essential libtool git cmake
-```
+- ビルドツールのインストール
+
+  ```Shell
+  sudo apt install build-essential libtool git cmake
+  ```
+
+- rust + cargo-cのインストール
+
+  ```Shell
+  sudo apt install libssl-dev curl
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal \
+    && . ~/.cargo/env \
+    && cargo install cargo-c
+  ```
 
 ### 2. Intel ドライバのインストール
 
@@ -282,6 +294,7 @@ Ubuntu 18.04では、自分でlibva, media-driverをビルド・インストー�
 - Intel Driver
 - git
 - cmake
+- rust + cargo-c
 - libraries
   - libva, libdrm 
   - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3, libavdevice58)
@@ -290,9 +303,20 @@ Ubuntu 18.04では、自分でlibva, media-driverをビルド・インストー�
 
 ### 1. コンパイラ等のインストール
 
-```Shell
-sudo apt install build-essential meson automake libtool cmake pkg-config git cmake
-```
+- ビルドツールのインストール
+
+  ```Shell
+  sudo apt install build-essential meson automake libtool cmake pkg-config git cmake
+  ```
+
+- rust + cargo-cのインストール
+
+  ```Shell
+  sudo apt install libssl-dev curl
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal \
+    && . ~/.cargo/env \
+    && cargo install cargo-c
+  ```
 
 ### 2. libvaのインストール
 
@@ -503,6 +527,7 @@ Success: QuickSyncVideo (hw encoding) available
 - Intel Driver
 - git
 - cmake
+- rust + cargo-c
 - libraries
   - libva, libdrm 
   - ffmpeg 4.x libs (libavcodec58, libavformat58, libavfilter7, libavutil56, libswresample3, libavdevice58)
@@ -511,9 +536,20 @@ Success: QuickSyncVideo (hw encoding) available
 
 ### 1. コンパイラ等のインストール
 
-```Shell
-sudo dnf install @development-tools cmake
-```
+- コンパイラ等のインストール
+
+  ```Shell
+  sudo dnf install @development-tools cmake
+  ```
+
+- rust + cargo-cのインストール
+
+  ```Shell
+  sudo apt install libssl-dev curl
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal \
+    && . ~/.cargo/env \
+    && cargo install cargo-c
+  ```
 
 ### 2. ビルドに必要なライブラリのインストール
 

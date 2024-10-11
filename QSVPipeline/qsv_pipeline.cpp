@@ -1090,7 +1090,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
             m_encParams.cop2.MaxFrameSize = (decltype(m_encParams.cop2.MaxFrameSize))pInParams->maxFrameSize;
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
-            if (m_hdr10plus || m_hdr10plusMetadataCopy || m_dovirpu || pInParams->common.doviProfile != 0 || (m_hdrsei && m_hdrsei->gen_nal().size() > 0)) {
+            if (m_hdr10plus || m_hdr10plusMetadataCopy || m_dovirpu || pInParams->common.doviProfile != 0 || (m_hdrseiOut && m_hdrseiOut->gen_nal().size() > 0)) {
                 m_encParams.cop2.RepeatPPS = MFX_CODINGOPTION_ON;
             } else if (pInParams->repeatHeaders.has_value()) {
                 m_encParams.cop2.RepeatPPS = (mfxU16)((pInParams->repeatHeaders.value()) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
@@ -1673,7 +1673,8 @@ CQSVPipeline::CQSVPipeline() :
     m_Chapters(),
 #endif
     m_timecode(),
-    m_hdrsei(),
+    m_hdrseiIn(),
+    m_hdrseiOut(),
     m_hdr10plus(),
     m_hdr10plusMetadataCopy(false),
     m_dovirpu(),
@@ -1805,8 +1806,13 @@ RGY_ERR CQSVPipeline::InitOutput(sInputParams *inputParams) {
     if (outputVideoInfo.codec == RGY_CODEC_RAW) {
         inputParams->common.AVMuxTarget &= ~RGY_MUX_VIDEO;
     }
-    m_hdrsei = createHEVCHDRSei(inputParams->common.maxCll, inputParams->common.masterDisplay, inputParams->common.atcSei, m_pFileReader.get());
-    if (!m_hdrsei) {
+    m_hdrseiIn = createHEVCHDRSei(maxCLLSource, masterDisplaySource, RGY_TRANSFER_UNKNOWN, m_pFileReader.get());
+    if (!m_hdrseiIn) {
+        PrintMes(RGY_LOG_ERROR, _T("Failed to parse HEVC HDR10 metadata.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    m_hdrseiOut = createHEVCHDRSei(inputParams->common.maxCll, inputParams->common.masterDisplay, inputParams->common.atcSei, m_pFileReader.get());
+    if (!m_hdrseiOut) {
         PrintMes(RGY_LOG_ERROR, _T("Failed to parse HEVC HDR10 metadata.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
@@ -1817,7 +1823,7 @@ RGY_ERR CQSVPipeline::InitOutput(sInputParams *inputParams) {
 #if ENABLE_AVSW_READER
         m_Chapters,
 #endif //#if ENABLE_AVSW_READER
-        m_hdrsei.get(), m_dovirpu.get(), m_encTimestamp.get(),
+        m_hdrseiOut.get(), m_dovirpu.get(), m_encTimestamp.get(),
         !check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6),
         inputParams->bBenchmark, false, 0,
         m_poolPkt.get(), m_poolFrame.get(),
@@ -1881,6 +1887,7 @@ RGY_ERR CQSVPipeline::InitInput(sInputParams *inputParam, std::vector<std::uniqu
         m_pStatus, &inputParam->common, &inputParam->ctrl, HWDecCodecCsp, subburnTrackId,
         (ENABLE_VPP_FILTER_RFF) ? inputParam->vpp.rff.enable : false,
         (ENABLE_VPP_FILTER_AFS) ? inputParam->vpp.afs.enable : false,
+        inputParam->vpp.libplacebo_tonemapping.enable,
         m_poolPkt.get(), m_poolFrame.get(),
         nullptr, m_pPerfMonitor.get(), m_pQSVLog);
     if (sts != RGY_ERR_NONE) {
@@ -2169,6 +2176,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
         }
         filterPipeline.push_back((requireOpenCL) ? VppType::CL_COLORSPACE : VppType::MFX_COLORSPACE);
     }
+    if (inputParam->vpp.libplacebo_tonemapping.enable) filterPipeline.push_back(VppType::CL_LIBPLACEBO_TONEMAP);
     if (inputParam->vpp.rff.enable)        filterPipeline.push_back(VppType::CL_RFF);
     if (inputParam->vpp.delogo.enable)     filterPipeline.push_back(VppType::CL_DELOGO);
     if (inputParam->vpp.afs.enable)        filterPipeline.push_back(VppType::CL_AFS);
@@ -2336,6 +2344,31 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         inputFrame = param->frameOut;
         m_encFps = param->baseFps;
         vuiInfo = filter->VuiOut();
+        //登録
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
+    }
+    //libplacebo-tonemap
+    if (vppType == VppType::CL_LIBPLACEBO_TONEMAP) {
+        unique_ptr<RGYFilterLibplaceboToneMapping> filter(new RGYFilterLibplaceboToneMapping(m_cl));
+        shared_ptr<RGYFilterParamLibplaceboToneMapping> param(new RGYFilterParamLibplaceboToneMapping());
+        param->toneMapping = params->vpp.libplacebo_tonemapping;
+        param->hdrMetadataIn = m_hdrseiIn.get();
+        param->hdrMetadataOut = m_hdrseiOut.get();
+        param->vui = vuiInfo;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        auto sts = filter->init(param, m_pQSVLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+#if ENABLE_LIBPLACEBO
+        vuiInfo = filter->VuiOut();
+#endif
         //登録
         clfilters.push_back(std::move(filter));
         return RGY_ERR_NONE;
@@ -3853,7 +3886,7 @@ void CQSVPipeline::Close() {
     m_dovirpu.reset();
     m_hdr10plusMetadataCopy = false;
     m_hdr10plus.reset();
-    m_hdrsei.reset();
+    m_hdrseiOut.reset();
 
     m_sessionParams.threads = 0;
     m_sessionParams.deviceCopy = false;
@@ -4782,10 +4815,10 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
             PRINT_INFO(_T("VUI            %s\n"), vui_str.c_str());
         }
         }
-        if (m_hdrsei) {
-            const auto masterdisplay = m_hdrsei->print_masterdisplay();
-            const auto maxcll = m_hdrsei->print_maxcll();
-            const auto atcsei = (enc_codec == RGY_CODEC_HEVC) ? m_hdrsei->print_atcsei() : "";
+        if (m_hdrseiOut) {
+            const auto masterdisplay = m_hdrseiOut->print_masterdisplay();
+            const auto maxcll = m_hdrseiOut->print_maxcll();
+            const auto atcsei = (enc_codec == RGY_CODEC_HEVC) ? m_hdrseiOut->print_atcsei() : "";
             if (masterdisplay.length() > 0) {
                 const tstring tstr = char_to_tstring(masterdisplay);
                 const auto splitpos = tstr.find(_T("WP("));

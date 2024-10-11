@@ -1671,6 +1671,7 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
 
 - フィルター一覧
   - [--vpp-colorspace](#--vpp-colorspace-param1value1param2value2)
+  - [--vpp-libplacebo-tonemapping](#--vpp-libplacebo-tonemapping-param1value1param2value2)
   - [--vpp-rff](#--vpp-rff)
   - [--vpp-delogo](#--vpp-delogo-stringparam1value1param2value2)
   - [--vpp-afs](#--vpp-afs-param1value1param2value2)
