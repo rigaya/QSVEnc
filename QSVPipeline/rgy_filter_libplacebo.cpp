@@ -1739,4 +1739,7 @@ RGYFilterLibplaceboResample::~RGYFilterLibplaceboResample() {};
 RGYFilterLibplaceboDeband::RGYFilterLibplaceboDeband(shared_ptr<RGYOpenCLContext> context) : RGYFilterDisabled(context) { m_name = _T("libplacebo-deband"); }
 RGYFilterLibplaceboDeband::~RGYFilterLibplaceboDeband() {};
 
+RGYFilterLibplaceboToneMapping::RGYFilterLibplaceboToneMapping(shared_ptr<RGYOpenCLContext> context) : RGYFilterDisabled(context) { m_name = _T("libplacebo-deband"); }
+RGYFilterLibplaceboToneMapping::~RGYFilterLibplaceboToneMapping() {};
+
 #endif // ENABLE_LIBPLACEBO
