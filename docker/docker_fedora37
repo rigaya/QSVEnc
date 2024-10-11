@@ -11,6 +11,7 @@ RUN dnf update -y \
     && dnf install -y \
       which \ 
       @development-tools \
+      gcc-c++ \
       cmake \
       wget \
       curl \
@@ -22,6 +23,7 @@ RUN dnf update -y \
       ffmpeg ffmpeg-devel \
       libass libass-devel \
       rpm-build \
+      openssl openssl-devel \
     && dnf clean all
 
 RUN useradd -u $LOCAL_USER_ID -m --user-group --shell /bin/bash rigaya
