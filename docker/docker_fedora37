@@ -1,4 +1,4 @@
-FROM fedora:32
+FROM fedora:37
 
 ARG LOCAL_USER_ID=1000 \
     LOCAL_GROUP_ID=1000
