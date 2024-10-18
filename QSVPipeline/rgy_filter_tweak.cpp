@@ -272,7 +272,7 @@ RGY_ERR RGYFilterTweak::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
                 || m_convC->GetFilterParam()->frameIn.csp  != csp_rgb
                 || m_convC->GetFilterParam()->frameOut.csp != pParam->frameIn.csp) {
                 VideoVUIInfo vui = prm->vui;
-                vui.setIfUnset(VideoVUIInfo().to((CspMatrix)COLOR_VALUE_AUTO_RESOLUTION).to((CspColorprim)COLOR_VALUE_AUTO_RESOLUTION).to((CspTransfer)COLOR_VALUE_AUTO_RESOLUTION));
+                vui.setIfUnsetUnknwonAuto(VideoVUIInfo().to((CspMatrix)COLOR_VALUE_AUTO_RESOLUTION).to((CspColorprim)COLOR_VALUE_AUTO_RESOLUTION).to((CspTransfer)COLOR_VALUE_AUTO_RESOLUTION));
                 vui.apply_auto(VideoVUIInfo(), pParam->frameIn.height);
                 {
                     auto filterCrop = std::make_unique<RGYFilterCspCrop>(m_cl);

@@ -430,9 +430,9 @@ RGY_ERR RGYFilterLibplacebo::initCommon(shared_ptr<RGYFilterParam> pParam) {
     const auto inChromaFmt = RGY_CSP_CHROMA_FORMAT[pParam->frameIn.csp];
     VideoVUIInfo vui = prm->vui;
     if (inChromaFmt == RGY_CHROMAFMT_RGB || inChromaFmt == RGY_CHROMAFMT_RGB_PACKED) {
-        vui.setIfUnset(VideoVUIInfo().to(RGY_MATRIX_RGB).to(RGY_PRIM_BT709).to(RGY_TRANSFER_IEC61966_2_1));
+        vui.setIfUnsetUnknwonAuto(VideoVUIInfo().to(RGY_MATRIX_RGB).to(RGY_PRIM_BT709).to(RGY_TRANSFER_IEC61966_2_1));
     } else {
-        vui.setIfUnset(VideoVUIInfo().to((CspMatrix)COLOR_VALUE_AUTO_RESOLUTION).to((CspColorprim)COLOR_VALUE_AUTO_RESOLUTION).to((CspTransfer)COLOR_VALUE_AUTO_RESOLUTION));
+        vui.setIfUnsetUnknwonAuto(VideoVUIInfo().to((CspMatrix)COLOR_VALUE_AUTO_RESOLUTION).to((CspColorprim)COLOR_VALUE_AUTO_RESOLUTION).to((CspTransfer)COLOR_VALUE_AUTO_RESOLUTION));
     }
     vui.apply_auto(VideoVUIInfo(), pParam->frameIn.height);
 
@@ -1225,9 +1225,9 @@ RGY_ERR RGYFilterLibplaceboToneMapping::setLibplaceboParam(const RGYFilterParam 
     const auto inChromaFmt = RGY_CSP_CHROMA_FORMAT[param->frameIn.csp];
     VideoVUIInfo vuiSrc = prm->vui;
     if (inChromaFmt == RGY_CHROMAFMT_RGB || inChromaFmt == RGY_CHROMAFMT_RGB_PACKED) {
-        vuiSrc.setIfUnset(VideoVUIInfo().to(RGY_MATRIX_RGB).to(RGY_PRIM_BT709).to(RGY_TRANSFER_IEC61966_2_1));
+        vuiSrc.setIfUnsetUnknwonAuto(VideoVUIInfo().to(RGY_MATRIX_RGB).to(RGY_PRIM_BT709).to(RGY_TRANSFER_IEC61966_2_1));
     } else {
-        vuiSrc.setIfUnset(VideoVUIInfo().to((CspMatrix)COLOR_VALUE_AUTO_RESOLUTION).to((CspColorprim)COLOR_VALUE_AUTO_RESOLUTION).to((CspTransfer)COLOR_VALUE_AUTO_RESOLUTION));
+        vuiSrc.setIfUnsetUnknwonAuto(VideoVUIInfo().to((CspMatrix)COLOR_VALUE_AUTO_RESOLUTION).to((CspColorprim)COLOR_VALUE_AUTO_RESOLUTION).to((CspTransfer)COLOR_VALUE_AUTO_RESOLUTION));
     }
     vuiSrc.apply_auto(VideoVUIInfo(), param->frameIn.height);
 
