@@ -72,6 +72,7 @@ const char *get_encoder_version();
 #define D3D_SURFACES_SUPPORT 1
 
 #define MFX_D3D11_SUPPORT 1
+#define ENABLE_D3D11 (MFX_D3D11_SUPPORT)
 
 #define LIBVA_SUPPORT 0
 
@@ -102,6 +103,7 @@ const char *get_encoder_version();
 
 #define ENABLE_LIBPLACEBO 1
 #define ENABLE_LIBDOVI 1
+#define ENABLE_VULKAN 0
 
 #ifdef BUILD_AUO
 #define ENCODER_NAME             "QSVEnc"

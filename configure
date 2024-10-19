@@ -140,6 +140,16 @@ LIBASS_CFLAGS=""
 LIBASS_LIBS=""
 ENABLE_LIBASS=1
 
+CHECK_LIBPLACEBO_NAMES="libplacebo"
+LIBPLACEBO_CFLAGS=""
+LIBPLACEBO_LIBS=""
+ENABLE_LIBPLACEBO=1
+LIBPLACEBO_API_VER=338
+
+CHECK_VULKAN_NAMES="vulkan"
+VULKAN_CFLAGS=""
+ENABLE_VULKAN=1
+
 LIBDOVI_CFLAGS=""
 LIBDOVI_LIBS=""
 ENABLE_LIBDOVI=1
@@ -645,6 +655,59 @@ if [ $ENABLE_LIBDOVI -ne 0 ]; then
         cnf_write "yes"
     fi
 fi
+if [ $ENABLE_VULKAN -ne 0 ]; then
+    cnf_print "checking vulkan with pkg-config..."
+    if ! ${PKGCONFIG} --exists ${CHECK_VULKAN_NAMES} ; then
+        cnf_write "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
+    else
+        cnf_write "OK"
+        VULKAN_CFLAGS=`${PKGCONFIG} --cflags ${CHECK_VULKAN_NAMES}`
+    fi
+    if ! cxx_check "vulkan/vulkan.h" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${VULKAN_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS}" "" "vulkan/vulkan.h" "std::cout << VK_HEADER_VERSION << std::endl;" ; then
+        cnf_write "no"
+        ENABLE_VULKAN=0
+    else
+        cnf_write "yes"
+    fi
+fi
+if [ $ENABLE_VULKAN -eq 0 ]; then
+    ENABLE_LIBPLACEBO=0
+fi
+
+if [ $ENABLE_LIBPLACEBO -ne 0 ]; then
+    cnf_print "checking libplacebo with pkg-config..."
+    if ! ${PKGCONFIG} --exists ${CHECK_LIBPLACEBO_NAMES} ; then
+        cnf_write "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
+    else
+        cnf_write "OK"
+        #LIBPLACEBO_LIBS=`${PKGCONFIG} --libs ${CHECK_LIBPLACEBO_NAMES}`
+        LIBPLACEBO_CFLAGS=`${PKGCONFIG} --cflags ${CHECK_LIBPLACEBO_NAMES}`
+    fi
+    if ! cxx_check "libplacebo/config.h" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LIBPLACEBO_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS} ${LIBPLACEBO_LIBS}" "" "libplacebo/config.h" "std::cout << PL_API_VER << std::endl;" ; then
+        cnf_write "no"
+        ENABLE_LIBPLACEBO=0
+    else
+        cnf_write "yes"
+    fi
+    cnf_print "checking for libplacebo API version..."
+    PL_API_VER=`echo "#include <iostream>" > cxx_check.c; echo "#include <libplacebo/config.h>" >> cxx_check.c; echo "int main(void){ std::cout << PL_API_VER << std::endl; return 0;}" >> cxx_check.c; $CXX cxx_check.c ${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBAV_CFLAGS} ${LIBPLACEBO_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBAV_LIBS} ${LIBPLACEBO_LIBS} -o cxx_check 2>/dev/null; ./cxx_check 2>/dev/null; rm -f cxx_check*`
+    if [ -z "$PL_API_VER" ]; then
+        cnf_write "fail"
+        ENABLE_LIBPLACEBO=0
+    else
+        if [ $PL_API_VER -lt $LIBPLACEBO_API_VER ]; then
+            cnf_write "fail (${PL_API_VER})"
+            cnf_write "libplacebo API version >= ${LIBPLACEBO_API_VER} required."
+            ENABLE_LIBPLACEBO=0
+        else
+            cnf_write "OK (${PL_API_VER})"
+        fi
+    fi
+    if [ $ENABLE_LIBPLACEBO -eq 0 ]; then
+        LIBPLACEBO_CFLAGS=""
+        LIBPLACEBO_LIBS=""
+    fi
+fi
 
 if [ $ENABLE_VAPOURSYNTH -ne 0 ]; then
     printf "checking vapoursynth with pkg-config..."
@@ -743,6 +806,7 @@ qsv_query.cpp               qsv_session.cpp             qsv_util.cpp            
 rgy_aspect_ratio.cpp        rgy_avlog.cpp               rgy_avutil.cpp \
 rgy_bitstream.cpp           rgy_bitstream_avx2.cpp      rgy_bitstream_avx512bw.cpp \
 rgy_chapter.cpp             rgy_cmd.cpp                 rgy_codepage.cpp               rgy_def.cpp \
+rgy_device_vulkan.cpp \
 rgy_dummy_load.cpp          rgy_env.cpp                 rgy_err.cpp                    rgy_event.cpp \
 rgy_faw.cpp                 rgy_faw_avx2.cpp            rgy_faw_avx512bw.cpp \
 rgy_filesystem.cpp          rgy_filter.cpp              rgy_filter_afs.cpp             rgy_filter_afs_analyze.cpp \
@@ -758,12 +822,13 @@ rgy_filter_tweak.cpp        rgy_filter_unsharp.cpp      rgy_filter_warpsharp.cpp
 rgy_frame.cpp               rgy_frame_info.cpp          rgy_hdr10plus.cpp              rgy_ini.cpp \
 rgy_input.cpp               rgy_input_avcodec.cpp       rgy_input_avi.cpp              rgy_input_avs.cpp \
 rgy_input_raw.cpp           rgy_input_sm.cpp            rgy_input_vpy.cpp              rgy_language.cpp \
+rgy_libplacebo.cpp \
 rgy_log.cpp                 rgy_memmem.cpp              rgy_memmem_avx2.cpp            rgy_memmem_avx512bw.cpp
 rgy_opencl.cpp              rgy_output.cpp              rgy_output_avcodec.cpp \
 rgy_perf_counter.cpp        rgy_perf_monitor.cpp        rgy_pipe.cpp                   rgy_pipe_linux.cpp \
 rgy_prm.cpp                 rgy_resource.cpp            rgy_simd.cpp                   rgy_status.cpp \
 rgy_thread_affinity.cpp     rgy_timecode.cpp            rgy_util.cpp                   rgy_version.cpp \
-rgy_wav_parser.cpp \
+rgy_vulkan.cpp              rgy_wav_parser.cpp \
 "
 
 SRC_QSVPIPELINE_CL=" \
@@ -892,6 +957,8 @@ write_enc_config "#define AVCODEC_PAR_CODED_SIDE_DATA_AVAIL $AVCODEC_PAR_CODED_S
 write_enc_config "#define ENABLE_CPP_REGEX              $ENABLE_CPP_REGEX"
 write_enc_config "#define ENABLE_DTL                    $ENABLE_DTL"
 write_enc_config "#define ENABLE_LIBDOVI                $ENABLE_LIBDOVI"
+write_enc_config "#define ENABLE_VULKAN                 $ENABLE_VULKAN"
+write_enc_config "#define ENABLE_LIBPLACEBO             $ENABLE_LIBPLACEBO"
 
 cnf_write "successfully generated config.mak, rgy_config.h"
 

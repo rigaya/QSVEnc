@@ -900,6 +900,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     </ClCompile>
     <ClCompile Include="rgy_language.cpp" />
     <ClCompile Include="rgy_libdovi.cpp" />
+    <ClCompile Include="rgy_libplacebo.cpp" />
     <ClCompile Include="rgy_log.cpp" />
     <ClCompile Include="rgy_memmem.cpp" />
     <ClCompile Include="rgy_memmem_avx2.cpp">
@@ -1078,6 +1079,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_input_vpy.h" />
     <ClInclude Include="rgy_language.h" />
     <ClInclude Include="rgy_libdovi.h" />
+    <ClInclude Include="rgy_libplacebo.h" />
     <ClInclude Include="rgy_log.h" />
     <ClInclude Include="rgy_memmem.h" />
     <ClInclude Include="rgy_opencl.h" />

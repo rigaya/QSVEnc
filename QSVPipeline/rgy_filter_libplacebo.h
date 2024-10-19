@@ -31,6 +31,7 @@
 
 #include "rgy_filter_cl.h"
 #include "rgy_bitstream.h"
+#include "rgy_libplacebo.h"
 #include "rgy_prm.h"
 #include <array>
 
@@ -70,35 +71,6 @@ public:
 };
 
 #if ENABLE_LIBPLACEBO
-
-#pragma warning (push)
-#pragma warning (disable: 4244)
-#pragma warning (disable: 4819)
-#include <libplacebo/dispatch.h>
-#include <libplacebo/renderer.h>
-#include <libplacebo/shaders.h>
-#include <libplacebo/utils/upload.h>
-#include <libplacebo/d3d11.h>
-#pragma warning (pop)
-
-class LibplaceboLoader;
-
-template<typename T>
-struct RGYLibplaceboDeleter {
-    RGYLibplaceboDeleter() : deleter(nullptr) {};
-    RGYLibplaceboDeleter(std::function<void(T*)> deleter) : deleter(deleter) {};
-    void operator()(T p) { deleter(&p); }
-    std::function<void(T*)> deleter;
-};
-
-struct RGYLibplaceboTexDeleter {
-    RGYLibplaceboTexDeleter() : gpu(nullptr) {};
-    RGYLibplaceboTexDeleter(pl_gpu gpu_) : gpu(gpu_) {};
-    void operator()(pl_tex p) { if (p) pl_tex_destroy(gpu, &p); }
-    pl_gpu gpu;
-};
-
-std::unique_ptr<std::remove_pointer<pl_tex>::type, RGYLibplaceboTexDeleter> rgy_pl_tex_recreate(pl_gpu gpu, const pl_tex_params& tex_params);
 
 struct RGYFrameD3D11 : public RGYFrame {
 public:
@@ -170,7 +142,7 @@ protected:
     std::unique_ptr<RGYFrameD3D11> m_textOut;
     std::unique_ptr<RGYFilter> m_srcCrop;
     std::unique_ptr<RGYFilter> m_dstCrop;
-    std::unique_ptr<LibplaceboLoader> m_libplaceboLoader;
+    std::unique_ptr<RGYLibplaceboLoader> m_pl;
 };
 
 class RGYFilterLibplaceboResample : public RGYFilterLibplacebo {
