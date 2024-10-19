@@ -103,7 +103,7 @@ const char *get_encoder_version();
 
 #define ENABLE_LIBPLACEBO 1
 #define ENABLE_LIBDOVI 1
-#define ENABLE_VULKAN 0
+#define ENABLE_VULKAN 1
 
 #ifdef BUILD_AUO
 #define ENCODER_NAME             "QSVEnc"

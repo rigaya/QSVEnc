@@ -35,6 +35,9 @@ QSVDevice::QSVDevice() :
     m_devNum(QSVDeviceNum::AUTO),
     m_hwdev(),
     m_devInfo(),
+#if ENABLE_VULKAN
+    m_vulkan(),
+#endif
     m_session(),
     m_sessionParams(),
     m_allocator(),
@@ -64,14 +67,14 @@ void QSVDevice::close() {
     m_log.reset();
 }
 
-RGY_ERR QSVDevice::init(const QSVDeviceNum dev, const bool enableOpenCL, MemType memType, const MFXVideoSession2Params& params, std::shared_ptr<RGYLog> log, const bool suppressErrorMessage) {
+RGY_ERR QSVDevice::init(const QSVDeviceNum dev, const bool enableOpenCL, const bool enableVulkan, MemType memType, const MFXVideoSession2Params& params, std::shared_ptr<RGYLog> log, const bool suppressErrorMessage) {
     m_log = log;
     m_memType = memType;
     m_sessionParams = params;
-    return init(dev, enableOpenCL, suppressErrorMessage);
+    return init(dev, enableOpenCL, enableVulkan, suppressErrorMessage);
 }
 
-RGY_ERR QSVDevice::init(const QSVDeviceNum dev, const bool enableOpenCL, const bool suppressErrorMessage) {
+RGY_ERR QSVDevice::init(const QSVDeviceNum dev, const bool enableOpenCL, const bool enableVulkan, const bool suppressErrorMessage) {
     m_devNum = dev;
     PrintMes(RGY_LOG_DEBUG, _T("QSVDevice::init: Start initializing device %d... memType: %s\n"), m_devNum, MemTypeToStr(m_memType));
     if (auto err = InitSessionAndDevice(m_hwdev, m_session, m_memType, m_devNum, m_sessionParams, m_log, suppressErrorMessage); err != RGY_ERR_NONE) {
@@ -126,6 +129,13 @@ RGY_ERR QSVDevice::init(const QSVDeviceNum dev, const bool enableOpenCL, const b
         PrintMes((suppressErrorMessage) ? RGY_LOG_DEBUG : RGY_LOG_ERROR, _T("QSVDevice::init:   failed to find OpenCL device for dev #%d.\n"), dev);
         return RGY_ERR_NONE;
     }
+#if ENABLE_VULKAN
+    if (enableVulkan) {
+        m_vulkan = std::make_unique<DeviceVulkan>(m_log);
+        auto deviceCount = m_vulkan->getDeviceCount();
+
+    }
+#endif
     return RGY_ERR_NONE;
 }
 

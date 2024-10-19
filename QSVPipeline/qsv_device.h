@@ -32,14 +32,15 @@
 #include "qsv_util.h"
 #include "qsv_session.h"
 #include "qsv_query.h"
+#include "rgy_device_vulkan.h"
 
 class QSVDevice {
 public:
     QSVDevice();
     virtual ~QSVDevice();
 
-    RGY_ERR init(const QSVDeviceNum dev, const bool enableOpenCL, const bool suppressErrorMessage);
-    RGY_ERR init(const QSVDeviceNum dev, const bool enableOpenCL, MemType memType, const MFXVideoSession2Params& params, std::shared_ptr<RGYLog> m_log, const bool suppressErrorMessage);
+    RGY_ERR init(const QSVDeviceNum dev, const bool enableOpenCL, const bool enableVulkan, const bool suppressErrorMessage);
+    RGY_ERR init(const QSVDeviceNum dev, const bool enableOpenCL, const bool enableVulkan, MemType memType, const MFXVideoSession2Params& params, std::shared_ptr<RGYLog> m_log, const bool suppressErrorMessage);
 
     CodecCsp getDecodeCodecCsp(const bool skipHWDecodeCheck);
     QSVEncFeatures getEncodeFeature(const int ratecontrol, const RGY_CODEC codec, const bool lowpower);
@@ -87,6 +88,9 @@ protected:
     QSVDeviceNum m_devNum;
     std::unique_ptr<CQSVHWDevice> m_hwdev;
     std::unique_ptr<RGYOpenCLDeviceInfo> m_devInfo;
+#if ENABLE_VULKAN
+    std::unique_ptr<DeviceVulkan> m_vulkan;
+#endif
     MFXVideoSession2 m_session;
     MFXVideoSession2Params m_sessionParams;
     std::unique_ptr<QSVAllocator> m_allocator;
