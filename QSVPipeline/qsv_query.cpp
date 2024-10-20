@@ -1848,7 +1848,7 @@ std::vector<tstring> getDeviceNameList() {
     auto log = std::make_shared<RGYLog>(nullptr, RGY_LOG_QUIET);
     for (int idev = 1; idev <= (int)QSVDeviceNum::MAX; idev++) {
         auto dev = std::make_unique<QSVDevice>();
-        if (dev->init((QSVDeviceNum)idev, true, true) != RGY_ERR_NONE) {
+        if (dev->init((QSVDeviceNum)idev, true, true, true) != RGY_ERR_NONE) {
             break;
         }
         auto info = dev->devInfo();

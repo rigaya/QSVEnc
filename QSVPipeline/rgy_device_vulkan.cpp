@@ -387,4 +387,47 @@ void DeviceVulkan::AddMessage(RGYLogLevel log_level, const TCHAR *format, ...) {
     va_end(args);
     AddMessage(log_level, buffer);
 }
+
+#if defined(_WIN32) || defined(_WIN64)
+HANDLE DeviceVulkan::getMemHandle(VkDeviceMemory memory) {
+    HANDLE                        handle = NULL;
+    VkMemoryGetWin32HandleInfoKHR win32_handle_info{};
+    win32_handle_info.sType      = VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR;
+    win32_handle_info.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHR;
+    win32_handle_info.memory     = memory;
+    GetVulkan()->vkGetMemoryWin32HandleKHR(m_device, &win32_handle_info, &handle);
+    return handle;
+}
+
+HANDLE DeviceVulkan::getSemaphoreHandle(VkSemaphore &sempahore) {
+    HANDLE                           handle = NULL;
+    VkSemaphoreGetWin32HandleInfoKHR win32_handle_info{};
+    win32_handle_info.sType      = VK_STRUCTURE_TYPE_SEMAPHORE_GET_WIN32_HANDLE_INFO_KHR;
+    win32_handle_info.handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+    win32_handle_info.semaphore  = sempahore;
+    GetVulkan()->vkGetSemaphoreWin32HandleKHR(m_device, &win32_handle_info, &handle);
+    return handle;
+}
+#else
+int DeviceVulkan::getMemHandle(VkDeviceMemory memory) {
+    int fd = 0;
+    VkMemoryGetFdInfoKHR fd_info{};
+    fd_info.sType = VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR;
+    fd_info.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR;
+    fd_info.memory = memory;
+    GetVulkan()->vkGetMemoryFdKHR(m_vkDevice, &fd_info, &fd);
+    return fd;
+}
+
+int DeviceVulkan::getSemaphoreHandle(VkSemaphore &sempahore) {
+    int fd = 0;
+    VkSemaphoreGetFdInfoKHR fd_info{};
+    fd_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_GET_FD_INFO_KHR;
+    fd_info.handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT_KHR;
+    fd_info.semaphore = sempahore;
+    GetVulkan()->vkGetSemaphoreFdKHR(m_vkDevice, &fd_info, &fd);
+    return fd;
+}
+#endif
+
 #endif

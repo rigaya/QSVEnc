@@ -100,6 +100,6 @@ protected:
     std::shared_ptr<RGYLog> m_log;
 };
 
-std::vector<std::unique_ptr<QSVDevice>> getDeviceList(const QSVDeviceNum dev, const bool enableOpenCL, const MemType memType, const MFXVideoSession2Params& params, std::shared_ptr<RGYLog> log);
+std::vector<std::unique_ptr<QSVDevice>> getDeviceList(const QSVDeviceNum dev, const bool enableOpenCL, const bool enableVulkan, const MemType memType, const MFXVideoSession2Params& params, std::shared_ptr<RGYLog> log);
 
 #endif //_QSV_DEVICE_H_

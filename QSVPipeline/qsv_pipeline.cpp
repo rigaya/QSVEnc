@@ -3691,7 +3691,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     m_sessionParams.deviceCopy = pParams->gpuCopy;
     m_nAVSyncMode = pParams->common.AVSyncMode;
 
-    auto deviceList = getDeviceList(pParams->device, pParams->ctrl.enableOpenCL, pParams->memType, m_sessionParams, m_pQSVLog);
+    auto deviceList = getDeviceList(pParams->device, pParams->ctrl.enableOpenCL, pParams->ctrl.enableVulkan, pParams->memType, m_sessionParams, m_pQSVLog);
     if (deviceList.size() == 0) {
         PrintMes(RGY_LOG_DEBUG, _T("No device found for QSV encoding!\n"));
         return RGY_ERR_DEVICE_NOT_FOUND;

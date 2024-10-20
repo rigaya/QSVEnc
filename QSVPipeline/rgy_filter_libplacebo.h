@@ -32,13 +32,15 @@
 #include "rgy_filter_cl.h"
 #include "rgy_bitstream.h"
 #include "rgy_libplacebo.h"
+#include "rgy_device_vulkan.h"
 #include "rgy_prm.h"
 #include <array>
 
 class RGYFilterParamLibplacebo : public RGYFilterParam {
 public:
+    DeviceVulkan *vk;
     VideoVUIInfo vui;
-    RGYFilterParamLibplacebo() : vui() {};
+    RGYFilterParamLibplacebo() : vk(nullptr), vui() {};
     virtual ~RGYFilterParamLibplacebo() {};
 };
 
@@ -72,6 +74,7 @@ public:
 
 #if ENABLE_LIBPLACEBO
 
+#if ENABLE_D3D11
 struct RGYFrameD3D11 : public RGYFrame {
 public:
     RGYFrameD3D11();
@@ -101,6 +104,99 @@ protected:
     RGYFrameInfo frame;
     std::unique_ptr<RGYCLFrameInterop> clframe;
 };
+#elif ENABLE_VULKAN
+struct RGYFrameVulkanImage {
+protected:
+    DeviceVulkan *m_vk;
+    VkImage m_image;
+    VkDeviceMemory m_bufferMemory;
+    uint64_t m_bufferSize;
+public:
+    RGYFrameVulkanImage();
+    virtual ~RGYFrameVulkanImage();
+
+    virtual RGY_ERR alloc(DeviceVulkan *vk, const int width, const int height, const VkFormat format, const VkBufferUsageFlags usage);
+    virtual void deallocate();
+    VkImage image() { return m_image; }
+    VkDeviceMemory bufferMemory() const { return m_bufferMemory; }
+protected:
+    VkExternalMemoryHandleTypeFlagBits getDefaultMemHandleType() const;
+    uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+    void *getMemHandle(VkExternalMemoryHandleTypeFlagBits handleType);
+};
+
+struct RGYFrameVulkan : public RGYFrame {
+public:
+    RGYFrameVulkan();
+    virtual ~RGYFrameVulkan();
+    virtual RGY_ERR allocate(DeviceVulkan *vk, const int width, const int height, const RGY_CSP csp, const int bitdepth);
+    virtual void deallocate();
+    const RGYFrameInfo& frameInfo() { return frame; }
+    virtual bool isempty() const { return !frame.ptr[0]; }
+    virtual void setTimestamp(uint64_t timestamp) override { frame.timestamp = timestamp; }
+    virtual void setDuration(uint64_t duration) override { frame.duration = duration; }
+    virtual void setPicstruct(RGY_PICSTRUCT picstruct) override { frame.picstruct = picstruct; }
+    virtual void setInputFrameId(int id) override { frame.inputFrameId = id; }
+    virtual void setFlags(RGY_FRAME_FLAGS frameflags) override { frame.flags = frameflags; }
+    virtual void clearDataList() override { frame.dataList.clear(); }
+    virtual const std::vector<std::shared_ptr<RGYFrameData>>& dataList() const override { return frame.dataList; }
+    virtual std::vector<std::shared_ptr<RGYFrameData>>& dataList() override { return frame.dataList; }
+    virtual void setDataList(const std::vector<std::shared_ptr<RGYFrameData>>& dataList) override { frame.dataList = dataList; }
+    
+    virtual RGYCLFrame *getCLFrame(RGYOpenCLContext *clctx, cl_mem_flags flags = CL_MEM_READ_WRITE);
+    virtual void resetCLFrame() { m_clframe.reset(); }
+    VkFormat format() const { return m_format; }
+    VkBufferUsageFlags usage() const { return m_usage; }
+protected:
+    RGYFrameVulkan(const RGYFrameVulkan &) = delete;
+    void operator =(const RGYFrameVulkan &) = delete;
+    virtual RGYFrameInfo getInfo() const override {
+        return frame;
+    }
+
+    DeviceVulkan *m_vk;
+    VkFormat m_format;
+    VkBufferUsageFlags m_usage;
+    std::vector<std::unique_ptr<RGYFrameVulkanImage>> m_imgs;
+
+    RGYFrameInfo frame;
+    std::unique_ptr<RGYCLFrame> m_clframe;
+};
+
+struct RGYSemaphoreVulkan {
+protected:
+    DeviceVulkan *m_vk;
+    VkSemaphore m_semaphore;
+    std::unique_ptr<RGYOpenCLSemaphore> m_semaphore_cl;
+public:
+    RGYSemaphoreVulkan();
+    virtual ~RGYSemaphoreVulkan();
+    virtual RGY_ERR create(DeviceVulkan *vk, RGYOpenCLContext *clctx);
+    virtual void release();
+    virtual VkSemaphore getVK() { return m_semaphore; }
+    virtual RGYOpenCLSemaphore *getCL() { return m_semaphore_cl.get(); }
+protected:
+    virtual RGY_ERR createCL(RGYOpenCLContext *clctx);
+};
+#endif
+
+#if ENABLE_D3D11
+using pl_device = pl_d3d11;
+using PLDevice = ID3D11Device;
+#define pl_tex_wrap p_d3d11_wrap
+using pl_tex_wrap_params = pl_d3d11_wrap_params;
+using RGYFrameInteropTexture = RGYFrameD3D11;
+using RGYPLInteropDataFormat = DXGI_FORMAT;
+static const TCHAR *RGY_LIBPLACEBO_DEV_API = _T("d3d11");
+#elif ENABLE_VULKAN
+using pl_device = pl_vulkan;
+using PLDevice = DeviceVulkan;
+#define pl_tex_wrap p_vulkan_wrap
+using pl_tex_wrap_params = pl_vulkan_wrap_params;
+using RGYFrameInteropTexture = RGYFrameVulkan;
+using RGYPLInteropDataFormat = VkFormat;
+static const TCHAR *RGY_LIBPLACEBO_DEV_API = _T("vulkan");
+#endif
 
 class RGYFilterLibplacebo : public RGYFilter {
 public:
@@ -119,8 +215,8 @@ protected:
     virtual RGY_ERR procFrame(pl_tex texOut[RGY_MAX_PLANES], const RGYFrameInfo *pDstFrame, pl_tex texIn[RGY_MAX_PLANES], const RGYFrameInfo *pSrcFrame) = 0;
     virtual RGY_ERR initLibplacebo(const RGYFilterParam *param);
     virtual RGY_CSP getTextureCsp(const RGY_CSP csp);
-    virtual DXGI_FORMAT getTextureDXGIFormat(const RGY_CSP csp);
-    int getTextureBytePerPix(const DXGI_FORMAT format) const;
+    virtual RGYPLInteropDataFormat getTextureDataFormat(const RGY_CSP csp);
+    int getTextureBytePerPix(const RGYPLInteropDataFormat format) const;
     virtual tstring printParams(const RGYFilterParamLibplacebo * prm) const;
     virtual void setFrameProp(RGYFrameInfo * pFrame, const RGYFrameInfo * pSrcFrame) const { copyFramePropWithoutRes(pFrame, pSrcFrame); }
 
@@ -128,21 +224,28 @@ protected:
 
     RGY_CSP m_textCspIn;
     RGY_CSP m_textCspOut;
-    DXGI_FORMAT m_dxgiformatIn;
-    DXGI_FORMAT m_dxgiformatOut;
+    RGYPLInteropDataFormat m_dataformatIn;
+    RGYPLInteropDataFormat m_dataformatOut;
 
     std::unique_ptr<std::remove_pointer<pl_log>::type, RGYLibplaceboDeleter<pl_log>> m_log;
-    std::unique_ptr<std::remove_pointer<pl_d3d11>::type, RGYLibplaceboDeleter<pl_d3d11>> m_d3d11;
+    std::unique_ptr<std::remove_pointer<pl_device>::type, RGYLibplaceboDeleter<pl_device>> m_pldevice;
     std::unique_ptr<std::remove_pointer<pl_dispatch>::type, RGYLibplaceboDeleter<pl_dispatch>> m_dispatch;
     std::unique_ptr<std::remove_pointer<pl_renderer>::type, RGYLibplaceboDeleter<pl_renderer>> m_renderer;
     std::unique_ptr<pl_shader_obj, decltype(&pl_shader_obj_destroy)> m_dither_state;
 
     std::unique_ptr<RGYCLFrame> m_textFrameBufOut;
-    std::unique_ptr<RGYFrameD3D11> m_textIn;
-    std::unique_ptr<RGYFrameD3D11> m_textOut;
+    std::unique_ptr<RGYFrameInteropTexture> m_textIn;
+    std::unique_ptr<RGYFrameInteropTexture> m_textOut;
+#if ENABLE_VULKAN
+    std::vector<std::unique_ptr<RGYSemaphoreVulkan>> m_semInVKWait;
+    std::vector<std::unique_ptr<RGYSemaphoreVulkan>> m_semInVKStart;
+    std::vector<std::unique_ptr<RGYSemaphoreVulkan>> m_semOutVKWait;
+    std::vector<std::unique_ptr<RGYSemaphoreVulkan>> m_semOutVKStart;
+#endif
     std::unique_ptr<RGYFilter> m_srcCrop;
     std::unique_ptr<RGYFilter> m_dstCrop;
     std::unique_ptr<RGYLibplaceboLoader> m_pl;
+    PLDevice *m_device;
 };
 
 class RGYFilterLibplaceboResample : public RGYFilterLibplacebo {
@@ -216,7 +319,7 @@ protected:
     virtual RGY_ERR procFrame(pl_tex texOut[RGY_MAX_PLANES], const RGYFrameInfo *pDstFrame, pl_tex texIn[RGY_MAX_PLANES], const RGYFrameInfo *pSrcFrame) override;
 
     virtual RGY_CSP getTextureCsp(const RGY_CSP csp) override;
-    virtual DXGI_FORMAT getTextureDXGIFormat(const RGY_CSP csp) override;
+    virtual RGYPLInteropDataFormat getTextureDataFormat(const RGY_CSP csp) override;
     virtual tstring printParams(const RGYFilterParamLibplacebo *prm) const override;
     virtual void setFrameProp(RGYFrameInfo *pFrame, const RGYFrameInfo *pSrcFrame) const override;
 

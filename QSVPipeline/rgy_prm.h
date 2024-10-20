@@ -2448,6 +2448,7 @@ struct RGYParamControl {
     tstring avsdll;
     tstring vsdir;
     bool enableOpenCL;
+    bool enableVulkan;
     RGYParamAvoidIdleClock avoidIdleClock;
 
     int outputBufSizeMB;         //出力バッファサイズ

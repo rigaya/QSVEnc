@@ -47,6 +47,7 @@ tstring RGYFilterParamLibplaceboToneMapping::print() const {
 
 #if ENABLE_LIBPLACEBO
 
+#if ENABLE_D3D11
 RGYFrameD3D11::RGYFrameD3D11() : frame(), clframe() {}
 
 RGYFrameD3D11::~RGYFrameD3D11() { deallocate(); };
@@ -104,21 +105,349 @@ RGYCLFrameInterop *RGYFrameD3D11::getCLFrame(RGYOpenCLContext *clctx, RGYOpenCLQ
     }
     return clframe.get();
 }
+#elif ENABLE_VULKAN
+
+
+RGYFrameVulkanImage::RGYFrameVulkanImage() :
+    m_vk(nullptr),
+    m_image(nullptr),
+    m_bufferMemory(nullptr),
+    m_bufferSize(0) {}
+
+RGYFrameVulkanImage::~RGYFrameVulkanImage() {
+    deallocate();
+}
+
+VkExternalMemoryHandleTypeFlagBits RGYFrameVulkanImage::getDefaultMemHandleType() const {
+#if defined(_WIN32) || defined(_WIN64)
+  return VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+#else
+  return VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT;
+#endif //defined(_WIN32) || defined(_WIN64)
+}
+
+uint32_t RGYFrameVulkanImage::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
+    VkPhysicalDeviceMemoryProperties memProperties;
+    m_vk->GetVulkan()->vkGetPhysicalDeviceMemoryProperties(m_vk->GetPhysicalDevice(), &memProperties);
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+        if (typeFilter & (1 << i) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+            return i;
+        }
+    }
+    return ~0;
+}
+
+void *RGYFrameVulkanImage::getMemHandle(VkExternalMemoryHandleTypeFlagBits handleType) {
+#if defined(_WIN32) || defined(_WIN64)
+    HANDLE handle = 0;
+
+    VkMemoryGetWin32HandleInfoKHR vkMemoryGetWin32HandleInfoKHR = {};
+    vkMemoryGetWin32HandleInfoKHR.sType =
+        VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR;
+    vkMemoryGetWin32HandleInfoKHR.pNext = NULL;
+    vkMemoryGetWin32HandleInfoKHR.memory = m_bufferMemory;
+    vkMemoryGetWin32HandleInfoKHR.handleType = handleType;
+
+    if (m_vk->GetVulkan()->vkGetMemoryWin32HandleKHR(m_device, &vkMemoryGetWin32HandleInfoKHR, &handle) != VK_SUCCESS) {
+        return nullptr;
+    }
+    return (void *)handle;
+#else
+    int fd = -1;
+
+    VkMemoryGetFdInfoKHR vkMemoryGetFdInfoKHR = {};
+    vkMemoryGetFdInfoKHR.sType = VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR;
+    vkMemoryGetFdInfoKHR.pNext = NULL;
+    vkMemoryGetFdInfoKHR.memory = m_bufferMemory;
+    vkMemoryGetFdInfoKHR.handleType = handleType;
+    if (m_vk->GetVulkan()->vkGetMemoryFdKHR(m_vk->GetDevice(), &vkMemoryGetFdInfoKHR, &fd) != VK_SUCCESS) {
+        return nullptr;
+    }
+    return (void *)(uintptr_t)fd;
+#endif //defined(_WIN32) || defined(_WIN64)
+}
+
+RGY_ERR RGYFrameVulkanImage::alloc(DeviceVulkan *vk, const int width, const int height, const VkFormat format, const VkBufferUsageFlags usage) {
+    if (!vk) {
+        return RGY_ERR_NULL_PTR;
+    }
+    if (m_image) {
+        return RGY_ERR_ALREADY_INITIALIZED;
+    }
+    
+    const VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    const auto extMemHandleType = getDefaultMemHandleType();
+
+    VkExternalMemoryImageCreateInfo external_memory_image_info = {};
+    external_memory_image_info.sType       = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO;
+    external_memory_image_info.handleTypes = extMemHandleType;
+
+    VkImageCreateInfo imageInfo = {};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.extent.width = width;
+    imageInfo.extent.height = height;
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.format = format;
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageInfo.usage = usage;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imageInfo.pNext = &external_memory_image_info;
+
+    if (auto err = m_vk->GetVulkan()->vkCreateImage(m_vk->GetDevice(), &imageInfo, nullptr, &m_image); err != VK_SUCCESS) {
+        return err_to_rgy(err);
+    }
+    
+    VkMemoryRequirements memRequirements;
+    m_vk->GetVulkan()->vkGetImageMemoryRequirements(m_vk->GetDevice(), m_image, &memRequirements);
+    m_bufferSize = memRequirements.size;
+
+    VkExportMemoryAllocateInfoKHR vulkanExportMemoryAllocateInfoKHR = {};
+    vulkanExportMemoryAllocateInfoKHR.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO_KHR;
+
+#if defined(_WIN32) || defined(_WIN64)
+    WindowsSecurityAttributes winSecurityAttributes;
+
+    VkExportMemoryWin32HandleInfoKHR vulkanExportMemoryWin32HandleInfoKHR = {};
+    vulkanExportMemoryWin32HandleInfoKHR.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_WIN32_HANDLE_INFO_KHR;
+    vulkanExportMemoryWin32HandleInfoKHR.pNext = nullptr;
+    vulkanExportMemoryWin32HandleInfoKHR.pAttributes = &winSecurityAttributes;
+    vulkanExportMemoryWin32HandleInfoKHR.dwAccess = DXGI_SHARED_RESOURCE_READ | DXGI_SHARED_RESOURCE_WRITE;
+    vulkanExportMemoryWin32HandleInfoKHR.name = (LPCWSTR)nullptr;
+
+    vulkanExportMemoryAllocateInfoKHR.pNext = extMemHandleType & VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHR ? &vulkanExportMemoryWin32HandleInfoKHR : nullptr;
+    vulkanExportMemoryAllocateInfoKHR.handleTypes = extMemHandleType;
+#else
+    vulkanExportMemoryAllocateInfoKHR.pNext = nullptr;
+    vulkanExportMemoryAllocateInfoKHR.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT;
+#endif  //defined(_WIN32) || defined(_WIN64)
+
+    VkMemoryAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.pNext = &vulkanExportMemoryAllocateInfoKHR;
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
+
+    if (auto err = m_vk->GetVulkan()->vkAllocateMemory(m_vk->GetDevice(), &allocInfo, nullptr, &m_bufferMemory); err != VK_SUCCESS) {
+        return err_to_rgy(err);
+    }
+    if (auto err = m_vk->GetVulkan()->vkBindImageMemory(m_vk->GetDevice(), m_image, m_bufferMemory, 0); err != VK_SUCCESS) {
+        return err_to_rgy(err);
+    }
+    return RGY_ERR_NONE;
+}
+
+void RGYFrameVulkanImage::deallocate() {
+    if (m_image) {
+        m_vk->GetVulkan()->vkDestroyImage(m_vk->GetDevice(), m_image, nullptr);
+        m_image = nullptr;
+    }
+    if (m_bufferMemory) {
+        m_vk->GetVulkan()->vkFreeMemory(m_vk->GetDevice(), m_bufferMemory, nullptr);
+        m_bufferMemory = nullptr;
+    }
+}
+
+RGYFrameVulkan::RGYFrameVulkan() :
+    m_vk(),
+    m_format(VK_FORMAT_UNDEFINED),
+    m_usage(0),
+    m_imgs(),
+    frame(),
+    m_clframe() {}
+
+RGYFrameVulkan::~RGYFrameVulkan() { deallocate(); };
+
+RGY_ERR RGYFrameVulkan::allocate(DeviceVulkan *vk, const int width, const int height, const RGY_CSP csp, const int bitdepth) {
+    if (!vk) {
+        return RGY_ERR_NULL_PTR;
+    }
+    if (frame.ptr[0]) {
+        deallocate();
+    }
+    m_imgs.clear();
+    m_vk = vk;
+    m_format = (RGY_CSP_DATA_TYPE[csp] != RGY_DATA_TYPE_U8) ? VK_FORMAT_R16_SNORM : VK_FORMAT_R8_UNORM;
+
+    m_usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+            VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+    frame = RGYFrameInfo(width, height, csp, bitdepth);
+    for (int iplane = 0; iplane < RGY_CSP_PLANES[csp]; iplane++) {
+        auto plane = getPlane(&frame, (RGY_PLANE)iplane);
+        
+        auto img = std::make_unique<RGYFrameVulkanImage>();
+        if (auto err = img->alloc(vk, plane.width, plane.height, m_format, m_usage); err != RGY_ERR_NONE) {
+            return err;
+        }
+
+        frame.ptr[iplane] = (uint8_t*)img->image();
+        frame.pitch[iplane] = 0;
+        m_imgs.push_back(std::move(img));
+    }
+    return RGY_ERR_NONE;
+}
+
+void RGYFrameVulkan::deallocate() {
+    if (m_clframe) {
+        m_clframe.reset();
+    }
+    m_imgs.clear();
+}
+
+RGYCLFrame *RGYFrameVulkan::getCLFrame(RGYOpenCLContext *clctx, cl_mem_flags flags) {
+    if (!m_clframe) {
+        auto clframe = frame;
+        for (int i = 0; i < _countof(clframe.ptr); i++) {
+            clframe.ptr[i] = nullptr;
+            clframe.pitch[i] = 0;
+        }
+        for (int iplane = 0; iplane < RGY_CSP_PLANES[frame.csp]; iplane++) {
+            auto plane = getPlane(&frame, (RGY_PLANE)iplane);
+            std::vector<cl_mem_properties> mem_properties;
+            auto memHandle = m_vk->getMemHandle(m_imgs[iplane]->bufferMemory());
+            mem_properties.push_back((cl_mem_properties)CL_EXTERNAL_MEMORY_HANDLE_OPAQUE_FD_KHR);
+            mem_properties.push_back((cl_mem_properties)memHandle);
+            mem_properties.push_back((cl_mem_properties)CL_MEM_DEVICE_HANDLE_LIST_KHR);
+            mem_properties.push_back((cl_mem_properties)clctx->platform()->dev(0).id());
+            mem_properties.push_back((cl_mem_properties)CL_MEM_DEVICE_HANDLE_LIST_END_KHR);
+            mem_properties.push_back(0);
+
+            cl_image_format cl_img_fmt = {};
+            cl_img_fmt.image_channel_order     = CL_R;
+            cl_img_fmt.image_channel_data_type = (RGY_CSP_DATA_TYPE[plane.csp] != RGY_DATA_TYPE_U8) ? CL_UNSIGNED_INT16 : CL_UNSIGNED_INT8;
+
+            cl_image_desc cl_img_desc = {};
+            cl_img_desc.image_width       = plane.width;
+            cl_img_desc.image_height      = plane.height;
+            cl_img_desc.image_type        = CL_MEM_OBJECT_IMAGE2D;
+            cl_img_desc.image_slice_pitch = cl_img_desc.image_row_pitch * cl_img_desc.image_height;
+            cl_img_desc.num_mip_levels    = 1;
+            cl_img_desc.buffer            = nullptr;
+
+            cl_int err = CL_SUCCESS;
+            clframe.ptr[iplane] = (uint8_t *)clCreateImageWithProperties(clctx->context(), mem_properties.data(), flags, &cl_img_fmt, &cl_img_desc, nullptr, &err);
+            if (err != CL_SUCCESS) {
+                //CL_LOG(RGY_LOG_ERROR, _T("Failed to create image from vulkan texture (planar %d): %s\n"), i, cl_errmes(err));
+                for (int j = iplane - 1; j >= 0; j--) {
+                    if (clframe.ptr[j] != nullptr) {
+                        clReleaseMemObject((cl_mem)clframe.ptr[j]);
+                        clframe.ptr[j] = nullptr;
+                    }
+                }
+                break;
+            }
+        }
+        if (clframe.ptr[0]) {
+            auto meminfo = getRGYCLMemObjectInfo((cl_mem)clframe.ptr[0]);
+            clframe.mem_type = (meminfo.isImageNormalizedType()) ? RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED : RGY_MEM_TYPE_GPU_IMAGE;
+            m_clframe = std::make_unique<RGYCLFrame>(clframe, flags);
+        }
+    }
+    return m_clframe.get();
+}
+
+
+RGYSemaphoreVulkan::RGYSemaphoreVulkan() :
+    m_vk(nullptr),
+    m_semaphore(nullptr),
+    m_semaphore_cl(nullptr) {}
+
+RGYSemaphoreVulkan::~RGYSemaphoreVulkan() {
+    release();
+}
+
+void RGYSemaphoreVulkan::release() {
+    m_semaphore_cl.reset();
+    if (m_semaphore) {
+        m_vk->GetVulkan()->vkDestroySemaphore(m_vk->GetDevice(), m_semaphore, nullptr);
+        m_semaphore = nullptr;
+    }
+}
+
+RGY_ERR RGYSemaphoreVulkan::create(DeviceVulkan *vk, RGYOpenCLContext *clctx) {
+    if (!vk) {
+        return RGY_ERR_NULL_PTR;
+    }
+    m_vk = vk;
+    
+    VkExportSemaphoreCreateInfoKHR export_semaphore_create_info{};
+    export_semaphore_create_info.sType = VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_CREATE_INFO_KHR;
+#if defined(_WIN32) || defined(_WIN64)
+    WinSecurityAttributes               win_security_attributes;
+    VkExportSemaphoreWin32HandleInfoKHR export_semaphore_handle_info = { 0 };
+    export_semaphore_handle_info.sType       = VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_WIN32_HANDLE_INFO_KHR;
+    export_semaphore_handle_info.pAttributes = &win_security_attributes;
+    export_semaphore_handle_info.dwAccess    = DXGI_SHARED_RESOURCE_READ | DXGI_SHARED_RESOURCE_WRITE;
+
+    export_semaphore_create_info.pNext       = &export_semaphore_handle_info;
+    export_semaphore_create_info.handleTypes = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+#else
+    export_semaphore_create_info.handleTypes = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT;
+#endif
+    VkSemaphoreCreateInfo semaphoreInfo = {};
+    semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    semaphoreInfo.pNext = &export_semaphore_create_info;
+
+    if (auto err = m_vk->GetVulkan()->vkCreateSemaphore(m_vk->GetDevice(), &semaphoreInfo, nullptr, &m_semaphore); err != VK_SUCCESS) {
+        return err_to_rgy(err);
+    }
+    if (auto err = createCL(clctx); err != RGY_ERR_NONE) {
+        return err;
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYSemaphoreVulkan::createCL(RGYOpenCLContext *clctx) {
+    std::vector<cl_semaphore_properties_khr> semaphore_properties{
+        (cl_semaphore_properties_khr)CL_SEMAPHORE_TYPE_KHR,
+        (cl_semaphore_properties_khr)CL_SEMAPHORE_TYPE_BINARY_KHR,
+        (cl_semaphore_properties_khr)CL_SEMAPHORE_DEVICE_HANDLE_LIST_KHR,
+        (cl_semaphore_properties_khr)clctx->platform()->dev(0).id(),
+        (cl_semaphore_properties_khr)CL_SEMAPHORE_DEVICE_HANDLE_LIST_END_KHR,
+    };
+
+    semaphore_properties.push_back((cl_semaphore_properties_khr) CL_SEMAPHORE_HANDLE_OPAQUE_FD_KHR);
+    auto semaphoreHandle = m_vk->getSemaphoreHandle(m_semaphore);
+    semaphore_properties.push_back((cl_semaphore_properties_khr) semaphoreHandle);
+    semaphore_properties.push_back(0);
+
+    cl_int err = 0;
+    auto cl_semaphore = clCreateSemaphoreWithPropertiesKHR(clctx->context(), semaphore_properties.data(), &err);
+    if (err != CL_SUCCESS) {
+        return err_cl_to_rgy(err);
+    }
+    m_semaphore_cl = std::make_unique<RGYOpenCLSemaphore>(cl_semaphore);
+    return RGY_ERR_NONE;
+}
+
+#endif //#if ENABLE_D3D11
 
 RGYFilterLibplacebo::RGYFilterLibplacebo(shared_ptr<RGYOpenCLContext> context) :
     RGYFilter(context),
     m_procByFrame(false),
     m_textCspIn(RGY_CSP_NA),
     m_textCspOut(RGY_CSP_NA),
-    m_dxgiformatIn(DXGI_FORMAT_UNKNOWN),
-    m_dxgiformatOut(DXGI_FORMAT_UNKNOWN),
+    m_dataformatIn(),
+    m_dataformatOut(),
     m_log(),
-    m_d3d11(),
+    m_pldevice(),
     m_dispatch(),
     m_renderer(),
     m_dither_state(std::unique_ptr<pl_shader_obj, decltype(&pl_shader_obj_destroy)>(nullptr, nullptr)),
     m_textIn(),
-    m_textOut() {
+    m_textOut(),
+#if ENABLE_VULKAN
+    m_semInVKWait(),
+    m_semInVKStart(),
+    m_semOutVKWait(),
+    m_semOutVKStart(),
+#endif
+    m_device(nullptr) {
     m_name = _T("libplacebo");
 }
 RGYFilterLibplacebo::~RGYFilterLibplacebo() {
@@ -131,9 +460,13 @@ RGY_ERR RGYFilterLibplacebo::initLibplacebo(const RGYFilterParam *param) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-
-    if (!m_cl->platform()->d3d11dev()) {
-        AddMessage(RGY_LOG_ERROR, _T("DX11 device not set\n"));
+#if ENABLE_D3D11
+    m_device = (PLDevice *)m_cl->platform()->d3d11dev();
+#elif ENABLE_VULKAN
+    m_device = prm->vk;
+#endif
+    if (!m_device) {
+        AddMessage(RGY_LOG_ERROR, _T("%s device not set\n"), RGY_LIBPLACEBO_DEV_API);
         return RGY_ERR_NULL_PTR;
     }
     m_pl = std::make_unique<RGYLibplaceboLoader>();
@@ -150,19 +483,29 @@ RGY_ERR RGYFilterLibplacebo::initLibplacebo(const RGYFilterParam *param) {
         }
         AddMessage(RGY_LOG_DEBUG, _T("Created libplacebo log.\n"));
     }
+#if ENABLE_D3D11
     pl_d3d11_params gpu_params = { 0 };
     gpu_params.device = (ID3D11Device*)m_cl->platform()->d3d11dev();
 
-    m_d3d11 = std::unique_ptr<std::remove_pointer<pl_d3d11>::type, RGYLibplaceboDeleter<pl_d3d11>>(
+    m_pldevice = std::unique_ptr<std::remove_pointer<pl_d3d11>::type, RGYLibplaceboDeleter<pl_d3d11>>(
         m_pl->p_d3d11_create()(m_log.get(), &gpu_params), RGYLibplaceboDeleter<pl_d3d11>(m_pl->p_d3d11_destroy()));
-    if (!m_d3d11) {
+#elif ENABLE_VULKAN
+    pl_vulkan_params gpu_params = { 0 };
+    gpu_params.instance = m_device->GetInstance();
+    gpu_params.get_proc_addr = m_device->GetVulkan()->vkGetInstanceProcAddr;
+    gpu_params.device = m_device->GetPhysicalDevice();
+
+    m_pldevice = std::unique_ptr<std::remove_pointer<pl_vulkan>::type, RGYLibplaceboDeleter<pl_vulkan>>(
+        m_pl->p_vulkan_create()(m_log.get(), &gpu_params), RGYLibplaceboDeleter<pl_vulkan>(m_pl->p_vulkan_destroy()));
+#endif
+    if (!m_pldevice) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to create libplacebo D3D11 device.\n"));
         return RGY_ERR_UNKNOWN;
     }
     AddMessage(RGY_LOG_DEBUG, _T("Created libplacebo D3D11 device.\n"));
 
     m_dispatch = std::unique_ptr<std::remove_pointer<pl_dispatch>::type, RGYLibplaceboDeleter<pl_dispatch>>(
-        m_pl->p_dispatch_create()(m_log.get(), m_d3d11->gpu), RGYLibplaceboDeleter<pl_dispatch>(m_pl->p_dispatch_destroy()));
+        m_pl->p_dispatch_create()(m_log.get(), m_pldevice->gpu), RGYLibplaceboDeleter<pl_dispatch>(m_pl->p_dispatch_destroy()));
     if (!m_dispatch) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to create libplacebo dispatch.\n"));
         return RGY_ERR_UNKNOWN;
@@ -170,7 +513,7 @@ RGY_ERR RGYFilterLibplacebo::initLibplacebo(const RGYFilterParam *param) {
     AddMessage(RGY_LOG_DEBUG, _T("Created libplacebo dispatch.\n"));
 
     m_renderer = std::unique_ptr<std::remove_pointer<pl_renderer>::type, RGYLibplaceboDeleter<pl_renderer>>(
-        m_pl->p_renderer_create()(m_log.get(), m_d3d11->gpu), RGYLibplaceboDeleter<pl_renderer>(m_pl->p_renderer_destroy()));
+        m_pl->p_renderer_create()(m_log.get(), m_pldevice->gpu), RGYLibplaceboDeleter<pl_renderer>(m_pl->p_renderer_destroy()));
     if (!m_renderer) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to create libplacebo renderer.\n"));
         return RGY_ERR_UNKNOWN;
@@ -191,8 +534,14 @@ RGY_CSP RGYFilterLibplacebo::getTextureCsp(const RGY_CSP csp) {
     return RGY_CSP_NA;
 }
 
-DXGI_FORMAT RGYFilterLibplacebo::getTextureDXGIFormat(const RGY_CSP csp) {
+RGYPLInteropDataFormat RGYFilterLibplacebo::getTextureDataFormat([[maybe_unused]] const RGY_CSP csp) {
+#if ENABLE_D3D11
     return (RGY_CSP_DATA_TYPE[csp] != RGY_DATA_TYPE_U8) ? DXGI_FORMAT_R16_UNORM : DXGI_FORMAT_R8_UNORM;
+#elif ENABLE_VULKAN
+    return (RGY_CSP_DATA_TYPE[csp] != RGY_DATA_TYPE_U8) ? VK_FORMAT_R16_UNORM : VK_FORMAT_R8_UNORM;
+#else
+    static_assert(false);
+#endif
 }
 
 RGY_ERR RGYFilterLibplacebo::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
@@ -205,7 +554,7 @@ RGY_ERR RGYFilterLibplacebo::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
     }
 
     if (rgy_csp_has_alpha(pParam->frameIn.csp)) {
-        AddMessage(RGY_LOG_ERROR, _T("nfx filters does not support alpha channel.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("libplacebo filters does not support alpha channel.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
 
@@ -221,8 +570,8 @@ RGY_ERR RGYFilterLibplacebo::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
 
     m_textCspIn = getTextureCsp(pParam->frameIn.csp);
     m_textCspOut = getTextureCsp(pParam->frameOut.csp);
-    m_dxgiformatIn = getTextureDXGIFormat(pParam->frameIn.csp);
-    m_dxgiformatOut = getTextureDXGIFormat(pParam->frameOut.csp);
+    m_dataformatIn = getTextureDataFormat(pParam->frameIn.csp);
+    m_dataformatOut = getTextureDataFormat(pParam->frameOut.csp);
 
     sts = initCommon(pParam);
     if (sts != RGY_ERR_NONE) {
@@ -284,23 +633,55 @@ RGY_ERR RGYFilterLibplacebo::initCommon(shared_ptr<RGYFilterParam> pParam) {
     || m_textIn->width() != pParam->frameIn.width
     || m_textIn->height() != pParam->frameIn.height
     || m_textIn->csp() != pParam->frameIn.csp) {
-        m_textIn = std::make_unique<RGYFrameD3D11>();
-        sts = m_textIn->allocate((ID3D11Device*)m_cl->platform()->d3d11dev(), pParam->frameIn.width, pParam->frameIn.height, m_textCspIn, RGY_CSP_BIT_DEPTH[m_textCspIn]);
+        m_textIn = std::make_unique<RGYFrameInteropTexture>();
+        sts = m_textIn->allocate(m_device, pParam->frameIn.width, pParam->frameIn.height, m_textCspIn, RGY_CSP_BIT_DEPTH[m_textCspIn]);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_DEBUG, _T("failed to create input texture: %s.\n"), get_err_mes(sts));
             return sts;
         }
+#if ENABLE_VULKAN
+            auto semWait = std::make_unique<RGYSemaphoreVulkan>();
+            sts = semWait->create(m_device, m_cl.get());
+            if (sts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to create vulkan semaphore.\n"));
+                return sts;
+            }
+            m_semInVKWait.push_back(std::move(semWait));
+            auto semStart = std::make_unique<RGYSemaphoreVulkan>();
+            sts = semStart->create(m_device, m_cl.get());
+            if (sts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to create vulkan semaphore.\n"));
+                return sts;
+            }
+            m_semInVKStart.push_back(std::move(semStart));
+#endif
     }
     if (!m_textOut
     || m_textOut->width() != pParam->frameIn.width
     || m_textOut->height() != pParam->frameIn.height
     || m_textOut->csp() != pParam->frameIn.csp) {
-        m_textOut = std::make_unique<RGYFrameD3D11>();
-        sts = m_textOut->allocate((ID3D11Device*)m_cl->platform()->d3d11dev(), pParam->frameOut.width, pParam->frameOut.height, m_textCspOut, RGY_CSP_BIT_DEPTH[m_textCspOut]);
+        m_textOut = std::make_unique<RGYFrameInteropTexture>();
+        sts = m_textOut->allocate(m_device, pParam->frameOut.width, pParam->frameOut.height, m_textCspOut, RGY_CSP_BIT_DEPTH[m_textCspOut]);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_DEBUG, _T("failed to create output texture: %s.\n"), get_err_mes(sts));
             return sts;
         }
+#if ENABLE_VULKAN
+            auto semWait = std::make_unique<RGYSemaphoreVulkan>();
+            sts = semWait->create(m_device, m_cl.get());
+            if (sts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to create vulkan semaphore.\n"));
+                return sts;
+            }
+            m_semOutVKWait.push_back(std::move(semWait));
+            auto semStart = std::make_unique<RGYSemaphoreVulkan>();
+            sts = semStart->create(m_device, m_cl.get());
+            if (sts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to create vulkan semaphore.\n"));
+                return sts;
+            }
+            m_semOutVKStart.push_back(std::move(semStart));
+#endif
     }
 
     if (!m_dstCrop
@@ -399,8 +780,10 @@ RGY_ERR RGYFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
         AddMessage(RGY_LOG_ERROR, _T("srcCrop is not set.\n"));
         return RGY_ERR_NULL_PTR;
     }
+    std::vector<std::unique_ptr<std::remove_pointer<pl_tex>::type, RGYLibplaceboTexDeleter>> pl_tex_planes_in;
 #define COPY_DEBUG 0
     {
+#if ENABLE_D3D11
         auto textInCL = m_textIn->getCLFrame(m_cl.get(), queue);
         auto err = textInCL->acquire(queue);
         if (err != RGY_ERR_NONE) {
@@ -408,6 +791,25 @@ RGY_ERR RGYFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
             return err;
         }
         auto textInCLInfo = textInCL->frameInfo();
+#elif ENABLE_VULKAN
+        auto textInCLInfo = m_textIn->getCLFrame(m_cl.get())->frameInfo();
+        for (int iplane = 0; iplane < RGY_CSP_PLANES[m_textIn->csp()]; iplane++) {
+            auto planeIn = getPlane(&textInCLInfo, (RGY_PLANE)iplane);
+            pl_tex_wrap_params tex_wrap_in = { 0 };
+            tex_wrap_in.image = (VkImage)planeIn.ptr[iplane];
+            tex_wrap_in.format = m_textIn->format();
+            tex_wrap_in.usage = m_textIn->usage();
+            tex_wrap_in.width = planeIn.width;
+            tex_wrap_in.height = planeIn.height;
+            auto pl_tex_in = std::unique_ptr<std::remove_pointer<pl_tex>::type, RGYLibplaceboTexDeleter>(
+                m_pl->pl_tex_wrap()(m_pldevice->gpu, &tex_wrap_in), RGYLibplaceboTexDeleter(m_pl.get(), m_pldevice->gpu));
+            if (!pl_tex_in) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to wrap input vulkan plane(%d) to pl_tex.\n"), iplane);
+                return RGY_ERR_NULL_PTR;
+            }
+            pl_tex_planes_in.push_back(std::move(pl_tex_in));
+        }
+#endif
         int filterOutputNum = 0;
         RGYFrameInfo *outInfo[1] = { &textInCLInfo };
         RGYFrameInfo cropInput = *pInputFrame;
@@ -422,71 +824,84 @@ RGY_ERR RGYFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
             return sts_filter;
         }
         copyFramePropWithoutRes(outInfo[0], pInputFrame);
-#if COPY_DEBUG
-        auto textOutCL = m_textOut->getCLFrame(m_cl.get(), queue);
-        err = textOutCL->acquire(queue);
-        if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to acquire CL frame: %s.\n"), get_err_mes(err));
-            return err;
-        }
-        auto textOutCLInfo = textOutCL->frameInfo();
-        for (int iplane = 0; iplane < RGY_CSP_PLANES[m_textIn->csp()]; iplane++) {
-            auto planeIn = getPlane(&textInCLInfo, (RGY_PLANE)iplane);
-            auto planeOut = getPlane(&textOutCLInfo, (RGY_PLANE)iplane);
-            size_t origin[3] = { 0, 0, 0 };
-            size_t region[3] = { std::min<size_t>(planeIn.width, planeOut.width), std::min<size_t>(planeIn.height, planeOut.height), 1};
-            err = err_cl_to_rgy(clEnqueueCopyImage(queue.get(), (cl_mem)planeIn.ptr[0], (cl_mem)planeOut.ptr[0],
-                origin, origin, region, 0, nullptr, nullptr));
-            if (err != RGY_ERR_NONE) {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to copy CL iamge: %s.\n"), get_err_mes(err));
-                return err;
-            }
-        }
-        textInCL->release();
-    }
-#else
+#if ENABLE_D3D11
         textInCL->release();
         queue.finish();
+#else
+        for (int iplane = 0; iplane < RGY_CSP_PLANES[m_textIn->csp()]; iplane++) {
+            // semaphoreがsignal状態になったら、texのhold状態を解除して、vulkan(libplacebo)の処理を始める
+            pl_vulkan_release_params release_params = { 0 };
+            release_params.tex = pl_tex_planes_in[iplane].get();
+            release_params.semaphore = (pl_vulkan_sem){ m_semInVKStart[iplane]->getVK(), };
+            release_params.qf = VK_QUEUE_FAMILY_EXTERNAL;
+            m_pl->p_vulkan_release_ex()(m_pldevice->gpu, &release_params);
+            // streamの処理(cudaMemcpy2DToArrayAsync)が終わったら、semaphoreをsignal状態にする
+            // これにより、vulkan(libplacebo)の処理が始められる
+            m_semInVKStart[iplane]->getCL()->signal(queue);
+        }
+#endif
     }
 
     // フィルタを適用
-    std::vector<std::unique_ptr<std::remove_pointer<pl_tex>::type, RGYLibplaceboTexDeleter>> pl_tex_planes_in, pl_tex_planes_out;
+    std::vector<std::unique_ptr<std::remove_pointer<pl_tex>::type, RGYLibplaceboTexDeleter>> pl_tex_planes_out;
     for (int iplane = 0; iplane < RGY_CSP_PLANES[m_textIn->csp()]; iplane++) {
+#if ENABLE_D3D11
         auto textInFrameInfo = m_textIn->frameInfo();
         auto planeIn = getPlane(&textInFrameInfo, (RGY_PLANE)iplane);
-        pl_d3d11_wrap_params d3d11_wrap_in = { 0 };
-        d3d11_wrap_in.tex = (ID3D11Texture2D*)planeIn.ptr[0];
-        d3d11_wrap_in.array_slice = 0;
-        d3d11_wrap_in.fmt = m_dxgiformatIn;
-        d3d11_wrap_in.w = planeIn.width;
-        d3d11_wrap_in.h = planeIn.height;
+        pl_tex_wrap_params tex_wrap_in = { 0 };
+        tex_wrap_in.tex = (ID3D11Texture2D*)planeIn.ptr[0];
+        tex_wrap_in.array_slice = 0;
+        tex_wrap_in.fmt = m_dataformatIn;
+        tex_wrap_in.w = planeIn.width;
+        tex_wrap_in.h = planeIn.height;
         auto pl_tex_in = std::unique_ptr<std::remove_pointer<pl_tex>::type, RGYLibplaceboTexDeleter>(
-            m_pl->p_d3d11_wrap()(m_d3d11->gpu, &d3d11_wrap_in), RGYLibplaceboTexDeleter(m_pl.get(), m_d3d11->gpu));
+            m_pl->pl_tex_wrap()(m_pldevice->gpu, &tex_wrap_in), RGYLibplaceboTexDeleter(m_pl.get(), m_pldevice->gpu));
         if (!pl_tex_in) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to wrap input d3d11 plane(%d) to pl_tex.\n"), iplane);
             return RGY_ERR_NULL_PTR;
         }
+        pl_tex_planes_in.push_back(std::move(pl_tex_in));
+#elif ENABLE_VULKAN
+        auto textInFrameInfo = m_textIn->getCLFrame(m_cl.get())->frameInfo();
+        auto planeIn = getPlane(&textInFrameInfo, (RGY_PLANE)iplane);
+#endif
 
+#if ENABLE_D3D11
         auto textOutFrameInfo = m_textOut->frameInfo();
+#elif ENABLE_VULKAN
+        auto textOutFrameInfo = m_textOut->getCLFrame(m_cl.get())->frameInfo();
+#endif
         auto planeOut = getPlane(&textOutFrameInfo, (RGY_PLANE)iplane);
-        pl_d3d11_wrap_params d3d11_wrap_out = { 0 };
-        d3d11_wrap_out.tex = (ID3D11Texture2D*)planeOut.ptr[0];
-        d3d11_wrap_out.array_slice = 0;
-        d3d11_wrap_out.fmt = m_dxgiformatOut;
-        d3d11_wrap_out.w = planeOut.width;
-        d3d11_wrap_out.h = planeOut.height;
+        pl_tex_wrap_params tex_wrap_out = { 0 };
+#if ENABLE_D3D11
+        tex_wrap_out.tex = (ID3D11Texture2D*)planeOut.ptr[0];
+        tex_wrap_out.array_slice = 0;
+        tex_wrap_out.fmt = m_dataformatOut;
+        tex_wrap_out.w = planeOut.width;
+        tex_wrap_out.h = planeOut.height;
+#elif ENABLE_VULKAN
+        tex_wrap_out.image = (VkImage)planeOut.ptr[0];
+        tex_wrap_out.format = m_textOut->format();
+        tex_wrap_out.usage = m_textOut->usage();
+        tex_wrap_out.width = planeOut.width;
+        tex_wrap_out.height = planeOut.height;
+#endif
         auto pl_tex_out = std::unique_ptr<std::remove_pointer<pl_tex>::type, RGYLibplaceboTexDeleter>(
-            m_pl->p_d3d11_wrap()(m_d3d11->gpu, &d3d11_wrap_out), RGYLibplaceboTexDeleter(m_pl.get(), m_d3d11->gpu));
+            m_pl->pl_tex_wrap()(m_pldevice->gpu, &tex_wrap_out), RGYLibplaceboTexDeleter(m_pl.get(), m_pldevice->gpu));
         if (!pl_tex_out) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to wrap output d3d11 plane(%d) to pl_tex.\n"), iplane);
             return RGY_ERR_NULL_PTR;
         }
+#if ENABLE_VULKAN
+        // pl_tex_wrapしたものはhold状態なのでいったん開放する
+        pl_vulkan_release_params release_params = { 0 };
+        release_params.tex = pl_tex_out.get();
+        m_pl->p_vulkan_release_ex()(m_pldevice->gpu, &release_params);
+#endif
+        pl_tex_planes_out.push_back(std::move(pl_tex_out));
         
-        if (m_procByFrame) {
-            pl_tex_planes_in.push_back(std::move(pl_tex_in));
-            pl_tex_planes_out.push_back(std::move(pl_tex_out));
-        } else {
-            sts = procPlane(pl_tex_out.get(), &planeOut, pl_tex_in.get(), &planeIn, (RGY_PLANE)iplane);
+        if (!m_procByFrame) {
+            sts = procPlane(pl_tex_planes_out[iplane].get(), &planeOut, pl_tex_planes_in[iplane].get(), &planeIn, (RGY_PLANE)iplane);
             if (sts != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("Failed to process plane(%d): %s.\n"), iplane, get_err_mes(sts));
                 return sts;
@@ -505,26 +920,38 @@ RGY_ERR RGYFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
             AddMessage(RGY_LOG_ERROR, _T("Failed to process frame.\n"));
              return sts;
          }
-         pl_tex_planes_in.clear();
-         pl_tex_planes_out.clear();
     }
-    // CL_CONTEXT_INTEROP_USER_SYNC=trueの場合、ここでlibplaceboの処理の終了を待つ必要がある
-    m_pl->p_gpu_finish()(m_d3d11->gpu);
-#endif
     if (!ppOutputFrames[0]) {
         ppOutputFrames[0] = &m_frameBuf[0]->frame;
         *pOutputFrameNum = 1;
     }
+#if ENABLE_D3D11
+    // CL_CONTEXT_INTEROP_USER_SYNC=trueの場合、ここでlibplaceboの処理の終了を待つ必要がある
+    m_pl->p_gpu_finish()(m_pldevice->gpu);
     // m_ngxFrameBufOut -> ppOutputFrames
     auto textOutCL = m_textOut->getCLFrame(m_cl.get(), queue);
-#if !COPY_DEBUG
     auto err = textOutCL->acquire(queue);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to acquire CL frame: %s.\n"), get_err_mes(err));
         return err;
     }
-#endif
     auto textOutCLInfo = textOutCL->frameInfo();
+#elif ENABLE_VULKAN
+    for (int iplane = 0; iplane < RGY_CSP_PLANES[m_textOut->csp()]; iplane++) {
+        // semaphoreがsignal状態になるまで、OpenCL queueがvulkan関連の動作終了を待つ
+        m_semOutVKWait[iplane]->getCL()->wait(queue);
+        // vulkan関連の処理が終わったら、semaphoreをsignal状態にする
+        pl_vulkan_hold_params hold_params = { 0 };
+        hold_params.tex = pl_tex_planes_out[iplane].get();
+        hold_params.semaphore = (pl_vulkan_sem){ m_semOutVKWait[iplane]->getVK(), };
+        hold_params.qf = VK_QUEUE_FAMILY_EXTERNAL;
+        if (!m_pl->p_vulkan_hold_ex()(m_pldevice->gpu, &hold_params)) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to hold vulkan texture.\n"));
+            return RGY_ERR_UNKNOWN;
+        }
+    }
+    auto textOutCLInfo = m_textOut->getCLFrame(m_cl.get())->frameInfo();
+#endif
     if (m_dstCrop) {
         auto sts_filter = m_dstCrop->filter(&textOutCLInfo, ppOutputFrames, pOutputFrameNum, queue);
         if (ppOutputFrames[0] == nullptr || *pOutputFrameNum != 1) {
@@ -535,23 +962,25 @@ RGY_ERR RGYFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
             AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_dstCrop->name().c_str());
             return sts_filter;
         }
-        textOutCL->release();
     }
+#if ENABLE_D3D11
+    textOutCL->release();
+#elif ENABLE_VULKAN
+    for (int iplane = 0; iplane < RGY_CSP_PLANES[m_textOut->csp()]; iplane++) {
+        // semaphoreがsignal状態になったら、texのhold状態を解除して、vulkan(libplacebo)の処理を始める
+        pl_vulkan_release_params release_params = { 0 };
+        release_params.tex = pl_tex_planes_out[iplane].get();
+        release_params.semaphore = (pl_vulkan_sem){ m_semOutVKStart[iplane]->getVK(), };
+        release_params.qf = VK_QUEUE_FAMILY_EXTERNAL;
+        m_pl->p_vulkan_release_ex()(m_pldevice->gpu, &release_params);
+        // streamの処理が終わったら、semaphoreをsignal状態にする
+        m_semOutVKStart[iplane]->getCL()->signal(queue);
+    }
+#endif
     setFrameProp(ppOutputFrames[0], pInputFrame);
+    pl_tex_planes_in.clear();
+    pl_tex_planes_out.clear();
     return RGY_ERR_NONE;
-}
-
-int RGYFilterLibplacebo::getTextureBytePerPix(const DXGI_FORMAT format) const {
-    switch (format) {
-    case DXGI_FORMAT_R8_UINT:
-    case DXGI_FORMAT_R8_UNORM:
-        return 1;
-    case DXGI_FORMAT_R16_UINT:
-    case DXGI_FORMAT_R16_UNORM:
-        return 2;
-    default:
-        return 0;
-    }
 }
 
 void RGYFilterLibplacebo::close() {
@@ -560,10 +989,16 @@ void RGYFilterLibplacebo::close() {
     m_textFrameBufOut.reset();
     m_srcCrop.reset();
     m_dstCrop.reset();
+#if ENABLE_VULKAN
+    m_semInVKWait.clear();
+    m_semInVKStart.clear();
+    m_semOutVKWait.clear();
+    m_semOutVKStart.clear();
+#endif
     
     m_renderer.reset();
     m_dispatch.reset();
-    m_d3d11.reset();
+    m_pldevice.reset();
     m_log.reset();
     m_pl.reset();
 
@@ -672,7 +1107,7 @@ RGY_ERR RGYFilterLibplaceboResample::procPlane(pl_tex texOut, const RGYFrameInfo
         tex_params.sampleable = true;
         tex_params.format = src.tex->params.format;
 
-        tex_tmp1 = rgy_pl_tex_recreate(m_pl.get(), m_d3d11->gpu, tex_params);
+        tex_tmp1 = rgy_pl_tex_recreate(m_pl.get(), m_pldevice->gpu, tex_params);
         if (!tex_tmp1) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to recreate texture.\n"));
             return RGY_ERR_UNKNOWN;
@@ -733,7 +1168,7 @@ RGY_ERR RGYFilterLibplaceboResample::procPlane(pl_tex texOut, const RGYFrameInfo
             tex_params.renderable = true;
             tex_params.sampleable = true;
             tex_params.format = src.tex->params.format;
-            tex_tmp2 = rgy_pl_tex_recreate(m_pl.get(), m_d3d11->gpu, tex_params);
+            tex_tmp2 = rgy_pl_tex_recreate(m_pl.get(), m_pldevice->gpu, tex_params);
             if (!tex_tmp2) {
                 AddMessage(RGY_LOG_ERROR, _T("Failed to recreate temp texture.\n"));
                 return RGY_ERR_UNKNOWN;
@@ -876,7 +1311,7 @@ RGY_ERR RGYFilterLibplaceboDeband::procPlane(pl_tex texOut, [[maybe_unused]] con
     }
 
     pl_shader_params shader_params = { 0 };
-    shader_params.gpu = m_d3d11->gpu;
+    shader_params.gpu = m_pldevice->gpu;
     shader_params.index = (decltype(shader_params.index))m_frame_index++;
 
     m_pl->p_shader_reset()(shader, &shader_params);
@@ -914,8 +1349,14 @@ RGY_CSP RGYFilterLibplaceboToneMapping::getTextureCsp(const RGY_CSP csp) {
     return (inChromaFmt == RGY_CHROMAFMT_RGB) ? RGY_CSP_RGB_16 : RGY_CSP_YUV444_16;
 }
 
-DXGI_FORMAT RGYFilterLibplaceboToneMapping::getTextureDXGIFormat([[maybe_unused]] const RGY_CSP csp) {
+RGYPLInteropDataFormat RGYFilterLibplaceboToneMapping::getTextureDataFormat([[maybe_unused]] const RGY_CSP csp) {
+#if ENABLE_D3D11
     return DXGI_FORMAT_R16_UNORM;
+#elif ENABLE_VULKAN
+    return VK_FORMAT_R16_UNORM;
+#else
+    static_assert(false);
+#endif
 }
 
 RGY_ERR RGYFilterLibplaceboToneMapping::checkParam(const RGYFilterParam *param) {
@@ -1264,7 +1705,9 @@ RGY_ERR RGYFilterLibplaceboToneMapping::setLibplaceboParam(const RGYFilterParam 
         m_tonemap.peakDetectParams->scene_threshold_low = prm->toneMapping.scene_threshold_low;
         m_tonemap.peakDetectParams->scene_threshold_high = prm->toneMapping.scene_threshold_high;
         m_tonemap.peakDetectParams->percentile = prm->toneMapping.percentile;
+#if PL_API_VER >= 349
         m_tonemap.peakDetectParams->black_cutoff = prm->toneMapping.black_cutoff;
+#endif
 
         if (!ENABLE_LIBDOVI) {
             if (prm->toneMapping.use_dovi > 0) {

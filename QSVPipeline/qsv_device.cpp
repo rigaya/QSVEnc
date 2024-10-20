@@ -62,6 +62,9 @@ void QSVDevice::close() {
     PrintMes(RGY_LOG_DEBUG, _T("Closing allocator...\n"));
     m_allocator.reset();
     m_featureData.clear();
+#if ENABLE_VULKAN
+    m_vulkan.reset();
+#endif
     m_devInfo.reset();
     PrintMes(RGY_LOG_DEBUG, _T("Device %d closed.\n"), (int)m_devNum);
     m_log.reset();
@@ -131,9 +134,56 @@ RGY_ERR QSVDevice::init(const QSVDeviceNum dev, const bool enableOpenCL, const b
     }
 #if ENABLE_VULKAN
     if (enableVulkan) {
-        m_vulkan = std::make_unique<DeviceVulkan>(m_log);
-        auto deviceCount = m_vulkan->getDeviceCount();
+        if (!m_devInfo) {
+            PrintMes(RGY_LOG_WARN, _T("QSVDevice::init: OpenCL device not found, Vulkan device also not found.\n"));
+        } else if (!m_devInfo->checkExtension(CL_KHR_DEVICE_UUID_EXTENSION_NAME)) {
+            PrintMes(RGY_LOG_WARN, _T("QSVDevice::init: OpenCL device found, but does not support %s, Vulkan device could not be found.\n"), char_to_tstring(CL_KHR_DEVICE_UUID_EXTENSION_NAME).c_str());
+        } else {
+            auto uuidToString = [](const void *uuid) {
+                tstring str;
+                const uint8_t *buf = (const uint8_t *)uuid;
+                for (size_t i = 0; i < VK_UUID_SIZE; ++i) {
+                    str += strsprintf(_T("%02x"), buf[i]);
+                }
+                return str;
+            };
+            PrintMes(RGY_LOG_DEBUG, _T("QSVDevice::init: OpenCL device uuid %s.\n"), uuidToString(m_devInfo->uuid).c_str());
 
+            auto vkdev = std::make_unique<DeviceVulkan>();
+            int vkDevCount = vkdev->adapterCount();
+            PrintMes(RGY_LOG_DEBUG, _T("QSVDevice::init: Vulkan device count: %d.\n"), vkDevCount);
+
+            std::vector<const char *> extInstance;
+            extInstance.push_back(VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME);
+            extInstance.push_back(VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME);
+            
+            std::vector<const char *> extDevice;
+            extDevice.push_back(VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME);
+            extDevice.push_back(VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME);
+            extDevice.push_back(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
+#if defined(_WIN32) || defined(_WIN64)
+            extDevice.push_back(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
+            extDevice.push_back(VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME);
+#else
+            extDevice.push_back(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME);
+            extDevice.push_back(VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME);
+#endif //defined(_WIN32) || defined(_WIN64)
+
+            for (int ivkdev = 0; ivkdev < vkDevCount; ivkdev++) {
+                if (ivkdev > 0) {
+                    vkdev = std::make_unique<DeviceVulkan>();
+                }
+                if ((err = m_vulkan->Init(ivkdev, extInstance, extDevice, m_log, true)) != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_DEBUG, _T("Failed to init Vulkan device %d, name %s, uuid %s.\n"), ivkdev);
+                    continue;
+                }
+                PrintMes(RGY_LOG_DEBUG, _T("Init Vulkan device %d, name %s, uuid %s.\n"), ivkdev, char_to_tstring(m_vulkan->GetDisplayDeviceName()).c_str(), uuidToString(m_vulkan->GetUUID()).c_str());
+                if (memcmp(m_vulkan->GetUUID(), m_devInfo->uuid, VK_UUID_SIZE) == 0) {
+                    m_vulkan = std::move(vkdev);
+                    break;
+                }
+            }
+        }
     }
 #endif
     return RGY_ERR_NONE;
@@ -196,13 +246,13 @@ QSVEncFeatures QSVDevice::getEncodeFeature(const int ratecontrol, const RGY_CODE
 
 std::optional<RGYOpenCLDeviceInfo> getDeviceCLInfoQSV(const QSVDeviceNum deviceNum) {
     auto dev = std::make_unique<QSVDevice>();
-    if (dev->init(deviceNum, true, true) == RGY_ERR_NONE && dev->devInfo()) {
+    if (dev->init(deviceNum, true, true, true) == RGY_ERR_NONE && dev->devInfo()) {
         return std::optional<RGYOpenCLDeviceInfo>(*dev->devInfo());
     }
     return std::optional<RGYOpenCLDeviceInfo>();
 }
 
-std::vector<std::unique_ptr<QSVDevice>> getDeviceList(const QSVDeviceNum deviceNum, const bool enableOpenCL, const MemType memType, const MFXVideoSession2Params& params, std::shared_ptr<RGYLog> log) {
+std::vector<std::unique_ptr<QSVDevice>> getDeviceList(const QSVDeviceNum deviceNum, const bool enableOpenCL, const bool enableVulkan, const MemType memType, const MFXVideoSession2Params& params, std::shared_ptr<RGYLog> log) {
     auto openCLAvail = enableOpenCL;
     if (enableOpenCL) {
         RGYOpenCL cl(std::make_shared<RGYLog>(nullptr, RGY_LOG_QUIET));
@@ -216,7 +266,7 @@ std::vector<std::unique_ptr<QSVDevice>> getDeviceList(const QSVDeviceNum deviceN
     for (int idev = idevstart; idev <= idevfin; idev++) {
         log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Check device %d...\n"), idev);
         auto dev = std::make_unique<QSVDevice>();
-        if (dev->init((QSVDeviceNum)idev, enableOpenCL && openCLAvail, memType, params, log, idev != idevstart) != RGY_ERR_NONE) {
+        if (dev->init((QSVDeviceNum)idev, enableOpenCL && openCLAvail, enableVulkan, memType, params, log, idev != idevstart) != RGY_ERR_NONE) {
             break;
         }
         devList.push_back(std::move(dev));

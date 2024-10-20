@@ -103,7 +103,7 @@ const char *get_encoder_version();
 
 #define ENABLE_LIBPLACEBO 1
 #define ENABLE_LIBDOVI 1
-#define ENABLE_VULKAN 1
+#define ENABLE_VULKAN 0
 
 #ifdef BUILD_AUO
 #define ENCODER_NAME             "QSVEnc"
@@ -155,13 +155,13 @@ const char *get_encoder_version();
 #define ONEVPL_EXPERIMENTAL 1
 #define D3D_SURFACES_SUPPORT 0
 #define MFX_D3D11_SUPPORT 0
+#define ENABLE_D3D11 (MFX_D3D11_SUPPORT)
 #define FOR_AUO 0
 #define ENABLE_METRIC_FRAMEWORK 0
 #define ENABLE_PERF_COUNTER 0
 #define ENABLE_CAPTION2ASS 0
 #define ENABLE_DOVI_METADATA_OPTIONS 1
 #define ENABLE_HYPER_MODE 0
-#define ENABLE_LIBPLACEBO 0
 #include "rgy_config.h"
 #define ENCODER_NAME              "QSVEncC"
 #define DECODER_NAME              "qsv"

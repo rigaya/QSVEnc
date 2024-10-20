@@ -87,6 +87,9 @@
 #ifndef cl_device_feature_capabilities_intel
 typedef cl_bitfield cl_device_feature_capabilities_intel;
 #endif
+#ifndef cl_mem_properties
+typedef cl_bitfield cl_mem_properties;
+#endif
 
 #if ENABLE_RGY_OPENCL_D3D9
 // ---cl_dx9_media_sharing_intel ---
@@ -182,6 +185,7 @@ CL_EXTERN cl_int (CL_API_CALL* f_clReleaseProgram) (cl_program program);
 
 CL_EXTERN cl_mem (CL_API_CALL* f_clCreateBuffer) (cl_context context, cl_mem_flags flags, size_t size, void *host_ptr, cl_int *errcode_ret);
 CL_EXTERN cl_mem (CL_API_CALL* f_clCreateImage)(cl_context context, cl_mem_flags flags, const cl_image_format *image_format, const cl_image_desc *image_desc, void *host_ptr, cl_int *errcode_ret);
+CL_EXTERN cl_mem (CL_API_CALL* f_clCreateImageWithProperties)(cl_context context, const cl_mem_properties *properties, cl_mem_flags flags, const cl_image_format *image_format, const cl_image_desc *image_desc, void *host_ptr, cl_int *errcode_ret);
 CL_EXTERN cl_int (CL_API_CALL* f_clReleaseMemObject) (cl_mem memobj);
 CL_EXTERN cl_int (CL_API_CALL* f_clGetMemObjectInfo)(cl_mem memobj, cl_mem_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
 CL_EXTERN cl_int (CL_API_CALL* f_clGetImageInfo)(cl_mem memobj, cl_mem_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
@@ -217,6 +221,12 @@ CL_EXTERN cl_int(CL_API_CALL *f_clSetUserEventStatus)(cl_event event, cl_int exe
 CL_EXTERN cl_int(CL_API_CALL *f_clGetEventProfilingInfo)(cl_event event, cl_profiling_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
 CL_EXTERN cl_int(CL_API_CALL *f_clEnqueueWaitForEvents)(cl_command_queue command_queue, cl_uint num_events, const cl_event *event_list);
 CL_EXTERN cl_int(CL_API_CALL *f_clEnqueueMarker)(cl_command_queue command_queue, cl_event *event);
+
+CL_EXTERN cl_semaphore_khr (CL_API_CALL *f_clCreateSemaphoreWithPropertiesKHR)(cl_context context, const cl_semaphore_properties_khr *sema_props, cl_int *errcode_ret);
+CL_EXTERN cl_int(CL_API_CALL *f_clEnqueueWaitSemaphoresKHR)(cl_command_queue command_queue,cl_uint num_sema_objects,const cl_semaphore_khr* sema_objects,const cl_semaphore_payload_khr* sema_payload_list,cl_uint num_events_in_wait_list,const cl_event* event_wait_list,cl_event* event);
+CL_EXTERN cl_int(CL_API_CALL *f_clEnqueueSignalSemaphoresKHR)(cl_command_queue command_queue,cl_uint num_sema_objects,const cl_semaphore_khr* sema_objects,const cl_semaphore_payload_khr* sema_payload_list,cl_uint num_events_in_wait_list,const cl_event* event_wait_list,cl_event* event);
+CL_EXTERN cl_int(CL_API_CALL *f_clGetSemaphoreInfoKHR)(cl_semaphore_khr sema_object,cl_semaphore_info_khr param_name,size_t param_value_size,void* param_value,size_t* param_value_size_ret);
+CL_EXTERN cl_int(CL_API_CALL *f_clReleaseSemaphoreKHR)(cl_semaphore_khr sema_object);
 
 CL_EXTERN cl_int(CL_API_CALL *f_clFlush)(cl_command_queue command_queue);
 CL_EXTERN cl_int(CL_API_CALL *f_clFinish)(cl_command_queue command_queue);
@@ -274,6 +284,7 @@ CL_EXTERN cl_int(CL_API_CALL* f_clEnqueueReleaseVA_APIMediaSurfacesINTEL)(cl_com
 
 #define clCreateBuffer f_clCreateBuffer
 #define clCreateImage f_clCreateImage
+#define clCreateImageWithProperties f_clCreateImageWithProperties
 #define clReleaseMemObject f_clReleaseMemObject
 #define clGetMemObjectInfo f_clGetMemObjectInfo
 #define clGetImageInfo f_clGetImageInfo
@@ -309,6 +320,12 @@ CL_EXTERN cl_int(CL_API_CALL* f_clEnqueueReleaseVA_APIMediaSurfacesINTEL)(cl_com
 #define clGetEventProfilingInfo f_clGetEventProfilingInfo
 #define clEnqueueWaitForEvents f_clEnqueueWaitForEvents
 #define clEnqueueMarker f_clEnqueueMarker
+
+#define clCreateSemaphoreWithPropertiesKHR f_clCreateSemaphoreWithPropertiesKHR
+#define clEnqueueWaitSemaphoresKHR f_clEnqueueWaitSemaphoresKHR
+#define clEnqueueSignalSemaphoresKHR f_clEnqueueSignalSemaphoresKHR
+#define clGetSemaphoreInfoKHR f_clGetSemaphoreInfoKHR
+#define clReleaseSemaphoreKHR f_clReleaseSemaphoreKHR
 
 #define clFlush f_clFlush
 #define clFinish f_clFinish
@@ -460,6 +477,18 @@ private:
     std::shared_ptr<cl_event> event_;
 };
 
+ class RGYOpenCLSemaphore {
+public:
+    RGYOpenCLSemaphore() : semaphore_(std::make_unique<cl_semaphore_khr>(nullptr)) { }
+    RGYOpenCLSemaphore(const cl_semaphore_khr semaphore) : semaphore_(std::make_unique<cl_semaphore_khr>(semaphore)) { }
+    ~RGYOpenCLSemaphore() { release(); }
+    RGY_ERR wait(RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events = {}, RGYOpenCLEvent *event = nullptr);
+    RGY_ERR signal(RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events = {}, RGYOpenCLEvent *event = nullptr);
+    void release();
+private:
+    std::unique_ptr<cl_semaphore_khr> semaphore_;
+ };
+
 #if !ENABLE_RGY_OPENCL_D3D9
 typedef int cl_dx9_media_adapter_type_khr;
 typedef struct _cl_dx9_surface_info_khr {
@@ -500,6 +529,8 @@ struct RGYCLMemObjInfo {
     tstring print() const;
     bool isImageNormalizedType() const;
 };
+
+RGYCLMemObjInfo getRGYCLMemObjectInfo(cl_mem mem);
 
 enum RGYCLMapBlock {
     RGY_CL_MAP_BLOCK_NONE,
@@ -658,6 +689,7 @@ enum RGYCLFrameInteropType {
     RGY_INTEROP_DX9,
     RGY_INTEROP_DX11,
     RGY_INTEROP_VA,
+    RGY_INTEROP_VULKAN,
 };
 
 struct RGYCLFrameInterop : public RGYCLFrame {
@@ -726,6 +758,7 @@ struct RGYOpenCLDeviceInfo {
     std::string profile;
     std::string version;
     std::string extensions;
+    uint8_t uuid[CL_UUID_SIZE_KHR];
 
 #if ENCODER_QSV || CLFILTERS_AUF
     int ip_version_intel;

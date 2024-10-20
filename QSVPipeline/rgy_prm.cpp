@@ -2288,6 +2288,7 @@ RGYParamControl::RGYParamControl() :
     avsdll(),
     vsdir(),
     enableOpenCL(true),
+    enableVulkan(true),
     avoidIdleClock(),
     outputBufSizeMB(RGY_OUTPUT_BUF_MB_DEFAULT) {
 
