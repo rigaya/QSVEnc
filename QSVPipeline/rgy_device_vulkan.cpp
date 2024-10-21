@@ -79,16 +79,19 @@ RGY_ERR DeviceVulkan::Init(int adapterID, const std::vector<const char*> &extIns
     RGY_ERR res = RGY_ERR_NONE;
     m_log = log;
     m_logTryMode = logTryMode;
+    AddMessage(RGY_LOG_DEBUG, _T("Init Vulkan device...\n"));
 
     if (m_vk.init() != 0) {
         AddMessage(RGY_LOG_ERROR, _T("LoadFunctionsTable() failed - check if the proper Vulkan SDK is installed\n"));
         return RGY_ERR_NULL_PTR;
     }
+    AddMessage(RGY_LOG_DEBUG, _T("LoadFunctionsTable() success.\n"));
 
     if ((res = CreateInstance(extInstance)) != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("CreateInstance() failed\n"));
         return res;
     }
+    AddMessage(RGY_LOG_DEBUG, _T("CreateInstance() success.\n"));
 
 #if defined(_DEBUG) && defined(ENABLE_VALIDATION)
     const bool bDebug = true;
@@ -99,17 +102,20 @@ RGY_ERR DeviceVulkan::Init(int adapterID, const std::vector<const char*> &extIns
         AddMessage(RGY_LOG_ERROR, _T("LoadInstanceFunctionsTableExt() failed - check if the proper Vulkan SDK is installed\n"));
         return RGY_ERR_NULL_PTR;
     }
+    AddMessage(RGY_LOG_DEBUG, _T("LoadInstanceFunctionsTableExt() success.\n"));
 
     // load instance based functions
     if (CreateDeviceAndFindQueues(adapterID, extDevice) != 0) {
         AddMessage(RGY_LOG_ERROR, _T("CreateDeviceAndFindQueues() failed\n"));
         return RGY_ERR_NULL_PTR;
     }
+    AddMessage(RGY_LOG_DEBUG, _T("CreateDeviceAndFindQueues() success.\n"));
 
     if (m_vk.load(m_vkDevice) != 0) {
         AddMessage(RGY_LOG_ERROR, _T("LoadDeviceFunctionsTableExt() failed - check if the proper Vulkan SDK is installed\n"));
         return RGY_ERR_NULL_PTR;
     }
+    AddMessage(RGY_LOG_DEBUG, _T("LoadDeviceFunctionsTableExt() success.\n"));
 
     return RGY_ERR_NONE;
 }

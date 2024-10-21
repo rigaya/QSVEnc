@@ -56,6 +56,11 @@ public:
     MemType memType() const { return m_memType; };
     CQSVHWDevice *hwdev() { return m_hwdev.get(); }
     QSVAllocator *allocator() { return m_allocator.get(); }
+#if ENABLE_VULKAN
+    DeviceVulkan *vulkan() { return m_vulkan.get(); }
+#else
+    DeviceVulkan *vulkan() { return nullptr; }
+#endif
     const IntelDeviceInfo *intelDeviceInfo() const { return (m_hwdev) ? m_hwdev->GetIntelDeviceInfo() : nullptr; }
     bool externalAlloc() const { return m_externalAlloc; }
     const RGYOpenCLDeviceInfo *devInfo() const { return m_devInfo.get(); }

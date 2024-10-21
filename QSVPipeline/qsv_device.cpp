@@ -110,27 +110,28 @@ RGY_ERR QSVDevice::init(const QSVDeviceNum dev, const bool enableOpenCL, const b
             if (m_memType == D3D9_MEMORY && ENABLE_RGY_OPENCL_D3D9) {
                 if (platform->createDeviceListD3D9(CL_DEVICE_TYPE_GPU, (void*)hdl, true) == CL_SUCCESS && platform->devs().size() > 0) {
                     m_devInfo = std::make_unique<RGYOpenCLDeviceInfo>(platform->dev(0).info());
-                    return RGY_ERR_NONE;
+                    break;
                 }
             } else if (m_memType == D3D11_MEMORY && ENABLE_RGY_OPENCL_D3D11) {
                 if (platform->createDeviceListD3D11(CL_DEVICE_TYPE_GPU, (void*)hdl, true) == CL_SUCCESS && platform->devs().size() > 0) {
                     m_devInfo = std::make_unique<RGYOpenCLDeviceInfo>(platform->dev(0).info());
-                    return RGY_ERR_NONE;
+                    break;
                 }
             } else if (m_memType == VA_MEMORY && ENABLE_RGY_OPENCL_VA) {
                 if (platform->createDeviceListVA(CL_DEVICE_TYPE_GPU, (void*)hdl, true) == CL_SUCCESS && platform->devs().size() > 0) {
                     m_devInfo = std::make_unique<RGYOpenCLDeviceInfo>(platform->dev(0).info());
-                    return RGY_ERR_NONE;
+                    break;
                 }
             } else {
                 if (platform->createDeviceList(CL_DEVICE_TYPE_GPU) == CL_SUCCESS && platform->devs().size() > 0) {
                     m_devInfo = std::make_unique<RGYOpenCLDeviceInfo>(platform->dev(0).info());
-                    return RGY_ERR_NONE;
+                    break;
                 }
             }
         }
-        PrintMes((suppressErrorMessage) ? RGY_LOG_DEBUG : RGY_LOG_ERROR, _T("QSVDevice::init:   failed to find OpenCL device for dev #%d.\n"), dev);
-        return RGY_ERR_NONE;
+        if (!m_devInfo) {
+            PrintMes((suppressErrorMessage) ? RGY_LOG_DEBUG : RGY_LOG_ERROR, _T("QSVDevice::init:   failed to find OpenCL device for dev #%d.\n"), dev);
+        }
     }
 #if ENABLE_VULKAN
     if (enableVulkan) {
@@ -173,12 +174,13 @@ RGY_ERR QSVDevice::init(const QSVDeviceNum dev, const bool enableOpenCL, const b
                 if (ivkdev > 0) {
                     vkdev = std::make_unique<DeviceVulkan>();
                 }
-                if ((err = m_vulkan->Init(ivkdev, extInstance, extDevice, m_log, true)) != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_DEBUG, _T("Init Vulkan device %d...\n"), ivkdev);
+                if ((err = vkdev->Init(ivkdev, extInstance, extDevice, m_log, true)) != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_DEBUG, _T("Failed to init Vulkan device %d, name %s, uuid %s.\n"), ivkdev);
                     continue;
                 }
-                PrintMes(RGY_LOG_DEBUG, _T("Init Vulkan device %d, name %s, uuid %s.\n"), ivkdev, char_to_tstring(m_vulkan->GetDisplayDeviceName()).c_str(), uuidToString(m_vulkan->GetUUID()).c_str());
-                if (memcmp(m_vulkan->GetUUID(), m_devInfo->uuid, VK_UUID_SIZE) == 0) {
+                PrintMes(RGY_LOG_DEBUG, _T("Init Vulkan device %d, name %s, uuid %s.\n"), ivkdev, char_to_tstring(vkdev->GetDisplayDeviceName()).c_str(), uuidToString(vkdev->GetUUID()).c_str());
+                if (memcmp(vkdev->GetUUID(), m_devInfo->uuid, VK_UUID_SIZE) == 0) {
                     m_vulkan = std::move(vkdev);
                     break;
                 }

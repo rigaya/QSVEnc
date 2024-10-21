@@ -174,6 +174,8 @@ public:
     virtual RGY_ERR create(DeviceVulkan *vk, RGYOpenCLContext *clctx);
     virtual void release();
     virtual VkSemaphore getVK() { return m_semaphore; }
+    virtual RGY_ERR vkWait();
+    virtual RGY_ERR vkSignal();
     virtual RGYOpenCLSemaphore *getCL() { return m_semaphore_cl.get(); }
 protected:
     virtual RGY_ERR createCL(RGYOpenCLContext *clctx);

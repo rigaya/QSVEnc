@@ -171,6 +171,7 @@ RGY_ERR RGYFrameVulkanImage::alloc(DeviceVulkan *vk, const int width, const int 
     if (!vk) {
         return RGY_ERR_NULL_PTR;
     }
+    m_vk = vk;
     if (m_image) {
         return RGY_ERR_ALREADY_INITIALIZED;
     }
@@ -279,7 +280,6 @@ RGY_ERR RGYFrameVulkan::allocate(DeviceVulkan *vk, const int width, const int he
     frame = RGYFrameInfo(width, height, csp, bitdepth);
     for (int iplane = 0; iplane < RGY_CSP_PLANES[csp]; iplane++) {
         auto plane = getPlane(&frame, (RGY_PLANE)iplane);
-        
         auto img = std::make_unique<RGYFrameVulkanImage>();
         if (auto err = img->alloc(vk, plane.width, plane.height, m_format, m_usage); err != RGY_ERR_NONE) {
             return err;
@@ -300,6 +300,9 @@ void RGYFrameVulkan::deallocate() {
 }
 
 RGYCLFrame *RGYFrameVulkan::getCLFrame(RGYOpenCLContext *clctx, cl_mem_flags flags) {
+    if (!clCreateImageWithProperties) {
+        return nullptr;
+    }
     if (!m_clframe) {
         auto clframe = frame;
         for (int i = 0; i < _countof(clframe.ptr); i++) {
@@ -396,8 +399,37 @@ RGY_ERR RGYSemaphoreVulkan::create(DeviceVulkan *vk, RGYOpenCLContext *clctx) {
     if (auto err = m_vk->GetVulkan()->vkCreateSemaphore(m_vk->GetDevice(), &semaphoreInfo, nullptr, &m_semaphore); err != VK_SUCCESS) {
         return err_to_rgy(err);
     }
+    if (!clctx->platform()->dev(0).checkExtension(CL_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME)) {
+        return RGY_ERR_NONE;
+    }
     if (auto err = createCL(clctx); err != RGY_ERR_NONE) {
         return err;
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYSemaphoreVulkan::vkSignal() {
+    if (!m_vk) {
+        return RGY_ERR_NULL_PTR;
+    }
+    VkSemaphoreSignalInfoKHR signalInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO_KHR };
+    signalInfo.semaphore = m_semaphore;
+    if (auto err = m_vk->GetVulkan()->vkSignalSemaphore(m_vk->GetDevice(), &signalInfo); err != VK_SUCCESS) {
+        return err_to_rgy(err);
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYSemaphoreVulkan::vkWait() {
+    if (!m_vk) {
+        return RGY_ERR_NULL_PTR;
+    }
+    VkSemaphoreWaitInfoKHR waitInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO_KHR };
+    waitInfo.semaphoreCount = 1;
+    waitInfo.pSemaphores = &m_semaphore;
+    waitInfo.pValues = nullptr;
+    if (auto err = m_vk->GetVulkan()->vkWaitSemaphores(m_vk->GetDevice(), &waitInfo, UINT64_MAX); err != VK_SUCCESS) {
+        return err_to_rgy(err);
     }
     return RGY_ERR_NONE;
 }
@@ -490,6 +522,13 @@ RGY_ERR RGYFilterLibplacebo::initLibplacebo(const RGYFilterParam *param) {
     m_pldevice = std::unique_ptr<std::remove_pointer<pl_d3d11>::type, RGYLibplaceboDeleter<pl_d3d11>>(
         m_pl->p_d3d11_create()(m_log.get(), &gpu_params), RGYLibplaceboDeleter<pl_d3d11>(m_pl->p_d3d11_destroy()));
 #elif ENABLE_VULKAN
+    if (!m_cl->platform()->dev(0).checkExtension(CL_KHR_EXTERNAL_MEMORY_EXTENSION_NAME)) {
+        AddMessage(RGY_LOG_ERROR, _T("OpenCL device does not support %s, libplacebo via vulkan cannot be used.\n"), char_to_tstring(CL_KHR_EXTERNAL_MEMORY_EXTENSION_NAME).c_str());
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (!m_cl->platform()->dev(0).checkExtension(CL_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME)) {
+        AddMessage(RGY_LOG_WARN, _T("OpenCL device does not support %s, libplacebo via vulkan might be slow.\n"), char_to_tstring(CL_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME).c_str());
+    }
     pl_vulkan_params gpu_params = { 0 };
     gpu_params.instance = m_device->GetInstance();
     gpu_params.get_proc_addr = m_device->GetVulkan()->vkGetInstanceProcAddr;
@@ -828,6 +867,10 @@ RGY_ERR RGYFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
         textInCL->release();
         queue.finish();
 #else
+        if (!m_semInVKStart.front()->getCL()) {
+            // CL_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAMEが有効でない場合、semaphoreを使わずOpenCLの処理を終了させる
+            queue.finish();
+        }
         for (int iplane = 0; iplane < RGY_CSP_PLANES[m_textIn->csp()]; iplane++) {
             // semaphoreがsignal状態になったら、texのhold状態を解除して、vulkan(libplacebo)の処理を始める
             pl_vulkan_release_params release_params = { 0 };
@@ -835,9 +878,14 @@ RGY_ERR RGYFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
             release_params.semaphore = (pl_vulkan_sem){ m_semInVKStart[iplane]->getVK(), };
             release_params.qf = VK_QUEUE_FAMILY_EXTERNAL;
             m_pl->p_vulkan_release_ex()(m_pldevice->gpu, &release_params);
-            // streamの処理(cudaMemcpy2DToArrayAsync)が終わったら、semaphoreをsignal状態にする
-            // これにより、vulkan(libplacebo)の処理が始められる
-            m_semInVKStart[iplane]->getCL()->signal(queue);
+            if (m_semInVKStart.front()->getCL()) {
+                // streamの処理(cudaMemcpy2DToArrayAsync)が終わったら、semaphoreをsignal状態にする
+                // これにより、vulkan(libplacebo)の処理が始められる
+                m_semInVKStart[iplane]->getCL()->signal(queue);
+            } else {
+                // すでにOpenCLの処理は終了させているので、vulkan(libplacebo)の処理を始める
+                m_semInVKStart[iplane]->vkSignal();
+            }
         }
 #endif
     }
@@ -937,9 +985,15 @@ RGY_ERR RGYFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
     }
     auto textOutCLInfo = textOutCL->frameInfo();
 #elif ENABLE_VULKAN
+    if (!m_semOutVKWait.front()->getCL()) {
+        // CL_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAMEが有効でない場合、semaphoreを使わずvulkanの処理を終了させる
+        m_pl->p_gpu_finish()(m_pldevice->gpu);
+    }
     for (int iplane = 0; iplane < RGY_CSP_PLANES[m_textOut->csp()]; iplane++) {
-        // semaphoreがsignal状態になるまで、OpenCL queueがvulkan関連の動作終了を待つ
-        m_semOutVKWait[iplane]->getCL()->wait(queue);
+        if (m_semOutVKWait[iplane]->getCL()) {
+            // semaphoreがsignal状態になるまで、OpenCL queueがvulkan関連の動作終了を待つ
+            m_semOutVKWait[iplane]->getCL()->wait(queue);
+        }
         // vulkan関連の処理が終わったら、semaphoreをsignal状態にする
         pl_vulkan_hold_params hold_params = { 0 };
         hold_params.tex = pl_tex_planes_out[iplane].get();
@@ -966,6 +1020,10 @@ RGY_ERR RGYFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
 #if ENABLE_D3D11
     textOutCL->release();
 #elif ENABLE_VULKAN
+    if (!m_semOutVKStart.front()->getCL()) {
+        // CL_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAMEが有効でない場合、semaphoreを使わずOpenCLの処理を終了させる
+        queue.finish();
+    }
     for (int iplane = 0; iplane < RGY_CSP_PLANES[m_textOut->csp()]; iplane++) {
         // semaphoreがsignal状態になったら、texのhold状態を解除して、vulkan(libplacebo)の処理を始める
         pl_vulkan_release_params release_params = { 0 };
@@ -973,8 +1031,13 @@ RGY_ERR RGYFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
         release_params.semaphore = (pl_vulkan_sem){ m_semOutVKStart[iplane]->getVK(), };
         release_params.qf = VK_QUEUE_FAMILY_EXTERNAL;
         m_pl->p_vulkan_release_ex()(m_pldevice->gpu, &release_params);
-        // streamの処理が終わったら、semaphoreをsignal状態にする
-        m_semOutVKStart[iplane]->getCL()->signal(queue);
+        if (m_semOutVKStart[iplane]->getCL()) {
+            // streamの処理が終わったら、semaphoreをsignal状態にする
+            m_semOutVKStart[iplane]->getCL()->signal(queue);
+        } else {
+            // すでにOpenCLの処理は終了させているので、vulkan(libplacebo)の処理を始める
+            m_semOutVKStart[iplane]->vkSignal();
+        }
     }
 #endif
     setFrameProp(ppOutputFrames[0], pInputFrame);

@@ -757,7 +757,7 @@ RGYOpenCLDeviceInfo RGYOpenCLDevice::info() const {
         clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_PROFILE, &info.profile);
         clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_VERSION, &info.version);
         clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_EXTENSIONS, &info.extensions);
-        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_UUID_KHR, info.uuid);
+        clGetDeviceInfo(m_device, CL_DEVICE_UUID_KHR, sizeof(info.uuid), info.uuid, nullptr);
 #if ENCODER_QSV || CLFILTERS_AUF
         clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_IP_VERSION_INTEL, &info.ip_version_intel);
         clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_ID_INTEL, &info.id_intel);

@@ -2355,6 +2355,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         param->toneMapping = params->vpp.libplacebo_tonemapping;
         param->hdrMetadataIn = m_hdrseiIn.get();
         param->hdrMetadataOut = m_hdrseiOut.get();
+        param->vk = m_device->vulkan();
         param->vui = vuiInfo;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
@@ -2785,6 +2786,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
             param->libplaceboResample = std::make_shared<RGYFilterParamLibplaceboResample>();
             param->libplaceboResample->resample = params->vpp.resize_libplacebo;
             param->libplaceboResample->resize_algo = param->interp;
+            param->libplaceboResample->vk = m_device->vulkan();
         }
         auto sts = filter->init(param, m_pQSVLog);
         if (sts != RGY_ERR_NONE) {
@@ -2928,6 +2930,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         param->baseFps = m_encFps;
         param->bOutOverwrite = false;
         param->deband = params->vpp.libplacebo_deband;
+        param->vk = m_device->vulkan();
         auto sts = filter->init(param, m_pQSVLog);
         if (sts != RGY_ERR_NONE) {
             return sts;
