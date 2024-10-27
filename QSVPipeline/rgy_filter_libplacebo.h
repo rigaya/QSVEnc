@@ -351,6 +351,7 @@ protected:
 
     virtual RGY_CSP getTextureCsp(const RGY_CSP csp) override;
     virtual RGYPLInteropDataFormat getTextureDataFormat(const RGY_CSP csp) override;
+    virtual tstring printParams(const RGYFilterParamLibplacebo *prm) const override;
 
     std::unique_ptr<pl_hook, RGYLibplaceboDeleter<const pl_hook*>> m_shader;
     pl_color_system m_colorsystem;

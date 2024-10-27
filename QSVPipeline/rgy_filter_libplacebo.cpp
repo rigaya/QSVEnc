@@ -2292,6 +2292,17 @@ RGY_ERR RGYFilterLibplaceboShader::procFrame(pl_tex texOut[RGY_MAX_PLANES], cons
     return RGY_ERR_NONE;
 }
 
+tstring RGYFilterLibplaceboShader::printParams(const RGYFilterParamLibplacebo *param) const {
+    auto prm = dynamic_cast<const RGYFilterParamLibplaceboShader*>(param);
+    if (!prm) {
+        return param->print();
+    }
+    RGYFilterParamLibplaceboShader current = *prm;
+    current.shader.colorsystem = (VppLibplaceboColorsystem)m_colorsystem;
+    current.shader.transfer = (VppLibplaceboToneMappingTransfer)m_transfer;
+    return current.print();
+}
+
 #else
 
 RGYFilterLibplaceboResample::RGYFilterLibplaceboResample(shared_ptr<RGYOpenCLContext> context) : RGYFilterDisabled(context) { m_name = _T("libplacebo-resample"); }
