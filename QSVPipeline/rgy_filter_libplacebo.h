@@ -382,6 +382,12 @@ public:
     virtual ~RGYFilterLibplaceboToneMapping();
 };
 
+class RGYFilterLibplaceboShader : public RGYFilterDisabled {
+public:
+    RGYFilterLibplaceboShader(shared_ptr<RGYOpenCLContext> context);
+    virtual ~RGYFilterLibplaceboShader();
+};
+
 #endif // ENABLE_LIBPLACEBO
 
 #endif // __RGY_FILTER_LIBPLACEBO_H__
