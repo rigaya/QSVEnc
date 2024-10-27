@@ -91,6 +91,18 @@ typedef cl_bitfield cl_device_feature_capabilities_intel;
 typedef cl_bitfield cl_mem_properties;
 #endif
 
+#if !defined(cl_khr_external_semaphore)
+typedef void* cl_semaphore_khr;
+typedef cl_ulong cl_semaphore_properties_khr;
+typedef cl_uint cl_semaphore_info_khr;
+typedef cl_uint cl_semaphore_type_khr;
+typedef cl_ulong cl_semaphore_payload_khr;
+#endif
+
+#ifndef CL_UUID_SIZE_KHR
+#define CL_UUID_SIZE_KHR 16
+#endif
+
 #if ENABLE_RGY_OPENCL_D3D9
 // ---cl_dx9_media_sharing_intel ---
 #define cl_intel_dx9_media_sharing 1
