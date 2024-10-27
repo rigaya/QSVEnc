@@ -320,6 +320,7 @@ API v1.1  … Intel Media SDK v2.0
 - libplaceboのcustom shaderを使用したフィルタを追加。 (--vpp-libplacebo-shader)
 - --dolby-vision-rpu copy使用時に、入力ファイルのdolby vision profile 7のとき、
   libdoviを使用して自動的にdolby vision profile 8に変換するように。 
+- --dhdr10-infoが動作しなくなっていたのを修正。
 
 2024.09.24 (7.70)
 [QSVEncC]
