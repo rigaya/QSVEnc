@@ -226,6 +226,7 @@
   - [--vpp-image-stab \<string\>](#--vpp-image-stab-string)
   - [--vpp-mctf \[ "auto" or \<int\> \]](#--vpp-mctf--auto-or-int-)
   - [--vpp-subburn \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-subburn-param1value1param2value2)
+  - [--vpp-libplacebo-shader \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-libplacebo-shader-param1value1param2value2)
   - [--vpp-resize \<string\>](#--vpp-resize-string)
   - [--vpp-resize-mode \<string\>](#--vpp-resize-mode-string)
   - [--vpp-unsharp \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-unsharp-param1value1param2value2)
@@ -1694,6 +1695,7 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
   - [--vpp-image-stab](#--vpp-image-stab-string)
   - [--vpp-mctf](#--vpp-mctf-auto-or-int)
   - [--vpp-subburn](#--vpp-subburn-param1value1param2value2)
+  - [--vpp-libplacebo-shader](#--vpp-libplacebo-shader-param1value1param2value2)
   - [--vpp-resize](#--vpp-resize-string)
   - [--vpp-unsharp](#--vpp-unsharp-param1value1param2value2)
   - [--vpp-edgelevel](#--vpp-edgelevel-param1value1param2value2)
@@ -2593,6 +2595,69 @@ image stabilizerのモードの指定。
   例3: Shift-JISな文字コードのassファイルの焼きこみ
   --vpp-subburn filename="subtitle.sjis.ass",charcode=sjis,shaping=complex
   ```
+
+### --vpp-libplacebo-shader [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+
+[libplacebo](https://code.videolan.org/videolan/libplacebo)を使用して指定されたパスのカスタムシェーダーを適用します。
+
+- **パラメータ**
+    - shader=&lt;string&gt;  
+      対象のshaderファイルのパス。(glslファイル)
+
+    - res=&lt;int&gt;x&lt;int&gt;  
+      フィルタの出力解像度。
+
+    - colorsystem=&lt;int&gt;  
+      使用する色空間を指定。デフォルトでは入力ファイルから自動的に設定される。
+      ```
+      unknown, bt601, bt709, smpte240m, bt2020nc, bt2020c, bt2100pq, bt2100hlg, dolbyvision, ycgco, rgb, xyz
+      ```
+
+    - transfer=&lt;string&gt;  
+      出力のトランスファ関数を指定。デフォルトでは入力ファイルから自動的に設定される。
+      ```
+      unknown, srgb, bt1886, linear,
+      gamma18, gamma20, gamma22, gamma24, gamma26, gamma28,
+      prophoto, st428, pq, hlg, vlog, slog1, slog2
+      ```
+
+    - resampler=&lt;string&gt;  
+      リサンプルが必要な場合に使用するフィルタ関数を指定。デフォルトは libplacebo-ewa-lanczos 。
+      ```
+      libplacebo-spline16, libplacebo-spline36, libplacebo-spline64, libplacebo-nearest,
+      libplacebo-bilinear, libplacebo-gaussian, libplacebo-sinc, libplacebo-lanczos, 
+      libplacebo-ginseng, libplacebo-ewa-jinc, libplacebo-ewa-lanczos, 
+      libplacebo-ewa-lanczossharp, libplacebo-ewa-lanczos4sharpest, 
+      libplacebo-ewa-ginseng, libplacebo-ewa-hann, libplacebo-ewa-hanning, 
+      libplacebo-bicubic, libplacebo-triangle, libplacebo-hermite, libplacebo-catmull-rom, 
+      libplacebo-mitchell, libplacebo-mitchell-clamp, libplacebo-robidoux, 
+      libplacebo-robidouxsharp, libplacebo-ewa-robidoux, libplacebo-ewa-robidouxsharp
+      ```
+
+    - radius=&lt;float&gt;  
+      拡大縮小アルゴリズムの半径。vpp-resizeの表で "resizable" にチェックが入っているもののみ有効。 (0.0 - 16.0、デフォルト = 自動)
+
+    - clamp=&lt;float&gt;  
+      負の重みに対するクランプ係数。1.0にすると負の重みが0になります。(0.0 -   1.    0、デフォルト = 0.0)
+
+    - taper=&lt;float&gt;  
+     重み関数の中心部分を平坦化します。(0.0 - 1.0、デフォルト = 0.0)
+
+    - blur=&lt;float&gt;  
+      追加のぼかし係数。(0.0 - 100.0、デフォルト = 0.0)
+
+    - antiring=&lt;float&gt;  
+      アンチリンギング強度。(0.0 - 1.0、デフォルト = 0.0)
+    
+    - linear=&lt;bool&gt;  
+      linearize image before processing.
+
+
+- 使用例
+    ``` 
+    例: カスタムシェーダを使用した 1280x720 -> 2560x1440 へのリサイズ。
+    --vpp-libplacebo-shader shader=default-shader-pack-2.1.0\Anime4K_Upscale_CNN_x2_L.glsl,res=2560x1440
+    ```
 
 
 ### --vpp-resize &lt;string&gt;

@@ -313,6 +313,14 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2024.10.27 (7.71)
+[QSVEncC]
+- libplaceboによるバンディング低減フィルタを追加。(--vpp-libplacebo-deband)
+- libplaceboによるtone mappingフィルタを追加。(--vpp-libplacebo-tonemapping)
+- libplaceboのcustom shaderを使用したフィルタを追加。 (--vpp-libplacebo-shader)
+- --dolby-vision-rpu copy使用時に、入力ファイルのdolby vision profile 7のとき、
+  libdoviを使用して自動的にdolby vision profile 8に変換するように。 
+
 2024.09.24 (7.70)
 [QSVEncC]
 - libvplを更新し、2.13に対応。

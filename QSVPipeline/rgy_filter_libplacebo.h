@@ -72,6 +72,14 @@ public:
     virtual tstring print() const override;
 };
 
+class RGYFilterParamLibplaceboShader : public RGYFilterParamLibplacebo {
+public:
+    VppLibplaceboShader shader;
+    RGYFilterParamLibplaceboShader() : RGYFilterParamLibplacebo(), shader() {};
+    virtual ~RGYFilterParamLibplaceboShader() {};
+    virtual tstring print() const override;
+};
+
 #if ENABLE_LIBPLACEBO
 
 #if ENABLE_D3D11
@@ -326,6 +334,32 @@ protected:
     virtual void setFrameProp(RGYFrameInfo *pFrame, const RGYFrameInfo *pSrcFrame) const override;
 
     RGYLibplaceboToneMappingParams m_tonemap;
+};
+
+class RGYFilterLibplaceboShader : public RGYFilterLibplacebo {
+public:
+    RGYFilterLibplaceboShader(shared_ptr<RGYOpenCLContext> context);
+    virtual ~RGYFilterLibplaceboShader();
+protected:
+    virtual RGY_ERR checkParam(const RGYFilterParam *param) override;
+    virtual RGY_ERR setLibplaceboParam(const RGYFilterParam *param) override;
+    virtual RGY_ERR procPlane(pl_tex texOut, const RGYFrameInfo *pDstPlane, pl_tex texIn, const RGYFrameInfo *pSrcPlane, const RGY_PLANE planeIdx) override {
+        UNREFERENCED_PARAMETER(texOut); UNREFERENCED_PARAMETER(pDstPlane); UNREFERENCED_PARAMETER(texIn); UNREFERENCED_PARAMETER(pSrcPlane); UNREFERENCED_PARAMETER(planeIdx);
+        return RGY_ERR_UNSUPPORTED;
+    };
+    virtual RGY_ERR procFrame(pl_tex texOut[RGY_MAX_PLANES], const RGYFrameInfo *pDstFrame, pl_tex texIn[RGY_MAX_PLANES], const RGYFrameInfo *pSrcFrame) override;
+
+    virtual RGY_CSP getTextureCsp(const RGY_CSP csp) override;
+    virtual RGYPLInteropDataFormat getTextureDataFormat(const RGY_CSP csp) override;
+
+    std::unique_ptr<pl_hook, RGYLibplaceboDeleter<const pl_hook*>> m_shader;
+    pl_color_system m_colorsystem;
+    pl_color_transfer m_transfer;
+    pl_color_levels m_range;
+    pl_chroma_location m_chromaloc;
+    std::unique_ptr<pl_sample_filter_params> m_sample_params;
+    std::unique_ptr<pl_sigmoid_params> m_sigmoid_params;
+    int m_linear;
 };
 
 #else

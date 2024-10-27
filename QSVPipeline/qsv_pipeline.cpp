@@ -2197,6 +2197,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vppmfx.imageStabilizer != 0) filterPipeline.push_back(VppType::MFX_IMAGE_STABILIZATION);
     if (inputParam->vppmfx.mctf.enable)    filterPipeline.push_back(VppType::MFX_MCTF);
     if (inputParam->vpp.subburn.size()>0)  filterPipeline.push_back(VppType::CL_SUBBURN);
+    if (inputParam->vpp.libplacebo_shader.size()>0)  filterPipeline.push_back(VppType::CL_LIBPLACEBO_SHADER);
     if (     resizeRequired == RGY_VPP_RESIZE_TYPE_OPENCL
 #if ENABLE_LIBPLACEBO
         || resizeRequired == RGY_VPP_RESIZE_TYPE_LIBPLACEBO
@@ -2291,7 +2292,12 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
                                            vppParams.resizeMode = params->resizeMode;
                                            vppParams.aiSuperRes.enable = params->aiSuperRes.enable;
                                            frameInfo.width = resize.first;
-                                           frameInfo.height = resize.second; break;
+                                           frameInfo.height = resize.second;
+                                           if (resize.first == 0 || resize.second == 0
+                                               || (frameInfo.width == frameIn.width && frameInfo.height == frameIn.height)) {
+                                               return { RGY_ERR_NONE, std::unique_ptr<QSVVppMfx>() };
+                                           }
+                                           break;
     case VppType::MFX_CROP:                frameInfo.width  -= (crop) ? (crop->e.left + crop->e.right) : 0;
                                            frameInfo.height -= (crop) ? (crop->e.up + crop->e.bottom)  : 0; break;
     case VppType::MFX_FPS_CONV:
@@ -2771,32 +2777,61 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         }
         return RGY_ERR_NONE;
     }
+    if (vppType == VppType::CL_LIBPLACEBO_SHADER) {
+        for (const auto& shader : params->vpp.libplacebo_shader) {
+            unique_ptr<RGYFilter> filter(new RGYFilterLibplaceboShader(m_cl));
+            shared_ptr<RGYFilterParamLibplaceboShader> param(new RGYFilterParamLibplaceboShader());
+            param->shader = shader;
+            param->frameIn = inputFrame;
+            param->frameOut = inputFrame;
+            if (param->shader.width > 0 && param->shader.height > 0) {
+                param->frameOut.width = param->shader.width;
+                param->frameOut.height = param->shader.height;
+            }
+            param->baseFps = m_encFps;
+            param->bOutOverwrite = false;
+            param->vk = m_device->vulkan();
+            auto sts = filter->init(param, m_pQSVLog);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
+            //登録
+            clfilters.push_back(std::move(filter));
+        }
+        return RGY_ERR_NONE;
+    }
     //リサイズ
     if (vppType == VppType::CL_RESIZE) {
-        auto filter = std::make_unique<RGYFilterResize>(m_cl);
-        shared_ptr<RGYFilterParamResize> param(new RGYFilterParamResize());
-        param->interp = (params->vpp.resize_algo != RGY_VPP_RESIZE_AUTO) ? params->vpp.resize_algo : RGY_VPP_RESIZE_SPLINE36;
-        param->frameIn = inputFrame;
-        param->frameOut = inputFrame;
-        param->frameOut.width = resize.first;
-        param->frameOut.height = resize.second;
-        param->baseFps = m_encFps;
-        param->bOutOverwrite = false;
-        if (isLibplaceboResizeFiter(params->vpp.resize_algo)) {
-            param->libplaceboResample = std::make_shared<RGYFilterParamLibplaceboResample>();
-            param->libplaceboResample->resample = params->vpp.resize_libplacebo;
-            param->libplaceboResample->resize_algo = param->interp;
-            param->libplaceboResample->vk = m_device->vulkan();
+        if (resize.first > 0 && resize.second > 0
+            && (resize.first != inputFrame.width || resize.second != inputFrame.height)) {
+            auto filter = std::make_unique<RGYFilterResize>(m_cl);
+            shared_ptr<RGYFilterParamResize> param(new RGYFilterParamResize());
+            param->interp = (params->vpp.resize_algo != RGY_VPP_RESIZE_AUTO) ? params->vpp.resize_algo : RGY_VPP_RESIZE_SPLINE36;
+            param->frameIn = inputFrame;
+            param->frameOut = inputFrame;
+            param->frameOut.width = resize.first;
+            param->frameOut.height = resize.second;
+            param->baseFps = m_encFps;
+            param->bOutOverwrite = false;
+            if (isLibplaceboResizeFiter(params->vpp.resize_algo)) {
+                param->libplaceboResample = std::make_shared<RGYFilterParamLibplaceboResample>();
+                param->libplaceboResample->resample = params->vpp.resize_libplacebo;
+                param->libplaceboResample->resize_algo = param->interp;
+                param->libplaceboResample->vk = m_device->vulkan();
+            }
+            auto sts = filter->init(param, m_pQSVLog);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            //入力フレーム情報を更新
+            inputFrame = param->frameOut;
+            m_encFps = param->baseFps;
+            //登録
+            clfilters.push_back(std::move(filter));
         }
-        auto sts = filter->init(param, m_pQSVLog);
-        if (sts != RGY_ERR_NONE) {
-            return sts;
-        }
-        //入力フレーム情報を更新
-        inputFrame = param->frameOut;
-        m_encFps = param->baseFps;
-        //登録
-        clfilters.push_back(std::move(filter));
         return RGY_ERR_NONE;
     }
     //unsharp
@@ -3049,25 +3084,23 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
     }
     const bool cspConvRequired = inputFrame.csp != getEncoderCsp(inputParam);
 
+    m_encWidth = croppedWidth;
+    m_encHeight = croppedHeight;
     //リサイザの出力すべきサイズ
-    int resizeWidth = croppedWidth;
-    int resizeHeight = croppedHeight;
-    m_encWidth = resizeWidth;
-    m_encHeight = resizeHeight;
+    int resizeWidth = 0;
+    int resizeHeight = 0;
     //指定のリサイズがあればそのサイズに設定する
     if (inputParam->input.dstWidth > 0 && inputParam->input.dstHeight > 0) {
-        m_encWidth = inputParam->input.dstWidth;
-        m_encHeight = inputParam->input.dstHeight;
-        resizeWidth = m_encWidth;
-        resizeHeight = m_encHeight;
-    }
-    if (inputParam->vpp.pad.enable) {
-        m_encWidth += inputParam->vpp.pad.right + inputParam->vpp.pad.left;
-        m_encHeight += inputParam->vpp.pad.bottom + inputParam->vpp.pad.top;
+        m_encWidth = resizeWidth = inputParam->input.dstWidth;
+        m_encHeight = resizeHeight = inputParam->input.dstHeight;
+        if (inputParam->vpp.pad.enable) {
+            resizeWidth -= (inputParam->vpp.pad.right + inputParam->vpp.pad.left);
+            resizeHeight -= (inputParam->vpp.pad.bottom + inputParam->vpp.pad.top);
+        }
     }
 
     RGY_VPP_RESIZE_TYPE resizeRequired = RGY_VPP_RESIZE_TYPE_NONE;
-    if (croppedWidth != resizeWidth || croppedHeight != resizeHeight) {
+    if (resizeWidth > 0 && resizeHeight > 0) {
         resizeRequired = getVppResizeType(inputParam->vpp.resize_algo);
         if (resizeRequired == RGY_VPP_RESIZE_TYPE_UNKNOWN) {
             PrintMes(RGY_LOG_ERROR, _T("Unknown resize type.\n"));

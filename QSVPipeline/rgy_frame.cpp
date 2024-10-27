@@ -221,7 +221,7 @@ RGY_ERR RGYFrameDataDOVIRpu::convert(const RGYFrameDataMetadataConvertParam *met
     }
     m_data.resize(rpu_data->len);
     memcpy(m_data.data(), rpu_data->data, rpu_data->len);
-#endif
+#endif // ENABLE_LIBDOVI
     return RGY_ERR_NONE;
 }
 

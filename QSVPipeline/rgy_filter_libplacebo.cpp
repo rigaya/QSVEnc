@@ -32,6 +32,7 @@
 #include "rgy_osdep.h"
 #include <iostream>
 #include <fstream>
+#include <regex>
 
 tstring RGYFilterParamLibplaceboResample::print() const {
     return resample.print();
@@ -43,6 +44,10 @@ tstring RGYFilterParamLibplaceboDeband::print() const {
 
 tstring RGYFilterParamLibplaceboToneMapping::print() const {
     return toneMapping.print();
+}
+
+tstring RGYFilterParamLibplaceboShader::print() const {
+    return shader.print();
 }
 
 #if ENABLE_LIBPLACEBO
@@ -763,25 +768,25 @@ RGY_ERR RGYFilterLibplacebo::initCommon(shared_ptr<RGYFilterParam> pParam) {
     }
     const tstring nameBlank(m_name.length() + _tcslen(_T(": ")), _T(' '));
     tstring info = m_name + _T(": ");
-    tstring INFO_INDENT = _T("    ");
-    tstring indent = tstring(INFO_INDENT) + nameBlank;
+    tstring INFO_INDENT = _T("               ");
+    const tstring indent = tstring(INFO_INDENT) + nameBlank;
+    tstring current_line;
     if (m_srcCrop) {
-        info += indent + m_srcCrop->GetInputMessage() + _T("\n");
+        info += m_srcCrop->GetInputMessage() + _T("\n");
+        current_line = indent;
     }
     auto prm_print = printParams(prm);
     const size_t MAX_LINE_LENGTH = 90;
     std::vector<tstring> prm_print_lines;
-    tstring current_line = indent;
     for (const auto& token : split(prm_print, _T(","))) {
         current_line += trim(token) + _T(", ");
         if (current_line.length() > MAX_LINE_LENGTH) {
             info += current_line + _T("\n");
             current_line = indent;
-            indent = tstring(INFO_INDENT) + nameBlank;
         }
     }
-    current_line = lstrip(current_line, _T(", "));
-    if (current_line.size() > 0) {
+    if (current_line.size() > 0 && current_line != indent) {
+        current_line = lstrip(current_line, _T(", "));
         info += current_line + _T("\n");
     }
     if (m_dstCrop) {
@@ -963,7 +968,8 @@ RGY_ERR RGYFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
             texOut[iplane] = pl_tex_planes_out[iplane].get();
             texIn[iplane] = pl_tex_planes_in[iplane].get();
         }
-        sts = procFrame(texOut, ppOutputFrames[0], texIn, txtFrameBufIn);
+        RGYFrameInfo outInfo = (m_dstCrop) ? m_dstCrop->GetFilterParam()->frameOut : m_frameBuf[0]->frame;
+        sts = procFrame(texOut, &outInfo, texIn, txtFrameBufIn);
          if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to process frame.\n"));
              return sts;
@@ -1058,7 +1064,7 @@ void RGYFilterLibplacebo::close() {
     m_semOutVKWait.clear();
     m_semOutVKStart.clear();
 #endif
-    
+    m_dither_state.reset();
     m_renderer.reset();
     m_dispatch.reset();
     m_pldevice.reset();
@@ -2053,6 +2059,239 @@ VideoVUIInfo RGYFilterLibplaceboToneMapping::VuiOut() const {
     return m_tonemap.outVui;
 }
 
+RGYFilterLibplaceboShader::RGYFilterLibplaceboShader(shared_ptr<RGYOpenCLContext> context) :
+    RGYFilterLibplacebo(context),
+    m_shader(),
+    m_colorsystem(),
+    m_transfer(),
+    m_range(),
+    m_chromaloc(),
+    m_sample_params(),
+    m_sigmoid_params(),
+    m_linear()
+{
+    m_name = _T("libplacebo-shader");
+    m_procByFrame = true;
+}
+RGYFilterLibplaceboShader::~RGYFilterLibplaceboShader() {};
+
+RGY_CSP RGYFilterLibplaceboShader::getTextureCsp(const RGY_CSP csp) {
+    const auto inChromaFmt = RGY_CSP_CHROMA_FORMAT[csp];
+    return (inChromaFmt == RGY_CHROMAFMT_RGB) ? RGY_CSP_RGB_16 : RGY_CSP_YUV444_16;
+}
+
+RGYPLInteropDataFormat RGYFilterLibplaceboShader::getTextureDataFormat([[maybe_unused]] const RGY_CSP csp) {
+#if ENABLE_D3D11
+    return DXGI_FORMAT_R16_UNORM;
+#elif ENABLE_VULKAN
+    return VK_FORMAT_R16_UNORM;
+#else
+    static_assert(false);
+#endif
+}
+
+RGY_ERR RGYFilterLibplaceboShader::checkParam(const RGYFilterParam *param) {
+    auto prm = dynamic_cast<const RGYFilterParamLibplaceboShader*>(param);
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+
+    if (prm->shader.shader.length() == 0) {
+        AddMessage(RGY_LOG_ERROR, _T("No shader file specified.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (!rgy_file_exists(prm->shader.shader.c_str())) {
+        AddMessage(RGY_LOG_ERROR, _T("Shader file not found: %s\n"), prm->shader.shader.c_str());
+        return RGY_ERR_FILE_OPEN;
+    }
+
+    // prm->resampleの各値の範囲をチェック
+    if (prm->shader.width < 0 || prm->shader.height < 0) {
+        AddMessage(RGY_LOG_ERROR, _T("width and height must be greater than 0.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->shader.radius > 16.0f) {
+        AddMessage(RGY_LOG_ERROR, _T("radius must be between 0.0f and 16.0f.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->shader.blur < 0.0f || prm->shader.blur > 100.0f) {
+        AddMessage(RGY_LOG_ERROR, _T("blur must be between 0.0f and 100.0f.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->shader.taper < 0.0f || prm->shader.taper > 1.0f) {
+        AddMessage(RGY_LOG_ERROR, _T("taper must be between 0.0f and 1.0f.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->shader.clamp_ < 0.0f || prm->shader.clamp_ > 1.0f) {
+        AddMessage(RGY_LOG_ERROR, _T("clamp must be between 0.0f and 1.0f.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->shader.antiring < 0.0f || prm->shader.antiring > 1.0f) {
+        AddMessage(RGY_LOG_ERROR, _T("antiring must be between 0.0f and 1.0f.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterLibplaceboShader::setLibplaceboParam(const RGYFilterParam *param) {
+    auto prm = dynamic_cast<const RGYFilterParamLibplaceboShader*>(param);
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+
+    std::ifstream shader_file(prm->shader.shader, std::ios::binary | std::ios_base::in);
+    if (!shader_file.is_open()) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to open shader file.\n"));
+        return RGY_ERR_FILE_OPEN;
+    }
+    shader_file.seekg(0, std::ios::end);
+    std::vector<char> shader_data_buf(shader_file.tellg());
+    shader_file.seekg(0, std::ios::beg);
+    shader_file.read(shader_data_buf.data(), shader_data_buf.size());
+    if (shader_data_buf.size() == 0) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to read shader file.\n"));
+        return RGY_ERR_NULL_PTR;
+    }
+    auto shader_data = std::string(shader_data_buf.data(), shader_data_buf.size());
+
+    for (const auto& shader_prm : prm->shader.params) {
+        auto prm1 = tchar_to_string(shader_prm.first);
+        auto prm2 = tchar_to_string(shader_prm.second);
+        shader_data = std::regex_replace(shader_data, std::regex(std::string("(#define\\s") + prm1 + std::string("\\s+)(.+?)(?=\\/\\/|\\s)")), "$01" + prm2);
+    }
+
+    m_shader = std::unique_ptr<pl_hook, RGYLibplaceboDeleter<const pl_hook*>>(
+        (pl_hook *)m_pl->p_mpv_user_shader_parse()(m_pldevice->gpu, shader_data.c_str(), shader_data.size()),
+        RGYLibplaceboDeleter<const pl_hook*>(m_pl->p_mpv_user_shader_destroy()));
+    if (!m_shader) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to parse shader.\n"));
+        return RGY_ERR_UNKNOWN;
+    }
+
+    const auto inChromaFmt = RGY_CSP_CHROMA_FORMAT[param->frameIn.csp];
+    auto vui = prm->vui;
+    if (inChromaFmt == RGY_CHROMAFMT_RGB || inChromaFmt == RGY_CHROMAFMT_RGB_PACKED) {
+        vui.setIfUnsetUnknwonAuto(VideoVUIInfo().to(RGY_MATRIX_RGB).to(RGY_PRIM_BT709).to(RGY_TRANSFER_IEC61966_2_1));
+    } else {
+        vui.setIfUnsetUnknwonAuto(VideoVUIInfo().to((CspMatrix)COLOR_VALUE_AUTO_RESOLUTION).to((CspColorprim)COLOR_VALUE_AUTO_RESOLUTION).to((CspTransfer)COLOR_VALUE_AUTO_RESOLUTION));
+    }
+    vui.apply_auto(VideoVUIInfo(), param->frameIn.height);
+
+    m_colorsystem = (pl_color_system)prm->shader.colorsystem;
+    if (m_colorsystem == PL_COLOR_SYSTEM_UNKNOWN) {
+        switch (vui.matrix) {
+        case RGY_MATRIX_RGB: m_colorsystem = PL_COLOR_SYSTEM_RGB; break;
+        case RGY_MATRIX_YCGCO: m_colorsystem = PL_COLOR_SYSTEM_YCGCO; break;
+        case RGY_MATRIX_BT470_BG:
+        case RGY_MATRIX_ST170_M: m_colorsystem = PL_COLOR_SYSTEM_BT_601; break;
+        case RGY_MATRIX_BT2020_CL: m_colorsystem = PL_COLOR_SYSTEM_BT_2020_C; break;
+        case RGY_MATRIX_BT2020_NCL: {
+            m_colorsystem = PL_COLOR_SYSTEM_BT_2020_NC;
+            if (vui.transfer == RGY_TRANSFER_ST2084) {
+                m_colorsystem = PL_COLOR_SYSTEM_BT_2100_PQ; break;
+            } else if (vui.transfer == RGY_TRANSFER_ARIB_B67) {
+                m_colorsystem = PL_COLOR_SYSTEM_BT_2100_HLG; break;
+            }
+            break;
+        }
+        case RGY_MATRIX_BT709:
+        default:
+            m_colorsystem = PL_COLOR_SYSTEM_BT_709; break;
+        }
+    }
+
+    m_transfer = (pl_color_transfer)(prm->shader.transfer);
+    if (m_transfer == PL_COLOR_TRC_UNKNOWN) {
+        m_transfer = transfer_rgy_to_libplacebo(vui.transfer);
+    }
+    m_range = (vui.colorrange == RGY_COLORRANGE_FULL) ? PL_COLOR_LEVELS_FULL : PL_COLOR_LEVELS_LIMITED;
+    m_linear = prm->shader.linear;
+    m_chromaloc = chromaloc_rgy_to_libplacebo(prm->shader.chromaloc);
+
+    m_sample_params = std::make_unique<pl_sample_filter_params>();
+    m_sample_params->antiring = prm->shader.antiring;
+
+    auto resample_filter_name = resize_algo_rgy_to_libplacebo(prm->shader.resize_algo);
+    if (resample_filter_name == nullptr) {
+        AddMessage(RGY_LOG_ERROR, _T("unsupported resize algorithm.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+
+    auto filter_config = m_pl->p_find_filter_config()(resample_filter_name, PL_FILTER_UPSCALING);
+    if (!filter_config) {
+        AddMessage(RGY_LOG_ERROR, _T("unsupported resample filter type.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    m_sample_params->filter = *filter_config;
+    m_sample_params->filter.clamp = prm->shader.clamp_;
+    m_sample_params->filter.blur = prm->shader.blur;
+    m_sample_params->filter.taper = prm->shader.taper;
+    if (prm->shader.radius >= 0.0) {
+        if (!m_sample_params->filter.kernel->resizable) {
+            AddMessage(RGY_LOG_WARN, _T("radius %.1f ignored for non-resizable filter: %s.\n"), char_to_tstring(resample_filter_name).c_str());
+        } else {
+            m_sample_params->filter.radius = prm->shader.radius;
+        }
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterLibplaceboShader::procFrame(pl_tex texOut[RGY_MAX_PLANES], const RGYFrameInfo *pDstFrame, pl_tex texIn[RGY_MAX_PLANES], const RGYFrameInfo *pSrcFrame) {
+    pl_color_repr crpr = { };
+    crpr.bits.bit_shift = 0;
+    crpr.bits.color_depth = 16;
+    crpr.bits.sample_depth = 16;
+    crpr.sys = m_colorsystem;
+    crpr.levels = m_range;
+
+    pl_color_space csp = {};
+    csp.transfer = m_transfer;
+
+    pl_frame img = {};
+    img.num_planes = 3;
+    img.repr = crpr;
+    img.color = csp;
+    for (int i = 0; i < RGY_CSP_PLANES[pSrcFrame->csp]; i++) {
+        img.planes[i].texture = texIn[i];
+        img.planes[i].components = 1;
+        img.planes[i].component_mapping[0] = i;
+    }
+
+    if (RGY_CSP_CHROMA_FORMAT[pSrcFrame->csp] == RGY_CHROMAFMT_YUV420) {
+        m_pl->p_frame_set_chroma_location()(&img, m_chromaloc);
+    }
+
+    pl_frame out = { 0 };
+    out.num_planes = 3;
+    out.repr = crpr;
+    out.color = csp;
+
+    for (int i = 0; i < RGY_CSP_PLANES[pDstFrame->csp]; i++) {
+        out.planes[i].texture = texOut[i];
+        out.planes[i].components = 1;
+        out.planes[i].component_mapping[0] = i;
+    }
+
+    auto shader = m_shader.get();
+
+    pl_render_params renderParams = { 0 };
+    renderParams.hooks = &shader;
+    renderParams.num_hooks = 1;
+    renderParams.sigmoid_params = m_sigmoid_params.get();
+    renderParams.disable_linear_scaling = !m_linear;
+    renderParams.upscaler = &m_sample_params->filter;
+    renderParams.downscaler = &m_sample_params->filter;
+    renderParams.antiringing_strength = m_sample_params->antiring;
+
+    if (!m_pl->p_render_image()(m_renderer.get(), &img, &out, &renderParams)) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to render image.\n"));
+        return RGY_ERR_UNKNOWN;
+    }
+    return RGY_ERR_NONE;
+}
+
 #else
 
 RGYFilterLibplaceboResample::RGYFilterLibplaceboResample(shared_ptr<RGYOpenCLContext> context) : RGYFilterDisabled(context) { m_name = _T("libplacebo-resample"); }
@@ -2063,5 +2302,8 @@ RGYFilterLibplaceboDeband::~RGYFilterLibplaceboDeband() {};
 
 RGYFilterLibplaceboToneMapping::RGYFilterLibplaceboToneMapping(shared_ptr<RGYOpenCLContext> context) : RGYFilterDisabled(context) { m_name = _T("libplacebo-deband"); }
 RGYFilterLibplaceboToneMapping::~RGYFilterLibplaceboToneMapping() {};
+
+RGYFilterLibplaceboShader::RGYFilterLibplaceboShader(shared_ptr<RGYOpenCLContext> context) : RGYFilterDisabled(context) { m_name = _T("libplacebo-deband"); }
+RGYFilterLibplaceboShader::~RGYFilterLibplaceboShader() {};
 
 #endif // ENABLE_LIBPLACEBO
