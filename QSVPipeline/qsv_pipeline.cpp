@@ -3075,13 +3075,6 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
         inputFrame.height = croppedHeight;
     }
 
-    //出力解像度が設定されていない場合は、入力解像度と同じにする
-    if (inputParam->input.dstWidth == 0) {
-        inputParam->input.dstWidth = croppedWidth;
-    }
-    if (inputParam->input.dstHeight == 0) {
-        inputParam->input.dstHeight = croppedHeight;
-    }
     const bool cspConvRequired = inputFrame.csp != getEncoderCsp(inputParam);
 
     m_encWidth = croppedWidth;
