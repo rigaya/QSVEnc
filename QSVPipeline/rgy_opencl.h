@@ -102,6 +102,12 @@ typedef cl_ulong cl_semaphore_payload_khr;
 #ifndef CL_UUID_SIZE_KHR
 #define CL_UUID_SIZE_KHR 16
 #endif
+#ifndef CL_DEVICE_UUID_KHR
+#define CL_DEVICE_UUID_KHR          0x106A
+#endif
+#ifndef CL_DRIVER_UUID_KHR
+#define CL_DRIVER_UUID_KHR          0x106B
+#endif
 
 #if ENABLE_RGY_OPENCL_D3D9
 // ---cl_dx9_media_sharing_intel ---
