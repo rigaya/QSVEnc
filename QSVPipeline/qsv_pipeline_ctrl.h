@@ -1906,7 +1906,7 @@ public:
 
         std::vector<std::shared_ptr<RGYFrameData>> metadatalist;
         if (m_encParams.videoPrm.mfx.CodecId == MFX_CODEC_HEVC || m_encParams.videoPrm.mfx.CodecId == MFX_CODEC_AV1) {
-            if (m_hdr10plus) {
+            if (m_hdr10plus && frame) {
                 if (const auto data = m_hdr10plus->getData(m_inFrames); data) {
                     metadatalist.push_back(std::make_shared<RGYFrameDataHDR10plus>(data->data(), data->size(), dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->timestamp()));
                 }
