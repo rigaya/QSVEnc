@@ -830,7 +830,7 @@ rgy_filter_tweak.cpp        rgy_filter_unsharp.cpp      rgy_filter_warpsharp.cpp
 rgy_frame.cpp               rgy_frame_info.cpp          rgy_hdr10plus.cpp              rgy_ini.cpp \
 rgy_input.cpp               rgy_input_avcodec.cpp       rgy_input_avi.cpp              rgy_input_avs.cpp \
 rgy_input_raw.cpp           rgy_input_sm.cpp            rgy_input_vpy.cpp              rgy_language.cpp \
-rgy_libplacebo.cpp \
+rgy_libdovi.cpp             rgy_libplacebo.cpp \
 rgy_log.cpp                 rgy_memmem.cpp              rgy_memmem_avx2.cpp            rgy_memmem_avx512bw.cpp
 rgy_opencl.cpp              rgy_output.cpp              rgy_output_avcodec.cpp \
 rgy_perf_counter.cpp        rgy_perf_monitor.cpp        rgy_pipe.cpp                   rgy_pipe_linux.cpp \
@@ -940,7 +940,7 @@ write_config_mak "LD  = $LD"
 write_config_mak "PROGRAM = $PROGRAM"
 write_config_mak "ENABLE_DEBUG = $ENABLE_DEBUG"
 write_config_mak "CFLAGS = $CFLAGS"
-write_config_mak "CXXFLAGS = $CXXFLAGS $EXTRACXXFLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVISYNTH_CFLAGS $LIBASS_CFLAGS $DTL_CFLAGS $CPPCODEC_CFLAGS $LIBDOVI_CFLAGS"
+write_config_mak "CXXFLAGS = $CXXFLAGS $EXTRACXXFLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVISYNTH_CFLAGS $LIBASS_CFLAGS $DTL_CFLAGS $CPPCODEC_CFLAGS $VULKAN_CFLAGS $LIBPLACEBO_CFLAGS $LIBDOVI_CFLAGS"
 write_config_mak "LDFLAGS = $LDFLAGS $EXTRALDFLAGS $LIBAV_LIBS $LIBASS_LIBS $LIBDOVI_LIBS"
 write_config_mak "PREFIX = $PREFIX"
 echo "X86_64 = ${X86_64}"
