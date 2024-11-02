@@ -1004,10 +1004,10 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
     auto par = std::make_pair(pInParams->nPAR[0], pInParams->nPAR[1]);
     if ((!pInParams->nPAR[0] || !pInParams->nPAR[1]) //SAR比の指定がない
         && pInParams->input.sar[0] && pInParams->input.sar[1] //入力側からSAR比を取得ずみ
-        && (pInParams->input.dstWidth == pInParams->input.srcWidth && pInParams->input.dstHeight == pInParams->input.srcHeight)) {//リサイズは行われない
+        && (m_encWidth == pInParams->input.srcWidth && m_encHeight == pInParams->input.srcHeight)) {//リサイズは行われない
         par = std::make_pair(pInParams->input.sar[0], pInParams->input.sar[1]);
     }
-    adjust_sar(&par.first, &par.second, pInParams->input.dstWidth, pInParams->input.dstHeight);
+    adjust_sar(&par.first, &par.second, m_encWidth, m_encHeight);
     m_encParams.videoPrm.mfx.FrameInfo.AspectRatioW = (mfxU16)par.first;
     m_encParams.videoPrm.mfx.FrameInfo.AspectRatioH = (mfxU16)par.second;
 
@@ -1275,7 +1275,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
          m_encVUI.matrix    != get_cx_value(list_colormatrix, _T("undef")) ||
          m_encVUI.colorrange == RGY_COLORRANGE_FULL
         ) ) {
-#define GET_COLOR_PRM(v, list) (mfxU16)((v == COLOR_VALUE_AUTO) ? ((pInParams->input.dstHeight >= HD_HEIGHT_THRESHOLD) ? list[HD_INDEX].value : list[SD_INDEX].value) : v)
+#define GET_COLOR_PRM(v, list) (mfxU16)((v == COLOR_VALUE_AUTO) ? ((m_encHeight >= HD_HEIGHT_THRESHOLD) ? list[HD_INDEX].value : list[SD_INDEX].value) : v)
             //色設定 (for API v1.3)
             CHECK_RANGE_LIST(m_encVUI.format,    list_videoformat, "videoformat");
             CHECK_RANGE_LIST(m_encVUI.colorprim, list_colorprim,   "colorprim");
@@ -2099,7 +2099,8 @@ RGY_ERR CQSVPipeline::CheckParam(sInputParams *inputParam) {
     auto outpar = std::make_pair(inputParam->nPAR[0], inputParam->nPAR[1]);
     if ((!inputParam->nPAR[0] || !inputParam->nPAR[1]) //SAR比の指定がない
         && inputParam->input.sar[0] && inputParam->input.sar[1] //入力側からSAR比を取得ずみ
-        && (inputParam->input.dstWidth == inputParam->input.srcWidth && inputParam->input.dstHeight == inputParam->input.srcHeight)) {//リサイズは行われない
+        && ((inputParam->input.dstWidth == inputParam->input.srcWidth && inputParam->input.dstHeight == inputParam->input.srcHeight)
+            || (inputParam->input.dstWidth == 0 || inputParam->input.dstHeight == 0))) {//リサイズは行われない
         outpar = std::make_pair(inputParam->input.sar[0], inputParam->input.sar[1]);
     }
     if (inputParam->input.dstWidth < 0 && inputParam->input.dstHeight < 0) {

@@ -313,6 +313,14 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2024.11.02 (7.72)
+[QSVEncC]
+- --dhdr10-infoの実装を変更し、Linuxでの動作に対応。
+  hdr10plus_gen.exeを使用する代わりにlibhdr10plusを使用するように変更。
+- 入力ファイルにdoviがない場合に、--dolby-vision-rpuを指定するとエラー終了する問題を修正。
+- --dhdr10-infoがraw出力時に動作しなくなっていたのを修正。
+- 7.71で入力ファイルのSAR比が反映されていなかった問題を修正。
+
 2024.10.27 (7.71)
 [QSVEncC]
 - libplaceboによるバンディング低減フィルタを追加。(--vpp-libplacebo-deband)
