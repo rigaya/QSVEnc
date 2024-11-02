@@ -60,9 +60,7 @@ jobs:
 
       - name: Checkout dependencies
         run: |
-          curl -s -o hdr10plus_gen_0.00_${{ matrix.platform }}.7z -L https://github.com/rigaya/hdr10plus_gen/releases/download/0.00/hdr10plus_gen_0.00_${{ matrix.platform }}.7z
-          7z x -ohdr10plus_gen\ hdr10plus_gen_0.00_${{ matrix.platform }}.7z
-          curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20240929/ffmpeg_dlls_for_hwenc_20240929.7z
+          curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20241102/ffmpeg_dlls_for_hwenc_20241102.7z
           7z x -offmpeg_lgpl -y ffmpeg_lgpl.7z
           git clone https://github.com/AviSynth/AviSynthPlus.git ..\AviSynthPlus
           git clone https://github.com/vapoursynth/vapoursynth.git ..\vapoursynth
@@ -84,7 +82,6 @@ jobs:
         id: archieve
         run: |
           mkdir QSVEncC_Release
-          copy hdr10plus_gen\hdr10plus_gen.exe QSVEncC_Release
           copy _build\${{ matrix.platform }}\ReleaseStatic\QSVEncC*.exe QSVEncC_Release
           copy _build\${{ matrix.platform }}\ReleaseStatic\*.dll QSVEncC_Release
           7z a -mx9 QSVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z .\QSVEncC_Release\*
@@ -140,7 +137,7 @@ jobs:
 
       - name: Checkout dependencies
         run: |
-          curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20240929/ffmpeg_dlls_for_hwenc_20240929.7z
+          curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20241102/ffmpeg_dlls_for_hwenc_20241102.7z
           7z x -offmpeg_lgpl -y ffmpeg_lgpl.7z
           move ffmpeg5* ffmpeg_lgpl
           git clone https://github.com/AviSynth/AviSynthPlus.git ..\AviSynthPlus

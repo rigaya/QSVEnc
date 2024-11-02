@@ -218,6 +218,7 @@ QSVEncCでは、QSVを実行可能なGPUが複数存在する場合、
   [oneVPL](https://github.com/oneapi-src/oneVPL/),
   [ffmpeg](https://ffmpeg.org/),
   [libplacebo](https://code.videolan.org/videolan/libplacebo),
+  [libhdr10plus](https://github.com/quietvoid/hdr10plus_tool),
   [libdovi](https://github.com/quietvoid/dovi_tool),
   [libass](https://github.com/libass/libass),
   [tinyxml2](http://www.grinninglizard.com/tinyxml2/),

@@ -31,9 +31,9 @@
 
 #include "rgy_rev.h"
 
-#define VER_FILEVERSION             0,7,71,0
-#define VER_STR_FILEVERSION          "7.71"
-#define VER_STR_FILEVERSION_TCHAR _T("7.71")
+#define VER_FILEVERSION             0,7,72,0
+#define VER_STR_FILEVERSION          "7.72"
+#define VER_STR_FILEVERSION_TCHAR _T("7.72")
 
 #ifdef _M_IX86
 #define BUILD_ARCH_STR _T("x86")
@@ -103,6 +103,7 @@ const char *get_encoder_version();
 
 #define ENABLE_LIBPLACEBO 1
 #define ENABLE_LIBDOVI 1
+#define ENABLE_LIBHDR10PLUS 1
 #define ENABLE_VULKAN 0
 
 #ifdef BUILD_AUO

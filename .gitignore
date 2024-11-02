@@ -1,4 +1,5 @@
 ffmpeg_lgpl/
+hdr10plus_tool/
 dovi_tool/
 
 ## Ignore Visual Studio temporary files, build results, and
@@ -28,6 +29,7 @@ build/
 buildVPL/
 buildOneVPL/
 build_libdovi/
+build_libhdr10plus/
 _build/
 [Bb]in/
 [Oo]bj/
