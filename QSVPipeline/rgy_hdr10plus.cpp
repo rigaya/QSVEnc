@@ -69,7 +69,11 @@ RGY_ERR RGYHDR10Plus::init(const tstring &inputJson) {
 }
 
 tstring RGYHDR10Plus::getError() {
+#if ENABLE_LIBHDR10PLUS
     return (m_hdr10plusJson) ? char_to_tstring(hdr10plus_rs_json_get_error(m_hdr10plusJson.get())) : tstring();
+#else
+    return tstring();
+#endif
 }
 
 const std::vector<uint8_t> RGYHDR10Plus::getData(int iframe) {
