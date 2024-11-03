@@ -42,8 +42,8 @@
 #endif
 
 RGYHDR10Plus::RGYHDR10Plus() :
-    m_inputJson(),
-    m_hdr10plusJson(std::unique_ptr<Hdr10PlusRsJsonOpaque, funcHdr10PlusRsJsonOpaqueDelete>(nullptr, nullptr)) {
+    m_hdr10plusJson(std::unique_ptr<Hdr10PlusRsJsonOpaque, funcHdr10PlusRsJsonOpaqueDelete>(nullptr, nullptr)),
+    m_inputJson() {
 }
 
 RGYHDR10Plus::~RGYHDR10Plus() {
