@@ -1294,6 +1294,31 @@ RGYOpenCLPlatformInfo RGYOpenCLPlatform::info() const {
     return info;
 }
 
+RGY_ERR RGYOpenCLPlatform::setDev(cl_device_id dev, void *d3d9dev, void *d3d11dev) {
+    m_devices.clear(); m_devices.push_back(dev);
+    if (d3d9dev) {
+        m_d3d9dev = d3d9dev;
+        if (checkExtension("cl_khr_dx9_media_sharing")) {
+            LOAD_KHR(clGetDeviceIDsFromDX9MediaAdapterKHR);
+            LOAD_KHR(clCreateFromDX9MediaSurfaceKHR);
+            LOAD_KHR(clEnqueueAcquireDX9MediaSurfacesKHR);
+            LOAD_KHR(clEnqueueReleaseDX9MediaSurfacesKHR);
+        }
+    }
+    if (d3d11dev) {
+        m_d3d11dev = d3d11dev;
+        if (checkExtension("cl_khr_d3d11_sharing")) {
+            LOAD_KHR(clGetDeviceIDsFromD3D11KHR);
+            LOAD_KHR(clCreateFromD3D11BufferKHR);
+            LOAD_KHR(clCreateFromD3D11Texture2DKHR);
+            LOAD_KHR(clCreateFromD3D11Texture3DKHR);
+            LOAD_KHR(clEnqueueAcquireD3D11ObjectsKHR);
+            LOAD_KHR(clEnqueueReleaseD3D11ObjectsKHR);
+        }
+    }
+    return RGY_ERR_NONE;
+};
+
 bool RGYOpenCLPlatform::isVendor(const char *vendor) const {
     return checkVendor(info().vendor.c_str(), vendor);
 }

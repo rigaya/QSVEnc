@@ -885,11 +885,7 @@ public:
     RGYOpenCLDevice dev(int idx) { return RGYOpenCLDevice(m_devices[idx]); };
     const std::vector<cl_device_id>& devs() const { return m_devices; };
     void setDev(cl_device_id dev) { m_devices.clear(); m_devices.push_back(dev); };
-    void setDev(cl_device_id dev, void *d3d9dev, void *d3d11dev) {
-        m_devices.clear(); m_devices.push_back(dev);
-        if (d3d9dev) m_d3d9dev = d3d9dev;
-        if (d3d11dev) m_d3d11dev = d3d11dev;
-    };
+    RGY_ERR setDev(cl_device_id dev, void *d3d9dev, void *d3d11dev);
     void setDevs(std::vector<cl_device_id> &devs) { m_devices = devs; };
     bool isVendor(const char *vendor) const;
     bool checkExtension(const char* extension) const;
