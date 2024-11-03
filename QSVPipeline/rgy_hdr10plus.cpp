@@ -64,7 +64,7 @@ RGY_ERR RGYHDR10Plus::init(const tstring &inputJson) {
     }
     return RGY_ERR_NONE;
 #else
-    reutnr RGY_ERR_UNSUPPORTED;
+    return RGY_ERR_UNSUPPORTED;
 #endif
 }
 
