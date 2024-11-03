@@ -116,6 +116,17 @@ static std::string uuidToString(const void *uuid) {
     return str;
 };
 
+static std::string luidToString(const void *uuid) {
+    std::string str;
+    const uint8_t *buf = (const uint8_t *)uuid;
+    for (size_t i = 0; i < CL_LUID_SIZE_KHR; ++i) {
+        char tmp[4];
+        sprintf_s(tmp, "%02x", buf[i]);
+        str += tmp;
+    }
+    return str;
+};
+
 static bool checkVendor(const char *str, const char *VendorName) {
     if (VendorName == nullptr) {
         return true;
@@ -642,7 +653,8 @@ RGYOpenCLDeviceInfo::RGYOpenCLDeviceInfo() :
     profile(),
     version(),
     extensions(),
-    uuid()
+    uuid(),
+    luid()
 #if ENCODER_QSV || CLFILTERS_AUF
     ,
     ip_version_intel(0),
@@ -758,6 +770,7 @@ RGYOpenCLDeviceInfo RGYOpenCLDevice::info() const {
         clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_VERSION, &info.version);
         clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_EXTENSIONS, &info.extensions);
         clGetDeviceInfo(m_device, CL_DEVICE_UUID_KHR, sizeof(info.uuid), info.uuid, nullptr);
+        clGetDeviceInfo(m_device, CL_DEVICE_LUID_KHR, sizeof(info.luid), info.luid, nullptr);
 #if ENCODER_QSV || CLFILTERS_AUF
         clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_IP_VERSION_INTEL, &info.ip_version_intel);
         clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_ID_INTEL, &info.id_intel);

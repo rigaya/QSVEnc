@@ -109,6 +109,16 @@ typedef cl_ulong cl_semaphore_payload_khr;
 #define CL_DRIVER_UUID_KHR          0x106B
 #endif
 
+#ifndef CL_LUID_SIZE_KHR
+#define CL_LUID_SIZE_KHR 8
+#endif
+#ifndef CL_DEVICE_LUID_VALID_KHR
+#define CL_DEVICE_LUID_VALID_KHR    0x106C
+#endif
+#ifndef CL_DRIVER_LUID_KHR
+#define CL_DRIVER_LUID_KHR          0x106D
+#endif
+
 #if ENABLE_RGY_OPENCL_D3D9
 // ---cl_dx9_media_sharing_intel ---
 #define cl_intel_dx9_media_sharing 1
@@ -777,6 +787,7 @@ struct RGYOpenCLDeviceInfo {
     std::string version;
     std::string extensions;
     uint8_t uuid[CL_UUID_SIZE_KHR];
+    uint8_t luid[CL_LUID_SIZE_KHR];
 
 #if ENCODER_QSV || CLFILTERS_AUF
     int ip_version_intel;
