@@ -80,7 +80,7 @@ Finally, open QSVEnc.sln, and start build of QSVEnc by Visual Studio.
   sudo apt install build-essential git libtool pkg-config git cmake
   ```
 
-- Install rust + cargo-c (for libdovi build)
+- Install rust + cargo-c (for libdovi, libhdr10plus build)
 
   ```Shell
   sudo apt install libssl-dev curl

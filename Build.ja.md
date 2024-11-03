@@ -81,7 +81,7 @@ QSVEnc.slnを開きます。
   sudo apt install build-essential libtool git cmake
   ```
 
-- rust + cargo-cのインストール
+- rust + cargo-cのインストール (libdovi, libhdr10plusビルド用)
 
   ```Shell
   sudo apt install libssl-dev curl
