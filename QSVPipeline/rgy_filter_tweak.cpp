@@ -356,7 +356,11 @@ RGY_ERR RGYFilterTweak::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
         if (prm->tweak.b.enabled()) str += indent + _T("b: ") + prm->tweak.b.print() + _T("\n");
     }
     if (m_convC) str += indent + m_convC->GetInputMessage();
-    setFilterInfo(tstring(_T("tweak: ") + str.substr(_tcslen(_T("tweak: ")))));
+    if (str.length() > _tcslen(_T("tweak: "))) {
+        setFilterInfo(tstring(_T("tweak: ") + str.substr(_tcslen(_T("tweak: ")))));
+    } else {
+        setFilterInfo(tstring(_T("tweak: ") + str));
+    }
     m_param = prm;
     return sts;
 }
