@@ -492,6 +492,9 @@ RGYFilterLibplacebo::~RGYFilterLibplacebo() {
 }
 
 RGY_ERR RGYFilterLibplacebo::initLibplacebo(const RGYFilterParam *param) {
+    if (m_renderer) {
+        return RGY_ERR_NONE;
+    }
     auto prm = dynamic_cast<const RGYFilterParamLibplacebo*>(param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -1120,6 +1123,15 @@ RGY_ERR RGYFilterLibplaceboResample::checkParam(const RGYFilterParam *param) {
 
 RGY_ERR RGYFilterLibplaceboResample::setLibplaceboParam(const RGYFilterParam *param) {
     auto prm = dynamic_cast<const RGYFilterParamLibplaceboResample*>(param);
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+
+    auto prmPrev = dynamic_cast<RGYFilterParamLibplaceboResample*>(m_param.get());
+    if (m_filter_params && prmPrev && prmPrev->resample == prm->resample && prmPrev->resize_algo == prm->resize_algo) {
+        return RGY_ERR_NONE;
+    }
 
     m_filter_params = std::make_unique<pl_sample_filter_params>();
     m_filter_params->no_widening = false;
@@ -1335,10 +1347,14 @@ RGY_ERR RGYFilterLibplaceboDeband::setLibplaceboParam(const RGYFilterParam *para
         return RGY_ERR_INVALID_PARAM;
     }
 
+    auto prmPrev = dynamic_cast<RGYFilterParamLibplaceboDeband*>(m_param.get());
+    if (m_filter_params && prmPrev && prmPrev->deband == prm->deband) {
+        return RGY_ERR_NONE;
+    }
+
     m_dither_params.reset();
     m_filter_params.reset();
     m_filter_params_c.reset();
-    auto prmPrev = dynamic_cast<RGYFilterParamLibplaceboDeband*>(m_param.get());
     if (prmPrev && prmPrev->deband.dither != prm->deband.dither) {
         m_dither_params.reset();
         m_dither_state.reset();
@@ -1535,6 +1551,12 @@ RGY_ERR RGYFilterLibplaceboToneMapping::setLibplaceboParam(const RGYFilterParam 
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+
+    auto prmPrev = dynamic_cast<RGYFilterParamLibplaceboToneMapping*>(m_param.get());
+    if (m_tonemap.reprSrc && prmPrev && prmPrev->toneMapping == prm->toneMapping) {
+        return RGY_ERR_NONE;
+    }
+
     m_tonemap.cspSrc = prm->toneMapping.src_csp;
     m_tonemap.cspDst = prm->toneMapping.dst_csp;
 
@@ -2139,6 +2161,10 @@ RGY_ERR RGYFilterLibplaceboShader::setLibplaceboParam(const RGYFilterParam *para
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
+    }
+    auto prmPrev = dynamic_cast<RGYFilterParamLibplaceboShader*>(m_param.get());
+    if (m_shader && prmPrev && prmPrev->shader == prm->shader) {
+        return RGY_ERR_NONE;
     }
 
     std::ifstream shader_file(prm->shader.shader, std::ios::binary | std::ios_base::in);
