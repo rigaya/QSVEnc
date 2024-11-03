@@ -67,7 +67,7 @@ jobs:
           git clone https://github.com/KhronosGroup/OpenCL-Headers.git ..\openclheaders
 
       - name: Add msbuild to PATH
-        uses: microsoft/setup-msbuild@v1.1
+        uses: microsoft/setup-msbuild@v2
         with:
           msbuild-architecture: ${{ matrix.arch }}
 
@@ -99,7 +99,7 @@ jobs:
 
       - name: Upload Release Asset
         id: upload-release-asset 
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -145,7 +145,7 @@ jobs:
           git clone https://github.com/KhronosGroup/OpenCL-Headers.git ..\openclheaders
 
       - name: Add msbuild to PATH
-        uses: microsoft/setup-msbuild@v1.1
+        uses: microsoft/setup-msbuild@v2
         with:
           msbuild-architecture: Win32
 
@@ -214,7 +214,7 @@ jobs:
 
       - name: Upload Release Asset
         id: upload-release-asset 
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
