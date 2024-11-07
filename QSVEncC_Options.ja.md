@@ -2663,22 +2663,6 @@ image stabilizerのモードの指定。
 ### --vpp-resize &lt;string&gt;
 リサイズのアルゴリズムを指定する。
 
-- **パラメータ**
-  | オプション名 | 説明 |
-  |:---|:---|
-  | auto     | 自動的に適切なものを選択 |
-  | simple   | Nearest Neighbor法による高速なリサイズ |
-  | advanced | 高品質なリサイズ |
-  | bilinear | 線形補間 |
-  | bicubic  | 双3次補間 |
-  | spline16 | 4x4 Spline補間 |
-  | spline36 | 6x6 Spline補間 |
-  | spline64 | 8x8 Spline補間 |
-  | lanczos2 | 4x4 lanczos補間 |
-  | lanczos3 | 6x6 lanczos補間 |
-  | lanczos4 | 8x8 lanczos補間 |
-リサイズのアルゴリズムを指定する。
-
 - **オプション**
   - algo=&lt;string&gt;  
     デフォルトは "auto" で自動的に適切なものを選択する。
