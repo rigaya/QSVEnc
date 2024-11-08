@@ -1298,15 +1298,18 @@ RGY_ERR RGYOpenCLPlatform::setDev(cl_device_id dev, void *d3d9dev, void *d3d11de
     m_devices.clear(); m_devices.push_back(dev);
     if (d3d9dev) {
         m_d3d9dev = d3d9dev;
+#if !ENABLE_RGY_OPENCL_D3D9
         if (checkExtension("cl_khr_dx9_media_sharing")) {
             LOAD_KHR(clGetDeviceIDsFromDX9MediaAdapterKHR);
             LOAD_KHR(clCreateFromDX9MediaSurfaceKHR);
             LOAD_KHR(clEnqueueAcquireDX9MediaSurfacesKHR);
             LOAD_KHR(clEnqueueReleaseDX9MediaSurfacesKHR);
         }
+#endif
     }
     if (d3d11dev) {
         m_d3d11dev = d3d11dev;
+#if !ENABLE_RGY_OPENCL_D3D11
         if (checkExtension("cl_khr_d3d11_sharing")) {
             LOAD_KHR(clGetDeviceIDsFromD3D11KHR);
             LOAD_KHR(clCreateFromD3D11BufferKHR);
@@ -1315,6 +1318,7 @@ RGY_ERR RGYOpenCLPlatform::setDev(cl_device_id dev, void *d3d9dev, void *d3d11de
             LOAD_KHR(clEnqueueAcquireD3D11ObjectsKHR);
             LOAD_KHR(clEnqueueReleaseD3D11ObjectsKHR);
         }
+#endif
     }
     return RGY_ERR_NONE;
 };
