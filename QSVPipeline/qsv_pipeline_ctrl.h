@@ -931,6 +931,7 @@ protected:
             PrintMes(RGY_LOG_ERROR, _T("failed to get work surface for decoder.\n"));
             return RGY_ERR_NOT_ENOUGH_BUFFER;
         }
+        surfDecWork.frame()->clearDataList();
         mfxBitstream *inputBitstream = (m_getNextBitstream) ? &m_decInputBitstream.bitstream() : nullptr;
         auto mfxSurfDecWork = surfDecWork.mfx()->surf();
         if (!m_mfxDecParams.mfx.FrameInfo.FourCC) {
