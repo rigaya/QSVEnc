@@ -502,7 +502,9 @@ Number of pixels to be cropped from left, top, right, bottom.
 Number of frames to input. (Note: input base, not output base)
 
 ### --fps &lt;int&gt;/&lt;int&gt; or &lt;float&gt;
-Set the input frame rate. Required for raw format.
+Set the input frame rate when --raw is used. Not recommended to be used with readers other than --raw.
+
+Only valid for raw format (when --raw is used), otherwise it will be ignored or only treated as a hint.
 
 ### --input-res &lt;int&gt;x&lt;int&gt;
 Set input resolution. Required for raw format.
