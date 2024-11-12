@@ -105,8 +105,8 @@ typedef cl_ulong cl_semaphore_payload_khr;
 #ifndef CL_DEVICE_UUID_KHR
 #define CL_DEVICE_UUID_KHR          0x106A
 #endif
-#ifndef CL_DRIVER_UUID_KHR
-#define CL_DRIVER_UUID_KHR          0x106B
+#ifndef CL_DEVICE_LUID_KHR
+#define CL_DEVICE_LUID_KHR          0x106B
 #endif
 
 #ifndef CL_LUID_SIZE_KHR
