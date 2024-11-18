@@ -1037,20 +1037,13 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
     const auto VBR_RC_LIST = make_array<int>(MFX_RATECONTROL_CBR, MFX_RATECONTROL_VBR, MFX_RATECONTROL_AVBR, MFX_RATECONTROL_VCM, MFX_RATECONTROL_QVBR, MFX_RATECONTROL_LA, MFX_RATECONTROL_LA_HRD);
     const auto DOVI_RC_LIST = make_array<int>(MFX_RATECONTROL_CBR, MFX_RATECONTROL_VBR, MFX_RATECONTROL_AVBR, MFX_RATECONTROL_VCM, MFX_RATECONTROL_QVBR);
     if (auto profile = getDOVIProfile(pInParams->common.doviProfile); profile != nullptr && profile->HRDSEI) {
-        if (std::find(DOVI_RC_LIST.begin(), DOVI_RC_LIST.end(), pInParams->rcParam.encMode) == DOVI_RC_LIST.end()) {
-            tstring dovi_rc_str;
-            for (auto rc : DOVI_RC_LIST) {
-                if (dovi_rc_str.length() > 0) dovi_rc_str += _T("/");
-                dovi_rc_str += EncmodeToStr(rc);
+        if (std::find(DOVI_RC_LIST.begin(), DOVI_RC_LIST.end(), pInParams->rcParam.encMode) != DOVI_RC_LIST.end()) {
+            if (m_encParams.videoPrm.mfx.BufferSizeInKB == 0) {
+                m_encParams.videoPrm.mfx.BufferSizeInKB = m_encParams.videoPrm.mfx.MaxKbps / 8;
             }
-            PrintMes(RGY_LOG_ERROR, _T("Please use %s mode for dolby vision output.\n"), dovi_rc_str.c_str());
-            return RGY_ERR_UNSUPPORTED;
-        }
-        if (m_encParams.videoPrm.mfx.BufferSizeInKB == 0) {
-            m_encParams.videoPrm.mfx.BufferSizeInKB = m_encParams.videoPrm.mfx.MaxKbps / 8;
-        }
-        if (m_encParams.videoPrm.mfx.InitialDelayInKB == 0) {
-            m_encParams.videoPrm.mfx.InitialDelayInKB = m_encParams.videoPrm.mfx.BufferSizeInKB / 2;
+            if (m_encParams.videoPrm.mfx.InitialDelayInKB == 0) {
+                m_encParams.videoPrm.mfx.InitialDelayInKB = m_encParams.videoPrm.mfx.BufferSizeInKB / 2;
+            }
         }
     }
 
