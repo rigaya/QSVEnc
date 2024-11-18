@@ -968,7 +968,7 @@ unset, copy, 5.0, 8.1, 8.2, 8.4
 ```
 
 ### --dolby-vision-rpu &lt;string&gt; [HEVC, AV1]
-指定のrpuファイルに含まれるdolby visionのmetadataを出力ファイルに挿入します。
+指定のrpuファイルに含まれるdolby visionのmetadataを出力ファイルに挿入します。[--dolby-vision-profile](#--dolby-vision-profile-string)との併用が推奨です。
 
 ### --dolby-vision-rpu copy [HEVC, AV1]
 HEVCの入力ファイルから読み取ったdolby visionのmetadataを出力ファイルに挿入します。 [--dolby-vision-profile](#--dolby-vision-profile-string)との併用が推奨です。
