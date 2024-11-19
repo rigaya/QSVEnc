@@ -130,6 +130,7 @@
   - [--dolby-vision-profile \<string\> \[HEVC, AV1\]](#--dolby-vision-profile-string-hevc-av1)
   - [--dolby-vision-rpu \<string\> \[HEVC, AV1\]](#--dolby-vision-rpu-string-hevc-av1)
   - [--dolby-vision-rpu copy \[HEVC, AV1\]](#--dolby-vision-rpu-copy-hevc-av1)
+  - [--dolby-vision-rpu-prm \<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...](#--dolby-vision-rpu-prm-param1value1param2value2)
   - [--aud](#--aud)
   - [--pic-struct](#--pic-struct)
   - [--buf-period](#--buf-period)
@@ -975,6 +976,21 @@ HEVCの入力ファイルから読み取ったdolby visionのmetadataを出力�
 
 avhw読み込みでは、フレームの並び替えにタイムスタンプを使用するため、タイムスタンプの取得できないraw ESのような入力ファイルでは使用できません。
 こうした場合には、avsw読み込みを使用してください。 
+
+### --dolby-vision-rpu-prm &lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...  
+
+```--dolby-vision-rpu```用のパラメータを指定する。
+
+- **パラメータ**
+  
+  - crop=&lt;bool&gt;
+
+    RPUのactive area offsetsを0に設定する (レターボックスなしの意味)。
+
+- 使用例
+  ```
+  例:  --dolby-vision-rpu-prm crop=true
+  ```
 
 
 ### --aud
