@@ -574,7 +574,7 @@ std::pair<RGY_ERR, QSVEncFeatures> CQSVPipeline::CheckMFXRCMode(QSVRCParam& rcPa
             }
             bFallbackSuccess = true;
             availableFeaures = availRCFeatures;
-            PrintMes(rc_error_log_level, _T("Falling back to %s mode.\n"), EncmodeToStr(rcParam.encMode));
+            PrintMes(rc_error_log_level, _T("Falling back to %s mode.\n%s\n"), EncmodeToStr(rcParam.encMode), MakeFeatureListStr(availableFeaures).c_str());
             break;
         }
     }
