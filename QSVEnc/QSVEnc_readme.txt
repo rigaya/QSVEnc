@@ -313,6 +313,11 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2024.11.24 (7.75)
+- --dolby-vision-rpuをファイルから読む場合に壊してしまっていたのを修正。
+- --vpp-libplacebo-debandのgrain_y, grain_cの読み取りが行われない問題を修正。
+- --vpp-libplacebo-debandのgrain_cのヘルプを修正。
+
 2024.11.22 (7.74)
 - --dolby-vision-profileで対象外のプロファイルも読み込めていた問題を修正。
 - --dolby-vision-rpu使用時にレターボックス部分をcropをした場合にそれを反映させるオプションを追加。 ( --dolby-vision-rpu-prm crop )

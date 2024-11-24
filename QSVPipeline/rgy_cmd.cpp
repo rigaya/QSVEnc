@@ -4044,7 +4044,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
 
         const auto paramList = std::vector<std::string>{
             "iterations", "threshold", "radius", "thre_cb",
-            "grainY", "grainC", "dither", "lut_size" };
+            "grain_y", "grain_c", "dither", "lut_size" };
 
         for (const auto& param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
@@ -4089,7 +4089,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("grainY")) {
+                if (param_arg == _T("grain_y")) {
                     try {
                         vpp->libplacebo_deband.grainY = std::stof(param_val);
                     } catch (...) {
@@ -4098,7 +4098,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("grainC")) {
+                if (param_arg == _T("grain_c")) {
                     try {
                         vpp->libplacebo_deband.grainC = std::stof(param_val);
                     } catch (...) {
@@ -9351,7 +9351,7 @@ tstring gen_cmd_help_vpp() {
         _T("      threshold=<float>         cut-off threshold (default=%.1f, 0-)\n")
         _T("      radius=<float>            initial radius (default=%.1f, 0-)\n")
         _T("      grain_y=<float>           extra noise for luma (default=%.1f, 0-)\n")
-        _T("      grain_c=<float>           extra noise for chroma (default=%.1f, 0-)\n")
+        _T("      grain_c=<float>           extra noise for chroma (default=same as grain_y, 0-)\n")
         _T("      dither=<string>           dither mode, only for 8bit\n")
         _T("                                  none, blue_noise, ordered_lut, ordered_fixed, white_noise\n")
         _T("      lut_size=<int>            size of LUT. (default=%d, 1-8)\n"),
