@@ -1767,16 +1767,18 @@ protected:
     std::vector<QSVRCParam>& m_dynamicRC;
     int m_appliedDynamicRC;
     RGYHDR10Plus *m_hdr10plus;
-    bool m_hdr10plusMetadataCopy;
+    const DOVIRpu *m_doviRpu;
     encCtrlData m_encCtrlData;
 public:
     PipelineTaskMFXEncode(
         MFXVideoSession *mfxSession, int outMaxQueueSize, MFXVideoENCODE *mfxencode, mfxVersion mfxVer, QSVVideoParam& encParams,
-        RGYTimecode *timecode, RGYTimestamp *encTimestamp, rgy_rational<int> outputTimebase, std::vector<QSVRCParam>& dynamicRC, RGYHDR10Plus *hdr10plus, bool hdr10plusMetadataCopy, std::shared_ptr<RGYLog> log)
+        RGYTimecode *timecode, RGYTimestamp *encTimestamp, rgy_rational<int> outputTimebase, std::vector<QSVRCParam>& dynamicRC,
+        RGYHDR10Plus *hdr10plus, const DOVIRpu *doviRpu, std::shared_ptr<RGYLog> log)
         : PipelineTask(PipelineTaskType::MFXENCODE, outMaxQueueSize, mfxSession, mfxVer, log),
         m_encode(mfxencode), m_timecode(timecode), m_encTimestamp(encTimestamp), m_encParams(encParams), m_outputTimebase(outputTimebase), m_bitStreamOut(),
         m_baseRC(getRCParam(encParams)), m_dynamicRC(dynamicRC), m_appliedDynamicRC(-1),
-        m_hdr10plus(hdr10plus), m_hdr10plusMetadataCopy(hdr10plusMetadataCopy), m_encCtrlData() {
+        m_hdr10plus(hdr10plus), m_doviRpu(doviRpu),
+        m_encCtrlData() {
     };
     virtual ~PipelineTaskMFXEncode() {
         m_outQeueue.clear(); // m_bitStreamOutが解放されるよう前にこちらを解放する
@@ -1907,12 +1909,31 @@ public:
 
         std::vector<std::shared_ptr<RGYFrameData>> metadatalist;
         if (m_encParams.videoPrm.mfx.CodecId == MFX_CODEC_HEVC || m_encParams.videoPrm.mfx.CodecId == MFX_CODEC_AV1) {
+            if (frame) {
+                metadatalist = dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->dataList();
+            }
             if (m_hdr10plus && frame) {
+                // 外部からHDR10+を読み込む場合、metadatalist 内のHDR10+の削除
+                for (auto it = metadatalist.begin(); it != metadatalist.end(); ) {
+                    if ((*it)->dataType() == RGY_FRAME_DATA_HDR10PLUS) {
+                        it = metadatalist.erase(it);
+                    } else {
+                        it++;
+                    }
+                }
                 if (const auto data = m_hdr10plus->getData(m_inFrames); data.size() > 0) {
                     metadatalist.push_back(std::make_shared<RGYFrameDataHDR10plus>(data.data(), data.size(), dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->timestamp()));
                 }
-            } else if (m_hdr10plusMetadataCopy && frame) {
-                metadatalist = dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->dataList();
+            }
+            if (m_doviRpu) {
+                // 外部からdoviを読み込む場合、metadatalist 内のdovi rpuの削除
+                for (auto it = metadatalist.begin(); it != metadatalist.end(); ) {
+                    if ((*it)->dataType() == RGY_FRAME_DATA_DOVIRPU) {
+                        it = metadatalist.erase(it);
+                    } else {
+                        it++;
+                    }
+                }
             }
         }
 
