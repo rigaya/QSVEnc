@@ -55,6 +55,7 @@
 #include "rgy_output.h"
 #include "rgy_opencl.h"
 #include "rgy_dummy_load.h"
+#include "rgy_device_usage.h"
 #include "qsv_vpp_mfx.h"
 #include "qsv_mfx_dec.h"
 #include "qsv_pipeline_ctrl.h"

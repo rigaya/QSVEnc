@@ -1200,7 +1200,12 @@ int run(int argc, TCHAR *argv[]) {
         _tsetlocale(LC_ALL, _T("Japanese"));
     }
 #endif //#if defined(_WIN32) || defined(_WIN64)
-
+    if (Params.ctrl.processMonitorDevUsageReset) {
+        return processMonitorRGYDeviceResetEntry();
+    }
+    if (Params.ctrl.processMonitorDevUsage) {
+        return processMonitorRGYDeviceUsage(Params.ctrl.parentProcessID, (int)Params.device);
+    }
     if (Params.bBenchmark) {
         return run_benchmark(&Params);
     }

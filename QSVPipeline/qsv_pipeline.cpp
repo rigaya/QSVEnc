@@ -3377,6 +3377,18 @@ RGY_ERR CQSVPipeline::deviceAutoSelect(const sInputParams *prm, std::vector<std:
     if (gpuList.size() <= 1) {
         return RGY_ERR_NONE;
     }
+    int maxDeviceUsageCount = 1;
+    std::vector<std::pair<int, int64_t>> deviceUsage;
+    if (gpuList.size() > 1) {
+        RGYDeviceUsage devUsage;
+        deviceUsage = devUsage.getUsage();
+        for (size_t i = 0; i < deviceUsage.size(); i++) {
+            maxDeviceUsageCount = std::max(maxDeviceUsageCount, deviceUsage[i].first);
+            if (deviceUsage[i].first > 0) {
+                PrintMes(RGY_LOG_DEBUG, _T("Device #%d: %d usage.\n"), i, deviceUsage[i].first);
+            }
+        }
+    }
 #if ENABLE_PERF_COUNTER
     PrintMes(RGY_LOG_DEBUG, _T("Auto select device from %d devices.\n"), (int)gpuList.size());
     bool counterIsIntialized = m_pPerfMonitor->isPerfCounterInitialized();
@@ -3403,15 +3415,17 @@ RGY_ERR CQSVPipeline::deviceAutoSelect(const sInputParams *prm, std::vector<std:
             RGYGPUCounterWinEntries(counters).filter_type(L"compute").max()), //vce-opencl
             RGYGPUCounterWinEntries(counters).filter_type(L"3d").max()), //qsv
             RGYGPUCounterWinEntries(counters).filter_type(L"videoprocessing").max());
+        const int deviceUsageCount = (int)gpu->deviceNum() < (int)deviceUsage.size() ? deviceUsage[(int)gpu->deviceNum()].first : 0;
+        double usage_score = 100.0 * (maxDeviceUsageCount - deviceUsageCount) / (double)maxDeviceUsageCount;
         double core_score = 0.0;
         double cc_score = 0.0;
         double ve_score = 100.0 * (1.0 - std::pow(ve_utilization / 100.0, 1.0)) * prm->ctrl.gpuSelect.ve;
         double gpu_score = 100.0 * (1.0 - std::pow(gpu_utilization / 100.0, 1.5)) * prm->ctrl.gpuSelect.gpu;
-        double cl_score = gpu->devInfo() ? 0.0 : -100.0; // openclの初期化に成功したか?
+        double cl_score = gpu->devInfo() ? 0.0 : maxDeviceUsageCount * -100.0; // openclの初期化に成功したか?
 
-        gpuscore[gpu->deviceNum()] = cc_score + ve_score + gpu_score + core_score + cl_score;
-        PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) score: %.1f: VE %.1f, GPU %.1f, CC %.1f, Core %.1f, CL %.1f.\n"), gpu->deviceNum(), gpu->name().c_str(),
-            gpuscore[gpu->deviceNum()], ve_score, gpu_score, cc_score, core_score, cl_score);
+        gpuscore[gpu->deviceNum()] = usage_score + cc_score + ve_score + gpu_score + core_score + cl_score;
+        PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) score: %.1f: Use: %.1f, VE %.1f, GPU %.1f, CC %.1f, Core %.1f, CL %.1f.\n"), gpu->deviceNum(), gpu->name().c_str(),
+            gpuscore[gpu->deviceNum()], usage_score, ve_score, gpu_score, cc_score, core_score, cl_score);
     }
     std::sort(gpuList.begin(), gpuList.end(), [&](const std::unique_ptr<QSVDevice> &a, const std::unique_ptr<QSVDevice> &b) {
         if (gpuscore.at(a->deviceNum()) != gpuscore.at(b->deviceNum())) {
@@ -3430,6 +3444,7 @@ RGY_ERR CQSVPipeline::deviceAutoSelect(const sInputParams *prm, std::vector<std:
 
 RGY_ERR CQSVPipeline::InitSession(const sInputParams *inputParam, std::vector<std::unique_ptr<QSVDevice>>& deviceList) {
     auto err = RGY_ERR_NONE;
+    const int deviceCount = (int)deviceList.size();
     if (deviceList.size() == 0) {
         PrintMes(RGY_LOG_DEBUG, _T("No device found for QSV encoding!\n"));
         return RGY_ERR_DEVICE_NOT_FOUND;
@@ -3444,6 +3459,10 @@ RGY_ERR CQSVPipeline::InitSession(const sInputParams *inputParam, std::vector<st
         }
         m_device = std::move(deviceList.front());
         PrintMes(RGY_LOG_DEBUG, _T("InitSession: selected device #%d: %s.\n"), (int)m_device->deviceNum(), m_device->name().c_str());
+    }
+    if (deviceCount > 1) {
+        RGYDeviceUsage devUsage;
+        devUsage.startProcessMonitor((int)m_device->deviceNum());
     }
 
     //使用できる最大のversionをチェック
