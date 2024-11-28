@@ -29,6 +29,8 @@
 #include <chrono>
 #if defined(_WIN32) || defined(_WIN64)
 #include <intrin.h>
+#else
+#include <sys/wait.h>
 #endif
 #include "rgy_device_usage.h"
 #include "rgy_util.h"
@@ -77,6 +79,9 @@ void RGYDeviceUsage::close() {
     release();
     m_header = nullptr;
     m_entries = nullptr;
+    if (m_sharedMem) {
+        m_sharedMem->detach();
+    }
     m_sharedMem.reset();
     m_monitorProcess.reset();
 }
@@ -86,9 +91,13 @@ RGY_ERR RGYDeviceUsage::open() {
         return RGY_ERR_NONE;
     }
 #if defined(_WIN32) || defined(_WIN64)
+    const char *sm_key = RGY_DEVICE_USAGE_SHARED_MEM_NAME;
     m_sharedMem = std::make_unique<RGYSharedMemWin>();
-    const char *sm_name = RGY_DEVICE_USAGE_SHARED_MEM_NAME;
-    m_sharedMem->open(sm_name, sizeof(RGYDeviceUsageHeader) + sizeof(RGYDeviceUsageEntry) * RGY_DEVICE_USAGE_MAX_ENTRY);
+#else
+    const int sm_key = RGY_DEVICE_USAGE_SHARED_MEM_KEY_ID;
+    m_sharedMem = std::make_unique<RGYSharedMemLinux>();
+#endif
+    m_sharedMem->open(sm_key, sizeof(RGYDeviceUsageHeader) + sizeof(RGYDeviceUsageEntry) * RGY_DEVICE_USAGE_MAX_ENTRY);
     if (!m_sharedMem->is_open()) {
         return RGY_ERR_DEVICE_NOT_FOUND;
     }
@@ -102,12 +111,10 @@ RGY_ERR RGYDeviceUsage::open() {
         memcpy(m_header->header, header, sizeof(header));
         memset(m_entries, 0, sizeof(RGYDeviceUsageEntry) * RGY_DEVICE_USAGE_MAX_ENTRY);
     }
-#endif
     return RGY_ERR_NONE;
 }
 
 void RGYDeviceUsage::check(const time_t now_time_from_epoch) {
-#if defined(_WIN32) || defined(_WIN64)
     bool removed = false;
     for (int i = 0; i < RGY_DEVICE_USAGE_MAX_ENTRY; i++) {
         if (m_entries[i].process_id == 0) {
@@ -130,11 +137,9 @@ void RGYDeviceUsage::check(const time_t now_time_from_epoch) {
         }
         memcpy(m_entries, tmp.data(), sizeof(m_entries[0]) * tmp.size());
     }
-#endif
 }
 
 RGY_ERR RGYDeviceUsage::add(int32_t device_id) {
-#if defined(_WIN32) || defined(_WIN64)
     if (!m_sharedMem) {
         open();
     }
@@ -158,24 +163,18 @@ RGY_ERR RGYDeviceUsage::add(int32_t device_id) {
         }
     }
     return RGY_ERR_DEVICE_NOT_FOUND;
-#else
-    return RGY_ERR_NONE;
-#endif
 }
 
 void RGYDeviceUsage::resetEntry() {
-#if defined(_WIN32) || defined(_WIN64)
     if (!m_sharedMem) {
         open();
     }
     RGYDeviceUsageLockManager lock(m_header);
     memset(m_entries, 0, sizeof(RGYDeviceUsageEntry) * RGY_DEVICE_USAGE_MAX_ENTRY);
-#endif
 }
 
 std::vector<std::pair<int, int64_t>> RGYDeviceUsage::getUsage() {
     std::vector<std::pair<int, int64_t>> usage;
-#if defined(_WIN32) || defined(_WIN64)
     if (!m_sharedMem) {
         open();
     }
@@ -194,7 +193,6 @@ std::vector<std::pair<int, int64_t>> RGYDeviceUsage::getUsage() {
         usage[m_entries[i].device_id].first++;
         usage[m_entries[i].device_id].second = std::min(usage[m_entries[i].device_id].second, (int64_t)time_from_epoch - m_entries[i].start_time);
     }
-#endif
     return usage;
 }
 
@@ -202,7 +200,6 @@ void RGYDeviceUsage::release() {
     if (!m_addedEntry || !m_entries) {
         return;
     }
-#if defined(_WIN32) || defined(_WIN64)
     const auto process_id = GetCurrentProcessId();
     RGYDeviceUsageLockManager lock(m_header);
     for (int i = 0; i < RGY_DEVICE_USAGE_MAX_ENTRY; i++) {
@@ -227,12 +224,10 @@ void RGYDeviceUsage::release() {
         }
     }
     m_addedEntry = false;
-#endif
 }
 
 RGY_ERR RGYDeviceUsage::startProcessMonitor(int32_t device_id) {
-#if defined(_WIN32) || defined(_WIN64)
-    m_monitorProcess = std::unique_ptr<RGYPipeProcess>(new RGYPipeProcessWin);
+    m_monitorProcess = createRGYPipeProcess();
     m_monitorProcess->init(PIPE_MODE_DISABLE, PIPE_MODE_DISABLE, PIPE_MODE_DISABLE);
 
     std::vector<tstring> args = {
@@ -252,16 +247,9 @@ RGY_ERR RGYDeviceUsage::startProcessMonitor(int32_t device_id) {
         return RGY_ERR_UNKNOWN;
     }
     return RGY_ERR_NONE;
-#endif
 }
 
 int processMonitorRGYDeviceUsage(const uint32_t ppid, const int32_t deviceID) {
-#if defined(_WIN32) || defined(_WIN64)
-    auto parentHandle = std::unique_ptr<std::remove_pointer<HANDLE>::type, handle_deleter>(OpenProcess(SYNCHRONIZE, FALSE, ppid), handle_deleter());
-    if (!parentHandle) {
-        fprintf(stderr, "Failed to open parent process (pid: %d)\n", ppid);
-        return 1;
-    }
     int ret = 0;
     RGYDeviceUsage deviceUsage;
     if (deviceUsage.open() != RGY_ERR_NONE) {
@@ -269,13 +257,23 @@ int processMonitorRGYDeviceUsage(const uint32_t ppid, const int32_t deviceID) {
     } else if (deviceUsage.add(deviceID) != RGY_ERR_NONE) {
         fprintf(stderr, "Failed to add entry\n"); ret = 1;
     } else {
+        // 親プロセスの終了を待機
+#if defined(_WIN32) || defined(_WIN64)
+        auto parentHandle = std::unique_ptr<std::remove_pointer<HANDLE>::type, handle_deleter>(OpenProcess(SYNCHRONIZE, FALSE, ppid), handle_deleter());
+        if (!parentHandle) {
+            fprintf(stderr, "Failed to open parent process (pid: %d)\n", ppid);
+            return 1;
+        }
         WaitForSingleObject(parentHandle.get(), INFINITE);
-    }
-    parentHandle.reset();
-    return ret;
+        parentHandle.reset();
 #else
-    return 0;
+        // 親プロセスが終了すると、ppidが付け替えられることを利用する
+        while ((pid_t)ppid == getppid()) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
 #endif
+    }
+    return ret;
 }
 
 int processMonitorRGYDeviceResetEntry() {

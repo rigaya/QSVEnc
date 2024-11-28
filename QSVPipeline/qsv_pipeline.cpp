@@ -3403,9 +3403,11 @@ RGY_ERR CQSVPipeline::deviceAutoSelect(const sInputParams *prm, std::vector<std:
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
     auto entries = m_pPerfMonitor->GetPerfCountersSystem();
+#endif //#if ENABLE_PERF_COUNTER
 
     std::map<QSVDeviceNum, double> gpuscore;
     for (const auto &gpu : gpuList) {
+#if ENABLE_PERF_COUNTER
         auto counters = RGYGPUCounterWinEntries(entries).filter_luid(gpu->luid()).get();
         auto ve_utilization = std::max(
             RGYGPUCounterWinEntries(counters).filter_type(L"codec").sum(),
@@ -3415,13 +3417,17 @@ RGY_ERR CQSVPipeline::deviceAutoSelect(const sInputParams *prm, std::vector<std:
             RGYGPUCounterWinEntries(counters).filter_type(L"compute").max()), //vce-opencl
             RGYGPUCounterWinEntries(counters).filter_type(L"3d").max()), //qsv
             RGYGPUCounterWinEntries(counters).filter_type(L"videoprocessing").max());
-        const int deviceUsageCount = (int)gpu->deviceNum() < (int)deviceUsage.size() ? deviceUsage[(int)gpu->deviceNum()].first : 0;
-        double usage_score = 100.0 * (maxDeviceUsageCount - deviceUsageCount) / (double)maxDeviceUsageCount;
-        double core_score = 0.0;
-        double cc_score = 0.0;
         double ve_score = 100.0 * (1.0 - std::pow(ve_utilization / 100.0, 1.0)) * prm->ctrl.gpuSelect.ve;
         double gpu_score = 100.0 * (1.0 - std::pow(gpu_utilization / 100.0, 1.5)) * prm->ctrl.gpuSelect.gpu;
+#else
+        double ve_score = 0.0;
+        double gpu_score = 0.0;
+#endif
+        double core_score = 0.0;
+        double cc_score = 0.0;
         double cl_score = gpu->devInfo() ? 0.0 : maxDeviceUsageCount * -100.0; // openclの初期化に成功したか?
+        const int deviceUsageCount = (int)gpu->deviceNum() < (int)deviceUsage.size() ? deviceUsage[(int)gpu->deviceNum()].first : 0;
+        double usage_score = 100.0 * (maxDeviceUsageCount - deviceUsageCount) / (double)maxDeviceUsageCount;
 
         gpuscore[gpu->deviceNum()] = usage_score + cc_score + ve_score + gpu_score + core_score + cl_score;
         PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) score: %.1f: Use: %.1f, VE %.1f, GPU %.1f, CC %.1f, Core %.1f, CL %.1f.\n"), gpu->deviceNum(), gpu->name().c_str(),
@@ -3438,7 +3444,6 @@ RGY_ERR CQSVPipeline::deviceAutoSelect(const sInputParams *prm, std::vector<std:
     for (const auto &gpu : gpuList) {
         PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s): score %.1f\n"), gpu->deviceNum(), gpu->name().c_str(), gpuscore[gpu->deviceNum()]);
     }
-#endif //#if ENABLE_PERF_COUNTER
     return RGY_ERR_NONE;
 }
 
