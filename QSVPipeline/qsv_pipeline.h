@@ -115,6 +115,7 @@ protected:
     std::unique_ptr<QSVDevice> m_device;
     shared_ptr<EncodeStatus> m_pStatus;
     shared_ptr<CPerfMonitor> m_pPerfMonitor;
+    std::unique_ptr<RGYDeviceUsage> m_deviceUsage;
 
     int m_encWidth;
     int m_encHeight;

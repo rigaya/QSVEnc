@@ -1637,6 +1637,7 @@ CQSVPipeline::CQSVPipeline() :
     m_device(),
     m_pStatus(),
     m_pPerfMonitor(),
+    m_deviceUsage(),
     m_encWidth(0),
     m_encHeight(0),
     m_encPicstruct(RGY_PICSTRUCT_UNKNOWN),
@@ -3466,8 +3467,8 @@ RGY_ERR CQSVPipeline::InitSession(const sInputParams *inputParam, std::vector<st
         PrintMes(RGY_LOG_DEBUG, _T("InitSession: selected device #%d: %s.\n"), (int)m_device->deviceNum(), m_device->name().c_str());
     }
     if (deviceCount > 1) {
-        RGYDeviceUsage devUsage;
-        devUsage.startProcessMonitor((int)m_device->deviceNum());
+        m_deviceUsage = std::make_unique<RGYDeviceUsage>();
+        m_deviceUsage->startProcessMonitor((int)m_device->deviceNum());
     }
 
     //使用できる最大のversionをチェック
@@ -3884,6 +3885,7 @@ void CQSVPipeline::Close() {
 
     PrintMes(RGY_LOG_DEBUG, _T("Closing device...\n"));
     m_device.reset();
+    m_deviceUsage.reset();
 
     m_trimParam.list.clear();
     m_trimParam.offset = 0;
@@ -4425,6 +4427,7 @@ RGY_ERR CQSVPipeline::RunEncode2() {
         PrintMes(RGY_LOG_DEBUG, _T("Write video quality metric results...\n"));
         m_videoQualityMetric->showResult();
     }
+    m_deviceUsage->close();
     m_pStatus->WriteResults();
     if (filter_result.size()) {
         PrintMes(RGY_LOG_INFO, _T("\nVpp Filter Performance\n"));
