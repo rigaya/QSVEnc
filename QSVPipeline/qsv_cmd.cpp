@@ -2029,7 +2029,7 @@ int parse_cmd(sInputParams *pParams, const char *cmda, bool ignore_parse_err) {
     LocalFree(argvw);
 
     vector<TCHAR *> argv_tchar;
-    for (int i = 0; i < argv_tstring.size(); i++) {
+    for (size_t i = 0; i < argv_tstring.size(); i++) {
         argv_tchar.push_back((TCHAR *)argv_tstring[i].data());
     }
     argv_tchar.push_back(_T("")); // 最後に空白を追加

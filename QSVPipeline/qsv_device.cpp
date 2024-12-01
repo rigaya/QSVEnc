@@ -77,7 +77,7 @@ RGY_ERR QSVDevice::init(const QSVDeviceNum dev, const bool enableOpenCL, const b
     return init(dev, enableOpenCL, enableVulkan, suppressErrorMessage);
 }
 
-RGY_ERR QSVDevice::init(const QSVDeviceNum dev, const bool enableOpenCL, const bool enableVulkan, const bool suppressErrorMessage) {
+RGY_ERR QSVDevice::init(const QSVDeviceNum dev, const bool enableOpenCL, [[maybe_unused]] const bool enableVulkan, const bool suppressErrorMessage) {
     m_devNum = dev;
     PrintMes(RGY_LOG_DEBUG, _T("QSVDevice::init: Start initializing device %d... memType: %s\n"), m_devNum, MemTypeToStr(m_memType));
     if (auto err = InitSessionAndDevice(m_hwdev, m_session, m_memType, m_devNum, m_sessionParams, m_log, suppressErrorMessage); err != RGY_ERR_NONE) {
