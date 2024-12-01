@@ -1126,7 +1126,7 @@ RGY_ERR RGYOpenCLPlatform::createDeviceListD3D9(cl_device_type device_type, void
 #endif
 }
 
-RGY_ERR RGYOpenCLPlatform::createDeviceListVA(cl_device_type device_type, void *vadev, const bool tryMode) {
+RGY_ERR RGYOpenCLPlatform::createDeviceListVA(cl_device_type device_type, void *vadev, [[maybe_unused]] const bool tryMode) {
 #if !ENABLE_RGY_OPENCL_VA
     UNREFERENCED_PARAMETER(device_type);
     UNREFERENCED_PARAMETER(vadev);

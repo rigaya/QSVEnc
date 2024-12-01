@@ -207,6 +207,8 @@ RGY_ERR RGYFilter::filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, RG
 #endif
 }
 
+#pragma warning(push)
+#pragma warning(disable:4100)
 RGY_ERR RGYFilterDisabled::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     m_pLog = pPrintMes;
     AddMessage(RGY_LOG_ERROR, _T("This build doesn't support this filter.\n"));
@@ -217,6 +219,7 @@ RGY_ERR RGYFilterDisabled::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
     AddMessage(RGY_LOG_ERROR, _T("This build doesn't support this filter.\n"));
     return RGY_ERR_UNSUPPORTED;
 }
+#pragma warning(pop)
 
 void RGYFilterDisabled::close() {
     m_pLog.reset();
