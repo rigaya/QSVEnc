@@ -1204,7 +1204,7 @@ int run(int argc, TCHAR *argv[]) {
         return processMonitorRGYDeviceResetEntry();
     }
     if (Params.ctrl.processMonitorDevUsage) {
-        return processMonitorRGYDeviceUsage(Params.ctrl.parentProcessID, (int)Params.device);
+        return processMonitorRGYDeviceUsage((int)Params.device);
     }
     if (Params.bBenchmark) {
         return run_benchmark(&Params);
