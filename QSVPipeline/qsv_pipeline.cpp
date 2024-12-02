@@ -3374,24 +3374,23 @@ RGY_ERR CQSVPipeline::checkGPUListByEncoder(const sInputParams *prm, std::vector
     return RGY_ERR_NONE;
 }
 
-RGY_ERR CQSVPipeline::deviceAutoSelect(const sInputParams *prm, std::vector<std::unique_ptr<QSVDevice>>& gpuList) {
+RGY_ERR CQSVPipeline::deviceAutoSelect(const sInputParams *prm, std::vector<std::unique_ptr<QSVDevice>>& gpuList, const RGYDeviceUsageLockManager *devUsageLock) {
     if (gpuList.size() <= 1) {
         return RGY_ERR_NONE;
     }
     int maxDeviceUsageCount = 1;
     std::vector<std::pair<int, int64_t>> deviceUsage;
     if (gpuList.size() > 1) {
-        RGYDeviceUsage devUsage;
-        deviceUsage = devUsage.getUsage();
+        deviceUsage = m_deviceUsage->getUsage(devUsageLock);
         for (size_t i = 0; i < deviceUsage.size(); i++) {
             maxDeviceUsageCount = std::max(maxDeviceUsageCount, deviceUsage[i].first);
             if (deviceUsage[i].first > 0) {
-                PrintMes(RGY_LOG_DEBUG, _T("Device #%d: %d usage.\n"), i, deviceUsage[i].first);
+                PrintMes(RGY_LOG_INFO, _T("Device #%d: %d usage.\n"), i, deviceUsage[i].first);
             }
         }
     }
 #if ENABLE_PERF_COUNTER
-    PrintMes(RGY_LOG_DEBUG, _T("Auto select device from %d devices.\n"), (int)gpuList.size());
+    PrintMes(RGY_LOG_INFO, _T("Auto select device from %d devices.\n"), (int)gpuList.size());
     bool counterIsIntialized = m_pPerfMonitor->isPerfCounterInitialized();
     for (int i = 0; i < 4 && !counterIsIntialized; i++) {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
@@ -3431,7 +3430,7 @@ RGY_ERR CQSVPipeline::deviceAutoSelect(const sInputParams *prm, std::vector<std:
         double usage_score = 100.0 * (maxDeviceUsageCount - deviceUsageCount) / (double)maxDeviceUsageCount;
 
         gpuscore[gpu->deviceNum()] = usage_score + cc_score + ve_score + gpu_score + core_score + cl_score;
-        PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) score: %.1f: Use: %.1f, VE %.1f, GPU %.1f, CC %.1f, Core %.1f, CL %.1f.\n"), gpu->deviceNum(), gpu->name().c_str(),
+        PrintMes(RGY_LOG_INFO, _T("GPU #%d (%s) score: %.1f: Use: %.1f, VE %.1f, GPU %.1f, CC %.1f, Core %.1f, CL %.1f.\n"), gpu->deviceNum(), gpu->name().c_str(),
             gpuscore[gpu->deviceNum()], usage_score, ve_score, gpu_score, cc_score, core_score, cl_score);
     }
     std::sort(gpuList.begin(), gpuList.end(), [&](const std::unique_ptr<QSVDevice> &a, const std::unique_ptr<QSVDevice> &b) {
@@ -3441,16 +3440,20 @@ RGY_ERR CQSVPipeline::deviceAutoSelect(const sInputParams *prm, std::vector<std:
         return a->deviceNum() < b->deviceNum();
         });
 
-    PrintMes(RGY_LOG_DEBUG, _T("GPU Priority\n"));
+    PrintMes(RGY_LOG_INFO, _T("GPU Priority\n"));
     for (const auto &gpu : gpuList) {
-        PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s): score %.1f\n"), gpu->deviceNum(), gpu->name().c_str(), gpuscore[gpu->deviceNum()]);
+        PrintMes(RGY_LOG_INFO, _T("GPU #%d (%s): score %.1f\n"), gpu->deviceNum(), gpu->name().c_str(), gpuscore[gpu->deviceNum()]);
     }
     return RGY_ERR_NONE;
 }
 
 RGY_ERR CQSVPipeline::InitSession(const sInputParams *inputParam, std::vector<std::unique_ptr<QSVDevice>>& deviceList) {
     auto err = RGY_ERR_NONE;
-    const int deviceCount = (int)deviceList.size();
+    std::unique_ptr<RGYDeviceUsageLockManager> devUsageLock;
+    if (deviceList.size() > 1) {
+        m_deviceUsage = std::make_unique<RGYDeviceUsage>();
+        devUsageLock = m_deviceUsage->lock(); // ロックは親プロセス側でとる
+    }
     if (deviceList.size() == 0) {
         PrintMes(RGY_LOG_DEBUG, _T("No device found for QSV encoding!\n"));
         return RGY_ERR_DEVICE_NOT_FOUND;
@@ -3460,16 +3463,21 @@ RGY_ERR CQSVPipeline::InitSession(const sInputParams *inputParam, std::vector<st
         if ((err = checkGPUListByEncoder(inputParam, deviceList)) != RGY_ERR_NONE) {
             return err;
         }
-        if ((err = deviceAutoSelect(inputParam, deviceList)) != RGY_ERR_NONE) {
+        if ((err = deviceAutoSelect(inputParam, deviceList, devUsageLock.get())) != RGY_ERR_NONE) {
             return err;
         }
         m_device = std::move(deviceList.front());
         PrintMes(RGY_LOG_DEBUG, _T("InitSession: selected device #%d: %s.\n"), (int)m_device->deviceNum(), m_device->name().c_str());
     }
-    if (deviceCount > 1) {
-        m_deviceUsage = std::make_unique<RGYDeviceUsage>();
-        m_deviceUsage->startProcessMonitor((int)m_device->deviceNum());
+    if (m_deviceUsage) {
+        // 登録を解除するプロセスを起動
+        const auto [err_run_proc, child_pid] = m_deviceUsage->startProcessMonitor((int)m_device->deviceNum());
+        if (err_run_proc == RGY_ERR_NONE) {
+            // プロセスが起動できたら、その子プロセスのIDを登録する
+            m_deviceUsage->add((int)m_device->deviceNum(), child_pid, devUsageLock.get());
+        }
     }
+    devUsageLock.reset();
 
     //使用できる最大のversionをチェック
     m_device->mfxSession().QueryVersion(&m_mfxVer);
@@ -4427,7 +4435,9 @@ RGY_ERR CQSVPipeline::RunEncode2() {
         PrintMes(RGY_LOG_DEBUG, _T("Write video quality metric results...\n"));
         m_videoQualityMetric->showResult();
     }
-    m_deviceUsage->close();
+    if (m_deviceUsage) {
+        m_deviceUsage->close();
+    }
     m_pStatus->WriteResults();
     if (filter_result.size()) {
         PrintMes(RGY_LOG_INFO, _T("\nVpp Filter Performance\n"));
