@@ -83,7 +83,14 @@ RGY_ERR QSVDeviceInfoCache::parseEncFeatures(std::ifstream& cacheFile) {
         }
         featureData.feature[ratecontrol] = encFeature;
 
-        m_featureData.push_back(featureData);
+        auto entry = std::find_if(m_featureData.begin(), m_featureData.end(), [featureData](const QSVEncFeatureData& data) {
+            return data.dev == featureData.dev && data.codec == featureData.codec && data.lowPwer == featureData.lowPwer;
+        });
+        if (entry != m_featureData.end()) {
+            entry->feature[ratecontrol] = encFeature;
+        } else {
+            m_featureData.push_back(featureData);
+        }
     }
     return RGY_ERR_NONE;
 }
@@ -138,20 +145,21 @@ void QSVDeviceInfoCache::clearFeatureCache() {
 }
 
 RGY_ERR QSVDeviceInfoCache::addEncFeature(const QSVEncFeatureData& encFeatures) {
-    for (auto& featureData : m_featureData) {
-        if (featureData.dev == encFeatures.dev && featureData.codec == encFeatures.codec && featureData.lowPwer == encFeatures.lowPwer) {
-            for (const auto& feature : encFeatures.feature) {
-                if (featureData.feature.count(feature.first) == 0
-                    || featureData.feature[feature.first] != feature.second) {
-                    featureData.feature[feature.first] = feature.second;
-                    m_dataUpdated = true;
-                }
+    auto entry = std::find_if(m_featureData.begin(), m_featureData.end(), [encFeatures](const QSVEncFeatureData& data) {
+        return data.dev == encFeatures.dev && data.codec == encFeatures.codec && data.lowPwer == encFeatures.lowPwer;
+        });
+    if (entry != m_featureData.end()) {
+        for (const auto& feature : encFeatures.feature) {
+            if (entry->feature.count(feature.first) == 0
+                || entry->feature[feature.first] != feature.second) {
+                entry->feature[feature.first] = feature.second;
+                m_dataUpdated = true;
             }
-            return RGY_ERR_NONE;
         }
+    } else {
+        m_featureData.push_back(encFeatures);
+        m_dataUpdated = true;
     }
-    m_featureData.push_back(encFeatures);
-    m_dataUpdated = true;
     return RGY_ERR_NONE;
 }
 
