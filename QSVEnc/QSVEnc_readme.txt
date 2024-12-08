@@ -313,6 +313,11 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2024.12.08 (7.76)
+- エンコーダのPCを起動してから2回目以降の移動速度を向上。
+- --device autoでのGPU自動選択を改善。
+  より積極的に他のGPUを使用するように。
+
 2024.11.24 (7.75)
 - --dolby-vision-rpuをファイルから読む場合に壊してしまっていたのを修正。
 - --vpp-libplacebo-debandのgrain_y, grain_cの読み取りが行われない問題を修正。

@@ -375,6 +375,8 @@ public:
     QSVEncFeatureRCExt operator&(const QSVEncFeatureRCExt &x) const { return rc_ext & x; }
     QSVEncFeatureParams operator|(const QSVEncFeatureParams &x) const { return feature | x; }
     QSVEncFeatureParams operator&(const QSVEncFeatureParams &x) const { return feature & x; }
+    bool operator==(const QSVEncFeatures &x) const { return (rc_ext == x.rc_ext && feature == x.feature); }
+    bool operator!=(const QSVEncFeatures &x) const { return (rc_ext != x.rc_ext || feature != x.feature); }
 };
 
 MAP_PAIR_0_1_PROTO(qsv_feature_rc_ext, enm, QSVEncFeatureRCExt, str, tstring);

@@ -418,7 +418,7 @@ QSVVideoParam& QSVVideoParam::operator=(const QSVVideoParam &o) {
         }
     }
     videoPrm.NumExtParam = (mfxU16)buf.size();
-    videoPrm.ExtParam = &buf[0];
+    videoPrm.ExtParam = (buf.size()) ? &buf[0] : nullptr;
     return *this;
 }
 

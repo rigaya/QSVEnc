@@ -55,6 +55,7 @@ RGY_DISABLE_WARNING_POP
 #include "qsv_query.h"
 #include "rgy_def.h"
 #include "rgy_env.h"
+#include "rgy_device_info_cache.h"
 #include "rgy_filesystem.h"
 #include "rgy_input.h"
 #include "rgy_output.h"
@@ -1838,14 +1839,16 @@ RGY_ERR CQSVPipeline::InitOutput(sInputParams *inputParams) {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR CQSVPipeline::InitInput(sInputParams *inputParam, std::vector<std::unique_ptr<QSVDevice>>& devList) {
-#if ENABLE_RAW_READER
-#if ENABLE_AVSW_READER
+DeviceCodecCsp CQSVPipeline::getHWDecCodecCsp(const bool skipHWDecodeCheck, std::vector<std::unique_ptr<QSVDevice>>& devList) {
     DeviceCodecCsp HWDecCodecCsp;
     for (const auto& dev : devList) {
-        HWDecCodecCsp.push_back(std::make_pair((int)dev->deviceNum(), dev->getDecodeCodecCsp(inputParam->ctrl.skipHWDecodeCheck)));
+        HWDecCodecCsp.push_back(std::make_pair((int)dev->deviceNum(), dev->getDecodeCodecCsp(skipHWDecodeCheck)));
     }
-#endif
+    return HWDecCodecCsp;
+}
+
+RGY_ERR CQSVPipeline::InitInput(sInputParams *inputParam, DeviceCodecCsp& HWDecCodecCsp) {
+#if ENABLE_RAW_READER
     m_pStatus.reset(new EncodeStatus());
 
     int subburnTrackId = 0;
@@ -3743,21 +3746,84 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
         PrintMes(RGY_LOG_DEBUG, _T("Set Process priority: %s.\n"), rgy_thread_priority_mode_to_str(priority));
     }
 
+    RGYParamThread threadParamThrottleDsiabled;
+    threadParamThrottleDsiabled.set(pParams->ctrl.threadParams.get(RGYThreadType::PROCESS).affinity, RGYThreadPriority::Normal, RGYThreadPowerThrottlingMode::Disabled);
+    threadParamThrottleDsiabled.apply(GetCurrentThread());
+
+#if defined(_WIN32) || defined(_WIN64)
+    if (!pParams->bDisableTimerPeriodTuning) {
+        m_bTimerPeriodTuning = true;
+        timeBeginPeriod(1);
+        PrintMes(RGY_LOG_DEBUG, _T("timeBeginPeriod(1)\n"));
+    }
+#endif //#if defined(_WIN32) || defined(_WIN64)
+
     m_sessionParams.threads = pParams->nSessionThreads;
     m_sessionParams.deviceCopy = pParams->gpuCopy;
     m_nAVSyncMode = pParams->common.AVSyncMode;
 
-    auto deviceList = getDeviceList(pParams->device, pParams->ctrl.enableOpenCL, pParams->ctrl.enableVulkan, pParams->memType, m_sessionParams, m_pQSVLog);
-    if (deviceList.size() == 0) {
-        PrintMes(RGY_LOG_DEBUG, _T("No device found for QSV encoding!\n"));
-        return RGY_ERR_DEVICE_NOT_FOUND;
+    DeviceCodecCsp HWDecCodecCsp;
+    auto deviceInfoCache = std::make_shared<QSVDeviceInfoCache>();
+    if ((sts = deviceInfoCache->loadCacheFile()) != RGY_ERR_NONE) {
+        if (sts == RGY_ERR_FILE_OPEN) { // ファイルは存在するが開けない
+            deviceInfoCache.reset(); // キャッシュの存在を無視して進める
+        }
+    } else {
+        HWDecCodecCsp = deviceInfoCache->getDeviceDecCodecCsp();
+        PrintMes(RGY_LOG_DEBUG, _T("HW dec codec csp support read from cache file.\n"));
+    }
+    std::vector<std::unique_ptr<QSVDevice>> deviceList;
+    auto getDevIdName = [&deviceList]() {
+        std::map<int, std::string> devIdName;
+        for (const auto& dev : deviceList) {
+            devIdName[(int)dev->deviceNum()] = tchar_to_string(dev->name());
+        }
+        return devIdName;
+    };
+    if (deviceInfoCache
+        && (deviceInfoCache->getDeviceIds().size() == 0
+        || (pParams->device == QSVDeviceNum::AUTO && deviceInfoCache->getDeviceIds().size() != HWDecCodecCsp.size())
+        || (pParams->device != QSVDeviceNum::AUTO && 
+            std::find_if(HWDecCodecCsp.begin(), HWDecCodecCsp.end(), [dev = (int)pParams->device](const std::pair<int, CodecCsp>& data) { return data.first == dev; }) == HWDecCodecCsp.end()))) {
+        deviceList = getDeviceList((deviceInfoCache->getDeviceIds().size() == 0) ? QSVDeviceNum::AUTO : pParams->device, pParams->ctrl.enableOpenCL, pParams->ctrl.enableVulkan, pParams->memType, m_sessionParams, deviceInfoCache, m_pQSVLog);
+        if (deviceList.size() == 0) {
+            PrintMes(RGY_LOG_DEBUG, _T("No device found for QSV encoding!\n"));
+            return RGY_ERR_DEVICE_NOT_FOUND;
+        }
+        HWDecCodecCsp = getHWDecCodecCsp(pParams->ctrl.skipHWDecodeCheck, deviceList);
+        deviceInfoCache->setDecCodecCsp(getDevIdName(), HWDecCodecCsp);
+        deviceInfoCache->saveCacheFile();
+        PrintMes(RGY_LOG_DEBUG, _T("HW dec codec csp support saved to cache file.\n"));
+        if (pParams->device != QSVDeviceNum::AUTO) {
+            for (auto it = deviceList.begin(); it != deviceList.end();) {
+                if ((*it)->deviceNum() != pParams->device) {
+                    it = deviceList.erase(it);
+                } else {
+                    it++;
+                }
+            }
+        }
     }
 
-    sts = InitInput(pParams, deviceList);
-    if (sts < RGY_ERR_NONE) return sts;
-    PrintMes(RGY_LOG_DEBUG, _T("InitInput: Success.\n"));
+    auto input_ret = std::async(std::launch::async, [&] {
+        threadParamThrottleDsiabled.apply(GetCurrentThread());
+        auto sts = InitInput(pParams, HWDecCodecCsp);
+        if (sts == RGY_ERR_NONE) {
+            pParams->applyDOVIProfile(m_pFileReader->getInputDOVIProfile());
+        }
+        return sts;
+    });
 
-    pParams->applyDOVIProfile(m_pFileReader->getInputDOVIProfile());
+    if (deviceList.size() == 0) {
+        deviceList = getDeviceList(pParams->device, pParams->ctrl.enableOpenCL, pParams->ctrl.enableVulkan, pParams->memType, m_sessionParams, deviceInfoCache, m_pQSVLog);
+        if (deviceList.size() == 0) {
+            PrintMes(RGY_LOG_INFO, _T("No device found for QSV encoding!\n"));
+            return RGY_ERR_DEVICE_NOT_FOUND;
+        }
+        if (deviceInfoCache) {
+            deviceInfoCache->setDeviceIds(getDevIdName());
+        }
+    }
 
     sts = InitSession(pParams, deviceList);
     RGY_ERR(sts, _T("Failed to initialize encode session."));
@@ -3765,6 +3831,11 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
 
     sts = InitOpenCL(pParams->ctrl.enableOpenCL, pParams->vpp.checkPerformance);
     if (sts < RGY_ERR_NONE) return sts;
+    PrintMes(RGY_LOG_DEBUG, _T("InitOpenCL: Success.\n"));
+
+    sts = input_ret.get();
+    if (sts < RGY_ERR_NONE) return sts;
+    PrintMes(RGY_LOG_DEBUG, _T("InitInput: Success.\n"));
 
     sts = CheckParam(pParams);
     if (sts != RGY_ERR_NONE) return sts;
@@ -3774,14 +3845,18 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
 
     sts = InitMfxDecParams();
     if (sts < RGY_ERR_NONE) return sts;
+    PrintMes(RGY_LOG_DEBUG, _T("InitMfxDecParams: Success.\n"));
 
     sts = InitFilters(pParams);
     if (sts < RGY_ERR_NONE) return sts;
+    PrintMes(RGY_LOG_DEBUG, _T("InitFilters: Success.\n"));
 
     sts = InitMfxEncodeParams(pParams, deviceList);
     if (sts < RGY_ERR_NONE) return sts;
+    PrintMes(RGY_LOG_DEBUG, _T("InitMfxEncodeParams: Success.\n"));
 
     deviceList.clear();
+    if (deviceInfoCache) deviceInfoCache->updateCacheFile();
 
     sts = InitPowerThrottoling(pParams);
     if (sts < RGY_ERR_NONE) return sts;
@@ -3811,18 +3886,10 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
         PrintMes(RGY_LOG_ERROR, _T("None of the pipeline element (DEC,VPP,ENC) are activated!\n"));
         return RGY_ERR_INVALID_VIDEO_PARAM;
     }
-    PrintMes(RGY_LOG_DEBUG, _T("pipeline element count: %d\n"), nPipelineElements);
+    PrintMes(RGY_LOG_INFO, _T("pipeline element count: %d\n"), nPipelineElements);
 
     sts = InitVideoQualityMetric(pParams);
     if (sts < RGY_ERR_NONE) return sts;
-
-#if defined(_WIN32) || defined(_WIN64)
-    if (!pParams->bDisableTimerPeriodTuning) {
-        m_bTimerPeriodTuning = true;
-        timeBeginPeriod(1);
-        PrintMes(RGY_LOG_DEBUG, _T("timeBeginPeriod(1)\n"));
-    }
-#endif //#if defined(_WIN32) || defined(_WIN64)
 
     if ((sts = InitAvoidIdleClock(pParams)) != RGY_ERR_NONE) {
         return sts;

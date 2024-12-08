@@ -25,11 +25,164 @@
 //
 // --------------------------------------------------------------------------------------------
 
+#include <iostream>
+#include <fstream>
 #include "qsv_util.h"
 #include "qsv_session.h"
 #include "qsv_device.h"
 #include "gpu_info.h"
 #include "rgy_avutil.h"
+
+QSVDeviceInfoCache::QSVDeviceInfoCache() : RGYDeviceInfoCache(), m_featureData() { }
+QSVDeviceInfoCache::~QSVDeviceInfoCache() { }
+
+RGY_ERR QSVDeviceInfoCache::parseEncFeatures(std::ifstream& cacheFile) {
+    m_featureData.clear();
+
+    std::string line;
+    while (std::getline(cacheFile, line)) {
+        QSVEncFeatureData featureData;
+
+        std::istringstream iss(line);
+        int deviceId = 0;
+        if (!(iss >> deviceId)) {
+            return RGY_ERR_INVALID_FORMAT; // デバイスID読み取りエラー
+        }
+        featureData.dev = (QSVDeviceNum)deviceId;
+
+        std::string codecNameStr;
+        if (!(iss >> codecNameStr)) {
+            return RGY_ERR_INVALID_FORMAT; // コーデック名読み取りエラー
+        }
+        featureData.codec = (RGY_CODEC)get_cx_value(list_rgy_codec, char_to_tstring(codecNameStr).c_str());
+        if (featureData.codec == RGY_CODEC_UNKNOWN) {
+            return RGY_ERR_INVALID_VIDEO_PARAM; // コーデック名変換エラー
+        }
+        if (!(iss >> featureData.lowPwer)) {
+            return RGY_ERR_INVALID_FORMAT; // lowpower読み取りエラー
+        }
+        std::string ratecontrolStr;
+        if (!(iss >> ratecontrolStr)) {
+            return RGY_ERR_INVALID_FORMAT; // レート制御読み取りエラー
+        }
+
+        const int ratecontrol = get_value_from_chr(list_rc_mode, char_to_tstring(ratecontrolStr).c_str());
+        if (ratecontrol == PARSE_ERROR_FLAG) {
+            return RGY_ERR_INVALID_VIDEO_PARAM; // レート制御変換エラー
+        }
+
+        QSVEncFeatures encFeature;
+        std::string featureStr;
+        while (std::getline(iss, featureStr, ',')) {
+            const auto featureName = trim(char_to_tstring(featureStr));
+            if (const auto feature = qsv_feature_params_str_to_enm(featureName); feature != ENC_FEATURE_PARAMS_NONE) {
+                encFeature |= feature;
+            } else if (const auto rc_ext = qsv_feature_rc_ext_str_to_enm(featureName); rc_ext != ENC_FEATURE_RCEXT_NONE) {
+                encFeature |= rc_ext;
+            }
+        }
+        featureData.feature[ratecontrol] = encFeature;
+
+        m_featureData.push_back(featureData);
+    }
+    return RGY_ERR_NONE;
+}
+
+void QSVDeviceInfoCache::writeEncFeatures(std::ofstream& cacheFile) {
+    cacheFile << ENC_FEATURES_START_LINE << std::endl;
+
+    for (const auto& featureData : m_featureData) {
+        for (const auto& feature : featureData.feature) {
+            cacheFile << static_cast<int>(featureData.dev) << " "
+                << tchar_to_string(get_cx_desc(list_rgy_codec, featureData.codec)) << " "
+                << featureData.lowPwer << " "
+                << tchar_to_string(get_cx_desc(list_rc_mode, feature.first)) << " ";
+            const auto encFeatureNameUnknown = qsv_feature_enm_to_str((QSVEncFeatureParams)-1ll);
+            const auto encRCExtNameUnknown = qsv_feature_enm_to_str((QSVEncFeatureRCExt)-1ll);
+            bool first = true;
+            for (size_t i = 0; i < sizeof(QSVEncFeatureParams) * 8; i++) {
+                const auto flag = (QSVEncFeatureParams)(1llu << i);
+                if (qsv_feature_enm_to_str(flag) == encFeatureNameUnknown) {
+                    continue;
+                }
+                if (feature.second & flag) {
+                    if (!first) {
+                        cacheFile << ",";
+                    }
+                    cacheFile << tchar_to_string(qsv_feature_enm_to_str(flag));
+                    first = false;
+                }
+            }
+            for (size_t i = 0; i < sizeof(QSVEncFeatureRCExt) * 8; i++) {
+                const auto flag = (QSVEncFeatureRCExt)(1llu << i);
+                if (qsv_feature_enm_to_str(flag) == encRCExtNameUnknown) {
+                    continue;
+                }
+                if (feature.second & flag) {
+                    if (!first) {
+                        cacheFile << ",";
+                    }
+                    cacheFile << tchar_to_string(qsv_feature_enm_to_str(flag));
+                    first = false;
+                }
+            }
+            cacheFile << std::endl;
+        }
+    }
+}
+
+void QSVDeviceInfoCache::clearFeatureCache() {
+    m_deviceDecCodecCsp.clear();
+    m_featureData.clear();
+    m_dataUpdated = true;
+}
+
+RGY_ERR QSVDeviceInfoCache::addEncFeature(const QSVEncFeatureData& encFeatures) {
+    for (auto& featureData : m_featureData) {
+        if (featureData.dev == encFeatures.dev && featureData.codec == encFeatures.codec && featureData.lowPwer == encFeatures.lowPwer) {
+            for (const auto& feature : encFeatures.feature) {
+                if (featureData.feature.count(feature.first) == 0
+                    || featureData.feature[feature.first] != feature.second) {
+                    featureData.feature[feature.first] = feature.second;
+                    m_dataUpdated = true;
+                }
+            }
+            return RGY_ERR_NONE;
+        }
+    }
+    m_featureData.push_back(encFeatures);
+    m_dataUpdated = true;
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR QSVDeviceInfoCache::addEncFeature(const std::vector<QSVEncFeatureData>& encFeatures) {
+    for (const auto& encFeature : encFeatures) {
+        if (auto sts = addEncFeature(encFeature); sts != RGY_ERR_NONE) {
+            return sts;
+        }
+    }
+    return RGY_ERR_NONE;
+}
+
+std::pair<RGY_ERR, QSVEncFeatures> QSVDeviceInfoCache::getEncodeFeature(const QSVDeviceNum dev, const int ratecontrol, const RGY_CODEC codec, const bool lowpower) {
+    auto target = std::find_if(m_featureData.begin(), m_featureData.end(), [dev, codec, lowpower](const QSVEncFeatureData& data) {
+        return data.dev == dev && data.codec == codec && data.lowPwer == lowpower;
+        });
+    if (target != m_featureData.end() && target->feature.count(ratecontrol) > 0) {
+        return { RGY_ERR_NONE, target->feature[ratecontrol] };
+    }
+    return { RGY_ERR_NOT_FOUND, QSVEncFeatures() };
+}
+
+std::vector<QSVEncFeatureData> QSVDeviceInfoCache::getEncodeFeatures(const QSVDeviceNum dev) {
+    std::vector<QSVEncFeatureData> featureData;
+    for (const auto& data : m_featureData) {
+        if (data.dev == dev) {
+            featureData.push_back(data);
+        }
+    }
+    return featureData;
+}
 
 QSVDevice::QSVDevice() :
     m_devNum(QSVDeviceNum::AUTO),
@@ -44,6 +197,7 @@ QSVDevice::QSVDevice() :
     m_externalAlloc(false),
     m_memType(HW_MEMORY),
     m_featureData(),
+    m_devInfoCache(),
     m_log() {
     m_log = std::make_shared<RGYLog>(nullptr, RGY_LOG_QUIET);
 }
@@ -53,6 +207,7 @@ QSVDevice::~QSVDevice() {
 }
 
 void QSVDevice::close() {
+    m_devInfoCache.reset();
     PrintMes(RGY_LOG_DEBUG, _T("Close device %d...\n"), (int)m_devNum);
     PrintMes(RGY_LOG_DEBUG, _T("Closing session...\n"));
     m_session.Close();
@@ -70,10 +225,11 @@ void QSVDevice::close() {
     m_log.reset();
 }
 
-RGY_ERR QSVDevice::init(const QSVDeviceNum dev, const bool enableOpenCL, const bool enableVulkan, MemType memType, const MFXVideoSession2Params& params, std::shared_ptr<RGYLog> log, const bool suppressErrorMessage) {
+RGY_ERR QSVDevice::init(const QSVDeviceNum dev, const bool enableOpenCL, const bool enableVulkan, MemType memType, const MFXVideoSession2Params& params, std::shared_ptr<QSVDeviceInfoCache> devInfoCache, std::shared_ptr<RGYLog> log, const bool suppressErrorMessage) {
     m_log = log;
     m_memType = memType;
     m_sessionParams = params;
+    m_devInfoCache = devInfoCache;
     return init(dev, enableOpenCL, enableVulkan, suppressErrorMessage);
 }
 
@@ -188,6 +344,9 @@ RGY_ERR QSVDevice::init(const QSVDeviceNum dev, const bool enableOpenCL, [[maybe
         }
     }
 #endif
+    if (m_devInfoCache) {
+        m_featureData = m_devInfoCache->getEncodeFeatures(m_devNum);
+    }
     return RGY_ERR_NONE;
 }
 
@@ -216,11 +375,23 @@ LUID QSVDevice::luid() {
 }
 
 CodecCsp QSVDevice::getDecodeCodecCsp(const bool skipHWDecodeCheck) {
+    if (m_devInfoCache) {
+        auto& devDecCsp = m_devInfoCache->getDeviceDecCodecCsp();
+        for (const auto& devCsp : devDecCsp) {
+            if (devCsp.first == (int)m_devNum) {
+                return devCsp.second;
+            }
+        }
+    }
     vector<RGY_CODEC> codecLists;
     for (int i = 0; i < _countof(HW_DECODE_LIST); i++) {
         codecLists.push_back(HW_DECODE_LIST[i].rgy_codec);
     }
-    return MakeDecodeFeatureList(m_session, codecLists, m_log, skipHWDecodeCheck);
+    auto codecCsp = MakeDecodeFeatureList(m_session, codecLists, m_log, skipHWDecodeCheck);
+    if (m_devInfoCache) {
+        m_devInfoCache->setDecCodecCsp(tchar_to_string(name()), { (int)m_devNum, codecCsp });
+    }
+    return codecCsp;
 }
 
 QSVEncFeatures QSVDevice::getEncodeFeature(const int ratecontrol, const RGY_CODEC codec, const bool lowpower) {
@@ -243,6 +414,14 @@ QSVEncFeatures QSVDevice::getEncodeFeature(const int ratecontrol, const RGY_CODE
         data.feature[ratecontrol] = result;
         m_featureData.push_back(data);
     }
+    if (m_devInfoCache) {
+        target = std::find_if(m_featureData.begin(), m_featureData.end(), [codec, lowpower](const QSVEncFeatureData& data) {
+            return data.codec == codec && data.lowPwer == lowpower;
+            });
+        if (target != m_featureData.end()) {
+            m_devInfoCache->addEncFeature(*target);
+        }
+    }
     return result;
 }
 
@@ -254,7 +433,7 @@ std::optional<RGYOpenCLDeviceInfo> getDeviceCLInfoQSV(const QSVDeviceNum deviceN
     return std::optional<RGYOpenCLDeviceInfo>();
 }
 
-std::vector<std::unique_ptr<QSVDevice>> getDeviceList(const QSVDeviceNum deviceNum, const bool enableOpenCL, const bool enableVulkan, const MemType memType, const MFXVideoSession2Params& params, std::shared_ptr<RGYLog> log) {
+std::vector<std::unique_ptr<QSVDevice>> getDeviceList(const QSVDeviceNum deviceNum, const bool enableOpenCL, const bool enableVulkan, const MemType memType, const MFXVideoSession2Params& params, std::shared_ptr<QSVDeviceInfoCache> devInfoCache, std::shared_ptr<RGYLog> log) {
     auto openCLAvail = enableOpenCL;
     if (enableOpenCL) {
         RGYOpenCL cl(std::make_shared<RGYLog>(nullptr, RGY_LOG_QUIET));
@@ -268,7 +447,7 @@ std::vector<std::unique_ptr<QSVDevice>> getDeviceList(const QSVDeviceNum deviceN
     for (int idev = idevstart; idev <= idevfin; idev++) {
         log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Check device %d...\n"), idev);
         auto dev = std::make_unique<QSVDevice>();
-        if (dev->init((QSVDeviceNum)idev, enableOpenCL && openCLAvail, enableVulkan, memType, params, log, idev != idevstart) != RGY_ERR_NONE) {
+        if (dev->init((QSVDeviceNum)idev, enableOpenCL && openCLAvail, enableVulkan, memType, params, devInfoCache, log, idev != idevstart) != RGY_ERR_NONE) {
             break;
         }
         devList.push_back(std::move(dev));

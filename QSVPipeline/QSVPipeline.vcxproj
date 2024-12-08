@@ -602,6 +602,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClCompile Include="rgy_cmd.cpp" />
     <ClCompile Include="rgy_codepage.cpp" />
     <ClCompile Include="rgy_def.cpp" />
+    <ClCompile Include="rgy_device_info_cache.cpp" />
     <ClCompile Include="rgy_device_usage.cpp" />
     <ClCompile Include="rgy_device_vulkan.cpp" />
     <ClCompile Include="rgy_dummy_load.cpp">
@@ -1034,6 +1035,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_cmd.h" />
     <ClInclude Include="rgy_codepage.h" />
     <ClInclude Include="rgy_def.h" />
+    <ClInclude Include="rgy_device_info_cache.h" />
     <ClInclude Include="rgy_device_usage.h" />
     <ClInclude Include="rgy_device_vulkan.h" />
     <ClInclude Include="rgy_dummy_load.h" />
