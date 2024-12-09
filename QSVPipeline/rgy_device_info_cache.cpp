@@ -33,6 +33,7 @@
 #include "rgy_osdep.h"
 #include "rgy_filesystem.h"
 #include "rgy_device_info_cache.h"
+#include "rgy_rev.h"
 
 #define DEVICE_INFO_CACHE_FILE_NAME _T("device_info_") _T(ENCODER_NAME) _T("_cache.txt")
 #define DEVICE_INFO_CACHE_HEADER "device_info_" ENCODER_NAME "_cache_v1"
@@ -301,13 +302,22 @@ RGY_ERR RGYDeviceInfoCache::saveCacheFile() {
     if (!m_dataUpdated) {
         return RGY_ERR_NONE;
     }
-    std::ofstream cacheFile(getCacheFilePath());
-    if (!cacheFile.is_open()) {
-        return RGY_ERR_FILE_OPEN; // ファイルオープンエラー
+    const auto cachFilePath = getCacheFilePath();
+    bool cacheFileExists = rgy_file_exists(cachFilePath);
+    {
+        std::ofstream cacheFile(cachFilePath);
+        if (!cacheFile.is_open()) {
+            return RGY_ERR_FILE_OPEN; // ファイルオープンエラー
+        }
+        writeHeader(cacheFile);
+        writeDecCsp(cacheFile);
+        writeEncFeatures(cacheFile);
+        cacheFile.close();
     }
-    writeHeader(cacheFile);
-    writeDecCsp(cacheFile);
-    writeEncFeatures(cacheFile);
-
+    if (!cacheFileExists) {
+#if !(defined(_WIN32) || defined(_WIN64))
+        chmod(cachFilePath.c_str(), S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+#endif
+    }
     return RGY_ERR_NONE; // 正常終了
 }
