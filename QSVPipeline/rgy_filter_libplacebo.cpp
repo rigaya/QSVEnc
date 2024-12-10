@@ -523,6 +523,10 @@ RGY_ERR RGYFilterLibplacebo::initLibplacebo(const RGYFilterParam *param) {
         }
         AddMessage(RGY_LOG_DEBUG, _T("Created libplacebo log.\n"));
     }
+    const auto loglevel = m_pLog->getLogLevel(RGY_LOGT_LIBPLACEBO);
+    if (ENCODER_VCEENC && loglevel >= RGY_LOG_INFO) { // VCEでは無駄にエラーログが出るので、デバッグの場合を除き一時的に表示しない
+        m_pLog->setLogLevel(RGY_LOG_QUIET, RGY_LOGT_LIBPLACEBO);
+    }
 #if ENABLE_D3D11
     pl_d3d11_params gpu_params = { 0 };
     gpu_params.device = (ID3D11Device*)m_cl->platform()->d3d11dev();
@@ -545,6 +549,9 @@ RGY_ERR RGYFilterLibplacebo::initLibplacebo(const RGYFilterParam *param) {
     m_pldevice = std::unique_ptr<std::remove_pointer<pl_vulkan>::type, RGYLibplaceboDeleter<pl_vulkan>>(
         m_pl->p_vulkan_create()(m_log.get(), &gpu_params), RGYLibplaceboDeleter<pl_vulkan>(m_pl->p_vulkan_destroy()));
 #endif
+    if (ENCODER_VCEENC) {
+        m_pLog->setLogLevel(loglevel, RGY_LOGT_LIBPLACEBO);
+    }
     if (!m_pldevice) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to create libplacebo D3D11 device.\n"));
         return RGY_ERR_UNKNOWN;
