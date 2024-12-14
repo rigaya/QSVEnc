@@ -902,7 +902,9 @@ public:
 
     virtual RGYDOVIProfile getInputDOVIProfile() override;
 
-    virtual bool rffAware() override;
+    virtual bool rffAware() const override;
+
+    virtual bool seekable() const override;
 
     //入力ファイルに存在する音声のトラック数を返す
     int GetAudioTrackCount() override;
@@ -914,7 +916,7 @@ public:
     int GetDataTrackCount() override;
 
     //動画の最初のフレームのptsを取得する
-    int64_t GetVideoFirstKeyPts();
+    virtual int64_t GetVideoFirstKeyPts() const override;
 
     //入力に使用可能なdeviceIDを取得する
     const std::set<int>& GetHWDecDeviceID() const;

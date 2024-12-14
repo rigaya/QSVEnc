@@ -2335,6 +2335,19 @@ bool RGYParamAvoidIdleClock::operator!=(const RGYParamAvoidIdleClock &x) const {
     return !(*this == x);
 }
 
+RGYParamParallelEnc::RGYParamParallelEnc() :
+    multiProcess(0),
+    multiProcessId(0) {
+
+};
+bool RGYParamParallelEnc::operator==(const RGYParamParallelEnc &x) const {
+    return multiProcess == x.multiProcess
+        && multiProcessId == x.multiProcessId;
+}
+bool RGYParamParallelEnc::operator!=(const RGYParamParallelEnc &x) const {
+    return !(*this == x);
+}
+
 RGYParamCommon::~RGYParamCommon() {};
 
 RGYParamControl::RGYParamControl() :
@@ -2367,7 +2380,8 @@ RGYParamControl::RGYParamControl() :
     avoidIdleClock(),
     processMonitorDevUsage(false),
     processMonitorDevUsageReset(false),
-    outputBufSizeMB(RGY_OUTPUT_BUF_MB_DEFAULT) {
+    outputBufSizeMB(RGY_OUTPUT_BUF_MB_DEFAULT),
+    parallelEnc() {
 
 }
 RGYParamControl::~RGYParamControl() {};

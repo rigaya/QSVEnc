@@ -2470,7 +2470,7 @@ int RGYInputAvcodec::GetAudioTrackCount() {
     return m_Demux.format.audioTracks;
 }
 
-int64_t RGYInputAvcodec::GetVideoFirstKeyPts() {
+int64_t RGYInputAvcodec::GetVideoFirstKeyPts() const {
     return m_Demux.video.streamFirstKeyPts;
 }
 
@@ -3095,8 +3095,12 @@ rgy_rational<int> RGYInputAvcodec::getInputTimebase() {
     return to_rgy(GetInputVideoStream()->time_base);
 }
 
-bool RGYInputAvcodec::rffAware() {
+bool RGYInputAvcodec::rffAware() const {
     return ENCODER_NVENC != 0;
+}
+
+bool RGYInputAvcodec::seekable() const {
+    return (m_Demux.format.formatCtx->ctx_flags & AVFMTCTX_UNSEEKABLE) == 0;
 }
 
 //qStreamPktL1をチェックし、framePosListから必要な音声パケットかどうかを判定し、

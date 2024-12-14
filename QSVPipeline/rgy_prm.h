@@ -2503,6 +2503,14 @@ struct RGYParamAvoidIdleClock {
     bool operator!=(const RGYParamAvoidIdleClock &x) const;
 };
 
+struct RGYParamParallelEnc {
+    int multiProcess;
+    int multiProcessId;
+    RGYParamParallelEnc();
+    bool operator==(const RGYParamParallelEnc &x) const;
+    bool operator!=(const RGYParamParallelEnc &x) const;
+};
+
 struct RGYParamControl {
     int threadCsp;
     RGY_SIMD simdCsp;
@@ -2535,6 +2543,8 @@ struct RGYParamControl {
     bool processMonitorDevUsageReset;
 
     int outputBufSizeMB;         //出力バッファサイズ
+
+    RGYParamParallelEnc parallelEnc;
 
     RGYParamControl();
     ~RGYParamControl();

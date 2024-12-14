@@ -236,7 +236,13 @@ public:
         auto inputFps = rgy_rational<int>(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
         return inputFps.inv() * rgy_rational<int>(1, 4);
     }
-    virtual bool rffAware() {
+    virtual int64_t GetVideoFirstKeyPts() const {
+        return -1;
+    }
+    virtual bool rffAware() const {
+        return false;
+    }
+    virtual bool seekable() const {
         return false;
     }
 

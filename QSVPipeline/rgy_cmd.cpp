@@ -7002,6 +7002,50 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         ctrl->enableVulkan = true;
         return 0;
     }
+    if (IS_OPTION("multi-process")) {
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "id" };
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("mp")) {
+                    try {
+                        ctrl->parallelEnc.multiProcess = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("id")) {
+                    try {
+                        ctrl->parallelEnc.multiProcessId = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                try {
+                    ctrl->parallelEnc.multiProcess = std::stoi(param);
+                } catch (...) {
+                    print_cmd_error_invalid_value(tstring(option_name), param);
+                    return 1;
+                }
+                continue;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("process-monitor-dev-usage")) {
         ctrl->processMonitorDevUsage = true;
         return 0;
@@ -8400,6 +8444,19 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
     OPT_BOOL(_T("--enable-vulkan"), _T("--disable-vulkan"), enableVulkan);
     OPT_BOOL(_T("--process-monitor-dev-usage"), _T(""), processMonitorDevUsage);
     OPT_BOOL(_T("--process-monitor-dev-usage-reset"), _T(""), processMonitorDevUsageReset);
+
+    if (param->parallelEnc != defaultPrm->parallelEnc) {
+        cmd << _T(" --parallel-enc ");
+    }
+    if (param->parallelEnc != defaultPrm->parallelEnc) {
+        std::basic_stringstream<TCHAR> tmp;
+        tmp.str(tstring());
+        ADD_NUM(_T("mp"), parallelEnc.multiProcess);
+        ADD_NUM(_T("id"), parallelEnc.multiProcessId);
+        if (!tmp.str().empty()) {
+            cmd << _T(" --multi-process ") << tmp.str().substr(1);
+        }
+    }
     return cmd.str();
 }
 
