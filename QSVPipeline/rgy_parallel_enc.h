@@ -33,6 +33,8 @@
 #include "rgy_osdep.h"
 #include "rgy_err.h"
 #include "rgy_pipe.h"
+#include "rgy_event.h"
+#include "rgy_log.h"
 
 class RGYInput;
 #if ENCODER_QSV
@@ -44,30 +46,97 @@ struct sInputParams;
 
 class RGYParallelEncProcess {
 public:
-    RGYParallelEncProcess();
+    RGYParallelEncProcess(const int id, std::shared_ptr<RGYLog> log);
     ~RGYParallelEncProcess();
-    RGY_ERR run(const tstring& cmd);
+    RGY_ERR run(const std::vector<tstring>& cmd);
     RGY_ERR recvStdErr();
-    int64_t getVideofirstKeyPts() const;
-    RGY_ERR sendEndPts();
+    int64_t getVideofirstKeyPts(const int timeout);
+    RGY_ERR sendEndPts(const int64_t endPts);
     RGY_ERR close();
-    RGY_ERR getSample();
 protected:
+    void AddMessage(RGYLogLevel log_level, const tstring &str) {
+        if (m_log == nullptr || log_level < m_log->getLogLevel(RGY_LOGT_APP)) {
+            return;
+        }
+        auto lines = split(str, _T("\n"));
+        for (const auto &line : lines) {
+            if (line[0] != _T('\0')) {
+                m_log->write(log_level, RGY_LOGT_APP, (_T("replace: ") + line + _T("\n")).c_str());
+            }
+        }
+    }
+    void AddMessage(RGYLogLevel log_level, const TCHAR *format, ...) {
+        if (m_log == nullptr || log_level < m_log->getLogLevel(RGY_LOGT_APP)) {
+            return;
+        }
+
+        va_list args;
+        va_start(args, format);
+        int len = _vsctprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
+        tstring buffer;
+        buffer.resize(len, _T('\0'));
+        _vstprintf_s(&buffer[0], len, format, args);
+        va_end(args);
+        AddMessage(log_level, buffer);
+    }
+    int m_id;
     std::unique_ptr<RGYPipeProcess> m_process;
+    unique_event m_eventGotVideoFirstKeyPts;
     std::thread m_thRecvStderr;
+    int64_t m_videoFirstKeyPts;
+    std::shared_ptr<RGYLog> m_log;
+};
+
+class RGYParallelEncReadPacket {
+public:
+    RGYParallelEncReadPacket();
+    ~RGYParallelEncReadPacket();
+protected:
+    RGY_ERR init(const tstring &filename);
+    RGY_ERR getSample(int64_t& pts, int& key, std::vector<uint8_t>& buffer);
+
+    std::unique_ptr<FILE, decltype(&fclose)> m_fp;
 };
 
 class RGYParallelEnc {
 public:
-    RGYParallelEnc();
+    RGYParallelEnc(std::shared_ptr<RGYLog> log);
     virtual ~RGYParallelEnc();
     bool isParallelEncPossible(const RGYInput *input) const;
     RGY_ERR parallelRun(const sInputParams *prm, const RGYInput *input);
     void close();
 protected:
-    tstring genCmd(const sInputParams *prm);
+    std::vector<tstring> genCmd(const int ip, const sInputParams *prm);
+    RGY_ERR parallelChild(const sInputParams *prm, const RGYInput *input);
+
+    void AddMessage(RGYLogLevel log_level, const tstring &str) {
+        if (m_log == nullptr || log_level < m_log->getLogLevel(RGY_LOGT_APP)) {
+            return;
+        }
+        auto lines = split(str, _T("\n"));
+        for (const auto &line : lines) {
+            if (line[0] != _T('\0')) {
+                m_log->write(log_level, RGY_LOGT_APP, (_T("replace: ") + line + _T("\n")).c_str());
+            }
+        }
+    }
+    void AddMessage(RGYLogLevel log_level, const TCHAR *format, ...) {
+        if (m_log == nullptr || log_level < m_log->getLogLevel(RGY_LOGT_APP)) {
+            return;
+        }
+
+        va_list args;
+        va_start(args, format);
+        int len = _vsctprintf(format, args) + 1; // _vscprintf doesn't count terminating '\0'
+        tstring buffer;
+        buffer.resize(len, _T('\0'));
+        _vstprintf_s(&buffer[0], len, format, args);
+        va_end(args);
+        AddMessage(log_level, buffer);
+    }
 
     std::vector<std::unique_ptr<RGYParallelEncProcess>> m_encProcess;
+    std::shared_ptr<RGYLog> m_log;
 };
 
 

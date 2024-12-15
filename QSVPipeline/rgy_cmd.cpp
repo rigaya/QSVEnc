@@ -27,6 +27,7 @@
 
 #include <set>
 #include <fstream>
+#include <sstream>
 #include <iostream>
 #include <iomanip>
 #include "rgy_util.h"
@@ -46,6 +47,68 @@
 #if ENABLE_DTL
 #include <dtl/dtl.hpp>
 #endif //#if ENABLE_DTL
+
+std::vector<tstring> splitCommandLine(const TCHAR *cmd) {
+    std::vector<tstring> result;
+#if defined(_WIN32) || defined(_WIN64)
+    std::wstring cmdw = tchar_to_wstring(cmd);
+    int argc = 0;
+    auto argvw = CommandLineToArgvW(cmdw.c_str(), &argc);
+    if (argc <= 1) {
+        return result;
+    }
+    if (wcslen(argvw[0]) != 0) {
+        result.push_back(_T("")); // 最初は実行ファイルのパスが入っているのを模擬するため、空文字列を入れておく
+    }
+    for (int i = 0; i < argc; i++) {
+        result.push_back(wstring_to_tstring(argvw[i]));
+    }
+    LocalFree(argvw);
+#else
+    result.push_back(_T("")); // 最初は実行ファイルのパスが入っているのを模擬するため、空文字列を入れておく
+
+    tstring token;
+    bool inDoubleQuotes = false;
+    bool inSingleQuotes = false;
+    bool escape = false;
+    std::basic_stringstream<TCHAR> ss;
+
+    while (*cmd) {
+        TCHAR c = *cmd++;
+        if (escape) {
+            ss << c;
+            escape = false;
+        } else if (c == _T('\\')) {
+            escape = true;
+        } else if (c == _T('"')) {
+            if (!inSingleQuotes) {
+                inDoubleQuotes = !inDoubleQuotes;
+            } else {
+                ss << c;
+            }
+        } else if (c == _T('\'')) {
+            if (!inDoubleQuotes) {
+                inSingleQuotes = !inSingleQuotes;
+            } else {
+                ss << c;
+            }
+        } else if (c == _T(' ') && !inDoubleQuotes && !inSingleQuotes) {
+            if (!ss.str().empty() || escape) {
+                result.push_back(ss.str());
+                ss.str(_T(""));
+                ss.clear();
+            }
+        } else {
+            ss << c;
+        }
+    }
+
+    if (!ss.str().empty() || escape) {
+        result.push_back(ss.str());
+    }
+#endif
+    return result;
+}
 
 #if ENABLE_CPP_REGEX
 std::vector<std::pair<std::string, std::string>> createOptionList() {
