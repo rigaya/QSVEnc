@@ -273,13 +273,18 @@ encParams RGYParallelEnc::genPEParam(const int ip, const encParams *prm, const t
     prmParallel.ctrl.loglevel = RGY_LOG_WARN;
     prmParallel.common.muxOutputFormat = _T("raw");
     prmParallel.common.outputFilename = tmpfile; // ip==0の場合のみ、実際にはキューを介してデータをやり取りするがとりあえずファイル名はそのまま入れる
+    prmParallel.common.AVMuxTarget = RGY_MUX_NONE;
     prmParallel.common.audioSource.clear();
     prmParallel.common.subSource.clear();
     prmParallel.common.attachmentSource.clear();
     prmParallel.common.nAudioSelectCount = 0;
+    prmParallel.common.ppAudioSelectList = nullptr;
     prmParallel.common.nSubtitleSelectCount = 0;
+    prmParallel.common.ppSubtitleSelectList = nullptr;
     prmParallel.common.nDataSelectCount = 0;
+    prmParallel.common.ppDataSelectList = nullptr;
     prmParallel.common.nAttachmentSelectCount = 0;
+    prmParallel.common.ppAttachmentSelectList = nullptr;
     prmParallel.common.outReplayCodec = RGY_CODEC_UNKNOWN;
     prmParallel.common.outReplayFile.clear();
     prmParallel.common.seekRatio = ip / (float)prmParallel.ctrl.parallelEnc.parallelCount;

@@ -4209,10 +4209,11 @@ RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
 
     if (m_parallelEnc && m_parallelEnc->id() < 0) {
         // 親プロセスの子プロセスのデータ回収用
+        std::unique_ptr<PipelineTaskAudio> taskAudio;
         if (m_pFileWriterListAudio.size() > 0) {
-            m_pipelineTasks.push_back(std::make_unique<PipelineTaskAudio>(m_pFileReader.get(), m_AudioReaders, m_pFileWriterListAudio, m_vpFilters, 0, m_mfxVer, m_pQSVLog));
+            taskAudio = std::make_unique<PipelineTaskAudio>(m_pFileReader.get(), m_AudioReaders, m_pFileWriterListAudio, m_vpFilters, 0, m_mfxVer, m_pQSVLog);
         }
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskParallelEncBitstream>(m_pFileReader.get(), m_encTimestamp.get(), m_hdr10plus.get(), m_parallelEnc.get(), 0, m_mfxVer, m_pQSVLog));
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskParallelEncBitstream>(m_pFileReader.get(), m_encTimestamp.get(), m_hdr10plus.get(), m_parallelEnc.get(), taskAudio, 0, m_mfxVer, m_pQSVLog));
         return RGY_ERR_NONE;
     }
 

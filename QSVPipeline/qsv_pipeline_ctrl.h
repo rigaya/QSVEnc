@@ -1464,16 +1464,17 @@ protected:
     RGYTimestamp *m_encTimestamp;
     RGYHDR10Plus *m_hdr10plus;
     RGYParallelEnc *m_parallelEnc;
+    std::unique_ptr<PipelineTaskAudio> m_taskAudio;
     std::unique_ptr<FILE, decltype(&fclose)> m_fReader;
     int64_t m_ptsOffset;
     RGYBitstream m_decInputBitstream;
     bool m_inputBitstreamEOF;
     RGYListRef<RGYBitstream> m_bitStreamOut;
 public:
-    PipelineTaskParallelEncBitstream(RGYInput *input, RGYTimestamp *encTimestamp, RGYHDR10Plus *hdr10plus, RGYParallelEnc *parallelEnc, int outMaxQueueSize, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
+    PipelineTaskParallelEncBitstream(RGYInput *input, RGYTimestamp *encTimestamp, RGYHDR10Plus *hdr10plus, RGYParallelEnc *parallelEnc, std::unique_ptr<PipelineTaskAudio>& taskAudio, int outMaxQueueSize, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
         PipelineTask(PipelineTaskType::PECOLLECT, outMaxQueueSize, nullptr, mfxVer, log),
         m_input(input), m_currentFile(-1), m_encTimestamp(encTimestamp), m_hdr10plus(hdr10plus),
-        m_parallelEnc(parallelEnc), m_fReader(std::unique_ptr<FILE, decltype(&fclose)>(nullptr, nullptr)), m_ptsOffset(0),
+        m_parallelEnc(parallelEnc), m_taskAudio(std::move(taskAudio)), m_fReader(std::unique_ptr<FILE, decltype(&fclose)>(nullptr, nullptr)), m_ptsOffset(0),
         m_decInputBitstream(), m_inputBitstreamEOF(false), m_bitStreamOut() {
         m_decInputBitstream.init(AVCODEC_READER_INPUT_BUF_SIZE);
     };
@@ -1599,6 +1600,13 @@ public:
         }
         m_decInputBitstream.clear();
 
+        if (m_taskAudio) {
+            ret = m_taskAudio->extractAudio(m_inFrames);
+            if (ret != RGY_ERR_NONE) {
+                return ret;
+            }
+        }
+
         auto bsOut = m_bitStreamOut.get([](RGYBitstream *bs) {
             auto sts = mfxBitstreamInit(bs->bsptr(), 1 * 1024 * 1024);
             if (sts != MFX_ERR_NONE) {
@@ -1621,6 +1629,9 @@ public:
 
             //PrintMes(RGY_LOG_WARN, _T("Packet: pts %lld, dts: %lld, duration: %d, size %lld.\n"), bsOut->pts(), bsOut->dts(), bsOut->duration(), bsOut->size());
             m_outQeueue.push_back(std::make_unique<PipelineTaskOutputBitstream>(nullptr, bsOut, nullptr));
+        }
+        if (m_inputBitstreamEOF && ret == RGY_ERR_MORE_BITSTREAM && m_taskAudio) {
+            m_taskAudio->flushAudio();
         }
         return (m_inputBitstreamEOF && ret == RGY_ERR_MORE_BITSTREAM) ? RGY_ERR_MORE_BITSTREAM : RGY_ERR_NONE;
     }
