@@ -2050,25 +2050,32 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             m_inputVideoInfo.codecExtraSize = m_Demux.video.extradataSize;
             bitstream.clear();
         }
-        if (input_prm->seekSec > 0.0f) {
+        if (input_prm->seekSec > 0.0f || input_prm->seekRatio > 0.0f) {
             auto [ret, firstpkt] = getSample();
             if (ret) { //現在のtimestampを取得する
                 AddMessage(RGY_LOG_ERROR, _T("Failed to get firstpkt of video!\n"));
                 return RGY_ERR_UNKNOWN;
             }
-            const auto seek_time = av_rescale_q(1, av_d2q((double)input_prm->seekSec, 1<<24), m_Demux.video.stream->time_base);
+            double seek_sec = input_prm->seekSec;
+            if (input_prm->seekRatio > 0.0f) {
+                const auto duration_sec = GetInputVideoDuration();
+                seek_sec = duration_sec * input_prm->seekRatio;
+            }
+            const auto seek_time = av_rescale_q(1, av_d2q(seek_sec, 1<<24), m_Demux.video.stream->time_base);
             int seek_ret = av_seek_frame(m_Demux.format.formatCtx, m_Demux.video.index, firstpkt->pts + seek_time, 0);
             if (0 > seek_ret) {
                 seek_ret = av_seek_frame(m_Demux.format.formatCtx, m_Demux.video.index, firstpkt->pts + seek_time, AVSEEK_FLAG_ANY);
             }
             if (0 > seek_ret) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to seek %s.\n"), print_time(input_prm->seekSec).c_str());
+                AddMessage(RGY_LOG_ERROR, _T("failed to seek %s.\n"), print_time(seek_sec).c_str());
                 return RGY_ERR_UNKNOWN;
             }
-            AddMessage(RGY_LOG_DEBUG, _T("set seek %s.\n"), print_time(input_prm->seekSec).c_str());
+            AddMessage(RGY_LOG_DEBUG, _T("set seek %s.\n"), print_time(seek_sec).c_str());
             //seekのために行ったgetSampleの結果は破棄する
             m_Demux.frames.clear();
-            m_seek.first = input_prm->seekSec;
+            m_seek.first = seek_sec;
+            m_Demux.video.gotFirstKeyframe = false;
+            m_Demux.video.streamFirstKeyPts = 0;
         }
 
         //parserはseek後に初期化すること
@@ -2377,7 +2384,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             }
             AddMessage(RGY_LOG_DEBUG, mes);
             m_inputInfo += mes;
-        } else {
+        } else if (m_Demux.video.codecCtxDecode) {
             CreateInputInfo((tstring(_T("avsw: ")) + char_to_tstring(m_Demux.video.codecCtxDecode->codec->name)).c_str(),
                 RGY_CSP_NAMES[m_convert->getFunc()->csp_from], RGY_CSP_NAMES[m_convert->getFunc()->csp_to], get_simd_str(m_convert->getFunc()->simd), &m_inputVideoInfo);
             if (input_prm->seekSec > 0.0f) {

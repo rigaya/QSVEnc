@@ -378,6 +378,37 @@ public:
         return RGY_ERR_NONE;
     }
 
+    RGY_ERR resize(size_t nNewSize) {
+        if (m_bitstream.MaxLength < nNewSize) {
+            uint8_t *pData = (uint8_t *)_aligned_malloc(nNewSize, 32);
+            if (pData == nullptr) {
+                return RGY_ERR_NULL_PTR;
+            }
+            if (m_bitstream.DataLength > 0) {
+                uint32_t copyLength = std::min<uint32_t>((uint32_t)m_bitstream.DataLength, (uint32_t)nNewSize);
+                memcpy(pData, m_bitstream.Data + m_bitstream.DataOffset, copyLength);
+            }
+            free_mem();
+            m_bitstream.Data = pData;
+            m_bitstream.DataOffset = 0;
+            m_bitstream.DataLength = (uint32_t)nNewSize;
+            m_bitstream.MaxLength = (uint32_t)nNewSize;
+            return RGY_ERR_NONE;
+        }
+        if (m_bitstream.DataLength > 0 && m_bitstream.MaxLength < nNewSize + m_bitstream.DataOffset) {
+            uint32_t copyLength = std::min<uint32_t>((uint32_t)m_bitstream.DataLength, (uint32_t)nNewSize);
+            memmove(m_bitstream.Data, m_bitstream.Data + m_bitstream.DataOffset, copyLength);
+            m_bitstream.DataOffset = 0;
+            m_bitstream.DataLength = (uint32_t)nNewSize;
+            return RGY_ERR_NONE;
+        }
+        if (m_bitstream.DataLength == 0) {
+            m_bitstream.DataOffset = 0;
+        }
+        m_bitstream.DataLength = (uint32_t)nNewSize;
+        return RGY_ERR_NONE;
+    }
+
     RGY_ERR changeSize(size_t nNewSize) {
         uint8_t *pData = (uint8_t *)_aligned_malloc(nNewSize, 32);
         if (pData == nullptr) {
@@ -435,7 +466,7 @@ static inline RGYBitstream RGYBitstreamInit() {
     return bitstream;
 }
 
-static_assert(std::is_pod<RGYBitstream>::value == true, "RGYBitstream should be POD type.");
+static_assert(std::is_trivially_copyable<RGYBitstream>::value == true, "RGYBitstream should be trivially copyable.");
 
 static inline RGYFrameInfo frameinfo_enc_to_rgy(const mfxFrameSurface1& mfx) {
     RGYFrameInfo info;

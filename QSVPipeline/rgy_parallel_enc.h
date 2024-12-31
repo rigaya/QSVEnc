@@ -32,27 +32,55 @@
 #include <thread>
 #include "rgy_osdep.h"
 #include "rgy_err.h"
-#include "rgy_pipe.h"
 #include "rgy_event.h"
 #include "rgy_log.h"
+#include "rgy_queue.h"
 
+struct RGYOutputRawPEExtHeader;
 class RGYInput;
 #if ENCODER_QSV
 struct sInputParams;
+using encParams = sInputParams;
+
+class CQSVPipeline;
+
 #elif ENCODER_NVENC
 #elif ENCODER_VCEENC
 #elif ENCODER_RKMPP
 #endif
 
+struct RGYParallelEncSendData {
+    unique_event eventChildHasSentFirstKeyPts;
+    unique_event eventParentHasSentFinKeyPts;
+    int64_t videoFirstKeyPts;
+    int64_t videoFinKeyPts;
+    RGYQueueMPMP<RGYOutputRawPEExtHeader*> *qFirstProcessData;
+
+    RGYParallelEncSendData() :
+        eventChildHasSentFirstKeyPts(unique_event(nullptr, nullptr)),
+        eventParentHasSentFinKeyPts(unique_event(nullptr, nullptr)),
+        videoFirstKeyPts(-1),
+        videoFinKeyPts(-1),
+        qFirstProcessData(nullptr) {};
+};;
+
+struct RGYParallelEncProcessData {
+    tstring tmppath;
+    int64_t ptsOffset;
+};
+
 class RGYParallelEncProcess {
 public:
-    RGYParallelEncProcess(const int id, std::shared_ptr<RGYLog> log);
+    RGYParallelEncProcess(const int id, const tstring& tmpfile, std::shared_ptr<RGYLog> log);
     ~RGYParallelEncProcess();
-    RGY_ERR run(const std::vector<tstring>& cmd);
-    RGY_ERR recvStdErr();
-    int64_t getVideofirstKeyPts(const int timeout);
+    RGY_ERR run(const encParams& peParams);
+    int id() const { return m_id; }
+    int64_t getVideoFirstKeyPts(const int timeout);
     RGY_ERR sendEndPts(const int64_t endPts);
     RGY_ERR close();
+    RGYParallelEncProcessData tmpfile() const { return { m_tmpfile, m_sendData.videoFirstKeyPts }; }
+    RGY_ERR getNextPacket(RGYOutputRawPEExtHeader **ptr);
+    RGY_ERR pushPacket(RGYOutputRawPEExtHeader *ptr);
 protected:
     void AddMessage(RGYLogLevel log_level, const tstring &str) {
         if (m_log == nullptr || log_level < m_log->getLogLevel(RGY_LOGT_APP)) {
@@ -61,7 +89,7 @@ protected:
         auto lines = split(str, _T("\n"));
         for (const auto &line : lines) {
             if (line[0] != _T('\0')) {
-                m_log->write(log_level, RGY_LOGT_APP, (_T("replace: ") + line + _T("\n")).c_str());
+                m_log->write(log_level, RGY_LOGT_APP, strsprintf(_T("PE%d: %s\n"), m_id, line.c_str()).c_str());
             }
         }
     }
@@ -80,34 +108,34 @@ protected:
         AddMessage(log_level, buffer);
     }
     int m_id;
-    std::unique_ptr<RGYPipeProcess> m_process;
-    unique_event m_eventGotVideoFirstKeyPts;
-    std::thread m_thRecvStderr;
-    int64_t m_videoFirstKeyPts;
+    std::unique_ptr<CQSVPipeline> m_process;
+    std::unique_ptr<RGYQueueMPMP<RGYOutputRawPEExtHeader*>> m_qFirstProcessData;
+    RGYParallelEncSendData m_sendData;
+    tstring m_tmpfile;
+    std::thread m_thRunProcess;
+    bool m_thAbort;
     std::shared_ptr<RGYLog> m_log;
-};
-
-class RGYParallelEncReadPacket {
-public:
-    RGYParallelEncReadPacket();
-    ~RGYParallelEncReadPacket();
-protected:
-    RGY_ERR init(const tstring &filename);
-    RGY_ERR getSample(int64_t& pts, int& key, std::vector<uint8_t>& buffer);
-
-    std::unique_ptr<FILE, decltype(&fclose)> m_fp;
 };
 
 class RGYParallelEnc {
 public:
     RGYParallelEnc(std::shared_ptr<RGYLog> log);
     virtual ~RGYParallelEnc();
-    bool isParallelEncPossible(const RGYInput *input) const;
-    RGY_ERR parallelRun(const sInputParams *prm, const RGYInput *input);
+    bool isParallelEncPossible(const encParams *prm, const RGYInput *input) const;
+    RGY_ERR parallelRun(const encParams *prm, const RGYInput *input);
     void close();
+    int64_t getVideofirstKeyPts(const int processID);
+    int64_t getVideoEndKeyPts() const { return m_videoEndKeyPts; }
+    void setVideoFinished() { m_videoFinished = true; }
+    bool videoFinished() const { return m_videoFinished; }
+    int id() const { return m_id; }
+    size_t parallelCount() const { return m_encProcess.size(); }
+    std::vector<RGYParallelEncProcessData> peRawFilePaths() const;
+    RGY_ERR getNextPacketFromFirst(RGYOutputRawPEExtHeader **ptr);
+    RGY_ERR pushNextPacket(RGYOutputRawPEExtHeader *ptr);
 protected:
-    std::vector<tstring> genCmd(const int ip, const sInputParams *prm);
-    RGY_ERR parallelChild(const sInputParams *prm, const RGYInput *input);
+    encParams genPEParam(const int ip, const encParams *prm, const tstring& tmpfile);
+    RGY_ERR parallelChild(const encParams *prm, const RGYInput *input);
 
     void AddMessage(RGYLogLevel log_level, const tstring &str) {
         if (m_log == nullptr || log_level < m_log->getLogLevel(RGY_LOGT_APP)) {
@@ -135,8 +163,11 @@ protected:
         AddMessage(log_level, buffer);
     }
 
+    int m_id;
     std::vector<std::unique_ptr<RGYParallelEncProcess>> m_encProcess;
     std::shared_ptr<RGYLog> m_log;
+    int64_t m_videoEndKeyPts;
+    bool m_videoFinished;
 };
 
 

@@ -1643,6 +1643,7 @@ CQSVPipeline::CQSVPipeline() :
     m_pStatus(),
     m_pPerfMonitor(),
     m_deviceUsage(),
+    m_parallelEnc(),
     m_encWidth(0),
     m_encHeight(0),
     m_encPicstruct(RGY_PICSTRUCT_UNKNOWN),
@@ -3681,6 +3682,19 @@ RGY_ERR CQSVPipeline::InitPerfMonitor(const sInputParams *inputParam) {
     return RGY_ERR_NONE;
 }
 
+RGY_ERR CQSVPipeline::InitParallelEncode(const sInputParams *inputParam) {
+    if (inputParam->ctrl.parallelEnc.parallelCount <= 1) {
+        return RGY_ERR_NONE;
+    }
+    m_parallelEnc = std::make_unique<RGYParallelEnc>(m_pQSVLog);
+    if (auto sts = m_parallelEnc->parallelRun(inputParam, m_pFileReader.get()); sts != RGY_ERR_NONE) {
+        PrintMes(RGY_LOG_WARN, _T("Failed to initialize parallel encoding, disabled.\n"));
+        m_parallelEnc.reset();
+        return sts;
+    }
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR CQSVPipeline::SetPerfMonitorThreadHandles() {
 #if ENABLE_AVSW_READER
     if (m_pPerfMonitor) {
@@ -3869,6 +3883,9 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     if (sts < RGY_ERR_NONE) return sts;
 
     sts = InitPerfMonitor(pParams);
+    if (sts < RGY_ERR_NONE) return sts;
+
+    sts = InitParallelEncode(pParams);
     if (sts < RGY_ERR_NONE) return sts;
 
     sts = InitOutput(pParams);
@@ -4190,6 +4207,15 @@ bool CQSVPipeline::VppAfsRffAware() const {
 RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
     m_pipelineTasks.clear();
 
+    if (m_parallelEnc && m_parallelEnc->id() < 0) {
+        // 親プロセスの子プロセスのデータ回収用
+        if (m_pFileWriterListAudio.size() > 0) {
+            m_pipelineTasks.push_back(std::make_unique<PipelineTaskAudio>(m_pFileReader.get(), m_AudioReaders, m_pFileWriterListAudio, m_vpFilters, 0, m_mfxVer, m_pQSVLog));
+        }
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskParallelEncBitstream>(m_pFileReader.get(), m_encTimestamp.get(), m_hdr10plus.get(), m_parallelEnc.get(), 0, m_mfxVer, m_pQSVLog));
+        return RGY_ERR_NONE;
+    }
+
     if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskInput>(&m_device->mfxSession(), m_device->allocator(), 0, m_pFileReader.get(), m_mfxVer, m_cl, m_pQSVLog));
     } else {
@@ -4208,7 +4234,7 @@ RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
     const auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
     const auto inputFpsTimebase = rgy_rational<int>((int)inputFrameInfo.fpsD, (int)inputFrameInfo.fpsN);
     const auto srcTimebase = (m_pFileReader->getInputTimebase().n() > 0 && m_pFileReader->getInputTimebase().is_valid()) ? m_pFileReader->getInputTimebase() : inputFpsTimebase;
-    if (m_trimParam.list.size() > 0 || prm->common.seekToSec > 0.0f) {
+    if (m_trimParam.list.size() > 0 || prm->common.seekToSec > 0.0f || m_parallelEnc) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskTrim>(m_trimParam, m_pFileReader.get(), srcTimebase, 0, m_mfxVer, m_pQSVLog));
     }
     m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(&m_device->mfxSession(), srcTimebase, m_outputTimebase, outFrameDuration, m_nAVSyncMode, m_timestampPassThrough, VppAfsRffAware() && m_pFileReader->rffAware(), m_mfxVer, m_pQSVLog));
@@ -4333,7 +4359,7 @@ RGY_ERR CQSVPipeline::RunEncode2() {
         if (err == RGY_ERR_NONE || err == RGY_ERR_MORE_DATA || err == RGY_ERR_MORE_SURFACE || err == RGY_ERR_MORE_BITSTREAM) return RGY_LOG_DEBUG;
         if (err > RGY_ERR_NONE) return RGY_LOG_WARN;
         return RGY_LOG_ERROR;
-    };
+        };
     struct PipelineTaskData {
         size_t task;
         std::unique_ptr<PipelineTaskOutput> data;
@@ -4345,7 +4371,7 @@ RGY_ERR CQSVPipeline::RunEncode2() {
         auto checkContinue = [&checkAbort](RGY_ERR& err) {
             if (checkAbort() || stdInAbort()) { err = RGY_ERR_ABORTED; return false; }
             return err >= RGY_ERR_NONE || err == RGY_ERR_MORE_DATA || err == RGY_ERR_MORE_SURFACE;
-        };
+            };
         while (checkContinue(err)) {
             if (dataqueue.empty()) {
                 speedCtrl.wait(m_pipelineTasks.front()->outputFrames());
@@ -4368,7 +4394,7 @@ RGY_ERR CQSVPipeline::RunEncode2() {
                         //出てきたものは先頭に追加していく
                         std::for_each(output.rbegin(), output.rend(), [itask = d.task, &dataqueue](auto&& o) {
                             dataqueue.push_front(PipelineTaskData(itask + 1, o));
-                        });
+                            });
                     }
                 } else { // pipelineの最終的なデータを出力
                     if ((err = d.data->write(m_pFileWriter.get(), m_device->allocator(), (m_cl) ? &m_cl->queue() : nullptr, m_videoQualityMetric.get())) != RGY_ERR_NONE) {
@@ -4403,7 +4429,7 @@ RGY_ERR CQSVPipeline::RunEncode2() {
         auto checkContinue = [&checkAbort](RGY_ERR& err) {
             if (checkAbort()) { err = RGY_ERR_ABORTED; return false; }
             return err >= RGY_ERR_NONE || err == RGY_ERR_MORE_SURFACE;
-        };
+            };
         for (size_t flushedTaskSend = 0, flushedTaskGet = 0; flushedTaskGet < m_pipelineTasks.size(); ) { // taskを前方からひとつづつflushしていく
             err = RGY_ERR_NONE;
             if (flushedTaskSend == flushedTaskGet) {
@@ -4425,7 +4451,7 @@ RGY_ERR CQSVPipeline::RunEncode2() {
                     //出てきたものは先頭に追加していく
                     std::for_each(output.rbegin(), output.rend(), [itask = d.task, &dataqueue](auto&& o) {
                         dataqueue.push_front(PipelineTaskData(itask + 1, o));
-                    });
+                        });
                     RGY_IGNORE_STS(err, RGY_ERR_MORE_DATA); //VPPなどでsendFrameがRGY_ERR_MORE_DATAだったが、フレームが出てくる場合がある
                 } else { // pipelineの最終的なデータを出力
                     if ((err = d.data->write(m_pFileWriter.get(), m_device->allocator(), (m_cl) ? &m_cl->queue() : nullptr, m_videoQualityMetric.get())) != RGY_ERR_NONE) {

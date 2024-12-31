@@ -221,6 +221,21 @@ struct RGYOutputInsertMetadata {
     };
     RGYOutputInsertMetadata(std::vector<uint8_t>& data, bool onSeqHeader, RGYOutputInsertMetadataPosition pos_) : mdata(data), onSequenceHeader(onSeqHeader), pos(pos_), written(false) {};
 };
+
+#pragma pack(push, 1)
+struct RGYOutputRawPEExtHeader {
+    int64_t pts;
+    int64_t dts;
+    int64_t duration;
+    RGY_PICSTRUCT picstruct;
+    RGY_FRAMETYPE frameType;
+    int32_t frameIdx;
+    uint32_t flags;
+    uint64_t size;
+};
+#pragma pack(pop)
+
+static_assert(std::is_trivially_copyable<RGYOutputRawPEExtHeader>::value);
  
 class RGYOutput {
 public:
@@ -323,10 +338,13 @@ protected:
     decltype(parse_nal_unit_hevc_c) *m_parse_nal_hevc; // HEVC用のnal unit分解関数へのポインタ
 };
 
+struct RGYOutputRawPEExtHeader;
+
 struct RGYOutputRawPrm {
     bool benchmark;
     bool debugDirectAV1Out;
     bool debugRawOut;
+    bool extPERaw;
     bool HEVCAlphaChannel;
     int  HEVCAlphaChannelMode;
     tstring outReplayFile;
@@ -340,6 +358,7 @@ struct RGYOutputRawPrm {
     bool doviRpuMetadataCopy;     //doviのmetadataのコピー
     RGYDOVIRpuConvertParam doviRpuConvertParam;
     RGYTimestamp *vidTimestamp;
+    RGYQueueMPMP<RGYOutputRawPEExtHeader*> *qFirstProcessData;
 };
 
 class RGYOutputRaw : public RGYOutput {
@@ -365,6 +384,8 @@ protected:
     int64_t m_prevInputFrameId;
     int64_t m_prevEncodeFrameId;
     bool m_debugDirectAV1Out;
+    bool m_extPERaw;
+    RGYQueueMPMP<RGYOutputRawPEExtHeader*> *m_qFirstProcessData;
 };
 
 std::unique_ptr<RGYHDRMetadata> createHEVCHDRSei(const std::string &maxCll, const std::string &masterDisplay, CspTransfer atcSei, const RGYInput *reader);

@@ -7065,7 +7065,7 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         ctrl->enableVulkan = true;
         return 0;
     }
-    if (IS_OPTION("multi-process")) {
+    if (IS_OPTION("parallel")) {
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
             return 0;
         }
@@ -7079,7 +7079,7 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
                 param_arg = tolowercase(param_arg);
                 if (param_arg == _T("mp")) {
                     try {
-                        ctrl->parallelEnc.multiProcess = std::stoi(param_val);
+                        ctrl->parallelEnc.parallelCount = std::stoi(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -7088,7 +7088,7 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
                 }
                 if (param_arg == _T("id")) {
                     try {
-                        ctrl->parallelEnc.multiProcessId = std::stoi(param_val);
+                        ctrl->parallelEnc.parallelId = std::stoi(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -7099,7 +7099,7 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
                 return 1;
             } else {
                 try {
-                    ctrl->parallelEnc.multiProcess = std::stoi(param);
+                    ctrl->parallelEnc.parallelCount = std::stoi(param);
                 } catch (...) {
                     print_cmd_error_invalid_value(tstring(option_name), param);
                     return 1;
@@ -8514,10 +8514,10 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
     if (param->parallelEnc != defaultPrm->parallelEnc) {
         std::basic_stringstream<TCHAR> tmp;
         tmp.str(tstring());
-        ADD_NUM(_T("mp"), parallelEnc.multiProcess);
-        ADD_NUM(_T("id"), parallelEnc.multiProcessId);
+        ADD_NUM(_T("mp"), parallelEnc.parallelCount);
+        ADD_NUM(_T("id"), parallelEnc.parallelId);
         if (!tmp.str().empty()) {
-            cmd << _T(" --multi-process ") << tmp.str().substr(1);
+            cmd << _T(" --parallel ") << tmp.str().substr(1);
         }
     }
     return cmd.str();

@@ -53,6 +53,7 @@
 #include "qsv_util.h"
 #include "qsv_mfx_dec.h"
 #include "qsv_vpp_mfx.h"
+#include "rgy_parallel_enc.h"
 
 const uint32_t MSDK_DEC_WAIT_INTERVAL = 60000;
 const uint32_t MSDK_ENC_WAIT_INTERVAL = 10000;
@@ -442,6 +443,7 @@ enum class PipelineTaskType {
     OUTPUTRAW,
     OPENCL,
     VIDEOMETRIC,
+    PECOLLECT,
 };
 
 static const TCHAR *getPipelineTaskTypeName(PipelineTaskType type) {
@@ -458,6 +460,7 @@ static const TCHAR *getPipelineTaskTypeName(PipelineTaskType type) {
     case PipelineTaskType::AUDIO:       return _T("AUDIO");
     case PipelineTaskType::VIDEOMETRIC: return _T("VIDEOMETRIC");
     case PipelineTaskType::OUTPUTRAW:   return _T("OUTRAW");
+    case PipelineTaskType::PECOLLECT:   return _T("PECOLLECT");
     default: return _T("UNKNOWN");
     }
 }
@@ -477,6 +480,7 @@ static const int getPipelineTaskAllocPriority(PipelineTaskType type) {
     case PipelineTaskType::AUDIO:
     case PipelineTaskType::OUTPUTRAW:
     case PipelineTaskType::VIDEOMETRIC:
+    case PipelineTaskType::PECOLLECT:
     default: return 0;
     }
 }
@@ -1440,15 +1444,169 @@ public:
     }
 };
 
+class PipelineTaskParallelEncBitstream : public PipelineTask {
+protected:
+    RGYInput *m_input;
+    int m_currentFile;
+    RGYTimestamp *m_encTimestamp;
+    RGYHDR10Plus *m_hdr10plus;
+    RGYParallelEnc *m_parallelEnc;
+    std::unique_ptr<FILE, decltype(&fclose)> m_fReader;
+    int64_t m_ptsOffset;
+    RGYBitstream m_decInputBitstream;
+    bool m_inputBitstreamEOF;
+    RGYListRef<RGYBitstream> m_bitStreamOut;
+public:
+    PipelineTaskParallelEncBitstream(RGYInput *input, RGYTimestamp *encTimestamp, RGYHDR10Plus *hdr10plus, RGYParallelEnc *parallelEnc, int outMaxQueueSize, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
+        PipelineTask(PipelineTaskType::PECOLLECT, outMaxQueueSize, nullptr, mfxVer, log),
+        m_input(input), m_currentFile(-1), m_encTimestamp(encTimestamp), m_hdr10plus(hdr10plus),
+        m_parallelEnc(parallelEnc), m_fReader(std::unique_ptr<FILE, decltype(&fclose)>(nullptr, nullptr)), m_ptsOffset(0),
+        m_decInputBitstream(), m_inputBitstreamEOF(false), m_bitStreamOut() {
+        m_decInputBitstream.init(AVCODEC_READER_INPUT_BUF_SIZE);
+    };
+    virtual ~PipelineTaskParallelEncBitstream() {
+        m_decInputBitstream.clear();
+    };
+
+    virtual bool isPassThrough() const override { return true; }
+
+    virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override { return std::nullopt; };
+    virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override { return std::nullopt; };
+protected:
+    RGY_ERR openNextFile() {
+        m_currentFile++;
+        const auto files = m_parallelEnc->peRawFilePaths();
+        if (m_currentFile >= (int)files.size()) {
+            return RGY_ERR_MORE_BITSTREAM;
+        }
+        if (m_currentFile > 0) {
+            m_fReader = std::unique_ptr<FILE, decltype(&fclose)>(_tfopen(files[m_currentFile].tmppath.c_str(), _T("rb")), fclose);
+            if (m_fReader == nullptr) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to open file: %s\n"), files[m_currentFile].tmppath.c_str());
+                return RGY_ERR_FILE_OPEN;
+            }
+        }
+        m_ptsOffset = files[m_currentFile].ptsOffset;
+        PrintMes(RGY_LOG_ERROR, _T("Switch to next file: pts offset %lld.\n"), m_ptsOffset);
+        return RGY_ERR_NONE;
+    }
+
+    void setHeaderProperties(RGYBitstream *bsOut, const RGYOutputRawPEExtHeader *header) {
+        bsOut->setPts(header->pts + m_ptsOffset);
+        bsOut->setDts(header->dts + m_ptsOffset);
+        bsOut->setDuration(header->duration);
+        bsOut->setFrametype(header->frameType);
+        bsOut->setPicstruct(header->picstruct);
+        bsOut->setFrameIdx(header->frameIdx);
+        bsOut->setDataflag(header->flags);
+    }
+
+    RGY_ERR getBitstreamOneFrameFromQueue(RGYBitstream *bsOut) {
+        RGYOutputRawPEExtHeader *header = nullptr;
+        auto err = m_parallelEnc->getNextPacketFromFirst(&header);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        setHeaderProperties(bsOut, header);
+        if (header->size <= 0) {
+            return RGY_ERR_UNDEFINED_BEHAVIOR;
+        }
+        bsOut->resize(header->size);
+        memcpy(bsOut->data(), (void *)(header + 1), header->size);
+        return RGY_ERR_NONE;
+    }
+
+    RGY_ERR getBitstreamOneFrameFromFile(FILE *fp, RGYBitstream *bsOut) {
+        RGYOutputRawPEExtHeader header;
+        if (fread(&header, 1, sizeof(header), fp) != sizeof(header)) {
+            return RGY_ERR_MORE_BITSTREAM;
+        }
+        if (header.size <= 0) {
+            return RGY_ERR_UNDEFINED_BEHAVIOR;
+        }
+        setHeaderProperties(bsOut, &header);
+        bsOut->resize(header.size);
+
+        if (fread(bsOut->data(), 1, bsOut->size(), fp) != bsOut->size()) {
+            return RGY_ERR_UNDEFINED_BEHAVIOR;
+        }
+        return RGY_ERR_NONE;
+    }
+
+    RGY_ERR getBitstreamOneFrame(RGYBitstream *bsOut) {
+        return (m_currentFile == 0) ? getBitstreamOneFrameFromQueue(bsOut) : getBitstreamOneFrameFromFile(m_fReader.get(), bsOut);
+    }
+
+    virtual RGY_ERR getBitstream(RGYBitstream *bsOut) {
+        if (!m_fReader && m_currentFile != 0) {
+            if (auto err = openNextFile(); err != RGY_ERR_NONE) {
+                return err;
+            }
+        }
+        auto err = getBitstreamOneFrame(bsOut);
+        if (err == RGY_ERR_MORE_BITSTREAM) {
+            if ((err = openNextFile()) != RGY_ERR_NONE) {
+                return err;
+            }
+            err = getBitstreamOneFrame(bsOut);
+        }
+        return err;
+    }
+public:
+    virtual RGY_ERR sendFrame([[maybe_unused]] std::unique_ptr<PipelineTaskOutput>& frame) override {
+        m_inFrames++;
+        auto ret = m_input->LoadNextFrame(nullptr); // 進捗表示用のダミー
+        if (ret != RGY_ERR_NONE && ret != RGY_ERR_MORE_DATA && ret != RGY_ERR_MORE_BITSTREAM) {
+            PrintMes(RGY_LOG_ERROR, _T("Error in reader: %s.\n"), get_err_mes(ret));
+            return ret;
+        }
+        // 音声等抽出のため、入力ファイルの読み込みを進める
+        //この関数がMFX_ERR_NONE以外を返せば、入力ビットストリームは終了
+        ret = m_input->GetNextBitstream(&m_decInputBitstream);
+        m_inputBitstreamEOF |= (ret == RGY_ERR_MORE_DATA || ret == RGY_ERR_MORE_BITSTREAM);
+        if (ret != RGY_ERR_NONE && ret != RGY_ERR_MORE_DATA && ret != RGY_ERR_MORE_BITSTREAM) {
+            PrintMes(RGY_LOG_ERROR, _T("Error in reader: %s.\n"), get_err_mes(ret));
+            return ret; //エラー
+        }
+        m_decInputBitstream.clear();
+
+        auto bsOut = m_bitStreamOut.get([](RGYBitstream *bs) {
+            auto sts = mfxBitstreamInit(bs->bsptr(), 1 * 1024 * 1024);
+            if (sts != MFX_ERR_NONE) {
+                return 1;
+            }
+            return 0;
+        });
+        ret = getBitstream(bsOut.get());
+        if (ret != RGY_ERR_NONE && ret != RGY_ERR_MORE_BITSTREAM) {
+            return ret;
+        }
+        if (ret == RGY_ERR_NONE && bsOut->size() > 0) {
+            std::vector<std::shared_ptr<RGYFrameData>> metadatalist;
+            if (m_hdr10plus) {
+                if (const auto data = m_hdr10plus->getData(m_inFrames); data.size() > 0) {
+                    metadatalist.push_back(std::make_shared<RGYFrameDataHDR10plus>(data.data(), data.size(), dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->timestamp()));
+                }
+            }
+            m_encTimestamp->add(bsOut->pts(), bsOut->frameIdx(), m_inFrames, 0, metadatalist);
+
+            PrintMes(RGY_LOG_WARN, _T("Packet: pts %lld, dts: %lld, size %lld.\n"), bsOut->pts(), bsOut->dts(), bsOut->size());
+            m_outQeueue.push_back(std::make_unique<PipelineTaskOutputBitstream>(nullptr, bsOut, nullptr));
+        }
+        return (m_inputBitstreamEOF && ret == RGY_ERR_MORE_BITSTREAM) ? RGY_ERR_MORE_BITSTREAM : RGY_ERR_NONE;
+    }
+};
+
 class PipelineTaskTrim : public PipelineTask {
 protected:
     const sTrimParam &m_trimParam;
     RGYInput *m_input;
+    RGYParallelEnc *m_parallelEnc;
     rgy_rational<int> m_srcTimebase;
 public:
-    PipelineTaskTrim(const sTrimParam &trimParam, RGYInput *input, const rgy_rational<int>& srcTimebase, int outMaxQueueSize, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
+    PipelineTaskTrim(const sTrimParam &trimParam, RGYInput *input, RGYParallelEnc *parallelEnc, const rgy_rational<int>& srcTimebase, int outMaxQueueSize, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
         PipelineTask(PipelineTaskType::TRIM, outMaxQueueSize, nullptr, mfxVer, log),
-        m_trimParam(trimParam), m_input(input), m_srcTimebase(srcTimebase) {
+        m_trimParam(trimParam), m_input(input), m_parallelEnc(parallelEnc), m_srcTimebase(srcTimebase) {
     };
     virtual ~PipelineTaskTrim() {};
 
@@ -1462,7 +1620,7 @@ public:
     virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override { return std::nullopt; };
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override { return std::nullopt; };
 
-    virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
+    virtual RGY_ERR sendFrame([[maybe_unused]] std::unique_ptr<PipelineTaskOutput>& frame) override {
         if (m_stopwatch) m_stopwatch->set(0);
         if (!frame) {
             return RGY_ERR_MORE_DATA;
@@ -1472,7 +1630,15 @@ public:
         if (!frame_inside_range(taskSurf->surf().frame()->inputFrameId(), m_trimParam.list).first) {
             return RGY_ERR_NONE;
         }
-        if (!m_input->checkTimeSeekTo(taskSurf->surf().frame()->timestamp(), m_srcTimebase)) {
+        const auto surfPts = (int64_t)taskSurf->surf().frame()->timestamp();
+        if (m_parallelEnc) {
+            auto finKeyPts = m_parallelEnc->getVideoEndKeyPts();
+            if (finKeyPts >= 0 && surfPts >= finKeyPts) {
+                m_parallelEnc->setVideoFinished();
+                return RGY_ERR_NONE;
+            }
+        }
+        if (!m_input->checkTimeSeekTo(surfPts, m_srcTimebase)) {
             return RGY_ERR_NONE; //seektoにより脱落させるフレーム
         }
         m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, taskSurf->surf(), taskSurf->syncpoint()));

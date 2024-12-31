@@ -832,6 +832,7 @@ public:
     DataSelect   **ppAttachmentSelect;      //muxするAttachmentのトラック番号のリスト 1,2,...(1から連番で指定)
     RGYAVSync      AVSyncMode;              //音声・映像同期モード
     int            procSpeedLimit;          //プリデコードする場合の処理速度制限 (0で制限なし)
+    float          seekRatio;               //指定された割合に頭出しする
     float          seekSec;                 //指定された秒数分先頭を飛ばす
     float          seekToSec;               //終了時刻(秒)
     tstring        logFramePosList;         //FramePosListの内容を入力終了時に出力する (デバッグ用)

@@ -56,6 +56,7 @@
 #include "rgy_opencl.h"
 #include "rgy_dummy_load.h"
 #include "rgy_device_usage.h"
+#include "rgy_parallel_enc.h"
 #include "qsv_vpp_mfx.h"
 #include "qsv_mfx_dec.h"
 #include "qsv_pipeline_ctrl.h"
@@ -116,6 +117,7 @@ protected:
     shared_ptr<EncodeStatus> m_pStatus;
     shared_ptr<CPerfMonitor> m_pPerfMonitor;
     std::unique_ptr<RGYDeviceUsage> m_deviceUsage;
+    std::unique_ptr<RGYParallelEnc> m_parallelEnc;
 
     int m_encWidth;
     int m_encHeight;
@@ -181,6 +183,7 @@ protected:
 
     virtual RGY_ERR InitLog(sInputParams *pParams);
     virtual RGY_ERR InitPerfMonitor(const sInputParams *pParams);
+    virtual RGY_ERR InitParallelEncode(const sInputParams *inputParam);
     virtual RGY_ERR InitInput(sInputParams *pParams, DeviceCodecCsp& HWDecCodecCsp);
     virtual RGY_ERR InitChapters(const sInputParams *inputParam);
     virtual RGY_ERR InitFilters(sInputParams *inputParam);

@@ -61,6 +61,8 @@ std::vector<int> read_keyfile(tstring keyfile);
 RGY_CSP csp_y4mheader_to_rgy(const char *str);
 const char *csp_rgy_to_y4mheader(const RGY_CSP csp);
 
+static const tstring AVSW_DECODER_DISABLED = _T("disabled");
+
 #if ENABLE_AVSW_READER
 struct AVDemuxStream {
     int                       index;                  //音声・字幕のストリームID (libavのストリームID)

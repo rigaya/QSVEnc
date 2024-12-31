@@ -28,8 +28,9 @@
 #include "rgy_parallel_enc.h"
 #include "rgy_filesystem.h"
 #include "rgy_input.h"
+#include "rgy_output.h"
 #if ENCODER_QSV
-#include "qsv_cmd.h"
+#include "qsv_pipeline.h"
 #elif ENCODER_NVENC
 #include "nvenc_cmd.h"
 #elif ENCODER_VCEENC
@@ -38,14 +39,25 @@
 #include "rkmppenc_cmd.h"
 #endif
 
-static const TCHAR *RGYParallelEncProcessFirstPtsKey = _T("RGYParallelEncProcessFirstPtsKey");
+#define RGYParallelEncProcessFirstPtsKey  "RGYParallelEncProcessFirstPtsKey"
+#define RGYParallelEncProcessFinishPtsKey "RGYParallelEncProcessFinishPtsKey"
 
-RGYParallelEncProcess::RGYParallelEncProcess(const int id, std::shared_ptr<RGYLog> log) :
+#define RGY_PARALLEL_ENC_PIPE_NAME _T("\\\\.\\pipe\\RGYParallelEncPipe_%08x")
+
+tstring getParallelEncNamedPipeName() {
+    return strsprintf(RGY_PARALLEL_ENC_PIPE_NAME, GetCurrentProcessId());
+}
+
+static const int RGY_PARALLEL_ENC_TIMEOUT = 10000;
+
+RGYParallelEncProcess::RGYParallelEncProcess(const int id, const tstring& tmpfile, std::shared_ptr<RGYLog> log) :
     m_id(id),
-    m_process(nullptr),
-    m_eventGotVideoFirstKeyPts(unique_event(nullptr, nullptr)),
-    m_thRecvStderr(),
-    m_videoFirstKeyPts(-1),
+    m_process(),
+    m_qFirstProcessData(),
+    m_sendData(),
+    m_tmpfile(tmpfile),
+    m_thRunProcess(),
+    m_thAbort(false),
     m_log(log) {
 }
 
@@ -55,174 +67,237 @@ RGYParallelEncProcess::~RGYParallelEncProcess() {
 
 RGY_ERR RGYParallelEncProcess::close() {
     auto err = RGY_ERR_NONE;
-    if (m_process) {
-        err = (RGY_ERR)m_process->waitAndGetExitCode();
-        m_process.reset();
+    if (m_thRunProcess.joinable()) {
+        m_thAbort = true;
+        m_thRunProcess.join();
+        if (m_qFirstProcessData) {
+            m_qFirstProcessData->close([](RGYOutputRawPEExtHeader **ptr) { if (*ptr) free(*ptr); });
+            m_qFirstProcessData.reset();
+        }
     }
     return err;
 }
 
-RGY_ERR RGYParallelEncProcess::run(const std::vector<tstring>& cmd) {
-    m_process = std::make_unique<RGYPipeProcess>();
-    m_process->init(PIPE_MODE_ENABLE | PIPE_MODE_ENABLE_FP, PIPE_MODE_DISABLE, PIPE_MODE_ENABLE | PIPE_MODE_ENABLE_FP);
-    if (m_process->run(cmd, nullptr, 0, true, true) != 0) {
-        AddMessage(RGY_LOG_ERROR, _T("Failed to run encoder %d.\n"), m_id);
-        return RGY_ERR_UNKNOWN;
+RGY_ERR RGYParallelEncProcess::run(const encParams& peParams) {
+    m_sendData.eventChildHasSentFirstKeyPts = CreateEventUnique(nullptr, FALSE, FALSE);
+    m_sendData.eventParentHasSentFinKeyPts = CreateEventUnique(nullptr, FALSE, FALSE);
+    if (peParams.ctrl.parallelEnc.parallelId == 0) {
+        m_qFirstProcessData = std::make_unique<RGYQueueMPMP<RGYOutputRawPEExtHeader*>>();
+        m_qFirstProcessData->init();
+        m_sendData.qFirstProcessData = m_qFirstProcessData.get();
     }
-    m_thRecvStderr = std::thread([&]() {
-        recvStdErr();
+    m_thRunProcess = std::thread([&]() {
+        m_process = std::make_unique<CQSVPipeline>();
+
+        encParams encParam = peParams;
+        encParam.ctrl.parallelEnc.sendData = &m_sendData;
+        auto sts = m_process->Init(&encParam);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        m_process->SetAbortFlagPointer(&m_thAbort);
+
+        if ((sts = m_process->CheckCurrentVideoParam()) != RGY_ERR_NONE) {
+            return sts;
+        }
+
+        if ((sts = m_process->Run()) != RGY_ERR_NONE) {
+            return sts;
+        }
+
+        m_process->Close();
+        m_process->PrintMes(RGY_LOG_DEBUG, _T("\nPE%d: Processing finished\n"), m_id);
+        return RGY_ERR_NONE;
     });
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYParallelEncProcess::recvStdErr() {
-    AddMessage(RGY_LOG_DEBUG, _T("PE%d: Start thread to receive messages from encoder.\n"), m_id);
-    std::vector<uint8_t> buffer;
-    while (m_process->stdErrRead(buffer) >= 0) {
-        if (buffer.size() > 0) {
-            auto str = std::string(buffer.data(), buffer.data() + buffer.size());
-            auto tstr = char_to_tstring(str);
-            if (tstr.find(RGYParallelEncProcessFirstPtsKey) == 0) {
-                try {
-                    m_videoFirstKeyPts = std::stoll(tstr.substr(_tcslen(RGYParallelEncProcessFirstPtsKey) + 1));
-                } catch (...) {
-                    m_videoFirstKeyPts = -1;
-                }
-                AddMessage(RGY_LOG_DEBUG, _T("PE%d: Got first key pts: %lld.\n"), m_id, m_videoFirstKeyPts);
-            }
-            m_log->write(RGY_LOG_INFO, RGY_LOGT_APP, _T("%s"), tstr.c_str());
-            buffer.clear();
-        }
+RGY_ERR RGYParallelEncProcess::getNextPacket(RGYOutputRawPEExtHeader **ptr) {
+    if (!m_qFirstProcessData) {
+        return RGY_ERR_NULL_PTR;
     }
-    m_process->stdErrRead(buffer);
-    if (buffer.size() > 0) {
-        auto str = std::string(buffer.data(), buffer.data() + buffer.size());
-        m_log->write(RGY_LOG_INFO, RGY_LOGT_APP, _T("%s"), char_to_tstring(str).c_str());
-        buffer.clear();
+    size_t nSize = 0;
+    *ptr = nullptr;
+    while (!m_qFirstProcessData->front_copy_and_pop_no_lock(ptr, &nSize)) {
+        rgy_yield();
     }
-    AddMessage(RGY_LOG_DEBUG, _T("PE%d: Reached encoder stderr EOF.\n"), m_id);
+    if ((*ptr == nullptr)) {
+        return RGY_ERR_MORE_BITSTREAM;
+    }
     return RGY_ERR_NONE;
 }
 
-int64_t RGYParallelEncProcess::getVideofirstKeyPts(const int timeout) {
-    if (!m_eventGotVideoFirstKeyPts) {
+RGY_ERR RGYParallelEncProcess::pushPacket(RGYOutputRawPEExtHeader *ptr) {
+    if (!m_qFirstProcessData) {
+        return RGY_ERR_NULL_PTR;
+    }
+    m_qFirstProcessData->push(ptr);
+    return RGY_ERR_NONE;
+}
+
+int64_t RGYParallelEncProcess::getVideoFirstKeyPts(const int timeout) {
+    if (m_sendData.videoFirstKeyPts >= 0) {
+        return m_sendData.videoFirstKeyPts;
+    }
+    if (!m_sendData.eventChildHasSentFirstKeyPts) {
         return -1;
     }
-    if (WaitForSingleObject(m_eventGotVideoFirstKeyPts.get(), timeout) == WAIT_OBJECT_0) {
-        return m_videoFirstKeyPts;
+    if (WaitForSingleObject(m_sendData.eventChildHasSentFirstKeyPts.get(), timeout) == WAIT_OBJECT_0) {
+        return m_sendData.videoFirstKeyPts;
     }
     return -1;
 }
 
 RGY_ERR RGYParallelEncProcess::sendEndPts(const int64_t endPts) {
-    if (m_process->processAlive()) {
-        m_process->stdInFpWrite(&endPts, sizeof(endPts));
+    if (!m_sendData.eventParentHasSentFinKeyPts) {
+        return RGY_ERR_UNDEFINED_BEHAVIOR;
     }
-}
-
-RGYParallelEncReadPacket::RGYParallelEncReadPacket() :
-    m_fp(nullptr, fclose) {
-}
-
-RGYParallelEncReadPacket::~RGYParallelEncReadPacket() {
-    m_fp.reset();
-}
-
-RGY_ERR RGYParallelEncReadPacket::init(const tstring &filename) {
-    if (filename.length() > 0) {
-        FILE *fp = nullptr;
-        if (_tfopen_s(&fp, filename.c_str(), _T("rb"))) {
-            return RGY_ERR_FILE_OPEN;
-        }
-        m_fp = std::unique_ptr<FILE, decltype(&fclose)>(fp, fclose);
-    }
-    return RGY_ERR_NONE;
-}
-
-RGY_ERR RGYParallelEncReadPacket::getSample(int64_t& pts, int& key, std::vector<uint8_t>& buffer) {
-    int64_t size = 0;
-    pts = -1;
-    key = 0;
-    if (m_fp) {
-        if (fread(&pts, sizeof(pts), 1, m_fp.get()) != 1) {
-            return RGY_ERR_MORE_DATA;
-        }
-        if (fread(&key, sizeof(key), 1, m_fp.get()) != 1) {
-            return RGY_ERR_MORE_DATA;
-        }
-        if (fread(&size, sizeof(size), 1, m_fp.get()) != 1) {
-            return RGY_ERR_MORE_DATA;
-        }
-        buffer.resize(size);
-        if (fread(buffer.data(), 1, size, m_fp.get()) != size) {
-            return RGY_ERR_MORE_DATA;
-        }
-    }
+    m_sendData.videoFinKeyPts = endPts;
+    SetEvent(m_sendData.eventParentHasSentFinKeyPts.get());
     return RGY_ERR_NONE;
 }
 
 RGYParallelEnc::RGYParallelEnc(std::shared_ptr<RGYLog> log) :
+    m_id(-1),
     m_encProcess(),
-    m_log(log) {}
+    m_log(log),
+    m_videoEndKeyPts(-1),
+    m_videoFinished(false) {}
 
-RGYParallelEnc::~RGYParallelEnc() {}
-
-bool RGYParallelEnc::isParallelEncPossible(const RGYInput *input) const {
-    return input->seekable() && input->GetVideoFirstKeyPts() >= 0;
+RGYParallelEnc::~RGYParallelEnc() {
+    close();
 }
 
-RGY_ERR RGYParallelEnc::parallelChild(const sInputParams *prm, const RGYInput *input) {
-    const auto firstKeyPts = input->GetVideoFirstKeyPts();
-    AddMessage(RGY_LOG_ERROR, _T("%s: %lld\n"), RGYParallelEncProcessFirstPtsKey, input->GetVideoFirstKeyPts());
-    if (firstKeyPts < 0) {
-        AddMessage(RGY_LOG_ERROR, _T("Failed to get first key pts from encoder.\n"));
+void RGYParallelEnc::close() {
+    for (auto &proc : m_encProcess) {
+        proc->close();
+    }
+    m_encProcess.clear();
+    m_videoEndKeyPts = -1;
+}
+
+int64_t RGYParallelEnc::getVideofirstKeyPts(const int processID) {
+    if (processID >= m_encProcess.size()) {
+        return -1;
+    }
+    return m_encProcess[processID]->getVideoFirstKeyPts(INFINITE);
+}
+
+std::vector<RGYParallelEncProcessData> RGYParallelEnc::peRawFilePaths() const {
+    std::vector<RGYParallelEncProcessData> files;
+    for (const auto &proc : m_encProcess) {
+        files.push_back(proc->tmpfile());
+    }
+    return files;
+}
+
+RGY_ERR RGYParallelEnc::getNextPacketFromFirst(RGYOutputRawPEExtHeader **ptr) {
+    if (m_encProcess.size() == 0) {
         return RGY_ERR_UNKNOWN;
     }
+    return m_encProcess.front()->getNextPacket(ptr);
+}
+
+RGY_ERR RGYParallelEnc::pushNextPacket(RGYOutputRawPEExtHeader *ptr) {
+    if (m_encProcess.size() == 0) {
+        return RGY_ERR_UNKNOWN;
+    }
+    return m_encProcess.front()->pushPacket(ptr);
+}
+
+bool RGYParallelEnc::isParallelEncPossible(const encParams *prm, const RGYInput *input) const {
+    return input->seekable()
+        && input->GetVideoFirstKeyPts() >= 0
+        && prm->common.seekSec == 0.0
+        && prm->common.seekToSec == 0.0
+        && prm->common.nTrimCount == 0
+        && prm->common.timecodeFile.length() == 0
+        && prm->common.tcfileIn.length() == 0
+        && prm->common.keyFile.length() == 0
+        && prm->common.keyFile.length() == 0
+        && !prm->common.metric.enabled()
+        && !prm->common.keyOnChapter
+        && prm->vpp.subburn.size() == 0;
+}
+
+RGY_ERR RGYParallelEnc::parallelChild(const encParams *prm, const RGYInput *input) {
+    // 起動したプロセスから最初のキーフレームのptsを取得して、親プロセスに送る
+    auto sendData = prm->ctrl.parallelEnc.sendData;
+    sendData->videoFirstKeyPts = input->GetVideoFirstKeyPts();
+    SetEvent(sendData->eventChildHasSentFirstKeyPts.get());
+
+    // 親プロセスから終了時刻を受け取る
+    WaitForSingleObject(sendData->eventParentHasSentFinKeyPts.get(), INFINITE);
+    m_videoEndKeyPts = sendData->videoFinKeyPts;
     return RGY_ERR_NONE;
 }
 
-std::vector<tstring> RGYParallelEnc::genCmd(const int ip, const sInputParams *prm) {
-    std::vector<tstring> args;
-    if (ip <= 0) {
-        return args;
-    }
-    sInputParams prmParallel = *prm;
-    prmParallel.ctrl.parallelEnc.multiProcessId = ip;
+encParams RGYParallelEnc::genPEParam(const int ip, const encParams *prm, const tstring& tmpfile) {
+    encParams prmParallel = *prm;
+    prmParallel.ctrl.parallelEnc.parallelId = ip;
     prmParallel.ctrl.parentProcessID = GetCurrentProcessId();
-    prmParallel.ctrl.loglevel = RGYParamLogLevel(RGY_LOG_ERROR);
-    auto cmdt = gen_cmd(&prmParallel, false);
-    args = splitCommandLine(cmdt.c_str());
-    if (args.size() == 0) {
-        return args;
-    }
-    args[0] = getExePath();
-    return args;
+    prmParallel.common.muxOutputFormat = _T("raw");
+    prmParallel.common.outputFilename = tmpfile;
+    prmParallel.common.audioSource.clear();
+    prmParallel.common.subSource.clear();
+    prmParallel.common.attachmentSource.clear();
+    prmParallel.common.nAudioSelectCount = 0;
+    prmParallel.common.nSubtitleSelectCount = 0;
+    prmParallel.common.nDataSelectCount = 0;
+    prmParallel.common.nAttachmentSelectCount = 0;
+    prmParallel.common.outReplayCodec = RGY_CODEC_UNKNOWN;
+    prmParallel.common.outReplayFile.clear();
+    prmParallel.common.seekRatio = ip / (float)prmParallel.ctrl.parallelEnc.parallelCount;
+    return prmParallel;
 }
 
-RGY_ERR RGYParallelEnc::parallelRun(const sInputParams *prm, const RGYInput *input) {
-    if (prm->ctrl.parallelEnc.multiProcess <= 1) {
+RGY_ERR RGYParallelEnc::parallelRun(const encParams *prm, const RGYInput *input) {
+    if (prm->ctrl.parallelEnc.parallelCount <= 1) {
         return RGY_ERR_NONE;
     }
-    if (!isParallelEncPossible(input)) {
+    m_id = prm->ctrl.parallelEnc.parallelId;
+    if (prm->ctrl.parallelEnc.parallelId >= 0) { // 子プロセスから呼ばれた
+        return parallelChild(prm, input); // 子プロセスの処理
+    }
+    if (!isParallelEncPossible(prm, input)) {
         AddMessage(RGY_LOG_ERROR, _T("Parallel encoding is not possible.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
-    if (prm->ctrl.parentProcessID > 0) { // 子プロセス
-        return parallelChild(prm, input);
-    }
-    for (int ip = 1; ip < prm->ctrl.parallelEnc.multiProcess; ip++) {
-        const auto cmd = genCmd(ip, prm);
-        auto process = std::make_unique<RGYParallelEncProcess>(ip, m_log);
-        if (process->run(cmd) != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to run encoder.\n"));
-            return RGY_ERR_UNKNOWN;
+    m_encProcess.clear();
+    for (int ip = 0; ip < prm->ctrl.parallelEnc.parallelCount; ip++) {
+        const auto tmpfile = prm->common.outputFilename + _T(".pe") + std::to_tstring(ip);
+        const auto peParam = genPEParam(ip, prm, tmpfile);
+        auto process = std::make_unique<RGYParallelEncProcess>(ip, tmpfile, m_log);
+        if (auto err = process->run(peParam); err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to run PE%d: %s.\n"), ip, get_err_mes(err));
+            return err;
         }
-        const auto firstKeyPts = process->getVideofirstKeyPts(10 * 1000);
+        // 起動したプロセスから最初のキーフレームのptsを取得
+        const auto firstKeyPts = process->getVideoFirstKeyPts(INFINITE);
         if (firstKeyPts < 0) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to get first key pts from encoder.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("Failed to get first key pts from PE%d.\n"), ip);
             return RGY_ERR_UNKNOWN;
         }
+        AddMessage(RGY_LOG_DEBUG, _T("PE%d: Got first key pts %lld.\n"), ip, firstKeyPts);
+        // 起動したプロセスの最初のキーフレームはひとつ前のプロセスのエンコード終了時刻
+        if (ip > 0) {
+            // ひとつ前のプロセスの終了時刻として転送
+            AddMessage(RGY_LOG_DEBUG, _T("Send PE%d end key pts %lld.\n"), ip - 1, firstKeyPts);
+            auto err = m_encProcess.back()->sendEndPts(firstKeyPts);
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to send end pts to PE%d: %s.\n"), ip - 1, get_err_mes(err));
+                return err;
+            }
+        }
+        AddMessage(RGY_LOG_DEBUG, _T("Started encoder PE%d.\n"), ip);
         m_encProcess.push_back(std::move(process));
+    }
+    //最後のプロセスの終了時刻(=終わりまで)を転送
+    AddMessage(RGY_LOG_DEBUG, _T("Send PE%d end key pts -1.\n"), (int)m_encProcess.size() - 1);
+    auto err = m_encProcess.back()->sendEndPts(-1);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to send end pts to encoder PE%d: %s.\n"), (int)m_encProcess.size()-1, get_err_mes(err));
+        return err;
     }
     return RGY_ERR_NONE;
 }
