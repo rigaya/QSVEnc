@@ -697,11 +697,12 @@ public:
 class PipelineTaskInput : public PipelineTask {
     RGYInput *m_input;
     QSVAllocator *m_allocator;
+    int64_t m_endPts; // 並列処理時用の終了時刻 (この時刻は含まないようにする) -1の場合は制限なし(最後まで)
     bool m_allocatorD3D11;
     std::shared_ptr<RGYOpenCLContext> m_cl;
 public:
-    PipelineTaskInput(MFXVideoSession *mfxSession, QSVAllocator *allocator, int outMaxQueueSize, RGYInput *input, mfxVersion mfxVer, std::shared_ptr<RGYOpenCLContext> cl, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::INPUT, outMaxQueueSize, mfxSession, mfxVer, log), m_input(input), m_allocator(allocator), m_allocatorD3D11(IS_ALLOCATOR_D3D11(allocator)), m_cl(cl) {
+    PipelineTaskInput(MFXVideoSession *mfxSession, QSVAllocator *allocator, int64_t endPts, int outMaxQueueSize, RGYInput *input, mfxVersion mfxVer, std::shared_ptr<RGYOpenCLContext> cl, std::shared_ptr<RGYLog> log)
+        : PipelineTask(PipelineTaskType::INPUT, outMaxQueueSize, mfxSession, mfxVer, log), m_input(input), m_allocator(allocator), m_endPts(endPts), m_allocatorD3D11(IS_ALLOCATOR_D3D11(allocator)), m_cl(cl) {
 
     };
     virtual ~PipelineTaskInput() {};
@@ -785,6 +786,11 @@ public:
         if (m_stopwatch) m_stopwatch->add(0, 0);
         auto err = (surfWork.mfx() != nullptr) ? loadNextFrameMFX(surfWork) : loadNextFrameCL(surfWork);
         if (err == RGY_ERR_NONE) {
+            if (m_endPts >= 0
+                && (int64_t)surfWork.frame()->timestamp() != AV_NOPTS_VALUE // timestampが設定されていない場合は無視
+                && (int64_t)surfWork.frame()->timestamp() >= m_endPts) { // m_endPtsは含まないようにする(重要)
+                return RGY_ERR_MORE_BITSTREAM; //入力ビットストリームは終了
+            }
             surfWork.frame()->setInputFrameId(m_inFrames++);
             m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfWork, nullptr));
         }
@@ -814,12 +820,13 @@ protected:
     int m_decFrameOutCount;
     int m_decRemoveRemainingBytesWarnCount; // removing %d bytes from input bitstream not read by decoder の表示回数
     int64_t m_firstPts;
+    int64_t m_endPts; // 並列処理時用の終了時刻 (この時刻は含まないようにする) -1の場合は制限なし(最後まで)
     RGYBitstream m_decInputBitstream;
     RGYQueueMPMP<RGYFrameDataMetadata*> m_queueHDR10plusMetadata;
     RGYQueueMPMP<FrameFlags> m_dataFlag;
 public:
-    PipelineTaskMFXDecode(MFXVideoSession *mfxSession, int outMaxQueueSize, MFXVideoDECODE *mfxdec, mfxVideoParam& decParams, bool skipAV1C, RGYInput *input, mfxVersion mfxVer, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::MFXDEC, outMaxQueueSize, mfxSession, mfxVer, log), m_dec(mfxdec), m_mfxDecParams(decParams), m_input(input), m_skipAV1C(skipAV1C), m_getNextBitstream(true), m_decFrameOutCount(0), m_decRemoveRemainingBytesWarnCount(0), m_firstPts(-1), m_decInputBitstream(), m_queueHDR10plusMetadata(), m_dataFlag() {
+    PipelineTaskMFXDecode(MFXVideoSession *mfxSession, int outMaxQueueSize, MFXVideoDECODE *mfxdec, mfxVideoParam& decParams, bool skipAV1C, int64_t endPts, RGYInput *input, mfxVersion mfxVer, std::shared_ptr<RGYLog> log)
+        : PipelineTask(PipelineTaskType::MFXDEC, outMaxQueueSize, mfxSession, mfxVer, log), m_dec(mfxdec), m_mfxDecParams(decParams), m_input(input), m_skipAV1C(skipAV1C), m_getNextBitstream(true), m_decFrameOutCount(0), m_decRemoveRemainingBytesWarnCount(0), m_firstPts(-1), m_endPts(endPts), m_decInputBitstream(), m_queueHDR10plusMetadata(), m_dataFlag() {
         m_decInputBitstream.init(AVCODEC_READER_INPUT_BUF_SIZE);
         m_dataFlag.init();
         //TimeStampはQSVに自動的に計算させる
@@ -1012,6 +1019,12 @@ protected:
             if (m_stopwatch) m_stopwatch->add(0, 3);
         }
         if (m_stopwatch) m_stopwatch->add(0, 3);
+        if (m_endPts >= 0
+            && surfDecOut != nullptr
+            && surfDecOut->Data.TimeStamp >= (uint64_t)m_endPts) { // m_endPtsは含まないようにする(重要)
+            m_getNextBitstream = false;
+            return RGY_ERR_MORE_BITSTREAM; //入力ビットストリームは終了
+        }
         if (surfDecOut != nullptr && lastSyncP != nullptr
             // 最初のフレームはOpenGOPのBフレームのために投入フレーム以前のデータの場合があるので、その場合はフレームを無視する
             && (m_firstPts <= (int64_t)surfDecOut->Data.TimeStamp || m_decFrameOutCount > 0)) {
@@ -1479,7 +1492,23 @@ protected:
         if (m_currentFile >= (int)files.size()) {
             return RGY_ERR_MORE_BITSTREAM;
         }
+        // m_currentFile == 0の場合は、getBitstreamOneFrameFromQueueでキューから取得するので、ファイルを開かない
         if (m_currentFile > 0) {
+            // m_currentFile > 0の場合は、そのエンコーダの終了を待機
+            while (m_parallelEnc->waitProcess(m_currentFile, 100) != WAIT_OBJECT_0) {
+                ; // status更新など
+            }
+            // 戻り値を確認
+            auto procsts = m_parallelEnc->processReturnCode(m_currentFile);
+            if (!procsts.has_value()) { // そんなはずはないのだが、一応
+                PrintMes(RGY_LOG_ERROR, _T("Unknown error in parallel enc.\n"));
+                return RGY_ERR_UNKNOWN;
+            }
+            if (procsts.value() != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("Error in parallel enc: %s\n"), get_err_mes(procsts.value()));
+                return procsts.value();
+            }
+            // ファイルを開く
             m_fReader = std::unique_ptr<FILE, decltype(&fclose)>(_tfopen(files[m_currentFile].tmppath.c_str(), _T("rb")), fclose);
             if (m_fReader == nullptr) {
                 PrintMes(RGY_LOG_ERROR, _T("Failed to open file: %s\n"), files[m_currentFile].tmppath.c_str());
@@ -1590,7 +1619,7 @@ public:
             }
             m_encTimestamp->add(bsOut->pts(), bsOut->frameIdx(), m_inFrames, 0, metadatalist);
 
-            PrintMes(RGY_LOG_WARN, _T("Packet: pts %lld, dts: %lld, size %lld.\n"), bsOut->pts(), bsOut->dts(), bsOut->size());
+            //PrintMes(RGY_LOG_WARN, _T("Packet: pts %lld, dts: %lld, duration: %d, size %lld.\n"), bsOut->pts(), bsOut->dts(), bsOut->duration(), bsOut->size());
             m_outQeueue.push_back(std::make_unique<PipelineTaskOutputBitstream>(nullptr, bsOut, nullptr));
         }
         return (m_inputBitstreamEOF && ret == RGY_ERR_MORE_BITSTREAM) ? RGY_ERR_MORE_BITSTREAM : RGY_ERR_NONE;

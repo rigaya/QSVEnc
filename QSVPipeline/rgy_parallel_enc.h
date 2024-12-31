@@ -30,6 +30,7 @@
 #define __RGY_PARALLEL_ENC_H__
 
 #include <thread>
+#include <optional>
 #include "rgy_osdep.h"
 #include "rgy_err.h"
 #include "rgy_event.h"
@@ -73,6 +74,7 @@ class RGYParallelEncProcess {
 public:
     RGYParallelEncProcess(const int id, const tstring& tmpfile, std::shared_ptr<RGYLog> log);
     ~RGYParallelEncProcess();
+    RGY_ERR startThread(const encParams& peParams);
     RGY_ERR run(const encParams& peParams);
     int id() const { return m_id; }
     int64_t getVideoFirstKeyPts(const int timeout);
@@ -81,6 +83,8 @@ public:
     RGYParallelEncProcessData tmpfile() const { return { m_tmpfile, m_sendData.videoFirstKeyPts }; }
     RGY_ERR getNextPacket(RGYOutputRawPEExtHeader **ptr);
     RGY_ERR pushPacket(RGYOutputRawPEExtHeader *ptr);
+    int waitProcess(const uint32_t timeout);
+    std::optional<RGY_ERR> processReturnCode() const { return m_thRunProcessRet; }
 protected:
     void AddMessage(RGYLogLevel log_level, const tstring &str) {
         if (m_log == nullptr || log_level < m_log->getLogLevel(RGY_LOGT_APP)) {
@@ -113,6 +117,8 @@ protected:
     RGYParallelEncSendData m_sendData;
     tstring m_tmpfile;
     std::thread m_thRunProcess;
+    std::optional<RGY_ERR> m_thRunProcessRet;
+    unique_event m_processFinished;
     bool m_thAbort;
     std::shared_ptr<RGYLog> m_log;
 };
@@ -133,6 +139,8 @@ public:
     std::vector<RGYParallelEncProcessData> peRawFilePaths() const;
     RGY_ERR getNextPacketFromFirst(RGYOutputRawPEExtHeader **ptr);
     RGY_ERR pushNextPacket(RGYOutputRawPEExtHeader *ptr);
+    int waitProcess(const int id, const uint32_t timeout);
+    std::optional<RGY_ERR> processReturnCode(const int id);
 protected:
     encParams genPEParam(const int ip, const encParams *prm, const tstring& tmpfile);
     RGY_ERR parallelChild(const encParams *prm, const RGYInput *input);

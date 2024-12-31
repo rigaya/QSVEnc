@@ -886,7 +886,8 @@ RGY_ERR RGYOutputRaw::WriteNextOneFrame(RGYBitstream *pBitstream) {
         peHeader.frameIdx = pBitstream->frameIdx();
         peHeader.flags = pBitstream->dataflag();
         peHeader.size = pBitstream->size();
-        if (m_qFirstProcessData) {
+        if (m_qFirstProcessData) { // 並列エンコード用のキューが指定されている場合は、ファイル出力せず、キューにデータを渡す
+            // RGYOutputRawPEExtHeaderのあとにpBitstream->size()だけのデータを連続してつなげる
             RGYOutputRawPEExtHeader *ptr = (RGYOutputRawPEExtHeader *)malloc(sizeof(peHeader) + pBitstream->size());
             if (ptr == nullptr) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for parallel encoding header.\n"));

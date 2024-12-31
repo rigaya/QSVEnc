@@ -2507,9 +2507,9 @@ struct RGYParamAvoidIdleClock {
 struct RGYParallelEncSendData;
 
 struct RGYParamParallelEnc {
-    int parallelCount;
-    int parallelId;
-    RGYParallelEncSendData *sendData;
+    int parallelCount; // 並列処理数
+    int parallelId; // 親=-1, 子=0～
+    RGYParallelEncSendData *sendData; // 並列処理時に親-子間のデータやり取り用
     RGYParamParallelEnc();
     bool operator==(const RGYParamParallelEnc &x) const;
     bool operator!=(const RGYParamParallelEnc &x) const;

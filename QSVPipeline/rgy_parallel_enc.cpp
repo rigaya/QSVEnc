@@ -57,6 +57,8 @@ RGYParallelEncProcess::RGYParallelEncProcess(const int id, const tstring& tmpfil
     m_sendData(),
     m_tmpfile(tmpfile),
     m_thRunProcess(),
+    m_thRunProcessRet(),
+    m_processFinished(unique_event(nullptr, nullptr)),
     m_thAbort(false),
     m_log(log) {
 }
@@ -75,39 +77,46 @@ RGY_ERR RGYParallelEncProcess::close() {
             m_qFirstProcessData.reset();
         }
     }
+    m_processFinished.reset();
     return err;
 }
 
 RGY_ERR RGYParallelEncProcess::run(const encParams& peParams) {
+    m_process = std::make_unique<CQSVPipeline>();
+
+    encParams encParam = peParams;
+    encParam.ctrl.parallelEnc.sendData = &m_sendData;
+    auto sts = m_process->Init(&encParam);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    m_process->SetAbortFlagPointer(&m_thAbort);
+
+    if ((sts = m_process->CheckCurrentVideoParam()) == RGY_ERR_NONE
+        && (sts = m_process->Run()) == RGY_ERR_NONE) {
+        m_process->Close();
+    }
+    return sts;
+}
+
+RGY_ERR RGYParallelEncProcess::startThread(const encParams& peParams) {
     m_sendData.eventChildHasSentFirstKeyPts = CreateEventUnique(nullptr, FALSE, FALSE);
     m_sendData.eventParentHasSentFinKeyPts = CreateEventUnique(nullptr, FALSE, FALSE);
+    m_processFinished = CreateEventUnique(nullptr, FALSE, FALSE); // 処理終了の通知用
     if (peParams.ctrl.parallelEnc.parallelId == 0) {
+        // 最初のプロセスのみ、キューを介してデータをやり取りする
         m_qFirstProcessData = std::make_unique<RGYQueueMPMP<RGYOutputRawPEExtHeader*>>();
         m_qFirstProcessData->init();
-        m_sendData.qFirstProcessData = m_qFirstProcessData.get();
+        m_sendData.qFirstProcessData = m_qFirstProcessData.get(); // キューのポインタを渡す
     }
     m_thRunProcess = std::thread([&]() {
-        m_process = std::make_unique<CQSVPipeline>();
-
-        encParams encParam = peParams;
-        encParam.ctrl.parallelEnc.sendData = &m_sendData;
-        auto sts = m_process->Init(&encParam);
-        if (sts != RGY_ERR_NONE) {
-            return sts;
+        try {
+            m_thRunProcessRet = run(peParams);
+        } catch (...) {
+            m_thRunProcessRet = RGY_ERR_UNKNOWN;
         }
-        m_process->SetAbortFlagPointer(&m_thAbort);
-
-        if ((sts = m_process->CheckCurrentVideoParam()) != RGY_ERR_NONE) {
-            return sts;
-        }
-
-        if ((sts = m_process->Run()) != RGY_ERR_NONE) {
-            return sts;
-        }
-
-        m_process->Close();
-        m_process->PrintMes(RGY_LOG_DEBUG, _T("\nPE%d: Processing finished\n"), m_id);
-        return RGY_ERR_NONE;
+        SetEvent(m_processFinished.get()); // 処理終了を通知するのを忘れないように
+        m_process->PrintMes(RGY_LOG_DEBUG, _T("\nPE%d: Processing finished: %s\n"), m_id, get_err_mes(m_thRunProcessRet.value()));
     });
     return RGY_ERR_NONE;
 }
@@ -157,6 +166,13 @@ RGY_ERR RGYParallelEncProcess::sendEndPts(const int64_t endPts) {
     return RGY_ERR_NONE;
 }
 
+int RGYParallelEncProcess::waitProcess(const uint32_t timeout) {
+    if (!m_processFinished) {
+        return -1;
+    }
+    return WaitForSingleObject(m_processFinished.get(), timeout);
+}
+
 RGYParallelEnc::RGYParallelEnc(std::shared_ptr<RGYLog> log) :
     m_id(-1),
     m_encProcess(),
@@ -193,6 +209,7 @@ std::vector<RGYParallelEncProcessData> RGYParallelEnc::peRawFilePaths() const {
 
 RGY_ERR RGYParallelEnc::getNextPacketFromFirst(RGYOutputRawPEExtHeader **ptr) {
     if (m_encProcess.size() == 0) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid call for getNextPacketFromFirst.\n"));
         return RGY_ERR_UNKNOWN;
     }
     return m_encProcess.front()->getNextPacket(ptr);
@@ -200,9 +217,26 @@ RGY_ERR RGYParallelEnc::getNextPacketFromFirst(RGYOutputRawPEExtHeader **ptr) {
 
 RGY_ERR RGYParallelEnc::pushNextPacket(RGYOutputRawPEExtHeader *ptr) {
     if (m_encProcess.size() == 0) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid call for pushNextPacket.\n"));
         return RGY_ERR_UNKNOWN;
     }
     return m_encProcess.front()->pushPacket(ptr);
+}
+
+int RGYParallelEnc::waitProcess(const int id, const uint32_t timeout) {
+    if (id >= m_encProcess.size()) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parallel id #%d for waitProcess.\n"), id);
+        return -1;
+    }
+    return m_encProcess[id]->waitProcess(timeout);
+}
+
+std::optional<RGY_ERR> RGYParallelEnc::processReturnCode(const int id) {
+    if (id >= m_encProcess.size()) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parallel id #%d for processReturnCode.\n"), id);
+        return std::nullopt;
+    }
+    return m_encProcess[id]->processReturnCode();
 }
 
 bool RGYParallelEnc::isParallelEncPossible(const encParams *prm, const RGYInput *input) const {
@@ -236,8 +270,9 @@ encParams RGYParallelEnc::genPEParam(const int ip, const encParams *prm, const t
     encParams prmParallel = *prm;
     prmParallel.ctrl.parallelEnc.parallelId = ip;
     prmParallel.ctrl.parentProcessID = GetCurrentProcessId();
+    prmParallel.ctrl.loglevel = RGY_LOG_WARN;
     prmParallel.common.muxOutputFormat = _T("raw");
-    prmParallel.common.outputFilename = tmpfile;
+    prmParallel.common.outputFilename = tmpfile; // ip==0の場合のみ、実際にはキューを介してデータをやり取りするがとりあえずファイル名はそのまま入れる
     prmParallel.common.audioSource.clear();
     prmParallel.common.subSource.clear();
     prmParallel.common.attachmentSource.clear();
@@ -268,7 +303,7 @@ RGY_ERR RGYParallelEnc::parallelRun(const encParams *prm, const RGYInput *input)
         const auto tmpfile = prm->common.outputFilename + _T(".pe") + std::to_tstring(ip);
         const auto peParam = genPEParam(ip, prm, tmpfile);
         auto process = std::make_unique<RGYParallelEncProcess>(ip, tmpfile, m_log);
-        if (auto err = process->run(peParam); err != RGY_ERR_NONE) {
+        if (auto err = process->startThread(peParam); err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to run PE%d: %s.\n"), ip, get_err_mes(err));
             return err;
         }
