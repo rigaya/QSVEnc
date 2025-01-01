@@ -3686,14 +3686,40 @@ RGY_ERR CQSVPipeline::InitParallelEncode(sInputParams *inputParam) {
     if (!inputParam->ctrl.parallelEnc.isEnabled()) {
         return RGY_ERR_NONE;
     }
+    auto [sts, errmes] = RGYParallelEnc::isParallelEncPossible(inputParam, m_pFileReader.get());
+    if (sts != RGY_ERR_NONE) {
+        PrintMes(RGY_LOG_WARN, _T("%s.\n"), errmes);
+        inputParam->ctrl.parallelEnc.parallelCount = 0;
+        inputParam->ctrl.parallelEnc.parallelId = -1;
+        return sts;
+    }
+    // 並列処理が有効の場合、メインスレッドではエンコードは行わないので、m_deviceUsageは解放する
+    if (inputParam->ctrl.parallelEnc.isParent() && m_deviceUsage) {
+        m_deviceUsage->close();
+    }
     m_parallelEnc = std::make_unique<RGYParallelEnc>(m_pQSVLog);
     RGYParallelEncDevInfo devInfo;
     devInfo.id = (int)m_device->deviceNum();
     devInfo.name = m_device->name();
     devInfo.type = m_device->adapterType();
-    if (auto sts = m_parallelEnc->parallelRun(inputParam, m_pFileReader.get(), m_pStatus.get(), devInfo); sts != RGY_ERR_NONE) {
+    if ((sts = m_parallelEnc->parallelRun(inputParam, m_pFileReader.get(), m_pStatus.get(), devInfo)) != RGY_ERR_NONE) {
+        if (inputParam->ctrl.parallelEnc.isChild()) {
+            return sts;
+        }
+        // うまくいかなかった場合、並列処理を無効化して続行する
         PrintMes(RGY_LOG_WARN, _T("Failed to initialize parallel encoding, disabled.\n"));
         m_parallelEnc.reset();
+        // m_deviceUsageはいったん解放したので、登録を再追加
+        if (m_deviceUsage) {
+            m_deviceUsage = std::make_unique<RGYDeviceUsage>();
+            auto devUsageLock = m_deviceUsage->lock(); // ロックは親プロセス側でとる
+            // 登録を解除するプロセスを起動
+            const auto [err_run_proc, child_pid] = m_deviceUsage->startProcessMonitor((int)m_device->deviceNum());
+            if (err_run_proc == RGY_ERR_NONE) {
+                // プロセスが起動できたら、その子プロセスのIDを登録する
+                m_deviceUsage->add((int)m_device->deviceNum(), child_pid, devUsageLock.get());
+            }
+        }
         return sts;
     }
     return RGY_ERR_NONE;
@@ -4752,7 +4778,7 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         } else {
             gpuNumStr += gpu_num_str((int)m_device->deviceNum(), m_device->adapterType());
         }
-        PRINT_INFO(_T("Media SDK      QuickSyncVideo, API v%d.%02d,%s, %s GPU\n"), m_mfxVer.Major, m_mfxVer.Minor,
+        PRINT_INFO(_T("Media SDK      QuickSyncVideo API v%d.%02d,%s, %s GPU\n"), m_mfxVer.Major, m_mfxVer.Minor,
             get_low_power_str(outFrameInfo->videoPrm.mfx.LowPower), gpuNumStr.c_str());
     }
     PRINT_INFO(    _T("Async Depth    %d frames\n"), m_nAsyncDepth);

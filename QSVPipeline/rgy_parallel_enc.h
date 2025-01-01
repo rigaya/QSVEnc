@@ -163,7 +163,7 @@ class RGYParallelEnc {
 public:
     RGYParallelEnc(std::shared_ptr<RGYLog> log);
     virtual ~RGYParallelEnc();
-    bool isParallelEncPossible(const encParams *prm, const RGYInput *input);
+    static std::pair<RGY_ERR, const TCHAR *> isParallelEncPossible(const encParams *prm, const RGYInput *input);
     RGY_ERR parallelRun(encParams *prm, const RGYInput *input, EncodeStatus *encStatus, const RGYParallelEncDevInfo& devInfo);
     void close();
     int64_t getVideofirstKeyPts(const int processID);
@@ -180,8 +180,8 @@ public:
     std::vector<RGYParallelEncDevInfo> devInfo() const;
 protected:
     encParams genPEParam(const int ip, const encParams *prm, const tstring& tmpfile);
-    RGY_ERR startParallelThreads(const encParams *prm, const RGYInput *input, EncodeStatus *encStatus);
-    RGY_ERR parallelChild(const encParams *prm, const RGYInput *input, EncodeStatus *encStatus, const RGYParallelEncDevInfo& devInfo);
+    RGY_ERR startParallelThreads(const encParams *prm, EncodeStatus *encStatus);
+    RGY_ERR parallelChild(const encParams *prm, const RGYInput *input, const RGYParallelEncDevInfo& devInfo);
 
     void AddMessage(RGYLogLevel log_level, const tstring &str) {
         if (m_log == nullptr || log_level < m_log->getLogLevel(RGY_LOGT_APP)) {

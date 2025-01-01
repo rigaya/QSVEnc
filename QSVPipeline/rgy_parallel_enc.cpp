@@ -278,55 +278,44 @@ std::vector< RGYParallelEncDevInfo> RGYParallelEnc::devInfo() const {
     return devInfoList;
 }
 
-bool RGYParallelEnc::isParallelEncPossible(const encParams *prm, const RGYInput *input) {
+std::pair<RGY_ERR, const TCHAR *> RGYParallelEnc::isParallelEncPossible(const encParams *prm, const RGYInput *input) {
     if (!input->seekable()) {
-        AddMessage(RGY_LOG_WARN, _T("Parallel encoding is not possible: input is not seekable.\n"));
-        return false;
+        return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: input is not seekable.\n") };
     }
     if (input->GetVideoFirstKeyPts() < 0) {
-        AddMessage(RGY_LOG_WARN, _T("Parallel encoding is not possible: invalid first key PTS.\n"));
-        return false;
+        return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: invalid first key PTS.\n") };
     }
     if (prm->common.seekSec != 0.0) {
-        AddMessage(RGY_LOG_WARN, _T("Parallel encoding is not possible: --seek is eanbled.\n"));
-        return false;
+        return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: --seek is eanbled.\n") };
     }
     if (prm->common.seekToSec != 0.0) {
-        AddMessage(RGY_LOG_WARN, _T("Parallel encoding is not possible: --seek-to is eanbled.\n"));
-        return false;
+        return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: --seek-to is eanbled.\n") };
     }
     if (prm->common.nTrimCount != 0) {
-        AddMessage(RGY_LOG_WARN, _T("Parallel encoding is not possible: --trim is eanbled.\n"));
-        return false;
+        return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: --trim is eanbled.\n") };
     }
     if (prm->common.timecodeFile.length() != 0) {
-        AddMessage(RGY_LOG_WARN, _T("Parallel encoding is not possible: --timecode is specified.\n"));
-        return false;
+        return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: --timecode is specified.\n") };
     }
     if (prm->common.tcfileIn.length() != 0) {
-        AddMessage(RGY_LOG_WARN, _T("Parallel encoding is not possible: --tcfile-in is specified.\n"));
-        return false;
+        return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: --tcfile-in is specified.\n") };
     }
     if (prm->common.keyFile.length() != 0) {
-        AddMessage(RGY_LOG_WARN, _T("Parallel encoding is not possible: --keyfile is specified.\n"));
-        return false;
+        return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: --keyfile is specified.\n") };
     }
     if (prm->common.metric.enabled()) {
-        AddMessage(RGY_LOG_WARN, _T("Parallel encoding is not possible: ssim/psnr/vmaf is enabled.\n"));
-        return false;
+        return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: ssim/psnr/vmaf is enabled.\n") };
     }
     if (prm->common.keyOnChapter) {
-        AddMessage(RGY_LOG_WARN, _T("Parallel encoding is not possible: --key-on-chapter is enabled.\n"));
-        return false;
+        return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: --key-on-chapter is enabled.\n") };
     }
     if (prm->vpp.subburn.size() != 0) {
-        AddMessage(RGY_LOG_WARN, _T("Parallel encoding is not possible: --vpp-subburn is specified.\n"));
-        return false;
+        return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: --vpp-subburn is specified.\n") };
     }
-    return true;
+    return { RGY_ERR_NONE, _T("") };
 }
 
-RGY_ERR RGYParallelEnc::parallelChild(const encParams *prm, const RGYInput *input, EncodeStatus *encStatus, const RGYParallelEncDevInfo& devInfo) {
+RGY_ERR RGYParallelEnc::parallelChild(const encParams *prm, const RGYInput *input, const RGYParallelEncDevInfo& devInfo) {
     // 起動したプロセスから最初のキーフレームのptsを取得して、親プロセスに送る
     auto sendData = prm->ctrl.parallelEnc.sendData;
     sendData->videoFirstKeyPts = input->GetVideoFirstKeyPts();
@@ -364,7 +353,7 @@ encParams RGYParallelEnc::genPEParam(const int ip, const encParams *prm, const t
     return prmParallel;
 }
 
-RGY_ERR RGYParallelEnc::startParallelThreads(const encParams *prm, const RGYInput *input, EncodeStatus *encStatus) {
+RGY_ERR RGYParallelEnc::startParallelThreads(const encParams *prm, EncodeStatus *encStatus) {
     m_encProcess.clear();
     for (int ip = 0; ip < prm->ctrl.parallelEnc.parallelCount; ip++) {
         const auto tmpfile = prm->common.outputFilename + _T(".pe") + std::to_tstring(ip);
@@ -413,16 +402,16 @@ RGY_ERR RGYParallelEnc::parallelRun(encParams *prm, const RGYInput *input, Encod
     }
     m_id = prm->ctrl.parallelEnc.parallelId;
     if (prm->ctrl.parallelEnc.isChild()) { // 子プロセスから呼ばれた
-        return parallelChild(prm, input, encStatus, devInfo); // 子プロセスの処理
+        return parallelChild(prm, input, devInfo); // 子プロセスの処理
     }
-    if (!isParallelEncPossible(prm, input)
-        || startParallelThreads(prm, input, encStatus) != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_WARN, _T("Parallel encoding is not possible.\n"));
+    auto [sts, errmes ] = isParallelEncPossible(prm, input);
+    if (sts != RGY_ERR_NONE
+        || (sts = startParallelThreads(prm, encStatus)) != RGY_ERR_NONE) {
         // 並列処理を無効化して続行する
         m_encProcess.clear();
         prm->ctrl.parallelEnc.parallelCount = 0;
         prm->ctrl.parallelEnc.parallelId = -1;
-        return RGY_ERR_NONE;
+        return sts;
     }
     return RGY_ERR_NONE;
 }
