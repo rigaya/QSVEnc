@@ -3683,7 +3683,7 @@ RGY_ERR CQSVPipeline::InitPerfMonitor(const sInputParams *inputParam) {
 }
 
 RGY_ERR CQSVPipeline::InitParallelEncode(const sInputParams *inputParam) {
-    if (inputParam->ctrl.parallelEnc.parallelCount <= 1) {
+    if (!inputParam->ctrl.parallelEnc.isEnabled()) {
         return RGY_ERR_NONE;
     }
     m_parallelEnc = std::make_unique<RGYParallelEnc>(m_pQSVLog);

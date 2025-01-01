@@ -312,11 +312,11 @@ encParams RGYParallelEnc::genPEParam(const int ip, const encParams *prm, const t
 }
 
 RGY_ERR RGYParallelEnc::parallelRun(const encParams *prm, const RGYInput *input) {
-    if (prm->ctrl.parallelEnc.parallelCount <= 1) {
+    if (!prm->ctrl.parallelEnc.isEnabled()) {
         return RGY_ERR_NONE;
     }
     m_id = prm->ctrl.parallelEnc.parallelId;
-    if (prm->ctrl.parallelEnc.parallelId >= 0) { // 子プロセスから呼ばれた
+    if (prm->ctrl.parallelEnc.isChild()) { // 子プロセスから呼ばれた
         return parallelChild(prm, input); // 子プロセスの処理
     }
     if (!isParallelEncPossible(prm, input)) {

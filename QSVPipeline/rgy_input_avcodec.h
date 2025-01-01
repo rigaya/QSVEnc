@@ -847,9 +847,10 @@ public:
     bool           hdr10plusMetadataCopy;   //HDR10plus関連のmeta情報を取得する
     bool           doviRpuMetadataCopy;     //dovi rpuのmeta情報を取得する
     bool           interlaceAutoFrame;      //フレームごとにインタレの検出を行う
-    RGYListRef<RGYFrameDataQP> *qpTableListRef; //qp tableを格納するときのベース構造体
+    bool           parallelEncParent;       //並列処理の親プロセス (映像デコード不要になる)
     bool           lowLatency;
     bool           timestampPassThrough;    //timestampをそのまま出力する
+    RGYListRef<RGYFrameDataQP> *qpTableListRef; //qp tableを格納するときのベース構造体
     RGYOptList     inputOpt;                //入力オプション
     RGYHEVCBsf     hevcbsf;
     tstring        avswDecoder;             //avswデコーダの指定

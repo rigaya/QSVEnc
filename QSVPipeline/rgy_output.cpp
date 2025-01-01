@@ -1278,7 +1278,7 @@ RGY_ERR initWriters(
 
     bool audioCopyAll = false;
     if (common->AVMuxTarget & RGY_MUX_VIDEO) {
-        if (ctrl->parallelEnc.parallelCount > 1 && ctrl->parallelEnc.parallelId > 0) {
+        if (ctrl->parallelEnc.isChild()) {
             log->write(RGY_LOG_ERROR, RGY_LOGT_OUT, _T("Output: child process should not use muxer.\n"));
             return RGY_ERR_UNSUPPORTED;
         }
@@ -1631,7 +1631,7 @@ RGY_ERR initWriters(
             rawPrm.qFirstProcessData = (ctrl->parallelEnc.sendData) ? ctrl->parallelEnc.sendData->qFirstProcessData : nullptr;
             rawPrm.qFirstProcessDataFree = (ctrl->parallelEnc.sendData) ? ctrl->parallelEnc.sendData->qFirstProcessDataFree : nullptr;
             rawPrm.qFirstProcessDataFreeLarge = (ctrl->parallelEnc.sendData) ? ctrl->parallelEnc.sendData->qFirstProcessDataFreeLarge : nullptr;
-            rawPrm.extPERaw = ctrl->parallelEnc.parallelCount > 1 && ctrl->parallelEnc.parallelId >= 0;
+            rawPrm.extPERaw = ctrl->parallelEnc.isChild();
             rawPrm.debugRawOut = common->debugRawOut;
             rawPrm.outReplayFile = common->outReplayFile;
             rawPrm.outReplayCodec = common->outReplayCodec;
