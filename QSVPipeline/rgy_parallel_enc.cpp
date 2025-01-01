@@ -54,6 +54,8 @@ RGYParallelEncProcess::RGYParallelEncProcess(const int id, const tstring& tmpfil
     m_id(id),
     m_process(),
     m_qFirstProcessData(),
+    m_qFirstProcessDataFree(),
+    m_qFirstProcessDataFreeLarge(),
     m_sendData(),
     m_tmpfile(tmpfile),
     m_thRunProcess(),
@@ -75,6 +77,14 @@ RGY_ERR RGYParallelEncProcess::close() {
         if (m_qFirstProcessData) {
             m_qFirstProcessData->close([](RGYOutputRawPEExtHeader **ptr) { if (*ptr) free(*ptr); });
             m_qFirstProcessData.reset();
+        }
+        if (m_qFirstProcessDataFree) {
+            m_qFirstProcessDataFree->close([](RGYOutputRawPEExtHeader **ptr) { if (*ptr) free(*ptr); });
+            m_qFirstProcessDataFree.reset();
+        }
+        if (m_qFirstProcessDataFreeLarge) {
+            m_qFirstProcessDataFreeLarge->close([](RGYOutputRawPEExtHeader **ptr) { if (*ptr) free(*ptr); });
+            m_qFirstProcessDataFreeLarge.reset();
         }
     }
     m_processFinished.reset();
@@ -107,7 +117,13 @@ RGY_ERR RGYParallelEncProcess::startThread(const encParams& peParams) {
         // 最初のプロセスのみ、キューを介してデータをやり取りする
         m_qFirstProcessData = std::make_unique<RGYQueueMPMP<RGYOutputRawPEExtHeader*>>();
         m_qFirstProcessData->init();
+        m_qFirstProcessDataFree = std::make_unique<RGYQueueMPMP<RGYOutputRawPEExtHeader*>>();
+        m_qFirstProcessDataFree->init();
+        m_qFirstProcessDataFreeLarge = std::make_unique<RGYQueueMPMP<RGYOutputRawPEExtHeader*>>();
+        m_qFirstProcessDataFreeLarge->init();
         m_sendData.qFirstProcessData = m_qFirstProcessData.get(); // キューのポインタを渡す
+        m_sendData.qFirstProcessDataFree = m_qFirstProcessDataFree.get(); // キューのポインタを渡す
+        m_sendData.qFirstProcessDataFreeLarge = m_qFirstProcessDataFreeLarge.get(); // キューのポインタを渡す
     }
     m_thRunProcess = std::thread([&]() {
         try {
@@ -136,11 +152,15 @@ RGY_ERR RGYParallelEncProcess::getNextPacket(RGYOutputRawPEExtHeader **ptr) {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYParallelEncProcess::pushPacket(RGYOutputRawPEExtHeader *ptr) {
-    if (!m_qFirstProcessData) {
+RGY_ERR RGYParallelEncProcess::putFreePacket(RGYOutputRawPEExtHeader *ptr) {
+    if (!m_qFirstProcessDataFree) {
         return RGY_ERR_NULL_PTR;
     }
-    m_qFirstProcessData->push(ptr);
+    if (ptr->allocSize == 0) {
+        return RGY_ERR_UNKNOWN;
+    }
+    RGYQueueMPMP<RGYOutputRawPEExtHeader*> *freeQueue = (ptr->allocSize <= RGY_PE_EXT_HEADER_DATA_NORMAL_BUF_SIZE) ? m_qFirstProcessDataFree.get() : m_qFirstProcessDataFreeLarge.get();
+    freeQueue->push(ptr);
     return RGY_ERR_NONE;
 }
 
@@ -215,12 +235,12 @@ RGY_ERR RGYParallelEnc::getNextPacketFromFirst(RGYOutputRawPEExtHeader **ptr) {
     return m_encProcess.front()->getNextPacket(ptr);
 }
 
-RGY_ERR RGYParallelEnc::pushNextPacket(RGYOutputRawPEExtHeader *ptr) {
+RGY_ERR RGYParallelEnc::putFreePacket(RGYOutputRawPEExtHeader *ptr) {
     if (m_encProcess.size() == 0) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid call for pushNextPacket.\n"));
         return RGY_ERR_UNKNOWN;
     }
-    return m_encProcess.front()->pushPacket(ptr);
+    return m_encProcess.front()->putFreePacket(ptr);
 }
 
 int RGYParallelEnc::waitProcess(const int id, const uint32_t timeout) {

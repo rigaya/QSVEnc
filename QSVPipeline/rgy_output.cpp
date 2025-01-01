@@ -659,7 +659,8 @@ RGYOutputRaw::RGYOutputRaw() :
     m_prevEncodeFrameId(-1),
     m_debugDirectAV1Out(false),
     m_extPERaw(false),
-    m_qFirstProcessData(nullptr) {
+    m_qFirstProcessData(nullptr),
+    m_qFirstProcessDataFree(nullptr) {
     m_strWriterName = _T("bitstream");
     m_OutType = OUT_TYPE_BITSTREAM;
 }
@@ -734,6 +735,8 @@ RGY_ERR RGYOutputRaw::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutp
         }
         m_extPERaw = rawPrm->extPERaw;
         m_qFirstProcessData = rawPrm->qFirstProcessData;
+        m_qFirstProcessDataFree = rawPrm->qFirstProcessDataFree;
+        m_qFirstProcessDataFreeLarge = rawPrm->qFirstProcessDataFreeLarge;
         m_hdr10plusMetadataCopy = rawPrm->hdr10plusMetadataCopy;
         m_doviProfileDst = rawPrm->doviProfile;
         m_doviRpu = rawPrm->doviRpu;
@@ -887,14 +890,27 @@ RGY_ERR RGYOutputRaw::WriteNextOneFrame(RGYBitstream *pBitstream) {
         peHeader.flags = pBitstream->dataflag();
         peHeader.size = pBitstream->size();
         if (m_qFirstProcessData) { // 並列エンコード用のキューが指定されている場合は、ファイル出力せず、キューにデータを渡す
-            // RGYOutputRawPEExtHeaderのあとにpBitstream->size()だけのデータを連続してつなげる
-            RGYOutputRawPEExtHeader *ptr = (RGYOutputRawPEExtHeader *)malloc(sizeof(peHeader) + pBitstream->size());
-            if (ptr == nullptr) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for parallel encoding header.\n"));
-                return RGY_ERR_NULL_PTR;
+            RGYOutputRawPEExtHeader *ptr = nullptr;
+            //空きポインタを保持するキューから取得
+            RGYQueueMPMP<RGYOutputRawPEExtHeader*> *freeQueue = (sizeof(peHeader) + pBitstream->size() <= RGY_PE_EXT_HEADER_DATA_NORMAL_BUF_SIZE) ? m_qFirstProcessDataFree : m_qFirstProcessDataFreeLarge;
+            if (!freeQueue->front_copy_and_pop_no_lock(&ptr)) {
+                ptr = nullptr;
+            }
+            auto allocSize = (ptr) ? ptr->allocSize : 0;
+            // 実際のサイズか、RGY_PE_EXT_HEADER_DATA_BUF_SIZEの大きい方のサイズで確保
+            const auto newAllocSize = std::max(sizeof(peHeader) + pBitstream->size(), RGY_PE_EXT_HEADER_DATA_NORMAL_BUF_SIZE);
+            if (ptr == nullptr || ptr->allocSize < newAllocSize) {
+                if (ptr) free(ptr);
+                ptr = (RGYOutputRawPEExtHeader *)malloc(newAllocSize);
+                if (ptr == nullptr) {
+                    AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for parallel encoding header.\n"));
+                    return RGY_ERR_NULL_PTR;
+                }
+                allocSize = newAllocSize;
             }
             memcpy(ptr, &peHeader, sizeof(peHeader));
             memcpy(ptr + 1, pBitstream->data(), pBitstream->size());
+            ptr->allocSize = allocSize; // allocsizeはpeHeaderで上書きされているので、ここで再設定
             m_qFirstProcessData->push(ptr);
             nBytesWritten += pBitstream->size();
         } else {
@@ -1613,6 +1629,8 @@ RGY_ERR initWriters(
             rawPrm.HEVCAlphaChannel = HEVCAlphaChannel;
             rawPrm.HEVCAlphaChannelMode = HEVCAlphaChannelMode;
             rawPrm.qFirstProcessData = (ctrl->parallelEnc.sendData) ? ctrl->parallelEnc.sendData->qFirstProcessData : nullptr;
+            rawPrm.qFirstProcessDataFree = (ctrl->parallelEnc.sendData) ? ctrl->parallelEnc.sendData->qFirstProcessDataFree : nullptr;
+            rawPrm.qFirstProcessDataFreeLarge = (ctrl->parallelEnc.sendData) ? ctrl->parallelEnc.sendData->qFirstProcessDataFreeLarge : nullptr;
             rawPrm.extPERaw = ctrl->parallelEnc.parallelCount > 1 && ctrl->parallelEnc.parallelId >= 0;
             rawPrm.debugRawOut = common->debugRawOut;
             rawPrm.outReplayFile = common->outReplayFile;

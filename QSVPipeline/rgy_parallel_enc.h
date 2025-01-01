@@ -56,13 +56,17 @@ struct RGYParallelEncSendData {
     int64_t videoFirstKeyPts;
     int64_t videoFinKeyPts;
     RGYQueueMPMP<RGYOutputRawPEExtHeader*> *qFirstProcessData;
+    RGYQueueMPMP<RGYOutputRawPEExtHeader*> *qFirstProcessDataFree;
+    RGYQueueMPMP<RGYOutputRawPEExtHeader*> *qFirstProcessDataFreeLarge;
 
     RGYParallelEncSendData() :
         eventChildHasSentFirstKeyPts(unique_event(nullptr, nullptr)),
         eventParentHasSentFinKeyPts(unique_event(nullptr, nullptr)),
         videoFirstKeyPts(-1),
         videoFinKeyPts(-1),
-        qFirstProcessData(nullptr) {};
+        qFirstProcessData(nullptr),
+        qFirstProcessDataFree(nullptr),
+        qFirstProcessDataFreeLarge(nullptr) {};
 };;
 
 struct RGYParallelEncProcessData {
@@ -82,7 +86,7 @@ public:
     RGY_ERR close();
     RGYParallelEncProcessData tmpfile() const { return { m_tmpfile, m_sendData.videoFirstKeyPts }; }
     RGY_ERR getNextPacket(RGYOutputRawPEExtHeader **ptr);
-    RGY_ERR pushPacket(RGYOutputRawPEExtHeader *ptr);
+    RGY_ERR putFreePacket(RGYOutputRawPEExtHeader *ptr);
     int waitProcess(const uint32_t timeout);
     std::optional<RGY_ERR> processReturnCode() const { return m_thRunProcessRet; }
 protected:
@@ -114,6 +118,8 @@ protected:
     int m_id;
     std::unique_ptr<CQSVPipeline> m_process;
     std::unique_ptr<RGYQueueMPMP<RGYOutputRawPEExtHeader*>> m_qFirstProcessData;
+    std::unique_ptr<RGYQueueMPMP<RGYOutputRawPEExtHeader*>> m_qFirstProcessDataFree;
+    std::unique_ptr<RGYQueueMPMP<RGYOutputRawPEExtHeader*>> m_qFirstProcessDataFreeLarge;
     RGYParallelEncSendData m_sendData;
     tstring m_tmpfile;
     std::thread m_thRunProcess;
@@ -138,7 +144,7 @@ public:
     size_t parallelCount() const { return m_encProcess.size(); }
     std::vector<RGYParallelEncProcessData> peRawFilePaths() const;
     RGY_ERR getNextPacketFromFirst(RGYOutputRawPEExtHeader **ptr);
-    RGY_ERR pushNextPacket(RGYOutputRawPEExtHeader *ptr);
+    RGY_ERR putFreePacket(RGYOutputRawPEExtHeader *ptr);
     int waitProcess(const int id, const uint32_t timeout);
     std::optional<RGY_ERR> processReturnCode(const int id);
 protected:

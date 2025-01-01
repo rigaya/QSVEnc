@@ -1537,12 +1537,18 @@ protected:
         if (err != RGY_ERR_NONE) {
             return err;
         }
+        if (header == nullptr) {
+            return RGY_ERR_UNDEFINED_BEHAVIOR;
+        }
         setHeaderProperties(bsOut, header);
         if (header->size <= 0) {
             return RGY_ERR_UNDEFINED_BEHAVIOR;
+        } else {
+            bsOut->resize(header->size);
+            memcpy(bsOut->data(), (void *)(header + 1), header->size);
         }
-        bsOut->resize(header->size);
-        memcpy(bsOut->data(), (void *)(header + 1), header->size);
+        // メモリを使いまわすため、使い終わったパケットを回収する
+        m_parallelEnc->putFreePacket(header);
         return RGY_ERR_NONE;
     }
 

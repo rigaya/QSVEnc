@@ -224,6 +224,7 @@ struct RGYOutputInsertMetadata {
 
 #pragma pack(push, 1)
 struct RGYOutputRawPEExtHeader {
+    size_t allocSize; // ヘッダを含んだメモリの確保サイズ
     int64_t pts;
     int64_t dts;
     int64_t duration;
@@ -231,11 +232,13 @@ struct RGYOutputRawPEExtHeader {
     RGY_FRAMETYPE frameType;
     int32_t frameIdx;
     uint32_t flags;
-    uint64_t size;
+    size_t size; // この後のデータのサイズ
 };
 #pragma pack(pop)
 
 static_assert(std::is_trivially_copyable<RGYOutputRawPEExtHeader>::value);
+
+static const size_t RGY_PE_EXT_HEADER_DATA_NORMAL_BUF_SIZE = 1 * 1024 * 1024;
  
 class RGYOutput {
 public:
@@ -359,6 +362,8 @@ struct RGYOutputRawPrm {
     RGYDOVIRpuConvertParam doviRpuConvertParam;
     RGYTimestamp *vidTimestamp;
     RGYQueueMPMP<RGYOutputRawPEExtHeader*> *qFirstProcessData;
+    RGYQueueMPMP<RGYOutputRawPEExtHeader*> *qFirstProcessDataFree;
+    RGYQueueMPMP<RGYOutputRawPEExtHeader*> *qFirstProcessDataFreeLarge;
 };
 
 class RGYOutputRaw : public RGYOutput {
@@ -386,6 +391,8 @@ protected:
     bool m_debugDirectAV1Out;
     bool m_extPERaw;
     RGYQueueMPMP<RGYOutputRawPEExtHeader*> *m_qFirstProcessData;
+    RGYQueueMPMP<RGYOutputRawPEExtHeader*> *m_qFirstProcessDataFree;
+    RGYQueueMPMP<RGYOutputRawPEExtHeader*> *m_qFirstProcessDataFreeLarge;
 };
 
 std::unique_ptr<RGYHDRMetadata> createHEVCHDRSei(const std::string &maxCll, const std::string &masterDisplay, CspTransfer atcSei, const RGYInput *reader);
