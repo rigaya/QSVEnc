@@ -1271,7 +1271,8 @@ RGY_ERR initWriters(
     //if (inputParams->CodecId == MFX_CODEC_RAW) {
     //    inputParams->AVMuxTarget &= ~RGY_MUX_VIDEO;
     //}
-    pStatus->Init(outputVideoInfo.fpsN, outputVideoInfo.fpsD, input->frames, inputFileDuration, trimParam, log, pPerfMonitor);
+    auto encSts = (ctrl->parallelEnc.sendData) ? &ctrl->parallelEnc.sendData->encStatus : nullptr;
+    pStatus->Init(outputVideoInfo.fpsN, outputVideoInfo.fpsD, input->frames, inputFileDuration, trimParam, log, pPerfMonitor, encSts);
     if (ctrl->perfMonitorSelect || ctrl->perfMonitorSelectMatplot) {
         pPerfMonitor->SetEncStatus(pStatus);
     }

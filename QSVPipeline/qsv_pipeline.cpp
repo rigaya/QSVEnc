@@ -1854,7 +1854,7 @@ DeviceCodecCsp CQSVPipeline::getHWDecCodecCsp(const bool skipHWDecodeCheck, std:
 
 RGY_ERR CQSVPipeline::InitInput(sInputParams *inputParam, DeviceCodecCsp& HWDecCodecCsp) {
 #if ENABLE_RAW_READER
-    m_pStatus.reset(new EncodeStatus());
+    m_pStatus = std::make_shared<EncodeStatus>();
 
     int subburnTrackId = 0;
     for (const auto &subburn : inputParam->vpp.subburn) {
@@ -3682,12 +3682,16 @@ RGY_ERR CQSVPipeline::InitPerfMonitor(const sInputParams *inputParam) {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR CQSVPipeline::InitParallelEncode(const sInputParams *inputParam) {
+RGY_ERR CQSVPipeline::InitParallelEncode(sInputParams *inputParam) {
     if (!inputParam->ctrl.parallelEnc.isEnabled()) {
         return RGY_ERR_NONE;
     }
     m_parallelEnc = std::make_unique<RGYParallelEnc>(m_pQSVLog);
-    if (auto sts = m_parallelEnc->parallelRun(inputParam, m_pFileReader.get()); sts != RGY_ERR_NONE) {
+    RGYParallelEncDevInfo devInfo;
+    devInfo.id = (int)m_device->deviceNum();
+    devInfo.name = m_device->name();
+    devInfo.type = m_device->adapterType();
+    if (auto sts = m_parallelEnc->parallelRun(inputParam, m_pFileReader.get(), m_pStatus.get(), devInfo); sts != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_WARN, _T("Failed to initialize parallel encoding, disabled.\n"));
         m_parallelEnc.reset();
         return sts;
@@ -4714,21 +4718,42 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
 #endif
     PRINT_INFO(    _T("CPU Info       %s\n"), cpuInfo);
     if (Check_HWUsed(impl)) {
-        PRINT_INFO(_T("GPU Info       %s\n"), gpu_info);
-    }
-    if (Check_HWUsed(impl)) {
-        const TCHAR *adaptorType = _T("");
-        switch (m_device->adapterType()) {
-        case MFX_MEDIA_INTEGRATED: adaptorType = _T("i"); break;
-        case MFX_MEDIA_DISCRETE: adaptorType = _T("d"); break;
+        std::vector<RGYParallelEncDevInfo> parallelEncDevInfo;
+        if (m_parallelEnc) {
+            parallelEncDevInfo = m_parallelEnc->devInfo();
         }
-        static const TCHAR * const NUM_APPENDIX[] = { _T("st"), _T("nd"), _T("rd"), _T("th")};
-        mfxU32 iGPUID = GetAdapterID(m_device->mfxSession());
-        PRINT_INFO(    _T("Media SDK      QuickSyncVideo (hardware encoder)%s, %d%s GPU(%s), API v%d.%02d\n"),
-            get_low_power_str(outFrameInfo->videoPrm.mfx.LowPower), iGPUID + 1, NUM_APPENDIX[clamp(iGPUID, 0, _countof(NUM_APPENDIX) - 1)],
-            adaptorType, m_mfxVer.Major, m_mfxVer.Minor);
-    } else {
-        PRINT_INFO(    _T("Media SDK      software encoder, API v%d.%02d\n"), m_mfxVer.Major, m_mfxVer.Minor);
+        if (parallelEncDevInfo.size() > 0) {
+            PRINT_INFO(_T("GPU Info       %s\n"), parallelEncDevInfo[0].name.c_str());
+            for (size_t i = 1; i < parallelEncDevInfo.size(); i++) {
+                PRINT_INFO(_T("               %s\n"), parallelEncDevInfo[i].name.c_str());
+            }
+        } else {
+            PRINT_INFO(_T("GPU Info       %s\n"), gpu_info);
+        }
+        auto gpu_num_str = [](int id, int adaptor_type) {
+            const TCHAR *adaptorTypeStr = nullptr;
+            switch (adaptor_type) {
+            case MFX_MEDIA_INTEGRATED: adaptorTypeStr = _T("i"); break;
+            case MFX_MEDIA_DISCRETE: adaptorTypeStr = _T("d"); break;
+            }
+            static const TCHAR * const NUM_APPENDIX[] = { _T("st"), _T("nd"), _T("rd"), _T("th") };
+            auto str = strsprintf(_T("%d%s"), id, NUM_APPENDIX[clamp(id-1, 0, _countof(NUM_APPENDIX) - 1)]);
+            if (adaptorTypeStr) {
+                str += strsprintf(_T("(%s)"), adaptorTypeStr);
+            }
+            return str;
+        };
+        tstring gpuNumStr;
+        if (parallelEncDevInfo.size() > 0) {
+            gpuNumStr += gpu_num_str(parallelEncDevInfo[0].id, parallelEncDevInfo[0].type);
+            for (size_t i = 1; i < parallelEncDevInfo.size(); i++) {
+                gpuNumStr += _T("+") + gpu_num_str(parallelEncDevInfo[i].id, parallelEncDevInfo[i].type);
+            }
+        } else {
+            gpuNumStr += gpu_num_str((int)m_device->deviceNum(), m_device->adapterType());
+        }
+        PRINT_INFO(_T("Media SDK      QuickSyncVideo, API v%d.%02d,%s, %s GPU\n"), m_mfxVer.Major, m_mfxVer.Minor,
+            get_low_power_str(outFrameInfo->videoPrm.mfx.LowPower), gpuNumStr.c_str());
     }
     PRINT_INFO(    _T("Async Depth    %d frames\n"), m_nAsyncDepth);
     if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_5)) {

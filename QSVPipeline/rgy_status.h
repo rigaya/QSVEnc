@@ -46,6 +46,7 @@
 using std::chrono::duration_cast;
 
 class CPerfMonitor;
+class RGYParallelEncodeStatusData;
 class RGYLog;
 struct PROCESS_TIME;
 
@@ -87,6 +88,7 @@ typedef struct EncodeStatusData {
     double VEDLoadPercentTotal;
     double VEClockTotal;
     double GPUClockTotal;
+    double progressPercent;
 } EncodeStatusData;
 
 class EncodeStatus {
@@ -95,7 +97,8 @@ public:
     virtual ~EncodeStatus();
     virtual void Init(uint32_t outputFPSRate, uint32_t outputFPSScale,
         uint32_t totalInputFrames, double totalDuration, const sTrimParam &trim,
-        std::shared_ptr<RGYLog> pRGYLog, std::shared_ptr<CPerfMonitor> pPerfMonitor);
+        std::shared_ptr<RGYLog> pRGYLog, std::shared_ptr<CPerfMonitor> pPerfMonitor,
+        RGYParallelEncodeStatusData *peStatusShare);
 
     void SetStart();
     void SetOutputData(RGY_FRAMETYPE picType, uint64_t outputBytes, uint32_t frameAvgQP);
@@ -107,6 +110,7 @@ public:
     int64_t getStartTimeMicroSec();
     bool getEncStarted();
     virtual void SetPrivData(void *pPrivateData);
+    void addChildStatus(const std::pair<double, RGYParallelEncodeStatusData*>& encStatus);
     EncodeStatusData GetEncodeData();
     EncodeStatusData m_sData;
 protected:
@@ -120,6 +124,8 @@ protected:
     std::unique_ptr<PROCESS_TIME> m_sStartTime;
     std::chrono::system_clock::time_point m_tmStart;          //エンコード開始時刻
     std::chrono::system_clock::time_point m_tmLastUpdate;     //最終更新時刻
+    RGYParallelEncodeStatusData *m_peStatusShare;
+    std::vector<std::pair<double, RGYParallelEncodeStatusData*>> m_childStatus;
     bool m_bStdErrWriteToConsole;
     bool m_bEncStarted;
 };

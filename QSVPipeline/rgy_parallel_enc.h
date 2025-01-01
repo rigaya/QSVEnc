@@ -31,6 +31,7 @@
 
 #include <thread>
 #include <optional>
+#include <mutex>
 #include "rgy_osdep.h"
 #include "rgy_err.h"
 #include "rgy_event.h"
@@ -38,31 +39,55 @@
 #include "rgy_queue.h"
 
 struct RGYOutputRawPEExtHeader;
+class EncodeStatus;
+struct EncodeStatusData;
 class RGYInput;
 #if ENCODER_QSV
 struct sInputParams;
 using encParams = sInputParams;
 
 class CQSVPipeline;
-
 #elif ENCODER_NVENC
 #elif ENCODER_VCEENC
 #elif ENCODER_RKMPP
 #endif
 
+class RGYParallelEncodeStatusData {
+protected:
+    std::unique_ptr<EncodeStatusData> encStatusData;
+    std::mutex mtx_;
+public:
+    RGYParallelEncodeStatusData();
+    void set(const EncodeStatusData& data);
+    bool get(EncodeStatusData& data);
+    void reset();
+};
+
+struct RGYParallelEncDevInfo {
+    int id;
+    int type;
+    tstring name;
+};
+
 struct RGYParallelEncSendData {
-    unique_event eventChildHasSentFirstKeyPts;
-    unique_event eventParentHasSentFinKeyPts;
-    int64_t videoFirstKeyPts;
-    int64_t videoFinKeyPts;
-    RGYQueueMPMP<RGYOutputRawPEExtHeader*> *qFirstProcessData;
-    RGYQueueMPMP<RGYOutputRawPEExtHeader*> *qFirstProcessDataFree;
-    RGYQueueMPMP<RGYOutputRawPEExtHeader*> *qFirstProcessDataFreeLarge;
+    unique_event eventChildHasSentFirstKeyPts; // 子→親へ最初のキーフレームのptsを通知するためのイベント
+    int64_t videoFirstKeyPts; // 子の最初のキーフレームのpts
+    RGYParallelEncDevInfo devInfo; // 子のデバイス情報
+    RGYParallelEncodeStatusData encStatus; // 子のエンコード状態を共有用
+
+    unique_event eventParentHasSentFinKeyPts; // 親→子へ最後のptsを通知するためのイベント
+    int64_t videoFinKeyPts;  // 子がエンコードすべき最後のpts(このptsを含まない)
+    
+    RGYQueueMPMP<RGYOutputRawPEExtHeader*> *qFirstProcessData; // 最初の子エンコードから親へエンコード結果を転送するキュー
+    RGYQueueMPMP<RGYOutputRawPEExtHeader*> *qFirstProcessDataFree; // 転送し終わった(不要になった)ポインタを回収するキュー
+    RGYQueueMPMP<RGYOutputRawPEExtHeader*> *qFirstProcessDataFreeLarge; // 転送し終わった(不要になった)ポインタを回収するキュー(大きいサイズ用)
 
     RGYParallelEncSendData() :
         eventChildHasSentFirstKeyPts(unique_event(nullptr, nullptr)),
-        eventParentHasSentFinKeyPts(unique_event(nullptr, nullptr)),
         videoFirstKeyPts(-1),
+        devInfo(),
+        encStatus(),
+        eventParentHasSentFinKeyPts(unique_event(nullptr, nullptr)),
         videoFinKeyPts(-1),
         qFirstProcessData(nullptr),
         qFirstProcessDataFree(nullptr),
@@ -81,14 +106,19 @@ public:
     RGY_ERR startThread(const encParams& peParams);
     RGY_ERR run(const encParams& peParams);
     int id() const { return m_id; }
-    int64_t getVideoFirstKeyPts(const int timeout);
     RGY_ERR sendEndPts(const int64_t endPts);
     RGY_ERR close();
     RGYParallelEncProcessData tmpfile() const { return { m_tmpfile, m_sendData.videoFirstKeyPts }; }
     RGY_ERR getNextPacket(RGYOutputRawPEExtHeader **ptr);
     RGY_ERR putFreePacket(RGYOutputRawPEExtHeader *ptr);
-    int waitProcess(const uint32_t timeout);
-    std::optional<RGY_ERR> processReturnCode() const { return m_thRunProcessRet; }
+
+    int waitProcessFinished(const uint32_t timeout);
+    std::optional<RGY_ERR> processReturnCode() const { return m_thRunProcessRet; } // waitProcessFinished してから呼ぶこと
+
+    int waitProcessStarted(const uint32_t timeout);
+    int64_t getVideoFirstKeyPts() const { return m_sendData.videoFirstKeyPts; } // waitProcessStarted してから呼ぶこと
+    RGYParallelEncodeStatusData *getEncodeStatus() { return &m_sendData.encStatus; } // waitProcessStarted してから呼ぶこと
+    const RGYParallelEncDevInfo& devInfo() const { return m_sendData.devInfo; } // waitProcessStarted してから呼ぶこと
 protected:
     void AddMessage(RGYLogLevel log_level, const tstring &str) {
         if (m_log == nullptr || log_level < m_log->getLogLevel(RGY_LOGT_APP)) {
@@ -133,8 +163,8 @@ class RGYParallelEnc {
 public:
     RGYParallelEnc(std::shared_ptr<RGYLog> log);
     virtual ~RGYParallelEnc();
-    bool isParallelEncPossible(const encParams *prm, const RGYInput *input) const;
-    RGY_ERR parallelRun(const encParams *prm, const RGYInput *input);
+    bool isParallelEncPossible(const encParams *prm, const RGYInput *input);
+    RGY_ERR parallelRun(encParams *prm, const RGYInput *input, EncodeStatus *encStatus, const RGYParallelEncDevInfo& devInfo);
     void close();
     int64_t getVideofirstKeyPts(const int processID);
     int64_t getVideoEndKeyPts() const { return m_videoEndKeyPts; }
@@ -145,11 +175,13 @@ public:
     std::vector<RGYParallelEncProcessData> peRawFilePaths() const;
     RGY_ERR getNextPacketFromFirst(RGYOutputRawPEExtHeader **ptr);
     RGY_ERR putFreePacket(RGYOutputRawPEExtHeader *ptr);
-    int waitProcess(const int id, const uint32_t timeout);
+    int waitProcessFinished(const int id, const uint32_t timeout);
     std::optional<RGY_ERR> processReturnCode(const int id);
+    std::vector<RGYParallelEncDevInfo> devInfo() const;
 protected:
     encParams genPEParam(const int ip, const encParams *prm, const tstring& tmpfile);
-    RGY_ERR parallelChild(const encParams *prm, const RGYInput *input);
+    RGY_ERR startParallelThreads(const encParams *prm, const RGYInput *input, EncodeStatus *encStatus);
+    RGY_ERR parallelChild(const encParams *prm, const RGYInput *input, EncodeStatus *encStatus, const RGYParallelEncDevInfo& devInfo);
 
     void AddMessage(RGYLogLevel log_level, const tstring &str) {
         if (m_log == nullptr || log_level < m_log->getLogLevel(RGY_LOGT_APP)) {

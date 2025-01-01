@@ -1496,7 +1496,7 @@ protected:
         // m_currentFile == 0の場合は、getBitstreamOneFrameFromQueueでキューから取得するので、ファイルを開かない
         if (m_currentFile > 0) {
             // m_currentFile > 0の場合は、そのエンコーダの終了を待機
-            while (m_parallelEnc->waitProcess(m_currentFile, 100) != WAIT_OBJECT_0) {
+            while (m_parallelEnc->waitProcessFinished(m_currentFile, 100) != WAIT_OBJECT_0) {
                 ; // status更新など
             }
             // 戻り値を確認
