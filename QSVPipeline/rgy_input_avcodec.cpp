@@ -2073,7 +2073,7 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             AddMessage(RGY_LOG_DEBUG, _T("set seek %s.\n"), print_time(seek_sec).c_str());
             //seekのために行ったgetSampleの結果は破棄する
             m_Demux.frames.clear();
-            m_seek.first = seek_sec;
+            m_seek.first = (float)seek_sec;
             m_Demux.video.gotFirstKeyframe = false;
             m_Demux.video.streamFirstKeyPts = 0;
         }
