@@ -81,8 +81,9 @@ private:
     int64_t offset;
     int64_t last_clean_id;
     bool timestampPassThrough;
+    bool noDurationFix; // durationの修正を行わない場合にtrue
 public:
-    RGYTimestamp(bool timestampPassThrough_) : m_frame(), mtx(), last_add_pts(-1), last_check_pts(-1), offset(0), last_clean_id(-1), timestampPassThrough(timestampPassThrough_) {};
+    RGYTimestamp(bool timestampPassThrough_, bool noDurationFix_) : m_frame(), mtx(), last_add_pts(-1), last_check_pts(-1), offset(0), last_clean_id(-1), timestampPassThrough(timestampPassThrough_), noDurationFix(noDurationFix_) {};
     ~RGYTimestamp() {};
     void clear() {
         std::lock_guard<std::mutex> lock(mtx);
@@ -94,7 +95,7 @@ public:
         std::lock_guard<std::mutex> lock(mtx);
         if (last_add_pts >= 0) { // 前のフレームのdurationの更新
             auto& last_add_pos = m_frame.find(last_add_pts)->second;
-            last_add_pos.duration = pts - last_add_pos.timestamp;
+            if (!noDurationFix) last_add_pos.duration = pts - last_add_pos.timestamp;
             if (duration == 0) duration = last_add_pos.duration;
         }
         m_frame[pts] = RGYTimestampMapVal(pts, inputFrameId, encodeFrameId, duration, metadatalist);
@@ -143,7 +144,7 @@ public:
         if (pos == m_frame.end()) {
             return RGYTimestampMapVal();
         }
-        auto& ret = pos->second;
+        auto ret = pos->second;
         clean(ret.inputFrameId);
         return ret;
     }
@@ -153,7 +154,7 @@ public:
         if (pos == m_frame.end()) {
             return RGYTimestampMapVal();
         }
-        auto& ret = pos->second;
+        auto ret = pos->second;
         clean(ret.inputFrameId);
         return ret;
     }

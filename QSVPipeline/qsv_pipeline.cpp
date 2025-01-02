@@ -3900,8 +3900,6 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     if (sts != RGY_ERR_NONE) return sts;
     PrintMes(RGY_LOG_DEBUG, _T("CheckParam: Success.\n"));
 
-    m_encTimestamp = std::make_unique<RGYTimestamp>(pParams->common.timestampPassThrough);
-
     sts = InitMfxDecParams();
     if (sts < RGY_ERR_NONE) return sts;
     PrintMes(RGY_LOG_DEBUG, _T("InitMfxDecParams: Success.\n"));
@@ -3928,6 +3926,8 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
 
     sts = InitParallelEncode(pParams);
     if (sts < RGY_ERR_NONE) return sts;
+
+    m_encTimestamp = std::make_unique<RGYTimestamp>(pParams->common.timestampPassThrough, pParams->ctrl.parallelEnc.isParent() /*durationは子エンコーダで修正済み*/);
 
     sts = InitOutput(pParams);
     if (sts < RGY_ERR_NONE) return sts;

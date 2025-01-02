@@ -1517,7 +1517,7 @@ protected:
             }
         }
         m_ptsOffset = files[m_currentFile].ptsOffset;
-        PrintMes(RGY_LOG_ERROR, _T("Switch to next file: pts offset %lld.\n"), m_ptsOffset);
+        PrintMes(RGY_LOG_DEBUG, _T("Switch to next file: pts offset %lld.\n"), m_ptsOffset);
         return RGY_ERR_NONE;
     }
 
@@ -1531,29 +1531,29 @@ protected:
         bsOut->setDataflag(header->flags);
     }
 
-    RGY_ERR getBitstreamOneFrameFromQueue(RGYBitstream *bsOut) {
-        RGYOutputRawPEExtHeader *header = nullptr;
-        auto err = m_parallelEnc->getNextPacketFromFirst(&header);
+    RGY_ERR getBitstreamOneFrameFromQueue(RGYBitstream *bsOut, RGYOutputRawPEExtHeader& header) {
+        RGYOutputRawPEExtHeader *packet = nullptr;
+        auto err = m_parallelEnc->getNextPacketFromFirst(&packet);
         if (err != RGY_ERR_NONE) {
             return err;
         }
-        if (header == nullptr) {
+        if (packet == nullptr) {
             return RGY_ERR_UNDEFINED_BEHAVIOR;
         }
-        setHeaderProperties(bsOut, header);
-        if (header->size <= 0) {
+        setHeaderProperties(bsOut, packet);
+        if (packet->size <= 0) {
             return RGY_ERR_UNDEFINED_BEHAVIOR;
         } else {
-            bsOut->resize(header->size);
-            memcpy(bsOut->data(), (void *)(header + 1), header->size);
+            bsOut->resize(packet->size);
+            memcpy(&header, packet, sizeof(header));
+            memcpy(bsOut->data(), (void *)(packet + 1), packet->size);
         }
         // メモリを使いまわすため、使い終わったパケットを回収する
-        m_parallelEnc->putFreePacket(header);
+        m_parallelEnc->putFreePacket(packet);
         return RGY_ERR_NONE;
     }
 
-    RGY_ERR getBitstreamOneFrameFromFile(FILE *fp, RGYBitstream *bsOut) {
-        RGYOutputRawPEExtHeader header;
+    RGY_ERR getBitstreamOneFrameFromFile(FILE *fp, RGYBitstream *bsOut, RGYOutputRawPEExtHeader& header) {
         if (fread(&header, 1, sizeof(header), fp) != sizeof(header)) {
             return RGY_ERR_MORE_BITSTREAM;
         }
@@ -1569,22 +1569,22 @@ protected:
         return RGY_ERR_NONE;
     }
 
-    RGY_ERR getBitstreamOneFrame(RGYBitstream *bsOut) {
-        return (m_currentFile == 0) ? getBitstreamOneFrameFromQueue(bsOut) : getBitstreamOneFrameFromFile(m_fReader.get(), bsOut);
+    RGY_ERR getBitstreamOneFrame(RGYBitstream *bsOut, RGYOutputRawPEExtHeader& header) {
+        return (m_currentFile == 0) ? getBitstreamOneFrameFromQueue(bsOut, header) : getBitstreamOneFrameFromFile(m_fReader.get(), bsOut, header);
     }
 
-    virtual RGY_ERR getBitstream(RGYBitstream *bsOut) {
+    virtual RGY_ERR getBitstream(RGYBitstream *bsOut, RGYOutputRawPEExtHeader& header) {
         if (!m_fReader && m_currentFile != 0) {
             if (auto err = openNextFile(); err != RGY_ERR_NONE) {
                 return err;
             }
         }
-        auto err = getBitstreamOneFrame(bsOut);
+        auto err = getBitstreamOneFrame(bsOut, header);
         if (err == RGY_ERR_MORE_BITSTREAM) {
             if ((err = openNextFile()) != RGY_ERR_NONE) {
                 return err;
             }
-            err = getBitstreamOneFrame(bsOut);
+            err = getBitstreamOneFrame(bsOut, header);
         }
         return err;
     }
@@ -1620,7 +1620,8 @@ public:
             }
             return 0;
         });
-        ret = getBitstream(bsOut.get());
+        RGYOutputRawPEExtHeader header;
+        ret = getBitstream(bsOut.get(), header);
         if (ret != RGY_ERR_NONE && ret != RGY_ERR_MORE_BITSTREAM) {
             return ret;
         }
@@ -1631,9 +1632,9 @@ public:
                     metadatalist.push_back(std::make_shared<RGYFrameDataHDR10plus>(data.data(), data.size(), dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->timestamp()));
                 }
             }
-            m_encTimestamp->add(bsOut->pts(), bsOut->frameIdx(), m_inFrames, 0, metadatalist);
-
-            //PrintMes(RGY_LOG_WARN, _T("Packet: pts %lld, dts: %lld, duration: %d, size %lld.\n"), bsOut->pts(), bsOut->dts(), bsOut->duration(), bsOut->size());
+            const auto duration = (ENCODER_QSV) ? header.duration : bsOut->duration(); // QSVの場合、Bitstreamにdurationの値がないため、durationはheaderから取得する
+            m_encTimestamp->add(bsOut->pts(), bsOut->frameIdx(), m_inFrames, duration, metadatalist);
+            //PrintMes(RGY_LOG_WARN, _T("Packet: pts %lld, dts: %lld, duration: %d, size %lld.\n"), bsOut->pts(), bsOut->dts(), duration, bsOut->size());
             m_outQeueue.push_back(std::make_unique<PipelineTaskOutputBitstream>(nullptr, bsOut, nullptr));
         }
         if (m_inputBitstreamEOF && ret == RGY_ERR_MORE_BITSTREAM && m_taskAudio) {
@@ -1701,7 +1702,7 @@ protected:
     std::vector<std::shared_ptr<RGYFrameData>> m_lastFrameDataList;
 public:
     PipelineTaskMFXVpp(MFXVideoSession *mfxSession, int outMaxQueueSize, QSVVppMfx *mfxvpp, mfxVideoParam& vppParams, mfxVersion mfxVer, bool timestampPassThrough, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::MFXVPP, outMaxQueueSize, mfxSession, mfxVer, log), m_vpp(mfxvpp), m_timestamp(RGYTimestamp(timestampPassThrough)), m_mfxVppParams(vppParams), m_lastFrameDataList() {
+        : PipelineTask(PipelineTaskType::MFXVPP, outMaxQueueSize, mfxSession, mfxVer, log), m_vpp(mfxvpp), m_timestamp(RGYTimestamp(timestampPassThrough, false)), m_mfxVppParams(vppParams), m_lastFrameDataList() {
     };
     virtual ~PipelineTaskMFXVpp() {};
     void setVpp(QSVVppMfx *mfxvpp) { m_vpp = mfxvpp; };

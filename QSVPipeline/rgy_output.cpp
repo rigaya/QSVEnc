@@ -883,7 +883,7 @@ RGY_ERR RGYOutputRaw::WriteNextOneFrame(RGYBitstream *pBitstream) {
         RGYOutputRawPEExtHeader peHeader;
         peHeader.pts = pBitstream->pts();
         peHeader.dts = pBitstream->dts();
-        peHeader.duration = pBitstream->duration();
+        peHeader.duration = (ENCODER_QSV) ? bs_framedata.duration : pBitstream->duration(); // QSVではdurationを取得できないので、別途取得する
         peHeader.frameType = pBitstream->frametype();
         peHeader.picstruct = pBitstream->picstruct();
         peHeader.frameIdx = pBitstream->frameIdx();
