@@ -635,6 +635,17 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
     }
     m_dynamicRC = pInParams->dynamicRC;
 
+    // 並列エンコード時のチェック
+    if (pInParams->ctrl.parallelEnc.isEnabled()) {
+        pInParams->hyperMode = MFX_HYPERMODE_OFF; // 並列エンコード時はHyperModeは使用しない
+        for (auto& dev2 : devList) {
+            if (dev2) {
+                const auto dev2Feature = dev2->getEncodeFeature(pInParams->rcParam.encMode, pInParams->codec, pInParams->functionMode == QSVFunctionMode::FF);
+                availableFeaures &= dev2Feature;
+            }
+        }
+    }
+
     // HyperModeがらみのチェック
     if (pInParams->hyperMode != MFX_HYPERMODE_OFF) {
         if (!(availableFeaures & ENC_FEATURE_HYPER_MODE)) {
