@@ -1464,6 +1464,7 @@ protected:
     RGYTimestamp *m_encTimestamp;
     RGYHDR10Plus *m_hdr10plus;
     RGYParallelEnc *m_parallelEnc;
+    EncodeStatus *m_encStatus;
     std::unique_ptr<PipelineTaskAudio> m_taskAudio;
     std::unique_ptr<FILE, decltype(&fclose)> m_fReader;
     int64_t m_ptsOffset;
@@ -1471,10 +1472,10 @@ protected:
     bool m_inputBitstreamEOF;
     RGYListRef<RGYBitstream> m_bitStreamOut;
 public:
-    PipelineTaskParallelEncBitstream(RGYInput *input, RGYTimestamp *encTimestamp, RGYHDR10Plus *hdr10plus, RGYParallelEnc *parallelEnc, std::unique_ptr<PipelineTaskAudio>& taskAudio, int outMaxQueueSize, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
+    PipelineTaskParallelEncBitstream(RGYInput *input, RGYTimestamp *encTimestamp, RGYHDR10Plus *hdr10plus, RGYParallelEnc *parallelEnc, EncodeStatus *encStatus, std::unique_ptr<PipelineTaskAudio>& taskAudio, int outMaxQueueSize, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
         PipelineTask(PipelineTaskType::PECOLLECT, outMaxQueueSize, nullptr, mfxVer, log),
         m_input(input), m_currentFile(-1), m_encTimestamp(encTimestamp), m_hdr10plus(hdr10plus),
-        m_parallelEnc(parallelEnc), m_taskAudio(std::move(taskAudio)), m_fReader(std::unique_ptr<FILE, decltype(&fclose)>(nullptr, nullptr)), m_ptsOffset(0),
+        m_parallelEnc(parallelEnc), m_encStatus(encStatus), m_taskAudio(std::move(taskAudio)), m_fReader(std::unique_ptr<FILE, decltype(&fclose)>(nullptr, nullptr)), m_ptsOffset(0),
         m_decInputBitstream(), m_inputBitstreamEOF(false), m_bitStreamOut() {
         m_decInputBitstream.init(AVCODEC_READER_INPUT_BUF_SIZE);
     };
@@ -1496,8 +1497,10 @@ protected:
         // m_currentFile == 0の場合は、getBitstreamOneFrameFromQueueでキューから取得するので、ファイルを開かない
         if (m_currentFile > 0) {
             // m_currentFile > 0の場合は、そのエンコーダの終了を待機
-            while (m_parallelEnc->waitProcessFinished(m_currentFile, 100) != WAIT_OBJECT_0) {
-                ; // status更新など
+            while (m_parallelEnc->waitProcessFinished(m_currentFile, UPDATE_INTERVAL) != WAIT_OBJECT_0) {
+                // 進捗表示の更新
+                auto currentData = m_encStatus->GetEncodeData();
+                m_encStatus->UpdateDisplay(currentData.progressPercent);
             }
             // 戻り値を確認
             auto procsts = m_parallelEnc->processReturnCode(m_currentFile);
@@ -1509,6 +1512,8 @@ protected:
                 PrintMes(RGY_LOG_ERROR, _T("Error in parallel enc: %s\n"), get_err_mes(procsts.value()));
                 return procsts.value();
             }
+            // muxを開始したら、そのファイルに関する進捗表示は削除
+            m_parallelEnc->encStatusReset(m_currentFile);
             // ファイルを開く
             m_fReader = std::unique_ptr<FILE, decltype(&fclose)>(_tfopen(files[m_currentFile].tmppath.c_str(), _T("rb")), fclose);
             if (m_fReader == nullptr) {

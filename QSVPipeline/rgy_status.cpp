@@ -237,11 +237,11 @@ RGY_ERR EncodeStatus::UpdateDisplay(double progressPercent) {
         m_sData.encodeFps = (m_sData.frameOut + m_sData.frameDrop) * 1000.0 / elapsedTime;
         m_sData.bitrateKbps = (double)m_sData.outFileSize * (m_sData.outputFPSRate / (double)m_sData.outputFPSScale) / ((1000 / 8) * (m_sData.frameOut + m_sData.frameDrop));
         std::vector<EncodeStatusData> childStsList;
-        for (size_t i = 1; i < m_childStatus.size(); i++) {
+        for (size_t i = 1; i < m_childStatus.size(); i++) { // 最初のエンコーダは自分自身と同じなので飛ばして1から
             if (m_childStatus[i].second) {
                 EncodeStatusData data;
-                if (m_childStatus[i].second->get(data)) {
-                    data.progressPercent *= m_childStatus[i].first;
+                if (m_childStatus[i].second->get(data)) { // 進捗表示を取得できたら
+                    data.progressPercent *= m_childStatus[i].first; // 個々の進捗率を全体の進捗率に換算する
                     childStsList.push_back(data);
                 }
             }

@@ -150,7 +150,12 @@ RGY_ERR RGYParallelEncProcess::startThread(const encParams& peParams) {
         } catch (...) {
             m_thRunProcessRet = RGY_ERR_UNKNOWN;
         }
-        m_sendData.encStatus.reset();
+        // 進捗表示のfpsを0にする
+        EncodeStatusData encStatusData;
+        if (m_sendData.encStatus.get(encStatusData)) {
+            encStatusData.encodeFps = 0.0;
+            m_sendData.encStatus.set(encStatusData);
+        }
         SetEvent(m_processFinished.get()); // 処理終了を通知するのを忘れないように
         m_process->PrintMes(RGY_LOG_DEBUG, _T("\nPE%d: Processing finished: %s\n"), m_id, get_err_mes(m_thRunProcessRet.value()));
     });
@@ -276,6 +281,14 @@ std::vector< RGYParallelEncDevInfo> RGYParallelEnc::devInfo() const {
         devInfoList.push_back(proc->devInfo());
     }
     return devInfoList;
+}
+
+void RGYParallelEnc::encStatusReset(const int id) {
+    if (id >= m_encProcess.size()) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parallel id #%d for encStatusReset.\n"), id);
+        return;
+    }
+    m_encProcess[id]->getEncodeStatus()->reset();
 }
 
 std::pair<RGY_ERR, const TCHAR *> RGYParallelEnc::isParallelEncPossible(const encParams *prm, const RGYInput *input) {

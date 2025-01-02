@@ -73,7 +73,7 @@ struct RGYParallelEncSendData {
     unique_event eventChildHasSentFirstKeyPts; // 子→親へ最初のキーフレームのptsを通知するためのイベント
     int64_t videoFirstKeyPts; // 子の最初のキーフレームのpts
     RGYParallelEncDevInfo devInfo; // 子のデバイス情報
-    RGYParallelEncodeStatusData encStatus; // 子のエンコード状態を共有用
+    RGYParallelEncodeStatusData encStatus; // 子のエンコード状態を共有用 (親へはEncodeStatus::addChildStatusで渡す、子へはEncodeStatus::initで渡す)
 
     unique_event eventParentHasSentFinKeyPts; // 親→子へ最後のptsを通知するためのイベント
     int64_t videoFinKeyPts;  // 子がエンコードすべき最後のpts(このptsを含まない)
@@ -178,6 +178,7 @@ public:
     int waitProcessFinished(const int id, const uint32_t timeout);
     std::optional<RGY_ERR> processReturnCode(const int id);
     std::vector<RGYParallelEncDevInfo> devInfo() const;
+    void encStatusReset(const int id);
 protected:
     encParams genPEParam(const int ip, const encParams *prm, const tstring& tmpfile);
     RGY_ERR startParallelThreads(const encParams *prm, EncodeStatus *encStatus);
