@@ -1527,10 +1527,11 @@ protected:
                 return RGY_ERR_FILE_OPEN;
             }
         }
+        //最初のファイルに対するptsの差を取り、それをtimebaseを変換して適用する
         const auto inputFrameInfo = m_input->GetInputFrameInfo();
         const auto inputFpsTimebase = rgy_rational<int>((int)inputFrameInfo.fpsD, (int)inputFrameInfo.fpsN);
         const auto srcTimebase = (m_input->getInputTimebase().n() > 0 && m_input->getInputTimebase().is_valid()) ? m_input->getInputTimebase() : inputFpsTimebase;
-        m_ptsOffset = rational_rescale(files[m_currentFile].ptsOffset, srcTimebase, m_outputTimebase);
+        m_ptsOffset = rational_rescale(files[m_currentFile].ptsOffset - files[0].ptsOffset, srcTimebase, m_outputTimebase);
         m_encFrameOffset = (m_currentFile > 0) ? m_lastEncFrameIdx + 1 : 0;
         PrintMes(RGY_LOG_DEBUG, _T("Switch to next file: pts offset %lld, frame offset %d.\n"), m_ptsOffset, m_encFrameOffset);
         return RGY_ERR_NONE;
@@ -1650,7 +1651,7 @@ public:
             m_lastEncFrameIdx = bsOut->frameIdx();
             const auto duration = (ENCODER_QSV) ? header.duration : bsOut->duration(); // QSVの場合、Bitstreamにdurationの値がないため、durationはheaderから取得する
             m_encTimestamp->add(bsOut->pts(), bsOut->frameIdx(), bsOut->frameIdx(), duration, metadatalist);
-            //PrintMes(RGY_LOG_WARN, _T("Packet: pts %lld, dts: %lld, duration: %d, idx: %d, size %lld.\n"), bsOut->pts(), bsOut->dts(), duration, bsOut->frameIdx(), bsOut->size());
+            PrintMes(RGY_LOG_TRACE, _T("Packet: pts %lld, dts: %lld, duration: %d, idx: %d, size %lld.\n"), bsOut->pts(), bsOut->dts(), duration, bsOut->frameIdx(), bsOut->size());
             m_outQeueue.push_back(std::make_unique<PipelineTaskOutputBitstream>(nullptr, bsOut, nullptr));
         }
         if (m_inputBitstreamEOF && ret == RGY_ERR_MORE_BITSTREAM && m_taskAudio) {

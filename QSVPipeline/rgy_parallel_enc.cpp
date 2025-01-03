@@ -370,7 +370,8 @@ encParams RGYParallelEnc::genPEParam(const int ip, const encParams *prm, const t
     return prmParallel;
 }
 
-RGY_ERR RGYParallelEnc::startParallelThreads(const encParams *prm, EncodeStatus *encStatus) {
+RGY_ERR RGYParallelEnc::startParallelThreads(const encParams *prm, const RGYInput *input, EncodeStatus *encStatus) {
+    const auto parentFirstKeyPts = input->GetVideoFirstKeyPts();
     m_encProcess.clear();
     for (int ip = 0; ip < prm->ctrl.parallelEnc.parallelCount; ip++) {
         const auto tmpfile = prm->common.outputFilename + _T(".pe") + std::to_tstring(ip);
@@ -387,7 +388,17 @@ RGY_ERR RGYParallelEnc::startParallelThreads(const encParams *prm, EncodeStatus 
             AddMessage(RGY_LOG_ERROR, _T("Failed to get first key pts from PE%d.\n"), ip);
             return RGY_ERR_UNKNOWN;
         }
-        AddMessage(RGY_LOG_DEBUG, _T("PE%d: Got first key pts %lld.\n"), ip, firstKeyPts);
+        if (ip == 0) {
+            if (firstKeyPts != parentFirstKeyPts) {
+                AddMessage(RGY_LOG_ERROR, _T("First key pts mismatch: parent %lld, PE0 %lld.\n"), parentFirstKeyPts, firstKeyPts);
+                return RGY_ERR_UNKNOWN;
+            }
+        } else if (firstKeyPts <= parentFirstKeyPts) {
+            AddMessage(RGY_LOG_ERROR, _T("First key pts (%lld) for PE%d same or smaller than parent first key pts (%lld).\n"), firstKeyPts, ip, parentFirstKeyPts);
+            return RGY_ERR_UNKNOWN;
+
+        }
+        AddMessage(RGY_LOG_DEBUG, _T("PE%d: Got first key pts: raw %lld, offset %lld.\n"), ip, firstKeyPts, firstKeyPts - parentFirstKeyPts);
         encStatus->addChildStatus({ 1.0f / prm->ctrl.parallelEnc.parallelCount, process->getEncodeStatus() });
 
         // 起動したプロセスの最初のキーフレームはひとつ前のプロセスのエンコード終了時刻
@@ -423,7 +434,7 @@ RGY_ERR RGYParallelEnc::parallelRun(encParams *prm, const RGYInput *input, Encod
     }
     auto [sts, errmes ] = isParallelEncPossible(prm, input);
     if (sts != RGY_ERR_NONE
-        || (sts = startParallelThreads(prm, encStatus)) != RGY_ERR_NONE) {
+        || (sts = startParallelThreads(prm, input, encStatus)) != RGY_ERR_NONE) {
         // 並列処理を無効化して続行する
         m_encProcess.clear();
         prm->ctrl.parallelEnc.parallelCount = 0;

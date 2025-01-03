@@ -181,7 +181,7 @@ public:
     void encStatusReset(const int id);
 protected:
     encParams genPEParam(const int ip, const encParams *prm, const tstring& tmpfile);
-    RGY_ERR startParallelThreads(const encParams *prm, EncodeStatus *encStatus);
+    RGY_ERR startParallelThreads(const encParams *prm, const RGYInput *input, EncodeStatus *encStatus);
     RGY_ERR parallelChild(const encParams *prm, const RGYInput *input, const RGYParallelEncDevInfo& devInfo);
 
     void AddMessage(RGYLogLevel log_level, const tstring &str) {
