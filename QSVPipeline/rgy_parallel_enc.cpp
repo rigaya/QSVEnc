@@ -126,10 +126,12 @@ RGY_ERR RGYParallelEncProcess::run(const encParams& peParams) {
         m_process->Close();
     }
     m_process.reset();
+    m_sendData.logMutex.reset();
     return sts;
 }
 
 RGY_ERR RGYParallelEncProcess::startThread(const encParams& peParams) {
+    m_sendData.logMutex = m_log->getLock();
     m_sendData.eventChildHasSentFirstKeyPts = CreateEventUnique(nullptr, FALSE, FALSE);
     m_sendData.eventParentHasSentFinKeyPts = CreateEventUnique(nullptr, FALSE, FALSE);
     m_processFinished = CreateEventUnique(nullptr, FALSE, FALSE); // 処理終了の通知用

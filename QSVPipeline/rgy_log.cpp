@@ -250,7 +250,9 @@ RGYLog::~RGYLog() {
 
 void RGYLog::init(const TCHAR *pLogFile, const RGYParamLogLevel& log_level) {
     m_nLogLevel = log_level;
-    m_mtx.reset(new std::mutex());
+    if (!m_mtx) {
+        m_mtx = std::make_shared<std::mutex>();
+    }
     if (pLogFile != nullptr && _tcslen(pLogFile) > 0) {
         m_pStrLog = pLogFile;
         CreateDirectoryRecursive(PathRemoveFileSpecFixed(pLogFile).second.c_str());

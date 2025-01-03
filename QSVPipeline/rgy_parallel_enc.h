@@ -70,6 +70,8 @@ struct RGYParallelEncDevInfo {
 };
 
 struct RGYParallelEncSendData {
+    std::shared_ptr<std::mutex> logMutex;
+
     unique_event eventChildHasSentFirstKeyPts; // 子→親へ最初のキーフレームのptsを通知するためのイベント
     int64_t videoFirstKeyPts; // 子の最初のキーフレームのpts
     RGYParallelEncDevInfo devInfo; // 子のデバイス情報
@@ -83,6 +85,7 @@ struct RGYParallelEncSendData {
     RGYQueueMPMP<RGYOutputRawPEExtHeader*> *qFirstProcessDataFreeLarge; // 転送し終わった(不要になった)ポインタを回収するキュー(大きいサイズ用)
 
     RGYParallelEncSendData() :
+        logMutex(),
         eventChildHasSentFirstKeyPts(unique_event(nullptr, nullptr)),
         videoFirstKeyPts(-1),
         devInfo(),
