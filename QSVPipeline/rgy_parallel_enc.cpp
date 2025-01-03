@@ -125,6 +125,7 @@ RGY_ERR RGYParallelEncProcess::run(const encParams& peParams) {
         && (sts = m_process->Run()) == RGY_ERR_NONE) {
         m_process->Close();
     }
+    m_process.reset();
     return sts;
 }
 
@@ -157,7 +158,7 @@ RGY_ERR RGYParallelEncProcess::startThread(const encParams& peParams) {
             m_sendData.encStatus.set(encStatusData);
         }
         SetEvent(m_processFinished.get()); // 処理終了を通知するのを忘れないように
-        m_process->PrintMes(RGY_LOG_DEBUG, _T("\nPE%d: Processing finished: %s\n"), m_id, get_err_mes(m_thRunProcessRet.value()));
+        AddMessage(RGY_LOG_DEBUG, _T("\nPE%d: Processing finished: %s\n"), m_id, get_err_mes(m_thRunProcessRet.value()));
     });
     return RGY_ERR_NONE;
 }
