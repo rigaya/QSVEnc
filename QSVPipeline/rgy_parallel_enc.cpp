@@ -169,7 +169,10 @@ RGY_ERR RGYParallelEncProcess::getNextPacket(RGYOutputRawPEExtHeader **ptr) {
     size_t nSize = 0;
     *ptr = nullptr;
     while (!m_qFirstProcessData->front_copy_and_pop_no_lock(ptr, &nSize)) {
-        rgy_yield();
+        if (nSize == 0 && m_thRunProcessRet.has_value()) { // キューにデータがなく、かつ処理が終了している
+            return m_thRunProcessRet.value() == RGY_ERR_NONE ? RGY_ERR_MORE_BITSTREAM : m_thRunProcessRet.value();
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
     if ((*ptr == nullptr)) {
         return RGY_ERR_MORE_BITSTREAM;
