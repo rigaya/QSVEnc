@@ -2916,9 +2916,9 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrameInternalOneFrame(RGYBitstream *bitstream
         pkt->dts = m_Mux.video.timestampList.get_min_pts();
     }
     if (WRITE_PTS_DEBUG) {
-        AddMessage(RGY_LOG_WARN, _T("video pts %3d, %12s, pts, %lld (%d/%d) [%s]\n"),
+        AddMessage(RGY_LOG_WARN, _T("video pts %3d, %12s, dts %lld, pts, %lld (%d/%d) [%s]\n"),
             pkt->stream_index, char_to_tstring(avcodec_get_name(m_Mux.format.formatCtx->streams[pkt->stream_index]->codecpar->codec_id)).c_str(),
-            pkt->pts, streamTimebase.num, streamTimebase.den, getTimestampString(pkt->pts, streamTimebase).c_str());
+            pkt->dts, pkt->pts, streamTimebase.num, streamTimebase.den, getTimestampString(pkt->pts, streamTimebase).c_str());
     }
     const auto pts = pkt->pts, dts = pkt->dts, duration = pkt->duration;
     *writtenDts = av_rescale_q(pkt->dts, streamTimebase, QUEUE_DTS_TIMEBASE);
