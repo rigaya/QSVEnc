@@ -1465,6 +1465,7 @@ protected:
     RGYHDR10Plus *m_hdr10plus;
     RGYParallelEnc *m_parallelEnc;
     EncodeStatus *m_encStatus;
+    rgy_rational<int> m_outputTimebase;
     std::unique_ptr<PipelineTaskAudio> m_taskAudio;
     std::unique_ptr<FILE, decltype(&fclose)> m_fReader;
     int64_t m_ptsOffset; // 分割出力間の(2分割目以降の)ptsのオフセット
@@ -1474,10 +1475,12 @@ protected:
     bool m_inputBitstreamEOF; // 映像側の読み込み終了フラグ (音声処理の終了も確認する必要があるため)
     RGYListRef<RGYBitstream> m_bitStreamOut;
 public:
-    PipelineTaskParallelEncBitstream(RGYInput *input, RGYTimestamp *encTimestamp, RGYHDR10Plus *hdr10plus, RGYParallelEnc *parallelEnc, EncodeStatus *encStatus, std::unique_ptr<PipelineTaskAudio>& taskAudio, int outMaxQueueSize, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
+    PipelineTaskParallelEncBitstream(RGYInput *input, RGYTimestamp *encTimestamp, RGYHDR10Plus *hdr10plus, RGYParallelEnc *parallelEnc, EncodeStatus *encStatus, rgy_rational<int> outputTimebase,
+        std::unique_ptr<PipelineTaskAudio>& taskAudio, int outMaxQueueSize, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
         PipelineTask(PipelineTaskType::PECOLLECT, outMaxQueueSize, nullptr, mfxVer, log),
         m_input(input), m_currentFile(-1), m_encTimestamp(encTimestamp), m_hdr10plus(hdr10plus),
-        m_parallelEnc(parallelEnc), m_encStatus(encStatus), m_taskAudio(std::move(taskAudio)), m_fReader(std::unique_ptr<FILE, decltype(&fclose)>(nullptr, nullptr)),
+        m_parallelEnc(parallelEnc), m_encStatus(encStatus), m_outputTimebase(outputTimebase),
+        m_taskAudio(std::move(taskAudio)), m_fReader(std::unique_ptr<FILE, decltype(&fclose)>(nullptr, nullptr)),
         m_ptsOffset(0), m_encFrameOffset(0), m_lastEncFrameIdx(-1),
         m_decInputBitstream(), m_inputBitstreamEOF(false), m_bitStreamOut() {
         m_decInputBitstream.init(AVCODEC_READER_INPUT_BUF_SIZE);
@@ -1524,9 +1527,12 @@ protected:
                 return RGY_ERR_FILE_OPEN;
             }
         }
-        m_ptsOffset = files[m_currentFile].ptsOffset;
+        const auto inputFrameInfo = m_input->GetInputFrameInfo();
+        const auto inputFpsTimebase = rgy_rational<int>((int)inputFrameInfo.fpsD, (int)inputFrameInfo.fpsN);
+        const auto srcTimebase = (m_input->getInputTimebase().n() > 0 && m_input->getInputTimebase().is_valid()) ? m_input->getInputTimebase() : inputFpsTimebase;
+        m_ptsOffset = rational_rescale(files[m_currentFile].ptsOffset, srcTimebase, m_outputTimebase);
         m_encFrameOffset = (m_currentFile > 0) ? m_lastEncFrameIdx + 1 : 0;
-        PrintMes(RGY_LOG_DEBUG, _T("Switch to next file: pts offset %lld.\n"), m_ptsOffset);
+        PrintMes(RGY_LOG_DEBUG, _T("Switch to next file: pts offset %lld, frame offset %d.\n"), m_ptsOffset, m_encFrameOffset);
         return RGY_ERR_NONE;
     }
 
