@@ -228,7 +228,7 @@ struct RGYOutputRawPEExtHeader {
     size_t allocSize; // ヘッダを含んだメモリの確保サイズ
     int64_t pts;
     int64_t dts;
-    int64_t duration;
+    int duration;
     RGY_PICSTRUCT picstruct;
     RGY_FRAMETYPE frameType;
     int32_t frameIdx;

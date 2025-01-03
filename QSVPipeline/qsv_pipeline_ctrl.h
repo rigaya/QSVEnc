@@ -1460,22 +1460,25 @@ public:
 class PipelineTaskParallelEncBitstream : public PipelineTask {
 protected:
     RGYInput *m_input;
-    int m_currentFile;
+    int m_currentFile; // いま並列処理の何番目を処理中か
     RGYTimestamp *m_encTimestamp;
     RGYHDR10Plus *m_hdr10plus;
     RGYParallelEnc *m_parallelEnc;
     EncodeStatus *m_encStatus;
     std::unique_ptr<PipelineTaskAudio> m_taskAudio;
     std::unique_ptr<FILE, decltype(&fclose)> m_fReader;
-    int64_t m_ptsOffset;
-    RGYBitstream m_decInputBitstream;
-    bool m_inputBitstreamEOF;
+    int64_t m_ptsOffset; // 分割出力間の(2分割目以降の)ptsのオフセット
+    int m_encFrameOffset; // 分割出力間の(2分割目以降の)エンコードフレームのオフセット
+    int m_lastEncFrameIdx; // 最後にエンコードしたフレームのindex
+    RGYBitstream m_decInputBitstream; // 映像読み込み (ダミー)
+    bool m_inputBitstreamEOF; // 映像側の読み込み終了フラグ (音声処理の終了も確認する必要があるため)
     RGYListRef<RGYBitstream> m_bitStreamOut;
 public:
     PipelineTaskParallelEncBitstream(RGYInput *input, RGYTimestamp *encTimestamp, RGYHDR10Plus *hdr10plus, RGYParallelEnc *parallelEnc, EncodeStatus *encStatus, std::unique_ptr<PipelineTaskAudio>& taskAudio, int outMaxQueueSize, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
         PipelineTask(PipelineTaskType::PECOLLECT, outMaxQueueSize, nullptr, mfxVer, log),
         m_input(input), m_currentFile(-1), m_encTimestamp(encTimestamp), m_hdr10plus(hdr10plus),
-        m_parallelEnc(parallelEnc), m_encStatus(encStatus), m_taskAudio(std::move(taskAudio)), m_fReader(std::unique_ptr<FILE, decltype(&fclose)>(nullptr, nullptr)), m_ptsOffset(0),
+        m_parallelEnc(parallelEnc), m_encStatus(encStatus), m_taskAudio(std::move(taskAudio)), m_fReader(std::unique_ptr<FILE, decltype(&fclose)>(nullptr, nullptr)),
+        m_ptsOffset(0), m_encFrameOffset(0), m_lastEncFrameIdx(-1),
         m_decInputBitstream(), m_inputBitstreamEOF(false), m_bitStreamOut() {
         m_decInputBitstream.init(AVCODEC_READER_INPUT_BUF_SIZE);
     };
@@ -1522,6 +1525,7 @@ protected:
             }
         }
         m_ptsOffset = files[m_currentFile].ptsOffset;
+        m_encFrameOffset = (m_currentFile > 0) ? m_lastEncFrameIdx + 1 : 0;
         PrintMes(RGY_LOG_DEBUG, _T("Switch to next file: pts offset %lld.\n"), m_ptsOffset);
         return RGY_ERR_NONE;
     }
@@ -1532,7 +1536,7 @@ protected:
         bsOut->setDuration(header->duration);
         bsOut->setFrametype(header->frameType);
         bsOut->setPicstruct(header->picstruct);
-        bsOut->setFrameIdx(header->frameIdx);
+        bsOut->setFrameIdx(header->frameIdx + m_encFrameOffset);
         bsOut->setDataflag(header->flags);
     }
 
@@ -1637,9 +1641,10 @@ public:
                     metadatalist.push_back(std::make_shared<RGYFrameDataHDR10plus>(data.data(), data.size(), dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->timestamp()));
                 }
             }
+            m_lastEncFrameIdx = bsOut->frameIdx();
             const auto duration = (ENCODER_QSV) ? header.duration : bsOut->duration(); // QSVの場合、Bitstreamにdurationの値がないため、durationはheaderから取得する
-            m_encTimestamp->add(bsOut->pts(), bsOut->frameIdx(), m_inFrames, duration, metadatalist);
-            //PrintMes(RGY_LOG_WARN, _T("Packet: pts %lld, dts: %lld, duration: %d, size %lld.\n"), bsOut->pts(), bsOut->dts(), duration, bsOut->size());
+            m_encTimestamp->add(bsOut->pts(), bsOut->frameIdx(), bsOut->frameIdx(), duration, metadatalist);
+            //PrintMes(RGY_LOG_WARN, _T("Packet: pts %lld, dts: %lld, duration: %d, idx: %d, size %lld.\n"), bsOut->pts(), bsOut->dts(), duration, bsOut->frameIdx(), bsOut->size());
             m_outQeueue.push_back(std::make_unique<PipelineTaskOutputBitstream>(nullptr, bsOut, nullptr));
         }
         if (m_inputBitstreamEOF && ret == RGY_ERR_MORE_BITSTREAM && m_taskAudio) {
