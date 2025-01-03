@@ -273,6 +273,10 @@ RGY_ERR EncodeStatus::UpdateDisplay(double progressPercent) {
             for (const auto& child : childStsList) {
                 totalProgressPercent += child.progressPercent;
             }
+            if (progressPercent == 0.0) {
+                progressPercent = m_sData.frameIn * 100 / (double)m_sData.frameTotal;
+                m_sData.progressPercent = progressPercent;
+            }
             if (totalProgressPercent == 0.0) {
                 auto totalFrameIn = m_sData.frameIn;
                 for (const auto& child : childStsList) {
