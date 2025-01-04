@@ -880,7 +880,7 @@ public:
     const AVDictionary *GetInputFormatMetadata();
 
     //動画の入力情報を取得する
-    const AVStream *GetInputVideoStream();
+    const AVStream *GetInputVideoStream() const;
 
     //動画の長さを取得する
     double GetInputVideoDuration();
@@ -900,7 +900,7 @@ public:
     //フレーム情報構造へのポインタを返す
     FramePosList *GetFramePosList();
 
-    virtual rgy_rational<int> getInputTimebase() override;
+    virtual rgy_rational<int> getInputTimebase() const override;
 
     virtual RGYDOVIProfile getInputDOVIProfile() override;
 

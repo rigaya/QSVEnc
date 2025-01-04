@@ -3094,7 +3094,7 @@ const AVDictionary *RGYInputAvcodec::GetInputFormatMetadata() {
     return m_Demux.format.formatCtx->metadata;
 }
 
-const AVStream *RGYInputAvcodec::GetInputVideoStream() {
+const AVStream *RGYInputAvcodec::GetInputVideoStream() const {
     return m_Demux.video.stream;
 }
 
@@ -3109,7 +3109,7 @@ double RGYInputAvcodec::GetInputVideoDuration() {
     return duration;
 }
 
-rgy_rational<int> RGYInputAvcodec::getInputTimebase() {
+rgy_rational<int> RGYInputAvcodec::getInputTimebase() const {
     return to_rgy(GetInputVideoStream()->time_base);
 }
 

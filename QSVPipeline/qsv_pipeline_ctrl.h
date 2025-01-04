@@ -1612,6 +1612,8 @@ public:
             PrintMes(RGY_LOG_ERROR, _T("Error in reader: %s.\n"), get_err_mes(ret));
             return ret;
         }
+        m_inputBitstreamEOF |= (ret == RGY_ERR_MORE_DATA || ret == RGY_ERR_MORE_BITSTREAM);
+
         // 音声等抽出のため、入力ファイルの読み込みを進める
         //この関数がMFX_ERR_NONE以外を返せば、入力ビットストリームは終了
         ret = m_input->GetNextBitstream(&m_decInputBitstream);

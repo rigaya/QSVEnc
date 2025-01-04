@@ -595,6 +595,7 @@ RGY_ERR initReaders(
         inputPrmAvs.nAudioSelectCount = common->nAudioSelectCount;
         inputPrmAvs.ppAudioSelect = common->ppAudioSelectList;
         inputPrmAvs.avsdll = ctrl->avsdll;
+        inputPrmAvs.seekRatio = common->seekRatio;
         pInputPrm = &inputPrmAvs;
         log->write(RGY_LOG_DEBUG, RGY_LOGT_IN, _T("avs reader selected.\n"));
         pFileReader.reset(new RGYInputAvs());

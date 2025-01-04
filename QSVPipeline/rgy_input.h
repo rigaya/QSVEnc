@@ -231,7 +231,7 @@ public:
     void SetInputFrames(int frames) {
         m_inputVideoInfo.frames = frames;
     }
-    virtual rgy_rational<int> getInputTimebase() {
+    virtual rgy_rational<int> getInputTimebase() const {
     	if (m_timebase.is_valid()) return m_timebase;
         auto inputFps = rgy_rational<int>(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
         return inputFps.inv() * rgy_rational<int>(1, 4);
