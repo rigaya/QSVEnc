@@ -836,7 +836,10 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
         AddMessage(RGY_LOG_DEBUG, _T("Set Video Codec Tag: %s\n"), char_to_tstring(tagToStr(m_Mux.video.codecCtx->codec_tag)).c_str());
     } else if (videoOutputInfo->codec == RGY_CODEC_HEVC) {
         // 特に指定の場合、HEVCでは再生互換性改善のため、 "hvc1"をデフォルトとする (libavformatのデフォルトは"hev1")
-        m_Mux.video.codecCtx->codec_tag = tagFromStr("hvc1");
+        // ただし、parallelEncodeが有効な場合は、"hve1"を使用する
+        m_Mux.video.codecCtx->codec_tag = (prm->parallelEncode) ? tagFromStr("hve1") : tagFromStr("hvc1");
+    } else if (videoOutputInfo->codec == RGY_CODEC_H264) {
+        m_Mux.video.codecCtx->codec_tag = (prm->parallelEncode) ? tagFromStr("avc3") : tagFromStr("avc1");
     }
     if (videoOutputInfo->vui.descriptpresent
         //atcSeiを設定する場合は、コンテナ側にはVUI情報をもたせないようにする

@@ -1317,6 +1317,7 @@ RGY_ERR initWriters(
         writerPrm.afs                     = isAfs;
         writerPrm.disableMp4Opt           = common->disableMp4Opt;
         writerPrm.lowlatency              = ctrl->lowLatency;
+        writerPrm.parallelEncode          = ctrl->parallelEnc.isEnabled();
         writerPrm.debugDirectAV1Out       = common->debugDirectAV1Out;
         writerPrm.HEVCAlphaChannel        = HEVCAlphaChannel;
         writerPrm.HEVCAlphaChannelMode    = HEVCAlphaChannelMode;
