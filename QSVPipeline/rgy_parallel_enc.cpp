@@ -85,10 +85,10 @@ RGYParallelEncProcess::RGYParallelEncProcess(const int id, const tstring& tmpfil
 }
 
 RGYParallelEncProcess::~RGYParallelEncProcess() {
-    close();
+    close(false);
 }
 
-RGY_ERR RGYParallelEncProcess::close() {
+RGY_ERR RGYParallelEncProcess::close(const bool deleteTempFiles) {
     auto err = RGY_ERR_NONE;
     if (m_thRunProcess.joinable()) {
         m_thAbort = true;
@@ -105,6 +105,9 @@ RGY_ERR RGYParallelEncProcess::close() {
             m_qFirstProcessDataFreeLarge->close([](RGYOutputRawPEExtHeader **ptr) { if (*ptr) free(*ptr); });
             m_qFirstProcessDataFreeLarge.reset();
         }
+    }
+    if (deleteTempFiles && m_tmpfile.length() > 0 && rgy_file_exists(m_tmpfile)) {
+        rgy_file_remove(m_tmpfile.c_str());
     }
     m_processFinished.reset();
     return err;
@@ -226,9 +229,9 @@ RGYParallelEnc::~RGYParallelEnc() {
     close();
 }
 
-void RGYParallelEnc::close() {
+void RGYParallelEnc::close(const bool deleteTempFiles) {
     for (auto &proc : m_encProcess) {
-        proc->close();
+        proc->close(deleteTempFiles);
     }
     m_encProcess.clear();
     m_videoEndKeyPts = -1;

@@ -4598,7 +4598,11 @@ RGY_ERR CQSVPipeline::RunEncode2() {
         }
     }
     PrintMes(RGY_LOG_DEBUG, _T("RunEncode2: finished.\n"));
-    return (err == RGY_ERR_NONE || err == RGY_ERR_MORE_DATA || err == RGY_ERR_MORE_SURFACE || err == RGY_ERR_MORE_BITSTREAM || err > RGY_ERR_NONE) ? RGY_ERR_NONE : err;
+    err = (err == RGY_ERR_NONE || err == RGY_ERR_MORE_DATA || err == RGY_ERR_MORE_SURFACE || err == RGY_ERR_MORE_BITSTREAM || err > RGY_ERR_NONE) ? RGY_ERR_NONE : err;
+    if (m_parallelEnc) {
+        m_parallelEnc->close(err == RGY_ERR_NONE);
+    }
+    return err;
 }
 
 void CQSVPipeline::PrintMes(RGYLogLevel log_level, const TCHAR *format, ...) {

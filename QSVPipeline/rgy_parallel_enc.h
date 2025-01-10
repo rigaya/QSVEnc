@@ -110,7 +110,7 @@ public:
     RGY_ERR run(const encParams& peParams);
     int id() const { return m_id; }
     RGY_ERR sendEndPts(const int64_t endPts);
-    RGY_ERR close();
+    RGY_ERR close(const bool deleteTempFile);
     RGYParallelEncProcessData tmpfile() const { return { m_tmpfile, m_sendData.videoFirstKeyPts }; }
     RGY_ERR getNextPacket(RGYOutputRawPEExtHeader **ptr);
     RGY_ERR putFreePacket(RGYOutputRawPEExtHeader *ptr);
@@ -168,7 +168,7 @@ public:
     virtual ~RGYParallelEnc();
     static std::pair<RGY_ERR, const TCHAR *> isParallelEncPossible(const encParams *prm, const RGYInput *input);
     RGY_ERR parallelRun(encParams *prm, const RGYInput *input, EncodeStatus *encStatus, const RGYParallelEncDevInfo& devInfo);
-    void close();
+    void close(const bool deleteTempFiles);
     int64_t getVideofirstKeyPts(const int processID);
     int64_t getVideoEndKeyPts() const { return m_videoEndKeyPts; }
     void setVideoFinished() { m_videoFinished = true; }
