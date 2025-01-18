@@ -10,35 +10,43 @@ OBJRBINS = $(RBINS:%.bin=%.o)
 OBJRHS = $(RHS:%.h=%.h.o)
 OBJRCLS = $(RCLS:%.cl=%.o)
 OBJRCLHS = $(RCLHS:%.clh=%.o)
+DEPS = $(SRCS:.cpp=.cpp.d)
+DEPCS = $(SRCCS:.c=.c.d)
 
 all: $(PROGRAM)
 
-$(PROGRAM): .depend $(OBJS) $(OBJCS) $(OBJPYWS) $(OBJRBINS) $(OBJRHS) $(OBJRCLS) $(OBJRCLHS)
+$(PROGRAM): $(DEPS) $(DEPCS) $(OBJS) $(OBJCS) $(OBJPYWS) $(OBJRBINS) $(OBJRHS) $(OBJRCLS) $(OBJRCLHS)
 	$(LD) $(OBJS) $(OBJCS) $(OBJPYWS) $(OBJRBINS) $(OBJRHS) $(OBJRCLS) $(OBJRCLHS) $(LDFLAGS) -o $(PROGRAM)
 
-%_sse2.cpp.o: %_sse2.cpp .depend
+%_sse2.cpp.o: %_sse2.cpp
 	$(CXX) -c $(CXXFLAGS) -msse2 -o $@ $<
 
-%_ssse3.cpp.o: %_ssse3.cpp .depend
+%_ssse3.cpp.o: %_ssse3.cpp
 	$(CXX) -c $(CXXFLAGS) -mssse3 -o $@ $<
 
-%_sse41.cpp.o: %_sse41.cpp .depend
+%_sse41.cpp.o: %_sse41.cpp
 	$(CXX) -c $(CXXFLAGS) -msse4.1 -o $@ $<
 
-%_avx.cpp.o: %_avx.cpp .depend
+%_avx.cpp.o: %_avx.cpp
 	$(CXX) -c $(CXXFLAGS) -mavx -mpopcnt -o $@ $<
 
-%_avx2.cpp.o: %_avx2.cpp .depend
+%_avx2.cpp.o: %_avx2.cpp
 	$(CXX) -c $(CXXFLAGS) -mavx2 -mpopcnt -mbmi -mbmi2 -o $@ $<
 
-%_avx512bw.cpp.o: %_avx512bw.cpp .depend
+%_avx512bw.cpp.o: %_avx512bw.cpp
 	$(CXX) -c $(CXXFLAGS) -mavx512f -mavx512bw -mpopcnt -mbmi -mbmi2 -o $@ $<
 
-%.cpp.o: %.cpp .depend
+%.cpp.o: %.cpp
 	$(CXX) -c $(CXXFLAGS) -o $@ $<
+
+%.cpp.d: %.cpp
+	@$(CXX) ./$< $(CXXFLAGS) -g0 -MT $(basename $<).cpp.o -MM > $@
 
 %.c.o: %.c
 	$(CC) -c $(CFLAGS) -o $@ $<
+
+%.c.d: %.c
+	@$(CC) ./$< $(CFLAGS) -g0 -MT $(basename $<).c.o -MM > $@
 
 %.o: %.pyw
 	objcopy -I binary -O elf64-x86-64 -B i386 $< $@
@@ -54,18 +62,12 @@ $(PROGRAM): .depend $(OBJS) $(OBJCS) $(OBJPYWS) $(OBJRBINS) $(OBJRHS) $(OBJRCLS)
 
 %.o: %.clh
 	objcopy -I binary -O elf64-x86-64 -B i386 $< $@
-	
-.depend: config.mak
-	@rm -f .depend
-	@echo 'generate .depend...'
-	@$(foreach SRC, $(SRCS:%=$(SRCDIR)/%), $(CXX) $(SRC) $(CXXFLAGS) -g0 -MT $(SRC:$(SRCDIR)/%.cpp=%.o) -MM >> .depend;)
-	
-ifneq ($(wildcard .depend),)
-include .depend
-endif
+
+-include $(DEPS)
+-include $(DEPCS)
 
 clean:
-	rm -f $(OBJS) $(OBJCS) $(OBJPYWS) $(OBJRBINS) $(OBJRHS) $(OBJRCLS) $(OBJRCLHS) $(PROGRAM) .depend
+	rm -f $(DEPS) $(DEPCS) $(OBJS) $(OBJCS) $(OBJPYWS) $(OBJRBINS) $(OBJRHS) $(OBJRCLS) $(OBJRCLHS) $(PROGRAM)
 
 distclean: clean
 	rm -f config.mak QSVPipeline/rgy_config.h
