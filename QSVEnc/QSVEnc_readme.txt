@@ -313,6 +313,9 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2025.01.23 (7.79)
+- AACを--audio-copyしてmkv出力すると、音声が再生できないファイルができることがある問題を修正。
+
 2025.01.08 (7.78)
 - SAR比が設定されていない(例えば0:0)と、mp4 muxerの出力する"tkhd: Track Header Box"(L-SMASH boxdumper)、"Visual Track layout"(mp4box -info)のwidthが0になってしまう問題を回避。
 
