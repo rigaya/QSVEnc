@@ -4125,7 +4125,7 @@ RGY_ERR CQSVPipeline::ResetMFXComponents(sInputParams* pParams) {
     //DeleteFrames();
     //PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Frames deleted.\n"));
 
-    if ((err = CreatePipeline()) != RGY_ERR_NONE) {
+    if ((err = CreatePipeline(pParams)) != RGY_ERR_NONE) {
         return err;
     }
     if ((err = AllocFrames()) != RGY_ERR_NONE) {
@@ -4183,7 +4183,7 @@ bool CQSVPipeline::VppAfsRffAware() const {
     return vpp_afs_rff_aware;
 }
 
-RGY_ERR CQSVPipeline::CreatePipeline() {
+RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
     m_pipelineTasks.clear();
 
     if (m_pFileReader->getInputCodec() == RGY_CODEC_UNKNOWN) {
@@ -4204,7 +4204,7 @@ RGY_ERR CQSVPipeline::CreatePipeline() {
     const auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
     const auto inputFpsTimebase = rgy_rational<int>((int)inputFrameInfo.fpsD, (int)inputFrameInfo.fpsN);
     const auto srcTimebase = (m_pFileReader->getInputTimebase().n() > 0 && m_pFileReader->getInputTimebase().is_valid()) ? m_pFileReader->getInputTimebase() : inputFpsTimebase;
-    if (m_trimParam.list.size() > 0) {
+    if (m_trimParam.list.size() > 0 || prm->common.seekToSec > 0.0f) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskTrim>(m_trimParam, m_pFileReader.get(), srcTimebase, 0, m_mfxVer, m_pQSVLog));
     }
     m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(&m_device->mfxSession(), srcTimebase, m_outputTimebase, outFrameDuration, m_nAVSyncMode, m_timestampPassThrough, VppAfsRffAware() && m_pFileReader->rffAware(), m_mfxVer, m_pQSVLog));

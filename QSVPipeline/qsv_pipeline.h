@@ -220,7 +220,7 @@ protected:
     virtual RGY_ERR AllocateSufficientBuffer(mfxBitstream* pBS);
 
     RGY_ERR SetPerfMonitorThreadHandles();
-    RGY_ERR CreatePipeline();
+    RGY_ERR CreatePipeline(const sInputParams* prm);
     std::pair<RGY_ERR, std::unique_ptr<QSVVideoParam>> GetOutputVideoInfo();
 
     RGY_ERR CheckParamList(int value, const CX_DESC *list, const char *param_name);
