@@ -1817,7 +1817,7 @@ rff of 2 or more will not be supported (only  supports rff = 1). Also, it can no
 
 ### --vpp-libplacebo-tonemapping [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
-Performs tone mapping using [libplacebo](https://code.videolan.org/videolan/libplacebo).
+Performs tone mapping using [libplacebo](https://code.videolan.org/videolan/libplacebo). Available on Windows systems only.
 
 - **Parameters**
   - src_csp=&lt;string&gt;  
@@ -2551,7 +2551,7 @@ Enable Motion Compensate Temporal Filter (MCTF), if no param specified, then str
 
 ### --vpp-libplacebo-shader [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
-Apply custom shaders in the specified path using [libplacebo](https://code.videolan.org/videolan/libplacebo).
+Apply custom shaders in the specified path using [libplacebo](https://code.videolan.org/videolan/libplacebo). Available on Windows systems only.
 
 - **Parameters**
     - shader=&lt;string&gt;  
@@ -2930,7 +2930,7 @@ Apply color adjustments using curves.
 
 ### --vpp-libplacebo-deband [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
-  Deband filter by [libplacebo](https://code.videolan.org/videolan/libplacebo).
+  Deband filter by [libplacebo](https://code.videolan.org/videolan/libplacebo). Available on Windows systems only.
 
 - **Parameters**
   - iterations=&lt;int&gt;  

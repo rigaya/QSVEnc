@@ -1827,7 +1827,7 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
 
 ### --vpp-libplacebo-tonemapping [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
-[libplacebo](https://code.videolan.org/videolan/libplacebo)を使用したトーンマッピングを行います。
+[libplacebo](https://code.videolan.org/videolan/libplacebo)を使用したトーンマッピングを行います。Windowsでのみ対応しています。
 
 - **パラメータ**
   - src_csp=&lt;string&gt;  
@@ -2616,7 +2616,7 @@ image stabilizerのモードの指定。
 
 ### --vpp-libplacebo-shader [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
-[libplacebo](https://code.videolan.org/videolan/libplacebo)を使用して指定されたパスのカスタムシェーダーを適用します。
+[libplacebo](https://code.videolan.org/videolan/libplacebo)を使用して指定されたパスのカスタムシェーダーを適用します。Windowsでのみ対応しています。
 
 - **パラメータ**
     - shader=&lt;string&gt;  
@@ -2997,7 +2997,7 @@ GPUによるディテールの強調を行う。0 - 100 の間でディテール
 
 ### --vpp-libplacebo-deband [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 
-  [libplacebo](https://code.videolan.org/videolan/libplacebo)を使用したバンディング低減フィルタ。
+  [libplacebo](https://code.videolan.org/videolan/libplacebo)を使用したバンディング低減フィルタ。Windowsでのみ対応しています。
 
 - **Parameters**
   - iterations=&lt;int&gt;  

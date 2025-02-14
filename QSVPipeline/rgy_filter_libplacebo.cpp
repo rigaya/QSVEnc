@@ -534,6 +534,10 @@ RGY_ERR RGYFilterLibplacebo::initLibplacebo(const RGYFilterParam *param) {
     m_pldevice = std::unique_ptr<std::remove_pointer<pl_d3d11>::type, RGYLibplaceboDeleter<pl_d3d11>>(
         m_pl->p_d3d11_create()(m_log.get(), &gpu_params), RGYLibplaceboDeleter<pl_d3d11>(m_pl->p_d3d11_destroy()));
 #elif ENABLE_VULKAN
+    if (ENCODER_QSV) {
+        AddMessage(RGY_LOG_ERROR, _T("libplacebo via vulkan is not supported on QSV encoder, due to lack of OpenCL-Vulkan interop.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
     if (!m_cl->platform()->dev(0).checkExtension(CL_KHR_EXTERNAL_MEMORY_EXTENSION_NAME)) {
         AddMessage(RGY_LOG_ERROR, _T("OpenCL device does not support %s, libplacebo via vulkan cannot be used.\n"), char_to_tstring(CL_KHR_EXTERNAL_MEMORY_EXTENSION_NAME).c_str());
         return RGY_ERR_UNSUPPORTED;
