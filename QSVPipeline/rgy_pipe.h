@@ -181,6 +181,4 @@ protected:
 
 std::unique_ptr<RGYPipeProcess> createRGYPipeProcess();
 
-
-
 #endif //__RGY_PIPE_H__
