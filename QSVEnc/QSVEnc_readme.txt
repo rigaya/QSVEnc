@@ -313,6 +313,10 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2025.02.17 (7.80)
+- mp4/mkv/ts出力等でchromaloc指定が意図した値にならないことがある問題を修正。
+- dolby vision profile 4への処理を改善。
+
 2025.01.23 (7.79)
 - AACを--audio-copyしてmkv出力すると、音声が再生できないファイルができることがある問題を修正。
 
