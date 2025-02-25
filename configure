@@ -514,35 +514,17 @@ else
     cnf_write "no"
 fi
 
-if [ ! -e ./buildVPL/lib/libvpl.a ]; then
-    if [ ! `type -p cmake 2> /dev/null` ]; then
-        cnf_write "cmake not found which is required to build vpl!"
-        exit 1
-    fi
-fi
-
 VPL_CFLAGS="-Os -DONEVPL_EXPERIMENTAL"
 if [ $ENABLE_DEBUG -eq 0 ] && [ $ENABLE_LTO -ne 0 ]; then
 	VPL_CFLAGS="${VPL_CFLAGS} -flto"
 fi
 
-./build_vpl.sh "${VPL_CFLAGS}"
-
-LIBVPL_LIBS=""
-if [ -e ./buildVPL/lib/libvpl.a ]; then
-    LIBVPL_LIBS="-L./buildVPL/lib -lvpl -ldl"
-elif [ -e ./buildVPL/lib64/libvpl.a ]; then
-    LIBVPL_LIBS="-L./buildVPL/lib64 -lvpl -ldl"
+if ! ${PKGCONFIG} --exists vpl ; then
+    cnf_write "vpl.pc could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
 else
-    cnf_write "could not find libvpl.a!"
-    exit 1
+    LIBVPL_CFLAGS=`${PKGCONFIG} --cflags vpl`
+    LIBVPL_LIBS=`${PKGCONFIG} --libs vpl`
 fi
-LIBVPL_CFLAGS="-I./libvpl/api/vpl"
-#if ! ${PKGCONFIG} --exists libvpl ; then
-#    cnf_write "libvpl could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
-#else
-#    LIBVPL_LIBS=`${PKGCONFIG} --libs libvpl`
-#fi
 if cxx_check "libvpl" "${CXXFLAGS} ${EXTRACXXFLAGS} ${LIBVPL_CFLAGS} ${LDFLAGS} ${EXTRALDFLAGS} ${LIBVPL_LIBS}" "" "mfxsession.h" "MFXClose(0);" ; then
     LDFLAGS="${LDFLAGS} ${LIBVPL_LIBS}"
     CXXFLAGS="${CXXFLAGS} ${LIBVPL_CFLAGS}"
