@@ -142,7 +142,6 @@ PREFIX=${PREFIX:-/usr/local}
 EXTRACXXFLAGS=""
 EXTRALDFLAGS=""
 SRCS=""
-X86_64=1
 NO_RDTSCP_INTRIN=0
 CARGO=${CARGO:-cargo}
 ENABLE_LTO=0
@@ -307,7 +306,6 @@ echo "PREFIX=${PREFIX}" >> ${CNF_LOG}
 echo "EXTRACXXFLAGS=${EXTRACXXFLAGS}" >> ${CNF_LOG}
 echo "EXTRALDFLAGS=${EXTRALDFLAGS}" >> ${CNF_LOG}
 echo "OPENCL_HEADERS=${OPENCL_HEADERS}" >> ${CNF_LOG}
-echo "X86_64=${X86_64}" >> ${CNF_LOG}
 echo "ENABLE_CPP_REGEX=${ENABLE_CPP_REGEX}" >> ${CNF_LOG}
 echo "CHECK_LIBAV_NAMES=${CHECK_LIBAV_NAMES}" >> ${CNF_LOG}
 echo "ENABLE_AVSW_READER=${ENABLE_AVSW_READER}" >> ${CNF_LOG}
@@ -336,10 +334,6 @@ if [ `echo | ${CXX} -E -dM - | egrep "WIN32|WIN64" | wc --lines` -ne 0 ]; then
     exit 1 
 fi
 
-if [ `echo | ${CXX} -E -dM - | grep "x86_64" | wc --lines` -eq 0 ]; then
-    X86_64=0
-fi
-
 CFLAGS="-Wall -Wno-missing-braces -Wno-unknown-pragmas -Wno-unused \
 -DLINUX -DUNIX -D_FILE_OFFSET_BITS=64 -D__USE_LARGEFILE64 -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS"
 CXXFLAGS="-Wall -Wno-missing-braces -Wno-unknown-pragmas -Wno-unused \
@@ -348,15 +342,6 @@ CXXFLAGS="-Wall -Wno-missing-braces -Wno-unknown-pragmas -Wno-unused \
 -I${SRCDIR}/tinyxml2 -I${SRCDIR}/ttmath \
 "
 LDFLAGS="-L. -ldl -lm -lstdc++ -lstdc++fs"
-if [ $X86_64 -ne 0 ]; then
-    CFLAGS="${CFLAGS} -DLINUX64 -m64"
-    CXXFLAGS="${CXXFLAGS} -DLINUX64 -m64"
-    LDFLAGS="${LDFLAGS} -m64"
-else
-    CFLAGS="${CFLAGS} -DLINUX32 -m32"
-    CXXFLAGS="${CXXFLAGS} -DLINUX32 -m32"
-    LDFLAGS="${LDFLAGS} -m32"
-fi
 
 if cxx_check "pthread" "${CXXFLAGS} -pthread ${LDFLAGS} -lpthread" ; then
     CXXFLAGS="$CXXFLAGS -pthread"
@@ -1030,7 +1015,6 @@ write_config_mak "CFLAGS = $CFLAGS"
 write_config_mak "CXXFLAGS = $CXXFLAGS $EXTRACXXFLAGS $LIBAV_CFLAGS $VAPOURSYNTH_CFLAGS $AVISYNTH_CFLAGS $LIBASS_CFLAGS $DTL_CFLAGS $CPPCODEC_CFLAGS $VULKAN_CFLAGS $LIBPLACEBO_CFLAGS $LIBDOVI_CFLAGS $LIBHDR10PLUS_CFLAGS"
 write_config_mak "LDFLAGS = $LDFLAGS $EXTRALDFLAGS $LIBAV_LIBS $LIBASS_LIBS $LIBDOVI_LIBS $LIBHDR10PLUS_LIBS"
 write_config_mak "PREFIX = $PREFIX"
-echo "X86_64 = ${X86_64}"
 write_app_rev    "#define ENCODER_REV                  \"$ENCODER_REV\""
 write_enc_config "#define ENABLE_RAW_READER             1"
 write_enc_config "#define ENABLE_AVI_READER             0"
