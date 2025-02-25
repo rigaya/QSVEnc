@@ -310,12 +310,12 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
                 }
                 adapterIDPrev = adapterID;
             }
-            m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("Found deviceID %s, adapterID %d/%d -> device count %d\n"), impl_desc->Dev.DeviceID, deviceCount, id1, adapterID, deviceCount);
+            m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("Found deviceID %s, adapterID %d/%d -> device count %d\n"), impl_desc->Dev.DeviceID, id1, adapterID, deviceCount);
 
             const mfxAccelerationMode acc = impl_desc->AccelerationMode;
             m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("Impl #%d: %s %s, acc %d (%s), accdesc 0x%04x, adapter id %d\n"),
                 impl_idx, MFXImplTypeToStr(impl_desc->Impl).c_str(), char_to_tstring(impl_desc->ImplName).c_str(),
-                impl_desc->AccelerationMode, MFXAccelerationModeToStr(impl_desc->AccelerationMode).c_str(), impl_desc->AccelerationModeDescription, adapterID);
+                impl_desc->AccelerationMode, MFXAccelerationModeToStr(impl_desc->AccelerationMode).c_str(), adapterID);
             MFXDispReleaseImplDescription(loader, impl_desc);
 
             if (accelerationMode == acc && deviceCount == std::max((int)dev, 1/*AUTOの時は最初のデバイスを選択*/)) {
