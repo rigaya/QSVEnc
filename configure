@@ -40,6 +40,17 @@ write_app_rev()
     echo $1 >> QSVPipeline/rgy_rev.h
 }
 
+#
+# cxx_check <id-string> <compiler-flags> [<header> [<c-header> [expr]]]
+#
+# id-string:  used solely for printing log messages
+# flags:      additional flags to pass to the compiler
+# header:     if the argument is provided, this additional system header is included
+# c-header:   if the argument is provided, this additional system
+#             header is included and an "extern C" forced around the #include directive
+# expr:       if the argument is provided, this additional source code text is
+#             emitted into the main function of the check program
+#
 cxx_check()
 {
     echo "" >> ${CNF_LOG}
