@@ -1651,6 +1651,7 @@ RGY_ERR CQSVPipeline::AllocFrames() {
 CQSVPipeline::CQSVPipeline() :
     m_mfxVer({ 0 }),
     m_device(),
+    m_devNames(),
     m_pStatus(),
     m_pPerfMonitor(),
     m_deviceUsage(),
@@ -1991,9 +1992,10 @@ RGY_ERR CQSVPipeline::InitInput(sInputParams *inputParam, DeviceCodecCsp& HWDecC
         if (!ENCODER_QSV) {
             m_nAVSyncMode |= RGY_AVSYNC_VFR;
             const auto timebaseStreamIn = to_rgy(pAVCodecReader->GetInputVideoStream()->time_base);
-            if ((timebaseStreamIn.inv() * m_inputFps.inv()).d() == 1 || timebaseStreamIn.n() > 1000) { //fpsを割り切れるtimebaseなら
+            if (!inputParam->common.timebase.is_valid()
+                && (timebaseStreamIn.inv() * m_inputFps.inv()).d() == 1 || timebaseStreamIn.n() > 1000) { //fpsを割り切れるtimebaseなら
                 if (!inputParam->vpp.afs.enable && !inputParam->vpp.rff.enable) {
-                    m_outputTimebase = m_inputFps.inv() * rgy_rational<int>(1, 8);
+                    m_outputTimebase = m_inputFps.inv() * rgy_rational<int>(1, 4);
                 }
             }
         }
@@ -3712,11 +3714,7 @@ RGY_ERR CQSVPipeline::InitParallelEncode(sInputParams *inputParam) {
         m_deviceUsage->close();
     }
     m_parallelEnc = std::make_unique<RGYParallelEnc>(m_pQSVLog);
-    RGYParallelEncDevInfo devInfo;
-    devInfo.id = (int)m_device->deviceNum();
-    devInfo.name = m_device->name();
-    devInfo.type = m_device->adapterType();
-    if ((sts = m_parallelEnc->parallelRun(inputParam, m_pFileReader.get(), m_pStatus.get(), devInfo)) != RGY_ERR_NONE) {
+    if ((sts = m_parallelEnc->parallelRun(inputParam, m_pFileReader.get(), m_outputTimebase, m_pStatus.get())) != RGY_ERR_NONE) {
         if (inputParam->ctrl.parallelEnc.isChild()) {
             return sts;
         }
@@ -3887,6 +3885,11 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
         }
     }
 
+    m_devNames.clear();
+    for (const auto& dev : deviceList) {
+        m_devNames.push_back(dev->name());
+    }
+
     sts = InitSession(pParams, deviceList);
     RGY_ERR(sts, _T("Failed to initialize encode session."));
     PrintMes(RGY_LOG_DEBUG, _T("InitSession: Success.\n"));
@@ -3898,6 +3901,12 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     sts = input_ret.get();
     if (sts < RGY_ERR_NONE) return sts;
     PrintMes(RGY_LOG_DEBUG, _T("InitInput: Success.\n"));
+
+    // 並列動作の子は読み込みが終了したらすぐに並列動作を呼び出し
+    if (pParams->ctrl.parallelEnc.isChild()) {
+        sts = InitParallelEncode(pParams);
+        if (sts < RGY_ERR_NONE) return sts;
+    }
 
     sts = CheckParam(pParams);
     if (sts != RGY_ERR_NONE) return sts;
@@ -3927,8 +3936,11 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     sts = InitPerfMonitor(pParams);
     if (sts < RGY_ERR_NONE) return sts;
 
-    sts = InitParallelEncode(pParams);
-    if (sts < RGY_ERR_NONE) return sts;
+    // 親はエンコード設定が完了してから並列動作を呼び出し
+    if (pParams->ctrl.parallelEnc.isParent()) {
+        sts = InitParallelEncode(pParams);
+        if (sts < RGY_ERR_NONE) return sts;
+    }
 
     m_encTimestamp = std::make_unique<RGYTimestamp>(pParams->common.timestampPassThrough, pParams->ctrl.parallelEnc.isParent() /*durationは子エンコーダで修正済み*/);
 
@@ -4283,7 +4295,7 @@ RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
     const auto inputFpsTimebase = rgy_rational<int>((int)inputFrameInfo.fpsD, (int)inputFrameInfo.fpsN);
     const auto srcTimebase = (m_pFileReader->getInputTimebase().n() > 0 && m_pFileReader->getInputTimebase().is_valid()) ? m_pFileReader->getInputTimebase() : inputFpsTimebase;
     if (m_trimParam.list.size() > 0 || prm->common.seekToSec > 0.0f || m_parallelEnc) {
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskTrim>(m_trimParam, m_pFileReader.get(), srcTimebase, 0, m_mfxVer, m_pQSVLog));
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskTrim>(m_trimParam, m_pFileReader.get(), m_parallelEnc.get(), srcTimebase, 0, m_mfxVer, m_pQSVLog));
     }
     m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(&m_device->mfxSession(), srcTimebase, m_outputTimebase, outFrameDuration, m_nAVSyncMode, m_timestampPassThrough, VppAfsRffAware() && m_pFileReader->rffAware(), m_mfxVer, m_pQSVLog));
 
@@ -4763,18 +4775,13 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
 #endif
     PRINT_INFO(    _T("CPU Info       %s\n"), cpuInfo);
     if (Check_HWUsed(impl)) {
-        std::vector<RGYParallelEncDevInfo> parallelEncDevInfo;
-        if (m_parallelEnc) {
-            parallelEncDevInfo = m_parallelEnc->devInfo();
-        }
-        if (parallelEncDevInfo.size() > 0) {
-            PRINT_INFO(_T("GPU Info       %s\n"), parallelEncDevInfo[0].name.c_str());
-            for (size_t i = 1; i < parallelEncDevInfo.size(); i++) {
-                PRINT_INFO(_T("               %s\n"), parallelEncDevInfo[i].name.c_str());
+        PRINT_INFO(_T("GPU Info       %s\n"), gpu_info);
+        for (const auto& devName : m_devNames) {
+            if (devName != m_device->name()) {
+                PRINT_INFO(_T("               %s\n"), devName.c_str());
             }
-        } else {
-            PRINT_INFO(_T("GPU Info       %s\n"), gpu_info);
         }
+
         auto gpu_num_str = [](int id, int adaptor_type) {
             const TCHAR *adaptorTypeStr = nullptr;
             switch (adaptor_type) {
@@ -4788,15 +4795,7 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
             }
             return str;
         };
-        tstring gpuNumStr;
-        if (parallelEncDevInfo.size() > 0) {
-            gpuNumStr += gpu_num_str(parallelEncDevInfo[0].id, parallelEncDevInfo[0].type);
-            for (size_t i = 1; i < parallelEncDevInfo.size(); i++) {
-                gpuNumStr += _T("+") + gpu_num_str(parallelEncDevInfo[i].id, parallelEncDevInfo[i].type);
-            }
-        } else {
-            gpuNumStr += gpu_num_str((int)m_device->deviceNum(), m_device->adapterType());
-        }
+        tstring gpuNumStr = gpu_num_str((int)m_device->deviceNum(), m_device->adapterType());
         PRINT_INFO(_T("Media SDK      QuickSyncVideo API v%d.%02d,%s, %s GPU\n"), m_mfxVer.Major, m_mfxVer.Minor,
             get_low_power_str(outFrameInfo->videoPrm.mfx.LowPower), gpuNumStr.c_str());
     }

@@ -114,6 +114,7 @@ public:
 protected:
     mfxVersion m_mfxVer;
     std::unique_ptr<QSVDevice> m_device;
+    std::vector<tstring> m_devNames;
     shared_ptr<EncodeStatus> m_pStatus;
     shared_ptr<CPerfMonitor> m_pPerfMonitor;
     std::unique_ptr<RGYDeviceUsage> m_deviceUsage;
