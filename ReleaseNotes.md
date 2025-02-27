@@ -1,5 +1,12 @@
 # QSVEnc Release Notes
 
+## 7.82
+
+- Fix some codecs not being able to decode with [--avsw](https://github.com/rigaya/QSVEnc/blob/master/QSVEncC_Options.en.md#--avsw) since version 7.80.
+- Add options 10.0, 10.1, 10.2, 10.4 to [--dolby-vision-profile](https://github.com/rigaya/QSVEnc/blob/master/QSVEncC_Options.en.md#--dolby-vision-profile-string-hevc-av1).
+- Fix [--dolby-vision-profile](https://github.com/rigaya/QSVEnc/blob/master/QSVEncC_Options.en.md#--dolby-vision-profile-string-hevc-av1) not working with inputs other than avhw/avsw.
+- Improve hw device detection on Linux environments with multiple Intel GPUs.
+
 ## 7.81
 
 - - Fix --avsw not working in QSVEnc 7.80.
