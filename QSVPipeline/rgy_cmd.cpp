@@ -8528,13 +8528,11 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
     OPT_BOOL(_T("--process-monitor-dev-usage-reset"), _T(""), processMonitorDevUsageReset);
 
     if (param->parallelEnc != defaultPrm->parallelEnc) {
-        cmd << _T(" --parallel-enc ");
-    }
-    if (param->parallelEnc != defaultPrm->parallelEnc) {
         std::basic_stringstream<TCHAR> tmp;
         tmp.str(tstring());
         ADD_NUM(_T("mp"), parallelEnc.parallelCount);
         ADD_NUM(_T("id"), parallelEnc.parallelId);
+        ADD_LST(_T("cache"), parallelEnc.cacheMode, list_parallel_enc_cache);
         if (!tmp.str().empty()) {
             cmd << _T(" --parallel ") << tmp.str().substr(1);
         }
