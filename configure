@@ -575,9 +575,9 @@ fi
 
 if [ $ENABLE_AVSW_READER -ne 0 ]; then
     if [ $USE_PKGCONFIG -ne 0 ]; then
-        printf "checking libavcodec with pkg-config..."
+        printf "checking for FFmpeg libraries with pkg-config..."
         if ! ${PKGCONFIG} --exists $CHECK_LIBAV_NAMES ; then
-            cnf_write "libs could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
+            cnf_write "one or more of ($CHECK_LIBAV_NAMES) could not be detected by ${PKGCONFIG}. [ PKG_CONFIG_PATH=${PKG_CONFIG_PATH} ]"
         else
             cnf_write "OK"
             LIBAV_LIBS=`${PKGCONFIG} --libs ${CHECK_LIBAV_NAMES}`
