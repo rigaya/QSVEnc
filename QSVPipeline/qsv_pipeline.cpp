@@ -3698,7 +3698,7 @@ RGY_ERR CQSVPipeline::InitPerfMonitor(const sInputParams *inputParam) {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR CQSVPipeline::InitParallelEncode(sInputParams *inputParam) {
+RGY_ERR CQSVPipeline::InitParallelEncode(sInputParams *inputParam, const int maxEncoders) {
     if (!inputParam->ctrl.parallelEnc.isEnabled()) {
         return RGY_ERR_NONE;
     }
@@ -3712,6 +3712,10 @@ RGY_ERR CQSVPipeline::InitParallelEncode(sInputParams *inputParam) {
     // 並列処理が有効の場合、メインスレッドではエンコードは行わないので、m_deviceUsageは解放する
     if (inputParam->ctrl.parallelEnc.isParent() && m_deviceUsage) {
         m_deviceUsage->close();
+    }
+    if (inputParam->ctrl.parallelEnc.parallelCount < 0) {
+        inputParam->ctrl.parallelEnc.parallelCount = maxEncoders;
+        PrintMes(RGY_LOG_DEBUG, _T("parallelCount set to %d\n"), inputParam->ctrl.parallelEnc.parallelCount);
     }
     m_parallelEnc = std::make_unique<RGYParallelEnc>(m_pQSVLog);
     if ((sts = m_parallelEnc->parallelRun(inputParam, m_pFileReader.get(), m_outputTimebase, m_pStatus.get())) != RGY_ERR_NONE) {
@@ -3904,7 +3908,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
 
     // 並列動作の子は読み込みが終了したらすぐに並列動作を呼び出し
     if (pParams->ctrl.parallelEnc.isChild()) {
-        sts = InitParallelEncode(pParams);
+        sts = InitParallelEncode(pParams, (int)m_devNames.size());
         if (sts < RGY_ERR_NONE) return sts;
     }
 
@@ -3938,7 +3942,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
 
     // 親はエンコード設定が完了してから並列動作を呼び出し
     if (pParams->ctrl.parallelEnc.isParent()) {
-        sts = InitParallelEncode(pParams);
+        sts = InitParallelEncode(pParams, (int)m_devNames.size());
         if (sts < RGY_ERR_NONE) return sts;
     }
 

@@ -184,7 +184,7 @@ protected:
 
     virtual RGY_ERR InitLog(sInputParams *pParams);
     virtual RGY_ERR InitPerfMonitor(const sInputParams *pParams);
-    virtual RGY_ERR InitParallelEncode(sInputParams *inputParam);
+    virtual RGY_ERR InitParallelEncode(sInputParams *inputParam, const int maxEncoders);
     virtual RGY_ERR InitInput(sInputParams *pParams, DeviceCodecCsp& HWDecCodecCsp);
     virtual RGY_ERR InitChapters(const sInputParams *inputParam);
     virtual RGY_ERR InitFilters(sInputParams *inputParam);
