@@ -1468,6 +1468,7 @@ protected:
     rgy_rational<int> m_outputTimebase;
     std::unique_ptr<PipelineTaskAudio> m_taskAudio;
     std::unique_ptr<FILE, fp_deleter> m_fReader;
+    int64_t m_maxPts; // 最後のpts
     int64_t m_ptsOffset; // 分割出力間の(2分割目以降の)ptsのオフセット
     int m_encFrameOffset; // 分割出力間の(2分割目以降の)エンコードフレームのオフセット
     int m_lastEncFrameIdx; // 最後にエンコードしたフレームのindex
@@ -1481,7 +1482,7 @@ public:
         m_input(input), m_currentChunk(-1), m_encTimestamp(encTimestamp), m_hdr10plus(hdr10plus),
         m_parallelEnc(parallelEnc), m_encStatus(encStatus), m_outputTimebase(outputTimebase),
         m_taskAudio(std::move(taskAudio)), m_fReader(std::unique_ptr<FILE, fp_deleter>(nullptr, fp_deleter())),
-        m_ptsOffset(0), m_encFrameOffset(0), m_lastEncFrameIdx(-1),
+        m_maxPts(-1), m_ptsOffset(0), m_encFrameOffset(0), m_lastEncFrameIdx(-1),
         m_decInputBitstream(), m_inputBitstreamEOF(false), m_bitStreamOut() {
         m_decInputBitstream.init(AVCODEC_READER_INPUT_BUF_SIZE);
     };
@@ -1552,7 +1553,13 @@ protected:
         const auto inputFrameInfo = m_input->GetInputFrameInfo();
         const auto inputFpsTimebase = rgy_rational<int>((int)inputFrameInfo.fpsD, (int)inputFrameInfo.fpsN);
         const auto srcTimebase = (m_input->getInputTimebase().n() > 0 && m_input->getInputTimebase().is_valid()) ? m_input->getInputTimebase() : inputFpsTimebase;
-        m_ptsOffset = rational_rescale(m_parallelEnc->getVideofirstKeyPts(m_currentChunk) - m_parallelEnc->getVideofirstKeyPts(0), srcTimebase, m_outputTimebase);
+        // seek結果による入力ptsを用いて計算した本来のpts offset
+        const auto ptsOffsetOrig = rational_rescale(m_parallelEnc->getVideofirstKeyPts(m_currentChunk) - m_parallelEnc->getVideofirstKeyPts(0), srcTimebase, m_outputTimebase);
+        // 直前のフレームから計算したpts offset(-1フレーム分) 最低でもこれ以上のoffsetがないといけない
+        const auto ptsOffsetMax = m_maxPts - rational_rescale(m_parallelEnc->getVideofirstKeyPts(0), srcTimebase, m_outputTimebase);
+        // ptsOffsetOrigが必要offsetの最小値(ptsOffsetMax)より大きく、そのずれが2フレーム以内ならそれを採用する
+        // そうでなければ、ptsOffsetMaxに1フレーム分の時間を足した時刻にする
+        m_ptsOffset = (ptsOffsetOrig > ptsOffsetMax && ptsOffsetOrig - ptsOffsetMax <= rational_rescale(2, inputFpsTimebase, m_outputTimebase)) ? ptsOffsetOrig : (ptsOffsetMax + rational_rescale(1, inputFpsTimebase, m_outputTimebase));
         m_encFrameOffset = (m_currentChunk > 0) ? m_lastEncFrameIdx + 1 : 0;
         PrintMes(RGY_LOG_DEBUG, _T("Switch to next file: pts offset %lld, frame offset %d.\n"), m_ptsOffset, m_encFrameOffset);
         return RGY_ERR_NONE;
@@ -1680,6 +1687,7 @@ public:
             m_lastEncFrameIdx = bsOut->frameIdx();
             const auto duration = (ENCODER_QSV) ? header.duration : bsOut->duration(); // QSVの場合、Bitstreamにdurationの値がないため、durationはheaderから取得する
             m_encTimestamp->add(bsOut->pts(), bsOut->frameIdx(), bsOut->frameIdx(), duration, metadatalist);
+            m_maxPts = std::max(m_maxPts, bsOut->pts());
             PrintMes(RGY_LOG_TRACE, _T("Packet: pts %lld, dts: %lld, duration: %d, idx: %d, size %lld.\n"), bsOut->pts(), bsOut->dts(), duration, bsOut->frameIdx(), bsOut->size());
             m_outQeueue.push_back(std::make_unique<PipelineTaskOutputBitstream>(nullptr, bsOut, nullptr));
         }
