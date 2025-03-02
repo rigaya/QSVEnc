@@ -188,7 +188,7 @@ private:
     mfxBitstream m_bitstream;
     RGYFrameData **frameDataList;
     int frameDataNum;
-    int frameIndex;
+    int64_t frameIndex;
 
 public:
     mfxBitstream *bsptr() {
@@ -244,11 +244,11 @@ public:
         UNREFERENCED_PARAMETER(duration);
     }
 
-    int frameIdx() {
+    int64_t frameIdx() {
         return frameIndex;
     }
 
-    void setFrameIdx(int frameIdx) {
+    void setFrameIdx(int64_t frameIdx) {
         frameIndex = frameIdx;
     }
 
