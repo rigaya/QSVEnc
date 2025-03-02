@@ -357,6 +357,7 @@ struct RGYOutputRawPrm {
     int bufSizeMB;
     RGY_CODEC codecId;
     const RGYHDRMetadata *hdrMetadataIn;
+    RGYHDR10Plus *hdr10plus;
     bool hdr10plusMetadataCopy;   //hdr10plusのmetadataをコピー
     RGYDOVIProfile doviProfile;
     DOVIRpu *doviRpu;
@@ -382,6 +383,7 @@ protected:
 
     vector<uint8_t> m_outputBuf2;
     vector<uint8_t> m_hdrBitstream;
+    RGYHDR10Plus *m_hdr10plus;
     bool m_hdr10plusMetadataCopy;
     RGYDOVIProfile m_doviProfileDst;
     DOVIRpu *m_doviRpu;
@@ -414,6 +416,7 @@ RGY_ERR initWriters(
     const vector<unique_ptr<AVChapter>> &chapters,
 #endif //#if ENABLE_AVSW_READER
     const RGYHDRMetadata *hdrMetadataIn,
+    RGYHDR10Plus *hdr10plus,
     DOVIRpu *doviRpu,
     RGYTimestamp *vidTimestamp,
     const bool videoDtsUnavailable,

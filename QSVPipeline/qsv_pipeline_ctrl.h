@@ -2036,14 +2036,14 @@ protected:
     QSVRCParam m_baseRC;
     std::vector<QSVRCParam>& m_dynamicRC;
     int m_appliedDynamicRC;
-    RGYHDR10Plus *m_hdr10plus;
+    const RGYHDR10Plus *m_hdr10plus;
     const DOVIRpu *m_doviRpu;
     encCtrlData m_encCtrlData;
 public:
     PipelineTaskMFXEncode(
         MFXVideoSession *mfxSession, int outMaxQueueSize, MFXVideoENCODE *mfxencode, mfxVersion mfxVer, QSVVideoParam& encParams,
         RGYTimecode *timecode, RGYTimestamp *encTimestamp, rgy_rational<int> outputTimebase, std::vector<QSVRCParam>& dynamicRC,
-        RGYHDR10Plus *hdr10plus, const DOVIRpu *doviRpu, std::shared_ptr<RGYLog> log)
+        const RGYHDR10Plus *hdr10plus, const DOVIRpu *doviRpu, std::shared_ptr<RGYLog> log)
         : PipelineTask(PipelineTaskType::MFXENCODE, outMaxQueueSize, mfxSession, mfxVer, log),
         m_encode(mfxencode), m_timecode(timecode), m_encTimestamp(encTimestamp), m_encParams(encParams), m_outputTimebase(outputTimebase), m_bitStreamOut(),
         m_baseRC(getRCParam(encParams)), m_dynamicRC(dynamicRC), m_appliedDynamicRC(-1),
@@ -2182,7 +2182,7 @@ public:
             if (frame) {
                 metadatalist = dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->dataList();
             }
-            if (m_hdr10plus && frame) {
+            if (m_hdr10plus) {
                 // 外部からHDR10+を読み込む場合、metadatalist 内のHDR10+の削除
                 for (auto it = metadatalist.begin(); it != metadatalist.end(); ) {
                     if ((*it)->dataType() == RGY_FRAME_DATA_HDR10PLUS) {
@@ -2190,9 +2190,6 @@ public:
                     } else {
                         it++;
                     }
-                }
-                if (const auto data = m_hdr10plus->getData(m_inFrames); data.size() > 0) {
-                    metadatalist.push_back(std::make_shared<RGYFrameDataHDR10plus>(data.data(), data.size(), dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->timestamp()));
                 }
             }
             if (m_doviRpu) {
