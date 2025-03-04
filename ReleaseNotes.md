@@ -1,5 +1,9 @@
 # QSVEnc Release Notes
 
+## 7.83
+
+- Fix [--dolby-vision-rpu](https://github.com/rigaya/NVEnc/blob/master/NVEncC_Options.en.md#--dolby-vision-rpu-string) in AV1 encoding.
+
 ## 7.82
 
 - Fix some codecs not being able to decode with [--avsw](https://github.com/rigaya/QSVEnc/blob/master/QSVEncC_Options.en.md#--avsw) since version 7.80.

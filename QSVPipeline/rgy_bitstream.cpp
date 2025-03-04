@@ -639,22 +639,59 @@ int DOVIRpu::get_next_rpu_nal(std::vector<uint8_t>& bytes, const RGYDOVIProfile 
     return 0;
 }
 
+std::vector<uint8_t> DOVIRpu::wrap_rpu_av1_obu(const std::vector<uint8_t>& rpu) {
+    int data_fin_size = (int)rpu.size();
+    while (data_fin_size > 0 && rpu[data_fin_size - 1] == 0) {
+        data_fin_size--;
+    }
+
+    RGYBitWriter writer;
+    writer.write_n(0, 2);
+    writer.write_n(6, 3);
+    writer.write_n(31, 5);
+    write_av1_variable_bits(writer, 225, 5);
+    writer.write_n(0, 4);
+    writer.write(true);
+    write_av1_variable_bits(writer, data_fin_size - 1, 8);
+    for (int i = 1; i < data_fin_size; i++) {
+        writer.write_n(rpu[i], 8);
+    }
+    writer.write_n(0, 5);
+    writer.write_n(1, 2);
+    writer.write_n(0, 2);
+    writer.write_n(0, 8);
+    while (!writer.aligned()) {
+        writer.write(true);
+    }
+    auto buf = make_vector<uint8_t>(av1_itut_t35_header_dovirpu);
+    vector_cat(buf, writer.get_data());
+    return buf;
+}
+
 int DOVIRpu::get_next_rpu_obu(std::vector<uint8_t>& bytes, const RGYDOVIProfile doviProfileDst, const RGYDOVIRpuConvertParam *prm, const int64_t id) {
     std::vector<uint8_t> tmp;
     if (int ret = get_next_rpu(tmp, doviProfileDst, prm, id); ret != 0) {
         return ret;
     }
-
-    auto rpu = unnal(tmp.data(), tmp.size());
-
     std::vector<uint8_t> buf;
-    if (rpu.size() > sizeof(av1_itut_t35_header_dovirpu) && memcmp(rpu.data(), av1_itut_t35_header_dovirpu, sizeof(av1_itut_t35_header_dovirpu)) == 0) {
-        buf = rpu;
+    if (tmp.size() > sizeof(av1_itut_t35_header_dovirpu) && memcmp(tmp.data(), av1_itut_t35_header_dovirpu, sizeof(av1_itut_t35_header_dovirpu)) == 0) {
+        buf = tmp;
     } else {
-        buf = make_vector<uint8_t>(av1_itut_t35_header_dovirpu);
-        vector_cat(buf, rpu);
+        buf = wrap_rpu_av1_obu(tmp);
     }
     bytes = gen_av1_obu_metadata(AV1_METADATA_TYPE_ITUT_T35, buf);
+
+    //std::unique_ptr<DoviRpuOpaque, decltype(&dovi_rpu_free)> rpu(dovi_parse_rpu(tmp.data(), tmp.size()), dovi_rpu_free);
+    //if (!rpu) {
+    //    return 1;
+    //}
+    //std::unique_ptr<const DoviData, decltype(&dovi_data_free)> rpu_data(dovi_write_av1_rpu_metadata_obu_t35_complete(rpu.get()), dovi_data_free);
+    //if (!rpu_data) {
+    //    return 1;
+    //}
+    //tmp.resize(rpu_data->len);
+    //memcpy(tmp.data(), rpu_data->data, rpu_data->len);
+    //bytes = gen_av1_obu_metadata(AV1_METADATA_TYPE_ITUT_T35, tmp);
     return 0;
 }
 
