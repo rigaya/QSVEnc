@@ -4588,6 +4588,10 @@ RGY_ERR CQSVPipeline::RunEncode2() {
     }
     //この中でフレームの解放がなされる
     PrintMes(RGY_LOG_DEBUG, _T("Clear pipeline tasks and allocated frames...\n"));
+    // 依存関係があるため、m_pipelineTasksを後ろから解放する
+    for (auto it = m_pipelineTasks.rbegin(); it != m_pipelineTasks.rend(); ++it) {
+        it->reset();
+    }
     m_pipelineTasks.clear();
     PrintMes(RGY_LOG_DEBUG, _T("Waiting for writer to finish...\n"));
     m_pFileWriter->WaitFin();
