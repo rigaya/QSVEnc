@@ -1488,6 +1488,11 @@ public:
         m_firstPts(-1), m_maxPts(-1), m_ptsOffset(0), m_encFrameOffset(0), m_inputFrameOffset(0), m_maxEncFrameIdx(-1), m_maxInputFrameIdx(-1),
         m_decInputBitstream(), m_inputBitstreamEOF(false), m_bitStreamOut() {
         m_decInputBitstream.init(AVCODEC_READER_INPUT_BUF_SIZE);
+        auto reader = dynamic_cast<RGYInputAvcodec*>(input);
+        if (reader) {
+            // 親側で不要なデコーダを終了させる、こうしないとavsw使用時に映像が無駄にデコードされてしまう
+            reader->CloseVideoDecoder();
+        }
     };
     virtual ~PipelineTaskParallelEncBitstream() {
         m_decInputBitstream.clear();
