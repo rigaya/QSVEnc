@@ -1685,6 +1685,13 @@ public:
             }
         }
 
+        // 定期的に全スレッドでエラー終了したものがないかチェックする
+        if ((m_inFrames & 15) == 0) {
+            if ((ret = m_parallelEnc->checkAllProcessErrors()) != RGY_ERR_NONE) {
+                return ret; //エラー
+            }
+        }
+
         auto bsOut = m_bitStreamOut.get([](RGYBitstream *bs) {
             auto sts = mfxBitstreamInit(bs->bsptr(), 1 * 1024 * 1024);
             if (sts != MFX_ERR_NONE) {
