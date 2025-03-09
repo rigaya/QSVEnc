@@ -3736,7 +3736,7 @@ RGY_ERR CQSVPipeline::InitParallelEncode(sInputParams *inputParam, const int max
                 m_deviceUsage->add((int)m_device->deviceNum(), child_pid, devUsageLock.get());
             }
         }
-        return sts;
+        return RGY_ERR_NONE;
     }
     return RGY_ERR_NONE;
 }
