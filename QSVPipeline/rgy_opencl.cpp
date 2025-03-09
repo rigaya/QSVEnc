@@ -2869,7 +2869,12 @@ std::unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D11Surface
     }
     for (int i = 0; i < RGY_CSP_PLANES[frame.csp]; i++) {
         cl_int err = CL_SUCCESS;
-        clframe.ptr[i] = (uint8_t *)clCreateFromD3D11Texture2DKHR(m_context.get(), flags, (ID3D11Texture2D *)surf, i, &err);
+        try {
+            clframe.ptr[i] = (uint8_t *)clCreateFromD3D11Texture2DKHR(m_context.get(), flags, (ID3D11Texture2D *)surf, i, &err);
+        } catch (...) {
+            CL_LOG(RGY_LOG_ERROR, _T("Failed to create image from DX11 texture 2D: crushed when calling clCreateFromD3D11Texture2DKHR: 0x%p[%d].\n"), cl_errmes(err), surf, i);
+            err = CL_INVALID_MEM_OBJECT;
+        }
         if (err != CL_SUCCESS) {
             CL_LOG(RGY_LOG_ERROR, _T("Failed to create image from DX11 texture 2D: %s\n"), cl_errmes(err));
             for (int j = i - 1; j >= 0; j--) {
