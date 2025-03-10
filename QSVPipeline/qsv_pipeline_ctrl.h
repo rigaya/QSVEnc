@@ -1462,7 +1462,7 @@ protected:
     RGYInput *m_input;
     int m_currentChunk; // いま並列処理の何番目を処理中か
     RGYTimestamp *m_encTimestamp;
-    RGYHDR10Plus *m_hdr10plus;
+    RGYTimecode *m_timecode;
     RGYParallelEnc *m_parallelEnc;
     EncodeStatus *m_encStatus;
     rgy_rational<int> m_outputTimebase;
@@ -1480,10 +1480,10 @@ protected:
     RGYListRef<RGYBitstream> m_bitStreamOut;
     bool m_tsDebug;
 public:
-    PipelineTaskParallelEncBitstream(RGYInput *input, RGYTimestamp *encTimestamp, RGYHDR10Plus *hdr10plus, RGYParallelEnc *parallelEnc, EncodeStatus *encStatus, rgy_rational<int> outputTimebase,
+    PipelineTaskParallelEncBitstream(RGYInput *input, RGYTimestamp *encTimestamp, RGYTimecode *timecode, RGYParallelEnc *parallelEnc, EncodeStatus *encStatus, rgy_rational<int> outputTimebase,
         std::unique_ptr<PipelineTaskAudio>& taskAudio, int outMaxQueueSize, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
         PipelineTask(PipelineTaskType::PECOLLECT, outMaxQueueSize, nullptr, mfxVer, log),
-        m_input(input), m_currentChunk(-1), m_encTimestamp(encTimestamp), m_hdr10plus(hdr10plus),
+        m_input(input), m_currentChunk(-1), m_encTimestamp(encTimestamp), m_timecode(timecode),
         m_parallelEnc(parallelEnc), m_encStatus(encStatus), m_outputTimebase(outputTimebase),
         m_taskAudio(std::move(taskAudio)), m_fReader(std::unique_ptr<FILE, fp_deleter>(nullptr, fp_deleter())),
         m_firstPts(-1), m_maxPts(-1), m_ptsOffset(0), m_encFrameOffset(0), m_inputFrameOffset(0), m_maxEncFrameIdx(-1), m_maxInputFrameIdx(-1),
@@ -1714,6 +1714,9 @@ public:
             m_maxEncFrameIdx = std::max(m_maxEncFrameIdx, header.encodeFrameIdx);
             m_maxInputFrameIdx = std::max(m_maxInputFrameIdx, header.inputFrameIdx);
             PrintMes(m_tsDebug ? RGY_LOG_WARN : RGY_LOG_TRACE, _T("Packet: pts %lld, dts: %lld, duration: %d, input idx: %lld, encode idx: %lld, size %lld.\n"), bsOut->pts(), bsOut->dts(), duration, header.inputFrameIdx, header.encodeFrameIdx, bsOut->size());
+            if (m_timecode) {
+                m_timecode->write(bsOut->pts(), m_outputTimebase);
+            }
             m_outQeueue.push_back(std::make_unique<PipelineTaskOutputBitstream>(nullptr, bsOut, nullptr));
         }
         if (m_inputBitstreamEOF && ret == RGY_ERR_MORE_BITSTREAM && m_taskAudio) {
