@@ -4543,6 +4543,8 @@ RGY_ERR CQSVPipeline::RunEncode2() {
             }
         }
     }
+    // エラー終了の場合も含めキューをすべて開放する (m_pipelineTasksを解放する前に行う)
+    dataqueue.clear();
 
     if (m_videoQualityMetric) {
         PrintMes(RGY_LOG_DEBUG, _T("Flushing video quality metric calc.\n"));
