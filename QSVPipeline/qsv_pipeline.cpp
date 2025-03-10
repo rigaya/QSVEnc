@@ -3702,12 +3702,13 @@ RGY_ERR CQSVPipeline::InitParallelEncode(sInputParams *inputParam, const int max
     if (!inputParam->ctrl.parallelEnc.isEnabled()) {
         return RGY_ERR_NONE;
     }
+    const bool isChild = inputParam->ctrl.parallelEnc.isChild();
     auto [sts, errmes] = RGYParallelEnc::isParallelEncPossible(inputParam, m_pFileReader.get());
     if (sts != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_WARN, _T("%s.\n"), errmes);
         inputParam->ctrl.parallelEnc.parallelCount = 0;
         inputParam->ctrl.parallelEnc.parallelId = -1;
-        return RGY_ERR_NONE;
+        return (isChild) ? sts : RGY_ERR_NONE; // 子スレッド側でエラーが起こった場合はエラー、親の場合は正常終了(並列動作を無効化して継続)を返す
     }
     // 並列処理が有効の場合、メインスレッドではエンコードは行わないので、m_deviceUsageは解放する
     if (inputParam->ctrl.parallelEnc.isParent() && m_deviceUsage) {
@@ -3720,7 +3721,7 @@ RGY_ERR CQSVPipeline::InitParallelEncode(sInputParams *inputParam, const int max
     m_parallelEnc = std::make_unique<RGYParallelEnc>(m_pQSVLog);
     if ((sts = m_parallelEnc->parallelRun(inputParam, m_pFileReader.get(), m_outputTimebase, m_pStatus.get())) != RGY_ERR_NONE) {
         if (inputParam->ctrl.parallelEnc.isChild()) {
-            return sts;
+            return sts; // 子スレッド側でエラーが起こった場合はエラー
         }
         // うまくいかなかった場合、並列処理を無効化して続行する
         PrintMes(RGY_LOG_WARN, _T("Failed to initialize parallel encoding, disabled.\n"));
@@ -3736,7 +3737,7 @@ RGY_ERR CQSVPipeline::InitParallelEncode(sInputParams *inputParam, const int max
                 m_deviceUsage->add((int)m_device->deviceNum(), child_pid, devUsageLock.get());
             }
         }
-        return RGY_ERR_NONE;
+        return RGY_ERR_NONE; // 親の場合は正常終了(並列動作を無効化して継続)を返す
     }
     return RGY_ERR_NONE;
 }
