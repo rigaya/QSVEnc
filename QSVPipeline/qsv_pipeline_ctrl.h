@@ -1478,6 +1478,7 @@ protected:
     RGYBitstream m_decInputBitstream; // 映像読み込み (ダミー)
     bool m_inputBitstreamEOF; // 映像側の読み込み終了フラグ (音声処理の終了も確認する必要があるため)
     RGYListRef<RGYBitstream> m_bitStreamOut;
+    bool m_tsDebug;
 public:
     PipelineTaskParallelEncBitstream(RGYInput *input, RGYTimestamp *encTimestamp, RGYHDR10Plus *hdr10plus, RGYParallelEnc *parallelEnc, EncodeStatus *encStatus, rgy_rational<int> outputTimebase,
         std::unique_ptr<PipelineTaskAudio>& taskAudio, int outMaxQueueSize, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
@@ -1486,7 +1487,7 @@ public:
         m_parallelEnc(parallelEnc), m_encStatus(encStatus), m_outputTimebase(outputTimebase),
         m_taskAudio(std::move(taskAudio)), m_fReader(std::unique_ptr<FILE, fp_deleter>(nullptr, fp_deleter())),
         m_firstPts(-1), m_maxPts(-1), m_ptsOffset(0), m_encFrameOffset(0), m_inputFrameOffset(0), m_maxEncFrameIdx(-1), m_maxInputFrameIdx(-1),
-        m_decInputBitstream(), m_inputBitstreamEOF(false), m_bitStreamOut() {
+        m_decInputBitstream(), m_inputBitstreamEOF(false), m_bitStreamOut(), m_tsDebug(false) {
         m_decInputBitstream.init(AVCODEC_READER_INPUT_BUF_SIZE);
         auto reader = dynamic_cast<RGYInputAvcodec*>(input);
         if (reader) {
@@ -1572,7 +1573,7 @@ protected:
                 ? ptsOffsetOrig : (ptsOffsetMax + rational_rescale(1, inputFpsTimebase, m_outputTimebase)));
         m_encFrameOffset = (m_currentChunk > 0) ? m_maxEncFrameIdx + 1 : 0;
         m_inputFrameOffset = (m_currentChunk > 0) ? m_maxInputFrameIdx + 1 : 0;
-        PrintMes(RGY_LOG_TRACE, _T("Switch to next file: pts offset %lld, frame offset %d.\n")
+        PrintMes(m_tsDebug ? RGY_LOG_ERROR : RGY_LOG_TRACE, _T("Switch to next file: pts offset %lld, frame offset %d.\n")
             _T("  firstKeyPts 0: % lld, %d : % lld.\n")
             _T("  ptsOffsetOrig: %lld, ptsOffsetMax: %lld, m_maxPts: %lld\n"),
             m_ptsOffset, m_encFrameOffset,
@@ -1712,7 +1713,7 @@ public:
             m_maxPts = std::max(m_maxPts, bsOut->pts());
             m_maxEncFrameIdx = std::max(m_maxEncFrameIdx, header.encodeFrameIdx);
             m_maxInputFrameIdx = std::max(m_maxInputFrameIdx, header.inputFrameIdx);
-            PrintMes(RGY_LOG_TRACE, _T("Packet: pts %lld, dts: %lld, duration: %d, input idx: %lld, encode idx: %lld, size %lld.\n"), bsOut->pts(), bsOut->dts(), duration, header.inputFrameIdx, header.encodeFrameIdx, bsOut->size());
+            PrintMes(m_tsDebug ? RGY_LOG_WARN : RGY_LOG_TRACE, _T("Packet: pts %lld, dts: %lld, duration: %d, input idx: %lld, encode idx: %lld, size %lld.\n"), bsOut->pts(), bsOut->dts(), duration, header.inputFrameIdx, header.encodeFrameIdx, bsOut->size());
             m_outQeueue.push_back(std::make_unique<PipelineTaskOutputBitstream>(nullptr, bsOut, nullptr));
         }
         if (m_inputBitstreamEOF && ret == RGY_ERR_MORE_BITSTREAM && m_taskAudio) {
@@ -1775,12 +1776,13 @@ public:
 class PipelineTaskMFXVpp : public PipelineTask {
 protected:
     QSVVppMfx *m_vpp;
+    rgy_rational<int> m_outputTimebase;
     RGYTimestamp m_timestamp;
     mfxVideoParam& m_mfxVppParams;
     std::vector<std::shared_ptr<RGYFrameData>> m_lastFrameDataList;
 public:
-    PipelineTaskMFXVpp(MFXVideoSession *mfxSession, int outMaxQueueSize, QSVVppMfx *mfxvpp, mfxVideoParam& vppParams, mfxVersion mfxVer, bool timestampPassThrough, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::MFXVPP, outMaxQueueSize, mfxSession, mfxVer, log), m_vpp(mfxvpp), m_timestamp(RGYTimestamp(timestampPassThrough, false)), m_mfxVppParams(vppParams), m_lastFrameDataList() {
+    PipelineTaskMFXVpp(MFXVideoSession *mfxSession, int outMaxQueueSize, QSVVppMfx *mfxvpp, mfxVideoParam& vppParams, mfxVersion mfxVer, rgy_rational<int> outputTimebase, bool timestampPassThrough, std::shared_ptr<RGYLog> log)
+        : PipelineTask(PipelineTaskType::MFXVPP, outMaxQueueSize, mfxSession, mfxVer, log), m_vpp(mfxvpp), m_outputTimebase(outputTimebase), m_timestamp(RGYTimestamp(timestampPassThrough, false)), m_mfxVppParams(vppParams), m_lastFrameDataList() {
     };
     virtual ~PipelineTaskMFXVpp() {};
     void setVpp(QSVVppMfx *mfxvpp) { m_vpp = mfxvpp; };
@@ -1836,11 +1838,14 @@ public:
             m_lastFrameDataList = dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->dataList();
         }
 
+        const auto estDuration = av_rescale_q(1, av_make_q(m_outputTimebase.inv()), av_make_q(m_mfxVppParams.vpp.In.FrameRateExtN, m_mfxVppParams.vpp.In.FrameRateExtD));
+
         mfxFrameSurface1 *surfVppIn = (frame) ? dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().mfx()->surf() : nullptr;
         //vpp前に、vpp用のパラメータでFrameInfoを更新
         copy_crop_info(surfVppIn, &m_mfxVppParams.mfx.FrameInfo);
         if (surfVppIn) {
-            m_timestamp.add(surfVppIn->Data.TimeStamp, dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->inputFrameId(), 0 /*dummy*/, 0, {});
+            // durationは適用でもfpsから設定しておく --vpp-deinterlace bobでも入力がRFFやプログレッシブだと2フレーム目を投入する前にフレーム出力が出る場合があり、durationを設定しておかないとおかしくなる
+            m_timestamp.add(surfVppIn->Data.TimeStamp, dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->inputFrameId(), 0 /*dummy*/, estDuration, {});
             surfVppIn->Data.DataFlag |= MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
             m_inFrames++;
 
