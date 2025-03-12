@@ -4275,7 +4275,7 @@ RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
             taskAudio = std::make_unique<PipelineTaskAudio>(m_pFileReader.get(), m_AudioReaders, m_pFileWriterListAudio, m_vpFilters, 0, m_mfxVer, m_pQSVLog);
         }
         const auto encOutputTimebase = (ENCODER_QSV) ? to_rgy(HW_NATIVE_TIMEBASE) : m_outputTimebase;
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskParallelEncBitstream>(m_pFileReader.get(), m_encTimestamp.get(), m_timecode.get(), m_parallelEnc.get(), m_pStatus.get(), encOutputTimebase, taskAudio, 0, m_mfxVer, m_pQSVLog));
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskParallelEncBitstream>(m_pFileReader.get(), m_encTimestamp.get(), m_timecode.get(), m_parallelEnc.get(), m_pStatus.get(), m_encFps, encOutputTimebase, taskAudio, 0, m_mfxVer, m_pQSVLog));
         return RGY_ERR_NONE;
     }
 
