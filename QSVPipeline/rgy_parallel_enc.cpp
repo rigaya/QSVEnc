@@ -39,6 +39,14 @@
 
 static const int RGY_PARALLEL_ENC_TIMEOUT = 10000;
 
+static RGY_CODEC enc_codec(const encParams *prm) {
+#if ENCODER_NVENC
+    return prm->codec_rgy;
+#else
+    return prm->codec;
+#endif
+}
+
 RGYParallelEncodeStatusData::RGYParallelEncodeStatusData() : encStatusData(), mtx_() {};
 
 void RGYParallelEncodeStatusData::set(const EncodeStatusData& data) {
@@ -158,6 +166,7 @@ RGY_ERR RGYParallelEncProcess::startThread(const encParams& peParams) {
         m_sendData.qFirstProcessDataFreeLarge = m_qFirstProcessDataFreeLarge.get(); // キューのポインタを渡す
     }
     m_thRunProcess = std::thread([&]() {
+        AddMessage(RGY_LOG_DEBUG, _T("\nPE%d[%d]: Start thread...\n"), m_id, GetCurrentThreadId());
         try {
             m_thRunProcessRet = run(peParams);
         } catch (...) {
@@ -170,7 +179,8 @@ RGY_ERR RGYParallelEncProcess::startThread(const encParams& peParams) {
             m_sendData.encStatus.set(encStatusData);
         }
         SetEvent(m_processFinished.get()); // 処理終了を通知するのを忘れないように
-        AddMessage(RGY_LOG_DEBUG, _T("\nPE%d: Processing finished: %s\n"), m_id, get_err_mes(m_thRunProcessRet.value()));
+        AddMessage(m_thRunProcessRet.value_or(RGY_ERR_UNKNOWN) == RGY_ERR_NONE ? RGY_LOG_DEBUG : RGY_LOG_ERROR,
+            _T("\nPE%d[%d]: Processing finished: %s\n"), m_id, GetCurrentThreadId(), get_err_mes(m_thRunProcessRet.value()));
         m_sendData.processStatus = RGYParallelEncProcessStatus::Finished;
         // 終了したら、そのチャンクに関する進捗表示は削除
         m_sendData.encStatus.reset();
@@ -344,6 +354,9 @@ std::pair<RGY_ERR, const TCHAR *> RGYParallelEnc::isParallelEncPossible(const en
     }
     if (input->GetVideoFirstKeyPts() < 0) {
         return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: invalid first key PTS.\n") };
+    }
+    if (enc_codec(prm) == RGY_CODEC_RAW) {
+        return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: encoding is not activated.\n") };
     }
     if (prm->common.seekSec != 0.0) {
         return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: --seek is eanbled.\n") };
