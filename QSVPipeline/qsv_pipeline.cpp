@@ -1098,8 +1098,12 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         for (int i = 0; i < 3; i++) {
             pInParams->qpMin.qp(i) = clamp_param_int(pInParams->qpMin.qp(i), 0, codecMaxQP, _T("qp min"));
             pInParams->qpMax.qp(i) = clamp_param_int(pInParams->qpMax.qp(i), 0, codecMaxQP, _T("qp max"));
-            const int qpMin = (std::min)(pInParams->qpMin.qp(i), pInParams->qpMax.qp(i));
-            const int qpMax = (std::max)(pInParams->qpMin.qp(i), pInParams->qpMax.qp(i));
+            int qpMin = pInParams->qpMin.qp(i);
+            int qpMax = pInParams->qpMax.qp(i);
+            if (pInParams->qpMin.qp(i) > 0 && pInParams->qpMax.qp(i) > 0) {
+                qpMin = (std::min)(qpMin, pInParams->qpMax.qp(i));
+                qpMax = (std::max)(qpMax, pInParams->qpMin.qp(i));
+            }
             pInParams->qpMin.qp(i) = (pInParams->qpMin.qp(i) == 0) ? 0 : qpMin;
             pInParams->qpMax.qp(i) = (pInParams->qpMax.qp(i) == 0) ? 0 : qpMax;
         }
