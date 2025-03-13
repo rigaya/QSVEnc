@@ -3599,14 +3599,27 @@ RGY_ERR CQSVPipeline::InitPowerThrottoling(sInputParams *pParams) {
     if (filterOpenCL > 0) {
         score_filter -= 1;
     }
+    const int parallelMul = (pParams->ctrl.parallelEnc.isEnabled()) ? pParams->ctrl.parallelEnc.parallelCount : 1;
     const bool speedLimit = pParams->ctrl.procSpeedLimit > 0 && pParams->ctrl.procSpeedLimit <= 240;
-    const int score = (speedLimit) ? 0 : score_codec + score_resolution + score_tu + score_filter;
+    const int score = (speedLimit) ? 0 : (score_codec + score_resolution + score_tu + score_filter) * parallelMul;
 
     //一定以上のスコアなら、throttolingをAuto、それ以外はthrottolingを有効にして消費電力を削減
     const int score_threshold = 7;
     const auto mode = (score >= score_threshold) ? RGYThreadPowerThrottlingMode::Auto : RGYThreadPowerThrottlingMode::Enabled;
-    PrintMes(RGY_LOG_DEBUG, _T("selected mode %s : score %d: codec %d, resolution %d, tu %d, filter %d, speed limit %s.\n"),
-        rgy_thread_power_throttoling_mode_to_str(mode), score, score_codec, score_resolution, score_tu, score_filter, speedLimit ? _T("on") : _T("off"));
+    PrintMes(RGY_LOG_DEBUG, _T("selected mode %s : score %d: codec %d, resolution %d, tu %d, filter %d, speed limit %s, parallelMul: %d.\n"),
+        rgy_thread_power_throttoling_mode_to_str(mode), score, score_codec, score_resolution, score_tu, score_filter, speedLimit ? _T("on") : _T("off"), parallelMul);
+
+    if (pParams->ctrl.parallelEnc.isEnabled()) {
+        // 並列エンコード時には音声スレッドと出力スレッドが重要なので、throttolingを有効にはならないように
+        auto& target = pParams->ctrl.threadParams.get(RGYThreadType::AUDIO);
+        if (target.throttling == RGYThreadPowerThrottlingMode::Unset) {
+            target.throttling = RGYThreadPowerThrottlingMode::Auto;
+        }
+        target = pParams->ctrl.threadParams.get(RGYThreadType::OUTPUT);
+        if (target.throttling == RGYThreadPowerThrottlingMode::Unset) {
+            target.throttling = RGYThreadPowerThrottlingMode::Auto;
+        }
+    }
 
     //Unsetのままの設定について自動決定したモードを適用
     for (int i = (int)RGYThreadType::ALL + 1; i < (int)RGYThreadType::END; i++) {
