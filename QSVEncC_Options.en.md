@@ -1966,6 +1966,7 @@ Performs tone mapping using [libplacebo](https://code.videolan.org/videolan/libp
   lut file path used in --vpp-libplacebo-tonemapping.
 
 ### --vpp-delogo &lt;string&gt;[,&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+Specify the logo file and settings for the logo to be eliminated. The logo file supports ". lgd", ". ldp", and ". ldp2" formats.
 
 - **Parameters**
   - select=&lt;string&gt;  
