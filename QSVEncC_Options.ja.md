@@ -245,6 +245,7 @@
   - [--vpp-perc-pre-enc](#--vpp-perc-pre-enc)
   - [--vpp-perf-monitor](#--vpp-perf-monitor)
 - [制御系のオプション](#制御系のオプション)
+  - [--parallel \[\<int\>\] or \[\<string\>\]](#--parallel-int-or-string)
   - [-a, --async-depth \<int\>](#-a---async-depth-int)
   - [--input-buf \<int\>](#--input-buf-int)
   - [--output-buf \<int\>](#--output-buf-int)
@@ -3082,6 +3083,41 @@ perceptual pre encode filterを有効にする。
 
 
 ## 制御系のオプション
+
+### --parallel [&lt;int&gt;] or [&lt;string&gt;]
+ファイル分割による並列エンコードを行う。入力ファイルを複数のチャンクに分割し、それぞれを別スレッドで並列にエンコードすることで、処理を高速化する。
+
+- **パラメータ**
+  
+  - mp=&lt;int&gt;
+    並列実行するスレッド数。
+  
+  - chunks=&lt;int&gt;
+    入力ファイルの分割数。
+
+- **制約事項**
+  以下の場合、並列エンコードは利用できず、自動的に無効化されます。
+  - 入力がパイプの場合
+  - 入力がシーク不可能な場合
+  - フレームのタイムスタンプが不安定な場合
+  - エンコードしない場合 (-c raw)
+  - --trimオプションが指定されている場合
+  - --timecodeオプションが指定されている場合
+  - --tcfile-inオプションが指定されている場合
+  - --keyfileオプションが指定されている場合
+  - --key-on-chapterオプションが有効な場合
+  - ssim/psnr/vmafが有効な場合
+  - --vpp-subburn（字幕焼きこみ）が指定されている場合
+  - --vpp-fruc（フレーム補間）が有効な場合
+
+- **使用例**
+  ```
+  例: 自動で並列数を決定
+  --parallel auto
+
+  例: 3並列で実行
+  --parallel 3
+  ```
 
 ### -a, --async-depth &lt;int&gt;
 QSVパイプラインに先行投入するフレーム数を指定する。
