@@ -4056,6 +4056,7 @@ void CQSVPipeline::Close() {
     PrintMes(RGY_LOG_DEBUG, _T("Closing device...\n"));
     m_device.reset();
     m_deviceUsage.reset();
+    m_parallelEnc.reset();
 
     m_trimParam.list.clear();
     m_trimParam.offset = 0;
