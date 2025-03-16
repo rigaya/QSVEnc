@@ -1487,7 +1487,7 @@ public:
         std::unique_ptr<PipelineTaskAudio>& taskAudio, int outMaxQueueSize, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
         PipelineTask(PipelineTaskType::PECOLLECT, outMaxQueueSize, nullptr, mfxVer, log),
         m_input(input), m_currentChunk(-1), m_encTimestamp(encTimestamp), m_timecode(timecode),
-        m_parallelEnc(parallelEnc), m_encStatus(encStatus), m_outputTimebase(outputTimebase), m_encFps(encFps),
+        m_parallelEnc(parallelEnc), m_encStatus(encStatus), m_encFps(encFps), m_outputTimebase(outputTimebase),
         m_taskAudio(std::move(taskAudio)), m_fReader(std::unique_ptr<FILE, fp_deleter>(nullptr, fp_deleter())),
         m_firstPts(-1), m_maxPts(-1), m_ptsOffset(0), m_encFrameOffset(0), m_inputFrameOffset(0), m_maxEncFrameIdx(-1), m_maxInputFrameIdx(-1),
         m_decInputBitstream(), m_inputBitstreamEOF(false), m_bitStreamOut(), m_durationCheck(), m_tsDebug(false) {
