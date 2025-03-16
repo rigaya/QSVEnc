@@ -356,8 +356,4 @@ static bool stdInAbort() {
     return (key == 'q' || key == 'Q');
 }
 
-static uint32_t GetCurrentThreadId() {
-    return (uint32_t)pthread_self();
-}
-
 #endif //__RGY_OSDEP_H__
