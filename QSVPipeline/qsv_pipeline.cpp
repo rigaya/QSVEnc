@@ -3727,9 +3727,14 @@ RGY_ERR CQSVPipeline::InitParallelEncode(sInputParams *inputParam, const int max
     if (inputParam->ctrl.parallelEnc.isParent() && m_deviceUsage) {
         m_deviceUsage->close();
     }
+    // とんでもなく大きい値にする人がいそうなので、適当に制限する
+    const int maxParallelCount = std::max(4, maxEncoders * 2);
     if (inputParam->ctrl.parallelEnc.parallelCount < 0) {
         inputParam->ctrl.parallelEnc.parallelCount = maxEncoders;
         PrintMes(RGY_LOG_DEBUG, _T("parallelCount set to %d\n"), inputParam->ctrl.parallelEnc.parallelCount);
+    } else if (inputParam->ctrl.parallelEnc.parallelCount > maxParallelCount) {
+        inputParam->ctrl.parallelEnc.parallelCount = maxParallelCount;
+        PrintMes(RGY_LOG_WARN, _T("Parallel count limited to %d\n"), inputParam->ctrl.parallelEnc.parallelCount);
     }
     m_parallelEnc = std::make_unique<RGYParallelEnc>(m_pQSVLog);
     if ((sts = m_parallelEnc->parallelRun(inputParam, m_pFileReader.get(), m_outputTimebase, m_pStatus.get())) != RGY_ERR_NONE) {

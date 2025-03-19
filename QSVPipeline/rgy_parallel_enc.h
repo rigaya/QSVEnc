@@ -56,6 +56,11 @@ using encParams = InEncodeVideoParam;
 class NVEncCore;
 using encCore = NVEncCore;
 #elif ENCODER_VCEENC
+struct VCEParam;
+using encParams = VCEParam;
+
+class VCECore;
+using encCore = VCECore;
 #elif ENCODER_RKMPP
 #endif
 
@@ -121,7 +126,7 @@ public:
     RGY_ERR putFreePacket(RGYOutputRawPEExtHeader *ptr);
 
     int waitProcessFinished(const uint32_t timeout);
-    std::optional<RGY_ERR> processReturnCode() const { return m_thRunProcessRet; } // waitProcessFinished してから呼ぶこと
+    std::optional<RGY_ERR> getThreadRunResult();
 
     int waitProcessStarted(const uint32_t timeout);
     int64_t getVideoFirstKeyPts() const { return m_sendData.videoFirstKeyPts; } // waitProcessStarted してから呼ぶこと
@@ -182,7 +187,7 @@ public:
     int id() const { return m_id; }
     int waitProcessFinished(const int id, const uint32_t timeout);
     std::optional<RGY_ERR> processReturnCode(const int id);
-    RGY_ERR checkAllProcessErrors() const;
+    RGY_ERR checkAllProcessErrors();
     void encStatusReset(const int id);
     
     int64_t getVideofirstKeyPts(const int ichunk) const;
