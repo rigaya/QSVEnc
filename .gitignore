@@ -73,7 +73,6 @@ qsvencc
 *.VC.db
 
 # Visual C++ cache files
-.vscode/
 .vs/
 ipch/
 *.aps
