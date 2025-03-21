@@ -3411,7 +3411,7 @@ RGY_ERR CQSVPipeline::deviceAutoSelect(const sInputParams *prm, std::vector<std:
         }
     }
 #if ENABLE_PERF_COUNTER
-    PrintMes(RGY_LOG_INFO, _T("Auto select device from %d devices.\n"), (int)gpuList.size());
+    PrintMes(RGY_LOG_DEBUG, _T("Auto select device from %d devices.\n"), (int)gpuList.size());
     bool counterIsIntialized = m_pPerfMonitor->isPerfCounterInitialized();
     for (int i = 0; i < 4 && !counterIsIntialized; i++) {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
@@ -3451,7 +3451,7 @@ RGY_ERR CQSVPipeline::deviceAutoSelect(const sInputParams *prm, std::vector<std:
         double usage_score = 100.0 * (maxDeviceUsageCount - deviceUsageCount) / (double)maxDeviceUsageCount;
 
         gpuscore[gpu->deviceNum()] = usage_score + cc_score + ve_score + gpu_score + core_score + cl_score;
-        PrintMes(RGY_LOG_INFO, _T("GPU #%d (%s) score: %.1f: Use: %.1f, VE %.1f, GPU %.1f, CC %.1f, Core %.1f, CL %.1f.\n"), gpu->deviceNum(), gpu->name().c_str(),
+        PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s) score: %.1f: Use: %.1f, VE %.1f, GPU %.1f, CC %.1f, Core %.1f, CL %.1f.\n"), gpu->deviceNum(), gpu->name().c_str(),
             gpuscore[gpu->deviceNum()], usage_score, ve_score, gpu_score, cc_score, core_score, cl_score);
     }
     std::sort(gpuList.begin(), gpuList.end(), [&](const std::unique_ptr<QSVDevice> &a, const std::unique_ptr<QSVDevice> &b) {
@@ -3461,9 +3461,9 @@ RGY_ERR CQSVPipeline::deviceAutoSelect(const sInputParams *prm, std::vector<std:
         return a->deviceNum() < b->deviceNum();
         });
 
-    PrintMes(RGY_LOG_INFO, _T("GPU Priority\n"));
+    PrintMes(RGY_LOG_DEBUG, _T("GPU Priority\n"));
     for (const auto &gpu : gpuList) {
-        PrintMes(RGY_LOG_INFO, _T("GPU #%d (%s): score %.1f\n"), gpu->deviceNum(), gpu->name().c_str(), gpuscore[gpu->deviceNum()]);
+        PrintMes(RGY_LOG_DEBUG, _T("GPU #%d (%s): score %.1f\n"), gpu->deviceNum(), gpu->name().c_str(), gpuscore[gpu->deviceNum()]);
     }
     return RGY_ERR_NONE;
 }
@@ -3986,7 +3986,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
         PrintMes(RGY_LOG_ERROR, _T("None of the pipeline element (DEC,VPP,ENC) are activated!\n"));
         return RGY_ERR_INVALID_VIDEO_PARAM;
     }
-    PrintMes(RGY_LOG_INFO, _T("pipeline element count: %d\n"), nPipelineElements);
+    PrintMes(RGY_LOG_DEBUG, _T("pipeline element count: %d\n"), nPipelineElements);
 
     sts = InitVideoQualityMetric(pParams);
     if (sts < RGY_ERR_NONE) return sts;
