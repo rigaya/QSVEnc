@@ -63,6 +63,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 - Quality preset of 7 steps
 - Interlaced encoding (by PAFF)
 - Supports setting of codec profile & level, SAR, colormatrix, maxbitrate, GOP len, etc...
+- Parallel encoding supporting multi GPU
 - Calculation of ssim/psnr of the encode
 - Supports various vpp(video pre-processing) filters
   - MFX (Media Fixed function) filters
