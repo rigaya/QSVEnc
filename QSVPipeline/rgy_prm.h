@@ -2534,6 +2534,12 @@ struct RGYParamParallelEnc {
     bool isEnabled() const { return parallelCount > 1 || parallelCount == -1; }
 };
 
+enum class RGYParamInitVulkan {
+    Disable,
+    TargetVendor,
+    All,
+};
+
 struct RGYParamControl {
     int threadCsp;
     RGY_SIMD simdCsp;
@@ -2560,7 +2566,7 @@ struct RGYParamControl {
     tstring avsdll;
     tstring vsdir;
     bool enableOpenCL;
-    bool enableVulkan;
+    RGYParamInitVulkan enableVulkan;
     RGYParamAvoidIdleClock avoidIdleClock;
     bool processMonitorDevUsage;
     bool processMonitorDevUsageReset;

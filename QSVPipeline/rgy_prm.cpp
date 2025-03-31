@@ -2383,7 +2383,7 @@ RGYParamControl::RGYParamControl() :
     avsdll(),
     vsdir(),
     enableOpenCL(true),
-    enableVulkan(true),
+    enableVulkan(RGYParamInitVulkan::TargetVendor),
     avoidIdleClock(),
     processMonitorDevUsage(false),
     processMonitorDevUsageReset(false),

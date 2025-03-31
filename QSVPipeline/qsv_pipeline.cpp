@@ -3794,6 +3794,12 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
 
     RGY_ERR sts = RGY_ERR_NONE;
 
+#if ENABLE_VULKAN
+    if (pParams->ctrl.enableVulkan == RGYParamInitVulkan::TargetVendor) {
+        setenv("VK_LOADER_DRIVERS_SELECT", "*intel*", 1);
+    }
+#endif
+
     if (pParams->bBenchmark) {
         pParams->common.AVMuxTarget = RGY_MUX_NONE;
         if (pParams->common.nAudioSelectCount) {
