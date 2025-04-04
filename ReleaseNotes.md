@@ -1,5 +1,12 @@
 # QSVEnc Release Notes
 
+## 7.85
+
+- Improve audio and video synchronization to achieve more uniform mixing when muxing with subtitles or data tracks.
+- Improve invalid input data hadling to avoid freeze when "failed to run h264_mp4toannexb bitstream filter" error occurs. ( #246 )
+  Now properly exits with error.
+- Add support for uyvy as input color format.
+
 ## 7.84
 
 - Add parallel encoding feature with file splitting. ([--parallel](./QSVEncC_Options.en.md#--parallel-int-or-param1value1param2value2))
