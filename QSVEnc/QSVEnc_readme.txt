@@ -319,6 +319,7 @@ API v1.1  … Intel Media SDK v2.0
 - "failed to run h264_mp4toannexb bitstream filter" というエラーが出るとフリーズしてしまう問題を修正。
   きちんとエラー終了するように。
 - 入力色フォーマットとして、uyvyに対応。
+- 並列数が1以下ならparallelを自動で無効化するように。
 
 2025.03.22 (7.84)
 - ファイル分割並列エンコード機能を追加。 (--parallel)

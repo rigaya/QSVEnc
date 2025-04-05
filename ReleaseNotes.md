@@ -6,6 +6,7 @@
 - Improve invalid input data hadling to avoid freeze when "failed to run h264_mp4toannexb bitstream filter" error occurs. ( #246 )
   Now properly exits with error.
 - Add support for uyvy as input color format.
+- Automatically disable --parallel when number of encoders is 1 when using ```--parallel auto```. ( #247 )
 
 ## 7.84
 
