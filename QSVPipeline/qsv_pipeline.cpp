@@ -205,6 +205,7 @@ bool CQSVPipeline::CompareParam(const QSVVideoParam& prmIn, const QSVVideoParam&
         COMPARE_INT(videoPrm.mfx.ICQQuality, -1);
     } else {
         COMPARE_INT(videoPrm.mfx.TargetKbps, 0);
+        //COMPARE_INT(videoPrm.mfx.BufferSizeInKB, 0);
         if (m_encParams.videoPrm.mfx.RateControlMethod == MFX_RATECONTROL_AVBR) {
             COMPARE_INT(videoPrm.mfx.TargetKbps, 0);
         } else {
@@ -4977,7 +4978,19 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
                 }
             }
             if (outFrameInfo->videoPrm.mfx.BufferSizeInKB > 0) {
-                PRINT_INFO(_T("VBV Bufsize    %d kb\n"), outFrameInfo->videoPrm.mfx.BufferSizeInKB * 8 * (std::max<int>)(m_encParams.videoPrm.mfx.BRCParamMultiplier, 1));
+                int bufSizeInKB = outFrameInfo->videoPrm.mfx.BufferSizeInKB;
+                if (enc_codec == RGY_CODEC_AV1) {
+                    // AV1では、BufferSizeInKBの値がtemporal layersの値の分(=ceil(log2(GopRefDist)))だけ乗算されていると思われるので、
+                    // フレーム単位の値に戻して表示する
+                    int mul = 1;
+                    for (int val = 1; val <= 128; mul++, val *= 2) {
+                        if (val >= outFrameInfo->videoPrm.mfx.GopRefDist) {
+                            break;
+                        }
+                    }
+                    bufSizeInKB /= mul;
+                }
+                PRINT_INFO(_T("VBV Bufsize    %d kb\n"), bufSizeInKB * 8 * (std::max<int>)(m_encParams.videoPrm.mfx.BRCParamMultiplier, 1));
             }
             if (outFrameInfo->cop2.LookAheadDepth > 0) {
                 PRINT_INFO(_T("LookaheadDepth %d\n"), outFrameInfo->cop2.LookAheadDepth);
