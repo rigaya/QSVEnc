@@ -3748,7 +3748,7 @@ RGY_ERR CQSVPipeline::InitParallelEncode(sInputParams *inputParam, const int max
         }
     }
     m_parallelEnc = std::make_unique<RGYParallelEnc>(m_pQSVLog);
-    if ((sts = m_parallelEnc->parallelRun(inputParam, m_pFileReader.get(), m_outputTimebase, m_pStatus.get())) != RGY_ERR_NONE) {
+    if ((sts = m_parallelEnc->parallelRun(inputParam, m_pFileReader.get(), m_outputTimebase, inputParam->ctrl.parallelEnc.parallelCount > maxEncoders, m_pStatus.get())) != RGY_ERR_NONE) {
         if (inputParam->ctrl.parallelEnc.isChild()) {
             return sts; // 子スレッド側でエラーが起こった場合はエラー
         }
@@ -3946,7 +3946,8 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     PrintMes(RGY_LOG_DEBUG, _T("InitInput: Success.\n"));
 
     // 並列動作の子は読み込みが終了したらすぐに並列動作を呼び出し
-    if (pParams->ctrl.parallelEnc.isChild()) {
+    // ただし、親-子間のデータやり取りを少し遅らせる場合(delayChildSync)は親と同じタイミングで処理する
+    if (pParams->ctrl.parallelEnc.isChild() && !pParams->ctrl.parallelEnc.delayChildSync) {
         sts = InitParallelEncode(pParams, (int)m_devNames.size());
         if (sts < RGY_ERR_NONE) return sts;
     }
@@ -3980,7 +3981,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     if (sts < RGY_ERR_NONE) return sts;
 
     // 親はエンコード設定が完了してから並列動作を呼び出し
-    if (pParams->ctrl.parallelEnc.isParent()) {
+    if (pParams->ctrl.parallelEnc.isParent() || (pParams->ctrl.parallelEnc.isChild() && pParams->ctrl.parallelEnc.delayChildSync)) {
         sts = InitParallelEncode(pParams, (int)m_devNames.size());
         if (sts < RGY_ERR_NONE) return sts;
     }
@@ -4017,6 +4018,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     if ((sts = ResetMFXComponents(pParams)) != RGY_ERR_NONE) {
         return sts;
     }
+
     {
         const auto& threadParam = pParams->ctrl.threadParams.get(RGYThreadType::MAIN);
         threadParam.apply(GetCurrentThread());
