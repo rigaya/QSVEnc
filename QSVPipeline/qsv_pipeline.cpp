@@ -3452,6 +3452,10 @@ RGY_ERR CQSVPipeline::deviceAutoSelect(const sInputParams *prm, std::vector<std:
         double cl_score = gpu->devInfo() ? 0.0 : maxDeviceUsageCount * -100.0; // openclの初期化に成功したか?
         const int deviceUsageCount = (int)gpu->deviceNum() < (int)deviceUsage.size() ? deviceUsage[(int)gpu->deviceNum()].first : 0;
         double usage_score = 100.0 * (maxDeviceUsageCount - deviceUsageCount) / (double)maxDeviceUsageCount;
+        ve_score /= (double)maxDeviceUsageCount;
+        gpu_score /= (double)maxDeviceUsageCount;
+        core_score /= (double)maxDeviceUsageCount;
+        cl_score /= (double)maxDeviceUsageCount;
 
         gpuscore[gpu->deviceNum()] = usage_score + cc_score + ve_score + gpu_score + core_score + cl_score;
         PrintMes(log_level, _T("%sGPU #%d (%s) score: %.1f: Use: %.1f, VE %.1f, GPU %.1f, CC %.1f, Core %.1f, CL %.1f.\n"), PEPrefix.c_str(), gpu->deviceNum(), gpu->name().c_str(),
