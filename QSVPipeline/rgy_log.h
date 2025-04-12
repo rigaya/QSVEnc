@@ -82,6 +82,7 @@ enum RGYLogType {
     RGY_LOGT_LIBASS,
     RGY_LOGT_PERF_MONITOR,
     RGY_LOGT_CAPION2ASS,
+    RGY_LOGT_FIN,
 };
 
 static const std::array<std::pair<RGYLogType, const TCHAR *>, RGY_LOGT_CAPION2ASS - RGY_LOGT_ALL + 1> RGY_LOG_TYPE_STR = {
