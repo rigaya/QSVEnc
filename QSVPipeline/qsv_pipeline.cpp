@@ -3441,8 +3441,8 @@ RGY_ERR CQSVPipeline::deviceAutoSelect(const sInputParams *prm, std::vector<std:
             RGYGPUCounterWinEntries(counters).filter_type(L"compute").max()), //vce-opencl
             RGYGPUCounterWinEntries(counters).filter_type(L"3d").max()), //qsv
             RGYGPUCounterWinEntries(counters).filter_type(L"videoprocessing").max());
-        double ve_score = 100.0 * (1.0 - std::pow(ve_utilization / 100.0, 1.0)) * prm->ctrl.gpuSelect.ve;
-        double gpu_score = 100.0 * (1.0 - std::pow(gpu_utilization / 100.0, 1.5)) * prm->ctrl.gpuSelect.gpu;
+        double ve_score = 100.0 * (1.0 - std::pow(std::min(ve_utilization / 100.0, 1.0), 1.0)) * prm->ctrl.gpuSelect.ve;
+        double gpu_score = 100.0 * (1.0 - std::pow(std::min(gpu_utilization / 100.0, 1.0), 1.5)) * prm->ctrl.gpuSelect.gpu;
 #else
         double ve_score = 0.0;
         double gpu_score = 0.0;
