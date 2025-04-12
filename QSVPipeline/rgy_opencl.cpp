@@ -1335,17 +1335,20 @@ bool RGYOpenCLPlatform::checkVersion(int major, int minor) const {
     return info().checkVersion(major, minor);
 }
 
-RGYOpenCLContext::RGYOpenCLContext(shared_ptr<RGYOpenCLPlatform> platform, shared_ptr<RGYLog> pLog) :
+RGYOpenCLContext::RGYOpenCLContext(shared_ptr<RGYOpenCLPlatform> platform, int buildThreads, shared_ptr<RGYLog> pLog) :
     m_platform(std::move(platform)),
     m_context(nullptr, clReleaseContext),
     m_queue(),
     m_log(pLog),
     m_copy(),
+    m_threadPool(),
+    m_buildThreads(buildThreads > 0 ? buildThreads : std::min(RGY_OPENCL_BUILD_THREAD_DEFAULT_MAX, (int)std::thread::hardware_concurrency())),
     m_hmodule(NULL) {
 
 }
 
 RGYOpenCLContext::~RGYOpenCLContext() {
+    m_threadPool.reset();
     CL_LOG(RGY_LOG_DEBUG, _T("Closing CL Context...\n"));
     m_copy.clear();     CL_LOG(RGY_LOG_DEBUG, _T("Closed CL m_copy program.\n"));
     m_queue.clear();    CL_LOG(RGY_LOG_DEBUG, _T("Closed CL Queue.\n"));
@@ -2586,7 +2589,9 @@ std::unique_ptr<RGYOpenCLProgram> RGYOpenCLContext::build(const std::string &sou
 }
 
 std::future<std::unique_ptr<RGYOpenCLProgram>> RGYOpenCLContext::buildAsync(const std::string &source, const char *options) {
-    return std::async(std::launch::async, &RGYOpenCLContext::buildProgram, this, std::string(source), std::string(options));
+    return threadPool()->enqueue([this, src = std::string(source), opt = std::string(options)]() {
+        return buildProgram(src, opt);
+    });
 }
 
 std::unique_ptr<RGYOpenCLProgram> RGYOpenCLContext::buildFile(const tstring filename, const std::string options) {
@@ -2604,7 +2609,9 @@ std::unique_ptr<RGYOpenCLProgram> RGYOpenCLContext::buildFile(const tstring file
 }
 
 std::future<std::unique_ptr<RGYOpenCLProgram>> RGYOpenCLContext::buildFileAsync(const tstring& filename, const char *options) {
-    return std::async(std::launch::async, &RGYOpenCLContext::buildFile, this, tstring(filename), std::string(options));
+    return threadPool()->enqueue([this, file = tstring(filename), opt = std::string(options)]() {
+        return buildFile(file, opt);
+    });
 }
 
 std::unique_ptr<RGYOpenCLProgram> RGYOpenCLContext::buildResource(const tstring name, const tstring type, const std::string options) {
@@ -2620,7 +2627,9 @@ std::unique_ptr<RGYOpenCLProgram> RGYOpenCLContext::buildResource(const tstring 
 }
 
 std::future<std::unique_ptr<RGYOpenCLProgram>> RGYOpenCLContext::buildResourceAsync(const TCHAR *name, const TCHAR *type, const char *options) {
-    return std::async(std::launch::async, &RGYOpenCLContext::buildResource, this, tstring(name), tstring(type), std::string(options));
+    return threadPool()->enqueue([this, resource_name = tstring(name), resource_type = tstring(type), opt = std::string(options)]() {
+        return buildResource(resource_name, resource_type, opt);
+    });
 }
 
 std::unique_ptr<RGYCLBuf> RGYOpenCLContext::createBuffer(size_t size, cl_mem_flags flags, void *host_ptr) {

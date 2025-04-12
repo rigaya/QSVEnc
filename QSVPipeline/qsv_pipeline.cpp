@@ -1441,7 +1441,7 @@ bool CQSVPipeline::CPUGenOpenCLSupported(const QSV_CPU_GEN cpu_gen) {
     return cpu_gen != CPU_GEN_SANDYBRIDGE;
 }
 
-RGY_ERR CQSVPipeline::InitOpenCL(const bool enableOpenCL, const bool checkVppPerformance) {
+RGY_ERR CQSVPipeline::InitOpenCL(const bool enableOpenCL, const int openCLBuildThreads, const bool checkVppPerformance) {
     if (!enableOpenCL) {
         PrintMes(RGY_LOG_DEBUG, _T("OpenCL disabled.\n"));
         return RGY_ERR_NONE;
@@ -1516,7 +1516,7 @@ RGY_ERR CQSVPipeline::InitOpenCL(const bool enableOpenCL, const bool checkVppPer
     }
     selectedPlatform->setDev(devices[0]);
 
-    m_cl = std::make_shared<RGYOpenCLContext>(selectedPlatform, m_pQSVLog);
+    m_cl = std::make_shared<RGYOpenCLContext>(selectedPlatform, openCLBuildThreads, m_pQSVLog);
     if (m_cl->createContext((checkVppPerformance) ? CL_QUEUE_PROFILING_ENABLE : 0) != CL_SUCCESS) {
         PrintMes(RGY_LOG_WARN, _T("Failed to create OpenCL context.\n"));
         m_cl.reset();
@@ -3941,7 +3941,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     RGY_ERR(sts, _T("Failed to initialize encode session."));
     PrintMes(RGY_LOG_DEBUG, _T("InitSession: Success.\n"));
 
-    sts = InitOpenCL(pParams->ctrl.enableOpenCL, pParams->vpp.checkPerformance);
+    sts = InitOpenCL(pParams->ctrl.enableOpenCL, pParams->ctrl.parallelEnc.isParent() ? 1 : pParams->ctrl.openclBuildThreads, pParams->vpp.checkPerformance);
     if (sts < RGY_ERR_NONE) return sts;
     PrintMes(RGY_LOG_DEBUG, _T("InitOpenCL: Success.\n"));
 

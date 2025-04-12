@@ -174,8 +174,7 @@ RGY_ERR RGYFilterSmooth::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
             && sub_group_ext_avail != RGYOpenCLSubGroupSupport::NONE
             && prm->smooth.prec == VPP_FP_PRECISION_FP16
             && prm->smooth.quality > 0; // quality = 0の時には適用してはならない
-        m_smooth.set(std::async(std::launch::async,
-            [cl = m_cl, log = m_pLog, cl_fp16_support, sub_group_ext_avail, usefp16DctOrg = usefp16DctFirst, frameOut = prm->frameOut]() {
+        m_smooth.set(m_cl->threadPool()->enqueue([cl = m_cl, log = m_pLog, cl_fp16_support, sub_group_ext_avail, usefp16DctOrg = usefp16DctFirst, frameOut = prm->frameOut]() {
 
             const int dct_idct_barrier_mode = (DCT_IDCT_BARRIER_ENABLE) ? (sub_group_ext_avail != RGYOpenCLSubGroupSupport::NONE ? 2 : 1) : 0;
             auto gen_options = [&](bool enable_fp16, bool cl_fp16_support) {

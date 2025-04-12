@@ -46,7 +46,7 @@ RGY_ERR RGYFilterAfs::build_merge_scan() {
             MERGE_BLOCK_INT_X, MERGE_BLOCK_Y, MERGE_BLOCK_LOOP_Y);
         const auto sub_group_ext_avail = m_cl->platform()->checkSubGroupSupport(m_cl->queue().devid());
         if (ENCODER_QSV && sub_group_ext_avail != RGYOpenCLSubGroupSupport::NONE) { // VCEではこれを使用するとかえって遅くなる
-            m_mergeScan.set(std::async(std::launch::async, [cl = m_cl, log = m_pLog, options, sub_group_ext_avail]() {
+            m_mergeScan.set(m_cl->threadPool()->enqueue([cl = m_cl, log = m_pLog, options, sub_group_ext_avail]() {
                 auto buildoptions = options;
                 if (   sub_group_ext_avail == RGYOpenCLSubGroupSupport::STD22
                     || sub_group_ext_avail == RGYOpenCLSubGroupSupport::STD20KHR) {

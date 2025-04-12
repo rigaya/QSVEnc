@@ -622,8 +622,7 @@ RGY_ERR RGYFilterNnedi::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
         }
         const int prescreen_new = ((prm->nnedi.pre_screen & VPP_NNEDI_PRE_SCREEN_MODE) == VPP_NNEDI_PRE_SCREEN_ORIGINAL) ? 0 : 1;
         const auto fields = make_array<NnediTargetField>(NNEDI_GEN_FIELD_TOP, NNEDI_GEN_FIELD_BOTTOM);
-        m_nnedi_k0.set(std::async(std::launch::async,
-            [cl = m_cl, log = m_pLog, prescreen_new, clversionRequired, prm]() {
+        m_nnedi_k0.set(m_cl->threadPool()->enqueue([cl = m_cl, log = m_pLog, prescreen_new, clversionRequired, prm]() {
             const auto nnedi_common_cl = getEmbeddedResourceStr(_T("RGY_FILTER_NNEDI_COMMON_CL"), _T("EXE_DATA"), cl->getModuleHandle());
             if (nnedi_common_cl.length() == 0) {
                 log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("Failed to load RGY_FILTER_NNEDI_COMMON_CL."));
@@ -670,8 +669,7 @@ RGY_ERR RGYFilterNnedi::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
             }
             return nnedi_k0;
         }));
-        m_nnedi_k1.set(std::async(std::launch::async,
-            [cl = m_cl, log = m_pLog, clversionRequired, collect_flag_mode, prescreen_new, prm]() {
+        m_nnedi_k1.set(m_cl->threadPool()->enqueue([cl = m_cl, log = m_pLog, clversionRequired, collect_flag_mode, prescreen_new, prm]() {
             const auto nnedi_common_cl = getEmbeddedResourceStr(_T("RGY_FILTER_NNEDI_COMMON_CL"), _T("EXE_DATA"), cl->getModuleHandle());
             if (nnedi_common_cl.length() == 0) {
                 log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("Failed to load RGY_FILTER_NNEDI_COMMON_CL."));

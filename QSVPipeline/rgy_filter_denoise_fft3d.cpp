@@ -350,7 +350,7 @@ RGY_ERR RGYFilterDenoiseFFT3D::init(shared_ptr<RGYFilterParam> pParam, shared_pt
 
         const auto sub_group_ext_avail = m_cl->platform()->checkSubGroupSupport(m_cl->queue().devid());
         const int fft_barrier_mode = (true) ? (sub_group_ext_avail != RGYOpenCLSubGroupSupport::NONE ? 2 : 1) : 0;
-        m_fft3d.set(std::async(std::launch::async,
+        m_fft3d.set(m_cl->threadPool()->enqueue(
             [cl = m_cl, log = m_pLog, prm = prm, ov1 = m_ov1, ov2 = m_ov2, fft_barrier_mode, sub_group_ext_avail]() {
                 // 必要な定数テーブルを作成
                 // bitreverse_BLOCK_SIZE

@@ -740,6 +740,9 @@
     <ClInclude Include="rgy_pipe_named.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="rgy_thread_pool.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="rgy_filter.cl">

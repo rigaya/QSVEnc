@@ -77,6 +77,7 @@
 #include "rgy_frame.h"
 #include "convert_csp.h"
 #include "rgy_frame_info.h"
+#include "rgy_thread_pool.h"
 
 #ifndef CL_EXTERN
 #define CL_EXTERN extern
@@ -392,6 +393,8 @@ CL_EXTERN cl_int(CL_API_CALL* f_clEnqueueReleaseVA_APIMediaSurfacesINTEL)(cl_com
 tstring checkOpenCLDLL();
 
 MAP_PAIR_0_1_PROTO(err, rgy, RGY_ERR, cl, cl_int);
+
+static const int RGY_OPENCL_BUILD_THREAD_DEFAULT_MAX = 16;
 
 class RGYOpenCLQueue;
 
@@ -1147,7 +1150,7 @@ private:
 
 class RGYOpenCLContext {
 public:
-    RGYOpenCLContext(shared_ptr<RGYOpenCLPlatform> platform, shared_ptr<RGYLog> pLog);
+    RGYOpenCLContext(shared_ptr<RGYOpenCLPlatform> platform, int buildThreads, shared_ptr<RGYLog> pLog);
     virtual ~RGYOpenCLContext();
 
     RGY_ERR createContext(const cl_command_queue_properties queue_properties);
@@ -1155,6 +1158,11 @@ public:
     const RGYOpenCLQueue& queue(int idx=0) const { return m_queue[idx]; };
     RGYOpenCLQueue& queue(int idx=0) { return m_queue[idx]; };
     RGYOpenCLPlatform *platform() const { return m_platform.get(); };
+
+    RGYThreadPool *threadPool() {
+        if (!m_threadPool) { m_threadPool = std::make_unique<RGYThreadPool>(m_buildThreads); }
+        return m_threadPool.get();
+    }
 
     void setModuleHandle(const HMODULE hmodule) { m_hmodule = hmodule; }
     HMODULE getModuleHandle() const { return m_hmodule; }
@@ -1216,6 +1224,8 @@ protected:
     std::vector<RGYOpenCLQueue> m_queue;
     std::shared_ptr<RGYLog> m_log;
     std::unordered_map<std::string, RGYOpenCLProgramAsync> m_copy;
+    std::unique_ptr<RGYThreadPool> m_threadPool;
+    int m_buildThreads;
     HMODULE m_hmodule;
 };
 
