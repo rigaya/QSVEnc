@@ -3411,7 +3411,6 @@ RGY_ERR CQSVPipeline::deviceAutoSelect(const sInputParams *prm, std::vector<std:
             }
         }
     }
-    const auto log_level = prm->ctrl.parallelEnc.isChild() ? RGY_LOG_WARN : RGY_LOG_DEBUG;
     const tstring PEPrefix = (prm->ctrl.parallelEnc.isChild()) ? strsprintf(_T("Parallel Enc %d: "), prm->ctrl.parallelEnc.parallelId) : _T("");
 #if ENABLE_PERF_COUNTER
     PrintMes(RGY_LOG_DEBUG, _T("Auto select device from %d devices.\n"), (int)gpuList.size());
@@ -3458,7 +3457,7 @@ RGY_ERR CQSVPipeline::deviceAutoSelect(const sInputParams *prm, std::vector<std:
         cl_score /= (double)maxDeviceUsageCount;
 
         gpuscore[gpu->deviceNum()] = usage_score + cc_score + ve_score + gpu_score + core_score + cl_score;
-        PrintMes(log_level, _T("%sGPU #%d (%s) score: %.1f: Use: %.1f, VE %.1f, GPU %.1f, CC %.1f, Core %.1f, CL %.1f.\n"), PEPrefix.c_str(), gpu->deviceNum(), gpu->name().c_str(),
+        m_pQSVLog->write(RGY_LOG_DEBUG, RGY_LOGT_CORE_GPU_SELECT, _T("%sGPU #%d (%s) score: %.1f: Use: %.1f, VE %.1f, GPU %.1f, CC %.1f, Core %.1f, CL %.1f.\n"), PEPrefix.c_str(), gpu->deviceNum(), gpu->name().c_str(),
             gpuscore[gpu->deviceNum()], usage_score, ve_score, gpu_score, cc_score, core_score, cl_score);
     }
     std::sort(gpuList.begin(), gpuList.end(), [&](const std::unique_ptr<QSVDevice> &a, const std::unique_ptr<QSVDevice> &b) {
@@ -3773,7 +3772,7 @@ RGY_ERR CQSVPipeline::InitParallelEncode(sInputParams *inputParam, const int max
         return RGY_ERR_NONE; // 親の場合は正常終了(並列動作を無効化して継続)を返す
     }
     if (inputParam->ctrl.parallelEnc.isChild()) {
-        PrintMes(RGY_LOG_ERROR, _T("Parallel Enc %d: Selected GPU #%d (%s)\n"), inputParam->ctrl.parallelEnc.parallelId, m_device->deviceNum(), m_device->name().c_str());
+        m_pQSVLog->write(RGY_LOG_DEBUG, RGY_LOGT_CORE_GPU_SELECT, _T("Parallel Enc %d: Selected GPU #%d (%s)\n"), inputParam->ctrl.parallelEnc.parallelId, m_device->deviceNum(), m_device->name().c_str());
     }
     return RGY_ERR_NONE;
 }

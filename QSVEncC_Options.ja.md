@@ -3187,6 +3187,8 @@ Windowsのタイマー精度を向上させ、高速化する。いわゆるtime
   - core ... アプリケーションのコア部分 (core_progress, core_result含む)
   - core_progress ... 進捗表示
   - core_result ... 結果表示
+  - parallel ... 並列処理関連
+  - gpu_select ... GPU自動選択
   - decoder ... デコーダ関連
   - input ... ファイル読み込み関連
   - output ... ファイル書き出し関連
