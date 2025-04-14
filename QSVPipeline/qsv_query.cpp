@@ -1326,7 +1326,8 @@ QSVEncFeatureData MakeFeatureList(const QSVDeviceNum deviceNum, const std::vecto
 #if LIBVA_SUPPORT
     if (codec != RGY_CODEC_MPEG2) {
 #endif
-        MemType memType = HW_MEMORY;
+        const bool fastCheck = true;
+        MemType memType = (fastCheck) ? SYSTEM_MEMORY : HW_MEMORY;
         std::unique_ptr<CQSVHWDevice> hwdev;
         MFXVideoSession2 session;
         MFXVideoSession2Params params;
@@ -1335,7 +1336,7 @@ QSVEncFeatureData MakeFeatureList(const QSVDeviceNum deviceNum, const std::vecto
         auto err = RGY_ERR_NONE;
         if ((err = InitSessionAndDevice(hwdev, session, memType, deviceNum, params, log)) != RGY_ERR_NONE) {
             log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("InitSessionAndDevice: failed to initialize: %s.\n"), get_err_mes(err));
-        } else if ((err = CreateAllocator(allocator, bexternalAlloc, memType, hwdev.get(), session, log)) != RGY_ERR_NONE) {
+        } else if (!fastCheck && (err = CreateAllocator(allocator, bexternalAlloc, memType, hwdev.get(), session, log)) != RGY_ERR_NONE) {
             log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("CreateAllocator: failed to create allocator: %s.\n"), get_err_mes(err));
         } else {
             mfxVersion ver = MFX_LIB_VERSION_0_0;
@@ -1495,7 +1496,8 @@ CodecCsp MakeDecodeFeatureList(MFXVideoSession& session, const vector<RGY_CODEC>
 
 CodecCsp MakeDecodeFeatureList(const QSVDeviceNum deviceNum, const vector<RGY_CODEC>& codecIdList, std::shared_ptr<RGYLog> log, const bool skipHWDecodeCheck) {
     CodecCsp codecFeatures;
-    MemType memType = HW_MEMORY;
+    const bool fastCheck = true;
+    MemType memType = (fastCheck) ? SYSTEM_MEMORY : HW_MEMORY;
     std::unique_ptr<CQSVHWDevice> hwdev;
     MFXVideoSession2 session;
     MFXVideoSession2Params params;
@@ -1504,7 +1506,7 @@ CodecCsp MakeDecodeFeatureList(const QSVDeviceNum deviceNum, const vector<RGY_CO
     auto err = RGY_ERR_NONE;
     if ((err = InitSessionAndDevice(hwdev, session, memType, deviceNum, params, log)) != RGY_ERR_NONE) {
         log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("InitSessionAndDevice: failed to initialize: %s.\n"), get_err_mes(err));
-    } else if ((err = CreateAllocator(allocator, bexternalAlloc, memType, hwdev.get(), session, log)) != RGY_ERR_NONE) {
+    } else if (!fastCheck && (err = CreateAllocator(allocator, bexternalAlloc, memType, hwdev.get(), session, log)) != RGY_ERR_NONE) {
         log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("CreateAllocator: failed to create allocator: %s.\n"), get_err_mes(err));
     } else {
         log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("InitSession: initialized allocator.\n"));
