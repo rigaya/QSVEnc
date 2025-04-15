@@ -1,5 +1,12 @@
 # QSVEnc Release Notes
 
+## 7.86
+
+- Use thread pool to prevent unlimited OpenCL build threads.
+- Improve VBV buffer size display for AV1. ( #249 )
+- Improve stability of [--parallel](./QSVEncC_Options.en.md#--parallel-int-or-param1value1param2value2). ( #248 )
+- Add ```gpu_select``` to [--log-level](./QSVEncC_Options.en.md#--log-level-string) to show GPU auto selection status.
+
 ## 7.85
 
 - Improve audio and video synchronization to achieve more uniform mixing when muxing with subtitles or data tracks.

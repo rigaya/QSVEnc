@@ -394,7 +394,7 @@ tstring checkOpenCLDLL();
 
 MAP_PAIR_0_1_PROTO(err, rgy, RGY_ERR, cl, cl_int);
 
-static const int RGY_OPENCL_BUILD_THREAD_DEFAULT_MAX = 16;
+static const int RGY_OPENCL_BUILD_THREAD_DEFAULT_MAX = 8;
 
 class RGYOpenCLQueue;
 
