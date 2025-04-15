@@ -4,6 +4,17 @@ ARG DEBIAN_FRONTEND=noninteractive \
     LOCAL_USER_ID=1000 \
     LOCAL_GROUP_ID=1000
 
+RUN apt-get update &&  \
+    apt-get install -y \
+      curl \
+      wget \
+      gnupg2
+
+RUN curl -sSL https://repositories.intel.com/gpu/intel-graphics.key | \
+    gpg --dearmor --output /usr/share/keyrings/intel-graphics.gpg && \
+    echo "deb [arch=amd64,i386 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu noble unified" | \
+    tee /etc/apt/sources.list.d/intel-gpu-noble.list
+
 RUN apt-get update \
     && apt install -y \
       wget \
