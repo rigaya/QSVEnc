@@ -21,9 +21,6 @@ QSVEncC could be run directly from the extracted directory.
 
 ### 1. Add repository for Intel Media driver  
 
-> [!NOTE]
-> Please skip this step on Ubuntu 24.04 as Intel Media driver can be installed by default.
-
 Intel media driver can be installed following instruction on [this link](https://dgpu-docs.intel.com/driver/client/overview.html).
 
 First, install required tools.
@@ -35,6 +32,11 @@ sudo apt-get install -y gpg-agent wget
 Next, add Intel package repository.
 
 ```Shell
+# Ubuntu 24.04
+wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | sudo gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
+echo "deb [arch=amd64,i386 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu noble unified" | \
+  sudo tee /etc/apt/sources.list.d/intel-gpu-noble.list
+
 # Ubuntu 22.04
 wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | sudo gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
 echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy unified" | \

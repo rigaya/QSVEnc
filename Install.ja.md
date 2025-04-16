@@ -21,9 +21,6 @@
 
 ### 1. Intel Media ドライバ用のリポジトリの登録
 
-> [!NOTE]
-> Ubuntu 24.04ではこのステップは不要ですので、2.に進んでください。
-
 [こちらのリンク](https://dgpu-docs.intel.com/driver/client/overview.html)に沿って、ドライバをインストールします。
 
 まず、必要なツールを導入します。
@@ -35,6 +32,10 @@ sudo apt-get install -y gpg-agent wget
 次に、Intelのリポジトリを追加します。
 
 ```Shell
+# Ubuntu 24.04
+wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | sudo gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
+echo "deb [arch=amd64,i386 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu noble unified" | \
+  sudo tee /etc/apt/sources.list.d/intel-gpu-noble.list
 
 # Ubuntu 22.04
 wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | sudo gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
