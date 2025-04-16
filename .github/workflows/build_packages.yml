@@ -108,7 +108,7 @@ jobs:
         id: build_exec
         run: |
           docker run -dit --rm -v ${{ steps.prep.outputs.output_dir }}:/output -u "$(id -u):$(id -g)" --name build_pkg ${{ steps.prep.outputs.tagged_image }}
-          docker exec build_pkg sh -c "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal && . ~/.cargo/env && cargo install cargo-c"
+          docker exec build_pkg sh -c "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal && . ~/.cargo/env && cargo install cargo-c --locked"
           docker exec build_pkg sh -c '. ~/.cargo/env && ./configure --extra-cxxflags="-I./AviSynthPlus/avs_core/include -I./vapoursynth/include" --enable-lto'
           docker exec build_pkg make -j${{ steps.prep.outputs.nproc }}
           docker exec build_pkg ./qsvencc --version
