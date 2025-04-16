@@ -3,9 +3,10 @@
 ## 7.86
 
 - Use thread pool to prevent unlimited OpenCL build threads.
-- Improve VBV buffer size display for AV1. ( #249 )
+- Improve VBV buffer size log display for AV1. ( #249 )
 - Improve stability of [--parallel](./QSVEncC_Options.en.md#--parallel-int-or-param1value1param2value2). ( #248 )
 - Add ```gpu_select``` to [--log-level](./QSVEncC_Options.en.md#--log-level-string) to show GPU auto selection status.
+- Fix error when using ```st2094-10``` and ```st2094-40``` for ```tonemapping_function``` in [--vpp-libplacebo-tonemapping](./QSVEncC_Options.en.md#--vpp-libplacebo-tonemapping-param1value1param2value2). ( #252 )
 
 ## 7.85
 

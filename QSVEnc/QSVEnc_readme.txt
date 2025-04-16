@@ -318,6 +318,7 @@ API v1.1  … Intel Media SDK v2.0
 - AV1のVBVバッファサイズの表示を改善。
 - --parallelの安定性向上。
 - --log-levelにGPUの自動選択の状況について表示する gpu_select を追加。
+- --vpp-libplacebo-tonemappingのtonemapping_functionで、st2094-10とst2094-40が指定できなかった問題を修正。
 
 2025.04.03 (7.85)
 - 字幕やデータトラップがある際に、mux時に先頭付近での映像と音声の混ざり具合を改善。
