@@ -4441,6 +4441,13 @@ RGY_ERR CQSVPipeline::RunEncode2() {
             task->setStopWatch();
         }
     }
+    std::unique_ptr<PipelineTaskStopWatch> stopwatchOutput;
+    if (m_taskPerfMonitor) {
+        stopwatchOutput = std::make_unique<PipelineTaskStopWatch>(
+            std::vector<tstring>{ _T("") },
+            std::vector<tstring>{_T("")}
+        );
+    }
 
     auto requireSync = [this](const size_t itask) {
         if (itask + 1 >= m_pipelineTasks.size()) return true; // 次が最後のタスクの時
@@ -4506,10 +4513,12 @@ RGY_ERR CQSVPipeline::RunEncode2() {
                             });
                     }
                 } else { // pipelineの最終的なデータを出力
+                    if (stopwatchOutput) stopwatchOutput->set(0);
                     if ((err = d.data->write(m_pFileWriter.get(), m_device->allocator(), (m_cl) ? &m_cl->queue() : nullptr, m_videoQualityMetric.get())) != RGY_ERR_NONE) {
                         PrintMes(RGY_LOG_ERROR, _T("failed to write output: %s.\n"), get_err_mes(err));
                         break;
                     }
+                    if (stopwatchOutput) stopwatchOutput->add(0, 0);
                 }
             }
             if (dataqueue.empty()) {
@@ -4563,10 +4572,12 @@ RGY_ERR CQSVPipeline::RunEncode2() {
                         });
                     RGY_IGNORE_STS(err, RGY_ERR_MORE_DATA); //VPPなどでsendFrameがRGY_ERR_MORE_DATAだったが、フレームが出てくる場合がある
                 } else { // pipelineの最終的なデータを出力
+                    if (stopwatchOutput) stopwatchOutput->set(0);
                     if ((err = d.data->write(m_pFileWriter.get(), m_device->allocator(), (m_cl) ? &m_cl->queue() : nullptr, m_videoQualityMetric.get())) != RGY_ERR_NONE) {
                         PrintMes(RGY_LOG_ERROR, _T("failed to write output: %s.\n"), get_err_mes(err));
                         break;
                     }
+                    if (stopwatchOutput) stopwatchOutput->add(0, 0);
                 }
             }
             if (dataqueue.empty()) {
@@ -4631,6 +4642,7 @@ RGY_ERR CQSVPipeline::RunEncode2() {
             for (auto& task : m_pipelineTasks) {
                 task->printStopWatch(totalTicks, maxWorkStrLenLen + maxTaskStrLen - _tcslen(getPipelineTaskTypeName(task->taskType())));
             }
+            stopwatchOutput->print(totalTicks, maxWorkStrLenLen + maxTaskStrLen);
         }
     }
     //この中でフレームの解放がなされる
