@@ -4856,9 +4856,11 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
     PRINT_INFO(    _T("CPU Info       %s\n"), cpuInfo);
     if (Check_HWUsed(impl)) {
         PRINT_INFO(_T("GPU Info       %s\n"), gpu_info);
-        for (const auto& devName : m_devNames) {
-            if (devName != m_device->name()) {
-                PRINT_INFO(_T("               %s\n"), devName.c_str());
+        if (m_parallelEnc && m_parallelEnc->id() < 0) { // 並列エンコードの親スレッドの場合のみ
+            for (const auto& devName : m_devNames) {
+                if (devName != m_device->name()) {
+                    PRINT_INFO(_T("               %s\n"), devName.c_str());
+                }
             }
         }
 
@@ -4972,6 +4974,9 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
     }
 
     if (m_pmfxENC) {
+        if (m_parallelEnc && m_parallelEnc->id() < 0) { // 並列エンコードの親スレッドの場合のみ
+            PRINT_INFO(_T("Parallel       %d\n"), m_parallelEnc->parallelCount());
+        }
         const auto enc_codec = codec_enc_to_rgy(outFrameInfo->videoPrm.mfx.CodecId);
         PRINT_INFO(_T("Target usage   %s\n"), TargetUsageToStr(outFrameInfo->videoPrm.mfx.TargetUsage));
         PRINT_INFO(_T("Encode Mode    %s\n"), EncmodeToStr(outFrameInfo->videoPrm.mfx.RateControlMethod));

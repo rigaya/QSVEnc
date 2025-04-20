@@ -1,5 +1,12 @@
 # QSVEnc Release Notes
 
+## 7.87
+
+- Add ```inverse_tone_mapping``` option to [--vpp-libplacebo-tonemapping](./QSVEncC_Options.en.md#--vpp-libplacebo-tonemapping-param1value1param2value2). ( #250 )
+- Fix GPU selection defaulting to the first GPU when performance counter information is not available. ( #248 )
+- Add AI-based frame interpolation filter to double the frame rate. ([--vpp-ai-frameinterp](./QSVEncC_Options.en.md#--vpp-ai-frameinterp-param1value1param2value2), #215, #237)
+- Adjust log output format.
+
 ## 7.86
 
 - Use thread pool to prevent unlimited OpenCL build threads.
