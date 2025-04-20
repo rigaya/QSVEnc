@@ -44,7 +44,8 @@ static const auto MFX_EXTBUFF_VPP_TO_VPPTYPE = make_array<std::pair<uint32_t, Vp
     std::make_pair(MFX_EXTBUFF_VPP_DETAIL,                VppType::MFX_DETAIL_ENHANCE),
     std::make_pair(MFX_EXTBUFF_VPP_FRAME_RATE_CONVERSION, VppType::MFX_FPS_CONV),
     std::make_pair(MFX_EXTBUFF_VPP_IMAGE_STABILIZATION,   VppType::MFX_IMAGE_STABILIZATION),
-    std::make_pair(MFX_EXTBUFF_VPP_PERC_ENC_PREFILTER,    VppType::MFX_PERC_ENC_PREFILTER)
+    std::make_pair(MFX_EXTBUFF_VPP_PERC_ENC_PREFILTER,    VppType::MFX_PERC_ENC_PREFILTER),
+    std::make_pair(MFX_EXTBUFF_VPP_AI_FRAME_INTERPOLATION, VppType::MFX_AI_FRAMEINTERP)
     );
 
 MAP_PAIR_0_1(vpp, extbuff, uint32_t, rgy, VppType, MFX_EXTBUFF_VPP_TO_VPPTYPE, 0, VppType::VPP_NONE);
@@ -78,6 +79,7 @@ QSVVppMfx::QSVVppMfx(CQSVHWDevice *hwdev, QSVAllocator *allocator,
     m_ExtScaling(),
     m_ExtAISuperRes(),
     m_ExtPercEncPrefilter(),
+    m_ExtAIFrameInterpolation(),
     m_VppDoNotUseList(),
     m_VppDoUseList(),
     m_VppExtParams(),
@@ -103,6 +105,7 @@ void QSVVppMfx::InitStructs() {
     RGY_MEMSET_ZERO(m_ExtScaling);
     RGY_MEMSET_ZERO(m_ExtAISuperRes);
     RGY_MEMSET_ZERO(m_ExtPercEncPrefilter);
+    RGY_MEMSET_ZERO(m_ExtAIFrameInterpolation);
 }
 
 QSVVppMfx::~QSVVppMfx() { clear(); };
@@ -336,6 +339,12 @@ RGY_ERR QSVVppMfx::checkVppParams(sVppParams& params, const bool inputInterlaced
         params.aiSuperRes.enable = false;
     }
 
+    if (params.aiFrameInterpolation.enable
+        && !(availableFeaures & VPP_FEATURE_AI_FRAMEINTERP)) {
+        PrintMes(RGY_LOG_WARN, _T("AI frame interpolation is not supported on this platform, disabled.\n"));
+        params.aiFrameInterpolation.enable = false;
+    }
+
     if ((params.resizeMode != MFX_SCALING_MODE_DEFAULT || params.resizeInterp != MFX_INTERPOLATION_DEFAULT)
         && !(availableFeaures & VPP_FEATURE_SCALING_QUALITY)) {
         PrintMes(RGY_LOG_WARN, _T("vpp scaling quality is not supported on this platform, disabled.\n"));
@@ -448,6 +457,10 @@ RGY_ERR QSVVppMfx::SetMFXFrameOut(mfxFrameInfo& mfxOut, const sVppParams& params
         default:
             break;
         }
+    }
+
+    if (params.aiFrameInterpolation.enable) {
+        mfxOut.FrameRateExtN *= 2;
     }
 
     PrintMes(RGY_LOG_DEBUG, _T("SetMFXFrameOut: vpp output frame %dx%d (%d,%d,%d,%d)\n"),
@@ -641,6 +654,15 @@ RGY_ERR QSVVppMfx::SetVppExtBuffers(sVppParams& params) {
             default:
                 break;
             }
+    }
+
+    if (params.aiFrameInterpolation.enable && check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_12)) {
+        INIT_MFX_EXT_BUFFER(m_ExtAIFrameInterpolation, MFX_EXTBUFF_VPP_AI_FRAME_INTERPOLATION);
+        m_ExtAIFrameInterpolation.FIMode = (mfxAIFrameInterpolationMode)params.aiFrameInterpolation.mode;
+        m_ExtAIFrameInterpolation.EnableScd = (mfxU16)1; // params.aiFrameInterpolation.enableScd;
+        m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtAIFrameInterpolation);
+        m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_AI_FRAME_INTERPOLATION);
+        vppExtAddMes(_T("AI Frame Interpolation\n"));
     }
 
     if (params.percPreEnc) {

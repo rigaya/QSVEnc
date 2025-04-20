@@ -2234,6 +2234,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vpp.pad.enable)        filterPipeline.push_back(VppType::CL_PAD);
     if (inputParam->vppmfx.percPreEnc)     filterPipeline.push_back(VppType::MFX_PERC_ENC_PREFILTER);
     if (inputParam->vpp.overlay.size() > 0)  filterPipeline.push_back(VppType::CL_OVERLAY);
+    if (inputParam->vppmfx.aiFrameInterpolation.enable) filterPipeline.push_back(VppType::MFX_AI_FRAMEINTERP);
 
     if (filterPipeline.size() == 0) {
         return filterPipeline;
@@ -2317,6 +2318,7 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
                                            break;
     case VppType::MFX_CROP:                frameInfo.width  -= (crop) ? (crop->e.left + crop->e.right) : 0;
                                            frameInfo.height -= (crop) ? (crop->e.up + crop->e.bottom)  : 0; break;
+    case VppType::MFX_AI_FRAMEINTERP:      vppParams.aiFrameInterpolation = params->aiFrameInterpolation; break;
     case VppType::MFX_FPS_CONV:
     default:
         return { RGY_ERR_UNSUPPORTED, std::unique_ptr<QSVVppMfx>() };

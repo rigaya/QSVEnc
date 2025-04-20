@@ -75,6 +75,22 @@ VppDetailEnhance::VppDetailEnhance() :
 
 }
 
+MFXVppAIFrameInterpolation::MFXVppAIFrameInterpolation() :
+    enable(false),
+    mode(MFX_AI_FRAME_INTERPOLATION_MODE_DEFAULT),
+    enableScd(false) {
+
+}
+
+bool MFXVppAIFrameInterpolation::operator==(const MFXVppAIFrameInterpolation &x) const {
+    return enable == x.enable
+        && mode == x.mode
+        && enableScd == x.enableScd;
+}
+bool MFXVppAIFrameInterpolation::operator!=(const MFXVppAIFrameInterpolation &x) const {
+    return !(*this == x);
+}
+
 sVppParams::sVppParams() :
     bEnable(true),
     bUseResize(false),
@@ -93,6 +109,7 @@ sVppParams::sVppParams() :
     mctf(),
     detail(),
     aiSuperRes(),
+    aiFrameInterpolation(),
     percPreEnc(false) {
 
 }

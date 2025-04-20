@@ -164,6 +164,12 @@ tstring gen_cmd_help_vppmfx() {
         _T("   --vpp-image-stab <string>    set image stabilizer mode\n")
         _T("                                 - none, upscale, box\n"));
     str += strsprintf(_T("")
+        _T("   --vpp-ai-frameinterp [<param1>=<value>][, <param2>=<value>][...]\n")
+        _T("     set ai frame interpolation mode\n")
+        _T("     params\n")
+        _T("       scd=<bool>     enable scene change detection\n")
+        _T("         default: false\n"));
+    str += strsprintf(_T("")
         _T("   --vpp-perc-pre-enc           enable perceptual pre enc filter\n"));
     return str;
 }
@@ -680,6 +686,49 @@ int parse_one_vppmfx_option(const TCHAR *option_name, const TCHAR *strInput[], i
         } else {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("vpp-ai-frameinterp"))) {
+        vppmfx->aiFrameInterpolation.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+
+        const auto paramList = std::vector<std::string>{ "scd" };
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vppmfx->aiFrameInterpolation.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("scd")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vppmfx->aiFrameInterpolation.enableScd = b;
+                    } else {
+                        print_cmd_error_invalid_value(option_name, param_arg + _T("=") + param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
         }
         return 0;
     }
@@ -2062,6 +2111,7 @@ tstring gen_cmd(const sVppParams *param, const sVppParams *defaultPrm, bool save
 
 #define ADD_NUM(str, opt) if ((param->opt) != (defaultPrm->opt)) tmp << _T(",") << (str) << _T("=") << (param->opt);
 #define ADD_LST(str, opt, list) if ((param->opt) != (defaultPrm->opt)) tmp << _T(",") << (str) << _T("=") << get_chr_from_value(list, (param->opt));
+#define ADD_BOOL(str, opt) if ((param->opt) != (defaultPrm->opt)) tmp << _T(",") << (str) << _T("=") << ((param->opt) ? _T("true") : _T("false"));
 
     std::basic_stringstream<TCHAR> tmp;
     std::basic_stringstream<TCHAR> cmd;
@@ -2159,6 +2209,19 @@ tstring gen_cmd(const sVppParams *param, const sVppParams *defaultPrm, bool save
     OPT_NUM(_T("--vpp-delogo-cr"), delogo.CrOffset);
 #endif //#if ENABLE_CUSTOM_VPP
 #endif
+    if (param->aiFrameInterpolation != defaultPrm->aiFrameInterpolation) {
+        tmp.str(tstring());
+        if (!param->aiFrameInterpolation.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->aiFrameInterpolation.enable || save_disabled_prm) {
+            ADD_BOOL(_T("scd"), aiFrameInterpolation.enableScd);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-ai-frameinterp ") << tmp.str().substr(1);
+        }
+    }
+
     return cmd.str();
 
 #undef OPT_FLOAT

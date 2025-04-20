@@ -169,6 +169,17 @@ struct MFXVppAISuperRes {
     ~MFXVppAISuperRes() {};
 };
 
+struct MFXVppAIFrameInterpolation {
+    bool enable;
+    mfxAIFrameInterpolationMode mode;
+    bool enableScd;
+
+    MFXVppAIFrameInterpolation();
+    ~MFXVppAIFrameInterpolation() {};
+    bool operator==(const MFXVppAIFrameInterpolation &x) const;
+    bool operator!=(const MFXVppAIFrameInterpolation &x) const;
+};
+
 struct sVppParams {
     bool bEnable;             //use vpp
 
@@ -194,6 +205,7 @@ struct sVppParams {
     VppMCTF mctf;
     VppDetailEnhance detail;
     MFXVppAISuperRes aiSuperRes;
+    MFXVppAIFrameInterpolation aiFrameInterpolation;
 
     bool percPreEnc;
 
