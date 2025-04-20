@@ -85,6 +85,7 @@ enum QSV_CPU_GEN {
     CPU_GEN_ALDERLAKE_N,
     CPU_GEN_KEEMBAY,
     CPU_GEN_METEORLAKE,
+    CPU_GEN_BATTLEMAGE,
     CPU_GEN_LUNARLAKE,
     CPU_GEN_ARROWLAKE,
 
@@ -119,6 +120,7 @@ static const TCHAR *const CPU_GEN_STR[] = {
     _T("AlderlakeN"),
     _T("Keembay"),
     _T("Meteorlake"),
+    _T("Battlemage"),
     _T("Lunarlake"),
     _T("Arrowlake")
 };
