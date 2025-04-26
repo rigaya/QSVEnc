@@ -1327,7 +1327,11 @@ QSVEncFeatureData MakeFeatureList(const QSVDeviceNum deviceNum, const std::vecto
 #if LIBVA_SUPPORT
     if (codec != RGY_CODEC_MPEG2) {
 #endif
+#if defined(_WIN32) || defined(_WIN64) // Windowsの場合はfastCheck=trueでもOKだが、Linuxではだめらしい
         const bool fastCheck = true;
+#else
+        const bool fastCheck = false;
+#endif
         MemType memType = (fastCheck) ? SYSTEM_MEMORY : HW_MEMORY;
         std::unique_ptr<CQSVHWDevice> hwdev;
         MFXVideoSession2 session;
@@ -1497,7 +1501,11 @@ CodecCsp MakeDecodeFeatureList(MFXVideoSession& session, const vector<RGY_CODEC>
 
 CodecCsp MakeDecodeFeatureList(const QSVDeviceNum deviceNum, const vector<RGY_CODEC>& codecIdList, std::shared_ptr<RGYLog> log, const bool skipHWDecodeCheck) {
     CodecCsp codecFeatures;
+#if defined(_WIN32) || defined(_WIN64) // Windowsの場合はfastCheck=trueでもOKだが、Linuxではだめらしい
     const bool fastCheck = true;
+#else
+    const bool fastCheck = false;
+#endif
     MemType memType = (fastCheck) ? SYSTEM_MEMORY : HW_MEMORY;
     std::unique_ptr<CQSVHWDevice> hwdev;
     MFXVideoSession2 session;

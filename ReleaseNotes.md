@@ -1,5 +1,9 @@
 # QSVEnc Release Notes
 
+## 7.88
+
+- Fix ```--check-features``` not working on Linux systmes from QSVEnc 7.86. ( #253 )
+
 ## 7.87
 
 - Add ```inverse_tone_mapping``` option to [--vpp-libplacebo-tonemapping](./QSVEncC_Options.en.md#--vpp-libplacebo-tonemapping-param1value1param2value2). ( #250 )
