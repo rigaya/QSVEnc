@@ -599,6 +599,9 @@ RGY_ERR RGYFilterDecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+    if (pInputFrame->ptr[0] == nullptr) {
+        m_flushed = m_flushed;
+    }
 
     if (pInputFrame->ptr[0] == nullptr && m_flushed) {
         //終了
@@ -616,7 +619,7 @@ RGY_ERR RGYFilterDecimate::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
     if (m_cache.inframe() > 0 && (m_cache.inframe() % prm->decimate.cycle == 0 || pInputFrame->ptr[0] == nullptr)) { //cycle分のフレームがそろったら
         //dropFrameの計算が終わっている時点でフレームの準備は完了、待機するものはない
         event = nullptr;
-        auto ret = setOutputFrame((pInputFrame) ? pInputFrame->timestamp : AV_NOPTS_VALUE, ppOutputFrames, pOutputFrameNum);
+        auto ret = setOutputFrame((pInputFrame && pInputFrame->ptr[0]) ? pInputFrame->timestamp : AV_NOPTS_VALUE, ppOutputFrames, pOutputFrameNum);
         if (ret != RGY_ERR_NONE) {
             return ret;
         }
