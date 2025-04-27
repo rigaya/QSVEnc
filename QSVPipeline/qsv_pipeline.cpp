@@ -3756,7 +3756,7 @@ RGY_ERR CQSVPipeline::InitParallelEncode(sInputParams *inputParam, const int max
         }
     }
     m_parallelEnc = std::make_unique<RGYParallelEnc>(m_pQSVLog);
-    if ((sts = m_parallelEnc->parallelRun(inputParam, m_pFileReader.get(), m_outputTimebase, inputParam->ctrl.parallelEnc.parallelCount > maxEncoders, m_pStatus.get(),
+    if ((sts = m_parallelEnc->parallelRun(inputParam, m_pFileReader.get(), m_outputTimebase, false, m_pStatus.get(),
         // 子スレッドの場合はパフォーマンスカウンタは親と共有する
         inputParam->ctrl.parallelEnc.isParent() ? m_pPerfMonitor.get() : nullptr)) != RGY_ERR_NONE) {
         if (inputParam->ctrl.parallelEnc.isChild()) {
