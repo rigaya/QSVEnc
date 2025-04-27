@@ -312,10 +312,17 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
             }
             m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("Found deviceID %s, adapterID %d/%d -> device count %d\n"), impl_desc->Dev.DeviceID, id1, adapterID, deviceCount);
 
+            tstring devDesc = strsprintf(_T("Dev[%s] %s, SubDevCount: %d"),
+                impl_desc->Dev.MediaAdapterType == MFX_MEDIA_INTEGRATED ? _T("i") : _T("d"),
+                char_to_tstring((const char *)impl_desc->Dev.DeviceID).c_str(), impl_desc->Dev.NumSubDevices);
+            for (uint32_t i = 0; i < impl_desc->Dev.NumSubDevices; i++) {
+                devDesc += strsprintf(_T(" (Sub %d: %s)"), impl_desc->Dev.SubDevices[i].Index, char_to_tstring((const char *)impl_desc->Dev.SubDevices[i].SubDeviceID));
+            }
+
             const mfxAccelerationMode acc = impl_desc->AccelerationMode;
-            m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("Impl #%d: %s %s, acc %d (%s), accdesc 0x%04x, adapter id %d\n"),
+            m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("Impl #%d: %s %s, acc %d[0x%04x](%s), adapter id %d, %s\n"),
                 impl_idx, MFXImplTypeToStr(impl_desc->Impl).c_str(), char_to_tstring(impl_desc->ImplName).c_str(),
-                impl_desc->AccelerationMode, MFXAccelerationModeToStr(impl_desc->AccelerationMode).c_str(), adapterID);
+                impl_desc->AccelerationMode, impl_desc->AccelerationMode, MFXAccelerationModeToStr(impl_desc->AccelerationMode).c_str(), adapterID, devDesc.c_str());
             MFXDispReleaseImplDescription(loader, impl_desc);
 
             if (accelerationMode == acc && deviceCount == std::max((int)dev, 1/*AUTOの時は最初のデバイスを選択*/)) {
