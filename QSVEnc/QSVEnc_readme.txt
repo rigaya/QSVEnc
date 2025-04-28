@@ -313,6 +313,10 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2025.04.28 (7.89)
+- --vpp-decimateが最終フレームの時刻処理に問題があり、フレームのtimestampやdurationがおかしくなってしまう問題を修正。
+- 並列エンコード時(--parallel)に--avoid-idle-clock autoの処理を改善。
+
 2025.04.26 (7.88)
 - 7.86からLinux環境で--check-featuresが正常に動作しなかった問題を修正。
 

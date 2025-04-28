@@ -3649,6 +3649,19 @@ RGY_ERR CQSVPipeline::InitAvoidIdleClock(const sInputParams *pParams) {
         return RGY_ERR_NONE;
     }
     if (pParams->ctrl.avoidIdleClock.mode == RGYParamAvoidIdleClockMode::Auto) {
+        // 並列エンコードが有効の場合、デバイス数をチェック
+        if (m_parallelEnc) {
+            if (pParams->ctrl.parallelEnc.isParent()) {
+                PrintMes(RGY_LOG_DEBUG, _T("Parallel encoding is enabled, avoid Idle clock is disabled for parent thread.\n"));
+                return RGY_ERR_NONE;
+            }
+            if (pParams->ctrl.parallelEnc.isChild() && m_parallelEnc->parallelCount() > (int)m_devNames.size()) {
+                PrintMes(RGY_LOG_DEBUG, _T("Parallel encoding is enabled with parallel count %d, which is over device count %d, avoid Idle clock is disabled.\n"),
+                    m_parallelEnc->parallelCount(), (int)m_devNames.size());
+                return RGY_ERR_NONE;
+            }
+        }
+
         // OpenCLフィルタが使用されている場合
         if (std::count_if(m_vpFilters.begin(), m_vpFilters.end(), [](const VppVilterBlock& block) { return block.type == VppFilterType::FILTER_OPENCL; }) > 0) {
             PrintMes(RGY_LOG_DEBUG, _T("OpenCL filter is used, avoid Idle clock is disabled.\n"));

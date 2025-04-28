@@ -1,5 +1,10 @@
 # QSVEnc Release Notes
 
+## 7.89
+
+- Fixed an issue with [--vpp-decimate](./QSVEncC_Options.en.md#--vpp-decimate-param1value1param2value2) where timestamp and duration of frames became incorrect due to improper handling of the final frame's timing.
+- Improved handling of [--avoid-idle-clock](./QSVEncC_Options.en.md#--avoid-idle-clock-string) auto during parallel encoding ([--parallel](./QSVEncC_Options.en.md#--parallel-int-or-param1value1param2value2)).
+
 ## 7.88
 
 - Fix ```--check-features``` not working on Linux systmes from QSVEnc 7.86. ( #253 )
