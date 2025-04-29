@@ -62,9 +62,9 @@ jobs:
         run: |
           curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20241102/ffmpeg_dlls_for_hwenc_20241102.7z
           7z x -offmpeg_lgpl -y ffmpeg_lgpl.7z
-          git clone https://github.com/AviSynth/AviSynthPlus.git ..\AviSynthPlus
-          git clone https://github.com/vapoursynth/vapoursynth.git ..\vapoursynth
-          git clone https://github.com/KhronosGroup/OpenCL-Headers.git ..\openclheaders
+          git clone --depth 1 https://github.com/AviSynth/AviSynthPlus.git ..\AviSynthPlus
+          git clone --depth 1 https://github.com/vapoursynth/vapoursynth.git ..\vapoursynth
+          git clone --depth 1 https://github.com/KhronosGroup/OpenCL-Headers.git ..\openclheaders
 
       - name: Add msbuild to PATH
         uses: microsoft/setup-msbuild@v2
