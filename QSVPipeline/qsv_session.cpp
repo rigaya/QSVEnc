@@ -316,7 +316,7 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
                 impl_desc->Dev.MediaAdapterType == MFX_MEDIA_INTEGRATED ? _T("i") : _T("d"),
                 char_to_tstring((const char *)impl_desc->Dev.DeviceID).c_str(), impl_desc->Dev.NumSubDevices);
             for (uint32_t i = 0; i < impl_desc->Dev.NumSubDevices; i++) {
-                devDesc += strsprintf(_T(" (Sub %d: %s)"), impl_desc->Dev.SubDevices[i].Index, char_to_tstring((const char *)impl_desc->Dev.SubDevices[i].SubDeviceID));
+                devDesc += strsprintf(_T(" (Sub %d: %s)"), impl_desc->Dev.SubDevices[i].Index, char_to_tstring((const char *)impl_desc->Dev.SubDevices[i].SubDeviceID).c_str());
             }
 
             const mfxAccelerationMode acc = impl_desc->AccelerationMode;
