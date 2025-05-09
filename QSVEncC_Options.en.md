@@ -3057,6 +3057,19 @@ Enables parallel encoding by file splitting. Divides the input file into multipl
   - --vpp-subburn (subtitle burn-in) is specified
   - --vpp-fruc (frame interpolation) is enabled
 
+- **Performance Notes**
+
+  Parallel encoding splits the file into chunks and runs multiple encoders in parallel.
+  As the output is sequential, so the speeds of the other encoders are not reflected to the fps shown on the log until the end of the first chunk.
+  Thus, it appears that the fps increases when coming to the latter part of the file.
+
+  In order to achieve maximum speedup when using multiple GPUs, it is desirable for the multiple GPUs to be symmetrical setup.
+  When the GPU encoder generation, GPU performance, and PCIe connection bandwidth is close to each other, the efficiency from parallel encoding will be higher.
+
+  In addition, if there are multiple Media Function Units on GPU(s), which is mostly supported on Arc dGPUs,
+  the performance can be further increased by parallelizing the number of Media Function Units.
+  In this case, sw decoding may be faster than hw decoding if the CPU has sufficient performance.
+
 - **Examples**
   ```
   Example: Auto-determine number of parallel processes
