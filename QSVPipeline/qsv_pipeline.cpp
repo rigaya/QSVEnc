@@ -3703,7 +3703,7 @@ RGY_ERR CQSVPipeline::InitAvoidIdleClock(const sInputParams *pParams) {
 
 RGY_ERR CQSVPipeline::InitLog(sInputParams *pParams) {
     //ログの初期化
-    m_pQSVLog.reset(new RGYLog(pParams->ctrl.logfile.c_str(), pParams->ctrl.loglevel, pParams->ctrl.logAddTime));
+    m_pQSVLog.reset(new RGYLog(pParams->ctrl.logfile.c_str(), pParams->ctrl.loglevel, pParams->ctrl.logOpt.addTime, pParams->ctrl.logOpt.addLogLevel, pParams->ctrl.logOpt.disableColor));
     if (pParams->ctrl.parallelEnc.isChild() && pParams->ctrl.parallelEnc.sendData) {
         m_pQSVLog->setLock(pParams->ctrl.parallelEnc.sendData->logMutex);
     }

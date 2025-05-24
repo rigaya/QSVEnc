@@ -3243,6 +3243,12 @@ Windowsのタイマー精度を向上させ、高速化する。いわゆるtime
   - addtime (デフォルト=off)  
     ログの各行に時刻を表示するように。
 
+  - addlevel (デフォルト=off)  
+    ログの各行にログレベルを表示するように。
+
+  - color (デフォルト=on)
+    ログの色表示の切り替え。
+
 ### --log-framelist [&lt;string&gt;]
 avsw/avhw読み込み時のデバッグ情報出力。
 
