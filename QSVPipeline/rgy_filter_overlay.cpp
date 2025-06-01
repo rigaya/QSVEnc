@@ -574,7 +574,7 @@ RGY_ERR RGYFilterOverlay::getFrame(RGYOpenCLQueue& queue) {
         };
         m_convert->run(rgy_avframe_interlaced(frame.get()),
             dst_array_frame, (const void **)frame->data,
-            frameHost.width, frame->linesize[0], frame->linesize[1], frameHost.pitch[0],
+            frameHost.width, frame->linesize[0], frame->linesize[1], frameHost.pitch[0], frameHost.pitch[1],
             frameHost.height, frameHost.height, crop.c);
 
         ret = m_frame.dev->unmapBuffer(queue);

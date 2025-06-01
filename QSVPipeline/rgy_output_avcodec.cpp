@@ -878,8 +878,8 @@ RGY_ERR RGYOutputAvcodec::InitVideo(const VideoInfo *videoOutputInfo, const Avco
                 m_Mux.video.rawVideoCodecCtx->pix_fmt = (RGY_CSP_BIT_DEPTH[videoOutputInfo->csp] > 8) ? AV_PIX_FMT_YUV420P16LE : AV_PIX_FMT_NV12;
                 break;
             default:
-                m_Mux.video.rawVideoCodecCtx->pix_fmt = csp_rgy_to_avpixfmt(videoOutputInfo->csp);
-                break;
+                AddMessage(RGY_LOG_ERROR, _T("raw output suppotred for yuv420 only.\n"));
+                return RGY_ERR_UNSUPPORTED;
         }
         m_Mux.video.rawVideoCodecCtx->time_base = av_inv_q(m_Mux.video.outputFps);
         m_Mux.video.rawVideoCodecCtx->framerate = m_Mux.video.outputFps;
@@ -3280,7 +3280,7 @@ RGY_ERR RGYOutputAvcodec::WriteNextFrame(RGYFrame *surface) {
     m_Mux.video.rawVideoConvert->run(
         rgy_avframe_interlaced(avframe), dst_array, src_array,
         surface->width(), surface->pitch(), surface->pitch(RGY_PLANE_C),
-        avframe->linesize[0], surface->height(), avframe->height, crop.c);
+        avframe->linesize[0], avframe->linesize[1], surface->height(), avframe->height, crop.c);
 
     if (m_Mux.thread.thRawVideo) {
         auto pktFrame = pktMuxData(avframe);
