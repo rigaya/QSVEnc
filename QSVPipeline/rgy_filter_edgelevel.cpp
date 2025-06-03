@@ -40,9 +40,9 @@ RGY_ERR RGYFilterEdgelevel::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrame
     }
     {
         const float strength = prm->edgelevel.strength / (1 << 4);
-        const float threshold = prm->edgelevel.threshold / (1 << (RGY_CSP_BIT_DEPTH[pInputPlane->csp] - 1));
-        const float black = prm->edgelevel.black / (1 << RGY_CSP_BIT_DEPTH[pInputPlane->csp]);
-        const float white = prm->edgelevel.white / (1 << RGY_CSP_BIT_DEPTH[pInputPlane->csp]);
+        const float threshold = prm->edgelevel.threshold / (1 << (8 - 1));
+        const float black = prm->edgelevel.black / (1 << 8);
+        const float white = prm->edgelevel.white / (1 << 8);
         const char *kernel_name = "kernel_edgelevel";
         RGYWorkSize local(32, 8);
         RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
