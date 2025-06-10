@@ -446,7 +446,7 @@ static int send_frame(
             dst_array, (const void**)&ptr_src, oip->w,
             src_pitch,
             (input_csp == RGY_CSP_YC48) ? src_pitch : ((input_csp == RGY_CSP_BGR24R) ? src_pitch : src_pitch >> 1),
-            prmsm->pitch, oip->h, oip->h, dummy);
+            prmsm->pitch, prmsm->pitch, oip->h, oip->h, dummy);
     }
     prmsm->timestamp[sendFrame & 1] = (int64_t)i * 4;
     prmsm->duration[sendFrame & 1] = 0;
