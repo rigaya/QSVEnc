@@ -1,5 +1,13 @@
 # QSVEnc Release Notes
 
+## 7.90
+
+- Add support for combining [--output-format](./QSVEncC_Options.en.md#--output-format-string) with ```-c raw```. ( #257 )
+  Now supports cases like ```-c raw --output-format nut```.
+- Fix black/white processing in 10-bit depth for [--vpp-edgelevel](./QSVEncC_Options.en.md#--vpp-edgelevel-param1value1param2value2).
+- Improve interlace detection when using [--avsw](./QSVEncC_Options.en.md#--avsw-string).
+
+
 ## 7.89
 
 - Fixed an issue with [--vpp-decimate](./QSVEncC_Options.en.md#--vpp-decimate-param1value1param2value2) where timestamp and duration of frames became incorrect due to improper handling of the final frame's timing.

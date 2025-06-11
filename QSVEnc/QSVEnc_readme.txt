@@ -313,6 +313,12 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2025.06.11 (7.90)
+- --output-formatと-c rawを併用可能に。
+  -c raw --output-format nut のようなケースに対応可能に。
+- --vpp-edgelevelの10bit深度でのblack/whiteの処理を修正。
+- --avsw使用時のインタレの判定を改善。
+
 2025.04.28 (7.89)
 - --vpp-decimateが最終フレームの時刻処理に問題があり、フレームのtimestampやdurationがおかしくなってしまう問題を修正。
 - 並列エンコード時(--parallel)に--avoid-idle-clock autoの処理を改善。
