@@ -121,8 +121,8 @@ typedef uint          Flag4U;
 
 Flag4U analyze_motion(DATA4 p0, DATA4 p1, DATA thre_motion, DATA thre_shift) {
     DATA4 absdata = abs_diff(p0, p1);
-    Flag4 mask_motion = CONVERT_FLAG4_SAT((DATA4)thre_motion > absdata) ? (Flag4)motion_flag  : (Flag4)0;
-    Flag4 mask_shift  = CONVERT_FLAG4_SAT((DATA4)thre_shift  > absdata) ? (Flag4)motion_shift : (Flag4)0;
+    Flag4 mask_motion = CONVERT_FLAG4_SAT(((DATA4)thre_motion > absdata) ? (DATA4)motion_flag  : (DATA4)0);
+    Flag4 mask_shift  = CONVERT_FLAG4_SAT(((DATA4)thre_shift  > absdata) ? (DATA4)motion_shift : (DATA4)0);
     return AS_FLAG4U(mask_motion) | AS_FLAG4U(mask_shift);
 }
 
@@ -135,9 +135,9 @@ Flag4U analyze_motionf(float p0, float p1, const float thre_motionf, const float
 
 Flag4U analyze_stripe(DATA4 p0, DATA4 p1, Flag flag_sign, Flag flag_deint, Flag flag_shift, const DATA thre_deint, const DATA thre_shift) {
     DATA4 absdata = abs_diff(p0, p1);
-    Flag4 new_sign   = CONVERT_FLAG4_SAT(p0 >= p1) ? (Flag4)flag_sign : (Flag4)0;
-    Flag4 mask_deint = CONVERT_FLAG4_SAT(absdata > (DATA4)thre_deint) ? (Flag4)flag_deint : (Flag4)0;
-    Flag4 mask_shift = CONVERT_FLAG4_SAT(absdata > (DATA4)thre_shift) ? (Flag4)flag_shift : (Flag4)0;
+    Flag4 new_sign   = CONVERT_FLAG4_SAT((p0 >= p1)                    ? (DATA4)flag_sign  : (DATA4)0);
+    Flag4 mask_deint = CONVERT_FLAG4_SAT((absdata > (DATA4)thre_deint) ? (DATA4)flag_deint : (DATA4)0);
+    Flag4 mask_shift = CONVERT_FLAG4_SAT((absdata > (DATA4)thre_shift) ? (DATA4)flag_shift : (DATA4)0);
     return AS_FLAG4U(new_sign) | AS_FLAG4U(mask_deint) | AS_FLAG4U(mask_shift);
 }
 
