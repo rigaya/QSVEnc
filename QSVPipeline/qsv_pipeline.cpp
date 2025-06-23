@@ -397,7 +397,7 @@ RGY_ERR CQSVPipeline::InitMfxDecParams() {
             //VP8/VP9のデコードでは、mfxBitstreamに複数のフレームのデータがあるとうまく動作しないことがあるためこれを回避する。
             //ここで読み込んだ第1フレームは読み込み側から消さないようにすることで、
             //メインループで再び第1フレームのデータとして読み込むことができる。
-            m_pFileReader->GetNextBitstreamNoDelete(&m_DecInputBitstream);
+            m_pFileReader->GetNextBitstreamNoDelete(&m_DecInputBitstream, 0);
         }
 
         //デコーダの作成
