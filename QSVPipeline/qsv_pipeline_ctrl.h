@@ -2205,7 +2205,8 @@ public:
 
     int getDynamicRCIndex(const int inputFrameId) {
         for (int i = 0; i < (int)m_dynamicRC.size(); i++) {
-            if (m_dynamicRC[i].start <= inputFrameId && inputFrameId <= m_dynamicRC[i].end) {
+            const int end = (m_dynamicRC[i].end < 0) ? std::numeric_limits<int>::max() : m_dynamicRC[i].end;
+            if (m_dynamicRC[i].start <= inputFrameId && inputFrameId <= end) {
                 return i;
             }
         }
