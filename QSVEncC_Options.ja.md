@@ -742,7 +742,7 @@ best, higher, high, balanced(default), fast, faster, fastest
 ```
 
 ### --dynamic-rc &lt;int&gt;:&lt;int&gt;:&lt;int&gt;&lt;int&gt;,&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;],...  
-"開始フレーム番号:終了フレーム番号"で指定した出力フレーム番号について、レート制御のパラメータを変更する。指定可能なパラメータは各レート制御モードと、最大ビットレート、目標品質(qvbr-quality)。
+"開始フレーム番号:終了フレーム番号"で指定した入力フレーム番号について、レート制御のパラメータを変更する。指定可能なパラメータは各レート制御モードと、最大ビットレート、目標品質(qvbr-quality)。
 
 - **必須パラメータ**
   下記パラメータのうち、必ずひとつは指定が必要。
