@@ -427,7 +427,7 @@ __kernel void kernel_afs_analyze_12(
                     motion_count += popcount((~mask1) & u8x4(0x40)); //opencl版を変更、xorしてからマスク
                 }
                 //判定結果の出力
-                ptr_dst[0] = mask1;
+                ptr_dst[0] = AS_FLAG4(mask1);
             }
             //次に書き換えるのは(x,y,0)(x,y,1)(x,y,2)なので、(x,y,3)の読み込みと同時に行うことができる
             //ここでの同期は不要
