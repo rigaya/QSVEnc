@@ -38,17 +38,32 @@
 #define SHARED_INT_X (BLOCK_INT_X) //sharedメモリの幅
 #define SHARED_Y     (16) //sharedメモリの縦
 
+static const uint32_t SELECT_PLANE_Y   = 0x01u;
+static const uint32_t SELECT_PLANE_U   = 0x02u;
+static const uint32_t SELECT_PLANE_V   = 0x04u;
+
 static const char* AFS_ANALYZE_KERNEL_NAME = "kernel_afs_analyze_12";
 
 #pragma warning(push)
 #pragma warning(disable: 4127) //C4127: 条件式が定数です。
-RGY_ERR RGYFilterAfs::build_analyze(const RGY_CSP csp, const bool tb_order) {
+RGY_ERR RGYFilterAfs::build_analyze(const RGY_CSP csp, const bool tb_order, const AFS_TUNE_MODE tune_mode) {
     if (!m_analyze.get()) {
-        auto options = strsprintf("-D BIT_DEPTH=%d -D YUV420=%d -D TB_ORDER=%d -D BLOCK_INT_X=%d -D BLOCK_Y=%d -D BLOCK_LOOP_Y=%d",
+        int select_plane = 0;
+        if (tune_mode == AFS_TUNE_MODE_ANALYZE_SHIFT_Y || tune_mode == AFS_TUNE_MODE_ANALYZE_NONSHIFT_Y) {
+            select_plane = SELECT_PLANE_Y;
+        } else if (tune_mode == AFS_TUNE_MODE_ANALYZE_SHIFT_U || tune_mode == AFS_TUNE_MODE_ANALYZE_NONSHIFT_U) {
+            select_plane = SELECT_PLANE_U;
+        } else if (tune_mode == AFS_TUNE_MODE_ANALYZE_SHIFT_V || tune_mode == AFS_TUNE_MODE_ANALYZE_NONSHIFT_V) {
+            select_plane = SELECT_PLANE_V;
+        }
+        auto options = strsprintf("-D BIT_DEPTH=%d -D YUV420=%d -D TB_ORDER=%d -D BLOCK_INT_X=%d -D BLOCK_Y=%d -D BLOCK_LOOP_Y=%d"
+        " -D SELECT_PLANE=%d -D SELECT_PLANE_Y=%d -D SELECT_PLANE_U=%d -D SELECT_PLANE_V=%d",
             RGY_CSP_BIT_DEPTH[csp],
             RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_YUV420 ? 1 : 0,
             (tb_order) ? 1 : 0,
-            BLOCK_INT_X, BLOCK_Y, BLOCK_LOOP_Y);
+            BLOCK_INT_X, BLOCK_Y, BLOCK_LOOP_Y,
+            select_plane,
+            SELECT_PLANE_Y, SELECT_PLANE_U, SELECT_PLANE_V);
         const auto sub_group_ext_avail = m_cl->platform()->checkSubGroupSupport(m_cl->queue().devid());
         if (ENCODER_QSV && sub_group_ext_avail != RGYOpenCLSubGroupSupport::NONE) { // VCEではこれを使用するとかえって遅くなる
             m_analyze.set(m_cl->threadPool()->enqueue([cl = m_cl, log = m_pLog, options, sub_group_ext_avail]() {

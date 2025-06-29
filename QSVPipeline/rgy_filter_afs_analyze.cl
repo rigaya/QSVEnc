@@ -38,6 +38,10 @@
 // YUV420 0
 // BIT_DEPTH
 // SUB_GROUP_SIZE
+// SELECT_PLANE
+// SELECT_PLANE_Y
+// SELECT_PLANE_U
+// SELECT_PLANE_V
 
 __constant sampler_t sampler_y = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 #if YUV420
@@ -210,7 +214,7 @@ Flag4U analyze_c(
     int ix, int iy,
     const float thre_motionf, const float thre_deintf, const float thre_shiftf) {
     Flag4U flag4 = 0;
-    float ifx = (ix << 1) + 0.5f;
+    float ifx = (ix << 1) + 0.5f; // ixは4ピクセル単位、その半分だがcは1ピクセル単位なので2倍する
 
     #pragma unroll
     for (int i = 0; i < 4; i++, ifx += 0.5f) {
@@ -337,8 +341,19 @@ Flag4U generate_flags(int ly, int idepth, __local Flag4U *restrict ptr_shared) {
 }
 
 void merge_mask(Flag4U masky, Flag4U masku, Flag4U maskv, Flag4U *restrict mask0, Flag4U *restrict mask1) {
-    *mask0 = masky & masku & maskv;
-    *mask1 = masky | masku | maskv;
+    // tune_modeの値に基づいてビット演算でマスクを選択
+    // 各ビット位置で選択するマスクを決定
+    if (SELECT_PLANE != 0) {
+        const Flag4U select_y = (SELECT_PLANE & SELECT_PLANE_Y) ? 0xffffffff : 0x00;
+        const Flag4U select_u = (SELECT_PLANE & SELECT_PLANE_U) ? 0xffffffff : 0x00;
+        const Flag4U select_v = (SELECT_PLANE & SELECT_PLANE_V) ? 0xffffffff : 0x00;
+
+        *mask0 = (masky | (~select_y)) & (masku | (~select_u)) & (maskv | (~select_v));
+        *mask1 = (masky & select_y)    | (masku & select_u)    | (maskv & select_v);
+    } else {
+        *mask0 = masky & masku & maskv;
+        *mask1 = masky | masku | maskv;
+    }
 
     *mask0 &= u8x4(0xcc); //motion
     *mask1 &= u8x4(0x33); //shift/deint

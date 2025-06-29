@@ -642,7 +642,7 @@ RGY_ERR RGYFilterAfs::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog>
         return err;
     }
 
-    if (RGY_ERR_NONE != (err = build_analyze(pAfsParam->frameOut.csp, pAfsParam->afs.tb_order))) {
+    if (RGY_ERR_NONE != (err = build_analyze(pAfsParam->frameOut.csp, pAfsParam->afs.tb_order, pAfsParam->afs.tune))) {
         return err;
     }
 
@@ -667,7 +667,7 @@ RGY_ERR RGYFilterAfs::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog>
     AddMessage(RGY_LOG_DEBUG, _T("allocated stripe buffer: %dx%d, pitch %d, %s.\n"),
         m_stripe.get(0)->map->frame.width, m_stripe.get(0)->map->frame.height, m_stripe.get(0)->map->frame.pitch[0], RGY_CSP_NAMES[m_stripe.get(0)->map->frame.csp]);
 
-    if (RGY_ERR_NONE != (err = build_synthesize(pAfsParam->frameOut.csp, pAfsParam->afs.analyze))) {
+    if (RGY_ERR_NONE != (err = build_synthesize(pAfsParam->frameOut.csp, pAfsParam->afs.analyze, pAfsParam->afs.tune))) {
         return err;
     }
 
@@ -1150,8 +1150,8 @@ RGY_ERR RGYFilterAfs::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                 return RGY_ERR_INVALID_CALL;
             }
 
-            if (interlaced(m_source.get(m_nFrame)->frameinfo()) || pAfsParam->afs.tune) {
-                err = synthesize(m_nFrame, pOutFrame, m_source.get(m_nFrame), m_source.get(m_nFrame-1), sip_filtered, pAfsParam.get(), queue_main);
+            if (interlaced(m_source.get(m_nFrame)->frameinfo()) || pAfsParam->afs.tune != AFS_TUNE_MODE_NONE) {
+                err = synthesize(m_nFrame, pOutFrame, m_source.get(m_nFrame), m_source.get(m_nFrame-1), sip_filtered, m_scan.get(iframe), pAfsParam.get(), queue_main);
             } else {
                 err = m_source.copyFrame(pOutFrame, m_nFrame, queue_main, event);
             }

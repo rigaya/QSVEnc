@@ -252,7 +252,7 @@ protected:
     virtual void close() override;
     RGY_ERR check_param(shared_ptr<RGYFilterParamAfs> pAfsParam);
 
-    RGY_ERR build_analyze(const RGY_CSP csp, const bool tb_order);
+    RGY_ERR build_analyze(const RGY_CSP csp, const bool tb_order, const AFS_TUNE_MODE tune_mode);
     RGY_ERR analyze_stripe(afsSourceCacheFrame *p0, afsSourceCacheFrame *p1, AFS_SCAN_DATA *sp, unique_ptr<RGYCLBuf>& count_motion, const RGYFilterParamAfs *pAfsPrm, RGYOpenCLQueue &queue, std::vector<RGYOpenCLEvent> wait_event, RGYOpenCLEvent &event);
     bool scan_frame_result_cached(int iframe, const VppAfs *pAfsPrm);
     RGY_ERR scan_frame(int iframe, int force, const RGYFilterParamAfs *pAfsPrm, RGYOpenCLQueue &queue, std::vector<RGYOpenCLEvent> wait_event);
@@ -266,8 +266,8 @@ protected:
     int detect_telecine_cross(int iframe, int coeff_shift);
     RGY_ERR analyze_frame(RGYOpenCLQueue &queue, int iframe, const RGYFilterParamAfs *pAfsPrm, int reverse[4], int assume_shift[4], int result_stat[4]);
 
-    RGY_ERR build_synthesize(const RGY_CSP csp, const int mode);
-    RGY_ERR synthesize(int iframe, RGYCLFrame *pOut, afsSourceCacheFrame *p0, afsSourceCacheFrame *p1, AFS_STRIPE_DATA *sip, const RGYFilterParamAfs *pAfsPrm, RGYOpenCLQueue &queue);
+    RGY_ERR build_synthesize(const RGY_CSP csp, const int mode, const AFS_TUNE_MODE tune_mode);
+    RGY_ERR synthesize(int iframe, RGYCLFrame *pOut, afsSourceCacheFrame *p0, afsSourceCacheFrame *p1, AFS_STRIPE_DATA *sip, AFS_SCAN_DATA *sp, const RGYFilterParamAfs *pAfsPrm, RGYOpenCLQueue &queue);
     RGY_ERR copy_frame(RGYCLFrame *pOut, afsSourceCacheFrame *p0, RGYOpenCLQueue &queue);
 
     int open_timecode(tstring tc_filename);

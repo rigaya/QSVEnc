@@ -30,6 +30,10 @@
 // SYN_BLOCK_INT_X  (32) //work groupサイズ(x) = スレッド数/work group
 // SYN_BLOCK_Y       (8) //work groupサイズ(y) = スレッド数/work group
 // SYN_BLOCK_LOOP_Y  (1) //work groupのy方向反復数
+// TUNE_SELECT       (0) //0: デフォルト, 1: SIP, 2: SP_SHIFT, 3: SP_NONSHIFT
+// TUNE_SIP
+// TUNE_SP_SHIFT
+// TUNE_SP_NONSHIFT
 
 #define u8x4(x)  (((uint)x) | (((uint)x) <<  8) | (((uint)x) << 16) | (((uint)x) << 24))
 
@@ -557,28 +561,69 @@ enum {
     TUNE_COLOR_GREY,
     TUNE_COLOR_BLUE,
     TUNE_COLOR_LIGHT_BLUE,
+    TUNE_COLOR_RED,
+    TUNE_COLOR_LIGHT_RED,
+    TUNE_COLOR_PURPLE,
+    TUNE_COLOR_LIGHT_PURPLE,
+    TUNE_COLOR_MAX,
 };
 
 int synthesize_mode_tune_select_color(const uchar sip, const uchar status) {
     int ret = 0;
-    if (status & AFS_FLAG_SHIFT0) {
-        if (!(sip & 0x06))
-            ret = TUNE_COLOR_LIGHT_BLUE;
-        else if (~sip & 0x02)
+    if (TUNE_SELECT == TUNE_SP_SHIFT) {
+        const uchar tmp = (sip & 0x03) | ((~sip) & 0x40); // 動き(0x40)はflagが逆転している
+        if (tmp == 0x01) {
             ret = TUNE_COLOR_GREY;
-        else if (~sip & 0x04)
+        } else if (tmp == 0x02) {
+            ret = TUNE_COLOR_RED;
+        } else if (tmp == 0x40) {
             ret = TUNE_COLOR_BLUE;
-        else
-            ret = TUNE_COLOR_BLACK;
-    } else {
-        if (!(sip & 0x05))
+        } else if (tmp == (0x01 + 0x02)) {
+            ret = TUNE_COLOR_LIGHT_RED;
+        } else if (tmp == (0x01 + 0x40)) {
             ret = TUNE_COLOR_LIGHT_BLUE;
-        else if (~sip & 0x01)
+        } else if (tmp == (0x02 + 0x40)) {
+            ret = TUNE_COLOR_PURPLE;
+        } else if (tmp == (0x01 + 0x02 + 0x40)) {
+            ret = TUNE_COLOR_LIGHT_PURPLE;
+        }
+    } else if (TUNE_SELECT == TUNE_SP_NONSHIFT) {
+        const uchar tmp = (sip & 0x30) | ((~sip) & 0x04); // 動き(0x04)はflagが逆転している
+        if (tmp == 0x10) {
             ret = TUNE_COLOR_GREY;
-        else if (~sip & 0x04)
+        } else if (tmp == 0x20) {
+            ret = TUNE_COLOR_RED;
+        } else if (tmp == 0x04) {
             ret = TUNE_COLOR_BLUE;
-        else
-            ret = TUNE_COLOR_BLACK;
+        } else if (tmp == (0x10+0x20)) {
+            ret = TUNE_COLOR_LIGHT_RED;
+        } else if (tmp == (0x10+0x04)) {
+            ret = TUNE_COLOR_LIGHT_BLUE;
+        } else if (tmp == (0x20+0x04)) {
+            ret = TUNE_COLOR_PURPLE;
+        } else if (tmp == (0x10+0x20+0x04)) {
+            ret = TUNE_COLOR_LIGHT_PURPLE;
+        }
+    } else { // TUNE_SELECT == TUNE_SIP
+        if (status & AFS_FLAG_SHIFT0) {
+            if (!(sip & 0x06))
+                ret = TUNE_COLOR_LIGHT_BLUE;
+            else if (~sip & 0x02)
+                ret = TUNE_COLOR_GREY;
+            else if (~sip & 0x04)
+                ret = TUNE_COLOR_BLUE;
+            else
+                ret = TUNE_COLOR_BLACK;
+        } else {
+            if (!(sip & 0x05))
+                ret = TUNE_COLOR_LIGHT_BLUE;
+            else if (~sip & 0x01)
+                ret = TUNE_COLOR_GREY;
+            else if (~sip & 0x04)
+                ret = TUNE_COLOR_BLUE;
+            else
+                ret = TUNE_COLOR_BLACK;
+        }
     }
     return ret;
 }
@@ -597,11 +642,15 @@ __kernel void kernel_synthesize_mode_tune(
     const int imgc_y = get_group_id(1) * get_local_size(1) + ly;
     const int imgy_x = imgc_x << 1;
     const int imgy_y = imgc_y << 1;
-    const int YUY2_COLOR[4][3] = {
-        {  16,  128, 128 },
-        {  98,  128, 128 },
-        {  41,  240, 110 },
-        { 169,  166,  16 }
+    const int YUY2_COLOR[TUNE_COLOR_MAX][3] = {
+        {  16,  128, 128 }, // TUNE_COLOR_BLACK
+        {  98,  128, 128 }, // TUNE_COLOR_GREY
+        {  41,  240, 110 }, // TUNE_COLOR_BLUE
+        { 169,  166,  16 }, // TUNE_COLOR_LIGHT_BLUE
+        {  95,   98, 216 }, // TUNE_COLOR_RED
+        { 173,  115, 167 }, // TUNE_COLOR_LIGHT_RED
+        {  83,  167, 142 }, // TUNE_COLOR_PURPLE
+        { 167,  152, 136 }  // TUNE_COLOR_LIGHT_PURPLE
     };
 
     if (imgy_x < width && imgy_y < height) {

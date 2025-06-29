@@ -35,13 +35,33 @@
 #define SYN_BLOCK_Y       (8) //work groupサイズ(y) = スレッド数/work group
 #define SYN_BLOCK_LOOP_Y  (1) //work groupのy方向反復数
 
-RGY_ERR RGYFilterAfs::build_synthesize(const RGY_CSP csp, const int mode) {
+static const int TUNE_SIP = 1;
+static const int TUNE_SP_SHIFT = 2;
+static const int TUNE_SP_NONSHIFT = 3;
+
+RGY_ERR RGYFilterAfs::build_synthesize(const RGY_CSP csp, const int mode, const AFS_TUNE_MODE tune_mode) {
     if (!m_synthesize.get()) {
-        const auto options = strsprintf("-D BIT_DEPTH=%d -D YUV420=%d -D mode=%d -D SYN_BLOCK_INT_X=%d -D SYN_BLOCK_Y=%d -D SYN_BLOCK_LOOP_Y=%d",
+        int tune_select = 0;
+        if (tune_mode == AFS_TUNE_MODE_FINAL) {
+            tune_select = TUNE_SIP;
+        } else if (tune_mode == AFS_TUNE_MODE_ANALYZE_SHIFT_ALL
+                || tune_mode == AFS_TUNE_MODE_ANALYZE_SHIFT_Y
+                || tune_mode == AFS_TUNE_MODE_ANALYZE_SHIFT_U
+                || tune_mode == AFS_TUNE_MODE_ANALYZE_SHIFT_V) {
+            tune_select = TUNE_SP_SHIFT;
+        }  else if (tune_mode == AFS_TUNE_MODE_ANALYZE_NONSHIFT_ALL
+                 || tune_mode == AFS_TUNE_MODE_ANALYZE_NONSHIFT_Y
+                 || tune_mode == AFS_TUNE_MODE_ANALYZE_NONSHIFT_U
+                 || tune_mode == AFS_TUNE_MODE_ANALYZE_NONSHIFT_V) {
+            tune_select = TUNE_SP_NONSHIFT;
+        }
+        const auto options = strsprintf("-D BIT_DEPTH=%d -D YUV420=%d -D mode=%d -D SYN_BLOCK_INT_X=%d -D SYN_BLOCK_Y=%d -D SYN_BLOCK_LOOP_Y=%d"
+            " -D TUNE_SELECT=%d -D TUNE_SIP=%d -D TUNE_SP_SHIFT=%d -D TUNE_SP_NONSHIFT=%d",
             RGY_CSP_BIT_DEPTH[csp],
             RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_YUV420 ? 1 : 0,
             mode,
-            SYN_BLOCK_INT_X, SYN_BLOCK_Y, SYN_BLOCK_LOOP_Y);
+            SYN_BLOCK_INT_X, SYN_BLOCK_Y, SYN_BLOCK_LOOP_Y,
+            tune_select, TUNE_SIP, TUNE_SP_SHIFT, TUNE_SP_NONSHIFT);
         m_synthesize.set(m_cl->buildResourceAsync(_T("RGY_FILTER_AFS_SYNTHESIZE_CL"), _T("EXE_DATA"), options.c_str()));
     }
     return RGY_ERR_NONE;
@@ -51,7 +71,7 @@ static RGY_ERR run_synthesize(uint8_t **dst,
     afsSourceCacheFrame *p0, afsSourceCacheFrame *p1, uint8_t *sip,
     const int width, const int height,
     const int *dstPitch, const int sipPitch,
-    const int tb_order, const uint8_t status, const RGY_CSP csp,
+    const int tb_order, const uint8_t status, const AFS_TUNE_MODE tune_mode, const RGY_CSP csp,
     int mode,
     RGYOpenCLQueue &queue, RGYOpenCLProgram *synthesize, RGYOpenCLContext *cl) {
     auto err = RGY_ERR_NONE;
@@ -132,9 +152,9 @@ static RGY_ERR run_synthesize(uint8_t **dst,
     return err;
 }
 
-RGY_ERR RGYFilterAfs::synthesize(int iframe, RGYCLFrame *pOut, afsSourceCacheFrame *p0, afsSourceCacheFrame *p1, AFS_STRIPE_DATA *sip, const RGYFilterParamAfs *pAfsPrm, RGYOpenCLQueue &queue) {
+RGY_ERR RGYFilterAfs::synthesize(int iframe, RGYCLFrame *pOut, afsSourceCacheFrame *p0, afsSourceCacheFrame *p1, AFS_STRIPE_DATA *sip, AFS_SCAN_DATA *sp, const RGYFilterParamAfs *pAfsPrm, RGYOpenCLQueue &queue) {
     int mode = pAfsPrm->afs.analyze;
-    if (pAfsPrm->afs.tune) {
+    if (pAfsPrm->afs.tune != AFS_TUNE_MODE_NONE) {
         mode = -1;
     }
     if (   RGY_CSP_CHROMA_FORMAT[pOut->frame.csp] != RGY_CHROMAFMT_YUV420
@@ -154,10 +174,11 @@ RGY_ERR RGYFilterAfs::synthesize(int iframe, RGYCLFrame *pOut, afsSourceCacheFra
             return RGY_ERR_INVALID_COLOR_FORMAT;
         }
     }
+    auto& targetSp = (pAfsPrm->afs.tune > AFS_TUNE_MODE_FINAL) ? sp->map->frame : sip->map->frame;
     auto err = run_synthesize(
-        pOut->frame.ptr, p0, p1, sip->map->frame.ptr[0],
+        pOut->frame.ptr, p0, p1, targetSp.ptr[0],
         p1->frameinfo().width, p1->frameinfo().height,
-        pOut->frame.pitch, sip->map->frame.pitch[0],
-        pAfsPrm->afs.tb_order, m_status[iframe], pOut->frame.csp, mode, queue, m_synthesize.get(), m_cl.get());
+        pOut->frame.pitch, targetSp.pitch[0],
+        pAfsPrm->afs.tb_order, m_status[iframe], pAfsPrm->afs.tune, pOut->frame.csp, mode, queue, m_synthesize.get(), m_cl.get());
     return err;
 }
