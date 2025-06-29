@@ -1881,7 +1881,7 @@ public:
 
         mfxFrameSurface1 *surfVppIn = (frame) ? dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().mfx()->surf() : nullptr;
         //vpp前に、vpp用のパラメータでFrameInfoを更新
-        copy_crop_info(surfVppIn, &m_mfxVppParams.mfx.FrameInfo);
+        copy_crop_info(surfVppIn, &m_mfxVppParams.vpp.In);
         if (surfVppIn) {
             // durationは適用でもfpsから設定しておく --vpp-deinterlace bobでも入力がRFFやプログレッシブだと2フレーム目を投入する前にフレーム出力が出る場合があり、durationを設定しておかないとおかしくなる
             m_timestamp.add(surfVppIn->Data.TimeStamp, dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->inputFrameId(), 0 /*dummy*/, estDuration, {});
@@ -1890,30 +1890,33 @@ public:
 
             // インタレ解除を使用中、入力フレームのインタレが変更になると、そのまま処理を継続すると device busyで処理がフリーズしてしまうことがある
             // そのため、インタレ解除設定が変更になった場合は、フィルタをリセットする
-            if (m_vpp->isDeinterlace()
-                && surfVppIn->Info.PicStruct != m_mfxVppParams.vpp.In.PicStruct) {
-                const auto picStructPrev = m_mfxVppParams.vpp.In.PicStruct;
-                PrintMes(RGY_LOG_DEBUG, _T("Change deinterlace settings input: %s -> %s.\n"), MFXPicStructToStr(picStructPrev).c_str(), MFXPicStructToStr(surfVppIn->Info.PicStruct).c_str());
+            if (m_vpp->isDeinterlace()) {
+                if ((m_vpp->deinterlaceMode() & (RGYMFX_DEINTERLACE_MODE::TFF | RGYMFX_DEINTERLACE_MODE::BFF)) != RGYMFX_DEINTERLACE_MODE::AUTO) {
+                    surfVppIn->Info.PicStruct = m_mfxVppParams.vpp.In.PicStruct;
+                } else if (surfVppIn->Info.PicStruct != m_mfxVppParams.vpp.In.PicStruct) {
+                    const auto picStructPrev = m_mfxVppParams.vpp.In.PicStruct;
+                    PrintMes(RGY_LOG_DEBUG, _T("Change deinterlace settings input: %s -> %s.\n"), MFXPicStructToStr(picStructPrev).c_str(), MFXPicStructToStr(surfVppIn->Info.PicStruct).c_str());
 
-                // まずflushする
-                auto sts = RGY_ERR_NONE;
-                while (sts == RGY_ERR_NONE) {
-                    auto flushFrame = std::unique_ptr<PipelineTaskOutput>();
-                    sts = sendFrame(flushFrame); // flush
-                    if (sts == RGY_ERR_MORE_DATA) {
-                        break; // flush 成功
-                    } else if (sts != RGY_ERR_NONE) {
-                        PrintMes(RGY_LOG_ERROR, _T("  Failed to flush filter to change interlace settings %s -> %s: %s.\n"), MFXPicStructToStr(picStructPrev).c_str(), MFXPicStructToStr(surfVppIn->Info.PicStruct).c_str(), get_err_mes(sts));
+                    // まずflushする
+                    auto sts = RGY_ERR_NONE;
+                    while (sts == RGY_ERR_NONE) {
+                        auto flushFrame = std::unique_ptr<PipelineTaskOutput>();
+                        sts = sendFrame(flushFrame); // flush
+                        if (sts == RGY_ERR_MORE_DATA) {
+                            break; // flush 成功
+                        } else if (sts != RGY_ERR_NONE) {
+                            PrintMes(RGY_LOG_ERROR, _T("  Failed to flush filter to change interlace settings %s -> %s: %s.\n"), MFXPicStructToStr(picStructPrev).c_str(), MFXPicStructToStr(surfVppIn->Info.PicStruct).c_str(), get_err_mes(sts));
+                            return sts;
+                        }
+                    }
+
+                    // インタレ設定変更を反映してリセットする
+                    m_mfxVppParams.vpp.In.PicStruct = surfVppIn->Info.PicStruct;
+                    sts = m_vpp->Reset(m_mfxVppParams.vpp.Out, m_mfxVppParams.vpp.In);
+                    if (sts != RGY_ERR_NONE) {
+                        PrintMes(RGY_LOG_ERROR, _T("  Failed to reset filter to change interlace settings %s -> %s: %s.\n"), MFXPicStructToStr(picStructPrev).c_str(), MFXPicStructToStr(surfVppIn->Info.PicStruct).c_str(), get_err_mes(sts));
                         return sts;
                     }
-                }
-
-                // インタレ設定変更を反映してリセットする
-                m_mfxVppParams.vpp.In.PicStruct = surfVppIn->Info.PicStruct;
-                sts = m_vpp->Reset(m_mfxVppParams.vpp.Out, m_mfxVppParams.vpp.In);
-                if (sts != RGY_ERR_NONE) {
-                    PrintMes(RGY_LOG_ERROR, _T("  Failed to reset filter to change interlace settings %s -> %s: %s.\n"), MFXPicStructToStr(picStructPrev).c_str(), MFXPicStructToStr(surfVppIn->Info.PicStruct).c_str(), get_err_mes(sts));
-                    return sts;
                 }
             }
         }

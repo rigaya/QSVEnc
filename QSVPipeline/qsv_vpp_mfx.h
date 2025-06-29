@@ -46,7 +46,7 @@ public:
     RGY_ERR SetParam(sVppParams& params,
         const RGYFrameInfo& frameOut,
         const RGYFrameInfo& frameIn,
-        const sInputCrop *crop, const rgy_rational<int> infps, const rgy_rational<int> sar, const int blockSize);
+        const sInputCrop *crop, const rgy_rational<int> infps, const rgy_rational<int> sar, const RGYMFX_DEINTERLACE_MODE deinterlaceMode, const int blockSize);
     RGY_ERR Init();
     RGY_ERR Close();
     RGY_ERR Reset(const mfxFrameInfo& frameOut, const mfxFrameInfo& frameIn);
@@ -63,10 +63,11 @@ public:
     int asyncDepth() const { return m_asyncDepth; }
     tstring print() const { return VppExtMes; }
     bool isDeinterlace() const { return m_ExtDeinterlacing.Mode != 0;  }
+    RGYMFX_DEINTERLACE_MODE deinterlaceMode() const { return m_deinterlaceMode; }
 protected:
     void InitStructs();
     RGY_ERR InitMFXSession();
-    mfxFrameInfo SetMFXFrameIn(const RGYFrameInfo& frameIn, const sInputCrop *crop, const rgy_rational<int> infps, const rgy_rational<int> sar, const int blockSize);
+    mfxFrameInfo SetMFXFrameIn(const RGYFrameInfo& frameIn, const sInputCrop *crop, const rgy_rational<int> infps, const rgy_rational<int> sar, const RGYMFX_DEINTERLACE_MODE deinterlaceMode, const int blockSize);
     RGY_ERR SetMFXFrameOut(mfxFrameInfo& mfxOut, const sVppParams& params, const RGYFrameInfo& frameOut, const mfxFrameInfo& frameIn, const int blockSize);
     RGY_ERR SetVppExtBuffers(sVppParams& params);
     RGY_ERR InitMfxVppParams(const sVppParams& params, const mfxFrameInfo& mfxOut, const mfxFrameInfo& mfxIn);
@@ -117,6 +118,7 @@ RGY_DISABLE_WARNING_POP
     std::vector<mfxU32> m_VppDoUseList;
     std::vector<mfxExtBuffer*> m_VppExtParams;
     tstring VppExtMes;
+    RGYMFX_DEINTERLACE_MODE m_deinterlaceMode;
 
     std::shared_ptr<RGYLog> m_log;
 };

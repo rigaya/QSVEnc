@@ -313,6 +313,15 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2025.06.29 (7.91)
+- --vpp-afsの10bitでの処理を修正。
+- --vpp-afsの精度を改善。
+- --vpp-deinterlaceでフィールドパターンを明示的に指定するオプションを追加。
+- raw出力で、y4m形式での出力時にフレームレートがおかしくなるのを修正。
+- raw出力時に処理が止まってしまう場合があったのを修正。
+- Linuxでも--option-fileに対応。
+- --dynamic-rcのendを省略した場合の処理を修正。
+
 2025.06.11 (7.90)
 - --output-formatと-c rawを併用可能に。
   -c raw --output-format nut のようなケースに対応可能に。

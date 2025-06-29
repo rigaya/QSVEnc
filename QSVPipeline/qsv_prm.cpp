@@ -98,6 +98,7 @@ sVppParams::sVppParams() :
     resizeMode(RGY_VPP_RESIZE_MODE_DEFAULT),
     colorspace(),
     deinterlace(0),
+    deinterlaceMode(RGYMFX_DEINTERLACE_MODE::AUTO),
     telecinePattern(0),
     imageStabilizer(0),
     fpsConversion(0),

@@ -133,7 +133,7 @@ RGY_ERR QSVVppMfx::SetParam(
     sVppParams& params,
     const RGYFrameInfo& frameOut,
     const RGYFrameInfo& frameIn,
-    const sInputCrop *crop, const rgy_rational<int> infps, const rgy_rational<int> sar, const int blockSize) {
+    const sInputCrop *crop, const rgy_rational<int> infps, const rgy_rational<int> sar, const RGYMFX_DEINTERLACE_MODE deinterlaceMode, const int blockSize) {
     if (m_mfxVPP) {
         PrintMes(RGY_LOG_DEBUG, _T("Vpp already initialized.\n"));
         return RGY_ERR_ALREADY_INITIALIZED;
@@ -150,7 +150,7 @@ RGY_ERR QSVVppMfx::SetParam(
 
     VppExtMes.clear();
 
-    auto mfxIn = SetMFXFrameIn(frameIn, crop, infps, sar, blockSize);
+    auto mfxIn = SetMFXFrameIn(frameIn, crop, infps, sar, deinterlaceMode, blockSize);
 
     mfxFrameInfo mfxOut;
     if ((err = SetMFXFrameOut(mfxOut, params, frameOut, mfxIn, blockSize)) != RGY_ERR_NONE) {
@@ -360,9 +360,16 @@ RGY_ERR QSVVppMfx::checkVppParams(sVppParams& params, const bool inputInterlaced
     return RGY_ERR_NONE;
 }
 
-mfxFrameInfo QSVVppMfx::SetMFXFrameIn(const RGYFrameInfo& frameIn, const sInputCrop *crop, const rgy_rational<int> infps, const rgy_rational<int> sar, const int blockSize) {
+mfxFrameInfo QSVVppMfx::SetMFXFrameIn(const RGYFrameInfo& frameIn, const sInputCrop *crop, const rgy_rational<int> infps, const rgy_rational<int> sar, const RGYMFX_DEINTERLACE_MODE deinterlaceMode, const int blockSize) {
 
     auto mfxIn = frameinfo_rgy_to_enc(frameIn, infps, sar, blockSize);
+
+    m_deinterlaceMode = deinterlaceMode;
+    if (m_deinterlaceMode == RGYMFX_DEINTERLACE_MODE::TFF) {
+        mfxIn.PicStruct = MFX_PICSTRUCT_FIELD_TFF;
+    } else if (m_deinterlaceMode == RGYMFX_DEINTERLACE_MODE::BFF) {
+        mfxIn.PicStruct = MFX_PICSTRUCT_FIELD_BFF;
+    }
 
     //QSVデコードを行う場合、CropはVppで行う
     if (crop && cropEnabled(*crop)) {

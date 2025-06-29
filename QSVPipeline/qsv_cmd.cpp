@@ -651,7 +651,8 @@ int parse_one_vppmfx_option(const TCHAR *option_name, const TCHAR *strInput[], i
             return 1;
         }
         vppmfx->bEnable = true;
-        vppmfx->deinterlace = value;
+        vppmfx->deinterlace = (uint32_t)value & (~(uint32_t)RGYMFX_DEINTERLACE_MODE::MASK); // 下位16bitはMFXのモード
+        vppmfx->deinterlaceMode = (RGYMFX_DEINTERLACE_MODE)((uint32_t)value & (uint32_t)RGYMFX_DEINTERLACE_MODE::MASK); // 上位16bitはRGYのモード
         if (vppmfx->deinterlace == MFX_DEINTERLACE_IT_MANUAL) {
             i++;
             if (PARSE_ERROR_FLAG == (value = get_value_from_chr(list_telecine_patterns, strInput[i]))) {
@@ -2116,7 +2117,10 @@ tstring gen_cmd(const sVppParams *param, const sVppParams *defaultPrm, bool save
     std::basic_stringstream<TCHAR> tmp;
     std::basic_stringstream<TCHAR> cmd;
 
-    OPT_LST(_T("--vpp-deinterlace"), deinterlace, list_deinterlace);
+    if (param->deinterlace != defaultPrm->deinterlace || param->deinterlaceMode != defaultPrm->deinterlaceMode) {
+        auto deinterlace = param->deinterlace | (uint32_t)param->deinterlaceMode;
+        cmd << _T(" --vpp-deinterlace ") << get_chr_from_value(list_deinterlace, deinterlace);
+    }
     OPT_BOOL_VAL(_T("--vpp-detail-enhance"), _T("--no-vpp-detail-enhance"), detail.enable, detail.strength);
 
     if (param->denoise != defaultPrm->denoise) {

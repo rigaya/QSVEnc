@@ -2236,6 +2236,12 @@ Activate GPU deinterlacer.
   - normal ... standard 60i → 30p interleave cancellation.
   - it    ... inverse telecine
   - bob ... 60i → 60p interleaved.
+
+  It is possible to set field pattern explicitly by following settings.
+
+  - normal_tff, normal_bff
+  - bob_tff, bob_bff
+  - it_tff, it_bff
   
 ### --vpp-decomb [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]  
 Decomb deinterlaer.

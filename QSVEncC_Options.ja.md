@@ -2314,6 +2314,12 @@ GPUによるインタレ解除を使用する。"normal", "bob"はわりとき�
   - bob    ... 60i→60pインタレ解除。
   - it     ... inverse telecine
 
+  また、下記でTFF, BFFを明示的に指定することもできます。
+
+  - normal_tff, normal_bff
+  - bob_tff, bob_bff
+  - it_tff, it_bff
+
 ### --vpp-decimate [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]  
 重複フレームを削除します。
 

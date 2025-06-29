@@ -1,5 +1,15 @@
 # QSVEnc Release Notes
 
+## 7.91
+
+- Fix 10-bit processing in [--vpp-afs](./QSVEncC_Options.en.md#--vpp-afs-param1value1param2value2).
+- Improve precision of [--vpp-afs](./QSVEncC_Options.en.md#--vpp-afs-param1value1param2value2).
+- Add option to explicitly specify field pattern in [--vpp-deinterlace](./QSVEncC_Options.en.md#--vpp-deinterlace-string).
+- Fix incorrect frame rate when outputting in y4m format with raw output.
+- Fix processing sometimes stopping during raw output.
+- Add support for [--option-file](./QSVEncC_Options.en.md#--option-file-string) on Linux.
+- Fix handling when end is omitted in [--dynamic-rc](./QSVEncC_Options.en.md#--dynamic-rc-intintintintparam1value1param2value2).
+
 ## 7.90
 
 - Add support for combining [--output-format](./QSVEncC_Options.en.md#--output-format-string) with ```-c raw```. ( #257 )
