@@ -2397,6 +2397,7 @@ const pixfmtInfo *RGYInputAvcodec::getPixfmtInfo(const AVPixelFormat pix_fmt) {
 RGY_ERR RGYInputAvcodec::initSWVideoDecoder(const tstring& avswDecoder) {
     m_inputVideoInfo.codec = RGY_CODEC_UNKNOWN; //hwデコードをオフにする
     m_Demux.video.HWDecodeDeviceId.clear();
+    m_readerName = _T("avsw");
 
     //close bitstreamfilter
     //if (m_Demux.video.bsfcCtx) {
