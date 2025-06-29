@@ -1944,7 +1944,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         fcgCBVppAfsDrop->Checked = prm_qsv.vpp.afs.drop != 0;
         fcgCBVppAfsSmooth->Checked = prm_qsv.vpp.afs.smooth != 0;
         fcgCBVppAfs24fps->Checked = prm_qsv.vpp.afs.force24 != 0;
-        fcgCBVppAfsTune->Checked = prm_qsv.vpp.afs.tune != 0;
+        fcgCBVppAfsTune->Checked = prm_qsv.vpp.afs.tune != AFS_TUNE_MODE_NONE;
         SetCXIndex(fcgCXVppNnediNsize, get_cx_index(list_vpp_nnedi_nsize, prm_qsv.vpp.nnedi.nsize));
         SetCXIndex(fcgCXVppNnediNns, get_cx_index(list_vpp_nnedi_nns, prm_qsv.vpp.nnedi.nns));
         SetCXIndex(fcgCXVppNnediPrec, get_cx_index(list_vpp_fp_prec, prm_qsv.vpp.nnedi.precision));
@@ -2214,7 +2214,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     prm_qsv.vpp.afs.drop               = fcgCBVppAfsDrop->Checked;
     prm_qsv.vpp.afs.smooth             = fcgCBVppAfsSmooth->Checked;
     prm_qsv.vpp.afs.force24            = fcgCBVppAfs24fps->Checked;
-    prm_qsv.vpp.afs.tune               = fcgCBVppAfsTune->Checked;
+    prm_qsv.vpp.afs.tune               = fcgCBVppAfsTune->Checked ? AFS_TUNE_MODE_FINAL : AFS_TUNE_MODE_NONE;
 
     prm_qsv.vpp.nnedi.enable           = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_gui, L"nnedi"));
     prm_qsv.vpp.nnedi.nsize            = (VppNnediNSize)list_vpp_nnedi_nsize[fcgCXVppNnediNsize->SelectedIndex].value;
