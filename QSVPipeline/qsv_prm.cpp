@@ -246,7 +246,7 @@ sInputParams::sInputParams() :
     outputCsp(RGY_CHROMAFMT_YUV420),
     nIdrInterval(0),
     nGOPLength(QSV_DEFAULT_GOP_LEN),
-    bopenGOP(false),
+    openGOP(false),
     bforceGOPSettings(QSV_DEFAULT_FORCE_GOP_LEN),
     GopRefDist(QSV_GOP_REF_DIST_AUTO),
     nRef(QSV_DEFAULT_REF),

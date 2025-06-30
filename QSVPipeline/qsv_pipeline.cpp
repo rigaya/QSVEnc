@@ -680,9 +680,9 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
                 }
             }
         }
-        if (pInParams->bopenGOP) {
+        if (pInParams->openGOP.value_or(false)) {
             PrintMes(RGY_LOG_WARN, _T("OpenGOP is not supported with hyper-mode on, disabled.\n"));
-            pInParams->bopenGOP = false;
+            pInParams->openGOP = false;
         }
     }
 
@@ -700,15 +700,15 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         }
     }
     //その他機能のチェック
-    if (pInParams->bAdaptiveI && !(availableFeaures & ENC_FEATURE_ADAPTIVE_I)) {
+    if (pInParams->bAdaptiveI.value_or(false) && !(availableFeaures & ENC_FEATURE_ADAPTIVE_I)) {
         PrintMes(RGY_LOG_WARN, _T("Adaptve I-frame insert is not supported on current platform, disabled.\n"));
         pInParams->bAdaptiveI.reset();
     }
-    if (pInParams->bAdaptiveB && !(availableFeaures & ENC_FEATURE_ADAPTIVE_B)) {
+    if (pInParams->bAdaptiveB.value_or(false) && !(availableFeaures & ENC_FEATURE_ADAPTIVE_B)) {
         PrintMes(RGY_LOG_WARN, _T("Adaptve B-frame insert is not supported on current platform, disabled.\n"));
         pInParams->bAdaptiveB.reset();
     }
-    if (pInParams->bBPyramid && !(availableFeaures & ENC_FEATURE_B_PYRAMID)) {
+    if (pInParams->bBPyramid.value_or(false) && !(availableFeaures & ENC_FEATURE_B_PYRAMID)) {
         print_feature_warnings(RGY_LOG_WARN, _T("B pyramid"));
         pInParams->bBPyramid = false;
     }
@@ -716,7 +716,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         print_feature_warnings(RGY_LOG_WARN, _T("CAVLC"));
         pInParams->bCAVLC = false;
     }
-    if (pInParams->extBRC && !(availableFeaures & ENC_FEATURE_EXT_BRC)) {
+    if (pInParams->extBRC.value_or(false) && !(availableFeaures & ENC_FEATURE_EXT_BRC)) {
         print_feature_warnings(RGY_LOG_WARN, _T("ExtBRC"));
         pInParams->extBRC.reset();
     }
@@ -728,19 +728,19 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         print_feature_warnings(RGY_LOG_WARN, _T("Scenario Info"));
         pInParams->scenarioInfo = MFX_SCENARIO_UNKNOWN;
     }
-    if (pInParams->adaptiveRef && !(availableFeaures & ENC_FEATURE_ADAPTIVE_REF)) {
+    if (pInParams->adaptiveRef.value_or(false) && !(availableFeaures & ENC_FEATURE_ADAPTIVE_REF)) {
         print_feature_warnings(RGY_LOG_WARN, _T("adaptiveRef"));
         pInParams->adaptiveRef.reset();
     }
-    if (pInParams->adaptiveLTR && !(availableFeaures & ENC_FEATURE_ADAPTIVE_LTR)) {
+    if (pInParams->adaptiveLTR.value_or(false) && !(availableFeaures & ENC_FEATURE_ADAPTIVE_LTR)) {
         print_feature_warnings(RGY_LOG_WARN, _T("AdaptiveLTR"));
         pInParams->adaptiveLTR.reset();
     }
-    if (pInParams->adaptiveCQM && !(availableFeaures & ENC_FEATURE_ADAPTIVE_CQM)) {
+    if (pInParams->adaptiveCQM.value_or(false) && !(availableFeaures & ENC_FEATURE_ADAPTIVE_CQM)) {
         print_feature_warnings(RGY_LOG_WARN, _T("AdaptiveCQM"));
         pInParams->adaptiveCQM.reset();
     }
-    if (pInParams->bMBBRC && !(availableFeaures & ENC_FEATURE_MBBRC)) {
+    if (pInParams->bMBBRC.value_or(false) && !(availableFeaures & ENC_FEATURE_MBBRC)) {
         print_feature_warnings(RGY_LOG_WARN, _T("MBBRC"));
         pInParams->bMBBRC.reset();
     }
@@ -755,9 +755,9 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         print_feature_warnings(RGY_LOG_WARN, _T("trellis"));
         pInParams->nTrellis = MFX_TRELLIS_UNKNOWN;
     }
-    if (pInParams->bRDO && !(availableFeaures & ENC_FEATURE_RDO)) {
+    if (pInParams->bRDO.value_or(false) && !(availableFeaures & ENC_FEATURE_RDO)) {
         print_feature_warnings(RGY_LOG_WARN, _T("RDO"));
-        pInParams->bRDO = false;
+        pInParams->bRDO.reset();
     }
     if (((m_encPicstruct & RGY_PICSTRUCT_INTERLACED) != 0)
         && !(availableFeaures & ENC_FEATURE_INTERLACE)) {
@@ -811,7 +811,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
             pInParams->nWinBRCSize = 0;
         }
     }
-    if (pInParams->bDirectBiasAdjust && !(availableFeaures & ENC_FEATURE_DIRECT_BIAS_ADJUST)) {
+    if (pInParams->bDirectBiasAdjust.value_or(false) && !(availableFeaures & ENC_FEATURE_DIRECT_BIAS_ADJUST)) {
         print_feature_warnings(RGY_LOG_WARN, _T("Direct Bias Adjust"));
         pInParams->bDirectBiasAdjust.reset();
     }
@@ -838,10 +838,8 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         pInParams->nFadeDetect = MFX_CODINGOPTION_OFF;
     }
 #endif
-    if (pInParams->nFadeDetect.has_value() && !(availableFeaures & ENC_FEATURE_FADE_DETECT)) {
-        if (pInParams->nFadeDetect.value_or(false)) {
-            print_feature_warnings(RGY_LOG_WARN, _T("FadeDetect"));
-        }
+    if (pInParams->nFadeDetect.value_or(false) && !(availableFeaures & ENC_FEATURE_FADE_DETECT)) {
+        print_feature_warnings(RGY_LOG_WARN, _T("FadeDetect"));
         pInParams->nFadeDetect.reset();
     }
     if (pInParams->codec == RGY_CODEC_HEVC) {
@@ -853,11 +851,11 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
             print_feature_warnings(RGY_LOG_WARN, _T("HEVC SAO"));
             pInParams->hevc_sao = MFX_SAO_UNKNOWN;
         }
-        if (pInParams->hevc_tskip != MFX_CODINGOPTION_UNKNOWN && !(availableFeaures & ENC_FEATURE_HEVC_TSKIP)) {
+        if (pInParams->hevc_tskip.value_or(false) && !(availableFeaures & ENC_FEATURE_HEVC_TSKIP)) {
             print_feature_warnings(RGY_LOG_WARN, _T("HEVC tskip"));
-            pInParams->hevc_tskip = MFX_CODINGOPTION_UNKNOWN;
+            pInParams->hevc_tskip.reset();
         }
-        if (pInParams->hevc_gpb.has_value() && !(availableFeaures & ENC_FEATURE_DISABLE_GPB)) {
+        if (pInParams->hevc_gpb.value_or(false) && !(availableFeaures & ENC_FEATURE_DISABLE_GPB)) {
             print_feature_warnings(RGY_LOG_WARN, _T("HEVC GPB"));
             pInParams->hevc_gpb.reset();
         }
@@ -983,16 +981,16 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
     m_encParams.videoPrm.mfx.CodecLevel              = (mfxU16)pInParams->CodecLevel;
     m_encParams.videoPrm.mfx.CodecProfile            = (mfxU16)pInParams->CodecProfile;
     m_encParams.videoPrm.mfx.GopOptFlag              = 0;
-    m_encParams.videoPrm.mfx.GopOptFlag             |= (!pInParams->bopenGOP) ? MFX_GOP_CLOSED : 0x00;
+    m_encParams.videoPrm.mfx.GopOptFlag             |= (pInParams->openGOP.has_value() && !pInParams->openGOP.value()) ? MFX_GOP_CLOSED : 0x00;
 
     /* For H.264, IdrInterval specifies IDR-frame interval in terms of I-frames; if IdrInterval = 0, then every I-frame is an IDR-frame. If IdrInterval = 1, then every other I-frame is an IDR-frame, etc.
      * For HEVC, if IdrInterval = 0, then only first I-frame is an IDR-frame. If IdrInterval = 1, then every I-frame is an IDR-frame. If IdrInterval = 2, then every other I-frame is an IDR-frame, etc.
      * For MPEG2, IdrInterval defines sequence header interval in terms of I-frames. If IdrInterval = N, SDK inserts the sequence header before every Nth I-frame. If IdrInterval = 0 (default), SDK inserts the sequence header once at the beginning of the stream.
      * If GopPicSize or GopRefDist is zero, IdrInterval is undefined. */
     if (pInParams->codec == RGY_CODEC_HEVC) {
-        m_encParams.videoPrm.mfx.IdrInterval = (mfxU16)((!pInParams->bopenGOP) ? 1 : 1 + ((m_encFps.n() + m_encFps.d() - 1) / m_encFps.d()) * 600 / pInParams->nGOPLength);
+        m_encParams.videoPrm.mfx.IdrInterval = (mfxU16)((!pInParams->openGOP.value_or(true)) ? 1 : 1 + ((m_encFps.n() + m_encFps.d() - 1) / m_encFps.d()) * 600 / pInParams->nGOPLength);
     } else if (pInParams->codec == RGY_CODEC_H264) {
-        m_encParams.videoPrm.mfx.IdrInterval = (mfxU16)((!pInParams->bopenGOP) ? 0 : ((m_encFps.n() + m_encFps.d() - 1) / m_encFps.d()) * 600 / pInParams->nGOPLength);
+        m_encParams.videoPrm.mfx.IdrInterval = (mfxU16)((!pInParams->openGOP.value_or(true)) ? 0 : ((m_encFps.n() + m_encFps.d() - 1) / m_encFps.d()) * 600 / pInParams->nGOPLength);
     } else {
         m_encParams.videoPrm.mfx.IdrInterval = 0;
     }
@@ -1034,6 +1032,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
     //    m_encParams.cop.MVSearchWindow     = pInParams->MVSearchWindow;
     //    m_encParams.cop.MVPrecision        = pInParams->nMVPrecision;
     //}
+    m_encParams.cop.RateDistortionOpt  = get_codingopt(pInParams->bRDO);
     //if (!pInParams->bUseHWLib || pInParams->CodecProfile == MFX_PROFILE_AVC_BASELINE) {
     //    //swライブラリ使用時かbaselineを指定した時
     //    m_encParams.cop.RateDistortionOpt  = (mfxU16)((pInParams->bRDO) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
@@ -1098,10 +1097,8 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_8)) {
             if (m_hdr10plus || m_hdr10plusMetadataCopy || m_dovirpu || pInParams->common.doviProfile != 0 || (m_hdrseiOut && m_hdrseiOut->gen_nal().size() > 0) || m_parallelEnc) {
                 m_encParams.cop2.RepeatPPS = MFX_CODINGOPTION_ON;
-            } else if (pInParams->repeatHeaders.has_value()) {
-                m_encParams.cop2.RepeatPPS = (mfxU16)((pInParams->repeatHeaders.value()) ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_OFF);
             } else {
-                m_encParams.cop2.RepeatPPS = MFX_CODINGOPTION_UNKNOWN;
+                m_encParams.cop2.RepeatPPS = get_codingopt(pInParams->repeatHeaders);
             }
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_10)) {
@@ -1195,7 +1192,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_26)) {
             if (m_encParams.videoPrm.mfx.CodecId == MFX_CODEC_HEVC) {
-                m_encParams.cop3.TransformSkip = (mfxU16)pInParams->hevc_tskip;
+                m_encParams.cop3.TransformSkip = get_codingopt(pInParams->hevc_tskip);
             }
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_2)) {

@@ -296,7 +296,7 @@ struct sInputParams {
     RGY_CHROMAFMT outputCsp;
     int nIdrInterval;  // Idr frame interval to I frame, not supported
     int nGOPLength;    // (Max) GOP Length
-    bool bopenGOP;      // if false, GOP_CLOSED is set
+    std::optional<bool> openGOP;      // if false, GOP_CLOSED is set
     bool bforceGOPSettings; // if true, GOP_STRICT is set
     int GopRefDist;    // set sequential Bframes num + 1, 0 is auto
     int nRef;          // set ref frames num.
@@ -318,7 +318,7 @@ struct sInputParams {
     bool       bCAVLC;  //CAVLC
     int        nInterPred;
     int        nIntraPred;
-    bool       bRDO;
+    std::optional<bool> bRDO;
     int        nMVPrecision;
     std::pair<int,int> MVSearchWindow;
 
@@ -380,8 +380,8 @@ struct sInputParams {
 
     int        hevc_ctu;
     int        hevc_sao;
-    int        hevc_tskip;
     int        hevc_tier;
+    std::optional<bool> hevc_tskip;
     std::optional<bool> hevc_gpb;
 
     QSVAV1Params av1;
@@ -930,8 +930,8 @@ const int QSV_DEFAULT_BITRATE = 6000;
 const int QSV_DEFAULT_MAX_BITRATE = 15000;
 const int QSV_GOP_REF_DIST_AUTO = 0;
 const int QSV_DEFAULT_H264_GOP_REF_DIST = 4;
-const int QSV_DEFAULT_HEVC_GOP_REF_DIST = 4;
-const int QSV_DEFAULT_AV1_GOP_REF_DIST = 8;
+const int QSV_DEFAULT_HEVC_GOP_REF_DIST = 10;
+const int QSV_DEFAULT_AV1_GOP_REF_DIST = 16;
 const int QSV_DEFAULT_QUALITY = MFX_TARGETUSAGE_BALANCED;
 const int QSV_DEFAULT_INPUT_BUF_SW = 1;
 const int QSV_DEFAULT_INPUT_BUF_HW = 3;
