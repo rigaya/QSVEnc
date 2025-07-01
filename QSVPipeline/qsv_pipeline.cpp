@@ -969,7 +969,13 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
 
     PrintMes(RGY_LOG_DEBUG, _T("InitMfxEncParams: Output FPS %d/%d\n"), m_encFps.n(), m_encFps.d());
     if (pInParams->nGOPLength == 0) {
-        pInParams->nGOPLength = (mfxU16)((m_encFps.n() + m_encFps.d() - 1) / m_encFps.d()) * 10;
+        if (pInParams->codec == RGY_CODEC_AV1) {
+            const auto tmp = ((m_encFps.n() + m_encFps.d() - 1) / m_encFps.d()) * 10;
+            // GopRefDist で割り切れる数にすることで圧縮率を最大化する
+            pInParams->nGOPLength = std::max((int)((tmp / (double)pInParams->GopRefDist) + 0.5), 1) * pInParams->GopRefDist;
+        } else {
+            pInParams->nGOPLength = (mfxU16)((m_encFps.n() + m_encFps.d() - 1) / m_encFps.d()) * 10;
+        }
         PrintMes(RGY_LOG_DEBUG, _T("InitMfxEncParams: Auto GOP Length: %d\n"), pInParams->nGOPLength);
     }
     m_encParams.videoPrm.mfx.FrameInfo.FrameRateExtN = m_encFps.n();
