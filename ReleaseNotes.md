@@ -1,5 +1,11 @@
 # QSVEnc Release Notes
 
+## 7.92
+
+- Change default B-frames for HEVC from 3 to 8.
+- Adjust default maximum GOP length for AV1 to be a multiple of gop-ref-dist.
+- Change several options to let the driver handle by default.
+
 ## 7.91
 
 - Fix 10-bit processing in [--vpp-afs](./QSVEncC_Options.en.md#--vpp-afs-param1value1param2value2).
