@@ -296,7 +296,7 @@ struct sInputParams {
     RGY_CHROMAFMT outputCsp;
     int nIdrInterval;  // Idr frame interval to I frame, not supported
     int nGOPLength;    // (Max) GOP Length
-    std::optional<bool> openGOP;      // if false, GOP_CLOSED is set
+    bool openGOP;      // if false, GOP_CLOSED is set
     bool bforceGOPSettings; // if true, GOP_STRICT is set
     int GopRefDist;    // set sequential Bframes num + 1, 0 is auto
     int nRef;          // set ref frames num.

@@ -2425,7 +2425,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
         OPT_NUM(_T("--gop-ref-dist"), GopRefDist);
     }
     OPT_BOOL_OPT(_T("--b-pyramid"), _T("--no-b-pyramid"), bBPyramid);
-    OPT_BOOL_OPT(_T("--open-gop"), _T("--closed-gop"), openGOP);
+    OPT_BOOL(_T("--open-gop"), _T("--no-open-gop"), openGOP);
     OPT_BOOL(_T("--strict-gop"), _T(""), bforceGOPSettings);
     OPT_BOOL_OPT(_T("--i-adapt"), _T("--no-i-adapt"), bAdaptiveI);
     OPT_BOOL_OPT(_T("--b-adapt"), _T("--no-b-adapt"), bAdaptiveB);

@@ -680,7 +680,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
                 }
             }
         }
-        if (pInParams->openGOP.value_or(false)) {
+        if (pInParams->openGOP) {
             PrintMes(RGY_LOG_WARN, _T("OpenGOP is not supported with hyper-mode on, disabled.\n"));
             pInParams->openGOP = false;
         }
@@ -987,16 +987,16 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
     m_encParams.videoPrm.mfx.CodecLevel              = (mfxU16)pInParams->CodecLevel;
     m_encParams.videoPrm.mfx.CodecProfile            = (mfxU16)pInParams->CodecProfile;
     m_encParams.videoPrm.mfx.GopOptFlag              = 0;
-    m_encParams.videoPrm.mfx.GopOptFlag             |= (pInParams->openGOP.has_value() && !pInParams->openGOP.value()) ? MFX_GOP_CLOSED : 0x00;
+    m_encParams.videoPrm.mfx.GopOptFlag             |= (!pInParams->openGOP) ? MFX_GOP_CLOSED : 0x00;
 
     /* For H.264, IdrInterval specifies IDR-frame interval in terms of I-frames; if IdrInterval = 0, then every I-frame is an IDR-frame. If IdrInterval = 1, then every other I-frame is an IDR-frame, etc.
      * For HEVC, if IdrInterval = 0, then only first I-frame is an IDR-frame. If IdrInterval = 1, then every I-frame is an IDR-frame. If IdrInterval = 2, then every other I-frame is an IDR-frame, etc.
      * For MPEG2, IdrInterval defines sequence header interval in terms of I-frames. If IdrInterval = N, SDK inserts the sequence header before every Nth I-frame. If IdrInterval = 0 (default), SDK inserts the sequence header once at the beginning of the stream.
      * If GopPicSize or GopRefDist is zero, IdrInterval is undefined. */
     if (pInParams->codec == RGY_CODEC_HEVC) {
-        m_encParams.videoPrm.mfx.IdrInterval = (mfxU16)((!pInParams->openGOP.value_or(true)) ? 1 : 1 + ((m_encFps.n() + m_encFps.d() - 1) / m_encFps.d()) * 600 / pInParams->nGOPLength);
+        m_encParams.videoPrm.mfx.IdrInterval = (mfxU16)((!pInParams->openGOP) ? 1 : 1 + ((m_encFps.n() + m_encFps.d() - 1) / m_encFps.d()) * 600 / pInParams->nGOPLength);
     } else if (pInParams->codec == RGY_CODEC_H264) {
-        m_encParams.videoPrm.mfx.IdrInterval = (mfxU16)((!pInParams->openGOP.value_or(true)) ? 0 : ((m_encFps.n() + m_encFps.d() - 1) / m_encFps.d()) * 600 / pInParams->nGOPLength);
+        m_encParams.videoPrm.mfx.IdrInterval = (mfxU16)((!pInParams->openGOP) ? 0 : ((m_encFps.n() + m_encFps.d() - 1) / m_encFps.d()) * 600 / pInParams->nGOPLength);
     } else {
         m_encParams.videoPrm.mfx.IdrInterval = 0;
     }
