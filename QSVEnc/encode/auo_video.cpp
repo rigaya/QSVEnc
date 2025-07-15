@@ -69,10 +69,11 @@
 static const int MAX_CONV_THREADS = 4;
 
 int get_aviutl_color_format(int use_highbit, RGY_CSP csp) {
+    const bool isAviutl2 = is_aviutl2();
     //Aviutlからの入力に使用するフォーマット
     RGY_CHROMAFMT chromafmt = RGY_CSP_CHROMA_FORMAT[csp];
 
-    if (use_highbit) {
+    if (use_highbit && !isAviutl2) {
         return CF_YC48;
     }
 
@@ -80,7 +81,7 @@ int get_aviutl_color_format(int use_highbit, RGY_CSP csp) {
     case RGY_CHROMAFMT_RGB:
         return CF_RGB;
     case RGY_CHROMAFMT_YUV444:
-        return CF_YC48;
+        return isAviutl2 ? CF_RGB : CF_YC48;
     case RGY_CHROMAFMT_YUV420:
     case RGY_CHROMAFMT_YUV422:
     default:
@@ -89,10 +90,11 @@ int get_aviutl_color_format(int use_highbit, RGY_CSP csp) {
 }
 
 void get_csp_and_bitdepth(bool& use_highbit, RGY_CSP& csp, const CONF_GUIEX *conf) {
+    const bool isAviutl2 = is_aviutl2();
     sInputParams enc_prm;
     parse_cmd(&enc_prm, conf->enc.cmd);
     const int bitdepth = getEncoderBitdepth(&enc_prm);
-    use_highbit = bitdepth > 8;
+    use_highbit = !isAviutl2 && bitdepth > 8;
 
     csp = getMFXCsp(enc_prm.outputCsp, bitdepth);
     if (enc_prm.outputCsp == RGY_CHROMAFMT_RGB) {
@@ -101,6 +103,12 @@ void get_csp_and_bitdepth(bool& use_highbit, RGY_CSP& csp, const CONF_GUIEX *con
     } else {
         switch (enc_prm.outputCsp) {
         case RGY_CHROMAFMT_YUV444:
+            if (isAviutl2) {
+                csp = RGY_CSP_RGB;
+            } else {
+                csp = use_highbit ? RGY_CSP_YUV444_16 : RGY_CSP_YUV444;
+            }
+            break;
         case RGY_CHROMAFMT_YUV422:
             csp = use_highbit ? RGY_CSP_YUV444_16 : RGY_CSP_YUV444;
             break;
@@ -441,11 +449,12 @@ static int send_frame(
             src_pitch = tempBufForNonModWidthPitch;
             ptr_src = tempBufForNonModWidth.get();
         }
+        const int src_uv_pitch = (input_csp == RGY_CSP_YC48) ? src_pitch : ((input_csp == RGY_CSP_BGR24R) ? src_pitch : src_pitch >> 1);
         int dummy[4] = { 0 };
         convert->run((enc_prm.input.picstruct & RGY_PICSTRUCT_INTERLACED) ? 1 : 0,
             dst_array, (const void**)&ptr_src, oip->w,
             src_pitch,
-            (input_csp == RGY_CSP_YC48) ? src_pitch : ((input_csp == RGY_CSP_BGR24R) ? src_pitch : src_pitch >> 1),
+            src_uv_pitch,
             prmsm->pitch, prmsm->pitch, oip->h, oip->h, dummy);
     }
     prmsm->timestamp[sendFrame & 1] = (int64_t)i * 4;
@@ -578,7 +587,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
 
     //YUY2/YC48->NV12/YUV444, RGBコピー用関数
     const int input_csp_idx = get_aviutl_color_format(output_highbit_depth, rgy_output_csp);
-    const RGY_CSP input_csp = (input_csp_idx == CF_YC48) ? RGY_CSP_YC48 : ((input_csp_idx == CF_RGB) ? RGY_CSP_BGR24R : RGY_CSP_YUY2);;
+    const RGY_CSP input_csp = (input_csp_idx == CF_YC48) ? RGY_CSP_YC48 : ((input_csp_idx == CF_RGB) ? RGY_CSP_BGR24R : RGY_CSP_YUY2);
 
     //自動フィールドシフト関連
     if (pe->muxer_to_be_used != MUXER_DISABLED) {

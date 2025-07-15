@@ -312,7 +312,11 @@ static BOOL check_muxer_matched_with_ini(const MUXER_SETTINGS *mux_stg) {
 }
 
 bool is_afsvfr(const CONF_GUIEX *conf) {
+#if ENCODER_SVTAV1
+    return (conf->vid.afs != 0 && !conf->vid.afs_24fps);
+#else
     return conf->vid.afs != 0;
+#endif
 }
 
 static BOOL check_amp(CONF_GUIEX *conf) {
@@ -474,7 +478,7 @@ BOOL check_output(CONF_GUIEX *conf, OUTPUT_INFO *oip, const PRM_ENC *pe, guiEx_s
 
     char pluginsDir[MAX_PATH_LEN] = { 0 };
     char defaultExeDir2[MAX_PATH_LEN] = { 0 };
-    PathCombineLong(pluginsDir, _countof(pluginsDir), aviutl_dir, "plugins");
+    get_auo_dir(pluginsDir, _countof(pluginsDir));
     PathCombineLong(defaultExeDir2, _countof(defaultExeDir2), pluginsDir, DEFAULT_EXE_DIR);
 
     const auto auo_check_fileopen_path = find_auo_check_fileopen(defaultExeDir, defaultExeDir2);
@@ -808,7 +812,7 @@ static void set_tmpdir(PRM_ENC *pe, int tmp_dir_index, const char *savefile, con
 
             char pluginsDir[MAX_PATH_LEN] = { 0 };
             char defaultExeDir2[MAX_PATH_LEN] = { 0 };
-            PathCombineLong(pluginsDir, _countof(pluginsDir), sys_dat->aviutl_dir, "plugins");
+            get_auo_dir(pluginsDir, _countof(pluginsDir));
             PathCombineLong(defaultExeDir2, _countof(defaultExeDir2), pluginsDir, DEFAULT_EXE_DIR);
 
             const auto auo_check_fileopen_path = find_auo_check_fileopen(defaultExeDir, defaultExeDir2);
@@ -903,6 +907,20 @@ void init_enc_prm(const CONF_GUIEX *conf, PRM_ENC *pe, OUTPUT_INFO *oip, const S
         }
         // 拡張子を付与
         strcat_s(pe->save_file_name, OUTPUT_FILE_EXT[out_ext_idx]);
+        // ファイル名が重複していた場合、連番を付与する
+        if (PathFileExists(pe->save_file_name)) {
+            char tmp[MAX_PATH_LEN];
+            for (int i = 0; i < 1000000; i++) {
+                char new_ext[32];
+                sprintf_s(new_ext, ".%d%s", i, OUTPUT_FILE_EXT[out_ext_idx]);
+                strcpy_s(tmp, pe->save_file_name);
+                change_ext(tmp, _countof(tmp), new_ext);
+                if (!PathFileExists(tmp)) {
+                    strcpy_s(pe->save_file_name, tmp);
+                    break;
+                }
+            }
+        }
         // オリジナルのsavefileのポインタを保存
         pe->org_save_file_name = oip->savefile;
         // 保存先のファイル名を変更
