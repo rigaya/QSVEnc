@@ -202,6 +202,7 @@ jobs:
           xcopy /e /y Aviutl_QSVEnc_release\plugins   Aviutl_QSVEnc_release2\Plugin
           del Aviutl_QSVEnc_release2\Plugin\auo_setup.auf
           del Aviutl_QSVEnc_release2\Plugin\exe_files\auo_setup.exe
+          rmdir /s /q Aviutl_QSVEnc_release2\Plugin\exe_files\QSVEncC\x86
           7z a -t7z -m0=lzma -mx=9 -mmt Aviutl2_QSVEnc_${{ needs.get_version_name.outputs.version_name }}.7z .\Aviutl_QSVEnc_release2\*
           copy /b QSVEnc\7zSD.noadmin.sfx + QSVEnc\7zInstallerConfig.txt + Aviutl2_QSVEnc_${{ needs.get_version_name.outputs.version_name }}.7z Aviutl2_QSVEnc_${{ needs.get_version_name.outputs.version_name }}_install.exe
 
