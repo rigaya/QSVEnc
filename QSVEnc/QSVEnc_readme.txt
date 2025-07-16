@@ -313,6 +313,14 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2025.07.03 (7.93)
+- AviUtl2向け簡易インストーラを追加。
+  - 7zipの自己解凍形式からPlugin\exe_files\auo_setup2.exeを呼び出している。
+- AviUtl2で発生する問題を修正。
+  - Pluginフォルダ内のexe_filesから実行ファイルを検索できるように。
+  - AviUtl2で、10bit出力ができなくなっていた問題を修正。
+  - AviUtl2での実行ファイルを指定しなくてもhwエンコードのチェックが設定画面から行われるように。
+
 2025.07.03 (7.92)
 - Aviutl2に対応。
 - AV1のデフォルトの最大GOP長をgop-ref-distの倍数になるように調整。

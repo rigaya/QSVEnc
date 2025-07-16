@@ -24,6 +24,31 @@ QSVEncを使用したことによる、いかなる損害・トラブルにつ�
 ## ダウンロード & 更新履歴
 [こちら](https://github.com/rigaya/QSVEnc/releases)から、Aviutl_QSVEnc_x.xx.zipをダウンロードしてください。
 
+### AviUtl2 への導入・更新
+
+ダウンロードしたexeファイルをダブルクリックして開きます。
+
+![exeのダブルクリック](./data/QSVEnc_7_93_install_aviutl2_01.png)
+
+インストールしますか? とでたら [はい] をクリックします。
+
+![インストールしますか](./data/QSVEnc_7_93_install_aviutl2_02.png)
+
+自動的にアーカイブが展開され、インストールが開始されます。
+
+![exeのダブルクリック](./data/QSVEnc_7_93_install_aviutl2_03.png)
+
+QSVEncの動作に必要な追加モジュール(VC runtime)の導入が追加で必要な環境では、ユーザーアカウント制御画面が表示されます。
+その場合は、 [はい] をクリックします。
+_環境によっては準備が不要な場合があり、その場合は表示されません。_
+
+<img src="./data/QSVEnc_7_93_install_aviutl2_04.png" width="360px">
+
+下記のような画面になり、「QSVEnc を使用する準備が完了しました。」と出れば終了です。
+ウィンドウを閉じ、AviUtl2を起動してQSVEncが追加されているか確認してください。
+
+![インストール完了](./data/QSVEnc_7_93_install_aviutl2_05.png)
+
 ## QSVEnc の Aviutl への導入・更新
 
 ### ダウンロード
