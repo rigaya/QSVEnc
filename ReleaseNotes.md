@@ -1,5 +1,9 @@
 # QSVEnc Release Notes
 
+## 7.93
+
+- Updates for QSVEnc.auo (AviUtl/AviUtl2 plugin).
+
 ## 7.92
 
 - Adjust default maximum GOP length for AV1 to be a multiple of gop-ref-dist.
