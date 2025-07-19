@@ -1,5 +1,9 @@
 # QSVEnc Release Notes
 
+## 7.94
+
+- Fix framerate not set properly with --avhw/--avsw when reading mpeg2 ts files. 
+
 ## 7.93
 
 - Updates for QSVEnc.auo (AviUtl/AviUtl2 plugin).
