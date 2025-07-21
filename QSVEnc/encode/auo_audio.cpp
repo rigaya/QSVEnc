@@ -239,13 +239,23 @@ static uint32_t build_wave_header(BYTE *head, const OUTPUT_INFO *oip, BOOL use_8
     return build_wave_header(head, oip->audio_ch, oip->audio_rate, use_8bit, sample_n, enable_rf64);
 }
 
-static void correct_header(FILE *f_out, int data_size) {
+static void correct_header(FILE *f_out, int samples_read, uint64_t data_size64, BOOL use_rf64) {
     //2箇所の出力データサイズ部分を書き換え
-    int riff_size = data_size + (WAVE_SIZE_POS - RIFF_SIZE_POS);
-    _fseeki64(f_out, RIFF_SIZE_POS, SEEK_SET);
-    fwrite(&riff_size, sizeof(int), 1, f_out);
-    _fseeki64(f_out, WAVE_SIZE_POS - RIFF_SIZE_POS, SEEK_CUR);
-    fwrite(&data_size, sizeof(int), 1, f_out);
+    if (use_rf64) {
+        uint64_t riff_size64 = data_size64 + (WAVE_SIZE_POS + DS64_SIZE+8/*DS64_HEADER*/ - RIFF_SIZE_POS);
+        uint64_t samples_read64 = samples_read;
+        _fseeki64(f_out, 20, SEEK_SET);
+        fwrite(&riff_size64, sizeof(uint64_t), 1, f_out);
+        fwrite(&data_size64, sizeof(uint64_t), 1, f_out);
+        fwrite(&samples_read64, sizeof(uint64_t), 1, f_out);
+    } else {
+        uint32_t data_size32 = (uint32_t)data_size64;
+        uint32_t riff_size32 = data_size32 + (WAVE_SIZE_POS - RIFF_SIZE_POS);
+        _fseeki64(f_out, RIFF_SIZE_POS, SEEK_SET);
+        fwrite(&riff_size32, sizeof(uint32_t), 1, f_out);
+        _fseeki64(f_out, WAVE_SIZE_POS - RIFF_SIZE_POS, SEEK_CUR);
+        fwrite(&data_size32, sizeof(uint32_t), 1, f_out);
+    }
 }
 
 typedef struct {
@@ -273,7 +283,7 @@ static size_t write_file(aud_data_t *aud_dat, const PRM_ENC *pe, const void *buf
         DWORD sizeWritten = 0;
         //非同期処理中は0を返すことがある
         WriteFile(aud_dat->h_aud_namedpipe, buf, size, &sizeWritten, &overlapped);
-        while (WaitForSingleObject(aud_dat->he_ov_aud_namedpipe, 1000) != WAIT_OBJECT_0) {
+        while (WaitForSingleObject(overlapped.hEvent, 1000) != WAIT_OBJECT_0) {
             if (pe->aud_parallel.abort) {
                 return 0;
             }
@@ -446,13 +456,14 @@ static AUO_RESULT wav_file_open(aud_data_t *aud_dat, const OUTPUT_INFO *oip, con
     return ret;
 }
 
-static AUO_RESULT wav_file_close(aud_data_t *aud_dat, const OUTPUT_INFO *oip, int samples_read, int wav_sample_size, BOOL use_pipe) {
+static AUO_RESULT wav_file_close(aud_data_t *aud_dat, const OUTPUT_INFO *oip, int samples_read, BOOL wav_8bit, BOOL use_pipe, BOOL enable_rf64) {
     AUO_RESULT ret = AUO_RESULT_SUCCESS;
     if (aud_dat->is_internal) return ret;
+    const int wav_sample_size = oip->audio_ch * ((wav_8bit) ? sizeof(BYTE) : sizeof(short));
 
     //終了処理
     if (!use_pipe && oip->audio_n != samples_read)
-        correct_header(aud_dat->fp_out, samples_read * wav_sample_size);
+        correct_header(aud_dat->fp_out, samples_read, (uint64_t)samples_read * wav_sample_size, enable_rf64 && need_r64(oip->audio_n, oip->audio_ch, wav_8bit));
 
     //ファイルを閉じる
     (use_pipe) ? CloseStdIn(&aud_dat->pipes) : fclose(aud_dat->fp_out);
@@ -557,7 +568,7 @@ static AUO_RESULT wav_output(aud_data_t *aud_dat, const OUTPUT_INFO *oip, PRM_EN
 
         //ファイルクローズ
         for (int i_aud = 0; i_aud < pe->aud_count; i_aud++)
-            ret |= wav_file_close(&aud_dat[i_aud], oip, samples_read, wav_sample_size, use_pipe);
+            ret |= wav_file_close(&aud_dat[i_aud], oip, samples_read, wav_sample_size, use_pipe, enable_rf64);
     } else {
         //これをやっておかないとプラグインがフリーズしてしまう
         //動画との音声との同時処理が終了
@@ -569,7 +580,8 @@ static AUO_RESULT wav_output(aud_data_t *aud_dat, const OUTPUT_INFO *oip, PRM_EN
         CloseHandle(aud_dat->he_ov_aud_namedpipe);
     }
     if (aud_dat->h_aud_namedpipe) {
-        DisconnectNamedPipe(aud_dat->h_aud_namedpipe);
+        FlushFileBuffers(aud_dat->h_aud_namedpipe);
+        //DisconnectNamedPipe(aud_dat->h_aud_namedpipe); //これをするとなぜかInvalid argumentというメッセージが出てしまう
         CloseHandle(aud_dat->h_aud_namedpipe);
     }
 
@@ -629,9 +641,9 @@ static AUO_RESULT audio_finish_enc(AUO_RESULT ret, aud_data_t *aud_dat, const AU
         //最後のメッセージを回収
         while (ReadLogExe(&aud_dat->pipes, aud_stg->dispname, &aud_dat->log_line_cache) > 0);
 
-        UINT64 audfilesize = 0;
+        uint64_t audfilesize = 0;
         if (!PathFileExists(aud_dat->audfile) ||
-            (GetFileSizeUInt64(aud_dat->audfile, &audfilesize) && audfilesize == 0)) {
+            (rgy_get_filesize(aud_dat->audfile, &audfilesize) && audfilesize == 0)) {
                 //エラーが発生した場合
                 ret |= AUO_RESULT_ERROR; error_audenc_failed(aud_stg->dispname, aud_dat->args);
                 write_cached_lines(LOG_ERROR, aud_stg->dispname, &aud_dat->log_line_cache);
@@ -656,9 +668,13 @@ AUO_RESULT audio_output(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, c
         return ret;
 
     //使用するエンコーダの設定を選択
-    const CONF_AUDIO_BASE *cnf_aud = (conf->aud.use_internal) ? &conf->aud.in : &conf->aud.ext;
+    CONF_AUDIO_BASE *cnf_aud = (conf->aud.use_internal) ? &conf->aud.in : &conf->aud.ext;
     const AUDIO_SETTINGS *aud_stg = (conf->aud.use_internal) ? &sys_dat->exstg->s_aud_int[cnf_aud->encoder] : &sys_dat->exstg->s_aud_ext[cnf_aud->encoder];
     pe->aud_count = (aud_stg->mode[cnf_aud->enc_mode].use_8bit == 2) ? 2 : 1;
+    //ビットレートモードで指定値が0の場合はデフォルト値を使用する
+    if (aud_stg->mode[cnf_aud->enc_mode].bitrate && cnf_aud->bitrate == 0) {
+        cnf_aud->bitrate = aud_stg->mode[cnf_aud->enc_mode].bitrate_default;
+    }
 
     //もし必要なら、オーディオディレイカット用の追加sample数を再計算する
     recalculate_audio_delay_cut_for_afs(conf, oip, pe, aud_stg, cnf_aud);

@@ -133,6 +133,9 @@ void warning_failed_open_bat_orig();
 void warning_failed_open_bat_new();
 void warning_video_very_short();
 
+void error_get_exedit_file_mapping();
+void error_get_exedit_output_start();
+
 std::wstring getLastErrorStr(DWORD err);
 
 #endif //_AUO_ERROR_H_

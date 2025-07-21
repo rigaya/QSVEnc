@@ -226,8 +226,8 @@ System::Void frmConfig::LoadLocalStg() {
     LocalStg.CustomMP4TmpDir = String(_ex_stg->s_local.custom_mp4box_tmp_dir).ToString();
     LocalStg.LastAppDir      = String(_ex_stg->s_local.app_dir).ToString();
     LocalStg.LastBatDir      = String(_ex_stg->s_local.bat_dir).ToString();
-    LocalStg.vidEncName      = String(_ex_stg->s_vid.filename).ToString();
-    LocalStg.vidEncPath      = String(_ex_stg->s_vid.fullpath).ToString();
+    LocalStg.vidEncName      = String(_ex_stg->s_enc.filename).ToString();
+    LocalStg.vidEncPath      = String(_ex_stg->s_enc.fullpath).ToString();
     LocalStg.MP4MuxerExeName = String(_ex_stg->s_mux[MUXER_MP4].filename).ToString();
     LocalStg.MP4MuxerPath    = String(_ex_stg->s_mux[MUXER_MP4].fullpath).ToString();
     LocalStg.MKVMuxerExeName = String(_ex_stg->s_mux[MUXER_MKV].filename).ToString();
@@ -260,12 +260,12 @@ System::Boolean frmConfig::CheckLocalStg() {
         err += LOAD_CLI_STRING(AUO_CONFIG_VID_ENC_NOT_EXIST) + L"\n [ " + LocalStg.vidEncPath + L" ]\n";
     }
     //音声エンコーダのチェック (実行ファイル名がない場合はチェックしない)
-    if (fcgCBAudioUseExt->Checked
+    if (useAudioExt()
         && LocalStg.audEncExeName[fcgCXAudioEncoder->SelectedIndex]->Length) {
         String^ AudioEncoderPath = LocalStg.audEncPath[fcgCXAudioEncoder->SelectedIndex];
         if (AudioEncoderPath->Length > 0
             && !File::Exists(AudioEncoderPath)
-            && (fcgCXAudioEncoder->SelectedIndex != sys_dat->exstg->get_faw_index(!fcgCBAudioUseExt->Checked)) ) {
+            && (fcgCXAudioEncoder->SelectedIndex != sys_dat->exstg->get_faw_index(!useAudioExt())) ) {
             //音声実行ファイルがない かつ
             //選択された音声がfawでない
             if (!error) err += L"\n\n";
@@ -275,7 +275,7 @@ System::Boolean frmConfig::CheckLocalStg() {
     }
     //FAWのチェック
     if (fcgCBFAWCheck->Checked) {
-        if (sys_dat->exstg->get_faw_index(!fcgCBAudioUseExt->Checked) == FAW_INDEX_ERROR) {
+        if (sys_dat->exstg->get_faw_index(!useAudioExt()) == FAW_INDEX_ERROR) {
             if (!error) err += L"\n\n";
             error = true;
             err += LOAD_CLI_STRING(AUO_CONFIG_FAW_STG_NOT_FOUND_IN_INI1) + L"\n"
@@ -297,7 +297,7 @@ System::Void frmConfig::SaveLocalStg() {
     GetCHARfromString(_ex_stg->s_local.custom_audio_tmp_dir,  sizeof(_ex_stg->s_local.custom_audio_tmp_dir),  LocalStg.CustomAudTmpDir);
     GetCHARfromString(_ex_stg->s_local.app_dir,               sizeof(_ex_stg->s_local.app_dir),               LocalStg.LastAppDir);
     GetCHARfromString(_ex_stg->s_local.bat_dir,               sizeof(_ex_stg->s_local.bat_dir),               LocalStg.LastBatDir);
-    GetCHARfromString(_ex_stg->s_vid.fullpath,                sizeof(_ex_stg->s_vid.fullpath),                LocalStg.vidEncPath);
+    GetCHARfromString(_ex_stg->s_enc.fullpath,                sizeof(_ex_stg->s_enc.fullpath),                LocalStg.vidEncPath);
     GetCHARfromString(_ex_stg->s_mux[MUXER_MP4].fullpath,     sizeof(_ex_stg->s_mux[MUXER_MP4].fullpath),     LocalStg.MP4MuxerPath);
     GetCHARfromString(_ex_stg->s_mux[MUXER_MKV].fullpath,     sizeof(_ex_stg->s_mux[MUXER_MKV].fullpath),     LocalStg.MKVMuxerPath);
     GetCHARfromString(_ex_stg->s_mux[MUXER_TC2MP4].fullpath,  sizeof(_ex_stg->s_mux[MUXER_TC2MP4].fullpath),  LocalStg.TC2MP4Path);
@@ -900,7 +900,7 @@ System::Void frmConfig::SetTXMaxLen(TextBox^ TX, int max_len) {
 
 System::Void frmConfig::SetTXMaxLenAll() {
     //MaxLengthに最大文字数をセットし、それをもとにバイト数計算を行うイベントをセットする。
-    SetTXMaxLen(fcgTXVideoEncoderPath,   sizeof(sys_dat->exstg->s_vid.fullpath) - 1);
+    SetTXMaxLen(fcgTXVideoEncoderPath,   sizeof(sys_dat->exstg->s_enc.fullpath) - 1);
     SetTXMaxLen(fcgTXAudioEncoderPath,   sizeof(sys_dat->exstg->s_aud_ext[0].fullpath) - 1);
     SetTXMaxLen(fcgTXMP4MuxerPath,       sizeof(sys_dat->exstg->s_mux[MUXER_MP4].fullpath) - 1);
     SetTXMaxLen(fcgTXMKVMuxerPath,       sizeof(sys_dat->exstg->s_mux[MUXER_MKV].fullpath) - 1);

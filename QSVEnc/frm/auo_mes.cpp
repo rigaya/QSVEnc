@@ -285,6 +285,8 @@ static const char * AUO_MES_ID_NAME_STR[] = {
 "AUO_ERR_FAILED_OPEN_BAT_NEW",
 "AUO_ERR_VIDEO_VERY_SHORT1",
 "AUO_ERR_VIDEO_VERY_SHORT2",
+"AUO_ERR_EXEDIT_NOT_FOUND",
+"AUO_ERR_EXEDIT_OUTPUT_START",
 "AUO_AUDIO_SECTION_START",
 "AUO_AUDIO_FAW_INDEX_ERR",
 "AUO_AUDIO_ERR_TOO_SHORT",
@@ -1119,6 +1121,7 @@ static const char * AUO_MES_ID_NAME_STR[] = {
 "AuofosCBAutoDelChap",
 "AuofostabPageGeneral",
 "AuofosLBDefaultAudioEncoder",
+"AuofosLBPowerThrottling",
 "AuofosCBAutoRefLimitByLevel",
 "AuofosCBChapConvertToUTF8",
 "AuofosCBKeepQPFile",
@@ -1189,17 +1192,6 @@ static const char * AUO_MES_ID_NAME_STR[] = {
 };
 
 static_assert(AUO_MESSAGE_FIN + 1 == _countof(AUO_MES_ID_NAME_STR));
-
-#if ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1
-std::string str_replace(std::string str, const std::string& from, const std::string& to) {
-	std::string::size_type pos = 0;
-	while (pos = str.find(from, pos), pos != std::string::npos) {
-		str.replace(pos, from.length(), to);
-		pos += to.length();
-	}
-	return str;
-}
-#endif
 
 AuoMesSections AuoMessages::getSectionId(const std::string& section) const {
 	for (size_t i = 0; i < AUO_MES_SECTIONS_STR.size(); i++) {

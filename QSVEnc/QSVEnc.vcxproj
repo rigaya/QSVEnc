@@ -168,7 +168,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <DisableSpecificWarnings>4505;4564;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4564;4091;4100;4127;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
       <AdditionalOptions>/execution-charset:shift_jis </AdditionalOptions>
@@ -222,7 +222,7 @@ exit /B 0</Command>
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
-      <DisableSpecificWarnings>4505;4564;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4564;4091;4100;4127;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
       <AdditionalOptions>/execution-charset:shift_jis </AdditionalOptions>
@@ -279,7 +279,7 @@ exit /B 0</Command>
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <DisableSpecificWarnings>4505;4564;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4564;4091;4100;4127;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
       <AdditionalOptions>/execution-charset:shift_jis </AdditionalOptions>
@@ -333,7 +333,7 @@ exit /B 0</Command>
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
-      <DisableSpecificWarnings>4505;4564;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4564;4091;4100;4127;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
       <AdditionalOptions>/execution-charset:shift_jis </AdditionalOptions>
@@ -391,7 +391,7 @@ exit /B 0</Command>
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <DisableSpecificWarnings>4505;4564;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4564;4091;4100;4127;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -449,7 +449,7 @@ exit /B 0</Command>
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <DisableSpecificWarnings>4505;4564;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4564;4091;4100;4127;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -509,7 +509,7 @@ exit /B 0</Command>
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <DisableSpecificWarnings>4505;4564;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4564;4091;4100;4127;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -567,7 +567,7 @@ exit /B 0</Command>
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <DisableSpecificWarnings>4505;4564;4091;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;4564;4091;4100;4127;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -719,20 +719,6 @@ exit /B 0</Command>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
     </ClCompile>
     <ClCompile Include="encode\auo_audio.cpp">
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|x64'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">false</CompileAsManaged>
-      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</CompileAsManaged>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
-    </ClCompile>
-    <ClCompile Include="encode\auo_chapter.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">false</CompileAsManaged>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|Win32'">false</CompileAsManaged>
@@ -987,7 +973,6 @@ exit /B 0</Command>
     </ClInclude>
     <ClInclude Include="output.h" />
     <ClInclude Include="encode\auo_audio.h" />
-    <ClInclude Include="encode\auo_chapter.h" />
     <ClInclude Include="encode\auo_encode.h" />
     <ClInclude Include="encode\auo_mux.h" />
     <ClInclude Include="encode\auo_pipe.h" />

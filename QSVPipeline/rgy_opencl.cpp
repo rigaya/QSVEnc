@@ -89,17 +89,17 @@ static void to_tchar(TCHAR *buf, uint32_t buf_size, const char *string) {
 #endif
 };
 
-static inline const char *strichr(const char *str, int c) {
+static inline const char *rgy_cl_strichr(const char *str, int c) {
     c = tolower(c);
     for (; *str; str++)
         if (c == tolower(*str))
             return str;
     return NULL;
 }
-static inline const char *stristr(const char *str, const char *substr) {
+static inline const char *rgy_cl_stristr(const char *str, const char *substr) {
     size_t len = 0;
     if (substr && (len = strlen(substr)) != 0)
-        for (; (str = strichr(str, substr[0])) != NULL; str++)
+        for (; (str = rgy_cl_strichr(str, substr[0])) != NULL; str++)
             if (_strnicmp(str, substr, len) == 0)
                 return str;
     return NULL;
@@ -131,10 +131,10 @@ static bool checkVendor(const char *str, const char *VendorName) {
     if (VendorName == nullptr) {
         return true;
     }
-    if (stristr(str, VendorName) != nullptr)
+    if (rgy_cl_stristr(str, VendorName) != nullptr)
         return true;
-    if (stristr(VendorName, "AMD") != nullptr)
-        return stristr(str, "Advanced Micro Devices") != nullptr;
+    if (rgy_cl_stristr(VendorName, "AMD") != nullptr)
+        return rgy_cl_stristr(str, "Advanced Micro Devices") != nullptr;
     return false;
 }
 

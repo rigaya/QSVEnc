@@ -41,16 +41,30 @@
 static const BOOL   DEFAULT_LARGE_CMD_BOX         = 0;
 static const BOOL   DEFAULT_AUTO_AFS_DISABLE      = 0;
 static const int    DEFAULT_OUTPUT_EXT            = 0;
+static const BOOL   DEFAULT_AUTO_DEL_STATS        = 1;
 static const BOOL   DEFAULT_AUTO_DEL_CHAP         = 1;
+static const BOOL   DEFAULT_KEEP_QP_FILE          = 0;
+static const BOOL   DEFAULT_AUD_DELAY_CUT_MODE    = 0;
 static const BOOL   DEFAULT_DISABLE_TOOLTIP_HELP  = 0;
 static const BOOL   DEFAULT_DISABLE_VISUAL_STYLES = 0;
 static const BOOL   DEFAULT_ENABLE_STG_ESC_KEY    = 0;
 static const BOOL   DEFAULT_SAVE_RELATIVE_PATH    = 1;
 static const BOOL   DEFAULT_CHAP_NERO_TO_UTF8     = 0;
+#if ENCODER_FFMPEG
+static const int    DEFAULT_AUDIO_ENCODER_EXT     = 0;
+#else
 static const int    DEFAULT_AUDIO_ENCODER_EXT     = 15;
+#endif
 static const int    DEFAULT_AUDIO_ENCODER_IN      = 1;
-static const BOOL   DEFAULT_AUDIO_ENCODER_USE_IN  = 1;
+static const BOOL   DEFAULT_AUDIO_ENCODER_USE_IN  = (ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1) ? 0 : 1;
+static const int    DEFAULT_THREAD_PTHROTTLING    = 0;
+static const int    DEFAULT_AMP_RETRY_LIMIT       = 2;
+static const double DEFAULT_AMP_MARGIN            = 0.05;
+static const double DEFAULT_AMP_REENC_AUDIO_MULTI = 0.15;
+static const BOOL   DEFAULT_AMP_KEEP_OLD_FILE     = 0;
 static const BOOL   DEFAULT_RUN_BAT_MINIMIZED     = 0;
+static const BOOL   DEFAULT_SET_KEYFRAME_AFS24FPS = 0;
+static const BOOL   DEFAULT_AUTO_REFLIMIT_BYLEVEL = 0;
 #if ENCODER_QSV
 static const BOOL   DEFAULT_FORCE_BLURAY          = 0;
 static const BOOL   DEFAULT_PERF_MONITOR          = 0;
@@ -305,12 +319,28 @@ typedef struct MUXER_SETTINGS {
     int post_mux;                 //muxerを実行したあとに別のmuxerを実行する
 } MUXER_SETTINGS;
 
-typedef struct VIDEO_SETTINGS {
+typedef struct ENC_CMD {
+    ENC_OPTION_STR *name;  //各種設定用動画エンコーダのコマンドの名前(配列、最後はnull)
+    char **cmd;   //各種設定用動画エンコーダのコマンド(配列、最後はnull)
+} ENC_CMD;
+
+typedef struct ENC_SETTINGS {
     char *filename;                      //動画エンコーダのファイル名
     char fullpath[MAX_PATH_LEN];         //動画エンコーダの場所(フルパス)
     char *default_cmd;                   //デフォルト設定用コマンドライン
+    char *default_cmd_highbit;           //highbit depthデフォルト設定用追加コマンドライン
     char *help_cmd;                      //ヘルプ表示用cmd
-} VIDEO_SETTINGS;
+    int preset_count;                    //presetの数
+    int tune_count;                      //tuneの数
+    int profile_count;                   //profileの数
+    int default_preset;                  //デフォルトpresetのインデックス
+    int default_tune;                    //デフォルトtuneのインデックス
+    int default_profile;                 //デフォルトprofileのインデックス
+    ENC_CMD preset;                     //presetコマンドライン集
+    ENC_CMD tune;                       //tuneコマンドライン集
+    ENC_CMD profile;                    //profileコマンドライン集
+    float *profile_vbv_multi;            //profileによるvbv倍率
+} ENC_SETTINGS;
 
 typedef struct FILENAME_REPLACE {
     char *from; //置換元文字列
@@ -350,11 +380,18 @@ typedef struct LOCAL_SETTINGS {
     DWORD  audio_buffer_size;                   //音声用バッファサイズ
     BOOL   auto_afs_disable;                    //自動的にafsを無効化
     int    default_output_ext;                  //デフォルトで使用する拡張子
+    BOOL   auto_del_stats;                      //自動マルチパス時、ステータスファイルを自動的に削除
     BOOL   auto_del_chap;                       //チャプターファイルの自動削除
+    BOOL   keep_qp_file;                        //キーフレーム検出で作成したqpファイルを削除しない
     BOOL   disable_tooltip_help;                //ポップアップヘルプを抑制する
     BOOL   disable_visual_styles;               //視覚効果をオフにする
     BOOL   enable_stg_esc_key;                  //設定画面でEscキーを有効化する
     AUO_FONT_INFO conf_font;                    //設定画面のフォント
+    int    thread_pthrottling_mode;             //スレッドの電力スロットリングモード
+    int    amp_retry_limit;                     //自動マルチパス試行回数制限
+    double amp_bitrate_margin_multi;            //自動マルチパスで、上限ファイルサイズからビットレートを再計算するときの倍率
+    double amp_reenc_audio_multi;               //自動マルチパスで、音声側を再エンコしてビットレート調整をする上限倍率
+    BOOL   amp_keep_old_file;                   //自動マルチパスで、上限を超えてしまったファイルを削除しない
     BOOL   chap_nero_convert_to_utf8;           //nero形式のチャプターをUTF-8に変換する
     BOOL   default_audenc_use_in;               //デフォルトの音声エンコーダとして、内蔵エンコーダを選択する
     int    default_audio_encoder_ext;           //デフォルトの音声エンコーダ
@@ -362,6 +399,8 @@ typedef struct LOCAL_SETTINGS {
     double av_length_threshold;                 //音声と映像の長さの差の割合がこの値を超える場合、エラー・警告を表示する
     BOOL   get_relative_path;                   //相対パスで保存する
     BOOL   run_bat_minimized;                   //エンコ前後バッチ処理を最小化で実行
+    BOOL   set_keyframe_as_afs_24fps;           //自動フィールドシフト使用時にも24fps化としてキーフレーム設定を強制的に行う
+    BOOL   auto_ref_limit_by_level;             //参照フレーム数をLevelにより自動的に制限する
 #if ENCODER_QSV
     BOOL   force_bluray;                        //VBR,CBR以外でもBluray用出力を許可する
     BOOL   perf_monitor;                        //パフォーマンスモニタリングを有効にする
@@ -385,8 +424,8 @@ typedef struct FILE_APPENDIX {
 
 class guiEx_settings {
 private:
+    mem_cutter s_enc_mc;
     mem_cutter fn_rep_mc;
-    mem_cutter s_vid_mc;
     mem_cutter s_aud_mc;
     mem_cutter s_mux_mc;
 
@@ -403,12 +442,16 @@ private:
     static char language[MAX_PATH_LEN];       //言語設定
     char last_out_stg[MAX_PATH_LEN];          //前回出力のstgファイル(多言語対応のため、デフォルトのCONF_LAST_OUTに加え、これも探す)
 
-    void load_vid();          //動画エンコーダ関連の設定の読み込み・更新
+    void load_enc_cmd(ENC_CMD *vidcmd, int *count, int *default_index, const char *section);  //動画エンコーダコマンドライン設定の読み込み
+
     void load_aud();          //音声エンコーダ関連の設定の読み込み・更新
     void load_aud(BOOL internal); //音声エンコーダ関連の設定の読み込み・更新
     void load_mux();          //muxerの設定の読み込み・更新
+    void load_enc();          //動画エンコーダ関連の設定の読み込み・更新
     void load_local();        //ファイルの場所等の設定の読み込み・更新
-    BOOL s_vid_refresh;              //動画設定の再ロード
+
+    int get_faw_index();             //FAWのインデックスを取得する
+    BOOL s_enc_refresh;             //動画エンコーダ関連設定の再ロード
 
     void make_default_stg_dir(char *default_stg_dir, DWORD nSize); //プロファイル設定ファイルの保存場所の作成
     BOOL check_inifile();             //iniファイルが読めるかテスト
@@ -419,10 +462,10 @@ public:
     int s_aud_ext_count;                 //音声エンコーダの数
     int s_aud_int_count;                 //音声エンコーダの数
     int s_mux_count;                 //muxerの数 (基本3固定)
-    VIDEO_SETTINGS s_vid;            //動画エンコーダの設定
     AUDIO_SETTINGS *s_aud_ext;       //音声エンコーダの設定
     AUDIO_SETTINGS *s_aud_int;       //音声エンコーダの設定
     MUXER_SETTINGS *s_mux;           //muxerの設定
+    ENC_SETTINGS  s_enc;             //動画エンコーダ関連の設定
     LOCAL_SETTINGS s_local;          //ファイルの場所等
     std::vector<FILENAME_REPLACE> fn_rep;  //一時ファイル名置換
     LOG_WINDOW_SETTINGS s_log;       //ログウィンドウ関連の設定
@@ -455,6 +498,8 @@ public:
 
     BOOL is_faw(const AUDIO_SETTINGS *aud_stg) const;
     int get_faw_index(BOOL internal) const; //FAWのインデックスを取得する
+
+    BOOL get_reset_s_enc_referesh(); //s_encが更新されたか
     const char *get_lang() const;
     const char *get_last_out_stg() const;
     void set_and_save_lang(const char *lang);
@@ -464,7 +509,7 @@ private:
     void initialize(BOOL disable_loading);
     void initialize(BOOL disable_loading, const char *_auo_path, const char *main_section);
 
-    void clear_vid();         //動画エンコーダ関連の設定の消去
+    void clear_enc();         //動画エンコーダ関連の設定の消去
     void clear_aud();         //音声エンコーダ関連の設定の消去
     void clear_mux();         //muxerの設定の消去
     void clear_local();       //ファイルの場所等の設定の消去

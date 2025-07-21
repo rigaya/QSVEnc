@@ -55,21 +55,65 @@ static const char * const STG_DEFAULT_DIRECTORY_APPENDIX = "_stg";
 
 //----    セクション名    ---------------------------------------------------
 
-#if ENCODER_QSV
+#if ENCODER_X264
+static const char * const INI_SECTION_MAIN         = "X264GUIEX";
+static const char * const INI_SECTION_ENC          = "X264";
+static const char * const INI_SECTION_ENC_DEFAULT  = "X264_DEFAULT";
+static const char * const INI_SECTION_ENC_PRESET   = "X264_PRESET";
+static const char * const INI_SECTION_ENC_TUNE     = "X264_TUNE";
+static const char * const INI_SECTION_ENC_PROFILE  = "X264_PROFILE";
+#elif ENCODER_X265
+static const char * const INI_SECTION_MAIN         = "X265GUIEX"; //CONF_VER
+static const char * const INI_SECTION_MAIN_OLD     = "X26XGUIEX"; //CONF_VER_OLD
+static const char * const INI_SECTION_ENC          = "X265";
+static const char * const INI_SECTION_ENC_DEFAULT  = "X265_DEFAULT";
+static const char * const INI_SECTION_ENC_PRESET   = "X265_PRESET";
+static const char * const INI_SECTION_ENC_TUNE     = "X265_TUNE";
+static const char * const INI_SECTION_ENC_PROFILE  = "X265_PROFILE";
+#elif ENCODER_SVTAV1
+static const char * const INI_SECTION_MAIN         = "SVTAV1GUIEX";
+static const char * const INI_SECTION_ENC          = "ENC";
+static const char * const INI_SECTION_ENC_DEFAULT  = "ENC_DEFAULT";
+static const char * const INI_SECTION_ENC_PRESET   = "ENC_PRESET";
+static const char * const INI_SECTION_ENC_TUNE     = "ENC_TUNE";
+static const char * const INI_SECTION_ENC_PROFILE  = "ENC_PROFILE";
+#elif ENCODER_QSV
 static const char * const INI_SECTION_MAIN         = "QSVENC";
+static const char * const INI_SECTION_ENC          = "VIDEO";
+static const char * const INI_SECTION_ENC_DEFAULT  = "VIDEO";
 static const char * const INI_VID_FILENAME         = "qsvencc";
+static const char * const INI_SECTION_ENC_PRESET   = "ENC_PRESET";
+static const char * const INI_SECTION_ENC_TUNE     = "ENC_TUNE";
+static const char * const INI_SECTION_ENC_PROFILE  = "ENC_PROFILE";
 #elif ENCODER_NVENC
 static const char * const INI_SECTION_MAIN         = "NVENC";
+static const char * const INI_SECTION_ENC          = "VIDEO";
+static const char * const INI_SECTION_ENC_DEFAULT  = "VIDEO";
 static const char * const INI_VID_FILENAME         = "nvencc";
+static const char * const INI_SECTION_ENC_PRESET   = "ENC_PRESET";
+static const char * const INI_SECTION_ENC_TUNE     = "ENC_TUNE";
+static const char * const INI_SECTION_ENC_PROFILE  = "ENC_PROFILE";
 #elif ENCODER_VCEENC
 static const char * const INI_SECTION_MAIN         = "VCEENC";
+static const char * const INI_SECTION_ENC          = "VIDEO";
+static const char * const INI_SECTION_ENC_DEFAULT  = "VIDEO";
 static const char * const INI_VID_FILENAME         = "vceencc";
+static const char * const INI_SECTION_ENC_PRESET   = "ENC_PRESET";
+static const char * const INI_SECTION_ENC_TUNE     = "ENC_TUNE";
+static const char * const INI_SECTION_ENC_PROFILE  = "ENC_PROFILE";
+#elif ENCODER_FFMPEG
+static const char * const INI_SECTION_MAIN         = "FFMPEGOUT";
+static const char * const INI_SECTION_ENC          = "VIDEO";
+static const char * const INI_SECTION_ENC_DEFAULT  = "VIDEO";
+static const char * const INI_VID_FILENAME         = "ffmpeg";
+static const char * const INI_SECTION_ENC_PRESET   = "ENC_PRESET";
+static const char * const INI_SECTION_ENC_TUNE     = "ENC_TUNE";
+static const char * const INI_SECTION_ENC_PROFILE  = "ENC_PROFILE";
 #else
 static_assert(false);
 #endif
 
 static const char * const INI_SECTION_APPENDIX     = "APPENDIX";
-static const char * const INI_SECTION_VID          = "VIDEO";
 static const char * const INI_SECTION_AUD          = "AUDIO";
 static const char * const INI_SECTION_AUD_INTERNAL = "AUDIO_INTERNAL";
 static const char * const INI_SECTION_MUX          = "MUXER";
@@ -77,7 +121,7 @@ static const char * const INI_SECTION_FN           = "FILENAME_REPLACE";
 static const char * const INI_SECTION_PREFIX       = "SETTING_";
 static const char * const INI_SECTION_MODE         = "MODE_";
 static const char * const INI_SECTION_FBC          = "BITRATE_CALC";
-
+static const char * const INI_SECTION_AMP          = "AUTO_MULTI_PASS";
 
 static inline double GetPrivateProfileDouble(const char *section, const char *keyname, double defaultValue, const char *ini_file) {
     char buf[INI_KEY_MAX_LEN], str_default[64], *eptr;
@@ -218,6 +262,7 @@ void guiEx_settings::initialize(BOOL disable_loading, const char *_auo_path, con
     s_aud_int = NULL;
     s_aud_ext = NULL;
     s_mux = NULL;
+    ZeroMemory(&s_enc, sizeof(s_enc));
     ZeroMemory(&s_local, sizeof(s_local));
     ZeroMemory(&s_log, sizeof(s_log));
     ZeroMemory(&s_append, sizeof(s_append));
@@ -283,9 +328,9 @@ guiEx_settings::~guiEx_settings() {
 }
 
 void guiEx_settings::clear_all() {
-    clear_vid();
     clear_aud();
     clear_mux();
+    clear_enc();
     clear_local();
     clear_fn_replace();
     clear_log_win();
@@ -296,8 +341,10 @@ void guiEx_settings::clear_all() {
 BOOL guiEx_settings::check_inifile() {
     ini_ver = GetPrivateProfileInt(ini_section_main, "ini_ver", 0, ini_fileName);
     BOOL ret = (ini_ver >= INI_VER_MIN);
-    if (ret && !GetFileSizeDWORD(ini_fileName, &ini_filesize))
+    uint64_t filesize = 0;
+    if (ret && !rgy_get_filesize(ini_fileName, &filesize))
         ret = FALSE;
+    ini_filesize = (DWORD)filesize;
     codepage_ini = ini_ver >= INI_VER_UTF8 ? CP_UTF8 : CP_THREAD_ACP;
     codepage_cnf = CP_THREAD_ACP;
     return ret;
@@ -396,9 +443,9 @@ int guiEx_settings::get_faw_index(BOOL internal) const {
 }
 
 void guiEx_settings::load_encode_stg() {
-    load_vid();
     load_aud();
     load_mux();
+    load_enc();
     load_local(); //fullpathの情報がきちんと格納されるよう、最後に呼ぶ
 }
 
@@ -410,17 +457,6 @@ void guiEx_settings::load_last_out_stg() {
     GetPrivateProfileString(ini_section_main, "last_out_stg", "", last_out_stg, _countof(last_out_stg), conf_fileName);
 }
 
-void guiEx_settings::load_vid() {
-    clear_vid();
-
-    s_vid_mc.init(ini_filesize);
-
-    s_vid.filename     = s_vid_mc.SetPrivateProfileString(INI_SECTION_VID, "filename", INI_VID_FILENAME, ini_fileName, codepage_ini);
-    s_vid.default_cmd  = s_vid_mc.SetPrivateProfileString(INI_SECTION_VID, "cmd_default", "", ini_fileName, codepage_ini);
-    s_vid.help_cmd     = s_vid_mc.SetPrivateProfileString(INI_SECTION_VID, "cmd_help", "", ini_fileName, codepage_ini);
-
-    s_vid_refresh = TRUE;
-}
 void guiEx_settings::load_aud() {
     clear_aud();
 
@@ -623,6 +659,66 @@ void guiEx_settings::load_fn_replace() {
     }
 }
 
+void guiEx_settings::load_enc_cmd(ENC_CMD *x264cmd, int *count, int *default_index, const char *section) {
+    char key[INI_KEY_MAX_LEN];
+    wchar_t *desc = s_enc_mc.SetPrivateProfileWString(section, "name", "", ini_fileName, codepage_ini);
+    s_enc_mc.CutMem(sizeof(desc[0]));
+    *count = countchr(desc, ',') + 1;
+    x264cmd->name = (ENC_OPTION_STR *)s_enc_mc.CutMem(sizeof(ENC_OPTION_STR) * (*count + 1));
+    ZeroMemory(x264cmd->name, sizeof(ENC_OPTION_STR) * (*count + 1));
+    x264cmd->cmd = (char **)s_enc_mc.CutMem(sizeof(char *) * (*count + 1));
+
+    x264cmd->name[0].desc = desc;
+    wchar_t *p = desc, *q;
+    for (int i = 0; (x264cmd->name[i].desc = wcstok_s(p, L",", &q)) != NULL; i++)
+        p = NULL;
+
+    for (int i = 0; x264cmd->name[i].desc; i++) {
+        char *name = (char *)s_enc_mc.GetPtr();
+        x264cmd->name[i].name = name;
+        const auto str = wstring_to_string(x264cmd->name[i].desc);
+        strcpy_s(name, s_enc_mc.GetRemain() / sizeof(x264cmd->name[i].name[0]), str.c_str());
+        s_enc_mc.CutMem((str.length() + 1) * sizeof(x264cmd->name[i].name[0]));
+    }
+
+    *default_index = 0;
+    wchar_t *def = s_enc_mc.SetPrivateProfileWString(section, "disp", "", ini_fileName, codepage_ini);
+    sprintf_s(key,  sizeof(key), "cmd_");
+    size_t keybase_len = strlen(key);
+    for (int i = 0; x264cmd->name[i].desc; i++) {
+        auto str_utf8 = wstring_to_string(x264cmd->name[i].desc, CP_UTF8);
+        strcpy_s(key + keybase_len, sizeof(key) - keybase_len, str_utf8.c_str());
+        x264cmd->cmd[i] = s_enc_mc.SetPrivateProfileString(section, key, "", ini_fileName, codepage_ini);
+        if (_wcsicmp(x264cmd->name[i].desc, def) == NULL)
+            *default_index = i;
+    }
+}
+
+void guiEx_settings::load_enc() {
+    char key[INI_KEY_MAX_LEN];
+
+    clear_enc();
+
+    s_enc_mc.init(ini_filesize);
+
+    s_enc.filename            = s_enc_mc.SetPrivateProfileString(INI_SECTION_ENC_DEFAULT, "filename",      "x264", ini_fileName, codepage_ini);
+    s_enc.default_cmd         = s_enc_mc.SetPrivateProfileString(INI_SECTION_ENC_DEFAULT, "cmd_default",       "", ini_fileName, codepage_ini);
+    s_enc.default_cmd_highbit = s_enc_mc.SetPrivateProfileString(INI_SECTION_ENC_DEFAULT, "cmd_default_10bit", "", ini_fileName, codepage_ini);
+    s_enc.help_cmd            = s_enc_mc.SetPrivateProfileString(INI_SECTION_ENC_DEFAULT, "cmd_help",          "", ini_fileName, codepage_ini);
+
+    load_enc_cmd(&s_enc.preset,  &s_enc.preset_count,  &s_enc.default_preset,  INI_SECTION_ENC_PRESET);
+    load_enc_cmd(&s_enc.tune,    &s_enc.tune_count,    &s_enc.default_tune,    INI_SECTION_ENC_TUNE);
+    load_enc_cmd(&s_enc.profile, &s_enc.profile_count, &s_enc.default_profile, INI_SECTION_ENC_PROFILE);
+
+    s_enc.profile_vbv_multi = (float *)s_enc_mc.CutMem(sizeof(float) * s_enc.profile_count);
+    for (int i = 0; i < s_enc.profile_count; i++) {
+        sprintf_s(key, _countof(key), "vbv_multi_%s", s_enc.profile.name[i].name);
+        s_enc.profile_vbv_multi[i] = (float)GetPrivateProfileDouble(INI_SECTION_ENC_PROFILE, key, 1.0, ini_fileName);
+    }
+
+    s_enc_refresh = TRUE;
+}
+
 void guiEx_settings::make_default_stg_dir(char *default_stg_dir, DWORD nSize) {
     //絶対パスで作成
     //strcpy_s(default_stg_dir, nSize, auo_path);
@@ -642,21 +738,32 @@ void guiEx_settings::load_local() {
     s_local.large_cmdbox              = GetPrivateProfileInt(   ini_section_main, "large_cmdbox",              DEFAULT_LARGE_CMD_BOX,         conf_fileName);
     s_local.auto_afs_disable          = GetPrivateProfileInt(   ini_section_main, "auto_afs_disable",          DEFAULT_AUTO_AFS_DISABLE,      conf_fileName);
     s_local.default_output_ext        = GetPrivateProfileInt(   ini_section_main, "default_output_ext",        DEFAULT_OUTPUT_EXT,            conf_fileName);
+    s_local.auto_del_stats            = GetPrivateProfileInt(   ini_section_main, "auto_del_stats",            DEFAULT_AUTO_DEL_STATS,        conf_fileName);
     s_local.auto_del_chap             = GetPrivateProfileInt(   ini_section_main, "auto_del_chap",             DEFAULT_AUTO_DEL_CHAP,         conf_fileName);
+    s_local.keep_qp_file              = GetPrivateProfileInt(   ini_section_main, "keep_qp_file",              DEFAULT_KEEP_QP_FILE,          conf_fileName);
     s_local.disable_tooltip_help      = GetPrivateProfileInt(   ini_section_main, "disable_tooltip_help",      DEFAULT_DISABLE_TOOLTIP_HELP,  conf_fileName);
     s_local.disable_visual_styles     = GetPrivateProfileInt(   ini_section_main, "disable_visual_styles",     DEFAULT_DISABLE_VISUAL_STYLES, conf_fileName);
     s_local.enable_stg_esc_key        = GetPrivateProfileInt(   ini_section_main, "enable_stg_esc_key",        DEFAULT_ENABLE_STG_ESC_KEY,    conf_fileName);
     s_local.chap_nero_convert_to_utf8 = GetPrivateProfileInt(   ini_section_main, "chap_nero_convert_to_utf8", DEFAULT_CHAP_NERO_TO_UTF8,     conf_fileName);
     s_local.get_relative_path         = GetPrivateProfileInt(   ini_section_main, "get_relative_path",         DEFAULT_SAVE_RELATIVE_PATH,    conf_fileName);
     s_local.run_bat_minimized         = GetPrivateProfileInt(   ini_section_main, "run_bat_minimized",         DEFAULT_RUN_BAT_MINIMIZED,     conf_fileName);
+    s_local.set_keyframe_as_afs_24fps = GetPrivateProfileInt(   ini_section_main, "set_keyframe_as_afs_24fps", DEFAULT_SET_KEYFRAME_AFS24FPS, conf_fileName);
+    s_local.auto_ref_limit_by_level   = GetPrivateProfileInt(   ini_section_main, "auto_ref_limit_by_level",   DEFAULT_AUTO_REFLIMIT_BYLEVEL, conf_fileName);
     s_local.default_audio_encoder_ext = GetPrivateProfileInt(   ini_section_main, "default_audio_encoder",     DEFAULT_AUDIO_ENCODER_EXT,     conf_fileName);
     s_local.default_audio_encoder_in  = GetPrivateProfileInt(   ini_section_main, "default_audio_encoder_in",  DEFAULT_AUDIO_ENCODER_IN,      conf_fileName);
     s_local.default_audenc_use_in     = GetPrivateProfileInt(   ini_section_main, "default_audenc_use_in",     DEFAULT_AUDIO_ENCODER_USE_IN,  conf_fileName);
     s_local.av_length_threshold       = GetPrivateProfileDouble(ini_section_main, "av_length_threshold",       DEFAULT_AV_LENGTH_DIFF_THRESOLD, conf_fileName);
+    s_local.thread_pthrottling_mode   = GetPrivateProfileInt(   ini_section_main, "thread_pthrottling_mode",   DEFAULT_THREAD_PTHROTTLING,    conf_fileName);
 #if ENCODER_QSV
     s_local.force_bluray              = GetPrivateProfileInt(   ini_section_main, "force_bluray",              DEFAULT_FORCE_BLURAY,          conf_fileName);
     s_local.perf_monitor              = GetPrivateProfileInt(   ini_section_main, "perf_monitor",              DEFAULT_PERF_MONITOR,          conf_fileName);
 #endif
+
+    s_local.amp_retry_limit           = GetPrivateProfileInt(   INI_SECTION_AMP,  "amp_retry_limit",           DEFAULT_AMP_RETRY_LIMIT,       conf_fileName);
+    s_local.amp_bitrate_margin_multi  = GetPrivateProfileDouble(INI_SECTION_AMP,  "amp_bitrate_margin_multi",  DEFAULT_AMP_MARGIN,            conf_fileName);
+    s_local.amp_reenc_audio_multi     = GetPrivateProfileDouble(INI_SECTION_AMP,  "amp_reenc_audio_multi",     DEFAULT_AMP_REENC_AUDIO_MULTI, conf_fileName);
+    s_local.amp_keep_old_file         = GetPrivateProfileInt(   INI_SECTION_AMP,  "amp_keep_old_file",         DEFAULT_AMP_KEEP_OLD_FILE,     conf_fileName);
+    s_local.amp_bitrate_margin_multi  = clamp(s_local.amp_bitrate_margin_multi, 0.0, 1.0);
 
     GetFontInfo(ini_section_main, "conf_font", &s_local.conf_font, conf_fileName);
 
@@ -674,7 +781,7 @@ void guiEx_settings::load_local() {
     s_local.large_cmdbox = 0;
     s_local.audio_buffer_size   = std::min((decltype(s_local.audio_buffer_size))GetPrivateProfileInt(ini_section_main, "audio_buffer",        AUDIO_BUFFER_DEFAULT, conf_fileName), AUDIO_BUFFER_MAX);
 
-    GetPrivateProfileStringStg(INI_SECTION_VID, INI_SECTION_MAIN, "", s_vid.fullpath, _countof(s_vid.fullpath), conf_fileName, codepage_cnf);
+    GetPrivateProfileStringStg(INI_SECTION_ENC,     INI_SECTION_ENC,  "", s_enc.fullpath,         _countof(s_enc.fullpath),         conf_fileName, codepage_cnf);
     for (int i = 0; i < s_aud_ext_count; i++)
         GetPrivateProfileStringStg(INI_SECTION_AUD, s_aud_ext[i].keyName, "", s_aud_ext[i].fullpath, _countof(s_aud_ext[i].fullpath), conf_fileName, codepage_cnf);
     for (int i = 0; i < s_mux_count; i++)
@@ -727,21 +834,31 @@ void guiEx_settings::save_local() {
     WritePrivateProfileIntWithDefault(   ini_section_main, "large_cmdbox",              s_local.large_cmdbox,              DEFAULT_LARGE_CMD_BOX,         conf_fileName);
     WritePrivateProfileIntWithDefault(   ini_section_main, "auto_afs_disable",          s_local.auto_afs_disable,          DEFAULT_AUTO_AFS_DISABLE,      conf_fileName);
     WritePrivateProfileIntWithDefault(   ini_section_main, "default_output_ext",        s_local.default_output_ext,        DEFAULT_OUTPUT_EXT,            conf_fileName);
+    WritePrivateProfileIntWithDefault(   ini_section_main, "auto_del_stats",            s_local.auto_del_stats,            DEFAULT_AUTO_DEL_STATS,        conf_fileName);
     WritePrivateProfileIntWithDefault(   ini_section_main, "auto_del_chap",             s_local.auto_del_chap,             DEFAULT_AUTO_DEL_CHAP,         conf_fileName);
+    WritePrivateProfileIntWithDefault(   ini_section_main, "keep_qp_file",              s_local.keep_qp_file,              DEFAULT_KEEP_QP_FILE,          conf_fileName);
     WritePrivateProfileIntWithDefault(   ini_section_main, "disable_tooltip_help",      s_local.disable_tooltip_help,      DEFAULT_DISABLE_TOOLTIP_HELP,  conf_fileName);
     WritePrivateProfileIntWithDefault(   ini_section_main, "disable_visual_styles",     s_local.disable_visual_styles,     DEFAULT_DISABLE_VISUAL_STYLES, conf_fileName);
     WritePrivateProfileIntWithDefault(   ini_section_main, "enable_stg_esc_key",        s_local.enable_stg_esc_key,        DEFAULT_ENABLE_STG_ESC_KEY,    conf_fileName);
     WritePrivateProfileIntWithDefault(   ini_section_main, "chap_nero_convert_to_utf8", s_local.chap_nero_convert_to_utf8, DEFAULT_CHAP_NERO_TO_UTF8,     conf_fileName);
     WritePrivateProfileIntWithDefault(   ini_section_main, "get_relative_path",         s_local.get_relative_path,         DEFAULT_SAVE_RELATIVE_PATH,    conf_fileName);
     WritePrivateProfileIntWithDefault(   ini_section_main, "run_bat_minimized",         s_local.run_bat_minimized,         DEFAULT_RUN_BAT_MINIMIZED,     conf_fileName);
+    WritePrivateProfileIntWithDefault(   ini_section_main, "set_keyframe_as_afs_24fps", s_local.set_keyframe_as_afs_24fps, DEFAULT_SET_KEYFRAME_AFS24FPS, conf_fileName);
+    WritePrivateProfileIntWithDefault(   ini_section_main, "auto_ref_limit_by_level",   s_local.auto_ref_limit_by_level,   DEFAULT_AUTO_REFLIMIT_BYLEVEL, conf_fileName);
     WritePrivateProfileIntWithDefault(   ini_section_main, "default_audio_encoder",     s_local.default_audio_encoder_ext, DEFAULT_AUDIO_ENCODER_EXT,     conf_fileName);
     WritePrivateProfileIntWithDefault(   ini_section_main, "default_audio_encoder_in",  s_local.default_audio_encoder_in,  DEFAULT_AUDIO_ENCODER_IN,      conf_fileName);
     WritePrivateProfileIntWithDefault(   ini_section_main, "default_audenc_use_in",     s_local.default_audenc_use_in,     DEFAULT_AUDIO_ENCODER_USE_IN,  conf_fileName);
     WritePrivateProfileDoubleWithDefault(ini_section_main, "av_length_threshold",       s_local.av_length_threshold,       DEFAULT_AV_LENGTH_DIFF_THRESOLD,conf_fileName);
+    WritePrivateProfileIntWithDefault(   ini_section_main, "thread_pthrottling_mode",   s_local.thread_pthrottling_mode, DEFAULT_THREAD_PTHROTTLING,      conf_fileName);
 #if ENCODER_QSV
     WritePrivateProfileIntWithDefault(   ini_section_main, "force_bluray",              s_local.force_bluray,              DEFAULT_FORCE_BLURAY,          conf_fileName);
     WritePrivateProfileIntWithDefault(   ini_section_main, "perf_monitor",              s_local.perf_monitor,              DEFAULT_PERF_MONITOR,          conf_fileName);
 #endif
+
+    WritePrivateProfileIntWithDefault(   INI_SECTION_AMP,  "amp_retry_limit",           s_local.amp_retry_limit,           DEFAULT_AMP_RETRY_LIMIT,       conf_fileName);
+    WritePrivateProfileDoubleWithDefault(INI_SECTION_AMP,  "amp_bitrate_margin_multi",  s_local.amp_bitrate_margin_multi,  DEFAULT_AMP_MARGIN,            conf_fileName);
+    WritePrivateProfileDoubleWithDefault(INI_SECTION_AMP,  "amp_reenc_audio_multi",     s_local.amp_reenc_audio_multi,     DEFAULT_AMP_REENC_AUDIO_MULTI, conf_fileName);
+    WritePrivateProfileIntWithDefault(   INI_SECTION_AMP,  "amp_keep_old_file",         s_local.amp_keep_old_file,         DEFAULT_AMP_KEEP_OLD_FILE,     conf_fileName);
 
     WriteFontInfo(ini_section_main, "conf_font", &s_local.conf_font, conf_fileName);
 
@@ -777,8 +894,9 @@ void guiEx_settings::save_local() {
         PathRemoveBlanks(s_mux[i].fullpath);
         WritePrivateProfileString(INI_SECTION_MUX, s_mux[i].keyName, s_mux[i].fullpath, conf_fileName);
     }
-    PathRemoveBlanks(s_vid.fullpath);
-    WritePrivateProfileString(INI_SECTION_VID, INI_SECTION_MAIN, s_vid.fullpath, conf_fileName);
+
+    PathRemoveBlanks(s_enc.fullpath);
+    WritePrivateProfileString(INI_SECTION_ENC,   INI_SECTION_ENC,        s_enc.fullpath,                conf_fileName);
 }
 
 void guiEx_settings::save_log_win() {
@@ -820,9 +938,10 @@ void guiEx_settings::save_last_out_stg() {
     WritePrivateProfileString(ini_section_main, "last_out_stg", last_out_stg, conf_fileName);
 }
 
-void guiEx_settings::clear_vid() {
-    s_vid_mc.clear();
-    s_vid_refresh = TRUE;
+BOOL guiEx_settings::get_reset_s_enc_referesh() {
+    BOOL refresh = s_enc_refresh;
+    s_enc_refresh = FALSE;
+    return refresh;
 }
 
 void guiEx_settings::clear_aud() {
@@ -834,6 +953,11 @@ void guiEx_settings::clear_aud() {
 void guiEx_settings::clear_mux() {
     s_mux_mc.clear();
     s_mux_count = 0;
+}
+
+void guiEx_settings::clear_enc() {
+    s_enc_mc.clear();
+    s_enc_refresh = TRUE;
 }
 
 void guiEx_settings::clear_local() {

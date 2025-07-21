@@ -73,7 +73,7 @@ enum class RGYFAWMode {
 static const int AAC_HEADER_MIN_SIZE = 7;
 static const uint32_t AAC_BLOCK_SAMPLES = 1024;
 
-struct RGYFAWAACHeader {
+struct RGYAACHeader {
     bool id;
     bool protection;
     int profile;     // 00 ... main, 01 ... lc, 10 ... ssr
@@ -88,7 +88,7 @@ struct RGYFAWAACHeader {
     int adts_buffer_fullness;
     int no_raw_data_blocks_in_frame;
 
-    int parse(const uint8_t *buffer);
+    void parse(const uint8_t *buffer);
     int sampleRateIdxToRate(const uint32_t idx);
 };
 
@@ -102,7 +102,7 @@ private:
     uint64_t inputLengthByte;
     uint64_t outSamples;
 
-    RGYFAWAACHeader aacHeader;
+    RGYAACHeader aacHeader;
 public:
     RGYFAWBitstream();
     ~RGYFAWBitstream();

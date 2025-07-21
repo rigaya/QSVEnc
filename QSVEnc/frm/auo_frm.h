@@ -67,6 +67,8 @@ void set_window_title(const wchar_t *chr, int progress_mode);
 void set_window_title_enc_mes(const wchar_t *chr, int total_drop, int frame_n);
 void set_task_name(const wchar_t *chr);
 void set_log_progress(double progress);
+void write_log_auo_line_b(int log_type_index, const char *chr, bool from_utf8 = false);
+void write_log_line_b(int log_type_index, const char *chr, bool from_utf8 = false);
 void write_log_auo_line(int log_type_index, const wchar_t *chr);
 void write_log_line(int log_type_index, const wchar_t *chr);
 void flush_audio_log();

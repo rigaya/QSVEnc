@@ -29,10 +29,10 @@
 #define NOMINMAX
 #include <Windows.h>
 #include <string>
-#include <shlwapi.h>
-#pragma comment(lib, "shlwapi.lib")
 #include "auo_pipe.h"
-#include "auo_util.h"
+#include "rgy_util.h"
+#include "rgy_filesystem.h"
+#include "auo_version.h"
 #include "exe_version.h"
 #if ENCODER_X265
 #include <regex>
@@ -63,31 +63,31 @@ std::string ver_string(int ver[4]) {
     if (allZero)
         return "";
     if (isRev)
-        return strprintf("r%d", ver[0]);
+        return strsprintf("r%d", ver[0]);
 
-    auto str = strprintf("v%d", ver[0]);
+    auto str = strsprintf("v%d", ver[0]);
     int loop_fin = VER_LENGTH-1;
     for (int i = 1; i < loop_fin; i++) {
         if (ver[i]) {
-            str += strprintf(".%d", ver[i]);
+            str += strsprintf(".%d", ver[i]);
         }
     }
     if (ver[loop_fin]) {
-        str += strprintf("+%d", ver[loop_fin]);
+        str += strsprintf("+%d", ver[loop_fin]);
     }
     return str;
 }
 
 #if ENCODER_X264
 int get_x264_version_from_filename(const char *exe_path, int version[4]) {
-    const char *filename = PathFindFileNameA(exe_path);
+    const auto filename = PathGetFilename(exe_path);
 
     int rev = 0;
-    if (sscanf_s(filename, "x264_%d_x64.exe", &rev) == 1) {
+    if (sscanf_s(filename.c_str(), "x264_%d_x64.exe", &rev) == 1) {
         version[2] = rev;
         return 0;
     }
-    if (sscanf_s(filename, "x264_%d_x86.exe", &rev) == 1) {
+    if (sscanf_s(filename.c_str(), "x264_%d_x86.exe", &rev) == 1) {
         version[2] = rev;
         return 0;
     }
@@ -97,16 +97,15 @@ int get_x264_version_from_filename(const char *exe_path, int version[4]) {
 
 #if ENCODER_X265
 int get_x265_version_from_filename(const char *exe_path, int version[4]) {
-    const char *filename = PathFindFileNameA(exe_path);
+    const auto filename = PathGetFilename(exe_path);
 
     int value[4] = { 0 };
     memset(version, 0, sizeof(value));
 
-    int rev = 0;
-    if (   sscanf_s(filename, "x265_%d.%d+%d_x64.exe", &value[0], &value[1], &value[3]) == 3
-        || sscanf_s(filename, "x265_%d.%d+%d_x86.exe", &value[0], &value[1], &value[3]) == 3
-        || sscanf_s(filename, "x265_%d.%d_x64.exe",    &value[0], &value[1]) == 2
-        || sscanf_s(filename, "x265_%d.%d_x86.exe",    &value[0], &value[1]) == 2) {
+    if (   sscanf_s(filename.c_str(), "x265_%d.%d+%d_x64.exe", &value[0], &value[1], &value[3]) == 3
+        || sscanf_s(filename.c_str(), "x265_%d.%d+%d_x86.exe", &value[0], &value[1], &value[3]) == 3
+        || sscanf_s(filename.c_str(), "x265_%d.%d_x64.exe",    &value[0], &value[1]) == 2
+        || sscanf_s(filename.c_str(), "x265_%d.%d_x86.exe",    &value[0], &value[1]) == 2) {
         memcpy(version, value, sizeof(value));
         return 0;
     }
@@ -141,42 +140,42 @@ int get_x265ver_regex(const char *txt, int v[4]) {
 
 #if ENCODER_SVTAV1
 int get_svtav1_version_from_filename(const char *exe_path, int version[4]) {
-    const char *filename = PathFindFileNameA(exe_path);
+    const auto filename = PathGetFilename(exe_path);
 
     int value[4] = { 0 };
     memset(version, 0, sizeof(value));
     
     int value4 = 0;
-    if (   sscanf_s(filename, "SvtAv1EncApp_v%d.%d.%d-rc%d-%d_x64.exe", &value[0], &value[1], &value[2], &value[3], &value4) == 5
-        || sscanf_s(filename, "SvtAv1EncApp_v%d.%d.%d-rc%d-%d_x86.exe", &value[0], &value[1], &value[2], &value[3], &value4) == 5
-        || sscanf_s(filename, "SvtAv1EncApp_v%d.%d.%d-rc%d+%d_x64.exe", &value[0], &value[1], &value[2], &value[3], &value4) == 5
-        || sscanf_s(filename, "SvtAv1EncApp_v%d.%d.%d-rc%d+%d_x86.exe", &value[0], &value[1], &value[2], &value[3], &value4) == 5
-        || sscanf_s(filename, "SvtAv1EncApp_%d.%d.%d-rc%d-%d_x64.exe",  &value[0], &value[1], &value[2], &value[3], &value4) == 5
-        || sscanf_s(filename, "SvtAv1EncApp_%d.%d.%d-rc%d-%d_x86.exe",  &value[0], &value[1], &value[2], &value[3], &value4) == 5
-        || sscanf_s(filename, "SvtAv1EncApp_%d.%d.%d-rc%d+%d_x64.exe",  &value[0], &value[1], &value[2], &value[3], &value4) == 5
-        || sscanf_s(filename, "SvtAv1EncApp_%d.%d.%d-rc%d+%d_x86.exe",  &value[0], &value[1], &value[2], &value[3], &value4) == 5
-        || sscanf_s(filename, "SvtAv1EncApp_v%d.%d.%d-rc%d_x64.exe",    &value[0], &value[1], &value[2], &value[3]) == 4
-        || sscanf_s(filename, "SvtAv1EncApp_v%d.%d.%d-rc%d_x86.exe",    &value[0], &value[1], &value[2], &value[3]) == 4
-        || sscanf_s(filename, "SvtAv1EncApp_%d.%d.%d-rc%d_x64.exe",     &value[0], &value[1], &value[2], &value[3]) == 4
-        || sscanf_s(filename, "SvtAv1EncApp_%d.%d.%d-rc%d_x86.exe",     &value[0], &value[1], &value[2], &value[3]) == 4) {
+    if (   sscanf_s(filename.c_str(), "SvtAv1EncApp_v%d.%d.%d-rc%d-%d_x64.exe", &value[0], &value[1], &value[2], &value[3], &value4) == 5
+        || sscanf_s(filename.c_str(), "SvtAv1EncApp_v%d.%d.%d-rc%d-%d_x86.exe", &value[0], &value[1], &value[2], &value[3], &value4) == 5
+        || sscanf_s(filename.c_str(), "SvtAv1EncApp_v%d.%d.%d-rc%d+%d_x64.exe", &value[0], &value[1], &value[2], &value[3], &value4) == 5
+        || sscanf_s(filename.c_str(), "SvtAv1EncApp_v%d.%d.%d-rc%d+%d_x86.exe", &value[0], &value[1], &value[2], &value[3], &value4) == 5
+        || sscanf_s(filename.c_str(), "SvtAv1EncApp_%d.%d.%d-rc%d-%d_x64.exe",  &value[0], &value[1], &value[2], &value[3], &value4) == 5
+        || sscanf_s(filename.c_str(), "SvtAv1EncApp_%d.%d.%d-rc%d-%d_x86.exe",  &value[0], &value[1], &value[2], &value[3], &value4) == 5
+        || sscanf_s(filename.c_str(), "SvtAv1EncApp_%d.%d.%d-rc%d+%d_x64.exe",  &value[0], &value[1], &value[2], &value[3], &value4) == 5
+        || sscanf_s(filename.c_str(), "SvtAv1EncApp_%d.%d.%d-rc%d+%d_x86.exe",  &value[0], &value[1], &value[2], &value[3], &value4) == 5
+        || sscanf_s(filename.c_str(), "SvtAv1EncApp_v%d.%d.%d-rc%d_x64.exe",    &value[0], &value[1], &value[2], &value[3]) == 4
+        || sscanf_s(filename.c_str(), "SvtAv1EncApp_v%d.%d.%d-rc%d_x86.exe",    &value[0], &value[1], &value[2], &value[3]) == 4
+        || sscanf_s(filename.c_str(), "SvtAv1EncApp_%d.%d.%d-rc%d_x64.exe",     &value[0], &value[1], &value[2], &value[3]) == 4
+        || sscanf_s(filename.c_str(), "SvtAv1EncApp_%d.%d.%d-rc%d_x86.exe",     &value[0], &value[1], &value[2], &value[3]) == 4) {
         value[3] *= RC_VER_MUL;
         value[3] += RC_VER_ADD;
         value[3] += value4;
         memcpy(version, value, sizeof(value));
         return 0;
     }
-    if (   sscanf_s(filename, "SvtAv1EncApp_v%d.%d.%d-%d_x64.exe", &value[0], &value[1], &value[2], &value[3]) == 4
-        || sscanf_s(filename, "SvtAv1EncApp_v%d.%d.%d-%d_x86.exe", &value[0], &value[1], &value[2], &value[3]) == 4
-        || sscanf_s(filename, "SvtAv1EncApp_v%d.%d.%d+%d_x64.exe", &value[0], &value[1], &value[2], &value[3]) == 4
-        || sscanf_s(filename, "SvtAv1EncApp_v%d.%d.%d+%d_x86.exe", &value[0], &value[1], &value[2], &value[3]) == 4
-        || sscanf_s(filename, "SvtAv1EncApp_%d.%d.%d-%d_x64.exe",  &value[0], &value[1], &value[2], &value[3]) == 4
-        || sscanf_s(filename, "SvtAv1EncApp_%d.%d.%d-%d_x86.exe",  &value[0], &value[1], &value[2], &value[3]) == 4
-        || sscanf_s(filename, "SvtAv1EncApp_%d.%d.%d+%d_x64.exe",  &value[0], &value[1], &value[2], &value[3]) == 4
-        || sscanf_s(filename, "SvtAv1EncApp_%d.%d.%d+%d_x86.exe",  &value[0], &value[1], &value[2], &value[3]) == 4
-        || sscanf_s(filename, "SvtAv1EncApp_v%d.%d.%d_x64.exe",    &value[0], &value[1], &value[2]) == 3
-        || sscanf_s(filename, "SvtAv1EncApp_v%d.%d.%d_x86.exe",    &value[0], &value[1], &value[2]) == 3
-        || sscanf_s(filename, "SvtAv1EncApp_%d.%d.%d_x64.exe",     &value[0], &value[1], &value[2]) == 3
-        || sscanf_s(filename, "SvtAv1EncApp_%d.%d.%d_x86.exe",     &value[0], &value[1], &value[2]) == 3) {
+    if (   sscanf_s(filename.c_str(), "SvtAv1EncApp_v%d.%d.%d-%d_x64.exe", &value[0], &value[1], &value[2], &value[3]) == 4
+        || sscanf_s(filename.c_str(), "SvtAv1EncApp_v%d.%d.%d-%d_x86.exe", &value[0], &value[1], &value[2], &value[3]) == 4
+        || sscanf_s(filename.c_str(), "SvtAv1EncApp_v%d.%d.%d+%d_x64.exe", &value[0], &value[1], &value[2], &value[3]) == 4
+        || sscanf_s(filename.c_str(), "SvtAv1EncApp_v%d.%d.%d+%d_x86.exe", &value[0], &value[1], &value[2], &value[3]) == 4
+        || sscanf_s(filename.c_str(), "SvtAv1EncApp_%d.%d.%d-%d_x64.exe",  &value[0], &value[1], &value[2], &value[3]) == 4
+        || sscanf_s(filename.c_str(), "SvtAv1EncApp_%d.%d.%d-%d_x86.exe",  &value[0], &value[1], &value[2], &value[3]) == 4
+        || sscanf_s(filename.c_str(), "SvtAv1EncApp_%d.%d.%d+%d_x64.exe",  &value[0], &value[1], &value[2], &value[3]) == 4
+        || sscanf_s(filename.c_str(), "SvtAv1EncApp_%d.%d.%d+%d_x86.exe",  &value[0], &value[1], &value[2], &value[3]) == 4
+        || sscanf_s(filename.c_str(), "SvtAv1EncApp_v%d.%d.%d_x64.exe",    &value[0], &value[1], &value[2]) == 3
+        || sscanf_s(filename.c_str(), "SvtAv1EncApp_v%d.%d.%d_x86.exe",    &value[0], &value[1], &value[2]) == 3
+        || sscanf_s(filename.c_str(), "SvtAv1EncApp_%d.%d.%d_x64.exe",     &value[0], &value[1], &value[2]) == 3
+        || sscanf_s(filename.c_str(), "SvtAv1EncApp_%d.%d.%d_x86.exe",     &value[0], &value[1], &value[2]) == 3) {
         memcpy(version, value, sizeof(value));
         return 0;
     }
@@ -283,7 +282,7 @@ int get_exe_version_info(const char *exe_path, int version[4]) {
 
 int get_exe_version_from_cmd(const char *exe_path, const char *cmd_ver, int version[4]) {
     int ret = -1;
-    if (nullptr == version || nullptr == exe_path || !PathFileExists(exe_path))
+    if (nullptr == version || nullptr == exe_path || !rgy_file_exists(exe_path))
         return ret;
 
     memset(version, 0, sizeof(int) * 4);
@@ -295,8 +294,8 @@ int get_exe_version_from_cmd(const char *exe_path, const char *cmd_ver, int vers
         cmd_ver = "-h";
     if (get_exe_message(exe_path, cmd_ver, buffer, BUFFER_LEN / sizeof(buffer[0]), AUO_PIPE_MUXED) == RP_SUCCESS) {
         char *str = nullptr;
-        int core = 0;
 #if ENCODER_X264
+        int core = 0;
         if (1 == sscanf_s(buffer, "x264 core:%d", &core)) {
             str = buffer + (strlen("x264 core:") + get_intlen(core));
         } else
@@ -368,7 +367,7 @@ int get_exe_version_from_cmd(const char *exe_path, const char *cmd_ver, int vers
 #if ENCODER_X264
 int get_x264_rev(const char *x264fullpath) {
     int ret = -1;
-    if (!PathFileExists(x264fullpath))
+    if (!rgy_file_exists(x264fullpath))
         return ret;
 
     int version[4] = { 0 };
@@ -384,7 +383,7 @@ int get_x264_rev(const char *x264fullpath) {
 #if ENCODER_X265
 int get_x265_rev(const char *x265fullpath, int version[4]) {
     int ret = -1;
-    if (!PathFileExists(x265fullpath))
+    if (!rgy_file_exists(x265fullpath))
         return ret;
 
     int value[4] = { 0 };
@@ -426,7 +425,7 @@ int get_x265ver_from_txt(const char *txt, int v[4]) {
 #if ENCODER_SVTAV1
 int get_svtav1_rev(const char *svtav1fullpath, int version[4]) {
     int ret = -1;
-    if (!PathFileExists(svtav1fullpath))
+    if (!rgy_file_exists(svtav1fullpath))
         return ret;
 
     int value[4] = { 0 };
@@ -456,11 +455,9 @@ static BOOL qaac_dll_available(const char *dir) {
     if (nullptr == dir || !str_has_char(dir))
         return FALSE;
 
-    char temp[1024] = { 0 };
     static const char *QAAC_DLL[] = { "CoreAudioToolbox.dll", "CoreFoundation.dll" };
     for (int i = 0; i < _countof(QAAC_DLL); i++) {
-        PathCombineLong(temp, _countof(temp), dir, QAAC_DLL[i]);
-        if (!PathFileExists(temp))
+        if (!rgy_file_exists(PathCombineS(dir, QAAC_DLL[i])))
             return FALSE;
     }
     return TRUE;
@@ -472,10 +469,8 @@ QTDLL check_if_apple_dll_required_for_qaac(const char *exe_dir, const char *curr
     if (qaac_dll_available(exe_dir))
         return QAAC_APPLEDLL_IN_EXEDIR;
     if (nullptr != current_fullpath && str_has_char(current_fullpath)) {
-        char temp[1024] = { 0 };
-        strcpy_s(temp, _countof(temp), current_fullpath);
-        PathRemoveFileSpecFixed(temp);
-        if (qaac_dll_available(temp))
+        auto [ ret , dir ] = PathRemoveFileSpecFixed(current_fullpath);
+        if (qaac_dll_available(dir.c_str()))
             return QAAC_APPLEDLL_IN_CURRENTDIR;
     }
     return QAAC_APPLEDLL_UNAVAILABLE;

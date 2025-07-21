@@ -573,11 +573,11 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     const BOOL afs = conf->vid.afs != 0;
 
     //プロセス用情報準備
-    if (!PathFileExists(sys_dat->exstg->s_vid.fullpath)) {
-        ret |= AUO_RESULT_ERROR; error_no_exe_file(ENCODER_NAME_W, sys_dat->exstg->s_vid.fullpath);
+    if (!PathFileExists(sys_dat->exstg->s_enc.fullpath)) {
+        ret |= AUO_RESULT_ERROR; error_no_exe_file(ENCODER_NAME_W, sys_dat->exstg->s_enc.fullpath);
         return ret;
     }
-    PathGetDirectory(exe_dir, _countof(exe_dir), sys_dat->exstg->s_vid.fullpath);
+    PathGetDirectory(exe_dir, _countof(exe_dir), sys_dat->exstg->s_enc.fullpath);
 
     //output csp
     RGY_CSP rgy_output_csp;
@@ -598,7 +598,7 @@ static DWORD video_output_inside(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_E
     build_full_cmd(exe_cmd, _countof(exe_cmd), conf, &enc_prm, oip, pe, sys_dat, PIPE_FN);
     write_log_auo_line_fmt(LOG_INFO, L"%s options...", ENCODER_APP_NAME_W);
     write_args(exe_cmd);
-    sprintf_s(exe_args, _countof(exe_args), "\"%s\" %s", sys_dat->exstg->s_vid.fullpath, exe_cmd);
+    sprintf_s(exe_args, _countof(exe_args), "\"%s\" %s", sys_dat->exstg->s_enc.fullpath, exe_cmd);
     remove(pe->temp_filename); //ファイルサイズチェックの時に旧ファイルを参照してしまうのを回避
 
     //パイプの設定

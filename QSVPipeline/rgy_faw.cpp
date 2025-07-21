@@ -141,7 +141,7 @@ static uint32_t faw_checksum_read(const uint8_t *buf) {
     return v;
 }
 
-int RGYFAWAACHeader::sampleRateIdxToRate(const uint32_t idx) {
+int RGYAACHeader::sampleRateIdxToRate(const uint32_t idx) {
     static const int samplerateList[] = {
         96000,
         88200,
@@ -161,18 +161,13 @@ int RGYFAWAACHeader::sampleRateIdxToRate(const uint32_t idx) {
     return samplerateList[std::min<uint32_t>(idx, _countof(samplerateList)-1)];
 }
 
-int RGYFAWAACHeader::parse(const uint8_t *buf) {
-    int check = 0;
-    const uint8_t buf0 = buf[0];
+void RGYAACHeader::parse(const uint8_t *buf) {
     const uint8_t buf1 = buf[1];
     const uint8_t buf2 = buf[2];
     const uint8_t buf3 = buf[3];
     const uint8_t buf4 = buf[4];
     const uint8_t buf5 = buf[5];
     const uint8_t buf6 = buf[6];
-    check          |= (buf0 & 0xFF) != 0xFF;
-    check          |= (buf1 & 0xF0) != 0xF0;
-    check          |= (buf1 & 0x06) != 0x00;
     id              = (buf1 & 0x08) != 0;
     protection      = (buf1 & 0x01) != 0;
     profile         = (buf2 & 0xC0) >> 6;
@@ -186,13 +181,12 @@ int RGYFAWAACHeader::parse(const uint8_t *buf) {
     aac_frame_length     = ((buf3 & 0x03) << 11) | (buf4 << 3) | (buf5 >> 5);
     adts_buffer_fullness = ((buf5 & 0x1f) << 6) | (buf6 >> 2);
     no_raw_data_blocks_in_frame = buf6 & 0x03;
-    return check;
 }
 
 RGYFAWBitstream::RGYFAWBitstream() :
     buffer(),
-    bufferOffset(0),
     bufferLength(0),
+    bufferOffset(0),
     bytePerWholeSample(0),
     inputLengthByte(0),
     outSamples(0),
@@ -349,7 +343,7 @@ int RGYFAWDecoder::decode(RGYFAWDecoderOutput& output, const uint8_t *input, con
         bufferIn.append(input, inputLength);
         inputDataAppended = true;
 
-        decltype(funcMemMemFAWStart1(nullptr, 0)) ret0 = 0, ret1 = 0;
+        int64_t ret0 = 0, ret1 = 0;
         if ((ret0 = funcMemMemFAWStart1(bufferIn.data(), bufferIn.size())) != RGY_MEMMEM_NOT_FOUND) {
             fawmode = RGYFAWMode::Full;
         } else if ((ret0 = funcMemMem(bufferIn.data(), bufferIn.size(), fawstart2.data(), fawstart2.size())) != RGY_MEMMEM_NOT_FOUND) {

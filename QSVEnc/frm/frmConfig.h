@@ -38,6 +38,7 @@
 #include "auo_system.h"
 #include "auo_util.h"
 #include "auo_clrutil.h"
+#include "auo_encode.h"
 
 #include "qsv_cmd.h"
 #include "frmConfig_helper.h"
@@ -8098,6 +8099,13 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUVppDebandRange;
         System::Void SetAudioBitrate(int bitrate);
         System::Void InformfbcClosed();
     private:
+        System::Boolean useAudioExt() {
+            #if ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1
+                return false;
+            #else
+                return fcgCBAudioUseExt->Checked;
+            #endif
+        }
         System::Void frmConfig_FormClosed(System::Object^  sender, System::Windows::Forms::FormClosedEventArgs^  e) {
             if (featuresHW != nullptr) {
                 delete featuresHW;
@@ -8699,7 +8707,7 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUVppDebandRange;
 
             //Name, args, Path の順番
             array<ExeControls>^ ControlList = {
-                { fcgBTVideoEncoderPath->Name,   fcgTXVideoEncoderPath->Text,   sys_dat->exstg->s_vid.help_cmd },
+                { fcgBTVideoEncoderPath->Name,   fcgTXVideoEncoderPath->Text,   sys_dat->exstg->s_enc.help_cmd },
                 { fcgBTAudioEncoderPath->Name,   fcgTXAudioEncoderPath->Text,   sys_dat->exstg->s_aud_ext[fcgCXAudioEncoder->SelectedIndex].cmd_help },
                 { fcgBTMP4MuxerPath->Name,       fcgTXMP4MuxerPath->Text,       sys_dat->exstg->s_mux[MUXER_MP4].help_cmd },
                 { fcgBTTC2MP4Path->Name,         fcgTXTC2MP4Path->Text,         sys_dat->exstg->s_mux[MUXER_TC2MP4].help_cmd },

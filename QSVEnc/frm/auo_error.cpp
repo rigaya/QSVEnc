@@ -31,7 +31,7 @@
 #include "auo_mes.h"
 #include "auo_version.h"
 #include "auo_pipe.h"
-#include "auo_chapter.h"
+#include "rgy_chapter.h"
 #include "auo_settings.h"
 #include "auo_util.h"
 
@@ -237,6 +237,7 @@ void error_invalid_ini_file() {
 }
 
 void error_unsupported_audio_format_by_muxer(const int video_out_type, const wchar_t *selected_aud, const wchar_t *default_aud) {
+#if !ENCODER_FFMPEG
     if (video_out_type < _countof(OUTPUT_FILE_EXT)) {
         write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_ERR_UNSUPPORTED_AUDIO_FORMAT_BY_MUXER1), selected_aud, char_to_wstring(OUTPUT_FILE_EXT[video_out_type] + 1).c_str());
         if (default_aud) {
@@ -245,6 +246,7 @@ void error_unsupported_audio_format_by_muxer(const int video_out_type, const wch
             write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_UNSUPPORTED_AUDIO_FORMAT_BY_MUXER3));
         }
     }
+#endif
 }
 
 void error_failed_to_run_audio_encoder(const wchar_t *selected_aud, const wchar_t *error_mes, const wchar_t *default_aud) {
@@ -682,6 +684,14 @@ void warning_failed_open_bat_orig() {
 
 void warning_failed_open_bat_new() {
     write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_ERR_FAILED_OPEN_BAT_NEW));
+}
+
+void error_get_exedit_file_mapping() {
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_EXEDIT_NOT_FOUND));
+}
+
+void error_get_exedit_output_start() {
+    write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_EXEDIT_OUTPUT_START));
 }
 
 void warning_video_very_short() {

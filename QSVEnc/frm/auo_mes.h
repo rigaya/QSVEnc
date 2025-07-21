@@ -334,6 +334,9 @@ enum AuoMes {
     AUO_ERR_VIDEO_VERY_SHORT1,
     AUO_ERR_VIDEO_VERY_SHORT2,
 
+    AUO_ERR_EXEDIT_NOT_FOUND,
+    AUO_ERR_EXEDIT_OUTPUT_START,
+
     AUO_ERR_SECTION_FIN,
 
     //section = AUO_AUDIO
@@ -1232,6 +1235,7 @@ enum AuoMes {
         AuofosCBAutoDelChap,
         AuofostabPageGeneral,
         AuofosLBDefaultAudioEncoder,
+        AuofosLBPowerThrottling,
         AuofosCBAutoRefLimitByLevel,
         AuofosCBChapConvertToUTF8,
         AuofosCBKeepQPFile,

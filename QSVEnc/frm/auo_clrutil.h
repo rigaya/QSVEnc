@@ -179,7 +179,7 @@ static String^ GetRelativePath(String^ path, String^ baseDir) {
     pin_ptr<const WCHAR> base_dir = PtrToStringChars(baseDir);
     pin_ptr<const WCHAR> target_path = PtrToStringChars(path);
     WCHAR buf[MAX_PATH_LEN];
-    GetRelativePathTo(buf, _countof(buf), target_path, NULL, base_dir);
+    GetRelativePathTo(buf, _countof(buf), target_path, base_dir);
     return String(buf).ToString();
 }
 

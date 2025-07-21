@@ -180,7 +180,7 @@ void write_log_enc_mes(char *const msg, DWORD *log_len, int total_drop, int curr
 #if ENCODER_SVTAV1
         if (strstr(mes, "Encoding frame")) {
 #else
-        if ((ENCODER_X264 || ENCODER_X265) && NULL == strstr(mes, "frames")) {
+        if ((ENCODER_X264 || ENCODER_X265 || ENCODER_FFMPEG) && NULL == strstr(mes, "frames")) {
 #endif
             set_reconstructed_title_mes(mes, total_drop, current_frames, total_frames);
         } else {
