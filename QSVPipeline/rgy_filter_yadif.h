@@ -40,7 +40,8 @@ class RGYFilterParamYadif : public RGYFilterParam {
 public:
     VppYadif yadif;
     rgy_rational<int> timebase;
-    RGYFilterParamYadif() : yadif(), timebase() {};
+    tstring outFilename;
+    RGYFilterParamYadif() : yadif(), timebase(), outFilename() {};
     virtual ~RGYFilterParamYadif() {};
     virtual tstring print() const override { return yadif.print(); };
 };
@@ -97,4 +98,5 @@ protected:
     int m_nFrame;
     int64_t m_pts;
     RGYFilterYadifSource m_source;
+    std::unique_ptr<FILE, fp_deleter> m_fpLog;
 };
