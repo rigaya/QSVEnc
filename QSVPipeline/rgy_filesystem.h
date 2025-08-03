@@ -66,6 +66,8 @@ bool rgy_file_exists(const std::wstring& filepath);
 bool rgy_directory_exists(const std::string& directorypath);
 bool rgy_directory_exists(const std::wstring& directorypath);
 bool rgy_get_filesize(const char *filepath, uint64_t *filesize);
+BOOL PathRemoveFileSpecFixed(char *path);
+BOOL PathRemoveFileSpecFixed(WCHAR *path);
 std::pair<int, std::string> PathRemoveFileSpecFixed(const std::string& path);
 std::string PathRemoveExtensionS(const std::string& path);
 bool CreateDirectoryRecursive(const char *dir, const bool errorIfAlreadyExists = false);

@@ -31,7 +31,10 @@
 #include "rgy_env.h"
 #include "rgy_codepage.h"
 #include "rgy_filesystem.h"
-#if !(defined(_WIN32) || defined(_WIN64))
+#if (defined(_WIN32) || defined(_WIN64))
+#include <shlwapi.h>
+#pragma comment(lib, "shlwapi.lib")
+#else
 #include <dlfcn.h>  // dladdr関数用
 #endif
 
@@ -131,6 +134,22 @@ bool GetPathRootFreeSpace(const wchar_t *path, uint64_t *freespace) {
         return TRUE;
     }
     return FALSE;
+}
+
+//PathRemoveFileSpecFixedがVistaでは5C問題を発生させるため、その回避策
+BOOL PathRemoveFileSpecFixed(char *path) {
+    char *ptr = PathFindFileNameA(path);
+    if (path == ptr)
+        return FALSE;
+    *(ptr - 1) = '\0';
+    return TRUE;
+}
+BOOL PathRemoveFileSpecFixed(WCHAR *path) {
+    WCHAR *ptr = PathFindFileNameW(path);
+    if (path == ptr)
+        return FALSE;
+    *(ptr - 1) = L'\0';
+    return TRUE;
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
@@ -319,6 +338,7 @@ std::vector<tstring> get_file_list(const tstring& pattern, const tstring& dir) {
     return list;
 }
 
+#if !(defined(_WIN32) || defined(_WIN64))
 bool PathFileExistsA(const char *filename) {
     auto path = std::filesystem::path(filename);
     return std::filesystem::exists(path) && std::filesystem::is_regular_file(path);
@@ -328,6 +348,7 @@ bool PathFileExistsW(const wchar_t *filename) {
     auto path = std::filesystem::path(filename);
     return std::filesystem::exists(path) && std::filesystem::is_regular_file(path);
 }
+#endif
 
 tstring getExePath() {
     TCHAR exePath[16384];
@@ -569,6 +590,7 @@ std::wstring find_executable_in_path(const std::wstring& name) {
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
+#if !(defined(_WIN32) || defined(_WIN64))
 char *PathFindExtensionA(char *path) {
     return strrchr(path, '.');
 }
@@ -581,6 +603,7 @@ const char *PathFindExtensionA(const char *path) {
 const wchar_t *PathFindExtensionW(const wchar_t *path) {
     return wcsrchr(path, L'.');
 }
+#endif
 
 //ファイル名(拡張子除く)の後ろに文字列を追加する
 void apply_appendix(char *new_filename, size_t new_filename_size, const char *orig_filename, const char *appendix) {
