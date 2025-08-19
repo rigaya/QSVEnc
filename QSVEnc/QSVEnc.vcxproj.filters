@@ -217,6 +217,9 @@
     <ClInclude Include="frm\auo_mes.h">
       <Filter>ヘッダー ファイル\frm</Filter>
     </ClInclude>
+    <ClInclude Include="prm\auo_options.h">
+      <Filter>ヘッダー ファイル\prm</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="frm\frmAutoSaveLogSettings.resx">

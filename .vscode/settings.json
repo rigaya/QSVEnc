@@ -91,7 +91,9 @@
         "csignal": "cpp",
         "*.ipp": "cpp",
         "any": "cpp",
-        "cinttypes": "cpp"
+        "cinttypes": "cpp",
+        "ranges": "cpp",
+        "span": "cpp"
     },
     "cmake.sourceDirectory": "F:/VisualStudio2022/Projects/QSVEnc/oneVPL/dispatcher/test/ext/googletest"
 }

@@ -99,15 +99,16 @@ static inline void get_auo_path(WCHAR *auo_path, size_t nSize) {
 static inline void get_auo_dir(char *auo_dir, size_t nSize) {
     PathGetDirectory(auo_dir, nSize, getModulePathA(GetModuleHandleA(AUO_NAME)).c_str());
 }
+static inline void get_auo_dir(wchar_t *auo_dir, size_t nSize) {
+    PathGetDirectory(auo_dir, nSize, getModulePathW(GetModuleHandleW(AUO_NAME_W)).c_str());
+}
 static bool is_aviutl2() {
-    char exe_name[MAX_PATH_LEN] = { 0 };
-    get_exe_name(exe_name, _countof(exe_name));
-    return strcmp(exe_name, "pipe32auo.exe") == 0;
+    return AVIUTL_TARGET_VER == 2;
 }
 
 //cmd中のtarget_argを抜き出し削除する
 //del_valueが+1ならその後の値を削除する、-1ならその前の値を削除する
 //値を削除できたらTRUEを返す
-BOOL del_arg(char *cmd, char *target_arg, int del_arg_delta);
+BOOL del_arg(TCHAR *cmd, TCHAR *target_arg, int del_arg_delta);
 
 #endif //_AUO_UTIL_H_

@@ -79,15 +79,19 @@ typedef struct {
     BOOL afs_init;                         //動画入力の準備ができているか
     HANDLE h_p_aviutl;                     //優先度取得用のAviutlのハンドル
     HANDLE h_p_videnc;                     //動画エンコーダのハンドル
-    char **opened_aviutl_files;            //Aviutlの開いているファイルリスト
+    TCHAR **opened_aviutl_files;            //Aviutlの開いているファイルリスト
     int n_opened_aviutl_files;             //Aviutlの開いているファイルリストの数
-    char *org_save_file_name;              //オリジナルの保存ファイル名
-    char save_file_name[MAX_PATH_LEN];     //保存ファイル名
-    char temp_filename[MAX_PATH_LEN];      //一時ファイル名
-    char muxed_vid_filename[MAX_PATH_LEN]; //mux後に退避された動画のみファイル
+#if AVIUTL_TARGET_VER == 2
+    const aviutlchar *org_save_file_name;              //オリジナルの保存ファイル名
+#else
+    aviutlchar *org_save_file_name;              //オリジナルの保存ファイル名
+#endif
+    aviutlchar save_file_name[MAX_PATH_LEN];     //保存ファイル名
+    TCHAR temp_filename[MAX_PATH_LEN];      //一時ファイル名
+    TCHAR muxed_vid_filename[MAX_PATH_LEN]; //mux後に退避された動画のみファイル
     int  aud_count;                        //音声ファイル数...音声エンコード段階で設定する
                                            //auo_mux.cppのenable_aud_muxの制限から31以下
-    char aud_temp_dir[MAX_PATH_LEN];       //音声一時ディレクトリ
+                                           TCHAR aud_temp_dir[MAX_PATH_LEN];       //音声一時ディレクトリ
     FILE_APPENDIX append;                  //ファイル名に追加する文字列のリスト
     int delay_cut_additional_vframe;       //音声エンコード遅延解消のための追加の動画フレーム (負値なら先頭を削ることを意味する)
     int delay_cut_additional_aframe;       //音声エンコード遅延解消のための追加の音声フレーム (負値なら先頭を削ることを意味する)
@@ -95,8 +99,8 @@ typedef struct {
 
 typedef struct {
     BOOL init;
-    char auo_path[MAX_PATH_LEN];    //auoのフルパス
-    char aviutl_dir[MAX_PATH_LEN];  //Aviutlのディレクトリ(\無し)
+    TCHAR auo_path[MAX_PATH_LEN];    //auoのフルパス
+    TCHAR aviutl_dir[MAX_PATH_LEN];  //Aviutlのディレクトリ(\無し)
     guiEx_settings *exstg;          //ini設定
 } SYSTEM_DATA;
 

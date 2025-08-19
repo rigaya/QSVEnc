@@ -37,7 +37,6 @@
 #include <thread>
 #include <future>
 
-#include "output.h"
 #include "rgy_faw.h"
 #include "auo.h"
 #include "auo_version.h"
@@ -55,7 +54,7 @@
 
 struct faw2aac_data_t {
     int id;
-    char audfile[MAX_PATH_LEN];
+    TCHAR audfile[MAX_PATH_LEN];
     BOOL is_internal;
     HANDLE h_aud_namedpipe;
     HANDLE he_ov_aud_namedpipe;
@@ -105,9 +104,9 @@ AUO_RESULT audio_faw2aac(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, 
         aud_dat[i_aud].heOutputDataWritten = nullptr;
         aud_dat[i_aud].fp_out = nullptr;
         if (conf->aud.use_internal) {
-            char pipename[MAX_PATH_LEN];
+            TCHAR pipename[MAX_PATH_LEN];
             get_audio_pipe_name(pipename, _countof(pipename), i_aud);
-            aud_dat[i_aud].h_aud_namedpipe = CreateNamedPipeA(pipename, PIPE_ACCESS_OUTBOUND | FILE_FLAG_OVERLAPPED, PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT, 1, 4096, 4096, 0, NULL);
+            aud_dat[i_aud].h_aud_namedpipe = CreateNamedPipe(pipename, PIPE_ACCESS_OUTBOUND | FILE_FLAG_OVERLAPPED, PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT, 1, 4096, 4096, 0, NULL);
             aud_dat[i_aud].he_ov_aud_namedpipe = CreateEvent(NULL, FALSE, FALSE, NULL);
             aud_dat[i_aud].heOutputDataPushed = CreateEvent(NULL, FALSE, FALSE, NULL);
             aud_dat[i_aud].heOutputDataWritten = CreateEvent(NULL, FALSE, TRUE, NULL);
@@ -144,7 +143,7 @@ AUO_RESULT audio_faw2aac(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, 
                         overlapped.hEvent = aud_track->he_ov_aud_namedpipe;
                         DWORD sizeWritten = 0;
                         //非同期処理中は0を返すことがある
-                        WriteFile(aud_track->h_aud_namedpipe, aud_track->outBuffer.data(), aud_track->outBuffer.size(), &sizeWritten, &overlapped);
+                        WriteFile(aud_track->h_aud_namedpipe, aud_track->outBuffer.data(), (DWORD)aud_track->outBuffer.size(), &sizeWritten, &overlapped);
                         while (WaitForSingleObject(overlapped.hEvent, 1000) != WAIT_OBJECT_0) {
                             if (pe->aud_parallel.abort) {
                                 return 0;
@@ -167,11 +166,11 @@ AUO_RESULT audio_faw2aac(CONF_GUIEX *conf, const OUTPUT_INFO *oip, PRM_ENC *pe, 
         for (int i_aud = 0; !ret && i_aud < pe->aud_count; i_aud++) {
             const CONF_AUDIO_BASE *cnf_aud = (conf->aud.use_internal) ? &conf->aud.in : &conf->aud.ext;
             const AUDIO_SETTINGS *aud_stg = (conf->aud.use_internal) ? &sys_dat->exstg->s_aud_int[cnf_aud->encoder] : &sys_dat->exstg->s_aud_ext[cnf_aud->encoder];
-            strcpy_s(pe->append.aud[i_aud], _countof(pe->append.aud[i_aud]), aud_stg->aud_appendix); //pe一時パラメータにコピーしておく
+            _tcscpy_s(pe->append.aud[i_aud], _countof(pe->append.aud[i_aud]), aud_stg->aud_appendix); //pe一時パラメータにコピーしておく
             if (i_aud)
                 insert_before_ext(pe->append.aud[i_aud], _countof(pe->append.aud[i_aud]), i_aud);
             get_aud_filename(aud_dat[i_aud].audfile, _countof(aud_dat[i_aud].audfile), pe, i_aud);
-            if (fopen_s(&aud_dat[i_aud].fp_out, aud_dat[i_aud].audfile, "wbS")) {
+            if (_tfopen_s(&aud_dat[i_aud].fp_out, aud_dat[i_aud].audfile, _T("wbS")) != NULL) {
                 ret |= AUO_RESULT_ABORT;
                 break;
             }

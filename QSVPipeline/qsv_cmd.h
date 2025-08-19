@@ -37,6 +37,7 @@ tstring GetQSVEncVersion();
 
 int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, bool ignore_parse_err = false);
 #if defined(_WIN32) || defined(_WIN64)
+int parse_cmd(sInputParams *pParams, const wchar_t *cmdw, bool ignore_parse_err = false);
 int parse_cmd(sInputParams *pParams, const char *cmda, bool ignore_parse_err = false);
 #endif
 

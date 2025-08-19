@@ -64,6 +64,7 @@ typedef struct sAudioSelectOld {
 } sAudioSelectOld;
 
 #pragma pack(push, 4)
+//x64ビルドでも同じサイズを保つため、ポインタはuint32_tに置き換え
 typedef struct {
     bool bEnable;             //use vpp
 
@@ -89,8 +90,8 @@ typedef struct {
     bool __unsed3;
 
     struct {
-        TCHAR     *pFilePath; //ロゴファイル名へのポインタ
-        TCHAR     *pSelect; //選択するロゴ
+        uint32_t  pFilePath; //ロゴファイル名へのポインタ
+        uint32_t  pSelect; //選択するロゴ
         mfxI16Pair nPosOffset;
         uint8_t    nDepth;
         uint8_t    bAdd;
@@ -101,8 +102,8 @@ typedef struct {
 
     struct {
         int    nTrack;    //動画ファイルから字幕を抽出する場合の字幕トラック (0で無効)
-        TCHAR *pFilePath; //字幕を別ファイルから読み込む場合のファイルの場所
-        TCHAR *pCharEnc;  //字幕の文字コード
+        uint32_t pFilePath; //字幕を別ファイルから読み込む場合のファイルの場所
+        uint32_t pCharEnc;  //字幕の文字コード
         int    nShaping;  //字幕を焼きこむときのモード
     } subburn;
 
@@ -157,7 +158,7 @@ struct sInputParamsOld {
     mfxU16 nInputBufSize; //input buf size
 
     bool   __unused;
-    void  *pPrivatePrm;
+    uint32_t  pPrivatePrm;
 
 
     mfxI32     nPAR[2]; //PAR比
@@ -184,7 +185,7 @@ struct sInputParamsOld {
     mfxU16     nLookaheadDepth;
     mfxU16     nTrellis;
 
-    TCHAR     *pStrLogFile; //ログファイル名へのポインタ
+    uint32_t   pStrLogFile; //ログファイル名へのポインタ
     mfxU16     nAsyncDepth;
     mfxI16     nOutputBufSizeMB;
 
@@ -215,16 +216,16 @@ struct sInputParamsOld {
     mfxU32     nMaxBitrate;
 
     mfxU16     nTrimCount;
-    sTrim     *pTrimList;
+    uint32_t   pTrimList;
     mfxU16     inputBitDepthLuma;
     mfxU16     inputBitDepthChroma;
     mfxU8      nAVMux; //RGY_MUX_xxx
     mfxU16     nAVDemuxAnalyzeSec;
 
-    TCHAR     *pAVMuxOutputFormat;
+    uint32_t pAVMuxOutputFormat;
 
     mfxU8      nAudioSelectCount; //pAudioSelectの数
-    sAudioSelectOld **ppAudioSelectList;
+    uint32_t ppAudioSelectList;
 
     mfxI16     nSessionThreads;
     mfxU16     nSessionThreadPriority;
@@ -233,30 +234,30 @@ struct sInputParamsOld {
     mfxU8      nAudioResampler;
     mfxU8      nVP8Sharpness;
     mfxU8      nAudioSourceCount;
-    TCHAR      **ppAudioSourceList;
+    uint32_t   ppAudioSourceList;
 
     mfxU16     nWeightP;
     mfxU16     nWeightB;
     mfxU16     nFadeDetect;
     mfxU16     nSubtitleSelectCount;
-    int       *pSubtitleSelect;
+    uint32_t   pSubtitleSelect;
     int64_t    nPerfMonitorSelect;
     int64_t    nPerfMonitorSelectMatplot;
     int        nPerfMonitorInterval;
-    TCHAR     *pPythonPath;
+    uint32_t   pPythonPath;
     mfxU32     nBenchQuality; //ベンチマークの対象
     int8_t     nOutputThread;
     int8_t     nAudioThread;
 
-    RGYOptList *pMuxOpt;
-    TCHAR     *pChapterFile;
+    uint32_t   pMuxOpt;
+    uint32_t   pChapterFile;
     uint32_t   nAudioIgnoreDecodeError;
     RGYAVSync  nAVSyncMode;     //avsyncの方法 (RGY_AVSYNC_xxx)
     uint16_t   nProcSpeedLimit; //プリデコードする場合の処理速度制限 (0で制限なし)
     int8_t     nInputThread;
     int8_t     unused;
     float      fSeekSec; //指定された秒数分先頭を飛ばす
-    TCHAR     *pFramePosListLog;
+    uint32_t   pFramePosListLog;
     uint32_t   nFallback;
     int        nVideoStreamId;
     int8_t     nVideoTrack;
@@ -264,20 +265,20 @@ struct sInputParamsOld {
     int8_t     bOutputPicStruct;
     int8_t     bChapterNoTrim;
     int16_t    pQPOffset[8];
-    TCHAR     *pMuxVidTsLogFile;
-    TCHAR     *pAVInputFormat;
-    TCHAR     *pLogCopyFrameData;
+    uint32_t   pMuxVidTsLogFile;
+    uint32_t   pAVInputFormat;
+    uint32_t   pLogCopyFrameData;
 
     sInputCrop sInCrop;
 
     mfxU16     nRepartitionCheck;
     int8_t     padding[2];
-    char      *sMaxCll;
-    char      *sMasterDisplay;
+    uint32_t   sMaxCll;
+    uint32_t   sMasterDisplay;
     int8_t     Reserved[1000];
 
-    TCHAR strSrcFile[MAX_FILENAME_LEN];
-    TCHAR strDstFile[MAX_FILENAME_LEN];
+    char strSrcFile[MAX_FILENAME_LEN];
+    char strDstFile[MAX_FILENAME_LEN];
 
     mfxU16 nRotationAngle; //not supported
 
@@ -305,23 +306,23 @@ typedef struct {
     sInputParamsOld qsv;                         //qsvについての設定
     CONF_VIDEO_OLD_V5 vid;                       //その他動画についての設定
     CONF_AUDIO  aud;                             //音声についての設定
-    CONF_MUX    mux;                             //muxについての設定
-    CONF_OTHER  oth;                             //その他の設定
+    CONF_MUX_OLD    mux;                             //muxについての設定
+    CONF_OTHER_OLD  oth;                             //その他の設定
     CONF_AUDIO_DIRECT aud_avqsv;                 //音声についての設定
 } CONF_GUIEX_OLD_V5;
 
 #pragma pack(pop)
 
-const int conf_block_data_old5[CONF_BLOCK_COUNT] = {
+const int conf_block_data_old5[6] = {
     sizeof(sInputParamsOld),
     sizeof(CONF_VIDEO_OLD_V5),
     sizeof(CONF_AUDIO),
-    sizeof(CONF_MUX),
-    sizeof(CONF_OTHER),
+    sizeof(CONF_MUX_OLD),
+    sizeof(CONF_OTHER_OLD),
     sizeof(CONF_AUDIO_DIRECT)
 };
 
-const size_t conf_block_pointer_old5[CONF_BLOCK_COUNT] = {
+const size_t conf_block_pointer_old5[6] = {
     offsetof(CONF_GUIEX_OLD_V5, qsv),
     offsetof(CONF_GUIEX_OLD_V5, vid),
     offsetof(CONF_GUIEX_OLD_V5, aud),
@@ -476,8 +477,8 @@ void *guiEx_config::convert_qsvstgv5_to_stgv6(void *_conf) {
         memcpy(dst, filedat, std::min<int>(((CONF_GUIEX_OLD_V5 *)_conf)->block_size[i], conf_block_data_old5[i]));
     }
 
-    CONF_GUIEX *conf = (CONF_GUIEX *)calloc(sizeof(CONF_GUIEX), 1);
-    write_conf_header(conf);
+    CONF_GUIEX_OLD *conf = (CONF_GUIEX_OLD *)calloc(sizeof(CONF_GUIEX_OLD), 1);
+    write_conf_header(&conf->header);
 
     //まずそのままコピーするブロックはそうする
 #define COPY_BLOCK(block, block_idx) { memcpy(&conf->block, ((BYTE *)conf_old) + conf_old->block_head_p[block_idx], std::min<int>(sizeof(conf->block), conf_old->block_size[block_idx])); }
@@ -515,9 +516,9 @@ void *guiEx_config::convert_qsvstgv5_to_stgv6(void *_conf) {
 
     sInputParams prm;
     parse_cmd(&prm, cmd_full.c_str(), true);
-    strcpy_s(conf->enc.cmd, gen_cmd(&prm, true).c_str());
+    strcpy_s(conf->enc.cmd, tchar_to_string(gen_cmd(&prm, true)).c_str());
 
-    strcpy_s(conf->conf_name, CONF_NAME_OLD_6);
+    strcpy_s(conf->header.conf_name, CONF_NAME_OLD_6);
 
     conf->vid.resize_enable = conf_old->qsv.vpp.bUseResize ? TRUE : FALSE;
     conf->vid.resize_width = conf_old->qsv.nDstWidth;
@@ -804,10 +805,10 @@ static tstring gen_cmd_oldv5(const sInputParamsOld *pParams, bool save_disabled_
     OPT_LST(_T("--transfer"), Transfer, list_transfer);
     OPT_LST(_T("--level"), CodecLevel, get_level_list(conv_codec_mfx_to_rgy(pParams->CodecId)));
     OPT_LST(_T("--profile"), CodecProfile, get_profile_list(conv_codec_mfx_to_rgy(pParams->CodecId)));
-    if (save_disabled_prm || pParams->CodecId == MFX_CODEC_HEVC) {
-        OPT_CHAR(_T("--max-cll"), sMaxCll);
-        OPT_CHAR(_T("--master-display"), sMasterDisplay);
-    }
+    //if (save_disabled_prm || pParams->CodecId == MFX_CODEC_HEVC) {
+    //    OPT_CHAR(_T("--max-cll"), sMaxCll);
+    //    OPT_CHAR(_T("--master-display"), sMasterDisplay);
+    //}
     if (save_disabled_prm || pParams->CodecId == MFX_CODEC_AVC) {
         OPT_LST(_T("--trellis"), nTrellis, list_avc_trellis_for_options);
         switch (pParams->nBluray) {
@@ -830,53 +831,53 @@ static tstring gen_cmd_oldv5(const sInputParamsOld *pParams, bool save_disabled_
 
 #if ENABLE_AVSW_READER
     OPT_NUM(_T("--input-analyze"), nAVDemuxAnalyzeSec);
-    if (pParams->nTrimCount > 0) {
-        cmd << _T(" --trim ");
-        for (int i = 0; i < pParams->nTrimCount; i++) {
-            if (i > 0) cmd << _T(",");
-            cmd << pParams->pTrimList[i].start << _T(":") << pParams->pTrimList[i].fin;
-        }
-    }
+    //if (pParams->nTrimCount > 0) {
+    //    cmd << _T(" --trim ");
+    //    for (int i = 0; i < pParams->nTrimCount; i++) {
+    //        if (i > 0) cmd << _T(",");
+    //        cmd << pParams->pTrimList[i].start << _T(":") << pParams->pTrimList[i].fin;
+    //    }
+    //}
     OPT_FLOAT(_T("--seek"), fSeekSec, 2);
-    OPT_CHAR(_T("--input-format"), pAVInputFormat);
-    OPT_CHAR(_T("--output-format"), pAVMuxOutputFormat);
+    //OPT_CHAR(_T("--input-format"), pAVInputFormat);
+    //OPT_CHAR(_T("--output-format"), pAVMuxOutputFormat);
     OPT_NUM(_T("--video-track"), nVideoTrack);
     OPT_NUM(_T("--video-streamid"), nVideoStreamId);
-    if (pParams->pMuxOpt) {
-        for (uint32_t i = 0; i < pParams->pMuxOpt->size(); i++) {
-            cmd << _T(" -m ") << pParams->pMuxOpt->at(i).first << _T(":") << pParams->pMuxOpt->at(i).second;
-        }
-    }
+    //if (pParams->pMuxOpt) {
+    //    for (uint32_t i = 0; i < pParams->pMuxOpt->size(); i++) {
+    //        cmd << _T(" -m ") << pParams->pMuxOpt->at(i).first << _T(":") << pParams->pMuxOpt->at(i).second;
+    //    }
+    //}
     tmp.str(tstring());
-    for (uint32_t i = 0; i < pParams->nAudioSelectCount; i++) {
-        const sAudioSelectOld *pAudioSelect = pParams->ppAudioSelectList[i];
-        if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) == 0) {
-            tmp << pAudioSelect->nAudioSelect << _T(",");
-        }
-    }
-    if (tmp.str().empty()) {
-        cmd << _T(" --audio-copy");
-    } else {
-        cmd << _T(" --audio-copy ") << tmp.str().substr(1);
-    }
-    tmp.str(tstring());
-
-    for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-        const sAudioSelectOld *pAudioSelect = pParams->ppAudioSelectList[i];
-        if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) != 0) {
-            cmd << _T(" --audio-codec ") << pAudioSelect->nAudioSelect;
-            if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_AUTO) != 0) {
-                cmd << _T("?") << pAudioSelect->pAVAudioEncodeCodec;
-            }
-        }
-    }
-
-    for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-        const sAudioSelectOld *pAudioSelect = pParams->ppAudioSelectList[i];
-        if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) != 0) {
-            cmd << _T(" --audio-bitrate ") << pAudioSelect->nAudioSelect << _T("?") << pAudioSelect->nAVAudioEncodeBitrate;
-        }
-    }
+    //for (uint32_t i = 0; i < pParams->nAudioSelectCount; i++) {
+    //    const sAudioSelectOld *pAudioSelect = pParams->ppAudioSelectList[i];
+    //    if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) == 0) {
+    //        tmp << pAudioSelect->nAudioSelect << _T(",");
+    //    }
+    //}
+    //if (tmp.str().empty()) {
+    //    cmd << _T(" --audio-copy");
+    //} else {
+    //    cmd << _T(" --audio-copy ") << tmp.str().substr(1);
+    //}
+    //tmp.str(tstring());
+    //
+    //for (int i = 0; i < pParams->nAudioSelectCount; i++) {
+    //    const sAudioSelectOld *pAudioSelect = pParams->ppAudioSelectList[i];
+    //    if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) != 0) {
+    //        cmd << _T(" --audio-codec ") << pAudioSelect->nAudioSelect;
+    //        if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_AUTO) != 0) {
+    //            cmd << _T("?") << pAudioSelect->pAVAudioEncodeCodec;
+    //        }
+    //    }
+    //}
+    //
+    //for (int i = 0; i < pParams->nAudioSelectCount; i++) {
+    //    const sAudioSelectOld *pAudioSelect = pParams->ppAudioSelectList[i];
+    //    if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) != 0) {
+    //        cmd << _T(" --audio-bitrate ") << pAudioSelect->nAudioSelect << _T("?") << pAudioSelect->nAVAudioEncodeBitrate;
+    //    }
+    //}
 
     //QSVEnc.auoでは、libavutilの関数 av_get_channel_layout_string()を実行してはならない
     //for (int i = 0; i < pParams->nAudioSelectCount; i++) {
@@ -901,49 +902,49 @@ static tstring gen_cmd_oldv5(const sInputParamsOld *pParams, bool save_disabled_
     //    }
     //}
 
-    for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-        const sAudioSelectOld *pAudioSelect = pParams->ppAudioSelectList[i];
-        if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) != 0) {
-            cmd << _T(" --audio-samplerate ") << pAudioSelect->nAudioSelect << _T("?") << pAudioSelect->nAudioSamplingRate;
-        }
-    }
-    OPT_LST(_T("--audio-resampler"), nAudioResampler, list_resampler);
-
-    for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-        const sAudioSelectOld *pAudioSelect = pParams->ppAudioSelectList[i];
-        if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) != 0) {
-            cmd << _T(" --audio-filter ") << pAudioSelect->nAudioSelect << _T("?") << pAudioSelect->pAudioFilter;
-        }
-    }
-    for (int i = 0; i < pParams->nAudioSelectCount; i++) {
-        const sAudioSelectOld *pAudioSelect = pParams->ppAudioSelectList[i];
-        if (pAudioSelect->pAudioExtractFilename) {
-            cmd << _T(" --audio-file ") << pAudioSelect->nAudioSelect << _T("?");
-            if (pAudioSelect->pAudioExtractFormat) {
-                cmd << pAudioSelect->pAudioExtractFormat << _T(":");
-            }
-            cmd << _T("\"") << pAudioSelect->pAudioExtractFilename << _T("\"");
-        }
-    }
-    for (int i = 0; i < pParams->nAudioSourceCount; i++) {
-        cmd << _T(" --audio-source ") << _T("\"") << pParams->ppAudioSourceList[i] << _T("\"");
-    }
-    OPT_NUM(_T("--audio-ignore-decode-error"), nAudioIgnoreDecodeError);
-    if (pParams->pMuxOpt) {
-        for (uint32_t i = 0; i < pParams->pMuxOpt->size(); i++) {
-            cmd << _T(" -m ") << (*pParams->pMuxOpt)[i].first << _T(":") << (*pParams->pMuxOpt)[i].second;
-        }
-    }
-
+    //for (int i = 0; i < pParams->nAudioSelectCount; i++) {
+    //    const sAudioSelectOld *pAudioSelect = pParams->ppAudioSelectList[i];
+    //    if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) != 0) {
+    //        cmd << _T(" --audio-samplerate ") << pAudioSelect->nAudioSelect << _T("?") << pAudioSelect->nAudioSamplingRate;
+    //    }
+    //}
+    //OPT_LST(_T("--audio-resampler"), nAudioResampler, list_resampler);
+    //
+    //for (int i = 0; i < pParams->nAudioSelectCount; i++) {
+    //    const sAudioSelectOld *pAudioSelect = pParams->ppAudioSelectList[i];
+    //    if (_tcscmp(pAudioSelect->pAVAudioEncodeCodec, RGY_AVCODEC_COPY) != 0) {
+    //        cmd << _T(" --audio-filter ") << pAudioSelect->nAudioSelect << _T("?") << pAudioSelect->pAudioFilter;
+    //    }
+    //}
+    //for (int i = 0; i < pParams->nAudioSelectCount; i++) {
+    //    const sAudioSelectOld *pAudioSelect = pParams->ppAudioSelectList[i];
+    //    if (pAudioSelect->pAudioExtractFilename) {
+    //        cmd << _T(" --audio-file ") << pAudioSelect->nAudioSelect << _T("?");
+    //        if (pAudioSelect->pAudioExtractFormat) {
+    //            cmd << pAudioSelect->pAudioExtractFormat << _T(":");
+    //        }
+    //        cmd << _T("\"") << pAudioSelect->pAudioExtractFilename << _T("\"");
+    //    }
+    //}
+    //for (int i = 0; i < pParams->nAudioSourceCount; i++) {
+    //    cmd << _T(" --audio-source ") << _T("\"") << pParams->ppAudioSourceList[i] << _T("\"");
+    //}
+    //OPT_NUM(_T("--audio-ignore-decode-error"), nAudioIgnoreDecodeError);
+    //if (pParams->pMuxOpt) {
+    //    for (uint32_t i = 0; i < pParams->pMuxOpt->size(); i++) {
+    //        cmd << _T(" -m ") << (*pParams->pMuxOpt)[i].first << _T(":") << (*pParams->pMuxOpt)[i].second;
+    //    }
+    //}
+    //
+    //tmp.str(tstring());
+    //for (int i = 0; i < pParams->nSubtitleSelectCount; i++) {
+    //    tmp << pParams->pSubtitleSelect[i] << _T(",");
+    //}
+    //if (!tmp.str().empty()) {
+    //    cmd << _T(" --sub-copy ") << tmp.str().substr(1);
+    //}
     tmp.str(tstring());
-    for (int i = 0; i < pParams->nSubtitleSelectCount; i++) {
-        tmp << pParams->pSubtitleSelect[i] << _T(",");
-    }
-    if (!tmp.str().empty()) {
-        cmd << _T(" --sub-copy ") << tmp.str().substr(1);
-    }
-    tmp.str(tstring());
-    OPT_CHAR_PATH(_T("--chapter"), pChapterFile);
+    //OPT_CHAR_PATH(_T("--chapter"), pChapterFile);
     OPT_BOOL(_T("--chapter-copy"), _T(""), bCopyChapter);
     OPT_BOOL(_T("--chapter-no-trim"), _T(""), bChapterNoTrim);
     OPT_LST(_T("--avsync"), nAVSyncMode, list_avsync);
@@ -960,12 +961,12 @@ static tstring gen_cmd_oldv5(const sInputParamsOld *pParams, bool save_disabled_
     OPT_LST(_T("--vpp-image-stab"), vpp.nImageStabilizer, list_vpp_image_stabilizer);
 #if ENABLE_CUSTOM_VPP
 #if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
-    OPT_CHAR_PATH(_T("--vpp-sub"), vpp.subburn.pFilePath);
-    OPT_CHAR_PATH(_T("--vpp-sub-charset"), vpp.subburn.pCharEnc);
+    //OPT_CHAR_PATH(_T("--vpp-sub"), vpp.subburn.pFilePath);
+    //OPT_CHAR_PATH(_T("--vpp-sub-charset"), vpp.subburn.pCharEnc);
     OPT_LST(_T("--vpp-sub-shaping"), vpp.subburn.nShaping, list_vpp_sub_shaping);
 #endif //#if ENABLE_AVSW_READER && ENABLE_LIBASS_SUBBURN
-    OPT_CHAR_PATH(_T("--vpp-delogo"), vpp.delogo.pFilePath);
-    OPT_CHAR(_T("--vpp-delogo-select"), vpp.delogo.pSelect);
+    //OPT_CHAR_PATH(_T("--vpp-delogo"), vpp.delogo.pFilePath);
+    //OPT_CHAR(_T("--vpp-delogo-select"), vpp.delogo.pSelect);
     OPT_NUM(_T("--vpp-delogo-depth"), vpp.delogo.nDepth);
     if (pParams->vpp.delogo.nPosOffset.x > 0 || pParams->vpp.delogo.nPosOffset.y > 0) {
         cmd << _T(" --vpp-delogo-pos ") << pParams->vpp.delogo.nPosOffset.x << _T("x") << pParams->vpp.delogo.nPosOffset.y;
@@ -983,11 +984,11 @@ static tstring gen_cmd_oldv5(const sInputParamsOld *pParams, bool save_disabled_
     OPT_NUM(_T("--input-thread"), nInputThread);
     OPT_NUM(_T("--audio-thread"), nAudioThread);
     OPT_NUM(_T("--max-procfps"), nProcSpeedLimit);
-    OPT_CHAR_PATH(_T("--log"), pStrLogFile);
+    //OPT_CHAR_PATH(_T("--log"), pStrLogFile);
     OPT_LST(_T("--log-level"), nLogLevel, auo_list_log_level);
-    OPT_CHAR_PATH(_T("--log-framelist"), pFramePosListLog);
-    OPT_CHAR_PATH(_T("--log-mux-ts"), pMuxVidTsLogFile);
-    OPT_CHAR_PATH(_T("--log-copy-framedata"), pLogCopyFrameData);
+    //OPT_CHAR_PATH(_T("--log-framelist"), pFramePosListLog);
+    //OPT_CHAR_PATH(_T("--log-mux-ts"), pMuxVidTsLogFile);
+    //OPT_CHAR_PATH(_T("--log-copy-framedata"), pLogCopyFrameData);
     if (pParams->nPerfMonitorSelect != encPrmDefault.nPerfMonitorSelect) {
         auto select = (int)pParams->nPerfMonitorSelect;
         tmp.str(tstring());
@@ -1021,7 +1022,7 @@ static tstring gen_cmd_oldv5(const sInputParamsOld *pParams, bool save_disabled_
         }
     }
     OPT_NUM(_T("--perf-monitor-interval"), nPerfMonitorInterval);
-    OPT_CHAR_PATH(_T("--python"), pLogCopyFrameData);
+    //OPT_CHAR_PATH(_T("--python"), pLogCopyFrameData);
     OPT_BOOL(_T("--timer-period-tuning"), _T("--no-timer-period-tuning"), bDisableTimerPeriodTuning);
     return cmd.str();
 }

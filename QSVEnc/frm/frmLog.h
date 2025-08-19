@@ -777,7 +777,7 @@ private: System::Windows::Forms::ToolStripMenuItem^  toolStripMenuItemFilePathOp
             }
         }
     public:
-        System::Void AutoSaveLogFile(const char *log_filename) {
+        System::Void AutoSaveLogFile(const TCHAR *log_filename) {
             if (toolStripMenuItemAutoSave->Checked && !prevent_log_closing && log_filename != NULL)
                 SaveLog(String(log_filename).ToString());
         }

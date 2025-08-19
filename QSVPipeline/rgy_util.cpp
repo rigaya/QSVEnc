@@ -334,6 +334,12 @@ std::wstring str_replace(std::wstring str, const std::wstring& from, const std::
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
+bool canbe_converted_to(const wchar_t *str, uint32_t codepage) {
+    auto str_codepage = wstring_to_string(str, codepage);
+    auto tstr_rev = char_to_wstring(str_codepage, codepage);
+    return tstr_rev == str;
+}
+
 #pragma warning (pop)
 #if defined(_WIN32) || defined(_WIN64)
 std::vector<std::wstring> split(const std::wstring &str, const std::wstring &delim, bool bTrim) {

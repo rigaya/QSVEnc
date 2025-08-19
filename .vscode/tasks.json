@@ -2,7 +2,7 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "build (DebugStatic)",
+            "label": "build (DebugStatic/x64)",
             "type": "shell",
             "command": "C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/MSBuild.exe",
             "args": [
@@ -18,12 +18,76 @@
             "problemMatcher": "$msCompile"
         },
         {
-            "label": "build (ReleaseStatic)",
+            "label": "build (ReleaseStatic/x64)",
             "type": "shell",
             "command": "C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/MSBuild.exe",
             "args": [
                 "${workspaceFolder}/QSVEnc.sln",
                 "/p:Configuration=ReleaseStatic",
+                "/p:Platform=x64",
+                "/m"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "build (Debug/Win32)",
+            "type": "shell",
+            "command": "C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/MSBuild.exe",
+            "args": [
+                "${workspaceFolder}/QSVEnc.sln",
+                "/p:Configuration=Debug",
+                "/p:Platform=Win32",
+                "/m"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "build (Release/Win32)",
+            "type": "shell",
+            "command": "C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/MSBuild.exe",
+            "args": [
+                "${workspaceFolder}/QSVEnc.sln",
+                "/p:Configuration=Release",
+                "/p:Platform=Win32",
+                "/m"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "build (Debug/x64)",
+            "type": "shell",
+            "command": "C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/MSBuild.exe",
+            "args": [
+                "${workspaceFolder}/QSVEnc.sln",
+                "/p:Configuration=Debug",
+                "/p:Platform=x64",
+                "/m"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "build (Release/x64)",
+            "type": "shell",
+            "command": "C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/MSBuild.exe",
+            "args": [
+                "${workspaceFolder}/QSVEnc.sln",
+                "/p:Configuration=Release",
                 "/p:Platform=x64",
                 "/m"
             ],

@@ -2070,13 +2070,12 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, bool 
 }
 
 #if defined(_WIN32) || defined(_WIN64)
-int parse_cmd(sInputParams *pParams, const char *cmda, bool ignore_parse_err) {
-    if (cmda == nullptr) {
+int parse_cmd(sInputParams *pParams, const wchar_t *cmdw, bool ignore_parse_err) {
+    if (cmdw == nullptr) {
         return 0;
     }
-    std::wstring cmd = char_to_wstring(cmda);
     int argc = 0;
-    auto argvw = CommandLineToArgvW(cmd.c_str(), &argc);
+    auto argvw = CommandLineToArgvW(cmdw, &argc);
     if (argc <= 1) {
         return 0;
     }
@@ -2096,6 +2095,14 @@ int parse_cmd(sInputParams *pParams, const char *cmda, bool ignore_parse_err) {
     argv_tchar.push_back(_T("")); // 最後に空白を追加
     const TCHAR **strInput = (const TCHAR **)argv_tchar.data();
     return parse_cmd(pParams, strInput, (int)argv_tchar.size() - 1 /*最後の空白の分*/, ignore_parse_err);
+}
+
+int parse_cmd(sInputParams *pParams, const char *cmda, bool ignore_parse_err) {
+    if (cmda == nullptr) {
+        return 0;
+    }
+    std::wstring cmd = char_to_wstring(cmda);
+    return parse_cmd(pParams, cmd.c_str(), ignore_parse_err);
 }
 #endif
 

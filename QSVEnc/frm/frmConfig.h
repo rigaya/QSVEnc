@@ -7987,7 +7987,7 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUVppDebandRange;
         String^ StrGPUInfo;
         SetGPUInfoDelegate ^getGPUInfoDelegate;
         const SYSTEM_DATA *sys_dat;
-        std::vector<std::string> *list_lng;
+        std::vector<tstring> *list_lng;
         CONF_GUIEX *conf;
         LocalSettings LocalStg;
         DarkenWindowStgReader *dwStgReader;
@@ -8040,8 +8040,8 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUVppDebandRange;
         System::Void fcgTSTSettingsNotes_Leave(System::Object^  sender, System::EventArgs^  e);
         System::Void fcgTSTSettingsNotes_KeyDown(System::Object^  sender, System::Windows::Forms::KeyEventArgs^  e);
         System::Void fcgTSTSettingsNotes_TextChanged(System::Object^  sender, System::EventArgs^  e);
-        System::Void GetfcgTSLSettingsNotes(char *notes, int nSize);
-        System::Void SetfcgTSLSettingsNotes(const char *notes);
+        System::Void GetfcgTSLSettingsNotes(TCHAR *notes, int nSize);
+        System::Void SetfcgTSLSettingsNotes(const TCHAR *notes);
         System::Void SetfcgTSLSettingsNotes(String^ notes);
         System::Void fcgTSBSave_Click(System::Object^  sender, System::EventArgs^  e);
         System::Void fcgTSBSaveNew_Click(System::Object^  sender, System::EventArgs^  e);
@@ -8055,8 +8055,8 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUVppDebandRange;
         System::Void fcgChangeMuxerVisible(System::Object^  sender, System::EventArgs^  e);
 
         System::Void InitLangList();
-        System::Void SaveSelectedLanguage(const char *language_text);
-        System::Void SetSelectedLanguage(const char *language_text);
+        System::Void SaveSelectedLanguage(const TCHAR *language_text);
+        System::Void SetSelectedLanguage(const TCHAR *language_text);
         System::Void CheckTSLanguageDropDownItem(ToolStripMenuItem^ mItem);
         System::Void fcgTSLanguage_DropDownItemClicked(System::Object^  sender, System::Windows::Forms::ToolStripItemClickedEventArgs^  e);
 
@@ -8180,10 +8180,10 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUVppDebandRange;
             const int prevIdx = CX->SelectedIndex;
             CX->Items->Clear();
             for (int i = 0; list[i].desc; i++) {
-                if (ignore && strcmp(ignore, list[i].desc) == 0) {
+                if (ignore && _tcscmp(ignore, list[i].desc) == 0) {
                     //インデックスの順番を保持するため、途中の場合は"-----"をいれておく
                     if (list[i + 1].desc) {
-                        CX->Items->Add(String("-----").ToString());
+                        CX->Items->Add(String(L"-----").ToString());
                     }
                 } else {
                     CX->Items->Add(String(list[i].desc).ToString());

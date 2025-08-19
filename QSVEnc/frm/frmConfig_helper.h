@@ -37,6 +37,7 @@ using namespace System::Collections::Generic;
 #include "qsv_util.h"
 #include "qsv_query.h"
 #include "mfxstructures.h"
+#include "auo_settings.h"
 
 static const WCHAR *use_default_exe_path = L"exe_files内の実行ファイルを自動選択";
 
@@ -71,8 +72,6 @@ static const WCHAR * const list_mp4boxtempdir[] = {
     L"カスタム",
     NULL
 };
-
-
 
 
 static const ENC_OPTION_STR aspect_desc[] = {
@@ -305,7 +304,7 @@ namespace QSVEnc {
     value struct ExeControls {
         String^ Name;
         String^ Path;
-        const char* args;
+        const TCHAR* args;
     };
 
     value struct TrackBarNU {
@@ -632,13 +631,13 @@ namespace QSVEnc {
 
             //キャッシュを使用できない場合は、実際に情報を取得する(時間がかかる)
             if (!use_cache) {
-                char exe_path[1024];
-                GetCHARfromString(exe_path, sizeof(exe_path), exePath_);
-                char cmd[128];
+                TCHAR exe_path[1024];
+                GetWCHARfromString(exe_path, _countof(exe_path), exePath_);
+                TCHAR cmd[128];
                 if (devID_ != QSVDeviceNum::AUTO) {
-                    sprintf_s(cmd, "--check-features-auo -d %d", (int)devID_);
+                    _stprintf_s(cmd, _T("--check-features-auo -d %d"), (int)devID_);
                 } else {
-                    strcpy_s(cmd, "--check-features-auo");
+                    _tcscpy_s(cmd, _T("--check-features-auo"));
                 }
                 std::vector<char> buffer(256 * 1024);
                 if (get_exe_message(exe_path, cmd, buffer.data(), buffer.size(), AUO_PIPE_MUXED) == RP_SUCCESS) {
@@ -891,12 +890,12 @@ namespace QSVEnc {
                 return;
             }
 
-            char exe_path[1024];
-            GetCHARfromString(exe_path, sizeof(exe_path), exePath);
+            TCHAR exe_path[1024];
+            GetWCHARfromString(exe_path, _countof(exe_path), exePath);
 
             List<String^>^ devNames = gcnew List<String^>();
             std::vector<char> buffer(64 * 1024);
-            if (get_exe_message(exe_path, "--check-environment-auo", buffer.data(), buffer.size(), AUO_PIPE_MUXED) == RP_SUCCESS) {
+            if (get_exe_message(exe_path, _T("--check-environment-auo"), buffer.data(), buffer.size(), AUO_PIPE_MUXED) == RP_SUCCESS) {
                 environmentInfo = String(buffer.data()).ToString()->Split(String(L"\r\n").ToString()->ToCharArray(), System::StringSplitOptions::RemoveEmptyEntries);
                 for (int i = 0; i < environmentInfo->Length; i++) {
                     if (environmentInfo[i]->Contains(L"Hardware API")) {

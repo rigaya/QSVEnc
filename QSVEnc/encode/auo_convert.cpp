@@ -376,6 +376,12 @@ static const COVERT_FUNC_INFO FUNC_TABLE[] = {
     { CF_RGB,  OUT_CSP_YUV444, BIT_8, A,  1,  NONE,                 convert_rgb_to_yuv444 },
     { CF_RGB,  OUT_CSP_YUV444, BIT16, A,  1,  AVX2|AVX,             convert_rgb_to_yuv444_16bit_avx2 },
     { CF_RGB,  OUT_CSP_YUV444, BIT16, A,  1,  NONE,                 convert_rgb_to_yuv444_16bit },
+    //Convert PA64 to YUV444
+    { CF_PA64,  OUT_CSP_YUV444, BIT_8, A,  1,  AVX2|AVX,            convert_pa64_to_yuv444_avx2 },
+    { CF_PA64,  OUT_CSP_YUV444, BIT16, A,  1,  AVX2|AVX,            convert_pa64_to_yuv444_16bit_avx2 },
+    //Convert PA64 to RGBA
+    { CF_PA64,  OUT_CSP_RGBA,  BIT_8, A,  1,  AVX2|AVX,             convert_pa64_to_rgba_avx2 },
+    { CF_PA64,  OUT_CSP_RGBA,  BIT16, A,  1,  AVX2|AVX,             convert_pa64_to_rgba_16bit_avx2 },
     { 0, 0, 0, A, 0, NONE, NULL }
 };
 
@@ -435,8 +441,8 @@ static void auo_write_func_info(const COVERT_FUNC_INFO *func_info) {
     }
 
     write_log_auo_line_fmt(LOG_INFO, L"converting %s -> %s%s%s%s",
-        char_to_wstring(CF_NAME[func_info->input_from_aviutl]).c_str(),
-        char_to_wstring(specify_csp[func_info->output_csp]).c_str(),
+        CF_NAME[func_info->input_from_aviutl],
+        specify_csp[func_info->output_csp],
         interlaced,
         bit_depth,
         simd_buf);
@@ -549,6 +555,7 @@ BOOL malloc_pixel_data(CONVERT_CF_DATA * const pixel_data, int width, int height
                 ret = FALSE;
             break;
         case OUT_CSP_RGBA:
+        case OUT_CSP_RGBA_16:
             if ((pixel_data->data[0] = (BYTE *)_mm_malloc(frame_size * 4, std::max(align_size, 16ul))) == NULL)
                 ret = FALSE;
             break;
