@@ -324,13 +324,13 @@ static inline bool check_range(void* value, void* min, void* max) {
 static inline int ceil_div_int(int i, int div) {
     return (i + (div-1)) / div;
 }
-static inline DWORD ceil_div_int(DWORD i, int div) {
+static inline uint32_t ceil_div_int(uint32_t i, int div) {
     return (i + (div-1)) / div;
 }
-static inline __int64 ceil_div_int64(__int64 i, int div) {
+static inline int64_t ceil_div_int64(int64_t i, int div) {
     return (i + (div-1)) / div;
 }
-static inline UINT64 ceil_div_int64(UINT64 i, int div) {
+static inline uint64_t ceil_div_int64(uint64_t i, int div) {
     return (i + (div-1)) / div;
 }
 
@@ -649,14 +649,14 @@ static inline const char *strichr(const char *str, int c) {
     for (; *str; str++)
         if (c == tolower(*str))
             return str;
-    return NULL;
+    return nullptr;
 }
 static inline char *strichr(char *str, int c) {
     c = tolower(c);
     for (; *str; str++)
         if (c == tolower(*str))
             return str;
-    return NULL;
+    return nullptr;
 }
 
 // 大文字小文字を無視して、1文字検索 (wchar_t版)
@@ -665,103 +665,103 @@ static inline const WCHAR *strichr(const WCHAR *str, wint_t c) {
     for (; *str; str++)
         if (c == towlower(*str))
             return str;
-    return NULL;
+    return nullptr;
 }
 static inline WCHAR *strichr(WCHAR *str, wint_t c) {
     c = towlower(c);
     for (; *str; str++)
         if (c == towlower(*str))
             return str;
-    return NULL;
+    return nullptr;
 }
 
 //大文字小文字を無視して、文字列を検索
 static inline const char *stristr(const char *str, const char *substr) {
     size_t len = 0;
-    if (substr && (len = strlen(substr)) != NULL)
-        for (; (str = strichr(str, substr[0])) != NULL; str++)
-            if (_strnicmp(str, substr, len) == NULL)
+    if (substr && (len = strlen(substr)) != 0)
+        for (; (str = strichr(str, substr[0])) != nullptr; str++)
+            if (_strnicmp(str, substr, len) == 0)
                 return str;
-    return NULL;
+    return nullptr;
 }
 static inline char *stristr(char *str, const char *substr) {
     size_t len = 0;
-    if (substr && (len = strlen(substr)) != NULL)
-        for (; (str = strichr(str, substr[0])) != NULL; str++)
-            if (_strnicmp(str, substr, len) == NULL)
+    if (substr && (len = strlen(substr)) != 0)
+        for (; (str = strichr(str, substr[0])) != nullptr; str++)
+            if (_strnicmp(str, substr, len) == 0)
                 return str;
-    return NULL;
+    return nullptr;
 }
 
 // 大文字小文字を無視して、文字列を検索 (wchar_t版)
 static inline const WCHAR *stristr(const WCHAR *str, const WCHAR *substr) {
     size_t len = 0;
-    if (substr && (len = wcslen(substr)) != NULL)
-        for (; (str = strichr(str, substr[0])) != NULL; str++)
-            if (_wcsnicmp(str, substr, len) == NULL)
+    if (substr && (len = wcslen(substr)) != 0)
+        for (; (str = strichr(str, substr[0])) != nullptr; str++)
+            if (_wcsnicmp(str, substr, len) == 0)
                 return str;
-    return NULL;
+    return nullptr;
 }
 static inline WCHAR *stristr(WCHAR *str, const WCHAR *substr) {
     size_t len = 0;
-    if (substr && (len = wcslen(substr)) != NULL)
-        for (; (str = strichr(str, substr[0])) != NULL; str++)
-            if (_wcsnicmp(str, substr, len) == NULL)
+    if (substr && (len = wcslen(substr)) != 0)
+        for (; (str = strichr(str, substr[0])) != nullptr; str++)
+            if (_wcsnicmp(str, substr, len) == 0)
                 return str;
-    return NULL;
+    return nullptr;
 }
 
 //指定した場所から後ろ向きに1文字検索
 static inline const char *strrchr(const char *str, int c, int start_index) {
-    if (start_index < 0) return NULL;
+    if (start_index < 0) return nullptr;
     const char *result = str + start_index;
     str--;
     for (; result - str; result--)
         if (*result == c)
             return result;
-    return NULL;
+    return nullptr;
 }
 static inline char *strrchr(char *str, int c, int start_index) {
-    if (start_index < 0) return NULL;
+    if (start_index < 0) return nullptr;
     char *result = str + start_index;
     str--;
     for (; result - str; result--)
         if (*result == c)
             return result;
-    return NULL;
+    return nullptr;
 }
 
 // 指定した場所から後ろ向きに1文字検索 (wchar_t版)
 static inline const WCHAR *strrchr(const WCHAR *str, int c, int start_index) {
-    if (start_index < 0) return NULL;
+    if (start_index < 0) return nullptr;
     const WCHAR *result = str + start_index;
     str--;
     for (; result - str; result--)
         if (*result == c)
             return result;
-    return NULL;
+    return nullptr;
 }
 static inline WCHAR *strrchr(WCHAR *str, int c, int start_index) {
-    if (start_index < 0) return NULL;
+    if (start_index < 0) return nullptr;
     WCHAR *result = str + start_index;
     str--;
     for (; result - str; result--)
         if (*result == c)
             return result;
-    return NULL;
+    return nullptr;
 }
 
 //strのcount byteを検索し、substrとの一致を返す
 static inline const char * strnstr(const char *str, const char *substr, int count) {
     const char *ptr = strstr(str, substr);
     if (ptr && ptr - str >= count)
-        ptr = NULL;
+        ptr = nullptr;
     return ptr;
 }
 static inline char * strnstr(char *str, const char *substr, int count) {
     char *ptr = strstr(str, substr);
     if (ptr && ptr - str >= count)
-        ptr = NULL;
+        ptr = nullptr;
     return ptr;
 }
 
@@ -769,72 +769,72 @@ static inline char * strnstr(char *str, const char *substr, int count) {
 static inline const WCHAR * strnstr(const WCHAR *str, const WCHAR *substr, int count) {
     const WCHAR *ptr = wcsstr(str, substr);
     if (ptr && ptr - str >= count)
-        ptr = NULL;
+        ptr = nullptr;
     return ptr;
 }
 static inline WCHAR * strnstr(WCHAR *str, const WCHAR *substr, int count) {
     WCHAR *ptr = wcsstr(str, substr);
     if (ptr && ptr - str >= count)
-        ptr = NULL;
+        ptr = nullptr;
     return ptr;
 }
 
 //strのsubstrとの最後の一致を返す
 static inline const char * strrstr(const char *str, const char *substr) {
-    const char *last_ptr = NULL;
-    for (const char *ptr = str; *ptr && (ptr = strstr(ptr, substr)) != NULL; ptr++ )
+    const char *last_ptr = nullptr;
+    for (const char *ptr = str; *ptr && (ptr = strstr(ptr, substr)) != nullptr; ptr++ )
         last_ptr = ptr;
     return last_ptr;
 }
 static inline char * strrstr(char *str, const char *substr) {
-    char *last_ptr = NULL;
-    for (char *ptr = str; *ptr && (ptr = strstr(ptr, substr)) != NULL; ptr++ )
+    char *last_ptr = nullptr;
+    for (char *ptr = str; *ptr && (ptr = strstr(ptr, substr)) != nullptr; ptr++ )
         last_ptr = ptr;
     return last_ptr;
 }
 
 // strのsubstrとの最後の一致を返す (wchar_t版)
 static inline const WCHAR * strrstr(const WCHAR *str, const WCHAR *substr) {
-    const WCHAR *last_ptr = NULL;
-    for (const WCHAR *ptr = str; *ptr && (ptr = wcsstr(ptr, substr)) != NULL; ptr++ )
+    const WCHAR *last_ptr = nullptr;
+    for (const WCHAR *ptr = str; *ptr && (ptr = wcsstr(ptr, substr)) != nullptr; ptr++ )
         last_ptr = ptr;
     return last_ptr;
 }
 static inline WCHAR * strrstr(WCHAR *str, const WCHAR *substr) {
-    WCHAR *last_ptr = NULL;
-    for (WCHAR *ptr = str; *ptr && (ptr = wcsstr(ptr, substr)) != NULL; ptr++ )
+    WCHAR *last_ptr = nullptr;
+    for (WCHAR *ptr = str; *ptr && (ptr = wcsstr(ptr, substr)) != nullptr; ptr++ )
         last_ptr = ptr;
     return last_ptr;
 }
 
 //strのcount byteを検索し、substrとの最後の一致を返す
 static inline const char * strnrstr(const char *str, const char *substr, int count) {
-    const char *last_ptr = NULL;
+    const char *last_ptr = nullptr;
     if (count > 0)
-        for (const char *ptr = str; *ptr && (ptr = strnstr(ptr, substr, count - (int)(ptr - str))) != NULL; ptr++)
+        for (const char *ptr = str; *ptr && (ptr = strnstr(ptr, substr, count - (int)(ptr - str))) != nullptr; ptr++)
             last_ptr = ptr;
     return last_ptr;
 }
 static inline char * strnrstr(char *str, const char *substr, int count) {
-    char *last_ptr = NULL;
+    char *last_ptr = nullptr;
     if (count > 0)
-        for (char *ptr = str; *ptr && (ptr = strnstr(ptr, substr, count - (int)(ptr - str))) != NULL; ptr++)
+        for (char *ptr = str; *ptr && (ptr = strnstr(ptr, substr, count - (int)(ptr - str))) != nullptr; ptr++)
             last_ptr = ptr;
     return last_ptr;
 }
 
 // strのcount 文字を検索し、substrとの最後の一致を返す (wchar_t版)
 static inline const WCHAR * strnrstr(const WCHAR *str, const WCHAR *substr, int count) {
-    const WCHAR *last_ptr = NULL;
+    const WCHAR *last_ptr = nullptr;
     if (count > 0)
-        for (const WCHAR *ptr = str; *ptr && (ptr = strnstr(ptr, substr, count - (int)(ptr - str))) != NULL; ptr++)
+        for (const WCHAR *ptr = str; *ptr && (ptr = strnstr(ptr, substr, count - (int)(ptr - str))) != nullptr; ptr++)
             last_ptr = ptr;
     return last_ptr;
 }
 static inline WCHAR * strnrstr(WCHAR *str, const WCHAR *substr, int count) {
-    WCHAR *last_ptr = NULL;
+    WCHAR *last_ptr = nullptr;
     if (count > 0)
-        for (WCHAR *ptr = str; *ptr && (ptr = strnstr(ptr, substr, count - (int)(ptr - str))) != NULL; ptr++)
+        for (WCHAR *ptr = str; *ptr && (ptr = strnstr(ptr, substr, count - (int)(ptr - str))) != nullptr; ptr++)
             last_ptr = ptr;
     return last_ptr;
 }
@@ -905,7 +905,7 @@ static size_t calc_replace_mem_required(char *str, const char *old_str, const ch
     if (move_len <= 0)
         return size;
     char *p = str;
-    while ((p == strstr(p, old_str)) != NULL)
+    while ((p = strstr(p, old_str)) != nullptr)
         size += move_len;
     return size;
 }
@@ -915,7 +915,7 @@ static size_t calc_replace_mem_required(WCHAR *str, const WCHAR *old_str, const 
     if (move_len <= 0)
         return size;
     WCHAR *p = str;
-    while ((p == wcsstr(p, old_str)) != NULL)
+    while ((p = wcsstr(p, old_str)) != nullptr)
         size += move_len;
     return size;
 }
@@ -934,7 +934,7 @@ static inline void insert(char *str, size_t nSize, const char *target_str, const
 //文字列の置換 str内で置き換える 置換を実行した回数を返す
 static inline int replace(char *str, size_t nSize, const char *old_str, const char *new_str) {
     char *c = str;
-    char *p = NULL;
+    char *p = nullptr;
     char *fin = str + strlen(str) + 1;//null文字まで
     char * const limit = str + nSize;
     int count = 0;
@@ -942,7 +942,7 @@ static inline int replace(char *str, size_t nSize, const char *old_str, const ch
     const size_t new_len = strlen(new_str);
     const int move_len = (int)(new_len - old_len);
     if (old_len && strlen(str) >= old_len) {
-        while ((p = strstr(c, old_str)) != NULL) {
+        while ((p = strstr(c, old_str)) != nullptr) {
             if (move_len) {
                 if (fin + move_len > limit)
                     break;
@@ -957,7 +957,7 @@ static inline int replace(char *str, size_t nSize, const char *old_str, const ch
 }
 static inline int replace(WCHAR *str, size_t nSize, const WCHAR *old_str, const WCHAR *new_str) {
     WCHAR *c = str;
-    WCHAR *p = NULL;
+    WCHAR *p = nullptr;
     WCHAR *fin = str + wcslen(str) + 1;//null文字まで
     WCHAR * const limit = str + nSize;
     int count = 0;
@@ -965,7 +965,7 @@ static inline int replace(WCHAR *str, size_t nSize, const WCHAR *old_str, const 
     const size_t new_len = wcslen(new_str);
     const int move_len = (int)(new_len - old_len);
     if (old_len && wcslen(str) >= old_len) {
-        while ((p = wcsstr(c, old_str)) != NULL) {
+        while ((p = wcsstr(c, old_str)) != nullptr) {
             if (move_len) {
                 if (fin + move_len > limit)
                     break;
@@ -1071,12 +1071,6 @@ static tstring fourccToStr(uint32_t nFourCC) {
         fcc.push_back((TCHAR)*(i + (char*)&nFourCC));
     }
     return fcc;
-}
-
-static DWORD cpu_core_count() {
-    SYSTEM_INFO si;
-    GetSystemInfo(&si);
-    return si.dwNumberOfProcessors;
 }
 
 //ひとつのコードページの表すutf-8文字を返す
