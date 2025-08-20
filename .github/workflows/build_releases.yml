@@ -127,6 +127,19 @@ jobs:
       run:
         shell: cmd
 
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86
+            platform: Win32
+            aviutlver: AviUtl
+            outext: auo
+          - arch: x64
+            platform: x64
+            aviutlver: AviUtl2
+            outext: auo2
+
     steps:
 
       - name: Checkout
@@ -147,22 +160,30 @@ jobs:
       - name: Add msbuild to PATH
         uses: microsoft/setup-msbuild@v2
         with:
-          msbuild-architecture: Win32
+          msbuild-architecture: ${{ matrix.platform }}
 
       - name: MSBuild
         run: |
           set AVISYNTH_SDK=${{ github.workspace }}\..\AviSynthPlus\avs_core
           set VAPOURSYNTH_SDK=${{ github.workspace }}\..\vapoursynth
           set OPENCL_HEADERS=${{ github.workspace }}\..\openclheaders
-          msbuild QSVEnc.sln /t:build /p:configuration=Release /p:Platform=Win32 -maxcpucount
+          msbuild QSVEnc.sln /t:build /p:configuration=Release /p:Platform=${{ matrix.platform }} -maxcpucount
 
       - name: Download auo_setup
-        id: download_auosetup
+        id: download_auosetup_win32
+        if: matrix.platform == 'Win32'
         run: |
-          curl -o auo_setup.zip -L https://github.com/rigaya/auo_setup/releases/download/2.04/auo_setup_2.04.zip
+          curl -o auo_setup.zip -L https://github.com/rigaya/auo_setup/releases/download/2.01/auo_setup_2.01v2.zip
+
+      - name: Download auo_setup x64
+        id: download_auosetup_x64
+        if: matrix.platform == 'x64'
+        run: |
+          curl -o auo_setup.zip -L https://github.com/rigaya/auo_setup/releases/download/2.04/auo_setup_2.04_x64.zip
 
       - name: Download QSVEncC Win32
         uses: actions/download-artifact@v4
+        if: matrix.platform == 'Win32'
         with:
           name: QSVEncC_release_${{ needs.get_version_name.outputs.version_name }}_Win32
           path: QSVEncC_${{ needs.get_version_name.outputs.version_name }}_Win32.7z
@@ -173,19 +194,18 @@ jobs:
           name: QSVEncC_release_${{ needs.get_version_name.outputs.version_name }}_x64
           path: QSVEncC_${{ needs.get_version_name.outputs.version_name }}_x64.7z
           
-      - name: Create package
-        id: archieve
+      - name: Create package Win32
+        id: archieve_win32
+        if: matrix.platform == 'Win32'
         run: |
-          mkdir auo_setup
-          7z x -oauo_setup\ auo_setup.zip
           mkdir Aviutl_QSVEnc_release
+          7z x -oAviutl_QSVEnc_release\ auo_setup.zip
           mkdir Aviutl_QSVEnc_release\exe_files\QSVEncC
           mkdir Aviutl_QSVEnc_release\exe_files\QSVEncC\x86
           mkdir Aviutl_QSVEnc_release\exe_files\QSVEncC\x64
           7z x -oAviutl_QSVEnc_release\exe_files\QSVEncC\x86\ QSVEncC_${{ needs.get_version_name.outputs.version_name }}_Win32.7z
           7z x -oAviutl_QSVEnc_release\exe_files\QSVEncC\x64\ QSVEncC_${{ needs.get_version_name.outputs.version_name }}_x64.7z
-          xcopy /e /f /y Aviutl_QSVEnc_release\exe_files Aviutl_QSVEnc_release2\Plugin\exe_files
-          xcopy /e /f /y auo_setup\Win32 Aviutl_QSVEnc_release\exe_files
+          copy /y _build\Win32\Release\QSVEnc.auo Aviutl_QSVEnc_release\plugins\
           copy /y QSVEnc\QSVEnc.ini Aviutl_QSVEnc_release\plugins\
           copy /y QSVEnc\QSVEnc.en.ini Aviutl_QSVEnc_release\plugins\
           copy /y QSVEnc\QSVEnc.zh.ini Aviutl_QSVEnc_release\plugins\
@@ -197,58 +217,86 @@ jobs:
           dir /b /s Aviutl_QSVEnc_release\
           7z a -mx9 Aviutl_QSVEnc_${{ needs.get_version_name.outputs.version_name }}.zip .\Aviutl_QSVEnc_release\*
 
-          mkdir Aviutl_QSVEnc_release2
-          mkdir Aviutl_QSVEnc_release2\Plugin
-          mkdir Aviutl_QSVEnc_release2\Plugin\exe_files
-          xcopy /e /f /y Aviutl_QSVEnc_release\exe_files Aviutl_QSVEnc_release2\Plugin\exe_files
-          xcopy /e /f /y Aviutl_QSVEnc_release\plugins   Aviutl_QSVEnc_release2\Plugin
-          xcopy /e /f /y auo_setup\x64                   Aviutl_QSVEnc_release2\Plugin\exe_files
-          del Aviutl_QSVEnc_release2\Plugin\auo_setup.auf
-          del Aviutl_QSVEnc_release2\Plugin\exe_files\auo_setup.exe
-          del Aviutl_QSVEnc_release2\Plugin\auo_setup.auf
-          del Aviutl_QSVEnc_release2\Plugin\exe_files\*_x86.exe
-          del Aviutl_QSVEnc_release2\Plugin\exe_files\VC_redist.x86.exe
-          rmdir /s /q Aviutl_QSVEnc_release2\Plugin\exe_files\QSVEncC\x86
-          7z a -t7z -m0=lzma -mx=9 -mmt Aviutl2_QSVEnc_${{ needs.get_version_name.outputs.version_name }}.7z .\Aviutl_QSVEnc_release2\*
+      - name: Create package x64
+        id: archieve_x64
+        if: matrix.platform == 'x64'
+        run: |
+          mkdir Aviutl_QSVEnc_release
+          7z x -oAviutl_QSVEnc_release\ auo_setup.zip
+          mkdir Aviutl_QSVEnc_release\Plugin\exe_files\QSVEncC
+          mkdir Aviutl_QSVEnc_release\Plugin\exe_files\QSVEncC\x64
+          7z x -oAviutl_QSVEnc_release\Plugin\exe_files\QSVEncC\x64\ QSVEncC_${{ needs.get_version_name.outputs.version_name }}_x64.7z
+          copy /y _build\x64\Release\QSVEnc.auo2 Aviutl_QSVEnc_release\Plugin\
+          copy /y QSVEnc\QSVEnc.ini Aviutl_QSVEnc_release\Plugin\
+          copy /y QSVEnc\QSVEnc.en.ini Aviutl_QSVEnc_release\Plugin\
+          copy /y QSVEnc\QSVEnc.zh.ini Aviutl_QSVEnc_release\Plugin\
+          copy /y QSVEnc\auo_setup.ini Aviutl_QSVEnc_release\Plugin\exe_files\
+          copy /y QSVEnc\QSVEnc_readme.txt Aviutl_QSVEnc_release\
+          echo D | xcopy /y /e QSVEnc\stg Aviutl_QSVEnc_release\Plugin\QSVEnc_stg
+          7z a -t7z -m0=lzma -mx=9 -mmt Aviutl2_QSVEnc_${{ needs.get_version_name.outputs.version_name }}.7z .\Aviutl_QSVEnc_release\*
           copy /b QSVEnc\7zSD.noadmin.sfx + QSVEnc\7zInstallerConfig.txt + Aviutl2_QSVEnc_${{ needs.get_version_name.outputs.version_name }}.7z Aviutl2_QSVEnc_${{ needs.get_version_name.outputs.version_name }}_install.exe
 
       - name: Check Version
         id: check_ver
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          powershell "$ver = (Get-ItemProperty .\Aviutl_QSVEnc_release\plugins\QSVEnc.auo).VersionInfo.FileVersion; if ($ver -eq '${{ needs.get_version_name.outputs.version_name }}') { exit 0; } exit 1;"
+          powershell "$ver = (Get-ItemProperty .\_build\${{ matrix.platform }}\Release\QSVEnc.${{ matrix.outext }}).VersionInfo.FileVersion; if ($ver -eq '${{ needs.get_version_name.outputs.version_name }}') { exit 0; } exit 1;"
 
-      - name: Check dll
-        id: check_dll
+      - name: Check dll Win32
+        id: check_dll_win32
+        if: matrix.platform == 'Win32'
         run: |
-          "Aviutl_QSVEnc_release\exe_files\QSVEncC\x86\QSVEncC.exe" --check-avcodec-dll
-          "Aviutl_QSVEnc_release\exe_files\QSVEncC\x64\QSVEncC64.exe" --check-avcodec-dll
+          "${{ matrix.aviutlver }}_release\exe_files\QSVEncC\x86\QSVEncC.exe" --check-avcodec-dll
+          "${{ matrix.aviutlver }}_release\exe_files\QSVEncC\x64\QSVEncC64.exe" --check-avcodec-dll
 
-      - name: Calc hash
-        id: calc_hash
+      - name: Check dll x64
+        id: check_dll_x64
+        if: matrix.platform == 'x64'
+        run: |
+          "${{ matrix.aviutlver }}_release\Plugin\exe_files\QSVEncC\x64\QSVEncC64.exe" --check-avcodec-dll
+
+      - name: Calc hash Win32
+        id: calc_hash_win32
+        if: matrix.platform == 'Win32'
         run: |
           7z h -scrc* Aviutl_QSVEnc_${{ needs.get_version_name.outputs.version_name }}.zip
+
+      - name: Calc hash x64
+        id: calc_hash_x64
+        if: matrix.platform == 'x64'
+        run: |
           7z h -scrc*  Aviutl2_QSVEnc_${{ needs.get_version_name.outputs.version_name }}_install.exe
 
-      - name: Upload Release Asset
-        id: upload-release-asset 
+      - name: Upload Release Asset Win32
+        id: upload-release-asset-win32
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') && matrix.platform == 'Win32'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: |
             Aviutl_QSVEnc_${{ needs.get_version_name.outputs.version_name }}.zip
+
+      - name: Upload Release Asset x64
+        id: upload-release-asset-x64
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') && matrix.platform == 'x64'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          files: |
             Aviutl2_QSVEnc_${{ needs.get_version_name.outputs.version_name }}_install.exe
 
-      - name: Upload artifact
+      - name: Upload artifact Win32
         uses: actions/upload-artifact@v4
+        if: matrix.platform == 'Win32'
         with:
           name: Aviutl_QSVEnc_${{ needs.get_version_name.outputs.version_name }}
           path: Aviutl_QSVEnc_${{ needs.get_version_name.outputs.version_name }}.zip
 
-      - name: Upload artifact
+      - name: Upload artifact x64
         uses: actions/upload-artifact@v4
+        if: matrix.platform == 'x64'
         with:
           name: Aviutl2_QSVEnc_${{ needs.get_version_name.outputs.version_name }}_install
           path: Aviutl2_QSVEnc_${{ needs.get_version_name.outputs.version_name }}_install.exe
