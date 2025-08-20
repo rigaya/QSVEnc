@@ -69,11 +69,10 @@
 static const int MAX_CONV_THREADS = 4;
 
 int get_aviutl_color_format(int use_highbit, RGY_CSP csp) {
-    const bool isAviutl2 = is_aviutl2();
     //Aviutlからの入力に使用するフォーマット
     RGY_CHROMAFMT chromafmt = RGY_CSP_CHROMA_FORMAT[csp];
 
-    if (use_highbit && !isAviutl2) {
+    if (use_highbit) {
         return CF_YC48;
     }
 
@@ -81,7 +80,7 @@ int get_aviutl_color_format(int use_highbit, RGY_CSP csp) {
     case RGY_CHROMAFMT_RGB:
         return CF_RGB;
     case RGY_CHROMAFMT_YUV444:
-        return isAviutl2 ? CF_RGB : CF_YC48;
+        return CF_YC48;
     case RGY_CHROMAFMT_YUV420:
     case RGY_CHROMAFMT_YUV422:
     default:
