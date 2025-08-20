@@ -102,9 +102,9 @@ std::string guiEx_config::old_conf_to_json(const CONF_GUIEX_OLD *old_conf) {
 #endif
 #if ENCODER_QSV || ENCODER_NVENC || ENCODER_VCEENC
         {"codec_rgy", tchar_to_string(get_cx_desc(list_rgy_codec, old_conf->enc.codec_rgy), CP_UTF8)},
-        {"resize_enable", old_conf->enc.resize_enable},
-        {"resize_width", old_conf->enc.resize_width},
-        {"resize_height", old_conf->enc.resize_height},
+        {"resize_enable", old_conf->vid.resize_enable},
+        {"resize_width", old_conf->vid.resize_width},
+        {"resize_height", old_conf->vid.resize_height},
 #endif
         {"cmd", tchar_to_string(cmd_buffer, CP_UTF8) }
     };

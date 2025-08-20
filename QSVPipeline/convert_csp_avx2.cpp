@@ -2126,7 +2126,7 @@ static __forceinline void convert_rgb2yuv(__m256& y_f1, __m256& u_f1, __m256& v_
 
 void convert_bgr24r_to_yuv444_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int out_bit_depth = 8;
-    const float *coeff_table = COEFF_RGB2YUV[pixel_data->colormatrix ? 1 : 0];
+    const float *coeff_table = COEFF_RGB2YUV[1];
 
     // AVX2用の係数をロード
     const __m256 coeff_ry = _mm256_set1_ps(coeff_table[0]);
@@ -2150,7 +2150,6 @@ void convert_bgr24r_to_yuv444_avx2(void **dst, const void **src, int width, int 
     uint8_t *dstYLine = (uint8_t *)dst[0] + dst_y_pitch_byte * (height - (y_range.start_dst + y_range.len));
     uint8_t *dstULine = (uint8_t *)dst[1] + dst_y_pitch_byte * (height - (y_range.start_dst + y_range.len));
     uint8_t *dstVLine = (uint8_t *)dst[2] + dst_y_pitch_byte * (height - (y_range.start_dst + y_range.len));
-    const int y_width = width - crop_right - crop_left;
     for (int y = 0; y < y_range.len; y++, dstYLine += dst_y_pitch_byte, dstULine += dst_y_pitch_byte,dstVLine += dst_y_pitch_byte, srcLine -= src_y_pitch_byte) {
         uint8_t *ptr_src = srcLine;
         uint8_t *dstY = dstYLine;
@@ -2259,12 +2258,12 @@ void convert_bgr24r_to_yuv444_avx2(void **dst, const void **src, int width, int 
             const float b = (float)ptr_src[x*3 + 0];
             const float g = (float)ptr_src[x*3 + 1];
             const float r = (float)ptr_src[x*3 + 2];
-            const float y = (coeff_table[0] * r + coeff_table[1] * g + coeff_table[2] * b +  16.0f) * (1 << (out_bit_depth - 8));
-            const float u = (coeff_table[3] * r + coeff_table[4] * g + coeff_table[5] * b + 128.0f) * (1 << (out_bit_depth - 8));
-            const float v = (coeff_table[6] * r + coeff_table[7] * g + coeff_table[8] * b + 128.0f) * (1 << (out_bit_depth - 8));
-            dstY[x] = (uint8_t)clamp((int)(y + 0.5f), 0, (1 << out_bit_depth) - 1);
-            dstU[x] = (uint8_t)clamp((int)(u + 0.5f), 0, (1 << out_bit_depth) - 1);
-            dstV[x] = (uint8_t)clamp((int)(v + 0.5f), 0, (1 << out_bit_depth) - 1);
+            const float py = (coeff_table[0] * r + coeff_table[1] * g + coeff_table[2] * b +  16.0f) * (1 << (out_bit_depth - 8));
+            const float pu = (coeff_table[3] * r + coeff_table[4] * g + coeff_table[5] * b + 128.0f) * (1 << (out_bit_depth - 8));
+            const float pv = (coeff_table[6] * r + coeff_table[7] * g + coeff_table[8] * b + 128.0f) * (1 << (out_bit_depth - 8));
+            dstY[x] = (uint8_t)std::min(std::max((int)(py + 0.5f), 0), (1 << out_bit_depth) - 1);
+            dstU[x] = (uint8_t)std::min(std::max((int)(pu + 0.5f), 0), (1 << out_bit_depth) - 1);
+            dstV[x] = (uint8_t)std::min(std::max((int)(pv + 0.5f), 0), (1 << out_bit_depth) - 1);
         }
     }
     
@@ -2273,7 +2272,7 @@ void convert_bgr24r_to_yuv444_avx2(void **dst, const void **src, int width, int 
 
 void convert_bgr24r_to_yuv444_16bit_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int out_bit_depth = 16;
-    const float *coeff_table = COEFF_RGB2YUV[pixel_data->colormatrix ? 1 : 0];
+    const float *coeff_table = COEFF_RGB2YUV[1];
     
     // AVX2用の係数をロード
     const __m256 coeff_ry = _mm256_set1_ps(coeff_table[0]);
@@ -2300,7 +2299,6 @@ void convert_bgr24r_to_yuv444_16bit_avx2(void **dst, const void **src, int width
     char *dstYLine = (char *)dst[0] + dst_y_pitch_byte * (height - (y_range.start_dst + y_range.len));
     char *dstULine = (char *)dst[1] + dst_y_pitch_byte * (height - (y_range.start_dst + y_range.len));
     char *dstVLine = (char *)dst[2] + dst_y_pitch_byte * (height - (y_range.start_dst + y_range.len));
-    const int y_width = width - crop_right - crop_left;
     for (int y = 0; y < y_range.len; y++, dstYLine += dst_y_pitch_byte, dstULine += dst_y_pitch_byte, dstVLine += dst_y_pitch_byte, srcLine -= src_y_pitch_byte) {
         uint8_t *ptr_src = (uint8_t *)srcLine;
         uint16_t *dstY = (uint16_t *)dstYLine;
@@ -2407,12 +2405,12 @@ void convert_bgr24r_to_yuv444_16bit_avx2(void **dst, const void **src, int width
             const float b = (float)ptr_src[x*3 + 0];
             const float g = (float)ptr_src[x*3 + 1];
             const float r = (float)ptr_src[x*3 + 2];
-            const float y = (coeff_table[0] * r + coeff_table[1] * g + coeff_table[2] * b +  16.0f) * (1 << (out_bit_depth - 8));
-            const float u = (coeff_table[3] * r + coeff_table[4] * g + coeff_table[5] * b + 128.0f) * (1 << (out_bit_depth - 8));
-            const float v = (coeff_table[6] * r + coeff_table[7] * g + coeff_table[8] * b + 128.0f) * (1 << (out_bit_depth - 8));
-            dstY[x] = (uint16_t)clamp((int)(y + 0.5f), 0, (1 << out_bit_depth) - 1);
-            dstU[x] = (uint16_t)clamp((int)(u + 0.5f), 0, (1 << out_bit_depth) - 1);
-            dstV[x] = (uint16_t)clamp((int)(v + 0.5f), 0, (1 << out_bit_depth) - 1);
+            const float py = (coeff_table[0] * r + coeff_table[1] * g + coeff_table[2] * b +  16.0f) * (1 << (out_bit_depth - 8));
+            const float pu = (coeff_table[3] * r + coeff_table[4] * g + coeff_table[5] * b + 128.0f) * (1 << (out_bit_depth - 8));
+            const float pv = (coeff_table[6] * r + coeff_table[7] * g + coeff_table[8] * b + 128.0f) * (1 << (out_bit_depth - 8));
+            dstY[x] = (uint16_t)std::min(std::max((int)(py + 0.5f), 0), (1 << out_bit_depth) - 1);
+            dstU[x] = (uint16_t)std::min(std::max((int)(pu + 0.5f), 0), (1 << out_bit_depth) - 1);
+            dstV[x] = (uint16_t)std::min(std::max((int)(pv + 0.5f), 0), (1 << out_bit_depth) - 1);
         }
     }
     
@@ -2436,7 +2434,7 @@ static __forceinline void unpremultiply_pa64_avx2(__m256& r, __m256& g, __m256& 
 
 void convert_rgba64_to_yuv444_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int out_bit_depth = 8;
-    const float *coeff_table = COEFF_RGB2YUV[pixel_data->colormatrix ? 1 : 0];
+    const float *coeff_table = COEFF_RGB2YUV[1];
     
     // AVX2用の係数をロード
     const __m256 coeff_ry = _mm256_set1_ps(coeff_table[0]);
@@ -2468,19 +2466,19 @@ void convert_rgba64_to_yuv444_avx2(void **dst, const void **src, int width, int 
         uint8_t *dstY = (uint8_t *)Y_line;
         uint8_t *dstU = (uint8_t *)U_line;
         uint8_t *dstV = (uint8_t *)V_line;
-        uint16_t *src  = (uint16_t*)pixel;
+        uint16_t *srcp  = (uint16_t*)pixel;
         
         int x = 0;
         // AVX2で32ピクセルずつ処理
         for (; x <= y_width - 32; x += 32) {
-            __m256i y0 = _mm256_loadu_si256((__m256i *)(src + x*4 +  0));
-            __m256i y1 = _mm256_loadu_si256((__m256i *)(src + x*4 + 16));
-            __m256i y2 = _mm256_loadu_si256((__m256i *)(src + x*4 + 32));
-            __m256i y3 = _mm256_loadu_si256((__m256i *)(src + x*4 + 48));
-            __m256i y4 = _mm256_loadu_si256((__m256i *)(src + x*4 + 64));
-            __m256i y5 = _mm256_loadu_si256((__m256i *)(src + x*4 + 80));
-            __m256i y6 = _mm256_loadu_si256((__m256i *)(src + x*4 + 96));
-            __m256i y7 = _mm256_loadu_si256((__m256i *)(src + x*4 + 112));
+            __m256i y0 = _mm256_loadu_si256((__m256i *)(srcp + x*4 +  0));
+            __m256i y1 = _mm256_loadu_si256((__m256i *)(srcp + x*4 + 16));
+            __m256i y2 = _mm256_loadu_si256((__m256i *)(srcp + x*4 + 32));
+            __m256i y3 = _mm256_loadu_si256((__m256i *)(srcp + x*4 + 48));
+            __m256i y4 = _mm256_loadu_si256((__m256i *)(srcp + x*4 + 64));
+            __m256i y5 = _mm256_loadu_si256((__m256i *)(srcp + x*4 + 80));
+            __m256i y6 = _mm256_loadu_si256((__m256i *)(srcp + x*4 + 96));
+            __m256i y7 = _mm256_loadu_si256((__m256i *)(srcp + x*4 + 112));
 
             __m256i y01_0 = _mm256_permute2x128_si256(y0, y1, (2 << 4) | 0);
             __m256i y01_1 = _mm256_permute2x128_si256(y0, y1, (3 << 4) | 1);
@@ -2601,25 +2599,25 @@ void convert_rgba64_to_yuv444_avx2(void **dst, const void **src, int width, int 
         
         // 残りのピクセルを従来の方法で処理
         for (; x < width; x++) {
-            float b = (float)src[x*4 + 0];
-            float g = (float)src[x*4 + 1];
-            float r = (float)src[x*4 + 2];
-            float a = (float)src[x*4 + 3];
+            float b = (float)srcp[x*4 + 0];
+            float g = (float)srcp[x*4 + 1];
+            float r = (float)srcp[x*4 + 2];
+            float a = (float)srcp[x*4 + 3];
             float a_inv = 65535.0f / a;
             b *= a_inv, g *= a_inv, r *= a_inv;
             const float py = (coeff_table[0] * r + coeff_table[1] * g + coeff_table[2] * b +  16.0f) * (1 << (out_bit_depth - 8));
             const float pu = (coeff_table[3] * r + coeff_table[4] * g + coeff_table[5] * b + 128.0f) * (1 << (out_bit_depth - 8));
             const float pv = (coeff_table[6] * r + coeff_table[7] * g + coeff_table[8] * b + 128.0f) * (1 << (out_bit_depth - 8));
-            dstY[x] = (uint8_t)clamp((int)(py + 0.5f), 0, (1 << out_bit_depth) - 1);
-            dstU[x] = (uint8_t)clamp((int)(pu + 0.5f), 0, (1 << out_bit_depth) - 1);
-            dstV[x] = (uint8_t)clamp((int)(pv + 0.5f), 0, (1 << out_bit_depth) - 1);
+            dstY[x] = (uint8_t)std::min(std::max((int)(py + 0.5f), 0), (1 << out_bit_depth) - 1);
+            dstU[x] = (uint8_t)std::min(std::max((int)(pu + 0.5f), 0), (1 << out_bit_depth) - 1);
+            dstV[x] = (uint8_t)std::min(std::max((int)(pv + 0.5f), 0), (1 << out_bit_depth) - 1);
         }
     }
 }
 
 void convert_rgba64_to_yuv444_16bit_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int out_bit_depth = 16;
-    const float *coeff_table = COEFF_RGB2YUV[pixel_data->colormatrix ? 1 : 0];
+    const float *coeff_table = COEFF_RGB2YUV[1];
     
     // AVX2用の係数をロード
     const __m256 coeff_ry = _mm256_set1_ps(coeff_table[0]);
@@ -2650,15 +2648,15 @@ void convert_rgba64_to_yuv444_16bit_avx2(void **dst, const void **src, int width
         uint16_t *dstY = (uint16_t *)Y_line;
         uint16_t *dstU = (uint16_t *)U_line;
         uint16_t *dstV = (uint16_t *)V_line;
-        uint16_t *src  = (uint16_t*)pixel;
+        uint16_t *srcp = (uint16_t*)pixel;
         
         int x = 0;
         // AVX2で32ピクセルずつ処理
         for (; x <= y_width - 16; x += 16) {
-            __m256i y0 = _mm256_loadu_si256((__m256i *)(src + x*4 +  0));
-            __m256i y1 = _mm256_loadu_si256((__m256i *)(src + x*4 + 16));
-            __m256i y2 = _mm256_loadu_si256((__m256i *)(src + x*4 + 32));
-            __m256i y3 = _mm256_loadu_si256((__m256i *)(src + x*4 + 48));
+            __m256i y0 = _mm256_loadu_si256((__m256i *)(srcp + x*4 +  0));
+            __m256i y1 = _mm256_loadu_si256((__m256i *)(srcp + x*4 + 16));
+            __m256i y2 = _mm256_loadu_si256((__m256i *)(srcp + x*4 + 32));
+            __m256i y3 = _mm256_loadu_si256((__m256i *)(srcp + x*4 + 48));
             
             __m256i y01_0 = _mm256_permute2x128_si256(y0, y1, (2 << 4) | 0);
             __m256i y01_1 = _mm256_permute2x128_si256(y0, y1, (3 << 4) | 1);
@@ -2720,39 +2718,39 @@ void convert_rgba64_to_yuv444_16bit_avx2(void **dst, const void **src, int width
         
         // 残りのピクセルを従来の方法で処理
         for (; x < width; x++) {
-            float b = (float)src[x*4 + 0];
-            float g = (float)src[x*4 + 1];
-            float r = (float)src[x*4 + 2];
-            float a = (float)src[x*4 + 3];
+            float b = (float)srcp[x*4 + 0];
+            float g = (float)srcp[x*4 + 1];
+            float r = (float)srcp[x*4 + 2];
+            float a = (float)srcp[x*4 + 3];
             float a_inv = 65535.0f / a;
             b *= a_inv, g *= a_inv, r *= a_inv;
             const float py = (coeff_table[0] * r + coeff_table[1] * g + coeff_table[2] * b +  16.0f) * (1 << (out_bit_depth - 8));
             const float pu = (coeff_table[3] * r + coeff_table[4] * g + coeff_table[5] * b + 128.0f) * (1 << (out_bit_depth - 8));
             const float pv = (coeff_table[6] * r + coeff_table[7] * g + coeff_table[8] * b + 128.0f) * (1 << (out_bit_depth - 8));
-            dstY[x] = (uint16_t)clamp((int)(py + 0.5f), 0, (1 << out_bit_depth) - 1);
-            dstU[x] = (uint16_t)clamp((int)(pu + 0.5f), 0, (1 << out_bit_depth) - 1);
-            dstV[x] = (uint16_t)clamp((int)(pv + 0.5f), 0, (1 << out_bit_depth) - 1);
+            dstY[x] = (uint16_t)std::min(std::max((int)(py + 0.5f), 0), (1 << out_bit_depth) - 1);
+            dstU[x] = (uint16_t)std::min(std::max((int)(pu + 0.5f), 0), (1 << out_bit_depth) - 1);
+            dstV[x] = (uint16_t)std::min(std::max((int)(pv + 0.5f), 0), (1 << out_bit_depth) - 1);
         }
     }
 }
 
 void convert_rgba64_to_rgba_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int out_bit_depth = 8;
-    uint8_t *ptr = pixel_data->data[0];
-    const int srcstep = width * 4;
+    uint8_t *ptrDst = (uint8_t *)dst[0];
+    uint16_t *ptrSrc = (uint16_t *)src[0];
     const float mul = 1.0f /(float)(1 << (16 - out_bit_depth));
     const __m256 round_offset = _mm256_set1_ps(0.5f);
     const __m256 mul256 = _mm256_set1_ps(mul);
     
     for (int y = 0; y < height; y++) {
-        uint8_t *dst = (uint8_t *)(ptr + y*width*4);
-        uint16_t *src  = (uint16_t*)frame + y*srcstep;
+        uint8_t  *ptr_dst = (uint8_t *)((char*)ptrDst + y*dst_y_pitch_byte);
+        uint16_t *ptr_src = (uint16_t *)((char*)ptrSrc + y*src_y_pitch_byte);
         
         int x = 0;
         // AVX2で32ピクセルずつ処理
         for (; x <= width - 8; x += 8) {
-            __m256i y0 = _mm256_loadu_si256((__m256i *)(src + x*4 +  0));
-            __m256i y1 = _mm256_loadu_si256((__m256i *)(src + x*4 + 16));
+            __m256i y0 = _mm256_loadu_si256((__m256i *)(ptr_src + x*4 +  0));
+            __m256i y1 = _mm256_loadu_si256((__m256i *)(ptr_src + x*4 + 16));
             
             __m256i y01_0 = _mm256_permute2x128_si256(y0, y1, (2 << 4) | 0);
             __m256i y01_1 = _mm256_permute2x128_si256(y0, y1, (3 << 4) | 1);
@@ -2788,40 +2786,40 @@ void convert_rgba64_to_rgba_avx2(void **dst, const void **src, int width, int sr
             y0 = _mm256_or_si256(y0, _mm256_slli_epi32(y1, 16));
             
             // 結果を256ビットレジスタで格納（32ピクセル = 32バイト）
-            _mm256_storeu_si256((__m256i*)(dst + x*4), y0);
+            _mm256_storeu_si256((__m256i*)(ptr_dst + x*4), y0);
         }
         
         // 残りのピクセルを従来の方法で処理
         for (; x < width; x++) {
-            float b = (float)src[x*4 + 0];
-            float g = (float)src[x*4 + 1];
-            float r = (float)src[x*4 + 2];
-            float a = (float)src[x*4 + 3];
+            float b = (float)ptr_src[x*4 + 0];
+            float g = (float)ptr_src[x*4 + 1];
+            float r = (float)ptr_src[x*4 + 2];
+            float a = (float)ptr_src[x*4 + 3];
             float a_inv = 65535.0f * mul / a;
             b *= a_inv, g *= a_inv, r *= a_inv, a *= mul;
-            dst[x*4 + 0] = (uint8_t)clamp((int)(b + 0.5f), 0, (1 << out_bit_depth) - 1);
-            dst[x*4 + 1] = (uint8_t)clamp((int)(g + 0.5f), 0, (1 << out_bit_depth) - 1);
-            dst[x*4 + 2] = (uint8_t)clamp((int)(r + 0.5f), 0, (1 << out_bit_depth) - 1);
-            dst[x*4 + 3] = (uint8_t)clamp((int)(a + 0.5f), 0, (1 << out_bit_depth) - 1);
+            ptr_dst[x*4 + 0] = (uint8_t)std::min(std::max((int)(b + 0.5f), 0), (1 << out_bit_depth) - 1);
+            ptr_dst[x*4 + 1] = (uint8_t)std::min(std::max((int)(g + 0.5f), 0), (1 << out_bit_depth) - 1);
+            ptr_dst[x*4 + 2] = (uint8_t)std::min(std::max((int)(r + 0.5f), 0), (1 << out_bit_depth) - 1);
+            ptr_dst[x*4 + 3] = (uint8_t)std::min(std::max((int)(a + 0.5f), 0), (1 << out_bit_depth) - 1);
         }
     }
 }
 
 void convert_rgba64_to_rgba_16bit_avx2(void **dst, const void **src, int width, int src_y_pitch_byte, int src_uv_pitch_byte, int dst_y_pitch_byte, int dst_uv_pitch_byte, int height, int dst_height, int thread_id, int thread_n, int *crop) {
     const int out_bit_depth = 16;
-    uint16_t *ptr = (uint16_t *)pixel_data->data[0];
-    const int srcstep = width * 4;
+    uint16_t *ptrDst = (uint16_t *)dst[0];
+    uint16_t *ptrSrc = (uint16_t *)src[0];
     const __m256 round_offset = _mm256_set1_ps(0.5f);
     
     for (int y = 0; y < height; y++) {
-        uint16_t *dst = (uint16_t *)(ptr + y*width*4);
-        uint16_t *src  = (uint16_t*)frame + y*srcstep;
+        uint16_t *ptr_dst = (uint16_t *)((char*)ptrDst + y*dst_y_pitch_byte);
+        uint16_t *ptr_src = (uint16_t *)((char*)ptrSrc + y*src_y_pitch_byte);
         
         int x = 0;
         // AVX2で32ピクセルずつ処理
         for (; x <= width - 8; x += 8) {
-            __m256i y0 = _mm256_loadu_si256((__m256i *)(src + x*4 +  0));
-            __m256i y1 = _mm256_loadu_si256((__m256i *)(src + x*4 + 16));
+            __m256i y0 = _mm256_loadu_si256((__m256i *)(ptr_src + x*4 +  0));
+            __m256i y1 = _mm256_loadu_si256((__m256i *)(ptr_src + x*4 + 16));
             
             __m256i y01_0 = _mm256_permute2x128_si256(y0, y1, (2 << 4) | 0);
             __m256i y01_1 = _mm256_permute2x128_si256(y0, y1, (3 << 4) | 1);
@@ -2866,22 +2864,22 @@ void convert_rgba64_to_rgba_16bit_avx2(void **dst, const void **src, int width, 
             y1 = _mm256_permute2x128_si256(y01, y23, (3 << 4) | 1);
             
             // 結果を256ビットレジスタで格納（32ピクセル = 32バイト）
-            _mm256_storeu_si256((__m256i*)(dst + x*4 +  0), y0);
-            _mm256_storeu_si256((__m256i*)(dst + x*4 + 16), y1);
+            _mm256_storeu_si256((__m256i*)(ptr_dst + x*4 +  0), y0);
+            _mm256_storeu_si256((__m256i*)(ptr_dst + x*4 + 16), y1);
         }
         
         // 残りのピクセルを従来の方法で処理
         for (; x < width; x++) {
-            float b = (float)src[x*4 + 0];
-            float g = (float)src[x*4 + 1];
-            float r = (float)src[x*4 + 2];
-            float a = (float)src[x*4 + 3];
+            float b = (float)ptr_src[x*4 + 0];
+            float g = (float)ptr_src[x*4 + 1];
+            float r = (float)ptr_src[x*4 + 2];
+            float a = (float)ptr_src[x*4 + 3];
             float a_inv = 65535.0f / a;
             b *= a_inv, g *= a_inv, r *= a_inv;
-            dst[x*4 + 0] = (uint16_t)clamp((int)(b + 0.5f), 0, (1 << out_bit_depth) - 1);
-            dst[x*4 + 1] = (uint16_t)clamp((int)(g + 0.5f), 0, (1 << out_bit_depth) - 1);
-            dst[x*4 + 2] = (uint16_t)clamp((int)(r + 0.5f), 0, (1 << out_bit_depth) - 1);
-            dst[x*4 + 3] = (uint16_t)clamp((int)(a + 0.5f), 0, (1 << out_bit_depth) - 1);
+            ptr_dst[x*4 + 0] = (uint16_t)std::min(std::max((int)(b + 0.5f), 0), (1 << out_bit_depth) - 1);
+            ptr_dst[x*4 + 1] = (uint16_t)std::min(std::max((int)(g + 0.5f), 0), (1 << out_bit_depth) - 1);
+            ptr_dst[x*4 + 2] = (uint16_t)std::min(std::max((int)(r + 0.5f), 0), (1 << out_bit_depth) - 1);
+            ptr_dst[x*4 + 3] = (uint16_t)std::min(std::max((int)(a + 0.5f), 0), (1 << out_bit_depth) - 1);
         }
     }
 }

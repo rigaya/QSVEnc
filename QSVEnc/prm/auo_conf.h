@@ -307,9 +307,6 @@ typedef struct CONF_ENC_OLD {
     char cmd[3072];
     char cmdex[512];
     char reserved2[512];
-    BOOL resize_enable;
-    int resize_width;
-    int resize_height;
 } CONF_ENC_OLD;
 
 typedef struct CONF_VIDEO_OLD {
@@ -344,9 +341,11 @@ typedef struct CONF_GUIEX_OLD {
     CONF_ENC_OLD     enc;                            //x264についての設定
     CONF_VIDEO_OLD   vid;                            //その他動画についての設定
     CONF_AUDIO       aud;                         //音声についての設定
-    CONF_MUX_OLD    mux;                            //muxについての設定
+    CONF_MUX_OLD     mux;                            //muxについての設定
     CONF_OTHER_OLD   oth;                            //その他の設定
 } CONF_GUIEX_OLD;
+static_assert(sizeof(CONF_ENC_OLD) == 5636);
+static_assert(sizeof(CONF_GUIEX_OLD)==8296);
 #endif
 #pragma pack(pop)
 
