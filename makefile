@@ -31,7 +31,7 @@ $(PROGRAM): $(DEPS) $(DEPCS) $(OBJS) $(OBJCS) $(OBJPYWS) $(OBJRBINS) $(OBJRHS) $
 	$(CXX) -c $(CXXFLAGS) -mavx -mpopcnt -o $@ $<
 
 %_avx2.cpp.o: %_avx2.cpp
-	$(CXX) -c $(CXXFLAGS) -mavx2 -mpopcnt -mbmi -mbmi2 -o $@ $<
+	$(CXX) -c $(CXXFLAGS) -mavx2 -mfma -mpopcnt -mbmi -mbmi2 -o $@ $<
 
 %_avx512bw.cpp.o: %_avx512bw.cpp
 	$(CXX) -c $(CXXFLAGS) -mavx512f -mavx512bw -mpopcnt -mbmi -mbmi2 -o $@ $<
