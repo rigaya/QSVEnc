@@ -2418,13 +2418,13 @@ void convert_bgr24r_to_yuv444_16bit_avx2(void **dst, const void **src, int width
 }
 
 // 22bit精度 rcp
-static __forceinline __m256 _mm256_rcpnr_fma_ps(__m256 x) {
+static RGY_FORCEINLINE __m256 _mm256_rcpnr_fma_ps(__m256 x) {
 	__m256 rcp = _mm256_rcp_ps(x); // 11bit精度
 	//rcp*(2-rcp*x)
 	return _mm256_mul_ps(rcp, _mm256_fnmadd_ps(x, rcp, _mm256_set1_ps(2.0f)));
 }
 
-static __forceinline void unpremultiply_pa64_avx2(__m256& r, __m256& g, __m256& b, const __m256& a) {
+static RGY_FORCEINLINE void unpremultiply_pa64_avx2(__m256& r, __m256& g, __m256& b, const __m256& a) {
     // 乗算付きalphaなrgbをunpremultiplyに変換
     __m256 a_inv = _mm256_mul_ps(_mm256_set1_ps(65535.0f), _mm256_rcpnr_fma_ps(a));
     r = _mm256_mul_ps(r, a_inv);

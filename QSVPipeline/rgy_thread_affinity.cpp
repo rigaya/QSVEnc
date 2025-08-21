@@ -270,7 +270,11 @@ void RGYParamThread::set(RGYThreadAffinity affinity_, RGYThreadPriority priority
 bool RGYParamThread::apply(RGYThreadHandle threadHandle) const {
     bool ret = true;
     if (affinity.mode != RGYThreadAffinityMode::ALL) {
+#if defined(_WIN32) || defined(_WIN64)
         SetThreadAffinityMask(threadHandle, (DWORD_PTR)affinity.getMask());
+#else //#if defined(_WIN32) || defined(_WIN64)
+        SetThreadAffinityMask(threadHandle, affinity.getMask());
+#endif //#if defined(_WIN32) || defined(_WIN64)
     }
 #if defined(_WIN32) || defined(_WIN64)
     if (priority != RGYThreadPriority::Normal) {

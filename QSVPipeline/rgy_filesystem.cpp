@@ -237,9 +237,11 @@ bool check_ext(const char *filename, const char *ext) {
     return tolowercase(std::filesystem::path(filename).extension().string()) == tolowercase(ext);
 }
 
+#if defined(_WIN32) || defined(_WIN64)
 bool check_ext(const wchar_t *filename, const wchar_t *ext) {
     return tolowercase(std::filesystem::path(filename).extension().wstring()) == tolowercase(ext);
 }
+#endif //#if defined(_WIN32) || defined(_WIN64)
 
 std::string rgy_get_extension(const std::string& filename) {
     return std::filesystem::path(filename).extension().string();
@@ -648,11 +650,13 @@ void insert_before_ext(char *filename, size_t nSize, int insert_num) {
     sprintf_s(tmp, _countof(tmp), "%d", insert_num);
     insert_before_ext(filename, nSize, tmp);
 }
+#if defined(_WIN32) || defined(_WIN64)
 void insert_before_ext(wchar_t *filename, size_t nSize, int insert_num) {
     wchar_t tmp[22];
     swprintf_s(tmp, _countof(tmp), L"%d", insert_num);
     insert_before_ext(filename, nSize, tmp);
 }
+#endif //#if defined(_WIN32) || defined(_WIN64)
 
 //パスの拡張子を変更する
 void change_ext(char *filename, size_t nSize, const char *ext) {
@@ -668,6 +672,7 @@ void change_ext(wchar_t *filename, size_t nSize, const wchar_t *ext) {
     wcscpy_s(filename + len_to_ext, nSize - len_to_ext, ext);
 }
 
+#if defined(_WIN32) || defined(_WIN64)
 //フォルダがあればOK、なければ作成する
 bool DirectoryExistsOrCreate(const char *dir) {
     if (rgy_directory_exists(dir))
@@ -679,26 +684,38 @@ bool DirectoryExistsOrCreate(const wchar_t *dir) {
         return TRUE;
     return (PathRootExists(dir) && CreateDirectoryW(dir, NULL) != NULL) ? TRUE : FALSE;
 }
+#endif //#if defined(_WIN32) || defined(_WIN64)
 
 //ファイルの存在と0byteより大きいかを確認
 bool FileExistsAndHasSize(const char *path) {
     uint64_t filesize = 0;
     return rgy_file_exists(path) && rgy_get_filesize(path, &filesize) && filesize > 0;
 }
+#if defined(_WIN32) || defined(_WIN64)
 bool FileExistsAndHasSize(const wchar_t *path) {
     uint64_t filesize = 0;
     return rgy_file_exists(path) && rgy_get_filesize(path, &filesize) && filesize > 0;
 }
+#endif //#if defined(_WIN32) || defined(_WIN64)
 
 void PathGetDirectory(char *dir, size_t nSize, const char *path) {
+#if defined(_WIN32) || defined(_WIN64)
     strcpy_s(dir, nSize, path);
     PathRemoveFileSpecFixed(dir);
+#else
+    strcpy_s(dir, nSize, PathRemoveFileSpecFixed(path).second.c_str());
+#endif
 }
 void PathGetDirectory(wchar_t *dir, size_t nSize, const wchar_t *path) {
+#if defined(_WIN32) || defined(_WIN64)
     wcscpy_s(dir, nSize, path);
     PathRemoveFileSpecFixed(dir);
+#else
+    wcscpy_s(dir, nSize, PathRemoveFileSpecFixed(path).second.c_str());
+#endif
 }
 
+#if defined(_WIN32) || defined(_WIN64)
 uint64_t GetFileLastUpdate(const char *filepath) {
     WIN32_FILE_ATTRIBUTE_DATA fd = { 0 };
     GetFileAttributesExA(filepath, GetFileExInfoStandard, &fd);
@@ -709,6 +726,7 @@ uint64_t GetFileLastUpdate(const wchar_t *filepath) {
     GetFileAttributesExW(filepath, GetFileExInfoStandard, &fd);
     return ((uint64_t)fd.ftLastWriteTime.dwHighDateTime << 32) + (uint64_t)fd.ftLastWriteTime.dwLowDateTime;
 }
+#endif //#if defined(_WIN32) || defined(_WIN64)
 
 size_t append_str(char **dst, size_t *nSize, const char *append) {
     size_t len = strlen(append);
