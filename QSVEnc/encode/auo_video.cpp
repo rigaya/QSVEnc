@@ -335,8 +335,8 @@ static std::unique_ptr<RGYSharedMemWin> video_create_param_mem(const OUTPUT_INFO
         prmsm->abort = false;
         prmsm->afs = afs;
         for (int i = 0; i < 2; i++) {
-            prmsm->heBufEmpty[i] = (size_t)heBufEmpty[i];
-            prmsm->heBufFilled[i] = (size_t)heBufFilled[i];
+            prmsm->heBufEmpty[i] = (uint64_t)heBufEmpty[i];
+            prmsm->heBufFilled[i] = (uint64_t)heBufFilled[i];
             prmsm->duration[i] = 0;
             prmsm->timestamp[i] = 0;
             prmsm->dropped[i] = 0;

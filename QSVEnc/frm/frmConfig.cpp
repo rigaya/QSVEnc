@@ -292,18 +292,18 @@ System::Void frmConfig::SaveLocalStg() {
     guiEx_settings *_ex_stg = sys_dat->exstg;
     _ex_stg->load_encode_stg();
     _ex_stg->s_local.large_cmdbox = fcgTXCmd->Multiline;
-    GetWCHARfromString(_ex_stg->s_local.custom_tmp_dir,        sizeof(_ex_stg->s_local.custom_tmp_dir),        LocalStg.CustomTmpDir);
-    GetWCHARfromString(_ex_stg->s_local.custom_mp4box_tmp_dir, sizeof(_ex_stg->s_local.custom_mp4box_tmp_dir), LocalStg.CustomMP4TmpDir);
-    GetWCHARfromString(_ex_stg->s_local.custom_audio_tmp_dir,  sizeof(_ex_stg->s_local.custom_audio_tmp_dir),  LocalStg.CustomAudTmpDir);
-    GetWCHARfromString(_ex_stg->s_local.app_dir,               sizeof(_ex_stg->s_local.app_dir),               LocalStg.LastAppDir);
-    GetWCHARfromString(_ex_stg->s_local.bat_dir,               sizeof(_ex_stg->s_local.bat_dir),               LocalStg.LastBatDir);
-    GetWCHARfromString(_ex_stg->s_enc.fullpath,                sizeof(_ex_stg->s_enc.fullpath),                LocalStg.vidEncPath);
-    GetWCHARfromString(_ex_stg->s_mux[MUXER_MP4].fullpath,     sizeof(_ex_stg->s_mux[MUXER_MP4].fullpath),     LocalStg.MP4MuxerPath);
-    GetWCHARfromString(_ex_stg->s_mux[MUXER_MKV].fullpath,     sizeof(_ex_stg->s_mux[MUXER_MKV].fullpath),     LocalStg.MKVMuxerPath);
-    GetWCHARfromString(_ex_stg->s_mux[MUXER_TC2MP4].fullpath,  sizeof(_ex_stg->s_mux[MUXER_TC2MP4].fullpath),  LocalStg.TC2MP4Path);
-    GetWCHARfromString(_ex_stg->s_mux[MUXER_MP4_RAW].fullpath, sizeof(_ex_stg->s_mux[MUXER_MP4_RAW].fullpath), LocalStg.MP4RawPath);
+    GetWCHARfromString(_ex_stg->s_local.custom_tmp_dir,        _countof(_ex_stg->s_local.custom_tmp_dir),        LocalStg.CustomTmpDir);
+    GetWCHARfromString(_ex_stg->s_local.custom_mp4box_tmp_dir, _countof(_ex_stg->s_local.custom_mp4box_tmp_dir), LocalStg.CustomMP4TmpDir);
+    GetWCHARfromString(_ex_stg->s_local.custom_audio_tmp_dir,  _countof(_ex_stg->s_local.custom_audio_tmp_dir),  LocalStg.CustomAudTmpDir);
+    GetWCHARfromString(_ex_stg->s_local.app_dir,               _countof(_ex_stg->s_local.app_dir),               LocalStg.LastAppDir);
+    GetWCHARfromString(_ex_stg->s_local.bat_dir,               _countof(_ex_stg->s_local.bat_dir),               LocalStg.LastBatDir);
+    GetWCHARfromString(_ex_stg->s_enc.fullpath,                _countof(_ex_stg->s_enc.fullpath),                LocalStg.vidEncPath);
+    GetWCHARfromString(_ex_stg->s_mux[MUXER_MP4].fullpath,     _countof(_ex_stg->s_mux[MUXER_MP4].fullpath),     LocalStg.MP4MuxerPath);
+    GetWCHARfromString(_ex_stg->s_mux[MUXER_MKV].fullpath,     _countof(_ex_stg->s_mux[MUXER_MKV].fullpath),     LocalStg.MKVMuxerPath);
+    GetWCHARfromString(_ex_stg->s_mux[MUXER_TC2MP4].fullpath,  _countof(_ex_stg->s_mux[MUXER_TC2MP4].fullpath),  LocalStg.TC2MP4Path);
+    GetWCHARfromString(_ex_stg->s_mux[MUXER_MP4_RAW].fullpath, _countof(_ex_stg->s_mux[MUXER_MP4_RAW].fullpath), LocalStg.MP4RawPath);
     for (int i = 0; i < _ex_stg->s_aud_ext_count; i++)
-        GetWCHARfromString(_ex_stg->s_aud_ext[i].fullpath, sizeof(_ex_stg->s_aud_ext[i].fullpath), LocalStg.audEncPath[i]);
+        GetWCHARfromString(_ex_stg->s_aud_ext[i].fullpath, _countof(_ex_stg->s_aud_ext[i].fullpath), LocalStg.audEncPath[i]);
     _ex_stg->save_local();
 }
 
@@ -900,20 +900,20 @@ System::Void frmConfig::SetTXMaxLen(TextBox^ TX, int max_len) {
 
 System::Void frmConfig::SetTXMaxLenAll() {
     //MaxLengthに最大文字数をセットし、それをもとにバイト数計算を行うイベントをセットする。
-    SetTXMaxLen(fcgTXVideoEncoderPath,   sizeof(sys_dat->exstg->s_enc.fullpath) - 1);
-    SetTXMaxLen(fcgTXAudioEncoderPath,   sizeof(sys_dat->exstg->s_aud_ext[0].fullpath) - 1);
-    SetTXMaxLen(fcgTXMP4MuxerPath,       sizeof(sys_dat->exstg->s_mux[MUXER_MP4].fullpath) - 1);
-    SetTXMaxLen(fcgTXMKVMuxerPath,       sizeof(sys_dat->exstg->s_mux[MUXER_MKV].fullpath) - 1);
-    SetTXMaxLen(fcgTXTC2MP4Path,         sizeof(sys_dat->exstg->s_mux[MUXER_TC2MP4].fullpath) - 1);
-    SetTXMaxLen(fcgTXMP4RawPath,         sizeof(sys_dat->exstg->s_mux[MUXER_MP4_RAW].fullpath) - 1);
-    SetTXMaxLen(fcgTXCustomTempDir,      sizeof(sys_dat->exstg->s_local.custom_tmp_dir) - 1);
-    SetTXMaxLen(fcgTXCustomAudioTempDir, sizeof(sys_dat->exstg->s_local.custom_audio_tmp_dir) - 1);
-    SetTXMaxLen(fcgTXMP4BoxTempDir,      sizeof(sys_dat->exstg->s_local.custom_mp4box_tmp_dir) - 1);
-    SetTXMaxLen(fcgTXBatBeforeAudioPath, sizeof(conf->oth.batfile.before_audio) - 1);
-    SetTXMaxLen(fcgTXBatAfterAudioPath,  sizeof(conf->oth.batfile.after_audio) - 1);
-    SetTXMaxLen(fcgTXBatBeforePath,      sizeof(conf->oth.batfile.before_process) - 1);
-    SetTXMaxLen(fcgTXBatAfterPath,       sizeof(conf->oth.batfile.after_process) - 1);
-    fcgTSTSettingsNotes->MaxLength     = sizeof(conf->oth.notes) - 1;
+    SetTXMaxLen(fcgTXVideoEncoderPath,   _countof(sys_dat->exstg->s_enc.fullpath) - 1);
+    SetTXMaxLen(fcgTXAudioEncoderPath,   _countof(sys_dat->exstg->s_aud_ext[0].fullpath) - 1);
+    SetTXMaxLen(fcgTXMP4MuxerPath,       _countof(sys_dat->exstg->s_mux[MUXER_MP4].fullpath) - 1);
+    SetTXMaxLen(fcgTXMKVMuxerPath,       _countof(sys_dat->exstg->s_mux[MUXER_MKV].fullpath) - 1);
+    SetTXMaxLen(fcgTXTC2MP4Path,         _countof(sys_dat->exstg->s_mux[MUXER_TC2MP4].fullpath) - 1);
+    SetTXMaxLen(fcgTXMP4RawPath,         _countof(sys_dat->exstg->s_mux[MUXER_MP4_RAW].fullpath) - 1);
+    SetTXMaxLen(fcgTXCustomTempDir,      _countof(sys_dat->exstg->s_local.custom_tmp_dir) - 1);
+    SetTXMaxLen(fcgTXCustomAudioTempDir, _countof(sys_dat->exstg->s_local.custom_audio_tmp_dir) - 1);
+    SetTXMaxLen(fcgTXMP4BoxTempDir,      _countof(sys_dat->exstg->s_local.custom_mp4box_tmp_dir) - 1);
+    SetTXMaxLen(fcgTXBatBeforeAudioPath, _countof(conf->oth.batfile.before_audio) - 1);
+    SetTXMaxLen(fcgTXBatAfterAudioPath,  _countof(conf->oth.batfile.after_audio) - 1);
+    SetTXMaxLen(fcgTXBatBeforePath,      _countof(conf->oth.batfile.before_process) - 1);
+    SetTXMaxLen(fcgTXBatAfterPath,       _countof(conf->oth.batfile.after_process) - 1);
+    fcgTSTSettingsNotes->MaxLength     = _countof(conf->oth.notes) - 1;
 }
 
 System::Void frmConfig::InitStgFileList() {
@@ -2310,12 +2310,12 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->oth.dont_wait_bat_fin      = RUN_BAT_NONE;
     cnf->oth.dont_wait_bat_fin     |= (!fcgCBWaitForBatBefore->Checked) ? RUN_BAT_BEFORE_PROCESS : NULL;
     cnf->oth.dont_wait_bat_fin     |= (!fcgCBWaitForBatAfter->Checked)  ? RUN_BAT_AFTER_PROCESS  : NULL;
-    GetWCHARfromString(cnf->oth.batfile.before_process, sizeof(cnf->oth.batfile.before_process), fcgTXBatBeforePath->Text);
-    GetWCHARfromString(cnf->oth.batfile.after_process,  sizeof(cnf->oth.batfile.after_process),  fcgTXBatAfterPath->Text);
-    GetWCHARfromString(cnf->oth.batfile.before_audio, sizeof(cnf->oth.batfile.before_audio), fcgTXBatBeforeAudioPath->Text);
-    GetWCHARfromString(cnf->oth.batfile.after_audio,  sizeof(cnf->oth.batfile.after_audio),  fcgTXBatAfterAudioPath->Text);
+    GetWCHARfromString(cnf->oth.batfile.before_process, _countof(cnf->oth.batfile.before_process), fcgTXBatBeforePath->Text);
+    GetWCHARfromString(cnf->oth.batfile.after_process,  _countof(cnf->oth.batfile.after_process),  fcgTXBatAfterPath->Text);
+    GetWCHARfromString(cnf->oth.batfile.before_audio, _countof(cnf->oth.batfile.before_audio), fcgTXBatBeforeAudioPath->Text);
+    GetWCHARfromString(cnf->oth.batfile.after_audio,  _countof(cnf->oth.batfile.after_audio),  fcgTXBatAfterAudioPath->Text);
 
-    GetfcgTSLSettingsNotes(cnf->oth.notes, sizeof(cnf->oth.notes));
+    GetfcgTSLSettingsNotes(cnf->oth.notes, _countof(cnf->oth.notes));
     _tcscpy_s(cnf->enc.cmd, gen_cmd(&prm_qsv, true).c_str());
 
     return String(gen_cmd(&prm_qsv, false).c_str()).ToString();
@@ -2749,7 +2749,7 @@ System::Void frmConfig::ShowExehelp(String^ ExePath, String^ args) {
                     if (sw != nullptr) { sw->Close(); }
                 }
             }
-            GetWCHARfromString(cmd, sizeof(cmd), arg_list[i]);
+            GetWCHARfromString(cmd, _countof(cmd), arg_list[i]);
             if (get_exe_message_to_file(exe_path, cmd, file_path, AUO_PIPE_MUXED, 5) != RP_SUCCESS) {
                 File::Delete(String(file_path).ToString());
                 MessageBox::Show(L"helpの取得に失敗しました。", L"エラー", MessageBoxButtons::OK, MessageBoxIcon::Error);

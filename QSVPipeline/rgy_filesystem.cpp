@@ -137,15 +137,15 @@ bool GetPathRootFreeSpace(const wchar_t *path, uint64_t *freespace) {
 }
 
 //PathRemoveFileSpecFixedがVistaでは5C問題を発生させるため、その回避策
-BOOL PathRemoveFileSpecFixed(char *path) {
+bool PathRemoveFileSpecFixed(char *path) {
     char *ptr = PathFindFileNameA(path);
     if (path == ptr)
         return FALSE;
     *(ptr - 1) = '\0';
     return TRUE;
 }
-BOOL PathRemoveFileSpecFixed(WCHAR *path) {
-    WCHAR *ptr = PathFindFileNameW(path);
+bool PathRemoveFileSpecFixed(wchar_t *path) {
+    wchar_t *ptr = PathFindFileNameW(path);
     if (path == ptr)
         return FALSE;
     *(ptr - 1) = L'\0';

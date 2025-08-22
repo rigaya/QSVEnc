@@ -680,7 +680,7 @@ int guiEx_config::load_guiEx_conf_legacy(CONF_GUIEX *conf, const TCHAR *stg_file
         memcpy(dst, filedat, std::min(((CONF_GUIEX_OLD *)dat)->header.block_size[i], conf_block_data[i]));
     }
 
-    
+
     // 旧構造体からJSON文字列を作成
     std::string json_str = old_conf_to_json(&old_conf);
     

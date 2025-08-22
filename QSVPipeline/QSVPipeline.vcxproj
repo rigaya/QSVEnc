@@ -570,6 +570,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="rgy_bitstream_aac.cpp" />
     <ClCompile Include="rgy_bitstream_avx2.cpp">
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugStatic|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
@@ -1038,6 +1039,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_avlog.h" />
     <ClInclude Include="rgy_avutil.h" />
     <ClInclude Include="rgy_bitstream.h" />
+    <ClInclude Include="rgy_bitstream_aac.h" />
     <ClInclude Include="rgy_chapter.h" />
     <ClInclude Include="rgy_cmd.h" />
     <ClInclude Include="rgy_codepage.h" />

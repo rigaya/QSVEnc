@@ -105,11 +105,16 @@ static const char *const CONF_NAME_OLD_1 = "NVEnc ConfigFile";
 static const char *const CONF_NAME_OLD_2 = "NVEnc ConfigFile v2";
 static const char *const CONF_NAME_OLD_3 = "NVEnc ConfigFile v3";
 static const char *const CONF_NAME_OLD_4 = "NVEnc ConfigFile v4";
-static const char *const CONF_NAME       = CONF_NAME_OLD_4;
+static const char *const CONF_NAME_OLD_5 = "NVEnc ConfigFile v5";
+static const char *const CONF_NAME_JSON  = "NVEnc ConfigFile v5 json";
+static const char *const CONF_NAME       = CONF_NAME_OLD_5;
 #elif ENCODER_VCEENC
 #include "vce_param.h"
 
-static const char *CONF_NAME          = "VCEEnc ConfigFile v3";
+static const char *const CONF_NAME_OLD_1 = "VCEEnc ConfigFile v3";
+static const char *const CONF_NAME_OLD_2 = "VCEEnc ConfigFile v4";
+static const char *const CONF_NAME_JSON  = "VCEEnc ConfigFile v4 json";
+static const char *const CONF_NAME       = CONF_NAME_OLD_2;
 #else
 static_assert(false);
 #endif
@@ -344,8 +349,8 @@ typedef struct CONF_GUIEX_OLD {
     CONF_MUX_OLD     mux;                            //muxについての設定
     CONF_OTHER_OLD   oth;                            //その他の設定
 } CONF_GUIEX_OLD;
-static_assert(sizeof(CONF_ENC_OLD) == 5636);
-static_assert(sizeof(CONF_GUIEX_OLD)==8296);
+static_assert(sizeof(CONF_ENC_OLD) == (5636-(ENCODER_QSV?0:1024)));
+static_assert(sizeof(CONF_GUIEX_OLD)==(8296-(ENCODER_QSV?0:1032)));
 #endif
 #pragma pack(pop)
 
@@ -393,7 +398,6 @@ public:
     guiEx_config();
     static void write_conf_header(CONF_GUIEX_HEADER *conf_header);
     static std::string old_conf_to_json(const CONF_GUIEX_OLD *old_conf);
-    static int  adjust_conf_size(CONF_GUIEX *conf_buf, void *old_data, int old_size);
     static int  load_guiEx_conf(CONF_GUIEX *conf, const TCHAR *stg_file);       //設定をstgファイルから読み込み (バイナリ & JSON対応)
     static int  save_guiEx_conf(const CONF_GUIEX *conf, const TCHAR *stg_file); //設定をJSONファイルとして保存
     static int  load_guiEx_conf_legacy(CONF_GUIEX *conf, const TCHAR *stg_file); //旧形式のstgファイルから読み込み
