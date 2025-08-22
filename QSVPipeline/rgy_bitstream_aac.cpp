@@ -27,6 +27,7 @@
 
 #include <vector>
 #include <array>
+#include "rgy_osdep.h"
 #include "rgy_bitstream_aac.h"
 
 int RGYAACHeader::sampleRateIdxToRate(const uint32_t idx) {
