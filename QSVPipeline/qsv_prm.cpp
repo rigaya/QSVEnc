@@ -309,7 +309,7 @@ sInputParams::sInputParams() :
     padding(),
     hevc_ctu(0),
     hevc_sao(0),
-    hevc_tskip(0),
+    hevc_tskip(),
     hevc_tier(0),
     hevc_gpb(),
     av1(),
