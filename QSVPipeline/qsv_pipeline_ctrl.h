@@ -2656,11 +2656,16 @@ public:
 };
 
 class PipelineTaskOutputRaw : public PipelineTask {
+    RGYOutput *m_writer;
 public:
-    PipelineTaskOutputRaw(MFXVideoSession *mfxSession, int outMaxQueueSize, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
-        PipelineTask(PipelineTaskType::OUTPUTRAW, outMaxQueueSize, mfxSession, mfxVer, log) {
+    PipelineTaskOutputRaw(MFXVideoSession *mfxSession, RGYOutput *writer, int outMaxQueueSize, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
+        PipelineTask(PipelineTaskType::OUTPUTRAW, outMaxQueueSize, mfxSession, mfxVer, log), m_writer(writer) {
     };
-    virtual ~PipelineTaskOutputRaw() {};
+    virtual ~PipelineTaskOutputRaw() {
+        if (m_writer) {
+            m_writer->WriteNextFrame((RGYFrame *)nullptr);
+        }
+    };
 
     virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override { return std::nullopt; };
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override { return std::nullopt; };

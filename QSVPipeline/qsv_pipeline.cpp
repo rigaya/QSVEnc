@@ -4433,7 +4433,7 @@ RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
     if (m_pmfxENC) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXEncode>(&m_device->mfxSession(), 1, m_pmfxENC.get(), m_mfxVer, m_encParams, m_timecode.get(), m_encTimestamp.get(), m_outputTimebase, m_dynamicRC, m_hdr10plus.get(), m_dovirpu.get(), m_pQSVLog));
     } else {
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskOutputRaw>(&m_device->mfxSession(), 1, m_mfxVer, m_pQSVLog));
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskOutputRaw>(&m_device->mfxSession(), m_pFileWriter.get(), 1, m_mfxVer, m_pQSVLog));
     }
 
     if (m_pipelineTasks.size() == 0) {
