@@ -106,6 +106,17 @@ static const ENC_OPTION_STR2 list_interlaced_mfx_gui[] = {
     { AUO_CONFIG_CX_INTERLACE_BFF,         L"interlaced(bff)", MFX_PICSTRUCT_FIELD_BFF   },
     { AUO_MES_UNKNOWN, NULL, 0 }
 };
+static const ENC_OPTION_STR2 list_mfx_codingoption[] = {
+    { AUO_CONFIG_CX_MFX_CODING_OPT_AUTO, L"auto",  MFX_CODINGOPTION_UNKNOWN },
+    { AUO_CONFIG_CX_MFX_CODING_OPT_ON,   L"on",    MFX_CODINGOPTION_ON   },
+    { AUO_CONFIG_CX_MFX_CODING_OPT_OFF,  L"off",   MFX_CODINGOPTION_OFF   },
+    { AUO_MES_UNKNOWN, NULL, 0 }
+};
+static const ENC_OPTION_STR2 list_mfx_weight_pred[] = {
+    { AUO_CONFIG_CX_MFX_CODING_OPT_AUTO, L"auto",  MFX_WEIGHTED_PRED_UNKNOWN },
+    { AUO_CONFIG_CX_MFX_CODING_OPT_ON,   L"on",    MFX_WEIGHTED_PRED_DEFAULT },
+    { AUO_MES_UNKNOWN, NULL, 0 }
+};
 #endif
 
 static const ENC_OPTION_STR audio_enc_timing_desc[] = {

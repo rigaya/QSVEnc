@@ -832,19 +832,22 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXQualityPreset,   list_quality);
     setComboBox(fcgCXInterlaced,      list_interlaced_mfx_gui);
     setComboBox(fcgCXAspectRatio,     aspect_desc);
-    setComboBox(fcgCXTrellis,         list_avc_trellis);
     setComboBox(fcgCXLookaheadDS,     list_lookahead_ds);
     
     setComboBox(fcgCXScenarioInfo,    list_scenario_info);
-    setComboBox(fcgCXMVPred,          list_mv_presicion);
-    setComboBox(fcgCXInterPred,       list_pred_block_size);
-    setComboBox(fcgCXIntraPred,       list_pred_block_size);
 
-    setComboBox(fcgCXMVCostScaling,   list_mv_cost_scaling);
+    setComboBox(fcgCXAdaptiveI,   list_mfx_codingoption);
+    setComboBox(fcgCXAdaptiveB,   list_mfx_codingoption);
+    setComboBox(fcgCXWeightP,     list_mfx_weight_pred);
+    setComboBox(fcgCXWeightB,     list_mfx_weight_pred);
+    setComboBox(fcgCXBPyramid,    list_mfx_codingoption);
+    setComboBox(fcgCXFadeDetect,  list_mfx_codingoption);
+    setComboBox(fcgCXMBBRC,       list_mfx_codingoption);
+    setComboBox(fcgCXExtBRC,      list_mfx_codingoption);
 
     setComboBox(fcgCXAudioTempDir,    audtempdir_desc);
     setComboBox(fcgCXMP4BoxTempDir,   mp4boxtempdir_desc);
-    setComboBox(fcgCXTempDir,    tempdir_desc);
+    setComboBox(fcgCXTempDir,         tempdir_desc);
 
     setComboBox(fcgCXColorPrim,       list_colorprim, L"auto");
     setComboBox(fcgCXColorMatrix,     list_colormatrix, L"auto");
@@ -1078,43 +1081,31 @@ System::Void frmConfig::fcgCheckLibVersion() {
     }
 
     //API v1.6 features
-    fcgCBExtBRC->Enabled = 0 != (available_features & ENC_FEATURE_EXT_BRC);
-    fcgCBMBBRC->Enabled  = 0 != (available_features & ENC_FEATURE_MBBRC);
-    if (!fcgCBExtBRC->Enabled) fcgCBExtBRC->Checked = false;
-    if (!fcgCBMBBRC->Enabled)  fcgCBMBBRC->Checked = false;
-
-    //API v1.7 features
-    fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA, MFX_RATECONTROL_VBR, featuresHW->getRCAvail(fcgCXDevice->SelectedIndex, get_cx_index(list_encmode, MFX_RATECONTROL_LA), codec, funcMode));
-    available_features = featuresHW->getFeatureOfRC(fcgCXDevice->SelectedIndex, fcgCXEncMode->SelectedIndex, codec, funcMode); // fcgCXEncMode->SelectedIndex が変わっている可能性があるので再取得
-    fcgLBTrellis->Enabled = 0 != (available_features & ENC_FEATURE_TRELLIS);
-    fcgCXTrellis->Enabled = 0 != (available_features & ENC_FEATURE_TRELLIS);
-    if (!fcgCXTrellis->Enabled) fcgCXTrellis->SelectedIndex = 0;
+    fcgCXExtBRC->Enabled = 0 != (available_features & ENC_FEATURE_EXT_BRC);
+    fcgCXMBBRC->Enabled  = 0 != (available_features & ENC_FEATURE_MBBRC);
+    if (!fcgCXExtBRC->Enabled) fcgCXExtBRC->SelectedIndex = get_cx_index(list_mfx_codingoption, L"auto");
+    if (!fcgCXMBBRC->Enabled)  fcgCXMBBRC->SelectedIndex = get_cx_index(list_mfx_codingoption, L"auto");
 
     //API v1.8 features
     fcgCheckRCModeLibVersion(MFX_RATECONTROL_ICQ,    MFX_RATECONTROL_CQP, featuresHW->getRCAvail(fcgCXDevice->SelectedIndex, get_cx_index(list_encmode, MFX_RATECONTROL_ICQ),    codec, funcMode));
     fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA_ICQ, MFX_RATECONTROL_CQP, featuresHW->getRCAvail(fcgCXDevice->SelectedIndex, get_cx_index(list_encmode, MFX_RATECONTROL_LA_ICQ), codec, funcMode));
     fcgCheckRCModeLibVersion(MFX_RATECONTROL_VCM,    MFX_RATECONTROL_VBR, featuresHW->getRCAvail(fcgCXDevice->SelectedIndex, get_cx_index(list_encmode, MFX_RATECONTROL_VCM),    codec, funcMode));
     available_features = featuresHW->getFeatureOfRC(fcgCXDevice->SelectedIndex, fcgCXEncMode->SelectedIndex, codec, funcMode); // fcgCXEncMode->SelectedIndex が変わっている可能性があるので再取得
-    fcgCBAdaptiveB->Enabled   = 0 != (available_features & ENC_FEATURE_ADAPTIVE_B);
-    fcgCBAdaptiveI->Enabled   = 0 != (available_features & ENC_FEATURE_ADAPTIVE_I);
-    fcgCBBPyramid->Enabled    = 0 != (available_features & ENC_FEATURE_B_PYRAMID);
+    fcgCXAdaptiveB->Enabled   = 0 != (available_features & ENC_FEATURE_ADAPTIVE_B);
+    fcgCXAdaptiveI->Enabled   = 0 != (available_features & ENC_FEATURE_ADAPTIVE_I);
+    fcgCXBPyramid->Enabled    = 0 != (available_features & ENC_FEATURE_B_PYRAMID);
     fcgLBLookaheadDS->Enabled = 0 != (available_features & ENC_FEATURE_LA_DS);
     fcgCXLookaheadDS->Enabled = 0 != (available_features & ENC_FEATURE_LA_DS);
-    if (!fcgCBAdaptiveB->Enabled)   fcgCBAdaptiveB->Checked = false;
-    if (!fcgCBAdaptiveI->Enabled)   fcgCBAdaptiveI->Checked = false;
-    if (!fcgCBBPyramid->Enabled)    fcgCBBPyramid->Checked  = false;
+    if (!fcgCXAdaptiveB->Enabled)   fcgCXAdaptiveB->SelectedIndex = get_cx_index(list_mfx_codingoption, L"auto");
+    if (!fcgCXAdaptiveI->Enabled)   fcgCXAdaptiveI->SelectedIndex = get_cx_index(list_mfx_codingoption, L"auto");
+    if (!fcgCXBPyramid->Enabled)    fcgCXBPyramid->SelectedIndex  = get_cx_index(list_mfx_codingoption, L"auto");
     if (!fcgCXLookaheadDS->Enabled) fcgCXLookaheadDS->SelectedIndex = 0;
 
     //API v1.9 features
     fcgNUQPMin->Enabled        = 0 != (available_features & ENC_FEATURE_QP_MINMAX);
     fcgNUQPMax->Enabled        = 0 != (available_features & ENC_FEATURE_QP_MINMAX);
-    fcgLBIntraRefreshCycle->Enabled = 0 != (available_features & ENC_FEATURE_INTRA_REFRESH);
-    fcgNUIntraRefreshCycle->Enabled = 0 != (available_features & ENC_FEATURE_INTRA_REFRESH);
-    fcgCBDeblock->Enabled      = 0 != (available_features & ENC_FEATURE_NO_DEBLOCK);
     if (!fcgNUQPMin->Enabled)        fcgNUQPMin->Value = 0;
     if (!fcgNUQPMax->Enabled)        fcgNUQPMax->Value = 0;
-    if (!fcgNUIntraRefreshCycle->Enabled) fcgNUIntraRefreshCycle->Value = 0;
-    if (!fcgCBDeblock->Enabled)      fcgCBDeblock->Checked = true;
 
     //API v1.11 features
     fcgCheckRCModeLibVersion(MFX_RATECONTROL_LA_HRD, MFX_RATECONTROL_VBR, featuresHW->getRCAvail(fcgCXDevice->SelectedIndex, get_cx_index(list_encmode, MFX_RATECONTROL_LA_HRD), codec, funcMode));
@@ -1126,18 +1117,11 @@ System::Void frmConfig::fcgCheckLibVersion() {
     fcgNUWinBRCSize->Enabled     = 0 != (available_features & ENC_FEATURE_WINBRC);
     if (!fcgNUWinBRCSize->Enabled) fcgNUWinBRCSize->Value = 0;
 
-    //API v1.13 features
-    fcgLBMVCostScaling->Enabled    = 0 != (available_features & ENC_FEATURE_GLOBAL_MOTION_ADJUST);
-    fcgCXMVCostScaling->Enabled    = 0 != (available_features & ENC_FEATURE_GLOBAL_MOTION_ADJUST);
-    fcgCBDirectBiasAdjust->Enabled = 0 != (available_features & ENC_FEATURE_DIRECT_BIAS_ADJUST);
-    if (!fcgCXMVCostScaling->Enabled)    fcgCXMVCostScaling->SelectedIndex = 0;
-    if (!fcgCBDirectBiasAdjust->Enabled) fcgCBDirectBiasAdjust->Checked = false;
-
     //API v1.16 features
-    fcgCBWeightP->Enabled          = 0 != (available_features & ENC_FEATURE_WEIGHT_P);
-    fcgCBWeightB->Enabled          = 0 != (available_features & ENC_FEATURE_WEIGHT_B);
-    if (!fcgCBWeightP->Enabled) fcgCBWeightP->Checked = false;
-    if (!fcgCBWeightB->Enabled) fcgCBWeightB->Checked = false;
+    fcgCXWeightP->Enabled          = 0 != (available_features & ENC_FEATURE_WEIGHT_P);
+    fcgCXWeightB->Enabled          = 0 != (available_features & ENC_FEATURE_WEIGHT_B);
+    if (!fcgCXWeightP->Enabled) fcgCXWeightP->SelectedIndex = get_cx_index(list_mfx_codingoption, L"auto");
+    if (!fcgCXWeightB->Enabled) fcgCXWeightB->SelectedIndex = get_cx_index(list_mfx_codingoption, L"auto");
 
     fcgCXBitDepth->Enabled         = 0 != (available_features & ENC_FEATURE_10BIT_DEPTH);
     if (!fcgCXBitDepth->Enabled)   fcgCXBitDepth->SelectedIndex = 0;
@@ -1199,8 +1183,6 @@ System::Void frmConfig::fcgChangeEnabled(System::Object^  sender, System::EventA
     fcgLBWinBRCSize->Visible = la_mode;
     fcgLBWinBRCSizeAuto->Visible = la_mode;
     fcgNUWinBRCSize->Visible = la_mode;
-
-    fcgPNExtSettings->Visible = false;
 
     fcgPNICQ->Visible = icq_mode;
     fcgPNQVBR->Visible = qvbr_mode;
@@ -1526,9 +1508,9 @@ System::Void frmConfig::LoadLangText() {
     LOAD_CLI_TEXT(fcgLBAVBRConvergence2);
     //LOAD_CLI_TEXT(fcgLBMFXLibDetectionHwValue);
     LOAD_CLI_TEXT(fcgLBMFXLibDetectionHwStatus);
-    LOAD_CLI_TEXT(fcgCBFadeDetect);
-    LOAD_CLI_TEXT(fcgCBWeightB);
-    LOAD_CLI_TEXT(fcgCBWeightP);
+    LOAD_CLI_TEXT(fcgLBFadeDetect);
+    LOAD_CLI_TEXT(fcgLBWeightB);
+    LOAD_CLI_TEXT(fcgLBWeightP);
     LOAD_CLI_TEXT(fcgLBWinBRCSizeAuto);
     LOAD_CLI_TEXT(fcgLBWinBRCSize);
     LOAD_CLI_TEXT(fcgLBQPMinMaxAuto);
@@ -1536,31 +1518,18 @@ System::Void frmConfig::LoadLangText() {
     LOAD_CLI_TEXT(fcgLBQPMinMAX);
     LOAD_CLI_TEXT(fcgLBICQQuality);
     LOAD_CLI_TEXT(fcgLBLookaheadDS);
-    LOAD_CLI_TEXT(fcgCBBPyramid);
-    LOAD_CLI_TEXT(fcgCBAdaptiveB);
-    LOAD_CLI_TEXT(fcgCBAdaptiveI);
+    LOAD_CLI_TEXT(fcgLBBPyramid);
+    LOAD_CLI_TEXT(fcgLBAdaptiveB);
+    LOAD_CLI_TEXT(fcgLBAdaptiveI);
     LOAD_CLI_TEXT(fcgLBBlurayCompat);
     LOAD_CLI_TEXT(fcgLBMFXLibDetection);
     LOAD_CLI_TEXT(fcgLBRefAuto);
     LOAD_CLI_TEXT(fcgLBBframesAuto);
-    LOAD_CLI_TEXT(fcgCBOpenGOP);
+    LOAD_CLI_TEXT(fcgLBOpenGOP);
     LOAD_CLI_TEXT(fcgCBOutputPicStruct);
     LOAD_CLI_TEXT(fcgCBOutputAud);
-    LOAD_CLI_TEXT(fcggroupBoxDetail);
-    LOAD_CLI_TEXT(fcgCBDirectBiasAdjust);
-    LOAD_CLI_TEXT(fcgLBMVCostScaling);
-    LOAD_CLI_TEXT(fcgCBExtBRC);
-    LOAD_CLI_TEXT(fcgCBMBBRC);
-    LOAD_CLI_TEXT(fcgLBTrellis);
-    LOAD_CLI_TEXT(fcgLBIntraRefreshCycle);
-    LOAD_CLI_TEXT(fcgCBDeblock);
-    LOAD_CLI_TEXT(fcgLBInterPred);
-    LOAD_CLI_TEXT(fcgLBIntraPred);
-    LOAD_CLI_TEXT(fcgLBMVPred);
-    LOAD_CLI_TEXT(fcgLBMVWindowSize);
-    LOAD_CLI_TEXT(fcgLBMVSearch);
-    LOAD_CLI_TEXT(fcgCBRDO);
-    LOAD_CLI_TEXT(fcgCBCABAC);
+    LOAD_CLI_TEXT(fcgLBExtBRC);
+    LOAD_CLI_TEXT(fcgLBMBBRC);
     LOAD_CLI_TEXT(fcgCBD3DMemAlloc);
     LOAD_CLI_TEXT(fcgLBLookaheadDepth2);
     LOAD_CLI_TEXT(fcgLBLookaheadDepth);
@@ -1758,7 +1727,6 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     } else {
         SetNUValue(fcgNUBframes, prm_qsv.GopRefDist);
     }
-    SetCXIndex(fcgCXTrellis,      get_cx_index(list_avc_trellis, prm_qsv.nTrellis));
     SetCXIndex(fcgCXCodecLevel,   get_cx_index(get_level_list(prm_qsv.codec),   prm_qsv.CodecLevel));
     SetCXIndex(fcgCXCodecProfile, get_cx_index(get_profile_list(prm_qsv.codec), prm_qsv.CodecProfile));
     SetCXIndex(fcgCXFunctionMode, get_cx_index(list_qsv_function_mode, (int)prm_qsv.functionMode));
@@ -1767,15 +1735,15 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetNUValue(fcgNUAVBRAccuarcy, prm_qsv.rcParam.avbrAccuarcy / Convert::ToDecimal(10.0));
     SetNUValue(fcgNUAVBRConvergence, prm_qsv.rcParam.avbrConvergence);
     SetNUValue(fcgNULookaheadDepth, prm_qsv.nLookaheadDepth);
-    fcgCBAdaptiveI->Checked     = prm_qsv.bAdaptiveI.value_or(false);
-    fcgCBAdaptiveB->Checked     = prm_qsv.bAdaptiveB.value_or(false);
-    fcgCBWeightP->Checked       = prm_qsv.nWeightP != MFX_WEIGHTED_PRED_UNKNOWN;
-    fcgCBWeightB->Checked       = prm_qsv.nWeightB != MFX_WEIGHTED_PRED_UNKNOWN;
-    fcgCBFadeDetect->Checked    = prm_qsv.nFadeDetect.value_or(false);
-    fcgCBBPyramid->Checked      = prm_qsv.bBPyramid.value_or(false);
+    SetCXIndex(fcgCXAdaptiveI,   prm_qsv.bAdaptiveI);
+    SetCXIndex(fcgCXAdaptiveB,   prm_qsv.bAdaptiveB);
+    SetCXIndex(fcgCXWeightP,     get_cx_index(list_mfx_weight_pred, prm_qsv.nWeightP));
+    SetCXIndex(fcgCXWeightB,     get_cx_index(list_mfx_weight_pred, prm_qsv.nWeightB));
+    SetCXIndex(fcgCXFadeDetect,  prm_qsv.nFadeDetect);
+    SetCXIndex(fcgCXBPyramid,    prm_qsv.bBPyramid);
     SetCXIndex(fcgCXLookaheadDS,  get_cx_index(list_lookahead_ds, prm_qsv.nLookaheadDS));
-    fcgCBMBBRC->Checked         = prm_qsv.bMBBRC.value_or(false);
-    //fcgCBExtBRC->Checked        = prm_qsv.bExtBRC != 0;
+    SetCXIndex(fcgCXMBBRC,        prm_qsv.bMBBRC);
+    SetCXIndex(fcgCXExtBRC,       prm_qsv.extBRC);
     SetNUValue(fcgNUWinBRCSize,       prm_qsv.nWinBRCSize);
     SetCXIndex(fcgCXInterlaced,   get_cx_index(list_interlaced, prm_qsv.input.picstruct));
     if (prm_qsv.nPAR[0] * prm_qsv.nPAR[1] <= 0)
@@ -1795,18 +1763,6 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
     SetNUValue(fcgNUQPMin,         prm_qsv.qpMin.qpI);
     SetNUValue(fcgNUQPMax,         prm_qsv.qpMax.qpI);
 
-    fcgCBCABAC->Checked          = !prm_qsv.bCAVLC;
-    fcgCBRDO->Checked            = prm_qsv.bRDO.value_or(false);
-    SetNUValue(fcgNUMVSearchWindow, prm_qsv.MVSearchWindow.first);
-    SetCXIndex(fcgCXMVPred,      get_cx_index(list_mv_presicion,    prm_qsv.nMVPrecision));
-    SetCXIndex(fcgCXInterPred,   get_cx_index(list_pred_block_size, prm_qsv.nInterPred));
-    SetCXIndex(fcgCXIntraPred,   get_cx_index(list_pred_block_size, prm_qsv.nIntraPred));
-
-    fcgCBDirectBiasAdjust->Checked = prm_qsv.bDirectBiasAdjust.value_or(false);
-    SetCXIndex(fcgCXMVCostScaling, (prm_qsv.bGlobalMotionAdjust) ? get_cx_index(list_mv_cost_scaling, prm_qsv.nMVCostScaling) : 0);
-
-    fcgCBDeblock->Checked        = prm_qsv.bNoDeblock == 0;
-    SetNUValue(fcgNUIntraRefreshCycle, prm_qsv.intraRefreshCycle);
 
     SetCXIndex(fcgCXTransfer,    get_cx_index(list_transfer,    prm_qsv.common.out_vui.transfer));
     SetCXIndex(fcgCXColorMatrix, get_cx_index(list_colormatrix, prm_qsv.common.out_vui.matrix));
@@ -2057,17 +2013,16 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     } else {
         prm_qsv.GopRefDist = (int)fcgNUBframes->Value;
     }
-    prm_qsv.nTrellis               = (int)list_avc_trellis[fcgCXTrellis->SelectedIndex].value;
     prm_qsv.input.picstruct        = (RGY_PICSTRUCT)list_interlaced[fcgCXInterlaced->SelectedIndex].value;
-    prm_qsv.bAdaptiveI             = fcgCBAdaptiveI->Checked;
-    prm_qsv.bAdaptiveB             = fcgCBAdaptiveB->Checked;
-    prm_qsv.nWeightP               = (int)(fcgCBWeightP->Checked    ? MFX_WEIGHTED_PRED_DEFAULT : MFX_WEIGHTED_PRED_UNKNOWN);
-    prm_qsv.nWeightB               = (int)(fcgCBWeightB->Checked    ? MFX_WEIGHTED_PRED_DEFAULT : MFX_WEIGHTED_PRED_UNKNOWN);
-    prm_qsv.nFadeDetect            = (int)(fcgCBFadeDetect->Checked ? MFX_CODINGOPTION_ON : MFX_CODINGOPTION_UNKNOWN);
-    prm_qsv.bBPyramid              = fcgCBBPyramid->Checked;
+    SetOptValueCX(prm_qsv.bAdaptiveI, fcgCXAdaptiveI);
+    SetOptValueCX(prm_qsv.bAdaptiveB, fcgCXAdaptiveB);
+    prm_qsv.nWeightP               = (int)(fcgCXWeightP->SelectedIndex ? MFX_WEIGHTED_PRED_DEFAULT : MFX_WEIGHTED_PRED_UNKNOWN);
+    prm_qsv.nWeightB               = (int)(fcgCXWeightB->SelectedIndex ? MFX_WEIGHTED_PRED_DEFAULT : MFX_WEIGHTED_PRED_UNKNOWN);
+    SetOptValueCX(prm_qsv.nFadeDetect, fcgCXFadeDetect);
+    SetOptValueCX(prm_qsv.bBPyramid, fcgCXBPyramid);
     prm_qsv.nLookaheadDS           = (int)list_lookahead_ds[fcgCXLookaheadDS->SelectedIndex].value;
-    prm_qsv.bMBBRC                 = fcgCBMBBRC->Checked;
-    //prm_qsv.bExtBRC                = fcgCBExtBRC->Checked;
+    SetOptValueCX(prm_qsv.bMBBRC, fcgCXMBBRC);
+    SetOptValueCX(prm_qsv.extBRC, fcgCXExtBRC);
     prm_qsv.nWinBRCSize            = (int)fcgNUWinBRCSize->Value;
     prm_qsv.functionMode           = (QSVFunctionMode)list_qsv_function_mode[fcgCXFunctionMode->SelectedIndex].value;
     prm_qsv.memType                = (fcgCBD3DMemAlloc->Checked) ? HW_MEMORY : SYSTEM_MEMORY;
@@ -2079,21 +2034,6 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     prm_qsv.qpMax                  = RGYQPSet((int)fcgNUQPMax->Value, (int)fcgNUQPMax->Value, (int)fcgNUQPMax->Value);
 
     prm_qsv.nBluray                = fcgCBBlurayCompat->Checked;
-
-    prm_qsv.bNoDeblock             = !fcgCBDeblock->Checked;
-    prm_qsv.intraRefreshCycle      = (int)fcgNUIntraRefreshCycle->Value;
-
-    prm_qsv.bCAVLC                 = !fcgCBCABAC->Checked;
-    prm_qsv.bRDO                   = fcgCBRDO->Checked;
-    prm_qsv.MVSearchWindow.first   = (int)fcgNUMVSearchWindow->Value;
-    prm_qsv.MVSearchWindow.second  = (int)fcgNUMVSearchWindow->Value;
-    prm_qsv.nMVPrecision           = (int)list_mv_presicion[fcgCXMVPred->SelectedIndex].value;
-    prm_qsv.nInterPred             = (int)list_pred_block_size[fcgCXInterPred->SelectedIndex].value;
-    prm_qsv.nIntraPred             = (int)list_pred_block_size[fcgCXIntraPred->SelectedIndex].value;
-
-    prm_qsv.bDirectBiasAdjust      = fcgCBDirectBiasAdjust->Checked;
-    prm_qsv.bGlobalMotionAdjust    = list_mv_cost_scaling[fcgCXMVCostScaling->SelectedIndex].value > 0;
-    prm_qsv.nMVCostScaling         = (int)((prm_qsv.bGlobalMotionAdjust) ? list_mv_cost_scaling[fcgCXMVCostScaling->SelectedIndex].value : 0);
 
     prm_qsv.common.out_vui.matrix    = (CspMatrix)list_colormatrix[fcgCXColorMatrix->SelectedIndex].value;
     prm_qsv.common.out_vui.colorprim = (CspColorprim)list_colorprim[fcgCXColorPrim->SelectedIndex].value;
@@ -2514,13 +2454,13 @@ System::Void frmConfig::SetHelpToolTips() {
     SET_TOOL_TIP_EX(fcgNUGopLength);
     SET_TOOL_TIP_EX(fcgNURef);
     SET_TOOL_TIP_EX(fcgNUBframes);
-    SET_TOOL_TIP_EX(fcgCBAdaptiveI);
-    SET_TOOL_TIP_EX(fcgCBAdaptiveB);
-    SET_TOOL_TIP_EX(fcgCBWeightP);
-    SET_TOOL_TIP_EX(fcgCBWeightB);
-    SET_TOOL_TIP_EX(fcgCBFadeDetect);
+    SET_TOOL_TIP_EX(fcgCXAdaptiveI);
+    SET_TOOL_TIP_EX(fcgCXAdaptiveB);
+    SET_TOOL_TIP_EX(fcgCXWeightP);
+    SET_TOOL_TIP_EX(fcgCXWeightB);
+    SET_TOOL_TIP_EX(fcgCXFadeDetect);
     SET_TOOL_TIP_EX(fcgCBOpenGOP);
-    SET_TOOL_TIP_EX(fcgCBBPyramid);
+    SET_TOOL_TIP_EX(fcgCXBPyramid);
     SET_TOOL_TIP_EX(fcgCXLookaheadDS);
     SET_TOOL_TIP_EX(fcgNUWinBRCSize);
     SET_TOOL_TIP_EX(fcgNUQPMin);
@@ -2539,19 +2479,8 @@ System::Void frmConfig::SetHelpToolTips() {
     SET_TOOL_TIP_EX(fcgCBAvoidIdleClock);
     SET_TOOL_TIP_EX(fcgCBOutputAud);
     SET_TOOL_TIP_EX(fcgCBOutputPicStruct);
-    SET_TOOL_TIP_EX(fcgCBDeblock);
-    SET_TOOL_TIP_EX(fcgNUIntraRefreshCycle);
-    SET_TOOL_TIP_EX(fcgCBDirectBiasAdjust);
-    SET_TOOL_TIP_EX(fcgCXMVCostScaling);
-    SET_TOOL_TIP_EX(fcgCXTrellis);
-    SET_TOOL_TIP_EX(fcgCBMBBRC);
-    SET_TOOL_TIP_EX(fcgCBExtBRC);
-    SET_TOOL_TIP_EX(fcgCXIntraPred);
-    SET_TOOL_TIP_EX(fcgCXInterPred);
-    SET_TOOL_TIP_EX(fcgNUMVSearchWindow);
-    SET_TOOL_TIP_EX(fcgCXMVPred);
-    SET_TOOL_TIP_EX(fcgCBCABAC);
-    SET_TOOL_TIP_EX(fcgCBRDO);
+    SET_TOOL_TIP_EX(fcgCXMBBRC);
+    SET_TOOL_TIP_EX(fcgCXExtBRC);
 
     SET_TOOL_TIP_EX(fcgCXOutputCsp);
 
