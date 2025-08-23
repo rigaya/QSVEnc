@@ -1,0 +1,85 @@
+{
+  "audio": {
+    "ext": {
+      "aud_temp_dir": 0,
+      "audio_encode_timing": 0,
+      "bitrate": 256,
+      "delay_cut": 0,
+      "enc_mode": 0,
+      "encoder": 0,
+      "faw_check": 0,
+      "minimized": 0,
+      "priority": 0,
+      "use_2pass": 0,
+      "use_wav": 0
+    },
+    "in": {
+      "aud_temp_dir": 0,
+      "audio_encode_timing": 0,
+      "bitrate": 256,
+      "delay_cut": 0,
+      "enc_mode": 0,
+      "encoder": 1,
+      "faw_check": 0,
+      "minimized": 0,
+      "priority": 0,
+      "use_2pass": 0,
+      "use_wav": 0
+    },
+    "use_internal": 1
+  },
+  "conf_name": "QSVEnc ConfigFile v7",
+  "enc": {
+    "cmd": " -d 1 -c hevc --interlace tff --function-mode FF --d3d --cqp 24:26:27 --vbr 6000 --icq 23 --qp-min 0 --qp-max 0 -b 8 --b-pyramid --open-gop --colormatrix auto_res --vpp-afs --vpp-libplacebo-deband enable=false",
+    "codec_rgy": "hevc",
+    "resize_enable": 0,
+    "resize_height": 0,
+    "resize_width": 0
+  },
+  "mux": {
+    "apple_mode": 0,
+    "disable_mkvext": 0,
+    "disable_mp4ext": 0,
+    "internal_mode": 0,
+    "minimized": 0,
+    "mkv_mode": 0,
+    "mp4_mode": 0,
+    "mp4_temp_dir": 0,
+    "priority": 0,
+    "use_internal": 1
+  },
+  "other": {
+    "batfiles": {
+      "after_audio": "",
+      "after_process": "",
+      "before_audio": "",
+      "before_process": ""
+    },
+    "disable_guicmd": 0,
+    "dont_wait_bat_fin": 0,
+    "notes": "",
+    "out_audio_only": 0,
+    "run_bat": 0,
+    "temp_dir": 0
+  },
+  "version": "QSVEnc ConfigFile v7 json",
+  "video": {
+    "afs": 0,
+    "afs_bitrate_correction": 0,
+    "amp_check": 0,
+    "amp_limit_bitrate_lower": 0.0,
+    "amp_limit_bitrate_upper": 0.0,
+    "amp_limit_file_size": 0.0,
+    "analysis_file": "",
+    "auo_tcfile_out": 0,
+    "check_keyframe": 0,
+    "cmdex": "",
+    "cqmfile": "",
+    "input_as_lw48": 0,
+    "parallel_div_info": "",
+    "priority": 0,
+    "stats": "",
+    "sync_process_affinity": 0,
+    "tcfile_in": ""
+  }
+}
