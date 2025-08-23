@@ -379,10 +379,10 @@ private:
     static void *convert_qsvstgv5_to_stgv6(void *_conf);
 #elif ENCODER_NVENC
     static int  stgv3_block_size();
-    static void convert_nvencstg_to_nvencstgv4(CONF_GUIEX *conf, const void *dat);
+    static void convert_nvencstg_to_nvencstgv4(CONF_GUIEX_OLD *conf, const void *dat);
     static void convert_nvencstgv2_to_nvencstgv3(void *dat);
-    static void convert_nvencstgv2_to_nvencstgv4(CONF_GUIEX *conf, const void *dat);
-    static void convert_nvencstgv3_to_nvencstgv4(CONF_GUIEX *conf, const void *dat);
+    static void convert_nvencstgv2_to_nvencstgv4(CONF_GUIEX_OLD *conf, const void *dat);
+    static void convert_nvencstgv3_to_nvencstgv4(CONF_GUIEX_OLD *conf, const void *dat);
 #endif
     // ブロック別JSON変換関数
     static void video_to_json(nlohmann::json& j, const CONF_VIDEO& vid);                 //ビデオ設定をJSONに変換
