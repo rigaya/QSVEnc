@@ -241,7 +241,8 @@ tstring encoder_help() {
         _T("-d,--device <string> or <int>   set device number to encode\n")
         _T("                                 - auto(default), 1, 2, 3, 4\n")
         _T("-c,--codec <string>             set encode codec\n")
-        _T("                                 - h264(default), hevc, mpeg2, vp9, av1, raw\n"));
+        _T("                                 - h264(default), hevc, mpeg2, vp9, av1, raw\n")
+        _T("                                 - av_xxx to use avcodec encoder\n"));
     str += PrintMultipleListOptions(_T("--level <string>"), _T("set codec level"),
         { { _T("H.264"), list_avc_level,   0 },
           { _T("HEVC"),  list_hevc_level,  0 },
@@ -774,8 +775,13 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
             }
         }
         if (list_codec_rgy[j].desc == nullptr) {
-            print_cmd_error_invalid_value(option_name, strInput[i], list_codec_rgy);
-            return 1;
+            if (0 == _tcsncmp(strInput[i], _T("av_"), _tcslen(_T("av_")))) {
+                pParams->common.avVideoCodec = tchar_to_string(strInput[i] + _tcslen(_T("av_")));
+                pParams->codec = RGY_CODEC_AVCODEC;
+            } else {
+                print_cmd_error_invalid_value(option_name, strInput[i], list_codec_rgy);
+                return 1;
+            }
         }
         return 0;
     }
@@ -2302,7 +2308,11 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
 #define OPT_STR_PATH(str, opt) if (pParams->opt.length() > 0) cmd << _T(" ") << str << _T(" \"") << (pParams->opt.c_str()) << _T("\"");
 
     OPT_NUM(_T("-d"), device);
-    cmd << _T(" -c ") << get_chr_from_value(list_codec_rgy, pParams->codec);
+    if (pParams->codec == RGY_CODEC_AVCODEC) {
+        cmd << _T(" -c av_") << char_to_tstring(pParams->common.avVideoCodec);
+    } else {
+        cmd << _T(" -c ") << get_chr_from_value(list_codec_rgy, pParams->codec);
+    }
 
     cmd << gen_cmd(&pParams->input, &encPrmDefault.input, &pParams->inprm, &encPrmDefault.inprm, save_disabled_prm);
 

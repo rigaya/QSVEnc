@@ -109,6 +109,7 @@ static int getEncoderBitdepth(const sInputParams *pParams) {
     case RGY_CODEC_VP9:
     case RGY_CODEC_AV1:
     case RGY_CODEC_RAW:
+    case RGY_CODEC_AVCODEC:
         return pParams->outputDepth;
     case RGY_CODEC_H264:
     case RGY_CODEC_VP8:

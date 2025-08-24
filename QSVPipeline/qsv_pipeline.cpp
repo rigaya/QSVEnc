@@ -588,8 +588,8 @@ std::pair<RGY_ERR, QSVEncFeatures> CQSVPipeline::CheckMFXRCMode(QSVRCParam& rcPa
 }
 
 RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<std::unique_ptr<QSVDevice>>& devList) {
-    if (pInParams->codec == RGY_CODEC_RAW) {
-        PrintMes(RGY_LOG_DEBUG, _T("Raw codec is selected, disable encode.\n"));
+    if (pInParams->codec == RGY_CODEC_RAW || pInParams->codec == RGY_CODEC_AVCODEC) {
+        PrintMes(RGY_LOG_DEBUG, _T("%s output is selected, disable hw encode.\n"), CodecToStr(pInParams->codec).c_str());
         return RGY_ERR_NONE;
     }
     const mfxU32 blocksz = (pInParams->codec == RGY_CODEC_HEVC) ? 32 : 16;
@@ -2051,7 +2051,7 @@ RGY_ERR CQSVPipeline::CheckParam(sInputParams *inputParam) {
             inputParam->memType = D3D11_MEMORY;
             PrintMes(RGY_LOG_DEBUG, _T("d3d11 mode prefered, switched to d3d11 mode.\n"));
         //出力コーデックがrawなら、systemメモリを自動的に使用する
-        } else if (inputParam->codec == RGY_CODEC_RAW) {
+        } else if (inputParam->codec == RGY_CODEC_RAW || inputParam->codec == RGY_CODEC_AVCODEC) {
             inputParam->memType = SYSTEM_MEMORY;
             PrintMes(RGY_LOG_DEBUG, _T("Automatically selecting system memory for output raw frames.\n"));
         }
@@ -3345,7 +3345,7 @@ bool CQSVPipeline::preferD3D11Mode(const sInputParams *inputParam) {
 
 RGY_ERR CQSVPipeline::checkGPUListByEncoder(const sInputParams *prm, std::vector<std::unique_ptr<QSVDevice>>& gpuList) {
     PrintMes(RGY_LOG_DEBUG, _T("Check GPU List by Encoder from %d devices.\n"), (int)gpuList.size());
-    if (prm->codec == RGY_CODEC_RAW) {
+    if (prm->codec == RGY_CODEC_RAW || prm->codec == RGY_CODEC_AVCODEC) {
         return RGY_ERR_NONE;
     }
 
@@ -3684,7 +3684,7 @@ RGY_ERR CQSVPipeline::InitAvoidIdleClock(const sInputParams *pParams) {
             return RGY_ERR_NONE;
         }
 
-        if (pParams->codec != RGY_CODEC_RAW) { // エンコードする場合
+        if (pParams->codec != RGY_CODEC_RAW && pParams->codec != RGY_CODEC_AVCODEC) { // エンコードする場合
             // PGモードが使用されている場合
             if (m_encParams.videoPrm.mfx.LowPower != MFX_CODINGOPTION_ON) {
                 PrintMes(RGY_LOG_DEBUG, _T("PG mode is used, avoid Idle clock is disabled.\n"));

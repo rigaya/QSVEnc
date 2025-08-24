@@ -167,6 +167,7 @@
   - [--video-streamid \<int\>](#--video-streamid-int)
   - [--video-tag \<string\>](#--video-tag-string)
   - [--video-metadata \<string\> or \<string\>=\<string\>](#--video-metadata-string-or-stringstring)
+  - [--avcodec-prms \<string\>](#--avcodec-prms-string)
   - [--audio-copy \[\<int/string\>;\[,\<int/string\>\]...\]](#--audio-copy-intstringintstring)
   - [--audio-codec \[\[\<int/string\>?\]\<string\>\[:\<string\>=\<string\>\[,\<string\>=\<string\>\]...\]...\]](#--audio-codec-intstringstringstringstringstringstring)
   - [--audio-bitrate \[\<int/string\>?\]\<int\>](#--audio-bitrate-intstringint)
@@ -424,6 +425,9 @@ Specify the output codec
  - vp9
  - av1
  - raw
+ - av_xxx (to use avcodec encoder)
+
+When using avcodec encoders (av_xxx format), you can check available encoders with `--check-encoders` option.
 
 ### -o, --output &lt;string&gt;
 Set output file name, pipe output with "-"
@@ -1150,6 +1154,22 @@ Set metadata for video track.
   
   Example3: set metadata
   --video-metadata 1?title="video title" --video-metadata 1?language=jpn
+  ```
+
+### --avcodec-prms &lt;string&gt;
+Set parameters for avcodec video encoder in key=value format, separated by commas.
+This option is only available when avcodec encoder is enabled by specifying `-c av_xxx` (e.g., `-c av_libsvtav1`, `-c av_libvvenc`, `-c av_libvpx-vp9`).
+
+- Examples
+  ```
+  Example1: Set preset and CRF for libsvtav1
+  -c av_libsvtav1 --avcodec-prms preset=6,crf=30
+  
+  Example2: Set quality and threads for libvvenc
+  -c av_libvvenc --avcodec-prms qp=28,preset=medium,threads=4
+  
+  Example3: Set parameters for libvpx-vp9
+  -c av_libvpx-vp9 --avcodec-prms crf=30,b=0,cpu-used=2
   ```
 
 ### --audio-copy [&lt;int/string&gt;;[,&lt;int/string&gt;]...]

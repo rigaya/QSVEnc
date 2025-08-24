@@ -433,6 +433,7 @@ const CX_DESC list_codec_rgy[] = {
     { _T("av1"),      RGY_CODEC_AV1   },
     { _T("vvc"),      RGY_CODEC_VVC   },
     { _T("raw"),      RGY_CODEC_RAW   },
+    { _T("avcodec"),  RGY_CODEC_AVCODEC },
     { NULL, 0 }
 };
 
@@ -790,6 +791,7 @@ static inline const CX_DESC *get_level_list(const RGY_CODEC codec) {
         case RGY_CODEC_AV1:     return list_av1_level;
         case RGY_CODEC_VVC:     return list_vvc_level;
         case RGY_CODEC_RAW:     return list_empty;
+        case RGY_CODEC_AVCODEC: return list_empty;
         default:                return list_empty;
     }
 }
@@ -805,6 +807,7 @@ static inline const CX_DESC *get_profile_list(const RGY_CODEC codec) {
         case RGY_CODEC_AV1:     return list_av1_profile;
         case RGY_CODEC_VVC:     return list_vvc_profile;
         case RGY_CODEC_RAW:     return list_empty;
+        case RGY_CODEC_AVCODEC: return list_empty;
         default:                return list_empty;
     }
 }

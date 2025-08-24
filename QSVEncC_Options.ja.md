@@ -167,6 +167,7 @@
   - [--video-streamid \<int\>](#--video-streamid-int)
   - [--video-tag \<string\>](#--video-tag-string)
   - [--video-metadata \[\<int\>?\]\<string\> or \[\<int\>?\]\<string\>=\<string\>](#--video-metadata-intstring-or-intstringstring)
+  - [--avcodec-prms \<string\>](#--avcodec-prms-string)
   - [--audio-copy \[\<int/string\>;\[,\<int/string\>\]...\]](#--audio-copy-intstringintstring)
   - [--audio-codec \[\[\<int/string\>?\]\<string\>\[:\<string\>=\<string\>\[,\<string\>=\<string\>\]...\]...\]](#--audio-codec-intstringstringstringstringstringstring)
   - [--audio-bitrate \[\<int/string\>?\]\<int\>](#--audio-bitrate-intstringint)
@@ -444,6 +445,9 @@ dllのバージョンを表示
  - vp9
  - av1
  - raw
+ - av_xxx (avcodecエンコーダを使用)
+
+avcodecエンコーダ（av_xxx形式）を使用する場合、`--check-encoders`オプションで利用可能なエンコーダを確認できます。
 
 ### -o, --output &lt;string&gt;
 出力ファイル名の表示、"-"でパイプ出力
@@ -1173,6 +1177,22 @@ muxerに出力フォーマットを指定して出力する。
   
   例3: 指定のmetadataを設定する
   --video-metadata 1?title="音声の タイトル" --video-metadata 1?language=jpn
+  ```
+
+### --avcodec-prms &lt;string&gt;
+avcodec映像エンコーダのパラメータをkey=value形式でカンマ区切りで指定する。
+このオプションは `-c av_xxx` でavcodecエンコーダを有効にした場合のみ利用可能（例：`-c av_libsvtav1`, `-c av_libvvenc`, `-c av_libvpx-vp9`）。
+
+- 使用例
+  ```
+  例1: libsvtav1でプリセットとCRFを設定
+  -c av_libsvtav1 --avcodec-prms preset=6,crf=30
+  
+  例2: libvvencで品質とスレッド数を設定
+  -c av_libvvenc --avcodec-prms qp=28,preset=medium,threads=4
+  
+  例3: libvpx-vp9で複数のパラメータを設定
+  -c av_libvpx-vp9 --avcodec-prms crf=30,b=0,cpu-used=2
   ```
 
 ### --audio-copy [&lt;int/string&gt;;[,&lt;int/string&gt;]...]
