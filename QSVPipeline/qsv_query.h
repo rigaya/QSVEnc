@@ -165,6 +165,9 @@ static constexpr mfxVersion LIB_VER_LIST[] = {
     {  9, 2 },
     { 11, 2 },
     { 12, 2 },
+    { 13, 2 },
+    { 14, 2 },
+    { 15, 2 },
     {  0, 0 }
 };
 
@@ -206,6 +209,9 @@ MFX_LIB_VERSION(2, 7, 30);
 MFX_LIB_VERSION(2, 9, 31);
 MFX_LIB_VERSION(2,11, 32);
 MFX_LIB_VERSION(2,12, 33);
+MFX_LIB_VERSION(2,13, 34);
+MFX_LIB_VERSION(2,14, 35);
+MFX_LIB_VERSION(2,15, 36);
 
 static const std::vector<RGY_CODEC> ENC_CODEC_LISTS = {
     RGY_CODEC_H264, RGY_CODEC_HEVC, RGY_CODEC_MPEG2, RGY_CODEC_VP8, RGY_CODEC_VP9, RGY_CODEC_AV1
