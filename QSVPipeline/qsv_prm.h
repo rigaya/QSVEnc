@@ -190,12 +190,30 @@ struct MFXVppColorspace {
     }
 };
 
+const CX_DESC list_ai_super_resolution_mode[] = {
+    { _T("disabled"), MFX_AI_SUPER_RESOLUTION_MODE_DISABLED },
+    { _T("default"),  MFX_AI_SUPER_RESOLUTION_MODE_DEFAULT },
+    { _T("sharpen"),  MFX_AI_SUPER_RESOLUTION_MODE_SHARPEN },
+    { _T("artifactremoval"), MFX_AI_SUPER_RESOLUTION_MODE_ARTIFACTREMOVAL },
+    { NULL, 0 }
+};
+
+const CX_DESC list_ai_super_resolution_algorithm[] = {
+    { _T("default"), MFX_AI_SUPER_RESOLUTION_ALGORITHM_DEFAULT },
+    { _T("1"),       MFX_AI_SUPER_RESOLUTION_ALGORITHM_1 },
+    { _T("2"),       MFX_AI_SUPER_RESOLUTION_ALGORITHM_2 },
+    { NULL, 0 }
+};
+
 struct MFXVppAISuperRes {
     bool enable;
-    int mode;
+    mfxAISuperResolutionMode mode;
+    mfxAISuperResolutionAlgorithm algorithm;
 
-    MFXVppAISuperRes() : enable(false), mode(MFX_AI_SUPER_RESOLUTION_MODE_DEFAULT) {};
+    MFXVppAISuperRes();
     ~MFXVppAISuperRes() {};
+    bool operator==(const MFXVppAISuperRes &x) const;
+    bool operator!=(const MFXVppAISuperRes &x) const;
 };
 
 struct MFXVppAIFrameInterpolation {

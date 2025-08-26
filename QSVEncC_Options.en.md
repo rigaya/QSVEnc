@@ -2681,6 +2681,22 @@ Specify the resizing algorithm.
       | auto     | auto select |
       | simple   | use simple scaling     |
       | advanced | use high quality scaling |
+      | mfx_ai_superres | AI-based super resolution |
+
+      - Additional parameters for mfx_ai_superres
+
+        - superres-mode=&lt;string&gt;  
+          - disabled
+          - default
+          - sharpen
+          - artifactremoval
+
+        - superres-algo=&lt;string&gt;  
+          algorithm for qsv-superres
+          
+          - default
+          - 1 ... normal quality
+          - 2 ... high quality
 
     - OpenCL based resize filters.
 
@@ -2760,6 +2776,9 @@ Specify the resizing algorithm.
 
   Examples: Use libplacebo resize filters
   --vpp-resize algo=libplacebo-sinc,pl-radius=3.0,pl-antiring=0.5
+  
+  Examples: Use mfx_ai_superres
+  --vpp-resize algo=mfx_ai_superres,superres-mode=sharpen,superres-algo=2
   ```
 
 ### --vpp-resize-mode &lt;string&gt;

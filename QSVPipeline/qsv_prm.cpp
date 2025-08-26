@@ -75,6 +75,17 @@ VppDetailEnhance::VppDetailEnhance() :
 
 }
 
+MFXVppAISuperRes::MFXVppAISuperRes() : enable(false), mode(MFX_AI_SUPER_RESOLUTION_MODE_DEFAULT), algorithm(MFX_AI_SUPER_RESOLUTION_ALGORITHM_DEFAULT) {};
+
+bool MFXVppAISuperRes::operator==(const MFXVppAISuperRes &x) const {
+    return enable == x.enable
+        && mode == x.mode
+        && algorithm == x.algorithm;
+}
+bool MFXVppAISuperRes::operator!=(const MFXVppAISuperRes &x) const {
+    return !(*this == x);
+}
+
 MFXVppAIFrameInterpolation::MFXVppAIFrameInterpolation() :
     enable(false),
     mode(MFX_AI_FRAME_INTERPOLATION_MODE_DEFAULT),

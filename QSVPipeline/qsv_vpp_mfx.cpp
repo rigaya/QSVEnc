@@ -545,8 +545,13 @@ RGY_ERR QSVVppMfx::SetVppExtBuffers(sVppParams& params) {
         auto str = strsprintf(_T("Resize %dx%d -> %dx%d"), m_mfxVppParams.vpp.In.CropW, m_mfxVppParams.vpp.In.CropH, m_mfxVppParams.vpp.Out.CropW, m_mfxVppParams.vpp.Out.CropH);
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_11) && params.aiSuperRes.enable) {
             INIT_MFX_EXT_BUFFER(m_ExtAISuperRes, MFX_EXTBUFF_VPP_AI_SUPER_RESOLUTION);
-            m_ExtAISuperRes.SRMode = (mfxAISuperResolutionMode)params.aiSuperRes.mode;
-            vppExtAddMes(strsprintf(_T("AI SuperRes, mode %d\n"), m_ExtAISuperRes.SRMode));
+            m_ExtAISuperRes.SRMode = (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_14)) ? (mfxAISuperResolutionMode)params.aiSuperRes.mode : MFX_AI_SUPER_RESOLUTION_MODE_DEFAULT;
+            auto aisuper_desc = strsprintf(_T(", %s"), get_chr_from_value(list_ai_super_resolution_mode, m_ExtAISuperRes.SRMode));
+            if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_14)) {
+                m_ExtAISuperRes.SRAlgorithm = (mfxAISuperResolutionAlgorithm)params.aiSuperRes.algorithm;
+                aisuper_desc += strsprintf(_T(", algo %s"), get_chr_from_value(list_ai_super_resolution_algorithm, m_ExtAISuperRes.SRAlgorithm));
+            }
+            vppExtAddMes(strsprintf(_T("AI SuperRes%s\n"), aisuper_desc.c_str()));
             m_VppExtParams.push_back((mfxExtBuffer*)&m_ExtAISuperRes);
             m_VppDoUseList.push_back(MFX_EXTBUFF_VPP_AI_SUPER_RESOLUTION);
         } else if ((check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_19) && params.resizeMode != MFX_SCALING_MODE_DEFAULT)

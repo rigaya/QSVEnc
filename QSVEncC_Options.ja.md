@@ -2745,6 +2745,22 @@ image stabilizerのモードの指定。
       |:---|:---|
       | simple   | Nearest Neighbor法による高速なリサイズ |
       | advanced | 高品質なリサイズ |
+      | mfx_ai_superres | AIベースのスーパーレゾリューション |
+
+      - 追加パラメータ
+
+        - superres-mode=&lt;string&gt;  
+          - disabled
+          - default
+          - sharpen
+          - artifactremoval
+
+        - superres-algo=&lt;string&gt;  
+          superresのアルゴリズム
+          
+          - default
+          - 1 ... 標準品質
+          - 2 ... 高品質
 
     - OpenCLで実装したリサイズフィルタ
   
@@ -2824,6 +2840,9 @@ image stabilizerのモードの指定。
 
   例: libplaceboのリサイズフィルタを使用する
   --vpp-resize algo=libplacebo-sinc,pl-radius=3.0,pl-antiring=0.5
+  
+  例: mfx_ai_superresを使用する
+  --vpp-resize algo=mfx_ai_superres,superres-mode=sharpen,superres-algo=2
   ```
 
 ### --vpp-resize-mode &lt;string&gt;

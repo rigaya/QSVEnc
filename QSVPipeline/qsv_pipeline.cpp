@@ -2311,7 +2311,7 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVppMfx>> CQSVPipeline::AddFilterMFX(
     case VppType::MFX_RESIZE:              vppParams.bUseResize = true;
                                            vppParams.resizeInterp = params->resizeInterp;
                                            vppParams.resizeMode = params->resizeMode;
-                                           vppParams.aiSuperRes.enable = params->aiSuperRes.enable;
+                                           vppParams.aiSuperRes = params->aiSuperRes;
                                            frameInfo.width = resize.first;
                                            frameInfo.height = resize.second;
                                            if (resize.first == 0 || resize.second == 0
