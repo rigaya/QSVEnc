@@ -313,8 +313,8 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
-2025.08.26 (8.00)
-- libvplを更新し、2.13に対応。
+2025.08.27 (8.00)
+- libvplを更新し、2.15に対応。
   - vpp-resizeのmfx_ai_superresに関するオプションを追加。(superres-mode,superres-algo)
     superres-modeは現時点では動作しない模様
 - フィルタのみ使用し、swデコードをする機能を追加。
