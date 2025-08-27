@@ -447,7 +447,9 @@ dllのバージョンを表示
  - raw
  - av_xxx (avcodecエンコーダを使用)
 
-avcodecエンコーダ（av_xxx形式）を使用する場合、`--check-encoders`オプションで利用可能なエンコーダを確認できます。
+avcodecエンコーダ（av_xxx形式）を使用する場合、```--check-encoders```オプションで利用可能なエンコーダを確認できます。またエンコーダのパラメータは [--avcodec-prms](#--avcodec-prms-string)でのみ指定できます。(通常のパラメータは無視されます)
+
+   ```-c raw```の場合は、エンコードをせず、rawフレームを出力します。
 
 ### -o, --output &lt;string&gt;
 出力ファイル名の表示、"-"でパイプ出力
