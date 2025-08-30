@@ -1,5 +1,12 @@
 # QSVEnc Release Notes
 
+## 8.01
+
+- Update libass.dll
+  - libass 0.9.0 -> 0.17.4 (x64), 0.14.0 (x86)
+  - harfbuzz 11.4.4 (new)
+  - libunibreak 6.1 (new)
+
 ## 8.00
 
 - Update libvpl to 2.15.
