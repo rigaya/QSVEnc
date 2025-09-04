@@ -1841,7 +1841,7 @@ RGY_ERR CQSVPipeline::InitOutput(sInputParams *inputParams) {
 #endif //#if ENABLE_AVSW_READER
         m_hdrseiOut.get(), m_hdr10plus.get(), m_dovirpu.get(), m_encTimestamp.get(),
         !check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6),
-        inputParams->bBenchmark, false, 0,
+        inputParams->bBenchmark, false, 0, false,
         m_poolPkt.get(), m_poolFrame.get(),
         m_pStatus, m_pPerfMonitor, m_pQSVLog);
     if (err != RGY_ERR_NONE) {
