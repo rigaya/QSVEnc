@@ -293,7 +293,7 @@ RGY_ERR RGYFilterYadif::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
                     setBobTimestamp(iframe, ppOutputFrames);
                 }
                 if (m_fpLog) {
-                    _ftprintf(m_fpLog.get(), _T("%8d, %8d, %12lld, %s, copy\n"), m_nFrame, ppOutputFrames[0]->inputFrameId, ppOutputFrames[0]->timestamp,
+                    _ftprintf(m_fpLog.get(), _T("%8d, %8d, %12lld, %s, copy\n"), m_nFrame, ppOutputFrames[0]->inputFrameId, (long long int)ppOutputFrames[0]->timestamp,
                         picstrcut_to_str(pSourceFrame->picstruct));
                 }
                 m_nFrame++;
@@ -325,7 +325,7 @@ RGY_ERR RGYFilterYadif::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
             return err;
         }
         if (m_fpLog) {
-            _ftprintf(m_fpLog.get(), _T("%8d, %8d, %12lld, %s, gen_%s\n"), m_nFrame, ppOutputFrames[0]->inputFrameId, ppOutputFrames[0]->timestamp,
+            _ftprintf(m_fpLog.get(), _T("%8d, %8d, %12lld, %s, gen_%s\n"), m_nFrame, ppOutputFrames[0]->inputFrameId, (long long int)ppOutputFrames[0]->timestamp,
                 picstrcut_to_str(pSourceFrame->picstruct), targetField == YADIF_GEN_FIELD_TOP ? _T("t") : _T("b"));
         }
 
@@ -348,7 +348,7 @@ RGY_ERR RGYFilterYadif::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
             }
             setBobTimestamp(iframe, ppOutputFrames);
             if (m_fpLog) {
-                _ftprintf(m_fpLog.get(), _T("%8d, %8d, %12lld, %s, gen_%s\n"), m_nFrame, ppOutputFrames[1]->inputFrameId, ppOutputFrames[1]->timestamp,
+                _ftprintf(m_fpLog.get(), _T("%8d, %8d, %12lld, %s, gen_%s\n"), m_nFrame, ppOutputFrames[1]->inputFrameId, (long long int)ppOutputFrames[1]->timestamp,
                     picstrcut_to_str(pSourceFrame->picstruct), targetField == YADIF_GEN_FIELD_TOP ? _T("t") : _T("b"));
             }
         }
