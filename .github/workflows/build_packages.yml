@@ -20,7 +20,7 @@ jobs:
             pkgtype: deb
           - dockerimg: ubuntu2404
             pkgtype: deb
-          - dockerimg: fedora37
+          - dockerimg: fedora41
             pkgtype: rpm
 
     env:
