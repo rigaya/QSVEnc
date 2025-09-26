@@ -3746,6 +3746,11 @@ RGY_ERR CQSVPipeline::InitParallelEncode(sInputParams *inputParam, const int max
     const bool isChild = inputParam->ctrl.parallelEnc.isChild();
     auto [sts, errmes] = RGYParallelEnc::isParallelEncPossible(inputParam, m_pFileReader.get());
     if (sts != RGY_ERR_NONE) {
+        // chunkPipeHandlesの場合は、無効にして続行はできないので、エラー終了
+        if (inputParam->ctrl.parallelEnc.chunkPipeHandles.size() > 0) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to start parallel threads: %s.\n"), errmes);
+            return RGY_ERR_UNKNOWN;
+        }
         PrintMes(RGY_LOG_WARN, _T("%s"), errmes);
         inputParam->ctrl.parallelEnc.parallelCount = 0;
         inputParam->ctrl.parallelEnc.parallelId = -1;
