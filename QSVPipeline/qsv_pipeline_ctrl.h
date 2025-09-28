@@ -1537,6 +1537,7 @@ protected:
                 PrintMes(RGY_LOG_ERROR, _T("Error in parallel enc %d: %s\n"), m_currentChunk, get_err_mes(procsts));
                 return procsts;
             }
+            PrintMes(RGY_LOG_DEBUG, _T("parallel enc chunk %d finished.\n"), m_currentChunk);
         }
 
         m_currentChunk++;
@@ -1690,8 +1691,10 @@ protected:
         auto err = getBitstreamOneFrame(bsOut, header);
         if (err == RGY_ERR_MORE_BITSTREAM) {
             if ((err = openNextFile()) != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to open next chunk: %s.\n"), get_err_mes(err));
                 return err;
             }
+            PrintMes(RGY_LOG_DEBUG, _T("opened next chunk.\n"));
             err = getBitstreamOneFrame(bsOut, header);
         }
         return err;
