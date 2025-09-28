@@ -1691,7 +1691,7 @@ protected:
         auto err = getBitstreamOneFrame(bsOut, header);
         if (err == RGY_ERR_MORE_BITSTREAM) {
             if ((err = openNextFile()) != RGY_ERR_NONE) {
-                PrintMes(RGY_LOG_ERROR, _T("Failed to open next chunk: %s.\n"), get_err_mes(err));
+                //PrintMes(RGY_LOG_ERROR, _T("Failed to open next chunk: %s.\n"), get_err_mes(err));
                 return err;
             }
             PrintMes(RGY_LOG_DEBUG, _T("opened next chunk.\n"));
