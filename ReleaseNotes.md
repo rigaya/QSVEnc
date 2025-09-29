@@ -2,10 +2,16 @@
 
 ## 8.01
 
+- Avoid unintended fps values when front of input file is corrupted.
+- Improve handling when input files have negative pts.
+- Improve quality of burned in subtitles in [--vpp-subburn](./QSVEncC_Options.en.md#--vpp-subburn-param1value1param2value2) processing by changing libass initialization method.
+- Improve progress indicator when using [--parallel](./QSVEncC_Options.en.md#--parallel-int-or-param1value1param2value2).
+- Add support for using [--parallel](./QSVEncC_Options.en.md#--parallel-int-or-param1value1param2value2) with multiple pipes.
 - Update libass.dll
   - libass 0.9.0 -> 0.17.4 (x64), 0.14.0 (x86)
   - harfbuzz 11.4.4 (new)
   - libunibreak 6.1 (new)
+- Update rpm build environment to fedora41.
 
 ## 8.00
 
