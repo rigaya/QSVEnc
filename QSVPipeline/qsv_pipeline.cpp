@@ -3571,6 +3571,10 @@ RGY_ERR CQSVPipeline::InitVideoQualityMetric(sInputParams *prm) {
             PrintMes(RGY_LOG_WARN, _T("Encoder not enabled, %s calculation will be disabled.\n"), prm->common.metric.enabled_metric().c_str());
             return RGY_ERR_NONE;
         }
+        if (!m_cl)
+            PrintMes(RGY_LOG_WARN, _T("OpenCL is disabled, %s calculation will be disabled.\n"), prm->common.metric.enabled_metric().c_str());
+            return RGY_ERR_NONE;
+        }
         auto [err, outFrameInfo] = GetOutputVideoInfo();
         if (err != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("Failed to get output frame info!\n"));
