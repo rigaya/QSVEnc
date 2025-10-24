@@ -1,5 +1,9 @@
 # QSVEnc Release Notes
 
+## 8.02
+
+- Add option to fallback to 8bit encoding when 10bit encoding is not supported by the hardware.([--fallback-bitdepth](./QSVEncC_Options.en.md#--fallback-bitdepth))
+
 ## 8.01
 
 - Avoid unintended fps values when front of input file is corrupted.
