@@ -3535,8 +3535,6 @@ RGY_ERR CQSVPipeline::InitSession(sInputParams *inputParam, std::vector<std::uni
     if (deviceList.size() == 0) {
         PrintMes(RGY_LOG_DEBUG, _T("No device found for QSV encoding!\n"));
         return RGY_ERR_DEVICE_NOT_FOUND;
-    } else if (deviceList.size() == 1) {
-        m_device = std::move(deviceList.front());
     } else {
         if ((err = checkGPUListByEncoder(inputParam, deviceList)) != RGY_ERR_NONE) {
             return err;
@@ -3571,7 +3569,7 @@ RGY_ERR CQSVPipeline::InitVideoQualityMetric(sInputParams *prm) {
             PrintMes(RGY_LOG_WARN, _T("Encoder not enabled, %s calculation will be disabled.\n"), prm->common.metric.enabled_metric().c_str());
             return RGY_ERR_NONE;
         }
-        if (!m_cl)
+        if (!m_cl) {
             PrintMes(RGY_LOG_WARN, _T("OpenCL is disabled, %s calculation will be disabled.\n"), prm->common.metric.enabled_metric().c_str());
             return RGY_ERR_NONE;
         }
