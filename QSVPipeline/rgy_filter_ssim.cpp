@@ -366,6 +366,12 @@ RGY_ERR RGYFilterSsim::init_cl_resources() {
         return err_to_rgy(res);
     }
 
+    //AMF_VIDEO_DECODER_SURFACE_COPYを使用すると、pre-analysis使用時などに発生するSubmitInput時のAMF_DECODER_NO_FREE_SURFACESを回避できる
+    //しかし、メモリ確保エラーが発生することがある(AMF_DIRECTX_FAIL)
+    //そこで、AMF_VIDEO_DECODER_SURFACE_COPYは使用せず、QueryOutput後、明示的にsurface->Duplicateを行って同様の挙動を再現する
+    //AV1デコードでは、これを有効にしないとAMF_DECODER_NO_FREE_SURFACESで止まってしまうことがわかったので、再度有効にする
+    m_decoder->SetProperty(AMF_VIDEO_DECODER_SURFACE_COPY, true);
+
     amf::AMFBufferPtr buffer;
     m_context->AllocBuffer(amf::AMF_MEMORY_HOST, prm->input.codecExtraSize, &buffer);
 
@@ -470,7 +476,12 @@ RGY_ERR RGYFilterSsim::addBitstream(const RGYBitstream *bitstream) {
     pictureBuffer->SetDuration(bitstream->duration());
     pictureBuffer->SetPts(bitstream->pts());
     for (;;) {
-        ar = m_decoder->SubmitInput(pictureBuffer);
+        try {
+            ar = m_decoder->SubmitInput(pictureBuffer);
+        } catch (...) {
+            AddMessage(RGY_LOG_ERROR, _T("ERROR: Unexpected error while submitting bitstream to decoder.\n"));
+            ar = AMF_UNEXPECTED;
+        }
         if (ar == AMF_NEED_MORE_INPUT) {
             break;
         } else if (ar == AMF_RESOLUTION_CHANGED || ar == AMF_RESOLUTION_UPDATED) {
@@ -479,7 +490,7 @@ RGY_ERR RGYFilterSsim::addBitstream(const RGYBitstream *bitstream) {
         } else if (ar == AMF_INPUT_FULL || ar == AMF_DECODER_NO_FREE_SURFACES) {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         } else if (ar == AMF_REPEAT) {
-            pictureBuffer = nullptr;
+            continue; // 46ab4241 を反映、データはまだ使用されていないので、再度呼び出し
         } else {
             break;
         }
@@ -645,7 +656,12 @@ RGY_ERR RGYFilterSsim::compare_frames() {
     auto ar = AMF_REPEAT;
     //auto timeS = std::chrono::system_clock::now();
     amf::AMFDataPtr data;
-    ar = m_decoder->QueryOutput(&data);
+    try {
+        ar = m_decoder->QueryOutput(&data);
+    } catch (...) {
+        AddMessage(RGY_LOG_ERROR, _T("ERROR: Unexpected error while getting frame from decoder.\n"));
+        ar = AMF_UNEXPECTED;
+    }
     if (ar == AMF_EOF) {
         return RGY_ERR_MORE_DATA;
     }
@@ -654,7 +670,8 @@ RGY_ERR RGYFilterSsim::compare_frames() {
     }
     if (ar == AMF_OK && data != nullptr) {
         surf = amf::AMFSurfacePtr(data);
-    } else if (ar != AMF_OK) {
+    }
+    if (ar != AMF_OK) {
         auto res = err_to_rgy(ar);
         AddMessage(RGY_LOG_ERROR, _T("Failed to query output: %s.\n"), get_err_mes(res));
         return res;
