@@ -1122,9 +1122,9 @@ QSVEncFeatures CheckEncodeFeature(MFXVideoSession& session, const int ratecontro
             CHECK_FEATURE(qsvprm.cop3.AdaptiveLTR,                ENC_FEATURE_ADAPTIVE_LTR,           MFX_CODINGOPTION_ON,         MFX_LIB_VERSION_2_4);
             CHECK_FEATURE(qsvprm.cop3.AdaptiveRef,                ENC_FEATURE_ADAPTIVE_REF,           MFX_CODINGOPTION_ON,         MFX_LIB_VERSION_2_4);
             CHECK_FEATURE(qsvprm.cop3.AdaptiveCQM,                ENC_FEATURE_ADAPTIVE_CQM,           MFX_CODINGOPTION_ON,         MFX_LIB_VERSION_2_2);
+            CHECK_FEATURE(qsvprm.cop3.EnableQPOffset,             ENC_FEATURE_PYRAMID_QP_OFFSET,      MFX_CODINGOPTION_ON,         MFX_LIB_VERSION_1_19);
             if (codec == RGY_CODEC_HEVC) {
                 CHECK_FEATURE(qsvprm.cop3.GPB,                    ENC_FEATURE_DISABLE_GPB,            MFX_CODINGOPTION_ON,         MFX_LIB_VERSION_1_19);
-                CHECK_FEATURE(qsvprm.cop3.EnableQPOffset,         ENC_FEATURE_PYRAMID_QP_OFFSET,      MFX_CODINGOPTION_ON,         MFX_LIB_VERSION_1_19);
                 CHECK_FEATURE(qsvprm.cop3.TransformSkip,          ENC_FEATURE_HEVC_TSKIP,             MFX_CODINGOPTION_ON,         MFX_LIB_VERSION_1_26);
             }
         }
