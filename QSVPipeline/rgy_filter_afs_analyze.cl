@@ -42,6 +42,9 @@
 // SELECT_PLANE_Y
 // SELECT_PLANE_U
 // SELECT_PLANE_V
+// LOAD_IMAGEF    // LinuxのIntel iGPUドライバでは、read_imageuiを使うとエラーになることへの回避策
+// error: undefined reference to _Z37__spirv_ImageSampleExplicitLod_Ruint4とか出てしまう
+// ビルドエラーになったらLOAD_IMAGEF=1にして、無理やり回避する
 
 __constant sampler_t sampler_y = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
 #if YUV420
@@ -153,6 +156,14 @@ Flag4U analyze_stripef(float p0, float p1, Flag flag_sign, Flag flag_deint, Flag
     return AS_FLAG4U(new_sign) | AS_FLAG4U(mask_deint) | AS_FLAG4U(mask_shift);
 }
 
+DATA4 load_y(__read_only image2d_t src, int ix, int iy) {
+    #if LOAD_IMAGEF
+        return CONVERT_DATA4(read_imagef(src, sampler_y, (int2)(ix, iy)) * (float4)((1<<BIT_DEPTH)-1) + (float4)0.5f);
+    #else
+        return CONVERT_DATA4(read_imageui(src, sampler_y, (int2)(ix, iy)));
+    #endif
+}
+
 Flag4U analyze_y(
     __read_only image2d_t src_p0,
     __read_only image2d_t src_p1,
@@ -160,14 +171,14 @@ Flag4U analyze_y(
     DATA thre_motion, DATA thre_deint, DATA thre_shift) {
 
     //motion
-    DATA4 p0 = CONVERT_DATA4(read_imageui(src_p0, sampler_y, (int2)(ix, iy)));
-    DATA4 p1 = CONVERT_DATA4(read_imageui(src_p1, sampler_y, (int2)(ix, iy)));
+    DATA4 p0 = load_y(src_p0, ix, iy);
+    DATA4 p1 = load_y(src_p1, ix, iy);
     DATA4 p2 = p1;
     Flag4U flag = analyze_motion(p0, p1, thre_motion, thre_shift);
 
     if (iy >= 1) {
         //non-shift
-        p1 = CONVERT_DATA4(read_imageui(src_p0, sampler_y, (int2)(ix, iy-1)));
+        p1 = load_y(src_p0, ix, iy-1);
         flag |= analyze_stripe(p0, p1, non_shift_sign, non_shift_deint, non_shift_shift, thre_deint, thre_shift);
 
         //shift
@@ -175,11 +186,11 @@ Flag4U analyze_y(
             if (iy & 1) {
                 p0 = p2;
             } else {
-                p1 = CONVERT_DATA4(read_imageui(src_p1, sampler_y, (int2)(ix, iy-1)));
+                p1 = load_y(src_p1, ix, iy-1);
             }
         } else {
             if (iy & 1) {
-                p1 = CONVERT_DATA4(read_imageui(src_p1, sampler_y, (int2)(ix, iy-1)));
+                p1 = load_y(src_p1, ix, iy-1);
             } else {
                 p0 = p2;
             }

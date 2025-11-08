@@ -72,8 +72,18 @@ RGY_ERR RGYFilterAfs::build_analyze(const RGY_CSP csp, const bool tb_order, cons
                     || sub_group_ext_avail == RGYOpenCLSubGroupSupport::STD20KHR) {
                     buildoptions += " -cl-std=CL2.0 ";
                 }
+                bool use_imagef = false;
+                auto build_options_imagef = [](const std::string &options, const bool use_imagef) {
+                    return options + (use_imagef ? " -D LOAD_IMAGEF=1" : " -D LOAD_IMAGEF=0");
+                };
                 //subgroup情報を得るため一度コンパイル
-                auto analyze = cl->buildResource(_T("RGY_FILTER_AFS_ANALYZE_CL"), _T("EXE_DATA"), buildoptions.c_str());
+                auto analyze = cl->buildResource(_T("RGY_FILTER_AFS_ANALYZE_CL"), _T("EXE_DATA"), build_options_imagef(buildoptions, use_imagef).c_str());
+                if (!analyze) {
+                    log->write(RGY_LOG_WARN, RGY_LOGT_VPP, _T("failed to build RGY_FILTER_AFS_ANALYZE_CL with LOAD_IMAGEF=0\n"));
+                    log->write(RGY_LOG_WARN, RGY_LOGT_VPP, _T("rebuild RGY_FILTER_AFS_ANALYZE_CL with LOAD_IMAGEF=1\n"));
+                    use_imagef = true;
+                    analyze = cl->buildResource(_T("RGY_FILTER_AFS_ANALYZE_CL"), _T("EXE_DATA"), build_options_imagef(buildoptions, use_imagef).c_str());
+                }
                 if (!analyze) {
                     log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("failed to load RGY_FILTER_AFS_ANALYZE_CL\n"));
                     return std::unique_ptr<RGYOpenCLProgram>();
@@ -87,10 +97,10 @@ RGY_ERR RGYFilterAfs::build_analyze(const RGY_CSP csp, const bool tb_order, cons
                 if (err == 0) {
                     buildoptions += strsprintf(" -D SUB_GROUP_SIZE=%u", subgroup_size);
                 }
-                return cl->buildResource(_T("RGY_FILTER_AFS_ANALYZE_CL"), _T("EXE_DATA"), buildoptions.c_str());
+                return cl->buildResource(_T("RGY_FILTER_AFS_ANALYZE_CL"), _T("EXE_DATA"), build_options_imagef(buildoptions, use_imagef).c_str());
             }));
         } else {
-            m_analyze.set(m_cl->buildResourceAsync(_T("RGY_FILTER_AFS_ANALYZE_CL"), _T("EXE_DATA"), options.c_str()));
+            m_analyze.set(m_cl->buildResourceAsync(_T("RGY_FILTER_AFS_ANALYZE_CL"), _T("EXE_DATA"), (options + " -D LOAD_IMAGEF=0").c_str()));
         }
     }
     return RGY_ERR_NONE;
