@@ -313,6 +313,14 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2025.11.09 (8.03)
+[QSVEncC]
+- AV1で--qp-offsetが使用できなかった問題を修正。( #273 )
+- RTMP/FLV出力時にH.264エンコードでエラーとなっていた問題を修正。
+- -c av_libsvtav1でエンコード時にmkvが生成されない問題を修正。
+- LinuxのIntel iGPUドライバで発生するOpenCLのコンパイルエラー(read_imageui)を回避。
+- ArchLinuxでのコンパイルエラーを修正。( #276 )
+
 2025.10.24 (8.02)
 [QSVEncC]
 - 10bit深度でエンコードできないGPUで、8bitにfallbackするオプションを追加。(--fallback-bitdepth)

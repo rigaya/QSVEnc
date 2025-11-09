@@ -1,5 +1,13 @@
 # QSVEnc Release Notes
 
+## 8.03
+
+- Fix [--qp-offset](./QSVEncC_Options.en.md#--qp-offset-intintint) not working for AV1. ( #273 )
+- Fix error when encoding H.264 to RTMP/FLV output.
+- Fix mkv not created when encoding with [-c](./QSVEncC_Options.en.md#-c---codec-string) av_libsvtav1.
+- Work around OpenCL driver issue on Linux Intel iGPU where read_imageui caused "undefined reference to __spirv_ImageSampleExplicitLod_Ruint4" error on runtime compile.
+- Fix build error on Arch Linux. ( #276 )
+
 ## 8.02
 
 - Add option to fallback to 8bit encoding when 10bit encoding is not supported by the hardware.([--fallback-bitdepth](./QSVEncC_Options.en.md#--fallback-bitdepth))
