@@ -2669,8 +2669,7 @@ RGY_ERR RGYOpenCLContext::createImageFromPlane(cl_mem &image, const cl_mem buffe
     img_desc.image_slice_pitch = 0;
     img_desc.num_mip_levels = 0;
     img_desc.num_samples = 0;
-    img_desc.buffer = 0;
-    img_desc.mem_object = buffer;
+    img_desc.buffer = buffer;
 
     cl_int err = CL_SUCCESS;
     image = (cl_mem)clCreateImage(m_context.get(),
