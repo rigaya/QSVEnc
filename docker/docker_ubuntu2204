@@ -1,14 +1,14 @@
 FROM ubuntu:22.04
 
-ARG DEBIAN_FRONTEND=noninteractive \
-    LOCAL_USER_ID=1000 \
-    LOCAL_GROUP_ID=1000
+ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update \
-    && apt install -y \
+    && apt install -y --no-install-recommends \
       wget \
       curl \
       git \
+      ca-certificates \
+      pkg-config \
       cmake \
       intel-media-va-driver-non-free \
       libva-drm2 \
@@ -39,9 +39,15 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-RUN useradd -u $LOCAL_USER_ID -m --user-group --shell /bin/bash rigaya
-RUN groupmod -g $LOCAL_GROUP_ID rigaya
-WORKDIR /home/rigaya
-COPY . .
-RUN chown -R rigaya:rigaya .
-USER rigaya
+ENV RUSTUP_HOME=/usr/local/rustup
+ENV CARGO_HOME=/usr/local/cargo
+ENV PATH=/usr/local/cargo/bin:$PATH
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+      | sh -s -- -y --profile minimal \
+    && /usr/local/cargo/bin/rustup show \
+    && /usr/local/cargo/bin/cargo --version \
+    && /usr/local/cargo/bin/cargo install cargo-c --locked \
+    && /usr/local/cargo/bin/cargo-c --version
+
+WORKDIR /work
