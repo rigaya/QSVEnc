@@ -48,6 +48,6 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
     && /usr/local/cargo/bin/rustup show \
     && /usr/local/cargo/bin/cargo --version \
     && /usr/local/cargo/bin/cargo install cargo-c --locked \
-    && /usr/local/cargo/bin/cargo-c --version
+    && /usr/local/cargo/bin/cargo cbuild --version
 
 WORKDIR /work
