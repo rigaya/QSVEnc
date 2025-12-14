@@ -25,7 +25,8 @@ There are 2 types of software developed, one is command line version that runs i
 ## System Requirements
 ### Windows
 Windows 10/11 (x86/x64)  
-Aviutl 1.00 or later (QSVEnc.auo)  
+AviUtl 1.00/1.10  (QSVEnc.auo)  
+AviUtl 2.00 beta19 or later (QSVEnc.auo2)  
 
 ### Linux
 Debian/Ubuntu (QSVEncC)  
