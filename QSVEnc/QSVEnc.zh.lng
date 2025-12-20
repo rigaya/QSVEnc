@@ -613,6 +613,7 @@ AuofcgCBSsim=结构相似性
 AuofcgCBAvoidIdleClock=避免闲置GPU时钟
 AuotabPageExOpt=其他
 AuofcgCBAuoTcfileout=导出时间码
+AuofcgCBBenchmarkMode=benchmark mode
 AuofcgCBD3DMemAlloc=显存模式 (推荐使用QSV时启用)
 AuofcgLBInputBufSize=导入缓存大小
 AuofcgLBTempDir=临时文件夹

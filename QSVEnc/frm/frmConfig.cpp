@@ -1636,6 +1636,7 @@ System::Void frmConfig::LoadLangText() {
     LOAD_CLI_TEXT(fcgCBAvoidIdleClock);
     LOAD_CLI_TEXT(tabPageExOpt);
     LOAD_CLI_TEXT(fcgCBAuoTcfileout);
+    LOAD_CLI_TEXT(fcgCBBenchmarkMode);
     LOAD_CLI_TEXT(fcgLBInputBufSize);
     LOAD_CLI_TEXT(fcgLBTempDir);
     LOAD_CLI_TEXT(fcgBTCustomTempDir);

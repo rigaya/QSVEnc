@@ -613,6 +613,7 @@ AuofcgCBSsim=ssim
 AuofcgCBAvoidIdleClock=エンコード中、GPUがアイドルクロックになるのを防止
 AuotabPageExOpt=その他
 AuofcgCBAuoTcfileout=タイムコード出力
+AuofcgCBBenchmarkMode=ベンチマークモード
 AuofcgCBD3DMemAlloc=ビデオメモリモード (QSV使用時推奨)
 AuofcgLBInputBufSize=入力バッファサイズ
 AuofcgLBTempDir=一時フォルダ
