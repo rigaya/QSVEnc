@@ -922,8 +922,9 @@ rgy_log.cpp                 rgy_memmem.cpp              rgy_memmem_avx2.cpp     
 rgy_opencl.cpp              rgy_output.cpp              rgy_output_avcodec.cpp         rgy_parallel_enc.cpp \
 rgy_perf_counter.cpp        rgy_perf_monitor.cpp        rgy_pipe.cpp                   rgy_pipe_linux.cpp \
 rgy_prm.cpp                 rgy_resource.cpp            rgy_simd.cpp                   rgy_status.cpp \
-rgy_thread_affinity.cpp     rgy_timecode.cpp            rgy_util.cpp                   rgy_version.cpp \
-rgy_vulkan.cpp              rgy_wav_parser.cpp \
+rgy_thread_affinity.cpp     rgy_timecode.cpp            rgy_util.cpp \
+rgy_vapoursynth_wrapper.cpp rgy_vapoursynth_wrapper_v3.cpp rgy_vapoursynth_wrapper_v4.cpp \
+rgy_version.cpp             rgy_vulkan.cpp              rgy_wav_parser.cpp \
 "
 
 SRC_QSVPIPELINE_CL=" \
