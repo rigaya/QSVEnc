@@ -88,7 +88,7 @@ namespace AUO_NAME_R {
             exstg.load_log_win();
             if (exstg.s_log.minimized)
                 this->WindowState = FormWindowState::Minimized;
-#if ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1 || ENCODER_FFMPEG
+#if ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1 || ENCODER_FFMPEG || ENCODER_VVENC
             _enc_priority = NULL;
 #endif
             _enc_pause = nullptr;
@@ -162,7 +162,7 @@ namespace AUO_NAME_R {
     private:
         taskbarProgress *taskbar_progress; //タスクバーでの進捗表示
         HWND hWnd; //このウィンドウのハンドル
-#if ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1 || ENCODER_FFMPEG
+#if ENCODER_X264 || ENCODER_X265 || ENCODER_SVTAV1 || ENCODER_FFMPEG || ENCODER_VVENC
         DWORD *_enc_priority; //エンコ優先度へのポインタ
 #endif
         bool *_enc_pause;      //エンコ一時停止へのポインタ

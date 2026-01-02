@@ -621,8 +621,10 @@ namespace AUO_NAME_R {
             //LOAD_CLI_TEXT(fosLBAMPLimitMarginMax);
             //LOAD_CLI_TEXT(fosLBAMPLimitMarginMin);
             //LOAD_CLI_TEXT(fosCBAmpKeepOldFile);
+#if ENCODER_QSV
             LOAD_CLI_TEXT(fosCBPerfMonitor);
             LOAD_CLI_TEXT(fosLBLogOut);
+#endif
             LOAD_CLI_MAIN_TEXT(fosMain);
         }
     private:
@@ -768,7 +770,6 @@ namespace AUO_NAME_R {
             fosCBPerfMonitor->Checked               = fos_ex_stg->s_local.perf_monitor != 0;
 #else
             fosCBPerfMonitor->Visible = false;
-            fosCBPerfMonitorPlot->Visible = false;
 #endif
             if (str_has_char(fos_ex_stg->s_local.conf_font.name))
                 SetFontFamilyToForm(this, gcnew FontFamily(String(fos_ex_stg->s_local.conf_font.name).ToString()), this->Font->FontFamily);
