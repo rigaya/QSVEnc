@@ -314,6 +314,18 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2026.01.03 (8.04)
+[QSVEncC]
+- Vapoursynth API V4に対応。
+- 入力の音声コーデックが--audio-codec指定と同じ場合は--audio-copyし、異なる場合のみエンコードするオプションを追加。 (--audio-encode-other-codec-only )
+
+[QSVEnc.auo]
+- 簡易アンインストーラを追加。
+  プラグインフォルダの QSVEnc_uninstall.bat をダブルクリックで実行すると、下記確認画面で出ます。
+- ログを(独自ウィンドウでなく)AviUtl2標準のログウィンドウに出力するように。
+- [その他の設定]に、自動ログ保存の設定を追加。
+- ベンチマークモードを追加。
+
 2025.11.09 (8.03)
 [QSVEncC]
 - AV1で--qp-offsetが使用できなかった問題を修正。( #273 )

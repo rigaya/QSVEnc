@@ -1,5 +1,10 @@
 # QSVEnc Release Notes
 
+## 8.04
+
+- Add support for Vapoursynth API V4.
+- Add option to encode only when input audio codec differs from codec specified by [--audio-codec](./QSVEncC_Options.en.md#--audio-codec-intstringstringstringstringstringstring). ([--audio-encode-other-codec-only](./QSVEncC_Options.en.md#--audio-encode-other-codec-only))
+
 ## 8.03
 
 - Fix [--qp-offset](./QSVEncC_Options.en.md#--qp-offset-intintint) not working for AV1. ( #273 )

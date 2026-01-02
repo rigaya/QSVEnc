@@ -195,17 +195,13 @@ QSVEnc 7.xxが表示されていれば成功です。
 - 音声及びチャプターとのmux機能
 - 自動フィールドシフト対応
 
-## QSVEnc の Aviutl からの削除
+## QSVEnc の AviUtl からの削除
 
-QSVEnc の Aviutl から削除するには、"plugins" フォルダ内の下記ファイルとフォルダを削除してください。
+QSVEnc を AviUtl/AviUtl2 から削除するには、プラグインフォルダの ```QSVEnc_uninstall.bat``` をダブルクリックして実行します。
 
-- [フォルダ] QSVEnc_stg
-- [ファイル] QSVEnc.auo
-- [ファイル] QSVEnc.conf (存在する場合のみ)
-- [ファイル] QSVEnc(.ini)
-- [ファイル] auo_setup.auf
+![削除](./data/QSVEnc_8_04_uninstall_20260103.webp)
 
-![削除](./data/QSVEnc_7_00_uninstall_01.png)
+上記画面が表示されたら、```y``` と入力し、削除を実行してください。
 
 ## 多言語対応
 
