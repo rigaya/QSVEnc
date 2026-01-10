@@ -55,20 +55,23 @@ void ResetEvent(HANDLE ev) {
     Event *event = (Event *)ev;
     {
         std::lock_guard<std::mutex> lock(event->mtx);
-        if (event->bReady) {
-            event->bReady = false;
-        }
+        event->bReady = false;
     }
 }
 
 void SetEvent(HANDLE ev) {
     Event *event = (Event *)ev;
-    {
-        std::lock_guard<std::mutex> lock(event->mtx);
+    std::lock_guard<std::mutex> lock(event->mtx);
+
+    if (event->bManualReset) {
+        event->bReady = true;
+        event->cv.notify_all();
+    } else {
         if (!event->bReady) {
             event->bReady = true;
-            (event->bManualReset) ? event->cv.notify_all() : event->cv.notify_one();
+            event->cv.notify_one();
         }
+        // bReady のときは何もしない（Set を蓄積しない）
     }
 }
 
@@ -93,17 +96,14 @@ uint32_t WaitForSingleObject(HANDLE ev, uint32_t millisec) {
         std::unique_lock<std::mutex> uniq_lk(event->mtx);
         if (millisec == INFINITE) {
             event->cv.wait(uniq_lk, [&event]{ return event->bReady;});
-            if (!event->bManualReset) {
-                event->bReady = false;
-            }
         } else {
             event->cv.wait_for(uniq_lk, std::chrono::milliseconds(millisec), [&event]{ return event->bReady;});
             if (!event->bReady) {
                 return WAIT_TIMEOUT;
             }
-            if (!event->bManualReset) {
-                event->bReady = false;
-            }
+        }
+        if (!event->bManualReset) {
+            event->bReady = false;
         }
     }
     return WAIT_OBJECT_0;
