@@ -911,6 +911,10 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         print_feature_warnings(RGY_LOG_WARN, _T("pic-strcut"));
         pInParams->bOutputPicStruct = false;
     }
+    if (pInParams->aiEncCtrl.enable && !(availableFeaures & ENC_FEATURE_EXT_AI_ENC_CTRL)) {
+        print_feature_warnings(RGY_LOG_WARN, _T("AI Enc Ctrl"));
+        pInParams->aiEncCtrl.enable = false;
+    }
 
     //profileを守るための調整
     if (pInParams->codec == RGY_CODEC_H264) {
@@ -1220,6 +1224,15 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         m_encParams.addExtParams(&m_encParams.tuneEncQualityPrm);
     }
 
+    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_16)
+        && pInParams->aiEncCtrl.enable
+        && (availableFeaures & ENC_FEATURE_EXT_AI_ENC_CTRL)) {
+        INIT_MFX_EXT_BUFFER(m_encParams.aiEncCtrlPrm, MFX_EXTBUFF_AI_ENC_CTRL);
+        m_encParams.aiEncCtrlPrm.SaliencyEncoder = get_codingopt(pInParams->aiEncCtrl.saliencyEncoder);
+        m_encParams.aiEncCtrlPrm.AdaptiveTargetUsage = get_codingopt(pInParams->aiEncCtrl.adaptiveTargetUsage);
+        m_encParams.addExtParams(&m_encParams.aiEncCtrlPrm);
+        m_encParams.aiEncCtrlEnabled = true;
+    }
     //Bluray互換出力
     if (pInParams->nBluray) {
         if (   m_encParams.videoPrm.mfx.RateControlMethod != MFX_RATECONTROL_CBR
@@ -4899,6 +4912,9 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         return sum + (int)task->workSurfacesCount();
         });
 
+    auto codingoptstr = [](uint16_t value) {
+        return (value == MFX_CODINGOPTION_ON) ? _T("on") : ((value == MFX_CODINGOPTION_OFF) ? _T("off") : _T("default"));
+    };
 
     if (m_pmfxENC) {
         CompareParam(m_prmSetIn, *outFrameInfo);
@@ -5125,6 +5141,19 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
             && outFrameInfo->tuneEncQualityPrm.TuneQuality != MFX_ENCODE_TUNE_OFF
             && get_cx_desc(list_enc_tune_quality_mode, outFrameInfo->tuneEncQualityPrm.TuneQuality) != nullptr) {
             PRINT_INFO(_T("Tune Quality   %s\n"), get_str_of_tune_bitmask(outFrameInfo->tuneEncQualityPrm.TuneQuality).c_str());
+        }
+        if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_16) && m_encParams.aiEncCtrlEnabled) {
+            tstring strAIEncCtrl;
+            if (outFrameInfo->aiEncCtrlPrm.SaliencyEncoder != MFX_CODINGOPTION_OFF) {
+                strAIEncCtrl += tstring(_T("Saliency: ")) + codingoptstr(outFrameInfo->aiEncCtrlPrm.SaliencyEncoder);
+            }
+            if (outFrameInfo->aiEncCtrlPrm.AdaptiveTargetUsage != MFX_CODINGOPTION_OFF) {
+                strAIEncCtrl += tstring(_T("Adaptive: ")) + codingoptstr(outFrameInfo->aiEncCtrlPrm.AdaptiveTargetUsage);
+            }
+            if (strAIEncCtrl.empty()) {
+                strAIEncCtrl = _T("off");
+            }
+            PRINT_INFO(_T("AI Enc Ctrl    %s\n"), strAIEncCtrl.c_str());
         }
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_9)) {
             auto qp_limit_str = [](mfxU8 limitI, mfxU8 limitP, mfxU8 limitB) {

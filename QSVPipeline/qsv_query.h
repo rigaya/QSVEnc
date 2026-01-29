@@ -168,6 +168,7 @@ static constexpr mfxVersion LIB_VER_LIST[] = {
     { 13, 2 },
     { 14, 2 },
     { 15, 2 },
+    { 16, 2 },
     {  0, 0 }
 };
 
@@ -212,6 +213,7 @@ MFX_LIB_VERSION(2,12, 33);
 MFX_LIB_VERSION(2,13, 34);
 MFX_LIB_VERSION(2,14, 35);
 MFX_LIB_VERSION(2,15, 36);
+MFX_LIB_VERSION(2,16, 37);
 
 static const std::vector<RGY_CODEC> ENC_CODEC_LISTS = {
     RGY_CODEC_H264, RGY_CODEC_HEVC, RGY_CODEC_MPEG2, RGY_CODEC_VP8, RGY_CODEC_VP9, RGY_CODEC_AV1
@@ -276,6 +278,7 @@ enum QSVEncFeatureRCExt : uint64_t {
     ENC_FEATURE_EXT_CHROMALOC          = 0x0000000000040000,
     ENC_FEATURE_EXT_TUNE_ENC_QUALITY   = 0x0000000000080000,
     ENC_FEATURE_EXT_HYPER_MODE         = 0x0000000000100000,
+    ENC_FEATURE_EXT_AI_ENC_CTRL        = 0x0000000000200000,
 };
 
 enum QSVEncFeatureParams : uint64_t {
@@ -319,6 +322,7 @@ enum QSVEncFeatureParams : uint64_t {
     ENC_FEATURE_HYPER_MODE             = 0x0000000800000000,
     ENC_FEATURE_SCENARIO_INFO          = 0x0000001000000000,
     ENC_FEATURE_TUNE_ENCODE_QUALITY    = 0x0000002000000000,
+    ENC_FEATURE_AI_ENC_CTRL            = 0x0000004000000000,
 };
 
 static QSVEncFeatureRCExt operator~(QSVEncFeatureRCExt a) {
@@ -441,6 +445,7 @@ static const FEATURE_DESC list_enc_feature_rc_ext[] = {
     { _T("CHROMALOC    "), ENC_FEATURE_EXT_CHROMALOC          },
     { _T("TUNE_ENC_QUAL"), ENC_FEATURE_EXT_TUNE_ENC_QUALITY   },
     { _T("HYPER_MODE   "), ENC_FEATURE_EXT_HYPER_MODE         },
+    { _T("AI_ENC_CTRL  "), ENC_FEATURE_EXT_AI_ENC_CTRL        },
     { NULL, 0 },
 };
 static const FEATURE_DESC list_enc_feature_params[] = {
@@ -482,6 +487,7 @@ static const FEATURE_DESC list_enc_feature_params[] = {
     { _T("SAO          "), ENC_FEATURE_HEVC_SAO               },
     { _T("Max CTU Size "), ENC_FEATURE_HEVC_CTU               },
     { _T("TSkip        "), ENC_FEATURE_HEVC_TSKIP             },
+    { _T("AI Enc Ctrl  "), ENC_FEATURE_AI_ENC_CTRL            },
     { NULL, 0 },
 };
 static const FEATURE_DESC list_vpp_feature[] = {
@@ -551,6 +557,8 @@ struct QSVVideoParam {
     mfxExtAV1TileParam av1TilePrm;
     mfxExtHyperModeParam hyperModePrm;
     mfxExtTuneEncodeQuality tuneEncQualityPrm;
+    mfxExtAIEncCtrl aiEncCtrlPrm;
+    bool aiEncCtrlEnabled;
 
     QSVVideoParam(mfxVersion mfxver_);
     QSVVideoParam() = delete;

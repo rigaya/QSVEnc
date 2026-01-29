@@ -348,6 +348,10 @@ tstring encoder_help() {
         _T("   --(no-)extbrc                enables extbrc\n")
         _T("   --(no-)mbbrc                 enables per macro block rate control\n")
         _T("                                 default: auto\n")
+        _T("   --ai-enc-ctrl [<string>=<value>][,<string>=<value>]...\n")
+        _T("                               enables AI encoding control\n")
+        _T("                                 - saliency=<value>, adaptive=<value>\n")
+        _T("                                 - value: on, off\n")
         _T("   --ref <int>                  reference frames\n")
         _T("                                  default %d (auto)\n")
         _T("-b,--bframes <int>              number of sequential b frames\n")
@@ -1553,6 +1557,58 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         pParams->bMBBRC = false;
         return 0;
     }
+    if (0 == _tcscmp(option_name, _T("ai-enc-ctrl"))) {
+        i++;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        pParams->aiEncCtrl.enable = true;
+        const auto paramList = std::vector<std::string>{ "saliency", "adaptive" };
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        pParams->aiEncCtrl.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("saliency")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        pParams->aiEncCtrl.saliencyEncoder = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("adaptive")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        pParams->aiEncCtrl.adaptiveTargetUsage = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
     if (0 == _tcscmp(option_name, _T("intra-refresh-cycle"))) {
         i++;
         try {
@@ -2565,6 +2621,23 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     OPT_LST(_T("--scenario-info"), scenarioInfo, list_scenario_info);
     OPT_BOOL_OPT(_T("--extbrc"), _T("--no-extbrc"), extBRC);
     OPT_BOOL_OPT(_T("--mbbrc"), _T("--no-mbbrc"), bMBBRC);
+    if (save_disabled_prm || pParams->aiEncCtrl.enable != encPrmDefault.aiEncCtrl.enable) {
+        tmp.str(tstring());
+        if (!pParams->aiEncCtrl.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (pParams->aiEncCtrl.enable || save_disabled_prm) {
+            if (pParams->aiEncCtrl.saliencyEncoder.has_value()) {
+                tmp << _T(",saliency=") << (pParams->aiEncCtrl.saliencyEncoder.value() ? _T("on") : _T("off"));
+            }
+            if (pParams->aiEncCtrl.adaptiveTargetUsage.has_value()) {
+                tmp << _T(",adaptive=") << (pParams->aiEncCtrl.adaptiveTargetUsage.value() ? _T("on") : _T("off"));
+            }
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --ai-enc-ctrl ") << tmp.str().substr(1);
+        }
+    }
     OPT_BOOL_OPT(_T("--adapt-ref"), _T("--no-adapt-ref"), adaptiveRef);
     OPT_BOOL_OPT(_T("--adapt-ltr"), _T("--no-adapt-ltr"), adaptiveLTR);
     OPT_BOOL_OPT(_T("--adapt-cqm"), _T("--no-adapt-cqm"), adaptiveCQM);

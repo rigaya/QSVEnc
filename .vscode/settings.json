@@ -93,7 +93,11 @@
         "any": "cpp",
         "cinttypes": "cpp",
         "ranges": "cpp",
-        "span": "cpp"
+        "span": "cpp",
+        "queue": "cpp",
+        "random": "cpp",
+        "strstream": "cpp",
+        "valarray": "cpp"
     },
     "cmake.sourceDirectory": "F:/VisualStudio2022/Projects/QSVEnc/oneVPL/dispatcher/test/ext/googletest"
 }

@@ -297,6 +297,12 @@ enum class QSVFunctionMode {
     FF,
 };
 
+struct QSVAIEncCtrl {
+    bool enable;
+    std::optional<bool> saliencyEncoder;
+    std::optional<bool> adaptiveTargetUsage;
+};
+
 struct sInputParams {
     VideoInfo input;              //入力する動画の情報
     RGYParamInput inprm;
@@ -403,6 +409,8 @@ struct sInputParams {
     std::optional<bool> hevc_gpb;
 
     QSVAV1Params av1;
+
+    QSVAIEncCtrl aiEncCtrl;
 
     tstring    pythonPath;
 

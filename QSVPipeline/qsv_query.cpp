@@ -161,7 +161,8 @@ static const auto QSV_FEATURE_RC_EXT_TO_STR = make_array<std::pair<QSVEncFeature
     QSVFEATURE_2_STR(ENC_FEATURE_EXT_VIDEO_SIGNAL_INFO),
     QSVFEATURE_2_STR(ENC_FEATURE_EXT_CHROMALOC),
     QSVFEATURE_2_STR(ENC_FEATURE_EXT_TUNE_ENC_QUALITY),
-    QSVFEATURE_2_STR(ENC_FEATURE_EXT_HYPER_MODE)
+    QSVFEATURE_2_STR(ENC_FEATURE_EXT_HYPER_MODE),
+    QSVFEATURE_2_STR(ENC_FEATURE_EXT_AI_ENC_CTRL)
 );
 
 MAP_PAIR_0_1(qsv_feature_rc_ext, enm, QSVEncFeatureRCExt, str, tstring, QSV_FEATURE_RC_EXT_TO_STR, ENC_FEATURE_RCEXT_NONE, _T("UNKNOWN"));
@@ -205,7 +206,8 @@ static const auto QSV_FEATURE_PARAMS_TO_STR = make_array<std::pair<QSVEncFeature
     QSVFEATURE_2_STR(ENC_FEATURE_HEVC_TSKIP),
     QSVFEATURE_2_STR(ENC_FEATURE_HYPER_MODE),
     QSVFEATURE_2_STR(ENC_FEATURE_SCENARIO_INFO),
-    QSVFEATURE_2_STR(ENC_FEATURE_TUNE_ENCODE_QUALITY)
+    QSVFEATURE_2_STR(ENC_FEATURE_TUNE_ENCODE_QUALITY),
+    QSVFEATURE_2_STR(ENC_FEATURE_AI_ENC_CTRL)
 );
 
 MAP_PAIR_0_1(qsv_feature_params, enm, QSVEncFeatureParams, str, tstring, QSV_FEATURE_PARAMS_TO_STR, ENC_FEATURE_PARAMS_NONE, _T("UNKNOWN"));
@@ -324,7 +326,7 @@ mfxVersion get_mfx_libsw_version() {
 
 QSVVideoParam::QSVVideoParam(const mfxVersion mfxver_) :
     mfxVer(mfxver_), isVppParam(false), videoPrmVpp(), videoPrm(), buf(), videoSignalInfo(), chromaLocInfo(), spsbuf(), ppsbuf(), spspps(),
-    cop(), cop2(), cop3(), copVp8(), vp9Prm(), hevcPrm(), av1BitstreamPrm(), av1ResolutionPrm(), av1TilePrm(), hyperModePrm(), tuneEncQualityPrm() {
+    cop(), cop2(), cop3(), copVp8(), vp9Prm(), hevcPrm(), av1BitstreamPrm(), av1ResolutionPrm(), av1TilePrm(), hyperModePrm(), tuneEncQualityPrm(), aiEncCtrlPrm(), aiEncCtrlEnabled(false) {
     INIT_MFX_EXT_BUFFER(videoSignalInfo, MFX_EXTBUFF_VIDEO_SIGNAL_INFO);
     INIT_MFX_EXT_BUFFER(chromaLocInfo, MFX_EXTBUFF_CHROMA_LOC_INFO);
     memset(spsbuf, 0, sizeof(spsbuf));
@@ -346,6 +348,7 @@ QSVVideoParam::QSVVideoParam(const mfxVersion mfxver_) :
     INIT_MFX_EXT_BUFFER(av1TilePrm, MFX_EXTBUFF_AV1_TILE_PARAM);
     INIT_MFX_EXT_BUFFER(hyperModePrm, MFX_EXTBUFF_HYPER_MODE_PARAM);
     INIT_MFX_EXT_BUFFER(tuneEncQualityPrm, MFX_EXTBUFF_TUNE_ENCODE_QUALITY);
+    INIT_MFX_EXT_BUFFER(aiEncCtrlPrm, MFX_EXTBUFF_AI_ENC_CTRL);
 }
 
 QSVVideoParam::QSVVideoParam(const QSVVideoParam& o) {
@@ -371,6 +374,7 @@ QSVVideoParam& QSVVideoParam::operator=(const QSVVideoParam &o) {
     av1TilePrm = o.av1TilePrm;
     hyperModePrm = o.hyperModePrm;
     tuneEncQualityPrm = o.tuneEncQualityPrm;
+    aiEncCtrlPrm = o.aiEncCtrlPrm;
 
     memcpy(spsbuf, o.spsbuf, sizeof(spsbuf));
     memcpy(ppsbuf, o.ppsbuf, sizeof(ppsbuf));
@@ -413,6 +417,9 @@ QSVVideoParam& QSVVideoParam::operator=(const QSVVideoParam &o) {
             break;
         case MFX_EXTBUFF_TUNE_ENCODE_QUALITY:
             buf.push_back((mfxExtBuffer *)&tuneEncQualityPrm);
+            break;
+        case MFX_EXTBUFF_AI_ENC_CTRL:
+            buf.push_back((mfxExtBuffer *)&aiEncCtrlPrm);
             break;
         default:
             break;
@@ -478,6 +485,10 @@ void QSVVideoParam::setAllExtParams(const uint32_t CodecId, const QSVEncFeatures
         && check_lib_version(mfxVer, MFX_LIB_VERSION_2_9)
         && (features & ENC_FEATURE_EXT_TUNE_ENC_QUALITY)) {
         buf.push_back((mfxExtBuffer *)&tuneEncQualityPrm);
+    }
+    if (check_lib_version(mfxVer, MFX_LIB_VERSION_2_16)
+        && (features & ENC_FEATURE_EXT_AI_ENC_CTRL)) {
+        buf.push_back((mfxExtBuffer *)&aiEncCtrlPrm);
     }
 
     RGY_MEMSET_ZERO(videoPrm);
@@ -1034,6 +1045,7 @@ QSVEncFeatures CheckEncodeFeature(MFXVideoSession& session, const int ratecontro
         check_ext_buff(ENC_FEATURE_EXT_VIDEO_SIGNAL_INFO,  &qsvprm.videoSignalInfo,    MFX_LIB_VERSION_1_3);
         check_ext_buff(ENC_FEATURE_EXT_TUNE_ENC_QUALITY,   &qsvprm.tuneEncQualityPrm,  MFX_LIB_VERSION_2_9, ENABLE_QSV_TUNE_QUERY);
         check_ext_buff(ENC_FEATURE_EXT_HYPER_MODE,         &qsvprm.hyperModePrm,       MFX_LIB_VERSION_2_5, ENABLE_HYPER_MODE && checkHyperMode);
+        check_ext_buff(ENC_FEATURE_EXT_AI_ENC_CTRL,        &qsvprm.aiEncCtrlPrm,       MFX_LIB_VERSION_2_16);
 
 
         // 各パラメータについてチェック
@@ -1169,6 +1181,9 @@ QSVEncFeatures CheckEncodeFeature(MFXVideoSession& session, const int ratecontro
         }
         if (result & ENC_FEATURE_EXT_HYPER_MODE) {
             CHECK_FEATURE(qsvprm.hyperModePrm.Mode, ENC_FEATURE_HYPER_MODE, MFX_HYPERMODE_ON, MFX_LIB_VERSION_2_5);
+        }
+        if (result & ENC_FEATURE_EXT_AI_ENC_CTRL) {
+            CHECK_FEATURE(qsvprm.aiEncCtrlPrm.AdaptiveTargetUsage, ENC_FEATURE_AI_ENC_CTRL, MFX_CODINGOPTION_ON, MFX_LIB_VERSION_2_16);
         }
 #pragma warning(pop)
         //付随オプション

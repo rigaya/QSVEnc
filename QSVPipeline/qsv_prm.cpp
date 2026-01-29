@@ -324,6 +324,7 @@ sInputParams::sInputParams() :
     hevc_tier(0),
     hevc_gpb(),
     av1(),
+    aiEncCtrl(),
     pythonPath(),
     bBenchmark(false),
     nBenchQuality(QSV_DEFAULT_BENCH) {
