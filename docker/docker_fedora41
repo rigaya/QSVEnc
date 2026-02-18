@@ -13,6 +13,8 @@ RUN dnf update -y \
       @development-tools \
       gcc-c++ \
       cmake \
+      meson \
+      ninja-build \
       wget \
       curl \
       ca-certificates \

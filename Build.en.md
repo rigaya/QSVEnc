@@ -62,6 +62,7 @@ Finally, open QSVEnc.sln, and start build of QSVEnc by Visual Studio.
 ### 0. Requirements
 
 - C++17 Compiler
+- meson + ninja-build
 - Intel Driver
 - git
 - cmake
@@ -77,7 +78,7 @@ Finally, open QSVEnc.sln, and start build of QSVEnc by Visual Studio.
 - Install build tools
 
   ```Shell
-  sudo apt install build-essential git libtool pkg-config git cmake
+  sudo apt install build-essential git libtool pkg-config cmake meson ninja-build
   ```
 
 - Install rust + cargo-c (for libdovi, libhdr10plus build)
@@ -264,12 +265,12 @@ sudo gpasswd -a ${USER} render
 ```Shell
 git clone https://github.com/rigaya/QSVEnc --recursive
 cd QSVEnc
-./configure
-make
+meson setup ./build --buildtype=release
+meson compile -C ./build
 ```
 Check if it works properly.
 ```Shell
-./qsvencc --check-hw
+./build/qsvencc --check-hw
 ```
 
 You shall get results below if Quick Sync Video works properly.
@@ -285,6 +286,7 @@ In Ubuntu 18.04, you may additionally need to build libva, and media-driver your
 ### 0. Requirements
 
 - C++17 Compiler
+- meson + ninja-build
 - git
 - cmake
 - rust + cargo-c
@@ -298,7 +300,7 @@ In Ubuntu 18.04, you may additionally need to build libva, and media-driver your
 - Install build tools
 
   ```Shell
-  sudo apt install build-essential meson automake libtool cmake pkg-config git cmake
+  sudo apt install build-essential automake libtool cmake pkg-config git meson ninja-build
   ```
 
 - Install rust + cargo-c (for libdovi build)
@@ -497,12 +499,12 @@ sudo gpasswd -a ${USER} render
 ```Shell
 git clone https://github.com/rigaya/QSVEnc --recursive
 cd QSVEnc
-./configure --extra-cxxflags="-I/opt/intel/mediasdk/include" --extra-ldflags="-L/opt/intel/mediasdk/lib"
-make
+meson setup ./build --buildtype=release
+meson compile -C ./build
 ```
 Check if it works properly.
 ```Shell
-LD_LIBRARY_PATH=/opt/intel/mediasdk/lib ./qsvencc --check-hw
+LD_LIBRARY_PATH=/opt/intel/mediasdk/lib ./build/qsvencc --check-hw
 ```
 
 You shall get results below if Quick Sync Video works properly.
@@ -516,6 +518,7 @@ Success: QuickSyncVideo (hw encoding) available
 ### 0. Requirements
 
 - C++17 Compiler
+- meson + ninja-build
 - Intel Driver
 - git
 - cmake
@@ -531,7 +534,7 @@ Success: QuickSyncVideo (hw encoding) available
 - Install build tools
 
   ```Shell
-  sudo dnf install @development-tools cmake
+  sudo dnf install @development-tools cmake meson ninja-build
   ```
 
 - Install rust + cargo-c (for libdovi build)
@@ -650,12 +653,12 @@ sudo gpasswd -a ${USER} render
 ```Shell
 git clone https://github.com/rigaya/QSVEnc --recursive
 cd QSVEnc
-./configure
-make
+meson setup ./build --buildtype=release
+meson compile -C ./build
 ```
 Check if it works properly.
 ```Shell
-./qsvencc --check-hw
+./build/qsvencc --check-hw
 ```
 
 You shall get results below if Quick Sync Video works properly.

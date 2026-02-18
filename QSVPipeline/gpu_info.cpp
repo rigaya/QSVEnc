@@ -143,6 +143,16 @@ int getIntelGPUInfo(IntelDeviceInfo *info, const int adapterID) {
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
+#if !(defined(_WIN32) || defined(_WIN64)) && !FOR_AUO
+int getIntelGPUInfo(IntelDeviceInfo *info, const int adapterID) {
+    UNREFERENCED_PARAMETER(adapterID);
+    if (info) {
+        memset(info, 0, sizeof(*info));
+    }
+    return 1;
+}
+#endif //#if !(defined(_WIN32) || defined(_WIN64))
+
 #if LIBVA_SUPPORT
 #include "qsv_hw_va.h"
 

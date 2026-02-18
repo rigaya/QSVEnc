@@ -9,6 +9,8 @@ RUN apt-get update \
       git \
       ca-certificates \
       pkg-config \
+      meson \
+      ninja-build \
       cmake \
       intel-media-va-driver-non-free \
       libva-drm2 \
