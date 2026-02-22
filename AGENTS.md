@@ -101,3 +101,20 @@ QSVEnc / NVEnc / VCEEnc / rkmppenc と共通化できる部分は共通ファイ
 - Readme[.md/.ja.md/.cn.md]
 - Build[.md/.ja.md/.cn.md]
 - Install[.md/.ja.md/.cn.md]
+
+
+## パラメータ追加
+
+パラメータ追加時は、下記を編集したうえで、適宜必要な追加の実装を行う。
+
+追加するパラメータが libvpl由来のQSVEnc独自となるパラメータか、
+QSVEnc / NVEnc / VCEEnc / rkmppenc共通で使用できるパラメータかにより、
+実装箇所が異なる。
+
+また、パラメータの定義追加時には、その分類をよく検討し、適切な構造体に追加すること。
+
+|対象 | ファイル (libvpl関連独自) | ファイル (QSVEnc / NVEnc / VCEEnc / rkmppenc共通) |
+|:--|:--|
+| パラメータ定義・初期化            | `qsv_prm[.h/.cpp]` | `rgy_prm[.h/.cpp]` |
+| コマンド読み取り・生成・ヘルプ生成 | `qsv_cmd[.h/.cpp]` | `rgy_cmd[.h/.cpp]` |
+| ドキュメント | `QSVEncC_Options.[en/ja].md` | `QSVEncC_Options.[en/ja].md` |
