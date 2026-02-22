@@ -154,7 +154,11 @@ tstring gen_cmd_help_vppmfx() {
         _T("                                 - bob      double framerate\n")
 #if ENABLE_ADVANCED_DEINTERLACE
         _T("                                 - auto     auto deinterlace\n")
-        _T("                                 - auto-bob auto bob deinterlace\n")
+        _T("                                 - auto_double auto bob deinterlace\n")
+        _T("                                 - auto-bob  alias of auto_double\n")
+        _T("                                 - advanced advanced deinterlace\n")
+        _T("                                 - advanced_noref advanced deinterlace (no refs)\n")
+        _T("                                 - advanced_scd advanced deinterlace (scene change detection)\n")
 #endif
 #if ENABLE_FPS_CONVERSION
         _T("   --vpp-fps-conv <string>      set fps conversion mode\n")

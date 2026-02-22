@@ -2278,12 +2278,19 @@ Activate GPU deinterlacer.
   - normal ... standard 60i → 30p interleave cancellation.
   - it    ... inverse telecine
   - bob ... 60i → 60p interleaved.
+  - auto ... automatic deinterlace with single frame-rate output.
+  - auto_double ... automatic deinterlace with double frame-rate output.
+  - advanced ... advanced deinterlacing mode.
+  - advanced_noref ... advanced deinterlacing mode without reference frames.
+  - advanced_scd ... advanced deinterlacing mode with scene change detection.
 
   It is possible to set field pattern explicitly by following settings.
 
   - normal_tff, normal_bff
   - bob_tff, bob_bff
   - it_tff, it_bff
+
+  For backward compatibility, `auto-bob` is available as an alias of `auto_double`.
   
 ### --vpp-decomb [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]  
 Decomb deinterlaer.

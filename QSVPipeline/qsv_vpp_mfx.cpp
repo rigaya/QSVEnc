@@ -426,6 +426,15 @@ RGY_ERR QSVVppMfx::SetMFXFrameOut(mfxFrameInfo& mfxOut, const sVppParams& params
             m_ExtDeinterlacing.Mode = (uint16_t)((params.deinterlace == MFX_DEINTERLACE_BOB) ? MFX_DEINTERLACING_BOB : MFX_DEINTERLACING_AUTO_DOUBLE);
             mfxOut.FrameRateExtN *= 2;
             break;
+        case MFX_DEINTERLACE_ADVANCED:
+            m_ExtDeinterlacing.Mode = MFX_DEINTERLACING_ADVANCED;
+            break;
+        case MFX_DEINTERLACE_ADVANCED_NOREF:
+            m_ExtDeinterlacing.Mode = MFX_DEINTERLACING_ADVANCED_NOREF;
+            break;
+        case MFX_DEINTERLACE_ADVANCED_SCD:
+            m_ExtDeinterlacing.Mode = MFX_DEINTERLACING_ADVANCED_SCD;
+            break;
         case MFX_DEINTERLACE_NONE:
             break;
         default:

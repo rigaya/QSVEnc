@@ -59,6 +59,9 @@ enum {
     MFX_DEINTERLACE_IT_MANUAL   = 4, //inverse telecine, manual select
     MFX_DEINTERLACE_AUTO_SINGLE = 5,
     MFX_DEINTERLACE_AUTO_DOUBLE = 6,
+    MFX_DEINTERLACE_ADVANCED    = 7,
+    MFX_DEINTERLACE_ADVANCED_NOREF = 8,
+    MFX_DEINTERLACE_ADVANCED_SCD = 9,
 };
 
 enum class RGYMFX_DEINTERLACE_MODE : uint32_t {
@@ -585,9 +588,13 @@ const CX_DESC list_deinterlace[] = {
     { _T("bob_bff"),   MFX_DEINTERLACE_BOB | (int)RGYMFX_DEINTERLACE_MODE::BFF },
 #if ENABLE_ADVANCED_DEINTERLACE
     { _T("it-manual"), MFX_DEINTERLACE_IT_MANUAL   },
-    { _T("auto"),      MFX_DEINTERLACE_AUTO_SINGLE },
-    { _T("auto-bob"),  MFX_DEINTERLACE_AUTO_DOUBLE },
 #endif
+    { _T("auto"),      MFX_DEINTERLACE_AUTO_SINGLE },
+    { _T("auto_double"), MFX_DEINTERLACE_AUTO_DOUBLE },
+    { _T("auto-bob"),  MFX_DEINTERLACE_AUTO_DOUBLE },
+    { _T("advanced"), MFX_DEINTERLACE_ADVANCED },
+    { _T("advanced_noref"), MFX_DEINTERLACE_ADVANCED_NOREF },
+    { _T("advanced_scd"), MFX_DEINTERLACE_ADVANCED_SCD },
     { NULL, 0 }
 };
 
