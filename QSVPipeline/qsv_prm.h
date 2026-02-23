@@ -62,6 +62,8 @@ enum {
     MFX_DEINTERLACE_ADVANCED    = 7,
     MFX_DEINTERLACE_ADVANCED_NOREF = 8,
     MFX_DEINTERLACE_ADVANCED_SCD = 9,
+    MFX_DEINTERLACE_FULL_FR_OUT = 10,
+    MFX_DEINTERLACE_HALF_FR_OUT = 11,
 };
 
 enum class RGYMFX_DEINTERLACE_MODE : uint32_t {
@@ -595,6 +597,8 @@ const CX_DESC list_deinterlace[] = {
     { _T("advanced"), MFX_DEINTERLACE_ADVANCED },
     { _T("advanced_noref"), MFX_DEINTERLACE_ADVANCED_NOREF },
     { _T("advanced_scd"), MFX_DEINTERLACE_ADVANCED_SCD },
+    { _T("simple_bob"), MFX_DEINTERLACE_FULL_FR_OUT },
+    { _T("simple"), MFX_DEINTERLACE_HALF_FR_OUT },
     { NULL, 0 }
 };
 

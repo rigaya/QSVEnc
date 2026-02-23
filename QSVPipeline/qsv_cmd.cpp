@@ -152,14 +152,14 @@ tstring gen_cmd_help_vppmfx() {
         _T("                                     \"32\", \"2332\", \"repeat\", \"41\"\n")
 #endif
         _T("                                 - bob      double framerate\n")
-#if ENABLE_ADVANCED_DEINTERLACE
         _T("                                 - auto     auto deinterlace\n")
         _T("                                 - auto_double auto bob deinterlace\n")
         _T("                                 - auto-bob  alias of auto_double\n")
         _T("                                 - advanced advanced deinterlace\n")
         _T("                                 - advanced_noref advanced deinterlace (no refs)\n")
         _T("                                 - advanced_scd advanced deinterlace (scene change detection)\n")
-#endif
+        _T("                                 - simple    deinterlace only mode\n")
+        _T("                                 - simple_bob deinterlace only mode\n")
 #if ENABLE_FPS_CONVERSION
         _T("   --vpp-fps-conv <string>      set fps conversion mode\n")
         _T("                                enabled only when input is progressive\n")
@@ -737,7 +737,7 @@ int parse_one_vppmfx_option(const TCHAR *option_name, const TCHAR *strInput[], i
         i++;
         int value = get_value_from_chr(list_deinterlace, strInput[i]);
         if (PARSE_ERROR_FLAG == value) {
-            print_cmd_error_invalid_value(option_name, strInput[i]);
+            print_cmd_error_invalid_value(option_name, strInput[i], list_deinterlace);
             return 1;
         }
         vppmfx->bEnable = true;
