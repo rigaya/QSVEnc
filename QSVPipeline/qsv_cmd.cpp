@@ -2254,7 +2254,7 @@ int parse_cmd(sInputParams *pParams, const char *cmda, bool ignore_parse_err) {
 #endif
 
 
-tstring gen_cmd(const sVppParams *param, const sVppParams *defaultPrm, RGY_VPP_RESIZE_ALGO resize_algo, bool save_disabled_prm) {
+tstring gen_cmd(const sVppParams *param, const sVppParams *defaultPrm, RGY_VPP_RESIZE_ALGO resize_algo, bool save_disabled_prm, RGYDisableGenCmdFlags disable_flags) {
 #define OPT_FLOAT(str, opt, prec) if ((param->opt) != (defaultPrm->opt)) cmd << _T(" ") << (str) << _T(" ") << std::setprecision(prec) << (param->opt);
 #define OPT_NUM(str, opt) if ((param->opt) != (defaultPrm->opt)) cmd << _T(" ") << (str) << _T(" ") << (int)(param->opt);
 #define OPT_LST(str, opt, list) if ((param->opt) != (defaultPrm->opt)) cmd << _T(" ") << (str) << _T(" ") << get_chr_from_value(list, (param->opt));
@@ -2269,8 +2269,8 @@ tstring gen_cmd(const sVppParams *param, const sVppParams *defaultPrm, RGY_VPP_R
 #define OPT_TSTR(str, opt) if (param->opt.length() > 0) cmd << _T(" ") << str << _T(" ") << param->opt.c_str();
 #define OPT_CHAR(str, opt) if ((param->opt) && _tcslen(param->opt)) cmd << _T(" ") << str << _T(" ") << char_to_tstring(param->opt);
 #define OPT_STR(str, opt) if (param->opt.length() > 0) cmd << _T(" ") << str << _T(" ") << char_to_tstring(param->opt).c_str();
-#define OPT_CHAR_PATH(str, opt) if ((param->opt) && _tcslen(param->opt)) cmd << _T(" ") << str << _T(" \"") << (param->opt) << _T("\"");
-#define OPT_STR_PATH(str, opt) if (param->opt.length() > 0) cmd << _T(" ") << str << _T(" \"") << (param->opt.c_str()) << _T("\"");
+#define OPT_CHAR_PATH(str, opt) if (!rgy_disable_gen_cmd(disable_flags, RGYDisableGenCmdFlags::FilePath) && (param->opt) && _tcslen(param->opt)) cmd << _T(" ") << str << _T(" \"") << (param->opt) << _T("\"");
+#define OPT_STR_PATH(str, opt) if (!rgy_disable_gen_cmd(disable_flags, RGYDisableGenCmdFlags::FilePath) && param->opt.length() > 0) cmd << _T(" ") << str << _T(" \"") << (param->opt.c_str()) << _T("\"");
 
 #define ADD_NUM(str, opt) if ((param->opt) != (defaultPrm->opt)) tmp << _T(",") << (str) << _T("=") << (param->opt);
 #define ADD_LST(str, opt, list) if ((param->opt) != (defaultPrm->opt)) tmp << _T(",") << (str) << _T("=") << get_chr_from_value(list, (param->opt));
@@ -2417,7 +2417,7 @@ tstring gen_cmd(const sVppParams *param, const sVppParams *defaultPrm, RGY_VPP_R
 
 #pragma warning (push)
 #pragma warning (disable: 4127)
-tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
+tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm, RGYDisableGenCmdFlags disable_flags) {
     std::basic_stringstream<TCHAR> tmp;
     std::basic_stringstream<TCHAR> cmd;
     sInputParams encPrmDefault;
@@ -2457,8 +2457,8 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
 }
 #define OPT_CHAR(str, opt) if ((pParams->opt) && (pParams->opt[0] != 0)) cmd << _T(" ") << str << _T(" ") << (pParams->opt);
 #define OPT_STR(str, opt) if (pParams->opt.length() > 0) cmd << _T(" ") << str << _T(" ") << (pParams->opt.c_str());
-#define OPT_CHAR_PATH(str, opt) if ((pParams->opt) && (pParams->opt[0] != 0)) cmd << _T(" ") << str << _T(" \"") << (pParams->opt) << _T("\"");
-#define OPT_STR_PATH(str, opt) if (pParams->opt.length() > 0) cmd << _T(" ") << str << _T(" \"") << (pParams->opt.c_str()) << _T("\"");
+#define OPT_CHAR_PATH(str, opt) if (!rgy_disable_gen_cmd(disable_flags, RGYDisableGenCmdFlags::FilePath) && (pParams->opt) && (pParams->opt[0] != 0)) cmd << _T(" ") << str << _T(" \"") << (pParams->opt) << _T("\"");
+#define OPT_STR_PATH(str, opt) if (!rgy_disable_gen_cmd(disable_flags, RGYDisableGenCmdFlags::FilePath) && pParams->opt.length() > 0) cmd << _T(" ") << str << _T(" \"") << (pParams->opt.c_str()) << _T("\"");
 
     OPT_NUM(_T("-d"), device);
     if (pParams->codec == RGY_CODEC_AVCODEC) {
@@ -2467,7 +2467,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
         cmd << _T(" -c ") << get_chr_from_value(list_codec_rgy, pParams->codec);
     }
 
-    cmd << gen_cmd(&pParams->input, &encPrmDefault.input, &pParams->inprm, &encPrmDefault.inprm, save_disabled_prm);
+    cmd << gen_cmd(&pParams->input, &encPrmDefault.input, &pParams->inprm, &encPrmDefault.inprm, save_disabled_prm, disable_flags);
 
     OPT_LST(_T("--output-depth"), outputDepth, list_output_depth);
     OPT_LST(_T("--output-csp"), outputCsp, list_output_csp);
@@ -2688,9 +2688,9 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     OPT_LST(_T("--session-thread-priority"), nSessionThreadPriority, list_priority);
 #endif //#if ENABLE_SESSION_THREAD_CONFIG
 
-    cmd << gen_cmd(&pParams->common, &encPrmDefault.common, save_disabled_prm);
-    cmd << gen_cmd(&pParams->vppmfx, &encPrmDefault.vppmfx, pParams->vpp.resize_algo, save_disabled_prm);
-    cmd << gen_cmd(&pParams->vpp, &encPrmDefault.vpp, save_disabled_prm);
+    cmd << gen_cmd(&pParams->common, &encPrmDefault.common, save_disabled_prm, disable_flags);
+    cmd << gen_cmd(&pParams->vppmfx, &encPrmDefault.vppmfx, pParams->vpp.resize_algo, save_disabled_prm, disable_flags);
+    cmd << gen_cmd(&pParams->vpp, &encPrmDefault.vpp, save_disabled_prm, disable_flags);
 
 #if defined(_WIN32) || defined(_WIN64)
     OPT_NUM(_T("--mfx-thread"), nSessionThreads);
@@ -2698,7 +2698,9 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm) {
     OPT_BOOL(_T("--gpu-copy"), _T(""), gpuCopy);
     OPT_NUM(_T("--input-buf"), nInputBufSize);
 
-    cmd << gen_cmd(&pParams->ctrl, &encPrmDefault.ctrl, save_disabled_prm);
+    if (!rgy_disable_gen_cmd(disable_flags, RGYDisableGenCmdFlags::CtrlPrms)) {
+        cmd << gen_cmd(&pParams->ctrl, &encPrmDefault.ctrl, save_disabled_prm, disable_flags);
+    }
 
     OPT_BOOL(_T("--timer-period-tuning"), _T("--no-timer-period-tuning"), bDisableTimerPeriodTuning);
     return cmd.str();

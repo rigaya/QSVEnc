@@ -53,6 +53,7 @@ RGY_DISABLE_WARNING_POP
 #include "qsv_pipeline_ctrl.h"
 #include "qsv_session.h"
 #include "qsv_query.h"
+#include "qsv_cmd.h"
 #include "rgy_def.h"
 #include "rgy_env.h"
 #include "rgy_device_info_cache.h"
@@ -1846,6 +1847,11 @@ RGY_ERR CQSVPipeline::InitOutput(sInputParams *inputParams) {
         return RGY_ERR_UNSUPPORTED;
     }
 
+    auto muxerCmdline = tstring();
+    if (inputParams->common.muxerAddCmd) {
+        muxerCmdline = trim(gen_cmd(inputParams, false, RGYDisableGenCmdFlags::FilePath | RGYDisableGenCmdFlags::CtrlPrms | RGYDisableGenCmdFlags::InputPrms));
+    }
+
     err = initWriters(m_pFileWriter, m_pFileWriterListAudio, m_pFileReader, m_AudioReaders,
         &inputParams->common, &inputParams->input, &inputParams->ctrl, outputVideoInfo,
         m_trimParam, m_outputTimebase,
@@ -1855,7 +1861,7 @@ RGY_ERR CQSVPipeline::InitOutput(sInputParams *inputParams) {
         m_hdrseiOut.get(), m_hdr10plus.get(), m_dovirpu.get(), m_encTimestamp.get(),
         !check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6),
         inputParams->bBenchmark, false, 0, false,
-        m_poolPkt.get(), m_poolFrame.get(),
+        muxerCmdline, m_poolPkt.get(), m_poolFrame.get(),
         m_pStatus, m_pPerfMonitor, m_pQSVLog);
     if (err != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("failed to initialize file reader(s).\n"));

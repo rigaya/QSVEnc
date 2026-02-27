@@ -41,7 +41,7 @@ int parse_cmd(sInputParams *pParams, const wchar_t *cmdw, bool ignore_parse_err 
 int parse_cmd(sInputParams *pParams, const char *cmda, bool ignore_parse_err = false);
 #endif
 
-tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm);
+tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm, RGYDisableGenCmdFlags disable_flags = RGYDisableGenCmdFlags::None);
 
 tstring gen_cmd_help_vppmfx();
 

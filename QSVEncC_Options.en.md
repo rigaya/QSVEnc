@@ -201,6 +201,7 @@
   - [--metadata \<string\> or \<string\>=\<string\>](#--metadata-string-or-stringstring)
   - [--avsync \<string\>](#--avsync-string)
   - [--timestamp-passthrough](#--timestamp-passthrough)
+  - [--muxer-add-cmd](#--muxer-add-cmd)
   - [--timecode \[\<string\>\]](#--timecode-string)
   - [--tcfile-in \<string\>](#--tcfile-in-string)
   - [--timebase \<int\>/\<int\>](#--timebase-intint)
@@ -1704,6 +1705,9 @@ Set global metadata for output file.
 ### --timestamp-passthrough  
 
 Passthrough original timestamp. Implies ```--avsync vfr```.
+
+### --muxer-add-cmd
+Append input command line parameters to `encoding_tool` in muxer metadata.
 
 ### --timecode [&lt;string&gt;]  
   Write timecode file to the specified path. If the path is not set, it will be written to "&lt;output file path&gt;.timecode.txt".
