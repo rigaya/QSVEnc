@@ -14,6 +14,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - dockerimg: ubuntu2004
+            pkgtype: deb
           - dockerimg: ubuntu2204
             pkgtype: deb
           - dockerimg: ubuntu2404
@@ -86,9 +88,7 @@ jobs:
             -u "$(id -u):$(id -g)" \
             --workdir /work \
             --name build_pkg ${{ steps.prep.outputs.base_image }}
-          docker exec build_pkg bash -lc '
-            FFPKG="${{ env.FFMPEG_PREFIX }}/lib/pkgconfig:${{ env.FFMPEG_PREFIX }}/lib/x86_64-linux-gnu/pkgconfig"
-            export PKG_CONFIG_PATH="${FFPKG}${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
+          docker exec -e PKG_CONFIG_PATH=${{ env.FFMPEG_PREFIX }}/lib/pkgconfig build_pkg bash -lc '
             meson setup ./build . --buildtype=release -Db_lto=true -Dcpp_args="['\''-I/work/AviSynthPlus/avs_core/include'\'','\''-I/work/vapoursynth/include'\'']"
           '
           docker exec build_pkg bash -lc "meson compile -C ./build -j${{ steps.prep.outputs.nproc }}"
