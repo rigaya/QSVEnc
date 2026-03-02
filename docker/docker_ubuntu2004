@@ -1,17 +1,36 @@
 FROM ubuntu:20.04
 
 ARG DEBIAN_FRONTEND=noninteractive
+ARG FFMPEG_DLL_REPO=https://github.com/rigaya/build_scripts.git
+ARG FFMPEG_DLL_REF=master
+ARG BUILD_SCRIPTS_DIR=/opt/build_scripts
+ARG FFMPEG_PREFIX=/opt/build_scripts/ffmpeg_dll/build_ffmpeg_dll/x64/build
 
 RUN apt-get update \
-    && apt install -y --no-install-recommends \
+    && apt-get install -y --no-install-recommends \
       wget \
       curl \
       git \
       ca-certificates \
+      gnupg \
+      lsb-release \
+      autogen \
+      autoconf \
+      automake \
+      libtool \
+      autopoint gettext \
+      make \
       pkg-config \
-      meson \
-      ninja-build \
-      cmake \
+      nasm \
+      yasm \
+      patch \
+      xz-utils \
+      p7zip-full \
+      unzip \
+      bzip2 \
+      python3 \
+      python3-pip \
+      gperf \
       intel-media-va-driver-non-free \
       libva-drm2 \
       libva-x11-2 \
@@ -22,22 +41,25 @@ RUN apt-get update \
       libdrm-dev \
       opencl-headers \
       build-essential \
-      libavcodec58 \
-      libavcodec-dev \
-      libavutil56 \
-      libavutil-dev \
-      libavformat58 \
-      libavformat-dev \
-      libswresample3 \
-      libswresample-dev \
-      libavfilter7 \
-      libavfilter-dev \
-      libavdevice58 \
-      libavdevice-dev \
-      libass9 \
-      libass-dev \
       openssl \
       libssl-dev \
+    \
+    && wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc \
+        | gpg --dearmor \
+        > /usr/share/keyrings/kitware-archive-keyring.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] \
+        https://apt.kitware.com/ubuntu/ $(lsb_release -cs) main" \
+        > /etc/apt/sources.list.d/kitware.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends cmake \
+    \
+    && python3 -m pip install --upgrade pip \
+    && python3 -m pip install --upgrade meson ninja \
+    \
+    && cmake --version \
+    && meson --version \
+    && which meson \
+    \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -51,5 +73,16 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
     && /usr/local/cargo/bin/cargo --version \
     && /usr/local/cargo/bin/cargo install cargo-c --version '0.10.18+cargo-0.92.0' --locked \
     && /usr/local/cargo/bin/cargo cbuild --version
+
+RUN git clone --depth 1 --branch ${FFMPEG_DLL_REF} ${FFMPEG_DLL_REPO} ${BUILD_SCRIPTS_DIR} \
+    && cd ${BUILD_SCRIPTS_DIR}/ffmpeg_dll \
+    && sed -i 's/\r$//' ./build_ffmpeg_dll.sh \
+    && export NUMBER_OF_PROCESSORS="$(nproc)" \
+    && bash ./build_ffmpeg_dll.sh --skip-src-archive --disable-pgo \
+    && test -f "${FFMPEG_PREFIX}/lib/pkgconfig/libavutil.pc" \
+    && find "${BUILD_SCRIPTS_DIR}" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll" -exec rm -rf {} + \
+    && find "${BUILD_SCRIPTS_DIR}/ffmpeg_dll" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_ffmpeg_dll" -exec rm -rf {} + \
+    && find "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_ffmpeg_dll" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_ffmpeg_dll/x64" -exec rm -rf {} + \
+    && find "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_ffmpeg_dll/x64" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_ffmpeg_dll/x64/build" -exec rm -rf {} +
 
 WORKDIR /work

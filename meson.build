@@ -153,8 +153,16 @@ if enable_avisynth and not have_avisynth_headers
   error('AviSynth headers not found (avisynth_c.h)')
 endif
 libass_dep = dependency('libass', required: enable_libass)
-vulkan_dep = dependency('vulkan', required: enable_vulkan)
-libplacebo_dep = dependency('libplacebo', required: enable_libplacebo)
+if enable_vulkan
+  vulkan_dep = dependency('vulkan', required: true)
+else
+  vulkan_dep = disabler()
+endif
+if enable_libplacebo
+  libplacebo_dep = dependency('libplacebo', required: true)
+else
+  libplacebo_dep = disabler()
+endif
 
 if libplacebo_dep.found()
   placebo_api_check = '''

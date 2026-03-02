@@ -4,7 +4,7 @@ PACKAGE_NAME=qsvencc
 PACKAGE_BIN=qsvencc
 PACKAGE_OS=
 PACKAGE_MAINTAINER=rigaya
-PACKAGE_DEPENDS="ffmpeg-libs"
+PACKAGE_DEPENDS="libva"
 PACKAGE_DESCRIPTION=
 PACKAGE_ROOT=.rpmpkg
 PACKAGE_VERSION=`git describe --tags | cut -f 1 --delim="-"`
