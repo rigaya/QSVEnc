@@ -19,8 +19,6 @@ RUN dnf update -y \
       gcc-c++ \
       gperf \
       cmake \
-      meson \
-      ninja-build \
       autogen \
       autoconf \
       automake \
