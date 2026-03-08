@@ -749,6 +749,7 @@ enum AuoMes {
         AuofcgCBSsim,
         AuofcgCBAvoidIdleClock,
         AuotabPageExOpt,
+        AuofcggroupBoxCmdEx,
         AuofcgCBAuoTcfileout,
         AuofcgCBBenchmarkMode,
         AuofcgLBInputBufSize,

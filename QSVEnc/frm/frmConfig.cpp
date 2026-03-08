@@ -905,6 +905,7 @@ System::Void frmConfig::SetTXMaxLen(TextBox^ TX, int max_len) {
 System::Void frmConfig::SetTXMaxLenAll() {
     //MaxLengthに最大文字数をセットし、それをもとにバイト数計算を行うイベントをセットする。
     SetTXMaxLen(fcgTXVideoEncoderPath,   _countof(sys_dat->exstg->s_enc.fullpath) - 1);
+    SetTXMaxLen(fcgTXCmdEx,              _countof(CONF_VIDEO::cmdex) - 1);
     SetTXMaxLen(fcgTXAudioEncoderPath,   _countof(sys_dat->exstg->s_aud_ext[0].fullpath) - 1);
     SetTXMaxLen(fcgTXMP4MuxerPath,       _countof(sys_dat->exstg->s_mux[MUXER_MP4].fullpath) - 1);
     SetTXMaxLen(fcgTXMKVMuxerPath,       _countof(sys_dat->exstg->s_mux[MUXER_MKV].fullpath) - 1);
@@ -1635,6 +1636,7 @@ System::Void frmConfig::LoadLangText() {
     LOAD_CLI_TEXT(fcgCBSsim);
     LOAD_CLI_TEXT(fcgCBAvoidIdleClock);
     LOAD_CLI_TEXT(tabPageExOpt);
+    LOAD_CLI_TEXT(fcggroupBoxCmdEx);
     LOAD_CLI_TEXT(fcgCBAuoTcfileout);
     LOAD_CLI_TEXT(fcgCBBenchmarkMode);
     LOAD_CLI_TEXT(fcgLBInputBufSize);
@@ -1979,6 +1981,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         fcgTXBatBeforePath->Text           = String(cnf->oth.batfile.before_process).ToString();
         fcgTXBatAfterPath->Text            = String(cnf->oth.batfile.after_process).ToString();
         fcgCBBenchmarkMode->Checked        = cnf->oth.benchmark_mode != 0;
+        fcgTXCmdEx->Text                   = String(cnf->vid.cmdex).ToString();
 
         SetfcgTSLSettingsNotes(cnf->oth.notes);
 
@@ -2260,6 +2263,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     cnf->oth.benchmark_mode            = fcgCBBenchmarkMode->Checked;
 
     GetfcgTSLSettingsNotes(cnf->oth.notes, _countof(cnf->oth.notes));
+    GetWCHARfromString(cnf->vid.cmdex, _countof(cnf->vid.cmdex), fcgTXCmdEx->Text);
     _tcscpy_s(cnf->enc.cmd, gen_cmd(&prm_qsv, true).c_str());
 
     return String(gen_cmd(&prm_qsv, false).c_str()).ToString();

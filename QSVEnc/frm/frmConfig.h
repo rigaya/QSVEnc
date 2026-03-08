@@ -644,6 +644,8 @@ private: System::Windows::Forms::Label^  fcgLBTransfer;
 private: System::Windows::Forms::Label^  fcgLBColorPrim;
 private: System::Windows::Forms::Label^  fcgLBColorMatrix;
 private: System::Windows::Forms::TabPage^  tabPageExOpt;
+private: System::Windows::Forms::GroupBox^  fcggroupBoxCmdEx;
+private: System::Windows::Forms::TextBox^  fcgTXCmdEx;
 private: System::Windows::Forms::Label^  fcgLBTempDir;
 
 private: System::Windows::Forms::Button^  fcgBTCustomTempDir;
@@ -1985,6 +1987,8 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             this->fcgTXCmd = (gcnew System::Windows::Forms::TextBox());
             this->fcgPNHideToolStripBorder = (gcnew System::Windows::Forms::Panel());
             this->fcgCBBenchmarkMode = (gcnew System::Windows::Forms::CheckBox());
+            this->fcggroupBoxCmdEx = (gcnew System::Windows::Forms::GroupBox());
+            this->fcgTXCmdEx = (gcnew System::Windows::Forms::TextBox());
             this->fcgtoolStripSettings->SuspendLayout();
             this->fcgtabControlMux->SuspendLayout();
             this->fcgtabPageMP4->SuspendLayout();
@@ -2110,6 +2114,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUResizeH))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUResizeW))->BeginInit();
             this->tabPageExOpt->SuspendLayout();
+            this->fcggroupBoxCmdEx->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUInputBufSize))->BeginInit();
             this->tabPageFeatures->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgDGVFeatures))->BeginInit();
@@ -6356,6 +6361,7 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             // tabPageExOpt
             // 
             this->tabPageExOpt->Controls->Add(this->fcgCBBenchmarkMode);
+            this->tabPageExOpt->Controls->Add(this->fcggroupBoxCmdEx);
             this->tabPageExOpt->Controls->Add(this->fcgCBAvoidIdleClock);
             this->tabPageExOpt->Controls->Add(this->fcgCBPsnr);
             this->tabPageExOpt->Controls->Add(this->fcgCBSsim);
@@ -6378,6 +6384,28 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             this->tabPageExOpt->TabIndex = 1;
             this->tabPageExOpt->Text = L"その他";
             this->tabPageExOpt->UseVisualStyleBackColor = true;
+            // 
+            // fcggroupBoxCmdEx
+            // 
+            this->fcggroupBoxCmdEx->Controls->Add(this->fcgTXCmdEx);
+            this->fcggroupBoxCmdEx->Location = System::Drawing::Point(10, 267);
+            this->fcggroupBoxCmdEx->Name = L"fcggroupBoxCmdEx";
+            this->fcggroupBoxCmdEx->Size = System::Drawing::Size(589, 220);
+            this->fcggroupBoxCmdEx->TabIndex = 110;
+            this->fcggroupBoxCmdEx->TabStop = false;
+            this->fcggroupBoxCmdEx->Text = L"追加コマンド";
+            // 
+            // fcgTXCmdEx
+            // 
+            this->fcgTXCmdEx->AllowDrop = true;
+            this->fcgTXCmdEx->Font = (gcnew System::Drawing::Font(L"ＭＳ ゴシック", 9, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
+                static_cast<System::Byte>(128)));
+            this->fcgTXCmdEx->Location = System::Drawing::Point(6, 20);
+            this->fcgTXCmdEx->Multiline = true;
+            this->fcgTXCmdEx->Name = L"fcgTXCmdEx";
+            this->fcgTXCmdEx->Size = System::Drawing::Size(577, 191);
+            this->fcgTXCmdEx->TabIndex = 0;
+            this->fcgTXCmdEx->Tag = L"chValue";
             // 
             // fcgCBAvoidIdleClock
             // 
@@ -7386,6 +7414,8 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             this->fcggroupBoxResize->PerformLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUResizeH))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUResizeW))->EndInit();
+            this->fcggroupBoxCmdEx->ResumeLayout(false);
+            this->fcggroupBoxCmdEx->PerformLayout();
             this->tabPageExOpt->ResumeLayout(false);
             this->tabPageExOpt->PerformLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUInputBufSize))->EndInit();

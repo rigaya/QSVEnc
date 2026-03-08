@@ -214,6 +214,12 @@ static void build_full_cmd(TCHAR *cmd, size_t nSize, const CONF_GUIEX *conf, con
     //apply_guiEx_auto_settings(&prm.x264, oip->w, oip->h, oip->rate, oip->scale, sys_dat->exstg->s_local.auto_ref_limit_by_level);
     //GUI部のコマンドライン生成
     _tcscpy_s(cmd, nSize, gen_cmd(encPrm, false).c_str());
+    //cmdexの処理
+    TCHAR cmdex[sizeof(conf->vid.cmdex)];
+    _tcscpy_s(cmdex, conf->vid.cmdex);
+    cmd_replace(cmdex, _countof(cmdex), pe, sys_dat, conf, oip);
+    replace_cmd_CRLF_to_Space(cmdex, _countof(cmdex) - 1);
+    _stprintf_s(cmd + _tcslen(cmd), nSize - _tcslen(cmd), _T(" %s"), cmdex);
     //出力ファイル
     _stprintf_s(cmd + _tcslen(cmd), nSize - _tcslen(cmd), _T(" -o \"%s\""), pe->temp_filename);
     //入力

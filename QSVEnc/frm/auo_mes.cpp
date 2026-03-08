@@ -663,6 +663,7 @@ static const char * AUO_MES_ID_NAME_STR[] = {
 "AuofcgCBSsim",
 "AuofcgCBAvoidIdleClock",
 "AuotabPageExOpt",
+"AuofcggroupBoxCmdEx",
 "AuofcgCBAuoTcfileout",
 "AuofcgCBBenchmarkMode",
 "AuofcgLBInputBufSize",
