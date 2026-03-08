@@ -2282,13 +2282,6 @@ Activate GPU deinterlacer.
   - normal ... standard 60i → 30p interleave cancellation.
   - it    ... inverse telecine
   - bob ... 60i → 60p interleaved.
-  - auto ... automatic deinterlace with single frame-rate output.
-  - auto_double ... automatic deinterlace with double frame-rate output.
-  - advanced ... advanced deinterlacing mode.
-  - advanced_noref ... advanced deinterlacing mode without reference frames.
-  - advanced_scd ... advanced deinterlacing mode with scene change detection.
-  - simple ... deinterlace only mode
-  - simple_bob ... deinterlace only mode
 
   It is possible to set field pattern explicitly by following settings.
 

@@ -146,12 +146,11 @@ tstring gen_cmd_help_vppmfx() {
     str += strsprintf(_T("")
         _T("                                 - none     disable deinterlace\n")
         _T("                                 - normal   normal deinterlace\n")
+        _T("                                 - bob      double framerate\n")
         _T("                                 - it       inverse telecine\n")
 #if ENABLE_ADVANCED_DEINTERLACE
         _T("                                 - it-manual <string>\n")
         _T("                                     \"32\", \"2332\", \"repeat\", \"41\"\n")
-#endif
-        _T("                                 - bob      double framerate\n")
         _T("                                 - auto     auto deinterlace\n")
         _T("                                 - auto_double auto bob deinterlace\n")
         _T("                                 - auto-bob  alias of auto_double\n")
@@ -160,6 +159,7 @@ tstring gen_cmd_help_vppmfx() {
         _T("                                 - advanced_scd advanced deinterlace (scene change detection)\n")
         _T("                                 - simple    deinterlace only mode\n")
         _T("                                 - simple_bob deinterlace only mode\n")
+#endif
 #if ENABLE_FPS_CONVERSION
         _T("   --vpp-fps-conv <string>      set fps conversion mode\n")
         _T("                                enabled only when input is progressive\n")
