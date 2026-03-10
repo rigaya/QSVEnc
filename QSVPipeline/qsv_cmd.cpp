@@ -131,7 +131,7 @@ tstring gen_cmd_help_vppmfx() {
         _T("     use vpp denoise, short form will set strength(%d - %d)\n")
         _T("    params\n")
         _T("      mode=<string>         denoise mode\n")
-        _T("        auto(default), auto_bdrate, auto_subjective, auto_adjust, pre, post\n")
+        _T("        legacy(default), auto, auto_bdrate, auto_subjective, auto_adjust, pre, post\n")
         _T("      strength=<int>        set strength(%d - %d)\n"),
         QSV_VPP_DENOISE_MIN, QSV_VPP_DENOISE_MAX,
         QSV_VPP_DENOISE_MIN, QSV_VPP_DENOISE_MAX);

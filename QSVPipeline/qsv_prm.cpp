@@ -49,7 +49,7 @@ tstring get_str_of_tune_bitmask(const uint32_t mask) {
 
 VppDenoise::VppDenoise() :
     enable(false),
-    mode(MFX_DENOISE_MODE_DEFAULT),
+    mode(MFX_DENOISE_MODE_LEGACY),
     strength(20) {
 
 }

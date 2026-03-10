@@ -940,6 +940,7 @@ const CX_DESC list_vpp_sub_shaping[] = {
 };
 
 const CX_DESC list_vpp_mfx_denoise_mode[] = {
+    { _T("legacy"),          MFX_DENOISE_MODE_LEGACY },
     { _T("auto"),            MFX_DENOISE_MODE_DEFAULT  },
     { _T("auto_bdrate"),     MFX_DENOISE_MODE_INTEL_HVS_AUTO_BDRATE },
     { _T("auto_subjective"), MFX_DENOISE_MODE_INTEL_HVS_AUTO_SUBJECTIVE },

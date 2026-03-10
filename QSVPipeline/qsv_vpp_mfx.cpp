@@ -204,6 +204,20 @@ RGY_ERR QSVVppMfx::Init() {
         PrintMes(RGY_LOG_WARN, _T("partial acceleration on vpp.\n"));
         err = RGY_ERR_NONE;
     }
+    if (err != RGY_ERR_NONE
+        && m_ExtDenoise2.Header.BufferId == MFX_EXTBUFF_VPP_DENOISE2
+        && m_ExtDenoise2.Mode == MFX_DENOISE_MODE_DEFAULT) {
+        PrintMes(RGY_LOG_WARN, _T("Failed to initialize vpp with denoise mode default, retrying with post mode.\n"));
+        m_ExtDenoise2.Mode = MFX_DENOISE_MODE_INTEL_HVS_POST_MANUAL;
+        m_mfxVPP = std::make_unique<MFXVideoVPP>(m_mfxSession);
+        const auto retry_log_level = logTemporarilyIgnoreErrorMes();
+        err = err_to_rgy(m_mfxVPP->Init(&m_mfxVppParams));
+        m_log->setLogLevelAll(retry_log_level);
+        if (err == RGY_WRN_PARTIAL_ACCELERATION) {
+            PrintMes(RGY_LOG_WARN, _T("partial acceleration on vpp.\n"));
+            err = RGY_ERR_NONE;
+        }
+    }
     if (err != RGY_ERR_NONE) {
         PrintMes(RGY_LOG_ERROR, _T("Failed to initialize vpp: %s.\n"), get_err_mes(err));
         return err;
@@ -306,6 +320,12 @@ RGY_ERR QSVVppMfx::checkVppParams(sVppParams& params, const bool inputInterlaced
             }
             params.denoise.mode = MFX_DENOISE_MODE_LEGACY;
         }
+    }
+
+    if (params.mctf.enable && !(availableFeaures & VPP_FEATURE_MCTF)) {
+        PrintMes(RGY_LOG_WARN, _T("--vpp-mctf not supported on this platform, disabled.\n"));
+        params.mctf.enable = false;
+        params.mctf.strength = 0;
     }
 
     if (params.imageStabilizer && !(availableFeaures & VPP_FEATURE_IMAGE_STABILIZATION)) {
