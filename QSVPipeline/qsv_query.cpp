@@ -207,7 +207,8 @@ static const auto QSV_FEATURE_PARAMS_TO_STR = make_array<std::pair<QSVEncFeature
     QSVFEATURE_2_STR(ENC_FEATURE_HYPER_MODE),
     QSVFEATURE_2_STR(ENC_FEATURE_SCENARIO_INFO),
     QSVFEATURE_2_STR(ENC_FEATURE_TUNE_ENCODE_QUALITY),
-    QSVFEATURE_2_STR(ENC_FEATURE_AI_ENC_CTRL)
+    QSVFEATURE_2_STR(ENC_FEATURE_AI_ENC_CTRL),
+    QSVFEATURE_2_STR(ENC_FEATURE_REPARTITION_CHECK)
 );
 
 MAP_PAIR_0_1(qsv_feature_params, enm, QSVEncFeatureParams, str, tstring, QSV_FEATURE_PARAMS_TO_STR, ENC_FEATURE_PARAMS_NONE, _T("UNKNOWN"));
@@ -1134,6 +1135,7 @@ QSVEncFeatures CheckEncodeFeature(MFXVideoSession& session, const int ratecontro
             CHECK_FEATURE(qsvprm.cop3.AdaptiveLTR,                ENC_FEATURE_ADAPTIVE_LTR,           MFX_CODINGOPTION_ON,         MFX_LIB_VERSION_2_4);
             CHECK_FEATURE(qsvprm.cop3.AdaptiveRef,                ENC_FEATURE_ADAPTIVE_REF,           MFX_CODINGOPTION_ON,         MFX_LIB_VERSION_2_4);
             CHECK_FEATURE(qsvprm.cop3.AdaptiveCQM,                ENC_FEATURE_ADAPTIVE_CQM,           MFX_CODINGOPTION_ON,         MFX_LIB_VERSION_2_2);
+            CHECK_FEATURE(qsvprm.cop3.RepartitionCheckEnable,     ENC_FEATURE_REPARTITION_CHECK,      MFX_CODINGOPTION_ON,         MFX_LIB_VERSION_1_23);
             CHECK_FEATURE(qsvprm.cop3.EnableQPOffset,             ENC_FEATURE_PYRAMID_QP_OFFSET,      MFX_CODINGOPTION_ON,         MFX_LIB_VERSION_1_19);
             if (codec == RGY_CODEC_HEVC) {
                 CHECK_FEATURE(qsvprm.cop3.GPB,                    ENC_FEATURE_DISABLE_GPB,            MFX_CODINGOPTION_ON,         MFX_LIB_VERSION_1_19);

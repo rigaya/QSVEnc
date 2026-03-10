@@ -843,6 +843,10 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         print_feature_warnings(RGY_LOG_WARN, _T("FadeDetect"));
         pInParams->nFadeDetect.reset();
     }
+    if (pInParams->nRepartitionCheck.value_or(false) && !(availableFeaures & ENC_FEATURE_REPARTITION_CHECK)) {
+        print_feature_warnings(RGY_LOG_WARN, _T("RepartitionCheck"));
+        pInParams->nRepartitionCheck.reset();
+    }
     if (pInParams->codec == RGY_CODEC_HEVC) {
         if (pInParams->hevc_ctu > 0 && !(availableFeaures & ENC_FEATURE_HEVC_CTU)) {
             print_feature_warnings(RGY_LOG_WARN, _T("HEVC CTU"));

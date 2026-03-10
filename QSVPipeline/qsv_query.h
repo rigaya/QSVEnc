@@ -323,6 +323,7 @@ enum QSVEncFeatureParams : uint64_t {
     ENC_FEATURE_SCENARIO_INFO          = 0x0000001000000000,
     ENC_FEATURE_TUNE_ENCODE_QUALITY    = 0x0000002000000000,
     ENC_FEATURE_AI_ENC_CTRL            = 0x0000004000000000,
+    ENC_FEATURE_REPARTITION_CHECK      = 0x0000008000000000,
 };
 
 static QSVEncFeatureRCExt operator~(QSVEncFeatureRCExt a) {
@@ -488,6 +489,7 @@ static const FEATURE_DESC list_enc_feature_params[] = {
     { _T("Max CTU Size "), ENC_FEATURE_HEVC_CTU               },
     { _T("TSkip        "), ENC_FEATURE_HEVC_TSKIP             },
     { _T("AI Enc Ctrl  "), ENC_FEATURE_AI_ENC_CTRL            },
+    { _T("RepartCheck  "), ENC_FEATURE_REPARTITION_CHECK      },
     { NULL, 0 },
 };
 static const FEATURE_DESC list_vpp_feature[] = {
