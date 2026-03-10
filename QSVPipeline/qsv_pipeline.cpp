@@ -2193,7 +2193,10 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     filterPipeline.reserve((size_t)VppType::CL_MAX);
 
     if (cspConvRequired || cropRequired) {
-        filterPipeline.push_back((inputParam->outputCsp == RGY_CHROMAFMT_RGB) ? VppType::CL_CROP : VppType::MFX_CROP);
+        // Prefer the MFX path first. RGB output still ends up on AYUV/Y410/Y416
+        // surfaces for QSV, and forcing the OpenCL-only path here makes the
+        // non-filtered rgb cases take a fragile conversion route.
+        filterPipeline.push_back(VppType::MFX_CROP);
     }
     if (inputParam->vpp.colorspace.enable) {
         bool requireOpenCL = inputParam->vpp.colorspace.hdr2sdr.tonemap != HDR2SDR_DISABLED || inputParam->vpp.colorspace.lut3d.table_file.length() > 0;
