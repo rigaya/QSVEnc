@@ -1,4 +1,4 @@
-﻿---------------------------------------------------
+---------------------------------------------------
 
 
 	QSVEnc + QSVEncC
@@ -314,6 +314,21 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2026.03.10 (8.05)
+[QSVEncC]
+- libvplを2.16に更新。
+- 音声ビットレート指定をチャンネルごとに指定できるように。(--audio-bitrate)
+- mux時にencoding_toolsにエンコーダのオプションを記入するオプションを追加。(--muxer-add-cmd)
+- --vpp-denoiseにlegacyモードを追加し、一部環境でエラー終了していた問題を修正。
+- repartition-checkの対応可否を判定して自動無効化するように。
+- RGB処理の取り扱いを改善。
+- Linux向けパッケージでffmpeg関連soへの依存を削除、ffmpeg 8.0ベースに。
+- Linuxでのvapoursynthの読み込みを修正。
+- LinuxのマルチGPU環境で、SIGPIPE(141)でエラー終了する可能性があったのを修正。
+
+[QSVEnc.auo]
+- 追加コマンド欄を追加。
+
 2026.01.03 (8.04)
 [QSVEncC]
 - Vapoursynth API V4に対応。

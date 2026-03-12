@@ -1,5 +1,17 @@
 # QSVEnc Release Notes
 
+## 8.05
+
+- Update libvpl to 2.16.
+- Allow per-channel bitrate specification for audio encoding. ([--audio-bitrate](./QSVEncC_Options.en.md#--audio-bitrate-intstringint))
+- Add option to write encoder command to muxer metadata. ([--muxer-add-cmd](./QSVEncC_Options.en.md#--muxer-add-cmd))
+- Add legacy mode to [--vpp-denoise](./QSVEncC_Options.en.md#--vpp-denoise-int-or-param1value1param2value2) and fix error exit on some environments.
+- Auto-disable repartition-check when not supported by the hardware.
+- Improve RGB processing handling.
+- Linux build will now not require ffmpeg lib packages as dependencies, and change to ffmpeg 8.0 libs.
+- Fix vapoursynth reader corrupted in Linux systems.
+- Fix encoding failing with SIGPIPE(141) on Linux multi GPU systems. 
+
 ## 8.04
 
 - Add support for Vapoursynth API V4.
