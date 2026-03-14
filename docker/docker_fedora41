@@ -5,7 +5,7 @@ ARG LOCAL_USER_ID=1000 \
 ARG FFMPEG_DLL_REPO=https://github.com/rigaya/build_scripts.git
 ARG FFMPEG_DLL_REF=master
 ARG BUILD_SCRIPTS_DIR=/opt/build_scripts
-ARG FFMPEG_PREFIX=/opt/build_scripts/ffmpeg_dll/build_ffmpeg_dll/x64/build
+ARG FFMPEG_PREFIX=/opt/build_scripts/ffmpeg_dll/build_dll/x64/build
 
 RUN dnf update -y \
     && dnf install -y \
@@ -66,9 +66,9 @@ RUN git clone --depth 1 --branch ${FFMPEG_DLL_REF} ${FFMPEG_DLL_REPO} ${BUILD_SC
     && bash ./build_ffmpeg_dll.sh --skip-src-archive \
     && test -f "${FFMPEG_PREFIX}/lib/pkgconfig/libavutil.pc" \
     && find "${BUILD_SCRIPTS_DIR}" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll" -exec rm -rf {} + \
-    && find "${BUILD_SCRIPTS_DIR}/ffmpeg_dll" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_ffmpeg_dll" -exec rm -rf {} + \
-    && find "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_ffmpeg_dll" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_ffmpeg_dll/x64" -exec rm -rf {} + \
-    && find "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_ffmpeg_dll/x64" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_ffmpeg_dll/x64/build" -exec rm -rf {} +
+    && find "${BUILD_SCRIPTS_DIR}/ffmpeg_dll" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_dll" -exec rm -rf {} + \
+    && find "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_dll" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_dll/x64" -exec rm -rf {} + \
+    && find "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_dll/x64" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_dll/x64/build" -exec rm -rf {} +
 
 ENV FFMPEG_PREFIX=${FFMPEG_PREFIX}
 WORKDIR /work
