@@ -1,5 +1,9 @@
 # QSVEnc Release Notes
 
+## 8.06
+
+- Fix DTS:X (dtsx) track not being copyable. ( #256 )
+
 ## 8.05
 
 - Update libvpl to 2.16.
