@@ -15,15 +15,15 @@ if [ -e /etc/lsb-release ]; then
     PACKAGE_OS_CODENAME=`cat /etc/lsb-release | grep DISTRIB_CODENAME | cut -f 2 --delim="="`
     PACKAGE_OS="_${PACKAGE_OS_ID}${PACKAGE_OS_VER}"
     if [ "${PACKAGE_OS_CODENAME}" = "focal" ]; then
-        PACKAGE_DEPENDS="libc6(>=2.29)"
-        PACKAGE_DEPENDS="${PACKAGE_DEPENDS},intel-media-va-driver-non-free,intel-opencl-icd,libmfx1,libmfxgen1"
+        PACKAGE_DEPENDS="libc6(>=2.31)"
+        PACKAGE_DEPENDS="${PACKAGE_DEPENDS},intel-media-va-driver-non-free,intel-opencl-icd,libmfx1,libmfxgen1|libmfx-gen1.2"
         PACKAGE_DEPENDS="${PACKAGE_DEPENDS},libva-drm2,libva-x11-2,libigfxcmrt7"
     elif [ "${PACKAGE_OS_CODENAME}" = "jammy" ]; then
-        PACKAGE_DEPENDS="libc6(>=2.29)"
+        PACKAGE_DEPENDS="libc6(>=2.31)"
         PACKAGE_DEPENDS="${PACKAGE_DEPENDS},intel-media-va-driver-non-free,intel-opencl-icd,libmfx1,libmfxgen1|libmfx-gen1.2"
         PACKAGE_DEPENDS="${PACKAGE_DEPENDS},libva-drm2,libva-x11-2,libigfxcmrt7"
     elif [ "${PACKAGE_OS_CODENAME}" = "noble" ]; then
-        PACKAGE_DEPENDS="libc6(>=2.22)" 
+        PACKAGE_DEPENDS="libc6(>=2.31)"
         PACKAGE_DEPENDS="${PACKAGE_DEPENDS},intel-media-va-driver-non-free,intel-opencl-icd,libmfx1,libmfxgen1|libmfx-gen1.2"
         PACKAGE_DEPENDS="${PACKAGE_DEPENDS},libva-drm2,libva-x11-2,libigfxcmrt7"
     else
@@ -53,5 +53,5 @@ mkdir -p ${PACKAGE_ROOT}/usr/bin
 cp ${PACKAGE_BIN} ${PACKAGE_ROOT}/usr/bin
 chmod +x ${PACKAGE_ROOT}/usr/bin/${PACKAGE_BIN}
 
-DEB_FILE="${PACKAGE_NAME}_${PACKAGE_VERSION}${PACKAGE_OS}_${PACKAGE_ARCH}.deb"
+DEB_FILE="${PACKAGE_NAME}_${PACKAGE_VERSION}_${PACKAGE_ARCH}.deb"
 dpkg-deb -b "${PACKAGE_ROOT}" "${DEB_FILE}"

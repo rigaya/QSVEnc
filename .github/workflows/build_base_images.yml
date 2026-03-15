@@ -15,8 +15,6 @@ jobs:
       matrix:
         include:
           - dockerimg: ubuntu2004
-          - dockerimg: ubuntu2204
-          - dockerimg: ubuntu2404
           - dockerimg: fedora41
 
     env:
