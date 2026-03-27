@@ -1,5 +1,10 @@
 # QSVEnc Release Notes
 
+## 8.07
+
+- Query VPP capabilities separately for 8-bit and 10-bit pixel formats. ( #174, #278 )
+- Improve detection of multi-channel audio channel layouts.
+
 ## 8.06
 
 - Fix DTS:X (dtsx) track not being copyable. ( #256 )
