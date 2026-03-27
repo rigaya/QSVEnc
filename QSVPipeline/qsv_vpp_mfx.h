@@ -71,7 +71,7 @@ protected:
     RGY_ERR SetMFXFrameOut(mfxFrameInfo& mfxOut, const sVppParams& params, const RGYFrameInfo& frameOut, const mfxFrameInfo& frameIn, const int blockSize);
     RGY_ERR SetVppExtBuffers(sVppParams& params);
     RGY_ERR InitMfxVppParams(const sVppParams& params, const mfxFrameInfo& mfxOut, const mfxFrameInfo& mfxIn);
-    RGY_ERR checkVppParams(sVppParams& params, const bool inputInterlaced);
+    RGY_ERR checkVppParams(sVppParams& params, const bool inputInterlaced, const mfxU64 availableFeaures);
 
     void PrintMes(RGYLogLevel log_level, const TCHAR *format, ...);
     int clamp_param_int(int value, int low, int high, const TCHAR *param_name);

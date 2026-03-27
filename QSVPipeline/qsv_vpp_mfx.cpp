@@ -143,14 +143,29 @@ RGY_ERR QSVVppMfx::SetParam(
         return err;
     }
 
-    err = checkVppParams(params, (frameIn.picstruct & RGY_PICSTRUCT_INTERLACED) != 0);
-    if (err != RGY_ERR_NONE) {
-        return err;
-    }
-
     VppExtMes.clear();
 
     auto mfxIn = SetMFXFrameIn(frameIn, crop, infps, sar, deinterlaceMode, blockSize);
+
+    mfxFrameInfo mfxOutQuery;
+    if ((err = SetMFXFrameOut(mfxOutQuery, params, frameOut, mfxIn, blockSize)) != RGY_ERR_NONE) {
+        return err;
+    }
+
+    mfxVideoParam queryVideoPrm;
+    RGY_MEMSET_ZERO(queryVideoPrm);
+    queryVideoPrm.AsyncDepth = (mfxU16)((m_asyncDepth > 0) ? m_asyncDepth : 3);
+    queryVideoPrm.IOPattern = (m_memType != SYSTEM_MEMORY) ?
+        MFX_IOPATTERN_IN_VIDEO_MEMORY | MFX_IOPATTERN_OUT_VIDEO_MEMORY :
+        MFX_IOPATTERN_IN_SYSTEM_MEMORY | MFX_IOPATTERN_OUT_SYSTEM_MEMORY;
+    queryVideoPrm.vpp.In = mfxIn;
+    queryVideoPrm.vpp.Out = mfxOutQuery;
+    const auto availableFeaures = CheckVppFeatures(m_mfxSession, queryVideoPrm);
+
+    err = checkVppParams(params, (frameIn.picstruct & RGY_PICSTRUCT_INTERLACED) != 0, availableFeaures);
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
 
     mfxFrameInfo mfxOut;
     if ((err = SetMFXFrameOut(mfxOut, params, frameOut, mfxIn, blockSize)) != RGY_ERR_NONE) {
@@ -287,8 +302,7 @@ RGY_ERR QSVVppMfx::InitMFXSession() {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR QSVVppMfx::checkVppParams(sVppParams& params, const bool inputInterlaced) {
-    const auto availableFeaures = CheckVppFeatures(m_mfxSession);
+RGY_ERR QSVVppMfx::checkVppParams(sVppParams& params, const bool inputInterlaced, const mfxU64 availableFeaures) {
 #if ENABLE_FPS_CONVERSION
     if (FPS_CONVERT_NONE != params.nFPSConversion && !(availableFeaures & VPP_FEATURE_FPS_CONVERSION_ADV)) {
         PrintMes(RGY_LOG_WARN, _T("FPS Conversion not supported on this platform, disabled.\n"));
@@ -326,6 +340,11 @@ RGY_ERR QSVVppMfx::checkVppParams(sVppParams& params, const bool inputInterlaced
         PrintMes(RGY_LOG_WARN, _T("--vpp-mctf not supported on this platform, disabled.\n"));
         params.mctf.enable = false;
         params.mctf.strength = 0;
+    }
+
+    if (params.percPreEnc && !(availableFeaures & VPP_FEATURE_PERC_ENC_PRE)) {
+        PrintMes(RGY_LOG_WARN, _T("--vpp-perc-pre-enc not supported for current VPP input/output format, disabled.\n"));
+        params.percPreEnc = false;
     }
 
     if (params.imageStabilizer && !(availableFeaures & VPP_FEATURE_IMAGE_STABILIZATION)) {
