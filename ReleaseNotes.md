@@ -1,5 +1,9 @@
 # QSVEnc Release Notes
 
+## 8.08
+
+- Add more vpy reader error messages. ( #284 )
+
 ## 8.07
 
 - Query VPP capabilities separately for 8-bit and 10-bit pixel formats. ( #174, #278 )
