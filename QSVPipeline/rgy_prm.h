@@ -80,7 +80,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_DELOGO_MULTIADD  (             ENCODER_NVENC)
 #define ENABLE_VPP_ORDER                   (CLFILTERS_AUF)
 
-#define ENABLE_PARALLEL_ENC            (ENCODER_QSV   || ENCODER_NVENC || (ENCODER_VCEENC && ENABLE_D3D11))
+#define ENABLE_PARALLEL_ENC            (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC)
 
 enum class VppType : int {
     VPP_NONE,
@@ -2593,6 +2593,7 @@ struct RGYParamParallelEnc {
     int parallelCount; // 並列処理数
     int parallelId; // 親=-1, 子=0～
     int chunks; // 分割数
+    int targetBFrames; // 親で確定した実効Bフレーム数 (子GPU選択用)
     std::vector<RGYParamParallelEncPipeHandle> chunkPipeHandles; // 各チャンクの先頭のフレームID (raw読み込み時に使用)
     RGYParamParallelEncCache cacheMode;
     bool delayChildSync; // 親-子間のデータやり取りを少し遅らせる
