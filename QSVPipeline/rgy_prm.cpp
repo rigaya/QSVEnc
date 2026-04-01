@@ -2445,6 +2445,7 @@ RGYParamControl::RGYParamControl() :
     skipHWDecodeCheck(false),
     avsdll(),
     vsdir(),
+    vpyAssumeScriptDir(false),
     enableOpenCL(true),
     enableVulkan(RGYParamInitVulkan::TargetVendor),
     openclBuildThreads(0),

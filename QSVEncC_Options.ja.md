@@ -280,6 +280,7 @@
   - [--fallback-bitdepth](#--fallback-bitdepth)
   - [--avsdll \<string\>](#--avsdll-string)
   - [--vsdir \<string\> \[Windows専用\]](#--vsdir-string-windows専用)
+  - [--vpy-assume-script-dir](#--vpy-assume-script-dir)
   - [--process-codepage \<string\>](#--process-codepage-string)
   - [--task-perf-monitor](#--task-perf-monitor)
   - [--perf-monitor \[\<string\>\[,\<string\>\]...\]](#--perf-monitor-stringstring)
@@ -3501,6 +3502,9 @@ avsw/avhw読み込み時のデバッグ情報出力。
 
 ### --vsdir &lt;string&gt; [Windows専用]
 VapoursynthのPortable版を使用する際に、インストールしたフォルダを指定する。特に指定しない場合、システムにインストールされたVapoursynthが使用される。
+
+### --vpy-assume-script-dir
+vpy reader使用時に、`.vpy` 内の相対パスをカレントディレクトリではなく、スクリプトファイルのあるディレクトリ基準で解決する。
 
 ### --process-codepage &lt;string&gt;  
 - **パラメータ**  
