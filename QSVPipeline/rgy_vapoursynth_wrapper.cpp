@@ -6,7 +6,6 @@
 // ------------------------------------------------------------------------------------------
 
 #include "rgy_vapoursynth_wrapper.h"
-#include "rgy_log.h"
 
 #if ENABLE_VAPOURSYNTH_READER
 
@@ -18,13 +17,7 @@ std::unique_ptr<RGYVapourSynthWrapper> CreateVapourSynthWrapper(const tstring& v
     if (auto v4 = CreateVapourSynthWrapperV4(vsdir, log)) {
         return v4;
     }
-    if (auto v3 = CreateVapourSynthWrapperV3(vsdir, log)) {
-        return v3;
-    }
-    if (log) {
-        log->write(RGY_LOG_ERROR, RGY_LOGT_IN, _T("vpy: failed to create VapourSynth wrapper.\n"));
-    }
-    return nullptr;
+    return CreateVapourSynthWrapperV3(vsdir, log);
 }
 
 #else
