@@ -152,7 +152,11 @@ have_avisynth_headers = cpp.compiles(
 if enable_avisynth and not have_avisynth_headers
   error('AviSynth headers not found (avisynth_c.h)')
 endif
-libass_dep = dependency('libass', required: enable_libass)
+if enable_libass
+  libass_dep = dependency('libass', required: true)
+else
+  libass_dep = disabler()
+endif
 if enable_vulkan
   vulkan_dep = dependency('vulkan', required: true)
 else

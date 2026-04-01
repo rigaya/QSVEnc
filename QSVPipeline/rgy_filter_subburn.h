@@ -126,7 +126,7 @@ protected:
 
 class RGYFilterSubburn : public RGYFilter {
 public:
-    RGYFilterSubburn(shared_ptr<RGYOpenCLContext> context) {};
+    RGYFilterSubburn(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context) {};
     virtual ~RGYFilterSubburn() {};
     virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override {
         AddMessage(RGY_LOG_ERROR, _T("subburn not supported in this build.\n"));
