@@ -80,6 +80,7 @@ RGY_DISABLE_WARNING_POP
 #include "rgy_filter_denoise_dct.h"
 #include "rgy_filter_smooth.h"
 #include "rgy_filter_denoise_fft3d.h"
+#include "rgy_filter_msmooth.h"
 #include "rgy_filter_denoise_knn.h"
 #include "rgy_filter_denoise_nlmeans.h"
 #include "rgy_filter_denoise_pmd.h"
@@ -89,6 +90,7 @@ RGY_DISABLE_WARNING_POP
 #include "rgy_filter_transform.h"
 #include "rgy_filter_unsharp.h"
 #include "rgy_filter_edgelevel.h"
+#include "rgy_filter_msharpen.h"
 #include "rgy_filter_warpsharp.h"
 #include "rgy_filter_deband.h"
 #include "rgy_filter_ssim.h"
@@ -2236,6 +2238,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vpp.smooth.enable)     filterPipeline.push_back(VppType::CL_DENOISE_SMOOTH);
     if (inputParam->vpp.dct.enable)        filterPipeline.push_back(VppType::CL_DENOISE_DCT);
     if (inputParam->vpp.fft3d.enable)      filterPipeline.push_back(VppType::CL_DENOISE_FFT3D);
+    if (inputParam->vpp.msmooth.enable)    filterPipeline.push_back(VppType::CL_MSMOOTH);
     if (inputParam->vpp.knn.enable)        filterPipeline.push_back(VppType::CL_DENOISE_KNN);
     if (inputParam->vpp.nlmeans.enable)    filterPipeline.push_back(VppType::CL_DENOISE_NLMEANS);
     if (inputParam->vpp.pmd.enable)        filterPipeline.push_back(VppType::CL_DENOISE_PMD);
@@ -2252,6 +2255,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     else if (resizeRequired != RGY_VPP_RESIZE_TYPE_NONE)   filterPipeline.push_back(VppType::MFX_RESIZE);
     if (inputParam->vpp.unsharp.enable)    filterPipeline.push_back(VppType::CL_UNSHARP);
     if (inputParam->vpp.edgelevel.enable)  filterPipeline.push_back(VppType::CL_EDGELEVEL);
+    if (inputParam->vpp.msharpen.enable)   filterPipeline.push_back(VppType::CL_MSHARPEN);
     if (inputParam->vpp.warpsharp.enable)  filterPipeline.push_back(VppType::CL_WARPSHARP);
     if (inputParam->vppmfx.detail.enable)  filterPipeline.push_back(VppType::MFX_DETAIL_ENHANCE);
     if (inputParam->vppmfx.mirrorType != MFX_MIRRORING_DISABLED) filterPipeline.push_back(VppType::MFX_MIRROR);
@@ -2712,6 +2716,26 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         clfilters.push_back(std::move(filter));
         return RGY_ERR_NONE;
     }
+    //msmooth
+    if (vppType == VppType::CL_MSMOOTH) {
+        unique_ptr<RGYFilter> filter(new RGYFilterMsmooth(m_cl));
+        shared_ptr<RGYFilterParamMsmooth> param(new RGYFilterParamMsmooth());
+        param->msmooth = params->vpp.msmooth;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        auto sts = filter->init(param, m_pQSVLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        //登録
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
+    }
     //knn
     if (vppType == VppType::CL_DENOISE_KNN) {
         unique_ptr<RGYFilter> filter(new RGYFilterDenoiseKnn(m_cl));
@@ -2908,6 +2932,26 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         unique_ptr<RGYFilter> filter(new RGYFilterEdgelevel(m_cl));
         shared_ptr<RGYFilterParamEdgelevel> param(new RGYFilterParamEdgelevel());
         param->edgelevel = params->vpp.edgelevel;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        auto sts = filter->init(param, m_pQSVLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        //登録
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
+    }
+    //msharpen
+    if (vppType == VppType::CL_MSHARPEN) {
+        unique_ptr<RGYFilter> filter(new RGYFilterMsharpen(m_cl));
+        shared_ptr<RGYFilterParamMsharpen> param(new RGYFilterParamMsharpen());
+        param->msharpen = params->vpp.msharpen;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
