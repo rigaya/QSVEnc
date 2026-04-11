@@ -314,8 +314,16 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2026.04.11 (8.09)
+[QSVEncC]
+- --vpp-msmooth, --vpp-msharpen を追加。 ( #283 )
+- libass の無効ビルドを可能に。
+- libplacebo と libvmaf を static link できるように。
+- Linux で VMAF をビルド・実行できるように。
+- AviSynthPlus/vapoursynth のヘッダを meson.build で準備するように。 ( #285 )
+
 2026.03.31 (8.08)
-- vpy読み込みでdll/soを開くのに失敗した場合のエラーメッセージの拡充。( #284 )  
+- vpy 読み込みで dll/so を開くのに失敗した場合のエラーメッセージの拡充。( #284 )
 
 2026.03.28 (8.07)
 [QSVEncC]

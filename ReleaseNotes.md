@@ -1,5 +1,13 @@
 # QSVEnc Release Notes
 
+## 8.09
+
+- Add --vpp-msmooth and --vpp-msharpen filters. ( #283 )
+- Allow building without libass.
+- Enable static linking of libplacebo and libvmaf.
+- Enable building and running VMAF on Linux.
+- Prepare AviSynthPlus/vapoursynth headers in meson.build. ( #285 )
+
 ## 8.08
 
 - Add more vpy reader error messages. ( #284 )
