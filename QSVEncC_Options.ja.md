@@ -2793,7 +2793,19 @@ image stabilizerのモードの指定。
       アンチリンギング強度。(0.0 - 1.0、デフォルト = 0.0)
     
     - linear=&lt;bool&gt;  
-      linearize image before processing.
+      処理前に画像を線形化してスケーリングを行います。(デフォルト = false)
+
+    - sigmoid=&lt;bool&gt;  
+      スケーリング時に sigmoidization を有効化します。(デフォルト = false)
+      `linear=true` が必要で、主にアップスケーリング経路で有効です。
+
+    - sigmoid_center=&lt;float&gt;  
+      sigmoid の中心値を指定します。(0.0 - 1.0)
+      未指定時は libplacebo の既定値 (0.75) を使用します。
+
+    - sigmoid_slope=&lt;float&gt;  
+      sigmoid の傾きを指定します。(1.0 - 20.0)
+      未指定時は libplacebo の既定値 (6.5) を使用します。
 
 
 - 使用例
