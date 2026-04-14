@@ -2680,6 +2680,14 @@ Apply custom shaders in the specified path using [libplacebo](https://code.video
     - res=&lt;int&gt;x&lt;int&gt;  
       Output resolution of the filter.
 
+    - csp=&lt;string&gt;  
+      Input CSP passed to libplacebo.
+      `yuv444` (default) keeps the current behavior and upsamples to 4:4:4 before shader processing.
+      `yuv420` skips this upsampling for 4:2:0 input and lets libplacebo handle chroma processing internally.
+      ```
+      yuv444, yuv420
+      ```
+
     - colorsystem=&lt;string&gt;  
       Color system to use. Default: auto detect.
       ```

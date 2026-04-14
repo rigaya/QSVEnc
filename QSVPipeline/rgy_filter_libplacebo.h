@@ -359,6 +359,7 @@ protected:
     pl_color_system m_colorsystem;
     pl_color_transfer m_transfer;
     pl_color_levels m_range;
+    VppLibplaceboInputCSP m_inputCsp;
     pl_chroma_location m_chromaloc;
     std::unique_ptr<pl_sample_filter_params> m_sample_params;
     std::unique_ptr<pl_sigmoid_params> m_sigmoid_params;

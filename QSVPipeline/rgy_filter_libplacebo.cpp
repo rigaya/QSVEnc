@@ -2114,6 +2114,7 @@ RGYFilterLibplaceboShader::RGYFilterLibplaceboShader(shared_ptr<RGYOpenCLContext
     m_colorsystem(),
     m_transfer(),
     m_range(),
+    m_inputCsp((VppLibplaceboInputCSP)FILTER_DEFAULT_LIBPLACEBO_SHADER_CSP),
     m_chromaloc(),
     m_sample_params(),
     m_sigmoid_params(),
@@ -2126,7 +2127,13 @@ RGYFilterLibplaceboShader::~RGYFilterLibplaceboShader() {};
 
 RGY_CSP RGYFilterLibplaceboShader::getTextureCsp(const RGY_CSP csp) {
     const auto inChromaFmt = RGY_CSP_CHROMA_FORMAT[csp];
-    return (inChromaFmt == RGY_CHROMAFMT_RGB) ? RGY_CSP_RGB_16 : RGY_CSP_YUV444_16;
+    if (inChromaFmt == RGY_CHROMAFMT_RGB) {
+        return RGY_CSP_RGB_16;
+    }
+    if (m_inputCsp == VppLibplaceboInputCSP::YUV420 && inChromaFmt == RGY_CHROMAFMT_YUV420) {
+        return RGY_CSP_YV12_16;
+    }
+    return RGY_CSP_YUV444_16;
 }
 
 RGYPLInteropDataFormat RGYFilterLibplaceboShader::getTextureDataFormat([[maybe_unused]] const RGY_CSP csp) {
@@ -2260,6 +2267,7 @@ RGY_ERR RGYFilterLibplaceboShader::setLibplaceboParam(const RGYFilterParam *para
         m_transfer = transfer_rgy_to_libplacebo(vui.transfer);
     }
     m_range = (vui.colorrange == RGY_COLORRANGE_FULL) ? PL_COLOR_LEVELS_FULL : PL_COLOR_LEVELS_LIMITED;
+    m_inputCsp = prm->shader.csp;
     m_linear = prm->shader.linear;
     m_chromaloc = chromaloc_rgy_to_libplacebo(prm->shader.chromaloc);
 

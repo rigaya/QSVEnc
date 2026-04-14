@@ -2742,6 +2742,14 @@ image stabilizerのモードの指定。
     - res=&lt;int&gt;x&lt;int&gt;  
       フィルタの出力解像度。
 
+    - csp=&lt;string&gt;  
+      libplaceboに渡す入力CSPを指定。
+      yuv444 (デフォルト) では従来通り4:4:4へ変換してから処理し、
+      yuv420 では4:2:0入力時のアップサンプリングをスキップしてlibplacebo側でクロマ処理を行う。
+      ```
+      yuv444, yuv420
+      ```
+
     - colorsystem=&lt;string&gt;  
       使用する色空間を指定。デフォルトでは入力ファイルから自動的に設定される。
       ```
