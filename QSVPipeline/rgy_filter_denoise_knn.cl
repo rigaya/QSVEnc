@@ -30,10 +30,10 @@ __kernel void kernel_denoise_knn(
 
         #pragma unroll
         for (int i = -knn_radius; i <= knn_radius; i++) {
-            const int loadix = clamp(ix, 0, dstWidth-1);
+            const int loadix = clamp(ix + i, 0, dstWidth-1);
             #pragma unroll
             for (int j = -knn_radius; j <= knn_radius; j++) {
-                const int loadiy = clamp(iy, 0, dstHeight-1);
+                const int loadiy = clamp(iy + j, 0, dstHeight-1);
                 float clrIJ = (float)read_imagef(src, sampler, (int2)(loadix, loadiy)).x;
                 float distanceIJ = (center - clrIJ) * (center - clrIJ);
 
