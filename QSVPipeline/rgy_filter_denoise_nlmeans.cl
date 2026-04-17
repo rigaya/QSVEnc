@@ -346,7 +346,7 @@ __kernel void kernel_denoise_nlmeans(
     if (ix < width && iy < height) {
 
         const int shared_x = shared_radius + thx;
-        const int shared_y = shared_radius + thx;
+        const int shared_y = shared_radius + thy;
         
         float sumWeights = 0.0f;
         float sum = 0.0f;
