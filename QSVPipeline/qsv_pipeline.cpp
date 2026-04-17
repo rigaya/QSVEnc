@@ -4029,12 +4029,12 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     m_pQSVLog->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Device Info Cache size: %d\n"), (int)deviceInfoCache->getDeviceIds().size());
 
     std::vector<std::unique_ptr<QSVDevice>> deviceList;
-    auto getDevIdName = [&deviceList]() {
-        std::map<int, std::string> devIdName;
+    auto getDevInfo = [&deviceList]() {
+        std::map<int, RGYDeviceInfoCacheKey> devInfo;
         for (const auto& dev : deviceList) {
-            devIdName[(int)dev->deviceNum()] = tchar_to_string(dev->name());
+            devInfo[(int)dev->deviceNum()] = dev->cacheInfo();
         }
-        return devIdName;
+        return devInfo;
     };
     if (deviceInfoCache
         && (deviceInfoCache->getDeviceIds().size() == 0
@@ -4047,7 +4047,9 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
             return RGY_ERR_DEVICE_NOT_FOUND;
         }
         HWDecCodecCsp = getHWDecCodecCsp(pParams->ctrl.skipHWDecodeCheck, deviceList);
-        deviceInfoCache->setDecCodecCsp(getDevIdName(), HWDecCodecCsp);
+        const auto devInfo = getDevInfo();
+        deviceInfoCache->setDeviceInfos(devInfo);
+        deviceInfoCache->setDecCodecCsp(devInfo, HWDecCodecCsp);
         deviceInfoCache->saveCacheFile();
         PrintMes(RGY_LOG_DEBUG, _T("HW dec codec csp support saved to cache file.\n"));
         if (pParams->device != QSVDeviceNum::AUTO) {
@@ -4077,7 +4079,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
             return RGY_ERR_DEVICE_NOT_FOUND;
         }
         if (deviceInfoCache) {
-            deviceInfoCache->setDeviceIds(getDevIdName());
+            deviceInfoCache->setDeviceInfos(getDevInfo());
         }
     }
 

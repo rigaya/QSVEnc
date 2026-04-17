@@ -139,12 +139,12 @@ void QSVDeviceInfoCache::writeEncFeatures(std::ofstream& cacheFile) {
 }
 
 void QSVDeviceInfoCache::clearFeatureCache() {
-    m_deviceDecCodecCsp.clear();
+    RGYDeviceInfoCache::clearFeatureCache();
     m_featureData.clear();
-    m_dataUpdated = true;
 }
 
-RGY_ERR QSVDeviceInfoCache::addEncFeature(const QSVEncFeatureData& encFeatures) {
+RGY_ERR QSVDeviceInfoCache::addEncFeature(const RGYDeviceInfoCacheKey& deviceInfo, const QSVEncFeatureData& encFeatures) {
+    setDeviceInfos({ { (int)encFeatures.dev, deviceInfo } });
     auto entry = std::find_if(m_featureData.begin(), m_featureData.end(), [encFeatures](const QSVEncFeatureData& data) {
         return data.dev == encFeatures.dev && data.codec == encFeatures.codec && data.lowPwer == encFeatures.lowPwer;
         });
@@ -165,7 +165,7 @@ RGY_ERR QSVDeviceInfoCache::addEncFeature(const QSVEncFeatureData& encFeatures) 
 
 RGY_ERR QSVDeviceInfoCache::addEncFeature(const std::vector<QSVEncFeatureData>& encFeatures) {
     for (const auto& encFeature : encFeatures) {
-        if (auto sts = addEncFeature(encFeature); sts != RGY_ERR_NONE) {
+        if (auto sts = addEncFeature(RGYDeviceInfoCacheKey { std::string(), std::string(), std::string(), std::string() }, encFeature); sts != RGY_ERR_NONE) {
             return sts;
         }
     }
@@ -182,7 +182,11 @@ std::pair<RGY_ERR, QSVEncFeatures> QSVDeviceInfoCache::getEncodeFeature(const QS
     return { RGY_ERR_NOT_FOUND, QSVEncFeatures() };
 }
 
-std::vector<QSVEncFeatureData> QSVDeviceInfoCache::getEncodeFeatures(const QSVDeviceNum dev) {
+std::vector<QSVEncFeatureData> QSVDeviceInfoCache::getEncodeFeatures(const QSVDeviceNum dev, const RGYDeviceInfoCacheKey& deviceInfo) {
+    const auto itDevice = m_deviceInfos.find((int)dev);
+    if (itDevice == m_deviceInfos.end() || itDevice->second != deviceInfo) {
+        return {};
+    }
     std::vector<QSVEncFeatureData> featureData;
     for (const auto& data : m_featureData) {
         if (data.dev == dev) {
@@ -358,7 +362,7 @@ RGY_ERR QSVDevice::init(const QSVDeviceNum dev, const bool enableOpenCL, [[maybe
     }
 #endif
     if (m_devInfoCache) {
-        m_featureData = m_devInfoCache->getEncodeFeatures(m_devNum);
+        m_featureData = m_devInfoCache->getEncodeFeatures(m_devNum, cacheInfo());
     }
     return RGY_ERR_NONE;
 }
@@ -383,17 +387,36 @@ int QSVDevice::adapterType() {
     return platform.MediaAdapterType;
 }
 
-LUID QSVDevice::luid() {
+LUID QSVDevice::luid() const {
     return (m_hwdev) ? m_hwdev->GetLUID() : LUID();
+}
+
+RGYDeviceInfoCacheKey QSVDevice::cacheInfo() const {
+    auto luid_to_string = [](const LUID& luid) {
+        return strsprintf("%08x-%08x", (uint32_t)luid.HighPart, (uint32_t)luid.LowPart);
+    };
+    auto uuid_to_string = [](const uint8_t *uuid) {
+        std::string str;
+        if (uuid == nullptr) {
+            return str;
+        }
+        for (size_t i = 0; i < CL_UUID_SIZE_KHR; ++i) {
+            str += strsprintf("%02x", uuid[i]);
+        }
+        return str;
+    };
+    return RGYDeviceInfoCacheKey {
+        tchar_to_string(name()),
+        (m_devInfo) ? uuid_to_string(m_devInfo->uuid) : std::string(),
+        luid_to_string(luid()),
+        (m_devInfo) ? m_devInfo->driver_version : std::string()
+    };
 }
 
 CodecCsp QSVDevice::getDecodeCodecCsp(const bool skipHWDecodeCheck) {
     if (m_devInfoCache) {
-        auto& devDecCsp = m_devInfoCache->getDeviceDecCodecCsp();
-        for (const auto& devCsp : devDecCsp) {
-            if (devCsp.first == (int)m_devNum) {
-                return devCsp.second;
-            }
+        if (const auto cachedDecCsp = m_devInfoCache->getDecCodecCsp((int)m_devNum, cacheInfo()); cachedDecCsp != nullptr) {
+            return *cachedDecCsp;
         }
     }
     vector<RGY_CODEC> codecLists;
@@ -402,6 +425,7 @@ CodecCsp QSVDevice::getDecodeCodecCsp(const bool skipHWDecodeCheck) {
     }
     auto codecCsp = MakeDecodeFeatureList(m_session, codecLists, m_log, skipHWDecodeCheck);
     if (m_devInfoCache) {
+        m_devInfoCache->setDeviceInfos({ { (int)m_devNum, cacheInfo() } });
         m_devInfoCache->setDecCodecCsp(tchar_to_string(name()), { (int)m_devNum, codecCsp });
     }
     return codecCsp;
@@ -432,7 +456,7 @@ QSVEncFeatures QSVDevice::getEncodeFeature(const int ratecontrol, const RGY_CODE
             return data.codec == codec && data.lowPwer == lowpower;
             });
         if (target != m_featureData.end()) {
-            m_devInfoCache->addEncFeature(*target);
+            m_devInfoCache->addEncFeature(cacheInfo(), *target);
         }
     }
     return result;

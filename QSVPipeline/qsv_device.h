@@ -39,10 +39,10 @@ class QSVDeviceInfoCache : public RGYDeviceInfoCache {
 public:
     QSVDeviceInfoCache();
     virtual ~QSVDeviceInfoCache();
-    RGY_ERR addEncFeature(const QSVEncFeatureData& encFeatures);
+    RGY_ERR addEncFeature(const RGYDeviceInfoCacheKey& deviceInfo, const QSVEncFeatureData& encFeatures);
     RGY_ERR addEncFeature(const std::vector<QSVEncFeatureData>& encFeatures);
     std::pair<RGY_ERR, QSVEncFeatures> getEncodeFeature(const QSVDeviceNum dev, const int ratecontrol, const RGY_CODEC codec, const bool lowpower);
-    std::vector<QSVEncFeatureData> getEncodeFeatures(const QSVDeviceNum dev);
+    std::vector<QSVEncFeatureData> getEncodeFeatures(const QSVDeviceNum dev, const RGYDeviceInfoCacheKey& deviceInfo);
 protected:
     virtual RGY_ERR parseEncFeatures(std::ifstream& cacheFile) override;
     virtual void writeEncFeatures(std::ofstream& cacheFile) override;
@@ -66,9 +66,10 @@ public:
     void close();
 
     tstring name() const;
-    LUID luid();
+    LUID luid() const;
     QSV_CPU_GEN CPUGen();
     int adapterType();
+    RGYDeviceInfoCacheKey cacheInfo() const;
 
     QSVDeviceNum deviceNum() const { return m_devNum; };
     MemType memType() const { return m_memType; };
