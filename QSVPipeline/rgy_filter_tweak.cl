@@ -12,7 +12,7 @@
 Type apply_basic_tweak_y(Type y, const float contrast, const float brightness, const float gamma_inv) {
     float pixel = (float)y * (1.0f / (1 << bit_depth));
     pixel = contrast * (pixel - 0.5f) + 0.5f + brightness;
-    pixel = pow(pixel, gamma_inv);
+    if (gamma_inv != 1.0f) pixel = pow(pixel, gamma_inv);
     return (Type)clamp((int)(pixel * (1 << (bit_depth))), 0, (1 << (bit_depth)) - 1);
 }
 
