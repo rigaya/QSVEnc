@@ -107,6 +107,9 @@ const char *get_encoder_version();
 #define ENABLE_LIBHDR10PLUS 1
 #define ENABLE_VULKAN 0
 
+#define ENABLE_VMAF 0
+#define ENABLE_LIBVSHIP 0
+
 #ifdef BUILD_AUO
 #define ENCODER_NAME             "QSVEnc"
 #define DECODER_NAME             "qsv"

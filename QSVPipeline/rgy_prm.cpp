@@ -1534,6 +1534,30 @@ tstring VppDenoiseFFT3D::print() const {
     return str;
 }
 
+VppMsmooth::VppMsmooth() :
+    enable(false),
+    strength(FILTER_DEFAULT_MSMOOTH_STRENGTH),
+    threshold(FILTER_DEFAULT_MSMOOTH_THRESHOLD),
+    highq(FILTER_DEFAULT_MSMOOTH_HIGHQ),
+    mask(FILTER_DEFAULT_MSMOOTH_MASK) {
+}
+
+bool VppMsmooth::operator==(const VppMsmooth &x) const {
+    return enable == x.enable
+        && strength == x.strength
+        && threshold == x.threshold
+        && highq == x.highq
+        && mask == x.mask;
+}
+bool VppMsmooth::operator!=(const VppMsmooth &x) const {
+    return !(*this == x);
+}
+
+tstring VppMsmooth::print() const {
+    return strsprintf(_T("msmooth: strength %d, threshold %.1f, highq %s, mask %s"),
+        strength, threshold, highq ? _T("true") : _T("false"), mask ? _T("true") : _T("false"));
+}
+
 VppConvolution3d::VppConvolution3d() :
     enable(false),
     fast(false),
@@ -1697,30 +1721,6 @@ bool VppMsharpen::operator!=(const VppMsharpen &x) const {
 
 tstring VppMsharpen::print() const {
     return strsprintf(_T("msharpen: strength %.2f, threshold %.1f, highq %s, mask %s"),
-        strength, threshold, highq ? _T("true") : _T("false"), mask ? _T("true") : _T("false"));
-}
-
-VppMsmooth::VppMsmooth() :
-    enable(false),
-    strength(FILTER_DEFAULT_MSMOOTH_STRENGTH),
-    threshold(FILTER_DEFAULT_MSMOOTH_THRESHOLD),
-    highq(FILTER_DEFAULT_MSMOOTH_HIGHQ),
-    mask(FILTER_DEFAULT_MSMOOTH_MASK) {
-}
-
-bool VppMsmooth::operator==(const VppMsmooth &x) const {
-    return enable == x.enable
-        && strength == x.strength
-        && threshold == x.threshold
-        && highq == x.highq
-        && mask == x.mask;
-}
-bool VppMsmooth::operator!=(const VppMsmooth &x) const {
-    return !(*this == x);
-}
-
-tstring VppMsmooth::print() const {
-    return strsprintf(_T("msmooth: strength %d, threshold %.1f, highq %s, mask %s"),
         strength, threshold, highq ? _T("true") : _T("false"), mask ? _T("true") : _T("false"));
 }
 
@@ -2162,6 +2162,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && pmd == x.pmd
         && dct == x.dct
         && smooth == x.smooth
+        && fft3d == x.fft3d
         && msmooth == x.msmooth
         && subburn == x.subburn
         && unsharp == x.unsharp
@@ -2313,14 +2314,70 @@ tstring VMAFParam::print() const {
     return str;
 }
 
+VshipSSIMU2Param::VshipSSIMU2Param() :
+    enable(false) {
+}
+bool VshipSSIMU2Param::operator==(const VshipSSIMU2Param &x) const {
+    return enable == x.enable;
+}
+bool VshipSSIMU2Param::operator!=(const VshipSSIMU2Param &x) const {
+    return !(*this == x);
+}
+tstring VshipSSIMU2Param::print() const {
+    if (!enable) return _T("");
+    return _T("vship-ssimulacra2");
+}
+
+VshipButteraugliParam::VshipButteraugliParam() :
+    enable(false),
+    Qnorm(2),
+    intensity_multiplier(80.0f) {
+}
+bool VshipButteraugliParam::operator==(const VshipButteraugliParam &x) const {
+    return enable == x.enable
+        && Qnorm == x.Qnorm
+        && intensity_multiplier == x.intensity_multiplier;
+}
+bool VshipButteraugliParam::operator!=(const VshipButteraugliParam &x) const {
+    return !(*this == x);
+}
+tstring VshipButteraugliParam::print() const {
+    if (!enable) return _T("");
+    return strsprintf(_T("vship-butteraugli Qnorm=%d,intensity_multiplier=%.2f"), Qnorm, intensity_multiplier);
+}
+
+VshipCVVDPParam::VshipCVVDPParam() :
+    enable(false),
+    resize(false),
+    model(_T("standard_4k")),
+    model_config_json(_T("")) {
+}
+bool VshipCVVDPParam::operator==(const VshipCVVDPParam &x) const {
+    return enable == x.enable
+        && resize == x.resize
+        && model == x.model
+        && model_config_json == x.model_config_json;
+}
+bool VshipCVVDPParam::operator!=(const VshipCVVDPParam &x) const {
+    return !(*this == x);
+}
+tstring VshipCVVDPParam::print() const {
+    if (!enable) return _T("");
+    return strsprintf(_T("vship-cvvdp model=%s"), model.c_str());
+}
+
 RGYVideoQualityMetric::RGYVideoQualityMetric() :
     ssim(false),
     psnr(false),
-    vmaf() {
+    vmaf(),
+    vshipSsimu2(),
+    vshipButteraugli(),
+    vshipCvvdp() {
 
 }
 bool RGYVideoQualityMetric::enabled() const {
-    return ssim || psnr || vmaf.enable;
+    return ssim || psnr || vmaf.enable
+        || vshipSsimu2.enable || vshipButteraugli.enable || vshipCvvdp.enable;
 }
 tstring RGYVideoQualityMetric::enabled_metric() const {
     if (!enabled()) return _T("none");
@@ -2328,7 +2385,13 @@ tstring RGYVideoQualityMetric::enabled_metric() const {
     if (ssim) str += _T(",ssim");
     if (psnr) str += _T(",psnr");
     if (vmaf.enable) str += _T(",vmaf");
+    if (vshipSsimu2.enable) str += _T(",") + vshipSsimu2.print();
+    if (vshipButteraugli.enable) str += _T(",") + vshipButteraugli.print();
+    if (vshipCvvdp.enable) str += _T(",") + vshipCvvdp.print();
     return (str.length() > 0) ? str.substr(1) : _T("unknown");
+}
+bool RGYVideoQualityMetric::vshipEnabled() const {
+    return vshipSsimu2.enable || vshipButteraugli.enable || vshipCvvdp.enable;
 }
 
 GPUAutoSelectMul::GPUAutoSelectMul() : cores(0.001f), gen(1.0f), gpu(1.0f), ve(1.0f) {}

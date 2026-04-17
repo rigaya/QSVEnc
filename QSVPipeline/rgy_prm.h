@@ -2485,15 +2485,48 @@ struct VMAFParam {
     tstring print() const;
 };
 
+struct VshipSSIMU2Param {
+    bool enable;
+    VshipSSIMU2Param();
+    bool operator==(const VshipSSIMU2Param &x) const;
+    bool operator!=(const VshipSSIMU2Param &x) const;
+    tstring print() const;
+};
+
+struct VshipButteraugliParam {
+    bool enable;
+    int Qnorm;
+    float intensity_multiplier;
+    VshipButteraugliParam();
+    bool operator==(const VshipButteraugliParam &x) const;
+    bool operator!=(const VshipButteraugliParam &x) const;
+    tstring print() const;
+};
+
+struct VshipCVVDPParam {
+    bool enable;
+    bool resize;
+    tstring model;
+    tstring model_config_json;
+    VshipCVVDPParam();
+    bool operator==(const VshipCVVDPParam &x) const;
+    bool operator!=(const VshipCVVDPParam &x) const;
+    tstring print() const;
+};
+
 struct RGYVideoQualityMetric {
     bool ssim;
     bool psnr;
     VMAFParam vmaf;
+    VshipSSIMU2Param vshipSsimu2;
+    VshipButteraugliParam vshipButteraugli;
+    VshipCVVDPParam vshipCvvdp;
 
     RGYVideoQualityMetric();
     ~RGYVideoQualityMetric() {};
     bool enabled() const;
     tstring enabled_metric() const;
+    bool vshipEnabled() const;
 };
 
 using AttachmentSelect = DataSelect;
