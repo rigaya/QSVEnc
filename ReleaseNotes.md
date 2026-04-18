@@ -1,5 +1,23 @@
 # QSVEnc Release Notes
 
+## 8.10
+
+- Speedup [--vpp-unsharp](./QSVEncC_Options.en.md#--vpp-unsharp-param1value1param2value2). ( #288 )
+- Speedup vpp-tweak by removing unnecessary pow() calls. ( #288 )
+- Fix index calculation errors in [--vpp-knn](./QSVEncC_Options.en.md#--vpp-knn-param1value1param2value2). ( #288 )
+- Fix index calculation errors in [--vpp-nlmeans](./QSVEncC_Options.en.md#--vpp-nlmeans-param1value1param2value2). ( #288 )
+- Add sigmoid options to [--vpp-libplacebo-shader](./QSVEncC_Options.en.md#--vpp-libplacebo-shader-param1value1param2value2). ( #286 )
+- Add input color space specification to [--vpp-libplacebo-shader](./QSVEncC_Options.en.md#--vpp-libplacebo-shader-param1value1param2value2). ( #286 )
+- Add warning when using [--vpp-libplacebo-shader](./NVEncC_Options.en.md#--vpp-libplacebo-shader-param1value1param2value2) in res specification seems required. ( #286 )
+- Automatically disable output thread when [--lowlatency](./QSVEncC_Options.en.md#--lowlatency) is specified.
+- Reduce pipe latency.
+- Extend device info cache file.
+- Fix BOM being missing.
+- Add log output at start of WriteFileHeader.
+- Add debug output for task start/end.
+- Reflect NVEnc updates.
+- Remove unnecessary code and fix line endings.
+
 ## 8.09
 
 - Add --vpp-msmooth and --vpp-msharpen filters. ( #283 )

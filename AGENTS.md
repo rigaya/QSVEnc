@@ -41,12 +41,6 @@ QSVEnc / NVEnc / VCEEnc / rkmppenc と共通化できる部分は共通ファイ
   AviUtl/AviUtl2用プラグイン。`QSVEncC`を呼び出してエンコードする。
   Win32ビルドはAviUtl向け(.auo)、x64ビルドはAviUtl2向け(.auo2)。
 
-- `QSVEncPlugins`
-  QSVEncの拡張モジュール類。
-
-- `BuildParallel`
-  Windowsビルド用バッチファイル。
-
 - `build_pkg`
   Linuxパッケージ作成用。
 
@@ -72,25 +66,6 @@ QSVEnc / NVEnc / VCEEnc / rkmppenc と共通化できる部分は共通ファイ
   - `libvpl`
   - `tinyxml2`
   - `ttmath`
-
-## ビルド構成
-
-ビルド方法は `Build.ja.md` を参照。
-
-- Windows
-
-  MSBuildで`QSVEnc.sln`をビルドする。
-
-  |              |Debug用構成|Release用構成|
-  |:---------------------|:------|:--------|
-  |QSVEncC(64).exe | DebugStatic | RelStatic |
-  |QSVEnc.[auo,auo2]  | Debug | Release |
-
-- Linux
-
-  AviUtlプラグインは非対象。
-
-  `./configure` → `make` する。
 
 ## ドキュメント
 
