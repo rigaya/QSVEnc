@@ -34,19 +34,33 @@
 
 static const int UNSHARP_RADIUS_MAX = 9;
 
-RGY_ERR RGYFilterUnsharp::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, const RGYCLBuf *gaussWeightBuf, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterUnsharp::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, const RGYCLBuf *gaussWeightBuf, const RGYFrameInfo *gaussBufH, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     auto prm = std::dynamic_pointer_cast<RGYFilterParamUnsharp>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
     {
+        const char *kernel_name = "kernel_unsharp_h";
+        RGYWorkSize local(32, 8);
+        RGYWorkSize global(pInputPlane->width, pInputPlane->height);
+        auto err = m_unsharp.get()->kernel(kernel_name).config(queue, local, global, wait_events).launch(
+            (cl_mem)gaussBufH->ptr[0], gaussBufH->pitch[0], pInputPlane->width, pInputPlane->height,
+            (cl_mem)pInputPlane->ptr[0], gaussWeightBuf->mem());
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at %s (procPlane(%s)): %s.\n"),
+                char_to_tstring(kernel_name).c_str(), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
+            return err;
+        }
+    }
+    {
         const char *kernel_name = "kernel_unsharp";
         RGYWorkSize local(32, 8);
         RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
-        auto err = m_unsharp.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
+        auto err = m_unsharp.get()->kernel(kernel_name).config(queue, local, global, {}, event).launch(
             (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0], pOutputPlane->width, pOutputPlane->height,
             (cl_mem)pInputPlane->ptr[0],
+            (cl_mem)gaussBufH->ptr[0], gaussBufH->pitch[0],
             gaussWeightBuf->mem(),
             prm->unsharp.weight, prm->unsharp.threshold / (1 << RGY_CSP_BIT_DEPTH[pOutputPlane->csp]));
         if (err != RGY_ERR_NONE) {
@@ -67,9 +81,10 @@ RGY_ERR RGYFilterUnsharp::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameIn
     for (int i = 0; i < RGY_CSP_PLANES[pOutputFrame->csp]; i++) {
         auto planeDst = getPlane(pOutputFrame, (RGY_PLANE)i);
         auto planeSrc = getPlane(&srcImage->frame, (RGY_PLANE)i);
+        auto planeGaussBufH = getPlane(&m_pGaussBufH->frame, (RGY_PLANE)i);
         const std::vector<RGYOpenCLEvent> &plane_wait_event = (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>();
         RGYOpenCLEvent *plane_event = (i == RGY_CSP_PLANES[pOutputFrame->csp] - 1) ? event : nullptr;
-        auto err = procPlane(&planeDst, &planeSrc, (((RGY_PLANE)i) == RGY_PLANE_Y) ? m_pGaussWeightBufY.get() : m_pGaussWeightBufUV.get(), queue, plane_wait_event, plane_event);
+        auto err = procPlane(&planeDst, &planeSrc, (((RGY_PLANE)i) == RGY_PLANE_Y) ? m_pGaussWeightBufY.get() : m_pGaussWeightBufUV.get(), &planeGaussBufH, queue, plane_wait_event, plane_event);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to denoise(unsharp) frame(%d) %s: %s\n"), i, cl_errmes(err));
             return err_cl_to_rgy(err);
@@ -87,26 +102,22 @@ RGYFilterUnsharp::~RGYFilterUnsharp() {
 }
 
 RGY_ERR RGYFilterUnsharp::setWeight(std::unique_ptr<RGYCLBuf>& pGaussWeightBuf, int radius, float sigma) {
-    const int nWeightCount = (2 * radius + 1) * (2 * radius + 1);
+    const int nWeightCount = 2 * radius + 1;
     const int nBufferSize = sizeof(float) * nWeightCount;
     vector<float> weight(nWeightCount);
     float *ptr_weight = weight.data();
     double sum = 0.0;
-    for (int j = -radius; j <= radius; j++) {
-        for (int i = -radius; i <= radius; i++) {
-            const double w = 1.0f / (2.0f * (float)M_PI * sigma * sigma) * std::exp(-1.0f * (i * i + j * j) / (2.0f * sigma * sigma));
-            *ptr_weight = (float)w;
-            sum += (double)w;
-            ptr_weight++;
-        }
+    for (int i = -radius; i <= radius; i++) {
+        const double w = std::exp(-1.0 * i * i / (2.0 * sigma * sigma));
+        *ptr_weight = (float)w;
+        sum += w;
+        ptr_weight++;
     }
     ptr_weight = weight.data();
     const float inv_sum = (float)(1.0 / sum);
-    for (int j = -radius; j <= radius; j++) {
-        for (int i = -radius; i <= radius; i++) {
-            *ptr_weight *= inv_sum;
-            ptr_weight++;
-        }
+    for (int i = -radius; i <= radius; i++) {
+        *ptr_weight *= inv_sum;
+        ptr_weight++;
     }
 
     pGaussWeightBuf = m_cl->copyDataToBuffer(weight.data(), nBufferSize, CL_MEM_READ_ONLY, m_cl->queue().get());
@@ -170,6 +181,17 @@ RGY_ERR RGYFilterUnsharp::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
         return RGY_ERR_MEMORY_ALLOC;
     }
+    if (!m_pGaussBufH
+        || prm->frameOut.width != m_pGaussBufH->frame.width
+        || prm->frameOut.height != m_pGaussBufH->frame.height
+        || prm->frameOut.csp != m_pGaussBufH->frame.csp) {
+        m_pGaussBufH = m_cl->createFrameBuffer(prm->frameOut.width, prm->frameOut.height,
+            (RGY_CSP_CHROMA_FORMAT[prm->frameIn.csp] == RGY_CHROMAFMT_YUV420) ? RGY_CSP_YV12_16 : RGY_CSP_YUV444_16, 16);
+        if (!m_pGaussBufH) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate H-pass buffer frame.\n"));
+            return RGY_ERR_MEMORY_ALLOC;
+        }
+    }
     for (int i = 0; i < RGY_CSP_PLANES[m_frameBuf[0]->frame.csp]; i++) {
         prm->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
@@ -223,6 +245,7 @@ void RGYFilterUnsharp::close() {
     m_srcImagePool.clear();
     m_frameBuf.clear();
     m_unsharp.clear();
+    m_pGaussBufH.reset();
     m_cl.reset();
     m_bInterlacedWarn = false;
 }

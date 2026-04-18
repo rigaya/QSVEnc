@@ -48,12 +48,13 @@ protected:
     virtual void close() override;
 
     virtual RGY_ERR setWeight(unique_ptr<RGYCLBuf> &pGaussWeightBuf, int radius, float sigma);
-    virtual RGY_ERR procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, const RGYCLBuf *gaussWeightBuf, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    virtual RGY_ERR procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, const RGYCLBuf *gaussWeightBuf, const RGYFrameInfo *gaussBufH, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     virtual RGY_ERR procFrame(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
 
     bool m_bInterlacedWarn;
     RGYOpenCLProgramAsync m_unsharp;
     unique_ptr<RGYCLBuf> m_pGaussWeightBufY;
     unique_ptr<RGYCLBuf> m_pGaussWeightBufUV;
+    unique_ptr<RGYCLFrame> m_pGaussBufH;
     RGYCLFramePool m_srcImagePool;
 };
