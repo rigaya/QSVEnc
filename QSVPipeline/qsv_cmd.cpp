@@ -174,7 +174,13 @@ tstring gen_cmd_help_vppmfx() {
         _T("       scd=<bool>     enable scene change detection\n")
         _T("         default: false\n"));
     str += strsprintf(_T("")
-        _T("   --vpp-perc-pre-enc           enable perceptual pre enc filter\n"));
+        _T("   --vpp-perc-pre-enc           enable perceptual pre enc filter\n")
+        _T("   --vpp-mfx-insert-clcopy [<int>]\n")
+        _T("                                insert OpenCL copy after the last MFX filter block\n")
+        _T("                                 - 0: disabled (default)\n")
+        _T("                                 - 1: enable only when d3d11 support is disabled\n")
+        _T("                                      (used when value is omitted)\n")
+        _T("                                 - 2: enable even when d3d11 support is enabled\n"));
     return str;
 }
 
@@ -829,6 +835,23 @@ int parse_one_vppmfx_option(const TCHAR *option_name, const TCHAR *strInput[], i
     }
     if (0 == _tcscmp(option_name, _T("no-vpp-perc-pre-enc"))) {
         vppmfx->percPreEnc = false;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("vpp-mfx-insert-clcopy"))) {
+        vppmfx->mfxInsertCLCopy = 1;
+        if (i + 1 < nArgNum && strInput[i + 1][0] != _T('-')) {
+            i++;
+            int value = 0;
+            if (1 != _stscanf_s(strInput[i], _T("%d"), &value) || value < 0 || value > 2) {
+                print_cmd_error_invalid_value(option_name, strInput[i]);
+                return 1;
+            }
+            vppmfx->mfxInsertCLCopy = value;
+        }
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("no-vpp-mfx-insert-clcopy"))) {
+        vppmfx->mfxInsertCLCopy = 0;
         return 0;
     }
     return -10;
@@ -2318,6 +2341,7 @@ tstring gen_cmd(const sVppParams *param, const sVppParams *defaultPrm, RGY_VPP_R
     OPT_LST(_T("--vpp-fps-conv"), fpsConversion, list_vpp_fps_conversion);
     OPT_LST(_T("--vpp-image-stab"), imageStabilizer, list_vpp_image_stabilizer);
     OPT_BOOL(_T("--vpp-perc-pre-enc"), _T("--no-vpp-perc-pre-enc"), percPreEnc);
+    OPT_NUM(_T("--vpp-mfx-insert-clcopy"), mfxInsertCLCopy);
 
 #if 0
     if (param->colorspace != defaultPrm->colorspace) {

@@ -122,7 +122,8 @@ sVppParams::sVppParams() :
     detail(),
     aiSuperRes(),
     aiFrameInterpolation(),
-    percPreEnc(false) {
+    percPreEnc(false),
+    mfxInsertCLCopy(0) {
 
 }
 

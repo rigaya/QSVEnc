@@ -261,6 +261,7 @@ struct sVppParams {
     MFXVppAIFrameInterpolation aiFrameInterpolation;
 
     bool percPreEnc;
+    int mfxInsertCLCopy;
 
     sVppParams();
     ~sVppParams() {};

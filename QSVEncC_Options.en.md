@@ -252,6 +252,7 @@
   - [--vpp-pad \<int\>,\<int\>,\<int\>,\<int\>](#--vpp-pad-intintintint)
   - [--vpp-overlay \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-overlay-param1value1param2value2)
   - [--vpp-perc-pre-enc](#--vpp-perc-pre-enc)
+  - [--vpp-mfx-insert-clcopy \[\<int\>\]](#--vpp-mfx-insert-clcopy-int)
   - [--vpp-ai-frameinterp \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-ai-frameinterp-param1value1param2value2)
   - [--vpp-perf-monitor](#--vpp-perf-monitor)
 - [Other Options](#other-options)
@@ -1794,6 +1795,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
   - [--vpp-padding](#--vpp-pad-intintintint)
   - [--vpp-overlay](#--vpp-overlay-param1value1param2value2)
   - [--vpp-perc-pre-enc](#--vpp-perc-pre-enc)
+  - [--vpp-mfx-insert-clcopy](#--vpp-mfx-insert-clcopy-int)
   - [--vpp-ai-frameinterp](#--vpp-ai-frameinterp-param1value1param2value2)
 
 ### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]  
@@ -3193,6 +3195,16 @@ Overlay image on top of base video.
 
 ### --vpp-perc-pre-enc
 Enable perceptual pre encode filter.
+
+### --vpp-mfx-insert-clcopy [&lt;int&gt;]
+If the last VPP group built by `InitFilters` ends with an MFX block, insert an OpenCL copy at the end so the final group becomes an OpenCL block.
+
+- `0`  
+  Default. Disabled.
+- `1`  
+  Enable only when `ENABLE_D3D11=0`. If omitted, this value is used.
+- `2`  
+  Enable even when `ENABLE_D3D11!=0`.
 
 ### --vpp-ai-frameinterp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 Enable AI Powered frame interpolation, which will double the framerate.
