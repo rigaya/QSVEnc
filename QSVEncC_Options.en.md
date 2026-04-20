@@ -218,6 +218,7 @@
   - [--vpp-delogo \<string\>\[,\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-delogo-stringparam1value1param2value2)
   - [--vpp-afs \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-afs-param1value1param2value2)
   - [--vpp-nnedi \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-nnedi-param1value1param2value2)
+  - [--vpp-bwdif \[\<param1\>=\<value1\>\]](#--vpp-bwdif-param1value1)
   - [--vpp-yadif \[\<param1\>=\<value1\>\]](#--vpp-yadif-param1value1)
   - [--vpp-deinterlace \<string\>](#--vpp-deinterlace-string)
   - [--vpp-decomb \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-decomb-param1value1param2value2)
@@ -1763,6 +1764,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
   - [--vpp-delogo](#--vpp-delogo-stringparam1value1param2value2)
   - [--vpp-afs](#--vpp-afs-param1value1param2value2)
   - [--vpp-nnedi](#--vpp-nnedi-param1value1param2value2)
+  - [--vpp-bwdif](#--vpp-bwdif-param1value1)
   - [--vpp-yadif](#--vpp-yadif-param1value1)
   - [--vpp-decomb](#--vpp-decomb-param1value1param2value2)
   - [--vpp-deinterlace](#--vpp-deinterlace-string)
@@ -2266,6 +2268,30 @@ nnedi deinterlacer.
   ```
   example: --vpp-nnedi field=auto,nns=64,nsize=32x6,quality=slow,prescreen=none,prec=fp32
   ```
+
+### --vpp-bwdif [&lt;param1&gt;=&lt;value1&gt;]
+Bwdif deinterlacer.
+
+- **parameters**
+
+  - mode
+
+    - frame (default)
+      Same-rate output, one frame per input frame.
+    - bob
+      Double-rate output, two frames per input frame.
+
+  - order
+
+    - auto (default)
+      Detect field order from each input frame.
+    - tff
+      Assume top field first.
+    - bff
+      Assume bottom field first.
+
+  - thr
+    Motion threshold. Default: 0.0 (0.0 - 100.0).
 
 ### --vpp-yadif [&lt;param1&gt;=&lt;value1&gt;]
 Yadif deinterlacer.

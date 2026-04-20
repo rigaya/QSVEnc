@@ -546,6 +546,7 @@ qsvpipeline_sources = files(
   'QSVPipeline/rgy_filter_afs_filter.cpp',
   'QSVPipeline/rgy_filter_afs_merge.cpp',
   'QSVPipeline/rgy_filter_afs_synthesize.cpp',
+  'QSVPipeline/rgy_filter_bwdif.cpp',
   'QSVPipeline/rgy_filter_cl.cpp',
   'QSVPipeline/rgy_filter_colorspace.cpp',
   'QSVPipeline/rgy_filter_convolution3d.cpp',

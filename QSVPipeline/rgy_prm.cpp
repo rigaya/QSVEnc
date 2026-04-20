@@ -82,6 +82,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_LIBPLACEBO_TONEMAP,   _T("libplacebo-tonemapping")),
     std::make_pair(VppType::CL_AFS,                  _T("afs")),
     std::make_pair(VppType::CL_NNEDI,                _T("nnedi")),
+    std::make_pair(VppType::CL_BWDIF,                _T("bwdif")),
     std::make_pair(VppType::CL_YADIF,                _T("yadif")),
     std::make_pair(VppType::CL_DECOMB,               _T("decomb")),
     std::make_pair(VppType::CL_DECIMATE,             _T("decimate")),
@@ -1193,6 +1194,35 @@ tstring VppNnedi::print() const {
         ((weightfile.length()) ? weightfile.c_str() : _T("internal")));
 }
 
+bool VppBwdif::isbob() const {
+    return mode == VppBwdifMode::Bob;
+}
+
+VppBwdif::VppBwdif() :
+    enable(false),
+    mode(VppBwdifMode::Frame),
+    order(VppBwdifOrder::Auto),
+    thr(FILTER_DEFAULT_BWDIF_THR) {
+}
+
+bool VppBwdif::operator==(const VppBwdif& x) const {
+    return enable == x.enable
+        && mode == x.mode
+        && order == x.order
+        && thr == x.thr;
+}
+bool VppBwdif::operator!=(const VppBwdif& x) const {
+    return !(*this == x);
+}
+
+tstring VppBwdif::print() const {
+    return strsprintf(
+        _T("bwdif: mode %s, order %s, thr %.1f"),
+        get_cx_desc(list_vpp_bwdif_mode, (int)mode),
+        get_cx_desc(list_vpp_bwdif_order, (int)order),
+        thr);
+}
+
 VppYadif::VppYadif() :
     enable(false),
     log(false),
@@ -2109,6 +2139,7 @@ RGYParamVpp::RGYParamVpp() :
     delogo(),
     afs(),
     nnedi(),
+    bwdif(),
     yadif(),
     decomb(),
     rff(),
@@ -2149,6 +2180,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && delogo == x.delogo
         && afs == x.afs
         && nnedi == x.nnedi
+        && bwdif == x.bwdif
         && yadif == x.yadif
         && decomb == x.decomb
         && rff == x.rff

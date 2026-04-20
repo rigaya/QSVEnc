@@ -55,6 +55,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #endif
 #define ENABLE_VPP_FILTER_AFS          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_NNEDI        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
+#define ENABLE_VPP_FILTER_BWDIF        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_YADIF        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_DECOMB       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_RFF          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
@@ -146,6 +147,7 @@ enum class VppType : int {
     CL_LIBPLACEBO_TONEMAP,
     CL_AFS,
     CL_NNEDI,
+    CL_BWDIF,
     CL_YADIF,
     CL_DECOMB,
     CL_DECIMATE,
@@ -327,6 +329,7 @@ static const bool  FILTER_DEFAULT_DECOMB_FULL = true;
 static const int   FILTER_DEFAULT_DECOMB_THRESHOLD = 20;
 static const int   FILTER_DEFAULT_DECOMB_DTHRESHOLD = 7;
 static const bool  FILTER_DEFAULT_DECOMB_BLEND = false;
+static const float FILTER_DEFAULT_BWDIF_THR = 0.0f;
 
 static const int   FILTER_DEFAULT_DECIMATE_CYCLE = 5;
 static const int   FILTER_DEFAULT_DECIMATE_DROP = 1;
@@ -1821,6 +1824,43 @@ struct VppYadif {
     tstring print() const;
 };
 
+enum class VppBwdifMode {
+    Frame,
+    Bob
+};
+
+const CX_DESC list_vpp_bwdif_mode[] = {
+    { _T("frame"),  (int)VppBwdifMode::Frame },
+    { _T("bob"),    (int)VppBwdifMode::Bob   },
+    { NULL, 0 }
+};
+
+enum class VppBwdifOrder {
+    Auto = -1,
+    BFF = 0,
+    TFF = 1
+};
+
+const CX_DESC list_vpp_bwdif_order[] = {
+    { _T("auto"),   (int)VppBwdifOrder::Auto },
+    { _T("tff"),    (int)VppBwdifOrder::TFF  },
+    { _T("bff"),    (int)VppBwdifOrder::BFF  },
+    { NULL, 0 }
+};
+
+struct VppBwdif {
+    bool enable;
+    VppBwdifMode mode;
+    VppBwdifOrder order;
+    float thr;
+
+    bool isbob() const;
+    VppBwdif();
+    bool operator==(const VppBwdif& x) const;
+    bool operator!=(const VppBwdif& x) const;
+    tstring print() const;
+};
+
 struct VppDecomb {
     bool enable;
     bool full;
@@ -2329,6 +2369,7 @@ struct RGYParamVpp {
     VppDelogo delogo;
     VppAfs afs;
     VppNnedi nnedi;
+    VppBwdif bwdif;
     VppYadif yadif;
     VppDecomb decomb;
     VppRff rff;

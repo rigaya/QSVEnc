@@ -2032,6 +2032,69 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         return 0;
     }
 
+    if (IS_OPTION("vpp-bwdif") && ENABLE_VPP_FILTER_BWDIF) {
+        vpp->bwdif.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+
+        const auto paramList = std::vector<std::string>{ "mode", "order", "thr" };
+
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = tolowercase(param.substr(0, pos));
+                auto param_val = param.substr(pos + 1);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->bwdif.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("mode")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_bwdif_mode, param_val.c_str(), &value)) {
+                        vpp->bwdif.mode = (VppBwdifMode)value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_bwdif_mode);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("order")) {
+                    int value = 0;
+                    if (get_list_value(list_vpp_bwdif_order, param_val.c_str(), &value)) {
+                        vpp->bwdif.order = (VppBwdifOrder)value;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_bwdif_order);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("thr")) {
+                    try {
+                        vpp->bwdif.thr = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
+
     if (IS_OPTION("vpp-decomb") && ENABLE_VPP_FILTER_DECOMB) {
         vpp->decomb.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
@@ -7900,6 +7963,22 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-yadif");
         }
     }
+    if (param->bwdif != defaultPrm->bwdif) {
+        tmp.str(tstring());
+        if (!param->bwdif.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->bwdif.enable || save_disabled_prm) {
+            ADD_LST(_T("mode"), bwdif.mode, list_vpp_bwdif_mode);
+            ADD_LST(_T("order"), bwdif.order, list_vpp_bwdif_order);
+            ADD_FLOAT(_T("thr"), bwdif.thr, 1);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-bwdif ") << tmp.str().substr(1);
+        } else if (param->bwdif.enable) {
+            cmd << _T(" --vpp-bwdif");
+        }
+    }
     if (param->decomb != defaultPrm->decomb) {
         tmp.str(tstring());
         if (!param->decomb.enable && save_disabled_prm) {
@@ -9674,6 +9753,21 @@ tstring gen_cmd_help_vpp() {
         _T("          bob               Generate one frame from each field.\n")
         _T("          bob_tff           Generate one frame from each field assuming tff.\n")
         _T("          bob_bff           Generate one frame from each field assuming bff.\n"));
+#endif
+#if ENABLE_VPP_FILTER_BWDIF
+    str += strsprintf(_T("\n")
+        _T("   --vpp-bwdif [<param1>=<value>]\n")
+        _T("     enable bwdif deinterlacer\n")
+        _T("    params\n")
+        _T("      mode=<string>\n")
+        _T("          frame (default)   Same-rate output, one frame per input.\n")
+        _T("          bob               Double-rate output, two frames per input.\n")
+        _T("      order=<string>\n")
+        _T("          auto (default)    Detect field order from each input frame.\n")
+        _T("          tff               Assume top field first.\n")
+        _T("          bff               Assume bottom field first.\n")
+        _T("      thr=<float>           Motion threshold (default=%.1f, 0.0 - 100.0).\n"),
+        FILTER_DEFAULT_BWDIF_THR);
 #endif
 #if ENABLE_VPP_FILTER_DECOMB
     str += strsprintf(_T("\n")

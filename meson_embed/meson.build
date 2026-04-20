@@ -44,6 +44,7 @@ resource_specs = [
   ['rgy_filter_tweak_cl', '../QSVPipeline/rgy_filter_tweak.cl', 'QSVPipeline_rgy_filter_tweak_cl'],
   ['rgy_filter_unsharp_cl', '../QSVPipeline/rgy_filter_unsharp.cl', 'QSVPipeline_rgy_filter_unsharp_cl'],
   ['rgy_filter_warpsharp_cl', '../QSVPipeline/rgy_filter_warpsharp.cl', 'QSVPipeline_rgy_filter_warpsharp_cl'],
+  ['rgy_filter_bwdif_cl', '../QSVPipeline/rgy_filter_bwdif.cl', 'QSVPipeline_rgy_filter_bwdif_cl'],
   ['rgy_filter_yadif_cl', '../QSVPipeline/rgy_filter_yadif.cl', 'QSVPipeline_rgy_filter_yadif_cl'],
 ]
 
