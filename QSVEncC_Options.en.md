@@ -222,6 +222,7 @@
   - [--vpp-yadif \[\<param1\>=\<value1\>\]](#--vpp-yadif-param1value1)
   - [--vpp-deinterlace \<string\>](#--vpp-deinterlace-string)
   - [--vpp-decomb \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-decomb-param1value1param2value2)
+  - [--vpp-ivtc \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-ivtc-param1value1param2value2)
   - [--vpp-decimate \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-decimate-param1value1param2value2)
   - [--vpp-mpdecimate \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-mpdecimate-param1value1param2value2)
   - [--vpp-convolution3d \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-convolution3d-param1value1param2value2)
@@ -1768,6 +1769,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
   - [--vpp-yadif](#--vpp-yadif-param1value1)
   - [--vpp-decomb](#--vpp-decomb-param1value1param2value2)
   - [--vpp-deinterlace](#--vpp-deinterlace-string)
+  - [--vpp-ivtc](#--vpp-ivtc-param1value1param2value2)
   - [--vpp-decimate](#--vpp-decimate-param1value1param2value2)
   - [--vpp-mpdecimate](#--vpp-mpdecimate-param1value1param2value2)
   - [--vpp-convolution3d](#--vpp-convolution3d-param1value1param2value2)
@@ -2346,6 +2348,50 @@ Decomb deinterlaer.
 
   - blend=&lt;bool&gt;   
     blend rather than interpolate. default off.
+
+### --vpp-ivtc [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
+Inverse telecine for soft-telecine / hard-telecine sources.
+
+- **parameters**
+  - guide=&lt;int&gt;  (default: 1)  
+    Matching mode.
+    - 0  
+      Select the candidate with the minimum match-quality from C/P/N.
+    - 1  
+      Prefer C when it is clean enough, otherwise choose from P/N.
+
+  - post=&lt;int&gt;  (default: 2)  
+    Post process for residual combing.
+    - 0  
+      No post process.
+    - 2  
+      Apply adaptive bob-deinterlace only on rows still detected as combed.
+
+  - cycle=&lt;auto|int&gt;  (default: auto)  
+    Decimation cycle.
+    - auto  
+      Disable decimation when input fps is below 26, otherwise use `cycle=5`.
+    - 0  
+      Disable decimation.
+    - 5  
+      3:2 pulldown decimation from 30fps to 24fps.
+    - 2..16  
+      Custom cycle length.
+
+  - drop=&lt;int&gt;  (default: 1)  
+    Number of frames to drop in each cycle. Currently only `1` is supported.
+
+  - combthresh=&lt;float&gt;  (default: 0.12)  
+    Per-pixel combing threshold. `0.0 - 1.0`.
+
+  - cleanfrac=&lt;float&gt;  (default: 0.01)  
+    Clean threshold used by `guide=1` and `post=2`.
+
+  - tff=&lt;auto|on|off&gt;  (default: auto)  
+    Field order. `auto` checks each input frame's `picstruct`, and falls back to the input setting when unavailable.
+
+  - log=&lt;path|bool&gt;  
+    Write per-frame match logs. `log=true` uses the output filename base and creates `*.ivtc.log.txt`.
 
 ### --vpp-decimate [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]  
 Drop duplicated frame in cycles set.

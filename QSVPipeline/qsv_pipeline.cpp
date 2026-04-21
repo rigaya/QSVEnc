@@ -76,6 +76,7 @@ RGY_DISABLE_WARNING_POP
 #include "rgy_filter_mpdecimate.h"
 #include "rgy_filter_decimate.h"
 #include "rgy_filter_decomb.h"
+#include "rgy_filter_ivtc.h"
 #include "rgy_filter_delogo.h"
 #include "rgy_filter_convolution3d.h"
 #include "rgy_filter_denoise_dct.h"
@@ -1991,7 +1992,15 @@ RGY_ERR CQSVPipeline::InitInput(sInputParams *inputParam, DeviceCodecCsp& HWDecC
 #if ENABLE_VPP_FILTER_RFF
         if (inputParam->vpp.rff.enable) {
             err_target += _T("vpp-rff, ");
+            // --vpp-ivtc が後段にある場合は RFF 展開 → IVTC デシメートで CFR (24fps など) に
+            // 戻るため、avsync を VFR に切り替えない (出力 timebase も CFR-friendly なまま保つ)。
+#if ENABLE_VPP_FILTER_IVTC
+            if (!inputParam->vpp.ivtc.enable) {
+                m_nAVSyncMode = RGY_AVSYNC_VFR;
+            }
+#else
             m_nAVSyncMode = RGY_AVSYNC_VFR;
+#endif
         }
 #endif
         err_target = err_target.substr(0, err_target.length()-2);
@@ -2234,6 +2243,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vpp.bwdif.enable)      filterPipeline.push_back(VppType::CL_BWDIF);
     if (inputParam->vpp.yadif.enable)      filterPipeline.push_back(VppType::CL_YADIF);
     if (inputParam->vpp.decomb.enable)     filterPipeline.push_back(VppType::CL_DECOMB);
+    if (inputParam->vpp.ivtc.enable)       filterPipeline.push_back(VppType::CL_IVTC);
     if (inputParam->vppmfx.deinterlace != MFX_DEINTERLACE_NONE)  filterPipeline.push_back(VppType::MFX_DEINTERLACE);
     if (inputParam->vpp.decimate.enable)   filterPipeline.push_back(VppType::CL_DECIMATE);
     if (inputParam->vpp.mpdecimate.enable) filterPipeline.push_back(VppType::CL_MPDECIMATE);
@@ -2579,6 +2589,28 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        auto sts = filter->init(param, m_pQSVLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        //登録
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
+    }
+    //ivtc
+    if (vppType == VppType::CL_IVTC) {
+        unique_ptr<RGYFilter> filter(new RGYFilterIvtc(m_cl));
+        shared_ptr<RGYFilterParamIvtc> param(new RGYFilterParamIvtc());
+        param->ivtc = params->vpp.ivtc;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->frameOut.picstruct = RGY_PICSTRUCT_FRAME;
+        param->baseFps = m_encFps;
+        param->outFilename = params->common.outputFilename;
         param->bOutOverwrite = false;
         auto sts = filter->init(param, m_pQSVLog);
         if (sts != RGY_ERR_NONE) {
@@ -3249,6 +3281,7 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
     if (inputParam->vpp.bwdif.enable) deinterlacer++;
     if (inputParam->vpp.yadif.enable) deinterlacer++;
     if (inputParam->vpp.decomb.enable) deinterlacer++;
+    if (inputParam->vpp.ivtc.enable) deinterlacer++;
     if (deinterlacer >= 2) {
         PrintMes(RGY_LOG_ERROR, _T("Activating 2 or more deinterlacer is not supported.\n"));
         return RGY_ERR_UNSUPPORTED;

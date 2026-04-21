@@ -562,6 +562,7 @@ qsvpipeline_sources = files(
   'QSVPipeline/rgy_filter_denoise_nlmeans.cpp',
   'QSVPipeline/rgy_filter_denoise_pmd.cpp',
   'QSVPipeline/rgy_filter_edgelevel.cpp',
+  'QSVPipeline/rgy_filter_ivtc.cpp',
   'QSVPipeline/rgy_filter_msharpen.cpp',
   'QSVPipeline/rgy_filter_msmooth.cpp',
   'QSVPipeline/rgy_filter_libplacebo.cpp',

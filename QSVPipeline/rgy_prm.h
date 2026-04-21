@@ -58,6 +58,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_BWDIF        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_YADIF        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_DECOMB       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
+#define ENABLE_VPP_FILTER_IVTC         (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_RFF          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_RFF_AVHW     (ENCODER_QSV   || ENCODER_NVENC                   || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_SELECT_EVERY (ENCODER_NVENC)
@@ -150,6 +151,7 @@ enum class VppType : int {
     CL_BWDIF,
     CL_YADIF,
     CL_DECOMB,
+    CL_IVTC,
     CL_DECIMATE,
     CL_MPDECIMATE,
     CL_RFF,
@@ -340,6 +342,15 @@ static const int   FILTER_DEFAULT_DECIMATE_BLOCK_Y = 32;
 static const bool  FILTER_DEFAULT_DECIMATE_PREPROCESSED = false;
 static const bool  FILTER_DEFAULT_DECIMATE_CHROMA = true;
 static const bool  FILTER_DEFAULT_DECIMATE_LOG = false;
+
+static const int   FILTER_DEFAULT_IVTC_TFF = -1;
+static const int   FILTER_DEFAULT_IVTC_GUIDE = 1;
+static const int   FILTER_DEFAULT_IVTC_POST = 2;
+static const int   FILTER_DEFAULT_IVTC_CYCLE = -1;
+static const int   FILTER_DEFAULT_IVTC_DROP = 1;
+static const float FILTER_DEFAULT_IVTC_COMB_THRESH = 0.12f;
+static const float FILTER_DEFAULT_IVTC_CLEAN_FRAC = 0.01f;
+static const bool  FILTER_DEFAULT_IVTC_LOG = false;
 
 static const int   FILTER_DEFAULT_MPDECIMATE_HI = 768;
 static const int   FILTER_DEFAULT_MPDECIMATE_LO = 320;
@@ -1930,6 +1941,24 @@ struct VppDecimate {
     tstring print() const;
 };
 
+struct VppIvtc {
+    bool enable;
+    int tff;              // -1=auto (入力picstructから判定), 0=BFF, 1=TFF
+    int guide;            // 0=min-combing (Phase 1), 1=2-way + combed-override (Phase 2)
+    int post;             // 0=off, 2=adaptive bob-deinterlace (Phase 2)
+    int cycle;            // デシメーションサイクル長 (Phase 3)。0=off, 5=3:2 プルダウン
+    int drop;             // サイクル内で落とすフレーム数 (Phase 3 は drop=1 のみサポート)
+    float combThresh;     // 単一画素のコーミング判定閾値 (正規化, 0..1)
+    float cleanFrac;      // C候補が「十分クリーン」と見なされるフレーム内コーミング画素数の上限 (総画素に対する比率)
+    bool log;
+    tstring logPath;
+
+    VppIvtc();
+    bool operator==(const VppIvtc &x) const;
+    bool operator!=(const VppIvtc &x) const;
+    tstring print() const;
+};
+
 struct VppMpdecimate {
     bool enable;
     int lo, hi, max;
@@ -2372,6 +2401,7 @@ struct RGYParamVpp {
     VppBwdif bwdif;
     VppYadif yadif;
     VppDecomb decomb;
+    VppIvtc ivtc;
     VppRff rff;
     VppSelectEvery selectevery;
     VppDecimate decimate;

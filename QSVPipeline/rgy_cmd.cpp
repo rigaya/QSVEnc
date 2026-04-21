@@ -2095,6 +2095,142 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         return 0;
     }
 
+    if (IS_OPTION("vpp-ivtc") && ENABLE_VPP_FILTER_IVTC) {
+        vpp->ivtc.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "enable", "guide", "post", "cycle", "drop", "combthresh", "cleanfrac", "tff", "log" };
+
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->ivtc.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("guide")) {
+                    try {
+                        const int g = std::stoi(param_val);
+                        if (g != 0 && g != 1) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("Supported values: 0 (min-combing), 1 (2-way + combed-override)."));
+                            return 1;
+                        }
+                        vpp->ivtc.guide = g;
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("post")) {
+                    try {
+                        const int p = std::stoi(param_val);
+                        if (p != 0 && p != 2) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("Supported values: 0 (off), 2 (adaptive bob-deinterlace)."));
+                            return 1;
+                        }
+                        vpp->ivtc.post = p;
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("cycle")) {
+                    if (param_val == _T("auto") || param_val == _T("-1")) {
+                        vpp->ivtc.cycle = -1;
+                        continue;
+                    }
+                    try {
+                        const int c = std::stoi(param_val);
+                        if (c != 0 && (c < 2 || c > 16)) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("Supported values: auto, 0 (disabled), or 2..16."));
+                            return 1;
+                        }
+                        vpp->ivtc.cycle = c;
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("drop")) {
+                    try {
+                        const int d = std::stoi(param_val);
+                        if (d != 1) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("Only drop=1 is supported in this build."));
+                            return 1;
+                        }
+                        vpp->ivtc.drop = d;
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("combthresh")) {
+                    try {
+                        vpp->ivtc.combThresh = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("cleanfrac")) {
+                    try {
+                        vpp->ivtc.cleanFrac = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("tff")) {
+                    if (param_val == _T("auto") || param_val == _T("-1")) {
+                        vpp->ivtc.tff = -1;
+                    } else {
+                        bool b = false;
+                        if (!cmd_string_to_bool(&b, param_val)) {
+                            vpp->ivtc.tff = b ? 1 : 0;
+                        } else {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                            return 1;
+                        }
+                    }
+                    continue;
+                }
+                if (param_arg == _T("log")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->ivtc.log = b;
+                        if (b) {
+                            vpp->ivtc.logPath = _T("");
+                        }
+                    } else {
+                        vpp->ivtc.log = true;
+                        vpp->ivtc.logPath = param_val;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
+
     if (IS_OPTION("vpp-decomb") && ENABLE_VPP_FILTER_DECOMB) {
         vpp->decomb.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
@@ -7996,6 +8132,35 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-decomb");
         }
     }
+    if (param->ivtc != defaultPrm->ivtc) {
+        tmp.str(tstring());
+        if (!param->ivtc.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->ivtc.enable || save_disabled_prm) {
+            ADD_NUM(_T("guide"), ivtc.guide);
+            ADD_NUM(_T("post"), ivtc.post);
+            if (param->ivtc.cycle != defaultPrm->ivtc.cycle) {
+                tmp << _T(",cycle=") << ((param->ivtc.cycle < 0) ? _T("auto") : std::to_tstring(param->ivtc.cycle));
+            }
+            ADD_NUM(_T("drop"), ivtc.drop);
+            ADD_FLOAT(_T("combthresh"), ivtc.combThresh, 3);
+            ADD_FLOAT(_T("cleanfrac"), ivtc.cleanFrac, 3);
+            if (param->ivtc.tff != defaultPrm->ivtc.tff) {
+                tmp << _T(",tff=") << ((param->ivtc.tff < 0) ? _T("auto") : (param->ivtc.tff ? _T("on") : _T("off")));
+            }
+            if (param->ivtc.logPath.length() > 0) {
+                tmp << _T(",log=\"") << param->ivtc.logPath << _T("\"");
+            } else {
+                ADD_BOOL(_T("log"), ivtc.log);
+            }
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-ivtc ") << tmp.str().substr(1);
+        } else if (param->ivtc.enable) {
+            cmd << _T(" --vpp-ivtc");
+        }
+    }
     if (param->rff != defaultPrm->rff) {
         tmp.str(tstring());
         if (!param->rff.enable && save_disabled_prm) {
@@ -9779,6 +9944,33 @@ tstring gen_cmd_help_vpp() {
         _T("      dthreshold=<int>      default %d (0 - 255)\n")
         _T("      blend=<bool>          blend rather than interpolate\n"),
         FILTER_DEFAULT_DECOMB_THRESHOLD, FILTER_DEFAULT_DECOMB_DTHRESHOLD);
+#endif
+#if ENABLE_VPP_FILTER_IVTC
+    str += strsprintf(_T("\n")
+        _T("   --vpp-ivtc [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     inverse telecine (Telecide + Decimate style).\n")
+        _T("    params\n")
+        _T("      guide=<int>           matching mode. (default=%d)\n")
+        _T("                              0 = min-combing\n")
+        _T("                              1 = prefer C if clean, otherwise choose from P/N\n")
+        _T("      post=<int>            post-process for residual combing. (default=%d)\n")
+        _T("                              0 = off\n")
+        _T("                              2 = adaptive bob-deinterlace on combed rows\n")
+        _T("      cycle=<auto|int>      decimation cycle length.\n")
+        _T("                              auto (default) = skip if input fps < 26, otherwise use cycle=5\n")
+        _T("                              0 = decimation disabled\n")
+        _T("                              5 = 3:2 pulldown (30fps -> 24fps)\n")
+        _T("                              2..16 = custom cycle length\n")
+        _T("      drop=<int>            frames to drop per cycle. (default=%d, only value supported)\n")
+        _T("      combthresh=<float>    per-pixel combing threshold. (default=%.2f, 0.0 - 1.0)\n")
+        _T("      cleanfrac=<float>     clean-frame threshold used by guide=1 / post=2.\n")
+        _T("                              (default=%.2f)\n")
+        _T("      tff=<auto|on|off>     top-field-first. default auto (derived from input picstruct)\n")
+        _T("      log=<path|bool>       write per-frame match log to <path>.\n")
+        _T("                              log=true uses output filename base + .ivtc.log.txt\n"),
+        FILTER_DEFAULT_IVTC_GUIDE, FILTER_DEFAULT_IVTC_POST,
+        FILTER_DEFAULT_IVTC_DROP,
+        FILTER_DEFAULT_IVTC_COMB_THRESH, FILTER_DEFAULT_IVTC_CLEAN_FRAC);
 #endif
 #if ENABLE_VPP_FILTER_RFF
     str += strsprintf(_T("\n")

@@ -85,6 +85,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_BWDIF,                _T("bwdif")),
     std::make_pair(VppType::CL_YADIF,                _T("yadif")),
     std::make_pair(VppType::CL_DECOMB,               _T("decomb")),
+    std::make_pair(VppType::CL_IVTC,                 _T("ivtc")),
     std::make_pair(VppType::CL_DECIMATE,             _T("decimate")),
     std::make_pair(VppType::CL_MPDECIMATE,           _T("mpdecimate")),
     std::make_pair(VppType::CL_RFF,                  _T("rff")),
@@ -1329,6 +1330,54 @@ tstring VppDecimate::print() const {
         blockX, blockY,
         /*preProcessed ? _T("on") : _T("off"),*/
         chroma ? _T("on") : _T("off"),
+        log ? _T("on") : _T("off"));
+}
+
+
+VppIvtc::VppIvtc() :
+    enable(false),
+    tff(FILTER_DEFAULT_IVTC_TFF),
+    guide(FILTER_DEFAULT_IVTC_GUIDE),
+    post(FILTER_DEFAULT_IVTC_POST),
+    cycle(FILTER_DEFAULT_IVTC_CYCLE),
+    drop(FILTER_DEFAULT_IVTC_DROP),
+    combThresh(FILTER_DEFAULT_IVTC_COMB_THRESH),
+    cleanFrac(FILTER_DEFAULT_IVTC_CLEAN_FRAC),
+    log(FILTER_DEFAULT_IVTC_LOG),
+    logPath() {
+
+}
+
+bool VppIvtc::operator==(const VppIvtc &x) const {
+    return enable == x.enable
+        && tff == x.tff
+        && guide == x.guide
+        && post == x.post
+        && cycle == x.cycle
+        && drop == x.drop
+        && combThresh == x.combThresh
+        && cleanFrac == x.cleanFrac
+        && log == x.log
+        && logPath == x.logPath;
+}
+bool VppIvtc::operator!=(const VppIvtc &x) const {
+    return !(*this == x);
+}
+
+tstring VppIvtc::print() const {
+    tstring cycleStr;
+    if (cycle < 0) {
+        cycleStr = _T("auto");
+    } else if (cycle == 0) {
+        cycleStr = _T("off");
+    } else {
+        cycleStr = strsprintf(_T("%d/%d"), cycle, drop);
+    }
+    return strsprintf(_T("ivtc: guide=%d, post=%d, cycle=%s, combthresh %.3f, cleanfrac %.3f, tff=%s, log %s"),
+        guide, post,
+        cycleStr.c_str(),
+        combThresh, cleanFrac,
+        (tff < 0) ? _T("auto") : (tff ? _T("on") : _T("off")),
         log ? _T("on") : _T("off"));
 }
 
