@@ -56,6 +56,10 @@ protected:
                              bool inputTff, int preserveTopField, int outputSlot,
                              RGYOpenCLQueue &queue,
                              const std::vector<RGYOpenCLEvent> &wait_events);
+    RGY_ERR generateOutput(int idx_prev, int idx_cur, int idx_next,
+                           RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+                           RGYOpenCLQueue &queue,
+                           const std::vector<RGYOpenCLEvent> &wait_events);
     void setBobTimestamp(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames);
     bool getInputTff(const RGYFrameInfo *frame) const;
     bool shouldPassthrough(const RGYFrameInfo *frame) const;

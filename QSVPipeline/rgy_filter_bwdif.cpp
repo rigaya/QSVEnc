@@ -54,6 +54,11 @@ RGY_ERR RGYFilterBwdif::checkParam(const std::shared_ptr<RGYFilterParamBwdif> pr
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+    const int height_mul = (RGY_CSP_CHROMA_FORMAT[prm->frameOut.csp] == RGY_CHROMAFMT_YUV420) ? 4 : 2;
+    if ((prm->frameOut.height % height_mul) != 0) {
+        AddMessage(RGY_LOG_ERROR, _T("Height must be multiple of %d.\n"), height_mul);
+        return RGY_ERR_INVALID_PARAM;
+    }
     if (prm->bwdif.thr < 0.0f || prm->bwdif.thr > 100.0f) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid thr=%.3f: must be in [0.0, 100.0].\n"), prm->bwdif.thr);
         return RGY_ERR_INVALID_PARAM;
@@ -75,9 +80,9 @@ RGY_ERR RGYFilterBwdif::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
     }
 
     prm->frameOut.picstruct = RGY_PICSTRUCT_FRAME;
+    m_pathThrough &= ~(FILTER_PATHTHROUGH_PICSTRUCT | FILTER_PATHTHROUGH_FLAGS | FILTER_PATHTHROUGH_TIMESTAMP);
     if (prm->bwdif.isbob()) {
         pParam->baseFps *= 2;
-        m_pathThrough &= ~(FILTER_PATHTHROUGH_TIMESTAMP);
     }
 
     auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamBwdif>(m_param);
@@ -217,6 +222,82 @@ RGY_ERR RGYFilterBwdif::reconstructFrame(int idx_prev, int idx_cur, int idx_next
     return RGY_ERR_NONE;
 }
 
+RGY_ERR RGYFilterBwdif::generateOutput(int idx_prev, int idx_cur, int idx_next,
+    RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+    RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events) {
+    auto prm = std::dynamic_pointer_cast<RGYFilterParamBwdif>(m_param);
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+
+    const bool bob = prm->bwdif.isbob();
+    const RGYFrameInfo *curF = &m_cacheFrames[idx_cur]->frame;
+    const bool inputTff = getInputTff(curF);
+    const int firstFieldParity  = inputTff ? 1 : 0;
+    const int secondFieldParity = inputTff ? 0 : 1;
+
+    if (shouldPassthrough(curF)) {
+        auto err = m_cl->copyFrame(&m_frameBuf[0]->frame, curF, nullptr, queue, wait_events);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to copy progressive frame: %s.\n"), get_err_mes(err));
+            return err;
+        }
+        auto pOut0 = &m_frameBuf[0]->frame;
+        pOut0->picstruct = RGY_PICSTRUCT_FRAME;
+        pOut0->flags = curF->flags;
+        ppOutputFrames[0] = pOut0;
+        *pOutputFrameNum = 1;
+        if (bob) {
+            err = m_cl->copyFrame(&m_frameBuf[1]->frame, curF, nullptr, queue, {});
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to duplicate progressive frame for bob: %s.\n"), get_err_mes(err));
+                return err;
+            }
+            auto pOut1 = &m_frameBuf[1]->frame;
+            pOut1->picstruct = RGY_PICSTRUCT_FRAME;
+            pOut1->flags = curF->flags;
+            ppOutputFrames[1] = pOut1;
+            *pOutputFrameNum = 2;
+            setBobTimestamp(curF, ppOutputFrames);
+        } else {
+            pOut0->timestamp = curF->timestamp;
+            pOut0->duration = curF->duration;
+            pOut0->inputFrameId = curF->inputFrameId;
+        }
+        return RGY_ERR_NONE;
+    }
+
+    auto err = reconstructFrame(idx_prev, idx_cur, idx_next, inputTff, firstFieldParity, 0, queue, wait_events);
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
+
+    auto pOut0 = &m_frameBuf[0]->frame;
+    pOut0->picstruct = RGY_PICSTRUCT_FRAME;
+    pOut0->flags     = curF->flags;
+    ppOutputFrames[0] = pOut0;
+    *pOutputFrameNum  = 1;
+
+    if (bob) {
+        err = reconstructFrame(idx_prev, idx_cur, idx_next, inputTff, secondFieldParity, 1, queue, {});
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        auto pOut1 = &m_frameBuf[1]->frame;
+        pOut1->picstruct = RGY_PICSTRUCT_FRAME;
+        pOut1->flags     = curF->flags;
+        ppOutputFrames[1] = pOut1;
+        *pOutputFrameNum  = 2;
+        setBobTimestamp(curF, ppOutputFrames);
+    } else {
+        pOut0->timestamp    = curF->timestamp;
+        pOut0->duration     = curF->duration;
+        pOut0->inputFrameId = curF->inputFrameId;
+    }
+    return RGY_ERR_NONE;
+}
+
 void RGYFilterBwdif::setBobTimestamp(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames) {
     auto prm = std::dynamic_pointer_cast<RGYFilterParamBwdif>(m_param);
     auto frameDuration = pInputFrame->duration;
@@ -251,7 +332,6 @@ RGY_ERR RGYFilterBwdif::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         return RGY_ERR_INVALID_PARAM;
     }
 
-    const bool bob = prm->bwdif.isbob();
     const bool hasInput = (pInputFrame && pInputFrame->ptr[0]);
 
     if (hasInput) {
@@ -276,142 +356,15 @@ RGY_ERR RGYFilterBwdif::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         const int idx_cur  = (m_inputCount - 2) % BWDIF_CACHE_SIZE;
         const int idx_next = (m_inputCount - 1) % BWDIF_CACHE_SIZE;
         const int idx_prev = (m_inputCount >= 3) ? (m_inputCount - 3) % BWDIF_CACHE_SIZE : idx_cur;
-        const RGYFrameInfo *curF = &m_cacheFrames[idx_cur]->frame;
-        const bool inputTff = getInputTff(curF);
-        const int firstFieldParity  = inputTff ? 1 : 0;
-        const int secondFieldParity = inputTff ? 0 : 1;
-
-        if (shouldPassthrough(curF)) {
-            auto err = m_cl->copyFrame(&m_frameBuf[0]->frame, curF, nullptr, queue_main, wait_events);
-            if (err != RGY_ERR_NONE) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to copy progressive frame: %s.\n"), get_err_mes(err));
-                return err;
-            }
-            auto pOut0 = &m_frameBuf[0]->frame;
-            pOut0->picstruct = RGY_PICSTRUCT_FRAME;
-            pOut0->flags = curF->flags;
-            ppOutputFrames[0] = pOut0;
-            *pOutputFrameNum = 1;
-            if (bob) {
-                err = m_cl->copyFrame(&m_frameBuf[1]->frame, curF, nullptr, queue_main, {});
-                if (err != RGY_ERR_NONE) {
-                    AddMessage(RGY_LOG_ERROR, _T("failed to duplicate progressive frame for bob: %s.\n"), get_err_mes(err));
-                    return err;
-                }
-                auto pOut1 = &m_frameBuf[1]->frame;
-                pOut1->picstruct = RGY_PICSTRUCT_FRAME;
-                pOut1->flags = curF->flags;
-                ppOutputFrames[1] = pOut1;
-                *pOutputFrameNum = 2;
-                setBobTimestamp(curF, ppOutputFrames);
-            } else {
-                pOut0->timestamp = curF->timestamp;
-                pOut0->duration = curF->duration;
-                pOut0->inputFrameId = curF->inputFrameId;
-            }
-            return RGY_ERR_NONE;
-        }
-
-        auto err = reconstructFrame(idx_prev, idx_cur, idx_next, inputTff, firstFieldParity, 0, queue_main, wait_events);
-        if (err != RGY_ERR_NONE) {
-            return err;
-        }
-
-        auto pOut0 = &m_frameBuf[0]->frame;
-        pOut0->picstruct = RGY_PICSTRUCT_FRAME;
-        pOut0->flags     = curF->flags;
-        ppOutputFrames[0] = pOut0;
-        *pOutputFrameNum  = 1;
-
-        if (bob) {
-            err = reconstructFrame(idx_prev, idx_cur, idx_next, inputTff, secondFieldParity, 1, queue_main, {});
-            if (err != RGY_ERR_NONE) {
-                return err;
-            }
-            auto pOut1 = &m_frameBuf[1]->frame;
-            pOut1->picstruct = RGY_PICSTRUCT_FRAME;
-            pOut1->flags     = curF->flags;
-            ppOutputFrames[1] = pOut1;
-            *pOutputFrameNum  = 2;
-            setBobTimestamp(curF, ppOutputFrames);
-        } else {
-            pOut0->timestamp    = curF->timestamp;
-            pOut0->duration     = curF->duration;
-            pOut0->inputFrameId = curF->inputFrameId;
-        }
-        return RGY_ERR_NONE;
+        return generateOutput(idx_prev, idx_cur, idx_next, ppOutputFrames, pOutputFrameNum, queue_main, wait_events);
     }
 
     if (!m_drained && m_inputCount >= 1) {
         m_drained = true;
-
         const int idx_cur  = (m_inputCount - 1) % BWDIF_CACHE_SIZE;
         const int idx_next = idx_cur;
         const int idx_prev = (m_inputCount >= 2) ? (m_inputCount - 2) % BWDIF_CACHE_SIZE : idx_cur;
-        const RGYFrameInfo *curF = &m_cacheFrames[idx_cur]->frame;
-        const bool inputTff = getInputTff(curF);
-        const int firstFieldParity  = inputTff ? 1 : 0;
-        const int secondFieldParity = inputTff ? 0 : 1;
-
-        if (shouldPassthrough(curF)) {
-            auto err = m_cl->copyFrame(&m_frameBuf[0]->frame, curF, nullptr, queue_main, wait_events);
-            if (err != RGY_ERR_NONE) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to copy drained progressive frame: %s.\n"), get_err_mes(err));
-                return err;
-            }
-            auto pOut0 = &m_frameBuf[0]->frame;
-            pOut0->picstruct = RGY_PICSTRUCT_FRAME;
-            pOut0->flags = curF->flags;
-            ppOutputFrames[0] = pOut0;
-            *pOutputFrameNum = 1;
-            if (bob) {
-                err = m_cl->copyFrame(&m_frameBuf[1]->frame, curF, nullptr, queue_main, {});
-                if (err != RGY_ERR_NONE) {
-                    AddMessage(RGY_LOG_ERROR, _T("failed to duplicate drained progressive frame for bob: %s.\n"), get_err_mes(err));
-                    return err;
-                }
-                auto pOut1 = &m_frameBuf[1]->frame;
-                pOut1->picstruct = RGY_PICSTRUCT_FRAME;
-                pOut1->flags = curF->flags;
-                ppOutputFrames[1] = pOut1;
-                *pOutputFrameNum = 2;
-                setBobTimestamp(curF, ppOutputFrames);
-            } else {
-                pOut0->timestamp = curF->timestamp;
-                pOut0->duration = curF->duration;
-                pOut0->inputFrameId = curF->inputFrameId;
-            }
-            return RGY_ERR_NONE;
-        }
-
-        auto err = reconstructFrame(idx_prev, idx_cur, idx_next, inputTff, firstFieldParity, 0, queue_main, wait_events);
-        if (err != RGY_ERR_NONE) {
-            return err;
-        }
-
-        auto pOut0 = &m_frameBuf[0]->frame;
-        pOut0->picstruct = RGY_PICSTRUCT_FRAME;
-        pOut0->flags     = curF->flags;
-        ppOutputFrames[0] = pOut0;
-        *pOutputFrameNum  = 1;
-
-        if (bob) {
-            err = reconstructFrame(idx_prev, idx_cur, idx_next, inputTff, secondFieldParity, 1, queue_main, {});
-            if (err != RGY_ERR_NONE) {
-                return err;
-            }
-            auto pOut1 = &m_frameBuf[1]->frame;
-            pOut1->picstruct = RGY_PICSTRUCT_FRAME;
-            pOut1->flags     = curF->flags;
-            ppOutputFrames[1] = pOut1;
-            *pOutputFrameNum  = 2;
-            setBobTimestamp(curF, ppOutputFrames);
-        } else {
-            pOut0->timestamp    = curF->timestamp;
-            pOut0->duration     = curF->duration;
-            pOut0->inputFrameId = curF->inputFrameId;
-        }
-        return RGY_ERR_NONE;
+        return generateOutput(idx_prev, idx_cur, idx_next, ppOutputFrames, pOutputFrameNum, queue_main, wait_events);
     }
 
     return RGY_ERR_NONE;
@@ -424,4 +377,5 @@ void RGYFilterBwdif::close() {
     m_inputCount = 0;
     m_drained    = false;
     m_frameBuf.clear();
+    m_cl.reset();
 }
