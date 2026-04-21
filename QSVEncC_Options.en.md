@@ -2356,7 +2356,7 @@ Inverse telecine for soft-telecine / hard-telecine sources.
   - guide=&lt;int&gt;  (default: 1)  
     Matching mode.
     - 0  
-      Select the candidate with the minimum match-quality from C/P/N.
+      Select the candidate with the minimum match-quality from C/P/N. Note: if C is fully progressive (zero combing), it is always kept to avoid introducing combing from mixing fields of different time origins.
     - 1  
       Prefer C when it is clean enough, otherwise choose from P/N.
 
@@ -2365,12 +2365,12 @@ Inverse telecine for soft-telecine / hard-telecine sources.
     - 0  
       No post process.
     - 2  
-      Apply adaptive bob-deinterlace only on rows still detected as combed.
+      Per-pixel adaptive bob-deinterlace on second-field rows. Only pixels detected as combed are replaced with the vertical average of adjacent first-field rows. First-field rows are always passed through untouched.
 
   - cycle=&lt;auto|int&gt;  (default: auto)  
     Decimation cycle.
     - auto  
-      Disable decimation when input fps is below 26, otherwise use `cycle=5`.
+      Enable `cycle=5` only for ~30fps input (28-32fps range), disable for all other frame rates.
     - 0  
       Disable decimation.
     - 5  
@@ -2385,7 +2385,7 @@ Inverse telecine for soft-telecine / hard-telecine sources.
     Per-pixel combing threshold. `0.0 - 1.0`.
 
   - cleanfrac=&lt;float&gt;  (default: 0.01)  
-    Clean threshold used by `guide=1` and `post=2`.
+    Block-level clean threshold for `guide=1` and `post=2`. Specifies the fraction of pixels within a block allowed to be combed before the block is considered dirty.
 
   - tff=&lt;auto|on|off&gt;  (default: auto)  
     Field order. `auto` checks each input frame's `picstruct`, and falls back to the input setting when unavailable.

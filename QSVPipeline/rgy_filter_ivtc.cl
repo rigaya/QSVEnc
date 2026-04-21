@@ -8,11 +8,15 @@
 #endif
 
 // Fetch a reconstructed pixel per candidate / row-parity.
-// Candidate geometry (TFF, first-field = top = even rows):
-//   C: [cur.top, cur.bot]                   — current frame as-is
-//   P: [cur.top, prev.bot]                  — match-with-prev (borrow bot from previous)
-//   N: [next.top, cur.bot]                  — match-with-next (borrow top from next)
-// For BFF (tff=0) the first-field rows are odd-parity instead.
+// The "first-field" source is always from the primary frame, "second-field" from the borrowed frame.
+// TFF (tff=1): first-field = top = even rows.
+//   C: [cur.top, cur.bot]     — current frame as-is
+//   P: [cur.top, prev.bot]    — first-field(top) from cur, second-field(bot) from prev
+//   N: [next.top, cur.bot]    — first-field(top) from next, second-field(bot) from cur
+// BFF (tff=0): first-field = bottom = odd rows.
+//   C: [cur.top, cur.bot]     — same
+//   P: [prev.top, cur.bot]    — first-field(bot) from cur, second-field(top) from prev
+//   N: [cur.top, next.bot]    — first-field(bot) from next, second-field(top) from cur
 static int pix_match(
     const __global uchar *pPrev, const __global uchar *pCur, const __global uchar *pNext,
     const int pitch, int ix, int iy, const int width, const int height,

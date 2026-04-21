@@ -2226,6 +2226,13 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 }
                 print_cmd_error_unknown_opt_param(option_name, param, paramList);
                 return 1;
+            } else {
+                if (param == _T("log")) {
+                    vpp->ivtc.log = true;
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
             }
         }
         return 0;
@@ -9951,20 +9958,23 @@ tstring gen_cmd_help_vpp() {
         _T("     inverse telecine (Telecide + Decimate style).\n")
         _T("    params\n")
         _T("      guide=<int>           matching mode. (default=%d)\n")
-        _T("                              0 = min-combing\n")
+        _T("                              0 = argmin across C/P/N (note: fully progressive C is\n")
+        _T("                                  always kept to avoid introducing combing)\n")
         _T("                              1 = prefer C if clean, otherwise choose from P/N\n")
         _T("      post=<int>            post-process for residual combing. (default=%d)\n")
         _T("                              0 = off\n")
-        _T("                              2 = adaptive bob-deinterlace on combed rows\n")
+        _T("                              2 = adaptive per-pixel bob-deinterlace on combed rows\n")
         _T("      cycle=<auto|int>      decimation cycle length.\n")
-        _T("                              auto (default) = skip if input fps < 26, otherwise use cycle=5\n")
+        _T("                              auto (default) = enable cycle=5 for ~30fps input only,\n")
+        _T("                                skip for all other frame rates\n")
         _T("                              0 = decimation disabled\n")
         _T("                              5 = 3:2 pulldown (30fps -> 24fps)\n")
         _T("                              2..16 = custom cycle length\n")
         _T("      drop=<int>            frames to drop per cycle. (default=%d, only value supported)\n")
         _T("      combthresh=<float>    per-pixel combing threshold. (default=%.2f, 0.0 - 1.0)\n")
-        _T("      cleanfrac=<float>     clean-frame threshold used by guide=1 / post=2.\n")
-        _T("                              (default=%.2f)\n")
+        _T("      cleanfrac=<float>     block-level clean threshold for guide=1 / post=2.\n")
+        _T("                              fraction of pixels in a block allowed to be combed\n")
+        _T("                              before the block is considered dirty. (default=%.2f)\n")
         _T("      tff=<auto|on|off>     top-field-first. default auto (derived from input picstruct)\n")
         _T("      log=<path|bool>       write per-frame match log to <path>.\n")
         _T("                              log=true uses output filename base + .ivtc.log.txt\n"),

@@ -38,6 +38,8 @@
 static const int IVTC_BLOCK_X = 32;
 static const int IVTC_BLOCK_Y = 8;
 static const int IVTC_CACHE_SIZE = 3;
+static_assert((IVTC_BLOCK_X * IVTC_BLOCK_Y & (IVTC_BLOCK_X * IVTC_BLOCK_Y - 1)) == 0,
+    "IVTC_BLOCK_X * IVTC_BLOCK_Y must be a power of 2 for OpenCL WG reduction");
 
 RGYFilterIvtc::RGYFilterIvtc(shared_ptr<RGYOpenCLContext> context) :
     RGYFilter(context),
@@ -128,12 +130,12 @@ RGY_ERR RGYFilterIvtc::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     // 誤って正常フレームを落としてしまう。26fps を閾値に、~24/23.976 は auto-off とする。
     if (prm->ivtc.cycle < 0) {
         const double inputFps = (prm->baseFps.d() > 0) ? (double)prm->baseFps.n() / (double)prm->baseFps.d() : 0.0;
-        if (inputFps > 0.0 && inputFps < 26.0) {
-            AddMessage(RGY_LOG_INFO, _T("ivtc: input is %.3f fps (~24fps), decimation skipped.\n"), inputFps);
-            prm->ivtc.cycle = 0;
-        } else {
-            AddMessage(RGY_LOG_DEBUG, _T("ivtc: input is %.3f fps, enabling 3:2 pulldown decimation (cycle=5).\n"), inputFps);
+        if (inputFps > 28.0 && inputFps < 32.0) {
+            AddMessage(RGY_LOG_DEBUG, _T("ivtc: input is %.3f fps (~30fps), enabling 3:2 pulldown decimation (cycle=5).\n"), inputFps);
             prm->ivtc.cycle = 5;
+        } else {
+            AddMessage(RGY_LOG_INFO, _T("ivtc: input is %.3f fps, decimation skipped (auto enables only for ~30fps).\n"), inputFps);
+            prm->ivtc.cycle = 0;
         }
     }
 
@@ -479,9 +481,9 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev, int idx_cur, int idx_ne
     // 3. post=2 ブレンド発火判定は「選択マッチ後も残っている combing 量」で判定する。
     //    match-quality ではなく combing-count を使うのがポイント (post=2 はピクセル単位の
     //    凸凹を平滑するための後処理で、residual comb に反応すべきなので)。
-    //    発火時は synthesize カーネル側で second-field 行を unconditional に bob 補間する
-    //    (per-pixel 閾値判定は、デコーダでフィールドマージされて弱く均された combing に対して
-    //     反応しないことが多く、ベイクドイン combing が残るケースを救えないため)。
+    //    発火時は synthesize カーネル側で second-field 行について per-pixel のコーミング
+    //    判定を行い、combed と検出されたピクセルのみ bob 補間 (上下平均) に置換する。
+    //    first-field 行は常にそのまま保持され、解像度劣化がない。
     const uint64_t chosenCombScore = combScore[(int)match];
     const bool applyBlend = (prm->ivtc.post >= 2) && (chosenCombScore > cleanBlockThresh);
 
@@ -498,7 +500,7 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev, int idx_cur, int idx_ne
 
     // 5. 入力メタデータを保持 (出力時に使うため)
     m_frameBuf[slot]->frame.picstruct = RGY_PICSTRUCT_FRAME;
-    m_frameBuf[slot]->frame.flags     = curInfo.flags;
+    m_frameBuf[slot]->frame.flags     = curInfo.flags & (~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_BFF | RGY_FRAME_FLAG_RFF_TFF));
     m_frameBuf[slot]->frame.dataList  = curInfo.dataList;
     if (cycleLen > 0) {
         m_cycleInPts[slot]      = curInfo.timestamp;
@@ -661,18 +663,20 @@ RGY_ERR RGYFilterIvtc::flushCycle(bool finalFlush, int64_t nextInputPts, RGYOpen
 
     // per-frame ログ (emit / DROP 両方)。out_idx は emit 順で付番。
     if (m_fpLog) {
+        int emitOrdinal = m_outputFrameCount;
         for (int i = 0; i < filled; i++) {
             const char *matchStr = (m_cycleMatchType[i] == 0) ? "c" : (m_cycleMatchType[i] == 1) ? "p" : "n";
-            const char *status = (i == dropIdx) ? "DROP " : "emit ";
+            const bool isDrop = (i == dropIdx);
             fprintf(m_fpLog.get(), "%d\t%d\t%s\t%s\t%s\t%llu\t%llu\t%llu\n",
-                m_outputFrameCount + ((i < dropIdx || dropIdx < 0) ? i : i - 1),
+                isDrop ? -1 : emitOrdinal,
                 m_cycleInputIds[i],
                 matchStr,
                 m_cycleApplyBlend[i] ? "blend" : "     ",
-                status,
+                isDrop ? "DROP " : "emit ",
                 (unsigned long long)m_cycleMatchScore[i],
                 (unsigned long long)m_cycleCombScore[i],
                 (unsigned long long)m_cycleDiffPrev[i]);
+            if (!isDrop) emitOrdinal++;
         }
         fflush(m_fpLog.get());
     }
@@ -825,5 +829,4 @@ void RGYFilterIvtc::close() {
     m_drained = false;
     m_tffDefault = 1;
     m_fpLog.reset();
-    m_frameBuf.clear();
 }
