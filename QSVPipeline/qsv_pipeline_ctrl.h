@@ -80,6 +80,18 @@ struct VppVilterBlock {
     VppVilterBlock(std::vector<std::unique_ptr<RGYFilter>>& filter) : type(VppFilterType::FILTER_OPENCL), vppmfx(), vppcl(std::move(filter)) {};
 };
 
+static bool hasFilterForStreams(const std::vector<VppVilterBlock>& vpFilters) {
+    for (const auto& filterBlock : vpFilters) {
+        if (filterBlock.type == VppFilterType::FILTER_OPENCL) {
+            for (const auto& filter : filterBlock.vppcl) {
+                if (filter->targetTrackIdx() != 0) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
 
 enum class PipelineTaskOutputType {
     UNKNOWN,
