@@ -2625,6 +2625,9 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         param->frameOut.picstruct = RGY_PICSTRUCT_FRAME;
         param->baseFps = m_encFps;
         param->timebase = m_outputTimebase;     // required for drift-free CFR emit-timestamp rescale in flushCycle
+        if (auto pAVCodecReader = std::dynamic_pointer_cast<RGYInputAvcodec>(m_pFileReader); pAVCodecReader) {
+            param->inputBPulldownDetected = pAVCodecReader->getPulldownDetected();
+        }
         // RFF-expansion pre-scan parameters. The filter's init() opens a
         // SEPARATE libavcodec parser against inputFilePath to read per-
         // frame RFF/TFF flags without decoding pixels, then builds the

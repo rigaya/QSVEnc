@@ -288,7 +288,8 @@ RGYInputAvcodec::RGYInputAvcodec() :
     m_logFramePosList(),
     m_fpPacketList(),
     m_hevcMp42AnnexbBuffer(),
-    m_suppressPulldownDetect(false) {
+    m_suppressPulldownDetect(false),
+    m_pulldownDetected(false) {
     m_readerName = _T("av" DECODER_NAME "/avsw");
 }
 
@@ -807,6 +808,7 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
     std::vector<int> frameDurationList;
     vector<std::pair<int, int>> durationHistgram;
     bool bPulldown = false;
+    m_pulldownDetected = false;
 
     // m_Demux.qVideoPktに入っているパケットがあれば、まずはそれを解析する
     auto qVideoPktCheckCount = (int)m_Demux.qVideoPkt.size();
@@ -937,6 +939,7 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
                 }
             }
             bPulldown = (bDetectpulldown && ((rff_frames + 1/*たまたま切り捨てられることのないように*/) / (double)nFramesToCheck > 0.45));
+            m_pulldownDetected = bPulldown;
 
             //durationのヒストグラムを作成
             std::for_each(frameDurationList.begin(), frameDurationList.end(), [&durationHistgram](const int& duration) {
