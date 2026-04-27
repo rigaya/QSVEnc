@@ -76,6 +76,20 @@ static const int IVTC_BLOCK_Y = 8;
 // buffer for staging. Latency is 3 frames (process cur once next2 has arrived).
 static const int IVTC_CACHE_SIZE = 5;
 
+static const char *ivtcPreScanUnsupportedProtocol(const std::string &filename) {
+    if (filename == "-") {
+        return "stdin";
+    }
+    if (filename.c_str() == strstr(filename.c_str(), R"(\\.\pipe\)")) {
+        return "windows named pipe";
+    }
+    const char *protocol = avio_find_protocol_name(filename.c_str());
+    if (protocol != nullptr && strcmp(protocol, "file") != 0) {
+        return protocol;
+    }
+    return nullptr;
+}
+
 // ============================================================================
 //  Selection / decision-layer constants (Phase 2 / Phase 3, 2026-04-25).
 // ============================================================================
@@ -1389,6 +1403,13 @@ static RGY_ERR ivtcPreScanInput(const tstring &inputPath,
     // rgy_input_avcodec.cpp:1502).
     if (0 == tchar_to_string(inputPath.c_str(), filenameUtf8, CP_UTF8)) {
         if (log) log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("ivtc prescan: failed to convert filename to utf-8\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (const auto protocol = ivtcPreScanUnsupportedProtocol(filenameUtf8); protocol != nullptr) {
+        if (log) log->write(RGY_LOG_WARN, RGY_LOGT_VPP,
+            _T("ivtc prescan: input \"%s\" uses %s protocol, which cannot be pre-scanned safely. ")
+            _T("--vpp-ivtc expand requires a re-openable local file input.\n"),
+            inputPath.c_str(), char_to_tstring(protocol).c_str());
         return RGY_ERR_UNSUPPORTED;
     }
 
