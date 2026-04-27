@@ -852,12 +852,30 @@ const ConvertCSP *get_convert_csp_func(RGY_CSP csp_from, RGY_CSP csp_to, bool uv
 funcConvertCSP get_copy_alpha_func(RGY_CSP csp_from, RGY_CSP csp_to);
 const TCHAR *get_simd_str(RGY_SIMD simd);
 
+// Bit map — RGY_FRAME_FLAGS is a 32-bit mask stored on per-frame metadata.
+//   bit 0 (0x01) : RGY_FRAME_FLAG_RFF            (pre-existing)
+//   bit 1 (0x02) : RGY_FRAME_FLAG_RFF_COPY       (pre-existing)
+//   bit 2 (0x04) : RGY_FRAME_FLAG_RFF_TFF        (pre-existing)
+//   bit 3 (0x08) : RGY_FRAME_FLAG_RFF_BFF        (pre-existing)
+//   bit 4 (0x10) : RGY_FRAME_FLAG_PICT_TYPE_I    (NEW — mutually exclusive with P/B)
+//   bit 5 (0x20) : RGY_FRAME_FLAG_PICT_TYPE_P    (NEW — mutually exclusive with I/B)
+//   bit 6 (0x40) : RGY_FRAME_FLAG_PICT_TYPE_B    (NEW — mutually exclusive with I/P)
+// No collision: bits 4-6 were unused; RFF_MASK occupies only bits 0-3.
+// If all three PICT_TYPE bits are zero, the frame's pict_type is unknown
+// (non-MPEG video, reordered B-frames where parser couldn't resolve, or
+// input path that doesn't populate findPos.pict_type).
 enum RGY_FRAME_FLAGS : uint32_t {
-    RGY_FRAME_FLAG_NONE     = 0x00u,
-    RGY_FRAME_FLAG_RFF      = 0x01u,
-    RGY_FRAME_FLAG_RFF_COPY = 0x02u,
-    RGY_FRAME_FLAG_RFF_TFF  = 0x04u,
-    RGY_FRAME_FLAG_RFF_BFF  = 0x08u,
+    RGY_FRAME_FLAG_NONE          = 0x00u,
+    RGY_FRAME_FLAG_RFF           = 0x01u,
+    RGY_FRAME_FLAG_RFF_COPY      = 0x02u,
+    RGY_FRAME_FLAG_RFF_TFF       = 0x04u,
+    RGY_FRAME_FLAG_RFF_BFF       = 0x08u,
+    RGY_FRAME_FLAG_PICT_TYPE_I   = 0x10u,
+    RGY_FRAME_FLAG_PICT_TYPE_P   = 0x20u,
+    RGY_FRAME_FLAG_PICT_TYPE_B   = 0x40u,
+    RGY_FRAME_FLAG_PICT_TYPE_MASK = RGY_FRAME_FLAG_PICT_TYPE_I
+                                  | RGY_FRAME_FLAG_PICT_TYPE_P
+                                  | RGY_FRAME_FLAG_PICT_TYPE_B,
 };
 
 static RGY_FRAME_FLAGS operator|(RGY_FRAME_FLAGS a, RGY_FRAME_FLAGS b) {

@@ -268,6 +268,7 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     queueInfo(nullptr),
     HWDecCodecCsp(nullptr),
     videoDetectPulldown(false),
+    suppressPulldownMutation(false),
     parseHDRmetadata(false),
     hdr10plusMetadataCopy(false),
     doviRpuMetadataCopy(false),
@@ -286,7 +287,8 @@ RGYInputAvcodec::RGYInputAvcodec() :
     m_Demux(),
     m_logFramePosList(),
     m_fpPacketList(),
-    m_hevcMp42AnnexbBuffer() {
+    m_hevcMp42AnnexbBuffer(),
+    m_suppressPulldownDetect(false) {
     m_readerName = _T("av" DECODER_NAME "/avsw");
 }
 
@@ -998,7 +1000,11 @@ RGY_ERR RGYInputAvcodec::getFirstFramePosAndFrameRate(const sTrim *pTrimList, in
             //std::accumulateの初期値に"(uint64_t)0"と与えることで、64bitによる計算を実行させ、桁あふれを防ぐ
             //大きすぎるtimebaseの時に必要
             double avgDuration = std::accumulate(frameDurationList.begin(), frameDurationList.end(), (uint64_t)0, [this](const uint64_t sum, const int& duration) { return sum + duration; }) / (double)(frameDurationList.size());
-            if (bPulldown) {
+            // Detection is separate from mutation. bPulldown was set above (line 937) so
+            // downstream diagnostics/logs still see the signal. Only the avgDuration
+            // rewrite is gated — --vpp-ivtc expand=on/auto suppresses it because the
+            // filter needs the real stream fps to drive its cycle auto-resolve.
+            if (bPulldown && !m_suppressPulldownDetect) {
                 avgDuration *= 1.25;
             }
             double avgFps = m_Demux.video.stream->time_base.den / (double)(avgDuration * m_Demux.video.stream->time_base.num);
@@ -1661,6 +1667,11 @@ RGY_ERR RGYInputAvcodec::initFormatCtx(const TCHAR *strFileName, const RGYInputA
 #pragma warning(disable:4127) //warning C4127: 条件式が定数です。
 RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, const RGYInputPrm *prm) {
     const RGYInputAvcodecPrm *input_prm = dynamic_cast<const RGYInputAvcodecPrm*>(prm);
+
+    // Propagate the "detect but do not rewrite avgDuration" flag into the class
+    // member before getFirstFramePosAndFrameRate runs. Consumed at rgy_input_avcodec.cpp
+    // bPulldown-mutation site. Set by --vpp-ivtc expand=on/auto.
+    m_suppressPulldownDetect = input_prm->suppressPulldownMutation;
 
     if (input_prm->readVideo) {
         if (inputInfo->type != RGY_INPUT_FMT_AVANY) {
@@ -3517,6 +3528,17 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
             if (rgy_avframe_tff_flag(m_Demux.video.frame) || findPos.repeat_pict > 1 || m_Demux.video.decRFFStatus) {
                 // RFF用のTFF/BFFを示すフラグを設定 (picstructとは別)
                 flags |= (rgy_avframe_tff_flag(m_Demux.video.frame)) ? RGY_FRAME_FLAG_RFF_TFF : RGY_FRAME_FLAG_RFF_BFF;
+            }
+            // Propagate bitstream-level pict_type (I/P/B) from the parser cache
+            // (FramePos is populated in checkFirstPicture via
+            // m_Demux.video.pParserCtx->pict_type). Diagnostic-only: IVTC logs
+            // ptype but never routes on it. AV_PICTURE_TYPE_NONE leaves all
+            // three PICT_TYPE bits clear (IVTC logs "?").
+            switch (findPos.pict_type) {
+                case AV_PICTURE_TYPE_I: flags |= RGY_FRAME_FLAG_PICT_TYPE_I; break;
+                case AV_PICTURE_TYPE_P: flags |= RGY_FRAME_FLAG_PICT_TYPE_P; break;
+                case AV_PICTURE_TYPE_B: flags |= RGY_FRAME_FLAG_PICT_TYPE_B; break;
+                default: break; // NONE / S / SI / SP / BI — leave mask zero
             }
         }
         pSurface->setFlags(flags);

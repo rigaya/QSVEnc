@@ -82,9 +82,9 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_LIBPLACEBO_TONEMAP,   _T("libplacebo-tonemapping")),
     std::make_pair(VppType::CL_AFS,                  _T("afs")),
     std::make_pair(VppType::CL_NNEDI,                _T("nnedi")),
-    std::make_pair(VppType::CL_BWDIF,                _T("bwdif")),
     std::make_pair(VppType::CL_YADIF,                _T("yadif")),
     std::make_pair(VppType::CL_DECOMB,               _T("decomb")),
+    std::make_pair(VppType::CL_BWDIF,                _T("bwdif")),
     std::make_pair(VppType::CL_IVTC,                 _T("ivtc")),
     std::make_pair(VppType::CL_DECIMATE,             _T("decimate")),
     std::make_pair(VppType::CL_MPDECIMATE,           _T("mpdecimate")),
@@ -1195,35 +1195,6 @@ tstring VppNnedi::print() const {
         ((weightfile.length()) ? weightfile.c_str() : _T("internal")));
 }
 
-bool VppBwdif::isbob() const {
-    return mode == VppBwdifMode::Bob;
-}
-
-VppBwdif::VppBwdif() :
-    enable(false),
-    mode(VppBwdifMode::Frame),
-    order(VppBwdifOrder::Auto),
-    thr(FILTER_DEFAULT_BWDIF_THR) {
-}
-
-bool VppBwdif::operator==(const VppBwdif& x) const {
-    return enable == x.enable
-        && mode == x.mode
-        && order == x.order
-        && thr == x.thr;
-}
-bool VppBwdif::operator!=(const VppBwdif& x) const {
-    return !(*this == x);
-}
-
-tstring VppBwdif::print() const {
-    return strsprintf(
-        _T("bwdif: mode %s, order %s, thr %.1f"),
-        get_cx_desc(list_vpp_bwdif_mode, (int)mode),
-        get_cx_desc(list_vpp_bwdif_order, (int)order),
-        thr);
-}
-
 VppYadif::VppYadif() :
     enable(false),
     log(false),
@@ -1334,17 +1305,87 @@ tstring VppDecimate::print() const {
 }
 
 
+VppBwdif::VppBwdif() :
+    enable(false),
+    mode(VppBwdifMode::Frame),
+    order(-1),          // auto (derived from input picstruct)
+    thr(0.0f),
+    deint(VppBwdifDeint::All),
+    log(false),
+    logPath() {
+
+}
+
+bool VppBwdif::operator==(const VppBwdif &x) const {
+    return enable == x.enable
+        && mode == x.mode
+        && order == x.order
+        && thr == x.thr
+        && deint == x.deint
+        && log == x.log
+        && logPath == x.logPath;
+}
+bool VppBwdif::operator!=(const VppBwdif &x) const {
+    return !(*this == x);
+}
+
+tstring VppBwdif::print() const {
+    const TCHAR *modeStr  = (mode == VppBwdifMode::Bob) ? _T("bob") : _T("frame");
+    const TCHAR *orderStr = (order < 0) ? _T("auto") : (order ? _T("tff") : _T("bff"));
+    const TCHAR *deintStr = (deint == VppBwdifDeint::Interlaced) ? _T("interlaced") : _T("all");
+    return strsprintf(_T("bwdif: mode=%s, order=%s, deint=%s, thr %.2f, log %s"),
+        modeStr, orderStr, deintStr, thr,
+        log ? _T("on") : _T("off"));
+}
+
+
 VppIvtc::VppIvtc() :
     enable(false),
-    tff(FILTER_DEFAULT_IVTC_TFF),
-    guide(FILTER_DEFAULT_IVTC_GUIDE),
-    post(FILTER_DEFAULT_IVTC_POST),
-    cycle(FILTER_DEFAULT_IVTC_CYCLE),
-    drop(FILTER_DEFAULT_IVTC_DROP),
-    combThresh(FILTER_DEFAULT_IVTC_COMB_THRESH),
-    cleanFrac(FILTER_DEFAULT_IVTC_CLEAN_FRAC),
-    log(FILTER_DEFAULT_IVTC_LOG),
-    logPath() {
+    tff(-1),
+    guide(0),
+    post(0),
+    cycle(-1),           // -1 = auto: enable 3:2 decimation only if input fps >= 26
+    drop(1),
+    combThresh(0.12f),
+    cleanFrac(0.20f),    // 20% of block pixels must be combed before the frame is considered combed.
+                         //   Old 1% default flagged texture false positives aggressively and pushed
+                         //   many non-combed RFF frames into the post path. 20% aligns with the
+                         //   standard 50-pixels-per-256 threshold used in classical IVTC filters
+                         //   for film vs video discrimination.
+    dthresh(7),          // 8-bit default; scaled to bit-depth in the filter. 0 disables the gate.
+                         //   Per-pixel deinterlace threshold: only missing-field pixels whose
+                         //   spatial residual exceeds dthresh are replaced by the BWDIF/SP result.
+    chroma(false),       // default: luma-only scoring. Enable with chroma=true for content where
+                         //   colour structure dominates (animation, chroma-rich fades).
+    back(0),             // always test P. back=1 can change match distribution on mixed
+                         //   content and trigger post=2 blend on frames that would have
+                         //   picked P under back=0, producing visible shimmer on SG-1 style
+                         //   sources. Opt-in via back=1 for cleaner deterministic film sources.
+    y0(0),
+    y1(0),               // 0,0 = no exclusion band
+    cadenceLock(-1),     // -1 = auto (enable when guide>=1 in init), 0 = off, 1 = on.
+                         //   Auto-on is safe because guide>=1 implies the user expects
+                         //   pulldown content; the tracker is inert on pure progressive
+                         //   or hard-interlaced-with-no-pattern input (history collects
+                         //   but no phase ever reaches 4/5 fit). Explicit cadlock=off
+                         //   available for edge cases with unusual sources.
+    gthresh(10),         // pattern-override tolerance, percent. 10 = adopt the
+                         //   cadence-predicted match when its argmin-score differs from
+                         //   the raw argmin winner by less than 10%. 0 disables override.
+    expand(-1),          // -1 = auto (enable when guide>=1 && input is soft-telecine).
+                         //   DGDecode-style internal RFF expansion: 4 coded frames →
+                         //   5 ring entries per 3:2 pulldown cycle. Forces cycle=5,
+                         //   drop=1 internally; external baseFps unchanged.
+    vthresh(50),         // post-assembly cComb veto threshold (TFM vmetric analogue).
+                         //   Layered on top of the picstruct-class applyBlend gate: when
+                         //   the gate fires, blend is vetoed if chosenCombScore < vthresh.
+                         //   Default 50 sits below combThreshProg (65) so it only filters
+                         //   strongMatch-branch false positives on very clean frames, never
+                         //   frames the cComb-gated branches caught. 0 disables the veto.
+    hysteresis(0.0f),
+    log(false),
+    logPath(),
+    d2vPath() {
 
 }
 
@@ -1357,8 +1398,19 @@ bool VppIvtc::operator==(const VppIvtc &x) const {
         && drop == x.drop
         && combThresh == x.combThresh
         && cleanFrac == x.cleanFrac
+        && dthresh == x.dthresh
+        && chroma == x.chroma
+        && back == x.back
+        && y0 == x.y0
+        && y1 == x.y1
+        && cadenceLock == x.cadenceLock
+        && gthresh == x.gthresh
+        && vthresh == x.vthresh
+        && expand == x.expand
+        && hysteresis == x.hysteresis
         && log == x.log
-        && logPath == x.logPath;
+        && logPath == x.logPath
+        && d2vPath == x.d2vPath;
 }
 bool VppIvtc::operator!=(const VppIvtc &x) const {
     return !(*this == x);
@@ -1373,12 +1425,25 @@ tstring VppIvtc::print() const {
     } else {
         cycleStr = strsprintf(_T("%d/%d"), cycle, drop);
     }
-    return strsprintf(_T("ivtc: guide=%d, post=%d, cycle=%s, combthresh %.3f, cleanfrac %.3f, tff=%s, log %s"),
+    tstring bandStr;
+    if (y0 == 0 && y1 == 0) {
+        bandStr = _T("off");
+    } else {
+        bandStr = strsprintf(_T("%d..%d"), y0, y1);
+    }
+    return strsprintf(_T("ivtc: guide=%d, post=%d, cycle=%s, combthresh %.3f, cleanfrac %.3f, dthresh=%d, chroma=%s, back=%d, band=%s,\n")
+        _T("                         cadlock=%s, gthresh=%d, vthresh=%d, expand=%s, hys %.2f, tff=%s, log %s, d2v %s"),
         guide, post,
         cycleStr.c_str(),
-        combThresh, cleanFrac,
+        combThresh, cleanFrac, dthresh, chroma ? _T("on") : _T("off"),
+        back, bandStr.c_str(),
+        (cadenceLock < 0) ? _T("auto") : (cadenceLock ? _T("on") : _T("off")),
+        gthresh, vthresh,
+        (expand < 0) ? _T("auto") : (expand ? _T("on") : _T("off")),
+        hysteresis,
         (tff < 0) ? _T("auto") : (tff ? _T("on") : _T("off")),
-        log ? _T("on") : _T("off"));
+        log ? _T("on") : _T("off"),
+        d2vPath.empty() ? _T("off") : _T("on"));
 }
 
 

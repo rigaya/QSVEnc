@@ -2032,76 +2032,14 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         return 0;
     }
 
-    if (IS_OPTION("vpp-bwdif") && ENABLE_VPP_FILTER_BWDIF) {
-        vpp->bwdif.enable = true;
-        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
-            return 0;
-        }
-        i++;
-
-        const auto paramList = std::vector<std::string>{ "mode", "order", "thr" };
-
-        for (const auto& param : split(strInput[i], _T(","))) {
-            auto pos = param.find_first_of(_T("="));
-            if (pos != std::string::npos) {
-                auto param_arg = tolowercase(param.substr(0, pos));
-                auto param_val = param.substr(pos + 1);
-                if (param_arg == _T("enable")) {
-                    bool b = false;
-                    if (!cmd_string_to_bool(&b, param_val)) {
-                        vpp->bwdif.enable = b;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("mode")) {
-                    int value = 0;
-                    if (get_list_value(list_vpp_bwdif_mode, param_val.c_str(), &value)) {
-                        vpp->bwdif.mode = (VppBwdifMode)value;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_bwdif_mode);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("order")) {
-                    int value = 0;
-                    if (get_list_value(list_vpp_bwdif_order, param_val.c_str(), &value)) {
-                        vpp->bwdif.order = (VppBwdifOrder)value;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_bwdif_order);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("thr")) {
-                    try {
-                        vpp->bwdif.thr = std::stof(param_val);
-                    } catch (...) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
-                return 1;
-            } else {
-                print_cmd_error_unknown_opt_param(option_name, param, paramList);
-                return 1;
-            }
-        }
-        return 0;
-    }
-
     if (IS_OPTION("vpp-ivtc") && ENABLE_VPP_FILTER_IVTC) {
         vpp->ivtc.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
             return 0;
         }
         i++;
-        const auto paramList = std::vector<std::string>{ "enable", "guide", "post", "cycle", "drop", "combthresh", "cleanfrac", "tff", "log" };
+        const auto paramList = std::vector<std::string>{ "guide", "post", "cycle", "drop", "combthresh", "cleanfrac",
+            "dthresh", "chroma", "back", "y0", "y1", "cadlock", "gthresh", "vthresh", "expand", "hysteresis", "tff", "log", "d2v" };
 
         for (const auto &param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
@@ -2122,8 +2060,8 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 if (param_arg == _T("guide")) {
                     try {
                         const int g = std::stoi(param_val);
-                        if (g != 0 && g != 1) {
-                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("Supported values: 0 (min-combing), 1 (2-way + combed-override)."));
+                        if (g < 0 || g > 2) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("Supported values: 0 (min-combing), 1 (2-way + combed-override), 2 (PAL 2:2)."));
                             return 1;
                         }
                         vpp->ivtc.guide = g;
@@ -2137,7 +2075,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     try {
                         const int p = std::stoi(param_val);
                         if (p != 0 && p != 2) {
-                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("Supported values: 0 (off), 2 (adaptive bob-deinterlace)."));
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("Supported values: 0 (off), 2 (adaptive blend)."));
                             return 1;
                         }
                         vpp->ivtc.post = p;
@@ -2197,13 +2135,136 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
+                if (param_arg == _T("dthresh")) {
+                    try {
+                        const int d = std::stoi(param_val);
+                        if (d < 0 || d > 255) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("Supported range: 0..255 (0 = disable gate)."));
+                            return 1;
+                        }
+                        vpp->ivtc.dthresh = d;
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("chroma")) {
+                    bool bb = false;
+                    if (!cmd_string_to_bool(&bb, param_val)) {
+                        vpp->ivtc.chroma = bb;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("back")) {
+                    try {
+                        const int b = std::stoi(param_val);
+                        if (b != 0 && b != 1) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("Supported values: 0 (always test P), 1 (only test P when combed)."));
+                            return 1;
+                        }
+                        vpp->ivtc.back = b;
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("y0")) {
+                    try {
+                        vpp->ivtc.y0 = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("y1")) {
+                    try {
+                        vpp->ivtc.y1 = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("cadlock")) {
+                    // Accept: auto|-1 (auto), on/true/1 (on), off/false/0 (off).
+                    if (param_val == _T("auto") || param_val == _T("-1")) {
+                        vpp->ivtc.cadenceLock = -1;
+                        continue;
+                    }
+                    bool bb = false;
+                    if (!cmd_string_to_bool(&bb, param_val)) {
+                        vpp->ivtc.cadenceLock = bb ? 1 : 0;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("Supported values: auto, on, off (auto enables when guide >= 1)."));
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("hysteresis")) {
+                    try {
+                        vpp->ivtc.hysteresis = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("gthresh")) {
+                    try {
+                        const int g = std::stoi(param_val);
+                        if (g < 0 || g > 100) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("Supported range: 0..100 (percent). 0 disables cadence override."));
+                            return 1;
+                        }
+                        vpp->ivtc.gthresh = g;
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("vthresh")) {
+                    try {
+                        const int v = std::stoi(param_val);
+                        if (v < 0 || v > 256) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("Supported range: 0..256 (per-WG zigzag pixel count). 0 disables post-assembly combing gate."));
+                            return 1;
+                        }
+                        vpp->ivtc.vthresh = v;
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("expand")) {
+                    // Accept: auto|-1 (auto), on/true/1 (on), off/false/0 (off).
+                    if (param_val == _T("auto") || param_val == _T("-1")) {
+                        vpp->ivtc.expand = -1;
+                        continue;
+                    }
+                    bool bb = false;
+                    if (!cmd_string_to_bool(&bb, param_val)) {
+                        vpp->ivtc.expand = bb ? 1 : 0;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("Supported values: auto, on, off (auto enables DGDecode-style RFF expansion when guide >= 1 and input is soft-telecine)."));
+                        return 1;
+                    }
+                    continue;
+                }
                 if (param_arg == _T("tff")) {
                     if (param_val == _T("auto") || param_val == _T("-1")) {
                         vpp->ivtc.tff = -1;
                     } else {
-                        bool b = false;
-                        if (!cmd_string_to_bool(&b, param_val)) {
-                            vpp->ivtc.tff = b ? 1 : 0;
+                        bool bb = false;
+                        if (!cmd_string_to_bool(&bb, param_val)) {
+                            vpp->ivtc.tff = bb ? 1 : 0;
                         } else {
                             print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                             return 1;
@@ -2212,10 +2273,10 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     continue;
                 }
                 if (param_arg == _T("log")) {
-                    bool b = false;
-                    if (!cmd_string_to_bool(&b, param_val)) {
-                        vpp->ivtc.log = b;
-                        if (b) {
+                    bool bb = false;
+                    if (!cmd_string_to_bool(&bb, param_val)) {
+                        vpp->ivtc.log = bb;
+                        if (bb) {
                             vpp->ivtc.logPath = _T("");
                         }
                     } else {
@@ -2224,11 +2285,99 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
+                if (param_arg == _T("d2v")) {
+                    // Bitstream-truth ground-truth from a DGIndex D2V project file.
+                    // When set, IVTC uses per-frame progressive/TFF/RFF from the D2V
+                    // instead of pixel SAD metrics for C/P/N decisions.
+                    vpp->ivtc.d2vPath = param_val;
+                    continue;
+                }
                 print_cmd_error_unknown_opt_param(option_name, param, paramList);
                 return 1;
-            } else {
-                if (param == _T("log")) {
-                    vpp->ivtc.log = true;
+            }
+        }
+        return 0;
+    }
+
+    if (IS_OPTION("vpp-bwdif") && ENABLE_VPP_FILTER_BWDIF) {
+        vpp->bwdif.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "mode", "order", "thr", "deint", "log" };
+
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos + 1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->bwdif.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("log")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->bwdif.log = b;
+                        if (b) {
+                            vpp->bwdif.logPath = _T("");
+                        }
+                    } else {
+                        vpp->bwdif.log = true;
+                        vpp->bwdif.logPath = param_val;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("mode")) {
+                    if (param_val == _T("frame")) {
+                        vpp->bwdif.mode = VppBwdifMode::Frame;
+                    } else if (param_val == _T("bob")) {
+                        vpp->bwdif.mode = VppBwdifMode::Bob;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("Supported values: frame, bob."));
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("order")) {
+                    if (param_val == _T("auto") || param_val == _T("-1")) {
+                        vpp->bwdif.order = -1;
+                    } else if (param_val == _T("tff")) {
+                        vpp->bwdif.order = 1;
+                    } else if (param_val == _T("bff")) {
+                        vpp->bwdif.order = 0;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("Supported values: auto, tff, bff."));
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("thr")) {
+                    try {
+                        vpp->bwdif.thr = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("deint")) {
+                    if (param_val == _T("all")) {
+                        vpp->bwdif.deint = VppBwdifDeint::All;
+                    } else if (param_val == _T("interlaced")) {
+                        vpp->bwdif.deint = VppBwdifDeint::Interlaced;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("Supported values: all, interlaced."));
+                        return 1;
+                    }
                     continue;
                 }
                 print_cmd_error_unknown_opt_param(option_name, param, paramList);
@@ -9926,21 +10075,6 @@ tstring gen_cmd_help_vpp() {
         _T("          bob_tff           Generate one frame from each field assuming tff.\n")
         _T("          bob_bff           Generate one frame from each field assuming bff.\n"));
 #endif
-#if ENABLE_VPP_FILTER_BWDIF
-    str += strsprintf(_T("\n")
-        _T("   --vpp-bwdif [<param1>=<value>]\n")
-        _T("     enable bwdif deinterlacer\n")
-        _T("    params\n")
-        _T("      mode=<string>\n")
-        _T("          frame (default)   Same-rate output, one frame per input.\n")
-        _T("          bob               Double-rate output, two frames per input.\n")
-        _T("      order=<string>\n")
-        _T("          auto (default)    Detect field order from each input frame.\n")
-        _T("          tff               Assume top field first.\n")
-        _T("          bff               Assume bottom field first.\n")
-        _T("      thr=<float>           Motion threshold (default=%.1f, 0.0 - 100.0).\n"),
-        FILTER_DEFAULT_BWDIF_THR);
-#endif
 #if ENABLE_VPP_FILTER_DECOMB
     str += strsprintf(_T("\n")
         _T("   --vpp-decomb [<param1>=<value>]\n")
@@ -9957,30 +10091,77 @@ tstring gen_cmd_help_vpp() {
         _T("   --vpp-ivtc [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     inverse telecine (Telecide + Decimate style).\n")
         _T("    params\n")
-        _T("      guide=<int>           matching mode. (default=%d)\n")
-        _T("                              0 = argmin across C/P/N (note: fully progressive C is\n")
-        _T("                                  always kept to avoid introducing combing)\n")
-        _T("                              1 = prefer C if clean, otherwise choose from P/N\n")
-        _T("      post=<int>            post-process for residual combing. (default=%d)\n")
+        _T("      guide=<int>           matching mode.\n")
+        _T("                              0 = min-combing\n")
+        _T("                              1 = 2-way + combed-override (prefers C unless combed)\n")
+        _T("                              2 = PAL 2:2 (cycle 2, alternates C/N)\n")
+        _T("      post=<int>            post-process for residual combing.\n")
         _T("                              0 = off\n")
-        _T("                              2 = adaptive per-pixel bob-deinterlace on combed rows\n")
+        _T("                              2 = adaptive per-pixel vertical blend\n")
         _T("      cycle=<auto|int>      decimation cycle length.\n")
-        _T("                              auto (default) = enable cycle=5 for ~30fps input only,\n")
-        _T("                                skip for all other frame rates\n")
+        _T("                              auto (default) = enable 3:2 decimation only if input fps >= 26\n")
         _T("                              0 = decimation disabled\n")
-        _T("                              5 = 3:2 pulldown (30fps -> 24fps)\n")
-        _T("                              2..16 = custom cycle length\n")
-        _T("      drop=<int>            frames to drop per cycle. (default=%d, only value supported)\n")
-        _T("      combthresh=<float>    per-pixel combing threshold. (default=%.2f, 0.0 - 1.0)\n")
-        _T("      cleanfrac=<float>     block-level clean threshold for guide=1 / post=2.\n")
-        _T("                              fraction of pixels in a block allowed to be combed\n")
-        _T("                              before the block is considered dirty. (default=%.2f)\n")
+        _T("                              2 = PAL 2:2, 5 = NTSC 3:2 (30 -> 24fps), 2..16 = custom\n")
+        _T("      drop=<int>            frames to drop per cycle. default 1 (only value supported)\n")
+        _T("      combthresh=<float>    per-pixel combing threshold (normalized 0.0-1.0, default 0.12)\n")
+        _T("      cleanfrac=<float>     frame-level clean-frame threshold, fraction of pixels allowed\n")
+        _T("                              to be combed while still preferring C (default 0.20 = 20%%)\n")
+        _T("      dthresh=<int>         per-pixel deinterlace gate (0..255, default 7). Only missing-\n")
+        _T("                              field pixels with |cur - interp(cur)| > dthresh get replaced\n")
+        _T("                              by the BWDIF/SP reconstruction; clean pixels pass through.\n")
+        _T("                              0 disables the gate (legacy whole-row replacement).\n")
+        _T("      chroma=<bool>         include U+V planes in match-quality scoring (default off).\n")
+        _T("                              Helps on content where chroma dominates motion (animation,\n")
+        _T("                              chroma-rich fades). Adds ~50%% scoring-kernel cost.\n")
+        _T("      back=<int>            when to test match=P (borrow bot from previous frame).\n")
+        _T("                              0 = always test P\n")
+        _T("                              1 = only test P when C looks combed (default)\n")
+        _T("      y0=<int> y1=<int>     exclusion band: ignore rows outside [y0, y1] for combing metric.\n")
+        _T("                              useful for burned-in subtitles. y0=y1=0 disables (default).\n")
+        _T("      cadlock=auto|on|off   5-frame cadence pattern lock + match override.\n")
+        _T("                              auto (default) enables when guide>=1 (NTSC 3:2 or\n")
+        _T("                              PAL 2:2). on = always enable. off = disable entirely.\n")
+        _T("      gthresh=<int>         tolerance percent for cadence-predicted match override\n")
+        _T("                              (0..100, default 10). Predicted match is adopted only\n")
+        _T("                              when its score differs from argmin by less than gthresh%%.\n")
+        _T("                              0 disables override (cadence becomes diagnostic-only).\n")
+        _T("      vthresh=<int>         post-assembly combing veto threshold (0..256, default 50).\n")
+        _T("                              Layered on top of the picstruct-class applyBlend gate:\n")
+        _T("                              when the gate would fire, blend is vetoed if the chosen\n")
+        _T("                              match's assembled-field-pair cComb is below vthresh.\n")
+        _T("                              Can only REMOVE blends, never add them. 0 disables the\n")
+        _T("                              veto (pure classifier-gate behaviour).\n")
+        _T("      expand=auto|on|off    DGDecode-style RFF expansion. When enabled, 4 coded\n")
+        _T("                              soft-telecine frames become 5 internal ring entries\n")
+        _T("                              (+1 synth frame per RFF-flagged input). Cycle=5\n")
+        _T("                              drop=1 decimation is forced internally; output rate\n")
+        _T("                              stays at the input rate (23.976 fps). Catches\n")
+        _T("                              sw-decoder-weaved combing via TFM-equivalent field\n")
+        _T("                              matching. auto (default) enables when guide>=1 and\n")
+        _T("                              upstream detected pulldown; on = force; off = disable.\n")
+        _T("      hysteresis=<float>    penalty against flipping the chosen match type\n")
+        _T("                              between adjacent frames. 0.0..1.0, default 0.0\n")
         _T("      tff=<auto|on|off>     top-field-first. default auto (derived from input picstruct)\n")
-        _T("      log=<path|bool>       write per-frame match log to <path>.\n")
-        _T("                              log=true uses output filename base + .ivtc.log.txt\n"),
-        FILTER_DEFAULT_IVTC_GUIDE, FILTER_DEFAULT_IVTC_POST,
-        FILTER_DEFAULT_IVTC_DROP,
-        FILTER_DEFAULT_IVTC_COMB_THRESH, FILTER_DEFAULT_IVTC_CLEAN_FRAC);
+        _T("      log=<path|bool>       write per-frame match log to <path>\n")
+        _T("      d2v=<path>            DGIndex D2V project file. when set, IVTC uses\n")
+        _T("                              bitstream-truth per-frame progressive/TFF/RFF\n")
+        _T("                              flags instead of pixel SAD metrics. recommended\n")
+        _T("                              for soft-telecine MPEG-2 sources indexed by DGIndex.\n"));
+#endif
+#if ENABLE_VPP_FILTER_BWDIF
+    str += strsprintf(_T("\n")
+        _T("   --vpp-bwdif [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     motion-adaptive deinterlacer (w3fdif + cubic interpolation).\n")
+        _T("    params\n")
+        _T("      mode=<frame|bob>      output mode. default frame (1 output per input).\n")
+        _T("                              frame = same-rate, preserves first-displayed field\n")
+        _T("                              bob   = double-rate, emits both fields (alternating)\n")
+        _T("      order=<auto|tff|bff>  field order. default auto (derived from input picstruct)\n")
+        _T("      deint=<all|interlaced> which frames to deinterlace. default all.\n")
+        _T("                              interlaced = pass through frames not flagged as interlaced\n")
+        _T("      thr=<float>           skip-interpolation threshold, 0.0..100.0 (%% of value range).\n")
+        _T("                              motion below this returns pure temporal average. default 0.0\n")
+        _T("      log=<path|bool>       write per-frame TSV decision log to <path>\n"));
 #endif
 #if ENABLE_VPP_FILTER_RFF
     str += strsprintf(_T("\n")
