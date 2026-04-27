@@ -2038,7 +2038,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             return 0;
         }
         i++;
-        const auto paramList = std::vector<std::string>{ "guide", "post", "cycle", "drop", "combthresh", "cleanfrac",
+        const auto paramList = std::vector<std::string>{ "enable", "guide", "post", "cycle", "drop", "combthresh", "cleanfrac",
             "dthresh", "chroma", "back", "y0", "y1", "cadlock", "gthresh", "vthresh", "expand", "hysteresis", "tff", "log", "d2v" };
 
         for (const auto &param : split(strInput[i], _T(","))) {
@@ -2292,6 +2292,14 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     vpp->ivtc.d2vPath = param_val;
                     continue;
                 }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                if (param == _T("log")) {
+                    vpp->ivtc.log = true;
+                    vpp->ivtc.logPath = _T("");
+                    continue;
+                }
                 print_cmd_error_unknown_opt_param(option_name, param, paramList);
                 return 1;
             }
@@ -2305,7 +2313,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             return 0;
         }
         i++;
-        const auto paramList = std::vector<std::string>{ "mode", "order", "thr", "deint", "log" };
+        const auto paramList = std::vector<std::string>{ "enable", "mode", "order", "thr", "deint", "log" };
 
         for (const auto &param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
@@ -2349,11 +2357,11 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 }
                 if (param_arg == _T("order")) {
                     if (param_val == _T("auto") || param_val == _T("-1")) {
-                        vpp->bwdif.order = -1;
+                        vpp->bwdif.order = VppBwdifOrder::Auto;
                     } else if (param_val == _T("tff")) {
-                        vpp->bwdif.order = 1;
+                        vpp->bwdif.order = VppBwdifOrder::TFF;
                     } else if (param_val == _T("bff")) {
-                        vpp->bwdif.order = 0;
+                        vpp->bwdif.order = VppBwdifOrder::BFF;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("Supported values: auto, tff, bff."));
                         return 1;
@@ -2378,6 +2386,14 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("Supported values: all, interlaced."));
                         return 1;
                     }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                if (param == _T("log")) {
+                    vpp->bwdif.log = true;
+                    vpp->bwdif.logPath = _T("");
                     continue;
                 }
                 print_cmd_error_unknown_opt_param(option_name, param, paramList);
@@ -8264,6 +8280,14 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_LST(_T("mode"), bwdif.mode, list_vpp_bwdif_mode);
             ADD_LST(_T("order"), bwdif.order, list_vpp_bwdif_order);
             ADD_FLOAT(_T("thr"), bwdif.thr, 1);
+            if (param->bwdif.deint != defaultPrm->bwdif.deint) {
+                tmp << _T(",deint=") << ((param->bwdif.deint == VppBwdifDeint::Interlaced) ? _T("interlaced") : _T("all"));
+            }
+            if (param->bwdif.logPath.length() > 0) {
+                tmp << _T(",log=\"") << param->bwdif.logPath << _T("\"");
+            } else {
+                ADD_BOOL(_T("log"), bwdif.log);
+            }
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-bwdif ") << tmp.str().substr(1);
@@ -8302,6 +8326,20 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_NUM(_T("drop"), ivtc.drop);
             ADD_FLOAT(_T("combthresh"), ivtc.combThresh, 3);
             ADD_FLOAT(_T("cleanfrac"), ivtc.cleanFrac, 3);
+            ADD_NUM(_T("dthresh"), ivtc.dthresh);
+            ADD_BOOL(_T("chroma"), ivtc.chroma);
+            ADD_NUM(_T("back"), ivtc.back);
+            ADD_NUM(_T("y0"), ivtc.y0);
+            ADD_NUM(_T("y1"), ivtc.y1);
+            if (param->ivtc.cadenceLock != defaultPrm->ivtc.cadenceLock) {
+                tmp << _T(",cadlock=") << ((param->ivtc.cadenceLock < 0) ? _T("auto") : (param->ivtc.cadenceLock ? _T("on") : _T("off")));
+            }
+            ADD_NUM(_T("gthresh"), ivtc.gthresh);
+            ADD_NUM(_T("vthresh"), ivtc.vthresh);
+            if (param->ivtc.expand != defaultPrm->ivtc.expand) {
+                tmp << _T(",expand=") << ((param->ivtc.expand < 0) ? _T("auto") : (param->ivtc.expand ? _T("on") : _T("off")));
+            }
+            ADD_FLOAT(_T("hysteresis"), ivtc.hysteresis, 3);
             if (param->ivtc.tff != defaultPrm->ivtc.tff) {
                 tmp << _T(",tff=") << ((param->ivtc.tff < 0) ? _T("auto") : (param->ivtc.tff ? _T("on") : _T("off")));
             }
@@ -8309,6 +8347,9 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
                 tmp << _T(",log=\"") << param->ivtc.logPath << _T("\"");
             } else {
                 ADD_BOOL(_T("log"), ivtc.log);
+            }
+            if (param->ivtc.d2vPath.length() > 0) {
+                tmp << _T(",d2v=\"") << param->ivtc.d2vPath << _T("\"");
             }
         }
         if (!tmp.str().empty()) {

@@ -1307,11 +1307,11 @@ tstring VppDecimate::print() const {
 
 VppBwdif::VppBwdif() :
     enable(false),
-    mode(VppBwdifMode::Frame),
-    order(-1),          // auto (derived from input picstruct)
-    thr(0.0f),
-    deint(VppBwdifDeint::All),
-    log(false),
+    mode((VppBwdifMode)FILTER_DEFAULT_BWDIF_MODE),
+    order((VppBwdifOrder)FILTER_DEFAULT_BWDIF_ORDER),
+    thr(FILTER_DEFAULT_BWDIF_THR),
+    deint((VppBwdifDeint)FILTER_DEFAULT_BWDIF_DEINT),
+    log(FILTER_DEFAULT_BWDIF_LOG),
     logPath() {
 
 }
@@ -1330,60 +1330,60 @@ bool VppBwdif::operator!=(const VppBwdif &x) const {
 }
 
 tstring VppBwdif::print() const {
-    const TCHAR *modeStr  = (mode == VppBwdifMode::Bob) ? _T("bob") : _T("frame");
-    const TCHAR *orderStr = (order < 0) ? _T("auto") : (order ? _T("tff") : _T("bff"));
     const TCHAR *deintStr = (deint == VppBwdifDeint::Interlaced) ? _T("interlaced") : _T("all");
     return strsprintf(_T("bwdif: mode=%s, order=%s, deint=%s, thr %.2f, log %s"),
-        modeStr, orderStr, deintStr, thr,
+        get_cx_desc(list_vpp_bwdif_mode, (int)mode),
+        get_cx_desc(list_vpp_bwdif_order, (int)order),
+        deintStr, thr,
         log ? _T("on") : _T("off"));
 }
 
 
 VppIvtc::VppIvtc() :
     enable(false),
-    tff(-1),
-    guide(0),
-    post(0),
-    cycle(-1),           // -1 = auto: enable 3:2 decimation only if input fps >= 26
-    drop(1),
-    combThresh(0.12f),
-    cleanFrac(0.20f),    // 20% of block pixels must be combed before the frame is considered combed.
+    tff(FILTER_DEFAULT_IVTC_TFF),
+    guide(FILTER_DEFAULT_IVTC_GUIDE),
+    post(FILTER_DEFAULT_IVTC_POST),
+    cycle(FILTER_DEFAULT_IVTC_CYCLE), // -1 = auto: enable 3:2 decimation only if input fps >= 26
+    drop(FILTER_DEFAULT_IVTC_DROP),
+    combThresh(FILTER_DEFAULT_IVTC_COMB_THRESH),
+    cleanFrac(FILTER_DEFAULT_IVTC_CLEAN_FRAC), // 20% of block pixels must be combed before the frame is considered combed.
                          //   Old 1% default flagged texture false positives aggressively and pushed
                          //   many non-combed RFF frames into the post path. 20% aligns with the
                          //   standard 50-pixels-per-256 threshold used in classical IVTC filters
                          //   for film vs video discrimination.
-    dthresh(7),          // 8-bit default; scaled to bit-depth in the filter. 0 disables the gate.
+    dthresh(FILTER_DEFAULT_IVTC_DTHRESH), // 8-bit default; scaled to bit-depth in the filter. 0 disables the gate.
                          //   Per-pixel deinterlace threshold: only missing-field pixels whose
                          //   spatial residual exceeds dthresh are replaced by the BWDIF/SP result.
-    chroma(false),       // default: luma-only scoring. Enable with chroma=true for content where
+    chroma(FILTER_DEFAULT_IVTC_CHROMA), // default: luma-only scoring. Enable with chroma=true for content where
                          //   colour structure dominates (animation, chroma-rich fades).
-    back(0),             // always test P. back=1 can change match distribution on mixed
+    back(FILTER_DEFAULT_IVTC_BACK), // always test P. back=1 can change match distribution on mixed
                          //   content and trigger post=2 blend on frames that would have
                          //   picked P under back=0, producing visible shimmer on SG-1 style
                          //   sources. Opt-in via back=1 for cleaner deterministic film sources.
-    y0(0),
-    y1(0),               // 0,0 = no exclusion band
-    cadenceLock(-1),     // -1 = auto (enable when guide>=1 in init), 0 = off, 1 = on.
+    y0(FILTER_DEFAULT_IVTC_Y0),
+    y1(FILTER_DEFAULT_IVTC_Y1), // 0,0 = no exclusion band
+    cadenceLock(FILTER_DEFAULT_IVTC_CADENCE_LOCK), // -1 = auto (enable when guide>=1 in init), 0 = off, 1 = on.
                          //   Auto-on is safe because guide>=1 implies the user expects
                          //   pulldown content; the tracker is inert on pure progressive
                          //   or hard-interlaced-with-no-pattern input (history collects
                          //   but no phase ever reaches 4/5 fit). Explicit cadlock=off
                          //   available for edge cases with unusual sources.
-    gthresh(10),         // pattern-override tolerance, percent. 10 = adopt the
+    gthresh(FILTER_DEFAULT_IVTC_GTHRESH), // pattern-override tolerance, percent. 10 = adopt the
                          //   cadence-predicted match when its argmin-score differs from
                          //   the raw argmin winner by less than 10%. 0 disables override.
-    expand(-1),          // -1 = auto (enable when guide>=1 && input is soft-telecine).
+    expand(FILTER_DEFAULT_IVTC_EXPAND), // -1 = auto (enable when guide>=1 && input is soft-telecine).
                          //   DGDecode-style internal RFF expansion: 4 coded frames →
                          //   5 ring entries per 3:2 pulldown cycle. Forces cycle=5,
                          //   drop=1 internally; external baseFps unchanged.
-    vthresh(50),         // post-assembly cComb veto threshold (TFM vmetric analogue).
+    vthresh(FILTER_DEFAULT_IVTC_VTHRESH), // post-assembly cComb veto threshold (TFM vmetric analogue).
                          //   Layered on top of the picstruct-class applyBlend gate: when
                          //   the gate fires, blend is vetoed if chosenCombScore < vthresh.
                          //   Default 50 sits below combThreshProg (65) so it only filters
                          //   strongMatch-branch false positives on very clean frames, never
                          //   frames the cComb-gated branches caught. 0 disables the veto.
-    hysteresis(0.0f),
-    log(false),
+    hysteresis(FILTER_DEFAULT_IVTC_HYSTERESIS),
+    log(FILTER_DEFAULT_IVTC_LOG),
     logPath(),
     d2vPath() {
 
@@ -2253,9 +2253,10 @@ RGYParamVpp::RGYParamVpp() :
     delogo(),
     afs(),
     nnedi(),
-    bwdif(),
     yadif(),
     decomb(),
+    bwdif(),
+    ivtc(),
     rff(),
     selectevery(),
     decimate(),
@@ -2294,9 +2295,10 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && delogo == x.delogo
         && afs == x.afs
         && nnedi == x.nnedi
-        && bwdif == x.bwdif
         && yadif == x.yadif
         && decomb == x.decomb
+        && bwdif == x.bwdif
+        && ivtc == x.ivtc
         && rff == x.rff
         && selectevery == x.selectevery
         && decimate == x.decimate

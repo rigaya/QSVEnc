@@ -332,6 +332,12 @@ static const int   FILTER_DEFAULT_DECOMB_THRESHOLD = 20;
 static const int   FILTER_DEFAULT_DECOMB_DTHRESHOLD = 7;
 static const bool  FILTER_DEFAULT_DECOMB_BLEND = false;
 
+static const int   FILTER_DEFAULT_BWDIF_MODE = 0;
+static const int   FILTER_DEFAULT_BWDIF_ORDER = -1;
+static const float FILTER_DEFAULT_BWDIF_THR = 0.0f;
+static const int   FILTER_DEFAULT_BWDIF_DEINT = 0;
+static const bool  FILTER_DEFAULT_BWDIF_LOG = false;
+
 static const int   FILTER_DEFAULT_DECIMATE_CYCLE = 5;
 static const int   FILTER_DEFAULT_DECIMATE_DROP = 1;
 static const float FILTER_DEFAULT_DECIMATE_THRE_DUP = 1.1f;
@@ -341,6 +347,25 @@ static const int   FILTER_DEFAULT_DECIMATE_BLOCK_Y = 32;
 static const bool  FILTER_DEFAULT_DECIMATE_PREPROCESSED = false;
 static const bool  FILTER_DEFAULT_DECIMATE_CHROMA = true;
 static const bool  FILTER_DEFAULT_DECIMATE_LOG = false;
+
+static const int   FILTER_DEFAULT_IVTC_TFF = -1;
+static const int   FILTER_DEFAULT_IVTC_GUIDE = 1;
+static const int   FILTER_DEFAULT_IVTC_POST = 2;
+static const int   FILTER_DEFAULT_IVTC_CYCLE = -1;
+static const int   FILTER_DEFAULT_IVTC_DROP = 1;
+static const float FILTER_DEFAULT_IVTC_COMB_THRESH = 0.12f;
+static const float FILTER_DEFAULT_IVTC_CLEAN_FRAC = 0.20f;
+static const int   FILTER_DEFAULT_IVTC_DTHRESH = 7;
+static const bool  FILTER_DEFAULT_IVTC_CHROMA = false;
+static const int   FILTER_DEFAULT_IVTC_BACK = 0;
+static const int   FILTER_DEFAULT_IVTC_Y0 = 0;
+static const int   FILTER_DEFAULT_IVTC_Y1 = 0;
+static const int   FILTER_DEFAULT_IVTC_CADENCE_LOCK = -1;
+static const int   FILTER_DEFAULT_IVTC_GTHRESH = 10;
+static const int   FILTER_DEFAULT_IVTC_EXPAND = -1;
+static const int   FILTER_DEFAULT_IVTC_VTHRESH = 50;
+static const float FILTER_DEFAULT_IVTC_HYSTERESIS = 0.0f;
+static const bool  FILTER_DEFAULT_IVTC_LOG = false;
 
 static const int   FILTER_DEFAULT_MPDECIMATE_HI = 768;
 static const int   FILTER_DEFAULT_MPDECIMATE_LO = 320;
@@ -1899,6 +1924,25 @@ enum class VppBwdifMode {
     Bob,    // double-rate output: 2 output frames per input
 };
 
+const CX_DESC list_vpp_bwdif_mode[] = {
+    { _T("frame"),  (int)VppBwdifMode::Frame },
+    { _T("bob"),    (int)VppBwdifMode::Bob   },
+    { NULL, 0 }
+};
+
+enum class VppBwdifOrder {
+    Auto = -1,
+    BFF = 0,
+    TFF = 1
+};
+
+const CX_DESC list_vpp_bwdif_order[] = {
+    { _T("auto"),   (int)VppBwdifOrder::Auto },
+    { _T("tff"),    (int)VppBwdifOrder::TFF  },
+    { _T("bff"),    (int)VppBwdifOrder::BFF  },
+    { NULL, 0 }
+};
+
 enum class VppBwdifDeint {
     All,         // deinterlace every frame
     Interlaced,  // only frames with RGY_PICSTRUCT_INTERLACED; progressive passes through
@@ -1907,7 +1951,7 @@ enum class VppBwdifDeint {
 struct VppBwdif {
     bool enable;
     VppBwdifMode mode;    // Frame = same-rate (1 out/in); Bob = double-rate (2 out/in)
-    int order;            // -1 = auto (from input picstruct), 0 = BFF, 1 = TFF
+    VppBwdifOrder order;  // Auto = from input picstruct
     float thr;            // noise threshold, 0.0..100.0 (% of value range); motion <= thr -> temporal avg
     VppBwdifDeint deint;  // gate: All (default) or Interlaced only
     bool log;             // enable per-frame TSV log
