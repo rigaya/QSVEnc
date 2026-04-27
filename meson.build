@@ -530,7 +530,6 @@ qsvpipeline_sources = files(
   'QSVPipeline/rgy_chapter.cpp',
   'QSVPipeline/rgy_cmd.cpp',
   'QSVPipeline/rgy_codepage.cpp',
-  'QSVPipeline/rgy_d2v_parser.cpp',
   'QSVPipeline/rgy_def.cpp',
   'QSVPipeline/rgy_device_info_cache.cpp',
   'QSVPipeline/rgy_device_usage.cpp',

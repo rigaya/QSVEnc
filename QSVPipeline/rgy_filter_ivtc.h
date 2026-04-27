@@ -44,7 +44,6 @@
 #include <memory>
 #include "rgy_filter_cl.h"
 #include "rgy_prm.h"
-#include "rgy_d2v_parser.h"
 
 class RGYFilterParamIvtc : public RGYFilterParam {
 public:
@@ -172,9 +171,8 @@ protected:
                                 int trimOffset, int trimFrameCount);
     RGY_ERR scoreCandidates(const RGYFrameInfo *prev, const RGYFrameInfo *cur, const RGYFrameInfo *next, uint64_t matchScoreOut[3], uint64_t combScoreOut[3], uint64_t combMaxOut[3], uint64_t combBlocksOut[3], const int tffForScoring, RGYOpenCLQueue &queue);
     RGY_ERR synthesizeToCycle(int cycleSlot, const RGYFrameInfo *prev, const RGYFrameInfo *cur, const RGYFrameInfo *next, const IvtcMatch match, const bool applyBlend, const int dthresh, const int tffForSynth, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
-    // Full BWDIF deinterlacer for D2V-identified genuinely-interlaced frames.
-    // Fires instead of the simpler synthesize+apply_blend path when D2V marks
-    // the frame interlaced AND post=2 threshold is exceeded. Uses the full
+    // Full BWDIF deinterlacer for frames selected by the post-processing gate.
+    // Fires instead of the simpler synthesize+apply_blend path and uses the full
     // 5-frame temporal window (prev2/prev/cur/next/next2) held by the IVTC
     // ring buffer; startup aliasing (prev2=prev, next2=next) is handled by
     // the caller when the ring hasn't filled.
@@ -185,8 +183,8 @@ protected:
     RGY_ERR synthesizeToCycleBwdif(int cycleSlot, const RGYFrameInfo *prev2, const RGYFrameInfo *prev, const RGYFrameInfo *cur, const RGYFrameInfo *next, const RGYFrameInfo *next2, const int streamTff, const int sceneChange, const int dthresh, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
     RGY_ERR computePairDiff(const RGYFrameInfo *pA, const RGYFrameInfo *pB, uint64_t &diffOut, RGYOpenCLQueue &queue);
     // Process one "center" frame with full 5-frame temporal context. centerDisplayIdx
-    // is the 0-based input-stream index of the frame at idx_cur (used for D2V lookup
-    // and per-frame logging). idx_prev2/idx_prev may alias to idx_cur at stream start;
+    // is the 0-based input-stream index of the frame at idx_cur (used for
+    // per-frame logging). idx_prev2/idx_prev may alias to idx_cur at stream start;
     // idx_next2/idx_next may alias to idx_cur during drain.
     RGY_ERR processInputToCycle(int idx_prev2, int idx_prev, int idx_cur, int idx_next, int idx_next2, int centerDisplayIdx, RGYOpenCLQueue &queue_main, const std::vector<RGYOpenCLEvent> &wait_events);
     RGY_ERR flushCycle(bool finalFlush, int64_t nextInputPts, RGYOpenCLQueue &queue_main);
@@ -240,7 +238,6 @@ protected:
     std::array<uint64_t, 8> m_blendTriggerCounts;           // cumulative counter across the run; reported at close()
     std::vector<int> m_cycleMatchType;                      // 選択マッチ種別 (0=C, 1=P, 2=N) ログ用
     std::vector<int> m_cycleApplyBlend;                     // post=2 の blend 適用フラグ (ログ用)
-    std::vector<int> m_cycleD2vTag;                         // D2V classification per slot: 0=n/a, 1=prog, 2=rff, 3=interlaced (log only)
     std::vector<int> m_cycleDecTag;                         // Decoder-driven routing decision per slot (see encoding in processInputToCycle)
     std::vector<int> m_cycleCadenceTag;                     // Cadence tracker state + override action per slot (see encoding in processInputToCycle)
     std::vector<uint32_t> m_cyclePictTypeFlags;             // MPEG pict_type flag bits (RGY_FRAME_FLAG_PICT_TYPE_*) per slot — log only
@@ -292,23 +289,6 @@ protected:
     int                            m_cadenceLockedPhase;        // -1 = unlocked; else 0..4
     int                            m_cadenceConfidence;         // weighted correct/wrong ledger (+2/-1, clamped to [0, 255])
     int                            m_cadenceLastPrediction;     // prediction made LAST call; -1 = none (verify against THIS obs)
-
-    // D2V ground-truth support (new 2026-04-21):
-    std::unique_ptr<RGYD2VParser> m_d2v;          // loaded D2V parser (null when d2v= not set or load failed)
-    int                            m_d2vUseProg;   // count: frames classified via D2V as progressive (match forced to C)
-    int                            m_d2vUseRff;    // count: progressive + RFF-flagged
-    int                            m_d2vUseInt;    // count: D2V-classified interlaced (full scoring ran)
-    int                            m_d2vFallback;  // count: frames where D2V index was out of range
-    // D2V index snapshot captured at load time — mirrored into plain ints
-    // so close() can print stats WITHOUT touching the parser. Touching the
-    // parser via AddMessage at init time has been observed to trigger a
-    // silent exit on some Windows configurations ( re-reproduced on SG-1
-    // and Die Hard 2 even after the %zu → %lld fix), so we snapshot here
-    // and defer all diagnostic output to close().
-    int                            m_d2vLoadedFrames;
-    int                            m_d2vLoadedProg;
-    int                            m_d2vLoadedRff;
-    int                            m_d2vLoadedInt;
 
     // RFF expansion state (libavcodec pre-scan driven).
     //

@@ -433,16 +433,15 @@ __kernel void kernel_ivtc_synthesize(
 
 
 // --- Full BWDIF deinterlacer for IVTC ------------------------------------
-// Used only when D2V identifies the frame as truly interlaced AND combing
-// remains after field-matching (post=2 would fire). IVTC owns a 5-frame
+// Used only when combing remains after field-matching and the IVTC
+// post-processing gate decides reconstruction is needed. IVTC owns a 5-frame
 // ring (prev2/prev/cur/next/next2) so the full BBC PH-2071 temporal window
 // is available. During ring startup (first 2 frames) or drain (last 2)
 // prev2/next2 alias to prev/next — the caller in rgy_filter_ivtc.cpp
 // handles the aliasing; kernel math degrades to a 3-frame approximation
 // just like BWDIF does before its ring fills.
 //
-// Preserved-field rows are sourced from pCur (match=C is enforced for
-// D2V-interlaced frames in processInputToCycle).
+// Preserved-field rows are sourced from pCur.
 // Missing-field rows run the full motion-adaptive w3fdif reconstruction.
 //
 // FIELD-PARITY CORRECTION (2026-04-21):
@@ -505,7 +504,7 @@ __kernel void kernel_ivtc_bwdif_deint(
     __global Type *dstPix = (__global Type *)(pDst + iy * dstPitch + ix * sizeof(Type));
 
     if (!needsInterp) {
-        // First-field row (preserved): straight from the D2V-forced match=C.
+        // First-field row (preserved): straight from the current frame.
         dstPix[0] = (Type)ivtc_readPix(pCur, ix, iy, srcPitch, dstWidth, dstHeight);
         return;
     }
@@ -574,7 +573,7 @@ __kernel void kernel_ivtc_bwdif_deint(
     int motion = max(motA >> 1, max(motB, motC));
 
     // Motion threshold is 0 for IVTC's post-path: we only reach this kernel
-    // when D2V+post=2 has already decided reconstruction is warranted. For
+    // when post=2 has already decided reconstruction is warranted. For
     // effectively-static content (motion==0) the tAvg fallback is correct.
     if (motion == 0) {
         dstPix[0] = (Type)tAvg;

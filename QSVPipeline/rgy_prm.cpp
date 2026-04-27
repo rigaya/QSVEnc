@@ -1384,8 +1384,7 @@ VppIvtc::VppIvtc() :
                          //   frames the cComb-gated branches caught. 0 disables the veto.
     hysteresis(FILTER_DEFAULT_IVTC_HYSTERESIS),
     log(FILTER_DEFAULT_IVTC_LOG),
-    logPath(),
-    d2vPath() {
+    logPath() {
 
 }
 
@@ -1409,8 +1408,7 @@ bool VppIvtc::operator==(const VppIvtc &x) const {
         && expand == x.expand
         && hysteresis == x.hysteresis
         && log == x.log
-        && logPath == x.logPath
-        && d2vPath == x.d2vPath;
+        && logPath == x.logPath;
 }
 bool VppIvtc::operator!=(const VppIvtc &x) const {
     return !(*this == x);
@@ -1432,7 +1430,7 @@ tstring VppIvtc::print() const {
         bandStr = strsprintf(_T("%d..%d"), y0, y1);
     }
     return strsprintf(_T("ivtc: guide=%d, post=%d, cycle=%s, combthresh %.3f, cleanfrac %.3f, dthresh=%d, chroma=%s, back=%d, band=%s,\n")
-        _T("                         cadlock=%s, gthresh=%d, vthresh=%d, expand=%s, hys %.2f, tff=%s, log %s, d2v %s"),
+        _T("                         cadlock=%s, gthresh=%d, vthresh=%d, expand=%s, hys %.2f, tff=%s, log %s"),
         guide, post,
         cycleStr.c_str(),
         combThresh, cleanFrac, dthresh, chroma ? _T("on") : _T("off"),
@@ -1442,8 +1440,7 @@ tstring VppIvtc::print() const {
         (expand < 0) ? _T("auto") : (expand ? _T("on") : _T("off")),
         hysteresis,
         (tff < 0) ? _T("auto") : (tff ? _T("on") : _T("off")),
-        log ? _T("on") : _T("off"),
-        d2vPath.empty() ? _T("off") : _T("on"));
+        log ? _T("on") : _T("off"));
 }
 
 

@@ -2039,7 +2039,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         i++;
         const auto paramList = std::vector<std::string>{ "enable", "guide", "post", "cycle", "drop", "combthresh", "cleanfrac",
-            "dthresh", "chroma", "back", "y0", "y1", "cadlock", "gthresh", "vthresh", "expand", "hysteresis", "tff", "log", "d2v" };
+            "dthresh", "chroma", "back", "y0", "y1", "cadlock", "gthresh", "vthresh", "expand", "hysteresis", "tff", "log" };
 
         for (const auto &param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
@@ -2283,13 +2283,6 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                         vpp->ivtc.log = true;
                         vpp->ivtc.logPath = param_val;
                     }
-                    continue;
-                }
-                if (param_arg == _T("d2v")) {
-                    // Bitstream-truth ground-truth from a DGIndex D2V project file.
-                    // When set, IVTC uses per-frame progressive/TFF/RFF from the D2V
-                    // instead of pixel SAD metrics for C/P/N decisions.
-                    vpp->ivtc.d2vPath = param_val;
                     continue;
                 }
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
@@ -8348,9 +8341,6 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             } else {
                 ADD_BOOL(_T("log"), ivtc.log);
             }
-            if (param->ivtc.d2vPath.length() > 0) {
-                tmp << _T(",d2v=\"") << param->ivtc.d2vPath << _T("\"");
-            }
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-ivtc ") << tmp.str().substr(1);
@@ -10183,11 +10173,7 @@ tstring gen_cmd_help_vpp() {
         _T("      hysteresis=<float>    penalty against flipping the chosen match type\n")
         _T("                              between adjacent frames. 0.0..1.0, default 0.0\n")
         _T("      tff=<auto|on|off>     top-field-first. default auto (derived from input picstruct)\n")
-        _T("      log=<path|bool>       write per-frame match log to <path>\n")
-        _T("      d2v=<path>            DGIndex D2V project file. when set, IVTC uses\n")
-        _T("                              bitstream-truth per-frame progressive/TFF/RFF\n")
-        _T("                              flags instead of pixel SAD metrics. recommended\n")
-        _T("                              for soft-telecine MPEG-2 sources indexed by DGIndex.\n"));
+        _T("      log=<path|bool>       write per-frame match log to <path>\n"));
 #endif
 #if ENABLE_VPP_FILTER_BWDIF
     str += strsprintf(_T("\n")

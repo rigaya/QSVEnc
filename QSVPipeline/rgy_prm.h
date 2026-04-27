@@ -2019,9 +2019,6 @@ struct VppIvtc {
     float hysteresis;     // 0..1 bias against match-type flipping between frames
     bool log;
     tstring logPath;
-    tstring d2vPath;      // optional DGIndex D2V project file; when set, IVTC uses
-                          //   bitstream-truth per-frame flags (progressive/TFF/RFF)
-                          //   instead of pixel metrics for C/P/N decisions.
 
     VppIvtc();
     bool operator==(const VppIvtc &x) const;

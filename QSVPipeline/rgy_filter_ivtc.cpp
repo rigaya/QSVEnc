@@ -81,8 +81,8 @@ static const char *ivtc_cadence_tag_str(int t) {
 static const int IVTC_BLOCK_X = 32;
 static const int IVTC_BLOCK_Y = 8;
 // リングバッファ: prev2/prev/cur/next/next2 の5枚.
-// Full BWDIF temporal window when D2V flags the frame as genuinely interlaced;
-// the field-match step still only consults prev/cur/next but the extra
+// Full BWDIF temporal window for the post-processing path; the field-match
+// step still only consults prev/cur/next but the extra
 // prev2/next2 slots are free because flushCycle already owns the larger frame
 // buffer for staging. Latency is 3 frames (process cur once next2 has arrived).
 static const int IVTC_CACHE_SIZE = 5;
@@ -145,7 +145,6 @@ RGYFilterIvtc::RGYFilterIvtc(shared_ptr<RGYOpenCLContext> context) :
     m_blendTriggerCounts{},
     m_cycleMatchType(),
     m_cycleApplyBlend(),
-    m_cycleD2vTag(),
     m_cycleDecTag(),
     m_cycleCadenceTag(),
     m_cyclePictTypeFlags(),
@@ -174,15 +173,6 @@ RGYFilterIvtc::RGYFilterIvtc(shared_ptr<RGYOpenCLContext> context) :
     m_cadenceLockedPhase(-1),
     m_cadenceConfidence(0),
     m_cadenceLastPrediction(-1),
-    m_d2v(),
-    m_d2vUseProg(0),
-    m_d2vUseRff(0),
-    m_d2vUseInt(0),
-    m_d2vFallback(0),
-    m_d2vLoadedFrames(0),
-    m_d2vLoadedProg(0),
-    m_d2vLoadedRff(0),
-    m_d2vLoadedInt(0),
     m_expandActive(false),
     m_skipBaseFpsMultiplier(false),
     m_displayFrameList(),
@@ -294,47 +284,7 @@ RGY_ERR RGYFilterIvtc::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     }
     // 出力は progressive 扱い (field-matching の結果として)
     prm->frameOut.picstruct = RGY_PICSTRUCT_FRAME;
-
-    // -- Load D2V early (moved up from the post-allocation position) so
-    //    the RFF-expansion resolution below can consult per-picture flags
-    //    before the cycle auto-mode decision. The D2V parser has zero
-    //    OpenCL dependencies — only needs prm->ivtc.d2vPath. Do NOT
-    //    add any AddMessage calls between the parser load and the
-    //    "D2V init complete" line — observed to silently exit the
-    //    process on SG-1 / Die Hard 2 (see comment preserved below).
     auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamIvtc>(m_param);
-    const bool d2vPathChanged = (!prmPrev || prmPrev->ivtc.d2vPath != prm->ivtc.d2vPath);
-    if (!prm->ivtc.d2vPath.empty() && (d2vPathChanged || !m_d2v)) {
-        AddMessage(RGY_LOG_DEBUG, _T("ivtc: D2V path set (%s). Attempting load...\n"),
-            prm->ivtc.d2vPath.c_str());
-        auto parser = std::make_unique<RGYD2VParser>();
-        const bool loadOk = parser->load(prm->ivtc.d2vPath);
-        if (!loadOk) {
-            AddMessage(RGY_LOG_WARN, _T("ivtc: failed to load D2V \"%s\"; falling back to pixel-metric match selection.\n"),
-                prm->ivtc.d2vPath.c_str());
-            m_d2v.reset();
-        } else if (parser->frameCount() == 0) {
-            AddMessage(RGY_LOG_WARN, _T("ivtc: D2V file \"%s\" parsed but contained 0 frames; disabling D2V override.\n"),
-                prm->ivtc.d2vPath.c_str());
-            m_d2v.reset();
-        } else {
-            AddMessage(RGY_LOG_INFO, _T("ivtc: loaded D2V \"%s\"\n"), prm->ivtc.d2vPath.c_str());
-            // DIAGNOSTIC AddMessage REMOVED (2026-04-22 redo). Attempting
-            // to log any message between "loaded D2V" and "D2V init complete"
-            // has been observed to silently exit the process on SG-1 and
-            // Die Hard 2 — reproduced even after the earlier %zu → %lld
-            // fix in rgy_d2v_parser.cpp.
-            m_d2vLoadedFrames = (int)parser->frameCount();
-            m_d2vLoadedProg   = parser->progressiveCount();
-            m_d2vLoadedRff    = parser->rffCount();
-            m_d2vLoadedInt    = parser->interlacedCount();
-            m_d2v = std::move(parser);
-            AddMessage(RGY_LOG_INFO, _T("ivtc: D2V init complete.\n"));
-        }
-    } else if (prm->ivtc.d2vPath.empty() && m_d2v) {
-        AddMessage(RGY_LOG_DEBUG, _T("ivtc: D2V path cleared; releasing parser.\n"));
-        m_d2v.reset();
-    }
 
     // -- RFF expansion resolution (libavcodec pre-scan driven).
     //
@@ -346,29 +296,27 @@ RGY_ERR RGYFilterIvtc::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     // flushExpandBuffer just walks the schedule -- no state machine
     // decisions in the hot path.
     //
-    // Because the pre-scan uses the same libavcodec parser that the
-    // demux reader uses during encoding, per-frame flag alignment is
-    // tautological: frame i of the pre-scan == frame i of the runtime
-    // decoded stream. No D2V alignment offset games.
+    // Because the pre-scan decodes the same input file that the demux
+    // reader uses during encoding, per-frame flag alignment follows the
+    // runtime decoded stream.
     //
     // Authority chain:
     //   user explicit expand=on                    -> active (pre-scan mandatory)
     //   user explicit expand=off                   -> off
     //   expand=auto (default) + guide>=1 +
-    //     (demuxer pulldown hint OR d2v has RFF)   -> active (pre-scan then confirms)
+    //     demuxer pulldown hint                    -> active (pre-scan then confirms)
     //   otherwise                                  -> off
     //
     // Once the pre-scan completes and the schedule is built we compute
     // the actual expansion ratio and pick cycle/drop to cancel it at
     // the external output rate (typical clean 3:2 pulldown: 1.25x ->
     // cycle=5 drop=1, net 1.0x).
-    const bool d2vSaysRff = (m_d2v && m_d2v->rffCount() > 0);
     bool expandRequested;
     if (prm->ivtc.expand > 0) {
         expandRequested = true;
     } else if (prm->ivtc.expand < 0) {
         expandRequested = (prm->ivtc.guide >= 1)
-                        && (prm->inputBPulldownDetected || d2vSaysRff);
+                        && prm->inputBPulldownDetected;
     } else {
         expandRequested = false;
     }
@@ -842,7 +790,6 @@ RGY_ERR RGYFilterIvtc::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         m_cycleBlendTrigger.assign(cycleLen, 0);
         m_cycleMatchType.assign(cycleLen, 0);
         m_cycleApplyBlend.assign(cycleLen, 0);
-        m_cycleD2vTag.assign(cycleLen, 0);
         m_cycleDecTag.assign(cycleLen, 0);
         m_cycleCadenceTag.assign(cycleLen, 0);
         m_cyclePictTypeFlags.assign(cycleLen, 0u);
@@ -875,7 +822,7 @@ RGY_ERR RGYFilterIvtc::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
                 "#      so DEC uses the RGY flags that QSVEnc actually received)\n"
                 "# IN:  per-input-frame record as seen by IVTC (framenum tracks inputCount)\n"
                 "# OUT: per-output-frame IVTC decision (header fields below)\n"
-                "#out_idx\tin_id\tmatch\tmatchParity\tconf\tpost\tstatus\td2v\tdec\tcadence\tptype\tmQ\tcComb\tcCombMax\tcCombBlocks\tcComb_c\tcComb_p\tcComb_n\tcComb_cA\tcComb_pA\tcComb_nA\tcMax_c\tcMax_p\tcMax_n\tcMax_cA\tcMax_pA\tcMax_nA\tcBlk_c\tcBlk_p\tcBlk_n\tcBlk_cA\tcBlk_pA\tcBlk_nA\tbtrig\tpostComb\tdiff_to_prev\tscene_sad\n"
+                "#out_idx\tin_id\tmatch\tmatchParity\tconf\tpost\tstatus\tdec\tcadence\tptype\tmQ\tcComb\tcCombMax\tcCombBlocks\tcComb_c\tcComb_p\tcComb_n\tcComb_cA\tcComb_pA\tcComb_nA\tcMax_c\tcMax_p\tcMax_n\tcMax_cA\tcMax_pA\tcMax_nA\tcBlk_c\tcBlk_p\tcBlk_n\tcBlk_cA\tcBlk_pA\tcBlk_nA\tbtrig\tpostComb\tdiff_to_prev\tscene_sad\n"
                 "# cComb_{c,p,n}     = primary-parity per-candidate trimmed-avg combing\n"
                 "# cComb_{cA,pA,nA}  = alternate-parity (!tff) per-candidate trimmed-avg combing\n"
                 "# cMax_*  / cBlk_*  = same naming for block-MAX (Priority 1) and combed-block-count (SUB-PHASE 1) signals\n"
@@ -904,19 +851,8 @@ RGY_ERR RGYFilterIvtc::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         m_nPtsInit = false;
         m_cfrBaseDur = 0;
         m_cfrEmitIdx = 0;
-        m_d2vUseProg = 0;
-        m_d2vUseRff  = 0;
-        m_d2vUseInt  = 0;
-        m_d2vFallback = 0;
-        m_d2vLoadedFrames = 0;
-        m_d2vLoadedProg   = 0;
-        m_d2vLoadedRff    = 0;
-        m_d2vLoadedInt    = 0;
         resetCadenceState();
     }
-
-    // (D2V load was moved up — see top of init(). The schedule was built
-    // there after the parser loaded.)
 
     // DIAG #3: end-of-init state. If this disagrees with DIAG #2,
     // something between the dispatch and here is mutating cycle/drop.
@@ -1341,15 +1277,14 @@ RGY_ERR RGYFilterIvtc::synthesizeToCycle(int cycleSlot, const RGYFrameInfo *prev
     return RGY_ERR_NONE;
 }
 
-// Full BWDIF path: fires when D2V flags the frame as interlaced AND the
-// per-pixel combing count exceeded cleanBlockThresh. Reconstructs missing-
+// Full BWDIF path: fires when the post-processing gate decides the
+// frame needs reconstruction. Reconstructs missing-
 // field rows via motion-adaptive w3fdif using the full 5-frame temporal
 // window (prev2/prev/cur/next/next2) from the IVTC ring. Caller passes
 // aliased pointers (prev2==prev / next2==next) during ring-startup or
 // drain when the real frames aren't available — BWDIF degrades cleanly
 // to the 3-frame approximation in that case.
-// Preserved rows come straight from cur (match=C is enforced for
-// D2V-interlaced in processInputToCycle).
+// Preserved rows come straight from cur.
 RGY_ERR RGYFilterIvtc::synthesizeToCycleBwdif(int cycleSlot, const RGYFrameInfo *prev2, const RGYFrameInfo *prev, const RGYFrameInfo *cur, const RGYFrameInfo *next, const RGYFrameInfo *next2, const int streamTff, const int sceneChange, const int dthresh, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events) {
     RGYFrameInfo *pOutputFrame = &m_frameBuf[cycleSlot]->frame;
     const char *kernel_name = "kernel_ivtc_bwdif_deint";
@@ -2030,7 +1965,6 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
             m_cycleBlendTrigger[slot]  = 0;   // synth never blends
             m_cycleMatchType[slot]     = (int)IvtcMatch::C;   // clean passthru
             m_cycleApplyBlend[slot]    = 0;                   // no blend on synth
-            m_cycleD2vTag[slot]        = 0;                   // n/a
             m_cycleDecTag[slot]        = 16;                  // SYNTH_PASSTHRU (new)
             m_cycleCadenceTag[slot]    = 0;                   // "none"
             m_cyclePictTypeFlags[slot] = (uint32_t)(curInfoS.flags & RGY_FRAME_FLAG_PICT_TYPE_MASK);
@@ -2062,7 +1996,7 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
             m_frameBuf[slot]->frame.inputFrameId = curInfoS.inputFrameId;
             if (m_fpLog) {
                 fprintf(m_fpLog.get(),
-                    "OUT:\t#%d\tin_id=%d\tmatch=c\tmatchParity=pri\tconf=0\tpost=none \tstatus=emit \td2v=n/a\t"
+                    "OUT:\t#%d\tin_id=%d\tmatch=c\tmatchParity=pri\tconf=0\tpost=none \tstatus=emit \t"
                     "dec=SYNTH_PASSTHRU\tcadence=none\tptype=%s\t"
                     "mQ=0\tcComb=0\tcCombMax=0\tcCombBlocks=0\t"
                     "cComb_c=0\tcComb_p=0\tcComb_n=0\tcComb_cA=0\tcComb_pA=0\tcComb_nA=0\t"
@@ -2080,51 +2014,6 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
         // corrupt it (a synth at a scene boundary has bizarre SAD that would
         // mislead the next coded frame's adaptive threshold).
         return RGY_ERR_NONE;
-    }
-
-    // D2V ground-truth lookup. D2V flags are in display order. centerDisplayIdx is
-    // the 0-based input-stream index of the frame currently at idx_cur (passed in
-    // by run_filter and matches m_processedCount at call-time). On drain the last
-    // centerDisplayIdx values hit slots where next2/next alias back to cur.
-    const D2VFrameInfo *d2vInfo = nullptr;
-    const long long d2vIdxLL = (long long)centerDisplayIdx;
-    const char *d2vTag = "n/a";
-    if (m_d2v) {
-        const size_t d2vCount = m_d2v->frameCount();
-        if (d2vIdxLL >= 0 && (size_t)d2vIdxLL < d2vCount) {
-            d2vInfo = m_d2v->frame((size_t)d2vIdxLL);
-            if (!d2vInfo) {
-                // Should never happen — frameCount() returned > d2vIdx but frame() returned
-                // null. Defensive log + fallback; never crash.
-                AddMessage(RGY_LOG_WARN, _T("ivtc: D2V frame(%lld) returned null despite count=%lld; falling back.\n"),
-                    d2vIdxLL, (long long)d2vCount);
-                m_d2vFallback++;
-            }
-            // NOTE (2026-04-22 rewrite): previously this block also
-            // overrode m_tffFixed from d2vInfo->tff for D2V-interlaced
-            // frames. That's a D2V-driven routing decision and is no
-            // longer allowed — the gate is now picstruct-driven. TFF
-            // for the BWDIF kernel is derived from curInfo.picstruct
-            // at the invocation site below.
-            // First-hit debug trace to confirm D2V integration is live.
-            if (m_d2vUseProg + m_d2vUseRff + m_d2vUseInt + m_d2vFallback == 0) {
-                AddMessage(RGY_LOG_DEBUG, _T("ivtc: first D2V lookup idx=%lld count=%lld info=%p (prog=%d tff=%d rff=%d)\n"),
-                    d2vIdxLL, (long long)d2vCount, (void *)d2vInfo,
-                    d2vInfo ? (int)d2vInfo->progressive : -1,
-                    d2vInfo ? (int)d2vInfo->tff         : -1,
-                    d2vInfo ? (int)d2vInfo->rff         : -1);
-            }
-        } else {
-            // D2V loaded but this frame index is out of range. Covers:
-            //   - Stream longer than the D2V index (shouldn't happen for
-            //     correctly-matched inputs, but be defensive)
-            //   - Negative centerDisplayIdx would also land here (guard above).
-            m_d2vFallback++;
-            if (m_d2vFallback == 1) {
-                AddMessage(RGY_LOG_DEBUG, _T("ivtc: first D2V fallback at idx=%lld (count=%lld) -- out of range.\n"),
-                    d2vIdxLL, (long long)d2vCount);
-            }
-        }
     }
 
     // ============================================================================
@@ -2286,21 +2175,6 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
     // below when it runs). Defaults to "disabled" for paths that skip
     // the override (scene change, guide=2). See encoding below.
     int cadenceTag = 2;   // 2 = "disabled"
-
-    // D2V classification for diagnostic logging ONLY. Does NOT affect
-    // routing (2026-04-22 rewrite): the applyBlend gate below is
-    // picstruct-driven because D2V per-frame flags empirically
-    // disagreed with the decoder's actual output on ~42% of frames
-    // from the same source.
-    if (d2vInfo) {
-        if (d2vInfo->progressive) {
-            if (d2vInfo->rff) { m_d2vUseRff++;  d2vTag = "rff"; }
-            else              { m_d2vUseProg++; d2vTag = "prog"; }
-        } else {
-            m_d2vUseInt++;
-            d2vTag = "interlaced";
-        }
-    }
 
     if (sceneChange) {
         match = IvtcMatch::C;
@@ -2855,16 +2729,9 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
     //  Picstruct-driven applyBlend gate (2026-04-22 rewrite).
     // ============================================================
     //
-    // The per-frame routing decision now reads EXCLUSIVELY from the
-    // decoder's picstruct flags (curInfo.picstruct) — no D2V-derived
-    // routing. Empirical evidence: D2V per-frame flags disagreed with
-    // ffmpeg's decoded picstruct on ~42% of frames from the SAME
-    // source, meaning D2V was occasionally routing to the wrong
-    // processing path. The decoder's own output is authoritative
-    // because it IS what our pixel pipeline sees.
-    //
-    // D2V (when loaded) is still logged alongside the decoder decision
-    // for diagnostic comparison, but it does not drive any branch.
+    // The per-frame routing decision reads the decoder's picstruct flags
+    // (curInfo.picstruct). The decoder's own output is authoritative
+    // because it is what the pixel pipeline actually processes.
     //
     // picstruct classification:
     //   RGY_PICSTRUCT_FRAME               -> progressive (no action unless mislabeled)
@@ -3316,11 +3183,7 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
     // Build the per-frame dec= log tag from the ROUTING DECISION, not
     // raw picstruct — this guarantees logs always reflect what the
     // filter actually did. "_combed" suffix appended when applyBlend
-    // fires (regardless of spatial/temporal BWDIF mode; the bwdif
-    // spatial flag is visible in its own column via bwdifSpatialOnly-
-    // driven state if needed). The d2vTag is left UNMODIFIED in this
-    // block — it remains the pure D2V classification for diagnostic
-    // comparison against the routing decision.
+    // fires.
     const char *decTag;
     if (treatAsProgressive) {
         if      (mislabeled)        decTag = "FRAME_mislabeled";
@@ -3354,9 +3217,7 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
 
     // 4. マッチ結果を cycle スロット (= m_frameBuf[slot]) に合成。
     //    applyBlend フレームは常に 5-frame BWDIF カーネル経由で処理。
-    //    以前は D2V loaded & applyBlend のときだけ BWDIF、それ以外は
-    //    synthesize 側の SP cubic に落ちていたが、BWDIF のほうが質で
-    //    優位なので一本化。 TFF 情報は m_tffFixed から取る (init で
+    //    applyBlend フレームは BWDIF に一本化。 TFF 情報は m_tffFixed から取る (init で
     //    picstruct から決定、必要なら per-frame で上書き可能)。
     // Per-pixel deinterlace gate: scale the user's 8-bit-domain dthresh
     // (rgy_prm.h default 7) to the input bit depth. 0 disables the gate
@@ -3456,15 +3317,6 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
         // 3=VERY_LOW. Synth-passthru bypass at line ~1999 sets this to 0
         // (HIGH) because no scoring ran on those slots.
         m_cycleConfidence[slot] = (uint8_t)confidenceLevel;
-        // Encode d2vTag as an int (pure D2V classification, diagnostic-only):
-        //   0 = n/a  (D2V not loaded, or index out of range)
-        //   1 = prog (D2V progressive, rff=0)
-        //   2 = rff  (D2V progressive, rff=1)
-        //   3 = interlaced (D2V progressive=0)
-        m_cycleD2vTag[slot] = (strcmp(d2vTag, "prog") == 0)       ? 1
-                            : (strcmp(d2vTag, "rff") == 0)        ? 2
-                            : (strcmp(d2vTag, "interlaced") == 0) ? 3
-                            :                                       0;
 
         // Encode decTag as an int (decoder-driven routing decision — the
         // actual processing path taken). String-to-int lookup; symmetric
@@ -3541,7 +3393,7 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
         if (m_fpLog) {
             const char *matchStr = ((int)match == 0) ? "c" : ((int)match == 1) ? "p" : "n";
             fprintf(m_fpLog.get(),
-                "OUT:\t#%d\tin_id=%d\tmatch=%s\tmatchParity=%s\tconf=%d\tpost=%s\tstatus=%s\td2v=%s\tdec=%s\tcadence=%s\tptype=%s\tmQ=%llu\tcComb=%llu\tcCombMax=%llu\tcCombBlocks=%llu\t"
+                "OUT:\t#%d\tin_id=%d\tmatch=%s\tmatchParity=%s\tconf=%d\tpost=%s\tstatus=%s\tdec=%s\tcadence=%s\tptype=%s\tmQ=%llu\tcComb=%llu\tcCombMax=%llu\tcCombBlocks=%llu\t"
                 "cComb_c=%llu\tcComb_p=%llu\tcComb_n=%llu\tcComb_cA=%llu\tcComb_pA=%llu\tcComb_nA=%llu\t"
                 "cMax_c=%llu\tcMax_p=%llu\tcMax_n=%llu\tcMax_cA=%llu\tcMax_pA=%llu\tcMax_nA=%llu\t"
                 "cBlk_c=%llu\tcBlk_p=%llu\tcBlk_n=%llu\tcBlk_cA=%llu\tcBlk_pA=%llu\tcBlk_nA=%llu\t"
@@ -3553,7 +3405,6 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
                 confidenceLevel,
                 applyBlend ? "blend" : "none ",
                 "emit ",
-                d2vTag,
                 decTag,
                 ivtc_cadence_tag_str(cadenceTag),
                 ivtc_pict_type_str((uint32_t)curInfo.flags),
@@ -3749,10 +3600,6 @@ RGY_ERR RGYFilterIvtc::flushCycle(bool finalFlush, int64_t nextInputPts, RGYOpen
         for (int i = 0; i < filled; i++) {
             const char *matchStr = (m_cycleMatchType[i] == 0) ? "c" : (m_cycleMatchType[i] == 1) ? "p" : "n";
             const char *status = (i == dropIdx) ? "DROP " : "emit ";
-            const char *d2vCycleTag = (m_cycleD2vTag[i] == 1) ? "prog"
-                                    : (m_cycleD2vTag[i] == 2) ? "rff"
-                                    : (m_cycleD2vTag[i] == 3) ? "interlaced"
-                                                              : "n/a";
             const char *decCycleTag = (m_cycleDecTag[i] ==  0) ? "FRAME_clean"
                                     : (m_cycleDecTag[i] ==  1) ? "FRAME_mislabeled"
                                     : (m_cycleDecTag[i] ==  2) ? "TFF"
@@ -3772,7 +3619,7 @@ RGY_ERR RGYFilterIvtc::flushCycle(bool finalFlush, int64_t nextInputPts, RGYOpen
                                     : (m_cycleDecTag[i] == 16) ? "SYNTH_PASSTHRU"
                                                                : "UNKNOWN";
             fprintf(m_fpLog.get(),
-                "OUT:\t#%d\tin_id=%d\tmatch=%s\tmatchParity=%s\tconf=%u\tpost=%s\tstatus=%s\td2v=%s\tdec=%s\tcadence=%s\tptype=%s\tmQ=%llu\tcComb=%llu\tcCombMax=%llu\tcCombBlocks=%llu\t"
+                "OUT:\t#%d\tin_id=%d\tmatch=%s\tmatchParity=%s\tconf=%u\tpost=%s\tstatus=%s\tdec=%s\tcadence=%s\tptype=%s\tmQ=%llu\tcComb=%llu\tcCombMax=%llu\tcCombBlocks=%llu\t"
                 "cComb_c=%llu\tcComb_p=%llu\tcComb_n=%llu\tcComb_cA=%llu\tcComb_pA=%llu\tcComb_nA=%llu\t"
                 "cMax_c=%llu\tcMax_p=%llu\tcMax_n=%llu\tcMax_cA=%llu\tcMax_pA=%llu\tcMax_nA=%llu\t"
                 "cBlk_c=%llu\tcBlk_p=%llu\tcBlk_n=%llu\tcBlk_cA=%llu\tcBlk_pA=%llu\tcBlk_nA=%llu\t"
@@ -3784,7 +3631,6 @@ RGY_ERR RGYFilterIvtc::flushCycle(bool finalFlush, int64_t nextInputPts, RGYOpen
                 (unsigned)m_cycleConfidence[i],
                 m_cycleApplyBlend[i] ? "blend" : "none ",
                 status,
-                d2vCycleTag,
                 decCycleTag,
                 ivtc_cadence_tag_str(m_cycleCadenceTag[i]),
                 ivtc_pict_type_str(m_cyclePictTypeFlags[i]),
@@ -4047,36 +3893,6 @@ RGY_ERR RGYFilterIvtc::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo 
 }
 
 void RGYFilterIvtc::close() {
-    // Emit D2V-load stats AND D2V-usage stats before tearing down state.
-    // Stats are printed HERE rather than at init time because calling
-    // AddMessage shortly after the D2V load can trigger a silent exit
-    // on some Windows hosts (observed on SG-1 and Die Hard 2 — cause
-    // not fully understood; snapshotting counts at load and printing
-    // in close() is the known-safe workaround).
-    if (m_d2vLoadedFrames > 0) {
-        const double pctProg = 100.0 * (double)m_d2vLoadedProg / (double)m_d2vLoadedFrames;
-        const double pctRff  = 100.0 * (double)m_d2vLoadedRff  / (double)m_d2vLoadedFrames;
-        const double pctInt  = 100.0 * (double)m_d2vLoadedInt  / (double)m_d2vLoadedFrames;
-        AddMessage(RGY_LOG_INFO,
-            _T("ivtc d2v: loaded %d frames (progressive %.2f%%, RFF %.2f%%, interlaced %.2f%%)\n"),
-            m_d2vLoadedFrames, pctProg, pctRff, pctInt);
-    }
-    if (m_d2v || m_d2vLoadedFrames > 0) {
-        const int total = m_d2vUseProg + m_d2vUseRff + m_d2vUseInt + m_d2vFallback;
-        AddMessage(RGY_LOG_INFO,
-            _T("ivtc d2v: processed %d frames (progressive %d, prog+RFF %d, interlaced %d, fallback %d)\n"),
-            total, m_d2vUseProg, m_d2vUseRff, m_d2vUseInt, m_d2vFallback);
-    }
-    m_d2v.reset();
-    m_d2vUseProg = 0;
-    m_d2vUseRff  = 0;
-    m_d2vUseInt  = 0;
-    m_d2vFallback = 0;
-    m_d2vLoadedFrames = 0;
-    m_d2vLoadedProg   = 0;
-    m_d2vLoadedRff    = 0;
-    m_d2vLoadedInt    = 0;
-
     // RFF expansion stats + teardown. The pre-scan gives us the
     // authoritative expansion ratio up front; the close() report
     // confirms what actually made it to the ring at runtime.
@@ -4177,7 +3993,6 @@ void RGYFilterIvtc::close() {
     m_cycleBlendTrigger.clear();
     m_cycleMatchType.clear();
     m_cycleApplyBlend.clear();
-    m_cycleD2vTag.clear();
     m_cycleDecTag.clear();
     m_cycleCadenceTag.clear();
     m_cyclePictTypeFlags.clear();
