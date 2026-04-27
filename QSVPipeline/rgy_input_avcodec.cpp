@@ -3532,17 +3532,6 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
                 // RFF用のTFF/BFFを示すフラグを設定 (picstructとは別)
                 flags |= (rgy_avframe_tff_flag(m_Demux.video.frame)) ? RGY_FRAME_FLAG_RFF_TFF : RGY_FRAME_FLAG_RFF_BFF;
             }
-            // Propagate bitstream-level pict_type (I/P/B) from the parser cache
-            // (FramePos is populated in checkFirstPicture via
-            // m_Demux.video.pParserCtx->pict_type). Diagnostic-only: IVTC logs
-            // ptype but never routes on it. AV_PICTURE_TYPE_NONE leaves all
-            // three PICT_TYPE bits clear (IVTC logs "?").
-            switch (findPos.pict_type) {
-                case AV_PICTURE_TYPE_I: flags |= RGY_FRAME_FLAG_PICT_TYPE_I; break;
-                case AV_PICTURE_TYPE_P: flags |= RGY_FRAME_FLAG_PICT_TYPE_P; break;
-                case AV_PICTURE_TYPE_B: flags |= RGY_FRAME_FLAG_PICT_TYPE_B; break;
-                default: break; // NONE / S / SI / SP / BI — leave mask zero
-            }
         }
         pSurface->setFlags(flags);
         pSurface->setTimestamp(m_Demux.video.frame->pts);

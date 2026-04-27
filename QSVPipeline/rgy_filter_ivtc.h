@@ -103,7 +103,6 @@ struct IvtcDisplayFrame {
 struct IvtcPreScanFrame {
     bool rff;          // repeat_first_field (from parser->repeat_pict > 1)
     bool tff;          // true if top field displayed first
-    int  pictType;     // AV_PICTURE_TYPE_{I,P,B,...}
     bool progressive;  // parser->picture_structure is FRAME (not FIELD)
 };
 
@@ -240,7 +239,6 @@ protected:
     std::vector<int> m_cycleApplyBlend;                     // post=2 の blend 適用フラグ (ログ用)
     std::vector<int> m_cycleDecTag;                         // Decoder-driven routing decision per slot (see encoding in processInputToCycle)
     std::vector<int> m_cycleCadenceTag;                     // Cadence tracker state + override action per slot (see encoding in processInputToCycle)
-    std::vector<uint32_t> m_cyclePictTypeFlags;             // MPEG pict_type flag bits (RGY_FRAME_FLAG_PICT_TYPE_*) per slot — log only
     std::vector<uint64_t> m_cycleDiffPrev;                  // SAD(cycle[i], cycle[i-1]) for i>=1; [0] uses m_saveSlot
     std::vector<uint64_t> m_cycleSceneSAD;                  // scene-change detector SAD per slot (ログ用)
     // Per-cycle-slot synth flag (FIX B, 2026-04-24). Mirrors m_cacheIsSynth

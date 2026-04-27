@@ -49,17 +49,6 @@
 // Decode the cadence-tracker tag int (set per-frame by updateCadence +
 // the override gate) into a short log string. Matches the 0..11 enum
 // documented in processInputToCycle's cadence block.
-// Decode the MPEG pict_type flag bits (set by rgy_input_avcodec.cpp from
-// findPos.pict_type) into a single-char log string. Diagnostic-only; IVTC
-// never routes or blends on pict_type. "?" when no bit is set (unknown
-// source, non-MPEG input, or parser couldn't resolve a reordered frame).
-static const char *ivtc_pict_type_str(uint32_t flags) {
-    if (flags & RGY_FRAME_FLAG_PICT_TYPE_I) return "I";
-    if (flags & RGY_FRAME_FLAG_PICT_TYPE_P) return "P";
-    if (flags & RGY_FRAME_FLAG_PICT_TYPE_B) return "B";
-    return "?";
-}
-
 static const char *ivtc_cadence_tag_str(int t) {
     switch (t) {
         case 0:  return "none";
@@ -147,7 +136,6 @@ RGYFilterIvtc::RGYFilterIvtc(shared_ptr<RGYOpenCLContext> context) :
     m_cycleApplyBlend(),
     m_cycleDecTag(),
     m_cycleCadenceTag(),
-    m_cyclePictTypeFlags(),
     m_cycleDiffPrev(),
     m_cycleSceneSAD(),
     m_cycleIsSynth(),
@@ -792,7 +780,6 @@ RGY_ERR RGYFilterIvtc::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         m_cycleApplyBlend.assign(cycleLen, 0);
         m_cycleDecTag.assign(cycleLen, 0);
         m_cycleCadenceTag.assign(cycleLen, 0);
-        m_cyclePictTypeFlags.assign(cycleLen, 0u);
         m_cycleDiffPrev.assign(cycleLen, 0);
         m_cycleSceneSAD.assign(cycleLen, 0);
         m_cycleIsSynth.assign(cycleLen, 0);
@@ -822,7 +809,7 @@ RGY_ERR RGYFilterIvtc::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
                 "#      so DEC uses the RGY flags that QSVEnc actually received)\n"
                 "# IN:  per-input-frame record as seen by IVTC (framenum tracks inputCount)\n"
                 "# OUT: per-output-frame IVTC decision (header fields below)\n"
-                "#out_idx\tin_id\tmatch\tmatchParity\tconf\tpost\tstatus\tdec\tcadence\tptype\tmQ\tcComb\tcCombMax\tcCombBlocks\tcComb_c\tcComb_p\tcComb_n\tcComb_cA\tcComb_pA\tcComb_nA\tcMax_c\tcMax_p\tcMax_n\tcMax_cA\tcMax_pA\tcMax_nA\tcBlk_c\tcBlk_p\tcBlk_n\tcBlk_cA\tcBlk_pA\tcBlk_nA\tbtrig\tpostComb\tdiff_to_prev\tscene_sad\n"
+                "#out_idx\tin_id\tmatch\tmatchParity\tconf\tpost\tstatus\tdec\tcadence\tmQ\tcComb\tcCombMax\tcCombBlocks\tcComb_c\tcComb_p\tcComb_n\tcComb_cA\tcComb_pA\tcComb_nA\tcMax_c\tcMax_p\tcMax_n\tcMax_cA\tcMax_pA\tcMax_nA\tcBlk_c\tcBlk_p\tcBlk_n\tcBlk_cA\tcBlk_pA\tcBlk_nA\tbtrig\tpostComb\tdiff_to_prev\tscene_sad\n"
                 "# cComb_{c,p,n}     = primary-parity per-candidate trimmed-avg combing\n"
                 "# cComb_{cA,pA,nA}  = alternate-parity (!tff) per-candidate trimmed-avg combing\n"
                 "# cMax_*  / cBlk_*  = same naming for block-MAX (Priority 1) and combed-block-count (SUB-PHASE 1) signals\n"
@@ -1520,7 +1507,6 @@ static RGY_ERR ivtcPreScanInput(const tstring &inputPath,
             // AV_FRAME_FLAG_INTERLACED vs. the legacy struct fields.
             f.rff         = (frame->repeat_pict > 0);
             f.tff         = rgy_avframe_tff_flag(frame);
-            f.pictType    = (int)frame->pict_type;
             f.progressive = !rgy_avframe_interlaced(frame);
             frames.push_back(f);
             av_frame_unref(frame);
@@ -1967,7 +1953,6 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
             m_cycleApplyBlend[slot]    = 0;                   // no blend on synth
             m_cycleDecTag[slot]        = 16;                  // SYNTH_PASSTHRU (new)
             m_cycleCadenceTag[slot]    = 0;                   // "none"
-            m_cyclePictTypeFlags[slot] = (uint32_t)(curInfoS.flags & RGY_FRAME_FLAG_PICT_TYPE_MASK);
             m_cycleSceneSAD[slot]      = 0;
             m_cycleIsSynth[slot]       = 1;                   // FIX B: prefer dropping this slot
 
@@ -1997,14 +1982,13 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
             if (m_fpLog) {
                 fprintf(m_fpLog.get(),
                     "OUT:\t#%d\tin_id=%d\tmatch=c\tmatchParity=pri\tconf=0\tpost=none \tstatus=emit \t"
-                    "dec=SYNTH_PASSTHRU\tcadence=none\tptype=%s\t"
+                    "dec=SYNTH_PASSTHRU\tcadence=none\t"
                     "mQ=0\tcComb=0\tcCombMax=0\tcCombBlocks=0\t"
                     "cComb_c=0\tcComb_p=0\tcComb_n=0\tcComb_cA=0\tcComb_pA=0\tcComb_nA=0\t"
                     "cMax_c=0\tcMax_p=0\tcMax_n=0\tcMax_cA=0\tcMax_pA=0\tcMax_nA=0\t"
                     "cBlk_c=0\tcBlk_p=0\tcBlk_n=0\tcBlk_cA=0\tcBlk_pA=0\tcBlk_nA=0\t"
                     "btrig=0\tpostComb=0\tdiff=0\tscene_sad=0\n",
-                    m_outputFrameCount, curInfoS.inputFrameId,
-                    ivtc_pict_type_str((uint32_t)curInfoS.flags));
+                    m_outputFrameCount, curInfoS.inputFrameId);
                 fflush(m_fpLog.get());
             }
             m_outputFrameCount++;
@@ -3375,9 +3359,6 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
         m_cycleDiffPrev[slot] = diff;
         m_cycleSceneSAD[slot] = sceneSAD;
         m_cycleCadenceTag[slot] = cadenceTag;
-        // Snapshot the MPEG pict_type bits from the current input's flags.
-        // Mask to PICT_TYPE_MASK so RFF bits don't leak into the log column.
-        m_cyclePictTypeFlags[slot] = (uint32_t)(curInfo.flags & RGY_FRAME_FLAG_PICT_TYPE_MASK);
         m_cycleIsSynth[slot] = 0;  // FIX B: coded path — not a synth
         m_cycleFilled++;
     } else {
@@ -3393,7 +3374,7 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
         if (m_fpLog) {
             const char *matchStr = ((int)match == 0) ? "c" : ((int)match == 1) ? "p" : "n";
             fprintf(m_fpLog.get(),
-                "OUT:\t#%d\tin_id=%d\tmatch=%s\tmatchParity=%s\tconf=%d\tpost=%s\tstatus=%s\tdec=%s\tcadence=%s\tptype=%s\tmQ=%llu\tcComb=%llu\tcCombMax=%llu\tcCombBlocks=%llu\t"
+                "OUT:\t#%d\tin_id=%d\tmatch=%s\tmatchParity=%s\tconf=%d\tpost=%s\tstatus=%s\tdec=%s\tcadence=%s\tmQ=%llu\tcComb=%llu\tcCombMax=%llu\tcCombBlocks=%llu\t"
                 "cComb_c=%llu\tcComb_p=%llu\tcComb_n=%llu\tcComb_cA=%llu\tcComb_pA=%llu\tcComb_nA=%llu\t"
                 "cMax_c=%llu\tcMax_p=%llu\tcMax_n=%llu\tcMax_cA=%llu\tcMax_pA=%llu\tcMax_nA=%llu\t"
                 "cBlk_c=%llu\tcBlk_p=%llu\tcBlk_n=%llu\tcBlk_cA=%llu\tcBlk_pA=%llu\tcBlk_nA=%llu\t"
@@ -3407,7 +3388,6 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
                 "emit ",
                 decTag,
                 ivtc_cadence_tag_str(cadenceTag),
-                ivtc_pict_type_str((uint32_t)curInfo.flags),
                 (unsigned long long)chosenMatchScore,
                 (unsigned long long)chosenCombScore,
                 (unsigned long long)chosenCombMax,
@@ -3619,7 +3599,7 @@ RGY_ERR RGYFilterIvtc::flushCycle(bool finalFlush, int64_t nextInputPts, RGYOpen
                                     : (m_cycleDecTag[i] == 16) ? "SYNTH_PASSTHRU"
                                                                : "UNKNOWN";
             fprintf(m_fpLog.get(),
-                "OUT:\t#%d\tin_id=%d\tmatch=%s\tmatchParity=%s\tconf=%u\tpost=%s\tstatus=%s\tdec=%s\tcadence=%s\tptype=%s\tmQ=%llu\tcComb=%llu\tcCombMax=%llu\tcCombBlocks=%llu\t"
+                "OUT:\t#%d\tin_id=%d\tmatch=%s\tmatchParity=%s\tconf=%u\tpost=%s\tstatus=%s\tdec=%s\tcadence=%s\tmQ=%llu\tcComb=%llu\tcCombMax=%llu\tcCombBlocks=%llu\t"
                 "cComb_c=%llu\tcComb_p=%llu\tcComb_n=%llu\tcComb_cA=%llu\tcComb_pA=%llu\tcComb_nA=%llu\t"
                 "cMax_c=%llu\tcMax_p=%llu\tcMax_n=%llu\tcMax_cA=%llu\tcMax_pA=%llu\tcMax_nA=%llu\t"
                 "cBlk_c=%llu\tcBlk_p=%llu\tcBlk_n=%llu\tcBlk_cA=%llu\tcBlk_pA=%llu\tcBlk_nA=%llu\t"
@@ -3633,7 +3613,6 @@ RGY_ERR RGYFilterIvtc::flushCycle(bool finalFlush, int64_t nextInputPts, RGYOpen
                 status,
                 decCycleTag,
                 ivtc_cadence_tag_str(m_cycleCadenceTag[i]),
-                ivtc_pict_type_str(m_cyclePictTypeFlags[i]),
                 (unsigned long long)m_cycleMatchScore[i],
                 (unsigned long long)m_cycleCombScore[i],
                 (unsigned long long)m_cycleCombMax[i],
@@ -3995,7 +3974,6 @@ void RGYFilterIvtc::close() {
     m_cycleApplyBlend.clear();
     m_cycleDecTag.clear();
     m_cycleCadenceTag.clear();
-    m_cyclePictTypeFlags.clear();
     m_cycleDiffPrev.clear();
     m_cycleSceneSAD.clear();
     m_cycleIsSynth.clear();
