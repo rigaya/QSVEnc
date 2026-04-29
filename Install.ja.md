@@ -17,9 +17,18 @@
 
 実行時は展開したフォルダからそのまま実行できます。
   
-## Linux (Ubuntu 20.04 - 24.04)
+## Linux (Ubuntu 22.04 - 24.04)
 
 ### 1. Intel Media ドライバ用のリポジトリの登録
+
+:::note warn  
+**Gen11以前のGPUを含む環境の場合、この工程をスキップし、2. に進んでください。**
+
+Intel repositoryは最新のuser mode driverを提供しますが、intel-opencl-icd 24.35以降はGen12以降向けとなっているため、OpenCLデバイスを検出できない場合があります。Gen11以前のGPUを含む環境では、Ubuntu標準repoを使用してください。
+
+- Gen11以前: Broadwell, Skylake, Kaby Lake, Coffee Lake, Apollo Lake, Gemini Lake, Ice Lake, Elkhart Lake
+- Gen12以降: Tiger Lake, Rocket Lake, Alder Lake, Raptor Lake, Arc dGPU など
+::
 
 [こちらのリンク](https://dgpu-docs.intel.com/driver/client/overview.html)に沿って、ドライバをインストールします。
 
@@ -41,11 +50,6 @@ echo "deb [arch=amd64,i386 signed-by=/usr/share/keyrings/intel-graphics.gpg] htt
 wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | sudo gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
 echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy unified" | \
   sudo tee /etc/apt/sources.list.d/intel-gpu-jammy.list
-
-# Ubuntu 20.04
-wget -qO - https://repositories.intel.com/graphics/intel-graphics.key | sudo gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
-echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/gpu/ubuntu focal client' | \
-  sudo tee /etc/apt/sources.list.d/intel-graphics.list
 ```
 
 ### 2. QSVとOpenCLの使用のため、ユーザーを下記グループに追加

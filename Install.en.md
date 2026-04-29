@@ -17,9 +17,18 @@ Windows binary can be found from [this link](https://github.com/rigaya/QSVEnc/re
 
 QSVEncC could be run directly from the extracted directory.
   
-## Linux (Ubuntu 20.04 - 24.04)
+## Linux (Ubuntu 22.04 - 24.04)
 
 ### 1. Add repository for Intel Media driver  
+
+:::note warn  
+**Please skip this section and proceed to section 2.**
+
+Intel repository will provide the latest user mode driver, but intel-opencl-icd 24.35 supports only Gen12 or later, resulting failure when detecting Gen11 iGPU or before. Please use standard Ubuntu repo which provides intel-opencl-icd 23.43 (Ubuntu 24.04) or 22.14 (Ubuntu 22.04).
+
+- Gen11 or before: Broadwell, Skylake, Kaby Lake, Coffee Lake, Apollo Lake, Gemini Lake, Ice Lake, Elkhart Lake
+- Gen12 or later: Tiger Lake, Rocket Lake, Alder Lake, Raptor Lake, Arc dGPU など
+::
 
 Intel media driver can be installed following instruction on [this link](https://dgpu-docs.intel.com/driver/client/overview.html).
 
@@ -41,11 +50,6 @@ echo "deb [arch=amd64,i386 signed-by=/usr/share/keyrings/intel-graphics.gpg] htt
 wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | sudo gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
 echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy unified" | \
   sudo tee /etc/apt/sources.list.d/intel-gpu-jammy.list
-
-# Ubuntu 20.04
-wget -qO - https://repositories.intel.com/graphics/intel-graphics.key | sudo gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
-echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/gpu/ubuntu focal client' | \
-  sudo tee /etc/apt/sources.list.d/intel-graphics.list
 ```
 
 ### 2. Add user to proper group to use QSV and OpenCL
