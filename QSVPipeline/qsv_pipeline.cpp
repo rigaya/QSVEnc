@@ -2620,6 +2620,11 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         unique_ptr<RGYFilter> filter(new RGYFilterIvtc(m_cl));
         shared_ptr<RGYFilterParamIvtc> param(new RGYFilterParamIvtc());
         param->ivtc = params->vpp.ivtc;
+        if (params->vpp.rff.enable && param->ivtc.expand < 0) {
+            // vpp-rff 側で RFF 展開を担当するので、ivtc の auto-expand は無効化する。
+            param->ivtc.expand = 0;
+            PrintMes(RGY_LOG_DEBUG, _T("vpp-rff + vpp-ivtc: forcing ivtc expand=off (auto-disabled).\n"));
+        }
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->frameOut.picstruct = RGY_PICSTRUCT_FRAME;
@@ -3302,14 +3307,8 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
     }
 
     //インタレ解除の個数をチェック
-    // --vpp-rff is included here even though it is a pulldown GENERATOR
-    // rather than a deinterlacer: --vpp-rff expands soft-telecine 24fps
-    // decoder output back to 30fps display (field duplication), while
-    // --vpp-ivtc removes pulldown via field matching + decimation (30→24).
-    // Running both would expand then re-compress with no net benefit,
-    // and rgy_filter_rff does not update baseFps so the combination
-    // produces time-dilated output (encoder sees 30 frames labelled as
-    // 23.976 fps). Block at config time.
+    // --vpp-rff は pulldown 展開であって deinterlacer ではないため、
+    // 一般の deinterlace 排他には含めない。必要な制約は個別にチェックする。
     int deinterlacer = 0;
     if (inputParam->vppmfx.deinterlace != MFX_DEINTERLACE_NONE) deinterlacer++;
     if (inputParam->vpp.afs.enable) deinterlacer++;
@@ -3318,7 +3317,6 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
     if (inputParam->vpp.decomb.enable) deinterlacer++;
     if (inputParam->vpp.bwdif.enable) deinterlacer++;
     if (inputParam->vpp.ivtc.enable) deinterlacer++;
-    if (inputParam->vpp.rff.enable) deinterlacer++;
     if (deinterlacer >= 2) {
         PrintMes(RGY_LOG_ERROR, _T("Activating 2 or more deinterlacer / pulldown filters is not supported.\n"));
         return RGY_ERR_UNSUPPORTED;
@@ -3327,6 +3325,10 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
     if (inputParam->vpp.rff.enable) {
         if (trim_active(&m_trimParam)) {
             PrintMes(RGY_LOG_ERROR, _T("vpp-rff cannot be used with trim.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        if (inputParam->vpp.ivtc.enable && inputParam->vpp.ivtc.expand > 0) {
+            PrintMes(RGY_LOG_ERROR, _T("vpp-rff cannot be used with vpp-ivtc expand=on.\n"));
             return RGY_ERR_UNSUPPORTED;
         }
     }
