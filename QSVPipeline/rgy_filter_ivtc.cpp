@@ -2582,6 +2582,22 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
             }
         }
 
+        // A primary N immediately followed by primary P assembles the exact
+        // same field pair:
+        //   prev N = cur.top + prev.bot
+        //   cur  P = cur.top + prev.bot
+        // Leaving both for cycle decimation is fragile because another
+        // duplicate-like pair in the same 5-frame cycle can consume the single
+        // drop slot. Prefer the best C/N primary candidate instead; cadence
+        // override below can still steer to the locked C/N pattern.
+        if (prm->ivtc.guide == 1
+            && m_lastMatch == (int)IvtcMatch::N
+            && candidates[finalIdx].type == (int)IvtcMatch::P
+            && !candidates[finalIdx].altParity) {
+            const int bestNonP = combFirstLess(candidates[0], candidates[2]) ? 0 : 2;
+            finalIdx = bestNonP;
+        }
+
         const MatchCandidate &chosen = candidates[finalIdx];
         match            = (IvtcMatch)chosen.type;
         chosenMatchScore = chosen.matchScore;
