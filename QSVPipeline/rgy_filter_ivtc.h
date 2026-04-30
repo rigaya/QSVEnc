@@ -54,6 +54,8 @@ public:
                                  // to resolve expand=auto. Defaults to false
                                  // until qsv_pipeline populates it; users can
                                  // force-enable via --vpp-ivtc expand=on.
+    bool inputIsAvcodecReader;   // true when input reader preserves avcodec
+                                 // per-frame RFF/picstruct metadata.
     tstring inputFilePath;       // absolute path to input media file. Consumed by
                                  // the RFF-expansion pre-scan (ivtcPreScanInput)
                                  // at init time to build the complete DGDecode
@@ -71,7 +73,7 @@ public:
                                  // the schedule and compute the expansion ratio.
                                  // 0 means "scan to end".
 
-    RGYFilterParamIvtc() : ivtc(), timebase(), inputBPulldownDetected(false),
+    RGYFilterParamIvtc() : ivtc(), timebase(), inputBPulldownDetected(false), inputIsAvcodecReader(false),
                              inputFilePath(), trimOffset(0), trimFrameCount(0) {};
     virtual ~RGYFilterParamIvtc() {};
     virtual tstring print() const override { return ivtc.print(); };
@@ -113,6 +115,12 @@ struct IvtcEmitEntry {
     int64_t timestamp;
     int64_t duration;
     int inputFrameId;
+};
+
+enum class IvtcMixedSection : uint8_t {
+    Passthrough = 0,
+    Rff = 1,
+    Interlaced = 2,
 };
 
 class RGYFilterIvtc : public RGYFilter {
@@ -187,6 +195,16 @@ protected:
     // idx_next2/idx_next may alias to idx_cur during drain.
     RGY_ERR processInputToCycle(int idx_prev2, int idx_prev, int idx_cur, int idx_next, int idx_next2, int centerDisplayIdx, RGYOpenCLQueue &queue_main, const std::vector<RGYOpenCLEvent> &wait_events);
     RGY_ERR flushCycle(bool finalFlush, int64_t nextInputPts, RGYOpenCLQueue &queue_main);
+    RGY_ERR enqueueMixedPassthrough(const RGYFrameInfo *frame, int cacheIdx, int64_t nextPts, RGYOpenCLQueue &queue_main);
+    RGY_ERR appendMixedRffDisplayFrame(const RGYCLFrame *topFrame, const RGYFrameInfo *topInfo, const RGYCLFrame *bottomFrame, const RGYFrameInfo *bottomInfo, int decTag, RGYOpenCLQueue &queue_main);
+    RGY_ERR enqueueMixedDirectFrame(const RGYCLFrame *srcFrame, const RGYFrameInfo *srcInfo, const char *decTag, const char *section, RGYOpenCLQueue &queue_main);
+    RGY_ERR pushMixedEmitEntry(int stagingIdx, const RGYFrameInfo *srcInfo);
+    RGY_ERR setMixedRffPending(const RGYCLFrame *srcFrame, const RGYFrameInfo *srcInfo, bool pendingTop, RGYOpenCLQueue &queue_main);
+    RGY_ERR enqueueMixedRffFrame(int cacheIdx, int64_t nextPts, RGYOpenCLQueue &queue_main);
+    RGY_ERR flushCycleMixed(bool finalFlush, int64_t cycleEndPts, bool allowDrop, RGYOpenCLQueue &queue_main);
+    RGY_ERR partialFlushMixed(RGYOpenCLQueue &queue_main, int64_t cycleEndPts);
+    void resetMixedTemporalState();
+    void resetMixedRffState();
     RGY_ERR popEmit(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum);
 
     // Record a match decision, return cadence-predicted match if pattern is locked
@@ -250,6 +268,20 @@ protected:
     std::vector<uint8_t>  m_cycleIsSynth;                   // 1=synth (from expand=on), 0=coded; indexed like m_cycleDiffPrev
     std::deque<IvtcEmitEntry> m_emitQueue;                  // 1 call 1 emit 用の出力キュー (AFS/Decimate 方式)
     int m_stagingBase;                                      // m_frameBuf のうち emit-staging 領域の先頭 index
+    int m_mixedDirectStagingBase;                           // mixed direct emit staging ring
+    int m_mixedDirectStagingCount;
+    int m_mixedDirectStagingNext;
+    bool m_mixedActive;                                     // resolved mixed=on state
+    int64_t m_mixedLastInputPts;
+    int64_t m_mixedLastInputDur;
+    int64_t m_mixedLastEmitEndPts;
+    bool m_mixedLastInputValid;
+    std::unique_ptr<RGYCLFrame> m_mixedRffPendingTopFrame;
+    std::unique_ptr<RGYCLFrame> m_mixedRffPendingBottomFrame;
+    RGYFrameInfo m_mixedRffPendingTopInfo;
+    RGYFrameInfo m_mixedRffPendingBottomInfo;
+    bool m_mixedRffPendingTopValid;
+    bool m_mixedRffPendingBottomValid;
     int64_t m_nPts;                                         // 出力 PTS seed (first input pts after init; constant thereafter)
     bool m_nPtsInit;                                        // m_nPts has been seeded
     int64_t m_cfrBaseDur;                                   // reference duration per emit (kept for --log and drain display; live emit math uses rational_rescale)

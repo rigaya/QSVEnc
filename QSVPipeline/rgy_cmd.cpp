@@ -2039,7 +2039,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         i++;
         const auto paramList = std::vector<std::string>{ "enable", "guide", "post", "cycle", "drop", "combthresh", "cleanfrac",
-            "dthresh", "chroma", "back", "y0", "y1", "cadlock", "gthresh", "vthresh", "expand", "hysteresis", "tff", "log" };
+            "dthresh", "chroma", "back", "y0", "y1", "cadlock", "gthresh", "vthresh", "expand", "mixed", "hysteresis", "tff", "log" };
 
         for (const auto &param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
@@ -2254,6 +2254,16 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                         vpp->ivtc.expand = bb ? 1 : 0;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("Supported values: auto, on, off (auto enables DGDecode-style RFF expansion when guide >= 1 and input is soft-telecine)."));
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("mixed")) {
+                    bool bb = false;
+                    if (!cmd_string_to_bool(&bb, param_val)) {
+                        vpp->ivtc.mixed = bb ? 1 : 0;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("Supported values: on, off."));
                         return 1;
                     }
                     continue;
@@ -8332,6 +8342,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             if (param->ivtc.expand != defaultPrm->ivtc.expand) {
                 tmp << _T(",expand=") << ((param->ivtc.expand < 0) ? _T("auto") : (param->ivtc.expand ? _T("on") : _T("off")));
             }
+            ADD_BOOL(_T("mixed"), ivtc.mixed);
             ADD_FLOAT(_T("hysteresis"), ivtc.hysteresis, 3);
             if (param->ivtc.tff != defaultPrm->ivtc.tff) {
                 tmp << _T(",tff=") << ((param->ivtc.tff < 0) ? _T("auto") : (param->ivtc.tff ? _T("on") : _T("off")));
@@ -10134,6 +10145,12 @@ tstring gen_cmd_help_vpp() {
         _T("                              0 = decimation disabled\n")
         _T("                              2 = PAL 2:2, 5 = NTSC 3:2 (30 -> 24fps), 2..16 = custom\n")
         _T("      drop=<int>            frames to drop per cycle. default 1 (only value supported)\n")
+        _T("      mixed=<bool>          RFF/progressive + interlaced mixed mode. RFF sections\n")
+        _T("                              are direct-emitted without decimation; repeat-field\n")
+        _T("                              reconstruction is used only when it reduces combing.\n")
+        _T("                              Interlaced sections use field match/post + cycle=5/drop=1.\n")
+        _T("                              Requires --avsw/--avhw; cannot be used with expand=on\n")
+        _T("                              or user cycle.\n")
         _T("      combthresh=<float>    per-pixel combing threshold (normalized 0.0-1.0, default 0.12)\n")
         _T("      cleanfrac=<float>     frame-level clean-frame threshold, fraction of pixels allowed\n")
         _T("                              to be combed while still preferring C (default 0.20 = 20%%)\n")

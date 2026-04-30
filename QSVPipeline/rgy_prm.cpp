@@ -1376,6 +1376,7 @@ VppIvtc::VppIvtc() :
                          //   DGDecode-style internal RFF expansion: 4 coded frames →
                          //   5 ring entries per 3:2 pulldown cycle. Forces cycle=5,
                          //   drop=1 internally; external baseFps unchanged.
+    mixed(FILTER_DEFAULT_IVTC_MIXED),
     vthresh(FILTER_DEFAULT_IVTC_VTHRESH), // post-assembly cComb veto threshold (TFM vmetric analogue).
                          //   Layered on top of the picstruct-class applyBlend gate: when
                          //   the gate fires, blend is vetoed if chosenCombScore < vthresh.
@@ -1406,6 +1407,7 @@ bool VppIvtc::operator==(const VppIvtc &x) const {
         && gthresh == x.gthresh
         && vthresh == x.vthresh
         && expand == x.expand
+        && mixed == x.mixed
         && hysteresis == x.hysteresis
         && log == x.log
         && logPath == x.logPath;
@@ -1430,7 +1432,7 @@ tstring VppIvtc::print() const {
         bandStr = strsprintf(_T("%d..%d"), y0, y1);
     }
     return strsprintf(_T("ivtc: guide=%d, post=%d, cycle=%s, combthresh %.3f, cleanfrac %.3f, dthresh=%d, chroma=%s, back=%d, band=%s,\n")
-        _T("                         cadlock=%s, gthresh=%d, vthresh=%d, expand=%s, hys %.2f, tff=%s, log %s"),
+        _T("                         cadlock=%s, gthresh=%d, vthresh=%d, expand=%s, mixed=%s, hys %.2f, tff=%s, log %s"),
         guide, post,
         cycleStr.c_str(),
         combThresh, cleanFrac, dthresh, chroma ? _T("on") : _T("off"),
@@ -1438,6 +1440,7 @@ tstring VppIvtc::print() const {
         (cadenceLock < 0) ? _T("auto") : (cadenceLock ? _T("on") : _T("off")),
         gthresh, vthresh,
         (expand < 0) ? _T("auto") : (expand ? _T("on") : _T("off")),
+        mixed ? _T("on") : _T("off"),
         hysteresis,
         (tff < 0) ? _T("auto") : (tff ? _T("on") : _T("off")),
         log ? _T("on") : _T("off"));

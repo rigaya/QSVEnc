@@ -121,6 +121,32 @@ static RGY_ERR ivtcPreScanInput(const tstring &inputPath,
                                  std::vector<IvtcPreScanFrame> &frames,
                                  std::shared_ptr<RGYLog> log);
 
+static bool ivtcMixedIsRffSection(const RGYFrameInfo *frame) {
+    if (!frame) return false;
+    if (frame->flags & RGY_FRAME_FLAG_RFF) return true;
+    if ((frame->flags & (RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF)) == 0) return false;
+    const auto ps = frame->picstruct;
+    return ps == RGY_PICSTRUCT_FRAME;
+}
+
+static bool ivtcMixedIsInterlacedSection(const RGYFrameInfo *frame) {
+    if (!frame || ivtcMixedIsRffSection(frame)) return false;
+    const auto ps = frame->picstruct;
+    return ps == RGY_PICSTRUCT_FRAME_TFF
+        || ps == RGY_PICSTRUCT_FRAME_BFF
+        || ps == RGY_PICSTRUCT_TFF
+        || ps == RGY_PICSTRUCT_BFF
+        || ps == RGY_PICSTRUCT_FIELD_TOP
+        || ps == RGY_PICSTRUCT_FIELD_BOTTOM
+        || ps == RGY_PICSTRUCT_INTERLACED;
+}
+
+static IvtcMixedSection ivtcMixedClassify(const RGYFrameInfo *frame) {
+    if (ivtcMixedIsRffSection(frame)) return IvtcMixedSection::Rff;
+    if (ivtcMixedIsInterlacedSection(frame)) return IvtcMixedSection::Interlaced;
+    return IvtcMixedSection::Passthrough;
+}
+
 RGYFilterIvtc::RGYFilterIvtc(shared_ptr<RGYOpenCLContext> context) :
     RGYFilter(context),
     m_ivtc(),
@@ -155,6 +181,20 @@ RGYFilterIvtc::RGYFilterIvtc(shared_ptr<RGYOpenCLContext> context) :
     m_cycleIsSynth(),
     m_emitQueue(),
     m_stagingBase(0),
+    m_mixedDirectStagingBase(0),
+    m_mixedDirectStagingCount(0),
+    m_mixedDirectStagingNext(0),
+    m_mixedActive(false),
+    m_mixedLastInputPts(AV_NOPTS_VALUE),
+    m_mixedLastInputDur(0),
+    m_mixedLastEmitEndPts(AV_NOPTS_VALUE),
+    m_mixedLastInputValid(false),
+    m_mixedRffPendingTopFrame(),
+    m_mixedRffPendingBottomFrame(),
+    m_mixedRffPendingTopInfo(),
+    m_mixedRffPendingBottomInfo(),
+    m_mixedRffPendingTopValid(false),
+    m_mixedRffPendingBottomValid(false),
     m_nPts(0),
     m_nPtsInit(false),
     m_cfrBaseDur(0),
@@ -253,6 +293,28 @@ RGY_ERR RGYFilterIvtc::checkParam(const std::shared_ptr<RGYFilterParamIvtc> pPar
         AddMessage(RGY_LOG_ERROR, _T("Invalid drop=%d: only drop=1 is supported in this build.\n"), pParam->ivtc.drop);
         return RGY_ERR_INVALID_PARAM;
     }
+    if (pParam->ivtc.mixed != 0 && pParam->ivtc.mixed != 1) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid mixed=%d: must be 0(off) or 1(on).\n"), pParam->ivtc.mixed);
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (pParam->ivtc.mixed) {
+        if (!pParam->inputIsAvcodecReader) {
+            AddMessage(RGY_LOG_ERROR, _T("ivtc mixed=on requires avcodec input reader (--avsw/--avhw) to preserve RFF/picstruct metadata.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+        if (pParam->ivtc.expand > 0) {
+            AddMessage(RGY_LOG_ERROR, _T("ivtc mixed=on cannot be used with expand=on.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+        if (pParam->ivtc.cycle >= 0) {
+            AddMessage(RGY_LOG_ERROR, _T("ivtc mixed=on does not allow user cycle; use cycle=auto or omit cycle.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+        if (pParam->ivtc.drop != 1) {
+            AddMessage(RGY_LOG_ERROR, _T("ivtc mixed=on requires drop=1.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+    }
     if (pParam->ivtc.back != 0 && pParam->ivtc.back != 1) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid back=%d: 0=always test P, 1=only when C looks combed.\n"), pParam->ivtc.back);
         return RGY_ERR_INVALID_PARAM;
@@ -313,8 +375,20 @@ RGY_ERR RGYFilterIvtc::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     // the actual expansion ratio and pick cycle/drop to cancel it at
     // the external output rate (typical clean 3:2 pulldown: 1.25x ->
     // cycle=5 drop=1, net 1.0x).
+    m_mixedActive = prm->ivtc.mixed != 0;
+    if (m_mixedActive) {
+        prm->ivtc.expand = 0;
+        prm->ivtc.cycle = 5;
+        prm->ivtc.drop = 1;
+        prm->baseFps = rgy_rational<int>(24000, 1001);
+        pParam->baseFps = prm->baseFps;
+        m_pathThrough &= ~FILTER_PATHTHROUGH_TIMESTAMP;
+    }
+
     bool expandRequested;
-    if (prm->ivtc.expand > 0) {
+    if (m_mixedActive) {
+        expandRequested = false;
+    } else if (prm->ivtc.expand > 0) {
         expandRequested = true;
     } else if (prm->ivtc.expand < 0) {
         expandRequested = (prm->ivtc.guide >= 1)
@@ -640,7 +714,9 @@ RGY_ERR RGYFilterIvtc::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     // Without this adjustment DH2 expand=on produced 8,001 frames at
     // 29.97fps (267s) instead of the expected 23.976fps (334s), a 25%
     // playback speed-up. See analysis/vpp_ivtc_progress.txt.
-    if (prm->ivtc.cycle > 0) {
+    if (m_mixedActive) {
+        m_pathThrough &= ~(FILTER_PATHTHROUGH_TIMESTAMP);
+    } else if (prm->ivtc.cycle > 0) {
         m_pathThrough &= ~(FILTER_PATHTHROUGH_TIMESTAMP);
         if (prm->ivtc.drop > 0) {
             pParam->baseFps *= rgy_rational<int>(prm->ivtc.cycle - prm->ivtc.drop, prm->ivtc.cycle);
@@ -664,13 +740,17 @@ RGY_ERR RGYFilterIvtc::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     //   [0 .. cycleLen-1]            : サイクル蓄積バッファ
     //   [cycleLen]                   : 前サイクル末尾の保存スロット (SAD 比較用)
     //   [cycleLen+1 .. stagingEnd-1] : emit-staging (cycleLen - drop 枚)
-    // AFS/Decimate と同じく run_filter は 1 call 1 emit を守るため、flushCycle が
-    // ここで決まった emit 候補を staging にコピーして m_emitQueue に積み、後続 call で
-    // 1 枚ずつ popEmit する。次サイクルは cycle[0..cycleLen-1] を安心して上書きできる。
+    // flushCycle がここで決まった emit 候補を staging にコピーして m_emitQueue に積み、
+    // popEmit が同一call内でまとめて下流へ返す。次サイクルは cycle[0..cycleLen-1] を
+    // 安心して上書きできる。
     const int cycleLen = std::max(prm->ivtc.cycle, 0);
     const int stagingCount = (cycleLen > 0) ? (cycleLen - prm->ivtc.drop) : 0;
-    const int bufCount = (cycleLen > 0) ? (cycleLen + 1 + stagingCount) : 1;
+    const int mixedDirectStagingCount = (m_mixedActive && cycleLen > 0) ? std::max(stagingCount, 1) : 0;
+    const int bufCount = (cycleLen > 0) ? (cycleLen + 1 + stagingCount + mixedDirectStagingCount) : 1;
     m_stagingBase = (cycleLen > 0) ? (cycleLen + 1) : 0;
+    m_mixedDirectStagingBase = m_stagingBase + stagingCount;
+    m_mixedDirectStagingCount = mixedDirectStagingCount;
+    m_mixedDirectStagingNext = 0;
     sts = AllocFrameBuf(prm->frameOut, bufCount);
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
@@ -732,6 +812,34 @@ RGY_ERR RGYFilterIvtc::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         for (auto &buf : m_expandBuf) buf.reset();
         m_expandCarryFrame.reset();
         m_expandSynth.reset();
+    }
+    if (m_mixedActive) {
+        if (!m_mixedRffPendingTopFrame || cmpFrameInfoCspResolution(&m_mixedRffPendingTopFrame->frame, &prm->frameIn)) {
+            m_mixedRffPendingTopFrame = m_cl->createFrameBuffer(prm->frameIn);
+            if (!m_mixedRffPendingTopFrame) {
+                AddMessage(RGY_LOG_ERROR, _T("ivtc: failed to allocate mixed RFF pending top frame.\n"));
+                return RGY_ERR_MEMORY_ALLOC;
+            }
+        }
+        if (!m_mixedRffPendingBottomFrame || cmpFrameInfoCspResolution(&m_mixedRffPendingBottomFrame->frame, &prm->frameIn)) {
+            m_mixedRffPendingBottomFrame = m_cl->createFrameBuffer(prm->frameIn);
+            if (!m_mixedRffPendingBottomFrame) {
+                AddMessage(RGY_LOG_ERROR, _T("ivtc: failed to allocate mixed RFF pending bottom frame.\n"));
+                return RGY_ERR_MEMORY_ALLOC;
+            }
+        }
+        if (!m_expandSynth || cmpFrameInfoCspResolution(&m_expandSynth->frame, &prm->frameIn)) {
+            m_expandSynth = m_cl->createFrameBuffer(prm->frameIn);
+            if (!m_expandSynth) {
+                AddMessage(RGY_LOG_ERROR, _T("ivtc: failed to allocate mixed RFF synth buffer.\n"));
+                return RGY_ERR_MEMORY_ALLOC;
+            }
+        }
+        resetMixedRffState();
+    } else {
+        m_mixedRffPendingTopFrame.reset();
+        m_mixedRffPendingBottomFrame.reset();
+        resetMixedRffState();
     }
 
     // スコア集計バッファ: WG ごとに 9 uints = [mC, mP, mN, cC, cP, cN, bC, bP, bN]
@@ -823,7 +931,8 @@ RGY_ERR RGYFilterIvtc::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
                 "#      so DEC uses the RGY flags that QSVEnc actually received)\n"
                 "# IN:  per-input-frame record as seen by IVTC (framenum tracks inputCount)\n"
                 "# OUT: per-output-frame IVTC decision (header fields below)\n"
-                "#out_idx\tin_id\tmatch\tmatchParity\tconf\tpost\tstatus\tdec\tcadence\tmQ\tcComb\tcCombMax\tcCombBlocks\tcComb_c\tcComb_p\tcComb_n\tcComb_cA\tcComb_pA\tcComb_nA\tcMax_c\tcMax_p\tcMax_n\tcMax_cA\tcMax_pA\tcMax_nA\tcBlk_c\tcBlk_p\tcBlk_n\tcBlk_cA\tcBlk_pA\tcBlk_nA\tbtrig\tpostComb\tdiff_to_prev\tscene_sad\n"
+                "#out_idx\tin_id\tmatch\tmatchParity\tconf\tpost\tstatus\tdec\tcadence\tmQ\tcComb\tcCombMax\tcCombBlocks\tcComb_c\tcComb_p\tcComb_n\tcComb_cA\tcComb_pA\tcComb_nA\tcMax_c\tcMax_p\tcMax_n\tcMax_cA\tcMax_pA\tcMax_nA\tcBlk_c\tcBlk_p\tcBlk_n\tcBlk_cA\tcBlk_pA\tcBlk_nA\tbtrig\tpostComb\tdiff_to_prev\tscene_sad%s\n"
+                "%s"
                 "# cComb_{c,p,n}     = primary-parity per-candidate trimmed-avg combing\n"
                 "# cComb_{cA,pA,nA}  = alternate-parity (!tff) per-candidate trimmed-avg combing\n"
                 "# cMax_*  / cBlk_*  = same naming for block-MAX (Priority 1) and combed-block-count (SUB-PHASE 1) signals\n"
@@ -833,7 +942,9 @@ RGY_ERR RGYFilterIvtc::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
                 "#   0=HIGH 1=MEDIUM 2=LOW 3=VERY_LOW\n"
                 "# btrig: blend trigger classifier (INSTRUMENTATION)\n"
                 "#   0=none 1=mislabeledBySat 2=mislabeledByDual 3=unknownCombed\n"
-                "#   4=progressiveCombed 5=strongMatch 6=vthresh_vetoed 7=confidenceForced\n");
+                "#   4=progressiveCombed 5=strongMatch 6=vthresh_vetoed 7=confidenceForced\n",
+                m_mixedActive ? "\tsection" : "",
+                m_mixedActive ? "# section: mixed section tag; rff/pass/interlaced\n" : "");
             fflush(m_fpLog.get());
         }
     }
@@ -852,6 +963,8 @@ RGY_ERR RGYFilterIvtc::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         m_nPtsInit = false;
         m_cfrBaseDur = 0;
         m_cfrEmitIdx = 0;
+        resetMixedTemporalState();
+        resetMixedRffState();
         resetCadenceState();
     }
 
@@ -869,13 +982,14 @@ RGY_ERR RGYFilterIvtc::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         const int actVal       = (int)m_expandActive;
         const int dispCountVal = m_displayFrameCount;
         m_pLog->write(RGY_LOG_INFO, RGY_LOGT_VPP,
-            _T("ivtc DIAG: init complete: cycle=%d drop=%d baseFps=%d/%d pathThrough=%d m_expandActive=%d m_displayFrameCount=%d\n"),
-            cycleVal, dropVal, baseN, baseD, pathVal, actVal, dispCountVal);
+            _T("ivtc DIAG: init complete: cycle=%d drop=%d baseFps=%d/%d pathThrough=%d m_expandActive=%d m_displayFrameCount=%d mixed=%d\n"),
+            cycleVal, dropVal, baseN, baseD, pathVal, actVal, dispCountVal, (int)m_mixedActive);
     }
 
     setFilterInfo(prm->print() + _T("\n                         tff=")
         + (m_tffFixed ? _T("on") : _T("off"))
-        + _T(", expand=") + (m_expandActive ? _T("active") : _T("off")));
+        + _T(", expand=") + (m_expandActive ? _T("active") : _T("off"))
+        + _T(", mixed=") + (m_mixedActive ? _T("active") : _T("off")));
     m_param = prm;
     return sts;
 }
@@ -3675,28 +3789,448 @@ RGY_ERR RGYFilterIvtc::flushCycle(bool finalFlush, int64_t nextInputPts, RGYOpen
     return RGY_ERR_NONE;
 }
 
+void RGYFilterIvtc::resetMixedTemporalState() {
+    m_mixedLastInputPts = AV_NOPTS_VALUE;
+    m_mixedLastInputDur = 0;
+    m_mixedLastEmitEndPts = AV_NOPTS_VALUE;
+    m_mixedLastInputValid = false;
+}
+
+void RGYFilterIvtc::resetMixedRffState() {
+    m_mixedRffPendingTopValid = false;
+    m_mixedRffPendingBottomValid = false;
+    m_mixedRffPendingTopInfo = RGYFrameInfo();
+    m_mixedRffPendingBottomInfo = RGYFrameInfo();
+}
+
+RGY_ERR RGYFilterIvtc::pushMixedEmitEntry(int stagingIdx, const RGYFrameInfo *srcInfo) {
+    auto prm = std::dynamic_pointer_cast<RGYFilterParamIvtc>(m_param);
+    if (!prm || !srcInfo) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (!m_nPtsInit) {
+        m_nPts = (srcInfo->timestamp == AV_NOPTS_VALUE) ? 0 : srcInfo->timestamp;
+        m_nPtsInit = true;
+    }
+    const rgy_rational<int> fpsPeriod = prm->baseFps.inv();
+    const rgy_rational<int> outTb = prm->timebase;
+    if (m_cfrBaseDur <= 0 && fpsPeriod.n() > 0 && fpsPeriod.d() > 0 && outTb.n() > 0 && outTb.d() > 0) {
+        m_cfrBaseDur = rational_rescale(1, fpsPeriod, outTb);
+        if (m_cfrBaseDur <= 0) m_cfrBaseDur = 1;
+    }
+
+    IvtcEmitEntry e{};
+    e.stagingIdx = stagingIdx;
+    e.inputFrameId = srcInfo->inputFrameId;
+    if (fpsPeriod.n() > 0 && fpsPeriod.d() > 0 && outTb.n() > 0 && outTb.d() > 0) {
+        const int64_t ptsCur = rational_rescale((int64_t)m_cfrEmitIdx, fpsPeriod, outTb);
+        const int64_t ptsNext = rational_rescale((int64_t)m_cfrEmitIdx + 1, fpsPeriod, outTb);
+        e.timestamp = m_nPts + ptsCur;
+        e.duration = ptsNext - ptsCur;
+        if (e.duration <= 0) e.duration = m_cfrBaseDur > 0 ? m_cfrBaseDur : 1;
+    } else {
+        const int64_t fallbackDur = (srcInfo->duration > 0) ? srcInfo->duration : 1;
+        e.timestamp = m_nPts;
+        e.duration = fallbackDur;
+        m_nPts += fallbackDur;
+    }
+    m_cfrEmitIdx++;
+    m_mixedLastEmitEndPts = e.timestamp + e.duration;
+    m_emitQueue.push_back(e);
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterIvtc::enqueueMixedDirectFrame(const RGYCLFrame *srcFrame, const RGYFrameInfo *srcInfo, const char *decTag, const char *section, RGYOpenCLQueue &queue_main) {
+    if (!srcFrame || !srcInfo || m_mixedDirectStagingCount <= 0) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+    const int outIdx = m_outputFrameCount + (int)m_emitQueue.size();
+    const int stagingIdx = m_mixedDirectStagingBase + m_mixedDirectStagingNext;
+    m_mixedDirectStagingNext = (m_mixedDirectStagingNext + 1) % m_mixedDirectStagingCount;
+
+    auto cpErr = m_cl->copyFrame(&m_frameBuf[stagingIdx]->frame, &srcFrame->frame, nullptr, queue_main);
+    if (cpErr != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("ivtc mixed direct copy failed: %s.\n"), get_err_mes(cpErr));
+        return cpErr;
+    }
+    auto &dst = m_frameBuf[stagingIdx]->frame;
+    dst.picstruct = RGY_PICSTRUCT_FRAME;
+    dst.flags = (RGY_FRAME_FLAGS)(srcInfo->flags & ~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF));
+    dst.timestamp = srcInfo->timestamp;
+    dst.duration = srcInfo->duration;
+    dst.inputFrameId = srcInfo->inputFrameId;
+
+    auto err = pushMixedEmitEntry(stagingIdx, srcInfo);
+    if (err != RGY_ERR_NONE) return err;
+
+    if (m_fpLog) {
+        fprintf(m_fpLog.get(),
+            "OUT:\t#%d\tin_id=%d\tmatch=c\tmatchParity=pri\tconf=0\tpost=none \tstatus=emit \tdec=%s\tcadence=direct\tmQ=0\tcComb=0\tcCombMax=0\tcCombBlocks=0\t"
+            "cComb_c=0\tcComb_p=0\tcComb_n=0\tcComb_cA=0\tcComb_pA=0\tcComb_nA=0\t"
+            "cMax_c=0\tcMax_p=0\tcMax_n=0\tcMax_cA=0\tcMax_pA=0\tcMax_nA=0\t"
+            "cBlk_c=0\tcBlk_p=0\tcBlk_n=0\tcBlk_cA=0\tcBlk_pA=0\tcBlk_nA=0\t"
+            "btrig=0\tpostComb=0\tdiff=0\tscene_sad=0\tsection=%s\n",
+            outIdx, srcInfo->inputFrameId, decTag ? decTag : "DIRECT", section ? section : "pass");
+        fflush(m_fpLog.get());
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterIvtc::enqueueMixedPassthrough(const RGYFrameInfo *frame, int cacheIdx, int64_t nextPts, RGYOpenCLQueue &queue_main) {
+    (void)nextPts;
+    if (!frame || cacheIdx < 0 || cacheIdx >= (int)m_cacheFrames.size()) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+    const auto section = ivtcMixedClassify(frame);
+    return enqueueMixedDirectFrame(m_cacheFrames[cacheIdx].get(), frame, (section == IvtcMixedSection::Rff) ? "RFF_DIRECT_COPY" : "PROG_PASSTHRU", (section == IvtcMixedSection::Rff) ? "rff" : "pass", queue_main);
+}
+
+RGY_ERR RGYFilterIvtc::appendMixedRffDisplayFrame(const RGYCLFrame *topFrame, const RGYFrameInfo *topInfo, const RGYCLFrame *bottomFrame, const RGYFrameInfo *bottomInfo, int decTag, RGYOpenCLQueue &queue_main) {
+    if (!topFrame || !topInfo || !bottomFrame || !bottomInfo || m_mixedDirectStagingCount <= 0) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+    const int outIdx = m_outputFrameCount + (int)m_emitQueue.size();
+    const int stagingIdx = m_mixedDirectStagingBase + m_mixedDirectStagingNext;
+    m_mixedDirectStagingNext = (m_mixedDirectStagingNext + 1) % m_mixedDirectStagingCount;
+
+    auto cpErr = m_cl->copyFrame(&m_frameBuf[stagingIdx]->frame, &topFrame->frame, nullptr, queue_main);
+    if (cpErr != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("ivtc mixed RFF display copy failed: %s.\n"), get_err_mes(cpErr));
+        return cpErr;
+    }
+    if (topFrame != bottomFrame) {
+        auto ovErr = overlayField(m_frameBuf[stagingIdx].get(), bottomFrame, /*tff=*/1, queue_main);
+        if (ovErr != RGY_ERR_NONE) return ovErr;
+    }
+    auto &dst = m_frameBuf[stagingIdx]->frame;
+    dst.picstruct = RGY_PICSTRUCT_FRAME;
+    dst.flags = (RGY_FRAME_FLAGS)(topInfo->flags & ~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF));
+    const bool synth = topFrame != bottomFrame;
+    int64_t pts = topInfo->timestamp;
+    if (synth && topInfo->timestamp != AV_NOPTS_VALUE && bottomInfo->timestamp != AV_NOPTS_VALUE) {
+        pts = std::max(topInfo->timestamp, bottomInfo->timestamp);
+    }
+    dst.timestamp = pts;
+    dst.duration = topInfo->duration;
+    dst.inputFrameId = topInfo->inputFrameId;
+
+    auto err = pushMixedEmitEntry(stagingIdx, &dst);
+    if (err != RGY_ERR_NONE) return err;
+
+    if (m_fpLog) {
+        fprintf(m_fpLog.get(),
+            "OUT:\t#%d\tin_id=%d\tmatch=c\tmatchParity=pri\tconf=0\tpost=none \tstatus=emit \tdec=%s\tcadence=direct\tmQ=0\tcComb=0\tcCombMax=0\tcCombBlocks=0\t"
+            "cComb_c=0\tcComb_p=0\tcComb_n=0\tcComb_cA=0\tcComb_pA=0\tcComb_nA=0\t"
+            "cMax_c=0\tcMax_p=0\tcMax_n=0\tcMax_cA=0\tcMax_pA=0\tcMax_nA=0\t"
+            "cBlk_c=0\tcBlk_p=0\tcBlk_n=0\tcBlk_cA=0\tcBlk_pA=0\tcBlk_nA=0\t"
+            "btrig=0\tpostComb=0\tdiff=0\tscene_sad=0\tsection=rff\n",
+            outIdx, dst.inputFrameId, (decTag == 19) ? "RFF_RECON_FIELD" : "RFF_RECON_COPY");
+        fflush(m_fpLog.get());
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterIvtc::setMixedRffPending(const RGYCLFrame *srcFrame, const RGYFrameInfo *srcInfo, bool pendingTop, RGYOpenCLQueue &queue_main) {
+    auto &pendingFrame = pendingTop ? m_mixedRffPendingTopFrame : m_mixedRffPendingBottomFrame;
+    auto &pendingInfo = pendingTop ? m_mixedRffPendingTopInfo : m_mixedRffPendingBottomInfo;
+    auto &pendingValid = pendingTop ? m_mixedRffPendingTopValid : m_mixedRffPendingBottomValid;
+    if (!pendingFrame || !srcFrame || !srcInfo) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+    auto cpErr = m_cl->copyFrame(&pendingFrame->frame, &srcFrame->frame, nullptr, queue_main);
+    if (cpErr != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("ivtc mixed RFF pending copy failed: %s.\n"), get_err_mes(cpErr));
+        return cpErr;
+    }
+    pendingInfo = *srcInfo;
+    pendingValid = true;
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterIvtc::enqueueMixedRffFrame(int cacheIdx, int64_t nextPts, RGYOpenCLQueue &queue_main) {
+    (void)nextPts;
+    if (cacheIdx < 0 || cacheIdx >= (int)m_cacheFrames.size()) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+    auto *curFrame = m_cacheFrames[cacheIdx].get();
+    auto *curInfo = &curFrame->frame;
+
+    auto err = RGY_ERR_NONE;
+    if (m_mixedRffPendingTopValid || m_mixedRffPendingBottomValid) {
+        const bool pendingTop = m_mixedRffPendingTopValid;
+        const auto *topFrame = pendingTop ? m_mixedRffPendingTopFrame.get() : curFrame;
+        const auto *topInfo = pendingTop ? &m_mixedRffPendingTopInfo : curInfo;
+        const auto *bottomFrame = pendingTop ? curFrame : m_mixedRffPendingBottomFrame.get();
+        const auto *bottomInfo = pendingTop ? curInfo : &m_mixedRffPendingBottomInfo;
+
+        auto cpErr = m_cl->copyFrame(&m_expandSynth->frame, &topFrame->frame, nullptr, queue_main);
+        if (cpErr != RGY_ERR_NONE) return cpErr;
+        if (topFrame != bottomFrame) {
+            auto ovErr = overlayField(m_expandSynth.get(), bottomFrame, /*tff=*/1, queue_main);
+            if (ovErr != RGY_ERR_NONE) return ovErr;
+        }
+        auto synthInfo = m_expandSynth->frame;
+        synthInfo.picstruct = RGY_PICSTRUCT_FRAME;
+        synthInfo.flags = (RGY_FRAME_FLAGS)(topInfo->flags & ~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF));
+        synthInfo.timestamp = (topInfo->timestamp != AV_NOPTS_VALUE && bottomInfo->timestamp != AV_NOPTS_VALUE) ? std::max(topInfo->timestamp, bottomInfo->timestamp) : topInfo->timestamp;
+        synthInfo.duration = topInfo->duration;
+        synthInfo.inputFrameId = topInfo->inputFrameId;
+
+        struct CombMetric {
+            uint64_t blocks;
+            uint64_t max;
+            uint64_t score;
+        };
+        auto measureComb = [&](const RGYFrameInfo *frame, const int tff, CombMetric &metric) -> RGY_ERR {
+            uint64_t matchScore[3] = {};
+            uint64_t combScore[3] = {};
+            uint64_t combMax[3] = {};
+            uint64_t combBlocks[3] = {};
+            auto scoreErr = scoreCandidates(frame, frame, frame, matchScore, combScore, combMax, combBlocks, tff, queue_main);
+            if (scoreErr != RGY_ERR_NONE) return scoreErr;
+            metric = { combBlocks[0], combMax[0], combScore[0] };
+            return RGY_ERR_NONE;
+        };
+        auto combLess = [](const CombMetric &a, const CombMetric &b) {
+            if (a.blocks != b.blocks) return a.blocks < b.blocks;
+            if (a.max != b.max) return a.max < b.max;
+            return a.score < b.score;
+        };
+        auto measureBestComb = [&](const RGYFrameInfo *frame, CombMetric &metric) -> RGY_ERR {
+            CombMetric tff0 = {};
+            CombMetric tff1 = {};
+            auto scoreErr = measureComb(frame, 0, tff0);
+            if (scoreErr != RGY_ERR_NONE) return scoreErr;
+            scoreErr = measureComb(frame, 1, tff1);
+            if (scoreErr != RGY_ERR_NONE) return scoreErr;
+            metric = combLess(tff1, tff0) ? tff1 : tff0;
+            return RGY_ERR_NONE;
+        };
+        auto combClean = [](const CombMetric &m) {
+            return m.blocks == 0 && m.max <= COMB_CLEAN_BOUND && m.score <= COMB_CLEAN_BOUND;
+        };
+
+        CombMetric copyComb = {};
+        CombMetric synthComb = {};
+        err = measureBestComb(curInfo, copyComb);
+        if (err != RGY_ERR_NONE) return err;
+        err = measureBestComb(&synthInfo, synthComb);
+        if (err != RGY_ERR_NONE) return err;
+
+        if (!combClean(copyComb) && combLess(synthComb, copyComb)) {
+            err = enqueueMixedDirectFrame(m_expandSynth.get(), &synthInfo, "RFF_RECON_FIELD", "rff", queue_main);
+        } else {
+            err = enqueueMixedDirectFrame(curFrame, curInfo, "RFF_RECON_COPY", "rff", queue_main);
+        }
+        resetMixedRffState();
+    } else {
+        err = enqueueMixedDirectFrame(curFrame, curInfo, "RFF_RECON_COPY", "rff", queue_main);
+    }
+    if (err != RGY_ERR_NONE) return err;
+
+    if (curInfo->flags & RGY_FRAME_FLAG_RFF) {
+        bool repeatTop = m_tffFixed != 0;
+        if (curInfo->flags & RGY_FRAME_FLAG_RFF_TFF) repeatTop = true;
+        else if (curInfo->flags & RGY_FRAME_FLAG_RFF_BFF) repeatTop = false;
+        else if (curInfo->picstruct == RGY_PICSTRUCT_FRAME_TFF || curInfo->picstruct == RGY_PICSTRUCT_TFF) repeatTop = true;
+        else if (curInfo->picstruct == RGY_PICSTRUCT_FRAME_BFF || curInfo->picstruct == RGY_PICSTRUCT_BFF) repeatTop = false;
+
+        err = setMixedRffPending(curFrame, curInfo, repeatTop, queue_main);
+        if (err != RGY_ERR_NONE) return err;
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterIvtc::flushCycleMixed(bool finalFlush, int64_t cycleEndPts, bool allowDrop, RGYOpenCLQueue &queue_main) {
+    auto prm = std::dynamic_pointer_cast<RGYFilterParamIvtc>(m_param);
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    const int cycleLen = std::max(prm->ivtc.cycle, 0);
+    const int filled = m_cycleFilled;
+    if (filled <= 0) return RGY_ERR_NONE;
+
+    int dropIdx = -1;
+    if (!finalFlush && allowDrop && cycleLen > 0 && filled == cycleLen && prm->ivtc.drop >= 1) {
+        uint64_t minDiff = std::numeric_limits<uint64_t>::max();
+        for (int i = 0; i < filled; i++) {
+            if (m_cycleIsSynth[i] && m_cycleDiffPrev[i] < minDiff) {
+                minDiff = m_cycleDiffPrev[i];
+                dropIdx = i;
+            }
+        }
+        if (dropIdx < 0) {
+            minDiff = std::numeric_limits<uint64_t>::max();
+            for (int i = 0; i < filled; i++) {
+                if (m_cycleDiffPrev[i] < minDiff) {
+                    minDiff = m_cycleDiffPrev[i];
+                    dropIdx = i;
+                }
+            }
+        }
+    }
+    const int dropCount = (dropIdx >= 0) ? 1 : 0;
+    const int emitCount = filled - dropCount;
+
+    (void)cycleEndPts;
+    bool ptsInvalid = false;
+    for (int i = 0; i < filled; i++) {
+        if (m_cycleInPts[i] == AV_NOPTS_VALUE) {
+            ptsInvalid = true;
+            break;
+        }
+    }
+    if (!m_nPtsInit && emitCount > 0) {
+        m_nPts = ptsInvalid ? 0 : m_cycleInPts[0];
+        m_nPtsInit = true;
+    }
+
+    const rgy_rational<int> fpsPeriod = prm->baseFps.inv();
+    const rgy_rational<int> outTb = prm->timebase;
+    if (m_cfrBaseDur <= 0 && fpsPeriod.n() > 0 && fpsPeriod.d() > 0 && outTb.n() > 0 && outTb.d() > 0) {
+        m_cfrBaseDur = rational_rescale(1, fpsPeriod, outTb);
+        if (m_cfrBaseDur <= 0) m_cfrBaseDur = 1;
+    }
+    const bool cfrReady = fpsPeriod.n() > 0 && fpsPeriod.d() > 0 && outTb.n() > 0 && outTb.d() > 0;
+    int64_t fallbackBaseDur = m_cfrBaseDur > 0 ? m_cfrBaseDur : 1;
+    if (!cfrReady) {
+        int64_t sumDur = 0;
+        for (int i = 0; i < filled; i++) {
+            if (m_cycleInDur[i] > 0) sumDur += m_cycleInDur[i];
+        }
+        fallbackBaseDur = (emitCount > 0 && sumDur > 0) ? (sumDur / emitCount) : 1;
+        if (fallbackBaseDur <= 0) fallbackBaseDur = 1;
+    }
+
+    int emitted = 0;
+    for (int i = 0; i < filled; i++) {
+        if (i == dropIdx) continue;
+        const int stagingIdx = m_stagingBase + emitted;
+        if (stagingIdx >= (int)m_frameBuf.size()) {
+            AddMessage(RGY_LOG_ERROR, _T("ivtc mixed cycle staging overflow: idx=%d size=%lld.\n"), stagingIdx, (long long)m_frameBuf.size());
+            return RGY_ERR_UNKNOWN;
+        }
+        auto cpErr = m_cl->copyFrame(&m_frameBuf[stagingIdx]->frame, &m_frameBuf[i]->frame, nullptr, queue_main);
+        if (cpErr != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("ivtc mixed cycle copy failed: %s.\n"), get_err_mes(cpErr));
+            return cpErr;
+        }
+        IvtcEmitEntry e{};
+        e.stagingIdx = stagingIdx;
+        e.inputFrameId = m_cycleInputIds[i];
+        if (cfrReady) {
+            const int64_t ptsCur = rational_rescale((int64_t)m_cfrEmitIdx, fpsPeriod, outTb);
+            const int64_t ptsNext = rational_rescale((int64_t)m_cfrEmitIdx + 1, fpsPeriod, outTb);
+            e.timestamp = m_nPts + ptsCur;
+            e.duration = ptsNext - ptsCur;
+            if (e.duration <= 0) e.duration = m_cfrBaseDur > 0 ? m_cfrBaseDur : 1;
+        } else {
+            e.timestamp = m_nPts;
+            e.duration = fallbackBaseDur;
+            m_nPts += fallbackBaseDur;
+        }
+        m_cfrEmitIdx++;
+        m_mixedLastEmitEndPts = e.timestamp + e.duration;
+        m_emitQueue.push_back(e);
+        emitted++;
+    }
+
+    if (cycleLen > 0 && filled >= 1 && !finalFlush) {
+        const RGYFrameInfo *pLast = &m_frameBuf[filled - 1]->frame;
+        RGYFrameInfo *pSave = &m_frameBuf[cycleLen]->frame;
+        auto cpErr = m_cl->copyFrame(pSave, pLast, nullptr, queue_main);
+        if (cpErr != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to copy mixed cycle tail to save slot: %s.\n"), get_err_mes(cpErr));
+            return cpErr;
+        }
+        m_hasSaveSlot = true;
+    } else if (finalFlush) {
+        m_hasSaveSlot = false;
+    }
+
+    if (m_fpLog) {
+        for (int i = 0; i < filled; i++) {
+            const char *matchStr = (m_cycleMatchType[i] == 0) ? "c" : (m_cycleMatchType[i] == 1) ? "p" : "n";
+            const char *mixedDec = (m_cycleDecTag[i] == 17) ? "RFF_RECON_COPY"
+                                 : (m_cycleDecTag[i] == 18) ? "PROG_PASSTHRU"
+                                 : (m_cycleDecTag[i] == 19) ? "RFF_RECON_FIELD"
+                                                            : "MIXED_INTERLACED";
+            const char *mixedSection = (m_cycleDecTag[i] == 17 || m_cycleDecTag[i] == 19) ? "rff"
+                                     : (m_cycleDecTag[i] == 18) ? "pass"
+                                                                : "interlaced";
+            fprintf(m_fpLog.get(),
+                "OUT:\t#%d\tin_id=%d\tmatch=%s\tmatchParity=%s\tconf=%u\tpost=%s\tstatus=%s\tdec=%s\tcadence=%s\tmQ=%llu\tcComb=%llu\tcCombMax=%llu\tcCombBlocks=%llu\t"
+                "cComb_c=%llu\tcComb_p=%llu\tcComb_n=%llu\tcComb_cA=%llu\tcComb_pA=%llu\tcComb_nA=%llu\t"
+                "cMax_c=%llu\tcMax_p=%llu\tcMax_n=%llu\tcMax_cA=%llu\tcMax_pA=%llu\tcMax_nA=%llu\t"
+                "cBlk_c=%llu\tcBlk_p=%llu\tcBlk_n=%llu\tcBlk_cA=%llu\tcBlk_pA=%llu\tcBlk_nA=%llu\t"
+                "btrig=%u\tpostComb=%llu\tdiff=%llu\tscene_sad=%llu\tsection=%s\n",
+                m_outputFrameCount + ((i < dropIdx || dropIdx < 0) ? i : i - 1),
+                m_cycleInputIds[i],
+                matchStr,
+                m_cycleMatchAltParity[i] ? "alt" : "pri",
+                (unsigned)m_cycleConfidence[i],
+                m_cycleApplyBlend[i] ? "blend" : "none ",
+                (i == dropIdx) ? "DROP " : "emit ",
+                mixedDec,
+                ivtc_cadence_tag_str(m_cycleCadenceTag[i]),
+                (unsigned long long)m_cycleMatchScore[i],
+                (unsigned long long)m_cycleCombScore[i],
+                (unsigned long long)m_cycleCombMax[i],
+                (unsigned long long)m_cycleCombBlocks[i],
+                (unsigned long long)m_cycleCombScorePrim [i][0], (unsigned long long)m_cycleCombScorePrim [i][1], (unsigned long long)m_cycleCombScorePrim [i][2],
+                (unsigned long long)m_cycleCombScoreAlt  [i][0], (unsigned long long)m_cycleCombScoreAlt  [i][1], (unsigned long long)m_cycleCombScoreAlt  [i][2],
+                (unsigned long long)m_cycleCombMaxPrim   [i][0], (unsigned long long)m_cycleCombMaxPrim   [i][1], (unsigned long long)m_cycleCombMaxPrim   [i][2],
+                (unsigned long long)m_cycleCombMaxAlt    [i][0], (unsigned long long)m_cycleCombMaxAlt    [i][1], (unsigned long long)m_cycleCombMaxAlt    [i][2],
+                (unsigned long long)m_cycleCombBlocksPrim[i][0], (unsigned long long)m_cycleCombBlocksPrim[i][1], (unsigned long long)m_cycleCombBlocksPrim[i][2],
+                (unsigned long long)m_cycleCombBlocksAlt [i][0], (unsigned long long)m_cycleCombBlocksAlt [i][1], (unsigned long long)m_cycleCombBlocksAlt [i][2],
+                (unsigned)m_cycleBlendTrigger[i],
+                (unsigned long long)m_cycleCombScore[i],
+                (unsigned long long)((m_cycleDiffPrev[i] == std::numeric_limits<uint64_t>::max()) ? 0ULL : m_cycleDiffPrev[i]),
+                (unsigned long long)m_cycleSceneSAD[i],
+                mixedSection);
+        }
+        fflush(m_fpLog.get());
+    }
+    m_cycleFilled = 0;
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterIvtc::partialFlushMixed(RGYOpenCLQueue &queue_main, int64_t cycleEndPts) {
+    if (m_cycleFilled <= 0) return RGY_ERR_NONE;
+    auto err = flushCycleMixed(true, cycleEndPts, false, queue_main);
+    if (err != RGY_ERR_NONE) return err;
+    m_hasSaveSlot = false;
+    resetCadenceState();
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR RGYFilterIvtc::popEmit(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum) {
     if (m_emitQueue.empty()) {
         *pOutputFrameNum = 0;
         ppOutputFrames[0] = nullptr;
         return RGY_ERR_NONE;
     }
-    const IvtcEmitEntry e = m_emitQueue.front();
-    m_emitQueue.pop_front();
-    RGYFrameInfo *pOut = &m_frameBuf[e.stagingIdx]->frame;
-    pOut->timestamp    = e.timestamp;
-    pOut->duration     = e.duration;
-    pOut->inputFrameId = e.inputFrameId;
-    pOut->picstruct    = RGY_PICSTRUCT_FRAME;
-    // Final belt-and-suspenders guard: encoder (qsv_pipeline_ctrl.h:2297)
-    // aborts on inputFrameId < 0. Every upstream step should have sanitized
-    // this already (processInputToCycle stores from a cache slot that's
-    // sanitized at input time), but any defect above here would leak a -1
-    // through. Clamp to a synthesized monotonic id on the very last path.
-    if (pOut->inputFrameId < 0) pOut->inputFrameId = m_outputFrameCount;
-    ppOutputFrames[0] = pOut;
-    *pOutputFrameNum = 1;
-    m_outputFrameCount++;
+    constexpr int maxFilterOutputFrames = 16; // qsv_pipeline_ctrl.h uses RGYFrameInfo *outInfo[16].
+    int nOut = 0;
+    while (!m_emitQueue.empty() && nOut < maxFilterOutputFrames) {
+        const IvtcEmitEntry e = m_emitQueue.front();
+        m_emitQueue.pop_front();
+        RGYFrameInfo *pOut = &m_frameBuf[e.stagingIdx]->frame;
+        pOut->timestamp    = e.timestamp;
+        pOut->duration     = e.duration;
+        pOut->inputFrameId = e.inputFrameId;
+        pOut->picstruct    = RGY_PICSTRUCT_FRAME;
+        // Final belt-and-suspenders guard: encoder (qsv_pipeline_ctrl.h:2297)
+        // aborts on inputFrameId < 0. Every upstream step should have sanitized
+        // this already (processInputToCycle stores from a cache slot that's
+        // sanitized at input time), but any defect above here would leak a -1
+        // through. Clamp to a synthesized monotonic id on the very last path.
+        if (pOut->inputFrameId < 0) pOut->inputFrameId = m_outputFrameCount;
+        ppOutputFrames[nOut++] = pOut;
+        m_outputFrameCount++;
+    }
+    *pOutputFrameNum = nOut;
     return RGY_ERR_NONE;
 }
 
@@ -3835,13 +4369,62 @@ RGY_ERR RGYFilterIvtc::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo 
                 const int idx_next2  = (center + 2) % IVTC_CACHE_SIZE;
                 const int idx_prev   = (center >= 1) ? (center - 1) % IVTC_CACHE_SIZE : idx_cur;
                 const int idx_prev2  = (center >= 2) ? (center - 2) % IVTC_CACHE_SIZE : idx_prev;
-                auto err = processInputToCycle(idx_prev2, idx_prev, idx_cur, idx_next, idx_next2, center, queue_main, wait_events);
-                if (err != RGY_ERR_NONE) return err;
-                m_processedCount++;
-                if (m_cycleFilled >= cycleLen) {
-                    auto ferr = flushCycle(false, pInputFrame->timestamp, queue_main);
-                    if (ferr != RGY_ERR_NONE) return ferr;
+                if (m_mixedActive) {
+                    auto *cur = &m_cacheFrames[idx_cur]->frame;
+                    const int64_t curPts = cur->timestamp;
+                    const int64_t curDur = cur->duration;
+                    int64_t discontinuityLimit = 0;
+                    if (prm->timebase.n() > 0 && prm->timebase.d() > 0) {
+                        discontinuityLimit = rational_rescale(2, rgy_rational<int>(1001, 30000), prm->timebase);
+                    }
+                    if (discontinuityLimit <= 0) discontinuityLimit = (m_mixedLastInputDur > 0) ? m_mixedLastInputDur * 2 : 2;
+                    if (m_mixedLastInputValid && curPts != AV_NOPTS_VALUE && m_mixedLastInputPts != AV_NOPTS_VALUE) {
+                        const int64_t diff = curPts - m_mixedLastInputPts;
+                        if (diff <= 0 || diff > discontinuityLimit) {
+                            auto ferr = partialFlushMixed(queue_main, curPts);
+                            if (ferr != RGY_ERR_NONE) return ferr;
+                            m_lastSceneChange = false;
+                            m_lastSceneSAD = 0;
+                            resetMixedTemporalState();
+                            resetMixedRffState();
+                        }
+                    }
+                    const auto section = ivtcMixedClassify(cur);
+                    if (section == IvtcMixedSection::Interlaced) {
+                        resetMixedRffState();
+                        auto err = processInputToCycle(idx_prev2, idx_prev, idx_cur, idx_next, idx_next2, center, queue_main, wait_events);
+                        if (err != RGY_ERR_NONE) return err;
+                        if (m_cycleFilled >= cycleLen) {
+                            auto ferr = flushCycleMixed(false, m_cacheFrames[idx_next]->frame.timestamp, true, queue_main);
+                            if (ferr != RGY_ERR_NONE) return ferr;
+                        }
+                    } else if (section == IvtcMixedSection::Rff || m_mixedRffPendingTopValid || m_mixedRffPendingBottomValid) {
+                        if (m_cycleFilled > 0) {
+                            auto ferr = partialFlushMixed(queue_main, curPts);
+                            if (ferr != RGY_ERR_NONE) return ferr;
+                        }
+                        auto err = enqueueMixedRffFrame(idx_cur, m_cacheFrames[idx_next]->frame.timestamp, queue_main);
+                        if (err != RGY_ERR_NONE) return err;
+                    } else {
+                        if (m_cycleFilled > 0) {
+                            auto ferr = partialFlushMixed(queue_main, curPts);
+                            if (ferr != RGY_ERR_NONE) return ferr;
+                        }
+                        auto err = enqueueMixedPassthrough(cur, idx_cur, m_cacheFrames[idx_next]->frame.timestamp, queue_main);
+                        if (err != RGY_ERR_NONE) return err;
+                    }
+                    m_mixedLastInputPts = curPts;
+                    if (curDur > 0) m_mixedLastInputDur = curDur;
+                    m_mixedLastInputValid = true;
+                } else {
+                    auto err = processInputToCycle(idx_prev2, idx_prev, idx_cur, idx_next, idx_next2, center, queue_main, wait_events);
+                    if (err != RGY_ERR_NONE) return err;
+                    if (m_cycleFilled >= cycleLen) {
+                        auto ferr = flushCycle(false, pInputFrame->timestamp, queue_main);
+                        if (ferr != RGY_ERR_NONE) return ferr;
+                    }
                 }
+                m_processedCount++;
             }
         }
         // cycleLen > 0 の通常入力時はここで 1 popEmit (キューにあれば) する。
@@ -3874,9 +4457,36 @@ RGY_ERR RGYFilterIvtc::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo 
         const int idx_prev   = (center >= 1) ? (center - 1) % IVTC_CACHE_SIZE : idx_cur;
         const int idx_prev2  = (center >= 2) ? (center - 2) % IVTC_CACHE_SIZE : idx_prev;
 
-        auto err = processInputToCycle(idx_prev2, idx_prev, idx_cur, idx_next, idx_next2, center, queue_main, wait_events);
-        if (err != RGY_ERR_NONE) {
-            return err;
+        if (m_mixedActive) {
+            auto *cur = &m_cacheFrames[idx_cur]->frame;
+            const auto section = ivtcMixedClassify(cur);
+            if (section == IvtcMixedSection::Interlaced) {
+                resetMixedRffState();
+                auto err = processInputToCycle(idx_prev2, idx_prev, idx_cur, idx_next, idx_next2, center, queue_main, wait_events);
+                if (err != RGY_ERR_NONE) return err;
+            } else if (section == IvtcMixedSection::Rff || m_mixedRffPendingTopValid || m_mixedRffPendingBottomValid) {
+                if (m_cycleFilled > 0) {
+                    auto ferr = partialFlushMixed(queue_main, cur->timestamp);
+                    if (ferr != RGY_ERR_NONE) return ferr;
+                }
+                const int64_t nextPts = (idx_next != idx_cur) ? m_cacheFrames[idx_next]->frame.timestamp : AV_NOPTS_VALUE;
+                auto err = enqueueMixedRffFrame(idx_cur, nextPts, queue_main);
+                if (err != RGY_ERR_NONE) return err;
+            } else {
+                if (m_cycleFilled > 0) {
+                    auto ferr = partialFlushMixed(queue_main, cur->timestamp);
+                    if (ferr != RGY_ERR_NONE) return ferr;
+                }
+                const int64_t nextPts = (idx_next != idx_cur) ? m_cacheFrames[idx_next]->frame.timestamp : AV_NOPTS_VALUE;
+                auto err = enqueueMixedPassthrough(cur, idx_cur, nextPts, queue_main);
+                if (err != RGY_ERR_NONE) return err;
+            }
+            if (cur->timestamp != AV_NOPTS_VALUE) m_mixedLastInputPts = cur->timestamp;
+            if (cur->duration > 0) m_mixedLastInputDur = cur->duration;
+            m_mixedLastInputValid = true;
+        } else {
+            auto err = processInputToCycle(idx_prev2, idx_prev, idx_cur, idx_next, idx_next2, center, queue_main, wait_events);
+            if (err != RGY_ERR_NONE) return err;
         }
         m_processedCount++;
 
@@ -3896,7 +4506,9 @@ RGY_ERR RGYFilterIvtc::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo 
         const bool cycleJustFull = (m_cycleFilled >= cycleLen);
         const bool finalFlush    = noMoreDrain && (m_cycleFilled > 0) && (m_cycleFilled < cycleLen);
         if (cycleJustFull || finalFlush) {
-            auto ferr = flushCycle(finalFlush, AV_NOPTS_VALUE, queue_main);
+            auto ferr = m_mixedActive
+                ? flushCycleMixed(finalFlush, AV_NOPTS_VALUE, !finalFlush, queue_main)
+                : flushCycle(finalFlush, AV_NOPTS_VALUE, queue_main);
             if (ferr != RGY_ERR_NONE) {
                 return ferr;
             }
@@ -4016,6 +4628,14 @@ void RGYFilterIvtc::close() {
     m_cycleIsSynth.clear();
     m_emitQueue.clear();
     m_stagingBase = 0;
+    m_mixedDirectStagingBase = 0;
+    m_mixedDirectStagingCount = 0;
+    m_mixedDirectStagingNext = 0;
+    m_mixedActive = false;
+    resetMixedTemporalState();
+    resetMixedRffState();
+    m_mixedRffPendingTopFrame.reset();
+    m_mixedRffPendingBottomFrame.reset();
     m_nPts = 0;
     m_nPtsInit = false;
     m_cfrBaseDur = 0;

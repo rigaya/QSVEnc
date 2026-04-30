@@ -363,6 +363,7 @@ static const int   FILTER_DEFAULT_IVTC_Y1 = 0;
 static const int   FILTER_DEFAULT_IVTC_CADENCE_LOCK = -1;
 static const int   FILTER_DEFAULT_IVTC_GTHRESH = 10;
 static const int   FILTER_DEFAULT_IVTC_EXPAND = -1;
+static const int   FILTER_DEFAULT_IVTC_MIXED = 0;
 static const int   FILTER_DEFAULT_IVTC_VTHRESH = 50;
 static const float FILTER_DEFAULT_IVTC_HYSTERESIS = 0.0f;
 static const bool  FILTER_DEFAULT_IVTC_LOG = false;
@@ -2004,6 +2005,9 @@ struct VppIvtc {
                           //   carried RFF, an additional "display frame" is synthesised
                           //   by overlaying the previous coded frame's complementary
                           //   field (CopyBot for TFF, CopyTop for BFF — stride*2 blit).
+    int mixed;            // RFF/progressive + interlaced mixed mode.
+                          //   0 = off, 1 = on. When enabled, RFF frames are
+                          //   field-reconstructed and interlaced sections are IVTC'd.
     int vthresh;          // post-assembly combing veto threshold (TFM vmetric analogue,
                           //   Telecide.cpp:376-397). Layered ON TOP of the picstruct-class
                           //   applyBlend gate (mislabeled/unknownCombed/progressiveCombed/

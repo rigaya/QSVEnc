@@ -2387,6 +2387,12 @@ Inverse telecine for soft-telecine / hard-telecine sources.
   - cleanfrac=&lt;float&gt;  (default: 0.01)  
     Block-level clean threshold for `guide=1` and `post=2`. Specifies the fraction of pixels within a block allowed to be combed before the block is considered dirty.
 
+  - mixed=&lt;bool&gt;  (default: off)  
+    Mixed mode for TS streams containing both RFF/progressive sections and true interlaced sections. Requires `--avsw` or `--avhw` input.
+    RFF sections are not decimated; when a repeat-field pending state exists, the current copy candidate and field-reconstructed candidate are compared, and the less-combed candidate is direct-emitted on the 24000/1001fps CFR timeline.
+    Interlaced sections use the normal field match / post process path and internally apply `cycle=5,drop=1` to convert 30fps to 24fps.
+    `mixed=on` cannot be used with `expand=on` or a user-specified `cycle`.
+
   - tff=&lt;auto|on|off&gt;  (default: auto)  
     Field order. `auto` checks each input frame's `picstruct`, and falls back to the input setting when unavailable.
 
