@@ -314,6 +314,17 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2026.05.01 (8.11)
+[QSVEncC]
+- インタレ解除フィルタ --vpp-ivtc を追加。mixed モードにも対応。
+- インタレ解除フィルタ --vpp-bwdif を追加。
+- Blu-ray / MPEG-TS入力で、ビットマップ字幕の焼き込みが正しく動作するように改善。
+- 音声処理がない場合でも、vpp-subburn に字幕が渡るよう修正。
+- libopusで 5.1 / 7.1 などのエンコードができない問題を修正。
+
+[QSVEnc.auo]
+- --vpp-ivtc, --vpp-bwdif, --vpp-msharpen, --vpp-msmooth の設定欄を追加。
+
 2026.04.18 (8.10)
 [QSVEncC]
 - --vpp-unsharpの高速化。 ( #288 )

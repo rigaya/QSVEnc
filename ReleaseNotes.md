@@ -1,5 +1,13 @@
 # QSVEnc Release Notes
 
+## 8.11
+
+- Add [--vpp-ivtc](./QSVEncC_Options.en.md#--vpp-ivtc-param1value1param2value2), including mixed mode. ( #289 )
+- Add [--vpp-bwdif](./QSVEncC_Options.en.md#--vpp-bwdif-param1value1). ( #290 )
+- Add QSVEnc.auo settings for [--vpp-ivtc](./QSVEncC_Options.en.md#--vpp-ivtc-param1value1param2value2), [--vpp-bwdif](./QSVEncC_Options.en.md#--vpp-bwdif-param1value1), [--vpp-msharpen](./QSVEncC_Options.en.md#--vpp-msharpen-param1value1param2value2), and [--vpp-msmooth](./QSVEncC_Options.en.md#--vpp-msmooth-param1value1param2value2).
+- Fix libopus encoding for 5.1 / 7.1 channel layouts.
+- Improve subtitle burn-in for Blu-ray and MPEG-TS inputs.
+
 ## 8.10
 
 - Speedup [--vpp-unsharp](./QSVEncC_Options.en.md#--vpp-unsharp-param1value1param2value2). ( #288 )
