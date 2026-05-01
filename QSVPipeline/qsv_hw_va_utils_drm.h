@@ -30,6 +30,14 @@ or https://software.intel.com/en-us/media-client-solutions-support.
 
 class drmRenderer;
 
+// drm_version ioctl で DRM カーネルモードドライバ名 ("i915" / "xe" 等) を取得する。
+// 取得した name バッファは関数内で確実に NUL 終端される。
+int get_drm_driver_name(int fd, char *name, int name_size);
+// "i915" / "xe" 等、QSVEnc が Intel デバイスとして扱う DRM KMD 名かどうかを判定する。
+bool is_intel_drm_driver(const char *name);
+// targetIntelAdaptorNum 番目の Intel DRM device を開く。成功時は fd の所有権を呼び出し側へ渡す。
+int open_target_intel_adapter(int type, int targetIntelAdaptorNum, RGYLog *log);
+
 class DRMLibVA : public CLibVA
 {
 public:
@@ -38,11 +46,14 @@ public:
 
     bool init(const int targetIntelAdaptorNum);
     inline int getFD() { return m_fd; }
+    // 開いた DRM device のカーネルモードドライバ名 ("i915" / "xe" 等) を返す
+    inline const std::string& getDrmDriverName() const { return m_drmDriverName; }
 
 protected:
     int m_fd;
     std::string m_devicePath;
     int m_type;
+    std::string m_drmDriverName;
     MfxLoader::VA_DRMProxy m_vadrmlib;
     std::shared_ptr<RGYLog> m_log;
 

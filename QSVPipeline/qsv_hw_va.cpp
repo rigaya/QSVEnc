@@ -94,11 +94,26 @@ mfxStatus CVAAPIDeviceX11::Init(mfxHDL hWindow, uint32_t nViews, uint32_t nAdapt
 
     // it's enough to pass render node, because we only request
     // information from kernel via m_dri_fd
-    m_dri_fd = open("/dev/dri/renderD128", O_RDWR);
+    m_dri_fd = open_target_intel_adapter(MFX_LIBVA_DRM, nAdapterNum, m_pQSVLog.get());
     if (m_dri_fd < 0)
     {
-        AddMessage(RGY_LOG_ERROR, _T("ed to open dri device\n"));
+        AddMessage(RGY_LOG_ERROR, _T("failed to open Intel dri device\n"));
         return MFX_ERR_NOT_INITIALIZED;
+    }
+
+    // libdrm_intel は i915 KMD 用 GEM ioctl 専用のため、xe KMD では bufmgr 初期化に失敗する。
+    // 早めに検出して分かりやすいログを出す。
+    {
+        char driverName[16] = {};
+        if (!get_drm_driver_name(m_dri_fd, driverName, sizeof(driverName))) {
+            AddMessage(RGY_LOG_DEBUG, _T("X11/DRI3: kernel driver \"%s\"\n"), char_to_tstring(driverName).c_str());
+            if (!strcmp(driverName, "xe")) {
+                AddMessage(RGY_LOG_ERROR, _T("X11/DRI3: libdrm_intel is not supported on xe kernel driver. DRI3 path is unavailable.\n"));
+                close(m_dri_fd);
+                m_dri_fd = -1;
+                return MFX_ERR_NOT_INITIALIZED;
+            }
+        }
     }
 
     m_bufmgr = drmintellib.drm_intel_bufmgr_gem_init(m_dri_fd, 4096);
@@ -468,6 +483,14 @@ mfxStatus CVAAPIDeviceDRM::Init(mfxHDL hWindow, uint32_t nViews, uint32_t nAdapt
         mfxI32 *monitorType = (mfxI32 *)hWindow;
         if (!monitorType)
             return MFX_ERR_INVALID_VIDEO_PARAM;
+        // drmRenderer は内部で libdrm_intel (drm_intel_bufmgr_*) を使用しており、
+        // これは i915 KMD 用 GEM ioctl 専用のため、xe KMD 環境では動作しない。
+        // 明示的に弾いて分かりやすいエラーを返す。
+        const std::string& kmd = m_DRMLibVA.getDrmDriverName();
+        if (kmd == "xe") {
+            AddMessage(RGY_LOG_ERROR, _T("vaapi_device: drmrender (libdrm_intel) is not supported on xe kernel driver. Please use i915 KMD or different rendering backend.\n"));
+            return MFX_ERR_UNSUPPORTED;
+        }
         try
         {
             m_rndr = new drmRenderer(m_DRMLibVA.getFD(), *monitorType, m_pQSVLog);

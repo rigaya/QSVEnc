@@ -34,18 +34,38 @@ or https://software.intel.com/en-us/media-client-solutions-support.
 constexpr mfxU32 MFX_DRI_MAX_NODES_NUM = 16;
 constexpr mfxU32 MFX_DRI_RENDER_START_INDEX = 128;
 constexpr mfxU32 MFX_DRI_CARD_START_INDEX = 0;
-constexpr  mfxU32 MFX_DRM_DRIVER_NAME_LEN = 4;
-const char* MFX_DRM_INTEL_DRIVER_NAME = "i915";
+// "i915" / "xe" など複数のIntel KMD名に対応できるよう余裕を持たせる
+constexpr mfxU32 MFX_DRM_DRIVER_NAME_LEN = 8;
+// Intel系 DRM カーネルドライバ名の許可リスト
+// - "i915": 従来からのIntel iGPU/dGPU向けドライバ
+// - "xe"  : 新しいIntel Xe KMD
+static const char* const MFX_DRM_INTEL_DRIVER_NAMES[] = { "i915", "xe" };
 const char* MFX_DRI_PATH = "/dev/dri/";
 const char* MFX_DRI_NODE_RENDER = "renderD";
 const char* MFX_DRI_NODE_CARD = "card";
 
+bool is_intel_drm_driver(const char *name) {
+    for (const char* candidate : MFX_DRM_INTEL_DRIVER_NAMES) {
+        if (!strcmp(name, candidate)) return true;
+    }
+    return false;
+}
+
 int get_drm_driver_name(int fd, char *name, int name_size)
 {
+    if (name == nullptr || name_size <= 0) {
+        return -1;
+    }
+    memset(name, 0, name_size);
     drm_version_t version = {};
-    version.name_len = name_size;
+    version.name_len = name_size - 1;
     version.name = name;
-    return ioctl(fd, DRM_IOWR(0, drm_version), &version);
+    const int ret = ioctl(fd, DRM_IOWR(0, drm_version), &version);
+    if (ret == 0) {
+        // カーネル側はNUL終端を保証しないため、呼び出し側で確実に終端する
+        name[name_size - 1] = '\0';
+    }
+    return ret;
 }
 
 int open_target_intel_adapter(const int type, const int targetIntelAdaptorNum, RGYLog *log)
@@ -80,13 +100,14 @@ int open_target_intel_adapter(const int type, const int targetIntelAdaptorNum, R
                 log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("Adaptor #%d [%s]: Exists, but failed to open.\n"), targetIntelAdaptorNum, char_to_tstring(curAdapterPath).c_str());
             }
         } else {
-            if (!get_drm_driver_name(fd, driverName, MFX_DRM_DRIVER_NAME_LEN)) {
+            if (!get_drm_driver_name(fd, driverName, sizeof(driverName))) {
                 log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Adaptor #%d [%s]: driver name %s\n"), targetIntelAdaptorNum, char_to_tstring(curAdapterPath).c_str(), char_to_tstring(driverName).c_str());
-                if (!strcmp(driverName, MFX_DRM_INTEL_DRIVER_NAME)) {
-                    log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Adaptor #%d [%s]: #%d Intel adaptor found\n"), targetIntelAdaptorNum, char_to_tstring(curAdapterPath).c_str(), targetIntelAdaptorNum);
+                if (is_intel_drm_driver(driverName)) {
+                    log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Adaptor #%d [%s]: #%d Intel adaptor found (kmd: %s)\n"), targetIntelAdaptorNum, char_to_tstring(curAdapterPath).c_str(), targetIntelAdaptorNum, char_to_tstring(driverName).c_str());
                     return fd;
                 }
             }
+            close(fd);
         }
     }
 
@@ -107,10 +128,10 @@ int open_target_intel_adapter(const int type, const int targetIntelAdaptorNum, R
             continue;
         }
 
-        if (!get_drm_driver_name(fd, driverName, MFX_DRM_DRIVER_NAME_LEN)) {
+        if (!get_drm_driver_name(fd, driverName, sizeof(driverName))) {
             log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Adaptor #%d [%s]: driver name %s\n"), i, char_to_tstring(curAdapterPath).c_str(), char_to_tstring(driverName).c_str());
-            if (!strcmp(driverName, MFX_DRM_INTEL_DRIVER_NAME)) {
-                log->write(logLevelFound, RGY_LOGT_DEV, _T("Adaptor #%d [%s]: #%d Intel adaptor\n"), i, char_to_tstring(curAdapterPath).c_str(), intelAdaptorCount);
+            if (is_intel_drm_driver(driverName)) {
+                log->write(logLevelFound, RGY_LOGT_DEV, _T("Adaptor #%d [%s]: #%d Intel adaptor (kmd: %s)\n"), i, char_to_tstring(curAdapterPath).c_str(), intelAdaptorCount, char_to_tstring(driverName).c_str());
                 if (intelAdaptorCount == targetIntelAdaptorNum) {
                     return fd;
                 }
@@ -138,9 +159,10 @@ int open_intel_adapter(const std::string& devicePath, const int type, const int 
     }
 
     char driverName[MFX_DRM_DRIVER_NAME_LEN + 1] = {};
-    if (!get_drm_driver_name(fd, driverName, MFX_DRM_DRIVER_NAME_LEN) &&
-        !strcmp(driverName, MFX_DRM_INTEL_DRIVER_NAME)) {
-            return fd;
+    if (!get_drm_driver_name(fd, driverName, sizeof(driverName)) &&
+        is_intel_drm_driver(driverName)) {
+        log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("open_intel_adapter: Specified device is Intel (kmd: %s)\n"), char_to_tstring(driverName).c_str());
+        return fd;
     } else {
         close(fd);
         log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("open_intel_adapter: Specified device is not Intel one\n"));
@@ -167,6 +189,16 @@ bool DRMLibVA::init(const int targetIntelAdaptorNum) {
         m_log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("DRMLibVA::DRMLibVA: Intel GPU was not found\n"));
         return false;
     }
+
+    // 開いたデバイスのカーネルモードドライバ名 ("i915" / "xe" 等) を取得して保持しておく
+    {
+        char driverName[MFX_DRM_DRIVER_NAME_LEN + 1] = {};
+        if (!get_drm_driver_name(m_fd, driverName, sizeof(driverName))) {
+            m_drmDriverName = driverName;
+            m_log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("DRMLibVA: opened device uses kernel driver \"%s\"\n"), char_to_tstring(m_drmDriverName).c_str());
+        }
+    }
+
     m_va_dpy = m_vadrmlib.vaGetDisplayDRM(m_fd);
     if (m_va_dpy) {
         int major_version = 0, minor_version = 0;
