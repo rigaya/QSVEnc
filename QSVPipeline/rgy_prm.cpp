@@ -371,7 +371,7 @@ VppLibplaceboToneMappingConstantsBT2390::VppLibplaceboToneMappingConstantsBT2390
 
 bool VppLibplaceboToneMappingConstantsBT2390::operator==(const VppLibplaceboToneMappingConstantsBT2390 &x) const {
     return knee_offset == x.knee_offset;
-} 
+}
 bool VppLibplaceboToneMappingConstantsBT2390::operator!=(const VppLibplaceboToneMappingConstantsBT2390 &x) const {
     return !(*this == x);
 }
@@ -410,7 +410,7 @@ VppLibplaceboToneMappingConstantsReinhard::VppLibplaceboToneMappingConstantsRein
 
 bool VppLibplaceboToneMappingConstantsReinhard::operator==(const VppLibplaceboToneMappingConstantsReinhard &x) const {
     return contrast == x.contrast;
-}   
+}
 bool VppLibplaceboToneMappingConstantsReinhard::operator!=(const VppLibplaceboToneMappingConstantsReinhard &x) const {
     return !(*this == x);
 }
@@ -427,7 +427,7 @@ VppLibplaceboToneMappingConstantsMobius::VppLibplaceboToneMappingConstantsMobius
 
 bool VppLibplaceboToneMappingConstantsMobius::operator==(const VppLibplaceboToneMappingConstantsMobius &x) const {
     return linear_knee == x.linear_knee;
-}   
+}
 bool VppLibplaceboToneMappingConstantsMobius::operator!=(const VppLibplaceboToneMappingConstantsMobius &x) const {
     return !(*this == x);
 }
@@ -444,7 +444,7 @@ VppLibplaceboToneMappingConstantsLinear::VppLibplaceboToneMappingConstantsLinear
 
 bool VppLibplaceboToneMappingConstantsLinear::operator==(const VppLibplaceboToneMappingConstantsLinear &x) const {
     return exposure == x.exposure;
-}   
+}
 bool VppLibplaceboToneMappingConstantsLinear::operator!=(const VppLibplaceboToneMappingConstantsLinear &x) const {
     return !(*this == x);
 }
@@ -529,7 +529,7 @@ VppLibplaceboToneMapping::VppLibplaceboToneMapping() :
     lut_path(),
     lut_type((VppLibplaceboToneMappingLUTType)FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_LUT_TYPE),
     dst_pl_transfer((VppLibplaceboToneMappingTransfer)FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_DST_PL_TRANSFER),
-    dst_pl_colorprim((VppLibplaceboToneMappingColorprim)FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_DST_PL_COLORPRIM) {   
+    dst_pl_colorprim((VppLibplaceboToneMappingColorprim)FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_DST_PL_COLORPRIM) {
 
 }
 

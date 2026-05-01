@@ -995,7 +995,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
                     }
-                    continue;   
+                    continue;
                 }
                 if (param_arg == _T("scene_threshold_low")) {
                     try {
@@ -1004,7 +1004,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
                     }
-                    continue;       
+                    continue;
                 }
                 if (param_arg == _T("scene_threshold_high")) {
                     try {
@@ -1013,7 +1013,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
                     }
-                    continue;       
+                    continue;
                 }
                 if (param_arg == _T("percentile")) {
                     try {
@@ -1022,7 +1022,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
                     }
-                    continue;       
+                    continue;
                 }
                 if (param_arg == _T("black_cutoff")) {
                     try {
@@ -1031,7 +1031,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
                     }
-                    continue;       
+                    continue;
                 }
                 if (param_arg == _T("gamut_mapping")) {
                     int value = 0;
@@ -1134,7 +1134,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     if (get_list_value(list_vpp_libplacebo_tone_mapping_lut_type, param_val.c_str(), &value)) {
                         vpp->libplacebo_tonemapping.lut_type = (VppLibplaceboToneMappingLUTType)value;
                     } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_libplacebo_tone_mapping_lut_type);   
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_libplacebo_tone_mapping_lut_type);
                         return 1;
                     }
                     continue;
@@ -1143,7 +1143,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     int value = 0;
                     if (get_list_value(list_vpp_libplacebo_tone_mapping_transfer, param_val.c_str(), &value)) {
                         vpp->libplacebo_tonemapping.dst_pl_transfer = (VppLibplaceboToneMappingTransfer)value;
-                    } else {    
+                    } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_transfer);
                         return 1;
                     }
@@ -1153,7 +1153,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     int value = 0;
                     if (get_list_value(list_vpp_libplacebo_tone_mapping_colorprim, param_val.c_str(), &value)) {
                         vpp->libplacebo_tonemapping.dst_pl_colorprim = (VppLibplaceboToneMappingColorprim)value;
-                    } else {    
+                    } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_colorprim);
                         return 1;
                     }
@@ -1240,7 +1240,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                
+
                 if (param_arg == _T("linear_knee")) {
                     try {
                         vpp->libplacebo_tonemapping.tone_constants.mobius.linear_knee = std::stof(param_val);
@@ -4372,7 +4372,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                             return 1;
                         }
                         continue;
-                    }   
+                    }
                 }
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
                 return 1;

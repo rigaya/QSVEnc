@@ -853,11 +853,11 @@ funcConvertCSP get_copy_alpha_func(RGY_CSP csp_from, RGY_CSP csp_to);
 const TCHAR *get_simd_str(RGY_SIMD simd);
 
 enum RGY_FRAME_FLAGS : uint32_t {
-    RGY_FRAME_FLAG_NONE          = 0x00u,
-    RGY_FRAME_FLAG_RFF           = 0x01u,
-    RGY_FRAME_FLAG_RFF_COPY      = 0x02u,
-    RGY_FRAME_FLAG_RFF_TFF       = 0x04u,
-    RGY_FRAME_FLAG_RFF_BFF       = 0x08u,
+    RGY_FRAME_FLAG_NONE     = 0x00u,
+    RGY_FRAME_FLAG_RFF      = 0x01u,
+    RGY_FRAME_FLAG_RFF_COPY = 0x02u,
+    RGY_FRAME_FLAG_RFF_TFF  = 0x04u,
+    RGY_FRAME_FLAG_RFF_BFF  = 0x08u,
 };
 
 static RGY_FRAME_FLAGS operator|(RGY_FRAME_FLAGS a, RGY_FRAME_FLAGS b) {

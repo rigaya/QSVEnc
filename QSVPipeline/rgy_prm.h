@@ -1434,7 +1434,7 @@ enum class VppLibplaceboToneMappingTransfer {
     HLG,
     VLog,
     SLog1,
-    SLog2,  
+    SLog2,
 };
 
 const CX_DESC list_vpp_libplacebo_tone_mapping_transfer[] = {
