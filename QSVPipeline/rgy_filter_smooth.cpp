@@ -220,11 +220,6 @@ RGY_ERR RGYFilterSmooth::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
                 } else if (subGroupSize < 8) {
                     log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("subGroupSize(%d) < 8 !\n"), subGroupSize);
                     return std::unique_ptr<RGYOpenCLProgram>();
-                } else if (subGroupSize < 32) {
-                    if (usefp16Dct) {
-                        log->write(RGY_LOG_WARN, RGY_LOGT_VPP, _T("subGroupSize(%d) < 32, fp16 dct disabled.\n"), subGroupSize);
-                        usefp16Dct = false;
-                    }
                 }
                 if (usefp16DctOrg && !usefp16Dct) {
                     log->write(RGY_LOG_DEBUG, RGY_LOGT_VPP, _T("Use fp16 opt: subGroupSize=%d.\n"), subGroupSize);

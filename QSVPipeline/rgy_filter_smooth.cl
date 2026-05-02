@@ -288,33 +288,63 @@ __kernel void kernel_smooth(
             const uchar2 offset = SPP_DEBLOCK_OFFSET[count - 1 + icount];
             const int offset1_x = offset.x;
             const int offset1_y = offset.y;
-            int offset2_x = 0;
-            int offset2_y = 0;
-            if (usefp16Dct) {
-                const uchar2 offset2 = SPP_DEBLOCK_OFFSET[count + icount];
-                offset2_x = offset2.x;
-                offset2_y = offset2.y;
-            }
+#if usefp16Dct
+            const uchar2 offset2 = SPP_DEBLOCK_OFFSET[count + icount];
+            const int offset2_x = offset2.x;
+            const int offset2_y = offset2.y;
+#else
+            const int offset2_x = 0;
+            const int offset2_y = 0;
+#endif
 
-            //fp16では、icount2つ分をSIMD的に2並列で処理するが、
-            //add_8x8tmpで衝突する可能性がある
-            //衝突するのは、warp(subgroup)間の書き込み先がオーバーラップした場合なので、
-            //そこで、warp(subgroup)間を1ブロック空けて処理することでオーバーラップが起こらないようにする
-            //1warp(subgroup)=32threadの場合、SPP_THREAD_BLOCK_X(blockDim)=8なので、
-            //warp1=local_bx[0-3], warp2=local_bx[4-7]
-            //local_bx 3と4の間をひとつ開けるようにする
-            //どのみち、1ブロックは別に処理する必要があるので、都合がよい
-            //1warp(subgroup)=64threadの場合、特に気にしなくてよい
-            //1warp(subgroup)=16threadの場合には対応できない
+#if usefp16Dct
+            // 2-phase parallel add. fp16 writes v.x at offset1 AND v.y at offset2 per lane,
+            // so adjacent lanes can collide in shared_out when |offset1_x - offset2_x| is large.
+            // We partition the 9 target_bx values {0..8} across two phases so that every pair of
+            // concurrently-executing cross-subgroup lanes has |target_bx_A - target_bx_B| >= 2,
+            // which guarantees their 8-wide write spans never overlap. This works for any
+            // subgroup size (SIMD8/16/32/64) — in particular Arc A770 SIMD16.
+            //
+            // Phase 1: local_bx {0,1,2,4,6} -> target_bx {0,8,2,4,6}  (lane 1 absorbs block 8)
+            // Phase 2: local_bx {1,3,5,7}   -> target_bx {1,3,5,7}
+            // Barrier between phases so phase-1 stores are visible before phase-2 reads.
+            {
+                int target_bx = 0;
+                bool enable1 = false;
+                switch (local_bx) {
+                    case 0: target_bx = 0; enable1 = true; break;
+                    case 1: target_bx = 8; enable1 = true; break;
+                    case 2: target_bx = 2; enable1 = true; break;
+                    case 4: target_bx = 4; enable1 = true; break;
+                    case 6: target_bx = 6; enable1 = true; break;
+                    default: break;
+                }
+                if (enable1) load_8x8tmp(shared_tmp[local_bx], shared_in, thWorker, target_bx, local_by, offset1_x, offset1_y, offset2_x, offset2_y);
+                dct8x8(enable1, shared_tmp[local_bx], thWorker);
+                if (enable1) threshold8x8(shared_tmp[local_bx], thWorker, threshold);
+                idct8x8(enable1, shared_tmp[local_bx], thWorker);
+                if (enable1) add_8x8tmp(shared_out, shared_tmp[local_bx], thWorker, target_bx, local_by, offset1_x, offset1_y, offset2_x, offset2_y);
+            }
+            barrier(CLK_LOCAL_MEM_FENCE);
+            {
+                const bool enable2 = (local_bx & 1) == 1;
+                const int target_bx = local_bx; // 1,3,5,7 when enable2
+                if (enable2) load_8x8tmp(shared_tmp[local_bx], shared_in, thWorker, target_bx, local_by, offset1_x, offset1_y, offset2_x, offset2_y);
+                dct8x8(enable2, shared_tmp[local_bx], thWorker);
+                if (enable2) threshold8x8(shared_tmp[local_bx], thWorker, threshold);
+                idct8x8(enable2, shared_tmp[local_bx], thWorker);
+                if (enable2) add_8x8tmp(shared_out, shared_tmp[local_bx], thWorker, target_bx, local_by, offset1_x, offset1_y, offset2_x, offset2_y);
+            }
+            barrier(CLK_LOCAL_MEM_FENCE);
+#else
+            //fp32 path: one write per lane per offset, so adjacent lanes never overlap.
+            //Keep the original single-phase-plus-serial-block-4 pattern.
             int target_bx = (local_bx < 4) ? local_bx : local_bx + 1;
             load_8x8tmp(shared_tmp[local_bx], shared_in, thWorker, target_bx, local_by, offset1_x, offset1_y, offset2_x, offset2_y);
             dct8x8(true, shared_tmp[local_bx], thWorker);
             threshold8x8(shared_tmp[local_bx], thWorker, threshold);
             idct8x8(true, shared_tmp[local_bx], thWorker);
             add_8x8tmp(shared_out, shared_tmp[local_bx], thWorker, target_bx, local_by, offset1_x, offset1_y, offset2_x, offset2_y);
-            if (usefp16Dct) {
-                barrier(CLK_LOCAL_MEM_FENCE);
-            }
             { // あまったブロックの処理
                 const bool enable = local_bx < 1;
                 target_bx = 4;
@@ -325,6 +355,7 @@ __kernel void kernel_smooth(
                 if (enable) add_8x8tmp(shared_out, shared_tmp[local_bx], thWorker, target_bx, local_by, offset1_x, offset1_y, offset2_x, offset2_y);
             }
             barrier(CLK_LOCAL_MEM_FENCE);
+#endif
         }
         if (local_by > 0) {
             store_8x8(ptrDst, dstPitch, dstWidth, dstHeight, shared_out, thWorker, local_bx+1, local_by, global_bx, global_by-1, quality);
