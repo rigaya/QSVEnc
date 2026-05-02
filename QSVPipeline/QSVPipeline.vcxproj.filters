@@ -898,6 +898,8 @@
     <None Include="rgy_filter_denoise_fft3d.cl">
       <Filter>ソース ファイル</Filter>
     </None>
-    <None Include="rgy_filter_ivtc.cl" />
+    <None Include="rgy_filter_ivtc.cl">
+      <Filter>ソース ファイル</Filter>
+    </None>
   </ItemGroup>
 </Project>
