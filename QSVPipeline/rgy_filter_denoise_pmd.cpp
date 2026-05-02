@@ -32,7 +32,8 @@
 #include <array>
 #include "rgy_filter_denoise_pmd.h"
 
-static const int KNN_RADIUS_MAX = 5;
+static const int PMD_BLOCK_X = 32;
+static const int PMD_BLOCK_Y = 8;
 
 static int final_dst_index(int loop_count) {
     return (loop_count - 1) & 1;
@@ -44,7 +45,7 @@ RGY_ERR RGYFilterDenoisePmd::runGaussPlane(RGYFrameInfo *pGaussPlane, const RGYF
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    RGYWorkSize local(32, 8);
+    RGYWorkSize local(PMD_BLOCK_X, PMD_BLOCK_Y);
     RGYWorkSize global(pInputPlane->width, pInputPlane->height);
     const char *kernel_name = "kernel_denoise_pmd_gauss";
     auto err = m_pmd.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
@@ -189,10 +190,11 @@ RGY_ERR RGYFilterDenoisePmd::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
         || !prmPrev
         || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]
         || prmPrev->pmd.useExp != pPmdParam->pmd.useExp) {
-        const auto options = strsprintf("-D Type=%s -D bit_depth=%d -D useExp=%d",
+        const auto options = strsprintf("-D Type=%s -D bit_depth=%d -D useExp=%d -D pmd_block_x=%d -D pmd_block_y=%d",
             RGY_CSP_BIT_DEPTH[pPmdParam->frameOut.csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[pPmdParam->frameOut.csp],
-            pPmdParam->pmd.useExp ? 1 : 0);
+            pPmdParam->pmd.useExp ? 1 : 0,
+            PMD_BLOCK_X, PMD_BLOCK_Y);
         m_pmd.set(m_cl->buildResourceAsync(_T("RGY_FILTER_DENOISE_PMD_CL"), _T("EXE_DATA"), options.c_str()));
     }
     if (!m_gauss

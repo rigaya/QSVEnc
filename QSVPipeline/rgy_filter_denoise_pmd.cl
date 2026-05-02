@@ -2,6 +2,8 @@
 // Type
 // bit_depth
 // useExp
+// pmd_block_x
+// pmd_block_y
 
 #ifndef clamp
 #define clamp(x, low, high) (((x) <= (high)) ? (((x) >= (low)) ? (x) : (low)) : (high))
@@ -15,23 +17,52 @@ float pmd(float x, float strength2, float inv_threshold2) {
     return strength2 * native_recip(1.0f + (x*x * inv_threshold2));
 }
 
+// Gaussian is separable: G2D(x,y) = G1D(x) * G1D(y). This fused kernel does both
+// 1D passes in SLM — one cooperative global load, then two tight SLM loops —
+// dropping 25 sampler fetches/pixel to ~1-2 loads/thread + 10 SLM taps/pixel.
+__attribute__((reqd_work_group_size(pmd_block_x, pmd_block_y, 1)))
 __kernel void kernel_denoise_pmd_gauss(
     __global uchar *restrict pDst,
     const int dstPitch, const int dstWidth, const int dstHeight,
     __read_only image2d_t tSrc) {
     const float weight[5] = { 1.0f / 16.0f, 4.0f / 16.0f, 6.0f / 16.0f, 4.0f / 16.0f, 1.0f / 16.0f };
-    const int ix = get_global_id(0);
-    const int iy = get_global_id(1);
+    const int thx = get_local_id(0);
+    const int thy = get_local_id(1);
+    const int bx  = get_group_id(0) * pmd_block_x;
+    const int by  = get_group_id(1) * pmd_block_y;
+    const int ix  = bx + thx;
+    const int iy  = by + thy;
     const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
+
+    // Halo-padded source tile.
+    __local float tile[pmd_block_y + 4][pmd_block_x + 4];
+    for (int j = thy; j < pmd_block_y + 4; j += pmd_block_y) {
+        for (int i = thx; i < pmd_block_x + 4; i += pmd_block_x) {
+            const int srcx = clamp(bx + i - 2, 0, dstWidth - 1);
+            const int srcy = clamp(by + j - 2, 0, dstHeight - 1);
+            tile[j][i] = (float)read_imagef(tSrc, sampler, (int2)(srcx, srcy)).x;
+        }
+    }
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    // Horizontal pass into a halo-height intermediate, each column owned by thx.
+    __local float hpass[pmd_block_y + 4][pmd_block_x];
+    for (int j = thy; j < pmd_block_y + 4; j += pmd_block_y) {
+        float s = 0.0f;
+        #pragma unroll
+        for (int i = 0; i < 5; i++) {
+            s += tile[j][thx + i] * weight[i];
+        }
+        hpass[j][thx] = s;
+    }
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    // Vertical pass: 5-tap weighted sum from hpass → output.
     if (ix < dstWidth && iy < dstHeight) {
         float sum = 0.0f;
+        #pragma unroll
         for (int j = 0; j < 5; j++) {
-            float sum_line = 0.0f;
-            #pragma unroll
-            for (int i = 0; i < 5; i++) {
-                sum_line += (float)read_imagef(tSrc, sampler, (int2)(ix-2+i, iy-2+j)).x * weight[i];
-            }
-            sum += sum_line * weight[j];
+            sum += hpass[thy + j][thx] * weight[j];
         }
         __global Type *ptr = (__global Type *)(pDst + iy * dstPitch + ix * sizeof(Type));
         ptr[0] = (Type)(sum * (float)((1<<bit_depth)-1) + 0.5f);
