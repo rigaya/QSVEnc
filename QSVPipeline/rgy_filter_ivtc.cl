@@ -1,4 +1,4 @@
-﻿// Type
+// Type
 // bit_depth
 // ivtc_block_x
 // ivtc_block_y
@@ -12,7 +12,7 @@
 // The filter coefficients in kernel_ivtc_bwdif_deint (5077, 981,
 // 4309, 213, 5570, 3801, 1016) are the published PH-2071 values
 // and are shared across all independent BWDIF implementations.
-// See ACKNOWLEDGMENTS.md at the repository root.
+// See docs/ACKNOWLEDGMENTS.md.
 // --------------------------------------
 
 #ifndef clamp
@@ -24,7 +24,7 @@
 // or exceeds this threshold. After the c2 removal (rgy_filter_ivtc.cl
 // :186), the maximum per-WG cX sum is 128 (8 first-parity rows * 16
 // columns). 8 combed pixels = ~6% of the tested sample in the block,
-// roughly matching TFM's default sensitivity (~6 pixels in a 24x24
+// roughly matching Decomb's Telecide default sensitivity (~6 pixels in a 24x24
 // block). Diagnostic-only in SUB-PHASE 1 — not consumed by any gate.
 #ifndef BLOCK_COMB_THRESH
 #define BLOCK_COMB_THRESH 8
@@ -233,7 +233,7 @@ __kernel void kernel_ivtc_score_candidates(
         // Each flag is 1 iff the block's combed-pixel sum for that candidate
         // meets BLOCK_COMB_THRESH, else 0. Host-side aggregation SUMS these
         // across WGs to yield a per-frame combed-block count (not a pixel
-        // count) — TFM-style primary selection signal.
+        // count) — Telecide-style primary selection signal.
         const uint blockSumC = lred[3 * WG_SIZE];
         const uint blockSumP = lred[4 * WG_SIZE];
         const uint blockSumN = lred[5 * WG_SIZE];
@@ -433,15 +433,16 @@ __kernel void kernel_ivtc_synthesize(
 
 
 // --- Full BWDIF deinterlacer for IVTC ------------------------------------
-// Used only when combing remains after field-matching and the IVTC
-// post-processing gate decides reconstruction is needed. IVTC owns a 5-frame
+// Used only when D2V identifies the frame as truly interlaced AND combing
+// remains after field-matching (post=2 would fire). IVTC owns a 5-frame
 // ring (prev2/prev/cur/next/next2) so the full BBC PH-2071 temporal window
 // is available. During ring startup (first 2 frames) or drain (last 2)
 // prev2/next2 alias to prev/next — the caller in rgy_filter_ivtc.cpp
 // handles the aliasing; kernel math degrades to a 3-frame approximation
 // just like BWDIF does before its ring fills.
 //
-// Preserved-field rows are sourced from pCur.
+// Preserved-field rows are sourced from pCur (match=C is enforced for
+// D2V-interlaced frames in processInputToCycle).
 // Missing-field rows run the full motion-adaptive w3fdif reconstruction.
 //
 // FIELD-PARITY CORRECTION (2026-04-21):
@@ -504,7 +505,7 @@ __kernel void kernel_ivtc_bwdif_deint(
     __global Type *dstPix = (__global Type *)(pDst + iy * dstPitch + ix * sizeof(Type));
 
     if (!needsInterp) {
-        // First-field row (preserved): straight from the current frame.
+        // First-field row (preserved): straight from the D2V-forced match=C.
         dstPix[0] = (Type)ivtc_readPix(pCur, ix, iy, srcPitch, dstWidth, dstHeight);
         return;
     }
@@ -567,13 +568,26 @@ __kernel void kernel_ivtc_bwdif_deint(
     const int nUp  = ivtc_readPix(pNext, ix, iy - 1, srcPitch, dstWidth, dstHeight);
     const int nDn  = ivtc_readPix(pNext, ix, iy + 1, srcPitch, dstWidth, dstHeight);
 
-    const int motA = abs(p2_0 - n2_0);
-    const int motB = (abs(pUp - rowU) + abs(pDn - rowL)) >> 1;
-    const int motC = (abs(nUp - rowU) + abs(nDn - rowL)) >> 1;
-    int motion = max(motA >> 1, max(motB, motC));
+    // YADIF temporal motion metric (Michael Niedermayer, 2006). Three
+    // independent estimates of motion at the missing-row position,
+    // reduced to their peak. Independent re-implementation; the published
+    // metric is widely shared across deinterlacers.
+    //   - crossTimeFull spans 2*T (prev2 to next2 is one full input-frame
+    //     interval), so it is halved before reduction so it is comparable
+    //     with the same-time-step pair averages below.
+    //   - prev / next pair averages are the mean across the two
+    //     preserved-parity rows that bracket the target row.
+    const int crossTimeFull    = abs(p2_0 - n2_0);              // reused for the verticalEdge gate below
+    const int prevPairDeltaSum = abs(pUp - rowU) + abs(pDn - rowL);
+    const int nextPairDeltaSum = abs(nUp - rowU) + abs(nDn - rowL);
+    const int prevPairAvg      = prevPairDeltaSum >> 1;
+    const int nextPairAvg      = nextPairDeltaSum >> 1;
+    int motion = crossTimeFull >> 1;
+    if (prevPairAvg > motion) motion = prevPairAvg;
+    if (nextPairAvg > motion) motion = nextPairAvg;
 
     // Motion threshold is 0 for IVTC's post-path: we only reach this kernel
-    // when post=2 has already decided reconstruction is warranted. For
+    // when D2V+post=2 has already decided reconstruction is warranted. For
     // effectively-static content (motion==0) the tAvg fallback is correct.
     if (motion == 0) {
         dstPix[0] = (Type)tAvg;
@@ -592,13 +606,33 @@ __kernel void kernel_ivtc_bwdif_deint(
 
     int localMotion = motion;
     if (hasSpatBounds) {
-        const int spreadU = ((p2_m2 + n2_m2) >> 1) - rowU;
-        const int spreadL = ((p2_p2 + n2_p2) >> 1) - rowL;
-        const int dU      = tAvg - rowU;
-        const int dL      = tAvg - rowL;
-        const int hiSet   = max(dL, max(dU, min(spreadU, spreadL)));
-        const int loSet   = min(dL, min(dU, max(spreadU, spreadL)));
-        localMotion = max(localMotion, max(loSet, -hiSet));
+        // Spatial-spread motion-corridor refinement (algorithm from
+        // YADIF / BWDIF lineage; published, independently re-implemented
+        // here in OpenCL).
+        //
+        // Idea: the ±2 same-parity neighbors give two predicted drifts
+        // for how the missing-row pixel could deviate from tAvg. Combine
+        // those with the per-side tAvg-vs-cur drifts to derive an upper
+        // and lower deviation bound, then widen localMotion to absorb
+        // whichever bound is the larger absolute corridor edge.
+        const int predDriftAboveCur = ((p2_m2 + n2_m2) >> 1) - rowU;
+        const int predDriftBelowCur = ((p2_p2 + n2_p2) >> 1) - rowL;
+        const int avgDriftAboveCur  = tAvg - rowU;
+        const int avgDriftBelowCur  = tAvg - rowL;
+        // Inner-spread bracket: the smaller of the two pred drifts (the
+        // narrower predicted edge) and the larger.
+        const int innerSpreadHi = (predDriftAboveCur < predDriftBelowCur) ? predDriftAboveCur : predDriftBelowCur;
+        const int innerSpreadLo = (predDriftAboveCur > predDriftBelowCur) ? predDriftAboveCur : predDriftBelowCur;
+        // Sequential reduction over the three deviation candidates.
+        int upperBound = avgDriftAboveCur;
+        if (avgDriftBelowCur > upperBound) upperBound = avgDriftBelowCur;
+        if (innerSpreadHi    > upperBound) upperBound = innerSpreadHi;
+        int lowerBound = avgDriftAboveCur;
+        if (avgDriftBelowCur < lowerBound) lowerBound = avgDriftBelowCur;
+        if (innerSpreadLo    < lowerBound) lowerBound = innerSpreadLo;
+        // Absorb whichever side produces the larger corridor edge.
+        const int spreadMargin = (lowerBound > -upperBound) ? lowerBound : -upperBound;
+        if (spreadMargin > localMotion) localMotion = spreadMargin;
     }
 
     int spatial;
@@ -613,7 +647,7 @@ __kernel void kernel_ivtc_bwdif_deint(
         const int curD3 = ivtc_readPix(pCur,  ix, iy + 3, srcPitch, dstWidth, dstHeight);
 
         const int verticalEdge = abs(rowU - rowL);
-        if (verticalEdge > motA) {
+        if (verticalEdge > crossTimeFull) {
             const int hf = ( IVTC_W3F_HF0 * (p2_0 + n2_0)
                            - IVTC_W3F_HF1 * (p2_m2 + n2_m2 + p2_p2 + n2_p2)
                            + IVTC_W3F_HF2 * (p2_m4 + n2_m4 + p2_p4 + n2_p4)) >> 2;
@@ -628,12 +662,13 @@ __kernel void kernel_ivtc_bwdif_deint(
     }
 
     // Smooth adaptive temporal/spatial blend (replaces the early-return
-    // hard-switch that used motA < dthresh). Motion metric:
+    // hard-switch that used crossTimeFull < dthresh). Motion metric:
     //   motHybrid = max(|p2_0 - original|, |n2_0 - original|)
     // where p2_0 and n2_0 are same-parity averaged reads from prev2/next2
     // and original = cur[ix,iy]. Catches motion in EITHER direction
     // around cur — more responsive than the |p2_0 - n2_0| symmetric
-    // difference (motA) used by the BWDIF motion-corridor logic above.
+    // difference (crossTimeFull) used by the YADIF/BWDIF-style motion
+    // corridor logic above.
     //
     // motion_thresh = 2 * dthresh decouples the temporal-motion scale
     // from the spatial-combing tolerance.

@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------------------
 // QSVEnc/NVEnc/VCEEnc by rigaya
 // -----------------------------------------------------------------------------------------
 //
@@ -122,10 +122,23 @@ __kernel void kernel_bwdif_frame(
     const int nUp  = readPix(pNext,  ix, iy - 1, srcPitch, width, height);
     const int nDn  = readPix(pNext,  ix, iy + 1, srcPitch, width, height);
 
-    const int motA = abs(p2_0 - n2_0);                              // same-parity temporal motion
-    const int motB = (abs(pUp - rowU) + abs(pDn - rowL)) >> 1;      // prev-cur motion
-    const int motC = (abs(nUp - rowU) + abs(nDn - rowL)) >> 1;      // cur-next motion
-    int motion = max(motA >> 1, max(motB, motC));
+    // YADIF temporal motion metric (Michael Niedermayer, 2006). Three
+    // independent estimates of motion at the missing-row position,
+    // reduced to their peak. Independent re-implementation; the published
+    // metric is widely shared across deinterlacers.
+    //   - crossTimeFull spans 2*T (prev2 to next2 is one full input-frame
+    //     interval), so it is halved before reduction so it is comparable
+    //     with the same-time-step pair averages below.
+    //   - prev / next pair averages are the mean across the two
+    //     preserved-parity rows that bracket the target row.
+    const int crossTimeFull    = abs(p2_0 - n2_0);              // reused for the verticalEdge gate below
+    const int prevPairDeltaSum = abs(pUp - rowU) + abs(pDn - rowL);
+    const int nextPairDeltaSum = abs(nUp - rowU) + abs(nDn - rowL);
+    const int prevPairAvg      = prevPairDeltaSum >> 1;
+    const int nextPairAvg      = nextPairDeltaSum >> 1;
+    int motion = crossTimeFull >> 1;
+    if (prevPairAvg > motion) motion = prevPairAvg;
+    if (nextPairAvg > motion) motion = nextPairAvg;
 
     if (motion <= thr) {
         dstPix[0] = (Type)clamp(tAvg, 0, max_val);
@@ -135,20 +148,44 @@ __kernel void kernel_bwdif_frame(
     const int hasSpatBounds = (iy >= 2) && (iy < height - 2);
     const int hasFullCtx    = (iy >= 4) && (iy < height - 4);
 
+    // ±2 prev2/next2 samples: shared between the hasSpatBounds bound-tightening and
+    // the hasFullCtx HF coefficient sum. Load once; readPix clamps x/y so ±2 indices
+    // are safe for all iy even when hasSpatBounds is false (edge rows <2 rows from border).
+    const int p2_m2 = readPix(pPrev2, ix, iy - 2, srcPitch, width, height);
+    const int p2_p2 = readPix(pPrev2, ix, iy + 2, srcPitch, width, height);
+    const int n2_m2 = readPix(pNext2, ix, iy - 2, srcPitch, width, height);
+    const int n2_p2 = readPix(pNext2, ix, iy + 2, srcPitch, width, height);
+
     // Tighten the motion bound using the ±2 vertical spread of same-parity temporal refs.
     int localMotion = motion;
     if (hasSpatBounds) {
-        const int p2_m2 = readPix(pPrev2, ix, iy - 2, srcPitch, width, height);
-        const int p2_p2 = readPix(pPrev2, ix, iy + 2, srcPitch, width, height);
-        const int n2_m2 = readPix(pNext2, ix, iy - 2, srcPitch, width, height);
-        const int n2_p2 = readPix(pNext2, ix, iy + 2, srcPitch, width, height);
-        const int spreadU = ((p2_m2 + n2_m2) >> 1) - rowU;
-        const int spreadL = ((p2_p2 + n2_p2) >> 1) - rowL;
-        const int dU      = tAvg - rowU;
-        const int dL      = tAvg - rowL;
-        const int hiSet   = max(dL, max(dU, min(spreadU, spreadL)));
-        const int loSet   = min(dL, min(dU, max(spreadU, spreadL)));
-        localMotion = max(localMotion, max(loSet, -hiSet));
+        // Spatial-spread motion-corridor refinement (algorithm from
+        // YADIF / BWDIF lineage; published, independently re-implemented
+        // here in OpenCL).
+        //
+        // Idea: the ±2 same-parity neighbors give two predicted drifts
+        // for how the missing-row pixel could deviate from tAvg. Combine
+        // those with the per-side tAvg-vs-cur drifts to derive an upper
+        // and lower deviation bound, then widen localMotion to absorb
+        // whichever bound is the larger absolute corridor edge.
+        const int predDriftAboveCur = ((p2_m2 + n2_m2) >> 1) - rowU;
+        const int predDriftBelowCur = ((p2_p2 + n2_p2) >> 1) - rowL;
+        const int avgDriftAboveCur  = tAvg - rowU;
+        const int avgDriftBelowCur  = tAvg - rowL;
+        // Inner-spread bracket: the smaller of the two pred drifts (the
+        // narrower predicted edge) and the larger.
+        const int innerSpreadHi = (predDriftAboveCur < predDriftBelowCur) ? predDriftAboveCur : predDriftBelowCur;
+        const int innerSpreadLo = (predDriftAboveCur > predDriftBelowCur) ? predDriftAboveCur : predDriftBelowCur;
+        // Sequential reduction over the three deviation candidates.
+        int upperBound = avgDriftAboveCur;
+        if (avgDriftBelowCur > upperBound) upperBound = avgDriftBelowCur;
+        if (innerSpreadHi    > upperBound) upperBound = innerSpreadHi;
+        int lowerBound = avgDriftAboveCur;
+        if (avgDriftBelowCur < lowerBound) lowerBound = avgDriftBelowCur;
+        if (innerSpreadLo    < lowerBound) lowerBound = innerSpreadLo;
+        // Absorb whichever side produces the larger corridor edge.
+        const int spreadMargin = (lowerBound > -upperBound) ? lowerBound : -upperBound;
+        if (spreadMargin > localMotion) localMotion = spreadMargin;
     }
 
     int interp;
@@ -159,15 +196,11 @@ __kernel void kernel_bwdif_frame(
         const int p2_p4 = readPix(pPrev2, ix, iy + 4, srcPitch, width, height);
         const int n2_m4 = readPix(pNext2, ix, iy - 4, srcPitch, width, height);
         const int n2_p4 = readPix(pNext2, ix, iy + 4, srcPitch, width, height);
-        const int p2_m2 = readPix(pPrev2, ix, iy - 2, srcPitch, width, height);
-        const int p2_p2 = readPix(pPrev2, ix, iy + 2, srcPitch, width, height);
-        const int n2_m2 = readPix(pNext2, ix, iy - 2, srcPitch, width, height);
-        const int n2_p2 = readPix(pNext2, ix, iy + 2, srcPitch, width, height);
         const int curU3 = readPix(pCur,   ix, iy - 3, srcPitch, width, height);
         const int curD3 = readPix(pCur,   ix, iy + 3, srcPitch, width, height);
 
         const int verticalEdge = abs(rowU - rowL);
-        if (verticalEdge > motA) {
+        if (verticalEdge > crossTimeFull) {
             const int hf = ( W3F_HF0 * (p2_0 + n2_0)
                            - W3F_HF1 * (p2_m2 + n2_m2 + p2_p2 + n2_p2)
                            + W3F_HF2 * (p2_m4 + n2_m4 + p2_p4 + n2_p4)) >> 2;

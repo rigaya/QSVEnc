@@ -35,7 +35,7 @@
 // The filter coefficients in kernel_ivtc_bwdif_deint (5077, 981,
 // 4309, 213, 5570, 3801, 1016) are the published PH-2071 values
 // and are shared across all independent BWDIF implementations.
-// See ACKNOWLEDGMENTS.md at the repository root.
+// See docs/ACKNOWLEDGMENTS.md.
 // --------------------------------------
 
 #include <algorithm>
@@ -1062,13 +1062,14 @@ void RGYFilterIvtc::resetCadenceState() {
 // returns: -1 if no prediction available (not locked), else predicted match for
 //          the NEXT frame.
 int RGYFilterIvtc::updateCadence(int observedMatch) {
-    // Phase B3 rewrite (2026-04-22): CCN-only patterns ported from TFM's
-    // PredictHardYUY2 (Telecide.h:432-464). Previously we tracked C/P/N
-    // rotations with P in them; TFM's patterns are pure C/N because P is
-    // only produced via back-on-combed fallback, not by clean pulldown.
+    // Phase B3 rewrite (2026-04-22): CCN-only patterns based on the
+    // algorithm in Decomb's Telecide PredictHardYUY2 (Telecide.h:432-464,
+    // GPL-2.0). Previously we tracked C/P/N rotations with P in them;
+    // Decomb's patterns are pure C/N because P is only produced via
+    // back-on-combed fallback, not by clean pulldown.
     //
     // Encoding: IvtcMatch::C=0, IvtcMatch::P=1, IvtcMatch::N=2. This is
-    // different from TFM's P=0/C=1/N=2 encoding, but the patterns
+    // different from Decomb's P=0/C=1/N=2 encoding, but the patterns
     // themselves are the same shape.
     //
     // guide=1 (GUIDE_32, NTSC 3:2): base cycle "C C C N N" — 5 rotations.
@@ -1219,8 +1220,9 @@ RGY_ERR RGYFilterIvtc::scoreCandidates(const RGYFrameInfo *prev, const RGYFrameI
     //
     // PRIORITY 1 (2026-04-24): in parallel with the trimmed-average, also
     // emit block-MAX across WGs for the three combing channels
-    // (cC, cP, cN) into outMax[0..2]. This mirrors TFM's highest_sumc
-    // semantics (Telecide.cpp:1016-1035 — single hot block dominates the
+    // (cC, cP, cN) into outMax[0..2]. This mirrors the highest_sumc
+    // semantics from Decomb's Telecide (Telecide.cpp:1016-1035, GPL-2.0
+    // — single hot block dominates the
     // frame-level metric). The trimmed-average is retained for noise
     // robustness; the MAX is added as a sibling signal so callers can
     // choose which to drive the blend gate. No kernel change needed —
@@ -1263,7 +1265,7 @@ RGY_ERR RGYFilterIvtc::scoreCandidates(const RGYFrameInfo *prev, const RGYFrameI
         //
         // PRIORITY 1 (2026-04-24): in the SAME pass, track MAX across WGs
         // for the three combing channels only (indices 3,4,5 = cC,cP,cN).
-        // This is the TFM highest_sumc analogue. No CLIP_THRESH here —
+        // This is the Decomb's Telecide highest_sumc analogue. No CLIP_THRESH here —
         // we want the raw worst block, not a trimmed signal. MAX is taken
         // over EVERY WG's block sum, including WGs that would be clipped
         // by the trimmed-average. That is the point: a single hot block
@@ -1321,7 +1323,7 @@ RGY_ERR RGYFilterIvtc::scoreCandidates(const RGYFrameInfo *prev, const RGYFrameI
     // not sum. The MAX semantic is "worst block across the whole frame";
     // extending to chroma means "worst block across Y/U/V." A quarter-
     // weight sum (as used for the trimmed-average) would smear the MAX
-    // and break the TFM-equivalent property we want. Keep chroma-MAX
+    // and break the highest_sumc-equivalent property we want. Keep chroma-MAX
     // at quarter-weight still so the scales stay comparable to the
     // luma-only case, but combine with MAX, not +=.
     const bool planesSeparate = (RGY_CSP_PLANES[cur->csp] >= 3);
@@ -1731,7 +1733,8 @@ RGY_ERR RGYFilterIvtc::pushFrameToRing(const RGYFrameInfo *pFrame, RGYOpenCLQueu
     return RGY_ERR_NONE;
 }
 
-// Port of DGDecode vfapidec.cpp:461-499 FrameList state machine. Operates
+// Algorithm from DGDecode vfapidec.cpp:461-499 FrameList state machine
+// (GPL-2.0); independent re-implementation. Operates
 // on the pre-scanned per-frame RFF flags (see ivtcPreScanInput). Output
 // indices in m_displayFrameList are POST-TRIM, i.e. 0-based against the
 // stream of frames run_filter will receive at runtime. See
@@ -2154,7 +2157,7 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
 
     uint64_t matchScore [3] = { 0, 0, 0 };
     uint64_t combScore  [3] = { 0, 0, 0 };
-    uint64_t combMax    [3] = { 0, 0, 0 };   // PRIORITY 1: TFM-style block-MAX per candidate
+    uint64_t combMax    [3] = { 0, 0, 0 };   // PRIORITY 1: Telecide-style block-MAX per candidate
     uint64_t combBlocks [3] = { 0, 0, 0 };   // SUB-PHASE 1: count of blocks with cX >= BLOCK_COMB_THRESH
     auto err = scoreCandidates(
         &m_cacheFrames[idx_prev]->frame,
@@ -2535,7 +2538,7 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
         // ========================================================================
         // SUB-PHASE 4 (2026-04-25) — Rescue Pass (comb-only fallback).
         // --------------------------------------------------------------
-        // TFM-style additive rescue: re-rank the existing 6 candidates
+        // Telecide-style additive rescue: re-rank the existing 6 candidates
         // by combing only (no matchScore tiebreak) when the chosen
         // candidate has structural combing but isn't bad enough to
         // trigger the blend gate. Targets near-threshold failures
@@ -2753,8 +2756,9 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
         matchAltParity = false;
 
         // -- 2c. Cadence pattern-predicted match override (Phase B3) -------
-        // Port of TFM's PredictHardYUY2 + gthresh validation
-        // (Telecide.cpp:276-304). Flow:
+        // Based on the algorithm in Decomb's Telecide PredictHardYUY2
+        // + gthresh validation (Telecide.cpp:276-304, GPL-2.0);
+        // independent re-implementation. Flow:
         //
         //   1. Feed argmin winner into 5-frame ring, get prediction (or -1).
         //   2. If prediction available AND gthresh > 0:
@@ -2765,7 +2769,7 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
         //   4. cadenceLock=off also disables — pattern history still tracked
         //      for diagnostic logging but never applied.
         //
-        // TFM uses gthresh=10 as default; same here. The gate is symmetric
+        // Decomb's Telecide uses gthresh=10 as default; same here. The gate is symmetric
         // — requires pred_score within 10% of argmin in EITHER direction.
         //
         // Cadence tag encoding (for log):
@@ -3065,7 +3069,7 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
     //     NO single block strongly combed (no cCombMax spike). Such a
     //     case would be a texture false positive; requiring cCombMax>85
     //     ensures at least one 16x16 block has a concentrated combing
-    //     signature, matching TFM's highest_sumc semantics.
+    //     signature, matching the highest_sumc semantics from Decomb's Telecide.
     //   - Threshold 85 (not 100) calibrated to preserve DH2 frame #712
     //     which has cCombMax=88 — a legitimate catch on sw-weaved
     //     content. Raising to 100 would lose that catch.
@@ -3091,7 +3095,8 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
     //       692 blends) because progressive texture at cComb=66..70 with
     //       mQ=395..700 passed a cComb-only gate.
     //
-    //   (2) vthresh veto (TFM vmetric analogue, Telecide.cpp:376-397): on
+    //   (2) vthresh veto (analogue of the vmetric gate in Decomb's Telecide,
+    //       Telecide.cpp:376-397, GPL-2.0): on
     //       top of (1), require chosenCombScore >= vthresh. Default 50 —
     //       below combThreshProg (65) so it only filters frames that
     //       reached (1) via the strongMatch branch (which has no cComb
@@ -3102,7 +3107,7 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
     //
     // Key property: vthresh can only REMOVE blends relative to fix5, never
     // ADD them. With default 50 the effect is minimal — a safety net for
-    // the strongMatch branch. Users who want TFM-style post-assembly
+    // the strongMatch branch. Users who want Telecide-style post-assembly
     // discipline can raise vthresh toward 65; this will start trimming
     // blends that the classifier gate flagged but the assembled frame
     // doesn't actually need.

@@ -35,7 +35,7 @@
 // The filter coefficients in kernel_ivtc_bwdif_deint (5077, 981,
 // 4309, 213, 5570, 3801, 1016) are the published PH-2071 values
 // and are shared across all independent BWDIF implementations.
-// See ACKNOWLEDGMENTS.md at the repository root.
+// See docs/ACKNOWLEDGMENTS.md.
 // --------------------------------------
 
 #pragma once
