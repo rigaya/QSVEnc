@@ -101,6 +101,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
       - unsharp
       - edgelevel (edge ​​level adjustment)
       - warpsharp
+      - maa (masked anti-aliasing)
 
 ### QSVEncC
 - Supports QSV(hw) decoding
