@@ -66,20 +66,10 @@ protected:
     // plane (luma or chroma) of the given source, writing to the matching
     // plane of dst. Caller chooses the plane via `plane` and passes the
     // bit-depth-scaled threshold (m_aaf for luma, m_aacf for chroma).
-    //
-    // perfPrepareMs / perfSmoothMs / perfFinalizeMs (optional, may be null)
-    // accumulate per-sub-stage host-wall-clock milliseconds when the caller
-    // is doing first-frame perf instrumentation. When non-null, the helper
-    // calls `queue.finish()` between sub-stages to make the timings GPU-
-    // accurate (at the cost of breaking pipelining — only enabled on the
-    // first frame).
     RGY_ERR sangnomPassPlane(const RGYFrameInfo *pSrc, RGYFrameInfo *pDst,
                              RGY_PLANE plane, float aaf,
                              RGYOpenCLQueue &queue,
-                             const std::vector<RGYOpenCLEvent> &wait_events,
-                             double *perfPrepareMs = nullptr,
-                             double *perfSmoothMs = nullptr,
-                             double *perfFinalizeMs = nullptr);
+                             const std::vector<RGYOpenCLEvent> &wait_events);
 
     // Edge-mask construction: simplified Sobel + inflate, both at source
     // luma resolution. mthreshScaled is the bit-depth-scaled threshold.
@@ -196,22 +186,6 @@ protected:
     float m_aaf;
     float m_aacf;
     int   m_mthreshScaled;
-
-    // [MAA-PERF-INSTRUMENT] First-frame stage-by-stage timing.
-    // m_perfLogged is set to true after the first frame's per-stage
-    // breakdown is dumped to the log; subsequent frames skip the
-    // (queue.finish() between stages) instrumentation.
-    bool  m_perfLogged;
-
-    // [MAA-WG-SIZE-EXPERIMENT] Workgroup dimensions for the smooth
-    // kernel. Defaults to (MAA_BLOCK_X, MAA_BLOCK_Y) = (32, 8) but
-    // can be overridden at init time via the environment variables
-    //   RGY_MAA_WG_X — local-x (8 / 16 / 32 sensible)
-    //   RGY_MAA_WG_Y — local-y (4 / 8 / 16 sensible)
-    // so different sizes can be benchmarked without recompiling.
-    // Logged at init time.
-    int   m_smoothBlockX;
-    int   m_smoothBlockY;
 };
 
 #endif // __RGY_FILTER_MAA_H__

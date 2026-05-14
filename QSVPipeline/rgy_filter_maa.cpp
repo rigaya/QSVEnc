@@ -27,9 +27,7 @@
 // ------------------------------------------------------------------------------------------
 
 #include <algorithm>
-#include <chrono>
 #include <cmath>
-#include <cstdlib>
 #include "convert_csp.h"
 #include "rgy_filter_maa.h"
 #include "rgy_filter_resize.h"
@@ -69,10 +67,7 @@ RGYFilterMaa::RGYFilterMaa(shared_ptr<RGYOpenCLContext> context) :
     m_ssH(0),
     m_aaf(0.0f),
     m_aacf(0.0f),
-    m_mthreshScaled(0),
-    m_perfLogged(false),
-    m_smoothBlockX(MAA_BLOCK_X),
-    m_smoothBlockY(MAA_BLOCK_Y) {
+    m_mthreshScaled(0) {
     m_name = _T("maa");
 }
 
@@ -313,33 +308,6 @@ RGY_ERR RGYFilterMaa::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog>
         prm->frameIn.width, prm->frameIn.height, prm->maa.ss, m_ssW, m_ssH,
         bitDepth, peak, m_aaf, m_aacf, m_mthreshScaled);
 
-    // [MAA-WG-SIZE-EXPERIMENT] Read RGY_MAA_WG_X / RGY_MAA_WG_Y env vars
-    // to override the smooth kernel's workgroup dimensions. Validates
-    // against a sensible whitelist; falls back to the compile-time
-    // (MAA_BLOCK_X, MAA_BLOCK_Y) defaults on parse failure or out-of-range.
-    {
-        m_smoothBlockX = MAA_BLOCK_X;
-        m_smoothBlockY = MAA_BLOCK_Y;
-        bool overridden = false;
-        const char *envX = std::getenv("RGY_MAA_WG_X");
-        const char *envY = std::getenv("RGY_MAA_WG_Y");
-        if (envX && *envX) {
-            int v = std::atoi(envX);
-            if (v == 8 || v == 16 || v == 32) { m_smoothBlockX = v; overridden = true; }
-        }
-        if (envY && *envY) {
-            int v = std::atoi(envY);
-            if (v == 4 || v == 8 || v == 16) { m_smoothBlockY = v; overridden = true; }
-        }
-        AddMessage(RGY_LOG_INFO, _T("maa: smooth workgroup size: %dx%dx1%s\n"),
-            m_smoothBlockX, m_smoothBlockY,
-            overridden ? _T(" (env override)") : _T(" (default)"));
-    }
-
-    // [MAA-PERF-INSTRUMENT] Reset first-frame timing flag so a re-init
-    // (param change at runtime) re-emits the breakdown.
-    m_perfLogged = false;
-
     setFilterInfo(prm->print() + strsprintf(_T(" (ssDims=%dx%d)"), m_ssW, m_ssH));
     m_param = prm;
     return sts;
@@ -395,10 +363,7 @@ RGY_ERR RGYFilterMaa::fturnRightFrame(RGYFrameInfo *pDst, const RGYFrameInfo *pS
 RGY_ERR RGYFilterMaa::sangnomPassPlane(const RGYFrameInfo *pSrc, RGYFrameInfo *pDst,
                                         RGY_PLANE plane, float aaf,
                                         RGYOpenCLQueue &queue,
-                                        const std::vector<RGYOpenCLEvent> &wait_events,
-                                        double *perfPrepareMs,
-                                        double *perfSmoothMs,
-                                        double *perfFinalizeMs) {
+                                        const std::vector<RGYOpenCLEvent> &wait_events) {
     const auto sP = getPlane(pSrc, plane);
     const auto dP = getPlane(pDst, plane);
     const int srcW = sP.width;
@@ -410,7 +375,6 @@ RGY_ERR RGYFilterMaa::sangnomPassPlane(const RGYFrameInfo *pSrc, RGYFrameInfo *p
     // into the single packed cost buffer at sub-buffer offsets 0..8 ×
     // m_costSliceBytes.
     {
-        const auto t0 = std::chrono::high_resolution_clock::now();
         RGYWorkSize local(MAA_BLOCK_X, MAA_BLOCK_Y);
         RGYWorkSize global(bufW, bufH);
         auto err = m_maa.get()->kernel("maa_sangnom_prepare")
@@ -424,11 +388,6 @@ RGY_ERR RGYFilterMaa::sangnomPassPlane(const RGYFrameInfo *pSrc, RGYFrameInfo *p
                 (int)plane, get_err_mes(err));
             return err;
         }
-        if (perfPrepareMs) {
-            queue.finish();
-            const auto t1 = std::chrono::high_resolution_clock::now();
-            *perfPrepareMs += std::chrono::duration<double, std::milli>(t1 - t0).count();
-        }
     }
 
     // Stage 2 — smooth (3×7 spatial blur of each cost slice).
@@ -440,13 +399,8 @@ RGY_ERR RGYFilterMaa::sangnomPassPlane(const RGYFrameInfo *pSrc, RGYFrameInfo *p
     // CL enqueue operations per frame. The 2-D fallback kernel
     // `maa_sangnom_smooth` is kept in the .cl for reference but is not
     // invoked here.
-    //
-    // [MAA-WG-SIZE-EXPERIMENT] Workgroup size taken from m_smoothBlockX /
-    // m_smoothBlockY (env-var overridable; default 32×8). Profiling can
-    // pick the best size on a given GPU without recompiling.
     {
-        const auto t0 = std::chrono::high_resolution_clock::now();
-        RGYWorkSize local(m_smoothBlockX, m_smoothBlockY, 1);
+        RGYWorkSize local(MAA_BLOCK_X, MAA_BLOCK_Y, 1);
         RGYWorkSize global(bufW, bufH, MAA_NUM_COST_BUFFERS);
         auto err = m_maa.get()->kernel("maa_sangnom_smooth_3d")
             .config(queue, local, global, {}, nullptr).launch(
@@ -459,18 +413,12 @@ RGY_ERR RGYFilterMaa::sangnomPassPlane(const RGYFrameInfo *pSrc, RGYFrameInfo *p
                 (int)plane, get_err_mes(err));
             return err;
         }
-        if (perfSmoothMs) {
-            queue.finish();
-            const auto t1 = std::chrono::high_resolution_clock::now();
-            *perfSmoothMs += std::chrono::duration<double, std::milli>(t1 - t0).count();
-        }
     }
 
     // Stage 3 — finalize: per-output-pixel decision cascade. Reads each of
     // the 9 smoothed cost values from the packed smoothed buffer at
     // sub-buffer offsets 0..8 × m_costSliceBytes.
     {
-        const auto t0 = std::chrono::high_resolution_clock::now();
         RGYWorkSize local(MAA_BLOCK_X, MAA_BLOCK_Y);
         RGYWorkSize global(srcW, srcH);
         auto err = m_maa.get()->kernel("maa_sangnom_finalize")
@@ -485,11 +433,6 @@ RGY_ERR RGYFilterMaa::sangnomPassPlane(const RGYFrameInfo *pSrc, RGYFrameInfo *p
             AddMessage(RGY_LOG_ERROR, _T("error at maa_sangnom_finalize (plane %d): %s.\n"),
                 (int)plane, get_err_mes(err));
             return err;
-        }
-        if (perfFinalizeMs) {
-            queue.finish();
-            const auto t1 = std::chrono::high_resolution_clock::now();
-            *perfFinalizeMs += std::chrono::duration<double, std::milli>(t1 - t0).count();
         }
     }
     return RGY_ERR_NONE;
@@ -667,26 +610,6 @@ RGY_ERR RGYFilterMaa::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
     // for show=1 + mask=off and the overlay/darken kernels at the very end.
     const bool needMask = maskOn || (showMode > 0);
 
-    // [MAA-PERF-INSTRUMENT] First-frame stage-by-stage timing.
-    // When `measure` is true (only on the first frame after init), we
-    // call `queue.finish()` between top-level stages so the host wall-
-    // clock timings reflect actual GPU stage durations rather than
-    // CPU-side enqueue latencies. The finish()es are skipped on
-    // subsequent frames so steady-state pipelining is unaffected.
-    //
-    // The numbers include first-frame warm-up costs (kernel JIT,
-    // first-touch buffer faults, GPU caches cold) so they are an
-    // upper bound on steady-state per-stage time. Repeat the run a
-    // few times if a single steady-state breakdown is needed.
-    const bool measure = !m_perfLogged;
-    double tResizeUp = 0.0, tFturnL  = 0.0, tPrepare  = 0.0, tSmooth   = 0.0,
-           tFinalize = 0.0, tFturnR  = 0.0, tResizeDn = 0.0, tSobel    = 0.0,
-           tMerge    = 0.0;
-    const auto frameStart = std::chrono::high_resolution_clock::now();
-    double *pPrepare  = measure ? &tPrepare  : nullptr;
-    double *pSmooth   = measure ? &tSmooth   : nullptr;
-    double *pFinalize = measure ? &tFinalize : nullptr;
-
     // ============== AA PIPELINE ==============
     //
     // Stages 1-6 (per Prompt 2) lift the input to ssW×ssH, run two
@@ -700,7 +623,6 @@ RGY_ERR RGYFilterMaa::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
     // ---- 1. Resize up: source resolution → ssW × ssH ----
     RGYFrameInfo *pSupersampled = &m_supersampled->frame;
     {
-        const auto t0 = std::chrono::high_resolution_clock::now();
         int dummyOutNum = 0;
         RGYFrameInfo *outArr[1] = { pSupersampled };
         auto err = m_resizeUp->filter(const_cast<RGYFrameInfo *>(pInputFrame),
@@ -709,24 +631,13 @@ RGY_ERR RGYFilterMaa::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
             AddMessage(RGY_LOG_ERROR, _T("MAA resize-up failed: %s.\n"), get_err_mes(err));
             return err;
         }
-        if (measure) {
-            queue_main.finish();
-            const auto t1 = std::chrono::high_resolution_clock::now();
-            tResizeUp = std::chrono::duration<double, std::milli>(t1 - t0).count();
-        }
     }
 
     // ---- 2. FTurnLeft: ssW × ssH → ssH × ssW (all planes) ----
     RGYFrameInfo *pRotated = &m_rotated->frame;
     {
-        const auto t0 = std::chrono::high_resolution_clock::now();
         auto err = fturnLeftFrame(pRotated, pSupersampled, queue_main, {});
         if (err != RGY_ERR_NONE) return err;
-        if (measure) {
-            queue_main.finish();
-            const auto t1 = std::chrono::high_resolution_clock::now();
-            tFturnL = std::chrono::duration<double, std::milli>(t1 - t0).count();
-        }
     }
 
     // ---- 3. SangNom2 pass 1: anti-aliases the original vertical edges
@@ -741,15 +652,12 @@ RGY_ERR RGYFilterMaa::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
             AddMessage(RGY_LOG_ERROR, _T("MAA chroma carry pass1 failed: %s.\n"), get_err_mes(err));
             return err;
         }
-        err = sangnomPassPlane(pRotated, pRotatedAA, RGY_PLANE_Y, m_aaf, queue_main, {},
-                                pPrepare, pSmooth, pFinalize);
+        err = sangnomPassPlane(pRotated, pRotatedAA, RGY_PLANE_Y, m_aaf, queue_main, {});
         if (err != RGY_ERR_NONE) return err;
         if (processChroma && planes >= 3) {
-            err = sangnomPassPlane(pRotated, pRotatedAA, RGY_PLANE_U, m_aacf, queue_main, {},
-                                    pPrepare, pSmooth, pFinalize);
+            err = sangnomPassPlane(pRotated, pRotatedAA, RGY_PLANE_U, m_aacf, queue_main, {});
             if (err != RGY_ERR_NONE) return err;
-            err = sangnomPassPlane(pRotated, pRotatedAA, RGY_PLANE_V, m_aacf, queue_main, {},
-                                    pPrepare, pSmooth, pFinalize);
+            err = sangnomPassPlane(pRotated, pRotatedAA, RGY_PLANE_V, m_aacf, queue_main, {});
             if (err != RGY_ERR_NONE) return err;
         }
     }
@@ -757,14 +665,8 @@ RGY_ERR RGYFilterMaa::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
     // ---- 4. FTurnRight: ssH × ssW → ssW × ssH ----
     RGYFrameInfo *pUnrotatedAA = &m_unrotatedAA->frame;
     {
-        const auto t0 = std::chrono::high_resolution_clock::now();
         auto err = fturnRightFrame(pUnrotatedAA, pRotatedAA, queue_main, {});
         if (err != RGY_ERR_NONE) return err;
-        if (measure) {
-            queue_main.finish();
-            const auto t1 = std::chrono::high_resolution_clock::now();
-            tFturnR = std::chrono::duration<double, std::milli>(t1 - t0).count();
-        }
     }
 
     // ---- 5. SangNom2 pass 2: anti-aliases the original horizontal edges. ----
@@ -775,15 +677,12 @@ RGY_ERR RGYFilterMaa::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
             AddMessage(RGY_LOG_ERROR, _T("MAA chroma carry pass2 failed: %s.\n"), get_err_mes(err));
             return err;
         }
-        err = sangnomPassPlane(pUnrotatedAA, pAaResult, RGY_PLANE_Y, m_aaf, queue_main, {},
-                                pPrepare, pSmooth, pFinalize);
+        err = sangnomPassPlane(pUnrotatedAA, pAaResult, RGY_PLANE_Y, m_aaf, queue_main, {});
         if (err != RGY_ERR_NONE) return err;
         if (processChroma && planes >= 3) {
-            err = sangnomPassPlane(pUnrotatedAA, pAaResult, RGY_PLANE_U, m_aacf, queue_main, {},
-                                    pPrepare, pSmooth, pFinalize);
+            err = sangnomPassPlane(pUnrotatedAA, pAaResult, RGY_PLANE_U, m_aacf, queue_main, {});
             if (err != RGY_ERR_NONE) return err;
-            err = sangnomPassPlane(pUnrotatedAA, pAaResult, RGY_PLANE_V, m_aacf, queue_main, {},
-                                    pPrepare, pSmooth, pFinalize);
+            err = sangnomPassPlane(pUnrotatedAA, pAaResult, RGY_PLANE_V, m_aacf, queue_main, {});
             if (err != RGY_ERR_NONE) return err;
         }
     }
@@ -812,7 +711,6 @@ RGY_ERR RGYFilterMaa::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
         // source-res by writing through m_frameBuf[0] when mask=off, and
         // for mask=on, we copy m_frameBuf[0] aside before merge. Simpler
         // and uses 1 extra source-res copy per frame.
-        const auto t0 = std::chrono::high_resolution_clock::now();
         int dummyOutNum = 0;
         RGYFrameInfo *outArr[1] = { pOut };
         auto err = m_resizeDown->filter(pAaResult,
@@ -822,11 +720,6 @@ RGY_ERR RGYFilterMaa::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
             return err;
         }
         pAaSrcRes = pOut;     // After resize-down, pOut == AA result at source res
-        if (measure) {
-            queue_main.finish();
-            const auto t1 = std::chrono::high_resolution_clock::now();
-            tResizeDn = std::chrono::duration<double, std::milli>(t1 - t0).count();
-        }
     }
 
     // ============== MASK + MERGE ==============
@@ -853,22 +746,12 @@ RGY_ERR RGYFilterMaa::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
 
     // 7a. Build the mask if either the merge path or show mode wants it.
     if (needMask) {
-        const auto t0 = std::chrono::high_resolution_clock::now();
         auto err = runEdgeSobel(&m_edgeMask->frame, pInputFrame, m_mthreshScaled, queue_main, {});
         if (err != RGY_ERR_NONE) return err;
         err = runInflate(&m_inflatedMask->frame, &m_edgeMask->frame, queue_main, {});
         if (err != RGY_ERR_NONE) return err;
-        if (measure) {
-            queue_main.finish();
-            const auto t1 = std::chrono::high_resolution_clock::now();
-            tSobel = std::chrono::duration<double, std::milli>(t1 - t0).count();
-        }
     }
 
-    // [MAA-PERF-INSTRUMENT] tMerge timer covers the show-overlay,
-    // mask-merge and chroma-copy sub-paths — whichever one this frame
-    // happens to take.
-    const auto tMerge0 = std::chrono::high_resolution_clock::now();
     if (showMode == 1 || showMode == 2) {
         // ============== SHOW MODE (debug overlay) ==============
         //
@@ -996,37 +879,9 @@ RGY_ERR RGYFilterMaa::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
         }
         // chroma=true + mask=off: pOut already has full AA result for all planes.
     }
-    if (measure) {
-        queue_main.finish();
-        const auto tMerge1 = std::chrono::high_resolution_clock::now();
-        tMerge = std::chrono::duration<double, std::milli>(tMerge1 - tMerge0).count();
-    }
-
-    // Forward metadata.
-    pOut->timestamp    = pInputFrame->timestamp;
-    pOut->duration     = pInputFrame->duration;
-    pOut->inputFrameId = pInputFrame->inputFrameId;
-    pOut->picstruct    = pInputFrame->picstruct;
-    pOut->flags        = pInputFrame->flags;
 
     ppOutputFrames[0] = pOut;
     *pOutputFrameNum  = 1;
-
-    // [MAA-PERF-INSTRUMENT] Emit the per-stage breakdown once, on the
-    // first frame after init. After this, m_perfLogged stays true and
-    // subsequent frames don't pay the queue.finish() overhead.
-    if (measure) {
-        queue_main.finish();
-        const auto frameEnd = std::chrono::high_resolution_clock::now();
-        const double tTotal = std::chrono::duration<double, std::milli>(frameEnd - frameStart).count();
-        AddMessage(RGY_LOG_INFO,
-            _T("maa perf: resize_up=%.2fms fturn_l=%.2fms prepare=%.2fms smooth=%.2fms finalize=%.2fms fturn_r=%.2fms resize_dn=%.2fms sobel=%.2fms merge=%.2fms total=%.2fms\n"),
-            tResizeUp, tFturnL, tPrepare, tSmooth, tFinalize,
-            tFturnR, tResizeDn, tSobel, tMerge, tTotal);
-        AddMessage(RGY_LOG_INFO,
-            _T("maa perf: (timings include first-frame warm-up: kernel JIT, cold caches, first-touch buffer faults)\n"));
-        m_perfLogged = true;
-    }
     return RGY_ERR_NONE;
 }
 
