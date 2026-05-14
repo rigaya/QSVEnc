@@ -50,6 +50,8 @@ RGYFilterMaa::RGYFilterMaa(shared_ptr<RGYOpenCLContext> context) :
     m_maaBuildOptions(),
     m_resizeUp(),
     m_resizeDown(),
+    m_resizeUpLuma(),
+    m_resizeDownLuma(),
     m_supersampled(),
     m_rotated(),
     m_rotatedAA(),
@@ -175,36 +177,80 @@ RGY_ERR RGYFilterMaa::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog>
     //   ... AA pipeline runs at supersampled resolution ...
     //   AA result (ssW × ssH) → m_resizeDown → output (W × H)
     // Both sub-filters are owned by this filter and torn down in close().
-    {
-        auto prmUp = std::make_shared<RGYFilterParamResize>();
-        prmUp->frameIn        = prm->frameIn;
-        prmUp->frameOut       = prm->frameIn;          // copy CSP/picstruct/etc, then override w/h
-        prmUp->frameOut.width  = m_ssW;
-        prmUp->frameOut.height = m_ssH;
-        prmUp->interp         = RGY_VPP_RESIZE_SPLINE36;
-        prmUp->baseFps        = prm->baseFps;
-        prmUp->bOutOverwrite  = false;
-        m_resizeUp = std::make_unique<RGYFilterResize>(m_cl);
-        sts = m_resizeUp->init(prmUp, m_pLog);
-        if (sts != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to init upscale sub-filter: %s.\n"), get_err_mes(sts));
-            return sts;
+    // chroma=true 時はフル CSP の resize、chroma=false 時は Y8/Y16 CSP の
+    // luma-only resize を構築する。chroma=false 時に chroma plane を resize
+    // しても結果は最終段で input.chroma の copyPlane に上書きされるため、
+    // フル CSP の resize は使わず chroma の処理コスト (≈1/2 of luma cost)
+    // を節約する。
+    if (prm->maa.chroma) {
+        {
+            auto prmUp = std::make_shared<RGYFilterParamResize>();
+            prmUp->frameIn         = prm->frameIn;
+            prmUp->frameOut        = prm->frameIn;          // copy CSP/picstruct/etc, then override w/h
+            prmUp->frameOut.width  = m_ssW;
+            prmUp->frameOut.height = m_ssH;
+            prmUp->interp          = RGY_VPP_RESIZE_SPLINE36;
+            prmUp->baseFps         = prm->baseFps;
+            prmUp->bOutOverwrite   = false;
+            m_resizeUp = std::make_unique<RGYFilterResize>(m_cl);
+            sts = m_resizeUp->init(prmUp, m_pLog);
+            if (sts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to init upscale sub-filter: %s.\n"), get_err_mes(sts));
+                return sts;
+            }
         }
-    }
-    {
-        auto prmDn = std::make_shared<RGYFilterParamResize>();
-        prmDn->frameIn        = prm->frameIn;          // copy CSP/picstruct/etc
-        prmDn->frameIn.width   = m_ssW;
-        prmDn->frameIn.height  = m_ssH;
-        prmDn->frameOut       = prm->frameOut;
-        prmDn->interp         = RGY_VPP_RESIZE_SPLINE36;
-        prmDn->baseFps        = prm->baseFps;
-        prmDn->bOutOverwrite  = false;
-        m_resizeDown = std::make_unique<RGYFilterResize>(m_cl);
-        sts = m_resizeDown->init(prmDn, m_pLog);
-        if (sts != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to init downscale sub-filter: %s.\n"), get_err_mes(sts));
-            return sts;
+        {
+            auto prmDn = std::make_shared<RGYFilterParamResize>();
+            prmDn->frameIn         = prm->frameIn;          // copy CSP/picstruct/etc
+            prmDn->frameIn.width   = m_ssW;
+            prmDn->frameIn.height  = m_ssH;
+            prmDn->frameOut        = prm->frameOut;
+            prmDn->interp          = RGY_VPP_RESIZE_SPLINE36;
+            prmDn->baseFps         = prm->baseFps;
+            prmDn->bOutOverwrite   = false;
+            m_resizeDown = std::make_unique<RGYFilterResize>(m_cl);
+            sts = m_resizeDown->init(prmDn, m_pLog);
+            if (sts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to init downscale sub-filter: %s.\n"), get_err_mes(sts));
+                return sts;
+            }
+        }
+    } else {
+        const RGY_CSP lumaCsp = (bitDepth > 8) ? RGY_CSP_Y16 : RGY_CSP_Y8;
+        {
+            auto prmUp = std::make_shared<RGYFilterParamResize>();
+            prmUp->frameIn         = prm->frameIn;
+            prmUp->frameIn.csp     = lumaCsp;
+            prmUp->frameOut        = prmUp->frameIn;
+            prmUp->frameOut.width  = m_ssW;
+            prmUp->frameOut.height = m_ssH;
+            prmUp->interp          = RGY_VPP_RESIZE_SPLINE36;
+            prmUp->baseFps         = prm->baseFps;
+            prmUp->bOutOverwrite   = false;
+            m_resizeUpLuma = std::make_unique<RGYFilterResize>(m_cl);
+            sts = m_resizeUpLuma->init(prmUp, m_pLog);
+            if (sts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to init luma upscale sub-filter: %s.\n"), get_err_mes(sts));
+                return sts;
+            }
+        }
+        {
+            auto prmDn = std::make_shared<RGYFilterParamResize>();
+            prmDn->frameIn         = prm->frameIn;
+            prmDn->frameIn.csp     = lumaCsp;
+            prmDn->frameIn.width   = m_ssW;
+            prmDn->frameIn.height  = m_ssH;
+            prmDn->frameOut        = prm->frameOut;
+            prmDn->frameOut.csp    = lumaCsp;
+            prmDn->interp          = RGY_VPP_RESIZE_SPLINE36;
+            prmDn->baseFps         = prm->baseFps;
+            prmDn->bOutOverwrite   = false;
+            m_resizeDownLuma = std::make_unique<RGYFilterResize>(m_cl);
+            sts = m_resizeDownLuma->init(prmDn, m_pLog);
+            if (sts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to init luma downscale sub-filter: %s.\n"), get_err_mes(sts));
+                return sts;
+            }
         }
     }
 
@@ -315,8 +361,10 @@ RGY_ERR RGYFilterMaa::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog>
 
 RGY_ERR RGYFilterMaa::fturnLeftFrame(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
                                       RGYOpenCLQueue &queue,
-                                      const std::vector<RGYOpenCLEvent> &wait_events) {
-    const int planes = RGY_CSP_PLANES[pSrc->csp];
+                                      const std::vector<RGYOpenCLEvent> &wait_events,
+                                      int planeCount) {
+    const int srcPlanes = RGY_CSP_PLANES[pSrc->csp];
+    const int planes    = (planeCount < 0) ? srcPlanes : std::min(planeCount, srcPlanes);
     auto waitFirst = wait_events;
     for (int iplane = 0; iplane < planes; iplane++) {
         const auto sP = getPlane(pSrc, (RGY_PLANE)iplane);
@@ -339,8 +387,10 @@ RGY_ERR RGYFilterMaa::fturnLeftFrame(RGYFrameInfo *pDst, const RGYFrameInfo *pSr
 
 RGY_ERR RGYFilterMaa::fturnRightFrame(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
                                        RGYOpenCLQueue &queue,
-                                       const std::vector<RGYOpenCLEvent> &wait_events) {
-    const int planes = RGY_CSP_PLANES[pSrc->csp];
+                                       const std::vector<RGYOpenCLEvent> &wait_events,
+                                       int planeCount) {
+    const int srcPlanes = RGY_CSP_PLANES[pSrc->csp];
+    const int planes    = (planeCount < 0) ? srcPlanes : std::min(planeCount, srcPlanes);
     auto waitFirst = wait_events;
     for (int iplane = 0; iplane < planes; iplane++) {
         const auto sP = getPlane(pSrc, (RGY_PLANE)iplane);
@@ -610,33 +660,51 @@ RGY_ERR RGYFilterMaa::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
     // for show=1 + mask=off and the overlay/darken kernels at the very end.
     const bool needMask = maskOn || (showMode > 0);
 
+    // chroma=false の場合は luma plane のみ AA パイプラインに流す。
+    // chroma plane は最終段で input から copyPlane で上書きされるため、
+    // resize / FTurn / sangnom 前 copyFrame をすべて Y のみに絞る。
+    const int  aaPlanes = processChroma ? planes : 1;
+    const RGY_CSP lumaCsp = (RGY_CSP_BIT_DEPTH[pInputFrame->csp] > 8) ? RGY_CSP_Y16 : RGY_CSP_Y8;
+
     // ============== AA PIPELINE ==============
     //
     // Stages 1-6 (per Prompt 2) lift the input to ssW×ssH, run two
     // SangNom2 passes (one per axis, with FTurn between them), and
     // resize back down. With chroma=true the SangNom passes also run
     // on the U and V planes using the chroma threshold m_aacf; with
-    // chroma=false the chroma planes are passed through unchanged
-    // (carried via copyFrame so the FTurn round-trip lands them back
-    // in the correct orientation).
+    // chroma=false the chroma planes are NOT processed in the AA
+    // pipeline at all (luma-only resize / 1-plane FTurn / no chroma
+    // copyFrame) — the chroma output planes are filled by the
+    // final input→output copyPlane step in stages 7c/7e/8.
 
     // ---- 1. Resize up: source resolution → ssW × ssH ----
     RGYFrameInfo *pSupersampled = &m_supersampled->frame;
     {
         int dummyOutNum = 0;
-        RGYFrameInfo *outArr[1] = { pSupersampled };
-        auto err = m_resizeUp->filter(const_cast<RGYFrameInfo *>(pInputFrame),
-            (RGYFrameInfo **)&outArr, &dummyOutNum, queue_main, wait_events, nullptr);
+        RGY_ERR err = RGY_ERR_NONE;
+        if (processChroma) {
+            RGYFrameInfo *outArr[1] = { pSupersampled };
+            err = m_resizeUp->filter(const_cast<RGYFrameInfo *>(pInputFrame),
+                (RGYFrameInfo **)&outArr, &dummyOutNum, queue_main, wait_events, nullptr);
+        } else {
+            RGYFrameInfo inputLuma  = getPlane(pInputFrame,  RGY_PLANE_Y);
+            RGYFrameInfo outputLuma = getPlane(pSupersampled, RGY_PLANE_Y);
+            inputLuma.csp  = lumaCsp;
+            outputLuma.csp = lumaCsp;
+            RGYFrameInfo *outArr[1] = { &outputLuma };
+            err = m_resizeUpLuma->filter(&inputLuma,
+                (RGYFrameInfo **)&outArr, &dummyOutNum, queue_main, wait_events, nullptr);
+        }
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("MAA resize-up failed: %s.\n"), get_err_mes(err));
             return err;
         }
     }
 
-    // ---- 2. FTurnLeft: ssW × ssH → ssH × ssW (all planes) ----
+    // ---- 2. FTurnLeft: ssW × ssH → ssH × ssW ----
     RGYFrameInfo *pRotated = &m_rotated->frame;
     {
-        auto err = fturnLeftFrame(pRotated, pSupersampled, queue_main, {});
+        auto err = fturnLeftFrame(pRotated, pSupersampled, queue_main, {}, aaPlanes);
         if (err != RGY_ERR_NONE) return err;
     }
 
@@ -644,15 +712,18 @@ RGY_ERR RGYFilterMaa::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
     //          (which are horizontal in the rotated frame). ----
     RGYFrameInfo *pRotatedAA = &m_rotatedAA->frame;
     {
-        // Copy all planes first so anything we don't touch (e.g. chroma when
-        // chroma=false) round-trips through the rotation unchanged. The
-        // SangNom kernels then overwrite the per-plane outputs we drive.
-        auto err = m_cl->copyFrame(pRotatedAA, pRotated, nullptr, queue_main, {});
-        if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("MAA chroma carry pass1 failed: %s.\n"), get_err_mes(err));
-            return err;
+        // chroma=true 時のみ全プレーン copy (chroma plane は SangNom を
+        // 走らせる U/V でも、走らない場合の carry-through でも、書込み元
+        // となる pRotated の chroma を pRotatedAA 側に揃えるため必要)。
+        // chroma=false 時は pRotatedAA.chroma を後段で読まないのでスキップ。
+        if (processChroma) {
+            auto err = m_cl->copyFrame(pRotatedAA, pRotated, nullptr, queue_main, {});
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("MAA chroma carry pass1 failed: %s.\n"), get_err_mes(err));
+                return err;
+            }
         }
-        err = sangnomPassPlane(pRotated, pRotatedAA, RGY_PLANE_Y, m_aaf, queue_main, {});
+        auto err = sangnomPassPlane(pRotated, pRotatedAA, RGY_PLANE_Y, m_aaf, queue_main, {});
         if (err != RGY_ERR_NONE) return err;
         if (processChroma && planes >= 3) {
             err = sangnomPassPlane(pRotated, pRotatedAA, RGY_PLANE_U, m_aacf, queue_main, {});
@@ -665,19 +736,21 @@ RGY_ERR RGYFilterMaa::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
     // ---- 4. FTurnRight: ssH × ssW → ssW × ssH ----
     RGYFrameInfo *pUnrotatedAA = &m_unrotatedAA->frame;
     {
-        auto err = fturnRightFrame(pUnrotatedAA, pRotatedAA, queue_main, {});
+        auto err = fturnRightFrame(pUnrotatedAA, pRotatedAA, queue_main, {}, aaPlanes);
         if (err != RGY_ERR_NONE) return err;
     }
 
     // ---- 5. SangNom2 pass 2: anti-aliases the original horizontal edges. ----
     RGYFrameInfo *pAaResult = &m_aaResult->frame;
     {
-        auto err = m_cl->copyFrame(pAaResult, pUnrotatedAA, nullptr, queue_main, {});
-        if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("MAA chroma carry pass2 failed: %s.\n"), get_err_mes(err));
-            return err;
+        if (processChroma) {
+            auto err = m_cl->copyFrame(pAaResult, pUnrotatedAA, nullptr, queue_main, {});
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("MAA chroma carry pass2 failed: %s.\n"), get_err_mes(err));
+                return err;
+            }
         }
-        err = sangnomPassPlane(pUnrotatedAA, pAaResult, RGY_PLANE_Y, m_aaf, queue_main, {});
+        auto err = sangnomPassPlane(pUnrotatedAA, pAaResult, RGY_PLANE_Y, m_aaf, queue_main, {});
         if (err != RGY_ERR_NONE) return err;
         if (processChroma && planes >= 3) {
             err = sangnomPassPlane(pUnrotatedAA, pAaResult, RGY_PLANE_U, m_aacf, queue_main, {});
@@ -712,9 +785,20 @@ RGY_ERR RGYFilterMaa::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
         // for mask=on, we copy m_frameBuf[0] aside before merge. Simpler
         // and uses 1 extra source-res copy per frame.
         int dummyOutNum = 0;
-        RGYFrameInfo *outArr[1] = { pOut };
-        auto err = m_resizeDown->filter(pAaResult,
-            (RGYFrameInfo **)&outArr, &dummyOutNum, queue_main, {}, nullptr);
+        RGY_ERR err = RGY_ERR_NONE;
+        if (processChroma) {
+            RGYFrameInfo *outArr[1] = { pOut };
+            err = m_resizeDown->filter(pAaResult,
+                (RGYFrameInfo **)&outArr, &dummyOutNum, queue_main, {}, nullptr);
+        } else {
+            RGYFrameInfo aaLuma  = getPlane(pAaResult, RGY_PLANE_Y);
+            RGYFrameInfo outLuma = getPlane(pOut, RGY_PLANE_Y);
+            aaLuma.csp  = lumaCsp;
+            outLuma.csp = lumaCsp;
+            RGYFrameInfo *outArr[1] = { &outLuma };
+            err = m_resizeDownLuma->filter(&aaLuma,
+                (RGYFrameInfo **)&outArr, &dummyOutNum, queue_main, {}, nullptr);
+        }
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("MAA resize-down failed: %s.\n"), get_err_mes(err));
             return err;
@@ -888,6 +972,8 @@ RGY_ERR RGYFilterMaa::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
 void RGYFilterMaa::close() {
     m_resizeUp.reset();
     m_resizeDown.reset();
+    m_resizeUpLuma.reset();
+    m_resizeDownLuma.reset();
     m_supersampled.reset();
     m_rotated.reset();
     m_rotatedAA.reset();

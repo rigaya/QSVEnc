@@ -57,10 +57,15 @@ protected:
 
     // Per-plane FTurn dispatch helpers. dst dimensions (width × height) must
     // equal (src.height × src.width) — the rotation swaps axes.
+    // planeCount caps the number of planes processed (default -1 → all planes
+    // in src's CSP). Pass 1 to FTurn only the luma plane when chroma is
+    // unused, saving the chroma kernel dispatches.
     RGY_ERR fturnLeftFrame(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
-                           RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
+                           RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events,
+                           int planeCount = -1);
     RGY_ERR fturnRightFrame(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
-                            RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
+                            RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events,
+                            int planeCount = -1);
 
     // Run one full SangNom pass (prepare + 9× smooth + finalize) on a single
     // plane (luma or chroma) of the given source, writing to the matching
@@ -124,8 +129,15 @@ protected:
     // input to the supersampled (ssW × ssH) working surface; m_resizeDown
     // brings the AA result back to source resolution. Both are constructed
     // and init()'d in init() and torn down in close().
+    //
+    // m_resizeUpLuma / m_resizeDownLuma are luma-only (Y8/Y16 CSP) variants
+    // used when chroma=false. The chroma planes are then overridden by an
+    // input-chroma copy at the end of run_filter, so resizing chroma at all
+    // is wasted work. These pointers are null when chroma=true.
     std::unique_ptr<RGYFilter> m_resizeUp;
     std::unique_ptr<RGYFilter> m_resizeDown;
+    std::unique_ptr<RGYFilter> m_resizeUpLuma;
+    std::unique_ptr<RGYFilter> m_resizeDownLuma;
 
     // Intermediate frame buffers used by the MAA pipeline. Allocated lazily
     // in init() so subsequent prompts can populate the AA pass without
