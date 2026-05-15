@@ -59,6 +59,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_DECOMB       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_BWDIF        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_IVTC         (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
+#define ENABLE_VPP_FILTER_MAA          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_RFF          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_RFF_AVHW     (ENCODER_QSV   || ENCODER_NVENC                   || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_SELECT_EVERY (ENCODER_NVENC)
@@ -178,6 +179,7 @@ enum class VppType : int {
     CL_EDGELEVEL,
     CL_MSHARPEN,
     CL_WARPSHARP,
+    CL_MAA,
 
     CL_CURVES,
     CL_TWEAK,
@@ -337,6 +339,15 @@ static const int   FILTER_DEFAULT_BWDIF_ORDER = -1;
 static const float FILTER_DEFAULT_BWDIF_THR = 0.0f;
 static const int   FILTER_DEFAULT_BWDIF_DEINT = 0;
 static const bool  FILTER_DEFAULT_BWDIF_LOG = false;
+
+// MAA (Masked Anti-Aliasing) defaults — see analysis/maa2_investigation/05_parameter_design.md
+static const float FILTER_DEFAULT_MAA_SS       = 2.0f;   // supersample factor; range 1.0..4.0
+static const int   FILTER_DEFAULT_MAA_AA       = 48;     // luma AA strength; range 0..255
+static const int   FILTER_DEFAULT_MAA_AAC      = 40;     // chroma AA strength = aa - 8 (default form); range 0..255
+static const bool  FILTER_DEFAULT_MAA_MASK     = true;   // edge masking gate
+static const int   FILTER_DEFAULT_MAA_MTHRESH  = 7;      // edge threshold; range 1..255
+static const bool  FILTER_DEFAULT_MAA_CHROMA   = false;  // process chroma planes
+static const int   FILTER_DEFAULT_MAA_SHOW     = 0;      // debug overlay 0..2
 
 static const int   FILTER_DEFAULT_DECIMATE_CYCLE = 5;
 static const int   FILTER_DEFAULT_DECIMATE_DROP = 1;
@@ -2290,6 +2301,25 @@ struct VppWarpsharp {
     tstring print() const;
 };
 
+// Masked Anti-Aliasing (MAA): supersample → directional 9-cost AA → downsample,
+// gated by an edge mask. Algorithm references documented in
+// analysis/maa2_investigation/. From-scratch OpenCL implementation.
+struct VppMaa {
+    bool enable;
+    float ss;       // supersample factor; 1.0..4.0
+    int aa;         // luma AA strength; 0..255
+    int aac;        // chroma AA strength; 0..255 (only used when chroma=true)
+    bool mask;      // edge mask gate
+    int mthresh;    // edge threshold; 1..255 (only used when mask=true)
+    bool chroma;    // process chroma planes
+    int show;       // debug overlay 0..2
+
+    VppMaa();
+    bool operator==(const VppMaa &x) const;
+    bool operator!=(const VppMaa &x) const;
+    tstring print() const;
+};
+
 struct VppTweakChannel {
     float offset;
     float gain;
@@ -2498,6 +2528,7 @@ struct RGYParamVpp {
     VppEdgelevel edgelevel;
     VppMsharpen msharpen;
     VppWarpsharp warpsharp;
+    VppMaa maa;
     VppCurves curves;
     VppTweak tweak;
     VppTransform transform;
