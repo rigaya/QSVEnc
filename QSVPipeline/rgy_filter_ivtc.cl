@@ -1,4 +1,4 @@
-// Type
+﻿// Type
 // bit_depth
 // ivtc_block_x
 // ivtc_block_y
