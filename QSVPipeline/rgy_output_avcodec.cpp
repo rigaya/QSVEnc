@@ -4415,41 +4415,30 @@ RGY_ERR RGYOutputAvcodec::AddAudQueue(AVPktMuxData *pktData, int type) {
 //maxDtsToWriteはm_AudPktBufFileHeadにキャッシュしてあるパケットを処理する際に、
 //処理するdtsの上限を決める
 RGY_ERR RGYOutputAvcodec::WriteNextPacketInternal(AVPktMuxData *pktData, int64_t maxDtsToWrite) {
-    if (m_Mux.thread.threadActiveAudio()) {
-        // 音声スレッドがある場合はフレームヘッダが書かれてからここに来るはず
-        if (!m_Mux.format.fileHeaderWritten) {
-            AddMessage(RGY_LOG_ERROR, _T("File header not written, unexpected error!\n"));
-            return RGY_ERR_UNKNOWN;
-        }
-        // 音声スレッドがある場合はm_AudPktBufFileHeadはたまっていないはず
-        if (!m_AudPktBufFileHead.empty()) {
-            AddMessage(RGY_LOG_ERROR, _T("m_AudPktBufFileHead not empty, unexpected error!\n"));
-            return RGY_ERR_UNKNOWN;
-        }
-    } else {
-        if (!m_Mux.format.fileHeaderWritten) {
-            //まだフレームヘッダーが書かれていなければ、パケットをキャッシュして終了
-            m_AudPktBufFileHead.push_back(*pktData);
-            return RGY_ERR_NONE;
-        }
-        //m_AudPktBufFileHeadにキャッシュしてあるパケットかどうかを調べる
-        if (m_AudPktBufFileHead.end() == std::find_if(m_AudPktBufFileHead.begin(), m_AudPktBufFileHead.end(),
-            [pktData](const AVPktMuxData& data) { return pktData->pkt == data.pkt; })) {
-            //キャッシュしてあるパケットでないなら、キャッシュしてあるパケットをまず処理する
-            for (auto bufPkt : m_AudPktBufFileHead) {
-                RGY_ERR sts = WriteNextPacketInternal(&bufPkt, maxDtsToWrite);
-                //処理するdtsの上限を超えたかチェック
-                if (bufPkt.dts > maxDtsToWrite) {
-                    pktData->dts = bufPkt.dts;
-                    return RGY_ERR_NONE;
-                }
-                if (sts != RGY_ERR_NONE) {
-                    return sts;
-                }
+    if (!m_Mux.format.fileHeaderWritten) {
+        // まだフレームヘッダーが書かれていなければ、パケットをキャッシュして終了。
+        // 重い/遅延する映像フィルタでは、音声スレッドが最初の映像フレームより先に
+        // mux へ到達することがある。
+        m_AudPktBufFileHead.push_back(*pktData);
+        return RGY_ERR_NONE;
+    }
+    // m_AudPktBufFileHeadにキャッシュしてあるパケットかどうかを調べる
+    if (m_AudPktBufFileHead.end() == std::find_if(m_AudPktBufFileHead.begin(), m_AudPktBufFileHead.end(),
+        [pktData](const AVPktMuxData& data) { return pktData->pkt == data.pkt; })) {
+        // キャッシュしてあるパケットでないなら、キャッシュしてあるパケットをまず処理する。
+        for (auto bufPkt : m_AudPktBufFileHead) {
+            RGY_ERR sts = WriteNextPacketInternal(&bufPkt, maxDtsToWrite);
+            //処理するdtsの上限を超えたかチェック
+            if (bufPkt.dts > maxDtsToWrite) {
+                pktData->dts = bufPkt.dts;
+                return RGY_ERR_NONE;
             }
-            //キャッシュをすべて書き出したらクリア
-            m_AudPktBufFileHead.clear();
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
         }
+        //キャッシュをすべて書き出したらクリア
+        m_AudPktBufFileHead.clear();
     }
 
     if (pktData->pkt == nullptr) {
