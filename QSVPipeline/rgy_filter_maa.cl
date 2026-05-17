@@ -81,9 +81,7 @@ inline int readPixClamp(const __global uchar *plane,
 // FTurn rotation kernels
 // =============================================================================
 //
-// Mathematics from analysis/maa2_investigation/08_fturn_verification.md §§ 3-4
-// (verified by per-pixel sanity check against the FTurn reference scalar fall-
-// back). Pure transpose with an axis flip — zero arithmetic on pixel values.
+// Pure transpose with an axis flip — zero arithmetic on pixel values.
 //
 // Input dimensions:  (srcW × srcH)
 // Output dimensions: (srcH × srcW)   — rotation swaps the axes.
@@ -135,12 +133,6 @@ __kernel void maa_fturn_right(
 // SangNom2 — 9-direction edge-directed interpolation
 // =============================================================================
 //
-// Algorithm reference: analysis/maa2_investigation/02_sangnom2_algorithm.md
-//   Stage 1 (prepare):  9 cost buffers, one per candidate direction.
-//   Stage 2 (smooth):   3×7 spatial smoothing of each cost buffer.
-//   Stage 3 (finalize): pick min-cost direction (with vertical bail-out
-//                       above aaf), emit corresponding average.
-//
 // Input convention: keep-top mode. Even rows in the source plane are
 // preserved, odd rows are interpolated. The cost buffers are stored
 // compactly at HALF height (one row per missing row); ybuf in cost-buffer
@@ -186,8 +178,7 @@ __kernel void maa_sangnom_prepare(
     const __global Type *next = (const __global Type *)(pSrc + (yNext < srcH ? yNext : srcH - 1) * srcPitch);
 
     // Direct differences along 7 of the 9 directions. ADIFF_M3_P3 .. ADIFF_P3_M3
-    // and ADIFF_P0_M0 (vertical). Indices match the table in
-    // 06_formulas_and_constants.md § 2.1.
+    // and ADIFF_P0_M0 (vertical).
     const int cM3 = loadPixClamp(cur,  x - 3, srcW);
     const int cM2 = loadPixClamp(cur,  x - 2, srcW);
     const int cM1 = loadPixClamp(cur,  x - 1, srcW);
@@ -215,7 +206,7 @@ __kernel void maa_sangnom_prepare(
     // SangNom 3-tap kernel difference for the / and \ directions. The kernel
     // arguments use cur[x-1]/cur[x]/cur[x+1] for the "forward" direction and
     // their mirrored forms for the "reverse" direction, paired against the
-    // mirrored next-row neighborhood (per 02_sangnom2_algorithm.md § 2.1).
+    // mirrored next-row neighborhood
     const int fwdCur  = sn3(cM1, cP0, cP1);    // forward / kernel at cur (x-1, x, x+1)
     const int fwdNext = sn3(nP1, nP0, nM1);    // forward / kernel at next mirrored (x+1, x, x-1)
     const int costSgFwd = abs(fwdCur - fwdNext);  // buf3: SG_FORWARD
@@ -254,8 +245,7 @@ __kernel void maa_sangnom_prepare(
 // Vertical: sum of 3 consecutive cost-buffer rows (ybuf-1, ybuf, ybuf+1),
 // edge-clamped at the top/bottom of the cost buffer.
 // Horizontal: 7-tap sum across (x-3..x+3), edge-clamped at the left/right.
-// Final divisor is 16 (NOT 21) — the asymmetric normalization documented in
-// 06_formulas_and_constants.md § 3.2 / 02_sangnom2_algorithm.md § 2.2.
+// Final divisor is 16 (NOT 21)
 //
 // Sums fit in int32 comfortably: 21 × max_val ≤ 21 × 65535 ≈ 1.4 M.
 // The output is clamped to [0, max_val] so it fits back into Type.
@@ -451,8 +441,7 @@ void maa_sangnom_smooth_local(
 // Work-item layout: (x, y) over (srcW, srcH). For preserved rows
 // (y even) the source pixel is copied verbatim. For missing rows
 // (y odd) the cost buffers at (x, ybuf=y/2) are read for all 9 directions,
-// the minimum cost is found, and the decision cascade in
-// 02_sangnom2_algorithm.md § 2.3 picks the corresponding average.
+// the minimum cost is found, and the decision cascade picks the corresponding average.
 //
 // Decision cascade ORDER MATTERS — the reference comments warn explicitly
 // "the order of following code is important, don't change them". Priority:
@@ -568,7 +557,6 @@ __kernel void maa_sangnom_finalize(
 // MaskTools2-style edge-mask path
 // =============================================================================
 //
-// Algorithm reference: analysis/maa2_investigation/03_masktools2_analysis.md
 //   maa_edge_sobel  — simplified 4-tap orthogonal-difference edge detector,
 //                     with a hard threshold (matches mt_edge "sobel" with
 //                     low == high == mthresh, which is what MAA2 calls).
@@ -590,8 +578,7 @@ __kernel void maa_sangnom_finalize(
 //
 // `mthresh` is bit-depth-scaled at the host (peak/255 factor). The hard
 // threshold collapses MaskTools2's `threshold(value, low, high)` for the
-// special case `low == high == mthresh`, which is the only form MAA2 uses
-// (see 06_formulas_and_constants.md § 7.2).
+// special case `low == high == mthresh`, which is the only form MAA2 uses.
 __kernel void maa_edge_sobel(
     const __global uchar *pSrc, int srcPitch,
     __global       uchar *pDst, int dstPitch,

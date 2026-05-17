@@ -188,8 +188,7 @@ protected:
 
     // Derived constants computed at init() time. ssW/ssH are the supersampled
     // dimensions, rounded to the nearest multiple of 4 to keep SangNom2's
-    // 2-row processing alignment and SIMD/work-group-friendly widths
-    // (per analysis/maa2_investigation/06_formulas_and_constants.md § 5).
+    // 2-row processing alignment and SIMD/work-group-friendly widths.
     // aaf and aacf are the bit-depth-scaled luma/chroma AA thresholds
     // consumed by the per-direction cost gate. mthreshScaled is the
     // bit-depth-scaled edge threshold.

@@ -130,7 +130,6 @@ RGY_ERR RGYFilterMaa::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog>
 
     // Compute supersampled dimensions, rounded to multiple of 4 to match
     // the reference MAA2 script's behaviour
-    // (analysis/maa2_investigation/06_formulas_and_constants.md § 5).
     m_ssW = alignSsDim(prm->frameIn.width,  prm->maa.ss);
     m_ssH = alignSsDim(prm->frameIn.height, prm->maa.ss);
     if (m_ssW < 4) m_ssW = 4;
