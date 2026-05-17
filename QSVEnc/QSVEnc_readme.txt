@@ -314,6 +314,19 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2026.05.17 (8.12)
+[QSVEncC]
+- アニメ向けエイリアス抑制フィルタ --vpp-maa を追加。
+- --vpp-ivtc の処理を更新。
+- --vpp-ivtc でフリーズする場合があったのを修正。
+- --vpp-smooth の simd16 における高速化。( #288 )
+- --vpp-pmd の高速化。( #288 )
+- Linux で Intel Xe カーネルドライバ使用時の対応を改善。
+- 音声パケットがファイルヘッダ書き込み前に muxer に渡され、出力に失敗する場合があったのを修正。
+
+[QSVEnc.auo]
+- neroaacenc で 2pass 出力ができない問題を修正。
+
 2026.05.01 (8.11)
 [QSVEncC]
 - インタレ解除フィルタ --vpp-ivtc を追加。mixed モードにも対応。

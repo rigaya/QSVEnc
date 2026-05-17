@@ -1,5 +1,16 @@
 # QSVEnc Release Notes
 
+## 8.12
+
+- Add [--vpp-maa](./QSVEncC_Options.en.md#--vpp-maa-param1value1param2value2) masked anti-aliasing filter for animated content.
+- Update [--vpp-ivtc](./QSVEncC_Options.en.md#--vpp-ivtc-param1value1param2value2) processing.
+- Fix possible freeze with [--vpp-ivtc](./QSVEncC_Options.en.md#--vpp-ivtc-param1value1param2value2).
+- Speed up [--vpp-smooth](./QSVEncC_Options.en.md#--vpp-smooth-param1value1param2value2) with simd16. ( #288 )
+- Speed up [--vpp-pmd](./QSVEncC_Options.en.md#--vpp-pmd-param1value1param2value2). ( #288 )
+- Improve Linux support when using the Intel Xe kernel driver.
+- Fix output failure when audio packets reached the muxer before the file header was written.
+- Fix neroaacenc 2pass output in QSVEnc.auo.
+
 ## 8.11
 
 - Add [--vpp-ivtc](./QSVEncC_Options.en.md#--vpp-ivtc-param1value1param2value2), including mixed mode. ( #289 )
