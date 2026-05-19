@@ -9,6 +9,8 @@
 // WEIGHT_BICUBIC
 // WEIGHT_SPLINE
 // WEIGHT_LANCZOS
+// WEIGHT_GAUSS
+// gauss_p
 // shared_weightXdim
 // shared_weightYdim
 // USE_LOCAL
@@ -76,6 +78,11 @@ float factor_bicubic(float x, float B, float C) {
     }
 }
 
+float factor_gauss(float x) {
+    x = fabs(x);
+    if (x > (float)radius) return 0.0f;
+    return native_exp2(-(gauss_p * 0.1f) * x * x);
+}
 
 #if USE_LOCAL
 #define SPLINE_FACTOR_MEM_TYPE __local
@@ -100,13 +107,16 @@ float factor_spline(const float x_raw, SPLINE_FACTOR_MEM_TYPE const float4 *rest
 float calc_weight(
     const int targetPos, const float srcPos,
     const float ratioClamped, SPLINE_FACTOR_MEM_TYPE const float4 *psCopyFactor) {
-    const float delta = ((targetPos + 0.5f) - srcPos) * ratioClamped;
+    const float delta = (algo == WEIGHT_GAUSS)
+        ? ((float)targetPos - (srcPos - 0.5f)) * ratioClamped
+        : (((float)targetPos + 0.5f) - srcPos) * ratioClamped;
     float weight = 0.0f;
     switch (algo) {
     case WEIGHT_LANCZOS:  weight = factor_lanczos(delta); break;
     case WEIGHT_SPLINE:   weight = factor_spline(delta, psCopyFactor); break;
     case WEIGHT_BICUBIC:  weight = factor_bicubic(delta, 0.0f, 0.6f); break;
     case WEIGHT_BILINEAR: weight = factor_bilinear(delta); break;
+    case WEIGHT_GAUSS:    weight = factor_gauss(delta); break;
     default:
         break;
     }
@@ -231,5 +241,163 @@ __kernel void kernel_resize(
 
         __global Type* ptr = (__global Type*)(pDst + iy * dstPitch + ix * sizeof(Type));
         ptr[0] = (Type)clamp(clr, 0.0f, (1 << bit_depth) - 0.1f);
+    }
+}
+
+float calc_gauss_weight(const int targetPos, const float srcPos, const float ratioClamped) {
+    const float delta = ((float)targetPos - (srcPos - 0.5f)) * ratioClamped;
+    return factor_gauss(delta);
+}
+
+#if USE_LOCAL
+void calc_gauss_weight_to_local_normalized(
+    __local float *pWeight, const float srcPos, const int srcFirst, const int srcEnd,
+    const float ratioClamped, const int weightDim) {
+    float sumWeight = 0.0f;
+    const int count = srcEnd - srcFirst + 1;
+    for (int i = 0; i < weightDim; i++) {
+        const float w = (i < count) ? calc_gauss_weight(srcFirst + i, srcPos, ratioClamped) : 0.0f;
+        pWeight[i] = w;
+        sumWeight += w;
+    }
+    if (sumWeight > 0.0f) {
+        const float invSumWeight = 1.0f / sumWeight;
+        for (int i = 0; i < weightDim; i++) {
+            pWeight[i] *= invSumWeight;
+        }
+    }
+}
+#endif
+
+__kernel void kernel_resize_gauss_h(
+    __global uchar *restrict pTmp, const int tmpPitch, const int tmpWidth, const int tmpHeight,
+    __global const uchar *restrict pSrc, const int srcPitch, const int srcWidth, const int srcHeight,
+    const float ratioX
+) {
+#if USE_LOCAL
+    __local float weightXshared[shared_weightXdim * block_x];
+#endif
+    const int threadIdX = get_local_id(0);
+    const int threadIdY = get_local_id(1);
+
+    const float ratioInvX = 1.0f / ratioX;
+    const float ratioClampedX = min(ratioX, 1.0f);
+    const float srcWindowX = radius / ratioClampedX;
+
+#if USE_LOCAL
+    if (threadIdY == 0) {
+        const int dstX = get_group_id(0) * block_x + threadIdX;
+        const float srcX = ((float)dstX + 0.5f) * ratioInvX;
+        const int srcFirstX = max(0, (int)floor(srcX - srcWindowX));
+        const int srcEndX = min(srcWidth - 1, (int)ceil(srcX + srcWindowX));
+        calc_gauss_weight_to_local_normalized(
+            weightXshared + threadIdX * shared_weightXdim,
+            srcX, srcFirstX, srcEndX, ratioClampedX, shared_weightXdim);
+    }
+    barrier(CLK_LOCAL_MEM_FENCE);
+#endif
+
+    const int ix = get_group_id(0) * block_x + threadIdX;
+    const int iy = get_group_id(1) * block_y + threadIdY;
+
+    if (ix < tmpWidth && iy < tmpHeight) {
+        const float srcX = ((float)ix + 0.5f) * ratioInvX;
+        const int srcFirstX = max(0, (int)floor(srcX - srcWindowX));
+        const int srcEndX = min(srcWidth - 1, (int)ceil(srcX + srcWindowX));
+#if USE_LOCAL
+        __local const float *weightX = weightXshared + threadIdX * shared_weightXdim;
+#endif
+
+        __global const Type *srcPtr = (__global const Type *)(pSrc + iy * srcPitch + srcFirstX * sizeof(Type));
+        float clr = 0.0f;
+#if !USE_LOCAL
+        float sumWeight = 0.0f;
+#endif
+        for (int i = srcFirstX; i <= srcEndX; i++, srcPtr++
+#if USE_LOCAL
+            , weightX++
+#endif
+        ) {
+#if USE_LOCAL
+            const float wx = weightX[0];
+#else
+            const float wx = calc_gauss_weight(i, srcX, ratioClampedX);
+            sumWeight += wx;
+#endif
+            clr += srcPtr[0] * wx;
+        }
+#if !USE_LOCAL
+        if (sumWeight > 0.0f) {
+            clr /= sumWeight;
+        }
+#endif
+        ((__global float *)(pTmp + iy * tmpPitch) + ix)[0] = clr;
+    }
+}
+
+__kernel void kernel_resize_gauss_v(
+    __global uchar *restrict pDst, const int dstPitch, const int dstWidth, const int dstHeight,
+    __global const uchar *restrict pTmp, const int tmpPitch, const int tmpWidth, const int tmpHeight,
+    const float ratioY
+) {
+#if USE_LOCAL
+    __local float weightYshared[shared_weightYdim * block_y];
+#endif
+    const int threadIdX = get_local_id(0);
+    const int threadIdY = get_local_id(1);
+
+    const float ratioInvY = 1.0f / ratioY;
+    const float ratioClampedY = min(ratioY, 1.0f);
+    const float srcWindowY = radius / ratioClampedY;
+
+#if USE_LOCAL
+    if (threadIdX == 0) {
+        const int dstY = get_group_id(1) * block_y + threadIdY;
+        const float srcY = ((float)dstY + 0.5f) * ratioInvY;
+        const int srcFirstY = max(0, (int)floor(srcY - srcWindowY));
+        const int srcEndY = min(tmpHeight - 1, (int)ceil(srcY + srcWindowY));
+        calc_gauss_weight_to_local_normalized(
+            weightYshared + threadIdY * shared_weightYdim,
+            srcY, srcFirstY, srcEndY, ratioClampedY, shared_weightYdim);
+    }
+    barrier(CLK_LOCAL_MEM_FENCE);
+#endif
+
+    const int ix = get_group_id(0) * block_x + threadIdX;
+    const int iy = get_group_id(1) * block_y + threadIdY;
+
+    if (ix < dstWidth && iy < dstHeight) {
+        const float srcY = ((float)iy + 0.5f) * ratioInvY;
+        const int srcFirstY = max(0, (int)floor(srcY - srcWindowY));
+        const int srcEndY = min(tmpHeight - 1, (int)ceil(srcY + srcWindowY));
+#if USE_LOCAL
+        __local const float *weightY = weightYshared + threadIdY * shared_weightYdim;
+#endif
+
+        float clr = 0.0f;
+#if !USE_LOCAL
+        float sumWeight = 0.0f;
+#endif
+        for (int j = srcFirstY; j <= srcEndY; j++
+#if USE_LOCAL
+            , weightY++
+#endif
+        ) {
+#if USE_LOCAL
+            const float wy = weightY[0];
+#else
+            const float wy = calc_gauss_weight(j, srcY, ratioClampedY);
+            sumWeight += wy;
+#endif
+            clr += ((__global const float *)(pTmp + j * tmpPitch) + ix)[0] * wy;
+        }
+#if !USE_LOCAL
+        if (sumWeight > 0.0f) {
+            clr /= sumWeight;
+        }
+#endif
+
+        __global Type *ptr = (__global Type *)(pDst + iy * dstPitch + ix * sizeof(Type));
+        ptr[0] = (Type)(clamp(clr, 0.0f, (float)((1 << bit_depth) - 1)) + 0.5f);
     }
 }

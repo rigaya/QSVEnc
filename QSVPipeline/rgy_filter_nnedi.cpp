@@ -58,6 +58,35 @@ static const int NNEDI_BLOCK_Y = 8;
 
 static const int weight0size = 49 * 4 + 5 * 4 + 9 * 4;
 static const int weight0sizenew = 4 * 65 + 4 * 5;
+static const TCHAR *NNEDI_DEFAULT_WEIGHT_FILE = _T("nnedi3_weights.bin");
+
+#if defined(_WIN32) || defined(_WIN64)
+static tstring nnediDefaultWeightFilePath(HMODULE hModule) {
+    const tstring filename = NNEDI_DEFAULT_WEIGHT_FILE;
+    if (rgy_file_exists(filename.c_str())) {
+        return filename;
+    }
+
+    const auto modulePath = getModulePath(hModule);
+    if (modulePath.length() > 0) {
+        const auto moduleDir = PathRemoveFileSpecFixed(modulePath).second;
+        const auto path = PathCombineS(moduleDir, filename);
+        if (rgy_file_exists(path.c_str())) {
+            return path;
+        }
+    }
+
+    const auto exeDir = getExeDir();
+    if (exeDir.length() > 0) {
+        const auto path = PathCombineS(exeDir, filename);
+        if (rgy_file_exists(path.c_str())) {
+            return path;
+        }
+    }
+
+    return filename;
+}
+#endif
 
 RGY_ERR nnedi_compute_network_0(RGYFrameInfo *pOutputPlane,
     const RGYFrameInfo *pInputPlane,
@@ -280,6 +309,7 @@ shared_ptr<const float> RGYFilterNnedi::readWeights(const tstring& weightFile, H
     shared_ptr<const float> weights;
     const uint32_t expectedFileSize = 13574928u;
     uint64_t weightFileSize = 0;
+#if !(defined(_WIN32) || defined(_WIN64))
     if (weightFile.length() == 0) {
         //埋め込みデータを使用する
         void *pDataPtr = nullptr;
@@ -293,25 +323,30 @@ shared_ptr<const float> RGYFilterNnedi::readWeights(const tstring& weightFile, H
             weights = shared_ptr<const float>((const float *)pDataPtr, [](const float *x) { UNREFERENCED_PARAMETER(x); return; /*何もしない*/ });
         }
     } else {
-        if (!rgy_file_exists(weightFile.c_str())) {
-            AddMessage(RGY_LOG_ERROR, _T("weight file \"%s\" does not exist.\n"), weightFile.c_str());
-        } else if (!rgy_get_filesize(weightFile.c_str(), &weightFileSize)) {
-            AddMessage(RGY_LOG_ERROR, _T("Failed to get filesize of weight file \"%s\".\n"), weightFile.c_str());
+        const auto weightFilePath = weightFile;
+#else
+    {
+        const auto weightFilePath = (weightFile.length() > 0) ? weightFile : nnediDefaultWeightFilePath(hModule);
+#endif
+        if (!rgy_file_exists(weightFilePath.c_str())) {
+            AddMessage(RGY_LOG_ERROR, _T("weight file \"%s\" does not exist.\n"), weightFilePath.c_str());
+        } else if (!rgy_get_filesize(weightFilePath.c_str(), &weightFileSize)) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to get filesize of weight file \"%s\".\n"), weightFilePath.c_str());
         } else if (weightFileSize != expectedFileSize) {
             AddMessage(RGY_LOG_ERROR, _T("Weights file \"%s\" has unexpected file size %lld [expected: %u].\n"),
-                weightFile.c_str(), (long long int)weightFileSize, expectedFileSize);
+                weightFilePath.c_str(), (long long int)weightFileSize, expectedFileSize);
         } else {
-            std::ifstream fin(weightFile, std::ios::in | std::ios::binary);
+            std::ifstream fin(weightFilePath, std::ios::in | std::ios::binary);
             if (!fin.good()) {
-                AddMessage(RGY_LOG_ERROR, _T("Failed to open weights file \"%s\".\n"), weightFile.c_str());
+                AddMessage(RGY_LOG_ERROR, _T("Failed to open weights file \"%s\".\n"), weightFilePath.c_str());
             } else {
                 float *buffer = new float[weightFileSize / sizeof(float)];
                 if (!buffer) {
-                    AddMessage(RGY_LOG_ERROR, _T("Failed to allocate buffer memory for \"%s\".\n"), weightFile.c_str());
+                    AddMessage(RGY_LOG_ERROR, _T("Failed to allocate buffer memory for \"%s\".\n"), weightFilePath.c_str());
                 } else {
                     weights = shared_ptr<float>(buffer, std::default_delete<float[]>());
                     if (fin.read((char *)weights.get(), weightFileSize).gcount() != (int64_t)weightFileSize) {
-                        AddMessage(RGY_LOG_ERROR, _T("Failed to read weights file \"%s\".\n"), weightFile.c_str());
+                        AddMessage(RGY_LOG_ERROR, _T("Failed to read weights file \"%s\".\n"), weightFilePath.c_str());
                         weights.reset();
                     }
                 }

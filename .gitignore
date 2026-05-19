@@ -1,6 +1,8 @@
 ffmpeg_lgpl/
 hdr10plus_tool/
 dovi_tool/
+_build_*/
+artifacts/
 /.cargo_home/
 
 ## Ignore Visual Studio temporary files, build results, and

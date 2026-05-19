@@ -35,7 +35,8 @@
 class RGYFilterParamDenoiseFFT3D : public RGYFilterParam {
 public:
     VppDenoiseFFT3D fft3d;
-    RGYFilterParamDenoiseFFT3D() : fft3d() {};
+    bool processChroma;
+    RGYFilterParamDenoiseFFT3D() : fft3d(), processChroma(true) {};
     virtual ~RGYFilterParamDenoiseFFT3D() {};
     virtual tstring print() const;
 };
@@ -67,7 +68,8 @@ protected:
     RGY_ERR denoiseTFFTFilterIFFT(RGYFrameInfo *pOutputFrame,
         const RGYFrameInfo *pInputFrameA, const RGYFrameInfo *pInputFrameB, const RGYFrameInfo *pInputFrameC, const RGYFrameInfo *pInputFrameD,
         RGYOpenCLQueue &queue);
-    RGY_ERR denoiseMerge(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
+    RGY_ERR denoiseMerge(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
+        RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
 
     int m_frameIdx;
     int m_bufIdx;
@@ -75,6 +77,7 @@ protected:
     int m_ov2;
 
     RGYFilterDenoiseFFT3DBuffer m_bufFFT;
+    RGYFilterDenoiseFFT3DBuffer m_srcBuf;
     std::unique_ptr<RGYCLFrame> m_filteredBlocks;
     std::unique_ptr<RGYCLBuf> m_windowBuf;
     std::unique_ptr<RGYCLBuf> m_windowBufInverse;

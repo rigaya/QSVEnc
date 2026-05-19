@@ -704,6 +704,7 @@ public:
     int inputFrames() const { return m_inFrames; }
     int outputFrames() const { return m_outFrames; }
     int outputMaxQueueSize() const { return m_outMaxQueueSize; }
+    virtual int additionalOutputSurfaces() const { return 0; }
 };
 
 class PipelineTaskInput : public PipelineTask {
@@ -1556,7 +1557,7 @@ protected:
         if (m_currentChunk >= (int)m_parallelEnc->parallelCount()) {
             return RGY_ERR_MORE_BITSTREAM;
         }
-        
+
         if (m_parallelEnc->cacheMode(m_currentChunk) == RGYParamParallelEncCache::File) {
             // 戻り値を確認
             auto procsts = checkEncodeResult();
@@ -2445,6 +2446,13 @@ public:
 
     virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override { return std::nullopt; };
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override { return std::nullopt; };
+    virtual int additionalOutputSurfaces() const override {
+        int frames = 0;
+        for (const auto& filter : m_vpFilters) {
+            frames += filter->requiredOutputFrames();
+        }
+        return frames;
+    }
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
         if (m_stopwatch) m_stopwatch->set(0);
         if (m_prevInputFrame.size() > 0) {
@@ -2503,7 +2511,90 @@ public:
 #define FRAME_COPY_ONLY 0
 #if !FRAME_COPY_ONLY
         std::vector<std::unique_ptr<PipelineTaskOutputSurf>> outputSurfs;
+        // flush中に途中returnする場合もあるので、生成済み出力を失わないようqueue投入を共通化する。
+        auto queueOutputSurfs = [this, &outputSurfs]() {
+            m_outQeueue.insert(m_outQeueue.end(),
+                std::make_move_iterator(outputSurfs.begin()),
+                std::make_move_iterator(outputSurfs.end())
+            );
+            outputSurfs.clear();
+        };
         while (filterframes.size() > 0 || drain) {
+            if (filterframes.empty() && drain) {
+                // 前段filterが出し切った後も、後段の遅延filterをdrainするためnull markerを再投入する。
+                filterframes.push_back(std::make_pair(RGYFrameInfo(), 0u));
+            }
+            //フィルタリングするならここ
+            bool filterFrameConsumed = false;
+            for (uint32_t ifilter = filterframes.front().second; ifilter < m_vpFilters.size() - 1; ifilter++) {
+                // コピーを作ってそれをfilter関数に渡す
+                // vpp-rffなどoverwirteするフィルタのときに、filterframes.pop_front -> push がうまく動作しない
+                RGYFrameInfo input = filterframes.front().first;
+                // ptr[0]==nullptr は通常フレームではなく、filter chainをflushするためのmarkerとして扱う。
+                const bool drainFrame = input.ptr[0] == nullptr;
+
+                int nOutFrames = 0;
+                RGYFrameInfo *outInfo[16] = { 0 };
+                auto sts_filter = m_vpFilters[ifilter]->filter(&input, (RGYFrameInfo **)&outInfo, &nOutFrames);
+                if (sts_filter != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_vpFilters[ifilter]->name().c_str());
+                    return sts_filter;
+                }
+                if (clFrameInInterop) {
+                    RGYOpenCLEvent inputReleaseEvent;
+                    clFrameInInterop->release(&inputReleaseEvent); // input frameの解放
+                    clFrameInInterop = nullptr;
+                    if (!m_prevInputFrame.empty() && m_prevInputFrame.back()) {
+                        //解放処理のeventを入力フレームを使用し終わったことの合図として登録する
+                        dynamic_cast<PipelineTaskOutputSurf *>(m_prevInputFrame.back().get())->addClEvent(inputReleaseEvent);
+                    }
+                }
+                if (nOutFrames == 0) {
+                    if (drainFrame) {
+                        // このfilterからflush出力がなければ、同じmarkerを次のfilterへ進めて後段のpendingを確認する。
+                        filterframes.front().second++;
+                        continue;
+                    }
+                    if (drain || filterframes.size() > 1 || !outputSurfs.empty()) {
+                        // flush中やqueue済みフレームがある場合、遅延filterが入力だけ消費してもchain全体は継続する。
+                        filterframes.pop_front();
+                        filterFrameConsumed = true;
+                        break;
+                    }
+                    return RGY_ERR_NONE;
+                }
+                const auto nextFilter = ifilter + 1;
+                filterframes.pop_front();
+                if (drainFrame) {
+                    // flush markerから実フレームが出た場合でも、同じfilterのflush完了確認を続ける。
+                    filterframes.push_back(std::make_pair(RGYFrameInfo(), ifilter));
+                }
+
+                //最初に出てきたフレームは先頭に追加する
+                for (int jframe = nOutFrames - 1; jframe >= 0; jframe--) {
+                    filterframes.push_front(std::make_pair(*outInfo[jframe], nextFilter));
+                }
+            }
+            if (filterFrameConsumed) {
+                // 出力surfaceをまだ取得していないので、そのまま残りのqueued frame / drain markerを処理する。
+                continue;
+            }
+            if (filterframes.front().first.ptr[0] == nullptr) {
+                if (!outputSurfs.empty()) {
+                    // 出力を返した後も、呼び出し元が再度flushして残りのpendingを取りに来る。
+                    queueOutputSurfs();
+                    if (m_stopwatch) m_stopwatch->add(0, 2);
+                    return RGY_ERR_NONE;
+                }
+                return RGY_ERR_MORE_DATA; //最後までdrain = trueなら、drain完了
+            }
+            //エンコードバッファにコピー
+            auto &lastFilter = m_vpFilters[m_vpFilters.size() - 1];
+            //最後のフィルタはRGYFilterCspCropでなければならない
+            if (typeid(*lastFilter.get()) != typeid(RGYFilterCspCrop)) {
+                PrintMes(RGY_LOG_ERROR, _T("Last filter setting invalid.\n"));
+                return RGY_ERR_INVALID_PARAM;
+            }
             auto surfVppOut = getWorkSurf();
             RGYCLFrameInterop *clFrameOutInterop = nullptr;
             if (auto mfxsurfOut = (surfVppOut.mfx()) ? surfVppOut.mfx()->surf() : nullptr; mfxsurfOut != nullptr) {
@@ -2527,58 +2618,6 @@ public:
                 PrintMes(RGY_LOG_ERROR, _T("Invalid work frame [out].\n"));
                 return RGY_ERR_NULL_PTR;
             }
-            #define clFrameOutInteropRelease { if (clFrameOutInterop) clFrameOutInterop->release(); }
-            //フィルタリングするならここ
-            for (uint32_t ifilter = filterframes.front().second; ifilter < m_vpFilters.size() - 1; ifilter++) {
-                // コピーを作ってそれをfilter関数に渡す
-                // vpp-rffなどoverwirteするフィルタのときに、filterframes.pop_front -> push がうまく動作しない
-                RGYFrameInfo input = filterframes.front().first;
-
-                int nOutFrames = 0;
-                RGYFrameInfo *outInfo[16] = { 0 };
-                auto sts_filter = m_vpFilters[ifilter]->filter(&input, (RGYFrameInfo **)&outInfo, &nOutFrames);
-                if (sts_filter != RGY_ERR_NONE) {
-                    PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_vpFilters[ifilter]->name().c_str());
-                    clFrameOutInteropRelease;
-                    return sts_filter;
-                }
-                if (clFrameInInterop) {
-                    RGYOpenCLEvent inputReleaseEvent;
-                    clFrameInInterop->release(&inputReleaseEvent); // input frameの解放
-                    clFrameInInterop = nullptr;
-                    if (!m_prevInputFrame.empty() && m_prevInputFrame.back()) {
-                        //解放処理のeventを入力フレームを使用し終わったことの合図として登録する
-                        dynamic_cast<PipelineTaskOutputSurf *>(m_prevInputFrame.back().get())->addClEvent(inputReleaseEvent);
-                    }
-                }
-                if (nOutFrames == 0) {
-                    if (drain) {
-                        filterframes.front().second++;
-                        continue;
-                    }
-                    clFrameOutInteropRelease;
-                    return RGY_ERR_NONE;
-                }
-                filterframes.pop_front();
-                drain = false; //途中でフレームが出てきたら、drain完了していない
-
-                //最初に出てきたフレームは先頭に追加する
-                for (int jframe = nOutFrames - 1; jframe >= 0; jframe--) {
-                    filterframes.push_front(std::make_pair(*outInfo[jframe], ifilter + 1));
-                }
-            }
-            if (drain) {
-                clFrameOutInteropRelease;
-                return RGY_ERR_MORE_DATA; //最後までdrain = trueなら、drain完了
-            }
-            //エンコードバッファにコピー
-            auto &lastFilter = m_vpFilters[m_vpFilters.size() - 1];
-            //最後のフィルタはRGYFilterCspCropでなければならない
-            if (typeid(*lastFilter.get()) != typeid(RGYFilterCspCrop)) {
-                PrintMes(RGY_LOG_ERROR, _T("Last filter setting invalid.\n"));
-                clFrameOutInteropRelease;
-                return RGY_ERR_INVALID_PARAM;
-            }
             //エンコードバッファのポインタを渡す
             int nOutFrames = 0;
             auto encSurfaceInfo = (clFrameOutInterop) ? clFrameOutInterop->frameInfo() : surfVppOut.cl()->frameInfo();
@@ -2588,7 +2627,7 @@ public:
             auto sts_filter = lastFilter->filter(&filterframes.front().first, (RGYFrameInfo **)&outInfo, &nOutFrames, m_cl->queue(), &clevent);
             if (sts_filter != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), lastFilter->name().c_str());
-                clFrameOutInteropRelease;
+                if (clFrameOutInterop) clFrameOutInterop->release();
                 return sts_filter;
             }
             if (m_videoMetric) {
@@ -2597,6 +2636,7 @@ public:
                 auto err = m_videoMetric->filter(&filterframes.front().first, nullptr, &dummy, m_cl->queue(), &clevent);
                 if (err != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Failed to send frame for video metric calcualtion: %s.\n"), get_err_mes(err));
+                    if (clFrameOutInterop) clFrameOutInterop->release();
                     return err;
                 }
             }
@@ -2616,8 +2656,19 @@ public:
             surfVppOut.frame()->setDataList(encSurfaceInfo.dataList);
 
             outputSurfs.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, frame, clevent));
-
-            #undef clFrameOutInteropRelease
+            if (drain) {
+                // Flush may receive several frames from one filter call (for example KFM VFR emits up to 4).
+                // Do not return while real frames are still queued locally, or they will be dropped.
+                const auto drainOutputLimit = std::max<size_t>(1, std::min<size_t>(
+                    4,
+                    std::max<size_t>(1, m_workSurfs.bufCount() / 2)));
+                if (outputSurfs.size() >= drainOutputLimit
+                    && (filterframes.empty() || filterframes.front().first.ptr[0] == nullptr)) {
+                    queueOutputSurfs();
+                    if (m_stopwatch) m_stopwatch->add(0, 2);
+                    return RGY_ERR_NONE;
+                }
+            }
         }
         if (clFrameInInterop) {
             RGYOpenCLEvent clevent;
@@ -2630,10 +2681,7 @@ public:
                 dynamic_cast<PipelineTaskOutputSurf *>(m_prevInputFrame.back().get())->addClEvent(clevent);
             }
         }
-        m_outQeueue.insert(m_outQeueue.end(),
-            std::make_move_iterator(outputSurfs.begin()),
-            std::make_move_iterator(outputSurfs.end())
-        );
+        queueOutputSurfs();
         if (m_stopwatch) m_stopwatch->add(0, 2);
 #else
         auto surfVppOut = getWorkSurf();

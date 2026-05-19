@@ -29,6 +29,7 @@
 #ifndef __RGY_FILTER_RESIZE_H__
 #define __RGY_FILTER_RESIZE_H__
 
+#include <array>
 #include "rgy_filter_cl.h"
 
 class RGYFilterParamLibplaceboResample;
@@ -36,8 +37,9 @@ class RGYFilterParamLibplaceboResample;
 class RGYFilterParamResize : public RGYFilterParam {
 public:
     RGY_VPP_RESIZE_ALGO interp;
+    float gaussP;
     std::shared_ptr<RGYFilterParamLibplaceboResample> libplaceboResample;
-    RGYFilterParamResize() : interp(RGY_VPP_RESIZE_AUTO), libplaceboResample() {};
+    RGYFilterParamResize() : interp(RGY_VPP_RESIZE_AUTO), gaussP(2.0f), libplaceboResample() {};
     virtual ~RGYFilterParamResize() {};
 };
 
@@ -49,14 +51,24 @@ public:
     virtual ~RGYFilterResize();
     virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
+    struct RGYResizeGaussPlane {
+        std::unique_ptr<RGYCLFrame> tmp;
+        RGYResizeGaussPlane();
+    };
+
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;
     virtual void close() override;
 
     virtual RGY_ERR resizePlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    virtual RGY_ERR resizePlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, const int plane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    virtual RGY_ERR resizePlaneGauss2Pass(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, const int plane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     virtual RGY_ERR resizeFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    virtual RGY_ERR createGaussTmp(RGYResizeGaussPlane& planeTmp, const RGYFrameInfo& planeOut, const RGYFrameInfo& planeIn);
+    virtual void clearGaussTmp();
 
     bool m_bInterlacedWarn;
     std::unique_ptr<RGYCLBuf> m_weightSpline;
+    std::array<RGYResizeGaussPlane, RGY_MAX_PLANES> m_gauss2pass;
     std::unique_ptr<RGYFilterLibplaceboResample> m_libplaceboResample;
     RGYOpenCLProgramAsync m_resize;
     RGYCLFramePool m_srcImagePool;

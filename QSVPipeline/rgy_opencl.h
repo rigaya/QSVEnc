@@ -219,6 +219,9 @@ CL_EXTERN cl_int (CL_API_CALL* f_clReleaseMemObject) (cl_mem memobj);
 CL_EXTERN cl_int (CL_API_CALL* f_clGetMemObjectInfo)(cl_mem memobj, cl_mem_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
 CL_EXTERN cl_int (CL_API_CALL* f_clGetImageInfo)(cl_mem memobj, cl_mem_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
 CL_EXTERN cl_kernel (CL_API_CALL* f_clCreateKernel) (cl_program program, const char *kernel_name, cl_int *errcode_ret);
+CL_EXTERN cl_int (CL_API_CALL* f_clCreateKernelsInProgram)(cl_program program, cl_uint num_kernels, cl_kernel *kernels, cl_uint *num_kernels_ret);
+CL_EXTERN cl_int (CL_API_CALL* f_clGetKernelInfo)(cl_kernel kernel, cl_kernel_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
+CL_EXTERN cl_int (CL_API_CALL* f_clGetKernelWorkGroupInfo)(cl_kernel kernel, cl_device_id device, cl_kernel_work_group_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
 CL_EXTERN cl_int (CL_API_CALL* f_clReleaseKernel) (cl_kernel kernel);
 CL_EXTERN cl_int (CL_API_CALL* f_clSetKernelArg) (cl_kernel kernel, cl_uint arg_index, size_t arg_size, const void *arg_value);
 CL_EXTERN cl_int (CL_API_CALL* f_clEnqueueNDRangeKernel)(cl_command_queue command_queue, cl_kernel kernel, cl_uint work_dim, const size_t *global_work_offset, const size_t *global_work_size, const size_t *local_work_size, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event * event);
@@ -318,6 +321,9 @@ CL_EXTERN cl_int(CL_API_CALL* f_clEnqueueReleaseVA_APIMediaSurfacesINTEL)(cl_com
 #define clGetMemObjectInfo f_clGetMemObjectInfo
 #define clGetImageInfo f_clGetImageInfo
 #define clCreateKernel f_clCreateKernel
+#define clCreateKernelsInProgram f_clCreateKernelsInProgram
+#define clGetKernelInfo f_clGetKernelInfo
+#define clGetKernelWorkGroupInfo f_clGetKernelWorkGroupInfo
 #define clReleaseKernel f_clReleaseKernel
 #define clSetKernelArg f_clSetKernelArg
 #define clEnqueueNDRangeKernel f_clEnqueueNDRangeKernel
@@ -576,7 +582,7 @@ public:
         unmap();
     }
     RGY_ERR map(cl_map_flags map_flags, size_t size, RGYOpenCLQueue &queue);
-    RGY_ERR map(cl_map_flags map_flags, size_t size, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, const RGYCLMapBlock block_map);
+    RGY_ERR map(cl_map_flags map_flags, size_t size, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, const RGYCLMapBlock block_map, const char *perf_label = nullptr);
     RGY_ERR unmap();
     RGY_ERR unmap(RGYOpenCLQueue &queue);
     RGY_ERR unmap(RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
@@ -602,22 +608,17 @@ public:
     ~RGYCLBuf() {
         clear();
     }
-    void clear() {
-        m_mapped.reset();
-        if (m_mem) {
-            clReleaseMemObject(m_mem);
-            m_mem = nullptr;
-        }
-    }
+    void clear();
     cl_mem &mem() { return m_mem; }
     const cl_mem &mem() const { return m_mem; }
     size_t size() const { return m_size; }
     cl_mem_flags flags() const { return m_flags; }
 
-    RGY_ERR queueMapBuffer(RGYOpenCLQueue &queue, cl_map_flags map_flags, const std::vector<RGYOpenCLEvent> &wait_events = {}, const RGYCLMapBlock block_map = RGY_CL_MAP_BLOCK_NONE);
+    RGY_ERR queueMapBuffer(RGYOpenCLQueue &queue, cl_map_flags map_flags, const std::vector<RGYOpenCLEvent> &wait_events = {}, const RGYCLMapBlock block_map = RGY_CL_MAP_BLOCK_NONE, const char *perf_label = nullptr);
     const RGYOpenCLEvent &mapEvent() const { return m_mapped->event(); }
     const void *mappedPtr() const { return m_mapped->ptr(); }
     void *mappedPtr() { return m_mapped->ptr(); }
+    bool isMapped() const { return m_mapped != nullptr; }
     RGY_ERR unmapBuffer();
     RGY_ERR unmapBuffer(RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events = {});
     RGYCLMemObjInfo getMemObjectInfo() const;
@@ -969,7 +970,7 @@ public:
 
 class RGYOpenCLKernelLauncher {
 public:
-    RGYOpenCLKernelLauncher(cl_kernel kernel, std::string kernelName, RGYOpenCLQueue &queue, const RGYWorkSize &local, const RGYWorkSize &global, shared_ptr<RGYLog> pLog, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    RGYOpenCLKernelLauncher(cl_kernel kernel, std::string kernelName, RGYOpenCLQueue &queue, const RGYWorkSize &local, const RGYWorkSize &global, shared_ptr<RGYLog> pLog, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event, uint64_t program_id = 0);
     virtual ~RGYOpenCLKernelLauncher() {};
 
     size_t subGroupSize() const;
@@ -997,20 +998,23 @@ protected:
     shared_ptr<RGYLog> m_log;
     std::vector<cl_event> m_wait_events;
     RGYOpenCLEvent *m_event;
+    uint64_t m_program_id;
 };
 
 class RGYOpenCLKernel {
 public:
-    RGYOpenCLKernel() : m_kernel(), m_kernelName(), m_log() {};
-    RGYOpenCLKernel(cl_kernel kernel, std::string kernelName, shared_ptr<RGYLog> pLog);
+    RGYOpenCLKernel() : m_kernel(), m_kernelName(), m_log(), m_program_id(0) {};
+    RGYOpenCLKernel(cl_kernel kernel, std::string kernelName, shared_ptr<RGYLog> pLog, uint64_t program_id = 0);
     cl_kernel get() const { return m_kernel; }
     const std::string& name() const { return m_kernelName; }
+    uint64_t programId() const { return m_program_id; }
     virtual ~RGYOpenCLKernel();
     RGYOpenCLKernelLauncher config(RGYOpenCLQueue &queue, const RGYWorkSize &local, const RGYWorkSize &global, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event = nullptr);
 protected:
     cl_kernel m_kernel;
     std::string m_kernelName;
     shared_ptr<RGYLog> m_log;
+    uint64_t m_program_id;
 };
 
 class RGYOpenCLKernelHolder {
@@ -1028,15 +1032,17 @@ protected:
 
 class RGYOpenCLProgram {
 public:
-    RGYOpenCLProgram(cl_program program, shared_ptr<RGYLog> pLog);
+    RGYOpenCLProgram(cl_program program, shared_ptr<RGYLog> pLog, uint64_t program_id = 0);
     virtual ~RGYOpenCLProgram();
 
     RGYOpenCLKernelHolder kernel(const char *kernelName);
     std::vector<uint8_t> getBinary();
+    uint64_t programId() const { return m_program_id; }
 protected:
     cl_program m_program;
     shared_ptr<RGYLog> m_log;
     std::vector<std::unique_ptr<RGYOpenCLKernel>> m_kernels;
+    uint64_t m_program_id;
 };
 
 class RGYOpenCLProgramAsync {
@@ -1148,6 +1154,25 @@ private:
     std::deque<std::unique_ptr<RGYCLFrame>> m_pool;
 };
 
+class RGYOpenCLContext;
+
+class RGYCLSharedFramePool : public std::enable_shared_from_this<RGYCLSharedFramePool> {
+public:
+    RGYCLSharedFramePool(std::shared_ptr<RGYOpenCLContext> context);
+    ~RGYCLSharedFramePool();
+    std::shared_ptr<RGYCLFrame> acquire(const RGYFrameInfo *frame, cl_mem_flags flags = CL_MEM_READ_WRITE);
+    std::shared_ptr<RGYCLFrame> acquire(const RGYFrameInfo &frame, cl_mem_flags flags = CL_MEM_READ_WRITE);
+    void recycle(RGYCLFrame *frame);
+    void clear();
+private:
+    struct Entry {
+        std::unique_ptr<RGYCLFrame> frame;
+        RGYOpenCLEvent readyEvent;
+    };
+    std::shared_ptr<RGYOpenCLContext> m_cl;
+    std::deque<Entry> m_frames;
+};
+
 class RGYOpenCLContext {
 public:
     RGYOpenCLContext(shared_ptr<RGYOpenCLPlatform> platform, int buildThreads, shared_ptr<RGYLog> pLog);
@@ -1190,12 +1215,12 @@ public:
     RGY_ERR copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop);
     RGY_ERR copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue);
     RGY_ERR copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
-    RGY_ERR copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event = nullptr, RGYFrameCopyMode copyMode = RGYFrameCopyMode::FRAME);
+    RGY_ERR copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event = nullptr, RGYFrameCopyMode copyMode = RGYFrameCopyMode::FRAME, const char *perfLabel = nullptr);
     RGY_ERR copyPlane(RGYFrameInfo *dst, const RGYFrameInfo *src);
     RGY_ERR copyPlane(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop);
     RGY_ERR copyPlane(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue);
     RGY_ERR copyPlane(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
-    RGY_ERR copyPlane(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event = nullptr, RGYFrameCopyMode copyMode = RGYFrameCopyMode::FRAME);
+    RGY_ERR copyPlane(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event = nullptr, RGYFrameCopyMode copyMode = RGYFrameCopyMode::FRAME, const char *perfLabel = nullptr);
     RGY_ERR setPlane(int value, RGYFrameInfo *dst);
     RGY_ERR setPlane(int value, RGYFrameInfo *dst, const sInputCrop *srcCrop);
     RGY_ERR setPlane(int value, RGYFrameInfo *dst, const sInputCrop *srcCrop, RGYOpenCLQueue &queue);
@@ -1216,8 +1241,9 @@ public:
 
     std::vector<cl_image_format> getSupportedImageFormats(const cl_mem_object_type image_type = CL_MEM_OBJECT_IMAGE2D) const;
     tstring getSupportedImageFormatsStr(const cl_mem_object_type image_type = CL_MEM_OBJECT_IMAGE2D) const;
+
 protected:
-    std::unique_ptr<RGYOpenCLProgram> buildProgram(std::string datacopy, const std::string options);
+    std::unique_ptr<RGYOpenCLProgram> buildProgram(std::string datacopy, const std::string options, const std::string name_hint = std::string());
 
     shared_ptr<RGYOpenCLPlatform> m_platform;
     unique_context m_context;

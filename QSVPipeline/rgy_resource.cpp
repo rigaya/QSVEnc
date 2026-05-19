@@ -76,9 +76,46 @@ _BINARY_VPP_FILTER_FILE(rgy_filter_msmooth_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_knn_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_nlmeans_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_pmd_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_degrain_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_degrain_common_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_degrain_mvkernel_types_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_degrain_mvkernel_sad_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_degrain_mvkernel_prepare_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_degrain_mvkernel_search_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_degrain_mvkernel_calc_sad_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_degrain_mvkernel_interpolate_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_degrain_analyze_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_degrain_render_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_degrain_debug_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_rtgmc_border_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_rtgmc_search_prefilter_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_rtgmc_edi_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_kfm_common_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_kfm_pad_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_kfm_static_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_kfm_analyze_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_kfm_render_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_kfm_mask_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_kfm_switch_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_kfm_ucf_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_rtgmc_retouch_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_rtgmc_shimmer_repair_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_rtgmc_lossless_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_rtgmc_primitive_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_rtgmc_mmask_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_edgelevel_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_rtgmc_bob_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_msharpen_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_mpdecimate_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_kfm_common_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_kfm_pad_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_kfm_static_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_kfm_analyze_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_kfm_render_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_kfm_mask_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_kfm_switch_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_kfm_ucf_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_rnnedi_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_nnedi_common_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_nnedi_k0_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_nnedi_k1_cl);
@@ -151,9 +188,38 @@ static const RGYResourceData RGY_RESOURCE_DATA[] = {
     { _T("EXE_DATA"), _T("RGY_FILTER_DENOISE_KNN_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_knn_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_DENOISE_NLMEANS_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_nlmeans_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_DENOISE_PMD_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_pmd_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_DEGRAIN_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_degrain_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_DEGRAIN_COMMON_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_degrain_common_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_DEGRAIN_MVKERNEL_TYPES_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_degrain_mvkernel_types_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_DEGRAIN_MVKERNEL_SAD_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_degrain_mvkernel_sad_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_DEGRAIN_MVKERNEL_PREPARE_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_degrain_mvkernel_prepare_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_DEGRAIN_MVKERNEL_SEARCH_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_degrain_mvkernel_search_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_DEGRAIN_MVKERNEL_CALC_SAD_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_degrain_mvkernel_calc_sad_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_DEGRAIN_MVKERNEL_INTERPOLATE_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_degrain_mvkernel_interpolate_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_DEGRAIN_ANALYZE_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_degrain_analyze_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_DEGRAIN_RENDER_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_degrain_render_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_DEGRAIN_DEBUG_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_degrain_debug_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_RTGMC_BORDER_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_rtgmc_border_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_RTGMC_SEARCH_PREFILTER_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_rtgmc_search_prefilter_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_RTGMC_EDI_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_rtgmc_edi_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_KFM_COMMON_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_kfm_common_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_KFM_PAD_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_kfm_pad_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_KFM_STATIC_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_kfm_static_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_KFM_ANALYZE_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_kfm_analyze_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_KFM_RENDER_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_kfm_render_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_KFM_MASK_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_kfm_mask_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_KFM_SWITCH_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_kfm_switch_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_KFM_UCF_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_kfm_ucf_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_RTGMC_RETOUCH_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_rtgmc_retouch_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_RTGMC_SHIMMER_REPAIR_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_rtgmc_shimmer_repair_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_RTGMC_LOSSLESS_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_rtgmc_lossless_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_RTGMC_PRIMITIVE_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_rtgmc_primitive_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_RTGMC_MMASK_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_rtgmc_mmask_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_EDGELEVEL_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_edgelevel_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_RTGMC_BOB_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_rtgmc_bob_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_MSHARPEN_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_msharpen_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_MPDECIMATE_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_mpdecimate_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_RNNEDI_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_rnnedi_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_NNEDI_COMMON_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_nnedi_common_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_NNEDI_K0_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_nnedi_k0_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_NNEDI_K1_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_nnedi_k1_cl) },

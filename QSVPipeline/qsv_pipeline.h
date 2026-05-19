@@ -54,6 +54,7 @@
 #include "rgy_input.h"
 #include "rgy_output.h"
 #include "rgy_opencl.h"
+#include "rgy_opencl_perf.h"
 #include "rgy_dummy_load.h"
 #include "rgy_device_usage.h"
 #include "rgy_parallel_enc.h"
@@ -217,7 +218,7 @@ protected:
     virtual RGY_ERR readChapterFile(tstring chapfile);
 
     virtual bool CPUGenOpenCLSupported(const QSV_CPU_GEN cpu_gen);
-    virtual RGY_ERR InitOpenCL(const bool enableOpenCL, const int openCLBuildThreads, const bool checkVppPerformance);
+    virtual RGY_ERR InitOpenCL(const bool enableOpenCL, const int openCLBuildThreads, const bool checkVppPerformance, const tstring& clPerfDumpDir = tstring());
 
     virtual RGY_ERR AllocFrames();
 

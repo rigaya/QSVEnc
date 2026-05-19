@@ -97,6 +97,9 @@ jobs:
           mkdir QSVEncC_Release
           copy _build\${{ matrix.platform }}\ReleaseStatic\QSVEncC*.exe QSVEncC_Release
           copy _build\${{ matrix.platform }}\ReleaseStatic\*.dll QSVEncC_Release
+          copy resource\nnedi3_weight\nnedi3_weights.bin QSVEncC_Release
+          mkdir QSVEncC_Release\license
+          copy resource\nnedi3_weight\GPLv2.txt QSVEncC_Release\license\GPLv2.txt
           7z a -mx9 QSVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z .\QSVEncC_Release\*
 
       - name: Check dll
@@ -219,6 +222,7 @@ jobs:
           7z x -oAviutl_QSVEnc_release\exe_files\QSVEncC\x86\ QSVEncC_${{ needs.get_version_name.outputs.version_name }}_Win32.7z
           7z x -oAviutl_QSVEnc_release\exe_files\QSVEncC\x64\ QSVEncC_${{ needs.get_version_name.outputs.version_name }}_x64.7z
           copy /y _build\Win32\Release\QSVEnc.auo Aviutl_QSVEnc_release\plugins\
+          copy /y resource\nnedi3_weight\nnedi3_weights.bin Aviutl_QSVEnc_release\plugins\
           copy /y QSVEnc\QSVEnc.ini Aviutl_QSVEnc_release\plugins\
           copy /y QSVEnc\QSVEnc.en.ini Aviutl_QSVEnc_release\plugins\
           copy /y QSVEnc\QSVEnc.zh.ini Aviutl_QSVEnc_release\plugins\
@@ -227,6 +231,8 @@ jobs:
           copy /y QSVEnc\QSVEnc_readme.txt Aviutl_QSVEnc_release\
           copy /y "QSVEnc\QSVが利用可能か確認 [ダブルクリック].bat" Aviutl_QSVEnc_release\
           copy /y "QSVEnc\デバイスマネージャを開く [ダブルクリック].bat" Aviutl_QSVEnc_release\
+          mkdir Aviutl_QSVEnc_release\license
+          copy /y resource\nnedi3_weight\GPLv2.txt Aviutl_QSVEnc_release\license\GPLv2.txt
           echo D | xcopy /y /e QSVEnc\stg Aviutl_QSVEnc_release\plugins\QSVEnc_stg
           dir /b /s Aviutl_QSVEnc_release\
           7z a -mx9 Aviutl_QSVEnc_${{ needs.get_version_name.outputs.version_name }}.zip .\Aviutl_QSVEnc_release\*
@@ -241,12 +247,15 @@ jobs:
           mkdir Aviutl_QSVEnc_release\Plugin\exe_files\QSVEncC\x64
           7z x -oAviutl_QSVEnc_release\Plugin\exe_files\QSVEncC\x64\ QSVEncC_${{ needs.get_version_name.outputs.version_name }}_x64.7z
           copy /y _build\x64\Release\QSVEnc.auo2 Aviutl_QSVEnc_release\Plugin\
+          copy /y resource\nnedi3_weight\nnedi3_weights.bin Aviutl_QSVEnc_release\Plugin\
           copy /y QSVEnc\QSVEnc.ini Aviutl_QSVEnc_release\Plugin\
           copy /y QSVEnc\QSVEnc.en.ini Aviutl_QSVEnc_release\Plugin\
           copy /y QSVEnc\QSVEnc.zh.ini Aviutl_QSVEnc_release\Plugin\
           copy /y QSVEnc\QSVEnc_uninstall.bat Aviutl_QSVEnc_release\Plugin\
           copy /y QSVEnc\auo_setup.ini Aviutl_QSVEnc_release\Plugin\exe_files\
           copy /y QSVEnc\QSVEnc_readme.txt Aviutl_QSVEnc_release\
+          mkdir Aviutl_QSVEnc_release\license
+          copy /y resource\nnedi3_weight\GPLv2.txt Aviutl_QSVEnc_release\license\GPLv2.txt
           echo D | xcopy /y /e QSVEnc\stg Aviutl_QSVEnc_release\Plugin\QSVEnc_stg
           7z a -t7z -m0=lzma -mx=9 -mmt Aviutl2_QSVEnc_${{ needs.get_version_name.outputs.version_name }}.7z .\Aviutl_QSVEnc_release\*
           copy /b QSVEnc\7zSD.noadmin.sfx + QSVEnc\7zInstallerConfig.txt + Aviutl2_QSVEnc_${{ needs.get_version_name.outputs.version_name }}.7z Aviutl2_QSVEnc_${{ needs.get_version_name.outputs.version_name }}_install.exe

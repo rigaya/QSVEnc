@@ -191,6 +191,39 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoisePlane(
 }
 
 RGY_ERR RGYFilterDenoiseNLMeans::denoiseFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+    auto prm = std::dynamic_pointer_cast<RGYFilterParamDenoiseNLMeans>(m_param);
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (!prm->nlmeans.processChroma && RGY_CSP_PLANES[pOutputFrame->csp] > 1) {
+        RGYOpenCLEvent copyEvent;
+        auto copyErr = m_cl->copyFrame(pOutputFrame, pInputFrame, nullptr, queue, wait_events, &copyEvent);
+        if (copyErr != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at copyFrame before luma-only denoise(nlmeans) (%s): %s.\n"),
+                RGY_CSP_NAMES[pInputFrame->csp], get_err_mes(copyErr));
+            return copyErr;
+        }
+        auto planeDst = getPlane(pOutputFrame, RGY_PLANE_Y);
+        auto planeSrc = getPlane(pInputFrame, RGY_PLANE_Y);
+        auto planeTmpU = getPlane(&m_tmpBuf[TMP_U]->frame, RGY_PLANE_Y);
+        auto planeTmpV = getPlane(&m_tmpBuf[TMP_V]->frame, RGY_PLANE_Y);
+        std::array<RGYFrameInfo, RGY_NLMEANS_DXDY_STEP+1> pTmpIWPlane;
+        for (size_t j = 0; j < pTmpIWPlane.size(); j++) {
+            if (m_tmpBuf[TMP_IW0 + j]) {
+                pTmpIWPlane[j] = getPlane(&m_tmpBuf[TMP_IW0 + j]->frame, RGY_PLANE_Y);
+            } else {
+                pTmpIWPlane[j] = RGYFrameInfo();
+            }
+        }
+        auto err = denoisePlane(&planeDst, &planeTmpU, &planeTmpV, pTmpIWPlane.data(), &planeSrc,
+            queue, std::vector<RGYOpenCLEvent>{ copyEvent }, event);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to denoise(nlmeans) luma plane: %s\n"), cl_errmes(err));
+            return err_cl_to_rgy(err);
+        }
+        return RGY_ERR_NONE;
+    }
     for (int i = 0; i < RGY_CSP_PLANES[pOutputFrame->csp]; i++) {
         auto planeDst = getPlane(pOutputFrame, (RGY_PLANE)i);
         auto planeSrc = getPlane(pInputFrame, (RGY_PLANE)i);

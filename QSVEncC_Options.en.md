@@ -220,6 +220,16 @@
   - [--vpp-nnedi \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-nnedi-param1value1param2value2)
   - [--vpp-bwdif \[\<param1\>=\<value1\>\]](#--vpp-bwdif-param1value1)
   - [--vpp-yadif \[\<param1\>=\<value1\>\]](#--vpp-yadif-param1value1)
+  - [--vpp-rnnedi \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-rnnedi-param1value1param2value2)
+  - [--vpp-rtgmc \[\<param1\>=\<value1\>\]](#--vpp-rtgmc-param1value1)
+  - [--vpp-rtgmc-bob \[\<param1\>=\<value1\>\]](#--vpp-rtgmc-bob-param1value1)
+  - [--vpp-rtgmc-search-prefilter \[\<param1\>=\<value1\>\]](#--vpp-rtgmc-search-prefilter-param1value1)
+  - [--vpp-rtgmc-edi \[\<param1\>=\<value1\>\]](#--vpp-rtgmc-edi-param1value1)
+  - [--vpp-rtgmc-retouch \[\<param1\>=\<value1\>\]](#--vpp-rtgmc-retouch-param1value1)
+  - [--vpp-rtgmc-shimmer-repair \[\<param1\>=\<value1\>\]](#--vpp-rtgmc-shimmer-repair-param1value1)
+  - [--vpp-rtgmc-primitive \[\<param1\>=\<value1\>\]](#--vpp-rtgmc-primitive-param1value1)
+  - [--vpp-degrain \[\<param1\>=\<value1\>\]](#--vpp-degrain-param1value1)
+  - [--vpp-kfm \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-kfm-param1value1param2value2)
   - [--vpp-deinterlace \<string\>](#--vpp-deinterlace-string)
   - [--vpp-decomb \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-decomb-param1value1param2value2)
   - [--vpp-ivtc \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-ivtc-param1value1param2value2)
@@ -1766,8 +1776,18 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
   - [--vpp-delogo](#--vpp-delogo-stringparam1value1param2value2)
   - [--vpp-afs](#--vpp-afs-param1value1param2value2)
   - [--vpp-nnedi](#--vpp-nnedi-param1value1param2value2)
+  - [--vpp-rnnedi](#--vpp-rnnedi-param1value1param2value2)
   - [--vpp-bwdif](#--vpp-bwdif-param1value1)
   - [--vpp-yadif](#--vpp-yadif-param1value1)
+  - [--vpp-rtgmc](#--vpp-rtgmc-param1value1)
+  - [--vpp-rtgmc-bob](#--vpp-rtgmc-bob-param1value1)
+  - [--vpp-rtgmc-search-prefilter](#--vpp-rtgmc-search-prefilter-param1value1)
+  - [--vpp-rtgmc-edi](#--vpp-rtgmc-edi-param1value1)
+  - [--vpp-rtgmc-retouch](#--vpp-rtgmc-retouch-param1value1)
+  - [--vpp-rtgmc-shimmer-repair](#--vpp-rtgmc-shimmer-repair-param1value1)
+  - [--vpp-rtgmc-primitive](#--vpp-rtgmc-primitive-param1value1)
+  - [--vpp-degrain](#--vpp-degrain-param1value1)
+  - [--vpp-kfm](#--vpp-kfm-param1value1param2value2)
   - [--vpp-decomb](#--vpp-decomb-param1value1param2value2)
   - [--vpp-deinterlace](#--vpp-deinterlace-string)
   - [--vpp-ivtc](#--vpp-ivtc-param1value1param2value2)
@@ -2266,7 +2286,7 @@ nnedi deinterlacer.
       
     
   - weightfile  
-    Set path of weight file. By default (not specified), internal weight params will be used.
+    Set path of weight file. By default (not specified), Windows builds search for `nnedi3_weights.bin`, and Linux builds use embedded weights.
   
 - Examples
   ```
@@ -2316,6 +2336,229 @@ Yadif deinterlacer.
       Generate one frame from each field assuming top field first.
     - bob_bff   
       Generate one frame from each field assuming bottom field first.
+
+### --vpp-rnnedi [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
+rnnedi deinterlacer. This is a separate implementation from `--vpp-nnedi`.
+Mainly for use from `--vpp-rtgmc`.
+
+- **parameters**
+
+  - field=&lt;string&gt;  
+    Target field selector. `bob` (default), `auto`, `top`, `bottom`, `bob_top`, `bob_bottom`.
+
+  - nsize=&lt;string&gt;  
+    Neighborhood size. `8x6`, `16x6` (default), `32x6`, `48x6`, `8x4`, `16x4`, `32x4`.
+
+  - nns=&lt;int&gt;  
+    Neuron count. `16`, `32` (default), `64`, `128`, `256`.
+
+  - quality=&lt;string&gt;  
+    Quality mode. `fast` (default) or `slow`.
+
+  - prescreen=&lt;int&gt;  
+    Supported values: `2/3/4`. `0/1` are not implemented. Default: `2`.
+
+  - errortype=&lt;string&gt;  
+    Error type. `abs` (default) or `square`.
+
+  - clamp=&lt;int&gt;  
+    Clamp range mode. `0-4`. Default: `1`.
+
+  - double_height=&lt;bool&gt;  
+    Double output height. Supported only with `field=auto/top/bottom`. Default: off.
+
+  - weightfile=&lt;path&gt;  
+    Path to `nnedi3_weights.bin`. If omitted, Windows builds search for `nnedi3_weights.bin`, and Linux builds use embedded weights.
+
+- **Note**
+  - `prescreen=0/1` is currently unsupported.
+
+### --vpp-rtgmc [&lt;param1&gt;=&lt;value1&gt;]
+OpenCL high quality deinterlacer (but slow).
+
+- **major parameters**
+
+  - preset=&lt;string&gt;  
+    `placebo`, `veryslow`, `slower`, `slow`, `medium`, `fast`, `faster` (default), `veryfast`, `superfast`, `ultrafast`, `draft`.
+    This refers the original values.
+
+  - tuning=&lt;string&gt;  
+    `none` (default), `dv-sd`, `dv-hd`.
+
+  - preset expansion table (implementation values)
+
+    | preset | tr0 | tr1 | tr2 | rep0-thin | rep2-thin | edi | nnsize | nneurons | search_refine | search | searchparam | pelsearch | chroma_motion | precise | prog_sad_mask |
+    |:--|--:|--:|--:|--:|--:|:--|--:|--:|--:|--:|--:|--:|:--|:--|--:|
+    | slower | 2 | 2 | 1 | 4 | 4 | nnedi3 | 1 | 1 | 3 | 4 | 2 | 2 | on | off | 10.0 |
+    | slow | 2 | 1 | 1 | 4 | 4 | nnedi3 | 1 | 1 | 3 | 4 | 2 | 2 | off | off | 10.0 |
+    | medium | 2 | 1 | 1 | 3 | 4 | nnedi3 | 5 | 1 | 3 | 4 | 2 | 1 | off | off | 10.0 |
+    | fast | 2 | 1 | 0 | 3 | 4 | nnedi3 | 5 | 0 | 2 | 4 | 2 | 1 | off | off | 0.0 |
+    | faster | 1 | 1 | 0 | 0 | 4 | nnedi3 | 4 | 0 | 2 | 4 | 2 | 1 | off | off | 0.0 |
+    | veryfast | 1 | 1 | 0 | 0 | 4 | nnedi3 | 4 | 0 | 2 | 4 | 1 | 1 | off | off | 0.0 |
+    | superfast | 1 | 1 | 0 | 0 | 3 | nnedi3 | 4 | 0 | 1 | 0 | 1 | 1 | off | off | 0.0 |
+    | ultrafast | 1 | 1 | 0 | 0 | 3 | repyadif | 4 | 0 | 1 | 0 | 1 | 1 | off | off | 0.0 |
+    | draft | 0 | 1 | 0 | 0 | 0 | bob | 4 | 0 | 0 | 0 | 1 | 1 | off | off | 0.0 |
+
+    - `placebo` / `veryslow` are effectively unsupported in the current implementation because they require unsupported `noise_process=2`.
+    - `blksize` is tuning-dependent (`dv-hd=32`, otherwise `16`) for `slower..fast`, and fixed to `32` for `faster..draft`.
+    - `overlap` is `blksize/2` for `slower..faster`, and `blksize/4` for `veryfast..draft`.
+    - `subpel` is `2` for `slower..slow`, and `1` for `medium..draft`.
+
+  - source_match=&lt;int&gt;  
+    `0-3`. `match_tr1/match_tr2` are `0-2`; `match_enhance` is `0.0-1.0`.
+
+  - edi/match_edi=&lt;string&gt;  
+    `bob`, `yadif`, `cyadif`, `repyadif`, `repcyadif`, `nnedi3`, `passthrough`.
+    For `source_match>0`, `match_edi` is limited to `bob/yadif/cyadif/repyadif/repcyadif/nnedi3`.
+
+  - tr0/rep0-thin/rep0-pad/search_refine
+    `tr0=-1..2`, `rep0-thin=0-7`, `rep0-pad=0-3`, `search_refine=0-3`.
+
+  - mv_spatial_refine=&lt;int|auto&gt;
+    Motion-vector spatial refinement count. Motion estimation proceeds through a coarse-to-fine pyramid of analysis levels; this option controls how many spatial refinement passes (which **consult neighboring block motion vectors to further improve precision**) are run at each level.
+    Default is `auto` (`-1`): **perform spatial refinement only at the coarsest (lowest-resolution) level, where the block count is smallest, and skip it at all finer levels**. This concentrates spatial-neighbor based refinement on the level where its serial-dependency cost is negligible, while letting the finer levels (with many blocks) run with maximum GPU parallelism.
+    `0` disables spatial refinement at every level; `1` runs one pass at every level, `2` runs two passes at every level, and so on.
+
+  - rep1-thin/rep1-pad/rep2-thin/rep2-pad
+    `repN-thin=0-7`, `repN-pad=0-3`.
+
+  - noise group  
+    This stage controls noise extraction, denoising, and grain/noise restoration.
+    - `noise_process`  
+      Master mode for the noise path. `0` disables noise processing, `1` enables the current denoise/restore path, `2` is the stronger keep-grain mode from AviSynth (currently unsupported).
+    - `denoiser`  
+      Denoiser selection. `nlmeans` uses the NLMeans path, while `fft3d` uses the FFT3D path.
+    - `noise_deint`  
+      Deinterlace mode for extracted noise. `none` keeps as-is, `bob` uses bob-style interpolation, `generate` is currently unsupported.
+    - `sigma`  
+      Denoise strength proxy; higher values increase smoothing.
+    - `chroma_noise`  
+      Whether chroma planes are included in noise processing.
+    - `grain_restore` / `noise_restore`  
+      Amount of texture/noise restored after denoising; currently valid only with `noise_process=1`.
+    Effective support is constrained as listed in **Note** below.
+
+  - motion group  
+    This stage controls motion-vector search behavior and temporal reference direction.
+    - `searchparam` / `pelsearch`  
+      Search preset factors. `1` is lighter/faster, `2` is more exhaustive.
+    - `useflag`  
+      Temporal direction limit. `0` uses both directions, `1` backward-only, `2` forward-only.
+    - `pel` / `levels` / `lambda` / `lsad` / `pnew` / `plevel` / `globalmotion`  
+      Additional block-matching controls for subpixel granularity, search hierarchy, penalties, and global motion handling.
+    `subpelinterp=2`, `truemotion=false`, and `dct=0` are fixed for CUDA-reference compatibility.
+
+  - retouch group  
+    Final resharpen/limit stage for edge recovery and anti-overshoot control.
+    - `sharpness`  
+      Base sharpening amount (`0.0-1.0`).
+    - `limit`  
+      Legacy-compatible limiting factor (`0.0-1.0`) to reduce sharpening overshoot.
+    - `smode`  
+      Sharpening path selector (`0-2`). `0` is effectively off; `1/2` use different retouch paths.
+    - `slmode` / `slrad` / `sovs`  
+      Sharpen-limit mode, radius, and overshoot allowance (`slmode=0-4`, `slrad=0-3`, `sovs>=0`).
+    - `svthin`  
+      Vertical thinning strength (`0.0-1.0`) to suppress line-thickening artifacts.
+    - `sbb`  
+      Back-blend mode (`0-3`) controlling where sharpen/unsharpen differences are mixed.
+    - `precise`  
+      Enables the precise retouch path variant (`on/off`).
+
+- **Note**
+  - `noise_process=2`, `ezkeepgrain>0`, `denoise_mc=true`, and `noise_tr>0` are unsupported.
+  - `noise_deint=generate` is unsupported.
+  - `grain_restore/noise_restore` currently require `noise_process=1` and are limited to `0.0-1.0`.
+  - `denoiser=fft3d` uses `--vpp-fft3d` internally.
+  - `denoiser=nlmeans` uses `--vpp-nlmeans` internally.
+  - `match_preset` / `match_preset2` are accepted for SourceMatch speed-tier checks, but do not fully reproduce the AviSynth staged preset split.
+  - Options such as `EdiExt/useEdiExt`, `GlobalNames/PrevGlobals`, `FftThreads`, `ShowNoise`, shutter-blur family, and `ForceTR` are not exposed in the current CLI path.
+
+### --vpp-rtgmc-bob [&lt;param1&gt;=&lt;value1&gt;]
+Standalone bob deinterlacer. Parameters: `order=auto|tff|bff`.
+
+### --vpp-rtgmc-search-prefilter [&lt;param1&gt;=&lt;value1&gt;]
+Standalone search reference prefilter. Parameters: `tr0`, `rep0-thin`, `rep0-pad`, `search_refine`, `tv_range`, `chroma_motion`, `dump_y4m`, `dump_stage`, `dump_max_frames`.
+
+### --vpp-rtgmc-edi [&lt;param1&gt;=&lt;value1&gt;]
+Standalone EDI stage. Parameters: `mode`, `nnsize`, `nneurons`, `ediqual`, `chroma_edi`.
+
+### --vpp-rtgmc-retouch [&lt;param1&gt;=&lt;value1&gt;]
+Standalone retouch stage. Parameters: `sharpness`, `limit`, `smode`, `slmode`, `slrad`, `sovs`, `svthin`, `sbb`, `precise`, `tr1`, `tr2`.
+
+### --vpp-rtgmc-shimmer-repair [&lt;param1&gt;=&lt;value1&gt;]
+Standalone shimmer repair stage. Parameters: `stage=rep1|rep2`, `rep-thin`, `rep-pad`, `rep_chroma`.
+
+### --vpp-rtgmc-primitive [&lt;param1&gt;=&lt;value1&gt;]
+Standalone primitive/debug filter. Parameters: `op`, `ref`, `mode`, `weight`, `chroma`.
+
+### --vpp-degrain [&lt;param1&gt;=&lt;value1&gt;]
+Motion compensated degrain debug filter.
+
+- **parameters**
+  - preset=&lt;string&gt;
+    Surface preset. `custom` (default), `auto`.
+    This refers the original values.
+  - mode=&lt;string&gt;
+    Output mode. `source` (default), `analyze`, `compb`, `compf`, `compb2`, `compf2`, `degrain`, `mv`, `sad`.
+  - stage=&lt;string&gt;
+    Step2 stage marker. `auto` (default), `tr1`, `tr2`.
+  - tr=&lt;int&gt;
+    Auto preset temporal radius. `1` or `2`. Sets `mode=degrain`, `stage`, and `delta`.
+  - blksize/search/overlap/delta/levels/pel
+    Block matching geometry and temporal radius parameters.
+  - thsad/thsadc/thscd1/thscd2
+    Degrain and scene-change thresholds.
+  - tr0/rep0/search_refine
+    Search reference prefilter parameters.
+  - searchparam/pelsearch/truemotion/lambda/lsad/pnew/plevel/globalmotion/dct/useflag
+    Motion search tuning parameters.
+  - mv_spatial_refine=&lt;int|auto&gt;
+    Motion-vector spatial refinement count. Default is `auto` (`-1`): run spatial refinement (which consults neighboring block motion vectors) only at the coarsest (lowest-resolution) analysis level, and skip it at all finer levels. This concentrates spatial-neighbor refinement on the level where serial-dependency cost is small, and lets the finer levels run with maximum GPU parallelism. `0` disables it entirely; `1` runs one pass at every level, `2` runs two passes at every level, and so on.
+  - chroma/binomial/tv_range
+    Chroma analysis and prefilter/range controls.
+
+### --vpp-kfm [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
+Adaptive inverse telesine filter using `--vpp-rtgmc`.
+
+- **parameters**
+
+  - mode=&lt;string&gt;  
+    Output mode. `vfr` (default), `60`, `24`, `vfr60`.
+
+  - preset=&lt;string&gt;  
+    Reserved nested preset. Default: `faster`.
+
+  - timing=&lt;string&gt;  
+    Timing analysis mode. `realtime`, `realtime+` (default), `strict`.
+
+  - past_cycles=&lt;int&gt;  
+    Commit delay cycles for `realtime+`. Default: 30.
+
+  - thswitch=&lt;float&gt;  
+    60p switch threshold. Default: 0.5.
+
+  - ucf=&lt;bool&gt;  
+    Enable the UCF stage. Default: off.
+
+  - nr=&lt;bool&gt;  
+    Apply `SMDegrain` on the final KFM output stream. Default: off.
+
+  - is120=&lt;bool&gt;  
+    Reserve 120fps duration correction flag. Default: on.
+
+  - debug=&lt;bool&gt;  
+    Write `.result.dat` and `.frameinfo.tsv` dumps when `timecode` is specified. Default: off.
+
+  - debug_stage=&lt;string&gt;  
+    `none`, `switch-flag` (`switch-flag-min`), `contains-combe`, `combe-mask` (`combe-mask-min`).
+    Used for 24p debug output selection.
+
+  - timecode=&lt;path&gt;  
+    Timecode v2 dump path. In `mode=24/vfr/vfr60`, `*.duration.txt` is also emitted.
+
+- **Note**
+  - Parameters such as `pass`, `svp`, `cuda/dev/threads` are not exposed as CLI parameters.
 
 ### --vpp-deinterlace &lt;string&gt;
 Activate GPU deinterlacer. 
@@ -2877,6 +3120,7 @@ Specify the resizing algorithm.
       | lanczos2       | 4x4 Lanczos resampling                                     |
       | lanczos3       | 6x6 Lanczos resampling                                     |
       | lanczos4       | 8x8 Lanczos resampling                                     |
+      | gauss          | Gaussian filter (p=2.0)                                    |
       
     - [libplacebo](https://code.videolan.org/videolan/libplacebo) library resize filters
 

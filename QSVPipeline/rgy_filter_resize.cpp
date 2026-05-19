@@ -53,6 +53,7 @@ static inline int get_radius(const RGY_VPP_RESIZE_ALGO interp) {
         break;
     case RGY_VPP_RESIZE_LANCZOS4:
     case RGY_VPP_RESIZE_SPLINE64:
+    case RGY_VPP_RESIZE_GAUSS:
         radius = 4;
         break;
     case RGY_VPP_RESIZE_BILINEAR:
@@ -68,6 +69,7 @@ enum RESIZE_WEIGHT_TYPE {
     WEIGHT_BICUBIC,
     WEIGHT_LANCZOS,
     WEIGHT_SPLINE,
+    WEIGHT_GAUSS,
 };
 
 static inline RESIZE_WEIGHT_TYPE get_weight_type(const RGY_VPP_RESIZE_ALGO interp) {
@@ -89,6 +91,9 @@ static inline RESIZE_WEIGHT_TYPE get_weight_type(const RGY_VPP_RESIZE_ALGO inter
     case RGY_VPP_RESIZE_SPLINE64:
         type = WEIGHT_SPLINE;
         break;
+    case RGY_VPP_RESIZE_GAUSS:
+        type = WEIGHT_GAUSS;
+        break;
     default:
         break;
     }
@@ -109,10 +114,18 @@ static bool useTextureBilinear(const RGYFilterParamResize *param) {
 }
 
 RGY_ERR RGYFilterResize::resizePlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+    return resizePlane(pOutputPlane, pInputPlane, 0, queue, wait_events, event);
+}
+
+RGY_ERR RGYFilterResize::resizePlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, const int plane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     auto pResizeParam = std::dynamic_pointer_cast<RGYFilterParamResize>(m_param);
     if (!pResizeParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
+    }
+
+    if (pResizeParam->interp == RGY_VPP_RESIZE_GAUSS) {
+        return resizePlaneGauss2Pass(pOutputPlane, pInputPlane, plane, queue, wait_events, event);
     }
 
     const float ratioX = (float)(pOutputPlane->width) / pInputPlane->width;
@@ -147,6 +160,52 @@ RGY_ERR RGYFilterResize::resizePlane(RGYFrameInfo *pOutputPlane, const RGYFrameI
     return RGY_ERR_NONE;
 }
 
+RGY_ERR RGYFilterResize::resizePlaneGauss2Pass(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, const int plane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+    if (plane < 0 || plane >= (int)m_gauss2pass.size()) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid resize plane index: %d.\n"), plane);
+        return RGY_ERR_INVALID_PARAM;
+    }
+
+    auto& gauss2pass = m_gauss2pass[plane];
+    auto err = createGaussTmp(gauss2pass, *pOutputPlane, *pInputPlane);
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
+    auto pTmpPlane = &gauss2pass.tmp->frame;
+
+    const float ratioX = (float)(pOutputPlane->width) / pInputPlane->width;
+    const float ratioY = (float)(pOutputPlane->height) / pInputPlane->height;
+
+    RGYOpenCLEvent eventH;
+    err = m_resize.get()->kernel("kernel_resize_gauss_h").config(queue,
+        RGYWorkSize(RESIZE_BLOCK_X, RESIZE_BLOCK_Y),
+        RGYWorkSize(pTmpPlane->width, pTmpPlane->height),
+        wait_events, &eventH).launch(
+            (cl_mem)pTmpPlane->ptr[0], pTmpPlane->pitch[0], pTmpPlane->width, pTmpPlane->height,
+            (cl_mem)pInputPlane->ptr[0], pInputPlane->pitch[0], pInputPlane->width, pInputPlane->height,
+            ratioX);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("error at %s (resizePlane(%s)): %s.\n"),
+            _T("kernel_resize_gauss_h"), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
+        return err;
+    }
+
+    const std::vector<RGYOpenCLEvent> waitV{ eventH };
+    err = m_resize.get()->kernel("kernel_resize_gauss_v").config(queue,
+        RGYWorkSize(RESIZE_BLOCK_X, RESIZE_BLOCK_Y),
+        RGYWorkSize(pOutputPlane->width, pOutputPlane->height),
+        waitV, event).launch(
+            (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0], pOutputPlane->width, pOutputPlane->height,
+            (cl_mem)pTmpPlane->ptr[0], pTmpPlane->pitch[0], pTmpPlane->width, pTmpPlane->height,
+            ratioY);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("error at %s (resizePlane(%s)): %s.\n"),
+            _T("kernel_resize_gauss_v"), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
+        return err;
+    }
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR RGYFilterResize::resizeFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     auto pResizeParam = std::dynamic_pointer_cast<RGYFilterParamResize>(m_param);
     if (!pResizeParam) {
@@ -168,7 +227,7 @@ RGY_ERR RGYFilterResize::resizeFrame(RGYFrameInfo *pOutputFrame, const RGYFrameI
         auto planeSrc = getPlane(pInputPtr,    (RGY_PLANE)i);
         const std::vector<RGYOpenCLEvent> &plane_wait_event = (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>();
         RGYOpenCLEvent *plane_event = (i == RGY_CSP_PLANES[pOutputFrame->csp] - 1) ? event : nullptr;
-        auto err = resizePlane(&planeDst, &planeSrc, queue, plane_wait_event, plane_event);
+        auto err = resizePlane(&planeDst, &planeSrc, i, queue, plane_wait_event, plane_event);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to resize frame(%d) %s: %s\n"), i, cl_errmes(err));
             return err_cl_to_rgy(err);
@@ -177,12 +236,39 @@ RGY_ERR RGYFilterResize::resizeFrame(RGYFrameInfo *pOutputFrame, const RGYFrameI
     return RGY_ERR_NONE;
 }
 
-RGYFilterResize::RGYFilterResize(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_bInterlacedWarn(false), m_weightSpline(), m_libplaceboResample(), m_resize(), m_srcImagePool() {
+RGYFilterResize::RGYResizeGaussPlane::RGYResizeGaussPlane() :
+    tmp() {
+}
+
+RGYFilterResize::RGYFilterResize(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_bInterlacedWarn(false), m_weightSpline(), m_gauss2pass(), m_libplaceboResample(), m_resize(), m_srcImagePool() {
     m_name = _T("resize");
 }
 
 RGYFilterResize::~RGYFilterResize() {
     close();
+}
+
+RGY_ERR RGYFilterResize::createGaussTmp(RGYResizeGaussPlane& planeTmp, const RGYFrameInfo& planeOut, const RGYFrameInfo& planeIn) {
+    RGYFrameInfo tmpInfo(planeOut.width, planeIn.height, RGY_CSP_Y_F32, 32);
+    if (planeTmp.tmp
+        && planeTmp.tmp->frameInfo().width == tmpInfo.width
+        && planeTmp.tmp->frameInfo().height == tmpInfo.height
+        && planeTmp.tmp->frameInfo().csp == tmpInfo.csp
+        && planeTmp.tmp->frameInfo().bitdepth == tmpInfo.bitdepth) {
+        return RGY_ERR_NONE;
+    }
+    planeTmp.tmp = m_cl->createFrameBuffer(tmpInfo);
+    if (!planeTmp.tmp) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate gauss resize tmp frame.\n"));
+        return RGY_ERR_MEMORY_ALLOC;
+    }
+    return RGY_ERR_NONE;
+}
+
+void RGYFilterResize::clearGaussTmp() {
+    for (auto& tmp : m_gauss2pass) {
+        tmp = RGYResizeGaussPlane();
+    }
 }
 
 RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
@@ -209,6 +295,7 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
             AddMessage(RGY_LOG_ERROR, _T("Failed to init libplacebo resample filter: %s.\n"), get_err_mes(sts));
             return sts;
         }
+        clearGaussTmp();
     } else {
         m_libplaceboResample.reset(); // 不要になったら解放
         pResizeParam->libplaceboResample.reset();
@@ -224,33 +311,46 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
         auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamResize>(m_param);
         if (!m_resize.get()
             || !prmPrev
+            || prmPrev->frameIn.csp != pResizeParam->frameIn.csp
+            || prmPrev->frameOut.csp != pResizeParam->frameOut.csp
             || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]
             || prmPrev->interp != pResizeParam->interp
             || prmPrev->frameIn.width != pResizeParam->frameIn.width
             || prmPrev->frameIn.height != pResizeParam->frameIn.height
             || prmPrev->frameOut.width != pResizeParam->frameOut.width
-            || prmPrev->frameOut.height != pResizeParam->frameOut.height) {
+            || prmPrev->frameOut.height != pResizeParam->frameOut.height
+            || (pResizeParam->interp == RGY_VPP_RESIZE_GAUSS && prmPrev->gaussP != pResizeParam->gaussP)) {
             const int radius = get_radius(pResizeParam->interp);
             const auto algo = get_weight_type(pResizeParam->interp);
 
-            const float srcWindowX = getSrcWindow(radius, pParam->frameOut.width, pParam->frameIn.width);
-            const int shared_weightXdim = (((int)ceil(srcWindowX) + 1) * 2);
-
-            const float srcWindowY = getSrcWindow(radius, pParam->frameOut.height, pParam->frameIn.height);
-            const int shared_weightYdim = (((int)ceil(srcWindowY) + 1) * 2);
+            int shared_weightXdim = 0;
+            int shared_weightYdim = 0;
+            for (int i = 0; i < RGY_CSP_PLANES[pResizeParam->frameOut.csp]; i++) {
+                const auto planeOut = getPlane(&pResizeParam->frameOut, (RGY_PLANE)i);
+                const auto planeIn = getPlane(&pResizeParam->frameIn, (RGY_PLANE)i);
+                const float srcWindowX = getSrcWindow(radius, planeOut.width, planeIn.width);
+                shared_weightXdim = std::max(shared_weightXdim, (((int)ceil(srcWindowX) + 1) * 2));
+                const float srcWindowY = getSrcWindow(radius, planeOut.height, planeIn.height);
+                shared_weightYdim = std::max(shared_weightYdim, (((int)ceil(srcWindowY) + 1) * 2));
+            }
 
             const int use_local = (ENCODER_MPP) ? 0 : 1;
 
             const auto options = strsprintf("-D Type=%s -D bit_depth=%d -D radius=%d -D algo=%d"
                 " -D block_x=%d -D block_y=%d -D shared_weightXdim=%d -D shared_weightYdim=%d"
-                " -D WEIGHT_BILINEAR=%d -D WEIGHT_BICUBIC=%d -D WEIGHT_SPLINE=%d -D WEIGHT_LANCZOS=%d -D USE_LOCAL=%d",
+                " -D WEIGHT_BILINEAR=%d -D WEIGHT_BICUBIC=%d -D WEIGHT_SPLINE=%d -D WEIGHT_LANCZOS=%d -D WEIGHT_GAUSS=%d"
+                " -D gauss_p=%.9ff -D USE_LOCAL=%d",
                 RGY_CSP_BIT_DEPTH[pResizeParam->frameOut.csp] > 8 ? "ushort" : "uchar",
                 RGY_CSP_BIT_DEPTH[pResizeParam->frameOut.csp],
                 radius, algo,
                 RESIZE_BLOCK_X, RESIZE_BLOCK_Y, shared_weightXdim, shared_weightYdim,
-                WEIGHT_BILINEAR, WEIGHT_BICUBIC, WEIGHT_SPLINE, WEIGHT_LANCZOS, use_local);
+                WEIGHT_BILINEAR, WEIGHT_BICUBIC, WEIGHT_SPLINE, WEIGHT_LANCZOS, WEIGHT_GAUSS,
+                pResizeParam->gaussP, use_local);
             m_resize.set(m_cl->buildResourceAsync(_T("RGY_FILTER_RESIZE_CL"), _T("EXE_DATA"), options.c_str()));
-            if (!m_weightSpline
+            if (algo != WEIGHT_SPLINE) {
+                m_weightSpline.reset();
+            }
+            if ((!m_weightSpline || !prmPrev || prmPrev->interp != pResizeParam->interp)
                 && algo == WEIGHT_SPLINE) {
                 static const auto SPLINE16_WEIGHT = std::vector<float>{
                     1.0f,       -9.0f/5.0f,  -1.0f/5.0f, 1.0f,
@@ -285,6 +385,23 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
                 }
             }
         }
+    }
+
+    if (pResizeParam->interp == RGY_VPP_RESIZE_GAUSS) {
+        const int planeCount = RGY_CSP_PLANES[pResizeParam->frameOut.csp];
+        for (int i = 0; i < planeCount; i++) {
+            const auto planeOut = getPlane(&pResizeParam->frameOut, (RGY_PLANE)i);
+            const auto planeIn = getPlane(&pResizeParam->frameIn, (RGY_PLANE)i);
+            sts = createGaussTmp(m_gauss2pass[i], planeOut, planeIn);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+        }
+        for (int i = planeCount; i < RGY_MAX_PLANES; i++) {
+            m_gauss2pass[i].tmp.reset();
+        }
+    } else {
+        clearGaussTmp();
     }
 
     auto str = strsprintf(_T("resize(%s): %dx%d -> %dx%d"),
@@ -370,6 +487,7 @@ void RGYFilterResize::close() {
     m_frameBuf.clear();
     m_resize.clear();
     m_weightSpline.reset();
+    clearGaussTmp();
     m_cl.reset();
     m_bInterlacedWarn = false;
 }

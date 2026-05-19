@@ -27,12 +27,15 @@
 // ------------------------------------------------------------------------------------------
 
 #include "rgy_tchar.h"
+#include <algorithm>
 #include <vector>
 #include <atomic>
 #include <fstream>
+#include <chrono>
 #include "rgy_osdep.h"
 #define CL_EXTERN
 #include "rgy_opencl.h"
+#include "rgy_opencl_perf.h"
 #include "rgy_resource.h"
 #include "rgy_filesystem.h"
 
@@ -76,6 +79,24 @@
 #define CL_LOG(level, ...)  { if (m_log) { m_log->write(level, RGY_LOGT_OPENCL, __VA_ARGS__); } }
 
 HMODULE RGYOpenCL::openCLHandle = nullptr;
+
+static uint64_t rgy_cl_perf_now_ns() {
+    return (uint64_t)std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+}
+
+static uint64_t rgy_cl_perf_elapsed_ns(uint64_t start_ns) {
+    const auto end_ns = rgy_cl_perf_now_ns();
+    return (end_ns >= start_ns) ? end_ns - start_ns : 0;
+}
+
+static uint64_t rgy_cl_perf_begin(const bool enabled) {
+    return enabled ? rgy_cl_perf_now_ns() : 0;
+}
+
+static uint64_t rgy_cl_perf_end(const bool enabled, const uint64_t start_ns) {
+    return enabled ? rgy_cl_perf_elapsed_ns(start_ns) : 0;
+}
 
 //OpenCLのドライバは場合によってはクラッシュする可能性がある
 //クラッシュしたことがあれば、このフラグを立て、以降OpenCLを使用しないようにする
@@ -335,6 +356,9 @@ int initOpenCLGlobal() {
     LOAD(clGetMemObjectInfo);
     LOAD(clGetImageInfo);
     LOAD(clCreateKernel);
+    LOAD_NO_CHECK(clCreateKernelsInProgram);
+    LOAD_NO_CHECK(clGetKernelInfo);
+    LOAD_NO_CHECK(clGetKernelWorkGroupInfo);
     LOAD(clReleaseKernel);
     LOAD(clSetKernelArg);
     LOAD(clEnqueueNDRangeKernel);
@@ -1348,6 +1372,11 @@ RGYOpenCLContext::RGYOpenCLContext(shared_ptr<RGYOpenCLPlatform> platform, int b
 }
 
 RGYOpenCLContext::~RGYOpenCLContext() {
+    // パフォーマンスコレクタを flush (best-effort, 例外は飲む)
+    try {
+        RGYOpenCLPerfCollector::instance().flush();
+    } catch (...) {}
+
     m_threadPool.reset();
     CL_LOG(RGY_LOG_DEBUG, _T("Closing CL Context...\n"));
     m_copy.clear();     CL_LOG(RGY_LOG_DEBUG, _T("Closed CL m_copy program.\n"));
@@ -1435,8 +1464,8 @@ RGYOpenCLQueue RGYOpenCLContext::createQueue(const cl_device_id devid, const cl_
     return queue;
 }
 
-RGYOpenCLKernelLauncher::RGYOpenCLKernelLauncher(cl_kernel kernel, std::string kernelName, RGYOpenCLQueue &queue, const RGYWorkSize &local, const RGYWorkSize &global, shared_ptr<RGYLog> pLog, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event) :
-    m_kernel(kernel), m_kernelName(kernelName), m_queue(queue), m_local(local), m_global(global), m_log(pLog), m_wait_events(toVec(wait_events)), m_event(event) {
+RGYOpenCLKernelLauncher::RGYOpenCLKernelLauncher(cl_kernel kernel, std::string kernelName, RGYOpenCLQueue &queue, const RGYWorkSize &local, const RGYWorkSize &global, shared_ptr<RGYLog> pLog, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event, uint64_t program_id) :
+    m_kernel(kernel), m_kernelName(kernelName), m_queue(queue), m_local(local), m_global(global), m_log(pLog), m_wait_events(toVec(wait_events)), m_event(event), m_program_id(program_id) {
 }
 
 size_t RGYOpenCLKernelLauncher::subGroupSize() const {
@@ -1485,18 +1514,38 @@ RGY_ERR RGYOpenCLKernelLauncher::launch(std::vector<void *> arg_ptrs, std::vecto
         }
     }
     auto globalCeiled = m_global.ceilGlobal(m_local);
+
+    auto& perf_collector = RGYOpenCLPerfCollector::instance();
+    const bool perf_enabled = perf_collector.isEnabled();
+    RGYOpenCLEvent perf_event_local;
+    cl_event *event_ptr_to_use;
+    if (m_event) {
+        // 呼び出し元が event を要求している → そのまま使用
+        event_ptr_to_use = m_event->reset_ptr();
+    } else if (perf_enabled) {
+        // 内部で event を確保し、後で collector が回収
+        event_ptr_to_use = perf_event_local.reset_ptr();
+    } else {
+        // いずれもなし → nullptr
+        event_ptr_to_use = nullptr;
+    }
+
     auto err = err_cl_to_rgy(clEnqueueNDRangeKernel(m_queue.get(), m_kernel, 3, NULL, globalCeiled(), m_local(),
         (int)m_wait_events.size(),
         (m_wait_events.size() > 0) ? m_wait_events.data() : nullptr,
-        (m_event) ? m_event->reset_ptr() : nullptr));
+        event_ptr_to_use));
     if (err != RGY_ERR_NONE) {
         CL_LOG(RGY_LOG_ERROR, _T("Error: Failed to run kernel \"%s\": %s\n"), char_to_tstring(m_kernelName).c_str(), get_err_mes(err));
         return err;
     }
+    if (perf_enabled) {
+        RGYOpenCLEvent& ev_ref = m_event ? *m_event : perf_event_local;
+        perf_collector.recordLaunch(m_program_id, m_kernelName, m_local, globalCeiled, m_kernel, ev_ref);
+    }
     return err;
 }
 
-RGYOpenCLKernel::RGYOpenCLKernel(cl_kernel kernel, std::string kernelName, shared_ptr<RGYLog> pLog) : m_kernel(kernel), m_kernelName(kernelName), m_log(pLog) {
+RGYOpenCLKernel::RGYOpenCLKernel(cl_kernel kernel, std::string kernelName, shared_ptr<RGYLog> pLog, uint64_t program_id) : m_kernel(kernel), m_kernelName(kernelName), m_log(pLog), m_program_id(program_id) {
 
 }
 
@@ -1509,7 +1558,7 @@ RGYOpenCLKernel::~RGYOpenCLKernel() {
     m_log.reset();
 };
 
-RGYOpenCLProgram::RGYOpenCLProgram(cl_program program, shared_ptr<RGYLog> pLog) : m_program(program), m_log(pLog), m_kernels() {
+RGYOpenCLProgram::RGYOpenCLProgram(cl_program program, shared_ptr<RGYLog> pLog, uint64_t program_id) : m_program(program), m_log(pLog), m_kernels(), m_program_id(program_id) {
 };
 
 RGYOpenCLProgram::~RGYOpenCLProgram() {
@@ -1522,19 +1571,19 @@ RGYOpenCLProgram::~RGYOpenCLProgram() {
 };
 
 RGYOpenCLKernelLauncher RGYOpenCLKernel::config(RGYOpenCLQueue &queue, const RGYWorkSize &local, const RGYWorkSize &global, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
-    return RGYOpenCLKernelLauncher(m_kernel, m_kernelName, queue, local, global, m_log, wait_events, event);
+    return RGYOpenCLKernelLauncher(m_kernel, m_kernelName, queue, local, global, m_log, wait_events, event, m_program_id);
 }
 
 RGYOpenCLKernelLauncher RGYOpenCLKernelHolder::config(RGYOpenCLQueue &queue, const RGYWorkSize &local, const RGYWorkSize &global) {
-    return RGYOpenCLKernelLauncher(m_kernel->get(), m_kernel->name(), queue, local, global, m_log, {}, nullptr);
+    return RGYOpenCLKernelLauncher(m_kernel->get(), m_kernel->name(), queue, local, global, m_log, {}, nullptr, m_kernel->programId());
 }
 
 RGYOpenCLKernelLauncher RGYOpenCLKernelHolder::config(RGYOpenCLQueue &queue, const RGYWorkSize &local, const RGYWorkSize &global, RGYOpenCLEvent *event) {
-    return RGYOpenCLKernelLauncher(m_kernel->get(), m_kernel->name(), queue, local, global, m_log, {}, event);
+    return RGYOpenCLKernelLauncher(m_kernel->get(), m_kernel->name(), queue, local, global, m_log, {}, event, m_kernel->programId());
 }
 
 RGYOpenCLKernelLauncher RGYOpenCLKernelHolder::config(RGYOpenCLQueue &queue, const RGYWorkSize &local, const RGYWorkSize &global, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
-    return RGYOpenCLKernelLauncher(m_kernel->get(), m_kernel->name(), queue, local, global, m_log, wait_events, event);
+    return RGYOpenCLKernelLauncher(m_kernel->get(), m_kernel->name(), queue, local, global, m_log, wait_events, event, m_kernel->programId());
 }
 
 RGYOpenCLKernelHolder::RGYOpenCLKernelHolder(RGYOpenCLKernel *kernel, shared_ptr<RGYLog> pLog) : m_kernel(kernel), m_log(pLog) {};
@@ -1550,7 +1599,7 @@ RGYOpenCLKernelHolder RGYOpenCLProgram::kernel(const char *kernelName) {
     if (err != CL_SUCCESS) {
         CL_LOG(RGY_LOG_ERROR, _T("Failed to get kernel %s: %s\n"), char_to_tstring(kernelName).c_str(), cl_errmes(err));
     }
-    m_kernels.push_back(std::make_unique<RGYOpenCLKernel>(kernel, kernelName, m_log));
+    m_kernels.push_back(std::make_unique<RGYOpenCLKernel>(kernel, kernelName, m_log, m_program_id));
     return RGYOpenCLKernelHolder(m_kernels.back().get(), m_log);
 }
 
@@ -1778,16 +1827,59 @@ bool RGYCLMemObjInfo::isImageNormalizedType() const {
     return clchannel_type_is_normalized_type(image_format.image_channel_data_type);
 }
 
-RGY_ERR RGYCLBufMap::map(cl_map_flags map_flags, size_t size, RGYOpenCLQueue &queue) {
-    return map(map_flags, size, queue, {}, RGY_CL_MAP_BLOCK_NONE);
+void RGYCLBuf::clear() {
+    m_mapped.reset();
+    if (m_mem) {
+        auto& perf_collector = RGYOpenCLPerfCollector::instance();
+        const bool perf_enabled = perf_collector.isEnabled();
+        const auto host_start = rgy_cl_perf_begin(perf_enabled);
+        const auto clerr = clReleaseMemObject(m_mem);
+        const auto host_time = rgy_cl_perf_end(perf_enabled, host_start);
+        if (perf_enabled) {
+            perf_collector.recordAllocation("clReleaseMemObject:buffer", m_size, host_time, clerr == CL_SUCCESS);
+        }
+        m_mem = nullptr;
+    }
 }
 
-RGY_ERR RGYCLBufMap::map(cl_map_flags map_flags, size_t size, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, const RGYCLMapBlock block_map) {
+RGY_ERR RGYCLBufMap::map(cl_map_flags map_flags, size_t size, RGYOpenCLQueue &queue) {
+    return map(map_flags, size, queue, {}, RGY_CL_MAP_BLOCK_NONE, nullptr);
+}
+
+static const char *rgy_cl_map_flags_perf_name(cl_map_flags map_flags) {
+    if (map_flags & CL_MAP_WRITE_INVALIDATE_REGION) return "write_invalidate";
+    if ((map_flags & CL_MAP_READ) && (map_flags & CL_MAP_WRITE)) return "read_write";
+    if (map_flags & CL_MAP_WRITE) return "write";
+    if (map_flags & CL_MAP_READ) return "read";
+    return "unknown";
+}
+
+static const char *rgy_cl_map_block_perf_name(RGYCLMapBlock block_map) {
+    switch (block_map) {
+    case RGY_CL_MAP_BLOCK_ALL: return "block_all";
+    case RGY_CL_MAP_BLOCK_LAST: return "block_last";
+    case RGY_CL_MAP_BLOCK_NONE:
+    default: return "nonblock";
+    }
+}
+
+RGY_ERR RGYCLBufMap::map(cl_map_flags map_flags, size_t size, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, const RGYCLMapBlock block_map, const char *perf_label) {
     m_queue = queue.get();
     const std::vector<cl_event> v_wait_list = toVec(wait_events);
     const cl_event *wait_list = (v_wait_list.size() > 0) ? v_wait_list.data() : nullptr;
     cl_int err = 0;
+    auto& perf_collector = RGYOpenCLPerfCollector::instance();
+    const bool perf_enabled = perf_collector.isEnabled();
+    const auto host_start = rgy_cl_perf_begin(perf_enabled);
     m_hostPtr = clEnqueueMapBuffer(m_queue, m_mem, (block_map != RGY_CL_MAP_BLOCK_NONE) ? CL_TRUE : CL_FALSE, map_flags, 0, size, (int)v_wait_list.size(), wait_list, m_eventMap.reset_ptr(), &err);
+    const auto host_time = rgy_cl_perf_end(perf_enabled, host_start);
+    if (perf_enabled && err == CL_SUCCESS) {
+        perf_collector.recordCommand(
+            perf_label
+                ? strsprintf("clEnqueueMapBuffer:buffer:%s:%s:%s", perf_label, rgy_cl_map_flags_perf_name(map_flags), rgy_cl_map_block_perf_name(block_map))
+                : strsprintf("clEnqueueMapBuffer:buffer:%s:%s", rgy_cl_map_flags_perf_name(map_flags), rgy_cl_map_block_perf_name(block_map)),
+            size, host_time, m_eventMap);
+    }
     return err_cl_to_rgy(err);
 }
 
@@ -1805,14 +1897,22 @@ RGY_ERR RGYCLBufMap::unmap(cl_command_queue queue, const std::vector<RGYOpenCLEv
     m_queue = queue;
     const std::vector<cl_event> v_wait_list = toVec(wait_events);
     const cl_event *wait_list = (v_wait_list.size() > 0) ? v_wait_list.data() : nullptr;
-    auto err = err_cl_to_rgy(clEnqueueUnmapMemObject(m_queue, m_mem, m_hostPtr, (int)v_wait_list.size(), wait_list, m_eventMap.reset_ptr()));
+    auto& perf_collector = RGYOpenCLPerfCollector::instance();
+    const bool perf_enabled = perf_collector.isEnabled();
+    const auto host_start = rgy_cl_perf_begin(perf_enabled);
+    auto clerr = clEnqueueUnmapMemObject(m_queue, m_mem, m_hostPtr, (int)v_wait_list.size(), wait_list, m_eventMap.reset_ptr());
+    const auto host_time = rgy_cl_perf_end(perf_enabled, host_start);
+    if (perf_enabled && clerr == CL_SUCCESS) {
+        perf_collector.recordCommand("clEnqueueUnmapMemObject:buffer", 0, host_time, m_eventMap);
+    }
+    auto err = err_cl_to_rgy(clerr);
     m_hostPtr = nullptr;
     return err;
 }
 
-RGY_ERR RGYCLBuf::queueMapBuffer(RGYOpenCLQueue &queue, cl_map_flags map_flags, const std::vector<RGYOpenCLEvent> &wait_events, const RGYCLMapBlock block_map) {
+RGY_ERR RGYCLBuf::queueMapBuffer(RGYOpenCLQueue &queue, cl_map_flags map_flags, const std::vector<RGYOpenCLEvent> &wait_events, const RGYCLMapBlock block_map, const char *perf_label) {
     m_mapped = std::make_unique<RGYCLBufMap>(m_mem);
-    return m_mapped->map(map_flags, m_size, queue, wait_events, block_map);
+    return m_mapped->map(map_flags, m_size, queue, wait_events, block_map, perf_label);
 }
 
 RGY_ERR RGYCLBuf::unmapBuffer() {
@@ -1841,6 +1941,8 @@ RGY_ERR RGYCLFrameMap::map(cl_map_flags map_flags, RGYOpenCLQueue &queue, const 
     cl_event *wait_list = (v_wait_list.size() > 0) ? v_wait_list.data() : nullptr;
     frame = m_dev->frameInfo();
     m_queue = queue.get();
+    auto& perf_collector = RGYOpenCLPerfCollector::instance();
+    const bool perf_enabled = perf_collector.isEnabled();
     for (int i = 0; i < _countof(frame.ptr); i++) {
         frame.ptr[i] = nullptr;
     }
@@ -1858,9 +1960,16 @@ RGY_ERR RGYCLFrameMap::map(cl_map_flags map_flags, RGYOpenCLQueue &queue, const 
             default: break;
         }
         size_t size = (size_t)plane.pitch[0] * plane.height;
+        const auto host_start = rgy_cl_perf_begin(perf_enabled);
         frame.ptr[i] = (uint8_t *)clEnqueueMapBuffer(m_queue, (cl_mem)plane.ptr[0], block, map_flags, 0, size, (int)v_wait_list.size(), wait_list, m_eventMap[i].reset_ptr(), &err);
+        const auto host_time = rgy_cl_perf_end(perf_enabled, host_start);
         if (err != 0) {
             return err_cl_to_rgy(err);
+        }
+        if (perf_enabled) {
+            perf_collector.recordCommand(
+                strsprintf("clEnqueueMapBuffer:frame:%s:%s:plane%d", rgy_cl_map_flags_perf_name(map_flags), rgy_cl_map_block_perf_name(block_map), i),
+                size, host_time, m_eventMap[i]);
         }
         v_wait_list.clear();
         wait_list = nullptr;
@@ -1881,14 +1990,24 @@ RGY_ERR RGYCLFrameMap::unmap(cl_command_queue queue, const std::vector<RGYOpenCL
     std::vector<cl_event> v_wait_list = toVec(wait_events);
     cl_event *wait_list = (v_wait_list.size() > 0) ? v_wait_list.data() : nullptr;
     m_queue = queue;
+    auto& perf_collector = RGYOpenCLPerfCollector::instance();
+    const bool perf_enabled = perf_collector.isEnabled();
     for (int i = 0; i < _countof(frame.ptr); i++) {
         if (frame.ptr[i]) {
-            auto err = err_cl_to_rgy(clEnqueueUnmapMemObject(m_queue, (cl_mem)m_dev->frame.ptr[i], frame.ptr[i], (int)v_wait_list.size(), wait_list, m_eventMap[i].reset_ptr()));
+            const auto plane = getPlane(&m_dev->frame, (RGY_PLANE)i);
+            const auto bytes = (uint64_t)plane.pitch[0] * plane.height;
+            const auto host_start = rgy_cl_perf_begin(perf_enabled);
+            auto clerr = clEnqueueUnmapMemObject(m_queue, (cl_mem)m_dev->frame.ptr[i], frame.ptr[i], (int)v_wait_list.size(), wait_list, m_eventMap[i].reset_ptr());
+            const auto host_time = rgy_cl_perf_end(perf_enabled, host_start);
+            auto err = err_cl_to_rgy(clerr);
             v_wait_list.clear();
             wait_list = nullptr;
             frame.ptr[i] = nullptr;
             if (err != RGY_ERR_NONE) {
                 return err_cl_to_rgy(err);
+            }
+            if (perf_enabled) {
+                perf_collector.recordCommand(strsprintf("clEnqueueUnmapMemObject:frame:plane%d", i), bytes, host_time, m_eventMap[i]);
             }
         }
     }
@@ -1929,9 +2048,18 @@ std::vector<RGYOpenCLEvent>& RGYCLFrame::mapEvents() { return m_mapped->mapEvent
 
 void RGYCLFrame::clear() {
     m_mapped.reset();
+    auto& perf_collector = RGYOpenCLPerfCollector::instance();
+    const bool perf_enabled = perf_collector.isEnabled();
     for (int i = 0; i < _countof(frame.ptr); i++) {
         if (mem(i)) {
-            clReleaseMemObject(mem(i));
+            const auto plane = getPlane(&frame, (RGY_PLANE)i);
+            const uint64_t bytes = (uint64_t)plane.pitch[0] * plane.height;
+            const auto host_start = rgy_cl_perf_begin(perf_enabled);
+            const auto clerr = clReleaseMemObject(mem(i));
+            const auto host_time = rgy_cl_perf_end(perf_enabled, host_start);
+            if (perf_enabled) {
+                perf_collector.recordAllocation("clReleaseMemObject:frame", bytes, host_time, clerr == CL_SUCCESS);
+            }
         }
         frame.ptr[i] = nullptr;
         frame.pitch[i] = 0;
@@ -1945,8 +2073,12 @@ RGYCLMemObjInfo RGYCLFrame::getMemObjectInfo() const {
 void RGYCLFrame::resetMappedFrame() { m_mapped.reset(); }
 
 RGY_ERR RGYCLFrameInterop::acquire(RGYOpenCLQueue &queue, RGYOpenCLEvent *event) {
-    cl_event *event_ptr = (event) ? event->reset_ptr() : nullptr;
+    auto& perf_collector = RGYOpenCLPerfCollector::instance();
+    const bool perf_enabled = perf_collector.isEnabled();
+    RGYOpenCLEvent perf_event_local;
+    cl_event *event_ptr = (event) ? event->reset_ptr() : (perf_enabled ? perf_event_local.reset_ptr() : nullptr);
     cl_int err = CL_SUCCESS;
+    const auto host_start = rgy_cl_perf_begin(perf_enabled);
 #if ENABLE_RGY_OPENCL_D3D9
     if (m_interop == RGY_INTEROP_DX9) {
         err = clEnqueueAcquireDX9MediaSurfacesKHR(queue.get(), RGY_CSP_PLANES[frame.csp], (cl_mem *)frame.ptr, 0, nullptr, event_ptr);
@@ -1966,9 +2098,14 @@ RGY_ERR RGYCLFrameInterop::acquire(RGYOpenCLQueue &queue, RGYOpenCLEvent *event)
         CL_LOG(RGY_LOG_ERROR, _T("RGYCLFrameInterop::acquire: Unknown interop type!\n"));
         return RGY_ERR_UNSUPPORTED;
     }
+    const auto host_time = rgy_cl_perf_end(perf_enabled, host_start);
     if (err != 0) {
         CL_LOG(RGY_LOG_ERROR, _T("RGYCLFrameInterop::acquire: Failed to acquire object: %s!\n"), cl_errmes(err));
         return err_cl_to_rgy(err);
+    }
+    if (perf_enabled) {
+        RGYOpenCLEvent& ev_ref = event ? *event : perf_event_local;
+        perf_collector.recordCommand("clEnqueueAcquireInterop", 0, host_time, ev_ref);
     }
     m_acquired = true;
     return RGY_ERR_NONE;
@@ -1976,8 +2113,12 @@ RGY_ERR RGYCLFrameInterop::acquire(RGYOpenCLQueue &queue, RGYOpenCLEvent *event)
 
 RGY_ERR RGYCLFrameInterop::release(RGYOpenCLEvent *event) {
     if (m_acquired) {
-        cl_event *event_ptr = (event) ? event->reset_ptr() : nullptr;
+        auto& perf_collector = RGYOpenCLPerfCollector::instance();
+        const bool perf_enabled = perf_collector.isEnabled();
+        RGYOpenCLEvent perf_event_local;
+        cl_event *event_ptr = (event) ? event->reset_ptr() : (perf_enabled ? perf_event_local.reset_ptr() : nullptr);
         cl_int err = CL_SUCCESS;
+        const auto host_start = rgy_cl_perf_begin(perf_enabled);
 #if ENABLE_RGY_OPENCL_D3D9
         if (m_interop == RGY_INTEROP_DX9) {
             err = clEnqueueReleaseDX9MediaSurfacesKHR(m_interop_queue.get(), RGY_CSP_PLANES[frame.csp], (cl_mem *)frame.ptr, 0, nullptr, event_ptr);
@@ -1997,9 +2138,14 @@ RGY_ERR RGYCLFrameInterop::release(RGYOpenCLEvent *event) {
             CL_LOG(RGY_LOG_ERROR, _T("RGYCLFrameInterop::release: Unknown interop type!\n"));
             return RGY_ERR_UNSUPPORTED;
         }
+        const auto host_time = rgy_cl_perf_end(perf_enabled, host_start);
         if (err != 0) {
             CL_LOG(RGY_LOG_ERROR, _T("RGYCLFrameInterop::acquire: Failed to acquire object: %s!\n"), cl_errmes(err));
             return err_cl_to_rgy(err);
+        }
+        if (perf_enabled) {
+            RGYOpenCLEvent& ev_ref = event ? *event : perf_event_local;
+            perf_collector.recordCommand("clEnqueueReleaseInterop", 0, host_time, ev_ref);
         }
         m_acquired = false;
     }
@@ -2047,6 +2193,70 @@ std::unique_ptr<RGYCLFrame, RGYCLImageFromBufferDeleter> RGYCLFramePool::get(con
         }
     }
     return nullptr;
+}
+
+RGYCLSharedFramePool::RGYCLSharedFramePool(std::shared_ptr<RGYOpenCLContext> context) : m_cl(context), m_frames() {};
+
+RGYCLSharedFramePool::~RGYCLSharedFramePool() {
+    clear();
+}
+
+std::shared_ptr<RGYCLFrame> RGYCLSharedFramePool::acquire(const RGYFrameInfo *frame, cl_mem_flags flags) {
+    if (!m_cl || !frame || !frame->ptr[0]) {
+        return nullptr;
+    }
+    auto pooled = std::find_if(m_frames.begin(), m_frames.end(), [frame, flags](const Entry& candidate) {
+        return candidate.frame
+            && !cmpFrameInfoCspResolution(&candidate.frame->frame, frame)
+            && candidate.frame->frame.bitdepth == frame->bitdepth
+            && candidate.frame->clflags == flags;
+    });
+    std::unique_ptr<RGYCLFrame> buffer;
+    if (pooled != m_frames.end()) {
+        if (pooled->readyEvent() != nullptr) {
+            pooled->readyEvent.wait();
+            pooled->readyEvent.reset();
+        }
+        buffer = std::move(pooled->frame);
+        m_frames.erase(pooled);
+    } else {
+        buffer = m_cl->createFrameBuffer(*frame, flags);
+    }
+    if (!buffer) {
+        return nullptr;
+    }
+    return std::shared_ptr<RGYCLFrame>(buffer.release(), [pool = shared_from_this()](RGYCLFrame *recycleFrame) {
+        pool->recycle(recycleFrame);
+    });
+}
+
+std::shared_ptr<RGYCLFrame> RGYCLSharedFramePool::acquire(const RGYFrameInfo& frame, cl_mem_flags flags) {
+    return acquire(&frame, flags);
+}
+
+void RGYCLSharedFramePool::recycle(RGYCLFrame *frame) {
+    if (frame) {
+        frame->frame.dataList.clear();
+        Entry entry;
+        entry.frame.reset(frame);
+        if (m_cl) {
+            m_cl->queue().getmarker(entry.readyEvent);
+        }
+        m_frames.emplace_back(std::move(entry));
+    }
+}
+
+void RGYCLSharedFramePool::clear() {
+    for (auto& entry : m_frames) {
+        if (entry.readyEvent() != nullptr) {
+            entry.readyEvent.wait();
+            entry.readyEvent.reset();
+        }
+        if (entry.frame) {
+            entry.frame->frame.dataList.clear();
+        }
+    }
+    m_frames.clear();
 }
 
 
@@ -2191,12 +2401,15 @@ RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *dst, const RGYFrameInfo *src, 
     return copyPlane(dst, src, srcCrop, queue, {}, event);
 }
 
-RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *planeDstOrg, const RGYFrameInfo *planeSrcOrg, const sInputCrop *planeCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event, RGYFrameCopyMode copyMode) {
+RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *planeDstOrg, const RGYFrameInfo *planeSrcOrg, const sInputCrop *planeCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event, RGYFrameCopyMode copyMode, const char *perfLabel) {
     cl_int err = CL_SUCCESS;
     const std::vector<cl_event> v_wait_list = toVec(wait_events);
     const int wait_count = (int)v_wait_list.size();
     const cl_event *wait_list = (wait_count > 0) ? v_wait_list.data() : nullptr;
-    cl_event *event_ptr = (event) ? event->reset_ptr() : nullptr;
+    auto& perf_collector = RGYOpenCLPerfCollector::instance();
+    const bool perf_enabled = perf_collector.isEnabled();
+    RGYOpenCLEvent perf_event_local;
+    cl_event *event_ptr = (event) ? event->reset_ptr() : (perf_enabled ? perf_event_local.reset_ptr() : nullptr);
 
     const int pixel_size = RGY_CSP_BIT_DEPTH[planeDstOrg->csp] > 8 ? 2 : 1;
     RGYFrameInfo planeDst = *planeDstOrg;
@@ -2217,8 +2430,18 @@ RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *planeDstOrg, const RGYFrameInf
     if (planeSrc.mem_type == RGY_MEM_TYPE_GPU) {
         if (planeDst.mem_type == RGY_MEM_TYPE_GPU) {
             if (planeDst.csp == planeSrc.csp) {
+                const auto host_start = rgy_cl_perf_begin(perf_enabled);
                 err = clEnqueueCopyBufferRect(queue.get(), (cl_mem)planeSrc.ptr[0], (cl_mem)planeDst.ptr[0], src_origin, dst_origin,
                     region, planeSrc.pitch[0], 0, planeDst.pitch[0], 0, wait_count, wait_list, event_ptr);
+                const auto host_time = rgy_cl_perf_end(perf_enabled, host_start);
+                if (perf_enabled && err == CL_SUCCESS) {
+                    RGYOpenCLEvent& ev_ref = event ? *event : perf_event_local;
+                    if (perfLabel && perfLabel[0]) {
+                        perf_collector.recordCommand(strsprintf("clEnqueueCopyBufferRect:%s", perfLabel), (uint64_t)region[0] * region[1] * region[2], host_time, ev_ref);
+                    } else {
+                        perf_collector.recordCommand("clEnqueueCopyBufferRect", (uint64_t)region[0] * region[1] * region[2], host_time, ev_ref);
+                    }
+                }
             } else {
                 auto copyProgram = getCspCopyProgram(planeDst, planeSrc);
                 if (!copyProgram) {
@@ -2251,8 +2474,14 @@ RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *planeDstOrg, const RGYFrameInf
                 || planeDst.mem_type == RGY_MEM_TYPE_MPP
 #endif
         ) {
+            const auto host_start = rgy_cl_perf_begin(perf_enabled);
             err = clEnqueueReadBufferRect(queue.get(), (cl_mem)planeSrc.ptr[0], false, src_origin, dst_origin,
                 region, planeSrc.pitch[0], 0, planeDst.pitch[0], 0, planeDst.ptr[0], wait_count, wait_list, event_ptr);
+            const auto host_time = rgy_cl_perf_end(perf_enabled, host_start);
+            if (perf_enabled && err == CL_SUCCESS) {
+                RGYOpenCLEvent& ev_ref = event ? *event : perf_event_local;
+                perf_collector.recordCommand("clEnqueueReadBufferRect", (uint64_t)region[0] * region[1] * region[2], host_time, ev_ref);
+            }
         } else {
             return RGY_ERR_UNSUPPORTED;
         }
@@ -2273,7 +2502,13 @@ RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *planeDstOrg, const RGYFrameInf
         } else if (planeDst.mem_type == RGY_MEM_TYPE_GPU_IMAGE || planeDst.mem_type == RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED) {
             if (planeDst.csp == planeSrc.csp) {
                 clGetImageInfo((cl_mem)planeDst.ptr[0], CL_IMAGE_WIDTH, sizeof(region[0]), &region[0], nullptr);
+                const auto host_start = rgy_cl_perf_begin(perf_enabled);
                 err = clEnqueueCopyImage(queue.get(), (cl_mem)planeSrc.ptr[0], (cl_mem)planeDst.ptr[0], src_origin, dst_origin, region, wait_count, wait_list, event_ptr);
+                const auto host_time = rgy_cl_perf_end(perf_enabled, host_start);
+                if (perf_enabled && err == CL_SUCCESS) {
+                    RGYOpenCLEvent& ev_ref = event ? *event : perf_event_local;
+                    perf_collector.recordCommand("clEnqueueCopyImage", (uint64_t)region[0] * region[1] * region[2] * pixel_size, host_time, ev_ref);
+                }
             } else {
                 auto copyProgram = getCspCopyProgram(planeDst, planeSrc);
                 if (!copyProgram) {
@@ -2294,8 +2529,14 @@ RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *planeDstOrg, const RGYFrameInf
 #endif
         ) {
             clGetImageInfo((cl_mem)planeSrc.ptr[0], CL_IMAGE_WIDTH, sizeof(region[0]), &region[0], nullptr);
+            const auto host_start = rgy_cl_perf_begin(perf_enabled);
             err = clEnqueueReadImage(queue.get(), (cl_mem)planeSrc.ptr[0], false, dst_origin,
                 region, planeDst.pitch[0], 0, planeDst.ptr[0], wait_count, wait_list, event_ptr);
+            const auto host_time = rgy_cl_perf_end(perf_enabled, host_start);
+            if (perf_enabled && err == CL_SUCCESS) {
+                RGYOpenCLEvent& ev_ref = event ? *event : perf_event_local;
+                perf_collector.recordCommand("clEnqueueReadImage", (uint64_t)region[0] * region[1] * region[2] * pixel_size, host_time, ev_ref);
+            }
         } else {
             return RGY_ERR_UNSUPPORTED;
         }
@@ -2305,12 +2546,24 @@ RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *planeDstOrg, const RGYFrameInf
 #endif
     ) {
         if (planeDst.mem_type == RGY_MEM_TYPE_GPU) {
+            const auto host_start = rgy_cl_perf_begin(perf_enabled);
             err = clEnqueueWriteBufferRect(queue.get(), (cl_mem)planeDst.ptr[0], false, dst_origin, src_origin,
                 region, planeDst.pitch[0], 0, planeSrc.pitch[0], 0, planeSrc.ptr[0], wait_count, wait_list, event_ptr);
+            const auto host_time = rgy_cl_perf_end(perf_enabled, host_start);
+            if (perf_enabled && err == CL_SUCCESS) {
+                RGYOpenCLEvent& ev_ref = event ? *event : perf_event_local;
+                perf_collector.recordCommand("clEnqueueWriteBufferRect", (uint64_t)region[0] * region[1] * region[2], host_time, ev_ref);
+            }
         } else if (planeDst.mem_type == RGY_MEM_TYPE_GPU_IMAGE) {
             clGetImageInfo((cl_mem)planeDst.ptr[0], CL_IMAGE_WIDTH, sizeof(region[0]), &region[0], nullptr);
+            const auto host_start = rgy_cl_perf_begin(perf_enabled);
             err = clEnqueueWriteImage(queue.get(), (cl_mem)planeDst.ptr[0], false, src_origin,
                 region, planeSrc.pitch[0], 0, (void *)planeSrc.ptr[0], wait_count, wait_list, event_ptr);
+            const auto host_time = rgy_cl_perf_end(perf_enabled, host_start);
+            if (perf_enabled && err == CL_SUCCESS) {
+                RGYOpenCLEvent& ev_ref = event ? *event : perf_event_local;
+                perf_collector.recordCommand("clEnqueueWriteImage", (uint64_t)region[0] * region[1] * region[2] * pixel_size, host_time, ev_ref);
+            }
         } else if (planeDst.mem_type == RGY_MEM_TYPE_CPU
 #if ENCODER_MPP
                 || planeDst.mem_type == RGY_MEM_TYPE_MPP
@@ -2342,7 +2595,7 @@ RGY_ERR RGYOpenCLContext::copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, 
     return copyFrame(dst, src, srcCrop, queue, {}, event);
 }
 
-RGY_ERR RGYOpenCLContext::copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event, RGYFrameCopyMode copyMode) {
+RGY_ERR RGYOpenCLContext::copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event, RGYFrameCopyMode copyMode, const char *perfLabel) {
     if (dst->csp != src->csp) {
         CL_LOG(RGY_LOG_ERROR, _T("in/out csp should be same in copyFrame.\n"));
         return RGY_ERR_INVALID_CALL;
@@ -2381,7 +2634,7 @@ RGY_ERR RGYOpenCLContext::copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, 
             err = copyPlane(&planeDst, &planeSrc, &planeCrop, queue,
                 (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>(),
                 (i + 1 == RGY_CSP_PLANES[dst->csp]) ? event : nullptr,
-                copyMode);
+                copyMode, perfLabel);
             if (err != RGY_ERR_NONE) {
                 CL_LOG(RGY_LOG_ERROR, _T("Failed to copy frame(%d): %s\n"), i, cl_errmes(err));
                 return err_cl_to_rgy(err);
@@ -2513,8 +2766,18 @@ RGY_ERR RGYOpenCLContext::setBuf(const void *pattern, size_t pattern_size, size_
     const std::vector<cl_event> v_wait_list = toVec(wait_events);
     const int wait_count = (int)v_wait_list.size();
     const cl_event *wait_list = (wait_count > 0) ? v_wait_list.data() : nullptr;
-    cl_event *event_ptr = (event) ? event->reset_ptr() : nullptr;
-    auto err = err_cl_to_rgy(clEnqueueFillBuffer(queue.get(), buf->mem(), pattern, pattern_size, 0, fill_size_byte, wait_count, wait_list, event_ptr));
+    auto& perf_collector = RGYOpenCLPerfCollector::instance();
+    const bool perf_enabled = perf_collector.isEnabled();
+    RGYOpenCLEvent perf_event_local;
+    cl_event *event_ptr = (event) ? event->reset_ptr() : (perf_enabled ? perf_event_local.reset_ptr() : nullptr);
+    const auto host_start = rgy_cl_perf_begin(perf_enabled);
+    const auto clerr = clEnqueueFillBuffer(queue.get(), buf->mem(), pattern, pattern_size, 0, fill_size_byte, wait_count, wait_list, event_ptr);
+    const auto host_time = rgy_cl_perf_end(perf_enabled, host_start);
+    if (perf_enabled && clerr == CL_SUCCESS) {
+        RGYOpenCLEvent& ev_ref = event ? *event : perf_event_local;
+        perf_collector.recordCommand("clEnqueueFillBuffer", fill_size_byte, host_time, ev_ref);
+    }
+    auto err = err_cl_to_rgy(clerr);
     if (err != RGY_ERR_NONE) {
         CL_LOG(RGY_LOG_ERROR, _T("Failed to set buf size: %u: %s\n"), buf->size(), cl_errmes(err));
         return err;
@@ -2522,7 +2785,7 @@ RGY_ERR RGYOpenCLContext::setBuf(const void *pattern, size_t pattern_size, size_
     return RGY_ERR_NONE;
 }
 
-std::unique_ptr<RGYOpenCLProgram> RGYOpenCLContext::buildProgram(const std::string datacopy, const std::string options) {
+std::unique_ptr<RGYOpenCLProgram> RGYOpenCLContext::buildProgram(const std::string datacopy, const std::string options, const std::string name_hint) {
     auto datalen = datacopy.length();
     if (datacopy.size() == 0) {
         return nullptr;
@@ -2550,12 +2813,30 @@ std::unique_ptr<RGYOpenCLProgram> RGYOpenCLContext::buildProgram(const std::stri
         return nullptr;
     }
 
+    uint64_t build_time_ns = 0;
+    const auto build_start = std::chrono::steady_clock::now();
     try {
         err = clBuildProgram(program, (cl_uint)m_platform->devs().size(), m_platform->devs().data(), options.c_str(), NULL, NULL);
     } catch (...) {
         err = CL_BUILD_PROGRAM_FAILURE;
         buildCrush = true;
     }
+    const auto build_end = std::chrono::steady_clock::now();
+    build_time_ns = (uint64_t)std::chrono::duration_cast<std::chrono::nanoseconds>(build_end - build_start).count();
+
+    // build log を常時取得 (perf collector / エラー表示 両用)
+    std::string build_log_str;
+    if (!m_platform->devs().empty()) {
+        const auto& device = m_platform->devs()[0];
+        size_t log_size = 0;
+        clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
+        if (log_size > 0) {
+            std::vector<char> build_log_buf(log_size);
+            clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, log_size, build_log_buf.data(), NULL);
+            build_log_str = std::string(build_log_buf.data());
+        }
+    }
+
     if (err != CL_SUCCESS || m_log->getLogLevel(RGY_LOGT_VPP_BUILD) <= RGY_LOG_DEBUG) {
         const auto loglevel = (err != CL_SUCCESS) ? RGY_LOG_ERROR : RGY_LOG_DEBUG;
 
@@ -2581,7 +2862,20 @@ std::unique_ptr<RGYOpenCLProgram> RGYOpenCLContext::buildProgram(const std::stri
         }
     }
     CL_LOG(RGY_LOG_DEBUG, _T("clBuildProgram success!\n"));
-    return std::make_unique<RGYOpenCLProgram>(program, m_log);
+
+    // パフォーマンスコレクタにビルド情報を記録
+    auto& perf_collector = RGYOpenCLPerfCollector::instance();
+    uint64_t prog_id = 0;
+    if (perf_collector.isEnabled() && !m_platform->devs().empty()) {
+        // name_hint が空なら "<inline:N>" を割り当てる (N はプログラムID確定前なので仮のもの)
+        // recordProgramBuild 内部で program_id が発行されるので、ここでは hint を渡すだけ
+        std::string hint = name_hint.empty() ? "<inline>" : name_hint;
+        prog_id = perf_collector.recordProgramBuild(hint, options, program, m_platform->devs()[0], build_log_str, build_time_ns);
+        // name_hint が空だった場合は "<inline:ID>" に更新 (記録後にIDが分かる)
+        // → 設計上 recordProgramBuild の戻り値が prog_id なので、後段で上書きは不要
+    }
+
+    return std::make_unique<RGYOpenCLProgram>(program, m_log, prog_id);
 }
 
 std::unique_ptr<RGYOpenCLProgram> RGYOpenCLContext::build(const std::string &source, const char *options) {
@@ -2605,7 +2899,9 @@ std::unique_ptr<RGYOpenCLProgram> RGYOpenCLContext::buildFile(const tstring file
     std::istreambuf_iterator<char> data_end;
     std::string source = std::string(data_begin, data_end);
     inputFile.close();
-    return buildProgram(source, options);
+    // basename をヒントとして渡す
+    const std::string basename = PathGetFilename(tchar_to_string(filename));
+    return buildProgram(source, options, basename);
 }
 
 std::future<std::unique_ptr<RGYOpenCLProgram>> RGYOpenCLContext::buildFileAsync(const tstring& filename, const char *options) {
@@ -2623,7 +2919,8 @@ std::unique_ptr<RGYOpenCLProgram> RGYOpenCLContext::buildResource(const tstring 
         return nullptr;
     }
     CL_LOG(RGY_LOG_DEBUG, _T("Loaded resource type: %s, name: %s, size = %d\n"), type.c_str(), name.c_str(), size);
-    return buildProgram(std::string((const char *)data, size), std::string(options));
+    // resource 名をヒントとして渡す
+    return buildProgram(std::string((const char *)data, size), std::string(options), tchar_to_string(name));
 }
 
 std::future<std::unique_ptr<RGYOpenCLProgram>> RGYOpenCLContext::buildResourceAsync(const TCHAR *name, const TCHAR *type, const char *options) {
@@ -2634,7 +2931,14 @@ std::future<std::unique_ptr<RGYOpenCLProgram>> RGYOpenCLContext::buildResourceAs
 
 std::unique_ptr<RGYCLBuf> RGYOpenCLContext::createBuffer(size_t size, cl_mem_flags flags, void *host_ptr) {
     cl_int err = CL_SUCCESS;
+    auto& perf_collector = RGYOpenCLPerfCollector::instance();
+    const bool perf_enabled = perf_collector.isEnabled();
+    const auto host_start = rgy_cl_perf_begin(perf_enabled);
     cl_mem mem = clCreateBuffer(m_context.get(), flags, size, host_ptr, &err);
+    const auto host_time = rgy_cl_perf_end(perf_enabled, host_start);
+    if (perf_enabled) {
+        perf_collector.recordAllocation("clCreateBuffer", size, host_time, err == CL_SUCCESS);
+    }
     if (err != CL_SUCCESS) {
         CL_LOG(RGY_LOG_ERROR, _T("Failed to allocate memory: %s\n"), cl_errmes(err));
     }
@@ -2644,7 +2948,15 @@ std::unique_ptr<RGYCLBuf> RGYOpenCLContext::createBuffer(size_t size, cl_mem_fla
 std::unique_ptr<RGYCLBuf> RGYOpenCLContext::copyDataToBuffer(const void *host_ptr, size_t size, cl_mem_flags flags, cl_command_queue queue) {
     auto buffer = createBuffer(size, flags);
     if (buffer != nullptr) {
-        cl_int err = clEnqueueWriteBuffer((queue != RGYDefaultQueue) ? queue : m_queue[0].get(), buffer->mem(), true, 0, size, host_ptr, 0, nullptr, nullptr);
+        auto& perf_collector = RGYOpenCLPerfCollector::instance();
+        const bool perf_enabled = perf_collector.isEnabled();
+        RGYOpenCLEvent perf_event_local;
+        const auto host_start = rgy_cl_perf_begin(perf_enabled);
+        cl_int err = clEnqueueWriteBuffer((queue != RGYDefaultQueue) ? queue : m_queue[0].get(), buffer->mem(), true, 0, size, host_ptr, 0, nullptr, perf_enabled ? perf_event_local.reset_ptr() : nullptr);
+        const auto host_time = rgy_cl_perf_end(perf_enabled, host_start);
+        if (perf_enabled && err == CL_SUCCESS) {
+            perf_collector.recordCommand("clEnqueueWriteBuffer", size, host_time, perf_event_local);
+        }
         if (err != CL_SUCCESS) {
             CL_LOG(RGY_LOG_ERROR, _T("Failed to copy data to buffer: %s\n"), cl_errmes(err));
         }
@@ -2808,12 +3120,26 @@ std::unique_ptr<RGYCLFrame> RGYOpenCLContext::createFrameBuffer(const RGYFrameIn
         const int widthByte = plane.width * pixsize;
         const int memPitch = ALIGN(widthByte, image_pitch_alignment);
         const int size = memPitch * plane.height;
+        auto& perf_collector = RGYOpenCLPerfCollector::instance();
+        const bool perf_enabled = perf_collector.isEnabled();
+        const auto host_start = rgy_cl_perf_begin(perf_enabled);
         cl_mem mem = clCreateBuffer(m_context.get(), flags, size, nullptr, &err);
+        const auto host_time = rgy_cl_perf_end(perf_enabled, host_start);
+        if (perf_enabled) {
+            perf_collector.recordAllocation("createFrameBuffer.clCreateBuffer", size, host_time, err == CL_SUCCESS);
+        }
         if (err != CL_SUCCESS) {
             CL_LOG(RGY_LOG_ERROR, _T("Failed to allocate memory: %s\n"), cl_errmes(err));
             for (int j = i-1; j >= 0; j--) {
                 if (clframe.ptr[j] != nullptr) {
-                    clReleaseMemObject((cl_mem)clframe.ptr[j]);
+                    const auto releasePlane = getPlane(&clframe, (RGY_PLANE)j);
+                    const uint64_t releaseBytes = (uint64_t)releasePlane.pitch[0] * releasePlane.height;
+                    const auto release_start = rgy_cl_perf_begin(perf_enabled);
+                    const auto release_err = clReleaseMemObject((cl_mem)clframe.ptr[j]);
+                    const auto release_time = rgy_cl_perf_end(perf_enabled, release_start);
+                    if (perf_enabled) {
+                        perf_collector.recordAllocation("clReleaseMemObject:createFrameBuffer.rollback", releaseBytes, release_time, release_err == CL_SUCCESS);
+                    }
                     clframe.ptr[j] = nullptr;
                 }
             }
