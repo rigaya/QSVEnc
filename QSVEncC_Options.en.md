@@ -231,6 +231,7 @@
   - [--vpp-degrain \[\<param1\>=\<value1\>\]](#--vpp-degrain-param1value1)
   - [--vpp-kfm \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-kfm-param1value1param2value2)
   - [--vpp-deinterlace \<string\>](#--vpp-deinterlace-string)
+  - [--vpp-deint-csp \<string\>](#--vpp-deint-csp-string)
   - [--vpp-decomb \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-decomb-param1value1param2value2)
   - [--vpp-ivtc \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-ivtc-param1value1param2value2)
   - [--vpp-decimate \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-decimate-param1value1param2value2)
@@ -2576,6 +2577,15 @@ Activate GPU deinterlacer.
   - it_tff, it_bff
 
   For backward compatibility, `auto-bob` is available as an alias of `auto_double`.
+
+### --vpp-deint-csp &lt;string&gt;
+Select the CSP used for deinterlace filters. Default is `input`.
+
+- **parameters**
+  - input
+    When deinterlace filters are enabled, run deinterlace and closely related filters on the input CSP.
+  - output
+    Run deinterlace filters on the output CSP, matching the previous behavior.
   
 ### --vpp-decomb [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]  
 Decomb deinterlaer.
