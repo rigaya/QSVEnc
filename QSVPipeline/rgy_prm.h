@@ -1066,8 +1066,8 @@ const CX_DESC list_vpp_rnnedi_field[] = {
     { _T("auto"),       VPP_RNNEDI_FIELD_AUTO },
     { _T("top"),        VPP_RNNEDI_FIELD_TOP },
     { _T("bottom"),     VPP_RNNEDI_FIELD_BOTTOM },
-    { _T("bob_top"),    VPP_RNNEDI_FIELD_BOB_TOP },
-    { _T("bob_bottom"), VPP_RNNEDI_FIELD_BOB_BOTTOM },
+    { _T("bob_tff"),    VPP_RNNEDI_FIELD_BOB_TOP },
+    { _T("bob_bff"),    VPP_RNNEDI_FIELD_BOB_BOTTOM },
     { NULL, 0 }
 };
 

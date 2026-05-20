@@ -2002,7 +2002,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         i++;
 
-        const auto paramList = std::vector<std::string>{ "enable", "field", "nsize", "nns", "quality", "prescreen", "errortype", "clamp", "double_height", "weightfile" };
+        const auto paramList = std::vector<std::string>{ "enable", "field", "nsize", "nns", "quality", "prescreen", "errortype", "prec", "clamp", "double_height", "weightfile" };
         const auto parse_rnnedi_int = [&](int *dst, const tstring& param_arg, const tstring& param_val) {
             try {
                 size_t idx = 0;
@@ -2089,6 +2089,9 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_nnedi_error_type);
                         return 1;
                     }
+                    continue;
+                }
+                if (param_arg == _T("prec")) {
                     continue;
                 }
                 if (param_arg == _T("clamp")) {
@@ -12947,12 +12950,13 @@ tstring gen_cmd_help_vpp() {
         _T("     enable rnnedi deinterlacer\n")
         _T("    params\n")
         _T("      field=<string>         Select target field.\n")
-        _T("                              bob (default), auto, top, bottom, bob_top, bob_bottom\n")
+        _T("                              bob (default), auto, top, bottom, bob_tff, bob_bff\n")
         _T("      nsize=<string>         8x6, 16x6 (default), 32x6, 48x6, 8x4, 16x4, 32x4\n")
         _T("      nns=<int>              16, 32 (default), 64, 128, 256\n")
         _T("      quality=<string>       fast (default), slow\n")
         _T("      prescreen=<int>        2, 3, or 4 (default=2; 0/1 unsupported)\n")
         _T("      errortype=<string>     abs (default), square\n")
+        _T("      prec=<string>          Accepted for compatibility with --vpp-nnedi and ignored.\n")
         _T("      clamp=<int>            Clamp mode 0-4 (default=1)\n")
         _T("      double_height=<bool>   Double output height. Supported with field=auto/top/bottom only (default=false)\n")
         _T("      weightfile=<string>    Set path of nnedi3_weights.bin. By default,\n")

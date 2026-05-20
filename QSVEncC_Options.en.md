@@ -2347,7 +2347,7 @@ Mainly for use from `--vpp-rtgmc`.
 - **parameters**
 
   - field=&lt;string&gt;  
-    Target field selector. `bob` (default), `auto`, `top`, `bottom`, `bob_top`, `bob_bottom`.
+    Target field selector. `bob` (default), `auto`, `top`, `bottom`, `bob_tff`, `bob_bff`.
 
   - nsize=&lt;string&gt;  
     Neighborhood size. `8x6`, `16x6` (default), `32x6`, `48x6`, `8x4`, `16x4`, `32x4`.
@@ -2363,6 +2363,9 @@ Mainly for use from `--vpp-rtgmc`.
 
   - errortype=&lt;string&gt;  
     Error type. `abs` (default) or `square`.
+
+  - prec=&lt;string&gt;
+    Accepted for compatibility with `--vpp-nnedi` and ignored.
 
   - clamp=&lt;int&gt;  
     Clamp range mode. `0-4`. Default: `1`.

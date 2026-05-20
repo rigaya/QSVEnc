@@ -2404,7 +2404,7 @@ rnnediによるインタレ解除を行う。`--vpp-nnedi` とは別実装。
 - **パラメータ**
 
   - field=&lt;string&gt;  
-    対象フィールド。`bob`(デフォルト), `auto`, `top`, `bottom`, `bob_top`, `bob_bottom`。
+    対象フィールド。`bob`(デフォルト), `auto`, `top`, `bottom`, `bob_tff`, `bob_bff`。
 
   - nsize=&lt;string&gt;  
     NN近傍サイズ。`8x6`, `16x6`(デフォルト), `32x6`, `48x6`, `8x4`, `16x4`, `32x4`。
@@ -2420,6 +2420,9 @@ rnnediによるインタレ解除を行う。`--vpp-nnedi` とは別実装。
 
   - errortype=&lt;string&gt;  
     誤差種別。`abs`(デフォルト) または `square`。
+
+  - prec=&lt;string&gt;
+    `--vpp-nnedi` との互換用に受け付けるが、値は使用しない。
 
   - clamp=&lt;int&gt;  
     クリップ範囲モード。`0-4`。デフォルト: `1`。
