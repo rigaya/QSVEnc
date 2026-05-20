@@ -3459,6 +3459,7 @@ RGYParamControl::RGYParamControl() :
     enableVulkan(RGYParamInitVulkan::TargetVendor),
     openclBuildThreads(0),
     clPerfDumpDir(),
+    clPerfOclocPath(),
     avoidIdleClock(),
     processMonitorDevUsage(false),
     processMonitorDevUsageReset(false),

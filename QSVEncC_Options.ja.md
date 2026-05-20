@@ -300,6 +300,8 @@
   - [--vpy-assume-script-dir](#--vpy-assume-script-dir)
   - [--process-codepage \<string\>](#--process-codepage-string)
   - [--task-perf-monitor](#--task-perf-monitor)
+  - [--cl-perf-dump \<dir\>](#--cl-perf-dump-dir)
+  - [--ocloc-path \<path\>](#--ocloc-path-path)
   - [--perf-monitor \[\<string\>\[,\<string\>\]...\]](#--perf-monitor-stringstring)
   - [--perf-monitor-interval \<int\>](#--perf-monitor-interval-int)
 
@@ -3981,6 +3983,14 @@ vpy reader使用時に、`.vpy` 内の相対パスをカレントディレクト
 ### --task-perf-monitor
 
   各タスクの所要時間を計測し、エンコード後にログ出力を行う。
+
+### --cl-perf-dump &lt;dir&gt;
+OpenCL kernel performance dumpを指定したディレクトリに出力し、エンコード後に`report.html`を自動生成する。
+
+Pythonの起動やreport生成に失敗した場合はwarningとして扱い、QSVEncC本体の終了コードには反映しない。
+
+### --ocloc-path &lt;path&gt;
+[--cl-perf-dump](#--cl-perf-dump-dir)と併用し、cl_perf aggregateに渡すocloc実行ファイルパスを指定する。
 
 ### --perf-monitor [&lt;string&gt;[,&lt;string&gt;]...]
 エンコーダのパフォーマンス情報を出力する。パラメータとして出力したい情報名を下記から選択できる。デフォルトはall (すべての情報)。

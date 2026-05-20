@@ -300,6 +300,8 @@
   - [--vpy-assume-script-dir](#--vpy-assume-script-dir)
   - [--process-codepage \<string\> \[Windows OS only\]](#--process-codepage-string-windows-os-only)
   - [--task-perf-monitor](#--task-perf-monitor)
+  - [--cl-perf-dump \<dir\>](#--cl-perf-dump-dir)
+  - [--ocloc-path \<path\>](#--ocloc-path-path)
   - [--perf-monitor \[\<string\>\[,\<string\>\]...\]](#--perf-monitor-stringstring)
   - [--perf-monitor-interval \<int\>](#--perf-monitor-interval-int)
 
@@ -3916,6 +3918,14 @@ When using the vpy reader, resolves relative paths in `.vpy` against the script 
 ### --task-perf-monitor
 
   Enable performance monitoring of each task and print time required for each task at the end of log.
+
+### --cl-perf-dump &lt;dir&gt;
+Write OpenCL kernel performance dumps to the specified directory and automatically generate `report.html` after encoding.
+
+Python startup or report generation failures are handled as warnings and do not affect the QSVEncC process exit code.
+
+### --ocloc-path &lt;path&gt;
+Use with [--cl-perf-dump](#--cl-perf-dump-dir) to specify the ocloc executable path passed to cl_perf aggregate.
 
 ### --perf-monitor [&lt;string&gt;[,&lt;string&gt;]...]
 Outputs performance information. You can select the information name you want to output as a parameter from the following table. The default is all (all information).

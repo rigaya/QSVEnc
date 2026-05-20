@@ -92,6 +92,11 @@ RGY_DUMMY_LOAD_CL EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_dummy_load.cl"
 
 PERF_MONITOR_PYW PERF_MONITOR_SRC DISCARDABLE "..\\PerfMonitor\\perf_monitor.pyw"
 
+CL_PERF_COMMON_PY CL_PERF_SRC DISCARDABLE "..\\cl_perf\\cl_perf_common.py"
+CL_PERF_AGGREGATE_PY CL_PERF_SRC DISCARDABLE "..\\cl_perf\\cl_perf_aggregate.py"
+CL_PERF_REPORT_PY CL_PERF_SRC DISCARDABLE "..\\cl_perf\\cl_perf_report.py"
+CL_PERF_ARCH_TABLE_JSON CL_PERF_SRC DISCARDABLE "..\\cl_perf\\arch_table.json"
+
 APP_OSCODEPAGE_MANIFEST EXE_DATA DISCARDABLE "QSVEncC.oscodepage.manifest"
 
 //

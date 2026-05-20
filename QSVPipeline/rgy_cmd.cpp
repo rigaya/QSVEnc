@@ -10328,6 +10328,11 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         ctrl->clPerfDumpDir = strInput[i];
         return 0;
     }
+    if (IS_OPTION("ocloc-path")) {
+        i++;
+        ctrl->clPerfOclocPath = strInput[i];
+        return 0;
+    }
     if (IS_OPTION("parallel") && ENABLE_PARALLEL_ENC) {
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
             ctrl->parallelEnc.parallelCount = -1;
@@ -12311,6 +12316,7 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
     }
     OPT_NUM(_T("--opencl-build-threads"), openclBuildThreads);
     OPT_TSTR(_T("--cl-perf-dump"), clPerfDumpDir);
+    OPT_TSTR(_T("--ocloc-path"), clPerfOclocPath);
     OPT_BOOL(_T("--process-monitor-dev-usage"), _T(""), processMonitorDevUsage);
     OPT_BOOL(_T("--process-monitor-dev-usage-reset"), _T(""), processMonitorDevUsageReset);
 
@@ -13979,7 +13985,8 @@ tstring gen_cmd_help_ctrl() {
         _T("                                 enables CL_QUEUE_PROFILING_ENABLE automatically.\n")
         _T("                                 output: programs.jsonl, launches.jsonl, meta.json,\n")
         _T("                                         binaries/<name>__<hash>.bin,\n")
-        _T("                                         build_logs/<name>__<hash>.log\n"));
+        _T("                                         build_logs/<name>__<hash>.log\n")
+        _T("   --ocloc-path <path>          set ocloc executable path for --cl-perf-dump report generation.\n"));
 #endif
     str += strsprintf(_T("\n")
         _T("   --disable-vulkan             disable vulkan features.\n"));

@@ -37,6 +37,8 @@
 #include <numeric>
 #include <algorithm>
 #include <ctime>
+#include <cstdarg>
+#include <thread>
 #include "rgy_osdep.h"
 #include "rgy_filesystem.h"
 #if defined(_WIN32) || defined(_WIN64)
@@ -53,6 +55,7 @@
 #include "rgy_resource.h"
 #include "rgy_env.h"
 #include "rgy_opencl.h"
+#include "rgy_pipe.h"
 
 #if ENABLE_AVSW_READER
 extern "C" {
@@ -66,6 +69,208 @@ static bool check_locale_is_ja() {
     return GetUserDefaultLangID() == LangID_ja_JP;
 }
 #endif //#if defined(_WIN32) || defined(_WIN64)
+
+static tstring path_to_tstring(const std::filesystem::path& path) {
+#if defined(_WIN32) || defined(_WIN64)
+    return path.wstring();
+#else
+    return path.string();
+#endif
+}
+
+static void cl_perf_print_warn(const TCHAR *format, ...) {
+    va_list args;
+    va_start(args, format);
+    _ftprintf(stderr, _T("cl_perf: warning: "));
+#if defined(_WIN32) || defined(_WIN64)
+    _vftprintf(stderr, format, args);
+#else
+    vfprintf(stderr, format, args);
+#endif
+    va_end(args);
+}
+
+static void cl_perf_print_info(const TCHAR *format, ...) {
+    va_list args;
+    va_start(args, format);
+    _ftprintf(stdout, _T("cl_perf: "));
+#if defined(_WIN32) || defined(_WIN64)
+    _vftprintf(stdout, format, args);
+#else
+    vfprintf(stdout, format, args);
+#endif
+    va_end(args);
+}
+
+static bool cl_perf_write_resource(const TCHAR *resourceName, const std::filesystem::path& outPath) {
+    void *resourceData = nullptr;
+    const auto resourceSize = getEmbeddedResource(&resourceData, resourceName, _T("CL_PERF_SRC"), nullptr);
+    if (resourceSize <= 0 || resourceData == nullptr) {
+        cl_perf_print_warn(_T("failed to load embedded resource %s.\n"), resourceName);
+        return false;
+    }
+
+    FILE *fp = nullptr;
+    const auto outPathT = path_to_tstring(outPath);
+    if (_tfopen_s(&fp, outPathT.c_str(), _T("wb")) != 0 || fp == nullptr) {
+        cl_perf_print_warn(_T("failed to open %s for writing.\n"), outPathT.c_str());
+        return false;
+    }
+    const auto written = fwrite(resourceData, 1, resourceSize, fp);
+    fclose(fp);
+    if (written != (size_t)resourceSize) {
+        cl_perf_print_warn(_T("failed to write embedded resource %s to %s.\n"), resourceName, outPathT.c_str());
+        return false;
+    }
+    return true;
+}
+
+static bool cl_perf_extract_tools(const std::filesystem::path& toolsDir) {
+    const auto toolsDirT = path_to_tstring(toolsDir);
+    if (!CreateDirectoryRecursive(toolsDirT.c_str())) {
+        cl_perf_print_warn(_T("failed to create tool directory %s.\n"), toolsDirT.c_str());
+        return false;
+    }
+
+    struct ClPerfResource {
+        const TCHAR *resourceName;
+        const TCHAR *filename;
+    };
+    static const ClPerfResource resources[] = {
+        { _T("CL_PERF_COMMON_PY"),      _T("cl_perf_common.py") },
+        { _T("CL_PERF_AGGREGATE_PY"),   _T("cl_perf_aggregate.py") },
+        { _T("CL_PERF_REPORT_PY"),      _T("cl_perf_report.py") },
+        { _T("CL_PERF_ARCH_TABLE_JSON"), _T("arch_table.json") },
+    };
+
+    for (const auto& resource : resources) {
+        if (!cl_perf_write_resource(resource.resourceName, toolsDir / resource.filename)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static tstring cl_perf_join_args(const std::vector<tstring>& args) {
+    tstring joined;
+    for (const auto& arg : args) {
+        if (!joined.empty()) {
+            joined += _T(" ");
+        }
+        joined += _T("\"") + arg + _T("\"");
+    }
+    return joined;
+}
+
+static void cl_perf_drain_pipe(RGYPipeProcess *process, const bool isStdErr) {
+    std::vector<uint8_t> buffer;
+    for (;;) {
+        buffer.clear();
+        const auto ret = isStdErr ? process->stdErrRead(buffer) : process->stdOutRead(buffer);
+        if (ret < 0) {
+            break;
+        }
+        if (!buffer.empty()) {
+            auto fp = isStdErr ? stderr : stdout;
+            fwrite(buffer.data(), 1, buffer.size(), fp);
+            fflush(fp);
+        }
+    }
+}
+
+static int cl_perf_run_process(const std::vector<tstring>& args) {
+    auto process = createRGYPipeProcess();
+    process->init(PIPE_MODE_DISABLE, PIPE_MODE_ENABLE, PIPE_MODE_ENABLE);
+
+    cl_perf_print_info(_T("run %s\n"), cl_perf_join_args(args).c_str());
+    if (process->run(args, nullptr, 0, true, false) != 0) {
+        cl_perf_print_warn(_T("failed to start %s.\n"), args.empty() ? _T("") : args[0].c_str());
+        process->close();
+        return -1;
+    }
+
+    std::thread stdoutThread(cl_perf_drain_pipe, process.get(), false);
+    std::thread stderrThread(cl_perf_drain_pipe, process.get(), true);
+    const auto exitCode = process->waitAndGetExitCode();
+    stdoutThread.join();
+    stderrThread.join();
+    process->close();
+    return exitCode;
+}
+
+static bool cl_perf_check_python(const std::vector<tstring>& pythonArgs) {
+    auto args = pythonArgs;
+    args.push_back(_T("-c"));
+    args.push_back(_T("import sys"));
+    return cl_perf_run_process(args) == 0;
+}
+
+static int cl_perf_run_python_script(const std::filesystem::path& scriptPath, const std::vector<tstring>& scriptArgs) {
+    const auto scriptPathT = path_to_tstring(scriptPath);
+
+    std::vector<std::vector<tstring>> pythonArgList;
+#if defined(_WIN32) || defined(_WIN64)
+    pythonArgList.push_back({ _T("py.exe"), _T("-3") });
+    pythonArgList.push_back({ _T("python.exe") });
+#else
+    pythonArgList.push_back({ _T("python3") });
+#endif
+
+    for (auto pythonArgs : pythonArgList) {
+        if (!cl_perf_check_python(pythonArgs)) {
+            continue;
+        }
+        auto args = pythonArgs;
+        args.push_back(scriptPathT);
+        args.insert(args.end(), scriptArgs.begin(), scriptArgs.end());
+        return cl_perf_run_process(args);
+    }
+    return -1;
+}
+
+static void cl_perf_generate_report(const tstring& dumpDir, const tstring& oclocPath) {
+    if (dumpDir.empty()) {
+        return;
+    }
+
+    std::error_code ec;
+    const auto dumpDirPath = std::filesystem::absolute(std::filesystem::path(dumpDir), ec);
+    if (ec || !std::filesystem::is_directory(dumpDirPath, ec)) {
+        cl_perf_print_warn(_T("dump directory not found: %s\n"), dumpDir.c_str());
+        return;
+    }
+
+    const auto toolsDir = dumpDirPath / _T(".cl_perf_tools");
+    if (!cl_perf_extract_tools(toolsDir)) {
+        return;
+    }
+
+    const auto dumpDirT = path_to_tstring(dumpDirPath);
+    std::vector<tstring> aggregateArgs = { _T("--dump-dir"), dumpDirT };
+    if (!oclocPath.empty()) {
+        aggregateArgs.push_back(_T("--ocloc"));
+        aggregateArgs.push_back(oclocPath);
+    }
+
+    const auto aggregateExitCode = cl_perf_run_python_script(toolsDir / _T("cl_perf_aggregate.py"), aggregateArgs);
+    cl_perf_print_info(_T("aggregate exit code: %d\n"), aggregateExitCode);
+    if (aggregateExitCode != 0) {
+        cl_perf_print_warn(_T("aggregate failed, report generation skipped.\n"));
+        return;
+    }
+
+    const std::vector<tstring> reportArgs = { _T("--dump-dir"), dumpDirT };
+    const auto reportExitCode = cl_perf_run_python_script(toolsDir / _T("cl_perf_report.py"), reportArgs);
+    cl_perf_print_info(_T("report exit code: %d\n"), reportExitCode);
+
+    const auto reportPath = dumpDirPath / _T("report.html");
+    const auto reportPathT = path_to_tstring(reportPath);
+    if (reportExitCode == 0 && std::filesystem::is_regular_file(reportPath, ec)) {
+        cl_perf_print_info(_T("report generated: %s\n"), reportPathT.c_str());
+    } else {
+        cl_perf_print_warn(_T("report.html was not generated: %s\n"), reportPathT.c_str());
+    }
+}
 
 static void show_version() {
     _ftprintf(stdout, _T("%s"), GetQSVEncVersion().c_str());
@@ -1231,6 +1436,9 @@ int run(int argc, TCHAR *argv[]) {
     }
 
     pPipeline->Close();
+    if (!Params.ctrl.parallelEnc.isChild()) {
+        cl_perf_generate_report(Params.ctrl.clPerfDumpDir, Params.ctrl.clPerfOclocPath);
+    }
     pPipeline->PrintMes(RGY_LOG_INFO, _T("\nProcessing finished\n"));
     return sts;
 }

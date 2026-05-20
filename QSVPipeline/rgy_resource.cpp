@@ -35,6 +35,16 @@ extern char _binary_PerfMonitor_perf_monitor_pyw_start[];
 extern char _binary_PerfMonitor_perf_monitor_pyw_end[];
 extern char _binary_resource_nnedi3_weights_bin_start[];
 extern char _binary_resource_nnedi3_weights_bin_end[];
+#if ENCODER_QSV
+extern char _binary_cl_perf_cl_perf_common_py_start[];
+extern char _binary_cl_perf_cl_perf_common_py_end[];
+extern char _binary_cl_perf_cl_perf_aggregate_py_start[];
+extern char _binary_cl_perf_cl_perf_aggregate_py_end[];
+extern char _binary_cl_perf_cl_perf_report_py_start[];
+extern char _binary_cl_perf_cl_perf_report_py_end[];
+extern char _binary_cl_perf_arch_table_json_start[];
+extern char _binary_cl_perf_arch_table_json_end[];
+#endif
 #if ENCODER_QSV || ENCODER_VCEENC || ENCODER_MPP
 extern char _binary_clRNG_src_include_clRNG_clRNG_clh_start[];
 extern char _binary_clRNG_src_include_clRNG_clRNG_clh_end[];
@@ -154,6 +164,13 @@ struct RGYResourceData {
 
 static const RGYResourceData RGY_RESOURCE_DATA[] = {
     { _T("EXE_DATA"), _T("NNEDI_WEIGHTBIN"), _binary_resource_nnedi3_weights_bin_start, _binary_resource_nnedi3_weights_bin_end },
+
+#if ENCODER_QSV
+    { _T("CL_PERF_SRC"), _T("CL_PERF_COMMON_PY"), _binary_cl_perf_cl_perf_common_py_start, _binary_cl_perf_cl_perf_common_py_end },
+    { _T("CL_PERF_SRC"), _T("CL_PERF_AGGREGATE_PY"), _binary_cl_perf_cl_perf_aggregate_py_start, _binary_cl_perf_cl_perf_aggregate_py_end },
+    { _T("CL_PERF_SRC"), _T("CL_PERF_REPORT_PY"), _binary_cl_perf_cl_perf_report_py_start, _binary_cl_perf_cl_perf_report_py_end },
+    { _T("CL_PERF_SRC"), _T("CL_PERF_ARCH_TABLE_JSON"), _binary_cl_perf_arch_table_json_start, _binary_cl_perf_arch_table_json_end },
+#endif
 
 #if ENCODER_QSV || ENCODER_VCEENC || ENCODER_MPP
     { _T("EXE_DATA"), _T("RGY_FILTER_CLRNG_CLH"), _binary_clRNG_src_include_clRNG_clRNG_clh_start, _binary_clRNG_src_include_clRNG_clRNG_clh_end },
