@@ -26,18 +26,6 @@
 //
 // ------------------------------------------------------------------------------------------
 
-// ----- EXTERNAL-ALGORITHM NOTICE -----
-// This file contains independently-written implementations of
-// algorithms first described in:
-//   - Telecide/Decomb (GPL-2.0) by Donald A. Graft / "tritical"
-//   - BBC PH-2071 Weston 3-Field Deinterlacer (published spec)
-//   - ffmpeg vf_bwdif (motion-adaptive extension of PH-2071)
-// The filter coefficients in kernel_ivtc_bwdif_deint (5077, 981,
-// 4309, 213, 5570, 3801, 1016) are the published PH-2071 values
-// and are shared across all independent BWDIF implementations.
-// See docs/ACKNOWLEDGMENTS.md.
-// --------------------------------------
-
 #include <algorithm>
 #include <array>
 #include <chrono>
