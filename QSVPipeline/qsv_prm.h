@@ -418,8 +418,6 @@ struct sInputParams {
 
     QSVAIEncCtrl aiEncCtrl;
 
-    tstring    pythonPath;
-
     bool       bBenchmark;
     mfxU32     nBenchQuality; //ベンチマークの対象
 

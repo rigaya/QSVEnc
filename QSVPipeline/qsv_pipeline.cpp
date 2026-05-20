@@ -4321,7 +4321,7 @@ RGY_ERR CQSVPipeline::InitPerfMonitor(const sInputParams *inputParam) {
         perfMonLog = inputParam->common.outputFilename + _T("_perf.csv");
     }
     CPerfMonitorPrm perfMonitorPrm;
-    if (m_pPerfMonitor->init(perfMonLog.c_str(), inputParam->pythonPath.c_str(), (bLogOutput) ? inputParam->ctrl.perfMonitorInterval : 1000,
+    if (m_pPerfMonitor->init(perfMonLog.c_str(), inputParam->ctrl.pythonPath.empty() ? nullptr : inputParam->ctrl.pythonPath.c_str(), (bLogOutput) ? inputParam->ctrl.perfMonitorInterval : 1000,
         (int)inputParam->ctrl.perfMonitorSelect, (int)inputParam->ctrl.perfMonitorSelectMatplot,
 #if defined(_WIN32) || defined(_WIN64)
         std::unique_ptr<void, handle_deleter>(OpenThread(SYNCHRONIZE | THREAD_QUERY_INFORMATION, false, GetCurrentThreadId()), handle_deleter()),

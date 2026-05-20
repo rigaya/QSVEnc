@@ -3522,6 +3522,7 @@ struct RGYParamControl {
     int64_t perfMonitorSelect;
     int64_t perfMonitorSelectMatplot;
     int     perfMonitorInterval;
+    tstring pythonPath;              // --python <path>: perf monitor / cl_perf report generation 用 Python 実行ファイルパス
     uint32_t parentProcessID;
     bool lowLatency;
     bool fallbackBitdepth;

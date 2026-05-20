@@ -3446,6 +3446,7 @@ RGYParamControl::RGYParamControl() :
     perfMonitorSelect(0),
     perfMonitorSelectMatplot(0),
     perfMonitorInterval(RGY_DEFAULT_PERF_MONITOR_INTERVAL),
+    pythonPath(),
     parentProcessID(0),
     lowLatency(false),
     fallbackBitdepth(false),

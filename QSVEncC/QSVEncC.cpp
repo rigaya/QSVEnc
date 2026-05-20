@@ -205,16 +205,20 @@ static bool cl_perf_check_python(const std::vector<tstring>& pythonArgs) {
     return cl_perf_run_process(args) == 0;
 }
 
-static int cl_perf_run_python_script(const std::filesystem::path& scriptPath, const std::vector<tstring>& scriptArgs) {
+static int cl_perf_run_python_script(const std::filesystem::path& scriptPath, const std::vector<tstring>& scriptArgs, const tstring& pythonPath) {
     const auto scriptPathT = path_to_tstring(scriptPath);
 
     std::vector<std::vector<tstring>> pythonArgList;
+    if (!pythonPath.empty()) {
+        pythonArgList.push_back({ pythonPath });
+    } else {
 #if defined(_WIN32) || defined(_WIN64)
-    pythonArgList.push_back({ _T("py.exe"), _T("-3") });
-    pythonArgList.push_back({ _T("python.exe") });
+        pythonArgList.push_back({ _T("py.exe"), _T("-3") });
+        pythonArgList.push_back({ _T("python.exe") });
 #else
-    pythonArgList.push_back({ _T("python3") });
+        pythonArgList.push_back({ _T("python3") });
 #endif
+    }
 
     for (auto pythonArgs : pythonArgList) {
         if (!cl_perf_check_python(pythonArgs)) {
@@ -228,7 +232,7 @@ static int cl_perf_run_python_script(const std::filesystem::path& scriptPath, co
     return -1;
 }
 
-static void cl_perf_generate_report(const tstring& dumpDir, const tstring& oclocPath) {
+static void cl_perf_generate_report(const tstring& dumpDir, const tstring& oclocPath, const tstring& pythonPath) {
     if (dumpDir.empty()) {
         return;
     }
@@ -252,7 +256,7 @@ static void cl_perf_generate_report(const tstring& dumpDir, const tstring& ocloc
         aggregateArgs.push_back(oclocPath);
     }
 
-    const auto aggregateExitCode = cl_perf_run_python_script(toolsDir / _T("cl_perf_aggregate.py"), aggregateArgs);
+    const auto aggregateExitCode = cl_perf_run_python_script(toolsDir / _T("cl_perf_aggregate.py"), aggregateArgs, pythonPath);
     cl_perf_print_info(_T("aggregate exit code: %d\n"), aggregateExitCode);
     if (aggregateExitCode != 0) {
         cl_perf_print_warn(_T("aggregate failed, report generation skipped.\n"));
@@ -260,7 +264,7 @@ static void cl_perf_generate_report(const tstring& dumpDir, const tstring& ocloc
     }
 
     const std::vector<tstring> reportArgs = { _T("--dump-dir"), dumpDirT };
-    const auto reportExitCode = cl_perf_run_python_script(toolsDir / _T("cl_perf_report.py"), reportArgs);
+    const auto reportExitCode = cl_perf_run_python_script(toolsDir / _T("cl_perf_report.py"), reportArgs, pythonPath);
     cl_perf_print_info(_T("report exit code: %d\n"), reportExitCode);
 
     const auto reportPath = dumpDirPath / _T("report.html");
@@ -1437,7 +1441,7 @@ int run(int argc, TCHAR *argv[]) {
 
     pPipeline->Close();
     if (!Params.ctrl.parallelEnc.isChild()) {
-        cl_perf_generate_report(Params.ctrl.clPerfDumpDir, Params.ctrl.clPerfOclocPath);
+        cl_perf_generate_report(Params.ctrl.clPerfDumpDir, Params.ctrl.clPerfOclocPath, Params.ctrl.pythonPath);
     }
     pPipeline->PrintMes(RGY_LOG_INFO, _T("\nProcessing finished\n"));
     return sts;

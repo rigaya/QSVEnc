@@ -326,7 +326,6 @@ sInputParams::sInputParams() :
     hevc_gpb(),
     av1(),
     aiEncCtrl(),
-    pythonPath(),
     bBenchmark(false),
     nBenchQuality(QSV_DEFAULT_BENCH) {
     memset(pQPOffset, 0, sizeof(pQPOffset));

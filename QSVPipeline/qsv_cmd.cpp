@@ -487,10 +487,6 @@ tstring encoder_help() {
     str += _T("\n");
     str += gen_cmd_help_ctrl();
     str += strsprintf(_T("\n")
-        _T("   --python <string>            set python path for --perf-monitor-plot\n")
-        _T("                                 default: python\n")
-        );
-    str += strsprintf(_T("\n")
         _T("   --benchmark <string>         run in benchmark mode\n")
         _T("                                 and write result in txt file\n")
         _T("   --bench-quality \"all\" or <string>[,<string>][,<string>]...\n")
@@ -2022,11 +2018,6 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
                 }
             }
         }
-        return 0;
-    }
-    if (0 == _tcscmp(option_name, _T("python"))) {
-        i++;
-        pParams->pythonPath = strInput[i];
         return 0;
     }
     if (0 == _tcscmp(option_name, _T("timer-period-tuning"))) {

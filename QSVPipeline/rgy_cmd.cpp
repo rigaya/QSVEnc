@@ -10196,6 +10196,11 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         ctrl->perfMonitorInterval = std::max(50, v);
         return 0;
     }
+    if (IS_OPTION("python")) {
+        i++;
+        ctrl->pythonPath = strInput[i];
+        return 0;
+    }
     if (IS_OPTION("parent-pid")) {
         i++;
         try {
@@ -12288,6 +12293,7 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
         }
     }
     OPT_NUM(_T("--perf-monitor-interval"), perfMonitorInterval);
+    OPT_STR_PATH(_T("--python"), pythonPath);
     if (param->parentProcessID != defaultPrm->parentProcessID) {
         cmd << strsprintf(_T(" --parent-pid %x"), param->parentProcessID);
     }
@@ -13988,6 +13994,9 @@ tstring gen_cmd_help_ctrl() {
         _T("                                         build_logs/<name>__<hash>.log\n")
         _T("   --ocloc-path <path>          set ocloc executable path for --cl-perf-dump report generation.\n"));
 #endif
+    str += strsprintf(_T("\n")
+        _T("   --python <string>            set python path for --perf-monitor-plot\n")
+        _T("                                 and --cl-perf-dump report generation.\n"));
     str += strsprintf(_T("\n")
         _T("   --disable-vulkan             disable vulkan features.\n"));
     str += strsprintf(_T("\n")
