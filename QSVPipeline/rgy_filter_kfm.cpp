@@ -4645,11 +4645,11 @@ RGY_ERR RGYFilterKfm::renderSuper30(RGYFrameInfo *pOutputFrame, int frame30Index
 RGY_ERR RGYFilterKfm::removeCombeFields(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pDeintFrame, const RGYFrameInfo *pTelecineSuperFrame,
     int firstField, int fieldCount, int stageFrameIndex, const char *stageName, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     if (!pOutputFrame || !pDeintFrame || !pTelecineSuperFrame || !m_programs[KFM_PROG_RENDER].get()
-        || firstField < 0 || fieldCount <= 0 || fieldCount > 6 || !stageName) {
+        || fieldCount <= 0 || fieldCount > 6 || !stageName) {
         return RGY_ERR_INVALID_CALL;
     }
     const int fieldBase = firstField & ~1;
-    const int firstSource = fieldBase >> 1;
+    const int firstSource = kfmFloorDiv2(fieldBase);
     const int lastField = firstField + fieldCount - 1;
     const int lastSourceOffset = std::max(0, ((lastField & ~1) - fieldBase) >> 1);
     const auto *paritySource = findSourceByIndex(firstSource);
