@@ -55,8 +55,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_COLORSPACE   (ENCODER_QSV                    || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #endif
 #define ENABLE_VPP_FILTER_AFS          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
-#define ENABLE_VPP_FILTER_NNEDI        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
-#define ENABLE_VPP_FILTER_RNNEDI       (ENCODER_QSV)
+#define ENABLE_VPP_FILTER_NNEDI       (ENCODER_QSV)
 #define ENABLE_VPP_FILTER_BWDIF        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_MAA          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_RTGMC        (ENCODER_QSV)
@@ -160,7 +159,6 @@ enum class VppType : int {
     CL_LIBPLACEBO_TONEMAP,
     CL_AFS,
     CL_NNEDI,
-    CL_RNNEDI,
     CL_BWDIF,
     CL_RTGMC,
     CL_RTGMC_BOB,
@@ -1031,43 +1029,21 @@ const CX_DESC list_vpp_denoise_dct_step[] = {
 };
 
 enum VppNnediField {
-    VPP_NNEDI_FIELD_UNKNOWN = 0,
-    VPP_NNEDI_FIELD_BOB_AUTO,
-    VPP_NNEDI_FIELD_USE_AUTO,
-    VPP_NNEDI_FIELD_USE_TOP,
-    VPP_NNEDI_FIELD_USE_BOTTOM,
-    VPP_NNEDI_FIELD_BOB_TOP_BOTTOM,
-    VPP_NNEDI_FIELD_BOB_BOTTOM_TOP,
-
-    VPP_NNEDI_FIELD_MAX,
+    VPP_NNEDI_FIELD_BOB = -2,
+    VPP_NNEDI_FIELD_AUTO = -1,
+    VPP_NNEDI_FIELD_BOTTOM = 0,
+    VPP_NNEDI_FIELD_TOP = 1,
+    VPP_NNEDI_FIELD_BOB_BOTTOM = 2,
+    VPP_NNEDI_FIELD_BOB_TOP = 3,
 };
 
 const CX_DESC list_vpp_nnedi_field[] = {
-    { _T("bob"),     VPP_NNEDI_FIELD_BOB_AUTO },
-    { _T("auto"),    VPP_NNEDI_FIELD_USE_AUTO },
-    { _T("top"),     VPP_NNEDI_FIELD_USE_TOP },
-    { _T("bottom"),  VPP_NNEDI_FIELD_USE_BOTTOM },
-    { _T("bob_tff"), VPP_NNEDI_FIELD_BOB_TOP_BOTTOM },
-    { _T("bob_bff"), VPP_NNEDI_FIELD_BOB_BOTTOM_TOP },
-    { NULL, 0 }
-};
-
-enum VppRnnediField {
-    VPP_RNNEDI_FIELD_BOB = -2,
-    VPP_RNNEDI_FIELD_AUTO = -1,
-    VPP_RNNEDI_FIELD_BOTTOM = 0,
-    VPP_RNNEDI_FIELD_TOP = 1,
-    VPP_RNNEDI_FIELD_BOB_BOTTOM = 2,
-    VPP_RNNEDI_FIELD_BOB_TOP = 3,
-};
-
-const CX_DESC list_vpp_rnnedi_field[] = {
-    { _T("bob"),        VPP_RNNEDI_FIELD_BOB },
-    { _T("auto"),       VPP_RNNEDI_FIELD_AUTO },
-    { _T("top"),        VPP_RNNEDI_FIELD_TOP },
-    { _T("bottom"),     VPP_RNNEDI_FIELD_BOTTOM },
-    { _T("bob_tff"),    VPP_RNNEDI_FIELD_BOB_TOP },
-    { _T("bob_bff"),    VPP_RNNEDI_FIELD_BOB_BOTTOM },
+    { _T("bob"),        VPP_NNEDI_FIELD_BOB },
+    { _T("auto"),       VPP_NNEDI_FIELD_AUTO },
+    { _T("top"),        VPP_NNEDI_FIELD_TOP },
+    { _T("bottom"),     VPP_NNEDI_FIELD_BOTTOM },
+    { _T("bob_tff"),    VPP_NNEDI_FIELD_BOB_TOP },
+    { _T("bob_bff"),    VPP_NNEDI_FIELD_BOB_BOTTOM },
     { NULL, 0 }
 };
 
@@ -1116,50 +1092,6 @@ enum VppNnediQuality {
 const CX_DESC list_vpp_nnedi_quality[] = {
     { _T("fast"), VPP_NNEDI_QUALITY_FAST },
     { _T("slow"), VPP_NNEDI_QUALITY_SLOW },
-    { NULL, 0 }
-};
-
-enum VppNnediPreScreen : uint32_t {
-    VPP_NNEDI_PRE_SCREEN_NONE            = 0x00,
-    VPP_NNEDI_PRE_SCREEN_ORIGINAL        = 0x01,
-    VPP_NNEDI_PRE_SCREEN_NEW             = 0x02,
-    VPP_NNEDI_PRE_SCREEN_MODE            = 0x07,
-    VPP_NNEDI_PRE_SCREEN_BLOCK           = 0x10,
-    VPP_NNEDI_PRE_SCREEN_ONLY            = 0x20,
-    VPP_NNEDI_PRE_SCREEN_ORIGINAL_BLOCK  = VPP_NNEDI_PRE_SCREEN_ORIGINAL | VPP_NNEDI_PRE_SCREEN_BLOCK,
-    VPP_NNEDI_PRE_SCREEN_NEW_BLOCK       = VPP_NNEDI_PRE_SCREEN_NEW      | VPP_NNEDI_PRE_SCREEN_BLOCK,
-    VPP_NNEDI_PRE_SCREEN_ORIGINAL_ONLY   = VPP_NNEDI_PRE_SCREEN_ORIGINAL | VPP_NNEDI_PRE_SCREEN_ONLY,
-    VPP_NNEDI_PRE_SCREEN_NEW_ONLY        = VPP_NNEDI_PRE_SCREEN_NEW      | VPP_NNEDI_PRE_SCREEN_ONLY,
-
-    VPP_NNEDI_PRE_SCREEN_MAX,
-};
-
-static VppNnediPreScreen operator|(VppNnediPreScreen a, VppNnediPreScreen b) {
-    return (VppNnediPreScreen)((uint32_t)a | (uint32_t)b);
-}
-
-static VppNnediPreScreen operator|=(VppNnediPreScreen& a, VppNnediPreScreen b) {
-    a = a | b;
-    return a;
-}
-
-static VppNnediPreScreen operator&(VppNnediPreScreen a, VppNnediPreScreen b) {
-    return (VppNnediPreScreen)((uint32_t)a & (uint32_t)b);
-}
-
-static VppNnediPreScreen operator&=(VppNnediPreScreen& a, VppNnediPreScreen b) {
-    a = (VppNnediPreScreen)((uint32_t)a & (uint32_t)b);
-    return a;
-}
-
-const CX_DESC list_vpp_nnedi_pre_screen[] = {
-    { _T("none"),           VPP_NNEDI_PRE_SCREEN_NONE },
-    { _T("original"),       VPP_NNEDI_PRE_SCREEN_ORIGINAL },
-    { _T("new"),            VPP_NNEDI_PRE_SCREEN_NEW },
-    { _T("original_block"), VPP_NNEDI_PRE_SCREEN_ORIGINAL_BLOCK },
-    { _T("new_block"),      VPP_NNEDI_PRE_SCREEN_NEW_BLOCK },
-    { _T("original_only"),  VPP_NNEDI_PRE_SCREEN_ORIGINAL_ONLY },
-    { _T("new_only"),       VPP_NNEDI_PRE_SCREEN_NEW_ONLY },
     { NULL, 0 }
 };
 
@@ -2160,7 +2092,7 @@ const CX_DESC list_vpp_rtgmc_edi_mode[] = {
     { _T("repyadif"),         (int)VppRtgmcEdiMode::RepYadif        },
     { _T("repcyadif"),        (int)VppRtgmcEdiMode::RepcYadif       },
     { _T("nnedi3"),           (int)VppRtgmcEdiMode::NNEDI3          },
-    { _T("rnnedi3"),          (int)VppRtgmcEdiMode::NNEDI3          },
+    { _T("nnedi3"),          (int)VppRtgmcEdiMode::NNEDI3          },
     { NULL, 0 }
 };
 
@@ -2168,7 +2100,7 @@ const CX_DESC list_vpp_rtgmc_chroma_edi_mode[] = {
     { _T("none"),             (int)VppRtgmcChromaEdiMode::None   },
     { _T("off"),              (int)VppRtgmcChromaEdiMode::None   },
     { _T("nnedi3"),           (int)VppRtgmcChromaEdiMode::NNEDI3 },
-    { _T("rnnedi3"),          (int)VppRtgmcChromaEdiMode::NNEDI3 },
+    { _T("nnedi3"),          (int)VppRtgmcChromaEdiMode::NNEDI3 },
     { NULL, 0 }
 };
 
@@ -2300,26 +2232,8 @@ struct VppDecomb {
 };
 
 struct VppNnedi {
-    bool              enable;
-    VppNnediField     field;
-    int               nns;
-    VppNnediNSize     nsize;
-    VppNnediQuality   quality;
-    VppFpPrecision precision;
-    VppNnediPreScreen pre_screen;
-    VppNnediErrorType errortype;
-    tstring           weightfile;
-
-    bool isbob();
-    VppNnedi();
-    bool operator==(const VppNnedi &x) const;
-    bool operator!=(const VppNnedi &x) const;
-    tstring print() const;
-};
-
-struct VppRnnedi {
     bool enable;
-    VppRnnediField field;
+    VppNnediField field;
     VppNnediNSize nsize;
     int nns;
     VppNnediQuality quality;
@@ -2329,9 +2243,9 @@ struct VppRnnedi {
     bool doubleHeight;
     tstring weightfile;
 
-    VppRnnedi();
-    bool operator==(const VppRnnedi& x) const;
-    bool operator!=(const VppRnnedi& x) const;
+    VppNnedi();
+    bool operator==(const VppNnedi& x) const;
+    bool operator!=(const VppNnedi& x) const;
     tstring print() const;
 };
 
@@ -3099,7 +3013,6 @@ struct RGYParamVpp {
     VppDelogo delogo;
     VppAfs afs;
     VppNnedi nnedi;
-    VppRnnedi rnnedi;
     VppBwdif bwdif;
     VppRtgmc rtgmc;
     VppRtgmcBob rtgmc_bob;

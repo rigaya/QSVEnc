@@ -872,9 +872,10 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXVppNnediNsize,  list_vpp_nnedi_nsize);
     setComboBox(fcgCXVppNnediNns,    list_vpp_nnedi_nns);
     setComboBox(fcgCXVppNnediQual,   list_vpp_nnedi_quality);
-    setComboBox(fcgCXVppNnediPrec,   list_vpp_fp_prec);
-    setComboBox(fcgCXVppNnediPrescreen, list_vpp_nnedi_pre_screen_gui);
+    setComboBox(fcgCXVppNnediPrescreen, list_vpp_nnedi_prescreen_gui);
     setComboBox(fcgCXVppNnediErrorType, list_vpp_nnedi_error_type);
+    fcgLBVppNnediPrec->Visible = false;
+    fcgCXVppNnediPrec->Visible = false;
     setComboBox(fcgCXVppYadifMode,      list_vpp_yadif_mode_gui);
     setComboBox(fcgCXVppIvtcGuide,     list_vpp_ivtc_guide_gui);
     setComboBox(fcgCXVppIvtcPost,      list_vpp_ivtc_post_gui);
@@ -1932,8 +1933,7 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         fcgCBVppAfsTune->Checked = prm_qsv.vpp.afs.tune != AFS_TUNE_MODE_NONE;
         SetCXIndex(fcgCXVppNnediNsize, get_cx_index(list_vpp_nnedi_nsize, prm_qsv.vpp.nnedi.nsize));
         SetCXIndex(fcgCXVppNnediNns, get_cx_index(list_vpp_nnedi_nns, prm_qsv.vpp.nnedi.nns));
-        SetCXIndex(fcgCXVppNnediPrec, get_cx_index(list_vpp_fp_prec, prm_qsv.vpp.nnedi.precision));
-        SetCXIndex(fcgCXVppNnediPrescreen, get_cx_index(list_vpp_nnedi_pre_screen_gui, prm_qsv.vpp.nnedi.pre_screen));
+        SetCXIndex(fcgCXVppNnediPrescreen, get_cx_index(list_vpp_nnedi_prescreen_gui, prm_qsv.vpp.nnedi.prescreen));
         SetCXIndex(fcgCXVppNnediQual, get_cx_index(list_vpp_nnedi_quality, prm_qsv.vpp.nnedi.quality));
         SetCXIndex(fcgCXVppNnediErrorType, get_cx_index(list_vpp_nnedi_error_type, prm_qsv.vpp.nnedi.errortype));
         SetCXIndex(fcgCXVppYadifMode, get_cx_index(list_vpp_yadif_mode_gui, prm_qsv.vpp.yadif.mode));
@@ -2214,8 +2214,7 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     prm_qsv.vpp.nnedi.nsize            = (VppNnediNSize)list_vpp_nnedi_nsize[fcgCXVppNnediNsize->SelectedIndex].value;
     prm_qsv.vpp.nnedi.nns              = list_vpp_nnedi_nns[fcgCXVppNnediNns->SelectedIndex].value;
     prm_qsv.vpp.nnedi.quality          = (VppNnediQuality)list_vpp_nnedi_quality[fcgCXVppNnediQual->SelectedIndex].value;
-    prm_qsv.vpp.nnedi.precision        = (VppFpPrecision)list_vpp_fp_prec[fcgCXVppNnediPrec->SelectedIndex].value;
-    prm_qsv.vpp.nnedi.pre_screen       = (VppNnediPreScreen)list_vpp_nnedi_pre_screen_gui[fcgCXVppNnediPrescreen->SelectedIndex].value;
+    prm_qsv.vpp.nnedi.prescreen        = list_vpp_nnedi_prescreen_gui[fcgCXVppNnediPrescreen->SelectedIndex].value;
     prm_qsv.vpp.nnedi.errortype        = (VppNnediErrorType)list_vpp_nnedi_error_type[fcgCXVppNnediErrorType->SelectedIndex].value;
 
     prm_qsv.vpp.yadif.enable           = (fcgCXVppDeinterlace->SelectedIndex == get_cx_index(list_deinterlace_gui, L"yadif"));

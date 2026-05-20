@@ -31,7 +31,7 @@
 #include <array>
 
 #include "rgy_filter_cl.h"
-#include "rgy_filter_rnnedi.h"
+#include "rgy_filter_nnedi.h"
 #include "rgy_prm.h"
 
 class RGYFilterParamRtgmcEdi : public RGYFilterParam {
@@ -102,15 +102,15 @@ protected:
         }
     };
 
-    struct RnnediAdapterState {
-        std::unique_ptr<RGYFilterRnnedi> filter;
+    struct NnediAdapterState {
+        std::unique_ptr<RGYFilterNnedi> filter;
         std::unique_ptr<RGYFilterCspCrop> outputCsp;
         std::array<RGYFrameInfo *, 2> cachedFrames;
         FrameKey cachedKey;
         RGYOpenCLEvent cachedEvent;
         bool cacheValid;
 
-        RnnediAdapterState();
+        NnediAdapterState();
         void clear();
     };
 
@@ -129,12 +129,12 @@ protected:
         RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event,
         const RGYFilterParamRtgmcEdi &prm);
-    RGY_ERR initRnnediAdapterState(RnnediAdapterState &state, const std::shared_ptr<RGYFilterParamRtgmcEdi> &prm, const bool chroma);
-    RGY_ERR runRnnediAdapterState(RnnediAdapterState &state, const RGYFrameInfo *pBobInputFrame, const RGYFrameInfo *pSourceInputFrame,
+    RGY_ERR initNnediAdapterState(NnediAdapterState &state, const std::shared_ptr<RGYFilterParamRtgmcEdi> &prm, const bool chroma);
+    RGY_ERR runNnediAdapterState(NnediAdapterState &state, const RGYFrameInfo *pBobInputFrame, const RGYFrameInfo *pSourceInputFrame,
         RGYFrameInfo **ppOutputFrame, const RGYFrameInfo **ppSelectedFrame,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event,
         const RGYFilterParamRtgmcEdi &prm, const bool chroma);
-    RGY_ERR runRnnediAdapter(const RGYFrameInfo *pBobInputFrame, const RGYFrameInfo *pSourceInputFrame,
+    RGY_ERR runNnediAdapter(const RGYFrameInfo *pBobInputFrame, const RGYFrameInfo *pSourceInputFrame,
         RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event,
         const RGYFilterParamRtgmcEdi &prm);
@@ -150,8 +150,8 @@ protected:
     FrameSource m_bobSource;
     FrameSource m_ediSource;
     FrameSource m_inputSource;
-    std::array<RnnediAdapterState, 2> m_rnnediStates;
-    RGYOpenCLEvent m_rnnediAdapterCopyEvent;
+    std::array<NnediAdapterState, 2> m_nnediStates;
+    RGYOpenCLEvent m_nnediAdapterCopyEvent;
     int m_nFrame;
     int m_lastInputFrameId;
     int m_pairFrameIndex;

@@ -87,8 +87,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_COLORSPACE,           _T("colorspace")),
     std::make_pair(VppType::CL_LIBPLACEBO_TONEMAP,   _T("libplacebo-tonemapping")),
     std::make_pair(VppType::CL_AFS,                  _T("afs")),
-    std::make_pair(VppType::CL_NNEDI,                _T("nnedi")),
-    std::make_pair(VppType::CL_RNNEDI,               _T("rnnedi")),
+    std::make_pair(VppType::CL_NNEDI,               _T("nnedi")),
     std::make_pair(VppType::CL_BWDIF,                _T("bwdif")),
     std::make_pair(VppType::CL_MAA,                  _T("maa")),
     std::make_pair(VppType::CL_RTGMC,                _T("rtgmc")),
@@ -1171,55 +1170,7 @@ tstring VppAfs::print() const {
 
 VppNnedi::VppNnedi() :
     enable(false),
-    field(VPP_NNEDI_FIELD_USE_AUTO),
-    nns(32),
-    nsize(VPP_NNEDI_NSIZE_32x4),
-    quality(VPP_NNEDI_QUALITY_FAST),
-    precision(VPP_FP_PRECISION_AUTO),
-    pre_screen(VPP_NNEDI_PRE_SCREEN_NEW_BLOCK),
-    errortype(VPP_NNEDI_ETYPE_ABS),
-    weightfile(_T("")) {
-
-}
-
-bool VppNnedi::isbob() {
-    return field == VPP_NNEDI_FIELD_BOB_AUTO
-        || field == VPP_NNEDI_FIELD_BOB_BOTTOM_TOP
-        || field == VPP_NNEDI_FIELD_BOB_TOP_BOTTOM;
-}
-
-bool VppNnedi::operator==(const VppNnedi &x) const {
-    return enable == x.enable
-        && field == x.field
-        && nns == x.nns
-        && nsize == x.nsize
-        && quality == x.quality
-        && pre_screen == x.pre_screen
-        && errortype == x.errortype
-        && precision == x.precision
-        && weightfile == x.weightfile;
-}
-bool VppNnedi::operator!=(const VppNnedi &x) const {
-    return !(*this == x);
-}
-
-tstring VppNnedi::print() const {
-    return strsprintf(
-        _T("nnedi: field %s, nns %d, nsize %s, quality %s, prec %s\n")
-        _T("                       pre_screen %s, errortype %s, weight \"%s\""),
-        get_cx_desc(list_vpp_nnedi_field, field),
-        nns,
-        get_cx_desc(list_vpp_nnedi_nsize, nsize),
-        get_cx_desc(list_vpp_nnedi_quality, quality),
-        get_cx_desc(list_vpp_fp_prec, precision),
-        get_cx_desc(list_vpp_nnedi_pre_screen, pre_screen),
-        get_cx_desc(list_vpp_nnedi_error_type, errortype),
-        ((weightfile.length()) ? weightfile.c_str() : _T("default")));
-}
-
-VppRnnedi::VppRnnedi() :
-    enable(false),
-    field(VPP_RNNEDI_FIELD_BOB),
+    field(VPP_NNEDI_FIELD_BOB),
     nsize(VPP_NNEDI_NSIZE_16x6),
     nns(32),
     quality(VPP_NNEDI_QUALITY_FAST),
@@ -1230,7 +1181,7 @@ VppRnnedi::VppRnnedi() :
     clamp = 1;
 }
 
-bool VppRnnedi::operator==(const VppRnnedi& x) const {
+bool VppNnedi::operator==(const VppNnedi& x) const {
     return enable == x.enable
         && field == x.field
         && nsize == x.nsize
@@ -1242,14 +1193,14 @@ bool VppRnnedi::operator==(const VppRnnedi& x) const {
         && doubleHeight == x.doubleHeight
         && weightfile == x.weightfile;
 }
-bool VppRnnedi::operator!=(const VppRnnedi& x) const {
+bool VppNnedi::operator!=(const VppNnedi& x) const {
     return !(*this == x);
 }
 
-tstring VppRnnedi::print() const {
+tstring VppNnedi::print() const {
     return strsprintf(
-        _T("rnnedi: field %s, nsize %s, nns %d, quality %s, prescreen %d, errortype %s, clamp %d, double_height %s, weight \"%s\""),
-        get_cx_desc(list_vpp_rnnedi_field, field),
+        _T("nnedi: field %s, nsize %s, nns %d, quality %s, prescreen %d, errortype %s, clamp %d, double_height %s, weight \"%s\""),
+        get_cx_desc(list_vpp_nnedi_field, field),
         get_cx_desc(list_vpp_nnedi_nsize, nsize),
         nns,
         get_cx_desc(list_vpp_nnedi_quality, quality),
@@ -2946,7 +2897,6 @@ RGYParamVpp::RGYParamVpp() :
     delogo(),
     afs(),
     nnedi(),
-    rnnedi(),
     bwdif(),
     rtgmc(),
     rtgmc_bob(),
@@ -3005,7 +2955,6 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && delogo == x.delogo
         && afs == x.afs
         && nnedi == x.nnedi
-        && rnnedi == x.rnnedi
         && bwdif == x.bwdif
         && rtgmc == x.rtgmc
         && rtgmc_bob == x.rtgmc_bob

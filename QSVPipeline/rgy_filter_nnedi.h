@@ -1,10 +1,10 @@
 ﻿// -----------------------------------------------------------------------------------------
-// NVEnc by rigaya
+// QSVEnc/NVEnc/VCEEnc by rigaya
 // -----------------------------------------------------------------------------------------
 //
 // The MIT License
 //
-// Copyright (c) 2014-2016 rigaya
+// Copyright (c) 2026 rigaya
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -26,60 +26,90 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#include "rgy_filter_cl.h"
-#include "rgy_prm.h"
-#include <array>
-#include <optional>
+#pragma once
 
-enum NnediTargetField {
-    NNEDI_GEN_FIELD_UNKNOWN = -1,
-    NNEDI_GEN_FIELD_TOP = 0,
-    NNEDI_GEN_FIELD_BOTTOM
+#include "rgy_filter_cl.h"
+#include "rgy_filter_nnedi_field.h"
+#include "rgy_filter_nnedi_weights.h"
+#include <array>
+#include <cstdint>
+#include <string>
+#include <vector>
+
+struct RGYNnediParam {
+    static constexpr uint32_t WEIGHTS_FILE_SIZE = 13574928u;
+
+    bool enable;
+    std::array<bool, 4> processPlane;
+    VppNnediField field;
+    VppNnediNSize nsize;
+    int nns;
+    VppNnediQuality quality;
+    int prescreen;
+    VppNnediErrorType errortype;
+    int clamp;
+    bool doubleHeight;
+    tstring weightfile;
+
+    RGYNnediParam();
+    bool operator==(const RGYNnediParam& x) const;
+    bool operator!=(const RGYNnediParam& x) const;
+    tstring print() const;
 };
+
+struct RGYNnediNSizeDesc {
+    int xdia;
+    int ydia;
+};
+
+const RGYNnediNSizeDesc& rgy_nnedi_nsize_desc(int nsize);
+int rgy_nnedi_nns_value(int nns);
+int rgy_nnedi_nns_index(int nns);
 
 class RGYFilterParamNnedi : public RGYFilterParam {
 public:
-    VppNnedi nnedi;
+    RGYNnediParam nnedi;
     HMODULE hModule;
     rgy_rational<int> timebase;
 
-    RGYFilterParamNnedi() : nnedi(), hModule(NULL), timebase() {};
+    RGYFilterParamNnedi();
     virtual ~RGYFilterParamNnedi() {};
     virtual tstring print() const override { return nnedi.print(); };
 };
 
 class RGYFilterNnedi : public RGYFilter {
 public:
-    static const int weight_loop_0;
-    static const int weight_loop_1;
-    static const int sizeNX[];
-    static const int sizeNY[];
-    static const int sizeNN[];
-    static const int maxVal = 65535 >> 8;
-public:
     RGYFilterNnedi(shared_ptr<RGYOpenCLContext> context);
     virtual ~RGYFilterNnedi();
     virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
+
+    RGY_ERR validateParam(const RGYNnediParam& prm);
+    std::shared_ptr<const std::vector<uint8_t>> readWeights(const tstring& weightFile, HMODULE hModule);
+
 protected:
-    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;
+    virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+        RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;
     virtual void close() override;
-    virtual RGY_ERR checkParam(const std::shared_ptr<RGYFilterParamNnedi> pParam);
-    virtual RGY_ERR initParams(const std::shared_ptr<RGYFilterParamNnedi> pNnediParam);
-    void setBobTimestamp(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames);
 
-    template<typename TypeWeight>
-    void setWeight0(TypeWeight *ptrDst, const float *ptrW, const std::shared_ptr<RGYFilterParamNnedi> pNnediParam);
+    RGY_ERR initParams(const std::shared_ptr<RGYFilterParamNnedi> prm);
+    bool getInputTff(const RGYFrameInfo *frame) const;
+    void setDoubleRateTimestamp(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames) const;
+    RGY_ERR prepareFieldReference(const RGYFrameInfo *pInputFrame, int outputSlot, const RGYNnediFrameMap& frameMap,
+        RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    RGY_ERR classifyPixelsAndSeedOutput(const RGYFrameInfo *pInputFrame, int outputSlot, const RGYNnediFrameMap& frameMap,
+        RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    RGY_ERR resolveClassifiedPixels(const RGYFrameInfo *pInputFrame, int outputSlot, const RGYNnediFrameMap& frameMap,
+        RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
 
-    template<typename TypeWeight>
-    void setWeight1(TypeWeight *ptrDst, const float *ptrW, const std::shared_ptr<RGYFilterParamNnedi> pNnediParam);
-    virtual shared_ptr<const float> readWeights(const tstring &weightFile, HMODULE hModule);
-
-    virtual RGY_ERR procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, const NnediTargetField targetField, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    virtual RGY_ERR procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, const NnediTargetField targetField, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-
-    std::optional<bool> m_clfp16support;
-    RGYOpenCLProgramAsync m_nnedi_k0;
-    RGYOpenCLProgramAsync m_nnedi_k1;
-    std::unique_ptr<RGYCLBuf> m_weight0;
-    std::array<unique_ptr<RGYCLBuf>, 2> m_weight1;
+    std::shared_ptr<const std::vector<uint8_t>> m_weights;
+    RGYFilterNnediTransformedWeights m_transformedWeights;
+    RGYOpenCLProgramAsync m_nnedi;
+    std::string m_nnediBuildOptions;
+    int m_nnediPredictorSubgroupSize;
+    std::vector<std::unique_ptr<RGYCLFrame>> m_refBuf;
+    std::unique_ptr<RGYCLBuf> m_prescreenerWeightBuf;
+    std::unique_ptr<RGYCLBuf> m_predictorWeightBuf;
+    std::vector<std::unique_ptr<RGYCLBuf>> m_workNNBuf;
+    std::vector<std::unique_ptr<RGYCLBuf>> m_numBlocksBuf;
+    bool m_defaultTff;
 };

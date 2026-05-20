@@ -875,7 +875,12 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="rgy_filter_ivtc.cpp" />
+    <ClCompile Include="rgy_filter_ivtc.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="rgy_filter_msharpen.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -906,19 +911,13 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="rgy_filter_rnnedi.cpp">
+    <ClCompile Include="rgy_filter_nnedi_field.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="rgy_filter_rnnedi_field.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="rgy_filter_rnnedi_weights.cpp">
+    <ClCompile Include="rgy_filter_nnedi_weights.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
@@ -1235,9 +1234,8 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_filter_libplacebo.h" />
     <ClInclude Include="rgy_filter_mpdecimate.h" />
     <ClInclude Include="rgy_filter_nnedi.h" />
-    <ClInclude Include="rgy_filter_rnnedi.h" />
-    <ClInclude Include="rgy_filter_rnnedi_field.h" />
-    <ClInclude Include="rgy_filter_rnnedi_weights.h" />
+    <ClInclude Include="rgy_filter_nnedi_field.h" />
+    <ClInclude Include="rgy_filter_nnedi_weights.h" />
     <ClInclude Include="rgy_filter_overlay.h" />
     <ClInclude Include="rgy_filter_resize.h" />
     <ClInclude Include="rgy_filter_rff.h" />
@@ -1348,10 +1346,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <None Include="rgy_filter_msharpen.cl" />
     <None Include="rgy_filter_msmooth.cl" />
     <None Include="rgy_filter_mpdecimate.cl" />
-    <None Include="rgy_filter_rnnedi.cl" />
-    <None Include="rgy_filter_nnedi_common.cl" />
-    <None Include="rgy_filter_nnedi_k0.cl" />
-    <None Include="rgy_filter_nnedi_k1.cl" />
+    <None Include="rgy_filter_nnedi.cl" />
     <None Include="rgy_filter_overlay.cl" />
     <None Include="rgy_filter_pad.cl" />
     <None Include="rgy_filter_resize.cl" />

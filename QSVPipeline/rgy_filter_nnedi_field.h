@@ -34,20 +34,20 @@
 #include "rgy_err.h"
 #include "rgy_prm.h"
 
-enum class RGYRnnediField : int {
+enum class RGYNnediField : int {
     Top = 0,
     Bottom = 1,
 };
 
-enum class RGYRnnediPlane : int {
+enum class RGYNnediPlane : int {
     Y = 0,
     U = 1,
     V = 2,
     A = 3,
 };
 
-struct RGYRnnediFieldParam {
-    VppRnnediField field;
+struct RGYNnediFieldParam {
+    VppNnediField field;
     VppNnediNSize nsize;
     int nns;
     VppNnediQuality quality;
@@ -56,32 +56,32 @@ struct RGYRnnediFieldParam {
     int clamp;
     std::array<bool, 4> processPlane;
 
-    RGYRnnediFieldParam();
+    RGYNnediFieldParam();
 };
 
-struct RGYRnnediNetworkShape {
+struct RGYNnediNetworkShape {
     int xdia;
     int ydia;
     int neurons;
 };
 
-struct RGYRnnediTopology {
+struct RGYNnediTopology {
     int field;
     bool doubleRate;
     int frameMultiplier;
     int fpsMultiplier;
 };
 
-struct RGYRnnediFrameMap {
+struct RGYNnediFrameMap {
     int sourceFrame;
-    RGYRnnediField generateField;
-    RGYRnnediField copyField;
+    RGYNnediField generateField;
+    RGYNnediField copyField;
     int sourceFieldOffset;
     int evalRefOffsetY;
     bool doubleRate;
 };
 
-struct RGYRnnediPlanePadding {
+struct RGYNnediPlanePadding {
     int width;
     int height;
     int hpad;
@@ -90,18 +90,18 @@ struct RGYRnnediPlanePadding {
     int refBaseOffsetY;
 };
 
-struct RGYRnnediMirrorIndex {
+struct RGYNnediMirrorIndex {
     int index;
     bool padded;
 };
 
-struct RGYRnnediVec4MirrorIndex {
+struct RGYNnediVec4MirrorIndex {
     int index4;
     bool reverseLanes;
     bool padded;
 };
 
-struct RGYRnnediMirrorPixelIndex {
+struct RGYNnediMirrorPixelIndex {
     int index;
     int index4;
     int lane;
@@ -109,26 +109,26 @@ struct RGYRnnediMirrorPixelIndex {
     bool padded;
 };
 
-static constexpr int RGY_RNNEDI_HPAD = 32;
-static constexpr int RGY_RNNEDI_VPAD = 3;
-static constexpr VppRnnediField RGY_RNNEDI_DEFAULT_FIELD = VPP_RNNEDI_FIELD_BOB;
-static constexpr VppNnediQuality RGY_RNNEDI_DEFAULT_QUALITY = VPP_NNEDI_QUALITY_FAST;
-static constexpr int RGY_RNNEDI_DEFAULT_PRESCREEN = 2;
-static constexpr VppNnediErrorType RGY_RNNEDI_DEFAULT_ERRORTYPE = VPP_NNEDI_ETYPE_ABS;
-static constexpr int RGY_RNNEDI_DEFAULT_CLAMP = 1;
+static constexpr int RGY_NNEDI_HPAD = 32;
+static constexpr int RGY_NNEDI_VPAD = 3;
+static constexpr VppNnediField RGY_NNEDI_DEFAULT_FIELD = VPP_NNEDI_FIELD_BOB;
+static constexpr VppNnediQuality RGY_NNEDI_DEFAULT_QUALITY = VPP_NNEDI_QUALITY_FAST;
+static constexpr int RGY_NNEDI_DEFAULT_PRESCREEN = 2;
+static constexpr VppNnediErrorType RGY_NNEDI_DEFAULT_ERRORTYPE = VPP_NNEDI_ETYPE_ABS;
+static constexpr int RGY_NNEDI_DEFAULT_CLAMP = 1;
 
-extern const std::array<int, 7> RGY_RNNEDI_XDIA;
-extern const std::array<int, 7> RGY_RNNEDI_YDIA;
-extern const std::array<int, 5> RGY_RNNEDI_NNS;
+extern const std::array<int, 7> RGY_NNEDI_XDIA;
+extern const std::array<int, 7> RGY_NNEDI_YDIA;
+extern const std::array<int, 5> RGY_NNEDI_NNS;
 
-RGY_ERR rgy_rnnedi_validate_field_param(const RGYRnnediFieldParam& param);
-RGYRnnediNetworkShape rgy_rnnedi_network_shape(int nsize, int nns);
-RGY_ERR rgy_rnnedi_resolve_topology(RGYRnnediTopology *topology, int field, bool inputTff);
-RGY_ERR rgy_rnnedi_map_output_frame(RGYRnnediFrameMap *frameMap, const RGYRnnediTopology& topology, int outputFrame);
-RGYRnnediPlanePadding rgy_rnnedi_plane_padding(int srcWidth, int srcHeight, int xsub, int ysub);
-RGYRnnediMirrorIndex rgy_rnnedi_mirror_index(int pos, int length);
-RGYRnnediVec4MirrorIndex rgy_rnnedi_mirror_index4(int x4, int width4);
-int rgy_rnnedi_mirror_lane(int lane, bool reverseLanes);
-RGYRnnediMirrorPixelIndex rgy_rnnedi_mirror_pixel_index(int x, int width);
-bool rgy_rnnedi_is_copied_field(int y, RGYRnnediField copyField);
-bool rgy_rnnedi_is_generated_field(int y, RGYRnnediField generateField);
+RGY_ERR rgy_nnedi_validate_field_param(const RGYNnediFieldParam& param);
+RGYNnediNetworkShape rgy_nnedi_network_shape(int nsize, int nns);
+RGY_ERR rgy_nnedi_resolve_topology(RGYNnediTopology *topology, int field, bool inputTff);
+RGY_ERR rgy_nnedi_map_output_frame(RGYNnediFrameMap *frameMap, const RGYNnediTopology& topology, int outputFrame);
+RGYNnediPlanePadding rgy_nnedi_plane_padding(int srcWidth, int srcHeight, int xsub, int ysub);
+RGYNnediMirrorIndex rgy_nnedi_mirror_index(int pos, int length);
+RGYNnediVec4MirrorIndex rgy_nnedi_mirror_index4(int x4, int width4);
+int rgy_nnedi_mirror_lane(int lane, bool reverseLanes);
+RGYNnediMirrorPixelIndex rgy_nnedi_mirror_pixel_index(int x, int width);
+bool rgy_nnedi_is_copied_field(int y, RGYNnediField copyField);
+bool rgy_nnedi_is_generated_field(int y, RGYNnediField generateField);

@@ -1888,122 +1888,13 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
 
     if (IS_OPTION("vpp-nnedi") && ENABLE_VPP_FILTER_NNEDI) {
         vpp->nnedi.enable = true;
-        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
-            return 0;
-        }
-        i++;
-
-        const auto paramList = std::vector<std::string>{ "field", "nns", "nsize", "quality", "prescreen", "errortype", "prec", "weightfile" };
-
-        for (const auto& param : split(strInput[i], _T(","))) {
-            auto pos = param.find_first_of(_T("="));
-            if (pos != std::string::npos) {
-                auto param_arg = param.substr(0, pos);
-                auto param_val = param.substr(pos+1);
-                param_arg = tolowercase(param_arg);
-                if (param_arg == _T("enable")) {
-                    bool b = false;
-                    if (!cmd_string_to_bool(&b, param_val)) {
-                        vpp->nnedi.enable = b;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("field")) {
-                    int value = 0;
-                    if (get_list_value(list_vpp_nnedi_field, param_val.c_str(), &value)) {
-                        vpp->nnedi.field = (VppNnediField)value;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_nnedi_field);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("nns")) {
-                    int value = 0;
-                    if (get_list_value(list_vpp_nnedi_nns, param_val.c_str(), &value)) {
-                        vpp->nnedi.nns = value;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_nnedi_nns);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("nsize")) {
-                    int value = 0;
-                    if (get_list_value(list_vpp_nnedi_nsize, param_val.c_str(), &value)) {
-                        vpp->nnedi.nsize = (VppNnediNSize)value;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_nnedi_nsize);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("quality")) {
-                    int value = 0;
-                    if (get_list_value(list_vpp_nnedi_quality, param_val.c_str(), &value)) {
-                        vpp->nnedi.quality = (VppNnediQuality)value;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_nnedi_quality);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("prescreen")) {
-                    int value = 0;
-                    if (get_list_value(list_vpp_nnedi_pre_screen, param_val.c_str(), &value)) {
-                        vpp->nnedi.pre_screen = (VppNnediPreScreen)value;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_nnedi_pre_screen);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("errortype")) {
-                    int value = 0;
-                    if (get_list_value(list_vpp_nnedi_error_type, param_val.c_str(), &value)) {
-                        vpp->nnedi.errortype = (VppNnediErrorType)value;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_nnedi_error_type);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("prec")) {
-                    int value = 0;
-                    if (get_list_value(list_vpp_fp_prec, param_val.c_str(), &value)) {
-                        vpp->nnedi.precision = (VppFpPrecision)value;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_fp_prec);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("weightfile")) {
-                    vpp->nnedi.weightfile = trim(param_val, _T("\"")).c_str();
-                    continue;
-                }
-                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
-                return 1;
-            } else {
-                print_cmd_error_unknown_opt_param(option_name, param, paramList);
-                return 1;
-            }
-        }
-        return 0;
-    }
-
-    if (IS_OPTION("vpp-rnnedi") && ENABLE_VPP_FILTER_RNNEDI) {
-        vpp->rnnedi.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
             return 0;
         }
         i++;
 
         const auto paramList = std::vector<std::string>{ "enable", "field", "nsize", "nns", "quality", "prescreen", "errortype", "prec", "clamp", "double_height", "weightfile" };
-        const auto parse_rnnedi_int = [&](int *dst, const tstring& param_arg, const tstring& param_val) {
+        const auto parse_nnedi_int = [&](int *dst, const tstring& param_arg, const tstring& param_val) {
             try {
                 size_t idx = 0;
                 *dst = std::stoi(param_val, &idx);
@@ -2017,7 +1908,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             }
             return 0;
         };
-        const auto parse_rnnedi_bool = [&](bool *dst, const tstring& param_arg, const tstring& param_val) {
+        const auto parse_nnedi_bool = [&](bool *dst, const tstring& param_arg, const tstring& param_val) {
             bool b = false;
             if (!cmd_string_to_bool(&b, param_val)) {
                 *dst = b;
@@ -2034,15 +1925,15 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 auto param_arg = tolowercase(param.substr(0, pos));
                 auto param_val = param.substr(pos + 1);
                 if (param_arg == _T("enable")) {
-                    if (parse_rnnedi_bool(&vpp->rnnedi.enable, param_arg, param_val)) return 1;
+                    if (parse_nnedi_bool(&vpp->nnedi.enable, param_arg, param_val)) return 1;
                     continue;
                 }
                 if (param_arg == _T("field")) {
                     int value = 0;
-                    if (get_list_value(list_vpp_rnnedi_field, param_val.c_str(), &value)) {
-                        vpp->rnnedi.field = (VppRnnediField)value;
+                    if (get_list_value(list_vpp_nnedi_field, param_val.c_str(), &value)) {
+                        vpp->nnedi.field = (VppNnediField)value;
                     } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_rnnedi_field);
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_nnedi_field);
                         return 1;
                     }
                     continue;
@@ -2050,7 +1941,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 if (param_arg == _T("nsize")) {
                     int value = 0;
                     if (get_list_value(list_vpp_nnedi_nsize, param_val.c_str(), &value)) {
-                        vpp->rnnedi.nsize = (VppNnediNSize)value;
+                        vpp->nnedi.nsize = (VppNnediNSize)value;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_nnedi_nsize);
                         return 1;
@@ -2060,7 +1951,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 if (param_arg == _T("nns")) {
                     int value = 0;
                     if (get_list_value(list_vpp_nnedi_nns, param_val.c_str(), &value)) {
-                        vpp->rnnedi.nns = value;
+                        vpp->nnedi.nns = value;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_nnedi_nns);
                         return 1;
@@ -2070,7 +1961,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 if (param_arg == _T("quality")) {
                     int value = 0;
                     if (get_list_value(list_vpp_nnedi_quality, param_val.c_str(), &value)) {
-                        vpp->rnnedi.quality = (VppNnediQuality)value;
+                        vpp->nnedi.quality = (VppNnediQuality)value;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_nnedi_quality);
                         return 1;
@@ -2078,13 +1969,13 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     continue;
                 }
                 if (param_arg == _T("prescreen")) {
-                    if (parse_rnnedi_int(&vpp->rnnedi.prescreen, param_arg, param_val)) return 1;
+                    if (parse_nnedi_int(&vpp->nnedi.prescreen, param_arg, param_val)) return 1;
                     continue;
                 }
                 if (param_arg == _T("errortype")) {
                     int value = 0;
                     if (get_list_value(list_vpp_nnedi_error_type, param_val.c_str(), &value)) {
-                        vpp->rnnedi.errortype = (VppNnediErrorType)value;
+                        vpp->nnedi.errortype = (VppNnediErrorType)value;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_nnedi_error_type);
                         return 1;
@@ -2095,15 +1986,15 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     continue;
                 }
                 if (param_arg == _T("clamp")) {
-                    if (parse_rnnedi_int(&vpp->rnnedi.clamp, param_arg, param_val)) return 1;
+                    if (parse_nnedi_int(&vpp->nnedi.clamp, param_arg, param_val)) return 1;
                     continue;
                 }
                 if (param_arg == _T("double_height")) {
-                    if (parse_rnnedi_bool(&vpp->rnnedi.doubleHeight, param_arg, param_val)) return 1;
+                    if (parse_nnedi_bool(&vpp->nnedi.doubleHeight, param_arg, param_val)) return 1;
                     continue;
                 }
                 if (param_arg == _T("weightfile")) {
-                    vpp->rnnedi.weightfile = trim(param_val, _T("\"")).c_str();
+                    vpp->nnedi.weightfile = trim(param_val, _T("\"")).c_str();
                     continue;
                 }
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
@@ -10759,40 +10650,19 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
         }
         if (param->nnedi.enable || save_disabled_prm) {
             ADD_LST(_T("field"), nnedi.field, list_vpp_nnedi_field);
-            ADD_LST(_T("nns"), nnedi.nns, list_vpp_nnedi_nns);
             ADD_LST(_T("nsize"), nnedi.nsize, list_vpp_nnedi_nsize);
+            ADD_LST(_T("nns"), nnedi.nns, list_vpp_nnedi_nns);
             ADD_LST(_T("quality"), nnedi.quality, list_vpp_nnedi_quality);
-            ADD_LST(_T("prec"), nnedi.precision, list_vpp_fp_prec);
-            ADD_LST(_T("prescreen"), nnedi.pre_screen, list_vpp_nnedi_pre_screen);
+            ADD_NUM(_T("prescreen"), nnedi.prescreen);
             ADD_LST(_T("errortype"), nnedi.errortype, list_vpp_nnedi_error_type);
+            ADD_NUM(_T("clamp"), nnedi.clamp);
+            ADD_BOOL(_T("double_height"), nnedi.doubleHeight);
             ADD_PATH(_T("weightfile"), nnedi.weightfile.c_str());
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-nnedi ") << tmp.str().substr(1);
         } else if (param->nnedi.enable) {
             cmd << _T(" --vpp-nnedi");
-        }
-    }
-    if (param->rnnedi != defaultPrm->rnnedi) {
-        tmp.str(tstring());
-        if (!param->rnnedi.enable && save_disabled_prm) {
-            tmp << _T(",enable=false");
-        }
-        if (param->rnnedi.enable || save_disabled_prm) {
-            ADD_LST(_T("field"), rnnedi.field, list_vpp_rnnedi_field);
-            ADD_LST(_T("nsize"), rnnedi.nsize, list_vpp_nnedi_nsize);
-            ADD_LST(_T("nns"), rnnedi.nns, list_vpp_nnedi_nns);
-            ADD_LST(_T("quality"), rnnedi.quality, list_vpp_nnedi_quality);
-            ADD_NUM(_T("prescreen"), rnnedi.prescreen);
-            ADD_LST(_T("errortype"), rnnedi.errortype, list_vpp_nnedi_error_type);
-            ADD_NUM(_T("clamp"), rnnedi.clamp);
-            ADD_BOOL(_T("double_height"), rnnedi.doubleHeight);
-            ADD_PATH(_T("weightfile"), rnnedi.weightfile.c_str());
-        }
-        if (!tmp.str().empty()) {
-            cmd << _T(" --vpp-rnnedi ") << tmp.str().substr(1);
-        } else if (param->rnnedi.enable) {
-            cmd << _T(" --vpp-rnnedi");
         }
     }
     if (param->yadif != defaultPrm->yadif) {
@@ -12919,36 +12789,6 @@ tstring gen_cmd_help_vpp() {
         _T("   --vpp-nnedi [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable nnedi deinterlacer\n")
         _T("    params\n")
-        _T("      field=<string>\n")
-        _T("          auto (default)    Generate latter field from first field.\n")
-        _T("          top               Generate bottom field using top field.\n")
-        _T("          bottom            Generate top field using bottom field.\n")
-        _T("      nns=<int>             Neurons of neural net (default: 32)\n")
-        _T("                              16, 32, 64, 128, 256\n")
-        _T("      nszie=<int>x<int>     Area size neural net uses to generate a pixel.\n")
-        _T("                              8x6, 16x6, 32x6, 48x6, 8x4, 16x4, 32x4(default)\n")
-        _T("      quality=<string>      quality settings\n")
-        _T("                              fast (default), slow\n")
-        _T("      prescreen=<string>    (default: new_block)\n")
-        _T("          none              No pre-screening is done and all pixels will be\n")
-        _T("                            generated by neural net.\n")
-        _T("          original          Runs prescreener to determine which pixel to apply\n")
-        _T("          new               neural net, other pixels will be generated from\n")
-        _T("                            simple interpolation.\n")
-        _T("          original_block    GPU optimized ver of original/new.\n")
-        _T("          new_block\n")
-        _T("      errortype=<string>    Select weight parameter for neural net.\n")
-        _T("                              abs (default), square\n")
-        _T("      prec=<string>         Select calculation precision.\n")
-        _T("                              auto (default), fp16, fp32\n")
-        _T("      weightfile=<string>   Set path of weight file. By default (not specified),\n")
-        _T("                              Windows searches nnedi3_weights.bin, Linux uses embedded weights.\n"));
-#endif
-#if ENABLE_VPP_FILTER_RNNEDI
-    str += strsprintf(_T("\n")
-        _T("   --vpp-rnnedi [<param1>=<value>][,<param2>=<value>][...]\n")
-        _T("     enable rnnedi deinterlacer\n")
-        _T("    params\n")
         _T("      field=<string>         Select target field.\n")
         _T("                              bob (default), auto, top, bottom, bob_tff, bob_bff\n")
         _T("      nsize=<string>         8x6, 16x6 (default), 32x6, 48x6, 8x4, 16x4, 32x4\n")
@@ -12956,7 +12796,7 @@ tstring gen_cmd_help_vpp() {
         _T("      quality=<string>       fast (default), slow\n")
         _T("      prescreen=<int>        2, 3, or 4 (default=2; 0/1 unsupported)\n")
         _T("      errortype=<string>     abs (default), square\n")
-        _T("      prec=<string>          Accepted for compatibility with --vpp-nnedi and ignored.\n")
+        _T("      prec=<string>          Accepted and ignored.\n")
         _T("      clamp=<int>            Clamp mode 0-4 (default=1)\n")
         _T("      double_height=<bool>   Double output height. Supported with field=auto/top/bottom only (default=false)\n")
         _T("      weightfile=<string>    Set path of nnedi3_weights.bin. By default,\n")
@@ -13123,9 +12963,9 @@ tstring gen_cmd_help_vpp() {
         _T("      grain_restore=<float>  restore grain before TR2 with noiseprocess=1, 0.0-1.0 (default=0.0)\n")
         _T("      noise_restore=<float>  restore noise after lossless with noiseprocess=1, 0.0-1.0 (default=0.0)\n")
         _T("      edi=<string>           bob (default), yadif, cyadif, repyadif, repcyadif, nnedi3, passthrough\n")
-        _T("      nnsize=<int>           rnnedi nsize index 0 - 6 (preset default)\n")
-        _T("      nneurons=<int>         rnnedi nns index 0 - 4 (preset default)\n")
-        _T("      ediqual=<int>          rnnedi qual 1 - 2 (preset default: 1)\n")
+        _T("      nnsize=<int>           nnedi nsize index 0 - 6 (preset default)\n")
+        _T("      nneurons=<int>         nnedi nns index 0 - 4 (preset default)\n")
+        _T("      ediqual=<int>          nnedi qual 1 - 2 (preset default: 1)\n")
         _T("      chroma_edi=<string>    chroma EDI: none (default), nnedi3\n")
         _T("      rep1-thin=<int>        first shimmer thin repair level (default=0, 0 - 7)\n")
         _T("      rep1-pad=<int>         first shimmer padding restore level (default=0, 0 - 3)\n")

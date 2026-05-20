@@ -71,7 +71,6 @@ RGY_DISABLE_WARNING_POP
 #include "rgy_filter_rff.h"
 #include "rgy_filter_afs.h"
 #include "rgy_filter_nnedi.h"
-#include "rgy_filter_rnnedi.h"
 #include "rgy_filter_bwdif.h"
 #include "rgy_filter_maa.h"
 #include "rgy_filter_rtgmc.h"
@@ -157,7 +156,6 @@ int countVppDeinterlacer(const sInputParams *inputParam, const bool includeIvtc)
     if (inputParam->vppmfx.deinterlace != MFX_DEINTERLACE_NONE) deinterlacer++;
     if (inputParam->vpp.afs.enable) deinterlacer++;
     if (inputParam->vpp.nnedi.enable) deinterlacer++;
-    if (inputParam->vpp.rnnedi.enable) deinterlacer++;
     if (inputParam->vpp.bwdif.enable) deinterlacer++;
     if (inputParam->vpp.rtgmc.enable) deinterlacer++;
     if (inputParam->vpp.kfm.enable) deinterlacer++;
@@ -2294,8 +2292,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vpp.rff.enable)        filterPipeline.push_back(VppType::CL_RFF);
     if (inputParam->vpp.delogo.enable)     filterPipeline.push_back(VppType::CL_DELOGO);
     if (inputParam->vpp.afs.enable)        filterPipeline.push_back(VppType::CL_AFS);
-    if (inputParam->vpp.nnedi.enable)      filterPipeline.push_back(VppType::CL_NNEDI);
-    if (inputParam->vpp.rnnedi.enable)     filterPipeline.push_back(VppType::CL_RNNEDI);
+    if (inputParam->vpp.nnedi.enable)     filterPipeline.push_back(VppType::CL_NNEDI);
     if (inputParam->vpp.rtgmc.enable)      filterPipeline.push_back(VppType::CL_RTGMC);
     if (inputParam->vpp.kfm.enable)        filterPipeline.push_back(VppType::CL_KFM);
     const bool degrainLegacy = inputParam->vpp.degrain.enable;
@@ -2609,37 +2606,16 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
     if (vppType == VppType::CL_NNEDI) {
         unique_ptr<RGYFilter> filter(new RGYFilterNnedi(m_cl));
         shared_ptr<RGYFilterParamNnedi> param(new RGYFilterParamNnedi());
-        param->nnedi = params->vpp.nnedi;
-        param->frameIn = inputFrame;
-        param->frameOut = inputFrame;
-        param->baseFps = m_encFps;
-        param->timebase = m_outputTimebase;
-        param->bOutOverwrite = false;
-        auto sts = filter->init(param, m_pQSVLog);
-        if (sts != RGY_ERR_NONE) {
-            return sts;
-        }
-        //入力フレーム情報を更新
-        inputFrame = param->frameOut;
-        m_encFps = param->baseFps;
-        //登録
-        clfilters.push_back(std::move(filter));
-        return RGY_ERR_NONE;
-    }
-    //rnnedi
-    if (vppType == VppType::CL_RNNEDI) {
-        unique_ptr<RGYFilter> filter(new RGYFilterRnnedi(m_cl));
-        shared_ptr<RGYFilterParamRnnedi> param(new RGYFilterParamRnnedi());
-        param->rnnedi.enable = params->vpp.rnnedi.enable;
-        param->rnnedi.field = params->vpp.rnnedi.field;
-        param->rnnedi.nsize = params->vpp.rnnedi.nsize;
-        param->rnnedi.nns = params->vpp.rnnedi.nns;
-        param->rnnedi.quality = params->vpp.rnnedi.quality;
-        param->rnnedi.prescreen = params->vpp.rnnedi.prescreen;
-        param->rnnedi.errortype = params->vpp.rnnedi.errortype;
-        param->rnnedi.clamp = params->vpp.rnnedi.clamp;
-        param->rnnedi.doubleHeight = params->vpp.rnnedi.doubleHeight;
-        param->rnnedi.weightfile = params->vpp.rnnedi.weightfile;
+        param->nnedi.enable = params->vpp.nnedi.enable;
+        param->nnedi.field = params->vpp.nnedi.field;
+        param->nnedi.nsize = params->vpp.nnedi.nsize;
+        param->nnedi.nns = params->vpp.nnedi.nns;
+        param->nnedi.quality = params->vpp.nnedi.quality;
+        param->nnedi.prescreen = params->vpp.nnedi.prescreen;
+        param->nnedi.errortype = params->vpp.nnedi.errortype;
+        param->nnedi.clamp = params->vpp.nnedi.clamp;
+        param->nnedi.doubleHeight = params->vpp.nnedi.doubleHeight;
+        param->nnedi.weightfile = params->vpp.nnedi.weightfile;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
