@@ -1981,8 +1981,6 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetNUValue(fcgNUVppRtgmcSearchRefine, prm_qsv.vpp.rtgmc.searchPrefilter.searchRefine);
         SetNUValue(fcgNUVppRtgmcThsad1, prm_qsv.vpp.rtgmc.tr1.thsad);
         SetNUValue(fcgNUVppRtgmcThsad2, prm_qsv.vpp.rtgmc.tr2.thsad);
-        SetNUValue(fcgNUVppRtgmcSharpness, prm_qsv.vpp.rtgmc.retouch.sharpness);
-        fcgCBVppRtgmcChromaMotion->Checked = prm_qsv.vpp.rtgmc.searchPrefilter.chromaMotion;
         SetCXIndex(fcgCXVppKfmMode, get_cx_index(list_vpp_kfm_mode, (int)prm_qsv.vpp.kfm.mode));
         SetCXIndex(fcgCXVppKfmPreset, get_cx_index(list_vpp_rtgmc_preset, (int)prm_qsv.vpp.kfm.preset));
         SetCXIndex(fcgCXVppKfmTiming, get_cx_index(list_vpp_kfm_timing, (int)prm_qsv.vpp.kfm.timing));
@@ -2306,7 +2304,6 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     prm_qsv.vpp.rtgmc.sourceMatch = (int)fcgNUVppRtgmcSourceMatch->Value;
     prm_qsv.vpp.rtgmc.searchPrefilter.tr0 = (int)fcgNUVppRtgmcTr0->Value;
     prm_qsv.vpp.rtgmc.searchPrefilter.searchRefine = (int)fcgNUVppRtgmcSearchRefine->Value;
-    prm_qsv.vpp.rtgmc.searchPrefilter.chromaMotion = fcgCBVppRtgmcChromaMotion->Checked;
     prm_qsv.vpp.rtgmc.analyze.tr0 = prm_qsv.vpp.rtgmc.searchPrefilter.tr0;
     prm_qsv.vpp.rtgmc.tr1.tr0 = prm_qsv.vpp.rtgmc.searchPrefilter.tr0;
     prm_qsv.vpp.rtgmc.tr2.tr0 = prm_qsv.vpp.rtgmc.searchPrefilter.tr0;
@@ -2318,7 +2315,6 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     prm_qsv.vpp.rtgmc.tr2.chroma = prm_qsv.vpp.rtgmc.searchPrefilter.chromaMotion;
     prm_qsv.vpp.rtgmc.tr1.thsad = (int)fcgNUVppRtgmcThsad1->Value;
     prm_qsv.vpp.rtgmc.tr2.thsad = (int)fcgNUVppRtgmcThsad2->Value;
-    prm_qsv.vpp.rtgmc.retouch.sharpness = (float)fcgNUVppRtgmcSharpness->Value;
     prm_qsv.vpp.rtgmc.retouch.tr1 = prm_qsv.vpp.rtgmc.tr1.delta;
     prm_qsv.vpp.rtgmc.retouch.tr2 = prm_qsv.vpp.rtgmc.tr2.delta;
 

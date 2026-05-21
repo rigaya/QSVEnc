@@ -1316,7 +1316,6 @@ private: System::Windows::Forms::Label^  fcgLBVppRtgmcTr0;
 private: System::Windows::Forms::Label^  fcgLBVppRtgmcSearchRefine;
 private: System::Windows::Forms::Label^  fcgLBVppRtgmcThsad1;
 private: System::Windows::Forms::Label^  fcgLBVppRtgmcThsad2;
-private: System::Windows::Forms::Label^  fcgLBVppRtgmcSharpness;
 private: System::Windows::Forms::ComboBox^  fcgCXVppRtgmcPreset;
 private: System::Windows::Forms::ComboBox^  fcgCXVppRtgmcTuning;
 private: System::Windows::Forms::ComboBox^  fcgCXVppRtgmcOrder;
@@ -1327,8 +1326,6 @@ private: System::Windows::Forms::NumericUpDown^  fcgNUVppRtgmcTr0;
 private: System::Windows::Forms::NumericUpDown^  fcgNUVppRtgmcSearchRefine;
 private: System::Windows::Forms::NumericUpDown^  fcgNUVppRtgmcThsad1;
 private: System::Windows::Forms::NumericUpDown^  fcgNUVppRtgmcThsad2;
-private: System::Windows::Forms::NumericUpDown^  fcgNUVppRtgmcSharpness;
-private: System::Windows::Forms::CheckBox^  fcgCBVppRtgmcChromaMotion;
 private: System::Windows::Forms::Panel^  fcgPNVppKfm;
 private: System::Windows::Forms::Label^  fcgLBVppKfmMode;
 private: System::Windows::Forms::Label^  fcgLBVppKfmPreset;
@@ -2011,7 +2008,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             this->fcgLBVppRtgmcSearchRefine = (gcnew System::Windows::Forms::Label());
             this->fcgLBVppRtgmcThsad1 = (gcnew System::Windows::Forms::Label());
             this->fcgLBVppRtgmcThsad2 = (gcnew System::Windows::Forms::Label());
-            this->fcgLBVppRtgmcSharpness = (gcnew System::Windows::Forms::Label());
             this->fcgCXVppRtgmcPreset = (gcnew System::Windows::Forms::ComboBox());
             this->fcgCXVppRtgmcTuning = (gcnew System::Windows::Forms::ComboBox());
             this->fcgCXVppRtgmcOrder = (gcnew System::Windows::Forms::ComboBox());
@@ -2022,8 +2018,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             this->fcgNUVppRtgmcSearchRefine = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgNUVppRtgmcThsad1 = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgNUVppRtgmcThsad2 = (gcnew System::Windows::Forms::NumericUpDown());
-            this->fcgNUVppRtgmcSharpness = (gcnew System::Windows::Forms::NumericUpDown());
-            this->fcgCBVppRtgmcChromaMotion = (gcnew System::Windows::Forms::CheckBox());
             this->fcgPNVppKfm = (gcnew System::Windows::Forms::Panel());
             this->fcgLBVppKfmMode = (gcnew System::Windows::Forms::Label());
             this->fcgLBVppKfmPreset = (gcnew System::Windows::Forms::Label());
@@ -2283,7 +2277,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppRtgmcSearchRefine))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppRtgmcThsad1))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppRtgmcThsad2))->BeginInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppRtgmcSharpness))->BeginInit();
             this->fcgPNVppKfm->SuspendLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppKfmPastCycles))->BeginInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppKfmThswitch))->BeginInit();
@@ -6686,13 +6679,10 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             this->fcgPNVppRtgmc->Controls->Add(this->fcgNUVppRtgmcTr0);
             this->fcgPNVppRtgmc->Controls->Add(this->fcgLBVppRtgmcSearchRefine);
             this->fcgPNVppRtgmc->Controls->Add(this->fcgNUVppRtgmcSearchRefine);
-            this->fcgPNVppRtgmc->Controls->Add(this->fcgCBVppRtgmcChromaMotion);
             this->fcgPNVppRtgmc->Controls->Add(this->fcgLBVppRtgmcThsad1);
             this->fcgPNVppRtgmc->Controls->Add(this->fcgNUVppRtgmcThsad1);
             this->fcgPNVppRtgmc->Controls->Add(this->fcgLBVppRtgmcThsad2);
             this->fcgPNVppRtgmc->Controls->Add(this->fcgNUVppRtgmcThsad2);
-            this->fcgPNVppRtgmc->Controls->Add(this->fcgLBVppRtgmcSharpness);
-            this->fcgPNVppRtgmc->Controls->Add(this->fcgNUVppRtgmcSharpness);
             this->fcgPNVppRtgmc->Location = System::Drawing::Point(6, 41);
             this->fcgPNVppRtgmc->Name = L"fcgPNVppRtgmc";
             this->fcgPNVppRtgmc->Size = System::Drawing::Size(251, 294);
@@ -6850,24 +6840,13 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             this->fcgNUVppRtgmcSearchRefine->Tag = L"reCmd";
             this->fcgNUVppRtgmcSearchRefine->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
             //
-            // fcgCBVppRtgmcChromaMotion
-            //
-            this->fcgCBVppRtgmcChromaMotion->AutoSize = true;
-            this->fcgCBVppRtgmcChromaMotion->Location = System::Drawing::Point(146, 177);
-            this->fcgCBVppRtgmcChromaMotion->Name = L"fcgCBVppRtgmcChromaMotion";
-            this->fcgCBVppRtgmcChromaMotion->Size = System::Drawing::Size(105, 18);
-            this->fcgCBVppRtgmcChromaMotion->TabIndex = 16;
-            this->fcgCBVppRtgmcChromaMotion->Tag = L"reCmd";
-            this->fcgCBVppRtgmcChromaMotion->Text = L"chroma motion";
-            this->fcgCBVppRtgmcChromaMotion->UseVisualStyleBackColor = true;
-            //
             // fcgLBVppRtgmcThsad1
             //
             this->fcgLBVppRtgmcThsad1->AutoSize = true;
             this->fcgLBVppRtgmcThsad1->Location = System::Drawing::Point(8, 206);
             this->fcgLBVppRtgmcThsad1->Name = L"fcgLBVppRtgmcThsad1";
             this->fcgLBVppRtgmcThsad1->Size = System::Drawing::Size(43, 14);
-            this->fcgLBVppRtgmcThsad1->TabIndex = 17;
+            this->fcgLBVppRtgmcThsad1->TabIndex = 16;
             this->fcgLBVppRtgmcThsad1->Text = L"thsad1";
             //
             // fcgNUVppRtgmcThsad1
@@ -6876,49 +6855,28 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             this->fcgNUVppRtgmcThsad1->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 9999, 0, 0, 0 });
             this->fcgNUVppRtgmcThsad1->Name = L"fcgNUVppRtgmcThsad1";
             this->fcgNUVppRtgmcThsad1->Size = System::Drawing::Size(60, 21);
-            this->fcgNUVppRtgmcThsad1->TabIndex = 18;
+            this->fcgNUVppRtgmcThsad1->TabIndex = 17;
             this->fcgNUVppRtgmcThsad1->Tag = L"reCmd";
             this->fcgNUVppRtgmcThsad1->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
             //
             // fcgLBVppRtgmcThsad2
             //
             this->fcgLBVppRtgmcThsad2->AutoSize = true;
-            this->fcgLBVppRtgmcThsad2->Location = System::Drawing::Point(146, 206);
+            this->fcgLBVppRtgmcThsad2->Location = System::Drawing::Point(8, 233);
             this->fcgLBVppRtgmcThsad2->Name = L"fcgLBVppRtgmcThsad2";
             this->fcgLBVppRtgmcThsad2->Size = System::Drawing::Size(43, 14);
-            this->fcgLBVppRtgmcThsad2->TabIndex = 19;
+            this->fcgLBVppRtgmcThsad2->TabIndex = 18;
             this->fcgLBVppRtgmcThsad2->Text = L"thsad2";
             //
             // fcgNUVppRtgmcThsad2
             //
-            this->fcgNUVppRtgmcThsad2->Location = System::Drawing::Point(182, 203);
+            this->fcgNUVppRtgmcThsad2->Location = System::Drawing::Point(82, 230);
             this->fcgNUVppRtgmcThsad2->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 9999, 0, 0, 0 });
             this->fcgNUVppRtgmcThsad2->Name = L"fcgNUVppRtgmcThsad2";
             this->fcgNUVppRtgmcThsad2->Size = System::Drawing::Size(60, 21);
-            this->fcgNUVppRtgmcThsad2->TabIndex = 20;
+            this->fcgNUVppRtgmcThsad2->TabIndex = 19;
             this->fcgNUVppRtgmcThsad2->Tag = L"reCmd";
             this->fcgNUVppRtgmcThsad2->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
-            //
-            // fcgLBVppRtgmcSharpness
-            //
-            this->fcgLBVppRtgmcSharpness->AutoSize = true;
-            this->fcgLBVppRtgmcSharpness->Location = System::Drawing::Point(8, 233);
-            this->fcgLBVppRtgmcSharpness->Name = L"fcgLBVppRtgmcSharpness";
-            this->fcgLBVppRtgmcSharpness->Size = System::Drawing::Size(62, 14);
-            this->fcgLBVppRtgmcSharpness->TabIndex = 21;
-            this->fcgLBVppRtgmcSharpness->Text = L"sharpness";
-            //
-            // fcgNUVppRtgmcSharpness
-            //
-            this->fcgNUVppRtgmcSharpness->DecimalPlaces = 3;
-            this->fcgNUVppRtgmcSharpness->Increment = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 196608 });
-            this->fcgNUVppRtgmcSharpness->Location = System::Drawing::Point(82, 230);
-            this->fcgNUVppRtgmcSharpness->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
-            this->fcgNUVppRtgmcSharpness->Name = L"fcgNUVppRtgmcSharpness";
-            this->fcgNUVppRtgmcSharpness->Size = System::Drawing::Size(72, 21);
-            this->fcgNUVppRtgmcSharpness->TabIndex = 22;
-            this->fcgNUVppRtgmcSharpness->Tag = L"reCmd";
-            this->fcgNUVppRtgmcSharpness->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
             //
             // fcgPNVppKfm
             //
@@ -8440,7 +8398,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppRtgmcSearchRefine))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppRtgmcThsad1))->EndInit();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppRtgmcThsad2))->EndInit();
-            (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppRtgmcSharpness))->EndInit();
             this->fcgPNVppKfm->ResumeLayout(false);
             this->fcgPNVppKfm->PerformLayout();
             (cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->fcgNUVppKfmPastCycles))->EndInit();
