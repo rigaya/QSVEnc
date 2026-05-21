@@ -1970,6 +1970,10 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 }
                 if (param_arg == _T("prescreen")) {
                     if (parse_nnedi_int(&vpp->nnedi.prescreen, param_arg, param_val)) return 1;
+                    if (vpp->nnedi.prescreen < 2 || vpp->nnedi.prescreen > 4) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("prescreen should be 2, 3, or 4."));
+                        return 1;
+                    }
                     continue;
                 }
                 if (param_arg == _T("errortype")) {
@@ -1987,6 +1991,10 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 }
                 if (param_arg == _T("clamp")) {
                     if (parse_nnedi_int(&vpp->nnedi.clamp, param_arg, param_val)) return 1;
+                    if (vpp->nnedi.clamp < 0 || vpp->nnedi.clamp > 4) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("clamp should be 0 - 4."));
+                        return 1;
+                    }
                     continue;
                 }
                 if (param_arg == _T("double_height")) {
@@ -2559,21 +2567,21 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         parsedRtgmc.enable = true;
 
         const auto paramList = std::vector<std::string>{
-            "enable", "preset", "tuning", "border", "lossless", "input_type", "inputtype", "prog_sad_mask", "progsadmask", "prog_sad_mask_gamma", "progsadmaskgamma", "source_match", "sourcematch", "match_tr1", "matchtr1", "match_tr2", "matchtr2",
-            "match_preset", "matchpreset", "match_preset2", "matchpreset2", "match_edi", "matchedi", "match_edi2", "matchedi2", "match_enhance", "matchenhance",
-            "order", "tr0", "rep0-thin", "rep0thin", "rep0_thin", "rep0-pad", "rep0pad", "rep0_pad", "search_refine", "searchrefine", "edi", "edi_mode", "mode",
-            "nnsize", "nn_size", "nneurons", "n_neurons", "ediqual", "edi_qual", "chroma_edi", "chromaedi",
-            "mv_spatial_refine", "mvspatialrefine",
-            "tv_range", "tvrange", "chroma_motion", "chromamotion",
-            "noise_process", "noiseprocess", "ezdenoise", "ezkeepgrain", "denoiser", "sigma", "chroma_noise", "chromanoise",
-            "noise_deint", "noisedeint", "denoise_mc", "denoisemc", "noise_tr", "noisetr", "grain_restore", "grainrestore", "noise_restore", "noiserestore",
+            "enable", "preset", "tuning", "border", "lossless", "input_type", "prog_sad_mask", "prog_sad_mask_gamma", "source_match", "match_tr1", "match_tr2",
+            "match_preset", "match_preset2", "match_edi", "match_enhance",
+            "order", "tr0", "rep0-thin", "rep0-pad", "search_refine", "edi",
+            "nnsize", "nneurons", "ediqual", "chroma_edi",
+            "mv_spatial_refine",
+            "tv_range", "chroma_motion",
+            "noise_process", "ezdenoise", "ezkeepgrain", "denoiser", "sigma", "chroma_noise",
+            "noise_deint", "denoise_mc", "noise_tr", "grain_restore", "noise_restore",
             "sharpness", "limit", "smode", "slmode", "slrad", "sovs", "svthin", "sbb", "precise",
-            "rep1-thin", "rep1thin", "rep1_thin", "rep1-pad", "rep1pad", "rep1_pad",
-            "rep2-thin", "rep2thin", "rep2_thin", "rep2-pad", "rep2pad", "rep2_pad", "rep_chroma", "repchroma",
+            "rep1-thin", "rep1-pad",
+            "rep2-thin", "rep2-pad", "rep_chroma",
             "blksize", "search", "thsad", "thsad1", "thsad2", "thscd1", "thscd2", "pel", "levels", "overlap", "delta",
-            "subpelinterp", "subpel_interp", "searchparam", "search_param", "pelsearch", "pel_search",
-            "truemotion", "true_motion", "lambda", "lsad", "pnew", "plevel", "globalmotion", "global_motion", "dct", "useflag", "use_flag",
-            "delta_analyze", "analyze_delta", "delta_tr1", "tr1_delta", "delta_tr2", "tr2_delta"
+            "subpelinterp", "searchparam", "pelsearch",
+            "truemotion", "lambda", "lsad", "pnew", "plevel", "globalmotion", "dct", "useflag",
+            "delta_analyze", "delta_tr1", "delta_tr2"
         };
         bool userSetTr2 = false;
         bool userSetSharpness = false;
@@ -2912,7 +2920,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("input_type") || param_arg == _T("inputtype")) {
+                if (param_arg == _T("input_type")) {
                     if (parse_int(&parsedRtgmc.inputType, param_arg, param_val)) return 1;
                     if (parsedRtgmc.inputType < 0 || parsedRtgmc.inputType > 3) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("input_type should be 0 - 3."));
@@ -2920,7 +2928,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("prog_sad_mask") || param_arg == _T("progsadmask")) {
+                if (param_arg == _T("prog_sad_mask")) {
                     if (parse_float(&parsedRtgmc.progSADMask, param_arg, param_val)) return 1;
                     if (parsedRtgmc.progSADMask < 0.0f) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("prog_sad_mask should be 0.0 or larger."));
@@ -2929,7 +2937,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     presetOverride.progSADMask = true;
                     continue;
                 }
-                if (param_arg == _T("prog_sad_mask_gamma") || param_arg == _T("progsadmaskgamma")) {
+                if (param_arg == _T("prog_sad_mask_gamma")) {
                     if (parse_float(&parsedRtgmc.progSADMaskGamma, param_arg, param_val)) return 1;
                     if (parsedRtgmc.progSADMaskGamma <= 0.0f) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("prog_sad_mask_gamma should be larger than 0.0."));
@@ -2937,7 +2945,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("source_match") || param_arg == _T("sourcematch")) {
+                if (param_arg == _T("source_match")) {
                     if (parse_int(&parsedRtgmc.sourceMatch, param_arg, param_val)) return 1;
                     if (parsedRtgmc.sourceMatch < 0 || parsedRtgmc.sourceMatch > 3) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("source_match should be 0 - 3."));
@@ -2945,7 +2953,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("match_tr1") || param_arg == _T("matchtr1")) {
+                if (param_arg == _T("match_tr1")) {
                     if (parse_int(&parsedRtgmc.matchTR1, param_arg, param_val)) return 1;
                     if (parsedRtgmc.matchTR1 < 0 || parsedRtgmc.matchTR1 > 2) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("match_tr1 should be 0 - 2."));
@@ -2953,7 +2961,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("match_tr2") || param_arg == _T("matchtr2")) {
+                if (param_arg == _T("match_tr2")) {
                     if (parse_int(&parsedRtgmc.matchTR2, param_arg, param_val)) return 1;
                     if (parsedRtgmc.matchTR2 < 0 || parsedRtgmc.matchTR2 > 2) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("match_tr2 should be 0 - 2."));
@@ -2961,8 +2969,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("match_preset") || param_arg == _T("matchpreset")
-                    || param_arg == _T("match_preset2") || param_arg == _T("matchpreset2")) {
+                if (param_arg == _T("match_preset") || param_arg == _T("match_preset2")) {
                     int value = 0;
                     const auto preset = tolowercase(trim(param_val, _T("\"")));
                     if (!get_list_value(list_vpp_rtgmc_preset, preset.c_str(), &value)) {
@@ -2982,8 +2989,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("match_edi") || param_arg == _T("matchedi")
-                    || param_arg == _T("match_edi2") || param_arg == _T("matchedi2")) {
+                if (param_arg == _T("match_edi")) {
                     int value = 0;
                     if (get_list_value(list_vpp_rtgmc_edi_mode, param_val.c_str(), &value)) {
                         parsedRtgmc.matchEdi.mode = (VppRtgmcEdiMode)value;
@@ -2995,7 +3001,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("match_enhance") || param_arg == _T("matchenhance")) {
+                if (param_arg == _T("match_enhance")) {
                     try {
                         parsedRtgmc.matchEnhance = std::stof(param_val);
                     } catch (...) {
@@ -3031,7 +3037,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     presetOverride.tr0 = true;
                     continue;
                 }
-                if (param_arg == _T("rep0-thin") || param_arg == _T("rep0thin") || param_arg == _T("rep0_thin")) {
+                if (param_arg == _T("rep0-thin")) {
                     if (parse_int(&parsedRtgmc.searchPrefilter.rep0Thin, param_arg, param_val)) return 1;
                     if (!is_valid_rtgmc_rep_thin(parsedRtgmc.searchPrefilter.rep0Thin)) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("rep0-thin should be 0 - 7."));
@@ -3043,7 +3049,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     presetOverride.rep0Thin = true;
                     continue;
                 }
-                if (param_arg == _T("rep0-pad") || param_arg == _T("rep0pad") || param_arg == _T("rep0_pad")) {
+                if (param_arg == _T("rep0-pad")) {
                     if (parse_int(&parsedRtgmc.searchPrefilter.rep0Pad, param_arg, param_val)) return 1;
                     if (!is_valid_rtgmc_rep_pad(parsedRtgmc.searchPrefilter.rep0Pad)) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("rep0-pad should be 0 - 3."));
@@ -3052,7 +3058,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     presetOverride.rep0Pad = true;
                     continue;
                 }
-                if (param_arg == _T("search_refine") || param_arg == _T("searchrefine")) {
+                if (param_arg == _T("search_refine")) {
                     if (parse_int(&parsedRtgmc.searchPrefilter.searchRefine, param_arg, param_val)) return 1;
                     if (parsedRtgmc.searchPrefilter.searchRefine < 0 || parsedRtgmc.searchPrefilter.searchRefine > 3) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("search_refine should be 0 - 3."));
@@ -3064,7 +3070,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     presetOverride.searchRefine = true;
                     continue;
                 }
-                if (param_arg == _T("mv_spatial_refine") || param_arg == _T("mvspatialrefine")) {
+                if (param_arg == _T("mv_spatial_refine")) {
                     if (tolowercase(param_val) == _T("auto")) {
                         parsedRtgmc.mvSpatialRefine = FILTER_DEFAULT_RTGMC_MV_SPATIAL_REFINE;
                     } else if (parse_int(&parsedRtgmc.mvSpatialRefine, param_arg, param_val)) {
@@ -3079,7 +3085,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     parsedRtgmc.tr2.mvSpatialRefine = parsedRtgmc.mvSpatialRefine;
                     continue;
                 }
-                if (param_arg == _T("tv_range") || param_arg == _T("tvrange")) {
+                if (param_arg == _T("tv_range")) {
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
                         parsedRtgmc.searchPrefilter.tvRange = b;
@@ -3089,7 +3095,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("chroma_motion") || param_arg == _T("chromamotion")) {
+                if (param_arg == _T("chroma_motion")) {
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
                         parsedRtgmc.searchPrefilter.chromaMotion = b;
@@ -3100,7 +3106,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("noise_process") || param_arg == _T("noiseprocess")) {
+                if (param_arg == _T("noise_process")) {
                     if (parse_int(&parsedRtgmc.noise.noiseProcess, param_arg, param_val)) return 1;
                     if (parsedRtgmc.noise.noiseProcess < 0 || parsedRtgmc.noise.noiseProcess > 2) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("noise_process should be 0 - 2."));
@@ -3148,7 +3154,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("noise_deint") || param_arg == _T("noisedeint")) {
+                if (param_arg == _T("noise_deint")) {
                     int value = 0;
                     if (get_list_value(list_vpp_rtgmc_noise_deint, param_val.c_str(), &value)) {
                         parsedRtgmc.noise.noiseDeint = (VppRtgmcNoiseDeint)value;
@@ -3168,7 +3174,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     userSetNoiseSigma = true;
                     continue;
                 }
-                if (param_arg == _T("chroma_noise") || param_arg == _T("chromanoise")) {
+                if (param_arg == _T("chroma_noise")) {
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
                         parsedRtgmc.noise.chromaNoise = b;
@@ -3178,7 +3184,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("denoise_mc") || param_arg == _T("denoisemc")) {
+                if (param_arg == _T("denoise_mc")) {
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
                         parsedRtgmc.noise.denoiseMC = b;
@@ -3189,7 +3195,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("noise_tr") || param_arg == _T("noisetr")) {
+                if (param_arg == _T("noise_tr")) {
                     if (parse_int(&parsedRtgmc.noise.noiseTR, param_arg, param_val)) return 1;
                     if (parsedRtgmc.noise.noiseTR < 0) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("noise_tr should be 0 or larger."));
@@ -3198,7 +3204,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     presetOverride.noiseTR = true;
                     continue;
                 }
-                if (param_arg == _T("grain_restore") || param_arg == _T("grainrestore")) {
+                if (param_arg == _T("grain_restore")) {
                     if (parse_float(&parsedRtgmc.noise.grainRestore, param_arg, param_val)) return 1;
                     if (parsedRtgmc.noise.grainRestore < 0.0f || parsedRtgmc.noise.grainRestore > 1.0f) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("grain_restore should be 0.0 - 1.0."));
@@ -3207,7 +3213,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     presetOverride.grainRestore = true;
                     continue;
                 }
-                if (param_arg == _T("noise_restore") || param_arg == _T("noiserestore")) {
+                if (param_arg == _T("noise_restore")) {
                     if (parse_float(&parsedRtgmc.noise.noiseRestore, param_arg, param_val)) return 1;
                     if (parsedRtgmc.noise.noiseRestore < 0.0f || parsedRtgmc.noise.noiseRestore > 1.0f) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("noise_restore should be 0.0 - 1.0."));
@@ -3216,7 +3222,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     presetOverride.noiseRestore = true;
                     continue;
                 }
-                if (param_arg == _T("edi") || param_arg == _T("edi_mode") || param_arg == _T("mode")) {
+                if (param_arg == _T("edi")) {
                     int value = 0;
                     if (get_list_value(list_vpp_rtgmc_edi_mode, param_val.c_str(), &value)) {
                         parsedRtgmc.edi.mode = (VppRtgmcEdiMode)value;
@@ -3227,7 +3233,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("nnsize") || param_arg == _T("nn_size")) {
+                if (param_arg == _T("nnsize")) {
                     if (parse_int(&parsedRtgmc.edi.nnsize, param_arg, param_val)) return 1;
                     if (parsedRtgmc.edi.nnsize < 0 || parsedRtgmc.edi.nnsize > 6) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("nnsize should be 0 - 6."));
@@ -3236,7 +3242,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     presetOverride.nnsize = true;
                     continue;
                 }
-                if (param_arg == _T("nneurons") || param_arg == _T("n_neurons")) {
+                if (param_arg == _T("nneurons")) {
                     if (parse_int(&parsedRtgmc.edi.nneurons, param_arg, param_val)) return 1;
                     if (parsedRtgmc.edi.nneurons < 0 || parsedRtgmc.edi.nneurons > 4) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("nneurons should be 0 - 4."));
@@ -3245,7 +3251,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     presetOverride.nneurons = true;
                     continue;
                 }
-                if (param_arg == _T("ediqual") || param_arg == _T("edi_qual")) {
+                if (param_arg == _T("ediqual")) {
                     if (parse_int(&parsedRtgmc.edi.ediqual, param_arg, param_val)) return 1;
                     if (parsedRtgmc.edi.ediqual < 1 || parsedRtgmc.edi.ediqual > 2) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("ediqual should be 1 - 2."));
@@ -3254,7 +3260,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     presetOverride.ediqual = true;
                     continue;
                 }
-                if (param_arg == _T("chroma_edi") || param_arg == _T("chromaedi")) {
+                if (param_arg == _T("chroma_edi")) {
                     int value = 0;
                     if (get_list_value(list_vpp_rtgmc_chroma_edi_mode, param_val.c_str(), &value)) {
                         parsedRtgmc.edi.chromaEdi = (VppRtgmcChromaEdiMode)value;
@@ -3360,7 +3366,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("rep1-thin") || param_arg == _T("rep1thin") || param_arg == _T("rep1_thin")) {
+                if (param_arg == _T("rep1-thin")) {
                     if (parse_int(&parsedRtgmc.rep1.repThin, param_arg, param_val)) return 1;
                     if (!is_valid_rtgmc_rep_thin(parsedRtgmc.rep1.repThin)) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("rep1-thin should be 0 - 7."));
@@ -3369,7 +3375,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     presetOverride.rep1Thin = true;
                     continue;
                 }
-                if (param_arg == _T("rep1-pad") || param_arg == _T("rep1pad") || param_arg == _T("rep1_pad")) {
+                if (param_arg == _T("rep1-pad")) {
                     if (parse_int(&parsedRtgmc.rep1.repPad, param_arg, param_val)) return 1;
                     if (!is_valid_rtgmc_rep_pad(parsedRtgmc.rep1.repPad)) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("rep1-pad should be 0 - 3."));
@@ -3378,7 +3384,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     presetOverride.rep1Pad = true;
                     continue;
                 }
-                if (param_arg == _T("rep2-thin") || param_arg == _T("rep2thin") || param_arg == _T("rep2_thin")) {
+                if (param_arg == _T("rep2-thin")) {
                     if (parse_int(&parsedRtgmc.rep2.repThin, param_arg, param_val)) return 1;
                     if (!is_valid_rtgmc_rep_thin(parsedRtgmc.rep2.repThin)) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("rep2-thin should be 0 - 7."));
@@ -3387,7 +3393,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     presetOverride.rep2Thin = true;
                     continue;
                 }
-                if (param_arg == _T("rep2-pad") || param_arg == _T("rep2pad") || param_arg == _T("rep2_pad")) {
+                if (param_arg == _T("rep2-pad")) {
                     if (parse_int(&parsedRtgmc.rep2.repPad, param_arg, param_val)) return 1;
                     if (!is_valid_rtgmc_rep_pad(parsedRtgmc.rep2.repPad)) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("rep2-pad should be 0 - 3."));
@@ -3396,7 +3402,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     presetOverride.rep2Pad = true;
                     continue;
                 }
-                if (param_arg == _T("rep_chroma") || param_arg == _T("repchroma")) {
+                if (param_arg == _T("rep_chroma")) {
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
                         parsedRtgmc.rep1.repChroma = b;
@@ -3417,7 +3423,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("searchparam") || param_arg == _T("search_param")) {
+                if (param_arg == _T("searchparam")) {
                     int value = 0;
                     if (parse_int(&value, param_arg, param_val)) return 1;
                     if (value < 1 || value > 2) {
@@ -3430,7 +3436,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     presetOverride.searchParam = true;
                     continue;
                 }
-                if (param_arg == _T("pelsearch") || param_arg == _T("pel_search")) {
+                if (param_arg == _T("pelsearch")) {
                     int value = 0;
                     if (parse_int(&value, param_arg, param_val)) return 1;
                     if (value < 1 || value > 2) {
@@ -3443,7 +3449,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     presetOverride.pelSearch = true;
                     continue;
                 }
-                if (param_arg == _T("subpelinterp") || param_arg == _T("subpel_interp")) {
+                if (param_arg == _T("subpelinterp")) {
                     if (check_fixed_int(param_arg, param_val, 2)) return 1;
                     continue;
                 }
@@ -3451,7 +3457,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     if (check_fixed_int(param_arg, param_val, 0)) return 1;
                     continue;
                 }
-                if (param_arg == _T("truemotion") || param_arg == _T("true_motion")) {
+                if (param_arg == _T("truemotion")) {
                     if (check_fixed_bool(param_arg, param_val, false)) return 1;
                     continue;
                 }
@@ -3493,7 +3499,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("useflag") || param_arg == _T("use_flag")) {
+                if (param_arg == _T("useflag")) {
                     int value = 0;
                     if (parse_int(&value, param_arg, param_val)) return 1;
                     if (value < 0 || value > 2) {
@@ -3504,7 +3510,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     parsedRtgmc.tr2.useFlag = value;
                     continue;
                 }
-                if (param_arg == _T("globalmotion") || param_arg == _T("global_motion")) {
+                if (param_arg == _T("globalmotion")) {
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
                         auto set_degrain_flag = [&](VppDegrain& target) {
@@ -3519,15 +3525,15 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("delta_analyze") || param_arg == _T("analyze_delta")
-                    || param_arg == _T("delta_tr1") || param_arg == _T("tr1_delta")
-                    || param_arg == _T("delta_tr2") || param_arg == _T("tr2_delta")) {
+                if (param_arg == _T("delta_analyze")
+                    || param_arg == _T("delta_tr1")
+                    || param_arg == _T("delta_tr2")) {
                     int value = 0;
                     if (parse_int(&value, param_arg, param_val)) return 1;
-                    if (param_arg == _T("delta_analyze") || param_arg == _T("analyze_delta")) {
+                    if (param_arg == _T("delta_analyze")) {
                         parsedRtgmc.analyze.delta = value;
                         presetOverride.analyzeDelta = true;
-                    } else if (param_arg == _T("delta_tr1") || param_arg == _T("tr1_delta")) {
+                    } else if (param_arg == _T("delta_tr1")) {
                         parsedRtgmc.tr1.delta = value;
                         presetOverride.tr1Delta = true;
                     } else {
@@ -3613,8 +3619,8 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         i++;
 
         const auto paramList = std::vector<std::string>{
-            "enable", "mode", "preset", "timing", "past_cycles", "pastcycles",
-            "thswitch", "ucf", "nr", "is120", "debug", "debug_stage", "debug-stage", "timecode"
+            "enable", "mode", "preset", "timing", "past_cycles",
+            "thswitch", "ucf", "nr", "is120", "debug", "debug_stage", "timecode"
         };
 
         for (const auto& param : split(strInput[i], _T(","))) {
@@ -3659,7 +3665,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     vpp->kfm.timing = (VppKfmTiming)value;
                     continue;
                 }
-                if (param_arg == _T("past_cycles") || param_arg == _T("pastcycles")) {
+                if (param_arg == _T("past_cycles")) {
                     try {
                         vpp->kfm.pastCycles = std::stoi(param_val);
                     } catch (...) {
@@ -3721,7 +3727,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("debug_stage") || param_arg == _T("debug-stage")) {
+                if (param_arg == _T("debug_stage")) {
                     const auto value = get_value_from_chr(list_vpp_kfm_debug_stage, param_val.c_str());
                     if (value == PARSE_ERROR_FLAG) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
@@ -3796,9 +3802,9 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         i++;
 
         const auto paramList = std::vector<std::string>{
-            "enable", "tr0", "rep0-thin", "rep0thin", "rep0_thin", "rep0-pad", "rep0pad", "rep0_pad",
-            "search_refine", "searchrefine", "tv_range", "tvrange", "chroma_motion", "chromamotion",
-            "dump_y4m", "dumpy4m", "dump_stage", "dumpstage", "dump_max_frames", "dumpmaxframes"
+            "enable", "tr0", "rep0-thin", "rep0-pad",
+            "search_refine", "tv_range", "chroma_motion",
+            "dump_y4m", "dump_stage", "dump_max_frames"
         };
         const auto parse_int = [&](int *dst, const tstring& param_arg, const tstring& param_val) {
             try {
@@ -3839,7 +3845,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("rep0-thin") || param_arg == _T("rep0thin") || param_arg == _T("rep0_thin")) {
+                if (param_arg == _T("rep0-thin")) {
                     if (parse_int(&vpp->rtgmc_search_prefilter.rep0Thin, param_arg, param_val)) {
                         return 1;
                     }
@@ -3849,7 +3855,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("rep0-pad") || param_arg == _T("rep0pad") || param_arg == _T("rep0_pad")) {
+                if (param_arg == _T("rep0-pad")) {
                     if (parse_int(&vpp->rtgmc_search_prefilter.rep0Pad, param_arg, param_val)) {
                         return 1;
                     }
@@ -3859,7 +3865,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("search_refine") || param_arg == _T("searchrefine")) {
+                if (param_arg == _T("search_refine")) {
                     if (parse_int(&vpp->rtgmc_search_prefilter.searchRefine, param_arg, param_val)) {
                         return 1;
                     }
@@ -3869,7 +3875,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("tv_range") || param_arg == _T("tvrange")) {
+                if (param_arg == _T("tv_range")) {
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
                         vpp->rtgmc_search_prefilter.tvRange = b;
@@ -3879,7 +3885,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("chroma_motion") || param_arg == _T("chromamotion")) {
+                if (param_arg == _T("chroma_motion")) {
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
                         vpp->rtgmc_search_prefilter.chromaMotion = b;
@@ -3889,11 +3895,11 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("dump_y4m") || param_arg == _T("dumpy4m")) {
+                if (param_arg == _T("dump_y4m")) {
                     vpp->rtgmc_search_prefilter.dumpY4m = param_val;
                     continue;
                 }
-                if (param_arg == _T("dump_stage") || param_arg == _T("dumpstage")) {
+                if (param_arg == _T("dump_stage")) {
                     auto stage = tolowercase(param_val);
                     if (stage != _T("final") && stage != _T("search_refine") && stage != _T("finalyuv")
                         && stage != _T("temporal_candidate") && stage != _T("deshimmered_search")
@@ -3911,7 +3917,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     vpp->rtgmc_search_prefilter.dumpStage = stage;
                     continue;
                 }
-                if (param_arg == _T("dump_max_frames") || param_arg == _T("dumpmaxframes")) {
+                if (param_arg == _T("dump_max_frames")) {
                     if (parse_int(&vpp->rtgmc_search_prefilter.dumpMaxFrames, param_arg, param_val)) {
                         return 1;
                     }
@@ -3938,7 +3944,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         i++;
 
-        const auto paramList = std::vector<std::string>{ "enable", "mode", "nnsize", "nn_size", "nneurons", "n_neurons", "ediqual", "edi_qual", "chroma_edi", "chromaedi" };
+        const auto paramList = std::vector<std::string>{ "enable", "mode", "nnsize", "nneurons", "ediqual", "chroma_edi" };
         const auto parse_int = [&](int *dst, const tstring& param_arg, const tstring& param_val) {
             try {
                 size_t idx = 0;
@@ -3978,7 +3984,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("nnsize") || param_arg == _T("nn_size")) {
+                if (param_arg == _T("nnsize")) {
                     if (parse_int(&vpp->rtgmc_edi.nnsize, param_arg, param_val)) return 1;
                     if (vpp->rtgmc_edi.nnsize < 0 || vpp->rtgmc_edi.nnsize > 6) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("nnsize should be 0 - 6."));
@@ -3986,7 +3992,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("nneurons") || param_arg == _T("n_neurons")) {
+                if (param_arg == _T("nneurons")) {
                     if (parse_int(&vpp->rtgmc_edi.nneurons, param_arg, param_val)) return 1;
                     if (vpp->rtgmc_edi.nneurons < 0 || vpp->rtgmc_edi.nneurons > 4) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("nneurons should be 0 - 4."));
@@ -3994,7 +4000,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("ediqual") || param_arg == _T("edi_qual")) {
+                if (param_arg == _T("ediqual")) {
                     if (parse_int(&vpp->rtgmc_edi.ediqual, param_arg, param_val)) return 1;
                     if (vpp->rtgmc_edi.ediqual < 1 || vpp->rtgmc_edi.ediqual > 2) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("ediqual should be 1 - 2."));
@@ -4002,7 +4008,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("chroma_edi") || param_arg == _T("chromaedi")) {
+                if (param_arg == _T("chroma_edi")) {
                     int value = 0;
                     if (get_list_value(list_vpp_rtgmc_chroma_edi_mode, param_val.c_str(), &value)) {
                         vpp->rtgmc_edi.chromaEdi = (VppRtgmcChromaEdiMode)value;
@@ -4185,7 +4191,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         i++;
 
         const auto paramList = std::vector<std::string>{
-            "enable", "stage", "mode", "rep-thin", "repthin", "rep_thin", "rep-pad", "reppad", "rep_pad", "rep_chroma", "repchroma"
+            "enable", "stage", "mode", "rep-thin", "rep-pad", "rep_chroma"
         };
         for (const auto& param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
@@ -4219,7 +4225,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("rep-thin") || param_arg == _T("repthin") || param_arg == _T("rep_thin")) {
+                if (param_arg == _T("rep-thin")) {
                     try {
                         size_t idx = 0;
                         parsedShimmerRepair.repThin = std::stoi(param_val, &idx);
@@ -4237,7 +4243,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("rep-pad") || param_arg == _T("reppad") || param_arg == _T("rep_pad")) {
+                if (param_arg == _T("rep-pad")) {
                     try {
                         size_t idx = 0;
                         parsedShimmerRepair.repPad = std::stoi(param_val, &idx);
@@ -4255,7 +4261,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("rep_chroma") || param_arg == _T("repchroma")) {
+                if (param_arg == _T("rep_chroma")) {
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
                         parsedShimmerRepair.repChroma = b;
@@ -4289,7 +4295,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         i++;
 
-        const auto paramList = std::vector<std::string>{ "enable", "op", "ref", "mode", "p", "weight", "chroma" };
+        const auto paramList = std::vector<std::string>{ "enable", "op", "ref", "mode", "weight", "chroma" };
         const auto parse_int = [&](int *dst, const tstring& param_arg, const tstring& param_val) {
             try {
                 size_t idx = 0;
@@ -4354,7 +4360,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("mode") || param_arg == _T("p")) {
+                if (param_arg == _T("mode")) {
                     if (parse_int(&parsedPrimitive.mode, param_arg, param_val)) return 1;
                     continue;
                 }
@@ -5528,10 +5534,10 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         i++;
         const auto paramList = std::vector<std::string>{
-            "preset", "mode", "stage", "tr", "blksize", "search", "thsad", "thsadc", "thscd1", "thscd2", "pel", "levels", "overlap", "delta", "tr0", "rep0", "search_refine", "searchrefine",
-            "subpelinterp", "subpel_interp", "searchparam", "search_param", "pelsearch", "pel_search",
-            "truemotion", "true_motion", "lambda", "lsad", "pnew", "plevel", "globalmotion", "global_motion", "dct", "useflag", "use_flag",
-            "chroma", "binomial", "tv_range", "tvrange"
+            "enable", "preset", "mode", "stage", "tr", "blksize", "search", "thsad", "thsadc", "thscd1", "thscd2", "pel", "levels", "overlap", "delta", "tr0", "rep0", "search_refine",
+            "subpelinterp", "searchparam", "pelsearch",
+            "truemotion", "lambda", "lsad", "pnew", "plevel", "globalmotion", "dct", "useflag",
+            "mv_spatial_refine", "chroma", "binomial", "tv_range"
         };
         const auto parse_int = [&](int *dst, const tstring& param_arg, const tstring& param_val) {
             try {
@@ -5687,7 +5693,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("search_refine") || param_arg == _T("searchrefine")) {
+                if (param_arg == _T("search_refine")) {
                     if (parse_int(&parsedDegrain.searchRefine, param_arg, param_val)) {
                         return 1;
                     }
@@ -5697,7 +5703,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("subpelinterp") || param_arg == _T("subpel_interp")) {
+                if (param_arg == _T("subpelinterp")) {
                     if (parse_int(&parsedDegrain.subpelInterp, param_arg, param_val)) {
                         return 1;
                     }
@@ -5707,19 +5713,19 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("searchparam") || param_arg == _T("search_param")) {
+                if (param_arg == _T("searchparam")) {
                     if (parse_int(&parsedDegrain.searchParam, param_arg, param_val)) {
                         return 1;
                     }
                     continue;
                 }
-                if (param_arg == _T("pelsearch") || param_arg == _T("pel_search")) {
+                if (param_arg == _T("pelsearch")) {
                     if (parse_int(&parsedDegrain.pelSearch, param_arg, param_val)) {
                         return 1;
                     }
                     continue;
                 }
-                if (param_arg == _T("truemotion") || param_arg == _T("true_motion")) {
+                if (param_arg == _T("truemotion")) {
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
                         parsedDegrain.trueMotion = b;
@@ -5753,7 +5759,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("globalmotion") || param_arg == _T("global_motion")) {
+                if (param_arg == _T("globalmotion")) {
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
                         parsedDegrain.globalMotion = b;
@@ -5787,7 +5793,19 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("tv_range") || param_arg == _T("tvrange")) {
+                if (param_arg == _T("mv_spatial_refine")) {
+                    if (tolowercase(param_val) == _T("auto")) {
+                        parsedDegrain.mvSpatialRefine = -1;
+                    } else if (parse_int(&parsedDegrain.mvSpatialRefine, param_arg, param_val)) {
+                        return 1;
+                    }
+                    if (parsedDegrain.mvSpatialRefine < -1) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("mv_spatial_refine should be auto, -1, or greater."));
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("tv_range")) {
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
                         parsedDegrain.tvRange = b;
@@ -5803,7 +5821,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
-                if (param_arg == _T("useflag") || param_arg == _T("use_flag")) {
+                if (param_arg == _T("useflag")) {
                     if (parse_int(&parsedDegrain.useFlag, param_arg, param_val)) {
                         return 1;
                     }
@@ -10730,7 +10748,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_BOOL(_T("tv_range"), rtgmc.searchPrefilter.tvRange);
             ADD_BOOL(_T("chroma_motion"), rtgmc.searchPrefilter.chromaMotion);
             ADD_NUM(_T("mv_spatial_refine"), rtgmc.mvSpatialRefine);
-            ADD_NUM(_T("noiseprocess"), rtgmc.noise.noiseProcess);
+            ADD_NUM(_T("noise_process"), rtgmc.noise.noiseProcess);
             ADD_FLOAT(_T("ezdenoise"), rtgmc.noise.ezDenoise, 3);
             ADD_FLOAT(_T("ezkeepgrain"), rtgmc.noise.ezKeepGrain, 3);
             ADD_LST(_T("denoiser"), rtgmc.noise.denoiser, list_vpp_rtgmc_noise_denoiser);
@@ -11189,6 +11207,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             if (degrain.globalMotion != defaultDegrain.globalMotion) tmp << _T(",globalmotion=") << (degrain.globalMotion ? _T("true") : _T("false"));
             if (degrain.dct != defaultDegrain.dct) tmp << _T(",dct=") << degrain.dct;
             if (degrain.useFlag != defaultDegrain.useFlag) tmp << _T(",useflag=") << degrain.useFlag;
+            if (degrain.mvSpatialRefine != defaultDegrain.mvSpatialRefine) tmp << _T(",mv_spatial_refine=") << degrain.mvSpatialRefine;
             if (degrain.chroma != defaultDegrain.chroma) tmp << _T(",chroma=") << (degrain.chroma ? _T("true") : _T("false"));
             if (degrain.binomial != defaultDegrain.binomial) {
                 tmp << _T(",binomial=") << (degrain.binomial < 0 ? _T("auto") : (degrain.binomial ? _T("true") : _T("false")));
@@ -12951,8 +12970,8 @@ tstring gen_cmd_help_vpp() {
         _T("                               auto/-1: inner level only, 0:off, 1+:always that many passes\n")
         _T("      tv_range=<bool>        expand search reference from TV to PC range (default=true)\n")
         _T("      chroma_motion=<bool>   process chroma search prefilter planes (default=false)\n")
-        _T("      noiseprocess=<int>     noise process (default=0, 0 - 2; only 1 is supported)\n")
-        _T("      ezdenoise=<float>      enable noiseprocess=1 and default sigma (default=0.0)\n")
+        _T("      noise_process=<int>    noise process (default=0, 0 - 2; only 1 is supported)\n")
+        _T("      ezdenoise=<float>      enable noise_process=1 and default sigma (default=0.0)\n")
         _T("      ezkeepgrain=<float>    not yet supported (default=0.0)\n")
         _T("      denoiser=<string>      nlmeans, fft3d\n")
         _T("      noise_deint=<string>   none, bob (generate unsupported)\n")
@@ -12960,8 +12979,8 @@ tstring gen_cmd_help_vpp() {
         _T("      chroma_noise=<bool>    denoise chroma planes too (default=true)\n")
         _T("      denoise_mc=<bool>      not yet supported (default=false)\n")
         _T("      noise_tr=<int>         not yet supported (default=0)\n")
-        _T("      grain_restore=<float>  restore grain before TR2 with noiseprocess=1, 0.0-1.0 (default=0.0)\n")
-        _T("      noise_restore=<float>  restore noise after lossless with noiseprocess=1, 0.0-1.0 (default=0.0)\n")
+        _T("      grain_restore=<float>  restore grain before TR2 with noise_process=1, 0.0-1.0 (default=0.0)\n")
+        _T("      noise_restore=<float>  restore noise after lossless with noise_process=1, 0.0-1.0 (default=0.0)\n")
         _T("      edi=<string>           bob (default), yadif, cyadif, repyadif, repcyadif, nnedi3, passthrough\n")
         _T("      nnsize=<int>           nnedi nsize index 0 - 6 (preset default)\n")
         _T("      nneurons=<int>         nnedi nns index 0 - 4 (preset default)\n")
@@ -13049,7 +13068,6 @@ tstring gen_cmd_help_vpp() {
         _T("    params\n")
         _T("      mode=<string>\n")
         _T("          bob (default), yadif, cyadif, repyadif, repcyadif, nnedi3\n")
-        _T("          bob_chroma_merge (alias)\n")
         _T("          passthrough\n")
         _T("      nnsize=<int>          nsize index 0 - 6 (default=1)\n")
         _T("      nneurons=<int>        nns index 0 - 4 (default=1)\n")
@@ -13372,7 +13390,7 @@ tstring gen_cmd_help_vpp() {
         _T("    params\n")
         _T("      preset=<string>        surface preset: custom, auto (default=custom)\n")
         _T("      mode=<string>          output mode (default=%s)\n")
-        _T("                               source, analyze, motionback, motionforw, motionback2, motionforw2, degrain, mv, sad\n")
+        _T("                               source, analyze, compb, compf, compb2, compf2, degrain, mv, sad\n")
         _T("      stage=<string>         Step2 stage marker: auto, tr1, tr2 (default=auto)\n")
         _T("      tr=<int>               Auto preset temporal radius: 1 or 2 (sets mode=degrain, stage, delta)\n")
         _T("      blksize=<int>          block size (default=%d)\n")
@@ -13389,6 +13407,7 @@ tstring gen_cmd_help_vpp() {
         _T("      tr0=<int>              search reference temporal prefilter radius (0, 1, or 2, default=%d)\n")
         _T("      rep0=<int>             search reference repair mode (0 - 7, default=%d)\n")
         _T("      search_refine=<int>    search reference pre/post processing mode (0 - 3, default=%d)\n")
+        _T("      mv_spatial_refine=<int|auto> motion vector spatial refinement count (default=auto)\n")
         _T("      searchparam=<int>      motion search parameter (default=%d)\n")
         _T("      pelsearch=<int>        subpixel search parameter (default=%d)\n")
         _T("      truemotion=<bool>      use true-motion tuning (default=%s)\n")

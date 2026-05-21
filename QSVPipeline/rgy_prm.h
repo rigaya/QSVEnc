@@ -477,7 +477,7 @@ static const int   FILTER_DEFAULT_DEGRAIN_THSADC = FILTER_DEFAULT_DEGRAIN_THSAD;
 static const bool  FILTER_DEFAULT_DEGRAIN_CHROMA = false;
 static const int   FILTER_DEFAULT_DEGRAIN_BINOMIAL = -1; // -1:auto, 0:false, 1:true
 static const bool  FILTER_DEFAULT_DEGRAIN_TV_RANGE = false;
-static const int   FILTER_DEFAULT_DEGRAIN_MV_SPATIAL_REFINE = 1;
+static const int   FILTER_DEFAULT_DEGRAIN_MV_SPATIAL_REFINE = -1;
 static const int   FILTER_DEFAULT_RTGMC_MV_SPATIAL_REFINE = -1;
 static const float FILTER_DEFAULT_RTGMC_RETOUCH_SHARPNESS = 1.0f;
 static const float FILTER_DEFAULT_RTGMC_RETOUCH_LIMIT = 0.0f;
@@ -1987,11 +1987,7 @@ enum class VppRtgmcTuning {
 const CX_DESC list_vpp_rtgmc_tuning[] = {
     { _T("none"),  (int)VppRtgmcTuning::None },
     { _T("dv-sd"), (int)VppRtgmcTuning::DVSD },
-    { _T("dvsd"),  (int)VppRtgmcTuning::DVSD },
-    { _T("dv_sd"), (int)VppRtgmcTuning::DVSD },
     { _T("dv-hd"), (int)VppRtgmcTuning::DVHD },
-    { _T("dvhd"),  (int)VppRtgmcTuning::DVHD },
-    { _T("dv_hd"), (int)VppRtgmcTuning::DVHD },
     { NULL, 0 }
 };
 
@@ -2042,7 +2038,6 @@ enum class VppRtgmcNoiseDeint {
 
 const CX_DESC list_vpp_rtgmc_noise_deint[] = {
     { _T("none"),     (int)VppRtgmcNoiseDeint::None     },
-    { _T(""),         (int)VppRtgmcNoiseDeint::None     },
     { _T("bob"),      (int)VppRtgmcNoiseDeint::Bob      },
     { _T("generate"), (int)VppRtgmcNoiseDeint::Generate },
     { NULL, 0 }
@@ -2087,21 +2082,17 @@ enum class VppRtgmcChromaEdiMode {
 const CX_DESC list_vpp_rtgmc_edi_mode[] = {
     { _T("passthrough"),      (int)VppRtgmcEdiMode::Passthrough     },
     { _T("bob"),              (int)VppRtgmcEdiMode::Bob             },
-    { _T("bob_chroma_merge"), (int)VppRtgmcEdiMode::BobChromaMerge },
     { _T("yadif"),            (int)VppRtgmcEdiMode::Yadif           },
     { _T("cyadif"),           (int)VppRtgmcEdiMode::cYadif          },
     { _T("repyadif"),         (int)VppRtgmcEdiMode::RepYadif        },
     { _T("repcyadif"),        (int)VppRtgmcEdiMode::RepcYadif       },
     { _T("nnedi3"),           (int)VppRtgmcEdiMode::NNEDI3          },
-    { _T("nnedi3"),          (int)VppRtgmcEdiMode::NNEDI3          },
     { NULL, 0 }
 };
 
 const CX_DESC list_vpp_rtgmc_chroma_edi_mode[] = {
     { _T("none"),             (int)VppRtgmcChromaEdiMode::None   },
-    { _T("off"),              (int)VppRtgmcChromaEdiMode::None   },
     { _T("nnedi3"),           (int)VppRtgmcChromaEdiMode::NNEDI3 },
-    { _T("nnedi3"),          (int)VppRtgmcChromaEdiMode::NNEDI3 },
     { NULL, 0 }
 };
 
@@ -2536,10 +2527,10 @@ enum class VppDegrainMode {
 const CX_DESC list_vpp_degrain_mode[] = {
     { _T("source"),      (int)VppDegrainMode::Source      },
     { _T("analyze"),     (int)VppDegrainMode::Analyze     },
-    { _T("motionback"),  (int)VppDegrainMode::MotionBack  },
-    { _T("motionforw"),  (int)VppDegrainMode::MotionForw  },
-    { _T("motionback2"), (int)VppDegrainMode::MotionBack2 },
-    { _T("motionforw2"), (int)VppDegrainMode::MotionForw2 },
+    { _T("compb"),       (int)VppDegrainMode::MotionBack  },
+    { _T("compf"),       (int)VppDegrainMode::MotionForw  },
+    { _T("compb2"),      (int)VppDegrainMode::MotionBack2 },
+    { _T("compf2"),      (int)VppDegrainMode::MotionForw2 },
     { _T("degrain"),     (int)VppDegrainMode::Degrain     },
     { _T("mv"),          (int)VppDegrainMode::MV          },
     { _T("sad"),         (int)VppDegrainMode::SAD         },
@@ -2653,18 +2644,10 @@ enum class VppKfmMode {
     VFR60,
 };
 const CX_DESC list_vpp_kfm_mode[] = {
-    { _T("vfr"), (int)VppKfmMode::VFR },
-    { _T("0"),   (int)VppKfmMode::VFR },
-    { _T("60"),  (int)VppKfmMode::P60 },
-    { _T("60p"), (int)VppKfmMode::P60 },
-    { _T("1"),   (int)VppKfmMode::P60 },
-    { _T("24"),  (int)VppKfmMode::P24 },
-    { _T("24p"), (int)VppKfmMode::P24 },
-    { _T("2"),   (int)VppKfmMode::P24 },
-    { _T("vfr60"),    (int)VppKfmMode::VFR60 },
-    { _T("vfr-60"),   (int)VppKfmMode::VFR60 },
-    { _T("vfr_60"),   (int)VppKfmMode::VFR60 },
-    { _T("4"),        (int)VppKfmMode::VFR60 },
+    { _T("vfr"),   (int)VppKfmMode::VFR },
+    { _T("60"),    (int)VppKfmMode::P60 },
+    { _T("24"),    (int)VppKfmMode::P24 },
+    { _T("vfr60"), (int)VppKfmMode::VFR60 },
     { nullptr, 0 }
 };
 
@@ -2676,8 +2659,6 @@ enum class VppKfmTiming {
 const CX_DESC list_vpp_kfm_timing[] = {
     { _T("realtime"),  (int)VppKfmTiming::Realtime },
     { _T("realtime+"), (int)VppKfmTiming::RealtimePlus },
-    { _T("realtime-plus"), (int)VppKfmTiming::RealtimePlus },
-    { _T("realtime_plus"), (int)VppKfmTiming::RealtimePlus },
     { _T("strict"),    (int)VppKfmTiming::Strict },
     { nullptr, 0 }
 };
@@ -2690,7 +2671,6 @@ enum class VppKfmDebugStage {
 };
 const CX_DESC list_vpp_kfm_debug_stage[] = {
     { _T("none"),           (int)VppKfmDebugStage::None },
-    { _T("off"),            (int)VppKfmDebugStage::None },
     { _T("switch-flag"),    (int)VppKfmDebugStage::SwitchFlag },
     { _T("switch-flag-min"), (int)VppKfmDebugStage::SwitchFlag },
     { _T("contains-combe"), (int)VppKfmDebugStage::ContainsCombe },
