@@ -238,10 +238,16 @@ RGY_ERR RGYFilterRtgmc::checkParam(const std::shared_ptr<RGYFilterParamRtgmc> &p
         AddMessage(RGY_LOG_ERROR, _T("rtgmc sigma must be 0 or larger.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+    if (prm->rtgmc.noise.noiseTR > 0) {
+        AddMessage(RGY_LOG_WARN,
+            _T("rtgmc noise_tr=%d is not yet supported, falling back to noise_tr=0.\n"),
+            prm->rtgmc.noise.noiseTR);
+        prm->rtgmc.noise.noiseTR = 0;
+    }
     if (prm->rtgmc.noise.noiseProcess == 2 || prm->rtgmc.noise.ezKeepGrain > 0.0f
-        || prm->rtgmc.noise.denoiseMC || prm->rtgmc.noise.noiseTR > 0) {
+        || prm->rtgmc.noise.denoiseMC) {
         AddMessage(RGY_LOG_ERROR,
-            _T("rtgmc noise_process=2, ezkeepgrain, denoise_mc=true, and noise_tr>0 are not yet supported.\n"));
+            _T("rtgmc noise_process=2, ezkeepgrain, and denoise_mc=true are not yet supported.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
     if ((prm->rtgmc.noise.grainRestore > 0.0f || prm->rtgmc.noise.noiseRestore > 0.0f) && prm->rtgmc.noise.noiseProcess != 1) {
@@ -378,6 +384,12 @@ RGY_ERR RGYFilterRtgmc::initSourceMatchCorrectionFilters(const std::shared_ptr<R
             pass.correctionTemporalFilter = std::make_unique<RGYFilterDegrain>(m_cl);
             auto param = std::make_shared<RGYFilterParamDegrain>();
             param->degrain = (stageIdx == 0) ? prm->rtgmc.tr1 : prm->rtgmc.tr2;
+            if (param->degrain.overlap != 0 && param->degrain.overlap * 2 != param->degrain.blksize) {
+                AddMessage(RGY_LOG_WARN,
+                    _T("source-match correction overlap=%d is adjusted to %d because the current Degrain backend supports overlap=0 or blksize/2.\n"),
+                    param->degrain.overlap, param->degrain.blksize / 2);
+                param->degrain.overlap = param->degrain.blksize / 2;
+            }
             param->degrain.delta = matchTR;
             param->degrain.mode = VppDegrainMode::Degrain;
             param->degrain.stage = (stageIdx == 0) ? VppDegrainStage::TR1 : VppDegrainStage::TR2;

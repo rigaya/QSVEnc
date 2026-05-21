@@ -5513,6 +5513,20 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
             const auto rawStart120 = [](const KfmSwitchTiming& timing) {
                 return static_cast<int64_t>(timing.start60) * 2;
             };
+            auto sourcePtsFrom120 = [&](const int64_t pos120) {
+                if (m_sourceCache.empty()) {
+                    return pos120;
+                }
+                const int64_t sourceIndex = pos120 >> 2;
+                const int offset120 = static_cast<int>(pos120 & 3);
+                const auto *source = findSourceByIndex(static_cast<int>(sourceIndex));
+                const auto duration = sourceFrameDuration(source);
+                if (!source || source->timestamp < 0) {
+                    return (duration * pos120 + 2) / 4;
+                }
+                const int64_t sourceOffset120 = (sourceIndex - source->sourceIndex) * 4 + offset120;
+                return source->timestamp + (duration * sourceOffset120 + 2) / 4;
+            };
             const auto canUse120Cadence = [](bool prevIsFrame24, int prevDuration60, const KfmSwitchTiming& cur) {
                 return prevIsFrame24 && cur.isFrame24
                     && prevDuration60 >= 2 && cur.duration60 >= 2
@@ -5541,7 +5555,6 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
             }
             const int copySourceIndex = outputTiming.baseType == KFM_FRAME_60 ? (outputTiming.start60 >> 1) : outputTiming.sourceIndex;
             const auto *source = findSourceByIndex(copySourceIndex);
-            const auto sourceDuration = sourceFrameDuration(source);
             const auto *switchResult = &m_analyzerOutputResults[clamp(outputTiming.start60 / 10, 0, (int)m_analyzerOutputResults.size() - 1)];
             RGYOpenCLEvent outputEvent;
             RGYFrameInfo *out = nullptr;
@@ -6031,8 +6044,11 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                 outputTiming.start120 = static_cast<int>(outputStart120);
                 outputTiming.duration120 = 2;
             }
-            out->timestamp = (sourceDuration * outputTiming.start120 + 2) / 4;
-            out->duration = std::max<int64_t>(1, (sourceDuration * outputTiming.duration120 + 2) / 4);
+            const auto outputEnd120 = static_cast<int64_t>(outputTiming.start120) + outputTiming.duration120;
+            const auto outputStartPts = sourcePtsFrom120(outputTiming.start120);
+            const auto outputEndPts = sourcePtsFrom120(outputEnd120);
+            out->timestamp = std::max(outputStartPts, m_nextSwitchPts);
+            out->duration = std::max<int64_t>(1, outputEndPts - out->timestamp);
             out->picstruct = RGY_PICSTRUCT_FRAME;
             out->flags = RGY_FRAME_FLAG_NONE;
             attachSwitchFrameData(out, outputTiming, switchResult);

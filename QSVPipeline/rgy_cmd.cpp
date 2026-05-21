@@ -12978,7 +12978,7 @@ tstring gen_cmd_help_vpp() {
         _T("      sigma=<float>         nlmeans sigma (default=2.0)\n")
         _T("      chroma_noise=<bool>    denoise chroma planes too (default=true)\n")
         _T("      denoise_mc=<bool>      not yet supported (default=false)\n")
-        _T("      noise_tr=<int>         not yet supported (default=0)\n")
+        _T("      noise_tr=<int>         not yet supported, falls back to 0 (default=0)\n")
         _T("      grain_restore=<float>  restore grain before TR2 with noise_process=1, 0.0-1.0 (default=0.0)\n")
         _T("      noise_restore=<float>  restore noise after lossless with noise_process=1, 0.0-1.0 (default=0.0)\n")
         _T("      edi=<string>           bob (default), yadif, cyadif, repyadif, repcyadif, nnedi3, passthrough\n")
