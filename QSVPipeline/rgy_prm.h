@@ -1964,8 +1964,6 @@ enum class VppRtgmcPreset {
 };
 
 const CX_DESC list_vpp_rtgmc_preset[] = {
-    { _T("placebo"),    (int)VppRtgmcPreset::Placebo   },
-    { _T("veryslow"),   (int)VppRtgmcPreset::VerySlow  },
     { _T("slower"),     (int)VppRtgmcPreset::Slower    },
     { _T("slow"),       (int)VppRtgmcPreset::Slow      },
     { _T("medium"),     (int)VppRtgmcPreset::Medium    },

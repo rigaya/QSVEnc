@@ -2313,7 +2313,7 @@ OpenCL high quality deinterlacer (but slow).
 - **major parameters**
 
   - preset=&lt;string&gt;  
-    `placebo`, `veryslow`, `slower`, `slow`, `medium`, `fast`, `faster` (default), `veryfast`, `superfast`, `ultrafast`, `draft`.
+    `slower`, `slow`, `medium`, `fast`, `faster` (default), `veryfast`, `superfast`, `ultrafast`, `draft`.
     This refers the original values.
 
   - tuning=&lt;string&gt;  
@@ -2333,7 +2333,6 @@ OpenCL high quality deinterlacer (but slow).
     | ultrafast | 1 | 1 | 0 | 0 | 3 | repyadif | 4 | 0 | 1 | 0 | 1 | 1 | off | off | 0.0 |
     | draft | 0 | 1 | 0 | 0 | 0 | bob | 4 | 0 | 0 | 0 | 1 | 1 | off | off | 0.0 |
 
-    - `placebo` / `veryslow` are effectively unsupported in the current implementation because they require unsupported `noise_process=2`.
     - `blksize` is tuning-dependent (`dv-hd=32`, otherwise `16`) for `slower..fast`, and fixed to `32` for `faster..draft`.
     - `overlap` is `blksize/2` for `slower..faster`, and `blksize/4` for `veryfast..draft`.
     - `subpel` is `2` for `slower..slow`, and `1` for `medium..draft`.
@@ -2461,7 +2460,7 @@ Adaptive inverse telesine filter using `--vpp-rtgmc`.
     Output mode. `vfr` (default), `60`, `24`, `vfr60`.
 
   - preset=&lt;string&gt;  
-    Reserved nested preset. Default: `faster`.
+    Reserved nested preset. `slower`, `slow`, `medium`, `fast`, `faster` (default), `veryfast`, `superfast`, `ultrafast`, `draft`.
 
   - timing=&lt;string&gt;  
     Timing analysis mode. `realtime`, `realtime+` (default), `strict`.

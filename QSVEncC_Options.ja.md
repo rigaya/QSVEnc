@@ -2366,7 +2366,7 @@ nnediによるインタレ解除を行う。
 - **主要パラメータ**
 
   - preset=&lt;string&gt;  
-    `placebo`, `veryslow`, `slower`, `slow`, `medium`, `fast`, `faster`(デフォルト), `veryfast`, `superfast`, `ultrafast`, `draft`。
+    `slower`, `slow`, `medium`, `fast`, `faster`(デフォルト), `veryfast`, `superfast`, `ultrafast`, `draft`。
     原則としてオリジナルの値を踏襲。
 
   - tuning=&lt;string&gt;  
@@ -2386,7 +2386,6 @@ nnediによるインタレ解除を行う。
     | ultrafast | 1 | 1 | 0 | 0 | 3 | repyadif | 4 | 0 | 1 | 0 | 1 | 1 | off | off | 0.0 |
     | draft | 0 | 1 | 0 | 0 | 0 | bob | 4 | 0 | 0 | 0 | 1 | 1 | off | off | 0.0 |
 
-    - `placebo` / `veryslow` は `noise_process=2` が前提となるため、現実装では非対応。
     - `blksize` は `slower..fast` では `tuning` 依存 (`dv-hd=32`, それ以外=16)、`faster..draft` では固定 `32`。
     - `overlap` は `slower..faster` で `blksize/2`、`veryfast..draft` で `blksize/4`。
     - `subpel` は `slower..slow=2`、`medium..draft=1`。
@@ -2517,7 +2516,7 @@ nnediによるインタレ解除を行う。
     出力モード。`vfr` (デフォルト), `60`, `24`, `vfr60`。
 
   - preset=&lt;string&gt;  
-    入れ子RTGMC用予約preset。デフォルト: `faster`。
+    入れ子RTGMC用予約preset。`slower`, `slow`, `medium`, `fast`, `faster`(デフォルト), `veryfast`, `superfast`, `ultrafast`, `draft`。
 
   - timing=&lt;string&gt;  
     タイミング解析モード。`realtime`, `realtime+` (デフォルト), `strict`。
