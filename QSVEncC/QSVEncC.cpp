@@ -213,7 +213,7 @@ static int cl_perf_run_python_script(const std::filesystem::path& scriptPath, co
         pythonArgList.push_back({ pythonPath });
     } else {
 #if defined(_WIN32) || defined(_WIN64)
-        pythonArgList.push_back({ _T("py.exe"), _T("-3") });
+        pythonArgList.push_back({ _T("py.exe") });
         pythonArgList.push_back({ _T("python.exe") });
 #else
         pythonArgList.push_back({ _T("python3") });

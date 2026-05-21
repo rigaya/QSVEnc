@@ -3913,9 +3913,9 @@ vpy reader使用時に、`.vpy` 内の相対パスをカレントディレクト
 ### --cl-perf-dump &lt;dir&gt;
 OpenCL kernel performance dumpを指定したディレクトリに出力し、エンコード後に`report.html`を自動生成する。
 
-oclocの実行ファイルパスは[--ocloc-path](#--ocloc-path-path)で指定できる。また、report生成に使用するPythonは[--python](#--python-string)で指定できる。
+また、report生成には`python`が必要。デフォルトではWindowsでは`py.exe`、必要に応じて`python.exe`を使用し、Linuxでは`python3`を使用する。使用するpythonは[--python](#--python-string)で別途指定可能。
 
-Pythonの起動やreport生成に失敗した場合はwarningとして扱い、QSVEncC本体の終了コードには反映しない。
+`ocloc`があると逆アセンブルを表示可能(必須ではない)。`ocloc`はIntel oneAPIをインストールすると含まれており、典型的には `C:\Program Files (x86)\Intel\oneAPI\<version>\bin\ocloc.exe` などにある。`ocloc`の実行ファイルパスは[--ocloc-path](#--ocloc-path-path)で指定できる。
 
 ### --ocloc-path &lt;path&gt;
 [--cl-perf-dump](#--cl-perf-dump-dir)と併用し、cl_perf aggregateに渡すocloc実行ファイルパスを指定する。
@@ -3923,7 +3923,7 @@ Pythonの起動やreport生成に失敗した場合はwarningとして扱い、Q
 ### --python &lt;string&gt;
 [--perf-monitor](#--perf-monitor-stringstring)のplot表示、および[--cl-perf-dump](#--cl-perf-dump-dir)のreport生成に使用するPython実行ファイルパスを指定する。
 
-未指定時、Windowsでは`py.exe -3`、必要に応じて`python.exe`を使用し、Linuxでは`python3`を使用する。
+指定のない場合、Windowsでは`py.exe`、必要に応じて`python.exe`を使用し、Linuxでは`python3`を使用する。
 
 ### --perf-monitor [&lt;string&gt;[,&lt;string&gt;]...]
 エンコーダのパフォーマンス情報を出力する。パラメータとして出力したい情報名を下記から選択できる。デフォルトはall (すべての情報)。

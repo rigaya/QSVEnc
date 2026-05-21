@@ -3853,9 +3853,9 @@ When using the vpy reader, resolves relative paths in `.vpy` against the script 
 ### --cl-perf-dump &lt;dir&gt;
 Write OpenCL kernel performance dumps to the specified directory and automatically generate `report.html` after encoding.
 
-The ocloc executable path can be specified with [--ocloc-path](#--ocloc-path-path). The Python executable used for report generation can be specified with [--python](#--python-string).
+Report generation requires `python`. By default, Windows uses `py.exe`, with `python.exe` as fallback when needed, and Linux uses `python3`. python path can be set using [--python](#--python-string).
 
-Python startup or report generation failures are handled as warnings and do not affect the QSVEncC process exit code.
+`ocloc` allows to show disassembly (but not essential for report generation). `ocloc` can be installed with Intel oneAPI into  `C:\Program Files (x86)\Intel\oneAPI\<version>\bin\ocloc.exe`. Additionally, executable path can be specified with [--ocloc-path](#--ocloc-path-path).
 
 ### --ocloc-path &lt;path&gt;
 Use with [--cl-perf-dump](#--cl-perf-dump-dir) to specify the ocloc executable path passed to cl_perf aggregate.
@@ -3863,7 +3863,7 @@ Use with [--cl-perf-dump](#--cl-perf-dump-dir) to specify the ocloc executable p
 ### --python &lt;string&gt;
 Specify the Python executable path used for [--perf-monitor](#--perf-monitor-stringstring) plot display and [--cl-perf-dump](#--cl-perf-dump-dir) report generation.
 
-If omitted, Windows uses `py.exe -3`, with `python.exe` as fallback when needed, and Linux uses `python3`.
+If omitted, Windows uses `py.exe`, with `python.exe` as fallback when needed, and Linux uses `python3`.
 
 ### --perf-monitor [&lt;string&gt;[,&lt;string&gt;]...]
 Outputs performance information. You can select the information name you want to output as a parameter from the following table. The default is all (all information).
