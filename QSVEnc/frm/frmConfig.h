@@ -1333,13 +1333,11 @@ private: System::Windows::Forms::Panel^  fcgPNVppKfm;
 private: System::Windows::Forms::Label^  fcgLBVppKfmMode;
 private: System::Windows::Forms::Label^  fcgLBVppKfmPreset;
 private: System::Windows::Forms::Label^  fcgLBVppKfmTiming;
-private: System::Windows::Forms::Label^  fcgLBVppKfmDebugStage;
 private: System::Windows::Forms::Label^  fcgLBVppKfmPastCycles;
 private: System::Windows::Forms::Label^  fcgLBVppKfmThswitch;
 private: System::Windows::Forms::ComboBox^  fcgCXVppKfmMode;
 private: System::Windows::Forms::ComboBox^  fcgCXVppKfmPreset;
 private: System::Windows::Forms::ComboBox^  fcgCXVppKfmTiming;
-private: System::Windows::Forms::ComboBox^  fcgCXVppKfmDebugStage;
 private: System::Windows::Forms::NumericUpDown^  fcgNUVppKfmPastCycles;
 private: System::Windows::Forms::NumericUpDown^  fcgNUVppKfmThswitch;
 private: System::Windows::Forms::CheckBox^  fcgCBVppKfmUcf;
@@ -2030,13 +2028,11 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             this->fcgLBVppKfmMode = (gcnew System::Windows::Forms::Label());
             this->fcgLBVppKfmPreset = (gcnew System::Windows::Forms::Label());
             this->fcgLBVppKfmTiming = (gcnew System::Windows::Forms::Label());
-            this->fcgLBVppKfmDebugStage = (gcnew System::Windows::Forms::Label());
             this->fcgLBVppKfmPastCycles = (gcnew System::Windows::Forms::Label());
             this->fcgLBVppKfmThswitch = (gcnew System::Windows::Forms::Label());
             this->fcgCXVppKfmMode = (gcnew System::Windows::Forms::ComboBox());
             this->fcgCXVppKfmPreset = (gcnew System::Windows::Forms::ComboBox());
             this->fcgCXVppKfmTiming = (gcnew System::Windows::Forms::ComboBox());
-            this->fcgCXVppKfmDebugStage = (gcnew System::Windows::Forms::ComboBox());
             this->fcgNUVppKfmPastCycles = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgNUVppKfmThswitch = (gcnew System::Windows::Forms::NumericUpDown());
             this->fcgCBVppKfmUcf = (gcnew System::Windows::Forms::CheckBox());
@@ -6932,8 +6928,6 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             this->fcgPNVppKfm->Controls->Add(this->fcgCXVppKfmPreset);
             this->fcgPNVppKfm->Controls->Add(this->fcgLBVppKfmTiming);
             this->fcgPNVppKfm->Controls->Add(this->fcgCXVppKfmTiming);
-            this->fcgPNVppKfm->Controls->Add(this->fcgLBVppKfmDebugStage);
-            this->fcgPNVppKfm->Controls->Add(this->fcgCXVppKfmDebugStage);
             this->fcgPNVppKfm->Controls->Add(this->fcgLBVppKfmPastCycles);
             this->fcgPNVppKfm->Controls->Add(this->fcgNUVppKfmPastCycles);
             this->fcgPNVppKfm->Controls->Add(this->fcgLBVppKfmThswitch);
@@ -7003,72 +6997,53 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             this->fcgCXVppKfmTiming->TabIndex = 5;
             this->fcgCXVppKfmTiming->Tag = L"reCmd";
             //
-            // fcgLBVppKfmDebugStage
-            //
-            this->fcgLBVppKfmDebugStage->AutoSize = true;
-            this->fcgLBVppKfmDebugStage->Location = System::Drawing::Point(14, 96);
-            this->fcgLBVppKfmDebugStage->Name = L"fcgLBVppKfmDebugStage";
-            this->fcgLBVppKfmDebugStage->Size = System::Drawing::Size(42, 14);
-            this->fcgLBVppKfmDebugStage->TabIndex = 6;
-            this->fcgLBVppKfmDebugStage->Text = L"debug";
-            //
-            // fcgCXVppKfmDebugStage
-            //
-            this->fcgCXVppKfmDebugStage->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
-            this->fcgCXVppKfmDebugStage->FormattingEnabled = true;
-            this->fcgCXVppKfmDebugStage->Location = System::Drawing::Point(82, 93);
-            this->fcgCXVppKfmDebugStage->Name = L"fcgCXVppKfmDebugStage";
-            this->fcgCXVppKfmDebugStage->Size = System::Drawing::Size(160, 22);
-            this->fcgCXVppKfmDebugStage->TabIndex = 7;
-            this->fcgCXVppKfmDebugStage->Tag = L"reCmd";
-            //
             // fcgLBVppKfmPastCycles
             //
             this->fcgLBVppKfmPastCycles->AutoSize = true;
-            this->fcgLBVppKfmPastCycles->Location = System::Drawing::Point(14, 124);
+            this->fcgLBVppKfmPastCycles->Location = System::Drawing::Point(14, 96);
             this->fcgLBVppKfmPastCycles->Name = L"fcgLBVppKfmPastCycles";
             this->fcgLBVppKfmPastCycles->Size = System::Drawing::Size(65, 14);
-            this->fcgLBVppKfmPastCycles->TabIndex = 8;
+            this->fcgLBVppKfmPastCycles->TabIndex = 6;
             this->fcgLBVppKfmPastCycles->Text = L"past cycles";
             //
             // fcgNUVppKfmPastCycles
             //
-            this->fcgNUVppKfmPastCycles->Location = System::Drawing::Point(82, 121);
+            this->fcgNUVppKfmPastCycles->Location = System::Drawing::Point(82, 93);
             this->fcgNUVppKfmPastCycles->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 999, 0, 0, 0 });
             this->fcgNUVppKfmPastCycles->Name = L"fcgNUVppKfmPastCycles";
             this->fcgNUVppKfmPastCycles->Size = System::Drawing::Size(60, 21);
-            this->fcgNUVppKfmPastCycles->TabIndex = 9;
+            this->fcgNUVppKfmPastCycles->TabIndex = 7;
             this->fcgNUVppKfmPastCycles->Tag = L"reCmd";
             this->fcgNUVppKfmPastCycles->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
             //
             // fcgLBVppKfmThswitch
             //
             this->fcgLBVppKfmThswitch->AutoSize = true;
-            this->fcgLBVppKfmThswitch->Location = System::Drawing::Point(14, 152);
+            this->fcgLBVppKfmThswitch->Location = System::Drawing::Point(14, 124);
             this->fcgLBVppKfmThswitch->Name = L"fcgLBVppKfmThswitch";
             this->fcgLBVppKfmThswitch->Size = System::Drawing::Size(55, 14);
-            this->fcgLBVppKfmThswitch->TabIndex = 10;
+            this->fcgLBVppKfmThswitch->TabIndex = 8;
             this->fcgLBVppKfmThswitch->Text = L"thswitch";
             //
             // fcgNUVppKfmThswitch
             //
             this->fcgNUVppKfmThswitch->DecimalPlaces = 3;
             this->fcgNUVppKfmThswitch->Increment = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 196608 });
-            this->fcgNUVppKfmThswitch->Location = System::Drawing::Point(82, 149);
+            this->fcgNUVppKfmThswitch->Location = System::Drawing::Point(82, 121);
             this->fcgNUVppKfmThswitch->Maximum = System::Decimal(gcnew cli::array< System::Int32 >(4) { 1, 0, 0, 0 });
             this->fcgNUVppKfmThswitch->Name = L"fcgNUVppKfmThswitch";
             this->fcgNUVppKfmThswitch->Size = System::Drawing::Size(72, 21);
-            this->fcgNUVppKfmThswitch->TabIndex = 11;
+            this->fcgNUVppKfmThswitch->TabIndex = 9;
             this->fcgNUVppKfmThswitch->Tag = L"reCmd";
             this->fcgNUVppKfmThswitch->TextAlign = System::Windows::Forms::HorizontalAlignment::Right;
             //
             // fcgCBVppKfmUcf
             //
             this->fcgCBVppKfmUcf->AutoSize = true;
-            this->fcgCBVppKfmUcf->Location = System::Drawing::Point(17, 181);
+            this->fcgCBVppKfmUcf->Location = System::Drawing::Point(17, 153);
             this->fcgCBVppKfmUcf->Name = L"fcgCBVppKfmUcf";
             this->fcgCBVppKfmUcf->Size = System::Drawing::Size(42, 18);
-            this->fcgCBVppKfmUcf->TabIndex = 12;
+            this->fcgCBVppKfmUcf->TabIndex = 10;
             this->fcgCBVppKfmUcf->Tag = L"reCmd";
             this->fcgCBVppKfmUcf->Text = L"ucf";
             this->fcgCBVppKfmUcf->UseVisualStyleBackColor = true;
@@ -7076,10 +7051,10 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             // fcgCBVppKfmNr
             //
             this->fcgCBVppKfmNr->AutoSize = true;
-            this->fcgCBVppKfmNr->Location = System::Drawing::Point(82, 181);
+            this->fcgCBVppKfmNr->Location = System::Drawing::Point(82, 153);
             this->fcgCBVppKfmNr->Name = L"fcgCBVppKfmNr";
             this->fcgCBVppKfmNr->Size = System::Drawing::Size(36, 18);
-            this->fcgCBVppKfmNr->TabIndex = 13;
+            this->fcgCBVppKfmNr->TabIndex = 11;
             this->fcgCBVppKfmNr->Tag = L"reCmd";
             this->fcgCBVppKfmNr->Text = L"nr";
             this->fcgCBVppKfmNr->UseVisualStyleBackColor = true;
@@ -7087,10 +7062,10 @@ private: System::Windows::Forms::CheckBox^  fcgCBBenchmarkMode;
             // fcgCBVppKfmIs120
             //
             this->fcgCBVppKfmIs120->AutoSize = true;
-            this->fcgCBVppKfmIs120->Location = System::Drawing::Point(145, 181);
+            this->fcgCBVppKfmIs120->Location = System::Drawing::Point(145, 153);
             this->fcgCBVppKfmIs120->Name = L"fcgCBVppKfmIs120";
             this->fcgCBVppKfmIs120->Size = System::Drawing::Size(49, 18);
-            this->fcgCBVppKfmIs120->TabIndex = 14;
+            this->fcgCBVppKfmIs120->TabIndex = 12;
             this->fcgCBVppKfmIs120->Tag = L"reCmd";
             this->fcgCBVppKfmIs120->Text = L"is120";
             this->fcgCBVppKfmIs120->UseVisualStyleBackColor = true;

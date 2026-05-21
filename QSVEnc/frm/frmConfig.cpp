@@ -884,7 +884,6 @@ System::Void frmConfig::InitComboBox() {
     setComboBox(fcgCXVppKfmMode,       list_vpp_kfm_mode);
     setComboBox(fcgCXVppKfmPreset,     list_vpp_rtgmc_preset);
     setComboBox(fcgCXVppKfmTiming,     list_vpp_kfm_timing);
-    setComboBox(fcgCXVppKfmDebugStage, list_vpp_kfm_debug_stage);
     fcgLBVppNnediPrec->Visible = false;
     fcgCXVppNnediPrec->Visible = false;
     setComboBox(fcgCXVppYadifMode,      list_vpp_yadif_mode_gui);
@@ -1987,7 +1986,6 @@ System::Void frmConfig::ConfToFrm(CONF_GUIEX *cnf) {
         SetCXIndex(fcgCXVppKfmMode, get_cx_index(list_vpp_kfm_mode, (int)prm_qsv.vpp.kfm.mode));
         SetCXIndex(fcgCXVppKfmPreset, get_cx_index(list_vpp_rtgmc_preset, (int)prm_qsv.vpp.kfm.preset));
         SetCXIndex(fcgCXVppKfmTiming, get_cx_index(list_vpp_kfm_timing, (int)prm_qsv.vpp.kfm.timing));
-        SetCXIndex(fcgCXVppKfmDebugStage, get_cx_index(list_vpp_kfm_debug_stage, (int)prm_qsv.vpp.kfm.debugStage));
         SetNUValue(fcgNUVppKfmPastCycles, prm_qsv.vpp.kfm.pastCycles);
         SetNUValue(fcgNUVppKfmThswitch, prm_qsv.vpp.kfm.thswitch);
         fcgCBVppKfmUcf->Checked = prm_qsv.vpp.kfm.ucf;
@@ -2328,7 +2326,6 @@ System::String^ frmConfig::FrmToConf(CONF_GUIEX *cnf) {
     prm_qsv.vpp.kfm.mode = (VppKfmMode)list_vpp_kfm_mode[fcgCXVppKfmMode->SelectedIndex].value;
     prm_qsv.vpp.kfm.preset = (VppRtgmcPreset)list_vpp_rtgmc_preset[fcgCXVppKfmPreset->SelectedIndex].value;
     prm_qsv.vpp.kfm.timing = (VppKfmTiming)list_vpp_kfm_timing[fcgCXVppKfmTiming->SelectedIndex].value;
-    prm_qsv.vpp.kfm.debugStage = (VppKfmDebugStage)list_vpp_kfm_debug_stage[fcgCXVppKfmDebugStage->SelectedIndex].value;
     prm_qsv.vpp.kfm.pastCycles = (int)fcgNUVppKfmPastCycles->Value;
     prm_qsv.vpp.kfm.thswitch = (float)fcgNUVppKfmThswitch->Value;
     prm_qsv.vpp.kfm.ucf = fcgCBVppKfmUcf->Checked;
