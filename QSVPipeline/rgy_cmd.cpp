@@ -5496,7 +5496,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             target.pel = 1;
             target.blksize = 16;
             target.overlap = 8;
-            target.levels = 1;
+            target.levels = 2;
             target.chroma = true;
             target.binomial = 0;
             target.tvRange = true;
@@ -5865,8 +5865,8 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 print_auto_error(_T("Auto preset requires search=4."));
                 return 1;
             }
-            if (parsedDegrain.levels != 1) {
-                print_auto_error(_T("Auto preset requires levels=1."));
+            if (parsedDegrain.levels != 2) {
+                print_auto_error(_T("Auto preset requires levels=2."));
                 return 1;
             }
             if (parsedDegrain.blksize != 8 && parsedDegrain.blksize != 16 && parsedDegrain.blksize != 32) {

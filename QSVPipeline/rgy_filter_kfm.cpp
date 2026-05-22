@@ -822,7 +822,7 @@ RGY_ERR RGYFilterKfm::initNrFilter(const std::shared_ptr<RGYFilterParamKfm>& prm
     nrParam->degrain.pel = 1;
     nrParam->degrain.blksize = 16;
     nrParam->degrain.overlap = nrParam->degrain.blksize / 2;
-    nrParam->degrain.levels = 1;
+    nrParam->degrain.levels = 2;
     nrParam->degrain.chroma = true;
     nrParam->degrain.binomial = 1;
     nrParam->degrain.tvRange = true;
@@ -835,7 +835,7 @@ RGY_ERR RGYFilterKfm::initNrFilter(const std::shared_ptr<RGYFilterParamKfm>& prm
     }
     // This is a Phase4 bridge: the reference applies NR to deint24/deint30 branches
     // before UCF/switch, while this nested filter denoises the final KFM stream.
-    AddMessage(RGY_LOG_INFO, _T("--vpp-kfm nr=true is wired to degrain preset=auto,tr=1,blksize=16,binomial=true on the final KFM output stream.\n"));
+    AddMessage(RGY_LOG_INFO, _T("--vpp-kfm nr=true is wired to degrain preset=auto,tr=1,blksize=16,levels=2,binomial=true on the final KFM output stream.\n"));
     m_nrFilter = std::move(nrFilter);
     return RGY_ERR_NONE;
 }
