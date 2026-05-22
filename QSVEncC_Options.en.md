@@ -3868,6 +3868,8 @@ Report generation requires `python`. By default, Windows uses `py.exe`, with `py
 
 `ocloc` allows to show disassembly (but not essential for report generation). `ocloc` can be installed with Intel oneAPI into  `C:\Program Files (x86)\Intel\oneAPI\<version>\bin\ocloc.exe`. Additionally, executable path can be specified with [--ocloc-path](#--ocloc-path-path).
 
+![report](data/qsvencc_cl_perf_dir_20260522_s.webp)
+
 ### --ocloc-path &lt;path&gt;
 Use with [--cl-perf-dump](#--cl-perf-dump-dir) to specify the ocloc executable path passed to cl_perf aggregate.
 
