@@ -2292,9 +2292,6 @@ nnedi deinterlacer.
   - errortype=&lt;string&gt;  
     Error type. `abs` (default) or `square`.
 
-  - prec=&lt;string&gt;
-    Accepted and ignored.
-
   - clamp=&lt;int&gt;  
     Clamp range mode. `0-4`. Default: `1`.
 
@@ -2308,7 +2305,7 @@ nnedi deinterlacer.
   - `prescreen=0/1` is currently unsupported.
 
 ### --vpp-rtgmc [&lt;param1&gt;=&lt;value1&gt;]
-OpenCL high quality deinterlacer (but slow).
+High quality deinterlacer. Independent implementation of QTGMC algorithm in OpenCL.
 
 - **major parameters**
 
@@ -2358,7 +2355,7 @@ OpenCL high quality deinterlacer (but slow).
   - noise group  
     This stage controls noise extraction, denoising, and grain/noise restoration.
     - `noise_process`  
-      Master mode for the noise path. `0` disables noise processing, `1` enables the current denoise/restore path, `2` is the stronger keep-grain mode from AviSynth (currently unsupported).
+      Master mode for the noise path. `0` disables noise processing, `1` enables the current denoise/restore path, `2` is currently unsupported.
     - `denoiser`  
       Denoiser selection. `nlmeans` uses the NLMeans path, while `fft3d` uses the FFT3D path.
     - `noise_deint`  
@@ -2398,32 +2395,37 @@ OpenCL high quality deinterlacer (but slow).
     - `precise`  
       Enables the precise retouch path variant (`on/off`).
 
-- **Note**
-  - `noise_process=2`, `ezkeepgrain>0`, `denoise_mc=true`, and `noise_tr>0` are unsupported.
-  - `noise_deint=generate` is unsupported.
-  - `grain_restore/noise_restore` currently require `noise_process=1` and are limited to `0.0-1.0`.
-  - `denoiser=fft3d` uses `--vpp-fft3d` internally.
-  - `denoiser=nlmeans` uses `--vpp-nlmeans` internally.
-  - `match_preset` / `match_preset2` are accepted for SourceMatch speed-tier checks, but do not fully reproduce the AviSynth staged preset split.
-  - Options such as `EdiExt/useEdiExt`, `GlobalNames/PrevGlobals`, `FftThreads`, `ShowNoise`, shutter-blur family, and `ForceTR` are not exposed in the current CLI path.
+- **Note (Limitations)**
+  
+  - EDI is limited to bob/yadif/cyadif/repyadif/repcyadif/nnedi3(rnnedi3)-equivalent modes. NNEDI2/NNEDI/
+  EEDI3(+NNEDI3)/EEDI2/TDeint, EdiMaxD, and EdiThreads are not supported.
+  - chroma_edi supports only none or nnedi3(rnnedi3).
+  - Noise processing does not support noise_process=2, ezkeepgrain, denoise_mc=true, noise_tr>0, noise_deint=generate,
+  ShowNoise, StabilizeNoise, dfttest/KNLMeansCL, or lsb/lsbd/DftDither-equivalent paths.
+  - source_match supports stages 0-3, but per-stage MatchPreset/MatchPreset2 settings, independent MatchEdi2, and
+  EdiMaxD-related settings are not supported. match_edi is limited to bob/yadif/cyadif/repyadif/repcyadif/nnedi3.
+  - Motion blur and frame decimation options such as FPSDivisor, ShutterBlur, ShutterAngleSrc/Out, and SBlurLimit are
+  not supported.
+  - Some KTGMC/MVTools parameters are fixed or restricted: subpelinterp=2, dct=0, truemotion=false, and searchparam/
+  pelsearch are limited to 1-2.
 
 ### --vpp-rtgmc-bob [&lt;param1&gt;=&lt;value1&gt;]
-Standalone bob deinterlacer. Parameters: `order=auto|tff|bff`.
+For debug. Parameters: `order=auto|tff|bff`.
 
 ### --vpp-rtgmc-search-prefilter [&lt;param1&gt;=&lt;value1&gt;]
-Standalone search reference prefilter. Parameters: `tr0`, `rep0-thin`, `rep0-pad`, `search_refine`, `tv_range`, `chroma_motion`, `dump_y4m`, `dump_stage`, `dump_max_frames`.
+For debug. Parameters: `tr0`, `rep0-thin`, `rep0-pad`, `search_refine`, `tv_range`, `chroma_motion`, `dump_y4m`, `dump_stage`, `dump_max_frames`.
 
 ### --vpp-rtgmc-edi [&lt;param1&gt;=&lt;value1&gt;]
-Standalone EDI stage. Parameters: `mode`, `nnsize`, `nneurons`, `ediqual`, `chroma_edi`.
+For debug. Parameters: `mode`, `nnsize`, `nneurons`, `ediqual`, `chroma_edi`.
 
 ### --vpp-rtgmc-retouch [&lt;param1&gt;=&lt;value1&gt;]
-Standalone retouch stage. Parameters: `sharpness`, `limit`, `smode`, `slmode`, `slrad`, `sovs`, `svthin`, `sbb`, `precise`, `tr1`, `tr2`.
+For debug. Parameters: `sharpness`, `limit`, `smode`, `slmode`, `slrad`, `sovs`, `svthin`, `sbb`, `precise`, `tr1`, `tr2`.
 
 ### --vpp-rtgmc-shimmer-repair [&lt;param1&gt;=&lt;value1&gt;]
-Standalone shimmer repair stage. Parameters: `stage=rep1|rep2`, `rep-thin`, `rep-pad`, `rep_chroma`.
+For debug. Parameters: `stage=rep1|rep2`, `rep-thin`, `rep-pad`, `rep_chroma`.
 
 ### --vpp-rtgmc-primitive [&lt;param1&gt;=&lt;value1&gt;]
-Standalone primitive/debug filter. Parameters: `op`, `ref`, `mode`, `weight`, `chroma`.
+For debug. Parameters: `op`, `ref`, `mode`, `weight`, `chroma`.
 
 ### --vpp-degrain [&lt;param1&gt;=&lt;value1&gt;]
 Motion compensated degrain debug filter.
@@ -2451,13 +2453,23 @@ Motion compensated degrain debug filter.
   - chroma/binomial/tv_range
     Chroma analysis and prefilter/range controls.
 
+
+- **Note (Limitations)**
+  - Analysis modes require levels=2.
+  - Analysis supports only blksize=8, 16, or 32.
+  - overlap supports only 0 or blksize/2.
+  - delta supports 1-5, but delta>2 is supported only for analyze or stage=tr2 degrain.
+  - pel supports only 1, 2, or 4.
+
 ### --vpp-kfm [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
-Adaptive inverse telesine filter using `--vpp-rtgmc`.
+Adaptive inverse telesine filter supporting 24/30/60 mixed VFR output using `--vpp-rtgmc`.
+
+Please note that this filter is slow, recommended to be used on dGPUs.
 
 - **parameters**
 
   - mode=&lt;string&gt;  
-    Output mode. `vfr` (default), `60`, `24`, `vfr60`.
+    Output mode. `vfr` (default), `60`, `24`.
 
   - preset=&lt;string&gt;  
     Reserved nested preset. `slower`, `slow`, `medium`, `fast`, `faster` (default), `veryfast`, `superfast`, `ultrafast`, `draft`.
@@ -2488,7 +2500,7 @@ Adaptive inverse telesine filter using `--vpp-rtgmc`.
     Used for 24p debug output selection.
 
   - timecode=&lt;path&gt;  
-    Timecode v2 dump path. In `mode=24/vfr/vfr60`, `*.duration.txt` is also emitted.
+    Timecode v2 dump path. In `mode=24/vfr`, `*.duration.txt` is also emitted.
 
 - **Note**
   - Parameters such as `pass`, `svp`, `cuda/dev/threads` are not exposed as CLI parameters.

@@ -2344,9 +2344,6 @@ nnediによるインタレ解除を行う。
   - errortype=&lt;string&gt;  
     誤差種別。`abs`(デフォルト) または `square`。
 
-  - prec=&lt;string&gt;
-    受け付けるが、値は使用しない。
-
   - clamp=&lt;int&gt;  
     クリップ範囲モード。`0-4`。デフォルト: `1`。
 
@@ -2361,7 +2358,7 @@ nnediによるインタレ解除を行う。
   - RTGMCで使わない補助パラメータ (実行最適化やデバッグ向け) は現時点では受け付けない。
 
 ### --vpp-rtgmc [&lt;param1&gt;=&lt;value1&gt;]
-高品質インタレ解除のOpenCL実装。遅い。
+高品質インタレ解除として知られる QTGMC のアルゴリズムをベースに独自にOpenCL実装し、一部処理をGPU並列向けに緩和したもの。高品質だが処理が重い。
 
 - **主要パラメータ**
 
@@ -2413,7 +2410,7 @@ nnediによるインタレ解除を行う。
     ノイズ抽出・平滑化・戻し量を制御する段。主に以下のパラメータで構成される。
 
     - `noise_process`  
-      ノイズ処理段の有効化レベル。`0` は無効、`1` はノイズ処理を有効化、`2` はAviSynth互換の強い粒状感維持モード(現状未対応)。
+      ノイズ処理段の有効化レベル。`0` は無効、`1` はノイズ処理を有効化、`2` は現状未対応。
     - `denoiser`  
       ノイズ低減器の種類。`nlmeans` は NLMeans 系、`fft3d` は FFT3D 系を使用する。
     - `noise_deint`  
@@ -2456,31 +2453,32 @@ nnediによるインタレ解除を行う。
       retouch の精密経路を使うかどうか (`on/off`)。
 
 - **注意**
-  - `noise_process=2`、`ezkeepgrain>0`、`denoise_mc=true`、`noise_tr>0` は未対応。
-  - `noise_deint=generate` は未対応。
-  - `grain_restore/noise_restore` は `noise_process=1` かつ `0.0-1.0` の範囲のみ対応。
-  - `denoiser=fft3d` は内部的にQSVEncの `--vpp-fft3d` を使用します。
-  - `denoiser=nlmeans` は内部的にQSVEncの `--vpp-nlmeans` を使用します。
-  - `match_preset` / `match_preset2` は受理するが、現実装では SourceMatch の速度階層チェック用で、AviSynth版の段階別 preset 分離を完全再現していない。
-  - `EdiExt` / `useEdiExt`、`GlobalNames` / `PrevGlobals`、`FftThreads`、`ShowNoise`、`ShutterBlur` 系、`ForceTR` など AviSynth スクリプト特有の多数オプションは未対応。
+  - EDI は bob/yadif/cyadif/repyadif/repcyadif/nnedi3(rnnedi3) 相当のみ対応します。NNEDI2/NNEDI/EEDI3(+NNEDI3)/EEDI2/
+  TDeint、EdiMaxD、EdiThreads は未対応です。
+  - chroma_edi は none または nnedi3(rnnedi3) のみ対応します。
+  - ノイズ処理は noise_process=2、ezkeepgrain、denoise_mc=true、noise_tr>0、noise_deint=generate、ShowNoise、
+  StabilizeNoise、dfttest/KNLMeansCL、lsb/lsbd/DftDither 相当の経路には対応していません。
+  - source_match は 0-3 に対応しますが、MatchPreset/MatchPreset2 による段階別設定、独立した MatchEdi2、EdiMaxD 系の指
+  定は未対応です。match_edi は bob/yadif/cyadif/repyadif/repcyadif/nnedi3 の範囲です。
+  - FPSDivisor、ShutterBlur、ShutterAngleSrc/Out、SBlurLimit によるモーションブラー/フレーム間引きは未対応です。
 
 ### --vpp-rtgmc-bob [&lt;param1&gt;=&lt;value1&gt;]
-`--vpp-rtgmc` bob 単体フィルタ。パラメータ: `order=auto|tff|bff`。
+デバッグ用 `--vpp-rtgmc` bob 単体フィルタ。パラメータ: `order=auto|tff|bff`。
 
 ### --vpp-rtgmc-search-prefilter [&lt;param1&gt;=&lt;value1&gt;]
-`--vpp-rtgmc` search reference prefilter 単体フィルタ。パラメータ: `tr0`, `rep0-thin`, `rep0-pad`, `search_refine`, `tv_range`, `chroma_motion`, `dump_y4m`, `dump_stage`, `dump_max_frames`。
+デバッグ用 `--vpp-rtgmc` search reference prefilter 単体フィルタ。パラメータ: `tr0`, `rep0-thin`, `rep0-pad`, `search_refine`, `tv_range`, `chroma_motion`, `dump_y4m`, `dump_stage`, `dump_max_frames`。
 
 ### --vpp-rtgmc-edi [&lt;param1&gt;=&lt;value1&gt;]
-`--vpp-rtgmc` EDI 単体フィルタ。パラメータ: `mode`, `nnsize`, `nneurons`, `ediqual`, `chroma_edi`。
+デバッグ用 `--vpp-rtgmc` EDI 単体フィルタ。パラメータ: `mode`, `nnsize`, `nneurons`, `ediqual`, `chroma_edi`。
 
 ### --vpp-rtgmc-retouch [&lt;param1&gt;=&lt;value1&gt;]
-`--vpp-rtgmc` retouch 単体フィルタ。パラメータ: `sharpness`, `limit`, `smode`, `slmode`, `slrad`, `sovs`, `svthin`, `sbb`, `precise`, `tr1`, `tr2`。
+デバッグ用 `--vpp-rtgmc` retouch 単体フィルタ。パラメータ: `sharpness`, `limit`, `smode`, `slmode`, `slrad`, `sovs`, `svthin`, `sbb`, `precise`, `tr1`, `tr2`。
 
 ### --vpp-rtgmc-shimmer-repair [&lt;param1&gt;=&lt;value1&gt;]
-`--vpp-rtgmc` shimmer repair 単体フィルタ。パラメータ: `stage=rep1|rep2`, `rep-thin`, `rep-pad`, `rep_chroma`。
+デバッグ用 `--vpp-rtgmc` shimmer repair 単体フィルタ。パラメータ: `stage=rep1|rep2`, `rep-thin`, `rep-pad`, `rep_chroma`。
 
 ### --vpp-rtgmc-primitive [&lt;param1&gt;=&lt;value1&gt;]
-`--vpp-rtgmc` primitive/debug 単体フィルタ。パラメータ: `op`, `ref`, `mode`, `weight`, `chroma`。
+デバッグ用 `--vpp-rtgmc` primitive/debug 単体フィルタ。パラメータ: `op`, `ref`, `mode`, `weight`, `chroma`。
 
 ### --vpp-degrain [&lt;param1&gt;=&lt;value1&gt;]
 動き補償つき degrain デバッグフィルタ。
@@ -2507,16 +2505,23 @@ nnediによるインタレ解除を行う。
   - chroma/binomial/tv_range
     色差解析、prefilter、レンジ制御。
 
+- **注意**
+  - 解析を伴うモードでは levels=2 が必要です。
+  - 解析時の blksize は 8/16/32 のみ対応します。
+  - overlap は 0 または blksize/2 のみ対応します。
+  - delta は 1-5 に対応しますが、delta>2 は analyze または stage=tr2 の degrain のみ対応します。
+  - pel は 1/2/4 のみ対応します。
+
 ### --vpp-kfm [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
-`--vpp-rtgmc`を使用した逆テレシネ・VFR対応のインタレ解除フィルタ。
+`--vpp-rtgmc`を使用した逆テレシネ・24/30/60混合VFR対応の高品質なインタレ解除フィルタ。重いのでdGPUでの使用を推奨。
 
 - **パラメータ**
 
   - mode=&lt;string&gt;  
-    出力モード。`vfr` (デフォルト), `60`, `24`, `vfr60`。
+    出力モード。`vfr` (デフォルト), `60`, `24`。
 
   - preset=&lt;string&gt;  
-    入れ子RTGMC用予約preset。`slower`, `slow`, `medium`, `fast`, `faster`(デフォルト), `veryfast`, `superfast`, `ultrafast`, `draft`。
+    RTGMCのpreset。`slower`, `slow`, `medium`, `fast`, `faster`(デフォルト), `veryfast`, `superfast`, `ultrafast`, `draft`。
 
   - timing=&lt;string&gt;  
     タイミング解析モード。`realtime`, `realtime+` (デフォルト), `strict`。
@@ -2531,7 +2536,7 @@ nnediによるインタレ解除を行う。
     UCF段を有効化。デフォルト: off。
 
   - nr=&lt;bool&gt;  
-    最終出力に `SMDegrain` を適用。デフォルト: off。
+    最終出力に `vpp-degrain` を適用。デフォルト: off。
 
   - is120=&lt;bool&gt;  
     120fps duration補正用の予約フラグ。デフォルト: on。
@@ -2544,10 +2549,7 @@ nnediによるインタレ解除を行う。
     24p系デバッグ表示に使用。
 
   - timecode=&lt;path&gt;  
-    timecode v2 dump path。`mode=24/vfr/vfr60` では `*.duration.txt` も併せて出力する。
-
-- **注意**
-  - `pass`、`svp`、`cuda/dev/threads` のような制御は非対応。
+    timecode v2 dump path。`mode=24/vfr` では `*.duration.txt` も併せて出力する。
 
 ### --vpp-decomb [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]  
 decombによるインタレ解除を行う。
