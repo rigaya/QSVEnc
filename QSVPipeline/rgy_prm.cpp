@@ -2309,7 +2309,7 @@ bool VppKfm::operator!=(const VppKfm& x) const {
 }
 
 tstring VppKfm::print() const {
-    return strsprintf(_T("kfm: mode %s, preset %s, timing %s, past_cycles %d, thswitch %.3f, ucf %s, nr %s, is120 %s, debug_stage %s"),
+    auto str = strsprintf(_T("kfm: mode %s, preset %s, timing %s, past_cycles %d, thswitch %.3f, ucf %s, nr %s, is120 %s"),
         get_cx_desc(list_vpp_kfm_mode, (int)mode),
         get_cx_desc(list_vpp_rtgmc_preset, (int)preset),
         get_cx_desc(list_vpp_kfm_timing, (int)timing),
@@ -2317,8 +2317,12 @@ tstring VppKfm::print() const {
         thswitch,
         ucf ? _T("true") : _T("false"),
         nr ? _T("true") : _T("false"),
-        is120 ? _T("true") : _T("false"),
-        get_cx_desc(list_vpp_kfm_debug_stage, (int)debugStage));
+        is120 ? _T("true") : _T("false"));
+    if (debugStage != VppKfmDebugStage::None) {
+        str += strsprintf(_T(", debug_stage %s"),
+            get_cx_desc(list_vpp_kfm_debug_stage, (int)debugStage));
+    }
+    return str;
 }
 
 VppMsmooth::VppMsmooth() :
