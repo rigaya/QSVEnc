@@ -109,8 +109,6 @@ static const char *kfmUcfKernelName(VppKfmMode mode) {
         return "kernel_kfm_ucf_60";
     case VppKfmMode::P24:
         return "kernel_kfm_ucf_24";
-    case VppKfmMode::VFR60:
-        return "kernel_kfm_ucf_60_flag";
     case VppKfmMode::VFR:
     default:
         return "kernel_kfm_ucf_param";
@@ -506,7 +504,7 @@ RGY_ERR RGYFilterKfm::initAnalyzer(const RGYFilterParamKfm& prm) {
         m_fpUcfNoise = nullptr;
     }
     if (prm.kfm.timecode.length() > 0) {
-        if (prm.kfm.mode == VppKfmMode::P24 || prm.kfm.mode == VppKfmMode::VFR || prm.kfm.mode == VppKfmMode::VFR60) {
+        if (prm.kfm.mode == VppKfmMode::P24 || prm.kfm.mode == VppKfmMode::VFR) {
             m_switchDurationPath = PathRemoveExtensionS(prm.kfm.timecode) + _T(".duration.txt");
         }
         if (_tfopen_s(&m_fpTimecode, prm.kfm.timecode.c_str(), _T("wb")) != 0 || m_fpTimecode == nullptr) {
@@ -936,7 +934,7 @@ RGY_ERR RGYFilterKfm::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog>
     m_after60CacheCopyEvent = RGYOpenCLEvent();
     if (prm->kfm.mode == VppKfmMode::P24) {
         AddMessage(RGY_LOG_INFO, _T("--vpp-kfm mode=24 uses the Phase3 24p render bring-up path.\n"));
-    } else if (prm->kfm.mode == VppKfmMode::VFR || prm->kfm.mode == VppKfmMode::VFR60) {
+    } else if (prm->kfm.mode == VppKfmMode::VFR) {
         AddMessage(RGY_LOG_DEBUG, _T("--vpp-kfm mode=%s uses the Phase3 VFR scheduler with 24p/30p render bring-up.\n"),
             get_cx_desc(list_vpp_kfm_mode, (int)prm->kfm.mode));
     } else {
@@ -956,8 +954,7 @@ RGY_ERR RGYFilterKfm::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog>
     }
 
     const bool needTelecineWorkFrames = prm->kfm.mode == VppKfmMode::P24
-        || prm->kfm.mode == VppKfmMode::VFR
-        || prm->kfm.mode == VppKfmMode::VFR60;
+        || prm->kfm.mode == VppKfmMode::VFR;
     const int frameBufCount = needTelecineWorkFrames ? (prm->kfm.ucf ? 16 : 8) : 1;
     auto sts = AllocFrameBuf(prm->frameOut, frameBufCount);
     if (sts != RGY_ERR_NONE) {
@@ -974,7 +971,7 @@ RGY_ERR RGYFilterKfm::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog>
         m_workFrameBuf.clear();
         m_workBufferIndex = 0;
     }
-    if (prm->kfm.mode == VppKfmMode::VFR || prm->kfm.mode == VppKfmMode::VFR60
+    if (prm->kfm.mode == VppKfmMode::VFR
         || (prm->kfm.mode == VppKfmMode::P24 && kfmDeint60BranchEnabled())) {
         sts = initRtgmc(prm, m_deint60Rtgmc, false);
         if (sts != RGY_ERR_NONE) {
@@ -1018,7 +1015,7 @@ RGY_ERR RGYFilterKfm::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog>
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
-    if (prm->kfm.mode == VppKfmMode::VFR || prm->kfm.mode == VppKfmMode::VFR60) {
+    if (prm->kfm.mode == VppKfmMode::VFR) {
         prm->baseFps *= 2;
     }
 
@@ -1034,7 +1031,6 @@ int RGYFilterKfm::requiredOutputFrames() const {
     }
     switch (prm->kfm.mode) {
     case VppKfmMode::VFR:
-    case VppKfmMode::VFR60:
     case VppKfmMode::P24:
         return 16;
     default:
@@ -1164,7 +1160,7 @@ size_t RGYFilterKfm::deint60CacheLimit() const {
 
 int RGYFilterKfm::sourceCacheTrimFloor() const {
     const auto prm = std::dynamic_pointer_cast<RGYFilterParamKfm>(m_param);
-    if (!prm || (prm->kfm.mode != VppKfmMode::VFR && prm->kfm.mode != VppKfmMode::VFR60) || m_nextSwitchN60 <= 0) {
+    if (!prm || prm->kfm.mode != VppKfmMode::VFR || m_nextSwitchN60 <= 0) {
         return 0;
     }
     auto trimFloor = std::max(0, (m_nextSwitchN60 >> 1) - KFM_VFR_SOURCE_TRIM_LOOKBEHIND);
@@ -1185,7 +1181,7 @@ int RGYFilterKfm::sourceCacheTrimFloor() const {
 
 int RGYFilterKfm::deint60CacheTrimFloor() const {
     const auto prm = std::dynamic_pointer_cast<RGYFilterParamKfm>(m_param);
-    if (!prm || (prm->kfm.mode != VppKfmMode::VFR && prm->kfm.mode != VppKfmMode::VFR60) || m_nextSwitchN60 <= 0) {
+    if (!prm || prm->kfm.mode != VppKfmMode::VFR || m_nextSwitchN60 <= 0) {
         return 0;
     }
     return std::max(0, m_nextSwitchN60 - KFM_VFR_DEINT60_TRIM_LOOKBEHIND);
@@ -3435,7 +3431,7 @@ void RGYFilterKfm::writeFrameTimecode(const RGYFrameInfo *frame) {
         return;
     }
     const auto timeMs = (double)frame->timestamp * prm->timebase.qdouble() * 1000.0;
-    if (prm->kfm.mode == VppKfmMode::VFR || prm->kfm.mode == VppKfmMode::VFR60) {
+    if (prm->kfm.mode == VppKfmMode::VFR) {
         const auto timeMsInt = (int64_t)std::floor(timeMs + 0.5 - 1.0e-9);
         fprintf(m_fpTimecode, "%lld\n", (lls)timeMsInt);
     } else {
@@ -5435,7 +5431,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
         return RGY_ERR_NONE;
     }
 
-    if (prm->kfm.mode == VppKfmMode::VFR || prm->kfm.mode == VppKfmMode::VFR60) {
+    if (prm->kfm.mode == VppKfmMode::VFR) {
         auto sts = RGY_ERR_NONE;
         if (pInputFrame == nullptr || pInputFrame->ptr[0] == nullptr) {
             sts = analyzeAvailableSource(true, queue);

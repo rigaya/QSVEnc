@@ -2639,13 +2639,11 @@ enum class VppKfmMode {
     VFR,
     P60,
     P24,
-    VFR60,
 };
 const CX_DESC list_vpp_kfm_mode[] = {
     { _T("vfr"),   (int)VppKfmMode::VFR },
     { _T("60"),    (int)VppKfmMode::P60 },
     { _T("24"),    (int)VppKfmMode::P24 },
-    { _T("vfr60"), (int)VppKfmMode::VFR60 },
     { nullptr, 0 }
 };
 

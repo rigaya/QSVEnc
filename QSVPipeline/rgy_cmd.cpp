@@ -13025,7 +13025,7 @@ tstring gen_cmd_help_vpp() {
         _T("   --vpp-kfm [<param1>=<value>]\n")
         _T("     Adaptive inverse telesine filter.\n")
         _T("    params\n")
-        _T("      mode=<string>          vfr(default), 60, 24, vfr60\n")
+        _T("      mode=<string>          vfr(default), 60, 24\n")
         _T("      preset=<string>        speed preset (default=faster)\n")
         _T("      timing=<string>        realtime, realtime+(default), strict\n")
         _T("      past_cycles=<int>      commit delay cycles for realtime+ (default=30)\n")
