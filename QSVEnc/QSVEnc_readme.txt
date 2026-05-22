@@ -314,6 +314,24 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2026.05.22 (8.13)
+[QSVEncC]
+- 24/30/60混合VFR出力に対応した逆テレシネフィルタ --vpp-kfm を追加。
+  AmatsukazeのKFMのアルゴリズムの一部移植。
+- 高品質インタレ解除フィルタ --vpp-rtgmc を追加。
+- モーション補償デグレインフィルタ --vpp-degrain を追加。
+- --vpp-nnedi を新実装に切り替え大幅に高速化。
+  - prescreenオプションのパラメータが変更した点に注意。
+- --vpp-resize に gauss を追加。
+- インタレ解除時のCSP指定 --vpp-deint-csp を追加。
+- OpenCLカーネル性能ダンプとレポート自動生成 --cl-perf-dump を追加。
+- --cl-perf-dump 用 --ocloc-path を追加。
+- OpenCLフィルタの要求フレーム数指定などを改善。
+- --vpp-kfm の VFR出力で RFF入力時にタイムスタンプが逆行する場合があったのを修正。
+
+[QSVEnc.auo]
+- --vpp-rtgmc, --vpp-kfm, --vpp-degrain, --vpp-nnedi などの設定欄を追加。
+
 2026.05.17 (8.12)
 [QSVEncC]
 - アニメ向けエイリアス抑制フィルタ --vpp-maa を追加。
