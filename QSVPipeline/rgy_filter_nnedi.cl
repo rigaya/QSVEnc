@@ -81,8 +81,12 @@
 #error "NNEDI_PRED_QUAL must be one of 1, 2"
 #endif
 
+#ifndef NNEDI_PRED_LOCAL_X
 #define NNEDI_PRED_LOCAL_X 16
+#endif
+#ifndef NNEDI_PRED_LOCAL_Y
 #define NNEDI_PRED_LOCAL_Y 32
+#endif
 #if (NNEDI_PRED_NNS % NNEDI_PRED_LOCAL_X) != 0
 #error "NNEDI_PRED_NNS must be divisible by NNEDI_PRED_LOCAL_X"
 #endif
@@ -90,8 +94,12 @@
 #define NNEDI_PRED_BLOCK_FLOAT2_COUNT (NNEDI_PRED_K * NNEDI_PRED_LOCAL_X)
 #define NNEDI_PRED_QUAL_BODY_FLOAT2_COUNT (NNEDI_PRED_GROUPS * NNEDI_PRED_BLOCK_FLOAT2_COUNT)
 #define NNEDI_PRED_BODY_FLOAT2_COUNT (NNEDI_PRED_QUAL * NNEDI_PRED_QUAL_BODY_FLOAT2_COUNT)
+#ifndef NNEDI_TILE_GROUPS_X
 #define NNEDI_TILE_GROUPS_X 32
+#endif
+#ifndef NNEDI_TILE_ROWS
 #define NNEDI_TILE_ROWS 16
+#endif
 #define NNEDI_TILE_PIXELS_X (NNEDI_TILE_GROUPS_X * 4)
 #define NNEDI_TILE_MASK_COUNT (NNEDI_TILE_GROUPS_X * NNEDI_TILE_ROWS)
 #define NNEDI_TILE_MAX_CANDIDATES (NNEDI_TILE_MASK_COUNT * 4)
@@ -664,7 +672,7 @@ static inline void nnedi_prescreen_write_cubic4(
     if (laneMask & 8) dstPixels[3] = (Type)cubicInterpolatedPixels.w;
 }
 
-__attribute__((reqd_work_group_size(32, 16, 1)))
+__attribute__((reqd_work_group_size(NNEDI_TILE_GROUPS_X, NNEDI_TILE_ROWS, 1)))
 __kernel void kernel_nnedi_prescreen_cubic(
     __global uchar *restrict pDst, const int dstPitch, const int dstOffset,
     const __global uchar *restrict pRef, const int refPitch, const int refOffset,

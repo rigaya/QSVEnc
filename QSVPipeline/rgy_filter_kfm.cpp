@@ -1063,7 +1063,7 @@ RGY_ERR RGYFilterKfm::padSourceFrame(RGYFrameInfo *pPaddedFrame, const RGYFrameI
             ? wait_events
             : (prevEvent() != nullptr ? std::vector<RGYOpenCLEvent>{ prevEvent } : std::vector<RGYOpenCLEvent>());
         RGYOpenCLEvent planeEvent;
-        RGYWorkSize local(32, 16);
+        RGYWorkSize local(32, 8);
         RGYWorkSize global(dst.width, dst.height);
         auto err = m_programs[KFM_PROG_PAD].get()->kernel("kernel_kfm_pad").config(queue, local, global, waitHere, &planeEvent).launch(
             (cl_mem)dst.ptr[0], dst.pitch[0],
@@ -1555,7 +1555,7 @@ RGY_ERR RGYFilterKfm::copyUcfFrame(const RGYFilterParamKfm& prm, RGYFrameInfo *p
             ? wait_events
             : (prevEvent() != nullptr ? std::vector<RGYOpenCLEvent>{ prevEvent } : std::vector<RGYOpenCLEvent>());
         RGYOpenCLEvent planeEvent;
-        RGYWorkSize local(32, 16);
+        RGYWorkSize local(32, 8);
         RGYWorkSize global(dst.width, dst.height);
         auto err = m_programs[KFM_PROG_UCF].get()->kernel(kernelName).config(queue, local, global, waitHere, &planeEvent).launch(
             (cl_mem)dst.ptr[0], dst.pitch[0],
@@ -1686,7 +1686,7 @@ RGY_ERR RGYFilterKfm::prepareUcfNoiseFieldCropFrame(RGYFrameInfo **ppFieldFrame,
             ? wait_events
             : (prevEvent() != nullptr ? std::vector<RGYOpenCLEvent>{ prevEvent } : std::vector<RGYOpenCLEvent>());
         RGYOpenCLEvent planeEvent;
-        auto err = m_programs[KFM_PROG_UCF].get()->kernel("kernel_kfm_ucf_field_crop").config(queue, RGYWorkSize(32, 16), RGYWorkSize(dst.width, dst.height), waitHere, &planeEvent).launch(
+        auto err = m_programs[KFM_PROG_UCF].get()->kernel("kernel_kfm_ucf_field_crop").config(queue, RGYWorkSize(32, 8), RGYWorkSize(dst.width, dst.height), waitHere, &planeEvent).launch(
             (cl_mem)dst.ptr[0], dst.pitch[0],
             (cl_mem)src.ptr[0], src.pitch[0],
             dst.width, dst.height,
@@ -1793,7 +1793,7 @@ RGY_ERR RGYFilterKfm::prepareUcfNoiseGaussFrame(RGYFrameInfo **ppGaussFrame, int
             : (prevEvent() != nullptr ? std::vector<RGYOpenCLEvent>{ prevEvent } : std::vector<RGYOpenCLEvent>());
         RGYOpenCLEvent evV;
         auto err = m_programs[KFM_PROG_UCF].get()->kernel("kernel_kfm_ucf_gaussresize_v")
-            .config(queue, RGYWorkSize(32, 16), RGYWorkSize(tmp.width, tmp.height), waitHere, &evV)
+            .config(queue, RGYWorkSize(32, 8), RGYWorkSize(tmp.width, tmp.height), waitHere, &evV)
             .launch((cl_mem)tmp.ptr[0], tmp.pitch[0],
                 (cl_mem)src.ptr[0], src.pitch[0],
                 tmp.width, tmp.height,
@@ -1805,14 +1805,14 @@ RGY_ERR RGYFilterKfm::prepareUcfNoiseGaussFrame(RGYFrameInfo **ppGaussFrame, int
         RGYOpenCLEvent evH;
         if (interleavedUVPlane) {
             err = m_programs[KFM_PROG_UCF].get()->kernel("kernel_kfm_ucf_gaussresize_h_uv_interleaved")
-                .config(queue, RGYWorkSize(32, 16), RGYWorkSize(dst.width, dst.height), { evV }, &evH)
+                .config(queue, RGYWorkSize(32, 8), RGYWorkSize(dst.width, dst.height), { evV }, &evH)
                 .launch((cl_mem)dst.ptr[0], dst.pitch[0],
                     (cl_mem)tmp.ptr[0], tmp.pitch[0],
                     dst.width, dst.height, dstWidthForGauss,
                     progH.offset->mem(), progH.coeff->mem(), progH.filterSize);
         } else {
             err = m_programs[KFM_PROG_UCF].get()->kernel("kernel_kfm_ucf_gaussresize_h")
-                .config(queue, RGYWorkSize(32, 16), RGYWorkSize(dst.width, dst.height), { evV }, &evH)
+                .config(queue, RGYWorkSize(32, 8), RGYWorkSize(dst.width, dst.height), { evV }, &evH)
                 .launch((cl_mem)dst.ptr[0], dst.pitch[0],
                     (cl_mem)tmp.ptr[0], tmp.pitch[0],
                     dst.width, dst.height,
@@ -1945,7 +1945,7 @@ RGY_ERR RGYFilterKfm::prepareUcfNoiseGaussFrameFromSource(RGYFrameInfo **ppGauss
             : (prevEvent() != nullptr ? std::vector<RGYOpenCLEvent>{ prevEvent } : std::vector<RGYOpenCLEvent>());
         RGYOpenCLEvent evV;
         auto err = m_programs[KFM_PROG_UCF].get()->kernel("kernel_kfm_ucf_field_crop_gaussresize_v")
-            .config(queue, RGYWorkSize(32, 16), RGYWorkSize(tmp.width, tmp.height), waitHere, &evV)
+            .config(queue, RGYWorkSize(32, 8), RGYWorkSize(tmp.width, tmp.height), waitHere, &evV)
             .launch((cl_mem)tmp.ptr[0], tmp.pitch[0],
                 (cl_mem)src.ptr[0], src.pitch[0],
                 tmp.width, tmp.height,
@@ -1958,14 +1958,14 @@ RGY_ERR RGYFilterKfm::prepareUcfNoiseGaussFrameFromSource(RGYFrameInfo **ppGauss
         RGYOpenCLEvent evH;
         if (interleavedUVPlane) {
             err = m_programs[KFM_PROG_UCF].get()->kernel("kernel_kfm_ucf_gaussresize_h_uv_interleaved")
-                .config(queue, RGYWorkSize(32, 16), RGYWorkSize(dst.width, dst.height), { evV }, &evH)
+                .config(queue, RGYWorkSize(32, 8), RGYWorkSize(dst.width, dst.height), { evV }, &evH)
                 .launch((cl_mem)dst.ptr[0], dst.pitch[0],
                     (cl_mem)tmp.ptr[0], tmp.pitch[0],
                     dst.width, dst.height, dstWidthForGauss,
                     progH.offset->mem(), progH.coeff->mem(), progH.filterSize);
         } else {
             err = m_programs[KFM_PROG_UCF].get()->kernel("kernel_kfm_ucf_gaussresize_h")
-                .config(queue, RGYWorkSize(32, 16), RGYWorkSize(dst.width, dst.height), { evV }, &evH)
+                .config(queue, RGYWorkSize(32, 8), RGYWorkSize(dst.width, dst.height), { evV }, &evH)
                 .launch((cl_mem)dst.ptr[0], dst.pitch[0],
                     (cl_mem)tmp.ptr[0], tmp.pitch[0],
                     dst.width, dst.height,
@@ -2045,7 +2045,7 @@ RGY_ERR RGYFilterKfm::runUcfNoiseLimitStageFromSource(const RGYFilterParamKfm& p
             ? wait_events
             : (prevEvent() != nullptr ? std::vector<RGYOpenCLEvent>{ prevEvent } : std::vector<RGYOpenCLEvent>());
         RGYOpenCLEvent planeEvent;
-        auto err = m_programs[KFM_PROG_UCF].get()->kernel("kernel_kfm_ucf_source_crop_noise_limit").config(queue, RGYWorkSize(32, 16), RGYWorkSize(dst.width, dst.height), waitHere, &planeEvent).launch(
+        auto err = m_programs[KFM_PROG_UCF].get()->kernel("kernel_kfm_ucf_source_crop_noise_limit").config(queue, RGYWorkSize(32, 8), RGYWorkSize(dst.width, dst.height), waitHere, &planeEvent).launch(
             (cl_mem)dst.ptr[0], dst.pitch[0],
             (cl_mem)src.ptr[0], src.pitch[0],
             (cl_mem)noise.ptr[0], noise.pitch[0],
@@ -2112,7 +2112,7 @@ RGY_ERR RGYFilterKfm::runUcfNoiseLimitStage(const RGYFilterParamKfm& prm, const 
             ? wait_events
             : (prevEvent() != nullptr ? std::vector<RGYOpenCLEvent>{ prevEvent } : std::vector<RGYOpenCLEvent>());
         RGYOpenCLEvent planeEvent;
-        auto err = m_programs[KFM_PROG_UCF].get()->kernel("kernel_kfm_ucf_noise_limit").config(queue, RGYWorkSize(32, 16), RGYWorkSize(dst.width, dst.height), waitHere, &planeEvent).launch(
+        auto err = m_programs[KFM_PROG_UCF].get()->kernel("kernel_kfm_ucf_noise_limit").config(queue, RGYWorkSize(32, 8), RGYWorkSize(dst.width, dst.height), waitHere, &planeEvent).launch(
             (cl_mem)dst.ptr[0], dst.pitch[0],
             (cl_mem)src.ptr[0], src.pitch[0],
             (cl_mem)noise.ptr[0], noise.pitch[0],
@@ -3045,7 +3045,7 @@ RGY_ERR RGYFilterKfm::submitFMCounts(int cycle, bool drain, RGYOpenCLQueue &queu
             const int threshShima = chroma ? KFM_THRESH_SHIMA_C : KFM_THRESH_SHIMA_Y;
             const int cleanThresh = chroma ? KFM_CLEAN_THRESH_C : KFM_CLEAN_THRESH_Y;
             RGYOpenCLEvent countEvent;
-            RGYWorkSize countLocal(32, 16);
+            RGYWorkSize countLocal(32, 8);
             RGYWorkSize countGlobal(gridWidth - 1, gridHeight - 1);
             if (useFusedFMCount) {
                 std::vector<RGYOpenCLEvent> countWaitEvents;
@@ -3802,7 +3802,7 @@ RGY_ERR RGYFilterKfm::clearStaticFlag(RGYOpenCLQueue &queue, const std::vector<R
             ? wait_events
             : (prevEvent() != nullptr ? std::vector<RGYOpenCLEvent>{ prevEvent } : std::vector<RGYOpenCLEvent>());
         RGYOpenCLEvent planeEvent;
-        RGYWorkSize local(32, 16);
+        RGYWorkSize local(32, 8);
         RGYWorkSize global(plane.width, plane.height);
         auto err = m_programs[KFM_PROG_STATIC].get()->kernel("kernel_kfm_zero").config(queue, local, global, waitHere, &planeEvent).launch(
             (cl_mem)plane.ptr[0], plane.pitch[0],
@@ -3884,7 +3884,7 @@ RGY_ERR RGYFilterKfm::analyzeStaticFlag(int sourceIndex, RGYOpenCLQueue &queue, 
                 ? waits
                 : (prevEvent() != nullptr ? std::vector<RGYOpenCLEvent>{ prevEvent } : std::vector<RGYOpenCLEvent>());
             RGYOpenCLEvent planeEvent;
-            RGYWorkSize local(32, 16);
+            RGYWorkSize local(32, 8);
             RGYWorkSize global(width4, dst.height);
             auto err = m_programs[KFM_PROG_STATIC].get()->kernel("kernel_kfm_calc_combe").config(queue, local, global, waitHere, &planeEvent).launch(
                 (cl_mem)dst.ptr[0], dst.pitch[0],
@@ -3932,7 +3932,7 @@ RGY_ERR RGYFilterKfm::analyzeStaticFlag(int sourceIndex, RGYOpenCLQueue &queue, 
                 ? waits
                 : (prevEvent() != nullptr ? std::vector<RGYOpenCLEvent>{ prevEvent } : std::vector<RGYOpenCLEvent>());
             RGYOpenCLEvent planeEvent;
-            RGYWorkSize local(32, 16);
+            RGYWorkSize local(32, 8);
             RGYWorkSize global(width4, dst.height);
             auto err = m_programs[KFM_PROG_STATIC].get()->kernel("kernel_kfm_temporal_min_diff5_3").config(queue, local, global, waitHere, &planeEvent).launch(
                 (cl_mem)dst.ptr[0], dst.pitch[0],
@@ -3967,7 +3967,7 @@ RGY_ERR RGYFilterKfm::analyzeStaticFlag(int sourceIndex, RGYOpenCLQueue &queue, 
         const auto u = getPlane(frame, RGY_PLANE_U);
         const auto v = getPlane(frame, RGY_PLANE_V);
         RGYOpenCLEvent mergeEvent;
-        RGYWorkSize local(32, 16);
+        RGYWorkSize local(32, 8);
         RGYWorkSize global(y.width, y.height);
         auto err = m_programs[KFM_PROG_STATIC].get()->kernel("kernel_kfm_merge_uv_coefs").config(queue, local, global, waits, &mergeEvent).launch(
             (cl_mem)y.ptr[0], y.pitch[0],
@@ -3987,7 +3987,7 @@ RGY_ERR RGYFilterKfm::analyzeStaticFlag(int sourceIndex, RGYOpenCLQueue &queue, 
         const auto src = getPlane(srcFrame, RGY_PLANE_Y);
         const int width4 = dst.width >> 2;
         RGYOpenCLEvent extendEvent;
-        RGYWorkSize local(32, 16);
+        RGYWorkSize local(32, 8);
         RGYWorkSize global(width4, dst.height);
         auto err = m_programs[KFM_PROG_STATIC].get()->kernel("kernel_kfm_extend_coefs").config(queue, local, global, waits, &extendEvent).launch(
             (cl_mem)dst.ptr[0], dst.pitch[0],
@@ -4050,7 +4050,7 @@ RGY_ERR RGYFilterKfm::analyzeStaticFlag(int sourceIndex, RGYOpenCLQueue &queue, 
         andWaitEvents.push_back(flagdEvent);
     }
     RGYOpenCLEvent andEvent;
-    RGYWorkSize local(32, 16);
+    RGYWorkSize local(32, 8);
     RGYWorkSize global(flagcY.width >> 2, flagcY.height);
     auto err = m_programs[KFM_PROG_STATIC].get()->kernel("kernel_kfm_and_coefs").config(queue, local, global, andWaitEvents, &andEvent).launch(
         (cl_mem)flagcY.ptr[0], flagcY.pitch[0],
@@ -4109,7 +4109,7 @@ RGY_ERR RGYFilterKfm::mergeStatic(RGYFrameInfo *pOutputFrame, const RGYFrameInfo
             ? wait_events
             : (prevEvent() != nullptr ? std::vector<RGYOpenCLEvent>{ prevEvent } : std::vector<RGYOpenCLEvent>());
         RGYOpenCLEvent planeEvent;
-        RGYWorkSize local(32, 16);
+        RGYWorkSize local(32, 8);
         RGYWorkSize global(width4, dst.height);
         auto err = m_programs[KFM_PROG_STATIC].get()->kernel("kernel_kfm_merge_static").config(queue, local, global, waitHere, &planeEvent).launch(
             (cl_mem)dst.ptr[0], dst.pitch[0],
@@ -4189,7 +4189,7 @@ RGY_ERR RGYFilterKfm::renderTelecine24(RGYFrameInfo *pOutputFrame, int frame24In
             ? sourceWaitEvents
             : (prevEvent() != nullptr ? std::vector<RGYOpenCLEvent>{ prevEvent } : std::vector<RGYOpenCLEvent>());
         RGYOpenCLEvent planeEvent;
-        RGYWorkSize local(32, 16);
+        RGYWorkSize local(32, 8);
         RGYWorkSize global(dst.width, dst.height);
         auto err = m_programs[KFM_PROG_RENDER].get()->kernel("kernel_kfm_telecine_weave").config(queue, local, global, waitHere, &planeEvent).launch(
             (cl_mem)dst.ptr[0], dst.pitch[0],
@@ -4290,7 +4290,7 @@ RGY_ERR RGYFilterKfm::renderDoubleWeaveFrame(RGYFrameInfo *pOutputFrame, int fir
             ? sourceWaitEvents
             : (prevEvent() != nullptr ? std::vector<RGYOpenCLEvent>{ prevEvent } : std::vector<RGYOpenCLEvent>());
         RGYOpenCLEvent planeEvent;
-        RGYWorkSize local(32, 16);
+        RGYWorkSize local(32, 8);
         RGYWorkSize global(dst.width, dst.height);
         auto err = m_programs[KFM_PROG_RENDER].get()->kernel("kernel_kfm_telecine_weave").config(queue, local, global, waitHere, &planeEvent).launch(
             (cl_mem)dst.ptr[0], dst.pitch[0],
@@ -4688,7 +4688,7 @@ RGY_ERR RGYFilterKfm::removeCombeFields(RGYFrameInfo *pOutputFrame, const RGYFra
             ? sourceWaitEvents
             : (prevEvent() != nullptr ? std::vector<RGYOpenCLEvent>{ prevEvent } : std::vector<RGYOpenCLEvent>());
         RGYOpenCLEvent planeEvent;
-        RGYWorkSize local(32, 16);
+        RGYWorkSize local(32, 8);
         RGYWorkSize global(dst.width, dst.height);
         const bool chroma = iplane > 0;
         const int threshold = (chroma ? KFM_REMOVE_COMBE_THRESH_C : KFM_REMOVE_COMBE_THRESH_Y) * kfmDepthScale(dst.csp);
@@ -4765,7 +4765,7 @@ RGY_ERR RGYFilterKfm::patchCombe(RGYFrameInfo *pOutputFrame, const RGYFrameInfo 
             ? wait_events
             : (prevEvent() != nullptr ? std::vector<RGYOpenCLEvent>{ prevEvent } : std::vector<RGYOpenCLEvent>());
         RGYOpenCLEvent planeEvent;
-        RGYWorkSize local(32, 16);
+        RGYWorkSize local(32, 8);
         RGYWorkSize global(dst.width, dst.height);
         auto err = m_programs[KFM_PROG_SWITCH].get()->kernel("kernel_kfm_patch_combe").config(queue, local, global, waitHere, &planeEvent).launch(
             (cl_mem)dst.ptr[0], dst.pitch[0],

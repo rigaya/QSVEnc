@@ -48,6 +48,23 @@ static constexpr std::array<RGYNnediNSizeDesc, 7> NNEDI_NSIZE_DESC = {
 static constexpr std::array<int, 5> NNEDI_NNS_VALUE = { 16, 32, 64, 128, 256 };
 static const TCHAR *NNEDI_DEFAULT_WEIGHT_FILE = _T("nnedi3_weights.bin");
 
+struct RGYNnediWorkGroup {
+    int tileGroupsX;
+    int tileRows;
+    int predLocalX;
+    int predLocalY;
+};
+
+static constexpr RGYNnediWorkGroup NNEDI_WORKGROUP_DEFAULT = { 32, 16, 16, 32 };
+static constexpr RGYNnediWorkGroup NNEDI_WORKGROUP_256 = { 32, 8, 16, 16 };
+
+static RGYNnediWorkGroup nnediWorkGroupForDevice(cl_device_id devid) {
+    const auto maxWorkGroupSize = RGYOpenCLDevice(devid).info().max_work_group_size;
+    return (maxWorkGroupSize > 0 && maxWorkGroupSize < (size_t)(NNEDI_WORKGROUP_DEFAULT.tileGroupsX * NNEDI_WORKGROUP_DEFAULT.tileRows))
+        ? NNEDI_WORKGROUP_256
+        : NNEDI_WORKGROUP_DEFAULT;
+}
+
 struct RGYNnediPlaneValueRange {
     int planeRangeMode;
     int valMin;
@@ -244,6 +261,10 @@ RGYFilterNnedi::RGYFilterNnedi(shared_ptr<RGYOpenCLContext> context) :
     m_predictorWeightBuf(),
     m_workNNBuf(),
     m_numBlocksBuf(),
+    m_tileGroupsX(NNEDI_WORKGROUP_DEFAULT.tileGroupsX),
+    m_tileRows(NNEDI_WORKGROUP_DEFAULT.tileRows),
+    m_predLocalX(NNEDI_WORKGROUP_DEFAULT.predLocalX),
+    m_predLocalY(NNEDI_WORKGROUP_DEFAULT.predLocalY),
     m_defaultTff(true) {
     m_name = _T("nnedi");
 }
@@ -451,13 +472,22 @@ RGY_ERR RGYFilterNnedi::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
     }
 
     const auto &layout = m_transformedWeights.layout;
+    const auto workGroup = nnediWorkGroupForDevice(m_cl->queue().devid());
+    m_tileGroupsX = workGroup.tileGroupsX;
+    m_tileRows = workGroup.tileRows;
+    m_predLocalX = workGroup.predLocalX;
+    m_predLocalY = workGroup.predLocalY;
     const auto typeName = (bitDepth > 8) ? "ushort" : "uchar";
     m_nnediBuildOptions = strsprintf("-D Type=%s -D Type2=%s2 -D Type4=%s4 -D Type8=%s8 -D NNEDI_BIT_DEPTH=%d"
         " -D NNEDI_PRED_XDIA=%d"
         " -D NNEDI_PRED_YDIA=%d"
         " -D NNEDI_PRED_K=%d"
         " -D NNEDI_PRED_NNS=%d"
-        " -D NNEDI_PRED_QUAL=%d",
+        " -D NNEDI_PRED_QUAL=%d"
+        " -D NNEDI_TILE_GROUPS_X=%d"
+        " -D NNEDI_TILE_ROWS=%d"
+        " -D NNEDI_PRED_LOCAL_X=%d"
+        " -D NNEDI_PRED_LOCAL_Y=%d",
         typeName,
         typeName,
         typeName,
@@ -467,7 +497,11 @@ RGY_ERR RGYFilterNnedi::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
         layout.ydia,
         layout.xdia * layout.ydia,
         layout.neurons,
-        (int)prm->nnedi.quality);
+        (int)prm->nnedi.quality,
+        m_tileGroupsX,
+        m_tileRows,
+        m_predLocalX,
+        m_predLocalY);
     m_nnediPredictorSubgroupSize = 0;
     AddMessage(RGY_LOG_DEBUG, _T("Starting async build for RGY_FILTER_NNEDI_CL: %s\n"),
         char_to_tstring(m_nnediBuildOptions).c_str());
@@ -514,8 +548,8 @@ RGY_ERR RGYFilterNnedi::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
         maxWidth4 = std::max(maxWidth4, (plane.width + 3) >> 2);
         maxHeight = std::max(maxHeight, plane.height >> 1);
     }
-    const int preBlockW = 32;
-    const int preBlockH = 16;
+    const int preBlockW = m_tileGroupsX;
+    const int preBlockH = m_tileRows;
     const int blocksX = (maxWidth4 + preBlockW - 1) / preBlockW;
     const int blocksY = (maxHeight + preBlockH - 1) / preBlockH;
     const size_t numBlocks = std::max(1, blocksX * blocksY);
@@ -664,8 +698,9 @@ RGY_ERR RGYFilterNnedi::classifyPixelsAndSeedOutput(const RGYFrameInfo *pInputFr
         const int height = dstPlane.height >> 1;
         const auto valueRange = nnediPlaneValueRange(prm->nnedi.clamp, pInputFrame->csp, (RGY_PLANE)iplane, RGY_CSP_BIT_DEPTH[pInputFrame->csp]);
 
-        RGYWorkSize local(32, 16);
-        RGYWorkSize global(((width4 + 31) / 32) * 32, ((height + 15) / 16) * 16);
+        RGYWorkSize local(m_tileGroupsX, m_tileRows);
+        RGYWorkSize global(((width4 + m_tileGroupsX - 1) / m_tileGroupsX) * m_tileGroupsX,
+            ((height + m_tileRows - 1) / m_tileRows) * m_tileRows);
         const auto &waitHere = (iplane == firstEnabledPlane) ? wait_events : std::vector<RGYOpenCLEvent>();
         auto err = m_nnedi.get()->kernel("kernel_nnedi_prescreen_cubic").config(queue, local, global, waitHere, (iplane == lastEnabledPlane) ? event : nullptr).launch(
             (cl_mem)dstPlane.ptr[0], dstPlane.pitch[0] * 2, (int)dstOffset,
@@ -703,7 +738,7 @@ RGY_ERR RGYFilterNnedi::resolveClassifiedPixels(const RGYFrameInfo *pInputFrame,
     const int firstEnabledPlane = nnediFindEnabledPlane(prm->nnedi, pInputFrame->csp);
     const int lastEnabledPlane = nnediFindEnabledPlane(prm->nnedi, pInputFrame->csp, true);
     const auto kernelName = "kernel_nnedi_predictor_network";
-    RGYWorkSize local(16, 32);
+    RGYWorkSize local(m_predLocalX, m_predLocalY);
     if (m_nnediPredictorSubgroupSize == 0) {
         const auto subgroupSize = (int)nnediProgram->kernel(kernelName).config(queue, local, local).subGroupSize();
         if (subgroupSize == 16 || subgroupSize == 32) {
@@ -750,7 +785,8 @@ RGY_ERR RGYFilterNnedi::resolveClassifiedPixels(const RGYFrameInfo *pInputFrame,
         const int height = dstPlane.height >> 1;
         const auto valueRange = nnediPlaneValueRange(prm->nnedi.clamp, pInputFrame->csp, (RGY_PLANE)iplane, RGY_CSP_BIT_DEPTH[pInputFrame->csp]);
 
-        RGYWorkSize global(((width4 + 31) / 32) * 16, ((height + 15) / 16) * 32);
+        RGYWorkSize global(((width4 + m_tileGroupsX - 1) / m_tileGroupsX) * m_predLocalX,
+            ((height + m_tileRows - 1) / m_tileRows) * m_predLocalY);
         const auto &waitHere = (iplane == firstEnabledPlane) ? wait_events : std::vector<RGYOpenCLEvent>();
         auto err = nnediProgram->kernel(kernelName).config(queue, local, global, waitHere, (iplane == lastEnabledPlane) ? event : nullptr).launch(
             (cl_mem)dstPlane.ptr[0], dstPlane.pitch[0] * 2, (int)dstOffset,
@@ -835,5 +871,9 @@ void RGYFilterNnedi::close() {
     m_predictorWeightBuf.reset();
     m_workNNBuf.clear();
     m_numBlocksBuf.clear();
+    m_tileGroupsX = NNEDI_WORKGROUP_DEFAULT.tileGroupsX;
+    m_tileRows = NNEDI_WORKGROUP_DEFAULT.tileRows;
+    m_predLocalX = NNEDI_WORKGROUP_DEFAULT.predLocalX;
+    m_predLocalY = NNEDI_WORKGROUP_DEFAULT.predLocalY;
     m_frameBuf.clear();
 }

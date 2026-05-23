@@ -111,5 +111,9 @@ protected:
     std::unique_ptr<RGYCLBuf> m_predictorWeightBuf;
     std::vector<std::unique_ptr<RGYCLBuf>> m_workNNBuf;
     std::vector<std::unique_ptr<RGYCLBuf>> m_numBlocksBuf;
+    int m_tileGroupsX;
+    int m_tileRows;
+    int m_predLocalX;
+    int m_predLocalY;
     bool m_defaultTff;
 };
