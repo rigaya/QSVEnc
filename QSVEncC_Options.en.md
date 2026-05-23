@@ -2305,7 +2305,7 @@ nnedi deinterlacer.
   - `prescreen=0/1` is currently unsupported.
 
 ### --vpp-rtgmc [&lt;param1&gt;=&lt;value1&gt;]
-High quality deinterlacer. Independent implementation of QTGMC algorithm in OpenCL.
+High quality QTGMC deinterlacer with relaxed implementation for GPU.
 
 - **major parameters**
 
