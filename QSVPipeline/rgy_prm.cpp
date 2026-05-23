@@ -1170,8 +1170,8 @@ tstring VppAfs::print() const {
 
 VppNnedi::VppNnedi() :
     enable(false),
-    field(VPP_NNEDI_FIELD_BOB),
-    nsize(VPP_NNEDI_NSIZE_16x6),
+    field(VPP_NNEDI_FIELD_AUTO),
+    nsize(VPP_NNEDI_NSIZE_32x4),
     nns(32),
     quality(VPP_NNEDI_QUALITY_FAST),
     prescreen(2),

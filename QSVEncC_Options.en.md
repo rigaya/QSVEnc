@@ -2275,10 +2275,10 @@ nnedi deinterlacer.
 - **parameters**
 
   - field=&lt;string&gt;  
-    Target field selector. `bob` (default), `auto`, `top`, `bottom`, `bob_tff`, `bob_bff`.
+    Target field selector. `bob`, `auto` (default), `top`, `bottom`, `bob_tff`, `bob_bff`.
 
   - nsize=&lt;string&gt;  
-    Neighborhood size. `8x6`, `16x6` (default), `32x6`, `48x6`, `8x4`, `16x4`, `32x4`.
+    Neighborhood size. `8x6`, `16x6`, `32x6`, `48x6`, `8x4`, `16x4`, `32x4` (default).
 
   - nns=&lt;int&gt;  
     Neuron count. `16`, `32` (default), `64`, `128`, `256`.
