@@ -651,7 +651,17 @@ void RGYOpenCLPerfCollector::writeMetaJson(const std::string& path) {
     }
 
     ofs << "{\n";
-    ofs << "  \"encoder\":\"QSVEncC\",\n";
+    ofs << "  \"encoder\":\""
+#if ENCODER_QSV
+        "QSVEncC"
+#elif ENCODER_VCEENC
+        "VCEEncC"
+#elif ENCODER_MPP
+        "rkmppenc"
+#else
+        "unknown"
+#endif
+        "\",\n";
     ofs << "  \"timestamp\":\"" << get_timestamp() << "\",\n";
     ofs << "  \"device_name\":\"" << json_escape(device_name) << "\",\n";
     ofs << "  \"driver_version\":\"" << json_escape(driver_version) << "\",\n";
