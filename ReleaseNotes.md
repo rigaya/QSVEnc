@@ -3,15 +3,16 @@
 ## 8.13
 
 - Add [--vpp-kfm](./QSVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) adaptive inverse telecine filter for 24/30/60 mixed VFR output.
-- Add [--vpp-rtgmc](./QSVEncC_Options.en.md#--vpp-rtgmc-param1value1) high quality deinterlacer (QTGMC-equivalent).
+- Add [--vpp-rtgmc](./QSVEncC_Options.en.md#--vpp-rtgmc-param1value1) high quality deinterlacer.
 - Add [--vpp-degrain](./QSVEncC_Options.en.md#--vpp-degrain-param1value1) motion compensated degrain filter.
 - Add gauss mode to [--vpp-resize](./QSVEncC_Options.en.md#--vpp-resize-string).
 - Add [--vpp-deint-csp](./QSVEncC_Options.en.md#--vpp-deint-csp-string) to specify CSP for deinterlace filters.
-- Update [--vpp-nnedi](./QSVEncC_Options.en.md#--vpp-nnedi-param1value1param2value2) with completely new implementation, which allows higher performance.
+- Update [--vpp-nnedi](./QSVEncC_Options.en.md#--vpp-nnedi-param1value1param2value2) with new implementation, which allows higher performance.
   - Please note that `prescreen` option values have now changed due to this update.
 - Add [--cl-perf-dump](./QSVEncC_Options.en.md#--cl-perf-dump-dir) to dump OpenCL kernel performance and auto-generate report.
 - Add [--ocloc-path](./QSVEncC_Options.en.md#--ocloc-path-path) which can be used to set ocloc path for which can be used for generating disasm when using [--cl-perf-dump](./QSVEncC_Options.en.md#--cl-perf-dump-dir).
 - Improve OpenCL filter pipeline (required frame count, kernel routines).
+- Avoid GPU hand when using HEVC + Bframes + LookaheadDepth with Intel Graphics Driver 32.0.101.8801.
 - Add QSVEnc.auo settings for new VPP filters.
 
 ## 8.12
