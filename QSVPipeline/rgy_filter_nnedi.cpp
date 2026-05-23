@@ -822,7 +822,26 @@ RGY_ERR RGYFilterNnedi::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
     }
 
     const bool doubleHeight = prm->nnedi.doubleHeight;
+    const bool autoField = prm->nnedi.field == VPP_NNEDI_FIELD_AUTO || prm->nnedi.field == VPP_NNEDI_FIELD_BOB;
     const int outputFrames = topology.frameMultiplier;
+    if (!doubleHeight && autoField && (pInputFrame->picstruct & RGY_PICSTRUCT_INTERLACED) == 0) {
+        for (int i = 0; i < outputFrames; i++) {
+            auto pOut = &m_frameBuf[i]->frame;
+            err = m_cl->copyFrame(pOut, pInputFrame, nullptr, queue, (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>(), (i == outputFrames - 1) ? event : nullptr, RGYFrameCopyMode::FRAME, "nnedi.progressive_passthrough");
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to copy progressive NNEDI passthrough frame %d: %s.\n"), i, get_err_mes(err));
+                return err;
+            }
+            copyFramePropWithoutRes(pOut, pInputFrame);
+            pOut->picstruct = RGY_PICSTRUCT_FRAME;
+            ppOutputFrames[i] = pOut;
+        }
+        *pOutputFrameNum = outputFrames;
+        if (topology.doubleRate) {
+            setDoubleRateTimestamp(pInputFrame, ppOutputFrames);
+        }
+        return RGY_ERR_NONE;
+    }
     for (int i = 0; i < outputFrames; i++) {
         if (!doubleHeight) {
             err = m_cl->copyFrame(&m_frameBuf[i]->frame, pInputFrame, nullptr, queue, (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>(), nullptr, RGYFrameCopyMode::FRAME, "nnedi.output_init_copy");
