@@ -745,6 +745,16 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         default:             pInParams->GopRefDist = QSV_DEFAULT_H264_GOP_REF_DIST; break;
         }
     }
+#if defined(_WIN32) || defined(_WIN64)
+    // Intel Graphics Driver 32.0.101.8801でHEVC + Bframes + LookaheadDepthがGPU hangする問題の回避。
+    if (pInParams->codec == RGY_CODEC_HEVC
+        && pInParams->GopRefDist > 1 // Bframes > 0
+        && pInParams->nLookaheadDepth > 0) {
+        PrintMes(RGY_LOG_WARN, _T("HEVC encoding with B frames and LookaheadDepth on Windows might cause GPU hang with some Intel graphics drivers.\n"));
+        PrintMes(RGY_LOG_WARN, _T("LookaheadDepth will be disabled. If LookaheadDepth is required, try --bframes 0 and verify the result.\n"));
+        pInParams->nLookaheadDepth = 0;
+    }
+#endif
     //その他機能のチェック
     if (pInParams->bAdaptiveI.value_or(false) && !(availableFeaures & ENC_FEATURE_ADAPTIVE_I)) {
         PrintMes(RGY_LOG_WARN, _T("Adaptve I-frame insert is not supported on current platform, disabled.\n"));
