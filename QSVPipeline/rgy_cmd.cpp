@@ -5905,7 +5905,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             return 0;
         }
         i++;
-        const auto paramList = std::vector<std::string>{ "strength", "threshold", "slope", "luma_limit", "highq", "mask" };
+        const auto paramList = std::vector<std::string>{ "strength", "threshold", "highq", "mask" };
         for (const auto& param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
             if (pos != std::string::npos) {
@@ -6836,7 +6836,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             return 0;
         }
         i++;
-        const auto paramList = std::vector<std::string>{ "strength", "threshold", "highq", "mask" };
+        const auto paramList = std::vector<std::string>{ "strength", "threshold", "slope", "luma_limit", "highq", "mask" };
         for (const auto& param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
             if (pos != std::string::npos) {
