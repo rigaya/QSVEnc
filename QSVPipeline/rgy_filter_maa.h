@@ -139,9 +139,7 @@ protected:
     std::unique_ptr<RGYFilter> m_resizeUpLuma;
     std::unique_ptr<RGYFilter> m_resizeDownLuma;
 
-    // Intermediate frame buffers used by the MAA pipeline. Allocated lazily
-    // in init() so subsequent prompts can populate the AA pass without
-    // touching this skeleton's wiring.
+    // Intermediate frame buffers used by the MAA pipeline. Allocated in init().
     //   m_supersampled  — output of m_resizeUp (ssW × ssH, upright)
     //   m_rotated       — supersampled + 90° turn-left (ssH × ssW)
     //   m_rotatedAA     — m_rotated after one SangNom pass (ssH × ssW)
@@ -197,6 +195,12 @@ protected:
     float m_aaf;
     float m_aacf;
     int   m_mthreshScaled;
+
+    // Resolved edge-operator kernel name (one of "maa_edge_sobel",
+    // "maa_edge_prewitt", "maa_edge_sobel_full", "maa_edge_scharr",
+    // "maa_edge_kirsch", "maa_edge_laplacian"). Set in init() from
+    // prm->maa.edge; consumed by runEdgeSobel().
+    std::string m_edgeKernelName;
 };
 
 #endif // __RGY_FILTER_MAA_H__

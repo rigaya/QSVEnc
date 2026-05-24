@@ -107,6 +107,16 @@ RGY_ERR RGYFilterMaa::checkParam(const std::shared_ptr<RGYFilterParamMaa> prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid show=%d: must be in [0, 2].\n"), prm->maa.show);
         return RGY_ERR_INVALID_PARAM;
     }
+    if (prm->maa.edge != _T("sobel")
+        && prm->maa.edge != _T("prewitt")
+        && prm->maa.edge != _T("sobel_full")
+        && prm->maa.edge != _T("scharr")
+        && prm->maa.edge != _T("kirsch")
+        && prm->maa.edge != _T("laplacian")) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid edge=%s: must be sobel|prewitt|sobel_full|scharr|kirsch|laplacian.\n"),
+            prm->maa.edge.c_str());
+        return RGY_ERR_INVALID_PARAM;
+    }
     return RGY_ERR_NONE;
 }
 
@@ -122,6 +132,16 @@ RGY_ERR RGYFilterMaa::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog>
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
+
+    // Resolve edge operator → kernel name. edge=sobel keeps the existing
+    // simplified 4-tap kernel (backward compat). The other operators were
+    // added later as opt-in alternatives.
+    if      (prm->maa.edge == _T("sobel"))      m_edgeKernelName = "maa_edge_sobel";
+    else if (prm->maa.edge == _T("prewitt"))    m_edgeKernelName = "maa_edge_prewitt";
+    else if (prm->maa.edge == _T("sobel_full")) m_edgeKernelName = "maa_edge_sobel_full";
+    else if (prm->maa.edge == _T("scharr"))     m_edgeKernelName = "maa_edge_scharr";
+    else if (prm->maa.edge == _T("kirsch"))     m_edgeKernelName = "maa_edge_kirsch";
+    else if (prm->maa.edge == _T("laplacian"))  m_edgeKernelName = "maa_edge_laplacian";
 
     // MAA is single-frame: 1 output per input, frame-rate preserved, no
     // picstruct/timestamp ownership change. Leave m_pathThrough as-is so
@@ -144,9 +164,7 @@ RGY_ERR RGYFilterMaa::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog>
     m_aacf          = (float)prm->maa.aac * (float)peak / 256.0f;
     m_mthreshScaled = prm->maa.mthresh * peak / 255;
 
-    // (Re)build the OpenCL program when bit-depth changes. The .cl is
-    // currently empty; this wiring is in place so subsequent prompts can
-    // add kernels without touching init().
+    // (Re)build the OpenCL program when bit-depth changes.
     auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamMaa>(m_param);
     if (!prmPrev
         || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]) {
@@ -253,8 +271,7 @@ RGY_ERR RGYFilterMaa::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog>
         }
     }
 
-    // Allocate intermediate frame buffers. Subsequent prompts will populate
-    // them via the AA kernels; for now they exist so the wiring is testable.
+    // Allocate intermediate frame buffers for the AA pipeline.
     {
         RGYFrameInfo ssInfo = prm->frameIn;
         ssInfo.width  = m_ssW;
@@ -494,14 +511,15 @@ RGY_ERR RGYFilterMaa::runEdgeSobel(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
     const auto dP = getPlane(pDst, RGY_PLANE_Y);
     RGYWorkSize local(MAA_BLOCK_X, MAA_BLOCK_Y);
     RGYWorkSize global(sP.width, sP.height);
-    auto err = m_maa.get()->kernel("maa_edge_sobel")
+    auto err = m_maa.get()->kernel(m_edgeKernelName.c_str())
         .config(queue, local, global, wait_events, nullptr).launch(
             (cl_mem)sP.ptr[0], sP.pitch[0],
             (cl_mem)dP.ptr[0], dP.pitch[0],
             sP.width, sP.height,
             mthreshScaled);
     if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("error at maa_edge_sobel: %s.\n"), get_err_mes(err));
+        AddMessage(RGY_LOG_ERROR, _T("error at %s: %s.\n"),
+            char_to_tstring(m_edgeKernelName).c_str(), get_err_mes(err));
     }
     return err;
 }
@@ -667,14 +685,14 @@ RGY_ERR RGYFilterMaa::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
 
     // ============== AA PIPELINE ==============
     //
-    // Stages 1-6 (per Prompt 2) lift the input to ssW×ssH, run two
-    // SangNom2 passes (one per axis, with FTurn between them), and
-    // resize back down. With chroma=true the SangNom passes also run
-    // on the U and V planes using the chroma threshold m_aacf; with
-    // chroma=false the chroma planes are NOT processed in the AA
-    // pipeline at all (luma-only resize / 1-plane FTurn / no chroma
-    // copyFrame) — the chroma output planes are filled by the
-    // final input→output copyPlane step in stages 7c/7e/8.
+    // Lift the input to ssW x ssH, run two SangNom2 passes (one per
+    // axis, with FTurn between them), and resize back down. With
+    // chroma=true the SangNom passes also run on the U and V planes
+    // using the chroma threshold m_aacf; with chroma=false the chroma
+    // planes are NOT processed in the AA pipeline at all (luma-only
+    // resize / 1-plane FTurn / no chroma copyFrame) -- the chroma
+    // output planes are filled by the final input -> output copyPlane
+    // step at the bottom of run_filter.
 
     // ---- 1. Resize up: source resolution → ssW × ssH ----
     RGYFrameInfo *pSupersampled = &m_supersampled->frame;

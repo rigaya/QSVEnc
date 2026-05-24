@@ -339,6 +339,41 @@ __kernel void maa_sangnom_smooth_3d(
 // Status: NOT WIRED. Built into the program but not dispatched. Kept as a
 // candidate optimisation behind profiler data.
 //
+// Measured (Arc A770, --vpp-perf-monitor, --trim 0:500) at every
+// resolution that meaningfully exercises this pipeline:
+//
+//   Resolution  Pixels   global us   SLM us    delta
+//   640x480     307K     840         ~1490     +75%   (SD anime DVD source)
+//   1280x720    922K     2560        ~4500     +75%   (HD test source)
+//   1920x1080   2074K    5593        ~9800     +75%   (HD test source)
+//   3840x2160   8294K    23346       ~40900    +75%   (upscaled to 4K)
+//
+// The slowdown is consistently ~75% across all four resolutions; the
+// SLM variant never wins. The bandwidth-math hypothesis at the bottom
+// of this comment ("21 global reads collapse to ~1.5 via SLM") does
+// not predict real performance because on Arc A770 those 21 reads
+// are L2 hits even at 4K -- the per-frame working set of the 3x7
+// stencil stays inside the 16 MB L2 at every tested resolution. The
+// cooperative tile load + workgroup barrier overhead added by SLM
+// costs more than the L2 reads it replaces, at every scale we can
+// test on this device.
+//
+// FineDehalo and HQDering edge kernels were tested with the same
+// SLM-vs-global swap across the same four resolutions:
+//   FineDehalo: indistinguishable from baseline at all resolutions.
+//   HQDering: +12% at 480p, growing to +31% at 4K (the small SLM
+//             overhead becomes a larger share of the kernel's total
+//             work as resolution increases).
+//
+// Conclusion: SLM tile-load is the wrong optimisation for this
+// hardware on neighbourhood operators with this working-set size.
+// Re-evaluate only on devices with a substantially smaller L2 (so
+// L2 misses actually dominate the global path), or for operators
+// with neighbourhoods large enough that the unique pixel footprint
+// of a workgroup exceeds the L2 budget. float4 vectorisation was
+// also skipped on the same reasoning -- with reads hitting L2,
+// load width is not the bottleneck either.
+//
 // Design rationale: the existing maa_sangnom_smooth_3d issues 21 global-
 // memory loads per work-item (3-row × 7-col stencil) for the read side.
 // Within a workgroup, neighbouring work-items overlap by 6 columns and 2
@@ -346,7 +381,7 @@ __kernel void maa_sangnom_smooth_3d(
 // (BX + 6) × (BY + 2). For (32, 8) that is 38 × 10 = 380 unique reads
 // vs 256 × 21 = 5376 redundant reads — about 14× more global traffic
 // than necessary. Loading once into __local then computing from there
-// should significantly reduce DRAM bandwidth.
+// should significantly reduce DRAM bandwidth (only when L2 misses).
 //
 // Local-memory cost per workgroup (one slice at a time, since z is
 // fixed per workgroup in the 3-D dispatch):
@@ -609,6 +644,121 @@ __kernel void maa_edge_sobel(
 
     const int edge = abs((right + below) - (left + above)) >> 1;
     dstPix[0] = (Type)((edge >= mthresh) ? max_val : 0);
+}
+
+// =============================================================================
+// Alternative edge operators (opt-in via --vpp-maa edge=...).
+// All produce a hard-thresholded binary mask in [0, max_val] using the same
+// `mthresh` parameter as the default 4-tap Sobel above.
+//
+// Each operator normalises its raw gradient magnitude to ~[0, max_val] so
+// that `mthresh` has consistent meaning regardless of which operator is
+// selected. Normalisation factors are documented inline.
+//
+// L1 magnitude (|gx|+|gy|) is used instead of L2 sqrt for speed; threshold
+// behaviour is equivalent in practice for hard-threshold edge masks.
+// =============================================================================
+
+// Helper: load the 3x3 neighbourhood with clamped border reads.
+// Returns the eight neighbours via output parameter pointers; centre returned
+// directly. Border pixels match maa_edge_sobel's pass-through behaviour: we
+// only call this for interior pixels.
+#define MAA_EDGE_BORDER_PASSTHROUGH                                          \
+    if (x >= width || y >= height) return;                                   \
+    __global Type *dstPix = (__global Type *)(pDst + y * dstPitch + x * sizeof(Type));  \
+    if (x < 1 || y < 1 || x >= width - 1 || y >= height - 1) {               \
+        dstPix[0] = (Type)0;                                                 \
+        return;                                                              \
+    }                                                                        \
+    const __global Type *rowT = (const __global Type *)(pSrc + (y - 1) * srcPitch);  \
+    const __global Type *rowM = (const __global Type *)(pSrc +  y      * srcPitch);  \
+    const __global Type *rowB = (const __global Type *)(pSrc + (y + 1) * srcPitch);  \
+    const int tl = (int)rowT[x - 1], tc = (int)rowT[x], tr = (int)rowT[x + 1]; \
+    const int cl = (int)rowM[x - 1], cc = (int)rowM[x], cr = (int)rowM[x + 1]; \
+    const int bl = (int)rowB[x - 1], bc = (int)rowB[x], br = (int)rowB[x + 1]
+
+// Prewitt — flat 8-tap, max L1 magnitude = 6*max_val, normalise by 6.
+__kernel void maa_edge_prewitt(
+    const __global uchar *pSrc, int srcPitch,
+    __global       uchar *pDst, int dstPitch,
+    int width, int height, int mthresh
+) {
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    MAA_EDGE_BORDER_PASSTHROUGH;
+    const int gx = (-tl + tr) + (-cl + cr) + (-bl + br);
+    const int gy = (-tl - tc - tr) + (bl + bc + br);
+    const int mag = (abs(gx) + abs(gy)) / 6;
+    dstPix[0] = (Type)((mag >= mthresh) ? max_val : 0);
+}
+
+// Sobel (centre-weighted 8-tap, textbook) — max L1 magnitude = 8*max_val, normalise by 8.
+// This is the textbook 9-tap Sobel as distinct from the default 4-tap
+// simplified Sobel exposed via edge=sobel (which keeps the original maa_edge_sobel).
+__kernel void maa_edge_sobel_full(
+    const __global uchar *pSrc, int srcPitch,
+    __global       uchar *pDst, int dstPitch,
+    int width, int height, int mthresh
+) {
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    MAA_EDGE_BORDER_PASSTHROUGH;
+    const int gx = (-tl + tr) + 2 * (-cl + cr) + (-bl + br);
+    const int gy = (-tl - 2 * tc - tr) + (bl + 2 * bc + br);
+    const int mag = (abs(gx) + abs(gy)) / 8;
+    dstPix[0] = (Type)((mag >= mthresh) ? max_val : 0);
+}
+
+// Scharr — better rotational symmetry, max L1 magnitude = 32*max_val, normalise by 32.
+__kernel void maa_edge_scharr(
+    const __global uchar *pSrc, int srcPitch,
+    __global       uchar *pDst, int dstPitch,
+    int width, int height, int mthresh
+) {
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    MAA_EDGE_BORDER_PASSTHROUGH;
+    const int gx = -3 * tl + 3 * tr - 10 * cl + 10 * cr - 3 * bl + 3 * br;
+    const int gy = -3 * tl - 10 * tc - 3 * tr + 3 * bl + 10 * bc + 3 * br;
+    const int mag = (abs(gx) + abs(gy)) / 32;
+    dstPix[0] = (Type)((mag >= mthresh) ? max_val : 0);
+}
+
+// Kirsch — 8-direction max, max response = 15*max_val for any single direction,
+// normalise by 15.
+__kernel void maa_edge_kirsch(
+    const __global uchar *pSrc, int srcPitch,
+    __global       uchar *pDst, int dstPitch,
+    int width, int height, int mthresh
+) {
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    MAA_EDGE_BORDER_PASSTHROUGH;
+    const int n  =  5 * (tl + tc + tr) - 3 * (cl + cr + bl + bc + br);
+    const int ne =  5 * (tc + tr + cr) - 3 * (tl + cl + bl + bc + br);
+    const int e  =  5 * (tr + cr + br) - 3 * (tl + tc + cl + bl + bc);
+    const int se =  5 * (cr + br + bc) - 3 * (tl + tc + tr + cl + bl);
+    const int s  =  5 * (bl + bc + br) - 3 * (tl + tc + tr + cl + cr);
+    const int sw =  5 * (cl + bl + bc) - 3 * (tl + tc + tr + cr + br);
+    const int w  =  5 * (tl + cl + bl) - 3 * (tc + tr + cr + bc + br);
+    const int nw =  5 * (tl + tc + cl) - 3 * (tr + cr + bl + bc + br);
+    int m = max(max(max(n, ne), max(e, se)), max(max(s, sw), max(w, nw)));
+    if (m < 0) m = 0;
+    const int mag = m / 15;
+    dstPix[0] = (Type)((mag >= mthresh) ? max_val : 0);
+}
+
+// Laplacian (4-connected) — max response = 4*max_val, normalise by 4.
+__kernel void maa_edge_laplacian(
+    const __global uchar *pSrc, int srcPitch,
+    __global       uchar *pDst, int dstPitch,
+    int width, int height, int mthresh
+) {
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    MAA_EDGE_BORDER_PASSTHROUGH;
+    const int mag = abs(4 * cc - tc - cl - cr - bc) / 4;
+    dstPix[0] = (Type)((mag >= mthresh) ? max_val : 0);
 }
 
 // Stage B — mt_inflate: max of 8-neighbor mean and center.
