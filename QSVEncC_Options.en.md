@@ -2774,6 +2774,12 @@ Detects edges to create a mask, then applies iterative smoothing to non-edge are
   
   - threshold=&lt;float&gt;  (default=15.0, 0.0 - 255.0)  
     Edge detection threshold.
+
+  - slope=&lt;float&gt;  (default=0.0, 0.0 -)
+    Slope of the sigmoid soft mask. 0.0 keeps the legacy binary mask.
+
+  - luma_limit=&lt;float&gt;  (default=0.0, 0.0 - 255.0)
+    Reduces sharpening in luma areas darker than this value. 0.0 disables it.
   
   - highq=&lt;bool&gt;  (default=true)  
     When true, uses 4-direction edge detection (diagonal + horizontal/vertical). When false, uses only 2 diagonal directions.
@@ -3345,6 +3351,9 @@ Edge-selective sharpening filter based on Donald A. Graft's MSharpen.
   
   Example: Somewhat weaker
   --vpp-msharpen strength=0.5,threshold=20.0
+
+  Example: Use soft mask and dark luma attenuation
+  --vpp-msharpen strength=0.8,threshold=18.0,slope=8.0,luma_limit=32.0
   ```
 
 ### --vpp-warpsharp [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
