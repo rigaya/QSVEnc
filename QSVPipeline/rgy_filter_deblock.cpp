@@ -96,6 +96,18 @@ RGY_ERR RGYFilterDeblock::checkParam(const std::shared_ptr<RGYFilterParamDeblock
         prm->deblock.beta = clamp(prm->deblock.beta, -6, 6);
         AddMessage(RGY_LOG_WARN, _T("beta offset should be in range of [-6, 6]; clamped.\n"));
     }
+    const auto chromaFormat = RGY_CSP_CHROMA_FORMAT[prm->frameIn.csp];
+    if (rgy_chromafmt_is_rgb(chromaFormat)
+        || (RGY_CSP_PLANES[prm->frameIn.csp] == 1 && chromaFormat != RGY_CHROMAFMT_MONOCHROME)) {
+        AddMessage(RGY_LOG_ERROR, _T("deblock supports planar/semi-planar YUV or monochrome formats only: %s.\n"),
+            RGY_CSP_NAMES[prm->frameIn.csp]);
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (prm->deblock.chroma && RGY_CSP_PLANES[prm->frameIn.csp] < 3) {
+        prm->deblock.chroma = false;
+        AddMessage(RGY_LOG_WARN, _T("deblock chroma processing requires planar chroma; disabled for %s.\n"),
+            RGY_CSP_NAMES[prm->frameIn.csp]);
+    }
     return RGY_ERR_NONE;
 }
 
@@ -146,14 +158,15 @@ RGY_ERR RGYFilterDeblock::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
 RGY_ERR RGYFilterDeblock::runPassVertical(RGYFrameInfo *pDstPlane,
                                            int alpha, int beta, int tc0, int is_chroma,
                                            RGYOpenCLQueue &queue,
-                                           const std::vector<RGYOpenCLEvent> &wait_events) {
+                                           const std::vector<RGYOpenCLEvent> &wait_events,
+                                           RGYOpenCLEvent *event) {
     const char *kernel_name = "deblock_vertical";
     // One thread per (edge, row). Edges are at columns 4, 8, ..., (W/4 - 1)*4.
     const int num_edges = (pDstPlane->width / 4) - 1;
     if (num_edges <= 0) return RGY_ERR_NONE;
     RGYWorkSize local(DEBLOCK_BLOCK_X, DEBLOCK_BLOCK_Y);
     RGYWorkSize global(num_edges, pDstPlane->height);
-    auto err = m_deblock.get()->kernel(kernel_name).config(queue, local, global, wait_events, nullptr).launch(
+    auto err = m_deblock.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
         (cl_mem)pDstPlane->ptr[0], pDstPlane->pitch[0],
         pDstPlane->width, pDstPlane->height,
         alpha, beta, tc0, is_chroma);
@@ -167,14 +180,15 @@ RGY_ERR RGYFilterDeblock::runPassVertical(RGYFrameInfo *pDstPlane,
 RGY_ERR RGYFilterDeblock::runPassHorizontal(RGYFrameInfo *pDstPlane,
                                              int alpha, int beta, int tc0, int is_chroma,
                                              RGYOpenCLQueue &queue,
-                                             const std::vector<RGYOpenCLEvent> &wait_events) {
+                                             const std::vector<RGYOpenCLEvent> &wait_events,
+                                             RGYOpenCLEvent *event) {
     const char *kernel_name = "deblock_horizontal";
     // One thread per (column, edge). Edges at rows 4, 8, ..., (H/4 - 1)*4.
     const int num_edges = (pDstPlane->height / 4) - 1;
     if (num_edges <= 0) return RGY_ERR_NONE;
     RGYWorkSize local(DEBLOCK_BLOCK_X, DEBLOCK_BLOCK_Y);
     RGYWorkSize global(pDstPlane->width, num_edges);
-    auto err = m_deblock.get()->kernel(kernel_name).config(queue, local, global, wait_events, nullptr).launch(
+    auto err = m_deblock.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
         (cl_mem)pDstPlane->ptr[0], pDstPlane->pitch[0],
         pDstPlane->width, pDstPlane->height,
         alpha, beta, tc0, is_chroma);
@@ -188,7 +202,6 @@ RGY_ERR RGYFilterDeblock::runPassHorizontal(RGYFrameInfo *pDstPlane,
 RGY_ERR RGYFilterDeblock::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames,
     int *pOutputFrameNum, RGYOpenCLQueue &queue_main,
     const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
-    (void)event;
     *pOutputFrameNum  = 0;
     ppOutputFrames[0] = nullptr;
     if (!pInputFrame || !pInputFrame->ptr[0]) {
@@ -204,6 +217,15 @@ RGY_ERR RGYFilterDeblock::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
         AddMessage(RGY_LOG_ERROR, _T("deblock OpenCL program failed to build (options: %s).\n"),
             char_to_tstring(m_buildOptions).c_str());
         return RGY_ERR_OPENCL_CRUSH;
+    }
+    const auto memcpyKind = getMemcpyKind(pInputFrame->mem_type, m_frameBuf[0]->frame.mem_type);
+    if (memcpyKind != RGYCLMemcpyD2D) {
+        AddMessage(RGY_LOG_ERROR, _T("deblock only supports device memory.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (m_param->frameOut.csp != m_param->frameIn.csp) {
+        AddMessage(RGY_LOG_ERROR, _T("deblock does not support csp conversion.\n"));
+        return RGY_ERR_UNSUPPORTED;
     }
 
     // Resolve effective table lookup indices.
@@ -224,7 +246,14 @@ RGY_ERR RGYFilterDeblock::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
     RGYFrameInfo *pOut = &m_frameBuf[0]->frame;
     const int planes = RGY_CSP_PLANES[pInputFrame->csp];
 
-    auto eventsForFirst = wait_events;
+    // 同一queue_main上のin-order実行に依存し、stage間/plane間のevent連鎖は省略する。
+    // 最後にenqueueされる作業にだけeventを紐付け、呼び出し元へ返す。
+    const int planeMax = prm->deblock.chroma ? planes : 1;
+    int lastDeblockPlane = -1;
+    for (int i = 0; i < planeMax; i++) {
+        const auto planeDst = getPlane(pOut, (RGY_PLANE)i);
+        if (planeDst.width >= 8 && planeDst.height >= 8) lastDeblockPlane = i;
+    }
 
     // Stage 1: copy every plane src -> dst. The kernels then modify
     // edge pixels in place. Planes we choose not to deblock (chroma when
@@ -233,19 +262,20 @@ RGY_ERR RGYFilterDeblock::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
     for (int i = 0; i < planes; i++) {
         const auto planeSrc = getPlane(pInputFrame, (RGY_PLANE)i);
         auto       planeDst = getPlane(pOut, (RGY_PLANE)i);
-        auto err = m_cl->copyPlane(&planeDst, &planeSrc, nullptr, queue_main, eventsForFirst);
+        const std::vector<RGYOpenCLEvent> &copyWait = (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>();
+        // deblock kernelが一切走らないケースでは、最後のcopyPlaneにeventを紐付ける。
+        RGYOpenCLEvent *copyEvent = (lastDeblockPlane < 0 && i == planes - 1) ? event : nullptr;
+        auto err = m_cl->copyPlane(&planeDst, &planeSrc, nullptr, queue_main, copyWait, copyEvent);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("deblock: src->dst copyPlane (plane %d) failed: %s.\n"),
                 i, get_err_mes(err));
             return err;
         }
-        eventsForFirst.clear();
     }
 
     // Stage 2 and 3: pass 1 (vertical edges) then pass 2 (horizontal
     // edges), in-place on dst. Luma always; chroma only when enabled.
-    for (int i = 0; i < planes; i++) {
-        if (i > 0 && !prm->deblock.chroma) break;
+    for (int i = 0; i < planeMax; i++) {
         auto planeDst = getPlane(pOut, (RGY_PLANE)i);
         const int is_chroma = (i == 0) ? 0 : 1;
         // Need at least 8 pixels on each axis to have an interior 4x4
@@ -255,11 +285,12 @@ RGY_ERR RGYFilterDeblock::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
 
         auto err = runPassVertical(&planeDst,
                                     alpha_scaled, beta_scaled, tc0_scaled, is_chroma,
-                                    queue_main, {});
+                                    queue_main, {}, nullptr);
         if (err != RGY_ERR_NONE) return err;
+        RGYOpenCLEvent *passEvent = (i == lastDeblockPlane) ? event : nullptr;
         err = runPassHorizontal(&planeDst,
                                  alpha_scaled, beta_scaled, tc0_scaled, is_chroma,
-                                 queue_main, {});
+                                 queue_main, {}, passEvent);
         if (err != RGY_ERR_NONE) return err;
     }
 

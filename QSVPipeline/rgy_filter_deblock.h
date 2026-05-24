@@ -64,11 +64,13 @@ protected:
     RGY_ERR runPassVertical  (RGYFrameInfo *pDstPlane,
                               int alpha, int beta, int tc0, int is_chroma,
                               RGYOpenCLQueue &queue,
-                              const std::vector<RGYOpenCLEvent> &wait_events);
+                              const std::vector<RGYOpenCLEvent> &wait_events,
+                              RGYOpenCLEvent *event);
     RGY_ERR runPassHorizontal(RGYFrameInfo *pDstPlane,
                               int alpha, int beta, int tc0, int is_chroma,
                               RGYOpenCLQueue &queue,
-                              const std::vector<RGYOpenCLEvent> &wait_events);
+                              const std::vector<RGYOpenCLEvent> &wait_events,
+                              RGYOpenCLEvent *event);
 
     RGYOpenCLProgramAsync m_deblock;
     std::string           m_buildOptions;
