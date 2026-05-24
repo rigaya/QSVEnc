@@ -254,6 +254,7 @@
   - [--vpp-chromashift \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-chromashift-param1value1param2value2)
   - [--vpp-deblock \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-deblock-param1value1param2value2)
   - [--vpp-deflicker \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-deflicker-param1value1param2value2)
+  - [--vpp-colorfix \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-colorfix-param1value1param2value2)
   - [--vpp-edgelevel \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-edgelevel-param1value1param2value2)
   - [--vpp-msharpen \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-msharpen-param1value1param2value2)
   - [--vpp-warpsharp \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-warpsharp-param1value1param2value2)
@@ -1816,6 +1817,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
   - [--vpp-chromashift](#--vpp-chromashift-param1value1param2value2)
   - [--vpp-deblock](#--vpp-deblock-param1value1param2value2)
   - [--vpp-deflicker](#--vpp-deflicker-param1value1param2value2)
+  - [--vpp-colorfix](#--vpp-colorfix-param1value1param2value2)
   - [--vpp-edgelevel](#--vpp-edgelevel-param1value1param2value2)
   - [--vpp-msharpen](#--vpp-msharpen-param1value1param2value2)
   - [--vpp-warpsharp](#--vpp-warpsharp-param1value1param2value2)
@@ -3258,6 +3260,41 @@ Temporal filter to stabilize frame-to-frame brightness flicker statistically.
   ```
   --vpp-deflicker
   --vpp-deflicker strength=0.8,damping=0.9,frames=60,predictor=false,chroma=true
+  ```
+
+### --vpp-colorfix [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
+Corrects color cast and white balance.
+
+- **Parameters**
+  - mode=&lt;manual|auto|gray&gt; (default=manual)
+    Correction mode. manual uses the specified white/black points, auto analyzes chroma averages, and gray uses a grayworld assumption.
+
+  - space=&lt;auto|rgb|yuv&gt; (default=auto)
+    Working color space. auto selects a space from the mode.
+
+  - matrix=&lt;auto|bt601|bt709|bt2020&gt; (default=auto)
+    RGB/YUV conversion matrix. auto uses input VUI and resolution fallback.
+
+  - white=&lt;rrggbb&gt; (default=ffffff)
+    White point for manual mode.
+
+  - black=&lt;rrggbb&gt; (default=000000)
+    Black point for manual mode.
+
+  - frames=&lt;int&gt; (default=30, 10-5000)
+    Number of analysis frames for auto/gray modes.
+
+  - strength=&lt;float&gt; (default=1.0, 0.0-1.0)
+    Correction strength for auto/gray modes.
+
+  - variance_threshold=&lt;float&gt; (default=2.0, &gt;0)
+    Variance threshold to exclude flash/fade frames from analysis.
+
+- examples
+  ```
+  --vpp-colorfix
+  --vpp-colorfix white=fff6e8,black=050505
+  --vpp-colorfix mode=gray,frames=30,strength=0.7
   ```
 
 ### --vpp-edgelevel [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]

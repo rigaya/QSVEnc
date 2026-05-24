@@ -14,7 +14,7 @@
 //
 // Build-time defines (set via -D from rgy_filter_colorfix.cpp):
 //   Type           : uchar (8-bit) or ushort (>8-bit)         [YUV plane element]
-//   Type4          : uchar4 / ushort4                          [RGB packed pixel]
+//   RGB processing uses planar R/G/B planes.
 //   bit_depth      : source bit depth
 //   max_val        : (1 << bit_depth) - 1
 //   colorfix_block_x / colorfix_block_y : work-group dims
@@ -26,8 +26,7 @@
 //
 // scaleR/G/B and offsetR/G/B are pre-computed on the host such that
 //   out_channel = clamp(in_channel * scale + offset, 0, max_val)
-// works directly in the target bit depth. Operates on Type4 packed RGB
-// (channels x,y,z; w unused / preserved).
+// works directly in the target bit depth. Operates on planar RGB planes.
 //
 // For mode=manual:
 //   scale_R  = max_val / (whiteR_hbd - blackR_hbd)
@@ -37,7 +36,10 @@
 //   offset_R = 0
 // ---------------------------------------------------------------------------
 __kernel void colorfix_apply_rgb(
-    __global uchar *pFrame, int pitch, int width, int height,
+    __global uchar *pR, int pitchR,
+    __global uchar *pG, int pitchG,
+    __global uchar *pB, int pitchB,
+    int width, int height,
     float scaleR, float scaleG, float scaleB,
     float offsetR, float offsetG, float offsetB
 ) {
@@ -45,15 +47,16 @@ __kernel void colorfix_apply_rgb(
     const int y = get_global_id(1);
     if (x >= width || y >= height) return;
 
-    __global Type4 *p = (__global Type4 *)(pFrame + y * pitch + x * sizeof(Type4));
-    Type4 v = p[0];
+    __global Type *rPix = (__global Type *)(pR + y * pitchR + x * sizeof(Type));
+    __global Type *gPix = (__global Type *)(pG + y * pitchG + x * sizeof(Type));
+    __global Type *bPix = (__global Type *)(pB + y * pitchB + x * sizeof(Type));
 
     // CRITICAL: do the multiply in float, not in the narrow integer type.
     // (white-black) can be small on heavily tinted source → 8-bit
     // intermediates would crush shadows / blow highlights before clamping.
-    float r = (float)v.x * scaleR + offsetR;
-    float g = (float)v.y * scaleG + offsetG;
-    float b = (float)v.z * scaleB + offsetB;
+    float r = (float)rPix[0] * scaleR + offsetR;
+    float g = (float)gPix[0] * scaleG + offsetG;
+    float b = (float)bPix[0] * scaleB + offsetB;
 
     int ir = convert_int_rte(r);
     int ig = convert_int_rte(g);
@@ -63,11 +66,9 @@ __kernel void colorfix_apply_rgb(
     if (ig < 0) ig = 0; if (ig > max_val) ig = max_val;
     if (ib < 0) ib = 0; if (ib > max_val) ib = max_val;
 
-    v.x = (Type)ir;
-    v.y = (Type)ig;
-    v.z = (Type)ib;
-    // v.w is preserved as-is (unused alpha)
-    p[0] = v;
+    rPix[0] = (Type)ir;
+    gPix[0] = (Type)ig;
+    bPix[0] = (Type)ib;
 }
 
 // ---------------------------------------------------------------------------
@@ -91,6 +92,7 @@ __kernel void colorfix_reduce_uv(
     const __global uchar *pY, int pitchY, int widthY, int heightY,
     const __global uchar *pU, int pitchU, int widthU, int heightU,
     const __global uchar *pV, int pitchV,
+    int uvInterleaved,
     int subX, int subY,           // chroma:luma sample ratio (typically 2,2 for 4:2:0)
     __global long *out_partials   // 4 longs per work-group
 ) {
@@ -106,8 +108,9 @@ __kernel void colorfix_reduce_uv(
     long uVal = 0, vVal = 0, yAcc = 0, ysqAcc = 0;
 
     if (cx < widthU && cy < heightU) {
-        uVal = (long)(*(const __global Type *)(pU + cy * pitchU + cx * sizeof(Type)));
-        vVal = (long)(*(const __global Type *)(pV + cy * pitchV + cx * sizeof(Type)));
+        const int uvx = uvInterleaved ? cx * 2 : cx;
+        uVal = (long)(*(const __global Type *)(pU + cy * pitchU + uvx * sizeof(Type)));
+        vVal = (long)(*(const __global Type *)(pV + cy * pitchV + (uvx + uvInterleaved) * sizeof(Type)));
 
         // Accumulate the (subX × subY) luma samples covered by this chroma cell.
         for (int dy = 0; dy < subY; dy++) {
@@ -189,14 +192,16 @@ __kernel void colorfix_apply_uv(
     __global uchar *pU, int pitchU,
     __global uchar *pV, int pitchV,
     int widthU, int heightU,
+    int uvInterleaved,
     int offsetU, int offsetV
 ) {
     const int x = get_global_id(0);
     const int y = get_global_id(1);
     if (x >= widthU || y >= heightU) return;
 
-    __global Type *uPix = (__global Type *)(pU + y * pitchU + x * sizeof(Type));
-    __global Type *vPix = (__global Type *)(pV + y * pitchV + x * sizeof(Type));
+    const int uvx = uvInterleaved ? x * 2 : x;
+    __global Type *uPix = (__global Type *)(pU + y * pitchU + uvx * sizeof(Type));
+    __global Type *vPix = (__global Type *)(pV + y * pitchV + (uvx + uvInterleaved) * sizeof(Type));
 
     int u = (int)uPix[0] + offsetU;
     int v = (int)vPix[0] + offsetV;
@@ -212,13 +217,16 @@ __kernel void colorfix_apply_uv(
 // 4. colorfix_reduce_rgb — for mode=gray.
 //
 // Emits 5 longs per work-group: sum_R, sum_G, sum_B, sum_Y, sum_Y².
-// `pFrame` is packed RGB (Type4) at full source resolution.
+// `pR/pG/pB` are planar RGB planes at full source resolution.
 // Y is approximated using BT.601 luma weights for the variance guard
 // only; the actual luma stays in the original YUV plane and isn't
 // touched here.
 // ---------------------------------------------------------------------------
 __kernel void colorfix_reduce_rgb(
-    const __global uchar *pFrame, int pitch, int width, int height,
+    const __global uchar *pR, int pitchR,
+    const __global uchar *pG, int pitchG,
+    const __global uchar *pB, int pitchB,
+    int width, int height,
     __global long *out_partials       // 5 longs per work-group
 ) {
     __local long sR[colorfix_block_x * colorfix_block_y];
@@ -234,10 +242,9 @@ __kernel void colorfix_reduce_rgb(
     long rv = 0, gv = 0, bv = 0, yv = 0, ysq = 0;
 
     if (x < width && y < height) {
-        Type4 v = *((const __global Type4 *)(pFrame + y * pitch + x * sizeof(Type4)));
-        rv = (long)v.x;
-        gv = (long)v.y;
-        bv = (long)v.z;
+        rv = (long)(*(const __global Type *)(pR + y * pitchR + x * sizeof(Type)));
+        gv = (long)(*(const __global Type *)(pG + y * pitchG + x * sizeof(Type)));
+        bv = (long)(*(const __global Type *)(pB + y * pitchB + x * sizeof(Type)));
         // Y approximation for variance guard (BT.601 weights × 65536):
         //   Y ≈ (19595 R + 38470 G +  7471 B + 32768) >> 16
         // The exact matrix doesn't matter — this is only used to decide

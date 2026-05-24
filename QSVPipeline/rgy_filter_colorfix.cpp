@@ -253,12 +253,13 @@ RGY_ERR RGYFilterColorFix::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RG
         m_effectiveSpace = VPP_COLORFIX_SPACE_YUV;
     }
 
-    // Build options. The YUV kernels use scalar Type=uchar/ushort;
-    // the RGB kernels use Type4 = uchar4/ushort4 for packed RGBA reads.
+    // Build options. Both YUV and RGB kernels use scalar Type=uchar/ushort;
+    // RGB runs over planar R/G/B intermediate frames.
     auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamColorFix>(m_param);
     const bool needRebuild = !prmPrev
         || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]
-        || prmPrev->colorfix.mode != prm->colorfix.mode;
+        || prmPrev->colorfix.mode != prm->colorfix.mode
+        || resolveSpace(prmPrev->colorfix) != m_effectiveSpace;
     if (needRebuild) {
         // For mode=auto the kernels access the YUV planes directly.
         // For mode=manual/gray the kernels operate on the RGB intermediate;
@@ -266,24 +267,21 @@ RGY_ERR RGYFilterColorFix::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RG
         // a separate Type=uchar variant for the reduce/apply UV kernels.
         // We'll build BOTH compilations for simplicity. (Two programs.)
         m_buildOptionsYUV = strsprintf(
-            "-D Type=%s -D Type4=%s -D bit_depth=%d -D max_val=%d -D colorfix_block_x=%d -D colorfix_block_y=%d",
+            "-D Type=%s -D bit_depth=%d -D max_val=%d -D colorfix_block_x=%d -D colorfix_block_y=%d",
             bitDepth > 8 ? "ushort" : "uchar",
-            bitDepth > 8 ? "ushort4" : "uchar4",
             bitDepth, maxVal,
             COLORFIX_BLOCK_X, COLORFIX_BLOCK_Y);
         const int bitDepthRgb = (bitDepth > 8) ? 16 : 8;
         const int maxValRgb   = (1 << bitDepthRgb) - 1;
         m_buildOptionsRGB = strsprintf(
-            "-D Type=%s -D Type4=%s -D bit_depth=%d -D max_val=%d -D colorfix_block_x=%d -D colorfix_block_y=%d",
+            "-D Type=%s -D bit_depth=%d -D max_val=%d -D colorfix_block_x=%d -D colorfix_block_y=%d",
             bitDepthRgb > 8 ? "ushort" : "uchar",
-            bitDepthRgb > 8 ? "ushort4" : "uchar4",
             bitDepthRgb, maxValRgb,
             COLORFIX_BLOCK_X, COLORFIX_BLOCK_Y);
 
         // Build the program with whichever defines suit the effective
-        // working space. RGB space needs Type4 = uchar4/ushort4 for
-        // packed-RGBA reads; YUV space only uses scalar Type=uchar/ushort
-        // on the Y/U/V planes.
+        // working space. Both RGB and YUV paths operate on scalar planar
+        // samples; the bit depth differs for the RGB intermediate.
         const std::string useOptions = (m_effectiveSpace == VPP_COLORFIX_SPACE_RGB)
             ? m_buildOptionsRGB : m_buildOptionsYUV;
         AddMessage(RGY_LOG_DEBUG, _T("Starting async build for RGY_FILTER_COLORFIX_CL (%s).\n"),
@@ -372,11 +370,16 @@ RGY_ERR RGYFilterColorFix::runApplyRGB(RGYFrameInfo *pTarget,
                                         float offsetR, float offsetG, float offsetB,
                                         RGYOpenCLQueue &queue,
                                         const std::vector<RGYOpenCLEvent> &wait_events) {
+    const auto pR = getPlane(pTarget, RGY_PLANE_R);
+    const auto pG = getPlane(pTarget, RGY_PLANE_G);
+    const auto pB = getPlane(pTarget, RGY_PLANE_B);
     RGYWorkSize local(COLORFIX_BLOCK_X, COLORFIX_BLOCK_Y);
     RGYWorkSize global(pTarget->width, pTarget->height);
     auto err = m_colorfix.get()->kernel("colorfix_apply_rgb")
         .config(queue, local, global, wait_events, nullptr).launch(
-            (cl_mem)pTarget->ptr[0], pTarget->pitch[0],
+            (cl_mem)pR.ptr[0], pR.pitch[0],
+            (cl_mem)pG.ptr[0], pG.pitch[0],
+            (cl_mem)pB.ptr[0], pB.pitch[0],
             pTarget->width, pTarget->height,
             scaleR, scaleG, scaleB,
             offsetR, offsetG, offsetB);
@@ -392,20 +395,28 @@ RGY_ERR RGYFilterColorFix::runReduceUV(RGYFrameInfo *pSrc,
     const auto pY = getPlane(pSrc, RGY_PLANE_Y);
     const auto pU = getPlane(pSrc, RGY_PLANE_U);
     const auto pV = getPlane(pSrc, RGY_PLANE_V);
-    const int subX = std::max(1, pY.width  / pU.width);
+    const int uvInterleaved = (pU.ptr[0] == pV.ptr[0]) ? 1 : 0;
+    const int chromaWidth = uvInterleaved ? std::max(1, pU.width / 2) : pU.width;
+    const int chromaHeight = pU.height;
+    if (!uvInterleaved && (pU.width != pV.width || pU.height != pV.height || pU.pitch[0] != pV.pitch[0])) {
+        AddMessage(RGY_LOG_ERROR, _T("colorfix: U/V plane layout mismatch.\n"));
+        return RGY_ERR_INVALID_CALL;
+    }
+    const int subX = std::max(1, pY.width  / chromaWidth);
     const int subY = std::max(1, pY.height / pU.height);
 
     RGYWorkSize local(COLORFIX_BLOCK_X, COLORFIX_BLOCK_Y);
-    RGYWorkSize global(pU.width, pU.height);
-    const int wgX = ((pU.width  + COLORFIX_BLOCK_X - 1) / COLORFIX_BLOCK_X);
-    const int wgY = ((pU.height + COLORFIX_BLOCK_Y - 1) / COLORFIX_BLOCK_Y);
+    RGYWorkSize global(chromaWidth, chromaHeight);
+    const int wgX = ((chromaWidth  + COLORFIX_BLOCK_X - 1) / COLORFIX_BLOCK_X);
+    const int wgY = ((chromaHeight + COLORFIX_BLOCK_Y - 1) / COLORFIX_BLOCK_Y);
     m_numGroupsLastDispatch = wgX * wgY;
 
     auto err = m_colorfix.get()->kernel("colorfix_reduce_uv")
         .config(queue, local, global, wait_events, nullptr).launch(
             (cl_mem)pY.ptr[0], pY.pitch[0], pY.width, pY.height,
-            (cl_mem)pU.ptr[0], pU.pitch[0], pU.width, pU.height,
+            (cl_mem)pU.ptr[0], pU.pitch[0], chromaWidth, chromaHeight,
             (cl_mem)pV.ptr[0], pV.pitch[0],
+            uvInterleaved,
             subX, subY,
             m_reducePartials->mem());
     if (err != RGY_ERR_NONE) {
@@ -417,6 +428,9 @@ RGY_ERR RGYFilterColorFix::runReduceUV(RGYFrameInfo *pSrc,
 RGY_ERR RGYFilterColorFix::runReduceRGB(RGYFrameInfo *pSrc,
                                          RGYOpenCLQueue &queue,
                                          const std::vector<RGYOpenCLEvent> &wait_events) {
+    const auto pR = getPlane(pSrc, RGY_PLANE_R);
+    const auto pG = getPlane(pSrc, RGY_PLANE_G);
+    const auto pB = getPlane(pSrc, RGY_PLANE_B);
     RGYWorkSize local(COLORFIX_BLOCK_X, COLORFIX_BLOCK_Y);
     RGYWorkSize global(pSrc->width, pSrc->height);
     const int wgX = ((pSrc->width  + COLORFIX_BLOCK_X - 1) / COLORFIX_BLOCK_X);
@@ -425,7 +439,9 @@ RGY_ERR RGYFilterColorFix::runReduceRGB(RGYFrameInfo *pSrc,
 
     auto err = m_colorfix.get()->kernel("colorfix_reduce_rgb")
         .config(queue, local, global, wait_events, nullptr).launch(
-            (cl_mem)pSrc->ptr[0], pSrc->pitch[0],
+            (cl_mem)pR.ptr[0], pR.pitch[0],
+            (cl_mem)pG.ptr[0], pG.pitch[0],
+            (cl_mem)pB.ptr[0], pB.pitch[0],
             pSrc->width, pSrc->height,
             m_reducePartials->mem());
     if (err != RGY_ERR_NONE) {
@@ -440,14 +456,22 @@ RGY_ERR RGYFilterColorFix::runApplyUV(RGYFrameInfo *pTarget,
                                        const std::vector<RGYOpenCLEvent> &wait_events) {
     const auto pU = getPlane(pTarget, RGY_PLANE_U);
     const auto pV = getPlane(pTarget, RGY_PLANE_V);
+    const int uvInterleaved = (pU.ptr[0] == pV.ptr[0]) ? 1 : 0;
+    const int chromaWidth = uvInterleaved ? std::max(1, pU.width / 2) : pU.width;
+    const int chromaHeight = pU.height;
+    if (!uvInterleaved && (pU.width != pV.width || pU.height != pV.height || pU.pitch[0] != pV.pitch[0])) {
+        AddMessage(RGY_LOG_ERROR, _T("colorfix: U/V plane layout mismatch.\n"));
+        return RGY_ERR_INVALID_CALL;
+    }
 
     RGYWorkSize local(COLORFIX_BLOCK_X, COLORFIX_BLOCK_Y);
-    RGYWorkSize global(pU.width, pU.height);
+    RGYWorkSize global(chromaWidth, chromaHeight);
     auto err = m_colorfix.get()->kernel("colorfix_apply_uv")
         .config(queue, local, global, wait_events, nullptr).launch(
             (cl_mem)pU.ptr[0], pU.pitch[0],
             (cl_mem)pV.ptr[0], pV.pitch[0],
-            pU.width, pU.height,
+            chromaWidth, chromaHeight,
+            uvInterleaved,
             offsetU, offsetV);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("error at colorfix_apply_uv: %s.\n"), get_err_mes(err));
@@ -500,7 +524,6 @@ RGY_ERR RGYFilterColorFix::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
     int *pOutputFrameNum, RGYOpenCLQueue &queue_main,
     const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     (void)event;
-
     if (!pInputFrame || !pInputFrame->ptr[0]) {
         *pOutputFrameNum = 0;
         return RGY_ERR_NONE;
@@ -587,7 +610,7 @@ RGY_ERR RGYFilterColorFix::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
         int convOutNum = 0;
         RGYFrameInfo *convOut[1] = { nullptr };
         RGYFrameInfo inFrame = *targetFrame;
-        auto err = m_convToRgb->filter(&inFrame, (RGYFrameInfo **)&convOut, &convOutNum, queue_main, {}, nullptr);
+        auto err = m_convToRgb->filter(&inFrame, (RGYFrameInfo **)&convOut, &convOutNum, queue_main, wait_events, nullptr);
         if (err != RGY_ERR_NONE || convOut[0] == nullptr) {
             AddMessage(RGY_LOG_ERROR, _T("YUV->RGB conversion failed: %s.\n"), get_err_mes(err));
             return err;
@@ -657,7 +680,8 @@ RGY_ERR RGYFilterColorFix::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
 
             const auto planeU = getPlane(targetFrame, RGY_PLANE_U);
             const auto planeY = getPlane(targetFrame, RGY_PLANE_Y);
-            const long long npxChroma = (long long)planeU.width * planeU.height;
+            const auto planeV = getPlane(targetFrame, RGY_PLANE_V);
+            const long long npxChroma = (long long)((planeU.ptr[0] == planeV.ptr[0]) ? std::max(1, planeU.width / 2) : planeU.width) * planeU.height;
             const long long npxLuma   = (long long)planeY.width * planeY.height;
             const double meanY  = (double)sumY / (double)npxLuma;
             const double varY   = (double)sumYsq / (double)npxLuma - meanY * meanY;
@@ -735,7 +759,8 @@ RGY_ERR RGYFilterColorFix::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
 
             const auto planeU = getPlane(targetFrame, RGY_PLANE_U);
             const auto planeY = getPlane(targetFrame, RGY_PLANE_Y);
-            const long long npxChroma = (long long)planeU.width * planeU.height;
+            const auto planeV = getPlane(targetFrame, RGY_PLANE_V);
+            const long long npxChroma = (long long)((planeU.ptr[0] == planeV.ptr[0]) ? std::max(1, planeU.width / 2) : planeU.width) * planeU.height;
             const long long npxLuma   = (long long)planeY.width * planeY.height;
             const double meanY = (double)sumY / (double)npxLuma;
             const double varY  = (double)sumYsq / (double)npxLuma - meanY * meanY;

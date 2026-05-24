@@ -112,6 +112,7 @@ RGY_DISABLE_WARNING_POP
 #include "rgy_filter_chromashift.h"
 #include "rgy_filter_deblock.h"
 #include "rgy_filter_deflicker.h"
+#include "rgy_filter_colorfix.h"
 #include "rgy_filter_edgelevel.h"
 #include "rgy_filter_msharpen.h"
 #include "rgy_filter_warpsharp.h"
@@ -2363,6 +2364,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vpp.chromashift.enable) filterPipeline.push_back(VppType::CL_CHROMASHIFT);
     if (inputParam->vpp.deblock.enable)    filterPipeline.push_back(VppType::CL_DEBLOCK);
     if (inputParam->vpp.deflicker.enable)  filterPipeline.push_back(VppType::CL_DEFLICKER);
+    if (inputParam->vpp.colorfix.enable)   filterPipeline.push_back(VppType::CL_COLORFIX);
     if (inputParam->vpp.edgelevel.enable)  filterPipeline.push_back(VppType::CL_EDGELEVEL);
     if (inputParam->vpp.msharpen.enable)   filterPipeline.push_back(VppType::CL_MSHARPEN);
     if (inputParam->vpp.warpsharp.enable)  filterPipeline.push_back(VppType::CL_WARPSHARP);
@@ -3421,6 +3423,27 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
         param->bOutOverwrite = false;
+        auto sts = filter->init(param, m_pQSVLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        //登録
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
+    }
+    //colorfix
+    if (vppType == VppType::CL_COLORFIX) {
+        unique_ptr<RGYFilter> filter(new RGYFilterColorFix(m_cl));
+        shared_ptr<RGYFilterParamColorFix> param(new RGYFilterParamColorFix());
+        param->colorfix = params->vpp.colorfix;
+        param->vui = vuiInfo;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = true;
         auto sts = filter->init(param, m_pQSVLog);
         if (sts != RGY_ERR_NONE) {
             return sts;

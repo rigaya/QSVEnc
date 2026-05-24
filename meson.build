@@ -600,6 +600,7 @@ qsvpipeline_sources = files(
   'QSVPipeline/rgy_filter_chromashift.cpp',
   'QSVPipeline/rgy_filter_deblock.cpp',
   'QSVPipeline/rgy_filter_deflicker.cpp',
+  'QSVPipeline/rgy_filter_colorfix.cpp',
   'QSVPipeline/rgy_filter_warpsharp.cpp',
   'QSVPipeline/rgy_filter_yadif.cpp',
   'QSVPipeline/rgy_frame.cpp',
