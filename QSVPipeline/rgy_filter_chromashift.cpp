@@ -135,22 +135,23 @@ RGY_ERR RGYFilterChromaShift::init(shared_ptr<RGYFilterParam> pParam, shared_ptr
     // on 480p sources.
     if (prm->chromashift.auto_detect) {
         const size_t lumaPx = (size_t)prm->frameOut.width * (size_t)prm->frameOut.height;
-        if (!m_signY  || !m_signUV) {
-            m_signY  = m_cl->createBuffer(lumaPx, CL_MEM_READ_WRITE);
-            m_signUV = m_cl->createBuffer(lumaPx, CL_MEM_READ_WRITE);
-            if (!m_signY || !m_signUV) {
-                AddMessage(RGY_LOG_ERROR, _T("chromashift: failed to allocate sign-map buffers.\n"));
-                return RGY_ERR_MEMORY_ALLOC;
-            }
+        m_signY  = m_cl->createBuffer(lumaPx, CL_MEM_READ_WRITE);
+        m_signUV = m_cl->createBuffer(lumaPx, CL_MEM_READ_WRITE);
+        if (!m_signY || !m_signUV) {
+            AddMessage(RGY_LOG_ERROR, _T("chromashift: failed to allocate sign-map buffers.\n"));
+            return RGY_ERR_MEMORY_ALLOC;
         }
+        m_statsBuf = m_cl->createBuffer(3 * sizeof(int), CL_MEM_READ_WRITE);
         if (!m_statsBuf) {
-            m_statsBuf = m_cl->createBuffer(3 * sizeof(int), CL_MEM_READ_WRITE);
-            if (!m_statsBuf) {
-                AddMessage(RGY_LOG_ERROR, _T("chromashift: failed to allocate stats buffer.\n"));
-                return RGY_ERR_MEMORY_ALLOC;
-            }
-            m_statsHost.assign(3, 0);
+            AddMessage(RGY_LOG_ERROR, _T("chromashift: failed to allocate stats buffer.\n"));
+            return RGY_ERR_MEMORY_ALLOC;
         }
+        m_statsHost.assign(3, 0);
+    } else {
+        m_signY.reset();
+        m_signUV.reset();
+        m_statsBuf.reset();
+        m_statsHost.clear();
     }
 
     setFilterInfo(prm->print());
@@ -216,11 +217,12 @@ RGY_ERR RGYFilterChromaShift::runCorrelate(cl_mem signYBuf, cl_mem signUVBuf,
 
 RGY_ERR RGYFilterChromaShift::runShiftPlane(RGYFrameInfo *pDstPlane, const RGYFrameInfo *pSrcImgPlane,
                                              float shift_x_chroma, float shift_y_chroma,
-                                             RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events) {
+                                             RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events,
+                                             RGYOpenCLEvent *event) {
     const char *kernel_name = "chromashift_shift";
     RGYWorkSize local(CHROMASHIFT_BLOCK_X, CHROMASHIFT_BLOCK_Y);
     RGYWorkSize global(pDstPlane->width, pDstPlane->height);
-    auto err = m_chromashift.get()->kernel(kernel_name).config(queue, local, global, wait_events, nullptr).launch(
+    auto err = m_chromashift.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
         (cl_mem)pSrcImgPlane->ptr[0],
         (cl_mem)pDstPlane->ptr[0], pDstPlane->pitch[0],
         pDstPlane->width, pDstPlane->height,
@@ -234,11 +236,12 @@ RGY_ERR RGYFilterChromaShift::runShiftPlane(RGYFrameInfo *pDstPlane, const RGYFr
 
 RGY_ERR RGYFilterChromaShift::runLaplacianToLuma(RGYFrameInfo *pDstY, const RGYFrameInfo *pSrcC,
                                                   int subX, int subY,
-                                                  RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events) {
+                                                  RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events,
+                                                  RGYOpenCLEvent *event) {
     const char *kernel_name = "chromashift_laplacian";
     RGYWorkSize local(CHROMASHIFT_BLOCK_X, CHROMASHIFT_BLOCK_Y);
     RGYWorkSize global(pDstY->width, pDstY->height);
-    auto err = m_chromashift.get()->kernel(kernel_name).config(queue, local, global, wait_events, nullptr).launch(
+    auto err = m_chromashift.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
         (cl_mem)pSrcC->ptr[0], pSrcC->pitch[0],
         pSrcC->width, pSrcC->height,
         subX, subY,
@@ -252,11 +255,12 @@ RGY_ERR RGYFilterChromaShift::runLaplacianToLuma(RGYFrameInfo *pDstY, const RGYF
 }
 
 RGY_ERR RGYFilterChromaShift::runFillNeutral(RGYFrameInfo *pDstPlane,
-                                              RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events) {
+                                              RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events,
+                                              RGYOpenCLEvent *event) {
     const char *kernel_name = "chromashift_fill_neutral";
     RGYWorkSize local(CHROMASHIFT_BLOCK_X, CHROMASHIFT_BLOCK_Y);
     RGYWorkSize global(pDstPlane->width, pDstPlane->height);
-    auto err = m_chromashift.get()->kernel(kernel_name).config(queue, local, global, wait_events, nullptr).launch(
+    auto err = m_chromashift.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
         (cl_mem)pDstPlane->ptr[0], pDstPlane->pitch[0],
         pDstPlane->width, pDstPlane->height);
     if (err != RGY_ERR_NONE) {
@@ -269,7 +273,6 @@ RGY_ERR RGYFilterChromaShift::runFillNeutral(RGYFrameInfo *pDstPlane,
 RGY_ERR RGYFilterChromaShift::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames,
     int *pOutputFrameNum, RGYOpenCLQueue &queue_main,
     const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
-    (void)event;
     *pOutputFrameNum  = 0;
     ppOutputFrames[0] = nullptr;
     if (!pInputFrame || !pInputFrame->ptr[0]) {
@@ -330,7 +333,7 @@ RGY_ERR RGYFilterChromaShift::run_filter(const RGYFrameInfo *pInputFrame, RGYFra
         const auto planeSrcU = getPlane(pInputFrame, RGY_PLANE_U);
         const auto planeSrcV = (planes >= 3) ? getPlane(pInputFrame, RGY_PLANE_V) : planeSrcU;
 
-        auto err = runLapSignY(m_signY->mem(), &pY, queue_main, {});
+        auto err = runLapSignY(m_signY->mem(), &pY, queue_main, wait_events);
         if (err != RGY_ERR_NONE) return err;
         err = runLapSignUV(m_signUV->mem(), &planeSrcU, &planeSrcV,
                            pY.width, pY.height, subX, subY, queue_main, {});
@@ -449,7 +452,7 @@ RGY_ERR RGYFilterChromaShift::run_filter(const RGYFrameInfo *pInputFrame, RGYFra
         const auto planeDstY = getPlane(pOut, RGY_PLANE_Y);
         if (prm->chromashift.show != 1) {
             auto err = m_cl->copyPlane(const_cast<RGYFrameInfo *>(&planeDstY), &planeSrcY,
-                                       nullptr, queue_main, eventsForFirst);
+                                       nullptr, queue_main, eventsForFirst, (planes <= 1) ? event : nullptr);
             if (err != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("chromashift: luma copyPlane failed: %s.\n"), get_err_mes(err));
                 return err;
@@ -462,13 +465,13 @@ RGY_ERR RGYFilterChromaShift::run_filter(const RGYFrameInfo *pInputFrame, RGYFra
     if (prm->chromashift.show == 1) {
         const auto planeSrcU = getPlane(pInputFrame, RGY_PLANE_U);
         auto       planeDstY = getPlane(pOut, RGY_PLANE_Y);
-        auto err = runLaplacianToLuma(&planeDstY, &planeSrcU, subX, subY, queue_main, eventsForFirst);
+        auto err = runLaplacianToLuma(&planeDstY, &planeSrcU, subX, subY, queue_main, eventsForFirst, (planes <= 1) ? event : nullptr);
         if (err != RGY_ERR_NONE) return err;
         eventsForFirst.clear();
 
         for (int i = 1; i < planes; i++) {
             auto planeDst = getPlane(pOut, (RGY_PLANE)i);
-            err = runFillNeutral(&planeDst, queue_main, {});
+            err = runFillNeutral(&planeDst, queue_main, {}, (i == planes - 1) ? event : nullptr);
             if (err != RGY_ERR_NONE) return err;
         }
 
@@ -487,7 +490,7 @@ RGY_ERR RGYFilterChromaShift::run_filter(const RGYFrameInfo *pInputFrame, RGYFra
         for (int i = 1; i < planes; i++) {
             const auto planeSrc = getPlane(pInputFrame, (RGY_PLANE)i);
             auto       planeDst = getPlane(pOut, (RGY_PLANE)i);
-            auto err = m_cl->copyPlane(&planeDst, &planeSrc, nullptr, queue_main, eventsForFirst);
+            auto err = m_cl->copyPlane(&planeDst, &planeSrc, nullptr, queue_main, eventsForFirst, (i == planes - 1) ? event : nullptr);
             if (err != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("chromashift: chroma passthrough copyPlane (plane %d) failed: %s.\n"),
                     i, get_err_mes(err));
@@ -516,7 +519,7 @@ RGY_ERR RGYFilterChromaShift::run_filter(const RGYFrameInfo *pInputFrame, RGYFra
         const auto planeSrcImg = getPlane(&srcImage->frame, (RGY_PLANE)i);
         auto       planeDst    = getPlane(pOut, (RGY_PLANE)i);
         auto err = runShiftPlane(&planeDst, &planeSrcImg, shift_x_chroma, shift_y_chroma,
-                                 queue_main, eventsForFirst);
+                                 queue_main, eventsForFirst, (i == planes - 1) ? event : nullptr);
         if (err != RGY_ERR_NONE) return err;
         eventsForFirst.clear();
     }

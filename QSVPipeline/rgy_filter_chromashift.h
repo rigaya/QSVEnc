@@ -59,14 +59,17 @@ protected:
     // image2d_t view. shift_chroma is already in chroma-plane units.
     RGY_ERR runShiftPlane(RGYFrameInfo *pDstPlane, const RGYFrameInfo *pSrcImgPlane,
                           float shift_x_chroma, float shift_y_chroma,
-                          RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
+                          RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events,
+                          RGYOpenCLEvent *event);
 
     // Diagnostic: |Laplacian(U)| -> Y plane (full luma resolution).
     RGY_ERR runLaplacianToLuma(RGYFrameInfo *pDstY, const RGYFrameInfo *pSrcC,
                                 int subX, int subY,
-                                RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
+                                RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events,
+                                RGYOpenCLEvent *event);
     RGY_ERR runFillNeutral(RGYFrameInfo *pDstPlane,
-                           RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
+                           RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events,
+                           RGYOpenCLEvent *event);
 
     // Auto-detect analysis-phase helpers. Sign maps live in plain
     // cl_mem buffers (one signed byte per luma pixel, no padding) so
