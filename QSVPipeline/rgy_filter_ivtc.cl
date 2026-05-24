@@ -7,13 +7,13 @@
 #define clamp(x, low, high) (((x) <= (high)) ? (((x) >= (low)) ? (x) : (low)) : (high))
 #endif
 
-// SUB-PHASE 1 (2026-04-24): per-WG block "combed?" binary classifier.
+// Per-WG block "combed?" binary classifier.
 // A 16x16 block is considered combed when its per-WG cX pixel sum meets
 // or exceeds this threshold. After the c2 removal (rgy_filter_ivtc.cl
 // :186), the maximum per-WG cX sum is 128 (8 first-parity rows * 16
 // columns). 8 combed pixels = ~6% of the tested sample in the block,
-// roughly matching Decomb's Telecide default sensitivity (~6 pixels in a 24x24
-// block). Diagnostic-only in SUB-PHASE 1 — not consumed by any gate.
+// roughly matching Decomb's Telecide default sensitivity (~6 pixels in a
+// 24x24 block).
 #ifndef BLOCK_COMB_THRESH
 #define BLOCK_COMB_THRESH 8
 #endif
@@ -217,11 +217,11 @@ __kernel void kernel_ivtc_score_candidates(
         for (int k = 0; k < 6; k++) {
             scores[wg_idx * 9 + k] = lred[k * WG_SIZE];
         }
-        // SUB-PHASE 1: emit 3 binary "block combed?" flags per candidate.
+        // Emit 3 binary "block combed?" flags per candidate.
         // Each flag is 1 iff the block's combed-pixel sum for that candidate
         // meets BLOCK_COMB_THRESH, else 0. Host-side aggregation SUMS these
         // across WGs to yield a per-frame combed-block count (not a pixel
-        // count) — Telecide-style primary selection signal.
+        // count) -- Telecide-style primary selection signal.
         const uint blockSumC = lred[3 * WG_SIZE];
         const uint blockSumP = lred[4 * WG_SIZE];
         const uint blockSumN = lred[5 * WG_SIZE];

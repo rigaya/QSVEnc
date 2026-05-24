@@ -159,9 +159,9 @@ protected:
                                int cycleLen, bool isFinal);
     // Build the complete display-order schedule (m_displayFrameList) from
     // the pre-scan's per-frame RFF/TFF flags. Implements the DGDecode
-    // vfapidec.cpp:461-499 FrameList state machine exactly as traced in
-    // analysis/dgdecode_trace.txt. Coded indices in the schedule are
-    // POST-TRIM (0-based from the first frame run_filter will receive).
+    // vfapidec.cpp:461-499 FrameList state machine. Coded indices in the
+    // schedule are POST-TRIM (0-based from the first frame run_filter
+    // will receive).
     void buildScheduleFromScan(const std::vector<IvtcPreScanFrame> &frames,
                                 int trimOffset, int trimFrameCount);
     RGY_ERR scoreCandidates(const RGYFrameInfo *prev, const RGYFrameInfo *cur, const RGYFrameInfo *next, uint64_t matchScoreOut[3], uint64_t combScoreOut[3], uint64_t combMaxOut[3], uint64_t combBlocksOut[3], const int tffForScoring, RGYOpenCLQueue &queue);
@@ -216,28 +216,25 @@ protected:
     std::vector<uint64_t> m_cycleMatchScore;                // 選択マッチの match-quality (ログ用)
     std::vector<uint64_t> m_cycleCombScore;                 // 選択マッチの combing-count (ログ用)
     std::vector<uint64_t> m_cycleCombMax;                   // PRIORITY 1: TFM-style block-MAX across WGs (ログ用; Priority 2 will wire into blend gate)
-    std::vector<uint64_t> m_cycleCombBlocks;                // SUB-PHASE 1: count of combed blocks (cX sum >= BLOCK_COMB_THRESH) per chosen candidate (ログ用; SUB-PHASE 3 will wire into selection)
+    std::vector<uint64_t> m_cycleCombBlocks;                // count of combed blocks (cX sum >= BLOCK_COMB_THRESH) per chosen candidate (ログ用)
 
-    // SUB-PHASE 2 (2026-04-24) — DUAL-PARITY DIAGNOSTIC.
+    // Dual-parity diagnostic triplets.
     // Per-slot full triplets (C,P,N) of cComb / cCombMax / cCombBlocks for
     // BOTH the primary parity (matches m_tffFixed) and the alternate parity
-    // (!m_tffFixed). Logged as 18 new TSV columns at flushCycle. Selection
-    // logic still uses the primary triplets only — this is diagnostic-only
-    // until SUB-PHASE 3 wires comb-first selection across the full 6-set.
+    // (!m_tffFixed). Logged as 18 TSV columns at flushCycle.
     std::vector<std::array<uint64_t, 3>> m_cycleCombScorePrim;   // [c, p, n]   primary tff
     std::vector<std::array<uint64_t, 3>> m_cycleCombMaxPrim;
     std::vector<std::array<uint64_t, 3>> m_cycleCombBlocksPrim;
     std::vector<std::array<uint64_t, 3>> m_cycleCombScoreAlt;    // [cA, pA, nA] alternate tff
     std::vector<std::array<uint64_t, 3>> m_cycleCombMaxAlt;
     std::vector<std::array<uint64_t, 3>> m_cycleCombBlocksAlt;
-    // SUB-PHASE 3 (2026-04-24): per-slot flag indicating whether the
-    // comb-first 6-candidate selection chose an alt-parity (!tff)
-    // candidate over the best primary-parity one. 0 = primary tff,
-    // 1 = alt tff. Logged as matchParity TSV column.
+    // Per-slot flag indicating whether the comb-first 6-candidate selection
+    // chose an alt-parity (!tff) candidate over the best primary-parity one.
+    // 0 = primary tff, 1 = alt tff. Logged as matchParity TSV column.
     std::vector<uint8_t> m_cycleMatchAltParity;
-    // SUB-PHASE 5 (2026-04-25): per-slot confidence level emitted by the
-    // confidence-based decision layer. 0=HIGH, 1=MEDIUM, 2=LOW, 3=VERY_LOW.
-    // Logged as confidence TSV column. See analysis/Confidence-Based_Matcher_TFM-style.txt.
+    // Per-slot confidence level emitted by the confidence-based decision
+    // layer. 0=HIGH, 1=MEDIUM, 2=LOW, 3=VERY_LOW. Logged as confidence
+    // TSV column.
     std::vector<uint8_t> m_cycleConfidence;
     std::vector<uint8_t>  m_cycleBlendTrigger;              // INSTRUMENTATION: which blend gate caused applyBlend=true for this slot. 0=none, 1=mislabeledBySat, 2=mislabeledByDual, 3=unknownCombed, 4=progressiveCombed, 5=strongMatch, 6=vthresh_vetoed, 7=confidenceForced
     std::array<uint64_t, 8> m_blendTriggerCounts;           // cumulative counter across the run; reported at close()
@@ -247,12 +244,12 @@ protected:
     std::vector<int> m_cycleCadenceTag;                     // Cadence tracker state + override action per slot (see encoding in processInputToCycle)
     std::vector<uint64_t> m_cycleDiffPrev;                  // SAD(cycle[i], cycle[i-1]) for i>=1; [0] uses m_saveSlot
     std::vector<uint64_t> m_cycleSceneSAD;                  // scene-change detector SAD per slot (ログ用)
-    // Per-cycle-slot synth flag (FIX B, 2026-04-24). Mirrors m_cacheIsSynth
-    // at the moment processInputToCycle fills a cycle slot. Consumed by
-    // flushCycle's decimation-drop selection to prefer dropping synth
-    // frames over coded frames — synths are the expansion-added
-    // duplicates, so dropping them first preserves as many coded frames
-    // as possible in the decimated output. See analysis/vpp_ivtc_progress.txt.
+    // Per-cycle-slot synth flag. Mirrors m_cacheIsSynth at the moment
+    // processInputToCycle fills a cycle slot. Consumed by flushCycle's
+    // decimation-drop selection to prefer dropping synth frames over
+    // coded frames -- synths are the expansion-added duplicates, so
+    // dropping them first preserves as many coded frames as possible in
+    // the decimated output.
     std::vector<uint8_t>  m_cycleIsSynth;                   // 1=synth (from expand=on), 0=coded; indexed like m_cycleDiffPrev
     std::deque<IvtcEmitEntry> m_emitQueue;                  // 1 call 1 emit 用の出力キュー (AFS/Decimate 方式)
     int m_stagingBase;                                      // m_frameBuf のうち emit-staging 領域の先頭 index
@@ -324,7 +321,6 @@ protected:
     // buffer; flushExpandBuffer walks the pre-computed schedule and
     // emits each entry whose source coded indices are present in the
     // buffer (plus an optional carry frame from the previous flush).
-    // See analysis/dgdecode_trace.txt and analysis/prescan_expansion.txt.
     static constexpr int EXPAND_BUF_SIZE = 10;
     struct ExpandBufMeta {
         uint32_t flags;         // RGY_FRAME_FLAG_* bitmask captured at buffer time

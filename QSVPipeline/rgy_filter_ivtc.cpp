@@ -79,28 +79,25 @@ static const char *ivtcPreScanUnsupportedProtocol(const std::string &filename) {
 }
 
 // ============================================================================
-//  Selection / decision-layer constants (Phase 2 / Phase 3, 2026-04-25).
+//  Selection / decision-layer constants.
 // ============================================================================
-// Pulled out as named constants during the Sub-Phase 7 cleanup pass so the
-// matcher / rescue / confidence / plateau / temporal blocks share a single
-// source of truth for their thresholds. Values are NOT changed — every
-// constant equals the literal it replaced.
-//
-// All combScore values are 8-bit-domain trimmed-average per-WG pixel counts
-// (the units produced by scoreCandidates). They are NOT bit-depth-scaled
-// because the scoring kernel produces fixed-bound counts (max 256 per WG).
+// Named-constant source of truth for the matcher / rescue / confidence /
+// plateau / temporal blocks. All combScore values are 8-bit-domain
+// trimmed-average per-WG pixel counts (the units produced by
+// scoreCandidates). They are NOT bit-depth-scaled because the scoring
+// kernel produces fixed-bound counts (max 256 per WG).
 namespace {
 constexpr uint64_t COMB_BLEND_THRESHOLD     = 65;  // primary blend-gate floor (== combThreshProg defined in processInputToCycle)
 constexpr uint64_t COMB_CLEAN_BOUND         = 30;  // upper bound of CLEAN frame class (confidence layer)
-constexpr uint64_t PLATEAU_DELTA            = 10;  // max combScore spread for plateau detection (Sub-Phase 6)
+constexpr uint64_t PLATEAU_DELTA            = 10;  // max combScore spread for plateau detection
 constexpr uint64_t PLATEAU_MAX_DELTA        = 10;  // max combMax spread for confidence-plateau detection
-constexpr uint64_t TEMPORAL_TOLERANCE       = 6;   // Sub-Phase 7: how close prev match must be to plateau winner
+constexpr uint64_t TEMPORAL_TOLERANCE       = 6;   // how close prev match must be to plateau winner
 constexpr uint64_t CONFIDENCE_PLATEAU_SCORE = 6;   // confidence-layer plateau scoreGap bound
 constexpr uint64_t CONFIDENCE_GAP_THRESHOLD = 15;  // confidence: scoreGap below this -> LOW classification
 constexpr uint64_t CONFIDENCE_SEPARATION    = 8;   // confidence: clear-winner gap that overrides to HIGH
 constexpr uint64_t RESCUE_TRIGGER           = 40;  // rescue activates only when primaryBest.combScore >= this
 constexpr uint64_t RESCUE_IMPROVEMENT       = 8;   // rescue accepts swap when resc.combScore + this < orig.combScore
-constexpr int      ALT_DECISIVE_RATIO       = 3;   // v5 alt-guard: alt is decisive when 3x cleaner than primary
+constexpr int      ALT_DECISIVE_RATIO       = 3;   // alt-guard: alt is decisive when 3x cleaner than primary
 }  // anonymous namespace
 
 // Forward declaration for the init()-time RFF pre-scan. Definition is
@@ -693,15 +690,14 @@ RGY_ERR RGYFilterIvtc::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     // 同時に出力 baseFps を (cycle-drop)/cycle 倍しておく (デコーダ側の
     // 期待フレームレートを正しく 24fps に更新する)。
     //
-    // FIX A (2026-04-24): the decimation multiplier always applies when
-    // cycle>0 and drop>0, regardless of m_skipBaseFpsMultiplier. The old
-    // guard assumed the internal 4->5 expansion cancelled the 5->4
-    // decimation and left the rate unchanged, but that only affects the
-    // synth-insertion step -- the decimation itself genuinely removes
+    // The decimation multiplier always applies when cycle>0 and drop>0,
+    // regardless of m_skipBaseFpsMultiplier. The internal 4->5 expansion
+    // does not cancel the 5->4 decimation -- the expansion only affects
+    // synth-insertion, while the decimation itself genuinely removes
     // frames from the output stream, so the output rate must be reduced.
-    // Without this adjustment DH2 expand=on produced 8,001 frames at
-    // 29.97fps (267s) instead of the expected 23.976fps (334s), a 25%
-    // playback speed-up. See analysis/vpp_ivtc_progress.txt.
+    // Without this adjustment expand=on produces too many frames at the
+    // input rate instead of the expected film rate, causing a playback
+    // speed-up.
     if (m_mixedActive) {
         m_pathThrough &= ~(FILTER_PATHTHROUGH_TIMESTAMP);
     } else if (prm->ivtc.cycle > 0) {
@@ -833,8 +829,8 @@ RGY_ERR RGYFilterIvtc::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     // スコア集計バッファ: WG ごとに 9 uints = [mC, mP, mN, cC, cP, cN, bC, bP, bN]
     //   mX = match-quality   (3-top vs 2-bot pattern diff sum per block)
     //   cX = combing-count   (zigzag pixels per block — per-pixel sum)
-    //   bX = combed-block flag (SUB-PHASE 1, 2026-04-24; 0/1 binary per WG,
-    //        indicating whether that WG's cX sum met BLOCK_COMB_THRESH)
+    //   bX = combed-block flag (0/1 binary per WG, indicating whether
+    //        that WG's cX sum met BLOCK_COMB_THRESH)
     // CPU 側:
     //   mX -> trimmed-average across WGs
     //   cX -> trimmed-average (primary) + MAX across WGs (Priority 1)
@@ -875,8 +871,8 @@ RGY_ERR RGYFilterIvtc::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         m_cycleCombScore.assign(cycleLen, 0);
         m_cycleCombMax.assign(cycleLen, 0);
         m_cycleCombBlocks.assign(cycleLen, 0);
-        // SUB-PHASE 2: dual-parity per-candidate metric vectors.
-        // Default-init each slot to {0,0,0} via std::array{} value-init.
+        // Dual-parity per-candidate metric vectors. Default-init each slot
+        // to {0,0,0} via std::array{} value-init.
         m_cycleCombScorePrim.assign(cycleLen, std::array<uint64_t, 3>{});
         m_cycleCombMaxPrim.assign(cycleLen, std::array<uint64_t, 3>{});
         m_cycleCombBlocksPrim.assign(cycleLen, std::array<uint64_t, 3>{});
@@ -923,10 +919,10 @@ RGY_ERR RGYFilterIvtc::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
                 "%s"
                 "# cComb_{c,p,n}     = primary-parity per-candidate trimmed-avg combing\n"
                 "# cComb_{cA,pA,nA}  = alternate-parity (!tff) per-candidate trimmed-avg combing\n"
-                "# cMax_*  / cBlk_*  = same naming for block-MAX (Priority 1) and combed-block-count (SUB-PHASE 1) signals\n"
-                "# matchParity: which parity comb-first selection landed on (SUB-PHASE 3)\n"
+                "# cMax_*  / cBlk_*  = same naming for block-MAX and combed-block-count signals\n"
+                "# matchParity: which parity comb-first selection landed on\n"
                 "#   pri = primary tff    alt = !tff (decisive-alt guard cleared)\n"
-                "# conf: confidence-based classifier (SUB-PHASE 5)\n"
+                "# conf: confidence-based classifier\n"
                 "#   0=HIGH 1=MEDIUM 2=LOW 3=VERY_LOW\n"
                 "# btrig: blend trigger classifier (INSTRUMENTATION)\n"
                 "#   0=none 1=mislabeledBySat 2=mislabeledByDual 3=unknownCombed\n"
@@ -1262,7 +1258,7 @@ RGY_ERR RGYFilterIvtc::scoreCandidates(const RGYFrameInfo *prev, const RGYFrameI
         uint64_t sum[6] = { 0, 0, 0, 0, 0, 0 };
         uint32_t cnt[6] = { 0, 0, 0, 0, 0, 0 };
         uint32_t maxC[3]    = { 0, 0, 0 };   // MAX over WGs of channels cC, cP, cN
-        uint64_t blocksC[3] = { 0, 0, 0 };   // SUM over WGs of 0/1 combed-block flags (SUB-PHASE 1)
+        uint64_t blocksC[3] = { 0, 0, 0 };   // SUM over WGs of 0/1 combed-block flags
         for (size_t i = 0; i < wg_count; i++) {
             const uint32_t *e = &m_scoreHost[i * 9];
             for (int k = 0; k < 6; k++) {
@@ -1725,8 +1721,7 @@ RGY_ERR RGYFilterIvtc::pushFrameToRing(const RGYFrameInfo *pFrame, RGYOpenCLQueu
 // (GPL-2.0); independent re-implementation. Operates
 // on the pre-scanned per-frame RFF flags (see ivtcPreScanInput). Output
 // indices in m_displayFrameList are POST-TRIM, i.e. 0-based against the
-// stream of frames run_filter will receive at runtime. See
-// analysis/dgdecode_trace.txt for an annotated 10-frame example.
+// stream of frames run_filter will receive at runtime.
 void RGYFilterIvtc::buildScheduleFromScan(
     const std::vector<IvtcPreScanFrame> &frames,
     int trimOffset,
@@ -2065,7 +2060,7 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
             m_cycleCombScore[slot]     = 0;
             m_cycleCombMax[slot]       = 0;   // synth passthru: no scoring ran
             m_cycleCombBlocks[slot]    = 0;   // synth passthru: no scoring ran
-            // SUB-PHASE 2: synth passthru — no scoring ran for either parity.
+            // Dual-parity triplets: synth passthru -- no scoring ran for either parity.
             m_cycleCombScorePrim[slot]   = std::array<uint64_t, 3>{};
             m_cycleCombMaxPrim[slot]     = std::array<uint64_t, 3>{};
             m_cycleCombBlocksPrim[slot]  = std::array<uint64_t, 3>{};
@@ -2080,7 +2075,7 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
             m_cycleDecTag[slot]        = 16;                  // SYNTH_PASSTHRU (new)
             m_cycleCadenceTag[slot]    = 0;                   // "none"
             m_cycleSceneSAD[slot]      = 0;
-            m_cycleIsSynth[slot]       = 1;                   // FIX B: prefer dropping this slot
+            m_cycleIsSynth[slot]       = 1;                   // prefer dropping this slot
 
             // Pair-wise SAD for the decimation argmin. Synth frames are temporal
             // duplicates of their top-source neighbour; their diff-to-prev will
@@ -2146,34 +2141,27 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
     uint64_t matchScore [3] = { 0, 0, 0 };
     uint64_t combScore  [3] = { 0, 0, 0 };
     uint64_t combMax    [3] = { 0, 0, 0 };   // PRIORITY 1: Telecide-style block-MAX per candidate
-    uint64_t combBlocks [3] = { 0, 0, 0 };   // SUB-PHASE 1: count of blocks with cX >= BLOCK_COMB_THRESH
+    uint64_t combBlocks [3] = { 0, 0, 0 };   // count of blocks with cX >= BLOCK_COMB_THRESH
     auto err = scoreCandidates(
         &m_cacheFrames[idx_prev]->frame,
         &m_cacheFrames[idx_cur ]->frame,
         &m_cacheFrames[idx_next]->frame,
         matchScore, combScore, combMax, combBlocks, tffForScoring, queue_main);
 
-    // SUB-PHASE 2 (2026-04-24) — DUAL-PARITY DIAGNOSTIC SCORING.
+    // Dual-parity diagnostic scoring.
     // Re-dispatch the scoring kernel with the inverted tff to obtain
     // the alternate field-pair combinations (C/P/N at !tff). The kernel
-    // produces semantically distinct outputs for tff vs !tff (verified
-    // by reading rgy_filter_ivtc.cl: thread firing pivots on
-    // first_parity = tff?0:1 at line 154, and pix_match's source select
-    // is_first_field_row at line 92 inverts which physical rows the
-    // C/P/N candidates pull from). Each dispatch fully overwrites
-    // m_scoreBuf so reusing the buffer is safe.
+    // produces semantically distinct outputs for tff vs !tff (the
+    // thread firing pivots on first_parity = tff?0:1, and pix_match's
+    // source select inverts which physical rows the C/P/N candidates
+    // pull from). Each dispatch fully overwrites m_scoreBuf so reusing
+    // the buffer is safe.
     //
-    // The alt scoring is gated on the primary scoring succeeding —
+    // The alt scoring is gated on the primary scoring succeeding --
     // otherwise the original err return below will fire first and we
     // never use the alt buffers. Alt failure is non-fatal: we log a
     // warning and leave the alt buffers zero-initialized so the TSV
     // log columns simply show 0 for that frame.
-    //
-    // Selection logic still consumes ONLY the primary triplets. The
-    // alt triplets are diagnostic-only in this sub-phase — used by the
-    // 18 new TSV columns for offline analysis of which SG1 frames
-    // would benefit from comb-first dual-parity selection in
-    // SUB-PHASE 3.
     uint64_t matchScoreAlt [3] = { 0, 0, 0 };
     uint64_t combScoreAlt  [3] = { 0, 0, 0 };
     uint64_t combMaxAlt    [3] = { 0, 0, 0 };
@@ -2186,7 +2174,7 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
             matchScoreAlt, combScoreAlt, combMaxAlt, combBlocksAlt, tffForScoring ? 0 : 1, queue_main);
         if (errAlt != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_WARN,
-                _T("ivtc SUB-PHASE 2: alt-parity scoring failed (%s); zeroing alt metrics for this frame.\n"),
+                _T("ivtc: alt-parity scoring failed (%s); zeroing alt metrics for this frame.\n"),
                 get_err_mes(errAlt));
             // Alt buffers stay zero per the initializer above.
         }
@@ -2276,10 +2264,10 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
     // 2:2 cadence has no P borrow; just pick C for even-indexed inputs, N for odd.
     IvtcMatch match = IvtcMatch::C;
     uint64_t chosenMatchScore = matchScore[(int)IvtcMatch::C];
-    // SUB-PHASE 3 (2026-04-24): tracks whether the comb-first selector
-    // chose an alt-parity candidate. true = !tff parity used for both
-    // matching metrics AND frame assembly. Scene-change, guide=2, and
-    // cadence-override paths force this back to false (primary parity).
+    // Tracks whether the comb-first selector chose an alt-parity candidate.
+    // true = !tff parity used for both matching metrics AND frame assembly.
+    // Scene-change, guide=2, and cadence-override paths force this back to
+    // false (primary parity).
     bool matchAltParity = false;
     // Cadence tag for per-frame log (set by the cadence-override block
     // below when it runs). Defaults to "disabled" for paths that skip
@@ -2297,11 +2285,10 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
         // ========================================================================
         //  PIPELINE STAGE 2 — PRIMARY SELECTION (COMB-FIRST 6-CANDIDATE)
         // ========================================================================
-        // SUB-PHASE 3 (2026-04-24) — COMB-FIRST 6-CANDIDATE SELECTION.
+        // COMB-FIRST 6-CANDIDATE SELECTION.
         //
-        // Replaces the previous argmin-SAD + hysteresis block. Builds a
-        // unified array over (C, P, N) at primary tff and (cA, pA, nA) at
-        // alternate tff, ranks lexicographically by:
+        // Builds a unified array over (C, P, N) at primary tff and
+        // (cA, pA, nA) at alternate tff, ranks lexicographically by:
         //
         //     combBlocks (count of combed blocks)        — primary
         //     combMax    (worst block's combed pixels)   — secondary
@@ -2356,10 +2343,10 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
         }
 
         // ========================================================================
-        //  PIPELINE STAGE 3 — PLATEAU HANDLING (Sub-Phase 6)
-        //  PIPELINE STAGE 4 — TEMPORAL CONSISTENCY (Sub-Phase 7, nested below)
+        //  PIPELINE STAGE 3 -- PLATEAU HANDLING
+        //  PIPELINE STAGE 4 -- TEMPORAL CONSISTENCY (nested below)
         // ========================================================================
-        // -------- SUB-PHASE 6 (2026-04-25): Separation-aware re-ranking --------
+        // -------- Separation-aware re-ranking --------
         // The default lex order (combBlocks → combMax → combScore) prioritises
         // structural cleanliness — the right call when one candidate is
         // structurally distinct from the others. On PLATEAU frames where all
@@ -2403,7 +2390,7 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
                 }
                 bestPriIdx = plateauBest;
 
-                // -------- SUB-PHASE 7 (2026-04-25): Temporal consistency --------
+                // -------- Temporal consistency --------
                 // Plateau-only tiebreaker: prefer the previous frame's match
                 // type when it sits close to the new plateau winner. Reduces
                 // visible "flicker" between equally-scored candidates across
@@ -2522,9 +2509,9 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
         int finalIdx = useAlt ? bestIdx : bestPriIdx;
 
         // ========================================================================
-        //  PIPELINE STAGE 6 — RESCUE PASS (Sub-Phase 4 / 4b)
+        //  PIPELINE STAGE 6 -- RESCUE PASS
         // ========================================================================
-        // SUB-PHASE 4 (2026-04-25) — Rescue Pass (comb-only fallback).
+        // Rescue Pass (comb-only fallback).
         // --------------------------------------------------------------
         // Telecide-style additive rescue: re-rank the existing 6 candidates
         // by combing only (no matchScore tiebreak) when the chosen
@@ -2534,14 +2521,14 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
         // tiebreak picked a slightly-combed candidate over a cleaner
         // alternative that happened to have a marginally higher SAD.
         //
-        // Hard rules (mirror the parent task's CRITICAL constraints):
+        // Hard rules:
         //   - Does not modify selection, thresholds, blend gates,
         //     assembly, or the candidate array. Only mutates finalIdx.
         //   - Trigger uses combBlocks AND combScore (combMax never
-        //     standalone — would re-introduce the v3 false-positive
-        //     mode where clean texture cleared the threshold).
-        //   - Parity safety enforces the v5 invariant: P-alt / N-alt
-        //     are NEVER selectable; only primary parity or C-alt.
+        //     standalone -- would re-introduce false positives on
+        //     clean texture).
+        //   - Parity safety: P-alt / N-alt are NEVER selectable;
+        //     only primary parity or C-alt.
         //   - Single source of truth: finalIdx is mutated in place,
         //     then the existing `chosen` extraction below sees the
         //     rescued value. All downstream reads (match,
@@ -2617,33 +2604,30 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
                 //       achieving 3x reduction, so rescue never fired.
                 //       Blends stuck at 63.
                 //
-                // v3 (Sub-Phase 4b "soft rescue"): swap the
-                // multiplicative 3x for an ADDITIVE delta of 8. In the
-                // 40-65 mid-comb band an absolute +8 improvement
-                // represents real cleanup (e.g. orig=48 → resc<=39 is
-                // a meaningful drop) while still excluding the noise-
-                // floor variance that v1 was accepting (typical
+                // "Soft rescue": use an ADDITIVE delta of 8 rather than
+                // a multiplicative ratio. In the 40-65 mid-comb band an
+                // absolute +8 improvement represents real cleanup
+                // (e.g. orig=48 -> resc<=39 is a meaningful drop) while
+                // still excluding noise-floor variance (typical
                 // candidate-to-candidate jitter on clean content is
                 // 1-3 combScore units).
                 //
-                // The combBlocks==0 fast-path is kept — it's the
-                // unambiguous "rescue candidate is structurally
-                // clean" win and doesn't need a magnitude rule.
+                // The combBlocks==0 fast-path is kept -- it's the
+                // unambiguous "rescue candidate is structurally clean"
+                // win and doesn't need a magnitude rule.
                 //
                 // Standalone combMax and standalone `combBlocks <`
-                // comparisons are still NOT used — combMax is a
-                // per-WG raw pixel count (the noise-prone signal that
-                // drove the v3 alt-guard regression), and a bare
-                // combBlocks decrease is satisfied by ordinary noise
-                // variance between candidates.
+                // comparisons are NOT used -- combMax is a per-WG raw
+                // pixel count (noise-prone), and a bare combBlocks
+                // decrease is satisfied by ordinary noise variance
+                // between candidates.
                 //
                 // Underflow safety: the additive form
                 // `resc.combScore + 8 < orig.combScore` evaluates as
-                // uint64 addition on the LHS — never underflows. An
-                // alternative subtractive form
-                // `orig.combScore - 8 > resc.combScore` would underflow
-                // if orig.combScore < 8 (it's uint64_t), so the
-                // additive form is the safe choice.
+                // uint64 addition on the LHS -- never underflows. The
+                // subtractive form `orig.combScore - 8 > resc.combScore`
+                // would underflow if orig.combScore < 8 (it's
+                // uint64_t), so the additive form is the safe choice.
                 const bool rescueIsBetter =
                     // Case 1: eliminate all combing (unchanged)
                     (orig.combBlocks > 0 && resc.combBlocks == 0)
@@ -2652,35 +2636,29 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
                     (orig.combScore > 0 &&
                      resc.combScore + RESCUE_IMPROVEMENT < orig.combScore);
 
-                // Parity safety (2026-04-25 tightened revision).
+                // Parity safety.
                 //
-                // Prior gate allowed C-alt because C is parity-invariant
-                // (pix_match returns pCur regardless of tff, so the
-                // assembled output is identical to C-pri). However, when
-                // rescue had broad activation (combScore >= 40), the
-                // C-alt allowance let rescue pick C-alt on ~146 SG1
-                // frames per run, re-flipping matchParity=alt on
-                // structurally-identical output. Visually safe but
-                // effectively re-enabled alt parity outside the v5
-                // guard's control — and the matchParity TSV column
-                // stopped meaning what it was supposed to mean.
+                // C-alt is technically parity-invariant (pix_match
+                // returns pCur regardless of tff, so the assembled
+                // output is identical to C-pri). But allowing C-alt
+                // through rescue re-flips matchParity=alt on
+                // structurally-identical output -- visually safe, but
+                // effectively re-enables alt parity outside the
+                // alt-guard's control, and the matchParity TSV column
+                // stops meaning what it's supposed to mean.
                 //
-                // New rule: rescue selects PRIMARY PARITY ONLY. Alt
-                // parity (including C-alt) can only be introduced by
-                // the v5 alt-guard at the top of the matcher, never by
-                // the rescue path.
+                // Rule: rescue selects PRIMARY PARITY ONLY. Alt parity
+                // (including C-alt) can only be introduced by the
+                // alt-guard at the top of the matcher, never by the
+                // rescue path.
                 const bool rescueAltSafe = (!resc.altParity);
 
-                // Sub-Phase 4c (plateau detection) was reverted on
-                // 2026-04-25: it produced an alt-parity explosion
-                // (0 → 481), a small blend regression (63 → 64), and no
-                // visible improvement on plateau frames such as 4285.
-                // The plateau swap accepted candidates with strictly
-                // lower combBlocks even when combScore was higher,
-                // which both pushed some frames over the blend gate
-                // and over-flipped to C-alt on plateau-symmetric
-                // candidate populations. Restored to the rescueIsBetter
-                // gate alone.
+                // No plateau detection in rescue: an earlier experiment
+                // accepting candidates with strictly lower combBlocks
+                // even when combScore was higher produced an alt-parity
+                // explosion and over-flipped to C-alt on plateau-
+                // symmetric candidate populations. Use rescueIsBetter
+                // alone.
                 if (rescueIsBetter && rescueAltSafe) {
                     finalIdx = rescueIdx;
                 }
@@ -2816,10 +2794,10 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
                                 (unsigned long long)predScore, (unsigned long long)chosenScore);
                             match = (IvtcMatch)predicted;
                             chosenMatchScore = matchScore[predicted];
-                            // SUB-PHASE 3: cadence patterns are calibrated on
-                            // primary-parity match history. When cadence
-                            // override fires we always land on a primary-parity
-                            // candidate, regardless of what comb-first chose.
+                            // Cadence patterns are calibrated on primary-parity
+                            // match history. When cadence override fires we
+                            // always land on a primary-parity candidate,
+                            // regardless of what comb-first chose.
                             matchAltParity = false;
                             cadenceTag = 6 + predBase;  // locked/X/override
                         } else {
@@ -2840,14 +2818,13 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
     //    発火時は synthesize カーネル側で second-field 行を unconditional に bob 補間する
     //    (per-pixel 閾値判定は、デコーダでフィールドマージされて弱く均された combing に対して
     //     反応しないことが多く、ベイクドイン combing が残るケースを救えないため)。
-    // SUB-PHASE 3 (2026-04-24): pull the chosen match's combing metrics
-    // from the matching-parity arrays. Primary parity uses combScore /
-    // combMax / combBlocks (the originals); alt parity uses the *Alt
-    // versions populated by the second scoreCandidates call. The blend
-    // gate downstream consumes chosenCombScore / chosenCombMax /
-    // chosenCombBlocks so it ALSO sees the alt metrics when alt was
-    // chosen — keeping the gate aligned with the actually-selected
-    // field combination.
+    // Pull the chosen match's combing metrics from the matching-parity
+    // arrays. Primary parity uses combScore / combMax / combBlocks (the
+    // originals); alt parity uses the *Alt versions populated by the
+    // second scoreCandidates call. The blend gate downstream consumes
+    // chosenCombScore / chosenCombMax / chosenCombBlocks so it ALSO
+    // sees the alt metrics when alt was chosen -- keeping the gate
+    // aligned with the actually-selected field combination.
     const uint64_t chosenCombScore  = matchAltParity ? combScoreAlt [(int)match] : combScore [(int)match];
     const uint64_t chosenCombMax    = matchAltParity ? combMaxAlt   [(int)match] : combMax   [(int)match];
     const uint64_t chosenCombBlocks = matchAltParity ? combBlocksAlt[(int)match] : combBlocks[(int)match];
@@ -2883,10 +2860,8 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
 
     // treatAsInterlaced — RAW-INPUT EDGE CASE ONLY.
     //
-    // Per the decoder pipeline investigation in
-    // analysis/decoder_pipeline_analysis.txt (2026-04-22), pure
-    // RGY_PICSTRUCT_TFF / RGY_PICSTRUCT_BFF is NEVER emitted by any
-    // real video decoder:
+    // Pure RGY_PICSTRUCT_TFF / RGY_PICSTRUCT_BFF is NEVER emitted by any
+    // real video decoder in this codebase:
     //   - avsw (libavcodec): picstruct_avframe_to_rgy at
     //     rgy_avutil.cpp:156-161 maps only to FRAME / FRAME_TFF /
     //     FRAME_BFF — never pure TFF/BFF.
@@ -3061,9 +3036,8 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
     //   - Threshold 85 (not 100) calibrated to preserve DH2 frame #712
     //     which has cCombMax=88 — a legitimate catch on sw-weaved
     //     content. Raising to 100 would lose that catch.
-    //   - Zero impact on the 36 SG1 progressiveCombed fires measured in
-    //     ivtc_sg1_dualgate_log.txt; all have cCombMax in [117, 128].
-    //   See analysis/dominant_gate_analysis.txt for the measurement.
+    //   - Measured: all sample progressiveCombed fires have cCombMax in
+    //     [117, 128], well above the threshold.
     const uint64_t combMaxThreshProg = 85ULL;
     const bool progressiveCombed =
         treatAsProgressive
@@ -3072,30 +3046,30 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
         && (chosenCombScore  >= combThreshProg)
         && (chosenCombMax    > combMaxThreshProg);
 
-    // applyBlend gate — Phase B4 (post-assembly veto), 2026-04-23 revision.
+    // applyBlend gate -- post-assembly veto.
     //
     // Two-stage decision:
     //
-    //   (1) applyBlendGate: picstruct-class classifier. Unchanged from the
-    //       pre-B4 (fix5) build. The mQ+cComb combinations here are what
-    //       distinguish genuinely-combed frames from normal film texture —
-    //       dropping them caused a 4.4x over-blend regression (DH2: 157 →
-    //       692 blends) because progressive texture at cComb=66..70 with
-    //       mQ=395..700 passed a cComb-only gate.
+    //   (1) applyBlendGate: picstruct-class classifier. The mQ+cComb
+    //       combinations here distinguish genuinely-combed frames from
+    //       normal film texture -- dropping them caused a ~4.4x
+    //       over-blend regression because progressive texture at
+    //       cComb=66..70 with mQ=395..700 passed a cComb-only gate.
     //
-    //   (2) vthresh veto (analogue of the vmetric gate in Decomb's Telecide,
-    //       Telecide.cpp:376-397, GPL-2.0): on
-    //       top of (1), require chosenCombScore >= vthresh. Default 50 —
-    //       below combThreshProg (65) so it only filters frames that
-    //       reached (1) via the strongMatch branch (which has no cComb
-    //       threshold of its own beyond cleanBlockThresh). The cComb-gated
-    //       branches (mislabeled*/unknownCombed/progressiveCombed) already
-    //       demand cComb >= 65 or higher, so vthresh=50 never overrides
-    //       them. vthresh=0 disables the veto entirely (pure fix5 behaviour).
+    //   (2) vthresh veto (analogue of the vmetric gate in Decomb's
+    //       Telecide, Telecide.cpp:376-397, GPL-2.0): on top of (1),
+    //       require chosenCombScore >= vthresh. Default 50 -- below
+    //       combThreshProg (65) so it only filters frames that reached
+    //       (1) via the strongMatch branch (which has no cComb
+    //       threshold of its own beyond cleanBlockThresh). The
+    //       cComb-gated branches (mislabeled*/unknownCombed/
+    //       progressiveCombed) already demand cComb >= 65 or higher,
+    //       so vthresh=50 never overrides them. vthresh=0 disables the
+    //       veto entirely.
     //
-    // Key property: vthresh can only REMOVE blends relative to fix5, never
-    // ADD them. With default 50 the effect is minimal — a safety net for
-    // the strongMatch branch. Users who want Telecide-style post-assembly
+    // Key property: vthresh can only REMOVE blends, never ADD them.
+    // With default 50 the effect is minimal -- a safety net for the
+    // strongMatch branch. Users who want Telecide-style post-assembly
     // discipline can raise vthresh toward 65; this will start trimming
     // blends that the classifier gate flagged but the assembled frame
     // doesn't actually need.
@@ -3105,20 +3079,18 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
     // candidate's field pair per-row before measuring combing, so
     // chosenCombScore IS the post-assembly cComb. No separate re-scoring.
     // ============================================================================
-    //  PIPELINE STAGE 7 — CONFIDENCE EVALUATION (Sub-Phase 5)
+    //  PIPELINE STAGE 7 -- CONFIDENCE EVALUATION
     // ============================================================================
-    //  SUB-PHASE 5 (2026-04-25) — Confidence-Based Decision Layer
-    // ----------------------------------------------------------------------------
+    // Confidence-based decision layer.
     //
     // Computed AFTER cadence override and immediately BEFORE the
     // applyBlend gate so the classifier sees the post-cadence chosen
     // state. Adds a single OR-clause to applyBlendGate when confidence
     // is LOW (with a tightened secondary check) or VERY_LOW; otherwise
-    // existing gate logic stands. See:
-    //   analysis/Confidence-Based_Matcher_TFM-style.txt
+    // existing gate logic stands.
     //
     // Reuses existing thresholds:
-    //   - mQ_threshold_prog (line ~2873) for VERY_LOW + LOW gating
+    //   - mQ_threshold_prog for VERY_LOW + LOW gating
     //   - cleanBlockThresh as absolute lower bound (no blend below it)
     //   - LOW lowered floor = 55 (combThreshProg=65 minus 10)
     //
@@ -3160,20 +3132,20 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
         const uint64_t maxGap   = (secondMax   > chosenCombMax)
             ? (secondMax   - chosenCombMax)   : 0;
 
-        // ---- Separation-by-combScore winner check (Sub-Phase 5 v2 fix) ----
+        // ---- Separation-by-combScore winner check ----
         // Independent of the matcher's lex order. If one candidate is a
-        // CLEAR winner by combScore alone — i.e. the second-lowest score
-        // is at least 8 above the lowest — classify as HIGH regardless of
-        // the absolute combScore band, plateau check, or scoreGap-by-lex.
+        // CLEAR winner by combScore alone -- i.e. the second-lowest
+        // score is at least 8 above the lowest -- classify as HIGH
+        // regardless of the absolute combScore band, plateau check, or
+        // scoreGap-by-lex.
         //
-        // Why: the matcher's lex order is combBlocks → combMax → combScore,
-        // so secondPri (lex-second) can have a LOWER combScore than the
-        // lex-best. The original scoreGap = secondScore - chosenCombScore
-        // then saturated to 0, falsely flagging "no decisive winner". On
-        // DH2 this misclassified ~45 mid-comb film frames as LOW/VERY_LOW
-        // and forced spurious blends. A direct sort over the 3 primary
-        // combScores recovers the actual score-spread independent of the
-        // lex pivot.
+        // Why: the matcher's lex order is combBlocks -> combMax ->
+        // combScore, so secondPri (lex-second) can have a LOWER
+        // combScore than the lex-best. The original scoreGap =
+        // secondScore - chosenCombScore would then saturate to 0,
+        // falsely flagging "no decisive winner". A direct sort over the
+        // 3 primary combScores recovers the actual score-spread
+        // independent of the lex pivot.
         const uint64_t cs0 = combScore[0];
         const uint64_t cs1 = combScore[1];
         const uint64_t cs2 = combScore[2];
@@ -3226,11 +3198,11 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
         confidenceLevel = conf;
 
         // confidenceForcesBlend: single OR-clause for the existing gate.
-        // Hard guard (Sub-Phase 5 v2 fix): require chosenCombScore >= 65.
-        // The original LOW path had a 55 floor and VERY_LOW had no floor,
-        // which let confidence force-blend mid-comb frames where one
-        // candidate was actually clean — DH2 went 1 → 45 blends. Lifting
-        // the floor to 65 ensures confidence only adds blends in the band
+        // Hard guard: require chosenCombScore >= 65. Earlier attempts
+        // with a LOW floor of 55 and no floor on VERY_LOW let confidence
+        // force-blend mid-comb frames where one candidate was actually
+        // clean -- spurious blends. Lifting the floor to 65 ensures
+        // confidence only adds blends in the band
         // where the existing progressiveCombed/unknownCombed gates may
         // miss due to combMax not crossing 85/100. Mid-comb (40-65) film
         // frames are now NEVER blended via the confidence path; they
@@ -3282,9 +3254,9 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
     //    4 = progressiveCombed
     //    5 = strongMatch (on treatAsInterlaced or treatAsUnknown)
     //    6 = vthresh_vetoed (gate fired but veto canceled blend)
-    //    7 = confidenceForcesBlend (Sub-Phase 5 — fired only when no
-    //        explicit-predicate gate did, so this counts the NEW blend
-    //        population introduced by the confidence layer)
+    //    7 = confidenceForcesBlend (fired only when no explicit-predicate
+    //        gate did, so this counts the blend population introduced by
+    //        the confidence layer)
     uint8_t blendTrigger = 0;
     if (applyBlendGate && vthreshVeto) {
         blendTrigger = 6;  // gated but vetoed — final applyBlend=false
@@ -3361,33 +3333,30 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
     if (picstruct == RGY_PICSTRUCT_TFF || picstruct == RGY_PICSTRUCT_FRAME_TFF)      bwdifTff = 1;
     else if (picstruct == RGY_PICSTRUCT_BFF || picstruct == RGY_PICSTRUCT_FRAME_BFF) bwdifTff = 0;
 
-    // SUB-PHASE 3 (2026-04-25): when comb-first selection chose an
-    // alternate-parity candidate, the field assembly must be performed
-    // with the inverted tff so the synthesize kernel pulls the same
-    // physical field rows that scoreCandidates measured at !tff.
-    // Without this flip the gate would have approved an alt-parity
-    // metric while the assembled output still used the primary
-    // parity — re-introducing the very combing the alt selection
-    // was supposed to avoid. The global bwdifTff is left untouched
-    // (BWDIF is a pure deinterlace path that does not take a match
-    // type, and m_tffFixed must remain the stream-level invariant).
-    // Hoisted out of the dispatch below because the P/N+blend branch
-    // (added 2026-04-25) also needs it.
+    // When comb-first selection chose an alternate-parity candidate,
+    // the field assembly must be performed with the inverted tff so
+    // the synthesize kernel pulls the same physical field rows that
+    // scoreCandidates measured at !tff. Without this flip the gate
+    // would have approved an alt-parity metric while the assembled
+    // output still used the primary parity -- re-introducing the very
+    // combing the alt selection was supposed to avoid. The global
+    // bwdifTff is left untouched (BWDIF is a pure deinterlace path
+    // that does not take a match type, and m_tffFixed must remain the
+    // stream-level invariant).
     const int assemblyTff = matchAltParity ? (bwdifTff ? 0 : 1) : bwdifTff;
 
     // ============================================================================
     //  PIPELINE STAGE 9 — SYNTHESIS DISPATCH
     // ============================================================================
-    // HARD REVERT (2026-04-25): the hybrid-deinterlace experiment was
-    // removed in full. Both branches now call the match-aware
-    // synthesizeToCycle kernel. The kernel's apply_blend parameter
-    // selects between pure pix_match assembly (apply_blend=false) and
-    // per-row motion-adaptive blend on combed rows (apply_blend=true).
+    // Both branches call the match-aware synthesizeToCycle kernel. The
+    // kernel's apply_blend parameter selects between pure pix_match
+    // assembly (apply_blend=false) and per-row motion-adaptive blend
+    // on combed rows (apply_blend=true).
     //
     // BWDIF (synthesizeToCycleBwdif) is NOT called from this dispatch.
     // synth-with-blend always honours the matcher's chosen P / N
-    // cross-frame pairing, avoiding the frame-4058-class cadence-shift
-    // artifact that BWDIF can introduce on P/N+blend frames.
+    // cross-frame pairing, avoiding the cadence-shift artifact BWDIF
+    // can introduce on P/N+blend frames.
     //
     // The TSV `post=blend` / `post=none` label tracks applyBlend
     // exactly, as before. assemblyTff carries the post-cadence parity
@@ -3423,8 +3392,8 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
         m_cycleCombScore[slot]  = chosenCombScore;
         m_cycleCombMax[slot]    = chosenCombMax;
         m_cycleCombBlocks[slot] = chosenCombBlocks;
-        // SUB-PHASE 2 (2026-04-24) — store full primary + alternate triplets
-        // for offline analysis. C/P/N at primary tff first, then C/P/N at !tff.
+        // Store full primary + alternate triplets for offline analysis.
+        // C/P/N at primary tff first, then C/P/N at !tff.
         m_cycleCombScorePrim[slot]   = { combScore[0],     combScore[1],     combScore[2]     };
         m_cycleCombMaxPrim[slot]     = { combMax[0],       combMax[1],       combMax[2]       };
         m_cycleCombBlocksPrim[slot]  = { combBlocks[0],    combBlocks[1],    combBlocks[2]    };
@@ -3434,16 +3403,15 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
         m_cycleBlendTrigger[slot] = blendTrigger;
         m_cycleMatchType[slot]  = (int)match;
         m_cycleApplyBlend[slot] = applyBlend ? 1 : 0;
-        // SUB-PHASE 3 (2026-04-25): persist comb-first parity choice so
-        // flushCycle can emit the matchParity TSV column. Stored as a
-        // uint8_t flag (0=primary, 1=alt). Mirrors the synth-passthru
-        // assignment in the early-return branch (line ~1997) which
-        // forces 0 because synth never re-scores.
+        // Persist comb-first parity choice so flushCycle can emit the
+        // matchParity TSV column. Stored as a uint8_t flag (0=primary,
+        // 1=alt). The synth-passthru early-return path forces 0
+        // because synth never re-scores.
         m_cycleMatchAltParity[slot] = matchAltParity ? 1 : 0;
-        // SUB-PHASE 5 (2026-04-25): persist confidence level so flushCycle
-        // can emit the confidence TSV column. 0=HIGH, 1=MEDIUM, 2=LOW,
-        // 3=VERY_LOW. Synth-passthru bypass at line ~1999 sets this to 0
-        // (HIGH) because no scoring ran on those slots.
+        // Persist confidence level so flushCycle can emit the
+        // confidence TSV column. 0=HIGH, 1=MEDIUM, 2=LOW, 3=VERY_LOW.
+        // The synth-passthru bypass sets this to 0 (HIGH) because no
+        // scoring ran on those slots.
         m_cycleConfidence[slot] = (uint8_t)confidenceLevel;
 
         // Encode decTag as an int (decoder-driven routing decision — the
@@ -3503,7 +3471,7 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
         m_cycleDiffPrev[slot] = diff;
         m_cycleSceneSAD[slot] = sceneSAD;
         m_cycleCadenceTag[slot] = cadenceTag;
-        m_cycleIsSynth[slot] = 0;  // FIX B: coded path — not a synth
+        m_cycleIsSynth[slot] = 0;  // coded path -- not a synth
         m_cycleFilled++;
     } else {
         // cycle=0 の場合は即座にこの1枚を出力するため、メタをそのまま残す。
@@ -3579,18 +3547,18 @@ RGY_ERR RGYFilterIvtc::flushCycle(bool finalFlush, int64_t nextInputPts, RGYOpen
     // 完全サイクル (filled == cycleLen) 時のみ drop する。部分サイクル (finalFlush) は
     // shippable な情報だけ出す。
     //
-    // FIX B (2026-04-24): two-phase selection. When expand=on, each cycle
-    // contains a mix of coded frames and synth frames (the expansion-added
-    // duplicates). Synths are structurally redundant — the decimator should
-    // drop them before touching coded content. Phase 1 searches only synth
-    // slots for the lowest-SAD candidate; Phase 2 falls back to normal
-    // SAD-minimum over all slots when no synth is present in the cycle.
-    // expand=off cycles have m_cycleIsSynth all zero, so Phase 2 is reached
-    // immediately and behavior matches the pre-FIX-B path.
+    // Two-pass selection. When expand=on, each cycle contains a mix of
+    // coded frames and synth frames (the expansion-added duplicates).
+    // Synths are structurally redundant -- the decimator should drop
+    // them before touching coded content. Pass 1 searches only synth
+    // slots for the lowest-SAD candidate; Pass 2 falls back to normal
+    // SAD-minimum over all slots when no synth is present in the
+    // cycle. expand=off cycles have m_cycleIsSynth all zero, so Pass 2
+    // is reached immediately.
     int dropIdx = -1;
     if (cycleLen > 0 && filled == cycleLen && prm->ivtc.drop >= 1) {
         uint64_t minDiff = std::numeric_limits<uint64_t>::max();
-        // Phase 1: prefer a synth slot. Among synths, still pick the
+        // Pass 1: prefer a synth slot. Among synths, still pick the
         // lowest-SAD one so the drop is the most duplicate-like synth
         // (least information loss).
         for (int i = 0; i < filled; i++) {
@@ -3599,7 +3567,7 @@ RGY_ERR RGYFilterIvtc::flushCycle(bool finalFlush, int64_t nextInputPts, RGYOpen
                 dropIdx = i;
             }
         }
-        // Phase 2: no synth in this cycle — fall back to global SAD argmin.
+        // Pass 2: no synth in this cycle -- fall back to global SAD argmin.
         if (dropIdx < 0) {
             minDiff = std::numeric_limits<uint64_t>::max();
             for (int i = 0; i < filled; i++) {
@@ -4552,7 +4520,7 @@ void RGYFilterIvtc::close() {
         const uint64_t triggerProg   = m_blendTriggerCounts[4];
         const uint64_t triggerStrong = m_blendTriggerCounts[5];
         const uint64_t triggerVeto   = m_blendTriggerCounts[6];
-        const uint64_t triggerConf   = m_blendTriggerCounts[7];   // SUB-PHASE 5: confidence-forced
+        const uint64_t triggerConf   = m_blendTriggerCounts[7];   // confidence-forced
         const uint64_t triggerNone   = m_blendTriggerCounts[0];
         const uint64_t totalBlend    = triggerSat + triggerDual + triggerUnk + triggerProg + triggerStrong + triggerConf;
         if (m_pLog) {
