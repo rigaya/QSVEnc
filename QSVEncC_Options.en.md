@@ -3337,6 +3337,12 @@ Edge-selective sharpening filter based on Donald A. Graft's MSharpen.
   
   - threshold=&lt;float&gt;  (default=15.0, 0.0 - 255.0)  
     Edge detection threshold.
+
+  - slope=&lt;float&gt; (default=0.0, 0.0 disables)
+    Enables a sigmoid soft mask for smoother edge gating. Larger values make the transition sharper.
+
+  - luma_limit=&lt;float&gt; (default=0.0, 0.0 disables)
+    Reduces sharpening in dark luma regions below the specified 8-bit luma value.
   
   - highq=&lt;bool&gt;  (default=true)  
     When true, uses 4-direction edge detection (diagonal + horizontal/vertical). When false, uses only 2 diagonal directions.

@@ -3387,6 +3387,12 @@ H.264の非強フィルタ相当の空間デブロックフィルタ。エンコ
   
   - threshold=&lt;float&gt;  (default=15.0, 0.0 - 255.0)  
     エッジ検出の閾値。
+
+  - slope=&lt;float&gt; (default=0.0, 0.0 disables)
+    sigmoid によるソフトマスクを有効化する。値を大きくするとエッジ判定の遷移が急になる。
+
+  - luma_limit=&lt;float&gt; (default=0.0, 0.0 disables)
+    指定した 8bit 輝度値より暗い領域でシャープニングを抑制する。
   
   - highq=&lt;bool&gt;  (default=true)  
     trueの場合、4方向(対角+水平垂直)でエッジ検出を行う。falseの場合は対角2方向のみ。
