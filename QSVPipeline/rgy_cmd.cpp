@@ -2454,7 +2454,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             return 0;
         }
         i++;
-        const auto paramList = std::vector<std::string>{ "enable", "ss", "aa", "aac", "mask", "mthresh", "chroma", "show" };
+        const auto paramList = std::vector<std::string>{ "enable", "ss", "aa", "aac", "mask", "mthresh", "chroma", "show", "edge" };
 
         // Track whether the user explicitly set aac so we can default it to
         // max(0, aa - 8) per analysis/maa2_investigation/05_parameter_design.md § 2
@@ -2540,6 +2540,16 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     try {
                         vpp->maa.show = std::stoi(param_val);
                     } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("edge")) {
+                    const auto edge = tolowercase(param_val);
+                    if (edge == _T("sobel") || edge == _T("prewitt") || edge == _T("sobel_full") || edge == _T("scharr") || edge == _T("kirsch") || edge == _T("laplacian")) {
+                        vpp->maa.edge = edge;
+                    } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
                     }
@@ -11278,6 +11288,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_NUM(_T("mthresh"), maa.mthresh);
             ADD_BOOL(_T("chroma"), maa.chroma);
             ADD_NUM(_T("show"), maa.show);
+            tmp << _T(",edge=") << param->maa.edge;
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-maa ") << tmp.str().substr(1);
@@ -13405,7 +13416,9 @@ tstring gen_cmd_help_vpp() {
         _T("                              higher = fewer pixels treated as edges.\n")
         _T("      chroma=<bool>         process chroma planes (default off; ~50-100%% slower).\n")
         _T("      show=<int>            debug overlay (0=normal, 1=mask only, 2=mask+AA).\n")
-        _T("                              default 0.\n"));
+        _T("                              default 0.\n")
+        _T("      edge=<string>         edge operator: sobel(default), prewitt, sobel_full,\n")
+        _T("                              scharr, kirsch, laplacian.\n"));
 #endif
 #if ENABLE_VPP_FILTER_RTGMC
     str += strsprintf(_T("\n")

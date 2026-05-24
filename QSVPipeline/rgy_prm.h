@@ -380,6 +380,7 @@ static const bool  FILTER_DEFAULT_MAA_MASK     = true;   // edge masking gate
 static const int   FILTER_DEFAULT_MAA_MTHRESH  = 7;      // edge threshold; range 1..255
 static const bool  FILTER_DEFAULT_MAA_CHROMA   = false;  // process chroma planes
 static const int   FILTER_DEFAULT_MAA_SHOW     = 0;      // debug overlay 0..2
+static const TCHAR *FILTER_DEFAULT_MAA_EDGE     = _T("sobel");
 
 static const int   FILTER_DEFAULT_DECIMATE_CYCLE = 5;
 static const int   FILTER_DEFAULT_DECIMATE_DROP = 1;
@@ -2905,6 +2906,7 @@ struct VppMaa {
     int mthresh;    // edge threshold; 1..255 (only used when mask=true)
     bool chroma;    // process chroma planes
     int show;       // debug overlay 0..2
+    tstring edge;   // edge operator
 
     VppMaa();
     bool operator==(const VppMaa &x) const;

@@ -1584,7 +1584,8 @@ VppMaa::VppMaa() :
     mask(FILTER_DEFAULT_MAA_MASK),
     mthresh(FILTER_DEFAULT_MAA_MTHRESH),
     chroma(FILTER_DEFAULT_MAA_CHROMA),
-    show(FILTER_DEFAULT_MAA_SHOW) {
+    show(FILTER_DEFAULT_MAA_SHOW),
+    edge(FILTER_DEFAULT_MAA_EDGE) {
 
 }
 
@@ -1596,19 +1597,20 @@ bool VppMaa::operator==(const VppMaa &x) const {
         && mask == x.mask
         && mthresh == x.mthresh
         && chroma == x.chroma
-        && show == x.show;
+        && show == x.show
+        && edge == x.edge;
 }
 bool VppMaa::operator!=(const VppMaa &x) const {
     return !(*this == x);
 }
 
 tstring VppMaa::print() const {
-    return strsprintf(_T("maa: ss=%.2f, aa=%d, aac=%d, mask=%s, mthresh=%d, chroma=%s, show=%d"),
+    return strsprintf(_T("maa: ss=%.2f, aa=%d, aac=%d, mask=%s, mthresh=%d, chroma=%s, show=%d, edge=%s"),
         ss, aa, aac,
         mask ? _T("on") : _T("off"),
         mthresh,
         chroma ? _T("on") : _T("off"),
-        show);
+        show, edge.c_str());
 }
 
 
