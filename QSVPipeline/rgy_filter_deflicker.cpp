@@ -70,6 +70,17 @@ RGY_ERR RGYFilterDeflicker::checkParam(const std::shared_ptr<RGYFilterParamDefli
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+    const auto chromaFormat = RGY_CSP_CHROMA_FORMAT[prm->frameIn.csp];
+    if (rgy_chromafmt_is_rgb(chromaFormat)) {
+        AddMessage(RGY_LOG_ERROR, _T("deflicker supports YUV or monochrome formats only: %s.\n"),
+            RGY_CSP_NAMES[prm->frameIn.csp]);
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (prm->deflicker.chroma && RGY_CSP_PLANES[prm->frameIn.csp] < 2) {
+        prm->deflicker.chroma = false;
+        AddMessage(RGY_LOG_WARN, _T("deflicker chroma processing requires chroma planes; disabled for %s.\n"),
+            RGY_CSP_NAMES[prm->frameIn.csp]);
+    }
     if (prm->deflicker.strength < 0.0f || 1.0f < prm->deflicker.strength) {
         prm->deflicker.strength = clamp(prm->deflicker.strength, 0.0f, 1.0f);
         AddMessage(RGY_LOG_WARN, _T("strength should be in range of %.1f - %.1f.\n"), 0.0f, 1.0f);
@@ -229,11 +240,12 @@ RGY_ERR RGYFilterDeflicker::computePlaneStats(const RGYFrameInfo *pPlane, double
 RGY_ERR RGYFilterDeflicker::runApply(RGYFrameInfo *pDstPlane, const RGYFrameInfo *pSrcPlane,
                                       float mult, float add, float blend, int is_chroma,
                                       RGYOpenCLQueue &queue,
-                                      const std::vector<RGYOpenCLEvent> &wait_events) {
+                                      const std::vector<RGYOpenCLEvent> &wait_events,
+                                      RGYOpenCLEvent *event) {
     const char *kernel_name = "deflicker_apply";
     RGYWorkSize local(DEFLICKER_REDUCE_X, DEFLICKER_REDUCE_Y);
     RGYWorkSize global(pDstPlane->width, pDstPlane->height);
-    auto err = m_deflicker.get()->kernel(kernel_name).config(queue, local, global, wait_events, nullptr).launch(
+    auto err = m_deflicker.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
         (cl_mem)pSrcPlane->ptr[0], pSrcPlane->pitch[0],
         (cl_mem)pDstPlane->ptr[0], pDstPlane->pitch[0],
         pDstPlane->width, pDstPlane->height,
@@ -248,7 +260,6 @@ RGY_ERR RGYFilterDeflicker::runApply(RGYFrameInfo *pDstPlane, const RGYFrameInfo
 RGY_ERR RGYFilterDeflicker::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames,
     int *pOutputFrameNum, RGYOpenCLQueue &queue_main,
     const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
-    (void)event;
     *pOutputFrameNum  = 0;
     ppOutputFrames[0] = nullptr;
     if (!pInputFrame || !pInputFrame->ptr[0]) {
@@ -265,20 +276,28 @@ RGY_ERR RGYFilterDeflicker::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
             char_to_tstring(m_buildOptions).c_str());
         return RGY_ERR_OPENCL_CRUSH;
     }
+    const auto memcpyKind = getMemcpyKind(pInputFrame->mem_type, m_frameBuf[0]->frame.mem_type);
+    if (memcpyKind != RGYCLMemcpyD2D) {
+        AddMessage(RGY_LOG_ERROR, _T("deflicker only supports device memory.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (m_param->frameOut.csp != m_param->frameIn.csp) {
+        AddMessage(RGY_LOG_ERROR, _T("deflicker does not support csp conversion.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
 
     const int bitDepth = RGY_CSP_BIT_DEPTH[pInputFrame->csp];
     const double sigma_eps = DEFLICKER_SIGMA_EPS_8BIT * (double)(1 << std::max(0, bitDepth - 8));
 
     RGYFrameInfo *pOut = &m_frameBuf[0]->frame;
     const int planes = RGY_CSP_PLANES[pInputFrame->csp];
-    auto eventsForFirst = wait_events;
+    RGYOpenCLEvent *lumaEvent = (planes <= 1) ? event : nullptr;
 
     // ---- Stage 1: stats on input luma ----
     const auto planeSrcY = getPlane(pInputFrame, RGY_PLANE_Y);
     double mean_in = 0.0, sigma_in = 0.0;
-    auto err = computePlaneStats(&planeSrcY, mean_in, sigma_in, queue_main, eventsForFirst);
+    auto err = computePlaneStats(&planeSrcY, mean_in, sigma_in, queue_main, wait_events);
     if (err != RGY_ERR_NONE) return err;
-    eventsForFirst.clear();
 
     // ---- Stage 2: scene-change detection + rolling buffer update ----
     bool sceneChange = false;
@@ -348,14 +367,14 @@ RGY_ERR RGYFilterDeflicker::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
     if (sceneChange || !haveReference) {
         // Pass through: copy input -> output unmodified. Damping state
         // is preserved so the next valid frame resumes smoothly.
-        err = m_cl->copyPlane(&planeDstY, &planeSrcY, nullptr, queue_main, {});
+        err = m_cl->copyPlane(&planeDstY, &planeSrcY, nullptr, queue_main, {}, lumaEvent);
         if (err != RGY_ERR_NONE) return err;
     } else if (!prm->deflicker.predictor) {
         // One-pass mode: apply (mult_eff, add_eff) with strength blend.
         err = runApply(&planeDstY, &planeSrcY,
                        (float)mult_eff, (float)add_eff,
                        prm->deflicker.strength, /*is_chroma=*/0,
-                       queue_main, {});
+                       queue_main, {}, lumaEvent);
         if (err != RGY_ERR_NONE) return err;
     } else {
         // Predictor-corrector path. Two iterations:
@@ -366,7 +385,7 @@ RGY_ERR RGYFilterDeflicker::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
         err = runApply(&planeInter, &planeSrcY,
                        (float)mult_eff, (float)add_eff,
                        1.0f, /*is_chroma=*/0,
-                       queue_main, {});
+                       queue_main, {}, nullptr);
         if (err != RGY_ERR_NONE) return err;
 
         double mu_1 = 0.0, sigma_1 = 0.0;
@@ -379,7 +398,7 @@ RGY_ERR RGYFilterDeflicker::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
         err = runApply(&planeDstY, &planeInter,
                        (float)mult_refine, (float)add_refine,
                        prm->deflicker.strength, /*is_chroma=*/0,
-                       queue_main, {});
+                       queue_main, {}, lumaEvent);
         if (err != RGY_ERR_NONE) return err;
     }
 
@@ -397,10 +416,11 @@ RGY_ERR RGYFilterDeflicker::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
     // when is_chroma != 0; add_eff is ignored on that path). Scene-
     // change frames pass through chroma unmodified to match luma.
     for (int i = 1; i < planes; i++) {
+        RGYOpenCLEvent *planeEvent = (i == planes - 1) ? event : nullptr;
         const auto planeSrcC = getPlane(pInputFrame, (RGY_PLANE)i);
         auto       planeDstC = getPlane(pOut, (RGY_PLANE)i);
         if (sceneChange || !haveReference || !prm->deflicker.chroma) {
-            err = m_cl->copyPlane(&planeDstC, &planeSrcC, nullptr, queue_main, {});
+            err = m_cl->copyPlane(&planeDstC, &planeSrcC, nullptr, queue_main, {}, planeEvent);
             if (err != RGY_ERR_NONE) return err;
         } else {
             // Use the effective mult (post-damping) consistent with luma.
@@ -408,7 +428,7 @@ RGY_ERR RGYFilterDeflicker::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
             err = runApply(&planeDstC, &planeSrcC,
                            (float)mult_eff, 0.0f,
                            prm->deflicker.strength, /*is_chroma=*/1,
-                           queue_main, {});
+                           queue_main, {}, planeEvent);
             if (err != RGY_ERR_NONE) return err;
         }
     }

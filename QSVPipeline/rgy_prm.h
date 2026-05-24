@@ -86,6 +86,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_UNSHARP      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_CHROMASHIFT  (ENCODER_QSV)
 #define ENABLE_VPP_FILTER_DEBLOCK      (ENCODER_QSV)
+#define ENABLE_VPP_FILTER_DEFLICKER    (ENCODER_QSV)
 #define ENABLE_VPP_FILTER_WARPSHARP    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_EDGELEVEL    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_MSHARPEN     (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
@@ -204,6 +205,7 @@ enum class VppType : int {
     CL_UNSHARP,
     CL_CHROMASHIFT,
     CL_DEBLOCK,
+    CL_DEFLICKER,
     CL_EDGELEVEL,
     CL_MSHARPEN,
     CL_WARPSHARP,
@@ -542,6 +544,12 @@ static const int   FILTER_DEFAULT_DEBLOCK_QP = 24;
 static const int   FILTER_DEFAULT_DEBLOCK_ALPHA = 0;
 static const int   FILTER_DEFAULT_DEBLOCK_BETA = 0;
 static const bool  FILTER_DEFAULT_DEBLOCK_CHROMA = false;
+static const float FILTER_DEFAULT_DEFLICKER_STRENGTH = 1.0f;
+static const float FILTER_DEFAULT_DEFLICKER_DAMPING = 0.8f;
+static const float FILTER_DEFAULT_DEFLICKER_SCENE_THRESHOLD = 2.0f;
+static const int   FILTER_DEFAULT_DEFLICKER_FRAMES = 30;
+static const bool  FILTER_DEFAULT_DEFLICKER_PREDICTOR = true;
+static const bool  FILTER_DEFAULT_DEFLICKER_CHROMA = false;
 
 static const float FILTER_DEFAULT_WARPSHARP_THRESHOLD = 128.0f;
 static const int   FILTER_DEFAULT_WARPSHARP_BLUR = 2;
@@ -2783,6 +2791,21 @@ struct VppDeblock {
     tstring print() const;
 };
 
+struct VppDeflicker {
+    bool  enable;
+    float strength;
+    float damping;
+    float scene_threshold;
+    int   frames;
+    bool  predictor;
+    bool  chroma;
+
+    VppDeflicker();
+    bool operator==(const VppDeflicker &x) const;
+    bool operator!=(const VppDeflicker &x) const;
+    tstring print() const;
+};
+
 struct VppEdgelevel {
     bool  enable;
     float strength;
@@ -3068,6 +3091,7 @@ struct RGYParamVpp {
     VppUnsharp unsharp;
     VppChromaShift chromashift;
     VppDeblock deblock;
+    VppDeflicker deflicker;
     VppEdgelevel edgelevel;
     VppMsharpen msharpen;
     VppWarpsharp warpsharp;

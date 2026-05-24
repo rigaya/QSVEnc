@@ -69,7 +69,8 @@ protected:
     RGY_ERR runApply(RGYFrameInfo *pDstPlane, const RGYFrameInfo *pSrcPlane,
                      float mult, float add, float blend, int is_chroma,
                      RGYOpenCLQueue &queue,
-                     const std::vector<RGYOpenCLEvent> &wait_events);
+                     const std::vector<RGYOpenCLEvent> &wait_events,
+                     RGYOpenCLEvent *event);
 
     RGYOpenCLProgramAsync m_deflicker;
     std::string           m_buildOptions;
