@@ -124,7 +124,10 @@ __kernel void kernel_warpsharp_warp(
     __read_only image2d_t texSrc,
     const __global uchar *pEdge, const int edgePitch,
     const int width, const int height,
-    const float depth) {
+    const float depth_min,
+    const float depth_max,
+    const float edge_thr_norm,
+    const float gamma_val) {
     const int lx = get_local_id(0);
     const int ly = get_local_id(1);
     const int imgx = get_global_id(0);
@@ -135,16 +138,34 @@ __kernel void kernel_warpsharp_warp(
         pDst  += imgy * dstPitch  + imgx * sizeof(Type);
         pEdge += imgy * edgePitch + imgx * sizeof(Type);
 
-        const int above = *(__global Type *)((imgy == 0)          ? pEdge : pEdge - edgePitch);
-        const int below = *(__global Type *)((imgy == height - 1) ? pEdge : pEdge + edgePitch);
-        const int left  = *(__global Type *)((imgx == 0)          ? pEdge : pEdge - sizeof(Type));
-        const int right = *(__global Type *)((imgx == width - 1)  ? pEdge : pEdge + sizeof(Type));
+        const int above  = *(__global Type *)((imgy == 0)          ? pEdge : pEdge - edgePitch);
+        const int below  = *(__global Type *)((imgy == height - 1) ? pEdge : pEdge + edgePitch);
+        const int left   = *(__global Type *)((imgx == 0)          ? pEdge : pEdge - sizeof(Type));
+        const int right  = *(__global Type *)((imgx == width - 1)  ? pEdge : pEdge + sizeof(Type));
+        const int center = *(__global Type *)pEdge;
+
+        // Per-pixel adaptive depth.
+        //   t = clamp(center / edge_thr, 0, 1) ^ gamma
+        //   depth = mix(depth_min, depth_max, t)
+        // When the host leaves depth_min == depth_max == depth, the
+        // interpolation collapses to a constant and the behaviour is
+        // identical to the original kernel.
+        const float pixel_max_f = (float)((1 << bit_depth) - 1);
+        const float center_norm = (float)center * (1.0f / pixel_max_f);
+        float t = (edge_thr_norm > 0.0f) ? (center_norm / edge_thr_norm) : 1.0f;
+        t = clamp(t, 0.0f, 1.0f);
+        // gamma_val=1.0 is a linear ramp; <1.0 boosts faint edges (preserves
+        // thin lines); >1.0 suppresses them (focuses on heavy outlines).
+        if (gamma_val != 1.0f) {
+            t = pow(t, gamma_val);
+        }
+        const float adaptive_depth = depth_min + (depth_max - depth_min) * t;
 
         float h = (float)(left - right);
         float v = (float)(above - below);
 
-        h *= depth * ((1.0f / 256.0f) / (float)(1 << (bit_depth - 8)));
-        v *= depth * ((1.0f / 256.0f) / (float)(1 << (bit_depth - 8)));
+        h *= adaptive_depth * ((1.0f / 256.0f) / (float)(1 << (bit_depth - 8)));
+        v *= adaptive_depth * ((1.0f / 256.0f) / (float)(1 << (bit_depth - 8)));
 
         float val = read_imagef(texSrc, sampler, (float2)(imgx + 0.5f + h, imgy + 0.5f + v)).x;
         //float val = tex2D<float>(texSrc, imgx + 0.5f + h, imgy + 0.5f + v);
