@@ -585,7 +585,7 @@ If not specified, it will be same as the input resolution. (no resize)
   --output-res 1024x576 -> normal
   --output-res 960x0    -> resize to 960x720 (0 will be replaced to 720, same as input)
   --output-res 1920x-2  -> resize to 1920x1080 (calculated to keep aspect ratio)
-  
+
   --output-res 1440x1440,preserve_aspect_ratio=increase -> resize to 2560x1440
   --output-res 1440x1440,preserve_aspect_ratio=decrease -> resize to 1440x810
   ```
@@ -775,7 +775,7 @@ Change the rate control mode and rate control params within the specified range 
             encode by constant quality mode(29.0) in output frame range 5000-5999,
             and encode by constant quality mode(25.0) on other frame range.
     --icq 25 --dynamic-rc 3000:3999,vbr=12000 --dynamic-rc 5000:5999,icq=29.0
-  
+
   Example2: Encode by vbr(6000kbps) to output frame number 2999,
             and encode by vbr(12000kbps) from output frame number 3000 and later.
     --vbr 6000 --dynamic-rc start=3000,vbr=12000
@@ -3400,13 +3400,19 @@ Masked anti-aliasing for animated content (anime, cel-shaded). This combines dir
   - show=&lt;int&gt; (default=0)  
     Debug overlay mode. 0=normal, 1=mask only, 2=mask+AA.
 
+  - edge=&lt;string&gt; (default=sobel)
+    Edge operator. Select from sobel, prewitt, sobel_full, scharr, kirsch, laplacian.
+
 - examples
   ```
   Example: Default settings
   --vpp-maa
-  
+
   Example: Stronger luma AA with edge mask
   --vpp-maa aa=64,mthresh=8
+
+  Example: Use Scharr edge detection
+  --vpp-maa edge=scharr
   ```
 
 ### --vpp-detail-enhance &lt;int&gt;

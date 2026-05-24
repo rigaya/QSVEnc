@@ -599,7 +599,7 @@ raw形式の場合のみ有効で、その他の場合は無視されるか、fp
   --output-res 1024x576 -> 通常の指定方法
   --output-res 960x0    -> 960x720にリサイズ (0のほうは720のまま)
   --output-res 1920x-2  -> 1920x1080にリサイズ (アスペクト比が維持できるように調整)
-  
+
   --output-res 1440x1440,preserve_aspect_ratio=increase -> 2560x1440にリサイズ
   --output-res 1440x1440,preserve_aspect_ratio=decrease -> 1440x810にリサイズ
   ```
@@ -800,7 +800,7 @@ best, higher, high, balanced(default), fast, faster, fastest
        出力フレーム番号 5000-5999 の間は固定品質の29.0でエンコードし、
        その他の領域は固定品質の25.0でエンコードする。
     --icq=25 --dynamic-rc 3000:3999,vbr=12000 --dynamic-rc 5000:5999,icq=29
-  
+
   例2: 出力フレーム番号 3000までは、vbrの6000kbpsでエンコードし、
        出力フレーム番号 3000以降はvbrの12000kbpsでエンコードする。
     --vbr 6000 --dynamic-rc start=3000,vbr=12000
@@ -3450,13 +3450,19 @@ H.264の非強フィルタ相当の空間デブロックフィルタ。エンコ
   - show=&lt;int&gt; (デフォルト=0)  
     デバッグ表示。0=通常、1=マスクのみ、2=マスク+AA。
 
+  - edge=&lt;string&gt; (デフォルト=sobel)
+    エッジ検出方法。sobel, prewitt, sobel_full, scharr, kirsch, laplacian から選択する。
+
 - 使用例
   ```
   例: デフォルト設定
   --vpp-maa
-  
+
   例: 輝度AAをやや強め、エッジ判定を少し強める
   --vpp-maa aa=64,mthresh=8
+
+  例: Scharr エッジ検出を使用する
+  --vpp-maa edge=scharr
   ```
 
 ### --vpp-detail-enhance &lt;int&gt;
