@@ -61,6 +61,18 @@ RGY_ERR RGYFilterMsharpen::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RG
         prm->msharpen.threshold = clamp(prm->msharpen.threshold, 0.0f, 255.0f);
         AddMessage(RGY_LOG_WARN, _T("threshold should be in range of %.1f - %.1f.\n"), 0.0f, 255.0f);
     }
+    // slope: 0 (default) keeps the original binary edge gate. Positive values
+    // enable the sigmoid soft mask. Negative values are invalid and clamped.
+    if (prm->msharpen.slope < 0.0f) {
+        prm->msharpen.slope = 0.0f;
+        AddMessage(RGY_LOG_WARN, _T("slope must be >= 0; clamped to 0 (binary gate).\n"));
+    }
+    // luma_limit: 0 (default) disables luma-adaptive scaling. Otherwise the
+    // useful range is (0, 255]; outside that interval we clamp and warn.
+    if (prm->msharpen.luma_limit < 0.0f || 255.0f < prm->msharpen.luma_limit) {
+        prm->msharpen.luma_limit = clamp(prm->msharpen.luma_limit, 0.0f, 255.0f);
+        AddMessage(RGY_LOG_WARN, _T("luma_limit should be in range of %.1f - %.1f (0 disables).\n"), 0.0f, 255.0f);
+    }
 
     auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamMsharpen>(m_param);
     if (!m_msharpen.get()
@@ -118,6 +130,14 @@ RGY_ERR RGYFilterMsharpen::procPlaneSharpen(RGYFrameInfo *pOutputPlane, const RG
         return RGY_ERR_INVALID_PARAM;
     }
     const float threshold = prm->msharpen.threshold / (float)((1 << RGY_CSP_BIT_DEPTH[pInputPlane->csp]) - 1);
+    // The user-facing slope and luma_limit are documented in 8-bit terms.
+    // Inside the kernel, threshold / gradient / luma are all in [0, 1]
+    // normalised space. So we scale by 255 (NOT pixel_max), keeping the
+    // sigmoid steepness consistent across 8-bit and HBD inputs.
+    const float slope_norm = prm->msharpen.slope * 255.0f;
+    const float luma_limit_norm = (prm->msharpen.luma_limit > 0.0f)
+        ? prm->msharpen.luma_limit / 255.0f
+        : 0.0f;
     const char *kernel_name = "kernel_msharpen_sharpen";
     RGYWorkSize local(32, 8);
     RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
@@ -126,6 +146,7 @@ RGY_ERR RGYFilterMsharpen::procPlaneSharpen(RGYFrameInfo *pOutputPlane, const RG
         (cl_mem)pInputPlane->ptr[0], pInputPlane->pitch[0],
         (cl_mem)pBlurPlane->ptr[0], pBlurPlane->pitch[0],
         prm->msharpen.strength, threshold,
+        slope_norm, luma_limit_norm,
         prm->msharpen.highq ? 1 : 0, prm->msharpen.mask ? 1 : 0);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("error at %s (procPlaneSharpen(%s)): %s.\n"),
