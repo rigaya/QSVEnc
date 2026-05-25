@@ -72,6 +72,7 @@ RGY_FILTER_CHROMASHIFT_CL     EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_
 RGY_FILTER_DEBLOCK_CL         EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_deblock.cl"
 RGY_FILTER_DEFLICKER_CL       EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_deflicker.cl"
 RGY_FILTER_COLORFIX_CL        EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_colorfix.cl"
+RGY_FILTER_DEHALO_CL          EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_dehalo.cl"
 RGY_FILTER_EDGELEVEL_CL       EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_edgelevel.cl"
 RGY_FILTER_MSHARPEN_CL        EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_msharpen.cl"
 RGY_FILTER_WARPSHARP_CL       EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_warpsharp.cl"
