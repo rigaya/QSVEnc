@@ -70,11 +70,12 @@ protected:
                        const RGYFrameInfo *pSrc, const RGYFrameInfo *pExpand, const RGYFrameInfo *pInpand,
                        const RGYFrameInfo *pMask,
                        float darkstr, float brightstr,
-                       RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
+                       RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events,
+                       RGYOpenCLEvent *event);
 
-    // Plane-level passthrough copy for chroma planes.
     RGY_ERR copyChromaPlanes(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
-                             RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
+                             RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events,
+                             RGYOpenCLEvent *event);
 
     RGYOpenCLProgramAsync m_dehalo;
     std::string           m_buildOptions;

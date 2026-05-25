@@ -26,7 +26,6 @@
 //
 // ------------------------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------------
 #include <algorithm>
 #include <cmath>
 #include "convert_csp.h"
@@ -298,7 +297,8 @@ RGY_ERR RGYFilterDehalo::runApply(RGYFrameInfo *pDst,
                                    const RGYFrameInfo *pMask,
                                    float darkstr, float brightstr,
                                    RGYOpenCLQueue &queue,
-                                   const std::vector<RGYOpenCLEvent> &wait_events) {
+                                   const std::vector<RGYOpenCLEvent> &wait_events,
+                                   RGYOpenCLEvent *event) {
     const auto sP = getPlane(pSrc,    RGY_PLANE_Y);
     const auto eP = getPlane(pExpand, RGY_PLANE_Y);
     const auto iP = getPlane(pInpand, RGY_PLANE_Y);
@@ -307,7 +307,7 @@ RGY_ERR RGYFilterDehalo::runApply(RGYFrameInfo *pDst,
     RGYWorkSize local(DEHALO_BLOCK_X, DEHALO_BLOCK_Y);
     RGYWorkSize global(sP.width, sP.height);
     auto err = m_dehalo.get()->kernel("dehalo_apply")
-        .config(queue, local, global, wait_events, nullptr).launch(
+        .config(queue, local, global, wait_events, event).launch(
             (cl_mem)sP.ptr[0], sP.pitch[0],
             (cl_mem)eP.ptr[0], eP.pitch[0],
             (cl_mem)iP.ptr[0], iP.pitch[0],
@@ -323,19 +323,21 @@ RGY_ERR RGYFilterDehalo::runApply(RGYFrameInfo *pDst,
 
 RGY_ERR RGYFilterDehalo::copyChromaPlanes(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
                                            RGYOpenCLQueue &queue,
-                                           const std::vector<RGYOpenCLEvent> &wait_events) {
+                                           const std::vector<RGYOpenCLEvent> &wait_events,
+                                           RGYOpenCLEvent *event) {
     const int planes = RGY_CSP_PLANES[pDst->csp];
-    if (planes < 3) {
+    if (planes <= 1) {
         return RGY_ERR_NONE;
     }
     auto waitFirst = wait_events;
-    for (RGY_PLANE pl : { RGY_PLANE_U, RGY_PLANE_V }) {
+    for (int i = 1; i < planes; i++) {
+        const auto pl = (RGY_PLANE)i;
         const auto srcP = getPlane(pSrc, pl);
         const auto dstP = getPlane(pDst, pl);
-        auto err = m_cl->copyPlane(const_cast<RGYFrameInfo *>(&dstP), &srcP, nullptr, queue, waitFirst);
+        auto err = m_cl->copyPlane(const_cast<RGYFrameInfo *>(&dstP), &srcP, nullptr, queue, waitFirst, (i == planes - 1) ? event : nullptr);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("dehalo chroma copy (plane %d) failed: %s.\n"),
-                (int)pl, get_err_mes(err));
+                i, get_err_mes(err));
             return err;
         }
         waitFirst.clear();
@@ -346,7 +348,6 @@ RGY_ERR RGYFilterDehalo::copyChromaPlanes(RGYFrameInfo *pDst, const RGYFrameInfo
 RGY_ERR RGYFilterDehalo::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames,
     int *pOutputFrameNum, RGYOpenCLQueue &queue_main,
     const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
-    (void)event;
     *pOutputFrameNum  = 0;
     ppOutputFrames[0] = nullptr;
 
@@ -381,6 +382,11 @@ RGY_ERR RGYFilterDehalo::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
     // or the input frame directly (ss==1).
     const RGYFrameInfo *pMorphSrc = nullptr;
 
+    // queue_main is in-order, so only the first enqueue needs the upstream
+    // wait_events, and only the last enqueue needs to export event.
+    const int planes = RGY_CSP_PLANES[pOut->csp];
+    const bool hasChroma = planes > 1;
+
     // ---- 1. (ss > 1 only) Spline36 resize-up ----
     if (m_ssActive) {
         int dummyOutNum = 0;
@@ -397,18 +403,15 @@ RGY_ERR RGYFilterDehalo::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
     }
 
     // The wait_events list is consumed by either the resize-up or by the
-    // first morph pass. Subsequent passes use {} since they depend on the
-    // in-order command queue.
-    const std::vector<RGYOpenCLEvent> *pInitialWait =
-        m_ssActive ? nullptr : &wait_events;
-    const std::vector<RGYOpenCLEvent> emptyEvents;
+    // first morph pass.
+    const std::vector<RGYOpenCLEvent> initialWait = m_ssActive ? std::vector<RGYOpenCLEvent>() : wait_events;
 
     // ---- 2. Elliptic local maximum (expand) ----
     {
         auto err = runExpand(&m_expanded->frame, pMorphSrc,
                              prm->dehalo.rx, prm->dehalo.ry,
                              queue_main,
-                             pInitialWait ? *pInitialWait : emptyEvents);
+                             initialWait);
         if (err != RGY_ERR_NONE) return err;
     }
 
@@ -437,7 +440,7 @@ RGY_ERR RGYFilterDehalo::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
         auto err = runApply(pApplyDst,
                             pMorphSrc, &m_expanded->frame, &m_inpand->frame, &m_mask->frame,
                             prm->dehalo.darkstr, prm->dehalo.brightstr,
-                            queue_main, {});
+                            queue_main, {}, (!m_ssActive && !hasChroma) ? event : nullptr);
         if (err != RGY_ERR_NONE) return err;
     }
 
@@ -446,18 +449,16 @@ RGY_ERR RGYFilterDehalo::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
         int dummyOutNum = 0;
         RGYFrameInfo *outArr[1] = { pOut };
         auto err = m_resizeDown->filter(&m_corrected->frame,
-            (RGYFrameInfo **)&outArr, &dummyOutNum, queue_main, {}, nullptr);
+            (RGYFrameInfo **)&outArr, &dummyOutNum, queue_main, {}, hasChroma ? nullptr : event);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("dehalo resize-down failed: %s.\n"), get_err_mes(err));
             return err;
         }
     }
 
-    // Chroma planes are always copied from the original source (untouched
-    // by the luma-only halo pipeline). This avoids any resize round-trip
-    // on chroma, which could introduce its own artefacts.
-    {
-        auto err = copyChromaPlanes(pOut, pInputFrame, queue_main, {});
+    // Chroma planes are always copied from the original source.
+    if (hasChroma) {
+        auto err = copyChromaPlanes(pOut, pInputFrame, queue_main, {}, event);
         if (err != RGY_ERR_NONE) return err;
     }
 
