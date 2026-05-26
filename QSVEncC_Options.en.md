@@ -257,6 +257,7 @@
   - [--vpp-colorfix \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-colorfix-param1value1param2value2)
   - [--vpp-dehalo \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-dehalo-param1value1param2value2)
   - [--vpp-finedehalo \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-finedehalo-param1value1param2value2)
+  - [--vpp-hqdering \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-hqdering-param1value1param2value2)
   - [--vpp-edgelevel \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-edgelevel-param1value1param2value2)
   - [--vpp-msharpen \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-msharpen-param1value1param2value2)
   - [--vpp-warpsharp \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-warpsharp-param1value1param2value2)
@@ -1822,6 +1823,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
   - [--vpp-colorfix](#--vpp-colorfix-param1value1param2value2)
   - [--vpp-dehalo](#--vpp-dehalo-param1value1param2value2)
   - [--vpp-finedehalo](#--vpp-finedehalo-param1value1param2value2)
+  - [--vpp-hqdering](#--vpp-hqdering-param1value1param2value2)
   - [--vpp-edgelevel](#--vpp-edgelevel-param1value1param2value2)
   - [--vpp-msharpen](#--vpp-msharpen-param1value1param2value2)
   - [--vpp-warpsharp](#--vpp-warpsharp-param1value1param2value2)
@@ -3385,6 +3387,34 @@ Halo removal filter with a fine-line protection mask. Applies correction to luma
   ```
   --vpp-finedehalo
   --vpp-finedehalo edge=scharr,thmi=60,thma=160,thlimi=30,thlima=120,showmask=4
+  ```
+
+### --vpp-hqdering [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
+DCT ringing reduction filter. Applies correction to luma and copies chroma unchanged.
+
+- **Parameters**
+  - mrad=&lt;int&gt; (default=1, 1 - 3)
+    Ring mask expansion radius.
+
+  - mthr=&lt;int&gt; (default=10, 0 - 255)
+    Edge mask threshold.
+
+  - sigma=&lt;float&gt; (default=1.5, 0.5 - 5.0)
+    Gaussian blur sigma.
+
+  - showmask=&lt;bool&gt; (default=false)
+    Output the effective mask only.
+
+  - protect=&lt;bool&gt; (default=true)
+    Protect original edge pixels.
+
+  - edge=&lt;string&gt; (default=log)
+    Edge detector, one of log, sobel, prewitt, scharr, kirsch, laplacian.
+
+- examples
+  ```
+  --vpp-hqdering
+  --vpp-hqdering mrad=2,mthr=12,sigma=2.0,protect=true,edge=scharr
   ```
 
 ### --vpp-edgelevel [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
