@@ -196,7 +196,6 @@ RGY_ERR RGYFilterFineDehalo::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
         prmDh->dehalo.lowsens   = prm->finedehalo.lowsens;
         prmDh->dehalo.highsens  = prm->finedehalo.highsens;
         prmDh->dehalo.ss        = prm->finedehalo.ss;
-        prmDh->dehalo.showmask  = 0;          // child must always emit normal output
         prmDh->frameIn          = prm->frameIn;
         prmDh->frameOut         = prm->frameIn;
         prmDh->baseFps          = prm->baseFps;
