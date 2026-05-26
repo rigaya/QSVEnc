@@ -78,6 +78,7 @@ resource_specs = [
   ['rgy_filter_chromashift_cl', '../QSVPipeline/rgy_filter_chromashift.cl', 'QSVPipeline_rgy_filter_chromashift_cl'],
   ['rgy_filter_deblock_cl', '../QSVPipeline/rgy_filter_deblock.cl', 'QSVPipeline_rgy_filter_deblock_cl'],
   ['rgy_filter_dehalo_cl', '../QSVPipeline/rgy_filter_dehalo.cl', 'QSVPipeline_rgy_filter_dehalo_cl'],
+  ['rgy_filter_finedehalo_cl', '../QSVPipeline/rgy_filter_finedehalo.cl', 'QSVPipeline_rgy_filter_finedehalo_cl'],
   ['rgy_filter_deflicker_cl', '../QSVPipeline/rgy_filter_deflicker.cl', 'QSVPipeline_rgy_filter_deflicker_cl'],
   ['rgy_filter_colorfix_cl', '../QSVPipeline/rgy_filter_colorfix.cl', 'QSVPipeline_rgy_filter_colorfix_cl'],
   ['rgy_filter_warpsharp_cl', '../QSVPipeline/rgy_filter_warpsharp.cl', 'QSVPipeline_rgy_filter_warpsharp_cl'],
