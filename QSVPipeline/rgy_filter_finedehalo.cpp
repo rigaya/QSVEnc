@@ -61,6 +61,24 @@ RGY_ERR RGYFilterFineDehalo::checkParam(const std::shared_ptr<RGYFilterParamFine
             prm->frameOut.width, prm->frameOut.height);
         return RGY_ERR_INVALID_PARAM;
     }
+    const auto csp = prm->frameIn.csp;
+    const auto chromaFormat = RGY_CSP_CHROMA_FORMAT[csp];
+    const auto dataType = RGY_CSP_DATA_TYPE[csp];
+    if (dataType != RGY_DATA_TYPE_U8 && dataType != RGY_DATA_TYPE_U16) {
+        AddMessage(RGY_LOG_ERROR, _T("finedehalo requires 8-16bit integer input.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (chromaFormat != RGY_CHROMAFMT_YUV420
+        && chromaFormat != RGY_CHROMAFMT_YUV422
+        && chromaFormat != RGY_CHROMAFMT_YUV444
+        && chromaFormat != RGY_CHROMAFMT_MONOCHROME) {
+        AddMessage(RGY_LOG_ERROR, _T("finedehalo requires YUV or monochrome input.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (RGY_CSP_PLANES[csp] <= 1 && chromaFormat != RGY_CHROMAFMT_MONOCHROME) {
+        AddMessage(RGY_LOG_ERROR, _T("finedehalo does not support packed YUV input.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
     auto &p = prm->finedehalo;
     if (!(p.rx >= 0.5f && p.rx <= 10.0f) || !(p.ry >= 0.5f && p.ry <= 10.0f)) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid rx=%.2f or ry=%.2f: must be in [0.5, 10.0].\n"), p.rx, p.ry);
@@ -265,7 +283,8 @@ RGY_ERR RGYFilterFineDehalo::runCombine(RGYFrameInfo *pDst,
                                          const RGYFrameInfo *pEm,  const RGYFrameInfo *pLineMask,
                                          int showmask,
                                          RGYOpenCLQueue &queue,
-                                         const std::vector<RGYOpenCLEvent> &wait_events) {
+                                         const std::vector<RGYOpenCLEvent> &wait_events,
+                                         RGYOpenCLEvent *event) {
     const auto sP  = getPlane(pSrc,      RGY_PLANE_Y);
     const auto dhP = getPlane(pDehaloed, RGY_PLANE_Y);
     const auto eP  = getPlane(pEm,       RGY_PLANE_Y);
@@ -274,7 +293,7 @@ RGY_ERR RGYFilterFineDehalo::runCombine(RGYFrameInfo *pDst,
     RGYWorkSize local(FINEDEHALO_BLOCK_X, FINEDEHALO_BLOCK_Y);
     RGYWorkSize global(sP.width, sP.height);
     auto err = m_finedehalo.get()->kernel("finedehalo_combine")
-        .config(queue, local, global, wait_events, nullptr).launch(
+        .config(queue, local, global, wait_events, event).launch(
             (cl_mem)sP.ptr[0],  sP.pitch[0],
             (cl_mem)dhP.ptr[0], dhP.pitch[0],
             (cl_mem)eP.ptr[0],  eP.pitch[0],
@@ -312,19 +331,21 @@ RGY_ERR RGYFilterFineDehalo::runMorph3x3(const char *kernelName,
 
 RGY_ERR RGYFilterFineDehalo::copyChromaPlanes(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
                                                RGYOpenCLQueue &queue,
-                                               const std::vector<RGYOpenCLEvent> &wait_events) {
+                                               const std::vector<RGYOpenCLEvent> &wait_events,
+                                               RGYOpenCLEvent *event) {
     const int planes = RGY_CSP_PLANES[pDst->csp];
-    if (planes < 3) {
+    if (planes <= 1) {
         return RGY_ERR_NONE;
     }
     auto waitFirst = wait_events;
-    for (RGY_PLANE pl : { RGY_PLANE_U, RGY_PLANE_V }) {
+    for (int i = 1; i < planes; i++) {
+        const auto pl = (RGY_PLANE)i;
         const auto srcP = getPlane(pSrc, pl);
         const auto dstP = getPlane(pDst, pl);
-        auto err = m_cl->copyPlane(const_cast<RGYFrameInfo *>(&dstP), &srcP, nullptr, queue, waitFirst);
+        auto err = m_cl->copyPlane(const_cast<RGYFrameInfo *>(&dstP), &srcP, nullptr, queue, waitFirst, (i == planes - 1) ? event : nullptr);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("finedehalo chroma copy (plane %d) failed: %s.\n"),
-                (int)pl, get_err_mes(err));
+                i, get_err_mes(err));
             return err;
         }
         waitFirst.clear();
@@ -335,7 +356,6 @@ RGY_ERR RGYFilterFineDehalo::copyChromaPlanes(RGYFrameInfo *pDst, const RGYFrame
 RGY_ERR RGYFilterFineDehalo::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames,
     int *pOutputFrameNum, RGYOpenCLQueue &queue_main,
     const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
-    (void)event;
     *pOutputFrameNum  = 0;
     ppOutputFrames[0] = nullptr;
 
@@ -367,6 +387,8 @@ RGY_ERR RGYFilterFineDehalo::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
     const int thlimaHbd = (int)((long long)prm->finedehalo.thlima * maxVal / 255);
 
     RGYFrameInfo *pOut = &m_frameBuf[0]->frame;
+    const int planes = RGY_CSP_PLANES[pOut->csp];
+    const bool hasChroma = planes > 1;
 
     // ---- 1. DeHalo_alpha sub-filter ----
     RGYFrameInfo *pDehaloed = nullptr;
@@ -428,7 +450,7 @@ RGY_ERR RGYFilterFineDehalo::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
                                                        : &m_linemask->frame;
         const auto srcP = getPlane(pSrcMask, RGY_PLANE_Y);
         const auto dstP = getPlane(pOut,     RGY_PLANE_Y);
-        auto err = m_cl->copyPlane(const_cast<RGYFrameInfo *>(&dstP), &srcP, nullptr, queue_main, {});
+        auto err = m_cl->copyPlane(const_cast<RGYFrameInfo *>(&dstP), &srcP, nullptr, queue_main, {}, hasChroma ? nullptr : event);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("finedehalo showmask copy failed: %s.\n"), get_err_mes(err));
             return err;
@@ -439,13 +461,13 @@ RGY_ERR RGYFilterFineDehalo::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
         // internally to either emit blended output or final_mask.
         auto err = runCombine(pOut, pInputFrame, pDehaloed,
                               &m_em->frame, &m_linemask->frame,
-                              showmask, queue_main, {});
+                              showmask, queue_main, {}, hasChroma ? nullptr : event);
         if (err != RGY_ERR_NONE) return err;
     }
 
     // Chroma planes always come from the original source (luma-only filter).
-    {
-        auto err = copyChromaPlanes(pOut, pInputFrame, queue_main, {});
+    if (hasChroma) {
+        auto err = copyChromaPlanes(pOut, pInputFrame, queue_main, {}, event);
         if (err != RGY_ERR_NONE) return err;
     }
 

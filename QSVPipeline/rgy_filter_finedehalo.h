@@ -66,7 +66,8 @@ protected:
                           const RGYFrameInfo *pSrc, const RGYFrameInfo *pDehaloed,
                           const RGYFrameInfo *pEm,  const RGYFrameInfo *pLineMask,
                           int showmask,
-                          RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
+                          RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events,
+                          RGYOpenCLEvent *event);
 
     // Reuses dehalo_expand / dehalo_inpand kernels at fixed radius 1 (3×3
     // neighbourhood). Source kept in rgy_filter_dehalo.cl; we build a
@@ -77,7 +78,8 @@ protected:
 
     // Plane-level passthrough copy for chroma planes.
     RGY_ERR copyChromaPlanes(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
-                             RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
+                             RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events,
+                             RGYOpenCLEvent *event);
 
     // Programs.
     RGYOpenCLProgramAsync m_finedehalo;     // prewitt / limitmask / combine
