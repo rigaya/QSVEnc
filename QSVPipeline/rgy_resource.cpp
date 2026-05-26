@@ -141,6 +141,7 @@ _BINARY_VPP_FILTER_FILE(rgy_filter_deflicker_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_colorfix_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_dehalo_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_finedehalo_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_hqdering_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_warpsharp_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_bwdif_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_maa_cl);
