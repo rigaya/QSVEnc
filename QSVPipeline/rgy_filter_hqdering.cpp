@@ -66,6 +66,24 @@ RGY_ERR RGYFilterDering::checkParam(const std::shared_ptr<RGYFilterParamDering> 
             prm->frameOut.width, prm->frameOut.height);
         return RGY_ERR_INVALID_PARAM;
     }
+    const auto csp = prm->frameIn.csp;
+    const auto chromaFormat = RGY_CSP_CHROMA_FORMAT[csp];
+    const auto dataType = RGY_CSP_DATA_TYPE[csp];
+    if (dataType != RGY_DATA_TYPE_U8 && dataType != RGY_DATA_TYPE_U16) {
+        AddMessage(RGY_LOG_ERROR, _T("dering requires 8-16bit integer input.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (chromaFormat != RGY_CHROMAFMT_YUV420
+        && chromaFormat != RGY_CHROMAFMT_YUV422
+        && chromaFormat != RGY_CHROMAFMT_YUV444
+        && chromaFormat != RGY_CHROMAFMT_MONOCHROME) {
+        AddMessage(RGY_LOG_ERROR, _T("dering requires YUV or monochrome input.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (RGY_CSP_PLANES[csp] <= 1 && chromaFormat != RGY_CHROMAFMT_MONOCHROME) {
+        AddMessage(RGY_LOG_ERROR, _T("dering does not support packed YUV input.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
     if (prm->dering.mrad < 1 || prm->dering.mrad > 3) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid mrad=%d: must be in [1, 3].\n"), prm->dering.mrad);
         return RGY_ERR_INVALID_PARAM;
