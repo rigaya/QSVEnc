@@ -72,10 +72,12 @@ protected:
                        const RGYFrameInfo *pSrc, const RGYFrameInfo *pBlurred, const RGYFrameInfo *pMask,
                        const RGYFrameInfo *pEdgeMask,
                        int showmask, int protect,
-                       RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
+                       RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events,
+                       RGYOpenCLEvent *event);
 
     RGY_ERR copyChromaPlanes(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
-                             RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
+                             RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events,
+                             RGYOpenCLEvent *event);
 
     RGYOpenCLProgramAsync m_dering;        // hqdering_edge / blur_h / blur_v / combine
     RGYOpenCLProgramAsync m_dehaloMorph;   // private rebuild of dehalo.cl for expand at r=1

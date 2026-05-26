@@ -257,7 +257,8 @@ RGY_ERR RGYFilterDering::runCombine(RGYFrameInfo *pDst,
                                      const RGYFrameInfo *pEdgeMask,
                                      int showmask, int protect,
                                      RGYOpenCLQueue &queue,
-                                     const std::vector<RGYOpenCLEvent> &wait_events) {
+                                     const std::vector<RGYOpenCLEvent> &wait_events,
+                                     RGYOpenCLEvent *event) {
     const auto sP = getPlane(pSrc,      RGY_PLANE_Y);
     const auto bP = getPlane(pBlurred,  RGY_PLANE_Y);
     const auto mP = getPlane(pMask,     RGY_PLANE_Y);
@@ -266,7 +267,7 @@ RGY_ERR RGYFilterDering::runCombine(RGYFrameInfo *pDst,
     RGYWorkSize local(DERING_BLOCK_X, DERING_BLOCK_Y);
     RGYWorkSize global(sP.width, sP.height);
     auto err = m_dering.get()->kernel("hqdering_combine")
-        .config(queue, local, global, wait_events, nullptr).launch(
+        .config(queue, local, global, wait_events, event).launch(
             (cl_mem)sP.ptr[0], sP.pitch[0],
             (cl_mem)bP.ptr[0], bP.pitch[0],
             (cl_mem)mP.ptr[0], mP.pitch[0],
@@ -282,19 +283,21 @@ RGY_ERR RGYFilterDering::runCombine(RGYFrameInfo *pDst,
 
 RGY_ERR RGYFilterDering::copyChromaPlanes(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
                                            RGYOpenCLQueue &queue,
-                                           const std::vector<RGYOpenCLEvent> &wait_events) {
+                                           const std::vector<RGYOpenCLEvent> &wait_events,
+                                           RGYOpenCLEvent *event) {
     const int planes = RGY_CSP_PLANES[pDst->csp];
-    if (planes < 3) {
+    if (planes <= 1) {
         return RGY_ERR_NONE;
     }
     auto waitFirst = wait_events;
-    for (RGY_PLANE pl : { RGY_PLANE_U, RGY_PLANE_V }) {
+    for (int i = 1; i < planes; i++) {
+        const auto pl = (RGY_PLANE)i;
         const auto srcP = getPlane(pSrc, pl);
         const auto dstP = getPlane(pDst, pl);
-        auto err = m_cl->copyPlane(const_cast<RGYFrameInfo *>(&dstP), &srcP, nullptr, queue, waitFirst);
+        auto err = m_cl->copyPlane(const_cast<RGYFrameInfo *>(&dstP), &srcP, nullptr, queue, waitFirst, (i == planes - 1) ? event : nullptr);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("dering chroma copy (plane %d) failed: %s.\n"),
-                (int)pl, get_err_mes(err));
+                i, get_err_mes(err));
             return err;
         }
         waitFirst.clear();
@@ -305,7 +308,6 @@ RGY_ERR RGYFilterDering::copyChromaPlanes(RGYFrameInfo *pDst, const RGYFrameInfo
 RGY_ERR RGYFilterDering::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames,
     int *pOutputFrameNum, RGYOpenCLQueue &queue_main,
     const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
-    (void)event;
     *pOutputFrameNum  = 0;
     ppOutputFrames[0] = nullptr;
 
@@ -338,6 +340,8 @@ RGY_ERR RGYFilterDering::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
     if (kernelRadius > DERING_KERNEL_RADIUS_MAX) kernelRadius = DERING_KERNEL_RADIUS_MAX;
 
     RGYFrameInfo *pOut = &m_frameBuf[0]->frame;
+    const int planes = RGY_CSP_PLANES[pOut->csp];
+    const bool hasChroma = planes > 1;
 
     // ---- 1. Sobel + threshold → m_edgeMask ----
     {
@@ -379,13 +383,13 @@ RGY_ERR RGYFilterDering::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
         const int protect  = prm->dering.protect  ? 1 : 0;
         auto err = runCombine(pOut, pInputFrame, &m_blurred->frame, pRingMask,
                               &m_edgeMask->frame,
-                              showmask, protect, queue_main, {});
+                              showmask, protect, queue_main, {}, hasChroma ? nullptr : event);
         if (err != RGY_ERR_NONE) return err;
     }
 
     // Chroma planes pass through from source.
-    {
-        auto err = copyChromaPlanes(pOut, pInputFrame, queue_main, {});
+    if (hasChroma) {
+        auto err = copyChromaPlanes(pOut, pInputFrame, queue_main, {}, event);
         if (err != RGY_ERR_NONE) return err;
     }
 
