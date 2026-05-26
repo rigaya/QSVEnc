@@ -255,6 +255,7 @@ static const RGYResourceData RGY_RESOURCE_DATA[] = {
     { _T("EXE_DATA"), _T("RGY_FILTER_COLORFIX_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_colorfix_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_DEHALO_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_dehalo_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_FINEDEHALO_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_finedehalo_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_HQDERING_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_hqdering_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_WARPSHARP_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_warpsharp_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_BWDIF_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_bwdif_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_MAA_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_maa_cl) },

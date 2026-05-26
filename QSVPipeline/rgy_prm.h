@@ -90,6 +90,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_COLORFIX     (ENCODER_QSV)
 #define ENABLE_VPP_FILTER_DEHALO       (ENCODER_QSV)
 #define ENABLE_VPP_FILTER_FINEDEHALO   (ENCODER_QSV)
+#define ENABLE_VPP_FILTER_HQDERING     (ENCODER_QSV)
 #define ENABLE_VPP_FILTER_WARPSHARP    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_EDGELEVEL    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_MSHARPEN     (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
@@ -212,6 +213,7 @@ enum class VppType : int {
     CL_COLORFIX,
     CL_DEHALO,
     CL_FINEDEHALO,
+    CL_HQDERING,
     CL_EDGELEVEL,
     CL_MSHARPEN,
     CL_WARPSHARP,
@@ -582,6 +584,12 @@ static const int   FILTER_DEFAULT_FINEDEHALO_THLIMI = 50;
 static const int   FILTER_DEFAULT_FINEDEHALO_THLIMA = 100;
 static const int   FILTER_DEFAULT_FINEDEHALO_SHOWMASK = 0;
 static const TCHAR *FILTER_DEFAULT_FINEDEHALO_EDGE = _T("prewitt");
+static const int   FILTER_DEFAULT_HQDERING_MRAD = 1;
+static const int   FILTER_DEFAULT_HQDERING_MTHR = 10;
+static const float FILTER_DEFAULT_HQDERING_SIGMA = 1.5f;
+static const bool  FILTER_DEFAULT_HQDERING_SHOWMASK = false;
+static const bool  FILTER_DEFAULT_HQDERING_PROTECT = true;
+static const TCHAR *FILTER_DEFAULT_HQDERING_EDGE = _T("log");
 
 static const float FILTER_DEFAULT_WARPSHARP_THRESHOLD = 128.0f;
 static const int   FILTER_DEFAULT_WARPSHARP_BLUR = 2;
@@ -2934,6 +2942,21 @@ struct VppFineDehalo {
     tstring print() const;
 };
 
+struct VppDering {
+    bool enable;
+    int mrad;
+    int mthr;
+    float sigma;
+    bool showmask;
+    bool protect;
+    tstring edge;
+
+    VppDering();
+    bool operator==(const VppDering& x) const;
+    bool operator!=(const VppDering& x) const;
+    tstring print() const;
+};
+
 struct VppMsharpen {
     bool  enable;
     float strength;
@@ -3217,6 +3240,7 @@ struct RGYParamVpp {
     VppColorFix colorfix;
     VppDehalo dehalo;
     VppFineDehalo finedehalo;
+    VppDering dering;
     VppEdgelevel edgelevel;
     VppMsharpen msharpen;
     VppWarpsharp warpsharp;

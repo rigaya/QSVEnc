@@ -115,6 +115,7 @@ RGY_DISABLE_WARNING_POP
 #include "rgy_filter_colorfix.h"
 #include "rgy_filter_dehalo.h"
 #include "rgy_filter_finedehalo.h"
+#include "rgy_filter_hqdering.h"
 #include "rgy_filter_edgelevel.h"
 #include "rgy_filter_msharpen.h"
 #include "rgy_filter_warpsharp.h"
@@ -2369,6 +2370,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vpp.colorfix.enable)   filterPipeline.push_back(VppType::CL_COLORFIX);
     if (inputParam->vpp.dehalo.enable)     filterPipeline.push_back(VppType::CL_DEHALO);
     if (inputParam->vpp.finedehalo.enable) filterPipeline.push_back(VppType::CL_FINEDEHALO);
+    if (inputParam->vpp.dering.enable)     filterPipeline.push_back(VppType::CL_HQDERING);
     if (inputParam->vpp.edgelevel.enable)  filterPipeline.push_back(VppType::CL_EDGELEVEL);
     if (inputParam->vpp.msharpen.enable)   filterPipeline.push_back(VppType::CL_MSHARPEN);
     if (inputParam->vpp.warpsharp.enable)  filterPipeline.push_back(VppType::CL_WARPSHARP);
@@ -3504,6 +3506,26 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         unique_ptr<RGYFilter> filter(new RGYFilterFineDehalo(m_cl));
         shared_ptr<RGYFilterParamFineDehalo> param(new RGYFilterParamFineDehalo());
         param->finedehalo = params->vpp.finedehalo;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        auto sts = filter->init(param, m_pQSVLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        //登録
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
+    }
+    //hqdering
+    if (vppType == VppType::CL_HQDERING) {
+        unique_ptr<RGYFilter> filter(new RGYFilterDering(m_cl));
+        shared_ptr<RGYFilterParamDering> param(new RGYFilterParamDering());
+        param->dering = params->vpp.dering;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
