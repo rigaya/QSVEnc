@@ -256,6 +256,7 @@
   - [--vpp-deflicker \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-deflicker-param1value1param2value2)
   - [--vpp-colorfix \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-colorfix-param1value1param2value2)
   - [--vpp-dehalo \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-dehalo-param1value1param2value2)
+  - [--vpp-finedehalo \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-finedehalo-param1value1param2value2)
   - [--vpp-edgelevel \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-edgelevel-param1value1param2value2)
   - [--vpp-msharpen \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-msharpen-param1value1param2value2)
   - [--vpp-warpsharp \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-warpsharp-param1value1param2value2)
@@ -1820,6 +1821,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
   - [--vpp-deflicker](#--vpp-deflicker-param1value1param2value2)
   - [--vpp-colorfix](#--vpp-colorfix-param1value1param2value2)
   - [--vpp-dehalo](#--vpp-dehalo-param1value1param2value2)
+  - [--vpp-finedehalo](#--vpp-finedehalo-param1value1param2value2)
   - [--vpp-edgelevel](#--vpp-edgelevel-param1value1param2value2)
   - [--vpp-msharpen](#--vpp-msharpen-param1value1param2value2)
   - [--vpp-warpsharp](#--vpp-warpsharp-param1value1param2value2)
@@ -3334,6 +3336,55 @@ Halo removal filter. Applies correction to luma and copies chroma unchanged.
   ```
   --vpp-dehalo
   --vpp-dehalo rx=2.4,ry=2.0,darkstr=0.8,brightstr=0.1,lowsens=40,highsens=70,ss=1.5
+  ```
+
+### --vpp-finedehalo [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
+Halo removal filter with a fine-line protection mask. Applies correction to luma and copies chroma unchanged.
+
+- **Parameters**
+  - rx=&lt;float&gt; (default=2.0, 0.5 - 10.0)
+    Horizontal halo radius.
+
+  - ry=&lt;float&gt; (default=2.0, 0.5 - 10.0)
+    Vertical halo radius.
+
+  - darkstr=&lt;float&gt; (default=1.0, 0.0 - 1.0)
+    Strength for darkening bright halos.
+
+  - brightstr=&lt;float&gt; (default=0.0, 0.0 - 1.0)
+    Strength for brightening dark halos.
+
+  - lowsens=&lt;int&gt; (default=50, 0 - 100)
+    Lower anchor of the dehalo sensitivity ramp.
+
+  - highsens=&lt;int&gt; (default=50, 0 - 100)
+    Upper anchor of the dehalo sensitivity ramp.
+
+  - ss=&lt;float&gt; (default=1.5, 1.0 - 4.0)
+    Supersampling ratio.
+
+  - thmi=&lt;int&gt; (default=80, 0 - 255)
+    Lower threshold of the edge mask.
+
+  - thma=&lt;int&gt; (default=128, 0 - 255)
+    Upper threshold of the edge mask.
+
+  - thlimi=&lt;int&gt; (default=50, 0 - 255)
+    Lower threshold of the limit mask.
+
+  - thlima=&lt;int&gt; (default=100, 0 - 255)
+    Upper threshold of the limit mask.
+
+  - showmask=&lt;int&gt; (default=0, 0 - 4)
+    Debug mask output.
+
+  - edge=&lt;string&gt; (default=prewitt)
+    Edge detector, one of prewitt, sobel, scharr, kirsch, laplacian.
+
+- examples
+  ```
+  --vpp-finedehalo
+  --vpp-finedehalo edge=scharr,thmi=60,thma=160,thlimi=30,thlima=120,showmask=4
   ```
 
 ### --vpp-edgelevel [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
