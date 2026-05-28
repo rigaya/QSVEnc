@@ -147,7 +147,7 @@ inline int degrain_temporal_smooth_value(
     return value;
 }
 
-inline int degrain_search_refine1_value(
+static inline int degrain_search_refine1_value(
     __global const uchar *srcPrev2,
     const int srcPrev2Pitch,
     __global const uchar *srcPrev,
@@ -177,7 +177,7 @@ inline int degrain_search_refine1_value(
     return degrain_search_refine1_blend(p11, blur, edgeSoft, p01, p10, p21, p12);
 }
 
-inline int degrain_analysis_prefilter_value(
+static inline int degrain_analysis_prefilter_value(
     __global const uchar *srcPrev2,
     const int srcPrev2Pitch,
     __global const uchar *srcPrev,
@@ -236,7 +236,7 @@ inline int degrain_analysis_prefilter_value(
 #endif
 }
 
-inline int degrain_rep0_repair_value(
+static inline int degrain_rep0_repair_value(
     __global const uchar *srcPrev2,
     const int srcPrev2Pitch,
     __global const uchar *srcPrev,

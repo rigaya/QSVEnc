@@ -855,7 +855,7 @@ inline degrain_motion_search_candidate_t degrain_motion_search_load_base_candida
     return degrain_motion_search_constrain_candidate(degrain_motion_search_saved_vector_to_candidate(motionVector), context);
 }
 
-inline void degrain_motion_search_search_one_block(
+static inline void degrain_motion_search_search_one_block(
     __global const uchar *sourcePlane,
     __global const uchar *referencePlane,
     __global degrain_mv_internal_t *vectors,

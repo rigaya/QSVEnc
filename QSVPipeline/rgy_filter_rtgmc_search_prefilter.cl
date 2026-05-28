@@ -75,27 +75,27 @@
 #define RTGMC_SEARCH_REPAIR_RESTORE_LEVEL4_PATH (1u << 1)
 #define RTGMC_SEARCH_REPAIR_RESTORE_ENABLED (1u << 2)
 
-inline int rtgmc_search_repair_profile_thin_reject_level(const uint repairProfile) {
+static inline int rtgmc_search_repair_profile_thin_reject_level(const uint repairProfile) {
     return (int)(repairProfile & 0xffu);
 }
 
-inline int rtgmc_search_repair_profile_restore_padding_level(const uint repairProfile) {
+static inline int rtgmc_search_repair_profile_restore_padding_level(const uint repairProfile) {
     return (int)((repairProfile >> 8) & 0xffu);
 }
 
-inline uint rtgmc_search_repair_profile_thin_reject_flags(const uint repairProfile) {
+static inline uint rtgmc_search_repair_profile_thin_reject_flags(const uint repairProfile) {
     return (repairProfile >> 16) & 0xffu;
 }
 
-inline uint rtgmc_search_repair_profile_restore_flags(const uint repairProfile) {
+static inline uint rtgmc_search_repair_profile_restore_flags(const uint repairProfile) {
     return (repairProfile >> 24) & 0xffu;
 }
 
-inline TypePixel rtgmc_search_prefilter_clamp_pixel(const int value) {
+static inline TypePixel rtgmc_search_prefilter_clamp_pixel(const int value) {
     return (TypePixel)clamp(value, 0, RTGMC_SEARCH_PREFILTER_PIXEL_MAX);
 }
 
-inline int rtgmc_search_prefilter_pixel_load(
+static inline int rtgmc_search_prefilter_pixel_load(
     __global const uchar *src,
     const int pitch,
     const int width,
@@ -107,7 +107,7 @@ inline int rtgmc_search_prefilter_pixel_load(
     return (int)(*(__global const TypePixel *)(src + py * pitch + px * (int)sizeof(TypePixel)));
 }
 
-inline void rtgmc_search_prefilter_pixel_store(
+static inline void rtgmc_search_prefilter_pixel_store(
     __global uchar *dst,
     const int pitch,
     const int x,
@@ -116,7 +116,7 @@ inline void rtgmc_search_prefilter_pixel_store(
     *(__global TypePixel *)(dst + y * pitch + x * (int)sizeof(TypePixel)) = rtgmc_search_prefilter_clamp_pixel(value);
 }
 
-inline int rtgmc_search_prefilter_blur3x3_weighted(
+static inline int rtgmc_search_prefilter_blur3x3_weighted(
     const int p00,
     const int p10,
     const int p20,
@@ -133,7 +133,7 @@ inline int rtgmc_search_prefilter_blur3x3_weighted(
     return (sum + 8) >> 4;
 }
 
-inline int rtgmc_search_prefilter_edge_soften_cross(
+static inline int rtgmc_search_prefilter_edge_soften_cross(
     const int left,
     const int up,
     const int center,
@@ -142,46 +142,46 @@ inline int rtgmc_search_prefilter_edge_soften_cross(
     return (left + up + 4 * center + down + right + 4) >> 3;
 }
 
-inline int rtgmc_search_prefilter_range_half(void) {
+static inline int rtgmc_search_prefilter_range_half(void) {
     return (RTGMC_SEARCH_PREFILTER_PIXEL_MAX + 1) >> 1;
 }
 
-inline int rtgmc_search_prefilter_range_scale(void) {
+static inline int rtgmc_search_prefilter_range_scale(void) {
     return max((RTGMC_SEARCH_PREFILTER_PIXEL_MAX + 1) >> 8, 1);
 }
 
-inline int rtgmc_search_prefilter_extreme_seed(const int highSide) {
+static inline int rtgmc_search_prefilter_extreme_seed(const int highSide) {
     return highSide ? 0 : RTGMC_SEARCH_PREFILTER_PIXEL_MAX;
 }
 
-inline int rtgmc_search_prefilter_extreme_merge(const int value, const int sample, const int highSide) {
+static inline int rtgmc_search_prefilter_extreme_merge(const int value, const int sample, const int highSide) {
     return highSide ? max(value, sample) : min(value, sample);
 }
 
-inline int rtgmc_search_prefilter_polarity_core_seed(const int positive) {
+static inline int rtgmc_search_prefilter_polarity_core_seed(const int positive) {
     return rtgmc_search_prefilter_extreme_seed(!positive);
 }
 
-inline int rtgmc_search_prefilter_polarity_core_merge(const int value, const int sample, const int positive) {
+static inline int rtgmc_search_prefilter_polarity_core_merge(const int value, const int sample, const int positive) {
     return rtgmc_search_prefilter_extreme_merge(value, sample, !positive);
 }
 
-inline int rtgmc_search_prefilter_polarity_envelope_seed(const int positive) {
+static inline int rtgmc_search_prefilter_polarity_envelope_seed(const int positive) {
     return rtgmc_search_prefilter_extreme_seed(positive);
 }
 
-inline int rtgmc_search_prefilter_polarity_envelope_merge(const int value, const int sample, const int positive) {
+static inline int rtgmc_search_prefilter_polarity_envelope_merge(const int value, const int sample, const int positive) {
     return rtgmc_search_prefilter_extreme_merge(value, sample, positive);
 }
 
-inline void rtgmc_search_prefilter_sort2(__private int *a, __private int *b) {
+static inline void rtgmc_search_prefilter_sort2(__private int *a, __private int *b) {
     const int lo = min(*a, *b);
     const int hi = max(*a, *b);
     *a = lo;
     *b = hi;
 }
 
-inline void rtgmc_search_prefilter_sort2_desc(__private int *a, __private int *b) {
+static inline void rtgmc_search_prefilter_sort2_desc(__private int *a, __private int *b) {
     const int lo = min(*a, *b);
     const int hi = max(*a, *b);
     *a = hi;
@@ -189,7 +189,7 @@ inline void rtgmc_search_prefilter_sort2_desc(__private int *a, __private int *b
 }
 
 // Batcher's Bitonic Sort (1968), 8 elements / 24 comparisons / depth 6.
-inline void rtgmc_search_prefilter_sort8(__private int *v) {
+static inline void rtgmc_search_prefilter_sort8(__private int *v) {
     rtgmc_search_prefilter_sort2     (&v[0], &v[1]); rtgmc_search_prefilter_sort2_desc(&v[2], &v[3]); rtgmc_search_prefilter_sort2     (&v[4], &v[5]); rtgmc_search_prefilter_sort2_desc(&v[6], &v[7]);
     rtgmc_search_prefilter_sort2     (&v[0], &v[2]); rtgmc_search_prefilter_sort2     (&v[1], &v[3]); rtgmc_search_prefilter_sort2_desc(&v[4], &v[6]); rtgmc_search_prefilter_sort2_desc(&v[5], &v[7]);
     rtgmc_search_prefilter_sort2     (&v[0], &v[1]); rtgmc_search_prefilter_sort2     (&v[2], &v[3]); rtgmc_search_prefilter_sort2_desc(&v[4], &v[5]); rtgmc_search_prefilter_sort2_desc(&v[6], &v[7]);
@@ -198,7 +198,7 @@ inline void rtgmc_search_prefilter_sort8(__private int *v) {
     rtgmc_search_prefilter_sort2     (&v[0], &v[1]); rtgmc_search_prefilter_sort2     (&v[2], &v[3]); rtgmc_search_prefilter_sort2     (&v[4], &v[5]); rtgmc_search_prefilter_sort2     (&v[6], &v[7]);
 }
 
-inline int rtgmc_search_prefilter_temporal_sample(
+static inline int rtgmc_search_prefilter_temporal_sample(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -224,7 +224,7 @@ inline int rtgmc_search_prefilter_temporal_sample(
     }
 }
 
-inline int rtgmc_search_prefilter_temporal_weighted_value(
+static inline int rtgmc_search_prefilter_temporal_weighted_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -257,7 +257,7 @@ inline int rtgmc_search_prefilter_temporal_weighted_value(
     return (sum + 2) >> 2;
 }
 
-inline int rtgmc_search_prefilter_temporal_candidate_value(
+static inline int rtgmc_search_prefilter_temporal_candidate_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -282,15 +282,15 @@ inline int rtgmc_search_prefilter_temporal_candidate_value(
     return rtgmc_search_prefilter_pixel_load(srcCur, pitch, srcWidth, srcHeight, px, py);
 }
 
-inline int rtgmc_search_prefilter_makediff_value(const int ref, const int src) {
+static inline int rtgmc_search_prefilter_makediff_value(const int ref, const int src) {
     return clamp(ref - src + rtgmc_search_prefilter_range_half(), 0, RTGMC_SEARCH_PREFILTER_PIXEL_MAX);
 }
 
-inline int rtgmc_search_prefilter_adddiff_value(const int src, const int diff) {
+static inline int rtgmc_search_prefilter_adddiff_value(const int src, const int diff) {
     return clamp(src + diff - rtgmc_search_prefilter_range_half(), 0, RTGMC_SEARCH_PREFILTER_PIXEL_MAX);
 }
 
-inline int rtgmc_search_prefilter_select_signed_correction(
+static inline int rtgmc_search_prefilter_select_signed_correction(
     const int proposedSigned,
     const int positiveMaskSigned,
     const int negativeMaskSigned,
@@ -304,7 +304,7 @@ inline int rtgmc_search_prefilter_select_signed_correction(
     return 0;
 }
 
-inline int rtgmc_search_prefilter_apply_signed_correction(
+static inline int rtgmc_search_prefilter_apply_signed_correction(
     const int src,
     const int proposedSigned,
     const int positiveMaskSigned,
@@ -318,11 +318,11 @@ inline int rtgmc_search_prefilter_apply_signed_correction(
     return clamp(src + appliedSigned, 0, RTGMC_SEARCH_PREFILTER_PIXEL_MAX);
 }
 
-inline int rtgmc_search_prefilter_round_float_to_pixel(const float value) {
+static inline int rtgmc_search_prefilter_round_float_to_pixel(const float value) {
     return clamp((int)(value + 0.5f), 0, RTGMC_SEARCH_PREFILTER_PIXEL_MAX);
 }
 
-inline int rtgmc_search_prefilter_mean3x3_diff_value(
+static inline int rtgmc_search_prefilter_mean3x3_diff_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -356,7 +356,7 @@ inline int rtgmc_search_prefilter_mean3x3_diff_value(
     return (sum + 4) / 9;
 }
 
-inline int rtgmc_search_prefilter_search_correction_delta_value(
+static inline int rtgmc_search_prefilter_search_correction_delta_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -376,7 +376,7 @@ inline int rtgmc_search_prefilter_search_correction_delta_value(
     return rtgmc_search_prefilter_makediff_value(ref, src);
 }
 
-inline int rtgmc_search_prefilter_removegrain4_diff_value(
+static inline int rtgmc_search_prefilter_removegrain4_diff_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -412,7 +412,7 @@ inline int rtgmc_search_prefilter_removegrain4_diff_value(
     return clamp(s, v[3], v[4]);
 }
 
-inline int rtgmc_search_prefilter_vertical_thin_reject_diff_value(
+static inline int rtgmc_search_prefilter_vertical_thin_reject_diff_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -437,7 +437,7 @@ inline int rtgmc_search_prefilter_vertical_thin_reject_diff_value(
     return value;
 }
 
-inline int rtgmc_search_prefilter_vertical_restore_diff_value(
+static inline int rtgmc_search_prefilter_vertical_restore_diff_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -463,7 +463,7 @@ inline int rtgmc_search_prefilter_vertical_restore_diff_value(
     return value;
 }
 
-inline int rtgmc_search_prefilter_area_envelope_diff_value(
+static inline int rtgmc_search_prefilter_area_envelope_diff_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -489,7 +489,7 @@ inline int rtgmc_search_prefilter_area_envelope_diff_value(
     return value;
 }
 
-inline int rtgmc_search_prefilter_correction_gate_thin_core_value(
+static inline int rtgmc_search_prefilter_correction_gate_thin_core_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -510,7 +510,7 @@ inline int rtgmc_search_prefilter_correction_gate_thin_core_value(
         px, py, smoothRadius, thinRejectRadius, positive);
 }
 
-inline int rtgmc_search_prefilter_mean3x3_correction_gate_thin_core_value(
+static inline int rtgmc_search_prefilter_mean3x3_correction_gate_thin_core_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -536,7 +536,7 @@ inline int rtgmc_search_prefilter_mean3x3_correction_gate_thin_core_value(
     return (sum + 4) / 9;
 }
 
-inline int rtgmc_search_prefilter_correction_gate_mid_before_rank_limit_value(
+static inline int rtgmc_search_prefilter_correction_gate_mid_before_rank_limit_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -558,7 +558,7 @@ inline int rtgmc_search_prefilter_correction_gate_mid_before_rank_limit_value(
     return value;
 }
 
-inline int rtgmc_search_prefilter_rank_limit4_correction_gate_mid_value(
+static inline int rtgmc_search_prefilter_rank_limit4_correction_gate_mid_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -588,7 +588,7 @@ inline int rtgmc_search_prefilter_rank_limit4_correction_gate_mid_value(
     return clamp(s, v[3], v[4]);
 }
 
-inline int rtgmc_search_prefilter_correction_gate_mid_value(
+static inline int rtgmc_search_prefilter_correction_gate_mid_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -609,7 +609,7 @@ inline int rtgmc_search_prefilter_correction_gate_mid_value(
         srcWidth, srcHeight, px, py, smoothRadius, repairProfile, positive);
 }
 
-inline int rtgmc_search_prefilter_correction_gate_base_value(
+static inline int rtgmc_search_prefilter_correction_gate_base_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -631,7 +631,7 @@ inline int rtgmc_search_prefilter_correction_gate_base_value(
     return value;
 }
 
-inline int rtgmc_search_prefilter_mean3x3_correction_gate_base_value(
+static inline int rtgmc_search_prefilter_mean3x3_correction_gate_base_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -657,7 +657,7 @@ inline int rtgmc_search_prefilter_mean3x3_correction_gate_base_value(
     return (sum + 4) / 9;
 }
 
-inline int rtgmc_search_prefilter_correction_gate_rank_smooth1_value(
+static inline int rtgmc_search_prefilter_correction_gate_rank_smooth1_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -676,7 +676,7 @@ inline int rtgmc_search_prefilter_correction_gate_rank_smooth1_value(
     return rtgmc_search_prefilter_extreme_merge(s, mean3x3, useMax);
 }
 
-inline int rtgmc_search_prefilter_mean3x3_correction_gate_rank_smooth1_value(
+static inline int rtgmc_search_prefilter_mean3x3_correction_gate_rank_smooth1_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -702,7 +702,7 @@ inline int rtgmc_search_prefilter_mean3x3_correction_gate_rank_smooth1_value(
     return (sum + 4) / 9;
 }
 
-inline int rtgmc_search_prefilter_correction_gate_rank_smooth2_value(
+static inline int rtgmc_search_prefilter_correction_gate_rank_smooth2_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -721,7 +721,7 @@ inline int rtgmc_search_prefilter_correction_gate_rank_smooth2_value(
     return rtgmc_search_prefilter_extreme_merge(s, mean3x3, useMax);
 }
 
-inline int rtgmc_search_prefilter_correction_gate_area_envelope_value(
+static inline int rtgmc_search_prefilter_correction_gate_area_envelope_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -743,7 +743,7 @@ inline int rtgmc_search_prefilter_correction_gate_area_envelope_value(
     return value;
 }
 
-inline int rtgmc_search_prefilter_correction_gate_level4_core_value(
+static inline int rtgmc_search_prefilter_correction_gate_level4_core_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -764,7 +764,7 @@ inline int rtgmc_search_prefilter_correction_gate_level4_core_value(
     return value;
 }
 
-inline int rtgmc_search_prefilter_correction_gate_level4_mean3x3_value(
+static inline int rtgmc_search_prefilter_correction_gate_level4_mean3x3_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -791,7 +791,7 @@ inline int rtgmc_search_prefilter_correction_gate_level4_mean3x3_value(
     return (sum + 4) / 9;
 }
 
-inline int rtgmc_search_prefilter_correction_gate_level4_mid_value(
+static inline int rtgmc_search_prefilter_correction_gate_level4_mid_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -810,7 +810,7 @@ inline int rtgmc_search_prefilter_correction_gate_level4_mid_value(
     return rtgmc_search_prefilter_polarity_core_merge(s, mean3x3, positive);
 }
 
-inline int rtgmc_search_prefilter_correction_gate_level4_value(
+static inline int rtgmc_search_prefilter_correction_gate_level4_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -831,7 +831,7 @@ inline int rtgmc_search_prefilter_correction_gate_level4_value(
     return value;
 }
 
-inline int rtgmc_search_prefilter_correction_gate_value(
+static inline int rtgmc_search_prefilter_correction_gate_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -868,7 +868,7 @@ inline int rtgmc_search_prefilter_correction_gate_value(
 }
 
 // Field-parity correction for the temporal-search prefilter.
-inline int rtgmc_search_prefilter_apply_field_correction_value(
+static inline int rtgmc_search_prefilter_apply_field_correction_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -906,7 +906,7 @@ inline int rtgmc_search_prefilter_apply_field_correction_value(
         rtgmc_search_prefilter_range_scale());
 }
 
-inline int rtgmc_search_prefilter_field_corrected_search_value(
+static inline int rtgmc_search_prefilter_field_corrected_search_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -931,7 +931,7 @@ inline int rtgmc_search_prefilter_field_corrected_search_value(
         px, py, smoothRadius);
 }
 
-inline int rtgmc_search_prefilter_half_search_base_value(
+static inline int rtgmc_search_prefilter_half_search_base_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -993,7 +993,7 @@ inline int rtgmc_search_prefilter_half_search_base_value(
     return clamp((int)sumY, 0, RTGMC_SEARCH_PREFILTER_PIXEL_MAX);
 }
 
-inline int rtgmc_search_prefilter_half_search_smoothed_value(
+static inline int rtgmc_search_prefilter_half_search_smoothed_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -1031,7 +1031,7 @@ inline int rtgmc_search_prefilter_half_search_smoothed_value(
     return rtgmc_search_prefilter_blur3x3_weighted(p00, p10, p20, p01, p11, p21, p02, p12, p22);
 }
 
-inline int rtgmc_search_prefilter_half_resolution_search_value(
+static inline int rtgmc_search_prefilter_half_resolution_search_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -1096,7 +1096,7 @@ inline int rtgmc_search_prefilter_half_resolution_search_value(
     return clamp((int)sumY, 0, RTGMC_SEARCH_PREFILTER_PIXEL_MAX);
 }
 
-inline int rtgmc_search_prefilter_field_corrected_search_weighted3x3_value(
+static inline int rtgmc_search_prefilter_field_corrected_search_weighted3x3_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -1126,13 +1126,13 @@ inline int rtgmc_search_prefilter_field_corrected_search_weighted3x3_value(
     return rtgmc_search_prefilter_blur3x3_weighted(p00, p10, p20, p01, p11, p21, p02, p12, p22);
 }
 
-inline int rtgmc_search_prefilter_motion_guide_blend_value(const int spatialGuide, const int motionGuide) {
+static inline int rtgmc_search_prefilter_motion_guide_blend_value(const int spatialGuide, const int motionGuide) {
     const float guideWeight = 0.10f;
     const float value = mix((float)spatialGuide, (float)motionGuide, guideWeight);
     return clamp(convert_int_rte(value), 0, RTGMC_SEARCH_PREFILTER_PIXEL_MAX);
 }
 
-inline int rtgmc_search_prefilter_search_smoothed3x3_value(
+static inline int rtgmc_search_prefilter_search_smoothed3x3_value(
     __global const uchar *src,
     const int src_pitch,
     const int width,
@@ -1154,7 +1154,7 @@ inline int rtgmc_search_prefilter_search_smoothed3x3_value(
     return rtgmc_search_prefilter_blur3x3_weighted(p00, p10, p20, p01, p11, p21, p02, p12, p22);
 }
 
-inline int rtgmc_search_prefilter_motion_guide_stabilize_value(
+static inline int rtgmc_search_prefilter_motion_guide_stabilize_value(
     const int motionGuide,
     const int fieldGuide,
     const int spatialGuide) {
@@ -1176,7 +1176,7 @@ inline int rtgmc_search_prefilter_motion_guide_stabilize_value(
     return rtgmc_search_prefilter_round_float_to_pixel(ret * scale);
 }
 
-inline int rtgmc_search_prefilter_motion_guide_blend_stabilized_value(
+static inline int rtgmc_search_prefilter_motion_guide_blend_stabilized_value(
     const int spatialGuide,
     const int motionGuide,
     const int fieldGuide) {
@@ -1184,7 +1184,7 @@ inline int rtgmc_search_prefilter_motion_guide_blend_stabilized_value(
     return rtgmc_search_prefilter_motion_guide_stabilize_value(motionGuide, fieldGuide, blendedGuide);
 }
 
-inline int rtgmc_search_prefilter_value(
+static inline int rtgmc_search_prefilter_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -1267,7 +1267,7 @@ __kernel void kernel_rtgmc_search_prefilter_scenechange(
     }
 }
 
-inline int rtgmc_search_prefilter_to_full_range(
+static inline int rtgmc_search_prefilter_to_full_range(
     const int value,
     const int planeMode) {
     if (planeMode == 1) {
