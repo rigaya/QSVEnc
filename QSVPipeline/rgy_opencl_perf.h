@@ -65,7 +65,8 @@ struct KernelInfo {
     size_t   preferred_wg_multiple = 0;     // CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE
     cl_ulong local_mem_size        = 0;     // CL_KERNEL_LOCAL_MEM_SIZE
     cl_ulong private_mem_size      = 0;     // CL_KERNEL_PRIVATE_MEM_SIZE
-    cl_ulong spill_mem_size_intel  = UINT64_MAX; // CL_KERNEL_SPILL_MEM_SIZE_INTEL; UINT64_MAX = unknown
+    cl_ulong spill_mem_size        = UINT64_MAX; // vendor-specific spill size; UINT64_MAX = unknown
+    std::string spill_mem_source;
     std::string attributes;                 // CL_KERNEL_ATTRIBUTES
     // 取得失敗フィールドを null 出力する用
     bool work_group_size_valid       = false;
@@ -215,6 +216,7 @@ public:
                       const RGYWorkSize&           local,
                       const RGYWorkSize&           global_ceil,
                       cl_kernel                    kernel,
+                      cl_device_id                 devid,
                       RGYOpenCLEvent&              event);
 
     void recordCommand(const std::string& command_name,

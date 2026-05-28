@@ -1540,7 +1540,7 @@ RGY_ERR RGYOpenCLKernelLauncher::launch(std::vector<void *> arg_ptrs, std::vecto
     }
     if (perf_enabled) {
         RGYOpenCLEvent& ev_ref = m_event ? *m_event : perf_event_local;
-        perf_collector.recordLaunch(m_program_id, m_kernelName, m_local, globalCeiled, m_kernel, ev_ref);
+        perf_collector.recordLaunch(m_program_id, m_kernelName, m_local, globalCeiled, m_kernel, m_queue.devid(), ev_ref);
     }
     return err;
 }

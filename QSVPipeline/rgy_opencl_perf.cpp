@@ -219,7 +219,8 @@ uint64_t RGYOpenCLPerfCollector::recordProgramBuild(
                     cl_ulong spill = 0;
                     if (clGetKernelWorkGroupInfo(kobj, devid, CL_KERNEL_SPILL_MEM_SIZE_INTEL,
                             sizeof(spill), &spill, nullptr) == CL_SUCCESS) {
-                        ki.spill_mem_size_intel = spill;
+                        ki.spill_mem_size = spill;
+                        ki.spill_mem_source = "cl_intel";
                         ki.spill_mem_size_valid = true;
                     }
 
@@ -256,17 +257,40 @@ uint64_t RGYOpenCLPerfCollector::recordProgramBuild(
 
             // バイナリ取得と保存
             {
-                size_t binary_size = 0;
-                cl_int err = clGetProgramInfo(program, CL_PROGRAM_BINARY_SIZES, sizeof(size_t), &binary_size, nullptr);
-                if (err == CL_SUCCESS && binary_size > 0) {
-                    std::vector<uint8_t> binary(binary_size, 0);
-                    uint8_t* bin_ptr = binary.data();
-                    err = clGetProgramInfo(program, CL_PROGRAM_BINARIES, binary_size, &bin_ptr, nullptr);
+                cl_uint num_devices = 0;
+                cl_int err = clGetProgramInfo(program, CL_PROGRAM_NUM_DEVICES, sizeof(num_devices), &num_devices, nullptr);
+                if (err == CL_SUCCESS && num_devices > 0) {
+                    std::vector<cl_device_id> devices(num_devices);
+                    err = clGetProgramInfo(program, CL_PROGRAM_DEVICES, sizeof(cl_device_id) * devices.size(), devices.data(), nullptr);
+                    if (err != CL_SUCCESS) {
+                        devices.assign(num_devices, nullptr);
+                    }
+
+                    std::vector<size_t> binary_sizes(num_devices, 0);
+                    err = clGetProgramInfo(program, CL_PROGRAM_BINARY_SIZES, sizeof(size_t) * binary_sizes.size(), binary_sizes.data(), nullptr);
                     if (err == CL_SUCCESS) {
-                        const std::string bin_path = dump_dir_str + "/" + bin_relpath;
-                        std::ofstream ofs(bin_path, std::ios::binary);
-                        if (ofs) {
-                            ofs.write(reinterpret_cast<const char*>(binary.data()), (std::streamsize)binary_size);
+                        size_t target_idx = 0;
+                        const auto it = std::find(devices.begin(), devices.end(), devid);
+                        if (it != devices.end()) {
+                            target_idx = static_cast<size_t>(std::distance(devices.begin(), it));
+                        }
+
+                        std::vector<std::vector<unsigned char>> binaries(num_devices);
+                        std::vector<unsigned char *> binary_ptrs(num_devices, nullptr);
+                        for (size_t i = 0; i < binary_sizes.size(); i++) {
+                            if (binary_sizes[i] > 0) {
+                                binaries[i].resize(binary_sizes[i]);
+                                binary_ptrs[i] = binaries[i].data();
+                            }
+                        }
+
+                        err = clGetProgramInfo(program, CL_PROGRAM_BINARIES, sizeof(unsigned char *) * binary_ptrs.size(), binary_ptrs.data(), nullptr);
+                        if (err == CL_SUCCESS && target_idx < binaries.size() && !binaries[target_idx].empty()) {
+                            const std::string bin_path = dump_dir_str + "/" + bin_relpath;
+                            std::ofstream ofs(bin_path, std::ios::binary);
+                            if (ofs) {
+                                ofs.write(reinterpret_cast<const char *>(binaries[target_idx].data()), (std::streamsize)binaries[target_idx].size());
+                            }
                         }
                     }
                 }
@@ -296,6 +320,7 @@ void RGYOpenCLPerfCollector::recordLaunch(
     const RGYWorkSize& local,
     const RGYWorkSize& global_ceil,
     cl_kernel          kernel,
+    cl_device_id       devid,
     RGYOpenCLEvent&    event)
 {
     if (!isEnabled()) return;
@@ -316,12 +341,12 @@ void RGYOpenCLPerfCollector::recordLaunch(
         auto clFunc = (clGetKernelSubGroupInfo) ? clGetKernelSubGroupInfo : clGetKernelSubGroupInfoKHR;
         if (clFunc) {
             size_t subGroupSize = 0;
-            if (clFunc(kernel, nullptr, CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE,
+            if (clFunc(kernel, devid, CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE,
                     sizeof(RGYWorkSize::w), local(), sizeof(subGroupSize), &subGroupSize, nullptr) == CL_SUCCESS) {
                 agg.subgroup_size = subGroupSize;
             }
             size_t subGroupCount = 0;
-            if (clFunc(kernel, nullptr, CL_KERNEL_SUB_GROUP_COUNT_FOR_NDRANGE,
+            if (clFunc(kernel, devid, CL_KERNEL_SUB_GROUP_COUNT_FOR_NDRANGE,
                     sizeof(RGYWorkSize::w), local(), sizeof(subGroupCount), &subGroupCount, nullptr) == CL_SUCCESS) {
                 agg.subgroup_count = subGroupCount;
             }
@@ -518,8 +543,10 @@ void RGYOpenCLPerfCollector::writeProgramsJsonl(const std::string& path) {
             else                                ofs << ",\"local_mem_size\":null";
             if (ki.private_mem_size_valid)      ofs << ",\"private_mem_size\":"      << ki.private_mem_size;
             else                                ofs << ",\"private_mem_size\":null";
-            if (ki.spill_mem_size_valid)        ofs << ",\"spill_mem_size_intel\":"  << ki.spill_mem_size_intel;
-            else                                ofs << ",\"spill_mem_size_intel\":null";
+            if (ki.spill_mem_size_valid)        ofs << ",\"spill_mem_size\":"  << ki.spill_mem_size;
+            else                                ofs << ",\"spill_mem_size\":null";
+            if (ki.spill_mem_size_valid)        ofs << ",\"spill_mem_source\":\"" << json_escape(ki.spill_mem_source) << "\"";
+            else                                ofs << ",\"spill_mem_source\":null";
             if (ki.attributes_valid)            ofs << ",\"attributes\":\"" << json_escape(ki.attributes) << "\"";
             else                                ofs << ",\"attributes\":null";
             ofs << "}";
