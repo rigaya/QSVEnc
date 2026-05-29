@@ -253,6 +253,7 @@ CL_EXTERN cl_int(CL_API_CALL *f_clSetUserEventStatus)(cl_event event, cl_int exe
 CL_EXTERN cl_int(CL_API_CALL *f_clGetEventProfilingInfo)(cl_event event, cl_profiling_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
 CL_EXTERN cl_int(CL_API_CALL *f_clEnqueueWaitForEvents)(cl_command_queue command_queue, cl_uint num_events, const cl_event *event_list);
 CL_EXTERN cl_int(CL_API_CALL *f_clEnqueueMarker)(cl_command_queue command_queue, cl_event *event);
+CL_EXTERN cl_int(CL_API_CALL *f_clGetDeviceAndHostTimer)(cl_device_id device, cl_ulong *device_timestamp, cl_ulong *host_timestamp);
 
 CL_EXTERN cl_semaphore_khr (CL_API_CALL *f_clCreateSemaphoreWithPropertiesKHR)(cl_context context, const cl_semaphore_properties_khr *sema_props, cl_int *errcode_ret);
 CL_EXTERN cl_int(CL_API_CALL *f_clEnqueueWaitSemaphoresKHR)(cl_command_queue command_queue,cl_uint num_sema_objects,const cl_semaphore_khr* sema_objects,const cl_semaphore_payload_khr* sema_payload_list,cl_uint num_events_in_wait_list,const cl_event* event_wait_list,cl_event* event);
@@ -355,6 +356,7 @@ CL_EXTERN cl_int(CL_API_CALL* f_clEnqueueReleaseVA_APIMediaSurfacesINTEL)(cl_com
 #define clGetEventProfilingInfo f_clGetEventProfilingInfo
 #define clEnqueueWaitForEvents f_clEnqueueWaitForEvents
 #define clEnqueueMarker f_clEnqueueMarker
+#define clGetDeviceAndHostTimer f_clGetDeviceAndHostTimer
 
 #define clCreateSemaphoreWithPropertiesKHR f_clCreateSemaphoreWithPropertiesKHR
 #define clEnqueueWaitSemaphoresKHR f_clEnqueueWaitSemaphoresKHR

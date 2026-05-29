@@ -307,6 +307,7 @@
   - [--process-codepage \<string\> \[Windows OS only\]](#--process-codepage-string-windows-os-only)
   - [--task-perf-monitor](#--task-perf-monitor)
   - [--cl-perf-dump \<dir\>](#--cl-perf-dump-dir)
+  - [--cl-perf-timeline \[\<float\>\]](#--cl-perf-timeline-float)
   - [--ocloc-path \<path\>](#--ocloc-path-path)
   - [--python \<string\>](#--python-string)
   - [--perf-monitor \[\<string\>\[,\<string\>\]...\]](#--perf-monitor-stringstring)
@@ -4141,6 +4142,23 @@ Report generation requires `python`. By default, Windows uses `py.exe`, with `py
 `ocloc` allows to show disassembly (but not essential for report generation). `ocloc` can be installed with Intel oneAPI into  `C:\Program Files (x86)\Intel\oneAPI\<version>\bin\ocloc.exe`. Additionally, executable path can be specified with [--ocloc-path](#--ocloc-path-path).
 
 ![report](data/qsvencc_cl_perf_dir_20260522_s.webp)
+
+### --cl-perf-timeline [&lt;float&gt;]
+Use with [--cl-perf-dump](#--cl-perf-dump-dir) to collect per-event timeline data and generate `timeline.html`.
+
+Records the host-side enqueue timing and device-side execution timing of individual kernel launches and memory transfer commands for the specified number of seconds from the start of encoding. Host-device clock correlation is corrected using two-point calibration via `clGetDeviceAndHostTimer` (OpenCL 2.1).
+
+Default is 10 seconds when the value is omitted. Specifying a negative value collects all events without a time limit (may consume a large amount of memory).
+
+```
+Example: Collect timeline for the first 5 seconds
+--cl-perf-dump perf_out --cl-perf-timeline 5
+
+Example: Collect with default 10 seconds
+--cl-perf-dump perf_out --cl-perf-timeline
+```
+
+The generated `timeline.html` is a Canvas 2D based interactive viewer supporting zoom/pan/hover for detailed inspection. It has two sections: host thread lanes and device queue lanes, with host/device correspondence highlighted by matching seq numbers.
 
 ### --ocloc-path &lt;path&gt;
 Use with [--cl-perf-dump](#--cl-perf-dump-dir) to specify the ocloc executable path passed to cl_perf aggregate.

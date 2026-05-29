@@ -1524,7 +1524,7 @@ bool CQSVPipeline::CPUGenOpenCLSupported(const QSV_CPU_GEN cpu_gen) {
     return cpu_gen != CPU_GEN_SANDYBRIDGE;
 }
 
-RGY_ERR CQSVPipeline::InitOpenCL(const bool enableOpenCL, const int openCLBuildThreads, const bool checkVppPerformance, const tstring& clPerfDumpDir) {
+RGY_ERR CQSVPipeline::InitOpenCL(const bool enableOpenCL, const int openCLBuildThreads, const bool checkVppPerformance, const tstring& clPerfDumpDir, const double clPerfTimelineSec) {
     if (!enableOpenCL) {
         PrintMes(RGY_LOG_DEBUG, _T("OpenCL disabled.\n"));
         return RGY_ERR_NONE;
@@ -1611,6 +1611,12 @@ RGY_ERR CQSVPipeline::InitOpenCL(const bool enableOpenCL, const int openCLBuildT
     if (!clPerfDumpDir.empty()) {
         RGYOpenCLPerfCollector::instance().enable(clPerfDumpDir);
         PrintMes(RGY_LOG_DEBUG, _T("OpenCL perf collector enabled: %s\n"), clPerfDumpDir.c_str());
+        if (clPerfTimelineSec != 0.0) {
+            const uint64_t window_ns = (clPerfTimelineSec < 0.0) ? 0
+                : (uint64_t)(clPerfTimelineSec * 1e9);
+            RGYOpenCLPerfCollector::instance().enableTimeline(window_ns, devices[0]);
+            PrintMes(RGY_LOG_DEBUG, _T("OpenCL perf timeline enabled: %.1f sec\n"), clPerfTimelineSec);
+        }
     }
     return RGY_ERR_NONE;
 }
@@ -4716,7 +4722,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     RGY_ERR(sts, _T("Failed to initialize encode session."));
     PrintMes(RGY_LOG_DEBUG, _T("InitSession: Success.\n"));
 
-    sts = InitOpenCL(pParams->ctrl.enableOpenCL, pParams->ctrl.parallelEnc.isParent() ? 1 : pParams->ctrl.openclBuildThreads, pParams->vpp.checkPerformance, pParams->ctrl.clPerfDumpDir);
+    sts = InitOpenCL(pParams->ctrl.enableOpenCL, pParams->ctrl.parallelEnc.isParent() ? 1 : pParams->ctrl.openclBuildThreads, pParams->vpp.checkPerformance, pParams->ctrl.clPerfDumpDir, pParams->ctrl.clPerfTimelineSec);
     if (sts < RGY_ERR_NONE) return sts;
     PrintMes(RGY_LOG_DEBUG, _T("InitOpenCL: Success.\n"));
 

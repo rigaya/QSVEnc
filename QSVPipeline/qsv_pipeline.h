@@ -218,7 +218,7 @@ protected:
     virtual RGY_ERR readChapterFile(tstring chapfile);
 
     virtual bool CPUGenOpenCLSupported(const QSV_CPU_GEN cpu_gen);
-    virtual RGY_ERR InitOpenCL(const bool enableOpenCL, const int openCLBuildThreads, const bool checkVppPerformance, const tstring& clPerfDumpDir = tstring());
+    virtual RGY_ERR InitOpenCL(const bool enableOpenCL, const int openCLBuildThreads, const bool checkVppPerformance, const tstring& clPerfDumpDir = tstring(), const double clPerfTimelineSec = 0.0);
 
     virtual RGY_ERR AllocFrames();
 

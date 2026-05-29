@@ -191,6 +191,27 @@ struct RGYOpenCLPerfAllocationAgg {
 };
 
 // ----------------------------------------
+// Timeline: 個々のイベントを時刻付きで保持 (--cl-perf-timeline 指定時のみ)
+// ----------------------------------------
+struct RGYOpenCLPerfTimelineEvent {
+    uint64_t       seq                 = 0;          // host 発行と device 実行を結ぶ correlation id
+    std::string    category;                         // "kernel" | "command" | "alloc"
+    std::string    name;                             // kernel_name または command_name
+    uint64_t       program_id          = 0;          // kernel の場合のみ (0 = なし)
+    uint64_t       thread_id           = 0;          // host 発行スレッド (ハッシュ済み)
+    uint64_t       queue_id            = 0;          // device queue 識別子 (0 = 不明)
+    uint64_t       host_enqueue_ns     = 0;          // host 発行開始 (capture 基準, 正規化後 ns)
+    uint64_t       host_enqueue_end_ns = 0;          // host 発行完了 (capture 基準, 正規化後 ns)
+    uint64_t       bytes               = 0;          // 該当する場合のバイト数
+    uint64_t       dev_queued_ns       = UINT64_MAX; // device profiling (correlation 変換後 capture 基準 ns, 未取得は UINT64_MAX)
+    uint64_t       dev_submit_ns       = UINT64_MAX;
+    uint64_t       dev_start_ns        = UINT64_MAX;
+    uint64_t       dev_end_ns          = UINT64_MAX;
+    RGYOpenCLEvent event;                            // device 時刻回収用に flush まで保持
+    bool           has_event           = false;
+};
+
+// ----------------------------------------
 // Collector singleton
 // ----------------------------------------
 
@@ -202,6 +223,11 @@ public:
     void enable(const tstring& dump_dir);
     bool isEnabled() const { return m_enabled.load(std::memory_order_acquire); }
 
+    // timeline 収集を有効化。window_ns = capture 開始からの収集時間窓 (0 = 無制限)。
+    // devid から clGetDeviceAndHostTimer で device クロックを steady_clock 基準に対応づける。
+    void enableTimeline(uint64_t window_ns, cl_device_id devid);
+    bool isTimelineEnabled() const { return m_timeline_enabled.load(std::memory_order_acquire); }
+
     // ビルド完了フック。program_id を返す
     uint64_t recordProgramBuild(const std::string& resource_name,
                                 const std::string& build_options,
@@ -211,18 +237,28 @@ public:
                                 uint64_t           build_time_ns);
 
     // launch フック (event は pending キューに積むだけ)
+    // host_enqueue_abs_ns / host_enqueue_end_abs_ns: steady_clock epoch 基準の絶対時刻 (timeline 用, 0 = 不使用)
+    // queue_id: command queue 識別子 (timeline 用, 0 = 不明)
     void recordLaunch(uint64_t                    program_id,
                       const std::string&           kernel_name,
                       const RGYWorkSize&           local,
                       const RGYWorkSize&           global_ceil,
                       cl_kernel                    kernel,
                       cl_device_id                 devid,
-                      RGYOpenCLEvent&              event);
+                      RGYOpenCLEvent&              event,
+                      uint64_t                     host_enqueue_abs_ns = 0,
+                      uint64_t                     host_enqueue_end_abs_ns = 0,
+                      uint64_t                     queue_id = 0);
 
+    // host_enqueue_abs_ns / host_enqueue_end_abs_ns: steady_clock epoch 基準の絶対時刻 (timeline 用, 0 = 不使用)
+    // queue_id: command queue 識別子 (timeline 用, 0 = 不明)
     void recordCommand(const std::string& command_name,
                        uint64_t           bytes,
                        uint64_t           host_time_ns,
-                       RGYOpenCLEvent&    event);
+                       RGYOpenCLEvent&    event,
+                       uint64_t           host_enqueue_abs_ns = 0,
+                       uint64_t           host_enqueue_end_abs_ns = 0,
+                       uint64_t           queue_id = 0);
 
     void recordAllocation(const std::string& operation_name,
                           uint64_t           bytes,
@@ -247,6 +283,17 @@ private:
     void writeCommandsJsonl(const std::string& path);
     void writeAllocationsJsonl(const std::string& path);
     void writeMetaJson(const std::string& path);
+    void writeTimelineJsonl(const std::string& path);
+
+    // timeline pending の device profiling 情報を回収し m_timeline_events に移動
+    void drainTimelinePending();
+
+    // host 絶対時刻 → capture 基準 ns に正規化
+    uint64_t normalizeHostNs(uint64_t abs_ns) const;
+    // device timer ns → capture 基準 ns に正規化 (2点 calibration で線形補間)
+    uint64_t normalizeDevNs(uint64_t dev_ns) const;
+    // flush 時に2回目の calibration を取得し、線形補間パラメータを確定
+    void finalizeTimelineCalibration(cl_device_id devid);
 
     std::atomic<bool>     m_enabled;
     tstring               m_dump_dir;
@@ -265,6 +312,22 @@ private:
     std::unordered_map<RGYOpenCLPerfAllocationKey,
                        RGYOpenCLPerfAllocationAgg,
                        RGYOpenCLPerfAllocationKeyHash> m_allocation_aggs;
+
+    // --- timeline ---
+    std::atomic<bool>     m_timeline_enabled;
+    uint64_t              m_timeline_window_ns;
+    uint64_t              m_capture_start_host_ns;       // steady_clock epoch (ns)
+    bool                  m_has_dev_host_timer;           // clGetDeviceAndHostTimer available
+    cl_device_id          m_timeline_devid;               // calibration 用に保持
+    // 2点 calibration: dev_ns → steady_ns の線形変換
+    // steady_ns = m_cal_steady0 + (dev_ns - m_cal_dev0) * m_cal_scale
+    uint64_t              m_cal_dev0;                     // 1st calibration point: device timestamp
+    uint64_t              m_cal_steady0;                  // 1st calibration point: steady_clock timestamp
+    double                m_cal_scale;                    // clock speed ratio (steady / device), default 1.0
+    bool                  m_cal_finalized;                // 2nd calibration done
+    std::atomic<uint64_t> m_timeline_seq;
+    std::vector<RGYOpenCLPerfTimelineEvent> m_timeline_events;
+    std::vector<RGYOpenCLPerfTimelineEvent> m_timeline_pending;
 };
 
 #endif // ENABLE_OPENCL

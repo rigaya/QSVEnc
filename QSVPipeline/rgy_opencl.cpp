@@ -82,7 +82,7 @@ HMODULE RGYOpenCL::openCLHandle = nullptr;
 
 static uint64_t rgy_cl_perf_now_ns() {
     return (uint64_t)std::chrono::duration_cast<std::chrono::nanoseconds>(
-        std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+        std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
 static uint64_t rgy_cl_perf_elapsed_ns(uint64_t start_ns) {
@@ -390,6 +390,7 @@ int initOpenCLGlobal() {
     LOAD(clGetEventProfilingInfo);
     LOAD(clEnqueueWaitForEvents);
     LOAD(clEnqueueMarker);
+    LOAD_NO_CHECK(clGetDeviceAndHostTimer);
 
     LOAD_NO_CHECK(clCreateSemaphoreWithPropertiesKHR);
     LOAD_NO_CHECK(clEnqueueWaitSemaphoresKHR);
@@ -1517,30 +1518,31 @@ RGY_ERR RGYOpenCLKernelLauncher::launch(std::vector<void *> arg_ptrs, std::vecto
 
     auto& perf_collector = RGYOpenCLPerfCollector::instance();
     const bool perf_enabled = perf_collector.isEnabled();
+    const bool timeline_enabled = perf_collector.isTimelineEnabled();
     RGYOpenCLEvent perf_event_local;
     cl_event *event_ptr_to_use;
     if (m_event) {
-        // 呼び出し元が event を要求している → そのまま使用
         event_ptr_to_use = m_event->reset_ptr();
     } else if (perf_enabled) {
-        // 内部で event を確保し、後で collector が回収
         event_ptr_to_use = perf_event_local.reset_ptr();
     } else {
-        // いずれもなし → nullptr
         event_ptr_to_use = nullptr;
     }
 
+    const auto host_abs_start = (perf_enabled && timeline_enabled) ? rgy_cl_perf_now_ns() : (uint64_t)0;
     auto err = err_cl_to_rgy(clEnqueueNDRangeKernel(m_queue.get(), m_kernel, 3, NULL, globalCeiled(), m_local(),
         (int)m_wait_events.size(),
         (m_wait_events.size() > 0) ? m_wait_events.data() : nullptr,
         event_ptr_to_use));
+    const auto host_abs_end = (perf_enabled && timeline_enabled) ? rgy_cl_perf_now_ns() : (uint64_t)0;
     if (err != RGY_ERR_NONE) {
         CL_LOG(RGY_LOG_ERROR, _T("Error: Failed to run kernel \"%s\": %s\n"), char_to_tstring(m_kernelName).c_str(), get_err_mes(err));
         return err;
     }
     if (perf_enabled) {
         RGYOpenCLEvent& ev_ref = m_event ? *m_event : perf_event_local;
-        perf_collector.recordLaunch(m_program_id, m_kernelName, m_local, globalCeiled, m_kernel, m_queue.devid(), ev_ref);
+        perf_collector.recordLaunch(m_program_id, m_kernelName, m_local, globalCeiled, m_kernel, m_queue.devid(), ev_ref,
+            host_abs_start, host_abs_end, (uint64_t)(uintptr_t)m_queue.get());
     }
     return err;
 }
@@ -1878,7 +1880,8 @@ RGY_ERR RGYCLBufMap::map(cl_map_flags map_flags, size_t size, RGYOpenCLQueue &qu
             perf_label
                 ? strsprintf("clEnqueueMapBuffer:buffer:%s:%s:%s", perf_label, rgy_cl_map_flags_perf_name(map_flags), rgy_cl_map_block_perf_name(block_map))
                 : strsprintf("clEnqueueMapBuffer:buffer:%s:%s", rgy_cl_map_flags_perf_name(map_flags), rgy_cl_map_block_perf_name(block_map)),
-            size, host_time, m_eventMap);
+            size, host_time, m_eventMap,
+            host_start, host_start + host_time, (uint64_t)(uintptr_t)m_queue);
     }
     return err_cl_to_rgy(err);
 }
@@ -1903,7 +1906,8 @@ RGY_ERR RGYCLBufMap::unmap(cl_command_queue queue, const std::vector<RGYOpenCLEv
     auto clerr = clEnqueueUnmapMemObject(m_queue, m_mem, m_hostPtr, (int)v_wait_list.size(), wait_list, m_eventMap.reset_ptr());
     const auto host_time = rgy_cl_perf_end(perf_enabled, host_start);
     if (perf_enabled && clerr == CL_SUCCESS) {
-        perf_collector.recordCommand("clEnqueueUnmapMemObject:buffer", 0, host_time, m_eventMap);
+        perf_collector.recordCommand("clEnqueueUnmapMemObject:buffer", 0, host_time, m_eventMap,
+            host_start, host_start + host_time, (uint64_t)(uintptr_t)m_queue);
     }
     auto err = err_cl_to_rgy(clerr);
     m_hostPtr = nullptr;
@@ -1969,7 +1973,8 @@ RGY_ERR RGYCLFrameMap::map(cl_map_flags map_flags, RGYOpenCLQueue &queue, const 
         if (perf_enabled) {
             perf_collector.recordCommand(
                 strsprintf("clEnqueueMapBuffer:frame:%s:%s:plane%d", rgy_cl_map_flags_perf_name(map_flags), rgy_cl_map_block_perf_name(block_map), i),
-                size, host_time, m_eventMap[i]);
+                size, host_time, m_eventMap[i],
+                host_start, host_start + host_time, (uint64_t)(uintptr_t)m_queue);
         }
         v_wait_list.clear();
         wait_list = nullptr;
@@ -2007,7 +2012,8 @@ RGY_ERR RGYCLFrameMap::unmap(cl_command_queue queue, const std::vector<RGYOpenCL
                 return err_cl_to_rgy(err);
             }
             if (perf_enabled) {
-                perf_collector.recordCommand(strsprintf("clEnqueueUnmapMemObject:frame:plane%d", i), bytes, host_time, m_eventMap[i]);
+                perf_collector.recordCommand(strsprintf("clEnqueueUnmapMemObject:frame:plane%d", i), bytes, host_time, m_eventMap[i],
+                    host_start, host_start + host_time, (uint64_t)(uintptr_t)m_queue);
             }
         }
     }
@@ -2105,7 +2111,8 @@ RGY_ERR RGYCLFrameInterop::acquire(RGYOpenCLQueue &queue, RGYOpenCLEvent *event)
     }
     if (perf_enabled) {
         RGYOpenCLEvent& ev_ref = event ? *event : perf_event_local;
-        perf_collector.recordCommand("clEnqueueAcquireInterop", 0, host_time, ev_ref);
+        perf_collector.recordCommand("clEnqueueAcquireInterop", 0, host_time, ev_ref,
+            host_start, host_start + host_time, (uint64_t)(uintptr_t)queue.get());
     }
     m_acquired = true;
     return RGY_ERR_NONE;
@@ -2145,7 +2152,8 @@ RGY_ERR RGYCLFrameInterop::release(RGYOpenCLEvent *event) {
         }
         if (perf_enabled) {
             RGYOpenCLEvent& ev_ref = event ? *event : perf_event_local;
-            perf_collector.recordCommand("clEnqueueReleaseInterop", 0, host_time, ev_ref);
+            perf_collector.recordCommand("clEnqueueReleaseInterop", 0, host_time, ev_ref,
+                host_start, host_start + host_time, (uint64_t)(uintptr_t)m_interop_queue.get());
         }
         m_acquired = false;
     }
@@ -2436,10 +2444,13 @@ RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *planeDstOrg, const RGYFrameInf
                 const auto host_time = rgy_cl_perf_end(perf_enabled, host_start);
                 if (perf_enabled && err == CL_SUCCESS) {
                     RGYOpenCLEvent& ev_ref = event ? *event : perf_event_local;
+                    const uint64_t qid = (uint64_t)(uintptr_t)queue.get();
                     if (perfLabel && perfLabel[0]) {
-                        perf_collector.recordCommand(strsprintf("clEnqueueCopyBufferRect:%s", perfLabel), (uint64_t)region[0] * region[1] * region[2], host_time, ev_ref);
+                        perf_collector.recordCommand(strsprintf("clEnqueueCopyBufferRect:%s", perfLabel), (uint64_t)region[0] * region[1] * region[2], host_time, ev_ref,
+                            host_start, host_start + host_time, qid);
                     } else {
-                        perf_collector.recordCommand("clEnqueueCopyBufferRect", (uint64_t)region[0] * region[1] * region[2], host_time, ev_ref);
+                        perf_collector.recordCommand("clEnqueueCopyBufferRect", (uint64_t)region[0] * region[1] * region[2], host_time, ev_ref,
+                            host_start, host_start + host_time, qid);
                     }
                 }
             } else {
@@ -2480,7 +2491,8 @@ RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *planeDstOrg, const RGYFrameInf
             const auto host_time = rgy_cl_perf_end(perf_enabled, host_start);
             if (perf_enabled && err == CL_SUCCESS) {
                 RGYOpenCLEvent& ev_ref = event ? *event : perf_event_local;
-                perf_collector.recordCommand("clEnqueueReadBufferRect", (uint64_t)region[0] * region[1] * region[2], host_time, ev_ref);
+                perf_collector.recordCommand("clEnqueueReadBufferRect", (uint64_t)region[0] * region[1] * region[2], host_time, ev_ref,
+                    host_start, host_start + host_time, (uint64_t)(uintptr_t)queue.get());
             }
         } else {
             return RGY_ERR_UNSUPPORTED;
@@ -2507,7 +2519,8 @@ RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *planeDstOrg, const RGYFrameInf
                 const auto host_time = rgy_cl_perf_end(perf_enabled, host_start);
                 if (perf_enabled && err == CL_SUCCESS) {
                     RGYOpenCLEvent& ev_ref = event ? *event : perf_event_local;
-                    perf_collector.recordCommand("clEnqueueCopyImage", (uint64_t)region[0] * region[1] * region[2] * pixel_size, host_time, ev_ref);
+                    perf_collector.recordCommand("clEnqueueCopyImage", (uint64_t)region[0] * region[1] * region[2] * pixel_size, host_time, ev_ref,
+                        host_start, host_start + host_time, (uint64_t)(uintptr_t)queue.get());
                 }
             } else {
                 auto copyProgram = getCspCopyProgram(planeDst, planeSrc);
@@ -2535,7 +2548,8 @@ RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *planeDstOrg, const RGYFrameInf
             const auto host_time = rgy_cl_perf_end(perf_enabled, host_start);
             if (perf_enabled && err == CL_SUCCESS) {
                 RGYOpenCLEvent& ev_ref = event ? *event : perf_event_local;
-                perf_collector.recordCommand("clEnqueueReadImage", (uint64_t)region[0] * region[1] * region[2] * pixel_size, host_time, ev_ref);
+                perf_collector.recordCommand("clEnqueueReadImage", (uint64_t)region[0] * region[1] * region[2] * pixel_size, host_time, ev_ref,
+                    host_start, host_start + host_time, (uint64_t)(uintptr_t)queue.get());
             }
         } else {
             return RGY_ERR_UNSUPPORTED;
@@ -2552,7 +2566,8 @@ RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *planeDstOrg, const RGYFrameInf
             const auto host_time = rgy_cl_perf_end(perf_enabled, host_start);
             if (perf_enabled && err == CL_SUCCESS) {
                 RGYOpenCLEvent& ev_ref = event ? *event : perf_event_local;
-                perf_collector.recordCommand("clEnqueueWriteBufferRect", (uint64_t)region[0] * region[1] * region[2], host_time, ev_ref);
+                perf_collector.recordCommand("clEnqueueWriteBufferRect", (uint64_t)region[0] * region[1] * region[2], host_time, ev_ref,
+                    host_start, host_start + host_time, (uint64_t)(uintptr_t)queue.get());
             }
         } else if (planeDst.mem_type == RGY_MEM_TYPE_GPU_IMAGE) {
             clGetImageInfo((cl_mem)planeDst.ptr[0], CL_IMAGE_WIDTH, sizeof(region[0]), &region[0], nullptr);
@@ -2562,7 +2577,8 @@ RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *planeDstOrg, const RGYFrameInf
             const auto host_time = rgy_cl_perf_end(perf_enabled, host_start);
             if (perf_enabled && err == CL_SUCCESS) {
                 RGYOpenCLEvent& ev_ref = event ? *event : perf_event_local;
-                perf_collector.recordCommand("clEnqueueWriteImage", (uint64_t)region[0] * region[1] * region[2] * pixel_size, host_time, ev_ref);
+                perf_collector.recordCommand("clEnqueueWriteImage", (uint64_t)region[0] * region[1] * region[2] * pixel_size, host_time, ev_ref,
+                    host_start, host_start + host_time, (uint64_t)(uintptr_t)queue.get());
             }
         } else if (planeDst.mem_type == RGY_MEM_TYPE_CPU
 #if ENCODER_MPP
@@ -2775,7 +2791,8 @@ RGY_ERR RGYOpenCLContext::setBuf(const void *pattern, size_t pattern_size, size_
     const auto host_time = rgy_cl_perf_end(perf_enabled, host_start);
     if (perf_enabled && clerr == CL_SUCCESS) {
         RGYOpenCLEvent& ev_ref = event ? *event : perf_event_local;
-        perf_collector.recordCommand("clEnqueueFillBuffer", fill_size_byte, host_time, ev_ref);
+        perf_collector.recordCommand("clEnqueueFillBuffer", fill_size_byte, host_time, ev_ref,
+            host_start, host_start + host_time, (uint64_t)(uintptr_t)queue.get());
     }
     auto err = err_cl_to_rgy(clerr);
     if (err != RGY_ERR_NONE) {
@@ -2955,7 +2972,9 @@ std::unique_ptr<RGYCLBuf> RGYOpenCLContext::copyDataToBuffer(const void *host_pt
         cl_int err = clEnqueueWriteBuffer((queue != RGYDefaultQueue) ? queue : m_queue[0].get(), buffer->mem(), true, 0, size, host_ptr, 0, nullptr, perf_enabled ? perf_event_local.reset_ptr() : nullptr);
         const auto host_time = rgy_cl_perf_end(perf_enabled, host_start);
         if (perf_enabled && err == CL_SUCCESS) {
-            perf_collector.recordCommand("clEnqueueWriteBuffer", size, host_time, perf_event_local);
+            const cl_command_queue used_queue = (queue != RGYDefaultQueue) ? queue : m_queue[0].get();
+            perf_collector.recordCommand("clEnqueueWriteBuffer", size, host_time, perf_event_local,
+                host_start, host_start + host_time, (uint64_t)(uintptr_t)used_queue);
         }
         if (err != CL_SUCCESS) {
             CL_LOG(RGY_LOG_ERROR, _T("Failed to copy data to buffer: %s\n"), cl_errmes(err));
