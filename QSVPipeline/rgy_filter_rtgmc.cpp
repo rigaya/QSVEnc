@@ -1628,31 +1628,28 @@ RGY_ERR RGYFilterRtgmc::runSourceMatchCorrectionPasses(int firstStage, int lastS
     return RGY_ERR_NONE;
 }
 
-static RGY_ERR rtgmcBypassFilter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
-    RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+static std::vector<RGYOpenCLEvent> rtgmcPropagateWaitEvents(const std::vector<RGYOpenCLEvent> &wait_events, const RGYOpenCLEvent &event) {
+    if (event() != nullptr) {
+        return { event };
+    }
+    return wait_events;
+}
+
+static RGY_ERR rtgmcBypassFilter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum) {
     *pOutputFrameNum = 0;
     ppOutputFrames[0] = nullptr;
     if (!pInputFrame || !pInputFrame->ptr[0]) {
         return RGY_ERR_NONE;
     }
     ppOutputFrames[(*pOutputFrameNum)++] = pInputFrame;
-    for (const auto &waitEvent : wait_events) {
-        if (waitEvent() == nullptr) {
-            continue;
-        }
-        auto sts = queue.wait(waitEvent);
-        if (sts != RGY_ERR_NONE) {
-            return sts;
-        }
-    }
-    return event ? queue.getmarker(*event) : RGY_ERR_NONE;
+    return RGY_ERR_NONE;
 }
 
 RGY_ERR RGYFilterRtgmc::runNestedFilter(size_t filterIdx, RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
     RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     const bool hasInputFrame = pInputFrame && pInputFrame->ptr[0];
     if (filterIdx < m_filters.size() && !m_filters[filterIdx]) {
-        return rtgmcBypassFilter(pInputFrame, ppOutputFrames, pOutputFrameNum, queue, wait_events, event);
+        return rtgmcBypassFilter(pInputFrame, ppOutputFrames, pOutputFrameNum);
     }
     if (filterIdx == RTGMC_FILTER_EDI) {
         auto edi = dynamic_cast<RGYFilterRtgmcEdi *>(m_filters[filterIdx].get());
@@ -1926,10 +1923,7 @@ RGY_ERR RGYFilterRtgmc::runThrough(size_t filterIdx, RGYFrameInfo *pInputFrame, 
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
-    std::vector<RGYOpenCLEvent> childWaitEvents;
-    if (childEvent() != nullptr) {
-        childWaitEvents.push_back(childEvent);
-    }
+    auto childWaitEvents = rtgmcPropagateWaitEvents(wait_events, childEvent);
     for (int i = 0; i < childOutFrameNum; i++) {
         propagateRtgmcInternalFrameData(childOutFrames[i], pInputFrame);
         auto nextWaitEvents = childWaitEvents;
@@ -1978,10 +1972,7 @@ RGY_ERR RGYFilterRtgmc::runThrough(size_t filterIdx, RGYFrameInfo *pInputFrame, 
             if (sts != RGY_ERR_NONE) {
                 return sts;
             }
-            std::vector<RGYOpenCLEvent> smWaitEvents;
-            if (smEvent() != nullptr) {
-                smWaitEvents.push_back(smEvent);
-            }
+            auto smWaitEvents = rtgmcPropagateWaitEvents(nextWaitEvents, smEvent);
             for (int j = 0; j < smOutNum; j++) {
                 enqueueSourceMatchFrameProp(smOutFrames[j]);
                 sts = runThrough(filterIdx + 1, smOutFrames[j], ppOutputFrames, pOutputFrameNum, queue, smWaitEvents, event, storePending);
@@ -2056,10 +2047,7 @@ RGY_ERR RGYFilterRtgmc::drainFrom(size_t filterIdx, RGYFrameInfo **ppOutputFrame
                 if (sts != RGY_ERR_NONE) {
                     return sts;
                 }
-                std::vector<RGYOpenCLEvent> smWaitEvents;
-                if (smEvent() != nullptr) {
-                    smWaitEvents.push_back(smEvent);
-                }
+                auto smWaitEvents = rtgmcPropagateWaitEvents(nextWaitEvents, smEvent);
                 for (int j = 0; j < smOutNum; j++) {
                     enqueueSourceMatchFrameProp(smOutFrames[j]);
                     sts = runThrough(currentFilterIdx + 1, smOutFrames[j], ppOutputFrames, pOutputFrameNum, queue, smWaitEvents, event, true);
@@ -2086,10 +2074,7 @@ RGY_ERR RGYFilterRtgmc::drainFrom(size_t filterIdx, RGYFrameInfo **ppOutputFrame
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
-        std::vector<RGYOpenCLEvent> childWaitEvents;
-        if (childEvent() != nullptr) {
-            childWaitEvents.push_back(childEvent);
-        }
+        auto childWaitEvents = rtgmcPropagateWaitEvents({}, childEvent);
         if (childOutFrameNum > 0) {
             return processDrainOutputs(m_drainFilterIdx, childOutFrames, childOutFrameNum, &drainFrame, childWaitEvents);
         }
@@ -2109,10 +2094,7 @@ RGY_ERR RGYFilterRtgmc::drainFrom(size_t filterIdx, RGYFrameInfo **ppOutputFrame
                 return sts;
             }
             if (smOutNum > 0) {
-                std::vector<RGYOpenCLEvent> smWaitEvents;
-                if (smEvent() != nullptr) {
-                    smWaitEvents.push_back(smEvent);
-                }
+                auto smWaitEvents = rtgmcPropagateWaitEvents({}, smEvent);
                 for (int i = 0; i < smOutNum; i++) {
                     enqueueSourceMatchFrameProp(smOutFrames[i]);
                     sts = runThrough(m_drainFilterIdx + 1, smOutFrames[i], ppOutputFrames, pOutputFrameNum, queue, smWaitEvents, event, true);
