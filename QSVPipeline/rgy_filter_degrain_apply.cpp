@@ -743,7 +743,7 @@ RGY_ERR RGYFilterDegrain::resolveSceneChange(const std::shared_ptr<RGYFilterPara
 }
 
 RGY_ERR RGYFilterDegrain::submitSceneChangeReadback(const std::shared_ptr<RGYFilterParamDegrain> &prm, const RGYFilterDegrainProcessFrameSet &frames,
-    RGYOpenCLQueue &queue, PendingSceneChange *pending, const bool isolateMappedSad) {
+    RGYOpenCLQueue &queue, PendingSceneChange *pending, const bool isolateMappedSad, const bool isolateAnalysisData, const int currentFrame) {
     if (!pending) {
         return RGY_ERR_INVALID_PARAM;
     }
@@ -754,6 +754,22 @@ RGY_ERR RGYFilterDegrain::submitSceneChangeReadback(const std::shared_ptr<RGYFil
     pending->boundAnalyzeResult = m_boundAnalyzeResult;
     pending->frameAnalysisLayout = m_frameAnalysisLayout;
     pending->layout = analysisLayout();
+
+    RGYOpenCLEvent isolatedAnalysisEvent;
+    if (isolateAnalysisData && !m_boundAnalyzeResult.valid()) {
+        std::shared_ptr<RGYFrameDataDegrain> frameData;
+        auto err = copyAnalysisData(frames.analysis.cur, currentFrame, queue, {}, true,
+            "clEnqueueCopyBuffer:degrain.apply.scene.mv_data",
+            "clEnqueueCopyBuffer:degrain.apply.scene.sad_data",
+            &frameData, &isolatedAnalysisEvent);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        pending->frameAnalysisData = frameData;
+        pending->boundAnalyzeResult = frameData->analyzeResult();
+        pending->frameAnalysisLayout = pending->boundAnalyzeResult.layout;
+        pending->layout = pending->boundAnalyzeResult.layout;
+    }
 
     const auto availabilityDisableRefs = analysisAvailabilityDisableRefs(frames.analysis);
     auto useFlagDisableRefs = RGYDegrainRefDisableArray();
@@ -786,7 +802,7 @@ RGY_ERR RGYFilterDegrain::submitSceneChangeReadback(const std::shared_ptr<RGYFil
     pending->scaledThSad = scaledThSad;
     pending->scaledThSCD1 = scaledThSCD1;
     pending->scaledThSCD2 = scaledThSCD2;
-    pending->sad = sad;
+    pending->sad = pending->boundAnalyzeResult.valid() ? pending->boundAnalyzeResult.sad : sad;
     if (!prm || !sad || pending->layout.blockCount() == 0) {
         return RGY_ERR_NONE;
     }
@@ -799,10 +815,12 @@ RGY_ERR RGYFilterDegrain::submitSceneChangeReadback(const std::shared_ptr<RGYFil
     }
 
     std::vector<RGYOpenCLEvent> mapWaitEvents;
-    if (analysisEvent()() != nullptr) {
+    if (isolatedAnalysisEvent() != nullptr) {
+        mapWaitEvents.push_back(isolatedAnalysisEvent);
+    } else if (analysisEvent()() != nullptr) {
         mapWaitEvents.push_back(analysisEvent());
     }
-    auto *mapSad = sad;
+    auto *mapSad = pending->sad;
     if (isolateMappedSad) {
         const auto readbackBytes = rgy_degrain_sad_bytes(pending->layout);
         pending->readbackSad = acquireSceneChangeReadbackSAD(readbackBytes);
@@ -844,6 +862,35 @@ RGY_ERR RGYFilterDegrain::submitSceneChangeReadback(const std::shared_ptr<RGYFil
     }
     pending->mapEvent = mapSad->mapEvent();
     pending->mapSubmitted = true;
+    const auto sceneMapEvent = pending->mapEvent;
+    const auto sceneLayout = pending->layout;
+    const auto sceneDisableRefs = pending->disableRefs;
+    const auto sceneScaledThSCD1 = pending->scaledThSCD1;
+    pending->readbackResult = m_cl->threadPool()->enqueue([sceneMapEvent, mapSad, sceneLayout, sceneDisableRefs, sceneScaledThSCD1]() {
+        SceneChangeReadbackResult result;
+        result.err = sceneMapEvent.wait();
+        if (result.err != RGY_ERR_NONE) {
+            return result;
+        }
+        const auto *sadValues = reinterpret_cast<const RGYDegrainSAD *>(mapSad->mappedPtr());
+        if (!sadValues) {
+            result.err = RGY_ERR_NULL_PTR;
+            return result;
+        }
+        for (size_t block = 0; block < sceneLayout.blockCount(); block++) {
+            for (int refDirection = 0; refDirection < std::min(sceneLayout.temporalDirections, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS); refDirection++) {
+                if (sceneDisableRefs[refDirection]) {
+                    continue;
+                }
+                const auto &sadValue = sadValues[block * (size_t)sceneLayout.temporalDirections + (size_t)refDirection];
+                if (sadValue.sad > sceneScaledThSCD1) {
+                    result.blockCounts[refDirection]++;
+                }
+            }
+        }
+        return result;
+    });
+    pending->readbackCountSubmitted = true;
     return RGY_ERR_NONE;
 }
 
@@ -871,25 +918,33 @@ RGY_ERR RGYFilterDegrain::resolveSceneChangeReadback(PendingSceneChange &pending
             *disableRefs, nullptr, pending.scaledThSad, pending.scaledThSCD1, pending.scaledThSCD2);
         return RGY_ERR_NONE;
     }
-    pending.mapEvent.wait();
-
     auto *mapSad = pending.readbackSad ? pending.readbackSad : pending.sad;
-    const auto *sadValues = reinterpret_cast<const RGYDegrainSAD *>(mapSad->mappedPtr());
-    if (!sadValues) {
-        mapSad->unmapBuffer(queue);
-        AddMessage(RGY_LOG_ERROR, _T("failed to access degrain SAD buffer for scene change detection.\n"));
-        return RGY_ERR_NULL_PTR;
-    }
-
     std::array<size_t, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS> sceneChangeBlockCounts = {};
-    for (size_t block = 0; block < pending.layout.blockCount(); block++) {
-        for (int refDirection = 0; refDirection < std::min(pending.layout.temporalDirections, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS); refDirection++) {
-            if (pending.disableRefs[refDirection]) {
-                continue;
-            }
-            const auto &sadValue = sadValues[block * (size_t)pending.layout.temporalDirections + (size_t)refDirection];
-            if (sadValue.sad > pending.scaledThSCD1) {
-                sceneChangeBlockCounts[refDirection]++;
+    if (pending.readbackCountSubmitted && pending.readbackResult.valid()) {
+        auto result = pending.readbackResult.get();
+        if (result.err != RGY_ERR_NONE) {
+            mapSad->unmapBuffer(queue);
+            AddMessage(RGY_LOG_ERROR, _T("failed to read degrain SAD buffer for scene change detection: %s.\n"), get_err_mes(result.err));
+            return result.err;
+        }
+        sceneChangeBlockCounts = result.blockCounts;
+    } else {
+        pending.mapEvent.wait();
+        const auto *sadValues = reinterpret_cast<const RGYDegrainSAD *>(mapSad->mappedPtr());
+        if (!sadValues) {
+            mapSad->unmapBuffer(queue);
+            AddMessage(RGY_LOG_ERROR, _T("failed to access degrain SAD buffer for scene change detection.\n"));
+            return RGY_ERR_NULL_PTR;
+        }
+        for (size_t block = 0; block < pending.layout.blockCount(); block++) {
+            for (int refDirection = 0; refDirection < std::min(pending.layout.temporalDirections, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS); refDirection++) {
+                if (pending.disableRefs[refDirection]) {
+                    continue;
+                }
+                const auto &sadValue = sadValues[block * (size_t)pending.layout.temporalDirections + (size_t)refDirection];
+                if (sadValue.sad > pending.scaledThSCD1) {
+                    sceneChangeBlockCounts[refDirection]++;
+                }
             }
         }
     }
@@ -912,13 +967,19 @@ RGY_ERR RGYFilterDegrain::resolveSceneChangeReadback(PendingSceneChange &pending
 }
 
 void RGYFilterDegrain::clearPendingSceneChange() {
-    if (m_pendingSceneChange && m_pendingSceneChange->mapSubmitted && m_pendingSceneChange->sad) {
-        auto *mapSad = m_pendingSceneChange->readbackSad ? m_pendingSceneChange->readbackSad : m_pendingSceneChange->sad;
-        m_pendingSceneChange->mapEvent.wait();
-        mapSad->unmapBuffer();
-        m_pendingSceneChange->mapSubmitted = false;
+    for (auto &pending : m_pendingSceneChange) {
+        if (pending && pending->mapSubmitted && pending->sad) {
+            auto *mapSad = pending->readbackSad ? pending->readbackSad : pending->sad;
+            if (pending->readbackCountSubmitted && pending->readbackResult.valid()) {
+                pending->readbackResult.wait();
+            } else {
+                pending->mapEvent.wait();
+            }
+            mapSad->unmapBuffer();
+            pending->mapSubmitted = false;
+        }
     }
-    m_pendingSceneChange.reset();
+    m_pendingSceneChange.clear();
 }
 
 void RGYFilterDegrain::applyPendingSceneChangeAnalysisContext(const PendingSceneChange &pending) {
@@ -929,22 +990,26 @@ void RGYFilterDegrain::applyPendingSceneChangeAnalysisContext(const PendingScene
 
 RGY_ERR RGYFilterDegrain::resolvePendingSceneChangeFrame(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
     RGYOpenCLQueue &queue, RGYOpenCLEvent *event) {
-    if (!m_pendingSceneChange) {
+    if (m_pendingSceneChange.empty()) {
         *pOutputFrameNum = 0;
         ppOutputFrames[0] = nullptr;
         return RGY_ERR_NONE;
     }
-    applyPendingSceneChangeAnalysisContext(*m_pendingSceneChange);
+    auto pending = std::move(m_pendingSceneChange.front());
+    m_pendingSceneChange.pop_front();
+    return emitResolvedSceneChangeFrame(*pending, ppOutputFrames, pOutputFrameNum, queue, event);
+}
+
+RGY_ERR RGYFilterDegrain::emitResolvedSceneChangeFrame(PendingSceneChange &pending, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+    RGYOpenCLQueue &queue, RGYOpenCLEvent *event) {
+    applyPendingSceneChangeAnalysisContext(pending);
     RGYDegrainRefDisableArray disableRefs;
-    auto err = resolveSceneChangeReadback(*m_pendingSceneChange, queue, &disableRefs);
+    auto err = resolveSceneChangeReadback(pending, queue, &disableRefs);
     if (err != RGY_ERR_NONE) {
-        m_pendingSceneChange.reset();
         return err;
     }
-    logApplyTrace(m_pendingSceneChange->prm, m_pendingSceneChange->frames, disableRefs, queue);
-    err = emitDegrainFrame(m_pendingSceneChange->frames.render, disableRefs, ppOutputFrames, pOutputFrameNum, queue, event);
-    m_pendingSceneChange.reset();
-    return err;
+    logApplyTrace(pending.prm, pending.frames, disableRefs, queue);
+    return emitDegrainFrame(pending.frames.render, disableRefs, ppOutputFrames, pOutputFrameNum, queue, event);
 }
 
 RGY_ERR RGYFilterDegrain::resolveSceneChangeRefs(const std::shared_ptr<RGYFilterParamDegrain> &prm, const RGYFilterDegrainFrameSet &frames, RGYOpenCLQueue &queue,
@@ -1323,26 +1388,35 @@ RGY_ERR RGYFilterDegrain::runDegrainMode(const RGYFilterDegrainProcessFrameSet &
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    auto pendingReadbackStable = [](const PendingSceneChange &pending) {
-        return pending.frameAnalysisData && pending.frameAnalysisData->sad() == pending.sad;
+    auto boundAnalyzeResultStable = [this](const RGYDegrainAnalyzeResult &result) {
+        return result.valid()
+            && result.mv != m_analysis.mv.get()
+            && result.sad != m_analysis.sad.get();
     };
-    std::unique_ptr<PendingSceneChange> pendingOutput;
+    auto pendingReadbackStable = [&boundAnalyzeResultStable](const PendingSceneChange &pending) {
+        return boundAnalyzeResultStable(pending.boundAnalyzeResult);
+    };
     bool pendingOutputEmitted = false;
-    if (m_pendingSceneChange) {
-        pendingOutput = std::move(m_pendingSceneChange);
-        if (!pendingReadbackStable(*pendingOutput)) {
-            applyPendingSceneChangeAnalysisContext(*pendingOutput);
-            RGYDegrainRefDisableArray disableRefs;
-            auto err = resolveSceneChangeReadback(*pendingOutput, queue, &disableRefs);
-            if (err != RGY_ERR_NONE) {
-                return err;
-            }
-            logApplyTrace(pendingOutput->prm, pendingOutput->frames, disableRefs, queue);
-            err = emitDegrainFrame(pendingOutput->frames.render, disableRefs, ppOutputFrames, pOutputFrameNum, queue, event);
-            if (err != RGY_ERR_NONE) {
-                return err;
-            }
-            pendingOutput.reset();
+    if (!m_pendingSceneChange.empty() && !pendingReadbackStable(*m_pendingSceneChange.front())) {
+        auto pendingOutput = std::move(m_pendingSceneChange.front());
+        m_pendingSceneChange.pop_front();
+        auto err = emitResolvedSceneChangeFrame(*pendingOutput, ppOutputFrames, pOutputFrameNum, queue, event);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        pendingOutputEmitted = true;
+    }
+
+    if (m_pendingSceneChange.size() > SCENE_CHANGE_PIPELINE_DEPTH) {
+        if (pendingOutputEmitted) {
+            AddMessage(RGY_LOG_ERROR, _T("degrain scene-change pipeline has more pending frames than expected.\n"));
+            return RGY_ERR_INVALID_CALL;
+        }
+        auto err = resolvePendingSceneChangeFrame(ppOutputFrames, pOutputFrameNum, queue, event);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        if (*pOutputFrameNum > 0) {
             pendingOutputEmitted = true;
         }
     }
@@ -1354,7 +1428,23 @@ RGY_ERR RGYFilterDegrain::runDegrainMode(const RGYFilterDegrainProcessFrameSet &
         }
     }
 
-    const bool canDeferSceneChange = !m_boundAnalyzeResult.valid() || m_frameAnalysisData;
+    const bool canDeferSceneChange = !m_boundAnalyzeResult.valid() || boundAnalyzeResultStable(m_boundAnalyzeResult);
+    const auto currentFrameAnalysisData = m_frameAnalysisData;
+    const auto currentBoundAnalyzeResult = m_boundAnalyzeResult;
+    const auto currentFrameAnalysisLayout = m_frameAnalysisLayout;
+    if (canDeferSceneChange && !pendingOutputEmitted && m_pendingSceneChange.size() >= SCENE_CHANGE_PIPELINE_DEPTH) {
+        auto err = resolvePendingSceneChangeFrame(ppOutputFrames, pOutputFrameNum, queue, event);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        if (*pOutputFrameNum > 0) {
+            pendingOutputEmitted = true;
+        }
+        m_frameAnalysisData = currentFrameAnalysisData;
+        m_boundAnalyzeResult = currentBoundAnalyzeResult;
+        m_frameAnalysisLayout = currentFrameAnalysisLayout;
+    }
+
     if (!canDeferSceneChange) {
         if (pendingOutputEmitted) {
             AddMessage(RGY_LOG_ERROR, _T("degrain scene-change pipeline cannot emit both pending and current frame in immediate mode.\n"));
@@ -1375,24 +1465,17 @@ RGY_ERR RGYFilterDegrain::runDegrainMode(const RGYFilterDegrainProcessFrameSet &
     }
 
     auto pending = std::make_unique<PendingSceneChange>();
-    auto err = submitSceneChangeReadback(prm, frames, queue, pending.get(), true);
+    const bool isolateLocalAnalysisData = !m_boundAnalyzeResult.valid();
+    auto err = submitSceneChangeReadback(prm, frames, queue, pending.get(), !isolateLocalAnalysisData, isolateLocalAnalysisData, currentFrame);
     if (err != RGY_ERR_NONE) {
         return err;
     }
-    m_pendingSceneChange = std::move(pending);
-    if (pendingOutput) {
-        applyPendingSceneChangeAnalysisContext(*pendingOutput);
-        RGYDegrainRefDisableArray disableRefs;
-        err = resolveSceneChangeReadback(*pendingOutput, queue, &disableRefs);
-        if (err != RGY_ERR_NONE) {
-            m_pendingSceneChange.reset();
-            return err;
-        }
-        logApplyTrace(pendingOutput->prm, pendingOutput->frames, disableRefs, queue);
-        return emitDegrainFrame(pendingOutput->frames.render, disableRefs, ppOutputFrames, pOutputFrameNum, queue, event);
-    }
+    m_pendingSceneChange.push_back(std::move(pending));
     if (pendingOutputEmitted) {
         return RGY_ERR_NONE;
+    }
+    if (m_pendingSceneChange.size() > SCENE_CHANGE_PIPELINE_DEPTH) {
+        return resolvePendingSceneChangeFrame(ppOutputFrames, pOutputFrameNum, queue, event);
     }
 
     *pOutputFrameNum = 0;

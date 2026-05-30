@@ -823,27 +823,27 @@ RGYDegrainRefDisableArray RGYFilterDegrain::analysisAvailabilityDisableRefs(cons
     return m_boundAnalyzeResult.valid() ? m_boundAnalyzeResult.availabilityDisableRefs : degrainReferenceAvailability(frames);
 }
 
-RGY_ERR RGYFilterDegrain::attachAnalysisData(const RGYFrameInfo *sourceFrame, RGYFrameInfo *outputFrame,
-    const int currentFrame, RGYOpenCLQueue &queue, const RGYOpenCLEvent &frameCopyEvent, RGYOpenCLEvent *event) {
-    if (!sourceFrame || !outputFrame || !m_analysis.mv || !m_analysis.sad) {
+RGY_ERR RGYFilterDegrain::copyAnalysisData(const RGYFrameInfo *sourceFrame, const int currentFrame, RGYOpenCLQueue &queue,
+    const std::vector<RGYOpenCLEvent> &dependencyEvents, const bool hostReadableSad,
+    const char *mvCommandName, const char *sadCommandName,
+    std::shared_ptr<RGYFrameDataDegrain> *frameData, RGYOpenCLEvent *event) {
+    if (!sourceFrame || !frameData || !m_analysis.mv || !m_analysis.sad) {
         return RGY_ERR_INVALID_PARAM;
     }
+    *frameData = nullptr;
 
     auto mv = m_cl->createBuffer(m_analysis.mvBytes, CL_MEM_READ_WRITE);
     if (!mv) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain frame MV side data buffer.\n"));
         return RGY_ERR_MEMORY_ALLOC;
     }
-    auto sad = m_cl->createBuffer(m_analysis.sadBytes, CL_MEM_READ_WRITE);
+    auto sad = m_cl->createBuffer(m_analysis.sadBytes, CL_MEM_READ_WRITE | (hostReadableSad ? CL_MEM_ALLOC_HOST_PTR : 0));
     if (!sad) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain frame SAD side data buffer.\n"));
         return RGY_ERR_MEMORY_ALLOC;
     }
 
-    std::vector<RGYOpenCLEvent> mvWaitEvents;
-    if (frameCopyEvent() != nullptr) {
-        mvWaitEvents.push_back(frameCopyEvent);
-    }
+    auto mvWaitEvents = dependencyEvents;
     if (m_analysis.event() != nullptr) {
         mvWaitEvents.push_back(m_analysis.event);
     }
@@ -863,7 +863,7 @@ RGY_ERR RGYFilterDegrain::attachAnalysisData(const RGYFrameInfo *sourceFrame, RG
         mvCopyEvent.reset_ptr());
     const auto mvCopyHostTime = degrain_cl_perf_end(perf_enabled, mvCopyStart);
     if (perf_enabled && clerr == CL_SUCCESS) {
-        perf_collector.recordCommand("clEnqueueCopyBuffer:degrain.mv_side_data", m_analysis.mvBytes, mvCopyHostTime, mvCopyEvent,
+        perf_collector.recordCommand(mvCommandName, m_analysis.mvBytes, mvCopyHostTime, mvCopyEvent,
             mvCopyStart, mvCopyStart + mvCopyHostTime, (uint64_t)(uintptr_t)queue.get());
     }
     auto err = err_cl_to_rgy(clerr);
@@ -886,7 +886,7 @@ RGY_ERR RGYFilterDegrain::attachAnalysisData(const RGYFrameInfo *sourceFrame, RG
         sadCopyEvent.reset_ptr());
     const auto sadCopyHostTime = degrain_cl_perf_end(perf_enabled, sadCopyStart);
     if (perf_enabled && clerr == CL_SUCCESS) {
-        perf_collector.recordCommand("clEnqueueCopyBuffer:degrain.sad_side_data", m_analysis.sadBytes, sadCopyHostTime, sadCopyEvent,
+        perf_collector.recordCommand(sadCommandName, m_analysis.sadBytes, sadCopyHostTime, sadCopyEvent,
             sadCopyStart, sadCopyStart + sadCopyHostTime, (uint64_t)(uintptr_t)queue.get());
     }
     err = err_cl_to_rgy(clerr);
@@ -898,7 +898,7 @@ RGY_ERR RGYFilterDegrain::attachAnalysisData(const RGYFrameInfo *sourceFrame, RG
     auto prm = std::dynamic_pointer_cast<RGYFilterParamDegrain>(m_param);
     const uint32_t flags = degrainAnalyzeFlags(prm, useAnalysisLumaCache() || m_lastAnalysisUsedSearchLuma, m_lastAnalysisIncludedChroma);
 
-    auto frameData = std::make_shared<RGYFrameDataDegrain>(
+    *frameData = std::make_shared<RGYFrameDataDegrain>(
         rgy_degrain_make_frame_meta_header(m_analysis.layout, flags),
         std::move(mv),
         std::move(sad),
@@ -908,11 +908,31 @@ RGY_ERR RGYFilterDegrain::attachAnalysisData(const RGYFrameInfo *sourceFrame, RG
         sourceFrame->timestamp,
         sourceFrame->duration,
         m_analysis.lastAvailabilityDisableRefs);
-    rgy_degrain_erase_frame_data(outputFrame->dataList);
-    outputFrame->dataList.push_back(frameData);
     if (event) {
         *event = sadCopyEvent;
     }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterDegrain::attachAnalysisData(const RGYFrameInfo *sourceFrame, RGYFrameInfo *outputFrame,
+    const int currentFrame, RGYOpenCLQueue &queue, const RGYOpenCLEvent &frameCopyEvent, RGYOpenCLEvent *event) {
+    if (!sourceFrame || !outputFrame) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+    std::vector<RGYOpenCLEvent> dependencyEvents;
+    if (frameCopyEvent() != nullptr) {
+        dependencyEvents.push_back(frameCopyEvent);
+    }
+    std::shared_ptr<RGYFrameDataDegrain> frameData;
+    auto err = copyAnalysisData(sourceFrame, currentFrame, queue, dependencyEvents, false,
+        "clEnqueueCopyBuffer:degrain.mv_side_data",
+        "clEnqueueCopyBuffer:degrain.sad_side_data",
+        &frameData, event);
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
+    rgy_degrain_erase_frame_data(outputFrame->dataList);
+    outputFrame->dataList.push_back(frameData);
     return RGY_ERR_NONE;
 }
 

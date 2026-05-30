@@ -883,7 +883,7 @@ RGY_ERR RGYFilterDegrain::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
         return runResolvedFrames(frames, ppOutputFrames, pOutputFrameNum, queue, {}, event);
     }
 
-    if (prm->degrain.mode == VppDegrainMode::Degrain && m_pendingSceneChange) {
+    if (prm->degrain.mode == VppDegrainMode::Degrain && !m_pendingSceneChange.empty()) {
         return resolvePendingSceneChangeFrame(ppOutputFrames, pOutputFrameNum, queue, event);
     }
 
