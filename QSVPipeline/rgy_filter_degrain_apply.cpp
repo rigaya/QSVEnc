@@ -805,7 +805,7 @@ RGY_ERR RGYFilterDegrain::submitSceneChangeReadback(const std::shared_ptr<RGYFil
     auto *mapSad = sad;
     if (isolateMappedSad) {
         const auto readbackBytes = rgy_degrain_sad_bytes(pending->layout);
-        pending->readbackSad = m_cl->createBuffer(readbackBytes, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR);
+        pending->readbackSad = acquireSceneChangeReadbackSAD(readbackBytes);
         if (!pending->readbackSad) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain SAD readback buffer.\n"));
             return RGY_ERR_MEMORY_ALLOC;
@@ -835,7 +835,7 @@ RGY_ERR RGYFilterDegrain::submitSceneChangeReadback(const std::shared_ptr<RGYFil
             return err;
         }
         mapWaitEvents = { copyEvent };
-        mapSad = pending->readbackSad.get();
+        mapSad = pending->readbackSad;
     }
     auto err = mapSad->queueMapBuffer(queue, CL_MAP_READ, mapWaitEvents, RGY_CL_MAP_BLOCK_NONE, "degrain.apply.scene.sad");
     if (err != RGY_ERR_NONE) {
@@ -845,6 +845,15 @@ RGY_ERR RGYFilterDegrain::submitSceneChangeReadback(const std::shared_ptr<RGYFil
     pending->mapEvent = mapSad->mapEvent();
     pending->mapSubmitted = true;
     return RGY_ERR_NONE;
+}
+
+RGYCLBuf *RGYFilterDegrain::acquireSceneChangeReadbackSAD(const size_t bytes) {
+    auto &buf = m_sceneChangeReadbackSAD[m_sceneChangeReadbackSADIndex];
+    m_sceneChangeReadbackSADIndex = (m_sceneChangeReadbackSADIndex + 1) % (int)m_sceneChangeReadbackSAD.size();
+    if (!buf || buf->size() != bytes) {
+        buf = m_cl->createBuffer(bytes, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR);
+    }
+    return buf.get();
 }
 
 RGY_ERR RGYFilterDegrain::resolveSceneChangeReadback(PendingSceneChange &pending, RGYOpenCLQueue &queue, RGYDegrainRefDisableArray *disableRefs) {
@@ -864,7 +873,7 @@ RGY_ERR RGYFilterDegrain::resolveSceneChangeReadback(PendingSceneChange &pending
     }
     pending.mapEvent.wait();
 
-    auto *mapSad = pending.readbackSad ? pending.readbackSad.get() : pending.sad;
+    auto *mapSad = pending.readbackSad ? pending.readbackSad : pending.sad;
     const auto *sadValues = reinterpret_cast<const RGYDegrainSAD *>(mapSad->mappedPtr());
     if (!sadValues) {
         mapSad->unmapBuffer(queue);
@@ -904,7 +913,7 @@ RGY_ERR RGYFilterDegrain::resolveSceneChangeReadback(PendingSceneChange &pending
 
 void RGYFilterDegrain::clearPendingSceneChange() {
     if (m_pendingSceneChange && m_pendingSceneChange->mapSubmitted && m_pendingSceneChange->sad) {
-        auto *mapSad = m_pendingSceneChange->readbackSad ? m_pendingSceneChange->readbackSad.get() : m_pendingSceneChange->sad;
+        auto *mapSad = m_pendingSceneChange->readbackSad ? m_pendingSceneChange->readbackSad : m_pendingSceneChange->sad;
         m_pendingSceneChange->mapEvent.wait();
         mapSad->unmapBuffer();
         m_pendingSceneChange->mapSubmitted = false;

@@ -55,6 +55,7 @@ public:
 class RGYFilterDegrain : public RGYFilter {
 public:
     static constexpr int DEGRAIN_CACHE_SIZE = 16;
+    static constexpr int SCENE_CHANGE_READBACK_POOL_SIZE = 2;
 
     RGYFilterDegrain(shared_ptr<RGYOpenCLContext> context);
     virtual ~RGYFilterDegrain();
@@ -117,7 +118,7 @@ protected:
         uint32_t scaledThSCD1;
         uint64_t scaledThSCD2;
         RGYCLBuf *sad;
-        std::unique_ptr<RGYCLBuf> readbackSad;
+        RGYCLBuf *readbackSad;
         RGYOpenCLEvent mapEvent;
         bool mapSubmitted;
 
@@ -135,7 +136,7 @@ protected:
             scaledThSCD1(0),
             scaledThSCD2(0),
             sad(nullptr),
-            readbackSad(),
+            readbackSad(nullptr),
             mapEvent(),
             mapSubmitted(false) {
             availabilityDisableRefs.fill(true);
@@ -145,6 +146,7 @@ protected:
     };
     RGY_ERR submitSceneChangeReadback(const std::shared_ptr<RGYFilterParamDegrain> &prm, const RGYFilterDegrainProcessFrameSet &frames,
         RGYOpenCLQueue &queue, PendingSceneChange *pending, bool isolateMappedSad = false);
+    RGYCLBuf *acquireSceneChangeReadbackSAD(size_t bytes);
     RGY_ERR resolveSceneChangeReadback(PendingSceneChange &pending, RGYOpenCLQueue &queue, RGYDegrainRefDisableArray *disableRefs);
     RGY_ERR resolvePendingSceneChangeFrame(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
@@ -228,6 +230,8 @@ protected:
     std::shared_ptr<RGYFrameDataDegrain> m_frameAnalysisData;
     RGYDegrainBlockLayout m_frameAnalysisLayout;
     std::unique_ptr<PendingSceneChange> m_pendingSceneChange;
+    std::array<std::unique_ptr<RGYCLBuf>, SCENE_CHANGE_READBACK_POOL_SIZE> m_sceneChangeReadbackSAD;
+    int m_sceneChangeReadbackSADIndex;
     int m_inputCount;
     int m_drainCount;
     bool m_bInterlacedWarn;
