@@ -117,6 +117,7 @@ protected:
         uint32_t scaledThSCD1;
         uint64_t scaledThSCD2;
         RGYCLBuf *sad;
+        std::unique_ptr<RGYCLBuf> readbackSad;
         RGYOpenCLEvent mapEvent;
         bool mapSubmitted;
 
@@ -134,6 +135,7 @@ protected:
             scaledThSCD1(0),
             scaledThSCD2(0),
             sad(nullptr),
+            readbackSad(),
             mapEvent(),
             mapSubmitted(false) {
             availabilityDisableRefs.fill(true);
@@ -142,7 +144,7 @@ protected:
         }
     };
     RGY_ERR submitSceneChangeReadback(const std::shared_ptr<RGYFilterParamDegrain> &prm, const RGYFilterDegrainProcessFrameSet &frames,
-        RGYOpenCLQueue &queue, PendingSceneChange *pending);
+        RGYOpenCLQueue &queue, PendingSceneChange *pending, bool isolateMappedSad = false);
     RGY_ERR resolveSceneChangeReadback(PendingSceneChange &pending, RGYOpenCLQueue &queue, RGYDegrainRefDisableArray *disableRefs);
     RGY_ERR resolvePendingSceneChangeFrame(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
