@@ -1108,26 +1108,32 @@ RGY_ERR RGYFilterKfm::cacheSourceFrame(const RGYFrameInfo *frame, RGYOpenCLQueue
     if (!entry.paddedFrame) {
         return RGY_ERR_MEMORY_ALLOC;
     }
-    auto padWaitEvents = wait_events;
-    if (entry.event() != nullptr) {
-        padWaitEvents.push_back(entry.event);
+    m_sourceCache.push_back(std::move(entry));
+    auto& cachedEntry = m_sourceCache.back();
+
+    sts = analyzeAvailableSource(false, queue);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
-    sts = padSourceFrame(&entry.paddedFrame->frame, &entry.frame->frame, queue, padWaitEvents, &entry.paddedEvent);
+
+    auto padWaitEvents = wait_events;
+    if (cachedEntry.event() != nullptr) {
+        padWaitEvents.push_back(cachedEntry.event);
+    }
+    sts = padSourceFrame(&cachedEntry.paddedFrame->frame, &cachedEntry.frame->frame, queue, padWaitEvents, &cachedEntry.paddedEvent);
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to pad KFM source frame: %s.\n"), get_err_mes(sts));
         return sts;
     }
-    writeFrameInfoDump("source-pad", &entry.paddedFrame->frame);
+    writeFrameInfoDump("source-pad", &cachedEntry.paddedFrame->frame);
 
-    m_sourceCache.push_back(std::move(entry));
     const auto cacheLimit = sourceCacheLimit();
     const auto trimFloor = sourceCacheTrimFloor();
     while (m_sourceCache.size() > cacheLimit && m_sourceCache.front().sourceIndex < trimFloor) {
         m_sourceCache.pop_front();
     }
-    sts = analyzeAvailableSource(false, queue);
     writeFrameInfoDump("source", frame);
-    return sts;
+    return RGY_ERR_NONE;
 }
 
 size_t RGYFilterKfm::sourceCacheLimit() const {
@@ -2972,7 +2978,7 @@ RGY_ERR RGYFilterKfm::submitFMCounts(int cycle, bool drain, RGYOpenCLQueue &queu
     std::array<const KfmCachedSource *, KFM_FMCOUNT_SOURCE_FRAMES> src = {};
     for (int i = 0; i < KFM_FMCOUNT_SOURCE_FRAMES; i++) {
         src[i] = findSourceByIndex(firstSourceIndex + i);
-        if (!src[i] || !src[i]->paddedFrame || !src[i]->paddedFrame->frame.ptr[0]) {
+        if (!src[i] || !src[i]->frame || !src[i]->frame->frame.ptr[0]) {
             return RGY_ERR_MORE_DATA;
         }
     }
@@ -3042,14 +3048,14 @@ RGY_ERR RGYFilterKfm::submitFMCounts(int cycle, bool drain, RGYOpenCLQueue &queu
             if (useFusedFMCount) {
                 std::vector<RGYOpenCLEvent> countWaitEvents;
                 countWaitEvents.push_back(prevCountEvent);
-                if (src[pair + 0]->paddedEvent() != nullptr) {
-                    countWaitEvents.push_back(src[pair + 0]->paddedEvent);
+                if (src[pair + 0]->event() != nullptr) {
+                    countWaitEvents.push_back(src[pair + 0]->event);
                 }
-                if (src[pair + 1]->paddedEvent() != nullptr) {
-                    countWaitEvents.push_back(src[pair + 1]->paddedEvent);
+                if (src[pair + 1]->event() != nullptr) {
+                    countWaitEvents.push_back(src[pair + 1]->event);
                 }
-                if (src[pair + 2]->paddedEvent() != nullptr) {
-                    countWaitEvents.push_back(src[pair + 2]->paddedEvent);
+                if (src[pair + 2]->event() != nullptr) {
+                    countWaitEvents.push_back(src[pair + 2]->event);
                 }
                 sts = m_programs[KFM_PROG_ANALYZE].get()->kernel("kernel_kfm_analyze_count_cmflags_clean").config(queue, countLocal, countGlobal, countWaitEvents, &countEvent).launch(
                     (cl_mem)pending.countBuf->mem(),
@@ -3085,18 +3091,18 @@ RGY_ERR RGYFilterKfm::submitFMCounts(int cycle, bool drain, RGYOpenCLQueue &queu
                 }
 
                 std::vector<RGYOpenCLEvent> prevWaitEvents;
-                if (src[pair + 0]->paddedEvent() != nullptr) {
-                    prevWaitEvents.push_back(src[pair + 0]->paddedEvent);
+                if (src[pair + 0]->event() != nullptr) {
+                    prevWaitEvents.push_back(src[pair + 0]->event);
                 }
-                if (src[pair + 1]->paddedEvent() != nullptr) {
-                    prevWaitEvents.push_back(src[pair + 1]->paddedEvent);
+                if (src[pair + 1]->event() != nullptr) {
+                    prevWaitEvents.push_back(src[pair + 1]->event);
                 }
                 std::vector<RGYOpenCLEvent> curWaitEvents;
-                if (src[pair + 1]->paddedEvent() != nullptr) {
-                    curWaitEvents.push_back(src[pair + 1]->paddedEvent);
+                if (src[pair + 1]->event() != nullptr) {
+                    curWaitEvents.push_back(src[pair + 1]->event);
                 }
-                if (src[pair + 2]->paddedEvent() != nullptr) {
-                    curWaitEvents.push_back(src[pair + 2]->paddedEvent);
+                if (src[pair + 2]->event() != nullptr) {
+                    curWaitEvents.push_back(src[pair + 2]->event);
                 }
 
                 std::array<RGYOpenCLEvent, 2> analyzeEvents;
