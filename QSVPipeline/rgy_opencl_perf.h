@@ -30,6 +30,7 @@
 #define __RGY_OPENCL_PERF_H__
 
 #include "rgy_version.h"
+#include "rgy_tchar.h"
 
 #if ENABLE_OPENCL
 
@@ -42,7 +43,6 @@
 #include <atomic>
 #include <tuple>
 #include <functional>
-#include "rgy_tchar.h"
 #include "rgy_opencl.h"
 
 // ヒストグラム段数: 100ns 起点 × 1.4 倍 × 64 段
@@ -329,6 +329,12 @@ private:
     std::vector<RGYOpenCLPerfTimelineEvent> m_timeline_events;
     std::vector<RGYOpenCLPerfTimelineEvent> m_timeline_pending;
 };
+
+void cl_perf_generate_report(const tstring& dumpDir, const tstring& disasmTool, const tstring& oclocPath, const tstring& rgaPath, const tstring& pythonPath);
+
+#else
+
+static inline void cl_perf_generate_report(const tstring&, const tstring&, const tstring&, const tstring&, const tstring&) {}
 
 #endif // ENABLE_OPENCL
 #endif // __RGY_OPENCL_PERF_H__

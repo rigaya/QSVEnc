@@ -3644,7 +3644,9 @@ struct RGYParamControl {
     int openclBuildThreads;
     tstring clPerfDumpDir;          // --cl-perf-dump <dir>: OpenCL kernel perf dump 先ディレクトリ (空=無効)
     double  clPerfTimelineSec;      // --cl-perf-timeline [=<sec>]: timeline 収集の時間窓 (秒)。0 = 無効、負値 = 無制限
+    tstring clPerfDisasmTool;       // --cl-perf-disasm-tool <auto|ocloc|rga|none>
     tstring clPerfOclocPath;        // --ocloc-path <path>: cl_perf aggregate に渡す ocloc 実行ファイルパス
+    tstring clPerfRgaPath;          // --rga-path <path>: cl_perf aggregate に渡す RGA 実行ファイルパス
     RGYParamAvoidIdleClock avoidIdleClock;
     bool processMonitorDevUsage;
     bool processMonitorDevUsageReset;

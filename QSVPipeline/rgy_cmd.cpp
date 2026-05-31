@@ -11043,9 +11043,24 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         if (ctrl->clPerfTimelineSec == 0.0) ctrl->clPerfTimelineSec = 10.0;
         return 0;
     }
+    if (IS_OPTION("cl-perf-disasm-tool")) {
+        i++;
+        const auto value = tolowercase(strInput[i]);
+        if (value != _T("auto") && value != _T("ocloc") && value != _T("rga") && value != _T("none")) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        ctrl->clPerfDisasmTool = value;
+        return 0;
+    }
     if (IS_OPTION("ocloc-path")) {
         i++;
         ctrl->clPerfOclocPath = strInput[i];
+        return 0;
+    }
+    if (IS_OPTION("rga-path")) {
+        i++;
+        ctrl->clPerfRgaPath = strInput[i];
         return 0;
     }
     if (IS_OPTION("parallel") && ENABLE_PARALLEL_ENC) {
@@ -13175,7 +13190,9 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
     if (param->clPerfTimelineSec != defaultPrm->clPerfTimelineSec && param->clPerfTimelineSec != 0.0) {
         cmd << _T(" --cl-perf-timeline ") << param->clPerfTimelineSec;
     }
+    OPT_TSTR(_T("--cl-perf-disasm-tool"), clPerfDisasmTool);
     OPT_TSTR(_T("--ocloc-path"), clPerfOclocPath);
+    OPT_TSTR(_T("--rga-path"), clPerfRgaPath);
     OPT_BOOL(_T("--process-monitor-dev-usage"), _T(""), processMonitorDevUsage);
     OPT_BOOL(_T("--process-monitor-dev-usage-reset"), _T(""), processMonitorDevUsageReset);
 
@@ -14901,9 +14918,17 @@ tstring gen_cmd_help_ctrl() {
         _T("                                 output: programs.jsonl, launches.jsonl, meta.json,\n")
         _T("                                         binaries/<name>__<hash>.bin,\n")
         _T("                                         build_logs/<name>__<hash>.log\n")
-        _T("   --cl-perf-timeline [=<sec>]   enable per-event timeline capture for <sec> seconds (default 10).\n")
-        _T("                                 requires --cl-perf-dump. output: timeline.jsonl\n")
-        _T("   --ocloc-path <path>          set ocloc executable path for --cl-perf-dump report generation.\n"));
+#if 0        
+        _T("   --cl-perf-disasm-tool <str>  set disasm tool for --cl-perf-dump report generation.\n")
+        _T("                                 auto, ocloc, rga, none (default: auto).\n")
+#endif
+#if ENCODER_QSV
+        _T("   --ocloc-path <path>          set ocloc executable path for Intel GPU disasm.\n")
+#elif ENCODER_VCEENC
+        _T("   --rga-path <path>            set Radeon GPU Analyzer path for AMD GPU disasm.\n")
+#endif
+        _T("   --cl-perf-timeline [=<sec>]  enable per-event timeline capture for <sec> seconds (default 10).\n")
+        _T("                                requires --cl-perf-dump. output: timeline.jsonl\n"));
 #endif
     str += strsprintf(_T("\n")
         _T("   --python <string>            set python path for --perf-monitor-plot\n")
