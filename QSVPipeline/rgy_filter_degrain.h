@@ -29,8 +29,6 @@
 #pragma once
 
 #include <array>
-#include <deque>
-#include <future>
 #include <string>
 #include <unordered_map>
 
@@ -57,8 +55,7 @@ public:
 class RGYFilterDegrain : public RGYFilter {
 public:
     static constexpr int DEGRAIN_CACHE_SIZE = 16;
-    static constexpr int SCENE_CHANGE_PIPELINE_DEPTH = 2;
-    static constexpr int SCENE_CHANGE_READBACK_POOL_SIZE = SCENE_CHANGE_PIPELINE_DEPTH + 1;
+    static constexpr int SCENE_CHANGE_READBACK_POOL_SIZE = 2;
 
     RGYFilterDegrain(shared_ptr<RGYOpenCLContext> context);
     virtual ~RGYFilterDegrain();
@@ -84,16 +81,14 @@ protected:
         RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
     RGY_ERR emitCompensateFrame(const RGYFilterDegrainFrameSet &frames, VppDegrainMode mode,
         const RGYDegrainRefDisableArray &disableRefs,
+        RGYCLBuf *disableMaskBuf, const RGYOpenCLEvent *disableMaskEvent,
         RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
     RGY_ERR emitDegrainFrame(const RGYFilterDegrainFrameSet &frames,
         const RGYDegrainRefDisableArray &disableRefs,
+        RGYCLBuf *disableMaskBuf, const RGYOpenCLEvent *disableMaskEvent,
         RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
-    RGY_ERR copyAnalysisData(const RGYFrameInfo *sourceFrame, int currentFrame, RGYOpenCLQueue &queue,
-        const std::vector<RGYOpenCLEvent> &dependencyEvents, bool hostReadableSad,
-        const char *mvCommandName, const char *sadCommandName,
-        std::shared_ptr<RGYFrameDataDegrain> *frameData, RGYOpenCLEvent *event);
     RGY_ERR attachAnalysisData(const RGYFrameInfo *sourceFrame, RGYFrameInfo *outputFrame,
         int currentFrame, RGYOpenCLQueue &queue, const RGYOpenCLEvent &frameCopyEvent, RGYOpenCLEvent *event);
     RGY_ERR prepareAnalysisState(const RGYFilterDegrainFrameSet &frames, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
@@ -111,14 +106,6 @@ protected:
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     RGY_ERR runResolvedFrames(const RGYFilterDegrainProcessFrameSet &frames, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    struct SceneChangeReadbackResult {
-        RGY_ERR err;
-        std::array<size_t, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS> blockCounts;
-
-        SceneChangeReadbackResult() : err(RGY_ERR_NONE), blockCounts() {
-            blockCounts.fill(0);
-        }
-    };
     struct PendingSceneChange {
         std::shared_ptr<RGYFilterParamDegrain> prm;
         RGYFilterDegrainProcessFrameSet frames;
@@ -135,8 +122,6 @@ protected:
         RGYCLBuf *sad;
         RGYCLBuf *readbackSad;
         RGYOpenCLEvent mapEvent;
-        std::future<SceneChangeReadbackResult> readbackResult;
-        bool readbackCountSubmitted;
         bool mapSubmitted;
 
         PendingSceneChange() :
@@ -155,8 +140,6 @@ protected:
             sad(nullptr),
             readbackSad(nullptr),
             mapEvent(),
-            readbackResult(),
-            readbackCountSubmitted(false),
             mapSubmitted(false) {
             availabilityDisableRefs.fill(true);
             useFlagDisableRefs.fill(false);
@@ -164,17 +147,17 @@ protected:
         }
     };
     RGY_ERR submitSceneChangeReadback(const std::shared_ptr<RGYFilterParamDegrain> &prm, const RGYFilterDegrainProcessFrameSet &frames,
-        RGYOpenCLQueue &queue, PendingSceneChange *pending, bool isolateMappedSad = false, bool isolateAnalysisData = false, int currentFrame = -1);
+        RGYOpenCLQueue &queue, PendingSceneChange *pending, bool isolateMappedSad = false);
     RGYCLBuf *acquireSceneChangeReadbackSAD(size_t bytes);
     RGY_ERR resolveSceneChangeReadback(PendingSceneChange &pending, RGYOpenCLQueue &queue, RGYDegrainRefDisableArray *disableRefs);
-    RGY_ERR emitResolvedSceneChangeFrame(PendingSceneChange &pending, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
-        RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
     RGY_ERR resolvePendingSceneChangeFrame(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
     void applyPendingSceneChangeAnalysisContext(const PendingSceneChange &pending);
     void clearPendingSceneChange();
     RGY_ERR resolveSceneChangeRefs(const std::shared_ptr<RGYFilterParamDegrain> &prm, const RGYFilterDegrainFrameSet &frames, RGYOpenCLQueue &queue,
         RGYDegrainRefDisableArray *disableRefs);
+    RGY_ERR prepareSceneChangeMask(const std::shared_ptr<RGYFilterParamDegrain> &prm, const RGYFilterDegrainProcessFrameSet &frames,
+        RGYOpenCLQueue &queue, RGYCLBuf **disableMaskBuf, RGYOpenCLEvent *disableMaskEvent);
     RGY_ERR resolveSceneChange(const std::shared_ptr<RGYFilterParamDegrain> &prm, const RGYFilterDegrainFrameSet &frames, RGYOpenCLQueue &queue,
         bool *disableBackward, bool *disableForward);
     RGY_ERR unsupportedModeError(VppDegrainMode mode);
@@ -250,8 +233,10 @@ protected:
     RGYDegrainAnalyzeResult m_boundAnalyzeResult;
     std::shared_ptr<RGYFrameDataDegrain> m_frameAnalysisData;
     RGYDegrainBlockLayout m_frameAnalysisLayout;
-    std::deque<std::unique_ptr<PendingSceneChange>> m_pendingSceneChange;
+    std::unique_ptr<PendingSceneChange> m_pendingSceneChange;
     std::array<std::unique_ptr<RGYCLBuf>, SCENE_CHANGE_READBACK_POOL_SIZE> m_sceneChangeReadbackSAD;
+    std::unique_ptr<RGYCLBuf> m_sceneChangeCounts;
+    std::unique_ptr<RGYCLBuf> m_sceneChangeDisableMask;
     int m_sceneChangeReadbackSADIndex;
     int m_inputCount;
     int m_drainCount;

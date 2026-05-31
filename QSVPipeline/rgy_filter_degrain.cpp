@@ -142,6 +142,8 @@ RGYFilterDegrain::RGYFilterDegrain(shared_ptr<RGYOpenCLContext> context) :
     m_frameAnalysisLayout(),
     m_pendingSceneChange(),
     m_sceneChangeReadbackSAD(),
+    m_sceneChangeCounts(),
+    m_sceneChangeDisableMask(),
     m_sceneChangeReadbackSADIndex(0),
     m_inputCount(0),
     m_drainCount(0),
@@ -883,7 +885,7 @@ RGY_ERR RGYFilterDegrain::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
         return runResolvedFrames(frames, ppOutputFrames, pOutputFrameNum, queue, {}, event);
     }
 
-    if (prm->degrain.mode == VppDegrainMode::Degrain && !m_pendingSceneChange.empty()) {
+    if (prm->degrain.mode == VppDegrainMode::Degrain && m_pendingSceneChange) {
         return resolvePendingSceneChangeFrame(ppOutputFrames, pOutputFrameNum, queue, event);
     }
 
@@ -900,6 +902,8 @@ void RGYFilterDegrain::close() {
     for (auto &sad : m_sceneChangeReadbackSAD) {
         sad.reset();
     }
+    m_sceneChangeCounts.reset();
+    m_sceneChangeDisableMask.reset();
     m_sceneChangeReadbackSADIndex = 0;
     m_analysis.mv.reset();
     m_analysis.sad.reset();

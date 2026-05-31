@@ -98,11 +98,12 @@ __kernel void kernel_degrain_build_temporal_mix_plan(
     __global const float *temporalMixPrior,
     const int blockCount,
     const uint thsad,
-    const uint disableMask) {
+    __global const uint *disableMaskPtr) {
     const int block = (int)get_global_id(0);
     if (block >= blockCount) {
         return;
     }
+    const uint disableMask = disableMaskPtr[0];
 
     const float sourceConfidenceRaw = degrain_temporal_mix_prior_center(temporalMixPrior);
     float referenceConfidenceRaw[DEGRAIN_REFS];
@@ -126,6 +127,42 @@ __kernel void kernel_degrain_build_temporal_mix_plan(
     }
     const float sourceMixNorm = max(1.0f - referenceMixTotal, 0.0f);
     temporalMixPlan[planOffset] = sourceMixNorm;
+}
+
+__kernel void kernel_degrain_scene_change_count(
+    __global uint *sceneChangeCounts,
+    __global const degrain_sad_t *sad,
+    const int blockCount,
+    const int temporalDirections,
+    const uint thscd1,
+    const uint baseDisableMask) {
+    const int idx = (int)get_global_id(0);
+    const int total = blockCount * temporalDirections;
+    if (idx >= total) {
+        return;
+    }
+    const int refDirection = idx % temporalDirections;
+    if (((baseDisableMask >> refDirection) & 1u) != 0u) {
+        return;
+    }
+    if (sad[idx].sad > thscd1) {
+        atomic_inc((volatile __global unsigned int *)&sceneChangeCounts[refDirection]);
+    }
+}
+
+__kernel void kernel_degrain_scene_change_mask(
+    __global uint *disableMaskPtr,
+    __global const uint *sceneChangeCounts,
+    const int temporalDirections,
+    const uint baseDisableMask,
+    const uint thscd2) {
+    uint disableMask = baseDisableMask;
+    for (int refDirection = 0; refDirection < temporalDirections; refDirection++) {
+        if (sceneChangeCounts[refDirection] > thscd2) {
+            disableMask |= (1u << refDirection);
+        }
+    }
+    disableMaskPtr[0] = disableMask;
 }
 
 __kernel void kernel_degrain_overlap_plane(
@@ -161,12 +198,13 @@ __kernel void kernel_degrain_overlap_plane(
     const int modeType,
     const int refDirection,
     const uint thsad,
-    const uint disableMask) {
+    __global const uint *disableMaskPtr) {
     const int x = (int)get_global_id(0);
     const int y = (int)get_global_id(1);
     if (x >= width || y >= height) {
         return;
     }
+    const uint disableMask = disableMaskPtr[0];
 
     const int dstPitch = dst_pitch / (int)sizeof(TypePixel);
     const int fallback = degrain_pixel_load(cur, cur_pitch, width, height, x, y);
@@ -438,8 +476,9 @@ __kernel void kernel_degrain_compensate_overlap_plane_ramp(
     const int planeScaleX,
     const int planeScaleY,
     const uint thsad,
-    const uint disableMask,
+    __global const uint *disableMaskPtr,
     __global const float *windowRamp) {
+    const uint disableMask = disableMaskPtr[0];
     degrain_compensate_overlap_plane_ramp_generic(
         dst, dst_pitch,
         cur, cur_pitch,
@@ -485,12 +524,13 @@ __kernel void kernel_degrain_degrain_overlap_plane(
     const int planeScaleX,
     const int planeScaleY,
     const uint thsad,
-    const uint disableMask) {
+    __global const uint *disableMaskPtr) {
     const int x = (int)get_global_id(0);
     const int y = (int)get_global_id(1);
     if (x >= width || y >= height) {
         return;
     }
+    const uint disableMask = disableMaskPtr[0];
 
     const int dstPitch = dst_pitch / (int)sizeof(TypePixel);
     const int fallback = degrain_pixel_load(cur, cur_pitch, width, height, x, y);
@@ -802,12 +842,13 @@ __kernel void kernel_degrain_pixel_trace(
     const int planeScaleX,
     const int planeScaleY,
     const uint thsad,
-    const uint disableMask,
+    __global const uint *disableMaskPtr,
     const int targetX,
     const int targetY,
     __global int *trace) {
     const int x = clamp(targetX, 0, max(width - 1, 0));
     const int y = clamp(targetY, 0, max(height - 1, 0));
+    const uint disableMask = disableMaskPtr[0];
     const int fallback = degrain_pixel_load(cur, cur_pitch, width, height, x, y);
     const int scaleX = degrain_plane_scale_x(planeScaleX);
     const int scaleY = degrain_plane_scale_y(planeScaleY);
