@@ -103,19 +103,24 @@ RGY_ERR RGYFilterMsharpen::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RG
     return sts;
 }
 
-RGY_ERR RGYFilterMsharpen::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterMsharpen::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, RGY_PLANE plane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     auto prm = std::dynamic_pointer_cast<RGYFilterParamMsharpen>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    const float threshold = prm->msharpen.threshold / (float)((1 << RGY_CSP_BIT_DEPTH[pInputPlane->csp]) - 1);
+    const int bitDepth = RGY_CSP_BIT_DEPTH[pInputPlane->csp];
+    if (bitDepth <= 0 || 16 < bitDepth) {
+        AddMessage(RGY_LOG_ERROR, _T("unsupported csp/bit depth: %s.\n"), RGY_CSP_NAMES[pInputPlane->csp]);
+        return RGY_ERR_UNSUPPORTED;
+    }
+    const float threshold = prm->msharpen.threshold / (float)((1 << bitDepth) - 1);
     // The user-facing slope and luma_limit are documented in 8-bit terms.
     // Inside the kernel, threshold / gradient / luma are all in [0, 1]
     // normalised space. So we scale by 255 (NOT pixel_max), keeping the
     // sigmoid steepness consistent across 8-bit and HBD inputs.
     const float slope_norm = prm->msharpen.slope * 255.0f;
-    const float luma_limit_norm = (prm->msharpen.luma_limit > 0.0f)
+    const float luma_limit_norm = (plane == RGY_PLANE_Y && prm->msharpen.luma_limit > 0.0f)
         ? prm->msharpen.luma_limit / 255.0f
         : 0.0f;
     const char *kernel_name = "kernel_msharpen";
@@ -143,7 +148,7 @@ RGY_ERR RGYFilterMsharpen::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameI
         auto planeSrc = getPlane(pInputFrame,  (RGY_PLANE)i);
         const auto &plane_wait_event = (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>();
         RGYOpenCLEvent *plane_event = (i == planeCount - 1) ? event : nullptr;
-        auto err = procPlane(&planeDst, &planeSrc, queue, plane_wait_event, plane_event);
+        auto err = procPlane(&planeDst, &planeSrc, (RGY_PLANE)i, queue, plane_wait_event, plane_event);
         if (err != RGY_ERR_NONE) return err;
     }
     return RGY_ERR_NONE;
