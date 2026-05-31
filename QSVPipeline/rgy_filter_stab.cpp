@@ -190,7 +190,6 @@ RGY_ERR RGYFilterStab::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
 RGY_ERR RGYFilterStab::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames,
     int *pOutputFrameNum, RGYOpenCLQueue &queue_main,
     const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
-    (void)event;
     *pOutputFrameNum  = 0;
     ppOutputFrames[0] = nullptr;
     if (!pInputFrame || !pInputFrame->ptr[0]) {
@@ -404,7 +403,7 @@ RGY_ERR RGYFilterStab::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo 
             const char *kname = "stab_warp";
             RGYWorkSize local (32, 8);
             RGYWorkSize global((src.width + 31) / 32 * 32, (src.height + 7) / 8 * 8);
-            err = m_stab.get()->kernel(kname).config(queue_main, local, global, {}, nullptr).launch(
+            err = m_stab.get()->kernel(kname).config(queue_main, local, global, {}, (i == planes - 1) ? event : nullptr).launch(
                 (cl_mem)src.ptr[0], src.pitch[0],
                 (cl_mem)dst.ptr[0], dst.pitch[0],
                 src.width, src.height,
@@ -418,7 +417,7 @@ RGY_ERR RGYFilterStab::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo 
         }
     } else {
         // No usable smoothed shift yet. Pass through unchanged.
-        err = m_cl->copyFrame(pOut, pInputFrame, nullptr, queue_main, {});
+        err = m_cl->copyFrame(pOut, pInputFrame, nullptr, queue_main, {}, event);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("stab: passthrough copy failed: %s.\n"), get_err_mes(err));
             return err;
