@@ -2783,8 +2783,11 @@ Detail-preserving smoothing filter. Detects edges to create a mask, then applies
   - threshold=&lt;float&gt;  (default=15.0, 0.0 - 255.0)  
     Edge detection threshold.
 
-  - threshold_c=&lt;float&gt;  (default=-1.0, -1.0 - 255.0)  
-    Chroma edge detection threshold. -1.0 uses the same value as threshold.
+  - slope=&lt;float&gt;  (default=0.0, 0.0 -)
+    Slope of the sigmoid soft mask. 0.0 keeps the legacy binary mask.
+
+  - luma_limit=&lt;float&gt;  (default=0.0, 0.0 - 255.0)
+    Reduces sharpening in luma areas darker than this value. 0.0 disables it.
   
   - highq=&lt;bool&gt;  (default=true)  
     When true, uses 4-direction edge detection (diagonal + horizontal/vertical). When false, uses only 2 diagonal directions.
@@ -2799,9 +2802,6 @@ Detail-preserving smoothing filter. Detects edges to create a mask, then applies
   
   Example: Stronger smoothing
   --vpp-msmooth strength=6,threshold=10.0
-
-  Example: Separate chroma threshold
-  --vpp-msmooth threshold=12.0,threshold_c=18.0
   ```
 
 ### --vpp-knn [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
