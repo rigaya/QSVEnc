@@ -112,6 +112,7 @@ RGY_DISABLE_WARNING_POP
 #include "rgy_filter_chromashift.h"
 #include "rgy_filter_deblock.h"
 #include "rgy_filter_deflicker.h"
+#include "rgy_filter_stab.h"
 #include "rgy_filter_colorfix.h"
 #include "rgy_filter_dehalo.h"
 #include "rgy_filter_finedehalo.h"
@@ -2373,6 +2374,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vpp.chromashift.enable) filterPipeline.push_back(VppType::CL_CHROMASHIFT);
     if (inputParam->vpp.deblock.enable)    filterPipeline.push_back(VppType::CL_DEBLOCK);
     if (inputParam->vpp.deflicker.enable)  filterPipeline.push_back(VppType::CL_DEFLICKER);
+    if (inputParam->vpp.stab.enable)       filterPipeline.push_back(VppType::CL_STAB);
     if (inputParam->vpp.colorfix.enable)   filterPipeline.push_back(VppType::CL_COLORFIX);
     if (inputParam->vpp.dehalo.enable)     filterPipeline.push_back(VppType::CL_DEHALO);
     if (inputParam->vpp.finedehalo.enable) filterPipeline.push_back(VppType::CL_FINEDEHALO);
@@ -3431,6 +3433,26 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         unique_ptr<RGYFilter> filter(new RGYFilterDeflicker(m_cl));
         shared_ptr<RGYFilterParamDeflicker> param(new RGYFilterParamDeflicker());
         param->deflicker = params->vpp.deflicker;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        auto sts = filter->init(param, m_pQSVLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        //登録
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
+    }
+    //stab
+    if (vppType == VppType::CL_STAB) {
+        unique_ptr<RGYFilter> filter(new RGYFilterStab(m_cl));
+        shared_ptr<RGYFilterParamStab> param(new RGYFilterParamStab());
+        param->stab = params->vpp.stab;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
