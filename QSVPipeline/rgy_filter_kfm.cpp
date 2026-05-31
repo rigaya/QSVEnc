@@ -5328,6 +5328,7 @@ RGY_ERR RGYFilterKfm::processMainRtgmcOutputs(const RGYFilterParamKfm& prm, RGYF
             if (sts != RGY_ERR_NONE) {
                 return sts;
             }
+            copyFramePropWithoutRes(ucfOut, out);
             sts = emitOutputFrame(ucfOut, ppOutputFrames, pOutputFrameNum, queue, ucfEvent, event);
             if (sts != RGY_ERR_NONE) {
                 return sts;
