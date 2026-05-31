@@ -1,5 +1,17 @@
 # QSVEnc Release Notes
 
+## 8.14
+
+- Optimize [--vpp-rtgmc](./QSVEncC_Options.en.md#--vpp-rtgmc-param1value1param2value2).
+- Add [--cl-perf-timeline](./QSVEncC_Options.en.md#--cl-perf-timeline) to display OpenCL kernel performance timeline.
+- Add [--vpp-hqdering](./QSVEncC_Options.en.md#--vpp-hqdering-param1value1param2value2) high quality dering filter.
+- Add [--vpp-finedehalo](./QSVEncC_Options.en.md#--vpp-finedehalo-param1value1param2value2) fine dehalo filter for anime content.
+- Add [--vpp-deblock](./QSVEncC_Options.en.md#--vpp-deblock-param1value1param2value2) deblocking filter.
+- Add [--vpp-chromashift](./QSVEncC_Options.en.md#--vpp-chromashift-param1value1param2value2) chroma-luma shift correction filter.
+- Add [--vpp-colorfix](./QSVEncC_Options.en.md#--vpp-colorfix-param1value1param2value2) color adjustment filter.
+- Add [--vpp-deflicker](./QSVEncC_Options.en.md#--vpp-deflicker-param1value1param2value2) deflicker filter.
+- Add new options to [--vpp-ivtc](./QSVEncC_Options.en.md#--vpp-ivtc-param1value1param2value2), [--vpp-warpsharp](./QSVEncC_Options.en.md#--vpp-warpsharp-param1value1param2value2), [--vpp-msmooth](./QSVEncC_Options.en.md#--vpp-msmooth-param1value1param2value2), [--vpp-msharpen](./QSVEncC_Options.en.md#--vpp-msharpen-param1value1param2value2), and [--vpp-maa](./QSVEncC_Options.en.md#--vpp-maa-param1value1param2value2).
+
 ## 8.13
 
 - Add [--vpp-kfm](./QSVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) adaptive inverse telecine filter for 24/30/60 mixed VFR output.

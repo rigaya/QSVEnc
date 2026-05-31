@@ -314,6 +314,18 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2026.05.31 (8.14)
+[QSVEncC]
+- --vpp-rtgmcの高速化。
+- OpenCLカーネルのパフォーマンスタイムライン表示オプション --cl-perf-timeline を追加。
+- 高品質deringフィルタ --vpp-hqdering を追加。
+- アニメ向け微細halo抑制フィルタ --vpp-finedehalo を追加。
+- デブロックフィルタ --vpp-deblock を追加。
+- 色位相ずれ補正フィルタ --vpp-chromashift を追加。
+- 色調補正フィルタ --vpp-colorfix を追加。
+- フリッカー低減フィルタ --vpp-deflicker を追加。
+- --vpp-dehalo, --vpp-ivtc, --vpp-warpsharp, --vpp-msmooth, --vpp-msharpen, --vpp-maa の機能拡張オプションを追加。
+
 2026.05.23 (8.13)
 [QSVEncC]
 - 24/30/60混合VFR出力に対応した逆テレシネフィルタ --vpp-kfm を追加。

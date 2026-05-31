@@ -2772,8 +2772,7 @@ Please note that [--avsync](./NVEncC_Options.en.md#--avsync-string) vfr is autom
     - fp32 ... always use fp32
 
 ### --vpp-msmooth [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
-Detail-preserving smoothing filter based on Donald A. Graft's MSmooth.
-Detects edges to create a mask, then applies iterative smoothing to non-edge areas.
+Detail-preserving smoothing filter. Detects edges to create a mask, then applies iterative smoothing to non-edge areas.
 
 - **Parameters**
   - strength=&lt;int&gt; (default=3, 0 - 20)  
@@ -3444,7 +3443,7 @@ Edge level adjustment filter, for edge sharpening.
   ```
 
 ### --vpp-msharpen [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
-Edge-selective sharpening filter based on Donald A. Graft's MSharpen.
+Edge-selective sharpening filter.
 
 - **Parameters**
   - strength=&lt;float&gt; (default=1.0, 0.0 - 1.0)  
@@ -4158,7 +4157,9 @@ Example: Collect with default 10 seconds
 --cl-perf-dump perf_out --cl-perf-timeline
 ```
 
-The generated `timeline.html` is a Canvas 2D based interactive viewer supporting zoom/pan/hover for detailed inspection. It has two sections: host thread lanes and device queue lanes, with host/device correspondence highlighted by matching seq numbers.
+![timeline](data/qsvencc_cl_perf_timeline_20260531.png)
+
+The generated `timeline.html` is a interactive viewer supporting zoom/pan/hover for detailed inspection (using mouse wheel and drags). It has two sections: host thread lanes and device queue lanes, with host/device correspondence highlighted by matching seq numbers.
 
 ### --ocloc-path &lt;path&gt;
 Use with [--cl-perf-dump](#--cl-perf-dump-dir) to specify the ocloc executable path passed to cl_perf aggregate.
