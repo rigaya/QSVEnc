@@ -335,9 +335,9 @@ protected:
 
     struct KfmPendingFMCount {
         int cycle;
-        std::vector<std::unique_ptr<RGYCLBuf>> pairCounts;
+        std::unique_ptr<RGYCLBuf> countBuf;
 
-        KfmPendingFMCount() : cycle(-1), pairCounts() {};
+        KfmPendingFMCount() : cycle(-1), countBuf() {};
     };
 
     struct KfmPendingVfrOutput {

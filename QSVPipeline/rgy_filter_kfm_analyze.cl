@@ -269,6 +269,7 @@ __kernel void kernel_kfm_count_cmflags(
 
 __kernel void kernel_kfm_count_cmflags_clean(
     __global FMCount *dst,
+    const int dstOffset,
     const __global uchar *prevSuper,
     const __global uchar *curSuper,
     const int pitch,
@@ -282,6 +283,7 @@ __kernel void kernel_kfm_count_cmflags_clean(
     const int x = get_global_id(0);
     const int y = get_global_id(1);
     if (x >= width || y >= height) return;
+    dst += dstOffset;
 
     const int pitchT = pitch / (int)sizeof(uchar2);
     const int sx = x + 1;
@@ -314,6 +316,7 @@ __kernel void kernel_kfm_count_cmflags_clean(
 
 __kernel void kernel_kfm_analyze_count_cmflags_clean(
     __global FMCount *dst,
+    const int dstOffset,
     const __global uchar *prevSrc0,
     const __global uchar *prevSrc1,
     const __global uchar *curSrc0,
@@ -334,6 +337,7 @@ __kernel void kernel_kfm_analyze_count_cmflags_clean(
     const int x = get_global_id(0);
     const int y = get_global_id(1);
     if (x >= width || y >= height) return;
+    dst += dstOffset;
 
     const uchar4 prevBlock = kfm_analyze_block(prevSrc0, prevSrc1, prevSrcPitch, prevParity, pixelStep, pixelOffset, x, y);
     const uchar4 curBlock = kfm_analyze_block(curSrc0, curSrc1, curSrcPitch, curParity, pixelStep, pixelOffset, x, y);

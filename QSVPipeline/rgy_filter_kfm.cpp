@@ -2448,19 +2448,18 @@ RGY_ERR RGYFilterKfm::clearPendingFMCounts() {
     RGY_ERR sts = RGY_ERR_NONE;
     RGYOpenCLQueue *queue = m_fmCountQueue.get() ? &m_fmCountQueue : nullptr;
     for (auto& pending : m_pendingFMCounts) {
-        for (auto& fmCountBuf : pending.pairCounts) {
-            if (!fmCountBuf) {
-                continue;
+        auto& fmCountBuf = pending.countBuf;
+        if (!fmCountBuf) {
+            continue;
+        }
+        if (fmCountBuf->isMapped()) {
+            const auto waitSts = fmCountBuf->mapEvent().wait();
+            if (waitSts != RGY_ERR_NONE && sts == RGY_ERR_NONE) {
+                sts = waitSts;
             }
-            if (fmCountBuf->isMapped()) {
-                const auto waitSts = fmCountBuf->mapEvent().wait();
-                if (waitSts != RGY_ERR_NONE && sts == RGY_ERR_NONE) {
-                    sts = waitSts;
-                }
-                const auto unmapSts = queue ? fmCountBuf->unmapBuffer(*queue) : fmCountBuf->unmapBuffer();
-                if (unmapSts != RGY_ERR_NONE && sts == RGY_ERR_NONE) {
-                    sts = unmapSts;
-                }
+            const auto unmapSts = queue ? fmCountBuf->unmapBuffer(*queue) : fmCountBuf->unmapBuffer();
+            if (unmapSts != RGY_ERR_NONE && sts == RGY_ERR_NONE) {
+                sts = unmapSts;
             }
         }
     }
@@ -2473,10 +2472,7 @@ RGY_ERR RGYFilterKfm::clearPendingFMCounts() {
     }
 
     for (auto& pending : m_pendingFMCounts) {
-        for (auto& fmCountBuf : pending.pairCounts) {
-            releaseFMCountBuf(std::move(fmCountBuf));
-        }
-        pending.pairCounts.clear();
+        releaseFMCountBuf(std::move(pending.countBuf));
     }
     m_pendingFMCounts.clear();
     return sts;
@@ -2986,33 +2982,29 @@ RGY_ERR RGYFilterKfm::submitFMCounts(int cycle, bool drain, RGYOpenCLQueue &queu
         return sts;
     }
 
-    const size_t countBytes = sizeof(RGYKFM::FMCount) * 2;
+    const size_t countBytes = sizeof(RGYKFM::FMCount) * KFM_FMCOUNT_PAIRS * 2;
     KfmPendingFMCount pending;
     pending.cycle = cycle;
-    pending.pairCounts.resize(KFM_FMCOUNT_PAIRS);
-    for (auto& pairCount : pending.pairCounts) {
-        pairCount = acquireFMCountBuf(countBytes);
-        if (!pairCount) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM FMCount buffer.\n"));
-            for (auto& releasedPairCount : pending.pairCounts) {
-                releaseFMCountBuf(std::move(releasedPairCount));
-            }
-            return RGY_ERR_MEMORY_ALLOC;
-        }
+    pending.countBuf = acquireFMCountBuf(countBytes);
+    if (!pending.countBuf) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM FMCount buffer.\n"));
+        return RGY_ERR_MEMORY_ALLOC;
+    }
+
+    const cl_int zero = 0;
+    RGYOpenCLEvent initEvent;
+    sts = m_cl->setBuf(&zero, sizeof(zero), countBytes, pending.countBuf.get(), queue, &initEvent);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to clear KFM FMCount buffer: %s.\n"), get_err_mes(sts));
+        return sts;
     }
 
     const bool useFusedFMCount = kfmUseFusedFMCount();
+    std::vector<RGYOpenCLEvent> pairCountEvents;
+    pairCountEvents.reserve(KFM_FMCOUNT_PAIRS);
     for (int pair = 0; pair < KFM_FMCOUNT_PAIRS; pair++) {
-        auto& fmCountBuf = pending.pairCounts[pair];
-        const cl_int zero = 0;
-        RGYOpenCLEvent initEvent;
-        sts = m_cl->setBuf(&zero, sizeof(zero), countBytes, fmCountBuf.get(), queue, &initEvent);
-        if (sts != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to clear KFM FMCount buffer: %s.\n"), get_err_mes(sts));
-            return sts;
-        }
-
         RGYOpenCLEvent prevCountEvent = initEvent;
+        const int dstOffset = pair * 2;
         const auto csp = src[pair + 1]->frame->frame.csp;
         const bool interleavedUV = kfmCspHasInterleavedUV(csp);
         const int targetPlanes = (RGY_CSP_PLANES[csp] >= 3) ? 3 : (interleavedUV ? 3 : 1);
@@ -3060,7 +3052,8 @@ RGY_ERR RGYFilterKfm::submitFMCounts(int cycle, bool drain, RGYOpenCLQueue &queu
                     countWaitEvents.push_back(src[pair + 2]->paddedEvent);
                 }
                 sts = m_programs[KFM_PROG_ANALYZE].get()->kernel("kernel_kfm_analyze_count_cmflags_clean").config(queue, countLocal, countGlobal, countWaitEvents, &countEvent).launch(
-                    (cl_mem)fmCountBuf->mem(),
+                    (cl_mem)pending.countBuf->mem(),
+                    dstOffset,
                     (cl_mem)prevSrc0.ptr[0],
                     (cl_mem)prevSrc1.ptr[0],
                     (cl_mem)curSrc0.ptr[0],
@@ -3132,7 +3125,8 @@ RGY_ERR RGYFilterKfm::submitFMCounts(int cycle, bool drain, RGYOpenCLQueue &queu
 
                 std::vector<RGYOpenCLEvent> countWaitEvents = { prevCountEvent, analyzeEvents[0], analyzeEvents[1] };
                 sts = m_programs[KFM_PROG_ANALYZE].get()->kernel("kernel_kfm_count_cmflags_clean").config(queue, countLocal, countGlobal, countWaitEvents, &countEvent).launch(
-                    (cl_mem)fmCountBuf->mem(),
+                    (cl_mem)pending.countBuf->mem(),
+                    dstOffset,
                     (cl_mem)m_analyzeFlags[0]->mem(),
                     (cl_mem)m_analyzeFlags[1]->mem(),
                     flagPitch, gridWidth - 1, gridHeight - 1, countParity,
@@ -3145,11 +3139,14 @@ RGY_ERR RGYFilterKfm::submitFMCounts(int cycle, bool drain, RGYOpenCLQueue &queu
             prevCountEvent = countEvent;
         }
 
-        sts = fmCountBuf->queueMapBuffer(m_fmCountQueue, CL_MAP_READ, { prevCountEvent }, RGY_CL_MAP_BLOCK_NONE);
-        if (sts != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to map KFM FMCount buffer: %s.\n"), get_err_mes(sts));
-            return sts;
+        if (prevCountEvent() != nullptr) {
+            pairCountEvents.push_back(prevCountEvent);
         }
+    }
+    sts = pending.countBuf->queueMapBuffer(m_fmCountQueue, CL_MAP_READ, pairCountEvents, RGY_CL_MAP_BLOCK_NONE, "kfm.fmcount.cycle");
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to map KFM FMCount buffer: %s.\n"), get_err_mes(sts));
+        return sts;
     }
     queue.flush();
     m_fmCountQueue.flush();
@@ -3169,34 +3166,31 @@ RGY_ERR RGYFilterKfm::readbackFMCounts(std::array<RGYKFM::FMCount, 18>& counts, 
     counts = {};
     RGYOpenCLQueue& mapQueue = m_fmCountQueue.get() ? m_fmCountQueue : queue;
     RGY_ERR sts = RGY_ERR_NONE;
-    std::vector<std::unique_ptr<RGYCLBuf>*> recycleBufs;
-    recycleBufs.reserve(KFM_FMCOUNT_PAIRS);
+    auto& fmCountBuf = pending.countBuf;
+    if (!fmCountBuf) {
+        AddMessage(RGY_LOG_ERROR, _T("KFM FMCount pending buffer is missing.\n"));
+        return RGY_ERR_NULL_PTR;
+    }
+    const auto waitSts = fmCountBuf->mapEvent().wait();
+    if (waitSts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to wait KFM FMCount map event: %s.\n"), get_err_mes(waitSts));
+        return waitSts;
+    }
+    const auto *gpuCounts = reinterpret_cast<const RGYKFM::FMCount *>(fmCountBuf->mappedPtr());
+    if (!gpuCounts) {
+        const auto unmapSts = fmCountBuf->unmapBuffer(mapQueue);
+        if (unmapSts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to unmap KFM FMCount buffer after access error: %s.\n"), get_err_mes(unmapSts));
+        }
+        AddMessage(RGY_LOG_ERROR, _T("failed to access KFM FMCount buffer.\n"));
+        return RGY_ERR_NULL_PTR;
+    }
     for (int pair = 0; pair < KFM_FMCOUNT_PAIRS; pair++) {
-        auto& fmCountBuf = pending.pairCounts[pair];
-        if (!fmCountBuf) {
-            AddMessage(RGY_LOG_ERROR, _T("KFM FMCount pending buffer is missing.\n"));
-            return RGY_ERR_NULL_PTR;
-        }
-        const auto waitSts = fmCountBuf->mapEvent().wait();
-        if (waitSts != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to wait KFM FMCount map event: %s.\n"), get_err_mes(waitSts));
-            return waitSts;
-        }
-        const auto *gpuCounts = reinterpret_cast<const RGYKFM::FMCount *>(fmCountBuf->mappedPtr());
-        if (!gpuCounts) {
-            const auto unmapSts = fmCountBuf->unmapBuffer(mapQueue);
-            if (unmapSts != RGY_ERR_NONE) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to unmap KFM FMCount buffer after access error: %s.\n"), get_err_mes(unmapSts));
-            }
-            AddMessage(RGY_LOG_ERROR, _T("failed to access KFM FMCount buffer.\n"));
-            return RGY_ERR_NULL_PTR;
-        }
         const int countFrameIndex = pending.cycle * 5 - 3 + pair + 1;
         if (countFrameIndex >= 0) {
-            counts[pair * 2 + 0] = gpuCounts[0];
-            counts[pair * 2 + 1] = gpuCounts[1];
+            counts[pair * 2 + 0] = gpuCounts[pair * 2 + 0];
+            counts[pair * 2 + 1] = gpuCounts[pair * 2 + 1];
         }
-        recycleBufs.push_back(&fmCountBuf);
     }
     const int firstSourceIndex = pending.cycle * 5 - 3;
     const int firstValidPair = std::max(0, -(firstSourceIndex + 1));
@@ -3206,21 +3200,17 @@ RGY_ERR RGYFilterKfm::readbackFMCounts(std::array<RGYKFM::FMCount, 18>& counts, 
             counts[pair * 2 + 1] = counts[firstValidPair * 2 + 1];
         }
     }
-    for (auto *fmCountBuf : recycleBufs) {
-        sts = (*fmCountBuf)->unmapBuffer(mapQueue);
-        if (sts != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to unmap KFM FMCount buffer: %s.\n"), get_err_mes(sts));
-            return sts;
-        }
+    sts = fmCountBuf->unmapBuffer(mapQueue);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to unmap KFM FMCount buffer: %s.\n"), get_err_mes(sts));
+        return sts;
     }
     sts = mapQueue.finish();
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to finish KFM FMCount readback queue: %s.\n"), get_err_mes(sts));
         return sts;
     }
-    for (auto *fmCountBuf : recycleBufs) {
-        releaseFMCountBuf(std::move(*fmCountBuf));
-    }
+    releaseFMCountBuf(std::move(fmCountBuf));
     m_pendingFMCounts.pop_front();
     return RGY_ERR_NONE;
 }
