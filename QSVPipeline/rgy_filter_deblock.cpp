@@ -164,7 +164,11 @@ RGY_ERR RGYFilterDeblock::runPassVertical(RGYFrameInfo *pDstPlane,
     // One thread per (edge, row). Edges are at columns 4, 8, ..., (W/4 - 1)*4.
     const int num_edges = (pDstPlane->width / 4) - 1;
     if (num_edges <= 0) return RGY_ERR_NONE;
-    RGYWorkSize local(DEBLOCK_BLOCK_X, DEBLOCK_BLOCK_Y);
+    // Vertical-edge pass has a tall narrow iteration space
+    // (num_edges = W/4 - 1 wide, full height tall), so a Y-major
+    // workgroup (8 wide, 32 tall) fits the grid shape better than the
+    // X-major (32, 8) used for the horizontal-edge pass.
+    RGYWorkSize local(8, 32);
     RGYWorkSize global(num_edges, pDstPlane->height);
     auto err = m_deblock.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
         (cl_mem)pDstPlane->ptr[0], pDstPlane->pitch[0],

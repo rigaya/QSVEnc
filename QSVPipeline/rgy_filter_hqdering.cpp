@@ -256,7 +256,12 @@ RGY_ERR RGYFilterDering::runBlurV(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
                                    const std::vector<RGYOpenCLEvent> &wait_events) {
     const auto sP = getPlane(pSrc, RGY_PLANE_Y);
     const auto dP = getPlane(pDst, RGY_PLANE_Y);
-    RGYWorkSize local(DERING_BLOCK_X, DERING_BLOCK_Y);
+    // Vertical 1-D Gaussian: each work-item reads (2*radius + 1) rows
+    // at its column. An 8x32 work-group (tall vs the default 32x8)
+    // keeps the per-column row reads inside one cache tile so the
+    // 32 work-items in a column share the radius-window's row reads
+    // through the L1 cache instead of pulling from L2 / DRAM.
+    RGYWorkSize local(DERING_BLOCK_Y, DERING_BLOCK_X);
     RGYWorkSize global(sP.width, sP.height);
     auto err = m_dering.get()->kernel("hqdering_blur_v")
         .config(queue, local, global, wait_events, nullptr).launch(
