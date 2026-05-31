@@ -4851,11 +4851,57 @@ RGY_ERR RGYFilterKfm::ensureMaskBranchFrames(RGYFrameInfo **ppSwitchFlagFrame, R
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYFilterKfm::renderMaskBranch(RGYFrameInfo *pSwitchFlagFrame, RGYFrameInfo *pContainsCombeFrame, RGYFrameInfo *pCombeMaskFrame, const RGYFrameInfo *pTelecineSuperPrevFrame, const RGYFrameInfo *pTelecineSuperFrame, const RGYFrameInfo *pTelecineSuperNextFrame, const char *switchFlagStage, const char *containsCombeStage, const char *combeMaskStage, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event, cl_uint *containsCombeCount) {
+RGY_ERR RGYFilterKfm::resolveContainsCombeCount(KfmContainsCombeReadback& readback, cl_uint *containsCombeCount) {
+    if (!readback.submitted) {
+        if (containsCombeCount) {
+            *containsCombeCount = 0;
+        }
+        return RGY_ERR_NONE;
+    }
+    if (!m_containsCombeCount) {
+        readback.submitted = false;
+        AddMessage(RGY_LOG_ERROR, _T("KFM contains-combe count buffer is missing.\n"));
+        return RGY_ERR_NULL_PTR;
+    }
+    const auto waitSts = m_containsCombeCount->mapEvent().wait();
+    if (waitSts != RGY_ERR_NONE) {
+        m_containsCombeCount->unmapBuffer(m_fmCountQueue);
+        m_fmCountQueue.finish();
+        readback.submitted = false;
+        AddMessage(RGY_LOG_ERROR, _T("failed to wait KFM contains-combe count readback: %s.\n"), get_err_mes(waitSts));
+        return waitSts;
+    }
+    const auto *mappedCount = reinterpret_cast<const cl_uint *>(m_containsCombeCount->mappedPtr());
+    if (!mappedCount) {
+        m_containsCombeCount->unmapBuffer(m_fmCountQueue);
+        m_fmCountQueue.finish();
+        readback.submitted = false;
+        AddMessage(RGY_LOG_ERROR, _T("failed to access KFM contains-combe count readback.\n"));
+        return RGY_ERR_NULL_PTR;
+    }
+    if (containsCombeCount) {
+        *containsCombeCount = *mappedCount;
+    }
+    auto unmapSts = m_containsCombeCount->unmapBuffer(m_fmCountQueue);
+    if (unmapSts == RGY_ERR_NONE) {
+        unmapSts = m_fmCountQueue.finish();
+    }
+    readback.submitted = false;
+    if (unmapSts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to unmap KFM contains-combe count readback: %s.\n"), get_err_mes(unmapSts));
+        return unmapSts;
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterKfm::renderMaskBranch(RGYFrameInfo *pSwitchFlagFrame, RGYFrameInfo *pContainsCombeFrame, RGYFrameInfo *pCombeMaskFrame, const RGYFrameInfo *pTelecineSuperPrevFrame, const RGYFrameInfo *pTelecineSuperFrame, const RGYFrameInfo *pTelecineSuperNextFrame, const char *switchFlagStage, const char *containsCombeStage, const char *combeMaskStage, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event, KfmContainsCombeReadback *containsCombeReadback) {
     if (!pSwitchFlagFrame || !pContainsCombeFrame || !pCombeMaskFrame
         || !pTelecineSuperPrevFrame || !pTelecineSuperFrame || !pTelecineSuperNextFrame
         || !m_programs[KFM_PROG_MASK].get()) {
         return RGY_ERR_INVALID_CALL;
+    }
+    if (containsCombeReadback) {
+        containsCombeReadback->submitted = false;
     }
     const auto superPrevY = getPlane(pTelecineSuperPrevFrame, RGY_PLANE_Y);
     const auto superY = getPlane(pTelecineSuperFrame, RGY_PLANE_Y);
@@ -5131,43 +5177,13 @@ RGY_ERR RGYFilterKfm::renderMaskBranch(RGYFrameInfo *pSwitchFlagFrame, RGYFrameI
         AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_contains_combe_mark: %s.\n"), get_err_mes(sts));
         return sts;
     }
-    bool countReadSubmitted = false;
-    auto waitContainsCombeCount = [&]() {
-        if (!countReadSubmitted) {
+    auto cleanupContainsCombeReadback = [&]() {
+        if (!containsCombeReadback) {
             return RGY_ERR_NONE;
         }
-        const auto waitSts = m_containsCombeCount->mapEvent().wait();
-        if (waitSts != RGY_ERR_NONE) {
-            m_containsCombeCount->unmapBuffer(m_fmCountQueue);
-            m_fmCountQueue.finish();
-            countReadSubmitted = false;
-            AddMessage(RGY_LOG_ERROR, _T("failed to wait KFM contains-combe count readback: %s.\n"), get_err_mes(waitSts));
-            return waitSts;
-        }
-        const auto *mappedCount = reinterpret_cast<const cl_uint *>(m_containsCombeCount->mappedPtr());
-        if (!mappedCount) {
-            m_containsCombeCount->unmapBuffer(m_fmCountQueue);
-            m_fmCountQueue.finish();
-            countReadSubmitted = false;
-            AddMessage(RGY_LOG_ERROR, _T("failed to access KFM contains-combe count readback.\n"));
-            return RGY_ERR_NULL_PTR;
-        }
-        if (containsCombeCount) {
-            *containsCombeCount = *mappedCount;
-        }
-        auto unmapSts = m_containsCombeCount->unmapBuffer(m_fmCountQueue);
-        if (unmapSts == RGY_ERR_NONE) {
-            unmapSts = m_fmCountQueue.finish();
-        }
-        countReadSubmitted = false;
-        if (unmapSts != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to unmap KFM contains-combe count readback: %s.\n"), get_err_mes(unmapSts));
-            return unmapSts;
-        }
-        return RGY_ERR_NONE;
+        return resolveContainsCombeCount(*containsCombeReadback, nullptr);
     };
-    if (containsCombeCount) {
-        *containsCombeCount = 0;
+    if (containsCombeReadback) {
         auto readSts = ensureFMCountQueue();
         if (readSts != RGY_ERR_NONE) {
             return readSts;
@@ -5179,7 +5195,7 @@ RGY_ERR RGYFilterKfm::renderMaskBranch(RGYFrameInfo *pSwitchFlagFrame, RGYFrameI
         }
         queue.flush();
         m_fmCountQueue.flush();
-        countReadSubmitted = true;
+        containsCombeReadback->submitted = true;
     }
 
     RGYOpenCLEvent prevEvent = markEvent;
@@ -5200,7 +5216,7 @@ RGY_ERR RGYFilterKfm::renderMaskBranch(RGYFrameInfo *pSwitchFlagFrame, RGYFrameI
         if (logicalWidth <= 0 || logicalHeight <= 0 || logicalWidth != innerWidth * scaleX || logicalHeight != innerHeight * scaleY || shiftX < 0 || shiftY < 0) {
             AddMessage(RGY_LOG_ERROR, _T("unsupported KFM combe-mask-min scale (plane %d, dst %dx%d, flag inner %dx%d).\n"),
                 iplane, logicalWidth, logicalHeight, innerWidth, innerHeight);
-            auto readSts = waitContainsCombeCount();
+            auto readSts = cleanupContainsCombeReadback();
             if (readSts != RGY_ERR_NONE) {
                 return readSts;
             }
@@ -5217,7 +5233,7 @@ RGY_ERR RGYFilterKfm::renderMaskBranch(RGYFrameInfo *pSwitchFlagFrame, RGYFrameI
             innerWidth, innerHeight);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_combe_mask_resize_bilinear_min (plane %d): %s.\n"), iplane, get_err_mes(sts));
-            auto readSts = waitContainsCombeCount();
+            auto readSts = cleanupContainsCombeReadback();
             if (readSts != RGY_ERR_NONE) {
                 return readSts;
             }
@@ -5237,7 +5253,7 @@ RGY_ERR RGYFilterKfm::renderMaskBranch(RGYFrameInfo *pSwitchFlagFrame, RGYFrameI
     writeFrameInfoDump(combeMaskStage, pCombeMaskFrame);
     sts = dumpStageFrame(switchFlagStage, pSwitchFlagFrame, maskDumpFrameIndex, queue, { switchEvent });
     if (sts != RGY_ERR_NONE) {
-        auto readSts = waitContainsCombeCount();
+        auto readSts = cleanupContainsCombeReadback();
         if (readSts != RGY_ERR_NONE) {
             return readSts;
         }
@@ -5245,7 +5261,7 @@ RGY_ERR RGYFilterKfm::renderMaskBranch(RGYFrameInfo *pSwitchFlagFrame, RGYFrameI
     }
     sts = dumpStageFrame(containsCombeStage, pContainsCombeFrame, maskDumpFrameIndex, queue, { markEvent });
     if (sts != RGY_ERR_NONE) {
-        auto readSts = waitContainsCombeCount();
+        auto readSts = cleanupContainsCombeReadback();
         if (readSts != RGY_ERR_NONE) {
             return readSts;
         }
@@ -5253,14 +5269,10 @@ RGY_ERR RGYFilterKfm::renderMaskBranch(RGYFrameInfo *pSwitchFlagFrame, RGYFrameI
     }
     sts = dumpStageFrame(combeMaskStage, pCombeMaskFrame, maskDumpFrameIndex, queue, { prevEvent });
     if (sts != RGY_ERR_NONE) {
-        auto readSts = waitContainsCombeCount();
+        auto readSts = cleanupContainsCombeReadback();
         if (readSts != RGY_ERR_NONE) {
             return readSts;
         }
-        return sts;
-    }
-    sts = waitContainsCombeCount();
-    if (sts != RGY_ERR_NONE) {
         return sts;
     }
     if (event && prevEvent() != nullptr) {
@@ -5664,28 +5676,46 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                 }
                 RGYOpenCLEvent maskEvent;
                 cl_uint containsCombeCount = 0;
-                sts = renderMaskBranch(switchFlag, containsCombe, combeMask, superPrev24, super24, superNext24, "switch-flag-min", "contains-combe", "combe-mask-min", queue, maskWaitEvents, &maskEvent, switchSingleFrameDurationEnabled() ? &containsCombeCount : nullptr);
+                KfmContainsCombeReadback containsCombeReadback;
+                const bool needsContainsCombeCount = switchSingleFrameDurationEnabled();
+                sts = renderMaskBranch(switchFlag, containsCombe, combeMask, superPrev24, super24, superNext24, "switch-flag-min", "contains-combe", "combe-mask-min", queue, maskWaitEvents, &maskEvent, needsContainsCombeCount ? &containsCombeReadback : nullptr);
                 if (sts != RGY_ERR_NONE) {
                     return sts;
-                }
-                writeContainsCombeDump("24p", outputTiming, containsCombeCount, containsCombeCount > 0, switchResult);
-                if (containsCombeCount > 0) {
-                    markSwitchSingleFrameN60Range(outputTiming.start60, outputTiming.duration60);
-                    outputTiming.duration60 = 1;
-                    outputTiming.duration120 = 2;
-                    outputTiming.numSourceFrames = 1;
                 }
                 if (maskEvent() != nullptr) {
                     removeWaitEvents.push_back(maskEvent);
                 }
+                auto resolveContainsCombeDuration = [&]() -> RGY_ERR {
+                    auto readSts = resolveContainsCombeCount(containsCombeReadback, needsContainsCombeCount ? &containsCombeCount : nullptr);
+                    if (readSts != RGY_ERR_NONE) {
+                        return readSts;
+                    }
+                    writeContainsCombeDump("24p", outputTiming, containsCombeCount, containsCombeCount > 0, switchResult);
+                    if (containsCombeCount > 0) {
+                        markSwitchSingleFrameN60Range(outputTiming.start60, outputTiming.duration60);
+                        outputTiming.duration60 = 1;
+                        outputTiming.duration120 = 2;
+                        outputTiming.numSourceFrames = 1;
+                    }
+                    return RGY_ERR_NONE;
+                };
                 if (auto debugOut = kfmDebugStageFrame(prm->kfm.debugStage, switchFlag, containsCombe, combeMask)) {
                     copyFramePropWithoutRes(debugOut, deint24);
                     debugOut->picstruct = RGY_PICSTRUCT_FRAME;
                     debugOut->flags = RGY_FRAME_FLAG_NONE;
                     out = debugOut;
                     outputEvent = maskEvent;
+                    sts = resolveContainsCombeDuration();
+                    if (sts != RGY_ERR_NONE) {
+                        return sts;
+                    }
                 } else {
                     sts = removeCombe24(out, deint24, super24, outputTiming.frame24Index, queue, removeWaitEvents, &outputEvent);
+                    if (sts != RGY_ERR_NONE) {
+                        resolveContainsCombeCount(containsCombeReadback, nullptr);
+                        return sts;
+                    }
+                    sts = resolveContainsCombeDuration();
                     if (sts != RGY_ERR_NONE) {
                         return sts;
                     }
@@ -5962,7 +5992,13 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                     }
                     RGYOpenCLEvent maskEvent;
                     cl_uint containsCombeCount = 0;
-                    sts = renderMaskBranch(switchFlag, containsCombe, combeMask, superPrev30, &m_telecineSuperFrames[superIndex]->frame, superNext30, "switch-flag30-min", "contains-combe30", "combe-mask30-min", queue, maskWaitEvents, &maskEvent, (switchSingleFrameDurationEnabled() || patchCombe30Enabled) ? &containsCombeCount : nullptr);
+                    KfmContainsCombeReadback containsCombeReadback;
+                    const bool needsContainsCombeCount = switchSingleFrameDurationEnabled() || patchCombe30Enabled;
+                    sts = renderMaskBranch(switchFlag, containsCombe, combeMask, superPrev30, &m_telecineSuperFrames[superIndex]->frame, superNext30, "switch-flag30-min", "contains-combe30", "combe-mask30-min", queue, maskWaitEvents, &maskEvent, needsContainsCombeCount ? &containsCombeReadback : nullptr);
+                    if (sts != RGY_ERR_NONE) {
+                        return sts;
+                    }
+                    sts = resolveContainsCombeCount(containsCombeReadback, needsContainsCombeCount ? &containsCombeCount : nullptr);
                     if (sts != RGY_ERR_NONE) {
                         return sts;
                     }
