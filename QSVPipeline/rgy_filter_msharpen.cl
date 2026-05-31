@@ -69,21 +69,6 @@ __kernel void kernel_msharpen_blur(
     }
 }
 
-// Sigmoid soft-mask helper.
-// Returns a smooth weight in [0, 1] for the given max gradient. With
-// slope <= 0 the caller falls back to the binary gate; this helper is
-// only invoked when slope > 0.
-//
-// The math is the standard logistic: w = 1 / (1 + exp(-(g - thr) * slope)).
-// The exponent argument is clamped to +/- 32 because exp() loses precision
-// (and on some implementations diverges) well before that, and any pixel
-// past +/-32 maps to a saturated 0 or 1 anyway.
-inline float msharpen_sigmoid_weight(float g, float threshold, float slope) {
-    float arg = (g - threshold) * slope;
-    arg = clamp(arg, -32.0f, 32.0f);
-    return 1.0f / (1.0f + exp(-arg));
-}
-
 // Kernel 2: Edge-Selective Sharpening
 __kernel void kernel_msharpen_sharpen(
     __global uchar *restrict pDst, const int dstPitch,
@@ -91,7 +76,6 @@ __kernel void kernel_msharpen_sharpen(
     const __global uchar *pSrc, const int srcPitch,
     const __global uchar *pBlur, const int blurPitch,
     const float strength, const float threshold,
-    const float slope, const float luma_limit_norm,
     const int highq, const int mask) {
     const int ix = get_global_id(0);
     const int iy = get_global_id(1);
@@ -103,42 +87,25 @@ __kernel void kernel_msharpen_sharpen(
         float b_br = read_pixel_f(pBlur, blurPitch, ix + 1, iy + 1, dstWidth, dstHeight);
         float b_bl = read_pixel_f(pBlur, blurPitch, ix - 1, iy + 1, dstWidth, dstHeight);
 
-        // Diagonal gradient magnitudes.
-        float g_br = fabs(b_cc - b_br);
-        float g_bl = fabs(b_cc - b_bl);
-        float g_max = fmax(g_br, g_bl);
+        // Diagonal edge detection
+        int edge = (fabs(b_cc - b_br) >= threshold) || (fabs(b_cc - b_bl) >= threshold);
 
-        // Binary gate (for back-compat and mask= mode).
-        int edge = (g_br >= threshold) || (g_bl >= threshold);
-
-        // High quality: add vertical and horizontal samples.
+        // High quality: add vertical and horizontal
         if (highq) {
             float b_bc = read_pixel_f(pBlur, blurPitch, ix,     iy + 1, dstWidth, dstHeight);
             float b_cr = read_pixel_f(pBlur, blurPitch, ix + 1, iy,     dstWidth, dstHeight);
-            float g_bc = fabs(b_cc - b_bc);
-            float g_cr = fabs(b_cc - b_cr);
-            edge = edge || (g_bc >= threshold) || (g_cr >= threshold);
-            g_max = fmax(g_max, fmax(g_bc, g_cr));
+            edge = edge || (fabs(b_cc - b_bc) >= threshold) || (fabs(b_cc - b_cr) >= threshold);
         }
-
-        // Soft-mask weight via sigmoid when slope > 0; otherwise the
-        // binary edge flag is used (back-compat path).
-        const float soft_w = (slope > 0.0f) ? msharpen_sigmoid_weight(g_max, threshold, slope) : (edge ? 1.0f : 0.0f);
-
-        // Luma-adaptive attenuation. luma_limit_norm <= 0 disables the
-        // feature; positive values scale by min(src / luma_limit_norm, 1)
-        // so dark regions get less sharpening (where noise is most visible).
-        const float luma_w = (luma_limit_norm > 0.0f) ? fmin(src / luma_limit_norm, 1.0f) : 1.0f;
 
         float result;
         if (mask) {
-            // In mask mode we visualise the gating weight directly.
-            result = soft_w;
+            result = edge ? 1.0f : 0.0f;
+        } else if (edge) {
+            float sharpened = 4.0f * src - 3.0f * b_cc;
+            sharpened = clamp(sharpened, 0.0f, 1.0f);
+            result = strength * sharpened + (1.0f - strength) * src;
         } else {
-            const float sharpened = clamp(4.0f * src - 3.0f * b_cc, 0.0f, 1.0f);
-            // Effective mix weight: per-pixel mask * global strength * luma_weight.
-            const float w = soft_w * strength * luma_w;
-            result = w * sharpened + (1.0f - w) * src;
+            result = src;
         }
 
         __global Type *ptr = (__global Type *)(pDst + iy * dstPitch + ix * sizeof(Type));
