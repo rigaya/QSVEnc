@@ -51,60 +51,81 @@ int read_pixel_i(const __global uchar *pSrc, int srcPitch, int x, int y, int wid
     return (int)(*(const __global Type *)(pSrc + y * srcPitch + x * sizeof(Type)));
 }
 
-// Kernel 1: 3x3 Box Blur
-__kernel void kernel_msmooth_blur(
+// Fused 3x3 box blur + edge-mask threshold.
+//
+// Replaces the prior two-kernel chain (kernel_msmooth_blur ->
+// kernel_msmooth_edge_mask) and eliminates the intermediate blur frame
+// buffer. The edge-mask step needs blur values at five offsets around
+// the centre: (0,0), (+1,+1), (-1,+1), and (highq) (0,+1), (+1,0).
+// Each of those blurs is the average of a 3x3 source neighbourhood, so
+// the union of source samples required is a 5-wide (ix-2..ix+2) by
+// 4-tall (iy-1..iy+2) window -- the same shape as the fused msharpen
+// kernel. We load that window into registers once and form every
+// needed blur value from it.
+//
+// All arithmetic stays FP32; the mask write is binary (0 or PIXEL_MAX),
+// matching the unfused chain byte-for-byte.
+__kernel void kernel_msmooth_blur_mask(
     __global uchar *restrict pDst, const int dstPitch,
     const int dstWidth, const int dstHeight,
-    const __global uchar *pSrc, const int srcPitch) {
-    const int ix = get_global_id(0);
-    const int iy = get_global_id(1);
-
-    if (ix < dstWidth && iy < dstHeight) {
-        float sum = 0.0f;
-        sum += read_pixel_f(pSrc, srcPitch, ix - 1, iy - 1, dstWidth, dstHeight);
-        sum += read_pixel_f(pSrc, srcPitch, ix,     iy - 1, dstWidth, dstHeight);
-        sum += read_pixel_f(pSrc, srcPitch, ix + 1, iy - 1, dstWidth, dstHeight);
-        sum += read_pixel_f(pSrc, srcPitch, ix - 1, iy,     dstWidth, dstHeight);
-        sum += read_pixel_f(pSrc, srcPitch, ix,     iy,     dstWidth, dstHeight);
-        sum += read_pixel_f(pSrc, srcPitch, ix + 1, iy,     dstWidth, dstHeight);
-        sum += read_pixel_f(pSrc, srcPitch, ix - 1, iy + 1, dstWidth, dstHeight);
-        sum += read_pixel_f(pSrc, srcPitch, ix,     iy + 1, dstWidth, dstHeight);
-        sum += read_pixel_f(pSrc, srcPitch, ix + 1, iy + 1, dstWidth, dstHeight);
-
-        __global Type *ptr = (__global Type *)(pDst + iy * dstPitch + ix * sizeof(Type));
-        ptr[0] = (Type)(clamp(sum * (1.0f / 9.0f), 0.0f, 1.0f - RGY_FLT_EPS) * PIXEL_MAX);
-    }
-}
-
-// Kernel 2: Edge Mask
-__kernel void kernel_msmooth_edge_mask(
-    __global uchar *restrict pDst, const int dstPitch,
-    const int dstWidth, const int dstHeight,
-    const __global uchar *pBlur, const int blurPitch,
+    const __global uchar *pSrc, const int srcPitch,
     const float threshold, const int highq) {
     const int ix = get_global_id(0);
     const int iy = get_global_id(1);
+    if (ix >= dstWidth || iy >= dstHeight) return;
 
-    if (ix < dstWidth && iy < dstHeight) {
-        float b_cc = read_pixel_f(pBlur, blurPitch, ix,     iy,     dstWidth, dstHeight);
-        float b_br = read_pixel_f(pBlur, blurPitch, ix + 1, iy + 1, dstWidth, dstHeight);
-        float b_bl = read_pixel_f(pBlur, blurPitch, ix - 1, iy + 1, dstWidth, dstHeight);
-
-        int edge = (fabs(b_cc - b_br) >= threshold) || (fabs(b_cc - b_bl) >= threshold);
-
-        if (highq) {
-            float b_bc = read_pixel_f(pBlur, blurPitch, ix,     iy + 1, dstWidth, dstHeight);
-            float b_cr = read_pixel_f(pBlur, blurPitch, ix + 1, iy,     dstWidth, dstHeight);
-            edge = edge || (fabs(b_cc - b_bc) >= threshold) || (fabs(b_cc - b_cr) >= threshold);
-        }
-
-        if (ix == 0 || ix >= dstWidth - 1 || iy == 0 || iy >= dstHeight - 1) {
-            edge = 1;
-        }
-
+    // Forced-edge border (matches the original edge_mask boundary case
+    // at lines that previously emitted edge=1 when ix/iy hit the frame
+    // edge). Skip the blur work entirely in this case.
+    if (ix == 0 || ix >= dstWidth - 1 || iy == 0 || iy >= dstHeight - 1) {
         __global Type *ptr = (__global Type *)(pDst + iy * dstPitch + ix * sizeof(Type));
-        ptr[0] = edge ? (Type)PIXEL_MAX : (Type)0;
+        ptr[0] = (Type)PIXEL_MAX;
+        return;
     }
+
+    // 5x4 source neighbourhood: s[dx+2][dy+1] = pSrc(ix+dx, iy+dy).
+    float s[5][4];
+    for (int dy = -1; dy <= 2; ++dy) {
+        for (int dx = -2; dx <= 2; ++dx) {
+            s[dx + 2][dy + 1] = read_pixel_f(pSrc, srcPitch, ix + dx, iy + dy, dstWidth, dstHeight);
+        }
+    }
+
+    // 3x3 box-blur means at the centre and its 4 neighbours.
+    // b_cc centred at (ix, iy): cols {-1, 0, +1} x rows {-1, 0, +1}
+    const float b_cc = (
+          s[1][0] + s[2][0] + s[3][0]
+        + s[1][1] + s[2][1] + s[3][1]
+        + s[1][2] + s[2][2] + s[3][2]) * (1.0f / 9.0f);
+    // b_br centred at (ix+1, iy+1): cols { 0, +1, +2} x rows {0, +1, +2}
+    const float b_br = (
+          s[2][1] + s[3][1] + s[4][1]
+        + s[2][2] + s[3][2] + s[4][2]
+        + s[2][3] + s[3][3] + s[4][3]) * (1.0f / 9.0f);
+    // b_bl centred at (ix-1, iy+1): cols {-2, -1,  0} x rows {0, +1, +2}
+    const float b_bl = (
+          s[0][1] + s[1][1] + s[2][1]
+        + s[0][2] + s[1][2] + s[2][2]
+        + s[0][3] + s[1][3] + s[2][3]) * (1.0f / 9.0f);
+
+    int edge = (fabs(b_cc - b_br) >= threshold) || (fabs(b_cc - b_bl) >= threshold);
+
+    if (highq) {
+        // b_bc centred at (ix, iy+1): cols {-1, 0, +1} x rows {0, +1, +2}
+        const float b_bc = (
+              s[1][1] + s[2][1] + s[3][1]
+            + s[1][2] + s[2][2] + s[3][2]
+            + s[1][3] + s[2][3] + s[3][3]) * (1.0f / 9.0f);
+        // b_cr centred at (ix+1, iy): cols { 0, +1, +2} x rows {-1, 0, +1}
+        const float b_cr = (
+              s[2][0] + s[3][0] + s[4][0]
+            + s[2][1] + s[3][1] + s[4][1]
+            + s[2][2] + s[3][2] + s[4][2]) * (1.0f / 9.0f);
+        edge = edge || (fabs(b_cc - b_bc) >= threshold) || (fabs(b_cc - b_cr) >= threshold);
+    }
+
+    __global Type *ptr = (__global Type *)(pDst + iy * dstPitch + ix * sizeof(Type));
+    ptr[0] = edge ? (Type)PIXEL_MAX : (Type)0;
 }
 
 // Kernel 3: Masked Smoothing Pass (single iteration)

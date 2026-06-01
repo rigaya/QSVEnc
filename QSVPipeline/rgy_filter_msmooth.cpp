@@ -25,13 +25,17 @@
 // THE SOFTWARE.
 //
 // ------------------------------------------------------------------------------------------
+//
+// MSmooth algorithm: Donald A. Graft, 2003
+// Clean-room OpenCL reimplementation. Original concept: edge-masked
+// temporal smoothing via blur + threshold + neighbour average.
 
 #define _USE_MATH_DEFINES
 #include <cmath>
 #include <array>
 #include "rgy_filter_msmooth.h"
 
-RGYFilterMsmooth::RGYFilterMsmooth(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_bInterlacedWarn(false), m_msmooth(), m_blur(), m_mask(), m_tmp() {
+RGYFilterMsmooth::RGYFilterMsmooth(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_bInterlacedWarn(false), m_msmooth(), m_mask(), m_tmp() {
     m_name = _T("msmooth");
 }
 
@@ -60,6 +64,13 @@ RGY_ERR RGYFilterMsmooth::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
         prm->msmooth.threshold = clamp(prm->msmooth.threshold, 0.0f, 255.0f);
         AddMessage(RGY_LOG_WARN, _T("threshold should be in range of %.1f - %.1f.\n"), 0.0f, 255.0f);
     }
+    // threshold_c uses -1.0f as the "follow threshold" sentinel; any other
+    // negative value is invalid. 0..255 is the user-facing range.
+    if (prm->msmooth.threshold_c != -1.0f
+        && (prm->msmooth.threshold_c < 0.0f || 255.0f < prm->msmooth.threshold_c)) {
+        prm->msmooth.threshold_c = clamp(prm->msmooth.threshold_c, 0.0f, 255.0f);
+        AddMessage(RGY_LOG_WARN, _T("threshold_c should be in range of %.1f - %.1f.\n"), 0.0f, 255.0f);
+    }
 
     auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamMsmooth>(m_param);
     if (!m_msmooth.get()
@@ -80,10 +91,11 @@ RGY_ERR RGYFilterMsmooth::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
         prm->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
 
-    // 中間バッファの確保 (warpsharp のパターンに従う)
-    if (!m_blur || cmpFrameInfoCspResolution(&m_blur->frame, &prm->frameOut)) {
-        m_blur = m_cl->createFrameBuffer(prm->frameOut, CL_MEM_READ_WRITE);
-    }
+    // 中間バッファの確保: m_blur is gone now that blur+edge_mask are
+    // fused into kernel_msmooth_blur_mask -- the fused kernel reads
+    // the source plane and writes the mask directly, so the blur frame
+    // buffer is no longer needed. Only the mask + ping-pong scratches
+    // remain.
     if (!m_mask || cmpFrameInfoCspResolution(&m_mask->frame, &prm->frameOut)) {
         m_mask = m_cl->createFrameBuffer(prm->frameOut, CL_MEM_READ_WRITE);
     }
@@ -99,43 +111,22 @@ RGY_ERR RGYFilterMsmooth::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
     return sts;
 }
 
-RGY_ERR RGYFilterMsmooth::procPlaneBlur(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterMsmooth::procPlaneBlurMask(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, float thresholdHbd, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     auto prm = std::dynamic_pointer_cast<RGYFilterParamMsmooth>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    const char *kernel_name = "kernel_msmooth_blur";
+    const char *kernel_name = "kernel_msmooth_blur_mask";
     RGYWorkSize local(32, 8);
     RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
     auto err = m_msmooth.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
         (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0], pOutputPlane->width, pOutputPlane->height,
-        (cl_mem)pInputPlane->ptr[0], pInputPlane->pitch[0]);
+        (cl_mem)pInputPlane->ptr[0], pInputPlane->pitch[0],
+        thresholdHbd, prm->msmooth.highq ? 1 : 0);
     if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("error at %s (procPlaneBlur(%s)): %s.\n"),
+        AddMessage(RGY_LOG_ERROR, _T("error at %s (procPlaneBlurMask(%s)): %s.\n"),
             char_to_tstring(kernel_name).c_str(), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
-        return err;
-    }
-    return RGY_ERR_NONE;
-}
-
-RGY_ERR RGYFilterMsmooth::procPlaneEdgeMask(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pBlurPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
-    auto prm = std::dynamic_pointer_cast<RGYFilterParamMsmooth>(m_param);
-    if (!prm) {
-        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
-        return RGY_ERR_INVALID_PARAM;
-    }
-    const float threshold = prm->msmooth.threshold / (float)((1 << RGY_CSP_BIT_DEPTH[pBlurPlane->csp]) - 1);
-    const char *kernel_name = "kernel_msmooth_edge_mask";
-    RGYWorkSize local(32, 8);
-    RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
-    auto err = m_msmooth.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
-        (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0], pOutputPlane->width, pOutputPlane->height,
-        (cl_mem)pBlurPlane->ptr[0], pBlurPlane->pitch[0],
-        threshold, prm->msmooth.highq ? 1 : 0);
-    if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("error at %s (procPlaneEdgeMask(%s)): %s.\n"),
-            char_to_tstring(kernel_name).c_str(), RGY_CSP_NAMES[pBlurPlane->csp], get_err_mes(err));
         return err;
     }
     return RGY_ERR_NONE;
@@ -158,29 +149,26 @@ RGY_ERR RGYFilterMsmooth::procPlaneSmooth(RGYFrameInfo *pOutputPlane, const RGYF
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYFilterMsmooth::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterMsmooth::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, float threshold, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     auto prm = std::dynamic_pointer_cast<RGYFilterParamMsmooth>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    auto blurPlane = getPlane(&m_blur->frame, RGY_PLANE_Y);
     auto maskPlane = getPlane(&m_mask->frame, RGY_PLANE_Y);
     auto tmpPlane0 = getPlane(&m_tmp[0]->frame, RGY_PLANE_Y);
     auto tmpPlane1 = getPlane(&m_tmp[1]->frame, RGY_PLANE_Y);
 
-    // Step 1: Blur
-    auto err = procPlaneBlur(&blurPlane, pInputPlane, queue, wait_events, nullptr);
-    if (err != RGY_ERR_NONE) return err;
+    // Scale the 8-bit user-facing threshold to the working bit depth.
+    const float thresholdHbd = threshold / (float)((1 << RGY_CSP_BIT_DEPTH[pInputPlane->csp]) - 1);
 
-    // mask mode: edge mask をそのまま出力
+    // mask mode: fused blur + edge_mask writes the mask directly to output.
     if (prm->msmooth.mask) {
-        err = procPlaneEdgeMask(pOutputPlane, &blurPlane, queue, {}, event);
-        return err;
+        return procPlaneBlurMask(pOutputPlane, pInputPlane, thresholdHbd, queue, wait_events, event);
     }
 
-    // Step 2: Edge Mask
-    err = procPlaneEdgeMask(&maskPlane, &blurPlane, queue, {}, nullptr);
+    // Fused blur + edge_mask into the mask plane.
+    auto err = procPlaneBlurMask(&maskPlane, pInputPlane, thresholdHbd, queue, wait_events, nullptr);
     if (err != RGY_ERR_NONE) return err;
 
     // Step 3: Iterative Smoothing
@@ -212,12 +200,21 @@ RGY_ERR RGYFilterMsmooth::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameIn
 }
 
 RGY_ERR RGYFilterMsmooth::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+    auto prm = std::dynamic_pointer_cast<RGYFilterParamMsmooth>(m_param);
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    // Resolve the chroma threshold: -1.0f sentinel means "follow luma".
+    const float thresholdY = prm->msmooth.threshold;
+    const float thresholdC = (prm->msmooth.threshold_c < 0.0f) ? thresholdY : prm->msmooth.threshold_c;
     for (int i = 0; i < RGY_CSP_PLANES[pOutputFrame->csp]; i++) {
         auto planeDst = getPlane(pOutputFrame, (RGY_PLANE)i);
         auto planeSrc = getPlane(pInputFrame, (RGY_PLANE)i);
         const std::vector<RGYOpenCLEvent> &plane_wait_event = (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>();
         RGYOpenCLEvent *plane_event = (i == RGY_CSP_PLANES[pOutputFrame->csp] - 1) ? event : nullptr;
-        auto err = procPlane(&planeDst, &planeSrc, queue, plane_wait_event, plane_event);
+        const float planeThreshold = (i == 0) ? thresholdY : thresholdC;
+        auto err = procPlane(&planeDst, &planeSrc, planeThreshold, queue, plane_wait_event, plane_event);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to msmooth frame(%d): %s\n"), i, get_err_mes(err));
             return err;
@@ -263,7 +260,6 @@ RGY_ERR RGYFilterMsmooth::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
 }
 
 void RGYFilterMsmooth::close() {
-    m_blur.reset();
     m_mask.reset();
     m_tmp[0].reset();
     m_tmp[1].reset();
