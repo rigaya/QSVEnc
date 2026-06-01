@@ -753,6 +753,7 @@ enum RGY_VPP_RESIZE_ALGO {
     RGY_VPP_RESIZE_LANCZOS3,
     RGY_VPP_RESIZE_LANCZOS4,
     RGY_VPP_RESIZE_GAUSS,
+    RGY_VPP_RESIZE_FSR1,
     RGY_VPP_RESIZE_OPENCL_CUDA_MAX,
 #if ENCODER_QSV
     RGY_VPP_RESIZE_MFX_NEAREST_NEIGHBOR,
@@ -924,6 +925,7 @@ const CX_DESC list_vpp_resize[] = {
     { _T("lanczos3"), RGY_VPP_RESIZE_LANCZOS3 },
     { _T("lanczos4"), RGY_VPP_RESIZE_LANCZOS4 },
     { _T("gauss"),    RGY_VPP_RESIZE_GAUSS },
+    { _T("fsr1"),     RGY_VPP_RESIZE_FSR1 },
 #if ENCODER_QSV
   #if !FOR_AUO
     { _T("bilinear"), RGY_VPP_RESIZE_MFX_BILINEAR },
@@ -1011,6 +1013,7 @@ const CX_DESC list_vpp_resize_help[] = {
     { _T("lanczos3"), RGY_VPP_RESIZE_LANCZOS3 },
     { _T("lanczos4"), RGY_VPP_RESIZE_LANCZOS4 },
     { _T("gauss"),    RGY_VPP_RESIZE_GAUSS },
+    { _T("fsr1"),     RGY_VPP_RESIZE_FSR1 },
 #if ENCODER_QSV
     { _T("bilinear"), RGY_VPP_RESIZE_MFX_BILINEAR },
     { _T("advanced"), RGY_VPP_RESIZE_MFX_ADVANCED },
@@ -1084,6 +1087,18 @@ const CX_DESC list_vpp_resize_help[] = {
 static const char *paramsResizeLibPlacebo[] = { "algo", "pl-radius", "pl-clamp", "pl-taper", "pl-blur", "pl-antiring"/*, "pl-cplace"*/ };
 static const char *paramsResizeNVEnc[] = { "superres-mode", "superres-strength", "vsr-quality" };
 static const char *paramsResizeQSVEnc[] = { "superres-mode", "superres-algo" };
+static const char *paramsResizeFsr1[] = { "sharpness" };
+
+static const float FILTER_DEFAULT_RESIZE_FSR1_SHARPNESS = 0.5f;
+
+struct VppResizeFsr1 {
+    float sharpness;
+
+    VppResizeFsr1();
+    bool operator==(const VppResizeFsr1 &x) const;
+    bool operator!=(const VppResizeFsr1 &x) const;
+    tstring print() const;
+};
 
 const CX_DESC list_vpp_resize_res_mode[] = {
     { _T("normal"),   (int)RGYResizeResMode::Normal },
@@ -3277,6 +3292,7 @@ struct RGYParamVpp {
     RGY_VPP_RESIZE_MODE resize_mode;
     VppDeintCsp deintCsp;
     VppLibplaceboResample resize_libplacebo;
+    VppResizeFsr1 resize_fsr1;
     VppColorspace colorspace;
     VppLibplaceboToneMapping libplacebo_tonemapping;
     VppDelogo delogo;

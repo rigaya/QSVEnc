@@ -509,8 +509,13 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             for (size_t ielem = 0; ielem < _countof(paramsResizeQSVEnc); ielem++) {
                 paramListResizeQSVEnc.push_back(paramsResizeQSVEnc[ielem]);
             }
+            std::vector<std::string> paramListResizeFsr1;
+            for (size_t ielem = 0; ielem < _countof(paramsResizeFsr1); ielem++) {
+                paramListResizeFsr1.push_back(paramsResizeFsr1[ielem]);
+            }
             std::vector<std::string> paramList = paramListResizeNVEnc;
             vector_cat(paramList, paramListResizeQSVEnc);
+            vector_cat(paramList, paramListResizeFsr1);
             for (size_t ielem = 0; ielem < _countof(paramsResizeLibPlacebo); ielem++) {
                 paramList.push_back(paramsResizeLibPlacebo[ielem]);
             }
@@ -580,6 +585,19 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                             vpp->resize_libplacebo.cplace = std::stoi(param_val);
                         } catch (...) {
                             print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                            return 1;
+                        }
+                        continue;
+                    }
+                    if (param_arg == _T("sharpness")) {
+                        try {
+                            vpp->resize_fsr1.sharpness = std::stof(param_val);
+                        } catch (...) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                            return 1;
+                        }
+                        if (vpp->resize_fsr1.sharpness < 0.0f || vpp->resize_fsr1.sharpness > 1.0f) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("sharpness should be 0.0 - 1.0."));
                             return 1;
                         }
                         continue;
@@ -11528,6 +11546,10 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             }
         } else {
             OPT_LST(_T("--vpp-resize"), resize_algo, list_vpp_resize);
+            if (param->resize_algo == RGY_VPP_RESIZE_FSR1
+                && param->resize_fsr1.sharpness != defaultPrm->resize_fsr1.sharpness) {
+                cmd << _T(",sharpness=") << std::setprecision(3) << param->resize_fsr1.sharpness;
+            }
         }
     }
 #if ENCODER_QSV
@@ -14469,6 +14491,8 @@ tstring gen_cmd_help_vpp() {
         }
         str += _T("\n        default: auto\n");
         str += _T("        gauss uses OpenCL Gaussian filter (p=2.0).\n");
+        str += strsprintf(_T("      sharpness=<float>         RCAS sharpness for fsr1 (default=%.2f, 0.0 - 1.0)\n"),
+            FILTER_DEFAULT_RESIZE_FSR1_SHARPNESS);
 #if ENABLE_NVVFX
             str += strsprintf(_T("\n")
                 _T("      superres-mode=<int>\n")

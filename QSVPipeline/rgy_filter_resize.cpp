@@ -128,7 +128,7 @@ RGY_ERR RGYFilterResize::resizePlaneFsr(RGYFrameInfo *pOutputPlane, const RGYFra
     const float offsetY = 0.5f * ratioInvY - 0.5f;
     const float sharpness_user = clamp(pResizeParam->fsr1.sharpness, 0.0f, 1.0f);
     const float stops = (1.0f - sharpness_user) * 4.0f;
-    const float con0_sharp = std::exp2f(-stops);
+    const float con0_sharp = (float)std::exp2(-stops);
 
     {
         const char *kernel_name = "kernel_easu";

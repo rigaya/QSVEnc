@@ -75,9 +75,9 @@ protected:
     std::array<RGYResizeGaussPlane, RGY_MAX_PLANES> m_gauss2pass;
     std::unique_ptr<RGYFilterLibplaceboResample> m_libplaceboResample;
     std::unique_ptr<RGYCLFrame> m_easuOutput;
-    std::array<std::unique_ptr<RGYCLBuf>, 3> m_easuOutputF16;
-    std::array<int, 3> m_easuOutputF16Width;
-    std::array<int, 3> m_easuOutputF16Height;
+    std::array<std::unique_ptr<RGYCLBuf>, RGY_MAX_PLANES> m_easuOutputF16;
+    std::array<int, RGY_MAX_PLANES> m_easuOutputF16Width;
+    std::array<int, RGY_MAX_PLANES> m_easuOutputF16Height;
     bool m_fp16Easu;
     RGYOpenCLProgramAsync m_resize;
     RGYCLFramePool m_srcImagePool;
