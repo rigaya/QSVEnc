@@ -101,8 +101,8 @@ RGY_ERR RGYFilterDenoiseHqdn3d::init(shared_ptr<RGYFilterParam> pParam, shared_p
 
     // FP16 scratch: m_tmpH / m_tmpHV / m_framePrev[] move from FP32 to
     // FP16 storage when the device advertises cl_khr_fp16. The kernel
-    // arithmetic remains float (vload_half / vstore_half are OpenCL 1.2
-    // core builtins and convert at the storage boundary). Safe because
+    // arithmetic remains float (vload_half / vstore_half convert at the
+    // storage boundary). Safe because
     // the delta-LUT add already quantises to integer 8-bit pixel units,
     // so the FP16 ULP error (~6e-5 in [0, 1]) cannot accumulate as
     // temporal drift in m_framePrev. Halves the per-frame scratch

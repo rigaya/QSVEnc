@@ -42,8 +42,7 @@
 // half (FP16) is selected at JIT time via -D HQDN3D_SCRATCH_FP16=1 when
 // the device advertises cl_khr_fp16; otherwise the buffers stay FP32.
 // All kernel arithmetic remains in float regardless; only the buffer
-// reads / writes go through vload_half / vstore_half (OpenCL 1.2 core
-// builtins, no extension pragma required).
+// reads / writes go through vload_half / vstore_half.
 //
 // Safety: values stored here are all bounded to [0, 1] by write_pixel_f
 // and the LUT-add path, so FP16 storage ULP error (~6e-5) is well below
@@ -51,6 +50,7 @@
 // to. No temporal drift accumulates in m_framePrev (see hqdn3d_lowpass
 // derivation in rgy_filter_denoise_hqdn3d.cpp).
 #if defined(HQDN3D_SCRATCH_FP16) && HQDN3D_SCRATCH_FP16
+#pragma OPENCL EXTENSION cl_khr_fp16 : enable
 #define HQDN3D_SCRATCH_T half
 #define hqdn3d_load_scratch(p, i)     vload_half((i), (const __global half *)(p))
 #define hqdn3d_store_scratch(v, p, i) vstore_half((v), (i), (__global half *)(p))
