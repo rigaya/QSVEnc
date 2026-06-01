@@ -33,7 +33,7 @@
 #include "rgy_filter_denoise_nlmeans.h"
 
 static const int NLEANS_BLOCK_X = 32;
-#if ENCODER_VCEENC
+#if ENCODER_QSV || ENCODER_VCEENC
 static const int NLEANS_BLOCK_Y = 8;
 #else
 static const int NLEANS_BLOCK_Y = 16;
