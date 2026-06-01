@@ -92,6 +92,7 @@ RGY_DISABLE_WARNING_POP
 #include "rgy_filter_denoise_knn.h"
 #include "rgy_filter_denoise_nlmeans.h"
 #include "rgy_filter_denoise_pmd.h"
+#include "rgy_filter_denoise_hqdn3d.h"
 #include "rgy_filter_degrain.h"
 #include "rgy_filter_rtgmc_retouch.h"
 #include "rgy_filter_rtgmc_shimmer_repair.h"
@@ -2352,6 +2353,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vpp.knn.enable)        filterPipeline.push_back(VppType::CL_DENOISE_KNN);
     if (inputParam->vpp.nlmeans.enable)    filterPipeline.push_back(VppType::CL_DENOISE_NLMEANS);
     if (inputParam->vpp.pmd.enable)        filterPipeline.push_back(VppType::CL_DENOISE_PMD);
+    if (inputParam->vpp.hqdn3d.enable)     filterPipeline.push_back(VppType::CL_DENOISE_HQDN3D);
     if (degrainLegacy)  filterPipeline.push_back(VppType::CL_DEGRAIN);
     if (inputParam->vpp.rtgmc_edi.enable && degrainLegacy) filterPipeline.push_back(VppType::CL_RTGMC_EDI);
     if (degrainTR1) filterPipeline.push_back(VppType::CL_DEGRAIN_APPLY_TR1);
@@ -3110,6 +3112,26 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         unique_ptr<RGYFilter> filter(new RGYFilterDenoisePmd(m_cl));
         shared_ptr<RGYFilterParamDenoisePmd> param(new RGYFilterParamDenoisePmd());
         param->pmd = params->vpp.pmd;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        auto sts = filter->init(param, m_pQSVLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        //登録
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
+    }
+    //hqdn3d
+    if (vppType == VppType::CL_DENOISE_HQDN3D) {
+        unique_ptr<RGYFilter> filter(new RGYFilterDenoiseHqdn3d(m_cl));
+        shared_ptr<RGYFilterParamDenoiseHqdn3d> param(new RGYFilterParamDenoiseHqdn3d());
+        param->hqdn3d = params->vpp.hqdn3d;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;

@@ -79,6 +79,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_PAD          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_NLMEANS      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_PMD          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
+#define ENABLE_VPP_FILTER_HQDN3D       (ENCODER_QSV)
 #define ENABLE_VPP_FILTER_DENOISE_DCT  (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_SMOOTH       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_FFT3D        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
@@ -188,6 +189,7 @@ enum class VppType : int {
     CL_DENOISE_KNN,
     CL_DENOISE_NLMEANS,
     CL_DENOISE_PMD,
+    CL_DENOISE_HQDN3D,
     CL_DENOISE_DCT,
     CL_DENOISE_SMOOTH,
     CL_DENOISE_FFT3D,
@@ -449,6 +451,11 @@ static const float FILTER_DEFAULT_PMD_THRESHOLD = 100.0f;
 static const int   FILTER_DEFAULT_PMD_APPLY_COUNT = 2;
 static const bool  FILTER_DEFAULT_PMD_USE_EXP = true;
 
+static const float FILTER_DEFAULT_HQDN3D_LUMA_SPATIAL = 4.0f;
+static const float FILTER_DEFAULT_HQDN3D_CHROMA_SPATIAL = 3.0f;
+static const float FILTER_DEFAULT_HQDN3D_LUMA_TEMPORAL = 6.0f;
+static const float FILTER_DEFAULT_HQDN3D_CHROMA_TEMPORAL = 4.5f;
+
 static const int   FILTER_DEFAULT_SMOOTH_QUALITY = 3;
 static const int   FILTER_DEFAULT_SMOOTH_QP = 12;
 static const float FILTER_DEFAULT_SMOOTH_STRENGTH = 0.0f;
@@ -666,6 +673,7 @@ const CX_DESC list_vpp_denoise[] = {
     { _T("knn"),     1 },
     { _T("nlmeans"), 9 },
     { _T("pmd"),     2 },
+    { _T("denoise-hqdn3d"), 13 },
     { _T("denoise-dct"), 8 },
     { _T("smooth"),  3 },
     { _T("fft3d"), 10 },
@@ -2545,6 +2553,19 @@ struct VppPmd {
     tstring print() const;
 };
 
+struct VppHqdn3d {
+    bool enable;
+    float luma_spatial;
+    float chroma_spatial;
+    float luma_temporal;
+    float chroma_temporal;
+
+    VppHqdn3d();
+    bool operator==(const VppHqdn3d &x) const;
+    bool operator!=(const VppHqdn3d &x) const;
+    tstring print() const;
+};
+
 struct VppSmooth {
     bool enable;
     int quality;
@@ -3279,6 +3300,7 @@ struct RGYParamVpp {
     VppKnn knn;
     VppNLMeans nlmeans;
     VppPmd pmd;
+    VppHqdn3d hqdn3d;
     VppDenoiseDct dct;
     VppSmooth smooth;
     VppDenoiseFFT3D fft3d;
