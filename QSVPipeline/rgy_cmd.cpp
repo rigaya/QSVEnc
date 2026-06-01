@@ -15210,7 +15210,7 @@ tstring gen_cmd_help_vpp() {
 #if ENABLE_VPP_FILTER_CAS
     str += strsprintf(_T("\n")
         _T("   --vpp-cas [<param1>=<value>][,<param2>=<value>][...]\n")
-        _T("     Contrast Adaptive Sharpening filter.\n")
+        _T("     luma-only Contrast Adaptive Sharpening filter.\n")
         _T("    params\n")
         _T("      sharpness=<float>         sharpening strength (default=%.2f, 0.0 - 1.0)\n")
         _T("      hdr=<bool>                skip SDR gamma 2.0 luma approximation (default=%s)\n"),

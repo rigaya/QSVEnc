@@ -51,6 +51,14 @@ RGY_ERR RGYFilterCas::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog>
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+    const auto chromaFormat = RGY_CSP_CHROMA_FORMAT[prm->frameOut.csp];
+    const bool supportedCsp = chromaFormat == RGY_CHROMAFMT_MONOCHROME
+        || (RGY_CSP_PLANES[prm->frameOut.csp] > 1
+            && (chromaFormat == RGY_CHROMAFMT_YUV420 || chromaFormat == RGY_CHROMAFMT_YUV422 || chromaFormat == RGY_CHROMAFMT_YUV444));
+    if (!supportedCsp) {
+        AddMessage(RGY_LOG_ERROR, _T("unsupported csp for cas: %s.\n"), RGY_CSP_NAMES[prm->frameOut.csp]);
+        return RGY_ERR_UNSUPPORTED;
+    }
     if (prm->cas.sharpness < 0.0f || 1.0f < prm->cas.sharpness) {
         prm->cas.sharpness = clamp(prm->cas.sharpness, 0.0f, 1.0f);
         AddMessage(RGY_LOG_WARN, _T("sharpness should be in range of %.1f - %.1f.\n"), 0.0f, 1.0f);
@@ -111,15 +119,20 @@ RGY_ERR RGYFilterCas::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *
     const bool use_gamma2 = !prm->cas.hdr;
 
     const int nPlanes = RGY_CSP_PLANES[pOutputFrame->csp];
-    for (int i = 0; i < nPlanes; i++) {
+    auto planeDstY = getPlane(pOutputFrame, RGY_PLANE_Y);
+    auto planeSrcY = getPlane(pInputFrame, RGY_PLANE_Y);
+    auto err = procPlane(&planeDstY, &planeSrcY, peak, use_gamma2 ? 1 : 0, queue, wait_events, (nPlanes == 1) ? event : nullptr);
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
+    for (int i = 1; i < nPlanes; i++) {
         auto planeDst = getPlane(pOutputFrame, (RGY_PLANE)i);
         auto planeSrc = getPlane(pInputFrame, (RGY_PLANE)i);
-        const int apply_gamma2 = (i == 0 && use_gamma2) ? 1 : 0;
-
-        const std::vector<RGYOpenCLEvent> &plane_wait = (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>();
-        RGYOpenCLEvent *plane_event = (i == nPlanes - 1) ? event : nullptr;
-        auto err = procPlane(&planeDst, &planeSrc, peak, apply_gamma2, queue, plane_wait, plane_event);
-        if (err != RGY_ERR_NONE) return err;
+        err = m_cl->copyPlane(&planeDst, &planeSrc, nullptr, queue, std::vector<RGYOpenCLEvent>(), (i == nPlanes - 1) ? event : nullptr);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("cas chroma copy (plane %d) failed: %s.\n"), i, get_err_mes(err));
+            return err;
+        }
     }
     return RGY_ERR_NONE;
 }
