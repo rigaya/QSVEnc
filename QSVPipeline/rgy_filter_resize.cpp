@@ -28,6 +28,7 @@
 
 #define _USE_MATH_DEFINES
 #include <cmath>
+#include <cstdint>
 #include <map>
 #include <array>
 #include "convert_csp.h"
@@ -111,6 +112,53 @@ static bool useTextureBilinear(const RGYFilterParamResize *param) {
     return param->interp == RGY_VPP_RESIZE_BILINEAR
         && param->frameOut.width > param->frameIn.width
         && param->frameOut.height > param->frameIn.height;
+}
+
+RGY_ERR RGYFilterResize::resizePlaneFsr(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane,
+    cl_mem midMem, int midPitchBytes, int midWidth, int midHeight,
+    RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+    auto pResizeParam = std::dynamic_pointer_cast<RGYFilterParamResize>(m_param);
+    if (!pResizeParam) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    const float ratioInvX = (float)pInputPlane->width / (float)pOutputPlane->width;
+    const float ratioInvY = (float)pInputPlane->height / (float)pOutputPlane->height;
+    const float offsetX = 0.5f * ratioInvX - 0.5f;
+    const float offsetY = 0.5f * ratioInvY - 0.5f;
+    const float sharpness_user = clamp(pResizeParam->fsr1.sharpness, 0.0f, 1.0f);
+    const float stops = (1.0f - sharpness_user) * 4.0f;
+    const float con0_sharp = std::exp2f(-stops);
+
+    {
+        const char *kernel_name = "kernel_easu";
+        RGYWorkSize local(RESIZE_BLOCK_X, RESIZE_BLOCK_Y);
+        RGYWorkSize global(midWidth, midHeight);
+        auto err = m_resize.get()->kernel(kernel_name).config(queue, local, global, wait_events).launch(
+            midMem, midPitchBytes, midWidth, midHeight,
+            (cl_mem)pInputPlane->ptr[0], pInputPlane->pitch[0], pInputPlane->width, pInputPlane->height,
+            ratioInvX, ratioInvY, offsetX, offsetY);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at %s (resizePlaneFsr(%s)): %s.\n"),
+                char_to_tstring(kernel_name).c_str(), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
+            return err;
+        }
+    }
+    {
+        const char *kernel_name = "kernel_rcas";
+        RGYWorkSize local(RESIZE_BLOCK_X, RESIZE_BLOCK_Y);
+        RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
+        auto err = m_resize.get()->kernel(kernel_name).config(queue, local, global, {}, event).launch(
+            (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0], pOutputPlane->width, pOutputPlane->height,
+            midMem, midPitchBytes,
+            con0_sharp);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at %s (resizePlaneFsr(%s)): %s.\n"),
+                char_to_tstring(kernel_name).c_str(), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
+            return err;
+        }
+    }
+    return RGY_ERR_NONE;
 }
 
 RGY_ERR RGYFilterResize::resizePlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
@@ -222,12 +270,36 @@ RGY_ERR RGYFilterResize::resizeFrame(RGYFrameInfo *pOutputFrame, const RGYFrameI
         }
         pInputPtr = &srcImage->frame;
     }
+    const bool useFsrInt = (pResizeParam->interp == RGY_VPP_RESIZE_FSR1) && !m_fp16Easu && m_easuOutput;
+    const bool useFsrF16 = (pResizeParam->interp == RGY_VPP_RESIZE_FSR1) && m_fp16Easu && m_easuOutputF16[0];
+    const bool useFsr = useFsrInt || useFsrF16;
     for (int i = 0; i < RGY_CSP_PLANES[pOutputFrame->csp]; i++) {
         auto planeDst = getPlane(pOutputFrame, (RGY_PLANE)i);
         auto planeSrc = getPlane(pInputPtr,    (RGY_PLANE)i);
         const std::vector<RGYOpenCLEvent> &plane_wait_event = (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>();
         RGYOpenCLEvent *plane_event = (i == RGY_CSP_PLANES[pOutputFrame->csp] - 1) ? event : nullptr;
-        auto err = resizePlane(&planeDst, &planeSrc, i, queue, plane_wait_event, plane_event);
+        RGY_ERR err = RGY_ERR_NONE;
+        if (useFsr) {
+            cl_mem midMem;
+            int midPitchBytes;
+            int midWidth;
+            int midHeight;
+            if (useFsrF16) {
+                midMem = m_easuOutputF16[i]->mem();
+                midWidth = m_easuOutputF16Width[i];
+                midHeight = m_easuOutputF16Height[i];
+                midPitchBytes = midWidth * (int)sizeof(uint16_t);
+            } else {
+                auto planeMid = getPlane(&m_easuOutput->frame, (RGY_PLANE)i);
+                midMem = (cl_mem)planeMid.ptr[0];
+                midPitchBytes = planeMid.pitch[0];
+                midWidth = planeMid.width;
+                midHeight = planeMid.height;
+            }
+            err = resizePlaneFsr(&planeDst, &planeSrc, midMem, midPitchBytes, midWidth, midHeight, queue, plane_wait_event, plane_event);
+        } else {
+            err = resizePlane(&planeDst, &planeSrc, i, queue, plane_wait_event, plane_event);
+        }
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to resize frame(%d) %s: %s\n"), i, cl_errmes(err));
             return err_cl_to_rgy(err);
@@ -240,7 +312,7 @@ RGYFilterResize::RGYResizeGaussPlane::RGYResizeGaussPlane() :
     tmp() {
 }
 
-RGYFilterResize::RGYFilterResize(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_bInterlacedWarn(false), m_weightSpline(), m_gauss2pass(), m_libplaceboResample(), m_resize(), m_srcImagePool() {
+RGYFilterResize::RGYFilterResize(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_bInterlacedWarn(false), m_weightSpline(), m_gauss2pass(), m_libplaceboResample(), m_easuOutput(), m_easuOutputF16(), m_easuOutputF16Width{}, m_easuOutputF16Height{}, m_fp16Easu(false), m_resize(), m_srcImagePool() {
     m_name = _T("resize");
 }
 
@@ -308,6 +380,60 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
         for (int i = 0; i < 4; i++) {
             pResizeParam->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
         }
+        // Allocate / drop the EASU intermediate buffer based on algo.
+        // The buffer is output-sized (EASU writes the upscaled result, RCAS
+        // reads it at the same resolution). For HBD sources we prefer
+        // FP16 storage (eliminates the EASU's quantise-to-integer /
+        // RCAS dequantise round-trip; same per-pixel cost as the
+        // existing ushort path); for 8-bit sources we keep the uchar
+        // integer intermediate (FP16 would double storage and
+        // bandwidth without a precision win that matters at 8-bit).
+        const int bitDepthFsr = RGY_CSP_BIT_DEPTH[pResizeParam->frameOut.csp];
+        m_fp16Easu = false;
+        if (pResizeParam->interp == RGY_VPP_RESIZE_FSR1) {
+            if (bitDepthFsr > 8
+                && RGYOpenCLDevice(m_cl->queue().devid()).checkExtension("cl_khr_fp16")) {
+                m_fp16Easu = true;
+            }
+            if (m_fp16Easu) {
+                m_easuOutput.reset();
+                // Per-plane FP16 buffers; pitch is implicit (width *
+                // sizeof(cl_half) bytes, no padding). Plane dimensions
+                // follow the output csp's per-plane subsampling.
+                RGYFrameInfo outRefForPlane = pResizeParam->frameOut;
+                for (int i = 0; i < RGY_CSP_PLANES[pResizeParam->frameOut.csp]; i++) {
+                    const auto planeInfo = getPlane(&outRefForPlane, (RGY_PLANE)i);
+                    const int pw = planeInfo.width;
+                    const int ph = planeInfo.height;
+                    if (!m_easuOutputF16[i]
+                        || m_easuOutputF16Width[i]  != pw
+                        || m_easuOutputF16Height[i] != ph) {
+                        const size_t bytes = (size_t)pw * (size_t)ph * sizeof(uint16_t);
+                        m_easuOutputF16[i] = m_cl->createBuffer(bytes, CL_MEM_READ_WRITE);
+                        if (!m_easuOutputF16[i] || !m_easuOutputF16[i]->mem()) {
+                            AddMessage(RGY_LOG_ERROR, _T("failed to allocate FSR intermediate FP16 buffer (plane %d).\n"), i);
+                            return RGY_ERR_MEMORY_ALLOC;
+                        }
+                        m_easuOutputF16Width[i]  = pw;
+                        m_easuOutputF16Height[i] = ph;
+                    }
+                }
+                AddMessage(RGY_LOG_DEBUG, _T("FSR EASU intermediate: FP16 enabled (cl_khr_fp16, bit_depth=%d).\n"), bitDepthFsr);
+            } else {
+                for (auto &b : m_easuOutputF16) b.reset();
+                if (!m_easuOutput || cmpFrameInfoCspResolution(&m_easuOutput->frame, &pResizeParam->frameOut)) {
+                    m_easuOutput = m_cl->createFrameBuffer(pResizeParam->frameOut, CL_MEM_READ_WRITE);
+                    if (!m_easuOutput) {
+                        AddMessage(RGY_LOG_ERROR, _T("failed to allocate FSR intermediate buffer.\n"));
+                        return RGY_ERR_MEMORY_ALLOC;
+                    }
+                }
+                AddMessage(RGY_LOG_DEBUG, _T("FSR EASU intermediate: integer pixels (bit_depth=%d).\n"), bitDepthFsr);
+            }
+        } else {
+            m_easuOutput.reset();
+            for (auto &b : m_easuOutputF16) b.reset();
+        }
         auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamResize>(m_param);
         if (!m_resize.get()
             || !prmPrev
@@ -339,13 +465,13 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
             const auto options = strsprintf("-D Type=%s -D bit_depth=%d -D radius=%d -D algo=%d"
                 " -D block_x=%d -D block_y=%d -D shared_weightXdim=%d -D shared_weightYdim=%d"
                 " -D WEIGHT_BILINEAR=%d -D WEIGHT_BICUBIC=%d -D WEIGHT_SPLINE=%d -D WEIGHT_LANCZOS=%d -D WEIGHT_GAUSS=%d"
-                " -D gauss_p=%.9ff -D USE_LOCAL=%d",
+                " -D gauss_p=%.9ff -D USE_LOCAL=%d -D FSR1_FP16_SCRATCH=%d",
                 RGY_CSP_BIT_DEPTH[pResizeParam->frameOut.csp] > 8 ? "ushort" : "uchar",
                 RGY_CSP_BIT_DEPTH[pResizeParam->frameOut.csp],
                 radius, algo,
                 RESIZE_BLOCK_X, RESIZE_BLOCK_Y, shared_weightXdim, shared_weightYdim,
                 WEIGHT_BILINEAR, WEIGHT_BICUBIC, WEIGHT_SPLINE, WEIGHT_LANCZOS, WEIGHT_GAUSS,
-                pResizeParam->gaussP, use_local);
+                pResizeParam->gaussP, use_local, m_fp16Easu ? 1 : 0);
             m_resize.set(m_cl->buildResourceAsync(_T("RGY_FILTER_RESIZE_CL"), _T("EXE_DATA"), options.c_str()));
             if (algo != WEIGHT_SPLINE) {
                 m_weightSpline.reset();
@@ -411,6 +537,9 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
     if (m_libplaceboResample) {
         str += _T("\n                 ");
         str += pResizeParam->libplaceboResample->print();
+    }
+    if (pResizeParam->interp == RGY_VPP_RESIZE_FSR1) {
+        str += _T(", ") + pResizeParam->fsr1.print();
     }
     setFilterInfo(str);
 
@@ -488,6 +617,11 @@ void RGYFilterResize::close() {
     m_resize.clear();
     m_weightSpline.reset();
     clearGaussTmp();
+    m_easuOutput.reset();
+    for (auto &b : m_easuOutputF16) b.reset();
+    m_easuOutputF16Width.fill(0);
+    m_easuOutputF16Height.fill(0);
+    m_fp16Easu = false;
     m_cl.reset();
     m_bInterlacedWarn = false;
 }
