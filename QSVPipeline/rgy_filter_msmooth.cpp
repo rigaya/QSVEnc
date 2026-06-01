@@ -149,15 +149,15 @@ RGY_ERR RGYFilterMsmooth::procPlaneSmooth(RGYFrameInfo *pOutputPlane, const RGYF
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYFilterMsmooth::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, float threshold, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterMsmooth::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, RGY_PLANE plane, float threshold, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     auto prm = std::dynamic_pointer_cast<RGYFilterParamMsmooth>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    auto maskPlane = getPlane(&m_mask->frame, RGY_PLANE_Y);
-    auto tmpPlane0 = getPlane(&m_tmp[0]->frame, RGY_PLANE_Y);
-    auto tmpPlane1 = getPlane(&m_tmp[1]->frame, RGY_PLANE_Y);
+    auto maskPlane = getPlane(&m_mask->frame, plane);
+    auto tmpPlane0 = getPlane(&m_tmp[0]->frame, plane);
+    auto tmpPlane1 = getPlane(&m_tmp[1]->frame, plane);
 
     // Scale the 8-bit user-facing threshold to the working bit depth.
     const float thresholdHbd = threshold / (float)((1 << RGY_CSP_BIT_DEPTH[pInputPlane->csp]) - 1);
@@ -214,7 +214,7 @@ RGY_ERR RGYFilterMsmooth::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameIn
         const std::vector<RGYOpenCLEvent> &plane_wait_event = (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>();
         RGYOpenCLEvent *plane_event = (i == RGY_CSP_PLANES[pOutputFrame->csp] - 1) ? event : nullptr;
         const float planeThreshold = (i == 0) ? thresholdY : thresholdC;
-        auto err = procPlane(&planeDst, &planeSrc, planeThreshold, queue, plane_wait_event, plane_event);
+        auto err = procPlane(&planeDst, &planeSrc, (RGY_PLANE)i, planeThreshold, queue, plane_wait_event, plane_event);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to msmooth frame(%d): %s\n"), i, get_err_mes(err));
             return err;
