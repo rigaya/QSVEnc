@@ -557,6 +557,9 @@ int parse_one_vppmfx_option(const TCHAR *option_name, const TCHAR *strInput[], i
         for (size_t ielem = 0; ielem < _countof(paramsResizeQSVEnc); ielem++) {
             paramList.push_back(paramsResizeQSVEnc[ielem]);
         }
+        for (size_t ielem = 0; ielem < _countof(paramsResizeFsr1); ielem++) {
+            paramList.push_back(paramsResizeFsr1[ielem]);
+        }
 
         for (const auto& param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
@@ -600,6 +603,12 @@ int parse_one_vppmfx_option(const TCHAR *option_name, const TCHAR *strInput[], i
                 if (ENABLE_LIBPLACEBO && std::find_if(paramListResizeLibPlacebo.begin(), paramListResizeLibPlacebo.end(), [param_arg](const std::string& str) {
                     return param_arg == char_to_tstring(str);
                     }) != paramListResizeLibPlacebo.end()) {
+                    ret = -1; // rgy_cmd.cppで処理する
+                    continue;
+                }
+                if (std::find_if(paramsResizeFsr1, paramsResizeFsr1 + _countof(paramsResizeFsr1), [param_arg](const char *str) {
+                    return param_arg == char_to_tstring(str);
+                    }) != paramsResizeFsr1 + _countof(paramsResizeFsr1)) {
                     ret = -1; // rgy_cmd.cppで処理する
                     continue;
                 }
