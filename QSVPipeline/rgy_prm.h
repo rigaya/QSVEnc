@@ -66,6 +66,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_RTGMC_SHIMMER_REPAIR (ENCODER_QSV)
 #define ENABLE_VPP_FILTER_RTGMC_PRIMITIVE (ENCODER_QSV)
 #define ENABLE_VPP_FILTER_KFM          (ENCODER_QSV)
+#define ENABLE_VPP_FILTER_VINVERSE     (ENCODER_QSV)
 #define ENABLE_VPP_FILTER_YADIF        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_DECOMB       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_IVTC         (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
@@ -199,6 +200,7 @@ enum class VppType : int {
     CL_RTGMC_SHIMMER_REPAIR_REP1,
     CL_RTGMC_SHIMMER_REPAIR_REP2,
     CL_RTGMC_PRIMITIVE,
+    CL_VINVERSE,
     CL_MSMOOTH,
 
     CL_LIBPLACEBO_SHADER,
@@ -549,6 +551,11 @@ static const bool  FILTER_DEFAULT_LIBPLACEBO_SHADER_SIGMOID = false;
 static const int   FILTER_DEFAULT_UNSHARP_RADIUS = 3;
 static const float FILTER_DEFAULT_UNSHARP_WEIGHT = 0.5f;
 static const float FILTER_DEFAULT_UNSHARP_THRESHOLD = 10.0f;
+static const float FILTER_DEFAULT_VINVERSE_SSTR = 2.7f;
+static const float FILTER_DEFAULT_VINVERSE_AMNT = 255.0f;
+static const float FILTER_DEFAULT_VINVERSE_SCL = 0.25f;
+static const float FILTER_DEFAULT_VINVERSE_THR = 0.0f;
+static const bool  FILTER_DEFAULT_VINVERSE_CHROMA = true;
 static const float FILTER_DEFAULT_CHROMASHIFT_X = 0.0f;
 static const float FILTER_DEFAULT_CHROMASHIFT_Y = 0.0f;
 static const int   FILTER_DEFAULT_CHROMASHIFT_SHOW = 0;
@@ -2821,6 +2828,32 @@ struct VppUnsharp {
     tstring print() const;
 };
 
+enum class VppVinverseMode {
+    Vinverse = 0,
+    Vinverse2,
+};
+
+const CX_DESC list_vpp_vinverse_mode[] = {
+    { _T("vinverse"),  (int)VppVinverseMode::Vinverse  },
+    { _T("vinverse2"), (int)VppVinverseMode::Vinverse2 },
+    { NULL, 0 }
+};
+
+struct VppVinverse {
+    bool enable;
+    VppVinverseMode mode;
+    float sstr;
+    float amnt;
+    float scl;
+    float thr;
+    bool chroma;
+
+    VppVinverse();
+    bool operator==(const VppVinverse &x) const;
+    bool operator!=(const VppVinverse &x) const;
+    tstring print() const;
+};
+
 struct VppChromaShift {
     bool  enable;
     float x;
@@ -3262,6 +3295,7 @@ struct RGYParamVpp {
     std::vector<VppSubburn> subburn;
     std::vector<VppLibplaceboShader> libplacebo_shader;
     VppUnsharp unsharp;
+    VppVinverse vinverse;
     VppChromaShift chromashift;
     VppDeblock deblock;
     VppDeflicker deflicker;

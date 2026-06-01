@@ -597,6 +597,7 @@ qsvpipeline_sources = files(
   'QSVPipeline/rgy_filter_transform.cpp',
   'QSVPipeline/rgy_filter_tweak.cpp',
   'QSVPipeline/rgy_filter_unsharp.cpp',
+  'QSVPipeline/rgy_filter_vinverse.cpp',
   'QSVPipeline/rgy_filter_chromashift.cpp',
   'QSVPipeline/rgy_filter_deblock.cpp',
   'QSVPipeline/rgy_filter_dehalo.cpp',
