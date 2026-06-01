@@ -138,6 +138,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_EDGELEVEL,            _T("edgelevel")),
     std::make_pair(VppType::CL_MSHARPEN,             _T("msharpen")),
     std::make_pair(VppType::CL_WARPSHARP,            _T("warpsharp")),
+    std::make_pair(VppType::CL_CAS,                  _T("cas")),
     std::make_pair(VppType::CL_CURVES,               _T("curves")),
     std::make_pair(VppType::CL_TWEAK,                _T("tweak")),
     std::make_pair(VppType::CL_OVERLAY,              _T("overlay")),
@@ -2990,6 +2991,26 @@ tstring VppWarpsharp::print() const {
         threshold, blur, type, depth, chroma, depth_min_print, depth_max_print, edge_thr, gamma);
 }
 
+VppCas::VppCas() :
+    enable(false),
+    sharpness(FILTER_DEFAULT_CAS_SHARPNESS),
+    hdr(FILTER_DEFAULT_CAS_HDR) {
+}
+
+bool VppCas::operator==(const VppCas& x) const {
+    return enable == x.enable
+        && sharpness == x.sharpness
+        && hdr == x.hdr;
+}
+bool VppCas::operator!=(const VppCas& x) const {
+    return !(*this == x);
+}
+
+tstring VppCas::print() const {
+    return strsprintf(_T("cas: sharpness %.2f, hdr %s"),
+        sharpness, hdr ? _T("true") : _T("false"));
+}
+
 VppTweakChannel::VppTweakChannel() :
     offset(FILTER_DEFAULT_TWEAK_BRIGHTNESS),
     gain(FILTER_DEFAULT_TWEAK_CONTRAST),
@@ -3399,6 +3420,7 @@ RGYParamVpp::RGYParamVpp() :
     edgelevel(),
     msharpen(),
     warpsharp(),
+    cas(),
     maa(),
     curves(),
     tweak(),
@@ -3469,6 +3491,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && edgelevel == x.edgelevel
         && msharpen == x.msharpen
         && warpsharp == x.warpsharp
+        && cas == x.cas
         && maa == x.maa
         && curves == x.curves
         && tweak == x.tweak
