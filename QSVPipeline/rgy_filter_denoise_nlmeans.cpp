@@ -68,12 +68,27 @@ std::vector<std::pair<int, int>> nxnylist(const int search_radius) {
     return nxny;
 }
 
+// Full [-r,+r]x[-r,+r] iteration including (0,0). Used by the temporal
+// passes; the spatial half-symmetry trick does not apply across frames
+// because the patch in the reference frame is not an output pixel.
+static std::vector<std::pair<int, int>> nxnylist_full(const int search_radius) {
+    std::vector<std::pair<int, int>> nxny;
+    nxny.reserve((2 * search_radius + 1) * (2 * search_radius + 1));
+    for (int ny = -search_radius; ny <= search_radius; ny++) {
+        for (int nx = -search_radius; nx <= search_radius; nx++) {
+            nxny.push_back(std::make_pair(nx, ny));
+        }
+    }
+    return nxny;
+}
+
 // https://lcondat.github.io/publis/condat_resreport_NLmeansv3.pdf
 RGY_ERR RGYFilterDenoiseNLMeans::denoisePlane(
     RGYFrameInfo *pOutputPlane,
     RGYFrameInfo *pTmpUPlane, RGYFrameInfo *pTmpVPlane,
     RGYFrameInfo *pTmpIWPlane,
     const RGYFrameInfo *pInputPlane,
+    const std::vector<const RGYFrameInfo *> &refPlanes,
     RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     auto prm = std::dynamic_pointer_cast<RGYFilterParamDenoiseNLMeans>(m_param);
     if (!prm) {
@@ -168,6 +183,88 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoisePlane(
             }
         }
     }
+    // Temporal passes — for each reference frame in [-d, +d] except 0,
+    // accumulate additional contributions into IW0. The temporal kernel
+    // reads patches at offset positions from pRef and weights them into
+    // the current-frame output. Uses the full nxny list (no symmetry),
+    // but with the user-tunable searchSizeT radius (default 5) instead
+    // of the spatial searchSize, because inter-frame motion at +/- k
+    // frames is typically small enough that a tight temporal window
+    // covers the useful matches.
+    if (!refPlanes.empty()) {
+        auto prmRef = std::dynamic_pointer_cast<RGYFilterParamDenoiseNLMeans>(m_param);
+        const int search_radius_t = prmRef->nlmeans.searchSizeT / 2;
+        const std::vector<std::pair<int, int>> nxny_full = nxnylist_full(search_radius_t);
+        for (const RGYFrameInfo *pRefPlane : refPlanes) {
+            if (!pRefPlane || !pRefPlane->ptr[0]) continue;
+            for (size_t inxny = 0; inxny < nxny_full.size(); inxny += RGY_NLMEANS_DXDY_STEP) {
+                const int offset_count_t = std::min((int)(nxny_full.size() - inxny), RGY_NLMEANS_DXDY_STEP);
+                if (m_nlmeansTemporal.find(offset_count_t) == m_nlmeansTemporal.end()) {
+                    AddMessage(RGY_LOG_ERROR, _T("temporal program for offset_count=%d not found (denoisePlane(%s)).\n"),
+                        offset_count_t, RGY_CSP_NAMES[pInputPlane->csp]);
+                    return RGY_ERR_UNKNOWN;
+                }
+                cl_int nx0arr_t[RGY_NLMEANS_DXDY_STEP] = {0};
+                cl_int ny0arr_t[RGY_NLMEANS_DXDY_STEP] = {0};
+                for (int i = 0; i < offset_count_t; i++) {
+                    nx0arr_t[i] = nxny_full[inxny + i].first;
+                    ny0arr_t[i] = nxny_full[inxny + i].second;
+                }
+                cl_int8 nx0_t, ny0_t;
+                memcpy(&nx0_t, nx0arr_t, sizeof(nx0_t));
+                memcpy(&ny0_t, ny0arr_t, sizeof(ny0_t));
+                {
+                    const char *kernel_name = "kernel_calc_diff_square_temporal";
+                    RGYWorkSize local(NLEANS_BLOCK_X, NLEANS_BLOCK_Y);
+                    RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
+                    err = m_nlmeansTemporal[offset_count_t]->get()->kernel(kernel_name).config(queue, local, global, {}, nullptr).launch(
+                        (cl_mem)pTmpUPlane->ptr[0], pTmpUPlane->pitch[0],
+                        (cl_mem)pInputPlane->ptr[0], pInputPlane->pitch[0],
+                        (cl_mem)pRefPlane->ptr[0], pRefPlane->pitch[0],
+                        pOutputPlane->width, pOutputPlane->height,
+                        nx0_t, ny0_t);
+                    if (err != RGY_ERR_NONE) {
+                        AddMessage(RGY_LOG_ERROR, _T("error at %s (denoisePlane(%s)): %s.\n"),
+                            char_to_tstring(kernel_name).c_str(), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
+                        return err;
+                    }
+                }
+                {
+                    const char *kernel_name = "kernel_denoise_nlmeans_calc_v";
+                    RGYWorkSize local(NLEANS_BLOCK_X, NLEANS_BLOCK_Y);
+                    RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
+                    err = m_nlmeansTemporal[offset_count_t]->get()->kernel(kernel_name).config(queue, local, global, {}, nullptr).launch(
+                        (cl_mem)pTmpVPlane->ptr[0], pTmpVPlane->pitch[0],
+                        (cl_mem)pTmpUPlane->ptr[0], pTmpUPlane->pitch[0],
+                        pOutputPlane->width, pOutputPlane->height);
+                    if (err != RGY_ERR_NONE) {
+                        AddMessage(RGY_LOG_ERROR, _T("error at %s (denoisePlane(%s)): %s.\n"),
+                            char_to_tstring(kernel_name).c_str(), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
+                        return err;
+                    }
+                }
+                {
+                    const char *kernel_name = "kernel_denoise_nlmeans_calc_weight_temporal";
+                    RGYWorkSize local(NLEANS_BLOCK_X, NLEANS_BLOCK_Y);
+                    RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
+                    err = m_nlmeansTemporal[offset_count_t]->get()->kernel(kernel_name).config(queue, local, global, {}, nullptr).launch(
+                        (cl_mem)pTmpIWPlane[0].ptr[0],
+                        pTmpIWPlane[0].pitch[0],
+                        (cl_mem)pTmpVPlane->ptr[0], pTmpVPlane->pitch[0],
+                        (cl_mem)pRefPlane->ptr[0], pRefPlane->pitch[0],
+                        pOutputPlane->width, pOutputPlane->height,
+                        prmRef->nlmeans.sigma, 1.0f / (prmRef->nlmeans.h * prmRef->nlmeans.h),
+                        nx0_t, ny0_t);
+                    if (err != RGY_ERR_NONE) {
+                        AddMessage(RGY_LOG_ERROR, _T("error at %s (denoisePlane(%s)): %s.\n"),
+                            char_to_tstring(kernel_name).c_str(), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
+                        return err;
+                    }
+                }
+            }
+        }
+    }
+
     // 最後に規格化
     {
         const char *kernel_name = "kernel_denoise_nlmeans_normalize";
@@ -190,7 +287,9 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoisePlane(
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYFilterDenoiseNLMeans::denoiseFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterDenoiseNLMeans::denoiseFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
+    const std::vector<const RGYFrameInfo *> &refFrames,
+    RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     auto prm = std::dynamic_pointer_cast<RGYFilterParamDenoiseNLMeans>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -216,8 +315,18 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoiseFrame(RGYFrameInfo *pOutputFrame, const 
                 pTmpIWPlane[j] = RGYFrameInfo();
             }
         }
+        std::vector<RGYFrameInfo> refPlaneInfo;
+        std::vector<const RGYFrameInfo *> refPlanePtrs;
+        refPlaneInfo.reserve(refFrames.size());
+        refPlanePtrs.reserve(refFrames.size());
+        for (const RGYFrameInfo *pRef : refFrames) {
+            if (pRef && pRef->ptr[0]) {
+                refPlaneInfo.push_back(getPlane(pRef, RGY_PLANE_Y));
+                refPlanePtrs.push_back(&refPlaneInfo.back());
+            }
+        }
         auto err = denoisePlane(&planeDst, &planeTmpU, &planeTmpV, pTmpIWPlane.data(), &planeSrc,
-            queue, std::vector<RGYOpenCLEvent>{ copyEvent }, event);
+            refPlanePtrs, queue, std::vector<RGYOpenCLEvent>{ copyEvent }, event);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to denoise(nlmeans) luma plane: %s\n"), cl_errmes(err));
             return err_cl_to_rgy(err);
@@ -237,10 +346,22 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoiseFrame(RGYFrameInfo *pOutputFrame, const 
                 pTmpIWPlane[j] = RGYFrameInfo();
             }
         }
+        // Per-plane reference frame info. Storage backs the const pointers
+        // we hand to denoisePlane.
+        std::vector<RGYFrameInfo> refPlaneInfo;
+        std::vector<const RGYFrameInfo *> refPlanePtrs;
+        refPlaneInfo.reserve(refFrames.size());
+        refPlanePtrs.reserve(refFrames.size());
+        for (const RGYFrameInfo *pRef : refFrames) {
+            if (pRef && pRef->ptr[0]) {
+                refPlaneInfo.push_back(getPlane(pRef, (RGY_PLANE)i));
+                refPlanePtrs.push_back(&refPlaneInfo.back());
+            }
+        }
         const std::vector<RGYOpenCLEvent> &plane_wait_event = (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>();
         RGYOpenCLEvent *plane_event = (i == RGY_CSP_PLANES[pOutputFrame->csp] - 1) ? event : nullptr;
         auto err = denoisePlane(&planeDst, &planeTmpU, &planeTmpV, pTmpIWPlane.data(), &planeSrc,
-            queue, plane_wait_event, plane_event);
+            refPlanePtrs, queue, plane_wait_event, plane_event);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to denoise(nlmeans) frame(%d) %s: %s\n"), i, cl_errmes(err));
             return err_cl_to_rgy(err);
@@ -249,7 +370,73 @@ RGY_ERR RGYFilterDenoiseNLMeans::denoiseFrame(RGYFrameInfo *pOutputFrame, const 
     return RGY_ERR_NONE;
 }
 
-RGYFilterDenoiseNLMeans::RGYFilterDenoiseNLMeans(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_nlmeans(), m_tmpBuf() {
+// Emit the denoised output for cache slot idx_cur. Builds the temporal
+// reference frame list by gathering the d frames on each side of idx_cur
+// from the cache; missing slots (before stream start / after end) are
+// dropped from the list, which effectively shrinks the temporal window
+// near boundaries.
+RGY_ERR RGYFilterDenoiseNLMeans::emitFrame(int idx_cur, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+    RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+    auto prm = std::dynamic_pointer_cast<RGYFilterParamDenoiseNLMeans>(m_param);
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    const int d = prm->nlmeans.d;
+    const int cacheSize = (int)m_cacheFrames.size();
+    const RGYFrameInfo *pInputFrame = &m_cacheFrames[idx_cur]->frame;
+
+    // Build refFrames by mapping the centre frame's absolute index +/- k to
+    // cache slots, dropping any slot that doesn't currently hold a valid
+    // input.
+    std::vector<const RGYFrameInfo *> refFrames;
+    refFrames.reserve(2 * d);
+    // Centre's absolute input index: idx_cur was filled at input number
+    // (m_outputCount + 1) under the d-frame-latency rule; reconstruct it
+    // from cache occupancy by walking +/- k.
+    for (int k = 1; k <= d; k++) {
+        // Past reference at frame (centre - k). Cache holds 2d+1 most
+        // recent inputs; abs_past >= 0 guarantees the slot is still
+        // valid because the centre frame is at most d positions older
+        // than the newest input.
+        const int abs_past = m_outputCount - k;
+        if (abs_past >= 0) {
+            refFrames.push_back(&m_cacheFrames[abs_past % cacheSize]->frame);
+        }
+        // Future reference at frame (centre + k). Missing if we haven't
+        // ingested that frame yet (drain phase near EOS).
+        const int abs_future = m_outputCount + k;
+        if (abs_future < m_inputCount) {
+            refFrames.push_back(&m_cacheFrames[abs_future % cacheSize]->frame);
+        }
+    }
+
+    *pOutputFrameNum = 1;
+    if (ppOutputFrames[0] == nullptr) {
+        auto pOutFrame = m_frameBuf[0].get();
+        ppOutputFrames[0] = &pOutFrame->frame;
+    }
+    ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
+    ppOutputFrames[0]->timestamp = pInputFrame->timestamp;
+    ppOutputFrames[0]->duration = pInputFrame->duration;
+    ppOutputFrames[0]->inputFrameId = pInputFrame->inputFrameId;
+    ppOutputFrames[0]->flags = pInputFrame->flags;
+
+    auto sts = denoiseFrame(ppOutputFrames[0], pInputFrame, refFrames, queue, wait_events, event);
+    if (sts != RGY_ERR_NONE) return sts;
+    m_outputCount++;
+    return RGY_ERR_NONE;
+}
+
+RGYFilterDenoiseNLMeans::RGYFilterDenoiseNLMeans(shared_ptr<RGYOpenCLContext> context) :
+    RGYFilter(context),
+    m_nlmeans(),
+    m_nlmeansTemporal(),
+    m_tmpBuf(),
+    m_cacheFrames(),
+    m_inputCount(0),
+    m_outputCount(0),
+    m_drained(false) {
     m_name = _T("nlmeans");
 }
 
@@ -296,6 +483,39 @@ RGY_ERR RGYFilterDenoiseNLMeans::init(shared_ptr<RGYFilterParam> pParam, shared_
         AddMessage(RGY_LOG_ERROR, _T("h should be larger than 0.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+    if (prm->nlmeans.d < 0 || prm->nlmeans.d > FILTER_NLMEANS_D_MAX) {
+        prm->nlmeans.d = clamp(prm->nlmeans.d, 0, FILTER_NLMEANS_D_MAX);
+        AddMessage(RGY_LOG_WARN, _T("d should be in range of 0 - %d.\n"), FILTER_NLMEANS_D_MAX);
+    }
+    if (prm->nlmeans.searchSizeT % 2 == 0) {
+        prm->nlmeans.searchSizeT++; // 奇数にする
+    }
+    if (prm->nlmeans.searchSizeT < 3) {
+        AddMessage(RGY_LOG_ERROR, _T("search_t must be 3 or bigger.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    // Shared-memory optimisation accumulates spatial-pass weights into
+    // a per-workgroup tile that the normalize step never sees from the
+    // temporal pass. Force it off whenever d > 0 so both passes write
+    // into the same IW0..IW8 layout.
+    // SLM tile caching not implemented for temporal path — A770 L2
+    // covers the working set (per SLM measurements on this hardware).
+    // patch_t= investigated — no benefit on A770; temporal kernel is
+    // bandwidth-bound, not compute-bound.
+    if (prm->nlmeans.d > 0 && prm->nlmeans.sharedMem) {
+        AddMessage(RGY_LOG_DEBUG, _T("disabling sharedMem optimisation because d > 0.\n"));
+        prm->nlmeans.sharedMem = false;
+    }
+    // For d > 0 the centre frame being emitted is NOT the latest input
+    // (we run d frames behind). Disable the base class auto-propagation
+    // of timestamp / duration / inputFrameId / flags / picstruct from
+    // pInputFrame so it doesn't overwrite the values we set in
+    // emitFrame() from the cached centre frame. For d = 0 the latest
+    // input IS the output, so the default path-through stays on and
+    // the d = 0 code path remains byte-identical to prior builds.
+    if (prm->nlmeans.d > 0) {
+        m_pathThrough &= ~(FILTER_PATHTHROUGH_PICSTRUCT | FILTER_PATHTHROUGH_FLAGS | FILTER_PATHTHROUGH_TIMESTAMP);
+    }
     if (prm->nlmeans.fp16 != VppNLMeansFP16Opt::NoOpt) {
         if (!RGYOpenCLDevice(m_cl->queue().devid()).checkExtension("cl_khr_fp16")) {
             AddMessage((!m_param) ? RGY_LOG_INFO : RGY_LOG_DEBUG, _T("fp16 not supported on this device, using fp32 mode.\n"));
@@ -319,16 +539,20 @@ RGY_ERR RGYFilterDenoiseNLMeans::init(shared_ptr<RGYFilterParam> pParam, shared_
         || prmPrev->nlmeans.patchSize != prm->nlmeans.patchSize
         || prmPrev->nlmeans.searchSize != prm->nlmeans.searchSize
         || prmPrev->nlmeans.sharedMem != prm->nlmeans.sharedMem
-        || prmPrev->nlmeans.fp16 != prm->nlmeans.fp16) {
+        || prmPrev->nlmeans.fp16 != prm->nlmeans.fp16
+        || prmPrev->nlmeans.d != prm->nlmeans.d
+        || prmPrev->nlmeans.searchSizeT != prm->nlmeans.searchSizeT) {
+        const int search_radius_t = prm->nlmeans.searchSizeT / 2;
         std::vector<std::pair<int, int>> nxny = nxnylist(search_radius);
-        auto add_program = [&](const int offset_count) {
+        std::vector<std::pair<int, int>> nxny_full = nxnylist_full(search_radius_t);
+        auto add_program = [&](const int offset_count, bool temporal) {
             const int template_radius = prm->nlmeans.patchSize / 2;
             const int shared_radius = std::max(search_radius, template_radius);
             const auto options = strsprintf("-D Type=%s -D bit_depth=%d"
                 " -D TmpVType8=%s -D TmpVTypeFP16=%d"
                 " -D TmpWPType=%s -D TmpWPType2=%s -D TmpWPType8=%s -D TmpWPTypeFP16=%d"
                 " -D search_radius=%d -D template_radius=%d -D shared_radius=%d -D SHARED_OPT=%d"
-                " -D NLEANS_BLOCK_X=%d -D NLEANS_BLOCK_Y=%d -D offset_count=%d",
+                " -D NLEANS_BLOCK_X=%d -D NLEANS_BLOCK_Y=%d -D offset_count=%d%s",
                 RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
                 RGY_CSP_BIT_DEPTH[prm->frameOut.csp],
                 use_vtype_fp16 ? "half8" : "float8",
@@ -339,13 +563,20 @@ RGY_ERR RGYFilterDenoiseNLMeans::init(shared_ptr<RGYFilterParam> pParam, shared_
                 use_wptype_fp16 ? 1 : 0,
                 search_radius, template_radius, shared_radius,
                 prm->nlmeans.sharedMem ? 1 : 0,
-                NLEANS_BLOCK_X, NLEANS_BLOCK_Y, offset_count);
-            m_nlmeans[offset_count] = std::make_unique<RGYOpenCLProgramAsync>();
-            m_nlmeans[offset_count]->set(m_cl->buildResourceAsync(_T("RGY_FILTER_DENOISE_NLMEANS_CL"), _T("EXE_DATA"), options.c_str()));
+                NLEANS_BLOCK_X, NLEANS_BLOCK_Y, offset_count,
+                temporal ? " -D TEMPORAL=1" : "");
+            auto &target = temporal ? m_nlmeansTemporal : m_nlmeans;
+            target[offset_count] = std::make_unique<RGYOpenCLProgramAsync>();
+            target[offset_count]->set(m_cl->buildResourceAsync(_T("RGY_FILTER_DENOISE_NLMEANS_CL"), _T("EXE_DATA"), options.c_str()));
         };
         m_nlmeans.clear();
-        if (nxny.size() >= RGY_NLMEANS_DXDY_STEP) add_program(RGY_NLMEANS_DXDY_STEP);
-        if (nxny.size() % RGY_NLMEANS_DXDY_STEP) add_program(nxny.size() % RGY_NLMEANS_DXDY_STEP);
+        m_nlmeansTemporal.clear();
+        if (nxny.size() >= RGY_NLMEANS_DXDY_STEP) add_program(RGY_NLMEANS_DXDY_STEP, false);
+        if (nxny.size() % RGY_NLMEANS_DXDY_STEP) add_program(nxny.size() % RGY_NLMEANS_DXDY_STEP, false);
+        if (prm->nlmeans.d > 0) {
+            if (nxny_full.size() >= RGY_NLMEANS_DXDY_STEP) add_program(RGY_NLMEANS_DXDY_STEP, true);
+            if (nxny_full.size() % RGY_NLMEANS_DXDY_STEP) add_program(nxny_full.size() % RGY_NLMEANS_DXDY_STEP, true);
+        }
     }
 
     for (size_t i = 0; i < m_tmpBuf.size(); i++) {
@@ -396,6 +627,30 @@ RGY_ERR RGYFilterDenoiseNLMeans::init(shared_ptr<RGYFilterParam> pParam, shared_
         prm->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
 
+    // Frame cache for the temporal extension. Capacity = 2*d + 1.
+    // Allocated only when d > 0; the d = 0 path stays byte-identical
+    // to the existing spatial-only filter (no cache, no output delay).
+    // Slot validity is derived from m_inputCount / m_outputCount, not
+    // from any per-slot flag — emitFrame computes whether each k-th
+    // past/future neighbour is in range.
+    const int requiredCacheSize = (prm->nlmeans.d > 0) ? (2 * prm->nlmeans.d + 1) : 0;
+    if ((int)m_cacheFrames.size() != requiredCacheSize
+        || (requiredCacheSize > 0 && !m_cacheFrames.empty()
+            && cmpFrameInfoCspResolution(&m_cacheFrames[0]->frame, &prm->frameIn))) {
+        m_cacheFrames.clear();
+        for (int i = 0; i < requiredCacheSize; i++) {
+            auto clframe = m_cl->createFrameBuffer(prm->frameIn, CL_MEM_READ_WRITE);
+            if (!clframe) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to allocate cache frame %d.\n"), i);
+                return RGY_ERR_MEMORY_ALLOC;
+            }
+            m_cacheFrames.push_back(std::move(clframe));
+        }
+        m_inputCount = 0;
+        m_outputCount = 0;
+        m_drained = false;
+    }
+
     //コピーを保存
     setFilterInfo(prm->print());
     m_param = prm;
@@ -404,16 +659,8 @@ RGY_ERR RGYFilterDenoiseNLMeans::init(shared_ptr<RGYFilterParam> pParam, shared_
 
 RGY_ERR RGYFilterDenoiseNLMeans::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     RGY_ERR sts = RGY_ERR_NONE;
-    if (pInputFrame->ptr[0] == nullptr) {
-        return sts;
-    }
-
-    *pOutputFrameNum = 1;
-    if (ppOutputFrames[0] == nullptr) {
-        auto pOutFrame = m_frameBuf[0].get();
-        ppOutputFrames[0] = &pOutFrame->frame;
-    }
-    ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
+    *pOutputFrameNum = 0;
+    ppOutputFrames[0] = nullptr;
     //if (interlaced(*pInputFrame)) {
     //    return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
     //}
@@ -423,31 +670,100 @@ RGY_ERR RGYFilterDenoiseNLMeans::run_filter(const RGYFrameInfo *pInputFrame, RGY
             return RGY_ERR_OPENCL_CRUSH;
         }
     }
-    const auto memcpyKind = getMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
-    if (memcpyKind != RGYCLMemcpyD2D) {
-        AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
-        return RGY_ERR_UNSUPPORTED;
+    for (auto& program : m_nlmeansTemporal) {
+        if (!program.second.get()) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_DENOISE_NLMEANS_CL(m_nlmeansTemporal)\n"));
+            return RGY_ERR_OPENCL_CRUSH;
+        }
     }
     if (m_param->frameOut.csp != m_param->frameIn.csp) {
         AddMessage(RGY_LOG_ERROR, _T("csp does not match.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
 
-    sts = denoiseFrame(ppOutputFrames[0], pInputFrame, queue, wait_events, event);
-    if (sts != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("error at denoiseFrame (%s): %s.\n"),
-            RGY_CSP_NAMES[pInputFrame->csp], get_err_mes(sts));
+    auto prm = std::dynamic_pointer_cast<RGYFilterParamDenoiseNLMeans>(m_param);
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+
+    const bool hasInput = (pInputFrame && pInputFrame->ptr[0]);
+
+    // d == 0 path: byte-identical to the prior spatial-only filter.
+    // No caching, no output delay, no temporal kernel dispatch.
+    if (prm->nlmeans.d == 0) {
+        if (!hasInput) return RGY_ERR_NONE;
+        *pOutputFrameNum = 1;
+        if (ppOutputFrames[0] == nullptr) {
+            auto pOutFrame = m_frameBuf[0].get();
+            ppOutputFrames[0] = &pOutFrame->frame;
+        }
+        ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
+        const auto memcpyKind = getMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
+        if (memcpyKind != RGYCLMemcpyD2D) {
+            AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        sts = denoiseFrame(ppOutputFrames[0], pInputFrame, std::vector<const RGYFrameInfo *>(), queue, wait_events, event);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at denoiseFrame (%s): %s.\n"),
+                RGY_CSP_NAMES[pInputFrame->csp], get_err_mes(sts));
+        }
         return sts;
     }
 
-    return sts;
+    // d > 0 path: cache + delayed output following the bwdif pattern.
+    const int d = prm->nlmeans.d;
+    const int cacheSize = (int)m_cacheFrames.size();
+
+    if (hasInput) {
+        const auto memcpyKind = getMemcpyKind(pInputFrame->mem_type, m_cacheFrames[0]->frame.mem_type);
+        if (memcpyKind != RGYCLMemcpyD2D) {
+            AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        const int slot = m_inputCount % cacheSize;
+        RGYFrameInfo *pSlot = &m_cacheFrames[slot]->frame;
+        auto copyErr = m_cl->copyFrame(pSlot, pInputFrame, nullptr, queue, wait_events);
+        if (copyErr != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to copy input to cache slot %d: %s.\n"), slot, get_err_mes(copyErr));
+            return copyErr;
+        }
+        pSlot->timestamp    = pInputFrame->timestamp;
+        pSlot->duration     = pInputFrame->duration;
+        pSlot->inputFrameId = pInputFrame->inputFrameId;
+        pSlot->picstruct    = pInputFrame->picstruct;
+        pSlot->flags        = pInputFrame->flags;
+
+        m_inputCount++;
+        // Still filling the cache (need d future frames before the
+        // centre frame can be emitted).
+        if (m_inputCount <= d) {
+            return RGY_ERR_NONE;
+        }
+        const int idx_cur = m_outputCount % cacheSize;
+        return emitFrame(idx_cur, ppOutputFrames, pOutputFrameNum, queue, std::vector<RGYOpenCLEvent>(), event);
+    }
+
+    // No input + not yet drained: emit one remaining cached frame per call.
+    if (m_outputCount < m_inputCount) {
+        const int idx_cur = m_outputCount % cacheSize;
+        return emitFrame(idx_cur, ppOutputFrames, pOutputFrameNum, queue, wait_events, event);
+    }
+    m_drained = true;
+    return RGY_ERR_NONE;
 }
 
 void RGYFilterDenoiseNLMeans::close() {
     m_frameBuf.clear();
     m_nlmeans.clear();
+    m_nlmeansTemporal.clear();
     for (auto& f : m_tmpBuf) {
         f.reset();
     }
+    m_cacheFrames.clear();
+    m_inputCount = 0;
+    m_outputCount = 0;
+    m_drained = false;
     m_cl.reset();
 }

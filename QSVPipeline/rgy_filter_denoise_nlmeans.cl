@@ -318,6 +318,88 @@ __kernel void kernel_denoise_nlmeans_normalize(
     }
 }
 
+#if defined(TEMPORAL)
+// =========================================================================
+// Temporal NLMeans extension (built only when -D TEMPORAL=1 is set).
+//
+// For temporal pairs the patch at the offset position lives in a different
+// frame (the reference clip), not the current frame. Two consequences vs.
+// the spatial path:
+//   1. The diff(p_cur, q_ref) -> output(p_cur) contribution is one-way;
+//      there is no symmetry partner to also write to output(q) because q
+//      lives in a frame we don't emit. So no add_reverse_side_offset.
+//   2. The dxdy iteration must cover the FULL [-r,+r] square (including
+//      (0,0)), not the half-symmetric list used by the spatial kernels.
+//      The host generates the full nxny list for temporal passes.
+//
+// Algorithm: Buades, Coll, Morel 2005 + temporal extension.
+// =========================================================================
+
+__kernel void kernel_calc_diff_square_temporal(
+    __global uchar *restrict pDst, const int dstPitch,
+    const __global uchar *restrict pSrc, const int srcPitch,
+    const __global uchar *restrict pRef, const int refPitch,
+    const int width, const int height, int8 xoffset, int8 yoffset
+) {
+    const int ix = get_global_id(0);
+    const int iy = get_global_id(1);
+
+    if (ix < width && iy < height) {
+        const __global uchar *ptr0 = pSrc + iy * srcPitch + ix * sizeof(Type);
+        const Type val0 = *(const __global Type *)ptr0;
+
+        int8 val1;
+        val1.s0 =                       get_xyoffset_pix(pRef, refPitch, ix, iy, xoffset.s0, yoffset.s0, width, height);
+        val1.s1 = (offset_count >= 2) ? get_xyoffset_pix(pRef, refPitch, ix, iy, xoffset.s1, yoffset.s1, width, height) : 0;
+        val1.s2 = (offset_count >= 3) ? get_xyoffset_pix(pRef, refPitch, ix, iy, xoffset.s2, yoffset.s2, width, height) : 0;
+        val1.s3 = (offset_count >= 4) ? get_xyoffset_pix(pRef, refPitch, ix, iy, xoffset.s3, yoffset.s3, width, height) : 0;
+        val1.s4 = (offset_count >= 5) ? get_xyoffset_pix(pRef, refPitch, ix, iy, xoffset.s4, yoffset.s4, width, height) : 0;
+        val1.s5 = (offset_count >= 6) ? get_xyoffset_pix(pRef, refPitch, ix, iy, xoffset.s5, yoffset.s5, width, height) : 0;
+        val1.s6 = (offset_count >= 7) ? get_xyoffset_pix(pRef, refPitch, ix, iy, xoffset.s6, yoffset.s6, width, height) : 0;
+        val1.s7 = (offset_count >= 8) ? get_xyoffset_pix(pRef, refPitch, ix, iy, xoffset.s7, yoffset.s7, width, height) : 0;
+
+        __global TmpVType8 *ptrDst = (__global TmpVType8 *)(pDst + iy * dstPitch + ix * sizeof(TmpVType8));
+        const float8 fdiff = convert_float8(((int8)val0) - val1) * (float8)(1.0f / ((1<<bit_depth) - 1));
+        const TmpVType8 fdiff2vt8 = convert_TmpVType8(fdiff * fdiff);
+        ptrDst[0] = fdiff2vt8;
+    }
+}
+
+// Calc-weight for a temporal pass. Writes only into pImgW0 (the centre-pixel
+// accumulator) and reads the offset taps from pRef. No write-race avoidance
+// across multiple IW buffers needed: each work-item writes only to its own
+// output position.
+__kernel void kernel_denoise_nlmeans_calc_weight_temporal(
+    __global uchar *restrict pImgW0,
+    const int tmpPitch,
+    const __global uchar *restrict pV, const int vPitch,
+    const __global uchar *restrict pRef, const int refPitch,
+    const int width, const int height, const float sigma, const float inv_param_h_h,
+    const int8 xoffset, const int8 yoffset
+) {
+    const int ix = get_global_id(0);
+    const int iy = get_global_id(1);
+
+    if (ix < width && iy < height) {
+        const TmpVType8 v_vt8 = *(const __global TmpVType8 *)(pV + iy * vPitch + ix * sizeof(TmpVType8));
+        const TmpWPType8 v_tmpv8 = tmpv8_2_tmpwp8(v_vt8);
+        const TmpWPType8 weight = tmpvtype_exp(-max(v_tmpv8 - (TmpWPType8)(2.0f * sigma), (TmpWPType8)0.0f) * (TmpWPType8)inv_param_h_h);
+
+        // Reference-frame taps at the offset positions provide the values
+        // that get weighted into the current-frame output.
+        TmpWPType8 pix8 = getSrcPixXYOffset8(pRef, refPitch, width, height, ix, iy, xoffset, yoffset);
+        TmpWPType8 weight_pix8 = weight * pix8;
+        TmpWPType2 weight_pix_2 = {
+            weight_pix8.s0 + weight_pix8.s1 + weight_pix8.s2 + weight_pix8.s3 + weight_pix8.s4 + weight_pix8.s5 + weight_pix8.s6 + weight_pix8.s7,
+            weight.s0 + weight.s1 + weight.s2 + weight.s3 + weight.s4 + weight.s5 + weight.s6 + weight.s7
+        };
+
+        __global TmpWPType2 *ptrImgW0 = (__global TmpWPType2 *)(pImgW0 + iy * tmpPitch + ix * sizeof(TmpWPType2));
+        ptrImgW0[0] += weight_pix_2;
+    }
+}
+#endif // defined(TEMPORAL)
+
 __kernel void kernel_denoise_nlmeans(
     __global uchar *restrict pDst, const int dstPitch,
     const __global uchar *restrict pSrc, const int srcPitch,

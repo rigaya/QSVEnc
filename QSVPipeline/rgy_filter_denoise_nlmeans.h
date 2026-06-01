@@ -58,11 +58,28 @@ protected:
         RGYFrameInfo *pTmpUPlane, RGYFrameInfo *pTmpVPlane,
         RGYFrameInfo *pTmpIWPlane,
         const RGYFrameInfo *pInputPlane,
+        const std::vector<const RGYFrameInfo *> &refPlanes,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    virtual RGY_ERR denoiseFrame(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    virtual RGY_ERR denoiseFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
+        const std::vector<const RGYFrameInfo *> &refFrames,
+        RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    RGY_ERR emitFrame(int idx_cur, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+        RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
 
     std::unordered_map<int, std::unique_ptr<RGYOpenCLProgramAsync>> m_nlmeans;
+    // Temporal-extension program (built only when d > 0). Keyed by
+    // offset_count just like m_nlmeans. Holds kernel_calc_diff_square_temporal
+    // and kernel_denoise_nlmeans_calc_weight_temporal in addition to the
+    // spatial kernels; the latter are unused from this program.
+    std::unordered_map<int, std::unique_ptr<RGYOpenCLProgramAsync>> m_nlmeansTemporal;
     std::array<std::unique_ptr<RGYCLFrame>, 2 + 1 + RGY_NLMEANS_DXDY_STEP> m_tmpBuf;
+    // Frame cache for d > 0. Capacity = 2*d + 1 ; slot = m_inputCount %
+    // capacity. d frames of output latency; EOS drain emits the remaining
+    // cached frames with reduced/asymmetric temporal windows.
+    std::vector<std::unique_ptr<RGYCLFrame>> m_cacheFrames;
+    int  m_inputCount;
+    int  m_outputCount;
+    bool m_drained;
 };
 
 #endif //__RGY_FILTER_DENOISE_KNN_H__
