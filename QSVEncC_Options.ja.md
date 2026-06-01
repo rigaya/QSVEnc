@@ -2895,6 +2895,12 @@ Non local meansを用いたノイズ除去フィルタ。
   
   - search=&lt;int&gt;  (default=11, 3 - )  
     探索範囲。奇数で指定。 
+
+  - d=&lt;int&gt;  (default=0, 0 - 5)  
+    時間方向の参照半径。`0` では従来の空間方向のみのNLMeansを使用する。
+
+  - search_t=&lt;int&gt;  (default=11, 3 - )  
+    時間方向参照フレームでの探索範囲。奇数で指定。
   
   - fp16=&lt;string&gt;  (default=blockdiff)  
     - none  
@@ -2910,6 +2916,9 @@ Non local meansを用いたノイズ除去フィルタ。
   ```
   例: 探索範囲を広げてより高精度に
   --vpp-nlmeans patch=7,search=15
+
+  例: 時間方向のNLMeansを有効化
+  --vpp-nlmeans d=1,search_t=7
   ```
 
 ### --vpp-pmd [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]

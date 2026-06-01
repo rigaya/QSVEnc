@@ -2846,6 +2846,12 @@ Non local means noise reduction filter.
   
   - search=&lt;int&gt;  (default=11, 3 - )  
     Set search size. Must be odd number.
+
+  - d=&lt;int&gt;  (default=0, 0 - 5)  
+    Temporal radius. `0` uses spatial NLMeans only.
+
+  - search_t=&lt;int&gt;  (default=11, 3 - )  
+    Set temporal search size. Must be odd number.
   
   - fp16=&lt;string&gt;  (default=blockdiff)  
     - none  
@@ -2861,6 +2867,9 @@ Non local means noise reduction filter.
   ```
   Example: Use larger search area
   --vpp-nlmeans patch=7,search=15
+
+  Example: Enable temporal NLMeans
+  --vpp-nlmeans d=1,search_t=7
   ```
 
 ### --vpp-pmd [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
