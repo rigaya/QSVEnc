@@ -130,11 +130,12 @@ RGY_ERR RGYFilterResize::resizePlaneFsr(RGYFrameInfo *pOutputPlane, const RGYFra
     const float stops = (1.0f - sharpness_user) * 4.0f;
     const float con0_sharp = (float)std::exp2(-stops);
 
+    RGYOpenCLEvent eventEasu;
     {
         const char *kernel_name = "kernel_easu";
         RGYWorkSize local(RESIZE_BLOCK_X, RESIZE_BLOCK_Y);
         RGYWorkSize global(midWidth, midHeight);
-        auto err = m_resize.get()->kernel(kernel_name).config(queue, local, global, wait_events).launch(
+        auto err = m_resize.get()->kernel(kernel_name).config(queue, local, global, wait_events, &eventEasu).launch(
             midMem, midPitchBytes, midWidth, midHeight,
             (cl_mem)pInputPlane->ptr[0], pInputPlane->pitch[0], pInputPlane->width, pInputPlane->height,
             ratioInvX, ratioInvY, offsetX, offsetY);
@@ -148,7 +149,8 @@ RGY_ERR RGYFilterResize::resizePlaneFsr(RGYFrameInfo *pOutputPlane, const RGYFra
         const char *kernel_name = "kernel_rcas";
         RGYWorkSize local(RESIZE_BLOCK_X, RESIZE_BLOCK_Y);
         RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
-        auto err = m_resize.get()->kernel(kernel_name).config(queue, local, global, {}, event).launch(
+        const std::vector<RGYOpenCLEvent> waitRcas{ eventEasu };
+        auto err = m_resize.get()->kernel(kernel_name).config(queue, local, global, waitRcas, event).launch(
             (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0], pOutputPlane->width, pOutputPlane->height,
             midMem, midPitchBytes,
             con0_sharp);
