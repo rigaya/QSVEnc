@@ -15,6 +15,10 @@
 // shared_weightYdim
 // USE_LOCAL
 
+#if defined(FSR1_FP16_SCRATCH) && FSR1_FP16_SCRATCH
+#pragma OPENCL EXTENSION cl_khr_fp16 : enable
+#endif
+
 #ifndef MIN3
 #define MIN3(a,b,c) (min((a), min((b), (c))))
 #endif
