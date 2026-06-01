@@ -3169,6 +3169,12 @@ image stabilizerのモードの指定。
       | lanczos3      | 6x6 lanczos補間                            |
       | lanczos4      | 8x8 lanczos補間                            |
       | gauss         | ガウス補間 (p=2.0)                         |
+      | fsr1          | AMD FidelityFX Super Resolution 1.0 (EASU + RCAS) |
+
+      - fsr1 の追加パラメータ
+
+        - sharpness=&lt;float&gt;  
+          RCASのシャープネス。(0.0 - 1.0、デフォルト = 0.5)
 
     - [libplacebo](https://code.videolan.org/videolan/libplacebo)ライブラリのリサイズフィルタ
     
@@ -3238,6 +3244,9 @@ image stabilizerのモードの指定。
   
   例: mfx_ai_superresを使用する
   --vpp-resize algo=mfx_ai_superres,superres-mode=sharpen,superres-algo=2
+
+  例: fsr1を使用する
+  --vpp-resize algo=fsr1,sharpness=0.8
   ```
 
 ### --vpp-resize-mode &lt;string&gt;

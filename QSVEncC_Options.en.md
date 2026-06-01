@@ -3119,6 +3119,12 @@ Specify the resizing algorithm.
       | lanczos3       | 6x6 Lanczos resampling                                     |
       | lanczos4       | 8x8 Lanczos resampling                                     |
       | gauss          | Gaussian filter (p=2.0)                                    |
+      | fsr1           | AMD FidelityFX Super Resolution 1.0 (EASU + RCAS)          |
+
+      - Additional parameters for fsr1
+
+        - sharpness=&lt;float&gt;  
+          RCAS sharpness. (0.0 - 1.0, default = 0.5)
       
     - [libplacebo](https://code.videolan.org/videolan/libplacebo) library resize filters
 
@@ -3188,6 +3194,9 @@ Specify the resizing algorithm.
   
   Examples: Use mfx_ai_superres
   --vpp-resize algo=mfx_ai_superres,superres-mode=sharpen,superres-algo=2
+
+  Examples: Use fsr1
+  --vpp-resize algo=fsr1,sharpness=0.8
   ```
 
 ### --vpp-resize-mode &lt;string&gt;
