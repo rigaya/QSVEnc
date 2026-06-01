@@ -54,16 +54,22 @@
 // row 0 borrows from row 1 (not row 0); the last row borrows from
 // height-2; the 5-tap kernel uses ±2 with the same +/-2 mirroring.
 static inline int vmirror_p1(int y, int height) {
+    if (height <= 1) return 0;
     return (y == 0) ? 1 : (y - 1);
 }
 static inline int vmirror_n1(int y, int height) {
+    if (height <= 1) return 0;
     return (y == height - 1) ? (height - 2) : (y + 1);
 }
 static inline int vmirror_p2(int y, int height) {
-    return (y < 2) ? (y + 2) : (y - 2);
+    if (height <= 1) return 0;
+    const int yy = (y < 2) ? (y + 2) : (y - 2);
+    return (height < 4) ? clamp(yy, 0, height - 1) : yy;
 }
 static inline int vmirror_n2(int y, int height) {
-    return (y > height - 3) ? (y - 2) : (y + 2);
+    if (height <= 1) return 0;
+    const int yy = (y > height - 3) ? (y - 2) : (y + 2);
+    return (height < 4) ? clamp(yy, 0, height - 1) : yy;
 }
 
 static inline int read_pixel_i(const __global uchar *pSrc, int srcPitch, int x, int y) {
@@ -225,7 +231,7 @@ __kernel void kernel_vinverse_sbr_combine(
         const int t2  = diff - h_offset;
 
         int v;
-        if (t * t2 < 0) {
+        if ((t < 0 && t2 > 0) || (t > 0 && t2 < 0)) {
             v = s;
         } else if (abs(t) < abs(t2)) {
             v = s - t;
