@@ -12211,6 +12211,33 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-denoise-hqdn3d");
         }
     }
+    if (param->descale != defaultPrm->descale) {
+        tmp.str(tstring());
+        if (!param->descale.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->descale.enable || save_disabled_prm) {
+            ADD_LST(_T("kernel"), descale.kernel, list_vpp_descale_kernel);
+            ADD_NUM(_T("width"), descale.width);
+            ADD_NUM(_T("height"), descale.height);
+            ADD_FLOAT(_T("b"), descale.b, 3);
+            ADD_FLOAT(_T("c"), descale.c, 3);
+            ADD_FLOAT(_T("src_left"), descale.src_left, 3);
+            ADD_FLOAT(_T("src_top"), descale.src_top, 3);
+            ADD_LST(_T("border_handling"), descale.border, list_vpp_descale_border);
+            ADD_BOOL(_T("auto"), descale.autoDetect);
+            ADD_NUM(_T("search_min"), descale.search_min);
+            ADD_NUM(_T("search_max"), descale.search_max);
+            ADD_NUM(_T("search_step"), descale.search_step);
+            ADD_NUM(_T("detect_frames"), descale.detect_frames);
+            ADD_BOOL(_T("show_scores"), descale.show_scores);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-descale ") << tmp.str().substr(1);
+        } else if (param->descale.enable) {
+            cmd << _T(" --vpp-descale");
+        }
+    }
     if (param->dct != defaultPrm->dct) {
         tmp.str(tstring());
         if (!param->dct.enable && save_disabled_prm) {
@@ -14607,6 +14634,30 @@ tstring gen_cmd_help_vpp() {
         _T("      chroma_temporal=<float>  temporal denoise strength for chroma (default=%.2f, 0.0-255.0)\n"),
         FILTER_DEFAULT_HQDN3D_LUMA_SPATIAL, FILTER_DEFAULT_HQDN3D_CHROMA_SPATIAL,
         FILTER_DEFAULT_HQDN3D_LUMA_TEMPORAL, FILTER_DEFAULT_HQDN3D_CHROMA_TEMPORAL);
+#endif
+#if ENABLE_VPP_FILTER_DESCALE
+    str += strsprintf(_T("\n")
+        _T("   --vpp-descale [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     undo upscaling by solving the inverse linear system for the known upscaler kernel.\n")
+        _T("    params\n")
+        _T("      kernel=<string>           upscaler kernel: bilinear, bicubic (default), spline16,\n")
+        _T("                                  spline36, spline64, lanczos2, lanczos3, lanczos4, auto\n")
+        _T("      width=<int>               target native width\n")
+        _T("      height=<int>              target native height\n")
+        _T("      b=<float>                 bicubic b parameter (default=%.2f)\n")
+        _T("      c=<float>                 bicubic c parameter (default=%.2f)\n")
+        _T("      src_left=<float>          source horizontal sub-pixel offset (default=%.2f)\n")
+        _T("      src_top=<float>           source vertical sub-pixel offset (default=%.2f)\n")
+        _T("      border_handling=<string>  mirror (default), zero, repeat\n")
+        _T("      auto=<bool>               shorthand for kernel=auto and native resolution search\n")
+        _T("      search_min=<int>          minimum candidate height (default: input_height * 0.5)\n")
+        _T("      search_max=<int>          maximum candidate height (default: input_height - 1)\n")
+        _T("      search_step=<int>         fine-pass step in pixels (default=%d)\n")
+        _T("      detect_frames=<int>       frames to average before locking (default=%d)\n")
+        _T("      show_scores=<bool>        log per-candidate error scores (default=false)\n"),
+        FILTER_DEFAULT_DESCALE_BICUBIC_B, FILTER_DEFAULT_DESCALE_BICUBIC_C,
+        FILTER_DEFAULT_DESCALE_SRC_LEFT, FILTER_DEFAULT_DESCALE_SRC_TOP,
+        FILTER_DEFAULT_DESCALE_SEARCH_STEP, FILTER_DEFAULT_DESCALE_DETECT_FRAMES);
 #endif
 #if ENABLE_VPP_FILTER_SMOOTH
     str += strsprintf(_T("\n")
