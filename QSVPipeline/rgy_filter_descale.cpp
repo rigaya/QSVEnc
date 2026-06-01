@@ -39,6 +39,7 @@
 #include <vector>
 #include "rgy_avutil.h"
 #include "rgy_filter_descale.h"
+#include "rgy_filter_input_probe.h"
 
 static const int DESCALE_BLOCK = 32;
 
@@ -878,6 +879,13 @@ RGY_ERR RGYFilterDescale::runProbe(RGYFilterParamDescale *prm) {
     std::string fileUtf8;
     if (tchar_to_string(prm->inputFilePath.c_str(), fileUtf8, CP_UTF8) == 0) {
         AddMessage(RGY_LOG_ERROR, _T("probe: failed to convert filename to utf-8.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (const auto protocol = unsupportedProbeProtocol(fileUtf8); protocol != nullptr) {
+        AddMessage(RGY_LOG_ERROR,
+            _T("auto-detect requires a re-openable input file, but input protocol is %s.\n")
+            _T("    Please pass kernel=<concrete>,width=<int>,height=<int> explicitly.\n"),
+            char_to_tstring(protocol).c_str());
         return RGY_ERR_UNSUPPORTED;
     }
 
@@ -1957,6 +1965,7 @@ RGY_ERR RGYFilterDescale::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
         ppOutputFrames[0] = &outFrame->frame;
     }
     const int plane_count = RGY_CSP_PLANES[ppOutputFrames[0]->csp];
+    const std::vector<RGYOpenCLEvent> empty_events;
     for (int i = 0; i < plane_count; ++i) {
         const bool isChroma = (i > 0);
         const auto &coreH = m_cores[0][isChroma ? 1 : 0];
@@ -1973,7 +1982,7 @@ RGY_ERR RGYFilterDescale::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
         intermediate.width    = dstPlane.width;
         intermediate.height   = srcPlane.height;
 
-        const auto &plane_wait_event = (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>();
+        const auto &plane_wait_event = (i == 0) ? wait_events : empty_events;
         RGYOpenCLEvent *plane_event  = (i == plane_count - 1) ? event : nullptr;
 
         auto err = runHPlane(&intermediate, &srcPlane, coreH, queue, plane_wait_event, nullptr);

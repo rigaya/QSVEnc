@@ -5305,6 +5305,98 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-descale") && ENABLE_VPP_FILTER_DESCALE) {
+        vpp->descale.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{
+            "enable", "kernel", "width", "height", "b", "c", "src_left", "src_top",
+            "border_handling", "border", "auto", "search_min", "search_max", "search_step",
+            "detect_frames", "show_scores"
+        };
+        for (const auto &param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos == std::string::npos) {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+            auto param_arg = tolowercase(param.substr(0, pos));
+            auto param_val = param.substr(pos + 1);
+            if (param_arg == _T("enable")) {
+                bool b = false;
+                if (!cmd_string_to_bool(&b, param_val)) {
+                    vpp->descale.enable = b;
+                } else {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                    return 1;
+                }
+                continue;
+            }
+            if (param_arg == _T("kernel")) {
+                int value = 0;
+                if (get_list_value(list_vpp_descale_kernel, param_val.c_str(), &value)) {
+                    vpp->descale.kernel = (VppDescaleKernel)value;
+                } else {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_descale_kernel);
+                    return 1;
+                }
+                continue;
+            }
+            if (param_arg == _T("border_handling") || param_arg == _T("border")) {
+                int value = 0;
+                if (get_list_value(list_vpp_descale_border, param_val.c_str(), &value)) {
+                    vpp->descale.border = (VppDescaleBorder)value;
+                } else {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_descale_border);
+                    return 1;
+                }
+                continue;
+            }
+            int *int_target = nullptr;
+            float *float_target = nullptr;
+            bool *bool_target = nullptr;
+            if      (param_arg == _T("width"))         int_target = &vpp->descale.width;
+            else if (param_arg == _T("height"))        int_target = &vpp->descale.height;
+            else if (param_arg == _T("search_min"))    int_target = &vpp->descale.search_min;
+            else if (param_arg == _T("search_max"))    int_target = &vpp->descale.search_max;
+            else if (param_arg == _T("search_step"))   int_target = &vpp->descale.search_step;
+            else if (param_arg == _T("detect_frames")) int_target = &vpp->descale.detect_frames;
+            else if (param_arg == _T("b"))             float_target = &vpp->descale.b;
+            else if (param_arg == _T("c"))             float_target = &vpp->descale.c;
+            else if (param_arg == _T("src_left"))      float_target = &vpp->descale.src_left;
+            else if (param_arg == _T("src_top"))       float_target = &vpp->descale.src_top;
+            else if (param_arg == _T("auto"))          bool_target = &vpp->descale.autoDetect;
+            else if (param_arg == _T("show_scores"))   bool_target = &vpp->descale.show_scores;
+            if (int_target) {
+                try { *int_target = std::stoi(param_val); }
+                catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                continue;
+            }
+            if (float_target) {
+                try { *float_target = std::stof(param_val); }
+                catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                continue;
+            }
+            if (bool_target) {
+                bool b = false;
+                if (!cmd_string_to_bool(&b, param_val)) {
+                    *bool_target = b;
+                } else {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                    return 1;
+                }
+                continue;
+            }
+            print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+            return 1;
+        }
+        if (vpp->descale.autoDetect) {
+            vpp->descale.kernel = VppDescaleKernel::Auto;
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-denoise-dct") && ENABLE_VPP_FILTER_DENOISE_DCT) {
         vpp->dct.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {

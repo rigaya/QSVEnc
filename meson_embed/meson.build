@@ -29,6 +29,7 @@ resource_specs = [
   ['rgy_filter_denoise_dct_cl', '../QSVPipeline/rgy_filter_denoise_dct.cl', 'QSVPipeline_rgy_filter_denoise_dct_cl'],
   ['rgy_filter_denoise_fft3d_cl', '../QSVPipeline/rgy_filter_denoise_fft3d.cl', 'QSVPipeline_rgy_filter_denoise_fft3d_cl'],
   ['rgy_filter_denoise_hqdn3d_cl', '../QSVPipeline/rgy_filter_denoise_hqdn3d.cl', 'QSVPipeline_rgy_filter_denoise_hqdn3d_cl'],
+  ['rgy_filter_descale_cl', '../QSVPipeline/rgy_filter_descale.cl', 'QSVPipeline_rgy_filter_descale_cl'],
   ['rgy_filter_ivtc_cl', '../QSVPipeline/rgy_filter_ivtc.cl', 'QSVPipeline_rgy_filter_ivtc_cl'],
   ['rgy_filter_denoise_knn_cl', '../QSVPipeline/rgy_filter_denoise_knn.cl', 'QSVPipeline_rgy_filter_denoise_knn_cl'],
   ['rgy_filter_denoise_nlmeans_cl', '../QSVPipeline/rgy_filter_denoise_nlmeans.cl', 'QSVPipeline_rgy_filter_denoise_nlmeans_cl'],

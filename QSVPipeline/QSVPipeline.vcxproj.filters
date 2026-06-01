@@ -465,6 +465,9 @@
     <ClCompile Include="rgy_filter_denoise_hqdn3d.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="rgy_filter_descale.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
     <ClCompile Include="rgy_filter_libplacebo.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
@@ -881,6 +884,12 @@
     <ClInclude Include="rgy_filter_denoise_hqdn3d.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="rgy_filter_descale.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="rgy_filter_input_probe.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
     <ClInclude Include="rgy_filter_degrain.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
@@ -1181,6 +1190,9 @@
       <Filter>ソース ファイル</Filter>
     </None>
     <None Include="rgy_filter_denoise_hqdn3d.cl">
+      <Filter>ソース ファイル</Filter>
+    </None>
+    <None Include="rgy_filter_descale.cl">
       <Filter>ソース ファイル</Filter>
     </None>
     <None Include="rgy_filter_ivtc.cl">
