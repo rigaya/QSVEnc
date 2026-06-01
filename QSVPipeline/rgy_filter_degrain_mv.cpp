@@ -49,13 +49,15 @@ RGYFrameDataDegrain::RGYFrameDataDegrain() :
     m_inputFrameId(-1),
     m_timestamp(0),
     m_duration(0),
-    m_availabilityDisableRefs() {
+    m_availabilityDisableRefs(),
+    m_bufferPool() {
     m_dataType = RGY_FRAME_DATA_DEGRAIN;
     m_availabilityDisableRefs.fill(true);
 }
 
 RGYFrameDataDegrain::RGYFrameDataDegrain(const RGYDegrainFrameMetaHeader &header, std::unique_ptr<RGYCLBuf> mv, std::unique_ptr<RGYCLBuf> sad, const RGYOpenCLEvent &event,
-    int frameIndex, int inputFrameId, int64_t timestamp, int64_t duration, const RGYDegrainRefDisableArray &availabilityDisableRefs) :
+    int frameIndex, int inputFrameId, int64_t timestamp, int64_t duration, const RGYDegrainRefDisableArray &availabilityDisableRefs,
+    const std::weak_ptr<RGYDegrainBufferPool> &bufferPool) :
     RGYFrameData(),
     m_header(header),
     m_mv(std::move(mv)),
@@ -65,11 +67,74 @@ RGYFrameDataDegrain::RGYFrameDataDegrain(const RGYDegrainFrameMetaHeader &header
     m_inputFrameId(inputFrameId),
     m_timestamp(timestamp),
     m_duration(duration),
-    m_availabilityDisableRefs(availabilityDisableRefs) {
+    m_availabilityDisableRefs(availabilityDisableRefs),
+    m_bufferPool(bufferPool) {
     m_dataType = RGY_FRAME_DATA_DEGRAIN;
 }
 
 RGYFrameDataDegrain::~RGYFrameDataDegrain() {
+    if (auto pool = m_bufferPool.lock()) {
+        pool->recycle(std::move(m_mv), m_event);
+        pool->recycle(std::move(m_sad), m_event);
+    }
+}
+
+RGYDegrainBufferPool::RGYDegrainBufferPool(std::shared_ptr<RGYOpenCLContext> context) :
+    m_cl(context),
+    m_buffers() {
+}
+
+RGYDegrainBufferPool::~RGYDegrainBufferPool() {
+    clear();
+}
+
+std::unique_ptr<RGYCLBuf> RGYDegrainBufferPool::acquire(size_t size, cl_mem_flags flags) {
+    if (!m_cl || size == 0) {
+        return nullptr;
+    }
+    auto pooled = std::find_if(m_buffers.begin(), m_buffers.end(), [size, flags](const Entry& entry) {
+        return entry.buf && entry.buf->size() == size && entry.buf->flags() == flags;
+    });
+    if (pooled != m_buffers.end()) {
+        if (pooled->readyEvent() != nullptr) {
+            pooled->readyEvent.wait();
+            pooled->readyEvent.reset();
+        }
+        auto buf = std::move(pooled->buf);
+        m_buffers.erase(pooled);
+        return buf;
+    }
+    return m_cl->createBuffer(size, flags);
+}
+
+void RGYDegrainBufferPool::recycle(std::unique_ptr<RGYCLBuf>&& buf, const RGYOpenCLEvent &readyEvent) {
+    if (!buf || buf->isMapped()) {
+        return;
+    }
+    Entry entry;
+    entry.buf = std::move(buf);
+    entry.readyEvent = readyEvent;
+    m_buffers.emplace_back(std::move(entry));
+    while (m_buffers.size() > MAX_POOL_BUFFERS) {
+        waitAndDropFront();
+    }
+}
+
+void RGYDegrainBufferPool::waitAndDropFront() {
+    if (m_buffers.empty()) {
+        return;
+    }
+    if (m_buffers.front().readyEvent() != nullptr) {
+        m_buffers.front().readyEvent.wait();
+        m_buffers.front().readyEvent.reset();
+    }
+    m_buffers.pop_front();
+}
+
+void RGYDegrainBufferPool::clear() {
+    while (!m_buffers.empty()) {
+        waitAndDropFront();
+    }
 }
 
 RGYDegrainBlockLayout RGYFrameDataDegrain::layout() const {

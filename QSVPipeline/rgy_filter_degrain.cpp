@@ -141,6 +141,7 @@ RGYFilterDegrain::RGYFilterDegrain(shared_ptr<RGYOpenCLContext> context) :
     m_frameAnalysisData(),
     m_frameAnalysisLayout(),
     m_pendingSceneChange(),
+    m_sideDataBufferPool(std::make_shared<RGYDegrainBufferPool>(context)),
     m_sceneChangeReadbackSAD(),
     m_sceneChangeCounts(),
     m_sceneChangeDisableMask(),
@@ -914,6 +915,9 @@ void RGYFilterDegrain::close() {
     m_analysis.temporalMixPrior.reset();
     clearDirectAnalyzeResult();
     clearFrameAnalysisData();
+    if (m_sideDataBufferPool) {
+        m_sideDataBufferPool->clear();
+    }
     for (auto &luma : m_analysis.analysisLuma) {
         luma.reset();
     }

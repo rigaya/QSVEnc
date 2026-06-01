@@ -161,7 +161,7 @@ protected:
     RGY_ERR initNrFilter(const std::shared_ptr<RGYFilterParamKfm>& prm);
     RGY_ERR initAnalyzer(const RGYFilterParamKfm& prm);
     RGY_ERR padSourceFrame(RGYFrameInfo *pPaddedFrame, const RGYFrameInfo *pSourceFrame,
-        RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+        RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event, bool sourceInPaddedFrame = false);
     RGY_ERR cacheSourceFrame(const RGYFrameInfo *frame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
     RGY_ERR runDeint60Branch(const RGYFrameInfo *frame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, int *cachedFrames = nullptr);
     RGY_ERR drainDeint60Branch(RGYOpenCLQueue &queue, int *cachedFrames = nullptr);
@@ -269,20 +269,38 @@ protected:
     RGY_ERR patchCombe(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pBaseFrame, const RGYFrameInfo *pPatchFrame, const RGYFrameInfo *pMaskFrame, int frameIndex, const char *stageName, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     int telecine24FrameCount(bool drain) const;
     std::shared_ptr<RGYCLFrame> acquireKfmFrame(const RGYFrameInfo& info, const TCHAR *label, cl_mem_flags flags = CL_MEM_READ_WRITE);
+    struct KfmSourceSlot;
+    std::shared_ptr<KfmSourceSlot> acquireKfmSourceSlot(const RGYFrameInfo& sourceInfo, cl_mem_flags flags);
+    void retireKfmSourceSlot(std::shared_ptr<KfmSourceSlot>&& slot, RGYOpenCLQueue &queue);
+    void collectRetiredKfmSourceSlots();
+    void trimFreeKfmSourceSlots();
+    void clearKfmSourceSlotPool(bool wait);
+    void trimSourceCache(RGYOpenCLQueue &queue);
+    void trimDeint60Cache(std::deque<KfmCachedDeint60>& cache);
     RGY_ERR allocWorkFrameBuf(const RGYFrameInfo& frame, int frames);
     RGYFrameInfo *nextOutputFrame();
     RGYFrameInfo *nextWorkFrame();
+
+    struct KfmSourceSlot {
+        std::shared_ptr<RGYCLFrame> paddedFrame;
+        std::shared_ptr<RGYCLFrame> sourceFrame;
+        RGYOpenCLEvent readyEvent;
+        cl_mem_flags flags;
+
+        KfmSourceSlot() : paddedFrame(), sourceFrame(), readyEvent(), flags(0) {};
+    };
 
     struct KfmCachedSource {
         int sourceIndex;
         int inputFrameId;
         int64_t timestamp;
+        std::shared_ptr<KfmSourceSlot> slot;
         std::shared_ptr<RGYCLFrame> frame;
         std::shared_ptr<RGYCLFrame> paddedFrame;
         RGYOpenCLEvent event;
         RGYOpenCLEvent paddedEvent;
 
-        KfmCachedSource() : sourceIndex(-1), inputFrameId(-1), timestamp(0), frame(), paddedFrame(), event(), paddedEvent() {};
+        KfmCachedSource() : sourceIndex(-1), inputFrameId(-1), timestamp(0), slot(), frame(), paddedFrame(), event(), paddedEvent() {};
     };
 
     struct KfmCachedDeint60 {
@@ -361,6 +379,8 @@ protected:
     std::unique_ptr<RGYFilterDegrain> m_nrFilter;
     std::unique_ptr<RGYKFM::KFMAnalyze> m_analyzer;
     std::shared_ptr<RGYCLSharedFramePool> m_kfmFramePool;
+    std::deque<std::shared_ptr<KfmSourceSlot>> m_kfmSourceSlotFree;
+    std::deque<std::shared_ptr<KfmSourceSlot>> m_kfmSourceSlotRetired;
     std::deque<KfmCachedSource> m_sourceCache;
     std::deque<KfmCachedDeint60> m_deint60Cache;
     std::deque<KfmCachedDeint60> m_before60Cache;

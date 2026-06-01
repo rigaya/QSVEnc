@@ -213,6 +213,7 @@ CL_EXTERN cl_int (CL_API_CALL* f_clGetProgramInfo)(cl_program program, cl_progra
 CL_EXTERN cl_int (CL_API_CALL* f_clReleaseProgram) (cl_program program);
 
 CL_EXTERN cl_mem (CL_API_CALL* f_clCreateBuffer) (cl_context context, cl_mem_flags flags, size_t size, void *host_ptr, cl_int *errcode_ret);
+CL_EXTERN cl_mem (CL_API_CALL* f_clCreateSubBuffer) (cl_mem buffer, cl_mem_flags flags, cl_buffer_create_type buffer_create_type, const void *buffer_create_info, cl_int *errcode_ret);
 CL_EXTERN cl_mem (CL_API_CALL* f_clCreateImage)(cl_context context, cl_mem_flags flags, const cl_image_format *image_format, const cl_image_desc *image_desc, void *host_ptr, cl_int *errcode_ret);
 CL_EXTERN cl_mem (CL_API_CALL* f_clCreateImageWithProperties)(cl_context context, const cl_mem_properties *properties, cl_mem_flags flags, const cl_image_format *image_format, const cl_image_desc *image_desc, void *host_ptr, cl_int *errcode_ret);
 CL_EXTERN cl_int (CL_API_CALL* f_clReleaseMemObject) (cl_mem memobj);
@@ -316,6 +317,7 @@ CL_EXTERN cl_int(CL_API_CALL* f_clEnqueueReleaseVA_APIMediaSurfacesINTEL)(cl_com
 #define clReleaseProgram f_clReleaseProgram
 
 #define clCreateBuffer f_clCreateBuffer
+#define clCreateSubBuffer f_clCreateSubBuffer
 #define clCreateImage f_clCreateImage
 #define clCreateImageWithProperties f_clCreateImageWithProperties
 #define clReleaseMemObject f_clReleaseMemObject

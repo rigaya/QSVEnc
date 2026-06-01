@@ -829,12 +829,16 @@ RGY_ERR RGYFilterDegrain::attachAnalysisData(const RGYFrameInfo *sourceFrame, RG
         return RGY_ERR_INVALID_PARAM;
     }
 
-    auto mv = m_cl->createBuffer(m_analysis.mvBytes, CL_MEM_READ_WRITE);
+    auto mv = (m_sideDataBufferPool)
+        ? m_sideDataBufferPool->acquire(m_analysis.mvBytes, CL_MEM_READ_WRITE)
+        : m_cl->createBuffer(m_analysis.mvBytes, CL_MEM_READ_WRITE);
     if (!mv) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain frame MV side data buffer.\n"));
         return RGY_ERR_MEMORY_ALLOC;
     }
-    auto sad = m_cl->createBuffer(m_analysis.sadBytes, CL_MEM_READ_WRITE);
+    auto sad = (m_sideDataBufferPool)
+        ? m_sideDataBufferPool->acquire(m_analysis.sadBytes, CL_MEM_READ_WRITE)
+        : m_cl->createBuffer(m_analysis.sadBytes, CL_MEM_READ_WRITE);
     if (!sad) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain frame SAD side data buffer.\n"));
         return RGY_ERR_MEMORY_ALLOC;
@@ -907,7 +911,8 @@ RGY_ERR RGYFilterDegrain::attachAnalysisData(const RGYFrameInfo *sourceFrame, RG
         sourceFrame->inputFrameId,
         sourceFrame->timestamp,
         sourceFrame->duration,
-        m_analysis.lastAvailabilityDisableRefs);
+        m_analysis.lastAvailabilityDisableRefs,
+        m_sideDataBufferPool);
     rgy_degrain_erase_frame_data(outputFrame->dataList);
     outputFrame->dataList.push_back(frameData);
     if (event) {

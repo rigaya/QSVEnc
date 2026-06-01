@@ -31,6 +31,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <memory>
 #include <string>
 
@@ -505,11 +506,14 @@ struct RGYDegrainAnalysisState {
     }
 };
 
+class RGYDegrainBufferPool;
+
 class RGYFrameDataDegrain : public RGYFrameData {
 public:
     RGYFrameDataDegrain();
     RGYFrameDataDegrain(const RGYDegrainFrameMetaHeader &header, std::unique_ptr<RGYCLBuf> mv, std::unique_ptr<RGYCLBuf> sad, const RGYOpenCLEvent &event,
-        int frameIndex, int inputFrameId, int64_t timestamp, int64_t duration, const RGYDegrainRefDisableArray &availabilityDisableRefs);
+        int frameIndex, int inputFrameId, int64_t timestamp, int64_t duration, const RGYDegrainRefDisableArray &availabilityDisableRefs,
+        const std::weak_ptr<RGYDegrainBufferPool> &bufferPool = {});
     virtual ~RGYFrameDataDegrain();
 
     const RGYDegrainFrameMetaHeader &header() const { return m_header; }
@@ -533,6 +537,29 @@ private:
     int64_t m_timestamp;
     int64_t m_duration;
     RGYDegrainRefDisableArray m_availabilityDisableRefs;
+    std::weak_ptr<RGYDegrainBufferPool> m_bufferPool;
+};
+
+class RGYDegrainBufferPool {
+public:
+    static constexpr size_t MAX_POOL_BUFFERS = 128;
+
+    RGYDegrainBufferPool(std::shared_ptr<RGYOpenCLContext> context);
+    ~RGYDegrainBufferPool();
+    std::unique_ptr<RGYCLBuf> acquire(size_t size, cl_mem_flags flags);
+    void recycle(std::unique_ptr<RGYCLBuf>&& buf, const RGYOpenCLEvent &readyEvent);
+    void clear();
+
+private:
+    struct Entry {
+        std::unique_ptr<RGYCLBuf> buf;
+        RGYOpenCLEvent readyEvent;
+    };
+
+    void waitAndDropFront();
+
+    std::shared_ptr<RGYOpenCLContext> m_cl;
+    std::deque<Entry> m_buffers;
 };
 
 uint32_t rgy_degrain_scale_sad_threshold(const VppDegrain &degrain, const RGYFrameInfo &frameInfo, int prmThreshold, bool includeChroma = false);

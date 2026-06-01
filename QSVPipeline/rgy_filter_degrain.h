@@ -234,6 +234,7 @@ protected:
     std::shared_ptr<RGYFrameDataDegrain> m_frameAnalysisData;
     RGYDegrainBlockLayout m_frameAnalysisLayout;
     std::unique_ptr<PendingSceneChange> m_pendingSceneChange;
+    std::shared_ptr<RGYDegrainBufferPool> m_sideDataBufferPool;
     std::array<std::unique_ptr<RGYCLBuf>, SCENE_CHANGE_READBACK_POOL_SIZE> m_sceneChangeReadbackSAD;
     std::unique_ptr<RGYCLBuf> m_sceneChangeCounts;
     std::unique_ptr<RGYCLBuf> m_sceneChangeDisableMask;

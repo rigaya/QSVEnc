@@ -350,6 +350,7 @@ int initOpenCLGlobal() {
     LOAD(clReleaseProgram);
 
     LOAD(clCreateBuffer);
+    LOAD(clCreateSubBuffer);
     LOAD(clCreateImage);
     LOAD_NO_CHECK(clCreateImageWithProperties);
     LOAD(clReleaseMemObject);
@@ -2213,21 +2214,26 @@ std::shared_ptr<RGYCLFrame> RGYCLSharedFramePool::acquire(const RGYFrameInfo *fr
     if (!m_cl || !frame || !frame->ptr[0]) {
         return nullptr;
     }
-    auto pooled = std::find_if(m_frames.begin(), m_frames.end(), [frame, flags](const Entry& candidate) {
-        return candidate.frame
-            && !cmpFrameInfoCspResolution(&candidate.frame->frame, frame)
-            && candidate.frame->frame.bitdepth == frame->bitdepth
-            && candidate.frame->clflags == flags;
-    });
     std::unique_ptr<RGYCLFrame> buffer;
-    if (pooled != m_frames.end()) {
-        if (pooled->readyEvent() != nullptr) {
-            pooled->readyEvent.wait();
-            pooled->readyEvent.reset();
+    for (auto it = m_frames.begin(); it != m_frames.end(); ++it) {
+        auto& candidate = *it;
+        if (!candidate.frame
+            || cmpFrameInfoCspResolution(&candidate.frame->frame, frame)
+            || candidate.frame->frame.bitdepth != frame->bitdepth
+            || candidate.frame->clflags != flags) {
+            continue;
         }
-        buffer = std::move(pooled->frame);
-        m_frames.erase(pooled);
-    } else {
+        if (candidate.readyEvent() != nullptr && candidate.readyEvent.getInfo().status != CL_COMPLETE) {
+            continue;
+        }
+        if (candidate.readyEvent() != nullptr) {
+            candidate.readyEvent.reset();
+        }
+        buffer = std::move(candidate.frame);
+        m_frames.erase(it);
+        break;
+    }
+    if (!buffer) {
         buffer = m_cl->createFrameBuffer(*frame, flags);
     }
     if (!buffer) {
