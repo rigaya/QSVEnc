@@ -392,19 +392,6 @@ std::pair<RGY_ERR, const TCHAR *> RGYParallelEnc::isParallelEncPossible(const en
     if (prm->common.nTrimCount != 0) {
         return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: --trim is eanbled.\n") };
     }
-    // --frames N is converted to a single auto-generated trim entry
-    // [0, N-1] by the avcodec reader at init time
-    // (rgy_input_avcodec.cpp:2219-2229), and the original
-    // prm->input.frames is zeroed by the same path
-    // (rgy_input_avcodec.cpp:2295). The earlier nTrimCount check above
-    // catches user-supplied --trim; the only way the reader's trim list
-    // can be non-empty here is via --frames. Without this guard each
-    // parallel child would apply that same trim from its own seek
-    // position, producing parallelCount * N total frames instead of N.
-    if (input != nullptr && input->GetTrimParam().list.size() > 0) {
-        return { RGY_ERR_UNSUPPORTED,
-            _T("Parallel encoding is not possible: --frames is not supported with --parallel.\n") };
-    }
 #if ENCODER_QSV || ENCODER_NVENC
     if (prm->dynamicRC.size() > 0 && prm->ctrl.parallelEnc.chunkPipeHandles.size() == 0) {
         return { RGY_ERR_UNSUPPORTED, _T("Parallel encoding is not possible: --dynamic-rc is eanbled.\n") };

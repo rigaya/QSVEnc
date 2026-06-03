@@ -212,7 +212,7 @@ public:
 
     RGY_ERR readTimecode(int64_t& pts, int64_t& duration);
 
-    sTrimParam GetTrimParam() const {
+    sTrimParam GetTrimParam() {
         return m_trimParam;
     }
 
