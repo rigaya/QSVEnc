@@ -26,7 +26,7 @@
 //
 // ------------------------------------------------------------------------------------------
 
-inline int degrain_render_const_block_size(const int blockSize) {
+static inline int degrain_render_const_block_size(const int blockSize) {
 #if defined(DEGRAIN_BLOCK_SIZE)
     return DEGRAIN_BLOCK_SIZE;
 #else
@@ -34,7 +34,7 @@ inline int degrain_render_const_block_size(const int blockSize) {
 #endif
 }
 
-inline int degrain_render_const_overlap(const int overlap) {
+static inline int degrain_render_const_overlap(const int overlap) {
 #if defined(DEGRAIN_OVERLAP)
     return DEGRAIN_OVERLAP;
 #else
@@ -42,7 +42,7 @@ inline int degrain_render_const_overlap(const int overlap) {
 #endif
 }
 
-inline int degrain_render_const_step(const int step) {
+static inline int degrain_render_const_step(const int step) {
 #if defined(DEGRAIN_STEP)
     return DEGRAIN_STEP;
 #else
@@ -50,7 +50,7 @@ inline int degrain_render_const_step(const int step) {
 #endif
 }
 
-inline int degrain_render_const_blocks_x(const int blocksX) {
+static inline int degrain_render_const_blocks_x(const int blocksX) {
 #if defined(DEGRAIN_BLOCKS_X)
     return DEGRAIN_BLOCKS_X;
 #else
@@ -58,7 +58,7 @@ inline int degrain_render_const_blocks_x(const int blocksX) {
 #endif
 }
 
-inline int degrain_render_const_blocks_y(const int blocksY) {
+static inline int degrain_render_const_blocks_y(const int blocksY) {
 #if defined(DEGRAIN_BLOCKS_Y)
     return DEGRAIN_BLOCKS_Y;
 #else
@@ -66,16 +66,16 @@ inline int degrain_render_const_blocks_y(const int blocksY) {
 #endif
 }
 
-inline int degrain_render_scale_covered(const int covered, const int scale) {
+static inline int degrain_render_scale_covered(const int covered, const int scale) {
     const int rshift = degrain_plane_scale_rshift(scale);
     return (covered + ((1 << rshift) - 1)) >> rshift;
 }
 
-inline int degrain_render_scale_floor(const int value, const int scale) {
+static inline int degrain_render_scale_floor(const int value, const int scale) {
     return value >> degrain_plane_scale_rshift(scale);
 }
 
-inline int degrain_render_const_covered_width(const int coveredWidth, const int scaleX) {
+static inline int degrain_render_const_covered_width(const int coveredWidth, const int scaleX) {
 #if defined(DEGRAIN_COVERED_WIDTH)
     return degrain_render_scale_covered(DEGRAIN_COVERED_WIDTH, scaleX);
 #else
@@ -83,7 +83,7 @@ inline int degrain_render_const_covered_width(const int coveredWidth, const int 
 #endif
 }
 
-inline int degrain_render_const_covered_height(const int coveredHeight, const int scaleY) {
+static inline int degrain_render_const_covered_height(const int coveredHeight, const int scaleY) {
 #if defined(DEGRAIN_COVERED_HEIGHT)
     return degrain_render_scale_covered(DEGRAIN_COVERED_HEIGHT, scaleY);
 #else
@@ -305,7 +305,7 @@ __kernel void kernel_degrain_overlap_plane(
     dst[y * dstPitch + x] = degrain_clamp_pixel(result);
 }
 
-inline void degrain_compensate_overlap_plane_ramp_generic(
+static inline void degrain_compensate_overlap_plane_ramp_generic(
     __global TypePixel *dst,
     const int dst_pitch,
     __global const uchar *cur,
@@ -610,7 +610,7 @@ __kernel void kernel_degrain_degrain_overlap_plane(
     dst[y * dstPitch + x] = degrain_clamp_pixel(result);
 }
 
-inline void degrain_degrain_overlap_plane_preweighted_ramp_generic(
+static inline void degrain_degrain_overlap_plane_preweighted_ramp_generic(
     __global TypePixel *dst,
     const int dst_pitch,
     __global const uchar *cur,

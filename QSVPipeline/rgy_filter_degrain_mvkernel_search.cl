@@ -90,7 +90,7 @@
 #define DEGRAIN_LEVEL 0
 #endif
 
-inline int degrain_motion_search_const_width(const int width) {
+static inline int degrain_motion_search_const_width(const int width) {
 #if defined(DEGRAIN_WIDTH)
     return DEGRAIN_WIDTH;
 #else
@@ -98,7 +98,7 @@ inline int degrain_motion_search_const_width(const int width) {
 #endif
 }
 
-inline int degrain_motion_search_const_height(const int height) {
+static inline int degrain_motion_search_const_height(const int height) {
 #if defined(DEGRAIN_HEIGHT)
     return DEGRAIN_HEIGHT;
 #else
@@ -106,7 +106,7 @@ inline int degrain_motion_search_const_height(const int height) {
 #endif
 }
 
-inline int degrain_motion_search_const_blocks_x(const int blocksX) {
+static inline int degrain_motion_search_const_blocks_x(const int blocksX) {
 #if defined(DEGRAIN_BLOCKS_X)
     return DEGRAIN_BLOCKS_X;
 #else
@@ -114,7 +114,7 @@ inline int degrain_motion_search_const_blocks_x(const int blocksX) {
 #endif
 }
 
-inline int degrain_motion_search_const_blocks_y(const int blocksY) {
+static inline int degrain_motion_search_const_blocks_y(const int blocksY) {
 #if defined(DEGRAIN_BLOCKS_Y)
     return DEGRAIN_BLOCKS_Y;
 #else
@@ -122,7 +122,7 @@ inline int degrain_motion_search_const_blocks_y(const int blocksY) {
 #endif
 }
 
-inline int degrain_motion_search_const_step(const int step) {
+static inline int degrain_motion_search_const_step(const int step) {
 #if defined(DEGRAIN_STEP)
     return DEGRAIN_STEP;
 #else
@@ -144,12 +144,12 @@ typedef struct {
     short pos_y;
 } degrain_motion_search_candidate_cost_t;
 
-inline degrain_motion_search_saved_vector_t degrain_motion_search_candidate_cost_to_saved_vector(
+static inline degrain_motion_search_saved_vector_t degrain_motion_search_candidate_cost_to_saved_vector(
     const degrain_motion_search_candidate_cost_t candidateCosts) {
     return degrain_motion_search_make_vector(candidateCosts.pos_x, candidateCosts.pos_y, candidateCosts.sad_metric, candidateCosts.score_primary);
 }
 
-inline degrain_motion_search_candidate_cost_t degrain_motion_search_make_candidate_cost(
+static inline degrain_motion_search_candidate_cost_t degrain_motion_search_make_candidate_cost(
     const int posX,
     const int posY,
     const uint sadMetric,
@@ -176,7 +176,7 @@ typedef enum {
     DEGRAIN_MOTION_SEARCH_CANDIDATE_SEED = 2
 } degrain_motion_search_candidate_kind_t;
 
-inline int degrain_motion_search_squared_distance(
+static inline int degrain_motion_search_squared_distance(
     const int ax,
     const int ay,
     const int bx,
@@ -186,7 +186,7 @@ inline int degrain_motion_search_squared_distance(
     return motionOffsetX * motionOffsetX + motionOffsetY * motionOffsetY;
 }
 
-inline int degrain_motion_search_median_of_three(
+static inline int degrain_motion_search_median_of_three(
     const int a,
     const int b,
     const int c) {
@@ -195,7 +195,7 @@ inline int degrain_motion_search_median_of_three(
     return max(lo, min(hi, c));
 }
 
-inline degrain_motion_search_candidate_t degrain_motion_search_constrain_candidate(
+static inline degrain_motion_search_candidate_t degrain_motion_search_constrain_candidate(
     degrain_motion_search_candidate_t candidate,
     __local const degrain_motion_search_search_context_t *context) {
     const int maxX = context->maxX;
@@ -209,7 +209,7 @@ inline degrain_motion_search_candidate_t degrain_motion_search_constrain_candida
     return candidate;
 }
 
-inline int degrain_motion_search_motion_inside_search_window(
+static inline int degrain_motion_search_motion_inside_search_window(
     const int motionOffsetX,
     const int motionOffsetY,
     __local const degrain_motion_search_search_context_t *context) {
@@ -226,7 +226,7 @@ inline int degrain_motion_search_motion_inside_search_window(
 #define DEGRAIN_MOTION_SEARCH_COST_INPUT_SCALE (1 << (DEGRAIN_MOTION_SEARCH_COST_SHIFT - 8))
 #define DEGRAIN_MOTION_SEARCH_COST_ROUND ((ulong)1 << (DEGRAIN_MOTION_SEARCH_COST_SHIFT - 1))
 
-inline uint degrain_motion_search_calc_motion_cost(
+static inline uint degrain_motion_search_calc_motion_cost(
     const degrain_motion_search_candidate_t candidate,
     const int seedDx,
     const int seedDy,
@@ -239,7 +239,7 @@ inline uint degrain_motion_search_calc_motion_cost(
     return (uint)((accum + DEGRAIN_MOTION_SEARCH_COST_ROUND) >> DEGRAIN_MOTION_SEARCH_COST_SHIFT);
 }
 
-inline uint degrain_motion_search_scaled_sad_penalty(
+static inline uint degrain_motion_search_scaled_sad_penalty(
     const uint sad,
     const int penalty) {
     const ulong accum = (ulong)sad * (ulong)max(penalty, 0);
@@ -258,7 +258,7 @@ inline uint degrain_motion_search_scaled_sad_penalty(
     ((candidateGroupIndex) == DEGRAIN_MOTION_SEARCH_CANDIDATE_SEED)   ? 0 : \
                                                               (DEGRAIN_NEW_CANDIDATE_COST_SCALE * DEGRAIN_MOTION_SEARCH_COST_INPUT_SCALE))
 
-inline degrain_motion_search_search_context_t degrain_motion_search_make_search_context(
+static inline degrain_motion_search_search_context_t degrain_motion_search_make_search_context(
     const degrain_mv_internal_t seed,
     const int width,
     const int height,
@@ -285,7 +285,7 @@ inline degrain_motion_search_search_context_t degrain_motion_search_make_search_
     return context;
 }
 
-inline uint degrain_motion_search_accumulate_luma_sad_lane(
+static inline uint degrain_motion_search_accumulate_luma_sad_lane(
     __local const TypePixel *sourceBlockPixels,
     __global const uchar *referencePlane,
     const int refPitch,
@@ -382,7 +382,7 @@ inline uint degrain_motion_search_accumulate_luma_sad_lane(
 }
 
 #if DEGRAIN_MOTION_SEARCH_REF_LOCAL_CACHE && DEGRAIN_PIXEL_BYTES == 1
-inline void degrain_motion_search_load_reference_window(
+static inline void degrain_motion_search_load_reference_window(
     __local uchar *referenceWindowPixels,
     __global const uchar *referencePlane,
     const int refPitch,
@@ -403,7 +403,7 @@ inline void degrain_motion_search_load_reference_window(
     barrier(CLK_LOCAL_MEM_FENCE);
 }
 
-inline uint degrain_motion_search_accumulate_luma_sad_lane_cached_ref(
+static inline uint degrain_motion_search_accumulate_luma_sad_lane_cached_ref(
     __local const TypePixel *sourceBlockPixels,
     __global const uchar *referencePlane,
     __local const uchar *referenceWindowPixels,
@@ -466,7 +466,7 @@ inline uint degrain_motion_search_accumulate_luma_sad_lane_cached_ref(
 }
 #endif
 
-inline uint degrain_motion_search_sum_candidate_sad_lanes(
+static inline uint degrain_motion_search_sum_candidate_sad_lanes(
     __local uint *candidateLaneSums,
     const uint sad,
     const int candidateIsValid,
@@ -524,7 +524,7 @@ inline uint degrain_motion_search_sum_candidate_sad_lanes(
     return (candidateIsValid && sadLane == 0) ? candidateLaneSums[partialBase] : 0u;
 }
 
-inline void degrain_motion_search_select_lowest_candidate_cost(
+static inline void degrain_motion_search_select_lowest_candidate_cost(
     __local degrain_motion_search_candidate_cost_t *candidateCosts,
     const int localThreadId,
     const int candidateCount) {
@@ -544,7 +544,7 @@ inline void degrain_motion_search_select_lowest_candidate_cost(
     }
 }
 
-inline int degrain_motion_search_find_first_matching_candidate(
+static inline int degrain_motion_search_find_first_matching_candidate(
     __local const degrain_motion_search_candidate_t *candidate,
     const int candidateGroupIndex,
     const int candidateCount) {
@@ -561,7 +561,7 @@ inline int degrain_motion_search_find_first_matching_candidate(
     return canonical;
 }
 
-inline int2 degrain_motion_search_refine_wide6_offset(const int offsetIndex) {
+static inline int2 degrain_motion_search_refine_wide6_offset(const int offsetIndex) {
     const int row = offsetIndex >> 1;
     const int side = offsetIndex & 1;
     const int y = (row - 1) * 2;
@@ -569,12 +569,12 @@ inline int2 degrain_motion_search_refine_wide6_offset(const int offsetIndex) {
     return (int2)(x, y);
 }
 
-inline int2 degrain_motion_search_refine_square_offset(const int offsetIndex) {
+static inline int2 degrain_motion_search_refine_square_offset(const int offsetIndex) {
     const int gridIndex = offsetIndex + ((offsetIndex >= 4) ? 1 : 0);
     return (int2)(gridIndex % 3 - 1, gridIndex / 3 - 1);
 }
 
-inline void degrain_motion_search_refine_clear_results(
+static inline void degrain_motion_search_refine_clear_results(
     __local degrain_motion_search_candidate_cost_t *candidateCosts,
     const int localThreadId) {
     if (localThreadId < 8) {
@@ -582,7 +582,7 @@ inline void degrain_motion_search_refine_clear_results(
     }
 }
 
-inline void degrain_motion_search_refine_prepare_offset_candidate(
+static inline void degrain_motion_search_refine_prepare_offset_candidate(
     __local const degrain_motion_search_search_context_t *context,
     __local degrain_motion_search_candidate_cost_t *candidateCosts,
     __local degrain_motion_search_candidate_cost_t *bestCandidateCost,
@@ -605,7 +605,7 @@ inline void degrain_motion_search_refine_prepare_offset_candidate(
     barrier(CLK_LOCAL_MEM_FENCE);
 }
 
-inline void degrain_motion_search_refine_prepare_hex_candidates(
+static inline void degrain_motion_search_refine_prepare_hex_candidates(
     __local const degrain_motion_search_search_context_t *context,
     __local degrain_motion_search_candidate_cost_t *candidateCosts,
     __local degrain_motion_search_candidate_cost_t *bestCandidateCost,
@@ -617,7 +617,7 @@ inline void degrain_motion_search_refine_prepare_hex_candidates(
         context, candidateCosts, bestCandidateCost, localThreadId, 6, baseX, baseY, degrain_motion_search_refine_wide6_offset(localThreadId));
 }
 
-inline void degrain_motion_search_refine_prepare_square_candidates(
+static inline void degrain_motion_search_refine_prepare_square_candidates(
     __local const degrain_motion_search_search_context_t *context,
     __local degrain_motion_search_candidate_cost_t *candidateCosts,
     __local degrain_motion_search_candidate_cost_t *bestCandidateCost,
@@ -629,7 +629,7 @@ inline void degrain_motion_search_refine_prepare_square_candidates(
         context, candidateCosts, bestCandidateCost, localThreadId, 8, baseX, baseY, degrain_motion_search_refine_square_offset(localThreadId));
 }
 
-inline int degrain_motion_search_refine_has_valid_candidates(
+static inline int degrain_motion_search_refine_has_valid_candidates(
     __local const degrain_motion_search_candidate_cost_t *candidateCosts,
     const int candidateCount) {
     int hasCandidateToEvaluate = 0;
@@ -639,7 +639,7 @@ inline int degrain_motion_search_refine_has_valid_candidates(
     return hasCandidateToEvaluate;
 }
 
-inline void degrain_motion_search_refine_evaluate_candidates(
+static inline void degrain_motion_search_refine_evaluate_candidates(
     __local const TypePixel *sourceBlockPixels,
     __global const uchar *referencePlane,
     __local const degrain_motion_search_search_context_t *context,
@@ -717,7 +717,7 @@ inline void degrain_motion_search_refine_evaluate_candidates(
     barrier(CLK_LOCAL_MEM_FENCE);
 }
 
-inline void degrain_motion_search_refine_prepared_candidates(
+static inline void degrain_motion_search_refine_prepared_candidates(
     __local const TypePixel *sourceBlockPixels,
     __global const uchar *referencePlane,
     __local const degrain_motion_search_search_context_t *context,
@@ -755,7 +755,7 @@ inline void degrain_motion_search_refine_prepared_candidates(
         );
 }
 
-inline void degrain_motion_search_refine_hex2(
+static inline void degrain_motion_search_refine_hex2(
     __local const TypePixel *sourceBlockPixels,
     __global const uchar *referencePlane,
     __local const degrain_motion_search_search_context_t *context,
@@ -793,7 +793,7 @@ inline void degrain_motion_search_refine_hex2(
         );
 }
 
-inline void degrain_motion_search_refine_square8(
+static inline void degrain_motion_search_refine_square8(
     __local const TypePixel *sourceBlockPixels,
     __global const uchar *referencePlane,
     __local const degrain_motion_search_search_context_t *context,
@@ -831,7 +831,7 @@ inline void degrain_motion_search_refine_square8(
         );
 }
 
-inline degrain_motion_search_candidate_t degrain_motion_search_load_base_candidate(
+static inline degrain_motion_search_candidate_t degrain_motion_search_load_base_candidate(
     __global const degrain_mv_internal_t *vectors,
     __local const degrain_motion_search_search_context_t *context,
     const int candidateSlot,

@@ -81,15 +81,15 @@ typedef struct {
 #define DEGRAIN_MODE_DEGRAIN 2
 #define DEGRAIN_PI_F 3.14159265358979323846f
 
-inline TypePixel degrain_clamp_pixel(const int value) {
+static inline TypePixel degrain_clamp_pixel(const int value) {
     return (TypePixel)clamp(value, 0, DEGRAIN_PIXEL_MAX);
 }
 
-inline ushort degrain_clamp_u16(const uint value) {
+static inline ushort degrain_clamp_u16(const uint value) {
     return (ushort)min(value, 65535u);
 }
 
-inline int degrain_centered_signed_value(const int value) {
+static inline int degrain_centered_signed_value(const int value) {
     const int search = max(DEGRAIN_SEARCH * DEGRAIN_PEL, 1);
     const int clampedValue = clamp(value, -search, search);
     const int center = (DEGRAIN_PIXEL_MAX + 1) >> 1;
@@ -97,23 +97,23 @@ inline int degrain_centered_signed_value(const int value) {
     return clamp(center + (clampedValue * range) / search, 0, DEGRAIN_PIXEL_MAX);
 }
 
-inline int degrain_primary_block_index(const int x, const int y, const int blocksX, const int blocksY, const int step) {
+static inline int degrain_primary_block_index(const int x, const int y, const int blocksX, const int blocksY, const int step) {
     const int clampedStep = max(step, 1);
     const int blockX = min(x / clampedStep, blocksX - 1);
     const int blockY = min(y / clampedStep, blocksY - 1);
     return blockY * blocksX + blockX;
 }
 
-inline int degrain_debug_border(const int x, const int y, const int step) {
+static inline int degrain_debug_border(const int x, const int y, const int step) {
     const int clampedStep = max(step, 1);
     return (x % clampedStep) == 0 || (y % clampedStep) == 0;
 }
 
-inline int degrain_block_origin(const int block, const int step) {
+static inline int degrain_block_origin(const int block, const int step) {
     return block * max(step, 1);
 }
 
-inline int degrain_is_covered_pixel(
+static inline int degrain_is_covered_pixel(
     const int x,
     const int y,
     const int coveredWidth,
@@ -121,12 +121,12 @@ inline int degrain_is_covered_pixel(
     return x < coveredWidth && y < coveredHeight;
 }
 
-inline int degrain_ref_index(const int block, const int refDirection) {
+static inline int degrain_ref_index(const int block, const int refDirection) {
     const int clampedRefDirection = clamp(refDirection, 0, DEGRAIN_REFS - 1);
     return block * DEGRAIN_REFS + clampedRefDirection;
 }
 
-inline int degrain_pixel_load(
+static inline int degrain_pixel_load(
     __global const uchar *src,
     const int pitch,
     const int width,
@@ -138,7 +138,7 @@ inline int degrain_pixel_load(
     return (int)(*(__global const TypePixel *)(src + py * pitch + px * (int)sizeof(TypePixel)));
 }
 
-inline int degrain_pixel_load_unchecked(
+static inline int degrain_pixel_load_unchecked(
     __global const uchar *src,
     const int pitch,
     const int x,
@@ -146,7 +146,7 @@ inline int degrain_pixel_load_unchecked(
     return (int)(*(__global const TypePixel *)(src + y * pitch + x * (int)sizeof(TypePixel)));
 }
 
-inline int degrain_mirror_coord(const int value, const int size) {
+static inline int degrain_mirror_coord(const int value, const int size) {
     // 想定入力域 [-size, 2*size) で半開区間 [0, size) への mirror reflection を行う。
     // 左端側の反射候補は (-value - 1)、右端側の反射候補は (2*size - 1 - value) に相当する。
     // 入力域内の value はそれら反射候補のいずれよりも内側に位置するので、
@@ -156,7 +156,7 @@ inline int degrain_mirror_coord(const int value, const int size) {
     return clamp(reflected_high, 0, size - 1);
 }
 
-inline int degrain_pixel_load_mirror(
+static inline int degrain_pixel_load_mirror(
     __global const uchar *src,
     const int pitch,
     const int width,
@@ -168,7 +168,7 @@ inline int degrain_pixel_load_mirror(
     return (int)(*(__global const TypePixel *)(src + py * pitch + px * (int)sizeof(TypePixel)));
 }
 
-inline int degrain_blur3x3_weighted(
+static inline int degrain_blur3x3_weighted(
     const int p00,
     const int p10,
     const int p20,
@@ -185,7 +185,7 @@ inline int degrain_blur3x3_weighted(
     return (sum + 8) >> 4;
 }
 
-inline int degrain_edge_soften_cross(
+static inline int degrain_edge_soften_cross(
     const int left,
     const int up,
     const int center,
@@ -194,7 +194,7 @@ inline int degrain_edge_soften_cross(
     return (left + up + 4 * center + down + right + 4) >> 3;
 }
 
-inline int degrain_search_refine1_blend(
+static inline int degrain_search_refine1_blend(
     const int center,
     const int blur,
     const int edgeSoft,
@@ -208,7 +208,7 @@ inline int degrain_search_refine1_blend(
     return (blur * (4 - edgeWeight) + edgeSoft * edgeWeight + 2) >> 2;
 }
 
-inline int degrain_floor_rshift_signed(const int value, const int rshift) {
+static inline int degrain_floor_rshift_signed(const int value, const int rshift) {
     if (rshift <= 0) {
         return value;
     }
@@ -217,7 +217,7 @@ inline int degrain_floor_rshift_signed(const int value, const int rshift) {
         : -(((-value) + (1 << rshift) - 1) >> rshift);
 }
 
-inline int degrain_round_rshift_signed(const int value, const int rshift) {
+static inline int degrain_round_rshift_signed(const int value, const int rshift) {
     if (rshift <= 0) {
         return value;
     }
@@ -226,7 +226,7 @@ inline int degrain_round_rshift_signed(const int value, const int rshift) {
         : -(((-value) + (1 << (rshift - 1))) >> rshift);
 }
 
-inline int degrain_floor_div_pel(const int value) {
+static inline int degrain_floor_div_pel(const int value) {
 #if DEGRAIN_PEL <= 1
     return value;
 #else
@@ -234,15 +234,15 @@ inline int degrain_floor_div_pel(const int value) {
 #endif
 }
 
-inline int degrain_floor_mod_pel(const int value, const int base) {
+static inline int degrain_floor_mod_pel(const int value, const int base) {
     return value - (base << DEGRAIN_PEL_RSHIFT);
 }
 
-inline int degrain_plane_scale_rshift(const int planeScale) {
+static inline int degrain_plane_scale_rshift(const int planeScale) {
     return planeScale > 1 ? 1 : 0;
 }
 
-inline int degrain_plane_scale_x(const int planeScaleX) {
+static inline int degrain_plane_scale_x(const int planeScaleX) {
 #if defined(DEGRAIN_PLANE_SCALE_X)
     return DEGRAIN_PLANE_SCALE_X;
 #else
@@ -250,7 +250,7 @@ inline int degrain_plane_scale_x(const int planeScaleX) {
 #endif
 }
 
-inline int degrain_plane_scale_y(const int planeScaleY) {
+static inline int degrain_plane_scale_y(const int planeScaleY) {
 #if defined(DEGRAIN_PLANE_SCALE_Y)
     return DEGRAIN_PLANE_SCALE_Y;
 #else
@@ -258,15 +258,15 @@ inline int degrain_plane_scale_y(const int planeScaleY) {
 #endif
 }
 
-inline int degrain_plane_scale_rshift_x(const int planeScaleX) {
+static inline int degrain_plane_scale_rshift_x(const int planeScaleX) {
     return degrain_plane_scale_rshift(degrain_plane_scale_x(planeScaleX));
 }
 
-inline int degrain_plane_scale_rshift_y(const int planeScaleY) {
+static inline int degrain_plane_scale_rshift_y(const int planeScaleY) {
     return degrain_plane_scale_rshift(degrain_plane_scale_y(planeScaleY));
 }
 
-inline int degrain_interp_halfpel_wiener_v(
+static inline int degrain_interp_halfpel_wiener_v(
     __global const uchar *src,
     const int pitch,
     const int width,
@@ -283,7 +283,7 @@ inline int degrain_interp_halfpel_wiener_v(
     return degrain_clamp_pixel((sum + 16) >> 5);
 }
 
-inline int degrain_interp_halfpel_wiener_h_from_samples(
+static inline int degrain_interp_halfpel_wiener_h_from_samples(
     const int s0,
     const int s1,
     const int s2,
@@ -294,7 +294,7 @@ inline int degrain_interp_halfpel_wiener_h_from_samples(
     return degrain_clamp_pixel((sum + 16) >> 5);
 }
 
-inline int degrain_interp_halfpel_wiener_h(
+static inline int degrain_interp_halfpel_wiener_h(
     __global const uchar *src,
     const int pitch,
     const int width,
@@ -310,7 +310,7 @@ inline int degrain_interp_halfpel_wiener_h(
         degrain_pixel_load(src, pitch, width, height, baseX + 3, baseY));
 }
 
-inline int degrain_interp_halfpel_wiener_hv(
+static inline int degrain_interp_halfpel_wiener_hv(
     __global const uchar *src,
     const int pitch,
     const int width,
@@ -326,7 +326,7 @@ inline int degrain_interp_halfpel_wiener_hv(
         degrain_interp_halfpel_wiener_v(src, pitch, width, height, baseX + 3, baseY));
 }
 
-inline int degrain_interp_halfpel_weighted(
+static inline int degrain_interp_halfpel_weighted(
     __global const uchar *src,
     const int pitch,
     const int width,
@@ -389,7 +389,7 @@ inline int degrain_interp_halfpel_weighted(
     return degrain_clamp_pixel(degrain_round_rshift_signed(sum, denomXShift + denomYShift));
 }
 
-inline int degrain_interp_halfpel_from_samples(
+static inline int degrain_interp_halfpel_from_samples(
     const int s0,
     const int s1,
     const int s2,
@@ -404,7 +404,7 @@ inline int degrain_interp_halfpel_from_samples(
     return degrain_clamp_pixel((sum + 4) >> 3);
 }
 
-inline int degrain_interp_halfpel_wiener_v_mirror(
+static inline int degrain_interp_halfpel_wiener_v_mirror(
     __global const uchar *src,
     const int pitch,
     const int width,
@@ -422,7 +422,7 @@ inline int degrain_interp_halfpel_wiener_v_mirror(
     return degrain_clamp_pixel((sum + 16) >> 5);
 }
 
-inline int degrain_interp_halfpel_wiener_h_mirror(
+static inline int degrain_interp_halfpel_wiener_h_mirror(
     __global const uchar *src,
     const int pitch,
     const int width,
@@ -438,7 +438,7 @@ inline int degrain_interp_halfpel_wiener_h_mirror(
         degrain_pixel_load_mirror(src, pitch, width, height, baseX + 3, baseY));
 }
 
-inline int degrain_interp_halfpel_wiener_hv_mirror(
+static inline int degrain_interp_halfpel_wiener_hv_mirror(
     __global const uchar *src,
     const int pitch,
     const int width,
@@ -454,7 +454,7 @@ inline int degrain_interp_halfpel_wiener_hv_mirror(
         degrain_interp_halfpel_wiener_v_mirror(src, pitch, width, height, baseX + 3, baseY));
 }
 
-inline int degrain_interp_halfpel_weighted_mirror(
+static inline int degrain_interp_halfpel_weighted_mirror(
     __global const uchar *src,
     const int pitch,
     const int width,
@@ -517,7 +517,7 @@ inline int degrain_interp_halfpel_weighted_mirror(
     return degrain_clamp_pixel(degrain_round_rshift_signed(sum, denomXShift + denomYShift));
 }
 
-inline int degrain_interp_pel4_h(
+static inline int degrain_interp_pel4_h(
     __global const uchar *src,
     const int pitch,
     const int width,
@@ -548,7 +548,7 @@ inline int degrain_interp_pel4_h(
     return (side + halfPix + 1) >> 1;
 }
 
-inline int degrain_interp_pel4(
+static inline int degrain_interp_pel4(
     __global const uchar *src,
     const int pitch,
     const int width,
@@ -581,7 +581,7 @@ inline int degrain_interp_pel4(
     return (side + halfPix + 1) >> 1;
 }
 
-inline int degrain_pixel_load_pel(
+static inline int degrain_pixel_load_pel(
     __global const uchar *src,
     const int pitch,
     const int width,
@@ -620,7 +620,7 @@ inline int degrain_pixel_load_pel(
     return degrain_round_rshift_signed(value, DEGRAIN_PEL_RSHIFT << 1);
 }
 
-inline int degrain_pixel_load_pel_mirror(
+static inline int degrain_pixel_load_pel_mirror(
     __global const uchar *src,
     const int pitch,
     const int width,
@@ -656,7 +656,7 @@ inline int degrain_pixel_load_pel_mirror(
     return degrain_round_rshift_signed(value, DEGRAIN_PEL_RSHIFT << 1);
 }
 
-inline int degrain_reference_is_valid(
+static inline int degrain_reference_is_valid(
     __global const degrain_mv_t *mv,
     __global const degrain_sad_t *sad,
     const int block,
@@ -671,7 +671,7 @@ inline int degrain_reference_is_valid(
     return ((int)mv[index].refdir == clampedRefDirection) && (sad[index].sad < thsad);
 }
 
-inline float degrain_overlap_blend_curve(const float phase) {
+static inline float degrain_overlap_blend_curve(const float phase) {
 #if defined(DEGRAIN_FAST_OVERLAP_TRIG) && DEGRAIN_FAST_OVERLAP_TRIG
     const float c = native_cos(DEGRAIN_PI_F * phase);
 #else
@@ -680,7 +680,7 @@ inline float degrain_overlap_blend_curve(const float phase) {
     return 0.5f + 0.5f * c;
 }
 
-inline float degrain_overlap_axis_gain(
+static inline float degrain_overlap_axis_gain(
     const int pos,
     const int blockSize,
     const int overlap,
@@ -709,7 +709,7 @@ inline float degrain_overlap_axis_gain(
     return 1.0f;
 }
 
-inline float degrain_window_factor_rect_2d(
+static inline float degrain_window_factor_rect_2d(
     const int x,
     const int y,
     const int baseX,
@@ -732,7 +732,7 @@ inline float degrain_window_factor_rect_2d(
     return wx * wy;
 }
 
-inline float degrain_reference_affinity_from_sad(
+static inline float degrain_reference_affinity_from_sad(
     const int sadLimit,
     const int blockSad) {
     if (sadLimit <= blockSad) {
@@ -743,7 +743,7 @@ inline float degrain_reference_affinity_from_sad(
     return (1.0f - sadRatio2) / (1.0f + sadRatio2);
 }
 
-inline float degrain_reference_mix_affinity(
+static inline float degrain_reference_mix_affinity(
     __global const degrain_mv_t *mv,
     __global const degrain_sad_t *sad,
     const int block,
@@ -756,25 +756,25 @@ inline float degrain_reference_mix_affinity(
     return degrain_reference_affinity_from_sad((int)thsad, (int)sad[degrain_ref_index(block, refDirection)].sad);
 }
 
-inline float degrain_temporal_mix_prior_center(__global const float *temporalMixPrior) {
+static inline float degrain_temporal_mix_prior_center(__global const float *temporalMixPrior) {
     return temporalMixPrior[0];
 }
 
-inline float degrain_temporal_mix_prior_ref(
+static inline float degrain_temporal_mix_prior_ref(
     __global const float *temporalMixPrior,
     const int refDirection) {
     return temporalMixPrior[1 + refDirection];
 }
 
-inline int degrain_trace_float_to_q8(const float value) {
+static inline int degrain_trace_float_to_q8(const float value) {
     return convert_int_rte(value * 256.0f);
 }
 
-inline int degrain_ref_direction_disabled(const uint disableMask, const int refDirection) {
+static inline int degrain_ref_direction_disabled(const uint disableMask, const int refDirection) {
     return ((disableMask >> refDirection) & 1u) != 0u;
 }
 
-inline int degrain_compensated_sample(
+static inline int degrain_compensated_sample(
     __global const uchar *ref,
     const int refPitch,
     const int width,
@@ -804,7 +804,7 @@ inline int degrain_compensated_sample(
         y * DEGRAIN_PEL + scaledDy);
 }
 
-inline __global const uchar *degrain_ref_plane_ptr_same_pitch(
+static inline __global const uchar *degrain_ref_plane_ptr_same_pitch(
     __global const uchar *refBackward1,
     __global const uchar *refForward1,
     __global const uchar *refBackward2,
@@ -864,7 +864,7 @@ inline __global const uchar *degrain_ref_plane_ptr_same_pitch(
 #endif
 }
 
-inline int degrain_compensate_block_sample(
+static inline int degrain_compensate_block_sample(
     __global const uchar *ref0,
     __global const uchar *ref,
     const int pitch,
@@ -886,7 +886,7 @@ inline int degrain_compensate_block_sample(
         : degrain_pixel_load(ref0, pitch, width, height, x, y);
 }
 
-inline int degrain_degrain_block_sample(
+static inline int degrain_degrain_block_sample(
     __global const uchar *cur,
     const int pitch,
     __global const uchar *refBackward1,
@@ -940,24 +940,24 @@ inline int degrain_degrain_block_sample(
     return degrain_clamp_pixel(convert_int_rte(mixedValue));
 }
 
-inline int degrain_temporal_mix_plan_offset(const int block) {
+static inline int degrain_temporal_mix_plan_offset(const int block) {
     return block * (DEGRAIN_REFS + 1);
 }
 
-inline float degrain_temporal_mix_plan_src(
+static inline float degrain_temporal_mix_plan_src(
     __global const float *temporalMixPlan,
     const int planOffset) {
     return temporalMixPlan[planOffset];
 }
 
-inline float degrain_temporal_mix_plan_ref(
+static inline float degrain_temporal_mix_plan_ref(
     __global const float *temporalMixPlan,
     const int planOffset,
     const int refDirection) {
     return temporalMixPlan[planOffset + 1 + refDirection];
 }
 
-inline int degrain_apply_temporal_mix_plan_same_pitch(
+static inline int degrain_apply_temporal_mix_plan_same_pitch(
     __global const uchar *cur,
     const int pitch,
     __global const uchar *refBackward1,
@@ -1000,7 +1000,7 @@ inline int degrain_apply_temporal_mix_plan_same_pitch(
     return degrain_clamp_pixel(convert_int_rte(value));
 }
 
-inline int degrain_windowed_sample_contribution(
+static inline int degrain_windowed_sample_contribution(
     const int sample,
     const float windowWeight) {
     return convert_int_rte((float)sample * windowWeight);
@@ -1008,11 +1008,11 @@ inline int degrain_windowed_sample_contribution(
 
 typedef float degrain_window_accum_t;
 
-inline degrain_window_accum_t degrain_window_accum_zero() {
+static inline degrain_window_accum_t degrain_window_accum_zero() {
     return 0.0f;
 }
 
-inline void degrain_accumulate_windowed_sample(
+static inline void degrain_accumulate_windowed_sample(
     __private degrain_window_accum_t *sampleSum,
     __private degrain_window_accum_t *weightSum,
     const int sample,
@@ -1023,18 +1023,18 @@ inline void degrain_accumulate_windowed_sample(
     }
 }
 
-inline int degrain_finalize_windowed_sample(
+static inline int degrain_finalize_windowed_sample(
     const degrain_window_accum_t sampleSum,
     const degrain_window_accum_t weightSum,
     const int fallback) {
     return (weightSum > 0.0f) ? convert_int_rte(sampleSum / weightSum) : fallback;
 }
 
-inline int degrain_trace_window_accum(const degrain_window_accum_t sampleSum) {
+static inline int degrain_trace_window_accum(const degrain_window_accum_t sampleSum) {
     return convert_int_rte(sampleSum);
 }
 
-inline void degrain_accumulate_weighted_sample_fp32(
+static inline void degrain_accumulate_weighted_sample_fp32(
     __private float *sampleSum,
     __private float *weightSum,
     const int sample,
@@ -1045,7 +1045,7 @@ inline void degrain_accumulate_weighted_sample_fp32(
     }
 }
 
-inline int degrain_finalize_weighted_sample_fp32(
+static inline int degrain_finalize_weighted_sample_fp32(
     const float sampleSum,
     const float weightSum,
     const int fallback) {

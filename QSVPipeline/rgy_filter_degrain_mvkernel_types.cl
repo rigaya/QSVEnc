@@ -91,19 +91,19 @@ typedef struct {
     int reserved2;
 } degrain_search_batch_data_t;
 
-inline int degrain_motion_search_vec_zero_index(const int planeBase) {
+static inline int degrain_motion_search_vec_zero_index(const int planeBase) {
     return planeBase + (int)DEGRAIN_MOTION_SEARCH_VEC_KIND_ZERO;
 }
 
-inline int degrain_motion_search_vec_global_index(const int planeBase) {
+static inline int degrain_motion_search_vec_global_index(const int planeBase) {
     return planeBase + (int)DEGRAIN_MOTION_SEARCH_VEC_KIND_GLOBAL;
 }
 
-inline int degrain_motion_search_vec_block_index(const int planeBase, const int block) {
+static inline int degrain_motion_search_vec_block_index(const int planeBase, const int block) {
     return planeBase + (int)DEGRAIN_MOTION_SEARCH_VEC_KIND_BLOCK + block;
 }
 
-inline int degrain_motion_search_vec_current_index(
+static inline int degrain_motion_search_vec_current_index(
     const int planeBase,
     const int blockCount,
     const int block) {
@@ -112,21 +112,21 @@ inline int degrain_motion_search_vec_current_index(
 
 // 前回スナップショット用バッファは vectors と独立した cl_mem として確保される。
 // host 側は同レイアウト (sentinel 2 + blockCount 個) のバッファを vectorsPrev に渡す。
-inline int degrain_motion_search_vec_prev_index(
+static inline int degrain_motion_search_vec_prev_index(
     const int planeBase,
     const int blockCount,
     const int block) {
     return planeBase + (int)DEGRAIN_MOTION_SEARCH_VEC_KIND_BLOCK + clamp(block, 0, max(blockCount - 1, 0));
 }
 
-inline int degrain_motion_search_vec_final_index(
+static inline int degrain_motion_search_vec_final_index(
     const int finalBase,
     const int blockCount,
     const int block) {
     return finalBase + clamp(block, 0, max(blockCount - 1, 0));
 }
 
-inline degrain_mv_internal_t degrain_motion_search_make_vector(
+static inline degrain_mv_internal_t degrain_motion_search_make_vector(
     const int posX,
     const int posY,
     const uint sadMetric,
@@ -139,7 +139,7 @@ inline degrain_mv_internal_t degrain_motion_search_make_vector(
     return vec;
 }
 
-inline degrain_motion_search_candidate_t degrain_motion_search_make_candidate(
+static inline degrain_motion_search_candidate_t degrain_motion_search_make_candidate(
     const int posX,
     const int posY,
     const uint sadMetric,
@@ -152,12 +152,12 @@ inline degrain_motion_search_candidate_t degrain_motion_search_make_candidate(
     return candidate;
 }
 
-inline degrain_motion_search_candidate_t degrain_motion_search_saved_vector_to_candidate(
+static inline degrain_motion_search_candidate_t degrain_motion_search_saved_vector_to_candidate(
     const degrain_motion_search_saved_vector_t vec) {
     return degrain_motion_search_make_candidate(vec.pos_x, vec.pos_y, vec.sad_metric, vec.score_primary);
 }
 
-inline degrain_motion_search_saved_vector_t degrain_motion_search_candidate_to_saved_vector(
+static inline degrain_motion_search_saved_vector_t degrain_motion_search_candidate_to_saved_vector(
     const degrain_motion_search_candidate_t candidate) {
     return degrain_motion_search_make_vector(candidate.pos_x, candidate.pos_y, candidate.sad_metric, candidate.score_primary);
 }

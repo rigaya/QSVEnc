@@ -30,7 +30,7 @@
 #define DEGRAIN_TV_RANGE 0
 #endif
 
-inline int degrain_analysis_luma_to_full_range(const int value) {
+static inline int degrain_analysis_luma_to_full_range(const int value) {
 #if DEGRAIN_TV_RANGE
 #if DEGRAIN_PIXEL_MAX <= 255
     const int converted = ((value - 16) * DEGRAIN_PIXEL_MAX + (219 >> 1)) / 219;
@@ -94,7 +94,7 @@ __kernel void kernel_degrain_downsample_luma2x(
 #define DEGRAIN_REP0 -1
 #endif
 
-inline int degrain_temporal_smooth_value(
+static inline int degrain_temporal_smooth_value(
     __global const uchar *srcPrev2,
     const int srcPrev2Pitch,
     __global const uchar *srcPrev,

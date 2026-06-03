@@ -29,25 +29,25 @@
 #ifndef RGY_FILTER_DEGRAIN_MOTION_SEARCH_SAD_CL
 #define RGY_FILTER_DEGRAIN_MOTION_SEARCH_SAD_CL
 
-inline int degrain_motion_search_ref_x(const int blockX, const int step, const int dx) {
+static inline int degrain_motion_search_ref_x(const int blockX, const int step, const int dx) {
     return blockX * step + degrain_floor_div_pel(dx);
 }
 
-inline int degrain_motion_search_ref_y(const int blockY, const int step, const int dy) {
+static inline int degrain_motion_search_ref_y(const int blockY, const int step, const int dy) {
     return blockY * step + degrain_floor_div_pel(dy);
 }
 
-inline int degrain_motion_search_ref_frac_x(const int dx) {
+static inline int degrain_motion_search_ref_frac_x(const int dx) {
     const int base = degrain_floor_div_pel(dx);
     return degrain_floor_mod_pel(dx, base);
 }
 
-inline int degrain_motion_search_ref_frac_y(const int dy) {
+static inline int degrain_motion_search_ref_frac_y(const int dy) {
     const int base = degrain_floor_div_pel(dy);
     return degrain_floor_mod_pel(dy, base);
 }
 
-inline int degrain_motion_search_ref_sample(
+static inline int degrain_motion_search_ref_sample(
     __global const uchar *ref,
     const int refPitch,
     const int width,
@@ -78,7 +78,7 @@ inline int degrain_motion_search_ref_sample(
 #endif
 }
 
-inline int degrain_motion_search_ref_is_integer_pel(const int dx, const int dy) {
+static inline int degrain_motion_search_ref_is_integer_pel(const int dx, const int dy) {
 #if DEGRAIN_PEL <= 1
     (void)dx;
     (void)dy;
@@ -89,7 +89,7 @@ inline int degrain_motion_search_ref_is_integer_pel(const int dx, const int dy) 
 #endif
 }
 
-inline uint degrain_motion_search_calc_sad_luma(
+static inline uint degrain_motion_search_calc_sad_luma(
     __global const uchar *cur,
     __global const uchar *ref,
     const int curPitch,
@@ -116,7 +116,7 @@ inline uint degrain_motion_search_calc_sad_luma(
     return sad;
 }
 
-inline uint degrain_motion_search_calc_sad_luma_part(
+static inline uint degrain_motion_search_calc_sad_luma_part(
     __global const uchar *cur,
     __global const uchar *ref,
     const int curPitch,
@@ -143,11 +143,11 @@ inline uint degrain_motion_search_calc_sad_luma_part(
     return sad;
 }
 
-inline uint degrain_motion_search_reduce_group(const uint value) {
+static inline uint degrain_motion_search_reduce_group(const uint value) {
     return value;
 }
 
-inline uint degrain_motion_search_reduce_candidates(const uint value) {
+static inline uint degrain_motion_search_reduce_candidates(const uint value) {
     return value;
 }
 
