@@ -52,6 +52,58 @@ static const int COLORFIX_BLOCK_X = 32;
 static const int COLORFIX_BLOCK_Y = 8;
 static const int COLORFIX_WG_SIZE = COLORFIX_BLOCK_X * COLORFIX_BLOCK_Y;
 
+// Variance-guard helper with three layers of lock-in protection:
+//   - warm-up window: first K_WARMUP accepted frames bypass the guard so
+//     the rolling baseline can't be biased by a low-variance intro
+//     (logo / fade-in / static title) that locks the threshold low.
+//   - floor: rollingAvg is clamped to MIN_FLOOR(bit_depth) before the
+//     threshold is derived, preventing the multiplicative collapse
+//     (upper = rollingAvg * vt; if rollingAvg \approx 0 every non-trivial
+//     varY is rejected).
+//   - scene-cut re-baseline: a frame whose varY exceeds rollingAvg by
+//     SCENE_CUT_FACTOR is treated as a probable scene cut. The current
+//     frame is still skipped (uncertain) but the rolling stats are reset
+//     so subsequent frames in the new scene can pass the guard.
+//
+// rollingVarSum / rollingVarCount are updated by the helper (re-baseline
+// on scene cut); callers update them on the accept path as before.
+//
+// Returns true if the frame should be skipped.
+static bool colorfix_variance_guard(
+    double  varY,
+    double &rollingVarSum,
+    int    &rollingVarCount,
+    int     bit_depth,
+    float   varianceThreshold) {
+    static constexpr int    K_WARMUP         = 60;    // ~2s at 30fps
+    static constexpr double SCENE_CUT_FACTOR = 20.0;
+    // Variance scales as luma^2: a floor that is "100" at 8-bit must
+    // scale by 2^(2*(bd-8)) to stay equivalent at higher bit depths.
+    const double MIN_FLOOR = 100.0 * (double)(1LL << (2 * (bit_depth - 8)));
+
+    if (rollingVarCount < K_WARMUP) {
+        return false;  // warm-up: accept unconditionally
+    }
+    double rollingAvg = rollingVarSum / (double)rollingVarCount;
+    if (rollingAvg < MIN_FLOOR) rollingAvg = MIN_FLOOR;
+
+    const double upper = rollingAvg * (double)varianceThreshold;
+    const double lower = rollingAvg * 0.1 / (double)varianceThreshold;
+
+    if (varY > upper) {
+        if (varY > rollingAvg * SCENE_CUT_FACTOR) {
+            // Probable scene cut: reset the rolling baseline so the
+            // next batch of frames in the new scene establishes a
+            // fresh baseline (re-arms warm-up too).
+            rollingVarSum   = varY;
+            rollingVarCount = 1;
+        }
+        return true;
+    }
+    if (varY < lower) return true;
+    return false;
+}
+
 RGYFilterColorFix::RGYFilterColorFix(shared_ptr<RGYOpenCLContext> context) :
     RGYFilter(context),
     m_colorfix(),
@@ -715,16 +767,11 @@ RGY_ERR RGYFilterColorFix::runPreScanLibav(const std::shared_ptr<RGYFilterParamC
         const double meanY = (double)frameSumY / (double)npxLuma;
         const double varY  = (double)frameSumYsq / (double)npxLuma - meanY * meanY;
 
-        // Variance guard mirroring the GPU runtime path
-        // (rgy_filter_colorfix.cpp:665-672): reject frames whose luma
-        // variance lies outside the rolling-average band.
-        bool skip = false;
-        if (rollingVarCount > 0) {
-            const double rollingAvg = rollingVarSum / rollingVarCount;
-            const double upper = rollingAvg * prm->colorfix.varianceThreshold;
-            const double lower = rollingAvg * 0.1 / prm->colorfix.varianceThreshold;
-            if (varY > upper || varY < lower) skip = true;
-        }
+        // Variance guard with warm-up / floor / scene-cut protections;
+        // see colorfix_variance_guard at file scope.
+        const bool skip = colorfix_variance_guard(
+            varY, rollingVarSum, rollingVarCount,
+            depthLuma, prm->colorfix.varianceThreshold);
         if (!skip) {
             sumU += frameSumU;
             sumV += frameSumV;
@@ -970,14 +1017,10 @@ RGY_ERR RGYFilterColorFix::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
             const double meanY  = (double)sumY / (double)npxLuma;
             const double varY   = (double)sumYsq / (double)npxLuma - meanY * meanY;
 
-            // Variance guard: skip if outside rollingAvg × threshold.
-            bool skip = false;
-            if (m_rollingVarianceCount > 0) {
-                const double rollingAvg = m_rollingVarianceSum / m_rollingVarianceCount;
-                const double upper = rollingAvg * prm->colorfix.varianceThreshold;
-                const double lower = rollingAvg * 0.1 / prm->colorfix.varianceThreshold;
-                if (varY > upper || varY < lower) skip = true;
-            }
+            // Variance guard with warm-up / floor / scene-cut; see helper at top.
+            const bool skip = colorfix_variance_guard(
+                varY, m_rollingVarianceSum, m_rollingVarianceCount,
+                RGY_CSP_BIT_DEPTH[targetFrame->csp], prm->colorfix.varianceThreshold);
 
             if (!skip) {
                 m_sumA += sumU;
@@ -1082,13 +1125,9 @@ RGY_ERR RGYFilterColorFix::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
             const double meanY = (double)sumY / (double)npxLuma;
             const double varY  = (double)sumYsq / (double)npxLuma - meanY * meanY;
 
-            bool skip = false;
-            if (m_rollingVarianceCount > 0) {
-                const double rollingAvg = m_rollingVarianceSum / m_rollingVarianceCount;
-                const double upper = rollingAvg * prm->colorfix.varianceThreshold;
-                const double lower = rollingAvg * 0.1 / prm->colorfix.varianceThreshold;
-                if (varY > upper || varY < lower) skip = true;
-            }
+            const bool skip = colorfix_variance_guard(
+                varY, m_rollingVarianceSum, m_rollingVarianceCount,
+                RGY_CSP_BIT_DEPTH[targetFrame->csp], prm->colorfix.varianceThreshold);
             if (!skip) {
                 m_sumA += sumU;
                 m_sumB += sumV;
@@ -1174,13 +1213,9 @@ RGY_ERR RGYFilterColorFix::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
             const double meanY = (double)sumY / (double)npx;
             const double varY  = (double)sumYsq / (double)npx - meanY * meanY;
 
-            bool skip = false;
-            if (m_rollingVarianceCount > 0) {
-                const double rollingAvg = m_rollingVarianceSum / m_rollingVarianceCount;
-                const double upper = rollingAvg * prm->colorfix.varianceThreshold;
-                const double lower = rollingAvg * 0.1 / prm->colorfix.varianceThreshold;
-                if (varY > upper || varY < lower) skip = true;
-            }
+            const bool skip = colorfix_variance_guard(
+                varY, m_rollingVarianceSum, m_rollingVarianceCount,
+                RGY_CSP_BIT_DEPTH[m_cspRgb], prm->colorfix.varianceThreshold);
 
             if (!skip) {
                 m_sumA += sumR;
