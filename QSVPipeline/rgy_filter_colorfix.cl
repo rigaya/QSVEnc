@@ -1,6 +1,4 @@
 ﻿// ColorFix — colour correction kernels.
-// From-scratch implementation for QSVEncC. No GPL source was consulted.
-// See rgy_filter_colorfix.h for the external-algorithm notice.
 //
 // Pipeline (orchestrated by rgy_filter_colorfix.cpp):
 //   mode=manual: input YUV → CspCrop → RGB → colorfix_apply_rgb → CspCrop → YUV
@@ -92,7 +90,6 @@ __kernel void colorfix_reduce_uv(
     const __global uchar *pY, int pitchY, int widthY, int heightY,
     const __global uchar *pU, int pitchU, int widthU, int heightU,
     const __global uchar *pV, int pitchV,
-    int uvInterleaved,
     int subX, int subY,           // chroma:luma sample ratio (typically 2,2 for 4:2:0)
     __global long *out_partials   // 4 longs per work-group
 ) {
@@ -108,9 +105,8 @@ __kernel void colorfix_reduce_uv(
     long uVal = 0, vVal = 0, yAcc = 0, ysqAcc = 0;
 
     if (cx < widthU && cy < heightU) {
-        const int uvx = uvInterleaved ? cx * 2 : cx;
-        uVal = (long)(*(const __global Type *)(pU + cy * pitchU + uvx * sizeof(Type)));
-        vVal = (long)(*(const __global Type *)(pV + cy * pitchV + (uvx + uvInterleaved) * sizeof(Type)));
+        uVal = (long)(*(const __global Type *)(pU + cy * pitchU + cx * sizeof(Type)));
+        vVal = (long)(*(const __global Type *)(pV + cy * pitchV + cx * sizeof(Type)));
 
         // Accumulate the (subX × subY) luma samples covered by this chroma cell.
         for (int dy = 0; dy < subY; dy++) {
@@ -192,16 +188,14 @@ __kernel void colorfix_apply_uv(
     __global uchar *pU, int pitchU,
     __global uchar *pV, int pitchV,
     int widthU, int heightU,
-    int uvInterleaved,
     int offsetU, int offsetV
 ) {
     const int x = get_global_id(0);
     const int y = get_global_id(1);
     if (x >= widthU || y >= heightU) return;
 
-    const int uvx = uvInterleaved ? x * 2 : x;
-    __global Type *uPix = (__global Type *)(pU + y * pitchU + uvx * sizeof(Type));
-    __global Type *vPix = (__global Type *)(pV + y * pitchV + (uvx + uvInterleaved) * sizeof(Type));
+    __global Type *uPix = (__global Type *)(pU + y * pitchU + x * sizeof(Type));
+    __global Type *vPix = (__global Type *)(pV + y * pitchV + x * sizeof(Type));
 
     int u = (int)uPix[0] + offsetU;
     int v = (int)vPix[0] + offsetV;
@@ -223,9 +217,9 @@ __kernel void colorfix_apply_uv(
 // touched here.
 // ---------------------------------------------------------------------------
 __kernel void colorfix_reduce_rgb(
-    const __global uchar *pR, int pitchR,
-    const __global uchar *pG, int pitchG,
-    const __global uchar *pB, int pitchB,
+    const __global uchar *pR
+    const __global uchar *pG,
+    const __global uchar *pB, int pitch,
     int width, int height,
     __global long *out_partials       // 5 longs per work-group
 ) {
@@ -242,9 +236,9 @@ __kernel void colorfix_reduce_rgb(
     long rv = 0, gv = 0, bv = 0, yv = 0, ysq = 0;
 
     if (x < width && y < height) {
-        rv = (long)(*(const __global Type *)(pR + y * pitchR + x * sizeof(Type)));
-        gv = (long)(*(const __global Type *)(pG + y * pitchG + x * sizeof(Type)));
-        bv = (long)(*(const __global Type *)(pB + y * pitchB + x * sizeof(Type)));
+        rv = (long)(*(const __global Type *)(pR + y * pitch + x * sizeof(Type)));
+        gv = (long)(*(const __global Type *)(pG + y * pitch + x * sizeof(Type)));
+        bv = (long)(*(const __global Type *)(pB + y * pitch + x * sizeof(Type)));
         // Y approximation for variance guard (BT.601 weights × 65536):
         //   Y ≈ (19595 R + 38470 G +  7471 B + 32768) >> 16
         // The exact matrix doesn't matter — this is only used to decide

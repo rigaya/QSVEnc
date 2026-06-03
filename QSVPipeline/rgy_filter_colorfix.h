@@ -32,10 +32,6 @@
 // mode=manual: standard white-balance lift / gain in RGB space.
 // mode=auto:   per-frame chroma mean reduction (YUV space).
 // mode=gray:   grayworld colour-constancy assumption (Buchsbaum 1980).
-//
-// Originally cross-referenced with the FFmpeg grayworld filter
-// (LGPL — description only, no source reading). No license-encumbered
-// code reproduced. See rgy_filter_colorfix.cpp for the full notice.
 // --------------------------------------
 
 #pragma once
@@ -49,8 +45,11 @@ class RGYFilterParamColorFix : public RGYFilterParam {
 public:
     VppColorFix colorfix;
     VideoVUIInfo vui;             // populated by qsv_pipeline.cpp from input metadata
+    tstring      inputFilePath;   // populated by qsv_pipeline.cpp; used by the
+                                  // init-time libav pre-scan for mode=auto/gray-yuv
+                                  // (empty = no pre-scan; ramp fallback at runtime).
 
-    RGYFilterParamColorFix() : colorfix(), vui() {};
+    RGYFilterParamColorFix() : colorfix(), vui(), inputFilePath() {};
     virtual ~RGYFilterParamColorFix() {};
     virtual tstring print() const override { return colorfix.print(); };
 };
@@ -118,6 +117,18 @@ protected:
     RGY_ERR finaliseReduction(RGYOpenCLQueue &queue, int numLongsPerGroup,
                               std::vector<long long> &out_totals);
 
+    // Init-time libav pre-scan for mode=auto and mode=gray (yuv-space
+    // path). Opens a private AVFormatContext against
+    // prm->inputFilePath, sequentially decodes the first frames= frames,
+    // accumulates chroma sums on the host CPU, and locks in m_offsetU /
+    // m_offsetV before the first encode frame arrives. On success the
+    // runtime path applies the correction from frame 1 with no ramp and
+    // no discontinuity. On pipe / non-file inputs, libav error, or
+    // unsupported pixel format the function returns RGY_ERR_UNSUPPORTED
+    // and the caller leaves m_prescanUsed=false so that run_filter()
+    // falls back to the streaming pre-roll with strength ramp.
+    RGY_ERR runPreScanLibav(const std::shared_ptr<RGYFilterParamColorFix> &prm);
+
     // OpenCL programs.
     RGYOpenCLProgramAsync m_colorfix;        // our own kernels
     std::string           m_buildOptionsYUV; // build options for YUV-side kernels
@@ -155,6 +166,20 @@ protected:
     float m_scaleR;         // gray-mode RGB scales
     float m_scaleG;
     float m_scaleB;
+
+    // Init-time libav pre-scan + runtime ramp state.
+    // m_prescanUsed: true when runPreScanLibav populated m_offsetU /
+    //   m_offsetV before runtime. The auto / gray-yuv runtime paths
+    //   then skip analysis entirely and apply from frame 1.
+    // m_hardCapFrames: safety timeout for the streaming pre-roll. When
+    //   the variance guard keeps rejecting frames (e.g. persistent
+    //   flicker / strobe) and m_analysedFrames hasn't reached frames=
+    //   by m_totalSeenFrames >= m_hardCapFrames, the runtime locks
+    //   in whatever running offset has been accumulated so the rest of
+    //   the clip is not left uncorrected. Mirrors the chromashift
+    //   safety net at rgy_filter_chromashift.cpp:379.
+    bool  m_prescanUsed;
+    int   m_hardCapFrames;
 };
 
 #endif // __RGY_FILTER_COLORFIX_H__

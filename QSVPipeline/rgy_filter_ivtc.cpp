@@ -32,6 +32,7 @@
 #include <limits>
 #include "convert_csp.h"
 #include "rgy_avutil.h"
+#include "rgy_filter_input_probe.h"
 #include "rgy_filter_ivtc.h"
 
 // Decode the cadence-tracker tag int (set per-frame by updateCadence +
@@ -63,20 +64,6 @@ static const int IVTC_BLOCK_Y = 8;
 // prev2/next2 slots are free because flushCycle already owns the larger frame
 // buffer for staging. Latency is 3 frames (process cur once next2 has arrived).
 static const int IVTC_CACHE_SIZE = 5;
-
-static const char *ivtcPreScanUnsupportedProtocol(const std::string &filename) {
-    if (filename == "-") {
-        return "stdin";
-    }
-    if (filename.c_str() == strstr(filename.c_str(), R"(\\.\pipe\)")) {
-        return "windows named pipe";
-    }
-    const char *protocol = avio_find_protocol_name(filename.c_str());
-    if (protocol != nullptr && strcmp(protocol, "file") != 0) {
-        return protocol;
-    }
-    return nullptr;
-}
 
 // ============================================================================
 //  Selection / decision-layer constants.
@@ -525,7 +512,7 @@ RGY_ERR RGYFilterIvtc::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
                     }
 
                     // Diagnostic dump of the first 30 schedule entries
-                    // so the user can cross-check against dgdecode_trace.txt.
+                    // so the user can cross-check against a decoder behaviour trace.
                     const int dumpN = std::min(30, m_displayFrameCount);
                     AddMessage(RGY_LOG_INFO,
                         _T("ivtc: RFF expansion ENABLED (pre-scan). ")
@@ -1505,7 +1492,7 @@ static RGY_ERR ivtcPreScanInput(const tstring &inputPath,
         if (log) log->write(RGY_LOG_ERROR, RGY_LOGT_VPP, _T("ivtc prescan: failed to convert filename to utf-8\n"));
         return RGY_ERR_UNSUPPORTED;
     }
-    if (const auto protocol = ivtcPreScanUnsupportedProtocol(filenameUtf8); protocol != nullptr) {
+    if (const auto protocol = unsupportedProbeProtocol(filenameUtf8); protocol != nullptr) {
         if (log) log->write(RGY_LOG_WARN, RGY_LOGT_VPP,
             _T("ivtc prescan: input \"%s\" uses %s protocol, which cannot be pre-scanned safely. ")
             _T("--vpp-ivtc expand requires a re-openable local file input.\n"),
@@ -1741,7 +1728,7 @@ void RGYFilterIvtc::buildScheduleFromScan(
     // DGDecode state: "top" and "bottom" flags track whether the
     // currently-open slot has its .top or .bottom field already
     // committed but is still waiting for the other side. Both persist
-    // across non-RFF frames (see dgdecode_trace.txt). pendingTopFilm /
+    // across non-RFF frames. pendingTopFilm /
     // pendingBotFilm record the POST-TRIM coded index that supplied the
     // committed side.
     bool top    = false;
@@ -2429,9 +2416,10 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
         // Decisive-alt guard (2026-04-25, fifth revision).
         //
         // History:
-        //   v1 (combScore-only)            — 174 SG1 alt-flips; trivially
+        //   v1 (combScore-only)            — ~174 alt-flips on a telecined
+        //                                    calibration source; trivially
         //                                    cleared by clean-frame noise.
-        //   v2 (broadened primaryIsCombed) — 171; combMax>=100 padded the
+        //   v2 (broadened primaryIsCombed) — ~171; combMax>=100 padded the
         //                                    OR with a clause that already
         //                                    fired on clean content.
         //   v3 (combScore>=65 OR combMax>=100) — still ~171; standalone
@@ -2441,10 +2429,11 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
         //                                    combed-block flag).
         //   v4 (combScore>=65 OR (combMax>=100 AND combScore>=50)) —
         //                                    alt count dropped to ~20 and
-        //                                    blend counts came in correct
-        //                                    (SG1 ~47, DH2 = 1), but a
+        //                                    blend counts looked correct
+        //                                    on two calibration sources
+        //                                    (~47 and ~1 flips), but a
         //                                    visual regression remained:
-        //                                    frame 4058 showed mixed-
+        //                                    one frame showed mixed-
         //                                    field discoloration even
         //                                    though its scores looked
         //                                    clean.
@@ -2517,9 +2506,9 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
         // by combing only (no matchScore tiebreak) when the chosen
         // candidate has structural combing but isn't bad enough to
         // trigger the blend gate. Targets near-threshold failures
-        // (e.g. SG1 ~4285) where the comb-first comparator's matchScore
-        // tiebreak picked a slightly-combed candidate over a cleaner
-        // alternative that happened to have a marginally higher SAD.
+        // where the comb-first comparator's matchScore tiebreak picked
+        // a slightly-combed candidate over a cleaner alternative that
+        // happened to have a marginally higher SAD.
         //
         // Hard rules:
         //   - Does not modify selection, thresholds, blend gates,
@@ -2543,8 +2532,8 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
             // Without this gate, the original combBlocks > 0 trigger fires
             // on essentially every frame (noisy block-flag floor at
             // THRESH=8), turning rescue into an unconditional re-rank that
-            // flipped 2814/8000 SG1 frames to C-alt and pushed blend
-            // counts from 47 → 64.
+            // flipped ~35% of frames to C-alt on a calibration source and
+            // pushed blend counts from 47 -> 64.
             //
             // Threshold revision (2026-04-25 v3): lowered from 65 to 40.
             // The original 65 mirrored the blend-gate floor (combThreshProg)
@@ -2594,8 +2583,9 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
                 //
                 // History:
                 //   v1: combBlocks<  OR 2x combScore — accepted marginal
-                //       noise-driven swaps. Blend counts 47 → 64;
-                //       2814 spurious matchParity=alt flips on SG1.
+                //       noise-driven swaps. Blend counts 47 -> 64;
+                //       ~35% spurious matchParity=alt flips on a
+                //       calibration source.
                 //   v2: combBlocks==0 victory OR 3x combScore — too
                 //       strict. The 3x threshold only catches extreme
                 //       improvements, which don't exist between
@@ -2695,9 +2685,10 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
         // GLOBAL PARITY INVARIANT (2026-04-25, final clamp).
         //
         // After several iterations of the v5 alt-guard / rescue / plateau
-        // experiments, the residual alt-parity selections (e.g. 12
-        // C-alt frames on DH2 from the v5 guard satisfying primary>=65
-        // && altIsClearlyBetter on heavily-textured progressive frames)
+        // experiments, the residual alt-parity selections (e.g. ~12
+        // C-alt frames on a calibration source from the v5 guard
+        // satisfying primary>=65 && altIsClearlyBetter on heavily-
+        // textured progressive frames)
         // were determined to provide no measurable benefit while
         // continuing to make the matchParity TSV column noisy.
         //
@@ -2921,18 +2912,18 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
     // ----------------------------------------------------------------
     //  Dual-condition mislabel detection (2026-04-22 follow-up fix):
     //  the saturation-only gate (cComb ≥ MAX_CCOMB) misses genuinely
-    //  combed frames at cComb = 185..248. Empirical data:
-    //    - DH2 texture false positives: mQ maxes at ~1129
-    //    - SG-1 genuinely combed frames: mQ starts at ~1719
-    //  Gap centre ≈ 1500 → mQ_threshold = 1500 (8-bit base).
+    //  combed frames at cComb = 185..248. Empirical calibration:
+    //    - texture false positives: mQ maxes at ~1129
+    //    - genuinely combed frames: mQ starts at ~1719
+    //  Gap centre ~= 1500 -> mQ_threshold = 1500 (8-bit base).
     //
     //  The dual condition fires when ALL of:
     //    1. cComb ≥ 3 × cleanBlockThresh (residual combing well above noise)
     //    2. mQ > mQ_threshold (interpolation residual above texture ceiling)
     //    3. chosenMatchScore >= bestOther (minimal ordering guard — allows
     //       flat high scores where all C/P/N are equally bad, which is the
-    //       SG-1 combed case; blocks pathological inversions only when the
-    //       selected candidate has been overridden to worse than
+    //       genuinely-combed case; blocks pathological inversions only
+    //       when the selected candidate has been overridden to worse than
     //       alternatives by hysteresis or cadence lock).
     //
     //  strongMatch is NOT required here. Genuinely combed mislabeled
@@ -2947,19 +2938,19 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
     const int      mQshift           = std::max(0, std::min(8, bitDepth - 8));
     const uint64_t mQ_threshold      = (uint64_t)1500 << mQshift;
     // Separate, looser mQ gate for the progressive path only — sw-decoder
-    // weaved output has inherently suppressed mQ on real combing (DH2
-    // #7769-#7777 cluster at mQ=1008..1491, cComb=86..113, all visually
-    // combed but below the 1500 threshold). Interlaced/unknown paths
-    // keep the stricter 1500 floor because those classes have more
-    // headroom in the metric space.
+    // weaved output has inherently suppressed mQ on real combing (an
+    // observed calibration cluster sits at mQ=1008..1491, cComb=86..113,
+    // all visually combed but below the 1500 threshold). Interlaced/
+    // unknown paths keep the stricter 1500 floor because those classes
+    // have more headroom in the metric space.
     const uint64_t mQ_threshold_prog = (uint64_t)1000 << mQshift;
     const uint64_t combThresh3       = (uint64_t)cleanBlockThresh * 3ULL;
     // Fixed-absolute cComb floor used by BOTH unknownCombed and
     // progressiveCombed. cComb is a per-WG zigzag pixel count (max 256)
     // and is NOT bit-depth-scaled, so the absolute threshold works at
     // all bit depths. combThresh3 (~153 at cleanFrac=0.20) is too high
-    // empirically — SG-1 avhw frames #4460/4461 (cComb=117-119) and
-    // DH2 cases fail the combThresh3 gate despite real combing.
+    // empirically — observed calibration frames at cComb=117-119 and
+    // similar cases fail the combThresh3 gate despite real combing.
     const uint64_t combThreshProg    = 65ULL;
 
     const bool mislabeledBySaturation =
@@ -2973,20 +2964,20 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
     const bool mislabeled = mislabeledBySaturation || mislabeledByDual;
 
     // Strong-combing escape hatch for treatAsUnknown. Observed avhw frames
-    // like mQ=12891/cComb=194 and SG-1 #4460 (mQ=1928/cComb=119) have flat
-    // candidate scores where strongMatch fails even though the combing is
-    // unambiguously real.
+    // like mQ=12891/cComb=194 and calibration cases at mQ=1928/cComb=119
+    // have flat candidate scores where strongMatch fails even though
+    // the combing is unambiguously real.
     //
     // 2026-04-24: DUAL-GATE (MAX + AVG). The trimmed-average cComb alone
-    // hides localised combing — e.g. SG-1 #2741 has cComb=62 (below the
-    // old 65 threshold) but cCombMax=128 because one hot block is diluted
-    // by surrounding clean blocks. Relying on cCombMax alone over-triggers
-    // on noise spikes (~138 clean frames in the test corpus have cCombMax
-    // > 200 from isolated-block anomalies).
+    // hides localised combing — e.g. a calibration frame with cComb=62
+    // (below the old 65 threshold) but cCombMax=128 because one hot
+    // block is diluted by surrounding clean blocks. Relying on cCombMax
+    // alone over-triggers on noise spikes (~138 clean frames in the
+    // test corpus have cCombMax > 200 from isolated-block anomalies).
     //
     // Dual gate requires:
     //   cCombMax  > 100  — at least one block has strong localised comb
-    //                      (catches SG-1 #2741's hot block; above most
+    //                      (catches the diluted-hot-block case; above most
     //                       noise-spike outliers)
     //   cComb     > 45   — non-trivial frame-level activity (below the
     //                      old 65 to give the MAX-driven path headroom,
@@ -3005,16 +2996,17 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
 
     // Progressive-combed bypass. Sw decoder weaves interlaced content to
     // picstruct=FRAME with no RFF/TFF flags at all — there is no picstruct
-    // signal to route on. DH2 is the canonical case (100% picstruct=FRAME).
+    // signal to route on. The canonical calibration source for this case
+    // is 100% picstruct=FRAME sw-weaved telecined content.
     //
     // Uses the LOOSER mQ gate (mQ_threshold_prog = 1000, declared above)
-    // because sw-weaved real combing suppresses mQ: DH2 #7769-#7777 sit
-    // at mQ=1008..1491, which would all miss a 1500 threshold. Calibration
-    // frames (8-bit):
-    //   DH2 #686   mQ=1816  cComb=70   — needs catch
-    //   DH2 #7769  mQ=1491  cComb=113  — needs catch (was missed at mQ>1500)
-    //   DH2 #7777  mQ=1008  cComb=86   — needs catch (was missed at mQ>1500)
-    //   DH2 clean  mQ=450   cComb=52   — must stay clean (below mQ=1000)
+    // because sw-weaved real combing suppresses mQ: an observed cluster
+    // sits at mQ=1008..1491, which would all miss a 1500 threshold.
+    // Calibration frames (8-bit):
+    //   sample A   mQ=1816  cComb=70   — needs catch
+    //   sample B   mQ=1491  cComb=113  — needs catch (was missed at mQ>1500)
+    //   sample C   mQ=1008  cComb=86   — needs catch (was missed at mQ>1500)
+    //   clean ref  mQ=450   cComb=52   — must stay clean (below mQ=1000)
     //
     // combThreshProg=65 declared above is shared with unknownCombed.
     // mQ_threshold_prog IS bit-depth-scaled via mQshift; combThreshProg
@@ -3033,9 +3025,9 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
     //     case would be a texture false positive; requiring cCombMax>85
     //     ensures at least one 16x16 block has a concentrated combing
     //     signature, matching the highest_sumc semantics from Decomb's Telecide.
-    //   - Threshold 85 (not 100) calibrated to preserve DH2 frame #712
-    //     which has cCombMax=88 — a legitimate catch on sw-weaved
-    //     content. Raising to 100 would lose that catch.
+    //   - Threshold 85 (not 100) calibrated to preserve a sw-weaved
+    //     calibration frame with cCombMax=88 — a legitimate catch.
+    //     Raising to 100 would lose that catch.
     //   - Measured: all sample progressiveCombed fires have cCombMax in
     //     [117, 128], well above the threshold.
     const uint64_t combMaxThreshProg = 85ULL;
@@ -4250,7 +4242,7 @@ RGY_ERR RGYFilterIvtc::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo 
         //  (normal coded-passthrough OR cross-time synth) into the main
         //  IVTC ring. Buffering 10 frames gives us the random-access
         //  lookahead DGDecode needs to correctly handle unclean 3:2
-        //  cadences (e.g. DH2's first GOP with consecutive same-parity
+        //  cadences (e.g. an opening GOP with consecutive same-parity
         //  RFFs that drag pending state through several non-RFF frames).
         //
         //  DEC:/IN: logs are written on BUFFER (not flush) so the log
