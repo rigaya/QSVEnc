@@ -300,6 +300,21 @@ RGY_ERR RGYFilterDeflicker::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
     if (err != RGY_ERR_NONE) return err;
 
     // ---- Stage 2: scene-change detection + rolling buffer update ----
+    //
+    // The scene-change criterion combines a z-score breach with an
+    // absolute-luma floor. The z-score check (|diff| > N * std) catches
+    // big jumps relative to recent variance. The absolute floor
+    // (|diff| > ~10% of max_val) ensures that flicker-target content
+    // doesn't trip the gate: archival flicker is typically 5-20 luma
+    // units (8-bit) of frame-to-frame mean drift, while real scene cuts
+    // are typically 40-80 units. The z-score alone scales with the
+    // very flicker we are trying to correct, so on heavily-flickering
+    // sources (<archival film maker> film, old VHS transfers, PAL/NTSC conversion
+    // artefacts) the std grows with the flicker and the gate triggers
+    // on every frame -> rolling buffer never updates -> all subsequent
+    // frames pass through unmodified. The absolute floor breaks that
+    // self-defeating feedback by requiring a real luma jump regardless
+    // of how noisy the rolling baseline is.
     bool sceneChange = false;
     if (m_rollingMeans.size() >= 5) {
         // Compute rolling mean of means and stddev of means.
@@ -312,8 +327,11 @@ RGY_ERR RGYFilterDeflicker::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
             sumSqDev += d * d;
         }
         const double rollStdOfMeans = std::sqrt(sumSqDev / (double)m_rollingMeans.size());
+        const double absDiff = std::abs(mean_in - rollMeanOfMeans);
+        const double absFloor = 0.10 * (double)((1 << bitDepth) - 1);
         if (rollStdOfMeans > 0.0
-            && std::abs(mean_in - rollMeanOfMeans) > (double)prm->deflicker.scene_threshold * rollStdOfMeans) {
+            && absDiff > (double)prm->deflicker.scene_threshold * rollStdOfMeans
+            && absDiff > absFloor) {
             sceneChange = true;
             m_skippedSceneFrames++;
         }
