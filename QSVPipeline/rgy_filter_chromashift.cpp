@@ -46,6 +46,7 @@ RGYFilterChromaShift::RGYFilterChromaShift(shared_ptr<RGYOpenCLContext> context)
     m_acceptedDy(),
     m_seenAnalysisFrames(0),
     m_skippedAutoFrames(0),
+    m_warmupSkippedFrames(0),
     m_analysisComplete(false),
     m_resolvedShiftX(0.0f),
     m_resolvedShiftY(0.0f) {
@@ -317,7 +318,10 @@ RGY_ERR RGYFilterChromaShift::run_filter(const RGYFrameInfo *pInputFrame, RGYFra
     // Manual x/y is ignored except as a fallback if analysis rejects
     // too many frames (see lock-in below).
     if (prm->chromashift.auto_detect && !m_analysisComplete && planes >= 2) {
-        m_seenAnalysisFrames++;
+        // m_seenAnalysisFrames is incremented BELOW after the kernel runs,
+        // because the warm-up rule (B2 fix) skips counting frames whose
+        // kernel returns zero pairs while m_acceptedDx is still empty. See
+        // the accounting block after the readback.
 
         // Reset the [sum_dx, sum_dy, count] global counters to 0.
         const int zero = 0;
@@ -358,30 +362,50 @@ RGY_ERR RGYFilterChromaShift::run_filter(const RGYFrameInfo *pInputFrame, RGYFra
         const int sum_dy = m_statsHost[1];
         const int count  = m_statsHost[2];
 
-        if (count >= prm->chromashift.auto_min_pairs) {
-            const double dx = (double)sum_dx / (double)count;
-            const double dy = (double)sum_dy / (double)count;
-            m_acceptedDx.push_back(dx);
-            m_acceptedDy.push_back(dy);
+        // B2 warm-up rule: frames whose kernel returned zero pairs while
+        // m_acceptedDx is still empty are bypassed -- they don't count
+        // toward the hardCap. This lets long intros / fades / static
+        // logos pass without consuming the budget before real content
+        // arrives. Bounded by ABS_SAFETY_CAP below so the encode cannot
+        // hang on pathological all-zero content.
+        const bool warmupSkip = (count == 0) && m_acceptedDx.empty();
+        if (warmupSkip) {
+            m_warmupSkippedFrames++;
             AddMessage(RGY_LOG_DEBUG,
-                _T("chromashift: analysis frame %d -> dx=%+.3f dy=%+.3f (%d pairs)\n"),
-                m_seenAnalysisFrames - 1, dx, dy, count);
+                _T("chromashift: analysis frame %d bypassed (0 pairs, no accepted yet)\n"),
+                m_warmupSkippedFrames + m_seenAnalysisFrames - 1);
         } else {
-            m_skippedAutoFrames++;
-            AddMessage(RGY_LOG_DEBUG,
-                _T("chromashift: analysis frame %d skipped (only %d pairs, min=%d)\n"),
-                m_seenAnalysisFrames - 1, count, prm->chromashift.auto_min_pairs);
+            m_seenAnalysisFrames++;
+            if (count >= prm->chromashift.auto_min_pairs) {
+                const double dx = (double)sum_dx / (double)count;
+                const double dy = (double)sum_dy / (double)count;
+                m_acceptedDx.push_back(dx);
+                m_acceptedDy.push_back(dy);
+                AddMessage(RGY_LOG_DEBUG,
+                    _T("chromashift: analysis frame %d -> dx=%+.3f dy=%+.3f (%d pairs)\n"),
+                    m_seenAnalysisFrames - 1, dx, dy, count);
+            } else {
+                m_skippedAutoFrames++;
+                AddMessage(RGY_LOG_DEBUG,
+                    _T("chromashift: analysis frame %d skipped (only %d pairs, min=%d)\n"),
+                    m_seenAnalysisFrames - 1, count, prm->chromashift.auto_min_pairs);
+            }
         }
 
         // Lock-in decisions:
         //   - Enough accepted frames -> compute mean, log result, apply
         //     the resolved shift from this frame onwards.
-        //   - Hit the absolute timeout (3x frames + 10) -> fall back to
-        //     mean of whatever we have, or to user x/y if too few
-        //     accepted to be trustworthy.
+        //   - Hit the per-budget timeout (3x frames + 10 non-warmup
+        //     analyses) -> fall back to mean of whatever we have, or to
+        //     user x/y if too few accepted to be trustworthy.
+        //   - Hit the absolute safety cap on total (warmup + non-warmup)
+        //     analyses -> force timeout. Prevents the encode hanging on
+        //     pathological content that never produces a single pair.
+        static constexpr int ABS_SAFETY_CAP = 1000;
         const int hardCap = prm->chromashift.auto_frames * 3 + 10;
         const bool haveTarget = (int)m_acceptedDx.size() >= prm->chromashift.auto_frames;
-        const bool hitTimeout = m_seenAnalysisFrames >= hardCap;
+        const bool hitTimeout = (m_seenAnalysisFrames >= hardCap)
+                             || ((m_seenAnalysisFrames + m_warmupSkippedFrames) >= ABS_SAFETY_CAP);
         if (haveTarget || hitTimeout) {
             const int acceptedCount = (int)m_acceptedDx.size();
             const int minTrusted = std::max(1, prm->chromashift.auto_frames / 2);
@@ -393,16 +417,17 @@ RGY_ERR RGYFilterChromaShift::run_filter(const RGYFrameInfo *pInputFrame, RGYFra
                 m_resolvedShiftX = (float)(sumDx / (double)acceptedCount);
                 m_resolvedShiftY = (float)(sumDy / (double)acceptedCount);
                 AddMessage(RGY_LOG_INFO,
-                    _T("chromashift: auto-detected x=%+.2f, y=%+.2f (from %d frames, skipped %d)\n"),
-                    m_resolvedShiftX, m_resolvedShiftY, acceptedCount, m_skippedAutoFrames);
+                    _T("chromashift: auto-detected x=%+.2f, y=%+.2f (from %d frames, skipped %d, warmup %d)\n"),
+                    m_resolvedShiftX, m_resolvedShiftY, acceptedCount, m_skippedAutoFrames, m_warmupSkippedFrames);
             } else {
                 // Fallback: honour user-supplied x/y if non-zero, else 0,0.
                 m_resolvedShiftX = prm->chromashift.x;
                 m_resolvedShiftY = prm->chromashift.y;
                 AddMessage(RGY_LOG_WARN,
                     _T("chromashift: auto-analysis insufficient (only %d of %d target frames accepted ")
-                    _T("after %d seen). Falling back to x=%+.2f, y=%+.2f%s\n"),
-                    acceptedCount, prm->chromashift.auto_frames, m_seenAnalysisFrames,
+                    _T("after %d seen, %d bypassed in warmup). Falling back to x=%+.2f, y=%+.2f%s\n"),
+                    acceptedCount, prm->chromashift.auto_frames,
+                    m_seenAnalysisFrames, m_warmupSkippedFrames,
                     m_resolvedShiftX, m_resolvedShiftY,
                     (m_resolvedShiftX == 0.0f && m_resolvedShiftY == 0.0f) ? _T(" (no manual shift set)") : _T(""));
             }
@@ -549,8 +574,9 @@ void RGYFilterChromaShift::close() {
     m_statsHost.clear();
     m_acceptedDx.clear();
     m_acceptedDy.clear();
-    m_seenAnalysisFrames = 0;
-    m_skippedAutoFrames  = 0;
+    m_seenAnalysisFrames   = 0;
+    m_skippedAutoFrames    = 0;
+    m_warmupSkippedFrames  = 0;
     m_analysisComplete   = false;
     m_resolvedShiftX     = 0.0f;
     m_resolvedShiftY     = 0.0f;

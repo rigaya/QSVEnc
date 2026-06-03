@@ -97,6 +97,12 @@ protected:
     std::vector<double>       m_acceptedDy;
     int                       m_seenAnalysisFrames;
     int                       m_skippedAutoFrames;
+    // Frames bypassed during the initial warm-up: rejected by the kernel
+    // (count == 0) before any accepted frame existed. These don't count
+    // against the hardCap budget so long intros / fade-ins don't exhaust
+    // the budget before real content arrives. See run_filter() for the
+    // accounting; bounded by a separate absolute safety cap.
+    int                       m_warmupSkippedFrames;
     bool                      m_analysisComplete;
     float                     m_resolvedShiftX;
     float                     m_resolvedShiftY;
