@@ -1916,7 +1916,12 @@ RGY_ERR CQSVPipeline::InitOutput(sInputParams *inputParams) {
     if (!m_pmfxENC) {
         outFrameInfo->videoPrm.mfx.CodecId = MFX_CODEC_RAW; //エンコードしない場合は出力コーデックはraw(=0)
     }
-    const auto outputVideoInfo = (outFrameInfo->isVppParam) ? videooutputinfo(outFrameInfo->videoPrmVpp.vpp.Out) : videooutputinfo(outFrameInfo->videoPrm.mfx, m_encParams.videoSignalInfo, m_encParams.chromaLocInfo);
+    auto outputVideoInfo = (outFrameInfo->isVppParam) ? videooutputinfo(outFrameInfo->videoPrmVpp.vpp.Out) : videooutputinfo(outFrameInfo->videoPrm.mfx, m_encParams.videoSignalInfo, m_encParams.chromaLocInfo);
+    if (m_pmfxENC
+        && m_encVUI.chromaloc != RGY_CHROMALOC_AUTO
+        && m_encVUI.chromaloc != RGY_CHROMALOC_UNSPECIFIED) {
+        outputVideoInfo.vui.chromaloc = m_encVUI.chromaloc;
+    }
     if (outputVideoInfo.codec == RGY_CODEC_RAW) {
         inputParams->common.AVMuxTarget &= ~RGY_MUX_VIDEO;
     }
