@@ -34,9 +34,9 @@
 //   offset_R = 0
 // ---------------------------------------------------------------------------
 __kernel void colorfix_apply_rgb(
-    __global uchar *pR, int pitchR,
-    __global uchar *pG, int pitchG,
-    __global uchar *pB, int pitchB,
+    __global uchar *pR,
+    __global uchar *pG,
+    __global uchar *pB, int pitch,
     int width, int height,
     float scaleR, float scaleG, float scaleB,
     float offsetR, float offsetG, float offsetB
@@ -45,9 +45,9 @@ __kernel void colorfix_apply_rgb(
     const int y = get_global_id(1);
     if (x >= width || y >= height) return;
 
-    __global Type *rPix = (__global Type *)(pR + y * pitchR + x * sizeof(Type));
-    __global Type *gPix = (__global Type *)(pG + y * pitchG + x * sizeof(Type));
-    __global Type *bPix = (__global Type *)(pB + y * pitchB + x * sizeof(Type));
+    __global Type *rPix = (__global Type *)(pR + y * pitch + x * sizeof(Type));
+    __global Type *gPix = (__global Type *)(pG + y * pitch + x * sizeof(Type));
+    __global Type *bPix = (__global Type *)(pB + y * pitch + x * sizeof(Type));
 
     // CRITICAL: do the multiply in float, not in the narrow integer type.
     // (white-black) can be small on heavily tinted source → 8-bit
@@ -217,7 +217,7 @@ __kernel void colorfix_apply_uv(
 // touched here.
 // ---------------------------------------------------------------------------
 __kernel void colorfix_reduce_rgb(
-    const __global uchar *pR
+    const __global uchar *pR,
     const __global uchar *pG,
     const __global uchar *pB, int pitch,
     int width, int height,
