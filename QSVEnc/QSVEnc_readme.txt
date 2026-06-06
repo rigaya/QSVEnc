@@ -314,6 +314,26 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2026.06.06 (8.15)
+[QSVEncC]
+- nlmeansノイズ除去フィルタ --vpp-nlmeans を追加。
+- CAS (Contrast Adaptive Sharpening) フィルタ --vpp-cas を追加。
+- descaleフィルタ --vpp-descale を追加。
+- FSR1アップスケーリング --vpp-resize algo=fsr1 を追加。
+- hqdn3dノイズ除去フィルタ --vpp-hqdn3d を追加。
+- vinverse逆テレシネフィルタ --vpp-vinverse を追加。
+- 手ブレ補正フィルタ --vpp-stab を追加。
+- --vpp-msmooth, --vpp-msharpen の機能拡張オプションを追加。
+- --vpp-kfm, --vpp-degrain のOpenCLメモリ使用量を削減。
+- --vpp-kfm の処理を改善。
+- --vpp-deflicker のscene change判定を修正。
+- --vpp-chromashift のauto検出budgetを修正。
+- --vpp-colorfix のvariance guard lock-inを修正。
+- ffmpeg(opus)のエンコードエラーを修正。
+
+[AviUtl2]
+- 不要になったiniファイルへのファイルフィルタ書き出しを削除。
+
 2026.05.31 (8.14)
 [QSVEncC]
 - --vpp-rtgmcの高速化。

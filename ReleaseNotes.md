@@ -1,5 +1,22 @@
 # QSVEnc Release Notes
 
+## 8.15
+
+- Add [--vpp-nlmeans](./QSVEncC_Options.en.md#--vpp-nlmeans-param1value1param2value2) noise reduction filter.
+- Add [--vpp-cas](./QSVEncC_Options.en.md#--vpp-cas-param1value1param2value2) contrast adaptive sharpening filter.
+- Add [--vpp-descale](./QSVEncC_Options.en.md#--vpp-descale-param1value1param2value2) descale filter.
+- Add FSR1 upscaling to [--vpp-resize](./QSVEncC_Options.en.md#--vpp-resize-string) (`algo=fsr1`).
+- Add [--vpp-hqdn3d](./QSVEncC_Options.en.md#--vpp-hqdn3d-param1value1param2value2) hqdn3d noise reduction filter.
+- Add [--vpp-vinverse](./QSVEncC_Options.en.md#--vpp-vinverse-param1value1param2value2) inverse telecine filter.
+- Add [--vpp-stab](./QSVEncC_Options.en.md#--vpp-stab-param1value1param2value2) image stabilization filter.
+- Add new options to [--vpp-msmooth](./QSVEncC_Options.en.md#--vpp-msmooth-param1value1param2value2) and [--vpp-msharpen](./QSVEncC_Options.en.md#--vpp-msharpen-param1value1param2value2).
+- Reduce OpenCL memory usage for [--vpp-kfm](./QSVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) and [--vpp-degrain](./QSVEncC_Options.en.md#--vpp-degrain-param1value1).
+- Improve [--vpp-kfm](./QSVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) processing.
+- Fix scene change detection in [--vpp-deflicker](./QSVEncC_Options.en.md#--vpp-deflicker-param1value1param2value2).
+- Fix auto detection budget in [--vpp-chromashift](./QSVEncC_Options.en.md#--vpp-chromashift-param1value1param2value2).
+- Fix variance guard lock-in in [--vpp-colorfix](./QSVEncC_Options.en.md#--vpp-colorfix-param1value1param2value2).
+- Fix ffmpeg (opus) encode error.
+
 ## 8.14
 
 - Optimize [--vpp-rtgmc](./QSVEncC_Options.en.md#--vpp-rtgmc-param1value1param2value2).

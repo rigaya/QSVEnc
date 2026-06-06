@@ -107,7 +107,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_DENOISE_KNN,          _T("knn")),
     std::make_pair(VppType::CL_DENOISE_NLMEANS,      _T("nlmeans")),
     std::make_pair(VppType::CL_DENOISE_PMD,          _T("pmd")),
-    std::make_pair(VppType::CL_DENOISE_HQDN3D,       _T("denoise-hqdn3d")),
+    std::make_pair(VppType::CL_DENOISE_HQDN3D,       _T("hqdn3d")),
     std::make_pair(VppType::CL_DESCALE,              _T("descale")),
     std::make_pair(VppType::CL_DENOISE_DCT,          _T("denoise-dct")),
     std::make_pair(VppType::CL_DENOISE_SMOOTH,       _T("smooth")),
@@ -1909,7 +1909,7 @@ bool VppHqdn3d::operator!=(const VppHqdn3d& x) const {
 }
 
 tstring VppHqdn3d::print() const {
-    return strsprintf(_T("denoise-hqdn3d: luma_spatial %.2f, chroma_spatial %.2f, luma_temporal %.2f, chroma_temporal %.2f"),
+    return strsprintf(_T("hqdn3d: luma_spatial %.2f, chroma_spatial %.2f, luma_temporal %.2f, chroma_temporal %.2f"),
         luma_spatial, chroma_spatial, luma_temporal, chroma_temporal);
 }
 
