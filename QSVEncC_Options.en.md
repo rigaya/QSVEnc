@@ -266,6 +266,7 @@
   - [--vpp-msharpen \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-msharpen-param1value1param2value2)
   - [--vpp-cas \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-cas-param1value1param2value2)
   - [--vpp-warpsharp \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-warpsharp-param1value1param2value2)
+  - [--vpp-detailsharpen \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-detailsharpen-param1value1param2value2)
   - [--vpp-maa \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-maa-param1value1param2value2)
   - [--vpp-detail-enhance \<int\>](#--vpp-detail-enhance-int)
   - [--vpp-rotate \<int\>](#--vpp-rotate-int)
@@ -1838,6 +1839,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
   - [--vpp-msharpen](#--vpp-msharpen-param1value1param2value2)
   - [--vpp-cas](#--vpp-cas-param1value1param2value2)
   - [--vpp-warpsharp](#--vpp-warpsharp-param1value1param2value2)
+  - [--vpp-detailsharpen](#--vpp-detailsharpen-param1value1param2value2)
   - [--vpp-maa](#--vpp-maa-param1value1param2value2)
   - [--vpp-detail-enhance ](#--vpp-detail-enhance-int)
   - [--vpp-transform/rotate](#--vpp-rotate-int)
@@ -3685,6 +3687,37 @@ Edge warping (sharpening) filter.
 
   Example: Adaptive depth.
   --vpp-warpsharp depth=8,depth_min=4,depth_max=12,edge_thr=192,gamma=0.7
+  ```
+
+### --vpp-detailsharpen [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
+Sharpening filter for fine detail enhancement. It boosts texture and low-amplitude detail while suppressing strong enhancement on large edges.
+
+- **Parameters**
+  - z=&lt;float&gt;  (default=4.0, 0.001 - 64.0)  
+    Zero point. Larger values treat smaller luminance differences more weakly.
+
+  - sstr=&lt;float&gt;  (default=1.5, 0.0 - 16.0)  
+    Strength of enhancement. Larger values boost details more strongly.
+
+  - power=&lt;float&gt;  (default=4.0, 1.0 - 16.0)  
+    Exponent for nonlinear enhancement. Larger values prioritize mid-amplitude detail.
+
+  - ldmp=&lt;float&gt;  (default=1.0, 0.0 - 1000.0)  
+    Low-amplitude damping. Larger values suppress tiny changes close to noise.
+
+  - mode=&lt;int&gt;  (default=1, 0 - 1)  
+    Blur type. 0 uses 3x3 Gauss, and 1 uses 3x3 Box.
+
+  - med=&lt;bool&gt;  (default=false)  
+    Apply an additional 3x3 median to the blurred image.
+
+- examples
+  ```
+  Example: Default settings
+  --vpp-detailsharpen
+
+  Example: Gauss blur and median with slightly stronger enhancement
+  --vpp-detailsharpen z=3,sstr=2.0,power=3,mode=0,med=true
   ```
 
 ### --vpp-maa [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]

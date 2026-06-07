@@ -579,6 +579,7 @@ qsvpipeline_sources = files(
   'QSVPipeline/rgy_filter_rtgmc_primitive.cpp',
   'QSVPipeline/rgy_filter_rtgmc_mmask.cpp',
   'QSVPipeline/rgy_filter_cas.cpp',
+  'QSVPipeline/rgy_filter_detailsharpen.cpp',
   'QSVPipeline/rgy_filter_edgelevel.cpp',
   'QSVPipeline/rgy_filter_ivtc.cpp',
   'QSVPipeline/rgy_filter_rtgmc_bob.cpp',

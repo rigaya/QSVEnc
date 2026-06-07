@@ -96,6 +96,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_FINEDEHALO   (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_HQDERING     (ENCODER_QSV                    || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_WARPSHARP    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
+#define ENABLE_VPP_FILTER_DETAILSHARPEN (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_EDGELEVEL    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_MSHARPEN     (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_CAS          (ENCODER_QSV                    || ENCODER_VCEENC || ENCODER_MPP)
@@ -226,6 +227,7 @@ enum class VppType : int {
     CL_EDGELEVEL,
     CL_MSHARPEN,
     CL_WARPSHARP,
+    CL_DETAILSHARPEN,
     CL_CAS,
     CL_MAA,
 
@@ -645,6 +647,13 @@ static const float FILTER_DEFAULT_WARPSHARP_DEPTH_MIN = 1.0e9f;
 static const float FILTER_DEFAULT_WARPSHARP_DEPTH_MAX = 1.0e9f;
 static const float FILTER_DEFAULT_WARPSHARP_EDGE_THR = 192.0f;
 static const float FILTER_DEFAULT_WARPSHARP_GAMMA = 1.0f;
+
+static const float FILTER_DEFAULT_DETAILSHARPEN_Z = 4.0f;
+static const float FILTER_DEFAULT_DETAILSHARPEN_SSTR = 1.5f;
+static const float FILTER_DEFAULT_DETAILSHARPEN_POWER = 4.0f;
+static const float FILTER_DEFAULT_DETAILSHARPEN_LDMP = 1.0f;
+static const int   FILTER_DEFAULT_DETAILSHARPEN_MODE = 1;
+static const bool  FILTER_DEFAULT_DETAILSHARPEN_MED = false;
 
 static const int   FILTER_DEFAULT_DEBAND_RANGE = 15;
 static const int   FILTER_DEFAULT_DEBAND_THRE_Y = 15;
@@ -3108,6 +3117,21 @@ struct VppWarpsharp {
     tstring print() const;
 };
 
+struct VppDetailSharpen {
+    bool  enable;
+    float z;
+    float sstr;
+    float power;
+    float ldmp;
+    int   mode;
+    bool  med;
+
+    VppDetailSharpen();
+    bool operator==(const VppDetailSharpen &x) const;
+    bool operator!=(const VppDetailSharpen &x) const;
+    tstring print() const;
+};
+
 struct VppCas {
     bool enable;
     float sharpness;
@@ -3439,6 +3463,7 @@ struct RGYParamVpp {
     VppEdgelevel edgelevel;
     VppMsharpen msharpen;
     VppWarpsharp warpsharp;
+    VppDetailSharpen detailsharpen;
     VppCas cas;
     VppMaa maa;
     VppCurves curves;

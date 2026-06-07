@@ -124,6 +124,7 @@ RGY_DISABLE_WARNING_POP
 #include "rgy_filter_msharpen.h"
 #include "rgy_filter_cas.h"
 #include "rgy_filter_warpsharp.h"
+#include "rgy_filter_detailsharpen.h"
 #include "rgy_filter_deband.h"
 #include "rgy_filter_ssim.h"
 #include "rgy_filter_overlay.h"
@@ -2395,6 +2396,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vpp.msharpen.enable)   filterPipeline.push_back(VppType::CL_MSHARPEN);
     if (inputParam->vpp.cas.enable)        filterPipeline.push_back(VppType::CL_CAS);
     if (inputParam->vpp.warpsharp.enable)  filterPipeline.push_back(VppType::CL_WARPSHARP);
+    if (inputParam->vpp.detailsharpen.enable) filterPipeline.push_back(VppType::CL_DETAILSHARPEN);
     if (inputParam->vpp.maa.enable)        filterPipeline.push_back(VppType::CL_MAA);
     if (inputParam->vppmfx.detail.enable)  filterPipeline.push_back(VppType::MFX_DETAIL_ENHANCE);
     if (inputParam->vppmfx.mirrorType != MFX_MIRRORING_DISABLED) filterPipeline.push_back(VppType::MFX_MIRROR);
@@ -3675,6 +3677,26 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         unique_ptr<RGYFilter> filter(new RGYFilterCas(m_cl));
         shared_ptr<RGYFilterParamCas> param(new RGYFilterParamCas());
         param->cas = params->vpp.cas;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        auto sts = filter->init(param, m_pQSVLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        //登録
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
+    }
+    //detailsharpen
+    if (vppType == VppType::CL_DETAILSHARPEN) {
+        unique_ptr<RGYFilter> filter(new RGYFilterDetailSharpen(m_cl));
+        shared_ptr<RGYFilterParamDetailSharpen> param(new RGYFilterParamDetailSharpen());
+        param->detailsharpen = params->vpp.detailsharpen;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;
