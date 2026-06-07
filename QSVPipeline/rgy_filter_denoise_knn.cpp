@@ -44,7 +44,7 @@ RGY_ERR RGYFilterDenoiseKnn::denoisePlane(RGYFrameInfo *pOutputPlane, const RGYF
         const float strength = 1.0f / (prm->knn.strength * prm->knn.strength);
         const char *kernel_name = "kernel_denoise_knn";
         RGYWorkSize local(32, 8);
-        RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
+        RGYWorkSize global(ALIGN(pOutputPlane->width, 32), ALIGN(pOutputPlane->height, 8));
         auto err = m_knn.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
             (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0], pOutputPlane->width, pOutputPlane->height,
             (cl_mem)pInputPlane->ptr[0],
