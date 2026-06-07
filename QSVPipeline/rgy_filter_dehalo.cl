@@ -44,38 +44,75 @@ inline int dh_readPixClamp(const __global uchar *plane,
 // =============================================================================
 // dehalo_expand — elliptic local maximum.
 //
-// For each output pixel (x, y), iterate (dx, dy) over the bounding rectangle
-// [-irx, irx] × [-iry, iry] and accept a sample only when it lies inside the
-// ellipse `(dx/rx)^2 + (dy/ry)^2 <= 1.0`. The maximum across accepted samples
-// is the output value. Edge pixels are read with clamp-to-edge.
+// For each output pixel, iterate (dx, dy) over the bounding rectangle
+// [-irx, irx] x [-iry, iry] and accept a sample only when it lies inside
+// the ellipse (dx/rx)^2 + (dy/ry)^2 <= 1.0. The maximum across accepted
+// samples is the output value. Edge pixels read with clamp-to-edge.
 //
-// rx / ry are floats. The ellipse test uses float division so non-integer
-// radii (e.g. rx=2.5) are handled correctly.
+// SLM tile-load: WG 32x8 = 256 threads, cooperatively loads the
+// (32 + 2*irx) x (8 + 2*iry) source window into __local int[] once per
+// WG, then the per-pixel inner loop reads from local memory only. Tile
+// is sized for max radius (DEHALO_RMAX = 10) so __local is a compile-
+// time constant; cooperative load touches only the actually-needed
+// (32 + 2*irx) x (8 + 2*iry) region.
+//
+// At rx=ry=2 (default): tile 36x12 = 432 ints (1728 B/WG); SLM gain is
+// noise but does not regress. At rx=ry=10 (max): tile 52x28 = 1456 ints
+// (5824 B/WG); -20% kernel time at 4K on Arc A770. Both well under the
+// 64 KB per-WG SLM ceiling on Xe-HPG so occupancy is unconstrained.
+#define DEHALO_RMAX     10
+#define DEHALO_TILE_W_MAX (32 + 2 * DEHALO_RMAX)
+#define DEHALO_TILE_H_MAX (8  + 2 * DEHALO_RMAX)
+
+__attribute__((reqd_work_group_size(32, 8, 1)))
 __kernel void dehalo_expand(
     const __global uchar *pSrc, int srcPitch,
     __global       uchar *pDst, int dstPitch,
     int width, int height,
     float rx, float ry
 ) {
-    const int x = get_global_id(0);
-    const int y = get_global_id(1);
-    if (x >= width || y >= height) return;
-
     const int irx = (int)ceil(rx);
     const int iry = (int)ceil(ry);
+    const int tile_w = 32 + 2 * irx;
+    const int tile_h = 8  + 2 * iry;
     const float invRx2 = 1.0f / (rx * rx);
     const float invRy2 = 1.0f / (ry * ry);
 
-    int m = (int)(*(const __global Type *)(pSrc + y * srcPitch + x * sizeof(Type)));
+    __local int tile[DEHALO_TILE_H_MAX * DEHALO_TILE_W_MAX];
+
+    const int lx = get_local_id(0);
+    const int ly = get_local_id(1);
+    const int gx0 = get_group_id(0) * 32;
+    const int gy0 = get_group_id(1) * 8;
+    const int tid = ly * 32 + lx;
+    const int wg_size = 32 * 8;
+    const int tile_total = tile_w * tile_h;
+
+    for (int t = tid; t < tile_total; t += wg_size) {
+        const int tx = t % tile_w;
+        const int ty = t / tile_w;
+        const int sx = clamp(gx0 + tx - irx, 0, width  - 1);
+        const int sy = clamp(gy0 + ty - iry, 0, height - 1);
+        tile[t] = (int)(*(const __global Type *)(pSrc + sy * srcPitch + sx * sizeof(Type)));
+    }
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    const int x = gx0 + lx;
+    const int y = gy0 + ly;
+    if (x >= width || y >= height) return;
+
+    const int tcx = lx + irx;
+    const int tcy = ly + iry;
+    int m = tile[tcy * tile_w + tcx];
     for (int dy = -iry; dy <= iry; dy++) {
         const float dyF = (float)dy;
         const float yTerm = dyF * dyF * invRy2;
         if (yTerm > 1.0f) continue;
-        const float xLimitSq = 1.0f - yTerm;     // dx^2 * invRx2 must be <= this
+        const float xLimitSq = 1.0f - yTerm;
         for (int dx = -irx; dx <= irx; dx++) {
             const float dxF = (float)dx;
             if (dxF * dxF * invRx2 > xLimitSq) continue;
-            const int v = dh_readPixClamp(pSrc, x + dx, y + dy, srcPitch, width, height);
+            const int v = tile[(tcy + dy) * tile_w + (tcx + dx)];
             if (v > m) m = v;
         }
     }
@@ -86,25 +123,47 @@ __kernel void dehalo_expand(
 
 // =============================================================================
 // dehalo_inpand — elliptic local minimum. Same loop body as dehalo_expand
-// but using fmin instead of fmax. Kept as a separate kernel for clarity
-// (the two are dispatched independently and the OpenCL compiler inlines
-// each cleanly).
+// but using fmin instead of fmax. Same SLM tile pattern.
+__attribute__((reqd_work_group_size(32, 8, 1)))
 __kernel void dehalo_inpand(
     const __global uchar *pSrc, int srcPitch,
     __global       uchar *pDst, int dstPitch,
     int width, int height,
     float rx, float ry
 ) {
-    const int x = get_global_id(0);
-    const int y = get_global_id(1);
-    if (x >= width || y >= height) return;
-
     const int irx = (int)ceil(rx);
     const int iry = (int)ceil(ry);
+    const int tile_w = 32 + 2 * irx;
+    const int tile_h = 8  + 2 * iry;
     const float invRx2 = 1.0f / (rx * rx);
     const float invRy2 = 1.0f / (ry * ry);
 
-    int m = (int)(*(const __global Type *)(pSrc + y * srcPitch + x * sizeof(Type)));
+    __local int tile[DEHALO_TILE_H_MAX * DEHALO_TILE_W_MAX];
+
+    const int lx = get_local_id(0);
+    const int ly = get_local_id(1);
+    const int gx0 = get_group_id(0) * 32;
+    const int gy0 = get_group_id(1) * 8;
+    const int tid = ly * 32 + lx;
+    const int wg_size = 32 * 8;
+    const int tile_total = tile_w * tile_h;
+
+    for (int t = tid; t < tile_total; t += wg_size) {
+        const int tx = t % tile_w;
+        const int ty = t / tile_w;
+        const int sx = clamp(gx0 + tx - irx, 0, width  - 1);
+        const int sy = clamp(gy0 + ty - iry, 0, height - 1);
+        tile[t] = (int)(*(const __global Type *)(pSrc + sy * srcPitch + sx * sizeof(Type)));
+    }
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    const int x = gx0 + lx;
+    const int y = gy0 + ly;
+    if (x >= width || y >= height) return;
+
+    const int tcx = lx + irx;
+    const int tcy = ly + iry;
+    int m = tile[tcy * tile_w + tcx];
     for (int dy = -iry; dy <= iry; dy++) {
         const float dyF = (float)dy;
         const float yTerm = dyF * dyF * invRy2;
@@ -113,7 +172,7 @@ __kernel void dehalo_inpand(
         for (int dx = -irx; dx <= irx; dx++) {
             const float dxF = (float)dx;
             if (dxF * dxF * invRx2 > xLimitSq) continue;
-            const int v = dh_readPixClamp(pSrc, x + dx, y + dy, srcPitch, width, height);
+            const int v = tile[(tcy + dy) * tile_w + (tcx + dx)];
             if (v < m) m = v;
         }
     }

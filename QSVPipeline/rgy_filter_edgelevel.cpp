@@ -45,7 +45,7 @@ RGY_ERR RGYFilterEdgelevel::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrame
         const float white = prm->edgelevel.white / (1 << 8);
         const char *kernel_name = "kernel_edgelevel";
         RGYWorkSize local(32, 8);
-        RGYWorkSize global(pOutputPlane->width, pOutputPlane->height);
+        RGYWorkSize global(ALIGN(pOutputPlane->width, 32), ALIGN(pOutputPlane->height, 8));
         auto err = m_edgelevel.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
             (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0], pOutputPlane->width, pOutputPlane->height,
             (cl_mem)pInputPlane->ptr[0],

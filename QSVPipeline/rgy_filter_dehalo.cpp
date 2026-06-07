@@ -234,7 +234,7 @@ RGY_ERR RGYFilterDehalo::runExpand(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
     const auto sP = getPlane(pSrc, RGY_PLANE_Y);
     const auto dP = getPlane(pDst, RGY_PLANE_Y);
     RGYWorkSize local(DEHALO_BLOCK_X, DEHALO_BLOCK_Y);
-    RGYWorkSize global(sP.width, sP.height);
+    RGYWorkSize global(ALIGN(sP.width, DEHALO_BLOCK_X), ALIGN(sP.height, DEHALO_BLOCK_Y));
     auto err = m_dehalo.get()->kernel("dehalo_expand")
         .config(queue, local, global, wait_events, nullptr).launch(
             (cl_mem)sP.ptr[0], sP.pitch[0],
@@ -254,7 +254,7 @@ RGY_ERR RGYFilterDehalo::runInpand(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
     const auto sP = getPlane(pSrc, RGY_PLANE_Y);
     const auto dP = getPlane(pDst, RGY_PLANE_Y);
     RGYWorkSize local(DEHALO_BLOCK_X, DEHALO_BLOCK_Y);
-    RGYWorkSize global(sP.width, sP.height);
+    RGYWorkSize global(ALIGN(sP.width, DEHALO_BLOCK_X), ALIGN(sP.height, DEHALO_BLOCK_Y));
     auto err = m_dehalo.get()->kernel("dehalo_inpand")
         .config(queue, local, global, wait_events, nullptr).launch(
             (cl_mem)sP.ptr[0], sP.pitch[0],
