@@ -666,7 +666,7 @@ protected:
 public:
     virtual const RGYFrameInfo& frameInfo() const { return frame; }
     virtual bool isempty() const { return frame.ptr[0] == nullptr; }
-    virtual void setTimestamp(uint64_t timestamp) override { frame.timestamp = timestamp; }
+    virtual void setTimestamp(int64_t timestamp) override { frame.timestamp = timestamp; }
     virtual void setDuration(uint64_t duration) override { frame.duration = duration; }
     virtual void setPicstruct(RGY_PICSTRUCT picstruct) override { frame.picstruct = picstruct; }
     virtual void setInputFrameId(int id) override { frame.inputFrameId = id; }
@@ -702,7 +702,7 @@ public:
     std::vector<RGYOpenCLEvent>& mapEvents() { return m_eventMap; }
 public:
     virtual bool isempty() const { return frame.ptr[0] == nullptr; }
-    virtual void setTimestamp(uint64_t timestamp) override;
+    virtual void setTimestamp(int64_t timestamp) override;
     virtual void setDuration(uint64_t duration) override;
     virtual void setPicstruct(RGY_PICSTRUCT picstruct) override;
     virtual void setInputFrameId(int id) override;

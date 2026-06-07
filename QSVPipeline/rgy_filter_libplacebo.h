@@ -91,7 +91,7 @@ public:
     virtual void deallocate();
     const RGYFrameInfo& frameInfo() { return frame; }
     virtual bool isempty() const { return !frame.ptr[0]; }
-    virtual void setTimestamp(uint64_t timestamp) override { frame.timestamp = timestamp; }
+    virtual void setTimestamp(int64_t timestamp) override { frame.timestamp = timestamp; }
     virtual void setDuration(uint64_t duration) override { frame.duration = duration; }
     virtual void setPicstruct(RGY_PICSTRUCT picstruct) override { frame.picstruct = picstruct; }
     virtual void setInputFrameId(int id) override { frame.inputFrameId = id; }
@@ -141,7 +141,7 @@ public:
     virtual void deallocate();
     const RGYFrameInfo& frameInfo() { return frame; }
     virtual bool isempty() const { return !frame.ptr[0]; }
-    virtual void setTimestamp(uint64_t timestamp) override { frame.timestamp = timestamp; }
+    virtual void setTimestamp(int64_t timestamp) override { frame.timestamp = timestamp; }
     virtual void setDuration(uint64_t duration) override { frame.duration = duration; }
     virtual void setPicstruct(RGY_PICSTRUCT picstruct) override { frame.picstruct = picstruct; }
     virtual void setInputFrameId(int id) override { frame.inputFrameId = id; }

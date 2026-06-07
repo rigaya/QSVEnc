@@ -282,7 +282,7 @@ public:
     }
 
     int64_t pts() const {
-        return m_bitstream.TimeStamp;
+        return (int64_t)m_bitstream.TimeStamp;
     }
 
     void setDts(int64_t dts) {
@@ -290,7 +290,7 @@ public:
     }
 
     int64_t dts() const {
-        return m_bitstream.DecodeTimeStamp;
+        return (int64_t)m_bitstream.DecodeTimeStamp;
     }
 
     uint32_t avgQP() {
@@ -520,7 +520,8 @@ public:
         cr.e.bottom = m_surface.Info.Height - m_surface.Info.CropH - m_surface.Info.CropY;
         return cr;
     }
-    virtual void setTimestamp(uint64_t timestamp) override { m_surface.Data.TimeStamp = timestamp; }
+    // MFX APIのfieldはunsignedだが、bit patternを保ったままsigned timestampを受け渡す。
+    virtual void setTimestamp(int64_t timestamp) override { m_surface.Data.TimeStamp = (mfxU64)timestamp; }
     virtual void setDuration(uint64_t frame_duration) override { m_duration = frame_duration; }
     virtual void setPicstruct(RGY_PICSTRUCT picstruct) override { m_surface.Info.PicStruct = picstruct_rgy_to_enc(picstruct); }
     virtual void setInputFrameId(int inputFrameId) override { m_inputFrameId = inputFrameId; }
