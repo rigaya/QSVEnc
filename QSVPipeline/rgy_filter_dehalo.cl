@@ -49,22 +49,24 @@ inline int dh_readPixClamp(const __global uchar *plane,
 // the ellipse (dx/rx)^2 + (dy/ry)^2 <= 1.0. The maximum across accepted
 // samples is the output value. Edge pixels read with clamp-to-edge.
 //
-// SLM tile-load: WG 32x8 = 256 threads, cooperatively loads the
-// (32 + 2*irx) x (8 + 2*iry) source window into __local int[] once per
-// WG, then the per-pixel inner loop reads from local memory only. Tile
-// is sized for max radius (DEHALO_RMAX = 10) so __local is a compile-
-// time constant; cooperative load touches only the actually-needed
-// (32 + 2*irx) x (8 + 2*iry) region.
+// SLM tile-load: WG dehalo_block_x x dehalo_block_y, cooperatively loads
+// the (dehalo_block_x + 2*irx) x (dehalo_block_y + 2*iry) source window
+// into __local int[] once per WG, then the per-pixel inner loop reads
+// from local memory only. Tile is sized for max radius (DEHALO_RMAX = 10)
+// so __local is a compile-time constant; cooperative load touches only
+// the actually-needed region.
 //
 // At rx=ry=2 (default): tile 36x12 = 432 ints (1728 B/WG); SLM gain is
 // noise but does not regress. At rx=ry=10 (max): tile 52x28 = 1456 ints
 // (5824 B/WG); -20% kernel time at 4K on Arc A770. Both well under the
 // 64 KB per-WG SLM ceiling on Xe-HPG so occupancy is unconstrained.
+#define DEHALO_LX       dehalo_block_x
+#define DEHALO_LY       dehalo_block_y
 #define DEHALO_RMAX     10
-#define DEHALO_TILE_W_MAX (32 + 2 * DEHALO_RMAX)
-#define DEHALO_TILE_H_MAX (8  + 2 * DEHALO_RMAX)
+#define DEHALO_TILE_W_MAX (DEHALO_LX + 2 * DEHALO_RMAX)
+#define DEHALO_TILE_H_MAX (DEHALO_LY + 2 * DEHALO_RMAX)
 
-__attribute__((reqd_work_group_size(32, 8, 1)))
+__attribute__((reqd_work_group_size(DEHALO_LX, DEHALO_LY, 1)))
 __kernel void dehalo_expand(
     const __global uchar *pSrc, int srcPitch,
     __global       uchar *pDst, int dstPitch,
@@ -73,8 +75,8 @@ __kernel void dehalo_expand(
 ) {
     const int irx = (int)ceil(rx);
     const int iry = (int)ceil(ry);
-    const int tile_w = 32 + 2 * irx;
-    const int tile_h = 8  + 2 * iry;
+    const int tile_w = DEHALO_LX + 2 * irx;
+    const int tile_h = DEHALO_LY + 2 * iry;
     const float invRx2 = 1.0f / (rx * rx);
     const float invRy2 = 1.0f / (ry * ry);
 
@@ -82,10 +84,10 @@ __kernel void dehalo_expand(
 
     const int lx = get_local_id(0);
     const int ly = get_local_id(1);
-    const int gx0 = get_group_id(0) * 32;
-    const int gy0 = get_group_id(1) * 8;
-    const int tid = ly * 32 + lx;
-    const int wg_size = 32 * 8;
+    const int gx0 = get_group_id(0) * DEHALO_LX;
+    const int gy0 = get_group_id(1) * DEHALO_LY;
+    const int tid = ly * DEHALO_LX + lx;
+    const int wg_size = DEHALO_LX * DEHALO_LY;
     const int tile_total = tile_w * tile_h;
 
     for (int t = tid; t < tile_total; t += wg_size) {
@@ -124,7 +126,7 @@ __kernel void dehalo_expand(
 // =============================================================================
 // dehalo_inpand — elliptic local minimum. Same loop body as dehalo_expand
 // but using fmin instead of fmax. Same SLM tile pattern.
-__attribute__((reqd_work_group_size(32, 8, 1)))
+__attribute__((reqd_work_group_size(DEHALO_LX, DEHALO_LY, 1)))
 __kernel void dehalo_inpand(
     const __global uchar *pSrc, int srcPitch,
     __global       uchar *pDst, int dstPitch,
@@ -133,8 +135,8 @@ __kernel void dehalo_inpand(
 ) {
     const int irx = (int)ceil(rx);
     const int iry = (int)ceil(ry);
-    const int tile_w = 32 + 2 * irx;
-    const int tile_h = 8  + 2 * iry;
+    const int tile_w = DEHALO_LX + 2 * irx;
+    const int tile_h = DEHALO_LY + 2 * iry;
     const float invRx2 = 1.0f / (rx * rx);
     const float invRy2 = 1.0f / (ry * ry);
 
@@ -142,10 +144,10 @@ __kernel void dehalo_inpand(
 
     const int lx = get_local_id(0);
     const int ly = get_local_id(1);
-    const int gx0 = get_group_id(0) * 32;
-    const int gy0 = get_group_id(1) * 8;
-    const int tid = ly * 32 + lx;
-    const int wg_size = 32 * 8;
+    const int gx0 = get_group_id(0) * DEHALO_LX;
+    const int gy0 = get_group_id(1) * DEHALO_LY;
+    const int tid = ly * DEHALO_LX + lx;
+    const int wg_size = DEHALO_LX * DEHALO_LY;
     const int tile_total = tile_w * tile_h;
 
     for (int t = tid; t < tile_total; t += wg_size) {
