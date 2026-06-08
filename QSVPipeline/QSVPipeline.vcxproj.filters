@@ -300,6 +300,9 @@
     <ClCompile Include="rgy_filter_detailsharpen.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="rgy_filter_softlight.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
     <ClCompile Include="rgy_filter_edgelevel.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
@@ -743,6 +746,9 @@
     <ClInclude Include="rgy_filter_detailsharpen.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="rgy_filter_softlight.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
     <ClInclude Include="rgy_filter_edgelevel.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
@@ -1076,6 +1082,9 @@
       <Filter>ソース ファイル</Filter>
     </None>
     <None Include="rgy_filter_detailsharpen.cl">
+      <Filter>ソース ファイル</Filter>
+    </None>
+    <None Include="rgy_filter_softlight.cl">
       <Filter>ソース ファイル</Filter>
     </None>
     <None Include="rgy_filter_edgelevel.cl">

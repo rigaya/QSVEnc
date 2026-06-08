@@ -80,6 +80,7 @@ RGY_FILTER_FINEDEHALO_CL      EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_
 RGY_FILTER_HQDERING_CL        EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_hqdering.cl"
 RGY_FILTER_CAS_CL             EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_cas.cl"
 RGY_FILTER_DETAILSHARPEN_CL   EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_detailsharpen.cl"
+RGY_FILTER_SOFTLIGHT_CL       EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_softlight.cl"
 RGY_FILTER_EDGELEVEL_CL       EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_edgelevel.cl"
 RGY_FILTER_MSHARPEN_CL        EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_msharpen.cl"
 RGY_FILTER_WARPSHARP_CL       EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_warpsharp.cl"

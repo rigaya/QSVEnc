@@ -129,6 +129,7 @@ RGY_DISABLE_WARNING_POP
 #include "rgy_filter_ssim.h"
 #include "rgy_filter_overlay.h"
 #include "rgy_filter_curves.h"
+#include "rgy_filter_softlight.h"
 #include "rgy_filter_tweak.h"
 #include "rgy_output_avcodec.h"
 #include "rgy_bitstream.h"
@@ -2401,6 +2402,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vppmfx.detail.enable)  filterPipeline.push_back(VppType::MFX_DETAIL_ENHANCE);
     if (inputParam->vppmfx.mirrorType != MFX_MIRRORING_DISABLED) filterPipeline.push_back(VppType::MFX_MIRROR);
     if (inputParam->vpp.transform.enable)  filterPipeline.push_back(VppType::CL_TRANSFORM);
+    if (inputParam->vpp.softlight.enable)  filterPipeline.push_back(VppType::CL_SOFTLIGHT);
     if (inputParam->vpp.curves.enable)     filterPipeline.push_back(VppType::CL_CURVES);
     if (inputParam->vpp.tweak.enable)      filterPipeline.push_back(VppType::CL_TWEAK);
     if (inputParam->vpp.deband.enable)     filterPipeline.push_back(VppType::CL_DEBAND);
@@ -3737,6 +3739,27 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         unique_ptr<RGYFilter> filter(new RGYFilterCurves(m_cl));
         shared_ptr<RGYFilterParamCurves> param(new RGYFilterParamCurves());
         param->curves = params->vpp.curves;
+        param->vuiInfo = vuiInfo;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = true;
+        auto sts = filter->init(param, m_pQSVLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        //入力フレーム情報を更新
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        //登録
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
+    }
+    //softlight
+    if (vppType == VppType::CL_SOFTLIGHT) {
+        unique_ptr<RGYFilter> filter(new RGYFilterSoftLight(m_cl));
+        shared_ptr<RGYFilterParamSoftLight> param(new RGYFilterParamSoftLight());
+        param->softlight = params->vpp.softlight;
         param->vuiInfo = vuiInfo;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;

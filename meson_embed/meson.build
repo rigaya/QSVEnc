@@ -63,6 +63,7 @@ resource_specs = [
   ['rgy_filter_rtgmc_mmask_cl', '../QSVPipeline/rgy_filter_rtgmc_mmask.cl', 'QSVPipeline_rgy_filter_rtgmc_mmask_cl'],
   ['rgy_filter_cas_cl', '../QSVPipeline/rgy_filter_cas.cl', 'QSVPipeline_rgy_filter_cas_cl'],
   ['rgy_filter_detailsharpen_cl', '../QSVPipeline/rgy_filter_detailsharpen.cl', 'QSVPipeline_rgy_filter_detailsharpen_cl'],
+  ['rgy_filter_softlight_cl', '../QSVPipeline/rgy_filter_softlight.cl', 'QSVPipeline_rgy_filter_softlight_cl'],
   ['rgy_filter_edgelevel_cl', '../QSVPipeline/rgy_filter_edgelevel.cl', 'QSVPipeline_rgy_filter_edgelevel_cl'],
   ['rgy_filter_rtgmc_bob_cl', '../QSVPipeline/rgy_filter_rtgmc_bob.cl', 'QSVPipeline_rgy_filter_rtgmc_bob_cl'],
   ['rgy_filter_maa_cl', '../QSVPipeline/rgy_filter_maa.cl', 'QSVPipeline_rgy_filter_maa_cl'],

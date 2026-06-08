@@ -271,6 +271,7 @@
   - [--vpp-detail-enhance \<int\>](#--vpp-detail-enhance-int)
   - [--vpp-rotate \<int\>](#--vpp-rotate-int)
   - [--vpp-transform \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-transform-param1value1param2value2)
+  - [--vpp-softlight \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-softlight-param1value1param2value2)
   - [--vpp-curves \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-curves-param1value1param2value2)
   - [--vpp-tweak \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-tweak-param1value1param2value2)
   - [--vpp-deband \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-deband-param1value1param2value2)
@@ -1843,6 +1844,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
   - [--vpp-maa](#--vpp-maa-param1value1param2value2)
   - [--vpp-detail-enhance ](#--vpp-detail-enhance-int)
   - [--vpp-transform/rotate](#--vpp-rotate-int)
+  - [--vpp-softlight](#--vpp-softlight-param1value1param2value2)
   - [--vpp-curves](#--vpp-curves-param1value1param2value2)
   - [--vpp-tweak](#--vpp-tweak-param1value1param2value2)
   - [--vpp-deband](#--vpp-deband-param1value1param2value2)
@@ -3775,6 +3777,36 @@ Rotate video. 90, 180, 270 degrees is allowed.
   - flip_y=&lt;bool&gt;
   
   - transpose=&lt;bool&gt;
+
+### --vpp-softlight [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+Neutralize color casts, normalize lightness, or boost contrast/saturation using whole-frame statistics.
+
+- **Parameters**
+  - mode=&lt;string&gt; (default=neutralize)
+    - neutralize: neutralize color cast while preserving original brightness.
+    - lightness: normalize brightness while preserving original hue and saturation.
+    - neutralize_boost_sat: neutralize color cast and boost saturation.
+    - neutralize_full: neutralize color and brightness without restoring brightness.
+    - neutralize_boost: neutralize_full plus RGB contrast boost.
+    - boost: apply RGB contrast boost only.
+    - saturation: apply saturation boost only.
+
+  - formula=&lt;string&gt; (default=pegtop)
+    - pegtop
+    - illusionshu
+    - w3c
+
+  - skipblack=&lt;bool&gt; (default=false)
+    Exclude pure black pixels from the average, useful for sources with letterbox areas.
+
+- examples
+  ```
+  Example:
+  --vpp-softlight
+  --vpp-softlight mode=lightness
+  --vpp-softlight mode=boost,formula=w3c
+  --vpp-softlight mode=neutralize,skipblack=true
+  ```
 
 ### --vpp-curves [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...  
 Apply color adjustments using curves.
