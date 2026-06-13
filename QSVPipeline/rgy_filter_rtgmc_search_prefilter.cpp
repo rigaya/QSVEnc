@@ -1829,6 +1829,12 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::run_filter(const RGYFrameInfo *pInputFram
     return RGY_ERR_NONE;
 }
 
+void RGYFilterRtgmcSearchPrefilter::resetTemporalState() {
+    clearPendingSearchPrefilterFrames();
+    m_inputCount = 0;
+    m_drainCount = 0;
+}
+
 void RGYFilterRtgmcSearchPrefilter::close() {
     clearPendingSearchPrefilterFrames();
     if (m_searchLumaDump.is_open()) {

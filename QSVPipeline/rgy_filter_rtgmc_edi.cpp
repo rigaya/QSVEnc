@@ -264,6 +264,10 @@ void RGYFilterRtgmcEdi::FrameSource::clear() {
     m_nFramesInput = 0;
 }
 
+void RGYFilterRtgmcEdi::FrameSource::resetFrames() {
+    m_nFramesInput = 0;
+}
+
 RGY_ERR RGYFilterRtgmcEdi::FrameSource::alloc(std::shared_ptr<RGYOpenCLContext> cl, const RGYFrameInfo& frameInfo) {
     if (m_buf[0]
         && !cmpFrameInfoCspResolution(&m_buf[0]->frame, &frameInfo)) {
@@ -1034,6 +1038,23 @@ RGY_ERR RGYFilterRtgmcEdi::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
     int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events,
     RGYOpenCLEvent *event) {
     return run_filter_impl(pInputFrame, pInputFrame, pInputFrame, ppOutputFrames, pOutputFrameNum, queue, wait_events, event);
+}
+
+void RGYFilterRtgmcEdi::resetTemporalState() {
+    m_bobSource.resetFrames();
+    m_ediSource.resetFrames();
+    m_inputSource.resetFrames();
+    for (auto &state : m_nnediStates) {
+        state.cachedFrames = { nullptr, nullptr };
+        state.cachedKey = FrameKey();
+        state.cachedEvent.reset();
+        state.cacheValid = false;
+    }
+    m_nnediAdapterCopyEvent.reset();
+    m_nFrame = 0;
+    m_lastInputFrameId = -1;
+    m_pairFrameIndex = 0;
+    m_fallbackFrameIndex = 0;
 }
 
 void RGYFilterRtgmcEdi::close() {

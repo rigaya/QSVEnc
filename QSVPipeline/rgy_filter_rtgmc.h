@@ -181,6 +181,9 @@ protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;
     virtual void close() override;
+public:
+    virtual void resetTemporalState() override;
+protected:
 
     RGY_ERR checkParam(const std::shared_ptr<RGYFilterParamRtgmc> &prm);
     RGY_ERR initFilters(const std::shared_ptr<RGYFilterParamRtgmc> &prm);
@@ -258,6 +261,8 @@ protected:
     size_t m_drainFilterIdx;
     bool m_draining;
     bool m_drainComplete;
+    int m_debugResetAtFrame;
+    int m_nFrame;
     bool m_attachRetouchCompRefs;
     bool m_enablePostTR2Limit;
     bool m_sharedAnalysisMode;

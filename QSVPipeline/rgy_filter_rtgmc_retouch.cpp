@@ -1387,6 +1387,11 @@ RGY_ERR RGYFilterRtgmcRetouch::run_filter(const RGYFrameInfo *pInputFrame, RGYFr
     return processFrame(ppOutputFrames[0], pInputFrame, *prm, queue, wait_events, event);
 }
 
+void RGYFilterRtgmcRetouch::resetTemporalState() {
+    clearTemporalLimitFrames();
+    clearSpatialLimitBaseFrame();
+}
+
 void RGYFilterRtgmcRetouch::close() {
     m_retouch.clear();
     m_buildOptions.clear();

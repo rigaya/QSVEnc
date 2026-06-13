@@ -31,6 +31,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 
 static constexpr int RGY_RTGMC_MAX_OUT_FRAMES = 32;
@@ -182,6 +183,8 @@ RGYFilterRtgmc::RGYFilterRtgmc(shared_ptr<RGYOpenCLContext> context) :
     m_drainFilterIdx(0),
     m_draining(false),
     m_drainComplete(false),
+    m_debugResetAtFrame(0),
+    m_nFrame(0),
     m_attachRetouchCompRefs(false),
     m_enablePostTR2Limit(false),
     m_sharedAnalysisMode(false),
@@ -2332,6 +2335,24 @@ RGY_ERR RGYFilterRtgmc::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
             chainWaitEvents.push_back(borderEvent);
         }
     }
+    if (m_debugResetAtFrame == 0) {
+        const char *envVal = std::getenv("NVENC_RTGMC_DEBUG_RESET_AT");
+        if (envVal && envVal[0] != '\0') {
+            m_debugResetAtFrame = std::atoi(envVal);
+            if (m_debugResetAtFrame <= 0) {
+                m_debugResetAtFrame = -1;
+            }
+        } else {
+            m_debugResetAtFrame = -1;
+        }
+    }
+    if (m_debugResetAtFrame > 0 && m_nFrame == m_debugResetAtFrame) {
+        fprintf(stderr, "[RGYFilterRtgmc] resetTemporalState triggered at frame %d\n", m_nFrame);
+        resetTemporalState();
+        m_debugResetAtFrame = -1;
+    }
+    m_nFrame++;
+
     m_drainFilterIdx = 0;
     m_draining = false;
     m_drainComplete = false;
@@ -2365,6 +2386,46 @@ bool RGYFilterRtgmc::draining() const {
 
 bool RGYFilterRtgmc::drainComplete() const {
     return m_draining && m_drainComplete && m_pendingOutputFrames.empty();
+}
+
+void RGYFilterRtgmc::resetTemporalState() {
+    for (auto &filter : m_filters) {
+        if (filter) filter->resetTemporalState();
+    }
+    for (auto &filter : m_retouchCompFilters) {
+        if (filter) filter->resetTemporalState();
+    }
+    for (auto &stage : m_matchCorrectionPasses) {
+        if (stage.interpolator) stage.interpolator->resetTemporalState();
+        if (stage.correctionBuild) stage.correctionBuild->resetTemporalState();
+        if (stage.correctionSpatialPrepass) stage.correctionSpatialPrepass->resetTemporalState();
+        if (stage.correctionTemporalFilter) stage.correctionTemporalFilter->resetTemporalState();
+        if (stage.correctionApply) stage.correctionApply->resetTemporalState();
+        if (stage.correctionEnhance) stage.correctionEnhance->resetTemporalState();
+        stage.composeBaseRefs.clear();
+    }
+    if (m_noiseDiffFilter) {
+        m_noiseDiffFilter->resetTemporalState();
+    }
+    m_pendingEdiRefs.clear();
+    m_pendingCompRefs.clear();
+    m_pendingPostLimitBaseRefs.clear();
+    m_pendingNoiseRefs.clear();
+    m_pendingOutputFrames.clear();
+    m_pendingSourceMatchFrameProps.clear();
+    for (auto &frame : m_sourceCache) {
+        frame.key = RtgmcFrameKey();
+        frame.event.reset();
+    }
+    m_sourceCacheNext = 0;
+    m_outputBufferIndex = 0;
+    m_drainFilterIdx = 0;
+    m_draining = false;
+    m_drainComplete = false;
+    m_capturedIntermediates.clear();
+    m_pendingIntermediateInputs.clear();
+    m_inputFrame = RGYFrameInfo();
+    m_nFrame = 0;
 }
 
 void RGYFilterRtgmc::close() {
@@ -2404,4 +2465,6 @@ void RGYFilterRtgmc::close() {
     m_capturedIntermediates.clear();
     m_pendingIntermediateInputs.clear();
     m_captureIntermediate = false;
+    m_nFrame = 0;
+    m_debugResetAtFrame = 0;
 }

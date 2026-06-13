@@ -145,6 +145,9 @@ protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;
     virtual void close() override;
+public:
+    virtual void resetTemporalState() override;
+protected:
 
     RGY_ERR checkParam(const std::shared_ptr<RGYFilterParamRtgmcSearchPrefilter> &prm);
     RGY_ERR buildKernel(const std::shared_ptr<RGYFilterParamRtgmcSearchPrefilter> &prm);

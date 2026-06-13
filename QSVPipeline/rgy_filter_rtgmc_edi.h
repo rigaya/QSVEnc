@@ -69,6 +69,9 @@ protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;
     virtual void close() override;
+public:
+    virtual void resetTemporalState() override;
+protected:
 
     class FrameSource {
     public:
@@ -79,6 +82,7 @@ protected:
         int findIndexByInputFrameId(int inputFrameId) const;
         int inframe() const { return m_nFramesInput; }
         void clear();
+        void resetFrames();
     private:
         int m_nFramesInput;
         std::array<std::unique_ptr<RGYCLFrame>, 4> m_buf;

@@ -56,6 +56,10 @@ public:
     RGY_ERR filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event = nullptr);
 
     virtual void setCheckPerformance(const bool check) override;
+public:
+    // Reset only time-dependent state (pending queues, frame counters, cache metadata).
+    // GPU buffer allocations and built kernels are preserved.
+    virtual void resetTemporalState() {}
 protected:
     virtual RGY_ERR AllocFrameBuf(const RGYFrameInfo &frame, int frames) override;
     RGY_ERR filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, RGYFrameInfo *pOutputFrame);

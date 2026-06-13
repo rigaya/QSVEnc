@@ -1289,6 +1289,36 @@ RGY_ERR RGYFilterDegrain::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
     return RGY_ERR_NONE;
 }
 
+void RGYFilterDegrain::resetTemporalState() {
+    // Reset time-dependent state only; GPU buffer allocations and built kernels are preserved.
+    clearPendingSceneChange();
+    m_sceneChangeReadbackSADIndex = 0;
+    m_analysis.analysisLumaFrameNumbers.fill(-1);
+    for (auto &ev : m_analysis.analysisLumaEvents) {
+        ev.reset();
+    }
+    m_analysis.analysisLumaEvent.reset();
+    m_analysis.analysisLumaGeneratedUntil = -1;
+    m_analysis.lastFrameIndex = -1;
+    m_analysis.lastInputFrameId = -1;
+    m_analysis.lastTimestamp = 0;
+    m_analysis.lastDuration = 0;
+    m_analysis.lastAvailabilityDisableRefs.fill(true);
+    m_analysis.event.reset();
+    clearDirectAnalyzeResult();
+    clearFrameAnalysisData();
+    for (auto &f : m_cacheFrameRefs) {
+        f = RGYFrameInfo();
+    }
+    for (auto &owner : m_cacheFrameOwners) {
+        owner.reset();
+    }
+    m_inputCount = 0;
+    m_drainCount = 0;
+    m_lastAnalysisUsedSearchLuma = false;
+    m_lastAnalysisIncludedChroma = false;
+}
+
 void RGYFilterDegrain::close() {
     m_degrain.clear();
     m_degrainChroma.clear();
