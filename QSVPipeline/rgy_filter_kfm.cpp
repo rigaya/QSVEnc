@@ -1173,19 +1173,24 @@ RGY_ERR RGYFilterKfm::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog>
         m_deint60CacheCopyEvent = RGYOpenCLEvent();
     }
     if (prm->kfm.ucf) {
+        RGYFilterRtgmc::RtgmcSharedAnalysisData sharedData;
+        bool useSharedAnalysisMode = false;
         if (m_deint60Rtgmc) {
-            m_deint60Rtgmc->enableIntermediateCapture(true);
+            sharedData = m_deint60Rtgmc->getSharedAnalysisData();
+            useSharedAnalysisMode = sharedData.analyzeFilter != nullptr;
+            if (useSharedAnalysisMode) {
+                m_deint60Rtgmc->enableIntermediateCapture(true);
+            }
         }
-        sts = initRtgmc(prm, m_before60Rtgmc, false, 1, true);
+        sts = initRtgmc(prm, m_before60Rtgmc, false, 1, useSharedAnalysisMode);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
-        sts = initRtgmc(prm, m_after60Rtgmc, false, 2, true);
+        sts = initRtgmc(prm, m_after60Rtgmc, false, 2, useSharedAnalysisMode);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
-        if (m_deint60Rtgmc) {
-            auto sharedData = m_deint60Rtgmc->getSharedAnalysisData();
+        if (useSharedAnalysisMode) {
             m_before60Rtgmc->setSharedAnalysisData(sharedData);
             m_after60Rtgmc->setSharedAnalysisData(sharedData);
         }
