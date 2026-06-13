@@ -152,6 +152,44 @@ protected:
 
         KfmContainsCombeReadback() : submitted(false) {};
     };
+    struct KfmCachedDeint60 {
+        int n60;
+        int inputFrameId;
+        int64_t timestamp;
+        int64_t duration;
+        std::shared_ptr<RGYCLFrame> frame;
+        RGYOpenCLEvent event;
+
+        KfmCachedDeint60() : n60(-1), inputFrameId(-1), timestamp(0), duration(0), frame(), event() {};
+    };
+    class KfmRtgmcLane {
+    public:
+        KfmRtgmcLane();
+        void init(RGYFilterKfm *owner, RGYFilterRtgmc *rtgmc, const char *stage, const TCHAR *cacheLabel, bool dumpStaticFlag);
+        void clear();
+        void reset();
+        RGY_ERR feed(const RGYFrameInfo *frame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, int *cachedFrames = nullptr);
+        RGY_ERR drain(RGYOpenCLQueue &queue, int maxDrainIterations, int *cachedFrames = nullptr);
+        RGY_ERR cacheFrame(const RGYFrameInfo *frame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+        const KfmCachedDeint60 *find(int n60, std::vector<RGYOpenCLEvent> *wait_events) const;
+        void trim(int n60floor, size_t cacheLimit);
+        std::deque<KfmCachedDeint60>& cache() { return m_cache; }
+        const std::deque<KfmCachedDeint60>& cache() const { return m_cache; }
+        RGYOpenCLEvent& cacheCopyEvent() { return m_cacheCopyEvent; }
+        int submittedFrames() const { return m_submittedFrames; }
+    private:
+        RGYFilterKfm *m_owner;
+        RGYFilterRtgmc *m_rtgmc;
+        const char *m_stage;
+        const TCHAR *m_cacheLabel;
+        bool m_dumpStaticFlag;
+        std::deque<KfmCachedDeint60> m_cache;
+        int m_submittedFrames;
+        int m_nextFeedSourceIndex;
+        int m_nextOutputN60;
+        int m_hotUntilSourceIndex;
+        RGYOpenCLEvent m_cacheCopyEvent;
+    };
 
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;
     virtual void close() override;
@@ -165,14 +203,12 @@ protected:
     RGY_ERR cacheSourceFrame(const RGYFrameInfo *frame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
     RGY_ERR runDeint60Branch(const RGYFrameInfo *frame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, int *cachedFrames = nullptr);
     RGY_ERR drainDeint60Branch(RGYOpenCLQueue &queue, int *cachedFrames = nullptr);
-    RGY_ERR cacheDeint60Frame(const RGYFrameInfo *frame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     RGY_ERR runUcfRtgmcBranches(const RGYFrameInfo *frame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
-    RGY_ERR runUcfRtgmcBranch(RGYFilterRtgmc *rtgmc, const char *stage, const RGYFrameInfo *frame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, std::deque<KfmCachedDeint60>& cache, int& submittedFrames, RGYOpenCLEvent& cacheCopyEvent);
-    RGY_ERR drainUcfRtgmcBranch(RGYFilterRtgmc *rtgmc, const char *stage, RGYOpenCLQueue &queue, std::deque<KfmCachedDeint60>& cache, int& submittedFrames, RGYOpenCLEvent& cacheCopyEvent);
+    RGY_ERR runUcfRtgmcBranch(KfmRtgmcLane& lane, const RGYFrameInfo *frame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
+    RGY_ERR drainUcfRtgmcBranch(KfmRtgmcLane& lane, RGYOpenCLQueue &queue);
     RGY_ERR processMainRtgmcOutputs(const RGYFilterParamKfm& prm, RGYFrameInfo **rtgmcOutFrames, int rtgmcOutNum,
         RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     RGY_ERR drainMainRtgmcBranch(const RGYFilterParamKfm& prm, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
-    RGY_ERR cacheUcfRtgmcFrame(const char *stage, const RGYFrameInfo *frame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, std::deque<KfmCachedDeint60>& cache, int& submittedFrames, RGYOpenCLEvent *event);
     size_t sourceCacheLimit() const;
     size_t deint60CacheLimit() const;
     int sourceCacheTrimFloor() const;
@@ -181,7 +217,7 @@ protected:
     const RGYFrameInfo *findSourceFrame(const RGYFrameInfo *frame, std::vector<RGYOpenCLEvent> *wait_events);
     const KfmCachedSource *findSourceByIndex(int sourceIndex) const;
     const KfmCachedSource *findSourceByIndexExact(int sourceIndex) const;
-    const KfmCachedDeint60 *findCachedDeint60Frame(const std::deque<KfmCachedDeint60>& cache, int n60, std::vector<RGYOpenCLEvent> *wait_events) const;
+    const KfmCachedDeint60 *findCachedDeint60Frame(const KfmRtgmcLane& lane, int n60, std::vector<RGYOpenCLEvent> *wait_events) const;
     const KfmUcfNoiseDumpRecord *findUcfNoiseResult(int sourceIndex) const;
     RGY_ERR ensureFMCountQueue();
     RGY_ERR submitFMCounts(int cycle, bool drain, RGYOpenCLQueue &queue);
@@ -303,17 +339,6 @@ protected:
         KfmCachedSource() : sourceIndex(-1), inputFrameId(-1), timestamp(0), slot(), frame(), paddedFrame(), event(), paddedEvent() {};
     };
 
-    struct KfmCachedDeint60 {
-        int n60;
-        int inputFrameId;
-        int64_t timestamp;
-        int64_t duration;
-        std::shared_ptr<RGYCLFrame> frame;
-        RGYOpenCLEvent event;
-
-        KfmCachedDeint60() : n60(-1), inputFrameId(-1), timestamp(0), duration(0), frame(), event() {};
-    };
-
     struct KfmCachedUcfNoise {
         int fieldIndex;
         int inputFrameId;
@@ -382,21 +407,15 @@ protected:
     std::deque<std::shared_ptr<KfmSourceSlot>> m_kfmSourceSlotFree;
     std::deque<std::shared_ptr<KfmSourceSlot>> m_kfmSourceSlotRetired;
     std::deque<KfmCachedSource> m_sourceCache;
-    std::deque<KfmCachedDeint60> m_deint60Cache;
-    std::deque<KfmCachedDeint60> m_before60Cache;
-    std::deque<KfmCachedDeint60> m_after60Cache;
+    KfmRtgmcLane m_deint60Lane;
+    KfmRtgmcLane m_before60Lane;
+    KfmRtgmcLane m_after60Lane;
     std::deque<KfmCachedUcfNoise> m_ucfNoiseCache;
     std::deque<KfmPendingUcfNoiseResult> m_pendingUcfNoiseResults;
     std::deque<std::unique_ptr<RGYCLBuf>> m_fmCountBufPool;
     std::deque<std::unique_ptr<RGYCLBuf>> m_ucfNoiseResultBufPool;
     std::deque<KfmUcfNoiseDumpRecord> m_ucfNoiseResultCache;
     KfmUcfNoiseDumpRecord m_pendingUcfNoiseDump;
-    int m_deint60SubmittedSourceFrames;
-    int m_before60SubmittedSourceFrames;
-    int m_after60SubmittedSourceFrames;
-    RGYOpenCLEvent m_deint60CacheCopyEvent;
-    RGYOpenCLEvent m_before60CacheCopyEvent;
-    RGYOpenCLEvent m_after60CacheCopyEvent;
     std::unique_ptr<RGYCLFrame> m_staticFlag;
     std::array<std::unique_ptr<RGYCLFrame>, 5> m_staticWorkFrames;
     std::array<std::unique_ptr<RGYCLBuf>, 2> m_analyzeFlags;
