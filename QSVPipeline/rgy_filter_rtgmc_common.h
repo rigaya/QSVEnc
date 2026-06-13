@@ -85,6 +85,31 @@ protected:
     RGYOpenCLEvent m_event;
 };
 
+class RGYFrameDataRtgmcFrameRef : public RGYFrameData {
+public:
+    explicit RGYFrameDataRtgmcFrameRef(std::shared_ptr<RGYCLFrame> frame) :
+        m_frame(frame) {}
+    virtual ~RGYFrameDataRtgmcFrameRef() {}
+
+    std::shared_ptr<RGYCLFrame> frameRef() const { return m_frame; }
+
+protected:
+    std::shared_ptr<RGYCLFrame> m_frame;
+};
+
+static std::shared_ptr<RGYCLFrame> rtgmcGetAttachedFrameRef(const RGYFrameInfo *frame) {
+    if (!frame) {
+        return nullptr;
+    }
+    for (const auto& data : frame->dataList) {
+        auto ref = std::dynamic_pointer_cast<RGYFrameDataRtgmcFrameRef>(data);
+        if (ref && ref->frameRef()) {
+            return ref->frameRef();
+        }
+    }
+    return nullptr;
+}
+
 static std::shared_ptr<RGYFrameDataRtgmcEdi> rtgmcGetAttachedEdi(const RGYFrameInfo *frame) {
     if (!frame) {
         return nullptr;

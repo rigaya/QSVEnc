@@ -575,7 +575,7 @@ const RGYFrameInfo *RGYFilterDegrain::resolveAnalysisLumaSourceFrame(const int f
         return nullptr;
     }
     const int clampedFrame = clamp(frameIndex, 0, m_inputCount - 1);
-    return &m_cacheFrames[cacheIndex(clampedFrame)]->frame;
+    return cacheFrame(clampedFrame);
 }
 
 RGYFilterDegrainFrameSet RGYFilterDegrain::resolveAnalysisFrameSet(const int currentFrame) const {

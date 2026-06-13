@@ -148,6 +148,15 @@ static bool rtgmcNoiseDenoiserSupported(VppRtgmcNoiseDenoiser denoiser) {
 static bool rtgmcNoiseDenoiserUsesNLMeans(VppRtgmcNoiseDenoiser denoiser) {
     return denoiser == VppRtgmcNoiseDenoiser::NLMeans;
 }
+
+static void resetRtgmcFrameState(RGYFrameInfo& frame) {
+    frame.timestamp = 0;
+    frame.duration = 0;
+    frame.picstruct = RGY_PICSTRUCT_UNKNOWN;
+    frame.flags = RGY_FRAME_FLAG_NONE;
+    frame.inputFrameId = -1;
+    frame.dataList.clear();
+}
 }
 
 RGYFilterRtgmc::RGYFilterRtgmc(shared_ptr<RGYOpenCLContext> context) :
@@ -185,7 +194,11 @@ RGYFilterRtgmc::RGYFilterRtgmc(shared_ptr<RGYOpenCLContext> context) :
 }
 
 std::shared_ptr<RGYCLFrame> RGYFilterRtgmc::getSharedFrameBuffer(const RGYFrameInfo *frame) {
-    return m_sharedFramePool ? m_sharedFramePool->acquire(frame) : nullptr;
+    auto sharedFrame = m_sharedFramePool ? m_sharedFramePool->acquire(frame) : nullptr;
+    if (sharedFrame) {
+        resetRtgmcFrameState(sharedFrame->frame);
+    }
+    return sharedFrame;
 }
 
 void RGYFilterRtgmc::setSharedAnalysisData(const RtgmcSharedAnalysisData &data) {
@@ -216,7 +229,12 @@ void RGYFilterRtgmc::clearCapturedIntermediates() {
 }
 
 void RGYFilterRtgmc::pushIntermediateInput(const RtgmcCapturedIntermediate &input) {
-    m_pendingIntermediateInputs.push_back(input);
+    auto queued = input;
+    if (queued.frame && !queued.frameInfo.ptr[0]) {
+        queued.frameInfo = queued.frame->frame;
+        queued.frameInfo.dataList.push_back(std::make_shared<RGYFrameDataRtgmcFrameRef>(queued.frame));
+    }
+    m_pendingIntermediateInputs.push_back(queued);
 }
 
 RGYFilterRtgmc::~RGYFilterRtgmc() {
@@ -350,6 +368,7 @@ RGY_ERR RGYFilterRtgmc::initRetouchCompFilters(const std::shared_ptr<RGYFilterPa
         param->degrain.delta = 1;
         param->degrain.mode = modes[i];
         param->degrain.stage = VppDegrainStage::TR1;
+        param->zeroCopyCache = true;
         auto sts = filter->init(param, m_pLog);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to initialize retouch helper %s: %s.\n"),
@@ -2092,7 +2111,9 @@ RGY_ERR RGYFilterRtgmc::runThrough(size_t filterIdx, RGYFrameInfo *pInputFrame, 
                     return err;
                 }
                 copyFramePropWithoutRes(&buf->frame, frame);
-                m_capturedIntermediates.push_back({ buf, captureEvent });
+                auto frameInfo = buf->frame;
+                frameInfo.dataList.push_back(std::make_shared<RGYFrameDataRtgmcFrameRef>(buf));
+                m_capturedIntermediates.push_back({ buf, frameInfo, captureEvent });
             }
             return RGY_ERR_NONE;
         };
@@ -2281,7 +2302,7 @@ RGY_ERR RGYFilterRtgmc::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
                 if (intermediate.event() != nullptr) {
                     intWaitEvents.push_back(intermediate.event);
                 }
-                auto sts = runThrough(RTGMC_FILTER_TR1, &intermediate.frame->frame, ppOutputFrames, pOutputFrameNum, queue, intWaitEvents, event, false);
+                auto sts = runThrough(RTGMC_FILTER_TR1, &intermediate.frameInfo, ppOutputFrames, pOutputFrameNum, queue, intWaitEvents, event, false);
                 if (sts != RGY_ERR_NONE) {
                     return sts;
                 }
@@ -2328,7 +2349,7 @@ RGY_ERR RGYFilterRtgmc::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
             if (intermediate.event() != nullptr) {
                 intWaitEvents.push_back(intermediate.event);
             }
-            sts = runThrough(RTGMC_FILTER_TR1, &intermediate.frame->frame, ppOutputFrames, pOutputFrameNum, queue, intWaitEvents, event, false);
+            sts = runThrough(RTGMC_FILTER_TR1, &intermediate.frameInfo, ppOutputFrames, pOutputFrameNum, queue, intWaitEvents, event, false);
             if (sts != RGY_ERR_NONE) {
                 return sts;
             }

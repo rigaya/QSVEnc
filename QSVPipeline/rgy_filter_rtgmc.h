@@ -168,6 +168,7 @@ public:
 
     struct RtgmcCapturedIntermediate {
         std::shared_ptr<RGYCLFrame> frame;
+        RGYFrameInfo frameInfo;
         RGYOpenCLEvent event;
     };
 

@@ -28,6 +28,7 @@
 
 #include "rgy_filter_degrain.h"
 #include "rgy_filter_degrain_common.h"
+#include "rgy_filter_rtgmc_common.h"
 
 #include <algorithm>
 #include <cmath>
@@ -183,6 +184,8 @@ std::unique_ptr<RGYOpenCLProgram> buildDegrainCLProgram(
 RGYFilterDegrain::RGYFilterDegrain(shared_ptr<RGYOpenCLContext> context) :
     RGYFilter(context),
     m_cacheFrames(),
+    m_cacheFrameRefs(),
+    m_cacheFrameOwners(),
     m_degrain(),
     m_degrainChroma(),
     m_degrainPel1(),
@@ -502,6 +505,14 @@ int RGYFilterDegrain::cacheIndex(int frame) const {
     return frame % DEGRAIN_CACHE_SIZE;
 }
 
+const RGYFrameInfo *RGYFilterDegrain::cacheFrame(int frame) const {
+    const int index = cacheIndex(frame);
+    if (m_cacheFrameOwners[index] && m_cacheFrameRefs[index].ptr[0]) {
+        return &m_cacheFrameRefs[index];
+    }
+    return m_cacheFrames[index] ? &m_cacheFrames[index]->frame : nullptr;
+}
+
 int RGYFilterDegrain::analysisCacheIndex(int frame) const {
     return frame % RGY_DEGRAIN_ANALYSIS_LUMA_CACHE_SIZE;
 }
@@ -702,11 +713,41 @@ int RGYFilterDegrain::drainFrameCount() const {
 }
 
 RGY_ERR RGYFilterDegrain::pushCacheFrame(const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
-    auto pCacheFrame = &m_cacheFrames[cacheIndex(m_inputCount)]->frame;
+    const auto prm = std::dynamic_pointer_cast<RGYFilterParamDegrain>(m_param);
+    const int index = cacheIndex(m_inputCount);
+    if (prm && prm->zeroCopyCache) {
+        auto owner = rtgmcGetAttachedFrameRef(pInputFrame);
+        if (owner && owner->frame.ptr[0]
+            && !cmpFrameInfoCspResolution(&owner->frame, pInputFrame)
+            && owner->frame.bitdepth == pInputFrame->bitdepth) {
+            for (const auto &waitEvent : wait_events) {
+                if (waitEvent() != nullptr) {
+                    const auto err = queue.wait(waitEvent);
+                    if (err != RGY_ERR_NONE) {
+                        AddMessage(RGY_LOG_ERROR, _T("failed to wait degrain zero-copy cache input event: %s.\n"), get_err_mes(err));
+                        return err;
+                    }
+                }
+            }
+            if (event) {
+                const auto err = queue.getmarker(*event);
+                if (err != RGY_ERR_NONE) {
+                    AddMessage(RGY_LOG_ERROR, _T("failed to record degrain zero-copy cache event: %s.\n"), get_err_mes(err));
+                    return err;
+                }
+            }
+            m_cacheFrameRefs[index] = *pInputFrame;
+            m_cacheFrameOwners[index] = owner;
+            return RGY_ERR_NONE;
+        }
+    }
+    m_cacheFrameRefs[index] = RGYFrameInfo();
+    m_cacheFrameOwners[index].reset();
+    auto pCacheFrame = &m_cacheFrames[index]->frame;
     auto err = m_cl->copyFrame(pCacheFrame, pInputFrame, nullptr, queue, wait_events, event, RGYFrameCopyMode::FRAME, "degrain.cache");
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to copy input to degrain cache slot %d: %s.\n"),
-            cacheIndex(m_inputCount), get_err_mes(err));
+            index, get_err_mes(err));
         return err;
     }
     copyFrameProp(pCacheFrame, pInputFrame);
@@ -1017,14 +1058,14 @@ RGYFilterDegrainFrameSet RGYFilterDegrain::resolveFrameSet(const int currentFram
         return frames;
     }
 
-    frames.cur = &m_cacheFrames[cacheIndex(currentFrame)]->frame;
+    frames.cur = cacheFrame(currentFrame);
     for (int delta = 1; delta <= RGY_DEGRAIN_MAX_DELTA; delta++) {
         frames.backwardInRange[delta - 1] = (currentFrame + delta) < m_inputCount;
         frames.forwardInRange[delta - 1] = (currentFrame - delta) >= 0;
         const int backwardFrame = frames.backwardInRange[delta - 1] ? (currentFrame + delta) : currentFrame;
         const int forwardFrame = frames.forwardInRange[delta - 1] ? (currentFrame - delta) : currentFrame;
-        frames.backward[delta - 1] = &m_cacheFrames[cacheIndex(backwardFrame)]->frame;
-        frames.forward[delta - 1] = &m_cacheFrames[cacheIndex(forwardFrame)]->frame;
+        frames.backward[delta - 1] = cacheFrame(backwardFrame);
+        frames.forward[delta - 1] = cacheFrame(forwardFrame);
     }
     return frames;
 }
@@ -1306,6 +1347,12 @@ void RGYFilterDegrain::close() {
     m_analysis.layout = {};
     m_analysis.layoutLevel1 = {};
     m_analysis.mode = VppDegrainMode::Source;
+    for (auto &frame : m_cacheFrameRefs) {
+        frame = RGYFrameInfo();
+    }
+    for (auto &owner : m_cacheFrameOwners) {
+        owner.reset();
+    }
     for (auto &frame : m_cacheFrames) {
         frame.reset();
     }
