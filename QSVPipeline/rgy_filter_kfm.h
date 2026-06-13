@@ -157,7 +157,7 @@ protected:
     virtual void close() override;
 
     RGY_ERR loadPrograms(const RGYFilterParamKfm& prm);
-    RGY_ERR initRtgmc(const std::shared_ptr<RGYFilterParamKfm>& prm, std::unique_ptr<RGYFilterRtgmc>& rtgmc, bool updateOutputParam, int useFlag = 0);
+    RGY_ERR initRtgmc(const std::shared_ptr<RGYFilterParamKfm>& prm, std::unique_ptr<RGYFilterRtgmc>& rtgmc, bool updateOutputParam, int useFlag = 0, bool sharedAnalysisMode = false);
     RGY_ERR initNrFilter(const std::shared_ptr<RGYFilterParamKfm>& prm);
     RGY_ERR initAnalyzer(const RGYFilterParamKfm& prm);
     RGY_ERR padSourceFrame(RGYFrameInfo *pPaddedFrame, const RGYFrameInfo *pSourceFrame,

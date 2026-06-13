@@ -59,8 +59,9 @@ class RGYFilterParamRtgmc : public RGYFilterParam {
 public:
     VppRtgmc rtgmc;
     rgy_rational<int> timebase;
+    bool sharedAnalysisMode;
 
-    RGYFilterParamRtgmc() : rtgmc(), timebase() {}
+    RGYFilterParamRtgmc() : rtgmc(), timebase(), sharedAnalysisMode(false) {}
     virtual ~RGYFilterParamRtgmc() {}
     virtual tstring print() const override { return rtgmc.print(); }
 };
@@ -135,6 +136,33 @@ protected:
         std::deque<RtgmcPendingFrameRef> composeBaseRefs;
     };
 
+public:
+    struct RtgmcSharedAnalysisData {
+        RGYFilterDegrain *analyzeFilter;
+        std::deque<RtgmcPendingEdiRef> *pendingEdiRefs;
+        std::array<RtgmcSourceCacheFrame, 256> *sourceCache;
+        std::deque<RtgmcPendingCompRef> *pendingCompRefs;
+        std::deque<RtgmcPendingFrameRef> *pendingNoiseRefs;
+        std::shared_ptr<RGYCLSharedFramePool> sharedFramePool;
+
+        RtgmcSharedAnalysisData() : analyzeFilter(nullptr), pendingEdiRefs(nullptr),
+            sourceCache(nullptr), pendingCompRefs(nullptr), pendingNoiseRefs(nullptr), sharedFramePool() {}
+    };
+
+    void setSharedAnalysisData(const RtgmcSharedAnalysisData &data);
+    RtgmcSharedAnalysisData getSharedAnalysisData();
+
+    struct RtgmcCapturedIntermediate {
+        std::shared_ptr<RGYCLFrame> frame;
+        RGYOpenCLEvent event;
+    };
+
+    void enableIntermediateCapture(bool enable);
+    const std::vector<RtgmcCapturedIntermediate>& getCapturedIntermediates() const;
+    void clearCapturedIntermediates();
+    void pushIntermediateInput(const RtgmcCapturedIntermediate &input);
+
+protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;
     virtual void close() override;
@@ -217,4 +245,9 @@ protected:
     bool m_drainComplete;
     bool m_attachRetouchCompRefs;
     bool m_enablePostTR2Limit;
+    bool m_sharedAnalysisMode;
+    RtgmcSharedAnalysisData m_sharedData;
+    bool m_captureIntermediate;
+    std::vector<RtgmcCapturedIntermediate> m_capturedIntermediates;
+    std::deque<RtgmcCapturedIntermediate> m_pendingIntermediateInputs;
 };
