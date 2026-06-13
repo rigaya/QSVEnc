@@ -81,6 +81,7 @@ static constexpr int KFM_VFR_SOURCE_TRIM_LOOKBEHIND = 8;
 static constexpr int KFM_VFR_DEINT60_TRIM_LOOKBEHIND = 16;
 static constexpr int KFM_UCF_NOISE_LIMIT_NMIN = 1;
 static constexpr int KFM_UCF_NOISE_LIMIT_RANGE = 128;
+static constexpr int KFM_UCF_SHARED_ANALYSIS_SOURCE_DELAY = 2;
 static constexpr double KFM_UCF_GAUSS_P = 2.5;
 static constexpr double KFM_UCF_GAUSS_CROP_EPS = 0.0001;
 
@@ -499,8 +500,9 @@ RGY_ERR RGYFilterKfm::KfmRtgmcLane::ensureRange(int n60begin, int n60end, RGYOpe
     const int sourceBegin = n60begin >> 1;
     const bool cold = m_nextFeedSourceIndex < 0;
     const bool rewind = m_nextOutputN60 > n60begin;
+    const bool feedPastRequest = !cold && m_nextFeedSourceIndex > sourceBegin && m_nextOutputN60 <= n60begin;
     const bool beyondHot = !cold && m_hotUntilSourceIndex >= 0 && sourceBegin > m_hotUntilSourceIndex;
-    if (cold || rewind || beyondHot) {
+    if (cold || rewind || feedPastRequest || beyondHot) {
         m_rtgmc->resetTemporalState();
         m_cache.clear();
         m_cacheCopyEvent = RGYOpenCLEvent();
@@ -534,9 +536,15 @@ RGY_ERR RGYFilterKfm::KfmRtgmcLane::ensureRange(int n60begin, int n60end, RGYOpe
         if (source->event() != nullptr) {
             waitEvents.push_back(source->event);
         }
+        if (m_owner && (m_rtgmc == m_owner->m_before60Rtgmc.get() || m_rtgmc == m_owner->m_after60Rtgmc.get())) {
+            m_owner->pushDeint60Intermediates(m_rtgmc, source->sourceIndex);
+        }
         auto sts = feed(&source->frame->frame, queue, waitEvents);
         if (sts != RGY_ERR_NONE) {
             return sts;
+        }
+        if (m_owner && m_rtgmc == m_owner->m_deint60Rtgmc.get()) {
+            m_owner->captureDeint60Intermediates(source->sourceIndex);
         }
         m_nextFeedSourceIndex++;
         m_nextOutputN60 = m_submittedFrames;
@@ -557,9 +565,15 @@ RGY_ERR RGYFilterKfm::KfmRtgmcLane::feedHot(RGYOpenCLQueue &queue) {
     if (source->event() != nullptr) {
         waitEvents.push_back(source->event);
     }
+    if (m_owner && (m_rtgmc == m_owner->m_before60Rtgmc.get() || m_rtgmc == m_owner->m_after60Rtgmc.get())) {
+        m_owner->pushDeint60Intermediates(m_rtgmc, source->sourceIndex);
+    }
     auto sts = feed(&source->frame->frame, queue, waitEvents);
     if (sts != RGY_ERR_NONE) {
         return sts;
+    }
+    if (m_owner && m_rtgmc == m_owner->m_deint60Rtgmc.get()) {
+        m_owner->captureDeint60Intermediates(source->sourceIndex);
     }
     m_nextFeedSourceIndex++;
     m_nextOutputN60 = m_submittedFrames;
@@ -572,6 +586,13 @@ RGY_ERR RGYFilterKfm::KfmRtgmcLane::cacheFrame(const RGYFrameInfo *frame, RGYOpe
     }
     if (!m_owner || !m_stage || !m_stage[0] || !m_cacheLabel || !m_owner->m_staticFlag) {
         return RGY_ERR_INVALID_CALL;
+    }
+
+    if (m_owner && (m_rtgmc == m_owner->m_before60Rtgmc.get() || m_rtgmc == m_owner->m_after60Rtgmc.get()) && frame->inputFrameId >= 0) {
+        const int frameN60Base = frame->inputFrameId * 2;
+        if (m_submittedFrames < frameN60Base || m_submittedFrames > frameN60Base + 1) {
+            m_submittedFrames = frameN60Base;
+        }
     }
 
     KfmCachedDeint60 entry;
@@ -659,6 +680,10 @@ void RGYFilterKfm::KfmRtgmcLane::trim(int n60floor, size_t cacheLimit) {
     while (m_cache.size() > cacheLimit && !m_cache.empty() && m_cache.front().n60 < n60floor) {
         m_cache.pop_front();
     }
+}
+
+int RGYFilterKfm::KfmRtgmcLane::requiredPrimingSourceFrames() const {
+    return m_rtgmc ? m_rtgmc->requiredPrimingSourceFrames() : 0;
 }
 
 RGY_ERR RGYFilterKfm::loadPrograms(const RGYFilterParamKfm& prm) {
@@ -1663,7 +1688,14 @@ int RGYFilterKfm::sourceCacheTrimFloor() const {
     if (!prm || prm->kfm.mode != VppKfmMode::VFR || m_nextSwitchN60 <= 0) {
         return 0;
     }
-    const int lazyLookbehind = (lazyDeint60Enabled(*prm) && m_deint60Rtgmc) ? m_deint60Rtgmc->requiredPrimingSourceFrames() : 0;
+    int lazyLookbehind = 0;
+    if (lazyDeint60Enabled(*prm) && m_deint60Rtgmc) {
+        lazyLookbehind = m_deint60Rtgmc->requiredPrimingSourceFrames();
+        if (prm->kfm.ucf && (m_before60Rtgmc || m_after60Rtgmc)) {
+            lazyLookbehind += std::max(m_before60Lane.requiredPrimingSourceFrames(), m_after60Lane.requiredPrimingSourceFrames())
+                + KFM_UCF_SHARED_ANALYSIS_SOURCE_DELAY + 4;
+        }
+    }
     auto trimFloor = std::max(0, (m_nextSwitchN60 >> 1) - KFM_VFR_SOURCE_TRIM_LOOKBEHIND - lazyLookbehind);
     for (const auto& pending : m_pendingUcfNoiseResults) {
         if (pending.sourceIndex >= 0) {
@@ -1703,14 +1735,18 @@ RGY_ERR RGYFilterKfm::drainDeint60Branch(RGYOpenCLQueue &queue, int *cachedFrame
 
 RGY_ERR RGYFilterKfm::runUcfRtgmcBranches(const RGYFrameInfo *frame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events) {
     if (!m_before60Rtgmc && !m_after60Rtgmc) {
-        return RGY_ERR_NONE;
+        return runUcfNoiseAnalysisFromSource(frame, queue, wait_events);
     }
     if (!frame || !frame->ptr[0]) {
         auto sts = drainUcfRtgmcBranch(m_before60Lane, queue);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
-        return drainUcfRtgmcBranch(m_after60Lane, queue);
+        sts = drainUcfRtgmcBranch(m_after60Lane, queue);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        return runUcfNoiseAnalysisFromSource(frame, queue, wait_events);
     }
 
     auto sts = runUcfRtgmcBranch(m_before60Lane, frame, queue, wait_events);
@@ -1721,10 +1757,15 @@ RGY_ERR RGYFilterKfm::runUcfRtgmcBranches(const RGYFrameInfo *frame, RGYOpenCLQu
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
+    return runUcfNoiseAnalysisFromSource(frame, queue, wait_events);
+}
+
+RGY_ERR RGYFilterKfm::runUcfNoiseAnalysisFromSource(const RGYFrameInfo *frame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events) {
     const auto prm = std::dynamic_pointer_cast<RGYFilterParamKfm>(m_param);
     if (!prm || !frame || !frame->ptr[0]) {
         return RGY_ERR_NONE;
     }
+    auto sts = RGY_ERR_NONE;
     const int sourceIndex = m_sourceCache.empty() ? m_cachedSourceFrames - 1 : m_sourceCache.back().sourceIndex;
     for (int parity = 0; parity < 2; parity++) {
         const int fieldIndex = sourceIndex * 2 + parity;
@@ -1774,6 +1815,96 @@ RGY_ERR RGYFilterKfm::runUcfRtgmcBranches(const RGYFrameInfo *frame, RGYOpenCLQu
         }
     }
     return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterKfm::ensureUcfRtgmcRange(KfmUcfLaneType laneType, int n60begin, int n60end, RGYOpenCLQueue &queue) {
+    if (laneType == KFM_UCF_LANE_NONE || n60begin >= n60end) {
+        return RGY_ERR_NONE;
+    }
+    // eager (FORCE_EAGER or non-lazy) では intake で全フレーム feed 済みのため ensure 不要。
+    // ここで ensureRange を呼ぶと進行中の eager パイプラインを resetTemporalState で
+    // 破壊して再 priming が発生する (長尺の eager 実行で性能劣化と出力差の原因になる)。
+    const auto prm = std::dynamic_pointer_cast<RGYFilterParamKfm>(m_param);
+    if (!prm || !lazyDeint60Enabled(*prm)) {
+        return RGY_ERR_NONE;
+    }
+    auto *lane = (laneType == KFM_UCF_LANE_BEFORE) ? &m_before60Lane : &m_after60Lane;
+    if (!m_deint60Rtgmc || (laneType == KFM_UCF_LANE_BEFORE && !m_before60Rtgmc) || (laneType == KFM_UCF_LANE_AFTER && !m_after60Rtgmc)) {
+        return RGY_ERR_NONE;
+    }
+    const int sourceBegin = std::max(0, n60begin) >> 1;
+    const int primeStart = std::max(0, sourceBegin - lane->requiredPrimingSourceFrames());
+    const int sourceEnd = std::max(primeStart, divCeil(std::max(0, n60end), 2) + KFM_UCF_SHARED_ANALYSIS_SOURCE_DELAY);
+    if (!hasDeint60Intermediates(primeStart, sourceEnd)) {
+        auto& deint60Cache = m_deint60Lane.cache();
+        for (auto it = deint60Cache.begin(); it != deint60Cache.end();) {
+            if (primeStart * 2 <= it->n60 && it->n60 < sourceEnd * 2) {
+                it = deint60Cache.erase(it);
+            } else {
+                ++it;
+            }
+        }
+        auto sts = m_deint60Lane.ensureRange(primeStart * 2, sourceEnd * 2, queue);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+    }
+    return lane->ensureRange(n60begin, n60end, queue);
+}
+
+void RGYFilterKfm::captureDeint60Intermediates(int sourceIndex) {
+    if (!m_deint60Rtgmc || sourceIndex < 0) {
+        return;
+    }
+    const auto& captured = m_deint60Rtgmc->getCapturedIntermediates();
+    if (!captured.empty()) {
+        for (auto& group : m_deint60IntermediateQueue) {
+            if (group.sourceIndex == sourceIndex) {
+                group.intermediates = captured;
+                m_deint60Rtgmc->clearCapturedIntermediates();
+                return;
+            }
+        }
+        KfmMainIntermediateGroup group;
+        group.sourceIndex = sourceIndex;
+        group.intermediates = captured;
+        m_deint60IntermediateQueue.push_back(std::move(group));
+        trimDeint60Intermediates();
+    }
+    m_deint60Rtgmc->clearCapturedIntermediates();
+}
+
+bool RGYFilterKfm::hasDeint60Intermediates(int sourceBegin, int sourceEnd) const {
+    for (int sourceIndex = sourceBegin; sourceIndex < sourceEnd; sourceIndex++) {
+        const auto it = std::find_if(m_deint60IntermediateQueue.begin(), m_deint60IntermediateQueue.end(), [sourceIndex](const KfmMainIntermediateGroup& group) {
+            return group.sourceIndex == sourceIndex && !group.intermediates.empty();
+        });
+        if (it == m_deint60IntermediateQueue.end()) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void RGYFilterKfm::pushDeint60Intermediates(RGYFilterRtgmc *rtgmc, int sourceIndex) {
+    if (!rtgmc || sourceIndex < 0) {
+        return;
+    }
+    for (const auto& group : m_deint60IntermediateQueue) {
+        if (group.sourceIndex == sourceIndex) {
+            for (const auto& captured : group.intermediates) {
+                rtgmc->pushIntermediateInput(captured);
+            }
+            return;
+        }
+    }
+}
+
+void RGYFilterKfm::trimDeint60Intermediates() {
+    const int keepSourceFrames = std::max<int>(32, (int)sourceCacheLimit());
+    while (!m_deint60IntermediateQueue.empty() && m_deint60IntermediateQueue.front().sourceIndex + keepSourceFrames < m_cachedSourceFrames) {
+        m_deint60IntermediateQueue.pop_front();
+    }
 }
 
 RGY_ERR RGYFilterKfm::runUcfRtgmcBranch(KfmRtgmcLane& lane, const RGYFrameInfo *frame,
@@ -2834,9 +2965,28 @@ const RGYFrameInfo *RGYFilterKfm::selectUcfDecomb30Frame(int sourceIndex, const 
     if (!deint30 || sourceIndex < 0) {
         return deint30;
     }
+    const auto selection = planUcfDecomb30Frame(sourceIndex);
+    const KfmRtgmcLane *lane = nullptr;
+    if (selection.lane == KFM_UCF_LANE_BEFORE) {
+        lane = &m_before60Lane;
+    } else if (selection.lane == KFM_UCF_LANE_AFTER) {
+        lane = &m_after60Lane;
+    }
+    if (selection.type == KFM_UCF24_SELECT_FRAME && lane && selection.n60 >= 0) {
+        const auto *entry = findCachedDeint60Frame(*lane, selection.n60, wait_events);
+        return (entry && entry->frame && entry->frame->frame.ptr[0]) ? &entry->frame->frame : deint30;
+    }
+    return deint30;
+}
+
+RGYFilterKfm::KfmUcf24Selection RGYFilterKfm::planUcfDecomb30Frame(int sourceIndex) const {
+    KfmUcf24Selection selection;
+    if (sourceIndex < 0) {
+        return selection;
+    }
     const auto *noise = findUcfNoiseResult(sourceIndex);
     if (!noise || !noise->valid) {
-        return deint30;
+        return selection;
     }
 
     RGYKFM::DecombUCFParam param;
@@ -2844,19 +2994,23 @@ const RGYFrameInfo *RGYFilterKfm::selectUcfDecomb30Frame(int sourceIndex, const 
     try {
         result = RGYKFM::CalcDecombUCF(&noise->meta, &param, noise->results, nullptr, false);
     } catch (...) {
-        return deint30;
+        return selection;
     }
 
     const int n60 = sourceIndex * 2;
     if (result == RGYKFM::DECOMB_UCF_USE_0) {
-        const auto *entry = findCachedDeint60Frame(m_before60Lane, n60, wait_events);
-        return (entry && entry->frame && entry->frame->frame.ptr[0]) ? &entry->frame->frame : deint30;
+        selection.type = KFM_UCF24_SELECT_FRAME;
+        selection.lane = KFM_UCF_LANE_BEFORE;
+        selection.n60 = n60;
+        return selection;
     }
     if (result == RGYKFM::DECOMB_UCF_USE_1) {
-        const auto *entry = findCachedDeint60Frame(m_after60Lane, n60 + 1, wait_events);
-        return (entry && entry->frame && entry->frame->frame.ptr[0]) ? &entry->frame->frame : deint30;
+        selection.type = KFM_UCF24_SELECT_FRAME;
+        selection.lane = KFM_UCF_LANE_AFTER;
+        selection.n60 = n60 + 1;
+        return selection;
     }
-    return deint30;
+    return selection;
 }
 
 bool RGYFilterKfm::getUcf60FieldDiff(int nstart, double (&diff)[4]) const {
@@ -2938,6 +3092,25 @@ const RGYFrameInfo *RGYFilterKfm::selectUcfDecomb60Frame(int n60, const RGYFrame
     if (!deint60 || n60 < 0) {
         return deint60;
     }
+    const auto selection = planUcfDecomb60Frame(n60);
+    const KfmRtgmcLane *lane = nullptr;
+    if (selection.lane == KFM_UCF_LANE_BEFORE) {
+        lane = &m_before60Lane;
+    } else if (selection.lane == KFM_UCF_LANE_AFTER) {
+        lane = &m_after60Lane;
+    }
+    if (lane && selection.n60 >= 0) {
+        const auto *entry = findCachedDeint60Frame(*lane, selection.n60, wait_events);
+        return (entry && entry->frame && entry->frame->frame.ptr[0]) ? &entry->frame->frame : deint60;
+    }
+    return deint60;
+}
+
+RGYFilterKfm::KfmUcf60Selection RGYFilterKfm::planUcfDecomb60Frame(int n60) const {
+    KfmUcf60Selection selection;
+    if (n60 < 0) {
+        return selection;
+    }
     const auto centerFlag = calcUcf60Flag(n60);
     KfmUcf60Flag sideFlag = KFM_UCF60_NONE;
     for (int i = -1; i <= 1; i += 2) {
@@ -2951,34 +3124,46 @@ const RGYFrameInfo *RGYFilterKfm::selectUcfDecomb60Frame(int n60, const RGYFrame
         }
     }
 
-    auto findFrame = [&](const KfmRtgmcLane& lane, int frameIndex) -> const RGYFrameInfo * {
-        const auto *entry = findCachedDeint60Frame(lane, frameIndex, wait_events);
-        return (entry && entry->frame && entry->frame->frame.ptr[0]) ? &entry->frame->frame : nullptr;
-    };
     if (centerFlag == KFM_UCF60_PREV) {
-        if (const auto *frame = findFrame(m_before60Lane, n60 - 1)) {
-            return frame;
-        }
+        selection.lane = KFM_UCF_LANE_BEFORE;
+        selection.n60 = n60 - 1;
     } else if (centerFlag == KFM_UCF60_NEXT) {
-        if (const auto *frame = findFrame(m_after60Lane, n60 + 1)) {
-            return frame;
-        }
+        selection.lane = KFM_UCF_LANE_AFTER;
+        selection.n60 = n60 + 1;
     } else if (sideFlag == KFM_UCF60_PREV) {
-        if (const auto *frame = findFrame(m_before60Lane, n60)) {
-            return frame;
-        }
+        selection.lane = KFM_UCF_LANE_BEFORE;
+        selection.n60 = n60;
     } else if (sideFlag == KFM_UCF60_NEXT) {
-        if (const auto *frame = findFrame(m_after60Lane, n60)) {
-            return frame;
-        }
+        selection.lane = KFM_UCF_LANE_AFTER;
+        selection.n60 = n60;
     }
-    return deint60;
+    return selection;
 }
 
 RGYFilterKfm::KfmUcf24Selection RGYFilterKfm::selectUcfDecomb24Frame(const RGYKFM::Frame24Info& frameInfo, const RGYFrameInfo *deint24, std::vector<RGYOpenCLEvent> *wait_events) const {
-    KfmUcf24Selection selection;
+    auto selection = planUcfDecomb24Frame(frameInfo);
     selection.frame = deint24;
-    if (!deint24 || frameInfo.numFields <= 0 || frameInfo.numFields > 6) {
+    if (selection.type != KFM_UCF24_SELECT_FRAME || selection.n60 < 0) {
+        return selection;
+    }
+    const KfmRtgmcLane *lane = nullptr;
+    if (selection.lane == KFM_UCF_LANE_BEFORE) {
+        lane = &m_before60Lane;
+    } else if (selection.lane == KFM_UCF_LANE_AFTER) {
+        lane = &m_after60Lane;
+    }
+    if (lane) {
+        const auto *entry = findCachedDeint60Frame(*lane, selection.n60, wait_events);
+        if (entry && entry->frame && entry->frame->frame.ptr[0]) {
+            selection.frame = &entry->frame->frame;
+        }
+    }
+    return selection;
+}
+
+RGYFilterKfm::KfmUcf24Selection RGYFilterKfm::planUcfDecomb24Frame(const RGYKFM::Frame24Info& frameInfo) const {
+    KfmUcf24Selection selection;
+    if (frameInfo.numFields <= 0 || frameInfo.numFields > 6) {
         return selection;
     }
 
@@ -3024,21 +3209,15 @@ RGYFilterKfm::KfmUcf24Selection RGYFilterKfm::selectUcfDecomb24Frame(const RGYKF
     if (frameInfo.numFields <= 2) {
         const int n60start = frameInfo.cycleIndex * 10 + frameInfo.fieldStartIndex;
         if (cleanField[0]) {
-            const auto *entry = findCachedDeint60Frame(m_before60Lane, n60start, wait_events);
-            if (entry && entry->frame && entry->frame->frame.ptr[0]) {
-                selection.type = KFM_UCF24_SELECT_FRAME;
-                selection.n60 = n60start;
-                selection.frame = &entry->frame->frame;
-            }
+            selection.type = KFM_UCF24_SELECT_FRAME;
+            selection.lane = KFM_UCF_LANE_BEFORE;
+            selection.n60 = n60start;
             return selection;
         }
         if (cleanField[1]) {
-            const auto *entry = findCachedDeint60Frame(m_after60Lane, n60start + 1, wait_events);
-            if (entry && entry->frame && entry->frame->frame.ptr[0]) {
-                selection.type = KFM_UCF24_SELECT_FRAME;
-                selection.n60 = n60start + 1;
-                selection.frame = &entry->frame->frame;
-            }
+            selection.type = KFM_UCF24_SELECT_FRAME;
+            selection.lane = KFM_UCF_LANE_AFTER;
+            selection.n60 = n60start + 1;
             return selection;
         }
     }
@@ -5664,12 +5843,15 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
             return sts;
         }
         if (prm->kfm.ucf) {
+            const bool lazyDeint60 = lazyDeint60Enabled(*prm);
             for (auto &captured : m_rtgmc->getCapturedIntermediates()) {
                 if (m_before60Rtgmc) m_before60Rtgmc->pushIntermediateInput(captured);
                 if (m_after60Rtgmc) m_after60Rtgmc->pushIntermediateInput(captured);
             }
             m_rtgmc->clearCapturedIntermediates();
-            sts = runUcfRtgmcBranches(pInputFrame, queue, wait_events);
+            sts = lazyDeint60
+                ? runUcfNoiseAnalysisFromSource(pInputFrame, queue, {})
+                : runUcfRtgmcBranches(pInputFrame, queue, {});
             if (sts != RGY_ERR_NONE) {
                 return sts;
             }
@@ -5721,7 +5903,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
-        if (prm->kfm.ucf && m_deint60Rtgmc) {
+        if (!lazyDeint60 && prm->kfm.ucf && m_deint60Rtgmc) {
             for (auto &captured : m_deint60Rtgmc->getCapturedIntermediates()) {
                 if (m_before60Rtgmc) m_before60Rtgmc->pushIntermediateInput(captured);
                 if (m_after60Rtgmc) m_after60Rtgmc->pushIntermediateInput(captured);
@@ -6065,6 +6247,18 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                         if (sts != RGY_ERR_NONE) {
                             return sts;
                         }
+                        const auto ucf24Plan = planUcfDecomb24Frame(frameInfo);
+                        if (ucf24Plan.type == KFM_UCF24_SELECT_FRAME && ucf24Plan.n60 >= 0) {
+                            sts = ensureUcfRtgmcRange(ucf24Plan.lane, ucf24Plan.n60, ucf24Plan.n60 + 1, queue);
+                            if (sts == RGY_ERR_MORE_DATA) {
+                                m_workBufferIndex = savedWorkBufferIndex;
+                                m_telecineSuperBufferIndex = savedTelecineSuperBufferIndex;
+                                break;
+                            }
+                            if (sts != RGY_ERR_NONE) {
+                                return sts;
+                            }
+                        }
                         const auto ucf24 = selectUcfDecomb24Frame(frameInfo, out, &ucfWaitEvents);
                         if (ucf24.type == KFM_UCF24_SELECT_FRAME && ucf24.frame && ucf24.frame != out) {
                             auto ucfOut = nextWorkFrame();
@@ -6160,10 +6354,6 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                     break;
                 }
                 if (prm->kfm.ucf) {
-                    sts = resolveUcfNoiseResults((outputTiming.start60 >> 1) + 3, queue);
-                    if (sts != RGY_ERR_NONE) {
-                        return sts;
-                    }
                     deint60 = selectUcfDecomb60Frame(outputTiming.start60, deint60, &copyWaitEvents);
                 }
                 out = nextWorkFrame();
@@ -6820,7 +7010,7 @@ void RGYFilterKfm::close() {
         }
     }
     flushUcfNoiseResultDump();
-    AddMessage(RGY_LOG_DEBUG, _T("KFM RTGMC feed count: deint60=%lld, before60=%lld, after60=%lld.\n"),
+    AddMessage(RGY_LOG_INFO, _T("KFM RTGMC feed count: deint60=%lld, before60=%lld, after60=%lld.\n"),
         (long long)m_deint60Lane.feedCount(), (long long)m_before60Lane.feedCount(), (long long)m_after60Lane.feedCount());
     m_rtgmc.reset();
     m_deint60Rtgmc.reset();

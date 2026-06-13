@@ -38,6 +38,7 @@
 #include <unordered_set>
 #include <vector>
 #include "rgy_filter_cl.h"
+#include "rgy_filter_rtgmc.h"
 #include "rgy_filter_kfm_analyze.h"
 
 class RGYFilterRtgmc;
@@ -125,12 +126,30 @@ protected:
         KFM_UCF24_SELECT_FRAME = 1,
         KFM_UCF24_SELECT_DWEAVE = 2,
     };
+    enum KfmUcfLaneType {
+        KFM_UCF_LANE_NONE = 0,
+        KFM_UCF_LANE_BEFORE = 1,
+        KFM_UCF_LANE_AFTER = 2,
+    };
+    struct KfmUcf60Selection {
+        KfmUcfLaneType lane;
+        int n60;
+
+        KfmUcf60Selection() : lane(KFM_UCF_LANE_NONE), n60(-1) {};
+    };
     struct KfmUcf24Selection {
         KfmUcf24SelectType type;
+        KfmUcfLaneType lane;
         int n60;
         const RGYFrameInfo *frame;
 
-        KfmUcf24Selection() : type(KFM_UCF24_SELECT_DEINT24), n60(-1), frame(nullptr) {};
+        KfmUcf24Selection() : type(KFM_UCF24_SELECT_DEINT24), lane(KFM_UCF_LANE_NONE), n60(-1), frame(nullptr) {};
+    };
+    struct KfmMainIntermediateGroup {
+        int sourceIndex;
+        std::vector<RGYFilterRtgmc::RtgmcCapturedIntermediate> intermediates;
+
+        KfmMainIntermediateGroup() : sourceIndex(-1), intermediates() {};
     };
     struct KfmSwitchTiming {
         int start60;
@@ -176,6 +195,7 @@ protected:
         RGY_ERR cacheFrame(const RGYFrameInfo *frame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
         const KfmCachedDeint60 *find(int n60, std::vector<RGYOpenCLEvent> *wait_events) const;
         void trim(int n60floor, size_t cacheLimit);
+        int requiredPrimingSourceFrames() const;
         std::deque<KfmCachedDeint60>& cache() { return m_cache; }
         const std::deque<KfmCachedDeint60>& cache() const { return m_cache; }
         RGYOpenCLEvent& cacheCopyEvent() { return m_cacheCopyEvent; }
@@ -227,6 +247,12 @@ protected:
     const KfmCachedSource *findSourceByIndexExact(int sourceIndex) const;
     const KfmCachedDeint60 *findCachedDeint60Frame(const KfmRtgmcLane& lane, int n60, std::vector<RGYOpenCLEvent> *wait_events) const;
     const KfmUcfNoiseDumpRecord *findUcfNoiseResult(int sourceIndex) const;
+    RGY_ERR runUcfNoiseAnalysisFromSource(const RGYFrameInfo *frame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
+    RGY_ERR ensureUcfRtgmcRange(KfmUcfLaneType laneType, int n60begin, int n60end, RGYOpenCLQueue &queue);
+    void captureDeint60Intermediates(int sourceIndex);
+    bool hasDeint60Intermediates(int sourceBegin, int sourceEnd) const;
+    void pushDeint60Intermediates(RGYFilterRtgmc *rtgmc, int sourceIndex);
+    void trimDeint60Intermediates();
     RGY_ERR ensureFMCountQueue();
     RGY_ERR submitFMCounts(int cycle, bool drain, RGYOpenCLQueue &queue);
     RGY_ERR readbackFMCounts(std::array<RGYKFM::FMCount, 18>& counts, int cycle, bool drain, RGYOpenCLQueue &queue);
@@ -280,9 +306,12 @@ protected:
     void writeUcfNoiseResultDump(const KfmUcfNoiseDumpRecord& record, const KfmUcfNoiseDumpRecord *nextRecord);
     void flushUcfNoiseResultDump();
     const RGYFrameInfo *selectUcfDecomb30Frame(int sourceIndex, const RGYFrameInfo *deint30, std::vector<RGYOpenCLEvent> *wait_events) const;
+    KfmUcf24Selection planUcfDecomb30Frame(int sourceIndex) const;
     bool getUcf60FieldDiff(int nstart, double (&diff)[4]) const;
     KfmUcf60Flag calcUcf60Flag(int n60) const;
+    KfmUcf60Selection planUcfDecomb60Frame(int n60) const;
     const RGYFrameInfo *selectUcfDecomb60Frame(int n60, const RGYFrameInfo *deint60, std::vector<RGYOpenCLEvent> *wait_events) const;
+    KfmUcf24Selection planUcfDecomb24Frame(const RGYKFM::Frame24Info& frameInfo) const;
     KfmUcf24Selection selectUcfDecomb24Frame(const RGYKFM::Frame24Info& frameInfo, const RGYFrameInfo *deint24, std::vector<RGYOpenCLEvent> *wait_events) const;
     RGY_ERR runNrFilter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrame,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
@@ -418,6 +447,7 @@ protected:
     KfmRtgmcLane m_deint60Lane;
     KfmRtgmcLane m_before60Lane;
     KfmRtgmcLane m_after60Lane;
+    std::deque<KfmMainIntermediateGroup> m_deint60IntermediateQueue;
     std::deque<KfmCachedUcfNoise> m_ucfNoiseCache;
     std::deque<KfmPendingUcfNoiseResult> m_pendingUcfNoiseResults;
     std::deque<std::unique_ptr<RGYCLBuf>> m_fmCountBufPool;
