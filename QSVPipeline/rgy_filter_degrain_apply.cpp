@@ -1199,47 +1199,6 @@ RGY_ERR RGYFilterDegrain::emitDegrainFrame(const RGYFilterDegrainFrameSet &frame
         state.overlapY = planeOverlapY;
         return RGY_ERR_NONE;
     };
-    bool temporalMixPlanYReady = false;
-    bool temporalMixPlanCReady = false;
-    auto ensureTemporalMixPlan = [&](RGYDegrainTemporalMixPlanState &state, bool &ready, const uint32_t scaledThSad,
-        const std::vector<RGYOpenCLEvent> &waitEvents) {
-        const auto planBytes = degrainTemporalMixPlanBytes(analysisLayout());
-        if (planBytes == 0) {
-            AddMessage(RGY_LOG_ERROR, _T("invalid degrain temporal mix plan buffer geometry.\n"));
-            return RGY_ERR_INVALID_PARAM;
-        }
-        if (!state.plan || state.plan->size() != planBytes) {
-            state.plan = m_cl->createBuffer(planBytes, CL_MEM_READ_WRITE);
-            if (!state.plan) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain temporal mix plan buffer.\n"));
-                return RGY_ERR_MEMORY_ALLOC;
-            }
-        }
-
-        auto err = m_degrain.get()->kernel("kernel_degrain_build_temporal_mix_plan").config(
-            queue,
-            RGYWorkSize(256),
-            RGYWorkSize((int)analysisLayout().blockCount()),
-            waitEvents,
-            &state.event).launch(
-                state.plan->mem(),
-                mv->mem(),
-                sad->mem(),
-                m_analysis.temporalMixPrior->mem(),
-                (int)analysisLayout().blockCount(),
-                scaledThSad,
-                disableMaskBuf->mem());
-        if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to build degrain temporal mix plan: %s.\n"), get_err_mes(err));
-            state.event.reset();
-            return err;
-        }
-        state.bytes = planBytes;
-        state.thsad = scaledThSad;
-        state.disableMask = disableMask;
-        ready = true;
-        return RGY_ERR_NONE;
-    };
     auto renderPlane = [&](const RGY_PLANE plane, const uint32_t scaledThSad, const std::vector<RGYOpenCLEvent> &waitEvents, RGYOpenCLEvent *planeEvent) {
         const auto planeDst = getPlane(ppOutputFrames[0], plane);
         const auto planeCur = getPlane(frames.cur, plane);
@@ -1276,22 +1235,6 @@ RGY_ERR RGYFilterDegrain::emitDegrainFrame(const RGYFilterDegrainFrameSet &frame
             }
         }
         RGYWorkSize global(planeDst.width, planeDst.height);
-        RGYCLBuf *temporalMixPlan = nullptr;
-        if (windowRamp) {
-            auto &planState = (plane == RGY_PLANE_Y) ? m_analysis.temporalMixPlanY : m_analysis.temporalMixPlanC;
-            auto &planReady = (plane == RGY_PLANE_Y) ? temporalMixPlanYReady : temporalMixPlanCReady;
-            auto err = ensureTemporalMixPlan(planState, planReady, scaledThSad, waitEvents);
-            if (err != RGY_ERR_NONE) {
-                return err;
-            }
-            if (planState.plan && planState.event() != nullptr) {
-                planeWaitEvents.push_back(planState.event);
-                temporalMixPlan = planState.plan.get();
-            } else {
-                AddMessage(RGY_LOG_ERROR, _T("degrain temporal mix plan buffer was not prepared.\n"));
-                return RGY_ERR_INVALID_CALL;
-            }
-        }
         if (pixelTrace && plane == RGY_PLANE_Y
             && (pixelTraceFrame < 0 || planeCur.inputFrameId == pixelTraceFrame)) {
             auto traceBuf = m_cl->createBuffer(sizeof(cl_int) * 256, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR);
@@ -1347,7 +1290,7 @@ RGY_ERR RGYFilterDegrain::emitDegrainFrame(const RGYFilterDegrainFrameSet &frame
             }
         }
         if (windowRamp) {
-            return program->kernel("kernel_degrain_degrain_overlap_plane_preweighted_ramp").config(
+            return program->kernel("kernel_degrain_degrain_overlap_plane_ramp").config(
                 queue, local, global, planeWaitEvents, planeEvent).launch(
                 (cl_mem)planeDst.ptr[0], planeDst.pitch[0],
                 (cl_mem)planeCur.ptr[0], planePitch,
@@ -1363,6 +1306,8 @@ RGY_ERR RGYFilterDegrain::emitDegrainFrame(const RGYFilterDegrainFrameSet &frame
                 (cl_mem)refPlanes[9].ptr[0],
                 planeDst.width, planeDst.height,
                 mv->mem(),
+                sad->mem(),
+                m_analysis.temporalMixPrior->mem(),
                 analysisLayout().blocksX,
                 analysisLayout().blocksY,
                 analysisLayout().blockSize,
@@ -1373,7 +1318,8 @@ RGY_ERR RGYFilterDegrain::emitDegrainFrame(const RGYFilterDegrainFrameSet &frame
                 planeScaleX,
                 planeScaleY,
                 windowRamp->mem(),
-                temporalMixPlan->mem());
+                scaledThSad,
+                disableMaskBuf->mem());
         }
         return program->kernel("kernel_degrain_degrain_overlap_plane").config(queue, local, global, planeWaitEvents, planeEvent).launch(
             (cl_mem)planeDst.ptr[0], planeDst.pitch[0],
