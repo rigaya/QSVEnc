@@ -30,6 +30,7 @@
 #include "rgy_filter_degrain_common.h"
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 
 #include "rgy_frame_info.h"
@@ -69,6 +70,57 @@ int degrainChromaScaleY(const RGY_CSP csp) {
         return 1;
     default:
         return 1;
+    }
+}
+
+uint32_t degrainInlineDisableMask(const RGYDegrainRefDisableArray &disableRefs, const int temporalDirections) {
+    uint32_t mask = 0;
+    for (int refDirection = 0; refDirection < std::min(temporalDirections, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS); refDirection++) {
+        if (disableRefs[refDirection]) {
+            mask |= (1u << refDirection);
+        }
+    }
+    return mask;
+}
+
+size_t degrainInlineOverlapBlendTableBytes(const int overlapX, const int overlapY) {
+    return ((size_t)std::max(overlapX, 0) + (size_t)std::max(overlapY, 0)) * sizeof(float);
+}
+
+void degrainInlineFillOverlapBlendAxis(float *dst, const int overlap) {
+    if (dst == nullptr || overlap <= 0) {
+        return;
+    }
+    constexpr float pi = 3.14159265358979323846f;
+    for (int i = 0; i < overlap; i++) {
+        const float t = ((float)i + 0.5f) / (float)overlap;
+        dst[i] = 0.5f + 0.5f * std::cos(pi * t);
+    }
+}
+
+int degrainInlinePlaneScaleX(const RGYFrameInfo *frame, const RGY_PLANE plane) {
+    return (!frame || plane == RGY_PLANE_Y) ? 1 : degrainChromaScaleX(frame->csp);
+}
+
+int degrainInlinePlaneScaleY(const RGYFrameInfo *frame, const RGY_PLANE plane) {
+    return (!frame || plane == RGY_PLANE_Y) ? 1 : degrainChromaScaleY(frame->csp);
+}
+
+int degrainInlineScaleCovered(const int covered, const int scale) {
+    return (covered + std::max(scale, 1) - 1) / std::max(scale, 1);
+}
+
+bool degrainInlineCanProcessChroma(const RGYFrameInfo *frame) {
+    if (!frame || RGY_CSP_PLANES[frame->csp] < 3) {
+        return false;
+    }
+    switch (RGY_CSP_CHROMA_FORMAT[frame->csp]) {
+    case RGY_CHROMAFMT_YUV420:
+    case RGY_CHROMAFMT_YUV422:
+    case RGY_CHROMAFMT_YUV444:
+        return true;
+    default:
+        return false;
     }
 }
 
@@ -650,6 +702,301 @@ RGY_ERR RGYFilterDegrain::pushCacheFrame(const RGYFrameInfo *pInputFrame, RGYOpe
         return err;
     }
     copyFrameProp(pCacheFrame, pInputFrame);
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterDegrain::feedFrameOnly(const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+    if (!pInputFrame || pInputFrame->ptr[0] == nullptr) {
+        return RGY_ERR_NONE;
+    }
+    auto prm = std::dynamic_pointer_cast<RGYFilterParamDegrain>(m_param);
+    if (!prm) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+    const auto memcpyKind = getMemcpyKind(pInputFrame->mem_type, m_cacheFrames[0]->frame.mem_type);
+    if (memcpyKind != RGYCLMemcpyD2D) {
+        AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    m_drainCount = 0;
+    RGYOpenCLEvent cacheCopyEvent;
+    auto sts = pushCacheFrame(pInputFrame, queue, wait_events, &cacheCopyEvent);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    m_inputCount++;
+    if (useAnalysisLumaCache()) {
+        sts = ensureAnalysisLumaGenerated(m_inputCount - 1 - prm->degrain.tr0, queue, { cacheCopyEvent });
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+    }
+    if (event) {
+        *event = cacheCopyEvent;
+    }
+    return RGY_ERR_NONE;
+}
+
+bool RGYFilterDegrain::outputReady() const {
+    auto prm = std::dynamic_pointer_cast<RGYFilterParamDegrain>(m_param);
+    if (!prm) {
+        return false;
+    }
+    return m_inputCount >= outputDelay() + 1;
+}
+
+RGY_ERR RGYFilterDegrain::buildCompensateInlineParams(std::array<RGYDegrainCompensateInlineParams, 3> &paramsOut, RGYFrameInfo *outputFrameIdentity, RGYOpenCLQueue &queue) {
+    auto prm = std::dynamic_pointer_cast<RGYFilterParamDegrain>(m_param);
+    if (!prm) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (!outputReady()) {
+        return RGY_ERR_MORE_DATA;
+    }
+
+    const auto processFrames = resolveFrames(true);
+    const int currentFrame = processFrames.currentFrame;
+    const auto &frames = processFrames.render;
+    if (!frames.cur) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    if (outputFrameIdentity) {
+        copyFramePropWithoutRes(outputFrameIdentity, frames.cur);
+    }
+    if (!bindFrameAnalysisData(frames.cur, currentFrame, queue)) {
+        auto err = prepareAnalysisState(processFrames.analysis, queue, {});
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+    }
+
+    RGYDegrainRefDir refDirection = RGYDegrainRefDir::Backward;
+    if (!rgy_degrain_refdir_from_mode(prm->degrain.mode, &refDirection)) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    const int refIndex = rgy_degrain_refdir_index(refDirection);
+    const int refDelta = rgy_degrain_delta_from_ref_index(refIndex);
+    const bool refForward = rgy_degrain_ref_index_is_forward(refIndex);
+    const RGYFrameInfo *reference = refForward ? frames.forwardRef(refDelta) : frames.backwardRef(refDelta);
+    if (!reference || reference->ptr[0] == nullptr) {
+        return RGY_ERR_MORE_DATA;
+    }
+    auto *mv = analysisMV();
+    auto *sad = analysisSAD();
+    if (!mv || !sad) {
+        return RGY_ERR_INVALID_CALL;
+    }
+
+    const auto &layout = analysisLayout();
+    const auto disableRefsArray = analysisAvailabilityDisableRefs(frames);
+    const uint32_t disableMask = degrainInlineDisableMask(disableRefsArray, layout.temporalDirections);
+    const uint32_t compensateThSad = std::numeric_limits<uint32_t>::max();
+    const bool processChroma = degrainInlineCanProcessChroma(frames.cur);
+
+    auto ensureRamp = [&](RGYDegrainWindowRampState &state, const int planeScaleX, const int planeScaleY) -> RGY_ERR {
+        const int planeOverlapX = std::max(layout.overlap / std::max(planeScaleX, 1), 0);
+        const int planeOverlapY = std::max(layout.overlap / std::max(planeScaleY, 1), 0);
+        const auto rampBytes = degrainInlineOverlapBlendTableBytes(planeOverlapX, planeOverlapY);
+        if (rampBytes == 0) {
+            state.reset();
+            return RGY_ERR_NONE;
+        }
+        if (state.reusable(planeOverlapX, planeOverlapY, rampBytes)) {
+            return RGY_ERR_NONE;
+        }
+        std::vector<float> ramp(planeOverlapX + planeOverlapY);
+        degrainInlineFillOverlapBlendAxis(ramp.data(), planeOverlapX);
+        degrainInlineFillOverlapBlendAxis(ramp.data() + planeOverlapX, planeOverlapY);
+        auto rampBuf = m_cl->copyDataToBuffer(ramp.data(), rampBytes, CL_MEM_READ_ONLY, queue.get());
+        if (!rampBuf) {
+            state.reset();
+            return RGY_ERR_MEMORY_ALLOC;
+        }
+        state.ramp = std::move(rampBuf);
+        state.bytes = rampBytes;
+        state.overlapX = planeOverlapX;
+        state.overlapY = planeOverlapY;
+        return RGY_ERR_NONE;
+    };
+
+    const std::array<RGY_PLANE, 3> planes = { RGY_PLANE_Y, RGY_PLANE_U, RGY_PLANE_V };
+    for (int iplane = 0; iplane < (processChroma ? 3 : 1); iplane++) {
+        const auto plane = planes[iplane];
+        const auto planeCur = getPlane(frames.cur, plane);
+        const auto planeRef = getPlane(reference, plane);
+        const int planeScaleX = degrainInlinePlaneScaleX(frames.cur, plane);
+        const int planeScaleY = degrainInlinePlaneScaleY(frames.cur, plane);
+        auto &rampState = (plane == RGY_PLANE_Y) ? m_analysis.windowRampY : m_analysis.windowRampC;
+        if (layout.overlap > 0) {
+            auto err = ensureRamp(rampState, planeScaleX, planeScaleY);
+            if (err != RGY_ERR_NONE) {
+                return err;
+            }
+        }
+        auto &p = paramsOut[iplane];
+        p.cur = planeCur.ptr[0];
+        p.cur_pitch = planeCur.pitch[0];
+        p.refBack = planeRef.ptr[0];
+        p.refForw = planeRef.ptr[0];
+        p.refDirBack = refIndex;
+        p.refDirForw = refIndex;
+        p.mv = (const RGYDegrainMV *)mv->mem();
+        p.sad = (const RGYDegrainSAD *)sad->mem();
+        p.blocksX = layout.blocksX;
+        p.blocksY = layout.blocksY;
+        p.blockSize = layout.blockSize;
+        p.overlap = layout.overlap;
+        p.step = layout.step;
+        p.coveredWidth = degrainInlineScaleCovered(layout.coveredWidth, planeScaleX);
+        p.coveredHeight = degrainInlineScaleCovered(layout.coveredHeight, planeScaleY);
+        p.planeScaleX = planeScaleX;
+        p.planeScaleY = planeScaleY;
+        p.thsad = compensateThSad;
+        p.disableMask = disableMask;
+        p.windowRamp = (layout.overlap > 0 && rampState.ramp) ? (const float *)rampState.ramp->mem() : nullptr;
+        p.width = planeCur.width;
+        p.height = planeCur.height;
+        p.refs = layout.temporalDirections;
+        p.pel = prm->degrain.pel;
+        p.subpelInterp = prm->degrain.subpelInterp;
+    }
+    if (!processChroma) {
+        paramsOut[1] = paramsOut[0];
+        paramsOut[2] = paramsOut[0];
+    }
+    return RGY_ERR_NONE;
+}
+
+bool RGYFilterDegrain::drainReady() const {
+    return m_drainCount < drainFrameCount();
+}
+
+RGY_ERR RGYFilterDegrain::drainBuildInlineParams(std::array<RGYDegrainCompensateInlineParams, 3> &paramsOut, RGYFrameInfo *outputFrameIdentity, RGYOpenCLQueue &queue) {
+    if (!drainReady()) {
+        return RGY_ERR_MORE_DATA;
+    }
+    auto prm = std::dynamic_pointer_cast<RGYFilterParamDegrain>(m_param);
+    if (!prm) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (useAnalysisLumaCache()) {
+        const int currentFrame = std::max(0, m_inputCount - drainFrameCount()) + m_drainCount;
+        auto sts = ensureAnalysisLumaGenerated(currentFrame + prm->degrain.delta, queue, {});
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+    }
+    const auto processFrames = resolveFrames(false);
+    m_drainCount++;
+    const int currentFrame = processFrames.currentFrame;
+    const auto &frames = processFrames.render;
+    if (!frames.cur) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    if (outputFrameIdentity) {
+        copyFramePropWithoutRes(outputFrameIdentity, frames.cur);
+    }
+    if (!bindFrameAnalysisData(frames.cur, currentFrame, queue)) {
+        auto err = prepareAnalysisState(processFrames.analysis, queue, {});
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+    }
+
+    RGYDegrainRefDir refDirection = RGYDegrainRefDir::Backward;
+    if (!rgy_degrain_refdir_from_mode(prm->degrain.mode, &refDirection)) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    const int refIndex = rgy_degrain_refdir_index(refDirection);
+    const int refDelta = rgy_degrain_delta_from_ref_index(refIndex);
+    const bool refForward = rgy_degrain_ref_index_is_forward(refIndex);
+    const RGYFrameInfo *reference = refForward ? frames.forwardRef(refDelta) : frames.backwardRef(refDelta);
+    if (!reference || reference->ptr[0] == nullptr) {
+        return RGY_ERR_MORE_DATA;
+    }
+    auto *mv = analysisMV();
+    auto *sad = analysisSAD();
+    if (!mv || !sad) {
+        return RGY_ERR_INVALID_CALL;
+    }
+
+    const auto &layout = analysisLayout();
+    const auto disableRefsArray = analysisAvailabilityDisableRefs(frames);
+    const uint32_t disableMask = degrainInlineDisableMask(disableRefsArray, layout.temporalDirections);
+    const uint32_t compensateThSad = std::numeric_limits<uint32_t>::max();
+    const bool processChroma = degrainInlineCanProcessChroma(frames.cur);
+
+    auto ensureRamp = [&](RGYDegrainWindowRampState &state, const int planeScaleX, const int planeScaleY) -> RGY_ERR {
+        const int planeOverlapX = std::max(layout.overlap / std::max(planeScaleX, 1), 0);
+        const int planeOverlapY = std::max(layout.overlap / std::max(planeScaleY, 1), 0);
+        const auto rampBytes = degrainInlineOverlapBlendTableBytes(planeOverlapX, planeOverlapY);
+        if (rampBytes == 0) {
+            state.reset();
+            return RGY_ERR_NONE;
+        }
+        if (state.reusable(planeOverlapX, planeOverlapY, rampBytes)) {
+            return RGY_ERR_NONE;
+        }
+        std::vector<float> ramp(planeOverlapX + planeOverlapY);
+        degrainInlineFillOverlapBlendAxis(ramp.data(), planeOverlapX);
+        degrainInlineFillOverlapBlendAxis(ramp.data() + planeOverlapX, planeOverlapY);
+        auto rampBuf = m_cl->copyDataToBuffer(ramp.data(), rampBytes, CL_MEM_READ_ONLY, queue.get());
+        if (!rampBuf) {
+            state.reset();
+            return RGY_ERR_MEMORY_ALLOC;
+        }
+        state.ramp = std::move(rampBuf);
+        state.bytes = rampBytes;
+        state.overlapX = planeOverlapX;
+        state.overlapY = planeOverlapY;
+        return RGY_ERR_NONE;
+    };
+
+    const std::array<RGY_PLANE, 3> planes = { RGY_PLANE_Y, RGY_PLANE_U, RGY_PLANE_V };
+    for (int iplane = 0; iplane < (processChroma ? 3 : 1); iplane++) {
+        const auto plane = planes[iplane];
+        const auto planeCur = getPlane(frames.cur, plane);
+        const auto planeRef = getPlane(reference, plane);
+        const int planeScaleX = degrainInlinePlaneScaleX(frames.cur, plane);
+        const int planeScaleY = degrainInlinePlaneScaleY(frames.cur, plane);
+        auto &rampState = (plane == RGY_PLANE_Y) ? m_analysis.windowRampY : m_analysis.windowRampC;
+        if (layout.overlap > 0) {
+            auto err = ensureRamp(rampState, planeScaleX, planeScaleY);
+            if (err != RGY_ERR_NONE) {
+                return err;
+            }
+        }
+        auto &p = paramsOut[iplane];
+        p.cur = planeCur.ptr[0];
+        p.cur_pitch = planeCur.pitch[0];
+        p.refBack = planeRef.ptr[0];
+        p.refForw = planeRef.ptr[0];
+        p.refDirBack = refIndex;
+        p.refDirForw = refIndex;
+        p.mv = (const RGYDegrainMV *)mv->mem();
+        p.sad = (const RGYDegrainSAD *)sad->mem();
+        p.blocksX = layout.blocksX;
+        p.blocksY = layout.blocksY;
+        p.blockSize = layout.blockSize;
+        p.overlap = layout.overlap;
+        p.step = layout.step;
+        p.coveredWidth = degrainInlineScaleCovered(layout.coveredWidth, planeScaleX);
+        p.coveredHeight = degrainInlineScaleCovered(layout.coveredHeight, planeScaleY);
+        p.planeScaleX = planeScaleX;
+        p.planeScaleY = planeScaleY;
+        p.thsad = compensateThSad;
+        p.disableMask = disableMask;
+        p.windowRamp = (layout.overlap > 0 && rampState.ramp) ? (const float *)rampState.ramp->mem() : nullptr;
+        p.width = planeCur.width;
+        p.height = planeCur.height;
+        p.refs = layout.temporalDirections;
+        p.pel = prm->degrain.pel;
+        p.subpelInterp = prm->degrain.subpelInterp;
+    }
+    if (!processChroma) {
+        paramsOut[1] = paramsOut[0];
+        paramsOut[2] = paramsOut[0];
+    }
     return RGY_ERR_NONE;
 }
 

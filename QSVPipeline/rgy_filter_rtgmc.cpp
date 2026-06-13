@@ -508,49 +508,51 @@ RGY_ERR RGYFilterRtgmc::updateCompReferenceStore(const RGYFrameInfo *frame, RGYO
         return RGY_ERR_INVALID_CALL;
     }
 
-    static const std::array<RGYRtgmcCompDirection, 2> directions = {
-        RGYRtgmcCompDirection::Backward,
-        RGYRtgmcCompDirection::Forward
-    };
+    std::array<RGYDegrainCompensateInlineParams, 3> backwardParams = {};
+    std::array<RGYDegrainCompensateInlineParams, 3> forwardParams = {};
+    bool backwardReady = false;
+    bool forwardReady = false;
+    RGYFrameInfo backwardIdentity = {};
+    RGYFrameInfo forwardIdentity = {};
+
     for (size_t i = 0; i < m_retouchCompFilters.size(); i++) {
         auto filter = m_retouchCompFilters[i].get();
         if (!filter) {
             continue;
         }
         filter->setDirectAnalyzeResultSet(analyze->analyzeResultSet());
-        int childOutFrameNum = 0;
-        RGYFrameInfo *childOutFrames[RGY_RTGMC_MAX_OUT_FRAMES] = { 0 };
-        RGYOpenCLEvent childEvent;
-        auto sts = filter->filter(const_cast<RGYFrameInfo *>(frame), childOutFrames, &childOutFrameNum, queue, wait_events, &childEvent);
+
+        auto sts = filter->feedFrameOnly(frame, queue, wait_events, nullptr);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
-        if (childOutFrameNum <= 0 || !childOutFrames[0] || !childOutFrames[0]->ptr[0]) {
+        if (!filter->outputReady()) {
             continue;
         }
 
-        auto sharedFrame = getSharedFrameBuffer(childOutFrames[0]);
-        if (!sharedFrame) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to allocate retouch helper side-data frame.\n"));
-            return RGY_ERR_MEMORY_ALLOC;
-        }
-        RGYOpenCLEvent copyEvent;
-        std::vector<RGYOpenCLEvent> copyWaitEvents;
-        if (childEvent() != nullptr) {
-            copyWaitEvents.push_back(childEvent);
-        }
-        auto err = m_cl->copyFrame(&sharedFrame->frame, childOutFrames[0], nullptr, queue, copyWaitEvents, &copyEvent, RGYFrameCopyMode::FRAME, "rtgmc.retouch_comp_ref");
-        if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to copy retouch helper side-data frame: %s.\n"), get_err_mes(err));
-            return err;
-        }
-        copyFramePropWithoutRes(&sharedFrame->frame, childOutFrames[0]);
+        auto &params = (i == 0) ? backwardParams : forwardParams;
+        auto &identity = (i == 0) ? backwardIdentity : forwardIdentity;
+        auto &ready = (i == 0) ? backwardReady : forwardReady;
 
-        auto frameData = std::make_shared<RGYFrameDataRtgmcComp>(sharedFrame, directions[i], 1);
-        if (directions[i] == RGYRtgmcCompDirection::Backward) {
-            storeCompReference(childOutFrames[0], frameData, nullptr, copyEvent, RGYOpenCLEvent());
-        } else {
-            storeCompReference(childOutFrames[0], nullptr, frameData, RGYOpenCLEvent(), copyEvent);
+        sts = filter->buildCompensateInlineParams(params, &identity, queue);
+        if (sts == RGY_ERR_NONE) {
+            ready = true;
+        } else if (sts != RGY_ERR_MORE_DATA) {
+            return sts;
+        }
+    }
+
+    if (backwardReady || forwardReady) {
+        const RGYFrameInfo *identityFrame = backwardReady ? &backwardIdentity : &forwardIdentity;
+        auto compRef = findStoredCompReference(identityFrame);
+        if (!compRef) {
+            storeCompReference(identityFrame, nullptr, nullptr, RGYOpenCLEvent(), RGYOpenCLEvent());
+            compRef = findStoredCompReference(identityFrame);
+        }
+        if (compRef) {
+            compRef->hasInlineParams = true;
+            compRef->backwardInlineParams = backwardParams;
+            compRef->forwardInlineParams = forwardParams;
         }
     }
     return RGY_ERR_NONE;
@@ -570,52 +572,52 @@ RGY_ERR RGYFilterRtgmc::drainCompReferenceStore(RGYOpenCLQueue &queue) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid analyze filter instance while draining retouch helpers.\n"));
         return RGY_ERR_INVALID_CALL;
     }
-    static const std::array<RGYRtgmcCompDirection, 2> directions = {
-        RGYRtgmcCompDirection::Backward,
-        RGYRtgmcCompDirection::Forward
-    };
     bool progress = true;
     while (progress) {
         progress = false;
-        RGYFrameInfo drainFrame;
+
+        std::array<RGYDegrainCompensateInlineParams, 3> backwardParams = {};
+        std::array<RGYDegrainCompensateInlineParams, 3> forwardParams = {};
+        bool backwardReady = false;
+        bool forwardReady = false;
+        RGYFrameInfo backwardIdentity = {};
+        RGYFrameInfo forwardIdentity = {};
+
         for (size_t i = 0; i < m_retouchCompFilters.size(); i++) {
             auto &filter = m_retouchCompFilters[i];
             if (!filter) {
                 continue;
             }
             filter->setDirectAnalyzeResultSet(analyze->analyzeResultSet());
-            int childOutFrameNum = 0;
-            RGYFrameInfo *childOutFrames[RGY_RTGMC_MAX_OUT_FRAMES] = { 0 };
-            RGYOpenCLEvent childEvent;
-            auto sts = filter->filter(&drainFrame, childOutFrames, &childOutFrameNum, queue, &childEvent);
-            if (sts != RGY_ERR_NONE) {
+
+            if (!filter->drainReady()) {
+                continue;
+            }
+
+            auto &params = (i == 0) ? backwardParams : forwardParams;
+            auto &identity = (i == 0) ? backwardIdentity : forwardIdentity;
+            auto &ready = (i == 0) ? backwardReady : forwardReady;
+
+            auto sts = filter->drainBuildInlineParams(params, &identity, queue);
+            if (sts == RGY_ERR_NONE) {
+                ready = true;
+                progress = true;
+            } else if (sts != RGY_ERR_MORE_DATA) {
                 return sts;
             }
-            if (childOutFrameNum > 0) {
-                progress = true;
-                auto sharedFrame = getSharedFrameBuffer(childOutFrames[0]);
-                if (!sharedFrame) {
-                    AddMessage(RGY_LOG_ERROR, _T("failed to allocate drained retouch helper side-data frame.\n"));
-                    return RGY_ERR_MEMORY_ALLOC;
-                }
-                RGYOpenCLEvent copyEvent;
-                std::vector<RGYOpenCLEvent> copyWaitEvents;
-                if (childEvent() != nullptr) {
-                    copyWaitEvents.push_back(childEvent);
-                }
-                auto err = m_cl->copyFrame(&sharedFrame->frame, childOutFrames[0], nullptr, queue, copyWaitEvents, &copyEvent, RGYFrameCopyMode::FRAME, "rtgmc.retouch_comp_ref_drain");
-                if (err != RGY_ERR_NONE) {
-                    AddMessage(RGY_LOG_ERROR, _T("failed to copy drained retouch helper side-data frame: %s.\n"), get_err_mes(err));
-                    return err;
-                }
-                copyFramePropWithoutRes(&sharedFrame->frame, childOutFrames[0]);
+        }
 
-                auto frameData = std::make_shared<RGYFrameDataRtgmcComp>(sharedFrame, directions[i], 1);
-                if (directions[i] == RGYRtgmcCompDirection::Backward) {
-                    storeCompReference(childOutFrames[0], frameData, nullptr, copyEvent, RGYOpenCLEvent());
-                } else {
-                    storeCompReference(childOutFrames[0], nullptr, frameData, RGYOpenCLEvent(), copyEvent);
-                }
+        if (backwardReady || forwardReady) {
+            const RGYFrameInfo *identityFrame = backwardReady ? &backwardIdentity : &forwardIdentity;
+            auto compRef = findStoredCompReference(identityFrame);
+            if (!compRef) {
+                storeCompReference(identityFrame, nullptr, nullptr, RGYOpenCLEvent(), RGYOpenCLEvent());
+                compRef = findStoredCompReference(identityFrame);
+            }
+            if (compRef) {
+                compRef->hasInlineParams = true;
+                compRef->backwardInlineParams = backwardParams;
+                compRef->forwardInlineParams = forwardParams;
             }
         }
     }
@@ -1941,23 +1943,40 @@ RGY_ERR RGYFilterRtgmc::runNestedFilter(size_t filterIdx, RGYFrameInfo *pInputFr
         }
         if (filterIdx == RTGMC_FILTER_RETOUCH || slmode == 3 || slmode == 4) {
             attachStoredEdiReference(pInputFrame, &repairWaitEvents);
-            attachStoredCompReferences(pInputFrame, &repairWaitEvents);
             const auto edi = rtgmcGetAttachedEdi(pInputFrame);
-            const auto motionBack = rtgmcGetAttachedComp(pInputFrame, RGYRtgmcCompDirection::Backward, 1);
-            const auto motionForw = rtgmcGetAttachedComp(pInputFrame, RGYRtgmcCompDirection::Forward, 1);
-            if (filterIdx == RTGMC_FILTER_POST_TR2_LIMIT && slmode == 3 && edi && edi->frame()) {
-                retouch->setSpatialLimitBaseFrame(edi->frame());
+
+            bool usedInlineComp = false;
+            if (filterIdx == RTGMC_FILTER_RETOUCH) {
+                auto compRef = findStoredCompReference(pInputFrame);
+                if (compRef && compRef->hasInlineParams && edi && edi->frame()) {
+                    std::array<RGYDegrainCompensateInlineParams, 3> combinedParams = compRef->backwardInlineParams;
+                    for (int p = 0; p < 3; p++) {
+                        combinedParams[p].refForw = compRef->forwardInlineParams[p].refBack;
+                        combinedParams[p].refDirForw = compRef->forwardInlineParams[p].refDirBack;
+                    }
+                    retouch->setTemporalLimitInlineComp(edi->frame(), combinedParams);
+                    usedInlineComp = true;
+                }
             }
-            temporalLimit.ref = edi ? edi->frame() : nullptr;
-            temporalLimit.motionBack = motionBack ? motionBack->frame() : temporalLimit.ref;
-            temporalLimit.motionForw = motionForw ? motionForw->frame() : temporalLimit.ref;
-            if (temporalLimit.valid()) {
-                retouch->setTemporalLimitFrames(temporalLimit);
-            } else {
-                retouch->clearTemporalLimitFrames();
-                if (m_attachRetouchCompRefs) {
-                    AddMessage(RGY_LOG_WARN, _T("retouch slmode=%d temporal references are incomplete; using retouch fallback for this frame.\n"),
-                        slmode);
+
+            if (!usedInlineComp) {
+                attachStoredCompReferences(pInputFrame, &repairWaitEvents);
+                const auto motionBack = rtgmcGetAttachedComp(pInputFrame, RGYRtgmcCompDirection::Backward, 1);
+                const auto motionForw = rtgmcGetAttachedComp(pInputFrame, RGYRtgmcCompDirection::Forward, 1);
+                if (filterIdx == RTGMC_FILTER_POST_TR2_LIMIT && slmode == 3 && edi && edi->frame()) {
+                    retouch->setSpatialLimitBaseFrame(edi->frame());
+                }
+                temporalLimit.ref = edi ? edi->frame() : nullptr;
+                temporalLimit.motionBack = motionBack ? motionBack->frame() : temporalLimit.ref;
+                temporalLimit.motionForw = motionForw ? motionForw->frame() : temporalLimit.ref;
+                if (temporalLimit.valid()) {
+                    retouch->setTemporalLimitFrames(temporalLimit);
+                } else {
+                    retouch->clearTemporalLimitFrames();
+                    if (m_attachRetouchCompRefs) {
+                        AddMessage(RGY_LOG_WARN, _T("retouch slmode=%d temporal references are incomplete; using retouch fallback for this frame.\n"),
+                            slmode);
+                    }
                 }
             }
         }

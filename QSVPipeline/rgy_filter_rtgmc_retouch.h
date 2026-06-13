@@ -28,11 +28,13 @@
 
 #pragma once
 
+#include <array>
 #include <fstream>
 #include <string>
 #include <vector>
 
 #include "rgy_filter_cl.h"
+#include "rgy_filter_degrain_mv.h"
 #include "rgy_frame_info.h"
 #include "rgy_prm.h"
 
@@ -42,11 +44,15 @@ struct RGYRtgmcRetouchTemporalLimitFrames {
     const RGYFrameInfo *ref;
     const RGYFrameInfo *motionBack;
     const RGYFrameInfo *motionForw;
+    bool useInlineComp;
+    std::array<RGYDegrainCompensateInlineParams, 3> inlineCompParams;
 
     RGYRtgmcRetouchTemporalLimitFrames() :
         ref(nullptr),
         motionBack(nullptr),
-        motionForw(nullptr) {
+        motionForw(nullptr),
+        useInlineComp(false),
+        inlineCompParams() {
     }
 
     bool any() const {
@@ -54,6 +60,9 @@ struct RGYRtgmcRetouchTemporalLimitFrames {
     }
 
     bool valid() const {
+        if (useInlineComp) {
+            return ref != nullptr;
+        }
         return ref != nullptr && motionBack != nullptr && motionForw != nullptr;
     }
 };
@@ -78,6 +87,7 @@ public:
     void clearSpatialLimitBaseFrame();
     void setTemporalLimitFrames(const RGYRtgmcRetouchTemporalLimitFrames &frames);
     void clearTemporalLimitFrames();
+    void setTemporalLimitInlineComp(const RGYFrameInfo *ref, const std::array<RGYDegrainCompensateInlineParams, 3> &params);
 
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,

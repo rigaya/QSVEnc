@@ -242,6 +242,7 @@ void RGYFilterRtgmcRetouch::clearSpatialLimitBaseFrame() {
 
 void RGYFilterRtgmcRetouch::setTemporalLimitFrames(const RGYRtgmcRetouchTemporalLimitFrames &frames) {
     m_temporalLimitFrames = frames;
+    m_temporalLimitFrames.useInlineComp = false;
     m_loggedTemporalFallback = false;
 }
 
@@ -250,8 +251,20 @@ void RGYFilterRtgmcRetouch::clearTemporalLimitFrames() {
     m_loggedTemporalFallback = false;
 }
 
+void RGYFilterRtgmcRetouch::setTemporalLimitInlineComp(const RGYFrameInfo *ref, const std::array<RGYDegrainCompensateInlineParams, 3> &params) {
+    m_temporalLimitFrames.ref = ref;
+    m_temporalLimitFrames.motionBack = nullptr;
+    m_temporalLimitFrames.motionForw = nullptr;
+    m_temporalLimitFrames.useInlineComp = true;
+    m_temporalLimitFrames.inlineCompParams = params;
+    m_loggedTemporalFallback = false;
+}
+
 bool RGYFilterRtgmcRetouch::temporalLimitFramesCompatible(const RGYFrameInfo *srcFrame) const {
     const auto &frames = m_temporalLimitFrames;
+    if (frames.useInlineComp) {
+        return isFrameCompatible(srcFrame, frames.ref);
+    }
     return isFrameCompatible(srcFrame, frames.ref)
         && isFrameCompatible(srcFrame, frames.motionBack)
         && isFrameCompatible(srcFrame, frames.motionForw);
@@ -972,6 +985,50 @@ RGY_ERR RGYFilterRtgmcRetouch::processFrame(RGYFrameInfo *pOutputFrame, const RG
         }
         return err;
     };
+    auto launchLimitSinkInlineComp = [&](const RGYFrameInfo *dstFrame, const RGYFrameInfo *srcFrame,
+        const RGYFrameInfo *refLimitFrame, const int iplane) {
+        const auto dstPlane = getPlane(dstFrame, (RGY_PLANE)iplane);
+        const auto srcPlane = getPlane(srcFrame, (RGY_PLANE)iplane);
+        const auto refPlane = getPlane(refLimitFrame, (RGY_PLANE)iplane);
+        const auto &compParams = m_temporalLimitFrames.inlineCompParams[iplane];
+        RGYWorkSize local(RTGMC_RETOUCH_BLOCK_X, RTGMC_RETOUCH_BLOCK_Y);
+        RGYWorkSize global(dstPlane.width, dstPlane.height);
+        auto err = m_retouch.get()->kernel("kernel_rtgmc_retouch_limit_inline_comp").config(queue, local, global, {}, nullptr).launch(
+            (cl_mem)dstPlane.ptr[0], dstPlane.pitch[0],
+            (cl_mem)srcPlane.ptr[0], srcPlane.pitch[0],
+            (cl_mem)refPlane.ptr[0], refPlane.pitch[0],
+            (cl_mem)compParams.cur, compParams.cur_pitch,
+            (cl_mem)compParams.refBack,
+            (cl_mem)compParams.refForw,
+            compParams.refDirBack,
+            compParams.refDirForw,
+            (cl_mem)compParams.mv,
+            (cl_mem)compParams.sad,
+            compParams.blocksX,
+            compParams.blocksY,
+            compParams.blockSize,
+            compParams.overlap,
+            compParams.step,
+            compParams.coveredWidth,
+            compParams.coveredHeight,
+            compParams.planeScaleX,
+            compParams.planeScaleY,
+            compParams.thsad,
+            compParams.disableMask,
+            (cl_mem)compParams.windowRamp,
+            compParams.width,
+            compParams.height,
+            compParams.refs,
+            compParams.pel,
+            compParams.subpelInterp,
+            dstPlane.width, dstPlane.height,
+            scaledSovs);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at %s (plane %d): %s.\n"),
+                _T("kernel_rtgmc_retouch_limit_inline_comp"), iplane, get_err_mes(err));
+        }
+        return err;
+    };
 
     auto *curA = &m_frameBuf[1]->frame;
     auto *curB = &m_frameBuf[2]->frame;
@@ -1210,16 +1267,23 @@ RGY_ERR RGYFilterRtgmcRetouch::processFrame(RGYFrameInfo *pOutputFrame, const RG
                 if (err != RGY_ERR_NONE) {
                     return err;
                 }
-                err = dumpStageFrame(motionBackStage, motionBackFrame, dumpTarget, queue, {});
-                if (err != RGY_ERR_NONE) {
-                    return err;
-                }
-                err = dumpStageFrame(motionForwStage, motionForwFrame, dumpTarget, queue, {});
-                if (err != RGY_ERR_NONE) {
-                    return err;
+                if (!m_temporalLimitFrames.useInlineComp) {
+                    err = dumpStageFrame(motionBackStage, motionBackFrame, dumpTarget, queue, {});
+                    if (err != RGY_ERR_NONE) {
+                        return err;
+                    }
+                    err = dumpStageFrame(motionForwStage, motionForwFrame, dumpTarget, queue, {});
+                    if (err != RGY_ERR_NONE) {
+                        return err;
+                    }
                 }
             }
-            auto err = launchLimitSink(altDst, curFrame, baseFrame, refFrame, motionBackFrame, motionForwFrame, iplane);
+            RGY_ERR err;
+            if (m_temporalLimitFrames.useInlineComp) {
+                err = launchLimitSinkInlineComp(altDst, curFrame, refFrame, iplane);
+            } else {
+                err = launchLimitSink(altDst, curFrame, baseFrame, refFrame, motionBackFrame, motionForwFrame, iplane);
+            }
             if (err != RGY_ERR_NONE) {
                 return err;
             }

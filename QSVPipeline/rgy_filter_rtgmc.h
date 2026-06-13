@@ -104,6 +104,20 @@ protected:
         std::shared_ptr<RGYFrameData> forward;
         RGYOpenCLEvent backwardEvent;
         RGYOpenCLEvent forwardEvent;
+        bool hasInlineParams;
+        std::array<RGYDegrainCompensateInlineParams, 3> backwardInlineParams;
+        std::array<RGYDegrainCompensateInlineParams, 3> forwardInlineParams;
+
+        RtgmcPendingCompRef() :
+            key(),
+            backward(),
+            forward(),
+            backwardEvent(),
+            forwardEvent(),
+            hasInlineParams(false),
+            backwardInlineParams(),
+            forwardInlineParams() {
+        }
     };
 
     struct RtgmcPendingEdiRef {
