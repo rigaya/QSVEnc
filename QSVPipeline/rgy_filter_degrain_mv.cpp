@@ -81,7 +81,8 @@ RGYFrameDataDegrain::~RGYFrameDataDegrain() {
 
 RGYDegrainBufferPool::RGYDegrainBufferPool(std::shared_ptr<RGYOpenCLContext> context) :
     m_cl(context),
-    m_buffers() {
+    m_buffers(),
+    m_knownSizes() {
 }
 
 RGYDegrainBufferPool::~RGYDegrainBufferPool() {
@@ -92,9 +93,10 @@ std::unique_ptr<RGYCLBuf> RGYDegrainBufferPool::acquire(size_t size, cl_mem_flag
     if (!m_cl || size == 0) {
         return nullptr;
     }
-    auto pooled = std::find_if(m_buffers.begin(), m_buffers.end(), [size, flags](const Entry& entry) {
+    auto matchesBuffer = [size, flags](const Entry& entry) {
         return entry.buf && entry.buf->size() == size && entry.buf->flags() == flags;
-    });
+    };
+    auto pooled = std::find_if(m_buffers.begin(), m_buffers.end(), matchesBuffer);
     if (pooled != m_buffers.end()) {
         if (pooled->readyEvent() != nullptr) {
             const auto readyEvent = pooled->readyEvent;
@@ -108,6 +110,20 @@ std::unique_ptr<RGYCLBuf> RGYDegrainBufferPool::acquire(size_t size, cl_mem_flag
         m_buffers.erase(pooled);
         return buf;
     }
+    const auto sizeKey = std::make_pair(size, flags);
+    if (std::find(m_knownSizes.begin(), m_knownSizes.end(), sizeKey) == m_knownSizes.end()) {
+        const auto stale = std::find_if(m_buffers.begin(), m_buffers.end(), [&](const Entry& entry) {
+            return entry.buf && !matchesBuffer(entry);
+        });
+        if (stale != m_buffers.end()) {
+            if (stale->readyEvent() != nullptr) {
+                stale->readyEvent.wait();
+                stale->readyEvent.reset();
+            }
+            m_buffers.erase(stale);
+        }
+    }
+    m_knownSizes.push_back(sizeKey);
     return m_cl->createBuffer(size, flags);
 }
 
@@ -115,30 +131,25 @@ void RGYDegrainBufferPool::recycle(std::unique_ptr<RGYCLBuf>&& buf, const RGYOpe
     if (!buf || buf->isMapped()) {
         return;
     }
+    const auto sizeKey = std::make_pair(buf->size(), buf->flags());
+    if (std::find(m_knownSizes.begin(), m_knownSizes.end(), sizeKey) == m_knownSizes.end()) {
+        m_knownSizes.push_back(sizeKey);
+    }
     Entry entry;
     entry.buf = std::move(buf);
     entry.readyEvent = readyEvent;
     m_buffers.emplace_back(std::move(entry));
-    while (m_buffers.size() > MAX_POOL_BUFFERS) {
-        waitAndDropFront();
-    }
-}
-
-void RGYDegrainBufferPool::waitAndDropFront() {
-    if (m_buffers.empty()) {
-        return;
-    }
-    if (m_buffers.front().readyEvent() != nullptr) {
-        m_buffers.front().readyEvent.wait();
-        m_buffers.front().readyEvent.reset();
-    }
-    m_buffers.pop_front();
 }
 
 void RGYDegrainBufferPool::clear() {
-    while (!m_buffers.empty()) {
-        waitAndDropFront();
+    for (auto& entry : m_buffers) {
+        if (entry.readyEvent() != nullptr) {
+            entry.readyEvent.wait();
+            entry.readyEvent.reset();
+        }
     }
+    m_buffers.clear();
+    m_knownSizes.clear();
 }
 
 RGYDegrainBlockLayout RGYFrameDataDegrain::layout() const {

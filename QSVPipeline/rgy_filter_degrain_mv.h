@@ -570,8 +570,6 @@ private:
 
 class RGYDegrainBufferPool {
 public:
-    static constexpr size_t MAX_POOL_BUFFERS = 128;
-
     RGYDegrainBufferPool(std::shared_ptr<RGYOpenCLContext> context);
     ~RGYDegrainBufferPool();
     std::unique_ptr<RGYCLBuf> acquire(size_t size, cl_mem_flags flags, RGYOpenCLQueue *queue = nullptr);
@@ -584,10 +582,9 @@ private:
         RGYOpenCLEvent readyEvent;
     };
 
-    void waitAndDropFront();
-
     std::shared_ptr<RGYOpenCLContext> m_cl;
     std::deque<Entry> m_buffers;
+    std::vector<std::pair<size_t, cl_mem_flags>> m_knownSizes;
 };
 
 uint32_t rgy_degrain_scale_sad_threshold(const VppDegrain &degrain, const RGYFrameInfo &frameInfo, int prmThreshold, bool includeChroma = false);

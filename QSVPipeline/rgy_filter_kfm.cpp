@@ -930,14 +930,9 @@ void RGYFilterKfm::collectRetiredKfmSourceSlots() {
             ++it;
         }
     }
-    trimFreeKfmSourceSlots();
 }
 
 void RGYFilterKfm::trimFreeKfmSourceSlots() {
-    const auto keep = std::max<size_t>(16, std::min<size_t>(sourceCacheLimit(), 256) + 8);
-    while (m_kfmSourceSlotFree.size() > keep) {
-        m_kfmSourceSlotFree.pop_front();
-    }
 }
 
 void RGYFilterKfm::clearKfmSourceSlotPool(bool wait) {

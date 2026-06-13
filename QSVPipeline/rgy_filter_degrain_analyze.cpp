@@ -547,8 +547,9 @@ RGY_ERR RGYFilterDegrain::allocAnalysisBuffers(const std::shared_ptr<RGYFilterPa
         && m_analysis.mvBytes > 0
         && m_analysis.sadBytes > 0;
     if (shouldPrewarmSideDataPool) {
+        static constexpr size_t DEGRAIN_SIDE_DATA_POOL_PREWARM_FRAMES = 64;
         const size_t prewarmFrames = std::min<size_t>(
-            RGYDegrainBufferPool::MAX_POOL_BUFFERS / 2,
+            DEGRAIN_SIDE_DATA_POOL_PREWARM_FRAMES,
             (size_t)std::max(1, prm->degrain.delta + prm->degrain.tr0 + 4));
         auto prewarmBuffer = [&](const size_t size, const cl_mem_flags flags, const TCHAR *name) {
             if (size == 0) {
