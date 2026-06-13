@@ -170,6 +170,9 @@ protected:
         void reset();
         RGY_ERR feed(const RGYFrameInfo *frame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, int *cachedFrames = nullptr);
         RGY_ERR drain(RGYOpenCLQueue &queue, int maxDrainIterations, int *cachedFrames = nullptr);
+        RGY_ERR drainTo(int n60end, RGYOpenCLQueue &queue);
+        RGY_ERR ensureRange(int n60begin, int n60end, RGYOpenCLQueue &queue);
+        RGY_ERR feedHot(RGYOpenCLQueue &queue);
         RGY_ERR cacheFrame(const RGYFrameInfo *frame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
         const KfmCachedDeint60 *find(int n60, std::vector<RGYOpenCLEvent> *wait_events) const;
         void trim(int n60floor, size_t cacheLimit);
@@ -177,7 +180,9 @@ protected:
         const std::deque<KfmCachedDeint60>& cache() const { return m_cache; }
         RGYOpenCLEvent& cacheCopyEvent() { return m_cacheCopyEvent; }
         int submittedFrames() const { return m_submittedFrames; }
+        int64_t feedCount() const { return m_feedCount; }
     private:
+        static constexpr int HOT_KEEP_SOURCE_FRAMES = 5;
         RGYFilterKfm *m_owner;
         RGYFilterRtgmc *m_rtgmc;
         const char *m_stage;
@@ -188,6 +193,8 @@ protected:
         int m_nextFeedSourceIndex;
         int m_nextOutputN60;
         int m_hotUntilSourceIndex;
+        int m_cacheFloorN60;
+        int64_t m_feedCount;
         RGYOpenCLEvent m_cacheCopyEvent;
     };
 
@@ -213,6 +220,7 @@ protected:
     size_t deint60CacheLimit() const;
     int sourceCacheTrimFloor() const;
     int deint60CacheTrimFloor() const;
+    bool lazyDeint60Enabled(const RGYFilterParamKfm& prm) const;
     const RGYFrameInfo *findDeint60Frame(int n60, std::vector<RGYOpenCLEvent> *wait_events) const;
     const RGYFrameInfo *findSourceFrame(const RGYFrameInfo *frame, std::vector<RGYOpenCLEvent> *wait_events);
     const KfmCachedSource *findSourceByIndex(int sourceIndex) const;

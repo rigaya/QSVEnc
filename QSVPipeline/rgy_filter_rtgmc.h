@@ -183,6 +183,7 @@ protected:
     virtual void close() override;
 public:
     virtual void resetTemporalState() override;
+    int requiredPrimingSourceFrames() const;
 protected:
 
     RGY_ERR checkParam(const std::shared_ptr<RGYFilterParamRtgmc> &prm);
