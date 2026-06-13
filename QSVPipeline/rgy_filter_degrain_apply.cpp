@@ -1379,7 +1379,7 @@ RGY_ERR RGYFilterDegrain::emitDegrainFrame(const RGYFilterDegrainFrameSet &frame
 RGY_ERR RGYFilterDegrain::runDebugMode(const RGYFilterDegrainProcessFrameSet &frames, const int currentFrame, VppDegrainMode mode, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
     RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     if (!bindFrameAnalysisData(frames.render.cur, currentFrame, queue)) {
-        auto err = prepareAnalysisState(frames.analysis, queue, wait_events);
+        auto err = prepareFallbackAnalysisState(frames, currentFrame, queue, wait_events);
         if (err != RGY_ERR_NONE) {
             return err;
         }
@@ -1390,7 +1390,7 @@ RGY_ERR RGYFilterDegrain::runDebugMode(const RGYFilterDegrainProcessFrameSet &fr
 RGY_ERR RGYFilterDegrain::runCompensateMode(const RGYFilterDegrainProcessFrameSet &frames, const int currentFrame, VppDegrainMode mode, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
     RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     if (!bindFrameAnalysisData(frames.render.cur, currentFrame, queue)) {
-        auto err = prepareAnalysisState(frames.analysis, queue, wait_events);
+        auto err = prepareFallbackAnalysisState(frames, currentFrame, queue, wait_events);
         if (err != RGY_ERR_NONE) {
             return err;
         }
@@ -1423,7 +1423,7 @@ RGY_ERR RGYFilterDegrain::runDegrainMode(const RGYFilterDegrainProcessFrameSet &
     }
 
     if (!bindFrameAnalysisData(frames.render.cur, currentFrame, queue)) {
-        auto err = prepareAnalysisState(frames.analysis, queue, wait_events);
+        auto err = prepareFallbackAnalysisState(frames, currentFrame, queue, wait_events);
         if (err != RGY_ERR_NONE) {
             return err;
         }

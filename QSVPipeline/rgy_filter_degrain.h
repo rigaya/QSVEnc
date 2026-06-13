@@ -98,6 +98,7 @@ protected:
     RGY_ERR attachAnalysisData(const RGYFrameInfo *sourceFrame, RGYFrameInfo *outputFrame,
         int currentFrame, RGYOpenCLQueue &queue, const RGYOpenCLEvent &frameCopyEvent, RGYOpenCLEvent *event);
     RGY_ERR prepareAnalysisState(const RGYFilterDegrainFrameSet &frames, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
+    RGY_ERR prepareFallbackAnalysisState(const RGYFilterDegrainProcessFrameSet &frames, int currentFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
     RGY_ERR prepareAnalysisStateMotionSearch(const RGYFrameInfo &planeCur, const std::array<RGYFrameInfo, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS> &refPlanes,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
     RGY_ERR runSourceMode(const RGYFilterDegrainFrameSet &frames, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
@@ -174,7 +175,9 @@ protected:
     RGY_ERR allocAnalysisBuffers(const std::shared_ptr<RGYFilterParamDegrain> &prm);
     bool modeImplemented(VppDegrainMode mode) const;
     bool modeRequiresAnalysis(VppDegrainMode mode) const;
+    bool hasDirectAnalyzeResult() const;
     bool useAnalysisLumaCache() const;
+    bool prefetchAnalysisLumaCache() const;
     RGYFilterDegrainFrameSet resolveFrameSet(int currentFrame) const;
     const RGYFrameInfo *resolveAnalysisLumaSourceFrame(int frameIndex) const;
     RGYFilterDegrainFrameSet resolveAnalysisFrameSet(int currentFrame) const;

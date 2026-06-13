@@ -511,6 +511,14 @@ bool RGYFilterDegrain::useAnalysisLumaCache() const {
     return prm && modeRequiresAnalysis(prm->degrain.mode) && degrainRequiresAnalysisLumaCache(prm->degrain);
 }
 
+bool RGYFilterDegrain::hasDirectAnalyzeResult() const {
+    return m_directAnalyzeResultSet.valid(requestedDelta());
+}
+
+bool RGYFilterDegrain::prefetchAnalysisLumaCache() const {
+    return useAnalysisLumaCache() && !hasDirectAnalyzeResult();
+}
+
 bool RGYFilterDegrain::degrainDebugLogEnabled() const {
     return m_pLog != nullptr && m_pLog->getLogLevel(RGY_LOGT_VPP) <= RGY_LOG_DEBUG;
 }
@@ -725,7 +733,7 @@ RGY_ERR RGYFilterDegrain::feedFrameOnly(const RGYFrameInfo *pInputFrame, RGYOpen
         return sts;
     }
     m_inputCount++;
-    if (useAnalysisLumaCache()) {
+    if (prefetchAnalysisLumaCache()) {
         sts = ensureAnalysisLumaGenerated(m_inputCount - 1 - prm->degrain.tr0, queue, { cacheCopyEvent });
         if (sts != RGY_ERR_NONE) {
             return sts;
@@ -764,7 +772,7 @@ RGY_ERR RGYFilterDegrain::buildCompensateInlineParams(std::array<RGYDegrainCompe
         copyFramePropWithoutRes(outputFrameIdentity, frames.cur);
     }
     if (!bindFrameAnalysisData(frames.cur, currentFrame, queue)) {
-        auto err = prepareAnalysisState(processFrames.analysis, queue, {});
+        auto err = prepareFallbackAnalysisState(processFrames, currentFrame, queue, {});
         if (err != RGY_ERR_NONE) {
             return err;
         }
@@ -879,7 +887,7 @@ RGY_ERR RGYFilterDegrain::drainBuildInlineParams(std::array<RGYDegrainCompensate
     if (!prm) {
         return RGY_ERR_INVALID_PARAM;
     }
-    if (useAnalysisLumaCache()) {
+    if (prefetchAnalysisLumaCache()) {
         const int currentFrame = std::max(0, m_inputCount - drainFrameCount()) + m_drainCount;
         auto sts = ensureAnalysisLumaGenerated(currentFrame + prm->degrain.delta, queue, {});
         if (sts != RGY_ERR_NONE) {
@@ -897,7 +905,7 @@ RGY_ERR RGYFilterDegrain::drainBuildInlineParams(std::array<RGYDegrainCompensate
         copyFramePropWithoutRes(outputFrameIdentity, frames.cur);
     }
     if (!bindFrameAnalysisData(frames.cur, currentFrame, queue)) {
-        auto err = prepareAnalysisState(processFrames.analysis, queue, {});
+        auto err = prepareFallbackAnalysisState(processFrames, currentFrame, queue, {});
         if (err != RGY_ERR_NONE) {
             return err;
         }
@@ -1207,7 +1215,7 @@ RGY_ERR RGYFilterDegrain::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
         }
 
         m_inputCount++;
-        if (useAnalysisLumaCache()) {
+        if (prefetchAnalysisLumaCache()) {
             sts = ensureAnalysisLumaGenerated(m_inputCount - 1 - prm->degrain.tr0, queue, { cacheCopyEvent });
             if (sts != RGY_ERR_NONE) {
                 return sts;
@@ -1221,7 +1229,7 @@ RGY_ERR RGYFilterDegrain::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
     }
 
     if (m_drainCount < drainFrameCount()) {
-        if (useAnalysisLumaCache()) {
+        if (prefetchAnalysisLumaCache()) {
             const int currentFrame = std::max(0, m_inputCount - drainFrameCount()) + m_drainCount;
             const auto sts = ensureAnalysisLumaGenerated(currentFrame + prm->degrain.delta, queue, {});
             if (sts != RGY_ERR_NONE) {

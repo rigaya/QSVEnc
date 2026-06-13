@@ -1529,6 +1529,23 @@ RGY_ERR RGYFilterDegrain::prepareAnalysisState(const RGYFilterDegrainFrameSet &f
     return RGY_ERR_NONE;
 }
 
+RGY_ERR RGYFilterDegrain::prepareFallbackAnalysisState(const RGYFilterDegrainProcessFrameSet &frames, const int currentFrame,
+    RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events) {
+    auto analysisFrames = frames.analysis;
+    if (useAnalysisLumaCache() && !degrainGetAttachedSearchLuma(frames.render.cur)) {
+        auto prm = std::dynamic_pointer_cast<RGYFilterParamDegrain>(m_param);
+        if (!prm) {
+            return RGY_ERR_INVALID_PARAM;
+        }
+        auto err = ensureAnalysisLumaGenerated(currentFrame + prm->degrain.delta, queue, wait_events);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        analysisFrames = resolveAnalysisFrameSet(currentFrame);
+    }
+    return prepareAnalysisState(analysisFrames, queue, wait_events);
+}
+
 RGY_ERR RGYFilterDegrain::runAnalyzeMode(const RGYFilterDegrainProcessFrameSet &frames, const int currentFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
     RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     clearFrameAnalysisData();
