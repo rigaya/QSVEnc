@@ -540,6 +540,33 @@ RGY_ERR RGYFilterDegrain::allocAnalysisBuffers(const std::shared_ptr<RGYFilterPa
             }
         }
     }
+
+    const bool shouldPrewarmSideDataPool = prm->degrain.mode == VppDegrainMode::Analyze
+        && prm->attachAnalysisData
+        && m_sideDataBufferPool
+        && m_analysis.mvBytes > 0
+        && m_analysis.sadBytes > 0;
+    if (shouldPrewarmSideDataPool) {
+        const size_t prewarmFrames = std::min<size_t>(
+            RGYDegrainBufferPool::MAX_POOL_BUFFERS / 2,
+            (size_t)std::max(1, prm->degrain.delta + prm->degrain.tr0 + 4));
+        auto prewarmBuffer = [&](const size_t size, const cl_mem_flags flags, const TCHAR *name) {
+            if (size == 0) {
+                return;
+            }
+            for (size_t i = 0; i < prewarmFrames; i++) {
+                auto buf = m_cl->createBuffer(size, flags);
+                if (!buf) {
+                    AddMessage(RGY_LOG_WARN, _T("degrain side data pool prewarm for %s buffer failed at %zu/%zu.\n"),
+                        name, i + 1, prewarmFrames);
+                    break;
+                }
+                m_sideDataBufferPool->recycle(std::move(buf), {});
+            }
+        };
+        prewarmBuffer(m_analysis.mvBytes, CL_MEM_READ_WRITE, _T("MV"));
+        prewarmBuffer(m_analysis.sadBytes, CL_MEM_READ_WRITE, _T("SAD"));
+    }
     return RGY_ERR_NONE;
 }
 
@@ -830,14 +857,14 @@ RGY_ERR RGYFilterDegrain::attachAnalysisData(const RGYFrameInfo *sourceFrame, RG
     }
 
     auto mv = (m_sideDataBufferPool)
-        ? m_sideDataBufferPool->acquire(m_analysis.mvBytes, CL_MEM_READ_WRITE)
+        ? m_sideDataBufferPool->acquire(m_analysis.mvBytes, CL_MEM_READ_WRITE, &queue)
         : m_cl->createBuffer(m_analysis.mvBytes, CL_MEM_READ_WRITE);
     if (!mv) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain frame MV side data buffer.\n"));
         return RGY_ERR_MEMORY_ALLOC;
     }
     auto sad = (m_sideDataBufferPool)
-        ? m_sideDataBufferPool->acquire(m_analysis.sadBytes, CL_MEM_READ_WRITE)
+        ? m_sideDataBufferPool->acquire(m_analysis.sadBytes, CL_MEM_READ_WRITE, &queue)
         : m_cl->createBuffer(m_analysis.sadBytes, CL_MEM_READ_WRITE);
     if (!sad) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain frame SAD side data buffer.\n"));

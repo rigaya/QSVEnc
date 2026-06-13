@@ -574,7 +574,7 @@ public:
 
     RGYDegrainBufferPool(std::shared_ptr<RGYOpenCLContext> context);
     ~RGYDegrainBufferPool();
-    std::unique_ptr<RGYCLBuf> acquire(size_t size, cl_mem_flags flags);
+    std::unique_ptr<RGYCLBuf> acquire(size_t size, cl_mem_flags flags, RGYOpenCLQueue *queue = nullptr);
     void recycle(std::unique_ptr<RGYCLBuf>&& buf, const RGYOpenCLEvent &readyEvent);
     void clear();
 

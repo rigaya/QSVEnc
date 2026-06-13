@@ -88,7 +88,7 @@ RGYDegrainBufferPool::~RGYDegrainBufferPool() {
     clear();
 }
 
-std::unique_ptr<RGYCLBuf> RGYDegrainBufferPool::acquire(size_t size, cl_mem_flags flags) {
+std::unique_ptr<RGYCLBuf> RGYDegrainBufferPool::acquire(size_t size, cl_mem_flags flags, RGYOpenCLQueue *queue) {
     if (!m_cl || size == 0) {
         return nullptr;
     }
@@ -97,7 +97,11 @@ std::unique_ptr<RGYCLBuf> RGYDegrainBufferPool::acquire(size_t size, cl_mem_flag
     });
     if (pooled != m_buffers.end()) {
         if (pooled->readyEvent() != nullptr) {
-            pooled->readyEvent.wait();
+            const auto readyEvent = pooled->readyEvent;
+            const auto err = queue ? queue->wait(readyEvent) : RGY_ERR_NULL_PTR;
+            if (err != RGY_ERR_NONE) {
+                readyEvent.wait();
+            }
             pooled->readyEvent.reset();
         }
         auto buf = std::move(pooled->buf);

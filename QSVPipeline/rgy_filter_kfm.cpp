@@ -84,6 +84,15 @@ static constexpr int KFM_UCF_NOISE_LIMIT_RANGE = 128;
 static constexpr double KFM_UCF_GAUSS_P = 2.5;
 static constexpr double KFM_UCF_GAUSS_CROP_EPS = 0.0001;
 
+static void resetKfmFrameState(RGYFrameInfo& frame) {
+    frame.timestamp = 0;
+    frame.duration = 0;
+    frame.picstruct = RGY_PICSTRUCT_UNKNOWN;
+    frame.flags = RGY_FRAME_FLAG_NONE;
+    frame.inputFrameId = -1;
+    frame.dataList.clear();
+}
+
 static double kfmUcfGaussValue(const double value, const double p) {
     const auto param = std::min(std::max(p, 0.1), 100.0);
     return std::pow(2.0, -(param * 0.1) * value * value);
@@ -365,7 +374,9 @@ std::shared_ptr<RGYCLFrame> RGYFilterKfm::acquireKfmFrame(const RGYFrameInfo& in
     auto frame = m_kfmFramePool->acquire(info, flags);
     if (!frame) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM %s frame.\n"), label ? label : _T("cache"));
+        return frame;
     }
+    resetKfmFrameState(frame->frame);
     return frame;
 }
 
@@ -382,8 +393,8 @@ std::shared_ptr<RGYFilterKfm::KfmSourceSlot> RGYFilterKfm::acquireKfmSourceSlot(
         auto slot = std::move(*pooled);
         m_kfmSourceSlotFree.erase(pooled);
         slot->readyEvent.reset();
-        slot->sourceFrame->frame.dataList.clear();
-        slot->paddedFrame->frame.dataList.clear();
+        resetKfmFrameState(slot->sourceFrame->frame);
+        resetKfmFrameState(slot->paddedFrame->frame);
         return slot;
     }
 
@@ -451,6 +462,8 @@ std::shared_ptr<RGYFilterKfm::KfmSourceSlot> RGYFilterKfm::acquireKfmSourceSlot(
     slot->paddedFrame = paddedFrame;
     slot->sourceFrame = sourceFrame;
     slot->flags = flags;
+    resetKfmFrameState(slot->sourceFrame->frame);
+    resetKfmFrameState(slot->paddedFrame->frame);
     return slot;
 }
 
