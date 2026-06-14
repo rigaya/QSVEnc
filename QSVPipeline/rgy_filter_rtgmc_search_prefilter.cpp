@@ -135,7 +135,8 @@ RGYFilterRtgmcSearchPrefilter::RGYFilterRtgmcSearchPrefilter(shared_ptr<RGYOpenC
     m_searchLumaDumpEnabled(false),
     m_searchLumaDumpHeaderWritten(false),
     m_inputCount(0),
-    m_drainCount(0) {
+    m_drainCount(0),
+    m_outputFrameIdx(0) {
     m_name = _T("rtgmc-search-prefilter");
 }
 
@@ -475,7 +476,7 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::init(shared_ptr<RGYFilterParam> pParam, s
         return sts;
     }
 
-    sts = AllocFrameBuf(prm->frameOut, 1);
+    sts = AllocFrameBuf(prm->frameOut, RTGMC_SEARCH_PREFILTER_CACHE_SIZE);
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate output buffer: %s.\n"), get_err_mes(sts));
         return sts;
@@ -1002,7 +1003,9 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::emitPrefilteredFrame(PendingSearchPrefilt
 
     std::shared_ptr<RGYCLFrame> searchLumaFrame;
     const bool useSeparateSearchLuma = prm->attachSearchLuma || m_searchLumaDumpEnabled;
-    auto pOut = &m_frameBuf[0]->frame;
+    auto outFrameBuf = m_frameBuf[m_outputFrameIdx].get();
+    auto pOut = &outFrameBuf->frame;
+    m_outputFrameIdx = (m_outputFrameIdx + 1) % m_frameBuf.size();
     RGYOpenCLEvent copyEvent;
     auto err = m_cl->copyFrame(pOut, cur, nullptr, queue, wait_events, &copyEvent, RGYFrameCopyMode::FRAME, "rtgmc_search_prefilter.output_copy");
     if (err != RGY_ERR_NONE) {
@@ -1407,7 +1410,7 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::emitPrefilteredFrame(PendingSearchPrefilt
         }
     }
 
-    RGYCLFrame *dumpFrame = searchLumaFrame ? searchLumaFrame.get() : m_frameBuf[0].get();
+    RGYCLFrame *dumpFrame = searchLumaFrame ? searchLumaFrame.get() : outFrameBuf;
     RGYOpenCLEvent dumpEvent = lumaEvent;
     std::unique_ptr<RGYCLFrame> debugDumpFrame;
     if (m_searchLumaDumpEnabled && (m_searchLumaDumpStage == "half_search_base" || m_searchLumaDumpStage == "half_search_smoothed")) {
@@ -1833,6 +1836,7 @@ void RGYFilterRtgmcSearchPrefilter::resetTemporalState() {
     clearPendingSearchPrefilterFrames();
     m_inputCount = 0;
     m_drainCount = 0;
+    m_outputFrameIdx = 0;
 }
 
 void RGYFilterRtgmcSearchPrefilter::close() {
@@ -1874,5 +1878,6 @@ void RGYFilterRtgmcSearchPrefilter::close() {
     }
     m_inputCount = 0;
     m_drainCount = 0;
+    m_outputFrameIdx = 0;
     m_frameBuf.clear();
 }

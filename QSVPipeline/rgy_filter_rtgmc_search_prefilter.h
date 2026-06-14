@@ -205,4 +205,5 @@ protected:
     bool m_searchLumaDumpHeaderWritten;
     int m_inputCount;
     int m_drainCount;
+    size_t m_outputFrameIdx;
 };
