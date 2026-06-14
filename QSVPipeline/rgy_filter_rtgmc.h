@@ -251,6 +251,7 @@ protected:
     std::deque<int> m_pendingOutputFrames;
     std::array<RtgmcSourceCacheFrame, 256> m_sourceCache;
     std::shared_ptr<RGYCLSharedFramePool> m_sharedFramePool;
+    std::shared_ptr<RGYCLSharedFramePool> m_ediSideDataFramePool;
     std::unique_ptr<RGYCLFrame> m_borderFrame;
     RGYOpenCLProgramAsync m_borderCopy;
     std::unique_ptr<RGYFilterRtgmcPrimitive> m_noiseDiffFilter;

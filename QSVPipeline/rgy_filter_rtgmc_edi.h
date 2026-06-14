@@ -77,7 +77,7 @@ protected:
     public:
         FrameSource();
         RGY_ERR alloc(std::shared_ptr<RGYOpenCLContext> cl, const RGYFrameInfo& frameInfo);
-        RGY_ERR add(std::shared_ptr<RGYOpenCLContext> cl, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue);
+        RGY_ERR add(std::shared_ptr<RGYOpenCLContext> cl, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, bool copyChroma = true);
         RGYCLFrame *get(int iframe);
         int findIndexByInputFrameId(int inputFrameId) const;
         int inframe() const { return m_nFramesInput; }

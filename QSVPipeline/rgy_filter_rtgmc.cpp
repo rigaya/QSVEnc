@@ -172,6 +172,7 @@ RGYFilterRtgmc::RGYFilterRtgmc(shared_ptr<RGYOpenCLContext> context) :
     m_pendingOutputFrames(),
     m_sourceCache(),
     m_sharedFramePool(std::make_shared<RGYCLSharedFramePool>(context)),
+    m_ediSideDataFramePool(std::make_shared<RGYCLSharedFramePool>(context)),
     m_borderFrame(),
     m_borderCopy(),
     m_noiseDiffFilter(),
@@ -396,7 +397,9 @@ RGY_ERR RGYFilterRtgmc::initSourceMatchCorrectionFilters(const std::shared_ptr<R
         return RGY_ERR_NONE;
     }
     const bool combineCorrectionKernels = rtgmcMatchCorrectionKernelMergeEnabled();
-    const bool processSourceMatchChroma = prm->rtgmc.searchPrefilter.chromaMotion;
+    const bool matchEdiProvidesChroma = prm->rtgmc.matchEdi.mode != VppRtgmcEdiMode::NNEDI3
+        || prm->rtgmc.matchEdi.chromaEdi == VppRtgmcChromaEdiMode::NNEDI3;
+    const bool processSourceMatchChroma = prm->rtgmc.searchPrefilter.chromaMotion && matchEdiProvidesChroma;
 
     auto initOne = [&](RGYFilter *filter, const std::shared_ptr<RGYFilterParam> &param) {
         param->frameIn = frameInfo;
@@ -414,7 +417,7 @@ RGY_ERR RGYFilterRtgmc::initSourceMatchCorrectionFilters(const std::shared_ptr<R
         {
             auto param = std::make_shared<RGYFilterParamRtgmcEdi>();
             param->mode = prm->rtgmc.matchEdi.mode;
-            param->chromaEdi = VppRtgmcChromaEdiMode::None;
+            param->chromaEdi = prm->rtgmc.matchEdi.chromaEdi;
             param->nnsize = prm->rtgmc.matchEdi.nnsize;
             param->nneurons = prm->rtgmc.matchEdi.nneurons;
             param->ediqual = prm->rtgmc.matchEdi.ediqual;
@@ -506,11 +509,12 @@ RGY_ERR RGYFilterRtgmc::attachEdiReference(RGYFrameInfo *frame, RGYOpenCLQueue &
         storeEdiReference(frame, attached, event ? *event : RGYOpenCLEvent());
         return RGY_ERR_NONE;
     }
-    auto sharedFrame = getSharedFrameBuffer(frame);
+    auto sharedFrame = m_ediSideDataFramePool ? m_ediSideDataFramePool->acquire(frame) : nullptr;
     if (!sharedFrame) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate edi side-data frame.\n"));
         return RGY_ERR_MEMORY_ALLOC;
     }
+    resetRtgmcFrameState(sharedFrame->frame);
     auto err = m_cl->copyFrame(&sharedFrame->frame, frame, nullptr, queue, wait_events, event, RGYFrameCopyMode::FRAME, "rtgmc.edi_ref");
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to copy edi side-data frame: %s.\n"), get_err_mes(err));
@@ -2440,6 +2444,9 @@ void RGYFilterRtgmc::resetTemporalState() {
     m_pendingNoiseRefs.clear();
     m_pendingOutputFrames.clear();
     m_pendingSourceMatchFrameProps.clear();
+    if (m_ediSideDataFramePool) {
+        m_ediSideDataFramePool->clear();
+    }
     for (auto &frame : m_sourceCache) {
         frame.key = RtgmcFrameKey();
         frame.event.reset();
@@ -2473,6 +2480,9 @@ void RGYFilterRtgmc::close() {
     m_pendingSourceMatchFrameProps.clear();
     if (m_sharedFramePool) {
         m_sharedFramePool->clear();
+    }
+    if (m_ediSideDataFramePool) {
+        m_ediSideDataFramePool->clear();
     }
     for (auto &frame : m_sourceCache) {
         frame.key = RtgmcFrameKey();
