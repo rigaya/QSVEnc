@@ -314,6 +314,17 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2026.06.14 (8.16)
+[QSVEncC]
+- SoftLightフィルタ --vpp-softlight を追加。
+- DetailSharpenフィルタ --vpp-detailsharpen を追加。
+- --vpp-kfm の処理を改善。
+- --vpp-degrain, --vpp-rtgmc の高速化。
+- --vpp-edgelevel, --vpp-dehalo, --vpp-knn の高速化。
+- GPUメモリ確保のオーバーヘッドを削減。
+- libavformatが負のptsを返す場合に音ズレしてしまう場合があったのを修正。
+- --chromaloc が期待通り動作しない場合があったのを修正。 ( #298 )
+
 2026.06.06 (8.15)
 [QSVEncC]
 - nlmeansノイズ除去フィルタ --vpp-nlmeans を追加。
