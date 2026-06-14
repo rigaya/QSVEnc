@@ -211,6 +211,7 @@ protected:
         const RGYDegrainRefDisableArray &disableRefs, RGYOpenCLQueue &queue);
     int requestedDelta() const;
     bool validateAnalyzeResultFrame(const RGYDegrainAnalyzeResult &result, const RGYFrameInfo *frame, int currentFrame, const TCHAR *sourceName, bool requireFrameIndex);
+    bool bindAnalyzeResult(const RGYDegrainAnalyzeResult &result, const RGYFrameInfo *frame, int currentFrame, const TCHAR *sourceName, bool requireFrameIndex, RGYOpenCLQueue &queue);
     bool bindDirectAnalyzeResult(const RGYFrameInfo *frame, int currentFrame, RGYOpenCLQueue &queue);
     bool bindFrameAnalysisData(const RGYFrameInfo *frame, int currentFrame, RGYOpenCLQueue &queue);
     RGYCLBuf *analysisMV() const;

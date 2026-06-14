@@ -735,9 +735,7 @@ RGYDegrainAnalyzeResultSet RGYFilterDegrain::analyzeResultSet() const {
     }
     const int maxDelta = std::min(RGY_DEGRAIN_MAX_DELTA, std::max(1, baseResult.layout.temporalDirections / 2));
     for (int delta = 1; delta <= maxDelta; delta++) {
-        auto slot = baseResult;
-        slot.layout.temporalDirections = rgy_degrain_temporal_direction_count(delta);
-        resultSet.slots[delta] = slot;
+        resultSet.slots[delta] = baseResult;
     }
     return resultSet;
 }
@@ -747,9 +745,7 @@ bool RGYFilterDegrain::setDirectAnalyzeResult(const RGYDegrainAnalyzeResult &res
     if (result.valid() && result.hasFrameIdentity()) {
         const int maxDelta = std::min(RGY_DEGRAIN_MAX_DELTA, std::max(1, result.layout.temporalDirections / 2));
         for (int delta = 1; delta <= maxDelta; delta++) {
-            auto slot = result;
-            slot.layout.temporalDirections = rgy_degrain_temporal_direction_count(delta);
-            resultSet.slots[delta] = slot;
+            resultSet.slots[delta] = result;
         }
     }
     return setDirectAnalyzeResultSet(resultSet);
@@ -789,22 +785,123 @@ bool RGYFilterDegrain::validateAnalyzeResultFrame(const RGYDegrainAnalyzeResult 
     return true;
 }
 
+static bool degrainLayoutCompatibleSubset(const RGYDegrainBlockLayout &src, const RGYDegrainBlockLayout &dst) {
+    return src.blockSize == dst.blockSize
+        && src.overlap == dst.overlap
+        && src.step == dst.step
+        && src.search == dst.search
+        && src.blocksX == dst.blocksX
+        && src.blocksY == dst.blocksY
+        && src.coveredWidth == dst.coveredWidth
+        && src.coveredHeight == dst.coveredHeight
+        && src.temporalDirections >= dst.temporalDirections;
+}
+
+bool RGYFilterDegrain::bindAnalyzeResult(const RGYDegrainAnalyzeResult &result, const RGYFrameInfo *frame, const int currentFrame, const TCHAR *sourceName, const bool requireFrameIndex, RGYOpenCLQueue &queue) {
+    if (!result.valid()) {
+        return false;
+    }
+    if (!validateAnalyzeResultFrame(result, frame, currentFrame, sourceName, requireFrameIndex)) {
+        return false;
+    }
+    if (rgy_degrain_layout_equal(result.layout, m_analysis.layout)) {
+        m_boundAnalyzeResult = result;
+        m_frameAnalysisLayout = result.layout;
+        logAnalyzeBinding(sourceName, frame, result);
+        logAnalysisSamples(sourceName, frame, queue);
+        return true;
+    }
+    if (!degrainLayoutCompatibleSubset(result.layout, m_analysis.layout)) {
+        AddMessage(RGY_LOG_DEBUG, _T("degrain %s MV/SAD layout mismatch; falling back to frame data/local analysis.\n"), sourceName);
+        return false;
+    }
+    if (!m_analysis.mv || !m_analysis.sad || m_analysis.mv->size() < m_analysis.mvBytes || m_analysis.sad->size() < m_analysis.sadBytes) {
+        AddMessage(RGY_LOG_ERROR, _T("degrain %s MV/SAD compact workspace is not ready.\n"), sourceName);
+        return false;
+    }
+
+    std::vector<RGYOpenCLEvent> mvWaitEvents;
+    if (result.event() != nullptr) {
+        mvWaitEvents.push_back(result.event);
+    }
+    auto& perf_collector = RGYOpenCLPerfCollector::instance();
+    const bool perf_enabled = perf_collector.isEnabled();
+    const size_t srcMvPitch = (size_t)result.layout.temporalDirections * sizeof(RGYDegrainMV);
+    const size_t dstMvPitch = (size_t)m_analysis.layout.temporalDirections * sizeof(RGYDegrainMV);
+    const size_t blockCount = result.layout.blockCount();
+    const size_t srcOrigin[3] = { 0, 0, 0 };
+    const size_t dstOrigin[3] = { 0, 0, 0 };
+    const size_t mvRegion[3] = { dstMvPitch, blockCount, 1 };
+    const auto mvWaitList = degrainWaitEventList(mvWaitEvents);
+    RGYOpenCLEvent mvCopyEvent;
+    const auto mvCopyStart = degrain_cl_perf_begin(perf_enabled);
+    auto clerr = clEnqueueCopyBufferRect(
+        queue.get(),
+        result.mv->mem(),
+        m_analysis.mv->mem(),
+        srcOrigin, dstOrigin, mvRegion,
+        srcMvPitch, srcMvPitch * blockCount,
+        dstMvPitch, dstMvPitch * blockCount,
+        (cl_uint)mvWaitList.size(),
+        mvWaitList.data(),
+        mvCopyEvent.reset_ptr());
+    const auto mvCopyHostTime = degrain_cl_perf_end(perf_enabled, mvCopyStart);
+    if (perf_enabled && clerr == CL_SUCCESS) {
+        perf_collector.recordCommand("clEnqueueCopyBufferRect:degrain.compact_mv", dstMvPitch * blockCount, mvCopyHostTime, mvCopyEvent,
+            mvCopyStart, mvCopyStart + mvCopyHostTime, (uint64_t)(uintptr_t)queue.get());
+    }
+    auto err = err_cl_to_rgy(clerr);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to compact degrain %s MV/SAD layout MV: %s.\n"), sourceName, get_err_mes(err));
+        return false;
+    }
+
+    const size_t srcSadPitch = (size_t)result.layout.temporalDirections * sizeof(RGYDegrainSAD);
+    const size_t dstSadPitch = (size_t)m_analysis.layout.temporalDirections * sizeof(RGYDegrainSAD);
+    const size_t sadRegion[3] = { dstSadPitch, blockCount, 1 };
+    const auto sadWaitList = degrainWaitEventList({ mvCopyEvent });
+    RGYOpenCLEvent sadCopyEvent;
+    const auto sadCopyStart = degrain_cl_perf_begin(perf_enabled);
+    clerr = clEnqueueCopyBufferRect(
+        queue.get(),
+        result.sad->mem(),
+        m_analysis.sad->mem(),
+        srcOrigin, dstOrigin, sadRegion,
+        srcSadPitch, srcSadPitch * blockCount,
+        dstSadPitch, dstSadPitch * blockCount,
+        (cl_uint)sadWaitList.size(),
+        sadWaitList.data(),
+        sadCopyEvent.reset_ptr());
+    const auto sadCopyHostTime = degrain_cl_perf_end(perf_enabled, sadCopyStart);
+    if (perf_enabled && clerr == CL_SUCCESS) {
+        perf_collector.recordCommand("clEnqueueCopyBufferRect:degrain.compact_sad", dstSadPitch * blockCount, sadCopyHostTime, sadCopyEvent,
+            sadCopyStart, sadCopyStart + sadCopyHostTime, (uint64_t)(uintptr_t)queue.get());
+    }
+    err = err_cl_to_rgy(clerr);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to compact degrain %s MV/SAD layout SAD: %s.\n"), sourceName, get_err_mes(err));
+        return false;
+    }
+
+    m_boundAnalyzeResult = result;
+    m_boundAnalyzeResult.layout = m_analysis.layout;
+    m_boundAnalyzeResult.mv = m_analysis.mv.get();
+    m_boundAnalyzeResult.sad = m_analysis.sad.get();
+    m_boundAnalyzeResult.event = sadCopyEvent;
+    m_frameAnalysisLayout = m_analysis.layout;
+    logAnalyzeBinding(sourceName, frame, m_boundAnalyzeResult);
+    logAnalysisSamples(sourceName, frame, queue);
+    return true;
+}
+
 bool RGYFilterDegrain::bindDirectAnalyzeResult(const RGYFrameInfo *frame, const int currentFrame, RGYOpenCLQueue &queue) {
     const auto result = m_directAnalyzeResultSet.get(requestedDelta());
     if (!result) {
         return false;
     }
-    if (!validateAnalyzeResultFrame(*result, frame, currentFrame, _T("direct"), true)) {
+    if (!bindAnalyzeResult(*result, frame, currentFrame, _T("direct"), true, queue)) {
         return false;
     }
-    if (!rgy_degrain_layout_equal(result->layout, m_analysis.layout)) {
-        AddMessage(RGY_LOG_DEBUG, _T("degrain direct MV/SAD layout mismatch; falling back to frame data/local analysis.\n"));
-        return false;
-    }
-    m_boundAnalyzeResult = *result;
-    m_frameAnalysisLayout = result->layout;
-    logAnalyzeBinding(_T("direct"), frame, *result);
-    logAnalysisSamples(_T("direct"), frame, queue);
     return true;
 }
 
@@ -813,19 +910,10 @@ bool RGYFilterDegrain::bindFrameAnalysisData(const RGYFrameInfo *frame, const in
     auto frameAnalysis = rgy_degrain_get_frame_data(frame);
     if (frameAnalysis) {
         const auto result = frameAnalysis->analyzeResult();
-        const auto layout = result.layout;
-        if (result.hasFrameIdentity() && !validateAnalyzeResultFrame(result, frame, currentFrame, _T("attached"), false)) {
+        if (!bindAnalyzeResult(result, frame, currentFrame, _T("attached"), false, queue)) {
             return false;
         }
-        if (!rgy_degrain_layout_equal(layout, m_analysis.layout)) {
-            AddMessage(RGY_LOG_DEBUG, _T("degrain attached MV/SAD layout mismatch; falling back to local analysis.\n"));
-            return false;
-        }
-        m_boundAnalyzeResult = result;
-        m_frameAnalysisLayout = layout;
         m_frameAnalysisData = frameAnalysis;
-        logAnalyzeBinding(_T("attached"), frame, result);
-        logAnalysisSamples(_T("attached"), frame, queue);
         return true;
     }
     return bindDirectAnalyzeResult(frame, currentFrame, queue);
