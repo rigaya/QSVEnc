@@ -116,17 +116,24 @@ static inline uchar4 kfm_analyze_block_render(
 
     for (int tx = 0; tx < 8; ++tx) {
         const int x = xBase + tx;
-        const int y = yBase;
+        const int srcIdx0 = x * pixelStep + pixelOffset + yBase * srcPitchT;
+        const int srcIdx1 = srcIdx0 + srcPitchT;
+        const int srcIdx2 = srcIdx1 + srcPitchT;
+        const int srcIdx3 = srcIdx2 + srcPitchT;
+        const int srcIdx4 = srcIdx3 + srcPitchT;
+        const int srcIdx5 = srcIdx4 + srcPitchT;
+        const int srcIdx6 = srcIdx5 + srcPitchT;
+        const int srcIdx7 = srcIdx6 + srcPitchT;
 
         {
-            const Type T00 = kfm_load_src_render(f0, srcPitchT, x, y + 0, pixelStep, pixelOffset);
-            const Type B00 = kfm_load_src_render(f0, srcPitchT, x, y + 1, pixelStep, pixelOffset);
-            const Type T01 = kfm_load_src_render(f0, srcPitchT, x, y + 2, pixelStep, pixelOffset);
-            const Type B01 = kfm_load_src_render(f0, srcPitchT, x, y + 3, pixelStep, pixelOffset);
-            const Type T02 = kfm_load_src_render(f0, srcPitchT, x, y + 4, pixelStep, pixelOffset);
-            const Type B02 = kfm_load_src_render(f0, srcPitchT, x, y + 5, pixelStep, pixelOffset);
-            const Type T03 = kfm_load_src_render(f0, srcPitchT, x, y + 6, pixelStep, pixelOffset);
-            const Type B03 = kfm_load_src_render(f0, srcPitchT, x, y + 7, pixelStep, pixelOffset);
+            const Type T00 = f0[srcIdx0];
+            const Type B00 = f0[srcIdx1];
+            const Type T01 = f0[srcIdx2];
+            const Type B01 = f0[srcIdx3];
+            const Type T02 = f0[srcIdx4];
+            const Type B02 = f0[srcIdx5];
+            const Type T03 = f0[srcIdx6];
+            const Type B03 = f0[srcIdx7];
             const int tmp = kfm_calc_combe_render(T00, B00, T01, B01, T02, B02, T03, B03);
             if (parity) {
                 sum0 += tmp;
@@ -136,48 +143,48 @@ static inline uchar4 kfm_analyze_block_render(
         }
 
         if (parity) {
-            const Type T10 = kfm_load_src_render(f1, srcPitchT, x, y + 0, pixelStep, pixelOffset);
-            const Type B00 = kfm_load_src_render(f0, srcPitchT, x, y + 1, pixelStep, pixelOffset);
-            const Type T11 = kfm_load_src_render(f1, srcPitchT, x, y + 2, pixelStep, pixelOffset);
-            const Type B01 = kfm_load_src_render(f0, srcPitchT, x, y + 3, pixelStep, pixelOffset);
-            const Type T12 = kfm_load_src_render(f1, srcPitchT, x, y + 4, pixelStep, pixelOffset);
-            const Type B02 = kfm_load_src_render(f0, srcPitchT, x, y + 5, pixelStep, pixelOffset);
-            const Type T13 = kfm_load_src_render(f1, srcPitchT, x, y + 6, pixelStep, pixelOffset);
-            const Type B03 = kfm_load_src_render(f0, srcPitchT, x, y + 7, pixelStep, pixelOffset);
+            const Type T10 = f1[srcIdx0];
+            const Type B00 = f0[srcIdx1];
+            const Type T11 = f1[srcIdx2];
+            const Type B01 = f0[srcIdx3];
+            const Type T12 = f1[srcIdx4];
+            const Type B02 = f0[srcIdx5];
+            const Type T13 = f1[srcIdx6];
+            const Type B03 = f0[srcIdx7];
             sum2 += kfm_calc_combe_render(T10, B00, T11, B01, T12, B02, T13, B03);
         } else {
-            const Type T00 = kfm_load_src_render(f0, srcPitchT, x, y + 0, pixelStep, pixelOffset);
-            const Type B10 = kfm_load_src_render(f1, srcPitchT, x, y + 1, pixelStep, pixelOffset);
-            const Type T01 = kfm_load_src_render(f0, srcPitchT, x, y + 2, pixelStep, pixelOffset);
-            const Type B11 = kfm_load_src_render(f1, srcPitchT, x, y + 3, pixelStep, pixelOffset);
-            const Type T02 = kfm_load_src_render(f0, srcPitchT, x, y + 4, pixelStep, pixelOffset);
-            const Type B12 = kfm_load_src_render(f1, srcPitchT, x, y + 5, pixelStep, pixelOffset);
-            const Type T03 = kfm_load_src_render(f0, srcPitchT, x, y + 6, pixelStep, pixelOffset);
-            const Type B13 = kfm_load_src_render(f1, srcPitchT, x, y + 7, pixelStep, pixelOffset);
+            const Type T00 = f0[srcIdx0];
+            const Type B10 = f1[srcIdx1];
+            const Type T01 = f0[srcIdx2];
+            const Type B11 = f1[srcIdx3];
+            const Type T02 = f0[srcIdx4];
+            const Type B12 = f1[srcIdx5];
+            const Type T03 = f0[srcIdx6];
+            const Type B13 = f1[srcIdx7];
             sum0 += kfm_calc_combe_render(T00, B10, T01, B11, T02, B12, T03, B13);
         }
 
         {
-            const Type T00 = kfm_load_src_render(f0, srcPitchT, x, y + 0, pixelStep, pixelOffset);
-            const Type T10 = kfm_load_src_render(f1, srcPitchT, x, y + 0, pixelStep, pixelOffset);
-            const Type T01 = kfm_load_src_render(f0, srcPitchT, x, y + 2, pixelStep, pixelOffset);
-            const Type T11 = kfm_load_src_render(f1, srcPitchT, x, y + 2, pixelStep, pixelOffset);
-            const Type T02 = kfm_load_src_render(f0, srcPitchT, x, y + 4, pixelStep, pixelOffset);
-            const Type T12 = kfm_load_src_render(f1, srcPitchT, x, y + 4, pixelStep, pixelOffset);
-            const Type T03 = kfm_load_src_render(f0, srcPitchT, x, y + 6, pixelStep, pixelOffset);
-            const Type T13 = kfm_load_src_render(f1, srcPitchT, x, y + 6, pixelStep, pixelOffset);
+            const Type T00 = f0[srcIdx0];
+            const Type T10 = f1[srcIdx0];
+            const Type T01 = f0[srcIdx2];
+            const Type T11 = f1[srcIdx2];
+            const Type T02 = f0[srcIdx4];
+            const Type T12 = f1[srcIdx4];
+            const Type T03 = f0[srcIdx6];
+            const Type T13 = f1[srcIdx6];
             sum1 += kfm_calc_diff_render(T00, T10, T01, T11, T02, T12, T03, T13);
         }
 
         {
-            const Type B00 = kfm_load_src_render(f0, srcPitchT, x, y + 1, pixelStep, pixelOffset);
-            const Type B10 = kfm_load_src_render(f1, srcPitchT, x, y + 1, pixelStep, pixelOffset);
-            const Type B01 = kfm_load_src_render(f0, srcPitchT, x, y + 3, pixelStep, pixelOffset);
-            const Type B11 = kfm_load_src_render(f1, srcPitchT, x, y + 3, pixelStep, pixelOffset);
-            const Type B02 = kfm_load_src_render(f0, srcPitchT, x, y + 5, pixelStep, pixelOffset);
-            const Type B12 = kfm_load_src_render(f1, srcPitchT, x, y + 5, pixelStep, pixelOffset);
-            const Type B03 = kfm_load_src_render(f0, srcPitchT, x, y + 7, pixelStep, pixelOffset);
-            const Type B13 = kfm_load_src_render(f1, srcPitchT, x, y + 7, pixelStep, pixelOffset);
+            const Type B00 = f0[srcIdx1];
+            const Type B10 = f1[srcIdx1];
+            const Type B01 = f0[srcIdx3];
+            const Type B11 = f1[srcIdx3];
+            const Type B02 = f0[srcIdx5];
+            const Type B12 = f1[srcIdx5];
+            const Type B03 = f0[srcIdx7];
+            const Type B13 = f1[srcIdx7];
             sum3 += kfm_calc_diff_render(B00, B10, B01, B11, B02, B12, B03, B13);
         }
     }
