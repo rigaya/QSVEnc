@@ -251,11 +251,12 @@ void RGYFilterRtgmcRetouch::clearTemporalLimitFrames() {
     m_loggedTemporalFallback = false;
 }
 
-void RGYFilterRtgmcRetouch::setTemporalLimitInlineComp(const RGYFrameInfo *ref, const std::array<RGYDegrainCompensateInlineParams, 3> &params) {
+void RGYFilterRtgmcRetouch::setTemporalLimitInlineComp(const RGYFrameInfo *ref, const std::array<RGYDegrainCompensateInlineParams, 3> &params, bool processChroma) {
     m_temporalLimitFrames.ref = ref;
     m_temporalLimitFrames.motionBack = nullptr;
     m_temporalLimitFrames.motionForw = nullptr;
     m_temporalLimitFrames.useInlineComp = true;
+    m_temporalLimitFrames.inlineCompChroma = processChroma;
     m_temporalLimitFrames.inlineCompParams = params;
     m_loggedTemporalFallback = false;
 }
@@ -1039,6 +1040,13 @@ RGY_ERR RGYFilterRtgmcRetouch::processFrame(RGYFrameInfo *pOutputFrame, const RG
         const bool chromaPlane = isRetouchChromaPlane(iplane);
         const int smoothingMode = prm.rtgmc_retouch.precise ? 11 : 12;
         const auto &waitHere = (iplane == 0) ? wait_events : std::vector<RGYOpenCLEvent>();
+        if (chromaPlane && !prm.processChroma) {
+            auto err = launchCopy(pOutputFrame, pInputFrame, iplane, waitHere, (iplane == planes - 1) ? event : nullptr);
+            if (err != RGY_ERR_NONE) {
+                return err;
+            }
+            continue;
+        }
         const auto plan = buildRtgmcRetouchPlan(prm.rtgmc_retouch, chromaPlane, prm.skipPostTR2LimitModes, detailGain);
 
         if (iplane == 0) {
@@ -1279,10 +1287,13 @@ RGY_ERR RGYFilterRtgmcRetouch::processFrame(RGYFrameInfo *pOutputFrame, const RG
                 }
             }
             RGY_ERR err;
-            if (m_temporalLimitFrames.useInlineComp) {
+            const bool useInlineCompForPlane = m_temporalLimitFrames.useInlineComp && (!chromaPlane || m_temporalLimitFrames.inlineCompChroma);
+            if (useInlineCompForPlane) {
                 err = launchLimitSinkInlineComp(altDst, curFrame, refFrame, iplane);
             } else {
-                err = launchLimitSink(altDst, curFrame, baseFrame, refFrame, motionBackFrame, motionForwFrame, iplane);
+                const auto motionBackForPlane = motionBackFrame ? motionBackFrame : refFrame;
+                const auto motionForwForPlane = motionForwFrame ? motionForwFrame : refFrame;
+                err = launchLimitSink(altDst, curFrame, baseFrame, refFrame, motionBackForPlane, motionForwForPlane, iplane);
             }
             if (err != RGY_ERR_NONE) {
                 return err;

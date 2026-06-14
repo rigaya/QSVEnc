@@ -396,6 +396,7 @@ RGY_ERR RGYFilterRtgmc::initSourceMatchCorrectionFilters(const std::shared_ptr<R
         return RGY_ERR_NONE;
     }
     const bool combineCorrectionKernels = rtgmcMatchCorrectionKernelMergeEnabled();
+    const bool processSourceMatchChroma = prm->rtgmc.searchPrefilter.chromaMotion;
 
     auto initOne = [&](RGYFilter *filter, const std::shared_ptr<RGYFilterParam> &param) {
         param->frameIn = frameInfo;
@@ -408,7 +409,7 @@ RGY_ERR RGYFilterRtgmc::initSourceMatchCorrectionFilters(const std::shared_ptr<R
         auto &pass = m_matchCorrectionPasses[stageIdx];
         const int matchTR = (stageIdx == 0) ? prm->rtgmc.matchTR1 : 0;
         pass.fusedCorrectionBuild = combineCorrectionKernels;
-        pass.fusedCorrectionApply = combineCorrectionKernels && matchTR == 0;
+        pass.fusedCorrectionApply = combineCorrectionKernels && matchTR == 0 && processSourceMatchChroma;
         pass.interpolator = std::make_unique<RGYFilterRtgmcEdi>(m_cl);
         {
             auto param = std::make_shared<RGYFilterParamRtgmcEdi>();
@@ -433,6 +434,8 @@ RGY_ERR RGYFilterRtgmc::initSourceMatchCorrectionFilters(const std::shared_ptr<R
             } else {
                 param->op = RGYRtgmcPrimitiveOp::MakeDiff;
             }
+            param->processChroma = processSourceMatchChroma;
+            param->planes = processSourceMatchChroma ? 0x07 : 0x01;
             auto sts = initOne(pass.correctionBuild.get(), param);
             if (sts != RGY_ERR_NONE) return sts;
         }
@@ -441,6 +444,8 @@ RGY_ERR RGYFilterRtgmc::initSourceMatchCorrectionFilters(const std::shared_ptr<R
             auto param = std::make_shared<RGYFilterParamRtgmcPrimitive>();
             param->op = RGYRtgmcPrimitiveOp::RemoveGrain;
             param->mode = 20;
+            param->processChroma = processSourceMatchChroma;
+            param->planes = processSourceMatchChroma ? 0x07 : 0x01;
             auto sts = initOne(pass.correctionSpatialPrepass.get(), param);
             if (sts != RGY_ERR_NONE) return sts;
         }
@@ -464,6 +469,8 @@ RGY_ERR RGYFilterRtgmc::initSourceMatchCorrectionFilters(const std::shared_ptr<R
             pass.correctionApply = std::make_unique<RGYFilterRtgmcPrimitive>(m_cl);
             auto param = std::make_shared<RGYFilterParamRtgmcPrimitive>();
             param->op = RGYRtgmcPrimitiveOp::AddDiff;
+            param->processChroma = processSourceMatchChroma;
+            param->planes = processSourceMatchChroma ? 0x07 : 0x01;
             auto sts = initOne(pass.correctionApply.get(), param);
             if (sts != RGY_ERR_NONE) return sts;
         }
@@ -479,6 +486,7 @@ RGY_ERR RGYFilterRtgmc::initSourceMatchCorrectionFilters(const std::shared_ptr<R
             param->rtgmc_retouch.sovs = 0;
             param->rtgmc_retouch.svthin = 0.0f;
             param->rtgmc_retouch.sbb = 0;
+            param->processChroma = processSourceMatchChroma;
             auto sts = initOne(pass.correctionEnhance.get(), param);
             if (sts != RGY_ERR_NONE) return sts;
         }
@@ -1976,7 +1984,8 @@ RGY_ERR RGYFilterRtgmc::runNestedFilter(size_t filterIdx, RGYFrameInfo *pInputFr
                         combinedParams[p].refForw = compRef->forwardInlineParams[p].refBack;
                         combinedParams[p].refDirForw = compRef->forwardInlineParams[p].refDirBack;
                     }
-                    retouch->setTemporalLimitInlineComp(edi->frame(), combinedParams);
+                    const bool inlineCompChroma = rtgmcParam ? rtgmcParam->rtgmc.tr1.chroma : true;
+                    retouch->setTemporalLimitInlineComp(edi->frame(), combinedParams, inlineCompChroma);
                     usedInlineComp = true;
                 }
             }

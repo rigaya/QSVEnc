@@ -723,7 +723,7 @@ RGY_ERR RGYFilterDegrain::emitCompensateFrame(const RGYFilterDegrainFrameSet &fr
             disableMaskBuf->mem());
     };
 
-    const bool processChroma = degrainCanProcessChroma(frames.cur);
+    const bool processChroma = prm->degrain.chroma && degrainCanProcessChroma(frames.cur);
     const std::array<RGY_PLANE, 3> planes = { RGY_PLANE_Y, RGY_PLANE_U, RGY_PLANE_V };
     auto waitEvents = std::vector<RGYOpenCLEvent>{ copyEvent };
     if (disableMaskEvent && (*disableMaskEvent)() != nullptr) {
@@ -1128,8 +1128,7 @@ RGY_ERR RGYFilterDegrain::emitDegrainFrame(const RGYFilterDegrainFrameSet &frame
         return RGY_ERR_INVALID_CALL;
     }
 
-    // Keep chroma for SAD handling; degrain render should process available YUV chroma planes independently of that option.
-    const bool processChroma = degrainCanProcessChroma(frames.cur);
+    const bool processChroma = prm->degrain.chroma && degrainCanProcessChroma(frames.cur);
     const bool copyDegrainOutput = m_debugEnv.forceDegrainCopy
         || rgy_csp_has_alpha(frames.cur->csp)
         || RGY_CSP_PLANES[frames.cur->csp] != (processChroma ? 3 : 1)

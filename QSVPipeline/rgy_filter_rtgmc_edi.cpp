@@ -543,9 +543,7 @@ RGY_ERR RGYFilterRtgmcEdi::initNnediAdapterState(NnediAdapterState &state, const
     nnedi->nnedi.quality = (VppNnediQuality)(chroma ? VPP_NNEDI_QUALITY_FAST : prm->ediqual);
     nnedi->nnedi.processPlane = chroma
         ? std::array<bool, 4>{ false, true, true, false }
-        : (prm->chromaEdi == VppRtgmcChromaEdiMode::NNEDI3
-            ? std::array<bool, 4>{ true, false, false, false }
-            : std::array<bool, 4>{ true, true, true, false });
+        : std::array<bool, 4>{ true, false, false, false };
     nnedi->nnedi.prescreen = 2;
     nnedi->nnedi.errortype = VPP_NNEDI_ETYPE_ABS;
     nnedi->nnedi.clamp = 1;
@@ -895,10 +893,12 @@ RGY_ERR RGYFilterRtgmcEdi::runNnediAdapter(const RGYFrameInfo *pBobInputFrame, c
     }
 
     RGYOpenCLEvent copyEvent;
-    auto err = m_cl->copyFrame(&pOutFrame->frame, mainFrame, nullptr, queue,
-        (mainEvent() != nullptr) ? std::vector<RGYOpenCLEvent>{ mainEvent } : std::vector<RGYOpenCLEvent>(), &copyEvent, RGYFrameCopyMode::FRAME, "rtgmc_edi.output_copy");
+    auto dstY = getPlane(&pOutFrame->frame, RGY_PLANE_Y);
+    const auto srcY = getPlane(mainFrame, RGY_PLANE_Y);
+    auto err = m_cl->copyPlane(&dstY, &srcY, nullptr, queue,
+        (mainEvent() != nullptr) ? std::vector<RGYOpenCLEvent>{ mainEvent } : std::vector<RGYOpenCLEvent>(), &copyEvent);
     if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to copy rtgmc-edi NNEDI adapter output: %s.\n"), get_err_mes(err));
+        AddMessage(RGY_LOG_ERROR, _T("failed to copy rtgmc-edi NNEDI adapter luma output: %s.\n"), get_err_mes(err));
         return err;
     }
 
@@ -922,6 +922,23 @@ RGY_ERR RGYFilterRtgmcEdi::runNnediAdapter(const RGYFrameInfo *pBobInputFrame, c
             err = m_cl->copyPlane(&dstPlane, &srcPlane, nullptr, queue, chromaWaitEvents, &planeEvent);
             if (err != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to copy rtgmc-edi NNEDI chroma plane %d: %s.\n"), iplane, get_err_mes(err));
+                return err;
+            }
+            finalCopyEvent = planeEvent;
+        }
+    } else {
+        const int chromaPlanes = std::min(3, (int)RGY_CSP_PLANES[pOutFrame->frame.csp]);
+        for (int iplane = 1; iplane < chromaPlanes; iplane++) {
+            auto dstPlane = getPlane(&pOutFrame->frame, (RGY_PLANE)iplane);
+            const auto srcPlane = getPlane(pBobInputFrame, (RGY_PLANE)iplane);
+            if (dstPlane.ptr[0] == nullptr || srcPlane.ptr[0] == nullptr) {
+                continue;
+            }
+            RGYOpenCLEvent planeEvent;
+            err = m_cl->copyPlane(&dstPlane, &srcPlane, nullptr, queue,
+                (finalCopyEvent() != nullptr) ? std::vector<RGYOpenCLEvent>{ finalCopyEvent } : std::vector<RGYOpenCLEvent>(), &planeEvent);
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to copy rtgmc-edi bob chroma plane %d: %s.\n"), iplane, get_err_mes(err));
                 return err;
             }
             finalCopyEvent = planeEvent;

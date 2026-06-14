@@ -840,7 +840,7 @@ RGY_ERR RGYFilterDegrain::buildCompensateInlineParams(std::array<RGYDegrainCompe
     const auto disableRefsArray = analysisAvailabilityDisableRefs(frames);
     const uint32_t disableMask = degrainInlineDisableMask(disableRefsArray, layout.temporalDirections);
     const uint32_t compensateThSad = std::numeric_limits<uint32_t>::max();
-    const bool processChroma = degrainInlineCanProcessChroma(frames.cur);
+    const bool processChroma = prm->degrain.chroma && degrainInlineCanProcessChroma(frames.cur);
 
     auto ensureRamp = [&](RGYDegrainWindowRampState &state, const int planeScaleX, const int planeScaleY) -> RGY_ERR {
         const int planeOverlapX = std::max(layout.overlap / std::max(planeScaleX, 1), 0);
@@ -973,7 +973,7 @@ RGY_ERR RGYFilterDegrain::drainBuildInlineParams(std::array<RGYDegrainCompensate
     const auto disableRefsArray = analysisAvailabilityDisableRefs(frames);
     const uint32_t disableMask = degrainInlineDisableMask(disableRefsArray, layout.temporalDirections);
     const uint32_t compensateThSad = std::numeric_limits<uint32_t>::max();
-    const bool processChroma = degrainInlineCanProcessChroma(frames.cur);
+    const bool processChroma = prm->degrain.chroma && degrainInlineCanProcessChroma(frames.cur);
 
     auto ensureRamp = [&](RGYDegrainWindowRampState &state, const int planeScaleX, const int planeScaleY) -> RGY_ERR {
         const int planeOverlapX = std::max(layout.overlap / std::max(planeScaleX, 1), 0);
