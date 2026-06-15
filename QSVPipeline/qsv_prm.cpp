@@ -312,6 +312,7 @@ sInputParams::sInputParams() :
     nWeightB(0),
     nFadeDetect(),
     fallbackRC(true),
+    workaroundHevc10bitEnctools(true),
     bOutputAud(false),
     bOutputPicStruct(false),
     bufPeriodSEI(false),

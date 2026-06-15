@@ -68,6 +68,7 @@
   - [--vcm \<int\> (VCM, Video Conference Mode)](#--vcm-int-vcm-video-conference-mode)
   - [--qvbr \<int\>, --qvbr-q \<int\> (QVBR, Quality based VBR mode)](#--qvbr-int---qvbr-q-int-qvbr-quality-based-vbr-mode)
   - [--fallback-rc](#--fallback-rc)
+  - [--workaround-hevc10bit-enctools / --no-workaround-hevc10bit-enctools](#--workaround-hevc10bit-enctools----no-workaround-hevc10bit-enctools)
 - [Options for Frame Buffer](#options-for-frame-buffer)
   - [--disable-d3d (Win)](#--disable-d3d-win)
   - [--disable-va (Linux)](#--disable-va-linux)
@@ -647,6 +648,12 @@ Encode in bitrate specified with "--qvbr", based on quality specified by "--qvbr
 
 ### --fallback-rc
 Enable fallback of ratecontrol mode, when platform does not support new ratecontrol modes.
+
+### --workaround-hevc10bit-enctools / --no-workaround-hevc10bit-enctools
+
+Workaround for image corruption when using EncTools related options (--scenario-info, --extbrc, --tune) with 10bit HEVC FF encoding on iGPUs older than or equal to AlderLake.
+
+When enabled, automatically disables the above options with a warning on affected GPU generations. Enabled by default.
 
 **Selecting Encode modes**  
 CBR, VBR, AVBR are rather basic encoding modes, and although they are fast, the quality tends to be poor.

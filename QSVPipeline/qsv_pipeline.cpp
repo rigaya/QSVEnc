@@ -769,6 +769,49 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         pInParams->nLookaheadDepth = 0;
     }
 #endif
+    // 10bit HEVC FF + EncTools workaround for older iGPUs
+    if (pInParams->workaroundHevc10bitEnctools
+        && pInParams->codec == RGY_CODEC_HEVC
+        && encodeBitDepth > 8
+        && pInParams->functionMode == QSVFunctionMode::FF) {
+
+        bool applyWorkaround = false;
+        const auto cpuGen = m_device->CPUGen();
+
+        // dGPUは問題なし
+        if (m_device->adapterType() == MFX_MEDIA_DISCRETE) {
+            applyWorkaround = false;
+        } else if (cpuGen == CPU_GEN_DG2 || cpuGen == CPU_GEN_ATS_M
+                || cpuGen == CPU_GEN_ARCTICSOUND_P || cpuGen == CPU_GEN_XEHP_SDV) {
+            applyWorkaround = false;
+        } else if (cpuGen == CPU_GEN_UNKNOWN) {
+            // unknownの場合はAV1エンコード対応で判定
+            auto av1Feature = m_device->getEncodeFeature(MFX_RATECONTROL_CQP, RGY_CODEC_AV1, true);
+            applyWorkaround = !(av1Feature & ENC_FEATURE_CURRENT_RC);
+        } else if (cpuGen >= CPU_GEN_METEORLAKE) {
+            // MeteorLake以降はAV1対応世代なので問題なし
+            applyWorkaround = false;
+        } else {
+            // AlderLake以前のiGPU
+            applyWorkaround = true;
+        }
+
+        if (applyWorkaround) {
+            if (pInParams->scenarioInfo != MFX_SCENARIO_UNKNOWN) {
+                PrintMes(RGY_LOG_WARN, _T("--scenario-info is disabled for 10bit HEVC FF encoding on this GPU to avoid image corruption.\n"));
+                pInParams->scenarioInfo = MFX_SCENARIO_UNKNOWN;
+            }
+            if (pInParams->extBRC.value_or(false)) {
+                PrintMes(RGY_LOG_WARN, _T("--extbrc is disabled for 10bit HEVC FF encoding on this GPU to avoid image corruption.\n"));
+                pInParams->extBRC.reset();
+            }
+            if (pInParams->tuneQuality != MFX_ENCODE_TUNE_OFF) {
+                PrintMes(RGY_LOG_WARN, _T("--tune is disabled for 10bit HEVC FF encoding on this GPU to avoid image corruption.\n"));
+                pInParams->tuneQuality = MFX_ENCODE_TUNE_OFF;
+            }
+        }
+    }
+
     //その他機能のチェック
     if (pInParams->bAdaptiveI.value_or(false) && !(availableFeaures & ENC_FEATURE_ADAPTIVE_I)) {
         PrintMes(RGY_LOG_WARN, _T("Adaptve I-frame insert is not supported on current platform, disabled.\n"));

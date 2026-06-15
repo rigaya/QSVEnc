@@ -330,6 +330,10 @@ tstring encoder_help() {
     str += strsprintf(_T("Other Encode Options:\n")
         _T("   --fallback-rc                enable fallback of ratecontrol mode, when\n")
         _T("                                 platform does not support new ratecontrol modes.\n")
+        _T("   --(no-)workaround-hevc10bit-enctools\n")
+        _T("                                disable enctools related features for 10bit\n")
+        _T("                                HEVC FF encoding on older GPUs to avoid\n")
+        _T("                                image corruption. enabled by default.\n")
         _T("-a,--async-depth                set async depth for QSV pipeline.\n")
         _T("                                 default: 0 (=auto, %d)\n")
         _T("   --max-bitrate <int>          set max bitrate(kbps)\n")
@@ -1382,6 +1386,14 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     }
     if (0 == _tcscmp(option_name, _T("no-fallback-rc"))) {
         pParams->fallbackRC = false;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("workaround-hevc10bit-enctools"))) {
+        pParams->workaroundHevc10bitEnctools = true;
+        return 0;
+    }
+    if (0 == _tcscmp(option_name, _T("no-workaround-hevc10bit-enctools"))) {
+        pParams->workaroundHevc10bitEnctools = false;
         return 0;
     }
     if (   0 == _tcscmp(option_name, _T("max-bitrate"))
@@ -2593,6 +2605,7 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm, RGYDisableG
     }
     OPT_NUM(_T("--vbv-bufsize"), rcParam.vbvBufSize);
     OPT_BOOL(_T("--fallback-rc"), _T("--no-fallback-rc"), fallbackRC);
+    OPT_BOOL(_T("--workaround-hevc10bit-enctools"), _T("--no-workaround-hevc10bit-enctools"), workaroundHevc10bitEnctools);
     OPT_QP(_T("--qp-min"), qpMin, save_disabled_prm);
     OPT_QP(_T("--qp-max"), qpMax, save_disabled_prm);
     if (memcmp(pParams->pQPOffset, encPrmDefault.pQPOffset, sizeof(encPrmDefault.pQPOffset))) {

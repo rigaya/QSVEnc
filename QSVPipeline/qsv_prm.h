@@ -399,6 +399,7 @@ struct sInputParams {
     std::optional<bool> nFadeDetect;
 
     bool       fallbackRC;
+    bool       workaroundHevc10bitEnctools;
     bool       bOutputAud;
     bool       bOutputPicStruct;
     bool       bufPeriodSEI;
