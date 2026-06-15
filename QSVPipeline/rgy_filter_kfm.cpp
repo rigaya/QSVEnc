@@ -720,7 +720,7 @@ void RGYFilterKfm::KfmRtgmcLane::trim(int n60floor, size_t cacheLimit) {
     while (!m_cache.empty() && m_cache.front().n60 < n60floor) {
         m_cache.pop_front();
     }
-    while (m_cache.size() > cacheLimit && !m_cache.empty() && m_cache.front().n60 < n60floor) {
+    while (m_cache.size() > cacheLimit && !m_cache.empty()) {
         m_cache.pop_front();
     }
 }
@@ -955,7 +955,7 @@ void RGYFilterKfm::trimSourceCache(RGYOpenCLQueue &queue) {
         m_sourceCache.pop_front();
     }
     const auto cacheLimit = sourceCacheLimit();
-    while (m_sourceCache.size() > cacheLimit && !m_sourceCache.empty() && m_sourceCache.front().sourceIndex < trimFloor) {
+    while (m_sourceCache.size() > cacheLimit && !m_sourceCache.empty()) {
         retireKfmSourceSlot(std::move(m_sourceCache.front().slot), queue);
         m_sourceCache.pop_front();
     }
@@ -968,7 +968,7 @@ void RGYFilterKfm::trimDeint60Cache(std::deque<KfmCachedDeint60>& cache) {
         cache.pop_front();
     }
     const auto cacheLimit = deint60CacheLimit();
-    while (cache.size() > cacheLimit && !cache.empty() && cache.front().n60 < trimFloor) {
+    while (cache.size() > cacheLimit && !cache.empty()) {
         cache.pop_front();
     }
 }
@@ -7217,6 +7217,7 @@ void RGYFilterKfm::close() {
     m_deint60Lane.init(this, nullptr, "deint60", _T("deint60 cache"), true);
     m_before60Lane.init(this, nullptr, "before60", _T("before60"), false);
     m_after60Lane.init(this, nullptr, "after60", _T("after60"), false);
+    m_deint60IntermediateQueue.clear();
     m_ucfNoiseCache.clear();
     clearKfmSourceSlotPool(true);
     if (m_kfmFramePool) {

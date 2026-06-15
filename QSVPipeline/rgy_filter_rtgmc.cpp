@@ -695,6 +695,11 @@ RGY_ERR RGYFilterRtgmc::cacheSourceFrame(const RGYFrameInfo *frame, RGYOpenCLQue
     if (m_sharedAnalysisMode) {
         return RGY_ERR_NONE;
     }
+    const auto capacity = sourceCacheCapacity();
+    if (capacity <= 0) {
+        return RGY_ERR_NONE;
+    }
+    m_sourceCacheNext %= (int)capacity;
     auto &entry = m_sourceCache[m_sourceCacheNext];
     if (!entry.frame || cmpFrameInfoCspResolution(&entry.frame->frame, frame)) {
         entry.frame = m_cl->createFrameBuffer(*frame);
@@ -712,7 +717,7 @@ RGY_ERR RGYFilterRtgmc::cacheSourceFrame(const RGYFrameInfo *frame, RGYOpenCLQue
     copyFramePropWithoutRes(&entry.frame->frame, frame);
     entry.key = RtgmcFrameKey(frame);
     entry.event = copyEvent;
-    m_sourceCacheNext = (m_sourceCacheNext + 1) % (int)m_sourceCache.size();
+    m_sourceCacheNext = (m_sourceCacheNext + 1) % (int)capacity;
     return RGY_ERR_NONE;
 }
 
@@ -761,6 +766,11 @@ int RGYFilterRtgmc::sourceFieldForFrame(const RGYFrameInfo *frame) const {
     return (frame->timestamp >= cached->key.timestamp + halfDuration)
         ? (tff ? 1 : 0)
         : (tff ? 0 : 1);
+}
+
+size_t RGYFilterRtgmc::sourceCacheCapacity() const {
+    const auto requiredFrames = requiredPrimingSourceFrames() + RGY_RTGMC_MAX_OUT_FRAMES + RGY_RTGMC_MAX_RETURN_FRAMES;
+    return std::min(m_sourceCache.size(), (size_t)std::max(8, requiredFrames));
 }
 
 void RGYFilterRtgmc::storeEdiReference(const RGYFrameInfo *frame, const std::shared_ptr<RGYFrameDataRtgmcEdi> &edi, const RGYOpenCLEvent &event) {

@@ -219,6 +219,7 @@ protected:
     RGY_ERR cacheSourceFrame(const RGYFrameInfo *frame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
     const RGYFrameInfo *findCachedSourceFrame(const RGYFrameInfo *frame, std::vector<RGYOpenCLEvent> *wait_events);
     int sourceFieldForFrame(const RGYFrameInfo *frame) const;
+    size_t sourceCacheCapacity() const;
     RGY_ERR storePostLimitBaseReference(const RGYFrameInfo *frame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
     RtgmcPendingFrameRef *findPostLimitBaseReference(const RGYFrameInfo *frame);
     void clearPostLimitBaseReference(const RGYFrameInfo *frame);

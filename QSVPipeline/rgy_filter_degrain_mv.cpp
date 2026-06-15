@@ -122,8 +122,8 @@ std::unique_ptr<RGYCLBuf> RGYDegrainBufferPool::acquire(size_t size, cl_mem_flag
             }
             m_buffers.erase(stale);
         }
+        m_knownSizes.push_back(sizeKey);
     }
-    m_knownSizes.push_back(sizeKey);
     return m_cl->createBuffer(size, flags);
 }
 
