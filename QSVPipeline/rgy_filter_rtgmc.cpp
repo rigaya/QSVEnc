@@ -456,6 +456,7 @@ RGY_ERR RGYFilterRtgmc::initSourceMatchCorrectionFilters(const std::shared_ptr<R
             pass.correctionTemporalFilter = std::make_unique<RGYFilterDegrain>(m_cl);
             auto param = std::make_shared<RGYFilterParamDegrain>();
             param->degrain = (stageIdx == 0) ? prm->rtgmc.tr1 : prm->rtgmc.tr2;
+            param->degrain.chroma = processSourceMatchChroma;
             if (param->degrain.overlap != 0 && param->degrain.overlap * 2 != param->degrain.blksize) {
                 AddMessage(RGY_LOG_WARN,
                     _T("source-match correction overlap=%d is adjusted to %d because the current Degrain backend supports overlap=0 or blksize/2.\n"),
