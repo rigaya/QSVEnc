@@ -1227,11 +1227,7 @@ QSVEncFeatures CheckEncodeFeature(MFXVideoSession& session, const int ratecontro
             result &= ~ENC_FEATURE_MBBRC;
             result &= ~ENC_FEATURE_EXT_BRC;
         }
-        //Kabylake以前では、不安定でエンコードが途中で終了あるいはフリーズしてしまう
         const auto cpu_gen = getCPUGen(&session);
-        if ((result & ENC_FEATURE_FADE_DETECT) && cpu_gen < CPU_GEN_KABYLAKE) {
-            result &= ~ENC_FEATURE_FADE_DETECT;
-        }
         //Kabylake以降では、10bit depthに対応しているはずだが、これが正常に判定されないことがある
         if (codec == RGY_CODEC_HEVC && cpu_gen >= CPU_GEN_KABYLAKE) {
             result |= ENC_FEATURE_10BIT_DEPTH;

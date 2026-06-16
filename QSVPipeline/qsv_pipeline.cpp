@@ -948,9 +948,30 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
 #if !ENABLE_FADE_DETECT
     if (pInParams->nFadeDetect.value_or(false)) {
         PrintMes(RGY_LOG_WARN, _T("fade-detect will be disabled due to instability.\n"));
-        pInParams->nFadeDetect = MFX_CODINGOPTION_OFF;
+        pInParams->nFadeDetect = false;
     }
 #endif
+    if (pInParams->nFadeDetect.value_or(false)) {
+        bool disableFadeDetect = false;
+        const auto cpuGen = m_device->CPUGen();
+        if (m_device->adapterType() == MFX_MEDIA_DISCRETE) {
+            disableFadeDetect = false;
+        } else if (cpuGen == CPU_GEN_DG2 || cpuGen == CPU_GEN_ATS_M
+                || cpuGen == CPU_GEN_ARCTICSOUND_P || cpuGen == CPU_GEN_XEHP_SDV) {
+            disableFadeDetect = false;
+        } else if (cpuGen == CPU_GEN_UNKNOWN) {
+            const auto av1Feature = m_device->getEncodeFeature(MFX_RATECONTROL_CQP, RGY_CODEC_AV1, true);
+            disableFadeDetect = !(av1Feature & ENC_FEATURE_CURRENT_RC);
+        } else if (cpuGen >= CPU_GEN_METEORLAKE) {
+            disableFadeDetect = false;
+        } else {
+            disableFadeDetect = true;
+        }
+        if (disableFadeDetect) {
+            PrintMes(RGY_LOG_WARN, _T("--fade-detect is disabled on this GPU due to known instability. ( #301 )\n"));
+            pInParams->nFadeDetect = false;
+        }
+    }
     if (pInParams->nFadeDetect.value_or(false) && !(availableFeaures & ENC_FEATURE_FADE_DETECT)) {
         print_feature_warnings(RGY_LOG_WARN, _T("FadeDetect"));
         pInParams->nFadeDetect.reset();
