@@ -382,6 +382,7 @@ RGY_ERR RGYFilterResize::resizeFrameNisCascade(RGYFrameInfo *pOutputFrame, const
     const bool optSlm     = (optMode == RGY_NIS_OPT_FAST);
     const int numPlanes = RGY_CSP_PLANES[pOutputFrame->csp];
     const RGYFrameInfo *srcFrame = pInputFrame;
+    const std::vector<RGYOpenCLEvent> no_wait;
     for (int stage = 0; stage < N; stage++) {
         const bool finalStage = (stage == N - 1);
         // USM applies on the final stage always. On intermediates, the
@@ -396,7 +397,7 @@ RGY_ERR RGYFilterResize::resizeFrameNisCascade(RGYFrameInfo *pOutputFrame, const
             auto planeSrc = getPlane(srcFrame, (RGY_PLANE)p);
             const bool firstPlaneFirstStage = (stage == 0 && p == 0);
             const bool lastPlaneLastStage   = (finalStage && p == numPlanes - 1);
-            const std::vector<RGYOpenCLEvent> &plane_wait = firstPlaneFirstStage ? wait_events : std::vector<RGYOpenCLEvent>();
+            const auto& plane_wait = firstPlaneFirstStage ? wait_events : no_wait;
             RGYOpenCLEvent *plane_event = lastPlaneLastStage ? event : nullptr;
             auto err = resizePlaneNis(&planeDst, &planeSrc, cfgMem, applyUsm, optSlm, queue, plane_wait, plane_event);
             if (err != RGY_ERR_NONE) {
