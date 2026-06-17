@@ -626,7 +626,7 @@ int parse_one_vppmfx_option(const TCHAR *option_name, const TCHAR *strInput[], i
                 if (std::find_if(paramListResizeNis.begin(), paramListResizeNis.end(), [param_arg](const std::string& str) {
                     return param_arg == char_to_tstring(str);
                     }) != paramListResizeNis.end()) {
-                    ret = -1; // rgy_cmd.cppで処理する (NIS 43_)
+                    ret = -1; // rgy_cmd.cppで処理する
                     continue;
                 }
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);

@@ -567,7 +567,7 @@ RGYFilterResize::RGYResizeGaussPlane::RGYResizeGaussPlane() :
     tmp() {
 }
 
-RGYFilterResize::RGYFilterResize(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_bInterlacedWarn(false), m_weightSpline(), m_gauss2pass(), m_libplaceboResample(), m_easuOutput(), m_easuOutputF16(), m_easuOutputF16Width{}, m_easuOutputF16Height{}, m_fp16Easu(false), m_nisConfigBuf(), m_nisCoefScale(), m_nisCoefUsm(), m_resize(), m_srcImagePool() {
+RGYFilterResize::RGYFilterResize(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_bInterlacedWarn(false), m_weightSpline(), m_gauss2pass(), m_libplaceboResample(), m_easuOutput(), m_easuOutputF16(), m_easuOutputF16Width{}, m_easuOutputF16Height{}, m_fp16Easu(false), m_nisCoefScale(), m_nisCoefUsm(), m_resize(), m_srcImagePool() {
     m_name = _T("resize");
 }
 
@@ -723,6 +723,10 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
             const float ratioX = outW / inW;
             const float ratioY = outH / inH;
             const float maxRatio = std::max(ratioX, ratioY);
+            if (ratioX < 1.0f || ratioY < 1.0f) {
+                AddMessage(RGY_LOG_ERROR, _T("NIS only supports upscale. Requested %.2fx%.2f.\n"), ratioX, ratioY);
+                return RGY_ERR_UNSUPPORTED;
+            }
 
             int stages = 1;
             if (maxRatio > 2.0f) {
@@ -738,11 +742,11 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
             }
 
             const int hdrMode = nisResolveHdrMode(pResizeParam.get());
-            // Per-stage scale factor (geometric distribution). For N=1
-            // this is just the full ratio; for N>=2 each stage scales
-            // by maxRatio^(1/N), so the cumulative product hits the
-            // requested output dims at the final stage.
-            const float perStageRatio = std::pow(maxRatio, 1.0f / (float)stages);
+            // Per-stage scale factors (geometric distribution). For N=1
+            // these are just the full ratios; for N>=2 each axis reaches
+            // the requested output size without overscaling the smaller axis.
+            const float perStageRatioX = std::pow(ratioX, 1.0f / (float)stages);
+            const float perStageRatioY = std::pow(ratioY, 1.0f / (float)stages);
 
             // (Re-)allocate cfg buffers and intermediate frames.
             m_nisCascadeCfgs.clear();
@@ -759,8 +763,8 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
                     nextW = pResizeParam->frameOut.width;
                     nextH = pResizeParam->frameOut.height;
                 } else {
-                    nextW = (int)std::round((float)pResizeParam->frameIn.width  * std::pow(perStageRatio, (float)(k + 1)));
-                    nextH = (int)std::round((float)pResizeParam->frameIn.height * std::pow(perStageRatio, (float)(k + 1)));
+                    nextW = std::max(curW, (int)std::round((float)pResizeParam->frameIn.width  * std::pow(perStageRatioX, (float)(k + 1))));
+                    nextH = std::max(curH, (int)std::round((float)pResizeParam->frameIn.height * std::pow(perStageRatioY, (float)(k + 1))));
                 }
                 NISConfigHost cfg{};
                 const bool ok = nisBuildConfig(cfg,
@@ -768,7 +772,8 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
                     0, 0, (uint32_t)curW, (uint32_t)curH,
                     0, 0, (uint32_t)nextW, (uint32_t)nextH);
                 if (!ok) {
-                    AddMessage(RGY_LOG_DEBUG, _T("NIS stage %d: scale outside 1x-2x (cfg accepted, kernel uses kScale as-is).\n"), k);
+                    AddMessage(RGY_LOG_ERROR, _T("NIS stage %d scale is outside 1x-2x: %dx%d -> %dx%d.\n"), k, curW, curH, nextW, nextH);
+                    return RGY_ERR_UNSUPPORTED;
                 }
                 if (!finalStage) {
                     // Intermediate stages: zero USM so only the final
@@ -803,15 +808,11 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
                 curW = nextW;
                 curH = nextH;
             }
-            // Keep m_nisConfigBuf pointing at the final stage's config
-            // for any single-config diagnostic paths.
-            m_nisConfigBuf = nullptr;  // explicit: cascade owns the cfgs now
             AddMessage(RGY_LOG_DEBUG, _T("NIS init: %d stage(s), sharpness=%.2f, hdrMode=%d, cascade=%s.\n"),
                 stages, pResizeParam->nis.sharpness, hdrMode,
                 pResizeParam->nis.cascade == RGY_NIS_CASCADE_AUTO ? _T("auto") :
                 pResizeParam->nis.cascade == RGY_NIS_CASCADE_ON   ? _T("on")   : _T("off"));
         } else {
-            m_nisConfigBuf.reset();
             m_nisCoefScale.reset();
             m_nisCoefUsm.reset();
             m_nisCascadeCfgs.clear();
@@ -1017,7 +1018,6 @@ void RGYFilterResize::close() {
     m_easuOutputF16Width.fill(0);
     m_easuOutputF16Height.fill(0);
     m_fp16Easu = false;
-    m_nisConfigBuf.reset();
     m_nisCoefScale.reset();
     m_nisCoefUsm.reset();
     m_nisCascadeCfgs.clear();

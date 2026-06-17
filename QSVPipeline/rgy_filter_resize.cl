@@ -26,6 +26,10 @@
 #define clamp(x, low, high) (((x) <= (high)) ? (((x) >= (low)) ? (x) : (low)) : (high))
 #endif
 
+#if defined(FSR1_FP16_SCRATCH) && FSR1_FP16_SCRATCH
+#pragma OPENCL EXTENSION cl_khr_fp16 : enable
+#endif
+
 __kernel void kernel_resize_texture_bilinear(
     __global uchar *restrict pDst,
     const int dstPitch, const int dstWidth, const int dstHeight,
@@ -893,36 +897,15 @@ __kernel void kernel_nis_scaler(
     ptr[0] = (Type)(clamp(result * maxv, 0.0f, maxv) + 0.5f);
 }
 
-// === Perf 3 opt=gather kernel removed 2026-06-11 after A/B audit ===
-// Shared 6x6 source gather between K4 and K5 measured -1.1% LOSS at
-// 1500 frames on Arc A770 (private 6x6 float array adds register
-// pressure; the L1 cache already keeps the K4 neighbourhood hot
-// for K5's re-fetch). Implementation in git history.
-//
-// === Perf 4 opt=separable kernels removed 2026-06-11 ===
-// 2-pass H+V scaler with float intermediate measured -0.01% WASH at
-// 1500 frames on Arc A770 (the math reduction from 36 to 12 taps was
-// wiped out by the intermediate buffer roundtrip cost). Output was
-// not bit-equivalent (intermediate rounding). Implementation in git
-// history.
-//
-// Below: only the winning K4-only + SLM kernels remain.
-
-
 // Cooperative SLM tile load for opt=fast.
 // Each work-group loads its source neighbourhood + 6-tap halo into
 // __local memory, then all threads in the group compute their
 // polyphase output from the cached tile. Saves the per-thread global
-// memory load count if the source tile would otherwise miss L1
-// (typical for large work-group counts).
+// memory load count if the source tile would otherwise miss L1.
 //
 // Tile size: NIS_BLOCK_W=32, NIS_BLOCK_H=8, kScale in [0.5, 1.0]
 //   max source span = 32 * 1.0 + 6 = 38 (width), 8 * 1.0 + 6 = 14 (height)
-// Round up to 40 x 32 for safety. As float = 5 KB SLM per work-group;
-// Arc A770 has 64 KB SLM total so plenty of concurrent groups fit.
-//
-// BM3D precedent (opt=slm LOST): Arc A770 L1 already caches small
-// windows. Likely loss expected here too; testing for data.
+// Round up to 40 x 32 for safety.
 #define NIS_SLM_TILE_W 40
 #define NIS_SLM_TILE_H 32
 

@@ -96,9 +96,7 @@ protected:
     // into N stages of <=2x each. Each stage has its own NISConfig
     // (different kScale) and an intermediate output buffer; only the
     // final stage applies USM (intermediate stages zero out
-    // kSharpStrength* so the band-gated USM term contributes 0). The
-    // single-stage path keeps m_nisConfigBuf == m_nisCascadeCfgs[0].
-    std::unique_ptr<RGYCLBuf> m_nisConfigBuf;
+    // kSharpStrength* so the band-gated USM term contributes 0).
     std::unique_ptr<RGYCLBuf> m_nisCoefScale;
     std::unique_ptr<RGYCLBuf> m_nisCoefUsm;
     std::vector<std::unique_ptr<RGYCLBuf>>   m_nisCascadeCfgs;
