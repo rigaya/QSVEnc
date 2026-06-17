@@ -314,16 +314,17 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
-2026.06.14 (8.16)
+2026.06.17 (8.16)
 [QSVEncC]
 - SoftLightフィルタ --vpp-softlight を追加。
 - DetailSharpenフィルタ --vpp-detailsharpen を追加。
-- --vpp-kfm の処理を改善。
-- --vpp-degrain, --vpp-rtgmc の高速化。
+- AlderLake以前のiGPUで10bit HEVC FFの場合にEncToolsを自動で無効化して画像破綻回避するように。
+- fade-detectの不安定環境での自動無効化を拡大。( #301 )
+- --vpp-kfm, --vpp-rtgmc, --vpp-degrain の処理を高速化。
+- --vpp-kfm, --vpp-rtgmc のGPUメモリ確保を削減。
 - --vpp-edgelevel, --vpp-dehalo, --vpp-knn の高速化。
-- GPUメモリ確保のオーバーヘッドを削減。
 - libavformatが負のptsを返す場合に音ズレしてしまう場合があったのを修正。
-- --chromaloc が期待通り動作しない場合があったのを修正。 ( #298 )
+- --chromaloc が期待通り動作しない場合があったのを修正。( #298 )
 
 2026.06.06 (8.15)
 [QSVEncC]

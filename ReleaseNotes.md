@@ -4,11 +4,11 @@
 
 - Add [--vpp-softlight](./QSVEncC_Options.en.md#--vpp-softlight-param1value1param2value2) soft light filter.
 - Add [--vpp-detailsharpen](./QSVEncC_Options.en.md#--vpp-detailsharpen-param1value1param2value2) detail sharpen filter.
-- Improve [--vpp-kfm](./QSVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) processing.
-- Speed up [--vpp-degrain](./QSVEncC_Options.en.md#--vpp-degrain-param1value1).
-- Speed up [--vpp-rtgmc](./QSVEncC_Options.en.md#--vpp-rtgmc-param1value1).
-- Speed up [--vpp-edgelevel](./QSVEncC_Options.en.md#--vpp-edgelevel-param1value1param2value2), [--vpp-dehalo](./QSVEncC_Options.en.md#--vpp-dehalo-param1value1param2value2), and [--vpp-knn](./QSVEncC_Options.en.md#--vpp-knn-param1value1param2value2).
-- Reduce GPU memory allocation overhead.
+- Auto disable enctools related option to workaround image corruption with 10bit HEVC FF + EncTools on iGPUs up to AlderLake.
+- Auto disable [--fade-detect](./QSVEncC_Options.en.md#--fade-detect) in unstable environments. ( #301 )
+- Optimize [--vpp-kfm](./QSVEncC_Options.en.md#--vpp-kfm-param1value1param2value2), [--vpp-rtgmc](./QSVEncC_Options.en.md#--vpp-rtgmc-param1value1) and [--vpp-degrain](./QSVEncC_Options.en.md#--vpp-degrain-param1value1).
+- Reduce GPU memory allocation of [--vpp-kfm](./QSVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) and [--vpp-rtgmc](./QSVEncC_Options.en.md#--vpp-rtgmc-param1value1).
+- Optimize [--vpp-edgelevel](./QSVEncC_Options.en.md#--vpp-edgelevel-param1value1param2value2), [--vpp-dehalo](./QSVEncC_Options.en.md#--vpp-dehalo-param1value1param2value2), and [--vpp-knn](./QSVEncC_Options.en.md#--vpp-knn-param1value1param2value2).
 - Fix audio sync issue when input has negative pts from libavformat.
 - Fix [--chromaloc](./QSVEncC_Options.en.md#--chromaloc-int-or-auto) not working as expected. ( #298 )
 
