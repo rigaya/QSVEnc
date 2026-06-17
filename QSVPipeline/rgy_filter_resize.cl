@@ -499,6 +499,65 @@ __kernel void kernel_resize(
     }
 }
 
+#if JINC_KERNEL_ENABLED
+#define JINC_LUT_SIZE 1024
+
+__kernel void kernel_resize_jinc(
+    __global uchar *restrict pDst, const int dstPitch, const int dstWidth, const int dstHeight,
+    __global const uchar *restrict pSrc, const int srcPitch, const int srcWidth, const int srcHeight,
+    const float ratioX, const float ratioY,
+    __constant const float *restrict lut
+) {
+    const int ix = get_global_id(0);
+    const int iy = get_global_id(1);
+    if (ix >= dstWidth || iy >= dstHeight) {
+        return;
+    }
+
+    const float ratioInvX = 1.0f / ratioX;
+    const float ratioInvY = 1.0f / ratioY;
+    const float fx = ((float)ix + 0.5f) * ratioInvX - 0.5f;
+    const float fy = ((float)iy + 0.5f) * ratioInvY - 0.5f;
+    const int sx0 = (int)floor(fx) - (int)radius + 1;
+    const int sy0 = (int)floor(fy) - (int)radius + 1;
+
+    const float tap2 = (float)((int)radius * (int)radius);
+    const float lutScale = (float)(JINC_LUT_SIZE - 1) / tap2;
+
+    float sum = 0.0f;
+    float weightSum = 0.0f;
+    for (int dy = 0; dy < 2 * (int)radius; dy++) {
+        const int syRaw = sy0 + dy;
+        const float dyf = (float)syRaw - fy;
+        const float dy2 = dyf * dyf;
+        if (dy2 >= tap2) {
+            continue;
+        }
+        const int sy = clamp(syRaw, 0, srcHeight - 1);
+        __global const Type *srcRow = (__global const Type *)(pSrc + sy * srcPitch);
+        for (int dx = 0; dx < 2 * (int)radius; dx++) {
+            const int sxRaw = sx0 + dx;
+            const float dxf = (float)sxRaw - fx;
+            const float r2 = dxf * dxf + dy2;
+            if (r2 >= tap2) {
+                continue;
+            }
+            const int sx = clamp(sxRaw, 0, srcWidth - 1);
+            int lutIdx = (int)(r2 * lutScale + 0.5f);
+            if (lutIdx >= JINC_LUT_SIZE) {
+                lutIdx = JINC_LUT_SIZE - 1;
+            }
+            const float weight = lut[lutIdx];
+            sum += weight * (float)srcRow[sx];
+            weightSum += weight;
+        }
+    }
+    const float value = (weightSum > 0.0f) ? (sum / weightSum) : 0.0f;
+    __global Type *ptr = (__global Type *)(pDst + iy * dstPitch + ix * sizeof(Type));
+    ptr[0] = (Type)clamp(value, 0.0f, (float)((1 << bit_depth) - 1) - 0.1f);
+}
+#endif
+
 float calc_gauss_weight(const int targetPos, const float srcPos, const float ratioClamped) {
     const float delta = ((float)targetPos - (srcPos - 0.5f)) * ratioClamped;
     return factor_gauss(delta);

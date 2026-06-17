@@ -69,6 +69,8 @@ protected:
     virtual RGY_ERR resizePlaneFsr(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane,
         cl_mem midMem, int midPitchBytes, int midWidth, int midHeight,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    virtual RGY_ERR resizePlaneJinc(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane,
+        RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     virtual RGY_ERR resizePlaneNis(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane,
         cl_mem cfgMem, bool applyUsm, bool useSlm,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
@@ -81,6 +83,7 @@ protected:
 
     bool m_bInterlacedWarn;
     std::unique_ptr<RGYCLBuf> m_weightSpline;
+    std::unique_ptr<RGYCLBuf> m_weightJinc;
     std::array<RGYResizeGaussPlane, RGY_MAX_PLANES> m_gauss2pass;
     std::unique_ptr<RGYFilterLibplaceboResample> m_libplaceboResample;
     std::unique_ptr<RGYCLFrame> m_easuOutput;

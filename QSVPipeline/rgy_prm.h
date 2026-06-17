@@ -796,6 +796,10 @@ enum RGY_VPP_RESIZE_ALGO {
     RGY_VPP_RESIZE_GAUSS,
     RGY_VPP_RESIZE_FSR1,
     RGY_VPP_RESIZE_NIS,
+    RGY_VPP_RESIZE_JINC36,
+    RGY_VPP_RESIZE_JINC64,
+    RGY_VPP_RESIZE_JINC144,
+    RGY_VPP_RESIZE_JINC256,
     RGY_VPP_RESIZE_OPENCL_CUDA_MAX,
 #if ENCODER_QSV
     RGY_VPP_RESIZE_MFX_NEAREST_NEIGHBOR,
@@ -976,6 +980,10 @@ const CX_DESC list_vpp_resize[] = {
     { _T("gauss"),    RGY_VPP_RESIZE_GAUSS },
     { _T("fsr1"),     RGY_VPP_RESIZE_FSR1 },
     { _T("nis"),      RGY_VPP_RESIZE_NIS },
+    { _T("jinc36"),   RGY_VPP_RESIZE_JINC36 },
+    { _T("jinc64"),   RGY_VPP_RESIZE_JINC64 },
+    { _T("jinc144"),  RGY_VPP_RESIZE_JINC144 },
+    { _T("jinc256"),  RGY_VPP_RESIZE_JINC256 },
 #if ENCODER_QSV
   #if !FOR_AUO
     { _T("bilinear"), RGY_VPP_RESIZE_MFX_BILINEAR },
@@ -1072,6 +1080,10 @@ const CX_DESC list_vpp_resize_help[] = {
     { _T("gauss"),    RGY_VPP_RESIZE_GAUSS },
     { _T("fsr1"),     RGY_VPP_RESIZE_FSR1 },
     { _T("nis"),      RGY_VPP_RESIZE_NIS },
+    { _T("jinc36"),   RGY_VPP_RESIZE_JINC36 },
+    { _T("jinc64"),   RGY_VPP_RESIZE_JINC64 },
+    { _T("jinc144"),  RGY_VPP_RESIZE_JINC144 },
+    { _T("jinc256"),  RGY_VPP_RESIZE_JINC256 },
 #if ENCODER_QSV
     { _T("bilinear"), RGY_VPP_RESIZE_MFX_BILINEAR },
     { _T("advanced"), RGY_VPP_RESIZE_MFX_ADVANCED },

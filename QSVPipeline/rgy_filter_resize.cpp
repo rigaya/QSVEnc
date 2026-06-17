@@ -223,6 +223,10 @@ static inline int get_radius(const RGY_VPP_RESIZE_ALGO interp) {
     case RGY_VPP_RESIZE_LANCZOS6: radius = 6; break;
     case RGY_VPP_RESIZE_LANCZOS7: radius = 7; break;
     case RGY_VPP_RESIZE_LANCZOS8: radius = 8; break;
+    case RGY_VPP_RESIZE_JINC36:  radius = 3; break;
+    case RGY_VPP_RESIZE_JINC64:  radius = 4; break;
+    case RGY_VPP_RESIZE_JINC144: radius = 6; break;
+    case RGY_VPP_RESIZE_JINC256: radius = 8; break;
     case RGY_VPP_RESIZE_BILINEAR:
     default:
         break;
@@ -237,6 +241,7 @@ enum RESIZE_WEIGHT_TYPE {
     WEIGHT_LANCZOS,
     WEIGHT_SPLINE,
     WEIGHT_GAUSS,
+    WEIGHT_JINC,
 };
 
 static inline RESIZE_WEIGHT_TYPE get_weight_type(const RGY_VPP_RESIZE_ALGO interp) {
@@ -268,11 +273,65 @@ static inline RESIZE_WEIGHT_TYPE get_weight_type(const RGY_VPP_RESIZE_ALGO inter
     case RGY_VPP_RESIZE_GAUSS:
         type = WEIGHT_GAUSS;
         break;
+    case RGY_VPP_RESIZE_JINC36:
+    case RGY_VPP_RESIZE_JINC64:
+    case RGY_VPP_RESIZE_JINC144:
+    case RGY_VPP_RESIZE_JINC256:
+        type = WEIGHT_JINC;
+        break;
     default:
         break;
     }
     return type;
 }
+
+namespace {
+constexpr int JINC_LUT_SIZE = 1024;
+constexpr double JINC_ZERO_SQR_D = 1.48759464366204680005356;
+
+static double rgy_bessel_j1(double x) {
+    const double ax = std::fabs(x);
+    if (ax < 8.0) {
+        const double y = x * x;
+        const double num = x * (72362614232.0 + y * (-7895059235.0 + y * (242396853.1
+            + y * (-2972611.439 + y * (15704.48260 + y * (-30.16036606))))));
+        const double den = 144725228442.0 + y * (2300535178.0 + y * (18583304.74
+            + y * (99447.43394 + y * (376.9991397 + y * 1.0))));
+        return num / den;
+    } else {
+        const double z = 8.0 / ax;
+        const double y = z * z;
+        const double p1 = 1.0 + y * (0.183105e-2 + y * (-0.3516396496e-4
+            + y * (0.2457520174e-5 + y * (-0.240337019e-6))));
+        const double p2 = 0.04687499995 + y * (-0.2002690873e-3 + y * (0.8449199096e-5
+            + y * (-0.88228987e-6 + y * 0.105787412e-6)));
+        const double ans = std::sqrt(0.636619772 / ax)
+            * (std::cos(ax - 2.356194491) * p1 - z * std::sin(ax - 2.356194491) * p2);
+        return (x < 0.0) ? -ans : ans;
+    }
+}
+
+static double rgy_jinc(double r) {
+    if (r == 0.0) {
+        return 1.0;
+    }
+    const double pix = M_PI * r;
+    return 2.0 * rgy_bessel_j1(pix) / pix;
+}
+
+static std::vector<float> buildJincLut(const int radius) {
+    const double tap2 = (double)radius * (double)radius;
+    const double winScale = std::sqrt(JINC_ZERO_SQR_D / tap2);
+    std::vector<float> lut(JINC_LUT_SIZE);
+    for (int i = 0; i < JINC_LUT_SIZE; i++) {
+        const double r2 = (double)i * tap2 / (double)(JINC_LUT_SIZE - 1);
+        const double r = std::sqrt(r2);
+        const double w = (r >= (double)radius) ? 0.0 : (rgy_jinc(r) * rgy_jinc(winScale * r));
+        lut[i] = (float)w;
+    }
+    return lut;
+}
+} // namespace
 
 static float getSrcWindow(const int radius, const int dst_size, const int src_size) {
     const float ratio = (float)(dst_size) / src_size;
@@ -438,6 +497,9 @@ RGY_ERR RGYFilterResize::resizePlane(RGYFrameInfo *pOutputPlane, const RGYFrameI
     if (pResizeParam->interp == RGY_VPP_RESIZE_GAUSS) {
         return resizePlaneGauss2Pass(pOutputPlane, pInputPlane, plane, queue, wait_events, event);
     }
+    if (get_weight_type(pResizeParam->interp) == WEIGHT_JINC) {
+        return resizePlaneJinc(pOutputPlane, pInputPlane, queue, wait_events, event);
+    }
 
     const float ratioX = (float)(pOutputPlane->width) / pInputPlane->width;
     const float ratioY = (float)(pOutputPlane->height) / pInputPlane->height;
@@ -467,6 +529,36 @@ RGY_ERR RGYFilterResize::resizePlane(RGYFrameInfo *pOutputPlane, const RGYFrameI
                 char_to_tstring(kernel_name).c_str(), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
             return err;
         }
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterResize::resizePlaneJinc(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane,
+    RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+    auto pResizeParam = std::dynamic_pointer_cast<RGYFilterParamResize>(m_param);
+    if (!pResizeParam) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (!m_weightJinc) {
+        AddMessage(RGY_LOG_ERROR, _T("jinc LUT not allocated.\n"));
+        return RGY_ERR_NULL_PTR;
+    }
+    const float ratioX = (float)(pOutputPlane->width) / pInputPlane->width;
+    const float ratioY = (float)(pOutputPlane->height) / pInputPlane->height;
+    const char *kernelName = "kernel_resize_jinc";
+    auto err = m_resize.get()->kernel(kernelName).config(queue,
+        RGYWorkSize(RESIZE_BLOCK_X, RESIZE_BLOCK_Y),
+        RGYWorkSize(pOutputPlane->width, pOutputPlane->height),
+        wait_events, event).launch(
+            (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0], pOutputPlane->width, pOutputPlane->height,
+            (cl_mem)pInputPlane->ptr[0], pInputPlane->pitch[0], pInputPlane->width, pInputPlane->height,
+            ratioX, ratioY,
+            (cl_mem)m_weightJinc->mem());
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("error at %s (resizePlaneJinc(%s)): %s.\n"),
+            char_to_tstring(kernelName).c_str(), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
+        return err;
     }
     return RGY_ERR_NONE;
 }
@@ -581,7 +673,7 @@ RGYFilterResize::RGYResizeGaussPlane::RGYResizeGaussPlane() :
     tmp() {
 }
 
-RGYFilterResize::RGYFilterResize(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_bInterlacedWarn(false), m_weightSpline(), m_gauss2pass(), m_libplaceboResample(), m_easuOutput(), m_easuOutputF16(), m_easuOutputF16Width{}, m_easuOutputF16Height{}, m_fp16Easu(false), m_nisCoefScale(), m_nisCoefUsm(), m_resize(), m_srcImagePool() {
+RGYFilterResize::RGYFilterResize(shared_ptr<RGYOpenCLContext> context) : RGYFilter(context), m_bInterlacedWarn(false), m_weightSpline(), m_weightJinc(), m_gauss2pass(), m_libplaceboResample(), m_easuOutput(), m_easuOutputF16(), m_easuOutputF16Width{}, m_easuOutputF16Height{}, m_fp16Easu(false), m_nisCoefScale(), m_nisCoefUsm(), m_resize(), m_srcImagePool() {
     m_name = _T("resize");
 }
 
@@ -872,21 +964,24 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
             case RGY_VPP_RESIZE_HERMITE:     bicubic_b = 0.0f;        bicubic_c = 0.0f;        break;
             default: break;
             }
+            const int jincEnabled = (algo == WEIGHT_JINC) ? 1 : 0;
             const auto options = strsprintf("-D Type=%s -D bit_depth=%d -D radius=%d -D algo=%d"
                 " -D block_x=%d -D block_y=%d -D shared_weightXdim=%d -D shared_weightYdim=%d"
-                " -D WEIGHT_BILINEAR=%d -D WEIGHT_BICUBIC=%d -D WEIGHT_SPLINE=%d -D WEIGHT_LANCZOS=%d -D WEIGHT_GAUSS=%d"
+                " -D WEIGHT_BILINEAR=%d -D WEIGHT_BICUBIC=%d -D WEIGHT_SPLINE=%d -D WEIGHT_LANCZOS=%d -D WEIGHT_GAUSS=%d -D WEIGHT_JINC=%d"
                 " -D gauss_p=%.9ff -D USE_LOCAL=%d -D FSR1_FP16_SCRATCH=%d"
                 "%s -D NIS_BLOCK_WIDTH=%d -D NIS_BLOCK_HEIGHT=%d -D NIS_HDR_MODE=%d"
-                " -D bicubic_b=%.9ff -D bicubic_c=%.9ff",
+                " -D bicubic_b=%.9ff -D bicubic_c=%.9ff"
+                "%s",
                 RGY_CSP_BIT_DEPTH[pResizeParam->frameOut.csp] > 8 ? "ushort" : "uchar",
                 RGY_CSP_BIT_DEPTH[pResizeParam->frameOut.csp],
                 radius, algo,
                 RESIZE_BLOCK_X, RESIZE_BLOCK_Y, shared_weightXdim, shared_weightYdim,
-                WEIGHT_BILINEAR, WEIGHT_BICUBIC, WEIGHT_SPLINE, WEIGHT_LANCZOS, WEIGHT_GAUSS,
+                WEIGHT_BILINEAR, WEIGHT_BICUBIC, WEIGHT_SPLINE, WEIGHT_LANCZOS, WEIGHT_GAUSS, WEIGHT_JINC,
                 pResizeParam->gaussP, use_local, m_fp16Easu ? 1 : 0,
                 nisEnabled ? " -D NIS_KERNEL_ENABLED=1" : "",
                 NIS_BLOCK_WIDTH, NIS_BLOCK_HEIGHT, nisHdrMode,
-                bicubic_b, bicubic_c);
+                bicubic_b, bicubic_c,
+                jincEnabled ? " -D JINC_KERNEL_ENABLED=1" : "");
             m_resize.set(m_cl->buildResourceAsync(_T("RGY_FILTER_RESIZE_CL"), _T("EXE_DATA"), options.c_str()));
             if (algo != WEIGHT_SPLINE) {
                 m_weightSpline.reset();
@@ -922,6 +1017,18 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
                 m_weightSpline = m_cl->copyDataToBuffer(weight->data(), sizeof((*weight)[0]) * weight->size(), CL_MEM_READ_ONLY);
                 if (!m_weightSpline) {
                     AddMessage(RGY_LOG_ERROR, _T("failed to send weight to gpu memory.\n"));
+                    return RGY_ERR_NULL_PTR;
+                }
+            }
+            if (algo != WEIGHT_JINC) {
+                m_weightJinc.reset();
+            }
+            if ((!m_weightJinc || !prmPrev || prmPrev->interp != pResizeParam->interp)
+                && algo == WEIGHT_JINC) {
+                const auto lut = buildJincLut(radius);
+                m_weightJinc = m_cl->copyDataToBuffer(lut.data(), sizeof(lut[0]) * lut.size(), CL_MEM_READ_ONLY);
+                if (!m_weightJinc) {
+                    AddMessage(RGY_LOG_ERROR, _T("failed to send jinc LUT to gpu memory.\n"));
                     return RGY_ERR_NULL_PTR;
                 }
             }
@@ -1040,6 +1147,7 @@ void RGYFilterResize::close() {
     m_frameBuf.clear();
     m_resize.clear();
     m_weightSpline.reset();
+    m_weightJinc.reset();
     clearGaussTmp();
     m_easuOutput.reset();
     for (auto &b : m_easuOutputF16) b.reset();
