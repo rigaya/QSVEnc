@@ -203,6 +203,9 @@ static inline int get_radius(const RGY_VPP_RESIZE_ALGO interp) {
     int radius = 1;
     switch (interp) {
     case RGY_VPP_RESIZE_BICUBIC:
+    case RGY_VPP_RESIZE_MITCHELL:
+    case RGY_VPP_RESIZE_CATMULL_ROM:
+    case RGY_VPP_RESIZE_HERMITE:
     case RGY_VPP_RESIZE_LANCZOS2:
     case RGY_VPP_RESIZE_SPLINE16:
         radius = 2;
@@ -216,6 +219,10 @@ static inline int get_radius(const RGY_VPP_RESIZE_ALGO interp) {
     case RGY_VPP_RESIZE_GAUSS:
         radius = 4;
         break;
+    case RGY_VPP_RESIZE_LANCZOS5: radius = 5; break;
+    case RGY_VPP_RESIZE_LANCZOS6: radius = 6; break;
+    case RGY_VPP_RESIZE_LANCZOS7: radius = 7; break;
+    case RGY_VPP_RESIZE_LANCZOS8: radius = 8; break;
     case RGY_VPP_RESIZE_BILINEAR:
     default:
         break;
@@ -239,11 +246,18 @@ static inline RESIZE_WEIGHT_TYPE get_weight_type(const RGY_VPP_RESIZE_ALGO inter
         type = WEIGHT_BILINEAR;
         break;
     case RGY_VPP_RESIZE_BICUBIC:
+    case RGY_VPP_RESIZE_MITCHELL:
+    case RGY_VPP_RESIZE_CATMULL_ROM:
+    case RGY_VPP_RESIZE_HERMITE:
         type = WEIGHT_BICUBIC;
         break;
     case RGY_VPP_RESIZE_LANCZOS2:
     case RGY_VPP_RESIZE_LANCZOS3:
     case RGY_VPP_RESIZE_LANCZOS4:
+    case RGY_VPP_RESIZE_LANCZOS5:
+    case RGY_VPP_RESIZE_LANCZOS6:
+    case RGY_VPP_RESIZE_LANCZOS7:
+    case RGY_VPP_RESIZE_LANCZOS8:
         type = WEIGHT_LANCZOS;
         break;
     case RGY_VPP_RESIZE_SPLINE16:
@@ -830,7 +844,8 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
             || prmPrev->frameOut.width != pResizeParam->frameOut.width
             || prmPrev->frameOut.height != pResizeParam->frameOut.height
             || (pResizeParam->interp == RGY_VPP_RESIZE_GAUSS && prmPrev->gaussP != pResizeParam->gaussP)
-            || (pResizeParam->interp == RGY_VPP_RESIZE_NIS && prmPrev->nis != pResizeParam->nis)) {
+            || (pResizeParam->interp == RGY_VPP_RESIZE_NIS && prmPrev->nis != pResizeParam->nis)
+            || (pResizeParam->interp == RGY_VPP_RESIZE_BICUBIC && prmPrev->bicubic != pResizeParam->bicubic)) {
             const int radius = get_radius(pResizeParam->interp);
             const auto algo = get_weight_type(pResizeParam->interp);
 
@@ -849,11 +864,20 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
 
             const int nisEnabled = (pResizeParam->interp == RGY_VPP_RESIZE_NIS) ? 1 : 0;
             const int nisHdrMode = (pResizeParam->interp == RGY_VPP_RESIZE_NIS) ? nisResolveHdrMode(pResizeParam.get()) : 0;
+            float bicubic_b = pResizeParam->bicubic.b;
+            float bicubic_c = pResizeParam->bicubic.c;
+            switch (pResizeParam->interp) {
+            case RGY_VPP_RESIZE_MITCHELL:    bicubic_b = 1.0f / 3.0f; bicubic_c = 1.0f / 3.0f; break;
+            case RGY_VPP_RESIZE_CATMULL_ROM: bicubic_b = 0.0f;        bicubic_c = 0.5f;        break;
+            case RGY_VPP_RESIZE_HERMITE:     bicubic_b = 0.0f;        bicubic_c = 0.0f;        break;
+            default: break;
+            }
             const auto options = strsprintf("-D Type=%s -D bit_depth=%d -D radius=%d -D algo=%d"
                 " -D block_x=%d -D block_y=%d -D shared_weightXdim=%d -D shared_weightYdim=%d"
                 " -D WEIGHT_BILINEAR=%d -D WEIGHT_BICUBIC=%d -D WEIGHT_SPLINE=%d -D WEIGHT_LANCZOS=%d -D WEIGHT_GAUSS=%d"
                 " -D gauss_p=%.9ff -D USE_LOCAL=%d -D FSR1_FP16_SCRATCH=%d"
-                "%s -D NIS_BLOCK_WIDTH=%d -D NIS_BLOCK_HEIGHT=%d -D NIS_HDR_MODE=%d",
+                "%s -D NIS_BLOCK_WIDTH=%d -D NIS_BLOCK_HEIGHT=%d -D NIS_HDR_MODE=%d"
+                " -D bicubic_b=%.9ff -D bicubic_c=%.9ff",
                 RGY_CSP_BIT_DEPTH[pResizeParam->frameOut.csp] > 8 ? "ushort" : "uchar",
                 RGY_CSP_BIT_DEPTH[pResizeParam->frameOut.csp],
                 radius, algo,
@@ -861,7 +885,8 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
                 WEIGHT_BILINEAR, WEIGHT_BICUBIC, WEIGHT_SPLINE, WEIGHT_LANCZOS, WEIGHT_GAUSS,
                 pResizeParam->gaussP, use_local, m_fp16Easu ? 1 : 0,
                 nisEnabled ? " -D NIS_KERNEL_ENABLED=1" : "",
-                NIS_BLOCK_WIDTH, NIS_BLOCK_HEIGHT, nisHdrMode);
+                NIS_BLOCK_WIDTH, NIS_BLOCK_HEIGHT, nisHdrMode,
+                bicubic_b, bicubic_c);
             m_resize.set(m_cl->buildResourceAsync(_T("RGY_FILTER_RESIZE_CL"), _T("EXE_DATA"), options.c_str()));
             if (algo != WEIGHT_SPLINE) {
                 m_weightSpline.reset();
@@ -936,6 +961,9 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
         if (m_nisCascadeCfgs.size() > 1) {
             str += strsprintf(_T(", stages=%d"), (int)m_nisCascadeCfgs.size());
         }
+    }
+    if (pResizeParam->interp == RGY_VPP_RESIZE_BICUBIC) {
+        str += _T(", ") + pResizeParam->bicubic.print();
     }
     setFilterInfo(str);
 

@@ -561,6 +561,10 @@ int parse_one_vppmfx_option(const TCHAR *option_name, const TCHAR *strInput[], i
         for (size_t ielem = 0; ielem < _countof(paramsResizeNis); ielem++) {
             paramListResizeNis.push_back(paramsResizeNis[ielem]);
         }
+        std::vector<std::string> paramListResizeBicubic;
+        for (size_t ielem = 0; ielem < _countof(paramsResizeBicubic); ielem++) {
+            paramListResizeBicubic.push_back(paramsResizeBicubic[ielem]);
+        }
         std::vector<std::string> paramList = paramListResizeLibPlacebo;
         for (size_t ielem = 0; ielem < _countof(paramsResizeQSVEnc); ielem++) {
             paramList.push_back(paramsResizeQSVEnc[ielem]);
@@ -570,6 +574,9 @@ int parse_one_vppmfx_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         for (size_t ielem = 0; ielem < _countof(paramsResizeNis); ielem++) {
             paramList.push_back(paramsResizeNis[ielem]);
+        }
+        for (size_t ielem = 0; ielem < _countof(paramsResizeBicubic); ielem++) {
+            paramList.push_back(paramsResizeBicubic[ielem]);
         }
 
         for (const auto& param : split(strInput[i], _T(","))) {
@@ -626,6 +633,12 @@ int parse_one_vppmfx_option(const TCHAR *option_name, const TCHAR *strInput[], i
                 if (std::find_if(paramListResizeNis.begin(), paramListResizeNis.end(), [param_arg](const std::string& str) {
                     return param_arg == char_to_tstring(str);
                     }) != paramListResizeNis.end()) {
+                    ret = -1; // rgy_cmd.cppで処理する
+                    continue;
+                }
+                if (std::find_if(paramListResizeBicubic.begin(), paramListResizeBicubic.end(), [param_arg](const std::string& str) {
+                    return param_arg == char_to_tstring(str);
+                    }) != paramListResizeBicubic.end()) {
                     ret = -1; // rgy_cmd.cppで処理する
                     continue;
                 }

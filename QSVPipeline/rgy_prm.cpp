@@ -348,6 +348,20 @@ tstring VppResizeFsr1::print() const {
     return strsprintf(_T("sharpness=%.2f"), sharpness);
 }
 
+VppResizeBicubic::VppResizeBicubic() :
+    b(FILTER_DEFAULT_RESIZE_BICUBIC_B),
+    c(FILTER_DEFAULT_RESIZE_BICUBIC_C) {
+}
+bool VppResizeBicubic::operator==(const VppResizeBicubic &x) const {
+    return b == x.b && c == x.c;
+}
+bool VppResizeBicubic::operator!=(const VppResizeBicubic &x) const {
+    return !(*this == x);
+}
+tstring VppResizeBicubic::print() const {
+    return strsprintf(_T("b=%.3f,c=%.3f"), b, c);
+}
+
 VppResizeNis::VppResizeNis() :
     cascade(FILTER_DEFAULT_RESIZE_NIS_CASCADE),
     sharpness(FILTER_DEFAULT_RESIZE_NIS_SHARPNESS),
@@ -3449,6 +3463,7 @@ RGYParamVpp::RGYParamVpp() :
     resize_libplacebo(),
     resize_fsr1(),
     resize_nis(),
+    resize_bicubic(),
     colorspace(),
     libplacebo_tonemapping(),
     delogo(),
@@ -3522,6 +3537,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && deintCsp == x.deintCsp
         && resize_fsr1 == x.resize_fsr1
         && resize_nis == x.resize_nis
+        && resize_bicubic == x.resize_bicubic
         && colorspace == x.colorspace
         && libplacebo_tonemapping == x.libplacebo_tonemapping
         && delogo == x.delogo

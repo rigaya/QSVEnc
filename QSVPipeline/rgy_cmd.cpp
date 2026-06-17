@@ -521,6 +521,9 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             vector_cat(paramList, paramListResizeQSVEnc);
             vector_cat(paramList, paramListResizeFsr1);
             vector_cat(paramList, paramListResizeNis);
+            for (size_t ielem = 0; ielem < _countof(paramsResizeBicubic); ielem++) {
+                paramList.push_back(paramsResizeBicubic[ielem]);
+            }
             for (size_t ielem = 0; ielem < _countof(paramsResizeLibPlacebo); ielem++) {
                 paramList.push_back(paramsResizeLibPlacebo[ielem]);
             }
@@ -653,6 +656,24 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                             vpp->resize_nis.opt = value;
                         } else {
                             print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_resize_nis_opt);
+                            return 1;
+                        }
+                        continue;
+                    }
+                    if (param_arg == _T("b")) {
+                        try {
+                            vpp->resize_bicubic.b = std::stof(param_val);
+                        } catch (...) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                            return 1;
+                        }
+                        continue;
+                    }
+                    if (param_arg == _T("c")) {
+                        try {
+                            vpp->resize_bicubic.c = std::stof(param_val);
+                        } catch (...) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                             return 1;
                         }
                         continue;
@@ -11944,6 +11965,14 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
                     cmd << _T(",opt=") << get_chr_from_value(list_vpp_resize_nis_opt, param->resize_nis.opt);
                 }
             }
+            if (param->resize_algo == RGY_VPP_RESIZE_BICUBIC) {
+                if (param->resize_bicubic.b != defaultPrm->resize_bicubic.b) {
+                    cmd << _T(",b=") << std::setprecision(3) << param->resize_bicubic.b;
+                }
+                if (param->resize_bicubic.c != defaultPrm->resize_bicubic.c) {
+                    cmd << _T(",c=") << std::setprecision(3) << param->resize_bicubic.c;
+                }
+            }
         }
     }
 #if ENCODER_QSV
@@ -14970,6 +14999,10 @@ tstring gen_cmd_help_vpp() {
         str += _T("      cascade=<string>          for nis: auto (default), on, off\n")
                _T("      hdr=<string>              for nis: auto (default), sdr, pq\n")
                _T("      opt=<string>              for nis: default (default), fast\n");
+        str += strsprintf(_T("      b=<float>                 for bicubic: Mitchell-Netravali B parameter (default=%.2f)\n")
+               _T("      c=<float>                 for bicubic: Mitchell-Netravali C parameter (default=%.2f)\n")
+               _T("                                 aliases: mitchell, catmull-rom, hermite\n"),
+            FILTER_DEFAULT_RESIZE_BICUBIC_B, FILTER_DEFAULT_RESIZE_BICUBIC_C);
 #if ENABLE_NVVFX
             str += strsprintf(_T("\n")
                 _T("      superres-mode=<int>\n")

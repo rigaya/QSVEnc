@@ -118,7 +118,7 @@ float calc_weight(
     switch (algo) {
     case WEIGHT_LANCZOS:  weight = factor_lanczos(delta); break;
     case WEIGHT_SPLINE:   weight = factor_spline(delta, psCopyFactor); break;
-    case WEIGHT_BICUBIC:  weight = factor_bicubic(delta, 0.0f, 0.6f); break;
+    case WEIGHT_BICUBIC:  weight = factor_bicubic(delta, bicubic_b, bicubic_c); break;
     case WEIGHT_BILINEAR: weight = factor_bilinear(delta); break;
     case WEIGHT_GAUSS:    weight = factor_gauss(delta); break;
     default:

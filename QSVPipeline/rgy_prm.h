@@ -786,6 +786,13 @@ enum RGY_VPP_RESIZE_ALGO {
     RGY_VPP_RESIZE_LANCZOS2,
     RGY_VPP_RESIZE_LANCZOS3,
     RGY_VPP_RESIZE_LANCZOS4,
+    RGY_VPP_RESIZE_LANCZOS5,
+    RGY_VPP_RESIZE_LANCZOS6,
+    RGY_VPP_RESIZE_LANCZOS7,
+    RGY_VPP_RESIZE_LANCZOS8,
+    RGY_VPP_RESIZE_MITCHELL,
+    RGY_VPP_RESIZE_CATMULL_ROM,
+    RGY_VPP_RESIZE_HERMITE,
     RGY_VPP_RESIZE_GAUSS,
     RGY_VPP_RESIZE_FSR1,
     RGY_VPP_RESIZE_NIS,
@@ -959,6 +966,13 @@ const CX_DESC list_vpp_resize[] = {
     { _T("lanczos2"), RGY_VPP_RESIZE_LANCZOS2 },
     { _T("lanczos3"), RGY_VPP_RESIZE_LANCZOS3 },
     { _T("lanczos4"), RGY_VPP_RESIZE_LANCZOS4 },
+    { _T("lanczos5"),    RGY_VPP_RESIZE_LANCZOS5 },
+    { _T("lanczos6"),    RGY_VPP_RESIZE_LANCZOS6 },
+    { _T("lanczos7"),    RGY_VPP_RESIZE_LANCZOS7 },
+    { _T("lanczos8"),    RGY_VPP_RESIZE_LANCZOS8 },
+    { _T("mitchell"),    RGY_VPP_RESIZE_MITCHELL },
+    { _T("catmull-rom"), RGY_VPP_RESIZE_CATMULL_ROM },
+    { _T("hermite"),     RGY_VPP_RESIZE_HERMITE },
     { _T("gauss"),    RGY_VPP_RESIZE_GAUSS },
     { _T("fsr1"),     RGY_VPP_RESIZE_FSR1 },
     { _T("nis"),      RGY_VPP_RESIZE_NIS },
@@ -1048,6 +1062,13 @@ const CX_DESC list_vpp_resize_help[] = {
     { _T("lanczos2"), RGY_VPP_RESIZE_LANCZOS2 },
     { _T("lanczos3"), RGY_VPP_RESIZE_LANCZOS3 },
     { _T("lanczos4"), RGY_VPP_RESIZE_LANCZOS4 },
+    { _T("lanczos5"),    RGY_VPP_RESIZE_LANCZOS5 },
+    { _T("lanczos6"),    RGY_VPP_RESIZE_LANCZOS6 },
+    { _T("lanczos7"),    RGY_VPP_RESIZE_LANCZOS7 },
+    { _T("lanczos8"),    RGY_VPP_RESIZE_LANCZOS8 },
+    { _T("mitchell"),    RGY_VPP_RESIZE_MITCHELL },
+    { _T("catmull-rom"), RGY_VPP_RESIZE_CATMULL_ROM },
+    { _T("hermite"),     RGY_VPP_RESIZE_HERMITE },
     { _T("gauss"),    RGY_VPP_RESIZE_GAUSS },
     { _T("fsr1"),     RGY_VPP_RESIZE_FSR1 },
     { _T("nis"),      RGY_VPP_RESIZE_NIS },
@@ -1125,7 +1146,8 @@ static const char *paramsResizeLibPlacebo[] = { "algo", "pl-radius", "pl-clamp",
 static const char *paramsResizeNVEnc[] = { "superres-mode", "superres-strength", "vsr-quality" };
 static const char *paramsResizeQSVEnc[] = { "superres-mode", "superres-algo" };
 static const char *paramsResizeFsr1[] = { "sharpness" };
-static const char *paramsResizeNis[]  = { "cascade", "sharpness", "hdr", "opt" };
+static const char *paramsResizeNis[]      = { "cascade", "sharpness", "hdr", "opt" };
+static const char *paramsResizeBicubic[]  = { "b", "c" };
 
 static const float FILTER_DEFAULT_RESIZE_FSR1_SHARPNESS = 0.5f;
 
@@ -1135,6 +1157,19 @@ struct VppResizeFsr1 {
     VppResizeFsr1();
     bool operator==(const VppResizeFsr1 &x) const;
     bool operator!=(const VppResizeFsr1 &x) const;
+    tstring print() const;
+};
+
+static const float FILTER_DEFAULT_RESIZE_BICUBIC_B = 0.0f;
+static const float FILTER_DEFAULT_RESIZE_BICUBIC_C = 0.6f;
+
+struct VppResizeBicubic {
+    float b;
+    float c;
+
+    VppResizeBicubic();
+    bool operator==(const VppResizeBicubic &x) const;
+    bool operator!=(const VppResizeBicubic &x) const;
     tstring print() const;
 };
 
@@ -3508,9 +3543,10 @@ struct RGYParamVpp {
     RGY_VPP_RESIZE_MODE resize_mode;
     VppDeintCsp deintCsp;
     VppLibplaceboResample resize_libplacebo;
-    VppResizeFsr1 resize_fsr1;
-    VppResizeNis  resize_nis;
-    VppColorspace colorspace;
+    VppResizeFsr1    resize_fsr1;
+    VppResizeNis     resize_nis;
+    VppResizeBicubic resize_bicubic;
+    VppColorspace    colorspace;
     VppLibplaceboToneMapping libplacebo_tonemapping;
     VppDelogo delogo;
     VppAfs afs;

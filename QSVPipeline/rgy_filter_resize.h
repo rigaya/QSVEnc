@@ -40,10 +40,11 @@ public:
     RGY_VPP_RESIZE_ALGO interp;
     float gaussP;
     std::shared_ptr<RGYFilterParamLibplaceboResample> libplaceboResample;
-    VppResizeFsr1 fsr1;
-    VppResizeNis  nis;
-    VideoVUIInfo  vui;        // input VUI for NIS hdr=auto and any future colour-aware path
-    RGYFilterParamResize() : interp(RGY_VPP_RESIZE_AUTO), gaussP(2.0f), libplaceboResample(), fsr1(), nis(), vui() {};
+    VppResizeFsr1    fsr1;
+    VppResizeNis     nis;
+    VppResizeBicubic bicubic;
+    VideoVUIInfo     vui;        // input VUI for NIS hdr=auto and any future colour-aware path
+    RGYFilterParamResize() : interp(RGY_VPP_RESIZE_AUTO), gaussP(2.0f), libplaceboResample(), fsr1(), nis(), bicubic(), vui() {};
     virtual ~RGYFilterParamResize() {};
 };
 
