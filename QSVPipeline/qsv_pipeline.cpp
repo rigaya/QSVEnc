@@ -3479,6 +3479,8 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
             param->baseFps = m_encFps;
             param->bOutOverwrite = false;
             param->fsr1 = params->vpp.resize_fsr1;
+            param->nis = params->vpp.resize_nis;
+            param->vui = vuiInfo;
             if (isLibplaceboResizeFiter(params->vpp.resize_algo)) {
                 param->libplaceboResample = std::make_shared<RGYFilterParamLibplaceboResample>();
                 param->libplaceboResample->resample = params->vpp.resize_libplacebo;

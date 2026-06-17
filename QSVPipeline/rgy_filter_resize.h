@@ -31,6 +31,7 @@
 
 #include <array>
 #include "rgy_filter_cl.h"
+#include "rgy_def.h"
 
 class RGYFilterParamLibplaceboResample;
 
@@ -40,7 +41,9 @@ public:
     float gaussP;
     std::shared_ptr<RGYFilterParamLibplaceboResample> libplaceboResample;
     VppResizeFsr1 fsr1;
-    RGYFilterParamResize() : interp(RGY_VPP_RESIZE_AUTO), gaussP(2.0f), libplaceboResample(), fsr1() {};
+    VppResizeNis  nis;
+    VideoVUIInfo  vui;        // input VUI for NIS hdr=auto and any future colour-aware path
+    RGYFilterParamResize() : interp(RGY_VPP_RESIZE_AUTO), gaussP(2.0f), libplaceboResample(), fsr1(), nis(), vui() {};
     virtual ~RGYFilterParamResize() {};
 };
 
@@ -65,6 +68,11 @@ protected:
     virtual RGY_ERR resizePlaneFsr(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane,
         cl_mem midMem, int midPitchBytes, int midWidth, int midHeight,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    virtual RGY_ERR resizePlaneNis(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane,
+        cl_mem cfgMem, bool applyUsm, bool useSlm,
+        RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    virtual RGY_ERR resizeFrameNisCascade(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
+        RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     virtual RGY_ERR resizePlaneGauss2Pass(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, const int plane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     virtual RGY_ERR resizeFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     virtual RGY_ERR createGaussTmp(RGYResizeGaussPlane& planeTmp, const RGYFrameInfo& planeOut, const RGYFrameInfo& planeIn);
@@ -79,6 +87,22 @@ protected:
     std::array<int, RGY_MAX_PLANES> m_easuOutputF16Width;
     std::array<int, RGY_MAX_PLANES> m_easuOutputF16Height;
     bool m_fp16Easu;
+    // NIS resources. Config is small (256 bytes,
+    // aligned) and uploaded each time a frame size or sub-option
+    // changes. Coefficient LUTs are constant data, uploaded once at
+    // init and reused for the lifetime of the filter.
+    //
+    // Cascade: for ratios >2x the host splits the work
+    // into N stages of <=2x each. Each stage has its own NISConfig
+    // (different kScale) and an intermediate output buffer; only the
+    // final stage applies USM (intermediate stages zero out
+    // kSharpStrength* so the band-gated USM term contributes 0). The
+    // single-stage path keeps m_nisConfigBuf == m_nisCascadeCfgs[0].
+    std::unique_ptr<RGYCLBuf> m_nisConfigBuf;
+    std::unique_ptr<RGYCLBuf> m_nisCoefScale;
+    std::unique_ptr<RGYCLBuf> m_nisCoefUsm;
+    std::vector<std::unique_ptr<RGYCLBuf>>   m_nisCascadeCfgs;
+    std::vector<std::unique_ptr<RGYCLFrame>> m_nisCascadeIntermediates;
     RGYOpenCLProgramAsync m_resize;
     RGYCLFramePool m_srcImagePool;
 };

@@ -557,12 +557,19 @@ int parse_one_vppmfx_option(const TCHAR *option_name, const TCHAR *strInput[], i
         for (size_t ielem = 0; ielem < _countof(paramsResizeLibPlacebo); ielem++) {
             paramListResizeLibPlacebo.push_back(paramsResizeLibPlacebo[ielem]);
         }
+        std::vector<std::string> paramListResizeNis;
+        for (size_t ielem = 0; ielem < _countof(paramsResizeNis); ielem++) {
+            paramListResizeNis.push_back(paramsResizeNis[ielem]);
+        }
         std::vector<std::string> paramList = paramListResizeLibPlacebo;
         for (size_t ielem = 0; ielem < _countof(paramsResizeQSVEnc); ielem++) {
             paramList.push_back(paramsResizeQSVEnc[ielem]);
         }
         for (size_t ielem = 0; ielem < _countof(paramsResizeFsr1); ielem++) {
             paramList.push_back(paramsResizeFsr1[ielem]);
+        }
+        for (size_t ielem = 0; ielem < _countof(paramsResizeNis); ielem++) {
+            paramList.push_back(paramsResizeNis[ielem]);
         }
 
         for (const auto& param : split(strInput[i], _T(","))) {
@@ -614,6 +621,12 @@ int parse_one_vppmfx_option(const TCHAR *option_name, const TCHAR *strInput[], i
                     return param_arg == char_to_tstring(str);
                     }) != paramsResizeFsr1 + _countof(paramsResizeFsr1)) {
                     ret = -1; // rgy_cmd.cppで処理する
+                    continue;
+                }
+                if (std::find_if(paramListResizeNis.begin(), paramListResizeNis.end(), [param_arg](const std::string& str) {
+                    return param_arg == char_to_tstring(str);
+                    }) != paramListResizeNis.end()) {
+                    ret = -1; // rgy_cmd.cppで処理する (NIS 43_)
                     continue;
                 }
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);

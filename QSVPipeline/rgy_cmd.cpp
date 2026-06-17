@@ -513,11 +513,30 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             for (size_t ielem = 0; ielem < _countof(paramsResizeFsr1); ielem++) {
                 paramListResizeFsr1.push_back(paramsResizeFsr1[ielem]);
             }
+            std::vector<std::string> paramListResizeNis;
+            for (size_t ielem = 0; ielem < _countof(paramsResizeNis); ielem++) {
+                paramListResizeNis.push_back(paramsResizeNis[ielem]);
+            }
             std::vector<std::string> paramList = paramListResizeNVEnc;
             vector_cat(paramList, paramListResizeQSVEnc);
             vector_cat(paramList, paramListResizeFsr1);
+            vector_cat(paramList, paramListResizeNis);
             for (size_t ielem = 0; ielem < _countof(paramsResizeLibPlacebo); ielem++) {
                 paramList.push_back(paramsResizeLibPlacebo[ielem]);
+            }
+            RGY_VPP_RESIZE_ALGO preScanAlgo = vpp->resize_algo;
+            for (const auto& param : split(strInput[i], _T(","))) {
+                auto pos = param.find_first_of(_T("="));
+                int probe = 0;
+                if (pos != std::string::npos) {
+                    auto k = tolowercase(param.substr(0, pos));
+                    auto v = param.substr(pos + 1);
+                    if (k == _T("algo") && get_list_value(list_vpp_resize, v.c_str(), &probe)) {
+                        preScanAlgo = (RGY_VPP_RESIZE_ALGO)probe;
+                    }
+                } else if (get_list_value(list_vpp_resize, param.c_str(), &probe)) {
+                    preScanAlgo = (RGY_VPP_RESIZE_ALGO)probe;
+                }
             }
             for (const auto& param : split(strInput[i], _T(","))) {
                 auto pos = param.find_first_of(_T("="));
@@ -591,13 +610,49 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     if (param_arg == _T("sharpness")) {
                         try {
-                            vpp->resize_fsr1.sharpness = std::stof(param_val);
+                            const float val = std::stof(param_val);
+                            if (preScanAlgo == RGY_VPP_RESIZE_NIS) {
+                                vpp->resize_nis.sharpness = val;
+                            } else {
+                                vpp->resize_fsr1.sharpness = val;
+                            }
                         } catch (...) {
                             print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                             return 1;
                         }
-                        if (vpp->resize_fsr1.sharpness < 0.0f || vpp->resize_fsr1.sharpness > 1.0f) {
+                        const float val = (preScanAlgo == RGY_VPP_RESIZE_NIS) ? vpp->resize_nis.sharpness : vpp->resize_fsr1.sharpness;
+                        if (val < 0.0f || val > 1.0f) {
                             print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("sharpness should be 0.0 - 1.0."));
+                            return 1;
+                        }
+                        continue;
+                    }
+                    if (param_arg == _T("cascade")) {
+                        int value = 0;
+                        if (get_list_value(list_vpp_resize_nis_cascade, param_val.c_str(), &value)) {
+                            vpp->resize_nis.cascade = value;
+                        } else {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_resize_nis_cascade);
+                            return 1;
+                        }
+                        continue;
+                    }
+                    if (param_arg == _T("hdr")) {
+                        int value = 0;
+                        if (get_list_value(list_vpp_resize_nis_hdr, param_val.c_str(), &value)) {
+                            vpp->resize_nis.hdrMode = value;
+                        } else {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_resize_nis_hdr);
+                            return 1;
+                        }
+                        continue;
+                    }
+                    if (param_arg == _T("opt")) {
+                        int value = 0;
+                        if (get_list_value(list_vpp_resize_nis_opt, param_val.c_str(), &value)) {
+                            vpp->resize_nis.opt = value;
+                        } else {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_resize_nis_opt);
                             return 1;
                         }
                         continue;
@@ -610,6 +665,11 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     if (ENCODER_QSV && std::find_if(paramListResizeQSVEnc.begin(), paramListResizeQSVEnc.end(), [param_arg](const std::string& str) {
                         return param_arg == char_to_tstring(str);
                         }) != paramListResizeQSVEnc.end()) {
+                        continue;
+                    }
+                    if (std::find_if(paramListResizeNis.begin(), paramListResizeNis.end(), [param_arg](const std::string& str) {
+                        return param_arg == char_to_tstring(str);
+                        }) != paramListResizeNis.end()) {
                         continue;
                     }
                     print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
@@ -11870,6 +11930,20 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
                 && param->resize_fsr1.sharpness != defaultPrm->resize_fsr1.sharpness) {
                 cmd << _T(",sharpness=") << std::setprecision(3) << param->resize_fsr1.sharpness;
             }
+            if (param->resize_algo == RGY_VPP_RESIZE_NIS) {
+                if (param->resize_nis.cascade != defaultPrm->resize_nis.cascade) {
+                    cmd << _T(",cascade=") << get_chr_from_value(list_vpp_resize_nis_cascade, param->resize_nis.cascade);
+                }
+                if (param->resize_nis.sharpness != defaultPrm->resize_nis.sharpness) {
+                    cmd << _T(",sharpness=") << std::setprecision(3) << param->resize_nis.sharpness;
+                }
+                if (param->resize_nis.hdrMode != defaultPrm->resize_nis.hdrMode) {
+                    cmd << _T(",hdr=") << get_chr_from_value(list_vpp_resize_nis_hdr, param->resize_nis.hdrMode);
+                }
+                if (param->resize_nis.opt != defaultPrm->resize_nis.opt) {
+                    cmd << _T(",opt=") << get_chr_from_value(list_vpp_resize_nis_opt, param->resize_nis.opt);
+                }
+            }
         }
     }
 #if ENCODER_QSV
@@ -14890,8 +14964,12 @@ tstring gen_cmd_help_vpp() {
         }
         str += _T("\n        default: auto\n");
         str += _T("        gauss uses OpenCL Gaussian filter (p=2.0).\n");
-        str += strsprintf(_T("      sharpness=<float>         RCAS sharpness for fsr1 (default=%.2f, 0.0 - 1.0)\n"),
-            FILTER_DEFAULT_RESIZE_FSR1_SHARPNESS);
+        str += strsprintf(_T("      sharpness=<float>         RCAS sharpness for fsr1 (default=%.2f, 0.0 - 1.0)\n")
+            _T("                                 NIS USM strength for nis (default=%.2f, 0.0 - 1.0)\n"),
+            FILTER_DEFAULT_RESIZE_FSR1_SHARPNESS, FILTER_DEFAULT_RESIZE_NIS_SHARPNESS);
+        str += _T("      cascade=<string>          for nis: auto (default), on, off\n")
+               _T("      hdr=<string>              for nis: auto (default), sdr, pq\n")
+               _T("      opt=<string>              for nis: default (default), fast\n");
 #if ENABLE_NVVFX
             str += strsprintf(_T("\n")
                 _T("      superres-mode=<int>\n")

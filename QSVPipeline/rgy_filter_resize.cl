@@ -15,10 +15,6 @@
 // shared_weightYdim
 // USE_LOCAL
 
-#if defined(FSR1_FP16_SCRATCH) && FSR1_FP16_SCRATCH
-#pragma OPENCL EXTENSION cl_khr_fp16 : enable
-#endif
-
 #ifndef MIN3
 #define MIN3(a,b,c) (min((a), min((b), (c))))
 #endif
@@ -656,3 +652,525 @@ __kernel void kernel_resize_gauss_v(
         ptr[0] = (Type)(clamp(clr, 0.0f, (float)((1 << bit_depth) - 1)) + 0.5f);
     }
 }
+
+// ====================================================================
+// NIS (NVIDIA Image Scaling)
+// ====================================================================
+// Algorithm reference: NIS v1.0.3 NIS_Scaler.h / NIS_Main.glsl by NVIDIA
+// (MIT licence; coefficient tables sit in nis_coef_tables.h on the host
+// side and are uploaded as constant cl_mem). This block lives in the
+// shared resize .cl because the existing build pipeline compiles one
+// program per filter, and NIS shares its host driver with the other
+// resize algos.
+//
+// Build-time defines expected from the host:
+//   NIS_KERNEL_ENABLED   1 to compile this block, 0/undefined to skip
+//   NIS_BLOCK_WIDTH      pixels per work-group, X axis (32 on all GPUs)
+//   NIS_BLOCK_HEIGHT     pixels per work-group, Y axis (24 upscale / 32 sharpen-only)
+//   NIS_HDR_MODE         0=None, 1=Linear, 2=PQ (matches NIS_Config.h enum)
+// ====================================================================
+
+#ifdef NIS_KERNEL_ENABLED
+
+#ifndef NIS_BLOCK_WIDTH
+#define NIS_BLOCK_WIDTH  32
+#endif
+#ifndef NIS_BLOCK_HEIGHT
+#define NIS_BLOCK_HEIGHT 24
+#endif
+#ifndef NIS_HDR_MODE
+#define NIS_HDR_MODE     0
+#endif
+
+// Mirror of host-side NISConfig (NIS_Config.h:45). Field order, types,
+// and 256-byte alignment match the host struct so the cl_mem can be
+// uploaded as a single byte-block. Keep this in lock-step with the
+// host-side NISConfigHost definition in rgy_filter_resize.cpp.
+typedef struct __attribute__((aligned(256))) NISConfigCL {
+    float kDetectRatio;
+    float kDetectThres;
+    float kMinContrastRatio;
+    float kRatioNorm;
+
+    float kContrastBoost;
+    float kEps;
+    float kSharpStartY;
+    float kSharpScaleY;
+
+    float kSharpStrengthMin;
+    float kSharpStrengthScale;
+    float kSharpLimitMin;
+    float kSharpLimitScale;
+
+    float kScaleX;
+    float kScaleY;
+    float kDstNormX;
+    float kDstNormY;
+
+    float kSrcNormX;
+    float kSrcNormY;
+
+    uint  kInputViewportOriginX;
+    uint  kInputViewportOriginY;
+    uint  kInputViewportWidth;
+    uint  kInputViewportHeight;
+
+    uint  kOutputViewportOriginX;
+    uint  kOutputViewportOriginY;
+    uint  kOutputViewportWidth;
+    uint  kOutputViewportHeight;
+
+    float reserved0;
+    float reserved1;
+} NISConfigCL;
+
+// K1: integer sample with edge clamp, normalised to [0,1] in SDR / kept
+// raw in HDR linear / kept PQ-coded in HDR PQ. The NIS reference only
+// reads luminance for the edge map + USM gates; the carry channels go
+// through unmodified. QSVEnc routes one plane at a time so this is just
+// a single-channel scalar.
+static inline float nis_sample(__global const Type *src, int srcPitch, int srcW, int srcH, int x, int y) {
+    x = (x < 0) ? 0 : ((x >= srcW) ? (srcW - 1) : x);
+    y = (y < 0) ? 0 : ((y >= srcH) ? (srcH - 1) : y);
+    const __global Type *row = (const __global Type *)((const __global uchar *)src + y * srcPitch);
+    const float v = (float)row[x];
+    const float maxv = (float)((1 << bit_depth) - 1);
+    return v / maxv;  // [0,1] -- HDR PQ inputs are already encoded in this range
+}
+
+// K2: edge-direction estimator. Returns the dominant gradient bucket
+// (0..3 = horizontal / vertical / diag45 / diag135) given 4 luminance
+// samples around (x,y).
+static inline int nis_get_edge_dir(__global const Type *src, int srcPitch, int srcW, int srcH, int x, int y) {
+    const float c  = nis_sample(src, srcPitch, srcW, srcH, x,     y);
+    const float r  = nis_sample(src, srcPitch, srcW, srcH, x + 1, y);
+    const float d  = nis_sample(src, srcPitch, srcW, srcH, x,     y + 1);
+    const float rd = nis_sample(src, srcPitch, srcW, srcH, x + 1, y + 1);
+    const float gx = fabs(r - c);
+    const float gy = fabs(d - c);
+    const float g45 = fabs(rd - c);
+    const float g135 = fabs(r - d);
+    int best = 0;
+    float gmax = gx;
+    if (gy   > gmax) { gmax = gy;   best = 1; }
+    if (g45  > gmax) { gmax = g45;  best = 2; }
+    if (g135 > gmax) { gmax = g135; best = 3; }
+    return best;
+}
+
+// K3: coefficient lookup. Returns 8-tap weights for the given phase
+// (0..63). NIS organises taps as float8s in row-major (phase, tap). The
+// uploaded buffers are `kPhaseCount * kFilterSize` floats wide.
+static inline float nis_get_coef_scale(__constant const float *coefScale, int phase, int tap) {
+    return coefScale[phase * 8 + tap];
+}
+static inline float nis_get_coef_usm(__constant const float *coefUsm, int phase, int tap) {
+    return coefUsm[phase * 8 + tap];
+}
+
+// 6-tap separable polyphase apply. NIS's
+// coef_scale and coef_usm share the same 64-phase x 8-tap shape (only
+// taps 0..5 carry weight; taps 6,7 are 0 by data so we skip them).
+// Same convolution kernel structure -- pass coef_scale for K4 (base
+// resampled luma) or coef_usm for K5 (high-pass detail, sum=0 by
+// construction).
+// Math:
+//   sx = (dx + 0.5) * kScaleX - 0.5     (half-pixel centred mapping)
+//   isx = floor(sx);  frac = sx - isx
+//   phase_x = clamp((int)(frac * 64), 0, 63)
+// Tap i in [0..5] reads source pixel at (isx + i - 2), so phase 0 ->
+// coef_scale[0] = [0,0,1,0,0,0,..] is exactly the identity at 1x scale
+// (T1 stays bit-exact).
+//
+// Separability: compute 6 horizontal partial sums (one per source row in
+// the 6-row neighbourhood), then combine via the vertical weights. 6+6
+// LUT lookups + 36 sample-and-multiply per output pixel.
+static inline float nis_polyphase_apply(
+    __global const Type *src, int srcPitch, int srcW, int srcH,
+    __constant const NISConfigCL *cfg,
+    __constant const float *coefTable,
+    int dx, int dy)
+{
+    const float sx = ((float)dx + 0.5f) * cfg->kScaleX - 0.5f;
+    const float sy = ((float)dy + 0.5f) * cfg->kScaleY - 0.5f;
+    const int isx_base = (int)floor(sx);
+    const int isy_base = (int)floor(sy);
+    const float fx = sx - (float)isx_base;
+    const float fy = sy - (float)isy_base;
+
+    int phase_x = (int)(fx * 64.0f);
+    int phase_y = (int)(fy * 64.0f);
+    if (phase_x > 63) phase_x = 63;
+    if (phase_y > 63) phase_y = 63;
+    if (phase_x < 0)  phase_x = 0;
+    if (phase_y < 0)  phase_y = 0;
+
+    // Pre-fetch the 6 active weights per axis (saves repeated LUT reads
+    // inside the inner loop).
+    const float wx0 = nis_get_coef_scale(coefTable, phase_x, 0);
+    const float wx1 = nis_get_coef_scale(coefTable, phase_x, 1);
+    const float wx2 = nis_get_coef_scale(coefTable, phase_x, 2);
+    const float wx3 = nis_get_coef_scale(coefTable, phase_x, 3);
+    const float wx4 = nis_get_coef_scale(coefTable, phase_x, 4);
+    const float wx5 = nis_get_coef_scale(coefTable, phase_x, 5);
+    const float wy0 = nis_get_coef_scale(coefTable, phase_y, 0);
+    const float wy1 = nis_get_coef_scale(coefTable, phase_y, 1);
+    const float wy2 = nis_get_coef_scale(coefTable, phase_y, 2);
+    const float wy3 = nis_get_coef_scale(coefTable, phase_y, 3);
+    const float wy4 = nis_get_coef_scale(coefTable, phase_y, 4);
+    const float wy5 = nis_get_coef_scale(coefTable, phase_y, 5);
+
+    float result = 0.0f;
+    #pragma unroll
+    for (int j = 0; j < 6; j++) {
+        const int sy_int = isy_base + (j - 2);
+        const float p0 = nis_sample(src, srcPitch, srcW, srcH, isx_base + (0 - 2), sy_int);
+        const float p1 = nis_sample(src, srcPitch, srcW, srcH, isx_base + (1 - 2), sy_int);
+        const float p2 = nis_sample(src, srcPitch, srcW, srcH, isx_base + (2 - 2), sy_int);
+        const float p3 = nis_sample(src, srcPitch, srcW, srcH, isx_base + (3 - 2), sy_int);
+        const float p4 = nis_sample(src, srcPitch, srcW, srcH, isx_base + (4 - 2), sy_int);
+        const float p5 = nis_sample(src, srcPitch, srcW, srcH, isx_base + (5 - 2), sy_int);
+        const float rowsum = p0 * wx0 + p1 * wx1 + p2 * wx2 + p3 * wx3 + p4 * wx4 + p5 * wx5;
+        const float wy = (j == 0) ? wy0 : (j == 1) ? wy1 : (j == 2) ? wy2
+                       : (j == 3) ? wy3 : (j == 4) ? wy4 : wy5;
+        result += rowsum * wy;
+    }
+    return result;
+}
+
+__attribute__((reqd_work_group_size(NIS_BLOCK_WIDTH, NIS_BLOCK_HEIGHT, 1)))
+__kernel void kernel_nis_scaler(
+    __global       uchar *pDst,
+    const int            dstPitch,
+    const int            dstWidth,
+    const int            dstHeight,
+    __global const Type  *pSrc,
+    const int            srcPitch,
+    const int            srcWidth,
+    const int            srcHeight,
+    __constant const NISConfigCL *cfg,
+    __constant const float       *coefScale,
+    __constant const float       *coefUsm)
+{
+    const int dx = get_global_id(0);
+    const int dy = get_global_id(1);
+    if (dx >= dstWidth || dy >= dstHeight) return;
+
+    // Base resampled luma via polyphase scale LUT.
+    const float y_base = nis_polyphase_apply(pSrc, srcPitch, srcWidth, srcHeight,
+                                              cfg, coefScale, dx, dy);
+
+    // Unsharp-mask high-pass via polyphase USM LUT. coef_usm
+    // sums to 0 by construction so this is the local detail signal --
+    // positive where the pixel is brighter than its neighbourhood,
+    // negative where darker.
+    const float y_usm = nis_polyphase_apply(pSrc, srcPitch, srcWidth, srcHeight,
+                                             cfg, coefUsm, dx, dy);
+
+    // Luminance band gate. NIS only sharpens within [kSharpStartY,
+    // kSharpEndY], scaled by kSharpScaleY = 1/(end-start). For HDR PQ
+    // mode the host builds this as 0.35..0.55, which is the mid-tone
+    // band where edge enhancement is visible but specular highlights
+    // (>=1000 nit on a 4000-nit master) are excluded -- the headline
+    // protection over ewa-lanczossharp on PQ content.
+    float t = (y_base - cfg->kSharpStartY) * cfg->kSharpScaleY;
+    t = clamp(t, 0.0f, 1.0f);
+
+    // Strength + limit interpolate linearly across the band. The result
+    // is the per-pixel USM amplitude; cap the contribution to +/- limit
+    // so a single high-contrast neighbour cannot blow out the pixel.
+    const float strength = cfg->kSharpStrengthMin + t * cfg->kSharpStrengthScale;
+    const float limit    = cfg->kSharpLimitMin    + t * cfg->kSharpLimitScale;
+    const float usm_clamped = clamp(y_usm, -limit, limit);
+
+    // Keep the edge-direction helper alive for future directional weighting.
+    (void)nis_get_edge_dir(pSrc, srcPitch, srcWidth, srcHeight, 0, 0);
+
+    const float result = y_base + strength * usm_clamped;
+
+    const float maxv = (float)((1 << bit_depth) - 1);
+    __global Type *ptr = (__global Type *)(pDst + dy * dstPitch + dx * sizeof(Type));
+    ptr[0] = (Type)(clamp(result * maxv, 0.0f, maxv) + 0.5f);
+}
+
+// === Perf 3 opt=gather kernel removed 2026-06-11 after A/B audit ===
+// Shared 6x6 source gather between K4 and K5 measured -1.1% LOSS at
+// 1500 frames on Arc A770 (private 6x6 float array adds register
+// pressure; the L1 cache already keeps the K4 neighbourhood hot
+// for K5's re-fetch). Implementation in git history.
+//
+// === Perf 4 opt=separable kernels removed 2026-06-11 ===
+// 2-pass H+V scaler with float intermediate measured -0.01% WASH at
+// 1500 frames on Arc A770 (the math reduction from 36 to 12 taps was
+// wiped out by the intermediate buffer roundtrip cost). Output was
+// not bit-equivalent (intermediate rounding). Implementation in git
+// history.
+//
+// Below: only the winning K4-only + SLM kernels remain.
+
+
+// Cooperative SLM tile load for opt=fast.
+// Each work-group loads its source neighbourhood + 6-tap halo into
+// __local memory, then all threads in the group compute their
+// polyphase output from the cached tile. Saves the per-thread global
+// memory load count if the source tile would otherwise miss L1
+// (typical for large work-group counts).
+//
+// Tile size: NIS_BLOCK_W=32, NIS_BLOCK_H=24, kScale in [0.5, 1.0]
+//   max source span = 32 * 1.0 + 6 = 38 (width), 24 * 1.0 + 6 = 30 (height)
+// Round up to 40 x 32 for safety. As float = 5 KB SLM per work-group;
+// Arc A770 has 64 KB SLM total so plenty of concurrent groups fit.
+//
+// BM3D precedent (opt=slm LOST): Arc A770 L1 already caches small
+// windows. Likely loss expected here too; testing for data.
+#define NIS_SLM_TILE_W 40
+#define NIS_SLM_TILE_H 32
+
+__attribute__((reqd_work_group_size(NIS_BLOCK_WIDTH, NIS_BLOCK_HEIGHT, 1)))
+__kernel void kernel_nis_scaler_slm(
+    __global       uchar *pDst,
+    const int            dstPitch,
+    const int            dstWidth,
+    const int            dstHeight,
+    __global const Type  *pSrc,
+    const int            srcPitch,
+    const int            srcWidth,
+    const int            srcHeight,
+    __constant const NISConfigCL *cfg,
+    __constant const float       *coefScale,
+    __constant const float       *coefUsm)
+{
+    __local float src_tile[NIS_SLM_TILE_H][NIS_SLM_TILE_W];
+
+    const int wg_dx0 = get_group_id(0) * NIS_BLOCK_WIDTH;
+    const int wg_dy0 = get_group_id(1) * NIS_BLOCK_HEIGHT;
+
+    // Source-space anchor for this work-group's left/top output pixel.
+    const float sx0_f = ((float)wg_dx0 + 0.5f) * cfg->kScaleX - 0.5f;
+    const float sy0_f = ((float)wg_dy0 + 0.5f) * cfg->kScaleY - 0.5f;
+    const int sbb_x0 = (int)floor(sx0_f) - 2;
+    const int sbb_y0 = (int)floor(sy0_f) - 2;
+
+    // Cooperatively load NIS_SLM_TILE_W x NIS_SLM_TILE_H source pixels.
+    // Each thread loads ~ceil(TILE_W*TILE_H / wg_size) pixels.
+    const int lx = get_local_id(0);
+    const int ly = get_local_id(1);
+    const int lid = ly * NIS_BLOCK_WIDTH + lx;
+    const int wg_size = NIS_BLOCK_WIDTH * NIS_BLOCK_HEIGHT;
+    const int total_load = NIS_SLM_TILE_W * NIS_SLM_TILE_H;
+    for (int idx = lid; idx < total_load; idx += wg_size) {
+        const int tlx = idx % NIS_SLM_TILE_W;
+        const int tly = idx / NIS_SLM_TILE_W;
+        src_tile[tly][tlx] = nis_sample(pSrc, srcPitch, srcWidth, srcHeight,
+                                         sbb_x0 + tlx, sbb_y0 + tly);
+    }
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    const int dx = wg_dx0 + lx;
+    const int dy = wg_dy0 + ly;
+    if (dx >= dstWidth || dy >= dstHeight) return;
+
+    const float sx = ((float)dx + 0.5f) * cfg->kScaleX - 0.5f;
+    const float sy = ((float)dy + 0.5f) * cfg->kScaleY - 0.5f;
+    const int isx_base = (int)floor(sx);
+    const int isy_base = (int)floor(sy);
+    const float fx = sx - (float)isx_base;
+    const float fy = sy - (float)isy_base;
+
+    int phase_x = (int)(fx * 64.0f);
+    int phase_y = (int)(fy * 64.0f);
+    if (phase_x > 63) phase_x = 63;
+    if (phase_y > 63) phase_y = 63;
+    if (phase_x < 0)  phase_x = 0;
+    if (phase_y < 0)  phase_y = 0;
+
+    // SLM-relative source indices.
+    const int slm_x0 = isx_base - sbb_x0;
+    const int slm_y0 = isy_base - sbb_y0;
+
+    const float sxw0 = nis_get_coef_scale(coefScale, phase_x, 0);
+    const float sxw1 = nis_get_coef_scale(coefScale, phase_x, 1);
+    const float sxw2 = nis_get_coef_scale(coefScale, phase_x, 2);
+    const float sxw3 = nis_get_coef_scale(coefScale, phase_x, 3);
+    const float sxw4 = nis_get_coef_scale(coefScale, phase_x, 4);
+    const float sxw5 = nis_get_coef_scale(coefScale, phase_x, 5);
+    const float syw0 = nis_get_coef_scale(coefScale, phase_y, 0);
+    const float syw1 = nis_get_coef_scale(coefScale, phase_y, 1);
+    const float syw2 = nis_get_coef_scale(coefScale, phase_y, 2);
+    const float syw3 = nis_get_coef_scale(coefScale, phase_y, 3);
+    const float syw4 = nis_get_coef_scale(coefScale, phase_y, 4);
+    const float syw5 = nis_get_coef_scale(coefScale, phase_y, 5);
+
+    const float uxw0 = nis_get_coef_scale(coefUsm, phase_x, 0);
+    const float uxw1 = nis_get_coef_scale(coefUsm, phase_x, 1);
+    const float uxw2 = nis_get_coef_scale(coefUsm, phase_x, 2);
+    const float uxw3 = nis_get_coef_scale(coefUsm, phase_x, 3);
+    const float uxw4 = nis_get_coef_scale(coefUsm, phase_x, 4);
+    const float uxw5 = nis_get_coef_scale(coefUsm, phase_x, 5);
+    const float uyw0 = nis_get_coef_scale(coefUsm, phase_y, 0);
+    const float uyw1 = nis_get_coef_scale(coefUsm, phase_y, 1);
+    const float uyw2 = nis_get_coef_scale(coefUsm, phase_y, 2);
+    const float uyw3 = nis_get_coef_scale(coefUsm, phase_y, 3);
+    const float uyw4 = nis_get_coef_scale(coefUsm, phase_y, 4);
+    const float uyw5 = nis_get_coef_scale(coefUsm, phase_y, 5);
+
+    float y_base = 0.0f;
+    float y_usm  = 0.0f;
+    #pragma unroll
+    for (int j = 0; j < 6; j++) {
+        const int sly = slm_y0 + (j - 2);
+        const float p0 = src_tile[sly][slm_x0 - 2];
+        const float p1 = src_tile[sly][slm_x0 - 1];
+        const float p2 = src_tile[sly][slm_x0    ];
+        const float p3 = src_tile[sly][slm_x0 + 1];
+        const float p4 = src_tile[sly][slm_x0 + 2];
+        const float p5 = src_tile[sly][slm_x0 + 3];
+        const float scale_row = p0*sxw0 + p1*sxw1 + p2*sxw2 + p3*sxw3 + p4*sxw4 + p5*sxw5;
+        const float usm_row   = p0*uxw0 + p1*uxw1 + p2*uxw2 + p3*uxw3 + p4*uxw4 + p5*uxw5;
+        const float wys = (j == 0) ? syw0 : (j == 1) ? syw1 : (j == 2) ? syw2
+                       : (j == 3) ? syw3 : (j == 4) ? syw4 : syw5;
+        const float wyu = (j == 0) ? uyw0 : (j == 1) ? uyw1 : (j == 2) ? uyw2
+                       : (j == 3) ? uyw3 : (j == 4) ? uyw4 : uyw5;
+        y_base += scale_row * wys;
+        y_usm  += usm_row   * wyu;
+    }
+
+    float t = (y_base - cfg->kSharpStartY) * cfg->kSharpScaleY;
+    t = clamp(t, 0.0f, 1.0f);
+    const float strength = cfg->kSharpStrengthMin + t * cfg->kSharpStrengthScale;
+    const float limit    = cfg->kSharpLimitMin    + t * cfg->kSharpLimitScale;
+    const float usm_clamped = clamp(y_usm, -limit, limit);
+    const float result = y_base + strength * usm_clamped;
+
+    const float maxv = (float)((1 << bit_depth) - 1);
+    __global Type *ptr = (__global Type *)(pDst + dy * dstPitch + dx * sizeof(Type));
+    ptr[0] = (Type)(clamp(result * maxv, 0.0f, maxv) + 0.5f);
+}
+
+// SLM + no-USM variant for cascade intermediate stages with opt=fast
+// or opt=fastest (composes opt=slm + opt=skipusm). Same cooperative
+// tile load as kernel_nis_scaler_slm, but no K5 polyphase math.
+__attribute__((reqd_work_group_size(NIS_BLOCK_WIDTH, NIS_BLOCK_HEIGHT, 1)))
+__kernel void kernel_nis_scaler_slm_no_usm(
+    __global       uchar *pDst,
+    const int            dstPitch,
+    const int            dstWidth,
+    const int            dstHeight,
+    __global const Type  *pSrc,
+    const int            srcPitch,
+    const int            srcWidth,
+    const int            srcHeight,
+    __constant const NISConfigCL *cfg,
+    __constant const float       *coefScale)
+{
+    __local float src_tile[NIS_SLM_TILE_H][NIS_SLM_TILE_W];
+
+    const int wg_dx0 = get_group_id(0) * NIS_BLOCK_WIDTH;
+    const int wg_dy0 = get_group_id(1) * NIS_BLOCK_HEIGHT;
+
+    const float sx0_f = ((float)wg_dx0 + 0.5f) * cfg->kScaleX - 0.5f;
+    const float sy0_f = ((float)wg_dy0 + 0.5f) * cfg->kScaleY - 0.5f;
+    const int sbb_x0 = (int)floor(sx0_f) - 2;
+    const int sbb_y0 = (int)floor(sy0_f) - 2;
+
+    const int lx = get_local_id(0);
+    const int ly = get_local_id(1);
+    const int lid = ly * NIS_BLOCK_WIDTH + lx;
+    const int wg_size = NIS_BLOCK_WIDTH * NIS_BLOCK_HEIGHT;
+    const int total_load = NIS_SLM_TILE_W * NIS_SLM_TILE_H;
+    for (int idx = lid; idx < total_load; idx += wg_size) {
+        const int tlx = idx % NIS_SLM_TILE_W;
+        const int tly = idx / NIS_SLM_TILE_W;
+        src_tile[tly][tlx] = nis_sample(pSrc, srcPitch, srcWidth, srcHeight,
+                                         sbb_x0 + tlx, sbb_y0 + tly);
+    }
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    const int dx = wg_dx0 + lx;
+    const int dy = wg_dy0 + ly;
+    if (dx >= dstWidth || dy >= dstHeight) return;
+
+    const float sx = ((float)dx + 0.5f) * cfg->kScaleX - 0.5f;
+    const float sy = ((float)dy + 0.5f) * cfg->kScaleY - 0.5f;
+    const int isx_base = (int)floor(sx);
+    const int isy_base = (int)floor(sy);
+    const float fx = sx - (float)isx_base;
+    const float fy = sy - (float)isy_base;
+
+    int phase_x = (int)(fx * 64.0f);
+    int phase_y = (int)(fy * 64.0f);
+    if (phase_x > 63) phase_x = 63;
+    if (phase_y > 63) phase_y = 63;
+    if (phase_x < 0)  phase_x = 0;
+    if (phase_y < 0)  phase_y = 0;
+
+    const int slm_x0 = isx_base - sbb_x0;
+    const int slm_y0 = isy_base - sbb_y0;
+
+    const float sxw0 = nis_get_coef_scale(coefScale, phase_x, 0);
+    const float sxw1 = nis_get_coef_scale(coefScale, phase_x, 1);
+    const float sxw2 = nis_get_coef_scale(coefScale, phase_x, 2);
+    const float sxw3 = nis_get_coef_scale(coefScale, phase_x, 3);
+    const float sxw4 = nis_get_coef_scale(coefScale, phase_x, 4);
+    const float sxw5 = nis_get_coef_scale(coefScale, phase_x, 5);
+    const float syw0 = nis_get_coef_scale(coefScale, phase_y, 0);
+    const float syw1 = nis_get_coef_scale(coefScale, phase_y, 1);
+    const float syw2 = nis_get_coef_scale(coefScale, phase_y, 2);
+    const float syw3 = nis_get_coef_scale(coefScale, phase_y, 3);
+    const float syw4 = nis_get_coef_scale(coefScale, phase_y, 4);
+    const float syw5 = nis_get_coef_scale(coefScale, phase_y, 5);
+
+    float y_base = 0.0f;
+    #pragma unroll
+    for (int j = 0; j < 6; j++) {
+        const int sly = slm_y0 + (j - 2);
+        const float p0 = src_tile[sly][slm_x0 - 2];
+        const float p1 = src_tile[sly][slm_x0 - 1];
+        const float p2 = src_tile[sly][slm_x0    ];
+        const float p3 = src_tile[sly][slm_x0 + 1];
+        const float p4 = src_tile[sly][slm_x0 + 2];
+        const float p5 = src_tile[sly][slm_x0 + 3];
+        const float scale_row = p0*sxw0 + p1*sxw1 + p2*sxw2 + p3*sxw3 + p4*sxw4 + p5*sxw5;
+        const float wys = (j == 0) ? syw0 : (j == 1) ? syw1 : (j == 2) ? syw2
+                       : (j == 3) ? syw3 : (j == 4) ? syw4 : syw5;
+        y_base += scale_row * wys;
+    }
+
+    const float maxv = (float)((1 << bit_depth) - 1);
+    __global Type *ptr = (__global Type *)(pDst + dy * dstPitch + dx * sizeof(Type));
+    ptr[0] = (Type)(clamp(y_base * maxv, 0.0f, maxv) + 0.5f);
+}
+
+// K4-only kernel for cascade intermediate stages. Same scaler math as kernel_nis_scaler with the
+// USM polyphase completely removed -- intermediate stages have their
+// USM contribution multiplied by 0 in the cascade math anyway, so this
+// path saves the ~36 sample-and-multiply per pixel that was wasted.
+// The two helpers (nis_get_edge_dir, nis_get_coef_usm) are NOT touched
+// here so the compiler can DCE their bodies if no caller references
+// them through this kernel.
+__attribute__((reqd_work_group_size(NIS_BLOCK_WIDTH, NIS_BLOCK_HEIGHT, 1)))
+__kernel void kernel_nis_scaler_no_usm(
+    __global       uchar *pDst,
+    const int            dstPitch,
+    const int            dstWidth,
+    const int            dstHeight,
+    __global const Type  *pSrc,
+    const int            srcPitch,
+    const int            srcWidth,
+    const int            srcHeight,
+    __constant const NISConfigCL *cfg,
+    __constant const float       *coefScale)
+{
+    const int dx = get_global_id(0);
+    const int dy = get_global_id(1);
+    if (dx >= dstWidth || dy >= dstHeight) return;
+
+    const float y_base = nis_polyphase_apply(pSrc, srcPitch, srcWidth, srcHeight,
+                                              cfg, coefScale, dx, dy);
+
+    const float maxv = (float)((1 << bit_depth) - 1);
+    __global Type *ptr = (__global Type *)(pDst + dy * dstPitch + dx * sizeof(Type));
+    ptr[0] = (Type)(clamp(y_base * maxv, 0.0f, maxv) + 0.5f);
+}
+
+#endif // NIS_KERNEL_ENABLED

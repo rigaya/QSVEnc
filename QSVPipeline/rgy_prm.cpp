@@ -348,6 +348,28 @@ tstring VppResizeFsr1::print() const {
     return strsprintf(_T("sharpness=%.2f"), sharpness);
 }
 
+VppResizeNis::VppResizeNis() :
+    cascade(FILTER_DEFAULT_RESIZE_NIS_CASCADE),
+    sharpness(FILTER_DEFAULT_RESIZE_NIS_SHARPNESS),
+    hdrMode(FILTER_DEFAULT_RESIZE_NIS_HDR),
+    opt(FILTER_DEFAULT_RESIZE_NIS_OPT) {
+}
+
+bool VppResizeNis::operator==(const VppResizeNis &x) const {
+    return cascade == x.cascade && sharpness == x.sharpness && hdrMode == x.hdrMode && opt == x.opt;
+}
+bool VppResizeNis::operator!=(const VppResizeNis &x) const {
+    return !(*this == x);
+}
+
+tstring VppResizeNis::print() const {
+    return strsprintf(_T("cascade=%s,sharpness=%.2f,hdr=%s,opt=%s"),
+        get_chr_from_value(list_vpp_resize_nis_cascade, cascade),
+        sharpness,
+        get_chr_from_value(list_vpp_resize_nis_hdr, hdrMode),
+        get_chr_from_value(list_vpp_resize_nis_opt, opt));
+}
+
 VppLibplaceboDeband::VppLibplaceboDeband() :
     enable(false),
     iterations(FILTER_DEFAULT_LIBPLACEBO_DEBAND_ITERATIONS),
@@ -3426,6 +3448,7 @@ RGYParamVpp::RGYParamVpp() :
     deintCsp(VppDeintCsp::Input),
     resize_libplacebo(),
     resize_fsr1(),
+    resize_nis(),
     colorspace(),
     libplacebo_tonemapping(),
     delogo(),
@@ -3498,6 +3521,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && resize_mode == x.resize_mode
         && deintCsp == x.deintCsp
         && resize_fsr1 == x.resize_fsr1
+        && resize_nis == x.resize_nis
         && colorspace == x.colorspace
         && libplacebo_tonemapping == x.libplacebo_tonemapping
         && delogo == x.delogo

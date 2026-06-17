@@ -788,6 +788,7 @@ enum RGY_VPP_RESIZE_ALGO {
     RGY_VPP_RESIZE_LANCZOS4,
     RGY_VPP_RESIZE_GAUSS,
     RGY_VPP_RESIZE_FSR1,
+    RGY_VPP_RESIZE_NIS,
     RGY_VPP_RESIZE_OPENCL_CUDA_MAX,
 #if ENCODER_QSV
     RGY_VPP_RESIZE_MFX_NEAREST_NEIGHBOR,
@@ -960,6 +961,7 @@ const CX_DESC list_vpp_resize[] = {
     { _T("lanczos4"), RGY_VPP_RESIZE_LANCZOS4 },
     { _T("gauss"),    RGY_VPP_RESIZE_GAUSS },
     { _T("fsr1"),     RGY_VPP_RESIZE_FSR1 },
+    { _T("nis"),      RGY_VPP_RESIZE_NIS },
 #if ENCODER_QSV
   #if !FOR_AUO
     { _T("bilinear"), RGY_VPP_RESIZE_MFX_BILINEAR },
@@ -1048,6 +1050,7 @@ const CX_DESC list_vpp_resize_help[] = {
     { _T("lanczos4"), RGY_VPP_RESIZE_LANCZOS4 },
     { _T("gauss"),    RGY_VPP_RESIZE_GAUSS },
     { _T("fsr1"),     RGY_VPP_RESIZE_FSR1 },
+    { _T("nis"),      RGY_VPP_RESIZE_NIS },
 #if ENCODER_QSV
     { _T("bilinear"), RGY_VPP_RESIZE_MFX_BILINEAR },
     { _T("advanced"), RGY_VPP_RESIZE_MFX_ADVANCED },
@@ -1122,6 +1125,7 @@ static const char *paramsResizeLibPlacebo[] = { "algo", "pl-radius", "pl-clamp",
 static const char *paramsResizeNVEnc[] = { "superres-mode", "superres-strength", "vsr-quality" };
 static const char *paramsResizeQSVEnc[] = { "superres-mode", "superres-algo" };
 static const char *paramsResizeFsr1[] = { "sharpness" };
+static const char *paramsResizeNis[]  = { "cascade", "sharpness", "hdr", "opt" };
 
 static const float FILTER_DEFAULT_RESIZE_FSR1_SHARPNESS = 0.5f;
 
@@ -1131,6 +1135,49 @@ struct VppResizeFsr1 {
     VppResizeFsr1();
     bool operator==(const VppResizeFsr1 &x) const;
     bool operator!=(const VppResizeFsr1 &x) const;
+    tstring print() const;
+};
+
+static const float FILTER_DEFAULT_RESIZE_NIS_SHARPNESS = 0.5f;
+
+enum RGY_NIS_CASCADE  { RGY_NIS_CASCADE_AUTO, RGY_NIS_CASCADE_ON, RGY_NIS_CASCADE_OFF };
+enum RGY_NIS_HDR_MODE { RGY_NIS_HDR_AUTO, RGY_NIS_HDR_SDR, RGY_NIS_HDR_PQ };
+enum RGY_NIS_OPT {
+    RGY_NIS_OPT_DEFAULT,
+    RGY_NIS_OPT_FAST,
+};
+
+static const int FILTER_DEFAULT_RESIZE_NIS_CASCADE = RGY_NIS_CASCADE_AUTO;
+static const int FILTER_DEFAULT_RESIZE_NIS_HDR     = RGY_NIS_HDR_AUTO;
+static const int FILTER_DEFAULT_RESIZE_NIS_OPT     = RGY_NIS_OPT_DEFAULT;
+
+const CX_DESC list_vpp_resize_nis_cascade[] = {
+    { _T("auto"), RGY_NIS_CASCADE_AUTO },
+    { _T("on"),   RGY_NIS_CASCADE_ON },
+    { _T("off"),  RGY_NIS_CASCADE_OFF },
+    { NULL, 0 }
+};
+const CX_DESC list_vpp_resize_nis_hdr[] = {
+    { _T("auto"), RGY_NIS_HDR_AUTO },
+    { _T("sdr"),  RGY_NIS_HDR_SDR },
+    { _T("pq"),   RGY_NIS_HDR_PQ },
+    { NULL, 0 }
+};
+const CX_DESC list_vpp_resize_nis_opt[] = {
+    { _T("default"), RGY_NIS_OPT_DEFAULT },
+    { _T("fast"),    RGY_NIS_OPT_FAST },
+    { NULL, 0 }
+};
+
+struct VppResizeNis {
+    int   cascade;
+    float sharpness;
+    int   hdrMode;
+    int   opt;
+
+    VppResizeNis();
+    bool operator==(const VppResizeNis &x) const;
+    bool operator!=(const VppResizeNis &x) const;
     tstring print() const;
 };
 
@@ -3462,6 +3509,7 @@ struct RGYParamVpp {
     VppDeintCsp deintCsp;
     VppLibplaceboResample resize_libplacebo;
     VppResizeFsr1 resize_fsr1;
+    VppResizeNis  resize_nis;
     VppColorspace colorspace;
     VppLibplaceboToneMapping libplacebo_tonemapping;
     VppDelogo delogo;
