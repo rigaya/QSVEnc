@@ -665,8 +665,8 @@ __kernel void kernel_resize_gauss_v(
 //
 // Build-time defines expected from the host:
 //   NIS_KERNEL_ENABLED   1 to compile this block, 0/undefined to skip
-//   NIS_BLOCK_WIDTH      pixels per work-group, X axis (32 on all GPUs)
-//   NIS_BLOCK_HEIGHT     pixels per work-group, Y axis (24 upscale / 32 sharpen-only)
+//   NIS_BLOCK_WIDTH      pixels per work-group, X axis
+//   NIS_BLOCK_HEIGHT     pixels per work-group, Y axis
 //   NIS_HDR_MODE         0=None, 1=Linear, 2=PQ (matches NIS_Config.h enum)
 // ====================================================================
 
@@ -676,7 +676,7 @@ __kernel void kernel_resize_gauss_v(
 #define NIS_BLOCK_WIDTH  32
 #endif
 #ifndef NIS_BLOCK_HEIGHT
-#define NIS_BLOCK_HEIGHT 24
+#define NIS_BLOCK_HEIGHT 8
 #endif
 #ifndef NIS_HDR_MODE
 #define NIS_HDR_MODE     0
@@ -916,8 +916,8 @@ __kernel void kernel_nis_scaler(
 // memory load count if the source tile would otherwise miss L1
 // (typical for large work-group counts).
 //
-// Tile size: NIS_BLOCK_W=32, NIS_BLOCK_H=24, kScale in [0.5, 1.0]
-//   max source span = 32 * 1.0 + 6 = 38 (width), 24 * 1.0 + 6 = 30 (height)
+// Tile size: NIS_BLOCK_W=32, NIS_BLOCK_H=8, kScale in [0.5, 1.0]
+//   max source span = 32 * 1.0 + 6 = 38 (width), 8 * 1.0 + 6 = 14 (height)
 // Round up to 40 x 32 for safety. As float = 5 KB SLM per work-group;
 // Arc A770 has 64 KB SLM total so plenty of concurrent groups fit.
 //

@@ -41,13 +41,11 @@ static const int RESIZE_BLOCK_X = 32;
 static const int RESIZE_BLOCK_Y = 8;
 static_assert(RESIZE_BLOCK_Y <= RESIZE_BLOCK_X, "RESIZE_BLOCK_Y <= RESIZE_BLOCK_X");
 
-// NIS thread-group geometry. Matches NIS_Config.h
-// NISOptimizer recommendations for Intel/AMD/NVIDIA generic: 32x24 for
-// upscale, 128 threads per group. Compile-time so the kernel can use
-// reqd_work_group_size for the launcher to plan around.
+// NIS thread-group geometry. Keep the workgroup at 256 threads or below.
 static const int NIS_BLOCK_WIDTH       = 32;
-static const int NIS_BLOCK_HEIGHT      = 24;
-static const int NIS_THREAD_GROUP_SIZE = 128;
+static const int NIS_BLOCK_HEIGHT      = 8;
+static const int NIS_THREAD_GROUP_SIZE = NIS_BLOCK_WIDTH * NIS_BLOCK_HEIGHT;
+static_assert(NIS_THREAD_GROUP_SIZE <= 256, "NIS workgroup size must be <= 256.");
 
 // Host mirror of the .cl NISConfigCL. Field order, types, and 256-byte
 // alignment MUST stay in lock-step with the kernel-side struct.
