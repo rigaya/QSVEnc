@@ -81,6 +81,10 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_PMD          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_HQDN3D       (ENCODER_QSV   || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_DESCALE      (ENCODER_QSV   || ENCODER_VCEENC || ENCODER_MPP)
+#ifndef ENABLE_OPENVINO
+#define ENABLE_OPENVINO 0
+#endif
+#define ENABLE_VPP_FILTER_ONNX  (ENABLE_OPENVINO && (ENCODER_QSV))
 #define ENABLE_VPP_FILTER_DENOISE_DCT  (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_SMOOTH       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_FFT3D        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
@@ -195,6 +199,7 @@ enum class VppType : int {
     CL_DENOISE_PMD,
     CL_DENOISE_HQDN3D,
     CL_DESCALE,
+    CL_ONNX,
     CL_DENOISE_DCT,
     CL_DENOISE_SMOOTH,
     CL_DENOISE_FFT3D,
@@ -3260,6 +3265,25 @@ struct VppMaa {
     tstring print() const;
 };
 
+struct VppOnnx {
+    bool    enable;
+    tstring modelFile;   // path to the ONNX (or OpenVINO IR .xml) model
+    tstring device;      // OpenVINO device: "GPU.0" (default), "GPU", "CPU", "AUTO"
+    tstring interop;     // "auto" (default), "ocl" (zero-copy shared context), "host" (readback)
+    tstring colormatrix; // "auto" (bt601 for SD, bt709 for HD), "bt601", "bt709", "bt2020"
+    tstring colorrange;  // "auto" (tv), "tv", "pc"
+    tstring colorspace;  // 3ch models: "rgb" (default) or "ycbcr" (ArtCNN *_YCbCr / JPEG-YCbCr)
+    int     noise;       // noise sigma (0..255) fed to the conditioning channel of noise models (default 15)
+    int                  postResizeW;
+    int                  postResizeH;
+    RGY_VPP_RESIZE_ALGO  postResizeAlgo;
+
+    VppOnnx();
+    bool operator==(const VppOnnx &x) const;
+    bool operator!=(const VppOnnx &x) const;
+    tstring print() const;
+};
+
 enum class VppDescaleKernel {
     Bilinear,
     Bicubic,
@@ -3582,6 +3606,7 @@ struct RGYParamVpp {
     VppNLMeans nlmeans;
     VppPmd pmd;
     VppHqdn3d hqdn3d;
+    VppOnnx onnx;
     VppDescale descale;
     VppDenoiseDct dct;
     VppSmooth smooth;

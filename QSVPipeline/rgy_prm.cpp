@@ -109,6 +109,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_DENOISE_PMD,          _T("pmd")),
     std::make_pair(VppType::CL_DENOISE_HQDN3D,       _T("hqdn3d")),
     std::make_pair(VppType::CL_DESCALE,              _T("descale")),
+    std::make_pair(VppType::CL_ONNX,                _T("onnx")),
     std::make_pair(VppType::CL_DENOISE_DCT,          _T("denoise-dct")),
     std::make_pair(VppType::CL_DENOISE_SMOOTH,       _T("smooth")),
     std::make_pair(VppType::CL_DENOISE_FFT3D,        _T("fft3d")),
@@ -3453,6 +3454,53 @@ tstring VppFruc::print() const {
     } else {
         return _T("Unknown");
     }
+}
+
+VppOnnx::VppOnnx() :
+    enable(false),
+    modelFile(),
+    device(_T("GPU.0")),
+    interop(_T("auto")),
+    colormatrix(_T("auto")),
+    colorrange(_T("auto")),
+    colorspace(_T("rgb")),
+    noise(15),
+    postResizeW(0),
+    postResizeH(0),
+    postResizeAlgo(RGY_VPP_RESIZE_AUTO) {
+
+}
+
+bool VppOnnx::operator==(const VppOnnx &x) const {
+    return enable == x.enable
+        && modelFile == x.modelFile
+        && device == x.device
+        && interop == x.interop
+        && colormatrix == x.colormatrix
+        && colorrange == x.colorrange
+        && colorspace == x.colorspace
+        && noise == x.noise
+        && postResizeW == x.postResizeW
+        && postResizeH == x.postResizeH
+        && postResizeAlgo == x.postResizeAlgo;
+}
+bool VppOnnx::operator!=(const VppOnnx &x) const {
+    return !(*this == x);
+}
+
+tstring VppOnnx::print() const {
+    tstring s = strsprintf(_T("model=%s"), modelFile.c_str());
+    s += strsprintf(_T(",device=%s"), device.c_str());
+    s += strsprintf(_T(",interop=%s"), interop.c_str());
+    s += strsprintf(_T(",colormatrix=%s"), colormatrix.c_str());
+    s += strsprintf(_T(",colorrange=%s"), colorrange.c_str());
+    s += strsprintf(_T(",colorspace=%s"), colorspace.c_str());
+    s += strsprintf(_T(",noise=%d"), noise);
+    if (postResizeW != 0 && postResizeH != 0) {
+        s += strsprintf(_T(",out_res=%dx%d"), postResizeW, postResizeH);
+        s += strsprintf(_T(",resize=%s"), get_cx_desc(list_vpp_resize, postResizeAlgo));
+    }
+    return s;
 }
 
 RGYParamVpp::RGYParamVpp() :
