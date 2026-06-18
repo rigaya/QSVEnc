@@ -1,4 +1,4 @@
-// -----------------------------------------------------------------------------------------
+﻿// -----------------------------------------------------------------------------------------
 //     QSVEnc/VCEEnc/rkmppenc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
@@ -29,7 +29,9 @@
 #ifndef __RGY_MODEL_REGISTRY_H__
 #define __RGY_MODEL_REGISTRY_H__
 
-#ifdef ENABLE_VPP_FILTER_ONNX
+#include "rgy_prm.h"
+
+#if ENABLE_VPP_FILTER_ONNX
 
 #include "rgy_osdep.h"
 #include "rgy_err.h"

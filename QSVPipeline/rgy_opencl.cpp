@@ -335,6 +335,8 @@ int initOpenCLGlobal() {
     LOAD(clGetPlatformIDs);
     LOAD(clGetDeviceIDs);
     LOAD(clGetPlatformInfo);
+    LOAD_NO_CHECK(clRetainDevice);
+    LOAD_NO_CHECK(clReleaseDevice);
 
     LOAD(clCreateCommandQueue);
     LOAD(clReleaseCommandQueue);

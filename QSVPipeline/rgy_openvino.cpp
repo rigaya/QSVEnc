@@ -1,4 +1,4 @@
-// -----------------------------------------------------------------------------------------
+﻿// -----------------------------------------------------------------------------------------
 //     QSVEnc/VCEEnc/rkmppenc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
@@ -56,6 +56,32 @@
 #if defined(_MSC_VER)
 #pragma warning(pop)
 #endif
+
+#include "rgy_opencl.h"
+
+#undef clRetainDevice
+#undef clReleaseDevice
+#undef clReleaseContext
+#undef clGetCommandQueueInfo
+#undef clReleaseCommandQueue
+
+extern "C" {
+cl_int CL_API_CALL clRetainDevice(cl_device_id device) {
+    return f_clRetainDevice ? f_clRetainDevice(device) : CL_SUCCESS;
+}
+cl_int CL_API_CALL clReleaseDevice(cl_device_id device) {
+    return f_clReleaseDevice ? f_clReleaseDevice(device) : CL_SUCCESS;
+}
+cl_int CL_API_CALL clReleaseContext(cl_context context) {
+    return f_clReleaseContext ? f_clReleaseContext(context) : CL_INVALID_OPERATION;
+}
+cl_int CL_API_CALL clGetCommandQueueInfo(cl_command_queue command_queue, cl_command_queue_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret) {
+    return f_clGetCommandQueueInfo ? f_clGetCommandQueueInfo(command_queue, param_name, param_value_size, param_value, param_value_size_ret) : CL_INVALID_OPERATION;
+}
+cl_int CL_API_CALL clReleaseCommandQueue(cl_command_queue command_queue) {
+    return f_clReleaseCommandQueue ? f_clReleaseCommandQueue(command_queue) : CL_INVALID_OPERATION;
+}
+}
 
 class RGYOpenVINO::Impl {
 public:

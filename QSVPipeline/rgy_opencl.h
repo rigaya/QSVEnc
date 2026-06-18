@@ -52,7 +52,9 @@
 #endif
 
 #include "rgy_osdep.h"
+#ifndef CL_TARGET_OPENCL_VERSION
 #define CL_TARGET_OPENCL_VERSION 210
+#endif
 #include <CL/opencl.h>
 #if ENABLE_RGY_OPENCL_D3D9
 #include <CL/cl_dx9_media_sharing.h>
@@ -198,6 +200,8 @@ CL_EXTERN cl_int (CL_API_CALL* f_clGetPlatformIDs)(cl_uint num_entries, cl_platf
 CL_EXTERN cl_int (CL_API_CALL* f_clGetPlatformInfo) (cl_platform_id platform, cl_platform_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
 CL_EXTERN cl_int (CL_API_CALL* f_clGetDeviceIDs) (cl_platform_id platform, cl_device_type device_type, cl_uint num_entries, cl_device_id *devices, cl_uint *num_devices);
 CL_EXTERN cl_int (CL_API_CALL* f_clGetDeviceInfo) (cl_device_id device, cl_device_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
+CL_EXTERN cl_int (CL_API_CALL* f_clRetainDevice) (cl_device_id device);
+CL_EXTERN cl_int (CL_API_CALL* f_clReleaseDevice) (cl_device_id device);
 
 CL_EXTERN cl_context (CL_API_CALL* f_clCreateContext) (const cl_context_properties * properties, cl_uint num_devices, const cl_device_id * devices, void (CL_CALLBACK * pfn_notify)(const char *, const void *, size_t, void *), void * user_data, cl_int * errcode_ret);
 CL_EXTERN cl_int (CL_API_CALL* f_clReleaseContext) (cl_context context);
@@ -302,6 +306,8 @@ CL_EXTERN cl_int(CL_API_CALL* f_clEnqueueReleaseVA_APIMediaSurfacesINTEL)(cl_com
 #define clGetPlatformInfo f_clGetPlatformInfo
 #define clGetDeviceIDs f_clGetDeviceIDs
 #define clGetDeviceInfo f_clGetDeviceInfo
+#define clRetainDevice f_clRetainDevice
+#define clReleaseDevice f_clReleaseDevice
 
 #define clCreateContext f_clCreateContext
 #define clReleaseContext f_clReleaseContext
