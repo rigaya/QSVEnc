@@ -40,8 +40,9 @@ class RGYFilterResize; // opt-in end-of-chain resize sub-filter (out_res=/resize
 class RGYFilterParamOnnx : public RGYFilterParam {
 public:
     VppOnnx onnx;
+    tstring modelDir;
     int sar[2] = { 0, 0 };  // input SAR (set by pipeline) -- resolves a negative out_res= (auto-aspect) DAR-correctly
-    RGYFilterParamOnnx() : onnx() {};
+    RGYFilterParamOnnx() : onnx(), modelDir() {};
     virtual ~RGYFilterParamOnnx() {};
     virtual tstring print() const override;
 };

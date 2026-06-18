@@ -3258,6 +3258,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         unique_ptr<RGYFilter> filter(new RGYFilterOnnx(m_cl));
         shared_ptr<RGYFilterParamOnnx> param(new RGYFilterParamOnnx());
         param->onnx = params->vpp.onnx;
+        param->modelDir = params->vpp.onnxModelDir;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->sar[0] = params->input.sar[0];

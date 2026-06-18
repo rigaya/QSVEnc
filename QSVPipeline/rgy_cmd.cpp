@@ -5616,10 +5616,19 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
                 return 1;
             } else {
+                if (tolowercase(param) == _T("list")) {
+                    vpp->onnxListModels = true;
+                    continue;
+                }
                 print_cmd_error_unknown_opt_param(option_name, param, paramList);
                 return 1;
             }
         }
+        return 0;
+    }
+    if (IS_OPTION("vpp-onnx-model-dir") && ENABLE_VPP_FILTER_ONNX) {
+        i++;
+        vpp->onnxModelDir = tstring(strInput[i]);
         return 0;
     }
     if (IS_OPTION("vpp-denoise-dct") && ENABLE_VPP_FILTER_DENOISE_DCT) {
@@ -12815,6 +12824,9 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-onnx");
         }
     }
+    if (!param->onnxModelDir.empty()) {
+        cmd << _T(" --vpp-onnx-model-dir ") << param->onnxModelDir;
+    }
     if (param->dct != defaultPrm->dct) {
         tmp.str(tstring());
         if (!param->dct.enable && save_disabled_prm) {
@@ -15898,6 +15910,8 @@ tstring gen_cmd_help_vpp() {
         _T("                                  value on one axis keeps the source aspect:\n")
         _T("                                  out_res=-2x1080 -> 1440x1080 (4:3) or 1920x1080 (16:9).\n")
         _T("      resize=<string>             resampler for out_res (default=lanczos4)\n"));
+    str += strsprintf(_T("\n")
+        _T("   --vpp-onnx-model-dir <string>   Directory containing models.json for registered ONNX models.\n"));
 #endif
     str += strsprintf(_T("\n")
         _T("   --vpp-perf-monitor           check vpp perfromance (for debug)\n")

@@ -3607,6 +3607,8 @@ struct RGYParamVpp {
     VppPmd pmd;
     VppHqdn3d hqdn3d;
     VppOnnx onnx;
+    tstring onnxModelDir;
+    bool    onnxListModels;
     VppDescale descale;
     VppDenoiseDct dct;
     VppSmooth smooth;

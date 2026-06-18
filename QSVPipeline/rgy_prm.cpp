@@ -3575,6 +3575,8 @@ RGYParamVpp::RGYParamVpp() :
     libplacebo_deband(),
     overlay(),
     fruc(),
+    onnxModelDir(),
+    onnxListModels(false),
     checkPerformance(false) {
 
 }
@@ -3649,6 +3651,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && deband == x.deband
         && libplacebo_deband == x.libplacebo_deband
         && overlay == x.overlay
+        && onnxModelDir == x.onnxModelDir
         && checkPerformance == x.checkPerformance;
 }
 bool RGYParamVpp::operator!=(const RGYParamVpp& x) const {
