@@ -326,11 +326,12 @@ RGY_ERR RGYFilterRtgmcEdi::FrameSource::add(std::shared_ptr<RGYOpenCLContext> cl
 }
 
 tstring RGYFilterParamRtgmcEdi::print() const {
-    return strsprintf(_T("rtgmc-edi: mode=%s%s, nnsize=%d, nneurons=%d, ediqual=%d, chroma_edi=%s"),
+    return strsprintf(_T("rtgmc-edi: mode=%s%s, nnsize=%d, nneurons=%d, ediqual=%d, chroma_edi=%s, order=%s"),
         get_cx_desc(list_vpp_rtgmc_edi_mode, (int)mode),
         rtgmcEdiModeIsLightweight(mode) ? rtgmcEdiModeDetail(mode) : _T(""),
         nnsize, nneurons, ediqual,
-        get_cx_desc(list_vpp_rtgmc_chroma_edi_mode, (int)chromaEdi));
+        get_cx_desc(list_vpp_rtgmc_chroma_edi_mode, (int)chromaEdi),
+        get_cx_desc(list_vpp_rtgmc_bob_order, (int)order));
 }
 
 RGYFilterRtgmcEdi::NnediAdapterState::NnediAdapterState() :
@@ -543,7 +544,9 @@ RGY_ERR RGYFilterRtgmcEdi::initNnediAdapterState(NnediAdapterState &state, const
     auto filter = std::make_unique<RGYFilterNnedi>(m_cl);
     auto nnedi = std::make_shared<RGYFilterParamNnedi>();
     nnedi->nnedi.enable = true;
-    nnedi->nnedi.field = VPP_NNEDI_FIELD_BOB;
+    nnedi->nnedi.field = (prm->order == VppRtgmcBobOrder::TFF) ? VPP_NNEDI_FIELD_BOB_TOP
+        : (prm->order == VppRtgmcBobOrder::BFF) ? VPP_NNEDI_FIELD_BOB_BOTTOM
+        : VPP_NNEDI_FIELD_BOB;
     nnedi->nnedi.nsize = (VppNnediNSize)(chroma ? VPP_NNEDI_NSIZE_8x4 : prm->nnsize);
     nnedi->nnedi.nns = rgy_nnedi_nns_value(chroma ? 0 : prm->nneurons);
     nnedi->nnedi.quality = (VppNnediQuality)(chroma ? VPP_NNEDI_QUALITY_FAST : prm->ediqual);

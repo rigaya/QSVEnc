@@ -42,12 +42,13 @@ public:
     int nnsize;
     int nneurons;
     int ediqual;
+    VppRtgmcBobOrder order;
     RGYFrameInfo sourceFrameIn;
     rgy_rational<int> sourceBaseFps;
     rgy_rational<int> sourceTimebase;
     HMODULE hModule;
 
-    RGYFilterParamRtgmcEdi() : mode(VppRtgmcEdiMode::BobChromaMerge), chromaEdi(VppRtgmcChromaEdiMode::None), nnsize(1), nneurons(1), ediqual(1), sourceFrameIn(), sourceBaseFps(), sourceTimebase(), hModule(NULL) {}
+    RGYFilterParamRtgmcEdi() : mode(VppRtgmcEdiMode::BobChromaMerge), chromaEdi(VppRtgmcChromaEdiMode::None), nnsize(1), nneurons(1), ediqual(1), order(VppRtgmcBobOrder::Auto), sourceFrameIn(), sourceBaseFps(), sourceTimebase(), hModule(NULL) {}
     virtual ~RGYFilterParamRtgmcEdi() {}
     virtual tstring print() const override;
 };
