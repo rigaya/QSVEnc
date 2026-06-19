@@ -1,4 +1,4 @@
-// -----------------------------------------------------------------------------------------
+﻿// -----------------------------------------------------------------------------------------
 //     QSVEnc/VCEEnc/rkmppenc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
@@ -33,21 +33,18 @@
 #include <memory>
 #include "rgy_err.h"
 
-// Set to 1 by the build (preprocessor define) when QSVEnc is linked against the
-// OpenVINO runtime. When 0, the wrapper still compiles but every call returns
-// RGY_ERR_UNSUPPORTED, and --vpp-onnx reports that this build has no
-// OpenVINO support.
+// Set to 1 by the build (preprocessor define) when QSVEnc enables OpenVINO
+// support. The OpenVINO runtime itself is loaded dynamically at runtime.
 #ifndef ENABLE_OPENVINO
 #define ENABLE_OPENVINO 0
 #endif
 
-// Thin wrapper over ov::Core. The entire per-network "graph build" is a single
+// Thin wrapper over the OpenVINO C API. The entire per-network "graph build" is a single
 // read_model() of an ONNX (or OpenVINO IR) file; one inference is set_tensor +
 // infer. This is the whole point of the onnx experiment: this one class
 // replaces the per-family build*()/forward*() oneDNN graphs in the native
-// kaizen filter. The heavy <openvino/openvino.hpp> include is confined to the
-// .cpp via the pimpl below, so no other translation unit pulls in OpenVINO
-// headers.
+// kaizen filter. OpenVINO symbols are resolved from openvino.dll/libopenvino.so
+// at runtime, so the executable does not import openvino.lib directly.
 class RGYOpenVINO {
 public:
     RGYOpenVINO();
@@ -73,12 +70,9 @@ public:
     RGY_ERR infer(const float *in, float *out);
 
     // --- zero-copy path (shared OpenCL queue) ---
-    // Load + compile a model on an OpenVINO remote context built from the
-    // caller's existing cl_command_queue (passed as void* to keep OpenCL headers
-    // out of this header). OpenVINO then enqueues inference on THAT queue, so on
-    // an in-order queue it runs after the caller's preceding kernels and before
-    // its following kernels with no host synchronisation. Same channel rule as
-    // init().
+    // Shared OpenCL zero-copy path. This public API is kept for callers, but
+    // the dynamic C API implementation currently returns RGY_ERR_UNSUPPORTED
+    // until the C remote-context varargs path is completed.
     RGY_ERR initShared(const std::string &modelPath, void *clQueue,
                        const int height, const int width, std::string &errMessage);
     // Bind the input and output cl_mem buffers (f32, sized to the in/out
@@ -100,7 +94,7 @@ public:
     std::string deviceFullName() const;     // e.g. "Intel(R) Arc(TM) A770 Graphics (dGPU)"
     std::string inferencePrecision() const; // e.g. "f16"
 
-    static bool available() { return ENABLE_OPENVINO != 0; }
+    static bool available();
 
 private:
     RGYOpenVINO(const RGYOpenVINO &) = delete;

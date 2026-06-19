@@ -1,4 +1,4 @@
-// -----------------------------------------------------------------------------------------
+﻿// -----------------------------------------------------------------------------------------
 //     QSVEnc/VCEEnc/rkmppenc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
@@ -304,12 +304,19 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
             prm->onnx.modelFile.c_str(), char_to_tstring(errMsg).c_str());
         return err;
     }
-    const bool fastOcl = wantOcl && (peekIn == 1 && peekOut == 1);
+    bool fastOcl = wantOcl && (peekIn == 1 && peekOut == 1);
 
     if (fastOcl) {
         // share QSVEnc's in-order command queue so OpenVINO inference enqueues
         // between this filter's kernels with no host synchronisation.
         err = m_ov->initShared(modelPathA, (void *)m_cl->queue().get(), inH, inW, errMsg);
+        if (err == RGY_ERR_UNSUPPORTED && interopStr != _T("ocl")) {
+            AddMessage(RGY_LOG_DEBUG, _T("onnx: shared OpenCL context is unavailable, falling back to host interop: %s\n"),
+                char_to_tstring(errMsg).c_str());
+            fastOcl = false;
+            errMsg.clear();
+            err = m_ov->init(modelPathA, deviceA, inH, inW, errMsg);
+        }
     } else {
         // device-string compile; the host readback path uses this for every
         // multi-channel mode (the model still runs on the GPU).
