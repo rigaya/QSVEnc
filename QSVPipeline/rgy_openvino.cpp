@@ -137,14 +137,17 @@ struct OpenVINOLoader {
         tried = true;
 
 #if defined(_WIN32) || defined(_WIN64)
-        static const std::array<const TCHAR *, 1> dllNames = { _T("openvino.dll") };
+        static const std::array<const TCHAR *, 2> dllNames = {
+            _T("openvino_c.dll"),
+            _T("openvino_cd.dll")
+        };
 #else
         static const std::array<const TCHAR *, 5> dllNames = {
-            _T("libopenvino.so"),
-            _T("libopenvino.so.2600"),
-            _T("libopenvino.so.2500"),
-            _T("libopenvino.so.2025"),
-            _T("libopenvino.so.2024")
+            _T("libopenvino_c.so"),
+            _T("libopenvino_c.so.2600"),
+            _T("libopenvino_c.so.2500"),
+            _T("libopenvino_c.so.2025"),
+            _T("libopenvino_c.so.2024")
         };
 #endif
         for (const auto dllName : dllNames) {
@@ -154,7 +157,7 @@ struct OpenVINOLoader {
             }
         }
         if (module == nullptr) {
-            error = "OpenVINO runtime library could not be loaded (openvino.dll/libopenvino.so)";
+            error = "OpenVINO C runtime library could not be loaded (openvino_c.dll/libopenvino_c.so)";
             return false;
         }
 
@@ -532,6 +535,13 @@ size_t RGYOpenVINO::outElemCount() const {
 std::string RGYOpenVINO::deviceFullName()     const { return m_impl ? m_impl->devName : std::string(); }
 std::string RGYOpenVINO::inferencePrecision() const { return m_impl ? m_impl->precision : std::string(); }
 bool RGYOpenVINO::available() { return ovLoader().load(); }
+std::string RGYOpenVINO::availabilityStatus() {
+    auto &ov = ovLoader();
+    if (ov.load()) {
+        return std::string();
+    }
+    return ov.error;
+}
 
 #else // !ENABLE_OPENVINO
 
@@ -565,5 +575,6 @@ size_t RGYOpenVINO::outElemCount() const { return 0; }
 std::string RGYOpenVINO::deviceFullName()     const { return std::string(); }
 std::string RGYOpenVINO::inferencePrecision() const { return std::string(); }
 bool RGYOpenVINO::available() { return false; }
+std::string RGYOpenVINO::availabilityStatus() { return "this build of QSVEnc does not include OpenVINO support"; }
 
 #endif // ENABLE_OPENVINO

@@ -1,4 +1,4 @@
-// -----------------------------------------------------------------------------------------
+﻿// -----------------------------------------------------------------------------------------
 //     QSVEnc/VCEEnc/rkmppenc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
@@ -102,6 +102,8 @@ protected:
     OnnxIO m_io;                          // I/O convention inferred from channel counts
     int   m_inC, m_outC;                        // model input / output channel counts
     int   m_scale;                              // integer upscale factor from the model (out/in)
+    int   m_modelInW, m_modelInH;               // tensor input size; can be padded from the frame size
+    int   m_padL, m_padT;                       // edge-replication padding before packing host input
     float m_maxval;                             // (1<<bitdepth)-1
     bool  m_useOcl;                             // zero-copy fast path selected at init (LumaSR only)
     bool  m_ycbcr;                              // 3ch model fed as planar YCbCr instead of RGB

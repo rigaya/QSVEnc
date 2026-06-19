@@ -91,7 +91,8 @@ tstring RGYFilterParamOnnx::print() const {
 
 RGYFilterOnnx::RGYFilterOnnx(shared_ptr<RGYOpenCLContext> context) :
     RGYFilter(context), m_ov(), m_io(OnnxIO::LumaSR), m_inC(1), m_outC(1),
-    m_scale(1), m_maxval(255.0f), m_useOcl(false), m_ycbcr(false), m_sigmaNorm(0.0f),
+    m_scale(1), m_modelInW(0), m_modelInH(0), m_padL(0), m_padT(0),
+    m_maxval(255.0f), m_useOcl(false), m_ycbcr(false), m_sigmaNorm(0.0f),
     m_yOff(0.0f), m_yScale(1.0f), m_yRange(255.0f), m_cOff(128.0f), m_cScale(1.0f), m_cRange(255.0f),
     m_matVR(0), m_matUG(0), m_matVG(0), m_matUB(0),
     m_matRY(0), m_matGY(0), m_matBY(0), m_matRU(0), m_matGU(0), m_matBU(0), m_matRV(0), m_matGV(0), m_matBV(0),
@@ -107,6 +108,12 @@ RGYFilterOnnx::~RGYFilterOnnx() {
 namespace {
 static inline int clampi(int v, int lo, int hi) { return v < lo ? lo : (v > hi ? hi : v); }
 static inline float clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
+static inline int sample_x(const int x, const int padL, const int width) {
+    return clampi(x - padL, 0, width - 1);
+}
+static inline int sample_y(const int y, const int padT, const int height) {
+    return clampi(y - padT, 0, height - 1);
+}
 
 // Bilinear upscale of one 8-bit channel from (sw x sh) to (sw*scale x sh*scale)
 // on the CPU (host path). Mirrors the chroma_bilinear kernel above.
@@ -230,7 +237,8 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         return RGY_ERR_INVALID_PARAM;
     }
     if (!RGYOpenVINO::available()) {
-        AddMessage(RGY_LOG_ERROR, _T("onnx: this build of QSVEnc was compiled without OpenVINO support.\n"));
+        const auto status = RGYOpenVINO::availabilityStatus();
+        AddMessage(RGY_LOG_ERROR, _T("onnx: OpenVINO runtime is not available: %s.\n"), char_to_tstring(status).c_str());
         return RGY_ERR_UNSUPPORTED;
     }
     if (prm->onnx.modelFile.empty()) {
@@ -306,21 +314,33 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     }
     bool fastOcl = wantOcl && (peekIn == 1 && peekOut == 1);
 
+    auto initModel = [&](const int modelInH, const int modelInW) {
+        if (fastOcl) {
+            return m_ov->initShared(modelPathA, (void *)m_cl->queue().get(), modelInH, modelInW, errMsg);
+        }
+        return m_ov->init(modelPathA, deviceA, modelInH, modelInW, errMsg);
+    };
+
+    m_modelInW = inW;
+    m_modelInH = inH;
+    m_padL = 0;
+    m_padT = 0;
+
     if (fastOcl) {
         // share QSVEnc's in-order command queue so OpenVINO inference enqueues
         // between this filter's kernels with no host synchronisation.
-        err = m_ov->initShared(modelPathA, (void *)m_cl->queue().get(), inH, inW, errMsg);
+        err = initModel(m_modelInH, m_modelInW);
         if (err == RGY_ERR_UNSUPPORTED && interopStr != _T("ocl")) {
             AddMessage(RGY_LOG_DEBUG, _T("onnx: shared OpenCL context is unavailable, falling back to host interop: %s\n"),
                 char_to_tstring(errMsg).c_str());
             fastOcl = false;
             errMsg.clear();
-            err = m_ov->init(modelPathA, deviceA, inH, inW, errMsg);
+            err = initModel(m_modelInH, m_modelInW);
         }
     } else {
         // device-string compile; the host readback path uses this for every
         // multi-channel mode (the model still runs on the GPU).
-        err = m_ov->init(modelPathA, deviceA, inH, inW, errMsg);
+        err = initModel(m_modelInH, m_modelInW);
     }
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("onnx: failed to load/compile model (%s): %s\n"),
@@ -342,14 +362,52 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         return RGY_ERR_UNSUPPORTED;
     }
 
-    const int outW = m_ov->outWidth();
-    const int outH = m_ov->outHeight();
-    if (outW <= 0 || outH <= 0 || (outW % inW) != 0 || (outH % inH) != 0 || (outW / inW) != (outH / inH)) {
-        AddMessage(RGY_LOG_ERROR, _T("onnx: model output %dx%d is not an integer upscale of input %dx%d.\n"),
-            outW, outH, inW, inH);
-        return RGY_ERR_UNSUPPORTED;
+    int outW = m_ov->outWidth();
+    int outH = m_ov->outHeight();
+    auto exactScale = [&](int &scale) {
+        if (outW <= 0 || outH <= 0 || (outW % inW) != 0 || (outH % inH) != 0 || (outW / inW) != (outH / inH)) {
+            return false;
+        }
+        scale = outW / inW;
+        return scale > 0;
+    };
+    if (!exactScale(m_scale)) {
+        // Some models converted from NCNN pipelines (RealCUGAN dynamic,
+        // waifu2x CUNet, etc.) use valid convolutions and intentionally trim
+        // border pixels: e.g. 640x480 input may produce 1208x888 (2x minus 72)
+        // or 584x424 (1x minus 56). If the trim is symmetric, feed the model
+        // an edge-replicated padded tensor instead of rejecting it, so the
+        // model's trimmed output lands exactly on the original frame's integer
+        // upscale size. This keeps the pipeline output size predictable without
+        // cropping away real source pixels.
+        const int guessedScale = std::max(1, (int)(std::round((double)outW / (double)inW)));
+        const int cropW = guessedScale * inW - outW;
+        const int cropH = guessedScale * inH - outH;
+        if (m_useOcl || guessedScale <= 0 || cropW <= 0 || cropH <= 0 || cropW != cropH || (cropW % guessedScale) != 0) {
+            AddMessage(RGY_LOG_ERROR, _T("onnx: model output %dx%d is not an integer upscale of input %dx%d.\n"),
+                outW, outH, inW, inH);
+            return RGY_ERR_UNSUPPORTED;
+        }
+        const int padTotal = cropW / guessedScale;
+        m_padL = padTotal / 2;
+        m_padT = padTotal / 2;
+        m_modelInW = inW + padTotal;
+        m_modelInH = inH + padTotal;
+        errMsg.clear();
+        err = initModel(m_modelInH, m_modelInW);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("onnx: failed to load/compile padded model (%s, input %dx%d): %s\n"),
+                prm->onnx.device.c_str(), m_modelInW, m_modelInH, char_to_tstring(errMsg).c_str());
+            return err;
+        }
+        outW = m_ov->outWidth();
+        outH = m_ov->outHeight();
+        if (!exactScale(m_scale)) {
+            AddMessage(RGY_LOG_ERROR, _T("onnx: model output %dx%d is not an integer upscale of original input %dx%d after input padding %d.\n"),
+                outW, outH, inW, inH, padTotal);
+            return RGY_ERR_UNSUPPORTED;
+        }
     }
-    m_scale  = outW / inW;
     if ((m_io == OnnxIO::GrayNoise || m_io == OnnxIO::Chroma) && m_scale != 1) {
         AddMessage(RGY_LOG_ERROR, _T("onnx: %s model must be scale=1 (got x%d).\n"),
             (m_io == OnnxIO::Chroma) ? _T("chroma") : _T("gray+noise"), m_scale);
@@ -413,7 +471,7 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         }
     } else {
         // host-readback scratch
-        m_inBuf.resize((size_t)m_inC  * inW  * inH);
+        m_inBuf.resize((size_t)m_inC * m_modelInW * m_modelInH);
         m_outBuf.resize(m_ov->outElemCount());
         // RGB->YUV post needs normalised chroma at output luma res before the
         // 4:2:0 downsample (only when we synthesise chroma from RGB).
@@ -480,6 +538,9 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     }
     if (m_io == OnnxIO::GrayNoise || m_io == OnnxIO::RGBNoise) {
         info += strsprintf(_T(" noise=%d"), noiseClamped);
+    }
+    if (m_modelInW != inW || m_modelInH != inH) {
+        info += strsprintf(_T(" pad-input=%dx%d"), m_modelInW, m_modelInH);
     }
     if (!m_useOcl) {
         info += strsprintf(_T(" device=%s"), prm->onnx.device.c_str());
@@ -603,11 +664,13 @@ RGY_ERR RGYFilterOnnx::runOcl(const RGYFrameInfo *in, RGYFrameInfo *out,
 // Pack the mapped input frame into m_inBuf (inC*inW*inH floats, CHW), applying
 // the normalisation / colour conversion / conditioning each I/O mode needs.
 void RGYFilterOnnx::fillInputHost(const RGYFrameInfo &hin) {
-    const int inW = hin.width;
-    const int inH = hin.height;
+    const int srcW = hin.width;
+    const int srcH = hin.height;
+    const int inW = m_modelInW;
+    const int inH = m_modelInH;
     const size_t chSize = (size_t)inW * inH;
     const bool nv12 = (hin.csp == RGY_CSP_NV12);
-    const int cw = inW / 2, ch = inH / 2;
+    const int cw = srcW / 2, ch = srcH / 2;
     const uint8_t *pU = hin.ptr[1];
     const uint8_t *pV = nv12 ? (hin.ptr[1] + 1) : hin.ptr[2];
     const int cStride = nv12 ? 2 : 1;
@@ -620,9 +683,10 @@ void RGYFilterOnnx::fillInputHost(const RGYFrameInfo &hin) {
     case OnnxIO::GrayNoise:
         // channel 0 = luma / maxval (models operate on [0,1] luma)
         for (int y = 0; y < inH; y++) {
-            const uint8_t *srow = hin.ptr[0] + (size_t)y * hin.pitch[0];
+            const int sy = sample_y(y, m_padT, srcH);
+            const uint8_t *srow = hin.ptr[0] + (size_t)sy * hin.pitch[0];
             float *drow = base + (size_t)y * inW;
-            for (int x = 0; x < inW; x++) drow[x] = (float)srow[x] / m_maxval;
+            for (int x = 0; x < inW; x++) drow[x] = (float)srow[sample_x(x, m_padL, srcW)] / m_maxval;
         }
         if (m_io == OnnxIO::GrayNoise) {
             std::fill(base + chSize, base + 2 * chSize, m_sigmaNorm); // channel 1 = sigma
@@ -631,14 +695,16 @@ void RGYFilterOnnx::fillInputHost(const RGYFrameInfo &hin) {
     case OnnxIO::Chroma:
         // channels [Y, Cb, Cr] = plane/maxval, chroma bilinear-upsampled to luma res.
         for (int y = 0; y < inH; y++) {
-            const uint8_t *yrow = hin.ptr[0] + (size_t)y * hin.pitch[0];
+            const int sy = sample_y(y, m_padT, srcH);
+            const uint8_t *yrow = hin.ptr[0] + (size_t)sy * hin.pitch[0];
             float *yd = base + (size_t)y * inW;
             float *ud = base + chSize + (size_t)y * inW;
             float *vd = base + 2 * chSize + (size_t)y * inW;
             for (int x = 0; x < inW; x++) {
-                yd[x] = (float)yrow[x] / m_maxval;
-                ud[x] = sample_chroma_up2(pU, cPitchU, cStride, cw, ch, x, y) / m_maxval;
-                vd[x] = sample_chroma_up2(pV, cPitchV, cStride, cw, ch, x, y) / m_maxval;
+                const int sx = sample_x(x, m_padL, srcW);
+                yd[x] = (float)yrow[sx] / m_maxval;
+                ud[x] = sample_chroma_up2(pU, cPitchU, cStride, cw, ch, sx, sy) / m_maxval;
+                vd[x] = sample_chroma_up2(pV, cPitchV, cStride, cw, ch, sx, sy) / m_maxval;
             }
         }
         break;
@@ -647,27 +713,31 @@ void RGYFilterOnnx::fillInputHost(const RGYFrameInfo &hin) {
         if (m_ycbcr) {
             // planar YCbCr 0..1 (Y, Cb, Cr)
             for (int y = 0; y < inH; y++) {
-                const uint8_t *yrow = hin.ptr[0] + (size_t)y * hin.pitch[0];
+                const int sy = sample_y(y, m_padT, srcH);
+                const uint8_t *yrow = hin.ptr[0] + (size_t)sy * hin.pitch[0];
                 float *c0 = base + (size_t)y * inW;
                 float *c1 = base + chSize + (size_t)y * inW;
                 float *c2 = base + 2 * chSize + (size_t)y * inW;
                 for (int x = 0; x < inW; x++) {
-                    c0[x] = (float)yrow[x] / m_maxval;
-                    c1[x] = sample_chroma_up2(pU, cPitchU, cStride, cw, ch, x, y) / m_maxval;
-                    c2[x] = sample_chroma_up2(pV, cPitchV, cStride, cw, ch, x, y) / m_maxval;
+                    const int sx = sample_x(x, m_padL, srcW);
+                    c0[x] = (float)yrow[sx] / m_maxval;
+                    c1[x] = sample_chroma_up2(pU, cPitchU, cStride, cw, ch, sx, sy) / m_maxval;
+                    c2[x] = sample_chroma_up2(pV, cPitchV, cStride, cw, ch, sx, sy) / m_maxval;
                 }
             }
         } else {
             // YUV -> RGB bookend (same math as the native anime4k RGB pipeline).
             for (int y = 0; y < inH; y++) {
-                const uint8_t *yrow = hin.ptr[0] + (size_t)y * hin.pitch[0];
+                const int sy = sample_y(y, m_padT, srcH);
+                const uint8_t *yrow = hin.ptr[0] + (size_t)sy * hin.pitch[0];
                 float *rd = base + (size_t)y * inW;
                 float *gd = base + chSize + (size_t)y * inW;
                 float *bd = base + 2 * chSize + (size_t)y * inW;
                 for (int x = 0; x < inW; x++) {
-                    const float yn = ((float)yrow[x] - m_yOff) * m_yScale;
-                    const float un = (sample_chroma_up2(pU, cPitchU, cStride, cw, ch, x, y) - m_cOff) * m_cScale;
-                    const float vn = (sample_chroma_up2(pV, cPitchV, cStride, cw, ch, x, y) - m_cOff) * m_cScale;
+                    const int sx = sample_x(x, m_padL, srcW);
+                    const float yn = ((float)yrow[sx] - m_yOff) * m_yScale;
+                    const float un = (sample_chroma_up2(pU, cPitchU, cStride, cw, ch, sx, sy) - m_cOff) * m_cScale;
+                    const float vn = (sample_chroma_up2(pV, cPitchV, cStride, cw, ch, sx, sy) - m_cOff) * m_cScale;
                     rd[x] = clampf(yn + m_matVR * vn, 0.0f, 1.0f);
                     gd[x] = clampf(yn + m_matUG * un + m_matVG * vn, 0.0f, 1.0f);
                     bd[x] = clampf(yn + m_matUB * un, 0.0f, 1.0f);
