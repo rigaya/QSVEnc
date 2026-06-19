@@ -281,6 +281,9 @@
   - [--vpp-overlay \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-overlay-param1value1param2value2)
   - [--vpp-perc-pre-enc](#--vpp-perc-pre-enc)
   - [--vpp-mfx-insert-clcopy \[\<int\>\]](#--vpp-mfx-insert-clcopy-int)
+  - [--vpp-anime4k \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-anime4k-param1value1param2value2)
+  - [--vpp-onnx \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-onnx-param1value1param2value2)
+  - [--vpp-onnx-model-dir \<string\>](#--vpp-onnx-model-dir-string)
   - [--vpp-ai-frameinterp \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-ai-frameinterp-param1value1param2value2)
   - [--vpp-perf-monitor](#--vpp-perf-monitor)
 - [Other Options](#other-options)
@@ -1860,6 +1863,9 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
   - [--vpp-overlay](#--vpp-overlay-param1value1param2value2)
   - [--vpp-perc-pre-enc](#--vpp-perc-pre-enc)
   - [--vpp-mfx-insert-clcopy](#--vpp-mfx-insert-clcopy-int)
+  - [--vpp-anime4k](#--vpp-anime4k-param1value1param2value2)
+  - [--vpp-onnx](#--vpp-onnx-param1value1param2value2)
+  - [--vpp-onnx-model-dir](#--vpp-onnx-model-dir-string)
   - [--vpp-ai-frameinterp](#--vpp-ai-frameinterp-param1value1param2value2)
 
 ### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]  
@@ -4029,6 +4035,123 @@ If the last VPP group built by `InitFilters` ends with an MFX block, insert an O
   Enable only when `ENABLE_D3D11=0`. If omitted, this value is used.
 - `2`  
   Enable even when `ENABLE_D3D11!=0`.
+
+### --vpp-anime4k [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+Enable a hand-written GLSL luma enhancement / 2x upscale chain.  
+The 7 modes are based on bloc97 Anime4K (MIT). antiring and chroma_resize=joint are MIT shaders by J. Chrisostomo.  
+No CNN, no model files — hand-tuned OpenCL kernels (CNN model families live in --vpp-onnx).
+
+A complete chain in one pass: optional pre-filter denoise → main GLSL mode → optional line darken / thin / denoise → optional highlight clamp and anti-ring → chroma handling → end-of-chain resize.
+
+- **Parameters**
+  - mode=&lt;string&gt; (default: ani4k_original)  
+    Select the GLSL variant.
+    - ani4k_original ... edge-refine 2x upscale (strength 0.5)
+    - ani4k_deblur ... edge-refine 2x upscale, stronger (strength 1.0)
+    - ani4k_darken_hq ... line-darkening 2x upscale
+    - ani4k_thin_hq ... line-thinning 2x upscale
+    - ani4k_dog_sharpen ... 1x Difference-of-Gaussians sharpen
+    - ani4k_dog ... 2x DoG upscale
+    - ani4k_dtd ... 2x composite darken-thin-deblur upscale
+
+  - scale=&lt;int&gt; (default: 2)  
+    1 = refine at source resolution, 2 = 2x upscale + refine.  
+    Some modes imply scale (dog_sharpen=1, dog/dtd=2).
+
+  - strength=&lt;float&gt; (default: 0.50, range: 0.00 - 6.00)  
+    Refine strength multiplier. Promoted to 1.0 for mode=ani4k_deblur with no explicit value.
+
+  - prefilter_denoise=&lt;string&gt; (default: off)  
+    Denoise the luma before the main pass.  
+    off / mean / median / mode (bilateral)
+
+  - darken=&lt;string&gt; (default: off)  
+    Line-darkening pass after the main pass.  
+    off / hq / fast / veryfast
+
+  - thin=&lt;string&gt; (default: off)  
+    Line-thinning pass after the main pass.  
+    off / hq / fast / veryfast
+
+  - denoise=&lt;string&gt; (default: off)  
+    Denoise pass after the main pass.  
+    off / mean / median / mode (bilateral)
+
+  - denoise_intensity, denoise_spatial, denoise_curve, denoise_hist_reg=&lt;float&gt;  
+    Fine-tune the denoise passes (advanced, optional).
+
+  - clamp_highlights=&lt;bool&gt; (default: false)  
+    Clamp output highlights to the local source max (Anime4K Clamp_Highlights).
+
+  - antiring=&lt;float&gt; (default: 0, range: 0.0 - 1.0)  
+    Anti-ringing strength. Clamps each upscaled luma pixel to its 2x2 source min/max envelope, removing overshoot ringing.
+
+  - chroma_resize=&lt;string&gt; (default: spline36)  
+    U/V resize kernel when scale=2.  
+    spline36 / bilinear / bicubic / lanczos3 / joint  
+    joint = luma-guided joint-bilateral chroma rebuild.
+
+  - chroma=&lt;bool&gt; (default: true)  
+    When scale=2, resize chroma (true) or pass it through unchanged (false). scale=1 always passes through.
+
+  - out_res=&lt;WxH&gt;  
+    End-of-chain resize to an arbitrary final size, applied after the upscale stage.  
+    A negative value on one axis keeps the source aspect (e.g. out_res=-2x1080).
+
+  - resize=&lt;string&gt; (default: lanczos4)  
+    Resampler for out_res.  
+    lanczos4 / spline36 / jinc144 / nis / bicubic / ...
+
+- Example:
+  ```
+  --vpp-anime4k mode=ani4k_original,scale=2
+  --vpp-anime4k mode=ani4k_deblur,antiring=0.8,chroma_resize=joint
+  --vpp-anime4k mode=ani4k_dog_sharpen,strength=0.6,out_res=1920x1080
+  ```
+
+### --vpp-onnx [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+OpenVINO-backed CNN filter: loads an ONNX/IR model directly and runs it on the GPU.  
+Pre/post processing is inferred from the model channel count: 1ch=luma SR, 3ch=RGB, 4ch=RGB+noise, 2ch=gray+noise, 3→2ch=chroma.
+
+- **Parameters**
+  - model=&lt;string&gt;  
+    Path to the .onnx / .xml model file (required).
+
+  - device=&lt;string&gt; (default: GPU.0)  
+    OpenVINO device. GPU.0 / GPU / CPU / AUTO
+
+  - interop=&lt;string&gt; (default: auto)  
+    GPU memory sharing mode.  
+    auto / ocl (zero-copy, shared GPU context) / host
+
+  - colormatrix=&lt;string&gt; (default: auto)  
+    Color matrix. auto (bt601 for SD, bt709 for HD) / bt601 / bt709 / bt2020
+
+  - colorrange=&lt;string&gt; (default: auto)  
+    Color range. auto (tv) / tv / pc
+
+  - colorspace=&lt;string&gt; (default: rgb)  
+    Color space for 3ch models. rgb / ycbcr (for ArtCNN *_YCbCr models)
+
+  - noise=&lt;int&gt; (default: 15, range: 0 - 255)  
+    Noise sigma for noise models.
+
+  - out_res=&lt;WxH&gt;  
+    End-of-chain resize to an arbitrary final size, applied after the network so CNN upscale + fit runs in one pass.  
+    A negative value on one axis keeps the source aspect (e.g. out_res=-2x1080).
+
+  - resize=&lt;string&gt; (default: lanczos4)  
+    Resampler for out_res.
+
+- Example:
+  ```
+  --vpp-onnx model=artcnn_c4f32.onnx
+  --vpp-onnx model=waifu2x_art_noise2_scale2x.onnx,noise=25
+  --vpp-onnx model=anime4k_restore_s.onnx,out_res=-2x1080
+  ```
+
+### --vpp-onnx-model-dir &lt;string&gt;
+Directory containing models.json for registered ONNX models.
 
 ### --vpp-ai-frameinterp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 Enable AI Powered frame interpolation, which will double the framerate.
