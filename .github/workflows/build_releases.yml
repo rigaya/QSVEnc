@@ -79,6 +79,22 @@ jobs:
           git clone -b R72 --depth 1 https://github.com/vapoursynth/vapoursynth.git ..\vapoursynth
           git clone --depth 1 https://github.com/KhronosGroup/OpenCL-Headers.git ..\openclheaders
 
+      - name: Download OpenVINO
+        if: matrix.platform == 'x64'
+        shell: powershell
+        run: |
+          $ovVer = "2026.2.0"
+          $ovBuild = "21903.52ddc073857"
+          $ovArchive = "openvino_toolkit_windows_${ovVer}.${ovBuild}_x86_64.zip"
+          $ovUrl = "https://storage.openvinotoolkit.org/repositories/openvino/packages/2026.2/windows/${ovArchive}"
+          Write-Host "Downloading OpenVINO ${ovVer} ..."
+          curl.exe -s -o ov.zip -L $ovUrl
+          7z x -oopenvino_tmp -y ov.zip
+          $ovRoot = (Get-ChildItem -Directory openvino_tmp)[0].FullName
+          Move-Item $ovRoot ..\openvino
+          Remove-Item ov.zip, openvino_tmp -Recurse -Force
+          Write-Host "OpenVINO extracted to ${{ github.workspace }}\..\openvino"
+
       - name: Add msbuild to PATH
         uses: microsoft/setup-msbuild@v2
         with:
@@ -89,6 +105,7 @@ jobs:
           set AVISYNTH_SDK=${{ github.workspace }}\..\AviSynthPlus\avs_core
           set VAPOURSYNTH_SDK=${{ github.workspace }}\..\vapoursynth
           set OPENCL_HEADERS=${{ github.workspace }}\..\openclheaders
+          if "${{ matrix.platform }}" == "x64" set OPENVINO_PATH=${{ github.workspace }}\..\openvino\runtime
           msbuild QSVEnc.sln /t:build /p:configuration=ReleaseStatic /p:Platform=${{ matrix.platform }} -maxcpucount
 
       - name: Create Archieve
@@ -98,6 +115,15 @@ jobs:
           copy _build\${{ matrix.platform }}\ReleaseStatic\QSVEncC*.exe QSVEncC_Release
           copy _build\${{ matrix.platform }}\ReleaseStatic\*.dll QSVEncC_Release
           copy resource\nnedi3_weight\nnedi3_weights.bin QSVEncC_Release
+          if "${{ matrix.platform }}" == "x64" (
+            copy ${{ github.workspace }}\..\openvino\runtime\bin\intel64\Release\openvino.dll QSVEncC_Release
+            copy ${{ github.workspace }}\..\openvino\runtime\bin\intel64\Release\openvino_onnx_frontend.dll QSVEncC_Release
+            copy ${{ github.workspace }}\..\openvino\runtime\bin\intel64\Release\openvino_ir_frontend.dll QSVEncC_Release
+            copy ${{ github.workspace }}\..\openvino\runtime\bin\intel64\Release\openvino_intel_gpu_plugin.dll QSVEncC_Release
+            copy ${{ github.workspace }}\..\openvino\runtime\bin\intel64\Release\openvino_intel_cpu_plugin.dll QSVEncC_Release
+            copy ${{ github.workspace }}\..\openvino\runtime\bin\intel64\Release\openvino_auto_plugin.dll QSVEncC_Release
+            copy ${{ github.workspace }}\..\openvino\runtime\3rdparty\tbb\bin\tbb12.dll QSVEncC_Release
+          )
           7z a -mx9 QSVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z .\QSVEncC_Release\*
 
       - name: Check dll
