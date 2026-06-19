@@ -108,6 +108,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_DENOISE_NLMEANS,      _T("nlmeans")),
     std::make_pair(VppType::CL_DENOISE_PMD,          _T("pmd")),
     std::make_pair(VppType::CL_DENOISE_HQDN3D,       _T("hqdn3d")),
+    std::make_pair(VppType::CL_ANIME4K,              _T("anime4k")),
     std::make_pair(VppType::CL_DESCALE,              _T("descale")),
     std::make_pair(VppType::CL_ONNX,                _T("onnx")),
     std::make_pair(VppType::CL_DENOISE_DCT,          _T("denoise-dct")),
@@ -3503,6 +3504,101 @@ tstring VppOnnx::print() const {
     return s;
 }
 
+VppAnime4k::VppAnime4k() :
+    enable(false),
+    mode(VppAnime4kMode::Original),
+    scale(FILTER_DEFAULT_ANIME4K_SCALE),
+    strength(FILTER_DEFAULT_ANIME4K_STRENGTH),
+    chromaResize(VppAnime4kChromaResize::Spline36),
+    chroma(true),
+    darken(VppAnime4kDarken::Off),
+    thin(VppAnime4kThin::Off),
+    denoise(VppAnime4kDenoise::Off),
+    denoiseIntensity(0.1f),
+    denoiseSpatial(1.0f),
+    denoiseCurve(1.0f),
+    denoiseHistReg(-1.0f),
+    prefilterDenoise(VppAnime4kDenoise::Off),
+    clampHighlights(false),
+    antiring(0.0f),
+    postResizeW(0),
+    postResizeH(0),
+    postResizeAlgo(RGY_VPP_RESIZE_AUTO) {
+}
+
+bool VppAnime4k::operator==(const VppAnime4k &x) const {
+    return enable           == x.enable
+        && mode             == x.mode
+        && scale            == x.scale
+        && strength         == x.strength
+        && chromaResize     == x.chromaResize
+        && chroma           == x.chroma
+        && darken           == x.darken
+        && thin             == x.thin
+        && denoise          == x.denoise
+        && denoiseIntensity == x.denoiseIntensity
+        && denoiseSpatial   == x.denoiseSpatial
+        && denoiseCurve     == x.denoiseCurve
+        && denoiseHistReg   == x.denoiseHistReg
+        && prefilterDenoise == x.prefilterDenoise
+        && clampHighlights  == x.clampHighlights
+        && antiring         == x.antiring
+        && postResizeW      == x.postResizeW
+        && postResizeH      == x.postResizeH
+        && postResizeAlgo   == x.postResizeAlgo;
+}
+bool VppAnime4k::operator!=(const VppAnime4k &x) const {
+    return !(*this == x);
+}
+
+tstring VppAnime4k::print() const {
+    tstring prefilterExtra;
+    if (prefilterDenoise != VppAnime4kDenoise::Off) {
+        prefilterExtra = strsprintf(_T(", prefilter_denoise %s"),
+            get_cx_desc(list_vpp_anime4k_denoise, (int)prefilterDenoise));
+    }
+    tstring clampExtra;
+    if (clampHighlights) {
+        clampExtra = _T(", clamp_highlights on");
+    }
+    prefilterExtra += clampExtra;
+    if (antiring > 0.0f) {
+        prefilterExtra += strsprintf(_T(", antiring %.2f"), antiring);
+    }
+    if (postResizeW > 0 && postResizeH > 0) {
+        prefilterExtra += strsprintf(_T(", out_res %dx%d (%s)"),
+            postResizeW, postResizeH, get_cx_desc(list_vpp_resize, (int)postResizeAlgo));
+    }
+    tstring extras;
+    const bool darkenEncodedInMode = (mode == VppAnime4kMode::DarkenHQ && darken == VppAnime4kDarken::HQ);
+    const bool thinEncodedInMode   = (mode == VppAnime4kMode::ThinHQ   && thin   == VppAnime4kThin::HQ);
+    if (darken != VppAnime4kDarken::Off && !darkenEncodedInMode) {
+        extras += strsprintf(_T(", darken %s"),
+            get_cx_desc(list_vpp_anime4k_darken, (int)darken));
+    }
+    if (thin != VppAnime4kThin::Off && !thinEncodedInMode) {
+        extras += strsprintf(_T(", thin %s"),
+            get_cx_desc(list_vpp_anime4k_thin, (int)thin));
+    }
+    if (denoise != VppAnime4kDenoise::Off) {
+        if (denoiseHistReg >= 0.0f) {
+            extras += strsprintf(_T(", denoise %s (intensity %.2f, spatial %.2f, curve %.2f, hist_reg %.2f)"),
+                get_cx_desc(list_vpp_anime4k_denoise, (int)denoise),
+                denoiseIntensity, denoiseSpatial, denoiseCurve, denoiseHistReg);
+        } else {
+            extras += strsprintf(_T(", denoise %s (intensity %.2f, spatial %.2f, curve %.2f)"),
+                get_cx_desc(list_vpp_anime4k_denoise, (int)denoise),
+                denoiseIntensity, denoiseSpatial, denoiseCurve);
+        }
+    }
+    extras += prefilterExtra;
+    return strsprintf(_T("anime4k: mode %s, scale %dx, strength %.2f, chroma_resize %s%s"),
+        get_cx_desc(list_vpp_anime4k_mode, (int)mode),
+        scale, strength,
+        get_cx_desc(list_vpp_anime4k_chroma_resize, (int)chromaResize),
+        extras.c_str());
+}
+
 RGYParamVpp::RGYParamVpp() :
     filterOrder(),
     resize_algo(RGY_VPP_RESIZE_AUTO),
@@ -3575,6 +3671,7 @@ RGYParamVpp::RGYParamVpp() :
     libplacebo_deband(),
     overlay(),
     fruc(),
+    anime4k(),
     onnxModelDir(),
     onnxListModels(false),
     checkPerformance(false) {
@@ -3651,6 +3748,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && deband == x.deband
         && libplacebo_deband == x.libplacebo_deband
         && overlay == x.overlay
+        && anime4k == x.anime4k
         && onnxModelDir == x.onnxModelDir
         && checkPerformance == x.checkPerformance;
 }

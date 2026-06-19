@@ -43,7 +43,7 @@
 // read_model() of an ONNX (or OpenVINO IR) file; one inference is set_tensor +
 // infer. This is the whole point of the onnx experiment: this one class
 // replaces the per-family build*()/forward*() oneDNN graphs in the native
-// kaizen filter. OpenVINO symbols are resolved from openvino.dll/libopenvino.so
+// anime4k filter. OpenVINO symbols are resolved from openvino.dll/libopenvino.so
 // at runtime, so the executable does not import openvino.lib directly.
 class RGYOpenVINO {
 public:

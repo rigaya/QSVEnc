@@ -200,7 +200,7 @@ static void copy_plane_u8(uint8_t *dst, const int dstPitch, const int dstStride,
 
 void RGYFilterOnnx::setupColorCoeffs(int matrixSel, bool rangeTV, int pixMax) {
     // Forward YUV->RGB matrix (Kr, Kb per matrix; Kg = 1 - Kr - Kb). Identical
-    // to the native kaizen RGB bookend so the OpenVINO path reproduces it.
+    // to the native anime4k RGB bookend so the OpenVINO path reproduces it.
     float Kr = 0.2126f, Kb = 0.0722f;        // BT.709 default
     if (matrixSel == 601)  { Kr = 0.299f;  Kb = 0.114f; }
     if (matrixSel == 2020) { Kr = 0.2627f; Kb = 0.0593f; }
@@ -658,7 +658,7 @@ void RGYFilterOnnx::fillInputHost(const RGYFrameInfo &hin) {
                 }
             }
         } else {
-            // YUV -> RGB bookend (same math as the native kaizen RGB pipeline).
+            // YUV -> RGB bookend (same math as the native anime4k RGB pipeline).
             for (int y = 0; y < inH; y++) {
                 const uint8_t *yrow = hin.ptr[0] + (size_t)y * hin.pitch[0];
                 float *rd = base + (size_t)y * inW;

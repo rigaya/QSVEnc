@@ -60,9 +60,9 @@ enum class OnnxIO {
 
 // Standalone OpenVINO-backed CNN VPP filter. This whole class is the onnx
 // experiment: one generic OpenVINO load-and-run replaces the per-network
-// build*()/forward*() oneDNN graphs of the native kaizen filter. The network's
+// build*()/forward*() oneDNN graphs of the native anime4k filter. The network's
 // I/O convention is inferred from its channel count (OnnxIO), so the same
-// load-and-run covers every kaizen model family with no per-model code.
+// load-and-run covers every anime4k model family with no per-model code.
 //
 // The host-readback path (map input to host, build the input tensor, run the
 // network, write the result back) handles all I/O modes and works on any device
@@ -95,7 +95,7 @@ protected:
     void fillInputHost(const RGYFrameInfo &hin);
     void writeOutputHost(const RGYFrameInfo &hout, const RGYFrameInfo &hin);
     // compute the YUV<->RGB matrix + range coefficients (mirrors the native
-    // kaizen RGB bookend exactly).
+    // anime4k RGB bookend exactly).
     void setupColorCoeffs(int matrixSel, bool rangeTV, int pixMax);
 
     std::unique_ptr<RGYOpenVINO> m_ov;

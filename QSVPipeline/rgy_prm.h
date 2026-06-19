@@ -81,6 +81,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_PMD          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_HQDN3D       (ENCODER_QSV   || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_DESCALE      (ENCODER_QSV   || ENCODER_VCEENC || ENCODER_MPP)
+#define ENABLE_VPP_FILTER_ANIME4K      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #ifndef ENABLE_OPENVINO
 #define ENABLE_OPENVINO 0
 #endif
@@ -199,6 +200,7 @@ enum class VppType : int {
     CL_DENOISE_PMD,
     CL_DENOISE_HQDN3D,
     CL_DESCALE,
+    CL_ANIME4K,
     CL_ONNX,
     CL_DENOISE_DCT,
     CL_DENOISE_SMOOTH,
@@ -470,6 +472,11 @@ static const float FILTER_DEFAULT_HQDN3D_LUMA_SPATIAL = 4.0f;
 static const float FILTER_DEFAULT_HQDN3D_CHROMA_SPATIAL = 3.0f;
 static const float FILTER_DEFAULT_HQDN3D_LUMA_TEMPORAL = 6.0f;
 static const float FILTER_DEFAULT_HQDN3D_CHROMA_TEMPORAL = 4.5f;
+
+static const int   FILTER_DEFAULT_ANIME4K_SCALE = 2;
+static const float FILTER_DEFAULT_ANIME4K_STRENGTH = 0.5f;
+static const float FILTER_ANIME4K_STRENGTH_MIN = 0.2f;
+static const float FILTER_ANIME4K_STRENGTH_MAX = 4.0f;
 
 // Descale: inverse-kernel solver to recover a native lower-resolution
 // image from an upscaled distribution. The forward upscale is a sparse
@@ -3265,6 +3272,123 @@ struct VppMaa {
     tstring print() const;
 };
 
+enum class VppAnime4kMode {
+    Original  = 0,
+    Deblur    = 1,
+    DarkenHQ  = 2,
+    ThinHQ    = 3,
+    DogSharpen = 7,
+    Dog        = 8,
+    Dtd        = 9,
+};
+
+enum class VppAnime4kChromaResize {
+    Spline36 = 0,
+    Bilinear = 1,
+    Bicubic  = 2,
+    Lanczos3 = 3,
+    Joint    = 4,
+};
+
+const CX_DESC list_vpp_anime4k_mode[] = {
+    { _T("ani4k_original"),    (int)VppAnime4kMode::Original   },
+    { _T("ani4k_deblur"),      (int)VppAnime4kMode::Deblur     },
+    { _T("ani4k_darken_hq"),   (int)VppAnime4kMode::DarkenHQ   },
+    { _T("ani4k_thin_hq"),     (int)VppAnime4kMode::ThinHQ     },
+    { _T("ani4k_dog_sharpen"), (int)VppAnime4kMode::DogSharpen },
+    { _T("ani4k_dog"),         (int)VppAnime4kMode::Dog        },
+    { _T("ani4k_dtd"),         (int)VppAnime4kMode::Dtd        },
+    { NULL, 0 }
+};
+
+const CX_DESC list_vpp_anime4k_chroma_resize[] = {
+    { _T("spline36"), (int)VppAnime4kChromaResize::Spline36 },
+    { _T("bilinear"), (int)VppAnime4kChromaResize::Bilinear },
+    { _T("bicubic"),  (int)VppAnime4kChromaResize::Bicubic  },
+    { _T("lanczos3"), (int)VppAnime4kChromaResize::Lanczos3 },
+    { _T("joint"),    (int)VppAnime4kChromaResize::Joint    },
+    { NULL, 0 }
+};
+
+enum class VppAnime4kDarken {
+    Off      = 0,
+    HQ       = 1,
+    Fast     = 2,
+    VeryFast = 3,
+};
+
+enum class VppAnime4kThin {
+    Off      = 0,
+    HQ       = 1,
+    Fast     = 2,
+    VeryFast = 3,
+};
+
+enum class VppAnime4kDenoise {
+    Off    = 0,
+    Mean   = 1,
+    Median = 2,
+    Mode   = 3,
+};
+
+const CX_DESC list_vpp_anime4k_darken[] = {
+    { _T("off"),      (int)VppAnime4kDarken::Off      },
+    { _T("hq"),       (int)VppAnime4kDarken::HQ       },
+    { _T("fast"),     (int)VppAnime4kDarken::Fast     },
+    { _T("veryfast"), (int)VppAnime4kDarken::VeryFast },
+    { NULL, 0 },
+    { _T("false"),    (int)VppAnime4kDarken::Off      },
+    { _T("true"),     (int)VppAnime4kDarken::HQ       },
+    { NULL, 0 }
+};
+
+const CX_DESC list_vpp_anime4k_thin[] = {
+    { _T("off"),      (int)VppAnime4kThin::Off        },
+    { _T("hq"),       (int)VppAnime4kThin::HQ         },
+    { _T("fast"),     (int)VppAnime4kThin::Fast       },
+    { _T("veryfast"), (int)VppAnime4kThin::VeryFast   },
+    { NULL, 0 },
+    { _T("false"),    (int)VppAnime4kThin::Off        },
+    { _T("true"),     (int)VppAnime4kThin::HQ         },
+    { NULL, 0 }
+};
+
+const CX_DESC list_vpp_anime4k_denoise[] = {
+    { _T("off"),    (int)VppAnime4kDenoise::Off    },
+    { _T("mean"),   (int)VppAnime4kDenoise::Mean   },
+    { _T("median"), (int)VppAnime4kDenoise::Median },
+    { _T("mode"),   (int)VppAnime4kDenoise::Mode   },
+    { NULL, 0 },
+    { _T("false"),  (int)VppAnime4kDenoise::Off    },
+    { NULL, 0 }
+};
+
+struct VppAnime4k {
+    bool enable;
+    VppAnime4kMode mode;
+    int scale;
+    float strength;
+    VppAnime4kChromaResize chromaResize;
+    bool chroma;
+    VppAnime4kDarken darken;
+    VppAnime4kThin   thin;
+    VppAnime4kDenoise denoise;
+    float denoiseIntensity;
+    float denoiseSpatial;
+    float denoiseCurve;
+    float denoiseHistReg;
+    VppAnime4kDenoise prefilterDenoise;
+    bool                 clampHighlights;
+    float                antiring;
+    int                  postResizeW;
+    int                  postResizeH;
+    RGY_VPP_RESIZE_ALGO  postResizeAlgo;
+    VppAnime4k();
+    bool operator==(const VppAnime4k &x) const;
+    bool operator!=(const VppAnime4k &x) const;
+    tstring print() const;
+};
+
 struct VppOnnx {
     bool    enable;
     tstring modelFile;   // path to the ONNX (or OpenVINO IR .xml) model
@@ -3606,6 +3730,7 @@ struct RGYParamVpp {
     VppNLMeans nlmeans;
     VppPmd pmd;
     VppHqdn3d hqdn3d;
+    VppAnime4k anime4k;
     VppOnnx onnx;
     tstring onnxModelDir;
     bool    onnxListModels;

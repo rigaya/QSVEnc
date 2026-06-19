@@ -120,6 +120,7 @@ RGY_DISABLE_WARNING_POP
 #include "rgy_filter_dehalo.h"
 #include "rgy_filter_finedehalo.h"
 #include "rgy_filter_hqdering.h"
+#include "rgy_filter_anime4k.h"
 #include "rgy_filter_onnx.h"
 #include "rgy_filter_edgelevel.h"
 #include "rgy_filter_msharpen.h"
@@ -2429,6 +2430,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vpp.pmd.enable)        filterPipeline.push_back(VppType::CL_DENOISE_PMD);
     if (inputParam->vpp.hqdn3d.enable)     filterPipeline.push_back(VppType::CL_DENOISE_HQDN3D);
     if (inputParam->vpp.descale.enable)    filterPipeline.push_back(VppType::CL_DESCALE);
+    if (inputParam->vpp.anime4k.enable)    filterPipeline.push_back(VppType::CL_ANIME4K);
     if (inputParam->vpp.onnx.enable)      filterPipeline.push_back(VppType::CL_ONNX);
     if (degrainLegacy)  filterPipeline.push_back(VppType::CL_DEGRAIN);
     if (inputParam->vpp.rtgmc_edi.enable && degrainLegacy) filterPipeline.push_back(VppType::CL_RTGMC_EDI);
@@ -3250,6 +3252,26 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         inputFrame = param->frameOut;
         m_encFps = param->baseFps;
         //登録
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
+    }
+    //anime4k (Anime4K v3.2 hand-tuned luma refinement / 2x upscale)
+    if (vppType == VppType::CL_ANIME4K) {
+        unique_ptr<RGYFilter> filter(new RGYFilterAnime4k(m_cl));
+        shared_ptr<RGYFilterParamAnime4k> param(new RGYFilterParamAnime4k());
+        param->anime4k = params->vpp.anime4k;
+        param->sar[0] = params->input.sar[0];
+        param->sar[1] = params->input.sar[1];
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        auto sts = filter->init(param, m_pQSVLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
         clfilters.push_back(std::move(filter));
         return RGY_ERR_NONE;
     }
