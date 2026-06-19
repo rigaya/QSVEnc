@@ -32,12 +32,7 @@
 #include <string>
 #include <memory>
 #include "rgy_err.h"
-
-// Set to 1 by the build (preprocessor define) when QSVEnc enables OpenVINO
-// support. The OpenVINO runtime itself is loaded dynamically at runtime.
-#ifndef ENABLE_OPENVINO
-#define ENABLE_OPENVINO 0
-#endif
+#include "rgy_version.h"
 
 // Thin wrapper over the OpenVINO C API. The entire per-network "graph build" is a single
 // read_model() of an ONNX (or OpenVINO IR) file; one inference is set_tensor +

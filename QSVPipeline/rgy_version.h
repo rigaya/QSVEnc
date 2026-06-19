@@ -106,6 +106,11 @@ const char *get_encoder_version();
 #define ENABLE_LIBDOVI 1
 #define ENABLE_LIBHDR10PLUS 1
 #define ENABLE_VULKAN 0
+#ifdef _M_IX86
+#define ENABLE_OPENVINO 0
+#else
+#define ENABLE_OPENVINO 1
+#endif
 
 #define ENABLE_VMAF 0
 #define ENABLE_LIBVSHIP 0
