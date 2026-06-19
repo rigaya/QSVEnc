@@ -30,6 +30,7 @@
 #include "rgy_filter_resize.h" // opt-in end-of-chain resize (anime4k.out_res=/resize=)
 #include "rgy_aspect_ratio.h"  // set_auto_resolution() for out_res= negative auto-aspect
 
+#include <cmath>
 #include <fstream>
 #include <cstring>
 

@@ -4,3 +4,4 @@ option('enable_libass', type: 'boolean', value: true, description: 'Enable libas
 option('enable_libplacebo', type: 'boolean', value: false, description: 'Enable libplacebo support')
 option('enable_vulkan', type: 'boolean', value: false, description: 'Enable Vulkan support (required for libplacebo)')
 option('opencl_headers', type: 'string', value: '', description: 'Additional include path for OpenCL headers')
+option('enable_openvino', type: 'boolean', value: true, description: 'Enable OpenVINO support (header-only, runtime is loaded dynamically)')

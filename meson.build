@@ -26,6 +26,7 @@ enable_libass = get_option('enable_libass')
 enable_libplacebo = get_option('enable_libplacebo')
 enable_vulkan = get_option('enable_vulkan')
 opencl_headers = get_option('opencl_headers')
+enable_openvino = get_option('enable_openvino')
 
 threads_dep = dependency('threads')
 dl_dep = cpp.find_library('dl', required: true)
@@ -105,6 +106,7 @@ ffmpeg_deps = [
 _ext_headers_dir  = build_root / 'external_headers'
 _vpy_fetched_inc  = _ext_headers_dir / 'vapoursynth-R72' / 'include'
 _avs_fetched_inc  = _ext_headers_dir / 'AviSynthPlus-3.7.5' / 'avs_core' / 'include'
+_ov_fetched_inc   = _ext_headers_dir / 'openvino-2026.2.0' / 'src' / 'bindings' / 'c' / 'include'
 
 # VapourSynth ヘッダ自動ダウンロード用シェルスクリプト
 _fetch_vpy_sh = '''
@@ -134,6 +136,21 @@ else
 fi
 tar xf "$dest/avs.tar.gz" -C "$dest" || exit 1
 rm -f "$dest/avs.tar.gz"
+'''
+
+# OpenVINO C APIヘッダ自動ダウンロード用シェルスクリプト
+_fetch_ov_sh = '''
+dest="$1"
+[ -f "$dest/openvino-2026.2.0/src/bindings/c/include/openvino/c/openvino.h" ] && exit 0
+mkdir -p "$dest"
+url="https://github.com/openvinotoolkit/openvino/archive/refs/tags/2026.2.0.tar.gz"
+if command -v wget >/dev/null 2>&1; then
+  wget -q -O "$dest/ov.tar.gz" "$url" || exit 1
+else
+  curl -fsSL -o "$dest/ov.tar.gz" "$url" || exit 1
+fi
+tar xf "$dest/ov.tar.gz" -C "$dest" --wildcards '*/src/bindings/c/include/*' || exit 1
+rm -f "$dest/ov.tar.gz"
 '''
 
 vapoursynth_compile_dep = disabler()
@@ -232,6 +249,47 @@ int main(void) { return 0; }
     endif
   endif
 endif
+
+# OpenVINO (header-only at compile time, runtime loaded dynamically)
+openvino_compile_dep = disabler()
+have_openvino_headers = false
+if enable_openvino
+  openvino_pkg_dep = dependency('openvino', required: false)
+  openvino_compile_dep = declare_dependency()
+  if openvino_pkg_dep.found()
+    openvino_compile_dep = openvino_pkg_dep.partial_dependency(includes: true, compile_args: true)
+  endif
+
+  openvino_headers_code = '''
+#include <openvino/c/openvino.h>
+int main(void) { return 0; }
+'''
+  have_openvino_headers = cpp.compiles(
+    openvino_headers_code,
+    dependencies: openvino_compile_dep,
+    args: get_option('cpp_args'),
+  )
+  if not have_openvino_headers
+    _fetch = run_command(
+      'sh', '-c', _fetch_ov_sh, 'fetch_ov', _ext_headers_dir,
+      check: false,
+    )
+    if _fetch.returncode() == 0
+      openvino_compile_dep = declare_dependency(
+        compile_args: ['-I' + _ov_fetched_inc],
+      )
+      have_openvino_headers = cpp.compiles(
+        openvino_headers_code,
+        dependencies: openvino_compile_dep,
+        args: get_option('cpp_args'),
+      )
+    endif
+    if not have_openvino_headers
+      warning('OpenVINO C API headers not found — --vpp-onnx will be disabled')
+    endif
+  endif
+endif
+
 if enable_libass
   libass_dep = dependency('libass', required: true)
 else
@@ -417,6 +475,7 @@ conf_data.set10('ENABLE_LIBDOVI', libdovi_dep.found())
 conf_data.set10('ENABLE_LIBHDR10PLUS', libhdr10plus_dep.found())
 conf_data.set10('ENABLE_VULKAN', vulkan_dep.found() and libplacebo_dep.found())
 conf_data.set10('ENABLE_LIBPLACEBO', libplacebo_dep.found())
+conf_data.set10('ENABLE_OPENVINO', enable_openvino and have_openvino_headers)
 
 if enable_avisynth and have_avisynth_headers
   conf_data.set('AVS_INTERF_VER', 12)
@@ -611,6 +670,8 @@ qsvpipeline_sources = files(
   'QSVPipeline/rgy_filter_deflicker.cpp',
   'QSVPipeline/rgy_filter_stab.cpp',
   'QSVPipeline/rgy_filter_colorfix.cpp',
+  'QSVPipeline/rgy_filter_anime4k.cpp',
+  'QSVPipeline/rgy_filter_onnx.cpp',
   'QSVPipeline/rgy_filter_warpsharp.cpp',
   'QSVPipeline/rgy_filter_yadif.cpp',
   'QSVPipeline/rgy_frame.cpp',
@@ -629,8 +690,10 @@ qsvpipeline_sources = files(
   'QSVPipeline/rgy_libplacebo.cpp',
   'QSVPipeline/rgy_log.cpp',
   'QSVPipeline/rgy_memmem.cpp',
+  'QSVPipeline/rgy_model_registry.cpp',
   'QSVPipeline/rgy_opencl.cpp',
   'QSVPipeline/rgy_opencl_perf.cpp',
+  'QSVPipeline/rgy_openvino.cpp',
   'QSVPipeline/rgy_output.cpp',
   'QSVPipeline/rgy_output_avcodec.cpp',
   'QSVPipeline/rgy_parallel_enc.cpp',
@@ -768,6 +831,9 @@ endif
 if libhdr10plus_dep.found()
   all_deps += libhdr10plus_dep
 endif
+if openvino_compile_dep.found()
+  all_deps += openvino_compile_dep
+endif
 
 subdir('meson_embed')
 
@@ -793,4 +859,5 @@ summary({
   'Vulkan': vulkan_dep.found(),
   'libdovi': libdovi_dep.found(),
   'libhdr10plus': libhdr10plus_dep.found(),
+  'OpenVINO (--vpp-onnx)': enable_openvino and have_openvino_headers,
 }, section: 'QSVEnc Features')

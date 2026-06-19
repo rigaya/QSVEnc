@@ -3632,6 +3632,9 @@ RGYParamVpp::RGYParamVpp() :
     nlmeans(),
     pmd(),
     hqdn3d(),
+    anime4k(),
+    onnxModelDir(),
+    onnxListModels(false),
     descale(),
     dct(),
     smooth(),
@@ -3653,6 +3656,7 @@ RGYParamVpp::RGYParamVpp() :
     chromashift(),
     deblock(),
     deflicker(),
+    stab(),
     colorfix(),
     dehalo(),
     finedehalo(),
@@ -3671,9 +3675,6 @@ RGYParamVpp::RGYParamVpp() :
     libplacebo_deband(),
     overlay(),
     fruc(),
-    anime4k(),
-    onnxModelDir(),
-    onnxListModels(false),
     checkPerformance(false) {
 
 }
