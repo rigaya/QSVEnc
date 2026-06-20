@@ -4195,11 +4195,34 @@ OpenVINOバックエンドのCNNフィルタ。ONNX/IRモデルを読み込みGP
   - resize=&lt;string&gt; (デフォルト: lanczos4)  
     out_resで使用するリサンプラー。
 
+- **使用可能なモデル名一覧**
+
+  models.json に登録済みのモデル名は model= で拡張子なしで指定可能 (例: `model=artcnn_c4f32`)。
+
+  | ファミリー | モデル名 |
+  |-----------|---------|
+  | ArtCNN | artcnn_c4f16, artcnn_c4f16_dn, artcnn_c4f16_ds, artcnn_c4f32, artcnn_c4f32_dn, artcnn_c4f32_ds, artcnn_r4f32, artcnn_r4f32_dn, artcnn_r8f64, artcnn_r8f64_chroma, artcnn_r8f64_chroma_dn, artcnn_r8f64_jpeg420, artcnn_r8f64_jpeg420_ycbcr, artcnn_r8f64_jpeg444, artcnn_r8f64_jpeg444_ycbcr, artcnn_r8f64_rgb, artcnn_r16f96, artcnn_r16f128 |
+  | ACNet | acnet_s, acnet_s_box, acnet_s_box_hdn, acnet_s_hdn, acnet_m, acnet_m_box, acnet_m_box_hdn, acnet_m_hdn, acnet_l, acnet_l_box, acnet_l_box_hdn, acnet_l_hdn |
+  | ARNet | arnet_s, arnet_s_box, arnet_s_box_hdn, arnet_s_hdn, arnet_m, arnet_m_box, arnet_m_box_hdn, arnet_m_hdn, arnet_l, arnet_l_box, arnet_l_box_hdn, arnet_l_hdn, arnet_xl, arnet_xl_box, arnet_xl_box_hdn, arnet_xl_hdn |
+  | FSRCNNX | fsrcnnx_s, fsrcnnx_s_dp, fsrcnnx_m, fsrcnnx_m_dp |
+  | Anime4K Restore | ani4k_restore_s, ani4k_restore_m, ani4k_restore_l, ani4k_restore_ul, ani4k_restore_vl, ani4k_restore_gan, ani4k_restore_soft_s, ani4k_restore_soft_m, ani4k_restore_soft_l, ani4k_restore_soft_ul, ani4k_restore_soft_vl, ani4k_restore_soft_gan, ani4k_3d_x2, ani4k_3d_aa_x2 |
+  | Anime4K Upscale CNN | ani4k_upscale_cnn_s_x2, ani4k_upscale_cnn_s_dn_x2, ani4k_upscale_cnn_m_x2, ani4k_upscale_cnn_m_dn_x2, ani4k_upscale_cnn_l_x2, ani4k_upscale_cnn_l_dn_x2, ani4k_upscale_cnn_ul_x2, ani4k_upscale_cnn_ul_dn_x2, ani4k_upscale_cnn_vl_x2, ani4k_upscale_cnn_vl_dn_x2 |
+  | Anime4K Upscale GAN | ani4k_upscale_gan_s_x2, ani4k_upscale_gan_m_x2, ani4k_upscale_gan_l_x3, ani4k_upscale_gan_vl_x3, ani4k_upscale_gan_ul_x4, ani4k_upscale_gan_uul_x4 |
+  | WebSR | websr_2xs_rl, websr_2xs_an, websr_2xs_3d, websr_2xm_rl, websr_2xm_an, websr_2xm_3d, websr_2xl_rl, websr_2xl_an, websr_2xl_3d |
+  | waifu2x CUNet | waifu2x_cunet_art_scale2x, waifu2x_cunet_art_noise0, waifu2x_cunet_art_noise0_scale2x, waifu2x_cunet_art_noise1, waifu2x_cunet_art_noise1_scale2x, waifu2x_cunet_art_noise2, waifu2x_cunet_art_noise2_scale2x, waifu2x_cunet_art_noise3, waifu2x_cunet_art_noise3_scale2x |
+  | waifu2x Anime/Photo | waifu2x_anime_x2, waifu2x_anime_noise0_x2, waifu2x_anime_noise1_x2, waifu2x_anime_noise2_x2, waifu2x_anime_noise3_x2, waifu2x_photo_x2, waifu2x_photo_noise0_x2, waifu2x_photo_noise1_x2, waifu2x_photo_noise2_x2, waifu2x_photo_noise3_x2 |
+  | waifu2x VGG7 | waifu2x_vgg7_anime_x2, waifu2x_vgg7_anime_noise0_x2, waifu2x_vgg7_anime_noise1_x2, waifu2x_vgg7_anime_noise2_x2, waifu2x_vgg7_anime_noise3_x2, waifu2x_vgg7_art_y_x2, waifu2x_vgg7_art_y_noise1_x2, waifu2x_vgg7_art_y_noise2_x2, waifu2x_vgg7_art_y_noise3_x2, waifu2x_vgg7_photo_x2, waifu2x_vgg7_photo_noise0_x2, waifu2x_vgg7_photo_noise1_x2, waifu2x_vgg7_photo_noise2_x2, waifu2x_vgg7_photo_noise3_x2 |
+  | Real-CUGAN | realcugan_se_up2x_no_denoise_dynamic, realcugan_se_up2x_conservative_dynamic, realcugan_se_up2x_denoise1x_dynamic, realcugan_se_up2x_denoise2x_dynamic, realcugan_se_up2x_denoise3x_dynamic, realcugan_se_up3x_no_denoise_dynamic, realcugan_se_up3x_conservative_dynamic, realcugan_se_up3x_denoise3x_dynamic, realcugan_se_up4x_no_denoise_dynamic, realcugan_se_up4x_conservative_dynamic, realcugan_se_up4x_denoise3x_dynamic, realcugan_pro_up2x_no_denoise_dynamic, realcugan_pro_up3x_no_denoise_dynamic |
+  | Real-ESRGAN | realesr-animevideov3, realesr-general-x4v3, realesr-general-wdn-x4v3 |
+  | Real-ESRGAN RRDB | realesrgan_anime_x4, realesrgan_photo_x2, realesrgan_photo_x4, realesrgan_photo_psnr_x4, bsrgan_photo_x2, bsrgan_photo_x4, bsrgan_photo_psnr_x4, esrgan_photo_x4, fssr_jpeg_x4, fssr_smartphone_x4, realsr_jpeg_x4, realsr_smartphone_x4 |
+  | KAIR Denoise | dncnn_color_blind, dncnn_gray_blind, dncnn_gray_strong, dncnn_multi_task, drunet_color, drunet_gray, drunet_deblocking_color, drunet_deblocking_gray, fdncnn_color, fdncnn_color_clip, fdncnn_gray, fdncnn_gray_clip, ffdnet_color, ffdnet_color_clip, ffdnet_gray, ffdnet_gray_clip |
+  | KAIR SR | dpsr_x2, dpsr_x3, dpsr_x4, dpsr_x4_gan, srmd_x2, srmd_x3, srmd_x4, srmdnf_x2, srmdnf_x3, srmdnf_x4 |
+
 - 使用例
   ```
-  --vpp-onnx model=artcnn_c4f32.onnx
-  --vpp-onnx model=waifu2x_art_noise2_scale2x.onnx,noise=25
-  --vpp-onnx model=anime4k_restore_s.onnx,out_res=-2x1080
+  --vpp-onnx model=artcnn_c4f32
+  --vpp-onnx model=waifu2x_cunet_art_noise2_scale2x,noise=25
+  --vpp-onnx model=ani4k_restore_s,out_res=-2x1080
   ```
 
 ### --vpp-onnx-model-dir &lt;string&gt;
