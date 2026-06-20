@@ -708,9 +708,42 @@ RGYFilterCspCrop::~RGYFilterCspCrop() {
     close();
 }
 
+static std::pair<int, int> cropAlignMaskFromCsp(const RGY_CSP csp) {
+    switch (RGY_CSP_CHROMA_FORMAT[csp]) {
+    case RGY_CHROMAFMT_YUV420: return std::make_pair(1, 1);
+    case RGY_CHROMAFMT_YUV422: return std::make_pair(1, 0);
+    default:                   return std::make_pair(0, 0);
+    }
+}
+
+static bool cropAlignedToCsp(const sInputCrop& crop, const RGY_CSP csp) {
+    const auto mask = cropAlignMaskFromCsp(csp);
+    return (crop.e.left & mask.first) == 0 && (crop.e.right & mask.first) == 0
+        && (crop.e.up & mask.second) == 0 && (crop.e.bottom & mask.second) == 0;
+}
+
+static bool sizeAlignedToCsp(const int width, const int height, const RGY_CSP csp) {
+    const auto mask = cropAlignMaskFromCsp(csp);
+    return (width & mask.first) == 0 && (height & mask.second) == 0;
+}
+
+static bool cspCanUseYUV444IntermediateForCrop(const RGY_CSP csp) {
+    if (rgy_csp_has_alpha(csp) || rgy_chromafmt_is_rgb(RGY_CSP_CHROMA_FORMAT[csp])) {
+        return false;
+    }
+    return RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_YUV420
+        || RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_YUV422
+        || RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_YUV444;
+}
+
+static RGY_CSP yuv444IntermediateCspForCrop(const RGY_CSP csp) {
+    return (RGY_CSP_BIT_DEPTH[csp] > 8) ? RGY_CSP_YUV444_16 : RGY_CSP_YUV444;
+}
+
 RGY_ERR RGYFilterCspCrop::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     RGY_ERR sts = RGY_ERR_NONE;
     m_pLog = pPrintMes;
+    m_cropChain.clear();
     auto pCropParam = std::dynamic_pointer_cast<RGYFilterParamCrop>(pParam);
     if (!pCropParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -728,18 +761,64 @@ RGY_ERR RGYFilterCspCrop::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
         const auto memcpyKind = getMemcpyKind(pParam->frameIn.mem_type, pParam->frameOut.mem_type);
         m_name += getMemcpyKindStr(memcpyKind);
     }
-    //パラメータチェック
-    for (int i = 0; i < _countof(pCropParam->crop.c); i++) {
-        if ((pCropParam->crop.c[i] & 1) != 0) {
-            AddMessage(RGY_LOG_ERROR, _T("crop should be divided by 2.\n"));
-            return RGY_ERR_INVALID_PARAM;
-        }
-    }
+    pCropParam->frameOut.picstruct = pCropParam->frameIn.picstruct;
     pCropParam->frameOut.height = pCropParam->frameIn.height - pCropParam->crop.e.bottom - pCropParam->crop.e.up;
     pCropParam->frameOut.width = pCropParam->frameIn.width - pCropParam->crop.e.left - pCropParam->crop.e.right;
     if (pCropParam->frameOut.height <= 0 || pCropParam->frameOut.width <= 0) {
         AddMessage(RGY_LOG_ERROR, _T("crop size is too big.\n"));
         return RGY_ERR_INVALID_PARAM;
+    }
+
+    if (!cropAlignedToCsp(pCropParam->crop, pCropParam->frameIn.csp)) {
+        if (interlaced(pCropParam->frameIn)
+            || !cspCanUseYUV444IntermediateForCrop(pCropParam->frameIn.csp)
+            || !cspCanUseYUV444IntermediateForCrop(pCropParam->frameOut.csp)
+            || !sizeAlignedToCsp(pCropParam->frameOut.width, pCropParam->frameOut.height, pCropParam->frameOut.csp)
+            || pCropParam->frameIn.mem_type != pCropParam->frameOut.mem_type) {
+            AddMessage(RGY_LOG_ERROR, _T("crop not aligned to input chroma subsampling (%d,%d,%d,%d) for %s.\n"),
+                pCropParam->crop.e.left, pCropParam->crop.e.up, pCropParam->crop.e.right, pCropParam->crop.e.bottom,
+                RGY_CSP_NAMES[pCropParam->frameIn.csp]);
+            return RGY_ERR_INVALID_PARAM;
+        }
+
+        RGYFrameInfo chainFrame = pCropParam->frameIn;
+        auto addCropChain = [&](const RGY_CSP outCsp, const sInputCrop& crop) {
+            auto filter = std::make_unique<RGYFilterCspCrop>(m_cl);
+            auto param = std::make_shared<RGYFilterParamCrop>();
+            param->frameIn = chainFrame;
+            param->frameOut = chainFrame;
+            param->frameOut.csp = outCsp;
+            param->frameOut.bitdepth = RGY_CSP_BIT_DEPTH[param->frameOut.csp];
+            param->baseFps = pCropParam->baseFps;
+            param->matrix = pCropParam->matrix;
+            param->crop = crop;
+            param->bOutOverwrite = pCropParam->bOutOverwrite;
+            auto ret = filter->init(param, pPrintMes);
+            if (ret != RGY_ERR_NONE) {
+                return ret;
+            }
+            chainFrame = param->frameOut;
+            m_cropChain.push_back(std::move(filter));
+            return RGY_ERR_NONE;
+        };
+
+        const auto cropCsp = yuv444IntermediateCspForCrop(pCropParam->frameIn.csp);
+        const auto noCrop = initCrop();
+        sts = addCropChain(cropCsp, noCrop);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        sts = addCropChain(cropCsp, pCropParam->crop);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        sts = addCropChain(pCropParam->frameOut.csp, noCrop);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        pCropParam->frameOut = chainFrame;
+        m_param = pCropParam;
+        return RGY_ERR_NONE;
     }
 
     m_cl->requestCSPCopy(pCropParam->frameOut, pCropParam->frameIn);
@@ -785,15 +864,41 @@ RGY_ERR RGYFilterCspCrop::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
         return sts;
     }
 
-    *pOutputFrameNum = 1;
-    if (ppOutputFrames[0] == nullptr) {
-        auto pOutFrame = m_frameBuf[0].get();
-        ppOutputFrames[0] = &pOutFrame->frame;
-    }
     auto pCropParam = std::dynamic_pointer_cast<RGYFilterParamCrop>(m_param);
     if (!pCropParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
+    }
+
+    if (m_cropChain.size() > 0) {
+        RGYFrameInfo inputFrame = *pInputFrame;
+        RGYFrameInfo *pChainInput = &inputFrame;
+        RGYFrameInfo *pChainOutput[1] = { nullptr };
+        int chainOutputNum = 0;
+        std::vector<RGYOpenCLEvent> chainWaitEvents = wait_events;
+        for (size_t ichain = 0; ichain < m_cropChain.size(); ichain++) {
+            RGYOpenCLEvent chainEvent;
+            pChainOutput[0] = nullptr;
+            chainOutputNum = 0;
+            auto ppOutput = (ichain + 1 == m_cropChain.size()) ? ppOutputFrames : pChainOutput;
+            auto pEvent = (ichain + 1 == m_cropChain.size()) ? event : &chainEvent;
+            sts = m_cropChain[ichain]->filter(pChainInput, ppOutput, &chainOutputNum, queue, chainWaitEvents, pEvent);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            if (ichain + 1 != m_cropChain.size()) {
+                chainWaitEvents = { chainEvent };
+            }
+            pChainInput = ppOutput[0];
+        }
+        *pOutputFrameNum = chainOutputNum;
+        return sts;
+    }
+
+    *pOutputFrameNum = 1;
+    if (ppOutputFrames[0] == nullptr) {
+        auto pOutFrame = m_frameBuf[0].get();
+        ppOutputFrames[0] = &pOutFrame->frame;
     }
 
     const auto memcpyKind = getMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
@@ -845,6 +950,7 @@ RGY_ERR RGYFilterCspCrop::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
 }
 
 void RGYFilterCspCrop::close() {
+    m_cropChain.clear();
     m_frameBuf.clear();
     m_cl.reset();
 }
