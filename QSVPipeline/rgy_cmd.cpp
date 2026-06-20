@@ -5496,7 +5496,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
-    if (IS_OPTION("vpp-anime4k") && ENABLE_VPP_FILTER_ANIME4K) {
+    if (IS_OPTION("vpp-anime4k-shader") && ENABLE_VPP_FILTER_ANIME4K) {
         VppAnime4k newAnime4k;
         newAnime4k.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
@@ -13052,9 +13052,9 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
                 ADD_LST2(_T("resize"), param->anime4k, anime4kDefault, postResizeAlgo, list_vpp_resize);
             }
             if (!tmp.str().empty()) {
-                cmd << _T(" --vpp-anime4k ") << tmp.str().substr(1);
+                cmd << _T(" --vpp-anime4k-shader ") << tmp.str().substr(1);
             } else if (param->anime4k.enable) {
-                cmd << _T(" --vpp-anime4k");
+                cmd << _T(" --vpp-anime4k-shader");
             }
         }
     }
@@ -16151,14 +16151,8 @@ tstring gen_cmd_help_vpp() {
 #endif
 #if ENABLE_VPP_FILTER_ANIME4K
     str += strsprintf(_T("\n")
-        _T("   --vpp-anime4k [<param1>=<value>][,<param2>=<value>][...]\n")
-        _T("     enable a hand-written GLSL luma enhancement / 2x upscale chain.\n")
-        _T("     the 7 modes are bloc97 Anime4K (MIT); antiring + chroma_resize=joint\n")
-        _T("     are MIT shaders by J. Chrisostomo. Hand-tuned OpenCL, no CNN and no\n")
-        _T("     model files (the CNN model families now live in --vpp-onnx).\n")
-        _T("     A complete chain in one pass: optional pre-filter denoise, a main\n")
-        _T("     GLSL mode, optional line darken / thin / denoise, optional highlight\n")
-        _T("     clamp and anti-ring, chroma handling, and an end-of-chain resize.\n")
+        _T("   --vpp-anime4k-shader [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     Enable GLSL luma enhancement / 2x upscale chain, based on bloc97 Anime4K.\n")
         _T("    params\n")
         _T("      mode=<string>             GLSL variant (default=ani4k_original)\n")
         _T("                                ani4k_original    - edge-refine 2x upscale (strength 0.5)\n")

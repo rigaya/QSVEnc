@@ -245,12 +245,12 @@
   - [--vpp-nlmeans \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-nlmeans-param1value1param2value2)
   - [--vpp-pmd \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-pmd-param1value1param2value2)
   - [--vpp-hqdn3d \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-hqdn3d-param1value1param2value2)
-  - [--vpp-descale \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-descale-param1value1param2value2)
   - [--vpp-denoise \<int\> or \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-denoise-int-or-param1value1param2value2)
   - [--vpp-image-stab \<string\>](#--vpp-image-stab-string)
   - [--vpp-mctf \["auto" or \<int\>\]](#--vpp-mctf-auto-or-int)
   - [--vpp-subburn \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-subburn-param1value1param2value2)
   - [--vpp-libplacebo-shader \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-libplacebo-shader-param1value1param2value2)
+  - [--vpp-descale \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-descale-param1value1param2value2)
   - [--vpp-resize \<string\>](#--vpp-resize-string)
   - [--vpp-resize-mode \<string\>](#--vpp-resize-mode-string)
   - [--vpp-unsharp \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-unsharp-param1value1param2value2)
@@ -281,7 +281,7 @@
   - [--vpp-overlay \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-overlay-param1value1param2value2)
   - [--vpp-perc-pre-enc](#--vpp-perc-pre-enc)
   - [--vpp-mfx-insert-clcopy \[\<int\>\]](#--vpp-mfx-insert-clcopy-int)
-  - [--vpp-anime4k \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-anime4k-param1value1param2value2)
+  - [--vpp-anime4k-shader \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-anime4k-shader-param1value1param2value2)
   - [--vpp-onnx \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-onnx-param1value1param2value2)
   - [--vpp-onnx-model-dir \<string\>](#--vpp-onnx-model-dir-string)
   - [--vpp-ai-frameinterp \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-ai-frameinterp-param1value1param2value2)
@@ -1863,7 +1863,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
   - [--vpp-overlay](#--vpp-overlay-param1value1param2value2)
   - [--vpp-perc-pre-enc](#--vpp-perc-pre-enc)
   - [--vpp-mfx-insert-clcopy](#--vpp-mfx-insert-clcopy-int)
-  - [--vpp-anime4k](#--vpp-anime4k-param1value1param2value2)
+  - [--vpp-anime4k-shader](#--vpp-anime4k-shader-param1value1param2value2)
   - [--vpp-onnx](#--vpp-onnx-param1value1param2value2)
   - [--vpp-onnx-model-dir](#--vpp-onnx-model-dir-string)
   - [--vpp-ai-frameinterp](#--vpp-ai-frameinterp-param1value1param2value2)
@@ -4036,10 +4036,9 @@ If the last VPP group built by `InitFilters` ends with an MFX block, insert an O
 - `2`  
   Enable even when `ENABLE_D3D11!=0`.
 
-### --vpp-anime4k [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
-Enable a hand-written GLSL luma enhancement / 2x upscale chain.  
-The 7 modes are based on bloc97 Anime4K (MIT). antiring and chroma_resize=joint are MIT shaders by J. Chrisostomo.  
-No CNN, no model files — hand-tuned OpenCL kernels (CNN model families live in --vpp-onnx).
+### --vpp-anime4k-shader [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+Enable GLSL luma enhancement / 2x upscale chain, based on bloc97 Anime4K.
+The CNN models is not included, which can be used from --vpp-onnx.
 
 A complete chain in one pass: optional pre-filter denoise → main GLSL mode → optional line darken / thin / denoise → optional highlight clamp and anti-ring → chroma handling → end-of-chain resize.
 
@@ -4104,9 +4103,9 @@ A complete chain in one pass: optional pre-filter denoise → main GLSL mode →
 
 - Example:
   ```
-  --vpp-anime4k mode=ani4k_original,scale=2
-  --vpp-anime4k mode=ani4k_deblur,antiring=0.8,chroma_resize=joint
-  --vpp-anime4k mode=ani4k_dog_sharpen,strength=0.6,out_res=1920x1080
+  --vpp-anime4k-shader mode=ani4k_original,scale=2
+  --vpp-anime4k-shader mode=ani4k_deblur,antiring=0.8,chroma_resize=joint
+  --vpp-anime4k-shader mode=ani4k_dog_sharpen,strength=0.6,out_res=1920x1080
   ```
 
 ### --vpp-onnx [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
