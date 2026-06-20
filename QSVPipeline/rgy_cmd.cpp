@@ -40,6 +40,11 @@
 #include "rgy_language.h"
 #include "rgy_perf_monitor.h"
 #include "rgy_osdep.h"
+#if ENABLE_VPP_FILTER_ONNX
+#include "rgy_model_registry.h"
+#include "rgy_log.h"
+#include "rgy_filesystem.h"
+#endif
 
 std::vector<tstring> splitCommandLine(const TCHAR *cmd) {
     std::vector<tstring> result;
@@ -466,6 +471,30 @@ std::vector<CX_DESC> get_libplacebo_only_resize_list() {
 
 #pragma warning(disable: 4100) //warning C4100: 'argData': 引数は関数の本体部で 1 度も参照されません。
 #pragma warning(disable: 4127) //warning C4127: 条件式が定数です。
+
+int handle_vpp_onnx_list_models(const RGYParamVpp *vpp) {
+#if ENABLE_VPP_FILTER_ONNX
+    if (vpp->onnxModelDir.empty()) {
+        _ftprintf(stderr, _T("Error: --vpp-onnx-model-dir must be specified with --vpp-onnx list.\n"));
+        return 1;
+    }
+    const auto jsonPath = PathCombineS(vpp->onnxModelDir, _T("models.json"));
+    RGYModelRegistry reg;
+    auto log = std::make_shared<RGYLog>(nullptr, RGY_LOG_QUIET);
+    if (reg.load(jsonPath, log) != RGY_ERR_NONE) {
+        _ftprintf(stderr, _T("Error: failed to load models.json from %s\n"), vpp->onnxModelDir.c_str());
+        return 1;
+    }
+    _ftprintf(stdout, _T("Available ONNX models:\n"));
+    for (const auto& [name, entry] : reg.models()) {
+        const auto fullPath = PathCombineS(reg.baseDir(), entry.path);
+        const bool exists = rgy_file_exists(fullPath);
+        _ftprintf(stdout, _T("  %-24s  %s%s\n"), name.c_str(), entry.path.c_str(),
+            exists ? _T("") : _T(" [not found]"));
+    }
+#endif // ENABLE_VPP_FILTER_ONNX
+    return 1;
+}
 
 int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, RGYParamVpp *vpp, sArgsData *argData) {
     if (IS_OPTION("vpp-order") && ENABLE_VPP_ORDER) {
