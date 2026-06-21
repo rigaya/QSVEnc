@@ -153,6 +153,15 @@ static int nnediFindEnabledPlane(const RGYNnediParam& prm, const RGY_CSP csp, co
     return -1;
 }
 
+static int nnediMaxPlaneXSub(const RGY_CSP csp) {
+    const auto chroma = RGY_CSP_CHROMA_FORMAT[csp];
+    return (chroma == RGY_CHROMAFMT_YUV420 || chroma == RGY_CHROMAFMT_YUV422) ? 1 : 0;
+}
+
+static int nnediMaxPlaneYSub(const RGY_CSP csp) {
+    return (RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_YUV420) ? 1 : 0;
+}
+
 #if defined(_WIN32) || defined(_WIN64)
 static tstring nnediDefaultWeightFilePath(HMODULE hModule) {
     const tstring filename = NNEDI_DEFAULT_WEIGHT_FILE;
@@ -515,8 +524,10 @@ RGY_ERR RGYFilterNnedi::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
         return err;
     }
     RGYFrameInfo refFrame = prm->frameOut;
-    refFrame.width += RGY_NNEDI_HPAD * 4;
-    refFrame.height = (refFrame.height >> 1) + RGY_NNEDI_VPAD * 4;
+    // chroma plane は getPlane() で縮小されるが、NNEDI の padding は各 plane で同じ値を使う。
+    // ref buffer は luma 基準なので、chroma subsampling 分だけ余白を広げて確保する。
+    refFrame.width += RGY_NNEDI_HPAD * 4 * (1 << nnediMaxPlaneXSub(prm->frameOut.csp));
+    refFrame.height = (refFrame.height >> 1) + RGY_NNEDI_VPAD * 4 * (1 << nnediMaxPlaneYSub(prm->frameOut.csp));
     m_refBuf.clear();
     for (int i = 0; i < outputSlots; i++) {
         auto ref = m_cl->createFrameBuffer(refFrame);
