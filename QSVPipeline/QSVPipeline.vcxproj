@@ -1476,6 +1476,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <None Include="rgy_filter_kfm_mask.cl" />
     <None Include="rgy_filter_kfm_switch.cl" />
     <None Include="rgy_filter_kfm_ucf.cl" />
+    <None Include="rgy_filter_anime4k.cl" />
     <None Include="rgy_filter_msharpen.cl" />
     <None Include="rgy_filter_msmooth.cl" />
     <None Include="rgy_filter_mpdecimate.cl" />

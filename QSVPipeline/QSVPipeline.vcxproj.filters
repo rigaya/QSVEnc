@@ -1189,6 +1189,9 @@
     <None Include="rgy_filter_kfm_ucf.cl">
       <Filter>ソース ファイル</Filter>
     </None>
+    <None Include="rgy_filter_anime4k.cl">
+      <Filter>ソース ファイル</Filter>
+    </None>
     <None Include="rgy_filter_mpdecimate.cl">
       <Filter>ソース ファイル</Filter>
     </None>

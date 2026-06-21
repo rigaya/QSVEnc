@@ -66,6 +66,7 @@ resource_specs = [
   ['rgy_filter_softlight_cl', '../QSVPipeline/rgy_filter_softlight.cl', 'QSVPipeline_rgy_filter_softlight_cl'],
   ['rgy_filter_edgelevel_cl', '../QSVPipeline/rgy_filter_edgelevel.cl', 'QSVPipeline_rgy_filter_edgelevel_cl'],
   ['rgy_filter_rtgmc_bob_cl', '../QSVPipeline/rgy_filter_rtgmc_bob.cl', 'QSVPipeline_rgy_filter_rtgmc_bob_cl'],
+  ['rgy_filter_anime4k_cl', '../QSVPipeline/rgy_filter_anime4k.cl', 'QSVPipeline_rgy_filter_anime4k_cl'],
   ['rgy_filter_maa_cl', '../QSVPipeline/rgy_filter_maa.cl', 'QSVPipeline_rgy_filter_maa_cl'],
   ['rgy_filter_msharpen_cl', '../QSVPipeline/rgy_filter_msharpen.cl', 'QSVPipeline_rgy_filter_msharpen_cl'],
   ['rgy_filter_msmooth_cl', '../QSVPipeline/rgy_filter_msmooth.cl', 'QSVPipeline_rgy_filter_msmooth_cl'],

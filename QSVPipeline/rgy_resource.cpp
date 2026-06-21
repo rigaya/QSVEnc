@@ -120,6 +120,7 @@ _BINARY_VPP_FILTER_FILE(rgy_filter_detailsharpen_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_softlight_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_edgelevel_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_rtgmc_bob_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_anime4k_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_msharpen_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_mpdecimate_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_kfm_common_cl);
@@ -250,6 +251,7 @@ static const RGYResourceData RGY_RESOURCE_DATA[] = {
     { _T("EXE_DATA"), _T("RGY_FILTER_SOFTLIGHT_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_softlight_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_EDGELEVEL_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_edgelevel_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_RTGMC_BOB_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_rtgmc_bob_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_ANIME4K_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_anime4k_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_MSHARPEN_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_msharpen_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_MPDECIMATE_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_mpdecimate_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_NNEDI_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_nnedi_cl) },
