@@ -323,6 +323,8 @@ API v1.1  … Intel Media SDK v2.0
 - --vpp-resize の lanczos5-8 と bicubic パラメータ指定 (b, c) を拡張。mitchell / catmull-rom / hermite エイリアスに対応。
 - --vpp-rtgmc order を指定したとき、それを実際の解除に反映するように。
 - 出力解像度が偶数になる条件で、奇数cropに対応。
+- --vpp-nnediの参照バッファ確保不足を修正。
+- --vpp-kfmでフレームプールが枯渇する問題を修正。
 
 2026.06.17 (8.16)
 [QSVEncC]

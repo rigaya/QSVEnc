@@ -9,6 +9,8 @@
 - Extend [--vpp-resize](./QSVEncC_Options.en.md#--vpp-resize-string) with lanczos5-8 and bicubic parameter options (b, c, mitchell / catmull-rom / hermite aliases).
 - Apply field order specified by [--vpp-rtgmc](./QSVEncC_Options.en.md#--vpp-rtgmc-param1value1) order parameter to actual deinterlace.
 - Support odd [--crop](./QSVEncC_Options.en.md#--crop-intintintint) when output resolution must be even.
+- Fix [--vpp-nnedi](./QSVEncC_Options.en.md#--vpp-nnedi-param1value1param2value2) frame buffer not allocated properly.
+- Fix [--vpp-kfm](./QSVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) not properly using frame pool.
 
 ## 8.16
 
