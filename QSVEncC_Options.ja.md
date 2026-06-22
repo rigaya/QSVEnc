@@ -4163,6 +4163,8 @@ CNNモデルは含まれておらず、そちらを使用する場合は、--vpp
 
 ### --vpp-onnx [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 OpenVINOバックエンドのCNNフィルタ。ONNX/IRモデルを読み込みGPU上で実行する。  
+LinuxではOpenVINO Runtimeの追加インストールが必要です。Ubuntuでの導入方法は[インストール方法の追加オプション](./Install.ja.md#4-追加オプション)を参照してください。
+
 モデルのチャンネル数から前処理/後処理が自動推定される: 1ch=輝度SR, 3ch=RGB, 4ch=RGB+ノイズ, 2ch=グレー+ノイズ, 3→2ch=クロマ。
 
 - **Parameters**

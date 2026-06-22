@@ -4110,6 +4110,8 @@ A complete chain in one pass: optional pre-filter denoise → main GLSL mode →
 
 ### --vpp-onnx [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 OpenVINO-backed CNN filter: loads an ONNX/IR model directly and runs it on the GPU.  
+On Linux, OpenVINO Runtime must be installed separately. For Ubuntu installation instructions, see [Additional Tools in the installation guide](./Install.en.md#4-addtional-tools).
+
 Pre/post processing is inferred from the model channel count: 1ch=luma SR, 3ch=RGB, 4ch=RGB+noise, 2ch=gray+noise, 3→2ch=chroma.
 
 - **Parameters**

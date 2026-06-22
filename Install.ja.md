@@ -82,8 +82,31 @@ sudo apt install ./qsvencc_x.xx_Ubuntu20.04_amd64.deb
 - avs読み込み  
   [AvisynthPlus](https://github.com/AviSynth/AviSynthPlus)のインストールが必要です。
   
-- vpy読み込み  
+- vpy読み込み
   [VapourSynth](https://www.vapoursynth.com/)のインストールが必要です。
+
+- --vpp-onnx
+  OpenVINO Runtimeのインストールが必要です。Ubuntuでは[Intel公式APTリポジトリ](https://docs.openvino.ai/2026/get-started/install-openvino/install-openvino-apt.html)から導入します。
+
+  ```Shell
+  sudo apt-get install -y gnupg wget
+  wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+  sudo gpg --output /etc/apt/trusted.gpg.d/intel.gpg --dearmor GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+
+  # 使用しているUbuntuのバージョンに合わせて、下記のいずれか1行のみ実行します。
+
+  # Ubuntu 24.04の場合
+  echo "deb https://apt.repos.intel.com/openvino ubuntu24 main" | sudo tee /etc/apt/sources.list.d/intel-openvino.list
+
+  # Ubuntu 22.04の場合
+  # echo "deb https://apt.repos.intel.com/openvino ubuntu22 main" | sudo tee /etc/apt/sources.list.d/intel-openvino.list
+
+  # Ubuntu 20.04の場合
+  # echo "deb https://apt.repos.intel.com/openvino ubuntu20 main" | sudo tee /etc/apt/sources.list.d/intel-openvino.list
+
+  sudo apt update
+  sudo apt install openvino
+  ```
 
 ### 5. その他
 
