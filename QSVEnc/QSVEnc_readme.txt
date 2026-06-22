@@ -314,11 +314,11 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
-2026.06.20 (8.17)
+2026.06.22 (8.17)
 [QSVEncC]
-- ONNXフィルタ --vpp-onnx を追加。OpenVINOでCNNモデルをGPU上で実行。models.jsonによる登録名解決、--vpp-onnx-model-dir、list表示に対応。
+- onnxモデルをフィルタとして実行する機能を追加。(--vpp-onnx)
+  OpenVINOでonnxモデルをGPU上で実行。使用するモデルはこちらからダウンロード可能なので、展開して --vpp-onnx-model-dirで指定してください。
 - Anime4K GLSLシェーダフィルタ --vpp-anime4k-shader を追加。
-- --vpp-onnx, --vpp-anime4k-shader のLinuxビルド対応。
 - --vpp-resize に nis, jinc36/jinc64/jinc144/jinc256 を追加。
 - --vpp-resize の lanczos5-8 と bicubic パラメータ指定 (b, c) を拡張。mitchell / catmull-rom / hermite エイリアスに対応。
 - --vpp-rtgmc order を指定したとき、それを実際の解除に反映するように。

@@ -3,8 +3,10 @@
 ## 8.17
 
 - Add [--vpp-onnx](./QSVEncC_Options.en.md#--vpp-onnx-param1value1param2value2) OpenVINO-backed CNN filter with [--vpp-onnx-model-dir](./QSVEncC_Options.en.md#--vpp-onnx-model-dir-string) and models.json registry.
+  - Model files can be downloaded from the link below.
+    https://github.com/rigaya/HWEnc-onnx-models/releases
+
 - Add [--vpp-anime4k-shader](./QSVEncC_Options.en.md#--vpp-anime4k-shader-param1value1param2value2) Anime4K v3.2 GLSL shader chain.
-- Add Linux build support for [--vpp-onnx](./QSVEncC_Options.en.md#--vpp-onnx-param1value1param2value2) and [--vpp-anime4k-shader](./QSVEncC_Options.en.md#--vpp-anime4k-shader-param1value1param2value2).
 - Add nis, jinc36/jinc64/jinc144/jinc256 to [--vpp-resize](./QSVEncC_Options.en.md#--vpp-resize-string).
 - Extend [--vpp-resize](./QSVEncC_Options.en.md#--vpp-resize-string) with lanczos5-8 and bicubic parameter options (b, c, mitchell / catmull-rom / hermite aliases).
 - Apply field order specified by [--vpp-rtgmc](./QSVEncC_Options.en.md#--vpp-rtgmc-param1value1) order parameter to actual deinterlace.
