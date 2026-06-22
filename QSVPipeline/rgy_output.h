@@ -86,29 +86,35 @@ private:
     int64_t last_input_frame_id;
     int64_t offset;
     int64_t last_clean_id;
+    bool has_last_add_pts;
+    bool has_last_check_pts;
     bool timestampPassThrough;
     bool noDurationFix; // durationの修正を行わない場合にtrue
 public:
-    RGYTimestamp(bool timestampPassThrough_, bool noDurationFix_) : m_frame(), mtx(), last_add_pts(-1), last_check_pts(-1), last_input_frame_id(-1), offset(0), last_clean_id(-1), timestampPassThrough(timestampPassThrough_), noDurationFix(noDurationFix_) {};
+    RGYTimestamp(bool timestampPassThrough_, bool noDurationFix_) : m_frame(), mtx(), last_add_pts(-1), last_check_pts(-1), last_input_frame_id(-1), offset(0), last_clean_id(-1), has_last_add_pts(false), has_last_check_pts(false), timestampPassThrough(timestampPassThrough_), noDurationFix(noDurationFix_) {};
     ~RGYTimestamp() {};
     void clear() {
         std::lock_guard<std::mutex> lock(mtx);
         m_frame.clear();
+        last_add_pts = -1;
         last_check_pts = -1;
+        has_last_add_pts = false;
+        has_last_check_pts = false;
         offset = 0;
     }
     void add(int64_t pts, int64_t inputFrameId, int64_t encodeFrameId, int64_t duration, std::vector<std::shared_ptr<RGYFrameData>> metadatalist) {
         std::lock_guard<std::mutex> lock(mtx);
-        if (last_add_pts >= 0) { // 前のフレームのdurationの更新
+        if (has_last_add_pts) { // 前のフレームのdurationの更新
             auto& last_add_pos = m_frame.find(last_add_pts)->second;
             if (!noDurationFix) last_add_pos.duration = pts - last_add_pos.timestamp;
             if (duration == 0) duration = last_add_pos.duration;
         }
         m_frame[pts] = RGYTimestampMapVal(pts, inputFrameId, encodeFrameId, duration, metadatalist);
         last_add_pts = pts;
+        has_last_add_pts = true;
     }
     RGYTimestampMapVal check(int64_t pts) {
-        if (last_check_pts < 0 && pts > 0 && !timestampPassThrough) {
+        if (!has_last_check_pts && !timestampPassThrough) {
             offset = -pts;
         }
         std::lock_guard<std::mutex> lock(mtx);
@@ -124,6 +130,7 @@ public:
         }
         last_input_frame_id = pos->second.inputFrameId;
         last_check_pts = pos->second.timestamp;
+        has_last_check_pts = true;
         return pos->second;
     }
     void clean(const RGYTimestampMapVal& current) {

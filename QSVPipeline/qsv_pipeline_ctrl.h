@@ -833,13 +833,14 @@ protected:
     int m_decFrameOutCount;
     int m_decRemoveRemainingBytesWarnCount; // removing %d bytes from input bitstream not read by decoder の表示回数
     int64_t m_firstPts;
+    bool m_gotFirstPts;
     int64_t m_endPts; // 並列処理時用の終了時刻 (この時刻は含まないようにする) -1の場合は制限なし(最後まで)
     RGYBitstream m_decInputBitstream;
     RGYQueueMPMP<RGYFrameDataMetadata*> m_queueHDR10plusMetadata;
     RGYQueueMPMP<FrameFlags> m_dataFlag;
 public:
     PipelineTaskMFXDecode(MFXVideoSession *mfxSession, int outMaxQueueSize, MFXVideoDECODE *mfxdec, mfxVideoParam& decParams, bool skipAV1C, int64_t endPts, RGYInput *input, mfxVersion mfxVer, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::MFXDEC, outMaxQueueSize, mfxSession, mfxVer, log), m_dec(mfxdec), m_mfxDecParams(decParams), m_input(input), m_skipAV1C(skipAV1C), m_getNextBitstream(true), m_decFrameOutCount(0), m_decRemoveRemainingBytesWarnCount(0), m_firstPts(-1), m_endPts(endPts), m_decInputBitstream(), m_queueHDR10plusMetadata(), m_dataFlag() {
+        : PipelineTask(PipelineTaskType::MFXDEC, outMaxQueueSize, mfxSession, mfxVer, log), m_dec(mfxdec), m_mfxDecParams(decParams), m_input(input), m_skipAV1C(skipAV1C), m_getNextBitstream(true), m_decFrameOutCount(0), m_decRemoveRemainingBytesWarnCount(0), m_firstPts(0), m_gotFirstPts(false), m_endPts(endPts), m_decInputBitstream(), m_queueHDR10plusMetadata(), m_dataFlag() {
         m_decInputBitstream.init(AVCODEC_READER_INPUT_BUF_SIZE);
         m_dataFlag.init();
         //TimeStampはQSVに自動的に計算させる
@@ -978,10 +979,14 @@ protected:
                 inputBitstream->DataOffset += 4;
                 inputBitstream->DataLength -= 4;
             }
-            if (inputBitstream->TimeStamp == (mfxU64)AV_NOPTS_VALUE) {
+            // MFXのtimestamp fieldはunsignedだが、内部比較ではsigned timestampとして扱う。
+            // 33bit wrap後の負timestampは正当値なので、UNKNOWN/AV_NOPTS_VALUEだけを未設定扱いする。
+            if (inputBitstream->TimeStamp == (mfxU64)AV_NOPTS_VALUE
+                || inputBitstream->TimeStamp == (mfxU64)MFX_TIMESTAMP_UNKNOWN) {
                 inputBitstream->TimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
-            } else if (m_firstPts < 0) {
-                m_firstPts = inputBitstream->TimeStamp;
+            } else if (!m_gotFirstPts) {
+                m_firstPts = (int64_t)inputBitstream->TimeStamp;
+                m_gotFirstPts = true;
             }
             inputBitstream->DecodeTimeStamp = MFX_TIMESTAMP_UNKNOWN;
         }
@@ -1032,15 +1037,16 @@ protected:
             if (m_stopwatch) m_stopwatch->add(0, 3);
         }
         if (m_stopwatch) m_stopwatch->add(0, 3);
+        const int64_t surfDecOutTimestamp = (surfDecOut != nullptr) ? (int64_t)surfDecOut->Data.TimeStamp : AV_NOPTS_VALUE;
         if (m_endPts >= 0
             && surfDecOut != nullptr
-            && surfDecOut->Data.TimeStamp >= (uint64_t)m_endPts) { // m_endPtsは含まないようにする(重要)
+            && surfDecOutTimestamp >= m_endPts) { // m_endPtsは含まないようにする(重要)
             m_getNextBitstream = false;
             return RGY_ERR_MORE_BITSTREAM; //入力ビットストリームは終了
         }
         if (surfDecOut != nullptr && lastSyncP != nullptr
             // 最初のフレームはOpenGOPのBフレームのために投入フレーム以前のデータの場合があるので、その場合はフレームを無視する
-            && (m_firstPts <= (int64_t)surfDecOut->Data.TimeStamp || m_decFrameOutCount > 0)) {
+            && (!m_gotFirstPts || m_firstPts <= surfDecOutTimestamp || m_decFrameOutCount > 0)) {
             auto taskSurf = useTaskSurf(surfDecOut);
             const auto picstruct = taskSurf.mfx()->surf()->Info.PicStruct;
             auto flags = RGY_FRAME_FLAG_NONE;
@@ -1061,17 +1067,17 @@ protected:
             }
             taskSurf.frame()->setInputFrameId(m_decFrameOutCount++);
 
-            if (getDataFlag(surfDecOut->Data.TimeStamp) & RGY_FRAME_FLAG_RFF) {
+            if (getDataFlag(surfDecOutTimestamp) & RGY_FRAME_FLAG_RFF) {
                 flags |= RGY_FRAME_FLAG_RFF;
             }
             taskSurf.frame()->setFlags(flags);
             taskSurf.frame()->setDuration(0); // QSVはdurationを返さない
 
             taskSurf.frame()->clearDataList();
-            if (auto data = getMetadata(RGY_FRAME_DATA_HDR10PLUS, surfDecOut->Data.TimeStamp); data) {
+            if (auto data = getMetadata(RGY_FRAME_DATA_HDR10PLUS, surfDecOutTimestamp); data) {
                 taskSurf.frame()->dataList().push_back(data);
             }
-            if (auto data = getMetadata(RGY_FRAME_DATA_DOVIRPU, surfDecOut->Data.TimeStamp); data) {
+            if (auto data = getMetadata(RGY_FRAME_DATA_DOVIRPU, surfDecOutTimestamp); data) {
                 taskSurf.frame()->dataList().push_back(data);
             }
             m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, taskSurf, lastSyncP));
@@ -1190,7 +1196,7 @@ public:
         if ((m_srcTimebase.n() > 0 && m_srcTimebase.is_valid())
             && ((m_avsync & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) || m_vpp_rff || m_vpp_afs_rff_aware || m_timestampPassThrough)) {
             //CFR仮定ではなく、オリジナルの時間を見る
-            const auto srcTimestamp = taskSurf->surf().frame()->timestamp();
+            const auto srcTimestamp = (int64_t)taskSurf->surf().frame()->timestamp();
             outPtsSource = rational_rescale(srcTimestamp, m_srcTimebase, m_outputTimebase);
             if (taskSurf->surf().frame()->duration() > 0 && (m_avsync | RGY_AVSYNC_FORCE_CFR) != RGY_AVSYNC_FORCE_CFR) {
                 outDuration = rational_rescale(taskSurf->surf().frame()->duration(), m_srcTimebase, m_outputTimebase);
