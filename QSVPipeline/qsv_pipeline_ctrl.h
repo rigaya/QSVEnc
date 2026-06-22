@@ -839,7 +839,7 @@ protected:
     RGYQueueMPMP<FrameFlags> m_dataFlag;
 public:
     PipelineTaskMFXDecode(MFXVideoSession *mfxSession, int outMaxQueueSize, MFXVideoDECODE *mfxdec, mfxVideoParam& decParams, bool skipAV1C, int64_t endPts, RGYInput *input, mfxVersion mfxVer, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::MFXDEC, outMaxQueueSize, mfxSession, mfxVer, log), m_dec(mfxdec), m_mfxDecParams(decParams), m_input(input), m_skipAV1C(skipAV1C), m_getNextBitstream(true), m_decFrameOutCount(0), m_decRemoveRemainingBytesWarnCount(0), m_firstPts(AV_NOPTS_VALUE), m_endPts(endPts), m_decInputBitstream(), m_queueHDR10plusMetadata(), m_dataFlag() {
+        : PipelineTask(PipelineTaskType::MFXDEC, outMaxQueueSize, mfxSession, mfxVer, log), m_dec(mfxdec), m_mfxDecParams(decParams), m_input(input), m_skipAV1C(skipAV1C), m_getNextBitstream(true), m_decFrameOutCount(0), m_decRemoveRemainingBytesWarnCount(0), m_firstPts(-1), m_endPts(endPts), m_decInputBitstream(), m_queueHDR10plusMetadata(), m_dataFlag() {
         m_decInputBitstream.init(AVCODEC_READER_INPUT_BUF_SIZE);
         m_dataFlag.init();
         //TimeStampはQSVに自動的に計算させる
@@ -978,13 +978,10 @@ protected:
                 inputBitstream->DataOffset += 4;
                 inputBitstream->DataLength -= 4;
             }
-            // MFXのtimestamp fieldはunsignedだが、内部比較ではsigned timestampとして扱う。
-            // 33bit wrap後の負timestampは正当値なので、UNKNOWN/AV_NOPTS_VALUEだけを未設定扱いする。
-            if (inputBitstream->TimeStamp == (mfxU64)AV_NOPTS_VALUE
-                || inputBitstream->TimeStamp == (mfxU64)MFX_TIMESTAMP_UNKNOWN) {
+            if (inputBitstream->TimeStamp == (mfxU64)AV_NOPTS_VALUE) {
                 inputBitstream->TimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
-            } else if (m_firstPts == AV_NOPTS_VALUE) {
-                m_firstPts = (int64_t)inputBitstream->TimeStamp;
+            } else if (m_firstPts < 0) {
+                m_firstPts = inputBitstream->TimeStamp;
             }
             inputBitstream->DecodeTimeStamp = MFX_TIMESTAMP_UNKNOWN;
         }
@@ -1035,16 +1032,15 @@ protected:
             if (m_stopwatch) m_stopwatch->add(0, 3);
         }
         if (m_stopwatch) m_stopwatch->add(0, 3);
-        const int64_t surfDecOutTimestamp = (surfDecOut != nullptr) ? (int64_t)surfDecOut->Data.TimeStamp : AV_NOPTS_VALUE;
         if (m_endPts >= 0
             && surfDecOut != nullptr
-            && surfDecOutTimestamp >= m_endPts) { // m_endPtsは含まないようにする(重要)
+            && surfDecOut->Data.TimeStamp >= (uint64_t)m_endPts) { // m_endPtsは含まないようにする(重要)
             m_getNextBitstream = false;
             return RGY_ERR_MORE_BITSTREAM; //入力ビットストリームは終了
         }
         if (surfDecOut != nullptr && lastSyncP != nullptr
             // 最初のフレームはOpenGOPのBフレームのために投入フレーム以前のデータの場合があるので、その場合はフレームを無視する
-            && (m_firstPts <= surfDecOutTimestamp || m_decFrameOutCount > 0)) {
+            && (m_firstPts <= (int64_t)surfDecOut->Data.TimeStamp || m_decFrameOutCount > 0)) {
             auto taskSurf = useTaskSurf(surfDecOut);
             const auto picstruct = taskSurf.mfx()->surf()->Info.PicStruct;
             auto flags = RGY_FRAME_FLAG_NONE;
@@ -1065,17 +1061,17 @@ protected:
             }
             taskSurf.frame()->setInputFrameId(m_decFrameOutCount++);
 
-            if (getDataFlag(surfDecOutTimestamp) & RGY_FRAME_FLAG_RFF) {
+            if (getDataFlag(surfDecOut->Data.TimeStamp) & RGY_FRAME_FLAG_RFF) {
                 flags |= RGY_FRAME_FLAG_RFF;
             }
             taskSurf.frame()->setFlags(flags);
             taskSurf.frame()->setDuration(0); // QSVはdurationを返さない
 
             taskSurf.frame()->clearDataList();
-            if (auto data = getMetadata(RGY_FRAME_DATA_HDR10PLUS, surfDecOutTimestamp); data) {
+            if (auto data = getMetadata(RGY_FRAME_DATA_HDR10PLUS, surfDecOut->Data.TimeStamp); data) {
                 taskSurf.frame()->dataList().push_back(data);
             }
-            if (auto data = getMetadata(RGY_FRAME_DATA_DOVIRPU, surfDecOutTimestamp); data) {
+            if (auto data = getMetadata(RGY_FRAME_DATA_DOVIRPU, surfDecOut->Data.TimeStamp); data) {
                 taskSurf.frame()->dataList().push_back(data);
             }
             m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, taskSurf, lastSyncP));
@@ -1508,7 +1504,7 @@ public:
         m_input(input), m_currentChunk(-1), m_encTimestamp(encTimestamp), m_timecode(timecode),
         m_parallelEnc(parallelEnc), m_encStatus(encStatus), m_encFps(encFps), m_outputTimebase(outputTimebase),
         m_taskAudio(std::move(taskAudio)), m_fReader(std::unique_ptr<FILE, fp_deleter>(nullptr, fp_deleter())),
-        m_firstPts(AV_NOPTS_VALUE), m_maxPts(AV_NOPTS_VALUE), m_ptsOffset(0), m_encFrameOffset(0), m_inputFrameOffset(0), m_maxEncFrameIdx(-1), m_maxInputFrameIdx(-1),
+        m_firstPts(-1), m_maxPts(-1), m_ptsOffset(0), m_encFrameOffset(0), m_inputFrameOffset(0), m_maxEncFrameIdx(-1), m_maxInputFrameIdx(-1),
         m_decInputBitstream(), m_inputBitstreamEOF(false), m_bitStreamOut(), m_durationCheck(), m_tsDebug(false) {
         m_decInputBitstream.init(AVCODEC_READER_INPUT_BUF_SIZE);
         auto reader = dynamic_cast<RGYInputAvcodec*>(input);
@@ -1586,12 +1582,9 @@ protected:
         const auto inputFpsTimebase = rgy_rational<int>((int)inputFrameInfo.fpsD, (int)inputFrameInfo.fpsN);
         const auto srcTimebase = (m_input->getInputTimebase().n() > 0 && m_input->getInputTimebase().is_valid()) ? m_input->getInputTimebase() : inputFpsTimebase;
         // seek結果による入力ptsを用いて計算した本来のpts offset
-        // 33bit wrap後の負timestampは正当値なので、未初期化判定はAV_NOPTS_VALUEで行う。
-        const bool gotFirstPts = m_firstPts != AV_NOPTS_VALUE;
-        const bool gotMaxPts = m_maxPts != AV_NOPTS_VALUE;
-        const auto ptsOffsetOrig = (!gotFirstPts) ? 0 : rational_rescale(m_parallelEnc->getVideofirstKeyPts(m_currentChunk), srcTimebase, m_outputTimebase) - m_firstPts;
+        const auto ptsOffsetOrig = (m_firstPts < 0) ? 0 : rational_rescale(m_parallelEnc->getVideofirstKeyPts(m_currentChunk), srcTimebase, m_outputTimebase) - m_firstPts;
         // 直前のフレームから計算したpts offset(-1フレーム分) 最低でもこれ以上のoffsetがないといけない
-        const auto ptsOffsetMax = (!gotFirstPts || !gotMaxPts) ? 0 : m_maxPts - m_firstPts;
+        const auto ptsOffsetMax = (m_firstPts < 0) ? 0 : m_maxPts - m_firstPts;
         // フレームの長さを決める
         int64_t lastDuration = 0;
         const auto frameDuration = m_durationCheck.getDuration(lastDuration);
@@ -1625,7 +1618,7 @@ protected:
         } else {
             // ptsOffsetOrigが必要offsetの最小値(ptsOffsetMax)より大きく、そのずれが2フレーム以内ならそれを採用する
             // そうでなければ、ptsOffsetMaxに1フレーム分の時間を足した時刻にする
-            m_ptsOffset = (!gotFirstPts) ? 0 :
+            m_ptsOffset = (m_firstPts < 0) ? 0 :
                 ((ptsOffsetOrig - ptsOffsetMax > 0 && ptsOffsetOrig - ptsOffsetMax <= rational_rescale(2, m_encFps.inv(), m_outputTimebase))
                     ? ptsOffsetOrig : (ptsOffsetMax + rational_rescale(1, m_encFps.inv(), m_outputTimebase)));
         }
@@ -1769,12 +1762,8 @@ public:
             std::vector<std::shared_ptr<RGYFrameData>> metadatalist;
             const auto duration = (ENCODER_QSV) ? header.duration : bsOut->duration(); // QSVの場合、Bitstreamにdurationの値がないため、durationはheaderから取得する
             m_encTimestamp->add(bsOut->pts(), header.inputFrameIdx, header.encodeFrameIdx, duration, metadatalist);
-            if (bsOut->pts() != AV_NOPTS_VALUE) {
-                if (m_firstPts == AV_NOPTS_VALUE) {
-                    m_firstPts = bsOut->pts();
-                }
-                m_maxPts = (m_maxPts == AV_NOPTS_VALUE) ? bsOut->pts() : std::max(m_maxPts, bsOut->pts());
-            }
+            if (m_firstPts < 0) m_firstPts = bsOut->pts();
+            m_maxPts = std::max(m_maxPts, bsOut->pts());
             m_maxEncFrameIdx = std::max(m_maxEncFrameIdx, header.encodeFrameIdx);
             m_maxInputFrameIdx = std::max(m_maxInputFrameIdx, header.inputFrameIdx);
             PrintMes(m_tsDebug ? RGY_LOG_WARN : RGY_LOG_TRACE, _T("Packet: pts %lld, dts: %lld, duration: %d, input idx: %lld, encode idx: %lld, size %lld.\n"), bsOut->pts(), bsOut->dts(), duration, header.inputFrameIdx, header.encodeFrameIdx, bsOut->size());
