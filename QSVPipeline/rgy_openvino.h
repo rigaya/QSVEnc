@@ -31,6 +31,7 @@
 
 #include <string>
 #include <memory>
+#include <cstddef>
 #include "rgy_err.h"
 #include "rgy_version.h"
 
@@ -57,6 +58,19 @@ public:
     // filled with the OpenVINO exception text.
     RGY_ERR init(const std::string &modelPath, const std::string &device,
                  const int height, const int width, std::string &errMessage);
+
+    // Compile the model inside an OpenVINO GPU remote context created from the
+    // OpenCL queue/context selected by QSVEnc. This pins OpenVINO GPU execution
+    // to the same physical GPU without relying on GPU.N enumeration order.
+    RGY_ERR initFromOpenCLQueue(const std::string &modelPath, void *clQueue, void *clContext,
+                                const int height, const int width, std::string &errMessage);
+
+    // Fallback helper for environments where remote context creation is not
+    // available. Returns "GPU.N" when an OpenVINO GPU with matching UUID/LUID is
+    // found, or an empty string otherwise.
+    std::string findDeviceByUuidLuid(const void *uuid, const size_t uuidSize,
+                                     const void *luid, const size_t luidSize,
+                                     std::string &errMessage);
 
     // Synchronous inference. in points to inChannels()*inHeight()*inWidth()
     // floats (CHW); out receives outChannels()*outHeight()*outWidth() floats

@@ -278,33 +278,28 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     const int inW = prm->frameIn.width;
     const int inH = prm->frameIn.height;
 
-    // interop selection: ocl (zero-copy, shared OpenCL context) when running on a
-    // GPU device; host readback otherwise. interop=ocl/host forces it. This is a
-    // preference; the zero-copy fast path is only actually used for 1-channel
-    // luma models (LumaSR) -- the multi-channel colour modes always use the host
-    // path even on a GPU (the model still runs on the GPU; only pre/post is on
-    // the host).
+    // interop selection: "ocl" explicitly requests the zero-copy path. Separately,
+    // GPU/AUTO model compilation prefers OpenVINO remote context from QSVEnc's
+    // selected OpenCL queue, so OpenVINO inference runs on the same physical GPU
+    // even when pre/post still uses the host-readback path.
     const tstring interopStr = prm->onnx.interop;
-    bool wantOcl;
-    if (interopStr == _T("ocl")) {
-        wantOcl = true;
-    } else if (interopStr == _T("host")) {
-        wantOcl = false;
-    } else { // auto
-        const tstring dev = prm->onnx.device;
-        wantOcl = (dev.substr(0, 3) == _T("GPU") || dev == _T("AUTO"));
-    }
+    const tstring dev = prm->onnx.device;
+    const bool deviceWantsGpu = (dev.substr(0, 3) == _T("GPU") || dev == _T("AUTO"));
+    const bool wantZeroCopy = (interopStr == _T("ocl")) && deviceWantsGpu && m_cl;
+    bool preferRemoteContext = deviceWantsGpu && m_cl;
 
     m_ov = std::make_unique<RGYOpenVINO>();
     std::string errMsg;
     const std::string modelPathA = tchar_to_string(prm->onnx.modelFile);
     const std::string deviceA    = tchar_to_string(prm->onnx.device);
+    std::string effectiveDeviceA = deviceA;
+    tstring effectiveDevice = prm->onnx.device;
+    bool usingOpenCLRemoteContext = false;
 
     // Peek the model's channel counts (parse only) so the backend is chosen
     // before compiling: the zero-copy fast path is wired only for 1-channel luma
-    // models; the multi-channel modes need a host-accessible (device-string)
-    // compile for the readback path (a remote-context compile can hand back a
-    // non-host-readable output tensor).
+    // models; other modes still prefer a remote-context GPU compile, but bind a
+    // host output tensor during infer().
     int peekIn = 0, peekOut = 0;
     RGY_ERR err = m_ov->peekChannels(modelPathA, peekIn, peekOut, errMsg);
     if (err != RGY_ERR_NONE) {
@@ -312,13 +307,42 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
             prm->onnx.modelFile.c_str(), char_to_tstring(errMsg).c_str());
         return err;
     }
-    bool fastOcl = wantOcl && (peekIn == 1 && peekOut == 1);
+    bool fastOcl = wantZeroCopy && (peekIn == 1 && peekOut == 1);
 
     auto initModel = [&](const int modelInH, const int modelInW) {
         if (fastOcl) {
             return m_ov->initShared(modelPathA, (void *)m_cl->queue().get(), modelInH, modelInW, errMsg);
         }
-        return m_ov->init(modelPathA, deviceA, modelInH, modelInW, errMsg);
+        if (preferRemoteContext) {
+            auto remoteErr = m_ov->initFromOpenCLQueue(modelPathA, (void *)m_cl->queue().get(), (void *)m_cl->context(), modelInH, modelInW, errMsg);
+            if (remoteErr == RGY_ERR_NONE) {
+                usingOpenCLRemoteContext = true;
+                effectiveDeviceA = "GPU(OpenCL context)";
+                effectiveDevice = _T("GPU(OpenCL context)");
+                return remoteErr;
+            }
+            AddMessage(RGY_LOG_DEBUG, _T("onnx: OpenVINO remote OpenCL context compile is unavailable, trying device match fallback: %s\n"),
+                char_to_tstring(errMsg).c_str());
+            preferRemoteContext = false;
+            usingOpenCLRemoteContext = false;
+
+            std::string matchErr;
+            const auto clInfo = RGYOpenCLDevice(m_cl->queue().devid()).info();
+            const auto matchedDevice = m_ov->findDeviceByUuidLuid(clInfo.uuid, sizeof(clInfo.uuid), clInfo.luid, sizeof(clInfo.luid), matchErr);
+            if (!matchedDevice.empty()) {
+                effectiveDeviceA = matchedDevice;
+                effectiveDevice = char_to_tstring(matchedDevice);
+                AddMessage(RGY_LOG_DEBUG, _T("onnx: selected OpenVINO device %s by matching OpenCL UUID/LUID.\n"),
+                    effectiveDevice.c_str());
+            } else {
+                AddMessage(RGY_LOG_WARN, _T("onnx: failed to match OpenVINO GPU to selected OpenCL device, falling back to device=%s: %s\n"),
+                    prm->onnx.device.c_str(), char_to_tstring(matchErr).c_str());
+                effectiveDeviceA = deviceA;
+                effectiveDevice = prm->onnx.device;
+            }
+            errMsg.clear();
+        }
+        return m_ov->init(modelPathA, effectiveDeviceA, modelInH, modelInW, errMsg);
     };
 
     m_modelInW = inW;
@@ -344,7 +368,7 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     }
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("onnx: failed to load/compile model (%s): %s\n"),
-            fastOcl ? _T("shared OpenCL context") : prm->onnx.device.c_str(),
+            fastOcl ? _T("shared OpenCL context") : effectiveDevice.c_str(),
             char_to_tstring(errMsg).c_str());
         return err;
     }
@@ -397,7 +421,7 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         err = initModel(m_modelInH, m_modelInW);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("onnx: failed to load/compile padded model (%s, input %dx%d): %s\n"),
-                prm->onnx.device.c_str(), m_modelInW, m_modelInH, char_to_tstring(errMsg).c_str());
+                effectiveDevice.c_str(), m_modelInW, m_modelInH, char_to_tstring(errMsg).c_str());
             return err;
         }
         outW = m_ov->outWidth();
@@ -543,7 +567,10 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         info += strsprintf(_T(" pad-input=%dx%d"), m_modelInW, m_modelInH);
     }
     if (!m_useOcl) {
-        info += strsprintf(_T(" device=%s"), prm->onnx.device.c_str());
+        info += strsprintf(_T(" device=%s"), effectiveDevice.c_str());
+        if (usingOpenCLRemoteContext) {
+            info += _T(" remote-ocl");
+        }
     }
     if (!m_ov->deviceFullName().empty()) {
         info += strsprintf(_T(" [%s]"), char_to_tstring(m_ov->deviceFullName()).c_str());

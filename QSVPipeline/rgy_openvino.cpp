@@ -31,6 +31,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cstring>
 #include <memory>
 #include <mutex>
@@ -46,6 +47,11 @@ using ov_core_free_t = void(OPENVINO_C_API_CALLBACK *)(ov_core_t *);
 using ov_core_read_model_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_core_t *, const char *, const char *, ov_model_t **);
 using ov_core_compile_model_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_core_t *, const ov_model_t *, const char *, const size_t, ov_compiled_model_t **, ...);
 using ov_core_get_property_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_core_t *, const char *, const char *, char **);
+using ov_core_create_context_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_core_t *, const char *, const size_t, ov_remote_context_t **, ...);
+using ov_core_compile_model_with_context_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_core_t *, const ov_model_t *, const ov_remote_context_t *, const size_t, ov_compiled_model_t **, ...);
+using ov_remote_context_free_t = void(OPENVINO_C_API_CALLBACK *)(ov_remote_context_t *);
+using ov_remote_context_get_device_name_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_remote_context_t *, char **);
+using ov_remote_context_create_host_tensor_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_remote_context_t *, const ov_element_type_e, const ov_shape_t, ov_tensor_t **);
 using ov_model_free_t = void(OPENVINO_C_API_CALLBACK *)(ov_model_t *);
 using ov_model_const_input_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_model_t *, ov_output_const_port_t **);
 using ov_model_const_output_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_model_t *, ov_output_const_port_t **);
@@ -57,6 +63,7 @@ using ov_compiled_model_output_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const 
 using ov_compiled_model_get_property_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_compiled_model_t *, const char *, char **);
 using ov_infer_request_free_t = void(OPENVINO_C_API_CALLBACK *)(ov_infer_request_t *);
 using ov_infer_request_set_input_tensor_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(ov_infer_request_t *, const ov_tensor_t *);
+using ov_infer_request_set_output_tensor_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(ov_infer_request_t *, const ov_tensor_t *);
 using ov_infer_request_infer_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(ov_infer_request_t *);
 using ov_infer_request_get_output_tensor_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_infer_request_t *, ov_tensor_t **);
 using ov_tensor_create_from_host_ptr_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_element_type_e, const ov_shape_t, void *, ov_tensor_t **);
@@ -85,6 +92,11 @@ struct OpenVINOLoader {
     ov_core_read_model_t core_read_model = nullptr;
     ov_core_compile_model_t core_compile_model = nullptr;
     ov_core_get_property_t core_get_property = nullptr;
+    ov_core_create_context_t core_create_context = nullptr;
+    ov_core_compile_model_with_context_t core_compile_model_with_context = nullptr;
+    ov_remote_context_free_t remote_context_free = nullptr;
+    ov_remote_context_get_device_name_t remote_context_get_device_name = nullptr;
+    ov_remote_context_create_host_tensor_t remote_context_create_host_tensor = nullptr;
     ov_model_free_t model_free = nullptr;
     ov_model_const_input_t model_const_input = nullptr;
     ov_model_const_output_t model_const_output = nullptr;
@@ -96,6 +108,7 @@ struct OpenVINOLoader {
     ov_compiled_model_get_property_t compiled_model_get_property = nullptr;
     ov_infer_request_free_t infer_request_free = nullptr;
     ov_infer_request_set_input_tensor_t infer_request_set_input_tensor = nullptr;
+    ov_infer_request_set_output_tensor_t infer_request_set_output_tensor = nullptr;
     ov_infer_request_infer_t infer_request_infer = nullptr;
     ov_infer_request_get_output_tensor_t infer_request_get_output_tensor = nullptr;
     ov_tensor_create_from_host_ptr_t tensor_create_from_host_ptr = nullptr;
@@ -127,6 +140,11 @@ struct OpenVINOLoader {
             return false;
         }
         return true;
+    }
+
+    template<typename Func>
+    void loadOptional(Func &func, const char *name) {
+        func = reinterpret_cast<Func>(RGY_GET_PROC_ADDRESS(module, name));
     }
 
     bool load() {
@@ -167,6 +185,11 @@ struct OpenVINOLoader {
         LOAD_OV(core_read_model);
         LOAD_OV(core_compile_model);
         LOAD_OV(core_get_property);
+        loadOptional(core_create_context, "ov_core_create_context");
+        loadOptional(core_compile_model_with_context, "ov_core_compile_model_with_context");
+        loadOptional(remote_context_free, "ov_remote_context_free");
+        loadOptional(remote_context_get_device_name, "ov_remote_context_get_device_name");
+        loadOptional(remote_context_create_host_tensor, "ov_remote_context_create_host_tensor");
         LOAD_OV(model_free);
         LOAD_OV(model_const_input);
         LOAD_OV(model_const_output);
@@ -178,6 +201,7 @@ struct OpenVINOLoader {
         LOAD_OV(compiled_model_get_property);
         LOAD_OV(infer_request_free);
         LOAD_OV(infer_request_set_input_tensor);
+        loadOptional(infer_request_set_output_tensor, "ov_infer_request_set_output_tensor");
         LOAD_OV(infer_request_infer);
         LOAD_OV(infer_request_get_output_tensor);
         LOAD_OV(tensor_create_from_host_ptr);
@@ -278,6 +302,60 @@ static ov_shape_t makeShape(const std::vector<int64_t> &dims) {
 
 static RGY_ERR getPortShape(ov_output_const_port_t *port, std::vector<int64_t> &shape, std::string &errMessage);
 
+static std::string bytesToHex(const void *data, const size_t size) {
+    if (data == nullptr || size == 0) {
+        return std::string();
+    }
+    std::string str;
+    const uint8_t *ptr = reinterpret_cast<const uint8_t *>(data);
+    static const char hex[] = "0123456789abcdef";
+    for (size_t i = 0; i < size; i++) {
+        str += hex[(ptr[i] >> 4) & 0x0f];
+        str += hex[ptr[i] & 0x0f];
+    }
+    return str;
+}
+
+static std::string normalizeHexString(const std::string &str) {
+    std::string out;
+    for (auto c : str) {
+        if (std::isxdigit((unsigned char)c)) {
+            out += (char)std::tolower((unsigned char)c);
+        }
+    }
+    return out;
+}
+
+static bool isZeroBytes(const void *data, const size_t size) {
+    if (data == nullptr || size == 0) {
+        return true;
+    }
+    const uint8_t *ptr = reinterpret_cast<const uint8_t *>(data);
+    for (size_t i = 0; i < size; i++) {
+        if (ptr[i] != 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static std::vector<std::string> splitDeviceIds(const std::string &str) {
+    std::vector<std::string> ids;
+    std::string token;
+    for (auto c : str) {
+        if (std::isalnum((unsigned char)c) || c == '.' || c == '_' || c == '-') {
+            token += c;
+        } else if (!token.empty()) {
+            ids.push_back(token);
+            token.clear();
+        }
+    }
+    if (!token.empty()) {
+        ids.push_back(token);
+    }
+    return ids;
+}
+
 class RGYOpenVINO::Impl {
 public:
     Impl() {
@@ -319,11 +397,15 @@ public:
 
     void resetRuntimeObjects() {
         req.reset();
+        remoteInTensor.reset();
+        remoteOutTensor.reset();
         compiled.reset();
+        remote.reset();
         model.reset();
         inShape.clear();
         outShape.clear();
         devName.clear();
+        devId.clear();
         precision.clear();
         shared = false;
     }
@@ -332,14 +414,20 @@ public:
     struct ModelDeleter { void operator()(ov_model_t *p) const { if (p) ovLoader().model_free(p); } };
     struct CompiledDeleter { void operator()(ov_compiled_model_t *p) const { if (p) ovLoader().compiled_model_free(p); } };
     struct RequestDeleter { void operator()(ov_infer_request_t *p) const { if (p) ovLoader().infer_request_free(p); } };
+    struct RemoteContextDeleter { void operator()(ov_remote_context_t *p) const { if (p && ovLoader().remote_context_free) ovLoader().remote_context_free(p); } };
+    struct TensorDeleter { void operator()(ov_tensor_t *p) const { if (p) ovLoader().tensor_free(p); } };
 
     std::unique_ptr<ov_core_t, CoreDeleter> core;
     std::unique_ptr<ov_model_t, ModelDeleter> model;
     std::unique_ptr<ov_compiled_model_t, CompiledDeleter> compiled;
     std::unique_ptr<ov_infer_request_t, RequestDeleter> req;
+    std::unique_ptr<ov_remote_context_t, RemoteContextDeleter> remote;
+    std::unique_ptr<ov_tensor_t, TensorDeleter> remoteInTensor;
+    std::unique_ptr<ov_tensor_t, TensorDeleter> remoteOutTensor;
     std::vector<int64_t> inShape;
     std::vector<int64_t> outShape;
     std::string devName;
+    std::string devId;
     std::string precision;
     std::string loadErr;
     bool shared = false;
@@ -467,6 +555,7 @@ RGY_ERR RGYOpenVINO::init(const std::string &modelPath, const std::string &devic
         return ret;
     }
 
+    I.devId = device;
     char *property = nullptr;
     if (ov.core_get_property(I.core.get(), device.c_str(), "FULL_DEVICE_NAME", &property) == OK) {
         I.devName = getAndFreeProperty(property);
@@ -478,12 +567,228 @@ RGY_ERR RGYOpenVINO::init(const std::string &modelPath, const std::string &devic
     return RGY_ERR_NONE;
 }
 
+RGY_ERR RGYOpenVINO::initFromOpenCLQueue(const std::string &modelPath, void *clQueue, void *clContext,
+                                         const int height, const int width, std::string &errMessage) {
+    auto ret = ensureOpenVINO(errMessage);
+    if (ret != RGY_ERR_NONE) {
+        return ret;
+    }
+    auto &I = *m_impl;
+    if (!I.core) {
+        errMessage = I.loadErr;
+        return RGY_ERR_UNSUPPORTED;
+    }
+    auto &ov = ovLoader();
+    if (!ov.core_create_context || !ov.core_compile_model_with_context || !ov.remote_context_free
+        || !ov.remote_context_create_host_tensor || !ov.infer_request_set_output_tensor) {
+        errMessage = "OpenVINO C runtime does not provide remote context API required for host tensor binding";
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (clQueue == nullptr && clContext == nullptr) {
+        errMessage = "OpenCL queue/context is not available";
+        return RGY_ERR_INVALID_PARAM;
+    }
+    I.resetRuntimeObjects();
+
+    ov_model_t *modelRaw = nullptr;
+    ret = ovCheck(ov.core_read_model(I.core.get(), modelPath.c_str(), nullptr, &modelRaw), errMessage);
+    if (ret != RGY_ERR_NONE) {
+        return ret;
+    }
+    I.model.reset(modelRaw);
+
+    const int64_t ch = modelInputChannels(I.model.get(), errMessage);
+    const int64_t dims[4] = { 1, ch, height, width };
+    ov_partial_shape_t reshape = {};
+    ret = ovCheck(ov.partial_shape_create_static(4, dims, &reshape), errMessage);
+    if (ret != RGY_ERR_NONE) {
+        return ret;
+    }
+    ret = ovCheck(ov.model_reshape_single_input(I.model.get(), reshape), errMessage);
+    ov.partial_shape_free(&reshape);
+    if (ret != RGY_ERR_NONE) {
+        return ret;
+    }
+
+    ov_remote_context_t *remoteRaw = nullptr;
+    std::string queueErr;
+    if (clQueue != nullptr) {
+        ret = ovCheck(ov.core_create_context(I.core.get(), "GPU", 4, &remoteRaw,
+            const_cast<char *>("CONTEXT_TYPE"), const_cast<char *>("OCL"),
+            const_cast<char *>("OCL_QUEUE"), clQueue), errMessage);
+        if (ret != RGY_ERR_NONE) {
+            queueErr = errMessage;
+            errMessage.clear();
+        }
+    }
+    if (remoteRaw == nullptr && clQueue == nullptr && clContext != nullptr) {
+        ret = ovCheck(ov.core_create_context(I.core.get(), "GPU", 6, &remoteRaw,
+            const_cast<char *>("CONTEXT_TYPE"), const_cast<char *>("OCL"),
+            const_cast<char *>("OCL_CONTEXT"), clContext,
+            const_cast<char *>("OCL_CONTEXT_DEVICE_ID"), const_cast<char *>("0")), errMessage);
+    }
+    if (remoteRaw == nullptr) {
+        if (!queueErr.empty() && !errMessage.empty()) {
+            errMessage = queueErr + " / " + errMessage;
+        } else if (!queueErr.empty()) {
+            errMessage = queueErr;
+        }
+        return RGY_ERR_UNSUPPORTED;
+    }
+    I.remote.reset(remoteRaw);
+
+    ov_compiled_model_t *compiledRaw = nullptr;
+    ret = ovCheck(ov.core_compile_model_with_context(I.core.get(), I.model.get(), I.remote.get(), 0, &compiledRaw), errMessage);
+    if (ret != RGY_ERR_NONE) {
+        return ret;
+    }
+    I.compiled.reset(compiledRaw);
+
+    ov_infer_request_t *reqRaw = nullptr;
+    ret = ovCheck(ov.compiled_model_create_infer_request(I.compiled.get(), &reqRaw), errMessage);
+    if (ret != RGY_ERR_NONE) {
+        return ret;
+    }
+    I.req.reset(reqRaw);
+
+    ret = I.updateCompiledShapes(errMessage);
+    if (ret != RGY_ERR_NONE) {
+        return ret;
+    }
+
+    auto inShape = makeShape(I.inShape);
+    ov_tensor_t *inHostTensorRaw = nullptr;
+    ret = ovCheck(ov.remote_context_create_host_tensor(I.remote.get(), F32, inShape, &inHostTensorRaw), errMessage);
+    if (ret != RGY_ERR_NONE) {
+        return ret;
+    }
+    I.remoteInTensor.reset(inHostTensorRaw);
+
+    auto outShape = makeShape(I.outShape);
+    ov_tensor_t *outHostTensorRaw = nullptr;
+    ret = ovCheck(ov.remote_context_create_host_tensor(I.remote.get(), F32, outShape, &outHostTensorRaw), errMessage);
+    if (ret != RGY_ERR_NONE) {
+        return ret;
+    }
+    I.remoteOutTensor.reset(outHostTensorRaw);
+    ret = ovCheck(ov.infer_request_set_input_tensor(I.req.get(), I.remoteInTensor.get()), errMessage);
+    if (ret != RGY_ERR_NONE) {
+        return ret;
+    }
+    ret = ovCheck(ov.infer_request_set_output_tensor(I.req.get(), I.remoteOutTensor.get()), errMessage);
+    if (ret != RGY_ERR_NONE) {
+        return ret;
+    }
+
+    if (ov.remote_context_get_device_name) {
+        char *deviceName = nullptr;
+        if (ov.remote_context_get_device_name(I.remote.get(), &deviceName) == OK) {
+            I.devId = getAndFreeProperty(deviceName);
+        }
+    }
+    if (I.devId.empty()) {
+        I.devId = "GPU";
+    }
+
+    char *property = nullptr;
+    if (ov.core_get_property(I.core.get(), I.devId.c_str(), "FULL_DEVICE_NAME", &property) == OK) {
+        I.devName = getAndFreeProperty(property);
+    } else {
+        I.devName = I.devId;
+    }
+    property = nullptr;
+    if (ov.compiled_model_get_property(I.compiled.get(), "INFERENCE_PRECISION_HINT", &property) == OK) {
+        I.precision = getAndFreeProperty(property);
+    }
+    I.shared = true;
+    return RGY_ERR_NONE;
+}
+
+std::string RGYOpenVINO::findDeviceByUuidLuid(const void *uuid, const size_t uuidSize,
+                                              const void *luid, const size_t luidSize,
+                                              std::string &errMessage) {
+    auto ret = ensureOpenVINO(errMessage);
+    if (ret != RGY_ERR_NONE) {
+        return std::string();
+    }
+    if (!m_impl || !m_impl->core) {
+        errMessage = m_impl ? m_impl->loadErr : "OpenVINO runtime is not initialized";
+        return std::string();
+    }
+    auto &ov = ovLoader();
+    const auto targetUuid = isZeroBytes(uuid, uuidSize) ? std::string() : bytesToHex(uuid, uuidSize);
+    const auto targetLuid = isZeroBytes(luid, luidSize) ? std::string() : bytesToHex(luid, luidSize);
+    if (targetUuid.empty() && targetLuid.empty()) {
+        errMessage = "OpenCL device UUID/LUID is not available";
+        return std::string();
+    }
+
+    std::vector<std::string> candidates;
+    char *property = nullptr;
+    if (ov.core_get_property(m_impl->core.get(), "GPU", "AVAILABLE_DEVICES", &property) == OK) {
+        for (const auto &id : splitDeviceIds(getAndFreeProperty(property))) {
+            candidates.push_back(id.rfind("GPU", 0) == 0 ? id : ("GPU." + id));
+        }
+    }
+    if (candidates.empty()) {
+        candidates.push_back("GPU.0");
+        candidates.push_back("GPU");
+    } else {
+        candidates.push_back("GPU");
+    }
+
+    for (const auto &device : candidates) {
+        bool uuidQueried = false;
+        bool uuidMatch = false;
+        bool luidMatch = false;
+        property = nullptr;
+        if (!targetUuid.empty() && ov.core_get_property(m_impl->core.get(), device.c_str(), "DEVICE_UUID", &property) == OK) {
+            uuidQueried = true;
+            uuidMatch = normalizeHexString(getAndFreeProperty(property)) == targetUuid;
+        }
+        property = nullptr;
+        if (!targetLuid.empty() && ov.core_get_property(m_impl->core.get(), device.c_str(), "DEVICE_LUID", &property) == OK) {
+            luidMatch = normalizeHexString(getAndFreeProperty(property)) == targetLuid;
+        }
+        if (uuidMatch || ((!uuidQueried || targetUuid.empty()) && luidMatch)) {
+            return device;
+        }
+    }
+
+    errMessage = "OpenVINO GPU matching the selected OpenCL device was not found";
+    return std::string();
+}
+
 RGY_ERR RGYOpenVINO::infer(const float *in, float *out) {
     std::string errMessage;
     if (ensureOpenVINO(errMessage) != RGY_ERR_NONE || !m_impl || !m_impl->req) {
         return RGY_ERR_UNSUPPORTED;
     }
     auto &ov = ovLoader();
+    if (m_impl->remote) {
+        if (!m_impl->remoteInTensor || !m_impl->remoteOutTensor) {
+            return RGY_ERR_UNSUPPORTED;
+        }
+        void *inData = nullptr;
+        void *outData = nullptr;
+        size_t inBytes = 0;
+        size_t outBytes = 0;
+        if (ov.tensor_data(m_impl->remoteInTensor.get(), &inData) != OK
+            || ov.tensor_get_byte_size(m_impl->remoteInTensor.get(), &inBytes) != OK
+            || ov.tensor_data(m_impl->remoteOutTensor.get(), &outData) != OK
+            || ov.tensor_get_byte_size(m_impl->remoteOutTensor.get(), &outBytes) != OK) {
+            return RGY_ERR_UNKNOWN;
+        }
+        if (inData == nullptr || outData == nullptr) {
+            return RGY_ERR_UNKNOWN;
+        }
+        std::memcpy(inData, in, inBytes);
+        if (ov.infer_request_infer(m_impl->req.get()) != OK) {
+            return RGY_ERR_UNKNOWN;
+        }
+        std::memcpy(out, outData, outBytes);
+        return RGY_ERR_NONE;
+    }
     auto inShape = makeShape(m_impl->inShape);
     ov_tensor_t *inTensorRaw = nullptr;
     if (ov.tensor_create_from_host_ptr(F32, inShape, const_cast<float *>(in), &inTensorRaw) != OK) {
@@ -556,6 +861,14 @@ RGY_ERR RGYOpenVINO::peekChannels(const std::string &, int &inChannels, int &out
 RGY_ERR RGYOpenVINO::init(const std::string &, const std::string &, const int, const int, std::string &errMessage) {
     errMessage = "this build of QSVEnc does not include OpenVINO support";
     return RGY_ERR_UNSUPPORTED;
+}
+RGY_ERR RGYOpenVINO::initFromOpenCLQueue(const std::string &, void *, void *, const int, const int, std::string &errMessage) {
+    errMessage = "this build of QSVEnc does not include OpenVINO support";
+    return RGY_ERR_UNSUPPORTED;
+}
+std::string RGYOpenVINO::findDeviceByUuidLuid(const void *, const size_t, const void *, const size_t, std::string &errMessage) {
+    errMessage = "this build of QSVEnc does not include OpenVINO support";
+    return std::string();
 }
 RGY_ERR RGYOpenVINO::infer(const float *, float *) { return RGY_ERR_UNSUPPORTED; }
 RGY_ERR RGYOpenVINO::initShared(const std::string &, void *, const int, const int, std::string &errMessage) {
