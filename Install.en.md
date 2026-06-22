@@ -69,9 +69,6 @@ sudo apt install ./qsvencc_x.xx_Ubuntu24.04_amd64.deb
 
 # Ubuntu 22.04
 sudo apt install ./qsvencc_x.xx_Ubuntu22.04_amd64.deb
-
-# Ubuntu 20.04
-sudo apt install ./qsvencc_x.xx_Ubuntu20.04_amd64.deb
 ```
 
 ### 4. Addtional Tools
@@ -97,10 +94,7 @@ sudo gpg --output /etc/apt/trusted.gpg.d/intel.gpg --dearmor GPG-PUB-KEY-INTEL-S
 echo "deb https://apt.repos.intel.com/openvino ubuntu24 main" | sudo tee /etc/apt/sources.list.d/intel-openvino.list
 
 # Ubuntu 22.04
-# echo "deb https://apt.repos.intel.com/openvino ubuntu22 main" | sudo tee /etc/apt/sources.list.d/intel-openvino.list
-
-# Ubuntu 20.04
-# echo "deb https://apt.repos.intel.com/openvino ubuntu20 main" | sudo tee /etc/apt/sources.list.d/intel-openvino.list
+echo "deb https://apt.repos.intel.com/openvino ubuntu22 main" | sudo tee /etc/apt/sources.list.d/intel-openvino.list
 
 sudo apt update
 sudo apt install openvino

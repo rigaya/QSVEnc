@@ -4146,7 +4146,7 @@ Pre/post processing is inferred from the model channel count: 1ch=luma SR, 3ch=R
 
 - **Available model names**
 
-  Models registered in models.json can be specified without extension (e.g. `model=artcnn_c4f32`).
+  Models registered in models.json can be specified without extension (e.g. `model=artcnn_c4f32`). [`--vpp-onnx-model-dir`](#--vpp-onnx-model-dir-string) must be specified to use this feature.
 
   | Family | Model names |
   |--------|------------|
@@ -4175,7 +4175,16 @@ Pre/post processing is inferred from the model channel count: 1ch=luma SR, 3ch=R
   ```
 
 ### --vpp-onnx-model-dir &lt;string&gt;
-Directory containing models.json for registered ONNX models.
+Directory containing models.json and the model files for registered ONNX models.
+
+This option must be specified when using short model names with `--vpp-onnx model=<name>`.
+
+Model files can be downloaded from [https://github.com/rigaya/HWEnc-onnx-models/releases](https://github.com/rigaya/HWEnc-onnx-models/releases).
+Download the zip archive, extract it to an arbitrary directory, and specify that directory.
+
+```
+--vpp-onnx-model-dir C:\models\HWEnc-onnx-models
+```
 
 ### --vpp-ai-frameinterp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
 Enable AI Powered frame interpolation, which will double the framerate.
