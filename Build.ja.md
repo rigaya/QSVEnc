@@ -36,6 +36,18 @@ git clone https://github.com/KhronosGroup/OpenCL-Headers.git <path-to-clone>
 setx OPENCL_HEADERS <path-to-clone>
 ```
 
+`--vpp-onnx` を有効にした MSVC ビルドには、OpenVINO RuntimeのC APIヘッダが必要です。
+[OpenVINO RuntimeのWindows archive](https://docs.openvino.ai/2026/get-started/install-openvino/install-openvino-archive-windows.html)をダウンロードして展開し、環境変数 "OPENVINO_PATH" に展開先を設定します。
+
+例: 公式手順のデフォルトに従って `C:\Program Files (x86)\Intel\openvino_2026` に展開した場合:
+
+```Batchfile
+setx OPENVINO_PATH "C:\Program Files (x86)\Intel\openvino_2026"
+```
+
+直接ダウンロードする場合は、[OpenVINO Toolkitのダウンロードページ](https://www.intel.com/content/www/us/en/download/753640/intel-distribution-of-openvino-toolkit.html) または [OpenVINOのGitHub Releases](https://github.com/openvinotoolkit/openvino/releases) からWindows用archiveを取得できます。
+`setx` の変更をVisual Studioに反映するには、Visual Studioを起動し直してください。実行時に `--vpp-onnx` を使用する場合は、OpenVINOの `setupvars.bat` を実行するか、OpenVINO RuntimeのDLLにPATHが通っている必要があります。
+
 ### 1. ソースのダウンロード
 
 ```Batchfile
