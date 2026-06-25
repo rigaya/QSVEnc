@@ -794,7 +794,11 @@ bool RGYFilterDegrain::outputReady() const {
     return m_inputCount >= outputDelay() + 1;
 }
 
-RGY_ERR RGYFilterDegrain::buildCompensateInlineParams(std::array<RGYDegrainCompensateInlineParams, 3> &paramsOut, RGYFrameInfo *outputFrameIdentity, RGYOpenCLQueue &queue) {
+RGY_ERR RGYFilterDegrain::buildCompensateInlineParams(std::array<RGYDegrainCompensateInlineParams, 3> &paramsOut, RGYFrameInfo *outputFrameIdentity,
+    RGYOpenCLQueue &queue, bool *processChromaOut) {
+    if (processChromaOut) {
+        *processChromaOut = false;
+    }
     auto prm = std::dynamic_pointer_cast<RGYFilterParamDegrain>(m_param);
     if (!prm) {
         return RGY_ERR_INVALID_PARAM;
@@ -840,7 +844,10 @@ RGY_ERR RGYFilterDegrain::buildCompensateInlineParams(std::array<RGYDegrainCompe
     const auto disableRefsArray = analysisAvailabilityDisableRefs(frames);
     const uint32_t disableMask = degrainInlineDisableMask(disableRefsArray, layout.temporalDirections);
     const uint32_t compensateThSad = std::numeric_limits<uint32_t>::max();
-    const bool processChroma = prm->degrain.chroma && degrainInlineCanProcessChroma(frames.cur);
+    const bool processChroma = prm->degrain.chroma && analysisSADIncludesChroma(prm) && degrainInlineCanProcessChroma(frames.cur);
+    if (processChromaOut) {
+        *processChromaOut = processChroma;
+    }
 
     auto ensureRamp = [&](RGYDegrainWindowRampState &state, const int planeScaleX, const int planeScaleY) -> RGY_ERR {
         const int planeOverlapX = std::max(layout.overlap / std::max(planeScaleX, 1), 0);
@@ -920,7 +927,11 @@ bool RGYFilterDegrain::drainReady() const {
     return m_drainCount < drainFrameCount();
 }
 
-RGY_ERR RGYFilterDegrain::drainBuildInlineParams(std::array<RGYDegrainCompensateInlineParams, 3> &paramsOut, RGYFrameInfo *outputFrameIdentity, RGYOpenCLQueue &queue) {
+RGY_ERR RGYFilterDegrain::drainBuildInlineParams(std::array<RGYDegrainCompensateInlineParams, 3> &paramsOut, RGYFrameInfo *outputFrameIdentity,
+    RGYOpenCLQueue &queue, bool *processChromaOut) {
+    if (processChromaOut) {
+        *processChromaOut = false;
+    }
     if (!drainReady()) {
         return RGY_ERR_MORE_DATA;
     }
@@ -973,7 +984,10 @@ RGY_ERR RGYFilterDegrain::drainBuildInlineParams(std::array<RGYDegrainCompensate
     const auto disableRefsArray = analysisAvailabilityDisableRefs(frames);
     const uint32_t disableMask = degrainInlineDisableMask(disableRefsArray, layout.temporalDirections);
     const uint32_t compensateThSad = std::numeric_limits<uint32_t>::max();
-    const bool processChroma = prm->degrain.chroma && degrainInlineCanProcessChroma(frames.cur);
+    const bool processChroma = prm->degrain.chroma && analysisSADIncludesChroma(prm) && degrainInlineCanProcessChroma(frames.cur);
+    if (processChromaOut) {
+        *processChromaOut = processChroma;
+    }
 
     auto ensureRamp = [&](RGYDegrainWindowRampState &state, const int planeScaleX, const int planeScaleY) -> RGY_ERR {
         const int planeOverlapX = std::max(layout.overlap / std::max(planeScaleX, 1), 0);

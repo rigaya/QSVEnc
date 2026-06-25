@@ -548,6 +548,8 @@ RGY_ERR RGYFilterRtgmc::updateCompReferenceStore(const RGYFrameInfo *frame, RGYO
     std::array<RGYDegrainCompensateInlineParams, 3> forwardParams = {};
     bool backwardReady = false;
     bool forwardReady = false;
+    bool backwardChroma = false;
+    bool forwardChroma = false;
     RGYFrameInfo backwardIdentity = {};
     RGYFrameInfo forwardIdentity = {};
 
@@ -569,8 +571,9 @@ RGY_ERR RGYFilterRtgmc::updateCompReferenceStore(const RGYFrameInfo *frame, RGYO
         auto &params = (i == 0) ? backwardParams : forwardParams;
         auto &identity = (i == 0) ? backwardIdentity : forwardIdentity;
         auto &ready = (i == 0) ? backwardReady : forwardReady;
+        auto &chroma = (i == 0) ? backwardChroma : forwardChroma;
 
-        sts = filter->buildCompensateInlineParams(params, &identity, queue);
+        sts = filter->buildCompensateInlineParams(params, &identity, queue, &chroma);
         if (sts == RGY_ERR_NONE) {
             ready = true;
         } else if (sts != RGY_ERR_MORE_DATA) {
@@ -587,6 +590,7 @@ RGY_ERR RGYFilterRtgmc::updateCompReferenceStore(const RGYFrameInfo *frame, RGYO
         }
         if (compRef) {
             compRef->hasInlineParams = true;
+            compRef->inlineParamsChroma = (!backwardReady || backwardChroma) && (!forwardReady || forwardChroma);
             compRef->backwardInlineParams = backwardParams;
             compRef->forwardInlineParams = forwardParams;
         }
@@ -616,6 +620,8 @@ RGY_ERR RGYFilterRtgmc::drainCompReferenceStore(RGYOpenCLQueue &queue) {
         std::array<RGYDegrainCompensateInlineParams, 3> forwardParams = {};
         bool backwardReady = false;
         bool forwardReady = false;
+        bool backwardChroma = false;
+        bool forwardChroma = false;
         RGYFrameInfo backwardIdentity = {};
         RGYFrameInfo forwardIdentity = {};
 
@@ -633,8 +639,9 @@ RGY_ERR RGYFilterRtgmc::drainCompReferenceStore(RGYOpenCLQueue &queue) {
             auto &params = (i == 0) ? backwardParams : forwardParams;
             auto &identity = (i == 0) ? backwardIdentity : forwardIdentity;
             auto &ready = (i == 0) ? backwardReady : forwardReady;
+            auto &chroma = (i == 0) ? backwardChroma : forwardChroma;
 
-            auto sts = filter->drainBuildInlineParams(params, &identity, queue);
+            auto sts = filter->drainBuildInlineParams(params, &identity, queue, &chroma);
             if (sts == RGY_ERR_NONE) {
                 ready = true;
                 progress = true;
@@ -652,6 +659,7 @@ RGY_ERR RGYFilterRtgmc::drainCompReferenceStore(RGYOpenCLQueue &queue) {
             }
             if (compRef) {
                 compRef->hasInlineParams = true;
+                compRef->inlineParamsChroma = (!backwardReady || backwardChroma) && (!forwardReady || forwardChroma);
                 compRef->backwardInlineParams = backwardParams;
                 compRef->forwardInlineParams = forwardParams;
             }
@@ -2001,7 +2009,7 @@ RGY_ERR RGYFilterRtgmc::runNestedFilter(size_t filterIdx, RGYFrameInfo *pInputFr
                         combinedParams[p].refForw = compRef->forwardInlineParams[p].refBack;
                         combinedParams[p].refDirForw = compRef->forwardInlineParams[p].refDirBack;
                     }
-                    const bool inlineCompChroma = rtgmcParam ? rtgmcParam->rtgmc.tr1.chroma : true;
+                    const bool inlineCompChroma = (rtgmcParam ? rtgmcParam->rtgmc.tr1.chroma : true) && compRef->inlineParamsChroma;
                     retouch->setTemporalLimitInlineComp(edi->frame(), combinedParams, inlineCompChroma);
                     usedInlineComp = true;
                 }

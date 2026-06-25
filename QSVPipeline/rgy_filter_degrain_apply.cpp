@@ -1128,7 +1128,9 @@ RGY_ERR RGYFilterDegrain::emitDegrainFrame(const RGYFilterDegrainFrameSet &frame
         return RGY_ERR_INVALID_CALL;
     }
 
-    const bool processChroma = prm->degrain.chroma && degrainCanProcessChroma(frames.cur);
+    // Avoid applying temporal chroma degrain with luma-only SAD/MV analysis.
+    const bool includeChromaSad = analysisSADIncludesChroma(prm);
+    const bool processChroma = prm->degrain.chroma && includeChromaSad && degrainCanProcessChroma(frames.cur);
     const bool copyDegrainOutput = m_debugEnv.forceDegrainCopy
         || rgy_csp_has_alpha(frames.cur->csp)
         || RGY_CSP_PLANES[frames.cur->csp] != (processChroma ? 3 : 1)
@@ -1350,7 +1352,6 @@ RGY_ERR RGYFilterDegrain::emitDegrainFrame(const RGYFilterDegrainFrameSet &frame
             disableMaskBuf->mem());
     };
 
-    const bool includeChromaSad = analysisSADIncludesChroma(prm);
     const uint32_t scaledThSad = rgy_degrain_scale_sad_threshold(prm->degrain, prm->frameOut, prm->degrain.thsad, includeChromaSad);
     const uint32_t scaledThSadC = rgy_degrain_scale_sad_threshold(prm->degrain, prm->frameOut, prm->degrain.thsadc, includeChromaSad);
     const std::array<RGY_PLANE, 3> planes = { RGY_PLANE_Y, RGY_PLANE_U, RGY_PLANE_V };
