@@ -191,6 +191,15 @@ private:
     int frameDataNum;
     int64_t frameIndex;
 
+    void copyMetadataFrom(const RGYBitstream *pBitstream) {
+        m_bitstream.DataFlag = pBitstream->m_bitstream.DataFlag;
+        m_bitstream.FrameType = pBitstream->m_bitstream.FrameType;
+        m_bitstream.PicStruct = pBitstream->m_bitstream.PicStruct;
+        m_bitstream.TimeStamp = pBitstream->m_bitstream.TimeStamp;
+        m_bitstream.DecodeTimeStamp = pBitstream->m_bitstream.DecodeTimeStamp;
+        frameIndex = pBitstream->frameIndex;
+    }
+
 public:
     mfxBitstream *bsptr() {
         return &m_bitstream;
@@ -306,11 +315,14 @@ public:
             _aligned_free(m_bitstream.Data);
             m_bitstream.Data = nullptr;
         }
+        m_bitstream.MaxLength = 0;
     }
 
     void clear() {
         free_mem();
-        memset(&m_bitstream, 0, sizeof(m_bitstream));
+        clearFrameDataList();
+        m_bitstream.DataLength = 0;
+        m_bitstream.DataOffset = 0;
     }
 
     RGY_ERR init(size_t nSize) {
@@ -365,18 +377,7 @@ public:
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
-
-        auto ptr = m_bitstream.Data;
-        auto offset = m_bitstream.DataOffset;
-        auto datalength = m_bitstream.DataLength;
-        auto maxLength = m_bitstream.MaxLength;
-
-        memcpy(&m_bitstream, pBitstream, sizeof(pBitstream[0]));
-
-        m_bitstream.Data = ptr;
-        m_bitstream.DataLength = datalength;
-        m_bitstream.DataOffset = offset;
-        m_bitstream.MaxLength = maxLength;
+        copyMetadataFrom(pBitstream);
         return RGY_ERR_NONE;
     }
 
