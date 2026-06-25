@@ -238,7 +238,7 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     }
     if (!RGYOpenVINO::available()) {
         const auto status = RGYOpenVINO::availabilityStatus();
-        AddMessage(RGY_LOG_ERROR, _T("onnx: OpenVINO runtime is not available: %s.\n"), char_to_tstring(status).c_str());
+        AddMessage(RGY_LOG_ERROR, _T("onnx: OpenVINO runtime is not available: %s.\n"), status.c_str());
         return RGY_ERR_UNSUPPORTED;
     }
     if (prm->onnx.modelFile.empty()) {
@@ -289,10 +289,7 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     bool preferRemoteContext = deviceWantsGpu && m_cl;
 
     m_ov = std::make_unique<RGYOpenVINO>();
-    std::string errMsg;
-    const std::string modelPathA = tchar_to_string(prm->onnx.modelFile);
-    const std::string deviceA    = tchar_to_string(prm->onnx.device);
-    std::string effectiveDeviceA = deviceA;
+    tstring errMsg;
     tstring effectiveDevice = prm->onnx.device;
     bool usingOpenCLRemoteContext = false;
 
@@ -301,48 +298,45 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     // models; other modes still prefer a remote-context GPU compile, but bind a
     // host output tensor during infer().
     int peekIn = 0, peekOut = 0;
-    RGY_ERR err = m_ov->peekChannels(modelPathA, peekIn, peekOut, errMsg);
+    RGY_ERR err = m_ov->peekChannels(prm->onnx.modelFile, peekIn, peekOut, errMsg);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("onnx: failed to read model %s: %s\n"),
-            prm->onnx.modelFile.c_str(), char_to_tstring(errMsg).c_str());
+            prm->onnx.modelFile.c_str(), errMsg.c_str());
         return err;
     }
     bool fastOcl = wantZeroCopy && (peekIn == 1 && peekOut == 1);
 
     auto initModel = [&](const int modelInH, const int modelInW) {
         if (fastOcl) {
-            return m_ov->initShared(modelPathA, (void *)m_cl->queue().get(), modelInH, modelInW, errMsg);
+            return m_ov->initShared(prm->onnx.modelFile, (void *)m_cl->queue().get(), modelInH, modelInW, errMsg);
         }
         if (preferRemoteContext) {
-            auto remoteErr = m_ov->initFromOpenCLQueue(modelPathA, (void *)m_cl->queue().get(), (void *)m_cl->context(), modelInH, modelInW, errMsg);
+            auto remoteErr = m_ov->initFromOpenCLQueue(prm->onnx.modelFile, (void *)m_cl->queue().get(), (void *)m_cl->context(), modelInH, modelInW, errMsg);
             if (remoteErr == RGY_ERR_NONE) {
                 usingOpenCLRemoteContext = true;
-                effectiveDeviceA = "GPU(OpenCL context)";
                 effectiveDevice = _T("GPU(OpenCL context)");
                 return remoteErr;
             }
             AddMessage(RGY_LOG_DEBUG, _T("onnx: OpenVINO remote OpenCL context compile is unavailable, trying device match fallback: %s\n"),
-                char_to_tstring(errMsg).c_str());
+                errMsg.c_str());
             preferRemoteContext = false;
             usingOpenCLRemoteContext = false;
 
-            std::string matchErr;
+            tstring matchErr;
             const auto clInfo = RGYOpenCLDevice(m_cl->queue().devid()).info();
             const auto matchedDevice = m_ov->findDeviceByUuidLuid(clInfo.uuid, sizeof(clInfo.uuid), clInfo.luid, sizeof(clInfo.luid), matchErr);
             if (!matchedDevice.empty()) {
-                effectiveDeviceA = matchedDevice;
-                effectiveDevice = char_to_tstring(matchedDevice);
+                effectiveDevice = matchedDevice;
                 AddMessage(RGY_LOG_DEBUG, _T("onnx: selected OpenVINO device %s by matching OpenCL UUID/LUID.\n"),
                     effectiveDevice.c_str());
             } else {
                 AddMessage(RGY_LOG_WARN, _T("onnx: failed to match OpenVINO GPU to selected OpenCL device, falling back to device=%s: %s\n"),
-                    prm->onnx.device.c_str(), char_to_tstring(matchErr).c_str());
-                effectiveDeviceA = deviceA;
+                    prm->onnx.device.c_str(), matchErr.c_str());
                 effectiveDevice = prm->onnx.device;
             }
             errMsg.clear();
         }
-        return m_ov->init(modelPathA, effectiveDeviceA, modelInH, modelInW, errMsg);
+        return m_ov->init(prm->onnx.modelFile, effectiveDevice, modelInH, modelInW, errMsg);
     };
 
     m_modelInW = inW;
@@ -356,7 +350,7 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         err = initModel(m_modelInH, m_modelInW);
         if (err == RGY_ERR_UNSUPPORTED && interopStr != _T("ocl")) {
             AddMessage(RGY_LOG_DEBUG, _T("onnx: shared OpenCL context is unavailable, falling back to host interop: %s\n"),
-                char_to_tstring(errMsg).c_str());
+                errMsg.c_str());
             fastOcl = false;
             errMsg.clear();
             err = initModel(m_modelInH, m_modelInW);
@@ -369,7 +363,7 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("onnx: failed to load/compile model (%s): %s\n"),
             fastOcl ? _T("shared OpenCL context") : effectiveDevice.c_str(),
-            char_to_tstring(errMsg).c_str());
+            errMsg.c_str());
         return err;
     }
 
@@ -421,7 +415,7 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         err = initModel(m_modelInH, m_modelInW);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("onnx: failed to load/compile padded model (%s, input %dx%d): %s\n"),
-                effectiveDevice.c_str(), m_modelInW, m_modelInH, char_to_tstring(errMsg).c_str());
+                effectiveDevice.c_str(), m_modelInW, m_modelInH, errMsg.c_str());
             return err;
         }
         outW = m_ov->outWidth();
@@ -573,10 +567,10 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         }
     }
     if (!m_ov->deviceFullName().empty()) {
-        info += strsprintf(_T(" [%s]"), char_to_tstring(m_ov->deviceFullName()).c_str());
+        info += strsprintf(_T(" [%s]"), m_ov->deviceFullName().c_str());
     }
     if (!m_ov->inferencePrecision().empty()) {
-        info += strsprintf(_T(" prec=%s"), char_to_tstring(m_ov->inferencePrecision()).c_str());
+        info += strsprintf(_T(" prec=%s"), m_ov->inferencePrecision().c_str());
     }
     if (m_postResize) {
         info += strsprintf(_T(" -> out_res %dx%d (%s)"), prm->frameOut.width, prm->frameOut.height,

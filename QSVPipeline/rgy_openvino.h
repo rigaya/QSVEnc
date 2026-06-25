@@ -29,7 +29,6 @@
 #ifndef __RGY_OPENVINO_H__
 #define __RGY_OPENVINO_H__
 
-#include <string>
 #include <memory>
 #include <cstddef>
 #include "rgy_err.h"
@@ -49,28 +48,28 @@ public:
     // Parse a model (no compile) and report its input/output channel counts, so
     // the caller can choose a backend before committing to a compile. A channel
     // count that is not statically known is returned as -1. Cheap (parse only).
-    RGY_ERR peekChannels(const std::string &modelPath, int &inChannels, int &outChannels,
-                         std::string &errMessage);
+    RGY_ERR peekChannels(const tstring &modelPath, int &inChannels, int &outChannels,
+                         tstring &errMessage);
 
     // Load an ONNX/IR model, reshape its input to [1, channels, height, width]
     // (channels taken from the model itself), and compile it for the given
     // device ("GPU.0", "GPU", "CPU", "AUTO", ...). On failure, errMessage is
     // filled with the OpenVINO exception text.
-    RGY_ERR init(const std::string &modelPath, const std::string &device,
-                 const int height, const int width, std::string &errMessage);
+    RGY_ERR init(const tstring &modelPath, const tstring &device,
+                 const int height, const int width, tstring &errMessage);
 
     // Compile the model inside an OpenVINO GPU remote context created from the
     // OpenCL queue/context selected by QSVEnc. This pins OpenVINO GPU execution
     // to the same physical GPU without relying on GPU.N enumeration order.
-    RGY_ERR initFromOpenCLQueue(const std::string &modelPath, void *clQueue, void *clContext,
-                                const int height, const int width, std::string &errMessage);
+    RGY_ERR initFromOpenCLQueue(const tstring &modelPath, void *clQueue, void *clContext,
+                                const int height, const int width, tstring &errMessage);
 
     // Fallback helper for environments where remote context creation is not
     // available. Returns "GPU.N" when an OpenVINO GPU with matching UUID/LUID is
     // found, or an empty string otherwise.
-    std::string findDeviceByUuidLuid(const void *uuid, const size_t uuidSize,
-                                     const void *luid, const size_t luidSize,
-                                     std::string &errMessage);
+    tstring findDeviceByUuidLuid(const void *uuid, const size_t uuidSize,
+                                 const void *luid, const size_t luidSize,
+                                 tstring &errMessage);
 
     // Synchronous inference. in points to inChannels()*inHeight()*inWidth()
     // floats (CHW); out receives outChannels()*outHeight()*outWidth() floats
@@ -82,8 +81,8 @@ public:
     // Shared OpenCL zero-copy path. This public API is kept for callers, but
     // the dynamic C API implementation currently returns RGY_ERR_UNSUPPORTED
     // until the C remote-context varargs path is completed.
-    RGY_ERR initShared(const std::string &modelPath, void *clQueue,
-                       const int height, const int width, std::string &errMessage);
+    RGY_ERR initShared(const tstring &modelPath, void *clQueue,
+                       const int height, const int width, tstring &errMessage);
     // Bind the input and output cl_mem buffers (f32, sized to the in/out
     // shapes) as the inference request's remote tensors. Call once; the buffers
     // are reused every frame.
@@ -100,11 +99,11 @@ public:
     int outWidth()    const;
     size_t outElemCount() const; // outChannels()*outHeight()*outWidth()
 
-    std::string deviceFullName() const;     // e.g. "Intel(R) Arc(TM) A770 Graphics (dGPU)"
-    std::string inferencePrecision() const; // e.g. "f16"
+    tstring deviceFullName() const;     // e.g. "Intel(R) Arc(TM) A770 Graphics (dGPU)"
+    tstring inferencePrecision() const; // e.g. "f16"
 
     static bool available();
-    static std::string availabilityStatus();
+    static tstring availabilityStatus();
 
 private:
     RGYOpenVINO(const RGYOpenVINO &) = delete;
