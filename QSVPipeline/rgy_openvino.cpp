@@ -688,7 +688,7 @@ RGY_ERR RGYOpenVINO::initFromOpenCLQueue(const tstring &modelPath, void *clQueue
     if (ov.remote_context_get_device_name) {
         char *deviceName = nullptr;
         if (ov.remote_context_get_device_name(I.remote.get(), &deviceName) == OK) {
-            I.devId = getAndFreeProperty(deviceName);
+            I.devId = tchar_to_string(getAndFreeProperty(deviceName));
         }
     }
     if (I.devId.empty()) {
