@@ -4153,28 +4153,30 @@ Pre/post processing is inferred from the model channel count: 1ch=luma SR, 3ch=R
 
   | Family | Model names |
   |--------|------------|
-  | ArtCNN | artcnn_c4f16, artcnn_c4f16_dn, artcnn_c4f16_ds, artcnn_c4f32, artcnn_c4f32_dn, artcnn_c4f32_ds, artcnn_r4f32, artcnn_r4f32_dn, artcnn_r8f64, artcnn_r8f64_chroma, artcnn_r8f64_chroma_dn, artcnn_r8f64_jpeg420, artcnn_r8f64_jpeg420_ycbcr, artcnn_r8f64_jpeg444, artcnn_r8f64_jpeg444_ycbcr, artcnn_r8f64_rgb, artcnn_r16f96, artcnn_r16f128 |
+  | ArtCNN | artcnn_c4f16, artcnn_c4f16_dn, artcnn_c4f16_ds, artcnn_c4f32, artcnn_c4f32_dn, artcnn_c4f32_ds, artcnn_r4f32, artcnn_r4f32_dn, artcnn_r8f64, artcnn_r8f64_chroma, artcnn_r8f64_chroma_dn, artcnn_r8f64_chroma_dn_int8_perf, artcnn_r8f64_chroma_int8_perf, artcnn_r8f64_int8_perf, artcnn_r8f64_jpeg420, artcnn_r8f64_jpeg420_ycbcr, artcnn_r8f64_jpeg444, artcnn_r8f64_jpeg444_ycbcr, artcnn_r8f64_rgb, artcnn_r16f96, artcnn_r16f96_int8_perf, artcnn_r16f128, artcnn_r16f128_int8, artcnn_r16f128_int8_perf |
   | ACNet | acnet_s, acnet_s_box, acnet_s_box_hdn, acnet_s_hdn, acnet_m, acnet_m_box, acnet_m_box_hdn, acnet_m_hdn, acnet_l, acnet_l_box, acnet_l_box_hdn, acnet_l_hdn |
   | ARNet | arnet_s, arnet_s_box, arnet_s_box_hdn, arnet_s_hdn, arnet_m, arnet_m_box, arnet_m_box_hdn, arnet_m_hdn, arnet_l, arnet_l_box, arnet_l_box_hdn, arnet_l_hdn, arnet_xl, arnet_xl_box, arnet_xl_box_hdn, arnet_xl_hdn |
   | FSRCNNX | fsrcnnx_s, fsrcnnx_s_dp, fsrcnnx_m, fsrcnnx_m_dp |
-  | Anime4K Restore | ani4k_restore_s, ani4k_restore_m, ani4k_restore_l, ani4k_restore_ul, ani4k_restore_vl, ani4k_restore_gan, ani4k_restore_soft_s, ani4k_restore_soft_m, ani4k_restore_soft_l, ani4k_restore_soft_ul, ani4k_restore_soft_vl, ani4k_restore_soft_gan, ani4k_3d_x2, ani4k_3d_aa_x2 |
-  | Anime4K Upscale CNN | ani4k_upscale_cnn_s_x2, ani4k_upscale_cnn_s_dn_x2, ani4k_upscale_cnn_m_x2, ani4k_upscale_cnn_m_dn_x2, ani4k_upscale_cnn_l_x2, ani4k_upscale_cnn_l_dn_x2, ani4k_upscale_cnn_ul_x2, ani4k_upscale_cnn_ul_dn_x2, ani4k_upscale_cnn_vl_x2, ani4k_upscale_cnn_vl_dn_x2 |
-  | Anime4K Upscale GAN | ani4k_upscale_gan_s_x2, ani4k_upscale_gan_m_x2, ani4k_upscale_gan_l_x3, ani4k_upscale_gan_vl_x3, ani4k_upscale_gan_ul_x4, ani4k_upscale_gan_uul_x4 |
-  | WebSR | websr_2xs_rl, websr_2xs_an, websr_2xs_3d, websr_2xm_rl, websr_2xm_an, websr_2xm_3d, websr_2xl_rl, websr_2xl_an, websr_2xl_3d |
-  | waifu2x CUNet | waifu2x_cunet_art_scale2x, waifu2x_cunet_art_noise0, waifu2x_cunet_art_noise0_scale2x, waifu2x_cunet_art_noise1, waifu2x_cunet_art_noise1_scale2x, waifu2x_cunet_art_noise2, waifu2x_cunet_art_noise2_scale2x, waifu2x_cunet_art_noise3, waifu2x_cunet_art_noise3_scale2x |
-  | waifu2x Anime/Photo | waifu2x_anime_x2, waifu2x_anime_noise0_x2, waifu2x_anime_noise1_x2, waifu2x_anime_noise2_x2, waifu2x_anime_noise3_x2, waifu2x_photo_x2, waifu2x_photo_noise0_x2, waifu2x_photo_noise1_x2, waifu2x_photo_noise2_x2, waifu2x_photo_noise3_x2 |
-  | waifu2x VGG7 | waifu2x_vgg7_anime_x2, waifu2x_vgg7_anime_noise0_x2, waifu2x_vgg7_anime_noise1_x2, waifu2x_vgg7_anime_noise2_x2, waifu2x_vgg7_anime_noise3_x2, waifu2x_vgg7_art_y_x2, waifu2x_vgg7_art_y_noise1_x2, waifu2x_vgg7_art_y_noise2_x2, waifu2x_vgg7_art_y_noise3_x2, waifu2x_vgg7_photo_x2, waifu2x_vgg7_photo_noise0_x2, waifu2x_vgg7_photo_noise1_x2, waifu2x_vgg7_photo_noise2_x2, waifu2x_vgg7_photo_noise3_x2 |
-  | Real-CUGAN | realcugan_se_up2x_no_denoise_dynamic, realcugan_se_up2x_conservative_dynamic, realcugan_se_up2x_denoise1x_dynamic, realcugan_se_up2x_denoise2x_dynamic, realcugan_se_up2x_denoise3x_dynamic, realcugan_se_up3x_no_denoise_dynamic, realcugan_se_up3x_conservative_dynamic, realcugan_se_up3x_denoise3x_dynamic, realcugan_se_up4x_no_denoise_dynamic, realcugan_se_up4x_conservative_dynamic, realcugan_se_up4x_denoise3x_dynamic, realcugan_pro_up2x_no_denoise_dynamic, realcugan_pro_up3x_no_denoise_dynamic |
-  | Real-ESRGAN | realesr-animevideov3, realesr-general-x4v3, realesr-general-wdn-x4v3 |
-  | Real-ESRGAN RRDB | realesrgan_anime_x4, realesrgan_photo_x2, realesrgan_photo_x4, realesrgan_photo_psnr_x4, bsrgan_photo_x2, bsrgan_photo_x4, bsrgan_photo_psnr_x4, esrgan_photo_x4, fssr_jpeg_x4, fssr_smartphone_x4, realsr_jpeg_x4, realsr_smartphone_x4 |
-  | KAIR Denoise | dncnn_color_blind, dncnn_gray_blind, dncnn_gray_strong, dncnn_multi_task, drunet_color, drunet_gray, drunet_deblocking_color, drunet_deblocking_gray, fdncnn_color, fdncnn_color_clip, fdncnn_gray, fdncnn_gray_clip, ffdnet_color, ffdnet_color_clip, ffdnet_gray, ffdnet_gray_clip |
-  | KAIR SR | dpsr_x2, dpsr_x3, dpsr_x4, dpsr_x4_gan, srmd_x2, srmd_x3, srmd_x4, srmdnf_x2, srmdnf_x3, srmdnf_x4 |
+  | Anime3D | anime3d_aa_x2, anime3d_x2 |
+  | Anime4K Restore | anime4k_restore_cnn_l, anime4k_restore_cnn_soft_l, anime4k_restore_cnn_soft_ul, anime4k_restore_cnn_soft_vl, anime4k_restore_cnn_ul, anime4k_restore_cnn_vl |
+  | Anime4K Upscale CNN | anime4k_upscale_cnn_s, anime4k_upscale_cnn_s_dn, anime4k_upscale_cnn_m, anime4k_upscale_cnn_m_dn, anime4k_upscale_cnn_l, anime4k_upscale_cnn_l_dn, anime4k_upscale_cnn_ul, anime4k_upscale_cnn_ul_dn, anime4k_upscale_cnn_vl, anime4k_upscale_cnn_vl_dn |
+  | Anime4K GAN | anime4k_gan_s_x2, anime4k_gan_m_x2, anime4k_gan_l_x3, anime4k_gan_vl_x3, anime4k_gan_ul_x4, anime4k_gan_uul_x4 |
+  | WebSR | websr_cnn2x_s_rl, websr_cnn2x_s_an, websr_cnn2x_s_3d, websr_cnn2x_m_rl, websr_cnn2x_m_an, websr_cnn2x_m_3d, websr_cnn2x_l_rl, websr_cnn2x_l_an, websr_cnn2x_l_3d |
+  | waifu2x CUNet | waifu2x_cunet_scale2x, waifu2x_cunet_noise0, waifu2x_cunet_noise0_scale2x, waifu2x_cunet_noise1, waifu2x_cunet_noise1_scale2x, waifu2x_cunet_noise2, waifu2x_cunet_noise2_scale2x, waifu2x_cunet_noise3, waifu2x_cunet_noise3_scale2x |
+  | waifu2x UpConv7 | waifu2x_upconv7_art_scale2x, waifu2x_upconv7_art_noise0_scale2x, waifu2x_upconv7_art_noise1_scale2x, waifu2x_upconv7_art_noise2_scale2x, waifu2x_upconv7_art_noise3_scale2x, waifu2x_upconv7_photo_scale2x, waifu2x_upconv7_photo_noise0_scale2x, waifu2x_upconv7_photo_noise1_scale2x, waifu2x_upconv7_photo_noise2_scale2x, waifu2x_upconv7_photo_noise3_scale2x |
+  | waifu2x VGG7 | waifu2x_vgg7_art_scale2x, waifu2x_vgg7_art_noise0, waifu2x_vgg7_art_noise1, waifu2x_vgg7_art_noise2, waifu2x_vgg7_art_noise3, waifu2x_vgg7_art_y_scale2x, waifu2x_vgg7_art_y_noise1, waifu2x_vgg7_art_y_noise2, waifu2x_vgg7_art_y_noise3, waifu2x_vgg7_photo_scale2x, waifu2x_vgg7_photo_noise0, waifu2x_vgg7_photo_noise1, waifu2x_vgg7_photo_noise2, waifu2x_vgg7_photo_noise3, waifu2x_vgg7_ukbench_scale2x |
+  | Real-CUGAN | up2x_latest_no_denoise, up2x_latest_conservative, up2x_latest_denoise1x, up2x_latest_denoise2x, up2x_latest_denoise3x, up3x_latest_no_denoise, up3x_latest_conservative, up3x_latest_denoise3x, up4x_latest_no_denoise, up4x_latest_conservative, up4x_latest_denoise3x, upcunet2x_no_denoise, upcunet2x_no_denoise_int8, upcunet2x_no_denoise_int8_v2 |
+  | Real-ESRGAN | realesr_animevideov3, realesr_general_x4v3, realesr_general_wdn_x4v3, realesrgan_anime_6b, realesrgan_anime_6b_int8, realesrgan_anime_6b_int8_v3, realesrgan_x2plus, realesrgan_x4plus, realesrgan_x4plus_anime_6b, realesrnet_x4plus |
+  | BSRGAN | bsrgan, bsrganx2, bsrnet |
+  | ESRGAN/FSSR/RealSR | esrgan, fssr_dped, fssr_jpeg, realsr_dped, realsr_jpeg |
+  | KAIR Denoise | dncnn3, dncnn_15, dncnn_25, dncnn_50, dncnn_color_blind, dncnn_gray_blind, drunet_color, drunet_color_int8, drunet_gray, drunet_deblocking_color, drunet_deblocking_grayscale, fdncnn_color, fdncnn_color_clip, fdncnn_gray, fdncnn_gray_clip, ffdnet_color, ffdnet_color_clip, ffdnet_gray, ffdnet_gray_clip |
+  | KAIR SR | dpsr_x2, dpsr_x2_int8, dpsr_x3, dpsr_x4, dpsr_x4_gan, srmd_x2, srmd_x3, srmd_x4, srmdnf_x2, srmdnf_x3, srmdnf_x4 |
 
 - Example:
   ```
   --vpp-onnx model=artcnn_c4f32
-  --vpp-onnx model=waifu2x_cunet_art_noise2_scale2x,noise=25
-  --vpp-onnx model=ani4k_restore_s,out_res=-2x1080
+  --vpp-onnx model=waifu2x_cunet_noise2_scale2x,noise=25
+  --vpp-onnx model=anime4k_restore_cnn_l,out_res=-2x1080
   ```
 
 ### --vpp-onnx-model-dir &lt;string&gt;
