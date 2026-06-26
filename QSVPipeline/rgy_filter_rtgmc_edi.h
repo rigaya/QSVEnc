@@ -81,6 +81,8 @@ protected:
         RGY_ERR add(std::shared_ptr<RGYOpenCLContext> cl, const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, bool copyChroma = true);
         RGYCLFrame *get(int iframe);
         int findIndexByInputFrameId(int inputFrameId) const;
+        int findIndexByFrameIdentity(const RGYFrameInfo *frame) const;
+        int findIndexForOutputFrame(const RGYFrameInfo *frame) const;
         int inframe() const { return m_nFramesInput; }
         void clear();
         void resetFrames();
@@ -104,6 +106,11 @@ protected:
                 && inputFrameId == frame->inputFrameId
                 && timestamp == frame->timestamp
                 && duration == frame->duration;
+        }
+        bool matchesFrameIdentity(const RGYFrameInfo *frame) const {
+            return frame
+                && inputFrameId == frame->inputFrameId
+                && timestamp == frame->timestamp;
         }
     };
 

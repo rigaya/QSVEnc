@@ -219,6 +219,7 @@ protected:
     RtgmcPendingFrameRef *findNoiseReference(const RGYFrameInfo *frame);
     void clearNoiseReference(const RGYFrameInfo *frame);
     RGY_ERR cacheSourceFrame(const RGYFrameInfo *frame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
+    const RtgmcSourceCacheFrame *findCachedSourceEntry(const RGYFrameInfo *frame) const;
     const RGYFrameInfo *findCachedSourceFrame(const RGYFrameInfo *frame, std::vector<RGYOpenCLEvent> *wait_events);
     int sourceFieldForFrame(const RGYFrameInfo *frame) const;
     size_t sourceCacheCapacity() const;
