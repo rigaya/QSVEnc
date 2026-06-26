@@ -5757,7 +5757,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         i++;
 
         const auto paramList = std::vector<std::string>{
-            "enable", "model", "modelfile", "device", "interop",
+            "enable", "model", "modelfile", "device", "interop", "prec", "precision",
             "colormatrix", "colorrange", "colorspace", "noise", "out_res", "resize"
         };
 
@@ -5789,6 +5789,16 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     const tstring v = tolowercase(param_val);
                     if (v == _T("auto") || v == _T("ocl") || v == _T("host")) {
                         vpp->onnx.interop = v;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("prec") || param_arg == _T("precision")) {
+                    const tstring v = tolowercase(param_val);
+                    if (v == _T("auto") || v == _T("fp16") || v == _T("f16") || v == _T("fp32") || v == _T("f32")) {
+                        vpp->onnx.precision = (v == _T("f16")) ? _T("fp16") : (v == _T("f32")) ? _T("fp32") : v;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -13098,6 +13108,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             }
             tmp << _T(",device=") << param->onnx.device;
             tmp << _T(",interop=") << param->onnx.interop;
+            tmp << _T(",prec=") << param->onnx.precision;
             tmp << _T(",colormatrix=") << param->onnx.colormatrix;
             tmp << _T(",colorrange=") << param->onnx.colorrange;
             tmp << _T(",colorspace=") << param->onnx.colorspace;
@@ -16239,6 +16250,7 @@ tstring gen_cmd_help_vpp() {
         _T("      model=<path>                path to the .onnx / .xml model (required)\n")
         _T("      device=<string>             OpenVINO device: GPU.0 (default) / GPU / CPU / AUTO\n")
         _T("      interop=<string>            auto (default) / ocl (zero-copy, shared GPU context) / host\n")
+        _T("      prec=<string>               auto (default) / fp16 / fp32\n")
         _T("      colormatrix=<string>        auto (default, bt601 SD / bt709 HD) / bt601 / bt709 / bt2020\n")
         _T("      colorrange=<string>         auto (default, tv) / tv / pc\n")
         _T("      colorspace=<string>         3ch models: rgb (default) / ycbcr (ArtCNN *_YCbCr)\n")

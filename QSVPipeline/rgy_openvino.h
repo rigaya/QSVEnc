@@ -56,13 +56,15 @@ public:
     // device ("GPU.0", "GPU", "CPU", "AUTO", ...). On failure, errMessage is
     // filled with the OpenVINO exception text.
     RGY_ERR init(const tstring &modelPath, const tstring &device,
-                 const int height, const int width, tstring &errMessage);
+                 const int height, const int width, tstring &errMessage,
+                 const tstring &precision = _T("auto"));
 
     // Compile the model inside an OpenVINO GPU remote context created from the
     // OpenCL queue/context selected by QSVEnc. This pins OpenVINO GPU execution
     // to the same physical GPU without relying on GPU.N enumeration order.
     RGY_ERR initFromOpenCLQueue(const tstring &modelPath, void *clQueue, void *clContext,
-                                const int height, const int width, tstring &errMessage);
+                                const int height, const int width, tstring &errMessage,
+                                const tstring &precision = _T("auto"));
 
     // Fallback helper for environments where remote context creation is not
     // available. Returns "GPU.N" when an OpenVINO GPU with matching UUID/LUID is
@@ -82,7 +84,8 @@ public:
     // the dynamic C API implementation currently returns RGY_ERR_UNSUPPORTED
     // until the C remote-context varargs path is completed.
     RGY_ERR initShared(const tstring &modelPath, void *clQueue,
-                       const int height, const int width, tstring &errMessage);
+                       const int height, const int width, tstring &errMessage,
+                       const tstring &precision = _T("auto"));
     // Bind the input and output cl_mem buffers (f32, sized to the in/out
     // shapes) as the inference request's remote tensors. Call once; the buffers
     // are reused every frame.

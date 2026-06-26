@@ -301,6 +301,17 @@ static ov_shape_t makeShape(const std::vector<int64_t> &dims) {
     return shape;
 }
 
+static std::string precisionHintValue(const tstring &precision) {
+    const auto v = tchar_to_string(tolowercase(precision));
+    if (v == "fp16" || v == "f16") {
+        return "f16";
+    }
+    if (v == "fp32" || v == "f32") {
+        return "f32";
+    }
+    return std::string();
+}
+
 static RGY_ERR getPortShape(ov_output_const_port_t *port, std::vector<int64_t> &shape, tstring &errMessage);
 
 static std::string bytesToHex(const void *data, const size_t size) {
@@ -505,7 +516,8 @@ RGY_ERR RGYOpenVINO::peekChannels(const tstring &modelPath, int &inChannels, int
 }
 
 RGY_ERR RGYOpenVINO::init(const tstring &modelPath, const tstring &device,
-                          const int height, const int width, tstring &errMessage) {
+                          const int height, const int width, tstring &errMessage,
+                          const tstring &precision) {
     auto ret = ensureOpenVINO(errMessage);
     if (ret != RGY_ERR_NONE) {
         return ret;
@@ -541,7 +553,13 @@ RGY_ERR RGYOpenVINO::init(const tstring &modelPath, const tstring &device,
     }
 
     ov_compiled_model_t *compiledRaw = nullptr;
-    ret = ovCheck(ov.core_compile_model(I.core.get(), I.model.get(), deviceA.c_str(), 0, &compiledRaw), errMessage);
+    const auto precisionHint = precisionHintValue(precision);
+    if (precisionHint.empty()) {
+        ret = ovCheck(ov.core_compile_model(I.core.get(), I.model.get(), deviceA.c_str(), 0, &compiledRaw), errMessage);
+    } else {
+        ret = ovCheck(ov.core_compile_model(I.core.get(), I.model.get(), deviceA.c_str(), 2, &compiledRaw,
+            const_cast<char *>("INFERENCE_PRECISION_HINT"), const_cast<char *>(precisionHint.c_str())), errMessage);
+    }
     if (ret != RGY_ERR_NONE) {
         return ret;
     }
@@ -572,7 +590,8 @@ RGY_ERR RGYOpenVINO::init(const tstring &modelPath, const tstring &device,
 }
 
 RGY_ERR RGYOpenVINO::initFromOpenCLQueue(const tstring &modelPath, void *clQueue, void *clContext,
-                                         const int height, const int width, tstring &errMessage) {
+                                         const int height, const int width, tstring &errMessage,
+                                         const tstring &precision) {
     auto ret = ensureOpenVINO(errMessage);
     if (ret != RGY_ERR_NONE) {
         return ret;
@@ -643,7 +662,13 @@ RGY_ERR RGYOpenVINO::initFromOpenCLQueue(const tstring &modelPath, void *clQueue
     I.remote.reset(remoteRaw);
 
     ov_compiled_model_t *compiledRaw = nullptr;
-    ret = ovCheck(ov.core_compile_model_with_context(I.core.get(), I.model.get(), I.remote.get(), 0, &compiledRaw), errMessage);
+    const auto precisionHint = precisionHintValue(precision);
+    if (precisionHint.empty()) {
+        ret = ovCheck(ov.core_compile_model_with_context(I.core.get(), I.model.get(), I.remote.get(), 0, &compiledRaw), errMessage);
+    } else {
+        ret = ovCheck(ov.core_compile_model_with_context(I.core.get(), I.model.get(), I.remote.get(), 2, &compiledRaw,
+            const_cast<char *>("INFERENCE_PRECISION_HINT"), const_cast<char *>(precisionHint.c_str())), errMessage);
+    }
     if (ret != RGY_ERR_NONE) {
         return ret;
     }
@@ -820,7 +845,7 @@ RGY_ERR RGYOpenVINO::infer(const float *in, float *out) {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYOpenVINO::initShared(const tstring &, void *, const int, const int, tstring &errMessage) {
+RGY_ERR RGYOpenVINO::initShared(const tstring &, void *, const int, const int, tstring &errMessage, const tstring &) {
     errMessage = _T("OpenVINO shared OpenCL path is not available in the C API dynamic loader implementation yet");
     return RGY_ERR_UNSUPPORTED;
 }
@@ -863,11 +888,11 @@ RGY_ERR RGYOpenVINO::peekChannels(const tstring &, int &inChannels, int &outChan
     errMessage = _T("this build of QSVEnc does not include OpenVINO support");
     return RGY_ERR_UNSUPPORTED;
 }
-RGY_ERR RGYOpenVINO::init(const tstring &, const tstring &, const int, const int, tstring &errMessage) {
+RGY_ERR RGYOpenVINO::init(const tstring &, const tstring &, const int, const int, tstring &errMessage, const tstring &) {
     errMessage = _T("this build of QSVEnc does not include OpenVINO support");
     return RGY_ERR_UNSUPPORTED;
 }
-RGY_ERR RGYOpenVINO::initFromOpenCLQueue(const tstring &, void *, void *, const int, const int, tstring &errMessage) {
+RGY_ERR RGYOpenVINO::initFromOpenCLQueue(const tstring &, void *, void *, const int, const int, tstring &errMessage, const tstring &) {
     errMessage = _T("this build of QSVEnc does not include OpenVINO support");
     return RGY_ERR_UNSUPPORTED;
 }
@@ -876,7 +901,7 @@ tstring RGYOpenVINO::findDeviceByUuidLuid(const void *, const size_t, const void
     return tstring();
 }
 RGY_ERR RGYOpenVINO::infer(const float *, float *) { return RGY_ERR_UNSUPPORTED; }
-RGY_ERR RGYOpenVINO::initShared(const tstring &, void *, const int, const int, tstring &errMessage) {
+RGY_ERR RGYOpenVINO::initShared(const tstring &, void *, const int, const int, tstring &errMessage, const tstring &) {
     errMessage = _T("this build of QSVEnc does not include OpenVINO support");
     return RGY_ERR_UNSUPPORTED;
 }

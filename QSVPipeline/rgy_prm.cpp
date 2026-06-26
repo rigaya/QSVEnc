@@ -3462,6 +3462,7 @@ VppOnnx::VppOnnx() :
     modelFile(),
     device(_T("GPU.0")),
     interop(_T("auto")),
+    precision(_T("auto")),
     colormatrix(_T("auto")),
     colorrange(_T("auto")),
     colorspace(_T("rgb")),
@@ -3477,6 +3478,7 @@ bool VppOnnx::operator==(const VppOnnx &x) const {
         && modelFile == x.modelFile
         && device == x.device
         && interop == x.interop
+        && precision == x.precision
         && colormatrix == x.colormatrix
         && colorrange == x.colorrange
         && colorspace == x.colorspace
@@ -3493,6 +3495,7 @@ tstring VppOnnx::print() const {
     tstring s = strsprintf(_T("model=%s"), modelFile.c_str());
     s += strsprintf(_T(",device=%s"), device.c_str());
     s += strsprintf(_T(",interop=%s"), interop.c_str());
+    s += strsprintf(_T(",prec=%s"), precision.c_str());
     s += strsprintf(_T(",colormatrix=%s"), colormatrix.c_str());
     s += strsprintf(_T(",colorrange=%s"), colorrange.c_str());
     s += strsprintf(_T(",colorspace=%s"), colorspace.c_str());

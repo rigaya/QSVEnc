@@ -4128,6 +4128,9 @@ Pre/post processing is inferred from the model channel count: 1ch=luma SR, 3ch=R
     GPU memory sharing mode.  
     auto / ocl (zero-copy, shared GPU context) / host
 
+  - prec=&lt;string&gt; (default: auto)
+    OpenVINO inference precision. auto / fp16 / fp32
+
   - colormatrix=&lt;string&gt; (default: auto)  
     Color matrix. auto (bt601 for SD, bt709 for HD) / bt601 / bt709 / bt2020
 
@@ -4168,6 +4171,7 @@ Pre/post processing is inferred from the model channel count: 1ch=luma SR, 3ch=R
   | Real-CUGAN | up2x_latest_no_denoise, up2x_latest_conservative, up2x_latest_denoise1x, up2x_latest_denoise2x, up2x_latest_denoise3x, up3x_latest_no_denoise, up3x_latest_conservative, up3x_latest_denoise3x, up4x_latest_no_denoise, up4x_latest_conservative, up4x_latest_denoise3x, upcunet2x_no_denoise, upcunet2x_no_denoise_int8, upcunet2x_no_denoise_int8_v2 |
   | Real-ESRGAN | realesr_animevideov3, realesr_general_x4v3, realesr_general_wdn_x4v3, realesrgan_anime_6b, realesrgan_anime_6b_int8, realesrgan_anime_6b_int8_v3, realesrgan_x2plus, realesrgan_x4plus, realesrgan_x4plus_anime_6b, realesrnet_x4plus |
   | BSRGAN | bsrgan, bsrganx2, bsrnet |
+  | EDSR | edsr_baseline_x2, edsr_baseline_x3, edsr_baseline_x4 |
   | ESRGAN/FSSR/RealSR | esrgan, fssr_dped, fssr_jpeg, realsr_dped, realsr_jpeg |
   | KAIR Denoise | dncnn3, dncnn_15, dncnn_25, dncnn_50, dncnn_color_blind, dncnn_gray_blind, drunet_color, drunet_color_int8, drunet_gray, drunet_deblocking_color, drunet_deblocking_grayscale, fdncnn_color, fdncnn_color_clip, fdncnn_gray, fdncnn_gray_clip, ffdnet_color, ffdnet_color_clip, ffdnet_gray, ffdnet_gray_clip |
   | KAIR SR | dpsr_x2, dpsr_x2_int8, dpsr_x3, dpsr_x4, dpsr_x4_gan, srmd_x2, srmd_x3, srmd_x4, srmdnf_x2, srmdnf_x3, srmdnf_x4 |

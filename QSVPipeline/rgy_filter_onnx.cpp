@@ -308,10 +308,10 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
 
     auto initModel = [&](const int modelInH, const int modelInW) {
         if (fastOcl) {
-            return m_ov->initShared(prm->onnx.modelFile, (void *)m_cl->queue().get(), modelInH, modelInW, errMsg);
+            return m_ov->initShared(prm->onnx.modelFile, (void *)m_cl->queue().get(), modelInH, modelInW, errMsg, prm->onnx.precision);
         }
         if (preferRemoteContext) {
-            auto remoteErr = m_ov->initFromOpenCLQueue(prm->onnx.modelFile, (void *)m_cl->queue().get(), (void *)m_cl->context(), modelInH, modelInW, errMsg);
+            auto remoteErr = m_ov->initFromOpenCLQueue(prm->onnx.modelFile, (void *)m_cl->queue().get(), (void *)m_cl->context(), modelInH, modelInW, errMsg, prm->onnx.precision);
             if (remoteErr == RGY_ERR_NONE) {
                 usingOpenCLRemoteContext = true;
                 effectiveDevice = _T("GPU(OpenCL context)");
@@ -336,7 +336,7 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
             }
             errMsg.clear();
         }
-        return m_ov->init(prm->onnx.modelFile, effectiveDevice, modelInH, modelInW, errMsg);
+        return m_ov->init(prm->onnx.modelFile, effectiveDevice, modelInH, modelInW, errMsg, prm->onnx.precision);
     };
 
     m_modelInW = inW;
