@@ -4153,6 +4153,7 @@ Pre/post processing is inferred from the model channel count: 1ch=luma SR, 3ch=R
 - **Available model names**
 
   Models registered in models.json can be specified without extension (e.g. `model=artcnn_c4f32`). [`--vpp-onnx-model-dir`](#--vpp-onnx-model-dir-string) must be specified to use this feature.
+  If a registered model has `"fp32": true` in models.json and `prec=auto`, QSVEnc automatically uses `prec=fp32`.
 
   | Family | Model names |
   |--------|------------|
@@ -4173,6 +4174,7 @@ Pre/post processing is inferred from the model channel count: 1ch=luma SR, 3ch=R
   | BSRGAN | bsrgan, bsrganx2, bsrnet |
   | EDSR | edsr_baseline_x2, edsr_baseline_x3, edsr_baseline_x4 |
   | ESRGAN/FSSR/RealSR | esrgan, fssr_dped, fssr_jpeg, realsr_dped, realsr_jpeg |
+  | NNEDI3 | nnedi3_nns16_win8x4, nnedi3_nns16_win8x6, nnedi3_nns32_win8x4, nnedi3_nns32_win8x6, nnedi3_nns64_win8x4, nnedi3_nns64_win8x6, nnedi3_nns128_win8x4, nnedi3_nns128_win8x6, nnedi3_nns256_win8x4, nnedi3_nns256_win8x6 |
   | KAIR Denoise | dncnn3, dncnn_15, dncnn_25, dncnn_50, dncnn_color_blind, dncnn_gray_blind, drunet_color, drunet_color_int8, drunet_gray, drunet_deblocking_color, drunet_deblocking_grayscale, fdncnn_color, fdncnn_color_clip, fdncnn_gray, fdncnn_gray_clip, ffdnet_color, ffdnet_color_clip, ffdnet_gray, ffdnet_gray_clip |
   | KAIR SR | dpsr_x2, dpsr_x2_int8, dpsr_x3, dpsr_x4, dpsr_x4_gan, srmd_x2, srmd_x3, srmd_x4, srmdnf_x2, srmdnf_x3, srmdnf_x4 |
 

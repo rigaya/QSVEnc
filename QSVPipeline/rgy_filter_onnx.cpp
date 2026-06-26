@@ -262,6 +262,9 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         if (prm->onnx.noise == 15) {
             prm->onnx.noise = entry->noise;
         }
+        if (prm->onnx.precision == _T("auto") && entry->fp32) {
+            prm->onnx.precision = _T("fp32");
+        }
     }
     if (!rgy_file_exists(prm->onnx.modelFile)) {
         AddMessage(RGY_LOG_ERROR, _T("onnx: model file not found: %s\n"), prm->onnx.modelFile.c_str());

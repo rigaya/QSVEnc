@@ -42,6 +42,7 @@ struct OnnxModelEntry {
     tstring path;
     tstring colorspace;  // "rgb" or "ycbcr", default "rgb"
     int noise;           // default 15
+    bool fp32;           // force fp32 inference, default false
 };
 
 class RGYModelRegistry {
