@@ -86,18 +86,19 @@ private:
     int64_t last_input_frame_id;
     int64_t offset;
     int64_t last_clean_id;
+    // 負timestampは正当値なので、初期化状態はtimestamp値ではなくboolで管理する。
     bool has_last_add_pts;
     bool has_last_check_pts;
     bool timestampPassThrough;
     bool noDurationFix; // durationの修正を行わない場合にtrue
 public:
-    RGYTimestamp(bool timestampPassThrough_, bool noDurationFix_) : m_frame(), mtx(), last_add_pts(-1), last_check_pts(-1), last_input_frame_id(-1), offset(0), last_clean_id(-1), has_last_add_pts(false), has_last_check_pts(false), timestampPassThrough(timestampPassThrough_), noDurationFix(noDurationFix_) {};
+    RGYTimestamp(bool timestampPassThrough_, bool noDurationFix_) : m_frame(), mtx(), last_add_pts(AV_NOPTS_VALUE), last_check_pts(AV_NOPTS_VALUE), last_input_frame_id(-1), offset(0), last_clean_id(-1), has_last_add_pts(false), has_last_check_pts(false), timestampPassThrough(timestampPassThrough_), noDurationFix(noDurationFix_) {};
     ~RGYTimestamp() {};
     void clear() {
         std::lock_guard<std::mutex> lock(mtx);
         m_frame.clear();
-        last_add_pts = -1;
-        last_check_pts = -1;
+        last_add_pts = AV_NOPTS_VALUE;
+        last_check_pts = AV_NOPTS_VALUE;
         has_last_add_pts = false;
         has_last_check_pts = false;
         offset = 0;
@@ -114,13 +115,16 @@ public:
         has_last_add_pts = true;
     }
     RGYTimestampMapVal check(int64_t pts) {
-        if (!has_last_check_pts && !timestampPassThrough) {
+        if (!has_last_check_pts && pts > 0 && !timestampPassThrough) {
             offset = -pts;
         }
         std::lock_guard<std::mutex> lock(mtx);
         pts += offset;
         auto pos = m_frame.find(pts);
         if (pos == m_frame.end()) {
+            if (!has_last_check_pts) {
+                return RGYTimestampMapVal();
+            }
             auto& last_check_pos = m_frame.find(last_check_pts)->second;
             pts = last_check_pos.timestamp + last_check_pos.duration / 2;
             auto next_pts = last_check_pos.timestamp + last_check_pos.duration;

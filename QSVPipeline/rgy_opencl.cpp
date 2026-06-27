@@ -2023,7 +2023,7 @@ RGY_ERR RGYCLFrameMap::unmap(cl_command_queue queue, const std::vector<RGYOpenCL
     return RGY_ERR_NONE;
 }
 
-void RGYCLFrameMap::setTimestamp(uint64_t timestamp) { frame.timestamp = timestamp; m_dev->setTimestamp(timestamp); }
+void RGYCLFrameMap::setTimestamp(int64_t timestamp) { frame.timestamp = timestamp; m_dev->setTimestamp(timestamp); }
 void RGYCLFrameMap::setDuration(uint64_t duration) { frame.duration = duration; m_dev->setDuration(duration); }
 void RGYCLFrameMap::setPicstruct(RGY_PICSTRUCT picstruct) { frame.picstruct = picstruct; m_dev->setPicstruct(picstruct); }
 void RGYCLFrameMap::setInputFrameId(int id) { frame.inputFrameId = id; m_dev->setInputFrameId(id);}
