@@ -1,5 +1,14 @@
 # QSVEnc Release Notes
 
+## 8.18
+
+- Add inference precision option `prec=auto/fp16/fp32` to [--vpp-onnx](./QSVEncC_Options.en.md#--vpp-onnx-param1value1param2value2).
+- Add RAVU/NNEDI model family to [--vpp-onnx](./QSVEncC_Options.en.md#--vpp-onnx-param1value1param2value2) registry.
+- Fix chroma degrain processing in [--vpp-rtgmc](./QSVEncC_Options.en.md#--vpp-rtgmc-param1value1).
+- Fix source frame lookup after RFF expansion in [--vpp-rtgmc](./QSVEncC_Options.en.md#--vpp-rtgmc-param1value1).
+- Fix AV1 not being able to decode in smoe cases from QSVEnc 8.16. ( #302 )
+- Fix SIMD conversion from YUV444 to Y410.
+
 ## 8.17
 
 - Add [--vpp-onnx](./QSVEncC_Options.en.md#--vpp-onnx-param1value1param2value2) OpenVINO-backed CNN filter with [--vpp-onnx-model-dir](./QSVEncC_Options.en.md#--vpp-onnx-model-dir-string) and models.json registry.

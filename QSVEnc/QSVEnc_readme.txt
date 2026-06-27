@@ -314,6 +314,15 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2026.06.27 (8.18)
+[QSVEncC]
+- --vpp-onnx に推論精度指定 prec=auto/fp16/fp32 を追加。
+- --vpp-onnx の ONNXモデル一覧に RAVU/NNEDI を追加。
+- --vpp-rtgmc の chroma degrain 処理を修正。
+- RTGMC で RFF 展開後の source frame 参照を修正。
+- 8.16から、AV1がデコードできなくなっていることがあったのを修正。
+- YUV444 から Y410 への SIMD 変換を修正。
+
 2026.06.22 (8.17)
 [QSVEncC]
 - onnxモデルをフィルタとして実行する機能を追加。(--vpp-onnx)
