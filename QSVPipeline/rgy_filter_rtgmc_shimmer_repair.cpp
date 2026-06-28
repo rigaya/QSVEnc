@@ -29,7 +29,6 @@
 #include "rgy_filter_rtgmc_shimmer_repair.h"
 
 #include <algorithm>
-#include <array>
 #include <cctype>
 #include <cstdlib>
 #include <cstdint>
@@ -40,26 +39,6 @@
 namespace {
 static constexpr int RTGMC_SHIMMER_REPAIR_BLOCK_X = 32;
 static constexpr int RTGMC_SHIMMER_REPAIR_BLOCK_Y = 8;
-static constexpr std::array<std::array<int, 4>, 8> RTGMC_SHIMMER_REPAIR_SUPPORT_RADIUS = {{
-    {{ 1, 1, 2, 2 }},
-    {{ 1, 1, 2, 2 }},
-    {{ 1, 1, 2, 2 }},
-    {{ 1, 1, 2, 2 }},
-    {{ 2, 2, 2, 2 }},
-    {{ 2, 2, 2, 2 }},
-    {{ 2, 2, 2, 2 }},
-    {{ 2, 2, 2, 2 }}
-}};
-static constexpr std::array<std::array<int, 4>, 8> RTGMC_SHIMMER_REPAIR_MIN_SUPPORT_PIXELS = {{
-    {{ 1, 1, 1, 1 }},
-    {{ 1, 1, 1, 1 }},
-    {{ 2, 1, 1, 1 }},
-    {{ 2, 1, 1, 1 }},
-    {{ 3, 2, 2, 2 }},
-    {{ 3, 2, 2, 2 }},
-    {{ 4, 3, 3, 3 }},
-    {{ 4, 3, 3, 3 }}
-}};
 
 static const char *rtgmcShimmerRepairTargetName(const RGYRtgmcShimmerRepairStage stage) {
     return (stage == RGYRtgmcShimmerRepairStage::PreRetouch) ? "rep1" : "rep2";
@@ -67,14 +46,6 @@ static const char *rtgmcShimmerRepairTargetName(const RGYRtgmcShimmerRepairStage
 
 static const TCHAR *rtgmcShimmerRepairStageName(const RGYRtgmcShimmerRepairStage stage) {
     return (stage == RGYRtgmcShimmerRepairStage::PreRetouch) ? _T("pre-retouch") : _T("post-tr2");
-}
-
-static int rtgmcShimmerRepairSupportRadius(const RGYRtgmcRepairProfile& profile) {
-    return RTGMC_SHIMMER_REPAIR_SUPPORT_RADIUS[profile.thinRejectLevel][profile.restorePaddingLevel];
-}
-
-static int rtgmcShimmerRepairMinSupportPixels(const RGYRtgmcRepairProfile& profile) {
-    return RTGMC_SHIMMER_REPAIR_MIN_SUPPORT_PIXELS[profile.thinRejectLevel][profile.restorePaddingLevel];
 }
 
 static void rtgmcShimmerRepairLoadProfile(RGYFilterParamRtgmcShimmerRepair *prm) {
@@ -140,19 +111,16 @@ RGY_ERR RGYFilterRtgmcShimmerRepair::buildKernels(const std::shared_ptr<RGYFilte
     const int pixelMax = (bitdepth >= 16) ? ((1 << 16) - 1) : ((1 << bitdepth) - 1);
     const int rangeHalf = 1 << (bitdepth - 1);
     const auto profile = prm->repairProfile;
-    const int supportRadius = rtgmcShimmerRepairSupportRadius(profile);
-    const int minSupportPixels = rtgmcShimmerRepairMinSupportPixels(profile);
     m_buildOptions = strsprintf(
         "-D Type=%s -D bit_depth=%d -D max_val=%d -D range_half=%d -D rtgmc_shimmer_repair_block_x=%d -D rtgmc_shimmer_repair_block_y=%d"
-        " -D RTGMC_SHIMMER_REPAIR_SUPPORT_RADIUS=%d -D RTGMC_SHIMMER_REPAIR_MIN_SUPPORT_PIXELS=%d -D RTGMC_SHIMMER_REPAIR_RESTORE_PADDING_LEVEL=%d",
+        " -D RTGMC_SHIMMER_REPAIR_THIN_LEVEL=%d -D RTGMC_SHIMMER_REPAIR_PAD_LEVEL=%d",
         bitdepth > 8 ? "ushort" : "uchar",
         bitdepth,
         pixelMax,
         rangeHalf,
         RTGMC_SHIMMER_REPAIR_BLOCK_X,
         RTGMC_SHIMMER_REPAIR_BLOCK_Y,
-        supportRadius,
-        minSupportPixels,
+        profile.thinRejectLevel,
         profile.restorePaddingLevel);
     m_shimmerRepair.set(m_cl->buildResourceAsync(_T("RGY_FILTER_RTGMC_SHIMMER_REPAIR_CL"), _T("EXE_DATA"), m_buildOptions.c_str()));
     return RGY_ERR_NONE;

@@ -46,67 +46,401 @@ static inline void rtgmc_write_pix(
     dstPix[0] = (Type)clamp(value, 0, max_val);
 }
 
-static inline int rtgmc_select_signed_correction(
-    const int proposedSigned,
-    const int positiveMaskSigned,
-    const int negativeMaskSigned
-) {
-    switch ((proposedSigned > 0) - (proposedSigned < 0)) {
-        case 1:
-            return (positiveMaskSigned > 0) ? positiveMaskSigned : 0;
-        case -1:
-            return (negativeMaskSigned < 0) ? negativeMaskSigned : 0;
-        default:
-            return 0;
-    }
-}
-
-static inline int rtgmc_apply_signed_correction(
-    const int src,
-    const int proposedSigned,
-    const int positiveMaskSigned,
-    const int negativeMaskSigned
-) {
-    const int appliedSigned = rtgmc_select_signed_correction(
-        proposedSigned,
-        positiveMaskSigned,
-        negativeMaskSigned);
-    return clamp(src + appliedSigned, 0, max_val);
-}
-
 static inline int rtgmc_signed_to_diff(const int signedValue) {
     return clamp(signedValue + range_half, 0, max_val);
 }
 
-static inline int rtgmc_shimmer_repair_candidate_signed(
+static inline int rtgmc_repair_delta_centered(
+    const __global uchar *input, const int inputPitch,
+    const __global uchar *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height
+) {
+    return clamp(
+        rtgmc_read_pix(reference, x, y, referencePitch, width, height)
+            - rtgmc_read_pix(input, x, y, inputPitch, width, height)
+            + range_half,
+        0,
+        max_val);
+}
+
+static inline int rtgmc_repair_vertical_window(
     const __global uchar *input, const int inputPitch,
     const __global uchar *reference, const int referencePitch,
     const int x, const int y,
     const int width, const int height,
-    const int positive) {
-    int support = 0;
-    int peak = 0;
-    int sum = 0;
-    for (int dy = -RTGMC_SHIMMER_REPAIR_SUPPORT_RADIUS; dy <= RTGMC_SHIMMER_REPAIR_SUPPORT_RADIUS; dy++) {
-        for (int dx = -RTGMC_SHIMMER_REPAIR_SUPPORT_RADIUS; dx <= RTGMC_SHIMMER_REPAIR_SUPPORT_RADIUS; dx++) {
-            const int delta = rtgmc_read_pix(reference, x + dx, y + dy, referencePitch, width, height)
-                - rtgmc_read_pix(input, x + dx, y + dy, inputPitch, width, height);
-            if (positive ? (delta > 0) : (delta < 0)) {
-                const int magnitude = positive ? delta : -delta;
-                support++;
-                sum += magnitude;
-                peak = max(peak, magnitude);
-            }
+    const int useMax
+) {
+    int value = rtgmc_repair_delta_centered(input, inputPitch, reference, referencePitch, x, y, width, height);
+    for (int dy = -2; dy <= 2; dy++) {
+        const int sample = rtgmc_repair_delta_centered(input, inputPitch, reference, referencePitch, x, y + dy, width, height);
+        value = useMax ? max(value, sample) : min(value, sample);
+    }
+    return value;
+}
+
+static inline int rtgmc_repair_pos_vertical_contract(
+    const __global uchar *input, const int inputPitch,
+    const __global uchar *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height
+) {
+    int value = rtgmc_repair_vertical_window(input, inputPitch, reference, referencePitch, x, y, width, height, 0);
+    if (RTGMC_SHIMMER_REPAIR_THIN_LEVEL > 5) {
+        for (int dy = -1; dy <= 1; dy++) {
+            value = min(value, rtgmc_repair_vertical_window(input, inputPitch, reference, referencePitch, x, y + dy, width, height, 0));
         }
     }
+    return value;
+}
 
-    if (support < RTGMC_SHIMMER_REPAIR_MIN_SUPPORT_PIXELS) {
-        return 0;
+static inline int rtgmc_repair_neg_vertical_expand(
+    const __global uchar *input, const int inputPitch,
+    const __global uchar *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height
+) {
+    int value = rtgmc_repair_vertical_window(input, inputPitch, reference, referencePitch, x, y, width, height, 1);
+    if (RTGMC_SHIMMER_REPAIR_THIN_LEVEL > 5) {
+        for (int dy = -1; dy <= 1; dy++) {
+            value = max(value, rtgmc_repair_vertical_window(input, inputPitch, reference, referencePitch, x, y + dy, width, height, 1));
+        }
     }
+    return value;
+}
 
-    const int mean = (sum + (support / 2)) / support;
-    const int candidate = clamp(min(peak, mean + RTGMC_SHIMMER_REPAIR_RESTORE_PADDING_LEVEL), 0, max_val);
-    return positive ? candidate : -candidate;
+static inline int rtgmc_repair_pos_local_contract(
+    const __global uchar *input, const int inputPitch,
+    const __global uchar *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height
+) {
+    const int center = rtgmc_repair_pos_vertical_contract(input, inputPitch, reference, referencePitch, x, y, width, height);
+    if ((RTGMC_SHIMMER_REPAIR_THIN_LEVEL % 3) == 0) {
+        return center;
+    }
+    if (x <= 0 || x >= width - 1 || y <= 0 || y >= height - 1) {
+        return center;
+    }
+    int sum = 0;
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            sum += rtgmc_repair_pos_vertical_contract(input, inputPitch, reference, referencePitch, x + dx, y + dy, width, height);
+        }
+    }
+    return min(center, (sum + 4) / 9);
+}
+
+static inline int rtgmc_repair_neg_local_expand(
+    const __global uchar *input, const int inputPitch,
+    const __global uchar *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height
+) {
+    const int center = rtgmc_repair_neg_vertical_expand(input, inputPitch, reference, referencePitch, x, y, width, height);
+    if ((RTGMC_SHIMMER_REPAIR_THIN_LEVEL % 3) == 0) {
+        return center;
+    }
+    if (x <= 0 || x >= width - 1 || y <= 0 || y >= height - 1) {
+        return center;
+    }
+    int sum = 0;
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            sum += rtgmc_repair_neg_vertical_expand(input, inputPitch, reference, referencePitch, x + dx, y + dy, width, height);
+        }
+    }
+    return max(center, (sum + 4) / 9);
+}
+
+static inline void rtgmc_repair_sort2(__private int *a, __private int *b) {
+    const int lo = min(*a, *b);
+    const int hi = max(*a, *b);
+    *a = lo;
+    *b = hi;
+}
+
+static inline void rtgmc_repair_sort2_desc(__private int *a, __private int *b) {
+    const int lo = min(*a, *b);
+    const int hi = max(*a, *b);
+    *a = hi;
+    *b = lo;
+}
+
+static inline void rtgmc_repair_sort8(__private int *v) {
+    rtgmc_repair_sort2     (&v[0], &v[1]); rtgmc_repair_sort2_desc(&v[2], &v[3]); rtgmc_repair_sort2     (&v[4], &v[5]); rtgmc_repair_sort2_desc(&v[6], &v[7]);
+    rtgmc_repair_sort2     (&v[0], &v[2]); rtgmc_repair_sort2     (&v[1], &v[3]); rtgmc_repair_sort2_desc(&v[4], &v[6]); rtgmc_repair_sort2_desc(&v[5], &v[7]);
+    rtgmc_repair_sort2     (&v[0], &v[1]); rtgmc_repair_sort2     (&v[2], &v[3]); rtgmc_repair_sort2_desc(&v[4], &v[5]); rtgmc_repair_sort2_desc(&v[6], &v[7]);
+    rtgmc_repair_sort2     (&v[0], &v[4]); rtgmc_repair_sort2     (&v[1], &v[5]); rtgmc_repair_sort2     (&v[2], &v[6]); rtgmc_repair_sort2     (&v[3], &v[7]);
+    rtgmc_repair_sort2     (&v[0], &v[2]); rtgmc_repair_sort2     (&v[1], &v[3]); rtgmc_repair_sort2     (&v[4], &v[6]); rtgmc_repair_sort2     (&v[5], &v[7]);
+    rtgmc_repair_sort2     (&v[0], &v[1]); rtgmc_repair_sort2     (&v[2], &v[3]); rtgmc_repair_sort2     (&v[4], &v[5]); rtgmc_repair_sort2     (&v[6], &v[7]);
+}
+
+static inline int rtgmc_repair_pos_rank_limit(
+    const __global uchar *input, const int inputPitch,
+    const __global uchar *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height
+) {
+    const int center = rtgmc_repair_pos_local_contract(input, inputPitch, reference, referencePitch, x, y, width, height);
+    if (RTGMC_SHIMMER_REPAIR_THIN_LEVEL != 2 && RTGMC_SHIMMER_REPAIR_THIN_LEVEL != 5) {
+        return center;
+    }
+    if (x <= 0 || x >= width - 1 || y <= 0 || y >= height - 1) {
+        return center;
+    }
+    int v[8] = {
+        rtgmc_repair_pos_local_contract(input, inputPitch, reference, referencePitch, x - 1, y - 1, width, height),
+        rtgmc_repair_pos_local_contract(input, inputPitch, reference, referencePitch, x    , y - 1, width, height),
+        rtgmc_repair_pos_local_contract(input, inputPitch, reference, referencePitch, x + 1, y - 1, width, height),
+        rtgmc_repair_pos_local_contract(input, inputPitch, reference, referencePitch, x - 1, y    , width, height),
+        rtgmc_repair_pos_local_contract(input, inputPitch, reference, referencePitch, x + 1, y    , width, height),
+        rtgmc_repair_pos_local_contract(input, inputPitch, reference, referencePitch, x - 1, y + 1, width, height),
+        rtgmc_repair_pos_local_contract(input, inputPitch, reference, referencePitch, x    , y + 1, width, height),
+        rtgmc_repair_pos_local_contract(input, inputPitch, reference, referencePitch, x + 1, y + 1, width, height)
+    };
+    rtgmc_repair_sort8(v);
+    return clamp(center, v[3], v[4]);
+}
+
+static inline int rtgmc_repair_neg_rank_limit(
+    const __global uchar *input, const int inputPitch,
+    const __global uchar *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height
+) {
+    const int center = rtgmc_repair_neg_local_expand(input, inputPitch, reference, referencePitch, x, y, width, height);
+    if (RTGMC_SHIMMER_REPAIR_THIN_LEVEL != 2 && RTGMC_SHIMMER_REPAIR_THIN_LEVEL != 5) {
+        return center;
+    }
+    if (x <= 0 || x >= width - 1 || y <= 0 || y >= height - 1) {
+        return center;
+    }
+    int v[8] = {
+        rtgmc_repair_neg_local_expand(input, inputPitch, reference, referencePitch, x - 1, y - 1, width, height),
+        rtgmc_repair_neg_local_expand(input, inputPitch, reference, referencePitch, x    , y - 1, width, height),
+        rtgmc_repair_neg_local_expand(input, inputPitch, reference, referencePitch, x + 1, y - 1, width, height),
+        rtgmc_repair_neg_local_expand(input, inputPitch, reference, referencePitch, x - 1, y    , width, height),
+        rtgmc_repair_neg_local_expand(input, inputPitch, reference, referencePitch, x + 1, y    , width, height),
+        rtgmc_repair_neg_local_expand(input, inputPitch, reference, referencePitch, x - 1, y + 1, width, height),
+        rtgmc_repair_neg_local_expand(input, inputPitch, reference, referencePitch, x    , y + 1, width, height),
+        rtgmc_repair_neg_local_expand(input, inputPitch, reference, referencePitch, x + 1, y + 1, width, height)
+    };
+    rtgmc_repair_sort8(v);
+    return clamp(center, v[3], v[4]);
+}
+
+static inline int rtgmc_repair_pos_vertical_restore(
+    const __global uchar *input, const int inputPitch,
+    const __global uchar *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height
+) {
+    int value = rtgmc_repair_pos_rank_limit(input, inputPitch, reference, referencePitch, x, y, width, height);
+    for (int dy = -2; dy <= 2; dy++) {
+        value = max(value, rtgmc_repair_pos_rank_limit(input, inputPitch, reference, referencePitch, x, y + dy, width, height));
+    }
+    return value;
+}
+
+static inline int rtgmc_repair_neg_vertical_restore(
+    const __global uchar *input, const int inputPitch,
+    const __global uchar *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height
+) {
+    int value = rtgmc_repair_neg_rank_limit(input, inputPitch, reference, referencePitch, x, y, width, height);
+    for (int dy = -2; dy <= 2; dy++) {
+        value = min(value, rtgmc_repair_neg_rank_limit(input, inputPitch, reference, referencePitch, x, y + dy, width, height));
+    }
+    return value;
+}
+
+static inline int rtgmc_repair_pos_restore_wide(
+    const __global uchar *input, const int inputPitch,
+    const __global uchar *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height
+) {
+    int value = rtgmc_repair_pos_vertical_restore(input, inputPitch, reference, referencePitch, x, y, width, height);
+    if (RTGMC_SHIMMER_REPAIR_THIN_LEVEL > 4) {
+        for (int dy = -1; dy <= 1; dy++) {
+            value = max(value, rtgmc_repair_pos_vertical_restore(input, inputPitch, reference, referencePitch, x, y + dy, width, height));
+        }
+    }
+    return value;
+}
+
+static inline int rtgmc_repair_neg_restore_wide(
+    const __global uchar *input, const int inputPitch,
+    const __global uchar *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height
+) {
+    int value = rtgmc_repair_neg_vertical_restore(input, inputPitch, reference, referencePitch, x, y, width, height);
+    if (RTGMC_SHIMMER_REPAIR_THIN_LEVEL > 4) {
+        for (int dy = -1; dy <= 1; dy++) {
+            value = min(value, rtgmc_repair_neg_vertical_restore(input, inputPitch, reference, referencePitch, x, y + dy, width, height));
+        }
+    }
+    return value;
+}
+
+static inline int rtgmc_repair_pos_restore_soft_once(
+    const __global uchar *input, const int inputPitch,
+    const __global uchar *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height
+) {
+    const int center = rtgmc_repair_pos_restore_wide(input, inputPitch, reference, referencePitch, x, y, width, height);
+    if (x <= 0 || x >= width - 1 || y <= 0 || y >= height - 1) {
+        return center;
+    }
+    int sum = 0;
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            sum += rtgmc_repair_pos_restore_wide(input, inputPitch, reference, referencePitch, x + dx, y + dy, width, height);
+        }
+    }
+    return max(center, (sum + 4) / 9);
+}
+
+static inline int rtgmc_repair_neg_restore_soft_once(
+    const __global uchar *input, const int inputPitch,
+    const __global uchar *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height
+) {
+    const int center = rtgmc_repair_neg_restore_wide(input, inputPitch, reference, referencePitch, x, y, width, height);
+    if (x <= 0 || x >= width - 1 || y <= 0 || y >= height - 1) {
+        return center;
+    }
+    int sum = 0;
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            sum += rtgmc_repair_neg_restore_wide(input, inputPitch, reference, referencePitch, x + dx, y + dy, width, height);
+        }
+    }
+    return min(center, (sum + 4) / 9);
+}
+
+static inline int rtgmc_repair_pos_restore_soft_twice(
+    const __global uchar *input, const int inputPitch,
+    const __global uchar *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height
+) {
+    const int center = rtgmc_repair_pos_restore_soft_once(input, inputPitch, reference, referencePitch, x, y, width, height);
+    if (x <= 0 || x >= width - 1 || y <= 0 || y >= height - 1) {
+        return center;
+    }
+    int sum = 0;
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            sum += rtgmc_repair_pos_restore_soft_once(input, inputPitch, reference, referencePitch, x + dx, y + dy, width, height);
+        }
+    }
+    return max(center, (sum + 4) / 9);
+}
+
+static inline int rtgmc_repair_neg_restore_soft_twice(
+    const __global uchar *input, const int inputPitch,
+    const __global uchar *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height
+) {
+    const int center = rtgmc_repair_neg_restore_soft_once(input, inputPitch, reference, referencePitch, x, y, width, height);
+    if (x <= 0 || x >= width - 1 || y <= 0 || y >= height - 1) {
+        return center;
+    }
+    int sum = 0;
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            sum += rtgmc_repair_neg_restore_soft_once(input, inputPitch, reference, referencePitch, x + dx, y + dy, width, height);
+        }
+    }
+    return min(center, (sum + 4) / 9);
+}
+
+static inline int rtgmc_repair_pos_restore_area(
+    const __global uchar *input, const int inputPitch,
+    const __global uchar *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height
+) {
+    int value = rtgmc_repair_pos_restore_wide(input, inputPitch, reference, referencePitch, x, y, width, height);
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            value = max(value, rtgmc_repair_pos_restore_wide(input, inputPitch, reference, referencePitch, x + dx, y + dy, width, height));
+        }
+    }
+    return value;
+}
+
+static inline int rtgmc_repair_neg_restore_area(
+    const __global uchar *input, const int inputPitch,
+    const __global uchar *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height
+) {
+    int value = rtgmc_repair_neg_restore_wide(input, inputPitch, reference, referencePitch, x, y, width, height);
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            value = min(value, rtgmc_repair_neg_restore_wide(input, inputPitch, reference, referencePitch, x + dx, y + dy, width, height));
+        }
+    }
+    return value;
+}
+
+static inline int rtgmc_repair_pos_limit(
+    const __global uchar *input, const int inputPitch,
+    const __global uchar *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height
+) {
+    int value = rtgmc_repair_pos_restore_wide(input, inputPitch, reference, referencePitch, x, y, width, height);
+    if (RTGMC_SHIMMER_REPAIR_PAD_LEVEL == 1 || RTGMC_SHIMMER_REPAIR_PAD_LEVEL == 2) {
+        value = (RTGMC_SHIMMER_REPAIR_PAD_LEVEL == 1)
+            ? rtgmc_repair_pos_restore_soft_once(input, inputPitch, reference, referencePitch, x, y, width, height)
+            : rtgmc_repair_pos_restore_soft_twice(input, inputPitch, reference, referencePitch, x, y, width, height);
+    } else if (RTGMC_SHIMMER_REPAIR_PAD_LEVEL >= 3) {
+        value = rtgmc_repair_pos_restore_area(input, inputPitch, reference, referencePitch, x, y, width, height);
+    }
+    return value;
+}
+
+static inline int rtgmc_repair_neg_limit(
+    const __global uchar *input, const int inputPitch,
+    const __global uchar *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height
+) {
+    int value = rtgmc_repair_neg_restore_wide(input, inputPitch, reference, referencePitch, x, y, width, height);
+    if (RTGMC_SHIMMER_REPAIR_PAD_LEVEL == 1 || RTGMC_SHIMMER_REPAIR_PAD_LEVEL == 2) {
+        value = (RTGMC_SHIMMER_REPAIR_PAD_LEVEL == 1)
+            ? rtgmc_repair_neg_restore_soft_once(input, inputPitch, reference, referencePitch, x, y, width, height)
+            : rtgmc_repair_neg_restore_soft_twice(input, inputPitch, reference, referencePitch, x, y, width, height);
+    } else if (RTGMC_SHIMMER_REPAIR_PAD_LEVEL >= 3) {
+        value = rtgmc_repair_neg_restore_area(input, inputPitch, reference, referencePitch, x, y, width, height);
+    }
+    return value;
+}
+
+static inline int rtgmc_repair_limited_delta(
+    const __global uchar *input, const int inputPitch,
+    const __global uchar *reference, const int referencePitch,
+    const int x, const int y,
+    const int width, const int height
+) {
+    int diff = rtgmc_repair_delta_centered(input, inputPitch, reference, referencePitch, x, y, width, height);
+    if (diff >= range_half + 1) {
+        const int upperEnvelope = rtgmc_repair_pos_limit(input, inputPitch, reference, referencePitch, x, y, width, height);
+        diff = max(upperEnvelope, range_half);
+    } else if (diff <= range_half - 1) {
+        const int lowerEnvelope = rtgmc_repair_neg_limit(input, inputPitch, reference, referencePitch, x, y, width, height);
+        diff = min(lowerEnvelope, range_half);
+    }
+    return clamp(diff, 0, max_val);
 }
 
 __attribute__((reqd_work_group_size(rtgmc_shimmer_repair_block_x, rtgmc_shimmer_repair_block_y, 1)))
@@ -138,24 +472,10 @@ __kernel void kernel_rtgmc_shimmer_repair_apply(
     const __global uchar *input = (const __global uchar *)pInput;
     const __global uchar *reference = (const __global uchar *)pReference;
     const int inputValue = rtgmc_read_pix(input, ix, iy, inputPitch, width, height);
-    const int referenceValue = rtgmc_read_pix(reference, ix, iy, referencePitch, width, height);
-    const int signedDelta = referenceValue - inputValue;
-    int positiveGateSigned = 0;
-    int negativeGateSigned = 0;
-    if (signedDelta > 0) {
-        positiveGateSigned = rtgmc_shimmer_repair_candidate_signed(
-            input, inputPitch, reference, referencePitch, ix, iy, width, height, 1);
-    } else if (signedDelta < 0) {
-        negativeGateSigned = rtgmc_shimmer_repair_candidate_signed(
-            input, inputPitch, reference, referencePitch, ix, iy, width, height, 0);
-    }
+    const int mergedDiff = rtgmc_repair_limited_delta(input, inputPitch, reference, referencePitch, ix, iy, width, height);
 
     rtgmc_write_pix((__global uchar *)pDst, ix, iy, dstPitch,
-        rtgmc_apply_signed_correction(
-            inputValue,
-            signedDelta,
-            positiveGateSigned,
-            negativeGateSigned));
+        clamp(inputValue + mergedDiff - range_half, 0, max_val));
 }
 
 __attribute__((reqd_work_group_size(rtgmc_shimmer_repair_block_x, rtgmc_shimmer_repair_block_y, 1)))
@@ -178,23 +498,14 @@ __kernel void kernel_rtgmc_shimmer_repair_apply_fused(
     const int inputValue = rtgmc_read_pix(input, ix, iy, inputPitch, width, height);
     const int referenceValue = rtgmc_read_pix(reference, ix, iy, referencePitch, width, height);
     const int signedDelta = referenceValue - inputValue;
-    int positiveGateSigned = 0;
-    int negativeGateSigned = 0;
-    if (signedDelta > 0) {
-        positiveGateSigned = rtgmc_shimmer_repair_candidate_signed(
-            input, inputPitch, reference, referencePitch, ix, iy, width, height, 1);
-    } else if (signedDelta < 0) {
-        negativeGateSigned = rtgmc_shimmer_repair_candidate_signed(
-            input, inputPitch, reference, referencePitch, ix, iy, width, height, 0);
-    }
+    const int mergedDiff = rtgmc_repair_limited_delta(input, inputPitch, reference, referencePitch, ix, iy, width, height);
+    const int selectedSigned = mergedDiff - range_half;
+    const int positiveGateSigned = (signedDelta > 0 && selectedSigned > 0) ? selectedSigned : 0;
+    const int negativeGateSigned = (signedDelta < 0 && selectedSigned < 0) ? selectedSigned : 0;
 
     rtgmc_write_pix((__global uchar *)pCorrectionDelta, ix, iy, correctionDeltaPitch, rtgmc_signed_to_diff(signedDelta));
     rtgmc_write_pix((__global uchar *)pPositiveCorrectionGate, ix, iy, positiveCorrectionGatePitch, rtgmc_signed_to_diff(positiveGateSigned));
     rtgmc_write_pix((__global uchar *)pNegativeCorrectionGate, ix, iy, negativeCorrectionGatePitch, rtgmc_signed_to_diff(negativeGateSigned));
     rtgmc_write_pix((__global uchar *)pDst, ix, iy, dstPitch,
-        rtgmc_apply_signed_correction(
-            inputValue,
-            signedDelta,
-            positiveGateSigned,
-            negativeGateSigned));
+        clamp(inputValue + selectedSigned, 0, max_val));
 }
