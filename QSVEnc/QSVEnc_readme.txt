@@ -314,6 +314,11 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2026.06.28 (8.19)
+[QSVEncC]
+- --vpp-rtgmc の post-tr2 shimmer repair 補正を改善。
+  インタレ解除時に文字列などの固定形状が上下に揺れてしまう問題を修正。
+
 2026.06.27 (8.18)
 [QSVEncC]
 - --vpp-onnx に推論精度指定 prec=auto/fp16/fp32 を追加。

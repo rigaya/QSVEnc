@@ -1,5 +1,9 @@
 # QSVEnc Release Notes
 
+## 8.19
+
+- Improve post-tr2 shimmer repair in [--vpp-rtgmc](./QSVEncC_Options.en.md#--vpp-rtgmc-param1value1).
+
 ## 8.18
 
 - Add inference precision option `prec=auto/fp16/fp32` to [--vpp-onnx](./QSVEncC_Options.en.md#--vpp-onnx-param1value1param2value2).
