@@ -216,7 +216,7 @@ __kernel void kernel_psnr(
         if (imgx + 3 < width) psnr += func_psnr_pix(pix0.w, pix1.w);
     }
 
-    __local int tmp[SSIM_BLOCK_X * SSIM_BLOCK_Y / 2];
+    __local int tmp[SSIM_BLOCK_X * SSIM_BLOCK_Y];
 
     __local int *ptr_reduction = tmp;
     const int lid = get_local_id(1) * SSIM_BLOCK_X + get_local_id(0);
