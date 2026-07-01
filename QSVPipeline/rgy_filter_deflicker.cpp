@@ -344,6 +344,12 @@ RGY_ERR RGYFilterDeflicker::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
             m_rollingMeans.pop_front();
             m_rollingSigmas.pop_front();
         }
+    } else {
+        // シーンチェンジ時: 旧シーンのローリングウィンドウをリセットし、新シーンの基準を開始
+        m_rollingMeans.clear();
+        m_rollingSigmas.clear();
+        m_rollingMeans.push_back(mean_in);
+        m_rollingSigmas.push_back(sigma_in);
     }
 
     // ---- Stage 3: derive correction ----
