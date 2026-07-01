@@ -411,13 +411,16 @@ __kernel void kernel_anime4k_chroma_joint_bilateral(
     const int dstW, const int dstH,
     __global const uchar *pSrcC,  const int srcPitch,
     const int srcW, const int srcH,
-    __global const uchar *pLuma,  const int lumaPitch,
+    __global const uchar *pLuma,  const int lumaPitch, const int lumaW, const int lumaH,
     __global const uchar *pLow,   const int lowPitch,
     const float dist_coeff, const float int_coeff) {
     const int ix = get_global_id(0);
     const int iy = get_global_id(1);
     if (ix >= dstW || iy >= dstH) return;
-    const float luma_zero = anime4k_read_y_norm(pLuma, lumaPitch, ix, iy);
+    // 出力chroma座標をソースluma空間にマッピング (YUV420では等倍、YUV444では縮小)
+    const int lumaX = clamp((int)(((float)ix + 0.5f) * (float)lumaW / (float)dstW), 0, lumaW - 1);
+    const int lumaY = clamp((int)(((float)iy + 0.5f) * (float)lumaH / (float)dstH), 0, lumaH - 1);
+    const float luma_zero = anime4k_read_y_norm(pLuma, lumaPitch, lumaX, lumaY);
     const float px = ((float)ix + 0.5f) * (float)srcW / (float)dstW - 0.5f;
     const float py = ((float)iy + 0.5f) * (float)srcH / (float)dstH - 0.5f;
     const int fx = (int)floor(px);

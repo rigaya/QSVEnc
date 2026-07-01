@@ -1620,7 +1620,7 @@ RGY_ERR RGYFilterAnime4k::runPlaneChromaJoint(RGYFrameInfo *pOutputPlaneC, const
         pOutputPlaneC->width, pOutputPlaneC->height,
         (cl_mem)pInputPlaneC->ptr[0], pInputPlaneC->pitch[0],
         pInputPlaneC->width, pInputPlaneC->height,
-        (cl_mem)pSrcLumaY->ptr[0], pSrcLumaY->pitch[0],
+        (cl_mem)pSrcLumaY->ptr[0], pSrcLumaY->pitch[0], pSrcLumaY->width, pSrcLumaY->height,
         m_chromaLumaLowres->mem(), m_chromaLowresPitch,
         distCoeff, intCoeff);
     if (err != RGY_ERR_NONE) {
