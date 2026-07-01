@@ -684,7 +684,7 @@ __kernel void kernel_nnedi_prescreen_cubic(
     const int ty = get_local_id(1);
     const int tid = tx + ty * 32;
     const int xbase = tx + get_group_id(0) * 32;
-    const int ybase = ty + get_group_id(1) * 16;
+    const int ybase = ty + get_group_id(1) * NNEDI_TILE_ROWS;
 
     __local float4 prescreenWeights[NNEDI_PRE_WEIGHT_FLOAT4_COUNT];
     __local int candidateCount[NNEDI_TILE_MASK_COUNT];
