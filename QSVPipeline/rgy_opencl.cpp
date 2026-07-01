@@ -2594,8 +2594,8 @@ RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *planeDstOrg, const RGYFrameInf
 #endif
         ) {
             for (int y = 0; y < planeDst.height; y++) {
-                memcpy(planeDst.ptr[0] + (y + dst_origin[1]) * planeDst.pitch[0] + dst_origin[0] * pixel_size,
-                        planeSrc.ptr[0] + (y + src_origin[1]) * planeSrc.pitch[0] + src_origin[0] * pixel_size,
+                memcpy(planeDst.ptr[0] + (y + dst_origin[1]) * planeDst.pitch[0] + dst_origin[0],
+                        planeSrc.ptr[0] + (y + src_origin[1]) * planeSrc.pitch[0] + src_origin[0],
                         planeDst.width * pixel_size);
             }
         } else {
@@ -2695,7 +2695,7 @@ RGY_ERR RGYOpenCLContext::setPlane(int value, RGYFrameInfo *planeDst, const sInp
             for (int y = dstOffset->e.up; y < planeDst->height - dstOffset->e.bottom; y++) {
                 uint16_t *ptr = (uint16_t *)(planeDst->ptr[0] + y * planeDst->pitch[0]);
                 ptr += dstOffset->e.left;
-                const int length = planeDst->height - dstOffset->e.right - dstOffset->e.left;
+                const int length = planeDst->width - dstOffset->e.right - dstOffset->e.left;
                 for (int x = 0; x < length; x++, ptr++) {
                     *ptr = (uint16_t)value;
                 }
@@ -2704,7 +2704,7 @@ RGY_ERR RGYOpenCLContext::setPlane(int value, RGYFrameInfo *planeDst, const sInp
             for (int y = dstOffset->e.up; y < planeDst->height - dstOffset->e.bottom; y++) {
                 uint8_t *ptr = (uint8_t *)(planeDst->ptr[0] + y * planeDst->pitch[0]);
                 ptr += dstOffset->e.left;
-                const int length = planeDst->height - dstOffset->e.right - dstOffset->e.left;
+                const int length = planeDst->width - dstOffset->e.right - dstOffset->e.left;
                 for (int x = 0; x < length; x++, ptr++) {
                     *ptr = (uint8_t)value;
                 }

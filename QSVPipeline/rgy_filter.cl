@@ -2164,26 +2164,28 @@ __kernel void kernel_crop_yv12_ayuv(
     if (dst_x < dstWidth && dst_y < dstHeight) {
         const int load_C_x = src_C_x + (cropX>>1);
         const int load_C_y = src_C_y + (cropY>>1);
+        const int srcWidthUV  = srcWidth  >> 1;
+        const int srcHeightUV = srcHeight >> 1;
 
-        const int pixSrcU01 = LOAD(srcU,     load_C_x,                max(load_C_y-1, 0)          );
-        const int pixSrcU02 = LOAD(srcU, min(load_C_x+1, srcWidth-1), max(load_C_y-1, 0)          );
-        const int pixSrcU11 = LOAD(srcU,     load_C_x,                    load_C_y                );
-        const int pixSrcU12 = LOAD(srcU, min(load_C_x+1, srcWidth-1),     load_C_y                );
-        const int pixSrcU21 = LOAD(srcU,     load_C_x,                min(load_C_y+1, srcHeight-1));
-        const int pixSrcU22 = LOAD(srcU, min(load_C_x+1, srcWidth-1), min(load_C_y+1, srcHeight-1));
+        const int pixSrcU01 = LOAD(srcU,     load_C_x,                  max(load_C_y-1, 0)            );
+        const int pixSrcU02 = LOAD(srcU, min(load_C_x+1, srcWidthUV-1), max(load_C_y-1, 0)            );
+        const int pixSrcU11 = LOAD(srcU,     load_C_x,                      load_C_y                  );
+        const int pixSrcU12 = LOAD(srcU, min(load_C_x+1, srcWidthUV-1),     load_C_y                  );
+        const int pixSrcU21 = LOAD(srcU,     load_C_x,                  min(load_C_y+1, srcHeightUV-1));
+        const int pixSrcU22 = LOAD(srcU, min(load_C_x+1, srcWidthUV-1), min(load_C_y+1, srcHeightUV-1));
 
-        const int pixSrcV01 = LOAD(srcV,     load_C_x,                max(load_C_y-1, 0)          );
-        const int pixSrcV02 = LOAD(srcV, min(load_C_x+1, srcWidth-1), max(load_C_y-1, 0)          );
-        const int pixSrcV11 = LOAD(srcV,     load_C_x,                    load_C_y                );
-        const int pixSrcV12 = LOAD(srcV, min(load_C_x+1, srcWidth-1),     load_C_y                );
-        const int pixSrcV21 = LOAD(srcV,     load_C_x,                min(load_C_y+1, srcHeight-1));
-        const int pixSrcV22 = LOAD(srcV, min(load_C_x+1, srcWidth-1), min(load_C_y+1, srcHeight-1));
+        const int pixSrcV01 = LOAD(srcV,     load_C_x,                  max(load_C_y-1, 0)            );
+        const int pixSrcV02 = LOAD(srcV, min(load_C_x+1, srcWidthUV-1), max(load_C_y-1, 0)            );
+        const int pixSrcV11 = LOAD(srcV,     load_C_x,                      load_C_y                  );
+        const int pixSrcV12 = LOAD(srcV, min(load_C_x+1, srcWidthUV-1),     load_C_y                  );
+        const int pixSrcV21 = LOAD(srcV,     load_C_x,                  min(load_C_y+1, srcHeightUV-1));
+        const int pixSrcV22 = LOAD(srcV, min(load_C_x+1, srcWidthUV-1), min(load_C_y+1, srcHeightUV-1));
 
         int pixDstU11, pixDstU12, pixDstU21, pixDstU22;
         conv_c_yuv420_yuv444_internal(&pixDstU11, &pixDstU12, &pixDstU21, &pixDstU22, pixSrcU01, pixSrcU02, pixSrcU11, pixSrcU12, pixSrcU21, pixSrcU22);
         
         int pixDstV11, pixDstV12, pixDstV21, pixDstV22;
-        conv_c_yuv420_yuv444_internal(&pixDstU11, &pixDstU12, &pixDstU21, &pixDstU22, pixSrcU01, pixSrcU02, pixSrcU11, pixSrcU12, pixSrcU21, pixSrcU22);
+        conv_c_yuv420_yuv444_internal(&pixDstV11, &pixDstV12, &pixDstV21, &pixDstV22, pixSrcV01, pixSrcV02, pixSrcV11, pixSrcV12, pixSrcV21, pixSrcV22);
         
         const int load_Y_x = load_C_x << 1;
         const int load_Y_y = load_C_y << 1;
