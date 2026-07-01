@@ -175,10 +175,10 @@ void func_calc_sum_max(__local int diff[DTB_Y+1][DTB_X+1], __global int2 *restri
     const int lid = ly * DTB_X + lx;
     if (lid == 0) {
         const int gid = get_group_id(1) * get_num_groups(0) + get_group_id(0);
-        int2 ret = pDst[gid];
+        int2 ret;
         ret.x = sum;
         ret.y = b2x2;
-        if (firstPlane) {
+        if (!firstPlane) {
             int2 dst = pDst[gid];
             ret.x += dst.x;
             ret.y = max(ret.y, dst.y);
