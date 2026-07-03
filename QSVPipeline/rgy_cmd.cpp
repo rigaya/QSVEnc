@@ -13389,7 +13389,6 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             }
         }
     }
-
     if (param->unsharp != defaultPrm->unsharp) {
         tmp.str(tstring());
         if (!param->unsharp.enable && save_disabled_prm) {
@@ -15610,6 +15609,81 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_DESCALE_SRC_LEFT, FILTER_DEFAULT_DESCALE_SRC_TOP,
         FILTER_DEFAULT_DESCALE_SEARCH_STEP, FILTER_DEFAULT_DESCALE_DETECT_FRAMES);
 #endif
+#if ENABLE_VPP_FILTER_ANIME4K
+    str += strsprintf(_T("\n")
+        _T("   --vpp-anime4k-shader [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     Enable GLSL luma enhancement / 2x upscale chain, based on bloc97 Anime4K.\n")
+        _T("    params\n")
+        _T("      mode=<string>             GLSL variant (default=ani4k_original)\n")
+        _T("                                ani4k_original    - edge-refine 2x upscale (strength 0.5)\n")
+        _T("                                ani4k_deblur      - edge-refine 2x upscale, stronger (1.0)\n")
+        _T("                                ani4k_darken_hq   - line-darkening 2x upscale\n")
+        _T("                                ani4k_thin_hq     - line-thinning 2x upscale\n")
+        _T("                                ani4k_dog_sharpen - 1x Difference-of-Gaussians sharpen\n")
+        _T("                                ani4k_dog         - 2x DoG upscale\n")
+        _T("                                ani4k_dtd         - 2x composite darken-thin-deblur upscale\n")
+        _T("      scale=<int>               1 = refine at source resolution,\n")
+        _T("                                2 = 2x upscale + refine (default=%d).\n")
+        _T("                                some modes imply scale (dog_sharpen=1, dog/dtd=2).\n")
+        _T("      strength=<float>          refine strength multiplier (default=%.2f, %.2f - %.2f).\n")
+        _T("                                promoted to 1.0 for mode=ani4k_deblur with no value.\n")
+        _T("      prefilter_denoise=<string> denoise the luma BEFORE the main pass (default=off)\n")
+        _T("                                off | mean | median | mode  (bilateral)\n")
+        _T("      darken=<string>           line-darkening pass after the main pass (default=off)\n")
+        _T("                                off | hq | fast | veryfast\n")
+        _T("      thin=<string>             line-thinning pass after the main pass (default=off)\n")
+        _T("                                off | hq | fast | veryfast\n")
+        _T("      denoise=<string>          denoise pass after the main pass (default=off)\n")
+        _T("                                off | mean | median | mode  (bilateral)\n")
+        _T("      denoise_intensity / denoise_spatial / denoise_curve / denoise_hist_reg=<float>\n")
+        _T("                                fine-tune the denoise passes (advanced, optional).\n")
+        _T("      clamp_highlights=<bool>   clamp output highlights to the local source max\n")
+        _T("                                (Anime4K Clamp_Highlights). default=false.\n")
+        _T("      antiring=<float>          anti-ringing strength 0..1 (default=0, off). clamps\n")
+        _T("                                each upscaled luma pixel to its 2x2 source min/max\n")
+        _T("                                envelope, removing overshoot ringing on both sides.\n")
+        _T("      chroma_resize=<string>    U/V resize kernel when scale=2 (default=spline36)\n")
+        _T("                                spline36 | bilinear | bicubic | lanczos3 | joint\n")
+        _T("                                joint = luma-guided joint-bilateral chroma rebuild.\n")
+        _T("      chroma=<bool>             when scale=2, resize chroma (true, default) or pass\n")
+        _T("                                it through unchanged (false). scale=1 always passes.\n")
+        _T("      out_res=<WxH>             end-of-chain resize to an arbitrary final size, AFTER\n")
+        _T("                                this stage (e.g. a 2x upscale), so a fixed integer\n")
+        _T("                                upscale fits any resolution in one pass, e.g.\n")
+        _T("                                out_res=1440x1080. a negative value on one axis keeps\n")
+        _T("                                the source aspect (magnitude=rounding step), like\n")
+        _T("                                --output-res: out_res=-2x1080 -> 1440x1080 (4:3) or\n")
+        _T("                                1920x1080 (16:9). default: off (output stays scale*src).\n")
+        _T("      resize=<string>           resampler for out_res (default=lanczos4):\n")
+        _T("                                lanczos4 | spline36 | jinc144 | nis | bicubic | ...\n"),
+        FILTER_DEFAULT_ANIME4K_SCALE, FILTER_DEFAULT_ANIME4K_STRENGTH,
+        FILTER_ANIME4K_STRENGTH_MIN, FILTER_ANIME4K_STRENGTH_MAX);
+#endif
+#if ENABLE_VPP_FILTER_ONNX
+    str += strsprintf(_T("\n")
+        _T("   --vpp-onnx [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     OpenVINO-backed CNN filter: loads an ONNX/IR model directly and runs\n")
+        _T("     it on the GPU.\n")
+        _T("     The pre/post a model needs is inferred from its channel count:\n")
+        _T("     1ch=luma SR, 3ch=RGB, 4ch=RGB+noise, 2ch=gray+noise, 3->2ch=chroma.\n")
+        _T("    params\n")
+        _T("      model=<path>                path to the .onnx / .xml model (required)\n")
+        _T("      device=<string>             OpenVINO device: GPU.0 (default) / GPU / CPU / AUTO\n")
+        _T("      interop=<string>            auto (default) / ocl (zero-copy, shared GPU context) / host\n")
+        _T("      prec=<string>               auto (default) / fp16 / fp32\n")
+        _T("      colormatrix=<string>        auto (default, bt601 SD / bt709 HD) / bt601 / bt709 / bt2020\n")
+        _T("      colorrange=<string>         auto (default, tv) / tv / pc\n")
+        _T("      colorspace=<string>         3ch models: rgb (default) / ycbcr (ArtCNN *_YCbCr)\n")
+        _T("      noise=<int>                 noise sigma 0-255 for noise models (default 15)\n")
+        _T("      out_res=<WxH>               end-of-chain resize to an arbitrary final size,\n")
+        _T("                                  applied AFTER the network so CNN upscale + fit run\n")
+        _T("                                  in one pass, e.g. out_res=1440x1080. A negative\n")
+        _T("                                  value on one axis keeps the source aspect:\n")
+        _T("                                  out_res=-2x1080 -> 1440x1080 (4:3) or 1920x1080 (16:9).\n")
+        _T("      resize=<string>             resampler for out_res (default=lanczos4)\n"));
+    str += strsprintf(_T("\n")
+        _T("   --vpp-onnx-model-dir <string>   Directory containing models.json for registered ONNX models.\n"));
+#endif
 #if ENABLE_VPP_FILTER_SMOOTH
     str += strsprintf(_T("\n")
         _T("   --vpp-smooth [<param1>=<value>][,<param2>=<value>][...]\n")
@@ -16189,81 +16263,6 @@ tstring gen_cmd_help_vpp() {
         _T("    params\n")
         _T("      double                     double frame rate (fast)\n")
         _T("      fps=<int>/<int> or <float> target frame rate\n"));
-#endif
-#if ENABLE_VPP_FILTER_ANIME4K
-    str += strsprintf(_T("\n")
-        _T("   --vpp-anime4k-shader [<param1>=<value>][,<param2>=<value>][...]\n")
-        _T("     Enable GLSL luma enhancement / 2x upscale chain, based on bloc97 Anime4K.\n")
-        _T("    params\n")
-        _T("      mode=<string>             GLSL variant (default=ani4k_original)\n")
-        _T("                                ani4k_original    - edge-refine 2x upscale (strength 0.5)\n")
-        _T("                                ani4k_deblur      - edge-refine 2x upscale, stronger (1.0)\n")
-        _T("                                ani4k_darken_hq   - line-darkening 2x upscale\n")
-        _T("                                ani4k_thin_hq     - line-thinning 2x upscale\n")
-        _T("                                ani4k_dog_sharpen - 1x Difference-of-Gaussians sharpen\n")
-        _T("                                ani4k_dog         - 2x DoG upscale\n")
-        _T("                                ani4k_dtd         - 2x composite darken-thin-deblur upscale\n")
-        _T("      scale=<int>               1 = refine at source resolution,\n")
-        _T("                                2 = 2x upscale + refine (default=%d).\n")
-        _T("                                some modes imply scale (dog_sharpen=1, dog/dtd=2).\n")
-        _T("      strength=<float>          refine strength multiplier (default=%.2f, %.2f - %.2f).\n")
-        _T("                                promoted to 1.0 for mode=ani4k_deblur with no value.\n")
-        _T("      prefilter_denoise=<string> denoise the luma BEFORE the main pass (default=off)\n")
-        _T("                                off | mean | median | mode  (bilateral)\n")
-        _T("      darken=<string>           line-darkening pass after the main pass (default=off)\n")
-        _T("                                off | hq | fast | veryfast\n")
-        _T("      thin=<string>             line-thinning pass after the main pass (default=off)\n")
-        _T("                                off | hq | fast | veryfast\n")
-        _T("      denoise=<string>          denoise pass after the main pass (default=off)\n")
-        _T("                                off | mean | median | mode  (bilateral)\n")
-        _T("      denoise_intensity / denoise_spatial / denoise_curve / denoise_hist_reg=<float>\n")
-        _T("                                fine-tune the denoise passes (advanced, optional).\n")
-        _T("      clamp_highlights=<bool>   clamp output highlights to the local source max\n")
-        _T("                                (Anime4K Clamp_Highlights). default=false.\n")
-        _T("      antiring=<float>          anti-ringing strength 0..1 (default=0, off). clamps\n")
-        _T("                                each upscaled luma pixel to its 2x2 source min/max\n")
-        _T("                                envelope, removing overshoot ringing on both sides.\n")
-        _T("      chroma_resize=<string>    U/V resize kernel when scale=2 (default=spline36)\n")
-        _T("                                spline36 | bilinear | bicubic | lanczos3 | joint\n")
-        _T("                                joint = luma-guided joint-bilateral chroma rebuild.\n")
-        _T("      chroma=<bool>             when scale=2, resize chroma (true, default) or pass\n")
-        _T("                                it through unchanged (false). scale=1 always passes.\n")
-        _T("      out_res=<WxH>             end-of-chain resize to an arbitrary final size, AFTER\n")
-        _T("                                this stage (e.g. a 2x upscale), so a fixed integer\n")
-        _T("                                upscale fits any resolution in one pass, e.g.\n")
-        _T("                                out_res=1440x1080. a negative value on one axis keeps\n")
-        _T("                                the source aspect (magnitude=rounding step), like\n")
-        _T("                                --output-res: out_res=-2x1080 -> 1440x1080 (4:3) or\n")
-        _T("                                1920x1080 (16:9). default: off (output stays scale*src).\n")
-        _T("      resize=<string>           resampler for out_res (default=lanczos4):\n")
-        _T("                                lanczos4 | spline36 | jinc144 | nis | bicubic | ...\n"),
-        FILTER_DEFAULT_ANIME4K_SCALE, FILTER_DEFAULT_ANIME4K_STRENGTH,
-        FILTER_ANIME4K_STRENGTH_MIN, FILTER_ANIME4K_STRENGTH_MAX);
-#endif
-#if ENABLE_VPP_FILTER_ONNX
-    str += strsprintf(_T("\n")
-        _T("   --vpp-onnx [<param1>=<value>][,<param2>=<value>][...]\n")
-        _T("     OpenVINO-backed CNN filter: loads an ONNX/IR model directly and runs\n")
-        _T("     it on the GPU.\n")
-        _T("     The pre/post a model needs is inferred from its channel count:\n")
-        _T("     1ch=luma SR, 3ch=RGB, 4ch=RGB+noise, 2ch=gray+noise, 3->2ch=chroma.\n")
-        _T("    params\n")
-        _T("      model=<path>                path to the .onnx / .xml model (required)\n")
-        _T("      device=<string>             OpenVINO device: GPU.0 (default) / GPU / CPU / AUTO\n")
-        _T("      interop=<string>            auto (default) / ocl (zero-copy, shared GPU context) / host\n")
-        _T("      prec=<string>               auto (default) / fp16 / fp32\n")
-        _T("      colormatrix=<string>        auto (default, bt601 SD / bt709 HD) / bt601 / bt709 / bt2020\n")
-        _T("      colorrange=<string>         auto (default, tv) / tv / pc\n")
-        _T("      colorspace=<string>         3ch models: rgb (default) / ycbcr (ArtCNN *_YCbCr)\n")
-        _T("      noise=<int>                 noise sigma 0-255 for noise models (default 15)\n")
-        _T("      out_res=<WxH>               end-of-chain resize to an arbitrary final size,\n")
-        _T("                                  applied AFTER the network so CNN upscale + fit run\n")
-        _T("                                  in one pass, e.g. out_res=1440x1080. A negative\n")
-        _T("                                  value on one axis keeps the source aspect:\n")
-        _T("                                  out_res=-2x1080 -> 1440x1080 (4:3) or 1920x1080 (16:9).\n")
-        _T("      resize=<string>             resampler for out_res (default=lanczos4)\n"));
-    str += strsprintf(_T("\n")
-        _T("   --vpp-onnx-model-dir <string>   Directory containing models.json for registered ONNX models.\n"));
 #endif
     str += strsprintf(_T("\n")
         _T("   --vpp-perf-monitor           check vpp perfromance (for debug)\n")

@@ -82,7 +82,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_HQDN3D       (ENCODER_QSV   || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_DESCALE      (ENCODER_QSV   || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_ANIME4K      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
-#define ENABLE_VPP_FILTER_ONNX  (ENABLE_OPENVINO && (ENCODER_QSV))
+#define ENABLE_VPP_FILTER_ONNX         ((ENABLE_OPENVINO && ENCODER_QSV) || (ENABLE_ONNXRUNTIME && ENCODER_VCEENC))
 #define ENABLE_VPP_FILTER_DENOISE_DCT  (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_SMOOTH       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_FFT3D        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
@@ -199,6 +199,7 @@ enum class VppType : int {
     CL_DESCALE,
     CL_ANIME4K,
     CL_ONNX,
+
     CL_DENOISE_DCT,
     CL_DENOISE_SMOOTH,
     CL_DENOISE_FFT3D,
@@ -470,20 +471,17 @@ static const float FILTER_DEFAULT_HQDN3D_CHROMA_SPATIAL = 3.0f;
 static const float FILTER_DEFAULT_HQDN3D_LUMA_TEMPORAL = 6.0f;
 static const float FILTER_DEFAULT_HQDN3D_CHROMA_TEMPORAL = 4.5f;
 
-static const int   FILTER_DEFAULT_ANIME4K_SCALE = 2;
-static const float FILTER_DEFAULT_ANIME4K_STRENGTH = 0.5f;
-static const float FILTER_ANIME4K_STRENGTH_MIN = 0.2f;
-static const float FILTER_ANIME4K_STRENGTH_MAX = 4.0f;
-
-// Descale: inverse-kernel solver to recover a native lower-resolution
-// image from an upscaled distribution. The forward upscale is a sparse
-// linear system; descale solves it via LDLT decomposition.
 static const float FILTER_DEFAULT_DESCALE_BICUBIC_B    = 0.0f;
 static const float FILTER_DEFAULT_DESCALE_BICUBIC_C    = 0.5f;
 static const float FILTER_DEFAULT_DESCALE_SRC_LEFT     = 0.0f;
 static const float FILTER_DEFAULT_DESCALE_SRC_TOP      = 0.0f;
 static const int   FILTER_DEFAULT_DESCALE_SEARCH_STEP  = 1;
 static const int   FILTER_DEFAULT_DESCALE_DETECT_FRAMES = 10;
+
+static const int   FILTER_DEFAULT_ANIME4K_SCALE = 2;
+static const float FILTER_DEFAULT_ANIME4K_STRENGTH = 0.5f;
+static const float FILTER_ANIME4K_STRENGTH_MIN = 0.2f;
+static const float FILTER_ANIME4K_STRENGTH_MAX = 4.0f;
 
 static const int   FILTER_DEFAULT_SMOOTH_QUALITY = 3;
 static const int   FILTER_DEFAULT_SMOOTH_QP = 12;
@@ -3269,6 +3267,67 @@ struct VppMaa {
     tstring print() const;
 };
 
+enum class VppDescaleKernel {
+    Bilinear,
+    Bicubic,
+    Spline16,
+    Spline36,
+    Spline64,
+    Lanczos2,
+    Lanczos3,
+    Lanczos4,
+    Auto,
+};
+
+enum class VppDescaleBorder {
+    Mirror,
+    Zero,
+    Repeat,
+};
+
+const CX_DESC list_vpp_descale_kernel[] = {
+    { _T("bilinear"), (int)VppDescaleKernel::Bilinear },
+    { _T("bicubic"),  (int)VppDescaleKernel::Bicubic  },
+    { _T("spline16"), (int)VppDescaleKernel::Spline16 },
+    { _T("spline36"), (int)VppDescaleKernel::Spline36 },
+    { _T("spline64"), (int)VppDescaleKernel::Spline64 },
+    { _T("lanczos2"), (int)VppDescaleKernel::Lanczos2 },
+    { _T("lanczos3"), (int)VppDescaleKernel::Lanczos3 },
+    { _T("lanczos4"), (int)VppDescaleKernel::Lanczos4 },
+    { _T("auto"),     (int)VppDescaleKernel::Auto     },
+    { NULL, 0 }
+};
+
+const CX_DESC list_vpp_descale_border[] = {
+    { _T("mirror"), (int)VppDescaleBorder::Mirror },
+    { _T("zero"),   (int)VppDescaleBorder::Zero   },
+    { _T("repeat"), (int)VppDescaleBorder::Repeat },
+    { NULL, 0 }
+};
+
+struct VppDescale {
+    bool enable;
+    VppDescaleKernel kernel;
+    int width;
+    int height;
+    float b;
+    float c;
+    float src_left;
+    float src_top;
+    VppDescaleBorder border;
+    bool autoDetect;
+    int search_min;
+    int search_max;
+    int search_step;
+    int detect_frames;
+    bool show_scores;
+
+    VppDescale();
+    bool operator==(const VppDescale &x) const;
+    bool operator!=(const VppDescale &x) const;
+    tstring print() const;
+};
+
 enum class VppAnime4kMode {
     Original  = 0,
     Deblur    = 1,
@@ -3406,66 +3465,6 @@ struct VppOnnx {
     tstring print() const;
 };
 
-enum class VppDescaleKernel {
-    Bilinear,
-    Bicubic,
-    Spline16,
-    Spline36,
-    Spline64,
-    Lanczos2,
-    Lanczos3,
-    Lanczos4,
-    Auto,
-};
-
-enum class VppDescaleBorder {
-    Mirror,
-    Zero,
-    Repeat,
-};
-
-const CX_DESC list_vpp_descale_kernel[] = {
-    { _T("bilinear"), (int)VppDescaleKernel::Bilinear },
-    { _T("bicubic"),  (int)VppDescaleKernel::Bicubic  },
-    { _T("spline16"), (int)VppDescaleKernel::Spline16 },
-    { _T("spline36"), (int)VppDescaleKernel::Spline36 },
-    { _T("spline64"), (int)VppDescaleKernel::Spline64 },
-    { _T("lanczos2"), (int)VppDescaleKernel::Lanczos2 },
-    { _T("lanczos3"), (int)VppDescaleKernel::Lanczos3 },
-    { _T("lanczos4"), (int)VppDescaleKernel::Lanczos4 },
-    { _T("auto"),     (int)VppDescaleKernel::Auto     },
-    { NULL, 0 }
-};
-
-const CX_DESC list_vpp_descale_border[] = {
-    { _T("mirror"), (int)VppDescaleBorder::Mirror },
-    { _T("zero"),   (int)VppDescaleBorder::Zero   },
-    { _T("repeat"), (int)VppDescaleBorder::Repeat },
-    { NULL, 0 }
-};
-
-struct VppDescale {
-    bool enable;
-    VppDescaleKernel kernel;
-    int width;
-    int height;
-    float b;
-    float c;
-    float src_left;
-    float src_top;
-    VppDescaleBorder border;
-    bool autoDetect;
-    int search_min;
-    int search_max;
-    int search_step;
-    int detect_frames;
-    bool show_scores;
-
-    VppDescale();
-    bool operator==(const VppDescale &x) const;
-    bool operator!=(const VppDescale &x) const;
-    tstring print() const;
-};
 
 enum class VppSoftLightMode {
     NEUTRALIZE,
@@ -3728,11 +3727,11 @@ struct RGYParamVpp {
     VppNLMeans nlmeans;
     VppPmd pmd;
     VppHqdn3d hqdn3d;
+    VppDescale descale;
     VppAnime4k anime4k;
     VppOnnx onnx;
     tstring onnxModelDir;
     bool    onnxListModels;
-    VppDescale descale;
     VppDenoiseDct dct;
     VppSmooth smooth;
     VppDenoiseFFT3D fft3d;
