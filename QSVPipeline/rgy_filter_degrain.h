@@ -107,6 +107,12 @@ protected:
         RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
     RGY_ERR attachAnalysisData(const RGYFrameInfo *sourceFrame, RGYFrameInfo *outputFrame,
         int currentFrame, RGYOpenCLQueue &queue, const RGYOpenCLEvent &frameCopyEvent, RGYOpenCLEvent *event);
+    RGY_ERR createAnalysisSideDataSnapshot(const RGYFrameInfo *frame, int currentFrame,
+        const RGYDegrainRefDisableArray &availabilityDisableRefs, RGYOpenCLQueue &queue,
+        const std::vector<RGYOpenCLEvent> &wait_events,
+        std::shared_ptr<RGYFrameDataDegrain> &frameDataOut);
+    RGY_ERR snapshotFallbackAnalysisData(const RGYFilterDegrainProcessFrameSet &frames, int currentFrame, RGYOpenCLQueue &queue);
+    void bindSnapshotAnalysisData(const std::shared_ptr<RGYFrameDataDegrain> &frameData, const RGYFrameInfo *frame, RGYOpenCLQueue &queue);
     RGY_ERR prepareAnalysisState(const RGYFilterDegrainFrameSet &frames, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
     RGY_ERR prepareFallbackAnalysisState(const RGYFilterDegrainProcessFrameSet &frames, int currentFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
     RGY_ERR prepareAnalysisStateMotionSearch(const RGYFrameInfo &planeCur, const std::array<RGYFrameInfo, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS> &refPlanes,

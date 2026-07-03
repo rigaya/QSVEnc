@@ -620,6 +620,9 @@ void RGYFilterDegrain::logAnalysisSamples(const TCHAR *sourceName, const RGYFram
         const bool forward = rgy_degrain_ref_index_is_forward(dir);
         for (int sample = 0; sample < (int)sampleBlocks.size(); sample++) {
             const size_t block = sampleBlocks[sample];
+            if (block >= layout.blockCount()) {
+                continue;
+            }
             if ((sample > 0 && block == sampleBlocks[sample - 1])
                 || (sample > 1 && block == sampleBlocks[sample - 2])) {
                 continue;

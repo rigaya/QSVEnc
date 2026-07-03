@@ -1427,6 +1427,10 @@ RGY_ERR RGYFilterDegrain::runDegrainMode(const RGYFilterDegrainProcessFrameSet &
         if (err != RGY_ERR_NONE) {
             return err;
         }
+        err = snapshotFallbackAnalysisData(frames, currentFrame, queue);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
     }
 
     RGYDegrainRefDisableArray disableRefs;

@@ -939,9 +939,11 @@ RGYDegrainRefDisableArray RGYFilterDegrain::analysisAvailabilityDisableRefs(cons
     return m_boundAnalyzeResult.valid() ? m_boundAnalyzeResult.availabilityDisableRefs : degrainReferenceAvailability(frames);
 }
 
-RGY_ERR RGYFilterDegrain::attachAnalysisData(const RGYFrameInfo *sourceFrame, RGYFrameInfo *outputFrame,
-    const int currentFrame, RGYOpenCLQueue &queue, const RGYOpenCLEvent &frameCopyEvent, RGYOpenCLEvent *event) {
-    if (!sourceFrame || !outputFrame || !m_analysis.mv || !m_analysis.sad) {
+RGY_ERR RGYFilterDegrain::createAnalysisSideDataSnapshot(const RGYFrameInfo *frame, const int currentFrame,
+    const RGYDegrainRefDisableArray &availabilityDisableRefs, RGYOpenCLQueue &queue,
+    const std::vector<RGYOpenCLEvent> &wait_events,
+    std::shared_ptr<RGYFrameDataDegrain> &frameDataOut) {
+    if (!frame || !m_analysis.mv || !m_analysis.sad) {
         return RGY_ERR_INVALID_PARAM;
     }
 
@@ -960,10 +962,7 @@ RGY_ERR RGYFilterDegrain::attachAnalysisData(const RGYFrameInfo *sourceFrame, RG
         return RGY_ERR_MEMORY_ALLOC;
     }
 
-    std::vector<RGYOpenCLEvent> mvWaitEvents;
-    if (frameCopyEvent() != nullptr) {
-        mvWaitEvents.push_back(frameCopyEvent);
-    }
+    std::vector<RGYOpenCLEvent> mvWaitEvents = wait_events;
     if (m_analysis.event() != nullptr) {
         mvWaitEvents.push_back(m_analysis.event);
     }
@@ -1018,21 +1017,68 @@ RGY_ERR RGYFilterDegrain::attachAnalysisData(const RGYFrameInfo *sourceFrame, RG
     auto prm = std::dynamic_pointer_cast<RGYFilterParamDegrain>(m_param);
     const uint32_t flags = degrainAnalyzeFlags(prm, useAnalysisLumaCache() || m_lastAnalysisUsedSearchLuma, m_lastAnalysisIncludedChroma);
 
-    auto frameData = std::make_shared<RGYFrameDataDegrain>(
+    frameDataOut = std::make_shared<RGYFrameDataDegrain>(
         rgy_degrain_make_frame_meta_header(m_analysis.layout, flags),
         std::move(mv),
         std::move(sad),
         sadCopyEvent,
         currentFrame,
-        sourceFrame->inputFrameId,
-        sourceFrame->timestamp,
-        sourceFrame->duration,
-        m_analysis.lastAvailabilityDisableRefs,
+        frame->inputFrameId,
+        frame->timestamp,
+        frame->duration,
+        availabilityDisableRefs,
         m_sideDataBufferPool);
+    return RGY_ERR_NONE;
+}
+
+void RGYFilterDegrain::bindSnapshotAnalysisData(const std::shared_ptr<RGYFrameDataDegrain> &frameData, const RGYFrameInfo *frame, RGYOpenCLQueue &queue) {
+    if (!frameData) {
+        return;
+    }
+    m_frameAnalysisData = frameData;
+    m_boundAnalyzeResult = frameData->analyzeResult();
+    m_frameAnalysisLayout = m_boundAnalyzeResult.layout;
+    if (degrainDebugLogEnabled() && frame && m_boundAnalyzeResult.valid()) {
+        logAnalyzeBinding(_T("snapshot"), frame, m_boundAnalyzeResult);
+        logAnalysisSamples(_T("snapshot"), frame, queue);
+    }
+}
+
+RGY_ERR RGYFilterDegrain::snapshotFallbackAnalysisData(const RGYFilterDegrainProcessFrameSet &frames, const int currentFrame, RGYOpenCLQueue &queue) {
+    if (!frames.render.cur) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    const auto availabilityDisableRefs = degrainReferenceAvailability(frames.analysis);
+    std::shared_ptr<RGYFrameDataDegrain> frameData;
+    auto err = createAnalysisSideDataSnapshot(frames.render.cur, currentFrame, availabilityDisableRefs, queue, {}, frameData);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to snapshot degrain fallback analysis data.\n"));
+        return err;
+    }
+    bindSnapshotAnalysisData(frameData, frames.render.cur, queue);
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterDegrain::attachAnalysisData(const RGYFrameInfo *sourceFrame, RGYFrameInfo *outputFrame,
+    const int currentFrame, RGYOpenCLQueue &queue, const RGYOpenCLEvent &frameCopyEvent, RGYOpenCLEvent *event) {
+    if (!sourceFrame || !outputFrame || !m_analysis.mv || !m_analysis.sad) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+
+    std::vector<RGYOpenCLEvent> waitEvents;
+    if (frameCopyEvent() != nullptr) {
+        waitEvents.push_back(frameCopyEvent);
+    }
+    std::shared_ptr<RGYFrameDataDegrain> frameData;
+    auto err = createAnalysisSideDataSnapshot(sourceFrame, currentFrame, m_analysis.lastAvailabilityDisableRefs, queue, waitEvents, frameData);
+    if (err != RGY_ERR_NONE) {
+        return err;
+    }
+
     rgy_degrain_erase_frame_data(outputFrame->dataList);
     outputFrame->dataList.push_back(frameData);
     if (event) {
-        *event = sadCopyEvent;
+        *event = frameData->analyzeResult().event;
     }
     return RGY_ERR_NONE;
 }

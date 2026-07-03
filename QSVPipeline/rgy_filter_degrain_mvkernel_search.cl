@@ -524,6 +524,20 @@ static inline uint degrain_motion_search_sum_candidate_sad_lanes(
     return (candidateIsValid && sadLane == 0) ? candidateLaneSums[partialBase] : 0u;
 }
 
+static inline int degrain_motion_search_candidate_cost_magnitude(
+    const degrain_motion_search_candidate_cost_t candidateCost) {
+    return abs((int)candidateCost.pos_x) + abs((int)candidateCost.pos_y);
+}
+
+static inline int degrain_motion_search_candidate_cost_prefers(
+    const degrain_motion_search_candidate_cost_t lhs,
+    const degrain_motion_search_candidate_cost_t rhs) {
+    if (lhs.score_primary != rhs.score_primary) {
+        return lhs.score_primary < rhs.score_primary;
+    }
+    return degrain_motion_search_candidate_cost_magnitude(lhs) < degrain_motion_search_candidate_cost_magnitude(rhs);
+}
+
 static inline void degrain_motion_search_select_lowest_candidate_cost(
     __local degrain_motion_search_candidate_cost_t *candidateCosts,
     const int localThreadId,
@@ -537,7 +551,7 @@ static inline void degrain_motion_search_select_lowest_candidate_cost(
         if (localThreadId < 8
             && (localThreadId + stride) < 8
             && (localThreadId & ((stride << 1) - 1)) == 0
-            && candidateCosts[localThreadId + stride].score_primary < candidateCosts[localThreadId].score_primary) {
+            && degrain_motion_search_candidate_cost_prefers(candidateCosts[localThreadId + stride], candidateCosts[localThreadId])) {
             candidateCosts[localThreadId] = candidateCosts[localThreadId + stride];
         }
         barrier(CLK_LOCAL_MEM_FENCE);
@@ -711,7 +725,7 @@ static inline void degrain_motion_search_refine_evaluate_candidates(
 
     degrain_motion_search_select_lowest_candidate_cost(candidateCosts, localThreadId, candidateCount);
 
-    if (localThreadId == 0 && candidateCosts[0].score_primary < bestCandidateCost->score_primary) {
+    if (localThreadId == 0 && degrain_motion_search_candidate_cost_prefers(candidateCosts[0], *bestCandidateCost)) {
         *bestCandidateCost = candidateCosts[0];
     }
     barrier(CLK_LOCAL_MEM_FENCE);
@@ -829,6 +843,117 @@ static inline void degrain_motion_search_refine_square8(
         referenceWindowIsValid
 #endif
         );
+}
+
+static inline uint degrain_motion_search_source_block_variance(
+    __local const TypePixel *sourceBlockPixels) {
+    long sum = 0;
+    long sumSq = 0;
+    const int count = DEGRAIN_BLK_SIZE * DEGRAIN_BLK_SIZE;
+    for (int i = 0; i < count; i++) {
+        const int value = (int)sourceBlockPixels[i];
+        sum += value;
+        sumSq += (long)value * (long)value;
+    }
+    const long mean = sum / count;
+    const long varianceNumer = sumSq - mean * sum;
+    return (varianceNumer <= 0) ? 0u : (uint)(varianceNumer / count);
+}
+
+static inline uint degrain_motion_search_full_block_sad(
+    __local const TypePixel *sourceBlockPixels,
+    __global const uchar *referencePlane,
+    const int pitch,
+    const int width,
+    const int height,
+    const int blockGridX,
+    const int blockGridY,
+    const int step,
+    const int motionOffsetX,
+    const int motionOffsetY) {
+    uint sad = 0u;
+    for (int sadLane = 0; sadLane < DEGRAIN_BLK_SIZE; sadLane++) {
+        sad += degrain_motion_search_accumulate_luma_sad_lane(
+            sourceBlockPixels,
+            referencePlane,
+            pitch,
+            width,
+            height,
+            blockGridX,
+            blockGridY,
+            step,
+            motionOffsetX,
+            motionOffsetY,
+            sadLane);
+    }
+    return sad;
+}
+
+static inline degrain_motion_search_candidate_cost_t degrain_motion_search_apply_flat_region_mv_correction(
+    __local const TypePixel *sourceBlockPixels,
+    __global const uchar *referencePlane,
+    const int pitch,
+    const int width,
+    const int height,
+    const int blockGridX,
+    const int blockGridY,
+    const int step,
+    degrain_motion_search_candidate_cost_t best) {
+    if (degrain_motion_search_source_block_variance(sourceBlockPixels) != 0u) {
+        return best;
+    }
+
+    const uint sadZero = degrain_motion_search_full_block_sad(
+        sourceBlockPixels,
+        referencePlane,
+        pitch,
+        width,
+        height,
+        blockGridX,
+        blockGridY,
+        step,
+        0,
+        0);
+    best.pos_x = 0;
+    best.pos_y = 0;
+    best.sad_metric = sadZero;
+    best.score_primary = sadZero;
+    return best;
+}
+
+static inline degrain_motion_search_candidate_cost_t degrain_motion_search_finalize_candidate_cost(
+    __local const TypePixel *sourceBlockPixels,
+    __global const uchar *referencePlane,
+    const int pitch,
+    const int width,
+    const int height,
+    const int blockGridX,
+    const int blockGridY,
+    const int step,
+    degrain_motion_search_candidate_cost_t best) {
+    const uint verifiedSad = degrain_motion_search_full_block_sad(
+        sourceBlockPixels,
+        referencePlane,
+        pitch,
+        width,
+        height,
+        blockGridX,
+        blockGridY,
+        step,
+        (int)best.pos_x,
+        (int)best.pos_y);
+    best.sad_metric = verifiedSad;
+    best.score_primary = verifiedSad;
+    return degrain_motion_search_apply_flat_region_mv_correction(
+        sourceBlockPixels,
+        referencePlane,
+        pitch,
+        width,
+        height,
+        blockGridX,
+        blockGridY,
+        step,
+        best);
 }
 
 static inline degrain_motion_search_candidate_t degrain_motion_search_load_base_candidate(
@@ -1080,6 +1205,16 @@ static inline void degrain_motion_search_search_one_block(
 #endif
 
     if (localThreadId == 0) {
+        *bestCandidateCost = degrain_motion_search_finalize_candidate_cost(
+            sourceBlockPixels,
+            referencePlane,
+            pitch,
+            width,
+            height,
+            blockGridX,
+            blockGridY,
+            step,
+            *bestCandidateCost);
         vectors[degrain_motion_search_vec_current_index(planeBase, blockCount, block)] =
             degrain_motion_search_candidate_cost_to_saved_vector(*bestCandidateCost);
     }
@@ -1322,7 +1457,7 @@ __kernel void kernel_degrain_mv_spatial_refine(
 
     degrain_motion_search_select_lowest_candidate_cost(candidateCosts, localThreadId, candidateCount);
 
-    if (localThreadId == 0 && candidateCosts[0].score_primary < bestCandidateCost.score_primary) {
+    if (localThreadId == 0 && degrain_motion_search_candidate_cost_prefers(candidateCosts[0], bestCandidateCost)) {
         bestCandidateCost = candidateCosts[0];
     }
     barrier(CLK_LOCAL_MEM_FENCE);
@@ -1380,6 +1515,16 @@ __kernel void kernel_degrain_mv_spatial_refine(
 #endif
 
     if (localThreadId == 0) {
+        bestCandidateCost = degrain_motion_search_finalize_candidate_cost(
+            sourceBlockPixels,
+            referencePlane,
+            pitch,
+            kernelWidth,
+            kernelHeight,
+            blockGridX,
+            blockGridY,
+            kernelStep,
+            bestCandidateCost);
         vectorsFinal[degrain_motion_search_vec_final_index(finalBase, blockCount, block)] =
             degrain_motion_search_candidate_cost_to_saved_vector(bestCandidateCost);
     }
