@@ -1,5 +1,22 @@
 # QSVEnc Release Notes
 
+## 8.20
+
+- Improve precision of [--vpp-finedehalo](./QSVEncC_Options.en.md#--vpp-finedehalo-param1value1param2value2).
+- Clarify that [--vpp-finedehalo](./QSVEncC_Options.en.md#--vpp-finedehalo-param1value1param2value2) does not support interlaced input.
+- Fix ghost artifacts in [--vpp-degrain](./QSVEncC_Options.en.md#--vpp-degrain-param1value1) with scene-change delayed output.
+- Fix frame corruption in [--vpp-ivtc](./QSVEncC_Options.en.md#--vpp-ivtc-param1value1param2value2) expand/mixed path.
+- Fix out-of-bounds luma read in [--vpp-anime4k-shader](./QSVEncC_Options.en.md#--vpp-anime4k-shader-param1value1param2value2) with YUV444 input.
+- Fix duplicate frame detection in [--vpp-decimate](./QSVEncC_Options.en.md#--vpp-decimate-param1value1param2value2).
+- Fix skipped output lines in [--vpp-nnedi](./QSVEncC_Options.en.md#--vpp-nnedi-param1value1param2value2) on Intel iGPUs.
+- Fix boundary read in [--vpp-afs](./QSVEncC_Options.en.md#--vpp-afs-param1value1param2value2) map filter.
+- Fix out-of-bounds write in [--vpp-subburn](./QSVEncC_Options.en.md#--vpp-subburn-param1value1param2value2) when subtitle position becomes negative.
+- Fix [--vpp-deflicker](./QSVEncC_Options.en.md#--vpp-deflicker-param1value1param2value2) being permanently disabled after scene change.
+- Fix infinite loop in AviSynth input audio track selection fallback.
+- Fix LUT boundary clamp and spline coefficient reference in [--vpp-curves](./QSVEncC_Options.en.md#--vpp-curves-param1value1param2value2).
+- Fix constant-luminance YUV to RGB conversion in [--vpp-colorspace](./QSVEncC_Options.en.md#--vpp-colorspace-param1value1param2value2).
+- Fix multiple color conversion bugs in YUV444/NV24/RGB paths.
+
 ## 8.19
 
 - Improve post-tr2 shimmer repair in [--vpp-rtgmc](./QSVEncC_Options.en.md#--vpp-rtgmc-param1value1).

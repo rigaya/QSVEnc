@@ -314,6 +314,22 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2026.07.04 (8.20)
+[QSVEncC]
+- --vpp-finedehaloの高精度化。
+- --vpp-finedehaloをインタレ非対応と明示。
+- --vpp-degrainでscene-change遅延出力時にghostが発生する問題を修正。motion searchの改善も実施。
+- --vpp-ivtc expand/mixedパスでフレーム破損する問題を修正。
+- --vpp-anime4k-shader YUV444入力でOOB読み取りが発生する問題を修正。
+- --vpp-decimate 重複フレーム検出が不正になる問題を修正。
+- --vpp-afs 境界でのmapバッファOOB読み取りを修正。
+- --vpp-subburn 字幕位置が負の場合のOOB writeを防止。
+- --vpp-deflicker シーンチェンジ後にフィルタが恒久的に無効化される問題を修正。
+- AviSynth入力で音声トラック選択フォールバック時に無限ループになる問題を修正。
+- --vpp-curves LUT境界のclamp漏れとスプライン係数の参照ミスを修正。
+- --vpp-colorspace constant-luminance YUV→RGB変換の係数ミスを修正。
+- YUV444/NV24/RGB等の色変換の複数のバグを修正。
+
 2026.06.28 (8.19)
 [QSVEncC]
 - --vpp-rtgmc の post-tr2 shimmer repair 補正を改善。
