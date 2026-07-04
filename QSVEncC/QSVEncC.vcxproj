@@ -314,7 +314,8 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avutil-*.dll" "$(OutDir)"
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\swresample-*.dll" "$(OutDir)" &gt; NUL
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avdevice-*.dll" "$(OutDir)" &gt; NUL
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)" &gt; NUL
-copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libplacebo-*.dll" "$(OutDir)" &gt; NUL</Command>
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libplacebo-*.dll" "$(OutDir)" &gt; NUL
+if exist "$(OPENVINO_PATH)\bin\intel64\Release\openvino_c.dll" copy /y "$(OPENVINO_PATH)\bin\intel64\Release\*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
     <PreBuildEvent>
       <Command>
@@ -375,7 +376,8 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avutil-*.dll" "$(OutDir)"
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\swresample-*.dll" "$(OutDir)" &gt; NUL
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avdevice-*.dll" "$(OutDir)" &gt; NUL
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)" &gt; NUL
-copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libplacebo-*.dll" "$(OutDir)" &gt; NUL</Command>
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libplacebo-*.dll" "$(OutDir)" &gt; NUL
+if exist "$(OPENVINO_PATH)\bin\intel64\Release\openvino_c.dll" copy /y "$(OPENVINO_PATH)\bin\intel64\Release\*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
     <PreBuildEvent>
       <Command>"$(SolutionDir)BuildVPL.bat" $(Platform) Debug $(DefaultPlatformToolset)</Command>
@@ -583,7 +585,8 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avutil-*.dll" "$(OutDir)"
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\swresample-*.dll" "$(OutDir)" &gt; NUL
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avdevice-*.dll" "$(OutDir)" &gt; NUL
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)" &gt; NUL
-copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libplacebo-*.dll" "$(OutDir)" &gt; NUL</Command>
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libplacebo-*.dll" "$(OutDir)" &gt; NUL
+if exist "$(OPENVINO_PATH)\bin\intel64\Release\openvino_c.dll" copy /y "$(OPENVINO_PATH)\bin\intel64\Release\*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
     <PreBuildEvent>
       <Command>
@@ -654,7 +657,8 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avutil-*.dll" "$(OutDir)"
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\swresample-*.dll" "$(OutDir)" &gt; NUL
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\avdevice-*.dll" "$(OutDir)" &gt; NUL
 copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)" &gt; NUL
-copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libplacebo-*.dll" "$(OutDir)" &gt; NUL</Command>
+copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libplacebo-*.dll" "$(OutDir)" &gt; NUL
+if exist "$(OPENVINO_PATH)\bin\intel64\Release\openvino_c.dll" copy /y "$(OPENVINO_PATH)\bin\intel64\Release\*.dll" "$(OutDir)" &gt; NUL</Command>
     </PostBuildEvent>
     <PreBuildEvent>
       <Command>"$(SolutionDir)BuildVPL.bat" $(Platform) Release $(DefaultPlatformToolset)</Command>
