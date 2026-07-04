@@ -2624,6 +2624,9 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm, RGYDisableG
         OPT_NUM(_T("--avbr-unitsize"), rcParam.avbrConvergence);
     }
     if (save_disabled_prm
+        || pParams->nLookaheadDepth > 0
+        || pParams->nWinBRCSize > 0
+        || pParams->nLookaheadDS != MFX_LOOKAHEAD_DS_UNKNOWN
         || pParams->rcParam.encMode == MFX_RATECONTROL_LA
         || pParams->rcParam.encMode == MFX_RATECONTROL_LA_HRD
         || pParams->rcParam.encMode == MFX_RATECONTROL_LA_ICQ) {

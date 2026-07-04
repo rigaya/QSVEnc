@@ -806,6 +806,12 @@ Change the rate control mode and rate control params within the specified range 
 Specify lookahead depth in frames. (10 - 100)  
 When encoding in interlace mode, the upper limit will be halved to 50.
 
+For AV1 lookahead, use `--la-depth` as the EncTools LookAheadDepth option on top of bitrate control modes such as `--vbr` / `--cbr` / `--icq`, instead of the legacy `--la` / `--la-icq` / `--la-hrd` rate control modes. Intel's FFmpeg QSV examples enable it with ExtBRC, so use `--extbrc` together with this option. A typical AV1 quality-oriented example is:
+
+```
+--codec av1 --icq 24 --la-depth 40 --extbrc --i-adapt --b-adapt
+```
+
 ### --la-window-size &lt;int&gt; 0(auto)
 Set bitrate calculation window length in frames.
 
