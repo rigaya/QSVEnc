@@ -285,3 +285,124 @@ __kernel void dehalo_apply(
     __global Type *dPix = (__global Type *)(pDst + y * dstPitch + x * sizeof(Type));
     dPix[0] = (Type)convert_int_rte(r);
 }
+
+__kernel void dehalo_square_morph(
+    const __global uchar *pSrc, int srcPitch,
+    __global       uchar *pDst, int dstPitch,
+    int width, int height,
+    int radius, int expand
+) {
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    if (x >= width || y >= height) return;
+
+    int m = dh_readPixClamp(pSrc, x, y, srcPitch, width, height);
+    for (int dy = -radius; dy <= radius; dy++) {
+        for (int dx = -radius; dx <= radius; dx++) {
+            const int v = dh_readPixClamp(pSrc, x + dx, y + dy, srcPitch, width, height);
+            m = expand ? max(m, v) : min(m, v);
+        }
+    }
+
+    __global Type *dPix = (__global Type *)(pDst + y * dstPitch + x * sizeof(Type));
+    dPix[0] = (Type)m;
+}
+
+__kernel void dehalo_square_range(
+    const __global uchar *pSrc, int srcPitch,
+    __global       uchar *pDst, int dstPitch,
+    int width, int height,
+    int radiusExpand, int radiusInpand
+) {
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    if (x >= width || y >= height) return;
+
+    int mn = dh_readPixClamp(pSrc, x, y, srcPitch, width, height);
+    int mx = mn;
+    for (int dy = -radiusExpand; dy <= radiusExpand; dy++) {
+        for (int dx = -radiusExpand; dx <= radiusExpand; dx++) {
+            const int v = dh_readPixClamp(pSrc, x + dx, y + dy, srcPitch, width, height);
+            mx = max(mx, v);
+        }
+    }
+    for (int dy = -radiusInpand; dy <= radiusInpand; dy++) {
+        for (int dx = -radiusInpand; dx <= radiusInpand; dx++) {
+            const int v = dh_readPixClamp(pSrc, x + dx, y + dy, srcPitch, width, height);
+            mn = min(mn, v);
+        }
+    }
+
+    __global Type *dPix = (__global Type *)(pDst + y * dstPitch + x * sizeof(Type));
+    dPix[0] = (Type)(mx - mn);
+}
+
+__kernel void dehalo_alpha_lets(
+    const __global uchar *pClp,   int clpPitch,
+    const __global uchar *pHalos, int halosPitch,
+    const __global uchar *pAre,   int arePitch,
+    const __global uchar *pUgly,  int uglyPitch,
+    __global       uchar *pDst,   int dstPitch,
+    int width, int height,
+    int loScaled, int highsens
+) {
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    if (x >= width || y >= height) return;
+
+    const float clpPix = (float)dh_readPixClamp(pClp, x, y, clpPitch, width, height);
+    const float halosPix = (float)dh_readPixClamp(pHalos, x, y, halosPitch, width, height);
+    const float arePix = (float)dh_readPixClamp(pAre, x, y, arePitch, width, height);
+    const float uglyPix = (float)dh_readPixClamp(pUgly, x, y, uglyPitch, width, height);
+    const float range_size = (float)max_val + 1.0f;
+    const float eps = 0.001f;
+    const float soBase = ((arePix - uglyPix) / (arePix + eps) * (float)max_val) - (float)loScaled;
+    const float soGain = ((arePix + range_size) / (range_size * 2.0f)) + (float)highsens * 0.01f;
+    const float so = clamp(soBase * soGain, 0.0f, (float)max_val);
+    const float r = halosPix + (clpPix - halosPix) * (so / (float)max_val);
+
+    __global Type *dPix = (__global Type *)(pDst + y * dstPitch + x * sizeof(Type));
+    dPix[0] = (Type)((int)(clamp(r, 0.0f, (float)max_val) + 0.5f));
+}
+
+__kernel void dehalo_alpha_clamp(
+    const __global uchar *pSrc,       int srcPitch,
+    const __global uchar *pLimitLow,  int limitLowPitch,
+    const __global uchar *pLimitHigh, int limitHighPitch,
+    __global       uchar *pDst,       int dstPitch,
+    int width, int height
+) {
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    if (x >= width || y >= height) return;
+
+    const int srcPix = dh_readPixClamp(pSrc, x, y, srcPitch, width, height);
+    const int lowPix = dh_readPixClamp(pLimitLow, x, y, limitLowPitch, width, height);
+    const int highPix = dh_readPixClamp(pLimitHigh, x, y, limitHighPitch, width, height);
+    const int lo = min(lowPix, highPix);
+    const int hi = max(lowPix, highPix);
+    const int out = clamp(srcPix, lo, hi);
+
+    __global Type *dPix = (__global Type *)(pDst + y * dstPitch + x * sizeof(Type));
+    dPix[0] = (Type)clamp(out, 0, max_val);
+}
+
+__kernel void dehalo_alpha_them(
+    const __global uchar *pSrc,    int srcPitch,
+    const __global uchar *pRemove, int removePitch,
+    __global       uchar *pDst,    int dstPitch,
+    int width, int height,
+    float darkstr, float brightstr
+) {
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    if (x >= width || y >= height) return;
+
+    const float srcPix = (float)dh_readPixClamp(pSrc, x, y, srcPitch, width, height);
+    const float removePix = (float)dh_readPixClamp(pRemove, x, y, removePitch, width, height);
+    const float str = (srcPix < removePix) ? darkstr : brightstr;
+    const float r = srcPix - (srcPix - removePix) * str;
+
+    __global Type *dPix = (__global Type *)(pDst + y * dstPitch + x * sizeof(Type));
+    dPix[0] = (Type)((int)(clamp(r, 0.0f, (float)max_val) + 0.5f));
+}

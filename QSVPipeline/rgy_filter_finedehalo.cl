@@ -32,6 +32,22 @@ inline int fdh_readPixClamp(const __global uchar *plane,
     return (int)(*(const __global Type *)(plane + y * pitch + x * sizeof(Type)));
 }
 
+#define FINEDEHALO_MORPH_SQUARE     0
+#define FINEDEHALO_MORPH_BOTH       1
+#define FINEDEHALO_MORPH_HORIZONTAL 2
+#define FINEDEHALO_MORPH_VERTICAL   3
+
+inline int fdh_ramp_value(int v, int lo, int hi) {
+    if (hi > lo) {
+        if (v <= lo) return 0;
+        if (v >= hi) return max_val;
+        const long num = (long)(v - lo) * (long)max_val;
+        const long den = (long)(hi - lo);
+        return clamp((int)((num + den / 2) / den), 0, max_val);
+    }
+    return (v >= lo) ? max_val : 0;
+}
+
 // =============================================================================
 // SLM tile-load was tested for these 3x3 edge kernels on Arc A770 at
 // 480p / 720p / 1080p / 4K (--vpp-perf-monitor, --trim 0:500). Result:
@@ -300,4 +316,192 @@ __kernel void finedehalo_combine(
 
     __global Type *dPix = (__global Type *)(pDst + y * dstPitch + x * sizeof(Type));
     dPix[0] = (Type)outVal;
+}
+
+__kernel void finedehalo_edge_raw(
+    const __global uchar *pSrc, int srcPitch,
+    __global       uchar *pDst, int dstPitch,
+    int width, int height,
+    int edgeMode
+) {
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    if (x >= width || y >= height) return;
+
+    const int tl = fdh_readPixClamp(pSrc, x - 1, y - 1, srcPitch, width, height);
+    const int tc = fdh_readPixClamp(pSrc, x    , y - 1, srcPitch, width, height);
+    const int tr = fdh_readPixClamp(pSrc, x + 1, y - 1, srcPitch, width, height);
+    const int cl = fdh_readPixClamp(pSrc, x - 1, y    , srcPitch, width, height);
+    const int cr = fdh_readPixClamp(pSrc, x + 1, y    , srcPitch, width, height);
+    const int bl = fdh_readPixClamp(pSrc, x - 1, y + 1, srcPitch, width, height);
+    const int bc = fdh_readPixClamp(pSrc, x    , y + 1, srcPitch, width, height);
+    const int br = fdh_readPixClamp(pSrc, x + 1, y + 1, srcPitch, width, height);
+
+    int g = 0;
+    if (edgeMode == 1) {
+        const int gx = -3 * tl + 3 * tr - 10 * cl + 10 * cr - 3 * bl + 3 * br;
+        const int gy = -3 * tl - 10 * tc - 3 * tr + 3 * bl + 10 * bc + 3 * br;
+        g = (abs(gx) + abs(gy)) / 4;
+    } else if (edgeMode == 2) {
+        const int n  =  5 * (tl + tc + tr) - 3 * (cl + cr + bl + bc + br);
+        const int ne =  5 * (tc + tr + cr) - 3 * (tl + cl + bl + bc + br);
+        const int e  =  5 * (tr + cr + br) - 3 * (tl + tc + cl + bl + bc);
+        const int se =  5 * (cr + br + bc) - 3 * (tl + tc + tr + cl + bl);
+        const int s  =  5 * (bl + bc + br) - 3 * (tl + tc + tr + cl + cr);
+        const int sw =  5 * (cl + bl + bc) - 3 * (tl + tc + tr + cr + br);
+        const int w  =  5 * (tl + cl + bl) - 3 * (tc + tr + cr + bc + br);
+        const int nw =  5 * (tl + tc + cl) - 3 * (tr + cr + bl + bc + br);
+        int m = max(max(max(n, ne), max(e, se)), max(max(s, sw), max(w, nw)));
+        g = (max(m, 0) * 8) / 15;
+    } else if (edgeMode == 3) {
+        const int cc = fdh_readPixClamp(pSrc, x, y, srcPitch, width, height);
+        g = abs(4 * cc - tc - cl - cr - bc) * 2;
+    } else if (edgeMode == 4) {
+        const int gx = -tl - 2 * cl - bl + tr + 2 * cr + br;
+        const int gy = -tl - 2 * tc - tr + bl + 2 * bc + br;
+        g = abs(gx) + abs(gy);
+    } else {
+        const int p90 = tl + tc + tr - bl - bc - br;
+        const int p180 = tl + cl + bl - tr - cr - br;
+        const int p45 = cl + tl + tc - br - cr - bc;
+        const int p135 = bl + cl + bc - tr - cr - tc;
+        g = max(max(abs(p90), abs(p180)), max(abs(p45), abs(p135)));
+    }
+
+    __global Type *dPix = (__global Type *)(pDst + y * dstPitch + x * sizeof(Type));
+    dPix[0] = (Type)clamp(g, 0, max_val);
+}
+
+__kernel void finedehalo_ramp_mask(
+    const __global uchar *pSrc, int srcPitch,
+    __global       uchar *pDst, int dstPitch,
+    int width, int height,
+    int loScaled, int hiScaled
+) {
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    if (x >= width || y >= height) return;
+
+    const int v = fdh_readPixClamp(pSrc, x, y, srcPitch, width, height);
+    __global Type *dPix = (__global Type *)(pDst + y * dstPitch + x * sizeof(Type));
+    dPix[0] = (Type)fdh_ramp_value(v, loScaled, hiScaled);
+}
+
+__kernel void finedehalo_morph_3x3(
+    const __global uchar *pSrc, int srcPitch,
+    __global       uchar *pDst, int dstPitch,
+    int width, int height,
+    int mode, int expand
+) {
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    if (x >= width || y >= height) return;
+
+    int m = fdh_readPixClamp(pSrc, x, y, srcPitch, width, height);
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            const int use = (mode == FINEDEHALO_MORPH_SQUARE)
+                || (mode == FINEDEHALO_MORPH_BOTH && (dx == 0 || dy == 0))
+                || (mode == FINEDEHALO_MORPH_HORIZONTAL && dy == 0)
+                || (mode == FINEDEHALO_MORPH_VERTICAL && dx == 0);
+            if (!use) continue;
+            const int v = fdh_readPixClamp(pSrc, x + dx, y + dy, srcPitch, width, height);
+            m = expand ? max(m, v) : min(m, v);
+        }
+    }
+    __global Type *dPix = (__global Type *)(pDst + y * dstPitch + x * sizeof(Type));
+    dPix[0] = (Type)m;
+}
+
+__kernel void finedehalo_mul_clamp(
+    const __global uchar *pSrc, int srcPitch,
+    __global       uchar *pDst, int dstPitch,
+    int width, int height,
+    float mul
+) {
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    if (x >= width || y >= height) return;
+    const int v = fdh_readPixClamp(pSrc, x, y, srcPitch, width, height);
+    const int out = clamp((int)((float)v * mul + 0.5f), 0, max_val);
+    __global Type *dPix = (__global Type *)(pDst + y * dstPitch + x * sizeof(Type));
+    dPix[0] = (Type)out;
+}
+
+__kernel void finedehalo_removegrain20_approx(
+    const __global uchar *pSrc, int srcPitch,
+    __global       uchar *pDst, int dstPitch,
+    int width, int height
+) {
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    if (x >= width || y >= height) return;
+    if (x == 0 || y == 0 || x == width - 1 || y == height - 1) {
+        __global Type *dPix = (__global Type *)(pDst + y * dstPitch + x * sizeof(Type));
+        dPix[0] = (Type)fdh_readPixClamp(pSrc, x, y, srcPitch, width, height);
+        return;
+    }
+    int sum = 0;
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            sum += fdh_readPixClamp(pSrc, x + dx, y + dy, srcPitch, width, height);
+        }
+    }
+    __global Type *dPix = (__global Type *)(pDst + y * dstPitch + x * sizeof(Type));
+    dPix[0] = (Type)((sum + 4) / 9);
+}
+
+__kernel void finedehalo_shr_med(
+    const __global uchar *pStrong, int strongPitch,
+    const __global uchar *pShrink, int shrinkPitch,
+    __global       uchar *pDst,    int dstPitch,
+    int width, int height,
+    int excl
+) {
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    if (x >= width || y >= height) return;
+    const int s = fdh_readPixClamp(pStrong, x, y, strongPitch, width, height);
+    const int out = excl ? max(s, fdh_readPixClamp(pShrink, x, y, shrinkPitch, width, height)) : s;
+    __global Type *dPix = (__global Type *)(pDst + y * dstPitch + x * sizeof(Type));
+    dPix[0] = (Type)out;
+}
+
+__kernel void finedehalo_outside(
+    const __global uchar *pLarge,  int largePitch,
+    const __global uchar *pShrMed, int shrMedPitch,
+    const __global uchar *pStrong, int strongPitch,
+    __global       uchar *pDst,    int dstPitch,
+    int width, int height,
+    float edgeproc
+) {
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    if (x >= width || y >= height) return;
+    const int largePix = fdh_readPixClamp(pLarge, x, y, largePitch, width, height);
+    const int shrMedPix = fdh_readPixClamp(pShrMed, x, y, shrMedPitch, width, height);
+    const int strongPix = fdh_readPixClamp(pStrong, x, y, strongPitch, width, height);
+    const float edgeAdd = (edgeproc > 0.0f) ? (float)strongPix * edgeproc * 0.66f : 0.0f;
+    const int out = clamp((int)((float)max(largePix - shrMedPix, 0) * 2.0f + edgeAdd + 0.5f), 0, max_val);
+    __global Type *dPix = (__global Type *)(pDst + y * dstPitch + x * sizeof(Type));
+    dPix[0] = (Type)out;
+}
+
+__kernel void finedehalo_combine_new(
+    const __global uchar *pSrc,      int srcPitch,
+    const __global uchar *pDehaloed, int dehPitch,
+    const __global uchar *pOutside,  int outsidePitch,
+    __global       uchar *pDst,      int dstPitch,
+    int width, int height
+) {
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    if (x >= width || y >= height) return;
+    const int s = fdh_readPixClamp(pSrc, x, y, srcPitch, width, height);
+    const int d = fdh_readPixClamp(pDehaloed, x, y, dehPitch, width, height);
+    const int mask = fdh_readPixClamp(pOutside, x, y, outsidePitch, width, height);
+    const float m = (float)mask / (float)max_val;
+    const int out = clamp((int)((float)s + ((float)d - (float)s) * m + 0.5f), 0, max_val);
+    __global Type *dPix = (__global Type *)(pDst + y * dstPitch + x * sizeof(Type));
+    dPix[0] = (Type)out;
 }

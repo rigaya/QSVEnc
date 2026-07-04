@@ -27,11 +27,33 @@
 // ------------------------------------------------------------------------------------------
 
 #include <algorithm>
+#include <cmath>
 #include "convert_csp.h"
 #include "rgy_filter_finedehalo.h"
 
 static const int FINEDEHALO_BLOCK_X = 32;
 static const int FINEDEHALO_BLOCK_Y = 8;
+enum {
+    FINEDEHALO_MORPH_SQUARE = 0,
+    FINEDEHALO_MORPH_BOTH = 1,
+    FINEDEHALO_MORPH_HORIZONTAL = 2,
+    FINEDEHALO_MORPH_VERTICAL = 3,
+};
+
+static int fdh_edge_mode(const tstring& edge) {
+    if (edge == _T("scharr")) return 1;
+    if (edge == _T("kirsch")) return 2;
+    if (edge == _T("laplacian")) return 3;
+    if (edge == _T("sobel")) return 4;
+    return 0;
+}
+
+static int fdh_morph_multi_mode(const int sw, const int sh, const bool ellipse) {
+    if (sw > 0 && sh > 0) {
+        return (ellipse && (sw % 3) != 1) ? FINEDEHALO_MORPH_BOTH : FINEDEHALO_MORPH_SQUARE;
+    }
+    return (sw > 0) ? FINEDEHALO_MORPH_HORIZONTAL : FINEDEHALO_MORPH_VERTICAL;
+}
 
 RGYFilterFineDehalo::RGYFilterFineDehalo(shared_ptr<RGYOpenCLContext> context) :
     RGYFilter(context),
@@ -40,7 +62,13 @@ RGYFilterFineDehalo::RGYFilterFineDehalo(shared_ptr<RGYOpenCLContext> context) :
     m_buildOptions(),
     m_dehalo(),
     m_edges(),
+    m_strong(),
+    m_large(),
+    m_light(),
+    m_shrink(),
+    m_outside(),
     m_morphTmp(),
+    m_shrMed(),
     m_ey(),
     m_em(),
     m_linemask() {
@@ -102,6 +130,14 @@ RGY_ERR RGYFilterFineDehalo::checkParam(const std::shared_ptr<RGYFilterParamFine
         AddMessage(RGY_LOG_ERROR, _T("Invalid ss=%.2f: must be in [1.0, 4.0].\n"), p.ss);
         return RGY_ERR_INVALID_PARAM;
     }
+    if (!((p.searchRade == FILTER_DEFAULT_DEHALO_SEARCH_RADIUS_AUTO) || (p.searchRade >= 1 && p.searchRade <= 10))) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid search_rade=%d: must be auto or in [1, 10].\n"), p.searchRade);
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (!((p.searchRadi == FILTER_DEFAULT_DEHALO_SEARCH_RADIUS_AUTO) || (p.searchRadi >= 1 && p.searchRadi <= 10))) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid search_radi=%d: must be auto or in [1, 10].\n"), p.searchRadi);
+        return RGY_ERR_INVALID_PARAM;
+    }
     if (p.thmi < 0 || p.thmi > 255 || p.thma < 0 || p.thma > 255) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid thmi=%d or thma=%d: must be in [0, 255].\n"), p.thmi, p.thma);
         return RGY_ERR_INVALID_PARAM;
@@ -113,6 +149,10 @@ RGY_ERR RGYFilterFineDehalo::checkParam(const std::shared_ptr<RGYFilterParamFine
     }
     if (p.showmask < 0 || p.showmask > 4) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid showmask=%d: must be in [0, 4].\n"), p.showmask);
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (!(p.edgeproc >= 0.0f && p.edgeproc <= 1.0f)) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid edgeproc=%.2f: must be in [0.0, 1.0].\n"), p.edgeproc);
         return RGY_ERR_INVALID_PARAM;
     }
     if (p.edge != _T("prewitt")
@@ -193,6 +233,7 @@ RGY_ERR RGYFilterFineDehalo::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
     {
         auto prmDh = std::make_shared<RGYFilterParamDehalo>();
         prmDh->dehalo.enable    = true;
+        prmDh->dehalo.mode      = prm->finedehalo.mode;
         prmDh->dehalo.rx        = prm->finedehalo.rx;
         prmDh->dehalo.ry        = prm->finedehalo.ry;
         prmDh->dehalo.darkstr   = prm->finedehalo.darkstr;
@@ -200,6 +241,8 @@ RGY_ERR RGYFilterFineDehalo::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
         prmDh->dehalo.lowsens   = prm->finedehalo.lowsens;
         prmDh->dehalo.highsens  = prm->finedehalo.highsens;
         prmDh->dehalo.ss        = prm->finedehalo.ss;
+        prmDh->dehalo.searchRade = prm->finedehalo.searchRade;
+        prmDh->dehalo.searchRadi = prm->finedehalo.searchRadi;
         prmDh->frameIn          = prm->frameIn;
         prmDh->frameOut         = prm->frameIn;
         prmDh->baseFps          = prm->baseFps;
@@ -214,11 +257,17 @@ RGY_ERR RGYFilterFineDehalo::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
 
     // All intermediates at source resolution.
     m_edges    = m_cl->createFrameBuffer(prm->frameIn);
+    m_strong   = m_cl->createFrameBuffer(prm->frameIn);
+    m_large    = m_cl->createFrameBuffer(prm->frameIn);
+    m_light    = m_cl->createFrameBuffer(prm->frameIn);
+    m_shrink   = m_cl->createFrameBuffer(prm->frameIn);
+    m_outside  = m_cl->createFrameBuffer(prm->frameIn);
     m_morphTmp = m_cl->createFrameBuffer(prm->frameIn);
+    m_shrMed   = m_cl->createFrameBuffer(prm->frameIn);
     m_ey       = m_cl->createFrameBuffer(prm->frameIn);
     m_em       = m_cl->createFrameBuffer(prm->frameIn);
     m_linemask = m_cl->createFrameBuffer(prm->frameIn);
-    if (!m_edges || !m_morphTmp || !m_ey || !m_em || !m_linemask) {
+    if (!m_edges || !m_strong || !m_large || !m_light || !m_shrink || !m_outside || !m_morphTmp || !m_shrMed || !m_ey || !m_em || !m_linemask) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate finedehalo intermediate buffers.\n"));
         return RGY_ERR_MEMORY_ALLOC;
     }
@@ -277,6 +326,174 @@ RGY_ERR RGYFilterFineDehalo::runLimitMask(RGYFrameInfo *pDst, const RGYFrameInfo
             thlimiHbd, thlimaHbd);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("error at finedehalo_limitmask: %s.\n"), get_err_mes(err));
+    }
+    return err;
+}
+
+RGY_ERR RGYFilterFineDehalo::runEdgeRaw(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
+                                         int edgeMode,
+                                         RGYOpenCLQueue &queue,
+                                         const std::vector<RGYOpenCLEvent> &wait_events) {
+    const auto sP = getPlane(pSrc, RGY_PLANE_Y);
+    const auto dP = getPlane(pDst, RGY_PLANE_Y);
+    RGYWorkSize local(FINEDEHALO_BLOCK_X, FINEDEHALO_BLOCK_Y);
+    RGYWorkSize global(ALIGN(sP.width, FINEDEHALO_BLOCK_X), ALIGN(sP.height, FINEDEHALO_BLOCK_Y));
+    auto err = m_finedehalo.get()->kernel("finedehalo_edge_raw")
+        .config(queue, local, global, wait_events, nullptr).launch(
+            (cl_mem)sP.ptr[0], sP.pitch[0],
+            (cl_mem)dP.ptr[0], dP.pitch[0],
+            sP.width, sP.height,
+            edgeMode);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("error at finedehalo_edge_raw: %s.\n"), get_err_mes(err));
+    }
+    return err;
+}
+
+RGY_ERR RGYFilterFineDehalo::runRampMask(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
+                                          int loHbd, int hiHbd,
+                                          RGYOpenCLQueue &queue,
+                                          const std::vector<RGYOpenCLEvent> &wait_events) {
+    const auto sP = getPlane(pSrc, RGY_PLANE_Y);
+    const auto dP = getPlane(pDst, RGY_PLANE_Y);
+    RGYWorkSize local(FINEDEHALO_BLOCK_X, FINEDEHALO_BLOCK_Y);
+    RGYWorkSize global(ALIGN(sP.width, FINEDEHALO_BLOCK_X), ALIGN(sP.height, FINEDEHALO_BLOCK_Y));
+    auto err = m_finedehalo.get()->kernel("finedehalo_ramp_mask")
+        .config(queue, local, global, wait_events, nullptr).launch(
+            (cl_mem)sP.ptr[0], sP.pitch[0],
+            (cl_mem)dP.ptr[0], dP.pitch[0],
+            sP.width, sP.height,
+            loHbd, hiHbd);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("error at finedehalo_ramp_mask: %s.\n"), get_err_mes(err));
+    }
+    return err;
+}
+
+RGY_ERR RGYFilterFineDehalo::runMorph3x3Ex(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
+                                            int mode, bool expand,
+                                            RGYOpenCLQueue &queue,
+                                            const std::vector<RGYOpenCLEvent> &wait_events) {
+    const auto sP = getPlane(pSrc, RGY_PLANE_Y);
+    const auto dP = getPlane(pDst, RGY_PLANE_Y);
+    RGYWorkSize local(FINEDEHALO_BLOCK_X, FINEDEHALO_BLOCK_Y);
+    RGYWorkSize global(ALIGN(sP.width, FINEDEHALO_BLOCK_X), ALIGN(sP.height, FINEDEHALO_BLOCK_Y));
+    auto err = m_finedehalo.get()->kernel("finedehalo_morph_3x3")
+        .config(queue, local, global, wait_events, nullptr).launch(
+            (cl_mem)sP.ptr[0], sP.pitch[0],
+            (cl_mem)dP.ptr[0], dP.pitch[0],
+            sP.width, sP.height,
+            mode, expand ? 1 : 0);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("error at finedehalo_morph_3x3: %s.\n"), get_err_mes(err));
+    }
+    return err;
+}
+
+RGY_ERR RGYFilterFineDehalo::runMulClamp(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
+                                          float mul,
+                                          RGYOpenCLQueue &queue,
+                                          const std::vector<RGYOpenCLEvent> &wait_events) {
+    const auto sP = getPlane(pSrc, RGY_PLANE_Y);
+    const auto dP = getPlane(pDst, RGY_PLANE_Y);
+    RGYWorkSize local(FINEDEHALO_BLOCK_X, FINEDEHALO_BLOCK_Y);
+    RGYWorkSize global(ALIGN(sP.width, FINEDEHALO_BLOCK_X), ALIGN(sP.height, FINEDEHALO_BLOCK_Y));
+    auto err = m_finedehalo.get()->kernel("finedehalo_mul_clamp")
+        .config(queue, local, global, wait_events, nullptr).launch(
+            (cl_mem)sP.ptr[0], sP.pitch[0],
+            (cl_mem)dP.ptr[0], dP.pitch[0],
+            sP.width, sP.height,
+            mul);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("error at finedehalo_mul_clamp: %s.\n"), get_err_mes(err));
+    }
+    return err;
+}
+
+RGY_ERR RGYFilterFineDehalo::runRemoveGrain(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
+                                             RGYOpenCLQueue &queue,
+                                             const std::vector<RGYOpenCLEvent> &wait_events) {
+    const auto sP = getPlane(pSrc, RGY_PLANE_Y);
+    const auto dP = getPlane(pDst, RGY_PLANE_Y);
+    RGYWorkSize local(FINEDEHALO_BLOCK_X, FINEDEHALO_BLOCK_Y);
+    RGYWorkSize global(ALIGN(sP.width, FINEDEHALO_BLOCK_X), ALIGN(sP.height, FINEDEHALO_BLOCK_Y));
+    auto err = m_finedehalo.get()->kernel("finedehalo_removegrain20_approx")
+        .config(queue, local, global, wait_events, nullptr).launch(
+            (cl_mem)sP.ptr[0], sP.pitch[0],
+            (cl_mem)dP.ptr[0], dP.pitch[0],
+            sP.width, sP.height);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("error at finedehalo_removegrain20_approx: %s.\n"), get_err_mes(err));
+    }
+    return err;
+}
+
+RGY_ERR RGYFilterFineDehalo::runShrMed(RGYFrameInfo *pDst, const RGYFrameInfo *pStrong, const RGYFrameInfo *pShrink,
+                                        bool excl,
+                                        RGYOpenCLQueue &queue,
+                                        const std::vector<RGYOpenCLEvent> &wait_events) {
+    const auto sP = getPlane(pStrong, RGY_PLANE_Y);
+    const auto hP = getPlane(pShrink, RGY_PLANE_Y);
+    const auto dP = getPlane(pDst, RGY_PLANE_Y);
+    RGYWorkSize local(FINEDEHALO_BLOCK_X, FINEDEHALO_BLOCK_Y);
+    RGYWorkSize global(ALIGN(sP.width, FINEDEHALO_BLOCK_X), ALIGN(sP.height, FINEDEHALO_BLOCK_Y));
+    auto err = m_finedehalo.get()->kernel("finedehalo_shr_med")
+        .config(queue, local, global, wait_events, nullptr).launch(
+            (cl_mem)sP.ptr[0], sP.pitch[0],
+            (cl_mem)hP.ptr[0], hP.pitch[0],
+            (cl_mem)dP.ptr[0], dP.pitch[0],
+            sP.width, sP.height,
+            excl ? 1 : 0);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("error at finedehalo_shr_med: %s.\n"), get_err_mes(err));
+    }
+    return err;
+}
+
+RGY_ERR RGYFilterFineDehalo::runOutside(RGYFrameInfo *pDst, const RGYFrameInfo *pLarge, const RGYFrameInfo *pShrMed, const RGYFrameInfo *pStrong,
+                                         float edgeproc,
+                                         RGYOpenCLQueue &queue,
+                                         const std::vector<RGYOpenCLEvent> &wait_events) {
+    const auto lP = getPlane(pLarge, RGY_PLANE_Y);
+    const auto mP = getPlane(pShrMed, RGY_PLANE_Y);
+    const auto sP = getPlane(pStrong, RGY_PLANE_Y);
+    const auto dP = getPlane(pDst, RGY_PLANE_Y);
+    RGYWorkSize local(FINEDEHALO_BLOCK_X, FINEDEHALO_BLOCK_Y);
+    RGYWorkSize global(ALIGN(lP.width, FINEDEHALO_BLOCK_X), ALIGN(lP.height, FINEDEHALO_BLOCK_Y));
+    auto err = m_finedehalo.get()->kernel("finedehalo_outside")
+        .config(queue, local, global, wait_events, nullptr).launch(
+            (cl_mem)lP.ptr[0], lP.pitch[0],
+            (cl_mem)mP.ptr[0], mP.pitch[0],
+            (cl_mem)sP.ptr[0], sP.pitch[0],
+            (cl_mem)dP.ptr[0], dP.pitch[0],
+            lP.width, lP.height,
+            edgeproc);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("error at finedehalo_outside: %s.\n"), get_err_mes(err));
+    }
+    return err;
+}
+
+RGY_ERR RGYFilterFineDehalo::runCombineNew(RGYFrameInfo *pDst,
+                                            const RGYFrameInfo *pSrc, const RGYFrameInfo *pDehaloed, const RGYFrameInfo *pOutside,
+                                            RGYOpenCLQueue &queue,
+                                            const std::vector<RGYOpenCLEvent> &wait_events,
+                                            RGYOpenCLEvent *event) {
+    const auto sP  = getPlane(pSrc,      RGY_PLANE_Y);
+    const auto dhP = getPlane(pDehaloed, RGY_PLANE_Y);
+    const auto oP  = getPlane(pOutside,  RGY_PLANE_Y);
+    const auto dP  = getPlane(pDst,      RGY_PLANE_Y);
+    RGYWorkSize local(FINEDEHALO_BLOCK_X, FINEDEHALO_BLOCK_Y);
+    RGYWorkSize global(ALIGN(sP.width, FINEDEHALO_BLOCK_X), ALIGN(sP.height, FINEDEHALO_BLOCK_Y));
+    auto err = m_finedehalo.get()->kernel("finedehalo_combine_new")
+        .config(queue, local, global, wait_events, event).launch(
+            (cl_mem)sP.ptr[0],  sP.pitch[0],
+            (cl_mem)dhP.ptr[0], dhP.pitch[0],
+            (cl_mem)oP.ptr[0],  oP.pitch[0],
+            (cl_mem)dP.ptr[0],  dP.pitch[0],
+            sP.width, sP.height);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("error at finedehalo_combine_new: %s.\n"), get_err_mes(err));
     }
     return err;
 }
@@ -415,61 +632,91 @@ RGY_ERR RGYFilterFineDehalo::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
         pDehaloed = outArr[0];
     }
 
-    // ---- 2. Prewitt edge detection on the ORIGINAL source ----
-    {
-        auto err = runPrewitt(&m_edges->frame, pInputFrame, thmiHbd, thmaHbd, queue_main, {});
-        if (err != RGY_ERR_NONE) return err;
-    }
+    const int edgeMode = fdh_edge_mode(prm->finedehalo.edge);
+    const float absRx = (prm->finedehalo.rx >= 0.0f) ? prm->finedehalo.rx : -prm->finedehalo.rx;
+    const float absRy = (prm->finedehalo.ry >= 0.0f) ? prm->finedehalo.ry : -prm->finedehalo.ry;
+    const int rx = std::max(1, (int)(absRx + 0.5f));
+    const int ry = std::max(1, (int)(absRy + 0.5f));
 
-    // ---- 3. Edge zone morphology pass A: expand → inpand ----
-    {
-        auto err = runMorph3x3("dehalo_expand", &m_morphTmp->frame, &m_edges->frame, queue_main, {});
-        if (err != RGY_ERR_NONE) return err;
-        err = runMorph3x3("dehalo_inpand", &m_ey->frame, &m_morphTmp->frame, queue_main, {});
-        if (err != RGY_ERR_NONE) return err;
-    }
+    auto morphMulti = [&](RGYFrameInfo *pDst, const RGYFrameInfo *pSrc, RGYFrameInfo *pTmp, const bool expand, const bool ellipse) {
+        const int iter = std::max(rx, ry);
+        const RGYFrameInfo *pCur = pSrc;
+        for (int i = 0; i < iter; i++) {
+            const int sw = std::max(rx - i, 0);
+            const int sh = std::max(ry - i, 0);
+            const int mode = fdh_morph_multi_mode(sw, sh, ellipse);
+            RGYFrameInfo *pNext = nullptr;
+            if (i == iter - 1) {
+                pNext = pDst;
+            } else {
+                const bool firstToDst = (iter & 1) != 0;
+                const bool useDst = firstToDst ? ((i & 1) == 0) : ((i & 1) != 0);
+                pNext = useDst ? pDst : pTmp;
+            }
+            auto err = runMorph3x3Ex(pNext, pCur, mode, expand, queue_main, {});
+            if (err != RGY_ERR_NONE) return err;
+            pCur = pNext;
+        }
+        return RGY_ERR_NONE;
+    };
 
-    // ---- 4. Edge zone morphology pass B: expand → inpand ----
-    {
-        auto err = runMorph3x3("dehalo_expand", &m_morphTmp->frame, &m_ey->frame, queue_main, {});
-        if (err != RGY_ERR_NONE) return err;
-        err = runMorph3x3("dehalo_inpand", &m_em->frame, &m_morphTmp->frame, queue_main, {});
-        if (err != RGY_ERR_NONE) return err;
-    }
+    auto err = runEdgeRaw(&m_edges->frame, pInputFrame, edgeMode, queue_main, {});
+    if (err != RGY_ERR_NONE) return err;
+    err = runRampMask(&m_strong->frame, &m_edges->frame, thmiHbd, thmaHbd, queue_main, {});
+    if (err != RGY_ERR_NONE) return err;
+    err = runRampMask(&m_light->frame, &m_edges->frame, thlimiHbd, thlimaHbd, queue_main, {});
+    if (err != RGY_ERR_NONE) return err;
+    err = morphMulti(&m_large->frame, &m_strong->frame, &m_morphTmp->frame, true, false);
+    if (err != RGY_ERR_NONE) return err;
+    err = morphMulti(&m_shrink->frame, &m_light->frame, &m_morphTmp->frame, true, true);
+    if (err != RGY_ERR_NONE) return err;
+    err = runMulClamp(&m_morphTmp->frame, &m_shrink->frame, 4.0f, queue_main, {});
+    if (err != RGY_ERR_NONE) return err;
+    err = morphMulti(&m_shrink->frame, &m_morphTmp->frame, &m_light->frame, false, true);
+    if (err != RGY_ERR_NONE) return err;
+    err = runRemoveGrain(&m_morphTmp->frame, &m_shrink->frame, queue_main, {});
+    if (err != RGY_ERR_NONE) return err;
+    err = runRemoveGrain(&m_shrink->frame, &m_morphTmp->frame, queue_main, {});
+    if (err != RGY_ERR_NONE) return err;
+    err = runShrMed(&m_shrMed->frame, &m_strong->frame, &m_shrink->frame, prm->finedehalo.excl, queue_main, {});
+    if (err != RGY_ERR_NONE) return err;
+    err = runOutside(&m_outside->frame, &m_large->frame, &m_shrMed->frame, &m_strong->frame, prm->finedehalo.edgeproc, queue_main, {});
+    if (err != RGY_ERR_NONE) return err;
 
-    // ---- 5. Limit mask from src ↔ dehaloed difference ----
-    {
-        auto err = runLimitMask(&m_linemask->frame, pInputFrame, pDehaloed,
-                                thlimiHbd, thlimaHbd, queue_main, {});
-        if (err != RGY_ERR_NONE) return err;
-    }
-
-    // ---- 6. Final merge / mask debug ----
     const int showmask = prm->finedehalo.showmask;
-    if (showmask == 1 || showmask == 2 || showmask == 3) {
-        // Debug: copy the requested intermediate luma to output. Combine
-        // kernel is skipped; chroma copy below greyscales the frame
-        // implicitly via the pass-through (chroma carries source colour,
-        // but the luma is the mask, so on a greyscale viewer the mask
-        // shape is what's visible).
-        const RGYFrameInfo *pSrcMask = (showmask == 1) ? &m_edges->frame
-                                     : (showmask == 2) ? &m_em->frame
-                                                       : &m_linemask->frame;
-        const auto srcP = getPlane(pSrcMask, RGY_PLANE_Y);
-        const auto dstP = getPlane(pOut,     RGY_PLANE_Y);
-        auto err = m_cl->copyPlane(const_cast<RGYFrameInfo *>(&dstP), &srcP, nullptr, queue_main, {}, hasChroma ? nullptr : event);
+    if (showmask == 1) {
+        const auto srcP = getPlane(&m_outside->frame, RGY_PLANE_Y);
+        const auto dstP = getPlane(pOut, RGY_PLANE_Y);
+        err = m_cl->copyPlane(const_cast<RGYFrameInfo *>(&dstP), &srcP, nullptr, queue_main, {}, hasChroma ? nullptr : event);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("finedehalo showmask copy failed: %s.\n"), get_err_mes(err));
             return err;
         }
     } else {
-        // Normal path (showmask==0) and final-mask path (showmask==4) both
-        // go through the combine kernel — the kernel branches on showmask
-        // internally to either emit blended output or final_mask.
-        auto err = runCombine(pOut, pInputFrame, pDehaloed,
-                              &m_em->frame, &m_linemask->frame,
-                              showmask, queue_main, {}, hasChroma ? nullptr : event);
+        err = runRemoveGrain(&m_shrMed->frame, &m_outside->frame, queue_main, {});
         if (err != RGY_ERR_NONE) return err;
+        err = runMulClamp(&m_outside->frame, &m_shrMed->frame, 2.0f, queue_main, {});
+        if (err != RGY_ERR_NONE) return err;
+        const RGYFrameInfo *pSrcMask = nullptr;
+        if (showmask == 2) {
+            pSrcMask = &m_shrink->frame;
+        } else if (showmask == 3) {
+            pSrcMask = &m_edges->frame;
+        } else if (showmask == 4) {
+            pSrcMask = &m_strong->frame;
+        }
+        if (pSrcMask) {
+            const auto srcP = getPlane(pSrcMask, RGY_PLANE_Y);
+            const auto dstP = getPlane(pOut,     RGY_PLANE_Y);
+            err = m_cl->copyPlane(const_cast<RGYFrameInfo *>(&dstP), &srcP, nullptr, queue_main, {}, hasChroma ? nullptr : event);
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("finedehalo showmask copy failed: %s.\n"), get_err_mes(err));
+                return err;
+            }
+        } else {
+            err = runCombineNew(pOut, pInputFrame, pDehaloed, &m_outside->frame, queue_main, {}, hasChroma ? nullptr : event);
+            if (err != RGY_ERR_NONE) return err;
+        }
     }
 
     // Chroma planes always come from the original source (luma-only filter).
@@ -495,7 +742,13 @@ void RGYFilterFineDehalo::close() {
     m_buildOptions.clear();
     m_dehalo.reset();
     m_edges.reset();
+    m_strong.reset();
+    m_large.reset();
+    m_light.reset();
+    m_shrink.reset();
+    m_outside.reset();
     m_morphTmp.reset();
+    m_shrMed.reset();
     m_ey.reset();
     m_em.reset();
     m_linemask.reset();

@@ -72,6 +72,24 @@ protected:
                        float darkstr, float brightstr,
                        RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events,
                        RGYOpenCLEvent *event);
+    RGY_ERR runAlphaRange(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
+                          int radiusExpand, int radiusInpand,
+                          RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
+    RGY_ERR runAlphaMorph(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
+                          int radius, bool expand,
+                          RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
+    RGY_ERR runAlphaLets(RGYFrameInfo *pDst,
+                         const RGYFrameInfo *pSrc, const RGYFrameInfo *pHalos, const RGYFrameInfo *pAre, const RGYFrameInfo *pUgly,
+                         int loScaled, int highsens,
+                         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
+    RGY_ERR runAlphaClamp(RGYFrameInfo *pDst,
+                          const RGYFrameInfo *pSrc, const RGYFrameInfo *pLimitLow, const RGYFrameInfo *pLimitHigh,
+                          RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
+    RGY_ERR runAlphaThem(RGYFrameInfo *pDst,
+                         const RGYFrameInfo *pSrc, const RGYFrameInfo *pRemove,
+                         const VppDehalo& prm,
+                         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events,
+                         RGYOpenCLEvent *event);
 
     RGY_ERR copyChromaPlanes(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
                              RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events,
@@ -84,6 +102,10 @@ protected:
     // the filter operates at native resolution and these stay null.
     std::unique_ptr<RGYFilter> m_resizeUp;
     std::unique_ptr<RGYFilter> m_resizeDown;
+    std::unique_ptr<RGYFilter> m_resizeAlphaHaloDown;
+    std::unique_ptr<RGYFilter> m_resizeAlphaHaloUp;
+    std::unique_ptr<RGYFilter> m_resizeAlphaUp;
+    std::unique_ptr<RGYFilter> m_resizeAlphaDown;
 
     // Intermediate frame buffers. When ss > 1.0 they live at supersampled
     // resolution (m_ssW × m_ssH); when ss == 1.0 they live at source
@@ -99,10 +121,22 @@ protected:
     std::unique_ptr<RGYCLFrame> m_inpand;
     std::unique_ptr<RGYCLFrame> m_mask;
     std::unique_ptr<RGYCLFrame> m_corrected;
+    std::unique_ptr<RGYCLFrame> m_alphaHalosSmall;
+    std::unique_ptr<RGYCLFrame> m_alphaHalos;
+    std::unique_ptr<RGYCLFrame> m_alphaAre;
+    std::unique_ptr<RGYCLFrame> m_alphaUgly;
+    std::unique_ptr<RGYCLFrame> m_alphaLets;
+    std::unique_ptr<RGYCLFrame> m_alphaLimitLow;
+    std::unique_ptr<RGYCLFrame> m_alphaLimitHigh;
+    std::unique_ptr<RGYCLFrame> m_alphaLimitLowSS;
+    std::unique_ptr<RGYCLFrame> m_alphaLimitHighSS;
+    std::unique_ptr<RGYCLFrame> m_alphaRemoved;
 
     // Cached state.
     int  m_ssW;       // supersampled width  (== sourceW when ss == 1.0)
     int  m_ssH;       // supersampled height (== sourceH when ss == 1.0)
+    int  m_alphaHaloW;
+    int  m_alphaHaloH;
     bool m_ssActive;  // true when ss > 1.0 (resize-up/down dispatched)
 };
 

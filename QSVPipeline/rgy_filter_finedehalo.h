@@ -62,6 +62,30 @@ protected:
     RGY_ERR runLimitMask (RGYFrameInfo *pDst, const RGYFrameInfo *pSrc, const RGYFrameInfo *pDehaloed,
                           int thlimiHbd, int thlimaHbd,
                           RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
+    RGY_ERR runEdgeRaw   (RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
+                          int edgeMode,
+                          RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
+    RGY_ERR runRampMask  (RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
+                          int loHbd, int hiHbd,
+                          RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
+    RGY_ERR runMorph3x3Ex(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
+                          int mode, bool expand,
+                          RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
+    RGY_ERR runMulClamp  (RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
+                          float mul,
+                          RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
+    RGY_ERR runRemoveGrain(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
+                           RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
+    RGY_ERR runShrMed    (RGYFrameInfo *pDst, const RGYFrameInfo *pStrong, const RGYFrameInfo *pShrink,
+                          bool excl,
+                          RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
+    RGY_ERR runOutside   (RGYFrameInfo *pDst, const RGYFrameInfo *pLarge, const RGYFrameInfo *pShrMed, const RGYFrameInfo *pStrong,
+                          float edgeproc,
+                          RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
+    RGY_ERR runCombineNew(RGYFrameInfo *pDst,
+                          const RGYFrameInfo *pSrc, const RGYFrameInfo *pDehaloed, const RGYFrameInfo *pOutside,
+                          RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events,
+                          RGYOpenCLEvent *event);
     RGY_ERR runCombine   (RGYFrameInfo *pDst,
                           const RGYFrameInfo *pSrc, const RGYFrameInfo *pDehaloed,
                           const RGYFrameInfo *pEm,  const RGYFrameInfo *pLineMask,
@@ -100,7 +124,13 @@ protected:
 
     // Intermediate buffers (all source-resolution, luma-plane shape).
     std::unique_ptr<RGYCLFrame> m_edges;     // raw Prewitt + threshold ramp
+    std::unique_ptr<RGYCLFrame> m_strong;
+    std::unique_ptr<RGYCLFrame> m_large;
+    std::unique_ptr<RGYCLFrame> m_light;
+    std::unique_ptr<RGYCLFrame> m_shrink;
+    std::unique_ptr<RGYCLFrame> m_outside;
     std::unique_ptr<RGYCLFrame> m_morphTmp;  // scratch between expand and inpand
+    std::unique_ptr<RGYCLFrame> m_shrMed;
     std::unique_ptr<RGYCLFrame> m_ey;        // pass-A morph result
     std::unique_ptr<RGYCLFrame> m_em;        // pass-B morph result (edge protection zone)
     std::unique_ptr<RGYCLFrame> m_linemask;  // limit mask
