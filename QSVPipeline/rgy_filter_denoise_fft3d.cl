@@ -189,6 +189,11 @@ IFFT_NORMALIZE(16)
 IFFT_NORMALIZE(32)
 IFFT_NORMALIZE(64)
 
+// select the twiddle table matching temporalCount (FW_TEMPORAL1..4, generated host-side)
+#define FW_TEMPORAL_CAT2(a, b) a##b
+#define FW_TEMPORAL_CAT(a, b) FW_TEMPORAL_CAT2(a, b)
+#define FW_TEMPORAL_TBL FW_TEMPORAL_CAT(FW_TEMPORAL, temporalCount)
+
 static void dft_tmprl(const bool forward, const int step, TypeComplex *data) {
     TypeComplex work[temporalCount];
     #pragma unroll
@@ -199,7 +204,7 @@ static void dft_tmprl(const bool forward, const int step, TypeComplex *data) {
     for (int i = 0; i < temporalCount; i++) {
         #pragma unroll
         for (int k = 0; k < temporalCount; k++) {
-            work[k] += cmul(data[i * step], FW_TEMPORAL3[forward ? 1 : 0][i*k]);
+            work[k] += cmul(data[i * step], FW_TEMPORAL_TBL[forward ? 1 : 0][i*k]);
         }
     }
     const TypeComplex invN = (forward) ? (TypeComplex)1.0f : (TypeComplex)(1.0f / (float)temporalCount);
@@ -307,39 +312,55 @@ __kernel void kernel_fft(
 }
 
 TypeComplex temporal_filter(
-    const __global TypeComplex *ptrSrcA,
-    const __global TypeComplex *ptrSrcB,
-    const __global TypeComplex *ptrSrcC,
-    const __global TypeComplex *ptrSrcD,
-    const float sigma, const float limit) {
+    const TypeComplex srcA,
+    const TypeComplex srcB,
+    const TypeComplex srcC,
+    const TypeComplex srcD,
+    const float sigma, const float limit,
+    const float wsharpen, const float sminSq, const float smaxSq) {
     TypeComplex work[temporalCount];
-    work[0] = ptrSrcA[0];
-    if (temporalCount >= 2) { work[1] = ptrSrcB[0]; }
-    if (temporalCount >= 3) { work[2] = ptrSrcC[0]; }
-    if (temporalCount >= 4) { work[3] = ptrSrcD[0]; }
+    work[0] = srcA;
+    if (temporalCount >= 2) { work[1] = srcB; }
+    if (temporalCount >= 3) { work[2] = srcC; }
+    if (temporalCount >= 4) { work[3] = srcD; }
 
     if (temporalCount >= 2) {
         dft_tmprl(true, 1, work);
     }
 
-    #pragma unroll
-    for (int z = 0; z < temporalCount; z++) {
-        const float power = csquare(work[z]);
+    // filterMethod < 0 -> no denoising (bt=-1: sharpen/degrid only)
+    if (filterMethod >= 0) {
+        #pragma unroll
+        for (int z = 0; z < temporalCount; z++) {
+            const float power = csquare(work[z]);
 
-        float factor;
-        if (filterMethod == 0) {
-            factor = max(limit, (power - sigma) * native_recip(power + 1e-15f));
-        } else {
-            factor = power < sigma ? limit : 1.0f;
+            float factor;
+            if (filterMethod == 0) {
+                factor = max(limit, (power - sigma) * native_recip(power + 1e-15f));
+            } else {
+                factor = power < sigma ? limit : 1.0f;
+            }
+            work[z] *= (TypeComplex)factor;
         }
-        work[z] *= (TypeComplex)factor;
     }
 
     if (temporalCount >= 2) {
         dft_tmprl(false, 1, work);
     }
 
-    return work[temporalCurrentIdx];
+    TypeComplex result = work[temporalCurrentIdx];
+#if useSharpen
+    // frequency-domain sharpening (after denoising): amplify mid amplitudes only.
+    // weak bins (psd ~< sminSq) stay put to avoid boosting noise, strong bins
+    // (psd ~> smaxSq) stay put to avoid oversharpening/halo; wsharpen carries
+    // the sharpen strength and the per-bin gaussian high-pass frequency weight.
+    {
+        const float psd = csquare(result);
+        const float sfact = 1.0f + wsharpen * native_sqrt(psd * smaxSq * native_recip((psd + sminSq) * (psd + smaxSq) + 1e-30f));
+        result *= (TypeComplex)sfact;
+    }
+#endif
+    return result;
 }
 
 __kernel void kernel_tfft_filter_ifft(
@@ -358,7 +379,9 @@ __kernel void kernel_tfft_filter_ifft(
     const int block_count_x,
     const __global float *const __restrict__ ptrBlockWindowInverse,
     const int ov1, const int ov2,
-    const float sigma, const float limit
+    const __global float *const __restrict__ ptrSigma, const float limit,
+    const __global float *const __restrict__ ptrWSharpen, const float sminSq, const float smaxSq,
+    const __global float *const __restrict__ ptrGridSample, const float degridFactor
 ) {
     const int thWorker = get_local_id(0); // BLOCK_SIZE
     const int local_bx = get_local_id(1); // DENOISE_BLOCK_SIZE_X
@@ -374,24 +397,64 @@ __kernel void kernel_tfft_filter_ifft(
 
     __local TypeComplex stmp[DENOISE_BLOCK_SIZE_X][BLOCK_SIZE][BLOCK_SIZE + 1];
 
+#if useDegrid
+    // degrid: each frame's block DC scaled by degrid/gridDC. The grid correction
+    // for a bin is gridsample[bin] * blockDC * degrid / gridDC - for a flat block
+    // this equals the block's own (window-biased) spectrum, so subtracting it
+    // before the wiener filter keeps the overlap-add window bias from being
+    // modulated by the (amplitude-dependent) denoising.
+    TypeComplex dcA = (TypeComplex)(0.0f), dcB = (TypeComplex)(0.0f), dcC = (TypeComplex)(0.0f), dcD = (TypeComplex)(0.0f);
+    if (global_bx < block_count_x) {
+        const int dc_idx = (global_by * BLOCK_SIZE) * srcPitch + (global_bx * BLOCK_SIZE) * sizeof(TypeComplex);
+        dcA = ((const __global TypeComplex *)(ptrSrcA + dc_idx))[0] * (TypeComplex)degridFactor;
+        if (temporalCount >= 2) { dcB = ((const __global TypeComplex *)(ptrSrcB + dc_idx))[0] * (TypeComplex)degridFactor; }
+        if (temporalCount >= 3) { dcC = ((const __global TypeComplex *)(ptrSrcC + dc_idx))[0] * (TypeComplex)degridFactor; }
+        if (temporalCount >= 4) { dcD = ((const __global TypeComplex *)(ptrSrcD + dc_idx))[0] * (TypeComplex)degridFactor; }
+    }
+#endif
+
     #pragma unroll
     for (int y = 0; y < BLOCK_SIZE; y++) {
         if (global_bx < block_count_x) {
             const int src_x = global_bx * BLOCK_SIZE + thWorker;
             const int src_y = global_by * BLOCK_SIZE + y;
             const int src_idx = src_y * srcPitch + src_x * sizeof(TypeComplex);
-#if 1
-            stmp[local_bx][y][thWorker] = temporal_filter(
-                (const __global TypeComplex *)(ptrSrcA + src_idx),
-                (const __global TypeComplex *)(ptrSrcB + src_idx),
-                (const __global TypeComplex *)(ptrSrcC + src_idx),
-                (const __global TypeComplex *)(ptrSrcD + src_idx),
-                sigma, limit);
-#else
-            // デバッグ用
-            const __global TypeComplex *ptr_src_a = (const __global TypeComplex *)(ptrSrcA + src_idx);
-            stmp[local_bx][y][thWorker] = ptr_src_a[0];
+            // per-frequency-bin sigma (sigma/sigma2/sigma3/sigma4 interpolated on host)
+            const float binSigma = ptrSigma[y * BLOCK_SIZE + thWorker];
+            TypeComplex srcA = ((const __global TypeComplex *)(ptrSrcA + src_idx))[0];
+            TypeComplex srcB = (TypeComplex)(0.0f), srcC = (TypeComplex)(0.0f), srcD = (TypeComplex)(0.0f);
+            if (temporalCount >= 2) { srcB = ((const __global TypeComplex *)(ptrSrcB + src_idx))[0]; }
+            if (temporalCount >= 3) { srcC = ((const __global TypeComplex *)(ptrSrcC + src_idx))[0]; }
+            if (temporalCount >= 4) { srcD = ((const __global TypeComplex *)(ptrSrcD + src_idx))[0]; }
+            TypeComplex corrCur = (TypeComplex)(0.0f);
+#if useDegrid
+            {
+                const float2 gv = ((const __global float2 *)ptrGridSample)[y * BLOCK_SIZE + thWorker];
+                const TypeComplex grid = (TypeComplex)(gv.x, gv.y);
+                srcA -= cmul(grid, dcA);
+                if (temporalCount >= 2) { srcB -= cmul(grid, dcB); }
+                if (temporalCount >= 3) { srcC -= cmul(grid, dcC); }
+                if (temporalCount >= 4) { srcD -= cmul(grid, dcD); }
+                // current frame's correction, added back after filtering
+                if (temporalCurrentIdx == 0) corrCur = cmul(grid, dcA);
+                if (temporalCount >= 2 && temporalCurrentIdx == 1) corrCur = cmul(grid, dcB);
+                if (temporalCount >= 3 && temporalCurrentIdx == 2) corrCur = cmul(grid, dcC);
+                if (temporalCount >= 4 && temporalCurrentIdx == 3) corrCur = cmul(grid, dcD);
+            }
 #endif
+#if useSharpen
+            // sharpen applies to luma only: the host passes ptrWSharpen = null for
+            // the chroma launch (same compiled kernel serves both launches)
+            const float wsharpen = (ptrWSharpen) ? ptrWSharpen[y * BLOCK_SIZE + thWorker] : 0.0f;
+#else
+            const float wsharpen = 0.0f;
+#endif
+            TypeComplex result = temporal_filter(
+                srcA, srcB, srcC, srcD,
+                binSigma, limit,
+                wsharpen, sminSq, smaxSq);
+            result += corrCur;
+            stmp[local_bx][y][thWorker] = result;
         }
     }
     barrier(CLK_LOCAL_MEM_FENCE);

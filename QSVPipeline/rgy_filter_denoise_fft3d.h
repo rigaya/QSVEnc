@@ -81,6 +81,11 @@ protected:
     std::unique_ptr<RGYCLFrame> m_filteredBlocks;
     std::unique_ptr<RGYCLBuf> m_windowBuf;
     std::unique_ptr<RGYCLBuf> m_windowBufInverse;
+    std::unique_ptr<RGYCLBuf> m_sigmaBuf;    // per-frequency-bin sigma table (sigma/sigma2/3/4)
+    std::unique_ptr<RGYCLBuf> m_wsharpenBuf; // per-frequency-bin sharpen weight (strength x gaussian high-pass)
+    std::unique_ptr<RGYCLBuf> m_gridBuf;     // gridsample spectrum (complex, for degrid)
+    float m_gridDC;                          // DC of the gridsample spectrum
+    float m_noisePowerGain;                  // sum(w^2)^2: per-bin noise power gain of the windowed FFT (for signorm)
     RGYOpenCLProgramAsync m_fft3d;
 };
 
