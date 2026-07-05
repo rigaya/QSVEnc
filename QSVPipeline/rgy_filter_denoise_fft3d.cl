@@ -350,10 +350,10 @@ TypeComplex temporal_filter(
 
     TypeComplex result = work[temporalCurrentIdx];
 #if useSharpen
-    // frequency-domain sharpening (after denoising): amplify mid amplitudes only.
-    // weak bins (psd ~< sminSq) stay put to avoid boosting noise, strong bins
-    // (psd ~> smaxSq) stay put to avoid oversharpening/halo; wsharpen carries
-    // the sharpen strength and the per-bin gaussian high-pass frequency weight.
+    // 周波数領域 sharpen(denoise 後): 中間振幅だけを増幅する。
+    // 弱い bin(psd ~< sminSq)はノイズ増幅を避けるため維持し、強い bin(psd ~> smaxSq)も
+    // 過剰 sharpen/halo を避けるため維持する。wsharpen は sharpen 強度と
+    // bin ごとの gaussian high-pass frequency weight を含む。
     {
         const float psd = csquare(result);
         const float sfact = 1.0f + wsharpen * native_sqrt(psd * smaxSq * native_recip((psd + sminSq) * (psd + smaxSq) + 1e-30f));
@@ -398,11 +398,11 @@ __kernel void kernel_tfft_filter_ifft(
     __local TypeComplex stmp[DENOISE_BLOCK_SIZE_X][BLOCK_SIZE][BLOCK_SIZE + 1];
 
 #if useDegrid
-    // degrid: each frame's block DC scaled by degrid/gridDC. The grid correction
-    // for a bin is gridsample[bin] * blockDC * degrid / gridDC - for a flat block
-    // this equals the block's own (window-biased) spectrum, so subtracting it
-    // before the wiener filter keeps the overlap-add window bias from being
-    // modulated by the (amplitude-dependent) denoising.
+    // degrid: 各フレームの block DC に degrid/gridDC を掛ける。
+    // bin ごとの grid 補正は gridsample[bin] * blockDC * degrid / gridDC で、
+    // 平坦な block では block 自身の窓 bias 付き spectrum と等しくなる。
+    // wiener filter 前にこれを差し引くことで、overlap-add の窓 bias が振幅依存の
+    // denoise で変調されるのを抑える。
     TypeComplex dcA = (TypeComplex)(0.0f), dcB = (TypeComplex)(0.0f), dcC = (TypeComplex)(0.0f), dcD = (TypeComplex)(0.0f);
     if (global_bx < block_count_x) {
         const int dc_idx = (global_by * BLOCK_SIZE) * srcPitch + (global_bx * BLOCK_SIZE) * sizeof(TypeComplex);
@@ -419,7 +419,7 @@ __kernel void kernel_tfft_filter_ifft(
             const int src_x = global_bx * BLOCK_SIZE + thWorker;
             const int src_y = global_by * BLOCK_SIZE + y;
             const int src_idx = src_y * srcPitch + src_x * sizeof(TypeComplex);
-            // per-frequency-bin sigma (sigma/sigma2/sigma3/sigma4 interpolated on host)
+            // 周波数 bin ごとの sigma(host 側で sigma/sigma2/sigma3/sigma4 を補間済み)
             const float binSigma = ptrSigma[y * BLOCK_SIZE + thWorker];
             TypeComplex srcA = ((const __global TypeComplex *)(ptrSrcA + src_idx))[0];
             TypeComplex srcB = (TypeComplex)(0.0f), srcC = (TypeComplex)(0.0f), srcD = (TypeComplex)(0.0f);
@@ -435,7 +435,7 @@ __kernel void kernel_tfft_filter_ifft(
                 if (temporalCount >= 2) { srcB -= cmul(grid, dcB); }
                 if (temporalCount >= 3) { srcC -= cmul(grid, dcC); }
                 if (temporalCount >= 4) { srcD -= cmul(grid, dcD); }
-                // current frame's correction, added back after filtering
+                // 現在フレームの補正値。filter 後に戻す。
                 if (temporalCurrentIdx == 0) corrCur = cmul(grid, dcA);
                 if (temporalCount >= 2 && temporalCurrentIdx == 1) corrCur = cmul(grid, dcB);
                 if (temporalCount >= 3 && temporalCurrentIdx == 2) corrCur = cmul(grid, dcC);
@@ -443,8 +443,8 @@ __kernel void kernel_tfft_filter_ifft(
             }
 #endif
 #if useSharpen
-            // sharpen applies to luma only: the host passes ptrWSharpen = null for
-            // the chroma launch (same compiled kernel serves both launches)
+            // sharpen は luma のみに適用する。chroma 起動時は host から ptrWSharpen=null を渡す。
+            // 同じ build 済み kernel で両方を処理する。
             const float wsharpen = (ptrWSharpen) ? ptrWSharpen[y * BLOCK_SIZE + thWorker] : 0.0f;
 #else
             const float wsharpen = 0.0f;
