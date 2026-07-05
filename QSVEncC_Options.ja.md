@@ -317,6 +317,7 @@
   - [--vpy-assume-script-dir](#--vpy-assume-script-dir)
   - [--process-codepage \<string\>](#--process-codepage-string)
   - [--task-perf-monitor](#--task-perf-monitor)
+  - [--opencl-task-threads \<int\>](#--opencl-task-threads-int)
   - [--cl-perf-dump \<dir\>](#--cl-perf-dump-dir)
   - [--cl-perf-timeline \[\<float\>\]](#--cl-perf-timeline-float)
   - [--ocloc-path \<path\>](#--ocloc-path-path)
@@ -4456,6 +4457,13 @@ vpy reader使用時に、`.vpy` 内の相対パスをカレントディレクト
 ### --task-perf-monitor
 
   各タスクの所要時間を計測し、エンコード後にログ出力を行う。
+
+### --opencl-task-threads &lt;int&gt;
+OpenCLタスクのスレッドモードを指定する。現在は将来のワーカースレッド実装向けに値を保持するのみで、実行時の動作は変更しない。
+
+  - 0 ... 従来のシングルスレッド経路 (デフォルト)
+  - 2 ... acquire + release ワーカー
+  - 3 ... フィルタ発行ワーカーモード予約
 
 ### --cl-perf-dump &lt;dir&gt;
 OpenCL kernel performance dumpを指定したディレクトリに出力し、エンコード後に`report.html`を自動生成する。

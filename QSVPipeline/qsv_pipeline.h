@@ -177,6 +177,7 @@ protected:
     RGYBitstream m_DecInputBitstream;
 
     std::shared_ptr<RGYOpenCLContext> m_cl;
+    int m_openclTaskThreads;
     std::vector<VppType> m_vppFilterList;
     std::vector<VppVilterBlock> m_vpFilters;
     unique_ptr<RGYFilterSsim> m_videoQualityMetric;

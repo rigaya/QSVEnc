@@ -12172,6 +12172,22 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         ctrl->openclBuildThreads = value;
         return 0;
     }
+#if ENCODER_QSV
+    if (IS_OPTION("opencl-task-threads")) {
+        i++;
+        int value = 0;
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        if (value != 0 && value != 2 && value != 3) {
+            print_cmd_error_invalid_value(option_name, strInput[i], _T("opencl-task-threads should be 0, 2, or 3."));
+            return 1;
+        }
+        ctrl->openclTaskThreads = value;
+        return 0;
+    }
+#endif
     if (IS_OPTION("cl-perf-dump")) {
         i++;
         ctrl->clPerfDumpDir = strInput[i];
@@ -14575,6 +14591,9 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
         }
     }
     OPT_NUM(_T("--opencl-build-threads"), openclBuildThreads);
+#if ENCODER_QSV
+    OPT_NUM(_T("--opencl-task-threads"), openclTaskThreads);
+#endif
     OPT_TSTR(_T("--cl-perf-dump"), clPerfDumpDir);
     if (param->clPerfTimelineSec != defaultPrm->clPerfTimelineSec && param->clPerfTimelineSec != 0.0) {
         cmd << _T(" --cl-perf-timeline ") << param->clPerfTimelineSec;
@@ -16515,6 +16534,12 @@ tstring gen_cmd_help_ctrl() {
 #endif
 #if ENABLE_OPENCL
     str += strsprintf(_T("\n")
+#if ENCODER_QSV
+        _T("   --opencl-task-threads <int>  set OpenCL task thread mode.\n")
+        _T("                                  0: legacy single-thread path (default)\n")
+        _T("                                  2: acquire + release workers\n")
+        _T("                                  3: reserve filter enqueue worker mode\n")
+#endif
         _T("   --cl-perf-dump <dir>         dump OpenCL kernel performance data to <dir>.\n")
         _T("                                 enables CL_QUEUE_PROFILING_ENABLE automatically.\n")
         _T("                                 output: programs.jsonl, launches.jsonl, meta.json,\n")

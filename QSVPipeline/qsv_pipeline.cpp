@@ -1871,6 +1871,7 @@ CQSVPipeline::CQSVPipeline() :
     m_heAbort(),
     m_DecInputBitstream(),
     m_cl(),
+    m_openclTaskThreads(0),
     m_vpFilters(),
     m_videoQualityMetric(),
     m_pipelineTasks() {
@@ -5005,6 +5006,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     sts = InitOpenCL(pParams->ctrl.enableOpenCL, pParams->ctrl.parallelEnc.isParent() ? 1 : pParams->ctrl.openclBuildThreads, pParams->vpp.checkPerformance, pParams->ctrl.clPerfDumpDir, pParams->ctrl.clPerfTimelineSec);
     if (sts < RGY_ERR_NONE) return sts;
     PrintMes(RGY_LOG_DEBUG, _T("InitOpenCL: Success.\n"));
+    m_openclTaskThreads = pParams->ctrl.openclTaskThreads;
 
     sts = input_ret.get();
     if (sts < RGY_ERR_NONE) return sts;
@@ -5123,6 +5125,11 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
 
 void CQSVPipeline::Close() {
     // MFXのコンポーネントをm_pipelineTasksの解放(フレームの解放)前に実施する
+    for (auto& task : m_pipelineTasks) {
+        if (auto openclTask = dynamic_cast<PipelineTaskOpenCL *>(task.get()); openclTask != nullptr) {
+            openclTask->stopWorkers();
+        }
+    }
     PrintMes(RGY_LOG_DEBUG, _T("Clear vpp filters...\n"));
     m_videoQualityMetric.reset();
     m_vpFilters.clear();
@@ -5423,7 +5430,7 @@ RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
                 PrintMes(RGY_LOG_ERROR, _T("OpenCL not enabled, OpenCL filters cannot be used.\n"), CPU_GEN_STR[m_device->CPUGen()]);
                 return RGY_ERR_UNSUPPORTED;
             }
-            m_pipelineTasks.push_back(std::make_unique<PipelineTaskOpenCL>(filterBlock.vppcl, nullptr, m_cl, m_device->memType(), m_device->allocator(), &m_device->mfxSession(), 1, m_pQSVLog));
+            m_pipelineTasks.push_back(std::make_unique<PipelineTaskOpenCL>(filterBlock.vppcl, nullptr, m_cl, m_openclTaskThreads, m_device->memType(), m_device->allocator(), &m_device->mfxSession(), 1, m_pQSVLog));
         } else {
             PrintMes(RGY_LOG_ERROR, _T("Unknown filter type.\n"));
             return RGY_ERR_UNSUPPORTED;
@@ -5449,7 +5456,7 @@ RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
                 PrintMes(RGY_LOG_ERROR, _T("m_vpFilters.size() != 1.\n"));
                 return RGY_ERR_UNDEFINED_BEHAVIOR;
             }
-            m_pipelineTasks.push_back(std::make_unique<PipelineTaskOpenCL>(m_vpFilters.front().vppcl, m_videoQualityMetric.get(), m_cl, m_device->memType(), m_device->allocator(), &m_device->mfxSession(), 1, m_pQSVLog));
+            m_pipelineTasks.push_back(std::make_unique<PipelineTaskOpenCL>(m_vpFilters.front().vppcl, m_videoQualityMetric.get(), m_cl, m_openclTaskThreads, m_device->memType(), m_device->allocator(), &m_device->mfxSession(), 1, m_pQSVLog));
         } else if (m_pipelineTasks[prevtask]->taskType() == PipelineTaskType::OPENCL) {
             auto taskOpenCL = dynamic_cast<PipelineTaskOpenCL*>(m_pipelineTasks[prevtask].get());
             if (taskOpenCL == nullptr) {

@@ -36,6 +36,9 @@
 #include <deque>
 #include <set>
 #include <optional>
+#include <atomic>
+#include <thread>
+#include <mutex>
 #include "qsv_hw_device.h"
 #include "rgy_opencl.h"
 #include "qsv_opencl.h"
@@ -2411,22 +2414,718 @@ public:
 
 class PipelineTaskOpenCL : public PipelineTask {
 protected:
+    static const int OPENCL_ACQUIRE_QUEUE_DEPTH = 3;
+    static const int OPENCL_RELEASE_QUEUE_DEPTH = 3;
+    struct AcquireWork {
+        std::unique_ptr<PipelineTaskOutput> frame;
+        bool drain;
+        bool stop;
+        AcquireWork() : frame(), drain(false), stop(false) {};
+    };
+    struct AcquireReady {
+        std::unique_ptr<PipelineTaskOutput> frame;
+        std::unique_ptr<RGYCLFrame> clFrame;
+        RGYFrameInfo frameInfo;
+        RGYOpenCLEvent readyEvent;
+        bool waitReadyEvent;
+        bool drain;
+        AcquireReady() : frame(), clFrame(), frameInfo(), readyEvent(), waitReadyEvent(false), drain(false) {};
+    };
+    struct AcquireFrameHold {
+        std::unique_ptr<RGYCLFrame> frame;
+        RGYOpenCLEvent event;
+        bool waitEvent;
+        AcquireFrameHold(std::unique_ptr<RGYCLFrame>&& frame_, const RGYOpenCLEvent& event_, bool waitEvent_)
+            : frame(std::move(frame_)), event(event_), waitEvent(waitEvent_) {};
+    };
+    struct ReleaseAcquireWork {
+        PipelineTaskSurface surf;
+        bool stop;
+        ReleaseAcquireWork() : surf(), stop(false) {};
+    };
+    struct ReleaseReady {
+        PipelineTaskSurface surf;
+        RGYCLFrameInterop *interop;
+        RGYOpenCLEvent acquireEvent;
+        bool waitAcquireEvent;
+        ReleaseReady() : surf(), interop(nullptr), acquireEvent(), waitAcquireEvent(false) {};
+    };
+    struct ReleaseWork {
+        PipelineTaskSurface surf;
+        RGYCLFrameInterop *interop;
+        RGYOpenCLEvent cropDoneEvent;
+        RGYFrameInfo encSurfaceInfo;
+        bool waitCropDoneEvent;
+        bool stop;
+        ReleaseWork() : surf(), interop(nullptr), cropDoneEvent(), encSurfaceInfo(), waitCropDoneEvent(false), stop(false) {};
+    };
     std::shared_ptr<RGYOpenCLContext> m_cl;
     std::vector<std::unique_ptr<RGYFilter>>& m_vpFilters;
     std::unordered_map<mfxFrameSurface1 *, std::unique_ptr<RGYCLFrameInterop>> m_surfVppInInterop;
     std::unordered_map<mfxFrameSurface1 *, std::unique_ptr<RGYCLFrameInterop>> m_surfVppOutInterop;
     std::deque<std::unique_ptr<PipelineTaskOutput>> m_prevInputFrame; //前回投入されたフレーム、完了通知を待ってから解放するため、参照を保持する
+    std::deque<AcquireFrameHold> m_prevAcquireFrame;
     RGYFilterSsim *m_videoMetric;
+    int m_openclTaskThreads;
+    RGYOpenCLQueue m_acquireQueue;
+    RGYQueueMPMP<AcquireWork *> m_acquireInQueue;
+    RGYQueueMPMP<AcquireReady *> m_acquireReadyQueue;
+    RGYQueueMPMP<AcquireFrameHold *> m_acquireFreeQueue;
+    std::unique_ptr<std::thread> m_acquireThread;
+    std::atomic<RGY_ERR> m_acquireErr;
+    std::atomic<bool> m_acquireThreadAbort;
+    RGYOpenCLQueue m_releaseQueue;
+    RGYQueueMPMP<ReleaseAcquireWork *> m_releaseAcquireQueue;
+    RGYQueueMPMP<ReleaseReady *> m_releaseReadyQueue;
+    RGYQueueMPMP<ReleaseWork *> m_releaseWorkQueue;
+    RGYQueueMPMP<PipelineTaskOutputSurf *> m_releaseDoneQueue;
+    std::unique_ptr<std::thread> m_releaseThread;
+    std::atomic<RGY_ERR> m_releaseErr;
+    std::atomic<bool> m_releaseThreadAbort;
+    std::atomic<int> m_releaseWorkInFlight;
+    std::mutex m_interopMtx;
+    RGYFrameInfo m_acquireFrameInInfo;
+    bool m_acquireDrainSent;
+    bool m_acquireDrainReady;
+    bool m_acquireQueuesClosed;
+    bool m_releaseQueuesClosed;
     MemType m_memType;
+    bool useAcquireWorker() const {
+        return m_openclTaskThreads >= 2 && m_acquireThread != nullptr;
+    }
+    bool useReleaseWorker() const {
+        return m_openclTaskThreads >= 2 && m_releaseThread != nullptr;
+    }
+    void setAcquireWorkerError(RGY_ERR err) {
+        if (err != RGY_ERR_NONE) {
+            m_acquireErr.store(err);
+        }
+    }
+    void setReleaseWorkerError(RGY_ERR err) {
+        if (err != RGY_ERR_NONE) {
+            m_releaseErr.store(err);
+        }
+    }
+    RGY_ERR checkAcquireWorkerError() {
+        auto err = m_acquireErr.load();
+        if (err != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("OpenCL acquire worker failed: %s.\n"), get_err_mes(err));
+        }
+        return err;
+    }
+    RGY_ERR checkReleaseWorkerError() {
+        auto err = m_releaseErr.load();
+        if (err != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("OpenCL release worker failed: %s.\n"), get_err_mes(err));
+        }
+        return err;
+    }
+    RGY_ERR checkWorkerErrors() {
+        auto err = checkAcquireWorkerError();
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        return checkReleaseWorkerError();
+    }
+    void clearPrevInputFrame() {
+        if (m_prevInputFrame.size() > 0) {
+            // 前回投入したフレームの処理が完了していることを確認したうえで参照を破棄することでロックを解放する
+            auto prevframe = std::move(m_prevInputFrame.front());
+            m_prevInputFrame.pop_front();
+            prevframe->depend_clear();
+        }
+        if (m_prevAcquireFrame.size() > 0) {
+            auto prevframe = std::move(m_prevAcquireFrame.front());
+            m_prevAcquireFrame.pop_front();
+            // mainでは待たず、最後に利用するkernelのeventごとworkerへ返して再利用させる。
+            // worker側で別キューのeventを待つため、その前に発行元キューのflushが必須 (未submitのままevent待ちするとハングする)。
+            if (prevframe.waitEvent) {
+                m_cl->queue().flush();
+            }
+            auto hold = std::make_unique<AcquireFrameHold>(std::move(prevframe.frame), prevframe.event, prevframe.waitEvent);
+            auto holdPtr = hold.get();
+            if (useAcquireWorker() && !m_acquireThreadAbort.load() && m_acquireFreeQueue.size() < m_acquireFreeQueue.capacity() && m_acquireFreeQueue.push(holdPtr)) {
+                hold.release();
+            }
+        }
+    }
+    void startAcquireWorker() {
+        if (m_openclTaskThreads < 2) {
+            return;
+        }
+        if (m_vpFilters.empty()) {
+            PrintMes(RGY_LOG_WARN, _T("Failed to start OpenCL acquire worker, fallback to legacy OpenCL path.\n"));
+            m_openclTaskThreads = 0;
+            return;
+        }
+        // workerからfilterを参照しないよう、起動時点の入力フレーム情報だけをコピーして保持する。
+        m_acquireFrameInInfo = m_vpFilters.front()->GetFilterParam()->frameIn;
+        m_acquireQueue = m_cl->createQueue(m_cl->queue().devid(), m_cl->queue().getProperties());
+        if (m_acquireQueue.get() == nullptr) {
+            PrintMes(RGY_LOG_WARN, _T("Failed to create OpenCL queue for acquire worker, fallback to legacy OpenCL path.\n"));
+            m_openclTaskThreads = 0;
+            return;
+        }
+        m_acquireInQueue.init(OPENCL_ACQUIRE_QUEUE_DEPTH + 1, OPENCL_ACQUIRE_QUEUE_DEPTH + 1);
+        m_acquireReadyQueue.init(OPENCL_ACQUIRE_QUEUE_DEPTH + 1, OPENCL_ACQUIRE_QUEUE_DEPTH + 1);
+        m_acquireFreeQueue.init(OPENCL_ACQUIRE_QUEUE_DEPTH + 2, OPENCL_ACQUIRE_QUEUE_DEPTH + 2);
+        m_acquireThread = std::make_unique<std::thread>(&PipelineTaskOpenCL::runAcquireWorker, this);
+    }
+    void startReleaseWorker() {
+        if (m_openclTaskThreads < 2) {
+            return;
+        }
+        if (m_vpFilters.empty()) {
+            PrintMes(RGY_LOG_WARN, _T("Failed to start OpenCL release worker, fallback to legacy OpenCL path.\n"));
+            m_openclTaskThreads = 0;
+            return;
+        }
+        m_releaseQueue = m_cl->createQueue(m_cl->queue().devid(), m_cl->queue().getProperties());
+        if (m_releaseQueue.get() == nullptr) {
+            PrintMes(RGY_LOG_WARN, _T("Failed to create OpenCL queue for release worker, fallback to legacy OpenCL path.\n"));
+            m_openclTaskThreads = 0;
+            return;
+        }
+        m_releaseAcquireQueue.init(OPENCL_RELEASE_QUEUE_DEPTH + 1, OPENCL_RELEASE_QUEUE_DEPTH + 1);
+        m_releaseReadyQueue.init(OPENCL_RELEASE_QUEUE_DEPTH + 1, OPENCL_RELEASE_QUEUE_DEPTH + 1);
+        m_releaseWorkQueue.init(OPENCL_RELEASE_QUEUE_DEPTH + 1, OPENCL_RELEASE_QUEUE_DEPTH + 1);
+        m_releaseDoneQueue.init(OPENCL_RELEASE_QUEUE_DEPTH + 1, OPENCL_RELEASE_QUEUE_DEPTH + 1);
+        m_releaseThread = std::make_unique<std::thread>(&PipelineTaskOpenCL::runReleaseWorker, this);
+    }
+    void drainAcquireQueues() {
+        AcquireWork *work = nullptr;
+        while (m_acquireInQueue.front_copy_and_pop_no_lock(&work)) {
+            delete work;
+            work = nullptr;
+        }
+        AcquireReady *ready = nullptr;
+        while (m_acquireReadyQueue.front_copy_and_pop_no_lock(&ready)) {
+            delete ready;
+            ready = nullptr;
+        }
+        AcquireFrameHold *hold = nullptr;
+        while (m_acquireFreeQueue.front_copy_and_pop_no_lock(&hold)) {
+            delete hold;
+            hold = nullptr;
+        }
+    }
+    void drainReleaseQueues() {
+        ReleaseAcquireWork *acquire = nullptr;
+        while (m_releaseAcquireQueue.front_copy_and_pop_no_lock(&acquire)) {
+            delete acquire;
+            acquire = nullptr;
+        }
+        ReleaseReady *ready = nullptr;
+        while (m_releaseReadyQueue.front_copy_and_pop_no_lock(&ready)) {
+            delete ready;
+            ready = nullptr;
+        }
+        ReleaseWork *work = nullptr;
+        while (m_releaseWorkQueue.front_copy_and_pop_no_lock(&work)) {
+            delete work;
+            work = nullptr;
+        }
+        PipelineTaskOutputSurf *done = nullptr;
+        while (m_releaseDoneQueue.front_copy_and_pop_no_lock(&done)) {
+            delete done;
+            done = nullptr;
+        }
+    }
 public:
-    PipelineTaskOpenCL(std::vector<std::unique_ptr<RGYFilter>>& vppfilters, RGYFilterSsim *videoMetric, std::shared_ptr<RGYOpenCLContext> cl, MemType memType, QSVAllocator *allocator, MFXVideoSession *mfxSession, int outMaxQueueSize, std::shared_ptr<RGYLog> log) :
-        PipelineTask(PipelineTaskType::OPENCL, outMaxQueueSize, mfxSession, MFX_LIB_VERSION_0_0, log), m_cl(cl), m_vpFilters(vppfilters), m_surfVppInInterop(), m_surfVppOutInterop(), m_prevInputFrame(), m_videoMetric(videoMetric), m_memType(memType) {
+    void stopAcquireWorker() {
+        if (m_acquireThread) {
+            m_acquireThreadAbort.store(true);
+            if (m_acquireInQueue.size() < m_acquireInQueue.capacity()) {
+                auto work = std::make_unique<AcquireWork>();
+                work->stop = true;
+                auto workPtr = work.get();
+                if (m_acquireInQueue.push(workPtr)) {
+                    work.release();
+                }
+            }
+            while (m_acquireThread->joinable()) {
+                drainAcquireQueues();
+                m_acquireThread->join();
+                break;
+            }
+            m_acquireThread.reset();
+        }
+        if (m_acquireQueuesClosed) {
+            return;
+        }
+        if (m_openclTaskThreads >= 2) {
+            drainAcquireQueues();
+            m_acquireInQueue.close([](AcquireWork **work) {
+                delete *work;
+            });
+            m_acquireReadyQueue.close([](AcquireReady **ready) {
+                delete *ready;
+            });
+            m_acquireFreeQueue.close([](AcquireFrameHold **hold) {
+                delete *hold;
+            });
+        } else {
+            m_acquireInQueue.close();
+            m_acquireReadyQueue.close();
+            m_acquireFreeQueue.close();
+        }
+        m_acquireQueuesClosed = true;
+    }
+    void stopReleaseWorker() {
+        if (m_releaseThread) {
+            m_releaseThreadAbort.store(true);
+            if (m_releaseAcquireQueue.size() < m_releaseAcquireQueue.capacity()) {
+                auto work = std::make_unique<ReleaseAcquireWork>();
+                work->stop = true;
+                auto workPtr = work.get();
+                if (m_releaseAcquireQueue.push(workPtr)) {
+                    work.release();
+                }
+            }
+            if (m_releaseWorkQueue.size() < m_releaseWorkQueue.capacity()) {
+                auto work = std::make_unique<ReleaseWork>();
+                work->stop = true;
+                auto workPtr = work.get();
+                if (m_releaseWorkQueue.push(workPtr)) {
+                    work.release();
+                }
+            }
+            while (m_releaseThread->joinable()) {
+                drainReleaseQueues();
+                m_releaseThread->join();
+                break;
+            }
+            m_releaseThread.reset();
+        }
+        if (m_releaseQueuesClosed) {
+            return;
+        }
+        if (m_openclTaskThreads >= 2) {
+            drainReleaseQueues();
+            m_releaseAcquireQueue.close([](ReleaseAcquireWork **work) {
+                delete *work;
+            });
+            m_releaseReadyQueue.close([](ReleaseReady **ready) {
+                delete *ready;
+            });
+            m_releaseWorkQueue.close([](ReleaseWork **work) {
+                delete *work;
+            });
+            m_releaseDoneQueue.close([](PipelineTaskOutputSurf **done) {
+                delete *done;
+            });
+        } else {
+            m_releaseAcquireQueue.close();
+            m_releaseReadyQueue.close();
+            m_releaseWorkQueue.close();
+            m_releaseDoneQueue.close();
+        }
+        m_releaseQueuesClosed = true;
+    }
+    void stopWorkers() {
+        stopAcquireWorker();
+        stopReleaseWorker();
+    }
+protected:
+    bool pushAcquireReady(std::unique_ptr<AcquireReady>& ready) {
+        while (!m_acquireThreadAbort.load()) {
+            if (m_acquireReadyQueue.size() < m_acquireReadyQueue.capacity()) {
+                auto readyPtr = ready.get();
+                if (m_acquireReadyQueue.push(readyPtr)) {
+                    ready.release();
+                    return true;
+                }
+            }
+            rgy_yield();
+        }
+        return false;
+    }
+    std::unique_ptr<RGYCLFrame> getAcquireWorkerFrame(const RGYFrameInfo& frameInfo) {
+        AcquireFrameHold *holdPtr = nullptr;
+        while (m_acquireFreeQueue.front_copy_and_pop_no_lock(&holdPtr)) {
+            std::unique_ptr<AcquireFrameHold> hold(holdPtr);
+            if (hold->waitEvent && hold->event()) {
+                hold->event.wait();
+            }
+            if (hold->frame && !cmpFrameInfoCspResolution(&hold->frame->frame, &frameInfo)) {
+                return std::move(hold->frame);
+            }
+        }
+        return m_cl->createFrameBuffer(frameInfo);
+    }
+    void runAcquireWorker() {
+        while (true) {
+            AcquireWork *workPtr = nullptr;
+            while (!m_acquireInQueue.front_copy_and_pop_no_lock(&workPtr)) {
+                if (m_acquireThreadAbort.load()) {
+                    return;
+                }
+                m_acquireInQueue.wait_for_push();
+            }
+            std::unique_ptr<AcquireWork> work(workPtr);
+            if (!work) {
+                continue;
+            }
+            if (work->stop) {
+                break;
+            }
+            auto ready = std::make_unique<AcquireReady>();
+            ready->drain = work->drain;
+            if (work->drain) {
+                if (!pushAcquireReady(ready)) {
+                    return;
+                }
+                continue;
+            }
+            ready->frame = std::move(work->frame);
+            auto taskSurf = dynamic_cast<PipelineTaskOutputSurf *>(ready->frame.get());
+            if (taskSurf == nullptr) {
+                PrintMes(RGY_LOG_ERROR, _T("Invalid task surface.\n"));
+                setAcquireWorkerError(RGY_ERR_NULL_PTR);
+                if (!pushAcquireReady(ready)) {
+                    return;
+                }
+                continue;
+            }
+            if (taskSurf->surf().mfx()) {
+                mfxFrameSurface1 *surfVppIn = taskSurf->surf().mfx()->surf();
+                if (m_surfVppInInterop.count(surfVppIn) == 0) {
+                    // interopのreleaseは生成時のqueueに発行されるため、worker専用queueで生成する。
+                    std::lock_guard<std::mutex> lock(m_interopMtx);
+                    m_surfVppInInterop[surfVppIn] = getOpenCLFrameInterop(surfVppIn, m_memType, CL_MEM_READ_ONLY, m_allocator, m_cl.get(), m_acquireQueue, m_acquireFrameInInfo);
+                }
+                auto clFrameInInterop = m_surfVppInInterop[surfVppIn].get();
+                if (!clFrameInInterop) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [in].\n"));
+                    setAcquireWorkerError(RGY_ERR_NULL_PTR);
+                    if (!pushAcquireReady(ready)) {
+                        return;
+                    }
+                    continue;
+                }
+                auto err = RGY_ERR_NONE;
+                {
+                    std::lock_guard<std::mutex> lock(m_interopMtx);
+                    err = clFrameInInterop->acquire(m_acquireQueue);
+                }
+                if (err != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [in]: %s.\n"), get_err_mes(err));
+                    setAcquireWorkerError(err);
+                    if (!pushAcquireReady(ready)) {
+                        return;
+                    }
+                    continue;
+                }
+                clFrameInInterop->frame.flags = taskSurf->surf().frame()->flags();
+                clFrameInInterop->frame.timestamp = taskSurf->surf().frame()->timestamp();
+                clFrameInInterop->frame.inputFrameId = taskSurf->surf().frame()->inputFrameId();
+                clFrameInInterop->frame.picstruct = taskSurf->surf().frame()->picstruct();
+                clFrameInInterop->frame.dataList = taskSurf->surf().frame()->dataList();
+
+                auto clFrame = getAcquireWorkerFrame(clFrameInInterop->frameInfo());
+                if (!clFrame) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to allocate OpenCL frame for acquire worker.\n"));
+                    {
+                        std::lock_guard<std::mutex> lock(m_interopMtx);
+                        clFrameInInterop->release();
+                    }
+                    setAcquireWorkerError(RGY_ERR_MEMORY_ALLOC);
+                    if (!pushAcquireReady(ready)) {
+                        return;
+                    }
+                    continue;
+                }
+                clFrame->frame.flags = clFrameInInterop->frame.flags;
+                clFrame->frame.timestamp = clFrameInInterop->frame.timestamp;
+                clFrame->frame.inputFrameId = clFrameInInterop->frame.inputFrameId;
+                clFrame->frame.picstruct = clFrameInInterop->frame.picstruct;
+                clFrame->frame.dataList = clFrameInInterop->frame.dataList;
+
+                RGYOpenCLEvent copyDoneEvent;
+                err = m_cl->copyFrame(&clFrame->frame, &clFrameInInterop->frameInfo(), nullptr, m_acquireQueue, {}, &copyDoneEvent, RGYFrameCopyMode::FRAME, "qsv.acquire.copy");
+                if (err != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to copy OpenCL interop input frame: %s.\n"), get_err_mes(err));
+                    {
+                        std::lock_guard<std::mutex> lock(m_interopMtx);
+                        clFrameInInterop->release();
+                    }
+                    setAcquireWorkerError(err);
+                    if (!pushAcquireReady(ready)) {
+                        return;
+                    }
+                    continue;
+                }
+                RGYOpenCLEvent inputReleaseEvent;
+                {
+                    std::lock_guard<std::mutex> lock(m_interopMtx);
+                    err = clFrameInInterop->release(&inputReleaseEvent);
+                }
+                if (err != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to release input frame interop: %s.\n"), get_err_mes(err));
+                    setAcquireWorkerError(err);
+                    if (!pushAcquireReady(ready)) {
+                        return;
+                    }
+                    continue;
+                }
+                taskSurf->addClEvent(inputReleaseEvent);
+                m_acquireQueue.flush();
+                ready->readyEvent = inputReleaseEvent;
+                ready->waitReadyEvent = true;
+                ready->frameInfo = clFrame->frameInfo();
+                ready->clFrame = std::move(clFrame);
+            } else if (auto clframe = taskSurf->surf().cl(); clframe != nullptr) {
+                // OpenCLフレームが来た場合はworker側で追加処理せず、そのままmainへ渡す。
+                ready->frameInfo = clframe->frameInfo();
+            } else {
+                PrintMes(RGY_LOG_ERROR, _T("Invalid input frame.\n"));
+                setAcquireWorkerError(RGY_ERR_NULL_PTR);
+            }
+            if (!pushAcquireReady(ready)) {
+                return;
+            }
+        }
+    }
+    RGY_ERR pushAcquireWork(std::unique_ptr<PipelineTaskOutput>& frame) {
+        if (frame) {
+            auto work = std::make_unique<AcquireWork>();
+            work->frame = std::move(frame);
+            auto workPtr = work.get();
+            if (!m_acquireInQueue.push(workPtr)) {
+                return RGY_ERR_MEMORY_ALLOC;
+            }
+            work.release();
+        } else if (!m_acquireDrainSent) {
+            auto work = std::make_unique<AcquireWork>();
+            work->drain = true;
+            auto workPtr = work.get();
+            if (!m_acquireInQueue.push(workPtr)) {
+                return RGY_ERR_MEMORY_ALLOC;
+            }
+            work.release();
+            m_acquireDrainSent = true;
+        }
+        return RGY_ERR_NONE;
+    }
+    std::unique_ptr<AcquireReady> popAcquireReady(bool wait) {
+        AcquireReady *readyPtr = nullptr;
+        while (!m_acquireReadyQueue.front_copy_and_pop_no_lock(&readyPtr)) {
+            if (!wait) {
+                return nullptr;
+            }
+            m_acquireReadyQueue.wait_for_push();
+        }
+        return std::unique_ptr<AcquireReady>(readyPtr);
+    }
+    bool pushReleaseReady(std::unique_ptr<ReleaseReady>& ready) {
+        while (!m_releaseThreadAbort.load()) {
+            if (m_releaseReadyQueue.size() < m_releaseReadyQueue.capacity()) {
+                auto readyPtr = ready.get();
+                if (m_releaseReadyQueue.push(readyPtr)) {
+                    ready.release();
+                    return true;
+                }
+            }
+            rgy_yield();
+        }
+        return false;
+    }
+    bool pushReleaseDone(std::unique_ptr<PipelineTaskOutputSurf>& done) {
+        while (!m_releaseThreadAbort.load()) {
+            if (m_releaseDoneQueue.size() < m_releaseDoneQueue.capacity()) {
+                auto donePtr = done.get();
+                if (m_releaseDoneQueue.push(donePtr)) {
+                    done.release();
+                    return true;
+                }
+            }
+            rgy_yield();
+        }
+        return false;
+    }
+    void runReleaseWorker() {
+        while (!m_releaseThreadAbort.load()) {
+            bool processed = false;
+            ReleaseWork *workPtr = nullptr;
+            if (m_releaseWorkQueue.front_copy_and_pop_no_lock(&workPtr)) {
+                processed = true;
+                std::unique_ptr<ReleaseWork> work(workPtr);
+                if (!work || work->stop) {
+                    break;
+                }
+                m_releaseWorkInFlight++;
+                if (work->waitCropDoneEvent && work->cropDoneEvent()) {
+                    auto err = m_releaseQueue.wait(work->cropDoneEvent);
+                    if (err != RGY_ERR_NONE) {
+                        PrintMes(RGY_LOG_ERROR, _T("Failed to wait crop event on release queue: %s.\n"), get_err_mes(err));
+                        setReleaseWorkerError(err);
+                        m_releaseWorkInFlight--;
+                        return;
+                    }
+                }
+                RGYOpenCLEvent releaseEvent;
+                if (work->interop) {
+                    auto err = RGY_ERR_NONE;
+                    {
+                        std::lock_guard<std::mutex> lock(m_interopMtx);
+                        err = work->interop->release(&releaseEvent);
+                    }
+                    if (err != RGY_ERR_NONE) {
+                        PrintMes(RGY_LOG_ERROR, _T("Failed to release output frame interop: %s.\n"), get_err_mes(err));
+                        setReleaseWorkerError(err);
+                        m_releaseWorkInFlight--;
+                        return;
+                    }
+                    m_releaseQueue.flush();
+                } else {
+                    releaseEvent = work->cropDoneEvent;
+                }
+                work->surf.frame()->setTimestamp(work->encSurfaceInfo.timestamp);
+                work->surf.frame()->setInputFrameId(work->encSurfaceInfo.inputFrameId);
+                work->surf.frame()->setPicstruct(work->encSurfaceInfo.picstruct);
+                work->surf.frame()->setFlags(work->encSurfaceInfo.flags);
+                work->surf.frame()->setDataList(work->encSurfaceInfo.dataList);
+                std::unique_ptr<PipelineTaskOutput> dependency;
+                auto done = std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, work->surf, dependency, releaseEvent);
+                if (!pushReleaseDone(done)) {
+                    m_releaseWorkInFlight--;
+                    return;
+                }
+                m_releaseWorkInFlight--;
+            }
+            ReleaseAcquireWork *acquirePtr = nullptr;
+            if (m_releaseAcquireQueue.front_copy_and_pop_no_lock(&acquirePtr)) {
+                processed = true;
+                std::unique_ptr<ReleaseAcquireWork> acquire(acquirePtr);
+                if (!acquire || acquire->stop) {
+                    break;
+                }
+                auto ready = std::make_unique<ReleaseReady>();
+                ready->surf = acquire->surf;
+                if (auto mfxsurfOut = (ready->surf.mfx()) ? ready->surf.mfx()->surf() : nullptr; mfxsurfOut != nullptr) {
+                    if (m_surfVppOutInterop.count(mfxsurfOut) == 0) {
+                        std::lock_guard<std::mutex> lock(m_interopMtx);
+                        m_surfVppOutInterop[mfxsurfOut] = getOpenCLFrameInterop(mfxsurfOut, m_memType, CL_MEM_WRITE_ONLY, m_allocator, m_cl.get(), m_releaseQueue, m_vpFilters.back()->GetFilterParam()->frameOut);
+                    }
+                    ready->interop = m_surfVppOutInterop[mfxsurfOut].get();
+                    if (!ready->interop) {
+                        PrintMes(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [out].\n"));
+                        setReleaseWorkerError(RGY_ERR_NULL_PTR);
+                        return;
+                    }
+                    auto err = RGY_ERR_NONE;
+                    {
+                        std::lock_guard<std::mutex> lock(m_interopMtx);
+                        err = ready->interop->acquire(m_releaseQueue, &ready->acquireEvent);
+                    }
+                    if (err != RGY_ERR_NONE) {
+                        PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [out]: %s.\n"), get_err_mes(err));
+                        setReleaseWorkerError(err);
+                        return;
+                    }
+                    ready->waitAcquireEvent = true;
+                    m_releaseQueue.flush();
+                } else if (ready->surf.cl() != nullptr) {
+                    // OpenCLフレームの場合はinterop処理不要。
+                } else {
+                    PrintMes(RGY_LOG_ERROR, _T("Invalid work frame [out].\n"));
+                    setReleaseWorkerError(RGY_ERR_NULL_PTR);
+                    return;
+                }
+                if (!pushReleaseReady(ready)) {
+                    return;
+                }
+            }
+            if (!processed) {
+                rgy_yield();
+            }
+        }
+    }
+    RGY_ERR feedReleaseAcquireQueue() {
+        if (!useReleaseWorker()) {
+            return RGY_ERR_NONE;
+        }
+        while (!m_releaseThreadAbort.load()
+            && (m_releaseAcquireQueue.size() + m_releaseReadyQueue.size()) < m_releaseReadyQueue.capacity()
+            && m_releaseAcquireQueue.size() < m_releaseAcquireQueue.capacity()) {
+            auto surf = getWorkSurf();
+            if (surf == nullptr) {
+                return RGY_ERR_MORE_SURFACE;
+            }
+            auto work = std::make_unique<ReleaseAcquireWork>();
+            work->surf = surf;
+            auto workPtr = work.get();
+            if (!m_releaseAcquireQueue.push(workPtr)) {
+                return RGY_ERR_MEMORY_ALLOC;
+            }
+            work.release();
+        }
+        return RGY_ERR_NONE;
+    }
+    std::unique_ptr<ReleaseReady> popReleaseReady(bool wait) {
+        ReleaseReady *readyPtr = nullptr;
+        while (!m_releaseReadyQueue.front_copy_and_pop_no_lock(&readyPtr)) {
+            if (!wait) {
+                return nullptr;
+            }
+            m_releaseReadyQueue.wait_for_push();
+        }
+        return std::unique_ptr<ReleaseReady>(readyPtr);
+    }
+    RGY_ERR pushReleaseWork(PipelineTaskSurface& surf, RGYCLFrameInterop *interop, const RGYOpenCLEvent& cropDoneEvent, const RGYFrameInfo& encSurfaceInfo) {
+        auto work = std::make_unique<ReleaseWork>();
+        work->surf = surf;
+        work->interop = interop;
+        work->cropDoneEvent = cropDoneEvent;
+        work->waitCropDoneEvent = cropDoneEvent();
+        work->encSurfaceInfo = encSurfaceInfo;
+        auto workPtr = work.get();
+        while (!m_releaseThreadAbort.load()) {
+            if (m_releaseWorkQueue.size() < m_releaseWorkQueue.capacity()) {
+                if (m_releaseWorkQueue.push(workPtr)) {
+                    work.release();
+                    return RGY_ERR_NONE;
+                }
+            }
+            collectReleaseDone(false);
+            rgy_yield();
+        }
+        return RGY_ERR_ABORTED;
+    }
+    void collectReleaseDone(bool wait) {
+        PipelineTaskOutputSurf *donePtr = nullptr;
+        while (true) {
+            while (m_releaseDoneQueue.front_copy_and_pop_no_lock(&donePtr)) {
+                m_outQeueue.push_back(std::unique_ptr<PipelineTaskOutput>(donePtr));
+                donePtr = nullptr;
+            }
+            if (!wait) {
+                return;
+            }
+            if (m_outQeueue.size() > 0 || m_releaseDoneQueue.size() == 0) {
+                return;
+            }
+            m_releaseDoneQueue.wait_for_push();
+        }
+    }
+    bool hasReleaseWorkPending() const {
+        return m_releaseWorkQueue.size() > 0 || m_releaseDoneQueue.size() > 0 || m_releaseWorkInFlight.load() > 0;
+    }
+public:
+    PipelineTaskOpenCL(std::vector<std::unique_ptr<RGYFilter>>& vppfilters, RGYFilterSsim *videoMetric, std::shared_ptr<RGYOpenCLContext> cl, int openclTaskThreads, MemType memType, QSVAllocator *allocator, MFXVideoSession *mfxSession, int outMaxQueueSize, std::shared_ptr<RGYLog> log) :
+        PipelineTask(PipelineTaskType::OPENCL, outMaxQueueSize, mfxSession, MFX_LIB_VERSION_0_0, log), m_cl(cl), m_vpFilters(vppfilters), m_surfVppInInterop(), m_surfVppOutInterop(), m_prevInputFrame(), m_prevAcquireFrame(), m_videoMetric(videoMetric), m_openclTaskThreads(openclTaskThreads), m_acquireQueue(), m_acquireInQueue(), m_acquireReadyQueue(), m_acquireFreeQueue(), m_acquireThread(), m_acquireErr(RGY_ERR_NONE), m_acquireThreadAbort(false), m_releaseQueue(), m_releaseAcquireQueue(), m_releaseReadyQueue(), m_releaseWorkQueue(), m_releaseDoneQueue(), m_releaseThread(), m_releaseErr(RGY_ERR_NONE), m_releaseThreadAbort(false), m_releaseWorkInFlight(0), m_interopMtx(), m_acquireFrameInInfo(), m_acquireDrainSent(false), m_acquireDrainReady(false), m_acquireQueuesClosed(false), m_releaseQueuesClosed(false), m_memType(memType) {
         m_allocator = allocator;
+        startAcquireWorker();
+        startReleaseWorker();
     };
     virtual ~PipelineTaskOpenCL() {
+        stopWorkers();
         m_prevInputFrame.clear();
+        m_prevAcquireFrame.clear();
         m_surfVppInInterop.clear();
         m_surfVppOutInterop.clear();
+        m_acquireQueue.clear();
+        m_releaseQueue.clear();
         m_cl.reset();
     };
 
@@ -2457,23 +3156,68 @@ public:
         for (const auto& filter : m_vpFilters) {
             frames += filter->requiredOutputFrames();
         }
+        if (m_openclTaskThreads >= 2) {
+            frames += 2 * (OPENCL_ACQUIRE_QUEUE_DEPTH + 1) + 2;
+            frames += 2 * (OPENCL_RELEASE_QUEUE_DEPTH + 1) + 2;
+        }
         return frames;
     }
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
         if (m_stopwatch) m_stopwatch->set(0);
-        if (m_prevInputFrame.size() > 0) {
-            //前回投入したフレームの処理が完了していることを確認したうえで参照を破棄することでロックを解放する
-            auto prevframe = std::move(m_prevInputFrame.front());
-            m_prevInputFrame.pop_front();
-            prevframe->depend_clear();
-        }
+        clearPrevInputFrame();
+        collectReleaseDone(false);
         if (m_stopwatch) m_stopwatch->add(0, 0);
 
         deque<std::pair<RGYFrameInfo, uint32_t>> filterframes;
         RGYCLFrameInterop *clFrameInInterop = nullptr;
+        std::unique_ptr<AcquireReady> acquireReady;
+        std::vector<RGYOpenCLEvent> firstFilterWaitEvents;
 
         bool drain = !frame;
-        if (!frame) {
+        if (useAcquireWorker()) {
+            auto err = checkWorkerErrors();
+            if (err != RGY_ERR_NONE) {
+                return err;
+            }
+            if (!m_acquireDrainReady) {
+                // readyQueueが満杯のままinQueueへpushするとworkerと相互待ちになるため、先に回収する。
+                acquireReady = popAcquireReady(false);
+            }
+            if ((err = pushAcquireWork(frame)) != RGY_ERR_NONE) {
+                return err;
+            }
+            if (m_acquireDrainReady) {
+                filterframes.push_back(std::make_pair(RGYFrameInfo(), 0u));
+            } else {
+                if (!acquireReady) {
+                    acquireReady = popAcquireReady(drain);
+                }
+                if (!acquireReady) {
+                    return RGY_ERR_NONE;
+                }
+                if ((err = checkWorkerErrors()) != RGY_ERR_NONE) {
+                    return err;
+                }
+                if (acquireReady->drain) {
+                    m_acquireDrainReady = true;
+                    filterframes.push_back(std::make_pair(RGYFrameInfo(), 0u));
+                } else {
+                    // EOF後に残っている入力フレームを処理する間は、まだfilter chainをflushしない。
+                    drain = false;
+                    if (acquireReady->waitReadyEvent) {
+                        firstFilterWaitEvents.push_back(acquireReady->readyEvent);
+                    }
+                    if (acquireReady->clFrame) {
+                        m_prevAcquireFrame.emplace_back(std::move(acquireReady->clFrame), RGYOpenCLEvent(), false);
+                        filterframes.push_back(std::make_pair(m_prevAcquireFrame.back().frame->frameInfo(), 0u));
+                    } else {
+                        filterframes.push_back(std::make_pair(acquireReady->frameInfo, 0u));
+                    }
+                    // worker側でcopy/release完了eventを入力surfaceに登録済みなので、ここでは参照保持だけ行う。
+                    m_prevInputFrame.push_back(std::move(acquireReady->frame));
+                }
+            }
+        } else if (!frame) {
             filterframes.push_back(std::make_pair(RGYFrameInfo(), 0u));
         } else {
             auto taskSurf = dynamic_cast<PipelineTaskOutputSurf *>(frame.get());
@@ -2484,6 +3228,7 @@ public:
             if (taskSurf->surf().mfx()) {
                 mfxFrameSurface1 *surfVppIn = taskSurf->surf().mfx()->surf();
                 if (m_surfVppInInterop.count(surfVppIn) == 0) {
+                    std::lock_guard<std::mutex> lock(m_interopMtx);
                     m_surfVppInInterop[surfVppIn] = getOpenCLFrameInterop(surfVppIn, m_memType, CL_MEM_READ_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_vpFilters.front()->GetFilterParam()->frameIn);
                 }
                 clFrameInInterop = m_surfVppInInterop[surfVppIn].get();
@@ -2491,7 +3236,11 @@ public:
                     PrintMes(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [in].\n"));
                     return RGY_ERR_NULL_PTR;
                 }
-                auto err = clFrameInInterop->acquire(m_cl->queue());
+                auto err = RGY_ERR_NONE;
+                {
+                    std::lock_guard<std::mutex> lock(m_interopMtx);
+                    err = clFrameInInterop->acquire(m_cl->queue());
+                }
                 if (err != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [in]: %s.\n"), get_err_mes(err));
                     return RGY_ERR_NULL_PTR;
@@ -2519,6 +3268,7 @@ public:
         std::vector<std::unique_ptr<PipelineTaskOutputSurf>> outputSurfs;
         // flush中に途中returnする場合もあるので、生成済み出力を失わないようqueue投入を共通化する。
         auto queueOutputSurfs = [this, &outputSurfs]() {
+            collectReleaseDone(false);
             m_outQeueue.insert(m_outQeueue.end(),
                 std::make_move_iterator(outputSurfs.begin()),
                 std::make_move_iterator(outputSurfs.end())
@@ -2541,14 +3291,28 @@ public:
 
                 int nOutFrames = 0;
                 RGYFrameInfo *outInfo[16] = { 0 };
-                auto sts_filter = m_vpFilters[ifilter]->filter(&input, (RGYFrameInfo **)&outInfo, &nOutFrames);
+                RGYOpenCLEvent firstFilterDoneEvent;
+                auto sts_filter = RGY_ERR_NONE;
+                if (!firstFilterWaitEvents.empty()) {
+                    sts_filter = m_vpFilters[ifilter]->filter(&input, (RGYFrameInfo **)&outInfo, &nOutFrames, m_cl->queue(), firstFilterWaitEvents, &firstFilterDoneEvent);
+                    firstFilterWaitEvents.clear();
+                    if (!m_prevAcquireFrame.empty() && !m_prevAcquireFrame.back().waitEvent && firstFilterDoneEvent()) {
+                        m_prevAcquireFrame.back().event = firstFilterDoneEvent;
+                        m_prevAcquireFrame.back().waitEvent = true;
+                    }
+                } else {
+                    sts_filter = m_vpFilters[ifilter]->filter(&input, (RGYFrameInfo **)&outInfo, &nOutFrames);
+                }
                 if (sts_filter != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_vpFilters[ifilter]->name().c_str());
                     return sts_filter;
                 }
                 if (clFrameInInterop) {
                     RGYOpenCLEvent inputReleaseEvent;
-                    clFrameInInterop->release(&inputReleaseEvent); // input frameの解放
+                    {
+                        std::lock_guard<std::mutex> lock(m_interopMtx);
+                        clFrameInInterop->release(&inputReleaseEvent); // input frameの解放
+                    }
                     clFrameInInterop = nullptr;
                     if (!m_prevInputFrame.empty() && m_prevInputFrame.back()) {
                         //解放処理のeventを入力フレームを使用し終わったことの合図として登録する
@@ -2586,6 +3350,14 @@ public:
                 continue;
             }
             if (filterframes.front().first.ptr[0] == nullptr) {
+                collectReleaseDone(false);
+                if (useReleaseWorker() && hasReleaseWorkPending()) {
+                    if (m_outQeueue.size() > 0) {
+                        if (m_stopwatch) m_stopwatch->add(0, 2);
+                        return RGY_ERR_NONE;
+                    }
+                    return RGY_ERR_NONE;
+                }
                 if (!outputSurfs.empty()) {
                     // 出力を返した後も、呼び出し元が再度flushして残りのpendingを取りに来る。
                     queueOutputSurfs();
@@ -2601,11 +3373,31 @@ public:
                 PrintMes(RGY_LOG_ERROR, _T("Last filter setting invalid.\n"));
                 return RGY_ERR_INVALID_PARAM;
             }
-            auto surfVppOut = getWorkSurf();
+            PipelineTaskSurface surfVppOut;
             RGYCLFrameInterop *clFrameOutInterop = nullptr;
-            if (auto mfxsurfOut = (surfVppOut.mfx()) ? surfVppOut.mfx()->surf() : nullptr; mfxsurfOut != nullptr) {
+            std::unique_ptr<ReleaseReady> releaseReady;
+            if (useReleaseWorker()) {
+                auto err = feedReleaseAcquireQueue();
+                if (err != RGY_ERR_NONE && err != RGY_ERR_MORE_SURFACE) {
+                    return err;
+                }
+                releaseReady = popReleaseReady(true);
+                if (!releaseReady) {
+                    return RGY_ERR_MORE_SURFACE;
+                }
+                surfVppOut = releaseReady->surf;
+                clFrameOutInterop = releaseReady->interop;
+                if (releaseReady->waitAcquireEvent) {
+                    firstFilterWaitEvents.push_back(releaseReady->acquireEvent);
+                }
+            } else {
+                surfVppOut = getWorkSurf();
+            }
+            auto mfxsurfOut = (surfVppOut.mfx()) ? surfVppOut.mfx()->surf() : nullptr;
+            if (!useReleaseWorker() && mfxsurfOut != nullptr) {
                 // 通常のmfxフレームの場合
                 if (m_surfVppOutInterop.count(mfxsurfOut) == 0) {
+                    std::lock_guard<std::mutex> lock(m_interopMtx);
                     m_surfVppOutInterop[mfxsurfOut] = getOpenCLFrameInterop(mfxsurfOut, m_memType, CL_MEM_WRITE_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_vpFilters.back()->GetFilterParam()->frameOut);
                 }
                 clFrameOutInterop = m_surfVppOutInterop[mfxsurfOut].get();
@@ -2613,13 +3405,19 @@ public:
                     PrintMes(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [out].\n"));
                     return RGY_ERR_NULL_PTR;
                 }
-                auto err = clFrameOutInterop->acquire(m_cl->queue());
+                auto err = RGY_ERR_NONE;
+                {
+                    std::lock_guard<std::mutex> lock(m_interopMtx);
+                    err = clFrameOutInterop->acquire(m_cl->queue());
+                }
                 if (err != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [out]: %s.\n"), get_err_mes(err));
                     return RGY_ERR_NULL_PTR;
                 }
             } else if (surfVppOut.cl() != nullptr) {
                 //OpenCLフレームが出てきた時の場合...特にすることはない
+            } else if (useReleaseWorker() && clFrameOutInterop != nullptr) {
+                // Releaseワーカーでacquire済みのmfxフレーム。
             } else {
                 PrintMes(RGY_LOG_ERROR, _T("Invalid work frame [out].\n"));
                 return RGY_ERR_NULL_PTR;
@@ -2630,10 +3428,16 @@ public:
             RGYFrameInfo *outInfo[1];
             outInfo[0] = &encSurfaceInfo;
             RGYOpenCLEvent clevent; // 最終フィルタの処理完了を伝えるevent
-            auto sts_filter = lastFilter->filter(&filterframes.front().first, (RGYFrameInfo **)&outInfo, &nOutFrames, m_cl->queue(), &clevent);
+            auto sts_filter = (!firstFilterWaitEvents.empty())
+                ? lastFilter->filter(&filterframes.front().first, (RGYFrameInfo **)&outInfo, &nOutFrames, m_cl->queue(), firstFilterWaitEvents, &clevent)
+                : lastFilter->filter(&filterframes.front().first, (RGYFrameInfo **)&outInfo, &nOutFrames, m_cl->queue(), &clevent);
+            firstFilterWaitEvents.clear();
             if (sts_filter != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), lastFilter->name().c_str());
-                if (clFrameOutInterop) clFrameOutInterop->release();
+                if (clFrameOutInterop) {
+                    std::lock_guard<std::mutex> lock(m_interopMtx);
+                    clFrameOutInterop->release();
+                }
                 return sts_filter;
             }
             if (m_videoMetric) {
@@ -2642,33 +3446,53 @@ public:
                 auto err = m_videoMetric->filter(&filterframes.front().first, nullptr, &dummy, m_cl->queue(), &clevent);
                 if (err != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Failed to send frame for video metric calcualtion: %s.\n"), get_err_mes(err));
-                    if (clFrameOutInterop) clFrameOutInterop->release();
+                    if (clFrameOutInterop) {
+                        std::lock_guard<std::mutex> lock(m_interopMtx);
+                        clFrameOutInterop->release();
+                    }
                     return err;
                 }
             }
             filterframes.pop_front();
 
-            if (clFrameOutInterop) {
-                auto err = clFrameOutInterop->release(&clevent);
+            if (clFrameOutInterop && !useReleaseWorker()) {
+                auto err = RGY_ERR_NONE;
+                {
+                    std::lock_guard<std::mutex> lock(m_interopMtx);
+                    err = clFrameOutInterop->release(&clevent);
+                }
                 if (err != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Failed to release out frame interop after \"%s\".\n"), lastFilter->name().c_str());
                     return sts_filter;
                 }
             }
-            surfVppOut.frame()->setTimestamp(encSurfaceInfo.timestamp);
-            surfVppOut.frame()->setInputFrameId(encSurfaceInfo.inputFrameId);
-            surfVppOut.frame()->setPicstruct(encSurfaceInfo.picstruct);
-            surfVppOut.frame()->setFlags(encSurfaceInfo.flags);
-            surfVppOut.frame()->setDataList(encSurfaceInfo.dataList);
+            if (!m_prevAcquireFrame.empty() && !m_prevAcquireFrame.back().waitEvent && clevent()) {
+                m_prevAcquireFrame.back().event = clevent;
+                m_prevAcquireFrame.back().waitEvent = true;
+            }
 
-            outputSurfs.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, frame, clevent));
+            if (useReleaseWorker() && clFrameOutInterop) {
+                m_cl->queue().flush();
+                auto err = pushReleaseWork(surfVppOut, clFrameOutInterop, clevent, encSurfaceInfo);
+                if (err != RGY_ERR_NONE) {
+                    return err;
+                }
+                collectReleaseDone(false);
+            } else {
+                surfVppOut.frame()->setTimestamp(encSurfaceInfo.timestamp);
+                surfVppOut.frame()->setInputFrameId(encSurfaceInfo.inputFrameId);
+                surfVppOut.frame()->setPicstruct(encSurfaceInfo.picstruct);
+                surfVppOut.frame()->setFlags(encSurfaceInfo.flags);
+                surfVppOut.frame()->setDataList(encSurfaceInfo.dataList);
+                outputSurfs.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, frame, clevent));
+            }
             if (drain) {
                 // Flush may receive several frames from one filter call (for example KFM VFR emits up to 4).
                 // Do not return while real frames are still queued locally, or they will be dropped.
                 const auto drainOutputLimit = std::max<size_t>(1, std::min<size_t>(
                     4,
                     std::max<size_t>(1, m_workSurfs.bufCount() / 2)));
-                if (outputSurfs.size() >= drainOutputLimit
+                if ((outputSurfs.size() + m_outQeueue.size()) >= drainOutputLimit
                     && (filterframes.empty() || filterframes.front().first.ptr[0] == nullptr)) {
                     queueOutputSurfs();
                     if (m_stopwatch) m_stopwatch->add(0, 2);
@@ -2678,7 +3502,10 @@ public:
         }
         if (clFrameInInterop) {
             RGYOpenCLEvent clevent;
-            clFrameInInterop->release(&clevent); // input frameの解放
+            {
+                std::lock_guard<std::mutex> lock(m_interopMtx);
+                clFrameInInterop->release(&clevent); // input frameの解放
+            }
             for (auto& surf : outputSurfs) {
                 surf->addClEvent(clevent);
             }

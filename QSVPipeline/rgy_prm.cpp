@@ -4186,6 +4186,7 @@ RGYParamControl::RGYParamControl() :
     enableOpenCL(true),
     enableVulkan(RGYParamInitVulkan::TargetVendor),
     openclBuildThreads(0),
+    openclTaskThreads(0),
     clPerfDumpDir(),
     clPerfTimelineSec(0.0),
     clPerfDisasmTool(),
