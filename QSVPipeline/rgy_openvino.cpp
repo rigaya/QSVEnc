@@ -48,6 +48,8 @@ using ov_core_free_t = void(OPENVINO_C_API_CALLBACK *)(ov_core_t *);
 using ov_core_read_model_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_core_t *, const char *, const char *, ov_model_t **);
 using ov_core_compile_model_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_core_t *, const ov_model_t *, const char *, const size_t, ov_compiled_model_t **, ...);
 using ov_core_get_property_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_core_t *, const char *, const char *, char **);
+using ov_get_openvino_version_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(ov_version_t *);
+using ov_version_free_t = void(OPENVINO_C_API_CALLBACK *)(ov_version_t *);
 using ov_core_create_context_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_core_t *, const char *, const size_t, ov_remote_context_t **, ...);
 using ov_core_compile_model_with_context_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_core_t *, const ov_model_t *, const ov_remote_context_t *, const size_t, ov_compiled_model_t **, ...);
 using ov_remote_context_free_t = void(OPENVINO_C_API_CALLBACK *)(ov_remote_context_t *);
@@ -93,6 +95,8 @@ struct OpenVINOLoader {
     ov_core_read_model_t core_read_model = nullptr;
     ov_core_compile_model_t core_compile_model = nullptr;
     ov_core_get_property_t core_get_property = nullptr;
+    ov_get_openvino_version_t get_openvino_version = nullptr;
+    ov_version_free_t version_free = nullptr;
     ov_core_create_context_t core_create_context = nullptr;
     ov_core_compile_model_with_context_t core_compile_model_with_context = nullptr;
     ov_remote_context_free_t remote_context_free = nullptr;
@@ -186,6 +190,8 @@ struct OpenVINOLoader {
         LOAD_OV(core_read_model);
         LOAD_OV(core_compile_model);
         LOAD_OV(core_get_property);
+        loadOptional(get_openvino_version, "ov_get_openvino_version");
+        loadOptional(version_free, "ov_version_free");
         loadOptional(core_create_context, "ov_core_create_context");
         loadOptional(core_compile_model_with_context, "ov_core_compile_model_with_context");
         loadOptional(remote_context_free, "ov_remote_context_free");
@@ -899,6 +905,22 @@ tstring RGYOpenVINO::availabilityStatus() {
     return ov.error;
 }
 
+tstring RGYOpenVINO::runtimeVersion() {
+    auto &ov = ovLoader();
+    if (!ov.load() || !ov.get_openvino_version) {
+        return tstring();
+    }
+    ov_version_t version{};
+    if (ov.get_openvino_version(&version) != OK || version.buildNumber == nullptr) {
+        return tstring();
+    }
+    tstring ret = char_to_tstring(version.buildNumber);
+    if (ov.version_free) {
+        ov.version_free(&version);
+    }
+    return ret;
+}
+
 #else // !ENABLE_OPENVINO
 
 class RGYOpenVINO::Impl {};
@@ -941,5 +963,6 @@ tstring RGYOpenVINO::deviceFullName()     const { return tstring(); }
 tstring RGYOpenVINO::inferencePrecision() const { return tstring(); }
 bool RGYOpenVINO::available() { return false; }
 tstring RGYOpenVINO::availabilityStatus() { return _T("this build of QSVEnc does not include OpenVINO support"); }
+tstring RGYOpenVINO::runtimeVersion() { return tstring(); }
 
 #endif // ENABLE_OPENVINO

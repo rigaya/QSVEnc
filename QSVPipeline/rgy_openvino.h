@@ -111,6 +111,7 @@ public:
 
     static bool available();
     static tstring availabilityStatus();
+    static tstring runtimeVersion(); // OpenVINOランタイムのビルド番号 (例: "2025.2.0-XXXXX-abcdef"); 取得不可なら空文字
 
 private:
     RGYOpenVINO(const RGYOpenVINO &) = delete;

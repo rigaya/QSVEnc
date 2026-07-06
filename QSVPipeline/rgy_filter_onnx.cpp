@@ -30,6 +30,7 @@
 #include "rgy_aspect_ratio.h"  // set_auto_resolution() for out_res= negative auto-aspect
 #include "rgy_filesystem.h"
 #include "rgy_model_registry.h"
+#include "rgy_version.h"
 #include <cmath>
 #include <cstring>
 #include <algorithm>
@@ -229,6 +230,35 @@ void RGYFilterOnnx::setupColorCoeffs(int matrixSel, bool rangeTV, int pixMax) {
     m_cScale = 1.0f / m_cRange;
 }
 
+// OpenVINOのCACHE_DIRはコンパイル済みバイナリをそのまま保存するだけで、実行環境が変わっても
+// 古いキャッシュを消したり検証したりはしない (QSVEncビルド・OpenVINOランタイム・GPUドライバの
+// いずれかが変わっても同じファイルを読みに行く)。QSVEncのdevice_info_cache
+// (rgy_device_info_cache.cpp) が「期待するバージョン文字列と不一致なら丸ごと無効化する」のと
+// 同じ考え方で、cache_dir配下にこれらを埋め込んだサブフォルダを切ることで対応する。
+// 一致しなければ単に別のサブフォルダを使うだけなので、壊れたキャッシュを読む心配がない。
+static tstring sanitizeForPath(const tstring &str) {
+    tstring ret = str;
+    for (auto &c : ret) {
+        if (!((c >= _T('0') && c <= _T('9')) || (c >= _T('A') && c <= _T('Z')) || (c >= _T('a') && c <= _T('z')) || c == _T('.') || c == _T('-') || c == _T('_'))) {
+            c = _T('_');
+        }
+    }
+    return ret;
+}
+
+static tstring onnxCacheDirFingerprint(const std::shared_ptr<RGYOpenCLContext> &cl) {
+    tstring fingerprint = char_to_tstring(ENCODER_NAME) + _T("_") + VER_STR_FILEVERSION_TCHAR + _T("_rev") + char_to_tstring(ENCODER_REV);
+    if (const auto ovVer = RGYOpenVINO::runtimeVersion(); !ovVer.empty()) {
+        fingerprint += _T("_ov") + ovVer;
+    }
+    if (cl) {
+        if (const auto driverVer = RGYOpenCLDevice(cl->queue().devid()).info().driver_version; !driverVer.empty()) {
+            fingerprint += _T("_drv") + char_to_tstring(driverVer);
+        }
+    }
+    return sanitizeForPath(fingerprint);
+}
+
 RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     m_pLog = pPrintMes;
     auto prm = std::dynamic_pointer_cast<RGYFilterParamOnnx>(pParam);
@@ -294,8 +324,15 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     m_ov = std::make_unique<RGYOpenVINO>();
     if (!prm->onnx.cacheDir.empty()) {
         //コンパイル済みモデルのキャッシュ: 初回コンパイル後、同一モデル+設定なら次回以降ほぼ即時ロード
-        m_ov->setCacheDir(prm->onnx.cacheDir);
-        AddMessage(RGY_LOG_DEBUG, _T("onnx: OpenVINO CACHE_DIR = %s\n"), prm->onnx.cacheDir.c_str());
+        //QSVEncビルド/OpenVINOランタイム/GPUドライバのいずれかが変わったら別サブフォルダになるようにし、
+        //古いキャッシュを誤って読むことがないようにする (詳細はonnxCacheDirFingerprint()のコメント参照)
+        const tstring effectiveCacheDir = PathCombineS(prm->onnx.cacheDir, onnxCacheDirFingerprint(m_cl));
+        if (CreateDirectoryRecursive(effectiveCacheDir.c_str())) {
+            m_ov->setCacheDir(effectiveCacheDir);
+            AddMessage(RGY_LOG_DEBUG, _T("onnx: OpenVINO CACHE_DIR = %s\n"), effectiveCacheDir.c_str());
+        } else {
+            AddMessage(RGY_LOG_WARN, _T("onnx: failed to create cache_dir %s, cache disabled.\n"), effectiveCacheDir.c_str());
+        }
     }
     tstring errMsg;
     tstring effectiveDevice = prm->onnx.device;
