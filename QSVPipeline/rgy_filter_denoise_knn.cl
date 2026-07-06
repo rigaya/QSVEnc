@@ -2,6 +2,7 @@
 // Type
 // bit_depth
 // knn_radius
+// temporal_d
 
 #ifndef clamp
 #define clamp(x, low, high) (((x) <= (high)) ? (((x) >= (low)) ? (x) : (low)) : (high))
@@ -27,18 +28,26 @@ float lerpf(float v0, float v1, float t) {
 #define KNN_LY 8
 #define KNN_TILE_W (KNN_LX + 2 * knn_radius)
 #define KNN_TILE_H (KNN_LY + 2 * knn_radius)
+#define KNN_TILE_FRAMES (2 * temporal_d + 1)
 
 __attribute__((reqd_work_group_size(KNN_LX, KNN_LY, 1)))
 __kernel void kernel_denoise_knn(
     __global uchar *restrict pDst,
     const int dstPitch, const int dstWidth, const int dstHeight,
-    __read_only image2d_t src,
+    __read_only image2d_t srcPrev2, __read_only image2d_t srcPrev1, __read_only image2d_t src, __read_only image2d_t srcNext1, __read_only image2d_t srcNext2,
     const float strength, const float lerpC, const float weight_threshold, const float lerp_threshold) {
     const float knn_window_area = (float)((2 * knn_radius + 1) * (2 * knn_radius + 1));
     const float inv_knn_window_area = 1.0f / knn_window_area;
+    // temporal_d == 0 では inv_temporal_frames = 1, distT = 0 に定数化され、
+    // 従来の空間方向のみの処理と完全に一致する。前後フレームのサンプルの重みも
+    // 現在フレームの中心画素との差で計算するため、動きなどで差が大きい画素は
+    // 自動的に小さい重みになり、小さい d では明示的な動き補償は不要。
+    const float inv_temporal_frames = 1.0f / (float)(2 * temporal_d + 1);
     const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_NONE | CLK_FILTER_NEAREST;
 
-    __local float tile[KNN_TILE_H * KNN_TILE_W];
+    // 時間方向の各フレームごとに空間タイルを1つ確保する。
+    // radius=5, d=2 では 5 * 42x18 floats = 15120 B SLM / WG で、64KBの範囲内。
+    __local float tile[KNN_TILE_FRAMES * KNN_TILE_H * KNN_TILE_W];
 
     const int lx = get_local_id(0);
     const int ly = get_local_id(1);
@@ -48,12 +57,22 @@ __kernel void kernel_denoise_knn(
     const int wg_size = KNN_LX * KNN_LY;
     const int tile_total = KNN_TILE_W * KNN_TILE_H;
 
-    for (int t = tid; t < tile_total; t += wg_size) {
-        const int tx = t % KNN_TILE_W;
-        const int ty = t / KNN_TILE_W;
+    for (int t = tid; t < tile_total * KNN_TILE_FRAMES; t += wg_size) {
+        const int tf = (t / tile_total) - temporal_d; // フレームオフセット -temporal_d..+temporal_d
+        const int trem = t % tile_total;
+        const int tx = trem % KNN_TILE_W;
+        const int ty = trem / KNN_TILE_W;
         const int sx = clamp(gx0 + tx - knn_radius, 0, dstWidth  - 1);
         const int sy = clamp(gy0 + ty - knn_radius, 0, dstHeight - 1);
-        tile[t] = (float)read_imagef(src, sampler, (int2)(sx, sy)).x;
+        float v;
+        switch (tf) {
+        case -2: v = (float)read_imagef(srcPrev2, sampler, (int2)(sx, sy)).x; break;
+        case -1: v = (float)read_imagef(srcPrev1, sampler, (int2)(sx, sy)).x; break;
+        case  1: v = (float)read_imagef(srcNext1, sampler, (int2)(sx, sy)).x; break;
+        case  2: v = (float)read_imagef(srcNext2, sampler, (int2)(sx, sy)).x; break;
+        default: v = (float)read_imagef(src,      sampler, (int2)(sx, sy)).x; break;
+        }
+        tile[t] = v;
     }
     barrier(CLK_LOCAL_MEM_FENCE);
 
@@ -62,22 +81,28 @@ __kernel void kernel_denoise_knn(
     if (ix < dstWidth && iy < dstHeight) {
         const int tcx = lx + knn_radius;
         const int tcy = ly + knn_radius;
-        const float center = tile[tcy * KNN_TILE_W + tcx];
+        const float center = tile[temporal_d * tile_total + tcy * KNN_TILE_W + tcx];
 
         float fCount = 0.0f;
         float sumWeights = 0.0f;
         float sum = 0.0f;
 
         #pragma unroll
-        for (int i = -knn_radius; i <= knn_radius; i++) {
+        for (int t = -temporal_d; t <= temporal_d; t++) {
+            const __local float *tileT = tile + (t + temporal_d) * tile_total;
+            // 時間方向の距離ペナルティ、空間方向と同様に窓サイズで正規化
+            const float distT = (float)(t * t) * (inv_temporal_frames * inv_temporal_frames);
             #pragma unroll
-            for (int j = -knn_radius; j <= knn_radius; j++) {
-                const float clrIJ = tile[(tcy + j) * KNN_TILE_W + (tcx + i)];
-                const float distanceIJ = (center - clrIJ) * (center - clrIJ);
-                const float weightIJ = native_exp(-(distanceIJ * strength + (i * i + j * j) * inv_knn_window_area));
-                sum += clrIJ * weightIJ;
-                sumWeights += weightIJ;
-                fCount += (weightIJ > weight_threshold) ? inv_knn_window_area : 0.0f;
+            for (int i = -knn_radius; i <= knn_radius; i++) {
+                #pragma unroll
+                for (int j = -knn_radius; j <= knn_radius; j++) {
+                    const float clrIJ = tileT[(tcy + j) * KNN_TILE_W + (tcx + i)];
+                    const float distanceIJ = (center - clrIJ) * (center - clrIJ);
+                    const float weightIJ = native_exp(-(distanceIJ * strength + (i * i + j * j) * inv_knn_window_area + distT));
+                    sum += clrIJ * weightIJ;
+                    sumWeights += weightIJ;
+                    fCount += (weightIJ > weight_threshold) ? inv_knn_window_area * inv_temporal_frames : 0.0f;
+                }
             }
         }
         const float lerpQ = (fCount > lerp_threshold) ? lerpC : 1.0f - lerpC;

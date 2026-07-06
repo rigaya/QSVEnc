@@ -50,12 +50,15 @@ protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;
     virtual void close() override;
 
-    virtual RGY_ERR denoisePlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    virtual RGY_ERR denoiseFrame(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    virtual RGY_ERR denoisePlane(RGYFrameInfo *pOutputPlane, const std::array<const RGYFrameInfo *, 5> &pSrcPlanes, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    virtual RGY_ERR denoiseFrame(RGYFrameInfo *pOutputFrame, const std::array<const RGYFrameInfo *, 5> &pSrc, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
 
     bool m_bInterlacedWarn;
     RGYOpenCLProgramAsync m_knn;
     RGYCLFramePool m_srcImagePool;
+    std::vector<std::unique_ptr<RGYCLFrame>> m_prevFrames; // d > 0 (時間方向) 用のフレームキャッシュ
+    int m_cacheIdx; // m_prevFrames に投入したフレーム数
+    int m_frameOut; // 出力済みフレーム数
 };
 
 #endif //__RGY_FILTER_DENOISE_KNN_H__
