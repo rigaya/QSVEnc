@@ -83,9 +83,11 @@ inline void write_scratch_buf(__global HQDN3D_SCRATCH_T *buf, int pitch_elems, i
 // LUT_BITS=8 effective resolution. Returns cur + coef[idx], where the
 // LUT was precomputed by the host using the same delta convention.
 inline float hqdn3d_lowpass(float prev, float cur, const __global float *coef) {
-    float delta_pix = (prev - cur) * 255.0f;
-    int idx = (int)(delta_pix + (delta_pix >= 0.0f ? 0.5f : -0.5f)) + LUT_RADIUS;
-    idx = clamp(idx, 0, 2 * LUT_RADIUS - 1);
+    // LUT_SCALE で LUT の 8bit 1段を分割し、高 bit 深度入力の細かな階調を保つ。
+    // LUT_SCALE = 1 なら従来のテーブルを再現する。
+    float delta_pix = (prev - cur) * 255.0f * (float)LUT_SCALE;
+    int idx = (int)(delta_pix + (delta_pix >= 0.0f ? 0.5f : -0.5f)) + LUT_RADIUS * LUT_SCALE;
+    idx = clamp(idx, 0, 2 * LUT_RADIUS * LUT_SCALE - 1);
     return cur + coef[idx];
 }
 

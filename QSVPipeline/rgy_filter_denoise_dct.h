@@ -57,7 +57,7 @@ protected:
     RGY_ERR denoise(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
 
     int m_step;
-    float m_threshold;
+    std::unique_ptr<RGYCLBuf> m_thresholdBuf; // 周波数 bin ごとのしきい値テーブル(sigma/sigma2/3/4)
     std::unique_ptr<RGYFilterCspCrop> m_srcCrop;
     std::unique_ptr<RGYFilterCspCrop> m_dstCrop;
     std::array<std::unique_ptr<RGYCLFrame>, 2> m_bufImg;

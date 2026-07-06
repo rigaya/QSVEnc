@@ -2199,6 +2199,9 @@ tstring VppSmooth::print() const {
 VppDenoiseDct::VppDenoiseDct() :
     enable(false),
     sigma(FILTER_DEFAULT_DENOISE_DCT_SIGMA),
+    sigma2(FILTER_DEFAULT_DENOISE_DCT_SIGMA2),
+    sigma3(FILTER_DEFAULT_DENOISE_DCT_SIGMA3),
+    sigma4(FILTER_DEFAULT_DENOISE_DCT_SIGMA4),
     step(FILTER_DEFAULT_DENOISE_DCT_STEP),
     block_size(FILTER_DEFAULT_DENOISE_DCT_BLOCK_SIZE) {
 
@@ -2207,6 +2210,9 @@ VppDenoiseDct::VppDenoiseDct() :
 bool VppDenoiseDct::operator==(const VppDenoiseDct &x) const {
     return enable == x.enable
         && sigma == x.sigma
+        && sigma2 == x.sigma2
+        && sigma3 == x.sigma3
+        && sigma4 == x.sigma4
         && step == x.step
         && block_size == x.block_size;
 }
@@ -2215,7 +2221,14 @@ bool VppDenoiseDct::operator!=(const VppDenoiseDct &x) const {
 }
 
 tstring VppDenoiseDct::print() const {
-    tstring str = strsprintf(_T("denoise-dct: sigma %.2f, step %d, block_size %d"), sigma, step, block_size);
+    tstring str = strsprintf(_T("denoise-dct: sigma %.2f"), sigma);
+    if (sigma2 > 0.0f || sigma3 > 0.0f || sigma4 > 0.0f) {
+        str += strsprintf(_T(" (sigma2 %.2f, sigma3 %.2f, sigma4 %.2f)"),
+            (sigma2 > 0.0f) ? sigma2 : sigma,
+            (sigma3 > 0.0f) ? sigma3 : sigma,
+            (sigma4 > 0.0f) ? sigma4 : sigma);
+    }
+    str += strsprintf(_T(", step %d, block_size %d"), step, block_size);
     return str;
 }
 

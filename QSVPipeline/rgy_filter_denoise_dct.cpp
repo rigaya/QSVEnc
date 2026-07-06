@@ -27,6 +27,7 @@
 // ------------------------------------------------------------------------------------------
 
 #include <array>
+#include <cmath>
 #include <map>
 #include "convert_csp.h"
 #include "rgy_filter_denoise_dct.h"
@@ -63,7 +64,7 @@ RGY_ERR RGYFilterDenoiseDct::denoiseDct(RGYFrameInfo *pOutputFrame, const RGYFra
         auto err = m_dct.get()->kernel(kernel_name).config(queue, local, global).launch(
             (cl_mem)planeOutputR.ptr[0], (cl_mem)planeOutputG.ptr[0], (cl_mem)planeOutputB.ptr[0], planeOutputR.pitch[0],
             (cl_mem)planeInputR.ptr[0], (cl_mem)planeInputG.ptr[0], (cl_mem)planeInputB.ptr[0], planeInputR.pitch[0],
-            planeInputR.width, planeInputR.height, m_threshold);
+            planeInputR.width, planeInputR.height, m_thresholdBuf->mem());
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at %s (denoiseDct): %s.\n"),
                 char_to_tstring(kernel_name).c_str(), get_err_mes(err));
@@ -201,7 +202,7 @@ RGY_ERR RGYFilterDenoiseDct::denoise(RGYFrameInfo *pOutputFrame, const RGYFrameI
 RGYFilterDenoiseDct::RGYFilterDenoiseDct(shared_ptr<RGYOpenCLContext> context) :
     RGYFilter(context),
     m_step(-1),
-    m_threshold(0.0f),
+    m_thresholdBuf(),
     m_srcCrop(),
     m_dstCrop(),
     m_bufImg(),
@@ -311,7 +312,54 @@ RGY_ERR RGYFilterDenoiseDct::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
         }
 
         m_step = prm->dct.step;
-        m_threshold = prm->dct.sigma * 3.0f / 255.0f;
+        // 周波数 bin ごとのしきい値テーブル(sigma / sigma2 / sigma3 / sigma4)。
+        // 4つのアンカー(sigma = 最高周波数、sigma4 = 最低周波数)を
+        // 正規化した半径方向 DCT 周波数で補間する。sigma2/3/4 未指定時は
+        // 全要素が従来の scalar 値 sigma * 3 / 255 と一致し、出力は変わらない。
+        {
+            const int bs = prm->dct.block_size;
+            const float s1 = prm->dct.sigma;                                    // 最高周波数
+            const float s2 = (prm->dct.sigma2 > 0.0f) ? prm->dct.sigma2 : s1;   // 中高周波数
+            const float s3 = (prm->dct.sigma3 > 0.0f) ? prm->dct.sigma3 : s1;   // 中低周波数
+            const float s4 = (prm->dct.sigma4 > 0.0f) ? prm->dct.sigma4 : s1;   // 最低周波数
+            const float anchors[4] = { s4, s3, s2, s1 }; // 半径方向 0 -> 1
+            std::vector<float> thresholdTable((size_t)bs * bs);
+            // DCT-II の bin 周波数は 0(DC) .. bs-1(Nyquist) で、ミラーリングしない。
+            auto fnorm = [bs](int i) { return (float)i / (float)(bs - 1); };
+            for (int by = 0; by < bs; by++) {
+                const float fy = fnorm(by);
+                for (int bx = 0; bx < bs; bx++) {
+                    const float fx = fnorm(bx);
+                    float radial = std::sqrt(fx * fx + fy * fy) * 0.70710678f; // /sqrt(2) で [0,1] にする
+                    if (radial > 1.0f) radial = 1.0f;
+                    const float t = radial * 3.0f; // 4アンカー間の3つの線形区間
+                    int seg = (int)t; if (seg > 2) seg = 2;
+                    const float frac = t - (float)seg;
+                    const float sval = anchors[seg] * (1.0f - frac) + anchors[seg + 1] * frac;
+                    thresholdTable[(size_t)by * bs + bx] = sval * 3.0f / 255.0f; // 従来の scalar scale に合わせる
+                }
+            }
+            m_thresholdBuf = m_cl->createBuffer(thresholdTable.size() * sizeof(float));
+            if (!m_thresholdBuf) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for DCT threshold table.\n"));
+                return RGY_ERR_NULL_PTR;
+            }
+            auto err = m_thresholdBuf->queueMapBuffer(m_cl->queue(), CL_MAP_WRITE);
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to map memory for DCT threshold table: %s.\n"), get_err_mes(err));
+                return err;
+            }
+            if ((err = m_cl->queue().finish()) != RGY_ERR_NONE) {
+                return err;
+            }
+            memcpy(m_thresholdBuf->mappedPtr(), thresholdTable.data(), thresholdTable.size() * sizeof(float));
+            if ((err = m_thresholdBuf->unmapBuffer()) != RGY_ERR_NONE) {
+                return err;
+            }
+            if ((err = m_cl->queue().finish()) != RGY_ERR_NONE) {
+                return err;
+            }
+        }
     }
 
     setFilterInfo(pParam->print());

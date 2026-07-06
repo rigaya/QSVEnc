@@ -40,8 +40,18 @@ static const int HQDN3D_BLOCK_LINEAR = 32;
 static const int HQDN3D_TBLOCK_X = 32;
 static const int HQDN3D_TBLOCK_Y = 8;
 
-void RGYFilterDenoiseHqdn3d::precalcCoefs(std::vector<float> &table, double dist25) {
-    table.assign(2 * HQDN3D_LUT_RADIUS, 0.0f);
+// 高 bit 深度入力の細かな強度階調を保つため、bit 深度に応じて LUT 解像度を上げる。
+// 上限は16倍で、12bit では正確な解像度になる。
+static int hqdn3dLutScale(const RGY_CSP csp) {
+    return std::min(1 << (std::max((int)RGY_CSP_BIT_DEPTH[csp], 8) - 8), 16);
+}
+
+void RGYFilterDenoiseHqdn3d::precalcCoefs(std::vector<float> &table, double dist25, const int lutScale) {
+    // lutScale は 8bit での1段をさらに分割する。高 bit 深度では入力 code の
+    // 1段が 8bit での1段未満になるため、8bit 1段につき1要素の LUT では
+    // それらが同じ係数に丸められてしまう。
+    // lutScale = 1 なら従来のテーブルを完全に再現する。
+    table.assign(2 * HQDN3D_LUT_RADIUS * lutScale, 0.0f);
     if (dist25 <= 0.0) {
         return;
     }
@@ -53,8 +63,8 @@ void RGYFilterDenoiseHqdn3d::precalcCoefs(std::vector<float> &table, double dist
     const double clamped = std::min(dist25, 253.9);
     const double sigma   = -1.0 / std::log(0.25);
     const double scale   = clamped * sigma + 1e-7;
-    for (int i = 0; i < 2 * HQDN3D_LUT_RADIUS; ++i) {
-        const double f = (double)(i - HQDN3D_LUT_RADIUS);
+    for (int i = 0; i < 2 * HQDN3D_LUT_RADIUS * lutScale; ++i) {
+        const double f = (double)(i - HQDN3D_LUT_RADIUS * lutScale) / (double)lutScale;
         const double attenuation = std::exp(-std::fabs(f) / scale);
         // Normalize to the [0, 1] float domain. Output of the IIR step
         // is `cur + table[idx]` where idx is signed pixel delta + LUT
@@ -121,10 +131,11 @@ RGY_ERR RGYFilterDenoiseHqdn3d::init(shared_ptr<RGYFilterParam> pParam, shared_p
     if (!m_hqdn3d.get()
         || !prmPrev
         || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[prm->frameOut.csp]) {
-        const auto options = strsprintf("-D Type=%s -D bit_depth=%d -D LUT_RADIUS=%d -D HQDN3D_SCRATCH_FP16=%d",
+        const auto options = strsprintf("-D Type=%s -D bit_depth=%d -D LUT_RADIUS=%d -D LUT_SCALE=%d -D HQDN3D_SCRATCH_FP16=%d",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp] > 8 ? "ushort" : "uchar",
             RGY_CSP_BIT_DEPTH[prm->frameOut.csp],
             HQDN3D_LUT_RADIUS,
+            hqdn3dLutScale(prm->frameOut.csp),
             m_fp16Scratch ? 1 : 0);
         m_hqdn3d.set(m_cl->buildResourceAsync(_T("RGY_FILTER_DENOISE_HQDN3D_CL"), _T("EXE_DATA"), options.c_str()));
     }
@@ -141,7 +152,7 @@ RGY_ERR RGYFilterDenoiseHqdn3d::init(shared_ptr<RGYFilterParam> pParam, shared_p
     };
     for (int i = 0; i < 4; ++i) {
         std::vector<float> table;
-        precalcCoefs(table, (double)strengths[i]);
+        precalcCoefs(table, (double)strengths[i], hqdn3dLutScale(prm->frameOut.csp));
         m_coefs[i] = m_cl->createBuffer(table.size() * sizeof(float),
             CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, table.data());
         if (!m_coefs[i] || !m_coefs[i]->mem()) {

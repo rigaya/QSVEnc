@@ -64,7 +64,7 @@ protected:
     RGY_ERR denoiseFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
 
-    static void precalcCoefs(std::vector<float> &table, double dist25);
+    static void precalcCoefs(std::vector<float> &table, double dist25, const int lutScale);
 
     RGYOpenCLProgramAsync m_hqdn3d;
     // Coefficient LUTs (one per plane-direction combination): luma-spatial,

@@ -367,10 +367,12 @@ void idctBlock(const bool enable, __local TypeTmp shared_tmp[BLOCK_SIZE][BLOCK_S
     }
 }
 
-void thresholdBlock(__local TypeTmp shared_tmp[BLOCK_SIZE][BLOCK_SIZE + 1], const int thWorker, const float threshold) {
+void thresholdBlock(__local TypeTmp shared_tmp[BLOCK_SIZE][BLOCK_SIZE + 1], const int thWorker, const __global float *ptrThreshold) {
     #pragma unroll
     for (int y = 0; y < BLOCK_SIZE; y++) {
         if (y > 0 || thWorker > 0) {
+            // 周波数 bin ごとのしきい値(host 側で sigma/sigma2/sigma3/sigma4 を補間済み)
+            const float threshold = ptrThreshold[y * BLOCK_SIZE + thWorker];
             __local TypeTmp *ptr = &shared_tmp[y][thWorker];
             const TypeTmp val = ptr[0];
             if (fabs(val) <= threshold) {
@@ -462,11 +464,11 @@ void filter_block(
     const int shared_block_x, const int shared_block_y,
     const int block_x, const int block_y,
     const int width, const int height,
-    const float threshold) {
+    const __global float *ptrThreshold) {
 #if 1
     if (enable) loadBlocktmp(shared_tmp, local_bx, thWorker, ptrSrc, srcPitch, block_x, block_y, width, height);
     dctBlock(enable, shared_tmp[local_bx], thWorker);
-    thresholdBlock(shared_tmp[local_bx], thWorker, threshold);
+    thresholdBlock(shared_tmp[local_bx], thWorker, ptrThreshold);
     idctBlock(enable, shared_tmp[local_bx], thWorker);
     if (enable) addBlocktmp(shared_out, shared_block_x, shared_block_y, shared_tmp, local_bx, thWorker);
 #else
@@ -498,7 +500,7 @@ __kernel void kernel_denoise_dct(
     const __global char *const __restrict__ ptrSrc2,
     const int srcPitch,
     const int width, const int height,
-    const float threshold) {
+    const __global float *ptrThreshold) {
     const int thWorker = get_local_id(0); // BLOCK_SIZE
     const int local_bx = get_local_id(1); // DENOISE_BLOCK_SIZE_X
     const int global_bx = get_group_id(0) * DENOISE_BLOCK_SIZE_X + local_bx;
@@ -515,7 +517,7 @@ __kernel void kernel_denoise_dct(
     SHARED_OUT;
 
     #define FILTER_BLOCK(enable, SHARED_X, SHARED_Y, X, Y) \
-        { filter_block((enable), ptrSrc, srcPitch, shared_tmp, shared_out, local_bx, thWorker, (SHARED_X), (SHARED_Y), (X), (Y), width, height, threshold); }
+        { filter_block((enable), ptrSrc, srcPitch, shared_tmp, shared_out, local_bx, thWorker, (SHARED_X), (SHARED_Y), (X), (Y), width, height, ptrThreshold); }
 
     { // SHARED_OUTの初期化
         clearSharedOut(shared_out, local_bx, thWorker);
