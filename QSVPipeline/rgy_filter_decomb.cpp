@@ -82,7 +82,7 @@ RGY_ERR RGYFilterDecomb::isCombed(
 
     const char *kernel_name = "kernel_is_combed";
     RGYWorkSize local(DECOMB_BLOCK_IS_COMBED_X, DECOMB_BLOCK_IS_COMBED_Y);
-    RGYWorkSize global(pFmaskPlane->width, pFmaskPlane->height);
+    RGYWorkSize global(pFmaskPlane->width, divCeil(pFmaskPlane->height, DECOMB_BLOCK_IS_COMBED_X) * DECOMB_BLOCK_IS_COMBED_Y);
     auto err = m_decomb.get()->kernel(kernel_name).config(queue, local, global, {}, nullptr).launch(
         pResultIsCombed->mem(),
         (cl_mem)pFmaskPlane->ptr[0], pFmaskPlane->pitch[0],

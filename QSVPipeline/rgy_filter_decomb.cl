@@ -57,7 +57,7 @@ __kernel void kernel_is_combed(
     // 1threadはx方向にBOX_X_LOG2 pixelを処理、さらにthread.xでy方向にBOX_Y_LOG2pixelを処理
     // thread.yはx方向にBOX_X_LOG2 pixelずつ処理
     const int x = (get_group_id(0) * get_local_size(0) + get_local_id(1)) << BOX_X_LOG2;
-    const int y =  get_group_id(1) * get_local_size(1) + get_local_id(0);
+    const int y =  get_group_id(1) * get_local_size(0) + get_local_id(0);
 
     __local int block_result;
     if (get_local_id(0) == 0 && get_local_id(1) == 0) {
