@@ -5477,7 +5477,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         i++;
         const auto paramList = std::vector<std::string>{
-            "enable", "kernel", "width", "height", "b", "c", "src_left", "src_top",
+            "enable", "kernel", "width", "height", "b", "c", "src_left", "src_top", "src_width", "src_height",
             "border_handling", "border", "auto", "search_min", "search_max", "search_step",
             "detect_frames", "show_scores"
         };
@@ -5532,6 +5532,8 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             else if (param_arg == _T("c"))             float_target = &vpp->descale.c;
             else if (param_arg == _T("src_left"))      float_target = &vpp->descale.src_left;
             else if (param_arg == _T("src_top"))       float_target = &vpp->descale.src_top;
+            else if (param_arg == _T("src_width"))     float_target = &vpp->descale.src_width;
+            else if (param_arg == _T("src_height"))    float_target = &vpp->descale.src_height;
             else if (param_arg == _T("auto"))          bool_target = &vpp->descale.autoDetect;
             else if (param_arg == _T("show_scores"))   bool_target = &vpp->descale.show_scores;
             if (int_target) {
@@ -13472,6 +13474,8 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_BOOL(_T("signorm"), fft3d.signorm);
             ADD_LST(_T("prec"), fft3d.precision, list_vpp_fp_prec);
         }
+            ADD_FLOAT(_T("src_width"), descale.src_width, 3);
+            ADD_FLOAT(_T("src_height"), descale.src_height, 3);
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-fft3d ") << tmp.str().substr(1);
         } else if (param->fft3d.enable) {
@@ -16078,6 +16082,9 @@ tstring gen_cmd_help_vpp() {
         _T("      thsadc=<int>           chroma degrain SAD threshold (default=%d)\n")
         _T("      thscd1=<int>           scene change SAD threshold (default=%d)\n")
         _T("      thscd2=<int>           scene change ratio threshold in AviSynth semantics (0-255, default=%d)\n")
+        _T("      src_width=<float>         fractional active source width (default=0=off)\n")
+        _T("      src_height=<float>        fractional active source height (default=0=off)\n")
+        _T("                                  for sources whose native size is not integer.\n")
         _T("      pel=<int>              subpixel precision (1, 2, or 4; default=%d)\n")
         _T("      subpelinterp=<int>     subpixel interpolation mode (default=%d)\n")
         _T("      levels=<int>           analysis levels (default=%d)\n")

@@ -1685,7 +1685,7 @@ RGY_ERR RGYFilterDescale::runProbe(RGYFilterParamDescale *prm) {
 
 RGY_ERR RGYFilterDescale::prepareCore(RGYFilterDescaleCore &core, int src_dim, int dst_dim,
                                       VppDescaleKernel kernel, double b, double c_param,
-                                      double shift, VppDescaleBorder border) {
+                                      double shift, VppDescaleBorder border, double activeDim) {
     const int support = kernel_support(kernel);
     if (support <= 0 || src_dim <= 0 || dst_dim <= 0 || dst_dim >= src_dim) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid descale dimensions src=%d dst=%d support=%d (dst must be < src).\n"),
@@ -1700,7 +1700,8 @@ RGY_ERR RGYFilterDescale::prepareCore(RGYFilterDescaleCore &core, int src_dim, i
 
     // Build dense forward-upscale weights matrix (dst_dim x src_dim).
     std::vector<double> dense;
-    build_scaling_weights(kernel, support, dst_dim, src_dim, b, c_param, shift, (double)dst_dim, border, dense);
+    //activeDim: 実効寸法 (0なら従来通りdst_dim)。非整数のネイティブ寸法を持つソースの逆算用
+    build_scaling_weights(kernel, support, dst_dim, src_dim, b, c_param, shift, (activeDim > 0.0) ? activeDim : (double)dst_dim, border, dense);
 
     // dense is (src_dim x dst_dim). Transpose to (dst_dim x src_dim)
     // for the A^T column-scan.
@@ -1854,12 +1855,14 @@ RGY_ERR RGYFilterDescale::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
     // H_luma
     err = prepareCore(m_cores[0][0], luma_src_plane.width, luma_dst_plane.width,
                       prm->descale.kernel, prm->descale.b, prm->descale.c,
-                      (double)prm->descale.src_left, prm->descale.border);
+                      (double)prm->descale.src_left, prm->descale.border,
+                      (double)prm->descale.src_width);
     if (err != RGY_ERR_NONE) return err;
     // V_luma
     err = prepareCore(m_cores[1][0], luma_src_plane.height, luma_dst_plane.height,
                       prm->descale.kernel, prm->descale.b, prm->descale.c,
-                      (double)prm->descale.src_top, prm->descale.border);
+                      (double)prm->descale.src_top, prm->descale.border,
+                      (double)prm->descale.src_height);
     if (err != RGY_ERR_NONE) return err;
     // Chroma cores
     if (plane_count > 1) {
@@ -1868,11 +1871,13 @@ RGY_ERR RGYFilterDescale::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
         if (chroma_src_plane.width > 0 && chroma_dst_plane.width > 0) {
             err = prepareCore(m_cores[0][1], chroma_src_plane.width, chroma_dst_plane.width,
                               prm->descale.kernel, prm->descale.b, prm->descale.c,
-                              (double)prm->descale.src_left, prm->descale.border);
+                              (double)prm->descale.src_left, prm->descale.border,
+                              (prm->descale.src_width > 0.0f) ? (double)prm->descale.src_width * chroma_dst_plane.width / (double)luma_dst_plane.width : 0.0);
             if (err != RGY_ERR_NONE) return err;
             err = prepareCore(m_cores[1][1], chroma_src_plane.height, chroma_dst_plane.height,
                               prm->descale.kernel, prm->descale.b, prm->descale.c,
-                              (double)prm->descale.src_top, prm->descale.border);
+                              (double)prm->descale.src_top, prm->descale.border,
+                              (prm->descale.src_height > 0.0f) ? (double)prm->descale.src_height * chroma_dst_plane.height / (double)luma_dst_plane.height : 0.0);
             if (err != RGY_ERR_NONE) return err;
         }
     }

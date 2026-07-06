@@ -3383,6 +3383,8 @@ struct VppDescale {
     bool operator!=(const VppDescale &x) const;
     tstring print() const;
 };
+    float src_width;  //0=無効: 元の実効幅 (小数可, アナモルフィック/非整数ネイティブ寸法用)
+    float src_height; //0=無効: 元の実効高さ
 
 enum class VppAnime4kMode {
     Original  = 0,

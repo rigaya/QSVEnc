@@ -102,7 +102,7 @@ protected:
 
     RGY_ERR prepareCore(RGYFilterDescaleCore &core, int src_dim, int dst_dim,
                         VppDescaleKernel kernel, double b, double c_param,
-                        double shift, VppDescaleBorder border);
+                        double shift, VppDescaleBorder border, double activeDim = 0.0);
 
     // Auto-detect probe: open a private libavcodec context against
     // inputFilePath, decode detect_frames frames, score each candidate

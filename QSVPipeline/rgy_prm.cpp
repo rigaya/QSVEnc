@@ -1971,6 +1971,8 @@ VppDescale::VppDescale() :
     border(VppDescaleBorder::Mirror),
     autoDetect(false),
     search_min(0),
+    src_width(0.0f),
+    src_height(0.0f),
     search_max(0),
     search_step(FILTER_DEFAULT_DESCALE_SEARCH_STEP),
     detect_frames(FILTER_DEFAULT_DESCALE_DETECT_FRAMES),
@@ -1989,6 +1991,8 @@ bool VppDescale::operator==(const VppDescale &x) const {
         && border == x.border
         && autoDetect == x.autoDetect
         && search_min == x.search_min
+        && src_width == x.src_width
+        && src_height == x.src_height
         && search_max == x.search_max
         && search_step == x.search_step
         && detect_frames == x.detect_frames
