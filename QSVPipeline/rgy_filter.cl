@@ -944,8 +944,8 @@ void crop_rgb_packed_yv12(
         STORE(dstY, dstY_x+1, dstY_y+0, scaleYFloatToPix(yuv01.x));
         STORE(dstY, dstY_x+0, dstY_y+1, scaleYFloatToPix(yuv10.x));
         STORE(dstY, dstY_x+1, dstY_y+1, scaleYFloatToPix(yuv11.x));
-        const TypeOut pixU = scaleUVFloatToPix((yuv00.y + yuv10.y) * 0.5f);
-        const TypeOut pixV = scaleUVFloatToPix((yuv00.z + yuv10.z) * 0.5f);
+        const TypeOut pixU = scaleUVFloatToPix((yuv00.y + yuv01.y + yuv10.y + yuv11.y) * 0.25f);
+        const TypeOut pixV = scaleUVFloatToPix((yuv00.z + yuv01.z + yuv10.z + yuv11.z) * 0.25f);
         dstPitch = dstPitchU;
         STORE(dstU, dstC_x, dstC_y, pixU);
         dstPitch = dstPitchV;
@@ -1119,8 +1119,8 @@ void crop_rgb_packed_nv12(
         STORE(dstY, dstY_x+1, dstY_y+0, scaleYFloatToPix(yuv01.x));
         STORE(dstY, dstY_x+0, dstY_y+1, scaleYFloatToPix(yuv10.x));
         STORE(dstY, dstY_x+1, dstY_y+1, scaleYFloatToPix(yuv11.x));
-        const TypeOut pixU = scaleUVFloatToPix((yuv00.y + yuv10.y) * 0.5f);
-        const TypeOut pixV = scaleUVFloatToPix((yuv00.z + yuv10.z) * 0.5f);
+        const TypeOut pixU = scaleUVFloatToPix((yuv00.y + yuv01.y + yuv10.y + yuv11.y) * 0.25f);
+        const TypeOut pixV = scaleUVFloatToPix((yuv00.z + yuv01.z + yuv10.z + yuv11.z) * 0.25f);
         dstPitch = dstPitchC;
         STORE_NV12_UV(dstC, dstC_x, dstC_y, pixU, pixV);
     }
@@ -1299,9 +1299,9 @@ __kernel void kernel_crop_rgb_yv12(
         STORE(dstY, dstY_x+0, dstY_y+1, scaleYFloatToPix(yuv10.x));
         STORE(dstY, dstY_x+1, dstY_y+1, scaleYFloatToPix(yuv11.x));
         dstPitch = dstPitchU;
-        STORE(dstU, dstC_x, dstC_y, scaleUVFloatToPix((yuv00.y + yuv10.y) * 0.5f));
+        STORE(dstU, dstC_x, dstC_y, scaleUVFloatToPix((yuv00.y + yuv01.y + yuv10.y + yuv11.y) * 0.25f));
         dstPitch = dstPitchV;
-        STORE(dstV, dstC_x, dstC_y, scaleUVFloatToPix((yuv00.z + yuv10.z) * 0.5f));
+        STORE(dstV, dstC_x, dstC_y, scaleUVFloatToPix((yuv00.z + yuv01.z + yuv10.z + yuv11.z) * 0.25f));
     }
 }
 
@@ -1367,8 +1367,8 @@ __kernel void kernel_crop_rgb_nv12(
         STORE(dstY, dstY_x+0, dstY_y+1, scaleYFloatToPix(yuv10.x));
         STORE(dstY, dstY_x+1, dstY_y+1, scaleYFloatToPix(yuv11.x));
         dstPitch = dstPitchC;
-        const TypeOut pixU = scaleUVFloatToPix((yuv00.y + yuv10.y) * 0.5f);
-        const TypeOut pixV = scaleUVFloatToPix((yuv00.z + yuv10.z) * 0.5f);
+        const TypeOut pixU = scaleUVFloatToPix((yuv00.y + yuv01.y + yuv10.y + yuv11.y) * 0.25f);
+        const TypeOut pixV = scaleUVFloatToPix((yuv00.z + yuv01.z + yuv10.z + yuv11.z) * 0.25f);
         STORE_NV12_UV(dstC, dstC_x, dstC_y, pixU, pixV);
     }
 }
