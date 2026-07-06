@@ -5821,7 +5821,8 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     continue;
                 }
                 if (param_arg == _T("device")) {
-                    vpp->onnx.device = param_val;
+                    //OpenVINOのデバイス名は大文字 (GPU.0/GPU/CPU/AUTO/NPU) - 小文字入力も受け付ける
+                    vpp->onnx.device = touppercase(param_val);
                     continue;
                 }
                 if (param_arg == _T("interop")) {
@@ -16144,7 +16145,8 @@ tstring gen_cmd_help_vpp() {
         _T("     1ch=luma SR, 3ch=RGB, 4ch=RGB+noise, 2ch=gray+noise, 3->2ch=chroma.\n")
         _T("    params\n")
         _T("      model=<path>                path to the .onnx / .xml model (required)\n")
-        _T("      device=<string>             OpenVINO device: GPU.0 (default) / GPU / CPU / AUTO\n")
+        _T("      device=<string>             OpenVINO device: GPU.0 (default) / GPU / CPU / AUTO / NPU\n")
+        _T("                                    NPU needs an NPU-enabled OpenVINO runtime (Core Ultra).\n")
         _T("      interop=<string>            auto (default) / ocl (zero-copy, shared GPU context) / host\n")
         _T("      cache_dir=<string>          cache compiled models in this folder, skipping\n")
         _T("                                    model recompilation on later runs (default: off)\n")
