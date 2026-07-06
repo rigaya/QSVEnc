@@ -314,7 +314,7 @@ static inline float anime4k_chroma_weight(int chromaMode, float x) {
         return 0.0f;
     } else {                                     // spline36 (6-tap)
         if (ax < 1.0f) {
-            return ((13.0f / 11.0f) * ax - (453.0f / 209.0f)) * ax * ax + (1.0f - 3.0f / 209.0f);
+            return ((13.0f / 11.0f) * ax - (453.0f / 209.0f)) * ax * ax - (3.0f / 209.0f) * ax + 1.0f;
         } else if (ax < 2.0f) {
             return ((-(6.0f / 11.0f) * ax + (612.0f / 209.0f)) * ax + (-(1038.0f / 209.0f))) * ax + (540.0f / 209.0f);
         } else if (ax < 3.0f) {
