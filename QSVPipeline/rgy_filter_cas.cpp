@@ -128,9 +128,14 @@ RGY_ERR RGYFilterCas::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *
     for (int i = 1; i < nPlanes; i++) {
         auto planeDst = getPlane(pOutputFrame, (RGY_PLANE)i);
         auto planeSrc = getPlane(pInputFrame, (RGY_PLANE)i);
-        err = m_cl->copyPlane(&planeDst, &planeSrc, nullptr, queue, std::vector<RGYOpenCLEvent>(), (i == nPlanes - 1) ? event : nullptr);
+        if (prm->cas.chroma) {
+            //chroma=onの場合は色差プレーンにも適用する (gamma2は輝度用のため色差では常に無効)
+            err = procPlane(&planeDst, &planeSrc, peak, 0, queue, std::vector<RGYOpenCLEvent>(), (i == nPlanes - 1) ? event : nullptr);
+        } else {
+            err = m_cl->copyPlane(&planeDst, &planeSrc, nullptr, queue, std::vector<RGYOpenCLEvent>(), (i == nPlanes - 1) ? event : nullptr);
+        }
         if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("cas chroma copy (plane %d) failed: %s.\n"), i, get_err_mes(err));
+            AddMessage(RGY_LOG_ERROR, _T("cas chroma (plane %d) failed: %s.\n"), i, get_err_mes(err));
             return err;
         }
     }

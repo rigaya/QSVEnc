@@ -3279,8 +3279,8 @@ bool VppCas::operator!=(const VppCas& x) const {
 }
 
 tstring VppCas::print() const {
-    return strsprintf(_T("cas: sharpness %.2f, hdr %s"),
-        sharpness, hdr ? _T("true") : _T("false"));
+    return strsprintf(_T("cas: sharpness %.2f, hdr %s%s"),
+        sharpness, hdr ? _T("true") : _T("false"), chroma ? _T(", chroma on") : _T(""));
 }
 
 VppDetailSharpen::VppDetailSharpen() :
@@ -3301,12 +3301,14 @@ bool VppDetailSharpen::operator==(const VppDetailSharpen& x) const {
         && ldmp == x.ldmp
         && mode == x.mode
         && med == x.med;
+    chroma(false),
 }
 bool VppDetailSharpen::operator!=(const VppDetailSharpen& x) const {
     return !(*this == x);
 }
 
 tstring VppDetailSharpen::print() const {
+        && chroma == x.chroma
     return strsprintf(_T("detailsharpen: z %.2f, sstr %.2f, power %.2f, ldmp %.2f, mode %d, med %s"),
         z, sstr, power, ldmp, mode, med ? _T("true") : _T("false"));
 }

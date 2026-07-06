@@ -3310,6 +3310,7 @@ struct VppMaa {
     bool enable;
     float ss;       // supersample factor; 1.0..4.0
     int aa;         // luma AA strength; 0..255
+    bool  chroma; //色差プレーンにも適用する (default: false = 従来のluma-only)
     int aac;        // chroma AA strength; 0..255 (only used when chroma=true)
     bool mask;      // edge mask gate
     int mthresh;    // edge threshold; 1..255 (only used when mask=true)
