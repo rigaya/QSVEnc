@@ -440,12 +440,17 @@ public:
     std::vector<int64_t> outShape;
     tstring devName;
     std::string devId;
+    std::string cacheDir;
     tstring precision;
     tstring loadErr;
     bool shared = false;
 };
 
 RGYOpenVINO::RGYOpenVINO() : m_impl(std::make_unique<Impl>()) {}
+
+void RGYOpenVINO::setCacheDir(const tstring &dir) {
+    m_impl->cacheDir = tchar_to_string(dir, CP_UTF8);
+}
 RGYOpenVINO::~RGYOpenVINO() {}
 
 static RGY_ERR getPortShape(ov_output_const_port_t *port, std::vector<int64_t> &shape, tstring &errMessage) {
@@ -554,7 +559,15 @@ RGY_ERR RGYOpenVINO::init(const tstring &modelPath, const tstring &device,
 
     ov_compiled_model_t *compiledRaw = nullptr;
     const auto precisionHint = precisionHintValue(precision);
-    if (precisionHint.empty()) {
+    //CACHE_DIR設定時はコンパイル済みモデルをキャッシュ (2回目以降の起動を大幅に短縮)
+    if (!I.cacheDir.empty() && !precisionHint.empty()) {
+        ret = ovCheck(ov.core_compile_model(I.core.get(), I.model.get(), deviceA.c_str(), 4, &compiledRaw,
+            const_cast<char *>("CACHE_DIR"), const_cast<char *>(I.cacheDir.c_str()),
+            const_cast<char *>("INFERENCE_PRECISION_HINT"), const_cast<char *>(precisionHint.c_str())), errMessage);
+    } else if (!I.cacheDir.empty()) {
+        ret = ovCheck(ov.core_compile_model(I.core.get(), I.model.get(), deviceA.c_str(), 2, &compiledRaw,
+            const_cast<char *>("CACHE_DIR"), const_cast<char *>(I.cacheDir.c_str())), errMessage);
+    } else if (precisionHint.empty()) {
         ret = ovCheck(ov.core_compile_model(I.core.get(), I.model.get(), deviceA.c_str(), 0, &compiledRaw), errMessage);
     } else {
         ret = ovCheck(ov.core_compile_model(I.core.get(), I.model.get(), deviceA.c_str(), 2, &compiledRaw,
@@ -663,7 +676,15 @@ RGY_ERR RGYOpenVINO::initFromOpenCLQueue(const tstring &modelPath, void *clQueue
 
     ov_compiled_model_t *compiledRaw = nullptr;
     const auto precisionHint = precisionHintValue(precision);
-    if (precisionHint.empty()) {
+    //CACHE_DIR設定時はコンパイル済みモデルをキャッシュ (2回目以降の起動を大幅に短縮)
+    if (!I.cacheDir.empty() && !precisionHint.empty()) {
+        ret = ovCheck(ov.core_compile_model_with_context(I.core.get(), I.model.get(), I.remote.get(), 4, &compiledRaw,
+            const_cast<char *>("CACHE_DIR"), const_cast<char *>(I.cacheDir.c_str()),
+            const_cast<char *>("INFERENCE_PRECISION_HINT"), const_cast<char *>(precisionHint.c_str())), errMessage);
+    } else if (!I.cacheDir.empty()) {
+        ret = ovCheck(ov.core_compile_model_with_context(I.core.get(), I.model.get(), I.remote.get(), 2, &compiledRaw,
+            const_cast<char *>("CACHE_DIR"), const_cast<char *>(I.cacheDir.c_str())), errMessage);
+    } else if (precisionHint.empty()) {
         ret = ovCheck(ov.core_compile_model_with_context(I.core.get(), I.model.get(), I.remote.get(), 0, &compiledRaw), errMessage);
     } else {
         ret = ovCheck(ov.core_compile_model_with_context(I.core.get(), I.model.get(), I.remote.get(), 2, &compiledRaw,
@@ -882,6 +903,7 @@ tstring RGYOpenVINO::availabilityStatus() {
 
 class RGYOpenVINO::Impl {};
 RGYOpenVINO::RGYOpenVINO() : m_impl(nullptr) {}
+void RGYOpenVINO::setCacheDir(const tstring &) {}
 RGYOpenVINO::~RGYOpenVINO() {}
 RGY_ERR RGYOpenVINO::peekChannels(const tstring &, int &inChannels, int &outChannels, tstring &errMessage) {
     inChannels = outChannels = 0;

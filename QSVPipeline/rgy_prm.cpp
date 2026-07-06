@@ -2034,6 +2034,7 @@ VppOnnx::VppOnnx() :
     device(_T("GPU.0")),
     interop(_T("auto")),
     precision(_T("auto")),
+    cacheDir(),
     colormatrix(_T("auto")),
     colorrange(_T("auto")),
     colorspace(_T("rgb")),
@@ -2050,6 +2051,7 @@ bool VppOnnx::operator==(const VppOnnx &x) const {
         && device == x.device
         && interop == x.interop
         && precision == x.precision
+        && cacheDir == x.cacheDir
         && colormatrix == x.colormatrix
         && colorrange == x.colorrange
         && colorspace == x.colorspace
@@ -2067,6 +2069,9 @@ tstring VppOnnx::print() const {
     s += strsprintf(_T(",device=%s"), device.c_str());
     s += strsprintf(_T(",interop=%s"), interop.c_str());
     s += strsprintf(_T(",prec=%s"), precision.c_str());
+    if (!cacheDir.empty()) {
+        s += strsprintf(_T(",cache_dir=%s"), cacheDir.c_str());
+    }
     s += strsprintf(_T(",colormatrix=%s"), colormatrix.c_str());
     s += strsprintf(_T(",colorrange=%s"), colorrange.c_str());
     s += strsprintf(_T(",colorspace=%s"), colorspace.c_str());

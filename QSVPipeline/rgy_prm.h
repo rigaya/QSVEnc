@@ -3522,6 +3522,7 @@ struct VppOnnx {
     tstring device;      // OpenVINO device: "GPU.0" (default), "GPU", "CPU", "AUTO"
     tstring interop;     // "auto" (default), "ocl" (zero-copy shared context), "host" (readback)
     tstring precision;   // "auto" (default), "fp16", "fp32"
+    tstring cacheDir;    // OpenVINOのCACHE_DIR (コンパイル済みモデルのキャッシュ先, ""=無効=従来動作)
     tstring colormatrix; // "auto" (bt601 for SD, bt709 for HD), "bt601", "bt709", "bt2020"
     tstring colorrange;  // "auto" (tv), "tv", "pc"
     tstring colorspace;  // 3ch models: "rgb" (default) or "ycbcr" (ArtCNN *_YCbCr / JPEG-YCbCr)

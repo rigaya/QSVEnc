@@ -292,6 +292,11 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     bool preferRemoteContext = deviceWantsGpu && m_cl;
 
     m_ov = std::make_unique<RGYOpenVINO>();
+    if (!prm->onnx.cacheDir.empty()) {
+        //コンパイル済みモデルのキャッシュ: 初回コンパイル後、同一モデル+設定なら次回以降ほぼ即時ロード
+        m_ov->setCacheDir(prm->onnx.cacheDir);
+        AddMessage(RGY_LOG_DEBUG, _T("onnx: OpenVINO CACHE_DIR = %s\n"), prm->onnx.cacheDir.c_str());
+    }
     tstring errMsg;
     tstring effectiveDevice = prm->onnx.device;
     bool usingOpenCLRemoteContext = false;

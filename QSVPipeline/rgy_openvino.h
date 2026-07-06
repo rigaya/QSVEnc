@@ -55,6 +55,10 @@ public:
     // (channels taken from the model itself), and compile it for the given
     // device ("GPU.0", "GPU", "CPU", "AUTO", ...). On failure, errMessage is
     // filled with the OpenVINO exception text.
+    // OpenVINOのCACHE_DIRを設定 (コンパイル済みモデルをキャッシュし、次回以降の起動を高速化)
+    // 空文字 = キャッシュ無効 (従来動作)。init系の呼び出し前に設定すること。
+    void setCacheDir(const tstring &dir);
+
     RGY_ERR init(const tstring &modelPath, const tstring &device,
                  const int height, const int width, tstring &errMessage,
                  const tstring &precision = _T("auto"));
