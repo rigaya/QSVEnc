@@ -3407,6 +3407,9 @@ VppTweak::VppTweak() :
     y(),
     cb(),
     cr(),
+    coring(false),
+    startHue(0.0f),
+    endHue(360.0f),
     r(),
     g(),
     b() {
@@ -3423,6 +3426,9 @@ bool VppTweak::operator==(const VppTweak &x) const {
         && y == x.y
         && cb == x.cb
         && cr == x.cr
+        && coring == x.coring
+        && startHue == x.startHue
+        && endHue == x.endHue
         && r == x.r
         && g == x.g
         && b == x.b;
@@ -3447,6 +3453,12 @@ tstring VppTweak::print(const bool print_rgb, const bool print_header) const {
     return str;
 }
 
+    if (coring) {
+        str += _T(", coring");
+    }
+    if (startHue != 0.0f || endHue != 360.0f) {
+        str += strsprintf(_T(", hue range %.1f-%.1f"), startHue, endHue);
+    }
 bool VppTweak::yuv_filter_enabled() const {
     return contrast != 1.0f
         || brightness != 0.0f
@@ -3457,6 +3469,7 @@ bool VppTweak::yuv_filter_enabled() const {
         || y.enabled()
         || cb.enabled()
         || cr.enabled();
+        || coring
 }
 
 bool VppTweak::rgb_filter_enabled() const {

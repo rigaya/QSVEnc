@@ -2571,6 +2571,10 @@ struct VppIvtc {
     int back;             // 0 = always test P; 1 = only test P when current appears combed
     int y0;               // exclusion band: inclusive top row (0 = no band)
     int y1;               // exclusion band: inclusive bottom row (0 = no band)
+    int nt;               // match-metric noise tolerance, 0..255 on the 8-bit scale (scaled to bit depth)
+    int cthresh;          // per-pixel comb threshold used in match scoring, 0..255 on the 8-bit scale
+    int combPel;          // combed pixels per 32x8 block before the block counts as combed (1..256)
+    float scThresh;       // scene-change threshold as fraction of max SAD (0 = adaptive, legacy)
     int cadenceLock;      // 5-frame cadence tracker + pattern-predicted match override.
                           //   -1 = auto (enable when guide >= 1), 0 = off, 1 = on.
                           //   Auto-mode fires when guide mode is active because
@@ -3599,6 +3603,9 @@ struct VppTweak {
     float saturation; //  0.0 - 3.0 (1.0)
     float hue;        // -180 - 180 (0.0)
     bool swapuv;
+    bool coring;      //出力をTVレンジ相当にクランプ (default false)
+    float startHue;   //hue/saturation適用範囲の開始角(度, atan2(Cr,Cb)基準) (default 0)
+    float endHue;     //hue/saturation適用範囲の終了角(度) (default 360 = 全範囲)
 
     VppTweakChannel y, cb, cr;
     VppTweakChannel r, g, b;

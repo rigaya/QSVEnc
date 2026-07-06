@@ -47,6 +47,13 @@ RGY_ERR RGYFilterTweak::procFrame(RGYFrameInfo *pFrame, RGYOpenCLQueue &queue, c
     const float gamma      = prm->tweak.gamma;
     const float hue_degree = prm->tweak.hue;
     const int   swapuv     = prm->tweak.swapuv ? 1 : 0;
+    const int   bit_depth  = RGY_CSP_BIT_DEPTH[pFrame->csp];
+    //coring: 出力をTVレンジ相当にクランプ (デフォルトは従来通りフルレンジ)
+    const int clamp_min   = (prm->tweak.coring) ? (16 << (bit_depth - 8)) : 0;
+    const int clamp_max_y = (prm->tweak.coring) ? (235 << (bit_depth - 8)) : (1 << bit_depth) - 1;
+    const int clamp_max_c = (prm->tweak.coring) ? (240 << (bit_depth - 8)) : (1 << bit_depth) - 1;
+    //start_hue/end_hue: デフォルト(0-360)は従来と完全に同一のコードパス
+    const int hue_limit = (prm->tweak.startHue != 0.0f || prm->tweak.endHue != 360.0f) ? 1 : 0;
 
     auto planeInputY = getPlane(pFrame, RGY_PLANE_Y);
     auto planeInputU = getPlane(pFrame, RGY_PLANE_U);
@@ -58,14 +65,16 @@ RGY_ERR RGYFilterTweak::procFrame(RGYFrameInfo *pFrame, RGYOpenCLQueue &queue, c
     if (   contrast   != 1.0f
         || brightness != 0.0f
         || gamma      != 1.0f
-        || prm->tweak.y.enabled()) {
+        || prm->tweak.y.enabled()
+        || prm->tweak.coring) {
         RGYWorkSize local(TWEAK_BLOCK_X, TWEAK_BLOCK_Y);
         RGYWorkSize global(divCeil(planeInputY.width, 4), planeInputY.height);
         const char *kernel_name = "kernel_tweak_y";
         auto err = m_tweak.get()->kernel(kernel_name).config(queue, local, global, wait_events_copy, event).launch(
             (cl_mem)planeInputY.ptr[0], planeInputY.pitch[0], planeInputY.width, planeInputY.height,
             contrast, brightness, 1.0f / gamma,
-            prm->tweak.y.gain, prm->tweak.y.offset);
+            prm->tweak.y.gain, prm->tweak.y.offset,
+            clamp_min, clamp_max_y);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at %s (procFrame(%s)): %s.\n"),
                 char_to_tstring(kernel_name).c_str(), RGY_CSP_NAMES[pFrame->csp], get_err_mes(err));
@@ -79,7 +88,8 @@ RGY_ERR RGYFilterTweak::procFrame(RGYFrameInfo *pFrame, RGYOpenCLQueue &queue, c
         || hue_degree != 0.0f
         || swapuv
         || prm->tweak.cb.enabled()
-        || prm->tweak.cr.enabled()) {
+        || prm->tweak.cr.enabled()
+        || prm->tweak.coring) {
         if (   planeInputU.width    != planeInputV.width
             || planeInputU.height   != planeInputV.height
             || planeInputU.pitch[0] != planeInputV.pitch[0]) {
@@ -93,7 +103,8 @@ RGY_ERR RGYFilterTweak::procFrame(RGYFrameInfo *pFrame, RGYOpenCLQueue &queue, c
             (cl_mem)planeInputU.ptr[0], (cl_mem)planeInputV.ptr[0], planeInputU.pitch[0], planeInputU.width, planeInputU.height,
             saturation, std::sin(hue) * saturation, std::cos(hue) * saturation, swapuv,
             prm->tweak.cb.gain, prm->tweak.cb.offset,
-            prm->tweak.cr.gain, prm->tweak.cr.offset);
+            prm->tweak.cr.gain, prm->tweak.cr.offset,
+            hue_limit, prm->tweak.startHue, prm->tweak.endHue, clamp_min, clamp_max_c);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at %s (procFrame(%s)): %s.\n"),
                 char_to_tstring(kernel_name).c_str(), RGY_CSP_NAMES[pFrame->csp], get_err_mes(err));
@@ -119,6 +130,9 @@ RGY_ERR RGYFilterTweak::procFrameRGB(RGYFrameInfo *pFrame, RGYOpenCLQueue &queue
 
     auto wait_events_copy = wait_events;
 
+    //RGBは常にフルレンジ (coringはYUVのみ)
+    const int bit_depth = RGY_CSP_BIT_DEPTH[pFrame->csp];
+
     for (auto& target : targetPlanes) {
         const auto& plane = target.second;
         const RGYWorkSize local(TWEAK_BLOCK_X, TWEAK_BLOCK_Y);
@@ -127,7 +141,8 @@ RGY_ERR RGYFilterTweak::procFrameRGB(RGYFrameInfo *pFrame, RGYOpenCLQueue &queue
         auto err = m_tweakRGB.get()->kernel(kernel_name).config(queue, local, global, wait_events_copy, event).launch(
             (cl_mem)plane.ptr[0], plane.pitch[0], plane.width, plane.height,
             target.first->gain, target.first->offset, 1.0f / target.first->gamma,
-            0.0f, 0.0f);
+            0.0f, 0.0f,
+            0, (1 << bit_depth) - 1);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at %s (procFrame(%s)): %s.\n"),
                 char_to_tstring(kernel_name).c_str(), RGY_CSP_NAMES[pFrame->csp], get_err_mes(err));
@@ -190,6 +205,14 @@ RGY_ERR RGYFilterTweak::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
     if (prm->tweak.gamma < 0.1f || 10.0f < prm->tweak.gamma) {
         prm->tweak.gamma = clamp(prm->tweak.gamma, 0.1f, 10.0f);
         AddMessage(RGY_LOG_WARN, _T("gamma should be in range of %.1f - %.1f.\n"), 0.1f, 10.0f);
+    }
+    if (prm->tweak.startHue < 0.0f || 360.0f < prm->tweak.startHue) {
+        prm->tweak.startHue = clamp(prm->tweak.startHue, 0.0f, 360.0f);
+        AddMessage(RGY_LOG_WARN, _T("start_hue should be in range of %.1f - %.1f.\n"), 0.0f, 360.0f);
+    }
+    if (prm->tweak.endHue < 0.0f || 360.0f < prm->tweak.endHue) {
+        prm->tweak.endHue = clamp(prm->tweak.endHue, 0.0f, 360.0f);
+        AddMessage(RGY_LOG_WARN, _T("end_hue should be in range of %.1f - %.1f.\n"), 0.0f, 360.0f);
     }
     for (auto prmtweak : { &prm->tweak.r, &prm->tweak.g, &prm->tweak.b, &prm->tweak.y, &prm->tweak.cb, &prm->tweak.cr }) {
         if (prmtweak->offset < -1.0f || 1.0f < prmtweak->offset) {
