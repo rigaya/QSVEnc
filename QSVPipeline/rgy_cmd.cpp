@@ -2228,7 +2228,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         i++;
         const auto paramList = std::vector<std::string>{ "enable", "guide", "post", "cycle", "drop", "combthresh", "cleanfrac",
-            "dthresh", "chroma", "back", "y0", "y1", "cadlock", "gthresh", "vthresh", "expand", "mixed", "hysteresis", "tff", "log" };
+            "dthresh", "chroma", "back", "y0", "y1", "nt", "cthresh", "combpel", "scthresh", "cadlock", "gthresh", "vthresh", "expand", "mixed", "hysteresis", "tff", "log" };
 
         for (const auto &param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
@@ -4868,7 +4868,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             return 0;
         }
         i++;
-        const auto paramList = std::vector<std::string>{ "lo", "hi", "max", "frac", "log" };
+        const auto paramList = std::vector<std::string>{ "lo", "hi", "max", "keep", "frac", "log" };
 
         for (const auto& param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
@@ -8468,6 +8468,16 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
+                if (param_arg == _T("chroma")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->cas.chroma = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
                 if (param_arg == _T("hdr")) {
                     bool b = false;
                     if (!cmd_string_to_bool(&b, param_val)) {
@@ -8548,16 +8558,6 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 }
                 if (param_arg == _T("chroma")) {
                     try {
-                if (param_arg == _T("chroma")) {
-                    bool b = false;
-                    if (!cmd_string_to_bool(&b, param_val)) {
-                        vpp->cas.chroma = b;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
-                    continue;
-                }
                         vpp->warpsharp.chroma = std::stoi(param_val);
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
@@ -12970,6 +12970,13 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
         }
         if (param->nnedi.enable || save_disabled_prm) {
             ADD_LST(_T("field"), nnedi.field, list_vpp_nnedi_field);
+            if (param->nnedi.planes != defaultPrm->nnedi.planes) {
+                tstring p;
+                if (param->nnedi.planes[0]) p += _T(":y");
+                if (param->nnedi.planes[1]) p += _T(":u");
+                if (param->nnedi.planes[2]) p += _T(":v");
+                tmp << _T(",planes=") << (p.length() > 0 ? p.substr(1) : _T(""));
+            }
             ADD_LST(_T("nsize"), nnedi.nsize, list_vpp_nnedi_nsize);
             ADD_LST(_T("nns"), nnedi.nns, list_vpp_nnedi_nns);
             ADD_LST(_T("quality"), nnedi.quality, list_vpp_nnedi_quality);
@@ -13127,13 +13134,6 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-kfm ") << tmp.str().substr(1);
-            if (param->nnedi.planes != defaultPrm->nnedi.planes) {
-                tstring p;
-                if (param->nnedi.planes[0]) p += _T(":y");
-                if (param->nnedi.planes[1]) p += _T(":u");
-                if (param->nnedi.planes[2]) p += _T(":v");
-                tmp << _T(",planes=") << (p.length() > 0 ? p.substr(1) : _T(""));
-            }
         } else if (param->kfm.enable) {
             cmd << _T(" --vpp-kfm");
         }
@@ -13316,6 +13316,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_NUM(_T("lo"), mpdecimate.lo);
             ADD_NUM(_T("hi"), mpdecimate.hi);
             ADD_NUM(_T("max"), mpdecimate.max);
+            ADD_NUM(_T("keep"), mpdecimate.keep);
             ADD_FLOAT(_T("frac"), mpdecimate.frac, 3);
             ADD_BOOL(_T("log"), mpdecimate.log);
         }
@@ -13459,12 +13460,13 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_FLOAT(_T("c"), descale.c, 3);
             ADD_FLOAT(_T("src_left"), descale.src_left, 3);
             ADD_FLOAT(_T("src_top"), descale.src_top, 3);
+            ADD_FLOAT(_T("src_width"), descale.src_width, 3);
+            ADD_FLOAT(_T("src_height"), descale.src_height, 3);
             ADD_LST(_T("border_handling"), descale.border, list_vpp_descale_border);
             ADD_BOOL(_T("auto"), descale.autoDetect);
             ADD_NUM(_T("search_min"), descale.search_min);
             ADD_NUM(_T("search_max"), descale.search_max);
             ADD_NUM(_T("search_step"), descale.search_step);
-            ADD_NUM(_T("keep"), mpdecimate.keep);
             ADD_NUM(_T("detect_frames"), descale.detect_frames);
             ADD_BOOL(_T("show_scores"), descale.show_scores);
         }
@@ -13606,8 +13608,6 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_BOOL(_T("signorm"), fft3d.signorm);
             ADD_LST(_T("prec"), fft3d.precision, list_vpp_fp_prec);
         }
-            ADD_FLOAT(_T("src_width"), descale.src_width, 3);
-            ADD_FLOAT(_T("src_height"), descale.src_height, 3);
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-fft3d ") << tmp.str().substr(1);
         } else if (param->fft3d.enable) {
@@ -14042,6 +14042,20 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_NUM(_T("mrad"), dering.mrad);
             ADD_NUM(_T("mthr"), dering.mthr);
             ADD_FLOAT(_T("sigma"), dering.sigma, 3);
+            ADD_NUM(_T("thr"), dering.thr);
+            ADD_FLOAT(_T("elast"), dering.elast, 2);
+            ADD_NUM(_T("darkthr"), dering.darkthr);
+            ADD_NUM(_T("minp"), dering.minp);
+            ADD_NUM(_T("msmooth"), dering.msmooth);
+            ADD_NUM(_T("drrep"), dering.drrep);
+            ADD_NUM(_T("sharp"), dering.sharp);
+            if (param->dering.planes != defaultPrm->dering.planes) {
+                tstring p;
+                if (param->dering.planes[0]) p += _T(":y");
+                if (param->dering.planes[1]) p += _T(":u");
+                if (param->dering.planes[2]) p += _T(":v");
+                tmp << _T(",planes=") << ((p.length() > 0) ? p.substr(1) : _T(""));
+            }
             ADD_BOOL(_T("showmask"), dering.showmask);
             ADD_BOOL(_T("protect"), dering.protect);
             if (param->dering.edge != defaultPrm->dering.edge) {
@@ -14081,6 +14095,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
         }
         if (param->cas.enable || save_disabled_prm) {
             ADD_FLOAT(_T("sharpness"), cas.sharpness, 3);
+            ADD_BOOL(_T("chroma"), cas.chroma);
             ADD_BOOL(_T("hdr"), cas.hdr);
         }
         if (!tmp.str().empty()) {
@@ -14098,20 +14113,6 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_FLOAT(_T("threshold"), warpsharp.threshold, 3);
             ADD_NUM(_T("blur"), warpsharp.blur);
             ADD_NUM(_T("type"), warpsharp.type);
-            ADD_NUM(_T("thr"), dering.thr);
-            ADD_FLOAT(_T("elast"), dering.elast, 2);
-            ADD_NUM(_T("darkthr"), dering.darkthr);
-            ADD_NUM(_T("minp"), dering.minp);
-            ADD_NUM(_T("msmooth"), dering.msmooth);
-            ADD_NUM(_T("drrep"), dering.drrep);
-            ADD_NUM(_T("sharp"), dering.sharp);
-            if (param->dering.planes != defaultPrm->dering.planes) {
-                tstring p;
-                if (param->dering.planes[0]) p += _T(":y");
-                if (param->dering.planes[1]) p += _T(":u");
-                if (param->dering.planes[2]) p += _T(":v");
-                tmp << _T(",planes=") << ((p.length() > 0) ? p.substr(1) : _T(""));
-            }
             ADD_FLOAT(_T("depth"), warpsharp.depth, 3);
             ADD_NUM(_T("chroma"), warpsharp.chroma);
             ADD_FLOAT(_T("depth_min"), warpsharp.depth_min, 3);
@@ -14155,6 +14156,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_STR(_T("g"), curves.prm.g);
             ADD_STR(_T("b"), curves.prm.b);
             ADD_STR(_T("all"), curves.all);
+            ADD_LST(_T("interp"), curves.interp, list_vpp_curves_interp);
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-curves ") << tmp.str().substr(1);
@@ -14189,6 +14191,9 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_FLOAT(_T("gamma"), tweak.gamma, 3);
             ADD_FLOAT(_T("saturation"), tweak.saturation, 3);
             ADD_FLOAT(_T("hue"), tweak.hue, 3);
+            ADD_BOOL(_T("coring"), tweak.coring);
+            ADD_FLOAT(_T("start_hue"), tweak.startHue, 3);
+            ADD_FLOAT(_T("end_hue"), tweak.endHue, 3);
             ADD_BOOL(_T("swapuv"), tweak.swapuv);
             ADD_FLOAT(_T("y_offset"),  tweak.y.offset, 3);
             ADD_FLOAT(_T("y_gain"),    tweak.y.gain, 3);
@@ -14202,12 +14207,8 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_FLOAT(_T("r_offset"),  tweak.r.offset, 3);
             ADD_FLOAT(_T("r_gain"),    tweak.r.gain, 3);
             ADD_FLOAT(_T("r_gamma"),   tweak.r.gamma, 3);
-            ADD_LST(_T("interp"), curves.interp, list_vpp_curves_interp);
             ADD_FLOAT(_T("g_offset"),  tweak.g.offset, 3);
             ADD_FLOAT(_T("g_gain"),    tweak.g.gain, 3);
-            ADD_BOOL(_T("coring"), tweak.coring);
-            ADD_FLOAT(_T("start_hue"), tweak.startHue, 3);
-            ADD_FLOAT(_T("end_hue"), tweak.endHue, 3);
             ADD_FLOAT(_T("g_gamma"),   tweak.g.gamma, 3);
             ADD_FLOAT(_T("b_offset"),  tweak.b.offset, 3);
             ADD_FLOAT(_T("b_gain"),    tweak.b.gain, 3);
@@ -14249,7 +14250,6 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
                 && param->deband.threY == param->deband.threCr) {
                 ADD_NUM(_T("thre"), deband.threY);
             } else {
-            ADD_BOOL(_T("chroma"), cas.chroma);
                 ADD_NUM(_T("thre_y"), deband.threY);
                 ADD_NUM(_T("thre_cb"), deband.threCb);
                 ADD_NUM(_T("thre_cr"), deband.threCr);
@@ -15536,6 +15536,8 @@ tstring gen_cmd_help_vpp() {
         _T("   --vpp-nnedi [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     enable nnedi deinterlacer\n")
         _T("    params\n")
+        _T("      planes=<string>       target planes (default=all)\n")
+        _T("                              all, or \":\"-separated list of y, u, v.\n")
         _T("      field=<string>         Select target field.\n")
         _T("                              bob, auto (default), top, bottom, bob_tff, bob_bff\n")
         _T("      nsize=<string>         8x6, 16x6, 32x6, 48x6, 8x4, 16x4, 32x4 (default)\n")
@@ -15716,8 +15718,6 @@ tstring gen_cmd_help_vpp() {
 #if ENABLE_VPP_FILTER_RTGMC_SEARCH_PREFILTER
     str += strsprintf(_T("\n")
         _T("   --vpp-rtgmc-search-prefilter [<param1>=<value>]\n")
-        _T("      planes=<string>       target planes (default=all)\n")
-        _T("                              all, or \":\"-separated list of y, u, v.\n")
         _T("     enable search reference prefilter scaffold.\n")
         _T("    params\n")
         _T("      tr0=<int>             temporal radius (default=%d, -1 - 2)\n")
@@ -15890,6 +15890,8 @@ tstring gen_cmd_help_vpp() {
         _T("      max=<bool>                Max consecutive frames which can be dropped (positive)\n")
         _T("                                min interval between dropped frames (if negative)\n")
         _T("                                  (default: %d)\n")
+        _T("      keep=<int>                number of similar consecutive frames to keep\n")
+        _T("                                before starting to drop (default: 0).\n")
         _T("      log=<bool>                output log file (default: %s).\n"),
         FILTER_DEFAULT_MPDECIMATE_HI, FILTER_DEFAULT_MPDECIMATE_HI / (8 * 8),
         FILTER_DEFAULT_MPDECIMATE_LO, FILTER_DEFAULT_MPDECIMATE_LO / (8 * 8),
@@ -16062,9 +16064,10 @@ tstring gen_cmd_help_vpp() {
         _T("      c=<float>                 bicubic c parameter (default=%.2f)\n")
         _T("      src_left=<float>          source horizontal sub-pixel offset (default=%.2f)\n")
         _T("      src_top=<float>           source vertical sub-pixel offset (default=%.2f)\n")
+        _T("      src_width=<float>         fractional active source width (default=0=off)\n")
+        _T("      src_height=<float>        fractional active source height (default=0=off)\n")
+        _T("                                  for sources whose native size is not integer.\n")
         _T("      border_handling=<string>  mirror (default), zero, repeat\n")
-        _T("      keep=<int>                number of similar consecutive frames to keep\n")
-        _T("                                before starting to drop (default: 0).\n")
         _T("      auto=<bool>               shorthand for kernel=auto and native resolution search\n")
         _T("      search_min=<int>          minimum candidate height (default: input_height * 0.5)\n")
         _T("      search_max=<int>          maximum candidate height (default: input_height - 1)\n")
@@ -16233,9 +16236,6 @@ tstring gen_cmd_help_vpp() {
         _T("      thsadc=<int>           chroma degrain SAD threshold (default=%d)\n")
         _T("      thscd1=<int>           scene change SAD threshold (default=%d)\n")
         _T("      thscd2=<int>           scene change ratio threshold in AviSynth semantics (0-255, default=%d)\n")
-        _T("      src_width=<float>         fractional active source width (default=0=off)\n")
-        _T("      src_height=<float>        fractional active source height (default=0=off)\n")
-        _T("                                  for sources whose native size is not integer.\n")
         _T("      pel=<int>              subpixel precision (1, 2, or 4; default=%d)\n")
         _T("      subpelinterp=<int>     subpixel interpolation mode (default=%d)\n")
         _T("      levels=<int>           analysis levels (default=%d)\n")
@@ -16480,7 +16480,7 @@ tstring gen_cmd_help_vpp() {
         _T("   --vpp-edgelevel [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     edgelevel filter to enhance edge.\n")
         _T("    params\n")
-        _T("      strength=<float>          strength (default=%d, -31 - 31)\n")
+        _T("      strength=<float>          strength (default=%.1f, -31 - 31)\n")
         _T("      threshold=<float>         threshold to ignore noise (default=%.1f, 0-255)\n")
         _T("      black=<float>             allow edge to be darker on edge enhancement\n")
         _T("                                  (default=%.1f, 0-31)\n")
@@ -16690,6 +16690,9 @@ _T("      m=<string>\n")
         _T("      gamma=<float>             (default=%.1f,  0.1 - 10.0)\n")
         _T("      saturation=<float>        (default=%.1f,  0.0 - 3.0)\n")
         _T("      hue=<float>               (default=%.1f, -180 - 180)\n")
+        _T("      coring=<bool>             clamp output to TV range (default=off)\n")
+        _T("      start_hue=<float>         limit hue/saturation to a hue range\n")
+        _T("      end_hue=<float>             in degrees (default 0-360 = everything)\n")
         _T("\n")
         _T("      [y,cb,cr,r,g,b]_offset=<float> (default=%.1f, -1.0 - 1.0)\n")
         _T("      [y,cb,cr,r,g,b]_gain=<float>   (default=%.1f, -2.0 - 2.0)\n")
@@ -16708,9 +16711,6 @@ _T("      m=<string>\n")
         _T("   --vpp-rotate <int>           rotate video (90, 180, 270)\n")
     );
     str += strsprintf(_T("\n")
-        _T("      coring=<bool>             clamp output to TV range (default=off)\n")
-        _T("      start_hue=<float>         limit hue/saturation to a hue range\n")
-        _T("      end_hue=<float>             in degrees (default 0-360 = everything)\n")
         _T("   --vpp-transform [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("    params\n")
         _T("      flip_x=<bool>\n")

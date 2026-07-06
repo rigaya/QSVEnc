@@ -2498,8 +2498,8 @@ struct VppDecomb {
 
 struct VppNnedi {
     bool enable;
-    VppNnediField field;
     std::array<bool, 3> planes; //Y, U, V
+    VppNnediField field;
     VppNnediNSize nsize;
     int nns;
     VppNnediQuality quality;
@@ -2624,11 +2624,11 @@ struct VppIvtc {
 struct VppMpdecimate {
     bool enable;
     int lo, hi, max;
+    int keep; //連続してsimilarなフレームをこの数まで保持してからドロップを開始する
     float frac;
     bool log;
 
     VppMpdecimate();
-    int keep; //連続してsimilarなフレームをこの数まで保持してからドロップを開始する
     bool operator==(const VppMpdecimate& x) const;
     bool operator!=(const VppMpdecimate& x) const;
     tstring print() const;
@@ -3243,10 +3243,6 @@ struct VppDering {
     bool showmask;
     bool protect;
     tstring edge;
-
-    VppDering();
-    bool operator==(const VppDering& x) const;
-    bool operator!=(const VppDering& x) const;
     int thr;      //LimitFilter形式の変化量制限 (8bitスケール, 0=無効=従来動作)
     float elast;  //thrの弾性減衰幅 (1.0 - 3.0)
     int darkthr;  //暗くなる方向の個別制限 (-1=thrに追従)
@@ -3255,6 +3251,10 @@ struct VppDering {
     int drrep;    //ブラー結果の修復: 0=無効, 1=3x3min/maxへクランプ
     int sharp;    //コントラシャープ: 0=無効, 1-3=強度 (ブラーで失われた線を安全な範囲で戻す)
     std::array<bool, 3> planes; //Y, U, V (default: Yのみ = 従来動作)
+
+    VppDering();
+    bool operator==(const VppDering& x) const;
+    bool operator!=(const VppDering& x) const;
     tstring print() const;
 };
 
@@ -3310,6 +3310,7 @@ struct VppDetailSharpen {
 struct VppCas {
     bool enable;
     float sharpness;
+    bool  chroma; //色差プレーンにも適用する (default: false = 従来のluma-only)
     bool hdr;
 
     VppCas();
@@ -3322,7 +3323,6 @@ struct VppMaa {
     bool enable;
     float ss;       // supersample factor; 1.0..4.0
     int aa;         // luma AA strength; 0..255
-    bool  chroma; //色差プレーンにも適用する (default: false = 従来のluma-only)
     int aac;        // chroma AA strength; 0..255 (only used when chroma=true)
     bool mask;      // edge mask gate
     int mthresh;    // edge threshold; 1..255 (only used when mask=true)
@@ -3383,6 +3383,8 @@ struct VppDescale {
     float c;
     float src_left;
     float src_top;
+    float src_width;  //0=無効: 元の実効幅 (小数可, アナモルフィック/非整数ネイティブ寸法用)
+    float src_height; //0=無効: 元の実効高さ
     VppDescaleBorder border;
     bool autoDetect;
     int search_min;
@@ -3396,8 +3398,6 @@ struct VppDescale {
     bool operator!=(const VppDescale &x) const;
     tstring print() const;
 };
-    float src_width;  //0=無効: 元の実効幅 (小数可, アナモルフィック/非整数ネイティブ寸法用)
-    float src_height; //0=無効: 元の実効高さ
 
 enum class VppAnime4kMode {
     Original  = 0,
@@ -3662,13 +3662,6 @@ const CX_DESC list_vpp_curves_preset[] = {
     { NULL, 0 }
 };
 
-struct VppCurveParams {
-    tstring r, g, b, m;
-
-    VppCurveParams();
-    VppCurveParams(const tstring& r_, const tstring& g_, const tstring& b_, const tstring& m_);
-    bool operator==(const VppCurveParams &x) const;
-    bool operator!=(const VppCurveParams &x) const;
 enum class VppCurvesInterp {
     SPLINE, //自然3次スプライン (従来)
     PCHIP,  //単調エルミート (Fritsch-Carlson): 点間でオーバーシュートしない
@@ -3680,6 +3673,13 @@ const CX_DESC list_vpp_curves_interp[] = {
     { NULL, 0 }
 };
 
+struct VppCurveParams {
+    tstring r, g, b, m;
+
+    VppCurveParams();
+    VppCurveParams(const tstring& r_, const tstring& g_, const tstring& b_, const tstring& m_);
+    bool operator==(const VppCurveParams &x) const;
+    bool operator!=(const VppCurveParams &x) const;
 };
 
 struct VppCurves {
@@ -3687,6 +3687,7 @@ struct VppCurves {
     VppCurvesPreset preset;
     VppCurveParams prm;
     tstring all;
+    VppCurvesInterp interp;
 
     VppCurves();
     bool operator==(const VppCurves &x) const;
@@ -3694,7 +3695,6 @@ struct VppCurves {
     tstring print() const;
 };
 
-    VppCurvesInterp interp;
 struct VppDeband {
     bool enable;
     int range;

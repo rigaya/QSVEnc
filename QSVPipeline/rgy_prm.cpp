@@ -1744,6 +1744,10 @@ bool VppIvtc::operator==(const VppIvtc &x) const {
         && back == x.back
         && y0 == x.y0
         && y1 == x.y1
+        && nt == x.nt
+        && cthresh == x.cthresh
+        && combPel == x.combPel
+        && scThresh == x.scThresh
         && cadenceLock == x.cadenceLock
         && gthresh == x.gthresh
         && vthresh == x.vthresh
@@ -1793,10 +1797,10 @@ VppMpdecimate::VppMpdecimate() :
     lo(FILTER_DEFAULT_MPDECIMATE_LO),
     hi(FILTER_DEFAULT_MPDECIMATE_HI),
     max(FILTER_DEFAULT_MPDECIMATE_MAX),
+    keep(FILTER_DEFAULT_MPDECIMATE_KEEP),
     frac(FILTER_DEFAULT_MPDECIMATE_FRAC),
     log(FILTER_DEFAULT_MPDECIMATE_LOG) {
 
-    keep(FILTER_DEFAULT_MPDECIMATE_KEEP),
 }
 
 bool VppMpdecimate::operator==(const VppMpdecimate& x) const {
@@ -1804,10 +1808,10 @@ bool VppMpdecimate::operator==(const VppMpdecimate& x) const {
         && lo == x.lo
         && hi == x.hi
         && max == x.max
+        && keep == x.keep
         && frac == x.frac
         && log == x.log;
 }
-        && keep == x.keep
 bool VppMpdecimate::operator!=(const VppMpdecimate& x) const {
     return !(*this == x);
 }
@@ -1968,11 +1972,11 @@ VppDescale::VppDescale() :
     c(FILTER_DEFAULT_DESCALE_BICUBIC_C),
     src_left(FILTER_DEFAULT_DESCALE_SRC_LEFT),
     src_top(FILTER_DEFAULT_DESCALE_SRC_TOP),
+    src_width(0.0f),
+    src_height(0.0f),
     border(VppDescaleBorder::Mirror),
     autoDetect(false),
     search_min(0),
-    src_width(0.0f),
-    src_height(0.0f),
     search_max(0),
     search_step(FILTER_DEFAULT_DESCALE_SEARCH_STEP),
     detect_frames(FILTER_DEFAULT_DESCALE_DETECT_FRAMES),
@@ -1988,11 +1992,11 @@ bool VppDescale::operator==(const VppDescale &x) const {
         && c == x.c
         && src_left == x.src_left
         && src_top == x.src_top
+        && src_width == x.src_width
+        && src_height == x.src_height
         && border == x.border
         && autoDetect == x.autoDetect
         && search_min == x.search_min
-        && src_width == x.src_width
-        && src_height == x.src_height
         && search_max == x.search_max
         && search_step == x.search_step
         && detect_frames == x.detect_frames
@@ -3191,9 +3195,6 @@ bool VppDering::operator==(const VppDering& x) const {
         && sigma == x.sigma
         && showmask == x.showmask
         && protect == x.protect
-        && edge == x.edge;
-}
-bool VppDering::operator!=(const VppDering& x) const {
         && thr == x.thr
         && elast == x.elast
         && darkthr == x.darkthr
@@ -3202,6 +3203,9 @@ bool VppDering::operator!=(const VppDering& x) const {
         && drrep == x.drrep
         && sharp == x.sharp
         && planes == x.planes
+        && edge == x.edge;
+}
+bool VppDering::operator!=(const VppDering& x) const {
     return !(*this == x);
 }
 
@@ -3298,12 +3302,14 @@ tstring VppWarpsharp::print() const {
 VppCas::VppCas() :
     enable(false),
     sharpness(FILTER_DEFAULT_CAS_SHARPNESS),
+    chroma(false),
     hdr(FILTER_DEFAULT_CAS_HDR) {
 }
 
 bool VppCas::operator==(const VppCas& x) const {
     return enable == x.enable
         && sharpness == x.sharpness
+        && chroma == x.chroma
         && hdr == x.hdr;
 }
 bool VppCas::operator!=(const VppCas& x) const {
@@ -3333,14 +3339,12 @@ bool VppDetailSharpen::operator==(const VppDetailSharpen& x) const {
         && ldmp == x.ldmp
         && mode == x.mode
         && med == x.med;
-    chroma(false),
 }
 bool VppDetailSharpen::operator!=(const VppDetailSharpen& x) const {
     return !(*this == x);
 }
 
 tstring VppDetailSharpen::print() const {
-        && chroma == x.chroma
     return strsprintf(_T("detailsharpen: z %.2f, sstr %.2f, power %.2f, ldmp %.2f, mode %d, med %s"),
         z, sstr, power, ldmp, mode, med ? _T("true") : _T("false"));
 }
@@ -3404,12 +3408,12 @@ VppTweak::VppTweak() :
     saturation(FILTER_DEFAULT_TWEAK_SATURATION),
     hue(FILTER_DEFAULT_TWEAK_HUE),
     swapuv(false),
-    y(),
-    cb(),
-    cr(),
     coring(false),
     startHue(0.0f),
     endHue(360.0f),
+    y(),
+    cb(),
+    cr(),
     r(),
     g(),
     b() {
@@ -3423,12 +3427,12 @@ bool VppTweak::operator==(const VppTweak &x) const {
         && saturation == x.saturation
         && hue == x.hue
         && swapuv == x.swapuv
-        && y == x.y
-        && cb == x.cb
-        && cr == x.cr
         && coring == x.coring
         && startHue == x.startHue
         && endHue == x.endHue
+        && y == x.y
+        && cb == x.cb
+        && cr == x.cr
         && r == x.r
         && g == x.g
         && b == x.b;
@@ -3450,15 +3454,15 @@ tstring VppTweak::print(const bool print_rgb, const bool print_header) const {
         if (g.enabled()) { str += _T("\n") + indent + _T("g: ") + g.print(); }
         if (b.enabled()) { str += _T("\n") + indent + _T("b: ") + b.print(); }
     }
-    return str;
-}
-
     if (coring) {
         str += _T(", coring");
     }
     if (startHue != 0.0f || endHue != 360.0f) {
         str += strsprintf(_T(", hue range %.1f-%.1f"), startHue, endHue);
     }
+    return str;
+}
+
 bool VppTweak::yuv_filter_enabled() const {
     return contrast != 1.0f
         || brightness != 0.0f
@@ -3466,10 +3470,10 @@ bool VppTweak::yuv_filter_enabled() const {
         || saturation != 1.0f
         || hue != 0.0f
         || swapuv
+        || coring
         || y.enabled()
         || cb.enabled()
         || cr.enabled();
-        || coring
 }
 
 bool VppTweak::rgb_filter_enabled() const {
@@ -3521,6 +3525,9 @@ tstring VppCurves::print() const {
     if (prm.b.length() > 0) str += _T("\n") + indent + _T("b ") + prm.b;
     if (prm.m.length() > 0) str += _T("\n") + indent + _T("master ") + prm.m;
     if (all.length() > 0)   str += _T("\n") + indent + _T("all ") + all;
+    if (interp != VppCurvesInterp::SPLINE) {
+        str += strsprintf(_T(", interp %s"), get_cx_desc(list_vpp_curves_interp, (int)interp));
+    }
     return str;
 }
 
@@ -3537,9 +3544,6 @@ int VppTransform::rotate() const {
             return 270;
         } else if (flipY && !flipX) {
             return 90;
-    if (interp != VppCurvesInterp::SPLINE) {
-        str += strsprintf(_T(", interp %s"), get_cx_desc(list_vpp_curves_interp, (int)interp));
-    }
         }
     } else if (flipY && flipX) {
         return 180;
