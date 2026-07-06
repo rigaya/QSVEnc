@@ -186,6 +186,7 @@ RGY_ERR RGYFilterDenoiseKnn::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
         pKnnParam->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
 
+    m_pathThrough = FILTER_PATHTHROUGH_ALL;
     if (pKnnParam->knn.d > 0) {
         //convolution3dと同様に前後フレームをキャッシュし、dフレーム遅れで出力する
         const int cacheFrames = 2 * pKnnParam->knn.d + 1;
@@ -201,9 +202,9 @@ RGY_ERR RGYFilterDenoiseKnn::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<
                     return RGY_ERR_NULL_PTR;
                 }
             }
-            m_cacheIdx = 0;
-            m_frameOut = 0;
         }
+        m_cacheIdx = 0;
+        m_frameOut = 0;
         //遅延が発生するため、タイムスタンプ等はフィルタ側で設定する
         m_pathThrough &= (~(FILTER_PATHTHROUGH_TIMESTAMP | FILTER_PATHTHROUGH_FLAGS | FILTER_PATHTHROUGH_DATA));
     } else {
