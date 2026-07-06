@@ -440,6 +440,7 @@ static const bool  FILTER_DEFAULT_IVTC_LOG = false;
 static const int   FILTER_DEFAULT_MPDECIMATE_HI = 768;
 static const int   FILTER_DEFAULT_MPDECIMATE_LO = 320;
 static const bool  FILTER_DEFAULT_MPDECIMATE_MAX = 0;
+static const int   FILTER_DEFAULT_MPDECIMATE_KEEP = 0; // 0 = drop as soon as similar (legacy)
 static const float FILTER_DEFAULT_MPDECIMATE_FRAC = 0.33f;
 static const bool  FILTER_DEFAULT_MPDECIMATE_LOG = false;
 
@@ -2623,6 +2624,7 @@ struct VppMpdecimate {
     bool log;
 
     VppMpdecimate();
+    int keep; //連続してsimilarなフレームをこの数まで保持してからドロップを開始する
     bool operator==(const VppMpdecimate& x) const;
     bool operator!=(const VppMpdecimate& x) const;
     tstring print() const;

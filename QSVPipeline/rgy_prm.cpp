@@ -1796,6 +1796,7 @@ VppMpdecimate::VppMpdecimate() :
     frac(FILTER_DEFAULT_MPDECIMATE_FRAC),
     log(FILTER_DEFAULT_MPDECIMATE_LOG) {
 
+    keep(FILTER_DEFAULT_MPDECIMATE_KEEP),
 }
 
 bool VppMpdecimate::operator==(const VppMpdecimate& x) const {
@@ -1806,13 +1807,14 @@ bool VppMpdecimate::operator==(const VppMpdecimate& x) const {
         && frac == x.frac
         && log == x.log;
 }
+        && keep == x.keep
 bool VppMpdecimate::operator!=(const VppMpdecimate& x) const {
     return !(*this == x);
 }
 
 tstring VppMpdecimate::print() const {
-    return strsprintf(_T("mpdecimate: hi %d, lo %d, frac %.2f, max %d, log %s"),
-        hi, lo, frac, max,
+    return strsprintf(_T("mpdecimate: hi %d, lo %d, frac %.2f, max %d, keep %d, log %s"),
+        hi, lo, frac, max, keep,
         log ? _T("on") : _T("off"));
 }
 
