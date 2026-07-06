@@ -3173,7 +3173,15 @@ VppDering::VppDering() :
     sigma(FILTER_DEFAULT_HQDERING_SIGMA),
     showmask(FILTER_DEFAULT_HQDERING_SHOWMASK),
     protect(FILTER_DEFAULT_HQDERING_PROTECT),
-    edge(FILTER_DEFAULT_HQDERING_EDGE) {
+    edge(FILTER_DEFAULT_HQDERING_EDGE),
+    thr(0),
+    elast(2.0f),
+    darkthr(-1),
+    minp(0),
+    msmooth(0),
+    drrep(0),
+    sharp(0),
+    planes({ true, false, false }) {
 }
 
 bool VppDering::operator==(const VppDering& x) const {
@@ -3186,15 +3194,39 @@ bool VppDering::operator==(const VppDering& x) const {
         && edge == x.edge;
 }
 bool VppDering::operator!=(const VppDering& x) const {
+        && thr == x.thr
+        && elast == x.elast
+        && darkthr == x.darkthr
+        && minp == x.minp
+        && msmooth == x.msmooth
+        && drrep == x.drrep
+        && sharp == x.sharp
+        && planes == x.planes
     return !(*this == x);
 }
 
 tstring VppDering::print() const {
-    return strsprintf(_T("hqdering: mrad %d, mthr %d, sigma %.2f, showmask %s, protect %s, edge %s"),
+    tstring str = strsprintf(_T("hqdering: mrad %d, mthr %d, sigma %.2f, showmask %s, protect %s, edge %s"),
         mrad, mthr, sigma,
         showmask ? _T("on") : _T("off"),
         protect ? _T("on") : _T("off"),
-        edge.c_str());
+        edge.c_str());    if (thr > 0) {
+        str += strsprintf(_T(", thr %d, elast %.2f"), thr, elast);
+        if (darkthr >= 0) str += strsprintf(_T(", darkthr %d"), darkthr);
+    }
+    if (minp > 0)    str += strsprintf(_T(", minp %d"), minp);
+    if (msmooth > 0) str += strsprintf(_T(", msmooth %d"), msmooth);
+    if (drrep > 0)   str += strsprintf(_T(", drrep %d"), drrep);
+    if (sharp > 0)   str += strsprintf(_T(", sharp %d"), sharp);
+    if (planes != std::array<bool, 3>({ true, false, false })) {
+        tstring p;
+        if (planes[0]) p += _T(":y");
+        if (planes[1]) p += _T(":u");
+        if (planes[2]) p += _T(":v");
+        str += _T(", planes ") + ((p.length() > 0) ? p.substr(1) : _T("none"));
+    }
+    return str;
+
 }
 
 VppMsharpen::VppMsharpen() :

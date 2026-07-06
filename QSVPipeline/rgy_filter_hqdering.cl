@@ -3,9 +3,14 @@
 // Pipeline (luma plane only; chroma passes through):
 //   1. hqdering_edge       — Sobel + Levels-style threshold ramp
 //   2. dehalo_expand × mrad — 3×3 morphological dilation (ping-pong)
+//      (opt) hqdering_inpand3x3 × minp   — edge core, excluded in combine
+//      (opt) hqdering_mean3x3 × msmooth  — feather the ring mask
 //   3. hqdering_blur_h     — horizontal 1-D Gaussian
 //   4. hqdering_blur_v     — vertical 1-D Gaussian
+//      (opt) hqdering_rg11 [+ hqdering_mean3x3 ...] + hqdering_contra — contra-sharpen (sharp)
+//      (opt) hqdering_repair3x3 — clamp blurred to src 3×3 min/max (drrep)
 //   5. hqdering_combine    — alpha-blend src ↔ blurred via ring mask
+//                            (+ opt LimitFilter-style thr/darkthr/elast limit)
 //
 // Build-time defines (set via -D from rgy_filter_hqdering.cpp):
 //   Type           : uchar (8-bit) or ushort (>8-bit)
@@ -251,6 +256,158 @@ __kernel void hqdering_edge_log(
 }
 
 // =============================================================================
+// The mask/limit extensions below (inpand, 3x3 mean, min/max repair and the
+// LimitFilter-style change limit in the combine kernel) follow the reference
+// HQDering parameter set. Their building blocks are the same primitives that
+// the --vpp-finedehalo rework (#777) introduced in rgy_filter_dehalo.cl /
+// rgy_filter_finedehalo.cl (square min/max morphology, RemoveGrain-mode-20
+// style 3x3 mean, min/max range clamp). They are implemented here as
+// hqdering-local kernels on purpose, so that this patch does not touch the
+// freshly reworked dehalo sources - if a shared header for these morphology
+// primitives is preferred, they can be unified later.
+// =============================================================================
+
+//expand3x3の対 (min morph) - #777のsquare morph(min)と同じプリミティブ
+__kernel void hqdering_inpand3x3(
+    const __global uchar *pSrc, int srcPitch,
+    __global       uchar *pDst, int dstPitch,
+    int width, int height
+) {
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    if (x >= width || y >= height) return;
+
+    int m = INT_MAX;
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            m = min(m, hqd_readPixClamp(pSrc, x + dx, y + dy, srcPitch, width, height));
+        }
+    }
+
+    __global Type *dPix = (__global Type *)(pDst + y * dstPitch + x * sizeof(Type));
+    dPix[0] = (Type)m;
+}
+
+//3x3平均 (RemoveGrain mode20相当) - #777のfdh_removegrain20_approxと同じプリミティブ
+__kernel void hqdering_mean3x3(
+    const __global uchar *pSrc, int srcPitch,
+    __global       uchar *pDst, int dstPitch,
+    int width, int height
+) {
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    if (x >= width || y >= height) return;
+
+    int sum = 0;
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            sum += hqd_readPixClamp(pSrc, x + dx, y + dy, srcPitch, width, height);
+        }
+    }
+    int v = (sum + 4) / 9;
+    if (v < 0)        v = 0;
+    if (v > max_val)  v = max_val;
+
+    __global Type *dPix = (__global Type *)(pDst + y * dstPitch + x * sizeof(Type));
+    dPix[0] = (Type)v;
+}
+
+//RemoveGrain mode11相当: 3x3二項フィルタ(1,2,1;2,4,2;1,2,1)/16 - コントラシャープのぼかし段
+__kernel void hqdering_rg11(
+    const __global uchar *pSrc, int srcPitch,
+    __global       uchar *pDst, int dstPitch,
+    int width, int height
+) {
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    if (x >= width || y >= height) return;
+
+    const int w[3][3] = { { 1, 2, 1 }, { 2, 4, 2 }, { 1, 2, 1 } };
+    int sum = 0;
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            sum += w[dy + 1][dx + 1] * hqd_readPixClamp(pSrc, x + dx, y + dy, srcPitch, width, height);
+        }
+    }
+    int v = (sum + 8) >> 4;
+    if (v < 0)        v = 0;
+    if (v > max_val)  v = max_val;
+
+    __global Type *dPix = (__global Type *)(pDst + y * dstPitch + x * sizeof(Type));
+    dPix[0] = (Type)v;
+}
+
+//コントラシャープの合成段 (リファレンスのcontra-sharpening):
+//  sharpDiff = smoothed - method(=RG11[->RG20...])
+//  ssDD = Repair(sharpDiff, src - smoothed, mode1) 相当 = 3x3近傍の(src-smoothed)のmin/maxへクランプ
+//  |ssDD| > |sharpDiff| なら sharpDiff を採用 (小さい方の変化のみ戻す)
+//  out = smoothed + ssDD
+//ブラーで失われた線をsrcに実在した変化の範囲でのみ戻すため、リンギングを再生成しない
+__kernel void hqdering_contra(
+    const __global uchar *pSrc,      int srcPitch,
+    const __global uchar *pSmoothed, int smoothedPitch,
+    const __global uchar *pMethod,   int methodPitch,
+    __global       uchar *pDst,      int dstPitch,
+    int width, int height
+) {
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    if (x >= width || y >= height) return;
+
+    const int sm = hqd_readPixClamp(pSmoothed, x, y, smoothedPitch, width, height);
+    const int mt = hqd_readPixClamp(pMethod,   x, y, methodPitch,   width, height);
+    const int sharpDiff = sm - mt;
+    int mn = INT_MAX, mx = INT_MIN;
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            const int d = hqd_readPixClamp(pSrc,      x + dx, y + dy, srcPitch,      width, height)
+                        - hqd_readPixClamp(pSmoothed, x + dx, y + dy, smoothedPitch, width, height);
+            mn = min(mn, d);
+            mx = max(mx, d);
+        }
+    }
+    int ssDD = sharpDiff;
+    if (ssDD < mn) ssDD = mn;
+    if (ssDD > mx) ssDD = mx;
+    if (abs(ssDD) > abs(sharpDiff)) {
+        ssDD = sharpDiff;
+    }
+    int v = sm + ssDD;
+    if (v < 0)        v = 0;
+    if (v > max_val)  v = max_val;
+
+    __global Type *dPix = (__global Type *)(pDst + y * dstPitch + x * sizeof(Type));
+    dPix[0] = (Type)v;
+}
+
+//repair mode1相当: ブラー結果をsrcの3x3 min/maxへクランプ - #777のsquare rangeと同じプリミティブ
+__kernel void hqdering_repair3x3(
+    const __global uchar *pSrc,     int srcPitch,
+    const __global uchar *pBlurred, int blurredPitch,
+    __global       uchar *pDst,     int dstPitch,
+    int width, int height
+) {
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    if (x >= width || y >= height) return;
+
+    int mn = INT_MAX, mx = 0;
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            const int v = hqd_readPixClamp(pSrc, x + dx, y + dy, srcPitch, width, height);
+            mn = min(mn, v);
+            mx = max(mx, v);
+        }
+    }
+    int b = hqd_readPixClamp(pBlurred, x, y, blurredPitch, width, height);
+    if (b < mn) b = mn;
+    if (b > mx) b = mx;
+
+    __global Type *dPix = (__global Type *)(pDst + y * dstPitch + x * sizeof(Type));
+    dPix[0] = (Type)b;
+}
+
+// =============================================================================
 // hqdering_blur_h / hqdering_blur_v — 1-D Gaussian, separable.
 //
 // `radius` and `sigma` are passed as kernel args. We compute weights
@@ -337,17 +494,29 @@ __kernel void hqdering_blur_v(
 // strokes, fine lines stay sharp) and only smooths the annular ringing
 // zone around them.
 //
-// `showmask != 0` writes the effective mask (after the protect
-// subtraction, if any) instead of the merged output — useful for
-// confirming the protect toggle visually.
+// `showmask != 0` writes the effective mask (after the protect /
+// core-mask subtractions, if any) instead of the merged output — useful
+// for confirming the mask toggles visually.
+//
+// `useCoreMask != 0` additionally subtracts the inpanded edge core
+// (minp) from the ring mask. OpenCL cannot rely on a NULL cl_mem the
+// way CUDA checks a null pointer, so the host passes a dummy buffer and
+// this explicit flag when minp=0 — pCoreMask is then never read.
+//
+// `thrHbd > 0` enables a LimitFilter-style per-pixel change limit
+// applied after the blend (thr/darkthr/elast). thrHbd=0 (the default)
+// leaves the blend result untouched — bit-identical to the previous
+// kernel.
 __kernel void hqdering_combine(
     const __global uchar *pSrc,      int srcPitch,
     const __global uchar *pBlurred,  int blPitch,
     const __global uchar *pMask,     int mskPitch,
     const __global uchar *pEdgeMask, int edgePitch,
+    const __global uchar *pCoreMask, int corePitch,
     __global       uchar *pDst,      int dstPitch,
     int width, int height,
-    int showmask, int protect
+    int showmask, int protect, int useCoreMask,
+    int thrHbd, int darkthrHbd, float elast
 ) {
     const int x = get_global_id(0);
     const int y = get_global_id(1);
@@ -364,6 +533,13 @@ __kernel void hqdering_combine(
         if (diff < 0) diff = 0;
         effectiveMask = diff;
     }
+    if (useCoreMask != 0) {
+        //minp: inpandしたエッジ芯をリングマスクから除外し、線そのものは処理しない (リファレンスのminp)
+        const int cm = (int)(*(const __global Type *)(pCoreMask + y * corePitch + x * sizeof(Type)));
+        int diff = effectiveMask - cm;
+        if (diff < 0) diff = 0;
+        effectiveMask = diff;
+    }
 
     int outVal;
     if (showmask != 0) {
@@ -375,6 +551,24 @@ __kernel void hqdering_combine(
         if (v < 0)        v = 0;
         if (v > max_val)  v = max_val;
         outVal = v;
+        if (thrHbd > 0) {
+            //LimitFilter形式の変化量制限 (リファレンスのthr/elast/darkthr):
+            //|変化量|<=lim は全適用、lim*elast以上は不適用、間は線形減衰
+            const int diff = outVal - s;
+            const int lim = (diff < 0 && darkthrHbd >= 0) ? darkthrHbd : thrHbd;
+            const int adiff = abs(diff);
+            float ramp = 1.0f;
+            if (adiff > lim) {
+                const float elastRange = (float)lim * elast;
+                ramp = (elast > 1.0f && (float)adiff < elastRange)
+                    ? (elastRange - (float)adiff) / ((float)lim * (elast - 1.0f))
+                    : 0.0f;
+            }
+            int vLim = s + (int)((float)diff * ramp + ((diff >= 0) ? 0.5f : -0.5f));
+            if (vLim < 0)        vLim = 0;
+            if (vLim > max_val)  vLim = max_val;
+            outVal = vLim;
+        }
     }
 
     __global Type *dPix = (__global Type *)(pDst + y * dstPitch + x * sizeof(Type));
