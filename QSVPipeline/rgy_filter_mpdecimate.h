@@ -119,6 +119,7 @@ protected:
     RGY_ERR calcDiff(RGYFilterMpdecimateFrameData *target, const RGYFilterMpdecimateFrameData *ref, RGYOpenCLQueue& queue_main);
 
     int m_dropCount;
+    int m_similarRun; //連続してsimilar判定となったフレーム数 (keep用)
     int m_ref;
     int m_target;
     RGYOpenCLProgramAsync m_mpdecimate;
