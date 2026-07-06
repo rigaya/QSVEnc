@@ -209,6 +209,10 @@ RGY_ERR RGYFilterVinverse::procPlane(int planeIdx, RGYFrameInfo *pOutputPlane, c
     VppVinverseMode mode, float sstr, float scl, int thr_hbd, int amnt_hbd, int h_offset,
     RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     RGY_ERR err = RGY_ERR_NONE;
+    bool chromaSbr = false;
+    if (auto prm = std::dynamic_pointer_cast<RGYFilterParamVinverse>(m_param); prm) {
+        chromaSbr = prm->vinverse.chroma;
+    }
     if (mode == VppVinverseMode::Vinverse) {
         // Fused vblur3 + vblur5: one dispatch writes pb3 (vblur3 of src)
         // and pb6 (vblur5 of pb3) at the same coordinate, eliminating
@@ -220,13 +224,16 @@ RGY_ERR RGYFilterVinverse::procPlane(int planeIdx, RGYFrameInfo *pOutputPlane, c
         if (err != RGY_ERR_NONE) return err;
     } else {
         // Vinverse2:
-        //   luma  : pb3 = sbr(src) via { pb6 = vblur3(src);
-        //                                 pb3 = makediff(src, pb6, h);
-        //                                 pb6 = vblur3(pb3);
-        //                                 pb3 = sbr_combine(src, pb3, pb6, h) }
-        //   chroma: pb3 = copy(src)                    (reference is luma-only)
-        //   then    : pb6 = vblur3(pb3)
-        if (planeIdx == 0) {
+        //   pb3 = sbr(src) via { pb6 = vblur3(src);
+        //                        pb3 = makediff(src, pb6, h);
+        //                        pb6 = vblur3(pb3);
+        //                        pb3 = sbr_combine(src, pb3, pb6, h) }
+        //   then : pb6 = vblur3(pb3)
+        // The sbr pre-pass runs on chroma planes too when chroma=true (the
+        // documented default); with chroma=false, chroma planes are copied
+        // whole in procFrame and never reach here, so the copy fallback
+        // below is kept only as a safety net.
+        if (planeIdx == 0 || chromaSbr) {
             err = procPlaneVblur3(pPb6Plane, pInputPlane, queue, wait_events, nullptr);
             if (err != RGY_ERR_NONE) return err;
             err = procPlaneMakediff(pPb3Plane, pInputPlane, pPb6Plane, h_offset, queue, {}, nullptr);
