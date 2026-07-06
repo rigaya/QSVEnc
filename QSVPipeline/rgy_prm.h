@@ -2498,6 +2498,7 @@ struct VppDecomb {
 struct VppNnedi {
     bool enable;
     VppNnediField field;
+    std::array<bool, 3> planes; //Y, U, V
     VppNnediNSize nsize;
     int nns;
     VppNnediQuality quality;

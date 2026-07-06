@@ -2022,7 +2022,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         i++;
 
-        const auto paramList = std::vector<std::string>{ "enable", "field", "nsize", "nns", "quality", "prescreen", "errortype", "prec", "clamp", "double_height", "weightfile" };
+        const auto paramList = std::vector<std::string>{ "enable", "planes", "field", "nsize", "nns", "quality", "prescreen", "errortype", "prec", "clamp", "double_height", "weightfile" };
         const auto parse_nnedi_int = [&](int *dst, const tstring& param_arg, const tstring& param_val) {
             try {
                 size_t idx = 0;
@@ -2055,6 +2055,24 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 auto param_val = param.substr(pos + 1);
                 if (param_arg == _T("enable")) {
                     if (parse_nnedi_bool(&vpp->nnedi.enable, param_arg, param_val)) return 1;
+                    continue;
+                }
+                if (param_arg == _T("planes")) {
+                    //y,u,v(,)区切り、または all
+                    vpp->nnedi.planes = { false, false, false };
+                    if (param_val == _T("all")) {
+                        vpp->nnedi.planes = { true, true, true };
+                    } else {
+                        for (const auto& plane : split(param_val, _T(":"))) {
+                            if      (plane == _T("y")) vpp->nnedi.planes[0] = true;
+                            else if (plane == _T("u")) vpp->nnedi.planes[1] = true;
+                            else if (plane == _T("v")) vpp->nnedi.planes[2] = true;
+                            else {
+                                print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("Supported values: all, or \":\"-separated list of y, u, v (e.g. y:u:v)."));
+                                return 1;
+                            }
+                        }
+                    }
                     continue;
                 }
                 if (param_arg == _T("field")) {
@@ -12966,6 +12984,13 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-kfm ") << tmp.str().substr(1);
+            if (param->nnedi.planes != defaultPrm->nnedi.planes) {
+                tstring p;
+                if (param->nnedi.planes[0]) p += _T(":y");
+                if (param->nnedi.planes[1]) p += _T(":u");
+                if (param->nnedi.planes[2]) p += _T(":v");
+                tmp << _T(",planes=") << (p.length() > 0 ? p.substr(1) : _T(""));
+            }
         } else if (param->kfm.enable) {
             cmd << _T(" --vpp-kfm");
         }
@@ -15526,6 +15551,8 @@ tstring gen_cmd_help_vpp() {
 #if ENABLE_VPP_FILTER_RTGMC_SEARCH_PREFILTER
     str += strsprintf(_T("\n")
         _T("   --vpp-rtgmc-search-prefilter [<param1>=<value>]\n")
+        _T("      planes=<string>       target planes (default=all)\n")
+        _T("                              all, or \":\"-separated list of y, u, v.\n")
         _T("     enable search reference prefilter scaffold.\n")
         _T("    params\n")
         _T("      tr0=<int>             temporal radius (default=%d, -1 - 2)\n")

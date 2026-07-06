@@ -2725,6 +2725,9 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         unique_ptr<RGYFilter> filter(new RGYFilterNnedi(m_cl));
         shared_ptr<RGYFilterParamNnedi> param(new RGYFilterParamNnedi());
         param->nnedi.enable = params->vpp.nnedi.enable;
+        for (size_t iplane = 0; iplane < params->vpp.nnedi.planes.size(); iplane++) {
+            param->nnedi.processPlane[iplane] = params->vpp.nnedi.planes[iplane];
+        }
         param->nnedi.field = params->vpp.nnedi.field;
         param->nnedi.nsize = params->vpp.nnedi.nsize;
         param->nnedi.nns = params->vpp.nnedi.nns;
