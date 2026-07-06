@@ -1,6 +1,6 @@
 ﻿// HQDering — DCT-ringing reduction kernels.
 //
-// Pipeline (luma plane only; chroma passes through):
+// Pipeline (per selected plane; default is Y only, other planes pass through):
 //   1. hqdering_edge       — Sobel + Levels-style threshold ramp
 //   2. dehalo_expand × mrad — 3×3 morphological dilation (ping-pong)
 //      (opt) hqdering_inpand3x3 × minp   — edge core, excluded in combine

@@ -54,22 +54,22 @@ protected:
     virtual void close() override;
     virtual RGY_ERR checkParam(const std::shared_ptr<RGYFilterParamDering> pParam);
 
-    // Per-kernel host wrappers.
+    // Per-kernel host wrappers. All take the plane to operate on; the work
+    // buffers are allocated full-frame, so a getPlane() view gives each
+    // plane the same processing chain (planes= option, default: Y only).
     RGY_ERR runEdge   (RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
-                       int mthrHbd,
+                       int mthrHbd, RGY_PLANE plane,
                        RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
     // 3×3 morphological max — reused dehalo_expand, kept as a private rebuild
     // to avoid reaching into another sub-filter's program.
-    RGY_ERR runExpand3x3(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
+    RGY_ERR runExpand3x3(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc, RGY_PLANE plane,
                          RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
     RGY_ERR runBlurH  (RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
-                       int radius, float sigma,
+                       int radius, float sigma, RGY_PLANE plane,
                        RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
     RGY_ERR runBlurV  (RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
-                       int radius, float sigma,
+                       int radius, float sigma, RGY_PLANE plane,
                        RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
-    RGY_ERR runCombine(RGYFrameInfo *pDst,
-                       const RGYFrameInfo *pSrc, const RGYFrameInfo *pBlurred, const RGYFrameInfo *pMask,
     // 3×3 morphological min (minp edge core).
     RGY_ERR runInpand3x3(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc, RGY_PLANE plane,
                          RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
@@ -89,15 +89,13 @@ protected:
                          RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
     // pCoreMask may be nullptr (minp=0): the kernel then gets a dummy
     // buffer and useCoreMask=0. thrHbd=0 disables the LimitFilter ramp.
-                       const RGYFrameInfo *pEdgeMask,
+    RGY_ERR runCombine(RGYFrameInfo *pDst,
+                       const RGYFrameInfo *pSrc, const RGYFrameInfo *pBlurred, const RGYFrameInfo *pMask,
+                       const RGYFrameInfo *pEdgeMask, const RGYFrameInfo *pCoreMask,
                        int showmask, int protect,
+                       int thrHbd, int darkthrHbd, float elast, RGY_PLANE plane,
                        RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events,
                        RGYOpenCLEvent *event);
-                       int thrHbd, int darkthrHbd, float elast, RGY_PLANE plane,
-
-    RGY_ERR copyChromaPlanes(RGYFrameInfo *pDst, const RGYFrameInfo *pSrc,
-                             RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events,
-                             RGYOpenCLEvent *event);
 
     RGYOpenCLProgramAsync m_dering;        // hqdering_edge / blur_h / blur_v / combine
     RGYOpenCLProgramAsync m_dehaloMorph;   // private rebuild of dehalo.cl for expand at r=1
@@ -109,17 +107,17 @@ protected:
     // edge=sobel (which resolves to "hqdering_edge").
     std::string           m_edgeKernelName;
 
-    // Intermediate buffers (all source-resolution, luma-plane shape).
+    // Intermediate buffers (full-frame; each plane used via getPlane views).
     std::unique_ptr<RGYCLFrame> m_edgeMask;     // Sobel + threshold ramp output
     std::unique_ptr<RGYCLFrame> m_ringMask;     // dilated edge mask (ping side)
     std::unique_ptr<RGYCLFrame> m_morphTmp;     // dilation ping-pong (pong side)
+    std::unique_ptr<RGYCLFrame> m_hBlurred;     // horizontal Gaussian pass output
+    std::unique_ptr<RGYCLFrame> m_blurred;      // full Gaussian (after vertical pass)
     std::unique_ptr<RGYCLFrame> m_edgeCore;     // minp用: inpandしたエッジ芯 (minp>0のみ確保)
     std::unique_ptr<RGYCLFrame> m_maskTmp2;     // minp ping-pong (minp>0のみ確保)
     std::unique_ptr<RGYCLFrame> m_maskTmp3;     // msmooth ping-pong (msmooth>0のみ確保)
     std::unique_ptr<RGYCLFrame> m_contraTmp;    // sharp用: RG11/RG20チェーンと合成結果 (sharp>0のみ確保)
     std::unique_ptr<RGYCLFrame> m_contraTmp2;
-    std::unique_ptr<RGYCLFrame> m_hBlurred;     // horizontal Gaussian pass output
-    std::unique_ptr<RGYCLFrame> m_blurred;      // full Gaussian (after vertical pass)
 };
 
 #endif // __RGY_FILTER_HQDERING_H__
