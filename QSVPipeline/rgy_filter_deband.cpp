@@ -50,8 +50,13 @@ extern "C" {
 #pragma warning(pop)
 
 using clrngStreams = clrngMrg31k3pStream;
+using clrngStreamCreator = clrngMrg31k3pStreamCreator;
+using clrngStreamState = clrngMrg31k3pStreamState;
 #define clrngCreateStreams clrngMrg31k3pCreateStreams
 #define clrngDestroyStreams clrngMrg31k3pDestroyStreams
+#define clrngCopyStreamCreator clrngMrg31k3pCopyStreamCreator
+#define clrngDestroyStreamCreator clrngMrg31k3pDestroyStreamCreator
+#define clrngSetBaseCreatorState clrngMrg31k3pSetBaseCreatorState
 
 void clrngStreamDeleter::operator()(void *ptr) const {
     clrngDestroyStreams((clrngStreams *)ptr);
@@ -139,6 +144,11 @@ RGY_ERR RGYFilterDeband::procFrame(RGYFrameInfo *pOutputFrame, const RGYFrameInf
 }
 
 RGY_ERR RGYFilterDeband::initRand() {
+    auto prm = std::dynamic_pointer_cast<RGYFilterParamDeband>(m_param);
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
     RGYWorkSize local(DEBAND_BLOCK_THREAD_X, DEBAND_BLOCK_THREAD_Y, 1);
     RGYWorkSize global(divCeil(m_randBufY->frame.width, 2), divCeil(m_randBufY->frame.height, 2 * GEN_RAND_BLOCK_LOOP_Y), 1);
     RGYWorkSize groups = global.groups(local);
@@ -146,8 +156,35 @@ RGY_ERR RGYFilterDeband::initRand() {
     const auto numWorkItems = groups(0) * groups(1) * local(0) * local(1);
 
     clrngStatus sts = CLRNG_SUCCESS;
+    //seedがデフォルト値の場合は従来通りclRNGの既定シードをそのまま使用する (デフォルト設定の出力を維持するため)
+    clrngStreamCreator *creator = nullptr;
+    if (prm->deband.seed != FILTER_DEFAULT_DEBAND_SEED) {
+        creator = clrngCopyStreamCreator(nullptr, &sts);
+        if (sts != CLRNG_SUCCESS || creator == nullptr) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to create clrng stream creator: %s.\n"), char_to_tstring(clrngGetErrorString()).c_str());
+            return RGY_ERR_MEMORY_ALLOC;
+        }
+        cl_uint seedVal = (cl_uint)prm->deband.seed % (cl_uint)mrg31k3p_M2;
+        if (seedVal == 0) {
+            seedVal = 1;
+        }
+        clrngStreamState baseState;
+        for (int i = 0; i < 3; i++) {
+            baseState.g1[i] = seedVal;
+            baseState.g2[i] = seedVal;
+        }
+        sts = clrngSetBaseCreatorState(creator, &baseState);
+        if (sts != CLRNG_SUCCESS) {
+            clrngDestroyStreamCreator(creator);
+            AddMessage(RGY_LOG_ERROR, _T("failed to set clrng seed: %s.\n"), char_to_tstring(clrngGetErrorString()).c_str());
+            return RGY_ERR_UNKNOWN;
+        }
+    }
     size_t streamBufferSize = 0;
-    m_rngStream = std::unique_ptr<clrngStreams, clrngStreamDeleter>(clrngCreateStreams(nullptr, numWorkItems, &streamBufferSize, &sts), clrngStreamDeleter());
+    m_rngStream = std::unique_ptr<clrngStreams, clrngStreamDeleter>(clrngCreateStreams(creator, numWorkItems, &streamBufferSize, &sts), clrngStreamDeleter());
+    if (creator != nullptr) {
+        clrngDestroyStreamCreator(creator);
+    }
     if (sts != CLRNG_SUCCESS) {
         AddMessage(RGY_LOG_ERROR, _T("failed to create clrng stream: %s.\n"), char_to_tstring(clrngGetErrorString()).c_str());
         return RGY_ERR_MEMORY_ALLOC;
@@ -228,6 +265,10 @@ RGY_ERR RGYFilterDeband::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
         prm->deband.sample = clamp(prm->deband.sample, 0, 2);
     }
     auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamDeband>(m_param);
+    //seedが変更された場合は乱数を再初期化する
+    if (prmPrev && prmPrev->deband.seed != prm->deband.seed) {
+        m_randInitialized = false;
+    }
     if (!m_deband.get()
         || !m_debandGenRand.get()
         || !prmPrev
