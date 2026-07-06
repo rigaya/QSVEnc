@@ -58,7 +58,7 @@ RGY_ERR RGYFilterDecimate::procPlane(const bool useKernel2, const bool firstPlan
     RGYWorkSize local, global;
     if (useKernel2) {
         local = RGYWorkSize(DECIMATE_K2_THREAD_BLOCK_X, DECIMATE_K2_THREAD_BLOCK_Y);
-        global = RGYWorkSize(divCeil(width, blockHalfX), divCeil(width, blockHalfY));
+        global = RGYWorkSize(divCeil(width, blockHalfX), divCeil(height, blockHalfY));
         switch (blockHalfX) {
         case 1:  kernel_name = "kernel_block_diff2_1"; break;
         case 2:  kernel_name = "kernel_block_diff2_2"; break;
