@@ -284,6 +284,7 @@
   - [--vpp-anime4k-shader \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-anime4k-shader-param1value1param2value2)
   - [--vpp-onnx \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-onnx-param1value1param2value2)
   - [--vpp-onnx-model-dir \<string\>](#--vpp-onnx-model-dir-string)
+  - [--vpp-onnx-cache-dir \<string\>](#--vpp-onnx-cache-dir-string)
   - [--vpp-ai-frameinterp \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-ai-frameinterp-param1value1param2value2)
   - [--vpp-perf-monitor](#--vpp-perf-monitor)
 - [Other Options](#other-options)
@@ -1870,6 +1871,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
   - [--vpp-anime4k-shader](#--vpp-anime4k-shader-param1value1param2value2)
   - [--vpp-onnx](#--vpp-onnx-param1value1param2value2)
   - [--vpp-onnx-model-dir](#--vpp-onnx-model-dir-string)
+  - [--vpp-onnx-cache-dir](#--vpp-onnx-cache-dir-string)
   - [--vpp-ai-frameinterp](#--vpp-ai-frameinterp-param1value1param2value2)
 
 ### --vpp-colorspace [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]  
@@ -4120,6 +4122,15 @@ Download the zip archive, extract it to an arbitrary directory, and specify that
 
 ```
 --vpp-onnx-model-dir C:\models\HWEnc-onnx-models
+```
+
+### --vpp-onnx-cache-dir &lt;string&gt;
+Directory to cache compiled ONNX models.
+
+This can skip OpenVINO model recompilation on later runs.
+
+```
+--vpp-onnx-cache-dir C:\models\HWEnc-onnx-cache
 ```
 
 ### --vpp-ai-frameinterp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...

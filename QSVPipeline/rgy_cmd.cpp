@@ -5797,7 +5797,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
 
         const auto paramList = std::vector<std::string>{
             "enable", "model", "modelfile", "device", "interop", "prec", "precision",
-            "cache_dir", "colormatrix", "colorrange", "colorspace", "noise", "out_res", "resize"
+            "colormatrix", "colorrange", "colorspace", "noise", "out_res", "resize"
         };
 
         for (const auto& param : split(strInput[i], _T(","))) {
@@ -5833,10 +5833,6 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
                     }
-                    continue;
-                }
-                if (param_arg == _T("cache_dir")) {
-                    vpp->onnx.cacheDir = param_val;
                     continue;
                 }
                 if (param_arg == _T("prec") || param_arg == _T("precision")) {
@@ -5936,6 +5932,11 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
     if (IS_OPTION("vpp-onnx-model-dir") && ENABLE_VPP_FILTER_ONNX) {
         i++;
         vpp->onnxModelDir = tstring(strInput[i]);
+        return 0;
+    }
+    if (IS_OPTION("vpp-onnx-cache-dir") && ENABLE_VPP_FILTER_ONNX) {
+        i++;
+        vpp->onnx.cacheDir = tstring(strInput[i]);
         return 0;
     }
     if (IS_OPTION("vpp-denoise-dct") && ENABLE_VPP_FILTER_DENOISE_DCT) {
@@ -13529,9 +13530,6 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             tmp << _T(",device=") << param->onnx.device;
             tmp << _T(",interop=") << param->onnx.interop;
             tmp << _T(",prec=") << param->onnx.precision;
-            if (!param->onnx.cacheDir.empty()) {
-                tmp << _T(",cache_dir=") << param->onnx.cacheDir;
-            }
             tmp << _T(",colormatrix=") << param->onnx.colormatrix;
             tmp << _T(",colorrange=") << param->onnx.colorrange;
             tmp << _T(",colorspace=") << param->onnx.colorspace;
@@ -13549,6 +13547,9 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
     }
     if (!param->onnxModelDir.empty()) {
         cmd << _T(" --vpp-onnx-model-dir ") << param->onnxModelDir;
+    }
+    if (!param->onnx.cacheDir.empty()) {
+        cmd << _T(" --vpp-onnx-cache-dir ") << param->onnx.cacheDir;
     }
     if (param->dct != defaultPrm->dct) {
         tmp.str(tstring());
@@ -16148,8 +16149,6 @@ tstring gen_cmd_help_vpp() {
         _T("      device=<string>             OpenVINO device: GPU.0 (default) / GPU / CPU / AUTO / NPU\n")
         _T("                                    NPU needs an NPU-enabled OpenVINO runtime (Core Ultra).\n")
         _T("      interop=<string>            auto (default) / ocl (zero-copy, shared GPU context) / host\n")
-        _T("      cache_dir=<string>          cache compiled models in this folder, skipping\n")
-        _T("                                    model recompilation on later runs (default: off)\n")
         _T("      prec=<string>               auto (default) / fp16 / fp32\n")
         _T("      colormatrix=<string>        auto (default, bt601 SD / bt709 HD) / bt601 / bt709 / bt2020\n")
         _T("      colorrange=<string>         auto (default, tv) / tv / pc\n")
@@ -16163,6 +16162,8 @@ tstring gen_cmd_help_vpp() {
         _T("      resize=<string>             resampler for out_res (default=lanczos4)\n"));
     str += strsprintf(_T("\n")
         _T("   --vpp-onnx-model-dir <string>   Directory containing models.json for registered ONNX models.\n"));
+    str += strsprintf(_T("\n")
+        _T("   --vpp-onnx-cache-dir <string>   Cache compiled ONNX models in this folder.\n"));
 #endif
 #if ENABLE_VPP_FILTER_SMOOTH
     str += strsprintf(_T("\n")
