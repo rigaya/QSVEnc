@@ -5850,8 +5850,16 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     if (get_list_value(list_colormatrix, param_val.c_str(), &value)) {
                         vpp->onnx.colormatrix = (CspMatrix)value;
                     } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_colormatrix);
-                        return 1;
+                        const auto compatMatrix = tolowercase(param_val);
+                        // 互換性のため、公開済みの旧指定名だけは --vpp-onnx colormatrix で吸収する。
+                        if (compatMatrix == _T("bt601")) {
+                            vpp->onnx.colormatrix = RGY_MATRIX_ST170_M;
+                        } else if (compatMatrix == _T("bt2020")) {
+                            vpp->onnx.colormatrix = RGY_MATRIX_BT2020_NCL;
+                        } else {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_colormatrix);
+                            return 1;
+                        }
                     }
                     continue;
                 }
@@ -16164,11 +16172,11 @@ tstring gen_cmd_help_vpp() {
         _T("      interop=<string>            auto (default) / ocl (zero-copy, shared GPU context) / host\n")
         _T("      prec=<string>               auto (default) / fp16 / fp32\n")
         _T("      colormatrix=<string>        same list as --colormatrix; onnx supports\n")
-        _T("                                    auto / auto_res / bt601 / smpte170m / bt470bg\n")
-        _T("                                    / bt709 / bt2020 / bt2020nc\n")
+        _T("                                    auto / auto_res / smpte170m / bt470bg\n")
+        _T("                                    / bt709 / bt2020nc\n")
         _T("      colormatrix_out=<string>    matrix for the OUTPUT RGB->YUV conversion\n")
         _T("                                    (same list as colormatrix; auto=same as input;\n")
-        _T("                                    set bt2020 for models\n")
+        _T("                                    set bt2020nc for models\n")
         _T("                                    that convert SDR/709 to HDR/2020)\n")
         _T("      colorrange=<string>         same list as --colorrange; onnx supports\n")
         _T("                                    auto (default, tv) / tv / limited / pc / full\n")

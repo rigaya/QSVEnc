@@ -4063,9 +4063,9 @@ Pre/post processing is inferred from the model channel count: 1ch=luma SR, 3ch=R
   - prec=&lt;string&gt; (default: auto)  
     OpenVINO inference precision. auto / fp16 / fp32
   - colormatrix=&lt;string&gt; (default: auto)  
-    Color matrix. Accepts the same names as [`--colormatrix`](#--colormatrix-string). `--vpp-onnx` supports auto / auto_res / bt601 / smpte170m / bt470bg / bt709 / bt2020 / bt2020nc.
+    Color matrix. Accepts the same names as [`--colormatrix`](#--colormatrix-string). `--vpp-onnx` supports auto / auto_res / smpte170m / bt470bg / bt709 / bt2020nc.
   - colormatrix_out=&lt;string&gt; (default: auto)
-    Output-side RGB to YUV color matrix. Accepts the same names as `colormatrix`. auto uses the same matrix as `colormatrix`. Use bt2020 for SDR-to-HDR models that output BT.2020/PQ RGB.
+    Output-side RGB to YUV color matrix. Accepts the same names as `colormatrix`. auto uses the same matrix as `colormatrix`. Use bt2020nc for SDR-to-HDR models that output BT.2020/PQ RGB.
   - colorrange=&lt;string&gt; (default: auto)  
     Color range. Accepts the same names as [`--colorrange`](#--colorrange-string). `--vpp-onnx` supports auto / tv / limited / pc / full.
   - colorspace=&lt;string&gt; (default: rgb)  
@@ -4082,7 +4082,7 @@ Pre/post processing is inferred from the model channel count: 1ch=luma SR, 3ch=R
 
   Models registered in models.json can be specified without extension (e.g. `model=artcnn_c4f32`). [`--vpp-onnx-model-dir`](#--vpp-onnx-model-dir-string) must be specified to use this feature.
   If a registered model has `"fp32": true` in models.json and `prec=auto`, QSVEnc automatically uses `prec=fp32`.
-  If a registered model has `"colormatrix_out": "bt2020"` in models.json and `colormatrix_out=auto`, QSVEnc automatically uses the registered output matrix.
+  If a registered model has `"colormatrix_out": "bt2020nc"` in models.json and `colormatrix_out=auto`, QSVEnc automatically uses the registered output matrix.
 
   | Family | Model names |
   |--------|------------|
