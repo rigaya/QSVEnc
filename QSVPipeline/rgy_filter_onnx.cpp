@@ -117,6 +117,38 @@ static inline int sample_y(const int y, const int padT, const int height) {
     return clampi(y - padT, 0, height - 1);
 }
 
+static const TCHAR *cx_desc_or_unknown(const CX_DESC *list, int value) {
+    const auto desc = get_cx_desc(list, value);
+    return (desc != nullptr) ? desc : _T("unknown");
+}
+
+static bool onnx_matrix_to_coeff_id(CspMatrix matrix, int inputHeight, int& matrixSel) {
+    if (matrix == RGY_MATRIX_AUTO || (int)matrix == COLOR_VALUE_AUTO_RESOLUTION) {
+        matrixSel = (inputHeight <= 576) ? 601 : 709;
+        return true;
+    }
+    switch (matrix) {
+    case RGY_MATRIX_ST170_M:
+    case RGY_MATRIX_BT470_BG:
+        matrixSel = 601;
+        return true;
+    case RGY_MATRIX_BT709:
+        matrixSel = 709;
+        return true;
+    case RGY_MATRIX_BT2020_NCL:
+        matrixSel = 2020;
+        return true;
+    default:
+        return false;
+    }
+}
+
+static bool onnx_supported_colorrange(CspColorRange range) {
+    return range == RGY_COLORRANGE_AUTO
+        || range == RGY_COLORRANGE_LIMITED
+        || range == RGY_COLORRANGE_FULL;
+}
+
 // Bilinear upscale of one channel from (sw x sh) to (sw*scale x sh*scale)
 // on the CPU (host path). Mirrors the chroma_bilinear kernel above.
 // Pitches in bytes, strides in samples (2 for an nv12/p010-interleaved channel).
@@ -212,6 +244,26 @@ static void copy_plane(uint8_t *dst, const int dstPitch, const int dstStride,
     }
 }
 } // namespace
+
+RGY_ERR RGYFilterOnnx::checkParam(const std::shared_ptr<RGYFilterParamOnnx> prm) {
+    int matrixSel = 0;
+    if (!onnx_matrix_to_coeff_id(prm->onnx.colormatrix, prm->frameIn.height, matrixSel)) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: unsupported colormatrix %s.\n"),
+            cx_desc_or_unknown(list_colormatrix, prm->onnx.colormatrix));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (!onnx_matrix_to_coeff_id(prm->onnx.colormatrixOut, prm->frameIn.height, matrixSel)) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: unsupported colormatrix_out %s.\n"),
+            cx_desc_or_unknown(list_colormatrix, prm->onnx.colormatrixOut));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (!onnx_supported_colorrange(prm->onnx.colorrange)) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: unsupported colorrange %s.\n"),
+            cx_desc_or_unknown(list_colorrange, prm->onnx.colorrange));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    return RGY_ERR_NONE;
+}
 
 void RGYFilterOnnx::setupColorCoeffs(int matrixSelIn, int matrixSelOut, bool rangeTV, int pixMax) {
     // Forward YUV->RGB matrix (Kr, Kb per matrix; Kg = 1 - Kr - Kb). Identical
@@ -311,17 +363,13 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         if (prm->onnx.precision == _T("auto") && entry->fp32) {
             prm->onnx.precision = _T("fp32");
         }
-        if (prm->onnx.colormatrixOut == _T("auto") && !entry->colormatrixOut.empty()) {
-            // per-model output matrix from models.json (e.g. SDR->HDR models
-            // declare bt2020); an explicit colormatrix_out= on the command
-            // line takes precedence because this only fills in "auto".
-            if (entry->colormatrixOut == _T("bt601") || entry->colormatrixOut == _T("bt709") || entry->colormatrixOut == _T("bt2020")) {
-                prm->onnx.colormatrixOut = entry->colormatrixOut;
-            } else {
-                AddMessage(RGY_LOG_WARN, _T("onnx: models.json: invalid colormatrix_out \"%s\" ignored.\n"),
-                    entry->colormatrixOut.c_str());
-            }
+        if (prm->onnx.colormatrixOut == RGY_MATRIX_AUTO && entry->colormatrixOut != RGY_MATRIX_UNSPECIFIED) {
+            prm->onnx.colormatrixOut = entry->colormatrixOut;
         }
+    }
+    auto sts = checkParam(prm);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
     }
     if (!rgy_file_exists(prm->onnx.modelFile)) {
         AddMessage(RGY_LOG_ERROR, _T("onnx: model file not found: %s\n"), prm->onnx.modelFile.c_str());
@@ -518,17 +566,15 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     const int noiseClamped = std::max(0, std::min(255, prm->onnx.noise));
     m_sigmaNorm = (float)noiseClamped / 255.0f;
 
-    // colour matrix + range (auto: BT.601 for SD, BT.709 for HD; TV range).
-    int matrixSel;
-    if      (prm->onnx.colormatrix == _T("bt601"))  matrixSel = 601;
-    else if (prm->onnx.colormatrix == _T("bt2020")) matrixSel = 2020;
-    else if (prm->onnx.colormatrix == _T("bt709"))  matrixSel = 709;
-    else                                                  matrixSel = (inH <= 576) ? 601 : 709; // auto
-    int matrixSelOut = matrixSel; // auto = 入力と同じ = 従来動作
-    if      (prm->onnx.colormatrixOut == _T("bt601"))  matrixSelOut = 601;
-    else if (prm->onnx.colormatrixOut == _T("bt709"))  matrixSelOut = 709;
-    else if (prm->onnx.colormatrixOut == _T("bt2020")) matrixSelOut = 2020;
-    const bool rangeTV = (prm->onnx.colorrange != _T("pc")); // auto/tv -> TV
+    int matrixSel = 0;
+    int matrixSelOut = 0;
+    onnx_matrix_to_coeff_id(prm->onnx.colormatrix, inH, matrixSel);
+    if (prm->onnx.colormatrixOut == RGY_MATRIX_AUTO) {
+        matrixSelOut = matrixSel;
+    } else {
+        onnx_matrix_to_coeff_id(prm->onnx.colormatrixOut, inH, matrixSelOut);
+    }
+    const bool rangeTV = (prm->onnx.colorrange != RGY_COLORRANGE_FULL);
     setupColorCoeffs(matrixSel, matrixSelOut, rangeTV, (int)m_maxval);
 
     // The zero-copy fast path is only wired for 1-channel luma models.

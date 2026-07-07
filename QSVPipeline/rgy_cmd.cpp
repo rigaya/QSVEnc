@@ -5846,31 +5846,31 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     continue;
                 }
                 if (param_arg == _T("colormatrix")) {
-                    const tstring v = tolowercase(param_val);
-                    if (v == _T("auto") || v == _T("bt601") || v == _T("bt709") || v == _T("bt2020")) {
-                        vpp->onnx.colormatrix = v;
+                    int value = 0;
+                    if (get_list_value(list_colormatrix, param_val.c_str(), &value)) {
+                        vpp->onnx.colormatrix = (CspMatrix)value;
                     } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_colormatrix);
                         return 1;
                     }
                     continue;
                 }
                 if (param_arg == _T("colormatrix_out")) {
-                    const tstring v = tolowercase(param_val);
-                    if (v == _T("auto") || v == _T("bt601") || v == _T("bt709") || v == _T("bt2020")) {
-                        vpp->onnx.colormatrixOut = v;
+                    int value = 0;
+                    if (get_list_value(list_colormatrix, param_val.c_str(), &value)) {
+                        vpp->onnx.colormatrixOut = (CspMatrix)value;
                     } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_colormatrix);
                         return 1;
                     }
                     continue;
                 }
                 if (param_arg == _T("colorrange")) {
-                    const tstring v = tolowercase(param_val);
-                    if (v == _T("auto") || v == _T("tv") || v == _T("limited") || v == _T("pc") || v == _T("full")) {
-                        vpp->onnx.colorrange = (v == _T("limited")) ? _T("tv") : (v == _T("full")) ? _T("pc") : v;
+                    int value = 0;
+                    if (get_list_value(list_colorrange, param_val.c_str(), &value)) {
+                        vpp->onnx.colorrange = (CspColorRange)value;
                     } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_colorrange);
                         return 1;
                     }
                     continue;
@@ -13540,11 +13540,11 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             tmp << _T(",device=") << param->onnx.device;
             tmp << _T(",interop=") << param->onnx.interop;
             tmp << _T(",prec=") << param->onnx.precision;
-            tmp << _T(",colormatrix=") << param->onnx.colormatrix;
-            if (param->onnx.colormatrixOut != _T("auto")) {
-                tmp << _T(",colormatrix_out=") << param->onnx.colormatrixOut;
+            tmp << _T(",colormatrix=") << get_cx_desc(list_colormatrix, param->onnx.colormatrix);
+            if (param->onnx.colormatrixOut != RGY_MATRIX_AUTO) {
+                tmp << _T(",colormatrix_out=") << get_cx_desc(list_colormatrix, param->onnx.colormatrixOut);
             }
-            tmp << _T(",colorrange=") << param->onnx.colorrange;
+            tmp << _T(",colorrange=") << get_cx_desc(list_colorrange, param->onnx.colorrange);
             tmp << _T(",colorspace=") << param->onnx.colorspace;
             tmp << _T(",noise=") << param->onnx.noise;
             if (param->onnx.postResizeW != 0 && param->onnx.postResizeH != 0) {
@@ -16163,11 +16163,15 @@ tstring gen_cmd_help_vpp() {
         _T("                                    NPU needs an NPU-enabled OpenVINO runtime (Core Ultra).\n")
         _T("      interop=<string>            auto (default) / ocl (zero-copy, shared GPU context) / host\n")
         _T("      prec=<string>               auto (default) / fp16 / fp32\n")
-        _T("      colormatrix=<string>        auto (default, bt601 SD / bt709 HD) / bt601 / bt709 / bt2020\n")
+        _T("      colormatrix=<string>        same list as --colormatrix; onnx supports\n")
+        _T("                                    auto / auto_res / bt601 / smpte170m / bt470bg\n")
+        _T("                                    / bt709 / bt2020 / bt2020nc\n")
         _T("      colormatrix_out=<string>    matrix for the OUTPUT RGB->YUV conversion\n")
-        _T("                                    (auto=same as input; set bt2020 for models\n")
+        _T("                                    (same list as colormatrix; auto=same as input;\n")
+        _T("                                    set bt2020 for models\n")
         _T("                                    that convert SDR/709 to HDR/2020)\n")
-        _T("      colorrange=<string>         auto (default, tv) / tv / pc\n")
+        _T("      colorrange=<string>         same list as --colorrange; onnx supports\n")
+        _T("                                    auto (default, tv) / tv / limited / pc / full\n")
         _T("      colorspace=<string>         3ch models: rgb (default) / ycbcr (ArtCNN *_YCbCr)\n")
         _T("      noise=<int>                 noise sigma 0-255 for noise models (default 15)\n")
         _T("      out_res=<WxH>               end-of-chain resize to an arbitrary final size,\n")

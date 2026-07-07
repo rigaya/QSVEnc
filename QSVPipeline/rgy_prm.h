@@ -3523,10 +3523,10 @@ struct VppOnnx {
     tstring interop;     // "auto" (default), "ocl" (zero-copy shared context), "host" (readback)
     tstring precision;   // "auto" (default), "fp16", "fp32"
     tstring cacheDir;    // OpenVINOのCACHE_DIR (コンパイル済みモデルのキャッシュ先, ""=無効=従来動作)
-    tstring colormatrix; // "auto" (bt601 for SD, bt709 for HD), "bt601", "bt709", "bt2020"
-    tstring colormatrixOut; // 出力側RGB->YUV変換のマトリクス。"auto"=入力と同じ=従来動作。
-                            // SDR->HDR等、モデルが色空間を変えるとき用 (例: bt709入力/bt2020出力)
-    tstring colorrange;  // "auto" (tv), "tv", "pc"
+    CspMatrix colormatrix;    // 入力側YUV->RGB変換のマトリクス。auto=SD/HDで自動判定。
+    CspMatrix colormatrixOut; // 出力側RGB->YUV変換のマトリクス。auto=入力と同じ=従来動作。
+                              // SDR->HDR等、モデルが色空間を変えるとき用 (例: bt709入力/bt2020出力)
+    CspColorRange colorrange; // auto=tv
     tstring colorspace;  // 3ch models: "rgb" (default) or "ycbcr" (ArtCNN *_YCbCr / JPEG-YCbCr)
     int     noise;       // noise sigma (0..255) fed to the conditioning channel of noise models (default 15)
     int                  postResizeW;

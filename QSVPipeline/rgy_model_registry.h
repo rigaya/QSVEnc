@@ -43,8 +43,7 @@ struct OnnxModelEntry {
     tstring colorspace;  // "rgb" or "ycbcr", default "rgb"
     int noise;           // default 15
     bool fp32;           // force fp32 inference, default false
-    tstring colormatrixOut; // output-side matrix ("bt601"/"bt709"/"bt2020"), "" = unset
-                            // (applied only when the user leaves colormatrix_out=auto)
+    CspMatrix colormatrixOut; // 未指定時は RGY_MATRIX_UNSPECIFIED。colormatrix_out=auto の場合のみ適用。
 };
 
 class RGYModelRegistry {

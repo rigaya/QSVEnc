@@ -2035,9 +2035,9 @@ VppOnnx::VppOnnx() :
     interop(_T("auto")),
     precision(_T("auto")),
     cacheDir(),
-    colormatrix(_T("auto")),
-    colormatrixOut(_T("auto")),
-    colorrange(_T("auto")),
+    colormatrix(RGY_MATRIX_AUTO),
+    colormatrixOut(RGY_MATRIX_AUTO),
+    colorrange(RGY_COLORRANGE_AUTO),
     colorspace(_T("rgb")),
     noise(15),
     postResizeW(0),
@@ -2074,11 +2074,11 @@ tstring VppOnnx::print() const {
     if (!cacheDir.empty()) {
         s += strsprintf(_T(",cache_dir=%s"), cacheDir.c_str());
     }
-    s += strsprintf(_T(",colormatrix=%s"), colormatrix.c_str());
-    if (colormatrixOut != _T("auto")) {
-        s += strsprintf(_T(",colormatrix_out=%s"), colormatrixOut.c_str());
+    s += strsprintf(_T(",colormatrix=%s"), get_cx_desc(list_colormatrix, colormatrix));
+    if (colormatrixOut != RGY_MATRIX_AUTO) {
+        s += strsprintf(_T(",colormatrix_out=%s"), get_cx_desc(list_colormatrix, colormatrixOut));
     }
-    s += strsprintf(_T(",colorrange=%s"), colorrange.c_str());
+    s += strsprintf(_T(",colorrange=%s"), get_cx_desc(list_colorrange, colorrange));
     s += strsprintf(_T(",colorspace=%s"), colorspace.c_str());
     s += strsprintf(_T(",noise=%d"), noise);
     if (postResizeW != 0 && postResizeH != 0) {

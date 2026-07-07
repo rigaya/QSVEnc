@@ -4063,11 +4063,11 @@ Pre/post processing is inferred from the model channel count: 1ch=luma SR, 3ch=R
   - prec=&lt;string&gt; (default: auto)  
     OpenVINO inference precision. auto / fp16 / fp32
   - colormatrix=&lt;string&gt; (default: auto)  
-    Color matrix. auto (bt601 for SD, bt709 for HD) / bt601 / bt709 / bt2020
+    Color matrix. Accepts the same names as [`--colormatrix`](#--colormatrix-string). `--vpp-onnx` supports auto / auto_res / bt601 / smpte170m / bt470bg / bt709 / bt2020 / bt2020nc.
   - colormatrix_out=&lt;string&gt; (default: auto)
-    Output-side RGB to YUV color matrix. auto uses the same matrix as `colormatrix`. Use bt2020 for SDR-to-HDR models that output BT.2020/PQ RGB.
+    Output-side RGB to YUV color matrix. Accepts the same names as `colormatrix`. auto uses the same matrix as `colormatrix`. Use bt2020 for SDR-to-HDR models that output BT.2020/PQ RGB.
   - colorrange=&lt;string&gt; (default: auto)  
-    Color range. auto (tv) / tv / pc
+    Color range. Accepts the same names as [`--colorrange`](#--colorrange-string). `--vpp-onnx` supports auto / tv / limited / pc / full.
   - colorspace=&lt;string&gt; (default: rgb)  
     Color space for 3ch models. rgb / ycbcr (for ArtCNN *_YCbCr models)
   - noise=&lt;int&gt; (default: 15, range: 0 - 255)  
