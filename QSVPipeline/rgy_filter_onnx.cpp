@@ -36,12 +36,13 @@
 #include <algorithm>
 
 // Kernels for the zero-copy path. pack/unpack move the luma plane between the
-// frame (uint8, pitched) and the network's packed f32 buffer with the same
-// full-range normalisation the host path uses (uint8/255 in, *255+round out).
+// frame (Type = uchar/ushort per bit depth, pitched) and the network's packed
+// f32 buffer with the same full-range normalisation the host path uses
+// (pix/maxval in, *maxval+round out). Pitches are passed in SAMPLES.
 // chroma_bilinear resamples one chroma channel at the integer scale; stride is
-// 1 for planar (yv12) or 2 for an interleaved (nv12) chroma channel.
+// 1 for planar (yv12) or 2 for an interleaved (nv12/p010) chroma channel.
 static const char *onnx_kernel_cl = R"CLC(
-__kernel void pack_norm_y(__global const uchar *srcY, int srcPitch,
+__kernel void pack_norm_y(__global const Type *srcY, int srcPitch,
                           __global float *dst, int W, int H, float maxval) {
     int x = get_global_id(0);
     int y = get_global_id(1);
@@ -50,16 +51,16 @@ __kernel void pack_norm_y(__global const uchar *srcY, int srcPitch,
 }
 
 __kernel void unpack_denorm_y(__global const float *src,
-                              __global uchar *dstY, int dstPitch, int W, int H, float maxval) {
+                              __global Type *dstY, int dstPitch, int W, int H, float maxval) {
     int x = get_global_id(0);
     int y = get_global_id(1);
     if (x >= W || y >= H) return;
     int v = (int)(src[y * W + x] * maxval + 0.5f);
-    dstY[y * dstPitch + x] = (uchar)clamp(v, 0, 255);
+    dstY[y * dstPitch + x] = (Type)clamp(v, 0, (1 << bit_depth) - 1);
 }
 
-__kernel void chroma_bilinear(__global const uchar *src, int srcPitch, int srcStride, int srcOffset,
-                              __global uchar *dst, int dstPitch, int dstStride, int dstOffset,
+__kernel void chroma_bilinear(__global const Type *src, int srcPitch, int srcStride, int srcOffset,
+                              __global Type *dst, int dstPitch, int dstStride, int dstOffset,
                               int sw, int sh, int scale) {
     int dx = get_global_id(0);
     int dy = get_global_id(1);
@@ -82,7 +83,7 @@ __kernel void chroma_bilinear(__global const uchar *src, int srcPitch, int srcSt
     float top = a + (b - a) * fx;
     float bot = c + (d - c) * fx;
     int v = (int)(top + (bot - top) * fy + 0.5f);
-    dst[dy * dstPitch + dx * dstStride + dstOffset] = (uchar)clamp(v, 0, 255);
+    dst[dy * dstPitch + dx * dstStride + dstOffset] = (Type)clamp(v, 0, (1 << bit_depth) - 1);
 }
 )CLC";
 
@@ -93,7 +94,7 @@ tstring RGYFilterParamOnnx::print() const {
 RGYFilterOnnx::RGYFilterOnnx(shared_ptr<RGYOpenCLContext> context) :
     RGYFilter(context), m_ov(), m_io(OnnxIO::LumaSR), m_inC(1), m_outC(1),
     m_scale(1), m_modelInW(0), m_modelInH(0), m_padL(0), m_padT(0),
-    m_maxval(255.0f), m_useOcl(false), m_ycbcr(false), m_sigmaNorm(0.0f),
+    m_maxval(255.0f), m_bitdepth(8), m_useOcl(false), m_ycbcr(false), m_sigmaNorm(0.0f),
     m_yOff(0.0f), m_yScale(1.0f), m_yRange(255.0f), m_cOff(128.0f), m_cScale(1.0f), m_cRange(255.0f),
     m_matVR(0), m_matUG(0), m_matVG(0), m_matUB(0),
     m_matRY(0), m_matGY(0), m_matBY(0), m_matRU(0), m_matGU(0), m_matBU(0), m_matRV(0), m_matGV(0), m_matBV(0),
@@ -116,11 +117,13 @@ static inline int sample_y(const int y, const int padT, const int height) {
     return clampi(y - padT, 0, height - 1);
 }
 
-// Bilinear upscale of one 8-bit channel from (sw x sh) to (sw*scale x sh*scale)
+// Bilinear upscale of one channel from (sw x sh) to (sw*scale x sh*scale)
 // on the CPU (host path). Mirrors the chroma_bilinear kernel above.
-static void upscale_bilinear_u8(uint8_t *dst, const int dstPitch, const int dstStride,
-                                const uint8_t *src, const int srcPitch, const int srcStride,
-                                const int sw, const int sh, const int scale) {
+// Pitches in bytes, strides in samples (2 for an nv12/p010-interleaved channel).
+template<typename TPix>
+static void upscale_bilinear(uint8_t *dst, const int dstPitch, const int dstStride,
+                             const uint8_t *src, const int srcPitch, const int srcStride,
+                             const int sw, const int sh, const int scale, const int pixMax) {
     const int dw = sw * scale;
     const int dh = sh * scale;
     const float inv = 1.0f / (float)scale;
@@ -128,9 +131,9 @@ static void upscale_bilinear_u8(uint8_t *dst, const int dstPitch, const int dstS
         float sy = (dy + 0.5f) * inv - 0.5f;
         int y0 = (int)std::floor(sy);
         float fy = sy - (float)y0;
-        const uint8_t *row0 = src + (size_t)clampi(y0,     0, sh - 1) * srcPitch;
-        const uint8_t *row1 = src + (size_t)clampi(y0 + 1, 0, sh - 1) * srcPitch;
-        uint8_t *drow = dst + (size_t)dy * dstPitch;
+        const TPix *row0 = (const TPix *)(src + (size_t)clampi(y0,     0, sh - 1) * srcPitch);
+        const TPix *row1 = (const TPix *)(src + (size_t)clampi(y0 + 1, 0, sh - 1) * srcPitch);
+        TPix *drow = (TPix *)(dst + (size_t)dy * dstPitch);
         for (int dx = 0; dx < dw; dx++) {
             float sx = (dx + 0.5f) * inv - 0.5f;
             int x0 = (int)std::floor(sx);
@@ -142,16 +145,17 @@ static void upscale_bilinear_u8(uint8_t *dst, const int dstPitch, const int dstS
             const float top = a + (b - a) * fx;
             const float bot = c + (d - c) * fx;
             const int v = (int)(top + (bot - top) * fy + 0.5f);
-            drow[dx * dstStride] = (uint8_t)clampi(v, 0, 255);
+            drow[dx * dstStride] = (TPix)clampi(v, 0, pixMax);
         }
     }
 }
 
-// Bilinearly sample one 8-bit chroma channel (half-res, 4:2:0) at the location
-// of luma pixel (lx, ly), upsampling x2. Returns the raw value (0..255) as a
-// float. plane/pitch/stride address the channel (stride 2 for nv12-interleaved,
-// 1 for planar yv12). Matches the (d+0.5)/scale-0.5 convention of the OCL
-// chroma_bilinear kernel.
+// Bilinearly sample one chroma channel (half-res, 4:2:0) at the location
+// of luma pixel (lx, ly), upsampling x2. Returns the raw value (0..pixmax) as a
+// float. plane/pitch/stride address the channel (pitch in bytes; stride 2 for
+// nv12/p010-interleaved, 1 for planar). Matches the (d+0.5)/scale-0.5
+// convention of the OCL chroma_bilinear kernel.
+template<typename TPix>
 static inline float sample_chroma_up2(const uint8_t *plane, const int pitch, const int stride,
                                       const int cw, const int ch, const int lx, const int ly) {
     const float cx = (lx + 0.5f) * 0.5f - 0.5f;
@@ -160,8 +164,8 @@ static inline float sample_chroma_up2(const uint8_t *plane, const int pitch, con
     const int y0 = (int)std::floor(cy); const float fy = cy - (float)y0;
     const int x0c = clampi(x0,     0, cw - 1) * stride;
     const int x1c = clampi(x0 + 1, 0, cw - 1) * stride;
-    const uint8_t *r0 = plane + (size_t)clampi(y0,     0, ch - 1) * pitch;
-    const uint8_t *r1 = plane + (size_t)clampi(y0 + 1, 0, ch - 1) * pitch;
+    const TPix *r0 = (const TPix *)(plane + (size_t)clampi(y0,     0, ch - 1) * pitch);
+    const TPix *r1 = (const TPix *)(plane + (size_t)clampi(y0 + 1, 0, ch - 1) * pitch);
     const float a = r0[x0c], b = r0[x1c];
     const float c = r1[x0c], d = r1[x1c];
     const float top = a + (b - a) * fx;
@@ -169,8 +173,10 @@ static inline float sample_chroma_up2(const uint8_t *plane, const int pitch, con
     return top + (bot - top) * fy;
 }
 
-// 2x2 box-downsample a full-res normalised channel to a half-res 8-bit chroma
+// 2x2 box-downsample a full-res normalised channel to a half-res chroma
 // plane, encoding each averaged value as v*encScale + encOff (rounded, clamped).
+// dstPitch in bytes, dstStride in samples.
+template<typename TPix>
 static void downsample420_encode(uint8_t *dst, const int dstPitch, const int dstStride,
                                  const float *srcFull, const int fullW, const int fullH,
                                  const float encScale, const float encOff, const int pixMax) {
@@ -179,26 +185,27 @@ static void downsample420_encode(uint8_t *dst, const int dstPitch, const int dst
     for (int cy = 0; cy < ch; cy++) {
         const float *s0 = srcFull + (size_t)(2 * cy)     * fullW;
         const float *s1 = srcFull + (size_t)(2 * cy + 1) * fullW;
-        uint8_t *drow = dst + (size_t)cy * dstPitch;
+        TPix *drow = (TPix *)(dst + (size_t)cy * dstPitch);
         for (int cx = 0; cx < cw; cx++) {
             const int x0 = 2 * cx;
             const float avg = (s0[x0] + s0[x0 + 1] + s1[x0] + s1[x0 + 1]) * 0.25f;
             const int v = (int)(avg * encScale + encOff + 0.5f);
-            drow[cx * dstStride] = (uint8_t)clampi(v, 0, pixMax);
+            drow[cx * dstStride] = (TPix)clampi(v, 0, pixMax);
         }
     }
 }
 
-// Copy one 8-bit plane (row-by-row, honouring pitches). width is in samples,
-// srcStride/dstStride 1 for planar, 2 for nv12-interleaved.
-static void copy_plane_u8(uint8_t *dst, const int dstPitch, const int dstStride,
-                          const uint8_t *src, const int srcPitch, const int srcStride,
-                          const int width, const int height) {
+// Copy one plane (row-by-row, honouring pitches). width is in samples,
+// pitches in bytes, srcStride/dstStride 1 for planar, 2 for nv12/p010-interleaved.
+template<typename TPix>
+static void copy_plane(uint8_t *dst, const int dstPitch, const int dstStride,
+                       const uint8_t *src, const int srcPitch, const int srcStride,
+                       const int width, const int height) {
     for (int y = 0; y < height; y++) {
-        const uint8_t *srow = src + (size_t)y * srcPitch;
-        uint8_t *drow = dst + (size_t)y * dstPitch;
+        const TPix *srow = (const TPix *)(src + (size_t)y * srcPitch);
+        TPix *drow = (TPix *)(dst + (size_t)y * dstPitch);
         if (srcStride == 1 && dstStride == 1) {
-            memcpy(drow, srow, (size_t)width);
+            memcpy(drow, srow, (size_t)width * sizeof(TPix));
         } else {
             for (int x = 0; x < width; x++) drow[x * dstStride] = srow[x * srcStride];
         }
@@ -206,27 +213,36 @@ static void copy_plane_u8(uint8_t *dst, const int dstPitch, const int dstStride,
 }
 } // namespace
 
-void RGYFilterOnnx::setupColorCoeffs(int matrixSel, bool rangeTV, int pixMax) {
+void RGYFilterOnnx::setupColorCoeffs(int matrixSelIn, int matrixSelOut, bool rangeTV, int pixMax) {
     // Forward YUV->RGB matrix (Kr, Kb per matrix; Kg = 1 - Kr - Kb). Identical
     // to the native anime4k RGB bookend so the OpenVINO path reproduces it.
     float Kr = 0.2126f, Kb = 0.0722f;        // BT.709 default
-    if (matrixSel == 601)  { Kr = 0.299f;  Kb = 0.114f; }
-    if (matrixSel == 2020) { Kr = 0.2627f; Kb = 0.0593f; }
+    if (matrixSelIn == 601)  { Kr = 0.299f;  Kb = 0.114f; }
+    if (matrixSelIn == 2020) { Kr = 0.2627f; Kb = 0.0593f; }
     const float Kg = 1.0f - Kr - Kb;
     m_matVR = 2.0f * (1.0f - Kr);
     m_matUG = -2.0f * Kb * (1.0f - Kb) / Kg;
     m_matVG = -2.0f * Kr * (1.0f - Kr) / Kg;
     m_matUB = 2.0f * (1.0f - Kb);
-    // Inverse RGB->YUV matrix.
-    m_matRY = Kr;                            m_matGY = Kg;                            m_matBY = Kb;
-    m_matRU = -Kr / (2.0f * (1.0f - Kb));    m_matGU = -Kg / (2.0f * (1.0f - Kb));    m_matBU = 0.5f;
-    m_matRV = 0.5f;                          m_matGV = -Kg / (2.0f * (1.0f - Kr));    m_matBV = -Kb / (2.0f * (1.0f - Kr));
-    // Range normalisation (forward and inverse).
-    m_yOff   = rangeTV ? (16.0f  * pixMax / 255.0f) : 0.0f;
-    m_yRange = rangeTV ? (219.0f * pixMax / 255.0f) : (float)pixMax;
+    // Inverse RGB->YUV matrix - its own matrix selection: SDR->HDR系モデルは
+    // 入力(bt709)と異なる色空間(bt2020)で出力するため、出力側は別係数を使える。
+    // matrixSelOut == matrixSelIn なら従来と完全に同じ係数になる。
+    float Kr2 = 0.2126f, Kb2 = 0.0722f;      // BT.709 default
+    if (matrixSelOut == 601)  { Kr2 = 0.299f;  Kb2 = 0.114f; }
+    if (matrixSelOut == 2020) { Kr2 = 0.2627f; Kb2 = 0.0593f; }
+    const float Kg2 = 1.0f - Kr2 - Kb2;
+    m_matRY = Kr2;                             m_matGY = Kg2;                             m_matBY = Kb2;
+    m_matRU = -Kr2 / (2.0f * (1.0f - Kb2));    m_matGU = -Kg2 / (2.0f * (1.0f - Kb2));    m_matBU = 0.5f;
+    m_matRV = 0.5f;                            m_matGV = -Kg2 / (2.0f * (1.0f - Kr2));    m_matBV = -Kb2 / (2.0f * (1.0f - Kr2));
+    // Range normalisation (forward and inverse). TV-range offsets scale with
+    // bit depth by 2^(n-8) (16/235 -> 4096/60160 at 16-bit), matching the
+    // pipeline's left-shift bit depth promotion exactly. 8-bit: scale = 1.
+    const float depthScale = (float)(pixMax + 1) / 256.0f;
+    m_yOff   = rangeTV ? (16.0f  * depthScale) : 0.0f;
+    m_yRange = rangeTV ? (219.0f * depthScale) : (float)pixMax;
     m_yScale = 1.0f / m_yRange;
-    m_cOff   = rangeTV ? (128.0f * pixMax / 255.0f) : ((float)pixMax / 2.0f);
-    m_cRange = rangeTV ? (224.0f * pixMax / 255.0f) : (float)pixMax;
+    m_cOff   = rangeTV ? (128.0f * depthScale) : ((float)pixMax / 2.0f);
+    m_cRange = rangeTV ? (224.0f * depthScale) : (float)pixMax;
     m_cScale = 1.0f / m_cRange;
 }
 
@@ -295,6 +311,17 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         if (prm->onnx.precision == _T("auto") && entry->fp32) {
             prm->onnx.precision = _T("fp32");
         }
+        if (prm->onnx.colormatrixOut == _T("auto") && !entry->colormatrixOut.empty()) {
+            // per-model output matrix from models.json (e.g. SDR->HDR models
+            // declare bt2020); an explicit colormatrix_out= on the command
+            // line takes precedence because this only fills in "auto".
+            if (entry->colormatrixOut == _T("bt601") || entry->colormatrixOut == _T("bt709") || entry->colormatrixOut == _T("bt2020")) {
+                prm->onnx.colormatrixOut = entry->colormatrixOut;
+            } else {
+                AddMessage(RGY_LOG_WARN, _T("onnx: models.json: invalid colormatrix_out \"%s\" ignored.\n"),
+                    entry->colormatrixOut.c_str());
+            }
+        }
     }
     if (!rgy_file_exists(prm->onnx.modelFile)) {
         AddMessage(RGY_LOG_ERROR, _T("onnx: model file not found: %s\n"), prm->onnx.modelFile.c_str());
@@ -302,8 +329,9 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     }
 
     const auto inCsp = prm->frameIn.csp;
-    if ((inCsp != RGY_CSP_YV12 && inCsp != RGY_CSP_NV12) || prm->frameIn.bitdepth != 8) {
-        AddMessage(RGY_LOG_ERROR, _T("onnx: supports 8-bit yuv420 (yv12/nv12) only; got %s %dbit.\n"),
+    if ((inCsp != RGY_CSP_YV12 && inCsp != RGY_CSP_NV12 && inCsp != RGY_CSP_YV12_16 && inCsp != RGY_CSP_P010)
+        || (prm->frameIn.bitdepth != 8 && prm->frameIn.bitdepth != 16)) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: supports yuv420 8-bit (yv12/nv12) or 16-bit (yv12(16bit)/p010) only; got %s %dbit.\n"),
             RGY_CSP_NAMES[inCsp], prm->frameIn.bitdepth);
         return RGY_ERR_UNSUPPORTED;
     }
@@ -446,7 +474,10 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         const int guessedScale = std::max(1, (int)(std::round((double)outW / (double)inW)));
         const int cropW = guessedScale * inW - outW;
         const int cropH = guessedScale * inH - outH;
-        if (m_useOcl || guessedScale <= 0 || cropW <= 0 || cropH <= 0 || cropW != cropH || (cropW % guessedScale) != 0) {
+        // must test the local fastOcl here: m_useOcl is only assigned after
+        // this block, so it would still be the constructor's false and the
+        // intended zero-copy rejection would never fire.
+        if (fastOcl || guessedScale <= 0 || cropW <= 0 || cropH <= 0 || cropW != cropH || (cropW % guessedScale) != 0) {
             AddMessage(RGY_LOG_ERROR, _T("onnx: model output %dx%d is not an integer upscale of input %dx%d.\n"),
                 outW, outH, inW, inH);
             return RGY_ERR_UNSUPPORTED;
@@ -477,6 +508,7 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         return RGY_ERR_UNSUPPORTED;
     }
     m_maxval = (float)((1 << prm->frameIn.bitdepth) - 1);
+    m_bitdepth = prm->frameIn.bitdepth;
 
     // colourspace handling: Chroma is inherently planar YCbCr; a 3ch RGB model
     // can be told to treat its planes as YCbCr via colorspace=ycbcr.
@@ -492,8 +524,12 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     else if (prm->onnx.colormatrix == _T("bt2020")) matrixSel = 2020;
     else if (prm->onnx.colormatrix == _T("bt709"))  matrixSel = 709;
     else                                                  matrixSel = (inH <= 576) ? 601 : 709; // auto
+    int matrixSelOut = matrixSel; // auto = 入力と同じ = 従来動作
+    if      (prm->onnx.colormatrixOut == _T("bt601"))  matrixSelOut = 601;
+    else if (prm->onnx.colormatrixOut == _T("bt709"))  matrixSelOut = 709;
+    else if (prm->onnx.colormatrixOut == _T("bt2020")) matrixSelOut = 2020;
     const bool rangeTV = (prm->onnx.colorrange != _T("pc")); // auto/tv -> TV
-    setupColorCoeffs(matrixSel, rangeTV, 255);
+    setupColorCoeffs(matrixSel, matrixSelOut, rangeTV, (int)m_maxval);
 
     // The zero-copy fast path is only wired for 1-channel luma models.
     m_useOcl = fastOcl && (m_io == OnnxIO::LumaSR);
@@ -516,7 +552,9 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     if (m_useOcl) {
         // zero-copy resources: pack/unpack/chroma kernels + persistent f32
         // network buffers, bound once as the inference request's remote tensors.
-        m_program = m_cl->build(onnx_kernel_cl, "");
+        const auto clBuildOptions = strsprintf("-D Type=%s -D bit_depth=%d",
+            (prm->frameIn.bitdepth > 8) ? "ushort" : "uchar", prm->frameIn.bitdepth);
+        m_program = m_cl->build(onnx_kernel_cl, clBuildOptions.c_str());
         if (!m_program) {
             AddMessage(RGY_LOG_ERROR, _T("onnx: failed to build OpenCL kernels.\n"));
             return RGY_ERR_OPENCL_CRUSH;
@@ -596,8 +634,14 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         PathGetFilename(prm->onnx.modelFile).c_str(), inW, inH, outW, outH, m_scale,
         ioName[(int)m_io], (m_ycbcr && m_io == OnnxIO::RGB) ? _T("(ycbcr)") : _T(""),
         m_useOcl ? _T("ocl") : _T("host"));
+    if (prm->frameIn.bitdepth > 8) {
+        info += strsprintf(_T(" %dbit"), prm->frameIn.bitdepth);
+    }
     if (m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise || m_io == OnnxIO::Chroma) {
         info += strsprintf(_T(" matrix=bt%d range=%s"), matrixSel, rangeTV ? _T("tv") : _T("pc"));
+        if (matrixSelOut != matrixSel) {
+            info += strsprintf(_T(" matrix_out=bt%d"), matrixSelOut);
+        }
     }
     if (m_io == OnnxIO::GrayNoise || m_io == OnnxIO::RGBNoise) {
         info += strsprintf(_T(" noise=%d"), noiseClamped);
@@ -681,13 +725,14 @@ RGY_ERR RGYFilterOnnx::runOcl(const RGYFrameInfo *in, RGYFrameInfo *out,
     const int cInH = inH / 2;
     const int cOutW = cInW * m_scale;
     const int cOutH = cInH * m_scale;
+    const int pixSize = (m_bitdepth > 8) ? 2 : 1; // kernel pitches are in samples
 
     // 1. pack + normalise the input luma into the network input buffer.
     {
         RGYWorkSize local(32, 8);
         RGYWorkSize global(inW, inH);
         auto err = m_program->kernel("pack_norm_y").config(queue, local, global, wait_events, nullptr).launch(
-            (cl_mem)in->ptr[0], in->pitch[0], m_inBufCL->mem(), inW, inH, m_maxval);
+            (cl_mem)in->ptr[0], in->pitch[0] / pixSize, m_inBufCL->mem(), inW, inH, m_maxval);
         if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: pack_norm_y failed: %s.\n"), get_err_mes(err)); return err; }
     }
 
@@ -701,7 +746,7 @@ RGY_ERR RGYFilterOnnx::runOcl(const RGYFrameInfo *in, RGYFrameInfo *out,
         RGYWorkSize local(32, 8);
         RGYWorkSize global(outW, outH);
         err = m_program->kernel("unpack_denorm_y").config(queue, local, global, {}, nullptr).launch(
-            m_outBufCL->mem(), (cl_mem)out->ptr[0], out->pitch[0], outW, outH, m_maxval);
+            m_outBufCL->mem(), (cl_mem)out->ptr[0], out->pitch[0] / pixSize, outW, outH, m_maxval);
         if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: unpack_denorm_y failed: %s.\n"), get_err_mes(err)); return err; }
     }
 
@@ -709,19 +754,19 @@ RGY_ERR RGYFilterOnnx::runOcl(const RGYFrameInfo *in, RGYFrameInfo *out,
     //     completion event.
     RGYWorkSize clocal(32, 8);
     RGYWorkSize cglobal(cOutW, cOutH);
-    if (in->csp == RGY_CSP_YV12) {
+    if (in->csp == RGY_CSP_YV12 || in->csp == RGY_CSP_YV12_16) {
         err = m_program->kernel("chroma_bilinear").config(queue, clocal, cglobal, {}, nullptr).launch(
-            (cl_mem)in->ptr[1], in->pitch[1], 1, 0, (cl_mem)out->ptr[1], out->pitch[1], 1, 0, cInW, cInH, m_scale);
+            (cl_mem)in->ptr[1], in->pitch[1] / pixSize, 1, 0, (cl_mem)out->ptr[1], out->pitch[1] / pixSize, 1, 0, cInW, cInH, m_scale);
         if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: chroma(U) failed: %s.\n"), get_err_mes(err)); return err; }
         err = m_program->kernel("chroma_bilinear").config(queue, clocal, cglobal, {}, event).launch(
-            (cl_mem)in->ptr[2], in->pitch[2], 1, 0, (cl_mem)out->ptr[2], out->pitch[2], 1, 0, cInW, cInH, m_scale);
+            (cl_mem)in->ptr[2], in->pitch[2] / pixSize, 1, 0, (cl_mem)out->ptr[2], out->pitch[2] / pixSize, 1, 0, cInW, cInH, m_scale);
         if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: chroma(V) failed: %s.\n"), get_err_mes(err)); return err; }
-    } else { // RGY_CSP_NV12: plane 1 holds interleaved U,V
+    } else { // RGY_CSP_NV12 / RGY_CSP_P010: plane 1 holds interleaved U,V
         err = m_program->kernel("chroma_bilinear").config(queue, clocal, cglobal, {}, nullptr).launch(
-            (cl_mem)in->ptr[1], in->pitch[1], 2, 0, (cl_mem)out->ptr[1], out->pitch[1], 2, 0, cInW, cInH, m_scale);
+            (cl_mem)in->ptr[1], in->pitch[1] / pixSize, 2, 0, (cl_mem)out->ptr[1], out->pitch[1] / pixSize, 2, 0, cInW, cInH, m_scale);
         if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: chroma(U) failed: %s.\n"), get_err_mes(err)); return err; }
         err = m_program->kernel("chroma_bilinear").config(queue, clocal, cglobal, {}, event).launch(
-            (cl_mem)in->ptr[1], in->pitch[1], 2, 1, (cl_mem)out->ptr[1], out->pitch[1], 2, 1, cInW, cInH, m_scale);
+            (cl_mem)in->ptr[1], in->pitch[1] / pixSize, 2, 1, (cl_mem)out->ptr[1], out->pitch[1] / pixSize, 2, 1, cInW, cInH, m_scale);
         if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: chroma(V) failed: %s.\n"), get_err_mes(err)); return err; }
     }
     return RGY_ERR_NONE;
@@ -730,15 +775,24 @@ RGY_ERR RGYFilterOnnx::runOcl(const RGYFrameInfo *in, RGYFrameInfo *out,
 // Pack the mapped input frame into m_inBuf (inC*inW*inH floats, CHW), applying
 // the normalisation / colour conversion / conditioning each I/O mode needs.
 void RGYFilterOnnx::fillInputHost(const RGYFrameInfo &hin) {
+    if (m_bitdepth > 8) {
+        fillInputHostT<uint16_t>(hin);
+    } else {
+        fillInputHostT<uint8_t>(hin);
+    }
+}
+
+template<typename TPix>
+void RGYFilterOnnx::fillInputHostT(const RGYFrameInfo &hin) {
     const int srcW = hin.width;
     const int srcH = hin.height;
     const int inW = m_modelInW;
     const int inH = m_modelInH;
     const size_t chSize = (size_t)inW * inH;
-    const bool nv12 = (hin.csp == RGY_CSP_NV12);
+    const bool nv12 = (hin.csp == RGY_CSP_NV12 || hin.csp == RGY_CSP_P010);
     const int cw = srcW / 2, ch = srcH / 2;
     const uint8_t *pU = hin.ptr[1];
-    const uint8_t *pV = nv12 ? (hin.ptr[1] + 1) : hin.ptr[2];
+    const uint8_t *pV = nv12 ? (hin.ptr[1] + sizeof(TPix)) : hin.ptr[2];
     const int cStride = nv12 ? 2 : 1;
     const int cPitchU = hin.pitch[1];
     const int cPitchV = nv12 ? hin.pitch[1] : hin.pitch[2];
@@ -750,7 +804,7 @@ void RGYFilterOnnx::fillInputHost(const RGYFrameInfo &hin) {
         // channel 0 = luma / maxval (models operate on [0,1] luma)
         for (int y = 0; y < inH; y++) {
             const int sy = sample_y(y, m_padT, srcH);
-            const uint8_t *srow = hin.ptr[0] + (size_t)sy * hin.pitch[0];
+            const TPix *srow = (const TPix *)(hin.ptr[0] + (size_t)sy * hin.pitch[0]);
             float *drow = base + (size_t)y * inW;
             for (int x = 0; x < inW; x++) drow[x] = (float)srow[sample_x(x, m_padL, srcW)] / m_maxval;
         }
@@ -762,15 +816,15 @@ void RGYFilterOnnx::fillInputHost(const RGYFrameInfo &hin) {
         // channels [Y, Cb, Cr] = plane/maxval, chroma bilinear-upsampled to luma res.
         for (int y = 0; y < inH; y++) {
             const int sy = sample_y(y, m_padT, srcH);
-            const uint8_t *yrow = hin.ptr[0] + (size_t)sy * hin.pitch[0];
+            const TPix *yrow = (const TPix *)(hin.ptr[0] + (size_t)sy * hin.pitch[0]);
             float *yd = base + (size_t)y * inW;
             float *ud = base + chSize + (size_t)y * inW;
             float *vd = base + 2 * chSize + (size_t)y * inW;
             for (int x = 0; x < inW; x++) {
                 const int sx = sample_x(x, m_padL, srcW);
                 yd[x] = (float)yrow[sx] / m_maxval;
-                ud[x] = sample_chroma_up2(pU, cPitchU, cStride, cw, ch, sx, sy) / m_maxval;
-                vd[x] = sample_chroma_up2(pV, cPitchV, cStride, cw, ch, sx, sy) / m_maxval;
+                ud[x] = sample_chroma_up2<TPix>(pU, cPitchU, cStride, cw, ch, sx, sy) / m_maxval;
+                vd[x] = sample_chroma_up2<TPix>(pV, cPitchV, cStride, cw, ch, sx, sy) / m_maxval;
             }
         }
         break;
@@ -780,30 +834,30 @@ void RGYFilterOnnx::fillInputHost(const RGYFrameInfo &hin) {
             // planar YCbCr 0..1 (Y, Cb, Cr)
             for (int y = 0; y < inH; y++) {
                 const int sy = sample_y(y, m_padT, srcH);
-                const uint8_t *yrow = hin.ptr[0] + (size_t)sy * hin.pitch[0];
+                const TPix *yrow = (const TPix *)(hin.ptr[0] + (size_t)sy * hin.pitch[0]);
                 float *c0 = base + (size_t)y * inW;
                 float *c1 = base + chSize + (size_t)y * inW;
                 float *c2 = base + 2 * chSize + (size_t)y * inW;
                 for (int x = 0; x < inW; x++) {
                     const int sx = sample_x(x, m_padL, srcW);
                     c0[x] = (float)yrow[sx] / m_maxval;
-                    c1[x] = sample_chroma_up2(pU, cPitchU, cStride, cw, ch, sx, sy) / m_maxval;
-                    c2[x] = sample_chroma_up2(pV, cPitchV, cStride, cw, ch, sx, sy) / m_maxval;
+                    c1[x] = sample_chroma_up2<TPix>(pU, cPitchU, cStride, cw, ch, sx, sy) / m_maxval;
+                    c2[x] = sample_chroma_up2<TPix>(pV, cPitchV, cStride, cw, ch, sx, sy) / m_maxval;
                 }
             }
         } else {
             // YUV -> RGB bookend (same math as the native anime4k RGB pipeline).
             for (int y = 0; y < inH; y++) {
                 const int sy = sample_y(y, m_padT, srcH);
-                const uint8_t *yrow = hin.ptr[0] + (size_t)sy * hin.pitch[0];
+                const TPix *yrow = (const TPix *)(hin.ptr[0] + (size_t)sy * hin.pitch[0]);
                 float *rd = base + (size_t)y * inW;
                 float *gd = base + chSize + (size_t)y * inW;
                 float *bd = base + 2 * chSize + (size_t)y * inW;
                 for (int x = 0; x < inW; x++) {
                     const int sx = sample_x(x, m_padL, srcW);
                     const float yn = ((float)yrow[sx] - m_yOff) * m_yScale;
-                    const float un = (sample_chroma_up2(pU, cPitchU, cStride, cw, ch, sx, sy) - m_cOff) * m_cScale;
-                    const float vn = (sample_chroma_up2(pV, cPitchV, cStride, cw, ch, sx, sy) - m_cOff) * m_cScale;
+                    const float un = (sample_chroma_up2<TPix>(pU, cPitchU, cStride, cw, ch, sx, sy) - m_cOff) * m_cScale;
+                    const float vn = (sample_chroma_up2<TPix>(pV, cPitchV, cStride, cw, ch, sx, sy) - m_cOff) * m_cScale;
                     rd[x] = clampf(yn + m_matVR * vn, 0.0f, 1.0f);
                     gd[x] = clampf(yn + m_matUG * un + m_matVG * vn, 0.0f, 1.0f);
                     bd[x] = clampf(yn + m_matUB * un, 0.0f, 1.0f);
@@ -820,14 +874,23 @@ void RGYFilterOnnx::fillInputHost(const RGYFrameInfo &hin) {
 // Unpack m_outBuf (outC*outW*outH floats, CHW) into the mapped output frame,
 // inverting the colour conversion and resampling chroma back to 4:2:0.
 void RGYFilterOnnx::writeOutputHost(const RGYFrameInfo &hout, const RGYFrameInfo &hin) {
+    if (m_bitdepth > 8) {
+        writeOutputHostT<uint16_t>(hout, hin);
+    } else {
+        writeOutputHostT<uint8_t>(hout, hin);
+    }
+}
+
+template<typename TPix>
+void RGYFilterOnnx::writeOutputHostT(const RGYFrameInfo &hout, const RGYFrameInfo &hin) {
     const int outW = hout.width;
     const int outH = hout.height;
     const size_t chSize = (size_t)outW * outH;
-    const bool nv12 = (hout.csp == RGY_CSP_NV12);
+    const bool nv12 = (hout.csp == RGY_CSP_NV12 || hout.csp == RGY_CSP_P010);
     const int pixMax = (int)m_maxval;
     const float *ob = m_outBuf.data();
     uint8_t *oU = hout.ptr[1];
-    uint8_t *oV = nv12 ? (hout.ptr[1] + 1) : hout.ptr[2];
+    uint8_t *oV = nv12 ? (hout.ptr[1] + sizeof(TPix)) : hout.ptr[2];
     const int oStride = nv12 ? 2 : 1;
     const int oPitchU = hout.pitch[1];
     const int oPitchV = nv12 ? hout.pitch[1] : hout.pitch[2];
@@ -837,16 +900,16 @@ void RGYFilterOnnx::writeOutputHost(const RGYFrameInfo &hout, const RGYFrameInfo
         // out 1ch luma; chroma bilinear-upscaled at the model's integer scale.
         for (int y = 0; y < outH; y++) {
             const float *srow = ob + (size_t)y * outW;
-            uint8_t *drow = hout.ptr[0] + (size_t)y * hout.pitch[0];
-            for (int x = 0; x < outW; x++) { int v = (int)(srow[x] * m_maxval + 0.5f); drow[x] = (uint8_t)clampi(v, 0, pixMax); }
+            TPix *drow = (TPix *)(hout.ptr[0] + (size_t)y * hout.pitch[0]);
+            for (int x = 0; x < outW; x++) { int v = (int)(srow[x] * m_maxval + 0.5f); drow[x] = (TPix)clampi(v, 0, pixMax); }
         }
         const int cInW = hin.width / 2, cInH = hin.height / 2;
         if (!nv12) {
-            upscale_bilinear_u8(hout.ptr[1], hout.pitch[1], 1, hin.ptr[1], hin.pitch[1], 1, cInW, cInH, m_scale);
-            upscale_bilinear_u8(hout.ptr[2], hout.pitch[2], 1, hin.ptr[2], hin.pitch[2], 1, cInW, cInH, m_scale);
+            upscale_bilinear<TPix>(hout.ptr[1], hout.pitch[1], 1, hin.ptr[1], hin.pitch[1], 1, cInW, cInH, m_scale, pixMax);
+            upscale_bilinear<TPix>(hout.ptr[2], hout.pitch[2], 1, hin.ptr[2], hin.pitch[2], 1, cInW, cInH, m_scale, pixMax);
         } else {
-            upscale_bilinear_u8(hout.ptr[1] + 0, hout.pitch[1], 2, hin.ptr[1] + 0, hin.pitch[1], 2, cInW, cInH, m_scale);
-            upscale_bilinear_u8(hout.ptr[1] + 1, hout.pitch[1], 2, hin.ptr[1] + 1, hin.pitch[1], 2, cInW, cInH, m_scale);
+            upscale_bilinear<TPix>(hout.ptr[1], hout.pitch[1], 2, hin.ptr[1], hin.pitch[1], 2, cInW, cInH, m_scale, pixMax);
+            upscale_bilinear<TPix>(hout.ptr[1] + sizeof(TPix), hout.pitch[1], 2, hin.ptr[1] + sizeof(TPix), hin.pitch[1], 2, cInW, cInH, m_scale, pixMax);
         }
         break;
     }
@@ -854,23 +917,23 @@ void RGYFilterOnnx::writeOutputHost(const RGYFrameInfo &hout, const RGYFrameInfo
         // out 1ch luma (scale=1); chroma copied straight through.
         for (int y = 0; y < outH; y++) {
             const float *srow = ob + (size_t)y * outW;
-            uint8_t *drow = hout.ptr[0] + (size_t)y * hout.pitch[0];
-            for (int x = 0; x < outW; x++) { int v = (int)(srow[x] * m_maxval + 0.5f); drow[x] = (uint8_t)clampi(v, 0, pixMax); }
+            TPix *drow = (TPix *)(hout.ptr[0] + (size_t)y * hout.pitch[0]);
+            for (int x = 0; x < outW; x++) { int v = (int)(srow[x] * m_maxval + 0.5f); drow[x] = (TPix)clampi(v, 0, pixMax); }
         }
         const int cw = hin.width / 2, chh = hin.height / 2;
         const uint8_t *iU = hin.ptr[1];
-        const uint8_t *iV = nv12 ? (hin.ptr[1] + 1) : hin.ptr[2];
+        const uint8_t *iV = nv12 ? (hin.ptr[1] + sizeof(TPix)) : hin.ptr[2];
         const int iStride = nv12 ? 2 : 1;
         const int iPitchU = hin.pitch[1], iPitchV = nv12 ? hin.pitch[1] : hin.pitch[2];
-        copy_plane_u8(oU, oPitchU, oStride, iU, iPitchU, iStride, cw, chh);
-        copy_plane_u8(oV, oPitchV, oStride, iV, iPitchV, iStride, cw, chh);
+        copy_plane<TPix>(oU, oPitchU, oStride, iU, iPitchU, iStride, cw, chh);
+        copy_plane<TPix>(oV, oPitchV, oStride, iV, iPitchV, iStride, cw, chh);
         break;
     }
     case OnnxIO::Chroma:
         // out 2ch [Cb,Cr] at full res (scale=1); luma passes through; chroma -> 4:2:0.
-        copy_plane_u8(hout.ptr[0], hout.pitch[0], 1, hin.ptr[0], hin.pitch[0], 1, outW, outH);
-        downsample420_encode(oU, oPitchU, oStride, ob + 0 * chSize, outW, outH, m_maxval, 0.0f, pixMax);
-        downsample420_encode(oV, oPitchV, oStride, ob + 1 * chSize, outW, outH, m_maxval, 0.0f, pixMax);
+        copy_plane<TPix>(hout.ptr[0], hout.pitch[0], 1, hin.ptr[0], hin.pitch[0], 1, outW, outH);
+        downsample420_encode<TPix>(oU, oPitchU, oStride, ob + 0 * chSize, outW, outH, m_maxval, 0.0f, pixMax);
+        downsample420_encode<TPix>(oV, oPitchV, oStride, ob + 1 * chSize, outW, outH, m_maxval, 0.0f, pixMax);
         break;
     case OnnxIO::RGB:
     case OnnxIO::RGBNoise:
@@ -878,18 +941,18 @@ void RGYFilterOnnx::writeOutputHost(const RGYFrameInfo &hout, const RGYFrameInfo
             // out planar YCbCr 0..1 -> Y plane, chroma -> 4:2:0.
             for (int y = 0; y < outH; y++) {
                 const float *srow = ob + (size_t)y * outW;
-                uint8_t *drow = hout.ptr[0] + (size_t)y * hout.pitch[0];
-                for (int x = 0; x < outW; x++) { int v = (int)(srow[x] * m_maxval + 0.5f); drow[x] = (uint8_t)clampi(v, 0, pixMax); }
+                TPix *drow = (TPix *)(hout.ptr[0] + (size_t)y * hout.pitch[0]);
+                for (int x = 0; x < outW; x++) { int v = (int)(srow[x] * m_maxval + 0.5f); drow[x] = (TPix)clampi(v, 0, pixMax); }
             }
-            downsample420_encode(oU, oPitchU, oStride, ob + 1 * chSize, outW, outH, m_maxval, 0.0f, pixMax);
-            downsample420_encode(oV, oPitchV, oStride, ob + 2 * chSize, outW, outH, m_maxval, 0.0f, pixMax);
+            downsample420_encode<TPix>(oU, oPitchU, oStride, ob + 1 * chSize, outW, outH, m_maxval, 0.0f, pixMax);
+            downsample420_encode<TPix>(oV, oPitchV, oStride, ob + 2 * chSize, outW, outH, m_maxval, 0.0f, pixMax);
         } else {
             // RGB -> YUV bookend. Y written directly; U,V stored normalised then 4:2:0-downsampled.
             for (int y = 0; y < outH; y++) {
                 const float *rr = ob + 0 * chSize + (size_t)y * outW;
                 const float *gg = ob + 1 * chSize + (size_t)y * outW;
                 const float *bb = ob + 2 * chSize + (size_t)y * outW;
-                uint8_t *yd = hout.ptr[0] + (size_t)y * hout.pitch[0];
+                TPix *yd = (TPix *)(hout.ptr[0] + (size_t)y * hout.pitch[0]);
                 float *un = m_u444.data() + (size_t)y * outW;
                 float *vn = m_v444.data() + (size_t)y * outW;
                 for (int x = 0; x < outW; x++) {
@@ -898,11 +961,11 @@ void RGYFilterOnnx::writeOutputHost(const RGYFrameInfo &hout, const RGYFrameInfo
                     un[x] = m_matRU * R + m_matGU * G + m_matBU * B;
                     vn[x] = m_matRV * R + m_matGV * G + m_matBV * B;
                     const int v = (int)(Yn * m_yRange + m_yOff + 0.5f);
-                    yd[x] = (uint8_t)clampi(v, 0, pixMax);
+                    yd[x] = (TPix)clampi(v, 0, pixMax);
                 }
             }
-            downsample420_encode(oU, oPitchU, oStride, m_u444.data(), outW, outH, m_cRange, m_cOff, pixMax);
-            downsample420_encode(oV, oPitchV, oStride, m_v444.data(), outW, outH, m_cRange, m_cOff, pixMax);
+            downsample420_encode<TPix>(oU, oPitchU, oStride, m_u444.data(), outW, outH, m_cRange, m_cOff, pixMax);
+            downsample420_encode<TPix>(oV, oPitchV, oStride, m_v444.data(), outW, outH, m_cRange, m_cOff, pixMax);
         }
         break;
     }

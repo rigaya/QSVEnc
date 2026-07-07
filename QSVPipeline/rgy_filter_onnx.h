@@ -94,9 +94,13 @@ protected:
     // (outC*outW*outH, CHW) into the mapped output frame.
     void fillInputHost(const RGYFrameInfo &hin);
     void writeOutputHost(const RGYFrameInfo &hout, const RGYFrameInfo &hin);
+    // 8/16-bit bodies of the above (TPix = uint8_t / uint16_t); the plain
+    // versions dispatch on m_bitdepth.
+    template<typename TPix> void fillInputHostT(const RGYFrameInfo &hin);
+    template<typename TPix> void writeOutputHostT(const RGYFrameInfo &hout, const RGYFrameInfo &hin);
     // compute the YUV<->RGB matrix + range coefficients (mirrors the native
     // anime4k RGB bookend exactly).
-    void setupColorCoeffs(int matrixSel, bool rangeTV, int pixMax);
+    void setupColorCoeffs(int matrixSelIn, int matrixSelOut, bool rangeTV, int pixMax);
 
     std::unique_ptr<RGYOpenVINO> m_ov;
     OnnxIO m_io;                          // I/O convention inferred from channel counts
@@ -105,6 +109,7 @@ protected:
     int   m_modelInW, m_modelInH;               // tensor input size; can be padded from the frame size
     int   m_padL, m_padT;                       // edge-replication padding before packing host input
     float m_maxval;                             // (1<<bitdepth)-1
+    int   m_bitdepth;                           // 8 (yv12/nv12) or 16 (yv12(16bit)/p010)
     bool  m_useOcl;                             // zero-copy fast path selected at init (LumaSR only)
     bool  m_ycbcr;                              // 3ch model fed as planar YCbCr instead of RGB
     float m_sigmaNorm;                          // noise sigma / 255 for the conditioning channel

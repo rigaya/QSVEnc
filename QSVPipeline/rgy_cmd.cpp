@@ -5797,7 +5797,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
 
         const auto paramList = std::vector<std::string>{
             "enable", "model", "modelfile", "device", "interop", "prec", "precision",
-            "colormatrix", "colorrange", "colorspace", "noise", "out_res", "resize"
+            "colormatrix", "colormatrix_out", "colorrange", "colorspace", "noise", "out_res", "resize"
         };
 
         for (const auto& param : split(strInput[i], _T(","))) {
@@ -5849,6 +5849,16 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     const tstring v = tolowercase(param_val);
                     if (v == _T("auto") || v == _T("bt601") || v == _T("bt709") || v == _T("bt2020")) {
                         vpp->onnx.colormatrix = v;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("colormatrix_out")) {
+                    const tstring v = tolowercase(param_val);
+                    if (v == _T("auto") || v == _T("bt601") || v == _T("bt709") || v == _T("bt2020")) {
+                        vpp->onnx.colormatrixOut = v;
                     } else {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -13531,6 +13541,9 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             tmp << _T(",interop=") << param->onnx.interop;
             tmp << _T(",prec=") << param->onnx.precision;
             tmp << _T(",colormatrix=") << param->onnx.colormatrix;
+            if (param->onnx.colormatrixOut != _T("auto")) {
+                tmp << _T(",colormatrix_out=") << param->onnx.colormatrixOut;
+            }
             tmp << _T(",colorrange=") << param->onnx.colorrange;
             tmp << _T(",colorspace=") << param->onnx.colorspace;
             tmp << _T(",noise=") << param->onnx.noise;
@@ -16151,6 +16164,9 @@ tstring gen_cmd_help_vpp() {
         _T("      interop=<string>            auto (default) / ocl (zero-copy, shared GPU context) / host\n")
         _T("      prec=<string>               auto (default) / fp16 / fp32\n")
         _T("      colormatrix=<string>        auto (default, bt601 SD / bt709 HD) / bt601 / bt709 / bt2020\n")
+        _T("      colormatrix_out=<string>    matrix for the OUTPUT RGB->YUV conversion\n")
+        _T("                                    (auto=same as input; set bt2020 for models\n")
+        _T("                                    that convert SDR/709 to HDR/2020)\n")
         _T("      colorrange=<string>         auto (default, tv) / tv / pc\n")
         _T("      colorspace=<string>         3ch models: rgb (default) / ycbcr (ArtCNN *_YCbCr)\n")
         _T("      noise=<int>                 noise sigma 0-255 for noise models (default 15)\n")

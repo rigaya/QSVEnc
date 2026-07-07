@@ -85,6 +85,9 @@ RGY_ERR RGYModelRegistry::load(const tstring& jsonPath, std::shared_ptr<RGYLog> 
         entry.fp32       = val.contains("fp32") && val["fp32"].is_boolean()
                             ? val["fp32"].get<bool>()
                             : false;
+        entry.colormatrixOut = val.contains("colormatrix_out") && val["colormatrix_out"].is_string()
+                            ? char_to_tstring(val["colormatrix_out"].get<std::string>().c_str())
+                            : tstring();
         m_models[char_to_tstring(name.c_str())] = std::move(entry);
     }
 

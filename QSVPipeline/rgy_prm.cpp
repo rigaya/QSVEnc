@@ -2036,6 +2036,7 @@ VppOnnx::VppOnnx() :
     precision(_T("auto")),
     cacheDir(),
     colormatrix(_T("auto")),
+    colormatrixOut(_T("auto")),
     colorrange(_T("auto")),
     colorspace(_T("rgb")),
     noise(15),
@@ -2053,6 +2054,7 @@ bool VppOnnx::operator==(const VppOnnx &x) const {
         && precision == x.precision
         && cacheDir == x.cacheDir
         && colormatrix == x.colormatrix
+        && colormatrixOut == x.colormatrixOut
         && colorrange == x.colorrange
         && colorspace == x.colorspace
         && noise == x.noise
@@ -2073,6 +2075,9 @@ tstring VppOnnx::print() const {
         s += strsprintf(_T(",cache_dir=%s"), cacheDir.c_str());
     }
     s += strsprintf(_T(",colormatrix=%s"), colormatrix.c_str());
+    if (colormatrixOut != _T("auto")) {
+        s += strsprintf(_T(",colormatrix_out=%s"), colormatrixOut.c_str());
+    }
     s += strsprintf(_T(",colorrange=%s"), colorrange.c_str());
     s += strsprintf(_T(",colorspace=%s"), colorspace.c_str());
     s += strsprintf(_T(",noise=%d"), noise);
