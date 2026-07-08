@@ -5952,11 +5952,13 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         vpp->onnxModelDir = tstring(strInput[i]);
         return 0;
     }
+#if ENABLE_OPENVINO
     if (IS_OPTION("vpp-onnx-cache-dir") && ENABLE_VPP_FILTER_ONNX) {
         i++;
         vpp->onnx.cacheDir = tstring(strInput[i]);
         return 0;
     }
+#endif
     if (IS_OPTION("vpp-denoise-dct") && ENABLE_VPP_FILTER_DENOISE_DCT) {
         vpp->dct.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
@@ -13569,9 +13571,11 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
     if (!param->onnxModelDir.empty()) {
         cmd << _T(" --vpp-onnx-model-dir ") << param->onnxModelDir;
     }
+#if ENABLE_OPENVINO
     if (!param->onnx.cacheDir.empty()) {
         cmd << _T(" --vpp-onnx-cache-dir ") << param->onnx.cacheDir;
     }
+#endif
     if (param->dct != defaultPrm->dct) {
         tmp.str(tstring());
         if (!param->dct.enable && save_disabled_prm) {
@@ -16190,8 +16194,10 @@ tstring gen_cmd_help_vpp() {
         _T("      resize=<string>             resampler for out_res (default=lanczos4)\n"));
     str += strsprintf(_T("\n")
         _T("   --vpp-onnx-model-dir <string>   Directory containing models.json for registered ONNX models.\n"));
+#if ENABLE_OPENVINO
     str += strsprintf(_T("\n")
         _T("   --vpp-onnx-cache-dir <string>   Cache compiled ONNX models in this folder.\n"));
+#endif
 #endif
 #if ENABLE_VPP_FILTER_SMOOTH
     str += strsprintf(_T("\n")
