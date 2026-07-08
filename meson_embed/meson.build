@@ -73,6 +73,7 @@ resource_specs = [
   ['rgy_filter_mpdecimate_cl', '../QSVPipeline/rgy_filter_mpdecimate.cl', 'QSVPipeline_rgy_filter_mpdecimate_cl'],
   ['rgy_filter_nnedi_cl', '../QSVPipeline/rgy_filter_nnedi.cl', 'QSVPipeline_rgy_filter_nnedi_cl'],
   ['rgy_filter_overlay_cl', '../QSVPipeline/rgy_filter_overlay.cl', 'QSVPipeline_rgy_filter_overlay_cl'],
+  ['rgy_filter_onnx_cl', '../QSVPipeline/rgy_filter_onnx.cl', 'QSVPipeline_rgy_filter_onnx_cl'],
   ['rgy_filter_pad_cl', '../QSVPipeline/rgy_filter_pad.cl', 'QSVPipeline_rgy_filter_pad_cl'],
   ['rgy_filter_resize_cl', '../QSVPipeline/rgy_filter_resize.cl', 'QSVPipeline_rgy_filter_resize_cl'],
   ['rgy_filter_ssim_cl', '../QSVPipeline/rgy_filter_ssim.cl', 'QSVPipeline_rgy_filter_ssim_cl'],

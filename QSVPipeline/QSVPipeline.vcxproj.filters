@@ -1210,6 +1210,9 @@
     <None Include="rgy_filter_overlay.cl">
       <Filter>ソース ファイル</Filter>
     </None>
+    <None Include="rgy_filter_onnx.cl">
+      <Filter>ソース ファイル</Filter>
+    </None>
     <None Include="rgy_filter_curves.cl">
       <Filter>ソース ファイル</Filter>
     </None>

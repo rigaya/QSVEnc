@@ -35,58 +35,6 @@
 #include <cstring>
 #include <algorithm>
 
-// Kernels for the zero-copy path. pack/unpack move the luma plane between the
-// frame (Type = uchar/ushort per bit depth, pitched) and the network's packed
-// f32 buffer with the same full-range normalisation the host path uses
-// (pix/maxval in, *maxval+round out). Pitches are passed in SAMPLES.
-// chroma_bilinear resamples one chroma channel at the integer scale; stride is
-// 1 for planar (yv12) or 2 for an interleaved (nv12/p010) chroma channel.
-static const char *onnx_kernel_cl = R"CLC(
-__kernel void pack_norm_y(__global const Type *srcY, int srcPitch,
-                          __global float *dst, int W, int H, float maxval) {
-    int x = get_global_id(0);
-    int y = get_global_id(1);
-    if (x >= W || y >= H) return;
-    dst[y * W + x] = (float)srcY[y * srcPitch + x] / maxval;
-}
-
-__kernel void unpack_denorm_y(__global const float *src,
-                              __global Type *dstY, int dstPitch, int W, int H, float maxval) {
-    int x = get_global_id(0);
-    int y = get_global_id(1);
-    if (x >= W || y >= H) return;
-    int v = (int)(src[y * W + x] * maxval + 0.5f);
-    dstY[y * dstPitch + x] = (Type)clamp(v, 0, (1 << bit_depth) - 1);
-}
-
-__kernel void chroma_bilinear(__global const Type *src, int srcPitch, int srcStride, int srcOffset,
-                              __global Type *dst, int dstPitch, int dstStride, int dstOffset,
-                              int sw, int sh, int scale) {
-    int dx = get_global_id(0);
-    int dy = get_global_id(1);
-    int dw = sw * scale;
-    int dh = sh * scale;
-    if (dx >= dw || dy >= dh) return;
-    float inv = 1.0f / (float)scale;
-    float sx = (dx + 0.5f) * inv - 0.5f;
-    float sy = (dy + 0.5f) * inv - 0.5f;
-    int x0 = (int)floor(sx); float fx = sx - (float)x0;
-    int y0 = (int)floor(sy); float fy = sy - (float)y0;
-    int x0c = clamp(x0,     0, sw - 1);
-    int x1c = clamp(x0 + 1, 0, sw - 1);
-    int y0c = clamp(y0,     0, sh - 1);
-    int y1c = clamp(y0 + 1, 0, sh - 1);
-    float a = (float)src[y0c * srcPitch + x0c * srcStride + srcOffset];
-    float b = (float)src[y0c * srcPitch + x1c * srcStride + srcOffset];
-    float c = (float)src[y1c * srcPitch + x0c * srcStride + srcOffset];
-    float d = (float)src[y1c * srcPitch + x1c * srcStride + srcOffset];
-    float top = a + (b - a) * fx;
-    float bot = c + (d - c) * fx;
-    int v = (int)(top + (bot - top) * fy + 0.5f);
-    dst[dy * dstPitch + dx * dstStride + dstOffset] = (Type)clamp(v, 0, (1 << bit_depth) - 1);
-}
-)CLC";
-
 tstring RGYFilterParamOnnx::print() const {
     return onnx.print();
 }
@@ -600,9 +548,9 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         // network buffers, bound once as the inference request's remote tensors.
         const auto clBuildOptions = strsprintf("-D Type=%s -D bit_depth=%d",
             (prm->frameIn.bitdepth > 8) ? "ushort" : "uchar", prm->frameIn.bitdepth);
-        m_program = m_cl->build(onnx_kernel_cl, clBuildOptions.c_str());
+        m_program = m_cl->buildResource(_T("RGY_FILTER_ONNX_CL"), _T("EXE_DATA"), clBuildOptions);
         if (!m_program) {
-            AddMessage(RGY_LOG_ERROR, _T("onnx: failed to build OpenCL kernels.\n"));
+            AddMessage(RGY_LOG_ERROR, _T("onnx: failed to build RGY_FILTER_ONNX_CL.\n"));
             return RGY_ERR_OPENCL_CRUSH;
         }
         m_inBufCL  = m_cl->createBuffer((size_t)inW  * inH  * sizeof(float));
