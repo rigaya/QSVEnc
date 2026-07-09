@@ -4094,7 +4094,7 @@ Pre/post processing is inferred from the model channel count: 1ch=luma SR, 3ch=R
   | Anime4K Restore | Restoration (same resolution, detail/block-noise recovery) | anime4k_restore_cnn_l, anime4k_restore_cnn_soft_l, anime4k_restore_cnn_soft_ul, anime4k_restore_cnn_soft_vl, anime4k_restore_cnn_ul, anime4k_restore_cnn_vl |
   | Anime4K Upscale CNN | Super-resolution | anime4k_upscale_cnn_s, anime4k_upscale_cnn_s_dn, anime4k_upscale_cnn_m, anime4k_upscale_cnn_m_dn, anime4k_upscale_cnn_l, anime4k_upscale_cnn_l_dn, anime4k_upscale_cnn_ul, anime4k_upscale_cnn_ul_dn, anime4k_upscale_cnn_vl, anime4k_upscale_cnn_vl_dn |
   | Anime4K GAN | Super-resolution (GAN) | anime4k_gan_s_x2, anime4k_gan_m_x2, anime4k_gan_l_x3, anime4k_gan_vl_x3, anime4k_gan_ul_x4, anime4k_gan_uul_x4 |
-  | HDRTVNet++ | SDR-to-HDR conversion | hdrtvnetpp_agcm_dynamic, hdrtvnetpp_ensemble_dynamic |
+  | HDRTVNet++ | SDR-to-HDR conversion (stable: fixed color mapping without temporal breathing) | hdrtvnetpp_agcm_dynamic, hdrtvnetpp_agcm_stable, hdrtvnetpp_ensemble_dynamic, hdrtvnetpp_ensemble_stable |
   | WebSR | Super-resolution | websr_cnn2x_s_rl, websr_cnn2x_s_an, websr_cnn2x_s_3d, websr_cnn2x_m_rl, websr_cnn2x_m_an, websr_cnn2x_m_3d, websr_cnn2x_l_rl, websr_cnn2x_l_an, websr_cnn2x_l_3d |
   | waifu2x CUNet | Super-resolution / denoise | waifu2x_cunet_scale2x, waifu2x_cunet_noise0, waifu2x_cunet_noise0_scale2x, waifu2x_cunet_noise1, waifu2x_cunet_noise1_scale2x, waifu2x_cunet_noise2, waifu2x_cunet_noise2_scale2x, waifu2x_cunet_noise3, waifu2x_cunet_noise3_scale2x |
   | waifu2x UpConv7 | Super-resolution / denoise | waifu2x_upconv7_art_scale2x, waifu2x_upconv7_art_noise0_scale2x, waifu2x_upconv7_art_noise1_scale2x, waifu2x_upconv7_art_noise2_scale2x, waifu2x_upconv7_art_noise3_scale2x, waifu2x_upconv7_photo_scale2x, waifu2x_upconv7_photo_noise0_scale2x, waifu2x_upconv7_photo_noise1_scale2x, waifu2x_upconv7_photo_noise2_scale2x, waifu2x_upconv7_photo_noise3_scale2x |
@@ -4115,6 +4115,7 @@ Pre/post processing is inferred from the model channel count: 1ch=luma SR, 3ch=R
   --vpp-onnx model=waifu2x_cunet_noise2_scale2x,noise=25
   --vpp-onnx model=anime4k_restore_cnn_l,out_res=-2x1080
   --vpp-onnx model=hdrtvnetpp_agcm_dynamic,colormatrix=bt709 --output-depth 10 --colormatrix bt2020nc --colorprim bt2020 --transfer smpte2084
+  --vpp-onnx model=hdrtvnetpp_agcm_stable,colormatrix=bt709 --output-depth 10 --colormatrix bt2020nc --colorprim bt2020 --transfer smpte2084
   ```
 
 ### --vpp-onnx-model-dir &lt;string&gt;
