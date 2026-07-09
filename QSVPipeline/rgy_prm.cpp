@@ -111,6 +111,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_DESCALE,              _T("descale")),
     std::make_pair(VppType::CL_ANIME4K,              _T("anime4k")),
     std::make_pair(VppType::CL_ONNX,                 _T("onnx")),
+    std::make_pair(VppType::CL_RIFE_OV,              _T("rife-ov")),
     std::make_pair(VppType::CL_DENOISE_DCT,          _T("denoise-dct")),
     std::make_pair(VppType::CL_DENOISE_SMOOTH,       _T("smooth")),
     std::make_pair(VppType::CL_DENOISE_FFT3D,        _T("fft3d")),
@@ -2088,6 +2089,33 @@ tstring VppOnnx::print() const {
     return s;
 }
 
+VppRifeOV::VppRifeOV() :
+    enable(false),
+    modelFile(),
+    device(_T("GPU.0")),
+    multi(2),
+    colormatrix(_T("auto")),
+    colorrange(_T("auto")) {
+}
+
+bool VppRifeOV::operator==(const VppRifeOV &x) const {
+    return enable == x.enable
+        && modelFile == x.modelFile
+        && device == x.device
+        && multi == x.multi
+        && colormatrix == x.colormatrix
+        && colorrange == x.colorrange;
+}
+
+bool VppRifeOV::operator!=(const VppRifeOV &x) const {
+    return !(*this == x);
+}
+
+tstring VppRifeOV::print() const {
+    return strsprintf(_T("model=%s,device=%s,multi=%d,colormatrix=%s,colorrange=%s"),
+        modelFile.c_str(), device.c_str(), multi, colormatrix.c_str(), colorrange.c_str());
+}
+
 VppAnime4k::VppAnime4k() :
     enable(false),
     mode(VppAnime4kMode::Original),
@@ -3787,6 +3815,7 @@ RGYParamVpp::RGYParamVpp() :
     anime4k(),
     descale(),
     onnx(),
+    rife_ov(),
     onnxModelDir(),
     onnxListModels(false),
     dct(),
@@ -3866,6 +3895,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && descale == x.descale
         && anime4k == x.anime4k
         && onnx == x.onnx
+        && rife_ov == x.rife_ov
         && onnxModelDir == x.onnxModelDir
         && onnxListModels == x.onnxListModels
         && dct == x.dct

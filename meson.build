@@ -672,6 +672,7 @@ qsvpipeline_sources = files(
   'QSVPipeline/rgy_filter_colorfix.cpp',
   'QSVPipeline/rgy_filter_anime4k.cpp',
   'QSVPipeline/rgy_filter_onnx.cpp',
+  'QSVPipeline/rgy_filter_rife_ov.cpp',
   'QSVPipeline/rgy_filter_warpsharp.cpp',
   'QSVPipeline/rgy_filter_yadif.cpp',
   'QSVPipeline/rgy_frame.cpp',

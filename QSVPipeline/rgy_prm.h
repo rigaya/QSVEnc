@@ -83,6 +83,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_DESCALE      (ENCODER_QSV   || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_ANIME4K      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_ONNX         ((ENABLE_OPENVINO && ENCODER_QSV) || (ENABLE_ONNXRUNTIME && ENCODER_VCEENC))
+#define ENABLE_VPP_FILTER_RIFE_OV      (ENABLE_OPENVINO && ENCODER_QSV)
 #define ENABLE_VPP_FILTER_DENOISE_DCT  (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_SMOOTH       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_FFT3D        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
@@ -199,6 +200,7 @@ enum class VppType : int {
     CL_DESCALE,
     CL_ANIME4K,
     CL_ONNX,
+    CL_RIFE_OV,
 
     CL_DENOISE_DCT,
     CL_DENOISE_SMOOTH,
@@ -3539,6 +3541,20 @@ struct VppOnnx {
     tstring print() const;
 };
 
+struct VppRifeOV {
+    bool    enable;
+    tstring modelFile;
+    tstring device;
+    int     multi;
+    tstring colormatrix;
+    tstring colorrange;
+
+    VppRifeOV();
+    bool operator==(const VppRifeOV &x) const;
+    bool operator!=(const VppRifeOV &x) const;
+    tstring print() const;
+};
+
 
 enum class VppSoftLightMode {
     NEUTRALIZE,
@@ -3819,6 +3835,7 @@ struct RGYParamVpp {
     VppDescale descale;
     VppAnime4k anime4k;
     VppOnnx onnx;
+    VppRifeOV rife_ov;
     tstring onnxModelDir;
     bool    onnxListModels;
     VppDenoiseDct dct;

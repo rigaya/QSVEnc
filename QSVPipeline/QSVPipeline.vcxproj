@@ -827,6 +827,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="rgy_filter_rife_ov.cpp" />
     <ClCompile Include="rgy_model_registry.cpp" />
     <ClCompile Include="rgy_filter_denoise_knn.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
@@ -1320,6 +1321,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_openvino.h" />
     <ClInclude Include="rgy_filter_anime4k.h" />
     <ClInclude Include="rgy_filter_onnx.h" />
+    <ClInclude Include="rgy_filter_rife_ov.h" />
     <ClInclude Include="rgy_model_registry.h" />
     <ClInclude Include="rgy_filter_denoise_knn.h" />
     <ClInclude Include="rgy_filter_denoise_nlmeans.h" />

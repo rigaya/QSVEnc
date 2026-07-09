@@ -5952,6 +5952,61 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         vpp->onnxModelDir = tstring(strInput[i]);
         return 0;
     }
+    if (IS_OPTION("vpp-rife-ov") && ENABLE_VPP_FILTER_RIFE_OV) {
+        vpp->rife_ov.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "enable", "model", "device", "multi", "colormatrix", "colorrange" };
+        for (const auto& param : split(strInput[i], _T(","))) {
+            const auto pos = param.find_first_of(_T("="));
+            if (pos == tstring::npos) {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+            const auto name = tolowercase(param.substr(0, pos));
+            const auto value = param.substr(pos + 1);
+            if (name == _T("enable")) {
+                if (cmd_string_to_bool(&vpp->rife_ov.enable, value)) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + name + _T("="), value);
+                    return 1;
+                }
+            } else if (name == _T("model")) {
+                vpp->rife_ov.modelFile = value;
+            } else if (name == _T("device")) {
+                vpp->rife_ov.device = touppercase(value);
+            } else if (name == _T("multi")) {
+                try {
+                    vpp->rife_ov.multi = std::stoi(value);
+                } catch (...) {
+                    vpp->rife_ov.multi = 0;
+                }
+                if (vpp->rife_ov.multi < 2) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + name + _T("="), value, _T("multi must be an integer >= 2"));
+                    return 1;
+                }
+            } else if (name == _T("colormatrix")) {
+                const auto normalized = tolowercase(value);
+                if (normalized != _T("auto") && normalized != _T("bt601") && normalized != _T("bt709") && normalized != _T("bt2020")) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + name + _T("="), value);
+                    return 1;
+                }
+                vpp->rife_ov.colormatrix = normalized;
+            } else if (name == _T("colorrange")) {
+                const auto normalized = tolowercase(value);
+                if (normalized != _T("auto") && normalized != _T("tv") && normalized != _T("limited") && normalized != _T("pc") && normalized != _T("full")) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + name + _T("="), value);
+                    return 1;
+                }
+                vpp->rife_ov.colorrange = (normalized == _T("limited")) ? _T("tv") : (normalized == _T("full")) ? _T("pc") : normalized;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, name, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
 #if ENABLE_OPENVINO
     if (IS_OPTION("vpp-onnx-cache-dir") && ENABLE_VPP_FILTER_ONNX) {
         i++;
@@ -13571,6 +13626,20 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
     if (!param->onnxModelDir.empty()) {
         cmd << _T(" --vpp-onnx-model-dir ") << param->onnxModelDir;
     }
+    if (param->rife_ov != defaultPrm->rife_ov) {
+        tmp.str(tstring());
+        if (!param->rife_ov.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->rife_ov.enable || save_disabled_prm) {
+            if (!param->rife_ov.modelFile.empty()) tmp << _T(",model=") << param->rife_ov.modelFile;
+            tmp << _T(",device=") << param->rife_ov.device;
+            tmp << _T(",multi=") << param->rife_ov.multi;
+            tmp << _T(",colormatrix=") << param->rife_ov.colormatrix;
+            tmp << _T(",colorrange=") << param->rife_ov.colorrange;
+        }
+        cmd << _T(" --vpp-rife-ov ") << tmp.str().substr(1);
+    }
 #if ENABLE_OPENVINO
     if (!param->onnx.cacheDir.empty()) {
         cmd << _T(" --vpp-onnx-cache-dir ") << param->onnx.cacheDir;
@@ -16226,6 +16295,16 @@ tstring gen_cmd_help_vpp() {
 #endif
     str += strsprintf(_T("\n")
         _T("   --vpp-onnx-model-dir <string>   Directory containing models.json for registered ONNX models.\n"));
+#if ENABLE_VPP_FILTER_RIFE_OV
+    str += strsprintf(_T("\n")
+        _T("   --vpp-rife-ov [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     RIFE v4.x frame interpolation via OpenVINO.\n")
+        _T("      model=<path>                RIFE v4.x ONNX/IR model path (required)\n")
+        _T("      multi=<int>                 frame-rate multiplier (>=2, default 2)\n")
+        _T("      device=<string>             GPU.0 (default) / GPU / CPU / AUTO / NPU\n")
+        _T("      colormatrix=<string>        auto / bt601 / bt709 / bt2020\n")
+        _T("      colorrange=<string>         auto / tv / pc\n"));
+#endif
 #if ENABLE_OPENVINO
     str += strsprintf(_T("\n")
         _T("   --vpp-onnx-cache-dir <string>   Cache compiled ONNX models in this folder.\n"));

@@ -122,6 +122,7 @@ RGY_DISABLE_WARNING_POP
 #include "rgy_filter_hqdering.h"
 #include "rgy_filter_anime4k.h"
 #include "rgy_filter_onnx.h"
+#include "rgy_filter_rife_ov.h"
 #include "rgy_filter_edgelevel.h"
 #include "rgy_filter_msharpen.h"
 #include "rgy_filter_cas.h"
@@ -2433,6 +2434,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vpp.descale.enable)    filterPipeline.push_back(VppType::CL_DESCALE);
     if (inputParam->vpp.anime4k.enable)    filterPipeline.push_back(VppType::CL_ANIME4K);
     if (inputParam->vpp.onnx.enable)      filterPipeline.push_back(VppType::CL_ONNX);
+    if (inputParam->vpp.rife_ov.enable)   filterPipeline.push_back(VppType::CL_RIFE_OV);
     if (degrainLegacy)  filterPipeline.push_back(VppType::CL_DEGRAIN);
     if (inputParam->vpp.rtgmc_edi.enable && degrainLegacy) filterPipeline.push_back(VppType::CL_RTGMC_EDI);
     if (degrainTR1) filterPipeline.push_back(VppType::CL_DEGRAIN_APPLY_TR1);
@@ -3289,6 +3291,27 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         param->frameOut = inputFrame;
         param->sar[0] = params->input.sar[0];
         param->sar[1] = params->input.sar[1];
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        auto sts = filter->init(param, m_pQSVLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
+    }
+    if (vppType == VppType::CL_RIFE_OV) {
+        unique_ptr<RGYFilter> filter(new RGYFilterRifeOV(m_cl));
+        shared_ptr<RGYFilterParamRifeOV> param(new RGYFilterParamRifeOV());
+        param->modelFile = params->vpp.rife_ov.modelFile;
+        param->device = params->vpp.rife_ov.device;
+        param->multi = params->vpp.rife_ov.multi;
+        param->colormatrix = params->vpp.rife_ov.colormatrix;
+        param->colorrange = params->vpp.rife_ov.colorrange;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
         param->baseFps = m_encFps;
         param->bOutOverwrite = false;
         auto sts = filter->init(param, m_pQSVLog);
