@@ -31,6 +31,7 @@
 #include "rgy_filter_degrain.h"
 #include "rgy_filesystem.h"
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
@@ -79,12 +80,35 @@ static constexpr int KFM_REALTIMEPLUS_SOURCE_CACHE_MARGIN = 64;
 static constexpr int KFM_REALTIMEPLUS_DEINT60_CACHE_MARGIN = KFM_REALTIMEPLUS_SOURCE_CACHE_MARGIN * 2;
 static constexpr int KFM_VFR_SOURCE_TRIM_LOOKBEHIND = 8;
 static constexpr int KFM_VFR_DEINT60_TRIM_LOOKBEHIND = 16;
+static constexpr int KFM_MAX_OUTPUT_FRAMES = 16;
 static constexpr int KFM_UCF_NOISE_LIMIT_NMIN = 1;
 static constexpr int KFM_UCF_NOISE_LIMIT_RANGE = 128;
 static constexpr int KFM_UCF_SHARED_ANALYSIS_SOURCE_DELAY = 2;
 static constexpr int KFM_UCF_LAZY_SOURCE_CACHE_MARGIN = 512;
 static constexpr double KFM_UCF_GAUSS_P = 2.5;
 static constexpr double KFM_UCF_GAUSS_CROP_EPS = 0.0001;
+
+static int64_t kfmProfileNowNs() {
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
+template<typename TStats, typename TCounter>
+class KfmProfileScope {
+public:
+    KfmProfileScope(TStats& stats, TCounter& counter, int items = 0)
+        : m_stats(stats), m_counter(counter), m_startNs(stats.enabled ? kfmProfileNowNs() : 0), m_items(items) {};
+    ~KfmProfileScope() {
+        if (m_startNs > 0) {
+            m_counter.add(kfmProfileNowNs() - m_startNs, m_items);
+        }
+    }
+private:
+    TStats& m_stats;
+    TCounter& m_counter;
+    int64_t m_startNs;
+    int m_items;
+};
 
 static void resetKfmFrameState(RGYFrameInfo& frame) {
     frame.timestamp = 0;
@@ -1053,6 +1077,8 @@ RGY_ERR RGYFilterKfm::initAnalyzer(const RGYFilterParamKfm& prm) {
     analyzeParam.pastCycles = prm.kfm.pastCycles;
     analyzeParam.NGThresh = prm.kfm.thswitch;
     m_analyzer = std::make_unique<RGYKFM::KFMAnalyze>(analyzeParam);
+    m_kfmProfile = KfmProfileStats();
+    m_kfmProfile.enabled = std::getenv("QSVENC_KFM_PROFILE") || std::getenv("RGY_KFM_PROFILE");
     m_analyzeSourceFrames = 0;
     m_nextAnalyzeCycle = 0;
     m_nextFMCountSubmitCycle = 0;
@@ -3584,7 +3610,7 @@ RGY_ERR RGYFilterKfm::emitPendingVfrOutput(RGYFrameInfo **ppOutputFrames, int *p
 RGY_ERR RGYFilterKfm::emitPendingVfrOutputs(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
     RGYOpenCLQueue &queue, RGYOpenCLEvent *event, int keepFrames) {
     keepFrames = std::max(0, keepFrames);
-    const int maxOutputFrames = std::min<int>((int)m_frameBuf.size(), 4);
+    const int maxOutputFrames = std::min<int>((int)m_frameBuf.size(), KFM_MAX_OUTPUT_FRAMES);
     while ((int)m_pendingVfrOutputs.size() > keepFrames && *pOutputFrameNum < maxOutputFrames) {
         const int outputFrameNumBefore = *pOutputFrameNum;
         auto sts = emitPendingVfrOutput(ppOutputFrames, pOutputFrameNum, queue, event);
@@ -3909,6 +3935,7 @@ RGY_ERR RGYFilterKfm::analyzeAvailableSource(bool drain, RGYOpenCLQueue &queue) 
     const auto prm = std::dynamic_pointer_cast<RGYFilterParamKfm>(m_param);
     const auto timing = prm ? prm->kfm.timing : VppKfmTiming::Realtime;
     while (m_nextFMCountSubmitCycle < readyCycles) {
+        KfmProfileScope profile(m_kfmProfile, m_kfmProfile.submitFMCounts, m_nextFMCountSubmitCycle);
         auto sts = submitFMCounts(m_nextFMCountSubmitCycle, drain, queue);
         if (sts == RGY_ERR_MORE_DATA) {
             break;
@@ -3929,7 +3956,11 @@ RGY_ERR RGYFilterKfm::analyzeAvailableSource(bool drain, RGYOpenCLQueue &queue) 
     const auto *frame = m_sourceCache.empty() ? nullptr : &m_sourceCache.back().frame->frame;
     while (m_nextAnalyzeCycle < readyCycles) {
         std::array<RGYKFM::FMCount, 18> counts = {};
-        auto sts = readbackFMCounts(counts, m_nextAnalyzeCycle, drain, queue);
+        auto sts = RGY_ERR_NONE;
+        {
+            KfmProfileScope profile(m_kfmProfile, m_kfmProfile.readbackFMCounts, m_nextAnalyzeCycle);
+            sts = readbackFMCounts(counts, m_nextAnalyzeCycle, drain, queue);
+        }
         if (sts == RGY_ERR_MORE_DATA) {
             return RGY_ERR_NONE;
         }
@@ -3938,6 +3969,7 @@ RGY_ERR RGYFilterKfm::analyzeAvailableSource(bool drain, RGYOpenCLQueue &queue) 
         }
         writeFMCountDump(counts, m_nextAnalyzeCycle);
         try {
+            KfmProfileScope profile(m_kfmProfile, m_kfmProfile.analyzeCpu, m_nextAnalyzeCycle);
             if (timing == VppKfmTiming::Realtime) {
                 const auto result = m_analyzer->realtimeFromCounts(counts.data(), frame->width, frame->height);
                 writeAnalyzerResult(result, true);
@@ -3966,7 +3998,10 @@ void RGYFilterKfm::finalizeAnalyzerResults(VppKfmTiming timing) {
         return;
     }
     const auto resultCount = static_cast<size_t>(m_nextAnalyzeCycle);
-    m_analyzer->analyzeTrailingCycles(m_analyzer->param().cycleRange);
+    {
+        KfmProfileScope profile(m_kfmProfile, m_kfmProfile.analyzerTrailing, m_analyzer->param().cycleRange);
+        m_analyzer->analyzeTrailingCycles(m_analyzer->param().cycleRange);
+    }
     if (timing == VppKfmTiming::Strict) {
         writeAnalyzerResultsFinal(resultCount, true);
     } else if (timing == VppKfmTiming::RealtimePlus) {
@@ -3982,36 +4017,43 @@ std::vector<RGYKFM::KFMResult> RGYFilterKfm::analyzerResultsSnapshot(bool mark60
     if (!m_analyzer) {
         return results;
     }
-    results = m_analyzer->results();
+    {
+        const auto& srcResults = m_analyzer->results();
+        KfmProfileScope profile(m_kfmProfile, m_kfmProfile.snapshotCopy, (int)srcResults.size());
+        results = srcResults;
+    }
     if (!mark60p || results.empty()) {
         return results;
     }
-    for (auto& result : results) {
-        result.is60p = false;
-    }
-    const auto& param = m_analyzer->param();
-    bool is60p = true;
-    for (int i = 0; i < static_cast<int>(results.size()); ++i) {
-        auto& cur = results[i];
-        if (is60p) {
-            if (cur.cost < param.th24) {
-                if (cur.reliability < param.rel24) {
-                    is60p = false;
+    {
+        KfmProfileScope profile(m_kfmProfile, m_kfmProfile.snapshotMark60p, (int)results.size());
+        for (auto& result : results) {
+            result.is60p = false;
+        }
+        const auto& param = m_analyzer->param();
+        bool is60p = true;
+        for (int i = 0; i < static_cast<int>(results.size()); ++i) {
+            auto& cur = results[i];
+            if (is60p) {
+                if (cur.cost < param.th24) {
+                    if (cur.reliability < param.rel24) {
+                        is60p = false;
+                    }
+                } else {
+                    cur.is60p = true;
                 }
             } else {
-                cur.is60p = true;
-            }
-        } else {
-            if (cur.cost >= param.th60) {
-                is60p = true;
-                for (int t = i; t >= 0; --t) {
-                    auto& prev = results[t];
-                    if (prev.cost < param.th24) {
-                        if (prev.reliability < param.rel24) {
-                            break;
+                if (cur.cost >= param.th60) {
+                    is60p = true;
+                    for (int t = i; t >= 0; --t) {
+                        auto& prev = results[t];
+                        if (prev.cost < param.th24) {
+                            if (prev.reliability < param.rel24) {
+                                break;
+                            }
+                        } else {
+                            prev.is60p = true;
                         }
-                    } else {
-                        prev.is60p = true;
                     }
                 }
             }
@@ -4054,22 +4096,26 @@ void RGYFilterKfm::appendAnalyzerResults(size_t resultCount, bool dump, bool mar
     if (!m_analyzer) {
         return;
     }
+    KfmProfileScope profile(m_kfmProfile, m_kfmProfile.appendAnalyzer, (int)resultCount);
     const auto results = analyzerResultsSnapshot(mark60p);
     resultCount = std::min(resultCount, results.size());
     if (resultCount <= m_analyzerOutputResults.size()) {
         return;
     }
-    while (m_analyzerOutputResults.size() < resultCount) {
-        const auto& result = results[m_analyzerOutputResults.size()];
-        m_analyzerOutputResults.push_back(result);
-        m_lastAnalyzeResult = result;
-        m_hasLastAnalyzeResult = true;
-        if (dump && m_fpResult) {
-            fwrite(&result, sizeof(result), 1, m_fpResult);
+    {
+        KfmProfileScope writeProfile(m_kfmProfile, m_kfmProfile.appendWrite, (int)(resultCount - m_analyzerOutputResults.size()));
+        while (m_analyzerOutputResults.size() < resultCount) {
+            const auto& result = results[m_analyzerOutputResults.size()];
+            m_analyzerOutputResults.push_back(result);
+            m_lastAnalyzeResult = result;
+            m_hasLastAnalyzeResult = true;
+            if (dump && m_fpResult) {
+                fwrite(&result, sizeof(result), 1, m_fpResult);
+            }
         }
-    }
-    if (dump && m_fpResult) {
-        fflush(m_fpResult);
+        if (dump && m_fpResult) {
+            fflush(m_fpResult);
+        }
     }
 }
 
@@ -4077,6 +4123,7 @@ void RGYFilterKfm::writeAnalyzerResultsFinal(size_t resultCount, bool mark60p) {
     if (!m_analyzer) {
         return;
     }
+    KfmProfileScope profile(m_kfmProfile, m_kfmProfile.writeFinal, (int)resultCount);
     const auto results = analyzerResultsSnapshot(mark60p);
     resultCount = std::min(resultCount, results.size());
     if (resultCount == 0) {
@@ -4113,10 +4160,10 @@ void RGYFilterKfm::writeFrameTimecode(const RGYFrameInfo *frame) {
     fflush(m_fpTimecode);
 }
 
-std::vector<RGYFilterKfm::KfmSwitchTiming> RGYFilterKfm::deriveSwitchTimings(int total60) const {
-    std::vector<KfmSwitchTiming> timings;
-    if (!m_analyzer || m_analyzerOutputResults.empty() || total60 <= 0) {
-        return timings;
+bool RGYFilterKfm::deriveSwitchTimingAt(KfmSwitchTiming& timing, int n60, int total60) const {
+    timing = KfmSwitchTiming();
+    if (!m_analyzer || m_analyzerOutputResults.empty() || total60 <= 0 || n60 < 0 || n60 >= total60) {
+        return false;
     }
     const auto prm = std::dynamic_pointer_cast<RGYFilterParamKfm>(m_param);
     const auto timingMode = prm ? prm->kfm.timing : VppKfmTiming::Realtime;
@@ -4155,9 +4202,8 @@ std::vector<RGYFilterKfm::KfmSwitchTiming> RGYFilterKfm::deriveSwitchTimings(int
         int frameIndex = f.frameIndex + f.fieldShift;
         int n24 = f.cycleIndex * 4 + frameIndex;
         if (frameIndex < 0) {
-            // The first 60p slot of some pulldown phases belongs to the last
-            // 24p frame of the previous cycle. Fall back only when that frame
-            // is before the available source window.
+            // 一部のプルダウン位相では、先頭の60pスロットが前cycle末尾の24pフレームに属する。
+            // 利用可能なsource範囲より前に出る場合だけ60p扱いに戻す。
             n24 = f.cycleIndex * 4 - 1;
             if (n24 < 0) {
                 info.baseType = KFM_FRAME_60;
@@ -4179,8 +4225,7 @@ std::vector<RGYFilterKfm::KfmSwitchTiming> RGYFilterKfm::deriveSwitchTimings(int
         return info;
     };
 
-    int current = 0;
-    while (current < total60) {
+    auto deriveFromStart = [&](int current) {
         auto info = frameInfoAt(current, resultAt(current / 10));
         const bool forceSingle = (info.baseType == KFM_FRAME_24 || info.baseType == KFM_FRAME_30) && isSwitchSingleFrameN60(current);
         const int maxDuration = forceSingle ? 1 : info.baseType == KFM_FRAME_24 ? 4 : info.baseType == KFM_FRAME_30 ? 2 : 1;
@@ -4201,10 +4246,43 @@ std::vector<RGYFilterKfm::KfmSwitchTiming> RGYFilterKfm::deriveSwitchTimings(int
         info.duration60 = duration;
         info.duration120 = duration * 2;
         info.numSourceFrames = std::max(1, divCeil(duration, 2));
+        return info;
+    };
+
+    for (int current = n60; current >= std::max(0, n60 - 3); --current) {
+        auto info = deriveFromStart(current);
+        if (info.start60 <= n60 && n60 < info.start60 + info.duration60) {
+            if (info.start60 < n60) {
+                const auto consumed60 = n60 - info.start60;
+                info.start60 = n60;
+                info.start120 += consumed60 * 2;
+                info.duration60 = std::max(1, info.duration60 - consumed60);
+                info.duration120 = info.duration60 * 2;
+                info.numSourceFrames = std::max(1, divCeil(info.duration60, 2));
+            }
+            timing = info;
+            return true;
+        }
+    }
+    return false;
+}
+
+std::vector<RGYFilterKfm::KfmSwitchTiming> RGYFilterKfm::deriveSwitchTimings(int total60) const {
+    std::vector<KfmSwitchTiming> timings;
+    if (!m_analyzer || m_analyzerOutputResults.empty() || total60 <= 0) {
+        return timings;
+    }
+    int current = 0;
+    while (current < total60) {
+        KfmSwitchTiming info;
+        if (!deriveSwitchTimingAt(info, current, total60)) {
+            break;
+        }
         timings.push_back(info);
-        current += duration;
+        current += info.duration60;
     }
 
+    const auto prm = std::dynamic_pointer_cast<RGYFilterParamKfm>(m_param);
     if (prm && prm->kfm.is120) {
         for (size_t i = 1; i < timings.size(); ++i) {
             if (timings[i - 1].isFrame24 && timings[i].isFrame24
@@ -6127,6 +6205,62 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
 
     if (prm->kfm.mode == VppKfmMode::VFR) {
         auto sts = RGY_ERR_NONE;
+        const bool drain = pInputFrame == nullptr || pInputFrame->ptr[0] == nullptr;
+        KfmProfileScope vfrProfile(m_kfmProfile, m_kfmProfile.vfrScheduler, m_nextSwitchN60);
+        auto recordVfrRunStats = [&]() {
+            auto& stats = m_vfrRunStats;
+            const auto outFrames = pOutputFrameNum ? *pOutputFrameNum : 0;
+            const auto pendingOutputs = (int)m_pendingVfrOutputs.size();
+            const auto outputLag60 = std::max(0, m_cachedSourceFrames * 2 - m_nextSwitchN60);
+            stats.maxPendingOutputs = std::max(stats.maxPendingOutputs, pendingOutputs);
+            stats.maxOutputLag60 = std::max(stats.maxOutputLag60, outputLag60);
+            stats.maxSourceFrames = std::max(stats.maxSourceFrames, m_cachedSourceFrames);
+            stats.maxSourceCacheSize = std::max(stats.maxSourceCacheSize, (int)m_sourceCache.size());
+            stats.maxAnalyzerResults = std::max(stats.maxAnalyzerResults, (int)m_analyzerOutputResults.size());
+            if (outFrames == 0 && pendingOutputs == 0) {
+                stats.zeroOutNoPendingCalls++;
+            }
+            if (drain) {
+                stats.drainCalls++;
+                stats.maxDrainOut = std::max(stats.maxDrainOut, outFrames);
+                if (outFrames == 0) {
+                    stats.drainZeroOut++;
+                } else if (outFrames == 1) {
+                    stats.drainSingleOut++;
+                } else {
+                    stats.drainMultiOut++;
+                }
+            } else {
+                stats.inputCalls++;
+                stats.maxInputOut = std::max(stats.maxInputOut, outFrames);
+                if (outFrames == 0) {
+                    stats.inputZeroOut++;
+                } else if (outFrames == 1) {
+                    stats.inputSingleOut++;
+                } else {
+                    stats.inputMultiOut++;
+                }
+                if (std::getenv("QSVENC_KFM_STATS") && stats.inputCalls > 0 && (stats.inputCalls % 10000) == 0) {
+                    AddMessage(RGY_LOG_INFO,
+                        _T("KFM VFR progress stats: input calls=%lld zero=%lld single=%lld multi=%lld maxOut=%d, maxPending=%d, maxLag60=%d, maxSource=%d, maxSourceCache=%d, maxAnalyze=%d, noTiming=%lld, tailHold=%lld, more60=%lld, miss60=%lld, zeroNoPending=%lld.\n"),
+                        (long long)stats.inputCalls,
+                        (long long)stats.inputZeroOut,
+                        (long long)stats.inputSingleOut,
+                        (long long)stats.inputMultiOut,
+                        stats.maxInputOut,
+                        stats.maxPendingOutputs,
+                        stats.maxOutputLag60,
+                        stats.maxSourceFrames,
+                        stats.maxSourceCacheSize,
+                        stats.maxAnalyzerResults,
+                        (long long)stats.noTimingBreaks,
+                        (long long)stats.tailHoldBreaks,
+                        (long long)stats.moreData60EnsureBreaks,
+                        (long long)stats.missingDeint60Breaks,
+                        (long long)stats.zeroOutNoPendingCalls);
+                }
+            }
+        };
         if (pInputFrame == nullptr || pInputFrame->ptr[0] == nullptr) {
             sts = analyzeAvailableSource(true, queue);
         } else {
@@ -6163,7 +6297,6 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
         }
 
         *pOutputFrameNum = 0;
-        const bool drain = pInputFrame == nullptr || pInputFrame->ptr[0] == nullptr;
         const int rawAvailableN60 = drain
             ? m_cachedSourceFrames * 2
             : std::min(m_cachedSourceFrames * 2, static_cast<int>(m_analyzerOutputResults.size()) * 10);
@@ -6174,10 +6307,11 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
         // telecine-super frame, so keep one more 24p frame worth of margin.
         const int vfrTailHold60 = switchSingleFrameDurationEnabled() ? 8 : 4;
         const int availableN60 = drain ? rawAvailableN60 : std::max(0, rawAvailableN60 - vfrTailHold60);
-        const auto timings = deriveSwitchTimings(availableN60);
-        const int maxOutputFrames = std::min<int>((int)m_frameBuf.size(), 4);
+        m_vfrRunStats.maxTimingCount = std::max(m_vfrRunStats.maxTimingCount, availableN60);
+        const int maxOutputFrames = std::min<int>((int)m_frameBuf.size(), KFM_MAX_OUTPUT_FRAMES);
         const int vfrOutputDelay = switchSingleFrameDurationEnabled() ? 1 : 0;
         auto emitReadyPending = [&](int keepFrames) -> RGY_ERR {
+            KfmProfileScope profile(m_kfmProfile, m_kfmProfile.emitPending, (int)m_pendingVfrOutputs.size());
             return emitPendingVfrOutputs(ppOutputFrames, pOutputFrameNum, queue, event, keepFrames);
         };
         auto ensureDeint60Range = [&](int n60begin, int n60end) -> RGY_ERR {
@@ -6188,27 +6322,16 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
             return sts;
         }
         while (*pOutputFrameNum < maxOutputFrames) {
-            auto itTiming = std::find_if(timings.begin(), timings.end(), [this](const KfmSwitchTiming& timing) {
-                return timing.start60 == m_nextSwitchN60;
-            });
-            if (itTiming == timings.end()) {
-                itTiming = std::find_if(timings.begin(), timings.end(), [this](const KfmSwitchTiming& timing) {
-                    return timing.start60 < m_nextSwitchN60 && m_nextSwitchN60 < timing.start60 + timing.duration60;
-                });
-                if (itTiming == timings.end()) {
+            KfmSwitchTiming outputTiming;
+            {
+                KfmProfileScope profile(m_kfmProfile, m_kfmProfile.deriveTimings, m_nextSwitchN60);
+                if (!deriveSwitchTimingAt(outputTiming, m_nextSwitchN60, availableN60)) {
+                    m_vfrRunStats.noTimingBreaks++;
                     break;
                 }
             }
-            auto outputTiming = *itTiming;
-            if (outputTiming.start60 < m_nextSwitchN60) {
-                const auto consumed60 = m_nextSwitchN60 - outputTiming.start60;
-                outputTiming.start60 = m_nextSwitchN60;
-                outputTiming.start120 += consumed60 * 2;
-                outputTiming.duration60 = std::max(1, outputTiming.duration60 - consumed60);
-                outputTiming.duration120 = outputTiming.duration60 * 2;
-                outputTiming.numSourceFrames = std::max(1, divCeil(outputTiming.duration60, 2));
-            }
             if (!drain && outputTiming.start60 + outputTiming.duration60 >= availableN60) {
+                m_vfrRunStats.tailHoldBreaks++;
                 break;
             }
             const auto rawStart120 = [](const KfmSwitchTiming& timing) {
@@ -6241,12 +6364,10 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                 outputStart120 = m_lastSwitchStart120 + 5;
             }
             int64_t nextStart120 = outputStart120 + outputTiming.duration60 * 2;
-            const auto itNextTiming = std::find_if(timings.begin(), timings.end(), [&outputTiming](const KfmSwitchTiming& timing) {
-                return timing.start60 == outputTiming.start60 + outputTiming.duration60;
-            });
-            if (itNextTiming != timings.end()) {
-                nextStart120 = rawStart120(*itNextTiming);
-                if (prm->kfm.is120 && canUse120Cadence(outputTiming.isFrame24, outputTiming.duration60, *itNextTiming)) {
+            KfmSwitchTiming nextTiming;
+            if (deriveSwitchTimingAt(nextTiming, outputTiming.start60 + outputTiming.duration60, availableN60)) {
+                nextStart120 = rawStart120(nextTiming);
+                if (prm->kfm.is120 && canUse120Cadence(outputTiming.isFrame24, outputTiming.duration60, nextTiming)) {
                     nextStart120 = outputStart120 + 5;
                 }
             }
@@ -6288,6 +6409,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                 m_nextTelecine24Frame = savedTelecine24Frame;
                 m_nextTelecine24Pts = savedTelecine24Pts;
                 if (sts == RGY_ERR_MORE_DATA) {
+                    m_vfrRunStats.moreData24RenderBreaks++;
                     m_workBufferIndex = savedWorkBufferIndex;
                     m_telecineSuperBufferIndex = savedTelecineSuperBufferIndex;
                     break;
@@ -6303,6 +6425,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                 RGYOpenCLEvent superEvent;
                 sts = renderTelecineSuper24(super24, outputTiming.frame24Index, drain, queue, superWaitEvents, &superEvent);
                 if (sts == RGY_ERR_MORE_DATA) {
+                    m_vfrRunStats.moreData24SuperBreaks++;
                     m_workBufferIndex = savedWorkBufferIndex;
                     m_telecineSuperBufferIndex = savedTelecineSuperBufferIndex;
                     break;
@@ -6356,6 +6479,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                     }
                     sts = renderTelecineSuper24(superNext24, outputTiming.frame24Index + 1, drain, queue, superWaitEvents, &nextSuperEvent);
                     if (sts == RGY_ERR_MORE_DATA) {
+                        m_vfrRunStats.moreData24NextSuperBreaks++;
                         m_workBufferIndex = savedWorkBufferIndex;
                         m_telecineSuperBufferIndex = savedTelecineSuperBufferIndex;
                         break;
@@ -6365,6 +6489,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                         maskWaitEvents.push_back(nextSuperEvent);
                     }
                 } else if (!drain) {
+                    m_vfrRunStats.frontier24Breaks++;
                     m_workBufferIndex = savedWorkBufferIndex;
                     m_telecineSuperBufferIndex = savedTelecineSuperBufferIndex;
                     break;
@@ -6442,6 +6567,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                         }
                         sts = ensureDeint60Range(patchN60, patchN60 + 1);
                         if (sts == RGY_ERR_MORE_DATA) {
+                            m_vfrRunStats.moreData24PatchDeintBreaks++;
                             m_workBufferIndex = savedWorkBufferIndex;
                             m_telecineSuperBufferIndex = savedTelecineSuperBufferIndex;
                             break;
@@ -6583,6 +6709,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                 std::vector<RGYOpenCLEvent> copyWaitEvents = wait_events;
                 sts = ensureDeint60Range(outputTiming.start60, outputTiming.start60 + outputTiming.duration60);
                 if (sts == RGY_ERR_MORE_DATA) {
+                    m_vfrRunStats.moreData60EnsureBreaks++;
                     break;
                 }
                 if (sts != RGY_ERR_NONE) {
@@ -6590,6 +6717,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                 }
                 const auto *deint60 = findDeint60Frame(outputTiming.start60, &copyWaitEvents);
                 if (!deint60 || !deint60->ptr[0]) {
+                    m_vfrRunStats.missingDeint60Breaks++;
                     break;
                 }
                 if (prm->kfm.ucf) {
@@ -6607,6 +6735,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                 copyFramePropWithoutRes(out, deint60);
             } else if (outputTiming.baseType == KFM_FRAME_30) {
                 if (!source || !source->frame || !source->frame->frame.ptr[0]) {
+                    m_vfrRunStats.sourceMissing30Breaks++;
                     break;
                 }
                 std::vector<RGYOpenCLEvent> deintWaitEvents = wait_events;
@@ -6744,6 +6873,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                         const int patchN60 = outputTiming.sourceIndex * 2;
                         sts = ensureDeint60Range(patchN60, patchN60 + 1);
                         if (sts == RGY_ERR_MORE_DATA) {
+                            m_vfrRunStats.moreData30PatchDeintBreaks++;
                             break;
                         }
                         if (sts != RGY_ERR_NONE) {
@@ -6751,6 +6881,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                         }
                         const auto *deint60 = findDeint60Frame(patchN60, &patchWaitEvents);
                         if (!deint60 || !deint60->ptr[0]) {
+                            m_vfrRunStats.missing30PatchDeintBreaks++;
                             break;
                         }
                         sts = patchCombe(out, deint30, deint60, combeMask, outputTiming.sourceIndex, "patch-combe30", queue, patchWaitEvents, &outputEvent);
@@ -6779,6 +6910,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                 }
             } else {
                 if (!source || !source->frame || !source->frame->frame.ptr[0]) {
+                    m_vfrRunStats.sourceMissingFallbackBreaks++;
                     break;
                 }
                 std::vector<RGYOpenCLEvent> copyWaitEvents = wait_events;
@@ -6837,7 +6969,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                 return sts;
             }
         }
-        if (drain && m_pendingVfrOutputs.empty() && (timings.empty() || m_nextSwitchN60 >= m_cachedSourceFrames * 2)) {
+        if (drain && m_pendingVfrOutputs.empty() && m_nextSwitchN60 >= m_cachedSourceFrames * 2) {
             writeSwitchTimingDump();
             if (*pOutputFrameNum == 0) {
                 sts = drainNrFilter(ppOutputFrames, pOutputFrameNum, queue, event);
@@ -6846,6 +6978,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                 }
             }
         }
+        recordVfrRunStats();
         return RGY_ERR_NONE;
     }
 
@@ -6887,7 +7020,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
 
         *pOutputFrameNum = 0;
         const bool drain = pInputFrame == nullptr || pInputFrame->ptr[0] == nullptr;
-        const int maxOutputFrames = std::min<int>((int)m_frameBuf.size(), 4);
+        const int maxOutputFrames = std::min<int>((int)m_frameBuf.size(), KFM_MAX_OUTPUT_FRAMES);
         while (*pOutputFrameNum < maxOutputFrames && m_nextTelecine24Frame < telecine24FrameCount(drain)) {
             auto deint24 = nextWorkFrame();
             auto out = nextWorkFrame();
@@ -7240,6 +7373,36 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
     return RGY_ERR_NONE;
 }
 
+void RGYFilterKfm::logKfmProfileStats() {
+    if (!m_kfmProfile.enabled) {
+        return;
+    }
+    auto printCounter = [&](const TCHAR *name, const KfmProfileCounter& counter) {
+        if (counter.calls <= 0) {
+            return;
+        }
+        const double totalMs = counter.totalNs * 1.0e-6;
+        const double avgMs = totalMs / counter.calls;
+        const double maxMs = counter.maxNs * 1.0e-6;
+        AddMessage(RGY_LOG_INFO,
+            _T("KFM profile %-18s: calls=%lld total=%.3f ms avg=%.6f ms max=%.3f ms maxItems=%d.\n"),
+            name, (long long)counter.calls, totalMs, avgMs, maxMs, counter.maxItems);
+    };
+    AddMessage(RGY_LOG_INFO, _T("KFM profile summary is enabled by QSVENC_KFM_PROFILE/RGY_KFM_PROFILE.\n"));
+    printCounter(_T("submitFMCounts"), m_kfmProfile.submitFMCounts);
+    printCounter(_T("readbackFMCounts"), m_kfmProfile.readbackFMCounts);
+    printCounter(_T("analyzeCpu"), m_kfmProfile.analyzeCpu);
+    printCounter(_T("trailing"), m_kfmProfile.analyzerTrailing);
+    printCounter(_T("appendAnalyzer"), m_kfmProfile.appendAnalyzer);
+    printCounter(_T("snapshotCopy"), m_kfmProfile.snapshotCopy);
+    printCounter(_T("snapshotMark60p"), m_kfmProfile.snapshotMark60p);
+    printCounter(_T("appendWrite"), m_kfmProfile.appendWrite);
+    printCounter(_T("writeFinal"), m_kfmProfile.writeFinal);
+    printCounter(_T("deriveTimings"), m_kfmProfile.deriveTimings);
+    printCounter(_T("emitPending"), m_kfmProfile.emitPending);
+    printCounter(_T("vfrScheduler"), m_kfmProfile.vfrScheduler);
+}
+
 void RGYFilterKfm::close() {
     if (m_cl && !m_pendingUcfNoiseResults.empty()) {
         auto sts = resolveAllUcfNoiseResults(m_cl->queue());
@@ -7254,6 +7417,41 @@ void RGYFilterKfm::close() {
     const auto& deint60Resets = m_deint60Lane.resetCounts();
     AddMessage(RGY_LOG_DEBUG, _T("KFM RTGMC deint60 resets: cold=%lld rewind=%lld feedPast=%lld farJump=%lld trimmed=%lld.\n"),
         (long long)deint60Resets[0], (long long)deint60Resets[1], (long long)deint60Resets[2], (long long)deint60Resets[3], (long long)deint60Resets[4]);
+    AddMessage(std::getenv("QSVENC_KFM_STATS") ? RGY_LOG_INFO : RGY_LOG_DEBUG,
+        _T("KFM VFR output stats: input calls=%lld zero=%lld single=%lld multi=%lld maxOut=%d, drain calls=%lld zero=%lld single=%lld multi=%lld maxOut=%d, maxPending=%d, maxLag60=%d, maxSource=%d, maxSourceCache=%d, maxAnalyze=%d, maxTiming=%d, zeroNoPending=%lld.\n"),
+        (long long)m_vfrRunStats.inputCalls,
+        (long long)m_vfrRunStats.inputZeroOut,
+        (long long)m_vfrRunStats.inputSingleOut,
+        (long long)m_vfrRunStats.inputMultiOut,
+        m_vfrRunStats.maxInputOut,
+        (long long)m_vfrRunStats.drainCalls,
+        (long long)m_vfrRunStats.drainZeroOut,
+        (long long)m_vfrRunStats.drainSingleOut,
+        (long long)m_vfrRunStats.drainMultiOut,
+        m_vfrRunStats.maxDrainOut,
+        m_vfrRunStats.maxPendingOutputs,
+        m_vfrRunStats.maxOutputLag60,
+        m_vfrRunStats.maxSourceFrames,
+        m_vfrRunStats.maxSourceCacheSize,
+        m_vfrRunStats.maxAnalyzerResults,
+        m_vfrRunStats.maxTimingCount,
+        (long long)m_vfrRunStats.zeroOutNoPendingCalls);
+    AddMessage(std::getenv("QSVENC_KFM_STATS") ? RGY_LOG_INFO : RGY_LOG_DEBUG,
+        _T("KFM VFR break stats: noTiming=%lld, tailHold=%lld, more24=%lld, more24super=%lld, more24next=%lld, frontier24=%lld, more24patch=%lld, more60=%lld, miss60=%lld, miss30src=%lld, more30patch=%lld, miss30patch=%lld, missFallback=%lld.\n"),
+        (long long)m_vfrRunStats.noTimingBreaks,
+        (long long)m_vfrRunStats.tailHoldBreaks,
+        (long long)m_vfrRunStats.moreData24RenderBreaks,
+        (long long)m_vfrRunStats.moreData24SuperBreaks,
+        (long long)m_vfrRunStats.moreData24NextSuperBreaks,
+        (long long)m_vfrRunStats.frontier24Breaks,
+        (long long)m_vfrRunStats.moreData24PatchDeintBreaks,
+        (long long)m_vfrRunStats.moreData60EnsureBreaks,
+        (long long)m_vfrRunStats.missingDeint60Breaks,
+        (long long)m_vfrRunStats.sourceMissing30Breaks,
+        (long long)m_vfrRunStats.moreData30PatchDeintBreaks,
+        (long long)m_vfrRunStats.missing30PatchDeintBreaks,
+        (long long)m_vfrRunStats.sourceMissingFallbackBreaks);
+    logKfmProfileStats();
     m_rtgmc.reset();
     m_deint60Rtgmc.reset();
     m_before60Rtgmc.reset();
@@ -7289,6 +7487,8 @@ void RGYFilterKfm::close() {
     if (auto clearFMCountSts = clearPendingFMCounts(); clearFMCountSts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to clear KFM pending FMCount buffers: %s.\n"), get_err_mes(clearFMCountSts));
     }
+    m_vfrRunStats = KfmVfrRunStats();
+    m_kfmProfile = KfmProfileStats();
     m_fmCountBufPool.clear();
     for (auto& raw : m_telecineSuperRaw) {
         raw.reset();

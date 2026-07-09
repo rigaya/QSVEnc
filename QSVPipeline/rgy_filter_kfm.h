@@ -270,6 +270,8 @@ protected:
     void finalizeAnalyzerResults(VppKfmTiming timing);
     std::vector<RGYKFM::KFMResult> analyzerResultsSnapshot(bool mark60p) const;
     void appendAnalyzerResults(size_t resultCount, bool dump, bool mark60p);
+    void logKfmProfileStats();
+    bool deriveSwitchTimingAt(KfmSwitchTiming& timing, int n60, int total60) const;
     std::vector<KfmSwitchTiming> deriveSwitchTimings(int total60) const;
     int64_t sourceFrameDuration(const KfmCachedSource *source) const;
     bool isSwitchSingleFrameN60(int n60) const;
@@ -443,6 +445,84 @@ protected:
         KfmPendingVfrOutput() : frame(), event() {};
     };
 
+    struct KfmVfrRunStats {
+        int64_t inputCalls;
+        int64_t drainCalls;
+        int64_t inputZeroOut;
+        int64_t inputSingleOut;
+        int64_t inputMultiOut;
+        int64_t drainZeroOut;
+        int64_t drainSingleOut;
+        int64_t drainMultiOut;
+        int maxInputOut;
+        int maxDrainOut;
+        int maxPendingOutputs;
+        int maxOutputLag60;
+        int maxSourceFrames;
+        int maxSourceCacheSize;
+        int maxAnalyzerResults;
+        int maxTimingCount;
+        int64_t noTimingBreaks;
+        int64_t tailHoldBreaks;
+        int64_t moreData24RenderBreaks;
+        int64_t moreData24SuperBreaks;
+        int64_t moreData24NextSuperBreaks;
+        int64_t frontier24Breaks;
+        int64_t moreData24PatchDeintBreaks;
+        int64_t moreData60EnsureBreaks;
+        int64_t missingDeint60Breaks;
+        int64_t sourceMissing30Breaks;
+        int64_t moreData30PatchDeintBreaks;
+        int64_t missing30PatchDeintBreaks;
+        int64_t sourceMissingFallbackBreaks;
+        int64_t zeroOutNoPendingCalls;
+
+        KfmVfrRunStats() :
+            inputCalls(0), drainCalls(0),
+            inputZeroOut(0), inputSingleOut(0), inputMultiOut(0),
+            drainZeroOut(0), drainSingleOut(0), drainMultiOut(0),
+            maxInputOut(0), maxDrainOut(0), maxPendingOutputs(0), maxOutputLag60(0),
+            maxSourceFrames(0), maxSourceCacheSize(0), maxAnalyzerResults(0), maxTimingCount(0),
+            noTimingBreaks(0), tailHoldBreaks(0),
+            moreData24RenderBreaks(0), moreData24SuperBreaks(0), moreData24NextSuperBreaks(0), frontier24Breaks(0),
+            moreData24PatchDeintBreaks(0), moreData60EnsureBreaks(0), missingDeint60Breaks(0),
+            sourceMissing30Breaks(0), moreData30PatchDeintBreaks(0), missing30PatchDeintBreaks(0),
+            sourceMissingFallbackBreaks(0), zeroOutNoPendingCalls(0) {};
+    };
+    struct KfmProfileCounter {
+        int64_t calls;
+        int64_t totalNs;
+        int64_t maxNs;
+        int maxItems;
+
+        KfmProfileCounter() : calls(0), totalNs(0), maxNs(0), maxItems(0) {};
+        void add(int64_t elapsedNs, int items = 0) {
+            calls++;
+            totalNs += elapsedNs;
+            if (elapsedNs > maxNs) {
+                maxNs = elapsedNs;
+                maxItems = items;
+            }
+        }
+    };
+    struct KfmProfileStats {
+        bool enabled;
+        KfmProfileCounter submitFMCounts;
+        KfmProfileCounter readbackFMCounts;
+        KfmProfileCounter analyzeCpu;
+        KfmProfileCounter analyzerTrailing;
+        KfmProfileCounter appendAnalyzer;
+        KfmProfileCounter snapshotCopy;
+        KfmProfileCounter snapshotMark60p;
+        KfmProfileCounter appendWrite;
+        KfmProfileCounter writeFinal;
+        KfmProfileCounter deriveTimings;
+        KfmProfileCounter emitPending;
+        KfmProfileCounter vfrScheduler;
+
+        KfmProfileStats() : enabled(false) {};
+    };
+
     std::array<RGYOpenCLProgramAsync, 8> m_programs;
     std::unique_ptr<RGYFilterRtgmc> m_rtgmc;
     std::unique_ptr<RGYFilterRtgmc> m_deint60Rtgmc;
@@ -470,6 +550,8 @@ protected:
     RGYOpenCLQueue m_fmCountQueue;
     std::deque<KfmPendingFMCount> m_pendingFMCounts;
     std::deque<KfmPendingVfrOutput> m_pendingVfrOutputs;
+    KfmVfrRunStats m_vfrRunStats;
+    mutable KfmProfileStats m_kfmProfile;
     std::array<std::unique_ptr<RGYCLBuf>, 2> m_telecineSuperRaw;
     std::array<std::unique_ptr<RGYCLFrame>, 2> m_telecineSuperFrames;
     std::array<std::unique_ptr<RGYCLFrame>, 2> m_telecineSuperNeighborFrames;
