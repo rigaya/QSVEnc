@@ -38,6 +38,10 @@
 #include <limits.h>
 #endif
 
+#ifndef LIBVMAF_STATIC_CUDA_LINK
+#define LIBVMAF_STATIC_CUDA_LINK 0
+#endif
+
 #if defined(_WIN32) || defined(_WIN64)
 const TCHAR *RGY_LIBVMAF_FILENAME = _T("libvmaf.dll");
 #elif LIBVMAF_STATIC_LINK
@@ -95,6 +99,8 @@ RGYLibVMAFLoader::RGYLibVMAFLoader() :
     m_vmaf_use_features_from_model_collection(nullptr),
     m_vmaf_use_feature(nullptr),
     m_vmaf_read_pictures(nullptr),
+    m_vmaf_feature_score_at_index(nullptr),
+    m_vmaf_score_at_index(nullptr),
     m_vmaf_score_pooled(nullptr),
     m_vmaf_score_pooled_model_collection(nullptr),
     m_vmaf_model_load(nullptr),
@@ -106,6 +112,10 @@ RGYLibVMAFLoader::RGYLibVMAFLoader() :
     m_vmaf_picture_alloc(nullptr),
     m_vmaf_picture_unref(nullptr),
     m_vmaf_version(nullptr),
+    m_vmaf_cuda_state_init(nullptr),
+    m_vmaf_cuda_import_state(nullptr),
+    m_vmaf_cuda_preallocate_pictures(nullptr),
+    m_vmaf_cuda_fetch_preallocated_picture(nullptr),
     m_vmaf_use_vmafossexec_aliases(nullptr),
     m_version(),
     m_versionClass(RGYLibVMAFVersion::UNKNOWN) {
@@ -127,6 +137,8 @@ bool RGYLibVMAFLoader::load() {
     m_vmaf_use_features_from_model_collection = &vmaf_use_features_from_model_collection;
     m_vmaf_use_feature = &vmaf_use_feature;
     m_vmaf_read_pictures = &vmaf_read_pictures;
+    m_vmaf_feature_score_at_index = &vmaf_feature_score_at_index;
+    m_vmaf_score_at_index = &vmaf_score_at_index;
     m_vmaf_score_pooled = &vmaf_score_pooled;
     m_vmaf_score_pooled_model_collection = &vmaf_score_pooled_model_collection;
     m_vmaf_model_load = &vmaf_model_load;
@@ -138,6 +150,17 @@ bool RGYLibVMAFLoader::load() {
     m_vmaf_picture_alloc = &vmaf_picture_alloc;
     m_vmaf_picture_unref = &vmaf_picture_unref;
     m_vmaf_version = &vmaf_version;
+#if LIBVMAF_STATIC_CUDA_LINK
+    m_vmaf_cuda_state_init = &vmaf_cuda_state_init;
+    m_vmaf_cuda_import_state = &vmaf_cuda_import_state;
+    m_vmaf_cuda_preallocate_pictures = &vmaf_cuda_preallocate_pictures;
+    m_vmaf_cuda_fetch_preallocated_picture = &vmaf_cuda_fetch_preallocated_picture;
+#else
+    m_vmaf_cuda_state_init = nullptr;
+    m_vmaf_cuda_import_state = nullptr;
+    m_vmaf_cuda_preallocate_pictures = nullptr;
+    m_vmaf_cuda_fetch_preallocated_picture = nullptr;
+#endif
     m_vmaf_use_vmafossexec_aliases = nullptr;
     m_version = (m_vmaf_version != nullptr && m_vmaf_version() != nullptr) ? m_vmaf_version() : "";
     m_versionClass = rgy_libvmaf_version_class(m_version, std::string(), false);
@@ -161,6 +184,8 @@ bool RGYLibVMAFLoader::load() {
     if (!loadFunc("vmaf_use_features_from_model_collection", (void **)&m_vmaf_use_features_from_model_collection)) { close(); return false; }
     if (!loadFunc("vmaf_use_feature", (void **)&m_vmaf_use_feature)) { close(); return false; }
     if (!loadFunc("vmaf_read_pictures", (void **)&m_vmaf_read_pictures)) { close(); return false; }
+    if (!loadFunc("vmaf_feature_score_at_index", (void **)&m_vmaf_feature_score_at_index)) { close(); return false; }
+    if (!loadFunc("vmaf_score_at_index", (void **)&m_vmaf_score_at_index)) { close(); return false; }
     if (!loadFunc("vmaf_score_pooled", (void **)&m_vmaf_score_pooled)) { close(); return false; }
     if (!loadFunc("vmaf_score_pooled_model_collection", (void **)&m_vmaf_score_pooled_model_collection)) { close(); return false; }
     if (!loadFunc("vmaf_model_load", (void **)&m_vmaf_model_load)) { close(); return false; }
@@ -173,6 +198,10 @@ bool RGYLibVMAFLoader::load() {
     if (!loadFunc("vmaf_picture_unref", (void **)&m_vmaf_picture_unref)) { close(); return false; }
     if (!loadFunc("vmaf_version", (void **)&m_vmaf_version)) { close(); return false; }
 
+    m_vmaf_cuda_state_init = (decltype(m_vmaf_cuda_state_init))RGY_GET_PROC_ADDRESS(m_hModule, "vmaf_cuda_state_init");
+    m_vmaf_cuda_import_state = (decltype(m_vmaf_cuda_import_state))RGY_GET_PROC_ADDRESS(m_hModule, "vmaf_cuda_import_state");
+    m_vmaf_cuda_preallocate_pictures = (decltype(m_vmaf_cuda_preallocate_pictures))RGY_GET_PROC_ADDRESS(m_hModule, "vmaf_cuda_preallocate_pictures");
+    m_vmaf_cuda_fetch_preallocated_picture = (decltype(m_vmaf_cuda_fetch_preallocated_picture))RGY_GET_PROC_ADDRESS(m_hModule, "vmaf_cuda_fetch_preallocated_picture");
     m_vmaf_use_vmafossexec_aliases = RGY_GET_PROC_ADDRESS(m_hModule, "vmaf_use_vmafossexec_aliases");
     m_version = (m_vmaf_version != nullptr && m_vmaf_version() != nullptr) ? m_vmaf_version() : "";
     std::string modulePath;
@@ -212,6 +241,8 @@ void RGYLibVMAFLoader::close() {
     m_vmaf_use_features_from_model_collection = nullptr;
     m_vmaf_use_feature = nullptr;
     m_vmaf_read_pictures = nullptr;
+    m_vmaf_feature_score_at_index = nullptr;
+    m_vmaf_score_at_index = nullptr;
     m_vmaf_score_pooled = nullptr;
     m_vmaf_score_pooled_model_collection = nullptr;
     m_vmaf_model_load = nullptr;
@@ -223,9 +254,20 @@ void RGYLibVMAFLoader::close() {
     m_vmaf_picture_alloc = nullptr;
     m_vmaf_picture_unref = nullptr;
     m_vmaf_version = nullptr;
+    m_vmaf_cuda_state_init = nullptr;
+    m_vmaf_cuda_import_state = nullptr;
+    m_vmaf_cuda_preallocate_pictures = nullptr;
+    m_vmaf_cuda_fetch_preallocated_picture = nullptr;
     m_vmaf_use_vmafossexec_aliases = nullptr;
     m_version.clear();
     m_versionClass = RGYLibVMAFVersion::UNKNOWN;
+}
+
+bool RGYLibVMAFLoader::has_cuda() const {
+    return m_vmaf_cuda_state_init != nullptr
+        && m_vmaf_cuda_import_state != nullptr
+        && m_vmaf_cuda_preallocate_pictures != nullptr
+        && m_vmaf_cuda_fetch_preallocated_picture != nullptr;
 }
 
 #endif // ENABLE_VMAF
