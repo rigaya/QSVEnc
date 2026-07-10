@@ -4285,6 +4285,7 @@ RGYParamParallelEnc::RGYParamParallelEnc() :
     chunkPipeHandles(),
     cacheMode(RGYParamParallelEncCache::Mem),
     delayChildSync(false),
+    forceLargeMemoryFilters(false),
     sendData(nullptr) {
 
 };
@@ -4295,7 +4296,8 @@ bool RGYParamParallelEnc::operator==(const RGYParamParallelEnc &x) const {
         && targetBFrames == x.targetBFrames
         && chunkPipeHandles.size() == x.chunkPipeHandles.size()
         && std::equal(chunkPipeHandles.begin(), chunkPipeHandles.end(), x.chunkPipeHandles.begin())
-        && cacheMode == x.cacheMode;
+        && cacheMode == x.cacheMode
+        && forceLargeMemoryFilters == x.forceLargeMemoryFilters;
 }
 bool RGYParamParallelEnc::operator!=(const RGYParamParallelEnc &x) const {
     return !(*this == x);

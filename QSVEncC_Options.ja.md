@@ -289,6 +289,7 @@
   - [--vpp-perf-monitor](#--vpp-perf-monitor)
 - [制御系のオプション](#制御系のオプション)
   - [--parallel \[\<int\>\] or \[\<string\>\]](#--parallel-int-or-string)
+  - [--parallel-force-large-memory-filters](#--parallel-force-large-memory-filters)
   - [-a, --async-depth \<int\>](#-a---async-depth-int)
   - [--input-buf \<int\>](#--input-buf-int)
   - [--output-buf \<int\>](#--output-buf-int)
@@ -4274,6 +4275,11 @@ AIベースのフレーム補間を用いて、フレームレートを倍にす
   例: 3並列で実行
   --parallel 3
   ```
+
+### --parallel-force-large-memory-filters
+GPUメモリ使用量の大きいフィルタに対して --parallel の並列数の自動制限が適用される場合、その制限を無効化する。
+
+GPUメモリ不足によるエラーや性能低下が起きやすくなるため、十分なGPUメモリがある場合のみ指定する。
 
 ### -a, --async-depth &lt;int&gt;
 QSVパイプラインに先行投入するフレーム数を指定する。

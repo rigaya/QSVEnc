@@ -34,7 +34,11 @@
 #include <cstdlib>
 #include "rgy_util.h"
 #include "rgy_avutil.h"
+#if ENCODER_NVENC
+#include "NVEncFilterRtgmcSearchPrefilter.h"
+#else
 #include "rgy_filter_rtgmc_repair_profile.h"
+#endif
 #include "rgy_prm.h"
 #include "rgy_cmd.h"
 #include "rgy_language.h"
@@ -6007,13 +6011,11 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
-#if ENABLE_OPENVINO
-    if (IS_OPTION("vpp-onnx-cache-dir") && ENABLE_VPP_FILTER_ONNX) {
+    if (IS_OPTION("vpp-onnx-cache-dir") && ENABLE_VPP_FILTER_ONNX && ENABLE_OPENVINO) {
         i++;
         vpp->onnx.cacheDir = tstring(strInput[i]);
         return 0;
     }
-#endif
     if (IS_OPTION("vpp-denoise-dct") && ENABLE_VPP_FILTER_DENOISE_DCT) {
         vpp->dct.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
@@ -7710,6 +7712,9 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     continue;
                 }
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
                 return 1;
             }
         }
@@ -12698,6 +12703,10 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
         }
         return 0;
     }
+    if (IS_OPTION("parallel-force-large-memory-filters") && ENABLE_PARALLEL_ENC) {
+        ctrl->parallelEnc.forceLargeMemoryFilters = true;
+        return 0;
+    }
     if (IS_OPTION("process-monitor-dev-usage")) {
         ctrl->processMonitorDevUsage = true;
         return 0;
@@ -13642,11 +13651,9 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
         }
         cmd << _T(" --vpp-rife-ov ") << tmp.str().substr(1);
     }
-#if ENABLE_OPENVINO
     if (!param->onnx.cacheDir.empty()) {
         cmd << _T(" --vpp-onnx-cache-dir ") << param->onnx.cacheDir;
     }
-#endif
     if (param->dct != defaultPrm->dct) {
         tmp.str(tstring());
         if (!param->dct.enable && save_disabled_prm) {
@@ -15070,6 +15077,7 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
         if (!tmp.str().empty()) {
             cmd << _T(" --parallel ") << tmp.str().substr(1);
         }
+        OPT_BOOL(_T("--parallel-force-large-memory-filters"), _T(""), parallelEnc.forceLargeMemoryFilters);
     }
     return cmd.str();
 }
@@ -16814,18 +16822,16 @@ tstring gen_cmd_help_vpp() {
         _T("        negative, vintage\n")
         _T("      interp=<string>           interpolation between points (default=spline)\n")
         _T("                                  spline, pchip\n")
-                _T("      all=<string>\n")
+        _T("      all=<string>\n")
         _T("        set fallback curve points for r/g/b when not set explicitly.\n")
-_T("      m=<string>\n")
+        _T("      m=<string>\n")
         _T("        set master curve points, post process for luminance.\n")
         _T("      r=<string>\n")
         _T("        set curve points for red. Will override preset settings.\n")
         _T("      g=<string>\n")
         _T("        set curve points for green. Will override preset settings.\n")
         _T("      b=<string>\n")
-        _T("        set curve points for blue. Will override preset settings.\n")
-        _T("      all=<string>\n")
-        _T("        set curve points for r,g,b when not specified. Will override preset settings.\n"));
+        _T("        set curve points for blue. Will override preset settings.\n"));
 #endif
 #if ENABLE_VPP_FILTER_SOFTLIGHT
     str += strsprintf(_T("\n")
@@ -16960,6 +16966,8 @@ tstring gen_cmd_help_ctrl() {
     tstring str = strsprintf(_T("\n")
 #if ENABLE_PARALLEL_ENC
         _T("   --parallel <int> or auto     Enable parallel encoding by file splitting.\n")
+        _T("   --parallel-force-large-memory-filters\n")
+        _T("                                Disable large memory filter parallel count limit.\n")
 #endif
         _T("   --log <string>               set log file name\n")
         _T("   --log-level <string>         set log level\n")
@@ -17112,9 +17120,11 @@ tstring gen_cmd_help_ctrl() {
         _T("   --cl-perf-timeline [=<sec>]  enable per-event timeline capture for <sec> seconds (default 10).\n")
         _T("                                requires --cl-perf-dump. output: timeline.jsonl\n"));
 #endif
+#if ENCODER_QSV || ENCODER_VCEENC || ENCODER_MPP
     str += strsprintf(_T("\n")
         _T("   --python <string>            set python path for --perf-monitor-plot\n")
         _T("                                 and --cl-perf-dump report generation.\n"));
+#endif
     str += strsprintf(_T("\n")
         _T("   --disable-vulkan             disable vulkan features.\n"));
     str += strsprintf(_T("\n")
