@@ -39,7 +39,6 @@
 #include <atomic>
 #include <thread>
 #include <mutex>
-#include <exception>
 #include "qsv_hw_device.h"
 #include "rgy_opencl.h"
 #include "qsv_opencl.h"
@@ -2485,12 +2484,6 @@ protected:
     std::atomic<bool> m_releaseThreadAbort;
     std::atomic<int> m_releaseWorkInFlight;
     std::mutex m_interopMtx;
-    // RGYQueueMPMP は単独の push/pop は thread-safe だが、size()/capacity() を見てから
-    // no_lock pop や push を行う複合操作は外側で直列化しないと、別スレッドの同時操作と競合する。
-    // 長時間実行時に stop/drain と worker pop が重なると、delete 済み work pointer を拾って
-    // 例外終了することがあるため、worker 用ポインタキューはここでまとめて保護する。
-    mutable std::mutex m_acquireTaskQueueMtx;
-    mutable std::mutex m_releaseTaskQueueMtx;
     RGYFrameInfo m_acquireFrameInInfo;
     bool m_acquireDrainSent;
     bool m_acquireDrainReady;
@@ -2551,11 +2544,8 @@ protected:
             }
             auto hold = std::make_unique<AcquireFrameHold>(std::move(prevframe.frame), prevframe.event, prevframe.waitEvent);
             auto holdPtr = hold.get();
-            if (useAcquireWorker() && !m_acquireThreadAbort.load()) {
-                std::lock_guard<std::mutex> lock(m_acquireTaskQueueMtx);
-                if (m_acquireFreeQueue.size() < m_acquireFreeQueue.capacity() && m_acquireFreeQueue.push(holdPtr)) {
-                    hold.release();
-                }
+            if (useAcquireWorker() && !m_acquireThreadAbort.load() && m_acquireFreeQueue.size() < m_acquireFreeQueue.capacity() && m_acquireFreeQueue.push(holdPtr)) {
+                hold.release();
             }
         }
     }
@@ -2603,7 +2593,6 @@ protected:
         m_releaseThread = std::make_unique<std::thread>(&PipelineTaskOpenCL::runReleaseWorker, this);
     }
     void drainAcquireQueues() {
-        std::lock_guard<std::mutex> lock(m_acquireTaskQueueMtx);
         AcquireWork *work = nullptr;
         while (m_acquireInQueue.front_copy_and_pop_no_lock(&work)) {
             delete work;
@@ -2621,7 +2610,6 @@ protected:
         }
     }
     void drainReleaseQueues() {
-        std::lock_guard<std::mutex> lock(m_releaseTaskQueueMtx);
         ReleaseAcquireWork *acquire = nullptr;
         while (m_releaseAcquireQueue.front_copy_and_pop_no_lock(&acquire)) {
             delete acquire;
@@ -2647,20 +2635,16 @@ public:
     void stopAcquireWorker() {
         if (m_acquireThread) {
             m_acquireThreadAbort.store(true);
-            {
-                std::lock_guard<std::mutex> lock(m_acquireTaskQueueMtx);
-                if (m_acquireInQueue.size() < m_acquireInQueue.capacity()) {
-                    auto work = std::make_unique<AcquireWork>();
-                    work->stop = true;
-                    auto workPtr = work.get();
-                    if (m_acquireInQueue.push(workPtr)) {
-                        work.release();
-                    }
+            if (m_acquireInQueue.size() < m_acquireInQueue.capacity()) {
+                auto work = std::make_unique<AcquireWork>();
+                work->stop = true;
+                auto workPtr = work.get();
+                if (m_acquireInQueue.push(workPtr)) {
+                    work.release();
                 }
             }
             while (m_acquireThread->joinable()) {
-                // abort 後も worker が stop work を pop するまでキューを読む可能性がある。
-                // join 前に drain/delete すると worker 側が解放済み pointer を参照しうる。
+                drainAcquireQueues();
                 m_acquireThread->join();
                 break;
             }
@@ -2690,28 +2674,24 @@ public:
     void stopReleaseWorker() {
         if (m_releaseThread) {
             m_releaseThreadAbort.store(true);
-            {
-                std::lock_guard<std::mutex> lock(m_releaseTaskQueueMtx);
-                if (m_releaseAcquireQueue.size() < m_releaseAcquireQueue.capacity()) {
-                    auto work = std::make_unique<ReleaseAcquireWork>();
-                    work->stop = true;
-                    auto workPtr = work.get();
-                    if (m_releaseAcquireQueue.push(workPtr)) {
-                        work.release();
-                    }
+            if (m_releaseAcquireQueue.size() < m_releaseAcquireQueue.capacity()) {
+                auto work = std::make_unique<ReleaseAcquireWork>();
+                work->stop = true;
+                auto workPtr = work.get();
+                if (m_releaseAcquireQueue.push(workPtr)) {
+                    work.release();
                 }
-                if (m_releaseWorkQueue.size() < m_releaseWorkQueue.capacity()) {
-                    auto work = std::make_unique<ReleaseWork>();
-                    work->stop = true;
-                    auto workPtr = work.get();
-                    if (m_releaseWorkQueue.push(workPtr)) {
-                        work.release();
-                    }
+            }
+            if (m_releaseWorkQueue.size() < m_releaseWorkQueue.capacity()) {
+                auto work = std::make_unique<ReleaseWork>();
+                work->stop = true;
+                auto workPtr = work.get();
+                if (m_releaseWorkQueue.push(workPtr)) {
+                    work.release();
                 }
             }
             while (m_releaseThread->joinable()) {
-                // abort 後も worker が stop work を pop するまでキューを読む可能性がある。
-                // join 前に drain/delete すると worker 側が解放済み pointer を参照しうる。
+                drainReleaseQueues();
                 m_releaseThread->join();
                 break;
             }
@@ -2749,14 +2729,11 @@ public:
 protected:
     bool pushAcquireReady(std::unique_ptr<AcquireReady>& ready) {
         while (!m_acquireThreadAbort.load()) {
-            {
-                std::lock_guard<std::mutex> lock(m_acquireTaskQueueMtx);
-                if (m_acquireReadyQueue.size() < m_acquireReadyQueue.capacity()) {
-                    auto readyPtr = ready.get();
-                    if (m_acquireReadyQueue.push(readyPtr)) {
-                        ready.release();
-                        return true;
-                    }
+            if (m_acquireReadyQueue.size() < m_acquireReadyQueue.capacity()) {
+                auto readyPtr = ready.get();
+                if (m_acquireReadyQueue.push(readyPtr)) {
+                    ready.release();
+                    return true;
                 }
             }
             rgy_yield();
@@ -2764,14 +2741,8 @@ protected:
         return false;
     }
     std::unique_ptr<RGYCLFrame> getAcquireWorkerFrame(const RGYFrameInfo& frameInfo) {
-        while (true) {
-            AcquireFrameHold *holdPtr = nullptr;
-            {
-                std::lock_guard<std::mutex> lock(m_acquireTaskQueueMtx);
-                if (!m_acquireFreeQueue.front_copy_and_pop_no_lock(&holdPtr)) {
-                    break;
-                }
-            }
+        AcquireFrameHold *holdPtr = nullptr;
+        while (m_acquireFreeQueue.front_copy_and_pop_no_lock(&holdPtr)) {
             std::unique_ptr<AcquireFrameHold> hold(holdPtr);
             if (hold->waitEvent && hold->event()) {
                 hold->event.wait();
@@ -2782,40 +2753,10 @@ protected:
         }
         return m_cl->createFrameBuffer(frameInfo);
     }
-    RGY_ERR setAcquireFrameReuseEvent(const RGYFrameInfo& frameInfo, const RGYOpenCLEvent& event) {
-        if (m_prevAcquireFrame.empty()
-            || !m_prevAcquireFrame.back().frame
-            || m_prevAcquireFrame.back().frame->frame.ptr[0] != frameInfo.ptr[0]) {
-            return RGY_ERR_NONE;
-        }
-        if (event() != nullptr) {
-            m_prevAcquireFrame.back().event = event;
-            m_prevAcquireFrame.back().waitEvent = true;
-            return RGY_ERR_NONE;
-        }
-        // KFM VFR のように 0 枚出力でも内部で非同期 copy/cache を発行するフィルタがある。
-        // acquire worker の staging frame は再利用されるため、ここで main queue 側の完了点を必ず記録する。
-        // filter が event を返さない場合も marker を入れて、staging frame の再利用を main queue 到達後に遅らせる。
-        RGYOpenCLEvent markerEvent;
-        auto err = m_cl->queue().getmarker(markerEvent);
-        if (err != RGY_ERR_NONE) {
-            PrintMes(RGY_LOG_ERROR, _T("Failed to enqueue OpenCL marker for acquire worker frame reuse: %s.\n"), get_err_mes(err));
-            return err;
-        }
-        m_prevAcquireFrame.back().event = markerEvent;
-        m_prevAcquireFrame.back().waitEvent = true;
-        return RGY_ERR_NONE;
-    }
-    void runAcquireWorkerLoop() {
+    void runAcquireWorker() {
         while (true) {
             AcquireWork *workPtr = nullptr;
-            while (true) {
-                {
-                    std::lock_guard<std::mutex> lock(m_acquireTaskQueueMtx);
-                    if (m_acquireInQueue.front_copy_and_pop_no_lock(&workPtr)) {
-                        break;
-                    }
-                }
+            while (!m_acquireInQueue.front_copy_and_pop_no_lock(&workPtr)) {
                 if (m_acquireThreadAbort.load()) {
                     return;
                 }
@@ -2839,8 +2780,7 @@ protected:
             ready->frame = std::move(work->frame);
             auto taskSurf = dynamic_cast<PipelineTaskOutputSurf *>(ready->frame.get());
             if (taskSurf == nullptr) {
-                PrintMes(RGY_LOG_ERROR, _T("Invalid task surface in acquire worker: frame=%p, type=%d.\n"),
-                    ready->frame.get(), ready->frame ? (int)ready->frame->type() : -1);
+                PrintMes(RGY_LOG_ERROR, _T("Invalid task surface.\n"));
                 setAcquireWorkerError(RGY_ERR_NULL_PTR);
                 if (!pushAcquireReady(ready)) {
                     return;
@@ -2946,73 +2886,30 @@ protected:
             }
         }
     }
-    void runAcquireWorker() {
-        try {
-            runAcquireWorkerLoop();
-        } catch (const std::exception& e) {
-            PrintMes(RGY_LOG_ERROR, _T("OpenCL acquire worker exception: %S.\n"), e.what());
-            setAcquireWorkerError(RGY_ERR_UNKNOWN);
-        } catch (...) {
-            PrintMes(RGY_LOG_ERROR, _T("OpenCL acquire worker unknown exception.\n"));
-            setAcquireWorkerError(RGY_ERR_UNKNOWN);
-        }
-    }
     RGY_ERR pushAcquireWork(std::unique_ptr<PipelineTaskOutput>& frame) {
         if (frame) {
-            auto taskSurf = dynamic_cast<PipelineTaskOutputSurf *>(frame.get());
-            if (taskSurf == nullptr) {
-                PrintMes(RGY_LOG_ERROR, _T("Invalid task surface before acquire worker enqueue: frame=%p, type=%d.\n"),
-                    frame.get(), (int)frame->type());
-                return RGY_ERR_NULL_PTR;
-            }
             auto work = std::make_unique<AcquireWork>();
             work->frame = std::move(frame);
             auto workPtr = work.get();
-            while (!m_acquireThreadAbort.load()) {
-                {
-                    std::lock_guard<std::mutex> lock(m_acquireTaskQueueMtx);
-                    if (m_acquireInQueue.size() < m_acquireInQueue.capacity()) {
-                        if (!m_acquireInQueue.push(workPtr)) {
-                            return RGY_ERR_MEMORY_ALLOC;
-                        }
-                        work.release();
-                        return RGY_ERR_NONE;
-                    }
-                }
-                rgy_yield();
+            if (!m_acquireInQueue.push(workPtr)) {
+                return RGY_ERR_MEMORY_ALLOC;
             }
-            return RGY_ERR_ABORTED;
+            work.release();
         } else if (!m_acquireDrainSent) {
             auto work = std::make_unique<AcquireWork>();
             work->drain = true;
             auto workPtr = work.get();
-            while (!m_acquireThreadAbort.load()) {
-                {
-                    std::lock_guard<std::mutex> lock(m_acquireTaskQueueMtx);
-                    if (m_acquireInQueue.size() < m_acquireInQueue.capacity()) {
-                        if (!m_acquireInQueue.push(workPtr)) {
-                            return RGY_ERR_MEMORY_ALLOC;
-                        }
-                        work.release();
-                        m_acquireDrainSent = true;
-                        return RGY_ERR_NONE;
-                    }
-                }
-                rgy_yield();
+            if (!m_acquireInQueue.push(workPtr)) {
+                return RGY_ERR_MEMORY_ALLOC;
             }
-            return RGY_ERR_ABORTED;
+            work.release();
+            m_acquireDrainSent = true;
         }
         return RGY_ERR_NONE;
     }
     std::unique_ptr<AcquireReady> popAcquireReady(bool wait) {
         AcquireReady *readyPtr = nullptr;
-        while (true) {
-            {
-                std::lock_guard<std::mutex> lock(m_acquireTaskQueueMtx);
-                if (m_acquireReadyQueue.front_copy_and_pop_no_lock(&readyPtr)) {
-                    break;
-                }
-            }
+        while (!m_acquireReadyQueue.front_copy_and_pop_no_lock(&readyPtr)) {
             if (!wait) {
                 return nullptr;
             }
@@ -3022,14 +2919,11 @@ protected:
     }
     bool pushReleaseReady(std::unique_ptr<ReleaseReady>& ready) {
         while (!m_releaseThreadAbort.load()) {
-            {
-                std::lock_guard<std::mutex> lock(m_releaseTaskQueueMtx);
-                if (m_releaseReadyQueue.size() < m_releaseReadyQueue.capacity()) {
-                    auto readyPtr = ready.get();
-                    if (m_releaseReadyQueue.push(readyPtr)) {
-                        ready.release();
-                        return true;
-                    }
+            if (m_releaseReadyQueue.size() < m_releaseReadyQueue.capacity()) {
+                auto readyPtr = ready.get();
+                if (m_releaseReadyQueue.push(readyPtr)) {
+                    ready.release();
+                    return true;
                 }
             }
             rgy_yield();
@@ -3038,29 +2932,22 @@ protected:
     }
     bool pushReleaseDone(std::unique_ptr<PipelineTaskOutputSurf>& done) {
         while (!m_releaseThreadAbort.load()) {
-            {
-                std::lock_guard<std::mutex> lock(m_releaseTaskQueueMtx);
-                if (m_releaseDoneQueue.size() < m_releaseDoneQueue.capacity()) {
-                    auto donePtr = done.get();
-                    if (m_releaseDoneQueue.push(donePtr)) {
-                        done.release();
-                        return true;
-                    }
+            if (m_releaseDoneQueue.size() < m_releaseDoneQueue.capacity()) {
+                auto donePtr = done.get();
+                if (m_releaseDoneQueue.push(donePtr)) {
+                    done.release();
+                    return true;
                 }
             }
             rgy_yield();
         }
         return false;
     }
-    void runReleaseWorkerLoop() {
+    void runReleaseWorker() {
         while (!m_releaseThreadAbort.load()) {
             bool processed = false;
             ReleaseWork *workPtr = nullptr;
-            {
-                std::lock_guard<std::mutex> lock(m_releaseTaskQueueMtx);
-                processed = m_releaseWorkQueue.front_copy_and_pop_no_lock(&workPtr);
-            }
-            if (processed) {
+            if (m_releaseWorkQueue.front_copy_and_pop_no_lock(&workPtr)) {
                 processed = true;
                 std::unique_ptr<ReleaseWork> work(workPtr);
                 if (!work || work->stop) {
@@ -3107,14 +2994,7 @@ protected:
                 m_releaseWorkInFlight--;
             }
             ReleaseAcquireWork *acquirePtr = nullptr;
-            bool acquiredWork = false;
-            {
-                std::lock_guard<std::mutex> lock(m_releaseTaskQueueMtx);
-                // MSVC の長尺デバッグではここで release acquire work の不正 pointer を拾っていた。
-                // stop/drain 側も同じ mutex を取ることで、pop と delete の競合を避ける。
-                acquiredWork = m_releaseAcquireQueue.front_copy_and_pop_no_lock(&acquirePtr);
-            }
-            if (acquiredWork) {
+            if (m_releaseAcquireQueue.front_copy_and_pop_no_lock(&acquirePtr)) {
                 processed = true;
                 std::unique_ptr<ReleaseAcquireWork> acquire(acquirePtr);
                 if (!acquire || acquire->stop) {
@@ -3161,27 +3041,13 @@ protected:
             }
         }
     }
-    void runReleaseWorker() {
-        try {
-            runReleaseWorkerLoop();
-        } catch (const std::exception& e) {
-            PrintMes(RGY_LOG_ERROR, _T("OpenCL release worker exception: %S.\n"), e.what());
-            setReleaseWorkerError(RGY_ERR_UNKNOWN);
-        } catch (...) {
-            PrintMes(RGY_LOG_ERROR, _T("OpenCL release worker unknown exception.\n"));
-            setReleaseWorkerError(RGY_ERR_UNKNOWN);
-        }
-    }
     RGY_ERR feedReleaseAcquireQueue() {
         if (!useReleaseWorker()) {
             return RGY_ERR_NONE;
         }
         while (!m_releaseThreadAbort.load()
-            && [&]() {
-                std::lock_guard<std::mutex> lock(m_releaseTaskQueueMtx);
-                return (m_releaseAcquireQueue.size() + m_releaseReadyQueue.size()) < m_releaseReadyQueue.capacity()
-                    && m_releaseAcquireQueue.size() < m_releaseAcquireQueue.capacity();
-            }()) {
+            && (m_releaseAcquireQueue.size() + m_releaseReadyQueue.size()) < m_releaseReadyQueue.capacity()
+            && m_releaseAcquireQueue.size() < m_releaseAcquireQueue.capacity()) {
             auto surf = getWorkSurf();
             if (surf == nullptr) {
                 return RGY_ERR_MORE_SURFACE;
@@ -3189,14 +3055,8 @@ protected:
             auto work = std::make_unique<ReleaseAcquireWork>();
             work->surf = surf;
             auto workPtr = work.get();
-            {
-                std::lock_guard<std::mutex> lock(m_releaseTaskQueueMtx);
-                if (m_releaseAcquireQueue.size() >= m_releaseAcquireQueue.capacity()) {
-                    return RGY_ERR_NONE;
-                }
-                if (!m_releaseAcquireQueue.push(workPtr)) {
-                    return RGY_ERR_MEMORY_ALLOC;
-                }
+            if (!m_releaseAcquireQueue.push(workPtr)) {
+                return RGY_ERR_MEMORY_ALLOC;
             }
             work.release();
         }
@@ -3204,13 +3064,7 @@ protected:
     }
     std::unique_ptr<ReleaseReady> popReleaseReady(bool wait) {
         ReleaseReady *readyPtr = nullptr;
-        while (true) {
-            {
-                std::lock_guard<std::mutex> lock(m_releaseTaskQueueMtx);
-                if (m_releaseReadyQueue.front_copy_and_pop_no_lock(&readyPtr)) {
-                    break;
-                }
-            }
+        while (!m_releaseReadyQueue.front_copy_and_pop_no_lock(&readyPtr)) {
             if (!wait) {
                 return nullptr;
             }
@@ -3227,13 +3081,10 @@ protected:
         work->encSurfaceInfo = encSurfaceInfo;
         auto workPtr = work.get();
         while (!m_releaseThreadAbort.load()) {
-            {
-                std::lock_guard<std::mutex> lock(m_releaseTaskQueueMtx);
-                if (m_releaseWorkQueue.size() < m_releaseWorkQueue.capacity()) {
-                    if (m_releaseWorkQueue.push(workPtr)) {
-                        work.release();
-                        return RGY_ERR_NONE;
-                    }
+            if (m_releaseWorkQueue.size() < m_releaseWorkQueue.capacity()) {
+                if (m_releaseWorkQueue.push(workPtr)) {
+                    work.release();
+                    return RGY_ERR_NONE;
                 }
             }
             collectReleaseDone(false);
@@ -3244,31 +3095,20 @@ protected:
     void collectReleaseDone(bool wait) {
         PipelineTaskOutputSurf *donePtr = nullptr;
         while (true) {
-            while (true) {
-                {
-                    std::lock_guard<std::mutex> lock(m_releaseTaskQueueMtx);
-                    if (!m_releaseDoneQueue.front_copy_and_pop_no_lock(&donePtr)) {
-                        break;
-                    }
-                }
+            while (m_releaseDoneQueue.front_copy_and_pop_no_lock(&donePtr)) {
                 m_outQeueue.push_back(std::unique_ptr<PipelineTaskOutput>(donePtr));
                 donePtr = nullptr;
             }
             if (!wait) {
                 return;
             }
-            const auto releaseDoneQueueSize = [&]() {
-                std::lock_guard<std::mutex> lock(m_releaseTaskQueueMtx);
-                return m_releaseDoneQueue.size();
-            }();
-            if (m_outQeueue.size() > 0 || releaseDoneQueueSize == 0) {
+            if (m_outQeueue.size() > 0 || m_releaseDoneQueue.size() == 0) {
                 return;
             }
             m_releaseDoneQueue.wait_for_push();
         }
     }
     bool hasReleaseWorkPending() const {
-        std::lock_guard<std::mutex> lock(m_releaseTaskQueueMtx);
         return m_releaseWorkQueue.size() > 0 || m_releaseDoneQueue.size() > 0 || m_releaseWorkInFlight.load() > 0;
     }
 public:
@@ -3456,16 +3296,16 @@ public:
                 if (!firstFilterWaitEvents.empty()) {
                     sts_filter = m_vpFilters[ifilter]->filter(&input, (RGYFrameInfo **)&outInfo, &nOutFrames, m_cl->queue(), firstFilterWaitEvents, &firstFilterDoneEvent);
                     firstFilterWaitEvents.clear();
+                    if (!m_prevAcquireFrame.empty() && !m_prevAcquireFrame.back().waitEvent && firstFilterDoneEvent()) {
+                        m_prevAcquireFrame.back().event = firstFilterDoneEvent;
+                        m_prevAcquireFrame.back().waitEvent = true;
+                    }
                 } else {
                     sts_filter = m_vpFilters[ifilter]->filter(&input, (RGYFrameInfo **)&outInfo, &nOutFrames);
                 }
                 if (sts_filter != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_vpFilters[ifilter]->name().c_str());
                     return sts_filter;
-                }
-                const auto reuseEventErr = setAcquireFrameReuseEvent(input, firstFilterDoneEvent);
-                if (reuseEventErr != RGY_ERR_NONE) {
-                    return reuseEventErr;
                 }
                 if (clFrameInInterop) {
                     RGYOpenCLEvent inputReleaseEvent;
@@ -3588,10 +3428,9 @@ public:
             RGYFrameInfo *outInfo[1];
             outInfo[0] = &encSurfaceInfo;
             RGYOpenCLEvent clevent; // 最終フィルタの処理完了を伝えるevent
-            auto lastFilterInput = filterframes.front().first;
             auto sts_filter = (!firstFilterWaitEvents.empty())
-                ? lastFilter->filter(&lastFilterInput, (RGYFrameInfo **)&outInfo, &nOutFrames, m_cl->queue(), firstFilterWaitEvents, &clevent)
-                : lastFilter->filter(&lastFilterInput, (RGYFrameInfo **)&outInfo, &nOutFrames, m_cl->queue(), &clevent);
+                ? lastFilter->filter(&filterframes.front().first, (RGYFrameInfo **)&outInfo, &nOutFrames, m_cl->queue(), firstFilterWaitEvents, &clevent)
+                : lastFilter->filter(&filterframes.front().first, (RGYFrameInfo **)&outInfo, &nOutFrames, m_cl->queue(), &clevent);
             firstFilterWaitEvents.clear();
             if (sts_filter != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), lastFilter->name().c_str());
@@ -3627,8 +3466,9 @@ public:
                     return sts_filter;
                 }
             }
-            if ((sts_filter = setAcquireFrameReuseEvent(lastFilterInput, clevent)) != RGY_ERR_NONE) {
-                return sts_filter;
+            if (!m_prevAcquireFrame.empty() && !m_prevAcquireFrame.back().waitEvent && clevent()) {
+                m_prevAcquireFrame.back().event = clevent;
+                m_prevAcquireFrame.back().waitEvent = true;
             }
 
             if (useReleaseWorker() && clFrameOutInterop) {
@@ -3647,10 +3487,10 @@ public:
                 outputSurfs.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, frame, clevent));
             }
             if (drain) {
-                // flushでは1回のfilter呼び出しから複数フレームが返ることがある。
-                // 実フレームがローカルに残っている間に戻ると、そのフレームを失う。
+                // Flush may receive several frames from one filter call (for example KFM VFR emits up to 4).
+                // Do not return while real frames are still queued locally, or they will be dropped.
                 const auto drainOutputLimit = std::max<size_t>(1, std::min<size_t>(
-                    16,
+                    4,
                     std::max<size_t>(1, m_workSurfs.bufCount() / 2)));
                 if ((outputSurfs.size() + m_outQeueue.size()) >= drainOutputLimit
                     && (filterframes.empty() || filterframes.front().first.ptr[0] == nullptr)) {
