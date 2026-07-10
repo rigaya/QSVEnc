@@ -2418,9 +2418,10 @@ protected:
     static const int OPENCL_RELEASE_QUEUE_DEPTH = 3;
     struct AcquireWork {
         std::unique_ptr<PipelineTaskOutput> frame;
+        RGYFrameInfo frameInfo;
         bool drain;
         bool stop;
-        AcquireWork() : frame(), drain(false), stop(false) {};
+        AcquireWork() : frame(), frameInfo(), drain(false), stop(false) {};
     };
     struct AcquireReady {
         std::unique_ptr<PipelineTaskOutput> frame;
@@ -2819,11 +2820,11 @@ protected:
                     }
                     continue;
                 }
-                clFrameInInterop->frame.flags = taskSurf->surf().frame()->flags();
-                clFrameInInterop->frame.timestamp = taskSurf->surf().frame()->timestamp();
-                clFrameInInterop->frame.inputFrameId = taskSurf->surf().frame()->inputFrameId();
-                clFrameInInterop->frame.picstruct = taskSurf->surf().frame()->picstruct();
-                clFrameInInterop->frame.dataList = taskSurf->surf().frame()->dataList();
+                clFrameInInterop->frame.flags = work->frameInfo.flags;
+                clFrameInInterop->frame.timestamp = work->frameInfo.timestamp;
+                clFrameInInterop->frame.inputFrameId = work->frameInfo.inputFrameId;
+                clFrameInInterop->frame.picstruct = work->frameInfo.picstruct;
+                clFrameInInterop->frame.dataList = work->frameInfo.dataList;
 
                 auto clFrame = getAcquireWorkerFrame(clFrameInInterop->frameInfo());
                 if (!clFrame) {
@@ -2896,6 +2897,10 @@ protected:
     RGY_ERR pushAcquireWork(std::unique_ptr<PipelineTaskOutput>& frame) {
         if (frame) {
             auto work = std::make_unique<AcquireWork>();
+            if (auto taskSurf = dynamic_cast<PipelineTaskOutputSurf *>(frame.get()); taskSurf != nullptr) {
+                const auto inputFrameInfo = taskSurf->surf().frame()->frameInfo();
+                copyFramePropWithoutRes(&work->frameInfo, &inputFrameInfo);
+            }
             work->frame = std::move(frame);
             auto workPtr = work.get();
             if (!m_acquireInQueue.push(workPtr)) {
