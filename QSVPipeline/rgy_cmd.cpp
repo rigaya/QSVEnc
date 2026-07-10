@@ -13615,40 +13615,37 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-descale");
         }
     }
-    {
-        const auto anime4kDefault = VppAnime4k();
-        if (param->anime4k != anime4kDefault) {
-            tmp.str(tstring());
-            if (!param->anime4k.enable && save_disabled_prm) {
-                tmp << _T(",enable=false");
+    if (param->anime4k != defaultPrm->anime4k) {
+        tmp.str(tstring());
+        if (!param->anime4k.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->anime4k.enable || save_disabled_prm) {
+            ADD_LST2(_T("mode"), param->anime4k, defaultPrm->anime4k, mode, list_vpp_anime4k_mode);
+            ADD_NUM2(_T("scale"), param->anime4k, defaultPrm->anime4k, scale);
+            ADD_FLOAT2(_T("strength"), param->anime4k, defaultPrm->anime4k, strength, 3);
+            ADD_LST2(_T("chroma_resize"), param->anime4k, defaultPrm->anime4k, chromaResize, list_vpp_anime4k_chroma_resize);
+            ADD_BOOL2(_T("chroma"), param->anime4k, defaultPrm->anime4k, chroma);
+            ADD_LST2(_T("darken"), param->anime4k, defaultPrm->anime4k, darken, list_vpp_anime4k_darken);
+            ADD_LST2(_T("thin"), param->anime4k, defaultPrm->anime4k, thin, list_vpp_anime4k_thin);
+            ADD_LST2(_T("denoise"), param->anime4k, defaultPrm->anime4k, denoise, list_vpp_anime4k_denoise);
+            ADD_FLOAT2(_T("denoise_intensity"), param->anime4k, defaultPrm->anime4k, denoiseIntensity, 3);
+            ADD_FLOAT2(_T("denoise_spatial"), param->anime4k, defaultPrm->anime4k, denoiseSpatial, 3);
+            ADD_FLOAT2(_T("denoise_curve"), param->anime4k, defaultPrm->anime4k, denoiseCurve, 3);
+            ADD_FLOAT2(_T("denoise_hist_reg"), param->anime4k, defaultPrm->anime4k, denoiseHistReg, 3);
+            ADD_LST2(_T("prefilter_denoise"), param->anime4k, defaultPrm->anime4k, prefilterDenoise, list_vpp_anime4k_denoise);
+            ADD_BOOL2(_T("clamp_highlights"), param->anime4k, defaultPrm->anime4k, clampHighlights);
+            ADD_FLOAT2(_T("antiring"), param->anime4k, defaultPrm->anime4k, antiring, 2);
+            if (param->anime4k.postResizeW != defaultPrm->anime4k.postResizeW
+             || param->anime4k.postResizeH != defaultPrm->anime4k.postResizeH) {
+                tmp << _T(",out_res=") << param->anime4k.postResizeW << _T("x") << param->anime4k.postResizeH;
             }
-            if (param->anime4k.enable || save_disabled_prm) {
-                ADD_LST2(_T("mode"), param->anime4k, anime4kDefault, mode, list_vpp_anime4k_mode);
-                ADD_NUM2(_T("scale"), param->anime4k, anime4kDefault, scale);
-                ADD_FLOAT2(_T("strength"), param->anime4k, anime4kDefault, strength, 3);
-                ADD_LST2(_T("chroma_resize"), param->anime4k, anime4kDefault, chromaResize, list_vpp_anime4k_chroma_resize);
-                ADD_BOOL2(_T("chroma"), param->anime4k, anime4kDefault, chroma);
-                ADD_LST2(_T("darken"), param->anime4k, anime4kDefault, darken, list_vpp_anime4k_darken);
-                ADD_LST2(_T("thin"), param->anime4k, anime4kDefault, thin, list_vpp_anime4k_thin);
-                ADD_LST2(_T("denoise"), param->anime4k, anime4kDefault, denoise, list_vpp_anime4k_denoise);
-                ADD_FLOAT2(_T("denoise_intensity"), param->anime4k, anime4kDefault, denoiseIntensity, 3);
-                ADD_FLOAT2(_T("denoise_spatial"), param->anime4k, anime4kDefault, denoiseSpatial, 3);
-                ADD_FLOAT2(_T("denoise_curve"), param->anime4k, anime4kDefault, denoiseCurve, 3);
-                ADD_FLOAT2(_T("denoise_hist_reg"), param->anime4k, anime4kDefault, denoiseHistReg, 3);
-                ADD_LST2(_T("prefilter_denoise"), param->anime4k, anime4kDefault, prefilterDenoise, list_vpp_anime4k_denoise);
-                ADD_BOOL2(_T("clamp_highlights"), param->anime4k, anime4kDefault, clampHighlights);
-                ADD_FLOAT2(_T("antiring"), param->anime4k, anime4kDefault, antiring, 2);
-                if (param->anime4k.postResizeW != anime4kDefault.postResizeW
-                 || param->anime4k.postResizeH != anime4kDefault.postResizeH) {
-                    tmp << _T(",out_res=") << param->anime4k.postResizeW << _T("x") << param->anime4k.postResizeH;
-                }
-                ADD_LST2(_T("resize"), param->anime4k, anime4kDefault, postResizeAlgo, list_vpp_resize);
-            }
-            if (!tmp.str().empty()) {
-                cmd << _T(" --vpp-anime4k-shader ") << tmp.str().substr(1);
-            } else if (param->anime4k.enable) {
-                cmd << _T(" --vpp-anime4k-shader");
-            }
+            ADD_LST2(_T("resize"), param->anime4k, defaultPrm->anime4k, postResizeAlgo, list_vpp_resize);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-anime4k-shader ") << tmp.str().substr(1);
+        } else if (param->anime4k.enable) {
+            cmd << _T(" --vpp-anime4k-shader");
         }
     }
     if (param->onnx != defaultPrm->onnx) {
@@ -15737,8 +15734,8 @@ tstring gen_cmd_help_vpp() {
 #endif
 #if ENABLE_VPP_FILTER_BWDIF
     str += strsprintf(_T("\n")
-        _T("   --vpp-bwdif [<param1>=<value>]\n")
-        _T("     enable bwdif deinterlacer\n")
+        _T("   --vpp-bwdif [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     motion-adaptive deinterlacer (w3fdif + cubic interpolation).\n")
         _T("    params\n")
         _T("      mode=<string>\n")
         _T("          frame (default)   Same-rate output, one frame per input.\n")
@@ -16294,49 +16291,21 @@ tstring gen_cmd_help_vpp() {
         FILTER_ANIME4K_STRENGTH_MIN, FILTER_ANIME4K_STRENGTH_MAX);
 #endif
 #if ENABLE_VPP_FILTER_ONNX
-#if ENCODER_VCEENC
     str += strsprintf(_T("\n")
         _T("   --vpp-onnx [<param1>=<value>][,<param2>=<value>][...]\n")
-        _T("     ONNX Runtime DirectML-backed CNN filter: loads an ONNX model and runs\n")
-        _T("     it on the GPU selected by VCEEnc.\n")
-        _T("     The pre/post a model needs is inferred from its channel count:\n")
-        _T("     1ch=luma SR, 3ch=RGB, 4ch=RGB+noise, 2ch=gray+noise, 3->2ch=chroma.\n")
+        _T("     ONNX Runtime CNN filter: loads and runs an ONNX model directly.\n")
         _T("    params\n")
-        _T("      model=<path>                path to the .onnx model (required)\n")
-        _T("      device=<string>             compatibility parameter; DirectML binds\n")
-        _T("                                    inference to the selected encoder GPU\n")
-        _T("      interop=<string>            compatibility parameter: auto / ocl / host\n")
-        _T("      prec=<string>               auto (default) / fp16 / fp32\n")
-        _T("      colormatrix=<string>        same list as --colormatrix; onnx supports\n")
-        _T("                                    auto / auto_res / smpte170m / bt470bg\n")
-        _T("                                    / bt709 / bt2020nc\n")
-        _T("      colormatrix_out=<string>    matrix for the OUTPUT RGB->YUV conversion\n")
-        _T("                                    (same list as colormatrix; auto=same as input;\n")
-        _T("                                    set bt2020nc for models\n")
-        _T("                                    that convert SDR/709 to HDR/2020)\n")
-        _T("      colorrange=<string>         same list as --colorrange; onnx supports\n")
-        _T("                                    auto (default, tv) / tv / limited / pc / full\n")
-        _T("      colorspace=<string>         3ch models: rgb (default) / ycbcr (ArtCNN *_YCbCr)\n")
-        _T("      noise=<int>                 noise sigma 0-255 for noise models (default 15)\n")
-        _T("      out_res=<WxH>               end-of-chain resize to an arbitrary final size,\n")
-        _T("                                  applied AFTER the network so CNN upscale + fit run\n")
-        _T("                                  in one pass, e.g. out_res=1440x1080. A negative\n")
-        _T("                                  value on one axis keeps the source aspect:\n")
-        _T("                                  out_res=-2x1080 -> 1440x1080 (4:3) or 1920x1080 (16:9).\n")
-        _T("      resize=<string>             resampler for out_res (default=lanczos4)\n"));
-#else
-    str += strsprintf(_T("\n")
-        _T("   --vpp-onnx [<param1>=<value>][,<param2>=<value>][...]\n")
-        _T("     OpenVINO-backed CNN filter: loads an ONNX/IR model directly and runs\n")
-        _T("     it on the GPU.\n")
-        _T("     The pre/post a model needs is inferred from its channel count:\n")
-        _T("     1ch=luma SR, 3ch=RGB, 4ch=RGB+noise, 2ch=gray+noise, 3->2ch=chroma.\n")
-        _T("    params\n")
-        _T("      model=<path>                path to the .onnx / .xml model (required)\n")
+        _T("      model=<path>                model name or path to .onnx file\n")
+#if ENABLE_OPENVINO
         _T("      device=<string>             OpenVINO device: GPU.0 (default) / GPU / CPU / AUTO / NPU\n")
         _T("                                    NPU needs an NPU-enabled OpenVINO runtime (Core Ultra).\n")
         _T("      interop=<string>            auto (default) / ocl (zero-copy, shared GPU context) / host\n")
         _T("      prec=<string>               auto (default) / fp16 / fp32\n")
+#endif
+#if ENCODER_NVENC
+        _T("      provider=<string>           execution provider for inference\n")
+        _T("                                    auto (default, = cuda), cuda, tensorrt\n")
+#endif
         _T("      colormatrix=<string>        same list as --colormatrix; onnx supports\n")
         _T("                                    auto / auto_res / smpte170m / bt470bg\n")
         _T("                                    / bt709 / bt2020nc\n")
@@ -16346,24 +16315,25 @@ tstring gen_cmd_help_vpp() {
         _T("                                    that convert SDR/709 to HDR/2020)\n")
         _T("      colorrange=<string>         same list as --colorrange; onnx supports\n")
         _T("                                    auto (default, tv) / tv / limited / pc / full\n")
-        _T("      colorspace=<string>         3ch models: rgb (default) / ycbcr (ArtCNN *_YCbCr)\n")
+        _T("      colorspace=<string>         rgb(default) or ycbcr (for 3ch models)\n")
         _T("      noise=<int>                 noise sigma 0-255 for noise models (default 15)\n")
         _T("      out_res=<WxH>               end-of-chain resize to an arbitrary final size,\n")
         _T("                                  applied AFTER the network so CNN upscale + fit run\n")
         _T("                                  in one pass, e.g. out_res=1440x1080. A negative\n")
         _T("                                  value on one axis keeps the source aspect:\n")
         _T("                                  out_res=-2x1080 -> 1440x1080 (4:3) or 1920x1080 (16:9).\n")
-        _T("      resize=<string>             resampler for out_res (default=lanczos4)\n"));
-#endif
+        _T("      resize=<string>             resampler for out_res (see --vpp-resize algo)\n"));
     str += strsprintf(_T("\n")
         _T("   --vpp-onnx-model-dir <string>   Directory containing models.json for registered ONNX models.\n"));
 #if ENABLE_VPP_FILTER_RIFE_OV
     str += strsprintf(_T("\n")
         _T("   --vpp-rife-ov [<param1>=<value>][,<param2>=<value>][...]\n")
-        _T("     RIFE v4.x frame interpolation via OpenVINO.\n")
-        _T("      model=<path>                RIFE v4.x ONNX/IR model path (required)\n")
+        _T("     RIFE v4.x frame interpolation.\n")
+        _T("      model=<path>                RIFE v4.x ONNX model path (required)\n")
         _T("      multi=<int>                 frame-rate multiplier (>=2, default 2)\n")
+#if ENABLE_OPENVINO
         _T("      device=<string>             GPU.0 (default) / GPU / CPU / AUTO / NPU\n")
+#endif
         _T("      colormatrix=<string>        auto / bt601 / bt709 / bt2020\n")
         _T("      colorrange=<string>         auto / tv / pc\n"));
 #endif
