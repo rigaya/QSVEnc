@@ -52,6 +52,7 @@
 #endif
 
 #include "rgy_osdep.h"
+#include <mutex>
 #ifndef CL_TARGET_OPENCL_VERSION
 #define CL_TARGET_OPENCL_VERSION 210
 #endif
@@ -738,11 +739,12 @@ struct RGYCLFrameInterop : public RGYCLFrame {
 protected:
     RGYCLFrameInteropType m_interop;
     RGYOpenCLQueue& m_interop_queue;
+    std::recursive_mutex& m_interop_mutex;
     std::shared_ptr<RGYLog> m_log;
     bool m_acquired;
 public:
-    RGYCLFrameInterop(const RGYFrameInfo &info, cl_mem_flags flags, RGYCLFrameInteropType interop, RGYOpenCLQueue& interop_queue, shared_ptr<RGYLog> log)
-        : RGYCLFrame(info, flags), m_interop(interop), m_interop_queue(interop_queue), m_log(log), m_acquired(false) {
+    RGYCLFrameInterop(const RGYFrameInfo &info, cl_mem_flags flags, RGYCLFrameInteropType interop, RGYOpenCLQueue& interop_queue, std::recursive_mutex& interop_mutex, shared_ptr<RGYLog> log)
+        : RGYCLFrame(info, flags), m_interop(interop), m_interop_queue(interop_queue), m_interop_mutex(interop_mutex), m_log(log), m_acquired(false) {
     };
     RGY_ERR acquire(RGYOpenCLQueue &queue, RGYOpenCLEvent *event = nullptr);
 protected:
@@ -1193,6 +1195,7 @@ public:
     const RGYOpenCLQueue& queue(int idx=0) const { return m_queue[idx]; };
     RGYOpenCLQueue& queue(int idx=0) { return m_queue[idx]; };
     RGYOpenCLPlatform *platform() const { return m_platform.get(); };
+    std::recursive_mutex& interopMutex() { return m_interopMutex; };
 
     RGYThreadPool *threadPool() {
         if (!m_threadPool) { m_threadPool = std::make_unique<RGYThreadPool>(m_buildThreads); }
@@ -1258,6 +1261,7 @@ protected:
     shared_ptr<RGYOpenCLPlatform> m_platform;
     unique_context m_context;
     std::vector<RGYOpenCLQueue> m_queue;
+    std::recursive_mutex m_interopMutex;
     std::shared_ptr<RGYLog> m_log;
     std::unordered_map<std::string, RGYOpenCLProgramAsync> m_copy;
     std::unique_ptr<RGYThreadPool> m_threadPool;

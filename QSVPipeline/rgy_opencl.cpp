@@ -32,6 +32,7 @@
 #include <atomic>
 #include <fstream>
 #include <chrono>
+#include <mutex>
 #include "rgy_osdep.h"
 #define CL_EXTERN
 #include "rgy_opencl.h"
@@ -1367,6 +1368,7 @@ RGYOpenCLContext::RGYOpenCLContext(shared_ptr<RGYOpenCLPlatform> platform, int b
     m_platform(std::move(platform)),
     m_context(nullptr, clReleaseContext),
     m_queue(),
+    m_interopMutex(),
     m_log(pLog),
     m_copy(),
     m_threadPool(),
@@ -2082,6 +2084,7 @@ RGYCLMemObjInfo RGYCLFrame::getMemObjectInfo() const {
 void RGYCLFrame::resetMappedFrame() { m_mapped.reset(); }
 
 RGY_ERR RGYCLFrameInterop::acquire(RGYOpenCLQueue &queue, RGYOpenCLEvent *event) {
+    std::lock_guard<std::recursive_mutex> lock(m_interop_mutex);
     auto& perf_collector = RGYOpenCLPerfCollector::instance();
     const bool perf_enabled = perf_collector.isEnabled();
     RGYOpenCLEvent perf_event_local;
@@ -2122,6 +2125,7 @@ RGY_ERR RGYCLFrameInterop::acquire(RGYOpenCLQueue &queue, RGYOpenCLEvent *event)
 }
 
 RGY_ERR RGYCLFrameInterop::release(RGYOpenCLEvent *event) {
+    std::lock_guard<std::recursive_mutex> lock(m_interop_mutex);
     if (m_acquired) {
         auto& perf_collector = RGYOpenCLPerfCollector::instance();
         const bool perf_enabled = perf_collector.isEnabled();
@@ -3210,7 +3214,7 @@ std::unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D9Surface(
     }
     auto meminfo = getRGYCLMemObjectInfo((cl_mem)clframe.ptr[0]);
     clframe.mem_type = (meminfo.isImageNormalizedType()) ? RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED : RGY_MEM_TYPE_GPU_IMAGE;
-    return std::unique_ptr<RGYCLFrameInterop>(new RGYCLFrameInterop(clframe, flags, RGY_INTEROP_DX9, queue, m_log));
+    return std::unique_ptr<RGYCLFrameInterop>(new RGYCLFrameInterop(clframe, flags, RGY_INTEROP_DX9, queue, m_interopMutex, m_log));
 #endif
 }
 
@@ -3249,7 +3253,7 @@ std::unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D11Surface
     }
     auto meminfo = getRGYCLMemObjectInfo((cl_mem)clframe.ptr[0]);
     clframe.mem_type = (meminfo.isImageNormalizedType()) ? RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED : RGY_MEM_TYPE_GPU_IMAGE;
-    return std::make_unique<RGYCLFrameInterop>(clframe, flags, RGY_INTEROP_DX11, queue, m_log);
+    return std::make_unique<RGYCLFrameInterop>(clframe, flags, RGY_INTEROP_DX11, queue, m_interopMutex, m_log);
 #endif
 }
 
@@ -3283,7 +3287,7 @@ std::unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromD3D11Surface
     }
     auto meminfo = getRGYCLMemObjectInfo((cl_mem)clframe.ptr[0]);
     clframe.mem_type = (meminfo.isImageNormalizedType()) ? RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED : RGY_MEM_TYPE_GPU_IMAGE;
-    return std::make_unique<RGYCLFrameInterop>(clframe, flags, RGY_INTEROP_DX11, queue, m_log);
+    return std::make_unique<RGYCLFrameInterop>(clframe, flags, RGY_INTEROP_DX11, queue, m_interopMutex, m_log);
 #endif
 }
 
@@ -3321,7 +3325,7 @@ std::unique_ptr<RGYCLFrameInterop> RGYOpenCLContext::createFrameFromVASurface(vo
     }
     auto meminfo = getRGYCLMemObjectInfo((cl_mem)clframe.ptr[0]);
     clframe.mem_type = (meminfo.isImageNormalizedType()) ? RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED : RGY_MEM_TYPE_GPU_IMAGE;
-    return std::make_unique<RGYCLFrameInterop>(clframe, flags, RGY_INTEROP_VA, queue, m_log);
+    return std::make_unique<RGYCLFrameInterop>(clframe, flags, RGY_INTEROP_VA, queue, m_interopMutex, m_log);
 #endif
 }
 

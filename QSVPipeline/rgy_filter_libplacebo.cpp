@@ -843,6 +843,7 @@ RGY_ERR RGYFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
 #define COPY_DEBUG 0
     {
 #if ENABLE_D3D11
+        std::lock_guard<std::recursive_mutex> interopLock(m_cl->interopMutex());
         auto textInCL = m_textIn->getCLFrame(m_cl.get(), queue);
         auto err = textInCL->acquire(queue);
         if (err != RGY_ERR_NONE) {
@@ -997,6 +998,7 @@ RGY_ERR RGYFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
 #if ENABLE_D3D11
     // CL_CONTEXT_INTEROP_USER_SYNC=trueの場合、ここでlibplaceboの処理の終了を待つ必要がある
     m_pl->p_gpu_finish()(m_pldevice->gpu);
+    std::lock_guard<std::recursive_mutex> outputInteropLock(m_cl->interopMutex());
     // m_ngxFrameBufOut -> ppOutputFrames
     auto textOutCL = m_textOut->getCLFrame(m_cl.get(), queue);
     auto err = textOutCL->acquire(queue);
@@ -1040,6 +1042,10 @@ RGY_ERR RGYFilterLibplacebo::run_filter(const RGYFrameInfo *pInputFrame, RGYFram
     }
 #if ENABLE_D3D11
     textOutCL->release();
+    if ((sts = queue.finish()) != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to finish OpenCL interop queue: %s.\n"), get_err_mes(sts));
+        return sts;
+    }
 #elif ENABLE_VULKAN
     if (!m_semOutVKStart.front()->getCL()) {
         // CL_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAMEが有効でない場合、semaphoreを使わずOpenCLの処理を終了させる
