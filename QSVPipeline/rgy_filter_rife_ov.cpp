@@ -1,4 +1,4 @@
-// -----------------------------------------------------------------------------------------
+﻿// -----------------------------------------------------------------------------------------
 //     QSVEnc/VCEEnc/rkmppenc by rigaya
 // -----------------------------------------------------------------------------------------
 // The MIT License
@@ -111,18 +111,16 @@ RGY_ERR RGYFilterRifeOV::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
 
     // load + compile the RIFE ONNX (input reshaped to [1,11,H,W]).
     m_ov = std::make_unique<RGYOpenVINO>();
-    std::string errMsg;
-    const std::string modelPathA = tchar_to_string(prm->modelFile);
-    const std::string deviceA    = tchar_to_string(prm->device);
+    tstring errMsg;
     int peekIn = 0, peekOut = 0;
-    RGY_ERR err = m_ov->peekChannels(modelPathA, peekIn, peekOut, errMsg);
+    RGY_ERR err = m_ov->peekChannels(prm->modelFile, peekIn, peekOut, errMsg);
     if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("rife-ov: failed to read model %s: %s\n"), prm->modelFile.c_str(), char_to_tstring(errMsg).c_str());
+        AddMessage(RGY_LOG_ERROR, _T("rife-ov: failed to read model %s: %s\n"), prm->modelFile.c_str(), errMsg.c_str());
         return err;
     }
-    err = m_ov->init(modelPathA, deviceA, m_H, m_W, errMsg);
+    err = m_ov->init(prm->modelFile, prm->device, m_H, m_W, errMsg);
     if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("rife-ov: failed to load/compile model on %s: %s\n"), prm->device.c_str(), char_to_tstring(errMsg).c_str());
+        AddMessage(RGY_LOG_ERROR, _T("rife-ov: failed to load/compile model on %s: %s\n"), prm->device.c_str(), errMsg.c_str());
         return err;
     }
     if (m_ov->inChannels() != 11 || m_ov->outChannels() != 3) {
