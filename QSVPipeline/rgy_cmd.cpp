@@ -12554,13 +12554,15 @@ int parse_one_ctrl_option(const TCHAR *option_name, const TCHAR *strInput[], int
 #if ENCODER_QSV
     if (IS_OPTION("opencl-task-threads")) {
         i++;
-        int value = 0;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
+        int value = -1;
+        if (_tcsicmp(strInput[i], _T("auto")) == 0) {
+            value = -1;
+        } else if (1 != _stscanf_s(strInput[i], _T("%d"), &value)) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return 1;
         }
-        if (value != 0 && value != 2 && value != 3) {
-            print_cmd_error_invalid_value(option_name, strInput[i], _T("opencl-task-threads should be 0, 2, or 3."));
+        if (value != -1 && value != 0 && value != 2 && value != 3) {
+            print_cmd_error_invalid_value(option_name, strInput[i], _T("opencl-task-threads should be auto, 0, 2, or 3."));
             return 1;
         }
         ctrl->openclTaskThreads = value;
@@ -17088,10 +17090,10 @@ tstring gen_cmd_help_ctrl() {
 #if ENABLE_OPENCL
     str += strsprintf(_T("\n")
 #if ENCODER_QSV
-        _T("   --opencl-task-threads <int>  set OpenCL task thread mode.\n")
-        _T("                                  0: legacy single-thread path (default)\n")
+        _T("   --opencl-task-threads <auto|int>  set OpenCL task thread mode.\n")
+        _T("                                  auto: 2 on IceLake or HEVC FF capable GPUs, otherwise 0 (default)\n")
+        _T("                                  0: legacy single-thread path\n")
         _T("                                  2: acquire + release workers\n")
-        _T("                                  3: reserve filter enqueue worker mode\n")
 #endif
         _T("   --cl-perf-dump <dir>         dump OpenCL kernel performance data to <dir>.\n")
         _T("                                 enables CL_QUEUE_PROFILING_ENABLE automatically.\n")

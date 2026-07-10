@@ -318,7 +318,7 @@
   - [--vpy-assume-script-dir](#--vpy-assume-script-dir)
   - [--process-codepage \<string\> \[Windows OS only\]](#--process-codepage-string-windows-os-only)
   - [--task-perf-monitor](#--task-perf-monitor)
-  - [--opencl-task-threads \<int\>](#--opencl-task-threads-int)
+  - [--opencl-task-threads \<auto|int\>](#--opencl-task-threads-autoint)
   - [--cl-perf-dump \<dir\>](#--cl-perf-dump-dir)
   - [--cl-perf-timeline \[\<float\>\]](#--cl-perf-timeline-float)
   - [--ocloc-path \<path\>](#--ocloc-path-path)
@@ -4504,12 +4504,12 @@ When using the vpy reader, resolves relative paths in `.vpy` against the script 
 
   Enable performance monitoring of each task and print time required for each task at the end of log.
 
-### --opencl-task-threads &lt;int&gt;
-Set OpenCL task thread mode. This option is currently only stored for future worker-thread implementation and does not change runtime behavior.
+### --opencl-task-threads &lt;auto|int&gt;
+Set OpenCL task thread mode.
 
-  - 0 ... legacy single-thread path (default)
+  - auto ... selects 2 on IceLake or later GPUs, or GPUs supporting HEVC FF encoding; otherwise selects 0 (default)
+  - 0 ... legacy single-thread path
   - 2 ... acquire + release workers
-  - 3 ... reserve filter enqueue worker mode
 
 ### --cl-perf-dump &lt;dir&gt;
 Write OpenCL kernel performance dumps to the specified directory and automatically generate `report.html` after encoding.

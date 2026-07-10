@@ -5032,7 +5032,15 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     sts = InitOpenCL(pParams->ctrl.enableOpenCL, pParams->ctrl.parallelEnc.isParent() ? 1 : pParams->ctrl.openclBuildThreads, pParams->vpp.checkPerformance, pParams->ctrl.clPerfDumpDir, pParams->ctrl.clPerfTimelineSec);
     if (sts < RGY_ERR_NONE) return sts;
     PrintMes(RGY_LOG_DEBUG, _T("InitOpenCL: Success.\n"));
-    m_openclTaskThreads = pParams->ctrl.openclTaskThreads;
+    if (pParams->ctrl.openclTaskThreads < 0) {
+        const auto cpuGen = m_device->CPUGen();
+        const bool hevcFFSupported = !!m_device->getEncodeFeature(MFX_RATECONTROL_CQP, RGY_CODEC_HEVC, true);
+        m_openclTaskThreads = (cpuGen >= CPU_GEN_ICELAKE || hevcFFSupported) ? 2 : 0;
+        PrintMes(RGY_LOG_DEBUG, _T("Auto selected OpenCL task thread mode: %d (GPU generation: %s, HEVC FF: %s).\n"),
+            m_openclTaskThreads, CPU_GEN_STR[cpuGen], hevcFFSupported ? _T("supported") : _T("unsupported"));
+    } else {
+        m_openclTaskThreads = pParams->ctrl.openclTaskThreads;
+    }
 
     sts = input_ret.get();
     if (sts < RGY_ERR_NONE) return sts;

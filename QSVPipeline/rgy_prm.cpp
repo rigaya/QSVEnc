@@ -4345,7 +4345,7 @@ RGYParamControl::RGYParamControl() :
     enableOpenCL(true),
     enableVulkan(RGYParamInitVulkan::TargetVendor),
     openclBuildThreads(0),
-    openclTaskThreads(0),
+    openclTaskThreads(-1), // 自動選択
     clPerfDumpDir(),
     clPerfTimelineSec(0.0),
     clPerfDisasmTool(),
