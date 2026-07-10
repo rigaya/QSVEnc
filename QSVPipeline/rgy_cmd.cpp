@@ -2384,6 +2384,42 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     }
                     continue;
                 }
+                if (param_arg == _T("nt")) {
+                    try {
+                        vpp->ivtc.nt = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("cthresh")) {
+                    try {
+                        vpp->ivtc.cthresh = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("combpel")) {
+                    try {
+                        vpp->ivtc.combPel = std::stoi(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("scthresh")) {
+                    try {
+                        vpp->ivtc.scThresh = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
                 if (param_arg == _T("cadlock")) {
                     // Accept: auto|-1 (auto), on/true/1 (on), off/false/0 (off).
                     if (param_val == _T("auto") || param_val == _T("-1")) {
@@ -5800,7 +5836,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         i++;
 
         const auto paramList = std::vector<std::string>{
-            "enable", "model", "modelfile", "device", "interop", "prec", "precision",
+            "enable", "model", "modelfile", "provider", "device", "interop", "precision",
             "colormatrix", "colormatrix_out", "colorrange", "colorspace", "noise", "out_res", "resize"
         };
 
@@ -5822,6 +5858,16 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 }
                 if (param_arg == _T("model") || param_arg == _T("modelfile")) {
                     vpp->onnx.modelFile = param_val;
+                    continue;
+                }
+                if (param_arg == _T("provider")) {
+                    const tstring v = tolowercase(param_val);
+                    if (v == _T("auto") || v == _T("cuda") || v == _T("tensorrt") || v == _T("trt")) {
+                        vpp->onnx.provider = (v == _T("trt")) ? _T("tensorrt") : v;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
                     continue;
                 }
                 if (param_arg == _T("device")) {
@@ -13341,6 +13387,10 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_NUM(_T("back"), ivtc.back);
             ADD_NUM(_T("y0"), ivtc.y0);
             ADD_NUM(_T("y1"), ivtc.y1);
+            ADD_NUM(_T("nt"), ivtc.nt);
+            ADD_NUM(_T("cthresh"), ivtc.cthresh);
+            ADD_NUM(_T("combpel"), ivtc.combPel);
+            ADD_FLOAT(_T("scthresh"), ivtc.scThresh, 3);
             if (param->ivtc.cadenceLock != defaultPrm->ivtc.cadenceLock) {
                 tmp << _T(",cadlock=") << ((param->ivtc.cadenceLock < 0) ? _T("auto") : (param->ivtc.cadenceLock ? _T("on") : _T("off")));
             }
@@ -15941,6 +15991,11 @@ tstring gen_cmd_help_vpp() {
         _T("      chroma=<bool>         include chroma planes in match-quality scoring. (default=off)\n")
         _T("      back=<int>            when to test match=P. (default=%d, 0 - 1)\n")
         _T("      y0=<int>,y1=<int>     ignore rows outside [y0, y1] for combing metric.\n")
+        _T("      nt=<int>              match-metric noise tolerance (default=10, 8-bit scale)\n")
+        _T("      cthresh=<int>         per-pixel comb threshold for match scoring (default=4)\n")
+        _T("      combpel=<int>         combed pixels per block to mark it combed (default=8)\n")
+        _T("      scthresh=<float>      scene-change threshold, fraction of max SAD\n")
+        _T("                              (default=0 = adaptive)\n")
         _T("      cadlock=<auto|on|off> cadence pattern lock + match override. (default=auto)\n")
         _T("      gthresh=<int>         tolerance percent for cadence override. (default=%d, 0 - 100)\n")
         _T("      vthresh=<int>         post-assembly combing veto threshold. (default=%d, 0 - 256)\n")

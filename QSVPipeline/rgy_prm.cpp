@@ -1705,6 +1705,10 @@ VppIvtc::VppIvtc() :
                          //   sources. Opt-in via back=1 for cleaner deterministic film sources.
     y0(FILTER_DEFAULT_IVTC_Y0),
     y1(FILTER_DEFAULT_IVTC_Y1), // 0,0 = no exclusion band
+    nt(FILTER_DEFAULT_IVTC_NT),
+    cthresh(FILTER_DEFAULT_IVTC_CTHRESH),
+    combPel(FILTER_DEFAULT_IVTC_COMBPEL),
+    scThresh(FILTER_DEFAULT_IVTC_SCTHRESH),
     cadenceLock(FILTER_DEFAULT_IVTC_CADENCE_LOCK), // -1 = auto (enable when guide>=1 in init), 0 = off, 1 = on.
                          //   Auto-on is safe because guide>=1 implies the user expects
                          //   pulldown content; the tracker is inert on pure progressive
@@ -1777,7 +1781,7 @@ tstring VppIvtc::print() const {
     } else {
         bandStr = strsprintf(_T("%d..%d"), y0, y1);
     }
-    return strsprintf(_T("ivtc: guide=%d, post=%d, cycle=%s, combthresh %.3f, cleanfrac %.3f, dthresh=%d, chroma=%s, back=%d, band=%s,\n")
+    tstring str = strsprintf(_T("ivtc: guide=%d, post=%d, cycle=%s, combthresh %.3f, cleanfrac %.3f, dthresh=%d, chroma=%s, back=%d, band=%s,\n")
         _T("                         cadlock=%s, gthresh=%d, vthresh=%d, expand=%s, mixed=%s, hys %.2f, tff=%s, log %s"),
         guide, post,
         cycleStr.c_str(),
@@ -1790,6 +1794,13 @@ tstring VppIvtc::print() const {
         hysteresis,
         (tff < 0) ? _T("auto") : (tff ? _T("on") : _T("off")),
         log ? _T("on") : _T("off"));
+    if (nt != FILTER_DEFAULT_IVTC_NT || cthresh != FILTER_DEFAULT_IVTC_CTHRESH || combPel != FILTER_DEFAULT_IVTC_COMBPEL) {
+        str += strsprintf(_T(", nt %d, cthresh %d, combpel %d"), nt, cthresh, combPel);
+    }
+    if (scThresh > 0.0f) {
+        str += strsprintf(_T(", scthresh %.3f"), scThresh);
+    }
+    return str;
 }
 
 

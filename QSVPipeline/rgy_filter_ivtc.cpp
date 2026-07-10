@@ -301,6 +301,15 @@ RGY_ERR RGYFilterIvtc::checkParam(const std::shared_ptr<RGYFilterParamIvtc> pPar
         AddMessage(RGY_LOG_ERROR, _T("Invalid y0=%d y1=%d: y1 must be greater than y0 (or both 0 to disable).\n"), pParam->ivtc.y0, pParam->ivtc.y1);
         return RGY_ERR_INVALID_PARAM;
     }
+    if (pParam->ivtc.nt < 0 || pParam->ivtc.nt > 255 || pParam->ivtc.cthresh < 0 || pParam->ivtc.cthresh > 255
+        || pParam->ivtc.combPel < 1 || pParam->ivtc.combPel > 256) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid IVTC match thresholds: nt/cthresh must be 0..255, combpel must be 1..256.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (pParam->ivtc.scThresh < 0.0f || pParam->ivtc.scThresh > 1.0f) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid scthresh %.3f: must be in [0.0, 1.0].\n"), pParam->ivtc.scThresh);
+        return RGY_ERR_INVALID_PARAM;
+    }
     if (pParam->ivtc.hysteresis < 0.0f || pParam->ivtc.hysteresis > 1.0f) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid hysteresis=%.3f: must be in [0.0, 1.0].\n"), pParam->ivtc.hysteresis);
         return RGY_ERR_INVALID_PARAM;
@@ -1182,8 +1191,8 @@ RGY_ERR RGYFilterIvtc::scoreCandidates(const RGYFrameInfo *prev, const RGYFrameI
     // 8bit 基準の閾値 (nt=10, T=4) を入力 bitdepth にスケール。
     const int bitDepth = RGY_CSP_BIT_DEPTH[cur->csp];
     const int maxVal = (1 << bitDepth) - 1;
-    const int nt = std::max(1, (maxVal * 10) / 255);
-    const int T  = std::max(1, (maxVal *  4) / 255);
+    const int nt = std::max(1, (maxVal * std::max(0, prm->ivtc.nt)) / 255);
+    const int T  = std::max(1, (maxVal * std::max(0, prm->ivtc.cthresh)) / 255);
     const int y0 = std::max(0, prm->ivtc.y0);
 
     const char *kernel_name = "kernel_ivtc_score_candidates";
@@ -1215,7 +1224,7 @@ RGY_ERR RGYFilterIvtc::scoreCandidates(const RGYFrameInfo *prev, const RGYFrameI
             (cl_mem)planePrev.ptr[0], (cl_mem)planeCur.ptr[0], (cl_mem)planeNext.ptr[0],
             planeCur.pitch[0], planeCur.width, planeCur.height,
             tffForScoring, nt, T,
-            y0, y1local,
+            y0, y1local, prm->ivtc.combPel,
             m_scoreBuf->mem());
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at %s: %s.\n"), char_to_tstring(kernel_name).c_str(), get_err_mes(err));
@@ -2230,8 +2239,8 @@ RGY_ERR RGYFilterIvtc::processInputToCycle(int idx_prev2, int idx_prev, int idx_
     // of frameMaxSAD. Startup fallback: when m_lastSceneSAD is near-zero
     // (first call OR effectively-static previous frame), use the historical
     // 0.15 fixed value so the detector still behaves on still-opener content.
-    double sceneFrac = 0.15;
-    if (m_lastSceneSAD > 1) {
+    double sceneFrac = (prm->ivtc.scThresh > 0.0f) ? prm->ivtc.scThresh : 0.15;
+    if (prm->ivtc.scThresh <= 0.0f && m_lastSceneSAD > 1) {
         const double prevFrac = (double)m_lastSceneSAD / (double)frameMaxSAD;
         sceneFrac = prevFrac * 1.5;
         if (sceneFrac < 0.12) sceneFrac = 0.12;

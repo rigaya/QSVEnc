@@ -11,13 +11,7 @@
 // A 16x16 block is considered combed when its per-WG cX pixel sum meets
 // or exceeds this threshold. After the c2 removal (rgy_filter_ivtc.cl
 // :186), the maximum per-WG cX sum is 128 (8 first-parity rows * 16
-// columns). 8 combed pixels = ~6% of the tested sample in the block,
-// roughly matching Decomb's Telecide default sensitivity (~6 pixels in a
-// 24x24 block).
-#ifndef BLOCK_COMB_THRESH
-#define BLOCK_COMB_THRESH 8
-#endif
-
+// columns). 既定値は8 combed pixelsで、ブロック単位の感度をcombpelで変更できる。
 // Field overlay for RFF expansion (DGDecode CopyBot/CopyTop analogue).
 // tff=1: overlay BOT field (odd rows) from src onto dst — used when the
 //        synth frame should inherit cur's TOP and prev's BOT (TFF stream).
@@ -123,6 +117,7 @@ __kernel void kernel_ivtc_score_candidates(
     const int T,        // combing-tolerance (scaled to bit depth; ~4 on 8-bit)
     const int y0,       // exclusion band: inclusive top row; contributes only iy>=y0
     const int y1,       // exclusion band: inclusive bottom row; contributes only iy<=y1
+    const int combPel,  // combed pixels per block before the block is counted as combed
                         //                 (y0==0 && y1==0 = band disabled, full frame used)
     __global uint *restrict scores        // 9 uints per WG: [mC, mP, mN, cC, cP, cN, bC, bP, bN]
                                           //   mX = match-quality sum (WG-block sum)
@@ -225,9 +220,9 @@ __kernel void kernel_ivtc_score_candidates(
         const uint blockSumC = lred[3 * WG_SIZE];
         const uint blockSumP = lred[4 * WG_SIZE];
         const uint blockSumN = lred[5 * WG_SIZE];
-        scores[wg_idx * 9 + 6] = (blockSumC >= (uint)BLOCK_COMB_THRESH) ? 1u : 0u;
-        scores[wg_idx * 9 + 7] = (blockSumP >= (uint)BLOCK_COMB_THRESH) ? 1u : 0u;
-        scores[wg_idx * 9 + 8] = (blockSumN >= (uint)BLOCK_COMB_THRESH) ? 1u : 0u;
+        scores[wg_idx * 9 + 6] = (blockSumC >= (uint)combPel) ? 1u : 0u;
+        scores[wg_idx * 9 + 7] = (blockSumP >= (uint)combPel) ? 1u : 0u;
+        scores[wg_idx * 9 + 8] = (blockSumN >= (uint)combPel) ? 1u : 0u;
     }
 }
 

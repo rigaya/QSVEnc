@@ -2591,6 +2591,14 @@ Inverse telecine for soft-telecine / hard-telecine sources.
     Per-pixel combing threshold. `0.0 - 1.0`.
   - cleanfrac=&lt;float&gt;  (default: 0.01)  
     Block-level clean threshold for `guide=1` and `post=2`. Specifies the fraction of pixels within a block allowed to be combed before the block is considered dirty.
+  - nt=&lt;int&gt;  (default: 10)
+    Match-metric noise tolerance in 8-bit scale.
+  - cthresh=&lt;int&gt;  (default: 4)
+    Per-pixel comb threshold used in match scoring in 8-bit scale.
+  - combpel=&lt;int&gt;  (default: 8)
+    Number of combed pixels per block before the block is counted as combed.
+  - scthresh=&lt;float&gt;  (default: 0.0)
+    Scene-change threshold as a fraction of the maximum SAD. `0.0` uses the adaptive threshold.
   - mixed=&lt;bool&gt;  (default: off)  
     Mixed mode for TS streams containing both RFF/progressive sections and true interlaced sections. Requires `--avsw` or `--avhw` input.
     RFF sections are not decimated; when a repeat-field pending state exists, the current copy candidate and field-reconstructed candidate are compared, and the less-combed candidate is direct-emitted on the 24000/1001fps CFR timeline.
