@@ -684,7 +684,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                         }
                         continue;
                     }
-                    if (param_arg == _T("opt")) {
+                    if (param_arg == _T("opt") && ENABLE_OPENCL) {
                         int value = 0;
                         if (get_list_value(list_vpp_resize_nis_opt, param_val.c_str(), &value)) {
                             vpp->resize_nis.opt = value;
@@ -16080,13 +16080,15 @@ tstring gen_cmd_help_vpp() {
             str += list_vpp_resize[ia].desc;
         }
         str += _T("\n        default: auto\n");
-        str += _T("        gauss uses OpenCL Gaussian filter (p=2.0).\n");
+        str += _T("        gauss uses Gaussian filter (p=2.0).\n");
         str += strsprintf(_T("      sharpness=<float>         RCAS sharpness for fsr1 (default=%.2f, 0.0 - 1.0)\n")
             _T("                                 NIS USM strength for nis (default=%.2f, 0.0 - 1.0)\n"),
             FILTER_DEFAULT_RESIZE_FSR1_SHARPNESS, FILTER_DEFAULT_RESIZE_NIS_SHARPNESS);
         str += _T("      cascade=<string>          for nis: auto (default), on, off\n")
-               _T("      hdr=<string>              for nis: auto (default), sdr, pq\n")
-               _T("      opt=<string>              for nis: default (default), fast\n");
+               _T("      hdr=<string>              for nis: auto (default), sdr, pq\n");
+#if ENABLE_OPENCL
+        str += _T("      opt=<string>              for nis: default (default), fast\n");
+#endif
         str += strsprintf(_T("      b=<float>                 for bicubic: Mitchell-Netravali B parameter (default=%.2f)\n")
                _T("      c=<float>                 for bicubic: Mitchell-Netravali C parameter (default=%.2f)\n")
                _T("                                 aliases: mitchell, catmull-rom, hermite\n"),
