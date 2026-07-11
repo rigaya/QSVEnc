@@ -3306,6 +3306,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         unique_ptr<RGYFilter> filter(new RGYFilterRifeOV(m_cl));
         shared_ptr<RGYFilterParamRifeOV> param(new RGYFilterParamRifeOV());
         param->modelFile = params->vpp.rife_ov.modelFile;
+        param->modelDir = params->vpp.onnxModelDir;
         param->device = params->vpp.rife_ov.device;
         param->multi = params->vpp.rife_ov.multi;
         param->colormatrix = params->vpp.rife_ov.colormatrix;

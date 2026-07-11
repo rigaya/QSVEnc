@@ -4156,7 +4156,7 @@ OpenVINO RIFE v4.x frame interpolation filter. Input must be 8-bit YUV420 and it
 
 - **Parameters**
   - model=&lt;string&gt;  
-    Path to the RIFE v4.x ONNX/IR model (required).
+    Registered RIFE v4.x model name or path to an ONNX/IR model (required). When `--vpp-onnx-model-dir` is specified, a name from `rife_ov_models.json` such as `rife_v4_6` can be used. Values containing `/`, `\\`, or `.` are treated as direct paths for compatibility.
   - multi=&lt;int&gt; (default: 2, minimum: 2)  
     Frame-rate multiplier.
   - device=&lt;string&gt; (default: GPU.0)  
@@ -4167,7 +4167,8 @@ OpenVINO RIFE v4.x frame interpolation filter. Input must be 8-bit YUV420 and it
     auto / tv / pc.
 
   ```
-  --vpp-rife-ov model=rife_v4.6.onnx,multi=2
+  --vpp-onnx-model-dir C:\models\HWEnc-onnx-models --vpp-rife-ov model=rife_v4_6,multi=2
+  --vpp-rife-ov model=C:\models\rife_v4.6.onnx,multi=2
   ```
 
 ### --vpp-ai-frameinterp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
