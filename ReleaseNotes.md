@@ -1,5 +1,36 @@
 # QSVEnc Release Notes
 
+## 8.21
+
+- Add multi thread OpenCL pipeline optimization. (--opencl-task-threads)
+- Optimize [--vpp-kfm](./QSVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) on long inputs.
+- Add new features and fixes to vpp filters.
+  - Add device=NPU to [--vpp-onnx](./QSVEncC_Options.en.md#--vpp-onnx-param1value1param2value2).
+  - Add SDR to HDR model support to [--vpp-onnx](./QSVEncC_Options.en.md#--vpp-onnx-param1value1param2value2).
+    - New model files can be downloaded from the link ( https://github.com/rigaya/HWEnc-onnx-models/releases ).
+  - Add [--vpp-rife-ov](./QSVEncC_Options.en.md#--vpp-rife-ov-param1value1param2value2) OpenVINO RIFE v4.x frame interpolation filter.
+  - Extend temporal parameters of [--vpp-fft3d](./QSVEncC_Options.en.md#--vpp-fft3d-param1value1param2value2).
+  - Add temporal radius to [--vpp-knn](./QSVEncC_Options.en.md#--vpp-knn-param1value1param2value2).
+  - Add planes option to [--vpp-nnedi](./QSVEncC_Options.en.md#--vpp-nnedi-param1value1param2value2).
+  - Add keep option to [--vpp-mpdecimate](./QSVEncC_Options.en.md#--vpp-mpdecimate-param1value1param2value2).
+  - Add effective source size option to [--vpp-descale](./QSVEncC_Options.en.md#--vpp-descale-param1value1param2value2).
+  - Add chroma option to [--vpp-cas](./QSVEncC_Options.en.md#--vpp-cas-param1value1param2value2).
+  - Add detailed parameters to [--vpp-hqdering](./QSVEncC_Options.en.md#--vpp-hqdering-param1value1param2value2).
+  - Add coring and hue range options to [--vpp-tweak](./QSVEncC_Options.en.md#--vpp-tweak-param1value1param2value2).
+  - Add nt/cthresh/combpel/scthresh parameters to [--vpp-ivtc](./QSVEncC_Options.en.md#--vpp-ivtc-param1value1param2value2).
+  - Add interpolation method to [--vpp-curves](./QSVEncC_Options.en.md#--vpp-curves-param1value1param2value2) and fix all specification.
+  - Fix seed and range clamp in [--vpp-deband](./QSVEncC_Options.en.md#--vpp-deband-param1value1param2value2).
+  - Fix keep state management in [--vpp-mpdecimate](./QSVEncC_Options.en.md#--vpp-mpdecimate-param1value1param2value2).
+  - Fix chroma processing in [--vpp-vinverse](./QSVEncC_Options.en.md#--vpp-vinverse-param1value1param2value2).
+  - Fix Anime4K spline36 linear term in [--vpp-anime4k-shader](./QSVEncC_Options.en.md#--vpp-anime4k-shader-param1value1param2value2).
+  - Fix libplacebo radius warning missing argument in [--vpp-libplacebo-shader](./QSVEncC_Options.en.md#--vpp-libplacebo-shader-param1value1param2value2).
+  - Fix libplacebo deband grain application target in [--vpp-libplacebo-deband](./QSVEncC_Options.en.md#--vpp-libplacebo-deband-param1value1param2value2).
+  - Fix colorspace LUT3D green axis scale output in [--vpp-colorspace](./QSVEncC_Options.en.md#--vpp-colorspace-param1value1param2value2).
+  - Fix diff calculation grid height in [--vpp-decimate](./QSVEncC_Options.en.md#--vpp-decimate-param1value1param2value2).
+  - Fix Y stride in comb detection grid of [--vpp-decomb](./QSVEncC_Options.en.md#--vpp-decomb-param1value1param2value2).
+  - Fix chroma averaging in RGB to YUV420 conversion.
+  - Fix multiple issues in denoise filters.
+
 ## 8.20
 
 - Improve precision of [--vpp-finedehalo](./QSVEncC_Options.en.md#--vpp-finedehalo-param1value1param2value2).

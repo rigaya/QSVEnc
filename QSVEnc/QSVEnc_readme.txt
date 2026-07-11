@@ -314,6 +314,35 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2026.07.11 (8.21)
+[QSVEncC]
+- OpenCL pipeline最適化により高速化。
+- --vpp-kfmの長尺低速化を修正して高速化。
+- --vpp-fft3dの時間方向パラメータ拡張。
+- --vpp-knnに時間方向半径を追加。
+- --vpp-nnediにplanes指定を追加。
+- --vpp-mpdecimateにkeep指定を追加。
+- --vpp-descaleに有効ソースサイズ指定を追加。
+- --vpp-casにchroma指定を追加。
+- --vpp-hqderingに詳細パラメータを追加。
+- --vpp-tweakにcoringとhue範囲指定を追加。
+- --vpp-ivtcにnt/cthresh/combpel/scthreshパラメータを追加。
+- --vpp-onnxにdevice=NPUを追加。
+- --vpp-onnxにSDR to HDRモデル対応を追加。
+- --vpp-rife-ov OpenVINO RIFE v4.xフレーム補間フィルタを追加。
+- --vpp-curvesに補間方式を追加しall指定を修正。
+- --vpp-debandのseed反映と範囲clampを修正。
+- --vpp-mpdecimateのkeep状態管理を修正。
+- --vpp-vinverseのchroma処理を修正。
+- --vpp-anime4k-shader spline36の一次項を修正。
+- --vpp-libplacebo-shaderのradius警告の引数不足を修正。
+- --vpp-libplacebo-debandのgrain適用先を修正。
+- --vpp-colorspace LUT3Dのgreen軸scale出力を修正。
+- --vpp-decimateの差分計算グリッド高さを修正。
+- --vpp-decombの縞判定グリッドY方向strideを修正。
+- RGBからYUV420変換のクロマ平均を修正。
+- denoiseフィルタの複数の問題を修正。
+
 2026.07.04 (8.20)
 [QSVEncC]
 - --vpp-finedehaloの高精度化。
