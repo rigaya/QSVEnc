@@ -3829,8 +3829,8 @@ RGYParamVpp::RGYParamVpp() :
     nlmeans(),
     pmd(),
     hqdn3d(),
-    anime4k(),
     descale(),
+    anime4k(),
     onnx(),
     rife_ov(),
     onnxModelDir(),
@@ -3882,6 +3882,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
     return resize_algo == x.resize_algo
         && resize_mode == x.resize_mode
         && deintCsp == x.deintCsp
+        && resize_libplacebo == x.resize_libplacebo
         && resize_fsr1 == x.resize_fsr1
         && resize_nis == x.resize_nis
         && resize_bicubic == x.resize_bicubic
