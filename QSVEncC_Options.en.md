@@ -220,6 +220,7 @@
   - [--vpp-afs \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-afs-param1value1param2value2)
   - [--vpp-bwdif \[\<param1\>=\<value1\>\]](#--vpp-bwdif-param1value1)
   - [--vpp-yadif \[\<param1\>=\<value1\>\]](#--vpp-yadif-param1value1)
+  - [--vpp-stdeint \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-stdeint-param1value1param2value2)
   - [--vpp-nnedi \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-nnedi-param1value1param2value2)
   - [--vpp-rtgmc \[\<param1\>=\<value1\>\]](#--vpp-rtgmc-param1value1)
   - [--vpp-rtgmc-bob \[\<param1\>=\<value1\>\]](#--vpp-rtgmc-bob-param1value1)
@@ -1822,6 +1823,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
   - [--vpp-degrain](#--vpp-degrain-param1value1)
   - [--vpp-kfm](#--vpp-kfm-param1value1param2value2)
   - [--vpp-decomb](#--vpp-decomb-param1value1param2value2)
+  - [--vpp-stdeint](#--vpp-stdeint-param1value1param2value2)
   - [--vpp-deinterlace](#--vpp-deinterlace-string)
   - [--vpp-ivtc](#--vpp-ivtc-param1value1param2value2)
   - [--vpp-decimate](#--vpp-decimate-param1value1param2value2)
@@ -4169,6 +4171,32 @@ OpenVINO RIFE v4.x frame interpolation filter. Input must be 8-bit YUV420 and it
   ```
   --vpp-onnx-model-dir C:\models\HWEnc-onnx-models --vpp-rife-ov model=rife_v4_6,multi=2
   --vpp-rife-ov model=C:\models\rife_v4.6.onnx,multi=2
+  ```
+
+### --vpp-stdeint [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+Run an ST-DeInt ONNX model for deinterlacing. Input must be 8-bit YUV420 and
+the height must be an even value of at least 4.
+
+- **Parameters**
+  - model=&lt;string&gt;  
+    Registered ST-DeInt model name or path to an ONNX model (required).
+    With `--vpp-onnx-model-dir`, the `stdeint` entry in `stdeint_ov_models.json` can be used.
+  - mode=&lt;string&gt; (default: bob)  
+    `bob` emits two frames in temporal order for each input and doubles the frame rate.
+    `normal` emits only the frame corresponding to the first field.
+  - device=&lt;string&gt; (default: CPU)  
+    OpenVINO device: CPU / GPU.0 / GPU / AUTO / NPU. GPU inference precision may reduce output quality; use CPU when quality is the priority.
+  - colormatrix=&lt;string&gt; (default: auto)  
+    auto / bt601 / bt709 / bt2020.
+  - colorrange=&lt;string&gt; (default: auto)  
+    auto / tv / pc.
+
+Progressive input passes through without pixel processing. With `mode=bob`, it is duplicated
+with the duration split in half to preserve the doubled-rate timeline.
+
+  ```
+  --vpp-onnx-model-dir C:\models\HWEnc-onnx-models --vpp-stdeint model=stdeint,mode=bob
+  --vpp-stdeint model=C:\models\stdeint.onnx,mode=normal,device=CPU
   ```
 
 ### --vpp-ai-frameinterp [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...

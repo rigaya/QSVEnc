@@ -522,6 +522,9 @@
     <ClCompile Include="rgy_filter_rife_ov.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="rgy_filter_stdeint.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
     <ClCompile Include="rgy_filter_anime4k.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
@@ -1005,6 +1008,9 @@
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="rgy_filter_rife_ov.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="rgy_filter_stdeint.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="rgy_model_registry.h">

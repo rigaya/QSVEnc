@@ -82,6 +82,7 @@ RGY_DISABLE_WARNING_POP
 #include "rgy_filter_mpdecimate.h"
 #include "rgy_filter_decimate.h"
 #include "rgy_filter_decomb.h"
+#include "rgy_filter_stdeint.h"
 #include "rgy_filter_ivtc.h"
 #include "rgy_filter_delogo.h"
 #include "rgy_filter_convolution3d.h"
@@ -179,6 +180,7 @@ int countVppDeinterlacer(const sInputParams *inputParam, const bool includeIvtc)
     if (inputParam->vpp.rtgmc_bob.enable) deinterlacer++;
     if (inputParam->vpp.yadif.enable) deinterlacer++;
     if (inputParam->vpp.decomb.enable) deinterlacer++;
+    if (inputParam->vpp.stdeint.enable) deinterlacer++;
     if (includeIvtc && inputParam->vpp.ivtc.enable) deinterlacer++;
     return deinterlacer;
 }
@@ -2410,6 +2412,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vpp.rtgmc_edi.enable && !degrainLegacy) filterPipeline.push_back(VppType::CL_RTGMC_EDI);
     if (inputParam->vpp.yadif.enable)      filterPipeline.push_back(VppType::CL_YADIF);
     if (inputParam->vpp.decomb.enable)     filterPipeline.push_back(VppType::CL_DECOMB);
+    if (inputParam->vpp.stdeint.enable)    filterPipeline.push_back(VppType::CL_STDEINT);
     if (inputParam->vpp.bwdif.enable)      filterPipeline.push_back(VppType::CL_BWDIF);
     if (inputParam->vpp.ivtc.enable)       filterPipeline.push_back(VppType::CL_IVTC);
     if (inputParam->vppmfx.deinterlace != MFX_DEINTERLACE_NONE)  filterPipeline.push_back(VppType::MFX_DEINTERLACE);
@@ -2942,6 +2945,31 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         inputFrame = param->frameOut;
         m_encFps = param->baseFps;
         //登録
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
+    }
+    // ST-DeIntデインターレース
+    if (vppType == VppType::CL_STDEINT) {
+        unique_ptr<RGYFilter> filter(new RGYFilterStDeint(m_cl));
+        shared_ptr<RGYFilterParamStDeint> param(new RGYFilterParamStDeint());
+        param->modelFile = params->vpp.stdeint.modelFile;
+        param->modelDir = params->vpp.onnxModelDir;
+        param->device = params->vpp.stdeint.device;
+        param->mode = params->vpp.stdeint.mode;
+        param->colormatrix = params->vpp.stdeint.colormatrix;
+        param->colorrange = params->vpp.stdeint.colorrange;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->frameOut.picstruct = RGY_PICSTRUCT_FRAME;
+        param->baseFps = m_encFps;
+        param->timebase = m_outputTimebase;
+        param->bOutOverwrite = false;
+        auto sts = filter->init(param, m_pQSVLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
         clfilters.push_back(std::move(filter));
         return RGY_ERR_NONE;
     }
