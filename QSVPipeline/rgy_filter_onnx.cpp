@@ -377,7 +377,7 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
 
     auto initModel = [&](const int modelInH, const int modelInW) {
         if (fastOcl) {
-            return m_ov->initShared(prm->onnx.modelFile, (void *)m_cl->queue().get(), modelInH, modelInW, errMsg, prm->onnx.precision);
+            return m_ov->initShared(prm->onnx.modelFile, (void *)m_cl->queue().get(), (void *)m_cl->context(), modelInH, modelInW, errMsg, prm->onnx.precision);
         }
         if (preferRemoteContext) {
             auto remoteErr = m_ov->initFromOpenCLQueue(prm->onnx.modelFile, (void *)m_cl->queue().get(), (void *)m_cl->context(), modelInH, modelInW, errMsg, prm->onnx.precision);
@@ -417,8 +417,8 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         // share QSVEnc's in-order command queue so OpenVINO inference enqueues
         // between this filter's kernels with no host synchronisation.
         err = initModel(m_modelInH, m_modelInW);
-        if (err == RGY_ERR_UNSUPPORTED && interopStr != _T("ocl")) {
-            AddMessage(RGY_LOG_DEBUG, _T("onnx: shared OpenCL context is unavailable, falling back to host interop: %s\n"),
+        if (err == RGY_ERR_UNSUPPORTED) {
+            AddMessage(RGY_LOG_WARN, _T("onnx: shared OpenCL context is unavailable, falling back to host interop: %s\n"),
                 errMsg.c_str());
             fastOcl = false;
             errMsg.clear();

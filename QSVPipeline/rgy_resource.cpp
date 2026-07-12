@@ -135,6 +135,7 @@ _BINARY_VPP_FILTER_FILE(rgy_filter_nnedi_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_overlay_cl);
 #if ENCODER_QSV
 _BINARY_VPP_FILTER_FILE(rgy_filter_onnx_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_stdeint_cl);
 #endif
 _BINARY_VPP_FILTER_FILE(rgy_filter_pad_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_resize_cl);
@@ -261,6 +262,7 @@ static const RGYResourceData RGY_RESOURCE_DATA[] = {
     { _T("EXE_DATA"), _T("RGY_FILTER_OVERLAY_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_overlay_cl) },
 #if ENCODER_QSV
     { _T("EXE_DATA"), _T("RGY_FILTER_ONNX_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_onnx_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_STDEINT_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_stdeint_cl) },
 #endif
     { _T("EXE_DATA"), _T("RGY_FILTER_PAD_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_pad_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_RESIZE_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_resize_cl) },

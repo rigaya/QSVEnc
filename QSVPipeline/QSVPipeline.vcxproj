@@ -1497,6 +1497,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <None Include="rgy_filter_nnedi.cl" />
     <None Include="rgy_filter_overlay.cl" />
     <None Include="rgy_filter_onnx.cl" />
+    <None Include="rgy_filter_stdeint.cl" />
     <None Include="rgy_filter_pad.cl" />
     <None Include="rgy_filter_resize.cl" />
     <None Include="rgy_filter_smooth.cl" />

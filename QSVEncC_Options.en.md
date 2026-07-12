@@ -4203,6 +4203,8 @@ Recommended combinations:
 - High quality: `model=stdeint,precision=fp32` (default precision).
 - Real-time HD: `model=stdeint_fast,precision=auto`. Measured quality loss is about 0.05–0.15 dB.
 
+GPU devices automatically use the zero-copy OpenCL/OpenVINO path. If it is unavailable, the filter falls back to the host path. The selected path is shown as `path ocl` or `path host` in the log.
+
   ```
   --vpp-onnx-model-dir C:\models\HWEnc-onnx-models --vpp-stdeint model=stdeint,mode=bob
   --vpp-onnx-model-dir C:\models\HWEnc-onnx-models --vpp-stdeint model=stdeint_fast,precision=auto,mode=bob

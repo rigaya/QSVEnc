@@ -55,6 +55,7 @@ using ov_core_compile_model_with_context_t = ov_status_e(OPENVINO_C_API_CALLBACK
 using ov_remote_context_free_t = void(OPENVINO_C_API_CALLBACK *)(ov_remote_context_t *);
 using ov_remote_context_get_device_name_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_remote_context_t *, char **);
 using ov_remote_context_create_host_tensor_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_remote_context_t *, const ov_element_type_e, const ov_shape_t, ov_tensor_t **);
+using ov_remote_context_create_tensor_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_remote_context_t *, const ov_element_type_e, const ov_shape_t, const size_t, ov_tensor_t **, ...);
 using ov_model_free_t = void(OPENVINO_C_API_CALLBACK *)(ov_model_t *);
 using ov_model_const_input_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_model_t *, ov_output_const_port_t **);
 using ov_model_const_output_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_model_t *, ov_output_const_port_t **);
@@ -102,6 +103,7 @@ struct OpenVINOLoader {
     ov_remote_context_free_t remote_context_free = nullptr;
     ov_remote_context_get_device_name_t remote_context_get_device_name = nullptr;
     ov_remote_context_create_host_tensor_t remote_context_create_host_tensor = nullptr;
+    ov_remote_context_create_tensor_t remote_context_create_tensor = nullptr;
     ov_model_free_t model_free = nullptr;
     ov_model_const_input_t model_const_input = nullptr;
     ov_model_const_output_t model_const_output = nullptr;
@@ -197,6 +199,7 @@ struct OpenVINOLoader {
         loadOptional(remote_context_free, "ov_remote_context_free");
         loadOptional(remote_context_get_device_name, "ov_remote_context_get_device_name");
         loadOptional(remote_context_create_host_tensor, "ov_remote_context_create_host_tensor");
+        loadOptional(remote_context_create_tensor, "ov_remote_context_create_tensor");
         LOAD_OV(model_free);
         LOAD_OV(model_const_input);
         LOAD_OV(model_const_output);
@@ -655,9 +658,10 @@ RGY_ERR RGYOpenVINO::initFromOpenCLQueue(const tstring &modelPath, void *clQueue
 
     ov_remote_context_t *remoteRaw = nullptr;
     tstring queueErr;
-    if (clQueue != nullptr) {
-        ret = ovCheck(ov.core_create_context(I.core.get(), "GPU", 4, &remoteRaw,
+    if (clQueue != nullptr && clContext != nullptr) {
+        ret = ovCheck(ov.core_create_context(I.core.get(), "GPU", 6, &remoteRaw,
             const_cast<char *>("CONTEXT_TYPE"), const_cast<char *>("OCL"),
+            const_cast<char *>("OCL_CONTEXT"), clContext,
             const_cast<char *>("OCL_QUEUE"), clQueue), errMessage);
         if (ret != RGY_ERR_NONE) {
             queueErr = errMessage;
@@ -872,12 +876,61 @@ RGY_ERR RGYOpenVINO::infer(const float *in, float *out) {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYOpenVINO::initShared(const tstring &, void *, const int, const int, tstring &errMessage, const tstring &) {
-    errMessage = _T("OpenVINO shared OpenCL path is not available in the C API dynamic loader implementation yet");
-    return RGY_ERR_UNSUPPORTED;
+RGY_ERR RGYOpenVINO::initShared(const tstring &modelPath, void *clQueue, void *clContext,
+                                const int height, const int width, tstring &errMessage, const tstring &precision) {
+    auto &ov = ovLoader();
+    if (!ov.remote_context_create_tensor) {
+        errMessage = _T("OpenVINO C runtime does not provide ov_remote_context_create_tensor");
+        return RGY_ERR_UNSUPPORTED;
+    }
+    return initFromOpenCLQueue(modelPath, clQueue, clContext, height, width, errMessage, precision);
 }
-RGY_ERR RGYOpenVINO::setSharedIO(void *, void *) { return RGY_ERR_UNSUPPORTED; }
-RGY_ERR RGYOpenVINO::inferShared() { return RGY_ERR_UNSUPPORTED; }
+
+RGY_ERR RGYOpenVINO::setSharedIO(void *inClMem, void *outClMem) {
+    if (!m_impl || !m_impl->remote || !m_impl->req || inClMem == nullptr || outClMem == nullptr) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+    auto &ov = ovLoader();
+    if (!ov.remote_context_create_tensor) {
+        return RGY_ERR_UNSUPPORTED;
+    }
+    m_impl->remoteInTensor.reset();
+    m_impl->remoteOutTensor.reset();
+
+    auto inShape = makeShape(m_impl->inShape);
+    ov_tensor_t *inTensorRaw = nullptr;
+    if (ov.remote_context_create_tensor(m_impl->remote.get(), F32, inShape, 4, &inTensorRaw,
+        const_cast<char *>("SHARED_MEM_TYPE"), const_cast<char *>("OCL_BUFFER"),
+        const_cast<char *>("MEM_HANDLE"), inClMem) != OK) {
+        return RGY_ERR_UNKNOWN;
+    }
+    m_impl->remoteInTensor.reset(inTensorRaw);
+
+    auto outShape = makeShape(m_impl->outShape);
+    ov_tensor_t *outTensorRaw = nullptr;
+    if (ov.remote_context_create_tensor(m_impl->remote.get(), F32, outShape, 4, &outTensorRaw,
+        const_cast<char *>("SHARED_MEM_TYPE"), const_cast<char *>("OCL_BUFFER"),
+        const_cast<char *>("MEM_HANDLE"), outClMem) != OK) {
+        m_impl->remoteInTensor.reset();
+        return RGY_ERR_UNKNOWN;
+    }
+    m_impl->remoteOutTensor.reset(outTensorRaw);
+    if (ov.infer_request_set_input_tensor(m_impl->req.get(), m_impl->remoteInTensor.get()) != OK
+        || ov.infer_request_set_output_tensor(m_impl->req.get(), m_impl->remoteOutTensor.get()) != OK) {
+        m_impl->remoteInTensor.reset();
+        m_impl->remoteOutTensor.reset();
+        return RGY_ERR_UNKNOWN;
+    }
+    m_impl->shared = true;
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYOpenVINO::inferShared() {
+    if (!m_impl || !m_impl->shared || !m_impl->req || !m_impl->remoteInTensor || !m_impl->remoteOutTensor) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    return (ovLoader().infer_request_infer(m_impl->req.get()) == OK) ? RGY_ERR_NONE : RGY_ERR_UNKNOWN;
+}
 bool RGYOpenVINO::usingSharedContext() const { return m_impl && m_impl->shared; }
 
 int RGYOpenVINO::inChannels()  const { return m_impl && m_impl->inShape.size()  >= 4 ? (int)m_impl->inShape[1]  : 1; }
@@ -945,7 +998,7 @@ tstring RGYOpenVINO::findDeviceByUuidLuid(const void *, const size_t, const void
     return tstring();
 }
 RGY_ERR RGYOpenVINO::infer(const float *, float *) { return RGY_ERR_UNSUPPORTED; }
-RGY_ERR RGYOpenVINO::initShared(const tstring &, void *, const int, const int, tstring &errMessage, const tstring &) {
+RGY_ERR RGYOpenVINO::initShared(const tstring &, void *, void *, const int, const int, tstring &errMessage, const tstring &) {
     errMessage = _T("this build of QSVEnc does not include OpenVINO support");
     return RGY_ERR_UNSUPPORTED;
 }

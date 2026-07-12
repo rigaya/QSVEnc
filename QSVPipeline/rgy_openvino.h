@@ -83,18 +83,15 @@ public:
     // is blocking).
     RGY_ERR infer(const float *in, float *out);
 
-    // --- zero-copy path (shared OpenCL queue) ---
-    // Shared OpenCL zero-copy path. This public API is kept for callers, but
-    // the dynamic C API implementation currently returns RGY_ERR_UNSUPPORTED
-    // until the C remote-context varargs path is completed.
-    RGY_ERR initShared(const tstring &modelPath, void *clQueue,
+    // --- OpenCL共有キューを使うzero-copy経路 ---
+    // 指定されたcontext/queueでモデルをコンパイルし、同じキュー上のOpenCLカーネルと
+    // OpenVINO推論をホスト転送なしで直列化する。
+    RGY_ERR initShared(const tstring &modelPath, void *clQueue, void *clContext,
                        const int height, const int width, tstring &errMessage,
                        const tstring &precision = _T("auto"));
-    // Bind the input and output cl_mem buffers (f32, sized to the in/out
-    // shapes) as the inference request's remote tensors. Call once; the buffers
-    // are reused every frame.
+    // 入出力shapeと同じ大きさのf32 cl_memをremote tensorとして一度だけバインドする。
     RGY_ERR setSharedIO(void *inClMem, void *outClMem);
-    // Run inference against the bound remote tensors (no host data moves).
+    // バインド済みremote tensorを使って推論する。
     RGY_ERR inferShared();
     bool usingSharedContext() const;
 

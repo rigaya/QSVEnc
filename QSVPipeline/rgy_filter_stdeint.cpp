@@ -39,11 +39,12 @@ static inline float stdeint_clampf(float value, float low, float high) {
 }
 
 RGYFilterStDeint::RGYFilterStDeint(shared_ptr<RGYOpenCLContext> context) :
-    RGYFilter(context), m_ov(), m_width(0), m_height(0), m_mode(VppStDeintMode::Bob), m_defaultTff(true),
+    RGYFilter(context), m_ov(), m_width(0), m_height(0), m_mode(VppStDeintMode::Bob), m_defaultTff(true), m_useOcl(false),
     m_yOff(0), m_yScale(1), m_yRange(255), m_cOff(128), m_cScale(1), m_cRange(255),
     m_matVR(0), m_matUG(0), m_matVG(0), m_matUB(0),
     m_matRY(0), m_matGY(0), m_matBY(0), m_matRU(0), m_matGU(0), m_matBU(0), m_matRV(0), m_matGV(0), m_matBV(0),
-    m_inputBuf(), m_outputBuf(), m_weaveBuf(), m_inputStaging(), m_outputStaging() {
+    m_inputBuf(), m_outputBuf(), m_weaveBuf(), m_inputStaging(), m_outputStaging(),
+    m_program(), m_inputBufCL(), m_outputBufCL() {
     m_name = _T("stdeint");
 }
 
@@ -55,6 +56,9 @@ void RGYFilterStDeint::close() {
     m_ov.reset();
     m_inputStaging.reset();
     m_outputStaging.reset();
+    m_program.reset();
+    m_inputBufCL.reset();
+    m_outputBufCL.reset();
     m_inputBuf.clear();
     m_outputBuf.clear();
     m_weaveBuf.clear();
@@ -145,7 +149,22 @@ RGY_ERR RGYFilterStDeint::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
         AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to read model %s: %s\n"), prm->modelFile.c_str(), errorMessage.c_str());
         return err;
     }
-    err = m_ov->init(prm->modelFile, prm->device, m_height, m_width, errorMessage, prm->precision);
+    const auto deviceLower = tolowercase(prm->device);
+    const bool deviceWantsGpu = deviceLower.substr(0, 3) == _T("gpu") || deviceLower == _T("auto");
+    m_useOcl = deviceWantsGpu && m_cl;
+    if (m_useOcl) {
+        err = m_ov->initShared(prm->modelFile, (void *)m_cl->queue().get(), (void *)m_cl->context(),
+            m_height, m_width, errorMessage, prm->precision);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_WARN, _T("stdeint: OpenCL zero-copy initialization failed; falling back to host path: %s\n"),
+                errorMessage.c_str());
+            m_useOcl = false;
+            errorMessage.clear();
+        }
+    }
+    if (!m_useOcl) {
+        err = m_ov->init(prm->modelFile, prm->device, m_height, m_width, errorMessage, prm->precision);
+    }
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to load/compile model on %s: %s\n"), prm->device.c_str(), errorMessage.c_str());
         return err;
@@ -172,11 +191,6 @@ RGY_ERR RGYFilterStDeint::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
     else                                         matrixSel = (m_height <= 576) ? 601 : 709;
     setupColorCoeffs(matrixSel, prm->colorrange != _T("pc"), 255);
 
-    const size_t plane = (size_t)m_width * m_height;
-    m_inputBuf.resize(3 * plane);
-    m_outputBuf.resize(3 * plane);
-    m_weaveBuf.resize(3 * plane);
-
     prm->frameOut.csp = inputCsp;
     prm->frameOut.width = m_width;
     prm->frameOut.height = m_height;
@@ -196,19 +210,54 @@ RGY_ERR RGYFilterStDeint::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
         prm->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
 
-    m_inputStaging = m_cl->createFrameBuffer(m_width, m_height, inputCsp, prm->frameIn.bitdepth,
-        CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR);
-    m_outputStaging = m_cl->createFrameBuffer(m_width, m_height, inputCsp, prm->frameIn.bitdepth,
-        CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR);
-    if (!m_inputStaging || !m_outputStaging) {
-        AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to allocate staging frame buffers.\n"));
-        return RGY_ERR_MEMORY_ALLOC;
+    const size_t plane = (size_t)m_width * m_height;
+    if (m_useOcl) {
+        m_program = m_cl->buildResource(_T("RGY_FILTER_STDEINT_CL"), _T("EXE_DATA"), std::string());
+        m_inputBufCL = m_cl->createBuffer(3 * plane * sizeof(float));
+        m_outputBufCL = m_cl->createBuffer(3 * plane * sizeof(float));
+        if (!m_program || !m_inputBufCL || !m_outputBufCL) {
+            AddMessage(RGY_LOG_WARN, _T("stdeint: failed to prepare OpenCL zero-copy buffers; falling back to host path.\n"));
+            m_useOcl = false;
+        } else {
+            err = m_ov->setSharedIO((void *)m_inputBufCL->mem(), (void *)m_outputBufCL->mem());
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_WARN, _T("stdeint: failed to bind OpenCL remote tensors; falling back to host path: %s.\n"),
+                    get_err_mes(err));
+                m_useOcl = false;
+            }
+        }
+        if (!m_useOcl) {
+            m_program.reset();
+            m_inputBufCL.reset();
+            m_outputBufCL.reset();
+            errorMessage.clear();
+            err = m_ov->init(prm->modelFile, prm->device, m_height, m_width, errorMessage, prm->precision);
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("stdeint: host fallback model initialization failed on %s: %s\n"),
+                    prm->device.c_str(), errorMessage.c_str());
+                return err;
+            }
+        }
+    }
+    if (!m_useOcl) {
+        m_inputBuf.resize(3 * plane);
+        m_outputBuf.resize(3 * plane);
+        m_weaveBuf.resize(3 * plane);
+        m_inputStaging = m_cl->createFrameBuffer(m_width, m_height, inputCsp, prm->frameIn.bitdepth,
+            CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR);
+        m_outputStaging = m_cl->createFrameBuffer(m_width, m_height, inputCsp, prm->frameIn.bitdepth,
+            CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR);
+        if (!m_inputStaging || !m_outputStaging) {
+            AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to allocate staging frame buffers.\n"));
+            return RGY_ERR_MEMORY_ALLOC;
+        }
     }
 
     m_param = prm;
-    setFilterInfo(prm->print());
-    AddMessage(RGY_LOG_DEBUG, _T("stdeint: %s, %dx%d, mode %s, device %s.\n"),
-        prm->modelFile.c_str(), m_width, m_height, get_cx_desc(list_vpp_stdeint_mode, (int)m_mode), prm->device.c_str());
+    setFilterInfo(prm->print() + strsprintf(_T(", path %s"), m_useOcl ? _T("ocl") : _T("host")));
+    AddMessage(RGY_LOG_DEBUG, _T("stdeint: %s, %dx%d, mode %s, device %s, path %s.\n"),
+        prm->modelFile.c_str(), m_width, m_height, get_cx_desc(list_vpp_stdeint_mode, (int)m_mode),
+        prm->device.c_str(), m_useOcl ? _T("ocl") : _T("host"));
     return RGY_ERR_NONE;
 }
 
@@ -335,6 +384,61 @@ RGY_ERR RGYFilterStDeint::writeOutputFrame(RGYFrameInfo *output, const float *rg
     return err;
 }
 
+RGY_ERR RGYFilterStDeint::runOcl(const RGYFrameInfo *input, RGYFrameInfo **outputs, int outputCount,
+    RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event) {
+    const bool nv12 = input->csp == RGY_CSP_NV12;
+    const auto inputU = (cl_mem)input->ptr[1];
+    const auto inputV = nv12 ? inputU : (cl_mem)input->ptr[2];
+    const int inputVPitch = nv12 ? input->pitch[1] : input->pitch[2];
+    RGYWorkSize local(32, 8);
+    RGYWorkSize global(m_width, m_height);
+    auto err = m_program->kernel("stdeint_pack_rgb").config(queue, local, global, wait_events, nullptr).launch(
+        (cl_mem)input->ptr[0], input->pitch[0], inputU, input->pitch[1], inputV, inputVPitch, nv12 ? 1 : 0,
+        m_inputBufCL->mem(), m_width, m_height,
+        m_yOff, m_yScale, m_cOff, m_cScale, m_matVR, m_matUG, m_matVG, m_matUB);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("stdeint: OpenCL RGB pack failed: %s.\n"), get_err_mes(err));
+        return err;
+    }
+
+    err = m_ov->inferShared();
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("stdeint: shared OpenCL inference failed: %s.\n"), get_err_mes(err));
+        return err;
+    }
+
+    bool inputTff = m_defaultTff;
+    if (input->picstruct & RGY_PICSTRUCT_BFF) {
+        inputTff = false;
+    } else if (input->picstruct & RGY_PICSTRUCT_TFF) {
+        inputTff = true;
+    }
+    const int firstIndex = inputTff ? 0 : 1;
+    const int sourceIndices[2] = { firstIndex, 1 - firstIndex };
+    for (int i = 0; i < outputCount; i++) {
+        auto output = &m_frameBuf[i]->frame;
+        const bool outputNv12 = output->csp == RGY_CSP_NV12;
+        const auto outputU = (cl_mem)output->ptr[1];
+        const auto outputV = outputNv12 ? outputU : (cl_mem)output->ptr[2];
+        const int outputVPitch = outputNv12 ? output->pitch[1] : output->pitch[2];
+        const int frameA = sourceIndices[i] == 0 ? 1 : 0;
+        err = m_program->kernel("stdeint_weave_yuv").config(queue, local, global, {},
+            (i == outputCount - 1) ? event : nullptr).launch(
+                m_inputBufCL->mem(), m_outputBufCL->mem(),
+                (cl_mem)output->ptr[0], output->pitch[0], outputU, output->pitch[1], outputV, outputVPitch,
+                outputNv12 ? 1 : 0, m_width, m_height, frameA,
+                m_yOff, m_yRange, m_cOff, m_cRange,
+                m_matRY, m_matGY, m_matBY, m_matRU, m_matGU, m_matBU, m_matRV, m_matGV, m_matBV);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("stdeint: OpenCL weave failed: %s.\n"), get_err_mes(err));
+            return err;
+        }
+        setOutputFrameProp(output, input);
+        outputs[i] = output;
+    }
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR RGYFilterStDeint::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames,
     int *pOutputFrameNum, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events,
     RGYOpenCLEvent *event) {
@@ -359,6 +463,18 @@ RGY_ERR RGYFilterStDeint::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
             }
             setOutputFrameProp(output, pInputFrame);
             ppOutputFrames[i] = output;
+        }
+        *pOutputFrameNum = outputCount;
+        if (bob) {
+            setBobTimestamp(pInputFrame, ppOutputFrames);
+        }
+        return RGY_ERR_NONE;
+    }
+
+    if (m_useOcl) {
+        const auto err = runOcl(pInputFrame, ppOutputFrames, outputCount, queue, wait_events, event);
+        if (err != RGY_ERR_NONE) {
+            return err;
         }
         *pOutputFrameNum = outputCount;
         if (bob) {
