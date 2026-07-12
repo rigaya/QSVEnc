@@ -2143,7 +2143,7 @@ const CX_DESC list_vpp_stdeint_mode[] = {
 VppStDeint::VppStDeint() :
     enable(false),
     modelFile(),
-    device(_T("CPU")),
+    device(_T("GPU.0")),
     mode(VppStDeintMode::Bob),
     colormatrix(_T("auto")),
     colorrange(_T("auto")) {

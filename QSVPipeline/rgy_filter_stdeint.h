@@ -46,7 +46,7 @@ public:
     rgy_rational<int> timebase;
 
     RGYFilterParamStDeint() :
-        modelFile(), modelDir(), device(_T("CPU")), mode(VppStDeintMode::Bob),
+        modelFile(), modelDir(), device(_T("GPU.0")), mode(VppStDeintMode::Bob),
         colormatrix(_T("auto")), colorrange(_T("auto")), timebase() {};
     virtual ~RGYFilterParamStDeint() {};
     virtual tstring print() const override;
@@ -67,6 +67,7 @@ protected:
     void setupColorCoeffs(int matrixSel, bool rangeTV, int pixMax);
     void setOutputFrameProp(RGYFrameInfo *output, const RGYFrameInfo *input) const;
     void setBobTimestamp(const RGYFrameInfo *input, RGYFrameInfo **outputs) const;
+    void weaveRestoration(float *dst, const float *restoration, bool frameA) const;
     RGY_ERR writeOutputFrame(RGYFrameInfo *output, const float *rgb, RGYOpenCLQueue& queue, RGYOpenCLEvent *event);
 
     std::unique_ptr<RGYOpenVINO> m_ov;
@@ -81,6 +82,7 @@ protected:
 
     std::vector<float> m_inputBuf;
     std::vector<float> m_outputBuf;
+    std::vector<float> m_weaveBuf;
     std::unique_ptr<RGYCLFrame> m_inputStaging;
     std::unique_ptr<RGYCLFrame> m_outputStaging;
 };

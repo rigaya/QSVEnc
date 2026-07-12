@@ -43,7 +43,7 @@ RGYFilterStDeint::RGYFilterStDeint(shared_ptr<RGYOpenCLContext> context) :
     m_yOff(0), m_yScale(1), m_yRange(255), m_cOff(128), m_cScale(1), m_cRange(255),
     m_matVR(0), m_matUG(0), m_matVG(0), m_matUB(0),
     m_matRY(0), m_matGY(0), m_matBY(0), m_matRU(0), m_matGU(0), m_matBU(0), m_matRV(0), m_matGV(0), m_matBV(0),
-    m_inputBuf(), m_outputBuf(), m_inputStaging(), m_outputStaging() {
+    m_inputBuf(), m_outputBuf(), m_weaveBuf(), m_inputStaging(), m_outputStaging() {
     m_name = _T("stdeint");
 }
 
@@ -57,6 +57,7 @@ void RGYFilterStDeint::close() {
     m_outputStaging.reset();
     m_inputBuf.clear();
     m_outputBuf.clear();
+    m_weaveBuf.clear();
     m_frameBuf.clear();
 }
 
@@ -144,7 +145,7 @@ RGY_ERR RGYFilterStDeint::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
         AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to read model %s: %s\n"), prm->modelFile.c_str(), errorMessage.c_str());
         return err;
     }
-    err = m_ov->init(prm->modelFile, prm->device, m_height, m_width, errorMessage);
+    err = m_ov->init(prm->modelFile, prm->device, m_height, m_width, errorMessage, _T("fp32"));
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to load/compile model on %s: %s\n"), prm->device.c_str(), errorMessage.c_str());
         return err;
@@ -154,9 +155,13 @@ RGY_ERR RGYFilterStDeint::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
             m_ov->inChannels(), m_ov->outChannels());
         return RGY_ERR_UNSUPPORTED;
     }
-    if (m_ov->outHeight() != m_height || m_ov->outWidth() != m_width) {
-        AddMessage(RGY_LOG_ERROR, _T("stdeint: output size must match input (expected %dx%d, got %dx%d).\n"),
-            m_width, m_height, m_ov->outWidth(), m_ov->outHeight());
+    if (m_ov->outHeight() == m_height && m_ov->outWidth() == m_width) {
+        AddMessage(RGY_LOG_ERROR, _T("stdeint: this model contains the legacy ONNX weave output; re-export it with the current export_stdeint.py.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (m_ov->outHeight() != m_height / 2 || m_ov->outWidth() != m_width) {
+        AddMessage(RGY_LOG_ERROR, _T("stdeint: restoration output must be 6ch with half input height (expected %dx%d, got %dx%d).\n"),
+            m_width, m_height / 2, m_ov->outWidth(), m_ov->outHeight());
         return RGY_ERR_UNSUPPORTED;
     }
 
@@ -169,7 +174,8 @@ RGY_ERR RGYFilterStDeint::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
 
     const size_t plane = (size_t)m_width * m_height;
     m_inputBuf.resize(3 * plane);
-    m_outputBuf.resize(6 * plane);
+    m_outputBuf.resize(3 * plane);
+    m_weaveBuf.resize(3 * plane);
 
     prm->frameOut.csp = inputCsp;
     prm->frameOut.width = m_width;
@@ -295,6 +301,24 @@ void RGYFilterStDeint::setBobTimestamp(const RGYFrameInfo *input, RGYFrameInfo *
     outputs[1]->inputFrameId = input->inputFrameId;
 }
 
+void RGYFilterStDeint::weaveRestoration(float *dst, const float *restoration, bool frameA) const {
+    const size_t plane = (size_t)m_width * m_height;
+    const size_t halfPlane = plane / 2;
+    for (int channel = 0; channel < 3; channel++) {
+        const auto inputPlane = m_inputBuf.data() + (size_t)channel * plane;
+        const auto restorePlane = restoration + (size_t)channel * halfPlane;
+        auto outputPlane = dst + (size_t)channel * plane;
+        for (int y = 0; y < m_height / 2; y++) {
+            const auto inputRow = inputPlane + (size_t)(y * 2 + (frameA ? 0 : 1)) * m_width;
+            const auto restoreRow = restorePlane + (size_t)y * m_width;
+            auto upperRow = outputPlane + (size_t)(y * 2) * m_width;
+            auto lowerRow = upperRow + m_width;
+            std::copy_n(frameA ? inputRow : restoreRow, m_width, upperRow);
+            std::copy_n(frameA ? restoreRow : inputRow, m_width, lowerRow);
+        }
+    }
+}
+
 RGY_ERR RGYFilterStDeint::writeOutputFrame(RGYFrameInfo *output, const float *rgb,
     RGYOpenCLQueue& queue, RGYOpenCLEvent *event) {
     auto err = m_outputStaging->queueMapBuffer(queue, CL_MAP_WRITE, {}, RGY_CL_MAP_BLOCK_ALL);
@@ -361,7 +385,7 @@ RGY_ERR RGYFilterStDeint::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
         AddMessage(RGY_LOG_ERROR, _T("stdeint: inference failed: %s.\n"), get_err_mes(err));
         return err;
     }
-    const size_t frameElements = (size_t)3 * m_width * m_height;
+    const size_t restorationElements = (size_t)3 * m_width * (m_height / 2);
     bool inputTff = m_defaultTff;
     if (pInputFrame->picstruct & RGY_PICSTRUCT_BFF) {
         inputTff = false;
@@ -373,7 +397,9 @@ RGY_ERR RGYFilterStDeint::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
     const int sourceIndices[2] = { firstIndex, secondIndex };
     for (int i = 0; i < outputCount; i++) {
         auto output = &m_frameBuf[i]->frame;
-        err = writeOutputFrame(output, m_outputBuf.data() + (size_t)sourceIndices[i] * frameElements,
+        const int frameIndex = sourceIndices[i];
+        weaveRestoration(m_weaveBuf.data(), m_outputBuf.data() + (size_t)frameIndex * restorationElements, frameIndex == 0);
+        err = writeOutputFrame(output, m_weaveBuf.data(),
             queue, (i == outputCount - 1) ? event : nullptr);
         if (err != RGY_ERR_NONE) {
             return err;

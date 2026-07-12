@@ -16418,8 +16418,8 @@ tstring gen_cmd_help_vpp() {
         _T("                                  Names require --vpp-onnx-model-dir (stdeint_ov_models.json).\n")
         _T("      mode=<string>               bob (default, double frame rate) / normal\n")
 #if ENABLE_OPENVINO
-        _T("      device=<string>             CPU (default) / GPU.0 / GPU / AUTO / NPU\n")
-        _T("                                  GPU output precision may be lower; use CPU for quality.\n")
+        _T("      device=<string>             GPU.0 (default) / CPU / GPU / AUTO / NPU\n")
+        _T("                                  fp32 inference keeps GPU quality equivalent to CPU.\n")
 #endif
         _T("      colormatrix=<string>        auto / bt601 / bt709 / bt2020\n")
         _T("      colorrange=<string>         auto / tv / pc\n"));
