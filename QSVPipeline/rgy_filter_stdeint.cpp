@@ -62,8 +62,8 @@ void RGYFilterStDeint::close() {
 }
 
 tstring RGYFilterParamStDeint::print() const {
-    return strsprintf(_T("stdeint: %s, mode %s, device %s"), modelFile.c_str(),
-        get_cx_desc(list_vpp_stdeint_mode, (int)mode), device.c_str());
+    return strsprintf(_T("stdeint: %s, mode %s, device %s, precision %s"), modelFile.c_str(),
+        get_cx_desc(list_vpp_stdeint_mode, (int)mode), device.c_str(), precision.c_str());
 }
 
 void RGYFilterStDeint::setupColorCoeffs(int matrixSel, bool rangeTV, int pixMax) {
@@ -145,7 +145,7 @@ RGY_ERR RGYFilterStDeint::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
         AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to read model %s: %s\n"), prm->modelFile.c_str(), errorMessage.c_str());
         return err;
     }
-    err = m_ov->init(prm->modelFile, prm->device, m_height, m_width, errorMessage, _T("fp32"));
+    err = m_ov->init(prm->modelFile, prm->device, m_height, m_width, errorMessage, prm->precision);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to load/compile model on %s: %s\n"), prm->device.c_str(), errorMessage.c_str());
         return err;

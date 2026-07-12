@@ -6060,7 +6060,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             return 0;
         }
         i++;
-        const auto paramList = std::vector<std::string>{ "enable", "model", "device", "mode", "colormatrix", "colorrange" };
+        const auto paramList = std::vector<std::string>{ "enable", "model", "device", "precision", "mode", "colormatrix", "colorrange" };
         for (const auto& param : split(strInput[i], _T(","))) {
             const auto pos = param.find_first_of(_T("="));
             if (pos == tstring::npos) {
@@ -6078,6 +6078,13 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 vpp->stdeint.modelFile = value;
             } else if (name == _T("device")) {
                 vpp->stdeint.device = touppercase(value);
+            } else if (name == _T("precision")) {
+                const auto normalized = tolowercase(value);
+                if (normalized != _T("fp32") && normalized != _T("auto")) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + name + _T("="), value);
+                    return 1;
+                }
+                vpp->stdeint.precision = normalized;
             } else if (name == _T("mode")) {
                 int mode = 0;
                 if (!get_list_value(list_vpp_stdeint_mode, value.c_str(), &mode)) {
@@ -13755,6 +13762,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
         if (param->stdeint.enable || save_disabled_prm) {
             if (!param->stdeint.modelFile.empty()) tmp << _T(",model=") << param->stdeint.modelFile;
             tmp << _T(",device=") << param->stdeint.device;
+            tmp << _T(",precision=") << param->stdeint.precision;
             tmp << _T(",mode=") << get_cx_desc(list_vpp_stdeint_mode, (int)param->stdeint.mode);
             tmp << _T(",colormatrix=") << param->stdeint.colormatrix;
             tmp << _T(",colorrange=") << param->stdeint.colorrange;
@@ -16419,7 +16427,8 @@ tstring gen_cmd_help_vpp() {
         _T("      mode=<string>               bob (default, double frame rate) / normal\n")
 #if ENABLE_OPENVINO
         _T("      device=<string>             GPU.0 (default) / CPU / GPU / AUTO / NPU\n")
-        _T("                                  fp32 inference keeps GPU quality equivalent to CPU.\n")
+        _T("      precision=<string>          fp32 (default, high quality) / auto (fast)\n")
+        _T("                                  Recommended: stdeint+fp32 for quality, stdeint_fast+auto for HD speed.\n")
 #endif
         _T("      colormatrix=<string>        auto / bt601 / bt709 / bt2020\n")
         _T("      colorrange=<string>         auto / tv / pc\n"));

@@ -2144,6 +2144,7 @@ VppStDeint::VppStDeint() :
     enable(false),
     modelFile(),
     device(_T("GPU.0")),
+    precision(_T("fp32")),
     mode(VppStDeintMode::Bob),
     colormatrix(_T("auto")),
     colorrange(_T("auto")) {
@@ -2153,6 +2154,7 @@ bool VppStDeint::operator==(const VppStDeint& x) const {
     return enable == x.enable
         && modelFile == x.modelFile
         && device == x.device
+        && precision == x.precision
         && mode == x.mode
         && colormatrix == x.colormatrix
         && colorrange == x.colorrange;
@@ -2163,8 +2165,8 @@ bool VppStDeint::operator!=(const VppStDeint& x) const {
 }
 
 tstring VppStDeint::print() const {
-    return strsprintf(_T("model=%s,device=%s,mode=%s,colormatrix=%s,colorrange=%s"),
-        modelFile.c_str(), device.c_str(), get_cx_desc(list_vpp_stdeint_mode, (int)mode),
+    return strsprintf(_T("model=%s,device=%s,precision=%s,mode=%s,colormatrix=%s,colorrange=%s"),
+        modelFile.c_str(), device.c_str(), precision.c_str(), get_cx_desc(list_vpp_stdeint_mode, (int)mode),
         colormatrix.c_str(), colorrange.c_str());
 }
 

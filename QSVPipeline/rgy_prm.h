@@ -3573,6 +3573,7 @@ struct VppStDeint {
     bool    enable;
     tstring modelFile;
     tstring device;
+    tstring precision;
     VppStDeintMode mode;
     tstring colormatrix;
     tstring colorrange;
