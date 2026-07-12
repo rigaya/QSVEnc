@@ -42,13 +42,13 @@ public:
     tstring device;
     tstring precision;
     VppStDeintMode mode;
-    tstring colormatrix;
-    tstring colorrange;
+    CspMatrix colormatrix;
+    CspColorRange colorrange;
     rgy_rational<int> timebase;
 
     RGYFilterParamStDeint() :
         modelFile(), modelDir(), device(_T("GPU.0")), precision(_T("fp32")), mode(VppStDeintMode::Bob),
-        colormatrix(_T("auto")), colorrange(_T("auto")), timebase() {};
+        colormatrix(RGY_MATRIX_AUTO), colorrange(RGY_COLORRANGE_AUTO), timebase() {};
     virtual ~RGYFilterParamStDeint() {};
     virtual tstring print() const override;
 };
