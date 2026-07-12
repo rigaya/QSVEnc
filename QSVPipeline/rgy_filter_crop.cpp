@@ -66,7 +66,8 @@ RGY_ERR RGYFilterCspCrop::convertCspFromNV12(RGYFrameInfo *pOutputFrame, const R
             planeDstR.pitch[0], planeDstR.width, planeDstR.height,
             (cl_mem)planeSrcY.ptr[0], (cl_mem)planeSrcC.ptr[0],
             planeSrcY.pitch[0], planeSrcC.pitch[0], pInputFrame->width, pInputFrame->height, pCropParam->crop.e.left, pCropParam->crop.e.up,
-            pCropParam->matrix);
+            pCropParam->matrix, pCropParam->colorrange == RGY_COLORRANGE_FULL ? 1 : 0,
+            pCropParam->chroma420Interpolate ? 1 : 0);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at kernel_crop_nv12_rgb (convertCspFromNV12(RGB)(%s -> %s)): %s.\n"),
                 RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], get_err_mes(err));
@@ -190,7 +191,8 @@ RGY_ERR RGYFilterCspCrop::convertCspFromYV12(RGYFrameInfo *pOutputFrame, const R
             planeDstR.pitch[0], planeDstR.width, planeDstR.height,
             (cl_mem)planeSrcY.ptr[0], (cl_mem)planeSrcU.ptr[0], (cl_mem)planeSrcV.ptr[0],
             planeSrcY.pitch[0], planeSrcU.pitch[0], planeSrcV.pitch[0], planeSrcY.width, planeSrcY.height, pCropParam->crop.e.left, pCropParam->crop.e.up,
-            pCropParam->matrix);
+            pCropParam->matrix, pCropParam->colorrange == RGY_COLORRANGE_FULL ? 1 : 0,
+            pCropParam->chroma420Interpolate ? 1 : 0);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at kernel_crop_yv12_rgb (convertCspFromYV12(RGB)(%s -> %s)): %s.\n"),
                 RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], get_err_mes(err));
@@ -648,7 +650,8 @@ RGY_ERR RGYFilterCspCrop::convertCspFromRGB(RGYFrameInfo *pOutputFrame, const RG
                 planeDstY.width, planeDstY.height,
                 (cl_mem)planeSrcR.ptr[0], (cl_mem)planeSrcG.ptr[0], (cl_mem)planeSrcB.ptr[0],
                 planeSrcR.pitch[0], planeSrcR.width, planeSrcR.height,
-                pCropParam->crop.e.left, pCropParam->crop.e.up, pCropParam->matrix);
+                pCropParam->crop.e.left, pCropParam->crop.e.up, pCropParam->matrix,
+                pCropParam->colorrange == RGY_COLORRANGE_FULL ? 1 : 0);
             if (err != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("error at kernel_crop_rgb_yv12 (convertCspFromRGB(%s -> %s)): %s.\n"),
                     RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], get_err_mes(err));
@@ -667,7 +670,8 @@ RGY_ERR RGYFilterCspCrop::convertCspFromRGB(RGYFrameInfo *pOutputFrame, const RG
                 planeDstY.pitch[0], planeDstC.pitch[0], planeDstY.width, planeDstY.height,
                 (cl_mem)planeSrcR.ptr[0], (cl_mem)planeSrcG.ptr[0], (cl_mem)planeSrcB.ptr[0],
                 planeSrcR.pitch[0], planeSrcR.width, planeSrcR.height,
-                pCropParam->crop.e.left, pCropParam->crop.e.up, pCropParam->matrix);
+                pCropParam->crop.e.left, pCropParam->crop.e.up, pCropParam->matrix,
+                pCropParam->colorrange == RGY_COLORRANGE_FULL ? 1 : 0);
             if (err != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("error at kernel_crop_rgb_nv12 (convertCspFromRGB(%s -> %s)): %s.\n"),
                     RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], get_err_mes(err));
@@ -791,6 +795,8 @@ RGY_ERR RGYFilterCspCrop::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
             param->frameOut.bitdepth = RGY_CSP_BIT_DEPTH[param->frameOut.csp];
             param->baseFps = pCropParam->baseFps;
             param->matrix = pCropParam->matrix;
+            param->colorrange = pCropParam->colorrange;
+            param->chroma420Interpolate = pCropParam->chroma420Interpolate;
             param->crop = crop;
             param->bOutOverwrite = pCropParam->bOutOverwrite;
             auto ret = filter->init(param, pPrintMes);

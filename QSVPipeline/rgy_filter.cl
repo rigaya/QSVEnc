@@ -629,6 +629,13 @@ TypeOut scaleYFloatToPix(float x) {
     return (TypeOut)clamp(x * range + offset + 0.5f, 0.0f, (float)(1ll << (out_bit_depth)) - 0.5f);
 }
 
+TypeOut scaleYFloatToPixRange(float x, int fullRange) {
+    if (!fullRange) return scaleYFloatToPix(x);
+    if (out_bit_depth == 32) return x;
+    const float range = (float)((1ll << out_bit_depth) - 1);
+    return (TypeOut)clamp(x * range + 0.5f, 0.0f, range);
+}
+
 TypeOut scaleUVFloatToPix(float x) {
     if (out_bit_depth == 32) {
         return x;
@@ -636,6 +643,14 @@ TypeOut scaleUVFloatToPix(float x) {
     const float range = (float)(224 << (out_bit_depth - 8));
     const float offset = (float)(1 << (out_bit_depth - 1));
     return (TypeOut)clamp(x * range + offset + 0.5f, 0.0f, (float)(1ll << (out_bit_depth)) - 0.5f);
+}
+
+TypeOut scaleUVFloatToPixRange(float x, int fullRange) {
+    if (!fullRange) return scaleUVFloatToPix(x);
+    if (out_bit_depth == 32) return x;
+    const float range = (float)((1ll << out_bit_depth) - 1);
+    const float offset = (float)(1 << (out_bit_depth - 1));
+    return (TypeOut)clamp(x * range + offset + 0.5f, 0.0f, range);
 }
 
 float scaleRGBPixToFloat(TypeIn x) {
@@ -677,6 +692,17 @@ float3 make_float_yuv3(TypeIn y, TypeIn u, TypeIn v) {
         scaleYPixToFloat(y),
         scaleUVPixToFloat(u),
         scaleUVPixToFloat(v));
+}
+
+float3 make_float_yuv3_range(TypeIn y, TypeIn u, TypeIn v, int fullRange) {
+    if (!fullRange) return make_float_yuv3(y, u, v);
+    if (in_bit_depth == 32) return (float3)(y, u, v);
+    const float range = (float)((1ll << in_bit_depth) - 1);
+    const float offset = (float)(1 << (in_bit_depth - 1));
+    return (float3)(
+        clamp((float)y / range, 0.0f, 1.0f),
+        clamp(((float)u - offset) / range, -0.5f, 0.5f),
+        clamp(((float)v - offset) / range, -0.5f, 0.5f));
 }
 
 float3 make_float_rgb3(TypeIn r, TypeIn g, TypeIn b) {
@@ -1263,7 +1289,8 @@ __kernel void kernel_crop_rgb_yv12(
     int srcHeight,
     int cropX,
     int cropY,
-    int matrix
+    int matrix,
+    int fullRange
 ) {
     const int dstC_x = get_global_id(0);
     const int dstC_y = get_global_id(1);
@@ -1294,14 +1321,14 @@ __kernel void kernel_crop_rgb_yv12(
         const float3 yuv10 = conv_rgb_yuv(rgb10, matrix);
         const float3 yuv11 = conv_rgb_yuv(rgb11, matrix);
         int dstPitch = dstPitchY;
-        STORE(dstY, dstY_x+0, dstY_y+0, scaleYFloatToPix(yuv00.x));
-        STORE(dstY, dstY_x+1, dstY_y+0, scaleYFloatToPix(yuv01.x));
-        STORE(dstY, dstY_x+0, dstY_y+1, scaleYFloatToPix(yuv10.x));
-        STORE(dstY, dstY_x+1, dstY_y+1, scaleYFloatToPix(yuv11.x));
+        STORE(dstY, dstY_x+0, dstY_y+0, scaleYFloatToPixRange(yuv00.x, fullRange));
+        STORE(dstY, dstY_x+1, dstY_y+0, scaleYFloatToPixRange(yuv01.x, fullRange));
+        STORE(dstY, dstY_x+0, dstY_y+1, scaleYFloatToPixRange(yuv10.x, fullRange));
+        STORE(dstY, dstY_x+1, dstY_y+1, scaleYFloatToPixRange(yuv11.x, fullRange));
         dstPitch = dstPitchU;
-        STORE(dstU, dstC_x, dstC_y, scaleUVFloatToPix((yuv00.y + yuv01.y + yuv10.y + yuv11.y) * 0.25f));
+        STORE(dstU, dstC_x, dstC_y, scaleUVFloatToPixRange((yuv00.y + yuv01.y + yuv10.y + yuv11.y) * 0.25f, fullRange));
         dstPitch = dstPitchV;
-        STORE(dstV, dstC_x, dstC_y, scaleUVFloatToPix((yuv00.z + yuv01.z + yuv10.z + yuv11.z) * 0.25f));
+        STORE(dstV, dstC_x, dstC_y, scaleUVFloatToPixRange((yuv00.z + yuv01.z + yuv10.z + yuv11.z) * 0.25f, fullRange));
     }
 }
 
@@ -1331,7 +1358,8 @@ __kernel void kernel_crop_rgb_nv12(
     int srcHeight,
     int cropX,
     int cropY,
-    int matrix
+    int matrix,
+    int fullRange
 ) {
     const int dstC_x = get_global_id(0);
     const int dstC_y = get_global_id(1);
@@ -1362,13 +1390,13 @@ __kernel void kernel_crop_rgb_nv12(
         const float3 yuv10 = conv_rgb_yuv(rgb10, matrix);
         const float3 yuv11 = conv_rgb_yuv(rgb11, matrix);
         int dstPitch = dstPitchY;
-        STORE(dstY, dstY_x+0, dstY_y+0, scaleYFloatToPix(yuv00.x));
-        STORE(dstY, dstY_x+1, dstY_y+0, scaleYFloatToPix(yuv01.x));
-        STORE(dstY, dstY_x+0, dstY_y+1, scaleYFloatToPix(yuv10.x));
-        STORE(dstY, dstY_x+1, dstY_y+1, scaleYFloatToPix(yuv11.x));
+        STORE(dstY, dstY_x+0, dstY_y+0, scaleYFloatToPixRange(yuv00.x, fullRange));
+        STORE(dstY, dstY_x+1, dstY_y+0, scaleYFloatToPixRange(yuv01.x, fullRange));
+        STORE(dstY, dstY_x+0, dstY_y+1, scaleYFloatToPixRange(yuv10.x, fullRange));
+        STORE(dstY, dstY_x+1, dstY_y+1, scaleYFloatToPixRange(yuv11.x, fullRange));
         dstPitch = dstPitchC;
-        const TypeOut pixU = scaleUVFloatToPix((yuv00.y + yuv01.y + yuv10.y + yuv11.y) * 0.25f);
-        const TypeOut pixV = scaleUVFloatToPix((yuv00.z + yuv01.z + yuv10.z + yuv11.z) * 0.25f);
+        const TypeOut pixU = scaleUVFloatToPixRange((yuv00.y + yuv01.y + yuv10.y + yuv11.y) * 0.25f, fullRange);
+        const TypeOut pixV = scaleUVFloatToPixRange((yuv00.z + yuv01.z + yuv10.z + yuv11.z) * 0.25f, fullRange);
         STORE_NV12_UV(dstC, dstC_x, dstC_y, pixU, pixV);
     }
 }
@@ -1448,7 +1476,9 @@ __kernel void kernel_crop_yv12_rgb(
     int srcHeight,
     int cropX,
     int cropY,
-    int matrix
+    int matrix,
+    int fullRange,
+    int chroma420Interpolate
 ) {
     const int dstC_x = get_global_id(0);
     const int dstC_y = get_global_id(1);
@@ -1477,10 +1507,16 @@ __kernel void kernel_crop_yv12_rgb(
         const int pixSrcU22 = LOAD(srcU, min(loadx+1, srcWidthUV-1), min(loady+1, srcHeightUV-1));
 
         int pixTmpU11, pixTmpU12, pixTmpU21, pixTmpU22;
-        yuv420_yuv444_no_bitdepth_change(
-            &pixTmpU11, &pixTmpU12, &pixTmpU21, &pixTmpU22,
-            pixSrcU01, pixSrcU02, pixSrcU11, pixSrcU12, pixSrcU21, pixSrcU22
-        );
+        if (chroma420Interpolate) {
+            yuv420_yuv444_no_bitdepth_change(
+                &pixTmpU11, &pixTmpU12, &pixTmpU21, &pixTmpU22,
+                pixSrcU01, pixSrcU02, pixSrcU11, pixSrcU12, pixSrcU21, pixSrcU22);
+        } else {
+            pixTmpU11 = pixSrcU11;
+            pixTmpU12 = pixSrcU11;
+            pixTmpU21 = pixTmpU11;
+            pixTmpU22 = pixTmpU11;
+        }
 
         srcPitch = srcPitchV;
         const int pixSrcV01 = LOAD(srcV,     loadx,                  max(loady-1, 0)          );
@@ -1491,15 +1527,21 @@ __kernel void kernel_crop_yv12_rgb(
         const int pixSrcV22 = LOAD(srcV, min(loadx+1, srcWidthUV-1), min(loady+1, srcHeightUV-1));
 
         int pixTmpV11, pixTmpV12, pixTmpV21, pixTmpV22;
-        yuv420_yuv444_no_bitdepth_change(
-            &pixTmpV11, &pixTmpV12, &pixTmpV21, &pixTmpV22,
-            pixSrcV01, pixSrcV02, pixSrcV11, pixSrcV12, pixSrcV21, pixSrcV22
-        );
+        if (chroma420Interpolate) {
+            yuv420_yuv444_no_bitdepth_change(
+                &pixTmpV11, &pixTmpV12, &pixTmpV21, &pixTmpV22,
+                pixSrcV01, pixSrcV02, pixSrcV11, pixSrcV12, pixSrcV21, pixSrcV22);
+        } else {
+            pixTmpV11 = pixSrcV11;
+            pixTmpV12 = pixSrcV11;
+            pixTmpV21 = pixTmpV11;
+            pixTmpV22 = pixTmpV11;
+        }
 
-        const float3 yuv11 = make_float_yuv3(pixSrcY11, pixTmpU11, pixTmpV11);
-        const float3 yuv12 = make_float_yuv3(pixSrcY12, pixTmpU12, pixTmpV12);
-        const float3 yuv21 = make_float_yuv3(pixSrcY21, pixTmpU21, pixTmpV21);
-        const float3 yuv22 = make_float_yuv3(pixSrcY22, pixTmpU22, pixTmpV22);
+        const float3 yuv11 = make_float_yuv3_range(pixSrcY11, pixTmpU11, pixTmpV11, fullRange);
+        const float3 yuv12 = make_float_yuv3_range(pixSrcY12, pixTmpU12, pixTmpV12, fullRange);
+        const float3 yuv21 = make_float_yuv3_range(pixSrcY21, pixTmpU21, pixTmpV21, fullRange);
+        const float3 yuv22 = make_float_yuv3_range(pixSrcY22, pixTmpU22, pixTmpV22, fullRange);
 
         const float3 rgb11 = conv_yuv_rgb(yuv11, matrix);
         const float3 rgb12 = conv_yuv_rgb(yuv12, matrix);
@@ -1549,7 +1591,9 @@ __kernel void kernel_crop_nv12_rgb(
     int srcHeight,
     int cropX,
     int cropY,
-    int matrix
+    int matrix,
+    int fullRange,
+    int chroma420Interpolate
 ) {
     const int dstC_x = get_global_id(0);
     const int dstC_y = get_global_id(1);
@@ -1581,21 +1625,33 @@ __kernel void kernel_crop_nv12_rgb(
         LOAD_NV12_UV(srcC, pixSrcU22, pixSrcV22, min(loadx+1, srcWidthUV-1), min(loady+1, srcHeightUV-1), 0, 0);
 
         int pixTmpU11, pixTmpU12, pixTmpU21, pixTmpU22;
-        yuv420_yuv444_no_bitdepth_change(
-            &pixTmpU11, &pixTmpU12, &pixTmpU21, &pixTmpU22,
-            pixSrcU01, pixSrcU02, pixSrcU11, pixSrcU12, pixSrcU21, pixSrcU22
-        );
+        if (chroma420Interpolate) {
+            yuv420_yuv444_no_bitdepth_change(
+                &pixTmpU11, &pixTmpU12, &pixTmpU21, &pixTmpU22,
+                pixSrcU01, pixSrcU02, pixSrcU11, pixSrcU12, pixSrcU21, pixSrcU22);
+        } else {
+            pixTmpU11 = pixSrcU11;
+            pixTmpU12 = pixSrcU11;
+            pixTmpU21 = pixTmpU11;
+            pixTmpU22 = pixTmpU11;
+        }
         
         int pixTmpV11, pixTmpV12, pixTmpV21, pixTmpV22;
-        yuv420_yuv444_no_bitdepth_change(
-            &pixTmpV11, &pixTmpV12, &pixTmpV21, &pixTmpV22,
-            pixSrcV01, pixSrcV02, pixSrcV11, pixSrcV12, pixSrcV21, pixSrcV22
-        );
+        if (chroma420Interpolate) {
+            yuv420_yuv444_no_bitdepth_change(
+                &pixTmpV11, &pixTmpV12, &pixTmpV21, &pixTmpV22,
+                pixSrcV01, pixSrcV02, pixSrcV11, pixSrcV12, pixSrcV21, pixSrcV22);
+        } else {
+            pixTmpV11 = pixSrcV11;
+            pixTmpV12 = pixSrcV11;
+            pixTmpV21 = pixTmpV11;
+            pixTmpV22 = pixTmpV11;
+        }
 
-        const float3 yuv11 = make_float_yuv3(pixSrcY11, pixTmpU11, pixTmpV11);
-        const float3 yuv12 = make_float_yuv3(pixSrcY12, pixTmpU12, pixTmpV12);
-        const float3 yuv21 = make_float_yuv3(pixSrcY21, pixTmpU21, pixTmpV21);
-        const float3 yuv22 = make_float_yuv3(pixSrcY22, pixTmpU22, pixTmpV22);
+        const float3 yuv11 = make_float_yuv3_range(pixSrcY11, pixTmpU11, pixTmpV11, fullRange);
+        const float3 yuv12 = make_float_yuv3_range(pixSrcY12, pixTmpU12, pixTmpV12, fullRange);
+        const float3 yuv21 = make_float_yuv3_range(pixSrcY21, pixTmpU21, pixTmpV21, fullRange);
+        const float3 yuv22 = make_float_yuv3_range(pixSrcY22, pixTmpU22, pixTmpV22, fullRange);
 
         const float3 rgb11 = conv_yuv_rgb(yuv11, matrix);
         const float3 rgb12 = conv_yuv_rgb(yuv12, matrix);

@@ -85,8 +85,10 @@ class RGYFilterParamCrop : public RGYFilterParam {
 public:
     sInputCrop crop;
     CspMatrix matrix;
+    CspColorRange colorrange;
+    bool chroma420Interpolate;
 
-    RGYFilterParamCrop() : crop(initCrop()), matrix(RGY_MATRIX_ST170_M) {};
+    RGYFilterParamCrop() : crop(initCrop()), matrix(RGY_MATRIX_ST170_M), colorrange(RGY_COLORRANGE_LIMITED), chroma420Interpolate(true) {};
     virtual ~RGYFilterParamCrop() {};
 };
 

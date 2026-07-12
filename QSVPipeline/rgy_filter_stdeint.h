@@ -32,6 +32,7 @@
 #include "rgy_filter_cl.h"
 #include "rgy_prm.h"
 #include "rgy_openvino.h"
+#include <array>
 #include <memory>
 #include <vector>
 
@@ -63,35 +64,34 @@ protected:
         RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event) override;
     virtual void close() override;
 
-    void yuvToRGB(const RGYFrameInfo& input, float *dst);
-    void rgbToYUV(const RGYFrameInfo& output, const float *src);
-    void setupColorCoeffs(int matrixSel, bool rangeTV, int pixMax);
     void setOutputFrameProp(RGYFrameInfo *output, const RGYFrameInfo *input) const;
     void setBobTimestamp(const RGYFrameInfo *input, RGYFrameInfo **outputs) const;
-    void weaveRestoration(float *dst, const float *restoration, bool frameA) const;
-    RGY_ERR writeOutputFrame(RGYFrameInfo *output, const float *rgb, RGYOpenCLQueue& queue, RGYOpenCLEvent *event);
+    RGYFrameInfo rgbFrame(const std::array<std::unique_ptr<RGYCLBuf>, 3>& planes) const;
+    RGY_ERR createRgbPlanes(RGYCLBuf *parent, std::array<std::unique_ptr<RGYCLBuf>, 3>& planes);
+    RGY_ERR convertToRgb(const RGYFrameInfo *input, RGYOpenCLQueue& queue,
+        const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event);
+    RGY_ERR convertFromRgb(RGYFrameInfo *output, RGYOpenCLQueue& queue,
+        const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event);
     RGY_ERR runOcl(const RGYFrameInfo *input, RGYFrameInfo **outputs, int outputCount,
         RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event);
 
     std::unique_ptr<RGYOpenVINO> m_ov;
+    std::unique_ptr<RGYFilterCspCrop> m_cropToRgb;
+    std::unique_ptr<RGYFilterCspCrop> m_cropFromRgb;
     int m_width;
     int m_height;
     VppStDeintMode m_mode;
     bool m_defaultTff;
     bool m_useOcl;
 
-    float m_yOff, m_yScale, m_yRange, m_cOff, m_cScale, m_cRange;
-    float m_matVR, m_matUG, m_matVG, m_matUB;
-    float m_matRY, m_matGY, m_matBY, m_matRU, m_matGU, m_matBU, m_matRV, m_matGV, m_matBV;
-
     std::vector<float> m_inputBuf;
     std::vector<float> m_outputBuf;
-    std::vector<float> m_weaveBuf;
-    std::unique_ptr<RGYCLFrame> m_inputStaging;
-    std::unique_ptr<RGYCLFrame> m_outputStaging;
     std::unique_ptr<RGYOpenCLProgram> m_program;
     std::unique_ptr<RGYCLBuf> m_inputBufCL;
     std::unique_ptr<RGYCLBuf> m_outputBufCL;
+    std::unique_ptr<RGYCLBuf> m_weaveBufCL;
+    std::array<std::unique_ptr<RGYCLBuf>, 3> m_inputPlanes;
+    std::array<std::unique_ptr<RGYCLBuf>, 3> m_weavePlanes;
 };
 
 #endif //__RGY_FILTER_STDEINT_H__
