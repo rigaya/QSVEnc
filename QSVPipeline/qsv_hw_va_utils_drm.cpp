@@ -138,7 +138,7 @@ int open_target_intel_adapter(const int type, const int targetIntelAdaptorNum, R
                 intelAdaptorCount++;
             }
         } else {
-            log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Adaptor #%d [%s]: Failed to get adaptor %s driver name.\n"), i, char_to_tstring(curAdapterPath).c_str());
+            log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Adaptor #%d [%s]: Failed to get adaptor driver name.\n"), i, char_to_tstring(curAdapterPath).c_str());
         }
         close(fd);
     }
