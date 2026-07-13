@@ -1852,7 +1852,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     if (0 == _tcscmp(option_name, _T("inter-pred"))) {
         i++;
         int v = 0;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < _countof(list_pred_block_size) - 1) {
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &v) || v < 0 || v >= _countof(list_pred_block_size) - 1) {
             print_cmd_error_invalid_value(option_name, strInput[i], list_pred_block_size);
             return 1;
         }
@@ -1862,7 +1862,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     if (0 == _tcscmp(option_name, _T("intra-pred"))) {
         i++;
         int v = 0;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < _countof(list_pred_block_size) - 1) {
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &v) || v < 0 || v >= _countof(list_pred_block_size) - 1) {
             print_cmd_error_invalid_value(option_name, strInput[i], list_pred_block_size);
             return 1;
         }
@@ -1872,7 +1872,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
     if (0 == _tcscmp(option_name, _T("mv-precision"))) {
         i++;
         int v = 0;
-        if (1 != _stscanf_s(strInput[i], _T("%d"), &v) && 0 <= v && v < _countof(list_mv_presicion) - 1) {
+        if (1 != _stscanf_s(strInput[i], _T("%d"), &v) || v < 0 || v >= _countof(list_mv_presicion) - 1) {
             print_cmd_error_invalid_value(option_name, strInput[i], list_mv_presicion);
             return 1;
         }
