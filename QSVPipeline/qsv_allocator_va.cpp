@@ -476,7 +476,7 @@ mfxStatus QSVAllocatorVA::ReleaseResponse(mfxFrameAllocResponse *response)
         surfaces = vaapi_mids->m_surface;
         for (i = 0; i < response->NumFrameActual; ++i)
         {
-            if (MFX_FOURCC_P8 == vaapi_mids[i].m_fourcc) m_libva->vaDestroyBuffer(m_dpy, surfaces[i]);
+            if (MFX_FOURCC_P8 == ConvertVP8FourccToMfxFourcc(vaapi_mids[i].m_fourcc)) m_libva->vaDestroyBuffer(m_dpy, surfaces[i]);
             else if (vaapi_mids[i].m_sys_buffer) free(vaapi_mids[i].m_sys_buffer);
             if (m_export_mode != QSVAllocatorParamsVA::DONOT_EXPORT) {
                 if (m_exporter && vaapi_mids[i].m_custom) {
