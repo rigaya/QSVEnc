@@ -159,8 +159,9 @@ RGY_ERR RGYFilterMsmooth::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameIn
     auto tmpPlane0 = getPlane(&m_tmp[0]->frame, plane);
     auto tmpPlane1 = getPlane(&m_tmp[1]->frame, plane);
 
-    // Scale the 8-bit user-facing threshold to the working bit depth.
-    const float thresholdHbd = threshold / (float)((1 << RGY_CSP_BIT_DEPTH[pInputPlane->csp]) - 1);
+    // The 8-bit user-facing threshold maps into the kernel's [0,1] normalised space, so divide by 255
+    // (NOT pixel_max) to keep sensitivity consistent across 8-bit and HBD inputs.
+    const float thresholdHbd = threshold / 255.0f;   // FIX MSMOOTH-1: was /((1<<depth)-1) -> 4x/16x over-sensitive at 10/12-bit
 
     // mask mode: fused blur + edge_mask writes the mask directly to output.
     if (prm->msmooth.mask) {

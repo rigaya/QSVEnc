@@ -114,7 +114,7 @@ RGY_ERR RGYFilterMsharpen::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameI
         AddMessage(RGY_LOG_ERROR, _T("unsupported csp/bit depth: %s.\n"), RGY_CSP_NAMES[pInputPlane->csp]);
         return RGY_ERR_UNSUPPORTED;
     }
-    const float threshold = prm->msharpen.threshold / (float)((1 << bitDepth) - 1);
+    const float threshold = prm->msharpen.threshold / 255.0f;   // FIX MSHARPEN-1: was /((1<<bitDepth)-1); threshold is an 8-bit-scale value, must match luma_limit/slope which use 255
     // The user-facing slope and luma_limit are documented in 8-bit terms.
     // Inside the kernel, threshold / gradient / luma are all in [0, 1]
     // normalised space. So we scale by 255 (NOT pixel_max), keeping the
