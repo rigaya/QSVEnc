@@ -148,10 +148,10 @@ bool RGYFilterMpdecimateFrameData::checkIfFrameCanbeDropped(const int hi, const 
     int loCount = 0;
     for (int iplane = 0; iplane < RGY_CSP_PLANES[tmpMappedHost.csp]; iplane++) {
         const auto plane = getPlane(&tmpMappedHost, (RGY_PLANE)iplane);
-        const int blockw = divCeil(plane.width, 8);
-        const int blockh = divCeil(plane.height, 8);
+        const int blockw = plane.width;    // FIX QSV-MPDEC-1: tmp already holds 1 int per 8x8 block (was divCeil(plane.width,8) -> only W/64)
+        const int blockh = plane.height;   // FIX QSV-MPDEC-1: (was divCeil(plane.height,8))
         for (int j = 0; j < blockh; j++) {
-            const int *ptrResult = (const int *)(tmpMappedHost.ptr[0] + j * tmpMappedHost.pitch[0]);
+            const int *ptrResult = (const int *)(plane.ptr[0] + j * plane.pitch[0]);   // FIX QSV-MPDEC-1: per-plane pointer (was tmpMappedHost.ptr[0] -> luma only)
             for (int i = 0; i < blockw; i++) {
                 const int result = ptrResult[i];
                 if (result > hi) {
