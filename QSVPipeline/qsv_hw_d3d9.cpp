@@ -99,7 +99,7 @@ mfxStatus CQSVD3D9Device::Init(mfxHDL hWindow, [[maybe_unused]] uint32_t nViews,
     m_D3DPresentPrm.PresentationInterval       = D3DPRESENT_INTERVAL_ONE;
     m_D3DPresentPrm.BackBufferCount            = 1;
     m_D3DPresentPrm.BackBufferFormat           = (m_bIsA2rgb10) ? D3DFMT_A2R10G10B10 : D3DFMT_X8R8G8B8;
-    m_D3DPresentPrm.BackBufferWidth  = GetSystemMetrics(SM_CYSCREEN);
+    m_D3DPresentPrm.BackBufferWidth  = GetSystemMetrics(SM_CXSCREEN);
     m_D3DPresentPrm.BackBufferHeight = GetSystemMetrics(SM_CYSCREEN);
 
     if (hWindow) {
