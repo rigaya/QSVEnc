@@ -102,7 +102,7 @@ int temporal(
 
 
     int diff = max3(
-        abs(t01_0 - t12_0),
+        abs(t01_0 - t12_0) >> 1,
         (abs(t00m1 - t10m1) + abs(t00p1 - t10p1)) >> 1,
         (abs(t20m1 - t10m1) + abs(t10p1 - t20p1)) >> 1);
     diff = max3(diff,
