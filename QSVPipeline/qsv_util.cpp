@@ -394,7 +394,9 @@ mfxStatus mfxBitstreamCopy(mfxBitstream *pBitstreamCopy, const mfxBitstream *pBi
     pBitstreamCopy->MaxLength = 0;
     auto sts = mfxBitstreamInit(pBitstreamCopy, pBitstream->MaxLength);
     if (sts == MFX_ERR_NONE) {
-        memcpy(pBitstreamCopy->Data, pBitstream->Data, pBitstreamCopy->DataLength);
+        pBitstreamCopy->DataOffset = pBitstream->DataOffset;
+        pBitstreamCopy->DataLength = pBitstream->DataLength;
+        memcpy(pBitstreamCopy->Data + pBitstreamCopy->DataOffset, pBitstream->Data + pBitstream->DataOffset, pBitstream->DataLength);
     }
     return sts;
 }
