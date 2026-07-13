@@ -594,7 +594,7 @@ RGY_ERR RGYFilterAfs::check_param(shared_ptr<RGYFilterParamAfs> pAfsParam) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter (thre_Cmotion).\n"));
         return RGY_ERR_INVALID_PARAM;
     }
-    if (pAfsParam->afs.analyze < 0 || pAfsParam->afs.analyze > 5) {
+    if (pAfsParam->afs.analyze < 0 || pAfsParam->afs.analyze > 4) {   // FIX QSV-AFS-1: was >5 (accepted out-of-range level=5)
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter (level).\n"));
         return RGY_ERR_INVALID_PARAM;
     }
