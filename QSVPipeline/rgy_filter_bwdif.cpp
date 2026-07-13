@@ -173,7 +173,7 @@ RGY_ERR RGYFilterBwdif::reconstructFrame(int idx_prev, int idx_cur, int idx_next
         return RGY_ERR_INVALID_PARAM;
     }
 
-    const bool xorFlag = (preserveTopField != (inputTff ? 1 : 0));
+    const bool xorFlag = (preserveTopField == (inputTff ? 1 : 0));   // FIX BWDIF-1: primary field must bracket (prev,cur); was != -> (cur,next), one field late
     const int idx_prev2 = xorFlag ? idx_prev : idx_cur;
     const int idx_next2 = xorFlag ? idx_cur  : idx_next;
 
