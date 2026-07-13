@@ -613,7 +613,7 @@ RGY_ERR QSVVppMfx::SetVppExtBuffers(sVppParams& params) {
                 || (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_33) && params.resizeInterp != MFX_INTERPOLATION_DEFAULT)) {
             INIT_MFX_EXT_BUFFER(m_ExtScaling, MFX_EXTBUFF_VPP_SCALING);
             if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_33)) {
-                m_ExtScaling.ScalingMode = (mfxU16)params.resizeInterp; // API 1.33
+                m_ExtScaling.InterpolationMethod = (mfxU16)params.resizeInterp; // API 1.33
                 str += strsprintf(_T(", %s"), get_chr_from_value(list_vpp_resize, resize_algo_enc_to_rgy(params.resizeInterp)));
             }
             m_ExtScaling.ScalingMode = (mfxU16)params.resizeMode; // API 1.19
