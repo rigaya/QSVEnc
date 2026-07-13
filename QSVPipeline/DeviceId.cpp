@@ -321,14 +321,20 @@ bool getVideoMemory( unsigned int* pVideoMemory )
                     if( S_OK == pEnumVideo->Next( 1000, 1, &pVideo, &numReturned ) && numReturned == 1 )
                     {
                         VARIANT v;
+                        VariantInit( &v );
                         if( S_OK == pVideo->Get( L"AdapterRAM", 0, &v, NULL, NULL ) )
                         {
                             mem = v.uintVal;
                         }
+                        VariantClear( &v );
                     }
+                    if( pVideo != NULL ) pVideo->Release();
+                    pEnumVideo->Release();
                 }
+                pServices->Release();
             }
             SysFreeString( nameSpace );
+            if( pLocator != NULL ) pLocator->Release();
         }
         CoUninitialize();
         success = true;
