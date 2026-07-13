@@ -130,7 +130,9 @@ int getIntelGPUInfo(IntelDeviceInfo *info, const int adapterID) {
     }
 
     IntelDeviceInfoV2 intelDeviceInfo = { 0 };
-    memcpy(&intelDeviceInfo, intelDeviceInfoBuffer, intelDeviceInfoHeader.Size);
+    size_t copySize = intelDeviceInfoHeader.Size;
+    if (copySize > sizeof(intelDeviceInfo)) copySize = sizeof(intelDeviceInfo); // ドライバ報告のSizeを構造体サイズにクランプ
+    memcpy(&intelDeviceInfo, intelDeviceInfoBuffer, copySize);
     info->GPUMaxFreq = intelDeviceInfo.GPUMaxFreq;
     info->GPUMinFreq = intelDeviceInfo.GPUMinFreq;
     if (intelDeviceInfoHeader.Version == 2) {
