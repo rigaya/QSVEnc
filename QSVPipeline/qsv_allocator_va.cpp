@@ -251,11 +251,15 @@ mfxStatus QSVAllocatorVA::ReallocImpl(mfxMemId mid, const mfxFrameInfo *info, mf
         1,
         &attrib[0], attrCnt);
 
-    *vaapiMid->m_surface = surfaces[0];
-    vaapiMid->m_fourcc = fourcc;
-    *midOut = mid;
-
     mfx_res = va_to_mfx_status(va_res);
+
+    if (MFX_ERR_NONE == mfx_res) {
+        *vaapiMid->m_surface = surfaces[0];
+        vaapiMid->m_fourcc = fourcc;
+        *midOut = mid;
+    } else {
+        *vaapiMid->m_surface = VA_INVALID_SURFACE;
+    }
 
     return mfx_res;
 }
