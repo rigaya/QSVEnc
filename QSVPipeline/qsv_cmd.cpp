@@ -1815,8 +1815,8 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         for (; iv < (int)values.size(); iv++) {
             TCHAR *eptr = nullptr;
             int v = _tcstol(values[iv].c_str(), &eptr, 0);
-            if (v == 0 && (eptr != nullptr || *eptr == ' ')) {
-                print_cmd_error_invalid_value(option_name, strInput[iv]);
+            if (eptr == values[iv].c_str() || (*eptr != _T('\0') && *eptr != _T(' '))) {
+                print_cmd_error_invalid_value(option_name, strInput[i]);
                 return 1;
             }
             if (v < -51 || v > 51) {
