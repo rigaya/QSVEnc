@@ -107,15 +107,14 @@ mfxStatus QSVAllocatorD3D9::Init(mfxAllocatorParams *pParams, shared_ptr<RGYLog>
 mfxStatus QSVAllocatorD3D9::Close() {
     if (m_manager && m_hDecoder) {
         m_manager->CloseDeviceHandle(m_hDecoder);
-        m_manager = 0;
         m_hDecoder = 0;
     }
 
     if (m_manager && m_hProcessor) {
         m_manager->CloseDeviceHandle(m_hProcessor);
-        m_manager = 0;
         m_hProcessor = 0;
     }
+    m_manager = 0;
 
     return QSVAllocator::Close();
 }
