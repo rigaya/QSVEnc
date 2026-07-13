@@ -349,7 +349,7 @@ RGY_ERR QSVDevice::init(const QSVDeviceNum dev, const bool enableOpenCL, [[maybe
                 }
                 PrintMes(RGY_LOG_DEBUG, _T("Init Vulkan device %d...\n"), ivkdev);
                 if ((err = vkdev->Init(ivkdev, extInstance, extDevice, m_log, true)) != RGY_ERR_NONE) {
-                    PrintMes(RGY_LOG_DEBUG, _T("Failed to init Vulkan device %d, name %s, uuid %s.\n"), ivkdev);
+                    PrintMes(RGY_LOG_DEBUG, _T("Failed to init Vulkan device %d.\n"), ivkdev);
                     continue;
                 }
                 PrintMes(RGY_LOG_DEBUG, _T("Init Vulkan device %d, name %s, uuid %s.\n"), ivkdev, char_to_tstring(vkdev->GetDisplayDeviceName()).c_str(), uuidToString(vkdev->GetUUID()).c_str());
