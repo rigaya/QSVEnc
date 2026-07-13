@@ -425,6 +425,7 @@ mfxStatus QSVAllocatorD3D11::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAl
         for (size_t i = 0; i < request->NumFrameSuggested / desc.ArraySize; i++) {
             if (FAILED(hr = m_initParams.pDevice->CreateTexture2D(&desc, NULL, &pTexture2D))) {
                 AddMessage(RGY_LOG_ERROR, _T("QSVAllocatorD3D11::AllocImpl failed to CreateTexture2D(textures) #%d: %d.\n"), i, hr);
+                newTexture.Release();
                 return MFX_ERR_MEMORY_ALLOC;
             }
             newTexture.textures.push_back(pTexture2D);
@@ -439,6 +440,7 @@ mfxStatus QSVAllocatorD3D11::AllocImpl(mfxFrameAllocRequest *request, mfxFrameAl
         for (size_t i = 0; i < request->NumFrameSuggested; i++) {
             if (FAILED(m_initParams.pDevice->CreateTexture2D(&desc, NULL, &pTexture2D))) {
                 AddMessage(RGY_LOG_ERROR, _T("QSVAllocatorD3D11::AllocImpl failed to CreateTexture2D(stagingTexture) #%d: %d.\n"), i, hr);
+                newTexture.Release();
                 return MFX_ERR_MEMORY_ALLOC;
             }
             newTexture.stagingTexture.push_back(pTexture2D);
