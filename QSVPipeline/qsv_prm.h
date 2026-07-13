@@ -777,6 +777,7 @@ const CX_DESC list_priority[] = {
     { _T("low"),    MFX_PRIORITY_LOW    },
     { _T("normal"), MFX_PRIORITY_NORMAL },
     { _T("high"),   MFX_PRIORITY_HIGH   },
+    { NULL, 0 }
 };
 
 const CX_DESC list_qsv_function_mode[] = {
