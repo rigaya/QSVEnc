@@ -369,6 +369,10 @@ mfxStatus CVAAPIDeviceWayland::Init(mfxHDL hWindow, uint32_t nViews, uint32_t nA
     if (nViews)
     {
         m_Wayland = (Wayland *)m_WaylandClient.WaylandCreate();
+        if (NULL == m_Wayland)
+        {
+            return MFX_ERR_DEVICE_FAILED;
+        }
         if (!m_Wayland->InitDisplay())
         {
             return MFX_ERR_DEVICE_FAILED;
