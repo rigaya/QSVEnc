@@ -1185,7 +1185,7 @@ int run(int argc, TCHAR *argv[]) {
 #if defined(_WIN32) || defined(_WIN64)
     //set stdin to binary mode when using pipe input
     if (Params.common.inputFilename == _T("-")) {
-        if (_setmode( _fileno( stdin ), _O_BINARY ) == 1) {
+        if (_setmode( _fileno( stdin ), _O_BINARY ) == -1) {
             _ftprintf(stderr, _T("Error: failed to switch stdin to binary mode."));
             return 1;
         }
@@ -1193,7 +1193,7 @@ int run(int argc, TCHAR *argv[]) {
 
     //set stdout to binary mode when using pipe output
     if (Params.common.outputFilename == _T("-")) {
-        if (_setmode( _fileno( stdout ), _O_BINARY ) == 1) {
+        if (_setmode( _fileno( stdout ), _O_BINARY ) == -1) {
             _ftprintf(stderr, _T("Error: failed to switch stdout to binary mode."));
             return 1;
         }
