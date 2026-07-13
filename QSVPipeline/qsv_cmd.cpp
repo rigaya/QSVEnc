@@ -2258,8 +2258,12 @@ int parse_cmd(sInputParams *pParams, const TCHAR *strInput[], int nArgNum, bool 
             _ftprintf(stderr, _T("--chapter and --chapter-copy are both set.\nThese could not be set at the same time.\n"));
             return 1;
         }
+        // 標準入力や Windows 名前付きパイプに rgy_path_is_same を呼ばない。
+        // equivalent() が待機中のパイプへ接続し、インスタンスを消費するため。
         if (pParams->common.inputFilename != _T("-")
             && pParams->common.outputFilename != _T("-")
+            && !rgy_path_is_windows_named_pipe(pParams->common.inputFilename)
+            && !rgy_path_is_windows_named_pipe(pParams->common.outputFilename)
             && rgy_path_is_same(pParams->common.inputFilename, pParams->common.outputFilename)) {
             _ftprintf(stderr, _T("destination file is equal to source file!\n"));
             return 1;
