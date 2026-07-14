@@ -1918,6 +1918,14 @@ public:
             // インタレ解除を使用中、入力フレームのインタレが変更になると、そのまま処理を継続すると device busyで処理がフリーズしてしまうことがある
             // そのため、インタレ解除設定が変更になった場合は、フィルタをリセットする
             if (m_vpp->isDeinterlace()) {
+                const bool doubleRateDeinterlace =
+                    (uint64_t)m_mfxVppParams.vpp.Out.FrameRateExtN * m_mfxVppParams.vpp.In.FrameRateExtD
+                    > (uint64_t)m_mfxVppParams.vpp.In.FrameRateExtN * m_mfxVppParams.vpp.Out.FrameRateExtD;
+                if (doubleRateDeinterlace && surfVppIn->Info.PicStruct == MFX_PICSTRUCT_PROGRESSIVE) {
+                    // bobなどの倍速インタレ解除設定を残したまま入力だけprogressiveへResetすると、
+                    // joined session全体がdevice busyのまま停止することがある。
+                    surfVppIn->Info.PicStruct = m_mfxVppParams.vpp.In.PicStruct;
+                }
                 if ((m_vpp->deinterlaceMode() & (RGYMFX_DEINTERLACE_MODE::TFF | RGYMFX_DEINTERLACE_MODE::BFF)) != RGYMFX_DEINTERLACE_MODE::AUTO) {
                     surfVppIn->Info.PicStruct = m_mfxVppParams.vpp.In.PicStruct;
                 } else if (surfVppIn->Info.PicStruct != m_mfxVppParams.vpp.In.PicStruct) {
@@ -1933,6 +1941,16 @@ public:
                             break; // flush 成功
                         } else if (sts != RGY_ERR_NONE) {
                             PrintMes(RGY_LOG_ERROR, _T("  Failed to flush filter to change interlace settings %s -> %s: %s.\n"), MFXPicStructToStr(picStructPrev).c_str(), MFXPicStructToStr(surfVppIn->Info.PicStruct).c_str(), get_err_mes(sts));
+                            return sts;
+                        }
+                    }
+
+                    // VPPをCloseする前に、bobなどでキューに残った非同期出力を完了させる。
+                    // 未完了のままCloseすると、入力に使ったデコード面が解放されず後続のデコードが停止することがある。
+                    for (auto& output : m_outQeueue) {
+                        sts = output->waitsync();
+                        if (sts != RGY_ERR_NONE) {
+                            PrintMes(RGY_LOG_ERROR, _T("  Failed to wait for filter output before changing interlace settings %s -> %s: %s.\n"), MFXPicStructToStr(picStructPrev).c_str(), MFXPicStructToStr(surfVppIn->Info.PicStruct).c_str(), get_err_mes(sts));
                             return sts;
                         }
                     }
