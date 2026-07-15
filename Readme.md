@@ -66,42 +66,21 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 - Supports setting of codec profile & level, SAR, colormatrix, maxbitrate, GOP len, etc...
 - Parallel encoding supporting multi GPU
 - Calculation of ssim/psnr of the encode
-- Supports various vpp(video pre-processing) filters
-  - MFX (Media Fixed function) filters
-    - resize
-    - deinterlace (normal / bob / it)
-    - detail enhancement
-    - denoise
-    - image stablizier
-  - OpenCL filters
-    - deinterlacer
-      - afs (Automatic field shift)
-      - nnedi
-    - decimate
-    - mpdecimate
-    - colorspace conversion
-      - hdr2sdr
-      - tonemap ([libplacebo](https://code.videolan.org/videolan/libplacebo))
-    - delogo
-    - subburn
-    - resize
-      - bilinear
-      - spline16, spline36, spline64
-      - lanczos2, lanczos3, lanczos4
-      - [libplacebo](https://code.videolan.org/videolan/libplacebo)
-    - transpose / rotate / flip
-    - padding
-    - deband
-      - deband
-      - [libplacebo](https://code.videolan.org/videolan/libplacebo)
-    - noise reduction
-      - knn (K-nearest neighbor)
-      - pmd (modified pmd method)
-    - edge / detail enhancement
-      - unsharp
-      - edgelevel (edge ​​level adjustment)
-      - warpsharp
-      - maa (masked anti-aliasing)
+- VPP (Video Pre-Processing) filters
+
+  | Category | Filters |
+  |:--|:--|
+  | Deinterlace | deinterlace (Media Function), afs, bwdif, yadif, nnedi, rtgmc, kfm, decomb, stdeint |
+  | Inverse Telecine / Decimation | rff, ivtc, decimate, mpdecimate |
+  | Noise Reduction | knn, pmd, nlmeans, hqdn3d, smooth, denoise-dct, fft3d, msmooth, degrain, convolution3d, denoise (Media Function), mctf |
+  | Resize | resize (various algorithms, [libplacebo](https://code.videolan.org/videolan/libplacebo)), descale |
+  | Edge / Detail Enhancement | unsharp, edgelevel, warpsharp, maa, cas, msharpen, detailsharpen, detail-enhance (Media Function) |
+  | Dehalo / Deringing | dehalo, finedehalo, hqdering, vinverse |
+  | Color Adjustment | tweak, curves, softlight, chromashift, colorfix |
+  | Color Space / HDR | colorspace, libplacebo-tonemapping |
+  | Debanding | deband, libplacebo-deband |
+  | Frame Interpolation | rife-ov, ai-frameinterp |
+  | Other | delogo, subburn, pad, overlay, rotate, transform, stab, deflicker, deblock, image-stab (Media Function), libplacebo-shader, onnx, anime4k-shader |
 
 ### QSVEncC
 - Supports QSV(hw) decoding
