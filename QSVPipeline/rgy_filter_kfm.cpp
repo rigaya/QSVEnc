@@ -181,7 +181,7 @@ static int kfmPow2Shift(int scale) {
 
 static bool kfmDeint60BranchEnabled() {
     const char *env = std::getenv("QSVENC_KFM_ENABLE_DEINT60_BRANCH");
-    return env != nullptr && env[0] == '1' && env[1] == '\0';
+    return !(env != nullptr && env[0] == '0' && env[1] == '\0');
 }
 
 static bool kfmForceEagerRtgmc() {
@@ -1077,7 +1077,6 @@ RGY_ERR RGYFilterKfm::initAnalyzer(const RGYFilterParamKfm& prm) {
     flushUcfNoiseResultDump();
     RGYKFM::KFMAnalyzeParam analyzeParam;
     analyzeParam.pastCycles = prm.kfm.pastCycles;
-    analyzeParam.NGThresh = prm.kfm.thswitch;
     m_analyzer = std::make_unique<RGYKFM::KFMAnalyze>(analyzeParam);
     m_kfmProfile = KfmProfileStats();
     m_kfmProfile.enabled = std::getenv("QSVENC_KFM_PROFILE") || std::getenv("RGY_KFM_PROFILE");
@@ -6632,19 +6631,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                     if (sts != RGY_ERR_NONE) {
                         return sts;
                     }
-                    int patchN60 = -1;
-                    if (patchCombe24Enabled) {
-                        try {
-                            static const int patchFieldIndex[4] = { 1, 3, 6, 8 };
-                            const int frame24Cycle = outputTiming.frame24Index / 4;
-                            const int frame24InCycle = outputTiming.frame24Index & 3;
-                            const auto& patchResult = m_analyzerOutputResults[clamp(frame24Cycle, 0, (int)m_analyzerOutputResults.size() - 1)];
-                            const auto frameInfo = m_analyzer->patterns().getFrame24(patchResult.pattern, outputTiming.frame24Index);
-                            patchN60 = clamp(patchFieldIndex[frame24InCycle], frameInfo.fieldStartIndex, frameInfo.fieldStartIndex + frameInfo.numFields - 1) + frameInfo.cycleIndex * 10;
-                        } catch (...) {
-                            patchN60 = -1;
-                        }
-                    }
+                    const int patchN60 = patchCombe24Enabled ? outputTiming.start60 : -1;
                     if (patchN60 >= 0 && containsCombeCount > 0) {
                         std::vector<RGYOpenCLEvent> patchWaitEvents = removeWaitEvents;
                         if (outputEvent() != nullptr) {
@@ -6955,7 +6942,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                     }
                     if (patchCombe30Enabled && containsCombeCount > 0) {
                         std::vector<RGYOpenCLEvent> patchWaitEvents = copyWaitEvents;
-                        const int patchN60 = outputTiming.sourceIndex * 2;
+                        const int patchN60 = outputTiming.start60;
                         sts = ensureDeint60Range(patchN60, patchN60 + 1);
                         if (sts == RGY_ERR_MORE_DATA) {
                             m_vfrRunStats.moreData30PatchDeintBreaks++;
