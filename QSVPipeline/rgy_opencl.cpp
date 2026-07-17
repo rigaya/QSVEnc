@@ -2084,7 +2084,30 @@ RGYCLMemObjInfo RGYCLFrame::getMemObjectInfo() const {
 void RGYCLFrame::resetMappedFrame() { m_mapped.reset(); }
 
 RGY_ERR RGYCLFrameInterop::acquire(RGYOpenCLQueue &queue, RGYOpenCLEvent *event) {
-    std::lock_guard<std::recursive_mutex> lock(m_interop_mutex);
+    return acquire(std::vector<RGYCLFrameInterop *>{ this }, queue, event);
+}
+
+RGY_ERR RGYCLFrameInterop::acquire(const std::vector<RGYCLFrameInterop *>& frames, RGYOpenCLQueue& queue, RGYOpenCLEvent *event) {
+    if (frames.empty()) {
+        return RGY_ERR_NONE;
+    }
+    if (frames.front() == nullptr) {
+        return RGY_ERR_NULL_PTR;
+    }
+    std::lock_guard<std::recursive_mutex> lock(frames.front()->m_interop_mutex);
+    const auto& m_log = frames.front()->m_log;
+    const auto interop = frames.front()->m_interop;
+    std::vector<cl_mem> memObjects;
+    for (const auto frameInterop : frames) {
+        if (frameInterop == nullptr) {
+            return RGY_ERR_NULL_PTR;
+        }
+        if (&frameInterop->m_interop_mutex != &frames.front()->m_interop_mutex || frameInterop->m_interop != interop || frameInterop->m_acquired) {
+            return RGY_ERR_INVALID_PARAM;
+        }
+        const auto planes = RGY_CSP_PLANES[frameInterop->frame.csp];
+        memObjects.insert(memObjects.end(), (cl_mem *)frameInterop->frame.ptr, (cl_mem *)frameInterop->frame.ptr + planes);
+    }
     auto& perf_collector = RGYOpenCLPerfCollector::instance();
     const bool perf_enabled = perf_collector.isEnabled();
     RGYOpenCLEvent perf_event_local;
@@ -2092,18 +2115,18 @@ RGY_ERR RGYCLFrameInterop::acquire(RGYOpenCLQueue &queue, RGYOpenCLEvent *event)
     cl_int err = CL_SUCCESS;
     const auto host_start = rgy_cl_perf_begin(perf_enabled);
 #if ENABLE_RGY_OPENCL_D3D9
-    if (m_interop == RGY_INTEROP_DX9) {
-        err = clEnqueueAcquireDX9MediaSurfacesKHR(queue.get(), RGY_CSP_PLANES[frame.csp], (cl_mem *)frame.ptr, 0, nullptr, event_ptr);
+    if (interop == RGY_INTEROP_DX9) {
+        err = clEnqueueAcquireDX9MediaSurfacesKHR(queue.get(), (cl_uint)memObjects.size(), memObjects.data(), 0, nullptr, event_ptr);
     } else
 #endif
 #if ENABLE_RGY_OPENCL_D3D11
-    if (m_interop == RGY_INTEROP_DX11) {
-        err = clEnqueueAcquireD3D11ObjectsKHR(queue.get(), RGY_CSP_PLANES[frame.csp], (cl_mem *)frame.ptr, 0, nullptr, event_ptr);
+    if (interop == RGY_INTEROP_DX11) {
+        err = clEnqueueAcquireD3D11ObjectsKHR(queue.get(), (cl_uint)memObjects.size(), memObjects.data(), 0, nullptr, event_ptr);
     } else
 #endif
 #if ENABLE_RGY_OPENCL_VA
-    if (m_interop == RGY_INTEROP_VA) {
-        err = clEnqueueAcquireVA_APIMediaSurfacesINTEL(queue.get(), RGY_CSP_PLANES[frame.csp], (cl_mem *)frame.ptr, 0, nullptr, event_ptr);
+    if (interop == RGY_INTEROP_VA) {
+        err = clEnqueueAcquireVA_APIMediaSurfacesINTEL(queue.get(), (cl_uint)memObjects.size(), memObjects.data(), 0, nullptr, event_ptr);
     } else
 #endif
     {
@@ -2120,13 +2143,43 @@ RGY_ERR RGYCLFrameInterop::acquire(RGYOpenCLQueue &queue, RGYOpenCLEvent *event)
         perf_collector.recordCommand("clEnqueueAcquireInterop", 0, host_time, ev_ref,
             host_start, host_start + host_time, (uint64_t)(uintptr_t)queue.get());
     }
-    m_acquired = true;
+    for (auto frameInterop : frames) {
+        frameInterop->m_acquired = true;
+    }
     return RGY_ERR_NONE;
 }
 
 RGY_ERR RGYCLFrameInterop::release(RGYOpenCLEvent *event) {
-    std::lock_guard<std::recursive_mutex> lock(m_interop_mutex);
-    if (m_acquired) {
+    return release(std::vector<RGYCLFrameInterop *>{ this }, event);
+}
+
+RGY_ERR RGYCLFrameInterop::release(const std::vector<RGYCLFrameInterop *>& frames, RGYOpenCLEvent *event) {
+    if (frames.empty()) {
+        return RGY_ERR_NONE;
+    }
+    if (frames.front() == nullptr) {
+        return RGY_ERR_NULL_PTR;
+    }
+    std::lock_guard<std::recursive_mutex> lock(frames.front()->m_interop_mutex);
+    const auto& m_log = frames.front()->m_log;
+    const auto interop = frames.front()->m_interop;
+    const auto queue = frames.front()->m_interop_queue.get();
+    std::vector<RGYCLFrameInterop *> acquiredFrames;
+    std::vector<cl_mem> memObjects;
+    for (const auto frameInterop : frames) {
+        if (frameInterop == nullptr) {
+            return RGY_ERR_NULL_PTR;
+        }
+        if (&frameInterop->m_interop_mutex != &frames.front()->m_interop_mutex || frameInterop->m_interop != interop || frameInterop->m_interop_queue.get() != queue) {
+            return RGY_ERR_INVALID_PARAM;
+        }
+        if (frameInterop->m_acquired) {
+            acquiredFrames.push_back(frameInterop);
+            const auto planes = RGY_CSP_PLANES[frameInterop->frame.csp];
+            memObjects.insert(memObjects.end(), (cl_mem *)frameInterop->frame.ptr, (cl_mem *)frameInterop->frame.ptr + planes);
+        }
+    }
+    if (!acquiredFrames.empty()) {
         auto& perf_collector = RGYOpenCLPerfCollector::instance();
         const bool perf_enabled = perf_collector.isEnabled();
         RGYOpenCLEvent perf_event_local;
@@ -2134,18 +2187,18 @@ RGY_ERR RGYCLFrameInterop::release(RGYOpenCLEvent *event) {
         cl_int err = CL_SUCCESS;
         const auto host_start = rgy_cl_perf_begin(perf_enabled);
 #if ENABLE_RGY_OPENCL_D3D9
-        if (m_interop == RGY_INTEROP_DX9) {
-            err = clEnqueueReleaseDX9MediaSurfacesKHR(m_interop_queue.get(), RGY_CSP_PLANES[frame.csp], (cl_mem *)frame.ptr, 0, nullptr, event_ptr);
+        if (interop == RGY_INTEROP_DX9) {
+            err = clEnqueueReleaseDX9MediaSurfacesKHR(queue, (cl_uint)memObjects.size(), memObjects.data(), 0, nullptr, event_ptr);
         } else
 #endif
 #if ENABLE_RGY_OPENCL_D3D11
-        if (m_interop == RGY_INTEROP_DX11) {
-            err = clEnqueueReleaseD3D11ObjectsKHR(m_interop_queue.get(), RGY_CSP_PLANES[frame.csp], (cl_mem *)frame.ptr, 0, nullptr, event_ptr);
+        if (interop == RGY_INTEROP_DX11) {
+            err = clEnqueueReleaseD3D11ObjectsKHR(queue, (cl_uint)memObjects.size(), memObjects.data(), 0, nullptr, event_ptr);
         } else
 #endif
 #if ENABLE_RGY_OPENCL_VA
-        if (m_interop == RGY_INTEROP_VA) {
-            err = clEnqueueReleaseVA_APIMediaSurfacesINTEL(m_interop_queue.get(), RGY_CSP_PLANES[frame.csp], (cl_mem *)frame.ptr, 0, nullptr, event_ptr);
+        if (interop == RGY_INTEROP_VA) {
+            err = clEnqueueReleaseVA_APIMediaSurfacesINTEL(queue, (cl_uint)memObjects.size(), memObjects.data(), 0, nullptr, event_ptr);
         } else
 #endif
         {
@@ -2154,15 +2207,17 @@ RGY_ERR RGYCLFrameInterop::release(RGYOpenCLEvent *event) {
         }
         const auto host_time = rgy_cl_perf_end(perf_enabled, host_start);
         if (err != 0) {
-            CL_LOG(RGY_LOG_ERROR, _T("RGYCLFrameInterop::acquire: Failed to acquire object: %s!\n"), cl_errmes(err));
+            CL_LOG(RGY_LOG_ERROR, _T("RGYCLFrameInterop::release: Failed to release object: %s!\n"), cl_errmes(err));
             return err_cl_to_rgy(err);
         }
         if (perf_enabled) {
             RGYOpenCLEvent& ev_ref = event ? *event : perf_event_local;
             perf_collector.recordCommand("clEnqueueReleaseInterop", 0, host_time, ev_ref,
-                host_start, host_start + host_time, (uint64_t)(uintptr_t)m_interop_queue.get());
+                host_start, host_start + host_time, (uint64_t)(uintptr_t)queue);
         }
-        m_acquired = false;
+        for (auto frameInterop : acquiredFrames) {
+            frameInterop->m_acquired = false;
+        }
     }
     return RGY_ERR_NONE;
 }

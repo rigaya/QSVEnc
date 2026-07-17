@@ -747,12 +747,14 @@ public:
         : RGYCLFrame(info, flags), m_interop(interop), m_interop_queue(interop_queue), m_interop_mutex(interop_mutex), m_log(log), m_acquired(false) {
     };
     RGY_ERR acquire(RGYOpenCLQueue &queue, RGYOpenCLEvent *event = nullptr);
+    static RGY_ERR acquire(const std::vector<RGYCLFrameInterop *>& frames, RGYOpenCLQueue& queue, RGYOpenCLEvent *event = nullptr);
 protected:
     RGYCLFrameInterop(const RGYCLFrameInterop &) = delete;
     void operator =(const RGYCLFrameInterop &) = delete;
 public:
     const RGYCLFrameInteropType interop() const { return m_interop; }
     RGY_ERR release(RGYOpenCLEvent *event = nullptr);
+    static RGY_ERR release(const std::vector<RGYCLFrameInterop *>& frames, RGYOpenCLEvent *event = nullptr);
     virtual ~RGYCLFrameInterop() {
         release();
     }

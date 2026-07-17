@@ -707,6 +707,7 @@ public:
     int inputFrames() const { return m_inFrames; }
     int outputFrames() const { return m_outFrames; }
     int outputMaxQueueSize() const { return m_outMaxQueueSize; }
+    virtual int additionalInputSurfaces() const { return 0; }
     virtual int additionalOutputSurfaces() const { return 0; }
 };
 
@@ -2434,6 +2435,10 @@ class PipelineTaskOpenCL : public PipelineTask {
 protected:
     static const int OPENCL_ACQUIRE_QUEUE_DEPTH = 3;
     static const int OPENCL_RELEASE_QUEUE_DEPTH = 3;
+    // 入力は4件で安定したが、出力は4件でArc B580の終盤ハングを確認したため2件に抑える。
+    // いずれも1へ戻せば従来の単一フレーム処理になる。
+    static const int OPENCL_ACQUIRE_BATCH_SIZE = 4;
+    static const int OPENCL_RELEASE_BATCH_SIZE = 2;
     struct AcquireWork {
         std::unique_ptr<PipelineTaskOutput> frame;
         RGYFrameInfo frameInfo;
@@ -2775,6 +2780,7 @@ protected:
     }
     void runAcquireWorker() {
         while (true) {
+            std::vector<std::unique_ptr<AcquireWork>> works;
             AcquireWork *workPtr = nullptr;
             while (!m_acquireInQueue.front_copy_and_pop_no_lock(&workPtr)) {
                 if (m_acquireThreadAbort.load()) {
@@ -2782,132 +2788,161 @@ protected:
                 }
                 m_acquireInQueue.wait_for_push();
             }
-            std::unique_ptr<AcquireWork> work(workPtr);
-            if (!work) {
+            if (workPtr != nullptr) {
+                works.emplace_back(workPtr);
+            }
+            if (works.empty()) {
                 continue;
             }
-            if (work->stop) {
-                break;
-            }
-            auto ready = std::make_unique<AcquireReady>();
-            ready->drain = work->drain;
-            if (work->drain) {
-                if (!pushAcquireReady(ready)) {
-                    return;
+            while (works.size() < OPENCL_ACQUIRE_BATCH_SIZE && !works.back()->stop && !works.back()->drain) {
+                workPtr = nullptr;
+                if (!m_acquireInQueue.front_copy_and_pop_no_lock(&workPtr)) {
+                    break;
                 }
-                continue;
-            }
-            ready->frame = std::move(work->frame);
-            auto taskSurf = dynamic_cast<PipelineTaskOutputSurf *>(ready->frame.get());
-            if (taskSurf == nullptr) {
-                PrintMes(RGY_LOG_ERROR, _T("Invalid task surface.\n"));
-                setAcquireWorkerError(RGY_ERR_NULL_PTR);
-                if (!pushAcquireReady(ready)) {
-                    return;
+                if (workPtr != nullptr) {
+                    works.emplace_back(workPtr);
                 }
-                continue;
             }
-            if (taskSurf->surf().mfx()) {
+            bool stopAfterBatch = false;
+            auto batchErr = RGY_ERR_NONE;
+            std::vector<std::unique_ptr<AcquireReady>> readies;
+            struct InteropAcquireItem {
+                AcquireReady *ready;
+                PipelineTaskOutputSurf *taskSurf;
+                RGYCLFrameInterop *interop;
+                std::unique_ptr<RGYCLFrame> clFrame;
+            };
+            std::vector<InteropAcquireItem> interopItems;
+            {
+                // D3D11 interopは単一mutexのまま、バッチ全体をacquireからrelease完了まで直列化する。
                 std::unique_lock<std::recursive_mutex> interopLock(m_cl->interopMutex(), std::defer_lock);
                 if (m_memType == D3D11_MEMORY) {
                     interopLock.lock();
                 }
-                mfxFrameSurface1 *surfVppIn = taskSurf->surf().mfx()->surf();
-                if (m_surfVppInInterop.count(surfVppIn) == 0) {
-                    // interopのreleaseは生成時のqueueに発行されるため、worker専用queueで生成する。
-                    m_surfVppInInterop[surfVppIn] = getOpenCLFrameInterop(surfVppIn, m_memType, CL_MEM_READ_ONLY, m_allocator, m_cl.get(), m_acquireQueue, m_acquireFrameInInfo);
-                }
-                auto clFrameInInterop = m_surfVppInInterop[surfVppIn].get();
-                if (!clFrameInInterop) {
-                    PrintMes(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [in].\n"));
-                    setAcquireWorkerError(RGY_ERR_NULL_PTR);
-                    if (!pushAcquireReady(ready)) {
-                        return;
+                for (auto& work : works) {
+                    if (!work) {
+                        continue;
                     }
-                    continue;
-                }
-                auto err = RGY_ERR_NONE;
-                {
-                    err = clFrameInInterop->acquire(m_acquireQueue);
-                }
-                if (err != RGY_ERR_NONE) {
-                    PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [in]: %s.\n"), get_err_mes(err));
-                    setAcquireWorkerError(err);
-                    if (!pushAcquireReady(ready)) {
-                        return;
+                    if (work->stop) {
+                        stopAfterBatch = true;
+                        break;
                     }
-                    continue;
-                }
-                clFrameInInterop->frame.flags = work->frameInfo.flags;
-                clFrameInInterop->frame.timestamp = work->frameInfo.timestamp;
-                clFrameInInterop->frame.inputFrameId = work->frameInfo.inputFrameId;
-                clFrameInInterop->frame.picstruct = work->frameInfo.picstruct;
-                clFrameInInterop->frame.dataList = work->frameInfo.dataList;
+                    auto ready = std::make_unique<AcquireReady>();
+                    ready->drain = work->drain;
+                    if (work->drain) {
+                        readies.push_back(std::move(ready));
+                        continue;
+                    }
+                    ready->frame = std::move(work->frame);
+                    auto taskSurf = dynamic_cast<PipelineTaskOutputSurf *>(ready->frame.get());
+                    if (taskSurf == nullptr) {
+                        PrintMes(RGY_LOG_ERROR, _T("Invalid task surface.\n"));
+                        batchErr = RGY_ERR_NULL_PTR;
+                        readies.push_back(std::move(ready));
+                        continue;
+                    }
+                    if (taskSurf->surf().mfx()) {
+                        mfxFrameSurface1 *surfVppIn = taskSurf->surf().mfx()->surf();
+                        if (m_surfVppInInterop.count(surfVppIn) == 0) {
+                            // interopのreleaseは生成時のqueueに発行されるため、worker専用queueで生成する。
+                            m_surfVppInInterop[surfVppIn] = getOpenCLFrameInterop(surfVppIn, m_memType, CL_MEM_READ_ONLY, m_allocator, m_cl.get(), m_acquireQueue, m_acquireFrameInInfo);
+                        }
+                        auto clFrameInInterop = m_surfVppInInterop[surfVppIn].get();
+                        if (!clFrameInInterop) {
+                            PrintMes(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [in].\n"));
+                            batchErr = RGY_ERR_NULL_PTR;
+                            readies.push_back(std::move(ready));
+                            continue;
+                        }
+                        clFrameInInterop->frame.flags = work->frameInfo.flags;
+                        clFrameInInterop->frame.timestamp = work->frameInfo.timestamp;
+                        clFrameInInterop->frame.inputFrameId = work->frameInfo.inputFrameId;
+                        clFrameInInterop->frame.picstruct = work->frameInfo.picstruct;
+                        clFrameInInterop->frame.dataList = work->frameInfo.dataList;
 
-                auto clFrame = getAcquireWorkerFrame(clFrameInInterop->frameInfo());
-                if (!clFrame) {
-                    PrintMes(RGY_LOG_ERROR, _T("Failed to allocate OpenCL frame for acquire worker.\n"));
-                    {
-                        clFrameInInterop->release();
-                    }
-                    setAcquireWorkerError(RGY_ERR_MEMORY_ALLOC);
-                    if (!pushAcquireReady(ready)) {
-                        return;
-                    }
-                    continue;
-                }
-                clFrame->frame.flags = clFrameInInterop->frame.flags;
-                clFrame->frame.timestamp = clFrameInInterop->frame.timestamp;
-                clFrame->frame.inputFrameId = clFrameInInterop->frame.inputFrameId;
-                clFrame->frame.picstruct = clFrameInInterop->frame.picstruct;
-                clFrame->frame.dataList = clFrameInInterop->frame.dataList;
+                        auto clFrame = getAcquireWorkerFrame(clFrameInInterop->frameInfo());
+                        if (!clFrame) {
+                            PrintMes(RGY_LOG_ERROR, _T("Failed to allocate OpenCL frame for acquire worker.\n"));
+                            batchErr = RGY_ERR_MEMORY_ALLOC;
+                            readies.push_back(std::move(ready));
+                            continue;
+                        }
+                        clFrame->frame.flags = clFrameInInterop->frame.flags;
+                        clFrame->frame.timestamp = clFrameInInterop->frame.timestamp;
+                        clFrame->frame.inputFrameId = clFrameInInterop->frame.inputFrameId;
+                        clFrame->frame.picstruct = clFrameInInterop->frame.picstruct;
+                        clFrame->frame.dataList = clFrameInInterop->frame.dataList;
 
-                RGYOpenCLEvent copyDoneEvent;
-                err = m_cl->copyFrame(&clFrame->frame, &clFrameInInterop->frameInfo(), nullptr, m_acquireQueue, {}, &copyDoneEvent, RGYFrameCopyMode::FRAME, "qsv.acquire.copy");
-                if (err != RGY_ERR_NONE) {
-                    PrintMes(RGY_LOG_ERROR, _T("Failed to copy OpenCL interop input frame: %s.\n"), get_err_mes(err));
-                    {
-                        clFrameInInterop->release();
+                        auto readyPtr = ready.get();
+                        readies.push_back(std::move(ready));
+                        interopItems.push_back({ readyPtr, taskSurf, clFrameInInterop, std::move(clFrame) });
+                    } else if (auto clframe = taskSurf->surf().cl(); clframe != nullptr) {
+                        // OpenCLフレームが来た場合はworker側で追加処理せず、そのままmainへ渡す。
+                        ready->frameInfo = clframe->frameInfo();
+                        readies.push_back(std::move(ready));
+                    } else {
+                        PrintMes(RGY_LOG_ERROR, _T("Invalid input frame.\n"));
+                        batchErr = RGY_ERR_NULL_PTR;
+                        readies.push_back(std::move(ready));
                     }
-                    setAcquireWorkerError(err);
-                    if (!pushAcquireReady(ready)) {
-                        return;
+                }
+
+                if (batchErr == RGY_ERR_NONE && !interopItems.empty()) {
+                    std::vector<RGYCLFrameInterop *> interopFrames;
+                    interopFrames.reserve(interopItems.size());
+                    for (const auto& item : interopItems) {
+                        interopFrames.push_back(item.interop);
                     }
-                    continue;
-                }
-                RGYOpenCLEvent inputReleaseEvent;
-                {
-                    err = clFrameInInterop->release(&inputReleaseEvent);
-                }
-                if (err != RGY_ERR_NONE) {
-                    PrintMes(RGY_LOG_ERROR, _T("Failed to release input frame interop: %s.\n"), get_err_mes(err));
-                    setAcquireWorkerError(err);
-                    if (!pushAcquireReady(ready)) {
-                        return;
+                    batchErr = RGYCLFrameInterop::acquire(interopFrames, m_acquireQueue);
+                    if (batchErr != RGY_ERR_NONE) {
+                        PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop input batch: %s.\n"), get_err_mes(batchErr));
+                    } else {
+                        for (auto& item : interopItems) {
+                            RGYOpenCLEvent copyDoneEvent;
+                            batchErr = m_cl->copyFrame(&item.clFrame->frame, &item.interop->frameInfo(), nullptr, m_acquireQueue, {}, &copyDoneEvent, RGYFrameCopyMode::FRAME, "qsv.acquire.copy");
+                            if (batchErr != RGY_ERR_NONE) {
+                                PrintMes(RGY_LOG_ERROR, _T("Failed to copy OpenCL interop input frame: %s.\n"), get_err_mes(batchErr));
+                                break;
+                            }
+                        }
+                        RGYOpenCLEvent inputReleaseEvent;
+                        const auto releaseErr = RGYCLFrameInterop::release(interopFrames, &inputReleaseEvent);
+                        if (releaseErr != RGY_ERR_NONE) {
+                            PrintMes(RGY_LOG_ERROR, _T("Failed to release OpenCL interop input batch: %s.\n"), get_err_mes(releaseErr));
+                            if (batchErr == RGY_ERR_NONE) {
+                                batchErr = releaseErr;
+                            }
+                        } else {
+                            for (auto& item : interopItems) {
+                                item.taskSurf->addClEvent(inputReleaseEvent);
+                                item.ready->readyEvent = inputReleaseEvent;
+                                item.ready->waitReadyEvent = true;
+                                item.ready->frameInfo = item.clFrame->frameInfo();
+                                item.ready->clFrame = std::move(item.clFrame);
+                            }
+                        }
                     }
-                    continue;
-                }
-                taskSurf->addClEvent(inputReleaseEvent);
-                if (m_memType == D3D11_MEMORY && (err = m_acquireQueue.finish()) != RGY_ERR_NONE) {
-                    PrintMes(RGY_LOG_ERROR, _T("Failed to finish acquire worker queue: %s.\n"), get_err_mes(err));
-                    setAcquireWorkerError(err);
-                    if (!pushAcquireReady(ready)) {
-                        return;
+                    if (m_memType == D3D11_MEMORY) {
+                        const auto finishErr = m_acquireQueue.finish();
+                        if (finishErr != RGY_ERR_NONE) {
+                            PrintMes(RGY_LOG_ERROR, _T("Failed to finish acquire worker queue: %s.\n"), get_err_mes(finishErr));
+                            if (batchErr == RGY_ERR_NONE) {
+                                batchErr = finishErr;
+                            }
+                        }
                     }
-                    continue;
                 }
-                ready->readyEvent = inputReleaseEvent;
-                ready->waitReadyEvent = true;
-                ready->frameInfo = clFrame->frameInfo();
-                ready->clFrame = std::move(clFrame);
-            } else if (auto clframe = taskSurf->surf().cl(); clframe != nullptr) {
-                // OpenCLフレームが来た場合はworker側で追加処理せず、そのままmainへ渡す。
-                ready->frameInfo = clframe->frameInfo();
-            } else {
-                PrintMes(RGY_LOG_ERROR, _T("Invalid input frame.\n"));
-                setAcquireWorkerError(RGY_ERR_NULL_PTR);
             }
-            if (!pushAcquireReady(ready)) {
+
+            if (batchErr != RGY_ERR_NONE) {
+                setAcquireWorkerError(batchErr);
+            }
+            for (auto& ready : readies) {
+                if (!pushAcquireReady(ready)) {
+                    return;
+                }
+            }
+            if (stopAfterBatch) {
                 return;
             }
         }
@@ -2976,106 +3011,185 @@ protected:
     void runReleaseWorker() {
         while (!m_releaseThreadAbort.load()) {
             bool processed = false;
+            bool stopAfterBatch = false;
+            std::vector<std::unique_ptr<ReleaseWork>> releaseWorks;
             ReleaseWork *workPtr = nullptr;
+            m_releaseWorkInFlight++;
             if (m_releaseWorkQueue.front_copy_and_pop_no_lock(&workPtr)) {
                 processed = true;
-                std::unique_ptr<ReleaseWork> work(workPtr);
-                if (!work || work->stop) {
-                    break;
-                }
-                m_releaseWorkInFlight++;
-                if (work->waitCropDoneEvent && work->cropDoneEvent()) {
-                    auto err = m_releaseQueue.wait(work->cropDoneEvent);
-                    if (err != RGY_ERR_NONE) {
-                        PrintMes(RGY_LOG_ERROR, _T("Failed to wait crop event on release queue: %s.\n"), get_err_mes(err));
-                        setReleaseWorkerError(err);
-                        m_releaseWorkInFlight--;
-                        return;
-                    }
-                }
-                RGYOpenCLEvent releaseEvent;
-                if (work->interop) {
-                    std::unique_lock<std::recursive_mutex> interopLock(m_cl->interopMutex(), std::defer_lock);
-                    if (m_memType == D3D11_MEMORY) {
-                        interopLock.lock();
-                    }
-                    auto err = RGY_ERR_NONE;
-                    err = work->interop->release(&releaseEvent);
-                    if (err != RGY_ERR_NONE) {
-                        PrintMes(RGY_LOG_ERROR, _T("Failed to release output frame interop: %s.\n"), get_err_mes(err));
-                        setReleaseWorkerError(err);
-                        m_releaseWorkInFlight--;
-                        return;
-                    }
-                    if (m_memType == D3D11_MEMORY && (err = m_releaseQueue.finish()) != RGY_ERR_NONE) {
-                        PrintMes(RGY_LOG_ERROR, _T("Failed to finish release worker queue: %s.\n"), get_err_mes(err));
-                        setReleaseWorkerError(err);
-                        m_releaseWorkInFlight--;
-                        return;
-                    }
+                if (workPtr != nullptr && !workPtr->stop) {
+                    releaseWorks.emplace_back(workPtr);
                 } else {
-                    releaseEvent = work->cropDoneEvent;
-                }
-                work->surf.frame()->setTimestamp(work->encSurfaceInfo.timestamp);
-                work->surf.frame()->setInputFrameId(work->encSurfaceInfo.inputFrameId);
-                work->surf.frame()->setPicstruct(work->encSurfaceInfo.picstruct);
-                work->surf.frame()->setFlags(work->encSurfaceInfo.flags);
-                work->surf.frame()->setDataList(work->encSurfaceInfo.dataList);
-                std::unique_ptr<PipelineTaskOutput> dependency;
-                auto done = std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, work->surf, dependency, releaseEvent);
-                if (!pushReleaseDone(done)) {
                     m_releaseWorkInFlight--;
+                    if (workPtr != nullptr) {
+                        stopAfterBatch = workPtr->stop;
+                        delete workPtr;
+                    }
+                }
+                while (!stopAfterBatch && !releaseWorks.empty() && releaseWorks.size() < OPENCL_RELEASE_BATCH_SIZE) {
+                    workPtr = nullptr;
+                    m_releaseWorkInFlight++;
+                    if (!m_releaseWorkQueue.front_copy_and_pop_no_lock(&workPtr)) {
+                        m_releaseWorkInFlight--;
+                        break;
+                    }
+                    if (workPtr != nullptr && !workPtr->stop) {
+                        releaseWorks.emplace_back(workPtr);
+                    } else {
+                        m_releaseWorkInFlight--;
+                        if (workPtr != nullptr) {
+                            stopAfterBatch = workPtr->stop;
+                            delete workPtr;
+                        }
+                    }
+                }
+                if (!releaseWorks.empty()) {
+                    auto err = RGY_ERR_NONE;
+                    for (const auto& work : releaseWorks) {
+                        if (work->waitCropDoneEvent && work->cropDoneEvent()) {
+                            err = m_releaseQueue.wait(work->cropDoneEvent);
+                            if (err != RGY_ERR_NONE) {
+                                PrintMes(RGY_LOG_ERROR, _T("Failed to wait crop event on release queue: %s.\n"), get_err_mes(err));
+                                break;
+                            }
+                        }
+                    }
+                    RGYOpenCLEvent releaseEvent;
+                    if (err == RGY_ERR_NONE) {
+                        std::vector<RGYCLFrameInterop *> interopFrames;
+                        for (const auto& work : releaseWorks) {
+                            if (work->interop != nullptr) {
+                                interopFrames.push_back(work->interop);
+                            }
+                        }
+                        if (!interopFrames.empty()) {
+                            std::unique_lock<std::recursive_mutex> interopLock(m_cl->interopMutex(), std::defer_lock);
+                            if (m_memType == D3D11_MEMORY) {
+                                interopLock.lock();
+                            }
+                            err = RGYCLFrameInterop::release(interopFrames, &releaseEvent);
+                            if (err != RGY_ERR_NONE) {
+                                PrintMes(RGY_LOG_ERROR, _T("Failed to release OpenCL interop output batch: %s.\n"), get_err_mes(err));
+                            }
+                            if (err == RGY_ERR_NONE && m_memType == D3D11_MEMORY) {
+                                err = m_releaseQueue.finish();
+                                if (err != RGY_ERR_NONE) {
+                                    PrintMes(RGY_LOG_ERROR, _T("Failed to finish release worker queue: %s.\n"), get_err_mes(err));
+                                }
+                            }
+                        }
+                    }
+                    if (err != RGY_ERR_NONE) {
+                        setReleaseWorkerError(err);
+                        m_releaseWorkInFlight.fetch_sub((int)releaseWorks.size());
+                        return;
+                    }
+                    for (size_t i = 0; i < releaseWorks.size(); i++) {
+                        auto& work = releaseWorks[i];
+                        auto doneEvent = (work->interop != nullptr) ? releaseEvent : work->cropDoneEvent;
+                        work->surf.frame()->setTimestamp(work->encSurfaceInfo.timestamp);
+                        work->surf.frame()->setInputFrameId(work->encSurfaceInfo.inputFrameId);
+                        work->surf.frame()->setPicstruct(work->encSurfaceInfo.picstruct);
+                        work->surf.frame()->setFlags(work->encSurfaceInfo.flags);
+                        work->surf.frame()->setDataList(work->encSurfaceInfo.dataList);
+                        std::unique_ptr<PipelineTaskOutput> dependency;
+                        auto done = std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, work->surf, dependency, doneEvent);
+                        if (!pushReleaseDone(done)) {
+                            m_releaseWorkInFlight.fetch_sub((int)(releaseWorks.size() - i));
+                            return;
+                        }
+                        m_releaseWorkInFlight--;
+                    }
+                }
+                if (stopAfterBatch) {
                     return;
                 }
+            } else {
                 m_releaseWorkInFlight--;
             }
+
+            std::vector<std::unique_ptr<ReleaseAcquireWork>> acquireWorks;
             ReleaseAcquireWork *acquirePtr = nullptr;
             if (m_releaseAcquireQueue.front_copy_and_pop_no_lock(&acquirePtr)) {
                 processed = true;
-                std::unique_ptr<ReleaseAcquireWork> acquire(acquirePtr);
-                if (!acquire || acquire->stop) {
-                    break;
+                if (acquirePtr != nullptr) {
+                    acquireWorks.emplace_back(acquirePtr);
                 }
-                auto ready = std::make_unique<ReleaseReady>();
-                ready->surf = acquire->surf;
-                if (auto mfxsurfOut = (ready->surf.mfx()) ? ready->surf.mfx()->surf() : nullptr; mfxsurfOut != nullptr) {
+                while (!acquireWorks.empty() && acquireWorks.size() < OPENCL_RELEASE_BATCH_SIZE && !acquireWorks.back()->stop) {
+                    acquirePtr = nullptr;
+                    if (!m_releaseAcquireQueue.front_copy_and_pop_no_lock(&acquirePtr)) {
+                        break;
+                    }
+                    if (acquirePtr != nullptr) {
+                        acquireWorks.emplace_back(acquirePtr);
+                    }
+                }
+                stopAfterBatch = false;
+                if (!acquireWorks.empty() && acquireWorks.back()->stop) {
+                    stopAfterBatch = true;
+                    acquireWorks.pop_back();
+                }
+
+                auto batchErr = RGY_ERR_NONE;
+                std::vector<std::unique_ptr<ReleaseReady>> readies;
+                std::vector<RGYCLFrameInterop *> interopFrames;
+                {
                     std::unique_lock<std::recursive_mutex> interopLock(m_cl->interopMutex(), std::defer_lock);
                     if (m_memType == D3D11_MEMORY) {
                         interopLock.lock();
                     }
-                    if (m_surfVppOutInterop.count(mfxsurfOut) == 0) {
-                        m_surfVppOutInterop[mfxsurfOut] = getOpenCLFrameInterop(mfxsurfOut, m_memType, CL_MEM_WRITE_ONLY, m_allocator, m_cl.get(), m_releaseQueue, m_vpFilters.back()->GetFilterParam()->frameOut);
+                    for (auto& acquire : acquireWorks) {
+                        auto ready = std::make_unique<ReleaseReady>();
+                        ready->surf = acquire->surf;
+                        if (auto mfxsurfOut = (ready->surf.mfx()) ? ready->surf.mfx()->surf() : nullptr; mfxsurfOut != nullptr) {
+                            if (m_surfVppOutInterop.count(mfxsurfOut) == 0) {
+                                m_surfVppOutInterop[mfxsurfOut] = getOpenCLFrameInterop(mfxsurfOut, m_memType, CL_MEM_WRITE_ONLY, m_allocator, m_cl.get(), m_releaseQueue, m_vpFilters.back()->GetFilterParam()->frameOut);
+                            }
+                            ready->interop = m_surfVppOutInterop[mfxsurfOut].get();
+                            if (!ready->interop) {
+                                PrintMes(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [out].\n"));
+                                batchErr = RGY_ERR_NULL_PTR;
+                            } else {
+                                interopFrames.push_back(ready->interop);
+                            }
+                        } else if (ready->surf.cl() != nullptr) {
+                            // OpenCLフレームの場合はinterop処理不要。
+                        } else {
+                            PrintMes(RGY_LOG_ERROR, _T("Invalid work frame [out].\n"));
+                            batchErr = RGY_ERR_NULL_PTR;
+                        }
+                        readies.push_back(std::move(ready));
                     }
-                    ready->interop = m_surfVppOutInterop[mfxsurfOut].get();
-                    if (!ready->interop) {
-                        PrintMes(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [out].\n"));
-                        setReleaseWorkerError(RGY_ERR_NULL_PTR);
-                        pushReleaseReady(ready);
-                        return;
+                    if (batchErr == RGY_ERR_NONE && !interopFrames.empty()) {
+                        RGYOpenCLEvent acquireEvent;
+                        batchErr = RGYCLFrameInterop::acquire(interopFrames, m_releaseQueue, &acquireEvent);
+                        if (batchErr != RGY_ERR_NONE) {
+                            PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop output batch: %s.\n"), get_err_mes(batchErr));
+                        } else {
+                            for (auto& ready : readies) {
+                                if (ready->interop != nullptr) {
+                                    ready->acquireEvent = acquireEvent;
+                                    ready->waitAcquireEvent = true;
+                                }
+                            }
+                        }
+                        if (batchErr == RGY_ERR_NONE && m_memType == D3D11_MEMORY) {
+                            batchErr = m_releaseQueue.finish();
+                            if (batchErr != RGY_ERR_NONE) {
+                                PrintMes(RGY_LOG_ERROR, _T("Failed to finish output acquire: %s.\n"), get_err_mes(batchErr));
+                            }
+                        }
                     }
-                    auto err = RGY_ERR_NONE;
-                    err = ready->interop->acquire(m_releaseQueue, &ready->acquireEvent);
-                    if (err != RGY_ERR_NONE) {
-                        PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [out]: %s.\n"), get_err_mes(err));
-                        setReleaseWorkerError(err);
-                        pushReleaseReady(ready);
-                        return;
-                    }
-                    ready->waitAcquireEvent = true;
-                    if (m_memType == D3D11_MEMORY && (err = m_releaseQueue.finish()) != RGY_ERR_NONE) {
-                        PrintMes(RGY_LOG_ERROR, _T("Failed to finish output acquire: %s.\n"), get_err_mes(err));
-                        setReleaseWorkerError(err);
-                        pushReleaseReady(ready);
-                        return;
-                    }
-                } else if (ready->surf.cl() != nullptr) {
-                    // OpenCLフレームの場合はinterop処理不要。
-                } else {
-                    PrintMes(RGY_LOG_ERROR, _T("Invalid work frame [out].\n"));
-                    setReleaseWorkerError(RGY_ERR_NULL_PTR);
-                    return;
                 }
-                if (!pushReleaseReady(ready)) {
+                if (batchErr != RGY_ERR_NONE) {
+                    setReleaseWorkerError(batchErr);
+                }
+                for (auto& ready : readies) {
+                    if (!pushReleaseReady(ready)) {
+                        return;
+                    }
+                }
+                if (batchErr != RGY_ERR_NONE || stopAfterBatch) {
                     return;
                 }
             }
@@ -3111,6 +3225,9 @@ protected:
             if (!wait) {
                 return nullptr;
             }
+            // release workerがdone queueへのバッチ投入で待っている場合に備え、
+            // acquire完了待ちの間もmain側でdoneを回収して循環待ちを避ける。
+            collectReleaseDone(false);
             if (m_releaseErr.load() != RGY_ERR_NONE || m_releaseThreadAbort.load()) {
                 return nullptr;
             }
@@ -3197,6 +3314,9 @@ public:
 
     virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override { return std::nullopt; };
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override { return std::nullopt; };
+    virtual int additionalInputSurfaces() const override {
+        return (m_openclTaskThreads >= 2) ? OPENCL_ACQUIRE_BATCH_SIZE - 1 : 0;
+    }
     virtual int additionalOutputSurfaces() const override {
         int frames = 0;
         for (const auto& filter : m_vpFilters) {
@@ -3204,7 +3324,7 @@ public:
         }
         if (m_openclTaskThreads >= 2) {
             frames += 2 * (OPENCL_ACQUIRE_QUEUE_DEPTH + 1) + 2;
-            frames += 2 * (OPENCL_RELEASE_QUEUE_DEPTH + 1) + 2;
+            frames += 2 * (OPENCL_RELEASE_QUEUE_DEPTH + 1) + 2 + (OPENCL_RELEASE_BATCH_SIZE - 1);
         }
         return frames;
     }

@@ -1770,7 +1770,7 @@ RGY_ERR CQSVPipeline::AllocFrames() {
             PrintMes(RGY_LOG_ERROR, _T("AllocFrames: invalid pipeline: cannot get request from either t0 or t1!\n"));
             return RGY_ERR_UNSUPPORTED;
         }
-        const int requestNumFrames = std::max(1, t0RequestNumFrame + t1RequestNumFrame + t0->additionalOutputSurfaces() + m_nAsyncDepth + 1);
+        const int requestNumFrames = std::max(1, t0RequestNumFrame + t1RequestNumFrame + t0->additionalOutputSurfaces() + t1->additionalInputSurfaces() + m_nAsyncDepth + 1);
         if (allocateOpenCLFrame) { // OpenCLフレームを介してやり取りする場合
             const RGYFrameInfo frame(allocRequest.Info.CropW, allocRequest.Info.CropH,
                 csp_enc_to_rgy(allocRequest.Info.FourCC),
