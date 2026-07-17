@@ -523,7 +523,7 @@ RGY_ERR RGYFilterRtgmc::attachEdiReference(RGYFrameInfo *frame, RGYOpenCLQueue &
         return err;
     }
     copyFramePropWithoutRes(&sharedFrame->frame, frame);
-    auto frameData = std::make_shared<RGYFrameDataRtgmcEdi>(sharedFrame);
+    auto frameData = std::make_shared<RGYFrameDataRtgmcEdi>(sharedFrame, frame->ptr[0]);
     frame->dataList.push_back(frameData);
     storeEdiReference(frame, frameData, event ? *event : RGYOpenCLEvent());
     return RGY_ERR_NONE;
@@ -1431,6 +1431,9 @@ RGY_ERR RGYFilterRtgmc::initFilters(const std::shared_ptr<RGYFilterParamRtgmc> &
         param->degrain = rtgDegrainRuntimeParam(prm->rtgmc.tr1, _T("tr1"));
         param->degrain.mode = VppDegrainMode::Degrain;
         param->degrain.stage = VppDegrainStage::TR1;
+        // TR1の入力はEDI出力で、attachEdiReferenceが作った内容同一のプールコピー
+        // (rtgmc.edi_ref)が添付されている。それをアンカーにキャッシュコピーを省略する。
+        param->zeroCopyCache = true;
         auto sts = initOne(std::move(filter), param);
         if (sts != RGY_ERR_NONE) return sts;
     }

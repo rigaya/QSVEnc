@@ -719,10 +719,35 @@ RGY_ERR RGYFilterDegrain::pushCacheFrame(const RGYFrameInfo *pInputFrame, RGYOpe
     const auto prm = std::dynamic_pointer_cast<RGYFilterParamDegrain>(m_param);
     const int index = cacheIndex(m_inputCount);
     if (prm && prm->zeroCopyCache) {
+        // アンカー判定はいずれもptr[0]の一致検証を必須とする。dataListは
+        // FILTER_PATHTHROUGH_DATAで別バッファのフレームへ継承され得るため、
+        // 添付情報の存在だけを根拠にすると誤ったバッファに寿命保証が付く。
+        RGYFrameInfo zeroCopyRef;
+        std::shared_ptr<RGYCLFrame> zeroCopyOwner;
         auto owner = rtgmcGetAttachedFrameRef(pInputFrame);
         if (owner && owner->frame.ptr[0]
+            && owner->frame.ptr[0] == pInputFrame->ptr[0]
             && !cmpFrameInfoCspResolution(&owner->frame, pInputFrame)
             && owner->frame.bitdepth == pInputFrame->bitdepth) {
+            // 入力フレーム自体がプール所有 → そのまま参照
+            zeroCopyRef = *pInputFrame;
+            zeroCopyOwner = owner;
+        } else if (auto edi = rtgmcGetAttachedEdi(pInputFrame); edi
+            && edi->frameRef() && edi->frame() && edi->frame()->ptr[0]
+            && edi->sourcePtr0() == pInputFrame->ptr[0]
+            && !cmpFrameInfoCspResolution(edi->frame(), pInputFrame)
+            && edi->frame()->bitdepth == pInputFrame->bitdepth) {
+            // EDI側データのプールコピーは入力と内容同一 (sourcePtr0一致で検証) なので
+            // アンカーに使える。プロパティは入力側、バッファはプールコピー側で構成する。
+            // コピー(rtgmc.edi_ref)は同一in-orderキューへ先行enqueue済みのため順序保証あり。
+            zeroCopyRef = *pInputFrame;
+            for (int i = 0; i < RGY_CSP_PLANES[pInputFrame->csp]; i++) {
+                zeroCopyRef.ptr[i] = edi->frame()->ptr[i];
+                zeroCopyRef.pitch[i] = edi->frame()->pitch[i];
+            }
+            zeroCopyOwner = edi->frameRef();
+        }
+        if (zeroCopyOwner) {
             for (const auto &waitEvent : wait_events) {
                 if (waitEvent() != nullptr) {
                     const auto err = queue.wait(waitEvent);
@@ -739,8 +764,8 @@ RGY_ERR RGYFilterDegrain::pushCacheFrame(const RGYFrameInfo *pInputFrame, RGYOpe
                     return err;
                 }
             }
-            m_cacheFrameRefs[index] = *pInputFrame;
-            m_cacheFrameOwners[index] = owner;
+            m_cacheFrameRefs[index] = zeroCopyRef;
+            m_cacheFrameOwners[index] = zeroCopyOwner;
             return RGY_ERR_NONE;
         }
     }
