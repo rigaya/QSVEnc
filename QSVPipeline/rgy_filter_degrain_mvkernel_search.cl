@@ -845,24 +845,71 @@ static inline void degrain_motion_search_refine_square8(
         );
 }
 
-static inline uint degrain_motion_search_source_block_variance(
-    __local const TypePixel *sourceBlockPixels) {
-    long sum = 0;
-    long sumSq = 0;
-    const int count = DEGRAIN_BLK_SIZE * DEGRAIN_BLK_SIZE;
-    for (int i = 0; i < count; i++) {
-        const int value = (int)sourceBlockPixels[i];
-        sum += value;
-        sumSq += (long)value * (long)value;
+// workgroup全体でuintの部分和を総和し、全スレッドへ同一の合計値を返す。
+// 整数加算のみのため加算順序に依らず結果は一意。
+// 内部でbarrierを使うので、workgroup全スレッドから一様に呼び出すこと。
+static inline uint degrain_motion_search_workgroup_reduce_add(
+    __local uint *laneSums,
+    const uint value,
+    const int localThreadId) {
+    laneSums[localThreadId] = value;
+    barrier(CLK_LOCAL_MEM_FENCE);
+    for (int offset = DEGRAIN_MOTION_SEARCH_SEARCH_LOCAL_SIZE >> 1; offset > 0; offset >>= 1) {
+        if (localThreadId < offset) {
+            laneSums[localThreadId] += laneSums[localThreadId + offset];
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
     }
+    const uint total = laneSums[0];
+    barrier(CLK_LOCAL_MEM_FENCE);
+    return total;
+}
+
+// source blockの分散をworkgroup並列で求める。
+// 内部でbarrierを使うので、workgroup全スレッドから一様に呼び出すこと。
+static inline uint degrain_motion_search_source_block_variance_parallel(
+    __local const TypePixel *sourceBlockPixels,
+    __local uint *laneSums,
+    const int localThreadId) {
+    const int count = DEGRAIN_BLK_SIZE * DEGRAIN_BLK_SIZE;
+    uint partialSum = 0u;
+#if DEGRAIN_PIXEL_BYTES == 1
+    uint partialSumSq = 0u;
+#else
+    // 16bit画素は2乗和の合計が32bitを超えるため、v^2 (32bitに収まる) を上位/下位に分けて総和する
+    uint partialSumSqLo = 0u;
+    uint partialSumSqHi = 0u;
+#endif
+    for (int i = localThreadId; i < count; i += DEGRAIN_MOTION_SEARCH_SEARCH_LOCAL_SIZE) {
+        const uint value = (uint)sourceBlockPixels[i];
+        partialSum += value;
+#if DEGRAIN_PIXEL_BYTES == 1
+        partialSumSq += value * value;
+#else
+        const uint valueSq = value * value;
+        partialSumSqLo += valueSq & 0xffffu;
+        partialSumSqHi += valueSq >> 16;
+#endif
+    }
+    const long sum = (long)degrain_motion_search_workgroup_reduce_add(laneSums, partialSum, localThreadId);
+#if DEGRAIN_PIXEL_BYTES == 1
+    const long sumSq = (long)degrain_motion_search_workgroup_reduce_add(laneSums, partialSumSq, localThreadId);
+#else
+    const long sumSqLo = (long)degrain_motion_search_workgroup_reduce_add(laneSums, partialSumSqLo, localThreadId);
+    const long sumSqHi = (long)degrain_motion_search_workgroup_reduce_add(laneSums, partialSumSqHi, localThreadId);
+    const long sumSq = (sumSqHi << 16) + sumSqLo;
+#endif
     const long mean = sum / count;
     const long varianceNumer = sumSq - mean * sum;
     return (varianceNumer <= 0) ? 0u : (uint)(varianceNumer / count);
 }
 
-static inline uint degrain_motion_search_full_block_sad(
+// full-block SADをworkgroup並列で求める。レーン分割は探索時のSAD計算と同一。
+// 内部でbarrierを使うので、workgroup全スレッドから一様に呼び出すこと。
+static inline uint degrain_motion_search_full_block_sad_parallel(
     __local const TypePixel *sourceBlockPixels,
     __global const uchar *referencePlane,
+    __local uint *laneSums,
     const int pitch,
     const int width,
     const int height,
@@ -870,10 +917,11 @@ static inline uint degrain_motion_search_full_block_sad(
     const int blockGridY,
     const int step,
     const int motionOffsetX,
-    const int motionOffsetY) {
-    uint sad = 0u;
-    for (int sadLane = 0; sadLane < DEGRAIN_BLK_SIZE; sadLane++) {
-        sad += degrain_motion_search_accumulate_luma_sad_lane(
+    const int motionOffsetY,
+    const int localThreadId) {
+    uint partialSad = 0u;
+    if (localThreadId < DEGRAIN_BLK_SIZE) {
+        partialSad = degrain_motion_search_accumulate_luma_sad_lane(
             sourceBlockPixels,
             referencePlane,
             pitch,
@@ -884,56 +932,30 @@ static inline uint degrain_motion_search_full_block_sad(
             step,
             motionOffsetX,
             motionOffsetY,
-            sadLane);
+            localThreadId);
     }
-    return sad;
+    return degrain_motion_search_workgroup_reduce_add(laneSums, partialSad, localThreadId);
 }
 
-static inline degrain_motion_search_candidate_cost_t degrain_motion_search_apply_flat_region_mv_correction(
+// 探索勝者のSAD再検証とflat領域補正 (分散0のブロックはMVの信頼性がないためzero MVへ寄せる)。
+// 分散はworkgroup内で同一値になるため、flat分岐は全スレッド一様でbarrier安全。
+// 内部でbarrierを使うので、workgroup全スレッドから同一のbestを渡して一様に呼び出すこと。
+static inline degrain_motion_search_candidate_cost_t degrain_motion_search_finalize_candidate_cost_parallel(
     __local const TypePixel *sourceBlockPixels,
     __global const uchar *referencePlane,
+    __local uint *laneSums,
     const int pitch,
     const int width,
     const int height,
     const int blockGridX,
     const int blockGridY,
     const int step,
-    degrain_motion_search_candidate_cost_t best) {
-    if (degrain_motion_search_source_block_variance(sourceBlockPixels) != 0u) {
-        return best;
-    }
-
-    const uint sadZero = degrain_motion_search_full_block_sad(
+    degrain_motion_search_candidate_cost_t best,
+    const int localThreadId) {
+    const uint verifiedSad = degrain_motion_search_full_block_sad_parallel(
         sourceBlockPixels,
         referencePlane,
-        pitch,
-        width,
-        height,
-        blockGridX,
-        blockGridY,
-        step,
-        0,
-        0);
-    best.pos_x = 0;
-    best.pos_y = 0;
-    best.sad_metric = sadZero;
-    best.score_primary = sadZero;
-    return best;
-}
-
-static inline degrain_motion_search_candidate_cost_t degrain_motion_search_finalize_candidate_cost(
-    __local const TypePixel *sourceBlockPixels,
-    __global const uchar *referencePlane,
-    const int pitch,
-    const int width,
-    const int height,
-    const int blockGridX,
-    const int blockGridY,
-    const int step,
-    degrain_motion_search_candidate_cost_t best) {
-    const uint verifiedSad = degrain_motion_search_full_block_sad(
-        sourceBlockPixels,
-        referencePlane,
+        laneSums,
         pitch,
         width,
         height,
@@ -941,19 +963,31 @@ static inline degrain_motion_search_candidate_cost_t degrain_motion_search_final
         blockGridY,
         step,
         (int)best.pos_x,
-        (int)best.pos_y);
+        (int)best.pos_y,
+        localThreadId);
     best.sad_metric = verifiedSad;
     best.score_primary = verifiedSad;
-    return degrain_motion_search_apply_flat_region_mv_correction(
-        sourceBlockPixels,
-        referencePlane,
-        pitch,
-        width,
-        height,
-        blockGridX,
-        blockGridY,
-        step,
-        best);
+
+    if (degrain_motion_search_source_block_variance_parallel(sourceBlockPixels, laneSums, localThreadId) == 0u) {
+        const uint sadZero = degrain_motion_search_full_block_sad_parallel(
+            sourceBlockPixels,
+            referencePlane,
+            laneSums,
+            pitch,
+            width,
+            height,
+            blockGridX,
+            blockGridY,
+            step,
+            0,
+            0,
+            localThreadId);
+        best.pos_x = 0;
+        best.pos_y = 0;
+        best.sad_metric = sadZero;
+        best.score_primary = sadZero;
+    }
+    return best;
 }
 
 static inline degrain_motion_search_candidate_t degrain_motion_search_load_base_candidate(
@@ -1204,19 +1238,22 @@ static inline void degrain_motion_search_search_one_block(
         );
 #endif
 
+    // bestCandidateCostは直前のrefine末尾のbarrierにより全スレッドから可視
+    const degrain_motion_search_candidate_cost_t finalizedBest = degrain_motion_search_finalize_candidate_cost_parallel(
+        sourceBlockPixels,
+        referencePlane,
+        candidateLaneSums,
+        pitch,
+        width,
+        height,
+        blockGridX,
+        blockGridY,
+        step,
+        *bestCandidateCost,
+        localThreadId);
     if (localThreadId == 0) {
-        *bestCandidateCost = degrain_motion_search_finalize_candidate_cost(
-            sourceBlockPixels,
-            referencePlane,
-            pitch,
-            width,
-            height,
-            blockGridX,
-            blockGridY,
-            step,
-            *bestCandidateCost);
         vectors[degrain_motion_search_vec_current_index(planeBase, blockCount, block)] =
-            degrain_motion_search_candidate_cost_to_saved_vector(*bestCandidateCost);
+            degrain_motion_search_candidate_cost_to_saved_vector(finalizedBest);
     }
 }
 
@@ -1514,19 +1551,22 @@ __kernel void kernel_degrain_mv_spatial_refine(
         );
 #endif
 
+    // bestCandidateCostは直前のrefine末尾のbarrierにより全スレッドから可視
+    const degrain_motion_search_candidate_cost_t finalizedBest = degrain_motion_search_finalize_candidate_cost_parallel(
+        sourceBlockPixels,
+        referencePlane,
+        candidateLaneSums,
+        pitch,
+        kernelWidth,
+        kernelHeight,
+        blockGridX,
+        blockGridY,
+        kernelStep,
+        bestCandidateCost,
+        localThreadId);
     if (localThreadId == 0) {
-        bestCandidateCost = degrain_motion_search_finalize_candidate_cost(
-            sourceBlockPixels,
-            referencePlane,
-            pitch,
-            kernelWidth,
-            kernelHeight,
-            blockGridX,
-            blockGridY,
-            kernelStep,
-            bestCandidateCost);
         vectorsFinal[degrain_motion_search_vec_final_index(finalBase, blockCount, block)] =
-            degrain_motion_search_candidate_cost_to_saved_vector(bestCandidateCost);
+            degrain_motion_search_candidate_cost_to_saved_vector(finalizedBest);
     }
 }
 
