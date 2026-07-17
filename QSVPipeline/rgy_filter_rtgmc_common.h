@@ -51,6 +51,23 @@ protected:
     const void *m_sourcePtr0;
 };
 
+class RGYFrameDataRtgmcSourceTwin : public RGYFrameData {
+public:
+    RGYFrameDataRtgmcSourceTwin(std::shared_ptr<RGYCLFrame> frame, const void *sourcePtr0) :
+        m_frame(frame), m_sourcePtr0(sourcePtr0) {}
+    virtual ~RGYFrameDataRtgmcSourceTwin() {}
+
+    const RGYFrameInfo *frame() const { return m_frame ? &m_frame->frame : nullptr; }
+    std::shared_ptr<RGYCLFrame> frameRef() const { return m_frame; }
+    const void *sourcePtr0() const { return m_sourcePtr0; }
+
+protected:
+    // search-prefilter出力と内容同一の入力キャッシュを保持する。
+    // sourcePtr0との一致検証により、dataListが別フレームへ継承された場合は受理しない。
+    std::shared_ptr<RGYCLFrame> m_frame;
+    const void *m_sourcePtr0;
+};
+
 enum class RGYRtgmcCompDirection {
     Backward = 0,
     Forward = 1,
@@ -127,6 +144,19 @@ static std::shared_ptr<RGYFrameDataRtgmcEdi> rtgmcGetAttachedEdi(const RGYFrameI
         return nullptr;
     }
     return std::dynamic_pointer_cast<RGYFrameDataRtgmcEdi>(*frameData);
+}
+
+static std::shared_ptr<RGYFrameDataRtgmcSourceTwin> rtgmcGetAttachedSourceTwin(const RGYFrameInfo *frame) {
+    if (!frame) {
+        return nullptr;
+    }
+    const auto frameData = std::find_if(frame->dataList.begin(), frame->dataList.end(), [](const std::shared_ptr<RGYFrameData> &data) {
+        return std::dynamic_pointer_cast<RGYFrameDataRtgmcSourceTwin>(data) != nullptr;
+    });
+    if (frameData == frame->dataList.end()) {
+        return nullptr;
+    }
+    return std::dynamic_pointer_cast<RGYFrameDataRtgmcSourceTwin>(*frameData);
 }
 
 static std::shared_ptr<RGYFrameDataRtgmcComp> rtgmcGetAttachedComp(const RGYFrameInfo *frame, RGYRtgmcCompDirection direction, int delta) {

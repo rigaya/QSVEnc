@@ -85,6 +85,7 @@ static void eraseRtgmcInternalFrameData(RGYFrameInfo *frame) {
     rgy_degrain_erase_frame_data(frame->dataList);
     frame->dataList.erase(std::remove_if(frame->dataList.begin(), frame->dataList.end(), [](const std::shared_ptr<RGYFrameData> &data) {
         return std::dynamic_pointer_cast<RGYFrameDataRtgmcSearchLuma>(data) != nullptr
+            || std::dynamic_pointer_cast<RGYFrameDataRtgmcSourceTwin>(data) != nullptr
             || std::dynamic_pointer_cast<RGYFrameDataRtgmcEdi>(data) != nullptr
             || std::dynamic_pointer_cast<RGYFrameDataRtgmcComp>(data) != nullptr
             || std::dynamic_pointer_cast<RGYFrameDataRtgmcNoise>(data) != nullptr;
@@ -1314,6 +1315,8 @@ RGY_ERR RGYFilterRtgmc::initFilters(const std::shared_ptr<RGYFilterParamRtgmc> &
         // cannot identify the frame being emitted by those filters. Keep the
         // analysis payload internal to the nested chain and erase it at final output.
         param->attachAnalysisData = true;
+        // search-prefilter出力に添付された内容同一の入力キャッシュをアンカーに使う。
+        param->zeroCopyCache = true;
         auto sts = initOne(std::move(filter), param);
         if (sts != RGY_ERR_NONE) return sts;
     }

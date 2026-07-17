@@ -732,6 +732,19 @@ RGY_ERR RGYFilterDegrain::pushCacheFrame(const RGYFrameInfo *pInputFrame, RGYOpe
             // 入力フレーム自体がプール所有 → そのまま参照
             zeroCopyRef = *pInputFrame;
             zeroCopyOwner = owner;
+        } else if (auto sourceTwin = rtgmcGetAttachedSourceTwin(pInputFrame); sourceTwin
+            && sourceTwin->frameRef() && sourceTwin->frame() && sourceTwin->frame()->ptr[0]
+            && sourceTwin->sourcePtr0() == pInputFrame->ptr[0]
+            && !cmpFrameInfoCspResolution(sourceTwin->frame(), pInputFrame)
+            && sourceTwin->frame()->bitdepth == pInputFrame->bitdepth) {
+            // search-prefilter出力は添付された入力キャッシュと内容同一。
+            // プロパティは入力側、バッファは共有キャッシュ側で構成する。
+            zeroCopyRef = *pInputFrame;
+            for (int i = 0; i < RGY_CSP_PLANES[pInputFrame->csp]; i++) {
+                zeroCopyRef.ptr[i] = sourceTwin->frame()->ptr[i];
+                zeroCopyRef.pitch[i] = sourceTwin->frame()->pitch[i];
+            }
+            zeroCopyOwner = sourceTwin->frameRef();
         } else if (auto edi = rtgmcGetAttachedEdi(pInputFrame); edi
             && edi->frameRef() && edi->frame() && edi->frame()->ptr[0]
             && edi->sourcePtr0() == pInputFrame->ptr[0]

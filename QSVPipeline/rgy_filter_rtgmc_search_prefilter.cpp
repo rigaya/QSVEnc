@@ -39,6 +39,7 @@
 
 #include "rgy_frame_info.h"
 #include "rgy_filter_resize.h"
+#include "rgy_filter_rtgmc_common.h"
 #include "rgy_util.h"
 
 static constexpr int RTGMC_SEARCH_PREFILTER_BLOCK_X = 16;
@@ -107,10 +108,10 @@ const RGYFrameInfo *RGYFrameDataRtgmcSearchLuma::frame() const {
 }
 
 static void eraseRtgmcSearchLumaFrameData(std::vector<std::shared_ptr<RGYFrameData>>& dataList) {
-    // The attached search-luma data owns a pooled frame. Drop stale attachments
-    // before reusing frame metadata or the search-luma pool cannot recycle.
+    // 添付データはプールフレームを所有するため、出力メタデータの再利用前に古い参照を外す。
     dataList.erase(std::remove_if(dataList.begin(), dataList.end(), [](const std::shared_ptr<RGYFrameData>& data) {
-        return data && data->dataType() == RGY_FRAME_DATA_RTGMC_SEARCH_LUMA;
+        return (data && data->dataType() == RGY_FRAME_DATA_RTGMC_SEARCH_LUMA)
+            || std::dynamic_pointer_cast<RGYFrameDataRtgmcSourceTwin>(data) != nullptr;
     }), dataList.end());
 }
 
@@ -1666,6 +1667,9 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::emitPrefilteredFrame(PendingSearchPrefilt
     eraseRtgmcSearchLumaFrameData(pOut->dataList);
     if (prm->attachSearchLuma) {
         pOut->dataList.push_back(std::make_shared<RGYFrameDataRtgmcSearchLuma>(searchLumaFrame, RGY_CSP_BIT_DEPTH[cur->csp]));
+        // attachSearchLuma有効時はprefilter kernelの出力先が別フレームとなり、pOutはcurの内容同一コピーのまま。
+        // pending.refs[2]の共有所有を添付し、後段Analyzeのキャッシュコピーを省略できるようにする。
+        pOut->dataList.push_back(std::make_shared<RGYFrameDataRtgmcSourceTwin>(pending.refs[2], pOut->ptr[0]));
     }
     ppOutputFrames[0] = pOut;
     *pOutputFrameNum = 1;
