@@ -1,5 +1,18 @@
 # QSVEnc Release Notes
 
+## 8.22
+
+- Support Windows named pipes.
+- Improve precision of [--vpp-kfm](./QSVEncC_Options.en.md#--vpp-kfm-param1value1param2value2).
+- Speed up by OpenCL interop batch acquire/release and zero-copy cache of [--vpp-degrain](./QSVEncC_Options.en.md#--vpp-degrain-param1value1).
+- Fix bob deinterlace stopping with mixed RFF.
+- Normalize temporal difference width in [--vpp-yadif](./QSVEncC_Options.en.md#--vpp-yadif-param1value1).
+- Fix temporal field reference in [--vpp-bwdif](./QSVEncC_Options.en.md#--vpp-bwdif-param1value1).
+- Fix threshold scale in [--vpp-msharpen](./QSVEncC_Options.en.md#--vpp-msharpen-param1value1param2value2) and [--vpp-msmooth](./QSVEncC_Options.en.md#--vpp-msmooth-param1value1param2value2).
+- Compare all blocks and planes in [--vpp-mpdecimate](./QSVEncC_Options.en.md#--vpp-mpdecimate-param1value1param2value2).
+- Fix [--dynamic-rc](./QSVEncC_Options.en.md#--dynamic-rc-intintintintparam1value1param2value2) cqp=... parsing.
+- Fix potential issues.
+
 ## 8.21
 
 - Add multi thread OpenCL pipeline optimization. (--opencl-task-threads)

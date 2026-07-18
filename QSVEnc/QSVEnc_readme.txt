@@ -314,6 +314,18 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2026.07.18 (8.22)
+[QSVEncC]
+- Windowsの名前付きパイプに対応。
+- --vpp-kfmの精度を改善。
+- OpenCL interopのバッチacquire/releaseと--vpp-degrainのゼロコピー化により高速化。
+- RFF混合時のbobインタレ解除が停止する問題を修正。
+- --vpp-yadifの時間差分の幅を正規化。
+- --vpp-bwdifの時間方向フィールド参照を修正。
+- --vpp-msharpenと--vpp-msmoothの閾値スケールを修正。
+- --vpp-mpdecimateで全ブロックと全プレーンを比較するよう修正。
+- 潜在的な不具合を修正。
+
 2026.07.11 (8.21)
 [QSVEncC]
 - OpenCL pipeline最適化により高速化。
