@@ -31,6 +31,7 @@
 #include "rgy_filter_cl.h"
 #include "rgy_filter_rtgmc_repair_profile.h"
 
+#include <array>
 #include <fstream>
 #include <vector>
 
@@ -88,6 +89,14 @@ private:
         const RGYFrameInfo *pRefFrame,
         const RGYFilterParamRtgmcShimmerRepair &prm,
         int iplane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    RGY_ERR launchRtgmcShimmerRepairStaged(
+        RGYFrameInfo *pOutputFrame,
+        RGYFrameInfo *pCorrectionDeltaFrame,
+        RGYFrameInfo *pPositiveCorrectionGateFrame,
+        RGYFrameInfo *pNegativeCorrectionGateFrame,
+        const RGYFrameInfo *pInputFrame,
+        const RGYFrameInfo *pRefFrame,
+        int iplane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
 
 protected:
     RGYOpenCLProgramAsync m_shimmerRepair;
@@ -102,6 +111,10 @@ protected:
     bool m_lumaDumpHeaderWritten;
     bool m_lumaDumpFullYuv;
     bool m_useKernel;
+    bool m_useStagedThin4Pad0;
+    std::array<std::unique_ptr<RGYCLBuf>, 4> m_stagedBuffers;
+    int m_stagedPitch;
+    int m_stagedHeight;
 
     RGY_ERR initLumaDump(const RGYFrameInfo &frameInfo, const RGYFilterParamRtgmcShimmerRepair &prm);
     RGY_ERR dumpLumaFrame(const RGYFrameInfo *frame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
