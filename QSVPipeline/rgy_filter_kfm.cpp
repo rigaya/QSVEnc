@@ -85,6 +85,7 @@ static constexpr int KFM_UCF_NOISE_LIMIT_NMIN = 1;
 static constexpr int KFM_UCF_NOISE_LIMIT_RANGE = 128;
 static constexpr int KFM_UCF_SHARED_ANALYSIS_SOURCE_DELAY = 2;
 static constexpr int KFM_UCF_LAZY_SOURCE_CACHE_MARGIN = 512;
+static constexpr size_t KFM_CLEAN_SUPER_CACHE_SIZE = 6;
 static constexpr double KFM_UCF_GAUSS_P = 2.5;
 static constexpr double KFM_UCF_GAUSS_CROP_EPS = 0.0001;
 
@@ -234,6 +235,14 @@ static bool kfmUseFusedCleanSuper() {
     return _stricmp(env, "0") != 0 && _stricmp(env, "false") != 0 && _stricmp(env, "off") != 0;
 }
 
+static bool kfmUseCleanSuperCache() {
+    const char *env = std::getenv("QSVENC_KFM_CLEAN_SUPER_CACHE");
+    if (env == nullptr || env[0] == '\0') {
+        return true;
+    }
+    return _stricmp(env, "0") != 0 && _stricmp(env, "false") != 0 && _stricmp(env, "off") != 0;
+}
+
 static bool kfmUseFusedUcfPreprocess() {
     const char *env = std::getenv("QSVENC_KFM_UCF_PREPROCESS_FUSED");
     if (env == nullptr || env[0] == '\0') {
@@ -333,6 +342,8 @@ RGYFilterKfm::RGYFilterKfm(shared_ptr<RGYOpenCLContext> context) :
     m_telecineSuperRaw(),
     m_telecineSuperFrames(),
     m_telecineSuperNeighborFrames(),
+    m_cleanSuperCache(),
+    m_cleanSuperCacheGeneration(0),
     m_switchFlagFrames(),
     m_containsCombeFrames(),
     m_combeMaskFrames(),
@@ -1113,6 +1124,8 @@ RGY_ERR RGYFilterKfm::initAnalyzer(const RGYFilterParamKfm& prm) {
     m_nextTelecine24Frame = 0;
     m_nextTelecine24Pts = 0;
     m_telecineSuperBufferIndex = 0;
+    m_cleanSuperCache.clear();
+    m_cleanSuperCacheGeneration = 0;
     m_maskBranchBufferIndex = 0;
     m_patchCombeBufferIndex = 0;
     m_stageDumpMaxFrames = 0;
@@ -5473,6 +5486,90 @@ RGY_ERR RGYFilterKfm::renderSuper30(RGYFrameInfo *pOutputFrame, int frame30Index
     return RGY_ERR_NONE;
 }
 
+RGY_ERR RGYFilterKfm::getCachedCleanSuper(KfmCleanSuperMode mode, int frameIndex, RGYFrameInfo *pFallbackFrame, RGYFrameInfo **ppOutputFrame,
+    bool drain, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+    if (!pFallbackFrame || !ppOutputFrame) {
+        return RGY_ERR_INVALID_CALL;
+    }
+    *ppOutputFrame = pFallbackFrame;
+    const bool cacheEnabled = kfmUseCleanSuperCache() && m_stageDumpDir.empty() && m_fpFrameInfo == nullptr;
+    if (!cacheEnabled) {
+        return (mode == KFM_CLEAN_SUPER_24)
+            ? renderTelecineSuper24(pFallbackFrame, frameIndex, drain, queue, wait_events, event)
+            : renderSuper30(pFallbackFrame, frameIndex, drain, queue, wait_events, event);
+    }
+
+    KfmCleanSuperCacheKey key;
+    key.mode = mode;
+    key.frameIndex = frameIndex;
+    key.width = pFallbackFrame->width;
+    key.height = pFallbackFrame->height;
+    key.csp = pFallbackFrame->csp;
+    if (mode == KFM_CLEAN_SUPER_24) {
+        if (!m_analyzer || frameIndex < 0 || frameIndex / 4 >= (int)m_analyzerOutputResults.size()) {
+            return RGY_ERR_MORE_DATA;
+        }
+        try {
+            const auto& result = m_analyzerOutputResults[frameIndex / 4];
+            const auto info = m_analyzer->patterns().getFrame24(result.pattern, frameIndex);
+            key.firstField = info.cycleIndex * 10 + info.fieldStartIndex;
+            key.lastField = key.firstField + info.numFields - 2;
+            key.propSourceIndex = (key.firstField & ~1) >> 1;
+        } catch (const std::exception& e) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to resolve KFM 24p clean-super cache key %d: %S.\n"), frameIndex, e.what());
+            return RGY_ERR_INVALID_CALL;
+        }
+    } else if (mode == KFM_CLEAN_SUPER_30) {
+        key.firstField = frameIndex * 2;
+        key.lastField = key.firstField;
+        key.propSourceIndex = frameIndex;
+    } else {
+        return RGY_ERR_INVALID_PARAM;
+    }
+
+    for (auto& entry : m_cleanSuperCache) {
+        if (entry.key == key && entry.frame) {
+            entry.lastUsed = ++m_cleanSuperCacheGeneration;
+            m_kfmProfile.cleanSuperCacheHits++;
+            m_kfmProfile.cleanSuperCacheAvoidedFields += key.lastField - key.firstField + 1;
+            *ppOutputFrame = &entry.frame->frame;
+            if (event) {
+                *event = entry.readyEvent;
+            }
+            return RGY_ERR_NONE;
+        }
+    }
+
+    m_kfmProfile.cleanSuperCacheMisses++;
+    KfmCleanSuperCacheEntry newEntry;
+    newEntry.key = key;
+    newEntry.frame = acquireKfmFrame(*pFallbackFrame, _T("clean super cache"));
+    if (!newEntry.frame) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM clean-super cache frame.\n"));
+        return RGY_ERR_MEMORY_ALLOC;
+    }
+    auto sts = (mode == KFM_CLEAN_SUPER_24)
+        ? renderTelecineSuper24(&newEntry.frame->frame, frameIndex, drain, queue, wait_events, &newEntry.readyEvent)
+        : renderSuper30(&newEntry.frame->frame, frameIndex, drain, queue, wait_events, &newEntry.readyEvent);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    newEntry.lastUsed = ++m_cleanSuperCacheGeneration;
+    if (m_cleanSuperCache.size() >= KFM_CLEAN_SUPER_CACHE_SIZE) {
+        const auto oldest = std::min_element(m_cleanSuperCache.begin(), m_cleanSuperCache.end(), [](const auto& a, const auto& b) {
+            return a.lastUsed < b.lastUsed;
+        });
+        m_cleanSuperCache.erase(oldest);
+    }
+    m_cleanSuperCache.push_back(std::move(newEntry));
+    auto& cached = m_cleanSuperCache.back();
+    *ppOutputFrame = &cached.frame->frame;
+    if (event) {
+        *event = cached.readyEvent;
+    }
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR RGYFilterKfm::removeCombeFields(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pDeintFrame, const RGYFrameInfo *pTelecineSuperFrame,
     int firstField, int fieldCount, int stageFrameIndex, const char *stageName, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     if (!pOutputFrame || !pDeintFrame || !pTelecineSuperFrame || !m_programs[KFM_PROG_RENDER].get()
@@ -6507,7 +6604,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                     superWaitEvents.push_back(deintEvent);
                 }
                 RGYOpenCLEvent superEvent;
-                sts = renderTelecineSuper24(super24, outputTiming.frame24Index, drain, queue, superWaitEvents, &superEvent);
+                sts = getCachedCleanSuper(KFM_CLEAN_SUPER_24, outputTiming.frame24Index, super24, &super24, drain, queue, superWaitEvents, &superEvent);
                 if (sts == RGY_ERR_MORE_DATA) {
                     m_vfrRunStats.moreData24SuperBreaks++;
                     m_workBufferIndex = savedWorkBufferIndex;
@@ -6546,7 +6643,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                     if (sts != RGY_ERR_NONE) {
                         return sts;
                     }
-                    sts = renderTelecineSuper24(superPrev24, outputTiming.frame24Index - 1, true, queue, superWaitEvents, &prevSuperEvent);
+                    sts = getCachedCleanSuper(KFM_CLEAN_SUPER_24, outputTiming.frame24Index - 1, superPrev24, &superPrev24, true, queue, superWaitEvents, &prevSuperEvent);
                     if (sts != RGY_ERR_NONE) {
                         return sts;
                     }
@@ -6561,7 +6658,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                     if (sts != RGY_ERR_NONE) {
                         return sts;
                     }
-                    sts = renderTelecineSuper24(superNext24, outputTiming.frame24Index + 1, drain, queue, superWaitEvents, &nextSuperEvent);
+                    sts = getCachedCleanSuper(KFM_CLEAN_SUPER_24, outputTiming.frame24Index + 1, superNext24, &superNext24, drain, queue, superWaitEvents, &nextSuperEvent);
                     if (sts == RGY_ERR_MORE_DATA) {
                         m_vfrRunStats.moreData24NextSuperBreaks++;
                         m_workBufferIndex = savedWorkBufferIndex;
@@ -6843,8 +6940,9 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                         return RGY_ERR_MEMORY_ALLOC;
                     }
                 }
+                RGYFrameInfo *super30 = &m_telecineSuperFrames[superIndex]->frame;
                 RGYOpenCLEvent superEvent;
-                const auto superSts = renderSuper30(&m_telecineSuperFrames[superIndex]->frame, outputTiming.sourceIndex, drain, queue, deintWaitEvents, &superEvent);
+                const auto superSts = getCachedCleanSuper(KFM_CLEAN_SUPER_30, outputTiming.sourceIndex, super30, &super30, drain, queue, deintWaitEvents, &superEvent);
                 if (superSts != RGY_ERR_NONE && superSts != RGY_ERR_MORE_DATA) {
                     return superSts;
                 }
@@ -6860,14 +6958,14 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                     if (superEvent() != nullptr) {
                         maskWaitEvents.push_back(superEvent);
                     }
-                    RGYFrameInfo *superPrev30 = &m_telecineSuperFrames[superIndex]->frame;
-                    RGYFrameInfo *superNext30 = &m_telecineSuperFrames[superIndex]->frame;
+                    RGYFrameInfo *superPrev30 = super30;
+                    RGYFrameInfo *superNext30 = super30;
                     auto ensureNeighborSuper = [&](int index, RGYFrameInfo **frame) -> RGY_ERR {
                         if (!m_telecineSuperNeighborFrames[index]
-                            || m_telecineSuperNeighborFrames[index]->frame.width != m_telecineSuperFrames[superIndex]->frame.width
-                            || m_telecineSuperNeighborFrames[index]->frame.height != m_telecineSuperFrames[superIndex]->frame.height
-                            || m_telecineSuperNeighborFrames[index]->frame.csp != m_telecineSuperFrames[superIndex]->frame.csp) {
-                            auto superInfo = m_telecineSuperFrames[superIndex]->frame;
+                            || m_telecineSuperNeighborFrames[index]->frame.width != super30->width
+                            || m_telecineSuperNeighborFrames[index]->frame.height != super30->height
+                            || m_telecineSuperNeighborFrames[index]->frame.csp != super30->csp) {
+                            auto superInfo = *super30;
                             m_telecineSuperNeighborFrames[index] = m_cl->createFrameBuffer(superInfo);
                             if (!m_telecineSuperNeighborFrames[index]) {
                                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM super30 neighbor frame.\n"));
@@ -6884,7 +6982,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                         if (sts != RGY_ERR_NONE) {
                             return sts;
                         }
-                        sts = renderSuper30(candidatePrev30, outputTiming.sourceIndex - 1, true, queue, deintWaitEvents, &prevSuperEvent);
+                        sts = getCachedCleanSuper(KFM_CLEAN_SUPER_30, outputTiming.sourceIndex - 1, candidatePrev30, &candidatePrev30, true, queue, deintWaitEvents, &prevSuperEvent);
                         if (sts != RGY_ERR_NONE) {
                             return sts;
                         }
@@ -6900,7 +6998,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                         if (sts != RGY_ERR_NONE) {
                             return sts;
                         }
-                        sts = renderSuper30(candidateNext30, outputTiming.sourceIndex + 1, drain, queue, deintWaitEvents, &nextSuperEvent);
+                        sts = getCachedCleanSuper(KFM_CLEAN_SUPER_30, outputTiming.sourceIndex + 1, candidateNext30, &candidateNext30, drain, queue, deintWaitEvents, &nextSuperEvent);
                         if (sts != RGY_ERR_NONE && sts != RGY_ERR_MORE_DATA) {
                             return sts;
                         }
@@ -6914,7 +7012,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                     RGYFrameInfo *switchFlag = nullptr;
                     RGYFrameInfo *containsCombe = nullptr;
                     RGYFrameInfo *combeMask = nullptr;
-                    sts = ensureMaskBranchFrames(&switchFlag, &containsCombe, &combeMask, &m_telecineSuperFrames[superIndex]->frame, _T("30p"));
+                    sts = ensureMaskBranchFrames(&switchFlag, &containsCombe, &combeMask, super30, _T("30p"));
                     if (sts != RGY_ERR_NONE) {
                         return sts;
                     }
@@ -6922,7 +7020,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                     cl_uint containsCombeCount = 0;
                     KfmContainsCombeReadback containsCombeReadback;
                     const bool needsContainsCombeCount = switchSingleFrameDurationEnabled() || patchCombe30Enabled;
-                    sts = renderMaskBranch(switchFlag, containsCombe, combeMask, superPrev30, &m_telecineSuperFrames[superIndex]->frame, superNext30, "switch-flag30-min", "contains-combe30", "combe-mask30-min", queue, maskWaitEvents, &maskEvent, needsContainsCombeCount ? &containsCombeReadback : nullptr);
+                    sts = renderMaskBranch(switchFlag, containsCombe, combeMask, superPrev30, super30, superNext30, "switch-flag30-min", "contains-combe30", "combe-mask30-min", queue, maskWaitEvents, &maskEvent, needsContainsCombeCount ? &containsCombeReadback : nullptr);
                     if (sts != RGY_ERR_NONE) {
                         return sts;
                     }
@@ -7473,6 +7571,15 @@ void RGYFilterKfm::logKfmProfileStats() {
     printCounter(_T("deriveTimings"), m_kfmProfile.deriveTimings);
     printCounter(_T("emitPending"), m_kfmProfile.emitPending);
     printCounter(_T("vfrScheduler"), m_kfmProfile.vfrScheduler);
+    const auto cleanSuperCacheAccesses = m_kfmProfile.cleanSuperCacheHits + m_kfmProfile.cleanSuperCacheMisses;
+    if (cleanSuperCacheAccesses > 0) {
+        AddMessage(RGY_LOG_INFO,
+            _T("KFM profile cleanSuperCache   : hits=%lld misses=%lld hitRate=%.2f pct avoidedFields=%lld.\n"),
+            (long long)m_kfmProfile.cleanSuperCacheHits,
+            (long long)m_kfmProfile.cleanSuperCacheMisses,
+            100.0 * m_kfmProfile.cleanSuperCacheHits / cleanSuperCacheAccesses,
+            (long long)m_kfmProfile.cleanSuperCacheAvoidedFields);
+    }
 }
 
 void RGYFilterKfm::close() {
@@ -7542,6 +7649,8 @@ void RGYFilterKfm::close() {
     m_deint60IntermediateQueue.clear();
     m_ucfNoiseCache.clear();
     clearKfmSourceSlotPool(true);
+    m_cleanSuperCache.clear();
+    m_cleanSuperCacheGeneration = 0;
     if (m_kfmFramePool) {
         m_kfmFramePool->clear();
     }
