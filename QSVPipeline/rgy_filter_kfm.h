@@ -355,7 +355,8 @@ protected:
         int firstField, int fieldCount, int stageFrameIndex, const char *stageName, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     RGY_ERR removeCombe24(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pDeint24Frame, const RGYFrameInfo *pTelecineSuperFrame, int frame24Index, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     RGY_ERR ensureMaskBranchFrames(RGYFrameInfo **ppSwitchFlagFrame, RGYFrameInfo **ppContainsCombeFrame, RGYFrameInfo **ppCombeMaskFrame, const RGYFrameInfo *pTelecineSuperFrame, const TCHAR *stageLabel);
-    RGY_ERR renderMaskBranch(RGYFrameInfo *pSwitchFlagFrame, RGYFrameInfo *pContainsCombeFrame, RGYFrameInfo *pCombeMaskFrame, const RGYFrameInfo *pTelecineSuperPrevFrame, const RGYFrameInfo *pTelecineSuperFrame, const RGYFrameInfo *pTelecineSuperNextFrame, const char *switchFlagStage, const char *containsCombeStage, const char *combeMaskStage, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event, KfmContainsCombeReadback *containsCombeReadback = nullptr);
+    RGY_ERR renderMaskBranch(RGYFrameInfo *pSwitchFlagFrame, RGYFrameInfo *pContainsCombeFrame, RGYFrameInfo *pCombeMaskFrame, const RGYFrameInfo *pTelecineSuperPrevFrame, const RGYFrameInfo *pTelecineSuperFrame, const RGYFrameInfo *pTelecineSuperNextFrame, const char *switchFlagStage, const char *containsCombeStage, const char *combeMaskStage, bool generateCombeMask, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event, KfmContainsCombeReadback *containsCombeReadback = nullptr);
+    RGY_ERR renderCombeMask(RGYFrameInfo *pCombeMaskFrame, const RGYFrameInfo *pSwitchFlagFrame, const RGYFrameInfo *pTelecineSuperFrame, const char *combeMaskStage, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     RGY_ERR resolveContainsCombeCount(KfmContainsCombeReadback& readback, cl_uint *containsCombeCount);
     RGY_ERR patchCombe(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pBaseFrame, const RGYFrameInfo *pPatchFrame, const RGYFrameInfo *pMaskFrame, int frameIndex, const char *stageName, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     int telecine24FrameCount(bool drain) const;
@@ -556,8 +557,10 @@ protected:
         int64_t cleanSuperCacheHits;
         int64_t cleanSuperCacheMisses;
         int64_t cleanSuperCacheAvoidedFields;
+        int64_t fullCombeMaskGenerated;
+        int64_t fullCombeMaskAvoided;
 
-        KfmProfileStats() : enabled(false), cleanSuperCacheHits(0), cleanSuperCacheMisses(0), cleanSuperCacheAvoidedFields(0) {};
+        KfmProfileStats() : enabled(false), cleanSuperCacheHits(0), cleanSuperCacheMisses(0), cleanSuperCacheAvoidedFields(0), fullCombeMaskGenerated(0), fullCombeMaskAvoided(0) {};
     };
 
     std::array<RGYOpenCLProgramAsync, 8> m_programs;
