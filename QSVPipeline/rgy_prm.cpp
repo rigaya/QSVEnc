@@ -3702,6 +3702,64 @@ tstring VppTransform::print() const {
 #undef ON_OFF
 }
 
+VppLensCorrection::VppLensCorrection() :
+    enable(false),
+    k1(0.0f),
+    k2(0.0f),
+    cx(0.5f),
+    cy(0.5f) {
+}
+
+bool VppLensCorrection::operator==(const VppLensCorrection &x) const {
+    return enable == x.enable
+        && k1 == x.k1
+        && k2 == x.k2
+        && cx == x.cx
+        && cy == x.cy;
+}
+bool VppLensCorrection::operator!=(const VppLensCorrection &x) const {
+    return !(*this == x);
+}
+
+tstring VppLensCorrection::print() const {
+    return strsprintf(_T("lenscorrection: k1 %.4f, k2 %.4f, cx %.3f, cy %.3f"), k1, k2, cx, cy);
+}
+
+VppV360::VppV360() :
+    enable(false),
+    in_proj((int)VppV360Proj::EQUIRECT),
+    out_proj((int)VppV360Proj::FLAT),
+    yaw(0.0f),
+    pitch(0.0f),
+    roll(0.0f),
+    in_hfov(90.0f),
+    out_hfov(90.0f),
+    w(0),
+    h(0) {
+}
+
+bool VppV360::operator==(const VppV360 &x) const {
+    return enable == x.enable
+        && in_proj == x.in_proj
+        && out_proj == x.out_proj
+        && yaw == x.yaw
+        && pitch == x.pitch
+        && roll == x.roll
+        && in_hfov == x.in_hfov
+        && out_hfov == x.out_hfov
+        && w == x.w
+        && h == x.h;
+}
+bool VppV360::operator!=(const VppV360 &x) const {
+    return !(*this == x);
+}
+
+tstring VppV360::print() const {
+    return strsprintf(_T("v360: in %s, out %s, yaw %.1f, pitch %.1f, roll %.1f, h_fov %.1f, %dx%d"),
+        get_cx_desc(list_vpp_v360_proj, in_proj), get_cx_desc(list_vpp_v360_proj, out_proj),
+        yaw, pitch, roll, out_hfov, w, h);
+}
+
 VppOverlayAlphaKey::VppOverlayAlphaKey() :
     threshold(0.0f),
     tolerance(0.1f),

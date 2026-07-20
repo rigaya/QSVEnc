@@ -111,6 +111,8 @@ RGY_DISABLE_WARNING_POP
 #include "rgy_filter_resize.h"
 #include "rgy_filter_libplacebo.h"
 #include "rgy_filter_transform.h"
+#include "rgy_filter_lenscorrection.h"
+#include "rgy_filter_v360.h"
 #include "rgy_filter_unsharp.h"
 #include "rgy_filter_vinverse.h"
 #include "rgy_filter_chromashift.h"
@@ -2476,6 +2478,8 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vppmfx.detail.enable)  filterPipeline.push_back(VppType::MFX_DETAIL_ENHANCE);
     if (inputParam->vppmfx.mirrorType != MFX_MIRRORING_DISABLED) filterPipeline.push_back(VppType::MFX_MIRROR);
     if (inputParam->vpp.transform.enable)  filterPipeline.push_back(VppType::CL_TRANSFORM);
+    if (inputParam->vpp.lenscorrection.enable)  filterPipeline.push_back(VppType::CL_LENSCORRECTION);
+    if (inputParam->vpp.v360.enable)  filterPipeline.push_back(VppType::CL_V360);
     if (inputParam->vpp.softlight.enable)  filterPipeline.push_back(VppType::CL_SOFTLIGHT);
     if (inputParam->vpp.curves.enable)     filterPipeline.push_back(VppType::CL_CURVES);
     if (inputParam->vpp.tweak.enable)      filterPipeline.push_back(VppType::CL_TWEAK);
@@ -3079,6 +3083,40 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         inputFrame = param->frameOut;
         m_encFps = param->baseFps;
         //登録
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
+    }
+    if (vppType == VppType::CL_LENSCORRECTION) {
+        unique_ptr<RGYFilter> filter(new RGYFilterLensCorrection(m_cl));
+        shared_ptr<RGYFilterParamLensCorrection> param(new RGYFilterParamLensCorrection());
+        param->lenscorrection = params->vpp.lenscorrection;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        auto sts = filter->init(param, m_pQSVLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
+    }
+    if (vppType == VppType::CL_V360) {
+        unique_ptr<RGYFilter> filter(new RGYFilterV360(m_cl));
+        shared_ptr<RGYFilterParamV360> param(new RGYFilterParamV360());
+        param->v360 = params->vpp.v360;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        auto sts = filter->init(param, m_pQSVLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
         clfilters.push_back(std::move(filter));
         return RGY_ERR_NONE;
     }

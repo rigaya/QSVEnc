@@ -70,6 +70,8 @@ RGY_FILTER_PAD_CL             EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_
 RGY_FILTER_RESIZE_CL          EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_resize.cl"
 RGY_FILTER_SUBBURN_CL         EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_subburn.cl"
 RGY_FILTER_TRANSFORM_CL       EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_transform.cl"
+RGY_FILTER_LENSCORRECTION_CL  EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_lenscorrection.cl"
+RGY_FILTER_V360_CL            EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_v360.cl"
 RGY_FILTER_UNSHARP_CL         EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_unsharp.cl"
 RGY_FILTER_CHROMASHIFT_CL     EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_chromashift.cl"
 RGY_FILTER_DEBLOCK_CL         EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_deblock.cl"
