@@ -34,6 +34,7 @@
 #include "rgy_openvino.h"
 #include <vector>
 #include <memory>
+#include <deque>
 
 class RGYFilterResize; // opt-in end-of-chain resize sub-filter (out_res=/resize=)
 
@@ -103,6 +104,21 @@ protected:
     // anime4k RGB bookend exactly).
     void setupColorCoeffs(int matrixSelIn, int matrixSelOut, bool rangeTV, int pixMax);
 
+    // --- multi-frame temporal window (frames= > 1) ---------------------------
+    // Pack one mapped input frame's YUV as planar RGB [0,1] CHW
+    // (3*modelInW*modelInH floats) into dst; same maths as the RGB case of
+    // fillInputHost, but writing a single frame's worth to an arbitrary offset.
+    void packFrameRGB(const RGYFrameInfo &hin, float *dst);
+    template<typename TPix> void packFrameRGBT(const RGYFrameInfo &hin, float *dst);
+    // Temporal run path: buffer the last T RGB frames and emit a centred window
+    // with edge replication (1-in-1-out with (T-1)/2 delay); flush drains the tail.
+    RGY_ERR runTemporal(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+        RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    // Build the T-frame window centred on outIdx, run the network and write the
+    // result into m_frameBuf[0] (plus optional post-resize), stamped from the centre frame.
+    RGY_ERR emitTemporalOutput(int64_t outIdx, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+        RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
+
     std::unique_ptr<RGYOpenVINO> m_ov;
     OnnxIO m_io;                          // I/O convention inferred from channel counts
     int   m_inC, m_outC;                        // model input / output channel counts
@@ -131,6 +147,21 @@ protected:
     std::unique_ptr<RGYOpenCLProgram> m_program;  // pack / unpack / chroma kernels
     std::unique_ptr<RGYCLBuf>         m_inBufCL;  // f32 network input  (inW*inH)
     std::unique_ptr<RGYCLBuf>         m_outBufCL; // f32 network output (outW*outH)
+
+    // --- multi-frame temporal window state (only used when m_temporalT > 1) ---
+    int m_temporalT;                 // input frames per window (1 = single-frame path, disabled)
+    struct RingFrame {
+        std::vector<float> rgb;      // one frame, planar RGB [0,1] CHW (3*modelInW*modelInH)
+        int64_t         timestamp;
+        int64_t         duration;
+        RGY_PICSTRUCT   picstruct;
+        RGY_FRAME_FLAGS flags;
+        int             inputFrameId;
+    };
+    std::deque<RingFrame> m_ring;    // most recent up-to-T frames (oldest at front)
+    int64_t m_ringBaseIdx;           // global frame index of m_ring.front()
+    int64_t m_recvCount;             // real frames received so far
+    int64_t m_emitCount;             // outputs emitted so far
 
     // opt-in end-of-chain resize (out_res=): runs after the network core, fitting
     // the integer-scaled output to the requested final resolution. Reuses the
