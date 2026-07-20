@@ -70,6 +70,15 @@ using ov_infer_request_set_input_tensor_t = ov_status_e(OPENVINO_C_API_CALLBACK 
 using ov_infer_request_set_output_tensor_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(ov_infer_request_t *, const ov_tensor_t *);
 using ov_infer_request_infer_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(ov_infer_request_t *);
 using ov_infer_request_get_output_tensor_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_infer_request_t *, ov_tensor_t **);
+// multi-named-IO C API (used by RGYOpenVINOMultiIO). Present since OpenVINO 2022;
+// loaded as optional so a runtime that lacks them still runs the single-tensor path.
+using ov_model_inputs_size_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_model_t *, size_t *);
+using ov_model_outputs_size_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_model_t *, size_t *);
+using ov_model_const_input_by_index_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_model_t *, const size_t, ov_output_const_port_t **);
+using ov_model_const_output_by_index_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_model_t *, const size_t, ov_output_const_port_t **);
+using ov_port_get_any_name_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_output_const_port_t *, char **);
+using ov_infer_request_set_tensor_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(ov_infer_request_t *, const char *, const ov_tensor_t *);
+using ov_infer_request_get_tensor_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_infer_request_t *, const char *, ov_tensor_t **);
 using ov_tensor_create_from_host_ptr_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_element_type_e, const ov_shape_t, void *, ov_tensor_t **);
 using ov_tensor_data_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_tensor_t *, void **);
 using ov_tensor_get_byte_size_t = ov_status_e(OPENVINO_C_API_CALLBACK *)(const ov_tensor_t *, size_t *);
@@ -118,6 +127,14 @@ struct OpenVINOLoader {
     ov_infer_request_set_output_tensor_t infer_request_set_output_tensor = nullptr;
     ov_infer_request_infer_t infer_request_infer = nullptr;
     ov_infer_request_get_output_tensor_t infer_request_get_output_tensor = nullptr;
+    // multi-named-IO (optional; only multi-input models need these)
+    ov_model_inputs_size_t model_inputs_size = nullptr;
+    ov_model_outputs_size_t model_outputs_size = nullptr;
+    ov_model_const_input_by_index_t model_const_input_by_index = nullptr;
+    ov_model_const_output_by_index_t model_const_output_by_index = nullptr;
+    ov_port_get_any_name_t port_get_any_name = nullptr;
+    ov_infer_request_set_tensor_t infer_request_set_tensor = nullptr;
+    ov_infer_request_get_tensor_t infer_request_get_tensor = nullptr;
     ov_tensor_create_from_host_ptr_t tensor_create_from_host_ptr = nullptr;
     ov_tensor_data_t tensor_data = nullptr;
     ov_tensor_get_byte_size_t tensor_get_byte_size = nullptr;
@@ -227,10 +244,24 @@ struct OpenVINOLoader {
         LOAD_OV(get_error_info);
         LOAD_OV(get_last_err_msg);
         if (!load(free_string, "ov_free")) { RGY_FREE_LIBRARY(module); module = nullptr; return false; }
+        // multi-named-IO symbols: optional so a runtime that lacks them still runs the single-tensor path
+        loadOptional(model_inputs_size, "ov_model_inputs_size");
+        loadOptional(model_outputs_size, "ov_model_outputs_size");
+        loadOptional(model_const_input_by_index, "ov_model_const_input_by_index");
+        loadOptional(model_const_output_by_index, "ov_model_const_output_by_index");
+        loadOptional(port_get_any_name, "ov_port_get_any_name");
+        loadOptional(infer_request_set_tensor, "ov_infer_request_set_tensor");
+        loadOptional(infer_request_get_tensor, "ov_infer_request_get_tensor");
 #undef LOAD_OV
 
         ready = true;
         return true;
+    }
+
+    bool multiIOReady() const {
+        return ready && model_inputs_size && model_outputs_size && model_const_input_by_index
+            && model_const_output_by_index && port_get_any_name && infer_request_set_tensor
+            && infer_request_get_tensor;
     }
 
     tstring statusText(ov_status_e status) const {
@@ -974,6 +1005,259 @@ tstring RGYOpenVINO::runtimeVersion() {
     return ret;
 }
 
+// ---------------------------------------------------------------------------
+//  RGYOpenVINOMultiIO : multi-named-input / multi-named-output inference,
+//  sharing the same OpenVINO C runtime loader as RGYOpenVINO above.
+// ---------------------------------------------------------------------------
+
+// Port shape for the multi-port backend. The static-shape query fails on a model
+// with a dynamic dimension, so fall back to the partial shape and pin every
+// non-static dimension to 1 (in practice only the batch dimension of image
+// models is dynamic, and inference always runs a single frame).
+static RGY_ERR getPortShapePinned(ov_output_const_port_t *port, std::vector<int64_t> &shape, tstring &errMessage) {
+    auto &ov = ovLoader();
+    {
+        ov_shape_t ovShape = {};
+        if (ov.const_port_get_shape(port, &ovShape) == OK) {
+            shape.assign(ovShape.dims, ovShape.dims + ovShape.rank);
+            ov.shape_free(&ovShape);
+            return RGY_ERR_NONE;
+        }
+    }
+    ov_partial_shape_t ps = {};
+    auto ret = ovCheck(ov.port_get_partial_shape(port, &ps), errMessage);
+    if (ret != RGY_ERR_NONE) {
+        return ret;
+    }
+    shape.clear();
+    if (ps.rank.min == ps.rank.max && ps.dims != nullptr) {
+        for (int64_t i = 0; i < ps.rank.min; i++) {
+            shape.push_back((ps.dims[i].min == ps.dims[i].max) ? ps.dims[i].min : 1);
+        }
+    }
+    ov.partial_shape_free(&ps);
+    if (shape.empty()) {
+        errMessage = _T("model port has a fully dynamic rank");
+        return RGY_ERR_UNSUPPORTED;
+    }
+    return RGY_ERR_NONE;
+}
+
+class RGYOpenVINOMultiIO::Impl {
+public:
+    Impl() {
+        tstring err;
+        if (ensureOpenVINO(err) != RGY_ERR_NONE) {
+            loadErr = err;
+            return;
+        }
+        auto &ov = ovLoader();
+        ov_core_t *coreRaw = nullptr;
+        if (ov.core_create(&coreRaw) != OK) {
+            loadErr = ov.statusText(UNKNOWN_C_ERROR);
+            return;
+        }
+        core.reset(coreRaw);
+    }
+
+    // capture every input/output port name + shape from the model
+    RGY_ERR enumeratePorts(tstring &errMessage) {
+        auto &ov = ovLoader();
+        inNames.clear(); outNames.clear(); inShapes.clear(); outShapes.clear();
+        size_t nin = 0, nout = 0;
+        auto ret = ovCheck(ov.model_inputs_size(model.get(), &nin), errMessage);
+        if (ret != RGY_ERR_NONE) return ret;
+        ret = ovCheck(ov.model_outputs_size(model.get(), &nout), errMessage);
+        if (ret != RGY_ERR_NONE) return ret;
+        auto readPort = [&](bool input, size_t i, std::vector<std::string> &names,
+                            std::vector<std::vector<int64_t>> &shapes) -> RGY_ERR {
+            ov_output_const_port_t *portRaw = nullptr;
+            const auto st = input ? ov.model_const_input_by_index(model.get(), i, &portRaw)
+                                  : ov.model_const_output_by_index(model.get(), i, &portRaw);
+            auto r = ovCheck(st, errMessage);
+            if (r != RGY_ERR_NONE) return r;
+            ov_unique_ptr<ov_output_const_port_t, ov_output_const_port_free_t> port(portRaw, ov.output_const_port_free);
+            char *nameRaw = nullptr;
+            r = ovCheck(ov.port_get_any_name(port.get(), &nameRaw), errMessage);
+            if (r != RGY_ERR_NONE) return r;
+            names.emplace_back(nameRaw ? nameRaw : "");
+            if (nameRaw) ov.free_string(nameRaw);
+            std::vector<int64_t> shape;
+            r = getPortShapePinned(port.get(), shape, errMessage);
+            if (r != RGY_ERR_NONE) return r;
+            shapes.push_back(std::move(shape));
+            return RGY_ERR_NONE;
+        };
+        for (size_t i = 0; i < nin; i++)  { auto r = readPort(true,  i, inNames,  inShapes);  if (r != RGY_ERR_NONE) return r; }
+        for (size_t i = 0; i < nout; i++) { auto r = readPort(false, i, outNames, outShapes); if (r != RGY_ERR_NONE) return r; }
+        return RGY_ERR_NONE;
+    }
+
+    struct CoreDeleter     { void operator()(ov_core_t *p)           const { if (p) ovLoader().core_free(p); } };
+    struct ModelDeleter    { void operator()(ov_model_t *p)          const { if (p) ovLoader().model_free(p); } };
+    struct CompiledDeleter { void operator()(ov_compiled_model_t *p) const { if (p) ovLoader().compiled_model_free(p); } };
+    struct RequestDeleter  { void operator()(ov_infer_request_t *p)  const { if (p) ovLoader().infer_request_free(p); } };
+
+    std::unique_ptr<ov_core_t, CoreDeleter> core;
+    std::unique_ptr<ov_model_t, ModelDeleter> model;
+    std::unique_ptr<ov_compiled_model_t, CompiledDeleter> compiled;
+    std::unique_ptr<ov_infer_request_t, RequestDeleter> req;
+    std::vector<std::string> inNames, outNames;
+    std::vector<std::vector<int64_t>> inShapes, outShapes;
+    tstring devName;
+    tstring precision;
+    tstring loadErr;
+};
+
+RGYOpenVINOMultiIO::RGYOpenVINOMultiIO() : m_impl(std::make_unique<Impl>()) {}
+RGYOpenVINOMultiIO::~RGYOpenVINOMultiIO() {}
+
+RGY_ERR RGYOpenVINOMultiIO::init(const tstring &modelPath, const tstring &device,
+                                 tstring &errMessage, const tstring &precision) {
+    auto ret = ensureOpenVINO(errMessage);
+    if (ret != RGY_ERR_NONE) {
+        return ret;
+    }
+    auto &ov = ovLoader();
+    if (!ov.multiIOReady()) {
+        errMessage = _T("this OpenVINO runtime lacks the multi-tensor C API needed for multi-input models");
+        return RGY_ERR_UNSUPPORTED;
+    }
+    auto &I = *m_impl;
+    if (!I.core) {
+        errMessage = I.loadErr;
+        return RGY_ERR_UNSUPPORTED;
+    }
+    I.req.reset(); I.compiled.reset(); I.model.reset();
+    I.inNames.clear(); I.outNames.clear(); I.inShapes.clear(); I.outShapes.clear();
+    I.devName.clear(); I.precision.clear();
+
+    const auto modelPathA = tchar_to_string(modelPath, CP_UTF8);
+    const auto deviceA    = tchar_to_string(device, CP_UTF8);
+
+    ov_model_t *modelRaw = nullptr;
+    ret = ovCheck(ov.core_read_model(I.core.get(), modelPathA.c_str(), nullptr, &modelRaw), errMessage);
+    if (ret != RGY_ERR_NONE) {
+        return ret;
+    }
+    I.model.reset(modelRaw);
+    // NOTE: no reshape here - multi-port models carry their own static shapes.
+
+    // EXECUTION_MODE_HINT=ACCURACY: on an Intel GPU the default performance mode
+    // runs in fp16, which can mangle networks with large intermediate magnitudes;
+    // ACCURACY keeps the maths in fp32 where it matters.
+    ov_compiled_model_t *compiledRaw = nullptr;
+    const auto precisionHint = precisionHintValue(precision);
+    if (precisionHint.empty()) {
+        ret = ovCheck(ov.core_compile_model(I.core.get(), I.model.get(), deviceA.c_str(), 2, &compiledRaw,
+            const_cast<char *>("EXECUTION_MODE_HINT"), const_cast<char *>("ACCURACY")), errMessage);
+    } else {
+        ret = ovCheck(ov.core_compile_model(I.core.get(), I.model.get(), deviceA.c_str(), 4, &compiledRaw,
+            const_cast<char *>("EXECUTION_MODE_HINT"), const_cast<char *>("ACCURACY"),
+            const_cast<char *>("INFERENCE_PRECISION_HINT"), const_cast<char *>(precisionHint.c_str())), errMessage);
+    }
+    if (ret != RGY_ERR_NONE) {
+        return ret;
+    }
+    I.compiled.reset(compiledRaw);
+
+    ov_infer_request_t *reqRaw = nullptr;
+    ret = ovCheck(ov.compiled_model_create_infer_request(I.compiled.get(), &reqRaw), errMessage);
+    if (ret != RGY_ERR_NONE) {
+        return ret;
+    }
+    I.req.reset(reqRaw);
+
+    ret = I.enumeratePorts(errMessage);
+    if (ret != RGY_ERR_NONE) {
+        return ret;
+    }
+
+    char *property = nullptr;
+    if (ov.core_get_property(I.core.get(), deviceA.c_str(), "FULL_DEVICE_NAME", &property) == OK) {
+        I.devName = getAndFreeProperty(property);
+    }
+    property = nullptr;
+    if (ov.compiled_model_get_property(I.compiled.get(), "INFERENCE_PRECISION_HINT", &property) == OK) {
+        I.precision = getAndFreeProperty(property);
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYOpenVINOMultiIO::infer(const std::vector<const float *> &inputs,
+                                  const std::vector<float *> &outputs, tstring &errMessage) {
+    if (ensureOpenVINO(errMessage) != RGY_ERR_NONE || !m_impl || !m_impl->req) {
+        return RGY_ERR_UNSUPPORTED;
+    }
+    auto &ov = ovLoader();
+    auto &I = *m_impl;
+    if (inputs.size() != I.inNames.size() || outputs.size() != I.outNames.size()) {
+        errMessage = _T("RGYOpenVINOMultiIO::infer called with mismatched port count");
+        return RGY_ERR_INVALID_PARAM;
+    }
+    // bind every input tensor by name; the tensors must outlive the infer() call
+    std::vector<ov_unique_ptr<ov_tensor_t, ov_tensor_free_t>> inTensors;
+    inTensors.reserve(inputs.size());
+    for (size_t i = 0; i < inputs.size(); i++) {
+        auto shape = makeShape(I.inShapes[i]);
+        ov_tensor_t *tRaw = nullptr;
+        if (ov.tensor_create_from_host_ptr(F32, shape, const_cast<float *>(inputs[i]), &tRaw) != OK) {
+            errMessage = ov.statusText(UNKNOWN_C_ERROR);
+            return RGY_ERR_UNKNOWN;
+        }
+        inTensors.emplace_back(tRaw, ov.tensor_free);
+        if (ov.infer_request_set_tensor(I.req.get(), I.inNames[i].c_str(), inTensors.back().get()) != OK) {
+            errMessage = ov.statusText(UNKNOWN_C_ERROR);
+            return RGY_ERR_UNKNOWN;
+        }
+    }
+    if (ov.infer_request_infer(I.req.get()) != OK) {
+        errMessage = ov.statusText(UNKNOWN_C_ERROR);
+        return RGY_ERR_UNKNOWN;
+    }
+    // fetch every output tensor by name and copy it out to the caller's buffer
+    for (size_t i = 0; i < outputs.size(); i++) {
+        ov_tensor_t *tRaw = nullptr;
+        if (ov.infer_request_get_tensor(I.req.get(), I.outNames[i].c_str(), &tRaw) != OK) {
+            errMessage = ov.statusText(UNKNOWN_C_ERROR);
+            return RGY_ERR_UNKNOWN;
+        }
+        ov_unique_ptr<ov_tensor_t, ov_tensor_free_t> t(tRaw, ov.tensor_free);
+        void *data = nullptr;
+        size_t bytes = 0;
+        if (ov.tensor_data(t.get(), &data) != OK || ov.tensor_get_byte_size(t.get(), &bytes) != OK) {
+            return RGY_ERR_UNKNOWN;
+        }
+        std::memcpy(outputs[i], data, bytes);
+    }
+    return RGY_ERR_NONE;
+}
+
+static size_t ovMultiIOElemCount(const std::vector<int64_t> &shape) {
+    if (shape.empty()) {
+        return 0;
+    }
+    size_t n = 1;
+    for (auto d : shape) n *= (size_t)d;
+    return n;
+}
+
+const std::vector<std::string> &RGYOpenVINOMultiIO::inputNames()  const { return m_impl->inNames; }
+const std::vector<std::string> &RGYOpenVINOMultiIO::outputNames() const { return m_impl->outNames; }
+const std::vector<int64_t> &RGYOpenVINOMultiIO::inputShape(size_t index) const {
+    static const std::vector<int64_t> empty;
+    return (m_impl && index < m_impl->inShapes.size()) ? m_impl->inShapes[index] : empty;
+}
+const std::vector<int64_t> &RGYOpenVINOMultiIO::outputShape(size_t index) const {
+    static const std::vector<int64_t> empty;
+    return (m_impl && index < m_impl->outShapes.size()) ? m_impl->outShapes[index] : empty;
+}
+size_t RGYOpenVINOMultiIO::inputElemCount(size_t index)  const { return ovMultiIOElemCount(inputShape(index)); }
+size_t RGYOpenVINOMultiIO::outputElemCount(size_t index) const { return ovMultiIOElemCount(outputShape(index)); }
+tstring RGYOpenVINOMultiIO::deviceFullName()     const { return m_impl ? m_impl->devName : tstring(); }
+tstring RGYOpenVINOMultiIO::inferencePrecision() const { return m_impl ? m_impl->precision : tstring(); }
+bool RGYOpenVINOMultiIO::available() { return ovLoader().load() && ovLoader().multiIOReady(); }
+
 #else // !ENABLE_OPENVINO
 
 class RGYOpenVINO::Impl {};
@@ -1015,6 +1299,27 @@ size_t RGYOpenVINO::outElemCount() const { return 0; }
 tstring RGYOpenVINO::deviceFullName()     const { return tstring(); }
 tstring RGYOpenVINO::inferencePrecision() const { return tstring(); }
 bool RGYOpenVINO::available() { return false; }
+
+class RGYOpenVINOMultiIO::Impl {};
+RGYOpenVINOMultiIO::RGYOpenVINOMultiIO() : m_impl(nullptr) {}
+RGYOpenVINOMultiIO::~RGYOpenVINOMultiIO() {}
+RGY_ERR RGYOpenVINOMultiIO::init(const tstring &, const tstring &, tstring &errMessage, const tstring &) {
+    errMessage = _T("this build of QSVEnc does not include OpenVINO support");
+    return RGY_ERR_UNSUPPORTED;
+}
+RGY_ERR RGYOpenVINOMultiIO::infer(const std::vector<const float *> &, const std::vector<float *> &, tstring &errMessage) {
+    errMessage = _T("this build of QSVEnc does not include OpenVINO support");
+    return RGY_ERR_UNSUPPORTED;
+}
+const std::vector<std::string> &RGYOpenVINOMultiIO::inputNames()  const { static const std::vector<std::string> empty; return empty; }
+const std::vector<std::string> &RGYOpenVINOMultiIO::outputNames() const { static const std::vector<std::string> empty; return empty; }
+const std::vector<int64_t> &RGYOpenVINOMultiIO::inputShape(size_t)  const { static const std::vector<int64_t> empty; return empty; }
+const std::vector<int64_t> &RGYOpenVINOMultiIO::outputShape(size_t) const { static const std::vector<int64_t> empty; return empty; }
+size_t RGYOpenVINOMultiIO::inputElemCount(size_t)  const { return 0; }
+size_t RGYOpenVINOMultiIO::outputElemCount(size_t) const { return 0; }
+tstring RGYOpenVINOMultiIO::deviceFullName()     const { return tstring(); }
+tstring RGYOpenVINOMultiIO::inferencePrecision() const { return tstring(); }
+bool RGYOpenVINOMultiIO::available() { return false; }
 tstring RGYOpenVINO::availabilityStatus() { return _T("this build of QSVEnc does not include OpenVINO support"); }
 tstring RGYOpenVINO::runtimeVersion() { return tstring(); }
 

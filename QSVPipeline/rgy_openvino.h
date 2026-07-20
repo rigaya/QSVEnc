@@ -31,6 +31,9 @@
 
 #include <memory>
 #include <cstddef>
+#include <string>
+#include <vector>
+#include <cstdint>
 #include "rgy_err.h"
 #include "rgy_version.h"
 
@@ -113,6 +116,56 @@ public:
 private:
     RGYOpenVINO(const RGYOpenVINO &) = delete;
     void operator=(const RGYOpenVINO &) = delete;
+
+    class Impl;
+    std::unique_ptr<Impl> m_impl;
+};
+
+// Multi-named-input / multi-named-output variant of the OpenVINO wrapper.
+// RGYOpenVINO above binds only the first input and first output port, which is
+// all the single-image models need. Some models take more than one tensor, for
+// example generative inpainting, which wants the frame plus a mask marking the
+// pixels to fill. This class keeps the model's own shapes (a dynamic batch
+// dimension is pinned to 1), enumerates every input/output port by name, and
+// binds each tensor individually. It shares the same OpenVINO C runtime loader
+// as RGYOpenVINO, so it adds no new link or runtime dependency.
+class RGYOpenVINOMultiIO {
+public:
+    RGYOpenVINOMultiIO();
+    ~RGYOpenVINOMultiIO();
+
+    // Load an ONNX/IR model and compile it for device ("CPU", "GPU", "GPU.0",
+    // "AUTO", ...). The model's own input/output shapes are kept as-is (no
+    // reshape); every port name and shape is captured for infer(). On failure,
+    // errMessage is filled with the OpenVINO exception text.
+    RGY_ERR init(const tstring &modelPath, const tstring &device, tstring &errMessage,
+                 const tstring &precision = _T("auto"));
+
+    // Enumerated ports (valid after a successful init), in model port order.
+    const std::vector<std::string> &inputNames()  const;
+    const std::vector<std::string> &outputNames() const;
+    const std::vector<int64_t> &inputShape(size_t index)  const; // full dims of input port
+    const std::vector<int64_t> &outputShape(size_t index) const; // full dims of output port
+    size_t inputElemCount(size_t index)  const;                  // product of inputShape(index)
+    size_t outputElemCount(size_t index) const;                  // product of outputShape(index)
+
+    // Synchronous inference. inputs[i] is a host CHW float buffer for input port i
+    // (inputElemCount(i) floats, ordered like inputNames()); outputs[i] receives
+    // outputElemCount(i) floats for output port i. Every buffer must stay valid for
+    // the call (infer is blocking).
+    RGY_ERR infer(const std::vector<const float *> &inputs,
+                  const std::vector<float *> &outputs, tstring &errMessage);
+
+    tstring deviceFullName() const;     // e.g. "Intel(R) UHD Graphics 770 (iGPU)"
+    tstring inferencePrecision() const; // e.g. "f32"
+
+    // True only if the OpenVINO runtime exposes the multi-tensor C API symbols
+    // this class needs (present since OpenVINO 2022; older runtimes gate it off).
+    static bool available();
+
+private:
+    RGYOpenVINOMultiIO(const RGYOpenVINOMultiIO &) = delete;
+    void operator=(const RGYOpenVINOMultiIO &) = delete;
 
     class Impl;
     std::unique_ptr<Impl> m_impl;

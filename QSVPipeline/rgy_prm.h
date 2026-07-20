@@ -3537,6 +3537,7 @@ struct VppOnnx {
     tstring colorspace;  // 3ch models: "rgb" (default) or "ycbcr" (ArtCNN *_YCbCr / JPEG-YCbCr)
     int     noise;       // noise sigma (0..255) fed to the conditioning channel of noise models (default 15)
     int     frames;      // temporal window: number of input frames fed to the model at once (1 = single-frame, default)
+    tstring maskFile;    // inpainting: image whose bright pixels mark the region the model should fill (enables the two-input mask mode)
     int                  postResizeW;
     int                  postResizeH;
     RGY_VPP_RESIZE_ALGO  postResizeAlgo;

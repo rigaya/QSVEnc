@@ -119,6 +119,14 @@ protected:
     RGY_ERR emitTemporalOutput(int64_t outIdx, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
 
+    // --- two-input inpainting mode (mask=) -----------------------------------
+    // The model receives the frame and a user mask as separate tensors and
+    // returns the frame with the masked region filled; only the masked pixels
+    // are composited back, everything else keeps the frame's own values.
+    RGY_ERR initMask(std::shared_ptr<RGYFilterParamOnnx> prm, const int inW, const int inH, const RGY_CSP inCsp);
+    RGY_ERR runMask(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+        RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+
     std::unique_ptr<RGYOpenVINO> m_ov;
     OnnxIO m_io;                          // I/O convention inferred from channel counts
     int   m_inC, m_outC;                        // model input / output channel counts
@@ -162,6 +170,17 @@ protected:
     int64_t m_ringBaseIdx;           // global frame index of m_ring.front()
     int64_t m_recvCount;             // real frames received so far
     int64_t m_emitCount;             // outputs emitted so far
+
+    // --- two-input inpainting mode state (only used when mask= is set) --------
+    std::unique_ptr<RGYOpenVINOMultiIO> m_ovm; // multi-port backend (replaces m_ov)
+    int m_maskModelW, m_maskModelH;  // the model's own (static) spatial size
+    int m_imgPortIdx, m_mskPortIdx;  // input port order of the frame / mask tensors
+    float m_outScale;                // model output range: 1.0 = [0,1], 1/255 = [0,255] (settled on the first frame; 0 = not yet)
+    std::vector<float> m_maskFrame;  // mask at frame resolution, 0/1 (composite selector)
+    std::vector<float> m_maskModel;  // mask at model resolution, 0/1 (network input)
+    std::vector<float> m_frameRGB;   // current frame, planar RGB [0,1] CHW at frame resolution
+    std::vector<float> m_modelIn;    // network image input (3*maskModelW*maskModelH)
+    std::vector<float> m_modelOut;   // network output      (3*maskModelW*maskModelH)
 
     // opt-in end-of-chain resize (out_res=): runs after the network core, fitting
     // the integer-scaled output to the requested final resolution. Reuses the

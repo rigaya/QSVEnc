@@ -30,6 +30,7 @@
 #include "rgy_aspect_ratio.h"  // set_auto_resolution() for out_res= negative auto-aspect
 #include "rgy_filesystem.h"
 #include "rgy_model_registry.h"
+#include "rgy_avutil.h"   // mask= reads the user mask image via avformat/avcodec
 #include "rgy_version.h"
 #include <cmath>
 #include <cstring>
@@ -48,7 +49,8 @@ RGYFilterOnnx::RGYFilterOnnx(shared_ptr<RGYOpenCLContext> context) :
     m_matRY(0), m_matGY(0), m_matBY(0), m_matRU(0), m_matGU(0), m_matBU(0), m_matRV(0), m_matGV(0), m_matBV(0),
     m_inStaging(), m_outStaging(), m_inBuf(), m_outBuf(), m_u444(), m_v444(),
     m_program(), m_inBufCL(), m_outBufCL(),
-    m_temporalT(1), m_ringBaseIdx(0), m_recvCount(0), m_emitCount(0) {
+    m_temporalT(1), m_ringBaseIdx(0), m_recvCount(0), m_emitCount(0),
+    m_ovm(), m_maskModelW(0), m_maskModelH(0), m_imgPortIdx(0), m_mskPortIdx(1), m_outScale(0.0f) {
     m_name = _T("onnx");
 }
 
@@ -335,6 +337,16 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
 
     const int inW = prm->frameIn.width;
     const int inH = prm->frameIn.height;
+
+    // Two-input inpainting mode: mask= switches the filter onto the multi-port
+    // backend; everything below this point is the single-tensor path.
+    if (!prm->onnx.maskFile.empty()) {
+        if (prm->onnx.frames > 1) {
+            AddMessage(RGY_LOG_ERROR, _T("onnx: mask= and frames= cannot be combined.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        return initMask(prm, inW, inH, inCsp);
+    }
 
     // interop selection: "ocl" explicitly requests the zero-copy path. Separately,
     // GPU/AUTO model compilation prefers OpenVINO remote context from QSVEnc's
@@ -690,6 +702,9 @@ RGY_ERR RGYFilterOnnx::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo 
     if (m_temporalT > 1) {
         return runTemporal(pInputFrame, ppOutputFrames, pOutputFrameNum, queue, wait_events, event);
     }
+    if (m_ovm) {
+        return runMask(pInputFrame, ppOutputFrames, pOutputFrameNum, queue, wait_events, event);
+    }
     if (pInputFrame->ptr[0] == nullptr) {
         *pOutputFrameNum = 0;
         return RGY_ERR_NONE;
@@ -988,6 +1003,367 @@ void RGYFilterOnnx::writeOutputHostT(const RGYFrameInfo &hout, const RGYFrameInf
     }
 }
 
+// -------------------- two-input inpainting mode (mask=) --------------------
+#if ENABLE_AVSW_READER
+// Decode the first video frame of an image file (png/bmp/jpg and friends) with the
+// ffmpeg libraries QSVEnc already links, returned as grey [0,1] floats. Masks are
+// effectively binary, so the exact grey weighting of colour inputs does not matter.
+static RGY_ERR loadImageGray(const tstring &path, std::vector<float> &gray, int &width, int &height, tstring &errMessage) {
+    const auto pathA = tchar_to_string(path, CP_UTF8);
+    AVFormatContext *fmt = nullptr;
+    if (avformat_open_input(&fmt, pathA.c_str(), nullptr, nullptr) != 0) {
+        errMessage = _T("could not open the file");
+        return RGY_ERR_FILE_OPEN;
+    }
+    RGY_ERR ret = RGY_ERR_INVALID_DATA_TYPE;
+    errMessage = _T("could not decode an image frame");
+    AVCodecContext *dec = nullptr;
+    AVFrame *frame = av_frame_alloc();
+    AVPacket *pkt = av_packet_alloc();
+    do {
+        if (avformat_find_stream_info(fmt, nullptr) < 0) break;
+        int vidIdx = -1;
+        for (unsigned int i = 0; i < fmt->nb_streams; i++) {
+            if (fmt->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) { vidIdx = (int)i; break; }
+        }
+        if (vidIdx < 0) break;
+        const AVCodec *codec = avcodec_find_decoder(fmt->streams[vidIdx]->codecpar->codec_id);
+        if (!codec) break;
+        dec = avcodec_alloc_context3(codec);
+        if (!dec || avcodec_parameters_to_context(dec, fmt->streams[vidIdx]->codecpar) < 0) break;
+        if (avcodec_open2(dec, codec, nullptr) < 0) break;
+        bool got = false;
+        while (!got && av_read_frame(fmt, pkt) >= 0) {
+            if (pkt->stream_index == vidIdx) {
+                if (avcodec_send_packet(dec, pkt) == 0 && avcodec_receive_frame(dec, frame) == 0) got = true;
+            }
+            av_packet_unref(pkt);
+        }
+        if (!got) { // single-image decoders may hold the frame until flushed
+            avcodec_send_packet(dec, nullptr);
+            got = (avcodec_receive_frame(dec, frame) == 0);
+        }
+        if (!got) break;
+        width = frame->width;
+        height = frame->height;
+        gray.resize((size_t)width * height);
+        const auto pixfmt = (AVPixelFormat)frame->format;
+        // packed RGB layouts: (bytes per pixel, offset of the first colour byte)
+        int bpp = 0, coff = 0;
+        switch (pixfmt) {
+        case AV_PIX_FMT_RGB24: case AV_PIX_FMT_BGR24: bpp = 3; coff = 0; break;
+        case AV_PIX_FMT_RGBA:  case AV_PIX_FMT_BGRA:  bpp = 4; coff = 0; break;
+        case AV_PIX_FMT_ARGB:  case AV_PIX_FMT_ABGR:  bpp = 4; coff = 1; break;
+        default: break;
+        }
+        if (bpp > 0) {
+            for (int y = 0; y < height; y++) {
+                const uint8_t *src = frame->data[0] + (size_t)y * frame->linesize[0];
+                float *dst = gray.data() + (size_t)y * width;
+                for (int x = 0; x < width; x++) {
+                    const uint8_t *px = src + (size_t)x * bpp + coff;
+                    dst[x] = (px[0] + px[1] + px[2]) / (3.0f * 255.0f);
+                }
+            }
+            ret = RGY_ERR_NONE;
+        } else if (pixfmt == AV_PIX_FMT_GRAY8
+                || pixfmt == AV_PIX_FMT_YUV420P  || pixfmt == AV_PIX_FMT_YUVJ420P
+                || pixfmt == AV_PIX_FMT_YUV422P  || pixfmt == AV_PIX_FMT_YUVJ422P
+                || pixfmt == AV_PIX_FMT_YUV444P  || pixfmt == AV_PIX_FMT_YUVJ444P
+                || pixfmt == AV_PIX_FMT_NV12) {
+            // plane 0 is 8-bit luma in all of these
+            for (int y = 0; y < height; y++) {
+                const uint8_t *src = frame->data[0] + (size_t)y * frame->linesize[0];
+                float *dst = gray.data() + (size_t)y * width;
+                for (int x = 0; x < width; x++) dst[x] = src[x] / 255.0f;
+            }
+            ret = RGY_ERR_NONE;
+        } else {
+            errMessage = strsprintf(_T("unsupported mask pixel format: %s"),
+                char_to_tstring(av_get_pix_fmt_name(pixfmt) ? av_get_pix_fmt_name(pixfmt) : "unknown").c_str());
+        }
+    } while (false);
+    av_packet_free(&pkt);
+    av_frame_free(&frame);
+    if (dec) avcodec_free_context(&dec);
+    avformat_close_input(&fmt);
+    return ret;
+}
+#else
+static RGY_ERR loadImageGray(const tstring &, std::vector<float> &, int &, int &, tstring &errMessage) {
+    errMessage = _T("this build lacks the avcodec image reader needed for mask=");
+    return RGY_ERR_UNSUPPORTED;
+}
+#endif //#if ENABLE_AVSW_READER
+
+// bilinear resample of a single float plane (half-pixel-centre convention)
+static void resizeBilinearPlaneF(const float *src, const int srcW, const int srcH, float *dst, const int dstW, const int dstH) {
+    for (int y = 0; y < dstH; y++) {
+        const float fy = (dstH > 1) ? ((y + 0.5f) * srcH / dstH - 0.5f) : 0.0f;
+        int y0 = (int)std::floor(fy);
+        const float wy = fy - y0;
+        const int y1 = std::min(y0 + 1, srcH - 1);
+        y0 = std::max(y0, 0);
+        for (int x = 0; x < dstW; x++) {
+            const float fx = (dstW > 1) ? ((x + 0.5f) * srcW / dstW - 0.5f) : 0.0f;
+            int x0 = (int)std::floor(fx);
+            const float wx = fx - x0;
+            const int x1 = std::min(x0 + 1, srcW - 1);
+            x0 = std::max(x0, 0);
+            const float a = src[(size_t)y0 * srcW + x0] * (1.0f - wx) + src[(size_t)y0 * srcW + x1] * wx;
+            const float b = src[(size_t)y1 * srcW + x0] * (1.0f - wx) + src[(size_t)y1 * srcW + x1] * wx;
+            dst[(size_t)y * dstW + x] = a * (1.0f - wy) + b * wy;
+        }
+    }
+}
+
+// bilinear point sample of a float plane at (fx, fy) in source pixel coordinates
+static inline float sampleBilinearF(const float *src, const int srcW, const int srcH, const float fx, const float fy) {
+    int x0 = (int)std::floor(fx);
+    int y0 = (int)std::floor(fy);
+    const float wx = fx - x0;
+    const float wy = fy - y0;
+    const int x1 = std::min(x0 + 1, srcW - 1);
+    const int y1 = std::min(y0 + 1, srcH - 1);
+    x0 = std::max(x0, 0);
+    y0 = std::max(y0, 0);
+    const float a = src[(size_t)y0 * srcW + x0] * (1.0f - wx) + src[(size_t)y0 * srcW + x1] * wx;
+    const float b = src[(size_t)y1 * srcW + x0] * (1.0f - wx) + src[(size_t)y1 * srcW + x1] * wx;
+    return a * (1.0f - wy) + b * wy;
+}
+
+RGY_ERR RGYFilterOnnx::initMask(std::shared_ptr<RGYFilterParamOnnx> prm, const int inW, const int inH, const RGY_CSP inCsp) {
+    if (!RGYOpenVINOMultiIO::available()) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: this OpenVINO runtime lacks the multi-tensor C API needed for mask=.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (prm->onnx.postResizeW != 0 || prm->onnx.postResizeH != 0) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: out_res= is not supported together with mask=.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    tstring errMsg;
+    m_ovm = std::make_unique<RGYOpenVINOMultiIO>();
+    auto err = m_ovm->init(prm->onnx.modelFile, prm->onnx.device, errMsg, prm->onnx.precision);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: failed to load/compile model (%s): %s\n"),
+            prm->onnx.device.c_str(), errMsg.c_str());
+        return err;
+    }
+    // expected: one 3-channel image input + one 1-channel mask input (port order free),
+    // one 3-channel output, all at the model's own static spatial size.
+    if (m_ovm->inputNames().size() != 2 || m_ovm->outputNames().size() != 1) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: mask= needs a model with 2 inputs (image + mask) and 1 output, but this model has %d in / %d out.\n"),
+            (int)m_ovm->inputNames().size(), (int)m_ovm->outputNames().size());
+        return RGY_ERR_UNSUPPORTED;
+    }
+    auto chOf = [](const std::vector<int64_t> &s) { return (s.size() == 4) ? s[1] : (int64_t)-1; };
+    if      (chOf(m_ovm->inputShape(0)) == 3 && chOf(m_ovm->inputShape(1)) == 1) { m_imgPortIdx = 0; m_mskPortIdx = 1; }
+    else if (chOf(m_ovm->inputShape(0)) == 1 && chOf(m_ovm->inputShape(1)) == 3) { m_imgPortIdx = 1; m_mskPortIdx = 0; }
+    else {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: mask= expects one 3-channel image input and one 1-channel mask input.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    const auto &simg = m_ovm->inputShape(m_imgPortIdx);
+    const auto &smsk = m_ovm->inputShape(m_mskPortIdx);
+    const auto &sout = m_ovm->outputShape(0);
+    m_maskModelW = (int)simg[3];
+    m_maskModelH = (int)simg[2];
+    if (m_maskModelW <= 0 || m_maskModelH <= 0) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: mask= needs a model with a static input size.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if ((int)smsk[3] != m_maskModelW || (int)smsk[2] != m_maskModelH
+        || chOf(sout) != 3 || (int)sout[3] != m_maskModelW || (int)sout[2] != m_maskModelH) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: mask= expects the mask input and the output at the image input's size (%dx%d).\n"),
+            m_maskModelW, m_maskModelH);
+        return RGY_ERR_UNSUPPORTED;
+    }
+
+    // decode the user mask once, then keep a 0/1 map at frame resolution (the
+    // composite selector) and at model resolution (the network's mask input).
+    if (!rgy_file_exists(prm->onnx.maskFile)) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: mask file not found: %s\n"), prm->onnx.maskFile.c_str());
+        return RGY_ERR_FILE_OPEN;
+    }
+    std::vector<float> maskNative;
+    int maskW = 0, maskH = 0;
+    err = loadImageGray(prm->onnx.maskFile, maskNative, maskW, maskH, errMsg);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: failed to read mask %s: %s\n"), prm->onnx.maskFile.c_str(), errMsg.c_str());
+        return err;
+    }
+    auto threshold01 = [](std::vector<float> &v) { for (auto &f : v) f = (f >= 0.5f) ? 1.0f : 0.0f; };
+    m_maskFrame.resize((size_t)inW * inH);
+    resizeBilinearPlaneF(maskNative.data(), maskW, maskH, m_maskFrame.data(), inW, inH);
+    threshold01(m_maskFrame);
+    m_maskModel.resize((size_t)m_maskModelW * m_maskModelH);
+    resizeBilinearPlaneF(maskNative.data(), maskW, maskH, m_maskModel.data(), m_maskModelW, m_maskModelH);
+    threshold01(m_maskModel);
+
+    // the RGB<->YUV bookend reuses the single-tensor helpers at frame resolution
+    // (scale = 1); the model's own size only matters between resample steps.
+    m_io = OnnxIO::RGB;
+    m_ycbcr = false;
+    m_scale = 1;
+    m_modelInW = inW;
+    m_modelInH = inH;
+    m_padL = 0;
+    m_padT = 0;
+    m_maxval = (float)((1 << prm->frameIn.bitdepth) - 1);
+    m_bitdepth = prm->frameIn.bitdepth;
+    m_useOcl = false;
+    m_outScale = 0.0f;
+    int matrixSel = 0;
+    int matrixSelOut = 0;
+    onnx_matrix_to_coeff_id(prm->onnx.colormatrix, inH, matrixSel);
+    if (prm->onnx.colormatrixOut == RGY_MATRIX_AUTO) {
+        matrixSelOut = matrixSel;
+    } else {
+        onnx_matrix_to_coeff_id(prm->onnx.colormatrixOut, inH, matrixSelOut);
+    }
+    const bool rangeTV = (prm->onnx.colorrange != RGY_COLORRANGE_FULL);
+    setupColorCoeffs(matrixSel, matrixSelOut, rangeTV, (int)m_maxval);
+
+    m_frameRGB.resize((size_t)3 * inW * inH);
+    m_modelIn.resize((size_t)3 * m_maskModelW * m_maskModelH);
+    m_modelOut.resize((size_t)3 * m_maskModelW * m_maskModelH);
+    m_outBuf.resize((size_t)3 * inW * inH);
+    m_u444.resize((size_t)inW * inH);
+    m_v444.resize((size_t)inW * inH);
+
+    auto frameOut = prm->frameOut;
+    frameOut.csp    = inCsp;
+    frameOut.width  = inW;
+    frameOut.height = inH;
+    prm->frameOut   = frameOut;
+    err = AllocFrameBuf(prm->frameOut, 1);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: failed to allocate output frame buffer: %s.\n"), get_err_mes(err));
+        return err;
+    }
+    for (int i = 0; i < RGY_CSP_PLANES[m_frameBuf[0]->frame.csp]; i++) {
+        prm->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
+    }
+    m_inStaging  = m_cl->createFrameBuffer(inW, inH, inCsp, prm->frameIn.bitdepth, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR);
+    m_outStaging = m_cl->createFrameBuffer(inW, inH, inCsp, prm->frameIn.bitdepth, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR);
+    if (!m_inStaging || !m_outStaging) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: failed to allocate staging frame buffers.\n"));
+        return RGY_ERR_MEMORY_ALLOC;
+    }
+
+    tstring info = strsprintf(_T("onnx: %s  %dx%d  io=rgb+mask (model %dx%d)  device=%s"),
+        PathGetFilename(prm->onnx.modelFile).c_str(), inW, inH, m_maskModelW, m_maskModelH, prm->onnx.device.c_str());
+    info += strsprintf(_T(" matrix=bt%d range=%s"), matrixSel, rangeTV ? _T("tv") : _T("pc"));
+    if (prm->frameIn.bitdepth > 8) {
+        info += strsprintf(_T(" %dbit"), prm->frameIn.bitdepth);
+    }
+    if (!m_ovm->deviceFullName().empty()) {
+        info += strsprintf(_T(" [%s]"), m_ovm->deviceFullName().c_str());
+    }
+    if (!m_ovm->inferencePrecision().empty()) {
+        info += strsprintf(_T(" prec=%s"), m_ovm->inferencePrecision().c_str());
+    }
+    setFilterInfo(info);
+    m_param = prm;
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterOnnx::runMask(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+    RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+    if (pInputFrame->ptr[0] == nullptr) {
+        *pOutputFrameNum = 0;
+        return RGY_ERR_NONE;
+    }
+    const int fw = m_modelInW; // frame resolution (the mask path packs at frame size)
+    const int fh = m_modelInH;
+    const size_t chFrame = (size_t)fw * fh;
+    const size_t chModel = (size_t)m_maskModelW * m_maskModelH;
+
+    auto err = m_cl->copyFrame(&m_inStaging->frame, pInputFrame, nullptr, queue, wait_events, nullptr);
+    if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: copy input to staging failed: %s.\n"), get_err_mes(err)); return err; }
+    err = m_inStaging->queueMapBuffer(queue, CL_MAP_READ, {}, RGY_CL_MAP_BLOCK_ALL);
+    if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: map input staging failed: %s.\n"), get_err_mes(err)); return err; }
+    err = m_outStaging->queueMapBuffer(queue, CL_MAP_WRITE, {}, RGY_CL_MAP_BLOCK_ALL);
+    if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: map output staging failed: %s.\n"), get_err_mes(err)); return err; }
+    const RGYFrameInfo &hin  = m_inStaging->mappedHost()->host();
+    const RGYFrameInfo &hout = m_outStaging->mappedHost()->host();
+
+    // 1. frame -> planar RGB [0,1] at frame resolution, then resample each channel
+    //    to the model's own input size.
+    packFrameRGB(hin, m_frameRGB.data());
+    for (int c = 0; c < 3; c++) {
+        resizeBilinearPlaneF(m_frameRGB.data() + c * chFrame, fw, fh,
+                             m_modelIn.data() + c * chModel, m_maskModelW, m_maskModelH);
+    }
+
+    // 2. inference: frame + mask, bound to their ports by index.
+    std::vector<const float *> ins(2);
+    ins[m_imgPortIdx] = m_modelIn.data();
+    ins[m_mskPortIdx] = m_maskModel.data();
+    std::vector<float *> outs = { m_modelOut.data() };
+    tstring errMsg;
+    err = m_ovm->infer(ins, outs, errMsg);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: inference failed: %s\n"), errMsg.c_str());
+        m_inStaging->unmapBuffer(queue);
+        m_outStaging->unmapBuffer(queue);
+        return err;
+    }
+
+    // 3. exported inpainting models disagree on output range ([0,1] vs [0,255]);
+    //    settle it once from the first frame's maximum.
+    if (m_outScale == 0.0f) {
+        float maxv = 0.0f;
+        for (auto v : m_modelOut) maxv = std::max(maxv, v);
+        m_outScale = (maxv > 2.0f) ? (1.0f / 255.0f) : 1.0f;
+        AddMessage(RGY_LOG_DEBUG, _T("onnx: model output range detected as [0,%d].\n"), (maxv > 2.0f) ? 255 : 1);
+    }
+
+    // 4. composite: masked pixels take the (resampled) model result; everything
+    //    else keeps the frame's own RGB, so unmasked content never passes through
+    //    the model or its resampling.
+    for (int c = 0; c < 3; c++) {
+        const float *modelOut = m_modelOut.data() + c * chModel;
+        const float *frameRGB = m_frameRGB.data() + c * chFrame;
+        float *dst = m_outBuf.data() + c * chFrame;
+        for (int y = 0; y < fh; y++) {
+            const float my = ((y + 0.5f) * m_maskModelH) / fh - 0.5f;
+            for (int x = 0; x < fw; x++) {
+                const size_t i = (size_t)y * fw + x;
+                if (m_maskFrame[i] > 0.5f) {
+                    const float mx = ((x + 0.5f) * m_maskModelW) / fw - 0.5f;
+                    dst[i] = clampf(sampleBilinearF(modelOut, m_maskModelW, m_maskModelH, mx, my) * m_outScale, 0.0f, 1.0f);
+                } else {
+                    dst[i] = frameRGB[i];
+                }
+            }
+        }
+    }
+
+    // 5. RGB -> YUV into the mapped output frame (the standard RGB unpack).
+    writeOutputHost(hout, hout);
+
+    err = m_inStaging->unmapBuffer(queue);
+    if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: unmap input staging failed: %s.\n"), get_err_mes(err)); return err; }
+    err = m_outStaging->unmapBuffer(queue);
+    if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: unmap output staging failed: %s.\n"), get_err_mes(err)); return err; }
+
+    auto pOutFrame = m_frameBuf[0].get();
+    RGYFrameInfo *coreFrame = &pOutFrame->frame;
+    err = m_cl->copyFrame(coreFrame, &m_outStaging->frame, nullptr, queue, {}, event);
+    if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: copy staging to output failed: %s.\n"), get_err_mes(err)); return err; }
+    // metadata AFTER the copy: copyFrame overwrites frame props from its source
+    coreFrame->picstruct    = pInputFrame->picstruct;
+    coreFrame->timestamp    = pInputFrame->timestamp;
+    coreFrame->duration     = pInputFrame->duration;
+    coreFrame->flags        = pInputFrame->flags;
+    coreFrame->inputFrameId = pInputFrame->inputFrameId;
+
+    ppOutputFrames[0] = coreFrame;
+    *pOutputFrameNum = 1;
+    return RGY_ERR_NONE;
+}
+
 // -------------------- multi-frame temporal window (frames= > 1) --------------------
 // Pack one mapped input frame's YUV as planar RGB [0,1] CHW into dst
 // (3*modelInW*modelInH floats). This is the RGB case of fillInputHost lifted out for
@@ -1214,6 +1590,13 @@ void RGYFilterOnnx::close() {
     m_outBuf.clear();
     m_u444.clear();
     m_v444.clear();
+    m_ovm.reset();
+    m_maskFrame.clear();
+    m_maskModel.clear();
+    m_frameRGB.clear();
+    m_modelIn.clear();
+    m_modelOut.clear();
+    m_outScale = 0.0f;
     m_ring.clear();
     m_ringBaseIdx = 0;
     m_recvCount = 0;
