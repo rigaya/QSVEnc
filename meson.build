@@ -654,6 +654,8 @@ qsvpipeline_sources = files(
   'QSVPipeline/rgy_filter_overlay.cpp',
   'QSVPipeline/rgy_filter_pad.cpp',
   'QSVPipeline/rgy_filter_resize.cpp',
+  'QSVPipeline/rgy_filter_lenscorrection.cpp',
+  'QSVPipeline/rgy_filter_v360.cpp',
   'QSVPipeline/rgy_filter_rff.cpp',
   'QSVPipeline/rgy_filter_smooth.cpp',
   'QSVPipeline/rgy_filter_ssim.cpp',

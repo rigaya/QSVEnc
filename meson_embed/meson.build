@@ -77,6 +77,8 @@ resource_specs = [
   ['rgy_filter_stdeint_cl', '../QSVPipeline/rgy_filter_stdeint.cl', 'QSVPipeline_rgy_filter_stdeint_cl'],
   ['rgy_filter_pad_cl', '../QSVPipeline/rgy_filter_pad.cl', 'QSVPipeline_rgy_filter_pad_cl'],
   ['rgy_filter_resize_cl', '../QSVPipeline/rgy_filter_resize.cl', 'QSVPipeline_rgy_filter_resize_cl'],
+  ['rgy_filter_lenscorrection_cl', '../QSVPipeline/rgy_filter_lenscorrection.cl', 'QSVPipeline_rgy_filter_lenscorrection_cl'],
+  ['rgy_filter_v360_cl', '../QSVPipeline/rgy_filter_v360.cl', 'QSVPipeline_rgy_filter_v360_cl'],
   ['rgy_filter_ssim_cl', '../QSVPipeline/rgy_filter_ssim.cl', 'QSVPipeline_rgy_filter_ssim_cl'],
   ['rgy_filter_smooth_cl', '../QSVPipeline/rgy_filter_smooth.cl', 'QSVPipeline_rgy_filter_smooth_cl'],
   ['rgy_filter_subburn_cl', '../QSVPipeline/rgy_filter_subburn.cl', 'QSVPipeline_rgy_filter_subburn_cl'],
