@@ -937,7 +937,7 @@ static inline uint degrain_motion_search_full_block_sad_parallel(
     return degrain_motion_search_workgroup_reduce_add(laneSums, partialSad, localThreadId);
 }
 
-// 探索勝者のSAD再検証とflat領域補正 (分散0のブロックはMVの信頼性がないためzero MVへ寄せる)。
+// 探索勝者のraw SAD確定とflat領域補正 (分散0のブロックはMVの信頼性がないためzero MVへ寄せる)。
 // 分散はworkgroup内で同一値になるため、flat分岐は全スレッド一様でbarrier安全。
 // 内部でbarrierを使うので、workgroup全スレッドから同一のbestを渡して一様に呼び出すこと。
 static inline degrain_motion_search_candidate_cost_t degrain_motion_search_finalize_candidate_cost_parallel(
@@ -952,21 +952,8 @@ static inline degrain_motion_search_candidate_cost_t degrain_motion_search_final
     const int step,
     degrain_motion_search_candidate_cost_t best,
     const int localThreadId) {
-    const uint verifiedSad = degrain_motion_search_full_block_sad_parallel(
-        sourceBlockPixels,
-        referencePlane,
-        laneSums,
-        pitch,
-        width,
-        height,
-        blockGridX,
-        blockGridY,
-        step,
-        (int)best.pos_x,
-        (int)best.pos_y,
-        localThreadId);
-    best.sad_metric = verifiedSad;
-    best.score_primary = verifiedSad;
+    // 探索時に保持したraw SADを再利用し、勝者位置の同一SAD計算を省略する。
+    best.score_primary = best.sad_metric;
 
     if (degrain_motion_search_source_block_variance_parallel(sourceBlockPixels, laneSums, localThreadId) == 0u) {
         const uint sadZero = degrain_motion_search_full_block_sad_parallel(
