@@ -1127,7 +1127,7 @@ RGY_ERR RGYFilterRtgmcRetouch::processFrame(RGYFrameInfo *pOutputFrame, const RG
                         }
                     }
                     blurInput = work1;
-                    blurOutput = work0; // 3x3 RemoveGrain must not run in-place
+                    blurOutput = work0; // 3x3 RemoveGrainは入出力に同じbufferを使用できない
                 }
             }
             err = launchRemoveGrain(blurOutput, blurInput, iplane, smoothingMode);
