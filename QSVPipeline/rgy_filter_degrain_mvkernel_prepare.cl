@@ -62,10 +62,10 @@ __kernel void kernel_degrain_mv_seed_global_from_coarse(
     const int dstPlaneBase,
     const int srcFinalBase,
     const int srcBlockCount) {
-    __local int sumX[DEGRAIN_MOTION_SEARCH_GLOBAL_REDUCE_SIZE];
-    __local int sumY[DEGRAIN_MOTION_SEARCH_GLOBAL_REDUCE_SIZE];
+    __local long sumX[DEGRAIN_MOTION_SEARCH_GLOBAL_REDUCE_SIZE];
+    __local long sumY[DEGRAIN_MOTION_SEARCH_GLOBAL_REDUCE_SIZE];
     const int tid = (int)get_local_id(0);
-    int sx = 0, sy = 0;
+    long sx = 0, sy = 0;
     for (int i = tid; i < srcBlockCount; i += DEGRAIN_MOTION_SEARCH_GLOBAL_REDUCE_SIZE) {
         const degrain_mv_internal_t vec = srcVectorsFinal[degrain_motion_search_vec_final_index(srcFinalBase, srcBlockCount, i)];
         sx += vec.pos_x;
@@ -82,12 +82,17 @@ __kernel void kernel_degrain_mv_seed_global_from_coarse(
         barrier(CLK_LOCAL_MEM_FENCE);
     }
     if (tid == 0 && srcBlockCount > 0) {
-        const int roundHalf = srcBlockCount >> 1;
-        const int avgX = (sumX[0] >= 0) ? (sumX[0] + roundHalf) / srcBlockCount : -((-sumX[0] + roundHalf) / srcBlockCount);
-        const int avgY = (sumY[0] >= 0) ? (sumY[0] + roundHalf) / srcBlockCount : -((-sumY[0] + roundHalf) / srcBlockCount);
+        // coarse→fineの2倍を除算前に適用し、0.5 coarse pixel相当の精度を保持する。
+        const long roundHalf = (long)srcBlockCount >> 1;
+        const long scaledSumX = sumX[0] * 2;
+        const long scaledSumY = sumY[0] * 2;
+        const long avgX = (scaledSumX >= 0) ? (scaledSumX + roundHalf) / srcBlockCount : -((-scaledSumX + roundHalf) / srcBlockCount);
+        const long avgY = (scaledSumY >= 0) ? (scaledSumY + roundHalf) / srcBlockCount : -((-scaledSumY + roundHalf) / srcBlockCount);
+        const int globalX = (int)clamp(avgX, (long)-32768, (long)32767);
+        const int globalY = (int)clamp(avgY, (long)-32768, (long)32767);
         dstVectors[degrain_motion_search_vec_global_index(dstPlaneBase)] = degrain_motion_search_make_vector(
-            avgX * 2,
-            avgY * 2,
+            globalX,
+            globalY,
             0u,
             0u);
     }
