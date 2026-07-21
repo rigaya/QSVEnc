@@ -1441,14 +1441,20 @@ RGY_ERR RGYFilterRtgmc::initFilters(const std::shared_ptr<RGYFilterParamRtgmc> &
         if (sts != RGY_ERR_NONE) return sts;
     }
     {
-        auto filter = std::make_unique<RGYFilterRtgmcShimmerRepair>(m_cl);
-        auto param = std::make_shared<RGYFilterParamRtgmcShimmerRepair>();
-        param->stage = RGYRtgmcShimmerRepairStage::PreRetouch;
-        param->repairThin = prm->rtgmc.rep1.repThin;
-        param->repairPad = prm->rtgmc.rep1.repPad;
-        param->processChroma = prm->rtgmc.rep1.repChroma;
-        auto sts = initOne(std::move(filter), param);
-        if (sts != RGY_ERR_NONE) return sts;
+        if (prm->rtgmc.rep1.repThin <= 0 && prm->rtgmc.rep1.repPad <= 0) {
+            auto sts = initBypass();
+            if (sts != RGY_ERR_NONE) return sts;
+            AddMessage(RGY_LOG_DEBUG, _T("rep1 shimmer repair stage is skipped because rep-thin=0 and rep-pad=0.\n"));
+        } else {
+            auto filter = std::make_unique<RGYFilterRtgmcShimmerRepair>(m_cl);
+            auto param = std::make_shared<RGYFilterParamRtgmcShimmerRepair>();
+            param->stage = RGYRtgmcShimmerRepairStage::PreRetouch;
+            param->repairThin = prm->rtgmc.rep1.repThin;
+            param->repairPad = prm->rtgmc.rep1.repPad;
+            param->processChroma = prm->rtgmc.rep1.repChroma;
+            auto sts = initOne(std::move(filter), param);
+            if (sts != RGY_ERR_NONE) return sts;
+        }
     }
     {
         auto filter = std::make_unique<RGYFilterRtgmcLossless>(m_cl);
@@ -1500,14 +1506,20 @@ RGY_ERR RGYFilterRtgmc::initFilters(const std::shared_ptr<RGYFilterParamRtgmc> &
         }
     }
     {
-        auto filter = std::make_unique<RGYFilterRtgmcShimmerRepair>(m_cl);
-        auto param = std::make_shared<RGYFilterParamRtgmcShimmerRepair>();
-        param->stage = RGYRtgmcShimmerRepairStage::PostTR2;
-        param->repairThin = prm->rtgmc.rep2.repThin;
-        param->repairPad = prm->rtgmc.rep2.repPad;
-        param->processChroma = prm->rtgmc.rep2.repChroma;
-        auto sts = initOne(std::move(filter), param);
-        if (sts != RGY_ERR_NONE) return sts;
+        if (prm->rtgmc.rep2.repThin <= 0 && prm->rtgmc.rep2.repPad <= 0) {
+            auto sts = initBypass();
+            if (sts != RGY_ERR_NONE) return sts;
+            AddMessage(RGY_LOG_DEBUG, _T("rep2 shimmer repair stage is skipped because rep-thin=0 and rep-pad=0.\n"));
+        } else {
+            auto filter = std::make_unique<RGYFilterRtgmcShimmerRepair>(m_cl);
+            auto param = std::make_shared<RGYFilterParamRtgmcShimmerRepair>();
+            param->stage = RGYRtgmcShimmerRepairStage::PostTR2;
+            param->repairThin = prm->rtgmc.rep2.repThin;
+            param->repairPad = prm->rtgmc.rep2.repPad;
+            param->processChroma = prm->rtgmc.rep2.repChroma;
+            auto sts = initOne(std::move(filter), param);
+            if (sts != RGY_ERR_NONE) return sts;
+        }
     }
     {
         auto filter = std::make_unique<RGYFilterRtgmcRetouch>(m_cl);
