@@ -1121,9 +1121,7 @@ static inline void degrain_motion_search_search_one_block(
     }
     barrier(CLK_LOCAL_MEM_FENCE);
 
-// search=0 は refine なし (シード候補のみ)、searchparam<=1 は square8 のみ、
-// searchparam>=2 は wide6+square8 (従来動作) を実行する。
-#if DEGRAIN_SEARCH > 0
+// searchparam<=1はsquare8のみ、searchparam>=2はwide6+square8を実行する。
 #if DEGRAIN_SEARCH_PARAM >= 2
 #if DEGRAIN_MOTION_SEARCH_REF_LOCAL_CACHE && DEGRAIN_PIXEL_BYTES == 1
     degrain_motion_search_refine_prepare_hex_candidates(context, candidateCosts, bestCandidateCost, localThreadId, bestCandidateCost->pos_x, bestCandidateCost->pos_y);
@@ -1229,9 +1227,8 @@ static inline void degrain_motion_search_search_one_block(
 #endif
         );
 #endif
-#endif // DEGRAIN_SEARCH > 0
 
-    // bestCandidateCostは直前のbarrier (refine末尾、またはrefine省略時は候補選択後) により全スレッドから可視
+    // bestCandidateCostは直前のsquare8 refine末尾のbarrierにより全スレッドから可視
     const degrain_motion_search_candidate_cost_t finalizedBest = degrain_motion_search_finalize_candidate_cost_parallel(
         sourceBlockPixels,
         referencePlane,
