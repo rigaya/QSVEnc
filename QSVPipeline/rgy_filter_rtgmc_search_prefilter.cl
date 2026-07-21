@@ -1536,6 +1536,141 @@ __kernel void kernel_rtgmc_search_prefilter_range_convert(
     rtgmc_search_prefilter_pixel_store(dst, dst_pitch, x, y, value);
 }
 
+// search_refine=1 段階実行用: half_search_base_value と同一の係数・丸め手順で、
+// 実体化済みのfield-corrected planeから半解像度baseを生成する。
+// (モノリシック版と加算順序・行単位のint丸めまで一致させてビット一致を保つ)
+__attribute__((reqd_work_group_size(rtgmc_search_prefilter_block_x, rtgmc_search_prefilter_block_y, 1)))
+__kernel void kernel_rtgmc_search_prefilter_half_search_base_from_guide(
+    __global const uchar *guide,
+    const int guidePitch,
+    __global uchar *dst,
+    const int dstPitch,
+    const int srcWidth,
+    const int srcHeight) {
+    const int hx = (int)get_global_id(0);
+    const int hy = (int)get_global_id(1);
+    const int halfWidth = max(srcWidth >> 1, 1);
+    const int halfHeight = max(srcHeight >> 1, 1);
+    if (hx >= halfWidth || hy >= halfHeight) {
+        return;
+    }
+    const int filterSize = 4;
+    const float filterSupport = 2.0f;
+    const float filterStep = 0.5f;
+    const float posY = 0.5f + 2.0f * (float)hy;
+    int endY = (int)(posY + filterSupport);
+    endY = min(endY, srcHeight - 1);
+    int startY = max(endY - filterSize + 1, 0);
+    const float okPosY = clamp(posY, 0.0f, (float)(srcHeight - 1));
+
+    float totalY = 0.0f;
+    float coeffY[4];
+    for (int iy = 0; iy < filterSize; iy++) {
+        const float d = fabs(((float)(startY + iy) - okPosY) * filterStep);
+        coeffY[iy] = (d < 1.0f) ? (1.0f - d) : 0.0f;
+        totalY += coeffY[iy];
+    }
+    totalY = (totalY == 0.0f) ? 1.0f : totalY;
+
+    const float posX = 0.5f + 2.0f * (float)hx;
+    int endX = (int)(posX + filterSupport);
+    endX = min(endX, srcWidth - 1);
+    int startX = max(endX - filterSize + 1, 0);
+    const float okPosX = clamp(posX, 0.0f, (float)(srcWidth - 1));
+
+    float totalX = 0.0f;
+    float coeffX[4];
+    for (int ix = 0; ix < filterSize; ix++) {
+        const float d = fabs(((float)(startX + ix) - okPosX) * filterStep);
+        coeffX[ix] = (d < 1.0f) ? (1.0f - d) : 0.0f;
+        totalX += coeffX[ix];
+    }
+    totalX = (totalX == 0.0f) ? 1.0f : totalX;
+
+    float sumY = 0.5f;
+    for (int iy = 0; iy < filterSize; iy++) {
+        float sumX = 0.5f;
+        for (int ix = 0; ix < filterSize; ix++) {
+            const int sample = rtgmc_search_prefilter_pixel_load(
+                guide, guidePitch, srcWidth, srcHeight, startX + ix, startY + iy);
+            sumX += (coeffX[ix] / totalX) * (float)sample;
+        }
+        const int rowValue = clamp((int)sumX, 0, RTGMC_SEARCH_PREFILTER_PIXEL_MAX);
+        sumY += (coeffY[iy] / totalY) * (float)rowValue;
+    }
+    rtgmc_search_prefilter_pixel_store(dst, dstPitch, hx, hy,
+        clamp((int)sumY, 0, RTGMC_SEARCH_PREFILTER_PIXEL_MAX));
+}
+
+// search_refine=1 段階実行用: half_resolution_search_value と同一の係数・丸め手順で
+// 半解像度smoothed planeからフル解像度へ戻し、fullRangeModeも同時に適用する。
+__attribute__((reqd_work_group_size(rtgmc_search_prefilter_block_x, rtgmc_search_prefilter_block_y, 1)))
+__kernel void kernel_rtgmc_search_prefilter_half_resolution_upsample(
+    __global const uchar *smoothed,
+    const int smoothedPitch,
+    __global uchar *dst,
+    const int dstPitch,
+    const int width,
+    const int height,
+    const int fullRangeMode) {
+    const int px = (int)get_global_id(0);
+    const int py = (int)get_global_id(1);
+    if (px >= width || py >= height) {
+        return;
+    }
+    const int halfWidth = max(width >> 1, 1);
+    const int halfHeight = max(height >> 1, 1);
+    const int filterSize = 2;
+    const float filterSupport = 1.0f;
+    const float posY = -0.25f + 0.5f * (float)py;
+    int endY = (int)(posY + filterSupport);
+    endY = min(endY, halfHeight - 1);
+    int startY = max(endY - filterSize + 1, 0);
+    const float okPosY = clamp(posY, 0.0f, (float)(halfHeight - 1));
+
+    float totalY = 0.0f;
+    float coeffY[2];
+    for (int iy = 0; iy < filterSize; iy++) {
+        const float d = fabs((float)(startY + iy) - okPosY);
+        coeffY[iy] = (d < 1.0f) ? (1.0f - d) : 0.0f;
+        totalY += coeffY[iy];
+    }
+    totalY = (totalY == 0.0f) ? 1.0f : totalY;
+
+    const float posX = -0.25f + 0.5f * (float)px;
+    int endX = (int)(posX + filterSupport);
+    endX = min(endX, halfWidth - 1);
+    int startX = max(endX - filterSize + 1, 0);
+    const float okPosX = clamp(posX, 0.0f, (float)(halfWidth - 1));
+
+    float totalX = 0.0f;
+    float coeffX[2];
+    for (int ix = 0; ix < filterSize; ix++) {
+        const float d = fabs((float)(startX + ix) - okPosX);
+        coeffX[ix] = (d < 1.0f) ? (1.0f - d) : 0.0f;
+        totalX += coeffX[ix];
+    }
+    totalX = (totalX == 0.0f) ? 1.0f : totalX;
+
+    float sumY = 0.5f;
+    for (int iy = 0; iy < filterSize; iy++) {
+        float sumX = 0.5f;
+        for (int ix = 0; ix < filterSize; ix++) {
+            const int sample = rtgmc_search_prefilter_pixel_load(
+                smoothed, smoothedPitch, halfWidth, halfHeight,
+                clamp(startX + ix, 0, halfWidth - 1),
+                clamp(startY + iy, 0, halfHeight - 1));
+            sumX += (coeffX[ix] / totalX) * (float)sample;
+        }
+        const int rowValue = clamp((int)sumX, 0, RTGMC_SEARCH_PREFILTER_PIXEL_MAX);
+        sumY += (coeffY[iy] / totalY) * (float)rowValue;
+    }
+    const int value = rtgmc_search_prefilter_to_full_range(
+        clamp((int)sumY, 0, RTGMC_SEARCH_PREFILTER_PIXEL_MAX),
+        fullRangeMode);
+    rtgmc_search_prefilter_pixel_store(dst, dstPitch, px, py, value);
+}
+
 __attribute__((reqd_work_group_size(rtgmc_search_prefilter_block_x, rtgmc_search_prefilter_block_y, 1)))
 __kernel void kernel_rtgmc_search_prefilter_debug_temporal_candidate(
     __global const uchar *prev2,
