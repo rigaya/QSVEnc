@@ -327,13 +327,6 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::setupSearchRefine1Resources(const RGYFram
     for (auto &resources : m_searchRefine2PlaneResources) {
         resources.clear();
     }
-    for (auto &resize : m_searchRefine1ResizeDown) {
-        resize.reset();
-    }
-    for (auto &resize : m_searchRefine1ResizeUp) {
-        resize.reset();
-    }
-
     const auto setupPlane = [&](const int planeIndex, const RGYFrameInfo &planeBaseInfo) -> RGY_ERR {
         if (planeBaseInfo.width <= 0 || planeBaseInfo.height <= 0) {
             return RGY_ERR_INVALID_PARAM;
@@ -1826,12 +1819,6 @@ void RGYFilterRtgmcSearchPrefilter::close() {
     }
     for (auto &resources : m_searchRefine2PlaneResources) {
         resources.clear();
-    }
-    for (auto &resize : m_searchRefine1ResizeDown) {
-        resize.reset();
-    }
-    for (auto &resize : m_searchRefine1ResizeUp) {
-        resize.reset();
     }
     for (auto &resize : m_searchRefine2ResizeEdgeSoftenedSearch) {
         resize.reset();
