@@ -49,6 +49,50 @@ __kernel void kernel_degrain_mv_seed_anchor_vectors(
         0u);
 }
 
+#ifndef DEGRAIN_MOTION_SEARCH_GLOBAL_REDUCE_SIZE
+#define DEGRAIN_MOTION_SEARCH_GLOBAL_REDUCE_SIZE 256
+#endif
+
+// level1(coarse)の最終ベクトルの平均をlevel0のGLOBALアンカーに書き込む。
+// 平均はcoarse→fineのスケール(x2)を適用してlevel0の内部単位に揃える。
+__attribute__((reqd_work_group_size(DEGRAIN_MOTION_SEARCH_GLOBAL_REDUCE_SIZE, 1, 1)))
+__kernel void kernel_degrain_mv_seed_global_from_coarse(
+    __global degrain_mv_internal_t *dstVectors,
+    __global const degrain_mv_internal_t *srcVectorsFinal,
+    const int dstPlaneBase,
+    const int srcFinalBase,
+    const int srcBlockCount) {
+    __local int sumX[DEGRAIN_MOTION_SEARCH_GLOBAL_REDUCE_SIZE];
+    __local int sumY[DEGRAIN_MOTION_SEARCH_GLOBAL_REDUCE_SIZE];
+    const int tid = (int)get_local_id(0);
+    int sx = 0, sy = 0;
+    for (int i = tid; i < srcBlockCount; i += DEGRAIN_MOTION_SEARCH_GLOBAL_REDUCE_SIZE) {
+        const degrain_mv_internal_t vec = srcVectorsFinal[degrain_motion_search_vec_final_index(srcFinalBase, srcBlockCount, i)];
+        sx += vec.pos_x;
+        sy += vec.pos_y;
+    }
+    sumX[tid] = sx;
+    sumY[tid] = sy;
+    barrier(CLK_LOCAL_MEM_FENCE);
+    for (int stride = DEGRAIN_MOTION_SEARCH_GLOBAL_REDUCE_SIZE >> 1; stride > 0; stride >>= 1) {
+        if (tid < stride) {
+            sumX[tid] += sumX[tid + stride];
+            sumY[tid] += sumY[tid + stride];
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+    if (tid == 0 && srcBlockCount > 0) {
+        const int roundHalf = srcBlockCount >> 1;
+        const int avgX = (sumX[0] >= 0) ? (sumX[0] + roundHalf) / srcBlockCount : -((-sumX[0] + roundHalf) / srcBlockCount);
+        const int avgY = (sumY[0] >= 0) ? (sumY[0] + roundHalf) / srcBlockCount : -((-sumY[0] + roundHalf) / srcBlockCount);
+        dstVectors[degrain_motion_search_vec_global_index(dstPlaneBase)] = degrain_motion_search_make_vector(
+            avgX * 2,
+            avgY * 2,
+            0u,
+            0u);
+    }
+}
+
 __kernel void kernel_degrain_mv_seed_zero_vectors(
     __global degrain_mv_internal_t *vectors,
     __global degrain_mv_internal_t *vectorsPrev,
