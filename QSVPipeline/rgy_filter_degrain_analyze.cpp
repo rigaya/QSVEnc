@@ -1440,12 +1440,10 @@ RGY_ERR RGYFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo &p
 
         const int planeBase0 = levelPlaneBase(dir, planeStride0);
         const int blockBase0 = blockPlaneBase(dir, blockCount0);
-        RGYOpenCLEvent globalSeedEvent;
         if (prm->degrain.globalMotion) {
             // level1の平均ベクトルをlevel0のGLOBALアンカーに反映する
-            std::vector<RGYOpenCLEvent> globalSeedWait = { level1VectorReadyEvent, initLevel0Event };
             err = programL0->kernel("kernel_degrain_mv_seed_global_from_coarse").config(
-                queue, RGYWorkSize(256), RGYWorkSize(256), globalSeedWait, &globalSeedEvent).launch(
+                queue, RGYWorkSize(256), RGYWorkSize(256)).launch(
                     ws.level0.vectors->mem(),
                     ws.level1.vectorsFinal->mem(),
                     planeBase0,
@@ -1483,12 +1481,8 @@ RGY_ERR RGYFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo &p
 
         RGYOpenCLEvent searchLevel0Event;
         profileStepStart = profileNow();
-        std::vector<RGYOpenCLEvent> searchLevel0Wait = { interpolateEvent };
-        if (globalSeedEvent() != nullptr) {
-            searchLevel0Wait.push_back(globalSeedEvent);
-        }
         err = programL0->kernel("kernel_degrain_mv_search_parallel").config(
-            queue, searchLocal0, searchGlobal0, searchLevel0Wait, &searchLevel0Event).launch(
+            queue, searchLocal0, searchGlobal0, { interpolateEvent }, &searchLevel0Event).launch(
                 planeMem(planeCur),
                 planeMem(refPlanes[dir]),
                 ws.level0.vectors->mem(),
