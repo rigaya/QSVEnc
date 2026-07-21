@@ -243,8 +243,8 @@ RGYDegrainAnalyzeChromaPlanes degrainMakeAnalyzeChromaPlanes(
 }
 
 static bool degrainSubpelPlanesEnabledFromEnv() {
-    const char *env = getenv("QSVENC_DEGRAIN_SUBPEL_PLANES");
-    return env == nullptr || env[0] != '0';
+    static const bool enabled = degrainEnvFlagNotDisabled("QSVENC_DEGRAIN_SUBPEL_PLANES");
+    return enabled;
 }
 
 bool allocDegrainMotionSearchWorkspaceBuffer(
@@ -1287,54 +1287,30 @@ RGY_ERR RGYFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo &p
     const auto levelPlaneBase = [](const int dir, const int planeStride) { return dir * planeStride; };
     const auto blockPlaneBase = [](const int dir, const int blockCount) { return dir * blockCount; };
 
-    // pel=2: 参照ごとに4位相サブペルプレーン (整数/H/V/HV) を事前計算し、
+    // pel=2: 4位相サブペルプレーン (整数/H/V/HV) を事前計算し、
     // SADの毎サンプル6タップ補間を整数座標のプレーン参照に置き換える。
-    const bool useSubpelPlanes = (prm->degrain.pel == 2)
+    bool useSubpelPlanes = (prm->degrain.pel == 2)
         && (RGY_CSP_BIT_DEPTH[planeCur.csp] <= 8)
         && degrainSubpelPlanesEnabledFromEnv();
-    std::array<RGYOpenCLEvent, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS> subpelL0Events;
-    std::array<RGYOpenCLEvent, RGY_DEGRAIN_MAX_TEMPORAL_DIRECTIONS> subpelL1Events;
     int subpelL0Stride = 0;
     int subpelL1Stride = 0;
     if (useSubpelPlanes) {
         subpelL0Stride = planeCur.pitch[0] * planeCur.height;
         subpelL1Stride = m_analysis.lumaLevel1Pitch * m_analysis.lumaLevel1Height;
-        for (int dir = 0; dir < refs; dir++) {
-            size_t allocBytes = 0;
-            if (!allocDegrainMotionSearchWorkspaceBuffer(m_cl, ws.subpelLevel0[dir], allocBytes, (size_t)subpelL0Stride * 4)
-                || !allocDegrainMotionSearchWorkspaceBuffer(m_cl, ws.subpelLevel1[dir], allocBytes, (size_t)subpelL1Stride * 4)) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain subpel plane buffers.\n"));
-                return RGY_ERR_MEMORY_ALLOC;
-            }
-            auto errSubpel = programL0->kernel("kernel_degrain_mv_build_subpel_planes").config(
-                queue, RGYWorkSize(DEGRAIN_DEBUG_BLOCK_X, DEGRAIN_DEBUG_BLOCK_Y),
-                RGYWorkSize(planeCur.width, planeCur.height),
-                wait_events, &subpelL0Events[dir]).launch(
-                    planeMem(refPlanes[dir]),
-                    planeCur.pitch[0],
-                    ws.subpelLevel0[dir]->mem(),
-                    subpelL0Stride,
-                    planeCur.width,
-                    planeCur.height);
-            if (errSubpel != RGY_ERR_NONE) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to build degrain level0 subpel planes: %s.\n"), get_err_mes(errSubpel));
-                return errSubpel;
-            }
-            errSubpel = programL1->kernel("kernel_degrain_mv_build_subpel_planes").config(
-                queue, RGYWorkSize(DEGRAIN_DEBUG_BLOCK_X, DEGRAIN_DEBUG_BLOCK_Y),
-                RGYWorkSize(m_analysis.lumaLevel1Width, m_analysis.lumaLevel1Height),
-                { downsampleEvents[dir + 1] }, &subpelL1Events[dir]).launch(
-                    m_analysis.lumaLevel1[dir + 1]->mem(),
-                    m_analysis.lumaLevel1Pitch,
-                    ws.subpelLevel1[dir]->mem(),
-                    subpelL1Stride,
-                    m_analysis.lumaLevel1Width,
-                    m_analysis.lumaLevel1Height);
-            if (errSubpel != RGY_ERR_NONE) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to build degrain level1 subpel planes: %s.\n"), get_err_mes(errSubpel));
-                return errSubpel;
-            }
+        if (!allocDegrainMotionSearchWorkspaceBuffer(m_cl, ws.subpelLevel0, ws.subpelLevel0Bytes, (size_t)subpelL0Stride * 4)
+            || !allocDegrainMotionSearchWorkspaceBuffer(m_cl, ws.subpelLevel1, ws.subpelLevel1Bytes, (size_t)subpelL1Stride * 4)) {
+            AddMessage(RGY_LOG_WARN, _T("failed to allocate degrain subpel plane buffers; falling back to on-the-fly interpolation.\n"));
+            ws.subpelLevel0.reset();
+            ws.subpelLevel1.reset();
+            ws.subpelLevel0Bytes = 0;
+            ws.subpelLevel1Bytes = 0;
+            useSubpelPlanes = false;
         }
+    } else {
+        ws.subpelLevel0.reset();
+        ws.subpelLevel1.reset();
+        ws.subpelLevel0Bytes = 0;
+        ws.subpelLevel1Bytes = 0;
     }
 
     RGYOpenCLEvent initLevel1Event;
@@ -1377,6 +1353,35 @@ RGY_ERR RGYFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo &p
         const int planeBase1 = levelPlaneBase(dir, planeStride1);
         const int blockBase1 = blockPlaneBase(dir, blockCount1);
 
+        if (useSubpelPlanes) {
+            auto errSubpel = programL0->kernel("kernel_degrain_mv_build_subpel_planes").config(
+                queue, RGYWorkSize(DEGRAIN_DEBUG_BLOCK_X, DEGRAIN_DEBUG_BLOCK_Y),
+                RGYWorkSize(planeCur.width, planeCur.height)).launch(
+                    planeMem(refPlanes[dir]),
+                    planeCur.pitch[0],
+                    ws.subpelLevel0->mem(),
+                    subpelL0Stride,
+                    planeCur.width,
+                    planeCur.height);
+            if (errSubpel != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to build degrain level0 subpel planes: %s.\n"), get_err_mes(errSubpel));
+                return errSubpel;
+            }
+            errSubpel = programL1->kernel("kernel_degrain_mv_build_subpel_planes").config(
+                queue, RGYWorkSize(DEGRAIN_DEBUG_BLOCK_X, DEGRAIN_DEBUG_BLOCK_Y),
+                RGYWorkSize(m_analysis.lumaLevel1Width, m_analysis.lumaLevel1Height)).launch(
+                    m_analysis.lumaLevel1[dir + 1]->mem(),
+                    m_analysis.lumaLevel1Pitch,
+                    ws.subpelLevel1->mem(),
+                    subpelL1Stride,
+                    m_analysis.lumaLevel1Width,
+                    m_analysis.lumaLevel1Height);
+            if (errSubpel != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to build degrain level1 subpel planes: %s.\n"), get_err_mes(errSubpel));
+                return errSubpel;
+            }
+        }
+
         std::vector<RGYOpenCLEvent> seedLevel1Wait = { initLevel1Event };
         if (previousEvent() != nullptr) {
             seedLevel1Wait.push_back(previousEvent);
@@ -1403,15 +1408,12 @@ RGY_ERR RGYFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo &p
         RGYOpenCLEvent searchLevel1Event;
         profileStepStart = profileNow();
         std::vector<RGYOpenCLEvent> searchLevel1Wait = { seedLevel1Event, downsampleEvents[0], downsampleEvents[dir + 1] };
-        if (useSubpelPlanes && subpelL1Events[dir]() != nullptr) {
-            searchLevel1Wait.push_back(subpelL1Events[dir]);
-        }
         err = programL1->kernel("kernel_degrain_mv_search_parallel").config(
             queue, searchLocal1, searchGlobal1,
             searchLevel1Wait, &searchLevel1Event).launch(
                 m_analysis.lumaLevel1[0]->mem(),
                 m_analysis.lumaLevel1[dir + 1]->mem(),
-                useSubpelPlanes ? ws.subpelLevel1[dir]->mem() : m_analysis.lumaLevel1[dir + 1]->mem(),
+                useSubpelPlanes ? ws.subpelLevel1->mem() : m_analysis.lumaLevel1[dir + 1]->mem(),
                 useSubpelPlanes ? subpelL1Stride : 0,
                 ws.level1.vectors->mem(),
                 m_analysis.lumaLevel1Pitch,
@@ -1444,7 +1446,7 @@ RGY_ERR RGYFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo &p
                 queue, searchLocal1, searchGlobal1, { level1VectorReadyEvent }, &refineEvent).launch(
                     m_analysis.lumaLevel1[0]->mem(),
                     m_analysis.lumaLevel1[dir + 1]->mem(),
-                    useSubpelPlanes ? ws.subpelLevel1[dir]->mem() : m_analysis.lumaLevel1[dir + 1]->mem(),
+                    useSubpelPlanes ? ws.subpelLevel1->mem() : m_analysis.lumaLevel1[dir + 1]->mem(),
                     useSubpelPlanes ? subpelL1Stride : 0,
                     ws.level1.vectors->mem(),
                     ws.level1.vectorsPrev->mem(),
@@ -1544,15 +1546,11 @@ RGY_ERR RGYFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo &p
 
         RGYOpenCLEvent searchLevel0Event;
         profileStepStart = profileNow();
-        std::vector<RGYOpenCLEvent> searchLevel0Wait = { interpolateEvent };
-        if (useSubpelPlanes && subpelL0Events[dir]() != nullptr) {
-            searchLevel0Wait.push_back(subpelL0Events[dir]);
-        }
         err = programL0->kernel("kernel_degrain_mv_search_parallel").config(
-            queue, searchLocal0, searchGlobal0, searchLevel0Wait, &searchLevel0Event).launch(
+            queue, searchLocal0, searchGlobal0, { interpolateEvent }, &searchLevel0Event).launch(
                 planeMem(planeCur),
                 planeMem(refPlanes[dir]),
-                useSubpelPlanes ? ws.subpelLevel0[dir]->mem() : planeMem(refPlanes[dir]),
+                useSubpelPlanes ? ws.subpelLevel0->mem() : planeMem(refPlanes[dir]),
                 useSubpelPlanes ? subpelL0Stride : 0,
                 ws.level0.vectors->mem(),
                 planeCur.pitch[0],
@@ -1585,7 +1583,7 @@ RGY_ERR RGYFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo &p
                 queue, searchLocal0, searchGlobal0, { level0VectorReadyEvent }, &refineEvent).launch(
                     planeMem(planeCur),
                     planeMem(refPlanes[dir]),
-                    useSubpelPlanes ? ws.subpelLevel0[dir]->mem() : planeMem(refPlanes[dir]),
+                    useSubpelPlanes ? ws.subpelLevel0->mem() : planeMem(refPlanes[dir]),
                     useSubpelPlanes ? subpelL0Stride : 0,
                     ws.level0.vectors->mem(),
                     ws.level0.vectorsPrev->mem(),
