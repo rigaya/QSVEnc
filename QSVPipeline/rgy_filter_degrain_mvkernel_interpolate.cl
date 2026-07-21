@@ -45,10 +45,12 @@ __kernel void kernel_degrain_mv_build_subpel_planes(
     if (x >= width || y >= height) {
         return;
     }
-    const int p0 = degrain_pixel_load(src, pitch, width, height, x, y);
-    const int p1 = degrain_interp_halfpel_weighted_mirror(src, pitch, width, height, x, y, 1, 0, DEGRAIN_SUBPEL_INTERP);
-    const int p2 = degrain_interp_halfpel_weighted_mirror(src, pitch, width, height, x, y, 0, 1, DEGRAIN_SUBPEL_INTERP);
-    const int p3 = degrain_interp_halfpel_weighted_mirror(src, pitch, width, height, x, y, 1, 1, DEGRAIN_SUBPEL_INTERP);
+    const int xPel = x * DEGRAIN_PEL;
+    const int yPel = y * DEGRAIN_PEL;
+    const int p0 = degrain_pixel_load_pel_mirror(src, pitch, width, height, xPel + 0, yPel + 0);
+    const int p1 = degrain_pixel_load_pel_mirror(src, pitch, width, height, xPel + 1, yPel + 0);
+    const int p2 = degrain_pixel_load_pel_mirror(src, pitch, width, height, xPel + 0, yPel + 1);
+    const int p3 = degrain_pixel_load_pel_mirror(src, pitch, width, height, xPel + 1, yPel + 1);
     const int idx = y * pitch + x;
     dst[idx] = (uchar)clamp(p0, 0, 255);
     dst[(size_t)planeStride + idx] = (uchar)clamp(p1, 0, 255);
