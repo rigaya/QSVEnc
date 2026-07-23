@@ -2507,6 +2507,7 @@ protected:
     std::atomic<RGY_ERR> m_releaseErr;
     std::atomic<bool> m_releaseThreadAbort;
     std::atomic<int> m_releaseWorkInFlight;
+    std::atomic<int> m_releaseOutputPending;
     RGYFrameInfo m_acquireFrameInInfo;
     bool m_acquireDrainSent;
     bool m_acquireDrainReady;
@@ -3243,6 +3244,7 @@ protected:
         work->waitCropDoneEvent = cropDoneEvent();
         work->encSurfaceInfo = encSurfaceInfo;
         auto workPtr = work.get();
+        m_releaseOutputPending++;
         while (!m_releaseThreadAbort.load()) {
             if (m_releaseWorkQueue.size() < m_releaseWorkQueue.capacity()) {
                 if (m_releaseWorkQueue.push(workPtr)) {
@@ -3253,6 +3255,7 @@ protected:
             collectReleaseDone(false);
             rgy_yield();
         }
+        m_releaseOutputPending--;
         return RGY_ERR_ABORTED;
     }
     void collectReleaseDone(bool wait) {
@@ -3260,6 +3263,7 @@ protected:
         while (true) {
             while (m_releaseDoneQueue.front_copy_and_pop_no_lock(&donePtr)) {
                 m_outQeueue.push_back(std::unique_ptr<PipelineTaskOutput>(donePtr));
+                m_releaseOutputPending--;
                 donePtr = nullptr;
             }
             if (!wait) {
@@ -3272,11 +3276,11 @@ protected:
         }
     }
     bool hasReleaseWorkPending() const {
-        return m_releaseWorkQueue.size() > 0 || m_releaseDoneQueue.size() > 0 || m_releaseWorkInFlight.load() > 0;
+        return m_releaseOutputPending.load() > 0;
     }
 public:
     PipelineTaskOpenCL(std::vector<std::unique_ptr<RGYFilter>>& vppfilters, RGYFilterSsim *videoMetric, std::shared_ptr<RGYOpenCLContext> cl, int openclTaskThreads, MemType memType, QSVAllocator *allocator, MFXVideoSession *mfxSession, int outMaxQueueSize, std::shared_ptr<RGYLog> log) :
-        PipelineTask(PipelineTaskType::OPENCL, outMaxQueueSize, mfxSession, MFX_LIB_VERSION_0_0, log), m_cl(cl), m_vpFilters(vppfilters), m_surfVppInInterop(), m_surfVppOutInterop(), m_prevInputFrame(), m_prevAcquireFrame(), m_videoMetric(videoMetric), m_openclTaskThreads(openclTaskThreads), m_acquireQueue(), m_acquireInQueue(), m_acquireReadyQueue(), m_acquireFreeQueue(), m_acquireThread(), m_acquireErr(RGY_ERR_NONE), m_acquireThreadAbort(false), m_releaseQueue(), m_releaseAcquireQueue(), m_releaseReadyQueue(), m_releaseWorkQueue(), m_releaseDoneQueue(), m_releaseThread(), m_releaseErr(RGY_ERR_NONE), m_releaseThreadAbort(false), m_releaseWorkInFlight(0), m_acquireFrameInInfo(), m_acquireDrainSent(false), m_acquireDrainReady(false), m_acquireQueuesClosed(false), m_releaseQueuesClosed(false), m_memType(memType) {
+        PipelineTask(PipelineTaskType::OPENCL, outMaxQueueSize, mfxSession, MFX_LIB_VERSION_0_0, log), m_cl(cl), m_vpFilters(vppfilters), m_surfVppInInterop(), m_surfVppOutInterop(), m_prevInputFrame(), m_prevAcquireFrame(), m_videoMetric(videoMetric), m_openclTaskThreads(openclTaskThreads), m_acquireQueue(), m_acquireInQueue(), m_acquireReadyQueue(), m_acquireFreeQueue(), m_acquireThread(), m_acquireErr(RGY_ERR_NONE), m_acquireThreadAbort(false), m_releaseQueue(), m_releaseAcquireQueue(), m_releaseReadyQueue(), m_releaseWorkQueue(), m_releaseDoneQueue(), m_releaseThread(), m_releaseErr(RGY_ERR_NONE), m_releaseThreadAbort(false), m_releaseWorkInFlight(0), m_releaseOutputPending(0), m_acquireFrameInInfo(), m_acquireDrainSent(false), m_acquireDrainReady(false), m_acquireQueuesClosed(false), m_releaseQueuesClosed(false), m_memType(memType) {
         m_allocator = allocator;
         startAcquireWorker();
         startReleaseWorker();
@@ -3514,11 +3518,8 @@ public:
             }
             if (filterframes.front().first.ptr[0] == nullptr) {
                 collectReleaseDone(false);
-                if (useReleaseWorker() && hasReleaseWorkPending()) {
-                    if (m_outQeueue.size() > 0) {
-                        if (m_stopwatch) m_stopwatch->add(0, 2);
-                        return RGY_ERR_NONE;
-                    }
+                if (useReleaseWorker() && (hasReleaseWorkPending() || m_outQeueue.size() > 0)) {
+                    if (m_outQeueue.size() > 0 && m_stopwatch) m_stopwatch->add(0, 2);
                     return RGY_ERR_NONE;
                 }
                 if (!outputSurfs.empty()) {
