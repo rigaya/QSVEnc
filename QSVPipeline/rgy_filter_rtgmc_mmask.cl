@@ -26,10 +26,6 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#ifndef clamp
-#define clamp(x, low, high) (((x) <= (high)) ? (((x) >= (low)) ? (x) : (low)) : (high))
-#endif
-
 typedef struct {
     uint sad;
     uint srcAvg;

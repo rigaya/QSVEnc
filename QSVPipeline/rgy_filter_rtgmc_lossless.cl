@@ -26,10 +26,6 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#ifndef clamp
-#define clamp(x, low, high) (((x) <= (high)) ? (((x) >= (low)) ? (x) : (low)) : (high))
-#endif
-
 static inline int rtgmc_lossless_read_pix(
     const __global uchar *src, const int x, const int y,
     const int pitch

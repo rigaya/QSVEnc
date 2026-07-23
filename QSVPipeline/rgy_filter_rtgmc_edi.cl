@@ -26,10 +26,6 @@
 //
 // ------------------------------------------------------------------------------------------
 
-#ifndef clamp
-#define clamp(x, low, high) (((x) <= (high)) ? (((x) >= (low)) ? (x) : (low)) : (high))
-#endif
-
 #ifndef max3
 #define max3(a, b, c) (max(max((a), (b)), (c)))
 #endif
