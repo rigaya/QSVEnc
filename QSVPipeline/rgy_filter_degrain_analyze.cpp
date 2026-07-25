@@ -58,6 +58,11 @@ static uint64_t degrain_cl_perf_end(const bool enabled, const uint64_t start_ns)
 
 constexpr int degrainAnalyzePad = 8;
 
+// kernel_degrain_mv_export_sad のlocal size
+// 同カーネルは1blockあたり1work-itemで完結し、local id・local memory・barrierを使用しないため、
+// local sizeは結果に影響しない (以前は1で、work-group当たり1work-itemしか動かず非効率だった)
+constexpr size_t DEGRAIN_MV_EXPORT_SAD_LOCAL_SIZE = 64;
+
 uint32_t degrainAnalyzeFlags(const std::shared_ptr<RGYFilterParamDegrain> &prm, const bool usesAnalysisLuma, const bool includesChromaSad) {
     uint32_t flags = RGY_DEGRAIN_FRAME_META_FLAG_NONE;
     if (prm && usesAnalysisLuma) {
@@ -1483,8 +1488,11 @@ RGY_ERR RGYFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo &p
 
         RGYOpenCLEvent exportLevel1Event;
         profileStepStart = profileNow();
+        // kernel_degrain_mv_export_sad は get_global_id(0) のみに依存し、local id・local memory・barrier を
+        // 使用しないため、local sizeを変えても結果は変わらない
+        const RGYWorkSize exportLocal1(DEGRAIN_MV_EXPORT_SAD_LOCAL_SIZE);
         err = programL1->kernel("kernel_degrain_mv_export_sad").config(
-            queue, RGYWorkSize(1), RGYWorkSize(blockCount1), { level1VectorReadyEvent }, &exportLevel1Event).launch(
+            queue, exportLocal1, RGYWorkSize(blockCount1).ceilGlobal(exportLocal1), { level1VectorReadyEvent }, &exportLevel1Event).launch(
                 ws.level1.vectorsFinal->mem(),
                 ws.level1.sads->mem(),
                 (cl_mem)nullptr,
@@ -1620,8 +1628,9 @@ RGY_ERR RGYFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo &p
 
         RGYOpenCLEvent exportLevel0Event;
         profileStepStart = profileNow();
+        const RGYWorkSize exportLocal0(DEGRAIN_MV_EXPORT_SAD_LOCAL_SIZE);
         err = programL0->kernel("kernel_degrain_mv_export_sad").config(
-            queue, RGYWorkSize(1), RGYWorkSize(blockCount0), { level0VectorReadyEvent }, &exportLevel0Event).launch(
+            queue, exportLocal0, RGYWorkSize(blockCount0).ceilGlobal(exportLocal0), { level0VectorReadyEvent }, &exportLevel0Event).launch(
                 ws.level0.vectorsFinal->mem(),
                 ws.level0.sads->mem(),
                 m_analysis.mv->mem(),
