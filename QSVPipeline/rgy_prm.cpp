@@ -104,6 +104,8 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_RFF,                  _T("rff")),
     std::make_pair(VppType::CL_DELOGO,               _T("delogo")),
     std::make_pair(VppType::CL_TRANSFORM,            _T("transform")),
+    std::make_pair(VppType::CL_LENSCORRECTION,       _T("lenscorrection")),
+    std::make_pair(VppType::CL_V360,                 _T("v360")),
     std::make_pair(VppType::CL_CONVOLUTION3D,        _T("convolution3d")),
     std::make_pair(VppType::CL_DENOISE_KNN,          _T("knn")),
     std::make_pair(VppType::CL_DENOISE_NLMEANS,      _T("nlmeans")),
@@ -747,12 +749,6 @@ bool VppLibplaceboShader::operator!=(const VppLibplaceboShader &x) const {
 tstring VppLibplaceboShader::print() const {
     tstring str;
     str += strsprintf(_T("%s, "), shader.c_str());
-    for (const auto& param : params) {
-        str += strsprintf(_T("%s=%s, "), param.first.c_str(), param.second.c_str());
-    }
-    for (const auto& param : custom_params) {
-        str += strsprintf(_T("custom=%s=%s, "), param.first.c_str(), param.second.c_str());
-    }
     if (width > 0 && height > 0) {
         str += strsprintf(_T("res=%dx%d, "), width, height);
     }
@@ -773,6 +769,12 @@ tstring VppLibplaceboShader::print() const {
     }
     if (sigmoid_slope) {
         str += strsprintf(_T(", sigmoid_slope=%.3f"), *sigmoid_slope);
+    }
+    for (const auto& param : params) {
+        str += strsprintf(_T("%s=%s, "), param.first.c_str(), param.second.c_str());
+    }
+    for (const auto& param : custom_params) {
+        str += strsprintf(_T("custom=%s=%s, "), param.first.c_str(), param.second.c_str());
     }
 
     return str;
@@ -2094,6 +2096,10 @@ tstring VppOnnx::print() const {
     tstring s = strsprintf(_T("model=%s"), modelFile.c_str());
 #if ENCODER_NVENC
     s += strsprintf(_T(",provider=%s"), provider.c_str());
+    s += strsprintf(_T(",prec=%s"), precision.c_str());
+    if (!cacheDir.empty()) {
+        s += strsprintf(_T(",cache_dir=%s"), cacheDir.c_str());
+    }
 #elif ENABLE_OPENVINO
     s += strsprintf(_T(",device=%s"), device.c_str());
     s += strsprintf(_T(",interop=%s"), interop.c_str());

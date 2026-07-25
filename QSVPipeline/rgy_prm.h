@@ -84,7 +84,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_ANIME4K      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_ONNX         ((ENABLE_OPENVINO && ENCODER_QSV) || (ENABLE_ONNXRUNTIME && (ENCODER_NVENC || ENCODER_VCEENC)))
 #define ENABLE_VPP_FILTER_RIFE_OV      ((ENABLE_OPENVINO && ENCODER_QSV) || (ENABLE_ONNXRUNTIME && (ENCODER_NVENC || ENCODER_VCEENC)))
-#define ENABLE_VPP_FILTER_STDEINT      0 //((ENABLE_OPENVINO && ENCODER_QSV) || (ENABLE_ONNXRUNTIME && (ENCODER_NVENC || ENCODER_VCEENC)))
+#define ENABLE_VPP_FILTER_STDEINT      (0) // DISABLED
 #define ENABLE_VPP_FILTER_DENOISE_DCT  (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_SMOOTH       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_FFT3D        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
@@ -3538,8 +3538,8 @@ struct VppOnnx {
     CspColorRange colorrange; // auto=tv
     tstring colorspace;  // 3ch models: "rgb" (default) or "ycbcr" (ArtCNN *_YCbCr / JPEG-YCbCr)
     int     noise;       // noise sigma (0..255) fed to the conditioning channel of noise models (default 15)
-    int     frames;      // temporal window: number of input frames fed to the model at once (1 = single-frame, default)
-    tstring maskFile;    // inpainting: image whose bright pixels mark the region the model should fill (enables the two-input mask mode)
+    int     frames;      // ONNX時系列窓のフレーム数（1は単一フレーム）
+    tstring maskFile;     // ユーザー提供マスク画像（2入力inpaintingモデル用）
     int                  postResizeW;
     int                  postResizeH;
     RGY_VPP_RESIZE_ALGO  postResizeAlgo;
