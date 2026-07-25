@@ -2768,17 +2768,19 @@ protected:
         return false;
     }
     std::unique_ptr<RGYCLFrame> getAcquireWorkerFrame(const RGYFrameInfo& frameInfo) {
+        RGYFrameInfo bufInfo = frameInfo;
+        bufInfo.mem_type = RGY_MEM_TYPE_GPU;
         AcquireFrameHold *holdPtr = nullptr;
         while (m_acquireFreeQueue.front_copy_and_pop_no_lock(&holdPtr)) {
             std::unique_ptr<AcquireFrameHold> hold(holdPtr);
             if (hold->waitEvent && hold->event()) {
                 hold->event.wait();
             }
-            if (hold->frame && !cmpFrameInfoCspResolution(&hold->frame->frame, &frameInfo)) {
+            if (hold->frame && !cmpFrameInfoCspResolution(&hold->frame->frame, &bufInfo)) {
                 return std::move(hold->frame);
             }
         }
-        return m_cl->createFrameBuffer(frameInfo);
+        return m_cl->createFrameBuffer(bufInfo);
     }
     void runAcquireWorker() {
         while (true) {
