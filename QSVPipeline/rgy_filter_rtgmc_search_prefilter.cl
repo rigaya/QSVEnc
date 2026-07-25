@@ -1271,8 +1271,9 @@ static inline int rtgmc_search_prefilter_to_full_range(
     const int value,
     const int planeMode) {
     if (planeMode == 1) {
-        return ((value - RTGMC_SEARCH_PREFILTER_LIMITED_Y_MIN) * RTGMC_SEARCH_PREFILTER_PIXEL_MAX
-            + (RTGMC_SEARCH_PREFILTER_LIMITED_Y_RANGE >> 1)) / RTGMC_SEARCH_PREFILTER_LIMITED_Y_RANGE;
+        const float lumaScale = (float)RTGMC_SEARCH_PREFILTER_PIXEL_MAX / (float)RTGMC_SEARCH_PREFILTER_LIMITED_Y_RANGE;
+        const float lumaOffset = -(float)RTGMC_SEARCH_PREFILTER_LIMITED_Y_MIN * lumaScale;
+        return clamp(convert_int_rte(fma((float)value, lumaScale, lumaOffset)), 0, RTGMC_SEARCH_PREFILTER_PIXEL_MAX);
     }
     if (planeMode == 2) {
         const float rangeHalfF = (float)((RTGMC_SEARCH_PREFILTER_PIXEL_MAX + 1) >> 1);
