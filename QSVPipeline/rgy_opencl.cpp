@@ -2252,9 +2252,14 @@ void RGYCLFramePool::add(RGYCLFrame *frame) {
 
 std::unique_ptr<RGYCLFrame, RGYCLImageFromBufferDeleter> RGYCLFramePool::get(const RGYFrameInfo &frame, const bool normalized, const cl_mem_flags clflags) {
     const auto target_mem_type = (normalized) ? RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED : RGY_MEM_TYPE_GPU_IMAGE;
+    // poolに格納されているframeはimage形式(target_mem_type)だが、引数のframeはbuffer形式であるため
+    // cmpFrameInfoCspResolution()のmem_type比較が必ず不一致となり、poolが機能しなくなってしまう
+    // mem_typeはtarget_mem_typeで別途確認するので、比較用にはmem_typeを合わせておく
+    RGYFrameInfo cmpFrame = frame;
+    cmpFrame.mem_type = target_mem_type;
     for (auto it = m_pool.begin(); it != m_pool.end(); it++) {
         auto& poolFrame = (*it);
-        if (!cmpFrameInfoCspResolution(&poolFrame->frame, &frame)
+        if (!cmpFrameInfoCspResolution(&poolFrame->frame, &cmpFrame)
             && poolFrame->frame.mem_type == target_mem_type
             && poolFrame->clflags == clflags) {
             auto f = std::move(*it);
