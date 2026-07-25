@@ -3030,8 +3030,10 @@ Apply custom shaders in the specified path using [libplacebo](https://code.video
 - **Parameters**
     - shader=&lt;string&gt;  
       Target shader file path. (glsl file)
+    - &lt;name&gt;=&lt;value&gt;
+      Replace the value of `#define &lt;name&gt; ...` in the shader before it is parsed. This is a shader-source (compile-time) parameter and may be specified multiple times. It is separate from `custom=` parameters.
     - custom=&lt;name&gt;=&lt;value&gt;
-      Set a runtime parameter declared with `//!PARAM` in the shader. This parameter may be specified multiple times.
+      Set a runtime parameter declared with `//!PARAM` in the shader. libplacebo checks the parameter type and range. This parameter may be specified multiple times.
     - res=&lt;int&gt;x&lt;int&gt;  
       Output resolution of the filter.
     - csp=&lt;string&gt;  
@@ -3099,6 +3101,9 @@ Apply custom shaders in the specified path using [libplacebo](https://code.video
 
     Example: Set a shader //!PARAM.
     --vpp-libplacebo-shader shader=example.glsl,custom=GAIN=1.5
+
+    Example: Set a shader #define.
+    --vpp-libplacebo-shader shader=example.glsl,GAIN=1.5
     ```
 
 ### --vpp-descale [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
