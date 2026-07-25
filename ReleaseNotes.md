@@ -1,5 +1,16 @@
 # QSVEnc Release Notes
 
+## 8.23
+
+- Add [--vpp-lenscorrection](./QSVEncC_Options.en.md#--vpp-lenscorrection-param1value1param2value2).
+- Add [--vpp-v360](./QSVEncC_Options.en.md#--vpp-v360-param1value1param2value2).
+- Add mask and frames options to [--vpp-onnx](./QSVEncC_Options.en.md#--vpp-onnx-param1value1param2value2).
+- Add custom parameter to [--vpp-libplacebo-shader](./QSVEncC_Options.en.md#--vpp-libplacebo-shader-param1value1param2value2).
+- Speed up [--vpp-kfm](./QSVEncC_Options.en.md#--vpp-kfm-param1value1param2value2)/[--vpp-degrain](./QSVEncC_Options.en.md#--vpp-degrain-param1value1).
+- Fix accuracy/behavior and speed up [--vpp-rtgmc](./QSVEncC_Options.en.md#--vpp-rtgmc-param1value1).
+- Fix 10bit overflow in [--vpp-rtgmc](./QSVEncC_Options.en.md#--vpp-rtgmc-param1value1).
+- Fix OpenCL output worker drain race.
+
 ## 8.22
 
 - Support Windows named pipes.

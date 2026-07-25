@@ -314,6 +314,17 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2026.07.25 (8.23)
+[QSVEncC]
+- --vpp-lenscorrectionを追加。
+- --vpp-v360を追加。
+- --vpp-onnxにmaskオプション、framesオプションを追加。
+- --vpp-libplacebo-shaderにcustom指定を追加。
+- --vpp-kfm/--vpp-degrainを高速化。
+- --vpp-rtgmcの精度・動作を修正し、高速化。
+- --vpp-rtgmcの10bitでのオーバーフローを修正。
+- OpenCL出力ワーカーのdrain競合を修正。
+
 2026.07.18 (8.22)
 [QSVEncC]
 - Windowsの名前付きパイプに対応。
