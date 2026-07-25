@@ -196,7 +196,8 @@ static inline uchar4 kfm_analyze_block_render(
         (uchar)clamp(sum3 >> shift, 0, 255));
 }
 
-static inline uchar2 kfm_analyze_super_pair_render(
+// blockを丸ごと(uchar4)返す版。1つのblockからfield 0/1の両方を取り出す場合に使う
+static inline uchar4 kfm_analyze_super_pair_render4(
     const __global uchar *src0,
     const __global uchar *src1,
     const int srcPitch,
@@ -208,14 +209,29 @@ static inline uchar2 kfm_analyze_super_pair_render(
     const int x,
     const int row) {
     if (x <= 0 || x >= widthPairs || row < 2 || row >= height * 2) {
-        return (uchar2)(0, 0);
+        return (uchar4)(0, 0, 0, 0);
     }
     const int bx = x - 1;
     const int by = (row >> 1) - 1;
     if (bx >= widthPairs - 1 || by < 0 || by >= height - 1) {
-        return (uchar2)(0, 0);
+        return (uchar4)(0, 0, 0, 0);
     }
-    const uchar4 v = kfm_analyze_block_render(src0, src1, srcPitch, parity, pixelStep, pixelOffset, bx, by);
+    return kfm_analyze_block_render(src0, src1, srcPitch, parity, pixelStep, pixelOffset, bx, by);
+}
+
+static inline uchar2 kfm_analyze_super_pair_render(
+    const __global uchar *src0,
+    const __global uchar *src1,
+    const int srcPitch,
+    const int widthPairs,
+    const int height,
+    const int parity,
+    const int pixelStep,
+    const int pixelOffset,
+    const int x,
+    const int row) {
+    const uchar4 v = kfm_analyze_super_pair_render4(
+        src0, src1, srcPitch, widthPairs, height, parity, pixelStep, pixelOffset, x, row);
     return (row & 1) ? (uchar2)(v.z, v.w) : (uchar2)(v.x, v.y);
 }
 
@@ -431,14 +447,21 @@ __kernel void kernel_kfm_clean_super_direct_max(
     if (x >= widthPairs || y >= height) return;
 
     const int srcField = field & 1;
-    const int curRow = y * 2 + srcField;
-    const int prevRow = (srcField == 0) ? (y * 2 + 1) : (y * 2);
-    const uchar2 vcur = kfm_analyze_super_pair_render(
-        curSrc0, curSrc1, curSrcPitch, widthPairs, height, curParity,
-        pixelStep, pixelOffset, x, curRow);
-    const uchar2 vprev = (srcField == 0)
-        ? kfm_analyze_super_pair_render(prevSrc0, prevSrc1, prevSrcPitch, widthPairs, height, prevParity, pixelStep, pixelOffset, x, prevRow)
-        : kfm_analyze_super_pair_render(curSrc0, curSrc1, curSrcPitch, widthPairs, height, curParity, pixelStep, pixelOffset, x, prevRow);
+    uchar2 vcur;
+    uchar2 vprev;
+    if (srcField == 0) {
+        vcur = kfm_analyze_super_pair_render(curSrc0, curSrc1, curSrcPitch, widthPairs, height, curParity,
+            pixelStep, pixelOffset, x, y * 2 + 0);
+        vprev = kfm_analyze_super_pair_render(prevSrc0, prevSrc1, prevSrcPitch, widthPairs, height, prevParity,
+            pixelStep, pixelOffset, x, y * 2 + 1);
+    } else {
+        // odd fieldではvcur(row=y*2+1)とvprev(row=y*2)が同じblockを指すため、解析は1回で済む。
+        // row依存の境界判定もy==0のときに両者とも0を返すため、結果は変わらない。
+        const uchar4 v4 = kfm_analyze_super_pair_render4(curSrc0, curSrc1, curSrcPitch, widthPairs, height, curParity,
+            pixelStep, pixelOffset, x, y * 2 + 1);
+        vcur = (uchar2)(v4.z, v4.w);
+        vprev = (uchar2)(v4.x, v4.y);
+    }
 
     uchar2 v = vcur;
     if (vprev.y <= cleanThresh && v.y <= cleanThresh) {
