@@ -2506,6 +2506,7 @@ protected:
     std::unique_ptr<std::thread> m_releaseThread;
     std::atomic<RGY_ERR> m_releaseErr;
     std::atomic<bool> m_releaseThreadAbort;
+    std::atomic<int> m_releaseAcquirePending;
     std::atomic<int> m_releaseWorkInFlight;
     std::atomic<int> m_releaseOutputPending;
     RGYFrameInfo m_acquireFrameInInfo;
@@ -3203,8 +3204,10 @@ protected:
         if (!useReleaseWorker()) {
             return RGY_ERR_NONE;
         }
+        // workerがacquire queueから取り出した処理中の要素も含めて上限を判定し、
+        // ready queueへの投入待ちでrelease処理が停止する循環待ちを防ぐ。
         while (!m_releaseThreadAbort.load()
-            && (m_releaseAcquireQueue.size() + m_releaseReadyQueue.size()) < m_releaseReadyQueue.capacity()
+            && m_releaseAcquirePending.load() < (int)m_releaseReadyQueue.capacity()
             && m_releaseAcquireQueue.size() < m_releaseAcquireQueue.capacity()) {
             auto surf = getWorkSurf();
             if (surf == nullptr) {
@@ -3213,7 +3216,9 @@ protected:
             auto work = std::make_unique<ReleaseAcquireWork>();
             work->surf = surf;
             auto workPtr = work.get();
+            m_releaseAcquirePending++;
             if (!m_releaseAcquireQueue.push(workPtr)) {
+                m_releaseAcquirePending--;
                 return RGY_ERR_MEMORY_ALLOC;
             }
             work.release();
@@ -3234,6 +3239,7 @@ protected:
             }
             rgy_yield();
         }
+        m_releaseAcquirePending--;
         return std::unique_ptr<ReleaseReady>(readyPtr);
     }
     RGY_ERR pushReleaseWork(PipelineTaskSurface& surf, RGYCLFrameInterop *interop, const RGYOpenCLEvent& cropDoneEvent, const RGYFrameInfo& encSurfaceInfo) {
@@ -3280,7 +3286,7 @@ protected:
     }
 public:
     PipelineTaskOpenCL(std::vector<std::unique_ptr<RGYFilter>>& vppfilters, RGYFilterSsim *videoMetric, std::shared_ptr<RGYOpenCLContext> cl, int openclTaskThreads, MemType memType, QSVAllocator *allocator, MFXVideoSession *mfxSession, int outMaxQueueSize, std::shared_ptr<RGYLog> log) :
-        PipelineTask(PipelineTaskType::OPENCL, outMaxQueueSize, mfxSession, MFX_LIB_VERSION_0_0, log), m_cl(cl), m_vpFilters(vppfilters), m_surfVppInInterop(), m_surfVppOutInterop(), m_prevInputFrame(), m_prevAcquireFrame(), m_videoMetric(videoMetric), m_openclTaskThreads(openclTaskThreads), m_acquireQueue(), m_acquireInQueue(), m_acquireReadyQueue(), m_acquireFreeQueue(), m_acquireThread(), m_acquireErr(RGY_ERR_NONE), m_acquireThreadAbort(false), m_releaseQueue(), m_releaseAcquireQueue(), m_releaseReadyQueue(), m_releaseWorkQueue(), m_releaseDoneQueue(), m_releaseThread(), m_releaseErr(RGY_ERR_NONE), m_releaseThreadAbort(false), m_releaseWorkInFlight(0), m_releaseOutputPending(0), m_acquireFrameInInfo(), m_acquireDrainSent(false), m_acquireDrainReady(false), m_acquireQueuesClosed(false), m_releaseQueuesClosed(false), m_memType(memType) {
+        PipelineTask(PipelineTaskType::OPENCL, outMaxQueueSize, mfxSession, MFX_LIB_VERSION_0_0, log), m_cl(cl), m_vpFilters(vppfilters), m_surfVppInInterop(), m_surfVppOutInterop(), m_prevInputFrame(), m_prevAcquireFrame(), m_videoMetric(videoMetric), m_openclTaskThreads(openclTaskThreads), m_acquireQueue(), m_acquireInQueue(), m_acquireReadyQueue(), m_acquireFreeQueue(), m_acquireThread(), m_acquireErr(RGY_ERR_NONE), m_acquireThreadAbort(false), m_releaseQueue(), m_releaseAcquireQueue(), m_releaseReadyQueue(), m_releaseWorkQueue(), m_releaseDoneQueue(), m_releaseThread(), m_releaseErr(RGY_ERR_NONE), m_releaseThreadAbort(false), m_releaseAcquirePending(0), m_releaseWorkInFlight(0), m_releaseOutputPending(0), m_acquireFrameInInfo(), m_acquireDrainSent(false), m_acquireDrainReady(false), m_acquireQueuesClosed(false), m_releaseQueuesClosed(false), m_memType(memType) {
         m_allocator = allocator;
         startAcquireWorker();
         startReleaseWorker();
