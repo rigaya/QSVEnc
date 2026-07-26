@@ -357,6 +357,34 @@ __kernel void kernel_crop_nv12_yv12(
     int cropX,     // 輝度と同じcropを想定
     int cropY      // 輝度と同じcropを想定
 ) {
+#if !IMAGE_SRC && !IMAGE_DST
+    const int uv_x = get_global_id(0) * 4;
+    const int uv_y = get_global_id(1);
+    if (uv_y < uvHeight) {
+        if (uv_x + 3 < uvWidth) {
+            const __global TypeIn *srcPtr = ((__global TypeIn *)(src + (uv_y + (cropY >> 1)) * srcPitch)) + (uv_x << 1) + cropX;
+            const TypeIn4 pixSrcUV01 = vload4(0, srcPtr);
+            const TypeIn4 pixSrcUV23 = vload4(1, srcPtr);
+            const TypeOut4 pixDstU = (TypeOut4)(
+                BIT_DEPTH_CONV(pixSrcUV01.s0), BIT_DEPTH_CONV(pixSrcUV01.s2),
+                BIT_DEPTH_CONV(pixSrcUV23.s0), BIT_DEPTH_CONV(pixSrcUV23.s2));
+            const TypeOut4 pixDstV = (TypeOut4)(
+                BIT_DEPTH_CONV(pixSrcUV01.s1), BIT_DEPTH_CONV(pixSrcUV01.s3),
+                BIT_DEPTH_CONV(pixSrcUV23.s1), BIT_DEPTH_CONV(pixSrcUV23.s3));
+            vstore4(pixDstU, 0, ((__global TypeOut *)(dstU + uv_y * dstPitch)) + uv_x);
+            vstore4(pixDstV, 0, ((__global TypeOut *)(dstV + uv_y * dstPitch)) + uv_x);
+        } else {
+            for (int i = 0; i < 4 && uv_x + i < uvWidth; i++) {
+                TypeIn pixSrcU, pixSrcV;
+                LOAD_NV12_UV(src, pixSrcU, pixSrcV, uv_x + i, uv_y, cropX, cropY);
+                const TypeOut pixDstU = BIT_DEPTH_CONV(pixSrcU);
+                const TypeOut pixDstV = BIT_DEPTH_CONV(pixSrcV);
+                STORE(dstU, uv_x + i, uv_y, pixDstU);
+                STORE(dstV, uv_x + i, uv_y, pixDstV);
+            }
+        }
+    }
+#else
     const int uv_x = get_global_id(0);
     const int uv_y = get_global_id(1);
     if (uv_x < uvWidth && uv_y < uvHeight) {
@@ -367,6 +395,7 @@ __kernel void kernel_crop_nv12_yv12(
         STORE(dstU, uv_x, uv_y, pixDstU);
         STORE(dstV, uv_x, uv_y, pixDstV);
     }
+#endif
 }
 
 __kernel void kernel_crop_nv12_yuv444(

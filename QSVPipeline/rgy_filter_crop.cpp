@@ -53,6 +53,9 @@ RGY_ERR RGYFilterCspCrop::convertCspFromNV12(RGYFrameInfo *pOutputFrame, const R
         AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_CL\n"));
         return RGY_ERR_OPENCL_CRUSH;
     }
+    const auto isImageMemory = [](const RGY_MEM_TYPE memType) {
+        return memType == RGY_MEM_TYPE_GPU_IMAGE || memType == RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED;
+    };
     if (RGY_CSP_CHROMA_FORMAT[pOutputFrame->csp] == RGY_CHROMAFMT_RGB) {
         auto planeDstR = getPlane(pOutputFrame, RGY_PLANE_R);
         auto planeDstG = getPlane(pOutputFrame, RGY_PLANE_G);
@@ -95,7 +98,9 @@ RGY_ERR RGYFilterCspCrop::convertCspFromNV12(RGYFrameInfo *pOutputFrame, const R
         //cl_image_format val;
         //clGetImageInfo((cl_mem)planeSrc.ptr[0], CL_IMAGE_FORMAT, sizeof(val), &val, nullptr);
         RGYWorkSize local(32, 8);
-        RGYWorkSize global(planeDstU.width, planeDstU.height);
+        const bool vectorStore = !isImageMemory(planeSrc.mem_type)
+            && !isImageMemory(planeDstU.mem_type) && !isImageMemory(planeDstV.mem_type);
+        RGYWorkSize global(vectorStore ? (planeDstU.width + 3) / 4 : planeDstU.width, planeDstU.height);
         auto err = copyProgram->kernel("kernel_crop_nv12_yv12").config(queue, local, global, event).launch(
             (cl_mem)planeDstU.ptr[0], (cl_mem)planeDstV.ptr[0], planeDstU.pitch[0], (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0], planeDstU.width, planeDstU.height,
             pCropParam->crop.e.left, pCropParam->crop.e.up);
