@@ -76,29 +76,13 @@ RGY_ERR RGYFilterCspCrop::convertCspFromNV12(RGYFrameInfo *pOutputFrame, const R
         return RGY_ERR_NONE;
     }
     //Y
-    if (pOutputFrame->csp == pInputFrame->csp) {
-        auto planeDst = getPlane(pOutputFrame, RGY_PLANE_Y);
-        auto planeSrc = getPlane(pInputFrame, RGY_PLANE_Y);
-        auto err = m_cl->copyPlane(&planeDst, &planeSrc, &pCropParam->crop, queue, wait_events);
-        if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("error at copyPlane(Y) (convertCspFromNV12(%s -> %s)): %s.\n"),
-                RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], get_err_mes(err));
-            return err;
-        }
-    } else {
-        auto planeDst = getPlane(pOutputFrame, RGY_PLANE_Y);
-        auto planeSrc = getPlane(pInputFrame,  RGY_PLANE_Y);
-        RGYWorkSize local(32, 8);
-        RGYWorkSize global(planeDst.width, planeDst.height);
-        auto err = copyProgram->kernel("kernel_copy_plane").config(queue, local, global, wait_events, event).launch(
-            (cl_mem)planeDst.ptr[0], planeDst.pitch[0], 0, 0,
-            (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0], pCropParam->crop.e.left, pCropParam->crop.e.up,
-            planeSrc.width, planeSrc.height);
-        if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("error at kernel_copy_plane (convertCspFromNV12(Y)(%s -> %s)): %s.\n"),
-                RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], get_err_mes(err));
-            return err;
-        }
+    auto planeDstY = getPlane(pOutputFrame, RGY_PLANE_Y);
+    auto planeSrcY = getPlane(pInputFrame, RGY_PLANE_Y);
+    auto errY = m_cl->copyPlane(&planeDstY, &planeSrcY, &pCropParam->crop, queue, wait_events, event);
+    if (errY != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("error at copyPlane(Y) (convertCspFromNV12(%s -> %s)): %s.\n"),
+            RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], get_err_mes(errY));
+        return errY;
     }
 
     static const auto supportedCspYV12 = make_array<RGY_CSP>(RGY_CSP_YV12, RGY_CSP_YV12_09, RGY_CSP_YV12_10, RGY_CSP_YV12_12, RGY_CSP_YV12_14, RGY_CSP_YV12_16);

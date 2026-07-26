@@ -2509,7 +2509,12 @@ RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *planeDstOrg, const RGYFrameInf
     size_t region[3] = { (size_t)planeSrc.width * pixel_size, (size_t)planeSrc.height, 1 };
     if (planeSrc.mem_type == RGY_MEM_TYPE_GPU) {
         if (planeDst.mem_type == RGY_MEM_TYPE_GPU) {
-            if (planeDst.csp == planeSrc.csp) {
+            // バッファ間で画素サイズと領域が同一なら、CSPが異なっても単純な2次元コピーでよい。
+            const bool canCopyBufferRect = planeDst.csp == planeSrc.csp
+                || (RGY_CSP_BIT_DEPTH[planeDst.csp] == RGY_CSP_BIT_DEPTH[planeSrc.csp]
+                    && planeDst.width == planeSrc.width
+                    && planeDst.height == planeSrc.height);
+            if (canCopyBufferRect) {
                 const auto host_start = rgy_cl_perf_begin(perf_enabled);
                 err = clEnqueueCopyBufferRect(queue.get(), (cl_mem)planeSrc.ptr[0], (cl_mem)planeDst.ptr[0], src_origin, dst_origin,
                     region, planeSrc.pitch[0], 0, planeDst.pitch[0], 0, wait_count, wait_list, event_ptr);
