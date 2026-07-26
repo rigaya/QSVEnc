@@ -269,6 +269,34 @@ __kernel void kernel_copy_plane(
     int width,
     int height
 ) {
+#if IMAGE_SRC && !IMAGE_DST
+    const bool vectorStore = (dstOffsetX & 3) == 0;
+    const int x = get_global_id(0) * (vectorStore ? 4 : 1);
+    const int y = get_global_id(1);
+
+    if (y < height) {
+        if (vectorStore && x + 3 < width) {
+            const TypeIn4 pixSrc = (TypeIn4)(
+                LOAD(src, x + srcOffsetX + 0, y + srcOffsetY),
+                LOAD(src, x + srcOffsetX + 1, y + srcOffsetY),
+                LOAD(src, x + srcOffsetX + 2, y + srcOffsetY),
+                LOAD(src, x + srcOffsetX + 3, y + srcOffsetY));
+            const TypeOut4 out = (TypeOut4)(
+                BIT_DEPTH_CONV(pixSrc.s0),
+                BIT_DEPTH_CONV(pixSrc.s1),
+                BIT_DEPTH_CONV(pixSrc.s2),
+                BIT_DEPTH_CONV(pixSrc.s3));
+            vstore4(out, 0, ((__global TypeOut *)(dst + (y + dstOffsetY) * dstPitch)) + x + dstOffsetX);
+        } else {
+            const int count = vectorStore ? 4 : 1;
+            for (int i = 0; i < count && x + i < width; i++) {
+                const TypeIn pixSrc = LOAD(src, x + i + srcOffsetX, y + srcOffsetY);
+                const TypeOut out = BIT_DEPTH_CONV(pixSrc);
+                STORE(dst, x + i + dstOffsetX, y + dstOffsetY, out);
+            }
+        }
+    }
+#else
     const int x = get_global_id(0);
     const int y = get_global_id(1);
 
@@ -277,6 +305,7 @@ __kernel void kernel_copy_plane(
         TypeOut out = BIT_DEPTH_CONV(pixSrc);
         STORE(dst, x + dstOffsetX, y + dstOffsetY, out);
     }
+#endif
 }
 
 __kernel void kernel_copy_plane_nv12(

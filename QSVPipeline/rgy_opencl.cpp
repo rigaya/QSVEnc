@@ -2583,9 +2583,11 @@ RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *planeDstOrg, const RGYFrameInf
                 return RGY_ERR_OPENCL_CRUSH;
             }
             RGYWorkSize local(32, 8);
-            RGYWorkSize global(planeDst.width, planeDst.height);
+            const int dstOffsetX = (int)dst_origin[0] / pixel_size;
+            // 出力オフセットが4画素境界なら、bufferへの書き込みを4画素単位にまとめる。
+            RGYWorkSize global((dstOffsetX & 3) == 0 ? (planeDst.width + 3) / 4 : planeDst.width, planeDst.height);
             auto rgy_err = copyProgram->kernel("kernel_copy_plane").config(queue, local, global, wait_events, event).launch(
-                (cl_mem)planeDst.ptr[0], planeDst.pitch[0], (int)dst_origin[0] / pixel_size, (int)dst_origin[1],
+                (cl_mem)planeDst.ptr[0], planeDst.pitch[0], dstOffsetX, (int)dst_origin[1],
                 (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0], (int)src_origin[0] / pixel_size, (int)src_origin[1],
                 planeSrc.width, planeSrc.height);
             err = err_rgy_to_cl(rgy_err);
