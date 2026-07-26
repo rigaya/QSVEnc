@@ -5629,7 +5629,7 @@ RGY_ERR RGYFilterKfm::removeCombeFields(RGYFrameInfo *pOutputFrame, const RGYFra
             : (prevEvent() != nullptr ? std::vector<RGYOpenCLEvent>{ prevEvent } : std::vector<RGYOpenCLEvent>());
         RGYOpenCLEvent planeEvent;
         RGYWorkSize local(32, 8);
-        RGYWorkSize global(dst.width, dst.height);
+        RGYWorkSize global((dst.width + 3) / 4, dst.height);
         const bool chroma = iplane > 0;
         const int threshold = (chroma ? KFM_REMOVE_COMBE_THRESH_C : KFM_REMOVE_COMBE_THRESH_Y) * kfmDepthScale(dst.csp);
         auto err = m_programs[KFM_PROG_RENDER].get()->kernel("kernel_kfm_remove_combe_binomial").config(queue, local, global, waitHere, &planeEvent).launch(

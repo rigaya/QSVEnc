@@ -616,17 +616,41 @@ __kernel void kernel_kfm_remove_combe_binomial(
     const int teleFieldStart,
     const int teleFieldCount,
     const int teleParity) {
-    const int x = get_global_id(0);
+    const int x = get_global_id(0) * 4;
     const int y = get_global_id(1);
     if (x >= width || y >= height) return;
 
-    const int sx = x * srcStep + srcOffset;
-    const int cx = (x >> 2) * 2 * combeStep + combeOffset;
     const int cy = y >> 2;
-    const int score = (int)combe[cy * combePitch + cx];
-    Type v = kfm_load_pixel(src, srcPitch, sx, y);
+    if (srcStep == 1 && x + 3 < width) {
+        const int sx = x + srcOffset;
+        const int cx = (x >> 2) * 2 * combeStep + combeOffset;
+        const int score = (int)combe[cy * combePitch + cx];
+        Type4 v = kfm_load_pixel4(src, srcPitch, sx, y);
+        if (score >= threshold) {
+            const int prevY = max(y - 1, 0);
+            const int nextY = min(y + 1, height - 1);
+            const Type4 prev = (y > 0)
+                ? kfm_load_pixel4(src, srcPitch, sx, prevY)
+                : kfm_telecine_weave_pixel4(teleSrc0, teleSrc0Pitch, teleSrc1, teleSrc1Pitch, teleSrc2, teleSrc2Pitch, sx, y - 1, teleSrcYOffset, teleFieldStart, teleFieldCount, teleParity);
+            const Type4 next = (y + 1 < height)
+                ? kfm_load_pixel4(src, srcPitch, sx, nextY)
+                : kfm_telecine_weave_pixel4(teleSrc0, teleSrc0Pitch, teleSrc1, teleSrc1Pitch, teleSrc2, teleSrc2Pitch, sx, y + 1, teleSrcYOffset, teleFieldStart, teleFieldCount, teleParity);
+            v = kfm_to_type4((kfm_to_int4(prev) + (int4)2 * kfm_to_int4(v) + kfm_to_int4(next) + (int4)2) >> 2);
+        }
+        kfm_store_pixel4(dst, dstPitch, sx, y, v);
+        return;
+    }
 
-    if (score >= threshold) {
+    const int xEnd = min(x + 4, width);
+    for (int ix = x; ix < xEnd; ix++) {
+        const int sx = ix * srcStep + srcOffset;
+        const int cx = (ix >> 2) * 2 * combeStep + combeOffset;
+        const int score = (int)combe[cy * combePitch + cx];
+        Type v = kfm_load_pixel(src, srcPitch, sx, y);
+        if (score < threshold) {
+            kfm_store_pixel(dst, dstPitch, sx, y, v);
+            continue;
+        }
         const int prevY = max(y - 1, 0);
         const int nextY = min(y + 1, height - 1);
         const int prev = (int)((y > 0)
@@ -637,6 +661,6 @@ __kernel void kernel_kfm_remove_combe_binomial(
             ? kfm_load_pixel(src, srcPitch, sx, nextY)
             : kfm_telecine_weave_pixel(teleSrc0, teleSrc0Pitch, teleSrc1, teleSrc1Pitch, teleSrc2, teleSrc2Pitch, sx, y + 1, teleSrcYOffset, teleFieldStart, teleFieldCount, teleParity));
         v = (Type)((prev + 2 * cur + next + 2) >> 2);
+        kfm_store_pixel(dst, dstPitch, sx, y, v);
     }
-    kfm_store_pixel(dst, dstPitch, sx, y, v);
 }
