@@ -1626,14 +1626,16 @@ RGY_ERR RGYFilterKfm::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog>
 
     const bool needTelecineWorkFrames = prm->kfm.mode == VppKfmMode::P24
         || prm->kfm.mode == VppKfmMode::VFR;
-    const int frameBufCount = needTelecineWorkFrames ? (prm->kfm.ucf ? 16 : 8) : 1;
-    auto sts = AllocFrameBuf(prm->frameOut, frameBufCount);
+    const int workFrameBufCount = needTelecineWorkFrames ? (prm->kfm.ucf ? 16 : 8) : 1;
+    // VFRの遅延出力が予約する1枚を、同一呼び出しで返す出力枠とは別に確保する。
+    const int outputFrameBufCount = needTelecineWorkFrames ? workFrameBufCount + 1 : workFrameBufCount;
+    auto sts = AllocFrameBuf(prm->frameOut, outputFrameBufCount);
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory: %s.\n"), get_err_mes(sts));
         return RGY_ERR_MEMORY_ALLOC;
     }
     if (needTelecineWorkFrames) {
-        sts = allocWorkFrameBuf(prm->frameOut, frameBufCount);
+        sts = allocWorkFrameBuf(prm->frameOut, workFrameBufCount);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM work buffer: %s.\n"), get_err_mes(sts));
             return RGY_ERR_MEMORY_ALLOC;
@@ -3540,9 +3542,12 @@ RGY_ERR RGYFilterKfm::runNrFilter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOu
 }
 
 RGY_ERR RGYFilterKfm::emitOutputFrame(RGYFrameInfo *pFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
-    RGYOpenCLQueue &queue, const RGYOpenCLEvent &frameEvent, RGYOpenCLEvent *event) {
+    RGYOpenCLQueue &queue, const RGYOpenCLEvent &frameEvent, RGYOpenCLEvent *event, RGYFrameInfo *reservedOutputFrame) {
     if (!pFrame || !ppOutputFrames || !pOutputFrameNum) {
         return RGY_ERR_INVALID_PARAM;
+    }
+    if (reservedOutputFrame && (m_nrFilter || reservedOutputFrame != pFrame)) {
+        return RGY_ERR_INVALID_CALL;
     }
     RGYFrameInfo *emitFrame = pFrame;
     RGYOpenCLEvent nrEvent;
@@ -3562,7 +3567,7 @@ RGY_ERR RGYFilterKfm::emitOutputFrame(RGYFrameInfo *pFrame, RGYFrameInfo **ppOut
             return RGY_ERR_NONE;
         }
     }
-    auto outputFrame = nextOutputFrame();
+    auto outputFrame = reservedOutputFrame ? reservedOutputFrame : nextOutputFrame();
     if (!outputFrame || !outputFrame->ptr[0]) {
         return RGY_ERR_INVALID_CALL;
     }
@@ -3600,20 +3605,37 @@ RGY_ERR RGYFilterKfm::queueVfrOutputFrame(const RGYFrameInfo *pFrame, RGYOpenCLQ
         return RGY_ERR_INVALID_CALL;
     }
     KfmPendingVfrOutput pending;
-    pending.frame = acquireKfmFrame(*pFrame, _T("VFR delayed output"));
-    if (!pending.frame) {
-        return RGY_ERR_MEMORY_ALLOC;
+    RGYFrameInfo *pendingFrame = nullptr;
+    if (m_nrFilter) {
+        pending.frame = acquireKfmFrame(*pFrame, _T("VFR delayed output"));
+        if (!pending.frame) {
+            return RGY_ERR_MEMORY_ALLOC;
+        }
+        pendingFrame = &pending.frame->frame;
+    } else {
+        pending.outputFrameIndex = m_outputBufferIndex;
+        const auto duplicate = std::find_if(m_pendingVfrOutputs.begin(), m_pendingVfrOutputs.end(), [&pending](const KfmPendingVfrOutput& queued) {
+            return queued.outputFrameIndex == pending.outputFrameIndex;
+        });
+        if (duplicate != m_pendingVfrOutputs.end()) {
+            AddMessage(RGY_LOG_ERROR, _T("KFM VFR output buffer slot %d is already reserved.\n"), pending.outputFrameIndex);
+            return RGY_ERR_INVALID_CALL;
+        }
+        pendingFrame = nextOutputFrame();
+        if (!pendingFrame || !pendingFrame->ptr[0]) {
+            return RGY_ERR_INVALID_CALL;
+        }
     }
     std::vector<RGYOpenCLEvent> copyWaitEvents;
     if (frameEvent() != nullptr) {
         copyWaitEvents.push_back(frameEvent);
     }
-    auto sts = m_cl->copyFrame(&pending.frame->frame, pFrame, nullptr, queue, copyWaitEvents, &pending.event, RGYFrameCopyMode::FRAME, "kfm.vfr.delay_output");
+    auto sts = m_cl->copyFrame(pendingFrame, pFrame, nullptr, queue, copyWaitEvents, &pending.event, RGYFrameCopyMode::FRAME, "kfm.vfr.delay_output");
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to copy KFM VFR delayed output frame: %s.\n"), get_err_mes(sts));
         return sts;
     }
-    copyFramePropWithoutRes(&pending.frame->frame, pFrame);
+    copyFramePropWithoutRes(pendingFrame, pFrame);
     m_pendingVfrOutputs.push_back(std::move(pending));
     return RGY_ERR_NONE;
 }
@@ -3625,6 +3647,13 @@ RGY_ERR RGYFilterKfm::emitPendingVfrOutput(RGYFrameInfo **ppOutputFrames, int *p
     }
     auto pending = std::move(m_pendingVfrOutputs.front());
     m_pendingVfrOutputs.pop_front();
+    if (pending.outputFrameIndex >= 0) {
+        if (pending.outputFrameIndex >= (int)m_frameBuf.size() || !m_frameBuf[pending.outputFrameIndex]) {
+            return RGY_ERR_INVALID_CALL;
+        }
+        auto outputFrame = &m_frameBuf[pending.outputFrameIndex]->frame;
+        return emitOutputFrame(outputFrame, ppOutputFrames, pOutputFrameNum, queue, pending.event, event, outputFrame);
+    }
     if (!pending.frame || !pending.frame->frame.ptr[0]) {
         return RGY_ERR_INVALID_CALL;
     }
@@ -6519,8 +6548,8 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
         const int vfrTailHold60 = switchSingleFrameDurationEnabled() ? 8 : 4;
         const int availableN60 = drain ? rawAvailableN60 : std::max(0, rawAvailableN60 - vfrTailHold60);
         m_vfrRunStats.maxTimingCount = std::max(m_vfrRunStats.maxTimingCount, availableN60);
-        const int maxOutputFrames = std::min<int>((int)m_frameBuf.size(), KFM_MAX_OUTPUT_FRAMES);
         const int vfrOutputDelay = switchSingleFrameDurationEnabled() ? 1 : 0;
+        const int maxOutputFrames = std::min<int>((int)m_frameBuf.size() - vfrOutputDelay, KFM_MAX_OUTPUT_FRAMES);
         auto emitReadyPending = [&](int keepFrames) -> RGY_ERR {
             KfmProfileScope profile(m_kfmProfile, m_kfmProfile.emitPending, (int)m_pendingVfrOutputs.size());
             return emitPendingVfrOutputs(ppOutputFrames, pOutputFrameNum, queue, event, keepFrames);

@@ -332,7 +332,7 @@ protected:
     RGY_ERR runNrFilter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrame,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     RGY_ERR emitOutputFrame(RGYFrameInfo *pFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
-        RGYOpenCLQueue &queue, const RGYOpenCLEvent &frameEvent, RGYOpenCLEvent *event);
+        RGYOpenCLQueue &queue, const RGYOpenCLEvent &frameEvent, RGYOpenCLEvent *event, RGYFrameInfo *reservedOutputFrame = nullptr);
     RGY_ERR queueVfrOutputFrame(const RGYFrameInfo *pFrame, RGYOpenCLQueue &queue, const RGYOpenCLEvent &frameEvent);
     RGY_ERR emitPendingVfrOutput(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
@@ -448,8 +448,9 @@ protected:
     struct KfmPendingVfrOutput {
         std::shared_ptr<RGYCLFrame> frame;
         RGYOpenCLEvent event;
+        int outputFrameIndex;
 
-        KfmPendingVfrOutput() : frame(), event() {};
+        KfmPendingVfrOutput() : frame(), event(), outputFrameIndex(-1) {};
     };
 
     struct KfmCleanSuperCacheKey {
