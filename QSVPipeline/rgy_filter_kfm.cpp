@@ -5046,7 +5046,7 @@ RGY_ERR RGYFilterKfm::renderTelecine24(RGYFrameInfo *pOutputFrame, int frame24In
             : (prevEvent() != nullptr ? std::vector<RGYOpenCLEvent>{ prevEvent } : std::vector<RGYOpenCLEvent>());
         RGYOpenCLEvent planeEvent;
         RGYWorkSize local(32, 8);
-        RGYWorkSize global(dst.width, dst.height);
+        RGYWorkSize global((dst.width + 3) / 4, dst.height);
         auto err = m_programs[KFM_PROG_RENDER].get()->kernel("kernel_kfm_telecine_weave").config(queue, local, global, waitHere, &planeEvent).launch(
             (cl_mem)dst.ptr[0], dst.pitch[0],
             (cl_mem)src0.ptr[0], src0.pitch[0],
@@ -5147,7 +5147,7 @@ RGY_ERR RGYFilterKfm::renderDoubleWeaveFrame(RGYFrameInfo *pOutputFrame, int fir
             : (prevEvent() != nullptr ? std::vector<RGYOpenCLEvent>{ prevEvent } : std::vector<RGYOpenCLEvent>());
         RGYOpenCLEvent planeEvent;
         RGYWorkSize local(32, 8);
-        RGYWorkSize global(dst.width, dst.height);
+        RGYWorkSize global((dst.width + 3) / 4, dst.height);
         auto err = m_programs[KFM_PROG_RENDER].get()->kernel("kernel_kfm_telecine_weave").config(queue, local, global, waitHere, &planeEvent).launch(
             (cl_mem)dst.ptr[0], dst.pitch[0],
             (cl_mem)src0.ptr[0], src0.pitch[0],
