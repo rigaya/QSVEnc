@@ -58,6 +58,10 @@
 #define DEGRAIN_MOTION_SEARCH_SPATIAL_REUSE_PREVIOUS_SAD 1
 #endif
 
+#ifndef DEGRAIN_MOTION_SEARCH_EARLY_SAD_THRESHOLD
+#define DEGRAIN_MOTION_SEARCH_EARLY_SAD_THRESHOLD -1
+#endif
+
 #ifndef DEGRAIN_PIXEL_BYTES
 #define DEGRAIN_PIXEL_BYTES 1
 #endif
@@ -1167,6 +1171,17 @@ static inline void degrain_motion_search_search_one_block(
     }
     barrier(CLK_LOCAL_MEM_FENCE);
 
+    // 1 work-groupが1 blockだけを担当するため、全work-itemで一様な分岐になる。
+    // 閾値はホスト側でblock sizeとbit depthに合わせてスケール済み。
+    // 0はSAD==0だけを対象とし、負値では探索を省略しない。
+#if DEGRAIN_MOTION_SEARCH_EARLY_SAD_THRESHOLD >= 0
+    const int skipFullSearch = (DEGRAIN_MOTION_SEARCH_EARLY_SAD_THRESHOLD == 0)
+        ? (bestCandidateCost->sad_metric == 0u)
+        : (bestCandidateCost->sad_metric < (uint)DEGRAIN_MOTION_SEARCH_EARLY_SAD_THRESHOLD);
+#else
+    const int skipFullSearch = 0;
+#endif
+    if (!skipFullSearch) {
 // searchparam<=1はsquare8のみ、searchparam>=2はwide6+square8を実行する。
 #if DEGRAIN_SEARCH_PARAM >= 2
 #if DEGRAIN_MOTION_SEARCH_REF_LOCAL_CACHE && DEGRAIN_PIXEL_BYTES == 1
@@ -1277,6 +1292,8 @@ static inline void degrain_motion_search_search_one_block(
 #endif
         );
 #endif
+
+    }
 
     // bestCandidateCostは直前のsquare8 refine末尾のbarrierにより全スレッドから可視
     const degrain_motion_search_candidate_cost_t finalizedBest = degrain_motion_search_finalize_candidate_cost_parallel(

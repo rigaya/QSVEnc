@@ -2343,17 +2343,17 @@ High quality QTGMC deinterlacer with relaxed implementation for GPU.
 
   - preset expansion table (implementation values)
 
-    | preset | tr0 | tr1 | tr2 | rep0-thin | rep2-thin | edi | nnsize | nneurons | search_refine | search | searchparam | pelsearch | chroma_motion | precise | prog_sad_mask |
-    |:--|--:|--:|--:|--:|--:|:--|--:|--:|--:|--:|--:|--:|:--|:--|--:|
-    | slower | 2 | 2 | 1 | 4 | 4 | nnedi3 | 1 | 1 | 3 | 4 | 2 | 2 | on | off | 10.0 |
-    | slow | 2 | 1 | 1 | 4 | 4 | nnedi3 | 1 | 1 | 3 | 4 | 2 | 2 | off | off | 10.0 |
-    | medium | 2 | 1 | 1 | 3 | 4 | nnedi3 | 5 | 1 | 3 | 4 | 2 | 1 | off | off | 10.0 |
-    | fast | 2 | 1 | 0 | 3 | 4 | nnedi3 | 5 | 0 | 2 | 4 | 2 | 1 | off | off | 0.0 |
-    | faster | 1 | 1 | 0 | 0 | 4 | nnedi3 | 4 | 0 | 2 | 4 | 2 | 1 | off | off | 0.0 |
-    | veryfast | 1 | 1 | 0 | 0 | 4 | nnedi3 | 4 | 0 | 2 | 4 | 1 | 1 | off | off | 0.0 |
-    | superfast | 1 | 1 | 0 | 0 | 3 | nnedi3 | 4 | 0 | 1 | 0 | 1 | 1 | off | off | 0.0 |
-    | ultrafast | 1 | 1 | 0 | 0 | 3 | repyadif | 4 | 0 | 1 | 0 | 1 | 1 | off | off | 0.0 |
-    | draft | 0 | 1 | 0 | 0 | 0 | bob | 4 | 0 | 0 | 0 | 1 | 1 | off | off | 0.0 |
+    | preset | tr0 | tr1 | tr2 | rep0-thin | rep2-thin | edi | nnsize | nneurons | search_refine | search | searchparam | pelsearch | search_early_sad | chroma_motion | precise | prog_sad_mask |
+    |:--|--:|--:|--:|--:|--:|:--|--:|--:|--:|--:|--:|--:|--:|:--|:--|--:|
+    | slower | 2 | 2 | 1 | 4 | 4 | nnedi3 | 1 | 1 | 3 | 4 | 2 | 2 | 0 | on | off | 10.0 |
+    | slow | 2 | 1 | 1 | 4 | 4 | nnedi3 | 1 | 1 | 3 | 4 | 2 | 2 | 0 | off | off | 10.0 |
+    | medium | 2 | 1 | 1 | 3 | 4 | nnedi3 | 5 | 1 | 3 | 4 | 2 | 1 | 8 | off | off | 10.0 |
+    | fast | 2 | 1 | 0 | 3 | 4 | nnedi3 | 5 | 0 | 2 | 4 | 2 | 1 | 8 | off | off | 0.0 |
+    | faster | 1 | 1 | 0 | 0 | 4 | nnedi3 | 4 | 0 | 2 | 4 | 2 | 1 | 16 | off | off | 0.0 |
+    | veryfast | 1 | 1 | 0 | 0 | 4 | nnedi3 | 4 | 0 | 2 | 4 | 1 | 1 | 16 | off | off | 0.0 |
+    | superfast | 1 | 1 | 0 | 0 | 3 | nnedi3 | 4 | 0 | 1 | 0 | 1 | 1 | 16 | off | off | 0.0 |
+    | ultrafast | 1 | 1 | 0 | 0 | 3 | repyadif | 4 | 0 | 1 | 0 | 1 | 1 | 16 | off | off | 0.0 |
+    | draft | 0 | 1 | 0 | 0 | 0 | bob | 4 | 0 | 0 | 0 | 1 | 1 | 16 | off | off | 0.0 |
 
     - `blksize` is tuning-dependent (`dv-hd=32`, otherwise `16`) for `slower..fast`, and fixed to `32` for `faster..draft`.
     - `overlap` is `blksize/2` for `slower..faster`, and `blksize/4` for `veryfast..draft`.
@@ -2396,6 +2396,8 @@ High quality QTGMC deinterlacer with relaxed implementation for GPU.
     This stage controls motion-vector search behavior and temporal reference direction.
     - `searchparam` / `pelsearch`  
       Search preset factors. `1` is lighter/faster, `2` is more exhaustive.
+    - `search_early_sad=<int|off>`  
+      Skip the level0 full search when the predictor SAD is below this threshold. The value is in 8x8-block, 8-bit SAD units (`0-65535`) and is scaled automatically for blksize and bit depth; `off` (`-1`) disables it. Preset defaults are listed above.
     - `useflag`  
       Temporal direction limit. `0` uses both directions, `1` backward-only, `2` forward-only.
     - `pel` / `levels` / `lambda` / `lsad` / `pnew` / `plevel` / `globalmotion`  
@@ -2472,6 +2474,8 @@ Motion compensated degrain debug filter.
     Search reference prefilter parameters.
   - searchparam/pelsearch/truemotion/lambda/lsad/pnew/plevel/globalmotion/dct/useflag  
     Motion search tuning parameters.
+  - search_early_sad=&lt;int|off&gt;  
+    Skip the level0 full search when the predictor SAD is below this threshold. The value is in 8x8-block, 8-bit SAD units (`0-65535`) and is scaled automatically for blksize and bit depth. Default: `off` (`-1`).
   - mv_spatial_refine=&lt;int|auto&gt;  
     Motion-vector spatial refinement count. Default is `auto` (`-1`): run spatial refinement (which consults neighboring block motion vectors) only at the coarsest (lowest-resolution) analysis level, and skip it at all finer levels. This concentrates spatial-neighbor refinement on the level where serial-dependency cost is small, and lets the finer levels run with maximum GPU parallelism. `0` disables it entirely; `1` runs one pass at every level, `2` runs two passes at every level, and so on.
   - chroma/binomial/tv_range  
@@ -2496,6 +2500,8 @@ Please note that this filter is slow, recommended to be used on dGPUs.
     Output mode. `vfr` (default), `60`, `24`.
   - preset=&lt;string&gt;  
     Reserved nested preset. `slower`, `slow`, `medium`, `fast`, `faster` (default), `veryfast`, `superfast`, `ultrafast`, `draft`.
+  - search_early_sad=&lt;int|auto|off&gt;  
+    SAD threshold for skipping the level0 full search, in 8x8-block, 8-bit SAD units (`0-65535`), scaled automatically for blksize and bit depth. `auto` (default) uses the preset value; `off` (`-1`) disables it.
   - timing=&lt;string&gt;  
     Timing analysis mode. `realtime`, `realtime+` (default), `strict`.
   - past_cycles=&lt;int&gt;  

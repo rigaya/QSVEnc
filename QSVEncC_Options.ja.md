@@ -2396,17 +2396,17 @@ nnediによるインタレ解除を行う。
 
   - preset展開表 (実装値)
 
-    | preset | tr0 | tr1 | tr2 | rep0-thin | rep2-thin | edi | nnsize | nneurons | search_refine | search | searchparam | pelsearch | chroma_motion | precise | prog_sad_mask |
-    |:--|--:|--:|--:|--:|--:|:--|--:|--:|--:|--:|--:|--:|:--|:--|--:|
-    | slower | 2 | 2 | 1 | 4 | 4 | nnedi3 | 1 | 1 | 3 | 4 | 2 | 2 | on | off | 10.0 |
-    | slow | 2 | 1 | 1 | 4 | 4 | nnedi3 | 1 | 1 | 3 | 4 | 2 | 2 | off | off | 10.0 |
-    | medium | 2 | 1 | 1 | 3 | 4 | nnedi3 | 5 | 1 | 3 | 4 | 2 | 1 | off | off | 10.0 |
-    | fast | 2 | 1 | 0 | 3 | 4 | nnedi3 | 5 | 0 | 2 | 4 | 2 | 1 | off | off | 0.0 |
-    | faster | 1 | 1 | 0 | 0 | 4 | nnedi3 | 4 | 0 | 2 | 4 | 2 | 1 | off | off | 0.0 |
-    | veryfast | 1 | 1 | 0 | 0 | 4 | nnedi3 | 4 | 0 | 2 | 4 | 1 | 1 | off | off | 0.0 |
-    | superfast | 1 | 1 | 0 | 0 | 3 | nnedi3 | 4 | 0 | 1 | 0 | 1 | 1 | off | off | 0.0 |
-    | ultrafast | 1 | 1 | 0 | 0 | 3 | repyadif | 4 | 0 | 1 | 0 | 1 | 1 | off | off | 0.0 |
-    | draft | 0 | 1 | 0 | 0 | 0 | bob | 4 | 0 | 0 | 0 | 1 | 1 | off | off | 0.0 |
+    | preset | tr0 | tr1 | tr2 | rep0-thin | rep2-thin | edi | nnsize | nneurons | search_refine | search | searchparam | pelsearch | search_early_sad | chroma_motion | precise | prog_sad_mask |
+    |:--|--:|--:|--:|--:|--:|:--|--:|--:|--:|--:|--:|--:|--:|:--|:--|--:|
+    | slower | 2 | 2 | 1 | 4 | 4 | nnedi3 | 1 | 1 | 3 | 4 | 2 | 2 | 0 | on | off | 10.0 |
+    | slow | 2 | 1 | 1 | 4 | 4 | nnedi3 | 1 | 1 | 3 | 4 | 2 | 2 | 0 | off | off | 10.0 |
+    | medium | 2 | 1 | 1 | 3 | 4 | nnedi3 | 5 | 1 | 3 | 4 | 2 | 1 | 8 | off | off | 10.0 |
+    | fast | 2 | 1 | 0 | 3 | 4 | nnedi3 | 5 | 0 | 2 | 4 | 2 | 1 | 8 | off | off | 0.0 |
+    | faster | 1 | 1 | 0 | 0 | 4 | nnedi3 | 4 | 0 | 2 | 4 | 2 | 1 | 16 | off | off | 0.0 |
+    | veryfast | 1 | 1 | 0 | 0 | 4 | nnedi3 | 4 | 0 | 2 | 4 | 1 | 1 | 16 | off | off | 0.0 |
+    | superfast | 1 | 1 | 0 | 0 | 3 | nnedi3 | 4 | 0 | 1 | 0 | 1 | 1 | 16 | off | off | 0.0 |
+    | ultrafast | 1 | 1 | 0 | 0 | 3 | repyadif | 4 | 0 | 1 | 0 | 1 | 1 | 16 | off | off | 0.0 |
+    | draft | 0 | 1 | 0 | 0 | 0 | bob | 4 | 0 | 0 | 0 | 1 | 1 | 16 | off | off | 0.0 |
 
     - `blksize` は `slower..fast` では `tuning` 依存 (`dv-hd=32`, それ以外=16)、`faster..draft` では固定 `32`。
     - `overlap` は `slower..faster` で `blksize/2`、`veryfast..draft` で `blksize/4`。
@@ -2452,6 +2452,8 @@ nnediによるインタレ解除を行う。
     モーションベクトル探索と時系列参照の挙動を制御する段。
     - `searchparam` / `pelsearch`  
       探索の広さ・精度側のプリセット係数。`1` は軽量寄り、`2` は精度寄り。
+    - `search_early_sad=<int|off>`  
+      level0 の予測候補 SAD が指定値未満なら全探索を省略する。値は8x8ブロック・8bit換算で `0-65535`、実際の閾値はblksizeとbit depthに応じて自動スケールされる。`off` (`-1`) で無効。presetの既定値は上表のとおり。
     - `useflag`  
       参照方向の制限。`0` は前後参照、`1` は過去方向のみ、`2` は未来方向のみ。
     - `pel` / `levels` / `lambda` / `lsad` / `pnew` / `plevel` / `globalmotion`  
@@ -2524,6 +2526,8 @@ nnediによるインタレ解除を行う。
     search reference prefilter パラメータ。
   - searchparam/pelsearch/truemotion/lambda/lsad/pnew/plevel/globalmotion/dct/useflag  
     モーション探索の調整パラメータ。
+  - search_early_sad=&lt;int|off&gt;  
+    level0 の予測候補 SAD が指定値未満なら全探索を省略する。値は8x8ブロック・8bit換算で `0-65535`、実際の閾値はblksizeとbit depthに応じて自動スケールされる。デフォルトは `off` (`-1`)。
   - mv_spatial_refine=&lt;int|auto&gt;  
     モーションベクトルの spatial refine 回数。デフォルトは `auto` (`-1`) で、もっとも解像度の低い最上位レベルでのみ近傍ブロック参照による refine を行い、下位（高解像度）レベルでは行わない。ブロック数の少ない階層に spatial 情報を集中させ、ブロック数の多い下位階層では GPU の並列性を最大限に活用するための既定戦略。`0` は全レベルで無効、`1` は全レベルで1回、`2` は全レベルで2回、以降同様。
   - chroma/binomial/tv_range  
@@ -2545,6 +2549,8 @@ nnediによるインタレ解除を行う。
     出力モード。`vfr` (デフォルト), `60`, `24`。
   - preset=&lt;string&gt;  
     RTGMCのpreset。`slower`, `slow`, `medium`, `fast`, `faster`(デフォルト), `veryfast`, `superfast`, `ultrafast`, `draft`。
+  - search_early_sad=&lt;int|auto|off&gt;  
+    level0 の全探索を省略するSAD閾値。値は8x8ブロック・8bit換算で `0-65535`、実際の閾値はblksizeとbit depthに応じて自動スケールされる。`auto` (デフォルト) はpresetの値、`off` (`-1`) は無効。
   - timing=&lt;string&gt;  
     タイミング解析モード。`realtime`, `realtime+` (デフォルト), `strict`。
   - past_cycles=&lt;int&gt;  

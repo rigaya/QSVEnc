@@ -1438,6 +1438,11 @@ RGY_ERR RGYFilterKfm::initRtgmc(const std::shared_ptr<RGYFilterParamKfm>& prm, s
     rtgmcParam->rtgmc.enable = true;
     rtgmcParam->rtgmc.preset = prm->kfm.preset;
     apply_vpp_rtgmc_preset(rtgmcParam->rtgmc, prm->kfm.preset, rtgmcParam->rtgmc.tuning);
+    if (prm->kfm.searchEarlySadOverride != FILTER_DEFAULT_KFM_SEARCH_EARLY_SAD_OVERRIDE) {
+        for (auto *stagePrm : { &rtgmcParam->rtgmc.analyze, &rtgmcParam->rtgmc.tr1, &rtgmcParam->rtgmc.tr2 }) {
+            stagePrm->searchEarlySad = prm->kfm.searchEarlySadOverride;
+        }
+    }
     if (useFlag > 0) {
         rtgmcParam->rtgmc.tr1.useFlag = useFlag;
         rtgmcParam->rtgmc.tr2.useFlag = useFlag;
