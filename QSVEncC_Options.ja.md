@@ -2357,7 +2357,7 @@ nnediによるインタレ解除を行う。
 
 - **パラメータ**
 
-  - planes=&lt;string&gt;
+  - planes=&lt;string&gt;  
     対象plane。`all`、または `y`, `u`, `v` を `:` 区切りで指定。デフォルト: `all`。
   - field=&lt;string&gt;  
     対象フィールド。`bob`, `auto`(デフォルト), `top`, `bottom`, `bob_tff`, `bob_bff`。
@@ -2645,15 +2645,14 @@ GPUによるインタレ解除を使用する。"normal", "bob"はわりとき�
     画素単位の combing 判定閾値。`0.0 - 1.0`。
   - cleanfrac=&lt;float&gt;  (デフォルト: 0.01)  
     `guide=1` と `post=2` で使用するブロック単位の clean 判定閾値。1ブロック内で combed と判定されるピクセルの許容割合を指定する。
-  - nt=&lt;int&gt;  (デフォルト: 10)
+  - nt=&lt;int&gt;  (デフォルト: 10)  
     マッチ評価におけるノイズ許容値（8bit基準）。
-  - cthresh=&lt;int&gt;  (デフォルト: 4)
+  - cthresh=&lt;int&gt;  (デフォルト: 4)  
     マッチ評価における画素単位の縞検出閾値（8bit基準）。
-  - combpel=&lt;int&gt;  (デフォルト: 8)
+  - combpel=&lt;int&gt;  (デフォルト: 8)  
     ブロックを縞ありと判定するために必要な縞画素数。
-  - scthresh=&lt;float&gt;  (デフォルト: 0.0)
+  - scthresh=&lt;float&gt;  (デフォルト: 0.0)  
     最大SADに対するシーンチェンジ判定閾値。`0.0` の場合は適応閾値を使用する。
-
   - mixed=&lt;bool&gt;  (デフォルト: off)  
     RFF/progressive区間と本物のインタレース区間が混在するTS向けの混合モード。`--avsw` または `--avhw` 入力が必要。
     RFF区間はdecimateせず、repeat field pendingがある場合のみcopy候補とfield再構築候補を比較し、縞が少ない候補を24000/1001fpsのCFRでdirect emitする。
@@ -2708,7 +2707,7 @@ GPUによるインタレ解除を使用する。"normal", "bob"はわりとき�
   - max=&lt;int&gt;  (デフォルト: 0)  
     正の値での指定: 連続ドロップフレーム数の上限。  
     負の値での指定: 間引く1フレームを決めるフレーム間隔の下限。
-  - keep=&lt;int&gt;  (デフォルト: 0)
+  - keep=&lt;int&gt;  (デフォルト: 0)  
     連続する類似フレームを何枚保持してから破棄を開始するか。
     
   - log=&lt;bool&gt;  
@@ -2801,8 +2800,7 @@ GPUによるインタレ解除を使用する。"normal", "bob"はわりとき�
 - **パラメータ**
   - sigma=&lt;float&gt;  
     フィルタ強度。 (default=1.0, 0.0 - 100.0)
-
-  - sigma2=&lt;float&gt; / sigma3=&lt;float&gt; / sigma4=&lt;float&gt;
+  - sigma2=&lt;float&gt; / sigma3=&lt;float&gt; / sigma4=&lt;float&gt;  
     中高周波数 / 中低周波数 / 低周波数側のフィルタ強度。0.0 の場合は sigma と同じ値を使用。(default=0.0, 0.0 - 100.0)
   
   - amount=&lt;float&gt;  (default=1.0, 0.0 - 1.0)  
@@ -2834,24 +2832,18 @@ GPUによるインタレ解除を使用する。"normal", "bob"はわりとき�
     - 4 ... 2つ前のフレーム + 前フレーム + 現在フレーム + 次フレーム
     - -1 ... sharpen/degrid のみ
 
-  - sharpen=&lt;float&gt;
+  - sharpen=&lt;float&gt;  
     周波数領域でのシャープ化強度。0.0 で無効。(default=0.0, -10.0 - 10.0)
-
-  - scutoff=&lt;float&gt;
+  - scutoff=&lt;float&gt;  
     シャープ化のカットオフ周波数。(default=0.30, 0.0 - 1.0)
-
-  - svr=&lt;float&gt;
+  - svr=&lt;float&gt;  
     シャープ化の垂直方向比率。0.0 で垂直方向を無効化。(default=1.00, 0.0 - 10.0)
-
-  - smin=&lt;float&gt; / smax=&lt;float&gt;
+  - smin=&lt;float&gt; / smax=&lt;float&gt;  
     シャープ化の最小/最大制限。(default=10.0/100.0)
-
-  - degrid=&lt;float&gt;
+  - degrid=&lt;float&gt;  
     ブロック格子補正の強度。0.0 で無効、1.0 で標準補正。(default=0.0, 0.0 - 2.0)
-
-  - signorm=&lt;bool&gt;
+  - signorm=&lt;bool&gt;  
     sigma/smin/smax を実ノイズパワー単位として扱う。false では従来互換の scale を使用。(default=false)
-
   - prec=&lt;string&gt; (default = auto)
     - auto ... 可能な場合fp16(半精度浮動小数点)で計算する (高速)
     - fp32 ... 常にfp32(単精度浮動小数点)で計算する
@@ -2889,7 +2881,7 @@ GPUによるインタレ解除を使用する。"normal", "bob"はわりとき�
 - **パラメータ**
   - radius=&lt;int&gt;  (default=3, 1-5)  
     適用半径。値が大きいほど効果が強くなる一方、処理が重くなる。
-  - d=&lt;int&gt;  (default=0, 0 - 2)
+  - d=&lt;int&gt;  (default=0, 0 - 2)  
     時間方向半径。前後フレームを重み計算に含める。
   
   - strength=&lt;float&gt;  (default=0.08, 0.0 - 1.0)  
@@ -2958,8 +2950,7 @@ Non local meansを用いたノイズ除去フィルタ。
   
   - threshold=&lt;float&gt;  (default=100, 0-255)  
     フィルタの輪郭検出の閾値。小さいほど輪郭を保持するようになるが、フィルタの効果も弱まる。
-
-  - useexp=&lt;bool&gt;  (default=true)
+  - useexp=&lt;bool&gt;  (default=true)  
     係数計算にexp関数を使用する。falseにすると簡易式を使用する。
 
 - 使用例
@@ -3090,9 +3081,9 @@ image stabilizerのモードの指定。
 - **パラメータ**
     - shader=&lt;string&gt;  
       対象のshaderファイルのパス。(glslファイル)
-    - &lt;name&gt;=&lt;value&gt;
+    - &lt;name&gt;=&lt;value&gt;  
       シェーダーを解析する前に、シェーダー内の `#define &lt;name&gt; ...` の値を置換します。シェーダーソースに対するコンパイル時パラメータで、複数指定できます。`custom=` で指定するパラメータとは別のものです。
-    - custom=&lt;name&gt;=&lt;value&gt;
+    - custom=&lt;name&gt;=&lt;value&gt;  
       シェーダー内の `//!PARAM` で宣言された実行時パラメータを設定します。libplaceboによって型と範囲が検証されます。複数指定できます。
     - res=&lt;int&gt;x&lt;int&gt;  
       フィルタの出力解像度。
@@ -3184,7 +3175,7 @@ image stabilizerのモードの指定。
       bicubic のパラメータ。デフォルトは b=0.0, c=0.5。
     - src_left=&lt;float&gt;, src_top=&lt;float&gt;  
       入力画像のサブピクセルオフセット。デフォルトは 0.0。
-    - src_width=&lt;float&gt;, src_height=&lt;float&gt;
+    - src_width=&lt;float&gt;, src_height=&lt;float&gt;  
       非整数のネイティブサイズを持つソース向けの有効ソース幅/高さ。デフォルト: 0.0 (無効)。
     - border_handling=&lt;string&gt;  
       端処理。デフォルトは mirror。
@@ -3500,7 +3491,7 @@ MFXの `--vpp-image-stab` とは別のフィルタ。
 ハロー除去フィルタ。輝度成分に補正を適用し、色差成分は元のままコピーする。
 
 - **パラメータ**
-  - mode=&lt;string&gt; (default=legacy, legacy|alpha)
+  - mode=&lt;string&gt; (default=legacy, legacy|alpha)  
     フィルタモード。`legacy` は従来実装、`alpha` は高精度なハロー検出経路を使用する。
   - rx=&lt;float&gt; (default=2.0, 0.5 - 10.0)  
     水平方向のハロー半径。
@@ -3531,7 +3522,7 @@ MFXの `--vpp-image-stab` とは別のフィルタ。
 細線保護マスクを使ったハロー除去フィルタ。輝度成分に補正を適用し、色差成分は元のままコピーする。
 
 - **パラメータ**
-  - mode=&lt;string&gt; (default=alpha, legacy|alpha)
+  - mode=&lt;string&gt; (default=alpha, legacy|alpha)  
     内部 dehalo のモード。
   - rx=&lt;float&gt; (default=2.0, 0.5 - 10.0)  
     水平方向のハロー半径。
@@ -3539,7 +3530,7 @@ MFXの `--vpp-image-stab` とは別のフィルタ。
     垂直方向のハロー半径。
   - darkstr=&lt;float&gt; (default=1.0, 0.0 - 1.0)  
     明るいハローを暗く補正する強度。
-  - brightstr=&lt;float&gt; (default=1.0, 0.0 - 1.0)
+  - brightstr=&lt;float&gt; (default=1.0, 0.0 - 1.0)  
     暗いハローを明るく補正する強度。
   - lowsens=&lt;int&gt; (default=50, 0 - 100)  
     dehalo処理の感度ランプ下限。
@@ -3561,9 +3552,9 @@ MFXの `--vpp-image-stab` とは別のフィルタ。
     弱いエッジマスクの上限しきい値。
   - showmask=&lt;int&gt; (default=0, 0 - 4)  
     デバッグ用マスク出力。1=outside, 2=shrink, 3=edges, 4=strong。
-  - excl=&lt;bool&gt; (default=true)
+  - excl=&lt;bool&gt; (default=true)  
     強いエッジと近接する弱いエッジの exclusion zone を有効にする。
-  - edgeproc=&lt;float&gt; (default=0.0, 0.0 - 1.0)
+  - edgeproc=&lt;float&gt; (default=0.0, 0.0 - 1.0)  
     outside マスクに strong エッジマスクを加算する。
   - edge=&lt;string&gt; (default=prewitt)  
     エッジ検出方式。prewitt, sobel, scharr, kirsch, laplacian から選択。
@@ -3590,21 +3581,21 @@ DCTリンギング低減フィルタ。デフォルトでは輝度に補正を�
     元のエッジ画素を保護する。
   - edge=&lt;string&gt; (default=log)  
     エッジ検出方式。log, sobel, prewitt, scharr, kirsch, laplacian から選択。
-  - thr=&lt;int&gt; (default=0)
+  - thr=&lt;int&gt; (default=0)  
     1ピクセルあたりの変化量の上限。8bitスケール。`0` で無制限。
   - elast=&lt;float&gt; (default=2.0, 1.0 - 3.0)
     `thr` の弾性的な減衰。
-  - darkthr=&lt;int&gt; (default=-1)
+  - darkthr=&lt;int&gt; (default=-1)  
     暗くする方向の別上限。`-1` で `thr` に従う。
-  - minp=&lt;int&gt; (default=0, 0 - 3)
+  - minp=&lt;int&gt; (default=0, 0 - 3)  
     リングマスクから除外するエッジ芯のinpand回数。
-  - msmooth=&lt;int&gt; (default=0, 0 - 3)
+  - msmooth=&lt;int&gt; (default=0, 0 - 3)  
     リングマスクの平滑化回数。
-  - drrep=&lt;int&gt; (default=0)
+  - drrep=&lt;int&gt; (default=0)  
     ぼかしクリップの補修。`0`=off, `1`=入力の3x3最小/最大値へclamp。
-  - sharp=&lt;int&gt; (default=0, 0 - 3)
+  - sharp=&lt;int&gt; (default=0, 0 - 3)  
     contra-sharpening強度。ぼかしで失われた線の強さを、リンギングを戻さない範囲で復元する。
-  - planes=&lt;string&gt; (default=y)
+  - planes=&lt;string&gt; (default=y)  
     対象plane。`all`、または `y`, `u`, `v` を `:` 区切りで指定。
 
 - 使用例
@@ -3680,7 +3671,7 @@ Contrast Adaptive Sharpeningフィルタ。デフォルトでは輝度へ適用�
     シャープニングの強度。内部ではCASのpeak値に変換される。
   - hdr=&lt;bool&gt; (default=false)  
     SDR向けのgamma 2.0輝度近似をスキップする。PQやHLGなどのHDR素材で有効にする。
-  - chroma=&lt;bool&gt; (default=false)
+  - chroma=&lt;bool&gt; (default=false)  
     色差planeにもシャープ化を適用する。
 
 - 使用例
@@ -3878,7 +3869,7 @@ GPUによるディテールの強調を行う。0 - 100 の間でディテール
   
   - all=&lt;string&gt;  
     全成分のカーブの指定。r,g,bの固有の指定がない場合には、これが適用される。
-  - interp=&lt;string&gt; (default=spline)
+  - interp=&lt;string&gt; (default=spline)  
     補間方式。`spline` は自然3次スプライン、`pchip` は点間のオーバーシュートを抑える単調3次補間。
 
 - 使用例
@@ -3903,9 +3894,8 @@ GPUによるディテールの強調を行う。0 - 100 の間でディテール
   - coring=&lt;bool&gt;  (default=false)
 
   - start_hue=&lt;float&gt; (default=0.0, 0.0 - 360.0)
-  - end_hue=&lt;float&gt; (default=360.0, 0.0 - 360.0)
+  - end_hue=&lt;float&gt; (default=360.0, 0.0 - 360.0)  
     hue/saturation調整を適用する色相角の範囲を制限する。
-
   - swapuv=&lt;bool&gt;  (default=false)
 
   - y_offset=&lt;float&gt; (default=0.0, -1.0 - 1.0)  
@@ -3971,7 +3961,7 @@ GPUによるディテールの強調を行う。0 - 100 の間でディテール
   
   - rand_each_frame (default=off)  
     毎フレーム使用する乱数を変更する。
-  - keep_tv_range=&lt;bool&gt; (default=off)
+  - keep_tv_range=&lt;bool&gt; (default=off)  
     出力をbit深度に応じたTVレンジ (`Y: 16-235`, `Cb/Cr: 16-240`) にclampする。
   
 - 使用例
@@ -4173,7 +4163,7 @@ LinuxではOpenVINO Runtimeの追加インストールが必要です。Ubuntu�
     OpenVINOの推論精度。auto / fp16 / fp32
   - colormatrix=&lt;string&gt; (デフォルト: auto)  
     色行列。[`--colormatrix`](#--colormatrix-string) と同じ名前を受け付ける。`--vpp-onnx` で対応するのは auto / auto_res / smpte170m / bt470bg / bt709 / bt2020nc。
-  - colormatrix_out=&lt;string&gt; (デフォルト: auto)
+  - colormatrix_out=&lt;string&gt; (デフォルト: auto)  
     出力側 RGB→YUV 変換の色行列。`colormatrix` と同じ名前を受け付ける。auto では `colormatrix` と同じ色行列を使用する。BT.2020/PQ RGB を出力する SDR→HDR モデルでは bt2020nc を指定する。
   - colorrange=&lt;string&gt; (デフォルト: auto)  
     色域。[`--colorrange`](#--colorrange-string) と同じ名前を受け付ける。`--vpp-onnx` で対応するのは auto / tv / limited / pc / full。
