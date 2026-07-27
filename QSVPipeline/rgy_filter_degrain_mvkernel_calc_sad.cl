@@ -72,4 +72,56 @@ __kernel void kernel_degrain_mv_export_sad(
     }
 }
 
+__kernel void kernel_degrain_mv_add_chroma_sad(
+    __global const uchar *curU,
+    __global const uchar *curV,
+    const int curPitch,
+    __global const uchar *refU,
+    __global const uchar *refV,
+    const int refPitch,
+    const int width,
+    const int height,
+    __global degrain_mv_t *mv,
+    __global degrain_sad_t *sad,
+    const int blocksX,
+    const int blockCount,
+    const int blockSize,
+    const int step,
+    const int planeScaleX,
+    const int planeScaleY,
+    const int referenceDirection) {
+    const int block = get_global_id(0);
+    if (block >= blockCount) {
+        return;
+    }
+    const int blockX = block % blocksX;
+    const int blockY = block / blocksX;
+    const int scaleX = max(planeScaleX, 1);
+    const int scaleY = max(planeScaleY, 1);
+    const int originX = (blockX * step) / scaleX;
+    const int originY = (blockY * step) / scaleY;
+    const int sizeX = max(blockSize / scaleX, 1);
+    const int sizeY = max(blockSize / scaleY, 1);
+    uint chromaSad = 0u;
+    for (int y = originY; y < min(originY + sizeY, height); y++) {
+        for (int x = originX; x < min(originX + sizeX, width); x++) {
+            const int curSampleU = degrain_pixel_load(curU, curPitch, width, height, x, y);
+            const int curSampleV = degrain_pixel_load(curV, curPitch, width, height, x, y);
+            const int refSampleU = degrain_compensated_sample(
+                refU, refPitch, width, height, mv, block, referenceDirection,
+                planeScaleX, planeScaleY, x, y);
+            const int refSampleV = degrain_compensated_sample(
+                refV, refPitch, width, height, mv, block, referenceDirection,
+                planeScaleX, planeScaleY, x, y);
+            chromaSad += (uint)(abs(curSampleU - refSampleU) + abs(curSampleV - refSampleV));
+        }
+    }
+    const int index = degrain_ref_index(block, referenceDirection);
+    const uint combinedSad = sad[index].sad + chromaSad;
+    sad[index].sad = combinedSad;
+    sad[index].reserved = combinedSad;
+    mv[index].sad = degrain_clamp_u16(combinedSad);
+    mv[index].reserved = combinedSad;
+}
+
 #endif

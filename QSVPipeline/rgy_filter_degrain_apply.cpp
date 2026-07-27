@@ -723,7 +723,8 @@ RGY_ERR RGYFilterDegrain::emitCompensateFrame(const RGYFilterDegrainFrameSet &fr
             disableMaskBuf->mem());
     };
 
-    const bool processChroma = prm->degrain.chroma && degrainCanProcessChroma(frames.cur);
+    // 輝度のみのSAD/MV解析結果を色差の時間補償へ適用しない。
+    const bool processChroma = prm->degrain.chroma && analysisSADIncludesChroma(prm) && degrainCanProcessChroma(frames.cur);
     const std::array<RGY_PLANE, 3> planes = { RGY_PLANE_Y, RGY_PLANE_U, RGY_PLANE_V };
     auto waitEvents = std::vector<RGYOpenCLEvent>{ copyEvent };
     if (disableMaskEvent && (*disableMaskEvent)() != nullptr) {

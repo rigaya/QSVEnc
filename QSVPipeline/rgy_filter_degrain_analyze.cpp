@@ -185,6 +185,20 @@ bool degrainChromaAnalysisFrameSupported(const RGYFrameInfo *frame) {
     }
 }
 
+int degrainAnalyzeChromaScaleX(const RGY_CSP csp) {
+    switch (RGY_CSP_CHROMA_FORMAT[csp]) {
+    case RGY_CHROMAFMT_YUV420:
+    case RGY_CHROMAFMT_YUV422:
+        return 2;
+    default:
+        return 1;
+    }
+}
+
+int degrainAnalyzeChromaScaleY(const RGY_CSP csp) {
+    return RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_YUV420 ? 2 : 1;
+}
+
 bool degrainValidAnalysisPlane(const RGYFrameInfo &plane) {
     return plane.ptr[0] != nullptr && plane.pitch[0] > 0 && plane.width > 0 && plane.height > 0;
 }
@@ -1782,6 +1796,48 @@ RGY_ERR RGYFilterDegrain::prepareAnalysisState(const RGYFilterDegrainFrameSet &f
     if (motionSearchErr != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("degrain motion search analysis failed: %s.\n"), get_err_mes(motionSearchErr));
         return motionSearchErr;
+    }
+    if (chromaPlanes.enable) {
+        auto programL0 = getDegrainMotionSearchProgram(m_analysis.motionSearchWorkspace.buildOptionsLevel0);
+        if (!programL0) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to build degrain chroma SAD program.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        const int planeScaleX = degrainAnalyzeChromaScaleX(analysisFrames.cur->csp);
+        const int planeScaleY = degrainAnalyzeChromaScaleY(analysisFrames.cur->csp);
+        const RGYWorkSize chromaSadLocal(DEGRAIN_MV_EXPORT_SAD_LOCAL_SIZE);
+        for (int dir = 0; dir < m_analysis.layout.temporalDirections; dir++) {
+            RGYOpenCLEvent chromaSadEvent;
+            const std::vector<RGYOpenCLEvent> chromaSadWaitEvents = m_analysis.event() != nullptr
+                ? std::vector<RGYOpenCLEvent>{ m_analysis.event }
+                : std::vector<RGYOpenCLEvent>{};
+            const auto chromaSadErr = programL0->kernel("kernel_degrain_mv_add_chroma_sad").config(
+                queue, chromaSadLocal, RGYWorkSize(m_analysis.layout.blockCount()).ceilGlobal(chromaSadLocal),
+                chromaSadWaitEvents, &chromaSadEvent).launch(
+                    (cl_mem)chromaPlanes.curU.ptr[0],
+                    (cl_mem)chromaPlanes.curV.ptr[0],
+                    chromaPlanes.curU.pitch[0],
+                    (cl_mem)chromaPlanes.refU[dir].ptr[0],
+                    (cl_mem)chromaPlanes.refV[dir].ptr[0],
+                    chromaPlanes.refU[dir].pitch[0],
+                    chromaPlanes.width,
+                    chromaPlanes.height,
+                    m_analysis.mv->mem(),
+                    m_analysis.sad->mem(),
+                    m_analysis.layout.blocksX,
+                    (int)m_analysis.layout.blockCount(),
+                    m_analysis.layout.blockSize,
+                    m_analysis.layout.step,
+                    planeScaleX,
+                    planeScaleY,
+                    dir);
+            if (chromaSadErr != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("degrain analysis chroma SAD calculation failed: %s.\n"), get_err_mes(chromaSadErr));
+                return chromaSadErr;
+            }
+            m_analysis.event = chromaSadEvent;
+        }
+        m_lastAnalysisIncludedChroma = true;
     }
     logAnalysisSamples(_T("local"), frames.cur, queue);
     return RGY_ERR_NONE;
