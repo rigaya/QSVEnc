@@ -114,6 +114,7 @@ protected:
         KFM_FRAME_30 = 2,
         KFM_FRAME_24 = 3,
         KFM_FRAME_UCF = 4,
+        KFM_FRAME_RFF_24 = 5,
     };
     enum KfmCleanSuperMode {
         KFM_CLEAN_SUPER_24 = 24,
@@ -256,6 +257,11 @@ protected:
     const RGYFrameInfo *findSourceFrame(const RGYFrameInfo *frame, std::vector<RGYOpenCLEvent> *wait_events);
     const KfmCachedSource *findSourceByIndex(int sourceIndex) const;
     const KfmCachedSource *findSourceByIndexExact(int sourceIndex) const;
+    bool isRffProgressiveCandidate(const KfmCachedSource *source) const;
+    bool isRffProgressiveSource(int sourceIndex, bool drain) const;
+    bool isRffTimestampContinuous(const KfmCachedSource *prev, const KfmCachedSource *current) const;
+    int64_t rffFilmOffset(int64_t frameIndex) const;
+    void resetRffTiming();
     const KfmCachedDeint60 *findCachedDeint60Frame(const KfmRtgmcLane& lane, int n60, std::vector<RGYOpenCLEvent> *wait_events) const;
     const KfmUcfNoiseDumpRecord *findUcfNoiseResult(int sourceIndex) const;
     RGY_ERR runUcfNoiseAnalysisFromSource(const RGYFrameInfo *frame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
@@ -633,6 +639,13 @@ protected:
     int m_cachedSourceFrames;
     int m_nextSwitchN60;
     int64_t m_nextSwitchPts;
+    int64_t m_switchPtsOffset;
+    int m_rffPrevSourceIndex;
+    int64_t m_rffPrevInputPts;
+    RGY_FRAME_FLAGS m_rffPrevFlags;
+    int64_t m_rffAnchorOutputPts;
+    int64_t m_rffRunIndex;
+    int64_t m_rffLastOutputPts;
     bool m_hasLastSwitchTiming;
     int m_lastSwitchStart60;
     int m_lastSwitchDuration60;

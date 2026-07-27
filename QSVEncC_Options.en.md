@@ -2514,6 +2514,8 @@ Please note that this filter is slow, recommended to be used on dGPUs.
     Apply `SMDegrain` on the final KFM output stream. Default: off.
   - is120=&lt;bool&gt;  
     Reserve 120fps duration correction flag. Default: on.
+  - rff=&lt;bool&gt;  
+    Preserve progressive RFF input frames without deinterlacing them. The input timestamps are used as the timing anchor. Default: on.
   - debug=&lt;bool&gt;  
     Write `.result.dat` and `.frameinfo.tsv` dumps when `timecode` is specified. Default: off.
   - debug_stage=&lt;string&gt;  
