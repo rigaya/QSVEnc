@@ -2181,14 +2181,12 @@ RGY_ERR CQSVPipeline::InitInput(sInputParams *inputParam, DeviceCodecCsp& HWDecC
             return RGY_ERR_UNKNOWN;
         }
     } else if (pAVCodecReader && ((pAVCodecReader->GetFramePosList()->getStreamPtsStatus() & (~RGY_PTS_NORMAL)) == 0)) {
-        if (!ENCODER_QSV) {
-            m_nAVSyncMode |= RGY_AVSYNC_VFR;
-            const auto timebaseStreamIn = to_rgy(pAVCodecReader->GetInputVideoStream()->time_base);
-            if (!inputParam->common.timebase.is_valid()
-                && ((timebaseStreamIn.inv() * m_inputFps.inv()).d() == 1 || timebaseStreamIn.n() > 1000)) { //fpsを割り切れるtimebaseなら
-                if (!inputParam->vpp.afs.enable && !inputParam->vpp.rff.enable) {
-                    m_outputTimebase = m_inputFps.inv() * rgy_rational<int>(1, 4);
-                }
+        m_nAVSyncMode |= RGY_AVSYNC_VFR;
+        const auto timebaseStreamIn = to_rgy(pAVCodecReader->GetInputVideoStream()->time_base);
+        if (!inputParam->common.timebase.is_valid()
+            && ((timebaseStreamIn.inv() * m_inputFps.inv()).d() == 1 || timebaseStreamIn.n() > 1000)) { //fpsを割り切れるtimebaseなら
+            if (!inputParam->vpp.afs.enable && !inputParam->vpp.rff.enable) {
+                m_outputTimebase = m_inputFps.inv() * rgy_rational<int>(1, 4);
             }
         }
         PrintMes(RGY_LOG_DEBUG, _T("vfr mode automatically enabled with timebase %d/%d\n"), m_outputTimebase.n(), m_outputTimebase.d());
