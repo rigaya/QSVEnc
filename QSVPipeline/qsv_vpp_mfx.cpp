@@ -167,6 +167,12 @@ RGY_ERR QSVVppMfx::SetParam(
         return err;
     }
 
+    // 機能照会用の SetMFXFrameOut で記録したログと拡張バッファを破棄する。
+    // このまま本設定を行うと、インタレ解除などが二重に表示され、同じ拡張バッファも重複登録される。
+    VppExtMes.clear();
+    m_VppDoUseList.clear();
+    m_VppExtParams.clear();
+
     mfxFrameInfo mfxOut;
     if ((err = SetMFXFrameOut(mfxOut, params, frameOut, mfxIn, blockSize)) != RGY_ERR_NONE) {
         return err;
