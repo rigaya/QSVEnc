@@ -2438,7 +2438,7 @@ protected:
     // 入力は4件で安定したが、出力は4件でArc B580の終盤ハングを確認したため2件に抑える。
     // いずれも1へ戻せば従来の単一フレーム処理になる。
     static const int OPENCL_ACQUIRE_BATCH_SIZE = 4;
-    static const int OPENCL_RELEASE_BATCH_SIZE = 2;
+    static const int OPENCL_RELEASE_BATCH_SIZE = 1;
     struct AcquireWork {
         std::unique_ptr<PipelineTaskOutput> frame;
         RGYFrameInfo frameInfo;
