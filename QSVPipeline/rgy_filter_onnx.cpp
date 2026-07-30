@@ -505,10 +505,14 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         const int guessedScale = std::max(1, (int)(std::round((double)outW / (double)inW)));
         const int cropW = guessedScale * inW - outW;
         const int cropH = guessedScale * inH - outH;
-        // must test the local fastOcl here: m_useOcl is only assigned after
-        // this block, so it would still be the constructor's false and the
-        // intended zero-copy rejection would never fire.
-        if (fastOcl || guessedScale <= 0 || cropW <= 0 || cropH <= 0 || cropW != cropH || (cropW % guessedScale) != 0) {
+        // 共有経路はエッジパディングに対応していないため、既存のホスト経路へ切り替える。
+        // m_useOcl はこのブロックより後で設定されるので、ここでは fastOcl を判定する。
+        if (fastOcl) {
+            AddMessage(RGY_LOG_WARN, _T("onnx: model output %dx%d needs edge padding; falling back to host path.\n"),
+                outW, outH);
+            fastOcl = false;
+        }
+        if (guessedScale <= 0 || cropW <= 0 || cropH <= 0 || cropW != cropH || (cropW % guessedScale) != 0) {
             AddMessage(RGY_LOG_ERROR, _T("onnx: model output %dx%d is not an integer upscale of input %dx%d.\n"),
                 outW, outH, inW, inH);
             return RGY_ERR_UNSUPPORTED;
