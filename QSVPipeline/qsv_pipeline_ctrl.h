@@ -3327,7 +3327,14 @@ public:
     virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override { return std::nullopt; };
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override { return std::nullopt; };
     virtual int additionalInputSurfaces() const override {
-        return (m_openclTaskThreads >= 2) ? OPENCL_ACQUIRE_BATCH_SIZE - 1 : 0;
+        if (!useAcquireWorker()) {
+            return 0;
+        }
+        const auto maxWorkerInputSurfaces = m_acquireInQueue.capacity()
+            + OPENCL_ACQUIRE_BATCH_SIZE
+            + m_acquireReadyQueue.capacity();
+        // 単一フレーム処理分は既存の基本割当で確保済みのため、その1枚を除外する。
+        return static_cast<int>(maxWorkerInputSurfaces) - 1;
     }
     virtual int additionalOutputSurfaces() const override {
         int frames = 0;
