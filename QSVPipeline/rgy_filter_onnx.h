@@ -153,8 +153,8 @@ protected:
 
     // zero-copy path resources (LumaSR only)
     std::unique_ptr<RGYOpenCLProgram> m_program;  // pack / unpack / chroma kernels
-    std::unique_ptr<RGYCLBuf>         m_inBufCL;  // f32 network input  (inW*inH)
-    std::unique_ptr<RGYCLBuf>         m_outBufCL; // f32 network output (outW*outH)
+    std::unique_ptr<RGYCLBuf>         m_inBufCL;  // f32 network input  (inC*inW*inH)
+    std::unique_ptr<RGYCLBuf>         m_outBufCL; // f32 network output (outC*outW*outH)
 
     // --- multi-frame temporal window state (only used when m_temporalT > 1) ---
     int m_temporalT;                 // input frames per window (1 = single-frame path, disabled)

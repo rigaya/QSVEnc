@@ -588,8 +588,8 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
             AddMessage(RGY_LOG_ERROR, _T("onnx: failed to build RGY_FILTER_ONNX_CL.\n"));
             return RGY_ERR_OPENCL_CRUSH;
         }
-        m_inBufCL  = m_cl->createBuffer((size_t)inW  * inH  * sizeof(float));
-        m_outBufCL = m_cl->createBuffer((size_t)outW * outH * sizeof(float));
+        m_inBufCL  = m_cl->createBuffer((size_t)m_inC  * inW  * inH  * sizeof(float));
+        m_outBufCL = m_cl->createBuffer((size_t)m_outC * outW * outH * sizeof(float));
         if (!m_inBufCL || !m_outBufCL) {
             AddMessage(RGY_LOG_ERROR, _T("onnx: failed to allocate network buffers.\n"));
             return RGY_ERR_MEMORY_ALLOC;
