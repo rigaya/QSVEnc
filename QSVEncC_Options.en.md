@@ -2398,6 +2398,8 @@ High quality QTGMC deinterlacer with relaxed implementation for GPU.
       Search preset factors. `1` is lighter/faster, `2` is more exhaustive.
     - `search_early_sad=<int|off>`  
       Skip the level0 full search when the predictor SAD is below this threshold. The value is in 8x8-block, 8-bit SAD units (`0-65535`) and is scaled automatically for blksize and bit depth; `off` (`-1`) disables it. Preset defaults are listed above.
+    - `spatial_early_sad=<int|off>`
+      Skip spatial refinement for a block when the SAD selected by the level1 search is below this threshold. The value is in 8x8-block, 8-bit SAD units (`0-65535`) and is scaled automatically for blksize and bit depth. Default: `off` (`-1`).
     - `useflag`  
       Temporal direction limit. `0` uses both directions, `1` backward-only, `2` forward-only.
     - `pel` / `levels` / `lambda` / `lsad` / `pnew` / `plevel` / `globalmotion`  
@@ -2476,6 +2478,8 @@ Motion compensated degrain debug filter.
     Motion search tuning parameters.
   - search_early_sad=&lt;int|off&gt;  
     Skip the level0 full search when the predictor SAD is below this threshold. The value is in 8x8-block, 8-bit SAD units (`0-65535`) and is scaled automatically for blksize and bit depth. Default: `off` (`-1`).
+  - spatial_early_sad=&lt;int|off&gt;
+    Skip spatial refinement for a block when the SAD selected by the level1 search is below this threshold. The value is in 8x8-block, 8-bit SAD units (`0-65535`) and is scaled automatically for blksize and bit depth. Default: `off` (`-1`).
   - mv_spatial_refine=&lt;int|auto&gt;  
     Motion-vector spatial refinement count. Default is `auto` (`-1`): run spatial refinement (which consults neighboring block motion vectors) only at the coarsest (lowest-resolution) analysis level, and skip it at all finer levels. This concentrates spatial-neighbor refinement on the level where serial-dependency cost is small, and lets the finer levels run with maximum GPU parallelism. `0` disables it entirely; `1` runs one pass at every level, `2` runs two passes at every level, and so on.
   - chroma/binomial/tv_range  
@@ -2502,6 +2506,8 @@ Please note that this filter is slow, recommended to be used on dGPUs.
     Reserved nested preset. `slower`, `slow`, `medium`, `fast`, `faster` (default), `veryfast`, `superfast`, `ultrafast`, `draft`.
   - search_early_sad=&lt;int|auto|off&gt;  
     SAD threshold for skipping the level0 full search, in 8x8-block, 8-bit SAD units (`0-65535`), scaled automatically for blksize and bit depth. `auto` (default) uses the preset value; `off` (`-1`) disables it.
+  - spatial_early_sad=&lt;int|auto|off&gt;
+    Skip spatial refinement for a block when the SAD selected by the level1 search is below this threshold. The value is in 8x8-block, 8-bit SAD units (`0-65535`) and is scaled automatically for blksize and bit depth. `auto` (default) uses the preset value (`slower`/`slow`: 0, `medium`: 16, `fast`: 32, `faster` through `draft`: 64); `off` (`-1`) disables it.
   - timing=&lt;string&gt;  
     Timing analysis mode. `realtime`, `realtime+` (default), `strict`.
   - past_cycles=&lt;int&gt;  

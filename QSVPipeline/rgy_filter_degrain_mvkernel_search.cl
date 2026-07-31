@@ -62,6 +62,10 @@
 #define DEGRAIN_MOTION_SEARCH_EARLY_SAD_THRESHOLD -1
 #endif
 
+#ifndef DEGRAIN_MOTION_SPATIAL_EARLY_SAD_THRESHOLD
+#define DEGRAIN_MOTION_SPATIAL_EARLY_SAD_THRESHOLD -1
+#endif
+
 #ifndef DEGRAIN_MOTION_SEARCH_PASS_FLAT_FLAG
 #define DEGRAIN_MOTION_SEARCH_PASS_FLAT_FLAG 0
 #endif
@@ -1488,6 +1492,20 @@ __kernel void kernel_degrain_mv_spatial_refine(
     barrier(CLK_LOCAL_MEM_FENCE);
 #if DEGRAIN_MOTION_SEARCH_PASS_FLAT_FLAG
     if (sourceBlockIsFlat) {
+        if (localThreadId == 0) {
+            vectorsFinal[degrain_motion_search_vec_final_index(finalBase, blockCount, block)] = baseVector;
+        }
+        return;
+    }
+#endif
+
+    // level searchで十分小さいraw SADが得られたblockは、近傍MVを使った再探索を省略する。
+    // 1 work-groupが1 blockだけを担当するため、全work-itemで一様な分岐になる。
+#if DEGRAIN_MOTION_SPATIAL_EARLY_SAD_THRESHOLD >= 0
+    const int skipSpatialRefine = (DEGRAIN_MOTION_SPATIAL_EARLY_SAD_THRESHOLD == 0)
+        ? (baseVector.sad_metric == 0u)
+        : (baseVector.sad_metric < (uint)DEGRAIN_MOTION_SPATIAL_EARLY_SAD_THRESHOLD);
+    if (skipSpatialRefine) {
         if (localThreadId == 0) {
             vectorsFinal[degrain_motion_search_vec_final_index(finalBase, blockCount, block)] = baseVector;
         }

@@ -2454,6 +2454,8 @@ nnediによるインタレ解除を行う。
       探索の広さ・精度側のプリセット係数。`1` は軽量寄り、`2` は精度寄り。
     - `search_early_sad=<int|off>`  
       level0 の予測候補 SAD が指定値未満なら全探索を省略する。値は8x8ブロック・8bit換算で `0-65535`、実際の閾値はblksizeとbit depthに応じて自動スケールされる。`off` (`-1`) で無効。presetの既定値は上表のとおり。
+    - `spatial_early_sad=<int|off>`
+      level1 探索で得た SAD が指定値未満なら、そのブロックの spatial refine を省略する。値は8x8ブロック・8bit換算で `0-65535`、実際の閾値はblksizeとbit depthに応じて自動スケールされる。デフォルトは `off` (`-1`)。
     - `useflag`  
       参照方向の制限。`0` は前後参照、`1` は過去方向のみ、`2` は未来方向のみ。
     - `pel` / `levels` / `lambda` / `lsad` / `pnew` / `plevel` / `globalmotion`  
@@ -2528,6 +2530,8 @@ nnediによるインタレ解除を行う。
     モーション探索の調整パラメータ。
   - search_early_sad=&lt;int|off&gt;  
     level0 の予測候補 SAD が指定値未満なら全探索を省略する。値は8x8ブロック・8bit換算で `0-65535`、実際の閾値はblksizeとbit depthに応じて自動スケールされる。デフォルトは `off` (`-1`)。
+  - spatial_early_sad=&lt;int|off&gt;
+    level1 探索で得た SAD が指定値未満なら、そのブロックの spatial refine を省略する。値は8x8ブロック・8bit換算で `0-65535`、実際の閾値はblksizeとbit depthに応じて自動スケールされる。デフォルトは `off` (`-1`)。
   - mv_spatial_refine=&lt;int|auto&gt;  
     モーションベクトルの spatial refine 回数。デフォルトは `auto` (`-1`) で、もっとも解像度の低い最上位レベルでのみ近傍ブロック参照による refine を行い、下位（高解像度）レベルでは行わない。ブロック数の少ない階層に spatial 情報を集中させ、ブロック数の多い下位階層では GPU の並列性を最大限に活用するための既定戦略。`0` は全レベルで無効、`1` は全レベルで1回、`2` は全レベルで2回、以降同様。
   - chroma/binomial/tv_range  
@@ -2551,6 +2555,8 @@ nnediによるインタレ解除を行う。
     RTGMCのpreset。`slower`, `slow`, `medium`, `fast`, `faster`(デフォルト), `veryfast`, `superfast`, `ultrafast`, `draft`。
   - search_early_sad=&lt;int|auto|off&gt;  
     level0 の全探索を省略するSAD閾値。値は8x8ブロック・8bit換算で `0-65535`、実際の閾値はblksizeとbit depthに応じて自動スケールされる。`auto` (デフォルト) はpresetの値、`off` (`-1`) は無効。
+  - spatial_early_sad=&lt;int|auto|off&gt;
+    level1 探索で得た SAD が指定値未満なら、そのブロックの spatial refine を省略する。値は8x8ブロック・8bit換算で `0-65535`、実際の閾値はblksizeとbit depthに応じて自動スケールされる。`auto` (デフォルト) はpresetの値 (`slower`/`slow`: 0、`medium`: 16、`fast`: 32、`faster`以降: 64)、`off` (`-1`) は無効。
   - timing=&lt;string&gt;  
     タイミング解析モード。`realtime`, `realtime+` (デフォルト), `strict`。
   - past_cycles=&lt;int&gt;  

@@ -321,6 +321,9 @@ RGYDegrainMotionSearchConfig rgy_degrain_make_motion_search_config(
     cfg.searchEarlySadThreshold = (level != 0 || degrain.searchEarlySad < 0)
         ? -1
         : (int)rgy_degrain_scale_sad_threshold(scaledDegrain, frameInfo, degrain.searchEarlySad);
+    cfg.spatialEarlySadThreshold = (level != 1 || degrain.spatialEarlySad < 0)
+        ? -1
+        : (int)rgy_degrain_scale_sad_threshold(scaledDegrain, frameInfo, degrain.spatialEarlySad);
     cfg.zeroCandidateCostScale = degrain.pnew;
     cfg.frameAverageCandidateCostScale = 0;
     cfg.predictorCandidateCostScale = degrain.plevel;
@@ -360,6 +363,7 @@ std::string makeDegrainMotionSearchBuildOptions(const RGYDegrainMotionSearchConf
         << " -D DEGRAIN_MOTION_COST_SCALE=" << cfg.motionCostScale
         << " -D DEGRAIN_LOW_SAD_WEIGHT_SCALE=" << cfg.lowSadWeightScale
         << " -D DEGRAIN_MOTION_SEARCH_EARLY_SAD_THRESHOLD=" << cfg.searchEarlySadThreshold
+        << " -D DEGRAIN_MOTION_SPATIAL_EARLY_SAD_THRESHOLD=" << cfg.spatialEarlySadThreshold
         << " -D DEGRAIN_ZERO_CANDIDATE_COST_SCALE=" << cfg.zeroCandidateCostScale
         << " -D DEGRAIN_FRAME_AVERAGE_CANDIDATE_COST_SCALE=" << cfg.frameAverageCandidateCostScale
         << " -D DEGRAIN_PREDICTOR_CANDIDATE_COST_SCALE=" << cfg.predictorCandidateCostScale

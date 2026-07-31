@@ -341,6 +341,11 @@ RGY_ERR RGYFilterDegrain::checkParam(const std::shared_ptr<RGYFilterParamDegrain
         AddMessage(RGY_LOG_ERROR, _T("degrain search_early_sad must be off or -1 - 65535.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+    if (prm->degrain.spatialEarlySad < FILTER_MIN_DEGRAIN_SEARCH_EARLY_SAD
+        || prm->degrain.spatialEarlySad > FILTER_MAX_DEGRAIN_SEARCH_EARLY_SAD) {
+        AddMessage(RGY_LOG_ERROR, _T("degrain spatial_early_sad must be off or -1 - 65535.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
     if (prm->degrain.mvSpatialRefine < -1) {
         AddMessage(RGY_LOG_ERROR, _T("degrain mv_spatial_refine must be -1 or greater.\n"));
         return RGY_ERR_INVALID_PARAM;
