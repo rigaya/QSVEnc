@@ -111,6 +111,26 @@ inline int conv_bit_depth(const int c, const int bit_depth_in, const int bit_dep
 #define AVG3x1(a, b) ((((a)<<1)+(a)+(b)+2)>>2)
 #define AVG7x1(a, b) ((((a)<<3)-(a)+(b)+4)>>3)
 
+#if in_bit_depth < 32
+#define YUV_SAMPLE_MAX_IN ((float)((1u << in_bit_depth) - 1u))
+#else
+#define YUV_SAMPLE_MAX_IN (1.0f)
+#endif
+
+#if out_bit_depth < 32
+#define YUV_SAMPLE_MAX_OUT ((float)((1u << out_bit_depth) - 1u))
+#else
+#define YUV_SAMPLE_MAX_OUT (1.0f)
+#endif
+
+inline float normalize_yuv_sample(const TypeIn value) {
+    return convert_float(value) / YUV_SAMPLE_MAX_IN;
+}
+
+inline TypeOut encode_yuv_sample(const float value) {
+    return (TypeOut)clamp(value * YUV_SAMPLE_MAX_OUT + 0.5f, 0.0f, YUV_SAMPLE_MAX_OUT);
+}
+
 #define LOAD_IMG(src_img, ix, iy) (TypeIn)(read_imageui((src_img), sampler, (int2)((ix), (iy))).x)
 #define LOAD_IMG_AYUV(src_img, ix, iy) convert_TypeIn4(read_imageui((src_img), sampler, (int2)((ix), (iy))))
 #define LOAD_IMG_NV12_UV(src_img, src_u, src_v, ix, iy, cropX, cropY) { \
@@ -308,6 +328,50 @@ __kernel void kernel_copy_plane(
 #endif
 }
 
+__kernel void kernel_crop_plane_to_yuv444_f32(
+    __global uchar *dst,
+    int dstPitch,
+#if IMAGE_SRC
+    __read_only image2d_t src,
+#else
+    __global uchar *src,
+#endif
+    int srcPitch,
+    int width,
+    int height,
+    int cropX,
+    int cropY
+) {
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    if (x < width && y < height) {
+        const TypeIn value = LOAD(src, x + cropX, y + cropY);
+        *(__global float *)(&dst[y * dstPitch + x * sizeof(float)]) = normalize_yuv_sample(value);
+    }
+}
+
+__kernel void kernel_crop_plane_from_yuv444_f32(
+#if IMAGE_DST
+    __write_only image2d_t dst,
+#else
+    __global uchar *dst,
+#endif
+    int dstPitch,
+    __global uchar *src,
+    int srcPitch,
+    int width,
+    int height,
+    int cropX,
+    int cropY
+) {
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    if (x < width && y < height) {
+        const float value = *(__global float *)(&src[(y + cropY) * srcPitch + (x + cropX) * sizeof(float)]);
+        STORE(dst, x, y, encode_yuv_sample(value));
+    }
+}
+
 __kernel void kernel_copy_plane_nv12(
 #if IMAGE_DST
     __write_only image2d_t dst,
@@ -444,6 +508,50 @@ __kernel void kernel_crop_nv12_yuv444(
     }
 }
 
+__kernel void kernel_crop_nv12_yuv444_f32(
+    __global uchar *dstU,
+    __global uchar *dstV,
+    int dstPitch,
+    int dstWidth,
+    int dstHeight,
+#if IMAGE_SRC
+    __read_only image2d_t src,
+#else
+    __global uchar *src,
+#endif
+    int srcPitch,
+    int srcWidth,
+    int srcHeight,
+    int cropX,
+    int cropY
+) {
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    if (x < dstWidth && y < dstHeight) {
+        const float srcX = ((float)(x + cropX) + 0.5f) * 0.5f - 0.5f;
+        const float srcY = ((float)(y + cropY) + 0.5f) * 0.5f - 0.5f;
+        const int x0 = (int)floor(srcX);
+        const int y0 = (int)floor(srcY);
+        const float fx = srcX - (float)x0;
+        const float fy = srcY - (float)y0;
+        const int sx0 = clamp(x0, 0, srcWidth - 1);
+        const int sx1 = clamp(x0 + 1, 0, srcWidth - 1);
+        const int sy0 = clamp(y0, 0, srcHeight - 1);
+        const int sy1 = clamp(y0 + 1, 0, srcHeight - 1);
+        TypeIn u00, v00, u01, v01, u10, v10, u11, v11;
+        LOAD_NV12_UV(src, u00, v00, sx0, sy0, 0, 0);
+        LOAD_NV12_UV(src, u01, v01, sx1, sy0, 0, 0);
+        LOAD_NV12_UV(src, u10, v10, sx0, sy1, 0, 0);
+        LOAD_NV12_UV(src, u11, v11, sx1, sy1, 0, 0);
+        const float topU = mix(convert_float(u00), convert_float(u01), fx);
+        const float topV = mix(convert_float(v00), convert_float(v01), fx);
+        const float botU = mix(convert_float(u10), convert_float(u11), fx);
+        const float botV = mix(convert_float(v10), convert_float(v11), fx);
+        *(__global float *)(&dstU[y * dstPitch + x * sizeof(float)]) = mix(topU, botU, fy) / YUV_SAMPLE_MAX_IN;
+        *(__global float *)(&dstV[y * dstPitch + x * sizeof(float)]) = mix(topV, botV, fy) / YUV_SAMPLE_MAX_IN;
+    }
+}
+
 __kernel void kernel_crop_c_yuv444_nv12(
 #if IMAGE_DST
     __write_only image2d_t dst,
@@ -481,6 +589,40 @@ __kernel void kernel_crop_c_yuv444_nv12(
         TypeOut pixDstU = BIT_DEPTH_CONV_AVG(pixSrcU00, pixSrcU10);
         TypeOut pixDstV = BIT_DEPTH_CONV_AVG(pixSrcV00, pixSrcV10);
         STORE_NV12_UV(dst, dst_x, dst_y, pixDstU, pixDstV);
+    }
+}
+
+__kernel void kernel_crop_c_yuv444_f32_nv12(
+#if IMAGE_DST
+    __write_only image2d_t dst,
+#else
+    __global uchar *dst,
+#endif
+    int dstPitch,
+    int dstWidth,
+    int dstHeight,
+    __global uchar *srcU,
+    __global uchar *srcV,
+    int srcPitch,
+    int cropX,
+    int cropY
+) {
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    if (x < dstWidth && y < dstHeight) {
+        const int sx = (x << 1) + cropX;
+        const int sy = (y << 1) + cropY;
+        const float u00 = *(__global float *)(&srcU[(sy + 0) * srcPitch + (sx + 0) * sizeof(float)]);
+        const float u01 = *(__global float *)(&srcU[(sy + 0) * srcPitch + (sx + 1) * sizeof(float)]);
+        const float u10 = *(__global float *)(&srcU[(sy + 1) * srcPitch + (sx + 0) * sizeof(float)]);
+        const float u11 = *(__global float *)(&srcU[(sy + 1) * srcPitch + (sx + 1) * sizeof(float)]);
+        const float v00 = *(__global float *)(&srcV[(sy + 0) * srcPitch + (sx + 0) * sizeof(float)]);
+        const float v01 = *(__global float *)(&srcV[(sy + 0) * srcPitch + (sx + 1) * sizeof(float)]);
+        const float v10 = *(__global float *)(&srcV[(sy + 1) * srcPitch + (sx + 0) * sizeof(float)]);
+        const float v11 = *(__global float *)(&srcV[(sy + 1) * srcPitch + (sx + 1) * sizeof(float)]);
+        STORE_NV12_UV(dst, x, y,
+            encode_yuv_sample((u00 + u01 + u10 + u11) * 0.25f),
+            encode_yuv_sample((v00 + v01 + v10 + v11) * 0.25f));
     }
 }
 
@@ -555,6 +697,44 @@ __kernel void kernel_crop_c_yv12_yuv444(
     }
 }
 
+__kernel void kernel_crop_c_yv12_yuv444_f32(
+    __global uchar *dst,
+    int dstPitch,
+    int dstWidth,
+    int dstHeight,
+#if IMAGE_SRC
+    __read_only image2d_t src,
+#else
+    __global uchar *src,
+#endif
+    int srcPitch,
+    int srcWidth,
+    int srcHeight,
+    int cropX,
+    int cropY
+) {
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    if (x < dstWidth && y < dstHeight) {
+        const float srcX = ((float)(x + cropX) + 0.5f) * 0.5f - 0.5f;
+        const float srcY = ((float)(y + cropY) + 0.5f) * 0.5f - 0.5f;
+        const int x0 = (int)floor(srcX);
+        const int y0 = (int)floor(srcY);
+        const float fx = srcX - (float)x0;
+        const float fy = srcY - (float)y0;
+        const int sx0 = clamp(x0, 0, srcWidth - 1);
+        const int sx1 = clamp(x0 + 1, 0, srcWidth - 1);
+        const int sy0 = clamp(y0, 0, srcHeight - 1);
+        const int sy1 = clamp(y0 + 1, 0, srcHeight - 1);
+        const float v00 = convert_float(LOAD(src, sx0, sy0));
+        const float v01 = convert_float(LOAD(src, sx1, sy0));
+        const float v10 = convert_float(LOAD(src, sx0, sy1));
+        const float v11 = convert_float(LOAD(src, sx1, sy1));
+        const float value = mix(mix(v00, v01, fx), mix(v10, v11, fx), fy) / YUV_SAMPLE_MAX_IN;
+        *(__global float *)(&dst[y * dstPitch + x * sizeof(float)]) = value;
+    }
+}
+
 __kernel void kernel_crop_c_yuv444_yv12(
 #if IMAGE_DST
     __write_only image2d_t dst,
@@ -587,6 +767,33 @@ __kernel void kernel_crop_c_yuv444_yv12(
         const int pixSrc10 = LOAD(src, loadx+0, loady+1);
         const TypeOut pixDst = BIT_DEPTH_CONV_AVG(pixSrc00, pixSrc10);
         STORE(dst, dst_x, dst_y, pixDst);
+    }
+}
+
+__kernel void kernel_crop_c_yuv444_f32_yv12(
+#if IMAGE_DST
+    __write_only image2d_t dst,
+#else
+    __global uchar *dst,
+#endif
+    int dstPitch,
+    int dstWidth,
+    int dstHeight,
+    __global uchar *src,
+    int srcPitch,
+    int cropX,
+    int cropY
+) {
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    if (x < dstWidth && y < dstHeight) {
+        const int sx = (x << 1) + cropX;
+        const int sy = (y << 1) + cropY;
+        const float v00 = *(__global float *)(&src[(sy + 0) * srcPitch + (sx + 0) * sizeof(float)]);
+        const float v01 = *(__global float *)(&src[(sy + 0) * srcPitch + (sx + 1) * sizeof(float)]);
+        const float v10 = *(__global float *)(&src[(sy + 1) * srcPitch + (sx + 0) * sizeof(float)]);
+        const float v11 = *(__global float *)(&src[(sy + 1) * srcPitch + (sx + 1) * sizeof(float)]);
+        STORE(dst, x, y, encode_yuv_sample((v00 + v01 + v10 + v11) * 0.25f));
     }
 }
 
