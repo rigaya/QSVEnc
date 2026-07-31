@@ -5895,7 +5895,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         i++;
 
         const auto paramList = std::vector<std::string>{
-            "enable", "model", "modelfile", "provider", "device", "interop", "precision",
+            "enable", "model", "modelfile", "provider", "device", "precision",
             "colormatrix", "colormatrix_out", "colorrange", "colorspace", "noise", "frames", "mask", "out_res", "resize"
         };
 
@@ -5932,16 +5932,6 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 if (param_arg == _T("device")) {
                     //OpenVINOのデバイス名は大文字 (GPU.0/GPU/CPU/AUTO/NPU) - 小文字入力も受け付ける
                     vpp->onnx.device = touppercase(param_val);
-                    continue;
-                }
-                if (param_arg == _T("interop")) {
-                    const tstring v = tolowercase(param_val);
-                    if (v == _T("auto") || v == _T("ocl") || v == _T("host")) {
-                        vpp->onnx.interop = v;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
                     continue;
                 }
                 if (param_arg == _T("prec") || param_arg == _T("precision")) {
@@ -13961,7 +13951,6 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
                 tmp << _T(",model=") << param->onnx.modelFile;
             }
             tmp << _T(",device=") << param->onnx.device;
-            tmp << _T(",interop=") << param->onnx.interop;
             tmp << _T(",prec=") << param->onnx.precision;
             tmp << _T(",colormatrix=") << get_cx_desc(list_colormatrix, param->onnx.colormatrix);
             if (param->onnx.colormatrixOut != RGY_MATRIX_AUTO) {
@@ -16650,7 +16639,6 @@ tstring gen_cmd_help_vpp() {
 #if ENABLE_OPENVINO
         _T("      device=<string>             OpenVINO device: GPU.0 (default) / GPU / CPU / AUTO / NPU\n")
         _T("                                    NPU needs an NPU-enabled OpenVINO runtime (Core Ultra).\n")
-        _T("      interop=<string>            auto (default) / ocl (zero-copy, shared GPU context) / host\n")
         _T("      prec=<string>               auto (default) / fp16 / fp32\n")
 #endif
 #if ENCODER_NVENC

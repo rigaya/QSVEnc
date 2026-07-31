@@ -35,6 +35,7 @@
 #include <vector>
 #include <memory>
 #include <deque>
+#include <array>
 
 class RGYFilterResize; // opt-in end-of-chain resize sub-filter (out_res=/resize=)
 
@@ -65,11 +66,8 @@ enum class OnnxIO {
 // I/O convention is inferred from its channel count (OnnxIO), so the same
 // load-and-run covers every anime4k model family with no per-model code.
 //
-// The host-readback path (map input to host, build the input tensor, run the
-// network, write the result back) handles all I/O modes and works on any device
-// including CPU. The zero-copy (ov::intel_gpu::ocl) fast path is wired only for
-// the 1-channel luma upscalers (LumaSR), where it was validated bit-exact; the
-// multi-channel colour modes go through the host path.
+// ホスト経路はすべてのI/O形式とCPUを含む各デバイスに対応する。
+// GPU共有経路は1ch輝度モデルと3ch RGBモデルで自動的に使用する。
 class RGYFilterOnnx : public RGYFilter {
 public:
     RGYFilterOnnx(shared_ptr<RGYOpenCLContext> context);
@@ -85,11 +83,15 @@ protected:
     // and handles every OnnxIO mode)
     RGY_ERR runHost(const RGYFrameInfo *in, RGYFrameInfo *out,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    // zero-copy path (LumaSR only): kernels read/write the frame buffers
-    // directly, OpenVINO reads/writes the f32 buffers in place via a shared
-    // OpenCL context.
+    // 1ch輝度モデルのゼロコピー経路。
     RGY_ERR runOcl(const RGYFrameInfo *in, RGYFrameInfo *out,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    RGY_ERR runOclRGB(const RGYFrameInfo *in, RGYFrameInfo *out,
+        RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    RGY_ERR createRgbPlanes(RGYCLBuf *parent, int width, int height,
+        std::array<std::unique_ptr<RGYCLBuf>, 3>& planes);
+    RGYFrameInfo rgbFrame(const std::array<std::unique_ptr<RGYCLBuf>, 3>& planes,
+        int width, int height) const;
 
     // host pre/post, dispatched on m_io. fillInputHost packs the mapped input
     // frame into m_inBuf (inC*inW*inH, CHW); writeOutputHost unpacks m_outBuf
@@ -135,7 +137,7 @@ protected:
     int   m_padL, m_padT;                       // edge-replication padding before packing host input
     float m_maxval;                             // (1<<bitdepth)-1
     int   m_bitdepth;                           // 8 (yv12/nv12) or 16 (yv12(16bit)/p010)
-    bool  m_useOcl;                             // zero-copy fast path selected at init (LumaSR only)
+    bool  m_useOcl;                             // 初期化時に選択したゼロコピー経路を使用するか
     bool  m_ycbcr;                              // 3ch model fed as planar YCbCr instead of RGB
     float m_sigmaNorm;                          // noise sigma / 255 for the conditioning channel
 
@@ -151,10 +153,14 @@ protected:
     std::vector<float>           m_outBuf;      // network output tensor (outC*outW*outH, CHW)
     std::vector<float>           m_u444, m_v444;// normalised chroma at output luma res (for 4:2:0 downsample)
 
-    // zero-copy path resources (LumaSR only)
+    // ゼロコピー経路で使用するリソース
     std::unique_ptr<RGYOpenCLProgram> m_program;  // pack / unpack / chroma kernels
     std::unique_ptr<RGYCLBuf>         m_inBufCL;  // f32 network input  (inC*inW*inH)
     std::unique_ptr<RGYCLBuf>         m_outBufCL; // f32 network output (outC*outW*outH)
+    std::array<std::unique_ptr<RGYCLBuf>, 3> m_inRgbPlanes;
+    std::array<std::unique_ptr<RGYCLBuf>, 3> m_outRgbPlanes;
+    std::unique_ptr<RGYFilterCspCrop> m_cropToRgb;
+    std::unique_ptr<RGYFilterCspCrop> m_cropFromRgb;
 
     // --- multi-frame temporal window state (only used when m_temporalT > 1) ---
     int m_temporalT;                 // input frames per window (1 = single-frame path, disabled)

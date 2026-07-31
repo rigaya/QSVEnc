@@ -3536,7 +3536,6 @@ struct VppOnnx {
     bool    enable;
     tstring modelFile;   // path to the ONNX (or OpenVINO IR .xml) model
     tstring device;      // OpenVINO device: "GPU.0" (default), "GPU", "CPU", "AUTO", "NPU"
-    tstring interop;     // "auto" (default), "ocl" (zero-copy shared context), "host" (readback)
     tstring provider;
     tstring precision;   // "auto" (default), "fp16", "fp32"
     tstring cacheDir;    // OpenVINOのCACHE_DIR (コンパイル済みモデルのキャッシュ先, ""=無効=従来動作)

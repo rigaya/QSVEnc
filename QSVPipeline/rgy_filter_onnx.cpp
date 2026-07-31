@@ -48,7 +48,7 @@ RGYFilterOnnx::RGYFilterOnnx(shared_ptr<RGYOpenCLContext> context) :
     m_matVR(0), m_matUG(0), m_matVG(0), m_matUB(0),
     m_matRY(0), m_matGY(0), m_matBY(0), m_matRU(0), m_matGU(0), m_matBU(0), m_matRV(0), m_matGV(0), m_matBV(0),
     m_inStaging(), m_outStaging(), m_inBuf(), m_outBuf(), m_u444(), m_v444(),
-    m_program(), m_inBufCL(), m_outBufCL(),
+    m_program(), m_inBufCL(), m_outBufCL(), m_inRgbPlanes(), m_outRgbPlanes(), m_cropToRgb(), m_cropFromRgb(),
     m_temporalT(1), m_ringBaseIdx(0), m_recvCount(0), m_emitCount(0),
     m_ovm(), m_maskModelW(0), m_maskModelH(0), m_imgPortIdx(0), m_mskPortIdx(1), m_outScale(0.0f) {
     m_name = _T("onnx");
@@ -98,6 +98,15 @@ static bool onnx_supported_colorrange(CspColorRange range) {
     return range == RGY_COLORRANGE_AUTO
         || range == RGY_COLORRANGE_LIMITED
         || range == RGY_COLORRANGE_FULL;
+}
+
+static CspMatrix onnx_coeff_id_to_matrix(const int matrixSel) {
+    switch (matrixSel) {
+    case 601:  return RGY_MATRIX_ST170_M;
+    case 2020: return RGY_MATRIX_BT2020_NCL;
+    case 709:
+    default:   return RGY_MATRIX_BT709;
+    }
 }
 
 // Bilinear upscale of one channel from (sw x sh) to (sw*scale x sh*scale)
@@ -351,14 +360,8 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         return initMask(prm, inW, inH, inCsp);
     }
 
-    // interop selection: "ocl" explicitly requests the zero-copy path. Separately,
-    // GPU/AUTO model compilation prefers OpenVINO remote context from QSVEnc's
-    // selected OpenCL queue, so OpenVINO inference runs on the same physical GPU
-    // even when pre/post still uses the host-readback path.
-    const tstring interopStr = prm->onnx.interop;
     const tstring dev = prm->onnx.device;
     const bool deviceWantsGpu = (dev.substr(0, 3) == _T("GPU") || dev == _T("AUTO"));
-    const bool wantZeroCopy = (interopStr == _T("ocl")) && deviceWantsGpu && m_cl;
     bool preferRemoteContext = deviceWantsGpu && m_cl;
 
     m_ov = std::make_unique<RGYOpenVINO>();
@@ -378,10 +381,8 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     tstring effectiveDevice = prm->onnx.device;
     bool usingOpenCLRemoteContext = false;
 
-    // Peek the model's channel counts (parse only) so the backend is chosen
-    // before compiling: the zero-copy fast path is wired only for 1-channel luma
-    // models; other modes still prefer a remote-context GPU compile, but bind a
-    // host output tensor during infer().
+    // モデルのチャンネル数から共有経路を自動選択する。
+    // 1ch輝度モデルと3ch RGBモデル以外はホスト経路を使用する。
     int peekIn = 0, peekOut = 0;
     RGY_ERR err = m_ov->peekChannels(prm->onnx.modelFile, peekIn, peekOut, errMsg);
     if (err != RGY_ERR_NONE) {
@@ -389,7 +390,9 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
             prm->onnx.modelFile.c_str(), errMsg.c_str());
         return err;
     }
-    bool fastOcl = wantZeroCopy && (peekIn == 1 && peekOut == 1);
+    const bool ycbcrRGB = (peekIn == 3 && peekOut == 3) && (prm->onnx.colorspace == _T("ycbcr"));
+    bool fastOcl = deviceWantsGpu && m_cl && !ycbcrRGB
+        && ((peekIn == 1 && peekOut == 1) || (peekIn == 3 && peekOut == 3));
 
     auto initModel = [&](const int modelInH, const int modelInW) {
         if (fastOcl) {
@@ -433,8 +436,8 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         // share QSVEnc's in-order command queue so OpenVINO inference enqueues
         // between this filter's kernels with no host synchronisation.
         err = initModel(m_modelInH, m_modelInW);
-        if (err == RGY_ERR_UNSUPPORTED) {
-            AddMessage(RGY_LOG_WARN, _T("onnx: shared OpenCL context is unavailable, falling back to host interop: %s\n"),
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_WARN, _T("onnx: shared OpenCL context is unavailable, falling back to host path: %s\n"),
                 errMsg.c_str());
             fastOcl = false;
             errMsg.clear();
@@ -564,8 +567,17 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     const bool rangeTV = (prm->onnx.colorrange != RGY_COLORRANGE_FULL);
     setupColorCoeffs(matrixSel, matrixSelOut, rangeTV, (int)m_maxval);
 
-    // The zero-copy fast path is only wired for 1-channel luma models.
-    m_useOcl = fastOcl && (m_io == OnnxIO::LumaSR);
+    if (fastOcl && m_io == OnnxIO::RGB) {
+        const auto alignBits = std::max(1, RGYOpenCLDevice(m_cl->queue().devid()).info().mem_base_addr_align);
+        const size_t alignBytes = std::max<size_t>(1, (alignBits + 7) / 8);
+        const size_t inPlaneBytes = (size_t)inW * inH * sizeof(float);
+        const size_t outPlaneBytes = (size_t)outW * outH * sizeof(float);
+        if ((inPlaneBytes % alignBytes) != 0 || (outPlaneBytes % alignBytes) != 0) {
+            AddMessage(RGY_LOG_WARN, _T("onnx: RGB tensor plane offsets do not meet OpenCL alignment; falling back to host path.\n"));
+            fastOcl = false;
+        }
+    }
+    m_useOcl = fastOcl && (m_io == OnnxIO::LumaSR || (m_io == OnnxIO::RGB && !m_ycbcr));
 
     // Output frame buffer at the (possibly upscaled) resolution.
     auto frameOut = prm->frameOut;
@@ -583,15 +595,6 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     }
 
     if (m_useOcl) {
-        // zero-copy resources: pack/unpack/chroma kernels + persistent f32
-        // network buffers, bound once as the inference request's remote tensors.
-        const auto clBuildOptions = strsprintf("-D Type=%s -D bit_depth=%d",
-            (prm->frameIn.bitdepth > 8) ? "ushort" : "uchar", prm->frameIn.bitdepth);
-        m_program = m_cl->buildResource(_T("RGY_FILTER_ONNX_CL"), _T("EXE_DATA"), clBuildOptions);
-        if (!m_program) {
-            AddMessage(RGY_LOG_ERROR, _T("onnx: failed to build RGY_FILTER_ONNX_CL.\n"));
-            return RGY_ERR_OPENCL_CRUSH;
-        }
         m_inBufCL  = m_cl->createBuffer((size_t)m_inC  * inW  * inH  * sizeof(float));
         m_outBufCL = m_cl->createBuffer((size_t)m_outC * outW * outH * sizeof(float));
         if (!m_inBufCL || !m_outBufCL) {
@@ -602,6 +605,49 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("onnx: failed to bind shared GPU tensors.\n"));
             return err;
+        }
+        if (m_io == OnnxIO::LumaSR) {
+            const auto clBuildOptions = strsprintf("-D Type=%s -D bit_depth=%d",
+                (prm->frameIn.bitdepth > 8) ? "ushort" : "uchar", prm->frameIn.bitdepth);
+            m_program = m_cl->buildResource(_T("RGY_FILTER_ONNX_CL"), _T("EXE_DATA"), clBuildOptions);
+            if (!m_program) {
+                AddMessage(RGY_LOG_ERROR, _T("onnx: failed to build RGY_FILTER_ONNX_CL.\n"));
+                return RGY_ERR_OPENCL_CRUSH;
+            }
+        } else if (m_io == OnnxIO::RGB) {
+            err = createRgbPlanes(m_inBufCL.get(), inW, inH, m_inRgbPlanes);
+            if (err == RGY_ERR_NONE) {
+                err = createRgbPlanes(m_outBufCL.get(), outW, outH, m_outRgbPlanes);
+            }
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("onnx: failed to create RGB tensor plane views.\n"));
+                return err;
+            }
+
+            auto cropToRgbParam = std::make_shared<RGYFilterParamCrop>();
+            cropToRgbParam->frameIn = prm->frameIn;
+            cropToRgbParam->frameOut = rgbFrame(m_inRgbPlanes, inW, inH);
+            cropToRgbParam->baseFps = prm->baseFps;
+            cropToRgbParam->matrix = onnx_coeff_id_to_matrix(matrixSel);
+            cropToRgbParam->colorrange = rangeTV ? RGY_COLORRANGE_LIMITED : RGY_COLORRANGE_FULL;
+            cropToRgbParam->chroma420Interpolate = true;
+            m_cropToRgb = std::make_unique<RGYFilterCspCrop>(m_cl);
+            err = m_cropToRgb->init(cropToRgbParam, m_pLog);
+            if (err != RGY_ERR_NONE) {
+                return err;
+            }
+
+            auto cropFromRgbParam = std::make_shared<RGYFilterParamCrop>();
+            cropFromRgbParam->frameIn = rgbFrame(m_outRgbPlanes, outW, outH);
+            cropFromRgbParam->frameOut = frameOut;
+            cropFromRgbParam->baseFps = prm->baseFps;
+            cropFromRgbParam->matrix = onnx_coeff_id_to_matrix(matrixSelOut);
+            cropFromRgbParam->colorrange = cropToRgbParam->colorrange;
+            m_cropFromRgb = std::make_unique<RGYFilterCspCrop>(m_cl);
+            err = m_cropFromRgb->init(cropFromRgbParam, m_pLog);
+            if (err != RGY_ERR_NONE) {
+                return err;
+            }
         }
     } else {
         // host-readback scratch
@@ -663,7 +709,7 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     }
 
     static const TCHAR *ioName[] = { _T("luma-sr"), _T("gray+noise"), _T("chroma"), _T("rgb"), _T("rgb+noise") };
-    tstring info = strsprintf(_T("onnx: %s  %dx%d -> %dx%d (x%d)  io=%s%s  interop=%s"),
+    tstring info = strsprintf(_T("onnx: %s  %dx%d -> %dx%d (x%d)  io=%s%s  path=%s"),
         PathGetFilename(prm->onnx.modelFile).c_str(), inW, inH, outW, outH, m_scale,
         ioName[(int)m_io], (m_ycbcr && m_io == OnnxIO::RGB) ? _T("(ycbcr)") : _T(""),
         m_useOcl ? _T("ocl") : _T("host"));
@@ -728,9 +774,11 @@ RGY_ERR RGYFilterOnnx::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo 
     // (the in-order queue serialises the resize after it, and the resize signals
     // the real event); otherwise the core signals the event directly.
     RGYOpenCLEvent *coreEvent = m_postResize ? nullptr : event;
-    auto cerr = m_useOcl
-        ? runOcl(pInputFrame, coreFrame, queue, wait_events, coreEvent)
-        : runHost(pInputFrame, coreFrame, queue, wait_events, coreEvent);
+    auto cerr = !m_useOcl
+        ? runHost(pInputFrame, coreFrame, queue, wait_events, coreEvent)
+        : ((m_io == OnnxIO::RGB)
+            ? runOclRGB(pInputFrame, coreFrame, queue, wait_events, coreEvent)
+            : runOcl(pInputFrame, coreFrame, queue, wait_events, coreEvent));
     if (cerr != RGY_ERR_NONE) {
         return cerr;
     }
@@ -807,6 +855,68 @@ RGY_ERR RGYFilterOnnx::runOcl(const RGYFrameInfo *in, RGYFrameInfo *out,
         err = m_program->kernel("chroma_bilinear").config(queue, clocal, cglobal, {}, event).launch(
             (cl_mem)in->ptr[1], in->pitch[1] / pixSize, 2, 1, (cl_mem)out->ptr[1], out->pitch[1] / pixSize, 2, 1, cInW, cInH, m_scale);
         if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: chroma(V) failed: %s.\n"), get_err_mes(err)); return err; }
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterOnnx::createRgbPlanes(RGYCLBuf *parent, const int width, const int height,
+    std::array<std::unique_ptr<RGYCLBuf>, 3>& planes) {
+    const size_t planeBytes = (size_t)width * height * sizeof(float);
+    for (int i = 0; i < 3; i++) {
+        cl_buffer_region region = { (size_t)i * planeBytes, planeBytes };
+        cl_int clerr = CL_SUCCESS;
+        auto subbuf = clCreateSubBuffer(parent->mem(), CL_MEM_READ_WRITE, CL_BUFFER_CREATE_TYPE_REGION, &region, &clerr);
+        if (clerr != CL_SUCCESS || subbuf == nullptr) {
+            AddMessage(RGY_LOG_ERROR, _T("onnx: failed to create RGB tensor plane %d: %s.\n"), i, cl_errmes(clerr));
+            return err_cl_to_rgy(clerr);
+        }
+        planes[i] = std::make_unique<RGYCLBuf>(subbuf, CL_MEM_READ_WRITE, planeBytes);
+    }
+    return RGY_ERR_NONE;
+}
+
+RGYFrameInfo RGYFilterOnnx::rgbFrame(const std::array<std::unique_ptr<RGYCLBuf>, 3>& planes,
+    const int width, const int height) const {
+    RGYFrameInfo frame;
+    frame.width = width;
+    frame.height = height;
+    frame.csp = RGY_CSP_RGB_F32;
+    frame.bitdepth = 32;
+    frame.mem_type = RGY_MEM_TYPE_GPU;
+    frame.picstruct = RGY_PICSTRUCT_FRAME;
+    for (int i = 0; i < 3; i++) {
+        frame.ptr[i] = (uint8_t *)planes[i]->mem();
+        frame.pitch[i] = width * sizeof(float);
+    }
+    return frame;
+}
+
+RGY_ERR RGYFilterOnnx::runOclRGB(const RGYFrameInfo *in, RGYFrameInfo *out,
+    RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+    auto inputYuv = *in;
+    inputYuv.picstruct = RGY_PICSTRUCT_FRAME;
+    auto inputRgb = rgbFrame(m_inRgbPlanes, in->width, in->height);
+    RGYFrameInfo *inputRgbOut[1] = { &inputRgb };
+    int outputCount = 0;
+    auto err = m_cropToRgb->filter(&inputYuv, inputRgbOut, &outputCount, queue, wait_events, nullptr);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: YUV to RGB conversion failed: %s.\n"), get_err_mes(err));
+        return err;
+    }
+
+    err = m_ov->inferShared();
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: inference failed.\n"));
+        return err;
+    }
+
+    auto outputRgb = rgbFrame(m_outRgbPlanes, out->width, out->height);
+    RGYFrameInfo *outputYuv[1] = { out };
+    outputCount = 0;
+    err = m_cropFromRgb->filter(&outputRgb, outputYuv, &outputCount, queue, {}, event);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: RGB to YUV conversion failed: %s.\n"), get_err_mes(err));
+        return err;
     }
     return RGY_ERR_NONE;
 }
@@ -1587,6 +1697,10 @@ RGY_ERR RGYFilterOnnx::runHost(const RGYFrameInfo *in, RGYFrameInfo *out,
 
 void RGYFilterOnnx::close() {
     m_postResize.reset();
+    m_cropToRgb.reset();
+    m_cropFromRgb.reset();
+    for (auto& plane : m_inRgbPlanes) plane.reset();
+    for (auto& plane : m_outRgbPlanes) plane.reset();
     m_inStaging.reset();
     m_outStaging.reset();
     m_inBufCL.reset();

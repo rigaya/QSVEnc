@@ -4099,9 +4099,6 @@ Pre/post processing is inferred from the model channel count: 1ch=luma SR, 3ch=R
     Path to the .onnx / .xml model file (required).
   - device=&lt;string&gt; (default: GPU.0)  
     OpenVINO device. GPU.0 / GPU / CPU / AUTO
-  - interop=&lt;string&gt; (default: auto)  
-    GPU memory sharing mode.  
-    auto / ocl (zero-copy, shared GPU context) / host
   - prec=&lt;string&gt; (default: auto)  
     OpenVINO inference precision. auto / fp16 / fp32
   - colormatrix=&lt;string&gt; (default: auto)  

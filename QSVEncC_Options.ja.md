@@ -4158,9 +4158,6 @@ LinuxではOpenVINO Runtimeの追加インストールが必要です。Ubuntu�
     .onnx / .xml モデルファイルのパス (必須)。
   - device=&lt;string&gt; (デフォルト: GPU.0)  
     OpenVINOデバイス。GPU.0 / GPU / CPU / AUTO
-  - interop=&lt;string&gt; (デフォルト: auto)  
-    GPUメモリの共有方式。  
-    auto / ocl (ゼロコピー、共有GPUコンテキスト) / host
   - prec=&lt;string&gt; (デフォルト: auto)  
     OpenVINOの推論精度。auto / fp16 / fp32
   - colormatrix=&lt;string&gt; (デフォルト: auto)  

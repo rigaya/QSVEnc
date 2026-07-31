@@ -2052,7 +2052,6 @@ VppOnnx::VppOnnx() :
     enable(false),
     modelFile(),
     device(_T("GPU.0")),
-    interop(_T("auto")),
     provider(_T("auto")),
     precision(_T("auto")),
     cacheDir(),
@@ -2073,7 +2072,6 @@ bool VppOnnx::operator==(const VppOnnx &x) const {
     return enable == x.enable
         && modelFile == x.modelFile
         && device == x.device
-        && interop == x.interop
         && provider == x.provider
         && precision == x.precision
         && cacheDir == x.cacheDir
@@ -2102,7 +2100,6 @@ tstring VppOnnx::print() const {
     }
 #elif ENABLE_OPENVINO
     s += strsprintf(_T(",device=%s"), device.c_str());
-    s += strsprintf(_T(",interop=%s"), interop.c_str());
     s += strsprintf(_T(",prec=%s"), precision.c_str());
     if (!cacheDir.empty()) {
         s += strsprintf(_T(",cache_dir=%s"), cacheDir.c_str());
