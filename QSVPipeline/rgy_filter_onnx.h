@@ -89,9 +89,14 @@ protected:
     // RGBとRGB+Noiseモデルのゼロコピー経路。
     RGY_ERR runOclRGB(const RGYFrameInfo *in, RGYFrameInfo *out,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    RGY_ERR createRgbPlanes(RGYCLBuf *parent, int width, int height,
+    // Chromaモデルのゼロコピー経路。
+    RGY_ERR runOclChroma(const RGYFrameInfo *in, RGYFrameInfo *out,
+        RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    RGY_ERR createFloatPlanes(RGYCLBuf *parent, int width, int height, int planeCount,
         std::array<std::unique_ptr<RGYCLBuf>, 3>& planes);
     RGYFrameInfo rgbFrame(const std::array<std::unique_ptr<RGYCLBuf>, 3>& planes,
+        int width, int height) const;
+    RGYFrameInfo yuv444Frame(const std::array<std::unique_ptr<RGYCLBuf>, 3>& planes,
         int width, int height) const;
 
     // host pre/post, dispatched on m_io. fillInputHost packs the mapped input
@@ -160,8 +165,12 @@ protected:
     std::unique_ptr<RGYCLBuf>         m_outBufCL; // f32 network output (outC*outW*outH)
     std::array<std::unique_ptr<RGYCLBuf>, 3> m_inRgbPlanes;
     std::array<std::unique_ptr<RGYCLBuf>, 3> m_outRgbPlanes;
+    std::array<std::unique_ptr<RGYCLBuf>, 3> m_inYuvPlanes;
+    std::array<std::unique_ptr<RGYCLBuf>, 3> m_outChromaPlanes;
     std::unique_ptr<RGYFilterCspCrop> m_cropToRgb;
     std::unique_ptr<RGYFilterCspCrop> m_cropFromRgb;
+    std::unique_ptr<RGYFilterCspCrop> m_cropToYuv444;
+    std::unique_ptr<RGYFilterCspCrop> m_cropFromYuv444;
 
     // --- multi-frame temporal window state (only used when m_temporalT > 1) ---
     int m_temporalT;                 // input frames per window (1 = single-frame path, disabled)

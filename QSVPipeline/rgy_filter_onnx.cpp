@@ -48,7 +48,8 @@ RGYFilterOnnx::RGYFilterOnnx(shared_ptr<RGYOpenCLContext> context) :
     m_matVR(0), m_matUG(0), m_matVG(0), m_matUB(0),
     m_matRY(0), m_matGY(0), m_matBY(0), m_matRU(0), m_matGU(0), m_matBU(0), m_matRV(0), m_matGV(0), m_matBV(0),
     m_inStaging(), m_outStaging(), m_inBuf(), m_outBuf(), m_u444(), m_v444(),
-    m_program(), m_inBufCL(), m_outBufCL(), m_inRgbPlanes(), m_outRgbPlanes(), m_cropToRgb(), m_cropFromRgb(),
+    m_program(), m_inBufCL(), m_outBufCL(), m_inRgbPlanes(), m_outRgbPlanes(), m_inYuvPlanes(), m_outChromaPlanes(),
+    m_cropToRgb(), m_cropFromRgb(), m_cropToYuv444(), m_cropFromYuv444(),
     m_temporalT(1), m_ringBaseIdx(0), m_recvCount(0), m_emitCount(0),
     m_ovm(), m_maskModelW(0), m_maskModelH(0), m_imgPortIdx(0), m_mskPortIdx(1), m_outScale(0.0f) {
     m_name = _T("onnx");
@@ -382,7 +383,7 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     bool usingOpenCLRemoteContext = false;
 
     // モデルのチャンネル数から共有経路を自動選択する。
-    // 1ch輝度、2ch Gray+Noise、3ch RGB、4ch RGB+Noiseモデル以外はホスト経路を使用する。
+    // 1ch輝度、2ch Gray+Noise、3ch Chroma/RGB、4ch RGB+Noiseモデル以外はホスト経路を使用する。
     int peekIn = 0, peekOut = 0;
     RGY_ERR err = m_ov->peekChannels(prm->onnx.modelFile, peekIn, peekOut, errMsg);
     if (err != RGY_ERR_NONE) {
@@ -393,7 +394,8 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     const bool ycbcrRGB = (peekIn == 3 && peekOut == 3) && (prm->onnx.colorspace == _T("ycbcr"));
     bool fastOcl = deviceWantsGpu && m_cl && !ycbcrRGB
         && ((peekIn == 1 && peekOut == 1) || (peekIn == 2 && peekOut == 1)
-            || (peekIn == 3 && peekOut == 3) || (peekIn == 4 && peekOut == 3));
+            || (peekIn == 3 && peekOut == 2) || (peekIn == 3 && peekOut == 3)
+            || (peekIn == 4 && peekOut == 3));
 
     auto initModel = [&](const int modelInH, const int modelInW) {
         if (fastOcl) {
@@ -568,17 +570,18 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     const bool rangeTV = (prm->onnx.colorrange != RGY_COLORRANGE_FULL);
     setupColorCoeffs(matrixSel, matrixSelOut, rangeTV, (int)m_maxval);
 
-    if (fastOcl && (m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise)) {
+    if (fastOcl && (m_io == OnnxIO::Chroma || m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise)) {
         const auto alignBits = std::max(1, RGYOpenCLDevice(m_cl->queue().devid()).info().mem_base_addr_align);
         const size_t alignBytes = std::max<size_t>(1, (alignBits + 7) / 8);
         const size_t inPlaneBytes = (size_t)inW * inH * sizeof(float);
         const size_t outPlaneBytes = (size_t)outW * outH * sizeof(float);
         if ((inPlaneBytes % alignBytes) != 0 || (outPlaneBytes % alignBytes) != 0) {
-            AddMessage(RGY_LOG_WARN, _T("onnx: RGB tensor plane offsets do not meet OpenCL alignment; falling back to host path.\n"));
+            AddMessage(RGY_LOG_WARN, _T("onnx: tensor plane offsetがOpenCLのアラインメントを満たさないため、ホスト経路へ切り替えます。\n"));
             fastOcl = false;
         }
     }
     m_useOcl = fastOcl && (m_io == OnnxIO::LumaSR || m_io == OnnxIO::GrayNoise
+        || m_io == OnnxIO::Chroma
         || ((m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise) && !m_ycbcr));
 
     // Output frame buffer at the (possibly upscaled) resolution.
@@ -616,13 +619,45 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
                 AddMessage(RGY_LOG_ERROR, _T("onnx: failed to build RGY_FILTER_ONNX_CL.\n"));
                 return RGY_ERR_OPENCL_CRUSH;
             }
-        } else if (m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise) {
-            err = createRgbPlanes(m_inBufCL.get(), inW, inH, m_inRgbPlanes);
+        } else if (m_io == OnnxIO::Chroma) {
+            err = createFloatPlanes(m_inBufCL.get(), inW, inH, 3, m_inYuvPlanes);
             if (err == RGY_ERR_NONE) {
-                err = createRgbPlanes(m_outBufCL.get(), outW, outH, m_outRgbPlanes);
+                err = createFloatPlanes(m_outBufCL.get(), outW, outH, 2, m_outChromaPlanes);
             }
             if (err != RGY_ERR_NONE) {
-                AddMessage(RGY_LOG_ERROR, _T("onnx: failed to create RGB tensor plane views.\n"));
+                AddMessage(RGY_LOG_ERROR, _T("onnx: Chroma tensor plane viewの作成に失敗しました。\n"));
+                return err;
+            }
+
+            auto cropToYuv444Param = std::make_shared<RGYFilterParamCrop>();
+            cropToYuv444Param->frameIn = prm->frameIn;
+            cropToYuv444Param->frameOut = yuv444Frame(m_inYuvPlanes, inW, inH);
+            cropToYuv444Param->baseFps = prm->baseFps;
+            m_cropToYuv444 = std::make_unique<RGYFilterCspCrop>(m_cl);
+            err = m_cropToYuv444->init(cropToYuv444Param, m_pLog);
+            if (err != RGY_ERR_NONE) {
+                return err;
+            }
+
+            auto outputYuv444 = yuv444Frame(m_inYuvPlanes, outW, outH);
+            outputYuv444.ptr[1] = (uint8_t *)m_outChromaPlanes[0]->mem();
+            outputYuv444.ptr[2] = (uint8_t *)m_outChromaPlanes[1]->mem();
+            auto cropFromYuv444Param = std::make_shared<RGYFilterParamCrop>();
+            cropFromYuv444Param->frameIn = outputYuv444;
+            cropFromYuv444Param->frameOut = frameOut;
+            cropFromYuv444Param->baseFps = prm->baseFps;
+            m_cropFromYuv444 = std::make_unique<RGYFilterCspCrop>(m_cl);
+            err = m_cropFromYuv444->init(cropFromYuv444Param, m_pLog);
+            if (err != RGY_ERR_NONE) {
+                return err;
+            }
+        } else if (m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise) {
+            err = createFloatPlanes(m_inBufCL.get(), inW, inH, 3, m_inRgbPlanes);
+            if (err == RGY_ERR_NONE) {
+                err = createFloatPlanes(m_outBufCL.get(), outW, outH, 3, m_outRgbPlanes);
+            }
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("onnx: RGB tensor plane viewの作成に失敗しました。\n"));
                 return err;
             }
 
@@ -778,7 +813,9 @@ RGY_ERR RGYFilterOnnx::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo 
     RGYOpenCLEvent *coreEvent = m_postResize ? nullptr : event;
     auto cerr = !m_useOcl
         ? runHost(pInputFrame, coreFrame, queue, wait_events, coreEvent)
-        : ((m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise)
+        : (m_io == OnnxIO::Chroma
+            ? runOclChroma(pInputFrame, coreFrame, queue, wait_events, coreEvent)
+            : (m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise)
             ? runOclRGB(pInputFrame, coreFrame, queue, wait_events, coreEvent)
             : runOcl(pInputFrame, coreFrame, queue, wait_events, coreEvent));
     if (cerr != RGY_ERR_NONE) {
@@ -871,15 +908,18 @@ RGY_ERR RGYFilterOnnx::runOcl(const RGYFrameInfo *in, RGYFrameInfo *out,
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYFilterOnnx::createRgbPlanes(RGYCLBuf *parent, const int width, const int height,
+RGY_ERR RGYFilterOnnx::createFloatPlanes(RGYCLBuf *parent, const int width, const int height, const int planeCount,
     std::array<std::unique_ptr<RGYCLBuf>, 3>& planes) {
+    if (planeCount < 1 || planeCount > (int)planes.size()) {
+        return RGY_ERR_INVALID_PARAM;
+    }
     const size_t planeBytes = (size_t)width * height * sizeof(float);
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < planeCount; i++) {
         cl_buffer_region region = { (size_t)i * planeBytes, planeBytes };
         cl_int clerr = CL_SUCCESS;
         auto subbuf = clCreateSubBuffer(parent->mem(), CL_MEM_READ_WRITE, CL_BUFFER_CREATE_TYPE_REGION, &region, &clerr);
         if (clerr != CL_SUCCESS || subbuf == nullptr) {
-            AddMessage(RGY_LOG_ERROR, _T("onnx: failed to create RGB tensor plane %d: %s.\n"), i, cl_errmes(clerr));
+            AddMessage(RGY_LOG_ERROR, _T("onnx: tensor plane %dのsub-buffer作成に失敗しました: %s。\n"), i, cl_errmes(clerr));
             return (clerr == CL_SUCCESS) ? RGY_ERR_MEMORY_ALLOC : err_cl_to_rgy(clerr);
         }
         planes[i] = std::make_unique<RGYCLBuf>(subbuf, CL_MEM_READ_WRITE, planeBytes);
@@ -893,6 +933,22 @@ RGYFrameInfo RGYFilterOnnx::rgbFrame(const std::array<std::unique_ptr<RGYCLBuf>,
     frame.width = width;
     frame.height = height;
     frame.csp = RGY_CSP_RGB_F32;
+    frame.bitdepth = 32;
+    frame.mem_type = RGY_MEM_TYPE_GPU;
+    frame.picstruct = RGY_PICSTRUCT_FRAME;
+    for (int i = 0; i < 3; i++) {
+        frame.ptr[i] = (uint8_t *)planes[i]->mem();
+        frame.pitch[i] = width * sizeof(float);
+    }
+    return frame;
+}
+
+RGYFrameInfo RGYFilterOnnx::yuv444Frame(const std::array<std::unique_ptr<RGYCLBuf>, 3>& planes,
+    const int width, const int height) const {
+    RGYFrameInfo frame;
+    frame.width = width;
+    frame.height = height;
+    frame.csp = RGY_CSP_YUV444_F32;
     frame.bitdepth = 32;
     frame.mem_type = RGY_MEM_TYPE_GPU;
     frame.picstruct = RGY_PICSTRUCT_FRAME;
@@ -938,6 +994,38 @@ RGY_ERR RGYFilterOnnx::runOclRGB(const RGYFrameInfo *in, RGYFrameInfo *out,
     err = m_cropFromRgb->filter(&outputRgb, outputYuv, &outputCount, queue, {}, event);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("onnx: RGB to YUV conversion failed: %s.\n"), get_err_mes(err));
+        return err;
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterOnnx::runOclChroma(const RGYFrameInfo *in, RGYFrameInfo *out,
+    RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+    auto inputYuv = *in;
+    inputYuv.picstruct = RGY_PICSTRUCT_FRAME;
+    auto inputYuv444 = yuv444Frame(m_inYuvPlanes, in->width, in->height);
+    RGYFrameInfo *inputYuv444Out[1] = { &inputYuv444 };
+    int outputCount = 0;
+    auto err = m_cropToYuv444->filter(&inputYuv, inputYuv444Out, &outputCount, queue, wait_events, nullptr);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: YUV420からYUV444_F32への変換に失敗しました: %s。\n"), get_err_mes(err));
+        return err;
+    }
+
+    err = m_ov->inferShared();
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: 推論に失敗しました。\n"));
+        return err;
+    }
+
+    auto outputYuv444 = yuv444Frame(m_inYuvPlanes, out->width, out->height);
+    outputYuv444.ptr[1] = (uint8_t *)m_outChromaPlanes[0]->mem();
+    outputYuv444.ptr[2] = (uint8_t *)m_outChromaPlanes[1]->mem();
+    RGYFrameInfo *outputYuv[1] = { out };
+    outputCount = 0;
+    err = m_cropFromYuv444->filter(&outputYuv444, outputYuv, &outputCount, queue, {}, event);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx: YUV444_F32からYUV420への変換に失敗しました: %s。\n"), get_err_mes(err));
         return err;
     }
     return RGY_ERR_NONE;
@@ -1721,8 +1809,12 @@ void RGYFilterOnnx::close() {
     m_postResize.reset();
     m_cropToRgb.reset();
     m_cropFromRgb.reset();
+    m_cropToYuv444.reset();
+    m_cropFromYuv444.reset();
     for (auto& plane : m_inRgbPlanes) plane.reset();
     for (auto& plane : m_outRgbPlanes) plane.reset();
+    for (auto& plane : m_inYuvPlanes) plane.reset();
+    for (auto& plane : m_outChromaPlanes) plane.reset();
     m_inStaging.reset();
     m_outStaging.reset();
     m_inBufCL.reset();
