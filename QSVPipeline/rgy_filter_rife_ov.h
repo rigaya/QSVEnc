@@ -34,6 +34,7 @@
 #include "rgy_openvino.h"
 #include <vector>
 #include <memory>
+#include <array>
 
 // Fresh, standalone OpenVINO-backed RIFE frame-interpolation filter. It does NOT
 // reuse the older oneDNN RIFE code: the network is loaded directly from a vs-mlrt
@@ -73,24 +74,23 @@ protected:
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;
     virtual void close() override;
 
-    // YUV (yv12/nv12 8-bit) -> planar RGB [0,1] CHW into dst (3*W*H floats).
-    void yuvToRGB(const RGYFrameInfo &hin, float *dst);
-    // planar RGB [0,1] CHW (3*W*H) -> yv12/nv12 8-bit into the mapped output frame.
-    void rgbToYUV(const RGYFrameInfo &hout, const float *src);
-    // YUV<->RGB matrix + range coefficients (mirrors the --vpp-onnx RGB bookend).
-    void setupColorCoeffs(int matrixSel, bool rangeTV, int pixMax);
-    // emit one interpolated frame at time t in (0,1) into outRGB via the network.
+    // ホスト経路で時刻tの補間フレームを推論する。
     RGY_ERR interpolate(float t);
+    RGY_ERR interpolateOcl(float t, RGYOpenCLQueue &queue);
+    RGY_ERR runHost(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+        RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    RGY_ERR runOcl(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+        RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    RGY_ERR createRgbPlanes(RGYCLBuf *parent, int channelOffset,
+        std::array<std::unique_ptr<RGYCLBuf>, 3>& planes);
+    RGYFrameInfo rgbFrame(const std::array<std::unique_ptr<RGYCLBuf>, 3>& planes) const;
+    RGY_ERR readRgbStaging(RGYOpenCLQueue &queue, std::vector<float>& dst);
+    RGY_ERR writeRgbStaging(RGYOpenCLQueue &queue, const std::vector<float>& src);
 
     std::unique_ptr<RGYOpenVINO> m_ov;
     int   m_W, m_H;           // working resolution (frame size; must be /32)
     int   m_multi;            // frame-rate multiplier
-    float m_maxval;           // (1<<bitdepth)-1
-
-    // colour coefficients (computed once at init)
-    float m_yOff, m_yScale, m_yRange, m_cOff, m_cScale, m_cRange;
-    float m_matVR, m_matUG, m_matVG, m_matUB;                                                // YUV -> RGB
-    float m_matRY, m_matGY, m_matBY, m_matRU, m_matGU, m_matBU, m_matRV, m_matGV, m_matBV;    // RGB -> YUV
+    bool  m_useOcl;
 
     // temporal state
     bool    m_havePrev;
@@ -105,8 +105,16 @@ protected:
     std::vector<float> m_baseGrid;    // precomputed base_grid (2*W*H)
     std::vector<float> m_multiplier;  // precomputed multiplier (2*W*H)
 
-    std::unique_ptr<RGYCLFrame> m_inStaging;   // host-mappable copy of the input frame
-    std::unique_ptr<RGYCLFrame> m_outStaging;  // host-mappable scratch for one output frame
+    std::unique_ptr<RGYCLFrame> m_inStaging;
+    std::unique_ptr<RGYCLFrame> m_outStaging;
+    std::unique_ptr<RGYFilterCspCrop> m_cropToRgb;
+    std::unique_ptr<RGYFilterCspCrop> m_cropFromRgb;
+
+    std::unique_ptr<RGYCLBuf> m_inBufCL;
+    std::unique_ptr<RGYCLBuf> m_outBufCL;
+    std::array<std::unique_ptr<RGYCLBuf>, 3> m_prevRgbPlanes;
+    std::array<std::unique_ptr<RGYCLBuf>, 3> m_currRgbPlanes;
+    std::array<std::unique_ptr<RGYCLBuf>, 3> m_outRgbPlanes;
 };
 
 #endif //__RGY_FILTER_RIFE_OV_H__

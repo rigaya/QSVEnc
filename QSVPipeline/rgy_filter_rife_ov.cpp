@@ -29,65 +29,83 @@
 #include "rgy_filesystem.h"
 #include "rgy_model_registry.h"
 #include <algorithm>
-#include <cmath>
-
-static inline uint8_t clamp_u8(int v) { return (uint8_t)(v < 0 ? 0 : (v > 255 ? 255 : v)); }
-static inline float   clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
+#include <cstring>
 
 RGYFilterRifeOV::RGYFilterRifeOV(shared_ptr<RGYOpenCLContext> context) :
-    RGYFilter(context), m_ov(), m_W(0), m_H(0), m_multi(2), m_maxval(255.0f),
-    m_yOff(0), m_yScale(1), m_yRange(255), m_cOff(128), m_cScale(1), m_cRange(255),
-    m_matVR(0), m_matUG(0), m_matVG(0), m_matUB(0),
-    m_matRY(0), m_matGY(0), m_matBY(0), m_matRU(0), m_matGU(0), m_matBU(0), m_matRV(0), m_matGV(0), m_matBV(0),
+    RGYFilter(context), m_ov(), m_W(0), m_H(0), m_multi(2), m_useOcl(false),
     m_havePrev(false), m_prevTimestamp(0), m_prevDuration(0),
     m_prevRGB(), m_currRGB(), m_inBuf(), m_outBuf(), m_baseGrid(), m_multiplier(),
-    m_inStaging(), m_outStaging() {
+    m_inStaging(), m_outStaging(), m_cropToRgb(), m_cropFromRgb(),
+    m_inBufCL(), m_outBufCL(), m_prevRgbPlanes(), m_currRgbPlanes(), m_outRgbPlanes() {
     m_name = _T("rife-ov");
 }
 
 RGYFilterRifeOV::~RGYFilterRifeOV() { close(); }
 
 void RGYFilterRifeOV::close() {
-    m_ov.reset();
+    m_cropToRgb.reset();
+    m_cropFromRgb.reset();
+    for (auto& plane : m_prevRgbPlanes) plane.reset();
+    for (auto& plane : m_currRgbPlanes) plane.reset();
+    for (auto& plane : m_outRgbPlanes) plane.reset();
+    m_inBufCL.reset();
+    m_outBufCL.reset();
     m_inStaging.reset();
     m_outStaging.reset();
+    m_ov.reset();
     m_frameBuf.clear();
+    m_havePrev = false;
+    m_useOcl = false;
 }
 
 tstring RGYFilterParamRifeOV::print() const {
     return strsprintf(_T("rife-ov: %s, x%d, device %s"), modelFile.c_str(), multi, device.c_str());
 }
 
-void RGYFilterRifeOV::setupColorCoeffs(int matrixSel, bool rangeTV, int pixMax) {
-    float Kr = 0.2126f, Kb = 0.0722f; // BT.709
-    if (matrixSel == 601)  { Kr = 0.299f;  Kb = 0.114f; }
-    if (matrixSel == 2020) { Kr = 0.2627f; Kb = 0.0593f; }
-    const float Kg = 1.0f - Kr - Kb;
-    m_matVR = 2.0f * (1.0f - Kr);
-    m_matUG = -2.0f * Kb * (1.0f - Kb) / Kg;
-    m_matVG = -2.0f * Kr * (1.0f - Kr) / Kg;
-    m_matUB = 2.0f * (1.0f - Kb);
-    m_matRY = Kr;                            m_matGY = Kg;                            m_matBY = Kb;
-    m_matRU = -Kr / (2.0f * (1.0f - Kb));    m_matGU = -Kg / (2.0f * (1.0f - Kb));    m_matBU = 0.5f;
-    m_matRV = 0.5f;                          m_matGV = -Kg / (2.0f * (1.0f - Kr));    m_matBV = -Kb / (2.0f * (1.0f - Kr));
-    m_yOff   = rangeTV ? (16.0f  * pixMax / 255.0f) : 0.0f;
-    m_yRange = rangeTV ? (219.0f * pixMax / 255.0f) : (float)pixMax;
-    m_yScale = 1.0f / m_yRange;
-    m_cOff   = rangeTV ? (128.0f * pixMax / 255.0f) : ((float)pixMax / 2.0f);
-    m_cRange = rangeTV ? (224.0f * pixMax / 255.0f) : (float)pixMax;
-    m_cScale = 1.0f / m_cRange;
+RGY_ERR RGYFilterRifeOV::createRgbPlanes(RGYCLBuf *parent, const int channelOffset,
+    std::array<std::unique_ptr<RGYCLBuf>, 3>& planes) {
+    const size_t planeBytes = (size_t)m_W * m_H * sizeof(float);
+    for (int i = 0; i < 3; i++) {
+        cl_buffer_region region = { (size_t)(channelOffset + i) * planeBytes, planeBytes };
+        cl_int clerr = CL_SUCCESS;
+        auto subbuf = clCreateSubBuffer(parent->mem(), CL_MEM_READ_WRITE, CL_BUFFER_CREATE_TYPE_REGION, &region, &clerr);
+        if (clerr != CL_SUCCESS || subbuf == nullptr) {
+            AddMessage(RGY_LOG_ERROR, _T("rife-ov: RGBテンソル平面%dの作成に失敗しました: %s。\n"), i, cl_errmes(clerr));
+            return (clerr == CL_SUCCESS) ? RGY_ERR_MEMORY_ALLOC : err_cl_to_rgy(clerr);
+        }
+        planes[i] = std::make_unique<RGYCLBuf>(subbuf, CL_MEM_READ_WRITE, planeBytes);
+    }
+    return RGY_ERR_NONE;
+}
+
+RGYFrameInfo RGYFilterRifeOV::rgbFrame(const std::array<std::unique_ptr<RGYCLBuf>, 3>& planes) const {
+    RGYFrameInfo frame;
+    frame.width = m_W;
+    frame.height = m_H;
+    frame.csp = RGY_CSP_RGB_F32;
+    frame.bitdepth = 32;
+    frame.mem_type = RGY_MEM_TYPE_GPU;
+    frame.picstruct = RGY_PICSTRUCT_FRAME;
+    for (int i = 0; i < 3; i++) {
+        frame.ptr[i] = (uint8_t *)planes[i]->mem();
+        frame.pitch[i] = m_W * sizeof(float);
+    }
+    return frame;
 }
 
 RGY_ERR RGYFilterRifeOV::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
     m_pLog = pPrintMes;
     auto prm = std::dynamic_pointer_cast<RGYFilterParamRifeOV>(pParam);
-    if (!prm) { AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n")); return RGY_ERR_INVALID_PARAM; }
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("rife-ov: パラメータ型が不正です。\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
     if (!RGYOpenVINO::available()) {
-        AddMessage(RGY_LOG_ERROR, _T("rife-ov: this build was compiled without OpenVINO support.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("rife-ov: OpenVINOが有効でないビルドです。\n"));
         return RGY_ERR_UNSUPPORTED;
     }
     if (prm->modelFile.empty()) {
-        AddMessage(RGY_LOG_ERROR, _T("rife-ov: model= (a registered model name or RIFE .onnx path) is required.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("rife-ov: model=に登録済みモデル名またはRIFEモデルのパスが必要です。\n"));
         return RGY_ERR_INVALID_PARAM;
     }
     if (prm->modelFile.find_first_of(_T("/\\\\.")) == tstring::npos && !prm->modelDir.empty()) {
@@ -95,65 +113,79 @@ RGY_ERR RGYFilterRifeOV::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
         const auto err = registry.load(PathCombineS(prm->modelDir, _T("rife_ov_models.json")), m_pLog);
         if (err != RGY_ERR_NONE) return err;
         if (!registry.find(prm->modelFile)) {
-            AddMessage(RGY_LOG_ERROR, _T("rife-ov: model \"%s\" not found in rife_ov_models.json\n"), prm->modelFile.c_str());
+            AddMessage(RGY_LOG_ERROR, _T("rife-ov: rife_ov_models.jsonにモデル\"%s\"がありません。\n"), prm->modelFile.c_str());
             return RGY_ERR_NOT_FOUND;
         }
         prm->modelFile = registry.resolveModelPath(prm->modelFile);
     }
     if (!rgy_file_exists(prm->modelFile)) {
-        AddMessage(RGY_LOG_ERROR, _T("rife-ov: model file not found: %s\n"), prm->modelFile.c_str());
+        AddMessage(RGY_LOG_ERROR, _T("rife-ov: モデルファイルがありません: %s\n"), prm->modelFile.c_str());
         return RGY_ERR_FILE_OPEN;
     }
     if (prm->multi < 2) {
-        AddMessage(RGY_LOG_ERROR, _T("rife-ov: multi must be >= 2.\n"));
+        AddMessage(RGY_LOG_ERROR, _T("rife-ov: multiは2以上である必要があります。\n"));
         return RGY_ERR_INVALID_PARAM;
     }
     const auto inCsp = prm->frameIn.csp;
     if ((inCsp != RGY_CSP_YV12 && inCsp != RGY_CSP_NV12) || prm->frameIn.bitdepth != 8) {
-        AddMessage(RGY_LOG_ERROR, _T("rife-ov: supports 8-bit yuv420 (yv12/nv12) only; got %s %dbit.\n"),
+        AddMessage(RGY_LOG_ERROR, _T("rife-ov: 8bit yuv420（yv12/nv12）のみ対応します: %s %dbit。\n"),
             RGY_CSP_NAMES[inCsp], prm->frameIn.bitdepth);
         return RGY_ERR_UNSUPPORTED;
     }
     m_W = prm->frameIn.width;
     m_H = prm->frameIn.height;
     if ((m_W % 32) != 0 || (m_H % 32) != 0) {
-        AddMessage(RGY_LOG_ERROR, _T("rife-ov: RIFE requires width/height a multiple of 32 (got %dx%d). "
-            "Pad/crop the input first (e.g. --vpp-pad / --crop).\n"), m_W, m_H);
+        AddMessage(RGY_LOG_ERROR, _T("rife-ov: 幅と高さは32の倍数である必要があります（%dx%d）。\n"), m_W, m_H);
         return RGY_ERR_UNSUPPORTED;
     }
-    m_multi  = prm->multi;
-    m_maxval = (float)((1 << prm->frameIn.bitdepth) - 1);
+    m_multi = prm->multi;
 
-    // load + compile the RIFE ONNX (input reshaped to [1,11,H,W]).
     m_ov = std::make_unique<RGYOpenVINO>();
     tstring errMsg;
     int peekIn = 0, peekOut = 0;
-    RGY_ERR err = m_ov->peekChannels(prm->modelFile, peekIn, peekOut, errMsg);
+    auto err = m_ov->peekChannels(prm->modelFile, peekIn, peekOut, errMsg);
     if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("rife-ov: failed to read model %s: %s\n"), prm->modelFile.c_str(), errMsg.c_str());
+        AddMessage(RGY_LOG_ERROR, _T("rife-ov: モデルの読み込みに失敗しました: %s。\n"), errMsg.c_str());
         return err;
     }
-    err = m_ov->init(prm->modelFile, prm->device, m_H, m_W, errMsg);
+    if (peekIn != 11 || peekOut != 3) {
+        AddMessage(RGY_LOG_ERROR, _T("rife-ov: RIFEモデルではありません（入力%dch、出力%dch）。\n"), peekIn, peekOut);
+        return RGY_ERR_UNSUPPORTED;
+    }
+
+    const bool deviceWantsGpu = (prm->device.substr(0, 3) == _T("GPU") || prm->device == _T("AUTO"));
+    if (deviceWantsGpu && m_cl) {
+        // 共有テンソルが使える場合は、同一OpenCLキュー上で変換と推論を直列化する。
+        err = m_ov->initShared(prm->modelFile, (void *)m_cl->queue().get(), (void *)m_cl->context(), m_H, m_W, errMsg);
+        if (err == RGY_ERR_NONE) {
+            m_useOcl = true;
+        } else {
+            AddMessage(RGY_LOG_WARN, _T("rife-ov: OpenCL共有テンソルを利用できないためホスト経路へ切り替えます: %s。\n"), errMsg.c_str());
+            // 共有テンソルAPIだけが不足する場合も、OpenVINOの実行先は選択中のOpenCL GPUを優先する。
+            m_ov = std::make_unique<RGYOpenVINO>();
+            errMsg.clear();
+            err = m_ov->initFromOpenCLQueue(prm->modelFile, (void *)m_cl->queue().get(), (void *)m_cl->context(), m_H, m_W, errMsg);
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_DEBUG, _T("rife-ov: OpenCLキューからの初期化に失敗したためdevice=%sを使用します: %s。\n"),
+                    prm->device.c_str(), errMsg.c_str());
+                m_ov = std::make_unique<RGYOpenVINO>();
+                errMsg.clear();
+                err = m_ov->init(prm->modelFile, prm->device, m_H, m_W, errMsg);
+            }
+        }
+    } else {
+        err = m_ov->init(prm->modelFile, prm->device, m_H, m_W, errMsg);
+    }
     if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("rife-ov: failed to load/compile model on %s: %s\n"), prm->device.c_str(), errMsg.c_str());
+        AddMessage(RGY_LOG_ERROR, _T("rife-ov: モデルのコンパイルに失敗しました（%s）: %s。\n"), prm->device.c_str(), errMsg.c_str());
         return err;
     }
     if (m_ov->inChannels() != 11 || m_ov->outChannels() != 3) {
-        AddMessage(RGY_LOG_ERROR, _T("rife-ov: not a RIFE model (expected 11ch in / 3ch out, got %dch / %dch).\n"),
+        AddMessage(RGY_LOG_ERROR, _T("rife-ov: コンパイル後の入出力形状が不正です（入力%dch、出力%dch）。\n"),
             m_ov->inChannels(), m_ov->outChannels());
         return RGY_ERR_UNSUPPORTED;
     }
 
-    // colour matrix + range (auto: BT.601 for SD, BT.709 for HD; TV range).
-    int matrixSel;
-    if      (prm->colormatrix == _T("bt601"))  matrixSel = 601;
-    else if (prm->colormatrix == _T("bt2020")) matrixSel = 2020;
-    else if (prm->colormatrix == _T("bt709"))  matrixSel = 709;
-    else                                       matrixSel = (m_H <= 576) ? 601 : 709;
-    const bool rangeTV = (prm->colorrange != _T("pc"));
-    setupColorCoeffs(matrixSel, rangeTV, 255);
-
-    // precompute base_grid (normalised [-1,1] mesh) and multiplier (2/(W-1), 2/(H-1)).
     const size_t plane = (size_t)m_W * m_H;
     m_baseGrid.resize(2 * plane);
     m_multiplier.resize(2 * plane);
@@ -164,199 +196,291 @@ RGY_ERR RGYFilterRifeOV::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
         for (int x = 0; x < m_W; x++) {
             const float vx = (m_W > 1) ? (-1.0f + 2.0f * (float)x / (float)(m_W - 1)) : 0.0f;
             const size_t idx = (size_t)y * m_W + x;
-            m_baseGrid[idx]           = vx;          // ch0: horizontal
-            m_baseGrid[plane + idx]   = vy;          // ch1: vertical
-            m_multiplier[idx]         = multH;       // ch0
-            m_multiplier[plane + idx] = multV;       // ch1
+            m_baseGrid[idx] = vx;
+            m_baseGrid[plane + idx] = vy;
+            m_multiplier[idx] = multH;
+            m_multiplier[plane + idx] = multV;
         }
     }
 
-    // host buffers
-    m_prevRGB.resize(3 * plane);
-    m_currRGB.resize(3 * plane);
-    m_inBuf.resize(11 * plane);
-    m_outBuf.resize(3 * plane);
-
-    // output frame info: same resolution, frame rate multiplied by `multi`.
     auto frameOut = prm->frameOut;
-    frameOut.csp    = inCsp;
-    frameOut.width  = m_W;
+    frameOut.csp = inCsp;
+    frameOut.width = m_W;
     frameOut.height = m_H;
-    prm->frameOut   = frameOut;
-
-    // Multi-out filter (1-in / multi-out): the framework's auto path-through for
-    // timestamp / picstruct / flags only works for 1-in/1-out, so clear those bits;
-    // run_filter stamps timestamp / duration / picstruct / inputFrameId per output.
+    prm->frameOut = frameOut;
     m_pathThrough = (FILTER_PATHTHROUGH_FRAMEINFO)(m_pathThrough &
         (~(uint32_t)(FILTER_PATHTHROUGH_TIMESTAMP | FILTER_PATHTHROUGH_PICSTRUCT | FILTER_PATHTHROUGH_FLAGS)));
+    prm->baseFps *= m_multi;
 
-    prm->baseFps   *= m_multi;   // interpolated output runs at multi x the input rate
-
-    // pool: up to `multi` output frames per input frame.
     err = AllocFrameBuf(prm->frameOut, m_multi);
     if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("rife-ov: failed to allocate output frame buffer: %s.\n"), get_err_mes(err));
+        AddMessage(RGY_LOG_ERROR, _T("rife-ov: 出力フレームの確保に失敗しました: %s。\n"), get_err_mes(err));
         return err;
     }
     for (int i = 0; i < RGY_CSP_PLANES[m_frameBuf[0]->frame.csp]; i++) {
         prm->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
 
-    m_inStaging  = m_cl->createFrameBuffer(m_W, m_H, inCsp, prm->frameIn.bitdepth, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR);
-    m_outStaging = m_cl->createFrameBuffer(m_W, m_H, inCsp, prm->frameIn.bitdepth, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR);
-    if (!m_inStaging || !m_outStaging) {
-        AddMessage(RGY_LOG_ERROR, _T("rife-ov: failed to allocate staging frame buffers.\n"));
-        return RGY_ERR_MEMORY_ALLOC;
+    CspMatrix matrix = RGY_MATRIX_BT709;
+    if (prm->colormatrix == _T("bt601")) matrix = RGY_MATRIX_ST170_M;
+    else if (prm->colormatrix == _T("bt2020")) matrix = RGY_MATRIX_BT2020_NCL;
+    else if (prm->colormatrix == _T("bt709")) matrix = RGY_MATRIX_BT709;
+    else matrix = (m_H <= 576) ? RGY_MATRIX_ST170_M : RGY_MATRIX_BT709;
+    const auto colorrange = (prm->colorrange == _T("pc")) ? RGY_COLORRANGE_FULL : RGY_COLORRANGE_LIMITED;
+
+    RGYFrameInfo rgbIn;
+    RGYFrameInfo rgbOut;
+    if (m_useOcl) {
+        m_inBufCL = m_cl->createBuffer(11 * plane * sizeof(float), CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR);
+        m_outBufCL = m_cl->createBuffer(3 * plane * sizeof(float));
+        if (!m_inBufCL || !m_outBufCL) {
+            AddMessage(RGY_LOG_ERROR, _T("rife-ov: 共有テンソルバッファの確保に失敗しました。\n"));
+            return RGY_ERR_MEMORY_ALLOC;
+        }
+        err = createRgbPlanes(m_inBufCL.get(), 0, m_prevRgbPlanes);
+        if (err == RGY_ERR_NONE) err = createRgbPlanes(m_inBufCL.get(), 3, m_currRgbPlanes);
+        if (err == RGY_ERR_NONE) err = createRgbPlanes(m_outBufCL.get(), 0, m_outRgbPlanes);
+        if (err != RGY_ERR_NONE) return err;
+        rgbIn = rgbFrame(m_currRgbPlanes);
+        rgbOut = rgbFrame(m_outRgbPlanes);
+
+        err = m_inBufCL->queueMapBuffer(m_cl->queue(), CL_MAP_WRITE, {}, RGY_CL_MAP_BLOCK_ALL);
+        if (err != RGY_ERR_NONE) return err;
+        auto inPtr = (float *)m_inBufCL->mappedPtr();
+        std::fill(inPtr, inPtr + 11 * plane, 0.0f);
+        std::memcpy(inPtr + 7 * plane, m_baseGrid.data(), 2 * plane * sizeof(float));
+        std::memcpy(inPtr + 9 * plane, m_multiplier.data(), 2 * plane * sizeof(float));
+        err = m_inBufCL->unmapBuffer(m_cl->queue());
+        if (err != RGY_ERR_NONE) return err;
+        err = m_cl->queue().finish();
+        if (err != RGY_ERR_NONE) return err;
+        err = m_ov->setSharedIO((void *)m_inBufCL->mem(), (void *)m_outBufCL->mem());
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("rife-ov: 共有テンソルのバインドに失敗しました。\n"));
+            return err;
+        }
+    } else {
+        m_prevRGB.resize(3 * plane);
+        m_currRGB.resize(3 * plane);
+        m_inBuf.resize(11 * plane);
+        m_outBuf.resize(3 * plane);
+        std::memcpy(m_inBuf.data() + 7 * plane, m_baseGrid.data(), 2 * plane * sizeof(float));
+        std::memcpy(m_inBuf.data() + 9 * plane, m_multiplier.data(), 2 * plane * sizeof(float));
+        m_inStaging = m_cl->createFrameBuffer(m_W, m_H, RGY_CSP_RGB_F32, 32, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR);
+        m_outStaging = m_cl->createFrameBuffer(m_W, m_H, RGY_CSP_RGB_F32, 32, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR);
+        if (!m_inStaging || !m_outStaging) {
+            AddMessage(RGY_LOG_ERROR, _T("rife-ov: RGBステージングバッファの確保に失敗しました。\n"));
+            return RGY_ERR_MEMORY_ALLOC;
+        }
+        rgbIn = m_inStaging->frame;
+        rgbOut = m_outStaging->frame;
     }
+
+    auto cropToRgbParam = std::make_shared<RGYFilterParamCrop>();
+    cropToRgbParam->frameIn = prm->frameIn;
+    cropToRgbParam->frameOut = rgbIn;
+    cropToRgbParam->baseFps = prm->baseFps;
+    cropToRgbParam->matrix = matrix;
+    cropToRgbParam->colorrange = colorrange;
+    cropToRgbParam->chroma420Interpolate = true;
+    m_cropToRgb = std::make_unique<RGYFilterCspCrop>(m_cl);
+    err = m_cropToRgb->init(cropToRgbParam, m_pLog);
+    if (err != RGY_ERR_NONE) return err;
+
+    auto cropFromRgbParam = std::make_shared<RGYFilterParamCrop>();
+    cropFromRgbParam->frameIn = rgbOut;
+    cropFromRgbParam->frameOut = frameOut;
+    cropFromRgbParam->baseFps = prm->baseFps;
+    cropFromRgbParam->matrix = matrix;
+    cropFromRgbParam->colorrange = colorrange;
+    m_cropFromRgb = std::make_unique<RGYFilterCspCrop>(m_cl);
+    err = m_cropFromRgb->init(cropFromRgbParam, m_pLog);
+    if (err != RGY_ERR_NONE) return err;
 
     m_havePrev = false;
     m_param = prm;
-    AddMessage(RGY_LOG_DEBUG, _T("rife-ov: %s, %dx%d, x%d, device %s.\n"),
-        prm->modelFile.c_str(), m_W, m_H, m_multi, prm->device.c_str());
+    AddMessage(RGY_LOG_DEBUG, _T("rife-ov: %s、%dx%d、x%d、device=%s、path=%s。\n"),
+        prm->modelFile.c_str(), m_W, m_H, m_multi, prm->device.c_str(), m_useOcl ? _T("ocl") : _T("host"));
     return RGY_ERR_NONE;
 }
 
-// YUV (yv12/nv12 8-bit 4:2:0) -> planar RGB [0,1] CHW (3*W*H). Chroma bilinear-upsampled.
-void RGYFilterRifeOV::yuvToRGB(const RGYFrameInfo &hin, float *dst) {
-    const int W = m_W, H = m_H;
-    const size_t plane = (size_t)W * H;
-    const bool nv12 = (hin.csp == RGY_CSP_NV12);
-    const int cw = W / 2, ch = H / 2;
-    const uint8_t *pU = hin.ptr[1];
-    const uint8_t *pV = nv12 ? (hin.ptr[1] + 1) : hin.ptr[2];
-    const int cStride = nv12 ? 2 : 1;
-    const int cPitchU = hin.pitch[1];
-    const int cPitchV = nv12 ? hin.pitch[1] : hin.pitch[2];
-    float *R = dst, *G = dst + plane, *B = dst + 2 * plane;
-    for (int y = 0; y < H; y++) {
-        const uint8_t *yrow = hin.ptr[0] + (size_t)y * hin.pitch[0];
-        const int cy = std::min(y / 2, ch - 1);
-        for (int x = 0; x < W; x++) {
-            const int cx = std::min(x / 2, cw - 1);
-            const float yn = ((float)yrow[x] - m_yOff) * m_yScale;
-            const float un = ((float)pU[(size_t)cy * cPitchU + (size_t)cx * cStride] - m_cOff) * m_cScale;
-            const float vn = ((float)pV[(size_t)cy * cPitchV + (size_t)cx * cStride] - m_cOff) * m_cScale;
-            const size_t i = (size_t)y * W + x;
-            R[i] = clampf(yn + m_matVR * vn, 0.0f, 1.0f);
-            G[i] = clampf(yn + m_matUG * un + m_matVG * vn, 0.0f, 1.0f);
-            B[i] = clampf(yn + m_matUB * un, 0.0f, 1.0f);
+RGY_ERR RGYFilterRifeOV::readRgbStaging(RGYOpenCLQueue &queue, std::vector<float>& dst) {
+    auto err = m_inStaging->queueMapBuffer(queue, CL_MAP_READ, {}, RGY_CL_MAP_BLOCK_ALL);
+    if (err != RGY_ERR_NONE) return err;
+    const auto& host = m_inStaging->mappedHost()->host();
+    const size_t rowBytes = (size_t)m_W * sizeof(float);
+    const size_t plane = (size_t)m_W * m_H;
+    for (int c = 0; c < 3; c++) {
+        for (int y = 0; y < m_H; y++) {
+            std::memcpy(dst.data() + c * plane + (size_t)y * m_W,
+                host.ptr[c] + (size_t)y * host.pitch[c], rowBytes);
         }
     }
+    return m_inStaging->unmapBuffer(queue);
 }
 
-// planar RGB [0,1] CHW (3*W*H) -> yv12/nv12 8-bit into the mapped output frame.
-void RGYFilterRifeOV::rgbToYUV(const RGYFrameInfo &hout, const float *src) {
-    const int W = m_W, H = m_H;
-    const size_t plane = (size_t)W * H;
-    const bool nv12 = (hout.csp == RGY_CSP_NV12);
-    const int cw = W / 2, chh = H / 2;
-    const float *R = src, *G = src + plane, *B = src + 2 * plane;
-    uint8_t *oU = hout.ptr[1];
-    uint8_t *oV = nv12 ? (hout.ptr[1] + 1) : hout.ptr[2];
-    const int oStride = nv12 ? 2 : 1;
-    const int oPitchU = hout.pitch[1];
-    const int oPitchV = nv12 ? hout.pitch[1] : hout.pitch[2];
-    // luma + accumulate chroma at full res, then 4:2:0 box-average.
-    for (int y = 0; y < H; y++) {
-        uint8_t *yd = hout.ptr[0] + (size_t)y * hout.pitch[0];
-        for (int x = 0; x < W; x++) {
-            const size_t i = (size_t)y * W + x;
-            const float r = R[i], g = G[i], b = B[i];
-            const float Yn = m_matRY * r + m_matGY * g + m_matBY * b;
-            yd[x] = clamp_u8((int)(Yn * m_yRange + m_yOff + 0.5f));
+RGY_ERR RGYFilterRifeOV::writeRgbStaging(RGYOpenCLQueue &queue, const std::vector<float>& src) {
+    auto err = m_outStaging->queueMapBuffer(queue, CL_MAP_WRITE, {}, RGY_CL_MAP_BLOCK_ALL);
+    if (err != RGY_ERR_NONE) return err;
+    auto& host = m_outStaging->mappedHost()->host();
+    const size_t rowBytes = (size_t)m_W * sizeof(float);
+    const size_t plane = (size_t)m_W * m_H;
+    for (int c = 0; c < 3; c++) {
+        for (int y = 0; y < m_H; y++) {
+            std::memcpy(host.ptr[c] + (size_t)y * host.pitch[c],
+                src.data() + c * plane + (size_t)y * m_W, rowBytes);
         }
     }
-    for (int cy = 0; cy < chh; cy++) {
-        for (int cx = 0; cx < cw; cx++) {
-            float u = 0.0f, v = 0.0f;
-            for (int dy = 0; dy < 2; dy++) {
-                for (int dx = 0; dx < 2; dx++) {
-                    const size_t i = (size_t)(cy * 2 + dy) * W + (cx * 2 + dx);
-                    const float r = R[i], g = G[i], b = B[i];
-                    u += m_matRU * r + m_matGU * g + m_matBU * b;
-                    v += m_matRV * r + m_matGV * g + m_matBV * b;
-                }
-            }
-            u *= 0.25f; v *= 0.25f;
-            oU[(size_t)cy * oPitchU + (size_t)cx * oStride] = clamp_u8((int)(u * m_cRange + m_cOff + 0.5f));
-            oV[(size_t)cy * oPitchV + (size_t)cx * oStride] = clamp_u8((int)(v * m_cRange + m_cOff + 0.5f));
-        }
-    }
+    return m_outStaging->unmapBuffer(queue);
 }
 
-// build the 11-channel input for time t and run the network -> m_outBuf.
 RGY_ERR RGYFilterRifeOV::interpolate(float t) {
     const size_t plane = (size_t)m_W * m_H;
-    float *p = m_inBuf.data();
-    memcpy(p + 0 * plane, m_prevRGB.data(), 3 * plane * sizeof(float)); // img0 (3)
-    memcpy(p + 3 * plane, m_currRGB.data(), 3 * plane * sizeof(float)); // img1 (3)
-    std::fill(p + 6 * plane, p + 7 * plane, t);                         // timestep (1)
-    memcpy(p + 7 * plane, m_baseGrid.data(), 2 * plane * sizeof(float));// base_grid (2)
-    memcpy(p + 9 * plane, m_multiplier.data(), 2 * plane * sizeof(float)); // multiplier (2)
+    std::memcpy(m_inBuf.data(), m_prevRGB.data(), 3 * plane * sizeof(float));
+    std::memcpy(m_inBuf.data() + 3 * plane, m_currRGB.data(), 3 * plane * sizeof(float));
+    std::fill(m_inBuf.data() + 6 * plane, m_inBuf.data() + 7 * plane, t);
     return m_ov->infer(m_inBuf.data(), m_outBuf.data());
 }
 
-RGY_ERR RGYFilterRifeOV::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
-    RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
-    if (pInputFrame->ptr[0] == nullptr) { *pOutputFrameNum = 0; return RGY_ERR_NONE; } // flush: drop trailing single frame
+RGY_ERR RGYFilterRifeOV::interpolateOcl(float t, RGYOpenCLQueue &queue) {
+    const size_t planeBytes = (size_t)m_W * m_H * sizeof(float);
+    const auto clerr = clEnqueueFillBuffer(queue.get(), m_inBufCL->mem(), &t, sizeof(t),
+        6 * planeBytes, planeBytes, 0, nullptr, nullptr);
+    if (clerr != CL_SUCCESS) return err_cl_to_rgy(clerr);
+    return m_ov->inferShared();
+}
 
-    // copy input -> host-mappable staging, map, convert to currRGB.
-    auto err = m_cl->copyFrame(&m_inStaging->frame, pInputFrame, nullptr, queue, wait_events, nullptr);
-    if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("rife-ov: copy input to staging failed: %s.\n"), get_err_mes(err)); return err; }
-    err = m_inStaging->queueMapBuffer(queue, CL_MAP_READ, {}, RGY_CL_MAP_BLOCK_ALL);
-    if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("rife-ov: map input staging failed: %s.\n"), get_err_mes(err)); return err; }
-    yuvToRGB(m_inStaging->mappedHost()->host(), m_currRGB.data());
-    m_inStaging->unmapBuffer(queue);
+RGY_ERR RGYFilterRifeOV::runHost(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+    RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+    auto inputYuv = *pInputFrame;
+    inputYuv.picstruct = RGY_PICSTRUCT_FRAME;
+    RGYFrameInfo *rgbOut[1] = { &m_inStaging->frame };
+    int outputCount = 0;
+    auto err = m_cropToRgb->filter(&inputYuv, rgbOut, &outputCount, queue, wait_events, nullptr);
+    if (err != RGY_ERR_NONE) return err;
+    err = readRgbStaging(queue, m_currRGB);
+    if (err != RGY_ERR_NONE) return err;
 
     if (!m_havePrev) {
-        // first frame: emit it unchanged; it becomes the previous frame.
         ppOutputFrames[0] = &m_frameBuf[0]->frame;
         err = m_cl->copyFrame(ppOutputFrames[0], pInputFrame, nullptr, queue, {}, event);
         if (err != RGY_ERR_NONE) return err;
         ppOutputFrames[0]->timestamp = pInputFrame->timestamp;
-        ppOutputFrames[0]->duration  = pInputFrame->duration;
+        ppOutputFrames[0]->duration = pInputFrame->duration;
         ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
         ppOutputFrames[0]->inputFrameId = pInputFrame->inputFrameId;
         *pOutputFrameNum = 1;
         m_prevRGB = m_currRGB;
         m_prevTimestamp = pInputFrame->timestamp;
-        m_prevDuration  = pInputFrame->duration;
+        m_prevDuration = pInputFrame->duration;
         m_havePrev = true;
         return RGY_ERR_NONE;
     }
 
     const int64_t spanDur = pInputFrame->timestamp - m_prevTimestamp;
-    // (multi-1) interpolated frames between prev and curr.
     for (int k = 1; k < m_multi; k++) {
         const float t = (float)k / (float)m_multi;
         err = interpolate(t);
-        if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("rife-ov: inference failed at t=%.3f.\n"), t); return err; }
-        err = m_outStaging->queueMapBuffer(queue, CL_MAP_WRITE, {}, RGY_CL_MAP_BLOCK_ALL);
-        if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("rife-ov: map output staging failed: %s.\n"), get_err_mes(err)); return err; }
-        rgbToYUV(m_outStaging->mappedHost()->host(), m_outBuf.data());
-        m_outStaging->unmapBuffer(queue);
+        if (err != RGY_ERR_NONE) return err;
+        err = writeRgbStaging(queue, m_outBuf);
+        if (err != RGY_ERR_NONE) return err;
+        auto rgb = m_outStaging->frame;
         RGYFrameInfo *out = &m_frameBuf[k - 1]->frame;
-        err = m_cl->copyFrame(out, &m_outStaging->frame, nullptr, queue, {}, nullptr);
+        RGYFrameInfo *yuvOut[1] = { out };
+        outputCount = 0;
+        err = m_cropFromRgb->filter(&rgb, yuvOut, &outputCount, queue, {}, nullptr);
         if (err != RGY_ERR_NONE) return err;
         out->timestamp = m_prevTimestamp + (spanDur > 0 ? spanDur * (int64_t)k / (int64_t)m_multi : 0);
-        out->duration  = (spanDur > 0) ? (spanDur / m_multi) : pInputFrame->duration;
+        out->duration = (spanDur > 0) ? (spanDur / m_multi) : pInputFrame->duration;
         out->picstruct = pInputFrame->picstruct;
         out->inputFrameId = pInputFrame->inputFrameId;
         ppOutputFrames[k - 1] = out;
     }
-    // passthrough of the current frame (copied unchanged, no RGB round-trip).
     RGYFrameInfo *passthru = &m_frameBuf[m_multi - 1]->frame;
     err = m_cl->copyFrame(passthru, pInputFrame, nullptr, queue, {}, event);
     if (err != RGY_ERR_NONE) return err;
     passthru->timestamp = pInputFrame->timestamp;
-    passthru->duration  = (spanDur > 0) ? (spanDur / m_multi) : pInputFrame->duration;
+    passthru->duration = (spanDur > 0) ? (spanDur / m_multi) : pInputFrame->duration;
     passthru->picstruct = pInputFrame->picstruct;
     passthru->inputFrameId = pInputFrame->inputFrameId;
     ppOutputFrames[m_multi - 1] = passthru;
-
     *pOutputFrameNum = m_multi;
     m_prevRGB.swap(m_currRGB);
     m_prevTimestamp = pInputFrame->timestamp;
-    m_prevDuration  = pInputFrame->duration;
+    m_prevDuration = pInputFrame->duration;
     return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterRifeOV::runOcl(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+    RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+    auto inputYuv = *pInputFrame;
+    inputYuv.picstruct = RGY_PICSTRUCT_FRAME;
+    auto currRgb = rgbFrame(m_currRgbPlanes);
+    RGYFrameInfo *rgbOut[1] = { &currRgb };
+    int outputCount = 0;
+    auto err = m_cropToRgb->filter(&inputYuv, rgbOut, &outputCount, queue, wait_events, nullptr);
+    if (err != RGY_ERR_NONE) return err;
+
+    const size_t planeBytes = (size_t)m_W * m_H * sizeof(float);
+    if (!m_havePrev) {
+        const auto clerr = clEnqueueCopyBuffer(queue.get(), m_inBufCL->mem(), m_inBufCL->mem(),
+            3 * planeBytes, 0, 3 * planeBytes, 0, nullptr, nullptr);
+        if (clerr != CL_SUCCESS) return err_cl_to_rgy(clerr);
+        ppOutputFrames[0] = &m_frameBuf[0]->frame;
+        err = m_cl->copyFrame(ppOutputFrames[0], pInputFrame, nullptr, queue, {}, event);
+        if (err != RGY_ERR_NONE) return err;
+        ppOutputFrames[0]->timestamp = pInputFrame->timestamp;
+        ppOutputFrames[0]->duration = pInputFrame->duration;
+        ppOutputFrames[0]->picstruct = pInputFrame->picstruct;
+        ppOutputFrames[0]->inputFrameId = pInputFrame->inputFrameId;
+        *pOutputFrameNum = 1;
+        m_prevTimestamp = pInputFrame->timestamp;
+        m_prevDuration = pInputFrame->duration;
+        m_havePrev = true;
+        return RGY_ERR_NONE;
+    }
+
+    const int64_t spanDur = pInputFrame->timestamp - m_prevTimestamp;
+    for (int k = 1; k < m_multi; k++) {
+        const float t = (float)k / (float)m_multi;
+        err = interpolateOcl(t, queue);
+        if (err != RGY_ERR_NONE) return err;
+        auto rgb = rgbFrame(m_outRgbPlanes);
+        RGYFrameInfo *out = &m_frameBuf[k - 1]->frame;
+        RGYFrameInfo *yuvOut[1] = { out };
+        outputCount = 0;
+        err = m_cropFromRgb->filter(&rgb, yuvOut, &outputCount, queue, {}, nullptr);
+        if (err != RGY_ERR_NONE) return err;
+        out->timestamp = m_prevTimestamp + (spanDur > 0 ? spanDur * (int64_t)k / (int64_t)m_multi : 0);
+        out->duration = (spanDur > 0) ? (spanDur / m_multi) : pInputFrame->duration;
+        out->picstruct = pInputFrame->picstruct;
+        out->inputFrameId = pInputFrame->inputFrameId;
+        ppOutputFrames[k - 1] = out;
+    }
+    auto clerr = clEnqueueCopyBuffer(queue.get(), m_inBufCL->mem(), m_inBufCL->mem(),
+        3 * planeBytes, 0, 3 * planeBytes, 0, nullptr, nullptr);
+    if (clerr != CL_SUCCESS) return err_cl_to_rgy(clerr);
+    RGYFrameInfo *passthru = &m_frameBuf[m_multi - 1]->frame;
+    err = m_cl->copyFrame(passthru, pInputFrame, nullptr, queue, {}, event);
+    if (err != RGY_ERR_NONE) return err;
+    passthru->timestamp = pInputFrame->timestamp;
+    passthru->duration = (spanDur > 0) ? (spanDur / m_multi) : pInputFrame->duration;
+    passthru->picstruct = pInputFrame->picstruct;
+    passthru->inputFrameId = pInputFrame->inputFrameId;
+    ppOutputFrames[m_multi - 1] = passthru;
+    *pOutputFrameNum = m_multi;
+    m_prevTimestamp = pInputFrame->timestamp;
+    m_prevDuration = pInputFrame->duration;
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterRifeOV::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
+    RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+    if (pInputFrame->ptr[0] == nullptr) {
+        *pOutputFrameNum = 0;
+        return RGY_ERR_NONE;
+    }
+    return m_useOcl
+        ? runOcl(pInputFrame, ppOutputFrames, pOutputFrameNum, queue, wait_events, event)
+        : runHost(pInputFrame, ppOutputFrames, pOutputFrameNum, queue, wait_events, event);
 }
