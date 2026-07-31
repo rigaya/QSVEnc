@@ -132,7 +132,6 @@ const char *get_encoder_version();
 #define ENABLE_CUSTOM_VPP         1
 #define ENABLE_LIBAVDEVICE        0
 #define ENABLE_LIBASS_SUBBURN     1
-#define ENABLE_METRIC_FRAMEWORK   0
 #define ENABLE_CAPTION2ASS        0
 #define ENABLE_AUTO_PICSTRUCT     0
 #else
@@ -150,16 +149,9 @@ const char *get_encoder_version();
 #define ENABLE_LIBASS_SUBBURN     1
 #define ENABLE_CUSTOM_VPP         1
 #define ENABLE_LIBAVDEVICE        1
-#ifndef ENABLE_METRIC_FRAMEWORK
-#if defined(_M_IX86)
-#define ENABLE_METRIC_FRAMEWORK   0
-#else
-#define ENABLE_METRIC_FRAMEWORK   0
-#endif
-#endif
 #define ENABLE_CAPTION2ASS        1
 #define ENABLE_AUTO_PICSTRUCT     1
-#endif //#ifndef ENABLE_METRIC_FRAMEWORK
+#endif //#ifdef BUILD_AUO
 
 #else //#if defined(WIN32) || defined(WIN64)
 #define USE_ONEVPL 1
@@ -168,7 +160,6 @@ const char *get_encoder_version();
 #define MFX_D3D11_SUPPORT 0
 #define ENABLE_D3D11 (MFX_D3D11_SUPPORT)
 #define FOR_AUO 0
-#define ENABLE_METRIC_FRAMEWORK 0
 #define ENABLE_PERF_COUNTER 0
 #define ENABLE_CAPTION2ASS 0
 #define ENABLE_DOVI_METADATA_OPTIONS 1
