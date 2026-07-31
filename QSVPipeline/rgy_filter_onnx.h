@@ -67,7 +67,7 @@ enum class OnnxIO {
 // load-and-run covers every anime4k model family with no per-model code.
 //
 // ホスト経路はすべてのI/O形式とCPUを含む各デバイスに対応する。
-// GPU共有経路は1ch輝度モデル、3ch RGBモデル、4ch RGB+Noiseモデルで自動的に使用する。
+// GPU共有経路は1ch輝度、2ch Gray+Noise、3ch RGB、4ch RGB+Noiseモデルで自動的に使用する。
 class RGYFilterOnnx : public RGYFilter {
 public:
     RGYFilterOnnx(shared_ptr<RGYOpenCLContext> context);
@@ -83,7 +83,7 @@ protected:
     // and handles every OnnxIO mode)
     RGY_ERR runHost(const RGYFrameInfo *in, RGYFrameInfo *out,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    // 1ch輝度モデルのゼロコピー経路。
+    // 輝度モデルとGray+Noiseモデルのゼロコピー経路。
     RGY_ERR runOcl(const RGYFrameInfo *in, RGYFrameInfo *out,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     // RGBとRGB+Noiseモデルのゼロコピー経路。

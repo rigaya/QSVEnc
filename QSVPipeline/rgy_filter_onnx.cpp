@@ -382,7 +382,7 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     bool usingOpenCLRemoteContext = false;
 
     // モデルのチャンネル数から共有経路を自動選択する。
-    // 1ch輝度、3ch RGB、4ch RGB+Noiseモデル以外はホスト経路を使用する。
+    // 1ch輝度、2ch Gray+Noise、3ch RGB、4ch RGB+Noiseモデル以外はホスト経路を使用する。
     int peekIn = 0, peekOut = 0;
     RGY_ERR err = m_ov->peekChannels(prm->onnx.modelFile, peekIn, peekOut, errMsg);
     if (err != RGY_ERR_NONE) {
@@ -392,7 +392,8 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     }
     const bool ycbcrRGB = (peekIn == 3 && peekOut == 3) && (prm->onnx.colorspace == _T("ycbcr"));
     bool fastOcl = deviceWantsGpu && m_cl && !ycbcrRGB
-        && ((peekIn == 1 && peekOut == 1) || (peekIn == 3 && peekOut == 3) || (peekIn == 4 && peekOut == 3));
+        && ((peekIn == 1 && peekOut == 1) || (peekIn == 2 && peekOut == 1)
+            || (peekIn == 3 && peekOut == 3) || (peekIn == 4 && peekOut == 3));
 
     auto initModel = [&](const int modelInH, const int modelInW) {
         if (fastOcl) {
@@ -577,7 +578,7 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
             fastOcl = false;
         }
     }
-    m_useOcl = fastOcl && (m_io == OnnxIO::LumaSR
+    m_useOcl = fastOcl && (m_io == OnnxIO::LumaSR || m_io == OnnxIO::GrayNoise
         || ((m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise) && !m_ycbcr));
 
     // Output frame buffer at the (possibly upscaled) resolution.
@@ -607,7 +608,7 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
             AddMessage(RGY_LOG_ERROR, _T("onnx: failed to bind shared GPU tensors.\n"));
             return err;
         }
-        if (m_io == OnnxIO::LumaSR) {
+        if (m_io == OnnxIO::LumaSR || m_io == OnnxIO::GrayNoise) {
             const auto clBuildOptions = strsprintf("-D Type=%s -D bit_depth=%d",
                 (prm->frameIn.bitdepth > 8) ? "ushort" : "uchar", prm->frameIn.bitdepth);
             m_program = m_cl->buildResource(_T("RGY_FILTER_ONNX_CL"), _T("EXE_DATA"), clBuildOptions);
@@ -822,6 +823,16 @@ RGY_ERR RGYFilterOnnx::runOcl(const RGYFrameInfo *in, RGYFrameInfo *out,
         auto err = m_program->kernel("pack_norm_y").config(queue, local, global, wait_events, nullptr).launch(
             (cl_mem)in->ptr[0], in->pitch[0] / pixSize, m_inBufCL->mem(), inW, inH, m_maxval);
         if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: pack_norm_y failed: %s.\n"), get_err_mes(err)); return err; }
+    }
+
+    if (m_io == OnnxIO::GrayNoise) {
+        const size_t planeBytes = (size_t)inW * inH * sizeof(float);
+        const auto clerr = clEnqueueFillBuffer(queue.get(), m_inBufCL->mem(), &m_sigmaNorm, sizeof(m_sigmaNorm),
+            planeBytes, planeBytes, 0, nullptr, nullptr);
+        if (clerr != CL_SUCCESS) {
+            AddMessage(RGY_LOG_ERROR, _T("onnx: ノイズ強度平面の設定に失敗しました: %s。\n"), cl_errmes(clerr));
+            return err_cl_to_rgy(clerr);
+        }
     }
 
     // 2. inference, enqueued on the SAME in-order queue right after the pack
