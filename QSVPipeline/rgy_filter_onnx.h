@@ -89,8 +89,8 @@ protected:
     // RGBとRGB+Noiseモデルのゼロコピー経路。
     RGY_ERR runOclRGB(const RGYFrameInfo *in, RGYFrameInfo *out,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    // Chromaモデルのゼロコピー経路。
-    RGY_ERR runOclChroma(const RGYFrameInfo *in, RGYFrameInfo *out,
+    // ChromaとYCbCrモデルのゼロコピー経路。
+    RGY_ERR runOclYuv444(const RGYFrameInfo *in, RGYFrameInfo *out,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     RGY_ERR createFloatPlanes(RGYCLBuf *parent, int width, int height, int planeCount,
         std::array<std::unique_ptr<RGYCLBuf>, 3>& planes);
@@ -166,6 +166,7 @@ protected:
     std::array<std::unique_ptr<RGYCLBuf>, 3> m_inRgbPlanes;
     std::array<std::unique_ptr<RGYCLBuf>, 3> m_outRgbPlanes;
     std::array<std::unique_ptr<RGYCLBuf>, 3> m_inYuvPlanes;
+    std::array<std::unique_ptr<RGYCLBuf>, 3> m_outYuvPlanes;
     std::array<std::unique_ptr<RGYCLBuf>, 3> m_outChromaPlanes;
     std::unique_ptr<RGYFilterCspCrop> m_cropToRgb;
     std::unique_ptr<RGYFilterCspCrop> m_cropFromRgb;
