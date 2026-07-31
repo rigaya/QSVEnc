@@ -382,7 +382,7 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     bool usingOpenCLRemoteContext = false;
 
     // モデルのチャンネル数から共有経路を自動選択する。
-    // 1ch輝度モデルと3ch RGBモデル以外はホスト経路を使用する。
+    // 1ch輝度、3ch RGB、4ch RGB+Noiseモデル以外はホスト経路を使用する。
     int peekIn = 0, peekOut = 0;
     RGY_ERR err = m_ov->peekChannels(prm->onnx.modelFile, peekIn, peekOut, errMsg);
     if (err != RGY_ERR_NONE) {
@@ -392,7 +392,7 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     }
     const bool ycbcrRGB = (peekIn == 3 && peekOut == 3) && (prm->onnx.colorspace == _T("ycbcr"));
     bool fastOcl = deviceWantsGpu && m_cl && !ycbcrRGB
-        && ((peekIn == 1 && peekOut == 1) || (peekIn == 3 && peekOut == 3));
+        && ((peekIn == 1 && peekOut == 1) || (peekIn == 3 && peekOut == 3) || (peekIn == 4 && peekOut == 3));
 
     auto initModel = [&](const int modelInH, const int modelInW) {
         if (fastOcl) {
@@ -567,7 +567,7 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     const bool rangeTV = (prm->onnx.colorrange != RGY_COLORRANGE_FULL);
     setupColorCoeffs(matrixSel, matrixSelOut, rangeTV, (int)m_maxval);
 
-    if (fastOcl && m_io == OnnxIO::RGB) {
+    if (fastOcl && (m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise)) {
         const auto alignBits = std::max(1, RGYOpenCLDevice(m_cl->queue().devid()).info().mem_base_addr_align);
         const size_t alignBytes = std::max<size_t>(1, (alignBits + 7) / 8);
         const size_t inPlaneBytes = (size_t)inW * inH * sizeof(float);
@@ -577,7 +577,8 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
             fastOcl = false;
         }
     }
-    m_useOcl = fastOcl && (m_io == OnnxIO::LumaSR || (m_io == OnnxIO::RGB && !m_ycbcr));
+    m_useOcl = fastOcl && (m_io == OnnxIO::LumaSR
+        || ((m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise) && !m_ycbcr));
 
     // Output frame buffer at the (possibly upscaled) resolution.
     auto frameOut = prm->frameOut;
@@ -614,7 +615,7 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
                 AddMessage(RGY_LOG_ERROR, _T("onnx: failed to build RGY_FILTER_ONNX_CL.\n"));
                 return RGY_ERR_OPENCL_CRUSH;
             }
-        } else if (m_io == OnnxIO::RGB) {
+        } else if (m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise) {
             err = createRgbPlanes(m_inBufCL.get(), inW, inH, m_inRgbPlanes);
             if (err == RGY_ERR_NONE) {
                 err = createRgbPlanes(m_outBufCL.get(), outW, outH, m_outRgbPlanes);
@@ -776,7 +777,7 @@ RGY_ERR RGYFilterOnnx::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo 
     RGYOpenCLEvent *coreEvent = m_postResize ? nullptr : event;
     auto cerr = !m_useOcl
         ? runHost(pInputFrame, coreFrame, queue, wait_events, coreEvent)
-        : ((m_io == OnnxIO::RGB)
+        : ((m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise)
             ? runOclRGB(pInputFrame, coreFrame, queue, wait_events, coreEvent)
             : runOcl(pInputFrame, coreFrame, queue, wait_events, coreEvent));
     if (cerr != RGY_ERR_NONE) {
@@ -868,7 +869,7 @@ RGY_ERR RGYFilterOnnx::createRgbPlanes(RGYCLBuf *parent, const int width, const 
         auto subbuf = clCreateSubBuffer(parent->mem(), CL_MEM_READ_WRITE, CL_BUFFER_CREATE_TYPE_REGION, &region, &clerr);
         if (clerr != CL_SUCCESS || subbuf == nullptr) {
             AddMessage(RGY_LOG_ERROR, _T("onnx: failed to create RGB tensor plane %d: %s.\n"), i, cl_errmes(clerr));
-            return err_cl_to_rgy(clerr);
+            return (clerr == CL_SUCCESS) ? RGY_ERR_MEMORY_ALLOC : err_cl_to_rgy(clerr);
         }
         planes[i] = std::make_unique<RGYCLBuf>(subbuf, CL_MEM_READ_WRITE, planeBytes);
     }
@@ -902,6 +903,16 @@ RGY_ERR RGYFilterOnnx::runOclRGB(const RGYFrameInfo *in, RGYFrameInfo *out,
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("onnx: YUV to RGB conversion failed: %s.\n"), get_err_mes(err));
         return err;
+    }
+
+    if (m_io == OnnxIO::RGBNoise) {
+        const size_t planeBytes = (size_t)in->width * in->height * sizeof(float);
+        const auto clerr = clEnqueueFillBuffer(queue.get(), m_inBufCL->mem(), &m_sigmaNorm, sizeof(m_sigmaNorm),
+            3 * planeBytes, planeBytes, 0, nullptr, nullptr);
+        if (clerr != CL_SUCCESS) {
+            AddMessage(RGY_LOG_ERROR, _T("onnx: ノイズ強度平面の設定に失敗しました: %s。\n"), cl_errmes(clerr));
+            return err_cl_to_rgy(clerr);
+        }
     }
 
     err = m_ov->inferShared();
