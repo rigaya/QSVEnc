@@ -3267,6 +3267,9 @@ protected:
         return RGY_ERR_ABORTED;
     }
     void collectReleaseDone(bool wait) {
+        if (!useReleaseWorker()) {
+            return;
+        }
         PipelineTaskOutputSurf *donePtr = nullptr;
         while (true) {
             while (m_releaseDoneQueue.front_copy_and_pop_no_lock(&donePtr)) {
