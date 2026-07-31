@@ -32,6 +32,7 @@
 
 #define KFM_CAT_(a, b) a##b
 #define KFM_CAT(a, b) KFM_CAT_(a, b)
+#define Type2 KFM_CAT(Type, 2)
 #define Type4 KFM_CAT(Type, 4)
 
 static inline int4 kfm_to_int4(const Type4 v) {
@@ -240,24 +241,26 @@ __kernel void kernel_kfm_calc_combe(
     ((__global Type4 *)dst)[x + y * dstPitch4] = kfm_to_type4(clamp(combe >> 2, (int4)0, (int4)((1 << bit_depth) - 1)));
 }
 
-__kernel void kernel_kfm_merge_uv_coefs(
+__kernel void kernel_kfm_merge_uv_coefs_420(
     __global uchar *flagY,
     const int pitchY,
     const __global uchar *flagU,
     const __global uchar *flagV,
     const int pitchUV,
-    const int width,
-    const int height,
-    const int logUVx,
-    const int logUVy) {
+    const int widthUV,
+    const int heightUV) {
     const int x = get_global_id(0);
     const int y = get_global_id(1);
-    if (x >= width || y >= height) return;
+    if (x >= widthUV || y >= heightUV) return;
 
-    __global Type *fy = (__global Type *)(flagY + y * pitchY + x * (int)sizeof(Type));
-    const __global Type *fu = (const __global Type *)(flagU + ((y >> logUVy) * pitchUV + (x >> logUVx) * (int)sizeof(Type)));
-    const __global Type *fv = (const __global Type *)(flagV + ((y >> logUVy) * pitchUV + (x >> logUVx) * (int)sizeof(Type)));
-    fy[0] = max(fy[0], max(fu[0], fv[0]));
+    const __global Type *fu = (const __global Type *)(flagU + y * pitchUV);
+    const __global Type *fv = (const __global Type *)(flagV + y * pitchUV);
+    const Type2 uv = (Type2)max(fu[x], fv[x]);
+
+    __global Type2 *fy0 = (__global Type2 *)(flagY + (y * 2 + 0) * pitchY);
+    __global Type2 *fy1 = (__global Type2 *)(flagY + (y * 2 + 1) * pitchY);
+    fy0[x] = max(fy0[x], uv);
+    fy1[x] = max(fy1[x], uv);
 }
 
 __kernel void kernel_kfm_extend_coefs(
@@ -309,20 +312,32 @@ __kernel void kernel_kfm_apply_uv_coefs_420(
     const int pitchUV,
     const int widthUV,
     const int heightUV) {
-    const int x = get_global_id(0);
+    const int x = get_global_id(0) * 2;
     const int y = get_global_id(1);
     if (x >= widthUV || y >= heightUV) return;
 
-    const __global Type *fy = (const __global Type *)flagY;
-    const int pitchYt = pitchY / (int)sizeof(Type);
-    const int pitchUVt = pitchUV / (int)sizeof(Type);
-    const int v = fy[(x * 2 + 0) + (y * 2 + 0) * pitchYt]
-                + fy[(x * 2 + 1) + (y * 2 + 0) * pitchYt]
-                + fy[(x * 2 + 0) + (y * 2 + 1) * pitchYt]
-                + fy[(x * 2 + 1) + (y * 2 + 1) * pitchYt];
-    const Type outv = (Type)((v + 2) >> 2);
-    ((__global Type *)flagU)[x + y * pitchUVt] = outv;
-    ((__global Type *)flagV)[x + y * pitchUVt] = outv;
+    if (x + 1 < widthUV) {
+        const __global Type4 *fy0 = (const __global Type4 *)(flagY + (y * 2 + 0) * pitchY);
+        const __global Type4 *fy1 = (const __global Type4 *)(flagY + (y * 2 + 1) * pitchY);
+        const int4 top = kfm_to_int4(fy0[x >> 1]);
+        const int4 bottom = kfm_to_int4(fy1[x >> 1]);
+        const Type2 outv = (Type2)(
+            (top.x + top.y + bottom.x + bottom.y + 2) >> 2,
+            (top.z + top.w + bottom.z + bottom.w + 2) >> 2);
+        ((__global Type2 *)(flagU + y * pitchUV))[x >> 1] = outv;
+        ((__global Type2 *)(flagV + y * pitchUV))[x >> 1] = outv;
+    } else {
+        const __global Type *fy = (const __global Type *)flagY;
+        const int pitchYt = pitchY / (int)sizeof(Type);
+        const int pitchUVt = pitchUV / (int)sizeof(Type);
+        const int v = fy[(x * 2 + 0) + (y * 2 + 0) * pitchYt]
+                    + fy[(x * 2 + 1) + (y * 2 + 0) * pitchYt]
+                    + fy[(x * 2 + 0) + (y * 2 + 1) * pitchYt]
+                    + fy[(x * 2 + 1) + (y * 2 + 1) * pitchYt];
+        const Type outv = (Type)((v + 2) >> 2);
+        ((__global Type *)flagU)[x + y * pitchUVt] = outv;
+        ((__global Type *)flagV)[x + y * pitchUVt] = outv;
+    }
 }
 
 __kernel void kernel_kfm_merge_static(

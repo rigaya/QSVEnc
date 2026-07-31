@@ -4967,15 +4967,21 @@ RGY_ERR RGYFilterKfm::analyzeStaticFlag(int sourceIndex, RGYOpenCLQueue &queue, 
         const auto y = getPlane(frame, RGY_PLANE_Y);
         const auto u = getPlane(frame, RGY_PLANE_U);
         const auto v = getPlane(frame, RGY_PLANE_V);
+        if (u.width != v.width || u.height != v.height || u.pitch[0] != v.pitch[0]
+            || y.width != u.width * 2 || y.height != u.height * 2) {
+            AddMessage(RGY_LOG_ERROR, _T("invalid KFM static 4:2:0 plane layout (Y %dx%d, U %dx%d, V %dx%d).\n"),
+                y.width, y.height, u.width, u.height, v.width, v.height);
+            return RGY_ERR_INVALID_PARAM;
+        }
         RGYOpenCLEvent mergeEvent;
         RGYWorkSize local(32, 8);
-        RGYWorkSize global(y.width, y.height);
-        auto err = m_programs[KFM_PROG_STATIC].get()->kernel("kernel_kfm_merge_uv_coefs").config(queue, local, global, waits, &mergeEvent).launch(
+        RGYWorkSize global(u.width, u.height);
+        auto err = m_programs[KFM_PROG_STATIC].get()->kernel("kernel_kfm_merge_uv_coefs_420").config(queue, local, global, waits, &mergeEvent).launch(
             (cl_mem)y.ptr[0], y.pitch[0],
             (cl_mem)u.ptr[0], (cl_mem)v.ptr[0], u.pitch[0],
-            y.width, y.height, 1, 1);
+            u.width, u.height);
         if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_merge_uv_coefs: %s.\n"), get_err_mes(err));
+            AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_merge_uv_coefs_420: %s.\n"), get_err_mes(err));
             return err;
         }
         if (outEvent && mergeEvent() != nullptr) {
@@ -5067,7 +5073,7 @@ RGY_ERR RGYFilterKfm::analyzeStaticFlag(int sourceIndex, RGYOpenCLQueue &queue, 
         const auto flagU = getPlane(&m_staticFlag->frame, RGY_PLANE_U);
         const auto flagV = getPlane(&m_staticFlag->frame, RGY_PLANE_V);
         RGYOpenCLEvent applyEvent;
-        RGYWorkSize uvGlobal(flagU.width, flagU.height);
+        RGYWorkSize uvGlobal((flagU.width + 1) >> 1, flagU.height);
         err = m_programs[KFM_PROG_STATIC].get()->kernel("kernel_kfm_apply_uv_coefs_420").config(queue, local, uvGlobal,
             (andEvent() != nullptr) ? std::vector<RGYOpenCLEvent>{ andEvent } : std::vector<RGYOpenCLEvent>(), &applyEvent).launch(
             (cl_mem)flagcY.ptr[0], flagcY.pitch[0],
