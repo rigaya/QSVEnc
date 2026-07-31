@@ -62,6 +62,14 @@
 #define DEGRAIN_MOTION_SEARCH_EARLY_SAD_THRESHOLD -1
 #endif
 
+#ifndef DEGRAIN_MOTION_SEARCH_PASS_FLAT_FLAG
+#define DEGRAIN_MOTION_SEARCH_PASS_FLAT_FLAG 0
+#endif
+
+// spatial refineへ平坦判定を渡す間だけscore_primaryの上位bitを使用する。
+// export_sadが最終SADでscore_primaryを正規化するため外部表現には残らない。
+#define DEGRAIN_MOTION_SEARCH_FLAT_FLAG 0x80000000u
+
 #ifndef DEGRAIN_PIXEL_BYTES
 #define DEGRAIN_PIXEL_BYTES 1
 #endif
@@ -164,6 +172,12 @@ static inline degrain_motion_search_candidate_cost_t degrain_motion_search_make_
     candidateCosts.pos_x = (short)posX;
     candidateCosts.pos_y = (short)posY;
     return candidateCosts;
+}
+
+static inline degrain_motion_search_candidate_t degrain_motion_search_saved_vector_to_spatial_candidate(
+    degrain_motion_search_saved_vector_t vec) {
+    vec.score_primary &= ~DEGRAIN_MOTION_SEARCH_FLAT_FLAG;
+    return degrain_motion_search_saved_vector_to_candidate(vec);
 }
 
 typedef struct {
@@ -995,11 +1009,15 @@ static inline degrain_motion_search_candidate_cost_t degrain_motion_search_final
     const int blockGridY,
     const int step,
     degrain_motion_search_candidate_cost_t best,
+    const int sourceBlockIsFlat,
     const int localThreadId) {
     // 探索時に保持したraw SADを再利用し、勝者位置の同一SAD計算を省略する。
     best.score_primary = best.sad_metric;
 
-    if (degrain_motion_search_source_block_variance_parallel(sourceBlockPixels, laneSums, localThreadId) == 0u) {
+    const int isFlat = (sourceBlockIsFlat >= 0)
+        ? sourceBlockIsFlat
+        : (degrain_motion_search_source_block_variance_parallel(sourceBlockPixels, laneSums, localThreadId) == 0u);
+    if (isFlat) {
         const uint sadZero = degrain_motion_search_full_block_sad_parallel(
             sourceBlockPixels,
             referencePlane,
@@ -1020,6 +1038,11 @@ static inline degrain_motion_search_candidate_cost_t degrain_motion_search_final
         best.sad_metric = sadZero;
         best.score_primary = sadZero;
     }
+#if DEGRAIN_MOTION_SEARCH_PASS_FLAT_FLAG
+    if (isFlat) {
+        best.score_primary |= DEGRAIN_MOTION_SEARCH_FLAT_FLAG;
+    }
+#endif
     return best;
 }
 
@@ -1309,6 +1332,7 @@ static inline void degrain_motion_search_search_one_block(
         blockGridY,
         step,
         *bestCandidateCost,
+        -1,
         localThreadId);
     if (localThreadId == 0) {
         vectors[degrain_motion_search_vec_current_index(planeBase, blockCount, block)] =
@@ -1446,9 +1470,29 @@ __kernel void kernel_degrain_mv_spatial_refine(
     __local degrain_motion_search_candidate_cost_t candidateCosts[8];
     __local degrain_motion_search_candidate_cost_t bestCandidateCost;
     __local int reusePreviousSad;
+    __local int sourceBlockIsFlat;
+    __local degrain_motion_search_saved_vector_t baseVector;
     __local uint candidateLaneSums[DEGRAIN_MOTION_SEARCH_SEARCH_LOCAL_SIZE];
 #if DEGRAIN_MOTION_SEARCH_REF_LOCAL_CACHE && DEGRAIN_PIXEL_BYTES == 1
     __local uchar referenceWindowPixels[DEGRAIN_MOTION_SEARCH_REF_LOCAL_CACHE_SIZE * DEGRAIN_MOTION_SEARCH_REF_LOCAL_CACHE_SIZE];
+#endif
+
+    if (localThreadId == 0) {
+        baseVector = vectors[degrain_motion_search_vec_current_index(planeBase, blockCount, block)];
+#if DEGRAIN_MOTION_SEARCH_PASS_FLAT_FLAG
+        sourceBlockIsFlat = (baseVector.score_primary & DEGRAIN_MOTION_SEARCH_FLAT_FLAG) != 0u;
+#else
+        sourceBlockIsFlat = -1;
+#endif
+    }
+    barrier(CLK_LOCAL_MEM_FENCE);
+#if DEGRAIN_MOTION_SEARCH_PASS_FLAT_FLAG
+    if (sourceBlockIsFlat) {
+        if (localThreadId == 0) {
+            vectorsFinal[degrain_motion_search_vec_final_index(finalBase, blockCount, block)] = baseVector;
+        }
+        return;
+    }
 #endif
 
     const int sourceBaseX = blockGridX * kernelStep;
@@ -1467,27 +1511,29 @@ __kernel void kernel_degrain_mv_spatial_refine(
     barrier(CLK_LOCAL_MEM_FENCE);
 
     if (localThreadId == 0) {
-        const degrain_motion_search_saved_vector_t base =
-            vectors[degrain_motion_search_vec_current_index(planeBase, blockCount, block)];
+        degrain_motion_search_saved_vector_t baseWithoutFlatFlag = baseVector;
+#if DEGRAIN_MOTION_SEARCH_PASS_FLAT_FLAG
+        baseWithoutFlatFlag.score_primary &= ~DEGRAIN_MOTION_SEARCH_FLAT_FLAG;
+#endif
         const degrain_motion_search_candidate_t baseCandidate =
-            degrain_motion_search_saved_vector_to_candidate(base);
-        bestCandidateCost.pos_x = base.pos_x;
-        bestCandidateCost.pos_y = base.pos_y;
-        bestCandidateCost.sad_metric = base.sad_metric;
-        bestCandidateCost.score_primary = base.score_primary;
+            degrain_motion_search_saved_vector_to_spatial_candidate(baseWithoutFlatFlag);
+        bestCandidateCost.pos_x = baseVector.pos_x;
+        bestCandidateCost.pos_y = baseVector.pos_y;
+        bestCandidateCost.sad_metric = baseVector.sad_metric;
+        bestCandidateCost.score_primary = baseWithoutFlatFlag.score_primary;
         candidate[0] = degrain_motion_search_constrain_candidate(baseCandidate, &context);
         // candidate[0] is the constrained base vector; reuse its SAD only when bounds keep it unchanged.
         reusePreviousSad = DEGRAIN_MOTION_SEARCH_SPATIAL_REUSE_PREVIOUS_SAD
-            && candidate[0].pos_x == base.pos_x
-            && candidate[0].pos_y == base.pos_y;
+            && candidate[0].pos_x == baseVector.pos_x
+            && candidate[0].pos_y == baseVector.pos_y;
         candidate[1] = (blockGridX > 0)
-            ? degrain_motion_search_constrain_candidate(degrain_motion_search_saved_vector_to_candidate(vectors[degrain_motion_search_vec_current_index(planeBase, blockCount, block - 1)]), &context)
+            ? degrain_motion_search_constrain_candidate(degrain_motion_search_saved_vector_to_spatial_candidate(vectors[degrain_motion_search_vec_current_index(planeBase, blockCount, block - 1)]), &context)
             : candidate[0];
         candidate[2] = (blockGridY > 0)
-            ? degrain_motion_search_constrain_candidate(degrain_motion_search_saved_vector_to_candidate(vectors[degrain_motion_search_vec_current_index(planeBase, blockCount, block - kernelBlocksX)]), &context)
+            ? degrain_motion_search_constrain_candidate(degrain_motion_search_saved_vector_to_spatial_candidate(vectors[degrain_motion_search_vec_current_index(planeBase, blockCount, block - kernelBlocksX)]), &context)
             : candidate[0];
         candidate[3] = (blockGridX + 1 < kernelBlocksX && blockGridY + 1 < kernelBlocksY)
-            ? degrain_motion_search_constrain_candidate(degrain_motion_search_saved_vector_to_candidate(vectors[degrain_motion_search_vec_current_index(planeBase, blockCount, block + kernelBlocksX + 1)]), &context)
+            ? degrain_motion_search_constrain_candidate(degrain_motion_search_saved_vector_to_spatial_candidate(vectors[degrain_motion_search_vec_current_index(planeBase, blockCount, block + kernelBlocksX + 1)]), &context)
             : candidate[0];
         candidate[4].pos_x = (short)degrain_motion_search_median_of_three(candidate[1].pos_x, candidate[2].pos_x, candidate[3].pos_x);
         candidate[4].pos_y = (short)degrain_motion_search_median_of_three(candidate[1].pos_y, candidate[2].pos_y, candidate[3].pos_y);
@@ -1634,6 +1680,7 @@ __kernel void kernel_degrain_mv_spatial_refine(
         blockGridY,
         kernelStep,
         bestCandidateCost,
+        sourceBlockIsFlat,
         localThreadId);
     if (localThreadId == 0) {
         vectorsFinal[degrain_motion_search_vec_final_index(finalBase, blockCount, block)] =

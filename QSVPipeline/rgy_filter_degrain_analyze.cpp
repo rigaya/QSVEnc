@@ -453,6 +453,15 @@ RGY_ERR RGYFilterDegrain::allocAnalysisBuffers(const std::shared_ptr<RGYFilterPa
     auto &motionSearchWorkspace = m_analysis.motionSearchWorkspace;
     motionSearchWorkspace.buildOptionsLevel0 = makeDegrainMotionSearchBuildOptions(motionSearchConfig);
     motionSearchWorkspace.buildOptionsLevel1 = makeDegrainMotionSearchBuildOptions(motionSearchConfigLevel1);
+    const auto spatialRefineCount = [&](const int level) {
+        if (prm->degrain.mvSpatialRefine >= 0) {
+            return prm->degrain.mvSpatialRefine;
+        }
+        const int innerLevel = (prm->degrain.levels > 1) ? 1 : 0;
+        return (level == innerLevel) ? 1 : 0;
+    };
+    motionSearchWorkspace.buildOptionsLevel0 += strsprintf(" -D DEGRAIN_MOTION_SEARCH_PASS_FLAT_FLAG=%d", spatialRefineCount(0) > 0 ? 1 : 0);
+    motionSearchWorkspace.buildOptionsLevel1 += strsprintf(" -D DEGRAIN_MOTION_SEARCH_PASS_FLAT_FLAG=%d", spatialRefineCount(1) > 0 ? 1 : 0);
     if (degrainMotionSearchSubgroupEnabled(m_cl)) {
         const auto subgroupOptions = strsprintf(" -cl-std=CL2.0 -D DEGRAIN_MOTION_SEARCH_SUBGROUP=1 -D DEGRAIN_MOTION_SEARCH_SUBGROUP_DIRECT_REDUCE=%d",
             degrainMotionSearchSubgroupDirectReduceEnabled() ? 1 : 0);
