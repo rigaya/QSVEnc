@@ -86,6 +86,7 @@ jobs:
           docker exec build_pkg ldd ./build/qsvencc
           docker exec build_pkg ./build/qsvencc --version
           docker exec build_pkg ./check_options.py -exe ./build/qsvencc
+          docker exec build_pkg ./build/qsvencc --check-cmd-parse
           docker exec build_pkg cp ./build/qsvencc ./qsvencc
           docker exec build_pkg ./build_${{ env.PKG_TYPE }}.sh
           docker exec build_pkg bash -lc "cp -v ./*.${{ env.PKG_TYPE }} /output/"

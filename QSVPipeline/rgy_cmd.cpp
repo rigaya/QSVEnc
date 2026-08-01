@@ -233,7 +233,14 @@ std::vector<std::pair<std::string, int>> searchNearString(const std::string &tar
 #endif //#if (ENABLE_CPP_REGEX && ENABLE_DTL)
 #endif //#if !FOR_AUO
 
+RGYCmdErrorInfo& rgy_cmd_error_info() {
+    static RGYCmdErrorInfo info;
+    return info;
+}
+
 void print_cmd_error_unknown_opt(tstring strErrorValue) {
+    rgy_cmd_error_info().errorOccurred = true;
+    if (rgy_cmd_error_info().quiet) return;
 #if !FOR_AUO
     _ftprintf(stderr, _T("Error: Unknown option: %s\n\n"), strErrorValue.c_str());
 #if (ENABLE_CPP_REGEX && ENABLE_DTL)
@@ -260,6 +267,10 @@ void print_cmd_error_unknown_opt(tstring strErrorValue) {
 
 
 void print_cmd_error_unknown_opt_param(tstring option, tstring strErrorValue, const std::vector<std::string>& optionParamsList) {
+    rgy_cmd_error_info().errorOccurred = true;
+    rgy_cmd_error_info().paramList = optionParamsList;
+    rgy_cmd_error_info().unknownParam = true;
+    if (rgy_cmd_error_info().quiet) return;
 #if !FOR_AUO
     _ftprintf(stderr, _T("Error: Unknown param \"%s\" for option \"--%s\"\n"), strErrorValue.c_str(), option.c_str());
 #if (ENABLE_CPP_REGEX && ENABLE_DTL)
@@ -281,6 +292,14 @@ void print_cmd_error_unknown_opt_param(tstring option, tstring strErrorValue, co
 
 template<typename T>
 void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue, tstring strErrorMessage, const T *list, int list_length) {
+    rgy_cmd_error_info().errorOccurred = true;
+    if (list) {
+        rgy_cmd_error_info().valueList.clear();
+        for (int i = 0; list[i].desc && i < list_length; i++) {
+            rgy_cmd_error_info().valueList.push_back(tchar_to_string(list[i].desc));
+        }
+    }
+    if (rgy_cmd_error_info().quiet) return;
     if (!FOR_AUO && strOptionName.length() > 0) {
         if (strErrorValue.length() > 0) {
             if (0 == _tcsnccmp(strErrorValue.c_str(), _T("--"), _tcslen(_T("--")))
@@ -322,11 +341,49 @@ void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue)
     print_cmd_error_invalid_value(strOptionName, strErrorValue, _T(""), (const CX_DESC *)nullptr);
 }
 
+// 文字列のみで候補が決まる(CX_DESCを持たない)オプション向けのオーバーロード
+// CX_DESC版に委譲するため、終端(desc==nullptr)付きの一時配列を組み立てる
+void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue, const std::vector<tstring>& valueList) {
+    std::vector<CX_DESC> list;
+    for (const auto& value : valueList) {
+        list.push_back({ value.c_str(), (int)list.size() });
+    }
+    list.push_back({ nullptr, 0 });
+    print_cmd_error_invalid_value(strOptionName, strErrorValue, _T(""), list.data());
+}
+
+// パース後の整合性チェックで見つかったエラーを出力する
+// 自己診断(--check-cmd-parse)実行中は出力を抑止する
+void print_cmd_error_msg(const TCHAR *msg) {
+    rgy_cmd_error_info().errorOccurred = true;
+    if (rgy_cmd_error_info().quiet) return;
+    _ftprintf(stderr, _T("%s\n"), msg);
+}
+
+// param_val が候補リストに含まれるか確認する
+// 含まれない場合は候補を提示してエラーとし、std::nullopt を返す
+static std::optional<tstring> check_str_list(const tstring& option_name, const tstring& param_arg, const tstring& param_val, const std::vector<tstring>& valueList) {
+    const auto value = tolowercase(param_val);
+    if (std::find(valueList.begin(), valueList.end(), value) == valueList.end()) {
+        print_cmd_error_invalid_value(option_name + _T(" ") + param_arg + _T("="), param_val, valueList);
+        return std::nullopt;
+    }
+    return value;
+}
+
 void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue, tstring strErrorMessage) {
     print_cmd_error_invalid_value(strOptionName, strErrorValue, strErrorMessage, (const CX_DESC *)nullptr);
 }
 
 void print_cmd_error_invalid_value(tstring strOptionName, tstring strErrorValue, const std::vector<std::pair<RGY_CODEC, const CX_DESC *>>& codec_list) {
+    rgy_cmd_error_info().errorOccurred = true;
+    rgy_cmd_error_info().valueList.clear();
+    for (const auto& codec : codec_list) {
+        for (int i = 0; codec.second[i].desc; i++) {
+            rgy_cmd_error_info().valueList.push_back(tchar_to_string(codec.second[i].desc));
+        }
+    }
+    if (rgy_cmd_error_info().quiet) return;
     if (!FOR_AUO && strOptionName.length() > 0) {
         if (strErrorValue.length() > 0) {
             if (0 == _tcsnccmp(strErrorValue.c_str(), _T("--"), _tcslen(_T("--")))
@@ -578,10 +635,14 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             for (size_t ielem = 0; ielem < _countof(paramsResizeNis); ielem++) {
                 paramListResizeNis.push_back(paramsResizeNis[ielem]);
             }
-            std::vector<std::string> paramList = paramListResizeNVEnc;
-            vector_cat(paramList, paramListResizeQSVEnc);
+            // ビルド構成で無効なサブパラメータは候補に出さない(パーサ側は他エンコーダのコマンドライン互換のため受理して無視する)
+            std::vector<std::string> paramList;
+            if (ENCODER_NVENC && (ENABLE_NVVFX || FOR_AUO)) vector_cat(paramList, paramListResizeNVEnc);
+            if (ENCODER_QSV) vector_cat(paramList, paramListResizeQSVEnc);
             vector_cat(paramList, paramListResizeFsr1);
-            vector_cat(paramList, paramListResizeNis);
+            for (const auto& prm : paramListResizeNis) {
+                if (ENABLE_OPENCL || prm != "opt") paramList.push_back(prm); // optはOpenCLフィルタ実装でのみ対応
+            }
             for (size_t ielem = 0; ielem < _countof(paramsResizeBicubic); ielem++) {
                 paramList.push_back(paramsResizeBicubic[ielem]);
             }
@@ -1083,7 +1144,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             "src_csp", "dst_csp", "src_max", "src_min", "dst_max", "dst_min", "dynamic_peak_detection", "smooth_period",
             "scene_threshold_low", "scene_threshold_high", "percentile", "black_cutoff", "gamut_mapping",
             "tonemapping_function", "contrast_recovery", "contrast_smoothness", "inverse_tone_mapping", "visualize_lut", "show_clipping",
-            "use_dovi", "lut_path", "lut_type", "dst_matrix", "dst_transfer", "dst_colorprim",
+            "use_dovi", "lut_path", "lut_type", "dst_pl_transfer", "dst_pl_colorprim",
             "knee_adaptation", "knee_min", "knee_max", "knee_default", "knee_offset", "slope_tuning",
             "slope_offset", "spline_contrast", "reinhard_contrast", "linear_knee", "exposure"
         };
@@ -2759,13 +2820,10 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     continue;
                 }
                 if (param_arg == _T("edge")) {
-                    const auto edge = tolowercase(param_val);
-                    if (edge == _T("sobel") || edge == _T("prewitt") || edge == _T("sobel_full") || edge == _T("scharr") || edge == _T("kirsch") || edge == _T("laplacian")) {
-                        vpp->maa.edge = edge;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
+                    const auto edge = check_str_list(option_name, param_arg, param_val,
+                        { _T("sobel"), _T("prewitt"), _T("sobel_full"), _T("scharr"), _T("kirsch"), _T("laplacian") });
+                    if (!edge) return 1;
+                    vpp->maa.edge = *edge;
                     continue;
                 }
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
@@ -3894,7 +3952,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 if (param_arg == _T("mode")) {
                     const auto value = get_value_from_chr(list_vpp_kfm_mode, param_val.c_str());
                     if (value == PARSE_ERROR_FLAG) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_kfm_mode);
                         return 1;
                     }
                     vpp->kfm.mode = (VppKfmMode)value;
@@ -3928,7 +3986,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 if (param_arg == _T("timing")) {
                     const auto value = get_value_from_chr(list_vpp_kfm_timing, param_val.c_str());
                     if (value == PARSE_ERROR_FLAG) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_kfm_timing);
                         return 1;
                     }
                     vpp->kfm.timing = (VppKfmTiming)value;
@@ -4009,7 +4067,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 if (param_arg == _T("debug_stage")) {
                     const auto value = get_value_from_chr(list_vpp_kfm_debug_stage, param_val.c_str());
                     if (value == PARSE_ERROR_FLAG) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_kfm_debug_stage);
                         return 1;
                     }
                     vpp->kfm.debugStage = (VppKfmDebugStage)value;
@@ -4179,21 +4237,14 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     continue;
                 }
                 if (param_arg == _T("dump_stage")) {
-                    auto stage = tolowercase(param_val);
-                    if (stage != _T("final") && stage != _T("search_refine") && stage != _T("finalyuv")
-                        && stage != _T("temporal_candidate") && stage != _T("deshimmered_search")
-                        && stage != _T("search_correction_delta")
-                        && stage != _T("positive_correction_gate") && stage != _T("negative_correction_gate")
-                        && stage != _T("corrected_search_base")
-                        && stage != _T("half_search_base") && stage != _T("half_search_smoothed")
-                        && stage != _T("search_smoothed3x3") && stage != _T("edge_softened_search")
-                        && stage != _T("softened_search_blend") && stage != _T("pre_stabilized_search")
-                        && stage != _T("stabilized_search")) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val,
-                            _T("dump_stage should be final, search_refine, finalyuv, temporal_candidate, deshimmered_search, search_correction_delta, positive_correction_gate, negative_correction_gate, corrected_search_base, half_search_base, half_search_smoothed, search_smoothed3x3, edge_softened_search, softened_search_blend, pre_stabilized_search, or stabilized_search."));
-                        return 1;
-                    }
-                    vpp->rtgmc_search_prefilter.dumpStage = stage;
+                    const auto stage = check_str_list(option_name, param_arg, param_val,
+                        { _T("final"), _T("search_refine"), _T("finalyuv"), _T("temporal_candidate"), _T("deshimmered_search"),
+                          _T("search_correction_delta"), _T("positive_correction_gate"), _T("negative_correction_gate"),
+                          _T("corrected_search_base"), _T("half_search_base"), _T("half_search_smoothed"),
+                          _T("search_smoothed3x3"), _T("edge_softened_search"), _T("softened_search_blend"),
+                          _T("pre_stabilized_search"), _T("stabilized_search") });
+                    if (!stage) return 1;
+                    vpp->rtgmc_search_prefilter.dumpStage = *stage;
                     continue;
                 }
                 if (param_arg == _T("dump_max_frames")) {
@@ -4498,10 +4549,8 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     continue;
                 }
                 if (param_arg == _T("mode")) {
-                    if (tolowercase(param_val) != _T("passthrough")) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("mode should be passthrough in Step2."));
-                        return 1;
-                    }
+                    // Step2 では passthrough のみ対応
+                    if (!check_str_list(option_name, param_arg, param_val, { _T("passthrough") })) return 1;
                     continue;
                 }
                 if (param_arg == _T("rep-thin")) {
@@ -5185,7 +5234,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     if (get_list_value(list_vpp_convolution3d_matrix, param_val.c_str(), &value)) {
                         vpp->convolution3d.matrix = (VppConvolution3dMatrix)value;
                     } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_fp_prec);
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_convolution3d_matrix);
                         return 1;
                     }
                     continue;
@@ -6003,13 +6052,9 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     continue;
                 }
                 if (param_arg == _T("colorspace")) {
-                    const tstring v = tolowercase(param_val);
-                    if (v == _T("rgb") || v == _T("ycbcr")) {
-                        vpp->onnx.colorspace = v;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
+                    const auto v = check_str_list(option_name, param_arg, param_val, { _T("rgb"), _T("ycbcr") });
+                    if (!v) return 1;
+                    vpp->onnx.colorspace = *v;
                     continue;
                 }
                 if (param_arg == _T("noise")) {
@@ -8465,13 +8510,10 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     continue;
                 }
                 if (param_arg == _T("edge")) {
-                    const auto edge = tolowercase(param_val);
-                    if (edge == _T("prewitt") || edge == _T("sobel") || edge == _T("scharr") || edge == _T("kirsch") || edge == _T("laplacian")) {
-                        vpp->finedehalo.edge = edge;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
+                    const auto edge = check_str_list(option_name, param_arg, param_val,
+                        { _T("prewitt"), _T("sobel"), _T("scharr"), _T("kirsch"), _T("laplacian") });
+                    if (!edge) return 1;
+                    vpp->finedehalo.edge = *edge;
                     continue;
                 }
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
@@ -8556,13 +8598,10 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     continue;
                 }
                 if (param_arg == _T("edge")) {
-                    const auto edge = tolowercase(param_val);
-                    if (edge == _T("log") || edge == _T("sobel") || edge == _T("prewitt") || edge == _T("scharr") || edge == _T("kirsch") || edge == _T("laplacian")) {
-                        vpp->dering.edge = edge;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                        return 1;
-                    }
+                    const auto edge = check_str_list(option_name, param_arg, param_val,
+                        { _T("log"), _T("sobel"), _T("prewitt"), _T("scharr"), _T("kirsch"), _T("laplacian") });
+                    if (!edge) return 1;
+                    vpp->dering.edge = *edge;
                     continue;
                 }
                 if (param_arg == _T("thr")) {
@@ -9163,9 +9202,11 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
 
         auto paramList = std::vector<std::string>{ "contrast", "brightness", "gamma", "saturation", "swapuv", "hue", "coring", "start_hue", "end_hue" };
         for (auto& channel : { "y", "cb", "cr", "r", "g", "b" }) {
-            paramList.push_back(std::string(channel) + "offset");
-            paramList.push_back(std::string(channel) + "gain");
-            paramList.push_back(std::string(channel) + "gamma");
+            paramList.push_back(std::string(channel) + "_offset");
+            paramList.push_back(std::string(channel) + "_gain");
+        }
+        for (auto& channel : { "r", "g", "b" }) { // gammaに対応するのは r, g, b のみ
+            paramList.push_back(std::string(channel) + "_gamma");
         }
 
         for (const auto& param : split(strInput[i], _T(","))) {
@@ -9742,7 +9783,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         i++;
 
         const auto paramList = std::vector<std::string>{
-            "iterations", "threshold", "radius", "thre_cb",
+            "iterations", "threshold", "radius",
             "grain_y", "grain_c", "dither", "lut_size" };
 
         for (const auto& param : split(strInput[i], _T(","))) {
@@ -9811,7 +9852,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     if (get_list_value(list_vpp_libplacebo_deband_dither_mode, param_val.c_str(), &value)) {
                         vpp->libplacebo_deband.dither = (VppLibplaceboDebandDitherMode)value;
                     } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_ass_shaping);
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_libplacebo_deband_dither_mode);
                         return 1;
                     }
                     continue;
@@ -10832,7 +10873,8 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
-    auto set_audio_prm = [&](std::function<void(AudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr)> func_set) {
+    // allowNoValue: 値が省略された場合に func_set へ nullptr を渡してよいかどうか
+    auto set_audio_prm = [&](std::function<void(AudioSelect *pAudioSelect, int trackId, const TCHAR *prmstr)> func_set, const bool allowNoValue = false) {
         const TCHAR *ptr = nullptr;
         const TCHAR *ptrDelim = nullptr;
         int trackId = 0;
@@ -10860,6 +10902,10 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                     }
                 }
             }
+        }
+        if (ptr == nullptr && !allowNoValue) {
+            print_cmd_error_invalid_value(option_name, tstring(), _T("value not specified"));
+            return 1;
         }
         AudioSelect *pAudioSelect = nullptr;
         int audioIdx = getAudioTrackIdx(common, trackId, lang, selectCodec);
@@ -10899,7 +10945,8 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     };
-    auto set_sub_prm = [&](std::function<void(SubtitleSelect *pSubSelect, int trackId, const TCHAR *prmstr)> func_set) {
+    // allowNoValue: 値が省略された場合に func_set へ nullptr を渡してよいかどうか
+    auto set_sub_prm = [&](std::function<void(SubtitleSelect *pSubSelect, int trackId, const TCHAR *prmstr)> func_set, const bool allowNoValue = false) {
         const TCHAR *ptr = nullptr;
         const TCHAR *ptrDelim = nullptr;
         int trackId = 0;
@@ -10926,6 +10973,10 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                     }
                 }
             }
+        }
+        if (ptr == nullptr && !allowNoValue) {
+            print_cmd_error_invalid_value(option_name, tstring(), _T("value not specified"));
+            return 1;
         }
         SubtitleSelect *pSubSelect = nullptr;
         int subIdx = getSubTrackIdx(common, trackId, lang, selectCodec);
@@ -10965,7 +11016,8 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     };
-    auto set_data_prm = [&](std::function<void(DataSelect *pSelect, int trackId, const TCHAR *prmstr)> func_set) {
+    // allowNoValue: 値が省略された場合に func_set へ nullptr を渡してよいかどうか
+    auto set_data_prm = [&](std::function<void(DataSelect *pSelect, int trackId, const TCHAR *prmstr)> func_set, const bool allowNoValue = false) {
         const TCHAR *ptr = nullptr;
         const TCHAR *ptrDelim = nullptr;
         int trackId = 0;
@@ -10992,6 +11044,10 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                     }
                 }
             }
+        }
+        if (ptr == nullptr && !allowNoValue) {
+            print_cmd_error_invalid_value(option_name, tstring(), _T("value not specified"));
+            return 1;
         }
         DataSelect *pSelect = nullptr;
         int dataIdx = getDataTrackIdx(common, trackId, lang, selectCodec);
@@ -11099,7 +11155,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                     }
                 }
             }
-        });
+        }, true /*値省略時は自動選択とするため許可する*/);
         if (ret) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return ret;
@@ -11432,7 +11488,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
                     }
                 }
             }
-        });
+        }, true /*値省略時は自動選択とするため許可する*/);
         if (ret) {
             print_cmd_error_invalid_value(option_name, strInput[i]);
             return ret;
@@ -13147,6 +13203,14 @@ tstring printTrack(const DataSelect *sel) {
     return sel->trackID == TRACK_SELECT_BY_LANG ? char_to_tstring(sel->lang) : std::to_tstring(sel->trackID);
 };
 
+// "<トラック指定>?" を出力する
+// トラックID 0 はトラック指定なしを意味するので、そのまま出力すると
+// パースできない "0?" になってしまう。この場合は何も出力しない
+template<typename T>
+tstring printTrackPrm(const T *sel) {
+    return (sel->trackID == 0) ? tstring() : printTrack(sel) + _T("?");
+};
+
 
 tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool save_disabled_prm, RGYDisableGenCmdFlags disable_flags) {
     std::basic_stringstream<TCHAR> cmd;
@@ -13167,22 +13231,22 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
         if (isLibplaceboResizeFiter(param->resize_algo)) {
             OPT_LST(_T("--vpp-resize"), resize_algo, list_vpp_resize);
             if (param->resize_libplacebo.radius != defaultPrm->resize_libplacebo.radius) {
-                cmd << _T(",radius=") << std::setprecision(3) << param->resize_libplacebo.radius;
+                cmd << _T(",pl-radius=") << std::setprecision(3) << param->resize_libplacebo.radius;
             }
             if (param->resize_libplacebo.clamp_ != defaultPrm->resize_libplacebo.clamp_) {
-                cmd << _T(",clamp=") << std::setprecision(3) << param->resize_libplacebo.clamp_;
+                cmd << _T(",pl-clamp=") << std::setprecision(3) << param->resize_libplacebo.clamp_;
             }
             if (param->resize_libplacebo.taper != defaultPrm->resize_libplacebo.taper) {
-                cmd << _T(",taper=") << std::setprecision(3) << param->resize_libplacebo.taper;
+                cmd << _T(",pl-taper=") << std::setprecision(3) << param->resize_libplacebo.taper;
             }
             if (param->resize_libplacebo.blur != defaultPrm->resize_libplacebo.blur) {
-                cmd << _T(",blur=") << std::setprecision(3) << param->resize_libplacebo.blur;
+                cmd << _T(",pl-blur=") << std::setprecision(3) << param->resize_libplacebo.blur;
             }
             if (param->resize_libplacebo.antiring != defaultPrm->resize_libplacebo.antiring) {
-                cmd << _T(",antiring=") << std::setprecision(3) << param->resize_libplacebo.antiring;
+                cmd << _T(",pl-antiring=") << std::setprecision(3) << param->resize_libplacebo.antiring;
             }
             if (param->resize_libplacebo.cplace != defaultPrm->resize_libplacebo.cplace) {
-                cmd << _T(",cplace=") << param->resize_libplacebo.cplace;
+                cmd << _T(",pl-cplace=") << param->resize_libplacebo.cplace;
             }
         } else {
             OPT_LST(_T("--vpp-resize"), resize_algo, list_vpp_resize);
@@ -13255,11 +13319,11 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
                 ColorspaceConv convDefault;
                 if (param->colorspace.convs[i].approx_gamma != convDefault.approx_gamma) {
                     tmp << _T(",approx_gamma=");
-                    tmp << param->colorspace.convs[i].approx_gamma ? _T("true") : _T("false");
+                    tmp << (param->colorspace.convs[i].approx_gamma ? _T("true") : _T("false"));
                 }
                 if (param->colorspace.convs[i].scene_ref != convDefault.scene_ref) {
                     tmp << _T(",scene_ref=");
-                    tmp << param->colorspace.convs[i].scene_ref ? _T("true") : _T("false");
+                    tmp << (param->colorspace.convs[i].scene_ref ? _T("true") : _T("false"));
                 }
             }
             ADD_PATH(_T("lut3d"), colorspace.lut3d.table_file.c_str());
@@ -14232,23 +14296,34 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-rtgmc-retouch");
         }
     }
-    if (param->rtgmc_shimmer_repair != defaultPrm->rtgmc_shimmer_repair) {
+    // stage の指定によってパース時の格納先が Rep1 / Rep2 に振り分けられるため、生成時も格納先ごとに出力する
+    // (格納先を復元できるよう、Rep1 / Rep2 側は stage を必ず出力する)
+    auto add_rtgmc_shimmer_repair_cmd = [&](const VppRtgmcShimmerRepair& prm, const VppRtgmcShimmerRepair& prmDefault, const bool addStage) {
+        if (prm == prmDefault) {
+            return;
+        }
         tmp.str(tstring());
-        if (!param->rtgmc_shimmer_repair.enable && save_disabled_prm) {
+        if (!prm.enable && save_disabled_prm) {
             tmp << _T(",enable=false");
         }
-        if (param->rtgmc_shimmer_repair.enable || save_disabled_prm) {
-            ADD_LST(_T("stage"), rtgmc_shimmer_repair.stage, list_vpp_rtgmc_shimmer_repair_stage);
-            ADD_NUM(_T("rep-thin"), rtgmc_shimmer_repair.repThin);
-            ADD_NUM(_T("rep-pad"), rtgmc_shimmer_repair.repPad);
-            ADD_BOOL(_T("rep_chroma"), rtgmc_shimmer_repair.repChroma);
+        if (prm.enable || save_disabled_prm) {
+            if (addStage) {
+                tmp << _T(",stage=") << get_chr_from_value(list_vpp_rtgmc_shimmer_repair_stage, (int)prm.stage);
+            }
+            if (prm.repThin != prmDefault.repThin) tmp << _T(",rep-thin=") << prm.repThin;
+            if (prm.repPad != prmDefault.repPad) tmp << _T(",rep-pad=") << prm.repPad;
+            if (prm.repChroma != prmDefault.repChroma) tmp << _T(",rep_chroma=") << (prm.repChroma ? _T("true") : _T("false"));
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-rtgmc-shimmer-repair ") << tmp.str().substr(1);
-        } else if (param->rtgmc_shimmer_repair.enable) {
+        } else if (prm.enable) {
             cmd << _T(" --vpp-rtgmc-shimmer-repair");
         }
-    }
+    };
+    // 値を指定せずに --vpp-rtgmc-shimmer-repair のみを指定した場合の格納先。stageは出力しない
+    add_rtgmc_shimmer_repair_cmd(param->rtgmc_shimmer_repair, defaultPrm->rtgmc_shimmer_repair, false);
+    add_rtgmc_shimmer_repair_cmd(param->rtgmc_shimmer_repairRep1, defaultPrm->rtgmc_shimmer_repairRep1, true);
+    add_rtgmc_shimmer_repair_cmd(param->rtgmc_shimmer_repairRep2, defaultPrm->rtgmc_shimmer_repairRep2, true);
     if (param->rtgmc_primitive != defaultPrm->rtgmc_primitive) {
         tmp.str(tstring());
         if (!param->rtgmc_primitive.enable && save_disabled_prm) {
@@ -14778,6 +14853,45 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             }
         }
     }
+    if (param->v360 != defaultPrm->v360) {
+        tmp.str(tstring());
+        if (!param->v360.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->v360.enable || save_disabled_prm) {
+            ADD_LST(_T("in"), v360.in_proj, list_vpp_v360_proj);
+            ADD_LST(_T("out"), v360.out_proj, list_vpp_v360_proj);
+            ADD_FLOAT(_T("yaw"), v360.yaw, 3);
+            ADD_FLOAT(_T("pitch"), v360.pitch, 3);
+            ADD_FLOAT(_T("roll"), v360.roll, 3);
+            ADD_FLOAT(_T("in_hfov"), v360.in_hfov, 3);
+            ADD_FLOAT(_T("h_fov"), v360.out_hfov, 3);
+            ADD_NUM(_T("w"), v360.w);
+            ADD_NUM(_T("h"), v360.h);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-v360 ") << tmp.str().substr(1);
+        } else if (param->v360.enable) {
+            cmd << _T(" --vpp-v360");
+        }
+    }
+    if (param->lenscorrection != defaultPrm->lenscorrection) {
+        tmp.str(tstring());
+        if (!param->lenscorrection.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->lenscorrection.enable || save_disabled_prm) {
+            ADD_FLOAT(_T("k1"), lenscorrection.k1, 3);
+            ADD_FLOAT(_T("k2"), lenscorrection.k2, 3);
+            ADD_FLOAT(_T("cx"), lenscorrection.cx, 3);
+            ADD_FLOAT(_T("cy"), lenscorrection.cy, 3);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-lenscorrection ") << tmp.str().substr(1);
+        } else if (param->lenscorrection.enable) {
+            cmd << _T(" --vpp-lenscorrection");
+        }
+    }
     if (param->deband != defaultPrm->deband) {
         tmp.str(tstring());
         if (!param->deband.enable && save_disabled_prm) {
@@ -14854,7 +14968,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
                 ADD_LST2(_T("alpha_mode"), param->overlay[i], overlayDefault, alphaMode, list_vpp_overlay_alpha_mode);
                 ADD_FLOAT2(_T("lumakey_threshold"), param->overlay[i], overlayDefault, lumaKey.threshold, 3);
                 ADD_FLOAT2(_T("lumakey_tolerance"), param->overlay[i], overlayDefault, lumaKey.tolerance, 3);
-                ADD_FLOAT2(_T("lumakey_shoftness"), param->overlay[i], overlayDefault, lumaKey.shoftness, 3);
+                ADD_FLOAT2(_T("lumakey_softness"), param->overlay[i], overlayDefault, lumaKey.shoftness, 3);
                 ADD_BOOL2(_T("loop"), param->overlay[i], overlayDefault, loop);
             }
             if (!tmp.str().empty()) {
@@ -14943,12 +15057,21 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     for (int i = 0; i < param->nAudioSelectCount; i++) {
         const AudioSelect *pAudioSelect = param->ppAudioSelectList[i];
         if (pAudioSelect->encCodec != RGY_AVCODEC_COPY) {
-            cmd << _T(" --audio-codec ") << printTrack(pAudioSelect);
+            // トラックID 0 (トラック指定なし)、コーデック自動選択の場合は、それぞれ出力しない
+            tstring prm;
+            if (pAudioSelect->trackID != 0) {
+                prm += printTrack(pAudioSelect);
+            }
             if (pAudioSelect->encCodec != RGY_AVCODEC_AUTO) {
-                cmd << _T("?") << pAudioSelect->encCodec;
+                if (prm.length() > 0) prm += _T("?");
+                prm += pAudioSelect->encCodec;
             }
             if (pAudioSelect->encCodecPrm.length() > 0) {
-                cmd << _T(":") << pAudioSelect->encCodecPrm;
+                prm += _T(":") + pAudioSelect->encCodecPrm;
+            }
+            cmd << _T(" --audio-codec");
+            if (prm.length() > 0) {
+                cmd << _T(" ") << prm;
             }
         }
     }
@@ -14957,7 +15080,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
         const AudioSelect *pAudioSelect = param->ppAudioSelectList[i];
         if (pAudioSelect->encCodec != RGY_AVCODEC_COPY
             && pAudioSelect->encCodecProfile.length() > 0) {
-            cmd << _T(" --audio-profile ") << printTrack(pAudioSelect) << _T("?") << pAudioSelect->encCodecProfile;
+            cmd << _T(" --audio-profile ") << printTrackPrm(pAudioSelect) << pAudioSelect->encCodecProfile;
         }
     }
 
@@ -14970,7 +15093,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
                 if (!bitratestr.empty()) bitratestr += _T(",");
                 bitratestr += bitrate.print();
             }
-            cmd << _T(" --audio-bitrate ") << printTrack(pAudioSelect) << _T("?") << bitratestr;
+            cmd << _T(" --audio-bitrate ") << printTrackPrm(pAudioSelect) << bitratestr;
         }
     }
     OPT_BOOL(_T("--audio-encode-other-codec-only"), _T(""), audioEncodeOtherCodecOnly);
@@ -14978,7 +15101,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
         const AudioSelect *pAudioSelect = param->ppAudioSelectList[i];
         if (pAudioSelect->encCodec != RGY_AVCODEC_COPY
             && pAudioSelect->encQuality.first) {
-            cmd << _T(" --audio-quality ") << printTrack(pAudioSelect) << _T("?") << pAudioSelect->encQuality.second;
+            cmd << _T(" --audio-quality ") << printTrackPrm(pAudioSelect) << pAudioSelect->encQuality.second;
         }
     }
 #if !FOR_AUO
@@ -14991,7 +15114,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
             }
             if (j > 0) tmp << _T(",");
             if (pAudioSelect->streamChannelSelect[j] != RGY_CHANNEL_AUTO) {
-                tmp << char_to_tstring(pAudioSelect->streamChannelOut[j]);
+                tmp << char_to_tstring(pAudioSelect->streamChannelSelect[j]);
             }
             if (pAudioSelect->streamChannelOut[j] != RGY_CHANNEL_AUTO) {
                 tmp << _T(":");
@@ -14999,7 +15122,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
             }
         }
         if (!tmp.str().empty()) {
-            cmd << _T(" --audio-stream ") << printTrack(pAudioSelect) << _T("?") << tmp.str();
+            cmd << _T(" --audio-stream ") << printTrackPrm(pAudioSelect) << tmp.str();
         }
     }
 #endif
@@ -15009,15 +15132,15 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
         const AudioSelect *pAudioSelect = param->ppAudioSelectList[i];
         if (pAudioSelect->encCodec != RGY_AVCODEC_COPY
             && pAudioSelect->encSamplingRate > 0) {
-            cmd << _T(" --audio-samplerate ") << printTrack(pAudioSelect) << _T("?") << pAudioSelect->encSamplingRate;
+            cmd << _T(" --audio-samplerate ") << printTrackPrm(pAudioSelect) << pAudioSelect->encSamplingRate;
         }
     }
     OPT_LST(_T("--audio-resampler"), audioResampler, list_resampler);
     for (int i = 0; i < param->nAudioSelectCount; i++) {
         const AudioSelect *pAudioSelect = param->ppAudioSelectList[i];
         if (pAudioSelect->encCodec != RGY_AVCODEC_COPY
-            && pAudioSelect->filter.length() > 0) {
-            cmd << _T(" --audio-resampler ") << printTrack(pAudioSelect) << _T("?") << char_to_tstring(pAudioSelect->resamplerPrm);
+            && pAudioSelect->resamplerPrm.length() > 0) {
+            cmd << _T(" --audio-resampler ") << printTrackPrm(pAudioSelect) << char_to_tstring(pAudioSelect->resamplerPrm);
         }
     }
 
@@ -15025,32 +15148,32 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
         const AudioSelect *pAudioSelect = param->ppAudioSelectList[i];
         if (pAudioSelect->encCodec != RGY_AVCODEC_COPY
             && pAudioSelect->filter.length() > 0) {
-            cmd << _T(" --audio-filter ") << printTrack(pAudioSelect) << _T("?") << pAudioSelect->filter;
+            cmd << _T(" --audio-filter ") << printTrackPrm(pAudioSelect) << pAudioSelect->filter;
         }
     }
     for (int i = 0; i < param->nAudioSelectCount; i++) {
         const AudioSelect *pAudioSelect = param->ppAudioSelectList[i];
         if (pAudioSelect->encCodec != RGY_AVCODEC_COPY
             && pAudioSelect->addDelayMs != 0.0) {
-            cmd << _T(" --audio-delay ") << printTrack(pAudioSelect) << _T("?") << pAudioSelect->addDelayMs;
+            cmd << _T(" --audio-delay ") << printTrackPrm(pAudioSelect) << pAudioSelect->addDelayMs;
         }
     }
     for (int i = 0; i < param->nAudioSelectCount; i++) {
         const AudioSelect *pAudioSelect = param->ppAudioSelectList[i];
         if (pAudioSelect->bsf.length() > 0) {
-            cmd << _T(" --audio-bsf ") << printTrack(pAudioSelect) << _T("?") << pAudioSelect->bsf;
+            cmd << _T(" --audio-bsf ") << printTrackPrm(pAudioSelect) << pAudioSelect->bsf;
         }
         if (pAudioSelect->disposition.length() > 0) {
-            cmd << _T(" --audio-disposition ") << printTrack(pAudioSelect) << _T("?") << pAudioSelect->disposition;
+            cmd << _T(" --audio-disposition ") << printTrackPrm(pAudioSelect) << pAudioSelect->disposition;
         }
         for (auto &m : pAudioSelect->metadata) {
-            cmd << _T(" --audio-metadata ") << printTrack(pAudioSelect) << _T("?") << m;
+            cmd << _T(" --audio-metadata ") << printTrackPrm(pAudioSelect) << m;
         }
     }
     for (int i = 0; i < param->nAudioSelectCount; i++) {
         const AudioSelect *pAudioSelect = param->ppAudioSelectList[i];
         if (!rgy_disable_gen_cmd(disable_flags, RGYDisableGenCmdFlags::FilePath) && pAudioSelect->extractFilename.length() > 0) {
-            cmd << _T(" --audio-file ") << printTrack(pAudioSelect) << _T("?");
+            cmd << _T(" --audio-file ") << printTrackPrm(pAudioSelect);
             if (pAudioSelect->extractFormat.length() > 0) {
                 cmd << pAudioSelect->extractFormat << _T(":");
             }
@@ -15135,21 +15258,30 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
 
     tmp.str(tstring());
     for (int i = 0; i < param->nSubtitleSelectCount; i++) {
-        tmp << _T(",") << param->ppSubtitleSelectList[i]->trackID;
-        if (param->ppSubtitleSelectList[i]->asdata) {
-            tmp << _T("?asdata");
+        const SubtitleSelect *pSubSelect = param->ppSubtitleSelectList[i];
+        // トラックID 0 はトラック指定なしを意味するので、トラック番号としては出力しない
+        if (pSubSelect->trackID != 0) {
+            tmp << _T(",") << printTrack(pSubSelect);
+            if (pSubSelect->asdata) {
+                tmp << _T("?asdata");
+            }
+        } else if (pSubSelect->asdata) {
+            tmp << _T(",asdata");
         }
     }
-    if (!tmp.str().empty()) {
-        cmd << _T(" --sub-copy ") << tmp.str().substr(1);
+    if (param->nSubtitleSelectCount > 0) {
+        cmd << _T(" --sub-copy");
+        if (!tmp.str().empty()) {
+            cmd << _T(" ") << tmp.str().substr(1);
+        }
     }
     for (int i = 0; i < param->nSubtitleSelectCount; i++) {
         const SubtitleSelect *pSubSelect = param->ppSubtitleSelectList[i];
         if (pSubSelect->disposition.length() > 0) {
-            cmd << _T(" --sub-disposition ") << printTrack(pSubSelect) << _T("?") << pSubSelect->disposition;
+            cmd << _T(" --sub-disposition ") << printTrackPrm(pSubSelect) << pSubSelect->disposition;
         }
         for (auto &m : pSubSelect->metadata) {
-            cmd << _T(" --sub-metadata ") << printTrack(pSubSelect) << _T("?") << m;
+            cmd << _T(" --sub-metadata ") << printTrackPrm(pSubSelect) << m;
         }
     }
     tmp.str(tstring());
@@ -15202,33 +15334,43 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     }
     for (int i = 0; i < param->nSubtitleSelectCount; i++) {
         if (param->ppSubtitleSelectList[i]->bsf.length() > 0) {
-            cmd << _T(" --sub-bsf ") << printTrack(param->ppSubtitleSelectList[i]) << _T("?") << param->ppSubtitleSelectList[i]->bsf;
+            cmd << _T(" --sub-bsf ") << printTrackPrm(param->ppSubtitleSelectList[i]) << param->ppSubtitleSelectList[i]->bsf;
         }
     }
 
     tmp.str(tstring());
     for (int i = 0; i < param->nDataSelectCount; i++) {
-        tmp << _T(",") << param->ppDataSelectList[i]->trackID;
+        if (param->ppDataSelectList[i]->trackID != 0) { // トラックID 0 はトラック指定なしなので出力しない
+            tmp << _T(",") << param->ppDataSelectList[i]->trackID;
+        }
     }
-    if (!tmp.str().empty()) {
-        cmd << _T(" --data-copy ") << tmp.str().substr(1);
+    if (param->nDataSelectCount > 0) {
+        cmd << _T(" --data-copy");
+        if (!tmp.str().empty()) {
+            cmd << _T(" ") << tmp.str().substr(1);
+        }
     }
     tmp.str(tstring());
     for (int i = 0; i < param->nDataSelectCount; i++) {
         const DataSelect *pDataSelect = param->ppDataSelectList[i];
         if (pDataSelect->disposition.length() > 0) {
-            cmd << _T(" --data-disposition ") << printTrack(pDataSelect) << _T("?") << pDataSelect->disposition;
+            cmd << _T(" --data-disposition ") << printTrackPrm(pDataSelect) << pDataSelect->disposition;
         }
         for (auto &m : pDataSelect->metadata) {
-            cmd << _T(" --data-metadata ") << printTrack(pDataSelect) << _T("?") << m;
+            cmd << _T(" --data-metadata ") << printTrackPrm(pDataSelect) << m;
         }
     }
 
     for (int i = 0; i < param->nAttachmentSelectCount; i++) {
-        tmp << _T(",") << param->ppAttachmentSelectList[i]->trackID;
+        if (param->ppAttachmentSelectList[i]->trackID != 0) { // トラックID 0 はトラック指定なしなので出力しない
+            tmp << _T(",") << param->ppAttachmentSelectList[i]->trackID;
+        }
     }
-    if (!tmp.str().empty()) {
-        cmd << _T(" --attachment-copy ") << tmp.str().substr(1);
+    if (param->nAttachmentSelectCount > 0) {
+        cmd << _T(" --attachment-copy");
+        if (!tmp.str().empty()) {
+            cmd << _T(" ") << tmp.str().substr(1);
+        }
     }
     tmp.str(tstring());
 
@@ -15236,12 +15378,13 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
         if (!rgy_disable_gen_cmd(disable_flags, RGYDisableGenCmdFlags::FilePath) && src.filename.length() > 0) {
             cmd << _T(" --attachment-source ") << _T("\"") << src.filename << _T("\"");
             for (const auto &channel : src.select) {
-                cmd << _T(":");
                 tmp.str(tstring());
                 for (const auto& metadata : channel.second.metadata) {
                     tmp << _T(";metadata=") << metadata;
                 }
-                if (!tmp.str().empty()) {
+                if (tmp.str().empty()) continue; // 出力する内容が無い場合は区切りの ":" も出力しない
+                cmd << _T(":");
+                {
                     cmd << tmp.str().substr(1);
                 }
             }
@@ -15293,16 +15436,16 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
         }
     }
     if (param->timecode || param->timecodeFile.length() > 0) {
-        cmd << (param->timecode ? _T("--timecode ") : _T("--no-timecode "));
+        cmd << (param->timecode ? _T(" --timecode") : _T(" --no-timecode"));
         if (param->timecodeFile.length() > 0) {
-            cmd << param->timecodeFile;
+            cmd << _T(" \"") << param->timecodeFile << _T("\"");
         }
     }
 
     OPT_LST(_T("--input-hevc-bsf"), hevcbsf, list_hevc_bsf_mode);
     OPT_STR_PATH(_T("--tcfile-in"), tcfileIn);
     if (param->timebase != defaultPrm->timebase) {
-        cmd << _T("--timebase ") << param->timebase.n() << _T("/") << param->timebase.d();
+        cmd << _T(" --timebase ") << param->timebase.n() << _T("/") << param->timebase.d();
     }
 
     OPT_BOOL(_T("--ssim"), _T("--no-ssim"), metric.ssim);
@@ -15373,8 +15516,11 @@ tstring gen_cmd(const RGYParamControl *param, const RGYParamControl *defaultPrm,
     OPT_NUM(_T("--thread-csp"), threadCsp);
     if (param->threadParams != defaultPrm->threadParams) {
         cmd << _T(" --thread-affinity ")    << param->threadParams.to_string(RGYParamThreadType::affinity);
+#if defined(_WIN32) || defined(_WIN64)
+        // --thread-priority / --thread-throttling はWindowsのみのオプション
         cmd << _T(" --thread-priority ")    << param->threadParams.to_string(RGYParamThreadType::priority);
         cmd << _T(" --thread-throttling ") << param->threadParams.to_string(RGYParamThreadType::throttling);
+#endif
     }
     OPT_LST(_T("--simd-csp"), simdCsp, list_simd);
     OPT_NUM(_T("--max-procfps"), procSpeedLimit);
@@ -15802,7 +15948,7 @@ tstring gen_cmd_help_common() {
         _T("   --timecode [<string>]        output timecode file.\n")
         _T("\n")
         _T("   --tcfile-in <string>         input timecode file, will not work with --avhw.\n")
-        _T("   --tc-timebase <int>/<int>    timebase of input timecode.\n")
+        _T("   --timebase <int>/<int>       timebase of input timecode.\n")
         _T("\n")
         _T("   --input-hevc-bsf <string>    switch hevc bitstream filter used for hw decoder input\n")
         _T("                                 - internal   ... use internal implementation (default)\n")
@@ -15965,12 +16111,12 @@ tstring gen_cmd_help_vpp() {
         get_cx_desc(list_vpp_libplacebo_tone_mapping_lut_type, FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_LUT_TYPE));
     str += print_list(list_vpp_libplacebo_tone_mapping_lut_type);
     str += strsprintf(_T("\n")
-        _T("      dst_pl_transfer=<string>     Output transfer function (must be used with dst_colorprim)\n")
+        _T("      dst_pl_transfer=<string>     Output transfer function (must be used with dst_pl_colorprim)\n")
         _T("                                (default:%s)\n"),
         get_cx_desc(list_vpp_libplacebo_tone_mapping_transfer, FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_DST_PL_TRANSFER));
     str += print_list(list_vpp_libplacebo_tone_mapping_transfer);
     str += strsprintf(_T("\n")
-        _T("      dst_pl_colorprim=<string>    Output primaries (must be used with dst_transfer)\n")
+        _T("      dst_pl_colorprim=<string>    Output primaries (must be used with dst_pl_transfer)\n")
         _T("                                (default:%s)\n"),
         get_cx_desc(list_vpp_libplacebo_tone_mapping_colorprim, FILTER_DEFAULT_LIBPLACEBO_TONEMAPPING_DST_PL_COLORPRIM));
     str += print_list(list_vpp_libplacebo_tone_mapping_colorprim);

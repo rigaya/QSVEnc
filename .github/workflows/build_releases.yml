@@ -128,8 +128,15 @@ jobs:
 
       - name: Check dll
         run: |
-          if ("${{ matrix.platform }}" == "x64")   "QSVEncC_Release\QSVEncC64.exe" --check-avcodec-dll
-          if ("${{ matrix.platform }}" == "Win32") "QSVEncC_Release\QSVEncC.exe" --check-avcodec-dll
+          set QSVENCC_EXE=QSVEncC_Release\QSVEncC64.exe
+          if "${{ matrix.platform }}" == "Win32" set QSVENCC_EXE=QSVEncC_Release\QSVEncC.exe
+          "%QSVENCC_EXE%" --check-avcodec-dll
+
+      - name: Check cmd parse
+        run: |
+          set QSVENCC_EXE=QSVEncC_Release\QSVEncC64.exe
+          if "${{ matrix.platform }}" == "Win32" set QSVENCC_EXE=QSVEncC_Release\QSVEncC.exe
+          "%QSVENCC_EXE%" --check-cmd-parse
 
       - name: Check Version
         if: startsWith(github.ref, 'refs/tags/')

@@ -45,6 +45,7 @@
 
 #include "qsv_pipeline.h"
 #include "qsv_cmd.h"
+#include "rgy_cmd_selftest.h"
 #include "qsv_prm.h"
 #include "qsv_query.h"
 #include "rgy_version.h"
@@ -544,6 +545,16 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const QSVDe
             _ftprintf(stdout, _T("%s\n"), str.c_str());
         }
         return 1;
+    }
+    if (0 == _tcscmp(option_name, _T("check-cmd-parse"))) {
+        // コマンドラインのパーサと生成の対応関係を自己診断する
+        RGYCmdSelfTest<sInputParams> selftest(
+            [](sInputParams *prm, const std::vector<tstring>& args) {
+                auto argv = rgy_cmd_selftest_argv(args);
+                return parse_cmd(prm, argv.data(), (int)argv.size() - 1);
+            },
+            [](const sInputParams *prm) { return gen_cmd(prm, false); });
+        return selftest.run((arg1[0] != _T('-')) ? arg1 : _T(""));
     }
     if (0 == _tcscmp(option_name, _T("check-features"))) {
         tstring output = (arg1[0] != _T('-')) ? arg1 : _T("");
