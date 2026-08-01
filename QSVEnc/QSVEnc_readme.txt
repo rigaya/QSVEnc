@@ -314,6 +314,22 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2026.08.01 (8.24)
+[QSVEncC]
+- デフォルトをAVSync vfrに変更し、ts droop時の音ズレを抑制。
+- --vpp-deinterlace bobでタイムスタンプ異常が発生してエラー終了するケースがあったのを修正。
+- --vpp-kfmで混合RFF素材の処理を改善。
+- --vpp-kfm mode=24の出力停止とタイムスタンプを修正。
+- --vpp-kfm/--vpp-degrainを高速化。
+- --vpp-rtgmcの色差Degrain解析を修正。
+- --vpp-onnx/--vpp-rife-ovをゼロコピー化により高速化。
+- --vpp-onnxの登録モデルのフレーム数指定に対応。
+- OpenCL出力ワーカー無効時のクラッシュを修正。
+- OpenCLフレームプールの不具合を修正。
+
+[QSVEnc.auo]
+- AviUtl2でプロジェクト単位の出力設定の保存・復元に対応。
+
 2026.07.25 (8.23)
 [QSVEncC]
 - --vpp-lenscorrectionを追加。
