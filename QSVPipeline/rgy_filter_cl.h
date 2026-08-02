@@ -62,7 +62,7 @@ public:
     virtual void resetTemporalState() {}
 protected:
     virtual RGY_ERR AllocFrameBuf(const RGYFrameInfo &frame, int frames) override;
-    RGY_ERR filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, RGYFrameInfo *pOutputFrame);
+    RGY_ERR filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, RGYFrameInfo *pOutputFrame, RGYOpenCLQueue &queue);
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) = 0;
 
     std::shared_ptr<RGYOpenCLContext> m_cl;

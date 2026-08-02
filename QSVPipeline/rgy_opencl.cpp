@@ -2482,6 +2482,10 @@ RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *dst, const RGYFrameInfo *src, 
 }
 
 RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *planeDstOrg, const RGYFrameInfo *planeSrcOrg, const sInputCrop *planeCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event, RGYFrameCopyMode copyMode, const char *perfLabel) {
+    return copyPlaneField(planeDstOrg, planeSrcOrg, copyMode, copyMode, planeCrop, queue, wait_events, event, perfLabel);
+}
+
+RGY_ERR RGYOpenCLContext::copyPlaneField(RGYFrameInfo *planeDstOrg, const RGYFrameInfo *planeSrcOrg, RGYFrameCopyMode srcMode, RGYFrameCopyMode dstMode, const sInputCrop *planeCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event, const char *perfLabel) {
     cl_int err = CL_SUCCESS;
     const std::vector<cl_event> v_wait_list = toVec(wait_events);
     const int wait_count = (int)v_wait_list.size();
@@ -2494,19 +2498,27 @@ RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *planeDstOrg, const RGYFrameInf
     const int pixel_size = RGY_CSP_BIT_DEPTH[planeDstOrg->csp] > 8 ? 2 : 1;
     RGYFrameInfo planeDst = *planeDstOrg;
     RGYFrameInfo planeSrc = *planeSrcOrg;
-    if (copyMode != RGYFrameCopyMode::FRAME) {
+    const bool dstImage = planeDst.mem_type == RGY_MEM_TYPE_GPU_IMAGE || planeDst.mem_type == RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED;
+    const bool srcImage = planeSrc.mem_type == RGY_MEM_TYPE_GPU_IMAGE || planeSrc.mem_type == RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED;
+    if (dstMode != RGYFrameCopyMode::FRAME) {
         planeDst.pitch[0] <<= 1;
         planeDst.height >>= 1;
+    }
+    if (srcMode != RGYFrameCopyMode::FRAME) {
         planeSrc.pitch[0] <<= 1;
         planeSrc.height >>= 1;
     }
-    size_t dst_origin[3] = { (copyMode == RGYFrameCopyMode::FIELD_BOTTOM) ? (size_t)planeDstOrg->pitch[0] : 0, 0, 0 };
-    size_t src_origin[3] = { (copyMode == RGYFrameCopyMode::FIELD_BOTTOM) ? (size_t)planeSrcOrg->pitch[0] : 0, 0, 0 };
+    size_t dst_origin[3] = { (!dstImage && dstMode == RGYFrameCopyMode::FIELD_BOTTOM) ? (size_t)planeDstOrg->pitch[0] : 0,
+        (dstImage && dstMode == RGYFrameCopyMode::FIELD_BOTTOM) ? 1u : 0u, 0 };
+    size_t src_origin[3] = { (!srcImage && srcMode == RGYFrameCopyMode::FIELD_BOTTOM) ? (size_t)planeSrcOrg->pitch[0] : 0,
+        (srcImage && srcMode == RGYFrameCopyMode::FIELD_BOTTOM) ? 1u : 0u, 0 };
+    const int dstLineStep = (dstImage && dstMode != RGYFrameCopyMode::FRAME) ? 2 : 1;
+    const int srcLineStep = (srcImage && srcMode != RGYFrameCopyMode::FRAME) ? 2 : 1;
     if (planeCrop) {
         src_origin[0] += planeCrop->e.left * pixel_size;
         src_origin[1] += planeCrop->e.up;
     }
-    size_t region[3] = { (size_t)planeSrc.width * pixel_size, (size_t)planeSrc.height, 1 };
+    size_t region[3] = { (size_t)planeSrc.width * pixel_size, (size_t)std::min(planeSrc.height, planeDst.height), 1 };
     if (planeSrc.mem_type == RGY_MEM_TYPE_GPU) {
         if (planeDst.mem_type == RGY_MEM_TYPE_GPU) {
             // バッファ間で画素サイズと領域が同一なら、CSPが異なっても単純な2次元コピーでよい。
@@ -2537,11 +2549,11 @@ RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *planeDstOrg, const RGYFrameInf
                     return RGY_ERR_OPENCL_CRUSH;
                 }
                 RGYWorkSize local(32, 8);
-                RGYWorkSize global(planeDst.width, planeDst.height);
+                RGYWorkSize global(planeSrc.width, (int)region[1]);
                 auto rgy_err = copyProgram->kernel("kernel_copy_plane").config(queue, local, global, wait_events, event).launch(
-                    (cl_mem)planeDst.ptr[0], planeDst.pitch[0], (int)dst_origin[0] / pixel_size, (int)dst_origin[1],
-                    (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0], (int)src_origin[0] / pixel_size, (int)src_origin[1],
-                    planeSrc.width, planeSrc.height);
+                    (cl_mem)planeDst.ptr[0], planeDst.pitch[0], (int)dst_origin[0] / pixel_size, (int)dst_origin[1], dstLineStep,
+                    (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0], (int)src_origin[0] / pixel_size, (int)src_origin[1], srcLineStep,
+                    planeSrc.width, (int)region[1]);
                 err = err_rgy_to_cl(rgy_err);
             }
         } else if (planeDst.mem_type == RGY_MEM_TYPE_GPU_IMAGE || planeDst.mem_type == RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED) {
@@ -2552,11 +2564,11 @@ RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *planeDstOrg, const RGYFrameInf
             }
             // GPU imageへの書き込みはtile形状への依存が強く、B580では16x16が32x8比で26.7%高速。
             RGYWorkSize local(16, 16);
-            RGYWorkSize global(planeDst.width, planeDst.height);
+            RGYWorkSize global(planeSrc.width, (int)region[1]);
             auto rgy_err = copyProgram->kernel("kernel_copy_plane").config(queue, local, global, wait_events, event).launch(
-                (cl_mem)planeDst.ptr[0], planeDst.pitch[0], (int)dst_origin[0] / pixel_size, (int)dst_origin[1],
-                (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0], (int)src_origin[0] / pixel_size, (int)src_origin[1],
-                planeSrc.width, planeSrc.height);
+                (cl_mem)planeDst.ptr[0], planeDst.pitch[0], (int)dst_origin[0] / pixel_size, (int)dst_origin[1], dstLineStep,
+                (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0], (int)src_origin[0] / pixel_size, (int)src_origin[1], srcLineStep,
+                planeSrc.width, (int)region[1]);
             err = err_rgy_to_cl(rgy_err);
         } else if (planeDst.mem_type == RGY_MEM_TYPE_CPU
 #if ENCODER_MPP
@@ -2585,14 +2597,14 @@ RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *planeDstOrg, const RGYFrameInf
             RGYWorkSize local(32, 8);
             const int dstOffsetX = (int)dst_origin[0] / pixel_size;
             // 出力オフセットが4画素境界なら、bufferへの書き込みを4画素単位にまとめる。
-            RGYWorkSize global((dstOffsetX & 3) == 0 ? (planeDst.width + 3) / 4 : planeDst.width, planeDst.height);
+            RGYWorkSize global((dstOffsetX & 3) == 0 ? (planeSrc.width + 3) / 4 : planeSrc.width, (int)region[1]);
             auto rgy_err = copyProgram->kernel("kernel_copy_plane").config(queue, local, global, wait_events, event).launch(
-                (cl_mem)planeDst.ptr[0], planeDst.pitch[0], dstOffsetX, (int)dst_origin[1],
-                (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0], (int)src_origin[0] / pixel_size, (int)src_origin[1],
-                planeSrc.width, planeSrc.height);
+                (cl_mem)planeDst.ptr[0], planeDst.pitch[0], dstOffsetX, (int)dst_origin[1], dstLineStep,
+                (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0], (int)src_origin[0] / pixel_size, (int)src_origin[1], srcLineStep,
+                planeSrc.width, (int)region[1]);
             err = err_rgy_to_cl(rgy_err);
         } else if (planeDst.mem_type == RGY_MEM_TYPE_GPU_IMAGE || planeDst.mem_type == RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED) {
-            if (planeDst.csp == planeSrc.csp) {
+            if (planeDst.csp == planeSrc.csp && srcMode == RGYFrameCopyMode::FRAME && dstMode == RGYFrameCopyMode::FRAME) {
                 clGetImageInfo((cl_mem)planeDst.ptr[0], CL_IMAGE_WIDTH, sizeof(region[0]), &region[0], nullptr);
                 const auto host_start = rgy_cl_perf_begin(perf_enabled);
                 err = clEnqueueCopyImage(queue.get(), (cl_mem)planeSrc.ptr[0], (cl_mem)planeDst.ptr[0], src_origin, dst_origin, region, wait_count, wait_list, event_ptr);
@@ -2609,11 +2621,11 @@ RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *planeDstOrg, const RGYFrameInf
                     return RGY_ERR_OPENCL_CRUSH;
                 }
                 RGYWorkSize local(32, 8);
-                RGYWorkSize global(planeDst.width, planeDst.height);
+                RGYWorkSize global(planeSrc.width, (int)region[1]);
                 auto rgy_err = copyProgram->kernel("kernel_copy_plane").config(queue, local, global, wait_events, event).launch(
-                    (cl_mem)planeDst.ptr[0], planeDst.pitch[0], (int)dst_origin[0] / pixel_size, (int)dst_origin[1],
-                    (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0], (int)src_origin[0] / pixel_size, (int)src_origin[1],
-                    planeSrc.width, planeSrc.height);
+                    (cl_mem)planeDst.ptr[0], planeDst.pitch[0], (int)dst_origin[0] / pixel_size, (int)dst_origin[1], dstLineStep,
+                    (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0], (int)src_origin[0] / pixel_size, (int)src_origin[1], srcLineStep,
+                    planeSrc.width, (int)region[1]);
                 err = err_rgy_to_cl(rgy_err);
             }
         } else if (planeDst.mem_type == RGY_MEM_TYPE_CPU
@@ -2621,6 +2633,10 @@ RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *planeDstOrg, const RGYFrameInf
                 || planeDst.mem_type == RGY_MEM_TYPE_MPP
 #endif
         ) {
+            if (srcMode != RGYFrameCopyMode::FRAME || dstMode != RGYFrameCopyMode::FRAME) {
+                CL_LOG(RGY_LOG_ERROR, _T("field copy from OpenCL image to host memory is not supported.\n"));
+                return RGY_ERR_UNSUPPORTED;
+            }
             clGetImageInfo((cl_mem)planeSrc.ptr[0], CL_IMAGE_WIDTH, sizeof(region[0]), &region[0], nullptr);
             const auto host_start = rgy_cl_perf_begin(perf_enabled);
             err = clEnqueueReadImage(queue.get(), (cl_mem)planeSrc.ptr[0], false, dst_origin,
@@ -2650,6 +2666,10 @@ RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *planeDstOrg, const RGYFrameInf
                     host_start, host_start + host_time, (uint64_t)(uintptr_t)queue.get());
             }
         } else if (planeDst.mem_type == RGY_MEM_TYPE_GPU_IMAGE) {
+            if (srcMode != RGYFrameCopyMode::FRAME || dstMode != RGYFrameCopyMode::FRAME) {
+                CL_LOG(RGY_LOG_ERROR, _T("field copy from host memory to OpenCL image is not supported.\n"));
+                return RGY_ERR_UNSUPPORTED;
+            }
             clGetImageInfo((cl_mem)planeDst.ptr[0], CL_IMAGE_WIDTH, sizeof(region[0]), &region[0], nullptr);
             const auto host_start = rgy_cl_perf_begin(perf_enabled);
             err = clEnqueueWriteImage(queue.get(), (cl_mem)planeDst.ptr[0], false, src_origin,
@@ -2665,10 +2685,10 @@ RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *planeDstOrg, const RGYFrameInf
                 || planeDst.mem_type == RGY_MEM_TYPE_MPP
 #endif
         ) {
-            for (int y = 0; y < planeDst.height; y++) {
+            for (int y = 0; y < (int)region[1]; y++) {
                 memcpy(planeDst.ptr[0] + (y + dst_origin[1]) * planeDst.pitch[0] + dst_origin[0],
                         planeSrc.ptr[0] + (y + src_origin[1]) * planeSrc.pitch[0] + src_origin[0],
-                        planeDst.width * pixel_size);
+                        region[0]);
             }
         } else {
             return RGY_ERR_UNSUPPORTED;
@@ -2692,6 +2712,10 @@ RGY_ERR RGYOpenCLContext::copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, 
 }
 
 RGY_ERR RGYOpenCLContext::copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event, RGYFrameCopyMode copyMode, const char *perfLabel) {
+    return copyFrameField(dst, src, copyMode, copyMode, srcCrop, queue, wait_events, event, perfLabel);
+}
+
+RGY_ERR RGYOpenCLContext::copyFrameField(RGYFrameInfo *dst, const RGYFrameInfo *src, RGYFrameCopyMode srcMode, RGYFrameCopyMode dstMode, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event, const char *perfLabel) {
     if (dst->csp != src->csp) {
         CL_LOG(RGY_LOG_ERROR, _T("in/out csp should be same in copyFrame.\n"));
         return RGY_ERR_INVALID_CALL;
@@ -2717,9 +2741,16 @@ RGY_ERR RGYOpenCLContext::copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, 
                 return RGY_ERR_OPENCL_CRUSH;
             }
             RGYWorkSize local(32, 8);
-            RGYWorkSize global(planeDst.width >> 1, planeDst.height);
+            const int srcHeight = (srcMode == RGYFrameCopyMode::FRAME) ? planeSrc.height : planeSrc.height >> 1;
+            const int dstHeight = (dstMode == RGYFrameCopyMode::FRAME) ? planeDst.height : planeDst.height >> 1;
+            const int copyHeight = std::min(srcHeight, dstHeight);
+            RGYWorkSize global(planeDst.width >> 1, copyHeight);
             err = copyProgram->kernel("kernel_copy_plane_nv12").config(queue, local, global, wait_events, event).launch(
-                (cl_mem)planeDst.ptr[0], planeDst.pitch[0], (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0], planeSrc.width >> 1, planeSrc.height,
+                (cl_mem)planeDst.ptr[0], planeDst.pitch[0],
+                dstMode == RGYFrameCopyMode::FIELD_BOTTOM ? 1 : 0, dstMode == RGYFrameCopyMode::FRAME ? 1 : 2,
+                (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0],
+                srcMode == RGYFrameCopyMode::FIELD_BOTTOM ? 1 : 0, srcMode == RGYFrameCopyMode::FRAME ? 1 : 2,
+                planeSrc.width >> 1, copyHeight,
                 planeCrop.e.left, planeCrop.e.up);
             if (err != RGY_ERR_NONE) {
                 CL_LOG(RGY_LOG_ERROR, _T("error at kernel_copy_plane (convertCspFromNV12(C)(%s -> %s)): %s.\n"),
@@ -2727,20 +2758,25 @@ RGY_ERR RGYOpenCLContext::copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, 
                 return err;
             }
         } else {
-            err = copyPlane(&planeDst, &planeSrc, &planeCrop, queue,
+            err = copyPlaneField(&planeDst, &planeSrc, srcMode, dstMode, &planeCrop, queue,
                 (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>(),
                 (i + 1 == RGY_CSP_PLANES[dst->csp]) ? event : nullptr,
-                copyMode, perfLabel);
+                perfLabel);
             if (err != RGY_ERR_NONE) {
                 CL_LOG(RGY_LOG_ERROR, _T("Failed to copy frame(%d): %s\n"), i, cl_errmes(err));
                 return err_cl_to_rgy(err);
             }
         }
     }
-    dst->picstruct = src->picstruct;
+    if (srcMode != RGYFrameCopyMode::FRAME && dstMode == RGYFrameCopyMode::FRAME) {
+        dst->picstruct = RGY_PICSTRUCT_FRAME;
+        dst->flags = src->flags & ~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF);
+    } else if (srcMode == dstMode) {
+        dst->picstruct = src->picstruct;
+        dst->flags = src->flags;
+    }
     dst->duration = src->duration;
     dst->timestamp = src->timestamp;
-    dst->flags = src->flags;
     dst->inputFrameId = src->inputFrameId;
     return err;
 }

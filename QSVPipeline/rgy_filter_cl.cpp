@@ -142,69 +142,61 @@ void RGYFilter::setCheckPerformance(const bool check) {
     else       m_perfMonitor.reset();
 }
 
-RGY_ERR RGYFilter::filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, RGYFrameInfo *pOutputFrame) {
-#if 0
-    if (!m_pFieldPairIn) {
-        unique_ptr<CUFrameBuf> uptr(new CUFrameBuf(*pInputFrame));
-        uptr->frame.ptr = nullptr;
-        uptr->frame.pitch = 0;
-        uptr->frame.height >>= 1;
-        uptr->frame.picstruct = RGY_PICSTRUCT_FRAME;
-        uptr->frame.flags &= ~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF);
-        auto ret = uptr->alloc();
-        if (ret != cudaSuccess) {
-            m_frameBuf.clear();
+RGY_ERR RGYFilter::filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, RGYFrameInfo *pOutputFrame, RGYOpenCLQueue &queue) {
+    //フィールドペア用バッファは、入力仕様が変化した場合にも再確保する。
+    auto allocFieldPairBuf = [this](std::unique_ptr<RGYCLFrame>& fieldPairBuf, const RGYFrameInfo *frameInfo, const TCHAR *bufName) {
+        RGYFrameInfo fieldFrame = *frameInfo;
+        fieldFrame.height >>= 1;
+        fieldFrame.picstruct = RGY_PICSTRUCT_FRAME;
+        fieldFrame.flags &= ~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF);
+        if (fieldPairBuf && !cmpFrameInfoCspResolution(&fieldPairBuf->frame, &fieldFrame)) {
+            return RGY_ERR_NONE;
+        }
+        auto uptr = m_cl->createFrameBuffer(fieldFrame);
+        if (!uptr) {
             return RGY_ERR_MEMORY_ALLOC;
         }
-        m_pFieldPairIn = std::move(uptr);
+        AddMessage(RGY_LOG_DEBUG, _T("allocated OpenCL field pair buffer(%s): %dx%d %s.\n"),
+            bufName, uptr->frame.width, uptr->frame.height, RGY_CSP_NAMES[uptr->frame.csp]);
+        //確保に成功してから差し替え、失敗時には既存バッファを維持する。
+        fieldPairBuf = std::move(uptr);
+        return RGY_ERR_NONE;
+    };
+    if (auto err = allocFieldPairBuf(m_pFieldPairIn, pInputFrame, _T("in")); err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate OpenCL field pair buffer(in): %s.\n"), get_err_mes(err));
+        return err;
     }
-    if (!m_pFieldPairOut) {
-        unique_ptr<CUFrameBuf> uptr(new CUFrameBuf(*pOutputFrame));
-        uptr->frame.ptr = nullptr;
-        uptr->frame.pitch = 0;
-        uptr->frame.height >>= 1;
-        uptr->frame.picstruct = RGY_PICSTRUCT_FRAME;
-        uptr->frame.flags &= ~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF);
-        auto ret = uptr->alloc();
-        if (ret != cudaSuccess) {
-            m_frameBuf.clear();
-            return RGY_ERR_MEMORY_ALLOC;
-        }
-        m_pFieldPairOut = std::move(uptr);
+    if (auto err = allocFieldPairBuf(m_pFieldPairOut, pOutputFrame, _T("out")); err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to allocate OpenCL field pair buffer(out): %s.\n"), get_err_mes(err));
+        return err;
     }
-    const auto inputFrameInfoEx = getFrameInfoExtra(pInputFrame);
-    const auto outputFrameInfoEx = getFrameInfoExtra(pOutputFrame);
 
     for (int i = 0; i < 2; i++) {
-        auto cudaerr = cudaMemcpy2DAsync(m_pFieldPairIn->frame.ptr, m_pFieldPairIn->frame.pitch,
-            pInputFrame->ptr + pInputFrame->pitch * i, pInputFrame->pitch * 2,
-            inputFrameInfoEx.width_byte, inputFrameInfoEx.height_total >> 1,
-            cudaMemcpyDeviceToDevice, stream);
-        if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to seprate field(0): %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return RGY_ERR_CUDA;
+        const auto fieldMode = (i == 0) ? RGYFrameCopyMode::FIELD_TOP : RGYFrameCopyMode::FIELD_BOTTOM;
+        auto err = m_cl->copyFrameField(&m_pFieldPairIn->frame, pInputFrame,
+            fieldMode, RGYFrameCopyMode::FRAME, nullptr, queue);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to separate field(%d): %s.\n"), i, get_err_mes(err));
+            return err;
         }
         int nFieldOut = 0;
         auto pFieldOut = &m_pFieldPairOut->frame;
-        auto err = run_filter(&m_pFieldPairIn->frame, &pFieldOut, &nFieldOut);
-        if (err != NV_ENC_SUCCESS) {
+        err = run_filter(&m_pFieldPairIn->frame, &pFieldOut, &nFieldOut, queue, {}, nullptr);
+        if (err != RGY_ERR_NONE) {
             return err;
         }
-        cudaerr = cudaMemcpy2DAsync(pOutputFrame->ptr + pOutputFrame->pitch * i, pOutputFrame->pitch * 2,
-            pFieldOut->ptr, pFieldOut->pitch,
-            outputFrameInfoEx.width_byte, outputFrameInfoEx.height_total >> 1,
-            cudaMemcpyDeviceToDevice, stream);
-        if (cudaerr != cudaSuccess) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to merge field(1): %s.\n"), char_to_tstring(cudaGetErrorName(cudaerr)).c_str());
-            return RGY_ERR_CUDA;
+        if (nFieldOut != 1 || pFieldOut == nullptr) {
+            AddMessage(RGY_LOG_ERROR, _T("unexpected field output count: %d.\n"), nFieldOut);
+            return RGY_ERR_UNKNOWN;
+        }
+        err = m_cl->copyFrameField(pOutputFrame, pFieldOut,
+            RGYFrameCopyMode::FRAME, fieldMode, nullptr, queue);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to merge field(%d): %s.\n"), i, get_err_mes(err));
+            return err;
         }
     }
     return RGY_ERR_NONE;
-#else
-    UNREFERENCED_PARAMETER(pInputFrame);
-    UNREFERENCED_PARAMETER(pOutputFrame);
-    return RGY_ERR_UNSUPPORTED;
-#endif
 }
 
 #pragma warning(push)

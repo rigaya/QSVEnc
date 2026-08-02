@@ -125,7 +125,8 @@ RGY_ERR RGYFilterCspCrop::convertCspFromNV12(RGYFrameInfo *pOutputFrame, const R
         RGYWorkSize local(32, 8);
         RGYWorkSize global(planeDst.width >> 1, planeDst.height);
         auto err = copyProgram->kernel("kernel_copy_plane_nv12").config(queue, local, global, wait_events, event).launch(
-            (cl_mem)planeDst.ptr[0], planeDst.pitch[0], (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0], planeSrc.width >> 1, planeSrc.height,
+            (cl_mem)planeDst.ptr[0], planeDst.pitch[0], 0, 1,
+            (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0], 0, 1, planeSrc.width >> 1, planeSrc.height,
             pCropParam->crop.e.left, pCropParam->crop.e.up);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at kernel_copy_plane (convertCspFromNV12(C)(%s -> %s)): %s.\n"),
@@ -266,8 +267,8 @@ RGY_ERR RGYFilterCspCrop::convertCspFromYV12(RGYFrameInfo *pOutputFrame, const R
         RGYWorkSize local = dstImage ? RGYWorkSize(16, 16) : RGYWorkSize(32, 8);
         RGYWorkSize global(planeDst.width, planeDst.height);
         auto err = copyProgram->kernel("kernel_copy_plane").config(queue, local, global, wait_events, event).launch(
-            (cl_mem)planeDst.ptr[0], planeDst.pitch[0], 0, 0,
-            (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0], pCropParam->crop.e.left, pCropParam->crop.e.up,
+            (cl_mem)planeDst.ptr[0], planeDst.pitch[0], 0, 0, 1,
+            (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0], pCropParam->crop.e.left, pCropParam->crop.e.up, 1,
             planeSrc.width, planeSrc.height);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at kernel_copy_plane (convertCspFromYV12(Y)(%s -> %s)): %s.\n"),
@@ -302,8 +303,8 @@ RGY_ERR RGYFilterCspCrop::convertCspFromYV12(RGYFrameInfo *pOutputFrame, const R
             RGYWorkSize local(32, 8);
             RGYWorkSize global(planeDst.width, planeDst.height);
             auto err = copyProgram->kernel("kernel_copy_plane").config(queue, local, global, wait_events, event).launch(
-                (cl_mem)planeDst.ptr[0], planeDst.pitch[0], 0, 0,
-                (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0], pCropParam->crop.e.left >> 1, pCropParam->crop.e.up >> 1,
+                (cl_mem)planeDst.ptr[0], planeDst.pitch[0], 0, 0, 1,
+                (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0], pCropParam->crop.e.left >> 1, pCropParam->crop.e.up >> 1, 1,
                 planeSrc.width, planeSrc.height);
             if (err != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("error at kernel_copy_plane (convertCspFromYV12(U)(%s -> %s)): %s.\n"),
@@ -455,8 +456,8 @@ RGY_ERR RGYFilterCspCrop::convertCspFromYUV444(RGYFrameInfo *pOutputFrame, const
         RGYWorkSize local(32, 8);
         RGYWorkSize global(planeDst.width, planeDst.height);
         auto err = copyProgram->kernel("kernel_copy_plane").config(queue, local, global, wait_events, event).launch(
-            (cl_mem)planeDst.ptr[0], planeDst.pitch[0], 0, 0,
-            (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0], pCropParam->crop.e.left, pCropParam->crop.e.up,
+            (cl_mem)planeDst.ptr[0], planeDst.pitch[0], 0, 0, 1,
+            (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0], pCropParam->crop.e.left, pCropParam->crop.e.up, 1,
             planeSrc.width, planeSrc.height);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at kernel_copy_plane (convertCspFromYUV444(Y)(%s -> %s)): %s.\n"),
@@ -484,8 +485,8 @@ RGY_ERR RGYFilterCspCrop::convertCspFromYUV444(RGYFrameInfo *pOutputFrame, const
                         (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0], planeDst.width, planeDst.height,
                         pCropParam->crop.e.left, pCropParam->crop.e.up)
                     : copyProgram->kernel("kernel_copy_plane").config(queue, local, global, wait_events, event).launch(
-                        (cl_mem)planeDst.ptr[0], planeDst.pitch[0], planeDst.width, planeDst.height,
-                        (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0], planeSrc.width, planeSrc.height,
+                        (cl_mem)planeDst.ptr[0], planeDst.pitch[0], planeDst.width, planeDst.height, 1,
+                        (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0], planeSrc.width, planeSrc.height, 1,
                         pCropParam->crop.e.left, pCropParam->crop.e.up);
             if (err != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("error at kernel_copy_plane (convertCspFromYUV444(U)(%s -> %s)): %s.\n"),

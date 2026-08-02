@@ -1111,9 +1111,9 @@ RGY_ERR RGYFilterResize::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
         return RGY_ERR_OPENCL_CRUSH;
     }
 
-    //if (interlaced(*pInputFrame)) {
-    //    return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], cudaStreamDefault);
-    //}
+    if (interlaced(*pInputFrame)) {
+        return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], queue);
+    }
     const auto memcpyKind = getMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
     if (memcpyKind != RGYCLMemcpyD2D) {
         AddMessage(RGY_LOG_ERROR, _T("only supported on device memory.\n"));

@@ -278,6 +278,7 @@ __kernel void kernel_copy_plane(
     int dstPitch,
     int dstOffsetX,
     int dstOffsetY,
+    int dstLineStep,
 #if IMAGE_SRC
     __read_only image2d_t src,
 #else
@@ -286,6 +287,7 @@ __kernel void kernel_copy_plane(
     int srcPitch,
     int srcOffsetX,
     int srcOffsetY,
+    int srcLineStep,
     int width,
     int height
 ) {
@@ -297,22 +299,22 @@ __kernel void kernel_copy_plane(
     if (y < height) {
         if (vectorStore && x + 3 < width) {
             const TypeIn4 pixSrc = (TypeIn4)(
-                LOAD(src, x + srcOffsetX + 0, y + srcOffsetY),
-                LOAD(src, x + srcOffsetX + 1, y + srcOffsetY),
-                LOAD(src, x + srcOffsetX + 2, y + srcOffsetY),
-                LOAD(src, x + srcOffsetX + 3, y + srcOffsetY));
+                LOAD(src, x + srcOffsetX + 0, y * srcLineStep + srcOffsetY),
+                LOAD(src, x + srcOffsetX + 1, y * srcLineStep + srcOffsetY),
+                LOAD(src, x + srcOffsetX + 2, y * srcLineStep + srcOffsetY),
+                LOAD(src, x + srcOffsetX + 3, y * srcLineStep + srcOffsetY));
             const TypeOut4 out = (TypeOut4)(
                 BIT_DEPTH_CONV(pixSrc.s0),
                 BIT_DEPTH_CONV(pixSrc.s1),
                 BIT_DEPTH_CONV(pixSrc.s2),
                 BIT_DEPTH_CONV(pixSrc.s3));
-            vstore4(out, 0, ((__global TypeOut *)(dst + (y + dstOffsetY) * dstPitch)) + x + dstOffsetX);
+            vstore4(out, 0, ((__global TypeOut *)(dst + (y * dstLineStep + dstOffsetY) * dstPitch)) + x + dstOffsetX);
         } else {
             const int count = vectorStore ? 4 : 1;
             for (int i = 0; i < count && x + i < width; i++) {
-                const TypeIn pixSrc = LOAD(src, x + i + srcOffsetX, y + srcOffsetY);
+                const TypeIn pixSrc = LOAD(src, x + i + srcOffsetX, y * srcLineStep + srcOffsetY);
                 const TypeOut out = BIT_DEPTH_CONV(pixSrc);
-                STORE(dst, x + i + dstOffsetX, y + dstOffsetY, out);
+                STORE(dst, x + i + dstOffsetX, y * dstLineStep + dstOffsetY, out);
             }
         }
     }
@@ -321,9 +323,9 @@ __kernel void kernel_copy_plane(
     const int y = get_global_id(1);
 
     if (x < width && y < height) {
-        TypeIn pixSrc = LOAD(src, x + srcOffsetX, y + srcOffsetY);
+        TypeIn pixSrc = LOAD(src, x + srcOffsetX, y * srcLineStep + srcOffsetY);
         TypeOut out = BIT_DEPTH_CONV(pixSrc);
-        STORE(dst, x + dstOffsetX, y + dstOffsetY, out);
+        STORE(dst, x + dstOffsetX, y * dstLineStep + dstOffsetY, out);
     }
 #endif
 }
@@ -379,12 +381,16 @@ __kernel void kernel_copy_plane_nv12(
     __global uchar *dst,
 #endif
     int dstPitch,
+    int dstLineOffset,
+    int dstLineStep,
 #if IMAGE_SRC
     __read_only image2d_t src,
 #else
     __global uchar *src,
 #endif
     int srcPitch,
+    int srcLineOffset,
+    int srcLineStep,
     int uvWidth,
     int uvHeight,
     int cropX,     // 輝度と同じcropを想定
@@ -394,10 +400,10 @@ __kernel void kernel_copy_plane_nv12(
     const int uv_y = get_global_id(1);
     if (uv_x < uvWidth && uv_y < uvHeight) {
         TypeIn pixSrcU, pixSrcV;
-        LOAD_NV12_UV(src, pixSrcU, pixSrcV, uv_x, uv_y, cropX, cropY);
+        LOAD_NV12_UV(src, pixSrcU, pixSrcV, uv_x, uv_y * srcLineStep + srcLineOffset, cropX, cropY);
         TypeOut pixDstU = BIT_DEPTH_CONV(pixSrcU);
         TypeOut pixDstV = BIT_DEPTH_CONV(pixSrcV);
-        STORE_NV12_UV(dst, uv_x, uv_y, pixDstU, pixDstV);
+        STORE_NV12_UV(dst, uv_x, uv_y * dstLineStep + dstLineOffset, pixDstU, pixDstV);
     }
 }
 
