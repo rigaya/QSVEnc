@@ -1911,10 +1911,6 @@ public:
 
         mfxStatus vpp_sts = MFX_ERR_NONE;
 
-        if (frame) {
-            m_lastFrameDataList = dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->dataList();
-        }
-
         const auto estDuration = av_rescale_q(1, av_make_q(m_outputTimebase.inv()), av_make_q(m_mfxVppParams.vpp.In.FrameRateExtN, m_mfxVppParams.vpp.In.FrameRateExtD));
 
         mfxFrameSurface1 *surfVppIn = (frame) ? dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().mfx()->surf() : nullptr;
@@ -1922,11 +1918,47 @@ public:
         const int expectedInputHeight = m_vpp->inputHeightBeforeCrop();
         if (surfVppIn != nullptr
             && (surfVppIn->Info.CropW != expectedInputWidth || surfVppIn->Info.CropH != expectedInputHeight)) {
-            PrintMes(RGY_LOG_ERROR, _T("input resolution changed from %dx%d to %dx%d, which is not supported yet.\n"),
-                expectedInputWidth, expectedInputHeight,
-                (int)surfVppIn->Info.CropW, (int)surfVppIn->Info.CropH);
-            PrintMes(RGY_LOG_ERROR, _T("  Please split the input file at the resolution change point.\n"));
-            return RGY_ERR_UNSUPPORTED;
+            const auto newInputInfo = surfVppIn->Info;
+            PrintMes(RGY_LOG_DEBUG, _T("input resolution change detected in MFX VPP: %dx%d -> %dx%d, flushing filter.\n"),
+                expectedInputWidth, expectedInputHeight, (int)newInputInfo.CropW, (int)newInputInfo.CropH);
+
+            // 解像度変更前のフレームをすべて出力してからVPPをリセットする。
+            auto sts = RGY_ERR_NONE;
+            while (sts == RGY_ERR_NONE) {
+                auto flushFrame = std::unique_ptr<PipelineTaskOutput>();
+                sts = sendFrame(flushFrame);
+                if (sts == RGY_ERR_MORE_DATA) {
+                    break;
+                } else if (sts != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_ERROR, _T("  Failed to flush filter on input resolution change %dx%d -> %dx%d: %s.\n"),
+                        expectedInputWidth, expectedInputHeight, (int)newInputInfo.CropW, (int)newInputInfo.CropH, get_err_mes(sts));
+                    return sts;
+                }
+            }
+
+            // VPPをCloseする前に、キューに残った非同期出力を完了させる。
+            // 未完了のままCloseすると、入力に使ったデコード面が解放されず後続のデコードが停止することがある。
+            for (auto& output : m_outQeueue) {
+                sts = output->waitsync();
+                if (sts != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_ERROR, _T("  Failed to wait for filter output on input resolution change %dx%d -> %dx%d: %s.\n"),
+                        expectedInputWidth, expectedInputHeight, (int)newInputInfo.CropW, (int)newInputInfo.CropH, get_err_mes(sts));
+                    return sts;
+                }
+            }
+
+            sts = m_vpp->ResetInputResolution(newInputInfo);
+            if (sts != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("  Failed to reset filter on input resolution change %dx%d -> %dx%d: %s.\n"),
+                    expectedInputWidth, expectedInputHeight, (int)newInputInfo.CropW, (int)newInputInfo.CropH, get_err_mes(sts));
+                return sts;
+            }
+            PrintMes(RGY_LOG_DEBUG, _T("input resolution changed in MFX VPP: %dx%d -> %dx%d, filter reset completed.\n"),
+                expectedInputWidth, expectedInputHeight, (int)newInputInfo.CropW, (int)newInputInfo.CropH);
+        }
+        if (frame) {
+            // flush中の旧出力には旧フレームの付加情報を維持し、リセット後に新フレームの情報へ切り替える。
+            m_lastFrameDataList = dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->dataList();
         }
         //vpp前に、vpp用のパラメータでFrameInfoを更新
         copy_crop_info(surfVppIn, &m_mfxVppParams.vpp.In);

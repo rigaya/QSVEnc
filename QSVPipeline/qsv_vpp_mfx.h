@@ -50,6 +50,8 @@ public:
     RGY_ERR Init();
     RGY_ERR Close();
     RGY_ERR Reset(const mfxFrameInfo& frameOut, const mfxFrameInfo& frameIn);
+    // 入力解像度だけを更新し、出力解像度を維持したままVPPをリセットする。
+    RGY_ERR ResetInputResolution(const mfxFrameInfo& newInputInfo);
 
     void clear();
 
@@ -91,6 +93,8 @@ protected:
     QSVDeviceNum m_deviceNum;
     int m_asyncDepth;
 
+    mfxU16 m_initialInputWidth;
+    mfxU16 m_initialInputHeight;
     sInputCrop m_crop;
     std::unique_ptr<MFXVideoVPP> m_mfxVPP;
     mfxVideoParam m_mfxVppParams;

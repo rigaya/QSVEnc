@@ -61,6 +61,8 @@ QSVVppMfx::QSVVppMfx(CQSVHWDevice *hwdev, QSVAllocator *allocator,
     m_sessionParams(sessionParams),
     m_deviceNum(deviceNum),
     m_asyncDepth(asyncDepth),
+    m_initialInputWidth(0),
+    m_initialInputHeight(0),
     m_crop(),
     m_mfxVPP(),
     m_mfxVppParams(),
@@ -146,6 +148,8 @@ RGY_ERR QSVVppMfx::SetParam(
     VppExtMes.clear();
 
     auto mfxIn = SetMFXFrameIn(frameIn, crop, infps, sar, deinterlaceMode, blockSize);
+    m_initialInputWidth = mfxIn.Width;
+    m_initialInputHeight = mfxIn.Height;
 
     mfxFrameInfo mfxOutQuery;
     if ((err = SetMFXFrameOut(mfxOutQuery, params, frameOut, mfxIn, blockSize)) != RGY_ERR_NONE) {
@@ -210,6 +214,39 @@ RGY_ERR QSVVppMfx::Reset(
         return err;
     }
     return Init();
+}
+
+RGY_ERR QSVVppMfx::ResetInputResolution(const mfxFrameInfo& newInputInfo) {
+    const int currentInputWidth = inputWidthBeforeCrop();
+    const int currentInputHeight = inputHeightBeforeCrop();
+    if (newInputInfo.Width > m_initialInputWidth || newInputInfo.Height > m_initialInputHeight) {
+        PrintMes(RGY_LOG_ERROR,
+            _T("input resolution changed from %dx%d to %dx%d, which exceeds the initial VPP allocation %dx%d and is not supported yet.\n"),
+            currentInputWidth, currentInputHeight, (int)newInputInfo.CropW, (int)newInputInfo.CropH,
+            (int)m_initialInputWidth, (int)m_initialInputHeight);
+        PrintMes(RGY_LOG_ERROR, _T("  Please split the input file at the resolution change point.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+
+    const int cropWidth = m_crop.e.left + m_crop.e.right;
+    const int cropHeight = m_crop.e.up + m_crop.e.bottom;
+    if (newInputInfo.CropW <= cropWidth || newInputInfo.CropH <= cropHeight) {
+        PrintMes(RGY_LOG_ERROR,
+            _T("input resolution changed from %dx%d to %dx%d, which is too small for the configured crop (%d,%d,%d,%d) and is not supported yet.\n"),
+            currentInputWidth, currentInputHeight, (int)newInputInfo.CropW, (int)newInputInfo.CropH,
+            m_crop.e.left, m_crop.e.up, m_crop.e.right, m_crop.e.bottom);
+        PrintMes(RGY_LOG_ERROR, _T("  Please split the input file at the resolution change point.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+
+    auto newInput = m_mfxVppParams.vpp.In;
+    newInput.Width = newInputInfo.Width;
+    newInput.Height = newInputInfo.Height;
+    newInput.CropX = (mfxU16)m_crop.e.left;
+    newInput.CropY = (mfxU16)m_crop.e.up;
+    newInput.CropW = (mfxU16)(newInputInfo.CropW - cropWidth);
+    newInput.CropH = (mfxU16)(newInputInfo.CropH - cropHeight);
+    return Reset(m_mfxVppParams.vpp.Out, newInput);
 }
 
 RGY_ERR QSVVppMfx::Init() {
