@@ -59,6 +59,8 @@ public:
     mfxSession GetSession() { return m_mfxSession; }
     MFXVideoVPP *mfxvpp() { return m_mfxVPP.get(); }
     mfxVideoParam& mfxparams() { return m_mfxVppParams; }
+    int inputWidthBeforeCrop() const { return m_mfxVppParams.vpp.In.CropW + m_crop.e.left + m_crop.e.right; }
+    int inputHeightBeforeCrop() const { return m_mfxVppParams.vpp.In.CropH + m_crop.e.up + m_crop.e.bottom; }
     mfxVersion mfxver() const { return m_mfxVer; }
     int asyncDepth() const { return m_asyncDepth; }
     tstring print() const { return VppExtMes; }

@@ -836,6 +836,8 @@ protected:
     bool m_getNextBitstream;
     int m_decFrameOutCount;
     int m_decRemoveRemainingBytesWarnCount; // removing %d bytes from input bitstream not read by decoder の表示回数
+    mfxU16 m_prevOutputCropWidth;
+    mfxU16 m_prevOutputCropHeight;
     int64_t m_firstPts;
     bool m_gotFirstPts;
     int64_t m_endPts; // 並列処理時用の終了時刻 (この時刻は含まないようにする) -1の場合は制限なし(最後まで)
@@ -844,7 +846,7 @@ protected:
     RGYQueueMPMP<FrameFlags> m_dataFlag;
 public:
     PipelineTaskMFXDecode(MFXVideoSession *mfxSession, int outMaxQueueSize, MFXVideoDECODE *mfxdec, mfxVideoParam& decParams, bool skipAV1C, int64_t endPts, RGYInput *input, mfxVersion mfxVer, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::MFXDEC, outMaxQueueSize, mfxSession, mfxVer, log), m_dec(mfxdec), m_mfxDecParams(decParams), m_input(input), m_skipAV1C(skipAV1C), m_getNextBitstream(true), m_decFrameOutCount(0), m_decRemoveRemainingBytesWarnCount(0), m_firstPts(0), m_gotFirstPts(false), m_endPts(endPts), m_decInputBitstream(), m_queueHDR10plusMetadata(), m_dataFlag() {
+        : PipelineTask(PipelineTaskType::MFXDEC, outMaxQueueSize, mfxSession, mfxVer, log), m_dec(mfxdec), m_mfxDecParams(decParams), m_input(input), m_skipAV1C(skipAV1C), m_getNextBitstream(true), m_decFrameOutCount(0), m_decRemoveRemainingBytesWarnCount(0), m_prevOutputCropWidth(0), m_prevOutputCropHeight(0), m_firstPts(0), m_gotFirstPts(false), m_endPts(endPts), m_decInputBitstream(), m_queueHDR10plusMetadata(), m_dataFlag() {
         m_decInputBitstream.init(AVCODEC_READER_INPUT_BUF_SIZE);
         m_dataFlag.init();
         //TimeStampはQSVに自動的に計算させる
@@ -1041,6 +1043,14 @@ protected:
             if (m_stopwatch) m_stopwatch->add(0, 3);
         }
         if (m_stopwatch) m_stopwatch->add(0, 3);
+        if (surfDecOut != nullptr
+            && (surfDecOut->Info.CropW != m_prevOutputCropWidth || surfDecOut->Info.CropH != m_prevOutputCropHeight)) {
+            PrintMes(RGY_LOG_DEBUG, _T("decoder output resolution changed: %dx%d -> %dx%d.\n"),
+                (int)m_prevOutputCropWidth, (int)m_prevOutputCropHeight,
+                (int)surfDecOut->Info.CropW, (int)surfDecOut->Info.CropH);
+            m_prevOutputCropWidth = surfDecOut->Info.CropW;
+            m_prevOutputCropHeight = surfDecOut->Info.CropH;
+        }
         const int64_t surfDecOutTimestamp = (surfDecOut != nullptr) ? (int64_t)surfDecOut->Data.TimeStamp : AV_NOPTS_VALUE;
         if (m_endPts >= 0
             && surfDecOut != nullptr
@@ -1908,6 +1918,16 @@ public:
         const auto estDuration = av_rescale_q(1, av_make_q(m_outputTimebase.inv()), av_make_q(m_mfxVppParams.vpp.In.FrameRateExtN, m_mfxVppParams.vpp.In.FrameRateExtD));
 
         mfxFrameSurface1 *surfVppIn = (frame) ? dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().mfx()->surf() : nullptr;
+        const int expectedInputWidth = m_vpp->inputWidthBeforeCrop();
+        const int expectedInputHeight = m_vpp->inputHeightBeforeCrop();
+        if (surfVppIn != nullptr
+            && (surfVppIn->Info.CropW != expectedInputWidth || surfVppIn->Info.CropH != expectedInputHeight)) {
+            PrintMes(RGY_LOG_ERROR, _T("input resolution changed from %dx%d to %dx%d, which is not supported yet.\n"),
+                expectedInputWidth, expectedInputHeight,
+                (int)surfVppIn->Info.CropW, (int)surfVppIn->Info.CropH);
+            PrintMes(RGY_LOG_ERROR, _T("  Please split the input file at the resolution change point.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
         //vpp前に、vpp用のパラメータでFrameInfoを更新
         copy_crop_info(surfVppIn, &m_mfxVppParams.vpp.In);
         if (surfVppIn) {
@@ -2321,6 +2341,14 @@ public:
 
         //以下の処理は
         mfxFrameSurface1 *surfEncodeIn = (frame) ? dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().mfx()->surf() : nullptr;
+        if (surfEncodeIn != nullptr
+            && (surfEncodeIn->Info.CropW != m_encParams.videoPrm.mfx.FrameInfo.CropW || surfEncodeIn->Info.CropH != m_encParams.videoPrm.mfx.FrameInfo.CropH)) {
+            PrintMes(RGY_LOG_ERROR, _T("input resolution changed from %dx%d to %dx%d, which is not supported yet.\n"),
+                (int)m_encParams.videoPrm.mfx.FrameInfo.CropW, (int)m_encParams.videoPrm.mfx.FrameInfo.CropH,
+                (int)surfEncodeIn->Info.CropW, (int)surfEncodeIn->Info.CropH);
+            PrintMes(RGY_LOG_ERROR, _T("  Please split the input file at the resolution change point.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
         if (surfEncodeIn) {
             //TimeStampをMFX_TIMESTAMP_UNKNOWNにしておくと、きちんと設定される
             bsOut->setPts((uint64_t)MFX_TIMESTAMP_UNKNOWN);
@@ -3355,6 +3383,20 @@ public:
         clearPrevInputFrame();
         collectReleaseDone(false);
         if (m_stopwatch) m_stopwatch->add(0, 0);
+
+        if (frame && !m_vpFilters.empty()) {
+            auto taskSurf = dynamic_cast<PipelineTaskOutputSurf *>(frame.get());
+            const auto filterParam = m_vpFilters.front()->GetFilterParam();
+            if (taskSurf != nullptr && filterParam != nullptr) {
+                const auto inputFrame = taskSurf->surf().frame();
+                if (inputFrame->width() != filterParam->frameIn.width || inputFrame->height() != filterParam->frameIn.height) {
+                    PrintMes(RGY_LOG_ERROR, _T("input resolution changed from %dx%d to %dx%d, which is not supported yet.\n"),
+                        filterParam->frameIn.width, filterParam->frameIn.height, inputFrame->width(), inputFrame->height());
+                    PrintMes(RGY_LOG_ERROR, _T("  Please split the input file at the resolution change point.\n"));
+                    return RGY_ERR_UNSUPPORTED;
+                }
+            }
+        }
 
         deque<std::pair<RGYFrameInfo, uint32_t>> filterframes;
         RGYCLFrameInterop *clFrameInInterop = nullptr;
