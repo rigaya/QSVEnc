@@ -31,6 +31,9 @@
 #include <algorithm>
 #include <cstring>
 
+static const int STDEINT_TEMPORAL_IN_CHANNELS = 9;
+static const int STDEINT_TEMPORAL_OUT_CHANNELS = 3;
+
 static const TCHAR *stdeint_cx_desc_or_unknown(const CX_DESC *list, int value) {
     const auto desc = get_cx_desc(list, value);
     return (desc != nullptr) ? desc : _T("unknown");
@@ -67,7 +70,8 @@ RGYFilterStDeint::RGYFilterStDeint(shared_ptr<RGYOpenCLContext> context) :
     RGYFilter(context), m_ov(), m_cropToRgb(), m_cropFromRgb(), m_width(0), m_height(0),
     m_mode(VppStDeintMode::Bob), m_defaultTff(true), m_useOcl(false),
     m_inputBuf(), m_outputBuf(), m_program(), m_inputBufCL(), m_outputBufCL(), m_weaveBufCL(),
-    m_inputPlanes(), m_weavePlanes() {
+    m_inputPlanes(), m_weavePlanes(),
+    m_temporal(false), m_framesIn(0), m_frameOut(0), m_temporalRing() {
     m_name = _T("stdeint");
 }
 
@@ -87,6 +91,12 @@ void RGYFilterStDeint::close() {
     m_weaveBufCL.reset();
     m_inputBuf.clear();
     m_outputBuf.clear();
+    for (auto& slot : m_temporalRing) {
+        slot.frame.reset();
+        slot.rgb.clear();
+    }
+    m_framesIn = 0;
+    m_frameOut = 0;
     m_frameBuf.clear();
 }
 
@@ -166,12 +176,19 @@ RGY_ERR RGYFilterStDeint::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
         AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to read model %s: %s\n"), prm->modelFile.c_str(), errorMessage.c_str());
         return err;
     }
+    //モデルの種類はarch=の指定に従う。チャンネル数だけでは
+    //DDDとDeFを区別できない。
+    m_temporal = (prm->arch == VppStDeintArch::DDD);
+    //temporalモデルはフィールドを転置して渡すため、モデルの縦横は(フレーム幅, フィールド高さ)となる。
+    const int modelHeight = m_temporal ? m_width : m_height;
+    const int modelWidth = m_temporal ? m_height / 2 : m_width;
     const auto deviceLower = tolowercase(prm->device);
     const bool deviceWantsGpu = deviceLower.substr(0, 3) == _T("gpu") || deviceLower == _T("auto");
-    m_useOcl = deviceWantsGpu && m_cl;
+    //zero-copy経路のRGBバッファは3ch/フレーム解像度専用なので、temporalモデルではhost経路を使う。
+    m_useOcl = deviceWantsGpu && m_cl && !m_temporal;
     if (m_useOcl) {
         err = m_ov->initShared(prm->modelFile, (void *)m_cl->queue().get(), (void *)m_cl->context(),
-            m_height, m_width, errorMessage, prm->precision);
+            modelHeight, modelWidth, errorMessage, prm->precision);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_WARN, _T("stdeint: OpenCL zero-copy initialization failed; falling back to host path: %s\n"),
                 errorMessage.c_str());
@@ -180,25 +197,38 @@ RGY_ERR RGYFilterStDeint::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
         }
     }
     if (!m_useOcl) {
-        err = m_ov->init(prm->modelFile, prm->device, m_height, m_width, errorMessage, prm->precision);
+        err = m_ov->init(prm->modelFile, prm->device, modelHeight, modelWidth, errorMessage, prm->precision);
     }
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to load/compile model on %s: %s\n"), prm->device.c_str(), errorMessage.c_str());
         return err;
     }
-    if (m_ov->inChannels() != 3 || m_ov->outChannels() != 6) {
-        AddMessage(RGY_LOG_ERROR, _T("stdeint: invalid model (expected 3ch input / 6ch output, got %dch / %dch).\n"),
-            m_ov->inChannels(), m_ov->outChannels());
-        return RGY_ERR_UNSUPPORTED;
-    }
-    if (m_ov->outHeight() == m_height && m_ov->outWidth() == m_width) {
-        AddMessage(RGY_LOG_ERROR, _T("stdeint: this model contains the legacy ONNX weave output; re-export it with the current export_stdeint.py.\n"));
-        return RGY_ERR_UNSUPPORTED;
-    }
-    if (m_ov->outHeight() != m_height / 2 || m_ov->outWidth() != m_width) {
-        AddMessage(RGY_LOG_ERROR, _T("stdeint: restoration output must be 6ch with half input height (expected %dx%d, got %dx%d).\n"),
-            m_width, m_height / 2, m_ov->outWidth(), m_ov->outHeight());
-        return RGY_ERR_UNSUPPORTED;
+    if (m_temporal) {
+        if (m_ov->inChannels() != STDEINT_TEMPORAL_IN_CHANNELS || m_ov->outChannels() != STDEINT_TEMPORAL_OUT_CHANNELS) {
+            AddMessage(RGY_LOG_ERROR, _T("stdeint: invalid temporal model (expected %dch input / %dch output, got %dch / %dch).\n"),
+                STDEINT_TEMPORAL_IN_CHANNELS, STDEINT_TEMPORAL_OUT_CHANNELS, m_ov->inChannels(), m_ov->outChannels());
+            return RGY_ERR_UNSUPPORTED;
+        }
+        if (m_ov->outHeight() != modelHeight || m_ov->outWidth() != modelWidth) {
+            AddMessage(RGY_LOG_ERROR, _T("stdeint: temporal output must keep the transposed field size (expected %dx%d, got %dx%d).\n"),
+                modelWidth, modelHeight, m_ov->outWidth(), m_ov->outHeight());
+            return RGY_ERR_UNSUPPORTED;
+        }
+    } else {
+        if (m_ov->inChannels() != 3 || m_ov->outChannels() != 6) {
+            AddMessage(RGY_LOG_ERROR, _T("stdeint: invalid model (expected 3ch input / 6ch output, got %dch / %dch).\n"),
+                m_ov->inChannels(), m_ov->outChannels());
+            return RGY_ERR_UNSUPPORTED;
+        }
+        if (m_ov->outHeight() == m_height && m_ov->outWidth() == m_width) {
+            AddMessage(RGY_LOG_ERROR, _T("stdeint: this model contains the legacy ONNX weave output; re-export it with the current export_stdeint.py.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
+        if (m_ov->outHeight() != m_height / 2 || m_ov->outWidth() != m_width) {
+            AddMessage(RGY_LOG_ERROR, _T("stdeint: restoration output must be 6ch with half input height (expected %dx%d, got %dx%d).\n"),
+                m_width, m_height / 2, m_ov->outWidth(), m_ov->outHeight());
+            return RGY_ERR_UNSUPPORTED;
+        }
     }
 
     prm->frameOut.csp = inputCsp;
@@ -237,7 +267,7 @@ RGY_ERR RGYFilterStDeint::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
             AddMessage(RGY_LOG_WARN, _T("stdeint: failed to bind OpenCL remote tensors; falling back to host path: %s.\n"), get_err_mes(err));
             m_useOcl = false;
             errorMessage.clear();
-            err = m_ov->init(prm->modelFile, prm->device, m_height, m_width, errorMessage, prm->precision);
+            err = m_ov->init(prm->modelFile, prm->device, modelHeight, modelWidth, errorMessage, prm->precision);
             if (err != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("stdeint: host fallback model initialization failed on %s: %s\n"), prm->device.c_str(), errorMessage.c_str());
                 return err;
@@ -245,8 +275,15 @@ RGY_ERR RGYFilterStDeint::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
         }
     }
     if (!m_useOcl) {
-        m_inputBuf.resize(3 * plane);
-        m_outputBuf.resize(3 * plane);
+        const size_t modelPlane = (size_t)modelHeight * modelWidth;
+        m_inputBuf.resize(m_temporal ? STDEINT_TEMPORAL_IN_CHANNELS * modelPlane : 3 * plane);
+        m_outputBuf.resize(m_temporal ? STDEINT_TEMPORAL_OUT_CHANNELS * modelPlane : 3 * plane);
+    }
+    if (m_temporal) {
+        err = allocTemporalRing(inputCsp, prm->frameIn.bitdepth);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
     }
 
     auto rgbInfo = rgbFrame(m_inputPlanes);
@@ -273,10 +310,11 @@ RGY_ERR RGYFilterStDeint::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
     if (err != RGY_ERR_NONE) return err;
 
     m_param = prm;
-    setFilterInfo(prm->print() + strsprintf(_T(", path %s"), m_useOcl ? _T("ocl") : _T("host")));
-    AddMessage(RGY_LOG_DEBUG, _T("stdeint: %s, %dx%d, mode %s, device %s, path %s.\n"),
+    setFilterInfo(prm->print() + strsprintf(_T(", path %s%s"), m_useOcl ? _T("ocl") : _T("host"), m_temporal ? _T(", temporal") : _T("")));
+    AddMessage(RGY_LOG_DEBUG, _T("stdeint: %s, %dx%d, mode %s, device %s, path %s, model %dch/%dch %dx%d.\n"),
         prm->modelFile.c_str(), m_width, m_height, get_cx_desc(list_vpp_stdeint_mode, (int)m_mode),
-        prm->device.c_str(), m_useOcl ? _T("ocl") : _T("host"));
+        prm->device.c_str(), m_useOcl ? _T("ocl") : _T("host"),
+        m_ov->inChannels(), m_ov->outChannels(), modelWidth, modelHeight);
     return RGY_ERR_NONE;
 }
 
@@ -389,13 +427,216 @@ RGY_ERR RGYFilterStDeint::runOcl(const RGYFrameInfo *input, RGYFrameInfo **outpu
     return RGY_ERR_NONE;
 }
 
+RGY_ERR RGYFilterStDeint::allocTemporalRing(const RGY_CSP csp, const int bitdepth) {
+    const size_t plane = (size_t)m_width * m_height;
+    for (auto& slot : m_temporalRing) {
+        slot.frame = m_cl->createFrameBuffer(m_width, m_height, csp, bitdepth);
+        if (!slot.frame) {
+            AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to allocate the temporal frame ring.\n"));
+            return RGY_ERR_MEMORY_ALLOC;
+        }
+        slot.rgb.assign(3 * plane, 0.0f);
+        slot.tff = m_defaultTff;
+        slot.interlaced = false;
+    }
+    m_framesIn = 0;
+    m_frameOut = 0;
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterStDeint::addTemporalFrame(const RGYFrameInfo *input, RGYOpenCLQueue& queue,
+    const std::vector<RGYOpenCLEvent>& wait_events) {
+    auto& slot = m_temporalRing[m_framesIn % m_temporalRing.size()];
+    auto err = m_cl->copyFrame(&slot.frame->frame, input, nullptr, queue, wait_events, nullptr);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to copy input into the temporal frame ring: %s.\n"), get_err_mes(err));
+        return err;
+    }
+    copyFrameProp(&slot.frame->frame, input);
+
+    err = convertToRgb(input, queue, {}, nullptr);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to convert input to RGB: %s.\n"), get_err_mes(err));
+        return err;
+    }
+    err = m_inputBufCL->queueMapBuffer(queue, CL_MAP_READ, {}, RGY_CL_MAP_BLOCK_ALL);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to map RGB input tensor: %s.\n"), get_err_mes(err));
+        return err;
+    }
+    std::memcpy(slot.rgb.data(), m_inputBufCL->mappedPtr(), slot.rgb.size() * sizeof(float));
+    m_inputBufCL->unmapBuffer(queue);
+
+    slot.tff = m_defaultTff;
+    if (input->picstruct & RGY_PICSTRUCT_BFF) {
+        slot.tff = false;
+    } else if (input->picstruct & RGY_PICSTRUCT_TFF) {
+        slot.tff = true;
+    }
+    slot.interlaced = (input->picstruct & RGY_PICSTRUCT_INTERLACED) != 0;
+    m_framesIn++;
+    return RGY_ERR_NONE;
+}
+
+// フィールドはフレームごとに表示順(0が先, 1が後)で数える。
+// 戻り値は0がtop field(フレームの偶数行), 1がbottom field(フレームの奇数行)。
+int RGYFilterStDeint::temporalFieldParity(const int fieldIndex) const {
+    const auto& slot = m_temporalRing[(fieldIndex / 2) % m_temporalRing.size()];
+    const int fieldPos = fieldIndex & 1;
+    return slot.tff ? fieldPos : 1 - fieldPos;
+}
+
+// 出力フィールドn (= frameIndex*2 + fieldPos) 用の9chテンソルを組み立てる。
+//  1. フィールドn-1, n, n+1を使う。端はミラーリング (index<0 -> -index, index>last -> 2*last-index)。
+//  2. 各フィールド(h, W, 3)を転置して(W, h, 3)にする。モデルは縦方向のインターレースで学習されているため、
+//     モデルのテンソルは(1, 9, W, h) - つまりモデルの高さ=フレーム幅, モデルの幅=フィールド高さとなる。
+//  3. 既知フィールドnがtop field(parity==0)ならflip = true。このとき3フィールドすべての行軸
+//     (モデルの最終軸)を反転する。
+//  4. [prev R,G,B, cur R,G,B, next R,G,B] の順にフィールド単位で9chへ積む。
+void RGYFilterStDeint::buildTemporalInput(const int frameIndex, const int fieldPos) {
+    const int fieldHeight = m_height / 2;
+    const int fieldIndex = frameIndex * 2 + fieldPos;
+    const int lastField = (m_framesIn - 1) * 2 + 1;
+    const bool flip = temporalFieldParity(fieldIndex) == 0;
+    for (int i = 0; i < 3; i++) {
+        int refIndex = fieldIndex - 1 + i;
+        if (refIndex < 0) refIndex = -refIndex;
+        if (refIndex > lastField) refIndex = 2 * lastField - refIndex;
+        const auto& slot = m_temporalRing[(refIndex / 2) % m_temporalRing.size()];
+        const int parity = temporalFieldParity(refIndex);
+        for (int c = 0; c < 3; c++) {
+            const float *srcPlane = slot.rgb.data() + (size_t)c * m_width * m_height;
+            float *dstPlane = m_inputBuf.data() + (size_t)(i * 3 + c) * m_width * fieldHeight;
+            for (int x = 0; x < m_width; x++) {
+                float *dstLine = dstPlane + (size_t)x * fieldHeight;
+                for (int y = 0; y < fieldHeight; y++) {
+                    const int srcRow = 2 * (flip ? (fieldHeight - 1 - y) : y) + parity;
+                    dstLine[y] = srcPlane[(size_t)srcRow * m_width + x];
+                }
+            }
+        }
+    }
+}
+
+// モデル出力(1, 3, W, h)と中央のフィールドを1枚のフレームへ戻す。
+//  6. モデルの最終軸を2倍にして合成する: out[..., 0::2] = モデル出力,
+//     out[..., 1::2] = 入力したときのままの中央フィールド。
+//  7. flipなら2倍にした軸を反転して戻す。
+//  8. 転置を戻して(H, W)のフレームにする。
+// 奇数側は結局フレームの行yそのものになる - 既知フィールドが元の行にビットイクザクトで戻る。
+void RGYFilterStDeint::combineTemporalOutput(const int frameIndex, const int fieldPos, float *dst) const {
+    const int fieldHeight = m_height / 2;
+    const int fieldIndex = frameIndex * 2 + fieldPos;
+    const int parity = temporalFieldParity(fieldIndex);
+    const bool flip = (parity == 0);
+    const auto& slot = m_temporalRing[frameIndex % m_temporalRing.size()];
+    for (int c = 0; c < 3; c++) {
+        const float *modelPlane = m_outputBuf.data() + (size_t)c * m_width * fieldHeight;
+        const float *midPlane = slot.rgb.data() + (size_t)c * m_width * m_height;
+        float *dstPlane = dst + (size_t)c * m_width * m_height;
+        for (int y = 0; y < m_height; y++) {
+            const int pos = flip ? (m_height - 1 - y) : y;
+            float *dstLine = dstPlane + (size_t)y * m_width;
+            if ((pos & 1) == 0) {
+                const int row = pos / 2;
+                for (int x = 0; x < m_width; x++) {
+                    dstLine[x] = modelPlane[(size_t)x * fieldHeight + row];
+                }
+            } else {
+                const int row = flip ? (fieldHeight - 1 - pos / 2) : (pos / 2);
+                std::memcpy(dstLine, midPlane + (size_t)(2 * row + parity) * m_width, (size_t)m_width * sizeof(float));
+            }
+        }
+    }
+}
+
+RGY_ERR RGYFilterStDeint::procTemporalField(const int frameIndex, const int fieldPos, RGYFrameInfo *output,
+    RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event) {
+    buildTemporalInput(frameIndex, fieldPos);
+    auto err = m_ov->infer(m_inputBuf.data(), m_outputBuf.data());
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("stdeint: inference failed: %s.\n"), get_err_mes(err));
+        return err;
+    }
+    err = m_weaveBufCL->queueMapBuffer(queue, CL_MAP_WRITE, wait_events, RGY_CL_MAP_BLOCK_ALL);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to map RGB output tensor: %s.\n"), get_err_mes(err));
+        return err;
+    }
+    combineTemporalOutput(frameIndex, fieldPos, (float *)m_weaveBufCL->mappedPtr());
+    m_weaveBufCL->unmapBuffer(queue);
+    return convertFromRgb(output, queue, {}, event);
+}
+
+RGY_ERR RGYFilterStDeint::emitTemporalFrame(const int frameIndex, RGYFrameInfo **outputs, int *outputFrameNum,
+    RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event) {
+    const auto& slot = m_temporalRing[frameIndex % m_temporalRing.size()];
+    const auto *source = &slot.frame->frame;
+    const bool bob = m_mode == VppStDeintMode::Bob;
+    const int outputCount = bob ? 2 : 1;
+    for (int i = 0; i < outputCount; i++) {
+        auto output = &m_frameBuf[i]->frame;
+        RGYOpenCLEvent *frame_event = (i == outputCount - 1) ? event : nullptr;
+        if (slot.interlaced) {
+            const auto err = procTemporalField(frameIndex, i, output, queue,
+                (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>(), frame_event);
+            if (err != RGY_ERR_NONE) {
+                return err;
+            }
+        } else {
+            const auto err = m_cl->copyFrame(output, source, nullptr, queue,
+                (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>(), frame_event);
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("stdeint: failed to copy progressive input: %s.\n"), get_err_mes(err));
+                return err;
+            }
+        }
+        setOutputFrameProp(output, source);
+        outputs[i] = output;
+    }
+    *outputFrameNum = outputCount;
+    if (bob) {
+        setBobTimestamp(source, outputs);
+    }
+    return RGY_ERR_NONE;
+}
+
+// 出力フィールドは前後のフィールドを参照するため、フレームfの出力はf+1が到着してから確定する。
+// 残った末尾のフレームはdrain (ptr[0] == nullptr) で1フレームずつ吐き出す。
+// パイプラインは出力が0になるまでdrainを繰り返し呼ぶ。
+RGY_ERR RGYFilterStDeint::runTemporal(const RGYFrameInfo *input, RGYFrameInfo **outputs, int *outputFrameNum,
+    RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event) {
+    if (input->ptr[0] != nullptr) {
+        auto err = addTemporalFrame(input, queue, wait_events);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        if (m_frameOut + 1 < m_framesIn) {
+            const int frameIndex = m_frameOut++;
+            return emitTemporalFrame(frameIndex, outputs, outputFrameNum, queue, {}, event);
+        }
+        return RGY_ERR_NONE;
+    }
+    if (m_frameOut < m_framesIn) {
+        const int frameIndex = m_frameOut++;
+        return emitTemporalFrame(frameIndex, outputs, outputFrameNum, queue, wait_events, event);
+    }
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR RGYFilterStDeint::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames,
     int *pOutputFrameNum, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events,
     RGYOpenCLEvent *event) {
     *pOutputFrameNum = 0;
     ppOutputFrames[0] = nullptr;
     ppOutputFrames[1] = nullptr;
-    if (!pInputFrame || !pInputFrame->ptr[0]) {
+    if (!pInputFrame) {
+        return RGY_ERR_NONE;
+    }
+    if (m_temporal) {
+        return runTemporal(pInputFrame, ppOutputFrames, pOutputFrameNum, queue, wait_events, event);
+    }
+    if (!pInputFrame->ptr[0]) {
         return RGY_ERR_NONE;
     }
 

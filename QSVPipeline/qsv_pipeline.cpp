@@ -2993,6 +2993,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         param->device = params->vpp.stdeint.device;
         param->precision = params->vpp.stdeint.precision;
         param->mode = params->vpp.stdeint.mode;
+        param->arch = params->vpp.stdeint.arch;
         param->colormatrix = params->vpp.stdeint.colormatrix;
         param->colorrange = params->vpp.stdeint.colorrange;
         param->frameIn = inputFrame;

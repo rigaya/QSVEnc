@@ -43,13 +43,14 @@ public:
     tstring device;
     tstring precision;
     VppStDeintMode mode;
+    VppStDeintArch arch;
     CspMatrix colormatrix;
     CspColorRange colorrange;
     rgy_rational<int> timebase;
 
     RGYFilterParamStDeint() :
         modelFile(), modelDir(), device(_T("GPU.0")), precision(_T("fp32")), mode(VppStDeintMode::Bob),
-        colormatrix(RGY_MATRIX_AUTO), colorrange(RGY_COLORRANGE_AUTO), timebase() {};
+        arch(VppStDeintArch::StDeint), colormatrix(RGY_MATRIX_AUTO), colorrange(RGY_COLORRANGE_AUTO), timebase() {};
     virtual ~RGYFilterParamStDeint() {};
     virtual tstring print() const override;
 };
@@ -75,6 +76,27 @@ protected:
     RGY_ERR runOcl(const RGYFrameInfo *input, RGYFrameInfo **outputs, int outputCount,
         RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event);
 
+    //9ch入力/3ch出力のtemporalモデル(前後のフィールドも参照するDDD系)用の経路
+    struct TemporalFrame {
+        std::unique_ptr<RGYCLFrame> frame; //progressiveパススルー用に元のフレームを保持する
+        std::vector<float> rgb;            //モデル入力用のplanar RGB [0,1] (3 * m_width * m_height)
+        bool tff;
+        bool interlaced;
+        TemporalFrame() : frame(), rgb(), tff(true), interlaced(false) {};
+    };
+    RGY_ERR allocTemporalRing(const RGY_CSP csp, const int bitdepth);
+    RGY_ERR addTemporalFrame(const RGYFrameInfo *input, RGYOpenCLQueue& queue,
+        const std::vector<RGYOpenCLEvent>& wait_events);
+    int temporalFieldParity(const int fieldIndex) const;
+    void buildTemporalInput(const int frameIndex, const int fieldPos);
+    void combineTemporalOutput(const int frameIndex, const int fieldPos, float *dst) const;
+    RGY_ERR procTemporalField(const int frameIndex, const int fieldPos, RGYFrameInfo *output,
+        RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event);
+    RGY_ERR emitTemporalFrame(const int frameIndex, RGYFrameInfo **outputs, int *outputFrameNum,
+        RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event);
+    RGY_ERR runTemporal(const RGYFrameInfo *input, RGYFrameInfo **outputs, int *outputFrameNum,
+        RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event);
+
     std::unique_ptr<RGYOpenVINO> m_ov;
     std::unique_ptr<RGYFilterCspCrop> m_cropToRgb;
     std::unique_ptr<RGYFilterCspCrop> m_cropFromRgb;
@@ -92,6 +114,11 @@ protected:
     std::unique_ptr<RGYCLBuf> m_weaveBufCL;
     std::array<std::unique_ptr<RGYCLBuf>, 3> m_inputPlanes;
     std::array<std::unique_ptr<RGYCLBuf>, 3> m_weavePlanes;
+
+    bool m_temporal;
+    int m_framesIn;
+    int m_frameOut;
+    std::array<TemporalFrame, 3> m_temporalRing;
 };
 
 #endif //__RGY_FILTER_STDEINT_H__
