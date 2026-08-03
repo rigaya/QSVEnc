@@ -1737,8 +1737,22 @@ RGY_ERR CQSVPipeline::AllocFrames() {
 
         const auto t0Alloc = t0->requiredSurfOut();
         const auto t1Alloc = t1->requiredSurfIn();
+        // t1がバイパスされうる場合(解像度変更対応で常設したno-op MFX VPPブロック)、
+        // バイパス中はt0で確保したサーフェスがt1を素通りしてその次のtaskまで到達する。
+        // このためt1の次のtaskの要求(枚数・アライメント・メモリタイプ)もここに織り込んでおく必要がある。
+        PipelineTask *t2 = nullptr;
+        std::optional<mfxFrameAllocRequest> t2Alloc;
+        if (t1->mayBypass()) {
+            for (size_t ip2 = ip + 1; ip2 < m_pipelineTasks.size(); ip2++) {
+                if (m_pipelineTasks[ip2]->isPassThrough()) continue;
+                t2 = m_pipelineTasks[ip2].get();
+                t2Alloc = t2->requiredSurfIn();
+                break;
+            }
+        }
         int t0RequestNumFrame = 0;
         int t1RequestNumFrame = 0;
+        int t2RequestNumFrame = 0;
         mfxFrameAllocRequest allocRequest = { 0 };
         bool allocateOpenCLFrame = false;
         if (t0Alloc.has_value() && t1Alloc.has_value()) {
@@ -1772,7 +1786,12 @@ RGY_ERR CQSVPipeline::AllocFrames() {
             PrintMes(RGY_LOG_ERROR, _T("AllocFrames: invalid pipeline: cannot get request from either t0 or t1!\n"));
             return RGY_ERR_UNSUPPORTED;
         }
-        const int requestNumFrames = std::max(1, t0RequestNumFrame + t1RequestNumFrame + t0->additionalOutputSurfaces() + t1->additionalInputSurfaces() + m_nAsyncDepth + 1);
+        if (t2 != nullptr && t2Alloc.has_value()) {
+            t2RequestNumFrame = t2Alloc.value().NumFrameSuggested + t2->additionalInputSurfaces();
+            allocRequest.Info.Width  = std::max(allocRequest.Info.Width,  t2Alloc.value().Info.Width);
+            allocRequest.Info.Height = std::max(allocRequest.Info.Height, t2Alloc.value().Info.Height);
+        }
+        const int requestNumFrames = std::max(1, t0RequestNumFrame + t1RequestNumFrame + t2RequestNumFrame + t0->additionalOutputSurfaces() + t1->additionalInputSurfaces() + m_nAsyncDepth + 1);
         if (allocateOpenCLFrame) { // OpenCLフレームを介してやり取りする場合
             const RGYFrameInfo frame(allocRequest.Info.CropW, allocRequest.Info.CropH,
                 csp_enc_to_rgy(allocRequest.Info.FourCC),
@@ -1802,6 +1821,16 @@ RGY_ERR CQSVPipeline::AllocFrames() {
             case PipelineTaskType::MFXENC:    allocRequest.Type |= MFX_MEMTYPE_FROM_ENC;    break;
             case PipelineTaskType::MFXENCODE: allocRequest.Type |= MFX_MEMTYPE_FROM_ENCODE; break;
             default: break;
+            }
+            if (t2 != nullptr) { // t1をバイパスした際にサーフェスが到達する次のtask分も反映する
+                switch (t2->taskType()) {
+                case PipelineTaskType::MFXDEC:    allocRequest.Type |= MFX_MEMTYPE_FROM_DECODE; break;
+                case PipelineTaskType::MFXVPP:    allocRequest.Type |= MFX_MEMTYPE_FROM_VPPIN;  break;
+                case PipelineTaskType::OPENCL:    allocRequest.Type |= MFX_MEMTYPE_FROM_VPPIN;  break;
+                case PipelineTaskType::MFXENC:    allocRequest.Type |= MFX_MEMTYPE_FROM_ENC;    break;
+                case PipelineTaskType::MFXENCODE: allocRequest.Type |= MFX_MEMTYPE_FROM_ENCODE; break;
+                default: break;
+                }
             }
 
             allocRequest.AllocId = (m_device->externalAlloc()) ? m_device->allocator()->getExtAllocCounts() : 0u;
@@ -1878,6 +1907,7 @@ CQSVPipeline::CQSVPipeline() :
     m_cl(),
     m_openclTaskThreads(0),
     m_vpFilters(),
+    m_vppMfxBypassForResChange(false),
     m_videoQualityMetric(),
     m_pipelineTasks() {
     m_trimParam.offset = 0;
@@ -2489,6 +2519,10 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vppmfx.aiFrameInterpolation.enable) filterPipeline.push_back(VppType::MFX_AI_FRAMEINTERP);
 
     if (filterPipeline.size() == 0) {
+#if ENABLE_INPUT_RESOLUTION_CHANGE
+        filterPipeline.push_back(VppType::MFX_COPY);
+        m_vppMfxBypassForResChange = true;
+#endif
         return filterPipeline;
     }
 
@@ -4124,6 +4158,7 @@ RGY_ERR CQSVPipeline::createOpenCLCopyFilterForPreVideoMetric() {
 }
 
 RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
+    m_vppMfxBypassForResChange = false;
     const bool cropRequired = cropEnabled(inputParam->input.crop)
         && m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN;
 
@@ -5552,7 +5587,7 @@ RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
                 PrintMes(RGY_LOG_ERROR, _T("Failed to join mfx vpp session: %s.\n"), get_err_mes(err));
                 return err;
             }
-            m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXVpp>(&m_device->mfxSession(), 1, filterBlock.vppmfx.get(), filterBlock.vppmfx->mfxparams(), filterBlock.vppmfx->mfxver(), m_outputTimebase, m_timestampPassThrough, m_pQSVLog));
+            m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXVpp>(&m_device->mfxSession(), 1, filterBlock.vppmfx.get(), filterBlock.vppmfx->mfxparams(), filterBlock.vppmfx->mfxver(), m_outputTimebase, m_timestampPassThrough, m_vppMfxBypassForResChange, m_pQSVLog));
         } else if (filterBlock.type == VppFilterType::FILTER_OPENCL) {
             if (!m_cl) {
                 PrintMes(RGY_LOG_ERROR, _T("OpenCL not enabled, OpenCL filters cannot be used.\n"), CPU_GEN_STR[m_device->CPUGen()]);

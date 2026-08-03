@@ -549,6 +549,7 @@ public:
         return (m_stopwatch) ? m_stopwatch->maxWorkStrLen() : 0u;
     }
     virtual bool isPassThrough() const { return false; }
+    virtual bool mayBypass() const { return false; }
     virtual tstring print() const { return getPipelineTaskTypeName(m_type); }
     virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() = 0;
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() = 0;
@@ -1920,12 +1921,19 @@ protected:
     RGYTimestamp m_timestamp;
     mfxVideoParam& m_mfxVppParams;
     std::vector<std::shared_ptr<RGYFrameData>> m_lastFrameDataList;
+    bool m_bypass;
+    int m_outMaxQueueSizeOrig; // バイパス解除時に戻すためのキューサイズ
 public:
-    PipelineTaskMFXVpp(MFXVideoSession *mfxSession, int outMaxQueueSize, QSVVppMfx *mfxvpp, mfxVideoParam& vppParams, mfxVersion mfxVer, rgy_rational<int> outputTimebase, bool timestampPassThrough, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::MFXVPP, outMaxQueueSize, mfxSession, mfxVer, log), m_vpp(mfxvpp), m_outputTimebase(outputTimebase), m_timestamp(RGYTimestamp(timestampPassThrough, false)), m_mfxVppParams(vppParams), m_lastFrameDataList() {
+    // バイパス中はキューサイズを0にして、受け取ったフレームを即座に後続タスクへ渡す。
+    // PipelineTaskCheckPTSは--avsync forcecfrでのフレーム水増し時に同一のmfxFrameSurface1を共有し、
+    // timestampはgetOutput直後のみ有効という前提で動いているため、ここで1フレームでも抱えると
+    // 次のcheckptsのgetOutputでtimestamp/durationが上書きされて壊れる。
+    PipelineTaskMFXVpp(MFXVideoSession *mfxSession, int outMaxQueueSize, QSVVppMfx *mfxvpp, mfxVideoParam& vppParams, mfxVersion mfxVer, rgy_rational<int> outputTimebase, bool timestampPassThrough, bool bypass, std::shared_ptr<RGYLog> log)
+        : PipelineTask(PipelineTaskType::MFXVPP, bypass ? 0 : outMaxQueueSize, mfxSession, mfxVer, log), m_vpp(mfxvpp), m_outputTimebase(outputTimebase), m_timestamp(RGYTimestamp(timestampPassThrough, false)), m_mfxVppParams(vppParams), m_lastFrameDataList(), m_bypass(bypass), m_outMaxQueueSizeOrig(outMaxQueueSize) {
     };
     virtual ~PipelineTaskMFXVpp() {};
     void setVpp(QSVVppMfx *mfxvpp) { m_vpp = mfxvpp; };
+    virtual bool mayBypass() const override { return m_bypass; }
     virtual void setStopWatch() override {
         m_stopwatch = std::make_unique<PipelineTaskStopWatch>(
             std::vector<tstring>{ _T("Reset"), _T("getWorkSurf"), _T("RunFrameVppAsync"), _T("DeviceBusy"), _T("PushQueue") },
@@ -1979,6 +1987,30 @@ public:
         mfxFrameSurface1 *surfVppIn = (frame) ? dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().mfx()->surf() : nullptr;
         const int expectedInputWidth = m_vpp->inputWidthBeforeCrop();
         const int expectedInputHeight = m_vpp->inputHeightBeforeCrop();
+        if (m_bypass) {
+            if (surfVppIn == nullptr) {
+                return RGY_ERR_MORE_DATA;
+            }
+            if (surfVppIn->Info.CropW != expectedInputWidth || surfVppIn->Info.CropH != expectedInputHeight) {
+                PrintMes(RGY_LOG_DEBUG, _T("resolution change: MFX VPP bypass disabled: %dx%d -> %dx%d.\n"),
+                    expectedInputWidth, expectedInputHeight, (int)surfVppIn->Info.CropW, (int)surfVppIn->Info.CropH);
+                m_bypass = false;
+                setOutputMaxQueueSize(m_outMaxQueueSizeOrig);
+            } else {
+                // バイパス中はフレームに一切手を加えず素通しする(MFX VPPを通さないので画質・timestampともに無変換)。
+                // ただしm_timestampの内部状態(offsetの基準・last_check_pts)は通常経路と同じ順序で進めておかないと、
+                // バイパス解除後の最初のcheck()がその時点のptsをoffsetの基準にしてしまい、対応関係が壊れる。
+                // check()の戻り値はフレームへ書き戻さない(書き戻すとRFF等でtimestampが通常経路の補間に置き換わってしまう)。
+                auto taskSurf = dynamic_cast<PipelineTaskOutputSurf *>(frame.get());
+                m_lastFrameDataList = taskSurf->surf().frame()->dataList();
+                m_timestamp.add(surfVppIn->Data.TimeStamp, taskSurf->surf().frame()->inputFrameId(), 0 /*dummy*/, estDuration, {});
+                m_timestamp.check(taskSurf->surf().frame()->timestamp());
+                m_inFrames++;
+                m_outQeueue.push_back(std::move(frame));
+                if (m_stopwatch) m_stopwatch->add(0, 0);
+                return RGY_ERR_NONE;
+            }
+        }
         if (surfVppIn != nullptr) {
             const auto picStructPrev = m_mfxVppParams.vpp.In.PicStruct;
             bool picStructChanged = false;

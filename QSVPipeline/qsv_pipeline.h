@@ -180,6 +180,7 @@ protected:
     int m_openclTaskThreads;
     std::vector<VppType> m_vppFilterList;
     std::vector<VppVilterBlock> m_vpFilters;
+    bool m_vppMfxBypassForResChange;
     unique_ptr<RGYFilterSsim> m_videoQualityMetric;
 
     std::vector<std::unique_ptr<PipelineTask>> m_pipelineTasks;
