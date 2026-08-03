@@ -283,6 +283,7 @@
   - [--vpp-mfx-insert-clcopy \[\<int\>\]](#--vpp-mfx-insert-clcopy-int)
   - [--vpp-anime4k-shader \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-anime4k-shader-param1value1param2value2)
   - [--vpp-onnx \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-onnx-param1value1param2value2)
+  - [--vpp-onnx-deint \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-onnx-deint-param1value1param2value2)
   - [--vpp-onnx-model-dir \<string\>](#--vpp-onnx-model-dir-string)
   - [--vpp-onnx-cache-dir \<string\>](#--vpp-onnx-cache-dir-string)
   - [--vpp-ai-frameinterp \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-ai-frameinterp-param1value1param2value2)
@@ -1871,6 +1872,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
   - [--vpp-mfx-insert-clcopy](#--vpp-mfx-insert-clcopy-int)
   - [--vpp-anime4k-shader](#--vpp-anime4k-shader-param1value1param2value2)
   - [--vpp-onnx](#--vpp-onnx-param1value1param2value2)
+  - [--vpp-onnx-deint](#--vpp-onnx-deint-param1value1param2value2)
   - [--vpp-onnx-model-dir](#--vpp-onnx-model-dir-string)
   - [--vpp-onnx-cache-dir](#--vpp-onnx-cache-dir-string)
   - [--vpp-ai-frameinterp](#--vpp-ai-frameinterp-param1value1param2value2)
@@ -2478,7 +2480,7 @@ Motion compensated degrain debug filter.
     Motion search tuning parameters.
   - search_early_sad=&lt;int|off&gt;  
     Skip the level0 full search when the predictor SAD is below this threshold. The value is in 8x8-block, 8-bit SAD units (`0-65535`) and is scaled automatically for blksize and bit depth. Default: `off` (`-1`).
-  - spatial_early_sad=&lt;int|off&gt;
+  - spatial_early_sad=&lt;int|off&gt;  
     Skip spatial refinement for a block when the SAD selected by the level1 search is below this threshold. The value is in 8x8-block, 8-bit SAD units (`0-65535`) and is scaled automatically for blksize and bit depth. Default: `off` (`-1`).
   - mv_spatial_refine=&lt;int|auto&gt;  
     Motion-vector spatial refinement count. Default is `auto` (`-1`): run spatial refinement (which consults neighboring block motion vectors) only at the coarsest (lowest-resolution) analysis level, and skip it at all finer levels. This concentrates spatial-neighbor refinement on the level where serial-dependency cost is small, and lets the finer levels run with maximum GPU parallelism. `0` disables it entirely; `1` runs one pass at every level, `2` runs two passes at every level, and so on.
@@ -2506,7 +2508,7 @@ Please note that this filter is slow, recommended to be used on dGPUs.
     Reserved nested preset. `slower`, `slow`, `medium`, `fast`, `faster` (default), `veryfast`, `superfast`, `ultrafast`, `draft`.
   - search_early_sad=&lt;int|auto|off&gt;  
     SAD threshold for skipping the level0 full search, in 8x8-block, 8-bit SAD units (`0-65535`), scaled automatically for blksize and bit depth. `auto` (default) uses the preset value; `off` (`-1`) disables it.
-  - spatial_early_sad=&lt;int|auto|off&gt;
+  - spatial_early_sad=&lt;int|auto|off&gt;  
     Skip spatial refinement for a block when the SAD selected by the level1 search is below this threshold. The value is in 8x8-block, 8-bit SAD units (`0-65535`) and is scaled automatically for blksize and bit depth. `auto` (default) uses the preset value (`slower`/`slow`: 0, `medium`: 16, `fast`: 32, `faster` through `draft`: 64); `off` (`-1`) disables it.
   - timing=&lt;string&gt;  
     Timing analysis mode. `realtime`, `realtime+` (default), `strict`.
@@ -4171,6 +4173,37 @@ Pre/post processing is inferred from the model channel count: 1ch=luma SR, 3ch=R
   --vpp-onnx model=hdrtvnetpp_agcm_stable,colormatrix=bt709 --output-depth 10 --colormatrix bt2020nc --colorprim bt2020 --transfer smpte2084
   ```
 
+### --vpp-onnx-deint [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+OpenVINO ONNX model deinterlacing filter. The model is selected by its registered name in `onnx_deint_models.json`; direct ONNX/IR paths are not accepted. The `architecture` field in that manifest is internal metadata and cannot be selected as a command-line parameter (there is no `arch=` parameter).
+
+The `stdeint` and `stdeint_fast` registrations use ST-DeInt (3-channel input, 6-channel half-height output). The `DDD` registration uses DDD (three-field, transposed 9-channel input and 3-channel output). `mode=bob` outputs two progressive frames per input frame and doubles the frame rate; `mode=normal` outputs one frame using the first displayed field. TFF and BFF field order are preserved. Progressive input is passed through without neural deinterlacing.
+
+This filter accepts 8-bit YUV420 input only, with an even frame height (at least 4). ST-DeInt uses the selected OpenVINO device and normally uses the GPU; CPU is also available through `device=CPU`. DDD keeps tensor packing and output weaving on host memory, while inference still uses the selected device. OpenVINO Runtime is required on Linux.
+
+- **Parameters**
+  - enable=&lt;bool&gt; (default: true when this option is present)  
+    Enable or disable the filter.
+  - model=&lt;string&gt; (required)  
+    Registered name from `onnx_deint_models.json` under [`--vpp-onnx-model-dir`](#--vpp-onnx-model-dir-string). Names such as `stdeint`, `stdeint_fast`, and `DDD` are examples; a file path is rejected.
+  - device=&lt;string&gt; (default: GPU.0)  
+    OpenVINO device: GPU.0 / GPU / CPU / AUTO / NPU.
+  - precision=&lt;string&gt; (default: fp32)  
+    Inference precision: fp32 / auto.
+  - mode=&lt;string&gt; (default: bob)  
+    Output mode: bob / normal.
+  - colormatrix=&lt;string&gt; (default: auto)  
+    Input color matrix. Supported values are auto / auto_res / bt709 / smpte170m / bt470bg / bt2020nc.
+  - colorrange=&lt;string&gt; (default: auto)  
+    Input color range: auto / limited (tv) / full (pc).
+
+Neither QSVEnc nor the HWEnc-onnx-models release archives include ST-DeInt or DDD model files. ST-DeInt is excluded because its upstream license is Unknown; DDD's distribution source and license are unconfirmed. Generate ST-DeInt or place a separately obtained DDD model yourself after checking the applicable rights and licenses. Run `run_all.py` in the [HWEnc-onnx-models repository](https://github.com/rigaya/HWEnc-onnx-models) to generate `onnx_deint_models.json`; DDD is registered only when `ddd/DDD.onnx` has been supplied externally.
+
+```
+--vpp-onnx-model-dir C:\models\HWEnc-onnx-models
+--vpp-onnx-deint model=stdeint,mode=bob,device=GPU.0,precision=fp32
+--vpp-onnx-deint model=DDD,mode=normal,device=CPU,precision=auto
+```
+
 ### --vpp-onnx-model-dir &lt;string&gt;
 Directory containing models.json and the model files for registered ONNX models.
 
@@ -4178,6 +4211,8 @@ This option must be specified when using short model names with `--vpp-onnx mode
 
 Model files can be downloaded from [https://github.com/rigaya/HWEnc-onnx-models/releases](https://github.com/rigaya/HWEnc-onnx-models/releases).
 Download the zip archive, extract it to an arbitrary directory, and specify that directory.
+
+The release archives do not contain ST-DeInt or DDD models, or the deinterlacer manifest. ST-DeInt's upstream license is Unknown, and DDD's distribution source and license are unconfirmed. Generate or place those files separately, verify their rights and licenses, and generate `onnx_deint_models.json` with `run_all.py` before using `--vpp-onnx-deint`.
 
 ```
 --vpp-onnx-model-dir C:\models\HWEnc-onnx-models

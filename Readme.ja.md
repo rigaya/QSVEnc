@@ -79,7 +79,7 @@ QSVEncを使用したことによる、いかなる損害・トラブルにつ�
 
   | カテゴリ | フィルタ |
   |:--|:--|
-  | インタレ解除 | deinterlace (Media Function), afs, bwdif, yadif, nnedi, rtgmc, kfm, decomb, stdeint |
+  | インタレ解除 | deinterlace (Media Function), afs, bwdif, yadif, nnedi, rtgmc, kfm, decomb, onnx-deint |
   | 逆テレシネ・間引き | rff, ivtc, decimate, mpdecimate |
   | ノイズ除去 | knn, pmd, nlmeans, hqdn3d, smooth, denoise-dct, fft3d, msmooth, degrain, convolution3d, denoise (Media Function), mctf |
   | リサイズ | resize (様々なアルゴリズム, [libplacebo](https://code.videolan.org/videolan/libplacebo)), descale |

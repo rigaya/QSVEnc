@@ -70,7 +70,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 
   | Category | Filters |
   |:--|:--|
-  | Deinterlace | deinterlace (Media Function), afs, bwdif, yadif, nnedi, rtgmc, kfm, decomb, stdeint |
+  | Deinterlace | deinterlace (Media Function), afs, bwdif, yadif, nnedi, rtgmc, kfm, decomb, onnx-deint |
   | Inverse Telecine / Decimation | rff, ivtc, decimate, mpdecimate |
   | Noise Reduction | knn, pmd, nlmeans, hqdn3d, smooth, denoise-dct, fft3d, msmooth, degrain, convolution3d, denoise (Media Function), mctf |
   | Resize | resize (various algorithms, [libplacebo](https://code.videolan.org/videolan/libplacebo)), descale |

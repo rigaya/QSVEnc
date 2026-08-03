@@ -283,6 +283,7 @@
   - [--vpp-mfx-insert-clcopy \[\<int\>\]](#--vpp-mfx-insert-clcopy-int)
   - [--vpp-anime4k-shader \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-anime4k-shader-param1value1param2value2)
   - [--vpp-onnx \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-onnx-param1value1param2value2)
+  - [--vpp-onnx-deint \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-onnx-deint-param1value1param2value2)
   - [--vpp-onnx-model-dir \<string\>](#--vpp-onnx-model-dir-string)
   - [--vpp-onnx-cache-dir \<string\>](#--vpp-onnx-cache-dir-string)
   - [--vpp-ai-frameinterp \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-ai-frameinterp-param1value1param2value2)
@@ -1883,6 +1884,7 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
   - [--vpp-mfx-insert-clcopy](#--vpp-mfx-insert-clcopy)
   - [--vpp-anime4k-shader](#--vpp-anime4k-shader-param1value1param2value2)
   - [--vpp-onnx](#--vpp-onnx-param1value1param2value2)
+  - [--vpp-onnx-deint](#--vpp-onnx-deint-param1value1param2value2)
   - [--vpp-onnx-model-dir](#--vpp-onnx-model-dir-string)
   - [--vpp-onnx-cache-dir](#--vpp-onnx-cache-dir-string)
   - [--vpp-ai-frameinterp](#--vpp-ai-frameinterp-param1value1param2value2)
@@ -2530,7 +2532,7 @@ nnediによるインタレ解除を行う。
     モーション探索の調整パラメータ。
   - search_early_sad=&lt;int|off&gt;  
     level0 の予測候補 SAD が指定値未満なら全探索を省略する。値は8x8ブロック・8bit換算で `0-65535`、実際の閾値はblksizeとbit depthに応じて自動スケールされる。デフォルトは `off` (`-1`)。
-  - spatial_early_sad=&lt;int|off&gt;
+  - spatial_early_sad=&lt;int|off&gt;  
     level1 探索で得た SAD が指定値未満なら、そのブロックの spatial refine を省略する。値は8x8ブロック・8bit換算で `0-65535`、実際の閾値はblksizeとbit depthに応じて自動スケールされる。デフォルトは `off` (`-1`)。
   - mv_spatial_refine=&lt;int|auto&gt;  
     モーションベクトルの spatial refine 回数。デフォルトは `auto` (`-1`) で、もっとも解像度の低い最上位レベルでのみ近傍ブロック参照による refine を行い、下位（高解像度）レベルでは行わない。ブロック数の少ない階層に spatial 情報を集中させ、ブロック数の多い下位階層では GPU の並列性を最大限に活用するための既定戦略。`0` は全レベルで無効、`1` は全レベルで1回、`2` は全レベルで2回、以降同様。
@@ -2555,7 +2557,7 @@ nnediによるインタレ解除を行う。
     RTGMCのpreset。`slower`, `slow`, `medium`, `fast`, `faster`(デフォルト), `veryfast`, `superfast`, `ultrafast`, `draft`。
   - search_early_sad=&lt;int|auto|off&gt;  
     level0 の全探索を省略するSAD閾値。値は8x8ブロック・8bit換算で `0-65535`、実際の閾値はblksizeとbit depthに応じて自動スケールされる。`auto` (デフォルト) はpresetの値、`off` (`-1`) は無効。
-  - spatial_early_sad=&lt;int|auto|off&gt;
+  - spatial_early_sad=&lt;int|auto|off&gt;  
     level1 探索で得た SAD が指定値未満なら、そのブロックの spatial refine を省略する。値は8x8ブロック・8bit換算で `0-65535`、実際の閾値はblksizeとbit depthに応じて自動スケールされる。`auto` (デフォルト) はpresetの値 (`slower`/`slow`: 0、`medium`: 16、`fast`: 32、`faster`以降: 64)、`off` (`-1`) は無効。
   - timing=&lt;string&gt;  
     タイミング解析モード。`realtime`, `realtime+` (デフォルト), `strict`。
@@ -4230,6 +4232,37 @@ LinuxではOpenVINO Runtimeの追加インストールが必要です。Ubuntu�
   --vpp-onnx model=hdrtvnetpp_agcm_stable,colormatrix=bt709 --output-depth 10 --colormatrix bt2020nc --colorprim bt2020 --transfer smpte2084
   ```
 
+### --vpp-onnx-deint [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+OpenVINO の ONNX モデルを使うデインターレースフィルタ。モデルは `onnx_deint_models.json` に登録された名前で選択し、ONNX/IR ファイルの直接パスは受け付けない。マニフェストの `architecture` は内部メタデータであり、コマンドラインから選択できない（`arch=` パラメータはない）。
+
+`stdeint` と `stdeint_fast` は ST-DeInt（3ch入力、半分の高さの6ch出力）、`DDD` は DDD（3フィールドを転置した9ch入力、3ch出力）の登録名。`mode=bob` は入力1フレームから2枚のプログレッシブフレームを出力してフレームレートを2倍にし、`mode=normal` は表示順で先のフィールドを基準に1枚出力する。TFF/BFF のフィールド順を維持し、プログレッシブ入力はニューラル推論せずパススルーする。
+
+入力は8bit YUV420のみで、高さは偶数（4以上）である必要がある。ST-DeInt は指定した OpenVINO デバイスで実行し、通常はGPUを使用するが `device=CPU` も指定できる。DDD はテンソルのpackと出力weaveをホストメモリで行い、推論自体は指定デバイスで実行する。LinuxではOpenVINO Runtimeが必要。
+
+- **パラメータ**
+  - enable=&lt;bool&gt; (このオプション指定時のデフォルト: true)  
+    フィルタを有効/無効にする。
+  - model=&lt;string&gt; (必須)  
+    [`--vpp-onnx-model-dir`](#--vpp-onnx-model-dir-string) 配下の `onnx_deint_models.json` に登録された名前。`stdeint`、`stdeint_fast`、`DDD` などを指定し、ファイルパスは指定しない。
+  - device=&lt;string&gt; (デフォルト: GPU.0)  
+    OpenVINOデバイス。GPU.0 / GPU / CPU / AUTO / NPU。
+  - precision=&lt;string&gt; (デフォルト: fp32)  
+    推論精度。fp32 / auto。
+  - mode=&lt;string&gt; (デフォルト: bob)  
+    出力方式。bob / normal。
+  - colormatrix=&lt;string&gt; (デフォルト: auto)  
+    入力色行列。auto / auto_res / bt709 / smpte170m / bt470bg / bt2020nc。
+  - colorrange=&lt;string&gt; (デフォルト: auto)  
+    入力色域。auto / limited (tv) / full (pc)。
+
+ST-DeInt と DDD のモデルファイルはQSVEncにも HWEnc-onnx-models のリリースアーカイブにも含まれない。ST-DeIntはupstreamライセンスがUnknown、DDDは配布元とライセンスが未確定のためである。利用者が権利条件・ライセンスを確認したうえで、ST-DeIntを生成または外部入手したDDDモデルを配置すること。[HWEnc-onnx-models リポジトリ](https://github.com/rigaya/HWEnc-onnx-models)の `run_all.py` で `onnx_deint_models.json` を生成する。DDDは外部から `ddd/DDD.onnx` を配置した場合だけ登録される。
+
+```
+--vpp-onnx-model-dir C:\models\HWEnc-onnx-models
+--vpp-onnx-deint model=stdeint,mode=bob,device=GPU.0,precision=fp32
+--vpp-onnx-deint model=DDD,mode=normal,device=CPU,precision=auto
+```
+
 ### --vpp-onnx-model-dir &lt;string&gt;
 登録済みONNXモデルのmodels.jsonおよびモデルファイルが格納されたディレクトリを指定する。
 
@@ -4237,6 +4270,8 @@ LinuxではOpenVINO Runtimeの追加インストールが必要です。Ubuntu�
 
 モデルファイルは [https://github.com/rigaya/HWEnc-onnx-models/releases](https://github.com/rigaya/HWEnc-onnx-models/releases) からダウンロードできる。
 zipファイルをダウンロードして任意のディレクトリに展開し、そのディレクトリを指定する。
+
+リリースアーカイブにはST-DeInt/DDDのモデルファイルとデインターレース用マニフェストは含まれない。ST-DeIntはupstreamライセンスがUnknown、DDDは配布元とライセンスが未確定である。これらは別途生成・配置し、権利条件・ライセンスを確認したうえで、`run_all.py` で `onnx_deint_models.json` を生成してから `--vpp-onnx-deint` を使用すること。
 
 ```
 --vpp-onnx-model-dir C:\models\HWEnc-onnx-models
