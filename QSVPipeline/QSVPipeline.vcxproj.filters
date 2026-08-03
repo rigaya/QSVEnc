@@ -522,7 +522,7 @@
     <ClCompile Include="rgy_filter_rife_ov.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="rgy_filter_stdeint.cpp">
+    <ClCompile Include="rgy_filter_onnx_deint.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
     <ClCompile Include="rgy_filter_anime4k.cpp">
@@ -1016,7 +1016,7 @@
     <ClInclude Include="rgy_filter_rife_ov.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="rgy_filter_stdeint.h">
+    <ClInclude Include="rgy_filter_onnx_deint.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
     <ClInclude Include="rgy_model_registry.h">
@@ -1243,7 +1243,7 @@
     <None Include="rgy_filter_onnx.cl">
       <Filter>ソース ファイル</Filter>
     </None>
-    <None Include="rgy_filter_stdeint.cl">
+    <None Include="rgy_filter_onnx_deint.cl">
       <Filter>ソース ファイル</Filter>
     </None>
     <None Include="rgy_filter_curves.cl">

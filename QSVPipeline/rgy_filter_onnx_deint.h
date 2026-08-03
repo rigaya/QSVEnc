@@ -26,8 +26,8 @@
 // ------------------------------------------------------------------------------------------
 
 #pragma once
-#ifndef __RGY_FILTER_STDEINT_H__
-#define __RGY_FILTER_STDEINT_H__
+#ifndef __RGY_FILTER_ONNX_DEINT_H__
+#define __RGY_FILTER_ONNX_DEINT_H__
 
 #include "rgy_filter_cl.h"
 #include "rgy_prm.h"
@@ -36,29 +36,29 @@
 #include <memory>
 #include <vector>
 
-class RGYFilterParamStDeint : public RGYFilterParam {
+class RGYFilterParamOnnxDeint : public RGYFilterParam {
 public:
     tstring modelFile;
     tstring modelDir;
     tstring device;
     tstring precision;
-    VppStDeintMode mode;
-    VppStDeintArch arch;
+    VppOnnxDeintMode mode;
+    VppOnnxDeintArchitecture architecture;
     CspMatrix colormatrix;
     CspColorRange colorrange;
     rgy_rational<int> timebase;
 
-    RGYFilterParamStDeint() :
-        modelFile(), modelDir(), device(_T("GPU.0")), precision(_T("fp32")), mode(VppStDeintMode::Bob),
-        arch(VppStDeintArch::StDeint), colormatrix(RGY_MATRIX_AUTO), colorrange(RGY_COLORRANGE_AUTO), timebase() {};
-    virtual ~RGYFilterParamStDeint() {};
+    RGYFilterParamOnnxDeint() :
+        modelFile(), modelDir(), device(_T("GPU.0")), precision(_T("fp32")), mode(VppOnnxDeintMode::Bob),
+        architecture(VppOnnxDeintArchitecture::StDeint), colormatrix(RGY_MATRIX_AUTO), colorrange(RGY_COLORRANGE_AUTO), timebase() {};
+    virtual ~RGYFilterParamOnnxDeint() {};
     virtual tstring print() const override;
 };
 
-class RGYFilterStDeint : public RGYFilter {
+class RGYFilterOnnxDeint : public RGYFilter {
 public:
-    RGYFilterStDeint(shared_ptr<RGYOpenCLContext> context);
-    virtual ~RGYFilterStDeint();
+    RGYFilterOnnxDeint(shared_ptr<RGYOpenCLContext> context);
+    virtual ~RGYFilterOnnxDeint();
     virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
@@ -102,7 +102,7 @@ protected:
     std::unique_ptr<RGYFilterCspCrop> m_cropFromRgb;
     int m_width;
     int m_height;
-    VppStDeintMode m_mode;
+    VppOnnxDeintMode m_mode;
     bool m_defaultTff;
     bool m_useOcl;
 
@@ -121,4 +121,4 @@ protected:
     std::array<TemporalFrame, 3> m_temporalRing;
 };
 
-#endif //__RGY_FILTER_STDEINT_H__
+#endif //__RGY_FILTER_ONNX_DEINT_H__

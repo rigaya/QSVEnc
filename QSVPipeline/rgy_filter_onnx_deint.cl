@@ -1,6 +1,6 @@
 ﻿// ST-DeInt zero-copy経路用のRGB weaveカーネル。
 
-__kernel void stdeint_weave_rgb(
+__kernel void onnx_deint_weave_rgb(
     __global const float *input,
     __global const float *restorations,
     __global float *output,

@@ -82,7 +82,7 @@ RGY_DISABLE_WARNING_POP
 #include "rgy_filter_mpdecimate.h"
 #include "rgy_filter_decimate.h"
 #include "rgy_filter_decomb.h"
-#include "rgy_filter_stdeint.h"
+#include "rgy_filter_onnx_deint.h"
 #include "rgy_filter_ivtc.h"
 #include "rgy_filter_delogo.h"
 #include "rgy_filter_convolution3d.h"
@@ -182,7 +182,7 @@ int countVppDeinterlacer(const sInputParams *inputParam, const bool includeIvtc)
     if (inputParam->vpp.rtgmc_bob.enable) deinterlacer++;
     if (inputParam->vpp.yadif.enable) deinterlacer++;
     if (inputParam->vpp.decomb.enable) deinterlacer++;
-    if (inputParam->vpp.stdeint.enable) deinterlacer++;
+    if (inputParam->vpp.onnxDeint.enable) deinterlacer++;
     if (includeIvtc && inputParam->vpp.ivtc.enable) deinterlacer++;
     return deinterlacer;
 }
@@ -2442,7 +2442,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vpp.rtgmc_edi.enable && !degrainLegacy) filterPipeline.push_back(VppType::CL_RTGMC_EDI);
     if (inputParam->vpp.yadif.enable)      filterPipeline.push_back(VppType::CL_YADIF);
     if (inputParam->vpp.decomb.enable)     filterPipeline.push_back(VppType::CL_DECOMB);
-    if (inputParam->vpp.stdeint.enable)    filterPipeline.push_back(VppType::CL_STDEINT);
+    if (inputParam->vpp.onnxDeint.enable)    filterPipeline.push_back(VppType::CL_ONNX_DEINT);
     if (inputParam->vpp.bwdif.enable)      filterPipeline.push_back(VppType::CL_BWDIF);
     if (inputParam->vpp.ivtc.enable)       filterPipeline.push_back(VppType::CL_IVTC);
     if (inputParam->vppmfx.deinterlace != MFX_DEINTERLACE_NONE)  filterPipeline.push_back(VppType::MFX_DEINTERLACE);
@@ -2985,17 +2985,16 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         return RGY_ERR_NONE;
     }
     // ST-DeIntデインターレース
-    if (vppType == VppType::CL_STDEINT) {
-        unique_ptr<RGYFilter> filter(new RGYFilterStDeint(m_cl));
-        shared_ptr<RGYFilterParamStDeint> param(new RGYFilterParamStDeint());
-        param->modelFile = params->vpp.stdeint.modelFile;
+    if (vppType == VppType::CL_ONNX_DEINT) {
+        unique_ptr<RGYFilter> filter(new RGYFilterOnnxDeint(m_cl));
+        shared_ptr<RGYFilterParamOnnxDeint> param(new RGYFilterParamOnnxDeint());
+        param->modelFile = params->vpp.onnxDeint.modelFile;
         param->modelDir = params->vpp.onnxModelDir;
-        param->device = params->vpp.stdeint.device;
-        param->precision = params->vpp.stdeint.precision;
-        param->mode = params->vpp.stdeint.mode;
-        param->arch = params->vpp.stdeint.arch;
-        param->colormatrix = params->vpp.stdeint.colormatrix;
-        param->colorrange = params->vpp.stdeint.colorrange;
+        param->device = params->vpp.onnxDeint.device;
+        param->precision = params->vpp.onnxDeint.precision;
+        param->mode = params->vpp.onnxDeint.mode;
+        param->colormatrix = params->vpp.onnxDeint.colormatrix;
+        param->colorrange = params->vpp.onnxDeint.colorrange;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->frameOut.picstruct = RGY_PICSTRUCT_FRAME;
