@@ -515,10 +515,14 @@ protected:
     mfxVersion m_mfxVer;
     std::shared_ptr<RGYLog> m_log;
     std::unique_ptr<PipelineTaskStopWatch> m_stopwatch;
+    // ワークサーフェス確保時の解像度
+    // 入力途中の解像度変更でサーフェスの解像度を書き換えるため、確保時のサイズを別に覚えておく必要がある
+    int m_workSurfAllocWidth;
+    int m_workSurfAllocHeight;
 public:
-    PipelineTask() : m_type(PipelineTaskType::UNKNOWN), m_outQeueue(), m_workSurfs(), m_mfxSession(nullptr), m_allocator(nullptr), m_allocResponse({ 0 }), m_inFrames(0), m_outFrames(0), m_outMaxQueueSize(0), m_mfxVer({ 0 }), m_log(), m_stopwatch() {};
+    PipelineTask() : m_type(PipelineTaskType::UNKNOWN), m_outQeueue(), m_workSurfs(), m_mfxSession(nullptr), m_allocator(nullptr), m_allocResponse({ 0 }), m_inFrames(0), m_outFrames(0), m_outMaxQueueSize(0), m_mfxVer({ 0 }), m_log(), m_stopwatch(), m_workSurfAllocWidth(0), m_workSurfAllocHeight(0) {};
     PipelineTask(PipelineTaskType type, int outMaxQueueSize, MFXVideoSession *mfxSession, mfxVersion mfxVer, std::shared_ptr<RGYLog> log) :
-        m_type(type), m_outQeueue(), m_workSurfs(), m_mfxSession(mfxSession), m_allocator(nullptr), m_allocResponse({ 0 }), m_inFrames(0), m_outFrames(0), m_outMaxQueueSize(outMaxQueueSize), m_mfxVer(mfxVer), m_log(log), m_stopwatch() {
+        m_type(type), m_outQeueue(), m_workSurfs(), m_mfxSession(mfxSession), m_allocator(nullptr), m_allocResponse({ 0 }), m_inFrames(0), m_outFrames(0), m_outMaxQueueSize(outMaxQueueSize), m_mfxVer(mfxVer), m_log(log), m_stopwatch(), m_workSurfAllocWidth(0), m_workSurfAllocHeight(0) {
     };
     virtual ~PipelineTask() {
         if (m_allocator) {
@@ -658,6 +662,8 @@ public:
             }
         }
         m_workSurfs.setSurfaces(workSurfs);
+        m_workSurfAllocWidth = allocRequest.Info.Width;
+        m_workSurfAllocHeight = allocRequest.Info.Height;
         return RGY_ERR_NONE;
     }
     RGY_ERR workSurfacesAllocCL(const int numFrames, const RGYFrameInfo &frame, RGYOpenCLContext *cl) {
@@ -676,6 +682,8 @@ public:
             frames[i] = cl->createFrameBuffer(frame, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR);
         }
         m_workSurfs.setSurfaces(frames);
+        m_workSurfAllocWidth = frame.width;
+        m_workSurfAllocHeight = frame.height;
         return RGY_ERR_NONE;
     }
 
@@ -718,11 +726,36 @@ class PipelineTaskInput : public PipelineTask {
     int64_t m_endPts; // 並列処理時用の終了時刻 (この時刻は含まないようにする) -1の場合は制限なし(最後まで)
     bool m_allocatorD3D11;
     std::shared_ptr<RGYOpenCLContext> m_cl;
+    // 前回リーダーから受け取ったフレームの解像度(crop適用後)。解像度変更のログを変化時のみ出すために保持する
+    int m_lastInputWidth;
+    int m_lastInputHeight;
 public:
     PipelineTaskInput(MFXVideoSession *mfxSession, QSVAllocator *allocator, int64_t endPts, int outMaxQueueSize, RGYInput *input, mfxVersion mfxVer, std::shared_ptr<RGYOpenCLContext> cl, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::INPUT, outMaxQueueSize, mfxSession, mfxVer, log), m_input(input), m_allocator(allocator), m_endPts(endPts), m_allocatorD3D11(IS_ALLOCATOR_D3D11(allocator)), m_cl(cl) {
+        : PipelineTask(PipelineTaskType::INPUT, outMaxQueueSize, mfxSession, mfxVer, log), m_input(input), m_allocator(allocator), m_endPts(endPts), m_allocatorD3D11(IS_ALLOCATOR_D3D11(allocator)), m_cl(cl),
+        m_lastInputWidth(0), m_lastInputHeight(0) {
 
     };
+    // リーダーが出力するフレームの解像度を得る
+    // GetInputFrameInfo()のsrcWidth/srcHeightはcrop適用前の値だが、
+    // このタスクは getInputCodec() == RGY_CODEC_UNKNOWN のときのみ生成される = リーダー側でcrop適用済みなので、
+    // cropを差し引いた値がサーフェスに載る解像度となる (CQSVPipeline::InitFilters の cropRequired と同じ判定)
+    std::pair<int, int> getReaderOutputResolution() {
+        const auto inputFrameInfo = m_input->GetInputFrameInfo();
+        return std::make_pair(
+            inputFrameInfo.srcWidth  - inputFrameInfo.crop.e.left - inputFrameInfo.crop.e.right,
+            inputFrameInfo.srcHeight - inputFrameInfo.crop.e.up   - inputFrameInfo.crop.e.bottom);
+    }
+    // 解像度変更を検出した場合にログを出す(変化した最初のフレームのみ)
+    void printInputResolutionChange(const int newWidth, const int newHeight) {
+        if (m_lastInputWidth != newWidth || m_lastInputHeight != newHeight) {
+            if (m_lastInputWidth > 0) {
+                PrintMes(RGY_LOG_DEBUG, _T("input frame surface resolution updated from %dx%d to %dx%d.\n"),
+                    m_lastInputWidth, m_lastInputHeight, newWidth, newHeight);
+            }
+            m_lastInputWidth = newWidth;
+            m_lastInputHeight = newHeight;
+        }
+    }
     virtual ~PipelineTaskInput() {};
     virtual void setStopWatch() override {
         m_stopwatch = std::make_unique<PipelineTaskStopWatch>(
@@ -753,6 +786,13 @@ public:
                 PrintMes(RGY_LOG_ERROR, _T("Error in reader: %s.\n"), get_err_mes(err));
             }
         }
+        if (err == RGY_ERR_NONE) {
+            const auto [readerWidth, readerHeight] = getReaderOutputResolution();
+            printInputResolutionChange(readerWidth, readerHeight);
+            // Info.Width/Heightは確保サイズなので触らない (下流の解像度検知はCropW/CropHを見ている)
+            mfxSurf->Info.CropW = (mfxU16)readerWidth;
+            mfxSurf->Info.CropH = (mfxU16)readerHeight;
+        }
         if (m_stopwatch) m_stopwatch->add(0, 3);
         if (mfxSurf->Data.MemId) {
             // MFXReadWriteMid の使用はd3d11使用時のみにする必要がある
@@ -765,8 +805,20 @@ public:
     RGY_ERR loadNextFrameCL(PipelineTaskSurface& surfWork) {
         if (m_stopwatch) m_stopwatch->set(0);
         auto clframe = surfWork.cl();
+        const int surfaceWidth = clframe->frame.width;
+        const int surfaceHeight = clframe->frame.height;
+        // mapするサイズは frame.height から計算されるため(RGYCLFrameMap::map)、
+        // 解像度変更で縮めたままの解像度でmapすると、その後解像度が元に戻ったときに
+        // reader がmap範囲外へ書き込むことになる。map前に確保時の解像度へ戻しておく。
+        if (m_workSurfAllocHeight > 0
+            && (clframe->frame.width != m_workSurfAllocWidth || clframe->frame.height != m_workSurfAllocHeight)) {
+            clframe->frame.width = m_workSurfAllocWidth;
+            clframe->frame.height = m_workSurfAllocHeight;
+        }
         auto err = clframe->queueMapBuffer(m_cl->queue(), CL_MAP_WRITE); // CPUが書き込むためにMapする
         if (err != RGY_ERR_NONE) {
+            clframe->frame.width = surfaceWidth;
+            clframe->frame.height = surfaceHeight;
             PrintMes(RGY_LOG_ERROR, _T("Failed to map buffer: %s.\n"), get_err_mes(err));
             return err;
         }
@@ -790,6 +842,16 @@ public:
             if (err == RGY_ERR_NONE) {
                 err = clerr;
             }
+        }
+        // 解像度の反映はunmap後に行う。map/unmapを確保時の解像度で揃えるため。
+        if (err == RGY_ERR_NONE) {
+            const auto [readerWidth, readerHeight] = getReaderOutputResolution();
+            printInputResolutionChange(readerWidth, readerHeight);
+            clframe->frame.width = readerWidth;
+            clframe->frame.height = readerHeight;
+        } else {
+            clframe->frame.width = surfaceWidth;
+            clframe->frame.height = surfaceHeight;
         }
         if (m_stopwatch) m_stopwatch->add(0, 5);
         return err;
