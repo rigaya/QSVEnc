@@ -5517,6 +5517,34 @@ RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
     }
     m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(&m_device->mfxSession(), srcTimebase, m_outputTimebase, outFrameDuration, m_nAVSyncMode, m_timestampPassThrough, VppAfsRffAware() && m_pFileReader->rffAware(), m_mfxVer, m_pQSVLog));
 
+    std::shared_ptr<RGYFilterParamResize> normalizeResizeParam;
+    auto getNormalizeResizeParam = [&]() {
+        if (normalizeResizeParam != nullptr) {
+            return normalizeResizeParam;
+        }
+        normalizeResizeParam = std::make_shared<RGYFilterParamResize>();
+        const auto resizeAlgo = prm->vpp.resize_algo;
+        if (resizeAlgo == RGY_VPP_RESIZE_AUTO) {
+            normalizeResizeParam->interp = RGY_VPP_RESIZE_SPLINE36;
+            PrintMes(RGY_LOG_DEBUG, _T("resolution change: OpenCL normalization resize uses spline36 for auto resize mode.\n"));
+        } else if (getVppResizeType(resizeAlgo) != RGY_VPP_RESIZE_TYPE_OPENCL
+            || resizeAlgo == RGY_VPP_RESIZE_FSR1
+            || resizeAlgo == RGY_VPP_RESIZE_NIS) {
+            normalizeResizeParam->interp = RGY_VPP_RESIZE_SPLINE36;
+            PrintMes(RGY_LOG_WARN, _T("resolution change: OpenCL normalization resize falls back from %s to spline36.\n"),
+                get_chr_from_value(list_vpp_resize, resizeAlgo));
+        } else {
+            normalizeResizeParam->interp = resizeAlgo;
+        }
+        normalizeResizeParam->fsr1 = prm->vpp.resize_fsr1;
+        normalizeResizeParam->nis = prm->vpp.resize_nis;
+        normalizeResizeParam->bicubic = prm->vpp.resize_bicubic;
+        normalizeResizeParam->vui = prm->input.vui;
+        normalizeResizeParam->baseFps = m_encFps;
+        normalizeResizeParam->bOutOverwrite = false;
+        return normalizeResizeParam;
+    };
+
     for (auto& filterBlock : m_vpFilters) {
         if (filterBlock.type == VppFilterType::FILTER_MFX) {
             auto err = err_to_rgy(m_device->mfxSession().JoinSession(filterBlock.vppmfx->GetSession()));
@@ -5530,7 +5558,9 @@ RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
                 PrintMes(RGY_LOG_ERROR, _T("OpenCL not enabled, OpenCL filters cannot be used.\n"), CPU_GEN_STR[m_device->CPUGen()]);
                 return RGY_ERR_UNSUPPORTED;
             }
-            m_pipelineTasks.push_back(std::make_unique<PipelineTaskOpenCL>(filterBlock.vppcl, nullptr, m_cl, m_openclTaskThreads, m_device->memType(), m_device->allocator(), &m_device->mfxSession(), 1, m_pQSVLog));
+            auto taskOpenCL = std::make_unique<PipelineTaskOpenCL>(filterBlock.vppcl, nullptr, m_cl, m_openclTaskThreads, m_device->memType(), m_device->allocator(), &m_device->mfxSession(), 1, m_pQSVLog);
+            taskOpenCL->setNormalizeResizeParam(getNormalizeResizeParam());
+            m_pipelineTasks.push_back(std::move(taskOpenCL));
         } else {
             PrintMes(RGY_LOG_ERROR, _T("Unknown filter type.\n"));
             return RGY_ERR_UNSUPPORTED;
@@ -5556,7 +5586,9 @@ RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
                 PrintMes(RGY_LOG_ERROR, _T("m_vpFilters.size() != 1.\n"));
                 return RGY_ERR_UNDEFINED_BEHAVIOR;
             }
-            m_pipelineTasks.push_back(std::make_unique<PipelineTaskOpenCL>(m_vpFilters.front().vppcl, m_videoQualityMetric.get(), m_cl, m_openclTaskThreads, m_device->memType(), m_device->allocator(), &m_device->mfxSession(), 1, m_pQSVLog));
+            auto taskOpenCL = std::make_unique<PipelineTaskOpenCL>(m_vpFilters.front().vppcl, m_videoQualityMetric.get(), m_cl, m_openclTaskThreads, m_device->memType(), m_device->allocator(), &m_device->mfxSession(), 1, m_pQSVLog);
+            taskOpenCL->setNormalizeResizeParam(getNormalizeResizeParam());
+            m_pipelineTasks.push_back(std::move(taskOpenCL));
         } else if (m_pipelineTasks[prevtask]->taskType() == PipelineTaskType::OPENCL) {
             auto taskOpenCL = dynamic_cast<PipelineTaskOpenCL*>(m_pipelineTasks[prevtask].get());
             if (taskOpenCL == nullptr) {
