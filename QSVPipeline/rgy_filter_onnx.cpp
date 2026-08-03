@@ -169,6 +169,19 @@ static inline float sample_chroma_up2(const uint8_t *plane, const int pitch, con
 // 2x2 box-downsample a full-res normalised channel to a half-res chroma
 // plane, encoding each averaged value as v*encScale + encOff (rounded, clamped).
 // dstPitch in bytes, dstStride in samples.
+//
+// This function must round in strict float32. The project builds with /fp:fast,
+// under which MSVC keeps `avg * encScale + encOff` in a wider intermediate; when
+// the float32 value of `avg * encScale + encOff` lands exactly on a .5 boundary
+// the wider value falls just short of it and the truncating (int) cast drops a
+// level. It is rare (about 1e-6 of samples, always by one) but it makes this
+// function disagree with its own source text, and with the OpenCL kernel that
+// mirrors it. Forcing the whole function precise is the only form that helps:
+// a (float) cast on the intermediate, a volatile temporary, and a precise-only
+// rounding helper were all measured and all still produce the wrong level.
+#if defined(_MSC_VER)
+#pragma float_control(precise, on, push)
+#endif
 template<typename TPix>
 static void downsample420_encode(uint8_t *dst, const int dstPitch, const int dstStride,
                                  const float *srcFull, const int fullW, const int fullH,
@@ -187,6 +200,9 @@ static void downsample420_encode(uint8_t *dst, const int dstPitch, const int dst
         }
     }
 }
+#if defined(_MSC_VER)
+#pragma float_control(pop)
+#endif
 
 // Copy one plane (row-by-row, honouring pitches). width is in samples,
 // pitches in bytes, srcStride/dstStride 1 for planar, 2 for nv12/p010-interleaved.
