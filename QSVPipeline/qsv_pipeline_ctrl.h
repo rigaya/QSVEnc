@@ -1917,58 +1917,9 @@ public:
         mfxFrameSurface1 *surfVppIn = (frame) ? dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().mfx()->surf() : nullptr;
         const int expectedInputWidth = m_vpp->inputWidthBeforeCrop();
         const int expectedInputHeight = m_vpp->inputHeightBeforeCrop();
-        if (surfVppIn != nullptr
-            && (surfVppIn->Info.CropW != expectedInputWidth || surfVppIn->Info.CropH != expectedInputHeight)) {
-            const auto newInputInfo = surfVppIn->Info;
-            PrintMes(RGY_LOG_DEBUG, _T("input resolution change detected in MFX VPP: %dx%d -> %dx%d, flushing filter.\n"),
-                expectedInputWidth, expectedInputHeight, (int)newInputInfo.CropW, (int)newInputInfo.CropH);
-
-            // 解像度変更前のフレームをすべて出力してからVPPをリセットする。
-            auto sts = RGY_ERR_NONE;
-            while (sts == RGY_ERR_NONE) {
-                auto flushFrame = std::unique_ptr<PipelineTaskOutput>();
-                sts = sendFrame(flushFrame);
-                if (sts == RGY_ERR_MORE_DATA) {
-                    break;
-                } else if (sts != RGY_ERR_NONE) {
-                    PrintMes(RGY_LOG_ERROR, _T("  Failed to flush filter on input resolution change %dx%d -> %dx%d: %s.\n"),
-                        expectedInputWidth, expectedInputHeight, (int)newInputInfo.CropW, (int)newInputInfo.CropH, get_err_mes(sts));
-                    return sts;
-                }
-            }
-
-            // VPPをCloseする前に、キューに残った非同期出力を完了させる。
-            // 未完了のままCloseすると、入力に使ったデコード面が解放されず後続のデコードが停止することがある。
-            for (auto& output : m_outQeueue) {
-                sts = output->waitsync();
-                if (sts != RGY_ERR_NONE) {
-                    PrintMes(RGY_LOG_ERROR, _T("  Failed to wait for filter output on input resolution change %dx%d -> %dx%d: %s.\n"),
-                        expectedInputWidth, expectedInputHeight, (int)newInputInfo.CropW, (int)newInputInfo.CropH, get_err_mes(sts));
-                    return sts;
-                }
-            }
-
-            sts = m_vpp->ResetInputResolution(newInputInfo);
-            if (sts != RGY_ERR_NONE) {
-                PrintMes(RGY_LOG_ERROR, _T("  Failed to reset filter on input resolution change %dx%d -> %dx%d: %s.\n"),
-                    expectedInputWidth, expectedInputHeight, (int)newInputInfo.CropW, (int)newInputInfo.CropH, get_err_mes(sts));
-                return sts;
-            }
-            PrintMes(RGY_LOG_DEBUG, _T("input resolution changed in MFX VPP: %dx%d -> %dx%d, filter reset completed.\n"),
-                expectedInputWidth, expectedInputHeight, (int)newInputInfo.CropW, (int)newInputInfo.CropH);
-        }
-        if (frame) {
-            // flush中の旧出力には旧フレームの付加情報を維持し、リセット後に新フレームの情報へ切り替える。
-            m_lastFrameDataList = dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->dataList();
-        }
-        //vpp前に、vpp用のパラメータでFrameInfoを更新
-        copy_crop_info(surfVppIn, &m_mfxVppParams.vpp.In);
-        if (surfVppIn) {
-            // durationは適用でもfpsから設定しておく --vpp-deinterlace bobでも入力がRFFやプログレッシブだと2フレーム目を投入する前にフレーム出力が出る場合があり、durationを設定しておかないとおかしくなる
-            m_timestamp.add(surfVppIn->Data.TimeStamp, dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->inputFrameId(), 0 /*dummy*/, estDuration, {});
-            surfVppIn->Data.DataFlag |= MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
-            m_inFrames++;
-
+        if (surfVppIn != nullptr) {
+            const auto picStructPrev = m_mfxVppParams.vpp.In.PicStruct;
+            bool picStructChanged = false;
             // インタレ解除を使用中、入力フレームのインタレが変更になると、そのまま処理を継続すると device busyで処理がフリーズしてしまうことがある
             // そのため、インタレ解除設定が変更になった場合は、フィルタをリセットする
             if (m_vpp->isDeinterlace()) {
@@ -1983,41 +1934,80 @@ public:
                 if ((m_vpp->deinterlaceMode() & (RGYMFX_DEINTERLACE_MODE::TFF | RGYMFX_DEINTERLACE_MODE::BFF)) != RGYMFX_DEINTERLACE_MODE::AUTO) {
                     surfVppIn->Info.PicStruct = m_mfxVppParams.vpp.In.PicStruct;
                 } else if (surfVppIn->Info.PicStruct != m_mfxVppParams.vpp.In.PicStruct) {
-                    const auto picStructPrev = m_mfxVppParams.vpp.In.PicStruct;
+                    picStructChanged = true;
                     PrintMes(RGY_LOG_DEBUG, _T("Change deinterlace settings input: %s -> %s.\n"), MFXPicStructToStr(picStructPrev).c_str(), MFXPicStructToStr(surfVppIn->Info.PicStruct).c_str());
+                }
+            }
 
-                    // まずflushする
-                    auto sts = RGY_ERR_NONE;
-                    while (sts == RGY_ERR_NONE) {
-                        auto flushFrame = std::unique_ptr<PipelineTaskOutput>();
-                        sts = sendFrame(flushFrame); // flush
-                        if (sts == RGY_ERR_MORE_DATA) {
-                            break; // flush 成功
-                        } else if (sts != RGY_ERR_NONE) {
-                            PrintMes(RGY_LOG_ERROR, _T("  Failed to flush filter to change interlace settings %s -> %s: %s.\n"), MFXPicStructToStr(picStructPrev).c_str(), MFXPicStructToStr(surfVppIn->Info.PicStruct).c_str(), get_err_mes(sts));
-                            return sts;
-                        }
-                    }
-
-                    // VPPをCloseする前に、bobなどでキューに残った非同期出力を完了させる。
-                    // 未完了のままCloseすると、入力に使ったデコード面が解放されず後続のデコードが停止することがある。
-                    for (auto& output : m_outQeueue) {
-                        sts = output->waitsync();
-                        if (sts != RGY_ERR_NONE) {
-                            PrintMes(RGY_LOG_ERROR, _T("  Failed to wait for filter output before changing interlace settings %s -> %s: %s.\n"), MFXPicStructToStr(picStructPrev).c_str(), MFXPicStructToStr(surfVppIn->Info.PicStruct).c_str(), get_err_mes(sts));
-                            return sts;
-                        }
-                    }
-
-                    // インタレ設定変更を反映してリセットする
-                    m_mfxVppParams.vpp.In.PicStruct = surfVppIn->Info.PicStruct;
-                    sts = m_vpp->Reset(m_mfxVppParams.vpp.Out, m_mfxVppParams.vpp.In);
-                    if (sts != RGY_ERR_NONE) {
-                        PrintMes(RGY_LOG_ERROR, _T("  Failed to reset filter to change interlace settings %s -> %s: %s.\n"), MFXPicStructToStr(picStructPrev).c_str(), MFXPicStructToStr(surfVppIn->Info.PicStruct).c_str(), get_err_mes(sts));
+            const auto newInputInfo = surfVppIn->Info;
+            const auto picStructNext = (picStructChanged) ? newInputInfo.PicStruct : picStructPrev;
+            const bool resChanged = newInputInfo.CropW != expectedInputWidth || newInputInfo.CropH != expectedInputHeight;
+            if (resChanged) {
+                PrintMes(RGY_LOG_DEBUG, _T("input resolution change detected in MFX VPP: %dx%d -> %dx%d, flushing filter.\n"),
+                    expectedInputWidth, expectedInputHeight, (int)newInputInfo.CropW, (int)newInputInfo.CropH);
+            }
+            if (resChanged || picStructChanged) {
+                // 入力情報変更前のフレームをすべて出力してからVPPをリセットする。
+                auto sts = RGY_ERR_NONE;
+                while (sts == RGY_ERR_NONE) {
+                    auto flushFrame = std::unique_ptr<PipelineTaskOutput>();
+                    sts = sendFrame(flushFrame);
+                    if (sts == RGY_ERR_MORE_DATA) {
+                        break;
+                    } else if (sts != RGY_ERR_NONE) {
+                        PrintMes(RGY_LOG_ERROR, _T("  Failed to flush filter on input change (resolution %dx%d -> %dx%d, PicStruct %s -> %s): %s.\n"),
+                            expectedInputWidth, expectedInputHeight, (int)newInputInfo.CropW, (int)newInputInfo.CropH,
+                            MFXPicStructToStr(picStructPrev).c_str(), MFXPicStructToStr(picStructNext).c_str(), get_err_mes(sts));
                         return sts;
                     }
                 }
+
+                // VPPをCloseする前に、キューに残った非同期出力を完了させる。
+                // 未完了のままCloseすると、入力に使ったデコード面が解放されず後続のデコードが停止することがある。
+                for (auto& output : m_outQeueue) {
+                    sts = output->waitsync();
+                    if (sts != RGY_ERR_NONE) {
+                        PrintMes(RGY_LOG_ERROR, _T("  Failed to wait for filter output on input change (resolution %dx%d -> %dx%d, PicStruct %s -> %s): %s.\n"),
+                            expectedInputWidth, expectedInputHeight, (int)newInputInfo.CropW, (int)newInputInfo.CropH,
+                            MFXPicStructToStr(picStructPrev).c_str(), MFXPicStructToStr(picStructNext).c_str(), get_err_mes(sts));
+                        return sts;
+                    }
+                }
+
+                // PicStructを先に反映しておくことで、解像度変更と同時の場合も1回のResetに統合する。
+                if (picStructChanged) {
+                    m_mfxVppParams.vpp.In.PicStruct = picStructNext;
+                }
+                sts = (resChanged)
+                    ? m_vpp->ResetInputResolution(newInputInfo)
+                    : m_vpp->Reset(m_mfxVppParams.vpp.Out, m_mfxVppParams.vpp.In);
+                if (sts != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_ERROR, _T("  Failed to reset filter on input change (resolution %dx%d -> %dx%d, PicStruct %s -> %s): %s.\n"),
+                        expectedInputWidth, expectedInputHeight, (int)newInputInfo.CropW, (int)newInputInfo.CropH,
+                        MFXPicStructToStr(picStructPrev).c_str(), MFXPicStructToStr(picStructNext).c_str(), get_err_mes(sts));
+                    return sts;
+                }
+                if (resChanged) {
+                    PrintMes(RGY_LOG_DEBUG, _T("input resolution changed in MFX VPP: %dx%d -> %dx%d, filter reset completed.\n"),
+                        expectedInputWidth, expectedInputHeight, (int)newInputInfo.CropW, (int)newInputInfo.CropH);
+                }
+                if (picStructChanged) {
+                    PrintMes(RGY_LOG_DEBUG, _T("deinterlace settings input changed: %s -> %s, filter reset completed.\n"),
+                        MFXPicStructToStr(picStructPrev).c_str(), MFXPicStructToStr(picStructNext).c_str());
+                }
             }
+        }
+        if (frame) {
+            // flush中の旧出力には旧フレームの付加情報を維持し、リセット後に新フレームの情報へ切り替える。
+            m_lastFrameDataList = dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->dataList();
+        }
+        //vpp前に、vpp用のパラメータでFrameInfoを更新
+        copy_crop_info(surfVppIn, &m_mfxVppParams.vpp.In);
+        if (surfVppIn) {
+            // durationは適用でもfpsから設定しておく --vpp-deinterlace bobでも入力がRFFやプログレッシブだと2フレーム目を投入する前にフレーム出力が出る場合があり、durationを設定しておかないとおかしくなる
+            m_timestamp.add(surfVppIn->Data.TimeStamp, dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().frame()->inputFrameId(), 0 /*dummy*/, estDuration, {});
+            surfVppIn->Data.DataFlag |= MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
+            m_inFrames++;
         }
         if (m_stopwatch) m_stopwatch->add(0, 0);
 
