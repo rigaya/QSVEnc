@@ -57,14 +57,13 @@ public:
     tstring device;
     tstring precision;
     VppOnnxDeintMode mode;
-    VppOnnxDeintArchitecture architecture;
     CspMatrix colormatrix;
     CspColorRange colorrange;
     rgy_rational<int> timebase;
 
     RGYFilterParamOnnxDeint() :
         modelFile(), modelDir(), device(_T("GPU.0")), precision(_T("fp32")), mode(VppOnnxDeintMode::Bob),
-        architecture(VppOnnxDeintArchitecture::StDeint), colormatrix(RGY_MATRIX_AUTO), colorrange(RGY_COLORRANGE_AUTO), timebase() {};
+        colormatrix(RGY_MATRIX_AUTO), colorrange(RGY_COLORRANGE_AUTO), timebase() {};
     virtual ~RGYFilterParamOnnxDeint() {};
     virtual tstring print() const override;
 };
@@ -81,6 +80,8 @@ protected:
 
     void setOutputFrameProp(RGYFrameInfo *output, const RGYFrameInfo *input) const;
     void setBobTimestamp(const RGYFrameInfo *input, RGYFrameInfo **outputs) const;
+    RGY_ERR copyProgressiveOutputs(const RGYFrameInfo *input, RGYFrameInfo **outputs, int *outputCount,
+        RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event);
     RGYFrameInfo rgbFrame(const std::array<std::unique_ptr<RGYCLBuf>, 3>& planes) const;
     RGY_ERR createRgbPlanes(RGYCLBuf *parent, std::array<std::unique_ptr<RGYCLBuf>, 3>& planes);
     RGY_ERR convertToRgb(const RGYFrameInfo *input, RGYOpenCLQueue& queue,
@@ -132,7 +133,6 @@ protected:
     std::array<std::unique_ptr<RGYCLBuf>, 3> m_inputPlanes;
     std::array<std::unique_ptr<RGYCLBuf>, 3> m_weavePlanes;
 
-    bool m_temporal;
     int m_framesIn;
     int m_frameOut;
     std::array<TemporalFrame, 3> m_temporalRing;

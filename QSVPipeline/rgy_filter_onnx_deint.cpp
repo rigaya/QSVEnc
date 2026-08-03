@@ -75,7 +75,7 @@ RGYFilterOnnxDeint::RGYFilterOnnxDeint(shared_ptr<RGYOpenCLContext> context) :
     m_mode(VppOnnxDeintMode::Bob), m_defaultTff(true), m_useOcl(false),
     m_inputBuf(), m_outputBuf(), m_program(), m_inputBufCL(), m_outputBufCL(), m_weaveBufCL(),
     m_inputPlanes(), m_weavePlanes(),
-    m_temporal(false), m_framesIn(0), m_frameOut(0), m_temporalRing() {
+    m_framesIn(0), m_frameOut(0), m_temporalRing() {
     m_name = _T("onnx-deint");
 }
 
@@ -153,10 +153,11 @@ RGY_ERR RGYFilterOnnxDeint::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<R
         AddMessage(RGY_LOG_ERROR, _T("onnx-deint: model \"%s\" architecture must be a string.\n"), prm->modelFile.c_str());
         return RGY_ERR_INVALID_PARAM;
     }
+    VppOnnxDeintArchitecture architecture;
     if (*modelEntry->onnxDeintArchitecture == _T("stdeint")) {
-        prm->architecture = VppOnnxDeintArchitecture::StDeint;
+        architecture = VppOnnxDeintArchitecture::StDeint;
     } else if (*modelEntry->onnxDeintArchitecture == _T("ddd")) {
-        prm->architecture = VppOnnxDeintArchitecture::DDD;
+        architecture = VppOnnxDeintArchitecture::DDD;
     } else {
         AddMessage(RGY_LOG_ERROR, _T("onnx-deint: model \"%s\" has unknown architecture \"%s\" (expected stdeint or ddd).\n"),
             prm->modelFile.c_str(), modelEntry->onnxDeintArchitecture->c_str());
@@ -201,15 +202,9 @@ RGY_ERR RGYFilterOnnxDeint::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<R
 
     m_ov = std::make_unique<RGYOpenVINO>();
     tstring errorMessage;
-    int inputChannels = 0, outputChannels = 0;
-    auto err = m_ov->peekChannels(m_modelPath, inputChannels, outputChannels, errorMessage);
-    if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("onnx-deint: failed to read model %s (%s): %s\n"), m_modelName.c_str(), m_modelPath.c_str(), errorMessage.c_str());
-        return err;
-    }
+    RGY_ERR err = RGY_ERR_NONE;
     //モデル方式はマニフェストのarchitectureで確定し、チャンネル数から推測しない。
-    m_spec = onnxDeintModelSpec(prm->architecture, m_width, m_height);
-    m_temporal = (m_spec.architecture == VppOnnxDeintArchitecture::DDD);
+    m_spec = onnxDeintModelSpec(architecture, m_width, m_height);
     const auto deviceLower = tolowercase(prm->device);
     const bool deviceWantsGpu = deviceLower.substr(0, 3) == _T("gpu") || deviceLower == _T("auto");
     //zero-copy経路のRGBバッファは3ch/フレーム解像度専用なので、temporalモデルではhost経路を使う。
@@ -233,7 +228,7 @@ RGY_ERR RGYFilterOnnxDeint::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<R
     }
     if (m_ov->inChannels() != m_spec.inputChannels || m_ov->outChannels() != m_spec.outputChannels) {
         AddMessage(RGY_LOG_ERROR, _T("onnx-deint: invalid %s model (expected %dch input / %dch output, got %dch / %dch).\n"),
-            m_temporal ? _T("DDD") : _T("ST-DeInt"), m_spec.inputChannels, m_spec.outputChannels,
+            m_spec.architecture == VppOnnxDeintArchitecture::DDD ? _T("DDD") : _T("ST-DeInt"), m_spec.inputChannels, m_spec.outputChannels,
             m_ov->inChannels(), m_ov->outChannels());
         return RGY_ERR_UNSUPPORTED;
     }
@@ -297,7 +292,7 @@ RGY_ERR RGYFilterOnnxDeint::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<R
         m_inputBuf.resize((size_t)m_spec.inputChannels * inputPlane);
         m_outputBuf.resize((size_t)m_spec.outputChannels * outputPlane);
     }
-    if (m_temporal) {
+    if (m_spec.architecture == VppOnnxDeintArchitecture::DDD) {
         err = allocTemporalRing(inputCsp, prm->frameIn.bitdepth);
         if (err != RGY_ERR_NONE) {
             return err;
@@ -329,10 +324,10 @@ RGY_ERR RGYFilterOnnxDeint::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<R
 
     m_param = prm;
     setFilterInfo(prm->print() + strsprintf(_T(", resolved=%s, architecture=%s, execution=%s"),
-        m_modelPath.c_str(), m_temporal ? _T("ddd") : _T("stdeint"),
+        m_modelPath.c_str(), m_spec.architecture == VppOnnxDeintArchitecture::DDD ? _T("ddd") : _T("stdeint"),
         m_useOcl ? _T("ocl") : _T("host")));
     AddMessage(RGY_LOG_DEBUG, _T("onnx-deint: model=%s, resolved=%s, architecture=%s, %dx%d, mode %s, device %s, execution=%s, model %dch/%dch %dx%d.\n"),
-        m_modelName.c_str(), m_modelPath.c_str(), m_temporal ? _T("ddd") : _T("stdeint"), m_width, m_height,
+        m_modelName.c_str(), m_modelPath.c_str(), m_spec.architecture == VppOnnxDeintArchitecture::DDD ? _T("ddd") : _T("stdeint"), m_width, m_height,
         get_cx_desc(list_vpp_onnx_deint_mode, (int)m_mode), prm->device.c_str(), m_useOcl ? _T("ocl") : _T("host"),
         m_ov->inChannels(), m_ov->outChannels(), m_spec.modelWidth, m_spec.modelHeight);
     return RGY_ERR_NONE;
@@ -346,7 +341,7 @@ RGY_ERR RGYFilterOnnxDeint::createRgbPlanes(RGYCLBuf *parent, std::array<std::un
         auto subbuf = clCreateSubBuffer(parent->mem(), CL_MEM_READ_WRITE, CL_BUFFER_CREATE_TYPE_REGION, &region, &clerr);
         if (clerr != CL_SUCCESS || subbuf == nullptr) {
             AddMessage(RGY_LOG_ERROR, _T("onnx-deint: failed to create RGB plane sub-buffer %d: %s.\n"), i, cl_errmes(clerr));
-            return err_cl_to_rgy(clerr);
+            return (clerr != CL_SUCCESS) ? err_cl_to_rgy(clerr) : RGY_ERR_MEMORY_ALLOC;
         }
         planes[i] = std::make_unique<RGYCLBuf>(subbuf, CL_MEM_READ_WRITE, planeBytes);
     }
@@ -375,7 +370,12 @@ RGY_ERR RGYFilterOnnxDeint::convertToRgb(const RGYFrameInfo *input, RGYOpenCLQue
     auto outputFrame = rgbFrame(m_inputPlanes);
     RGYFrameInfo *outputs[1] = { &outputFrame };
     int outputCount = 0;
-    return m_cropToRgb->filter(&inputFrame, outputs, &outputCount, queue, wait_events, event);
+    const auto err = m_cropToRgb->filter(&inputFrame, outputs, &outputCount, queue, wait_events, event);
+    if (err != RGY_ERR_NONE || outputCount != 1) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx-deint: YUV-to-RGB conversion returned %d outputs (err=%s).\n"), outputCount, get_err_mes(err));
+        return err != RGY_ERR_NONE ? err : RGY_ERR_UNKNOWN;
+    }
+    return RGY_ERR_NONE;
 }
 
 RGY_ERR RGYFilterOnnxDeint::convertFromRgb(RGYFrameInfo *output, RGYOpenCLQueue& queue,
@@ -383,7 +383,12 @@ RGY_ERR RGYFilterOnnxDeint::convertFromRgb(RGYFrameInfo *output, RGYOpenCLQueue&
     auto inputFrame = rgbFrame(m_weavePlanes);
     RGYFrameInfo *outputs[1] = { output };
     int outputCount = 0;
-    return m_cropFromRgb->filter(&inputFrame, outputs, &outputCount, queue, wait_events, event);
+    const auto err = m_cropFromRgb->filter(&inputFrame, outputs, &outputCount, queue, wait_events, event);
+    if (err != RGY_ERR_NONE || outputCount != 1) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx-deint: RGB-to-YUV conversion returned %d outputs (err=%s).\n"), outputCount, get_err_mes(err));
+        return err != RGY_ERR_NONE ? err : RGY_ERR_UNKNOWN;
+    }
+    return RGY_ERR_NONE;
 }
 
 void RGYFilterOnnxDeint::setOutputFrameProp(RGYFrameInfo *output, const RGYFrameInfo *input) const {
@@ -405,6 +410,27 @@ void RGYFilterOnnxDeint::setBobTimestamp(const RGYFrameInfo *input, RGYFrameInfo
     outputs[1]->duration = frameDuration - outputs[0]->duration;
     outputs[0]->inputFrameId = input->inputFrameId;
     outputs[1]->inputFrameId = input->inputFrameId;
+}
+
+RGY_ERR RGYFilterOnnxDeint::copyProgressiveOutputs(const RGYFrameInfo *input, RGYFrameInfo **outputs, int *outputCount,
+    RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event) {
+    const bool bob = m_mode == VppOnnxDeintMode::Bob;
+    const int count = bob ? 2 : 1;
+    for (int i = 0; i < count; i++) {
+        auto output = &m_frameBuf[i]->frame;
+        const auto err = m_cl->copyFrame(output, input, nullptr, queue,
+            (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>(),
+            (i == count - 1) ? event : nullptr);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("onnx-deint: failed to copy progressive input: %s.\n"), get_err_mes(err));
+            return err;
+        }
+        setOutputFrameProp(output, input);
+        outputs[i] = output;
+    }
+    *outputCount = count;
+    if (bob) setBobTimestamp(input, outputs);
+    return RGY_ERR_NONE;
 }
 
 RGY_ERR RGYFilterOnnxDeint::runOcl(const RGYFrameInfo *input, RGYFrameInfo **outputs, int outputCount,
@@ -486,7 +512,11 @@ RGY_ERR RGYFilterOnnxDeint::addTemporalFrame(const RGYFrameInfo *input, RGYOpenC
         return err;
     }
     std::memcpy(slot.rgb.data(), m_inputBufCL->mappedPtr(), slot.rgb.size() * sizeof(float));
-    m_inputBufCL->unmapBuffer(queue);
+    err = m_inputBufCL->unmapBuffer(queue);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx-deint: failed to unmap RGB input tensor: %s.\n"), get_err_mes(err));
+        return err;
+    }
 
     slot.tff = m_defaultTff;
     if (input->picstruct & RGY_PICSTRUCT_BFF) {
@@ -585,7 +615,11 @@ RGY_ERR RGYFilterOnnxDeint::procTemporalField(const int frameIndex, const int fi
         return err;
     }
     combineTemporalOutput(frameIndex, fieldPos, (float *)m_weaveBufCL->mappedPtr());
-    m_weaveBufCL->unmapBuffer(queue);
+    err = m_weaveBufCL->unmapBuffer(queue);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx-deint: failed to unmap RGB output tensor: %s.\n"), get_err_mes(err));
+        return err;
+    }
     return convertFromRgb(output, queue, {}, event);
 }
 
@@ -595,22 +629,16 @@ RGY_ERR RGYFilterOnnxDeint::emitTemporalFrame(const int frameIndex, RGYFrameInfo
     const auto *source = &slot.frame->frame;
     const bool bob = m_mode == VppOnnxDeintMode::Bob;
     const int outputCount = bob ? 2 : 1;
+    if (!slot.interlaced) {
+        return copyProgressiveOutputs(source, outputs, outputFrameNum, queue, wait_events, event);
+    }
     for (int i = 0; i < outputCount; i++) {
         auto output = &m_frameBuf[i]->frame;
         RGYOpenCLEvent *frame_event = (i == outputCount - 1) ? event : nullptr;
-        if (slot.interlaced) {
-            const auto err = procTemporalField(frameIndex, i, output, queue,
-                (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>(), frame_event);
-            if (err != RGY_ERR_NONE) {
-                return err;
-            }
-        } else {
-            const auto err = m_cl->copyFrame(output, source, nullptr, queue,
-                (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>(), frame_event);
-            if (err != RGY_ERR_NONE) {
-                AddMessage(RGY_LOG_ERROR, _T("onnx-deint: failed to copy progressive input: %s.\n"), get_err_mes(err));
-                return err;
-            }
+        const auto err = procTemporalField(frameIndex, i, output, queue,
+            (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>(), frame_event);
+        if (err != RGY_ERR_NONE) {
+            return err;
         }
         setOutputFrameProp(output, source);
         outputs[i] = output;
@@ -654,34 +682,19 @@ RGY_ERR RGYFilterOnnxDeint::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
     if (!pInputFrame) {
         return RGY_ERR_NONE;
     }
-    if (m_temporal) {
+    if (m_spec.architecture == VppOnnxDeintArchitecture::DDD) {
         return runTemporal(pInputFrame, ppOutputFrames, pOutputFrameNum, queue, wait_events, event);
     }
     if (!pInputFrame->ptr[0]) {
         return RGY_ERR_NONE;
     }
 
+    if ((pInputFrame->picstruct & RGY_PICSTRUCT_INTERLACED) == 0) {
+        return copyProgressiveOutputs(pInputFrame, ppOutputFrames, pOutputFrameNum, queue, wait_events, event);
+    }
+
     const bool bob = m_mode == VppOnnxDeintMode::Bob;
     const int outputCount = bob ? 2 : 1;
-    if ((pInputFrame->picstruct & RGY_PICSTRUCT_INTERLACED) == 0) {
-        for (int i = 0; i < outputCount; i++) {
-            auto output = &m_frameBuf[i]->frame;
-            const auto err = m_cl->copyFrame(output, pInputFrame, nullptr, queue,
-                (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>(),
-                (i == outputCount - 1) ? event : nullptr);
-            if (err != RGY_ERR_NONE) {
-                AddMessage(RGY_LOG_ERROR, _T("onnx-deint: failed to copy progressive input: %s.\n"), get_err_mes(err));
-                return err;
-            }
-            setOutputFrameProp(output, pInputFrame);
-            ppOutputFrames[i] = output;
-        }
-        *pOutputFrameNum = outputCount;
-        if (bob) {
-            setBobTimestamp(pInputFrame, ppOutputFrames);
-        }
-        return RGY_ERR_NONE;
-    }
 
     if (m_useOcl) {
         const auto err = runOcl(pInputFrame, ppOutputFrames, outputCount, queue, wait_events, event);
@@ -706,7 +719,11 @@ RGY_ERR RGYFilterOnnxDeint::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
         return err;
     }
     std::memcpy(m_inputBuf.data(), m_inputBufCL->mappedPtr(), m_inputBuf.size() * sizeof(float));
-    m_inputBufCL->unmapBuffer(queue);
+    err = m_inputBufCL->unmapBuffer(queue);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx-deint: failed to unmap RGB input tensor: %s.\n"), get_err_mes(err));
+        return err;
+    }
 
     err = m_ov->infer(m_inputBuf.data(), m_outputBuf.data());
     if (err != RGY_ERR_NONE) {
@@ -714,9 +731,16 @@ RGY_ERR RGYFilterOnnxDeint::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
         return err;
     }
     err = m_outputBufCL->queueMapBuffer(queue, CL_MAP_WRITE, {}, RGY_CL_MAP_BLOCK_ALL);
-    if (err != RGY_ERR_NONE) return err;
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx-deint: failed to map RGB output tensor: %s.\n"), get_err_mes(err));
+        return err;
+    }
     std::memcpy(m_outputBufCL->mappedPtr(), m_outputBuf.data(), m_outputBuf.size() * sizeof(float));
-    m_outputBufCL->unmapBuffer(queue);
+    err = m_outputBufCL->unmapBuffer(queue);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx-deint: failed to unmap RGB output tensor: %s.\n"), get_err_mes(err));
+        return err;
+    }
     bool inputTff = m_defaultTff;
     if (pInputFrame->picstruct & RGY_PICSTRUCT_BFF) {
         inputTff = false;
@@ -734,7 +758,10 @@ RGY_ERR RGYFilterOnnxDeint::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
         err = m_program->kernel("onnx_deint_weave_rgb").config(queue, local, global, {}, nullptr).launch(
             m_inputBufCL->mem(), m_outputBufCL->mem(), m_weaveBufCL->mem(),
             m_width, m_height, frameIndex == 0 ? 1 : 0);
-        if (err != RGY_ERR_NONE) return err;
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("onnx-deint: OpenCL weave failed: %s.\n"), get_err_mes(err));
+            return err;
+        }
         err = convertFromRgb(output, queue, {}, (i == outputCount - 1) ? event : nullptr);
         if (err != RGY_ERR_NONE) {
             return err;
