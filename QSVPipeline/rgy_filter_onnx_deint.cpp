@@ -31,8 +31,12 @@
 #include <algorithm>
 #include <cstring>
 
-static const int ONNX_DEINT_TEMPORAL_IN_CHANNELS = 9;
-static const int ONNX_DEINT_TEMPORAL_OUT_CHANNELS = 3;
+static OnnxDeintModelSpec onnxDeintModelSpec(VppOnnxDeintArchitecture architecture, int frameWidth, int frameHeight) {
+    if (architecture == VppOnnxDeintArchitecture::DDD) {
+        return { architecture, 9, 3, frameWidth, frameHeight / 2, frameWidth, frameHeight / 2, 1, false };
+    }
+    return { architecture, 3, 6, frameHeight, frameWidth, frameHeight / 2, frameWidth, 0, true };
+}
 
 static const TCHAR *onnx_deint_cx_desc_or_unknown(const CX_DESC *list, int value) {
     const auto desc = get_cx_desc(list, value);
@@ -67,7 +71,7 @@ static bool onnx_deint_supported_colorrange(CspColorRange range) {
 }
 
 RGYFilterOnnxDeint::RGYFilterOnnxDeint(shared_ptr<RGYOpenCLContext> context) :
-    RGYFilter(context), m_ov(), m_cropToRgb(), m_cropFromRgb(), m_width(0), m_height(0),
+    RGYFilter(context), m_ov(), m_cropToRgb(), m_cropFromRgb(), m_width(0), m_height(0), m_modelName(), m_modelPath(), m_spec(),
     m_mode(VppOnnxDeintMode::Bob), m_defaultTff(true), m_useOcl(false),
     m_inputBuf(), m_outputBuf(), m_program(), m_inputBufCL(), m_outputBufCL(), m_weaveBufCL(),
     m_inputPlanes(), m_weavePlanes(),
@@ -91,6 +95,8 @@ void RGYFilterOnnxDeint::close() {
     m_weaveBufCL.reset();
     m_inputBuf.clear();
     m_outputBuf.clear();
+    m_modelName.clear();
+    m_modelPath.clear();
     for (auto& slot : m_temporalRing) {
         slot.frame.reset();
         slot.rgb.clear();
@@ -101,7 +107,7 @@ void RGYFilterOnnxDeint::close() {
 }
 
 tstring RGYFilterParamOnnxDeint::print() const {
-    return strsprintf(_T("onnx-deint: %s, mode %s, device %s, precision %s, colormatrix %s, colorrange %s"), modelFile.c_str(),
+    return strsprintf(_T("onnx-deint: model=%s, mode %s, device %s, precision %s, colormatrix %s, colorrange %s"), modelFile.c_str(),
         get_cx_desc(list_vpp_onnx_deint_mode, (int)mode), device.c_str(), precision.c_str(),
         onnx_deint_cx_desc_or_unknown(list_colormatrix, colormatrix), onnx_deint_cx_desc_or_unknown(list_colorrange, colorrange));
 }
@@ -156,9 +162,10 @@ RGY_ERR RGYFilterOnnxDeint::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<R
             prm->modelFile.c_str(), modelEntry->onnxDeintArchitecture->c_str());
         return RGY_ERR_INVALID_PARAM;
     }
-    prm->modelFile = registry.resolveModelPath(prm->modelFile);
-    if (!rgy_file_exists(prm->modelFile)) {
-        AddMessage(RGY_LOG_ERROR, _T("onnx-deint: model file not found: %s\n"), prm->modelFile.c_str());
+    m_modelName = prm->modelFile;
+    m_modelPath = registry.resolveModelPath(m_modelName);
+    if (!rgy_file_exists(m_modelPath)) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx-deint: model file not found: %s\n"), m_modelPath.c_str());
         return RGY_ERR_FILE_OPEN;
     }
 
@@ -195,23 +202,21 @@ RGY_ERR RGYFilterOnnxDeint::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<R
     m_ov = std::make_unique<RGYOpenVINO>();
     tstring errorMessage;
     int inputChannels = 0, outputChannels = 0;
-    auto err = m_ov->peekChannels(prm->modelFile, inputChannels, outputChannels, errorMessage);
+    auto err = m_ov->peekChannels(m_modelPath, inputChannels, outputChannels, errorMessage);
     if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("onnx-deint: failed to read model %s: %s\n"), prm->modelFile.c_str(), errorMessage.c_str());
+        AddMessage(RGY_LOG_ERROR, _T("onnx-deint: failed to read model %s (%s): %s\n"), m_modelName.c_str(), m_modelPath.c_str(), errorMessage.c_str());
         return err;
     }
     //モデル方式はマニフェストのarchitectureで確定し、チャンネル数から推測しない。
-    m_temporal = (prm->architecture == VppOnnxDeintArchitecture::DDD);
-    //temporalモデルはフィールドを転置して渡すため、モデルの縦横は(フレーム幅, フィールド高さ)となる。
-    const int modelHeight = m_temporal ? m_width : m_height;
-    const int modelWidth = m_temporal ? m_height / 2 : m_width;
+    m_spec = onnxDeintModelSpec(prm->architecture, m_width, m_height);
+    m_temporal = (m_spec.architecture == VppOnnxDeintArchitecture::DDD);
     const auto deviceLower = tolowercase(prm->device);
     const bool deviceWantsGpu = deviceLower.substr(0, 3) == _T("gpu") || deviceLower == _T("auto");
     //zero-copy経路のRGBバッファは3ch/フレーム解像度専用なので、temporalモデルではhost経路を使う。
-    m_useOcl = deviceWantsGpu && m_cl && !m_temporal;
+    m_useOcl = deviceWantsGpu && m_cl && m_spec.supportsSharedOpenCL;
     if (m_useOcl) {
-        err = m_ov->initShared(prm->modelFile, (void *)m_cl->queue().get(), (void *)m_cl->context(),
-            modelHeight, modelWidth, errorMessage, prm->precision);
+        err = m_ov->initShared(m_modelPath, (void *)m_cl->queue().get(), (void *)m_cl->context(),
+            m_spec.modelHeight, m_spec.modelWidth, errorMessage, prm->precision);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_WARN, _T("onnx-deint: OpenCL zero-copy initialization failed; falling back to host path: %s\n"),
                 errorMessage.c_str());
@@ -220,34 +225,27 @@ RGY_ERR RGYFilterOnnxDeint::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<R
         }
     }
     if (!m_useOcl) {
-        err = m_ov->init(prm->modelFile, prm->device, modelHeight, modelWidth, errorMessage, prm->precision);
+        err = m_ov->init(m_modelPath, prm->device, m_spec.modelHeight, m_spec.modelWidth, errorMessage, prm->precision);
     }
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("onnx-deint: failed to load/compile model on %s: %s\n"), prm->device.c_str(), errorMessage.c_str());
         return err;
     }
-    if (m_temporal) {
-        if (m_ov->inChannels() != ONNX_DEINT_TEMPORAL_IN_CHANNELS || m_ov->outChannels() != ONNX_DEINT_TEMPORAL_OUT_CHANNELS) {
-            AddMessage(RGY_LOG_ERROR, _T("onnx-deint: invalid temporal model (expected %dch input / %dch output, got %dch / %dch).\n"),
-                ONNX_DEINT_TEMPORAL_IN_CHANNELS, ONNX_DEINT_TEMPORAL_OUT_CHANNELS, m_ov->inChannels(), m_ov->outChannels());
-            return RGY_ERR_UNSUPPORTED;
-        }
-        if (m_ov->outHeight() != modelHeight || m_ov->outWidth() != modelWidth) {
-            AddMessage(RGY_LOG_ERROR, _T("onnx-deint: temporal output must keep the transposed field size (expected %dx%d, got %dx%d).\n"),
-                modelWidth, modelHeight, m_ov->outWidth(), m_ov->outHeight());
-            return RGY_ERR_UNSUPPORTED;
-        }
-    } else {
-        if (m_ov->inChannels() != 3 || m_ov->outChannels() != 6) {
-            AddMessage(RGY_LOG_ERROR, _T("onnx-deint: invalid model (expected 3ch input / 6ch output, got %dch / %dch).\n"),
-                m_ov->inChannels(), m_ov->outChannels());
-            return RGY_ERR_UNSUPPORTED;
-        }
-        if (m_ov->outHeight() != m_height / 2 || m_ov->outWidth() != m_width) {
-            AddMessage(RGY_LOG_ERROR, _T("onnx-deint: restoration output must be 6ch with half input height (expected %dx%d, got %dx%d).\n"),
-                m_width, m_height / 2, m_ov->outWidth(), m_ov->outHeight());
-            return RGY_ERR_UNSUPPORTED;
-        }
+    if (m_ov->inChannels() != m_spec.inputChannels || m_ov->outChannels() != m_spec.outputChannels) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx-deint: invalid %s model (expected %dch input / %dch output, got %dch / %dch).\n"),
+            m_temporal ? _T("DDD") : _T("ST-DeInt"), m_spec.inputChannels, m_spec.outputChannels,
+            m_ov->inChannels(), m_ov->outChannels());
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (m_ov->inHeight() != m_spec.modelHeight || m_ov->inWidth() != m_spec.modelWidth) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx-deint: model input size mismatch (expected %dx%d, got %dx%d).\n"),
+            m_spec.modelWidth, m_spec.modelHeight, m_ov->inWidth(), m_ov->inHeight());
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (m_ov->outHeight() != m_spec.outputHeight || m_ov->outWidth() != m_spec.outputWidth) {
+        AddMessage(RGY_LOG_ERROR, _T("onnx-deint: model output size mismatch (expected %dx%d, got %dx%d).\n"),
+            m_spec.outputWidth, m_spec.outputHeight, m_ov->outWidth(), m_ov->outHeight());
+        return RGY_ERR_UNSUPPORTED;
     }
 
     prm->frameOut.csp = inputCsp;
@@ -286,7 +284,7 @@ RGY_ERR RGYFilterOnnxDeint::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<R
             AddMessage(RGY_LOG_WARN, _T("onnx-deint: failed to bind OpenCL remote tensors; falling back to host path: %s.\n"), get_err_mes(err));
             m_useOcl = false;
             errorMessage.clear();
-            err = m_ov->init(prm->modelFile, prm->device, modelHeight, modelWidth, errorMessage, prm->precision);
+            err = m_ov->init(m_modelPath, prm->device, m_spec.modelHeight, m_spec.modelWidth, errorMessage, prm->precision);
             if (err != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("onnx-deint: host fallback model initialization failed on %s: %s\n"), prm->device.c_str(), errorMessage.c_str());
                 return err;
@@ -294,9 +292,10 @@ RGY_ERR RGYFilterOnnxDeint::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<R
         }
     }
     if (!m_useOcl) {
-        const size_t modelPlane = (size_t)modelHeight * modelWidth;
-        m_inputBuf.resize(m_temporal ? ONNX_DEINT_TEMPORAL_IN_CHANNELS * modelPlane : 3 * plane);
-        m_outputBuf.resize(m_temporal ? ONNX_DEINT_TEMPORAL_OUT_CHANNELS * modelPlane : 3 * plane);
+        const size_t inputPlane = (size_t)m_spec.modelHeight * m_spec.modelWidth;
+        const size_t outputPlane = (size_t)m_spec.outputHeight * m_spec.outputWidth;
+        m_inputBuf.resize((size_t)m_spec.inputChannels * inputPlane);
+        m_outputBuf.resize((size_t)m_spec.outputChannels * outputPlane);
     }
     if (m_temporal) {
         err = allocTemporalRing(inputCsp, prm->frameIn.bitdepth);
@@ -329,11 +328,13 @@ RGY_ERR RGYFilterOnnxDeint::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<R
     if (err != RGY_ERR_NONE) return err;
 
     m_param = prm;
-    setFilterInfo(prm->print() + strsprintf(_T(", path %s%s"), m_useOcl ? _T("ocl") : _T("host"), m_temporal ? _T(", temporal") : _T("")));
-    AddMessage(RGY_LOG_DEBUG, _T("onnx-deint: %s, %dx%d, mode %s, device %s, path %s, model %dch/%dch %dx%d.\n"),
-        prm->modelFile.c_str(), m_width, m_height, get_cx_desc(list_vpp_onnx_deint_mode, (int)m_mode),
-        prm->device.c_str(), m_useOcl ? _T("ocl") : _T("host"),
-        m_ov->inChannels(), m_ov->outChannels(), modelWidth, modelHeight);
+    setFilterInfo(prm->print() + strsprintf(_T(", resolved=%s, architecture=%s, execution=%s"),
+        m_modelPath.c_str(), m_temporal ? _T("ddd") : _T("stdeint"),
+        m_useOcl ? _T("ocl") : _T("host")));
+    AddMessage(RGY_LOG_DEBUG, _T("onnx-deint: model=%s, resolved=%s, architecture=%s, %dx%d, mode %s, device %s, execution=%s, model %dch/%dch %dx%d.\n"),
+        m_modelName.c_str(), m_modelPath.c_str(), m_temporal ? _T("ddd") : _T("stdeint"), m_width, m_height,
+        get_cx_desc(list_vpp_onnx_deint_mode, (int)m_mode), prm->device.c_str(), m_useOcl ? _T("ocl") : _T("host"),
+        m_ov->inChannels(), m_ov->outChannels(), m_spec.modelWidth, m_spec.modelHeight);
     return RGY_ERR_NONE;
 }
 
@@ -631,7 +632,7 @@ RGY_ERR RGYFilterOnnxDeint::runTemporal(const RGYFrameInfo *input, RGYFrameInfo 
         if (err != RGY_ERR_NONE) {
             return err;
         }
-        if (m_frameOut + 1 < m_framesIn) {
+        if (m_frameOut + m_spec.lookaheadFrames < m_framesIn) {
             const int frameIndex = m_frameOut++;
             return emitTemporalFrame(frameIndex, outputs, outputFrameNum, queue, {}, event);
         }

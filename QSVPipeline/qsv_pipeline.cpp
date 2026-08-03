@@ -2984,7 +2984,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         clfilters.push_back(std::move(filter));
         return RGY_ERR_NONE;
     }
-    // ST-DeIntデインターレース
+    // ONNXモデルベースのデインターレース
     if (vppType == VppType::CL_ONNX_DEINT) {
         unique_ptr<RGYFilter> filter(new RGYFilterOnnxDeint(m_cl));
         shared_ptr<RGYFilterParamOnnxDeint> param(new RGYFilterParamOnnxDeint());

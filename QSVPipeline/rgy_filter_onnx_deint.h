@@ -36,6 +36,20 @@
 #include <memory>
 #include <vector>
 
+// 選択したモデル方式のテンソル契約を一か所で保持する。
+// modelHeight/modelWidth は入力フレーム解像度から初期化時に決定する。
+struct OnnxDeintModelSpec {
+    VppOnnxDeintArchitecture architecture;
+    int inputChannels;
+    int outputChannels;
+    int modelHeight;
+    int modelWidth;
+    int outputHeight;
+    int outputWidth;
+    int lookaheadFrames;
+    bool supportsSharedOpenCL;
+};
+
 class RGYFilterParamOnnxDeint : public RGYFilterParam {
 public:
     tstring modelFile;
@@ -102,6 +116,9 @@ protected:
     std::unique_ptr<RGYFilterCspCrop> m_cropFromRgb;
     int m_width;
     int m_height;
+    tstring m_modelName;
+    tstring m_modelPath;
+    OnnxDeintModelSpec m_spec;
     VppOnnxDeintMode m_mode;
     bool m_defaultTff;
     bool m_useOcl;
