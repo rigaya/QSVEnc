@@ -1,5 +1,9 @@
 # QSVEnc Release Notes
 
+## 8.25
+
+- Update for QSVEnc.auo2 only.
+
 ## 8.24
 
 - Change default AVSync to vfr to reduce audio desync on ts drop. ([--avsync](./QSVEncC_Options.en.md#--avsync-string))
@@ -10,6 +14,8 @@
 - Fix chroma Degrain analysis in [--vpp-rtgmc](./QSVEncC_Options.en.md#--vpp-rtgmc-param1value1).
 - Speed up [--vpp-onnx](./QSVEncC_Options.en.md#--vpp-onnx-param1value1param2value2)/[--vpp-rife-ov](./QSVEncC_Options.en.md#--vpp-rife-ov-param1value1param2value2) with zero-copy path.
 - Support frames setting of registered models in [--vpp-onnx](./QSVEncC_Options.en.md#--vpp-onnx-param1value1param2value2).
+- Add the new [--vpp-onnx-deint](./QSVEncC_Options.en.md#--vpp-onnx-deint-param1value1param2value2) CLI integrating ST-DeInt and DDD through the `onnx_deint_models.json` registered-model manifest.
+- Fix host-side 4:2:0 chroma rounding in the ONNX conversion path under fast floating-point settings.
 - Fix crash when OpenCL output worker is disabled.
 - Fix OpenCL frame pool issues.
 - Support saving/restoring per-project output settings in AviUtl2.
