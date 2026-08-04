@@ -169,6 +169,7 @@ const char *get_encoder_version();
 #define ENABLE_CAPTION2ASS 0
 #define ENABLE_DOVI_METADATA_OPTIONS 1
 #define ENABLE_HYPER_MODE 0
+#define ENABLE_AUTO_PICSTRUCT 1
 #include "rgy_config.h"
 #define ENCODER_NAME              "QSVEncC"
 #define DECODER_NAME              "qsv"
