@@ -1111,6 +1111,9 @@ RGY_ERR RGYFilterResize::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
         return RGY_ERR_OPENCL_CRUSH;
     }
 
+    //インタレを保持したままフレーム全体をresizeすると隣接するフィールドの画素が混ざって櫛状に破綻するため、
+    //フィールドごとに分離してresizeし、再度インターリーブして戻す。
+    //インタレ解除を使わない構成で、入力途中の解像度変更に伴う正規化resizeが挿入される場合にこの経路が必要となる。
     if (interlaced(*pInputFrame)) {
         return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], queue);
     }

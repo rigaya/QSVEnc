@@ -2485,6 +2485,8 @@ RGY_ERR RGYOpenCLContext::copyPlane(RGYFrameInfo *planeDstOrg, const RGYFrameInf
     return copyPlaneField(planeDstOrg, planeSrcOrg, copyMode, copyMode, planeCrop, queue, wait_events, event, perfLabel);
 }
 
+//src/dstで独立にフィールドモードを指定できるコピー。copyPlane()は両者に同じモードを渡すだけの薄いラッパ。
+//フィールド分離/合成(FIELD_TOP/BOTTOM <-> FRAME)では、コピー元とコピー先で1行おき/連続が食い違うため、src/dstを分ける必要がある。
 RGY_ERR RGYOpenCLContext::copyPlaneField(RGYFrameInfo *planeDstOrg, const RGYFrameInfo *planeSrcOrg, RGYFrameCopyMode srcMode, RGYFrameCopyMode dstMode, const sInputCrop *planeCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event, const char *perfLabel) {
     cl_int err = CL_SUCCESS;
     const std::vector<cl_event> v_wait_list = toVec(wait_events);
@@ -2500,6 +2502,7 @@ RGY_ERR RGYOpenCLContext::copyPlaneField(RGYFrameInfo *planeDstOrg, const RGYFra
     RGYFrameInfo planeSrc = *planeSrcOrg;
     const bool dstImage = planeDst.mem_type == RGY_MEM_TYPE_GPU_IMAGE || planeDst.mem_type == RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED;
     const bool srcImage = planeSrc.mem_type == RGY_MEM_TYPE_GPU_IMAGE || planeSrc.mem_type == RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED;
+    //buffer側は「pitchを2倍・高さを半分」にすることで1行おきのアクセスを表現できる。imageにはpitchがないのでこの手は使えず、後述のlineStepでkernel側に伝える
     if (dstMode != RGYFrameCopyMode::FRAME) {
         planeDst.pitch[0] <<= 1;
         planeDst.height >>= 1;
@@ -2508,16 +2511,20 @@ RGY_ERR RGYOpenCLContext::copyPlaneField(RGYFrameInfo *planeDstOrg, const RGYFra
         planeSrc.pitch[0] <<= 1;
         planeSrc.height >>= 1;
     }
+    //originの意味がbufferとimageで異なる罠: bufferでは[0]がbyteオフセット、imageでは[0]がx画素・[1]がy行。
+    //bottom fieldの開始位置は、bufferなら1行分のbyte(=元のpitch)、imageならy=1として表す。
     size_t dst_origin[3] = { (!dstImage && dstMode == RGYFrameCopyMode::FIELD_BOTTOM) ? (size_t)planeDstOrg->pitch[0] : 0,
         (dstImage && dstMode == RGYFrameCopyMode::FIELD_BOTTOM) ? 1u : 0u, 0 };
     size_t src_origin[3] = { (!srcImage && srcMode == RGYFrameCopyMode::FIELD_BOTTOM) ? (size_t)planeSrcOrg->pitch[0] : 0,
         (srcImage && srcMode == RGYFrameCopyMode::FIELD_BOTTOM) ? 1u : 0u, 0 };
+    //image側のみkernelに行間隔を渡して y*2 でアクセスさせる。buffer側はpitchの2倍化で対応済みなので常に1
     const int dstLineStep = (dstImage && dstMode != RGYFrameCopyMode::FRAME) ? 2 : 1;
     const int srcLineStep = (srcImage && srcMode != RGYFrameCopyMode::FRAME) ? 2 : 1;
     if (planeCrop) {
         src_origin[0] += planeCrop->e.left * pixel_size;
         src_origin[1] += planeCrop->e.up;
     }
+    //src/dstでモードが異なると高さも異なりうる(例: フィールド分離ではsrcはフレーム高さの半分、dstは分離先の全高)。小さい方に合わせないとはみ出す
     size_t region[3] = { (size_t)planeSrc.width * pixel_size, (size_t)std::min(planeSrc.height, planeDst.height), 1 };
     if (planeSrc.mem_type == RGY_MEM_TYPE_GPU) {
         if (planeDst.mem_type == RGY_MEM_TYPE_GPU) {
@@ -2604,6 +2611,7 @@ RGY_ERR RGYOpenCLContext::copyPlaneField(RGYFrameInfo *planeDstOrg, const RGYFra
                 planeSrc.width, (int)region[1]);
             err = err_rgy_to_cl(rgy_err);
         } else if (planeDst.mem_type == RGY_MEM_TYPE_GPU_IMAGE || planeDst.mem_type == RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED) {
+            //image間の直接コピーは1行おきのアクセスを表現できないため、フィールドが絡む場合はkernel経由に落とす
             if (planeDst.csp == planeSrc.csp && srcMode == RGYFrameCopyMode::FRAME && dstMode == RGYFrameCopyMode::FRAME) {
                 clGetImageInfo((cl_mem)planeDst.ptr[0], CL_IMAGE_WIDTH, sizeof(region[0]), &region[0], nullptr);
                 const auto host_start = rgy_cl_perf_begin(perf_enabled);
@@ -2633,6 +2641,7 @@ RGY_ERR RGYOpenCLContext::copyPlaneField(RGYFrameInfo *planeDstOrg, const RGYFra
                 || planeDst.mem_type == RGY_MEM_TYPE_MPP
 #endif
         ) {
+            //clEnqueueReadImageは行を飛ばして読めないため未対応。フィルタ内部のフィールド処理でこの経路に来ることはない
             if (srcMode != RGYFrameCopyMode::FRAME || dstMode != RGYFrameCopyMode::FRAME) {
                 CL_LOG(RGY_LOG_ERROR, _T("field copy from OpenCL image to host memory is not supported.\n"));
                 return RGY_ERR_UNSUPPORTED;
@@ -2666,6 +2675,7 @@ RGY_ERR RGYOpenCLContext::copyPlaneField(RGYFrameInfo *planeDstOrg, const RGYFra
                     host_start, host_start + host_time, (uint64_t)(uintptr_t)queue.get());
             }
         } else if (planeDst.mem_type == RGY_MEM_TYPE_GPU_IMAGE) {
+            //clEnqueueWriteImageも同様に行飛ばしができないため未対応
             if (srcMode != RGYFrameCopyMode::FRAME || dstMode != RGYFrameCopyMode::FRAME) {
                 CL_LOG(RGY_LOG_ERROR, _T("field copy from host memory to OpenCL image is not supported.\n"));
                 return RGY_ERR_UNSUPPORTED;
@@ -2715,6 +2725,8 @@ RGY_ERR RGYOpenCLContext::copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, 
     return copyFrameField(dst, src, copyMode, copyMode, srcCrop, queue, wait_events, event, perfLabel);
 }
 
+//src/dstで独立にフィールドモードを指定できるフレームコピー。copyFrame()は両者に同じモードを渡すだけの薄いラッパ。
+//srcMode=FIELD_TOP/BOTTOM, dstMode=FRAME でフィールド分離、その逆でフィールド合成となる。
 RGY_ERR RGYOpenCLContext::copyFrameField(RGYFrameInfo *dst, const RGYFrameInfo *src, RGYFrameCopyMode srcMode, RGYFrameCopyMode dstMode, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event, const char *perfLabel) {
     if (dst->csp != src->csp) {
         CL_LOG(RGY_LOG_ERROR, _T("in/out csp should be same in copyFrame.\n"));
@@ -2741,11 +2753,13 @@ RGY_ERR RGYOpenCLContext::copyFrameField(RGYFrameInfo *dst, const RGYFrameInfo *
                 return RGY_ERR_OPENCL_CRUSH;
             }
             RGYWorkSize local(32, 8);
+            //フィールドモード側は実効の高さが半分になる。src/dstでモードが異なると高さも異なるので小さい方に合わせる
             const int srcHeight = (srcMode == RGYFrameCopyMode::FRAME) ? planeSrc.height : planeSrc.height >> 1;
             const int dstHeight = (dstMode == RGYFrameCopyMode::FRAME) ? planeDst.height : planeDst.height >> 1;
             const int copyHeight = std::min(srcHeight, dstHeight);
             RGYWorkSize global(planeDst.width >> 1, copyHeight);
             err = copyProgram->kernel("kernel_copy_plane_nv12").config(queue, local, global, wait_events, event).launch(
+                //nv12の色差はkernel側でLOAD/STOREマクロがpitch計算を行うため、行のオフセット(bottom fieldなら1)と行間隔(フィールドなら2)をそのまま渡す
                 (cl_mem)planeDst.ptr[0], planeDst.pitch[0],
                 dstMode == RGYFrameCopyMode::FIELD_BOTTOM ? 1 : 0, dstMode == RGYFrameCopyMode::FRAME ? 1 : 2,
                 (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0],
@@ -2768,6 +2782,9 @@ RGY_ERR RGYOpenCLContext::copyFrameField(RGYFrameInfo *dst, const RGYFrameInfo *
             }
         }
     }
+    //フィールド分離(field -> frame)の結果は単体のprogressiveフレームなので、picstructとRFF関連フラグを付け替える。
+    //逆のフィールド合成(frame -> field)ではdstは合成途中の状態(もう片方のフィールドは別の呼び出しで埋まる)なので、
+    //dst側の属性は呼び出し元が管理しているものを壊さないよう、あえて何も書き換えない。
     if (srcMode != RGYFrameCopyMode::FRAME && dstMode == RGYFrameCopyMode::FRAME) {
         dst->picstruct = RGY_PICSTRUCT_FRAME;
         dst->flags = src->flags & ~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF);

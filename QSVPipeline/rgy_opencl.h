@@ -1231,12 +1231,14 @@ public:
     RGY_ERR copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue);
     RGY_ERR copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
     RGY_ERR copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event = nullptr, RGYFrameCopyMode copyMode = RGYFrameCopyMode::FRAME, const char *perfLabel = nullptr);
+    //src/dstで別々のフィールドモードを指定できるコピー。フィールド分離(src=FIELD_xxx, dst=FRAME)/合成(その逆)に使う
     RGY_ERR copyFrameField(RGYFrameInfo *dst, const RGYFrameInfo *src, RGYFrameCopyMode srcMode, RGYFrameCopyMode dstMode, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events = {}, RGYOpenCLEvent *event = nullptr, const char *perfLabel = nullptr);
     RGY_ERR copyPlane(RGYFrameInfo *dst, const RGYFrameInfo *src);
     RGY_ERR copyPlane(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop);
     RGY_ERR copyPlane(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue);
     RGY_ERR copyPlane(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
     RGY_ERR copyPlane(RGYFrameInfo *dst, const RGYFrameInfo *src, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event = nullptr, RGYFrameCopyMode copyMode = RGYFrameCopyMode::FRAME, const char *perfLabel = nullptr);
+    //copyFrameFieldのplane単位版
     RGY_ERR copyPlaneField(RGYFrameInfo *dst, const RGYFrameInfo *src, RGYFrameCopyMode srcMode, RGYFrameCopyMode dstMode, const sInputCrop *srcCrop, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events = {}, RGYOpenCLEvent *event = nullptr, const char *perfLabel = nullptr);
     RGY_ERR setPlane(int value, RGYFrameInfo *dst);
     RGY_ERR setPlane(int value, RGYFrameInfo *dst, const sInputCrop *srcCrop);

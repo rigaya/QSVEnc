@@ -61,6 +61,7 @@ public:
     mfxSession GetSession() { return m_mfxSession; }
     MFXVideoVPP *mfxvpp() { return m_mfxVPP.get(); }
     mfxVideoParam& mfxparams() { return m_mfxVppParams; }
+    // VPPが現在期待している入力解像度をcrop適用前に戻したもの。上流から流れてくるサーフェスのInfo.CropW/CropHはcrop適用前の値なので、解像度変更の検出はこれと比較する
     int inputWidthBeforeCrop() const { return m_mfxVppParams.vpp.In.CropW + m_crop.e.left + m_crop.e.right; }
     int inputHeightBeforeCrop() const { return m_mfxVppParams.vpp.In.CropH + m_crop.e.up + m_crop.e.bottom; }
     mfxVersion mfxver() const { return m_mfxVer; }
@@ -93,6 +94,7 @@ protected:
     QSVDeviceNum m_deviceNum;
     int m_asyncDepth;
 
+    //SetParam時の入力確保サイズ。ResetInputResolutionでこれを超える解像度は確保済みサーフェスに収まらないため拒否する
     mfxU16 m_initialInputWidth;
     mfxU16 m_initialInputHeight;
     sInputCrop m_crop;

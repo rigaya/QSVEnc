@@ -1740,6 +1740,8 @@ RGY_ERR CQSVPipeline::AllocFrames() {
         // t1がバイパスされうる場合(解像度変更対応で常設したno-op MFX VPPブロック)、
         // バイパス中はt0で確保したサーフェスがt1を素通りしてその次のtaskまで到達する。
         // このためt1の次のtaskの要求(枚数・アライメント・メモリタイプ)もここに織り込んでおく必要がある。
+        // この確保処理は本来t0/t1の隣接2タスクしか見ないため、織り込み漏れがあると
+        // 「getWorkSurf: all N frames used」(枚数不足)や「EncodeFrameAsync: invalid video parameters」(アライメント不足)で落ちる。
         PipelineTask *t2 = nullptr;
         std::optional<mfxFrameAllocRequest> t2Alloc;
         if (t1->mayBypass()) {
@@ -2520,6 +2522,10 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
 
     if (filterPipeline.size() == 0) {
 #if ENABLE_INPUT_RESOLUTION_CHANGE
+        // フィルタが一つもない構成(input/decode -> encodeの直結)では解像度変更を吸収する場所がないため、
+        // 正規化に使えるMFX VPPブロックをここで常設しておく。
+        // ただし等倍のMFX VPPは無劣化ではない(SetVppExtBuffers: Copyでも画質が変わる)ので、
+        // 解像度変更が起きるまではPipelineTaskMFXVpp側でVPPを通さず素通しする(m_vppMfxBypassForResChange)。
         filterPipeline.push_back(VppType::MFX_COPY);
         m_vppMfxBypassForResChange = true;
 #endif
@@ -5552,6 +5558,8 @@ RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
     }
     m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(&m_device->mfxSession(), srcTimebase, m_outputTimebase, outFrameDuration, m_nAVSyncMode, m_timestampPassThrough, VppAfsRffAware() && m_pFileReader->rffAware(), m_mfxVer, m_pQSVLog));
 
+    // 入力途中の解像度変更時に、フィルタチェーン先頭の直後へ挿入して元の解像度へ戻すための正規化resizeパラメータ。
+    // 解像度変更が起こらなければ一度も使われないので、遅延生成にしてOpenCLブロックが複数ある場合も同じものを共有する。
     std::shared_ptr<RGYFilterParamResize> normalizeResizeParam;
     auto getNormalizeResizeParam = [&]() {
         if (normalizeResizeParam != nullptr) {
@@ -5559,6 +5567,8 @@ RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
         }
         normalizeResizeParam = std::make_shared<RGYFilterParamResize>();
         const auto resizeAlgo = prm->vpp.resize_algo;
+        // ユーザー指定のアルゴリズムを流用するが、OpenCL実装でないもの(MFX系など)はここでは使えず、
+        // FSR1/NISは拡大専用・追加パラメータ前提で正規化(主に縮小)用途に向かないため、いずれもspline36へfallbackする。
         if (resizeAlgo == RGY_VPP_RESIZE_AUTO) {
             normalizeResizeParam->interp = RGY_VPP_RESIZE_SPLINE36;
             PrintMes(RGY_LOG_DEBUG, _T("resolution change: OpenCL normalization resize uses spline36 for auto resize mode.\n"));

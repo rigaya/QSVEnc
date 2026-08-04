@@ -124,6 +124,7 @@ RGY_ERR RGYFilterCspCrop::convertCspFromNV12(RGYFrameInfo *pOutputFrame, const R
         auto planeSrc = getPlane(pInputFrame, RGY_PLANE_C);
         RGYWorkSize local(32, 8);
         RGYWorkSize global(planeDst.width >> 1, planeDst.height);
+        //LineOffset=0, LineStep=1 はフィールド分離を行わない通常のフレーム単位コピーを意味する(フィールド指定はcopyPlaneField経由でのみ使用)
         auto err = copyProgram->kernel("kernel_copy_plane_nv12").config(queue, local, global, wait_events, event).launch(
             (cl_mem)planeDst.ptr[0], planeDst.pitch[0], 0, 1,
             (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0], 0, 1, planeSrc.width >> 1, planeSrc.height,
@@ -266,6 +267,7 @@ RGY_ERR RGYFilterCspCrop::convertCspFromYV12(RGYFrameInfo *pOutputFrame, const R
         const bool dstImage = planeDst.mem_type == RGY_MEM_TYPE_GPU_IMAGE || planeDst.mem_type == RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED;
         RGYWorkSize local = dstImage ? RGYWorkSize(16, 16) : RGYWorkSize(32, 8);
         RGYWorkSize global(planeDst.width, planeDst.height);
+        //末尾の1はLineStep=1、すなわちフィールド分離を行わない通常のフレーム単位コピー(フィールド指定はcopyPlaneField経由でのみ使用)
         auto err = copyProgram->kernel("kernel_copy_plane").config(queue, local, global, wait_events, event).launch(
             (cl_mem)planeDst.ptr[0], planeDst.pitch[0], 0, 0, 1,
             (cl_mem)planeSrc.ptr[0], planeSrc.pitch[0], pCropParam->crop.e.left, pCropParam->crop.e.up, 1,

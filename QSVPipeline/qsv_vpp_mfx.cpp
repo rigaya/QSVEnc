@@ -216,9 +216,13 @@ RGY_ERR QSVVppMfx::Reset(
     return Init();
 }
 
+// 入力途中の解像度変更時に、vpp.Inのみを新解像度に差し替えてResetする。
+// vpp.Outはそのまま維持するため、MFX VPP自体がリサイズを兼ねて出力を初期解像度へ正規化することになる
+// (= 解像度変更を下流に伝播させない)。--avhw かつ MFX VPPが構成に含まれる場合の経路。
 RGY_ERR QSVVppMfx::ResetInputResolution(const mfxFrameInfo& newInputInfo) {
     const int currentInputWidth = inputWidthBeforeCrop();
     const int currentInputHeight = inputHeightBeforeCrop();
+    // VPPのサーフェスは初期解像度で確保されているため、それを超える解像度には対応できない
     if (newInputInfo.Width > m_initialInputWidth || newInputInfo.Height > m_initialInputHeight) {
         PrintMes(RGY_LOG_ERROR,
             _T("input resolution changed from %dx%d to %dx%d, which exceeds the initial VPP allocation %dx%d and is not supported yet.\n"),
@@ -228,6 +232,7 @@ RGY_ERR QSVVppMfx::ResetInputResolution(const mfxFrameInfo& newInputInfo) {
         return RGY_ERR_UNSUPPORTED;
     }
 
+    // --cropは新解像度に対しても同じ画素数で適用されるため、cropしきれない小さな解像度になった場合は対応できない
     const int cropWidth = m_crop.e.left + m_crop.e.right;
     const int cropHeight = m_crop.e.up + m_crop.e.bottom;
     if (newInputInfo.CropW <= cropWidth || newInputInfo.CropH <= cropHeight) {
@@ -239,6 +244,7 @@ RGY_ERR QSVVppMfx::ResetInputResolution(const mfxFrameInfo& newInputInfo) {
         return RGY_ERR_UNSUPPORTED;
     }
 
+    // Width/Heightはアライメント済みの確保サイズ、CropW/CropHが実際の絵の大きさ。渡された新解像度からcrop分を差し引いてvpp.Inを作る
     auto newInput = m_mfxVppParams.vpp.In;
     newInput.Width = newInputInfo.Width;
     newInput.Height = newInputInfo.Height;

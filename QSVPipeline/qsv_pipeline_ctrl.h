@@ -549,6 +549,7 @@ public:
         return (m_stopwatch) ? m_stopwatch->maxWorkStrLen() : 0u;
     }
     virtual bool isPassThrough() const { return false; }
+    //実行時に自身を素通しする可能性があるtaskか。trueの場合、AllocFrames()は「このtaskを飛び越えて次のtaskまでサーフェスが届く」前提で確保量を計算する
     virtual bool mayBypass() const { return false; }
     virtual tstring print() const { return getPipelineTaskTypeName(m_type); }
     virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() = 0;
@@ -766,6 +767,7 @@ public:
     }
     virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override { return std::nullopt; };
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override { return std::nullopt; };
+    // 後続がMFXサーフェスを要求する構成(input -> MFX VPP/encode)向けの読み込み経路
     RGY_ERR loadNextFrameMFX(PipelineTaskSurface& surfWork) {
         if (m_stopwatch) m_stopwatch->set(0);
         auto mfxSurf = surfWork.mfx()->surf();
@@ -803,6 +805,7 @@ public:
         if (m_stopwatch) m_stopwatch->add(0, 4);
         return err;
     }
+    // 後続がOpenCLフィルタの構成(input -> OpenCL filter)向けの読み込み経路。プールされたCLフレームをmapしてreaderに書かせる
     RGY_ERR loadNextFrameCL(PipelineTaskSurface& surfWork) {
         if (m_stopwatch) m_stopwatch->set(0);
         auto clframe = surfWork.cl();
@@ -811,6 +814,8 @@ public:
         // mapするサイズは frame.height から計算されるため(RGYCLFrameMap::map)、
         // 解像度変更で縮めたままの解像度でmapすると、その後解像度が元に戻ったときに
         // reader がmap範囲外へ書き込むことになる。map前に確保時の解像度へ戻しておく。
+        // バッファ自体はCL_MEM_ALLOC_HOST_PTRで初期解像度分確保されているため範囲外書き込みでもクラッシュせず、
+        // 静かにデータが壊れるだけなので気づきにくい。getWorkSurf()がプールから取り出す際に解像度を戻さないのが根本原因。
         if (m_workSurfAllocHeight > 0
             && (clframe->frame.width != m_workSurfAllocWidth || clframe->frame.height != m_workSurfAllocHeight)) {
             clframe->frame.width = m_workSurfAllocWidth;
@@ -845,6 +850,7 @@ public:
             }
         }
         // 解像度の反映はunmap後に行う。map/unmapを確保時の解像度で揃えるため。
+        // エラー時は下流に中途半端な解像度を残さないよう、入ってきたときの解像度に戻す。
         if (err == RGY_ERR_NONE) {
             const auto [readerWidth, readerHeight] = getReaderOutputResolution();
             printInputResolutionChange(readerWidth, readerHeight);
@@ -900,6 +906,7 @@ protected:
     bool m_getNextBitstream;
     int m_decFrameOutCount;
     int m_decRemoveRemainingBytesWarnCount; // removing %d bytes from input bitstream not read by decoder の表示回数
+    //前回のデコード出力解像度。--avhwでの解像度変更検知ログ用で、追従処理そのものは後段(MFX VPP / OpenCLフィルタ)で行う
     mfxU16 m_prevOutputCropWidth;
     mfxU16 m_prevOutputCropHeight;
     int64_t m_firstPts;
@@ -1107,6 +1114,8 @@ protected:
             if (m_stopwatch) m_stopwatch->add(0, 3);
         }
         if (m_stopwatch) m_stopwatch->add(0, 3);
+        //MFXデコーダは解像度変更をエラーとせず、Info.CropW/CropHを更新したサーフェスをそのまま出してくる。
+        //ここではログを出すだけで下流へそのまま流し、追従は後段のMFX VPP / OpenCLフィルタで行う。
         if (surfDecOut != nullptr
             && (surfDecOut->Info.CropW != m_prevOutputCropWidth || surfDecOut->Info.CropH != m_prevOutputCropHeight)) {
             PrintMes(RGY_LOG_DEBUG, _T("decoder output resolution changed: %dx%d -> %dx%d.\n"),
@@ -1921,7 +1930,7 @@ protected:
     RGYTimestamp m_timestamp;
     mfxVideoParam& m_mfxVppParams;
     std::vector<std::shared_ptr<RGYFrameData>> m_lastFrameDataList;
-    bool m_bypass;
+    bool m_bypass; // 解像度変更対応のためだけに常設されたブロックで、まだ解像度変更が起きていないため素通ししている状態
     int m_outMaxQueueSizeOrig; // バイパス解除時に戻すためのキューサイズ
 public:
     // バイパス中はキューサイズを0にして、受け取ったフレームを即座に後続タスクへ渡す。
@@ -1987,9 +1996,11 @@ public:
         mfxFrameSurface1 *surfVppIn = (frame) ? dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().mfx()->surf() : nullptr;
         const int expectedInputWidth = m_vpp->inputWidthBeforeCrop();
         const int expectedInputHeight = m_vpp->inputHeightBeforeCrop();
+        // バイパスの解除は一方向で、一度解除したらバイパスへは戻らない。
+        // 元の解像度に戻ったとしても、VPPは常に初期解像度へ正規化して出力するので通し続けて問題ない。
         if (m_bypass) {
             if (surfVppIn == nullptr) {
-                return RGY_ERR_MORE_DATA;
+                return RGY_ERR_MORE_DATA; // バイパス中はVPP内部にフレームを溜めていないのでflushは不要
             }
             if (surfVppIn->Info.CropW != expectedInputWidth || surfVppIn->Info.CropH != expectedInputHeight) {
                 PrintMes(RGY_LOG_DEBUG, _T("resolution change: MFX VPP bypass disabled: %dx%d -> %dx%d.\n"),
@@ -2458,6 +2469,8 @@ public:
 
         //以下の処理は
         mfxFrameSurface1 *surfEncodeIn = (frame) ? dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().mfx()->surf() : nullptr;
+        // 最後の砦。エンコーダは初期化時の解像度でしか動作できないため、上流の正規化漏れをここで検出して明示エラーとする。
+        // これがないとMFXは無言で誤った絵(初期解像度の左上に新解像度の絵が貼りついた状態)をエンコードしてしまう。
         if (surfEncodeIn != nullptr
             && (surfEncodeIn->Info.CropW != m_encParams.videoPrm.mfx.FrameInfo.CropW || surfEncodeIn->Info.CropH != m_encParams.videoPrm.mfx.FrameInfo.CropH)) {
             PrintMes(RGY_LOG_ERROR, _T("input resolution changed from %dx%d to %dx%d, which is not supported yet.\n"),
@@ -2609,7 +2622,7 @@ protected:
     };
     struct ReleaseAcquireWork {
         PipelineTaskSurface surf;
-        RGYFrameInfo frameOut;
+        RGYFrameInfo frameOut; //acquire要求時点でのチェーン最終段の出力フレーム情報。解像度変更でチェーンを再構築するとm_vpFilters.back()が入れ替わるため、ワーカースレッド側で参照すると再構築後の値を拾ってしまう。要求時点の値をここに固定して渡す
         bool stop;
         ReleaseAcquireWork() : surf(), frameOut(), stop(false) {};
     };
@@ -2636,10 +2649,11 @@ protected:
     std::deque<std::unique_ptr<PipelineTaskOutput>> m_prevInputFrame; //前回投入されたフレーム、完了通知を待ってから解放するため、参照を保持する
     std::deque<AcquireFrameHold> m_prevAcquireFrame;
     RGYFilterSsim *m_videoMetric;
-    RGYFrameInfo m_normalizeTargetFrame;
-    std::shared_ptr<RGYFilterParamResize> m_normalizeResizeParam;
-    int m_normalizeResizeIdx;
-    bool m_resChangeFlush;
+    //以下4つは入力途中の解像度変更対応用。解像度変更を下流に伝播させないため、チェーン先頭を新解像度で作り直した直後に元の解像度へ戻す正規化resizeを挿入する
+    RGYFrameInfo m_normalizeTargetFrame;                              //初期化時のチェーン先頭の出力フレーム情報。正規化resizeはここへ戻す(=下流から見た解像度は不変)
+    std::shared_ptr<RGYFilterParamResize> m_normalizeResizeParam;     //正規化resizeのパラメータ雛形。qsv_pipeline.cpp側で生成されsetNormalizeResizeParam()で渡される
+    int m_normalizeResizeIdx;                                         //挿入済みの正規化resizeのm_vpFilters内index。-1なら未挿入(=まだ解像度変更が起きていない)
+    bool m_resChangeFlush;                                            //解像度変更に伴うフィルタのflush中かどうか。flush中はsendFrame()の出力キューの扱いを変える必要がある
     int m_openclTaskThreads;
     RGYOpenCLQueue m_acquireQueue;
     RGYQueueMPMP<AcquireWork *> m_acquireInQueue;
@@ -3372,7 +3386,7 @@ protected:
                 PrintMes(RGY_LOG_ERROR, _T("Failed to get the last OpenCL filter parameters for output surface acquisition.\n"));
                 return RGY_ERR_INVALID_OPERATION;
             }
-            work->frameOut = filterParam->frameOut;
+            work->frameOut = filterParam->frameOut; //チェーン再構築でm_vpFilters.back()が差し替わるので、要求時点の値をworkに固定しておく
             auto workPtr = work.get();
             m_releaseAcquirePending++;
             if (!m_releaseAcquireQueue.push(workPtr)) {
@@ -3445,6 +3459,8 @@ protected:
     bool hasReleaseWorkPending() const {
         return m_releaseOutputPending.load() > 0;
     }
+    // 解像度変更に伴うflush中であることを示すフラグをRAIIで立てる。flush中はsendFrame()を再帰的に呼ぶため、
+    // 途中でエラー復帰しても必ずフラグが下りるようにする必要がある。
     class ResolutionChangeFlushGuard {
         bool *m_flag;
     public:
@@ -3461,7 +3477,11 @@ protected:
             }
         }
     };
+    // 入力解像度変更への追従の本丸。チェーン先頭のCspCropを新解像度で再初期化し、その直後に元の解像度へ戻す正規化resizeを挿入(2回目以降は更新)する。
+    // これによりチェーン2段目以降(および下流のエンコーダ)から見た解像度は初期値のまま変わらないので、それらは再初期化不要。
+    // 呼び出し前にフィルタのflushが完了していること(内部に旧解像度のフレームが残っていないこと)が前提。
     RGY_ERR reconstructFilterChain(const RGYFrameInfo& newInputFrame) {
+        // ---- 以下、前提が崩れている構成は追従せず明示エラーとする(無言で壊すよりエラーで止める) ----
         if (m_vpFilters.empty()) {
             PrintMes(RGY_LOG_ERROR, _T("resolution change is not supported for an empty OpenCL filter configuration.\n"));
             return RGY_ERR_UNSUPPORTED;
@@ -3480,6 +3500,8 @@ protected:
                 RGY_CSP_NAMES[firstFilterParam->frameIn.csp], RGY_CSP_NAMES[newInputFrame.csp]);
             return RGY_ERR_UNSUPPORTED;
         }
+        //先頭と末尾のCspCrop(入力csp->内部csp、内部csp->出力csp)はチェーン構築時に必ず入る前提。
+        //先頭の出力が3plane(=YUV planar)であることも、正規化resizeが扱えるcspであることの確認を兼ねている。
         if (m_vpFilters.size() < 2
             || typeid(*m_vpFilters.front()) != typeid(RGYFilterCspCrop)
             || typeid(*m_vpFilters.back()) != typeid(RGYFilterCspCrop)
@@ -3501,6 +3523,8 @@ protected:
             return RGY_ERR_INVALID_OPERATION;
         }
 
+        //先頭CspCropの入力側だけを新解像度に差し替えて再初期化する。frameOutはcropParam->frameOutとしてinit内で再計算される。
+        //pitchも引き継がないと、上流から来るフレームの実際のpitchとずれてコピーが崩れる。
         auto newCropParam = std::make_shared<RGYFilterParamCrop>(*oldCropParam);
         newCropParam->frameIn.width = newInputFrame.width;
         newCropParam->frameIn.height = newInputFrame.height;
@@ -3523,6 +3547,8 @@ protected:
             cropParam->frameIn.width, cropParam->frameIn.height, RGY_CSP_NAMES[cropParam->frameIn.csp],
             cropParam->frameOut.width, cropParam->frameOut.height, RGY_CSP_NAMES[cropParam->frameOut.csp]);
 
+        //正規化resizeは「先頭CspCropの新しい出力」から「初期化時の先頭CspCropの出力(=m_normalizeTargetFrame)」へ戻す。
+        //解像度以外(csp/bitdepth/picstruct)は現在のチェーンに合わせる必要があるので、m_normalizeTargetFrameからは解像度だけを使う形になる。
         auto resizeParam = std::make_shared<RGYFilterParamResize>(*m_normalizeResizeParam);
         resizeParam->frameIn = cropParam->frameOut;
         resizeParam->frameOut = m_normalizeTargetFrame;
@@ -3530,7 +3556,7 @@ protected:
         resizeParam->frameOut.bitdepth = RGY_CSP_BIT_DEPTH[resizeParam->frameOut.csp];
         resizeParam->frameOut.picstruct = resizeParam->frameIn.picstruct;
         resizeParam->baseFps = m_normalizeResizeParam->baseFps;
-        const bool insertResize = m_normalizeResizeIdx < 0;
+        const bool insertResize = m_normalizeResizeIdx < 0; //初回の解像度変更でのみ挿入。2回目以降は同じフィルタをinitし直すだけ
         if (insertResize) {
             auto resizeFilter = std::make_unique<RGYFilterResize>(m_cl);
             sts = resizeFilter->init(resizeParam, m_log);
@@ -3558,6 +3584,9 @@ protected:
             resizeParam->frameIn.width, resizeParam->frameIn.height, RGY_CSP_NAMES[resizeParam->frameIn.csp],
             resizeParam->frameOut.width, resizeParam->frameOut.height, RGY_CSP_NAMES[resizeParam->frameOut.csp]);
 
+        //2段目以降のフィルタは解像度が変わらないため再初期化不要だが、afs/nnedi/mpdecimateなど前後フレームを参照するフィルタは
+        //解像度変更をまたいだ内部保持フレームを捨てさせる必要がある(そうしないと切替直後に前の絵が混ざる)。
+        //ここでinitしたばかりの先頭(0)と正規化resizeは除外する。
         int temporalStateResetCount = 0;
         for (int i = 0; i < (int)m_vpFilters.size(); i++) {
             if (i != 0 && i != m_normalizeResizeIdx) {
@@ -3573,6 +3602,8 @@ public:
     PipelineTaskOpenCL(std::vector<std::unique_ptr<RGYFilter>>& vppfilters, RGYFilterSsim *videoMetric, std::shared_ptr<RGYOpenCLContext> cl, int openclTaskThreads, MemType memType, QSVAllocator *allocator, MFXVideoSession *mfxSession, int outMaxQueueSize, std::shared_ptr<RGYLog> log) :
         PipelineTask(PipelineTaskType::OPENCL, outMaxQueueSize, mfxSession, MFX_LIB_VERSION_0_0, log), m_cl(cl), m_vpFilters(vppfilters), m_surfVppInInterop(), m_surfVppOutInterop(), m_prevInputFrame(), m_prevAcquireFrame(), m_videoMetric(videoMetric), m_normalizeTargetFrame(), m_normalizeResizeParam(), m_normalizeResizeIdx(-1), m_resChangeFlush(false), m_openclTaskThreads(openclTaskThreads), m_acquireQueue(), m_acquireInQueue(), m_acquireReadyQueue(), m_acquireFreeQueue(), m_acquireThread(), m_acquireErr(RGY_ERR_NONE), m_acquireThreadAbort(false), m_releaseQueue(), m_releaseAcquireQueue(), m_releaseReadyQueue(), m_releaseWorkQueue(), m_releaseDoneQueue(), m_releaseThread(), m_releaseErr(RGY_ERR_NONE), m_releaseThreadAbort(false), m_releaseAcquirePending(0), m_releaseWorkInFlight(0), m_releaseOutputPending(0), m_acquireFrameInInfo(), m_acquireDrainSent(false), m_acquireDrainReady(false), m_acquireQueuesClosed(false), m_releaseQueuesClosed(false), m_memType(memType) {
         m_allocator = allocator;
+        //解像度変更時に「戻すべき解像度」は初期化時点のチェーン先頭の出力。ここで控えておかないと、
+        //先頭CspCropを再初期化した後では取得できなくなる。
         if (!m_vpFilters.empty() && m_vpFilters.front()->GetFilterParam() != nullptr) {
             m_normalizeTargetFrame = m_vpFilters.front()->GetFilterParam()->frameOut;
         }
@@ -3605,6 +3636,8 @@ public:
             return;
         }
         m_normalizeResizeParam = std::make_shared<RGYFilterParamResize>(*resizeParam);
+        //渡されるパラメータはOpenCLブロックが複数ある場合も共有される汎用のものなので、baseFpsだけはこのブロックの実際の値で上書きする。
+        //(ブロックによってはvpp-decimate等によりfpsが変わっているため)
         if (!m_vpFilters.empty() && m_vpFilters.front()->GetFilterParam() != nullptr) {
             m_normalizeResizeParam->baseFps = m_vpFilters.front()->GetFilterParam()->baseFps;
         }
@@ -3649,6 +3682,9 @@ public:
         collectReleaseDone(false);
         if (m_stopwatch) m_stopwatch->add(0, 0);
 
+        // 入力途中の解像度変更の検出と追従。上流から流れてきたフレームの解像度がチェーン先頭の期待する入力解像度と違えば、
+        // (1)チェーン内に残っている旧解像度のフレームをすべて吐き出し (2)チェーンを再構築して新解像度を受け入れる、という順で処理する。
+        // 再構築後は正規化resizeが入るため、この関数の出力解像度は変わらない(=下流のtaskは何も知らずに済む)。
         if (frame && !m_vpFilters.empty()) {
             auto taskSurf = dynamic_cast<PipelineTaskOutputSurf *>(frame.get());
             const auto filterParam = m_vpFilters.front()->GetFilterParam();
@@ -3670,6 +3706,8 @@ public:
                     int drainLoop = 0;
                     int drainStall = 0;
                     for (;;) {
+                        // 空フレームを渡した再帰呼び出しでチェーン内のフレームを押し出す。
+                        // このときm_resChangeFlushが立っているので、末尾のm_outQeueue処理は出力を取り出さず溜め込むだけになる。
                         std::unique_ptr<PipelineTaskOutput> nullFrame;
                         auto sts = sendFrame(nullFrame);
                         drainLoop++;
@@ -3706,12 +3744,14 @@ public:
                     while (!m_prevInputFrame.empty() || !m_prevAcquireFrame.empty()) {
                         clearPrevInputFrame();
                     }
+                    //入力側のinteropは旧解像度でmfxFrameSurface1と紐づいているため、破棄して次回の入力から作り直させる
                     m_surfVppInInterop.clear();
 
                     auto sts = reconstructFilterChain(newInputFrame);
                     if (sts != RGY_ERR_NONE) {
                         return sts;
                     }
+                    //acquireワーカーが確保するフレームの情報も新しいものに更新する。drainフラグもflushで消費済みなので戻しておく
                     m_acquireFrameInInfo = m_vpFilters.front()->GetFilterParam()->frameIn;
                     m_acquireDrainSent = false;
                     m_acquireDrainReady = false;
@@ -3901,6 +3941,9 @@ public:
             }
             if (filterframes.front().first.ptr[0] == nullptr) {
                 collectReleaseDone(false);
+                //通常はm_outQeueueに出力が溜まった時点でいったん呼び出し元に返すが、解像度変更のflush中は
+                //呼び出し元(=このsendFrameの再帰元)が出力を取り出さないため、ここで返すとdrainが進まずハングする。
+                //flush中はチェーンが空になる(RGY_ERR_MORE_DATA)まで進め続ける。
                 if (useReleaseWorker() && (hasReleaseWorkPending() || (!m_resChangeFlush && m_outQeueue.size() > 0))) {
                     if (m_outQeueue.size() > 0 && m_stopwatch) m_stopwatch->add(0, 2);
                     return RGY_ERR_NONE;

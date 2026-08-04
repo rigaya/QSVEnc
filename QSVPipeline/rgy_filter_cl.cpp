@@ -142,9 +142,14 @@ void RGYFilter::setCheckPerformance(const bool check) {
     else       m_perfMonitor.reset();
 }
 
+//インタレフレームをtop/bottomの2フィールドに分離し、各フィールドを単体のprogressiveフレームとしてrun_filter()に通してから、
+//結果を元のインタレ配置に戻す。フィールドをまたいで画素を混ぜてはいけないフィルタ(resize等)をインタレ入力に適用するために使う。
+//run_filter()を1フレームにつき2回呼ぶため、run_filter()側は「1入力→1出力」であることが前提(nFieldOutで確認)。
 RGY_ERR RGYFilter::filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, RGYFrameInfo *pOutputFrame, RGYOpenCLQueue &queue) {
     //フィールドペア用バッファは、入力仕様が変化した場合にも再確保する。
+    //(入力途中の解像度変更でこの関数への入力解像度が変わりうるため、初回のみ確保する実装では足りない)
     auto allocFieldPairBuf = [this](std::unique_ptr<RGYCLFrame>& fieldPairBuf, const RGYFrameInfo *frameInfo, const TCHAR *bufName) {
+        //高さ半分・progressive扱いのフレームとして確保する。RFF関連のフラグはフィールド単体では意味を持たないので落とす
         RGYFrameInfo fieldFrame = *frameInfo;
         fieldFrame.height >>= 1;
         fieldFrame.picstruct = RGY_PICSTRUCT_FRAME;
@@ -173,6 +178,7 @@ RGY_ERR RGYFilter::filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, RG
 
     for (int i = 0; i < 2; i++) {
         const auto fieldMode = (i == 0) ? RGYFrameCopyMode::FIELD_TOP : RGYFrameCopyMode::FIELD_BOTTOM;
+        //src側はインタレフレームの片フィールド(1行おき)、dst側は詰まったフレーム全体。src/dstで異なるモードを指定する必要がある
         auto err = m_cl->copyFrameField(&m_pFieldPairIn->frame, pInputFrame,
             fieldMode, RGYFrameCopyMode::FRAME, nullptr, queue);
         if (err != RGY_ERR_NONE) {
@@ -189,6 +195,7 @@ RGY_ERR RGYFilter::filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, RG
             AddMessage(RGY_LOG_ERROR, _T("unexpected field output count: %d.\n"), nFieldOut);
             return RGY_ERR_UNKNOWN;
         }
+        //分離時とは逆に、詰まったフレームを出力フレームの片フィールドへ書き戻す
         err = m_cl->copyFrameField(pOutputFrame, pFieldOut,
             RGYFrameCopyMode::FRAME, fieldMode, nullptr, queue);
         if (err != RGY_ERR_NONE) {

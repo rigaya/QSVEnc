@@ -269,6 +269,9 @@ void conv_c_yuv420_yuv444(
     STORE(dst, dst_x+1, dst_y+1, (TypeOut)pixDst22);
 }
 
+// xxxLineStep は 1 なら連続、2 なら1行おき(=フィールド単位)にアクセスする。
+// buffer側はホスト側でpitchを2倍にすることで1行おきを表現できるため常に1が渡され、
+// pitchの概念がないimage側でのみ2が渡される。(rgy_opencl.cpp copyPlaneField 参照)
 __kernel void kernel_copy_plane(
 #if IMAGE_DST
     __write_only image2d_t dst,
@@ -374,6 +377,8 @@ __kernel void kernel_crop_plane_from_yuv444_f32(
     }
 }
 
+// nv12色差はLOAD/STOREマクロ側でpitch計算を行うため、pitchの2倍化で1行おきを表現できない。
+// このためbuffer/imageによらず、開始行(xxxLineOffset: bottom fieldなら1)と行間隔(xxxLineStep: フィールドなら2)をkernel引数で受け取る。
 __kernel void kernel_copy_plane_nv12(
 #if IMAGE_DST
     __write_only image2d_t dst,
