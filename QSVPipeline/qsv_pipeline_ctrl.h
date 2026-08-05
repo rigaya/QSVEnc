@@ -515,8 +515,8 @@ protected:
     mfxVersion m_mfxVer;
     std::shared_ptr<RGYLog> m_log;
     std::unique_ptr<PipelineTaskStopWatch> m_stopwatch;
-    // ワークサーフェス確保時の解像度
-    // 入力途中の解像度変更でサーフェスの解像度を書き換えるため、確保時のサイズを別に覚えておく必要がある
+    // ワークサーフェスの物理確保寸法。--adapt-resolution指定時は初期映像より大きい場合がある。
+    // 入力途中の解像度変更でframeの論理寸法を書き換えるため、確保寸法を別に保持する必要がある。
     int m_workSurfAllocWidth;
     int m_workSurfAllocHeight;
 public:
@@ -811,11 +811,13 @@ public:
         auto clframe = surfWork.cl();
         const int surfaceWidth = clframe->frame.width;
         const int surfaceHeight = clframe->frame.height;
-        // mapするサイズは frame.height から計算されるため(RGYCLFrameMap::map)、
-        // 解像度変更で縮めたままの解像度でmapすると、その後解像度が元に戻ったときに
-        // reader がmap範囲外へ書き込むことになる。map前に確保時の解像度へ戻しておく。
-        // バッファ自体はCL_MEM_ALLOC_HOST_PTRで初期解像度分確保されているため範囲外書き込みでもクラッシュせず、
-        // 静かにデータが壊れるだけなので気づきにくい。getWorkSurf()がプールから取り出す際に解像度を戻さないのが根本原因。
+        // RGYCLFrameMap::mapがmapするバイト数はframe.width/heightから計算される。一方、このframeは
+        // 後続へ現在の映像寸法を伝えるメタデータとしても使うため、解像度変更後は論理寸法に書き換えられている。
+        // そのままmapすると、小さい解像度から再び大きくなったフレームに対し、readerがmap範囲外へ書き込む。
+        // そこでmap中だけ物理確保寸法へ戻し、unmapが完了してからreaderの返した論理寸法を再設定する。
+        //
+        // ハマった点: CL_MEM_ALLOC_HOST_PTRではこの範囲外書き込みがすぐクラッシュせず、静かな画像破壊になることがある。
+        // getWorkSurf()はプールから取り出すだけで論理寸法を確保寸法に戻さないため、この読み込み直前での復元を省いてはいけない。
         if (m_workSurfAllocHeight > 0
             && (clframe->frame.width != m_workSurfAllocWidth || clframe->frame.height != m_workSurfAllocHeight)) {
             clframe->frame.width = m_workSurfAllocWidth;
@@ -849,7 +851,7 @@ public:
                 err = clerr;
             }
         }
-        // 解像度の反映はunmap後に行う。map/unmapを確保時の解像度で揃えるため。
+        // 解像度の反映はunmap後に行う。map/unmapの両方を同じ物理確保寸法で揃えるため。
         // エラー時は下流に中途半端な解像度を残さないよう、入ってきたときの解像度に戻す。
         if (err == RGY_ERR_NONE) {
             const auto [readerWidth, readerHeight] = getReaderOutputResolution();

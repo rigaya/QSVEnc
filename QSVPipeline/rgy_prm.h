@@ -4256,6 +4256,9 @@ struct RGYParamCommon {
     tstring tcfileIn;
     rgy_rational<int> timebase;
     RGYHEVCBsf hevcbsf;
+    // 入力途中の解像度変更に備えて先行確保する物理上限。可視領域や出力解像度は変えない。
+    // { 0, 0 }は未指定で、従来どおり初期入力解像度が実質的な上限となる。
+    std::pair<int, int> adaptResolution;
 
     RGYVideoQualityMetric metric;
 

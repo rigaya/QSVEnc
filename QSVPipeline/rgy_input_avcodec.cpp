@@ -279,6 +279,7 @@ RGYInputAvcodecPrm::RGYInputAvcodecPrm(RGYInputPrm base) :
     qpTableListRef(nullptr),
     inputOpt(),
     hevcbsf(RGYHEVCBsf::INTERNAL),
+    adaptResolution({ 0, 0 }),
     avswDecoder() {
 
 }
@@ -288,8 +289,8 @@ RGYInputAvcodec::RGYInputAvcodec() :
     m_logFramePosList(),
     m_fpPacketList(),
     m_hevcMp42AnnexbBuffer(),
-    m_initialSrcWidth(0),
-    m_initialSrcHeight(0),
+    m_maxSrcWidth(0),
+    m_maxSrcHeight(0),
     m_suppressPulldownDetect(false),
     m_pulldownDetected(false) {
     m_readerName = _T("av" DECODER_NAME "/avsw");
@@ -2292,8 +2293,26 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
         //情報を格納
         m_inputVideoInfo.srcWidth    = m_Demux.video.stream->codecpar->width;
         m_inputVideoInfo.srcHeight   = m_Demux.video.stream->codecpar->height;
-        m_initialSrcWidth            = m_inputVideoInfo.srcWidth;
-        m_initialSrcHeight           = m_inputVideoInfo.srcHeight;
+        // avcodec readerは--avswだけでなく、--avhwへ圧縮パケットを供給する経路でも使われる。
+        // ここではヘッダ解析後の実際の初期解像度を基準に、入力中に許可する物理上限を固定する。
+        // m_inputVideoInfo.srcWidth/Heightはフレームごとに変化する現在の論理解像度、m_maxSrcWidth/Heightは
+        // pipelineが先行確保したサーフェスと一致させる不変の上限で、両者を兼用してはいけない。
+        // 初期値より小さい指定は処理開始前に失敗させる。pipeline側でも同じ検査を行うのは、
+        // avcodec以外のreaderも共通パラメータを通るため。未指定時は初期解像度を上限とし、従来のメモリ使用量を保つ。
+        if (input_prm->adaptResolution.first > 0 && input_prm->adaptResolution.second > 0) {
+            if (input_prm->adaptResolution.first < m_inputVideoInfo.srcWidth
+                || input_prm->adaptResolution.second < m_inputVideoInfo.srcHeight) {
+                AddMessage(RGY_LOG_ERROR, _T("--adapt-resolution %dx%d is smaller than the initial input resolution %dx%d.\n"),
+                    input_prm->adaptResolution.first, input_prm->adaptResolution.second,
+                    m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcHeight);
+                return RGY_ERR_INVALID_PARAM;
+            }
+            m_maxSrcWidth = input_prm->adaptResolution.first;
+            m_maxSrcHeight = input_prm->adaptResolution.second;
+        } else {
+            m_maxSrcWidth = m_inputVideoInfo.srcWidth;
+            m_maxSrcHeight = m_inputVideoInfo.srcHeight;
+        }
         m_inputVideoInfo.sar[0]      = (bAspectRatioUnknown) ? 0 : m_Demux.video.stream->codecpar->sample_aspect_ratio.num;
         m_inputVideoInfo.sar[1]      = (bAspectRatioUnknown) ? 0 : m_Demux.video.stream->codecpar->sample_aspect_ratio.den;
         m_inputVideoInfo.frames      = 0;
@@ -3591,11 +3610,14 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
 #if ENABLE_INPUT_RESOLUTION_CHANGE
             const int newWidth = m_Demux.video.frame->width;
             const int newHeight = m_Demux.video.frame->height;
-            //下流のサーフェスは初期解像度で確保済みなので、それを超える解像度には対応できない
-            if (newWidth > m_initialSrcWidth || newHeight > m_initialSrcHeight) {
-                AddMessage(RGY_LOG_ERROR, _T("input resolution changed from %dx%d to %dx%d, exceeding the initial resolution %dx%d, which is not supported.\n"),
+            // この判定は、現在解像度を更新したりフレームをサーフェスへコピーしたりする前に行う。
+            // 下流の入力プールはこの上限で先行確保され、途中での再確保は行わない。上限超過を通すと
+            // LoadNextFrameのコピーが確保範囲を超えるため、安全に継続できない。通過後に更新するのは
+            // m_inputVideoInfoの論理解像度だけで、後続のMFX/OpenCL VPPが変更を検出して初期出力解像度へ正規化する。
+            if (newWidth > m_maxSrcWidth || newHeight > m_maxSrcHeight) {
+                AddMessage(RGY_LOG_ERROR, _T("input resolution changed from %dx%d to %dx%d, exceeding the configured resolution limit %dx%d, which is not supported.\n"),
                     m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcHeight, newWidth, newHeight,
-                    m_initialSrcWidth, m_initialSrcHeight);
+                    m_maxSrcWidth, m_maxSrcHeight);
                 AddMessage(RGY_LOG_ERROR, _T("  Please split the input file at the resolution change point.\n"));
                 return RGY_ERR_UNSUPPORTED;
             }

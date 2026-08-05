@@ -207,6 +207,7 @@
   - [--tcfile-in \<string\>](#--tcfile-in-string)
   - [--timebase \<int\>/\<int\>](#--timebase-intint)
   - [--input-hevc-bsf \<string\>](#--input-hevc-bsf-string)
+  - [--adapt-resolution \<int\>x\<int\>](#--adapt-resolution-intxint)
   - [--input-pixel-format \<string\>](#--input-pixel-format-string)
   - [--offset-video-dts-advance](#--offset-video-dts-advance)
   - [--allow-other-negative-pts](#--allow-other-negative-pts)
@@ -1798,6 +1799,12 @@ switch hevc bitstream filter used for hw decoder input. (for debug purpose)
 
   - libavcodec  
     libavcodec の hevc_mp4toannexb bitstream filter を使用する。
+
+### --adapt-resolution &lt;int&gt;x&lt;int&gt;
+
+入力途中の解像度変更に備えて、入力サーフェスを指定した最大解像度で確保する。
+解像度変更後の映像は起動時の出力解像度へリサイズされるため、出力解像度は変化しない。
+未指定時は起動時の入力解像度が最大値となる。指定値は起動時の入力解像度以上である必要がある。
 
 ### --input-pixel-format &lt;string&gt;
 avdeviceで使用する "pixel_format" の設定。(それ以外での用途での使用は想定していません)

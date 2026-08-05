@@ -50,8 +50,11 @@ public:
     RGY_ERR Init();
     RGY_ERR Close();
     RGY_ERR Reset(const mfxFrameInfo& frameOut, const mfxFrameInfo& frameIn);
-    // 入力解像度だけを更新し、出力解像度を維持したままVPPをリセットする。
+    // 入力の論理解像度だけを更新し、vpp.Outと出力プールを維持したままVPPをリセットする。
     RGY_ERR ResetInputResolution(const mfxFrameInfo& newInputInfo);
+    // 入力途中の解像度変更に備えて確保した、先頭VPP入力サーフェスの物理上限を設定する。
+    // vpp.Inの現在値を変える関数ではない。
+    void SetInputAllocationResolution(const int width, const int height);
 
     void clear();
 
@@ -94,7 +97,9 @@ protected:
     QSVDeviceNum m_deviceNum;
     int m_asyncDepth;
 
-    //SetParam時の入力確保サイズ。ResetInputResolutionでこれを超える解像度は確保済みサーフェスに収まらないため拒否する
+    // 先頭VPP入力サーフェスの物理確保上限。SetParam時は初期入力寸法、
+    // --adapt-resolution指定時はSetInputAllocationResolutionによって先行確保寸法まで広げられる。
+    // ResetInputResolutionでこれを超える解像度は、Resetだけでは既存プールに収まらないため拒否する。
     mfxU16 m_initialInputWidth;
     mfxU16 m_initialInputHeight;
     sInputCrop m_crop;

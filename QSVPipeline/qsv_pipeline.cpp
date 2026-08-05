@@ -444,7 +444,7 @@ RGY_ERR CQSVPipeline::CheckParamList(int value, const CX_DESC *list, const char 
     return RGY_ERR_INVALID_VIDEO_PARAM;
 };
 
-RGY_ERR CQSVPipeline::InitMfxDecParams() {
+RGY_ERR CQSVPipeline::InitMfxDecParams(const std::pair<int, int>& adaptResolution) {
 #if ENABLE_AVSW_READER
     RGY_ERR sts = RGY_ERR_NONE;
     if (m_pFileReader->getInputCodec()) {
@@ -477,6 +477,21 @@ RGY_ERR CQSVPipeline::InitMfxDecParams() {
 
         sts = m_mfxDEC->SetParam(m_pFileReader->getInputCodec(), m_DecInputBitstream, m_pFileReader->GetInputFrameInfo());
         RGY_ERR(sts, _T("InitMfxDecParams: Failed set param for hw decoder."));
+
+        if (adaptResolution.first > 0) {
+            // MFXのWidth/Heightはデコーダが受け入れる符号化・確保寸法、CropW/CropHは現在の可視領域。
+            // ここでは前者だけを上限まで広げ、CropW/CropHは初回シーケンスの解像度のままにする。
+            // Crop側も広げると、VPPや出力解像度の初期化に「上限値が現在の映像サイズ」として伝播してしまう。
+            //
+            // ハマった点: QueryIOSurf用の外部サーフェスだけを大きくしても不十分。MFXデコーダは
+            // Init時のFrameInfoもシーケンス上限として保持し、それを超える切り替えを
+            // MFX_ERR_INCOMPATIBLE_VIDEO_PARAMで拒否する。そのためSetParamがヘッダから値を決めた後、
+            // QueryIOSurf/Initより前のこの位置で書き換える必要がある。
+            // 16アライン後もmfxU16に収まることは、initReaders後の入力パラメータ検査で保証している。
+            auto& frameInfo = m_mfxDEC->mfxparams().mfx.FrameInfo;
+            frameInfo.Width = (mfxU16)std::max<int>(frameInfo.Width, ALIGN(adaptResolution.first, 16));
+            frameInfo.Height = (mfxU16)std::max<int>(frameInfo.Height, ALIGN(adaptResolution.second, 16));
+        }
 
         if (!bGotHeader) {
             //最初のフレームそのものをヘッダーとして使用している場合、一度データをクリアする
@@ -1707,7 +1722,7 @@ RGY_ERR CQSVPipeline::ResetDevice() {
     return RGY_ERR_NONE;
 }
 
-RGY_ERR CQSVPipeline::AllocFrames() {
+RGY_ERR CQSVPipeline::AllocFrames(const std::pair<int, int>& adaptResolution) {
     if (m_pipelineTasks.size() == 0) {
         PrintMes(RGY_LOG_ERROR, _T("allocFrames: pipeline not defined!\n"));
         return RGY_ERR_INVALID_CALL;
@@ -1793,9 +1808,29 @@ RGY_ERR CQSVPipeline::AllocFrames() {
             allocRequest.Info.Width  = std::max(allocRequest.Info.Width,  t2Alloc.value().Info.Width);
             allocRequest.Info.Height = std::max(allocRequest.Info.Height, t2Alloc.value().Info.Height);
         }
+        // 最大解像度が必要なのは、可変解像度のフレームが最初に書き込まれる入力直後のプールだけ。
+        // INPUTはavsw/raw等のreader出力、MFXDECはavhwのデコード出力に対応する。それより後ろは
+        // 先頭VPPが初期出力解像度へ正規化するので、全プールを上限サイズにするとVRAMを無駄にする。
+        //
+        // MFXサーフェスではInfo.Width/Heightが物理確保寸法、CropW/CropHが現在の論理寸法なので、
+        // Width/Heightだけを広げる。Crop側を変えると、後続フィルタの初期化や出力解像度の意味が変わる。
+        // t2のバイパス要求も統合した後に上限を反映し、後段の要求で小さく上書きされないようにする。
+        if (adaptResolution.first > 0
+            && (t0->taskType() == PipelineTaskType::INPUT || t0->taskType() == PipelineTaskType::MFXDEC)) {
+            allocRequest.Info.Width = (mfxU16)std::max<int>(allocRequest.Info.Width, ALIGN(adaptResolution.first, 16));
+            allocRequest.Info.Height = (mfxU16)std::max<int>(allocRequest.Info.Height, ALIGN(adaptResolution.second, 16));
+        }
         const int requestNumFrames = std::max(1, t0RequestNumFrame + t1RequestNumFrame + t2RequestNumFrame + t0->additionalOutputSurfaces() + t1->additionalInputSurfaces() + m_nAsyncDepth + 1);
         if (allocateOpenCLFrame) { // OpenCLフレームを介してやり取りする場合
-            const RGYFrameInfo frame(allocRequest.Info.CropW, allocRequest.Info.CropH,
+            // OpenCLフレームにはMFXのWidth/HeightとCropW/CropHのような「確保寸法と論理寸法」の
+            // 別パラメータがなく、RGYFrameInfo::width/heightから実バッファサイズを決める。このためINPUT直後は
+            // 初回のCropサイズではなく上限サイズでcreateFrameBufferする必要がある。後の読み込み経路では、
+            // map中だけ確保寸法を使い、unmap後にreaderが返した現在の論理解像度へ戻す。
+            // MFXDECはOpenCLにCPU書き込みする経路ではないため、この特別扱いはINPUTに限定する。
+            const bool adaptInputSurface = adaptResolution.first > 0 && t0->taskType() == PipelineTaskType::INPUT;
+            const RGYFrameInfo frame(
+                adaptInputSurface ? allocRequest.Info.Width : allocRequest.Info.CropW,
+                adaptInputSurface ? allocRequest.Info.Height : allocRequest.Info.CropH,
                 csp_enc_to_rgy(allocRequest.Info.FourCC),
                 (allocRequest.Info.BitDepthLuma > 0) ? allocRequest.Info.BitDepthLuma : 8,
                 picstruct_enc_to_rgy(allocRequest.Info.PicStruct));
@@ -2125,6 +2160,29 @@ RGY_ERR CQSVPipeline::InitInput(sInputParams *inputParam, DeviceCodecCsp& HWDecC
         return sts;
     }
     PrintMes(RGY_LOG_DEBUG, _T("initReaders: Success.\n"));
+
+    // mfxFrameInfo::Width/HeightはmfxU16で、16アラインしてから格納する。65535まで受け付けると
+    // ALIGN(65535, 16) == 65536が0にオーバーフローするため、アライン前の上限は65520とする。
+    if (inputParam->common.adaptResolution.first > std::numeric_limits<mfxU16>::max() - 15
+        || inputParam->common.adaptResolution.second > std::numeric_limits<mfxU16>::max() - 15) {
+        PrintMes(RGY_LOG_ERROR,
+            _T("--adapt-resolution %dx%d exceeds the maximum QSV surface size %dx%d.\n"),
+            inputParam->common.adaptResolution.first, inputParam->common.adaptResolution.second,
+            std::numeric_limits<mfxU16>::max() - 15, std::numeric_limits<mfxU16>::max() - 15);
+        return RGY_ERR_INVALID_VIDEO_PARAM;
+    }
+    // 初期解像度はヘッダ解析後に初めて確定するため、initReaders後に比較する。
+    // 片方の軸だけでも初期値より小さい上限は、初回フレームが既に収まらないので拒否する。
+    // { 0, 0 }は未指定を表し、初期解像度を実質上の上限にする従来動作のままとなる。
+    if (inputParam->common.adaptResolution.first > 0
+        && (inputParam->common.adaptResolution.first < inputParam->input.srcWidth
+            || inputParam->common.adaptResolution.second < inputParam->input.srcHeight)) {
+        PrintMes(RGY_LOG_ERROR,
+            _T("--adapt-resolution %dx%d is smaller than the initial input resolution %dx%d.\n"),
+            inputParam->common.adaptResolution.first, inputParam->common.adaptResolution.second,
+            inputParam->input.srcWidth, inputParam->input.srcHeight);
+        return RGY_ERR_INVALID_VIDEO_PARAM;
+    }
 
     m_inputFps = rgy_rational<int>(inputParam->input.fpsN, inputParam->input.fpsD);
     m_outputTimebase = (inputParam->common.timebase.is_valid()) ? inputParam->common.timebase : m_inputFps.inv() * rgy_rational<int>(1, 4);
@@ -4356,6 +4414,15 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
                 outputCspConverted = true;
             }
             if (vppmfx) {
+                // 入力解像度の変化を直接受けるのは、先頭のVPPブロックだけ。先頭がOpenCLならそこで
+                // 初期出力解像度へ正規化され、後続MFX VPPには可変解像度が来ない。後続ブロックの
+                // サーフェスは上限サイズで確保していないため、そこへ上限を伝えるとガードと実確保が不一致になる。
+                // フィルタなしの構成でもMFX_COPYが先頭ブロックとして挿入されるので、m_vpFilters.empty()で一貫して判定できる。
+                if (m_vpFilters.empty() && inputParam->common.adaptResolution.first > 0) {
+                    vppmfx->SetInputAllocationResolution(
+                        inputParam->common.adaptResolution.first,
+                        inputParam->common.adaptResolution.second);
+                }
                 m_vpFilters.push_back(VppVilterBlock(vppmfx));
             }
         } else if (ftype1 == VppFilterType::FILTER_OPENCL) {
@@ -5164,7 +5231,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     if (sts != RGY_ERR_NONE) return sts;
     PrintMes(RGY_LOG_DEBUG, _T("CheckParam: Success.\n"));
 
-    sts = InitMfxDecParams();
+    sts = InitMfxDecParams(pParams->common.adaptResolution);
     if (sts < RGY_ERR_NONE) return sts;
     PrintMes(RGY_LOG_DEBUG, _T("InitMfxDecParams: Success.\n"));
 
@@ -5464,7 +5531,7 @@ RGY_ERR CQSVPipeline::ResetMFXComponents(sInputParams* pParams) {
     if ((err = CreatePipeline(pParams)) != RGY_ERR_NONE) {
         return err;
     }
-    if ((err = AllocFrames()) != RGY_ERR_NONE) {
+    if ((err = AllocFrames(pParams->common.adaptResolution)) != RGY_ERR_NONE) {
         return err;
     }
     if ((err = InitMfxEncode()) != RGY_ERR_NONE) {

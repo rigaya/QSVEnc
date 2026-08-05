@@ -12044,6 +12044,23 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
+    if (IS_OPTION("adapt-resolution")) {
+        if (i + 1 >= nArgNum) {
+            print_cmd_error_invalid_value(option_name, _T(""));
+            return 1;
+        }
+        i++;
+        int resolution[2] = { 0, 0 };
+        // 共通パーサでは形式と正数であることだけを確認する。サーフェス型の上限や初期入力との大小関係は、
+        // encoderとヘッダ解析結果に依存するため、reader初期化後のpipeline側で検証する。
+        if (2 != _stscanf_s(strInput[i], _T("%dx%d"), &resolution[0], &resolution[1])
+            || resolution[0] <= 0 || resolution[1] <= 0) {
+            print_cmd_error_invalid_value(option_name, strInput[i]);
+            return 1;
+        }
+        common->adaptResolution = std::make_pair(resolution[0], resolution[1]);
+        return 0;
+    }
 #if !ENCODER_MPP
     if (IS_OPTION("ssim")) {
         common->metric.ssim = true;
@@ -15435,6 +15452,11 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     }
 
     OPT_LST(_T("--input-hevc-bsf"), hevcbsf, list_hevc_bsf_mode);
+    // 並列エンコードの子プロセス用コマンドにも上限を引き継ぐ。ここから漏れると子側だけ従来の
+    // 「初期解像度が上限」に戻り、解像度切り替え時に失敗する。
+    if (param->adaptResolution != defaultPrm->adaptResolution) {
+        cmd << _T(" --adapt-resolution ") << param->adaptResolution.first << _T("x") << param->adaptResolution.second;
+    }
     OPT_STR_PATH(_T("--tcfile-in"), tcfileIn);
     if (param->timebase != defaultPrm->timebase) {
         cmd << _T(" --timebase ") << param->timebase.n() << _T("/") << param->timebase.d();
@@ -15946,6 +15968,10 @@ tstring gen_cmd_help_common() {
         _T("                                 - internal   ... use internal implementation (default)\n")
         _T("                                 - libavcodec ... use hevc_mp4toannexb bsf\n"),
         DEFAULT_IGNORE_DECODE_ERROR);
+    str += _T("\n")
+        _T("   --adapt-resolution <int>x<int>\n")
+        _T("                                入力途中の解像度変更で許容する最大解像度を指定する。\n")
+        _T("                                avhwではデコーダ、avswでは入力サーフェスを指定値で確保する。\n");
     str += _T("\n")
         _T("   --input-pixel-format <string>  set input pixel format for avdevice\n")
         _T("   --offset-video-dts-advance  offset timestamp to cancel bframe delay\n")

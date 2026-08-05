@@ -4414,6 +4414,7 @@ RGYParamCommon::RGYParamCommon() :
     tcfileIn(),
     timebase({ 0, 0 }),
     hevcbsf(RGYHEVCBsf::INTERNAL),
+    adaptResolution({ 0, 0 }),
     metric() {
 
 }

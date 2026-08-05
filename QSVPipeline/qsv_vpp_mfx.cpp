@@ -216,16 +216,28 @@ RGY_ERR QSVVppMfx::Reset(
     return Init();
 }
 
+void QSVVppMfx::SetInputAllocationResolution(const int width, const int height) {
+    // m_initialInputWidth/Heightという名前は既存実装の名残で、現在は「入力プールの実確保上限」を表す。
+    // SetParamは初回入力のアライン済み寸法を格納するが、--adapt-resolution指定時は実際のプールの
+    // 確保寸法に合わせてここで拡張する。16アラインはAllocFramesと同じ規則にする必要がある。
+    // m_mfxVppParams.vpp.In自体は書き換えない。そこは「現在VPPが期待する論理入力」であり、上限値にすると
+    // 最初の解像度変更検出とResetが正しく発火しなくなる。
+    m_initialInputWidth = (mfxU16)std::max<int>(m_initialInputWidth, ALIGN(width, 16));
+    m_initialInputHeight = (mfxU16)std::max<int>(m_initialInputHeight, ALIGN(height, 16));
+}
+
 // 入力途中の解像度変更時に、vpp.Inのみを新解像度に差し替えてResetする。
-// vpp.Outはそのまま維持するため、MFX VPP自体がリサイズを兼ねて出力を初期解像度へ正規化することになる
+// vpp.Outはそのまま維持するため、MFX VPP自体がリサイズを兼ねて出力を初期の論理解像度へ正規化することになる
 // (= 解像度変更を下流に伝播させない)。--avhw かつ MFX VPPが構成に含まれる場合の経路。
 RGY_ERR QSVVppMfx::ResetInputResolution(const mfxFrameInfo& newInputInfo) {
     const int currentInputWidth = inputWidthBeforeCrop();
     const int currentInputHeight = inputHeightBeforeCrop();
-    // VPPのサーフェスは初期解像度で確保されているため、それを超える解像度には対応できない
+    // newInputInfo.Width/Heightはアライン済みの物理寸法、CropW/CropHは現在の映像寸法。
+    // Resetは既存サーフェスを再利用し、ここで再確保は行わないため、比較すべきなのはCropではなく物理寸法。
+    // 上限は通常は初期入力、--adapt-resolution時は入力直後に先行確保した最大寸法となる。
     if (newInputInfo.Width > m_initialInputWidth || newInputInfo.Height > m_initialInputHeight) {
         PrintMes(RGY_LOG_ERROR,
-            _T("input resolution changed from %dx%d to %dx%d, which exceeds the initial VPP allocation %dx%d and is not supported yet.\n"),
+            _T("input resolution changed from %dx%d to %dx%d, which exceeds the configured VPP allocation %dx%d and is not supported yet.\n"),
             currentInputWidth, currentInputHeight, (int)newInputInfo.CropW, (int)newInputInfo.CropH,
             (int)m_initialInputWidth, (int)m_initialInputHeight);
         PrintMes(RGY_LOG_ERROR, _T("  Please split the input file at the resolution change point.\n"));

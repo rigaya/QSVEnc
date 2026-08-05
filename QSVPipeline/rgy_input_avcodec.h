@@ -871,6 +871,8 @@ public:
     RGYListRef<RGYFrameDataQP> *qpTableListRef; //qp tableを格納するときのベース構造体
     RGYOptList     inputOpt;                //入力オプション
     RGYHEVCBsf     hevcbsf;
+    // pipelineの入力プールと同じ物理確保上限。{ 0, 0 }なら初期入力解像度を上限にする。
+    std::pair<int, int> adaptResolution;
     tstring        avswDecoder;             //avswデコーダの指定
 
     RGYInputAvcodecPrm(RGYInputPrm base);
@@ -1071,9 +1073,10 @@ protected:
     tstring          m_logFramePosList;           //FramePosListの内容を入力終了時に出力する (デバッグ用)
     std::unique_ptr<FILE, fp_deleter> m_fpPacketList; // 読み取ったパケット情報を出力するファイル
     vector<uint8_t>  m_hevcMp42AnnexbBuffer;       //HEVCのmp4->AnnexB簡易変換用バッファ
-    //入力初期解像度。下流のサーフェスはこの解像度で確保されるため、途中でこれを超える解像度になった場合は対応できず明示エラーとする
-    int              m_initialSrcWidth;
-    int              m_initialSrcHeight;
+    // 入力プールの物理確保上限。m_inputVideoInfo.srcWidth/Heightのように現在の論理解像度に追従させない。
+    // 途中でこれを超えた場合は、サーフェスへのコピー前に明示エラーとする。
+    int              m_maxSrcWidth;
+    int              m_maxSrcHeight;
     bool             m_suppressPulldownDetect;     // true: skip avgDuration *= 1.25 after bPulldown is detected. bPulldown itself is still set so log/diagnostic paths see it. Mirrors RGYInputAvcodecPrm::suppressPulldownMutation.
     bool             m_pulldownDetected;           // true when getFirstFramePosAndFrameRate detected soft pulldown.
 
