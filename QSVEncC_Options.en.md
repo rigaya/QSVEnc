@@ -2951,10 +2951,14 @@ HQDN3D spatial and temporal denoise filter. Scratch buffers use FP16 automatical
 
 ### --vpp-denoise &lt;int&gt; or [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
 Enable vpp denoise, short form will set strength only.
+When mode is omitted, legacy mode is used.
 
 - **Parameters**
   - mode=&lt;string&gt;  
-    - auto (デフォルト)  
+    - legacy (default)
+      use the legacy denoise implementation. This can also be explicitly selected with `mode=legacy`.
+
+    - auto
       library will select the most appropriate denoise mode. 
   
     - auto_bdrate  
@@ -2974,6 +2978,13 @@ Enable vpp denoise, short form will set strength only.
   
   - strength=&lt;int&gt;  
     set strength (0 - 100). Please note when mode is set to auto_bdrate, auto_subjective or auto_adjust, strength will be ignored, as it will be decided automatically by the filter.
+
+- **Examples**
+  ```
+  --vpp-denoise strength=5
+  --vpp-denoise mode=legacy,strength=5
+  ```
+  Both examples use legacy mode.
 
 ### --vpp-image-stab &lt;string&gt;
 Set image stabilizer mode.

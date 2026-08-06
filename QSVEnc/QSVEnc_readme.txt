@@ -314,6 +314,16 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2026.08.08 (8.26)
+[QSVEncC]
+- 入力途中の解像度変更に追従するようにした。
+- --adapt-resolutionを追加。
+- 音声・字幕の言語除外指定に対応。
+- Linuxで--interlace autoを有効化。
+- --vpp-onnx-deintを追加。(ST-DeInt / DDD)
+- ONNXホスト出力のクロマ丸めを修正。
+- --vpp-kfmのメモリ保持を改善し、mode=24の長尺処理でGPUメモリが増加する問題を修正。
+
 2026.08.04 (8.25)
 - AviUtl2 2.1.3で音声が出力されないことがある問題を修正。
 

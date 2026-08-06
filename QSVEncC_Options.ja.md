@@ -3002,10 +3002,14 @@ HQDN3D による空間・時間方向のノイズ除去を行う。`cl_khr_fp16`
 
 ### --vpp-denoise &lt;int&gt; or [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
 GPUによるノイズ除去を行う。0 - 100 の間でノイズ除去の強さを指定する。短縮系では強度のみの設定。
+modeを省略した場合はlegacyモードを使用する。
 
 - **パラメータ**
   - mode=&lt;string&gt;  
-    - auto (デフォルト)  
+    - legacy (デフォルト)
+      従来のノイズ除去実装を使用する。`mode=legacy`で明示的に指定することもできる。
+
+    - auto
       自動的に適切なモードを選択する。
   
     - auto_bdrate  
@@ -3026,6 +3030,12 @@ GPUによるノイズ除去を行う。0 - 100 の間でノイズ除去の強さ
   - strength=&lt;int&gt;  
     0 - 100 の間でノイズ除去の強さを指定する。modeがauto_bdrate, auto_subjective, auto_adjustの場合には強度は自動で決定されるため無効。
 
+- **使用例**
+  ```
+  --vpp-denoise strength=5
+  --vpp-denoise mode=legacy,strength=5
+  ```
+  いずれもlegacyモードを使用する。
 
 ### --vpp-image-stab &lt;string&gt;
 image stabilizerのモードの指定。

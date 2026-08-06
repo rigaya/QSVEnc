@@ -1,5 +1,13 @@
 # QSVEnc Release Notes
 
+## 8.26
+
+- Follow mid-stream input resolution changes.
+- Add [--adapt-resolution](./QSVEncC_Options.en.md#--adapt-resolution-intxint).
+- Support language exclusion for audio/subtitle selection. ([--audio-copy](./QSVEncC_Options.en.md#--audio-copy-intstringintstring) / [--audio-codec](./QSVEncC_Options.en.md#--audio-codec-intstringstringstringstringstringstring) / [--sub-copy](./QSVEncC_Options.en.md#--sub-copy-intstringintstring)) ( #305 )
+- Add the new [--vpp-onnx-deint](./QSVEncC_Options.en.md#--vpp-onnx-deint-param1value1param2value2) CLI integrating ST-DeInt and DDD through the `onnx_deint_models.json` registered-model manifest.
+- Improve memory retention of [--vpp-kfm](./QSVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) and fix GPU memory growth of mode=24 on long encodes.
+
 ## 8.25
 
 - Update for QSVEnc.auo2 only.
@@ -14,8 +22,6 @@
 - Fix chroma Degrain analysis in [--vpp-rtgmc](./QSVEncC_Options.en.md#--vpp-rtgmc-param1value1).
 - Speed up [--vpp-onnx](./QSVEncC_Options.en.md#--vpp-onnx-param1value1param2value2)/[--vpp-rife-ov](./QSVEncC_Options.en.md#--vpp-rife-ov-param1value1param2value2) with zero-copy path.
 - Support frames setting of registered models in [--vpp-onnx](./QSVEncC_Options.en.md#--vpp-onnx-param1value1param2value2).
-- Add the new [--vpp-onnx-deint](./QSVEncC_Options.en.md#--vpp-onnx-deint-param1value1param2value2) CLI integrating ST-DeInt and DDD through the `onnx_deint_models.json` registered-model manifest.
-- Fix host-side 4:2:0 chroma rounding in the ONNX conversion path under fast floating-point settings.
 - Fix crash when OpenCL output worker is disabled.
 - Fix OpenCL frame pool issues.
 - Support saving/restoring per-project output settings in AviUtl2.
