@@ -318,9 +318,10 @@ API v1.1  … Intel Media SDK v2.0
 [QSVEncC]
 - 入力途中の解像度変更に追従するようにした。
 - --adapt-resolutionを追加。
+- PMT変更追従機能を追加。
 - 音声・字幕の言語除外指定に対応。
 - Linuxで--interlace autoを有効化。
-- --vpp-onnx-deintを追加。(ST-DeInt / DDD)
+- --vpp-onnx-deintを追加。
 - ONNXホスト出力のクロマ丸めを修正。
 - --vpp-kfmのメモリ保持を改善し、mode=24の長尺処理でGPUメモリが増加する問題を修正。
 

@@ -4,8 +4,9 @@
 
 - Follow mid-stream input resolution changes.
 - Add [--adapt-resolution](./QSVEncC_Options.en.md#--adapt-resolution-intxint).
+- Add support to track PMT change.
 - Support language exclusion for audio/subtitle selection. ([--audio-copy](./QSVEncC_Options.en.md#--audio-copy-intstringintstring) / [--audio-codec](./QSVEncC_Options.en.md#--audio-codec-intstringstringstringstringstringstring) / [--sub-copy](./QSVEncC_Options.en.md#--sub-copy-intstringintstring)) ( #305 )
-- Add the new [--vpp-onnx-deint](./QSVEncC_Options.en.md#--vpp-onnx-deint-param1value1param2value2) CLI integrating ST-DeInt and DDD through the `onnx_deint_models.json` registered-model manifest.
+- Add the new [--vpp-onnx-deint](./QSVEncC_Options.en.md#--vpp-onnx-deint-param1value1param2value2) CLI through the `onnx_deint_models.json` registered-model manifest.
 - Improve memory retention of [--vpp-kfm](./QSVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) and fix GPU memory growth of mode=24 on long encodes.
 
 ## 8.25
