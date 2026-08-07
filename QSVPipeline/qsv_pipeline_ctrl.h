@@ -1286,7 +1286,12 @@ public:
             && ((m_avsync & (RGY_AVSYNC_VFR | RGY_AVSYNC_FORCE_CFR)) || m_vpp_rff || m_vpp_afs_rff_aware || m_timestampPassThrough)) {
             //CFR仮定ではなく、オリジナルの時間を見る
             const auto srcTimestamp = (int64_t)taskSurf->surf().frame()->timestamp();
-            outPtsSource = rational_rescale(srcTimestamp, m_srcTimebase, m_outputTimebase);
+            // FFmpegのAV_NOPTS_VALUEとMFX_TIMESTAMP_UNKNOWNは値が異なるため、両方を明示的に除外する。
+            // 未設定値をrescaleすると巨大な負値になり、gap補正の基準と後続MFXのtimestampを破壊する。
+            // 一時的にPTSが得られないフレームは、従来のCFR推定値をそのまま使う。
+            if (srcTimestamp != AV_NOPTS_VALUE && (mfxU64)srcTimestamp != (mfxU64)MFX_TIMESTAMP_UNKNOWN) {
+                outPtsSource = rational_rescale(srcTimestamp, m_srcTimebase, m_outputTimebase);
+            }
             if (taskSurf->surf().frame()->duration() > 0 && (m_avsync | RGY_AVSYNC_FORCE_CFR) != RGY_AVSYNC_FORCE_CFR) {
                 outDuration = rational_rescale(taskSurf->surf().frame()->duration(), m_srcTimebase, m_outputTimebase);
                 taskSurf->surf().frame()->setDuration(outDuration);
@@ -2980,9 +2985,12 @@ protected:
                 AcquireReady *ready;
                 PipelineTaskOutputSurf *taskSurf;
                 RGYCLFrameInterop *interop;
+                RGYFrameInfo frameInfo;
                 std::unique_ptr<RGYCLFrame> clFrame;
             };
             std::vector<InteropAcquireItem> interopItems;
+            std::set<RGYCLFrameInterop *> interopFramesInBatch;
+            bool duplicateInteropFrame = false;
             {
                 // D3D11 interopは単一mutexのまま、バッチ全体をacquireからrelease完了まで直列化する。
                 std::unique_lock<std::recursive_mutex> interopLock(m_cl->interopMutex(), std::defer_lock);
@@ -3045,7 +3053,12 @@ protected:
 
                         auto readyPtr = ready.get();
                         readies.push_back(std::move(ready));
-                        interopItems.push_back({ readyPtr, taskSurf, clFrameInInterop, std::move(clFrame) });
+                        // 同じMFX面を複数の論理フレームが共有する場合に備え、timestamp等をここで固定する。
+                        // 後からinterop->frameInfo()を参照すると、バッチ内の最後のフレーム情報へ上書きされている。
+                        interopItems.push_back({ readyPtr, taskSurf, clFrameInInterop, clFrameInInterop->frameInfo(), std::move(clFrame) });
+                        if (!interopFramesInBatch.insert(clFrameInInterop).second) {
+                            duplicateInteropFrame = true;
+                        }
                     } else if (auto clframe = taskSurf->surf().cl(); clframe != nullptr) {
                         // OpenCLフレームが来た場合はworker側で追加処理せず、そのままmainへ渡す。
                         ready->frameInfo = clframe->frameInfo();
@@ -3058,20 +3071,28 @@ protected:
                 }
 
                 if (batchErr == RGY_ERR_NONE && !interopItems.empty()) {
-                    std::vector<RGYCLFrameInterop *> interopFrames;
-                    interopFrames.reserve(interopItems.size());
-                    for (const auto& item : interopItems) {
-                        interopFrames.push_back(item.interop);
-                    }
-                    batchErr = RGYCLFrameInterop::acquire(interopFrames, m_acquireQueue);
-                    if (batchErr != RGY_ERR_NONE) {
-                        PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop input batch: %s.\n"), get_err_mes(batchErr));
-                    } else {
-                        for (auto& item : interopItems) {
+                    // forcecfrの補間フレームなどは、同じMFX面を異なるtimestampで複数回参照する。
+                    // 同一バッチ内で同じinteropを一括acquireするとcl_memが重複した未定義な要求となり、
+                    // フレーム時刻が後の参照値で上書きされることがある。重複時だけ1件ずつ順序付け、
+                    // 通常の異なる面だけのバッチでは従来の一括処理を維持する。
+                    auto processInteropItems = [&](const size_t begin, const size_t end) {
+                        std::vector<RGYCLFrameInterop *> interopFrames;
+                        interopFrames.reserve(end - begin);
+                        for (size_t i = begin; i < end; i++) {
+                            interopFrames.push_back(interopItems[i].interop);
+                        }
+                        auto err = RGYCLFrameInterop::acquire(interopFrames, m_acquireQueue);
+                        if (err != RGY_ERR_NONE) {
+                            PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop input batch: %s.\n"), get_err_mes(err));
+                            return err;
+                        }
+                        auto copyErr = RGY_ERR_NONE;
+                        for (size_t i = begin; i < end; i++) {
+                            auto& item = interopItems[i];
                             RGYOpenCLEvent copyDoneEvent;
-                            batchErr = m_cl->copyFrame(&item.clFrame->frame, &item.interop->frameInfo(), nullptr, m_acquireQueue, {}, &copyDoneEvent, RGYFrameCopyMode::FRAME, "qsv.acquire.copy");
-                            if (batchErr != RGY_ERR_NONE) {
-                                PrintMes(RGY_LOG_ERROR, _T("Failed to copy OpenCL interop input frame: %s.\n"), get_err_mes(batchErr));
+                            copyErr = m_cl->copyFrame(&item.clFrame->frame, &item.frameInfo, nullptr, m_acquireQueue, {}, &copyDoneEvent, RGYFrameCopyMode::FRAME, "qsv.acquire.copy");
+                            if (copyErr != RGY_ERR_NONE) {
+                                PrintMes(RGY_LOG_ERROR, _T("Failed to copy OpenCL interop input frame: %s.\n"), get_err_mes(copyErr));
                                 break;
                             }
                         }
@@ -3079,18 +3100,27 @@ protected:
                         const auto releaseErr = RGYCLFrameInterop::release(interopFrames, &inputReleaseEvent);
                         if (releaseErr != RGY_ERR_NONE) {
                             PrintMes(RGY_LOG_ERROR, _T("Failed to release OpenCL interop input batch: %s.\n"), get_err_mes(releaseErr));
-                            if (batchErr == RGY_ERR_NONE) {
-                                batchErr = releaseErr;
-                            }
-                        } else {
-                            for (auto& item : interopItems) {
-                                item.taskSurf->addClEvent(inputReleaseEvent);
-                                item.ready->readyEvent = inputReleaseEvent;
-                                item.ready->waitReadyEvent = true;
-                                item.ready->frameInfo = item.clFrame->frameInfo();
-                                item.ready->clFrame = std::move(item.clFrame);
-                            }
+                            return releaseErr;
                         }
+                        if (copyErr != RGY_ERR_NONE) {
+                            return copyErr;
+                        }
+                        for (size_t i = begin; i < end; i++) {
+                            auto& item = interopItems[i];
+                            item.taskSurf->addClEvent(inputReleaseEvent);
+                            item.ready->readyEvent = inputReleaseEvent;
+                            item.ready->waitReadyEvent = true;
+                            item.ready->frameInfo = item.clFrame->frameInfo();
+                            item.ready->clFrame = std::move(item.clFrame);
+                        }
+                        return RGY_ERR_NONE;
+                    };
+                    if (duplicateInteropFrame) {
+                        for (size_t i = 0; i < interopItems.size() && batchErr == RGY_ERR_NONE; i++) {
+                            batchErr = processInteropItems(i, i + 1);
+                        }
+                    } else {
+                        batchErr = processInteropItems(0, interopItems.size());
                     }
                     if (m_memType == D3D11_MEMORY) {
                         const auto finishErr = m_acquireQueue.finish();

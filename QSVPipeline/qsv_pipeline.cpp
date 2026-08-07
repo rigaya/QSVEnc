@@ -4452,6 +4452,27 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
             return RGY_ERR_UNSUPPORTED;
         }
     }
+#if ENABLE_INPUT_RESOLUTION_CHANGE
+    // 同寸の--output-resなど、指定されたフィルタ候補が初期化時にno-opとしてすべて除去される場合がある。
+    // そのままでは途中の解像度変更を吸収する場所がなく、デコード面がエンコーダへ直結してしまうため、
+    // フィルタ指定なしの場合と同じ待機用MFX COPYを追加する。
+    if (m_vpFilters.empty()) {
+        auto [err, vppmfx] = AddFilterMFX(inputFrame, m_encFps, VppType::MFX_COPY, &inputParam->vppmfx,
+            getEncoderCsp(inputParam), getEncoderBitdepth(inputParam), nullptr, resize, blocksize);
+        if (err != RGY_ERR_NONE) {
+            return err;
+        }
+        if (vppmfx) {
+            if (inputParam->common.adaptResolution.first > 0) {
+                vppmfx->SetInputAllocationResolution(
+                    inputParam->common.adaptResolution.first,
+                    inputParam->common.adaptResolution.second);
+            }
+            m_vpFilters.push_back(VppVilterBlock(vppmfx));
+            m_vppMfxBypassForResChange = true;
+        }
+    }
+#endif
     if (inputParam->vppmfx.mfxInsertCLCopy
         && !m_vpFilters.empty()
         && m_vpFilters.back().type == VppFilterType::FILTER_MFX) {
