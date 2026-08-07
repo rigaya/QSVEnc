@@ -1033,6 +1033,7 @@ protected:
 
     //対象のパケットの必要な対象のストリーム情報へのポインタ
     AVDemuxStream *getPacketStreamData(const AVPacket *pkt);
+    AVDemuxStream *getStreamDataByLogicalIndex(const AVPacket *pkt);
 
     //qStreamPktL1をチェックし、framePosListから必要な音声パケットかどうかを判定し、
     //必要ならqStreamPktL2に移し、不要ならパケットを開放する
