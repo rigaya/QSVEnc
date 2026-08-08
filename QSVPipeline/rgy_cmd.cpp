@@ -16978,11 +16978,8 @@ tstring gen_cmd_help_vpp() {
         _T("      model=<name>                Registered model name (required)\n")
         _T("                                  Names require --vpp-onnx-model-dir (onnx_deint_models.json).\n")
         _T("      mode=<string>               bob (default, double frame rate) / normal\n")
-#if ENABLE_OPENVINO
-        _T("      device=<string>             GPU.0 (default) / CPU / GPU / AUTO / NPU\n")
-        _T("      precision=<string>          fp32 (default, high quality) / auto (fast)\n")
-        _T("                                  Recommended: stdeint+fp32 for quality, stdeint_fast+auto for HD speed.\n")
-#endif
+        _T("      device=<string>             inference device (backend dependent)\n")
+        _T("      precision=<string>          inference precision (backend dependent)\n")
         _T("      colormatrix=<string>        same list as --colormatrix; supports\n")
         _T("                                  auto / auto_res / bt709 / smpte170m / bt470bg / bt2020nc\n")
         _T("      colorrange=<string>         same list as --colorrange; supports\n")
