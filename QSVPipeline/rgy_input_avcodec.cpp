@@ -3996,7 +3996,6 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
         //解像度変更を下流へ伝播させない処理(正規化resizeの挿入)はPipelineTaskOpenCL側で行う。
         if (   m_Demux.video.frame->width  != m_inputVideoInfo.srcWidth
             || m_Demux.video.frame->height != m_inputVideoInfo.srcHeight) {
-#if ENABLE_INPUT_RESOLUTION_CHANGE
             const int newWidth = m_Demux.video.frame->width;
             const int newHeight = m_Demux.video.frame->height;
             // この判定は、現在解像度を更新したりフレームをサーフェスへコピーしたりする前に行う。
@@ -4019,12 +4018,6 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
                 m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcHeight, newWidth, newHeight);
             m_inputVideoInfo.srcWidth = newWidth;
             m_inputVideoInfo.srcHeight = newHeight;
-#else
-            AddMessage(RGY_LOG_ERROR, _T("input resolution changed from %dx%d to %dx%d, which is not supported yet.\n"),
-                m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcHeight, m_Demux.video.frame->width, m_Demux.video.frame->height);
-            AddMessage(RGY_LOG_ERROR, _T("  Please split the input file at the resolution change point.\n"));
-            return RGY_ERR_UNSUPPORTED;
-#endif
         }
 
         //実際には初期化時と異なるcspの場合があるので、ここで再度チェック

@@ -15521,8 +15521,6 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     }
 
     OPT_LST(_T("--input-hevc-bsf"), hevcbsf, list_hevc_bsf_mode);
-    // 並列エンコードの子プロセス用コマンドにも上限を引き継ぐ。ここから漏れると子側だけ従来の
-    // 「初期解像度が上限」に戻り、解像度切り替え時に失敗する。
     if (param->adaptResolution != defaultPrm->adaptResolution) {
         cmd << _T(" --adapt-resolution ") << param->adaptResolution.first << _T("x") << param->adaptResolution.second;
     }

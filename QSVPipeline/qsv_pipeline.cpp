@@ -2579,14 +2579,12 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vppmfx.aiFrameInterpolation.enable) filterPipeline.push_back(VppType::MFX_AI_FRAMEINTERP);
 
     if (filterPipeline.size() == 0) {
-#if ENABLE_INPUT_RESOLUTION_CHANGE
         // フィルタが一つもない構成(input/decode -> encodeの直結)では解像度変更を吸収する場所がないため、
         // 正規化に使えるMFX VPPブロックをここで常設しておく。
         // ただし等倍のMFX VPPは無劣化ではない(SetVppExtBuffers: Copyでも画質が変わる)ので、
         // 解像度変更が起きるまではPipelineTaskMFXVpp側でVPPを通さず素通しする(m_vppMfxBypassForResChange)。
         filterPipeline.push_back(VppType::MFX_COPY);
         m_vppMfxBypassForResChange = true;
-#endif
         return filterPipeline;
     }
 

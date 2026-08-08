@@ -57,11 +57,6 @@ const char *get_encoder_version();
 
 #define GPU_VENDOR "Intel"
 
-// 入力ファイル途中での解像度変更に追従する (0なら検出して明示エラーとする)
-// 解像度変更は下流には伝播させず、フィルタチェーン先頭を新解像度で再初期化した直後に
-// 元の解像度へ戻す正規化resizeを挿入することで、エンコーダ以降は初期解像度のまま維持する。
-#define ENABLE_INPUT_RESOLUTION_CHANGE 1
-
 #define AV1_TIMESTAMP_OVERRIDE 1
 #define OVERRIDE_HYPER_MODE_HEVC_FROM_H264 1
 #define LIMIT_HYPER_MODE_TO_KNOWN_CODECS 1
