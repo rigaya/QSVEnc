@@ -5976,7 +5976,11 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         i++;
 
         const auto paramList = std::vector<std::string>{
-            "enable", "model", "modelfile", "provider", "device", "precision",
+            "enable", "model", "modelfile", "provider", "device",
+#if ENCODER_NVENC
+            "interop",
+#endif
+            "precision",
             "colormatrix", "colormatrix_out", "colorrange", "colorspace", "noise", "frames", "mask", "out_res", "resize"
         };
 
@@ -6015,6 +6019,18 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     vpp->onnx.device = touppercase(param_val);
                     continue;
                 }
+#if ENCODER_NVENC
+                if (param_arg == _T("interop")) {
+                    const tstring v = tolowercase(param_val);
+                    if (v == _T("auto") || v == _T("ocl") || v == _T("host")) {
+                        vpp->onnx.interop = v;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+#endif
                 if (param_arg == _T("prec") || param_arg == _T("precision")) {
                     const tstring v = tolowercase(param_val);
                     if (v == _T("auto") || v == _T("fp16") || v == _T("f16") || v == _T("fp32") || v == _T("f32")) {
@@ -14140,6 +14156,9 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
                 tmp << _T(",model=") << param->onnx.modelFile;
             }
             tmp << _T(",device=") << param->onnx.device;
+#if ENCODER_NVENC
+            tmp << _T(",interop=") << param->onnx.interop;
+#endif
             tmp << _T(",prec=") << param->onnx.precision;
             tmp << _T(",colormatrix=") << get_cx_desc(list_colormatrix, param->onnx.colormatrix);
             if (param->onnx.colormatrixOut != RGY_MATRIX_AUTO) {
