@@ -171,7 +171,7 @@
       <TargetMachine>MachineX86</TargetMachine>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-62.dll;avformat-62.dll;avutil-60.dll;swresample-6.dll;avfilter-11.dll;avdevice-62.dll;libass-9.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-63.dll;avformat-63.dll;avutil-61.dll;swresample-7.dll;avfilter-12.dll;avdevice-63.dll;libass-9.dll</DelayLoadDLLs>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateMapFile>true</GenerateMapFile>
     </Link>
@@ -229,7 +229,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libass-*.dll" "$(OutDir)"
       <TargetMachine>MachineX86</TargetMachine>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-62.dll;avformat-62.dll;avutil-60.dll;swresample-6.dll;avfilter-11.dll;avdevice-62.dll;libass-9.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-63.dll;avformat-63.dll;avutil-61.dll;swresample-7.dll;avfilter-12.dll;avdevice-63.dll;libass-9.dll</DelayLoadDLLs>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateMapFile>true</GenerateMapFile>
     </Link>
@@ -290,7 +290,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libplacebo-*.dll" "$(OutD
       <TargetMachine>MachineX64</TargetMachine>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-62.dll;avformat-62.dll;avutil-60.dll;swresample-6.dll;avfilter-11.dll;avdevice-62.dll;libass-9.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-63.dll;avformat-63.dll;avutil-61.dll;swresample-7.dll;avfilter-12.dll;avdevice-63.dll;libass-9.dll</DelayLoadDLLs>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateMapFile>true</GenerateMapFile>
     </Link>
@@ -352,7 +352,7 @@ if exist "$(OPENVINO_PATH)\bin\intel64\Release\openvino_c.dll" copy /y "$(OPENVI
       <TargetMachine>MachineX64</TargetMachine>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-62.dll;avformat-62.dll;avutil-60.dll;swresample-6.dll;avfilter-11.dll;avdevice-62.dll;libass-9.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-63.dll;avformat-63.dll;avutil-61.dll;swresample-7.dll;avfilter-12.dll;avdevice-63.dll;libass-9.dll</DelayLoadDLLs>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateMapFile>true</GenerateMapFile>
     </Link>
@@ -421,7 +421,7 @@ if exist "$(OPENVINO_PATH)\bin\intel64\Release\openvino_c.dll" copy /y "$(OPENVI
       <TargetMachine>MachineX86</TargetMachine>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-62.dll;avformat-62.dll;avutil-60.dll;swresample-6.dll;avfilter-11.dll;avdevice-62.dll;libass-9.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-63.dll;avformat-63.dll;avutil-61.dll;swresample-7.dll;avfilter-12.dll;avdevice-63.dll;libass-9.dll</DelayLoadDLLs>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateMapFile>true</GenerateMapFile>
     </Link>
@@ -490,7 +490,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libplacebo-*.dll" "$(OutD
       <TargetMachine>MachineX86</TargetMachine>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-62.dll;avformat-62.dll;avutil-60.dll;swresample-6.dll;avfilter-11.dll;avdevice-62.dll;libass-9.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-63.dll;avformat-63.dll;avutil-61.dll;swresample-7.dll;avfilter-12.dll;avdevice-63.dll;libass-9.dll</DelayLoadDLLs>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateMapFile>true</GenerateMapFile>
     </Link>
@@ -561,7 +561,7 @@ copy /y "$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libplacebo-*.dll" "$(OutD
       <TargetMachine>MachineX64</TargetMachine>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-62.dll;avformat-62.dll;avutil-60.dll;swresample-6.dll;avfilter-11.dll;avdevice-62.dll;libass-9.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-63.dll;avformat-63.dll;avutil-61.dll;swresample-7.dll;avfilter-12.dll;avdevice-63.dll;libass-9.dll</DelayLoadDLLs>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateMapFile>true</GenerateMapFile>
     </Link>
@@ -633,7 +633,7 @@ if exist "$(OPENVINO_PATH)\bin\intel64\Release\openvino_c.dll" copy /y "$(OPENVI
       <TargetMachine>MachineX64</TargetMachine>
       <OutputFile>$(OutDir)$(TargetFileName)</OutputFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
-      <DelayLoadDLLs>avcodec-62.dll;avformat-62.dll;avutil-60.dll;swresample-6.dll;avfilter-11.dll;avdevice-62.dll;libass-9.dll</DelayLoadDLLs>
+      <DelayLoadDLLs>avcodec-63.dll;avformat-63.dll;avutil-61.dll;swresample-7.dll;avfilter-12.dll;avdevice-63.dll;libass-9.dll</DelayLoadDLLs>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateMapFile>true</GenerateMapFile>
     </Link>
