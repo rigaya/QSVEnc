@@ -687,7 +687,7 @@ RGY_ERR RGYFilterAnime4k::runPrefilterDenoise(
     {
         const char *kname = "kernel_anime4k_thin_copy_y_to_ref";
         auto err = m_anime4k.get()->kernel(kname).config(queue, local_2d, global, wait_events, nullptr).launch(
-            m_prefilterRef->mem(), m_prefilterRefPitchF4,
+            m_prefilterRef->mem(), (m_prefilterRefPitchF4) * 4,
             (cl_mem)pInputPlaneY->ptr[0], pInputPlaneY->pitch[0],
             srcW, srcH);
         if (err != RGY_ERR_NONE) {
@@ -707,7 +707,7 @@ RGY_ERR RGYFilterAnime4k::runPrefilterDenoise(
     }
     auto err = m_anime4k.get()->kernel(kname).config(queue, local_2d, global, {}, nullptr).launch(
         m_prefilterPlane->mem(), m_prefilterPlanePitch,
-        m_prefilterRef->mem(),   m_prefilterRefPitchF4,
+        m_prefilterRef->mem(),   (m_prefilterRefPitchF4) * 4,
         srcW, srcH);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("%s (prefilter) failed: %s.\n"),
@@ -924,7 +924,7 @@ RGY_ERR RGYFilterAnime4k::runModeDtd(const Anime4kDispatchCtx &ctx, RGYFrameInfo
     {
         const char *kname = "kernel_anime4k_thin_sobel_xy";
         auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_2d, global_1x, {}, nullptr).launch(
-            m_scratchB->mem(), m_scratchPitchFloats / 4,
+            m_scratchB->mem(), (m_scratchPitchFloats / 4) * 4,
             m_dtdSrcLuma->mem(), m_dtdSrcLumaPitch,
             ctx.srcW, ctx.srcH);
         if (err != RGY_ERR_NONE) {
@@ -936,8 +936,8 @@ RGY_ERR RGYFilterAnime4k::runModeDtd(const Anime4kDispatchCtx &ctx, RGYFrameInfo
     {
         const char *kname = "kernel_anime4k_thin_gauss_x";
         auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_x_pass, global_1x, {}, nullptr).launch(
-            m_scratchA->mem(), m_scratchPitchFloats / 4,
-            m_scratchB->mem(), m_scratchPitchFloats / 4,
+            m_scratchA->mem(), (m_scratchPitchFloats / 4) * 4,
+            m_scratchB->mem(), (m_scratchPitchFloats / 4) * 4,
             ctx.srcW, ctx.srcH);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("%s failed: %s.\n"),
@@ -948,8 +948,8 @@ RGY_ERR RGYFilterAnime4k::runModeDtd(const Anime4kDispatchCtx &ctx, RGYFrameInfo
     {
         const char *kname = "kernel_anime4k_thin_gauss_y";
         auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_y_pass, global_1x, {}, nullptr).launch(
-            m_scratchB->mem(), m_scratchPitchFloats / 4,
-            m_scratchA->mem(), m_scratchPitchFloats / 4,
+            m_scratchB->mem(), (m_scratchPitchFloats / 4) * 4,
+            m_scratchA->mem(), (m_scratchPitchFloats / 4) * 4,
             ctx.srcW, ctx.srcH);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("%s failed: %s.\n"),
@@ -965,8 +965,8 @@ RGY_ERR RGYFilterAnime4k::runModeDtd(const Anime4kDispatchCtx &ctx, RGYFrameInfo
     {
         const char *kname = "kernel_anime4k_thin_kernel_xy";
         auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_2d, global_1x, {}, nullptr).launch(
-            m_scratchA->mem(), m_scratchPitchFloats / 4,
-            m_scratchB->mem(), m_scratchPitchFloats / 4,
+            m_scratchA->mem(), (m_scratchPitchFloats / 4) * 2,
+            m_scratchB->mem(), (m_scratchPitchFloats / 4) * 4,
             ctx.srcW, ctx.srcH);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("%s failed: %s.\n"),
@@ -979,7 +979,7 @@ RGY_ERR RGYFilterAnime4k::runModeDtd(const Anime4kDispatchCtx &ctx, RGYFrameInfo
         auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_2d, ctx.global, {}, nullptr).launch(
             (cl_mem)pOutputPlaneY->ptr[0], pOutputPlaneY->pitch[0],
             m_dtdSrcLuma->mem(), m_dtdSrcLumaPitch,
-            m_scratchA->mem(), m_scratchPitchFloats / 4,
+            m_scratchA->mem(), (m_scratchPitchFloats / 4) * 2,
             ctx.srcW, ctx.srcH, ctx.outW, ctx.outH);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("%s failed: %s.\n"),
@@ -1242,7 +1242,7 @@ RGY_ERR RGYFilterAnime4k::runThinChain(const Anime4kDispatchCtx &ctx, RGYFrameIn
         {
             const char *kname = "kernel_anime4k_thin_sobel_xy";
             auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_2d, ctx.global, {}, nullptr).launch(
-                thinB, thinPitchF4,
+                thinB, (thinPitchF4) * 4,
                 (cl_mem)pOutputPlaneY->ptr[0], pOutputPlaneY->pitch[0],
                 ctx.outW, ctx.outH);
             if (err != RGY_ERR_NONE) {
@@ -1254,8 +1254,8 @@ RGY_ERR RGYFilterAnime4k::runThinChain(const Anime4kDispatchCtx &ctx, RGYFrameIn
         {
             const char *kname = "kernel_anime4k_thin_gauss_x";
             auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_x_pass, ctx.global, {}, nullptr).launch(
-                thinA, thinPitchF4,
-                thinB, thinPitchF4,
+                thinA, (thinPitchF4) * 4,
+                thinB, (thinPitchF4) * 4,
                 ctx.outW, ctx.outH);
             if (err != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("%s failed: %s.\n"),
@@ -1266,8 +1266,8 @@ RGY_ERR RGYFilterAnime4k::runThinChain(const Anime4kDispatchCtx &ctx, RGYFrameIn
         {
             const char *kname = "kernel_anime4k_thin_gauss_y";
             auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_y_pass, ctx.global, {}, nullptr).launch(
-                thinB, thinPitchF4,
-                thinA, thinPitchF4,
+                thinB, (thinPitchF4) * 4,
+                thinA, (thinPitchF4) * 4,
                 ctx.outW, ctx.outH);
             if (err != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("%s failed: %s.\n"),
@@ -1282,8 +1282,8 @@ RGY_ERR RGYFilterAnime4k::runThinChain(const Anime4kDispatchCtx &ctx, RGYFrameIn
         {
             const char *kname = "kernel_anime4k_thin_kernel_xy";
             auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_2d, ctx.global, {}, nullptr).launch(
-                thinA, thinPitchF4,
-                thinB, thinPitchF4,
+                thinA, (thinPitchF4) * 2,
+                thinB, (thinPitchF4) * 4,
                 ctx.outW, ctx.outH);
             if (err != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("%s failed: %s.\n"),
@@ -1319,7 +1319,7 @@ RGY_ERR RGYFilterAnime4k::runThinChain(const Anime4kDispatchCtx &ctx, RGYFrameIn
         {
             const char *kname = "kernel_anime4k_thin_sobel_xy";
             auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_2d, work_global, {}, nullptr).launch(
-                m_thinWork.B->mem(), wPitchF4,
+                m_thinWork.B->mem(), (wPitchF4) * 4,
                 m_thinWork.luma->mem(), m_thinWork.lumaPitch,
                 wW, wH);
             if (err != RGY_ERR_NONE) {
@@ -1331,8 +1331,8 @@ RGY_ERR RGYFilterAnime4k::runThinChain(const Anime4kDispatchCtx &ctx, RGYFrameIn
         {
             const char *kname = "kernel_anime4k_thin_gauss_x";
             auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_x_pass, work_global, {}, nullptr).launch(
-                m_thinWork.A->mem(), wPitchF4,
-                m_thinWork.B->mem(), wPitchF4,
+                m_thinWork.A->mem(), (wPitchF4) * 4,
+                m_thinWork.B->mem(), (wPitchF4) * 4,
                 wW, wH);
             if (err != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("%s failed: %s.\n"),
@@ -1343,8 +1343,8 @@ RGY_ERR RGYFilterAnime4k::runThinChain(const Anime4kDispatchCtx &ctx, RGYFrameIn
         {
             const char *kname = "kernel_anime4k_thin_gauss_y";
             auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_y_pass, work_global, {}, nullptr).launch(
-                m_thinWork.B->mem(), wPitchF4,
-                m_thinWork.A->mem(), wPitchF4,
+                m_thinWork.B->mem(), (wPitchF4) * 4,
+                m_thinWork.A->mem(), (wPitchF4) * 4,
                 wW, wH);
             if (err != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("%s failed: %s.\n"),
@@ -1357,8 +1357,8 @@ RGY_ERR RGYFilterAnime4k::runThinChain(const Anime4kDispatchCtx &ctx, RGYFrameIn
         {
             const char *kname = "kernel_anime4k_thin_kernel_xy";
             auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_2d, work_global, {}, nullptr).launch(
-                m_thinWork.A->mem(), wPitchF4,
-                m_thinWork.B->mem(), wPitchF4,
+                m_thinWork.A->mem(), (wPitchF4) * 2,
+                m_thinWork.B->mem(), (wPitchF4) * 4,
                 wW, wH);
             if (err != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("%s failed: %s.\n"),
@@ -1390,7 +1390,7 @@ RGY_ERR RGYFilterAnime4k::runThinChain(const Anime4kDispatchCtx &ctx, RGYFrameIn
     {
         const char *kname = "kernel_anime4k_thin_copy_y_to_ref";
         auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_2d, ctx.global, {}, nullptr).launch(
-            yrefBuf, yrefPitchF4,
+            yrefBuf, (yrefPitchF4) * 4,
             (cl_mem)pOutputPlaneY->ptr[0], pOutputPlaneY->pitch[0],
             ctx.outW, ctx.outH);
         if (err != RGY_ERR_NONE) {
@@ -1403,8 +1403,8 @@ RGY_ERR RGYFilterAnime4k::runThinChain(const Anime4kDispatchCtx &ctx, RGYFrameIn
         const char *kname = "kernel_anime4k_thin_warp";
         auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_2d, ctx.global, {}, event).launch(
             (cl_mem)pOutputPlaneY->ptr[0], pOutputPlaneY->pitch[0],
-            yrefBuf, yrefPitchF4,
-            flowBuf, flowPitchF4,
+            yrefBuf, (yrefPitchF4) * 4,
+            flowBuf, (flowPitchF4) * 2,
             ctx.outW, ctx.outH,
             flowW, flowH);
         if (err != RGY_ERR_NONE) {
@@ -1428,7 +1428,7 @@ RGY_ERR RGYFilterAnime4k::runDenoiseChain(const Anime4kDispatchCtx &ctx, RGYFram
     {
         const char *kname = "kernel_anime4k_thin_copy_y_to_ref";
         auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_2d, ctx.global, {}, nullptr).launch(
-            m_scratchA->mem(), m_scratchPitchFloats / 4,
+            m_scratchA->mem(), (m_scratchPitchFloats / 4) * 4,
             (cl_mem)pOutputPlaneY->ptr[0], pOutputPlaneY->pitch[0],
             ctx.outW, ctx.outH);
         if (err != RGY_ERR_NONE) {
@@ -1446,7 +1446,7 @@ RGY_ERR RGYFilterAnime4k::runDenoiseChain(const Anime4kDispatchCtx &ctx, RGYFram
     }
     auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_2d, ctx.global, {}, event).launch(
         (cl_mem)pOutputPlaneY->ptr[0], pOutputPlaneY->pitch[0],
-        m_scratchA->mem(), m_scratchPitchFloats / 4,
+        m_scratchA->mem(), (m_scratchPitchFloats / 4) * 4,
         ctx.outW, ctx.outH);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("%s failed: %s.\n"),

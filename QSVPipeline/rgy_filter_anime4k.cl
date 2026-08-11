@@ -522,12 +522,16 @@ __kernel void kernel_anime4k_chroma_joint_bilateral(
 // times four.
 #define SCRATCH_LOAD1(pBase, idx) vload_half((idx), (__global const half *)(pBase))
 #define SCRATCH_STORE1(val, pBase, idx) vstore_half((val), (idx), (__global half *)(pBase))
+#define SCRATCH_LOAD2(pBase, idx) vload_half2((idx), (__global const half *)(pBase))
+#define SCRATCH_STORE2(val, pBase, idx) vstore_half2((val), (idx), (__global half *)(pBase))
 #else
 #define SCRATCH_ELEM_T float
 #define SCRATCH_LOAD4(pBase, idx) (((__global const float4 *)(pBase))[(idx)])
 #define SCRATCH_STORE4(val, pBase, idx) (((__global float4 *)(pBase))[(idx)] = (val))
 #define SCRATCH_LOAD1(pBase, idx) (((__global const float *)(pBase))[(idx)])
 #define SCRATCH_STORE1(val, pBase, idx) (((__global float *)(pBase))[(idx)] = (val))
+#define SCRATCH_LOAD2(pBase, idx) (((__global const float2 *)(pBase))[(idx)])
+#define SCRATCH_STORE2(val, pBase, idx) (((__global float2 *)(pBase))[(idx)] = (val))
 #endif
 
 // Pixel-domain Gaussian weight: w(d) = exp(-0.5 * (d/sigma)^2). Caller
@@ -680,7 +684,7 @@ __kernel void kernel_anime4k_darken_apply_y(
 // to .x of the destination scratch -- equivalent to original sobel_y
 // output. No SLM used.
 __kernel void kernel_anime4k_thin_sobel_xy(
-    __global SCRATCH_ELEM_T *restrict pDstB, const int dstPitchFloats,
+    __global SCRATCH_ELEM_T *restrict pDstB, const int dstPitchScalars,
     __global const uchar *pSrcY, const int srcPitch,
     const int outW, const int outH) {
     const int ix = get_global_id(0);
@@ -720,14 +724,14 @@ __kernel void kernel_anime4k_thin_sobel_xy(
     const float norm  = native_sqrt(xgrad * xgrad + ygrad * ygrad);
     const float resp  = pow(norm, 0.7f);
 
-    SCRATCH_STORE4((float4)(resp, 0.0f, 0.0f, 0.0f), pDstB, iy * dstPitchFloats + ix);
+    SCRATCH_STORE1(resp, pDstB, iy * dstPitchScalars + ix);
 }
 
 // Thin pass 3 (cite Anime4K_Thin_HQ.glsl v3.2, "Gaussian-X"): horizontal
 // Gaussian smoothing of the shaped Sobel magnitude. sigma = 2 * h / 1080.
 __kernel void kernel_anime4k_thin_gauss_x(
-    __global SCRATCH_ELEM_T *restrict pDstA, const int dstPitchFloats,
-    __global const SCRATCH_ELEM_T *pSrcB, const int srcPitchFloats,
+    __global SCRATCH_ELEM_T *restrict pDstA, const int dstPitchScalars,
+    __global const SCRATCH_ELEM_T *pSrcB, const int srcPitchScalars,
     const int outW, const int outH) {
     const int ix = get_global_id(0);
     const int iy = get_global_id(1);
@@ -742,17 +746,17 @@ __kernel void kernel_anime4k_thin_gauss_x(
     for (int dx = -r; dx <= r; ++dx) {
         const int xx = clamp(ix + dx, 0, outW - 1);
         const float w = anime4k_gauss_w((float)dx, sigma);
-        acc  += SCRATCH_LOAD4(pSrcB, iy * srcPitchFloats + xx).x * w;
+        acc  += SCRATCH_LOAD1(pSrcB, iy * srcPitchScalars + xx) * w;
         wsum += w;
     }
-    SCRATCH_STORE4((float4)(acc / wsum, 0.0f, 0.0f, 0.0f), pDstA, iy * dstPitchFloats + ix);
+    SCRATCH_STORE1(acc / wsum, pDstA, iy * dstPitchScalars + ix);
 }
 
 // Thin pass 4 (cite Anime4K_Thin_HQ.glsl v3.2, "Gaussian-Y"): vertical
 // Gaussian completion of the shaped Sobel magnitude.
 __kernel void kernel_anime4k_thin_gauss_y(
-    __global SCRATCH_ELEM_T *restrict pDstB, const int dstPitchFloats,
-    __global const SCRATCH_ELEM_T *pSrcA, const int srcPitchFloats,
+    __global SCRATCH_ELEM_T *restrict pDstB, const int dstPitchScalars,
+    __global const SCRATCH_ELEM_T *pSrcA, const int srcPitchScalars,
     const int outW, const int outH) {
     const int ix = get_global_id(0);
     const int iy = get_global_id(1);
@@ -767,10 +771,10 @@ __kernel void kernel_anime4k_thin_gauss_y(
     for (int dy = -r; dy <= r; ++dy) {
         const int yy = clamp(iy + dy, 0, outH - 1);
         const float w = anime4k_gauss_w((float)dy, sigma);
-        acc  += SCRATCH_LOAD4(pSrcA, yy * srcPitchFloats + ix).x * w;
+        acc  += SCRATCH_LOAD1(pSrcA, yy * srcPitchScalars + ix) * w;
         wsum += w;
     }
-    SCRATCH_STORE4((float4)(acc / wsum, 0.0f, 0.0f, 0.0f), pDstB, iy * dstPitchFloats + ix);
+    SCRATCH_STORE1(acc / wsum, pDstB, iy * dstPitchScalars + ix);
 }
 
 // Thin passes 5+6 fused (cite Anime4K_Thin_HQ.glsl v3.2 "Kernel-X" +
@@ -781,8 +785,8 @@ __kernel void kernel_anime4k_thin_gauss_y(
 // No norm / pow on this pass -- the reference keeps the signed
 // gradient direction for the subsequent warp. No SLM used.
 __kernel void kernel_anime4k_thin_kernel_xy(
-    __global SCRATCH_ELEM_T *restrict pDstA, const int dstPitchFloats,
-    __global const SCRATCH_ELEM_T *pSrcB, const int srcPitchFloats,
+    __global SCRATCH_ELEM_T *restrict pDstA, const int dstPitchFloat2,
+    __global const SCRATCH_ELEM_T *pSrcB, const int srcPitchScalars,
     const int outW, const int outH) {
     const int ix = get_global_id(0);
     const int iy = get_global_id(1);
@@ -795,15 +799,15 @@ __kernel void kernel_anime4k_thin_kernel_xy(
 
     // 9 scratch reads of .x (shaped magnitude). pSrcB.x carries the
     // gauss-Y output value at each position; .yzw are unused here.
-    const float l_t = SCRATCH_LOAD4(pSrcB, iy_t * srcPitchFloats + ix_l).x;
-    const float c_t = SCRATCH_LOAD4(pSrcB, iy_t * srcPitchFloats + ix  ).x;
-    const float r_t = SCRATCH_LOAD4(pSrcB, iy_t * srcPitchFloats + ix_r).x;
-    const float l_c = SCRATCH_LOAD4(pSrcB, iy   * srcPitchFloats + ix_l).x;
-    const float c_c = SCRATCH_LOAD4(pSrcB, iy   * srcPitchFloats + ix  ).x;
-    const float r_c = SCRATCH_LOAD4(pSrcB, iy   * srcPitchFloats + ix_r).x;
-    const float l_b = SCRATCH_LOAD4(pSrcB, iy_b * srcPitchFloats + ix_l).x;
-    const float c_b = SCRATCH_LOAD4(pSrcB, iy_b * srcPitchFloats + ix  ).x;
-    const float r_b = SCRATCH_LOAD4(pSrcB, iy_b * srcPitchFloats + ix_r).x;
+    const float l_t = SCRATCH_LOAD1(pSrcB, iy_t * srcPitchScalars + ix_l);
+    const float c_t = SCRATCH_LOAD1(pSrcB, iy_t * srcPitchScalars + ix  );
+    const float r_t = SCRATCH_LOAD1(pSrcB, iy_t * srcPitchScalars + ix_r);
+    const float l_c = SCRATCH_LOAD1(pSrcB, iy   * srcPitchScalars + ix_l);
+    const float c_c = SCRATCH_LOAD1(pSrcB, iy   * srcPitchScalars + ix  );
+    const float r_c = SCRATCH_LOAD1(pSrcB, iy   * srcPitchScalars + ix_r);
+    const float l_b = SCRATCH_LOAD1(pSrcB, iy_b * srcPitchScalars + ix_l);
+    const float c_b = SCRATCH_LOAD1(pSrcB, iy_b * srcPitchScalars + ix  );
+    const float r_b = SCRATCH_LOAD1(pSrcB, iy_b * srcPitchScalars + ix_r);
 
     // Horizontal partials per row.
     const float xg_t = -l_t + r_t;
@@ -817,7 +821,7 @@ __kernel void kernel_anime4k_thin_kernel_xy(
     const float xgrad = (xg_t + xg_c + xg_c + xg_b) * (1.0f / 8.0f);
     const float ygrad = (-yg_t + yg_b)              * (1.0f / 8.0f);
 
-    SCRATCH_STORE4((float4)(xgrad, ygrad, 0.0f, 0.0f), pDstA, iy * dstPitchFloats + ix);
+    SCRATCH_STORE2((float2)(xgrad, ygrad), pDstA, iy * dstPitchFloat2 + ix);
 }
 
 // Thin pass 7 (preparation for warp): copy the post-apply luma plane
@@ -827,7 +831,7 @@ __kernel void kernel_anime4k_thin_kernel_xy(
 // we must not read pDstY at sub-pixel positions while concurrently
 // writing it.
 __kernel void kernel_anime4k_thin_copy_y_to_ref(
-    __global SCRATCH_ELEM_T *restrict pDstA, const int dstPitchFloats,
+    __global SCRATCH_ELEM_T *restrict pDstA, const int dstPitchScalars,
     __global const uchar *pSrcY, const int srcPitch,
     const int outW, const int outH) {
     const int ix = get_global_id(0);
@@ -835,7 +839,7 @@ __kernel void kernel_anime4k_thin_copy_y_to_ref(
     if (ix >= outW || iy >= outH) return;
 
     const float v = anime4k_read_y_norm(pSrcY, srcPitch, ix, iy);
-    SCRATCH_STORE4((float4)(v, 0.0f, 0.0f, 0.0f), pDstA, iy * dstPitchFloats + ix);
+    SCRATCH_STORE1(v, pDstA, iy * dstPitchScalars + ix);
 }
 
 // Manual bilinear sample of the .x component of a float4 buffer at
@@ -887,6 +891,30 @@ static inline float anime4k_bilinear_x(__global const SCRATCH_ELEM_T *buf, int p
 // field when it lives at a lower resolution than the output (Fast and
 // VeryFast tiers); for the HQ tier the caller passes integer coords
 // and this collapses to a single texel read.
+// Float2-strided variant of anime4k_bilinear_xy, for the flow field once
+// thin_kernel_xy stores it as two floats per pixel. Pitch is in float2
+// elements. Same weights and summation order as the float4 form.
+static inline float2 anime4k_bilinear_xy2(__global const SCRATCH_ELEM_T *buf, int pitchFloat2,
+                                          int w, int h, float fx, float fy) {
+    const int x0 = clamp((int)floor(fx), 0, w - 1);
+    const int y0 = clamp((int)floor(fy), 0, h - 1);
+    const int x1 = clamp(x0 + 1, 0, w - 1);
+    const int y1 = clamp(y0 + 1, 0, h - 1);
+    const float dx = fx - (float)x0;
+    const float dy = fy - (float)y0;
+    const float2 v00 = SCRATCH_LOAD2(buf, y0 * pitchFloat2 + x0);
+    const float2 v01 = SCRATCH_LOAD2(buf, y0 * pitchFloat2 + x1);
+    const float2 v10 = SCRATCH_LOAD2(buf, y1 * pitchFloat2 + x0);
+    const float2 v11 = SCRATCH_LOAD2(buf, y1 * pitchFloat2 + x1);
+    const float w00 = (1.0f - dx) * (1.0f - dy);
+    const float w01 =         dx  * (1.0f - dy);
+    const float w10 = (1.0f - dx) *         dy;
+    const float w11 =         dx  *         dy;
+    return (float2)(
+        w00 * v00.x + w01 * v01.x + w10 * v10.x + w11 * v11.x,
+        w00 * v00.y + w01 * v01.y + w10 * v10.y + w11 * v11.y);
+}
+
 static inline float2 anime4k_bilinear_xy(__global const SCRATCH_ELEM_T *buf, int pitchFloats,
                                          int w, int h, float fx, float fy) {
     const int x0 = clamp((int)floor(fx), 0, w - 1);
@@ -922,8 +950,8 @@ static inline float2 anime4k_bilinear_xy(__global const SCRATCH_ELEM_T *buf, int
 // and the flow read bilinear-interpolates.
 __kernel void kernel_anime4k_thin_warp(
     __global uchar *restrict pDstY, const int dstPitch,
-    __global const SCRATCH_ELEM_T *pSrcA, const int srcAPitchFloats,
-    __global const SCRATCH_ELEM_T *pSrcB, const int srcBPitchFloats,
+    __global const SCRATCH_ELEM_T *pSrcA, const int srcAPitchScalars,
+    __global const SCRATCH_ELEM_T *pSrcB, const int srcBPitchFloat2,
     const int outW, const int outH,
     const int flowW, const int flowH) {
     const int ix = get_global_id(0);
@@ -937,7 +965,7 @@ __kernel void kernel_anime4k_thin_warp(
     // grids on a half-integer texel-centre convention.
     const float fx_flow = ((float)ix + 0.5f) * (float)flowW / (float)outW - 0.5f;
     const float fy_flow = ((float)iy + 0.5f) * (float)flowH / (float)outH - 0.5f;
-    const float2 flow = anime4k_bilinear_xy(pSrcB, srcBPitchFloats, flowW, flowH, fx_flow, fy_flow);
+    const float2 flow = anime4k_bilinear_xy2(pSrcB, srcBPitchFloat2, flowW, flowH, fx_flow, fy_flow);
     const float dnx = flow.x;
     const float dny = flow.y;
     const float invlen = 1.0f / (native_sqrt(dnx * dnx + dny * dny) + 0.01f);
@@ -946,7 +974,7 @@ __kernel void kernel_anime4k_thin_warp(
 
     const float fx = (float)ix - ddx;
     const float fy = (float)iy - ddy;
-    float result = anime4k_bilinear_x(pSrcA, srcAPitchFloats, outW, outH, fx, fy);
+    float result = anime4k_bilinear_x1(pSrcA, srcAPitchScalars, outW, outH, fx, fy);
     result = clamp(result, 0.0f, 1.0f);
 
     __global Type *ptr = (__global Type *)(pDstY + iy * dstPitch + ix * sizeof(Type));
@@ -1150,13 +1178,13 @@ static inline float anime4k_denoise_sigma_i(float vc) {
 // Cite Anime4K_Denoise_Bilateral_Mean.glsl v3.2.
 __kernel void kernel_anime4k_denoise_mean(
     __global uchar *restrict pDstY, const int dstPitch,
-    __global const SCRATCH_ELEM_T *pSrcRef, const int srcPitchFloats,
+    __global const SCRATCH_ELEM_T *pSrcRef, const int srcPitchScalars,
     const int outW, const int outH) {
     const int ix = get_global_id(0);
     const int iy = get_global_id(1);
     if (ix >= outW || iy >= outH) return;
 
-    const float vc = SCRATCH_LOAD4(pSrcRef, iy * srcPitchFloats + ix).x;
+    const float vc = SCRATCH_LOAD1(pSrcRef, iy * srcPitchScalars + ix);
     const float sigma_s = ANIME4K_DENOISE_SPATIAL_SIGMA;
     const float sigma_i = anime4k_denoise_sigma_i(vc);
 
@@ -1168,7 +1196,7 @@ __kernel void kernel_anime4k_denoise_mean(
         const int yy = clamp(iy + dy, 0, outH - 1);
         for (int dx = -khalf; dx <= khalf; ++dx) {
             const int xx = clamp(ix + dx, 0, outW - 1);
-            const float v = SCRATCH_LOAD4(pSrcRef, yy * srcPitchFloats + xx).x;
+            const float v = SCRATCH_LOAD1(pSrcRef, yy * srcPitchScalars + xx);
             const float w = anime4k_bilateral_weight(dx, dy, vc, v, sigma_s, sigma_i);
             sum += w * v;
             n   += w;
@@ -1186,13 +1214,13 @@ __kernel void kernel_anime4k_denoise_mean(
 // Cite Anime4K_Denoise_Bilateral_Median.glsl v3.2.
 __kernel void kernel_anime4k_denoise_median(
     __global uchar *restrict pDstY, const int dstPitch,
-    __global const SCRATCH_ELEM_T *pSrcRef, const int srcPitchFloats,
+    __global const SCRATCH_ELEM_T *pSrcRef, const int srcPitchScalars,
     const int outW, const int outH) {
     const int ix = get_global_id(0);
     const int iy = get_global_id(1);
     if (ix >= outW || iy >= outH) return;
 
-    const float vc = SCRATCH_LOAD4(pSrcRef, iy * srcPitchFloats + ix).x;
+    const float vc = SCRATCH_LOAD1(pSrcRef, iy * srcPitchScalars + ix);
     const float sigma_s = ANIME4K_DENOISE_SPATIAL_SIGMA;
     const float sigma_i = anime4k_denoise_sigma_i(vc);
 
@@ -1207,7 +1235,7 @@ __kernel void kernel_anime4k_denoise_median(
         const int yy = clamp(iy + dy, 0, outH - 1);
         for (int dx = -khalf; dx <= khalf; ++dx) {
             const int xx = clamp(ix + dx, 0, outW - 1);
-            const float v = SCRATCH_LOAD4(pSrcRef, yy * srcPitchFloats + xx).x;
+            const float v = SCRATCH_LOAD1(pSrcRef, yy * srcPitchScalars + xx);
             const float w = anime4k_bilateral_weight(dx, dy, vc, v, sigma_s, sigma_i);
             vs[idx] = v;
             ws[idx] = w;
@@ -1274,13 +1302,13 @@ __kernel void kernel_anime4k_denoise_median(
 // Cite Anime4K_Denoise_Bilateral_Mode.glsl v3.1.
 __kernel void kernel_anime4k_denoise_mode(
     __global uchar *restrict pDstY, const int dstPitch,
-    __global const SCRATCH_ELEM_T *pSrcRef, const int srcPitchFloats,
+    __global const SCRATCH_ELEM_T *pSrcRef, const int srcPitchScalars,
     const int outW, const int outH) {
     const int ix = get_global_id(0);
     const int iy = get_global_id(1);
     if (ix >= outW || iy >= outH) return;
 
-    const float vc = SCRATCH_LOAD4(pSrcRef, iy * srcPitchFloats + ix).x;
+    const float vc = SCRATCH_LOAD1(pSrcRef, iy * srcPitchScalars + ix);
     const float sigma_s = ANIME4K_DENOISE_SPATIAL_SIGMA;
     const float sigma_i = anime4k_denoise_sigma_i(vc);
     const float reg     = max(ANIME4K_DENOISE_HIST_REG, 1e-6f);
@@ -1297,7 +1325,7 @@ __kernel void kernel_anime4k_denoise_mode(
         const int yy = clamp(iy + dy, 0, outH - 1);
         for (int dx = -khalf; dx <= khalf; ++dx) {
             const int xx = clamp(ix + dx, 0, outW - 1);
-            const float v = SCRATCH_LOAD4(pSrcRef, yy * srcPitchFloats + xx).x;
+            const float v = SCRATCH_LOAD1(pSrcRef, yy * srcPitchScalars + xx);
             const float w = anime4k_bilateral_weight(dx, dy, vc, v, sigma_s, sigma_i);
             vs[idx] = v;
             ws[idx] = w;
@@ -1560,7 +1588,7 @@ __kernel void kernel_anime4k_dog_apply_upscale(
 __kernel void kernel_anime4k_dtd_warp(
     __global uchar *restrict pDstY, const int dstPitch,
     __global const uchar *pSrcLuma, const int srcLumaPitch,
-    __global const SCRATCH_ELEM_T *pSrcFlow, const int srcFlowPitchFloats,
+    __global const SCRATCH_ELEM_T *pSrcFlow, const int srcFlowPitchFloat2,
     const int srcW, const int srcH,
     const int outW, const int outH) {
     const int ix = get_global_id(0);
@@ -1570,7 +1598,7 @@ __kernel void kernel_anime4k_dtd_warp(
     const float fx_1x = ((float)ix + 0.5f) * (float)srcW / (float)outW - 0.5f;
     const float fy_1x = ((float)iy + 0.5f) * (float)srcH / (float)outH - 0.5f;
 
-    const float2 flow = anime4k_bilinear_xy(pSrcFlow, srcFlowPitchFloats, srcW, srcH, fx_1x, fy_1x);
+    const float2 flow = anime4k_bilinear_xy2(pSrcFlow, srcFlowPitchFloat2, srcW, srcH, fx_1x, fy_1x);
     const float dnx = flow.x;
     const float dny = flow.y;
     const float invlen = 1.0f / (native_sqrt(dnx * dnx + dny * dny) + 0.01f);
