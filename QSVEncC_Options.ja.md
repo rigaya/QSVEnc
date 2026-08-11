@@ -4137,9 +4137,9 @@ CNNモデルは含まれておらず、そちらを使用する場合は、--vpp
   - out_res=&lt;WxH&gt;  
     チェーン終端でのリサイズ。2倍アップスケール後に任意の最終サイズに合わせられる。  
     片方の軸に負の値を指定するとアスペクト比を保持 (例: out_res=-2x1080)。
-  - resize=&lt;string&gt; (デフォルト: lanczos4)  
+  - resize=&lt;string&gt; (デフォルト: spline16)  
     out_resで使用するリサンプラー。  
-    lanczos4 / spline36 / jinc144 / nis / bicubic / ...
+    lanczos4 / spline16 / spline36 / jinc144 / nis / bicubic / ...
 
 - 使用例
   ```

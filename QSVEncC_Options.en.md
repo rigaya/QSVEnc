@@ -4079,9 +4079,9 @@ A complete chain in one pass: optional pre-filter denoise → main GLSL mode →
   - out_res=&lt;WxH&gt;  
     End-of-chain resize to an arbitrary final size, applied after the upscale stage.  
     A negative value on one axis keeps the source aspect (e.g. out_res=-2x1080).
-  - resize=&lt;string&gt; (default: lanczos4)  
+  - resize=&lt;string&gt; (default: spline16)  
     Resampler for out_res.  
-    lanczos4 / spline36 / jinc144 / nis / bicubic / ...
+    lanczos4 / spline16 / spline36 / jinc144 / nis / bicubic / ...
 
 - Example:
   ```
