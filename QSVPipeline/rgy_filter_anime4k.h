@@ -229,6 +229,7 @@ protected:
         RGYWorkSize local_2d;
         RGYWorkSize local_x_pass;
         RGYWorkSize local_y_pass;
+        RGYWorkSize local_fused; // the two fused upscale kernels
         RGYWorkSize global;      // outW x outH
         cl_mem srcImageMem;
         int srcW, srcH, outW, outH;

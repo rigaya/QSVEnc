@@ -41,11 +41,13 @@
 //   ANIME4K_REFINE_STRENGTH = float (0.2 .. 4.0; passed at build time)
 //
 // Scratch layout: two float4 buffers, outW * outH pixels each.
-//   scratchA / scratchB are written by the chain in ping-pong order.
+//   The upscale chain uses scratchA only, and as float2: it carries
+//   (sobel_norm, dval) between the two fused kernels below. The buffer
+//   is allocated as float4 because the darken / thin / dog / denoise
+//   chains still use both scratches at float4 in ping-pong order.
 //   .xy carries the two-component Sobel partial / direction
 //   .z  carries dval (edge-refinement weight) propagated forward
-//        from sobel_y so the apply pass has it without needing a
-//        separate LUMAD buffer.
+//        so the apply stage has it without a separate LUMAD buffer.
 
 #ifndef clamp
 #define clamp(x, low, high) (((x) <= (high)) ? (((x) >= (low)) ? (x) : (low)) : (high))
@@ -94,20 +96,28 @@ static inline float2 anime4k_src_coord(int ix, int iy, int out_w, int out_h) {
 // kernels above the definition also need it, so declare it up-front.
 static inline float anime4k_read_y_norm(__global const uchar *pY, int pitch, int x, int y);
 
-// Pass 2 (cite Anime4K_Upscale_Original_x2.glsl v3.2): horizontal Sobel
-// pre-pass. Reads three luma samples on a horizontal line via the
-// source sampler (hardware bilinear handles the SCALE=2 upscale
-// implicitly) and writes the partial Sobel (-l+r, l+2c+r) into the
-// LUMAD-partial scratch's .xy. .z and .w are zeroed.
-__kernel void kernel_anime4k_sobel_x(
-    __global float4 *restrict pDstA, const int dstPitchFloats,
-    __read_only image2d_t srcImage,
-    const int srcW, const int srcH,
-    const int outW, const int outH) {
-    const int ix = get_global_id(0);
-    const int iy = get_global_id(1);
-    if (ix >= outW || iy >= outH) return;
+// Passes 2-6 (cite Anime4K_Upscale_Original_x2.glsl v3.2) run as two fused
+// kernels rather than five separate ones.
+//
+// The reference shader is written as five sequential passes: a horizontal
+// Sobel partial, its vertical completion plus polynomial refinement, a
+// horizontal min-max refinement, its vertical completion, and the final
+// edge-blend. Expressed literally that is five full-resolution kernels, each
+// storing its result to a scratch buffer for the next one to read back.
+//
+// Every intermediate is a pure function of its input, so each horizontal
+// partial can be recomputed in registers at the point the following vertical
+// pass needs it. Doing that removes three of the four scratch round trips and
+// leaves one buffer carrying two floats per pixel instead of four.
+//
+// The arithmetic, the operand order and the edge clamping are unchanged, so
+// the output is bit-identical to the five-pass form.
 
+// Pass 2 at one output coordinate: the horizontal Sobel partial
+// (-l+r, l+2c+r), read through the source sampler so the hardware bilinear
+// still supplies the SCALE=2 upscale implicitly.
+static inline float2 anime4k_sobel_partial_at(
+    __read_only image2d_t srcImage, int ix, int iy, int outW, int outH) {
     const float dx = 1.0f / (float)outW;
     const float2 p = anime4k_src_coord(ix, iy, outW, outH);
 
@@ -115,22 +125,18 @@ __kernel void kernel_anime4k_sobel_x(
     const float c = read_imagef(srcImage, anime4k_src_sampler, p).x;
     const float r = read_imagef(srcImage, anime4k_src_sampler, (float2)(p.x + dx, p.y)).x;
 
-    const float xgrad = -l + r;
-    const float ygrad = l + c + c + r;
-
-    pDstA[iy * dstPitchFloats + ix] = (float4)(xgrad, ygrad, 0.0f, 0.0f);
+    return (float2)(-l + r, l + c + c + r);
 }
 
-// Pass 3 (cite Anime4K_Upscale_Original_x2.glsl v3.2): vertical Sobel
-// completion + polynomial refinement. Reads the horizontal partial
-// produced by pass 2 at three vertical coords, completes the 2D
-// Sobel norm, then maps sobel_norm through the published P5..P0
-// polynomial scaled by REFINE_STRENGTH to produce per-pixel dval.
-// Output scratchB.xy = (sobel_norm, dval); dval also lives in .y
-// for clarity. .z and .w zeroed.
-__kernel void kernel_anime4k_sobel_y(
-    __global float4 *restrict pDstB, const int dstPitchFloats,
-    __global const float4 *pSrcA, const int srcPitchFloats,
+// Passes 2 and 3 fused: the horizontal Sobel partial at the three rows the
+// vertical pass needs, then the 2D Sobel norm and the published P5..P0
+// polynomial scaled by REFINE_STRENGTH.
+//
+// Output is float2 (sobel_norm, dval). The five-pass form carried these in the
+// .xy of a float4 whose .zw were always zero.
+__kernel void kernel_anime4k_sobel(
+    __global float2 *restrict pDst, const int dstPitchFloats,
+    __read_only image2d_t srcImage,
     const int outW, const int outH) {
     const int ix = get_global_id(0);
     const int iy = get_global_id(1);
@@ -139,9 +145,9 @@ __kernel void kernel_anime4k_sobel_y(
     const int iy_t = max(iy - 1, 0);
     const int iy_b = min(iy + 1, outH - 1);
 
-    const float4 t = pSrcA[iy_t * srcPitchFloats + ix];
-    const float4 c = pSrcA[iy   * srcPitchFloats + ix];
-    const float4 b = pSrcA[iy_b * srcPitchFloats + ix];
+    const float2 t = anime4k_sobel_partial_at(srcImage, ix, iy_t, outW, outH);
+    const float2 c = anime4k_sobel_partial_at(srcImage, ix, iy,   outW, outH);
+    const float2 b = anime4k_sobel_partial_at(srcImage, ix, iy_b, outW, outH);
 
     const float xgrad = t.x + c.x + c.x + b.x;
     const float ygrad = -t.y + b.y;
@@ -149,93 +155,41 @@ __kernel void kernel_anime4k_sobel_y(
     const float sobel_norm = clamp(native_sqrt(xgrad * xgrad + ygrad * ygrad), 0.0f, 1.0f);
     const float dval = clamp(anime4k_poly5(sobel_norm) * ANIME4K_REFINE_STRENGTH, 0.0f, 1.0f);
 
-    pDstB[iy * dstPitchFloats + ix] = (float4)(sobel_norm, dval, 0.0f, 0.0f);
+    pDst[iy * dstPitchFloats + ix] = (float2)(sobel_norm, dval);
 }
 
-// Pass 4 (cite Anime4K_Upscale_Original_x2.glsl v3.2): horizontal
-// min-max refinement. Reads sobel_norm (.x) from the LUMAD scratch
-// at three horizontal coords and produces the LUMAMM horizontal
-// partial. Propagates dval (the .y component at the centre coord)
-// forward into the output .z so refine_y and apply have it without
-// rereading the LUMAD buffer.
-__kernel void kernel_anime4k_refine_x(
-    __global float4 *restrict pDstA, const int dstPitchFloats,
-    __global const float4 *pSrcB, const int srcPitchFloats,
-    const int outW, const int outH) {
-    const int ix = get_global_id(0);
-    const int iy = get_global_id(1);
-    if (ix >= outW || iy >= outH) return;
-
-    const float4 cval = pSrcB[iy * srcPitchFloats + ix];
+// Pass 4 at one output coordinate: the horizontal min-max refinement partial,
+// including its below-threshold early-out, so the three rows pass 5 needs can
+// be recomputed rather than stored.
+static inline float3 anime4k_refine_partial_at(
+    __global const float2 *pSrc, int srcPitchFloats, int ix, int iy, int outW) {
+    const float2 cval = pSrc[iy * srcPitchFloats + ix];
     const float dval = cval.y;
     if (dval < ANIME4K_DVAL_THRESHOLD) {
-        pDstA[iy * dstPitchFloats + ix] = (float4)(0.0f, 0.0f, dval, 0.0f);
-        return;
+        return (float3)(0.0f, 0.0f, dval);
     }
 
     const int ix_l = max(ix - 1, 0);
     const int ix_r = min(ix + 1, outW - 1);
 
-    const float l = pSrcB[iy * srcPitchFloats + ix_l].x;
+    const float l = pSrc[iy * srcPitchFloats + ix_l].x;
     const float c = cval.x;
-    const float r = pSrcB[iy * srcPitchFloats + ix_r].x;
+    const float r = pSrc[iy * srcPitchFloats + ix_r].x;
 
-    const float xgrad = -l + r;
-    const float ygrad = l + c + c + r;
-
-    pDstA[iy * dstPitchFloats + ix] = (float4)(xgrad, ygrad, dval, 0.0f);
+    return (float3)(-l + r, l + c + c + r, dval);
 }
 
-// Pass 5 (cite Anime4K_Upscale_Original_x2.glsl v3.2): vertical
-// completion of LUMAMM, with norm normalisation. Reads the LUMAMM
-// partial at three vertical coords; output .xy is the normalised
-// gradient direction. dval is forwarded from the centre coord's .z.
-__kernel void kernel_anime4k_refine_y(
-    __global float4 *restrict pDstB, const int dstPitchFloats,
-    __global const float4 *pSrcA, const int srcPitchFloats,
-    const int outW, const int outH) {
-    const int ix = get_global_id(0);
-    const int iy = get_global_id(1);
-    if (ix >= outW || iy >= outH) return;
-
-    const float4 cval = pSrcA[iy * srcPitchFloats + ix];
-    const float dval = cval.z;
-    if (dval < ANIME4K_DVAL_THRESHOLD) {
-        pDstB[iy * dstPitchFloats + ix] = (float4)(0.0f, 0.0f, dval, 0.0f);
-        return;
-    }
-
-    const int iy_t = max(iy - 1, 0);
-    const int iy_b = min(iy + 1, outH - 1);
-
-    const float4 t = pSrcA[iy_t * srcPitchFloats + ix];
-    const float4 b = pSrcA[iy_b * srcPitchFloats + ix];
-
-    const float xgrad = t.x + cval.x + cval.x + b.x;
-    const float ygrad = -t.y + b.y;
-
-    float norm = native_sqrt(xgrad * xgrad + ygrad * ygrad);
-    float ndx = 0.0f;
-    float ndy = 0.0f;
-    if (norm > 0.001f) {
-        ndx = xgrad / norm;
-        ndy = ygrad / norm;
-    }
-    pDstB[iy * dstPitchFloats + ix] = (float4)(ndx, ndy, dval, 0.0f);
-}
-
-// Pass 6 (cite Anime4K_Upscale_Original_x2.glsl v3.2): apply.
-// For each output pixel: if dval below threshold or direction is
-// near-zero, pass through the bilinear-upscaled source unchanged.
-// Otherwise, blend the centre source sample with one neighbour
-// sample along x and one along y, weighted by the gradient direction
-// magnitude, then mix with the centre by dval. Final value is
-// denormalised to the output type / bit depth and stored in the
+// Passes 4, 5 and 6 fused: horizontal refinement at three rows, vertical
+// completion with norm normalisation, then the edge-blend and the store to the
 // output luma plane.
-__kernel void kernel_anime4k_apply(
+//
+// dval at the centre coordinate gates pass 5 and pass 6 alike, so when it is
+// below threshold the whole tail collapses to the passthrough that the three
+// separate kernels would have produced.
+__kernel void kernel_anime4k_refine_apply(
     __global uchar *restrict pDstY, const int dstPitch,
     __read_only image2d_t srcImage,
-    __global const float4 *pSrcB, const int srcPitchFloats,
+    __global const float2 *pSrc, const int srcPitchFloats,
     const int outW, const int outH) {
     const int ix = get_global_id(0);
     const int iy = get_global_id(1);
@@ -246,23 +200,43 @@ __kernel void kernel_anime4k_apply(
     const float2 p = anime4k_src_coord(ix, iy, outW, outH);
 
     const float center = read_imagef(srcImage, anime4k_src_sampler, p).x;
-
-    const float4 dc = pSrcB[iy * srcPitchFloats + ix];
-    const float dval = dc.z;
+    const float dval = pSrc[iy * srcPitchFloats + ix].y;
 
     float result;
-    if (dval < ANIME4K_DVAL_THRESHOLD || fabs(dc.x + dc.y) <= 0.0001f) {
+    if (dval < ANIME4K_DVAL_THRESHOLD) {
         result = center;
     } else {
-        const float xstep = -sign(dc.x) * dx;
-        const float ystep = -sign(dc.y) * dy;
-        const float xval = read_imagef(srcImage, anime4k_src_sampler, (float2)(p.x + xstep, p.y)).x;
-        const float yval = read_imagef(srcImage, anime4k_src_sampler, (float2)(p.x, p.y + ystep)).x;
-        const float adx = fabs(dc.x);
-        const float ady = fabs(dc.y);
-        const float xyratio = adx / (adx + ady + RGY_FLT_EPS);
-        const float avg = xyratio * xval + (1.0f - xyratio) * yval;
-        result = avg * dval + center * (1.0f - dval);
+        const int iy_t = max(iy - 1, 0);
+        const int iy_b = min(iy + 1, outH - 1);
+
+        const float3 cval = anime4k_refine_partial_at(pSrc, srcPitchFloats, ix, iy,   outW);
+        const float3 t    = anime4k_refine_partial_at(pSrc, srcPitchFloats, ix, iy_t, outW);
+        const float3 b    = anime4k_refine_partial_at(pSrc, srcPitchFloats, ix, iy_b, outW);
+
+        const float xgrad = t.x + cval.x + cval.x + b.x;
+        const float ygrad = -t.y + b.y;
+
+        float norm = native_sqrt(xgrad * xgrad + ygrad * ygrad);
+        float ndx = 0.0f;
+        float ndy = 0.0f;
+        if (norm > 0.001f) {
+            ndx = xgrad / norm;
+            ndy = ygrad / norm;
+        }
+
+        if (fabs(ndx + ndy) <= 0.0001f) {
+            result = center;
+        } else {
+            const float xstep = -sign(ndx) * dx;
+            const float ystep = -sign(ndy) * dy;
+            const float xval = read_imagef(srcImage, anime4k_src_sampler, (float2)(p.x + xstep, p.y)).x;
+            const float yval = read_imagef(srcImage, anime4k_src_sampler, (float2)(p.x, p.y + ystep)).x;
+            const float adx = fabs(ndx);
+            const float ady = fabs(ndy);
+            const float xyratio = adx / (adx + ady + RGY_FLT_EPS);
+            const float avg = xyratio * xval + (1.0f - xyratio) * yval;
+            result = avg * dval + center * (1.0f - dval);
+        }
     }
 
     result = clamp(result, 0.0f, 1.0f);

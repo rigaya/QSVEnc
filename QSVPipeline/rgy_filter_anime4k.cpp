@@ -36,6 +36,13 @@
 
 static const int ANIME4K_BLOCK_X = 16;
 static const int ANIME4K_BLOCK_Y = 16;
+// The two fused upscale kernels read a 3x3 neighbourhood and are bound by the
+// sampler and the scratch reads rather than by arithmetic, so a wide, short
+// group suits them. Measured on Arc A770 at 1440x960, 720x480 and 3840x2160:
+// 64x4 was fastest at all three, though the spread over 16x16 / 32x8 / 8x32 /
+// 32x16 / 128x1 was only a few percent.
+static const int ANIME4K_FUSED_BLOCK_X = 64;
+static const int ANIME4K_FUSED_BLOCK_Y = 4;
 
 RGYFilterAnime4k::RGYFilterAnime4k(shared_ptr<RGYOpenCLContext> context) :
     RGYFilter(context), m_anime4k(), m_scratchA(), m_scratchB(),
@@ -703,23 +710,17 @@ RGY_ERR RGYFilterAnime4k::runModeOriginal(const Anime4kDispatchCtx &ctx, RGYFram
     // Base shader chain: Sobel partial + polynomial-refinement
     // edge-blend at the 2x output resolution. Cite
     // Anime4K_Upscale_Original_x2.glsl v3.2.
+    //
+    // The reference shader's five passes run as two fused kernels; see the
+    // header of rgy_filter_anime4k.cl for why that is equivalent. The scratch
+    // carries two floats per pixel on this path, so the pitch is in float2
+    // units, unlike the float4 units the darken / thin / dog chains use.
+    const int scratchPitchFloat2 = m_scratchPitchFloats / 2;
     {
-        const char *kname = "kernel_anime4k_sobel_x";
-        auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_x_pass, ctx.global, wait_events, nullptr).launch(
-            m_scratchA->mem(), m_scratchPitchFloats / 4,
+        const char *kname = "kernel_anime4k_sobel";
+        auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_fused, ctx.global, wait_events, nullptr).launch(
+            m_scratchA->mem(), scratchPitchFloat2,
             ctx.srcImageMem,
-            ctx.srcW, ctx.srcH, ctx.outW, ctx.outH);
-        if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("%s failed: %s.\n"),
-                char_to_tstring(kname).c_str(), get_err_mes(err));
-            return err;
-        }
-    }
-    {
-        const char *kname = "kernel_anime4k_sobel_y";
-        auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_y_pass, ctx.global, {}, nullptr).launch(
-            m_scratchB->mem(), m_scratchPitchFloats / 4,
-            m_scratchA->mem(), m_scratchPitchFloats / 4,
             ctx.outW, ctx.outH);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("%s failed: %s.\n"),
@@ -728,35 +729,11 @@ RGY_ERR RGYFilterAnime4k::runModeOriginal(const Anime4kDispatchCtx &ctx, RGYFram
         }
     }
     {
-        const char *kname = "kernel_anime4k_refine_x";
-        auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_x_pass, ctx.global, {}, nullptr).launch(
-            m_scratchA->mem(), m_scratchPitchFloats / 4,
-            m_scratchB->mem(), m_scratchPitchFloats / 4,
-            ctx.outW, ctx.outH);
-        if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("%s failed: %s.\n"),
-                char_to_tstring(kname).c_str(), get_err_mes(err));
-            return err;
-        }
-    }
-    {
-        const char *kname = "kernel_anime4k_refine_y";
-        auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_y_pass, ctx.global, {}, nullptr).launch(
-            m_scratchB->mem(), m_scratchPitchFloats / 4,
-            m_scratchA->mem(), m_scratchPitchFloats / 4,
-            ctx.outW, ctx.outH);
-        if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("%s failed: %s.\n"),
-                char_to_tstring(kname).c_str(), get_err_mes(err));
-            return err;
-        }
-    }
-    {
-        const char *kname = "kernel_anime4k_apply";
-        auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_2d, ctx.global, {}, event).launch(
+        const char *kname = "kernel_anime4k_refine_apply";
+        auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_fused, ctx.global, {}, event).launch(
             (cl_mem)pOutputPlaneY->ptr[0], pOutputPlaneY->pitch[0],
             ctx.srcImageMem,
-            m_scratchB->mem(), m_scratchPitchFloats / 4,
+            m_scratchA->mem(), scratchPitchFloat2,
             ctx.outW, ctx.outH);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("%s failed: %s.\n"),
@@ -766,6 +743,7 @@ RGY_ERR RGYFilterAnime4k::runModeOriginal(const Anime4kDispatchCtx &ctx, RGYFram
     }
     return RGY_ERR_NONE;
 }
+
 
 RGY_ERR RGYFilterAnime4k::runModeDogSharpen(const Anime4kDispatchCtx &ctx, RGYFrameInfo *pOutputPlaneY, const RGYFrameInfo *pInputPlaneY,
                                              const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
@@ -1483,6 +1461,9 @@ RGY_ERR RGYFilterAnime4k::runPlaneY(RGYFrameInfo *pOutputPlaneY, const RGYFrameI
     //                    dog_kernel_x). The wider 32-wide work-item row
     //                    matches the row-major scratch stride and lets
     //                    the EU subslices coalesce horizontal reads.
+    //   local_fused   -- 64x4 for the two fused upscale kernels, which
+    //                    read a 3x3 neighbourhood rather than a separable
+    //                    line and prefer a wide, short group.
     //   local_y_pass  -- 8x32 mirror for separable vertical passes
     //                    (sobel_y, refine_y, darken_dog_y, apply_y,
     //                    smooth_y, thin_gauss_y, dog_kernel_y); the
@@ -1492,6 +1473,7 @@ RGY_ERR RGYFilterAnime4k::runPlaneY(RGYFrameInfo *pOutputPlaneY, const RGYFrameI
     const RGYWorkSize local_2d(ANIME4K_BLOCK_X, ANIME4K_BLOCK_Y);
     const RGYWorkSize local_x_pass(32, 8);
     const RGYWorkSize local_y_pass(8, 32);
+    const RGYWorkSize local_fused(ANIME4K_FUSED_BLOCK_X, ANIME4K_FUSED_BLOCK_Y);
     const RGYWorkSize global(outW, outH);
 
     // Wrap the input luma plane as a normalised CL_R image so the
@@ -1524,7 +1506,7 @@ RGY_ERR RGYFilterAnime4k::runPlaneY(RGYFrameInfo *pOutputPlaneY, const RGYFrameI
     const bool runDenoise = (denoiseTier != VppAnime4kDenoise::Off);
     RGYOpenCLEvent *applyEvent = (runDarken || runThin || runDenoise) ? nullptr : event;
 
-    const Anime4kDispatchCtx ctx{ queue, local_2d, local_x_pass, local_y_pass, global, srcImageMem, srcW, srcH, outW, outH };
+    const Anime4kDispatchCtx ctx{ queue, local_2d, local_x_pass, local_y_pass, local_fused, global, srcImageMem, srcW, srcH, outW, outH };
 
     RGY_ERR err = RGY_ERR_NONE;
     if (mode == VppAnime4kMode::Original || mode == VppAnime4kMode::Deblur
