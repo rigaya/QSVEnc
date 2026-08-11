@@ -291,9 +291,17 @@ int main(void) { return 0; }
 endif
 
 if enable_libass
-  libass_dep = dependency('libass', required: true)
+  libass_dep = dependency('libass', required: true, static: get_option('libass_static'))
+  libass_compile_dep = libass_dep.partial_dependency(includes: true, compile_args: true)
+  if get_option('libass_static')
+    libass_link_dep = libass_dep
+  else
+    libass_link_dep = disabler()
+  endif
 else
   libass_dep = disabler()
+  libass_compile_dep = disabler()
+  libass_link_dep = disabler()
 endif
 if enable_vulkan
   vulkan_dep = dependency('vulkan', required: true)
@@ -475,6 +483,7 @@ conf_data.set10('ENABLE_AVSW_READER', true)
 conf_data.set10('ENABLE_SM_READER', false)
 conf_data.set10('ENABLE_CUSTOM_VPP', true)
 conf_data.set10('ENABLE_LIBASS_SUBBURN', libass_dep.found())
+conf_data.set10('LIBASS_STATIC_LINK', libass_dep.found() and get_option('libass_static'))
 conf_data.set10('ENABLE_ADVANCED_DEINTERLACE', false)
 conf_data.set10('ENABLE_MVC_ENCODING', false)
 conf_data.set10('ENABLE_FPS_CONVERSION', false)
@@ -702,6 +711,7 @@ qsvpipeline_sources = files(
   'QSVPipeline/rgy_input_vpy.cpp',
   'QSVPipeline/rgy_language.cpp',
   'QSVPipeline/rgy_libdovi.cpp',
+  'QSVPipeline/rgy_libass.cpp',
   'QSVPipeline/rgy_libplacebo.cpp',
   'QSVPipeline/rgy_log.cpp',
   'QSVPipeline/rgy_memmem.cpp',
@@ -831,8 +841,11 @@ endif
 if avisynth_compile_dep.found()
   all_deps += avisynth_compile_dep
 endif
-if libass_dep.found()
-  all_deps += libass_dep
+if libass_compile_dep.found()
+  all_deps += libass_compile_dep
+endif
+if libass_link_dep.found()
+  all_deps += libass_link_dep
 endif
 if vulkan_dep.found()
   all_deps += vulkan_dep
@@ -870,6 +883,7 @@ summary({
   'VapourSynth': enable_vapoursynth and have_vapoursynth_headers,
   'AviSynth': enable_avisynth and have_avisynth_headers,
   'libass': libass_dep.found(),
+  'libass static': libass_dep.found() and get_option('libass_static'),
   'libplacebo': libplacebo_dep.found(),
   'Vulkan': vulkan_dep.found(),
   'libdovi': libdovi_dep.found(),
