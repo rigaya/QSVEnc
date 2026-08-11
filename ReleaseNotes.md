@@ -3,7 +3,7 @@
 ## 8.26
 
 - Follow mid-stream input resolution changes.
-- Add [--adapt-resolution](./QSVEncC_Options.en.md#--adapt-resolution-intxint).
+- Add [--adapt-resolution](./QSVEncC_Options.en.md#--adapt-resolution-intxint) to set maximum mid-stream input resolution changes.
 - Add support to track PMT change.
 - Support language exclusion for audio/subtitle selection. ([--audio-copy](./QSVEncC_Options.en.md#--audio-copy-intstringintstring) / [--audio-codec](./QSVEncC_Options.en.md#--audio-codec-intstringstringstringstringstringstring) / [--sub-copy](./QSVEncC_Options.en.md#--sub-copy-intstringintstring)) ( #305 )
 - Add the new [--vpp-onnx-deint](./QSVEncC_Options.en.md#--vpp-onnx-deint-param1value1param2value2) CLI through the `onnx_deint_models.json` registered-model manifest.

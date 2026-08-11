@@ -307,6 +307,18 @@ else
 endif
 
 if libplacebo_dep.found()
+  if get_option('libplacebo_static_link')
+    libplacebo_build_dep = libplacebo_dep
+    add_project_arguments('-DLIBPLACEBO_STATIC_LINK=1', language: 'cpp')
+  else
+    libplacebo_build_dep = libplacebo_dep.partial_dependency(compile_args: true, includes: true)
+    add_project_arguments('-DLIBPLACEBO_STATIC_LINK=0', language: 'cpp')
+  endif
+else
+  libplacebo_build_dep = disabler()
+endif
+
+if libplacebo_dep.found()
   placebo_api_check = '''
 #include <libplacebo/config.h>
 #if PL_API_VER < 338
@@ -826,7 +838,7 @@ if vulkan_dep.found()
   all_deps += vulkan_dep
 endif
 if libplacebo_dep.found()
-  all_deps += libplacebo_dep
+  all_deps += libplacebo_build_dep
 endif
 if libdovi_dep.found()
   all_deps += libdovi_dep

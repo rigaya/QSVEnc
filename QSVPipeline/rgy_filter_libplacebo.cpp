@@ -515,9 +515,10 @@ RGY_ERR RGYFilterLibplacebo::initLibplacebo(const RGYFilterParam *param) {
         AddMessage(RGY_LOG_ERROR, _T("%s is required but not found.\n"), RGY_LIBPLACEBO_DLL_NAME);
         return RGY_ERR_UNKNOWN;
     }
+    AddMessage(RGY_LOG_DEBUG, _T("Loaded libplacebo API %d.\n"), m_pl->api_version());
     if (m_pl->p_log_create()) {
         const pl_log_params log_params = { libplacebo_log_func, m_pLog.get(), loglevel_rgy_to_libplacebo(m_pLog->getLogLevel(RGY_LOGT_LIBPLACEBO)) };
-        m_log = std::unique_ptr<std::remove_pointer<pl_log>::type, RGYLibplaceboDeleter<pl_log>>(m_pl->p_log_create()(0, &log_params), RGYLibplaceboDeleter<pl_log>(m_pl->p_log_destroy()));
+        m_log = std::unique_ptr<std::remove_pointer<pl_log>::type, RGYLibplaceboDeleter<pl_log>>(m_pl->p_log_create()(m_pl->api_version(), &log_params), RGYLibplaceboDeleter<pl_log>(m_pl->p_log_destroy()));
         if (!m_log) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to create libplacebo log.\n"));
             return RGY_ERR_UNKNOWN;
@@ -533,7 +534,7 @@ RGY_ERR RGYFilterLibplacebo::initLibplacebo(const RGYFilterParam *param) {
     gpu_params.device = (ID3D11Device*)m_cl->platform()->d3d11dev();
 
     m_pldevice = std::unique_ptr<std::remove_pointer<pl_d3d11>::type, RGYLibplaceboDeleter<pl_d3d11>>(
-        m_pl->p_d3d11_create()(m_log.get(), &gpu_params), RGYLibplaceboDeleter<pl_d3d11>(m_pl->p_d3d11_destroy()));
+        m_pl->create_d3d11(m_log.get(), &gpu_params), RGYLibplaceboDeleter<pl_d3d11>(m_pl->p_d3d11_destroy()));
 #elif ENABLE_VULKAN
     if (ENCODER_QSV) {
         AddMessage(RGY_LOG_ERROR, _T("libplacebo via vulkan is not supported on QSV encoder, due to lack of OpenCL-Vulkan interop.\n"));
@@ -552,7 +553,7 @@ RGY_ERR RGYFilterLibplacebo::initLibplacebo(const RGYFilterParam *param) {
     gpu_params.device = m_device->GetPhysicalDevice();
 
     m_pldevice = std::unique_ptr<std::remove_pointer<pl_vulkan>::type, RGYLibplaceboDeleter<pl_vulkan>>(
-        m_pl->p_vulkan_create()(m_log.get(), &gpu_params), RGYLibplaceboDeleter<pl_vulkan>(m_pl->p_vulkan_destroy()));
+        m_pl->create_vulkan(m_log.get(), &gpu_params), RGYLibplaceboDeleter<pl_vulkan>(m_pl->p_vulkan_destroy()));
 #endif
     if (ENCODER_VCEENC) {
         m_pLog->setLogLevel(loglevel, RGY_LOGT_LIBPLACEBO);
@@ -2088,7 +2089,7 @@ RGY_ERR RGYFilterLibplaceboToneMapping::procFrame(pl_tex texOut[RGY_MAX_PLANES],
         frameOut.planes[iplane].component_mapping[0] = iplane;
     }
 
-    if (!m_pl->p_render_image()(m_renderer.get(), &frameIn, &frameOut, m_tonemap.renderParams.get())) {
+    if (!m_pl->render_image(m_renderer.get(), &frameIn, &frameOut, m_tonemap.renderParams.get())) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to render image.\n"));
         return RGY_ERR_UNKNOWN;
     }
@@ -2451,7 +2452,7 @@ RGY_ERR RGYFilterLibplaceboShader::procFrame(pl_tex texOut[RGY_MAX_PLANES], cons
     }
 
     if (RGY_CSP_CHROMA_FORMAT[pSrcFrame->csp] == RGY_CHROMAFMT_YUV420) {
-        m_pl->p_frame_set_chroma_location()(&img, m_chromaloc);
+        m_pl->frame_set_chroma_location(&img, m_chromaloc);
     }
 
     pl_frame out = { 0 };
@@ -2476,7 +2477,7 @@ RGY_ERR RGYFilterLibplaceboShader::procFrame(pl_tex texOut[RGY_MAX_PLANES], cons
     renderParams.downscaler = &m_sample_params->filter;
     renderParams.antiringing_strength = m_sample_params->antiring;
 
-    if (!m_pl->p_render_image()(m_renderer.get(), &img, &out, &renderParams)) {
+    if (!m_pl->render_image(m_renderer.get(), &img, &out, &renderParams)) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to render image.\n"));
         return RGY_ERR_UNKNOWN;
     }
