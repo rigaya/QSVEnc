@@ -101,7 +101,8 @@ RGY_ERR RGYFilterTweak::procFrame(RGYFrameInfo *pFrame, RGYOpenCLQueue &queue, c
         const char *kernel_name = "kernel_tweak_uv";
         auto err = m_tweak.get()->kernel(kernel_name).config(queue, local, global, wait_events_copy, event).launch(
             (cl_mem)planeInputU.ptr[0], (cl_mem)planeInputV.ptr[0], planeInputU.pitch[0], planeInputU.width, planeInputU.height,
-            saturation, std::sin(hue) * saturation, std::cos(hue) * saturation, swapuv,
+            // 彩度はカーネル側で適用するため、回転係数へ重ねて乗算しない。
+            saturation, std::sin(hue), std::cos(hue), swapuv,
             prm->tweak.cb.gain, prm->tweak.cb.offset,
             prm->tweak.cr.gain, prm->tweak.cr.offset,
             hue_limit, prm->tweak.startHue, prm->tweak.endHue, clamp_min, clamp_max_c);
