@@ -44,7 +44,7 @@ __kernel void kernel_resize_texture_bilinear(
         const float y = (float)iy + 0.5f;
 
         __global Type *ptr = (__global Type *)(pDst + iy * dstPitch + ix * sizeof(Type));
-        ptr[0] = (Type)(read_imagef(src, sampler, (int2)(x * ratioInvX, y * ratioInvY)).x * (float)((1<<bit_depth)-1));
+        ptr[0] = (Type)(read_imagef(src, sampler, (float2)(x * ratioInvX, y * ratioInvY)).x * (float)((1<<bit_depth)-1));
     }
 }
 
