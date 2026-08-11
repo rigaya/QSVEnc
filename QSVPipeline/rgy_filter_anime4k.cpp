@@ -872,7 +872,7 @@ RGY_ERR RGYFilterAnime4k::runModeDtd(const Anime4kDispatchCtx &ctx, RGYFrameInfo
     {
         const char *kname = "kernel_anime4k_darken_gauss1_x";
         auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_x_pass, global_1x, {}, nullptr).launch(
-            m_scratchA->mem(), m_scratchPitchFloats / 4,
+            m_scratchA->mem(), (m_scratchPitchFloats / 4) * 4,
             m_dtdSrcLuma->mem(), m_dtdSrcLumaPitch,
             ctx.srcW, ctx.srcH);
         if (err != RGY_ERR_NONE) {
@@ -884,8 +884,8 @@ RGY_ERR RGYFilterAnime4k::runModeDtd(const Anime4kDispatchCtx &ctx, RGYFrameInfo
     {
         const char *kname = "kernel_anime4k_darken_dog_y";
         auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_y_pass, global_1x, {}, nullptr).launch(
-            m_scratchB->mem(), m_scratchPitchFloats / 4,
-            m_scratchA->mem(), m_scratchPitchFloats / 4,
+            m_scratchB->mem(), (m_scratchPitchFloats / 4) * 4,
+            m_scratchA->mem(), (m_scratchPitchFloats / 4) * 4,
             m_dtdSrcLuma->mem(), m_dtdSrcLumaPitch,
             ctx.srcW, ctx.srcH);
         if (err != RGY_ERR_NONE) {
@@ -897,8 +897,8 @@ RGY_ERR RGYFilterAnime4k::runModeDtd(const Anime4kDispatchCtx &ctx, RGYFrameInfo
     {
         const char *kname = "kernel_anime4k_darken_gauss2_x";
         auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_x_pass, global_1x, {}, nullptr).launch(
-            m_scratchA->mem(), m_scratchPitchFloats / 4,
-            m_scratchB->mem(), m_scratchPitchFloats / 4,
+            m_scratchA->mem(), (m_scratchPitchFloats / 4) * 4,
+            m_scratchB->mem(), (m_scratchPitchFloats / 4) * 4,
             ctx.srcW, ctx.srcH);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("%s failed: %s.\n"),
@@ -910,7 +910,7 @@ RGY_ERR RGYFilterAnime4k::runModeDtd(const Anime4kDispatchCtx &ctx, RGYFrameInfo
         const char *kname = "kernel_anime4k_darken_apply_y";
         auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_y_pass, global_1x, {}, nullptr).launch(
             m_dtdSrcLuma->mem(), m_dtdSrcLumaPitch,
-            m_scratchA->mem(), m_scratchPitchFloats / 4,
+            m_scratchA->mem(), (m_scratchPitchFloats / 4) * 4,
             ctx.srcW, ctx.srcH);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("%s failed: %s.\n"),
@@ -1068,7 +1068,7 @@ RGY_ERR RGYFilterAnime4k::runDarkenChain(const Anime4kDispatchCtx &ctx, RGYFrame
         {
             const char *kname = "kernel_anime4k_darken_gauss1_x";
             auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_x_pass, ctx.global, {}, nullptr).launch(
-                darkenA, darkenPitchF4,
+                darkenA, (darkenPitchF4 * 4),
                 (cl_mem)pOutputPlaneY->ptr[0], pOutputPlaneY->pitch[0],
                 ctx.outW, ctx.outH);
             if (err != RGY_ERR_NONE) {
@@ -1080,8 +1080,8 @@ RGY_ERR RGYFilterAnime4k::runDarkenChain(const Anime4kDispatchCtx &ctx, RGYFrame
         {
             const char *kname = "kernel_anime4k_darken_dog_y";
             auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_y_pass, ctx.global, {}, nullptr).launch(
-                darkenB, darkenPitchF4,
-                darkenA, darkenPitchF4,
+                darkenB, (darkenPitchF4 * 4),
+                darkenA, (darkenPitchF4 * 4),
                 (cl_mem)pOutputPlaneY->ptr[0], pOutputPlaneY->pitch[0],
                 ctx.outW, ctx.outH);
             if (err != RGY_ERR_NONE) {
@@ -1093,8 +1093,8 @@ RGY_ERR RGYFilterAnime4k::runDarkenChain(const Anime4kDispatchCtx &ctx, RGYFrame
         {
             const char *kname = "kernel_anime4k_darken_gauss2_x";
             auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_x_pass, ctx.global, {}, nullptr).launch(
-                darkenA, darkenPitchF4,
-                darkenB, darkenPitchF4,
+                darkenA, (darkenPitchF4 * 4),
+                darkenB, (darkenPitchF4 * 4),
                 ctx.outW, ctx.outH);
             if (err != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("%s failed: %s.\n"),
@@ -1106,7 +1106,7 @@ RGY_ERR RGYFilterAnime4k::runDarkenChain(const Anime4kDispatchCtx &ctx, RGYFrame
             const char *kname = "kernel_anime4k_darken_apply_y";
             auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_y_pass, ctx.global, {}, event).launch(
                 (cl_mem)pOutputPlaneY->ptr[0], pOutputPlaneY->pitch[0],
-                darkenA, darkenPitchF4,
+                darkenA, (darkenPitchF4 * 4),
                 ctx.outW, ctx.outH);
             if (err != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("%s failed: %s.\n"),
@@ -1135,7 +1135,7 @@ RGY_ERR RGYFilterAnime4k::runDarkenChain(const Anime4kDispatchCtx &ctx, RGYFrame
         {
             const char *kname = "kernel_anime4k_darken_gauss1_x";
             auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_x_pass, work_global, {}, nullptr).launch(
-                m_darkenWork.A->mem(), wPitchF4,
+                m_darkenWork.A->mem(), (wPitchF4 * 4),
                 m_darkenWork.luma->mem(), m_darkenWork.lumaPitch,
                 wW, wH);
             if (err != RGY_ERR_NONE) {
@@ -1147,8 +1147,8 @@ RGY_ERR RGYFilterAnime4k::runDarkenChain(const Anime4kDispatchCtx &ctx, RGYFrame
         {
             const char *kname = "kernel_anime4k_darken_dog_y";
             auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_y_pass, work_global, {}, nullptr).launch(
-                m_darkenWork.B->mem(), wPitchF4,
-                m_darkenWork.A->mem(), wPitchF4,
+                m_darkenWork.B->mem(), (wPitchF4 * 4),
+                m_darkenWork.A->mem(), (wPitchF4 * 4),
                 m_darkenWork.luma->mem(), m_darkenWork.lumaPitch,
                 wW, wH);
             if (err != RGY_ERR_NONE) {
@@ -1160,8 +1160,8 @@ RGY_ERR RGYFilterAnime4k::runDarkenChain(const Anime4kDispatchCtx &ctx, RGYFrame
         {
             const char *kname = "kernel_anime4k_darken_gauss2_x";
             auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_x_pass, work_global, {}, nullptr).launch(
-                m_darkenWork.A->mem(), wPitchF4,
-                m_darkenWork.B->mem(), wPitchF4,
+                m_darkenWork.A->mem(), (wPitchF4 * 4),
+                m_darkenWork.B->mem(), (wPitchF4 * 4),
                 wW, wH);
             if (err != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("%s failed: %s.\n"),
@@ -1172,8 +1172,8 @@ RGY_ERR RGYFilterAnime4k::runDarkenChain(const Anime4kDispatchCtx &ctx, RGYFrame
         {
             const char *kname = "kernel_anime4k_darken_smooth_y";
             auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_y_pass, work_global, {}, nullptr).launch(
-                m_darkenWork.B->mem(), wPitchF4,
-                m_darkenWork.A->mem(), wPitchF4,
+                m_darkenWork.B->mem(), (wPitchF4 * 4),
+                m_darkenWork.A->mem(), (wPitchF4 * 4),
                 wW, wH);
             if (err != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("%s failed: %s.\n"),
@@ -1185,7 +1185,7 @@ RGY_ERR RGYFilterAnime4k::runDarkenChain(const Anime4kDispatchCtx &ctx, RGYFrame
             const char *kname = "kernel_anime4k_darken_upsample_apply";
             auto err = m_anime4k.get()->kernel(kname).config(ctx.queue, ctx.local_2d, ctx.global, {}, event).launch(
                 (cl_mem)pOutputPlaneY->ptr[0], pOutputPlaneY->pitch[0],
-                m_darkenWork.B->mem(), wPitchF4,
+                m_darkenWork.B->mem(), (wPitchF4 * 4),
                 ctx.outW, ctx.outH, wW, wH);
             if (err != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("%s failed: %s.\n"),

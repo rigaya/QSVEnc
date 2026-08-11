@@ -517,10 +517,17 @@ __kernel void kernel_anime4k_chroma_joint_bilateral(
 #define SCRATCH_ELEM_T half
 #define SCRATCH_LOAD4(pBase, idx) vload_half4((idx), (__global const half *)(pBase))
 #define SCRATCH_STORE4(val, pBase, idx) vstore_half4((val), (idx), (__global half *)(pBase))
+// Single-component accessors, for the passes that only ever carry one value.
+// Index and pitch are in scalar elements, so the pitch is the float4 pitch
+// times four.
+#define SCRATCH_LOAD1(pBase, idx) vload_half((idx), (__global const half *)(pBase))
+#define SCRATCH_STORE1(val, pBase, idx) vstore_half((val), (idx), (__global half *)(pBase))
 #else
 #define SCRATCH_ELEM_T float
 #define SCRATCH_LOAD4(pBase, idx) (((__global const float4 *)(pBase))[(idx)])
 #define SCRATCH_STORE4(val, pBase, idx) (((__global float4 *)(pBase))[(idx)] = (val))
+#define SCRATCH_LOAD1(pBase, idx) (((__global const float *)(pBase))[(idx)])
+#define SCRATCH_STORE1(val, pBase, idx) (((__global float *)(pBase))[(idx)] = (val))
 #endif
 
 // Pixel-domain Gaussian weight: w(d) = exp(-0.5 * (d/sigma)^2). Caller
@@ -544,7 +551,7 @@ static inline float anime4k_read_y_norm(__global const uchar *pY, int pitch, int
 // Darken pass 1 (cite Anime4K_Darken_HQ.glsl v3.2): separable horizontal
 // Gaussian blur of the post-apply luma plane. Writes float to scratchA.x.
 __kernel void kernel_anime4k_darken_gauss1_x(
-    __global SCRATCH_ELEM_T *restrict pDstA, const int dstPitchFloats,
+    __global SCRATCH_ELEM_T *restrict pDstA, const int dstPitchScalars,
     __global const uchar *pSrcY, const int srcPitch,
     const int outW, const int outH) {
     const int ix = get_global_id(0);
@@ -563,7 +570,7 @@ __kernel void kernel_anime4k_darken_gauss1_x(
         acc  += anime4k_read_y_norm(pSrcY, srcPitch, xx, iy) * w;
         wsum += w;
     }
-    SCRATCH_STORE4((float4)(acc / wsum, 0.0f, 0.0f, 0.0f), pDstA, iy * dstPitchFloats + ix);
+    SCRATCH_STORE1(acc / wsum, pDstA, iy * dstPitchScalars + ix);
 }
 
 // Darken pass 2 (cite Anime4K_Darken_HQ.glsl v3.2): vertical Gaussian
@@ -573,8 +580,8 @@ __kernel void kernel_anime4k_darken_gauss1_x(
 // passes act on dark lines only (the negative offset, added back later
 // with positive STRENGTH, darkens line interiors).
 __kernel void kernel_anime4k_darken_dog_y(
-    __global SCRATCH_ELEM_T *restrict pDstB, const int dstPitchFloats,
-    __global const SCRATCH_ELEM_T *pSrcA, const int srcPitchFloats,
+    __global SCRATCH_ELEM_T *restrict pDstB, const int dstPitchScalars,
+    __global const SCRATCH_ELEM_T *pSrcA, const int srcPitchScalars,
     __global const uchar *pSrcY, const int srcPitch,
     const int outW, const int outH) {
     const int ix = get_global_id(0);
@@ -590,20 +597,20 @@ __kernel void kernel_anime4k_darken_dog_y(
     for (int dy = -r; dy <= r; ++dy) {
         const int yy = clamp(iy + dy, 0, outH - 1);
         const float w = anime4k_gauss_w((float)dy, sigma);
-        acc  += SCRATCH_LOAD4(pSrcA, yy * srcPitchFloats + ix).x * w;
+        acc  += SCRATCH_LOAD1(pSrcA, yy * srcPitchScalars + ix) * w;
         wsum += w;
     }
     const float blur = acc / wsum;
     const float luma = anime4k_read_y_norm(pSrcY, srcPitch, ix, iy);
     const float dog_dark = fmin(luma - blur, 0.0f);
-    SCRATCH_STORE4((float4)(dog_dark, 0.0f, 0.0f, 0.0f), pDstB, iy * dstPitchFloats + ix);
+    SCRATCH_STORE1(dog_dark, pDstB, iy * dstPitchScalars + ix);
 }
 
 // Darken pass 3 (cite Anime4K_Darken_HQ.glsl v3.2): horizontal Gaussian
 // smoothing of the DoG dark-edge mask. Writes float to scratchA.x.
 __kernel void kernel_anime4k_darken_gauss2_x(
-    __global SCRATCH_ELEM_T *restrict pDstA, const int dstPitchFloats,
-    __global const SCRATCH_ELEM_T *pSrcB, const int srcPitchFloats,
+    __global SCRATCH_ELEM_T *restrict pDstA, const int dstPitchScalars,
+    __global const SCRATCH_ELEM_T *pSrcB, const int srcPitchScalars,
     const int outW, const int outH) {
     const int ix = get_global_id(0);
     const int iy = get_global_id(1);
@@ -618,10 +625,10 @@ __kernel void kernel_anime4k_darken_gauss2_x(
     for (int dx = -r; dx <= r; ++dx) {
         const int xx = clamp(ix + dx, 0, outW - 1);
         const float w = anime4k_gauss_w((float)dx, sigma);
-        acc  += SCRATCH_LOAD4(pSrcB, iy * srcPitchFloats + xx).x * w;
+        acc  += SCRATCH_LOAD1(pSrcB, iy * srcPitchScalars + xx) * w;
         wsum += w;
     }
-    SCRATCH_STORE4((float4)(acc / wsum, 0.0f, 0.0f, 0.0f), pDstA, iy * dstPitchFloats + ix);
+    SCRATCH_STORE1(acc / wsum, pDstA, iy * dstPitchScalars + ix);
 }
 
 // Darken pass 4 (cite Anime4K_Darken_HQ.glsl v3.2): vertical Gaussian
@@ -631,7 +638,7 @@ __kernel void kernel_anime4k_darken_gauss2_x(
 // Because dog_dark is non-positive, the addition darkens line interiors.
 __kernel void kernel_anime4k_darken_apply_y(
     __global uchar *restrict pDstY, const int dstPitch,
-    __global const SCRATCH_ELEM_T *pSrcA, const int srcPitchFloats,
+    __global const SCRATCH_ELEM_T *pSrcA, const int srcPitchScalars,
     const int outW, const int outH) {
     const int ix = get_global_id(0);
     const int iy = get_global_id(1);
@@ -646,7 +653,7 @@ __kernel void kernel_anime4k_darken_apply_y(
     for (int dy = -r; dy <= r; ++dy) {
         const int yy = clamp(iy + dy, 0, outH - 1);
         const float w = anime4k_gauss_w((float)dy, sigma);
-        acc  += SCRATCH_LOAD4(pSrcA, yy * srcPitchFloats + ix).x * w;
+        acc  += SCRATCH_LOAD1(pSrcA, yy * srcPitchScalars + ix) * w;
         wsum += w;
     }
     const float smoothed = acc / wsum;
@@ -837,6 +844,26 @@ __kernel void kernel_anime4k_thin_copy_y_to_ref(
 // for the Fast / VeryFast tiers) by anime4k_bilinear_xy below.
 // Equivalent to a hardware CLK_FILTER_LINEAR + CLK_ADDRESS_CLAMP_TO_EDGE
 // sampler on a buffer.
+// Scalar-strided variant of anime4k_bilinear_x, for buffers whose writers
+// store one value per pixel. Pitch is in scalar elements.
+static inline float anime4k_bilinear_x1(__global const SCRATCH_ELEM_T *buf, int pitchScalars,
+                                        int w, int h, float fx, float fy) {
+    const int x0 = clamp((int)floor(fx), 0, w - 1);
+    const int y0 = clamp((int)floor(fy), 0, h - 1);
+    const int x1 = clamp(x0 + 1, 0, w - 1);
+    const int y1 = clamp(y0 + 1, 0, h - 1);
+    const float dx = fx - (float)x0;
+    const float dy = fy - (float)y0;
+    const float v00 = SCRATCH_LOAD1(buf, y0 * pitchScalars + x0);
+    const float v01 = SCRATCH_LOAD1(buf, y0 * pitchScalars + x1);
+    const float v10 = SCRATCH_LOAD1(buf, y1 * pitchScalars + x0);
+    const float v11 = SCRATCH_LOAD1(buf, y1 * pitchScalars + x1);
+    return (1.0f - dx) * (1.0f - dy) * v00
+         +         dx  * (1.0f - dy) * v01
+         + (1.0f - dx) *         dy  * v10
+         +         dx  *         dy  * v11;
+}
+
 static inline float anime4k_bilinear_x(__global const SCRATCH_ELEM_T *buf, int pitchFloats,
                                        int w, int h, float fx, float fy) {
     const int x0 = clamp((int)floor(fx), 0, w - 1);
@@ -992,8 +1019,8 @@ __kernel void kernel_anime4k_downsample_y(
 // minus the final pDstY write; writes the smoothed mask back to a
 // float4 scratch instead.
 __kernel void kernel_anime4k_darken_smooth_y(
-    __global SCRATCH_ELEM_T *restrict pDstB, const int dstPitchFloats,
-    __global const SCRATCH_ELEM_T *pSrcA, const int srcPitchFloats,
+    __global SCRATCH_ELEM_T *restrict pDstB, const int dstPitchScalars,
+    __global const SCRATCH_ELEM_T *pSrcA, const int srcPitchScalars,
     const int outW, const int outH) {
     const int ix = get_global_id(0);
     const int iy = get_global_id(1);
@@ -1008,10 +1035,10 @@ __kernel void kernel_anime4k_darken_smooth_y(
     for (int dy = -r; dy <= r; ++dy) {
         const int yy = clamp(iy + dy, 0, outH - 1);
         const float w = anime4k_gauss_w((float)dy, sigma);
-        acc  += SCRATCH_LOAD4(pSrcA, yy * srcPitchFloats + ix).x * w;
+        acc  += SCRATCH_LOAD1(pSrcA, yy * srcPitchScalars + ix) * w;
         wsum += w;
     }
-    SCRATCH_STORE4((float4)(acc / wsum, 0.0f, 0.0f, 0.0f), pDstB, iy * dstPitchFloats + ix);
+    SCRATCH_STORE1(acc / wsum, pDstB, iy * dstPitchScalars + ix);
 }
 
 // Darken Fast / VeryFast pass 5: read the smoothed DoG mask at work
@@ -1020,7 +1047,7 @@ __kernel void kernel_anime4k_darken_smooth_y(
 // non-positive throughout, so STRENGTH > 0 darkens line interiors.
 __kernel void kernel_anime4k_darken_upsample_apply(
     __global uchar *restrict pDstY, const int dstPitch,
-    __global const SCRATCH_ELEM_T *pSrcMask, const int srcPitchFloats,
+    __global const SCRATCH_ELEM_T *pSrcMask, const int srcPitchScalars,
     const int outW, const int outH,
     const int workW, const int workH) {
     const int ix = get_global_id(0);
@@ -1031,7 +1058,7 @@ __kernel void kernel_anime4k_darken_upsample_apply(
     // texel-centre convention on both grids).
     const float fx = ((float)ix + 0.5f) * (float)workW / (float)outW - 0.5f;
     const float fy = ((float)iy + 0.5f) * (float)workH / (float)outH - 0.5f;
-    const float smoothed = anime4k_bilinear_x(pSrcMask, srcPitchFloats, workW, workH, fx, fy);
+    const float smoothed = anime4k_bilinear_x1(pSrcMask, srcPitchScalars, workW, workH, fx, fy);
 
     const float luma = anime4k_read_y_norm(pDstY, dstPitch, ix, iy);
     float result = luma + smoothed * ANIME4K_DARKEN_STRENGTH;
