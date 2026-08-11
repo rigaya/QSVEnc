@@ -189,23 +189,21 @@ RGY_ERR RGYFilterAnime4k::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
     // and multiply by outH/1080 at runtime; the coefficient selects
     // the tier. Off uses the HQ value as a placeholder (kernels never
     // run when the corresponding tier is Off).
+    // The kernels compute sigma as COEF * workH / 1080, and workH already
+    // carries the tier's downscale. The reference shaders' per-tier literals
+    // (0.5 / 0.25 for darken, 1.0 / 0.5 for thin) scale the FULL height, since
+    // mpv's HOOKED_size.y stays at the hooked resolution even in a downscaled
+    // pass, so the correct coefficient here is the reference value times the
+    // box factor, which lands on the HQ value for every tier. The previous
+    // per-tier values applied the downscale twice, which shrank the Gaussian
+    // to a delta and made the fast darken tiers a no-op at 8 bit.
     auto darkenSigmaCoef = [](VppAnime4kDarken d) {
-        switch (d) {
-        case VppAnime4kDarken::Fast:     return 0.5f;
-        case VppAnime4kDarken::VeryFast: return 0.25f;
-        case VppAnime4kDarken::HQ:
-        case VppAnime4kDarken::Off:
-        default:                         return 1.0f;
-        }
+        (void)d;
+        return 1.0f;
     };
     auto thinSigmaCoef = [](VppAnime4kThin t) {
-        switch (t) {
-        case VppAnime4kThin::Fast:     return 1.0f;
-        case VppAnime4kThin::VeryFast: return 0.5f;
-        case VppAnime4kThin::HQ:
-        case VppAnime4kThin::Off:
-        default:                       return 2.0f;
-        }
+        (void)t;
+        return 2.0f;
     };
 
     // Clamp denoise parameters and resolve the histReg sentinel before
