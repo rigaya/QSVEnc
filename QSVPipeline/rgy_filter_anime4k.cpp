@@ -531,6 +531,18 @@ RGY_ERR RGYFilterAnime4k::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
                 2, 2, RGYResizeResMode::Normal, false, nocrop);
         }
         if (tgtW > 0 && tgtH > 0 && (tgtW != outW || tgtH != outH)) {
+            // The end-of-chain resize is an OpenCL sub-filter, so only the
+            // OpenCL resampler family can be used here. The hardware VPP modes
+            // are valid for the global --vpp-resize but reach the OpenCL kernel
+            // as an out-of-range selector, which silently produces a blank
+            // frame, so reject them with a message instead.
+            if (prm->anime4k.postResizeAlgo != RGY_VPP_RESIZE_AUTO
+             && getVppResizeType(prm->anime4k.postResizeAlgo) != RGY_VPP_RESIZE_TYPE_OPENCL) {
+                AddMessage(RGY_LOG_ERROR,
+                    _T("resize=%s cannot be used with out_res=: only the OpenCL resize algorithms are available here.\n"),
+                    get_cx_desc(list_vpp_resize, prm->anime4k.postResizeAlgo));
+                return RGY_ERR_UNSUPPORTED;
+            }
             auto resizeParam = std::make_shared<RGYFilterParamResize>();
             // AUTO is resolved upstream only for the global resize; pick a sane
             // concrete default here so the sub-filter never sees AUTO.
