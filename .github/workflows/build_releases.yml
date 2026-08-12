@@ -73,7 +73,7 @@ jobs:
 
       - name: Checkout dependencies
         run: |
-          curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20250830/ffmpeg_dlls_for_hwenc_20250830.7z
+          curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20260812/ffmpeg_lgpl_20260812.7z
           7z x -offmpeg_lgpl -y ffmpeg_lgpl.7z
           git clone --depth 1 https://github.com/AviSynth/AviSynthPlus.git ..\AviSynthPlus
           git clone -b R72 --depth 1 https://github.com/vapoursynth/vapoursynth.git ..\vapoursynth
@@ -197,7 +197,7 @@ jobs:
 
       - name: Checkout dependencies
         run: |
-          curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20250830/ffmpeg_dlls_for_hwenc_20250830.7z
+          curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20260812/ffmpeg_lgpl_20260812.7z
           7z x -offmpeg_lgpl -y ffmpeg_lgpl.7z
           move ffmpeg5* ffmpeg_lgpl
           git clone https://github.com/AviSynth/AviSynthPlus.git ..\AviSynthPlus
