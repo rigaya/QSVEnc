@@ -2578,7 +2578,8 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vpp.overlay.size() > 0)  filterPipeline.push_back(VppType::CL_OVERLAY);
     if (inputParam->vppmfx.aiFrameInterpolation.enable) filterPipeline.push_back(VppType::MFX_AI_FRAMEINTERP);
 
-    if (filterPipeline.size() == 0) {
+    // AviUtlの共有メモリ入力は開始時に解像度が固定されるため、待機用VPPを追加する必要はない。
+    if (filterPipeline.size() == 0 && inputParam->input.type != RGY_INPUT_FMT_SM) {
         // フィルタが一つもない構成(input/decode -> encodeの直結)では解像度変更を吸収する場所がないため、
         // 正規化に使えるMFX VPPブロックをここで常設しておく。
         // ただし等倍のMFX VPPは無劣化ではない(SetVppExtBuffers: Copyでも画質が変わる)ので、
@@ -4453,7 +4454,8 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
     // 同寸の--output-resなど、指定されたフィルタ候補が初期化時にno-opとしてすべて除去される場合がある。
     // そのままでは途中の解像度変更を吸収する場所がなく、デコード面がエンコーダへ直結してしまうため、
     // フィルタ指定なしの場合と同じ待機用MFX COPYを追加する。
-    if (m_vpFilters.empty()) {
+    // すべてno-opだった場合も、解像度が固定される共有メモリ入力には待機用VPPを追加しない。
+    if (m_vpFilters.empty() && inputParam->input.type != RGY_INPUT_FMT_SM) {
         auto [err, vppmfx] = AddFilterMFX(inputFrame, m_encFps, VppType::MFX_COPY, &inputParam->vppmfx,
             getEncoderCsp(inputParam), getEncoderBitdepth(inputParam), nullptr, resize, blocksize);
         if (err != RGY_ERR_NONE) {
