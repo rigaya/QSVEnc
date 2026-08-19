@@ -4004,6 +4004,7 @@ static const TCHAR *RGY_METADATA_COPY = _T("copy");
 static const int TRACK_SELECT_BY_LANG  = -1;
 static const int TRACK_SELECT_BY_CODEC = -2;
 static const int TRACK_SELECT_BY_LANG_EXCLUDE = -3;
+static const int TRACK_SELECT_BY_TRACK_EXCLUDE = -4;
 
 struct AudioBitrate {
     std::string channel;
@@ -4025,6 +4026,7 @@ struct AudioSelect {
                               // TRACK_SELECT_BY_LANG  ... langによる選択
                               // TRACK_SELECT_BY_CODEC ... selectCodecによる選択
                               // TRACK_SELECT_BY_LANG_EXCLUDE ... langによる除外
+                              // TRACK_SELECT_BY_TRACK_EXCLUDE ... excludeTrackIDsによる除外
     tstring  decCodecPrm;     //音声エンコードのデコーダのパラメータ
     tstring  encCodec;        //音声エンコードのコーデック
     tstring  encCodecPrm;     //音声エンコードのコーデックのパラメータ
@@ -4042,6 +4044,7 @@ struct AudioSelect {
     tstring  disposition;          // 指定のdisposition
     std::string lang;              // 言語選択
     std::string selectCodec;       // 対象コーデック
+    std::vector<int> excludeTrackIDs; // 除外する音声トラック番号
     std::vector<tstring> metadata;
     std::string resamplerPrm;
 
@@ -4065,6 +4068,7 @@ struct SubtitleSelect {
                          //  TRACK_SELECT_BY_LANG ... langによる選択
                          //  TRACK_SELECT_BY_CODEC ... selectCodecによる選択
                          //  TRACK_SELECT_BY_LANG_EXCLUDE ... langによる除外
+                         //  TRACK_SELECT_BY_TRACK_EXCLUDE ... excludeTrackIDsによる除外
     tstring encCodec;
     tstring encCodecPrm;
     tstring decCodecPrm;
@@ -4073,6 +4077,7 @@ struct SubtitleSelect {
     tstring disposition;  // 指定のdisposition
     std::string lang;         // 言語選択
     std::string selectCodec;  // 対象コーデック
+    std::vector<int> excludeTrackIDs; // 除外する字幕トラック番号
     std::vector<tstring> metadata;
 
     SubtitleSelect();
@@ -4094,10 +4099,13 @@ struct DataSelect {
                          //  0 ... 全指定
                          //  TRACK_SELECT_BY_LANG ... langによる選択
                          //  TRACK_SELECT_BY_CODEC ... selectCodecによる選択
+                         //  TRACK_SELECT_BY_LANG_EXCLUDE ... langによる除外
+                         //  TRACK_SELECT_BY_TRACK_EXCLUDE ... excludeTrackIDsによる除外
     tstring encCodec;
     tstring disposition; // 指定のdisposition
     std::string lang;    // 言語選択
     std::string selectCodec; // 対象コーデック
+    std::vector<int> excludeTrackIDs; // 除外するデータトラック番号
     std::vector<tstring> metadata;
 
     DataSelect();
