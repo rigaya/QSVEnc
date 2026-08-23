@@ -778,7 +778,13 @@ best, higher, high, balanced(default), fast, faster, fastest
 ```
 
 ### --dynamic-rc &lt;int&gt;:&lt;int&gt;:&lt;int&gt;&lt;int&gt;,&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;],...  
-Change the rate control mode and rate control params within the specified range of input frames.
+Change the rate control mode and parameters within the specified input frame or presentation timestamp range.
+
+- **range parameters**
+  - `start=<int>`, `end=<int>`: Select by input frame number using the inclusive range `start <= frame number <= end`. `start` is required; omitting `end` selects through the end of the stream.
+  - `start-time=<float>`, `end-time=<float>`: Select by presentation timestamp in seconds using the half-open range `start-time <= timestamp < end-time`. An omitted bound means the beginning or end of the stream.
+
+  Frame-number and timestamp range parameters cannot be combined in the same `--dynamic-rc`. Separate `--dynamic-rc` options may use different range types.
 
 - **required parameters**
   It is required to specify one of the params below.  
@@ -799,14 +805,17 @@ Change the rate control mode and rate control params within the specified range 
 
 - Examples
   ```
-  Example1: Encode by vbr(12000kbps) in output frame range 3000-3999,
-            encode by constant quality mode(29.0) in output frame range 5000-5999,
+  Example1: Encode by vbr(12000kbps) in input frame range 3000-3999,
+            encode by constant quality mode(29.0) in input frame range 5000-5999,
             and encode by constant quality mode(25.0) on other frame range.
     --icq 25 --dynamic-rc 3000:3999,vbr=12000 --dynamic-rc 5000:5999,icq=29.0
 
-  Example2: Encode by vbr(6000kbps) to output frame number 2999,
-            and encode by vbr(12000kbps) from output frame number 3000 and later.
+  Example2: Encode by vbr(6000kbps) to input frame number 2999,
+            and encode by vbr(12000kbps) from input frame number 3000 and later.
     --vbr 6000 --dynamic-rc start=3000,vbr=12000
+
+  Example3: Encode by vbr(3000kbps) from presentation timestamp 120.5 seconds up to, but not including, 210.0 seconds.
+    --dynamic-rc start-time=120.5,end-time=210.0,vbr=3000
   ```
 
 ### --la-depth &lt;int&gt;

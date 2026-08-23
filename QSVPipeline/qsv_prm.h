@@ -278,6 +278,8 @@ struct QSVAV1Params {
 struct QSVRCParam {
     int start;
     int end;
+    double startTime;
+    double endTime;
     int encMode;      // RateControl
     int bitrate;
     int maxBitrate;

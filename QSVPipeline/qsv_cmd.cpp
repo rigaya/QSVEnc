@@ -26,6 +26,7 @@
 // ------------------------------------------------------------------------------------------
 
 #include <set>
+#include <cmath>
 #include <sstream>
 #include <iomanip>
 #include <numeric>
@@ -348,6 +349,11 @@ tstring encoder_help() {
         _T("-u,--quality <string>           encode quality\n")
         _T("                                  - best, higher, high, balanced(default)\n")
         _T("                                    fast, faster, fastest\n")
+        _T("   --dynamic-rc <range>,<param>=<value>[,...]\n")
+        _T("                                change rate control in an input frame or timestamp range\n")
+        _T("      start=<int>,end=<int>      inclusive input frame range\n")
+        _T("      start-time=<float>,end-time=<float>\n")
+        _T("                                half-open timestamp range in seconds\n")
         _T("   --la-depth <int>             set Lookahead Depth, %d-%d\n")
         _T("   --la-window-size <int>       enables Lookahead Windowed Rate Control mode,\n")
         _T("                                  and set the window size in frames.\n")
@@ -1263,7 +1269,9 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
         }
         i++;
         bool rc_mode_defined = false;
-        auto paramList = std::vector<std::string>{ "start", "end", "max-bitrate", "avbr-accuracy", "avbr-convergence", "qvbr-quality" };
+        bool frame_range_defined = false;
+        bool time_range_defined = false;
+        auto paramList = std::vector<std::string>{ "start", "end", "start-time", "end-time", "max-bitrate", "avbr-accuracy", "avbr-convergence", "qvbr-quality" };
         for (int j = 0; list_rc_mode[j].desc; j++) {
             paramList.push_back(tolowercase(tchar_to_string(list_rc_mode[j].desc)));
         }
@@ -1277,6 +1285,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
                 if (param_arg == _T("start")) {
                     try {
                         rcPrm.start = std::stoi(param_val);
+                        frame_range_defined = true;
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -1286,6 +1295,21 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
                 if (param_arg == _T("end")) {
                     try {
                         rcPrm.end = std::stoi(param_val);
+                        frame_range_defined = true;
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("start-time") || param_arg == _T("end-time")) {
+                    try {
+                        const auto value = std::stod(param_val);
+                        if (!std::isfinite(value) || value < 0.0) {
+                            throw std::invalid_argument("time");
+                        }
+                        ((param_arg == _T("start-time")) ? rcPrm.startTime : rcPrm.endTime) = value;
+                        time_range_defined = true;
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -1382,6 +1406,7 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
                     try {
                         rcPrm.start = std::stoi(param_val0);
                         rcPrm.end   = std::stoi(param_val1);
+                        frame_range_defined = true;
                     } catch (...) {
                         print_cmd_error_invalid_value(option_name, param);
                         return 1;
@@ -1396,12 +1421,20 @@ int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, in
             print_cmd_error_invalid_value(option_name, strInput[i], _T("rate control mode unspecified!"));
             return 1;
         }
-        if (rcPrm.start < 0) {
+        if (frame_range_defined && time_range_defined) {
+            print_cmd_error_invalid_value(option_name, strInput[i], _T("frame and time ranges cannot be specified together!"));
+            return 1;
+        }
+        if (!time_range_defined && rcPrm.start < 0) {
             print_cmd_error_invalid_value(option_name, strInput[i], _T("start frame ID unspecified!"));
             return 1;
         }
         if (rcPrm.end > 0 && rcPrm.start > rcPrm.end) {
             print_cmd_error_invalid_value(option_name, strInput[i], _T("start frame ID must be smaller than end frame ID!"));
+            return 1;
+        }
+        if (time_range_defined && rcPrm.startTime >= 0.0 && rcPrm.endTime >= 0.0 && rcPrm.startTime > rcPrm.endTime) {
+            print_cmd_error_invalid_value(option_name, strInput[i], _T("start time must be smaller than end time!"));
             return 1;
         }
         pParams->dynamicRC.push_back(rcPrm);

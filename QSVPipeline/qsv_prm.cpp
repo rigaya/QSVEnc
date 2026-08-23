@@ -144,6 +144,8 @@ tstring printParams(const std::vector<QSVRCParam> &dynamicRC) {
 QSVRCParam::QSVRCParam() :
     start(-1),
     end(-1),
+    startTime(-1.0),
+    endTime(-1.0),
     encMode(0),
     bitrate(0),
     maxBitrate(0),
@@ -162,6 +164,8 @@ QSVRCParam::QSVRCParam(
     RGYQPSet qp_, int icqQuality_, int qvbrQuality_) :
     start(-1),
     end(-1),
+    startTime(-1.0),
+    endTime(-1.0),
     encMode(encMode_),
     bitrate(bitrate_),
     maxBitrate(maxBitrate_),
@@ -176,7 +180,14 @@ QSVRCParam::QSVRCParam(
 
 tstring QSVRCParam::print() const {
     TStringStream t;
-    if (start >= 0) {
+    if (startTime >= 0.0 || endTime >= 0.0) {
+        if (startTime >= 0.0) {
+            t << "start-time=" << startTime << ",";
+        }
+        if (endTime >= 0.0) {
+            t << "end-time=" << endTime << ",";
+        }
+    } else if (start >= 0) {
         if (end == INT_MAX || end <= 0) {
             t << "frame=" << start << ":end";
         } else {
@@ -223,6 +234,8 @@ tstring QSVRCParam::print() const {
 bool QSVRCParam::operator==(const QSVRCParam &x) const {
     return start == x.start
         && end == x.end
+        && startTime == x.startTime
+        && endTime == x.endTime
         && encMode == x.encMode
         && bitrate == x.bitrate
         && maxBitrate == x.maxBitrate

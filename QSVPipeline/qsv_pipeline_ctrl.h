@@ -2414,11 +2414,20 @@ public:
         return std::optional<mfxFrameAllocRequest>(allocRequest);
     };
 
-    int getDynamicRCIndex(const int inputFrameId) {
+    int getDynamicRCIndex(const int inputFrameId, const double timeSec) {
         for (int i = 0; i < (int)m_dynamicRC.size(); i++) {
-            const int end = (m_dynamicRC[i].end < 0) ? std::numeric_limits<int>::max() : m_dynamicRC[i].end;
-            if (m_dynamicRC[i].start <= inputFrameId && inputFrameId <= end) {
-                return i;
+            const auto& prm = m_dynamicRC[i];
+            if (prm.startTime >= 0.0 || prm.endTime >= 0.0) {
+                const double start = (prm.startTime < 0.0) ? 0.0 : prm.startTime;
+                const double end = (prm.endTime < 0.0) ? std::numeric_limits<double>::max() : prm.endTime;
+                if (start <= timeSec && timeSec < end) {
+                    return i;
+                }
+            } else {
+                const int end = (prm.end < 0) ? std::numeric_limits<int>::max() : prm.end;
+                if (prm.start <= inputFrameId && inputFrameId <= end) {
+                    return i;
+                }
             }
         }
         return -1;
@@ -2500,6 +2509,7 @@ public:
             if (m_timecode) {
                 m_timecode->write(surfEncodeIn->Data.TimeStamp, m_outputTimebase);
             }
+            const double timeSec = surfEncodeIn->Data.TimeStamp * (double)m_outputTimebase.n() / m_outputTimebase.d();
             // ここまではm_outputTimebase
             //最後にQSVのHW_TIMEBASEに変換する
             surfEncodeIn->Data.TimeStamp = rational_rescale(surfEncodeIn->Data.TimeStamp, m_outputTimebase, rgy_rational<int>(1, HW_TIMEBASE));
@@ -2511,7 +2521,7 @@ public:
                 return RGY_ERR_UNKNOWN;
             }
 
-            const auto targetDynamicRC = getDynamicRCIndex(inputFrameId);
+            const auto targetDynamicRC = getDynamicRCIndex(inputFrameId, timeSec);
             if (targetDynamicRC != m_appliedDynamicRC) {
                 // 指定にしたがってエンコーダのパラメータを変更する
                 setRCParam(m_encParams.videoPrm, (targetDynamicRC >= 0) ? m_dynamicRC[targetDynamicRC] : m_baseRC);

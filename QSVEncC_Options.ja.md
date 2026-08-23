@@ -803,7 +803,13 @@ best, higher, high, balanced(default), fast, faster, fastest
 ```
 
 ### --dynamic-rc &lt;int&gt;:&lt;int&gt;:&lt;int&gt;&lt;int&gt;,&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;],...  
-"開始フレーム番号:終了フレーム番号"で指定した入力フレーム番号について、レート制御のパラメータを変更する。指定可能なパラメータは各レート制御モードと、最大ビットレート、目標品質(qvbr-quality)。
+指定した入力フレーム番号または表示時刻の範囲について、レート制御のパラメータを変更する。指定可能なパラメータは各レート制御モードと、最大ビットレート、目標品質(qvbr-quality)。
+
+- **範囲パラメータ**
+  - `start=<int>`, `end=<int>`: 入力フレーム番号で指定する。`start <= フレーム番号 <= end` の両端を含む範囲。`start` は必須で、`end` の省略時は終端まで。
+  - `start-time=<float>`, `end-time=<float>`: 秒単位の表示時刻で指定する。`start-time <= 表示時刻 < end-time` の終了を含まない範囲。省略した側はストリームの先頭または終端になる。
+
+  フレーム番号と表示時刻の範囲パラメータは、同じ `--dynamic-rc` 内では併用できない。複数の `--dynamic-rc` 間では混在できる。
 
 - **必須パラメータ**
   下記パラメータのうち、必ずひとつは指定が必要。
@@ -824,14 +830,17 @@ best, higher, high, balanced(default), fast, faster, fastest
 
 - Examples
   ```
-  例1: 出力フレーム番号 3000-3999 の間はvbrの12000kbpsでエンコード、
-       出力フレーム番号 5000-5999 の間は固定品質の29.0でエンコードし、
+  例1: 入力フレーム番号 3000-3999 の間はvbrの12000kbpsでエンコード、
+       入力フレーム番号 5000-5999 の間は固定品質の29.0でエンコードし、
        その他の領域は固定品質の25.0でエンコードする。
     --icq=25 --dynamic-rc 3000:3999,vbr=12000 --dynamic-rc 5000:5999,icq=29
 
-  例2: 出力フレーム番号 3000までは、vbrの6000kbpsでエンコードし、
-       出力フレーム番号 3000以降はvbrの12000kbpsでエンコードする。
+  例2: 入力フレーム番号 3000までは、vbrの6000kbpsでエンコードし、
+       入力フレーム番号 3000以降はvbrの12000kbpsでエンコードする。
     --vbr 6000 --dynamic-rc start=3000,vbr=12000
+
+  例3: 表示時刻120.5秒以上210.0秒未満をvbrの3000kbpsでエンコードする。
+    --dynamic-rc start-time=120.5,end-time=210.0,vbr=3000
   ```
 
 ### --la-depth &lt;int&gt;
