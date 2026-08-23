@@ -164,6 +164,7 @@
   - [--seekto \[\[\<int\>:\]\<int\>:\]\<int\>\[.\<int\>\]](#--seekto-intintintint)
   - [--input-format \<string\>](#--input-format-string)
   - [-f, --output-format \<string\>](#-f---output-format-string)
+  - [--y4m-timestamp](#--y4m-timestamp)
   - [--video-track \<int\>](#--video-track-int)
   - [--video-streamid \<int\>](#--video-streamid-int)
   - [--video-tag \<string\>](#--video-tag-string)
@@ -1207,6 +1208,10 @@ avhw/avswリーダー使用時に、入力のフォーマットを指定する�
 muxerに出力フォーマットを指定して出力する。
 
 出力フォーマットは出力拡張子から自動的に決定されるので、通常、特に指定する必要はないが、このオプションで出力フォーマットを強制できる。
+
+### --y4m-timestamp
+y4m出力の各FRAME行に、ストリーム先頭を0秒とする表示時刻を `Xts=<秒>` の形式で付加する。
+`-c raw --output-format y4m` との併用時のみ有効。
 
 使用可能なフォーマットは[--check-formats](#--check-formats)で確認できる。H.264/HEVCをElementary Streamで出力する場合には、"raw"を指定する。
 

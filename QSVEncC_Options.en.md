@@ -164,6 +164,7 @@
   - [--seekto \[\<int\>:\]\[\<int\>:\]\<int\>\[.\<int\>\]](#--seekto-intintintint)
   - [--input-format \<string\>](#--input-format-string)
   - [-f, --output-format \<string\>](#-f---output-format-string)
+  - [--y4m-timestamp](#--y4m-timestamp)
   - [--video-track \<int\>](#--video-track-int)
   - [--video-streamid \<int\>](#--video-streamid-int)
   - [--video-tag \<string\>](#--video-tag-string)
@@ -1183,6 +1184,10 @@ Specify input format for avhw / avsw reader.
 Specify output format for muxer.
 
 Since the output format is automatically determined by the output extension, it is usually not necessary to specify it, but you can force the output format with this option.
+
+### --y4m-timestamp
+Add the presentation timestamp relative to the stream start to each y4m FRAME line as `Xts=<seconds>`.
+This option is effective only with `-c raw --output-format y4m`.
 
 Available formats can be checked with [--check-formats](#--check-formats). To output H.264 / HEVC as an Elementary Stream, specify "raw".
 

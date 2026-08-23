@@ -2195,6 +2195,9 @@ RGY_ERR CQSVPipeline::InitInput(sInputParams *inputParam, DeviceCodecCsp& HWDecC
         PrintMes(RGY_LOG_DEBUG, _T("Switching to VFR mode as --tcfile-in is used.\n"));
         m_nAVSyncMode |= RGY_AVSYNC_VFR;
     }
+    if (inputParam->input.type == RGY_INPUT_FMT_Y4M) {
+        m_nAVSyncMode |= RGY_AVSYNC_VFR;
+    }
     if (m_nAVSyncMode & RGY_AVSYNC_VFR) {
         //avsync vfr時は、入力streamのtimebaseをそのまま使用する
         m_outputTimebase = m_pFileReader->getInputTimebase();

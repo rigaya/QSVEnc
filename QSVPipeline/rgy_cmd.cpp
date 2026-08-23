@@ -10924,6 +10924,10 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
         }
         return 0;
     }
+    if (IS_OPTION("y4m-timestamp")) {
+        common->y4mTimestamp = true;
+        return 0;
+    }
     if (IS_OPTION("input-format")) {
         if (i+1 < nArgNum && strInput[i+1][0] != _T('-')) {
             i++;
@@ -15322,6 +15326,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     OPT_FLOAT(_T("--seekto"), seekToSec, 2);
     OPT_TCHAR(_T("--input-format"), AVInputFormat);
     OPT_TSTR(_T("--output-format"), muxOutputFormat);
+    OPT_BOOL(_T("--y4m-timestamp"), _T(""), y4mTimestamp);
     OPT_STR(_T("--video-tag"), videoCodecTag);
     OPT_TSTR(_T("--avcodec-prms"), avcodec_videnc_prms);
     for (auto &m : param->videoMetadata) {
@@ -16151,6 +16156,7 @@ tstring gen_cmd_help_common() {
         _T("                                 if format is not specified, output format will\n")
         _T("                                 be guessed from output file extension.\n")
         _T("                                 set \"raw\" for H.264/ES output.\n")
+        _T("   --y4m-timestamp             add presentation timestamps to y4m FRAME lines.\n")
         _T("   --audio-copy [<int/string>[,...]]\n")
         _T("                                mux audio with video during output.\n")
         _T("                                 could be only used with\n")

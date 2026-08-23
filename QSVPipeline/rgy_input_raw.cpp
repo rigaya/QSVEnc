@@ -26,6 +26,7 @@
 // ------------------------------------------------------------------------------------------
 
 #include <sstream>
+#include <cmath>
 #include <fcntl.h>
 #include "rgy_filesystem.h"
 #include "rgy_input_raw.h"
@@ -119,7 +120,11 @@ RGYInputRaw::RGYInputRaw() :
     m_pBuffer(),
     m_isPipe(false),
     m_chunkPipeHandle(),
-    m_firstKeyPts(-1) {
+    m_firstKeyPts(-1),
+    m_y4mTimestamp(0),
+    m_y4mPreviousTimestamp(-1),
+    m_y4mHasTimestamp(false),
+    m_y4mTimestampWarningShown(false) {
     m_readerName = _T("raw");
 }
 
@@ -358,11 +363,33 @@ RGY_ERR RGYInputRaw::LoadNextFrameInternal(RGYFrame *pSurface) {
             AddMessage(RGY_LOG_DEBUG, _T("header2: finish.\n"));
             return RGY_ERR_MORE_DATA;
         }
-        int i;
-        for (i = 0; _fgetc_nolock(m_fSource) != '\n'; i++) {
-            if (i >= 64) {
+        char frameParam[65] = { 0 };
+        int frameParamLen = 0;
+        for (;;) {
+            const int c = _fgetc_nolock(m_fSource);
+            if (c == '\n') break;
+            if (c == EOF || frameParamLen >= 64) {
                 AddMessage(RGY_LOG_DEBUG, _T("header3: finish.\n"));
                 return RGY_ERR_MORE_DATA;
+            }
+            frameParam[frameParamLen++] = (char)c;
+        }
+        m_y4mHasTimestamp = false;
+        char *context = nullptr;
+        for (char *token = strtok_s(frameParam, " ", &context); token != nullptr; token = strtok_s(nullptr, " ", &context)) {
+            if (strncmp(token, "Xts=", 4) == 0) {
+                char *endptr = nullptr;
+                const double timestampSec = strtod(token + 4, &endptr);
+                if (endptr != token + 4 && *endptr == '\0' && std::isfinite(timestampSec) && timestampSec >= 0.0) {
+                    const auto timebase = getInputTimebase();
+                    m_y4mTimestamp = (int64_t)std::llround(timestampSec * timebase.d() / timebase.n());
+                    m_y4mHasTimestamp = true;
+                    if (m_timecode && !m_y4mTimestampWarningShown) {
+                        AddMessage(RGY_LOG_WARN, _T("Ignoring y4m Xts timestamps because --tcfile-in is specified.\n"));
+                        m_y4mTimestampWarningShown = true;
+                    }
+                }
+                break;
             }
         }
     }
@@ -465,8 +492,16 @@ RGY_ERR RGYInputRaw::LoadNextFrameInternal(RGYFrame *pSurface) {
         dst_array, src_array, m_inputVideoInfo.srcWidth, m_inputVideoInfo.srcPitch,
         src_uv_pitch, pSurface->pitch(), pSurface->pitch(RGY_PLANE_C), m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
     auto inputFps = rgy_rational<int>(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
-    pSurface->setDuration(rational_rescale(1, getInputTimebase().inv(), inputFps));
-    pSurface->setTimestamp(rational_rescale(GetVideoFirstKeyPts() + m_encSatusInfo->m_sData.frameIn, getInputTimebase().inv(), inputFps));
+    const auto cfrDuration = rational_rescale(1, getInputTimebase().inv(), inputFps);
+    if (m_y4mHasTimestamp && !m_timecode) {
+        pSurface->setTimestamp(m_y4mTimestamp);
+        pSurface->setDuration((m_y4mPreviousTimestamp >= 0 && m_y4mTimestamp > m_y4mPreviousTimestamp)
+            ? m_y4mTimestamp - m_y4mPreviousTimestamp : cfrDuration);
+        m_y4mPreviousTimestamp = m_y4mTimestamp;
+    } else {
+        pSurface->setDuration(cfrDuration);
+        pSurface->setTimestamp(rational_rescale(GetVideoFirstKeyPts() + m_encSatusInfo->m_sData.frameIn, getInputTimebase().inv(), inputFps));
+    }
 
     m_encSatusInfo->m_sData.frameIn++;
     return m_encSatusInfo->UpdateDisplay();

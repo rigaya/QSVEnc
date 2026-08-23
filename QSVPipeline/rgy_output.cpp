@@ -1072,7 +1072,7 @@ RGY_ERR RGYOutputRaw::WriteNextFrame(RGYFrame *pSurface) {
     return RGY_ERR_UNSUPPORTED;
 }
 
-RGYOutFrame::RGYOutFrame() : m_bY4m(true) {
+RGYOutFrame::RGYOutFrame() : m_bY4m(true), m_y4mTimestamp(false), m_outputTimebase() {
     m_strWriterName = _T("yuv writer");
     m_OutType = OUT_TYPE_SURFACE;
 };
@@ -1099,6 +1099,8 @@ RGY_ERR RGYOutFrame::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutpu
     YUVWriterParam *writerParam = (YUVWriterParam *)prm;
 
     m_bY4m = writerParam->bY4m;
+    m_y4mTimestamp = writerParam->y4mTimestamp;
+    m_outputTimebase = writerParam->outputTimebase;
     m_sourceHWMem = true;
     m_inited = true;
 
@@ -1135,7 +1137,18 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
             WriteY4MHeader(m_fDest.get(), &m_VideoOutputInfo, csp);
             m_y4mHeaderWritten = true;
         }
-        WRITE_CHECK(fwrite("FRAME\n", 1, strlen("FRAME\n"), m_fDest.get()), strlen("FRAME\n"));
+        if (m_y4mTimestamp) {
+            char frameHeader[64] = { 0 };
+            const double timestampSec = pSurface->timestamp() * (double)m_outputTimebase.n() / m_outputTimebase.d();
+            const int frameHeaderLen = snprintf(frameHeader, sizeof(frameHeader), "FRAME Xts=%.6f\n", timestampSec);
+            if (frameHeaderLen <= 0 || frameHeaderLen >= (int)sizeof(frameHeader)) {
+                return RGY_ERR_INVALID_PARAM;
+            }
+            const size_t frameHeaderSize = (size_t)frameHeaderLen;
+            WRITE_CHECK(fwrite(frameHeader, 1, frameHeaderSize, m_fDest.get()), frameHeaderSize);
+        } else {
+            WRITE_CHECK(fwrite("FRAME\n", 1, strlen("FRAME\n"), m_fDest.get()), strlen("FRAME\n"));
+        }
     }
 
     auto loadLineToBuffer = [](uint8_t *ptrBuf, uint8_t *ptrSrc, const int pitch) {
@@ -1412,7 +1425,10 @@ RGY_ERR initWriters(
         && (((common->muxOutputFormat.length() > 0 && 0 == _tcscmp(common->muxOutputFormat.c_str(), _T("raw")))) //--formatにrawが指定されている
         || std::filesystem::path(common->outputFilename).extension().empty() //拡張子がない
         || check_ext(common->outputFilename.c_str(), { ".m2v", ".264", ".h264", ".avc", ".avc1", ".x264", ".265", ".h265", ".hevc", ".vp9", ".av1", ".raw" })); //特定の拡張子
-    if (!useESOutput) {
+    const bool useRawY4MOutput = outputVideoInfo.codec == RGY_CODEC_RAW && common->muxOutputFormat == _T("y4m") && common->y4mTimestamp;
+    if (useRawY4MOutput) {
+        common->AVMuxTarget &= ~RGY_MUX_VIDEO;
+    } else if (!useESOutput) {
         common->AVMuxTarget |= RGY_MUX_VIDEO;
     }
 
@@ -1776,6 +1792,8 @@ RGY_ERR initWriters(
             pFileWriter = std::make_shared<RGYOutFrame>();
             YUVWriterParam param;
             param.bY4m = common->muxOutputFormat != _T("raw");
+            param.y4mTimestamp = common->y4mTimestamp && param.bY4m;
+            param.outputTimebase = outputTimebase;
             auto sts = pFileWriter->Init(common->outputFilename.c_str(), &outputVideoInfo, &param, log, pStatus);
             if (sts != RGY_ERR_NONE) {
                 log->write(RGY_LOG_ERROR, RGY_LOGT_OUT, pFileWriter->GetOutputMessage());

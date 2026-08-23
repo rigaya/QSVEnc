@@ -502,6 +502,8 @@ RGY_ERR initWriters(
 
 struct YUVWriterParam {
     bool bY4m;
+    bool y4mTimestamp;
+    rgy_rational<int> outputTimebase;
 };
 
 class RGYOutFrame : public RGYOutput {
@@ -516,6 +518,8 @@ protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, const VideoInfo *pOutputInfo, const void *prm) override;
 
     bool m_bY4m;
+    bool m_y4mTimestamp;
+    rgy_rational<int> m_outputTimebase;
 };
 
 #endif //__RGY_OUTPUT_H__

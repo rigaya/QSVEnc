@@ -4207,6 +4207,7 @@ struct RGYParamCommon {
     tstring inputFilename;        //入力ファイル名
     tstring outputFilename;       //出力ファイル名
     tstring muxOutputFormat;      //出力フォーマット
+    bool y4mTimestamp;            //y4mのFRAME行に表示時刻を出力する
     VideoVUIInfo out_vui;
     RGYOptList inputOpt; //入力オプション
     std::string maxCll;
