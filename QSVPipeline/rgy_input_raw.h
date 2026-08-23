@@ -79,8 +79,6 @@ protected:
     bool m_isPipe;
     RGYParamParallelEncPipeHandle m_chunkPipeHandle;
     int64_t m_firstKeyPts;
-    int64_t m_y4mPreviousTimestamp;
-    bool m_y4mTimestampWarningShown;
 };
 
 #endif //ENABLE_RAW_READER

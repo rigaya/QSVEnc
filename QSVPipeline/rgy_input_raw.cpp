@@ -120,9 +120,7 @@ RGYInputRaw::RGYInputRaw() :
     m_pBuffer(),
     m_isPipe(false),
     m_chunkPipeHandle(),
-    m_firstKeyPts(-1),
-    m_y4mPreviousTimestamp(-1),
-    m_y4mTimestampWarningShown(false) {
+    m_firstKeyPts(-1) {
     m_readerName = _T("raw");
 }
 
@@ -374,26 +372,24 @@ RGY_ERR RGYInputRaw::LoadNextFrameInternal(RGYFrame *pSurface) {
             }
             frameParam[frameParamLen++] = (char)c;
         }
+        // FRAME行の拡張パラメータ(Xts=表示時刻, Xdur=表示時間, いずれも秒)を取り込む
+        // keyが一致しない、または値が不正な場合は負値を返し、そのパラメータは無視される
+        const auto parseSec = [](const char *token, const char *key) {
+            const size_t keyLen = strlen(key);
+            if (strncmp(token, key, keyLen) != 0) return -1.0;
+            char *endptr = nullptr;
+            const double sec = strtod(token + keyLen, &endptr);
+            return (endptr != token + keyLen && *endptr == '\0' && std::isfinite(sec) && sec >= 0.0) ? sec : -1.0;
+        };
+        const auto timebase = getInputTimebase();
+        const auto toTick = [&timebase](const double sec) { return (int64_t)std::llround(sec * timebase.d() / timebase.n()); };
         char *context = nullptr;
         for (char *token = strtok_s(frameParam, " ", &context); token != nullptr; token = strtok_s(nullptr, " ", &context)) {
-            if (strncmp(token, "Xts=", 4) == 0) {
-                char *endptr = nullptr;
-                const double timestampSec = strtod(token + 4, &endptr);
-                if (endptr != token + 4 && *endptr == '\0' && std::isfinite(timestampSec) && timestampSec >= 0.0) {
-                    const auto timebase = getInputTimebase();
-                    y4mTimestamp = (int64_t)std::llround(timestampSec * timebase.d() / timebase.n());
-                    if (m_timecode && !m_y4mTimestampWarningShown) {
-                        AddMessage(RGY_LOG_WARN, _T("Ignoring y4m Xts timestamps because --tcfile-in is specified.\n"));
-                        m_y4mTimestampWarningShown = true;
-                    }
-                }
-            } else if (strncmp(token, "Xdur=", 5) == 0) {
-                char *endptr = nullptr;
-                const double durationSec = strtod(token + 5, &endptr);
-                if (endptr != token + 5 && *endptr == '\0' && std::isfinite(durationSec) && durationSec > 0.0) {
-                    const auto timebase = getInputTimebase();
-                    y4mDuration = (int64_t)std::llround(durationSec * timebase.d() / timebase.n());
-                }
+            double sec = -1.0;
+            if ((sec = parseSec(token, "Xts=")) >= 0.0) {
+                y4mTimestamp = toTick(sec);
+            } else if ((sec = parseSec(token, "Xdur=")) > 0.0) {
+                y4mDuration = toTick(sec);
             }
         }
     }
@@ -497,12 +493,13 @@ RGY_ERR RGYInputRaw::LoadNextFrameInternal(RGYFrame *pSurface) {
         src_uv_pitch, pSurface->pitch(), pSurface->pitch(RGY_PLANE_C), m_inputVideoInfo.srcHeight, m_inputVideoInfo.srcHeight, m_inputVideoInfo.crop.c);
     auto inputFps = rgy_rational<int>(m_inputVideoInfo.fpsN, m_inputVideoInfo.fpsD);
     const auto cfrDuration = rational_rescale(1, getInputTimebase().inv(), inputFps);
+    if (m_timecode && y4mTimestamp != AV_NOPTS_VALUE && m_encSatusInfo->m_sData.frameIn == 0) {
+        AddMessage(RGY_LOG_WARN, _T("Ignoring y4m Xts timestamps because --tcfile-in is specified.\n"));
+    }
     if (y4mTimestamp != AV_NOPTS_VALUE && !m_timecode) {
         pSurface->setTimestamp(y4mTimestamp);
-        pSurface->setDuration(y4mDuration > 0 ? y4mDuration
-            : (m_y4mPreviousTimestamp >= 0 && y4mTimestamp > m_y4mPreviousTimestamp)
-                ? y4mTimestamp - m_y4mPreviousTimestamp : cfrDuration);
-        m_y4mPreviousTimestamp = y4mTimestamp;
+        // Xdurがない場合はヘッダFPSから求めたCFRのdurationで代用する
+        pSurface->setDuration(y4mDuration > 0 ? y4mDuration : cfrDuration);
     } else {
         pSurface->setDuration(cfrDuration);
         pSurface->setTimestamp(rational_rescale(GetVideoFirstKeyPts() + m_encSatusInfo->m_sData.frameIn, getInputTimebase().inv(), inputFps));
