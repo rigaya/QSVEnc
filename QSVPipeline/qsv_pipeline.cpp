@@ -708,12 +708,18 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         return err;
     }
 
-    for (auto& rc : pInParams->dynamicRC) {
-        auto [err2, availableFeaures2 ] = CheckMFXRCMode(rc, pInParams, codecMaxQP);
+    for (auto rc = pInParams->dynamicRC.begin(); rc != pInParams->dynamicRC.end();) {
+        auto [err2, availableFeaures2 ] = CheckMFXRCMode(*rc, pInParams, codecMaxQP);
         if (err2 != RGY_ERR_NONE) {
-            PrintMes(RGY_LOG_WARN, _T("Unsupported dynamic rc param for frame %d-%d, will be disabled.\n"), rc.start, rc.end);
-            PrintMes(RGY_LOG_WARN, _T("  paramter was %s.\n"), rc.print().c_str());
-            rc.start = rc.end = -1;
+            if (rc->startTime >= 0.0 || rc->endTime >= 0.0) {
+                PrintMes(RGY_LOG_WARN, _T("Unsupported dynamic rc param for time %.3f-%.3f, will be disabled.\n"), rc->startTime, rc->endTime);
+            } else {
+                PrintMes(RGY_LOG_WARN, _T("Unsupported dynamic rc param for frame %d-%d, will be disabled.\n"), rc->start, rc->end);
+            }
+            PrintMes(RGY_LOG_WARN, _T("  parameter was %s.\n"), rc->print().c_str());
+            rc = pInParams->dynamicRC.erase(rc);
+        } else {
+            ++rc;
         }
     }
     m_dynamicRC = pInParams->dynamicRC;

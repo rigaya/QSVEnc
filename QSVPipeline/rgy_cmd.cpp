@@ -16156,7 +16156,7 @@ tstring gen_cmd_help_common() {
         _T("                                 if format is not specified, output format will\n")
         _T("                                 be guessed from output file extension.\n")
         _T("                                 set \"raw\" for H.264/ES output.\n")
-        _T("   --y4m-timestamp             add presentation timestamps to y4m FRAME lines.\n")
+        _T("   --y4m-timestamp             add presentation timestamps and durations to y4m FRAME lines.\n")
         _T("   --audio-copy [<int/string>[,...]]\n")
         _T("                                mux audio with video during output.\n")
         _T("                                 could be only used with\n")

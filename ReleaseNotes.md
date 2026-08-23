@@ -2,6 +2,8 @@
 
 ## 8.27
 
+- Add frame durations to [--y4m-timestamp](./QSVEncC_Options.en.md#--y4m-timestamp) output and improve the default y4m input timebase.
+- Fix disabling unsupported timestamp-based [--dynamic-rc](./QSVEncC_Options.en.md#--dynamic-rc-intintintintparam1value1param2value2) zones.
 - Add timestamp range parameters `start-time` and `end-time` to [--dynamic-rc](./QSVEncC_Options.en.md#--dynamic-rc-intintintintparam1value1param2value2).
 - Update ffmpeg libraries. -> [binaries and src](https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/tag/20260812), [build_scripts](https://github.com/rigaya/build_scripts)
   - ffmpeg 8.0 -> 9.0.1

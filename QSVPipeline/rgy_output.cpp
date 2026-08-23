@@ -1139,8 +1139,12 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
         }
         if (m_y4mTimestamp) {
             char frameHeader[64] = { 0 };
-            const double timestampSec = pSurface->timestamp() * (double)m_outputTimebase.n() / m_outputTimebase.d();
-            const int frameHeaderLen = snprintf(frameHeader, sizeof(frameHeader), "FRAME Xts=%.6f\n", timestampSec);
+            const double timebaseSec = (double)m_outputTimebase.n() / m_outputTimebase.d();
+            const double timestampSec = pSurface->timestamp() * timebaseSec;
+            const int64_t duration = pSurface->duration();
+            const int frameHeaderLen = (duration > 0)
+                ? snprintf(frameHeader, sizeof(frameHeader), "FRAME Xts=%.6f Xdur=%.6f\n", timestampSec, duration * timebaseSec)
+                : snprintf(frameHeader, sizeof(frameHeader), "FRAME Xts=%.6f\n", timestampSec);
             if (frameHeaderLen <= 0 || frameHeaderLen >= (int)sizeof(frameHeader)) {
                 return RGY_ERR_INVALID_PARAM;
             }
