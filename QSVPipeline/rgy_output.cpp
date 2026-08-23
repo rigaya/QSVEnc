@@ -40,6 +40,9 @@
 static const uint8_t AUD_H264_PRIMARY[] = { 0x00, 0x00, 0x00, 0x01, 0x09, 0x10 }; // AUD (primary_pic_type = 0)
 static const uint8_t AUD_HEVC_PRIMARY[] = { 0x00, 0x00, 0x00, 0x01, 0x46, 0x01 }; // AUD (pic_type = 0)
 
+// P010は10bitの値を16bitコンテナのMSB側に詰めて保持するため、LSB詰め10bitに戻す際のシフト量
+static const int RGY_CSP_P010_SHIFT_TO_10BIT = 6;
+
 static RGY_ERR WriteY4MHeader(FILE *fp, const VideoInfo *info, const RGY_CSP csp) {
     char buffer[256] = { 0 };
     char *ptr = buffer;
@@ -1132,7 +1135,7 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
             if (csp == RGY_CSP_NV12) {
                 csp = RGY_CSP_YV12;
             } else if (csp == RGY_CSP_P010) {
-                csp = RGY_CSP_YV12_16;
+                csp = RGY_CSP_YV12_10;
             }
             WriteY4MHeader(m_fDest.get(), &m_VideoOutputInfo, csp);
             m_y4mHeaderWritten = true;
@@ -1187,15 +1190,31 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
     }
 #endif
     const int pixSize = RGY_CSP_BIT_DEPTH[pSurface->csp()] > 8 ? 2 : 1;
+    // P010は10bitの値を16bitコンテナのMSB側に詰めて保持しているため、y4m(420p10)として出力するにはLSB詰めに戻す
+    // (RGY_CSP_BIT_DEPTH[RGY_CSP_P010]は16を返すため、シフト量は16-10=6を直接指定する)
+    const int lumaShiftDown = (pSurface->csp() == RGY_CSP_P010) ? RGY_CSP_P010_SHIFT_TO_10BIT : 0;
     if (   RGY_CSP_CHROMA_FORMAT[pSurface->csp()] == RGY_CHROMAFMT_YUV420
         || RGY_CSP_CHROMA_FORMAT[pSurface->csp()] == RGY_CHROMAFMT_YUV444) {
         const uint32_t lumaWidthBytes = pSurface->width() * pixSize;
         const uint32_t cropOffset = crop.e.up * pSurface->pitch() + crop.e.left * pixSize;
-        if (m_sourceHWMem) {
+        if (m_sourceHWMem || lumaShiftDown > 0) {
+            if (m_readBuffer.get() == nullptr) {
+                m_readBuffer.reset((uint8_t *)_aligned_malloc(pSurface->pitch() + 128, 16));
+            }
             for (decltype(pSurface->height()) j = 0; j < pSurface->height(); j++) {
                 uint8_t *ptrBuf = m_readBuffer.get();
                 uint8_t *ptrSrc = pSurface->ptrY() + (crop.e.up + j) * pSurface->pitch();
-                loadLineToBuffer(ptrBuf, ptrSrc, pSurface->pitch());
+                if (m_sourceHWMem) {
+                    loadLineToBuffer(ptrBuf, ptrSrc, pSurface->pitch());
+                } else {
+                    memcpy(ptrBuf, ptrSrc, pSurface->pitch());
+                }
+                if (lumaShiftDown > 0) {
+                    uint16_t *ptrLine = (uint16_t *)(ptrBuf + crop.e.left * pixSize);
+                    for (decltype(pSurface->width()) i = 0; i < pSurface->width(); i++) {
+                        ptrLine[i] >>= lumaShiftDown;
+                    }
+                }
                 WRITE_CHECK(fwrite(ptrBuf + crop.e.left * pixSize, 1, lumaWidthBytes, m_fDest.get()), lumaWidthBytes);
             }
         } else {
@@ -1252,19 +1271,16 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
                 const uint16_t *ptrUV = (const uint16_t *)ptrLineUV;
                 uint16_t *ptrU = (uint16_t *)ptrLineU;
                 uint16_t *ptrV = (uint16_t *)ptrLineV;
-                switch (RGY_CSP_BIT_DEPTH[pSurface->csp()]) {
-                case 10: convert_nv12_to_yv12_line_c<uint16_t, 10, uint16_t, 16>(ptrU, ptrV, ptrUV, widthUV); break;
-                case 12: convert_nv12_to_yv12_line_c<uint16_t, 12, uint16_t, 16>(ptrU, ptrV, ptrUV, widthUV); break;
-                case 14: convert_nv12_to_yv12_line_c<uint16_t, 14, uint16_t, 16>(ptrU, ptrV, ptrUV, widthUV); break;
-                case 16:
-                default: convert_nv12_to_yv12_line_c<uint16_t, 16, uint16_t, 16>(ptrU, ptrV, ptrUV, widthUV); break;
-                }
+                // P010は10bitの値を16bitコンテナのMSB側に詰めて保持しているため、
+                // 入力を16bitとして扱い、LSB詰め10bit(=y4mの420p10)へ変換する
+                // テンプレート引数は<Tout, out_bit_depth, Tin, in_bit_depth>の順
+                convert_nv12_to_yv12_line_c<uint16_t, 16 - RGY_CSP_P010_SHIFT_TO_10BIT, uint16_t, 16>(ptrU, ptrV, ptrUV, widthUV);
             } else {
                 return RGY_ERR_INVALID_COLOR_FORMAT;
             }
         }
-        WRITE_CHECK(fwrite(m_UVBuffer.get(),                 1, widthUV * heightUV, m_fDest.get()), widthUV * heightUV);
-        WRITE_CHECK(fwrite(m_UVBuffer.get() + planeOffsetUV, 1, widthUV * heightUV, m_fDest.get()), widthUV * heightUV);
+        WRITE_CHECK(fwrite(m_UVBuffer.get(),                 1, widthUV * heightUV * pixSize, m_fDest.get()), widthUV * heightUV * pixSize);
+        WRITE_CHECK(fwrite(m_UVBuffer.get() + planeOffsetUV, 1, widthUV * heightUV * pixSize, m_fDest.get()), widthUV * heightUV * pixSize);
     } else if (RGY_CSP_CHROMA_FORMAT[pSurface->csp()] == RGY_CHROMAFMT_YUV420
             || RGY_CSP_CHROMA_FORMAT[pSurface->csp()] == RGY_CHROMAFMT_YUV444) {
         uint8_t *const ptrBuf = m_readBuffer.get();
