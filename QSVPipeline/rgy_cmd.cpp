@@ -664,7 +664,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
     if (IS_OPTION("vpp-resize")
         || (IS_OPTION("vpp-scaling") && ENCODER_QSV)) {
         i++;
-        if (ENABLE_LIBPLACEBO) {
+        if (ENABLE_LIBPLACEBO || ENABLE_OPENCL) {
             ///////////////////////////////////////////////////////////////////////////////////////
             // パラメータを追加したら、paramsResizeLibPlaceboにも追加する！！
             ///////////////////////////////////////////////////////////////////////////////////////
