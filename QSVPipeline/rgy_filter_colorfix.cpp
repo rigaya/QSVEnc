@@ -123,6 +123,7 @@ RGYFilterColorFix::RGYFilterColorFix(shared_ptr<RGYOpenCLContext> context) :
     m_sumA(0), m_sumB(0), m_sumC(0), m_sumY(0), m_sumYsq(0),
     m_rollingVarianceSum(0.0), m_rollingVarianceCount(0),
     m_offsetU(0), m_offsetV(0),
+    m_tempR(1.0f), m_tempG(1.0f), m_tempB(1.0f),
     m_scaleR(1.0f), m_scaleG(1.0f), m_scaleB(1.0f),
     m_prescanUsed(false),
     m_hardCapFrames(0) {
@@ -131,6 +132,58 @@ RGYFilterColorFix::RGYFilterColorFix(shared_ptr<RGYOpenCLContext> context) :
 
 RGYFilterColorFix::~RGYFilterColorFix() {
     close();
+}
+
+// Planck軌跡の近似からxy色度を求め、XYZを基準原色のRGBへ変換する。
+static void colorfix_temperature_rgb(double kelvin, double &r, double &g, double &b) {
+    const double t = std::min(std::max(kelvin, 1667.0), 25000.0);
+    const double t2 = t * t;
+    const double t3 = t2 * t;
+    const double x = (t <= 4000.0)
+        ? (-0.2661239e9 / t3 - 0.2343589e6 / t2 + 0.8776956e3 / t + 0.179910)
+        : (-3.0258469e9 / t3 + 2.1070379e6 / t2 + 0.2226347e3 / t + 0.240390);
+    const double x2 = x * x;
+    const double x3 = x2 * x;
+    const double y = (t <= 2222.0)
+        ? (-1.1063814 * x3 - 1.34811020 * x2 + 2.18555832 * x - 0.20219683)
+        : (t <= 4000.0)
+        ? (-0.9549476 * x3 - 1.37418593 * x2 + 2.09137015 * x - 0.16748867)
+        : ( 3.0817580 * x3 - 5.87338670 * x2 + 3.75112997 * x - 0.37001483);
+    const double Y = 1.0;
+    const double X = (y > 1e-6) ? (x / y) : 0.0;
+    const double Z = (y > 1e-6) ? ((1.0 - x - y) / y) : 0.0;
+    r =  3.2404542 * X - 1.5371385 * Y - 0.4985314 * Z;
+    g = -0.9692660 * X + 1.8760108 * Y + 0.0415560 * Z;
+    b =  0.0556434 * X - 0.2040259 * Y + 1.0572252 * Z;
+    // 範囲端で逆数が発散しないよう、RGB成分に正の下限を設ける。
+    const double least = 1e-4;
+    r = std::max(r, least);
+    g = std::max(g, least);
+    b = std::max(b, least);
+}
+
+void RGYFilterColorFix::temperatureGains(int kelvin, float &gR, float &gG, float &gB) {
+    // 基準色温度は明示的に単位ゲインとし、厳密なno-opを保証する。
+    if (kelvin == FILTER_DEFAULT_COLORFIX_TEMPERATURE || kelvin == FILTER_REF_COLORFIX_TEMPERATURE) {
+        gR = gG = gB = 1.0f;
+        return;
+    }
+    double r = 1.0, g = 1.0, b = 1.0, rr = 1.0, rg = 1.0, rb = 1.0;
+    colorfix_temperature_rgb((double)kelvin, r, g, b);
+    colorfix_temperature_rgb((double)FILTER_REF_COLORFIX_TEMPERATURE, rr, rg, rb);
+    double kr = rr / r;
+    double kg = rg / g;
+    double kb = rb / b;
+    // 中性グレーの輝度を維持し、色温度補正で露出を変えない。
+    const double lum = 0.2126 * kr + 0.7152 * kg + 0.0722 * kb;
+    if (lum > 1e-6) {
+        kr /= lum;
+        kg /= lum;
+        kb /= lum;
+    }
+    gR = (float)kr;
+    gG = (float)kg;
+    gB = (float)kb;
 }
 
 RGY_ERR RGYFilterColorFix::checkParam(const std::shared_ptr<RGYFilterParamColorFix> prm) {
@@ -144,6 +197,17 @@ RGY_ERR RGYFilterColorFix::checkParam(const std::shared_ptr<RGYFilterParamColorF
         && c.mode != VPP_COLORFIX_MODE_GRAY) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid mode=%d: must be 0 (manual), 1 (auto) or 2 (gray).\n"), c.mode);
         return RGY_ERR_INVALID_PARAM;
+    }
+    if (c.temperature != FILTER_DEFAULT_COLORFIX_TEMPERATURE) {
+        if (c.temperature < FILTER_MIN_COLORFIX_TEMPERATURE || c.temperature > FILTER_MAX_COLORFIX_TEMPERATURE) {
+            AddMessage(RGY_LOG_ERROR, _T("temperature=%d must be in [%d, %d], or 0 to leave it off.\n"),
+                c.temperature, FILTER_MIN_COLORFIX_TEMPERATURE, FILTER_MAX_COLORFIX_TEMPERATURE);
+            return RGY_ERR_INVALID_PARAM;
+        }
+        if (c.mode != VPP_COLORFIX_MODE_MANUAL) {
+            AddMessage(RGY_LOG_ERROR, _T("temperature= requires mode=manual.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
     }
     if (c.mode == VPP_COLORFIX_MODE_MANUAL) {
         for (int v : { c.whiteR, c.whiteG, c.whiteB, c.blackR, c.blackG, c.blackB }) {
@@ -301,6 +365,18 @@ RGY_ERR RGYFilterColorFix::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RG
     const int maxVal   = (1 << bitDepth) - 1;
     m_resolvedMatrix   = resolveMatrix(prm->colorfix, prm->vui, prm->frameIn.height);
     m_effectiveSpace   = resolveSpace(prm->colorfix);
+
+    if (prm->colorfix.temperature != FILTER_DEFAULT_COLORFIX_TEMPERATURE) {
+        if (m_effectiveSpace != VPP_COLORFIX_SPACE_RGB) {
+            AddMessage(RGY_LOG_ERROR, _T("temperature= requires space=rgb.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+        temperatureGains(prm->colorfix.temperature, m_tempR, m_tempG, m_tempB);
+        AddMessage(RGY_LOG_DEBUG, _T("temperature %dK -> gain=(%.4f, %.4f, %.4f)\n"),
+            prm->colorfix.temperature, m_tempR, m_tempG, m_tempB);
+    } else {
+        m_tempR = m_tempG = m_tempB = 1.0f;
+    }
 
     // auto mode is a chroma-only correction with no meaningful RGB-space
     // equivalent. If the user asked for space=rgb on mode=auto, fall
@@ -956,9 +1032,10 @@ RGY_ERR RGYFilterColorFix::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameI
         const int kR = prm->colorfix.blackR * rgbMax / 255;
         const int kG = prm->colorfix.blackG * rgbMax / 255;
         const int kB = prm->colorfix.blackB * rgbMax / 255;
-        const float scaleR  = (float)rgbMax / (float)(wR - kR);
-        const float scaleG  = (float)rgbMax / (float)(wG - kG);
-        const float scaleB  = (float)rgbMax / (float)(wB - kB);
+        // 黒点除去とレンジ伸長の後に光源を中和する係数を、1回のmultiply-addへ合成する。
+        const float scaleR  = m_tempR * (float)rgbMax / (float)(wR - kR);
+        const float scaleG  = m_tempG * (float)rgbMax / (float)(wG - kG);
+        const float scaleB  = m_tempB * (float)rgbMax / (float)(wB - kB);
         const float offsetR = -((float)kR) * scaleR;
         const float offsetG = -((float)kG) * scaleG;
         const float offsetB = -((float)kB) * scaleB;

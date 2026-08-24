@@ -3159,7 +3159,8 @@ VppColorFix::VppColorFix() :
     blackB(FILTER_DEFAULT_COLORFIX_BLACK),
     frames(FILTER_DEFAULT_COLORFIX_FRAMES),
     strength(FILTER_DEFAULT_COLORFIX_STRENGTH),
-    varianceThreshold(FILTER_DEFAULT_COLORFIX_VARIANCE_THRESHOLD) {
+    varianceThreshold(FILTER_DEFAULT_COLORFIX_VARIANCE_THRESHOLD),
+    temperature(FILTER_DEFAULT_COLORFIX_TEMPERATURE) {
 }
 
 bool VppColorFix::operator==(const VppColorFix &x) const {
@@ -3175,7 +3176,8 @@ bool VppColorFix::operator==(const VppColorFix &x) const {
         && blackB == x.blackB
         && frames == x.frames
         && strength == x.strength
-        && varianceThreshold == x.varianceThreshold;
+        && varianceThreshold == x.varianceThreshold
+        && temperature == x.temperature;
 }
 
 bool VppColorFix::operator!=(const VppColorFix &x) const {
@@ -3183,9 +3185,13 @@ bool VppColorFix::operator!=(const VppColorFix &x) const {
 }
 
 tstring VppColorFix::print() const {
-    return strsprintf(_T("colorfix: mode %s, space %s, matrix %s, white #%02x%02x%02x, black #%02x%02x%02x, frames %d, strength %.2f, variance_threshold %.2f"),
+    auto str = strsprintf(_T("colorfix: mode %s, space %s, matrix %s, white #%02x%02x%02x, black #%02x%02x%02x, frames %d, strength %.2f, variance_threshold %.2f"),
         vpp_colorfix_mode_str(mode), vpp_colorfix_space_str(space), vpp_colorfix_matrix_str(matrix),
         whiteR, whiteG, whiteB, blackR, blackG, blackB, frames, strength, varianceThreshold);
+    if (temperature != 0) {
+        str += strsprintf(_T(", temperature %dK"), temperature);
+    }
+    return str;
 }
 
 VppEdgelevel::VppEdgelevel() :

@@ -666,6 +666,10 @@ static const int   FILTER_DEFAULT_COLORFIX_BLACK = 0;
 static const int   FILTER_DEFAULT_COLORFIX_FRAMES = 30;
 static const float FILTER_DEFAULT_COLORFIX_STRENGTH = 1.0f;
 static const float FILTER_DEFAULT_COLORFIX_VARIANCE_THRESHOLD = 2.0f;
+static const int   FILTER_DEFAULT_COLORFIX_TEMPERATURE = 0;
+static const int   FILTER_MIN_COLORFIX_TEMPERATURE = 2500;
+static const int   FILTER_MAX_COLORFIX_TEMPERATURE = 15000;
+static const int   FILTER_REF_COLORFIX_TEMPERATURE = 6500;
 
 static const float FILTER_DEFAULT_DEHALO_RX = 2.0f;
 static const float FILTER_DEFAULT_DEHALO_RY = 2.0f;
@@ -3211,6 +3215,7 @@ struct VppColorFix {
     int   frames;
     float strength;
     float varianceThreshold;
+    int   temperature;   // 撮影光源の色温度（K）、0で無効
 
     VppColorFix();
     bool operator==(const VppColorFix &x) const;

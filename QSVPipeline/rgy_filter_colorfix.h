@@ -71,6 +71,9 @@ protected:
     // Returns one of VPP_COLORFIX_MATRIX_{BT601,BT709,BT2020}; never AUTO.
     int  resolveMatrix(const VppColorFix &cf, const VideoVUIInfo &vui, int height) const;
 
+    // 指定した光源色温度を基準色温度へ中和するRGBゲインを返す。
+    static void temperatureGains(int kelvin, float &gR, float &gG, float &gB);
+
     // Resolve the effective working colour space. Returns RGB or YUV;
     // never AUTO. AUTO -> { manual=RGB, auto=YUV, gray=YUV }.
     int  resolveSpace(const VppColorFix &cf) const;
@@ -163,6 +166,9 @@ protected:
     // Computed correction values (set once analysis completes).
     int   m_offsetU;        // auto-mode chroma offsets, HBD-scaled
     int   m_offsetV;
+    float m_tempR;          // temperature=によるRGBゲイン、無効時は1.0
+    float m_tempG;
+    float m_tempB;
     float m_scaleR;         // gray-mode RGB scales
     float m_scaleG;
     float m_scaleB;

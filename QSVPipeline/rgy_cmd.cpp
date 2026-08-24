@@ -8121,7 +8121,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             return 0;
         }
         i++;
-        const auto paramList = std::vector<std::string>{ "enable", "mode", "space", "matrix", "white", "black", "white_r", "white_g", "white_b", "black_r", "black_g", "black_b", "frames", "strength", "variance_threshold" };
+        const auto paramList = std::vector<std::string>{ "enable", "mode", "space", "matrix", "white", "black", "white_r", "white_g", "white_b", "black_r", "black_g", "black_b", "frames", "strength", "variance_threshold", "temperature" };
         auto parse_color = [&](const tstring& value, int& r, int& g, int& b) {
             auto v = tolowercase(value);
             if (v.size() == 7 && v[0] == _T('#')) {
@@ -8222,9 +8222,16 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 }
                 if (param_arg == _T("white_r") || param_arg == _T("white_g") || param_arg == _T("white_b")
                     || param_arg == _T("black_r") || param_arg == _T("black_g") || param_arg == _T("black_b")
-                    || param_arg == _T("frames")) {
+                    || param_arg == _T("frames") || param_arg == _T("temperature")) {
                     try {
-                        const auto value = std::stoi(param_val);
+                        size_t idx = 0;
+                        const auto value = std::stoi(param_val, &idx);
+                        if (idx != param_val.length()
+                            || (param_arg == _T("temperature") && value != FILTER_DEFAULT_COLORFIX_TEMPERATURE
+                                && (value < FILTER_MIN_COLORFIX_TEMPERATURE || value > FILTER_MAX_COLORFIX_TEMPERATURE))) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                            return 1;
+                        }
                         if (param_arg == _T("white_r")) vpp->colorfix.whiteR = value;
                         if (param_arg == _T("white_g")) vpp->colorfix.whiteG = value;
                         if (param_arg == _T("white_b")) vpp->colorfix.whiteB = value;
@@ -8232,6 +8239,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                         if (param_arg == _T("black_g")) vpp->colorfix.blackG = value;
                         if (param_arg == _T("black_b")) vpp->colorfix.blackB = value;
                         if (param_arg == _T("frames"))  vpp->colorfix.frames = value;
+                        if (param_arg == _T("temperature")) vpp->colorfix.temperature = value;
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -14968,6 +14976,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_NUM(_T("frames"), colorfix.frames);
             ADD_FLOAT(_T("strength"), colorfix.strength, 3);
             ADD_FLOAT(_T("variance_threshold"), colorfix.varianceThreshold, 3);
+            ADD_NUM(_T("temperature"), colorfix.temperature);
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-colorfix ") << tmp.str().substr(1);
@@ -17682,9 +17691,14 @@ tstring gen_cmd_help_vpp() {
         _T("      frames=<int>              analysis frames for auto/gray (default=%d, 10-5000)\n")
         _T("      strength=<float>          correction strength for auto/gray (default=%.2f, 0.0 - 1.0)\n")
         _T("      variance_threshold=<float>\n")
-        _T("                                flash/fade rejection threshold (default=%.2f, >0)\n"),
+        _T("                                flash/fade rejection threshold (default=%.2f, >0)\n")
+        _T("      temperature=<int>         color temperature in Kelvin of the source light;\n")
+        _T("                                  corrects it to %dK. mode=manual, space=rgb.\n")
+        _T("                                  (default=%d (off), %d - %d)\n"),
         FILTER_DEFAULT_COLORFIX_FRAMES, FILTER_DEFAULT_COLORFIX_STRENGTH,
-        FILTER_DEFAULT_COLORFIX_VARIANCE_THRESHOLD);
+        FILTER_DEFAULT_COLORFIX_VARIANCE_THRESHOLD,
+        FILTER_REF_COLORFIX_TEMPERATURE, FILTER_DEFAULT_COLORFIX_TEMPERATURE,
+        FILTER_MIN_COLORFIX_TEMPERATURE, FILTER_MAX_COLORFIX_TEMPERATURE);
 #endif
 #if ENABLE_VPP_FILTER_EDGELEVEL
     str += strsprintf(_T("\n")
