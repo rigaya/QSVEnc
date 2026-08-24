@@ -9625,7 +9625,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             return 0;
         }
         i++;
-        const auto paramList = std::vector<std::string>{ "k1", "k2", "cx", "cy" };
+        const auto paramList = std::vector<std::string>{ "k1", "k2", "cx", "cy", "vignette" };
         for (const auto &param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
             if (pos != std::string::npos) {
@@ -9656,6 +9656,21 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 }
                 if (param_arg == _T("cy")) {
                     try { vpp->lenscorrection.cy = std::stof(param_val); } catch (...) { print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val); return 1; }
+                    continue;
+                }
+                if (param_arg == _T("vignette")) {
+                    try {
+                        size_t idx = 0;
+                        vpp->lenscorrection.vignette = std::stof(param_val, &idx);
+                        if (idx != param_val.length() || !std::isfinite(vpp->lenscorrection.vignette)
+                            || vpp->lenscorrection.vignette < -1.0f || vpp->lenscorrection.vignette > 4.0f) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                            return 1;
+                        }
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
                     continue;
                 }
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
@@ -15255,6 +15270,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_FLOAT(_T("k2"), lenscorrection.k2, 3);
             ADD_FLOAT(_T("cx"), lenscorrection.cx, 3);
             ADD_FLOAT(_T("cy"), lenscorrection.cy, 3);
+            ADD_FLOAT(_T("vignette"), lenscorrection.vignette, 3);
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-lenscorrection ") << tmp.str().substr(1);
@@ -17249,6 +17265,9 @@ tstring gen_cmd_help_vpp() {
         _T("   --vpp-lenscorrection [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("      k1=<float>, k2=<float>     radial distortion coefficients\n")
         _T("      cx=<float>, cy=<float>     correction centre (default=0.5,0.5)\n")
+        _T("      vignette=<float>           corner brightness, gain at the corner is\n")
+        _T("                                   1+vignette. Positive removes a falloff,\n")
+        _T("                                   negative adds one. (default=0.0, -1.0 - 4.0)\n")
         _T("   --vpp-v360 [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("      in/out=equirect|flat|cubemap, yaw/pitch/roll=<float>, h_fov=<float>, w/h=<int>\n"));
     str += strsprintf(_T("\n")

@@ -38,7 +38,7 @@
 static const int LENSC_BLOCK_X = 32;
 static const int LENSC_BLOCK_Y = 8;
 
-RGY_ERR RGYFilterLensCorrection::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, float fillValue, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterLensCorrection::procPlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, float fillValue, float pivot, int maxValue, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     auto prm = std::dynamic_pointer_cast<RGYFilterParamLensCorrection>(m_param);
     if (!prm) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
@@ -51,7 +51,8 @@ RGY_ERR RGYFilterLensCorrection::procPlane(RGYFrameInfo *pOutputPlane, const RGY
         (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0], pOutputPlane->width, pOutputPlane->height,
         (cl_mem)pInputPlane->ptr[0],  pInputPlane->pitch[0],  pInputPlane->width,  pInputPlane->height,
         (float)prm->lenscorrection.k1, (float)prm->lenscorrection.k2,
-        (float)prm->lenscorrection.cx, (float)prm->lenscorrection.cy, fillValue);
+        (float)prm->lenscorrection.cx, (float)prm->lenscorrection.cy, fillValue,
+        (float)prm->lenscorrection.vignette, pivot, maxValue);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("error at %s (procPlane(%s)): %s.\n"),
             char_to_tstring(kernel_name).c_str(), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
@@ -67,7 +68,11 @@ RGY_ERR RGYFilterLensCorrection::procFrame(RGYFrameInfo *pOutputFrame, const RGY
         const std::vector<RGYOpenCLEvent> &plane_wait_event = (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>();
         RGYOpenCLEvent *plane_event = (i == RGY_CSP_PLANES[pOutputFrame->csp] - 1) ? event : nullptr;
         const float fillValue = (i == 0) ? 0.0f : (float)(1 << (RGY_CSP_BIT_DEPTH[pOutputFrame->csp] - 1));
-        auto err = procPlane(&planeDst, &planeSrc, fillValue, queue, plane_wait_event, plane_event);
+        // Luma scales about zero, chroma about neutral: that pair is what an
+        // equal multiply of R, G and B becomes once the frame is YUV.
+        const float pivot = fillValue;
+        const int maxValue = (1 << RGY_CSP_BIT_DEPTH[pOutputFrame->csp]) - 1;
+        auto err = procPlane(&planeDst, &planeSrc, fillValue, pivot, maxValue, queue, plane_wait_event, plane_event);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to apply lenscorrection frame(%d) %s: %s\n"), i, RGY_CSP_NAMES[planeSrc.csp], get_err_mes(err));
             return err;

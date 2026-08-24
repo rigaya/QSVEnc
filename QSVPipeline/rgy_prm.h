@@ -3723,6 +3723,7 @@ struct VppLensCorrection {
     float k2;
     float cx;
     float cy;
+    float vignette;   // 四隅の明るさ補正量。正値で周辺減光を除去し、0で無効
 
     VppLensCorrection();
     bool operator==(const VppLensCorrection &x) const;

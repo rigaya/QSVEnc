@@ -3732,7 +3732,8 @@ VppLensCorrection::VppLensCorrection() :
     k1(0.0f),
     k2(0.0f),
     cx(0.5f),
-    cy(0.5f) {
+    cy(0.5f),
+    vignette(0.0f) {
 }
 
 bool VppLensCorrection::operator==(const VppLensCorrection &x) const {
@@ -3740,14 +3741,19 @@ bool VppLensCorrection::operator==(const VppLensCorrection &x) const {
         && k1 == x.k1
         && k2 == x.k2
         && cx == x.cx
-        && cy == x.cy;
+        && cy == x.cy
+        && vignette == x.vignette;
 }
 bool VppLensCorrection::operator!=(const VppLensCorrection &x) const {
     return !(*this == x);
 }
 
 tstring VppLensCorrection::print() const {
-    return strsprintf(_T("lenscorrection: k1 %.4f, k2 %.4f, cx %.3f, cy %.3f"), k1, k2, cx, cy);
+    auto str = strsprintf(_T("lenscorrection: k1 %.4f, k2 %.4f, cx %.3f, cy %.3f"), k1, k2, cx, cy);
+    if (vignette != 0.0f) {
+        str += strsprintf(_T(", vignette %+.3f"), vignette);
+    }
+    return str;
 }
 
 VppV360::VppV360() :
