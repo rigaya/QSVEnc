@@ -57,9 +57,10 @@ public:
     tstring modelDir;
     tstring device;           // OpenVINO device ("GPU.0" default)
     int     multi;            // frame-rate multiplier (>=2; 2 = double the frame rate)
+    rgy_rational<int> fps;    // 変換先フレームレート。未指定時はmultiを使う。
     tstring colormatrix;      // auto / bt601 / bt709 / bt2020
     tstring colorrange;       // auto / tv / pc
-    RGYFilterParamRifeOV() : modelFile(), modelDir(), device(_T("GPU.0")), multi(2), colormatrix(_T("auto")), colorrange(_T("auto")) {};
+    RGYFilterParamRifeOV() : modelFile(), modelDir(), device(_T("GPU.0")), multi(2), fps(), colormatrix(_T("auto")), colorrange(_T("auto")) {};
     virtual ~RGYFilterParamRifeOV() {};
     virtual tstring print() const override;
 };
@@ -85,12 +86,22 @@ protected:
         std::array<std::unique_ptr<RGYCLBuf>, 3>& planes);
     RGYFrameInfo rgbFrame(const std::array<std::unique_ptr<RGYCLBuf>, 3>& planes) const;
     RGY_ERR readRgbStaging(RGYOpenCLQueue &queue, std::vector<float>& dst);
+    // 現在の入力区間に含まれる出力位置を列挙する。
+    int planSpan(std::vector<float>& tOut);
     RGY_ERR writeRgbStaging(RGYOpenCLQueue &queue, const std::vector<float>& src);
 
     std::unique_ptr<RGYOpenVINO> m_ov;
     int   m_W, m_H;           // working resolution (frame size; must be /32)
     int   m_multi;            // frame-rate multiplier
     bool  m_useOcl;
+
+    // 任意レート変換は入力フレーム数を基準に整数比で管理し、累積誤差を避ける。
+    bool    m_fpsConv;
+    int64_t m_ratioNum;       // fpsIn / fpsOutの分子
+    int64_t m_ratioDen;
+    int64_t m_inIdx;
+    int64_t m_outIdx;
+    int     m_poolSize;
 
     // temporal state
     bool    m_havePrev;
@@ -112,6 +123,8 @@ protected:
 
     std::unique_ptr<RGYCLBuf> m_inBufCL;
     std::unique_ptr<RGYCLBuf> m_outBufCL;
+    // t=0の出力を推論せずコピーするため、直前の入力を元の色空間で保持する。
+    std::unique_ptr<RGYCLFrame> m_prevYuv;
     std::array<std::unique_ptr<RGYCLBuf>, 3> m_prevRgbPlanes;
     std::array<std::unique_ptr<RGYCLBuf>, 3> m_currRgbPlanes;
     std::array<std::unique_ptr<RGYCLBuf>, 3> m_outRgbPlanes;

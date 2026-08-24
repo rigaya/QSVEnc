@@ -3582,6 +3582,7 @@ struct VppRifeOV {
     tstring modelFile;
     tstring device;
     int     multi;
+    rgy_rational<int> fps; // 変換先フレームレート。未指定時はmultiを使う。
     tstring colormatrix;
     tstring colorrange;
 

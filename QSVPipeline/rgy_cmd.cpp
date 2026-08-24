@@ -32,6 +32,7 @@
 #include <iomanip>
 #include <cmath>
 #include <cstdlib>
+#include <limits>
 #include "rgy_util.h"
 #include "rgy_avutil.h"
 #if ENCODER_NVENC
@@ -6207,7 +6208,9 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             return 0;
         }
         i++;
-        const auto paramList = std::vector<std::string>{ "enable", "model", "device", "multi", "colormatrix", "colorrange" };
+        const auto paramList = std::vector<std::string>{ "enable", "model", "device", "multi", "fps", "colormatrix", "colorrange" };
+        bool multiSpecified = false;
+        bool fpsSpecified = false;
         for (const auto& param : split(strInput[i], _T(","))) {
             const auto pos = param.find_first_of(_T("="));
             if (pos == tstring::npos) {
@@ -6226,6 +6229,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             } else if (name == _T("device")) {
                 vpp->rife_ov.device = touppercase(value);
             } else if (name == _T("multi")) {
+                multiSpecified = true;
                 try {
                     vpp->rife_ov.multi = std::stoi(value);
                 } catch (...) {
@@ -6235,6 +6239,48 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                     print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + name + _T("="), value, _T("multi must be an integer >= 2"));
                     return 1;
                 }
+            } else if (name == _T("fps")) {
+                fpsSpecified = true;
+                int fpsN = 0, fpsD = 0;
+                const auto parseInt = [](const tstring& str, int& result) {
+                    size_t parsed = 0;
+                    try {
+                        result = std::stoi(str, &parsed);
+                    } catch (...) {
+                        return false;
+                    }
+                    return parsed == str.size();
+                };
+                const auto slash = value.find(_T('/'));
+                if (slash != tstring::npos) {
+                    if (slash == 0 || slash + 1 >= value.size() || value.find(_T('/'), slash + 1) != tstring::npos
+                        || !parseInt(value.substr(0, slash), fpsN) || !parseInt(value.substr(slash + 1), fpsD)) {
+                        fpsN = 0;
+                        fpsD = 0;
+                    }
+                } else {
+                    double fpsValue = 0.0;
+                    size_t parsed = 0;
+                    try {
+                        fpsValue = std::stod(value, &parsed);
+                    } catch (...) {
+                        fpsValue = 0.0;
+                    }
+                    if (parsed == value.size() && std::isfinite(fpsValue) && fpsValue > 0.0
+                        && fpsValue <= (double)std::numeric_limits<int>::max() / 1000.0) {
+                        if (std::abs(fpsValue - 24000.0 / 1001.0) < 0.01) { fpsN = 24000; fpsD = 1001; }
+                        else if (std::abs(fpsValue - 30000.0 / 1001.0) < 0.01) { fpsN = 30000; fpsD = 1001; }
+                        else if (std::abs(fpsValue - 60000.0 / 1001.0) < 0.01) { fpsN = 60000; fpsD = 1001; }
+                        else if (std::abs(fpsValue - 120000.0 / 1001.0) < 0.01) { fpsN = 120000; fpsD = 1001; }
+                        else { fpsN = (int)(fpsValue * 1000.0 + 0.5); fpsD = 1000; }
+                    }
+                }
+                if (fpsN <= 0 || fpsD <= 0) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + name + _T("="), value,
+                        _T("fps must be a positive rate, given as a ratio or a decimal"));
+                    return 1;
+                }
+                vpp->rife_ov.fps = rgy_rational<int>(fpsN, fpsD);
             } else if (name == _T("colormatrix")) {
                 const auto normalized = tolowercase(value);
                 if (normalized != _T("auto") && normalized != _T("bt601") && normalized != _T("bt709") && normalized != _T("bt2020")) {
@@ -6253,6 +6299,9 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 print_cmd_error_unknown_opt_param(option_name, name, paramList);
                 return 1;
             }
+        }
+        if (multiSpecified && fpsSpecified) {
+            _ftprintf(stderr, _T("Warning: --vpp-rife-ov fps= overrides multi=.\n"));
         }
         return 0;
     }
@@ -14414,7 +14463,11 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
         if (param->rife_ov.enable || save_disabled_prm) {
             if (!param->rife_ov.modelFile.empty()) tmp << _T(",model=") << param->rife_ov.modelFile;
             tmp << _T(",device=") << param->rife_ov.device;
-            tmp << _T(",multi=") << param->rife_ov.multi;
+            if (param->rife_ov.fps.is_valid() && param->rife_ov.fps.n() > 0) {
+                tmp << _T(",fps=") << param->rife_ov.fps.n() << _T("/") << param->rife_ov.fps.d();
+            } else {
+                tmp << _T(",multi=") << param->rife_ov.multi;
+            }
             tmp << _T(",colormatrix=") << param->rife_ov.colormatrix;
             tmp << _T(",colorrange=") << param->rife_ov.colorrange;
         }
@@ -17240,6 +17293,8 @@ tstring gen_cmd_help_vpp() {
         _T("      model=<name|path>           Registered RIFE model name or ONNX path (required)\n")
         _T("                                  Names require --vpp-onnx-model-dir (rife_ov_models.json).\n")
         _T("      multi=<int>                 frame-rate multiplier (>=2, default 2)\n")
+        _T("      fps=<rate>                  target frame rate as a ratio (30000/1001)\n")
+        _T("                                  or decimal (29.97); overrides multi.\n")
 #if ENABLE_OPENVINO
         _T("      device=<string>             GPU.0 (default) / GPU / CPU / AUTO / NPU\n")
 #endif
