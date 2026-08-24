@@ -704,7 +704,7 @@ RGY_ERR RGYFilterIvtc::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
             pParam->baseFps *= rgy_rational<int>(prm->ivtc.cycle - prm->ivtc.drop, prm->ivtc.cycle);
         }
     } else {
-        m_pathThrough |= FILTER_PATHTHROUGH_TIMESTAMP;
+        m_pathThrough &= ~(FILTER_PATHTHROUGH_TIMESTAMP);
     }
 
     // prmPrev is the same dynamic_pointer_cast computed at the top of init().
