@@ -3032,7 +3032,8 @@ VppDeblock::VppDeblock() :
     qp(FILTER_DEFAULT_DEBLOCK_QP),
     alpha(FILTER_DEFAULT_DEBLOCK_ALPHA),
     beta(FILTER_DEFAULT_DEBLOCK_BETA),
-    chroma(FILTER_DEFAULT_DEBLOCK_CHROMA) {
+    chroma(FILTER_DEFAULT_DEBLOCK_CHROMA),
+    grid(FILTER_DEFAULT_DEBLOCK_GRID) {
 }
 
 bool VppDeblock::operator==(const VppDeblock &x) const {
@@ -3040,15 +3041,16 @@ bool VppDeblock::operator==(const VppDeblock &x) const {
         && qp == x.qp
         && alpha == x.alpha
         && beta == x.beta
-        && chroma == x.chroma;
+        && chroma == x.chroma
+        && grid == x.grid;
 }
 bool VppDeblock::operator!=(const VppDeblock &x) const {
     return !(*this == x);
 }
 
 tstring VppDeblock::print() const {
-    return strsprintf(_T("deblock: qp %d, alpha %d, beta %d, chroma %s"),
-        qp, alpha, beta, chroma ? _T("true") : _T("false"));
+    return strsprintf(_T("deblock: grid %d, qp %d, alpha %d, beta %d, chroma %s"),
+        grid, qp, alpha, beta, chroma ? _T("true") : _T("false"));
 }
 
 VppDeflicker::VppDeflicker() :

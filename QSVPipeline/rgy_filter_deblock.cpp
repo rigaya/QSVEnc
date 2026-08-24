@@ -70,6 +70,7 @@ static const int H264_TC0_BS1[52] = {
 
 RGYFilterDeblock::RGYFilterDeblock(shared_ptr<RGYOpenCLContext> context) :
     RGYFilter(context),
+    m_grid(FILTER_DEFAULT_DEBLOCK_GRID),
     m_deblock(),
     m_buildOptions() {
     m_name = _T("deblock");
@@ -132,10 +133,11 @@ RGY_ERR RGYFilterDeblock::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
     auto prmPrev = std::dynamic_pointer_cast<RGYFilterParamDeblock>(m_param);
     if (!m_deblock.get()
         || !prmPrev
-        || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]) {
-        m_buildOptions = strsprintf("-D Type=%s -D bit_depth=%d -D max_val=%d",
+        || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]
+        || prmPrev->deblock.grid != prm->deblock.grid) {
+        m_buildOptions = strsprintf("-D Type=%s -D bit_depth=%d -D max_val=%d -D DEBLOCK_GRID=%d",
             bitDepth > 8 ? "ushort" : "uchar",
-            bitDepth, maxVal);
+            bitDepth, maxVal, prm->deblock.grid);
         AddMessage(RGY_LOG_DEBUG, _T("Starting async build for RGY_FILTER_DEBLOCK_CL: %s\n"),
             char_to_tstring(m_buildOptions).c_str());
         m_deblock.set(m_cl->buildResourceAsync(_T("RGY_FILTER_DEBLOCK_CL"), _T("EXE_DATA"), m_buildOptions.c_str()));
@@ -151,6 +153,7 @@ RGY_ERR RGYFilterDeblock::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
     }
 
     setFilterInfo(prm->print());
+    m_grid = prm->deblock.grid;
     m_param = prm;
     return sts;
 }
@@ -161,8 +164,8 @@ RGY_ERR RGYFilterDeblock::runPassVertical(RGYFrameInfo *pDstPlane,
                                            const std::vector<RGYOpenCLEvent> &wait_events,
                                            RGYOpenCLEvent *event) {
     const char *kernel_name = "deblock_vertical";
-    // One thread per (edge, row). Edges are at columns 4, 8, ..., (W/4 - 1)*4.
-    const int num_edges = (pDstPlane->width / 4) - 1;
+    // 1スレッドで1組の(境界, 行)を処理する。境界はm_grid画素間隔。
+    const int num_edges = (pDstPlane->width / m_grid) - 1;
     if (num_edges <= 0) return RGY_ERR_NONE;
     // Vertical-edge pass has a tall narrow iteration space
     // (num_edges = W/4 - 1 wide, full height tall), so a Y-major
@@ -187,8 +190,8 @@ RGY_ERR RGYFilterDeblock::runPassHorizontal(RGYFrameInfo *pDstPlane,
                                              const std::vector<RGYOpenCLEvent> &wait_events,
                                              RGYOpenCLEvent *event) {
     const char *kernel_name = "deblock_horizontal";
-    // One thread per (column, edge). Edges at rows 4, 8, ..., (H/4 - 1)*4.
-    const int num_edges = (pDstPlane->height / 4) - 1;
+    // 1スレッドで1組の(列, 境界)を処理する。境界はm_grid画素間隔。
+    const int num_edges = (pDstPlane->height / m_grid) - 1;
     if (num_edges <= 0) return RGY_ERR_NONE;
     RGYWorkSize local(DEBLOCK_BLOCK_X, DEBLOCK_BLOCK_Y);
     RGYWorkSize global(pDstPlane->width, num_edges);

@@ -638,6 +638,7 @@ static const int   FILTER_DEFAULT_DEBLOCK_QP = 24;
 static const int   FILTER_DEFAULT_DEBLOCK_ALPHA = 0;
 static const int   FILTER_DEFAULT_DEBLOCK_BETA = 0;
 static const bool  FILTER_DEFAULT_DEBLOCK_CHROMA = false;
+static const int   FILTER_DEFAULT_DEBLOCK_GRID = 4;
 static const float FILTER_DEFAULT_DEFLICKER_STRENGTH = 1.0f;
 static const float FILTER_DEFAULT_DEFLICKER_DAMPING = 0.8f;
 static const float FILTER_DEFAULT_DEFLICKER_SCENE_THRESHOLD = 2.0f;
@@ -3136,6 +3137,8 @@ struct VppDeblock {
     int  alpha;
     int  beta;
     bool chroma;
+    // フィルタを適用するブロック境界の間隔。H.264/AVCは4、MPEG-2/MPEG-4 Part 2は8。
+    int  grid;
 
     VppDeblock();
     bool operator==(const VppDeblock &x) const;

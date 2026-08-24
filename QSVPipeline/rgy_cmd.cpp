@@ -7826,7 +7826,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             return 0;
         }
         i++;
-        const auto paramList = std::vector<std::string>{ "enable", "qp", "alpha", "beta", "chroma" };
+        const auto paramList = std::vector<std::string>{ "enable", "qp", "alpha", "beta", "chroma", "grid" };
         for (const auto &param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
             if (pos != std::string::npos) {
@@ -7867,6 +7867,21 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
                     }
+                    continue;
+                }
+                if (param_arg == _T("grid")) {
+                    static const CX_DESC deblock_grid_list[] = {
+                        { _T("4"), 4 }, { _T("8"), 8 },
+                        { _T("h264"), 4 }, { _T("avc"), 4 },
+                        { _T("mpeg2"), 8 }, { _T("mpeg4"), 8 },
+                        { NULL, 0 }
+                    };
+                    int v = 0;
+                    if (!get_list_value(deblock_grid_list, param_val.c_str(), &v)) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, deblock_grid_list);
+                        return 1;
+                    }
+                    vpp->deblock.grid = v;
                     continue;
                 }
                 if (param_arg == _T("chroma")) {
@@ -14796,6 +14811,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_NUM(_T("alpha"), deblock.alpha);
             ADD_NUM(_T("beta"), deblock.beta);
             ADD_BOOL(_T("chroma"), deblock.chroma);
+            ADD_NUM(_T("grid"), deblock.grid);
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-deblock ") << tmp.str().substr(1);
@@ -17521,9 +17537,13 @@ tstring gen_cmd_help_vpp() {
         _T("      qp=<int>                  filter strength QP (default=%d, 0-51)\n")
         _T("      alpha=<int>               alpha offset (default=%d, -6 - 6)\n")
         _T("      beta=<int>                beta offset (default=%d, -6 - 6)\n")
-        _T("      chroma=<bool>             process planar chroma planes (default=%s)\n"),
+        _T("      chroma=<bool>             process planar chroma planes (default=%s)\n")
+        _T("      grid=<int>                block boundary spacing (default=%d)\n")
+        _T("                                  4: H.264/AVC, 8: MPEG-2/MPEG-4 Part 2\n")
+        _T("                                  aliases: h264, avc, mpeg2, mpeg4\n"),
         FILTER_DEFAULT_DEBLOCK_QP, FILTER_DEFAULT_DEBLOCK_ALPHA, FILTER_DEFAULT_DEBLOCK_BETA,
-        FILTER_DEFAULT_DEBLOCK_CHROMA ? _T("true") : _T("false"));
+        FILTER_DEFAULT_DEBLOCK_CHROMA ? _T("true") : _T("false"),
+        FILTER_DEFAULT_DEBLOCK_GRID);
 #endif
 #if ENABLE_VPP_FILTER_DEFLICKER
     str += strsprintf(_T("\n")

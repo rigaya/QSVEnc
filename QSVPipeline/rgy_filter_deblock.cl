@@ -36,9 +36,8 @@
 //   Pass 2 -- deblock_horizontal: filters across horizontal edges
 //                                 (one thread per (column, edge_index))
 //
-// Adjacent edges are spaced 4 pixels apart and the filter only modifies
-// pixels within 2 of the edge, so neighbouring edges' write ranges do
-// not overlap -- in-place updates are race-free within a pass.
+// 境界は4または8画素間隔で、変更範囲は境界から2画素以内に収まるため、
+// 隣接境界の書き込み範囲は重複せず、各パスのin-place更新は競合しない。
 //
 // Build-time defines (from rgy_filter_deblock.cpp):
 //   Type        : uchar (8-bit) or ushort (>8-bit)
@@ -72,6 +71,12 @@ inline int clip3(int v, int lo, int hi) {
 // is_chroma == 0 -> luma path: tc = tc0 + 1 if (ap < beta) or (aq < beta),
 //                              p1/q1 update conditional on ap/aq < beta.
 // is_chroma != 0 -> chroma path: tc = tc0 + 1, p1/q1 left untouched.
+
+// フィルタを適用するブロック境界の間隔。4はH.264/AVC、8はMPEG-2/MPEG-4 Part 2向け。
+#ifndef DEBLOCK_GRID
+#define DEBLOCK_GRID 4
+#endif
+
 __kernel void deblock_vertical(
     __global uchar *pBuf, const int bufPitch,
     const int width, const int height,
@@ -82,7 +87,7 @@ __kernel void deblock_vertical(
     const int iy         = get_global_id(1);
     if (iy >= height) return;
 
-    const int boundary_x = (edge_index + 1) * 4;
+    const int boundary_x = (edge_index + 1) * DEBLOCK_GRID;
     if (boundary_x < 3 || boundary_x > width - 3) return;
 
     __global Type *row = (__global Type *)(pBuf + iy * bufPitch);
@@ -153,7 +158,7 @@ __kernel void deblock_horizontal(
     const int edge_index = get_global_id(1);
     if (ix >= width) return;
 
-    const int boundary_y = (edge_index + 1) * 4;
+    const int boundary_y = (edge_index + 1) * DEBLOCK_GRID;
     if (boundary_y < 3 || boundary_y > height - 3) return;
 
     #define PIX(y) (*(__global Type *)(pBuf + (y) * bufPitch + ix * sizeof(Type)))

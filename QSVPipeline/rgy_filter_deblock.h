@@ -58,6 +58,9 @@ protected:
     virtual void close() override;
     virtual RGY_ERR checkParam(const std::shared_ptr<RGYFilterParamDeblock> pParam);
 
+    // フィルタを適用するブロック境界の間隔。
+    int m_grid;
+
     // Run pass 1 (vertical edges) then pass 2 (horizontal edges) on one
     // plane of the destination buffer. The host pre-copies the source
     // plane into dst before this call; the kernels work in place.
