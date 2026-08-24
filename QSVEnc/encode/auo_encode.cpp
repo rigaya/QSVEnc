@@ -2118,17 +2118,23 @@ void write_cached_lines(int log_level, const wchar_t *exename, LOG_CACHE *log_li
 }
 
 static void create_aviutl_opened_file_list(PRM_ENC *pe) {
-    const auto pid_aviutl = GetCurrentProcessId();
-    auto list_pid = createChildProcessIDList(pid_aviutl);
-    list_pid.push_back(pid_aviutl);
+    try {
+        const auto pid_aviutl = GetCurrentProcessId();
+        auto list_pid = createChildProcessIDList(pid_aviutl);
+        list_pid.push_back(pid_aviutl);
 
-    const auto list_file = createProcessOpenedFileList(list_pid);
-    pe->n_opened_aviutl_files = (int)list_file.size();
-    if (pe->n_opened_aviutl_files > 0) {
-        pe->opened_aviutl_files = (TCHAR **)calloc(1, sizeof(TCHAR *) * pe->n_opened_aviutl_files);
-        for (int i = 0; i < pe->n_opened_aviutl_files; i++) {
-            pe->opened_aviutl_files[i] = _tcsdup(list_file[i].c_str());
+        const auto list_file = createProcessOpenedFileList(list_pid);
+        pe->n_opened_aviutl_files = (int)list_file.size();
+        if (pe->n_opened_aviutl_files > 0) {
+            pe->opened_aviutl_files = (TCHAR **)calloc(1, sizeof(TCHAR *) * pe->n_opened_aviutl_files);
+            for (int i = 0; i < pe->n_opened_aviutl_files; i++) {
+                pe->opened_aviutl_files[i] = _tcsdup(list_file[i].c_str());
+            }
         }
+    } catch (...) {
+        pe->n_opened_aviutl_files = 0;
+        pe->opened_aviutl_files = nullptr;
+        warning_failed_to_get_opened_file_list();
     }
 }
 

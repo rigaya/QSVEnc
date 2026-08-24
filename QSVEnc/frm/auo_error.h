@@ -41,6 +41,7 @@ void warning_no_aud_temp_root(const TCHAR *dir);
 void error_filename_too_long();
 void error_savdir_do_not_exist(const TCHAR *savname, const TCHAR *savdir);
 void error_file_is_already_opened_by_aviutl();
+void warning_failed_to_get_opened_file_list();
 void warning_no_auo_check_fileopen();
 void error_failed_to_open_tempdir(const TCHAR *temp_dir, const TCHAR *mesBuffer, const DWORD err);
 void error_failed_to_open_tempfile(const TCHAR *temp_filename, const TCHAR *mesBuffer, const DWORD err);

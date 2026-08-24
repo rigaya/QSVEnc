@@ -82,6 +82,11 @@ void error_file_is_already_opened_by_aviutl() {
     write_log_auo_line(LOG_ERROR, g_auo_mes.get(AUO_ERR_FILE_ALREADY_OPENED2));
 }
 
+void warning_failed_to_get_opened_file_list() {
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_WARN_FAILED_GET_OPENED_FILE_LIST1));
+    write_log_auo_line(LOG_WARNING, g_auo_mes.get(AUO_WARN_FAILED_GET_OPENED_FILE_LIST2));
+}
+
 void warning_no_auo_check_fileopen() {
     write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_WARN_NO_AUO_CHECK_FILEOPEN1), AUO_CHECK_FILEOPEN_NAME, DEFAULT_EXE_DIR);
     write_log_auo_line_fmt(LOG_WARNING, g_auo_mes.get(AUO_WARN_NO_AUO_CHECK_FILEOPEN2), DEFAULT_EXE_DIR);
