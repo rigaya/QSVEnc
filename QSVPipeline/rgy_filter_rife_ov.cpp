@@ -127,8 +127,9 @@ RGY_ERR RGYFilterRifeOV::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
         return RGY_ERR_INVALID_PARAM;
     }
     const auto inCsp = prm->frameIn.csp;
-    if ((inCsp != RGY_CSP_YV12 && inCsp != RGY_CSP_NV12) || prm->frameIn.bitdepth != 8) {
-        AddMessage(RGY_LOG_ERROR, _T("rife-ov: 8bit yuv420（yv12/nv12）のみ対応します: %s %dbit。\n"),
+    if ((inCsp != RGY_CSP_YV12 && inCsp != RGY_CSP_NV12 && inCsp != RGY_CSP_YV12_16 && inCsp != RGY_CSP_P010)
+        || (prm->frameIn.bitdepth != 8 && prm->frameIn.bitdepth != 16)) {
+        AddMessage(RGY_LOG_ERROR, _T("rife-ov: 8bit yuv420（yv12/nv12）または16bit（yv12(16bit)/p010）のみ対応します: %s %dbit。\n"),
             RGY_CSP_NAMES[inCsp], prm->frameIn.bitdepth);
         return RGY_ERR_UNSUPPORTED;
     }
