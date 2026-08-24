@@ -41,10 +41,11 @@ public:
     float gaussP;
     std::shared_ptr<RGYFilterParamLibplaceboResample> libplaceboResample;
     VppResizeFsr1    fsr1;
+    VppResizeDpid    dpid;
     VppResizeNis     nis;
     VppResizeBicubic bicubic;
     VideoVUIInfo     vui;        // input VUI for NIS hdr=auto and any future colour-aware path
-    RGYFilterParamResize() : interp(RGY_VPP_RESIZE_AUTO), gaussP(2.0f), libplaceboResample(), fsr1(), nis(), bicubic(), vui() {};
+    RGYFilterParamResize() : interp(RGY_VPP_RESIZE_AUTO), gaussP(2.0f), libplaceboResample(), fsr1(), dpid(), nis(), bicubic(), vui() {};
     virtual ~RGYFilterParamResize() {};
 };
 
@@ -68,6 +69,8 @@ protected:
     virtual RGY_ERR resizePlane(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane, const int plane, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     virtual RGY_ERR resizePlaneFsr(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane,
         cl_mem midMem, int midPitchBytes, int midWidth, int midHeight,
+        RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    virtual RGY_ERR resizePlaneDpid(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     virtual RGY_ERR resizePlaneJinc(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);

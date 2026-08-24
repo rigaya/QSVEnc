@@ -338,6 +338,22 @@ tstring VppLibplaceboResample::print() const {
     return str;
 }
 
+VppResizeDpid::VppResizeDpid() :
+    lambda(FILTER_DEFAULT_RESIZE_DPID_LAMBDA) {
+}
+
+bool VppResizeDpid::operator==(const VppResizeDpid &x) const {
+    return lambda == x.lambda;
+}
+
+bool VppResizeDpid::operator!=(const VppResizeDpid &x) const {
+    return !(*this == x);
+}
+
+tstring VppResizeDpid::print() const {
+    return strsprintf(_T("lambda=%.2f"), lambda);
+}
+
 VppResizeFsr1::VppResizeFsr1() :
     sharpness(FILTER_DEFAULT_RESIZE_FSR1_SHARPNESS) {
 }
@@ -3955,6 +3971,7 @@ RGYParamVpp::RGYParamVpp() :
     deintCsp(VppDeintCsp::Input),
     resize_libplacebo(),
     resize_fsr1(),
+    resize_dpid(),
     resize_nis(),
     resize_bicubic(),
     colorspace(),
@@ -4037,6 +4054,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && deintCsp == x.deintCsp
         && resize_libplacebo == x.resize_libplacebo
         && resize_fsr1 == x.resize_fsr1
+        && resize_dpid == x.resize_dpid
         && resize_nis == x.resize_nis
         && resize_bicubic == x.resize_bicubic
         && resize_libplacebo == x.resize_libplacebo

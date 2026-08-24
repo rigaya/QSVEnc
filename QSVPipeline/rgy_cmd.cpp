@@ -692,6 +692,9 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             for (const auto& prm : paramListResizeNis) {
                 if (ENABLE_OPENCL || prm != "opt") paramList.push_back(prm); // optはOpenCLフィルタ実装でのみ対応
             }
+            for (size_t ielem = 0; ielem < _countof(paramsResizeDpid); ielem++) {
+                paramList.push_back(paramsResizeDpid[ielem]);
+            }
             for (size_t ielem = 0; ielem < _countof(paramsResizeBicubic); ielem++) {
                 paramList.push_back(paramsResizeBicubic[ielem]);
             }
@@ -797,6 +800,23 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                         const float val = (preScanAlgo == RGY_VPP_RESIZE_NIS) ? vpp->resize_nis.sharpness : vpp->resize_fsr1.sharpness;
                         if (val < 0.0f || val > 1.0f) {
                             print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("sharpness should be 0.0 - 1.0."));
+                            return 1;
+                        }
+                        continue;
+                    }
+                    if (param_arg == _T("dpid_lambda")) {
+                        try {
+                            size_t idx = 0;
+                            const float value = std::stof(param_val, &idx);
+                            if (idx != param_val.length() || !std::isfinite(value)
+                                || value < FILTER_MIN_RESIZE_DPID_LAMBDA || value > FILTER_MAX_RESIZE_DPID_LAMBDA) {
+                                print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val,
+                                    _T("dpid_lambda should be 0.0 - 4.0."));
+                                return 1;
+                            }
+                            vpp->resize_dpid.lambda = value;
+                        } catch (...) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                             return 1;
                         }
                         continue;
@@ -13652,6 +13672,12 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             }
         } else {
             OPT_LST(_T("--vpp-resize"), resize_algo, list_vpp_resize);
+            if (param->resize_algo == RGY_VPP_RESIZE_DPID) {
+                tmp.str(tstring());
+                tmp.clear();
+                ADD_FLOAT2(_T("dpid_lambda"), param->resize_dpid, defaultPrm->resize_dpid, lambda, 3);
+                cmd << tmp.str();
+            }
             if (param->resize_algo == RGY_VPP_RESIZE_FSR1
                 && param->resize_fsr1.sharpness != defaultPrm->resize_fsr1.sharpness) {
                 cmd << _T(",sharpness=") << std::setprecision(3) << param->resize_fsr1.sharpness;
@@ -17078,6 +17104,10 @@ tstring gen_cmd_help_vpp() {
         str += strsprintf(_T("      sharpness=<float>         RCAS sharpness for fsr1 (default=%.2f, 0.0 - 1.0)\n")
             _T("                                 NIS USM strength for nis (default=%.2f, 0.0 - 1.0)\n"),
             FILTER_DEFAULT_RESIZE_FSR1_SHARPNESS, FILTER_DEFAULT_RESIZE_NIS_SHARPNESS);
+        str += strsprintf(_T("      dpid_lambda=<float>       for dpid: strength of detail preservation\n")
+            _T("                                 (default=%.2f, %.1f - %.1f; 0 is area-equivalent).\n"),
+            FILTER_DEFAULT_RESIZE_DPID_LAMBDA,
+            FILTER_MIN_RESIZE_DPID_LAMBDA, FILTER_MAX_RESIZE_DPID_LAMBDA);
         str += _T("      cascade=<string>          for nis: auto (default), on, off\n")
                _T("      hdr=<string>              for nis: auto (default), sdr, pq\n");
 #if ENABLE_OPENCL

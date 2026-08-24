@@ -3724,6 +3724,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
             param->baseFps = m_encFps;
             param->bOutOverwrite = false;
             param->fsr1    = params->vpp.resize_fsr1;
+            param->dpid    = params->vpp.resize_dpid;
             param->nis     = params->vpp.resize_nis;
             param->bicubic = params->vpp.resize_bicubic;
             param->vui     = vuiInfo;

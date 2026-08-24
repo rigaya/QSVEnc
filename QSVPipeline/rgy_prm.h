@@ -868,6 +868,7 @@ enum RGY_VPP_RESIZE_ALGO {
     RGY_VPP_RESIZE_JINC144,
     RGY_VPP_RESIZE_JINC256,
     RGY_VPP_RESIZE_AREA,
+    RGY_VPP_RESIZE_DPID,
     RGY_VPP_RESIZE_OPENCL_CUDA_MAX,
 #if ENCODER_QSV
     RGY_VPP_RESIZE_MFX_NEAREST_NEIGHBOR,
@@ -1053,6 +1054,7 @@ const CX_DESC list_vpp_resize[] = {
     { _T("jinc144"),  RGY_VPP_RESIZE_JINC144 },
     { _T("jinc256"),  RGY_VPP_RESIZE_JINC256 },
     { _T("area"),     RGY_VPP_RESIZE_AREA },
+    { _T("dpid"),     RGY_VPP_RESIZE_DPID },
 #if ENCODER_QSV
   #if !FOR_AUO
     { _T("bilinear"), RGY_VPP_RESIZE_MFX_BILINEAR },
@@ -1154,6 +1156,7 @@ const CX_DESC list_vpp_resize_help[] = {
     { _T("jinc144"),  RGY_VPP_RESIZE_JINC144 },
     { _T("jinc256"),  RGY_VPP_RESIZE_JINC256 },
     { _T("area"),     RGY_VPP_RESIZE_AREA },
+    { _T("dpid"),     RGY_VPP_RESIZE_DPID },
 #if ENCODER_QSV
     { _T("bilinear"), RGY_VPP_RESIZE_MFX_BILINEAR },
     { _T("advanced"), RGY_VPP_RESIZE_MFX_ADVANCED },
@@ -1230,8 +1233,22 @@ static const char *paramsResizeQSVEnc[] = { "superres-mode", "superres-algo" };
 static const char *paramsResizeFsr1[] = { "sharpness" };
 static const char *paramsResizeNis[]      = { "cascade", "sharpness", "hdr", "opt" };
 static const char *paramsResizeBicubic[]  = { "b", "c" };
+static const char *paramsResizeDpid[]     = { "dpid_lambda" };
 
 static const float FILTER_DEFAULT_RESIZE_FSR1_SHARPNESS = 0.5f;
+
+static const float FILTER_DEFAULT_RESIZE_DPID_LAMBDA = 1.0f;
+static const float FILTER_MIN_RESIZE_DPID_LAMBDA = 0.0f;
+static const float FILTER_MAX_RESIZE_DPID_LAMBDA = 4.0f;
+
+struct VppResizeDpid {
+    float lambda; // 大きいほど周囲と異なる画素を強く残す
+
+    VppResizeDpid();
+    bool operator==(const VppResizeDpid &x) const;
+    bool operator!=(const VppResizeDpid &x) const;
+    tstring print() const;
+};
 
 struct VppResizeFsr1 {
     float sharpness;
@@ -3930,6 +3947,7 @@ struct RGYParamVpp {
     VppDeintCsp deintCsp;
     VppLibplaceboResample resize_libplacebo;
     VppResizeFsr1    resize_fsr1;
+    VppResizeDpid    resize_dpid;
     VppResizeNis     resize_nis;
     VppResizeBicubic resize_bicubic;
     VppColorspace    colorspace;

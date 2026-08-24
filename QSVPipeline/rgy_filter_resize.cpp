@@ -228,6 +228,7 @@ static inline int get_radius(const RGY_VPP_RESIZE_ALGO interp) {
     case RGY_VPP_RESIZE_JINC144: radius = 6; break;
     case RGY_VPP_RESIZE_JINC256: radius = 8; break;
     case RGY_VPP_RESIZE_AREA:
+    case RGY_VPP_RESIZE_DPID:
     case RGY_VPP_RESIZE_BILINEAR:
     default:
         break;
@@ -502,6 +503,9 @@ RGY_ERR RGYFilterResize::resizePlane(RGYFrameInfo *pOutputPlane, const RGYFrameI
     if (pResizeParam->interp == RGY_VPP_RESIZE_GAUSS) {
         return resizePlaneGauss2Pass(pOutputPlane, pInputPlane, plane, queue, wait_events, event);
     }
+    if (pResizeParam->interp == RGY_VPP_RESIZE_DPID) {
+        return resizePlaneDpid(pOutputPlane, pInputPlane, queue, wait_events, event);
+    }
     if (get_weight_type(pResizeParam->interp) == WEIGHT_JINC) {
         return resizePlaneJinc(pOutputPlane, pInputPlane, queue, wait_events, event);
     }
@@ -534,6 +538,32 @@ RGY_ERR RGYFilterResize::resizePlane(RGYFrameInfo *pOutputPlane, const RGYFrameI
                 char_to_tstring(kernel_name).c_str(), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
             return err;
         }
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterResize::resizePlaneDpid(RGYFrameInfo *pOutputPlane, const RGYFrameInfo *pInputPlane,
+    RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+    auto pResizeParam = std::dynamic_pointer_cast<RGYFilterParamResize>(m_param);
+    if (!pResizeParam) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    // カーネルの逆数がソース側footprintになるよう、既存resizeと同じdst/src比を渡す。
+    const float ratioX = (float)pOutputPlane->width / pInputPlane->width;
+    const float ratioY = (float)pOutputPlane->height / pInputPlane->height;
+    const char *kernelName = "kernel_resize_dpid";
+    auto err = m_resize.get()->kernel(kernelName).config(queue,
+        RGYWorkSize(RESIZE_BLOCK_X, RESIZE_BLOCK_Y),
+        RGYWorkSize(pOutputPlane->width, pOutputPlane->height),
+        wait_events, event).launch(
+            (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0], pOutputPlane->width, pOutputPlane->height,
+            (cl_mem)pInputPlane->ptr[0], pInputPlane->pitch[0], pInputPlane->width, pInputPlane->height,
+            ratioX, ratioY, pResizeParam->dpid.lambda);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("error at %s (resizePlaneDpid(%s)): %s.\n"),
+            char_to_tstring(kernelName).c_str(), RGY_CSP_NAMES[pInputPlane->csp], get_err_mes(err));
+        return err;
     }
     return RGY_ERR_NONE;
 }
@@ -721,6 +751,19 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
     if (pResizeParam->frameOut.height <= 0 || pResizeParam->frameOut.width <= 0) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter.\n"));
         return RGY_ERR_INVALID_PARAM;
+    }
+    if (pResizeParam->interp == RGY_VPP_RESIZE_DPID) {
+        if (!std::isfinite(pResizeParam->dpid.lambda)
+            || pResizeParam->dpid.lambda < FILTER_MIN_RESIZE_DPID_LAMBDA
+            || pResizeParam->dpid.lambda > FILTER_MAX_RESIZE_DPID_LAMBDA) {
+            AddMessage(RGY_LOG_ERROR, _T("dpid_lambda must be in [%.1f, %.1f].\n"),
+                FILTER_MIN_RESIZE_DPID_LAMBDA, FILTER_MAX_RESIZE_DPID_LAMBDA);
+            return RGY_ERR_INVALID_PARAM;
+        }
+        if (pResizeParam->frameOut.width > pResizeParam->frameIn.width
+            || pResizeParam->frameOut.height > pResizeParam->frameIn.height) {
+            AddMessage(RGY_LOG_WARN, _T("DPID is intended for downscaling; upscaled axes may look nearest-neighbor-like.\n"));
+        }
     }
     if (isLibplaceboResizeFiter(pResizeParam->interp)) {
         if (!m_libplaceboResample) {
@@ -970,13 +1013,14 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
             default: break;
             }
             const int jincEnabled = (algo == WEIGHT_JINC) ? 1 : 0;
+            const int dpidEnabled = (pResizeParam->interp == RGY_VPP_RESIZE_DPID) ? 1 : 0;
             const auto options = strsprintf("-D Type=%s -D bit_depth=%d -D radius=%d -D algo=%d"
                 " -D block_x=%d -D block_y=%d -D shared_weightXdim=%d -D shared_weightYdim=%d"
                 " -D WEIGHT_BILINEAR=%d -D WEIGHT_BICUBIC=%d -D WEIGHT_SPLINE=%d -D WEIGHT_LANCZOS=%d -D WEIGHT_GAUSS=%d -D WEIGHT_JINC=%d -D WEIGHT_AREA=%d"
                 " -D gauss_p=%.9ff -D USE_LOCAL=%d -D FSR1_FP16_SCRATCH=%d"
                 "%s -D NIS_BLOCK_WIDTH=%d -D NIS_BLOCK_HEIGHT=%d -D NIS_HDR_MODE=%d"
                 " -D bicubic_b=%.9ff -D bicubic_c=%.9ff"
-                "%s",
+                "%s%s",
                 RGY_CSP_BIT_DEPTH[pResizeParam->frameOut.csp] > 8 ? "ushort" : "uchar",
                 RGY_CSP_BIT_DEPTH[pResizeParam->frameOut.csp],
                 radius, algo,
@@ -986,7 +1030,8 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
                 nisEnabled ? " -D NIS_KERNEL_ENABLED=1" : "",
                 NIS_BLOCK_WIDTH, NIS_BLOCK_HEIGHT, nisHdrMode,
                 bicubic_b, bicubic_c,
-                jincEnabled ? " -D JINC_KERNEL_ENABLED=1" : "");
+                jincEnabled ? " -D JINC_KERNEL_ENABLED=1" : "",
+                dpidEnabled ? " -D DPID_KERNEL_ENABLED=1" : "");
             m_resize.set(m_cl->buildResourceAsync(_T("RGY_FILTER_RESIZE_CL"), _T("EXE_DATA"), options.c_str()));
             if (algo != WEIGHT_SPLINE) {
                 m_weightSpline.reset();
@@ -1067,6 +1112,9 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
     }
     if (pResizeParam->interp == RGY_VPP_RESIZE_FSR1) {
         str += _T(", ") + pResizeParam->fsr1.print();
+    }
+    if (pResizeParam->interp == RGY_VPP_RESIZE_DPID) {
+        str += _T(", ") + pResizeParam->dpid.print();
     }
     if (pResizeParam->interp == RGY_VPP_RESIZE_NIS) {
         str += _T(", ") + pResizeParam->nis.print();

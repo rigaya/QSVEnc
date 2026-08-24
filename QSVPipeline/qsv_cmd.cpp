@@ -582,6 +582,9 @@ int parse_one_vppmfx_option(const TCHAR *option_name, const TCHAR *strInput[], i
         for (size_t ielem = 0; ielem < _countof(paramsResizeNis); ielem++) {
             paramList.push_back(paramsResizeNis[ielem]);
         }
+        for (size_t ielem = 0; ielem < _countof(paramsResizeDpid); ielem++) {
+            paramList.push_back(paramsResizeDpid[ielem]);
+        }
         for (size_t ielem = 0; ielem < _countof(paramsResizeBicubic); ielem++) {
             paramList.push_back(paramsResizeBicubic[ielem]);
         }
@@ -592,6 +595,10 @@ int parse_one_vppmfx_option(const TCHAR *option_name, const TCHAR *strInput[], i
                 auto param_arg = param.substr(0, pos);
                 auto param_val = param.substr(pos + 1);
                 param_arg = tolowercase(param_arg);
+                if (param_arg == _T("dpid_lambda")) {
+                    ret = -1; // rgy_cmd.cppで値を検証して処理する
+                    continue;
+                }
                 if (param_arg == _T("algo")) {
                     int value = 0;
                     if (get_list_value(list_vpp_resize, param_val.c_str(), &value)) {
