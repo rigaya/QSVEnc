@@ -171,14 +171,26 @@ mfxU16 mfx_fourcc_to_chromafmt(mfxU32 fourcc) {
     }
 }
 
+static void set_mfx_frame_bitdepth(mfxFrameInfo& mfx, const RGY_CSP csp, const int bitdepth) {
+    // RGY_CSP_P010の格納幅は16bitだが、MFX上のP010は上位詰めの10bitとして指定する必要がある。
+    // rawのyuv420p16le入力などで格納幅をそのまま渡すと、MFX VPPが16bit・ShiftなしのP010を拒否する。
+    if (mfx.FourCC == MFX_FOURCC_P010) {
+        mfx.BitDepthLuma = 10;
+        mfx.BitDepthChroma = 10;
+        mfx.Shift = 1;
+    } else {
+        mfx.BitDepthLuma = (mfxU16)(bitdepth > 8 ? bitdepth : 0);
+        mfx.BitDepthChroma = (mfxU16)(bitdepth > 8 ? bitdepth : 0);
+        mfx.Shift = (fourccShiftUsed(mfx.FourCC) && RGY_CSP_BIT_DEPTH[csp] - bitdepth > 0) ? 1 : 0;
+    }
+}
+
 RGY_NOINLINE
 mfxFrameInfo frameinfo_rgy_to_enc(VideoInfo info) {
     mfxFrameInfo mfx = { 0 };
     mfx.FourCC = csp_rgy_to_enc(info.csp);
     mfx.ChromaFormat = mfx_fourcc_to_chromafmt(mfx.FourCC);
-    mfx.BitDepthLuma = (mfxU16)(info.bitdepth > 8 ? info.bitdepth : 0);
-    mfx.BitDepthChroma = (mfxU16)(info.bitdepth > 8 ? info.bitdepth : 0);
-    mfx.Shift = (fourccShiftUsed(mfx.FourCC) && RGY_CSP_BIT_DEPTH[info.csp] - info.bitdepth > 0) ? 1 : 0;
+    set_mfx_frame_bitdepth(mfx, info.csp, info.bitdepth);
     mfx.Width = (mfxU16)info.srcWidth;
     mfx.Height = (mfxU16)info.srcHeight;
     mfx.CropX = (mfxU16)info.crop.e.left;
@@ -198,9 +210,7 @@ mfxFrameInfo frameinfo_rgy_to_enc(const RGYFrameInfo& info, const rgy_rational<i
     mfxFrameInfo mfx = { 0 };
     mfx.FourCC = csp_rgy_to_enc(info.csp);
     mfx.ChromaFormat = mfx_fourcc_to_chromafmt(mfx.FourCC);
-    mfx.BitDepthLuma = (mfxU16)(info.bitdepth > 8 ? info.bitdepth : 0);
-    mfx.BitDepthChroma = (mfxU16)(info.bitdepth > 8 ? info.bitdepth : 0);
-    mfx.Shift = (fourccShiftUsed(mfx.FourCC) && RGY_CSP_BIT_DEPTH[info.csp] - info.bitdepth > 0) ? 1 : 0;
+    set_mfx_frame_bitdepth(mfx, info.csp, info.bitdepth);
     mfx.Width = (mfxU16)ALIGN(info.width, blockSize);
     mfx.Height = (mfxU16)ALIGN(info.height, blockSize);
     mfx.CropX = (mfxU16)0;
