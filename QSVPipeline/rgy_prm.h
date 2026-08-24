@@ -589,6 +589,9 @@ static const bool  FILTER_DEFAULT_MSMOOTH_MASK = false;
 static const float FILTER_DEFAULT_TWEAK_BRIGHTNESS = 0.0f;
 static const float FILTER_DEFAULT_TWEAK_CONTRAST = 1.0f;
 static const float FILTER_DEFAULT_TWEAK_GAMMA = 1.0f;
+static const float FILTER_DEFAULT_TWEAK_VIBRANCE = 0.0f;
+static const float FILTER_MIN_TWEAK_VIBRANCE = -1.0f;
+static const float FILTER_MAX_TWEAK_VIBRANCE = 2.0f;
 static const float FILTER_DEFAULT_TWEAK_SATURATION = 1.0f;
 static const float FILTER_DEFAULT_TWEAK_HUE = 0.0f;
 
@@ -3686,6 +3689,7 @@ struct VppTweak {
     float contrast;   // -2.0 - 2.0 (1.0)
     float gamma;      //  0.1 - 10.0 (1.0)
     float saturation; //  0.0 - 3.0 (1.0)
+    float vibrance;   // -1.0 - 2.0 (0.0)、低彩度の色を優先して調整
     float hue;        // -180 - 180 (0.0)
     bool swapuv;
     bool coring;      //出力をTVレンジ相当にクランプ (default false)

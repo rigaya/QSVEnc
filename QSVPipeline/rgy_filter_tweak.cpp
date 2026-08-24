@@ -44,6 +44,7 @@ RGY_ERR RGYFilterTweak::procFrame(RGYFrameInfo *pFrame, RGYOpenCLQueue &queue, c
     const float contrast   = prm->tweak.contrast;
     const float brightness = prm->tweak.brightness;
     const float saturation = prm->tweak.saturation;
+    const float vibrance   = prm->tweak.vibrance;
     const float gamma      = prm->tweak.gamma;
     const float hue_degree = prm->tweak.hue;
     const int   swapuv     = prm->tweak.swapuv ? 1 : 0;
@@ -85,6 +86,7 @@ RGY_ERR RGYFilterTweak::procFrame(RGYFrameInfo *pFrame, RGYOpenCLQueue &queue, c
 
     //UV
     if (   saturation != 1.0f
+        || vibrance != 0.0f
         || hue_degree != 0.0f
         || swapuv
         || prm->tweak.cb.enabled()
@@ -102,7 +104,7 @@ RGY_ERR RGYFilterTweak::procFrame(RGYFrameInfo *pFrame, RGYOpenCLQueue &queue, c
         auto err = m_tweak.get()->kernel(kernel_name).config(queue, local, global, wait_events_copy, event).launch(
             (cl_mem)planeInputU.ptr[0], (cl_mem)planeInputV.ptr[0], planeInputU.pitch[0], planeInputU.width, planeInputU.height,
             // 彩度はカーネル側で適用するため、回転係数へ重ねて乗算しない。
-            saturation, std::sin(hue), std::cos(hue), swapuv,
+            saturation, vibrance, std::sin(hue), std::cos(hue), swapuv,
             prm->tweak.cb.gain, prm->tweak.cb.offset,
             prm->tweak.cr.gain, prm->tweak.cr.offset,
             hue_limit, prm->tweak.startHue, prm->tweak.endHue, clamp_min, clamp_max_c);

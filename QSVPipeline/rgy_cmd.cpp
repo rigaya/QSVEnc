@@ -9325,7 +9325,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         i++;
 
-        auto paramList = std::vector<std::string>{ "contrast", "brightness", "gamma", "saturation", "swapuv", "hue", "coring", "start_hue", "end_hue" };
+        auto paramList = std::vector<std::string>{ "contrast", "brightness", "gamma", "saturation", "vibrance", "swapuv", "hue", "coring", "start_hue", "end_hue" };
         for (auto& channel : { "y", "cb", "cr", "r", "g", "b" }) {
             paramList.push_back(std::string(channel) + "_offset");
             paramList.push_back(std::string(channel) + "_gain");
@@ -9380,6 +9380,22 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 if (param_arg == _T("saturation")) {
                     try {
                         vpp->tweak.saturation = std::stof(param_val);
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("vibrance")) {
+                    try {
+                        size_t idx = 0;
+                        vpp->tweak.vibrance = std::stof(param_val, &idx);
+                        if (idx != param_val.length() || !std::isfinite(vpp->tweak.vibrance)
+                            || vpp->tweak.vibrance < FILTER_MIN_TWEAK_VIBRANCE
+                            || vpp->tweak.vibrance > FILTER_MAX_TWEAK_VIBRANCE) {
+                            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                            return 1;
+                        }
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
                         return 1;
@@ -15189,6 +15205,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             ADD_FLOAT(_T("contrast"), tweak.contrast, 3);
             ADD_FLOAT(_T("gamma"), tweak.gamma, 3);
             ADD_FLOAT(_T("saturation"), tweak.saturation, 3);
+            ADD_FLOAT(_T("vibrance"), tweak.vibrance, 3);
             ADD_FLOAT(_T("hue"), tweak.hue, 3);
             ADD_BOOL(_T("coring"), tweak.coring);
             ADD_FLOAT(_T("start_hue"), tweak.startHue, 3);
@@ -17881,6 +17898,9 @@ tstring gen_cmd_help_vpp() {
         _T("      contrast=<float>          (default=%.1f, -2.0 - 2.0)\n")
         _T("      gamma=<float>             (default=%.1f,  0.1 - 10.0)\n")
         _T("      saturation=<float>        (default=%.1f,  0.0 - 3.0)\n")
+        _T("      vibrance=<float>          (default=%.1f, -1.0 - 2.0)\n")
+        _T("                                  adjusts low-saturation colors more strongly\n")
+        _T("                                  while preserving highly saturated colors.\n")
         _T("      hue=<float>               (default=%.1f, -180 - 180)\n")
         _T("      coring=<bool>             clamp output to TV range (default=off)\n")
         _T("      start_hue=<float>         limit hue/saturation to a hue range\n")
@@ -17893,6 +17913,7 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_TWEAK_CONTRAST,
         FILTER_DEFAULT_TWEAK_GAMMA,
         FILTER_DEFAULT_TWEAK_SATURATION,
+        FILTER_DEFAULT_TWEAK_VIBRANCE,
         FILTER_DEFAULT_TWEAK_HUE,
         FILTER_DEFAULT_TWEAK_BRIGHTNESS,
         FILTER_DEFAULT_TWEAK_CONTRAST,

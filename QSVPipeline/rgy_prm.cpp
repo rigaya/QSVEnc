@@ -3540,6 +3540,7 @@ VppTweak::VppTweak() :
     contrast(FILTER_DEFAULT_TWEAK_CONTRAST),
     gamma(FILTER_DEFAULT_TWEAK_GAMMA),
     saturation(FILTER_DEFAULT_TWEAK_SATURATION),
+    vibrance(FILTER_DEFAULT_TWEAK_VIBRANCE),
     hue(FILTER_DEFAULT_TWEAK_HUE),
     swapuv(false),
     coring(false),
@@ -3559,6 +3560,7 @@ bool VppTweak::operator==(const VppTweak &x) const {
         && contrast == x.contrast
         && gamma == x.gamma
         && saturation == x.saturation
+        && vibrance == x.vibrance
         && hue == x.hue
         && swapuv == x.swapuv
         && coring == x.coring
@@ -3576,9 +3578,9 @@ bool VppTweak::operator!=(const VppTweak &x) const {
 }
 
 tstring VppTweak::print(const bool print_rgb, const bool print_header) const {
-    auto str = strsprintf(_T("%sbrightness %.2f, contrast %.2f, saturation %.2f, gamma %.2f, hue %.2f, swapuv %s"),
+    auto str = strsprintf(_T("%sbrightness %.2f, contrast %.2f, saturation %.2f, vibrance %.2f, gamma %.2f, hue %.2f, swapuv %s"),
         (print_header) ? _T("tweak: ") : _T(""),
-        brightness, contrast, saturation, gamma, hue, swapuv ? _T("on") : _T("off"));
+        brightness, contrast, saturation, vibrance, gamma, hue, swapuv ? _T("on") : _T("off"));
     tstring indent = _T("         ");
     if (y.enabled())  { str += _T("\n") + indent + _T("y: ")  + y.print(false); }
     if (cb.enabled()) { str += _T("\n") + indent + _T("cb: ") + cb.print(false); }
@@ -3602,6 +3604,7 @@ bool VppTweak::yuv_filter_enabled() const {
         || brightness != 0.0f
         || gamma != 1.0f
         || saturation != 1.0f
+        || vibrance != 0.0f
         || hue != 0.0f
         || swapuv
         || coring
