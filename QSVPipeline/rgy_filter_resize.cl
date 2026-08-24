@@ -108,6 +108,18 @@ float factor_spline(const float x_raw, SPLINE_FACTOR_MEM_TYPE const float4 *rest
     return w;
 }
 
+// 入力画素と出力画素のフットプリントが重なる長さを重みにする。
+// deltaは出力画素単位で、入力画素の幅はratioClamped、出力画素の幅は1となる。
+// 大きな縮小ではbox、ratioClampedが1となる拡大ではbilinearの三角形と一致する。
+// 重みの合計で正規化するため、1 / ratioClampedの係数は不要。
+// halfはOpenCL Cの予約型名なので、ローカル変数名には使用しない。
+float factor_area(const float delta, const float ratioClamped) {
+    const float srcHalf = ratioClamped * 0.5f;
+    const float lo = fmax(delta - srcHalf, -0.5f);
+    const float hi = fmin(delta + srcHalf,  0.5f);
+    return fmax(hi - lo, 0.0f);
+}
+
 float calc_weight(
     const int targetPos, const float srcPos,
     const float ratioClamped, SPLINE_FACTOR_MEM_TYPE const float4 *psCopyFactor) {
@@ -120,6 +132,7 @@ float calc_weight(
     case WEIGHT_SPLINE:   weight = factor_spline(delta, psCopyFactor); break;
     case WEIGHT_BICUBIC:  weight = factor_bicubic(delta, bicubic_b, bicubic_c); break;
     case WEIGHT_BILINEAR: weight = factor_bilinear(delta); break;
+    case WEIGHT_AREA:     weight = factor_area(delta, ratioClamped); break;
     case WEIGHT_GAUSS:    weight = factor_gauss(delta); break;
     default:
         break;

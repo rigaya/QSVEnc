@@ -227,6 +227,7 @@ static inline int get_radius(const RGY_VPP_RESIZE_ALGO interp) {
     case RGY_VPP_RESIZE_JINC64:  radius = 4; break;
     case RGY_VPP_RESIZE_JINC144: radius = 6; break;
     case RGY_VPP_RESIZE_JINC256: radius = 8; break;
+    case RGY_VPP_RESIZE_AREA:
     case RGY_VPP_RESIZE_BILINEAR:
     default:
         break;
@@ -242,6 +243,7 @@ enum RESIZE_WEIGHT_TYPE {
     WEIGHT_SPLINE,
     WEIGHT_GAUSS,
     WEIGHT_JINC,
+    WEIGHT_AREA,
 };
 
 static inline RESIZE_WEIGHT_TYPE get_weight_type(const RGY_VPP_RESIZE_ALGO interp) {
@@ -249,6 +251,9 @@ static inline RESIZE_WEIGHT_TYPE get_weight_type(const RGY_VPP_RESIZE_ALGO inter
     switch (interp) {
     case RGY_VPP_RESIZE_BILINEAR:
         type = WEIGHT_BILINEAR;
+        break;
+    case RGY_VPP_RESIZE_AREA:
+        type = WEIGHT_AREA;
         break;
     case RGY_VPP_RESIZE_BICUBIC:
     case RGY_VPP_RESIZE_MITCHELL:
@@ -967,7 +972,7 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
             const int jincEnabled = (algo == WEIGHT_JINC) ? 1 : 0;
             const auto options = strsprintf("-D Type=%s -D bit_depth=%d -D radius=%d -D algo=%d"
                 " -D block_x=%d -D block_y=%d -D shared_weightXdim=%d -D shared_weightYdim=%d"
-                " -D WEIGHT_BILINEAR=%d -D WEIGHT_BICUBIC=%d -D WEIGHT_SPLINE=%d -D WEIGHT_LANCZOS=%d -D WEIGHT_GAUSS=%d -D WEIGHT_JINC=%d"
+                " -D WEIGHT_BILINEAR=%d -D WEIGHT_BICUBIC=%d -D WEIGHT_SPLINE=%d -D WEIGHT_LANCZOS=%d -D WEIGHT_GAUSS=%d -D WEIGHT_JINC=%d -D WEIGHT_AREA=%d"
                 " -D gauss_p=%.9ff -D USE_LOCAL=%d -D FSR1_FP16_SCRATCH=%d"
                 "%s -D NIS_BLOCK_WIDTH=%d -D NIS_BLOCK_HEIGHT=%d -D NIS_HDR_MODE=%d"
                 " -D bicubic_b=%.9ff -D bicubic_c=%.9ff"
@@ -976,7 +981,7 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
                 RGY_CSP_BIT_DEPTH[pResizeParam->frameOut.csp],
                 radius, algo,
                 RESIZE_BLOCK_X, RESIZE_BLOCK_Y, shared_weightXdim, shared_weightYdim,
-                WEIGHT_BILINEAR, WEIGHT_BICUBIC, WEIGHT_SPLINE, WEIGHT_LANCZOS, WEIGHT_GAUSS, WEIGHT_JINC,
+                WEIGHT_BILINEAR, WEIGHT_BICUBIC, WEIGHT_SPLINE, WEIGHT_LANCZOS, WEIGHT_GAUSS, WEIGHT_JINC, WEIGHT_AREA,
                 pResizeParam->gaussP, use_local, m_fp16Easu ? 1 : 0,
                 nisEnabled ? " -D NIS_KERNEL_ENABLED=1" : "",
                 NIS_BLOCK_WIDTH, NIS_BLOCK_HEIGHT, nisHdrMode,
