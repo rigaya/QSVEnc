@@ -8848,6 +8848,65 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-dehaze") && ENABLE_VPP_FILTER_DEHAZE) {
+        vpp->dehaze.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "enable", "patch_radius", "omega", "t_floor", "atm_light" };
+        for (const auto& param : split(strInput[i], _T(","))) {
+            const auto pos = param.find_first_of(_T("="));
+            if (pos == tstring::npos) {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+            const auto paramArg = tolowercase(param.substr(0, pos));
+            const auto paramValue = param.substr(pos + 1);
+            if (paramArg == _T("enable")) {
+                bool value = false;
+                if (cmd_string_to_bool(&value, paramValue)) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + paramArg + _T("="), paramValue);
+                    return 1;
+                }
+                vpp->dehaze.enable = value;
+            } else if (paramArg == _T("patch_radius")) {
+                try {
+                    size_t parsed = 0;
+                    vpp->dehaze.patch_radius = std::stoi(paramValue, &parsed);
+                    if (parsed != paramValue.length()) {
+                        throw std::invalid_argument("trailing characters");
+                    }
+                } catch (...) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + paramArg + _T("="), paramValue);
+                    return 1;
+                }
+            } else if (paramArg == _T("omega") || paramArg == _T("t_floor") || paramArg == _T("atm_light")) {
+                float value = 0.0f;
+                try {
+                    size_t parsed = 0;
+                    value = std::stof(paramValue, &parsed);
+                    if (parsed != paramValue.length() || !std::isfinite(value)) {
+                        throw std::invalid_argument("invalid float");
+                    }
+                } catch (...) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + paramArg + _T("="), paramValue);
+                    return 1;
+                }
+                if (paramArg == _T("omega")) {
+                    vpp->dehaze.omega = value;
+                } else if (paramArg == _T("t_floor")) {
+                    vpp->dehaze.t_floor = value;
+                } else {
+                    vpp->dehaze.atm_light = value;
+                }
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, paramArg, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-hqdering") && ENABLE_VPP_FILTER_HQDERING) {
         vpp->dering.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
@@ -15305,6 +15364,23 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-clahe");
         }
     }
+    if (param->dehaze != defaultPrm->dehaze) {
+        tmp.str(tstring());
+        if (!param->dehaze.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->dehaze.enable || save_disabled_prm) {
+            ADD_NUM(_T("patch_radius"), dehaze.patch_radius);
+            ADD_FLOAT(_T("omega"), dehaze.omega, 6);
+            ADD_FLOAT(_T("t_floor"), dehaze.t_floor, 6);
+            ADD_FLOAT(_T("atm_light"), dehaze.atm_light, 6);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-dehaze ") << tmp.str().substr(1);
+        } else if (param->dehaze.enable) {
+            cmd << _T(" --vpp-dehaze");
+        }
+    }
     if (param->dering != defaultPrm->dering) {
         tmp.str(tstring());
         if (!param->dering.enable && save_disabled_prm) {
@@ -18056,6 +18132,18 @@ tstring gen_cmd_help_vpp() {
         _T("      tiles_y=<int>             vertical tile count (default=%d, 2 - 32)\n")
         _T("      slope=<float>             contrast clip ratio (default=%.1f, 1.0 - 40.0)\n"),
         FILTER_DEFAULT_CLAHE_TILES_X, FILTER_DEFAULT_CLAHE_TILES_Y, FILTER_DEFAULT_CLAHE_SLOPE);
+#endif
+#if ENABLE_VPP_FILTER_DEHAZE
+    str += strsprintf(_T("\n")
+        _T("   --vpp-dehaze [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     luminance dehazing based on the dark channel prior.\n")
+        _T("    params\n")
+        _T("      patch_radius=<int>        local minimum radius (default=%d, 1 - 15)\n")
+        _T("      omega=<float>             haze removal strength (default=%.2f, 0.5 - 1.0)\n")
+        _T("      t_floor=<float>           transmission lower bound (default=%.2f, 0.01 - 0.5)\n")
+        _T("      atm_light=<float>         atmospheric light (default=%.2f, 0.1 - 1.0)\n"),
+        FILTER_DEFAULT_DEHAZE_PATCH_RADIUS, FILTER_DEFAULT_DEHAZE_OMEGA,
+        FILTER_DEFAULT_DEHAZE_T_FLOOR, FILTER_DEFAULT_DEHAZE_ATM_LIGHT);
 #endif
 #if ENABLE_VPP_FILTER_HQDERING
     str += strsprintf(_T("\n")

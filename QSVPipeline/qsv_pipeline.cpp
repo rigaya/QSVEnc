@@ -126,6 +126,7 @@ RGY_DISABLE_WARNING_POP
 #include "rgy_filter_hqdering.h"
 #include "rgy_filter_guidedfilter.h"
 #include "rgy_filter_clahe.h"
+#include "rgy_filter_dehaze.h"
 #include "rgy_filter_anime4k.h"
 #include "rgy_filter_onnx.h"
 #include "rgy_filter_rife_ov.h"
@@ -2572,6 +2573,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vpp.dering.enable)     filterPipeline.push_back(VppType::CL_HQDERING);
     if (inputParam->vpp.guidedfilter.enable) filterPipeline.push_back(VppType::CL_GUIDEDFILTER);
     if (inputParam->vpp.clahe.enable)        filterPipeline.push_back(VppType::CL_CLAHE);
+    if (inputParam->vpp.dehaze.enable)       filterPipeline.push_back(VppType::CL_DEHAZE);
     if (inputParam->vpp.edgelevel.enable)  filterPipeline.push_back(VppType::CL_EDGELEVEL);
     if (inputParam->vpp.msharpen.enable)   filterPipeline.push_back(VppType::CL_MSHARPEN);
     if (inputParam->vpp.cas.enable)        filterPipeline.push_back(VppType::CL_CAS);
@@ -3996,6 +3998,24 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         shared_ptr<RGYFilterParamClahe> param(new RGYFilterParamClahe());
         param->clahe = params->vpp.clahe;
         param->histBitdepth = getEncoderBitdepth(params);
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        auto sts = filter->init(param, m_pQSVLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
+    }
+    // dehazeを追加
+    if (vppType == VppType::CL_DEHAZE) {
+        unique_ptr<RGYFilter> filter(new RGYFilterDehaze(m_cl));
+        shared_ptr<RGYFilterParamDehaze> param(new RGYFilterParamDehaze());
+        param->dehaze = params->vpp.dehaze;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;

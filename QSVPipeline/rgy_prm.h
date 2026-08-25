@@ -107,6 +107,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_HQDERING     (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_GUIDEDFILTER (ENCODER_QSV)
 #define ENABLE_VPP_FILTER_CLAHE        (ENCODER_QSV)
+#define ENABLE_VPP_FILTER_DEHAZE       (ENCODER_QSV)
 #define ENABLE_VPP_FILTER_WARPSHARP    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_DETAILSHARPEN (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_EDGELEVEL    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
@@ -247,6 +248,7 @@ enum class VppType : int {
     CL_HQDERING,
     CL_GUIDEDFILTER,
     CL_CLAHE,
+    CL_DEHAZE,
     CL_EDGELEVEL,
     CL_MSHARPEN,
     CL_WARPSHARP,
@@ -612,6 +614,11 @@ static const float FILTER_DEFAULT_GUIDEDFILTER_EPS = 0.01f;
 static const int   FILTER_DEFAULT_CLAHE_TILES_X = 8;
 static const int   FILTER_DEFAULT_CLAHE_TILES_Y = 8;
 static const float FILTER_DEFAULT_CLAHE_SLOPE = 3.0f;
+
+static const int   FILTER_DEFAULT_DEHAZE_PATCH_RADIUS = 7;
+static const float FILTER_DEFAULT_DEHAZE_OMEGA = 0.95f;
+static const float FILTER_DEFAULT_DEHAZE_T_FLOOR = 0.1f;
+static const float FILTER_DEFAULT_DEHAZE_ATM_LIGHT = 0.95f;
 
 static const float FILTER_DEFAULT_MSHARPEN_STRENGTH = 1.0f;
 static const float FILTER_DEFAULT_MSHARPEN_THRESHOLD = 15.0f;
@@ -3990,6 +3997,20 @@ struct VppClahe {
     tstring print() const;
 };
 
+// dark channel priorによる輝度プレーンの霧除去。
+struct VppDehaze {
+    bool enable;
+    int patch_radius;
+    float omega;
+    float t_floor;
+    float atm_light;
+
+    VppDehaze();
+    bool operator==(const VppDehaze& x) const;
+    bool operator!=(const VppDehaze& x) const;
+    tstring print() const;
+};
+
 struct RGYParamVpp {
     std::vector<VppType> filterOrder;
     RGY_VPP_RESIZE_ALGO resize_algo;
@@ -4059,6 +4080,7 @@ struct RGYParamVpp {
     VppDering dering;
     VppGuidedfilter guidedfilter;
     VppClahe clahe;
+    VppDehaze dehaze;
     VppEdgelevel edgelevel;
     VppMsharpen msharpen;
     VppWarpsharp warpsharp;

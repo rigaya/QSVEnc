@@ -144,6 +144,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_HQDERING,             _T("hqdering")),
     std::make_pair(VppType::CL_GUIDEDFILTER,         _T("guidedfilter")),
     std::make_pair(VppType::CL_CLAHE,                _T("clahe")),
+    std::make_pair(VppType::CL_DEHAZE,               _T("dehaze")),
     std::make_pair(VppType::CL_EDGELEVEL,            _T("edgelevel")),
     std::make_pair(VppType::CL_MSHARPEN,             _T("msharpen")),
     std::make_pair(VppType::CL_WARPSHARP,            _T("warpsharp")),
@@ -3470,6 +3471,31 @@ tstring VppClahe::print() const {
     return strsprintf(_T("clahe: tiles %dx%d, slope %.2f"), tiles_x, tiles_y, slope);
 }
 
+VppDehaze::VppDehaze() :
+    enable(false),
+    patch_radius(FILTER_DEFAULT_DEHAZE_PATCH_RADIUS),
+    omega(FILTER_DEFAULT_DEHAZE_OMEGA),
+    t_floor(FILTER_DEFAULT_DEHAZE_T_FLOOR),
+    atm_light(FILTER_DEFAULT_DEHAZE_ATM_LIGHT) {
+}
+
+bool VppDehaze::operator==(const VppDehaze& x) const {
+    return enable == x.enable
+        && patch_radius == x.patch_radius
+        && omega == x.omega
+        && t_floor == x.t_floor
+        && atm_light == x.atm_light;
+}
+
+bool VppDehaze::operator!=(const VppDehaze& x) const {
+    return !(*this == x);
+}
+
+tstring VppDehaze::print() const {
+    return strsprintf(_T("dehaze: patch %d, omega %.3f, t_floor %.3f, atm_light %.3f"),
+        patch_radius, omega, t_floor, atm_light);
+}
+
 VppMsharpen::VppMsharpen() :
     enable(false),
     strength(FILTER_DEFAULT_MSHARPEN_STRENGTH),
@@ -4199,6 +4225,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && dering == x.dering
         && guidedfilter == x.guidedfilter
         && clahe == x.clahe
+        && dehaze == x.dehaze
         && edgelevel == x.edgelevel
         && msharpen == x.msharpen
         && warpsharp == x.warpsharp
