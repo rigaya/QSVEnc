@@ -106,6 +106,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_FINEDEHALO   (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_HQDERING     (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_GUIDEDFILTER (ENCODER_QSV)
+#define ENABLE_VPP_FILTER_CLAHE        (ENCODER_QSV)
 #define ENABLE_VPP_FILTER_WARPSHARP    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_DETAILSHARPEN (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_EDGELEVEL    (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
@@ -245,6 +246,7 @@ enum class VppType : int {
     CL_FINEDEHALO,
     CL_HQDERING,
     CL_GUIDEDFILTER,
+    CL_CLAHE,
     CL_EDGELEVEL,
     CL_MSHARPEN,
     CL_WARPSHARP,
@@ -606,6 +608,10 @@ static const float FILTER_DEFAULT_EDGELEVEL_WHITE = 0.0f;
 
 static const int   FILTER_DEFAULT_GUIDEDFILTER_RADIUS = 4;
 static const float FILTER_DEFAULT_GUIDEDFILTER_EPS = 0.01f;
+
+static const int   FILTER_DEFAULT_CLAHE_TILES_X = 8;
+static const int   FILTER_DEFAULT_CLAHE_TILES_Y = 8;
+static const float FILTER_DEFAULT_CLAHE_SLOPE = 3.0f;
 
 static const float FILTER_DEFAULT_MSHARPEN_STRENGTH = 1.0f;
 static const float FILTER_DEFAULT_MSHARPEN_THRESHOLD = 15.0f;
@@ -3971,6 +3977,19 @@ struct VppGuidedfilter {
     tstring print() const;
 };
 
+// タイル単位の局所ヒストグラム均等化フィルタ。
+struct VppClahe {
+    bool enable;
+    int tiles_x;
+    int tiles_y;
+    float slope;
+
+    VppClahe();
+    bool operator==(const VppClahe& x) const;
+    bool operator!=(const VppClahe& x) const;
+    tstring print() const;
+};
+
 struct RGYParamVpp {
     std::vector<VppType> filterOrder;
     RGY_VPP_RESIZE_ALGO resize_algo;
@@ -4039,6 +4058,7 @@ struct RGYParamVpp {
     VppFineDehalo finedehalo;
     VppDering dering;
     VppGuidedfilter guidedfilter;
+    VppClahe clahe;
     VppEdgelevel edgelevel;
     VppMsharpen msharpen;
     VppWarpsharp warpsharp;

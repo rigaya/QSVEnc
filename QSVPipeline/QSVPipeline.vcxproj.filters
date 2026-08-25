@@ -330,6 +330,9 @@
     <ClCompile Include="rgy_filter_guidedfilter.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="rgy_filter_clahe.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
     <ClCompile Include="rgy_filter_msharpen.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
@@ -932,6 +935,9 @@
     <ClInclude Include="rgy_filter_guidedfilter.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="rgy_filter_clahe.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
     <ClInclude Include="rgy_filter_rtgmc_bob.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
@@ -1295,6 +1301,9 @@
       <Filter>ソース ファイル</Filter>
     </None>
     <None Include="rgy_filter_guidedfilter.cl">
+      <Filter>ソース ファイル</Filter>
+    </None>
+    <None Include="rgy_filter_clahe.cl">
       <Filter>ソース ファイル</Filter>
     </None>
     <None Include="rgy_filter_rtgmc_bob.cl">

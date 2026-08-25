@@ -8792,6 +8792,62 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-clahe") && ENABLE_VPP_FILTER_CLAHE) {
+        vpp->clahe.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "enable", "tiles_x", "tiles_y", "slope" };
+        for (const auto& param : split(strInput[i], _T(","))) {
+            const auto pos = param.find_first_of(_T("="));
+            if (pos == tstring::npos) {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+            const auto param_arg = tolowercase(param.substr(0, pos));
+            const auto param_val = param.substr(pos + 1);
+            if (param_arg == _T("enable")) {
+                bool value = false;
+                if (cmd_string_to_bool(&value, param_val)) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                    return 1;
+                }
+                vpp->clahe.enable = value;
+            } else if (param_arg == _T("tiles_x") || param_arg == _T("tiles_y")) {
+                try {
+                    size_t parsed = 0;
+                    const int value = std::stoi(param_val, &parsed);
+                    if (parsed != param_val.length()) {
+                        throw std::invalid_argument("trailing characters");
+                    }
+                    if (param_arg == _T("tiles_x")) {
+                        vpp->clahe.tiles_x = value;
+                    } else {
+                        vpp->clahe.tiles_y = value;
+                    }
+                } catch (...) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                    return 1;
+                }
+            } else if (param_arg == _T("slope")) {
+                try {
+                    size_t parsed = 0;
+                    vpp->clahe.slope = std::stof(param_val, &parsed);
+                    if (parsed != param_val.length() || !std::isfinite(vpp->clahe.slope)) {
+                        throw std::invalid_argument("invalid float");
+                    }
+                } catch (...) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                    return 1;
+                }
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-hqdering") && ENABLE_VPP_FILTER_HQDERING) {
         vpp->dering.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
@@ -15233,6 +15289,22 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-guidedfilter");
         }
     }
+    if (param->clahe != defaultPrm->clahe) {
+        tmp.str(tstring());
+        if (!param->clahe.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->clahe.enable || save_disabled_prm) {
+            ADD_NUM(_T("tiles_x"), clahe.tiles_x);
+            ADD_NUM(_T("tiles_y"), clahe.tiles_y);
+            ADD_FLOAT(_T("slope"), clahe.slope, 3);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-clahe ") << tmp.str().substr(1);
+        } else if (param->clahe.enable) {
+            cmd << _T(" --vpp-clahe");
+        }
+    }
     if (param->dering != defaultPrm->dering) {
         tmp.str(tstring());
         if (!param->dering.enable && save_disabled_prm) {
@@ -17974,6 +18046,16 @@ tstring gen_cmd_help_vpp() {
         _T("      eps=<float>               smoothing strength (default=%.4f, 0.0001 - 1.0)\n")
         _T("      chroma=<bool>             filter chroma planes (default=false)\n"),
         FILTER_DEFAULT_GUIDEDFILTER_RADIUS, FILTER_DEFAULT_GUIDEDFILTER_EPS);
+#endif
+#if ENABLE_VPP_FILTER_CLAHE
+    str += strsprintf(_T("\n")
+        _T("   --vpp-clahe [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     contrast limited adaptive histogram equalization.\n")
+        _T("    params\n")
+        _T("      tiles_x=<int>             horizontal tile count (default=%d, 2 - 32)\n")
+        _T("      tiles_y=<int>             vertical tile count (default=%d, 2 - 32)\n")
+        _T("      slope=<float>             contrast clip ratio (default=%.1f, 1.0 - 40.0)\n"),
+        FILTER_DEFAULT_CLAHE_TILES_X, FILTER_DEFAULT_CLAHE_TILES_Y, FILTER_DEFAULT_CLAHE_SLOPE);
 #endif
 #if ENABLE_VPP_FILTER_HQDERING
     str += strsprintf(_T("\n")

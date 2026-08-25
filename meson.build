@@ -691,6 +691,7 @@ qsvpipeline_sources = files(
   'QSVPipeline/rgy_filter_finedehalo.cpp',
   'QSVPipeline/rgy_filter_hqdering.cpp',
   'QSVPipeline/rgy_filter_guidedfilter.cpp',
+  'QSVPipeline/rgy_filter_clahe.cpp',
   'QSVPipeline/rgy_filter_deflicker.cpp',
   'QSVPipeline/rgy_filter_stab.cpp',
   'QSVPipeline/rgy_filter_colorfix.cpp',

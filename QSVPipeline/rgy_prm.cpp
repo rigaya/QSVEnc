@@ -143,6 +143,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_FINEDEHALO,           _T("finedehalo")),
     std::make_pair(VppType::CL_HQDERING,             _T("hqdering")),
     std::make_pair(VppType::CL_GUIDEDFILTER,         _T("guidedfilter")),
+    std::make_pair(VppType::CL_CLAHE,                _T("clahe")),
     std::make_pair(VppType::CL_EDGELEVEL,            _T("edgelevel")),
     std::make_pair(VppType::CL_MSHARPEN,             _T("msharpen")),
     std::make_pair(VppType::CL_WARPSHARP,            _T("warpsharp")),
@@ -3447,6 +3448,28 @@ tstring VppGuidedfilter::print() const {
         radius, eps, chroma ? _T("on") : _T("off"));
 }
 
+VppClahe::VppClahe() :
+    enable(false),
+    tiles_x(FILTER_DEFAULT_CLAHE_TILES_X),
+    tiles_y(FILTER_DEFAULT_CLAHE_TILES_Y),
+    slope(FILTER_DEFAULT_CLAHE_SLOPE) {
+}
+
+bool VppClahe::operator==(const VppClahe& x) const {
+    return enable == x.enable
+        && tiles_x == x.tiles_x
+        && tiles_y == x.tiles_y
+        && slope == x.slope;
+}
+
+bool VppClahe::operator!=(const VppClahe& x) const {
+    return !(*this == x);
+}
+
+tstring VppClahe::print() const {
+    return strsprintf(_T("clahe: tiles %dx%d, slope %.2f"), tiles_x, tiles_y, slope);
+}
+
 VppMsharpen::VppMsharpen() :
     enable(false),
     strength(FILTER_DEFAULT_MSHARPEN_STRENGTH),
@@ -4175,6 +4198,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && finedehalo == x.finedehalo
         && dering == x.dering
         && guidedfilter == x.guidedfilter
+        && clahe == x.clahe
         && edgelevel == x.edgelevel
         && msharpen == x.msharpen
         && warpsharp == x.warpsharp

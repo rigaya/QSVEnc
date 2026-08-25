@@ -747,6 +747,12 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="rgy_filter_clahe.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="rgy_filter_rtgmc_bob.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -1400,6 +1406,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_filter_finedehalo.h" />
     <ClInclude Include="rgy_filter_hqdering.h" />
     <ClInclude Include="rgy_filter_guidedfilter.h" />
+    <ClInclude Include="rgy_filter_clahe.h" />
     <ClInclude Include="rgy_filter_input_probe.h" />
     <ClInclude Include="rgy_filter_degrain_common.h" />
     <ClInclude Include="rgy_filter_rtgmc_bob.h" />
@@ -1533,6 +1540,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <None Include="rgy_filter_finedehalo.cl" />
     <None Include="rgy_filter_hqdering.cl" />
     <None Include="rgy_filter_guidedfilter.cl" />
+    <None Include="rgy_filter_clahe.cl" />
     <None Include="rgy_filter_rtgmc_bob.cl" />
     <None Include="rgy_filter_yadif.cl" />
   </ItemGroup>
