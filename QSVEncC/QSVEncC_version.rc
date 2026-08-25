@@ -18,6 +18,7 @@ RGY_FILTER_AFS_ANALYZE_CL    EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_a
 RGY_FILTER_AFS_SYNTHESIZE_CL EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_afs_synthesize.cl"
 
 RGY_FILTER_NNEDI_CL       EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_nnedi.cl"
+RGY_FILTER_NNEDI_UPSCALE_CL EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_nnedi_upscale.cl"
 
 RGY_FILTER_YADIF_CL           EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_yadif.cl"
 RGY_FILTER_MPDECIMATE_CL      EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_mpdecimate.cl"

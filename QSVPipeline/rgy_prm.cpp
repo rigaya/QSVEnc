@@ -87,7 +87,8 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_COLORSPACE,           _T("colorspace")),
     std::make_pair(VppType::CL_LIBPLACEBO_TONEMAP,   _T("libplacebo-tonemapping")),
     std::make_pair(VppType::CL_AFS,                  _T("afs")),
-    std::make_pair(VppType::CL_NNEDI,               _T("nnedi")),
+    std::make_pair(VppType::CL_NNEDI,                _T("nnedi")),
+    std::make_pair(VppType::CL_NNEDI_UPSCALE,        _T("nnedi-upscale")),
     std::make_pair(VppType::CL_BWDIF,                _T("bwdif")),
     std::make_pair(VppType::CL_MAA,                  _T("maa")),
     std::make_pair(VppType::CL_RTGMC,                _T("rtgmc")),
@@ -1304,6 +1305,39 @@ tstring VppNnedi::print() const {
         clamp,
         doubleHeight ? _T("on") : _T("off"),
         ((weightfile.length()) ? weightfile.c_str() : _T("internal")));
+}
+
+VppNnediUpscale::VppNnediUpscale() :
+    enable(false),
+    nnedi(),
+    shiftCubic(false) {
+    // upscaleではフィールド関連の設定を固定して既存の縦2倍処理を利用する。
+    nnedi.enable = true;
+    nnedi.planes = { true, true, true };
+    nnedi.field = VPP_NNEDI_FIELD_TOP;
+    nnedi.doubleHeight = true;
+}
+
+bool VppNnediUpscale::operator==(const VppNnediUpscale& x) const {
+    return enable == x.enable
+        && nnedi == x.nnedi
+        && shiftCubic == x.shiftCubic;
+}
+bool VppNnediUpscale::operator!=(const VppNnediUpscale& x) const {
+    return !(*this == x);
+}
+
+tstring VppNnediUpscale::print() const {
+    return strsprintf(
+        _T("nnedi-upscale: nsize %s, nns %d, quality %s, prescreen %d, errortype %s, clamp %d, shift %s, weight \"%s\""),
+        get_cx_desc(list_vpp_nnedi_nsize, nnedi.nsize),
+        nnedi.nns,
+        get_cx_desc(list_vpp_nnedi_quality, nnedi.quality),
+        nnedi.prescreen,
+        get_cx_desc(list_vpp_nnedi_error_type, nnedi.errortype),
+        nnedi.clamp,
+        shiftCubic ? _T("cubic") : _T("linear"),
+        nnedi.weightfile.length() ? nnedi.weightfile.c_str() : _T("internal"));
 }
 
 VppBwdif::VppBwdif() :
@@ -3979,6 +4013,7 @@ RGYParamVpp::RGYParamVpp() :
     delogo(),
     afs(),
     nnedi(),
+    nnediUpscale(),
     bwdif(),
     rtgmc(),
     rtgmc_bob(),
@@ -4063,6 +4098,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && delogo == x.delogo
         && afs == x.afs
         && nnedi == x.nnedi
+        && nnediUpscale == x.nnediUpscale
         && bwdif == x.bwdif
         && rtgmc == x.rtgmc
         && rtgmc_bob == x.rtgmc_bob

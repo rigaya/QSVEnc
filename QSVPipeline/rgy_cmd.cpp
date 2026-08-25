@@ -634,6 +634,158 @@ int handle_vpp_onnx_list_models(const RGYParamVpp *vpp) {
     return 1;
 }
 
+static const CX_DESC list_vpp_nnedi_upscale_shift[] = {
+    { _T("linear"), 0 },
+    { _T("cubic"),  1 },
+    { nullptr, 0 }
+};
+
+// NNEDIのネットワーク設定は通常版と2倍拡大版で共通化する。
+// 戻り値: 0=処理済み、1=エラー、-1=未知のパラメータ。
+static int parse_one_nnedi_param(VppNnedi& nnedi, const tstring& param_arg, const tstring& param_val,
+    const TCHAR *option_name, const bool allowFieldPlanes) {
+    const auto invalid = [&]() {
+        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+        return 1;
+    };
+    const auto parse_int = [&](int *dst) {
+        try {
+            size_t idx = 0;
+            *dst = std::stoi(param_val, &idx);
+            return (idx == param_val.length()) ? 0 : invalid();
+        } catch (...) {
+            return invalid();
+        }
+    };
+    const auto parse_bool = [&](bool *dst) {
+        bool value = false;
+        if (cmd_string_to_bool(&value, param_val)) return invalid();
+        *dst = value;
+        return 0;
+    };
+
+    if (allowFieldPlanes && param_arg == _T("enable")) {
+        return parse_bool(&nnedi.enable);
+    }
+    if (allowFieldPlanes && param_arg == _T("planes")) {
+        nnedi.planes = { false, false, false };
+        if (param_val == _T("all")) {
+            nnedi.planes = { true, true, true };
+        } else {
+            for (const auto& plane : split(param_val, _T(":"))) {
+                if      (plane == _T("y")) nnedi.planes[0] = true;
+                else if (plane == _T("u")) nnedi.planes[1] = true;
+                else if (plane == _T("v")) nnedi.planes[2] = true;
+                else {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val,
+                        _T("Supported values: all, or \":\"-separated list of y, u, v (e.g. y:u:v)."));
+                    return 1;
+                }
+            }
+        }
+        return 0;
+    }
+    if (allowFieldPlanes && param_arg == _T("field")) {
+        int value = 0;
+        if (!get_list_value(list_vpp_nnedi_field, param_val.c_str(), &value)) {
+            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_nnedi_field);
+            return 1;
+        }
+        nnedi.field = (VppNnediField)value;
+        return 0;
+    }
+    if (param_arg == _T("nsize")) {
+        int value = 0;
+        if (!get_list_value(list_vpp_nnedi_nsize, param_val.c_str(), &value)) {
+            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_nnedi_nsize);
+            return 1;
+        }
+        nnedi.nsize = (VppNnediNSize)value;
+        return 0;
+    }
+    if (param_arg == _T("nns")) {
+        int value = 0;
+        if (!get_list_value(list_vpp_nnedi_nns, param_val.c_str(), &value)) {
+            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_nnedi_nns);
+            return 1;
+        }
+        nnedi.nns = value;
+        return 0;
+    }
+    if (param_arg == _T("quality")) {
+        int value = 0;
+        if (!get_list_value(list_vpp_nnedi_quality, param_val.c_str(), &value)) {
+            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_nnedi_quality);
+            return 1;
+        }
+        nnedi.quality = (VppNnediQuality)value;
+        return 0;
+    }
+    if (param_arg == _T("prescreen")) {
+        if (parse_int(&nnedi.prescreen)) return 1;
+        if (nnedi.prescreen < 2 || nnedi.prescreen > 4) {
+            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val,
+                _T("prescreen should be 2, 3, or 4."));
+            return 1;
+        }
+        return 0;
+    }
+    if (param_arg == _T("errortype")) {
+        int value = 0;
+        if (!get_list_value(list_vpp_nnedi_error_type, param_val.c_str(), &value)) {
+            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_nnedi_error_type);
+            return 1;
+        }
+        nnedi.errortype = (VppNnediErrorType)value;
+        return 0;
+    }
+    if (param_arg == _T("prec")) {
+        return 0;
+    }
+    if (param_arg == _T("clamp")) {
+        if (parse_int(&nnedi.clamp)) return 1;
+        if (nnedi.clamp < 0 || nnedi.clamp > 4) {
+            print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val,
+                _T("clamp should be 0 - 4."));
+            return 1;
+        }
+        return 0;
+    }
+    if (allowFieldPlanes && param_arg == _T("double_height")) {
+        return parse_bool(&nnedi.doubleHeight);
+    }
+    if (param_arg == _T("weightfile")) {
+        nnedi.weightfile = trim(param_val, _T("\"")).c_str();
+        if (nnedi.weightfile.empty()) return invalid();
+        return 0;
+    }
+    return -1;
+}
+
+static int parse_one_nnedi_upscale_param(VppNnediUpscale& upscale, const tstring& param_arg,
+    const tstring& param_val, const TCHAR *option_name) {
+    if (param_arg == _T("enable")) {
+        bool value = false;
+        if (cmd_string_to_bool(&value, param_val)) {
+            print_cmd_error_invalid_value(tstring(option_name) + _T(" enable="), param_val);
+            return 1;
+        }
+        upscale.enable = value;
+        return 0;
+    }
+    if (param_arg == _T("shift")) {
+        int value = 0;
+        if (!get_list_value(list_vpp_nnedi_upscale_shift, param_val.c_str(), &value)) {
+            print_cmd_error_invalid_value(tstring(option_name) + _T(" shift="), param_val,
+                list_vpp_nnedi_upscale_shift);
+            return 1;
+        }
+        upscale.shiftCubic = value != 0;
+        return 0;
+    }
+    return parse_one_nnedi_param(upscale.nnedi, param_arg, param_val, option_name, false);
+}
+
 int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int &i, int nArgNum, RGYParamVpp *vpp, sArgsData *argData) {
     if (IS_OPTION("vpp-order") && ENABLE_VPP_ORDER) {
         i++;
@@ -2181,141 +2333,42 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             return 0;
         }
         i++;
-
         const auto paramList = std::vector<std::string>{ "enable", "planes", "field", "nsize", "nns", "quality", "prescreen", "errortype", "prec", "clamp", "double_height", "weightfile" };
-        const auto parse_nnedi_int = [&](int *dst, const tstring& param_arg, const tstring& param_val) {
-            try {
-                size_t idx = 0;
-                *dst = std::stoi(param_val, &idx);
-                if (idx != param_val.length()) {
-                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                    return 1;
-                }
-            } catch (...) {
-                print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                return 1;
-            }
-            return 0;
-        };
-        const auto parse_nnedi_bool = [&](bool *dst, const tstring& param_arg, const tstring& param_val) {
-            bool b = false;
-            if (!cmd_string_to_bool(&b, param_val)) {
-                *dst = b;
-            } else {
-                print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
-                return 1;
-            }
-            return 0;
-        };
-
         for (const auto& param : split(strInput[i], _T(","))) {
-            auto pos = param.find_first_of(_T("="));
-            if (pos != std::string::npos) {
-                auto param_arg = tolowercase(param.substr(0, pos));
-                auto param_val = param.substr(pos + 1);
-                if (param_arg == _T("enable")) {
-                    if (parse_nnedi_bool(&vpp->nnedi.enable, param_arg, param_val)) return 1;
-                    continue;
-                }
-                if (param_arg == _T("planes")) {
-                    //y,u,v(,)区切り、または all
-                    vpp->nnedi.planes = { false, false, false };
-                    if (param_val == _T("all")) {
-                        vpp->nnedi.planes = { true, true, true };
-                    } else {
-                        for (const auto& plane : split(param_val, _T(":"))) {
-                            if      (plane == _T("y")) vpp->nnedi.planes[0] = true;
-                            else if (plane == _T("u")) vpp->nnedi.planes[1] = true;
-                            else if (plane == _T("v")) vpp->nnedi.planes[2] = true;
-                            else {
-                                print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("Supported values: all, or \":\"-separated list of y, u, v (e.g. y:u:v)."));
-                                return 1;
-                            }
-                        }
-                    }
-                    continue;
-                }
-                if (param_arg == _T("field")) {
-                    int value = 0;
-                    if (get_list_value(list_vpp_nnedi_field, param_val.c_str(), &value)) {
-                        vpp->nnedi.field = (VppNnediField)value;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_nnedi_field);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("nsize")) {
-                    int value = 0;
-                    if (get_list_value(list_vpp_nnedi_nsize, param_val.c_str(), &value)) {
-                        vpp->nnedi.nsize = (VppNnediNSize)value;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_nnedi_nsize);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("nns")) {
-                    int value = 0;
-                    if (get_list_value(list_vpp_nnedi_nns, param_val.c_str(), &value)) {
-                        vpp->nnedi.nns = value;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_nnedi_nns);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("quality")) {
-                    int value = 0;
-                    if (get_list_value(list_vpp_nnedi_quality, param_val.c_str(), &value)) {
-                        vpp->nnedi.quality = (VppNnediQuality)value;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_nnedi_quality);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("prescreen")) {
-                    if (parse_nnedi_int(&vpp->nnedi.prescreen, param_arg, param_val)) return 1;
-                    if (vpp->nnedi.prescreen < 2 || vpp->nnedi.prescreen > 4) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("prescreen should be 2, 3, or 4."));
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("errortype")) {
-                    int value = 0;
-                    if (get_list_value(list_vpp_nnedi_error_type, param_val.c_str(), &value)) {
-                        vpp->nnedi.errortype = (VppNnediErrorType)value;
-                    } else {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, list_vpp_nnedi_error_type);
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("prec")) {
-                    continue;
-                }
-                if (param_arg == _T("clamp")) {
-                    if (parse_nnedi_int(&vpp->nnedi.clamp, param_arg, param_val)) return 1;
-                    if (vpp->nnedi.clamp < 0 || vpp->nnedi.clamp > 4) {
-                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, _T("clamp should be 0 - 4."));
-                        return 1;
-                    }
-                    continue;
-                }
-                if (param_arg == _T("double_height")) {
-                    if (parse_nnedi_bool(&vpp->nnedi.doubleHeight, param_arg, param_val)) return 1;
-                    continue;
-                }
-                if (param_arg == _T("weightfile")) {
-                    vpp->nnedi.weightfile = trim(param_val, _T("\"")).c_str();
-                    continue;
-                }
+            const auto pos = param.find_first_of(_T("="));
+            if (pos == std::string::npos) {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+            const auto param_arg = tolowercase(param.substr(0, pos));
+            const auto param_val = param.substr(pos + 1);
+            const auto result = parse_one_nnedi_param(vpp->nnedi, param_arg, param_val, option_name, true);
+            if (result > 0) return 1;
+            if (result < 0) {
                 print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
                 return 1;
-            } else {
+            }
+        }
+        return 0;
+    }
+
+    if (IS_OPTION("vpp-nnedi-upscale") && ENABLE_VPP_FILTER_NNEDI_UPSCALE) {
+        vpp->nnediUpscale.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) return 0;
+        i++;
+        const auto paramList = std::vector<std::string>{ "enable", "nsize", "nns", "quality", "prescreen", "errortype", "prec", "clamp", "shift", "weightfile" };
+        for (const auto& param : split(strInput[i], _T(","))) {
+            const auto pos = param.find_first_of(_T("="));
+            if (pos == std::string::npos) {
                 print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+            const auto param_arg = tolowercase(param.substr(0, pos));
+            const auto param_val = param.substr(pos + 1);
+            const auto result = parse_one_nnedi_upscale_param(vpp->nnediUpscale, param_arg, param_val, option_name);
+            if (result > 0) return 1;
+            if (result < 0) {
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
                 return 1;
             }
         }
@@ -13921,6 +13974,29 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-nnedi");
         }
     }
+    if (param->nnediUpscale != defaultPrm->nnediUpscale) {
+        tmp.str(tstring());
+        if (!param->nnediUpscale.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->nnediUpscale.enable || save_disabled_prm) {
+            ADD_LST(_T("nsize"), nnediUpscale.nnedi.nsize, list_vpp_nnedi_nsize);
+            ADD_LST(_T("nns"), nnediUpscale.nnedi.nns, list_vpp_nnedi_nns);
+            ADD_LST(_T("quality"), nnediUpscale.nnedi.quality, list_vpp_nnedi_quality);
+            ADD_NUM(_T("prescreen"), nnediUpscale.nnedi.prescreen);
+            ADD_LST(_T("errortype"), nnediUpscale.nnedi.errortype, list_vpp_nnedi_error_type);
+            ADD_NUM(_T("clamp"), nnediUpscale.nnedi.clamp);
+            if (param->nnediUpscale.shiftCubic != defaultPrm->nnediUpscale.shiftCubic) {
+                tmp << _T(",shift=") << (param->nnediUpscale.shiftCubic ? _T("cubic") : _T("linear"));
+            }
+            ADD_PATH(_T("weightfile"), nnediUpscale.nnedi.weightfile.c_str());
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-nnedi-upscale ") << tmp.str().substr(1);
+        } else if (param->nnediUpscale.enable) {
+            cmd << _T(" --vpp-nnedi-upscale");
+        }
+    }
     if (param->yadif != defaultPrm->yadif) {
         tmp.str(tstring());
         if (!param->yadif.enable && save_disabled_prm) {
@@ -16702,6 +16778,22 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_AFS_RFF     ? _T("on") : _T("off"),
         FILTER_DEFAULT_AFS_TIMECODE ? _T("on") : _T("off"),
         FILTER_DEFAULT_AFS_LOG      ? _T("on") : _T("off"));
+#endif
+#if ENABLE_VPP_FILTER_NNEDI_UPSCALE
+    str += strsprintf(_T("\n")
+        _T("   --vpp-nnedi-upscale [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     edge-directed 2x upscale using the nnedi network.\n")
+        _T("     Output is exactly 2x the input; input width and height must be even.\n")
+        _T("     Progressive 4:2:0, 4:4:4, or monochrome input is required.\n")
+        _T("    params\n")
+        _T("      nsize=<string>        8x6, 16x6, 32x6, 48x6, 8x4, 16x4, 32x4 (default)\n")
+        _T("      nns=<int>             16, 32 (default), 64, 128, 256\n")
+        _T("      quality=<string>      fast (default), slow\n")
+        _T("      prescreen=<int>       2, 3, or 4 (default=2)\n")
+        _T("      errortype=<string>    abs (default), square\n")
+        _T("      clamp=<int>           clamp mode 0-4 (default=1)\n")
+        _T("      shift=<string>        half-pixel correction: linear (default), cubic\n")
+        _T("      weightfile=<string>   path of nnedi3_weights.bin\n"));
 #endif
 #if ENABLE_VPP_FILTER_NNEDI
     str += strsprintf(_T("\n")

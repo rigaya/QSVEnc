@@ -1012,6 +1012,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="rgy_filter_nnedi_upscale.cpp" />
     <ClCompile Include="rgy_filter_nnedi_field.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -1371,6 +1372,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_filter_libplacebo.h" />
     <ClInclude Include="rgy_filter_mpdecimate.h" />
     <ClInclude Include="rgy_filter_nnedi.h" />
+    <ClInclude Include="rgy_filter_nnedi_upscale.h" />
     <ClInclude Include="rgy_filter_nnedi_field.h" />
     <ClInclude Include="rgy_filter_nnedi_weights.h" />
     <ClInclude Include="rgy_filter_overlay.h" />
@@ -1503,6 +1505,7 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <None Include="rgy_filter_msmooth.cl" />
     <None Include="rgy_filter_mpdecimate.cl" />
     <None Include="rgy_filter_nnedi.cl" />
+    <None Include="rgy_filter_nnedi_upscale.cl" />
     <None Include="rgy_filter_overlay.cl" />
     <None Include="rgy_filter_onnx.cl" />
     <None Include="rgy_filter_onnx_deint.cl" />

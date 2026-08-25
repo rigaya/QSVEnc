@@ -351,6 +351,9 @@
     <ClCompile Include="rgy_filter_nnedi.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="rgy_filter_nnedi_upscale.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
     <ClCompile Include="rgy_filter_nnedi_field.cpp">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
@@ -821,6 +824,9 @@
     <ClInclude Include="rgy_filter_nnedi.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="rgy_filter_nnedi_upscale.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
     <ClInclude Include="rgy_filter_nnedi_field.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
@@ -1190,6 +1196,9 @@
       <Filter>ソース ファイル</Filter>
     </None>
     <None Include="rgy_filter_nnedi.cl">
+      <Filter>ソース ファイル</Filter>
+    </None>
+    <None Include="rgy_filter_nnedi_upscale.cl">
       <Filter>ソース ファイル</Filter>
     </None>
     <None Include="rgy_filter_deband.cl">

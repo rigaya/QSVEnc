@@ -669,6 +669,7 @@ qsvpipeline_sources = files(
   'QSVPipeline/rgy_filter_libplacebo.cpp',
   'QSVPipeline/rgy_filter_mpdecimate.cpp',
   'QSVPipeline/rgy_filter_nnedi.cpp',
+  'QSVPipeline/rgy_filter_nnedi_upscale.cpp',
   'QSVPipeline/rgy_filter_nnedi_field.cpp',
   'QSVPipeline/rgy_filter_nnedi_weights.cpp',
   'QSVPipeline/rgy_filter_overlay.cpp',

@@ -71,6 +71,7 @@ RGY_DISABLE_WARNING_POP
 #include "rgy_filter_rff.h"
 #include "rgy_filter_afs.h"
 #include "rgy_filter_nnedi.h"
+#include "rgy_filter_nnedi_upscale.h"
 #include "rgy_filter_bwdif.h"
 #include "rgy_filter_maa.h"
 #include "rgy_filter_rtgmc.h"
@@ -2496,7 +2497,8 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vpp.rff.enable)        filterPipeline.push_back(VppType::CL_RFF);
     if (inputParam->vpp.delogo.enable)     filterPipeline.push_back(VppType::CL_DELOGO);
     if (inputParam->vpp.afs.enable)        filterPipeline.push_back(VppType::CL_AFS);
-    if (inputParam->vpp.nnedi.enable)     filterPipeline.push_back(VppType::CL_NNEDI);
+    if (inputParam->vpp.nnedi.enable)      filterPipeline.push_back(VppType::CL_NNEDI);
+    if (inputParam->vpp.nnediUpscale.enable) filterPipeline.push_back(VppType::CL_NNEDI_UPSCALE);
     if (inputParam->vpp.rtgmc.enable)      filterPipeline.push_back(VppType::CL_RTGMC);
     if (inputParam->vpp.kfm.enable)        filterPipeline.push_back(VppType::CL_KFM);
     const bool degrainLegacy = inputParam->vpp.degrain.enable;
@@ -2850,6 +2852,25 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         param->nnedi.clamp = params->vpp.nnedi.clamp;
         param->nnedi.doubleHeight = params->vpp.nnedi.doubleHeight;
         param->nnedi.weightfile = params->vpp.nnedi.weightfile;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->timebase = m_outputTimebase;
+        param->bOutOverwrite = false;
+        auto sts = filter->init(param, m_pQSVLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
+    }
+    // NNEDIの縦2倍処理を2軸へ順に適用する。
+    if (vppType == VppType::CL_NNEDI_UPSCALE) {
+        unique_ptr<RGYFilter> filter(new RGYFilterNnediUpscale(m_cl));
+        shared_ptr<RGYFilterParamNnediUpscale> param(new RGYFilterParamNnediUpscale());
+        param->nnediUpscale = params->vpp.nnediUpscale;
         param->frameIn = inputFrame;
         param->frameOut = inputFrame;
         param->baseFps = m_encFps;

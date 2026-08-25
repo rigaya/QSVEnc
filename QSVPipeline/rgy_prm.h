@@ -61,6 +61,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #endif
 #define ENABLE_VPP_FILTER_AFS          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_NNEDI        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
+#define ENABLE_VPP_FILTER_NNEDI_UPSCALE (ENCODER_QSV)
 #define ENABLE_VPP_FILTER_BWDIF        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_MAA          (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_RTGMC        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
@@ -182,6 +183,7 @@ enum class VppType : int {
     CL_LIBPLACEBO_TONEMAP,
     CL_AFS,
     CL_NNEDI,
+    CL_NNEDI_UPSCALE,
     CL_BWDIF,
     CL_RTGMC,
     CL_RTGMC_BOB,
@@ -2570,6 +2572,17 @@ struct VppNnedi {
     tstring print() const;
 };
 
+struct VppNnediUpscale {
+    bool enable;
+    VppNnedi nnedi;
+    bool shiftCubic;
+
+    VppNnediUpscale();
+    bool operator==(const VppNnediUpscale& x) const;
+    bool operator!=(const VppNnediUpscale& x) const;
+    tstring print() const;
+};
+
 struct VppSelectEvery {
     bool  enable;
     int   step;
@@ -3955,6 +3968,7 @@ struct RGYParamVpp {
     VppDelogo delogo;
     VppAfs afs;
     VppNnedi nnedi;
+    VppNnediUpscale nnediUpscale;
     VppBwdif bwdif;
     VppRtgmc rtgmc;
     VppRtgmcBob rtgmc_bob;
