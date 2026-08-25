@@ -8734,6 +8734,64 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-guidedfilter") && ENABLE_VPP_FILTER_GUIDEDFILTER) {
+        vpp->guidedfilter.enable = true;
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "enable", "radius", "eps", "chroma" };
+        for (const auto& param : split(strInput[i], _T(","))) {
+            const auto pos = param.find_first_of(_T("="));
+            if (pos == tstring::npos) {
+                print_cmd_error_unknown_opt_param(option_name, param, paramList);
+                return 1;
+            }
+            const auto param_arg = tolowercase(param.substr(0, pos));
+            const auto param_val = param.substr(pos + 1);
+            if (param_arg == _T("enable")) {
+                bool value = false;
+                if (cmd_string_to_bool(&value, param_val)) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                    return 1;
+                }
+                vpp->guidedfilter.enable = value;
+            } else if (param_arg == _T("radius")) {
+                try {
+                    size_t parsed = 0;
+                    vpp->guidedfilter.radius = std::stoi(param_val, &parsed);
+                    if (parsed != param_val.length()) {
+                        throw std::invalid_argument("trailing characters");
+                    }
+                } catch (...) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                    return 1;
+                }
+            } else if (param_arg == _T("eps")) {
+                try {
+                    size_t parsed = 0;
+                    vpp->guidedfilter.eps = std::stof(param_val, &parsed);
+                    if (parsed != param_val.length() || !std::isfinite(vpp->guidedfilter.eps)) {
+                        throw std::invalid_argument("invalid float");
+                    }
+                } catch (...) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                    return 1;
+                }
+            } else if (param_arg == _T("chroma")) {
+                bool value = false;
+                if (cmd_string_to_bool(&value, param_val)) {
+                    print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                    return 1;
+                }
+                vpp->guidedfilter.chroma = value;
+            } else {
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            }
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-hqdering") && ENABLE_VPP_FILTER_HQDERING) {
         vpp->dering.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
@@ -15159,6 +15217,22 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-finedehalo");
         }
     }
+    if (param->guidedfilter != defaultPrm->guidedfilter) {
+        tmp.str(tstring());
+        if (!param->guidedfilter.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->guidedfilter.enable || save_disabled_prm) {
+            ADD_NUM(_T("radius"), guidedfilter.radius);
+            ADD_FLOAT(_T("eps"), guidedfilter.eps, 4);
+            ADD_BOOL(_T("chroma"), guidedfilter.chroma);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-guidedfilter ") << tmp.str().substr(1);
+        } else if (param->guidedfilter.enable) {
+            cmd << _T(" --vpp-guidedfilter");
+        }
+    }
     if (param->dering != defaultPrm->dering) {
         tmp.str(tstring());
         if (!param->dering.enable && save_disabled_prm) {
@@ -17890,6 +17964,16 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_FINEDEHALO_EXCL ? _T("true") : _T("false"),
         FILTER_DEFAULT_FINEDEHALO_EDGEPROC,
         FILTER_DEFAULT_FINEDEHALO_EDGE);
+#endif
+#if ENABLE_VPP_FILTER_GUIDEDFILTER
+    str += strsprintf(_T("\n")
+        _T("   --vpp-guidedfilter [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     edge-preserving smoothing by self-guided image filtering.\n")
+        _T("    params\n")
+        _T("      radius=<int>              box-filter radius (default=%d, 1 - 32)\n")
+        _T("      eps=<float>               smoothing strength (default=%.4f, 0.0001 - 1.0)\n")
+        _T("      chroma=<bool>             filter chroma planes (default=false)\n"),
+        FILTER_DEFAULT_GUIDEDFILTER_RADIUS, FILTER_DEFAULT_GUIDEDFILTER_EPS);
 #endif
 #if ENABLE_VPP_FILTER_HQDERING
     str += strsprintf(_T("\n")

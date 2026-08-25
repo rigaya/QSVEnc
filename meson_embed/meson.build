@@ -92,6 +92,7 @@ resource_specs = [
   ['rgy_filter_dehalo_cl', '../QSVPipeline/rgy_filter_dehalo.cl', 'QSVPipeline_rgy_filter_dehalo_cl'],
   ['rgy_filter_finedehalo_cl', '../QSVPipeline/rgy_filter_finedehalo.cl', 'QSVPipeline_rgy_filter_finedehalo_cl'],
   ['rgy_filter_hqdering_cl', '../QSVPipeline/rgy_filter_hqdering.cl', 'QSVPipeline_rgy_filter_hqdering_cl'],
+  ['rgy_filter_guidedfilter_cl', '../QSVPipeline/rgy_filter_guidedfilter.cl', 'QSVPipeline_rgy_filter_guidedfilter_cl'],
   ['rgy_filter_deflicker_cl', '../QSVPipeline/rgy_filter_deflicker.cl', 'QSVPipeline_rgy_filter_deflicker_cl'],
   ['rgy_filter_stab_cl', '../QSVPipeline/rgy_filter_stab.cl', 'QSVPipeline_rgy_filter_stab_cl'],
   ['rgy_filter_colorfix_cl', '../QSVPipeline/rgy_filter_colorfix.cl', 'QSVPipeline_rgy_filter_colorfix_cl'],

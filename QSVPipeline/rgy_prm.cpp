@@ -142,6 +142,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_DEHALO,               _T("dehalo")),
     std::make_pair(VppType::CL_FINEDEHALO,           _T("finedehalo")),
     std::make_pair(VppType::CL_HQDERING,             _T("hqdering")),
+    std::make_pair(VppType::CL_GUIDEDFILTER,         _T("guidedfilter")),
     std::make_pair(VppType::CL_EDGELEVEL,            _T("edgelevel")),
     std::make_pair(VppType::CL_MSHARPEN,             _T("msharpen")),
     std::make_pair(VppType::CL_WARPSHARP,            _T("warpsharp")),
@@ -3423,6 +3424,29 @@ tstring VppDering::print() const {
 
 }
 
+VppGuidedfilter::VppGuidedfilter() :
+    enable(false),
+    radius(FILTER_DEFAULT_GUIDEDFILTER_RADIUS),
+    eps(FILTER_DEFAULT_GUIDEDFILTER_EPS),
+    chroma(false) {
+}
+
+bool VppGuidedfilter::operator==(const VppGuidedfilter& x) const {
+    return enable == x.enable
+        && radius == x.radius
+        && eps == x.eps
+        && chroma == x.chroma;
+}
+
+bool VppGuidedfilter::operator!=(const VppGuidedfilter& x) const {
+    return !(*this == x);
+}
+
+tstring VppGuidedfilter::print() const {
+    return strsprintf(_T("guidedfilter: radius %d, eps %.4f, chroma %s"),
+        radius, eps, chroma ? _T("on") : _T("off"));
+}
+
 VppMsharpen::VppMsharpen() :
     enable(false),
     strength(FILTER_DEFAULT_MSHARPEN_STRENGTH),
@@ -4150,6 +4174,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && dehalo == x.dehalo
         && finedehalo == x.finedehalo
         && dering == x.dering
+        && guidedfilter == x.guidedfilter
         && edgelevel == x.edgelevel
         && msharpen == x.msharpen
         && warpsharp == x.warpsharp
