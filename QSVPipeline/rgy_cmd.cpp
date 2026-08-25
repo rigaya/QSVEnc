@@ -5693,6 +5693,99 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
         }
         return 0;
     }
+    if (IS_OPTION("vpp-bm3d") && ENABLE_VPP_FILTER_DENOISE_BM3D) {
+        vpp->bm3d.enable = true;
+        if (i+1 >= nArgNum || strInput[i+1][0] == _T('-')) {
+            return 0;
+        }
+        i++;
+        const auto paramList = std::vector<std::string>{ "enable", "profile", "sigma", "block_step", "group_size", "bm_range", "radius", "chroma" };
+        for (const auto& param : split(strInput[i], _T(","))) {
+            auto pos = param.find_first_of(_T("="));
+            if (pos != std::string::npos) {
+                auto param_arg = param.substr(0, pos);
+                auto param_val = param.substr(pos+1);
+                param_arg = tolowercase(param_arg);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->bm3d.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("profile")) {
+                    // Presets for block_step / group_size / bm_range. Anything
+                    // given after profile= overrides the preset.
+                    static const CX_DESC bm3d_profile_list[] = {
+                        { _T("fast"), 0 }, { _T("lc"), 1 }, { _T("np"), 2 }, { _T("high"), 3 }, { NULL, 0 }
+                    };
+                    int p = 0;
+                    if (!get_list_value(bm3d_profile_list, param_val.c_str(), &p)) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val, bm3d_profile_list);
+                        return 1;
+                    }
+                    switch (p) {
+                    case 1: vpp->bm3d.block_step = 6; vpp->bm3d.group_size = 8;  vpp->bm3d.bm_range = 9;  break;
+                    case 2: vpp->bm3d.block_step = 4; vpp->bm3d.group_size = 16; vpp->bm3d.bm_range = 16; break;
+                    case 3: vpp->bm3d.block_step = 3; vpp->bm3d.group_size = 16; vpp->bm3d.bm_range = 16; break;
+                    default: vpp->bm3d.block_step = 8; vpp->bm3d.group_size = 8; vpp->bm3d.bm_range = 9;  break;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("sigma")) {
+                    try {
+                        size_t parsed = 0;
+                        const float value = std::stof(param_val, &parsed);
+                        if (parsed != param_val.length() || !std::isfinite(value)) {
+                            throw std::invalid_argument("invalid float");
+                        }
+                        vpp->bm3d.sigma = value;
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                if (param_arg == _T("chroma")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        vpp->bm3d.chroma = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                int *ivalue = nullptr;
+                if      (param_arg == _T("block_step")) ivalue = &vpp->bm3d.block_step;
+                else if (param_arg == _T("group_size")) ivalue = &vpp->bm3d.group_size;
+                else if (param_arg == _T("bm_range"))   ivalue = &vpp->bm3d.bm_range;
+                else if (param_arg == _T("radius"))     ivalue = &vpp->bm3d.radius;
+                if (ivalue != nullptr) {
+                    try {
+                        size_t parsed = 0;
+                        const int value = std::stoi(param_val, &parsed);
+                        if (parsed != param_val.length()) {
+                            throw std::invalid_argument("trailing characters");
+                        }
+                        *ivalue = value;
+                    } catch (...) {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
+                print_cmd_error_unknown_opt_param(option_name, param_arg, paramList);
+                return 1;
+            }
+            print_cmd_error_unknown_opt_param(option_name, param, paramList);
+            return 1;
+        }
+        return 0;
+    }
     if (IS_OPTION("vpp-hqdn3d") && ENABLE_VPP_FILTER_HQDN3D) {
         vpp->hqdn3d.enable = true;
         if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
@@ -14649,6 +14742,25 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             cmd << _T(" --vpp-pmd");
         }
     }
+    if (param->bm3d != defaultPrm->bm3d) {
+        tmp.str(tstring());
+        if (!param->bm3d.enable && save_disabled_prm) {
+            tmp << _T(",enable=false");
+        }
+        if (param->bm3d.enable || save_disabled_prm) {
+            ADD_FLOAT(_T("sigma"), bm3d.sigma, 3);
+            ADD_NUM(_T("block_step"), bm3d.block_step);
+            ADD_NUM(_T("group_size"), bm3d.group_size);
+            ADD_NUM(_T("bm_range"), bm3d.bm_range);
+            ADD_NUM(_T("radius"), bm3d.radius);
+            ADD_BOOL(_T("chroma"), bm3d.chroma);
+        }
+        if (!tmp.str().empty()) {
+            cmd << _T(" --vpp-bm3d ") << tmp.str().substr(1);
+        } else if (param->bm3d.enable) {
+            cmd << _T(" --vpp-bm3d");
+        }
+    }
     if (param->hqdn3d != defaultPrm->hqdn3d) {
         tmp.str(tstring());
         if (!param->hqdn3d.enable && save_disabled_prm) {
@@ -17540,6 +17652,34 @@ tstring gen_cmd_help_vpp() {
         _T("      useexp=<bool>             use exp function (default=%s)\n"),
         FILTER_DEFAULT_PMD_APPLY_COUNT, FILTER_DEFAULT_PMD_STRENGTH, FILTER_DEFAULT_PMD_THRESHOLD,
         FILTER_DEFAULT_PMD_USE_EXP ? _T("true") : _T("false"));
+#endif
+#if ENABLE_VPP_FILTER_DENOISE_BM3D
+    str += strsprintf(_T("\n")
+        _T("   --vpp-bm3d [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     enable BM3D block matching and 3D collaborative denoise.\n")
+        _T("     Two step: a hard threshold basic estimate, then a Wiener\n")
+        _T("     final estimate against it.\n")
+        _T("    params\n")
+        _T("      profile=<string>      preset for block_step / group_size /\n")
+        _T("                              bm_range: fast, lc, np, high.\n")
+        _T("                              params given after profile= override it.\n")
+        _T("      sigma=<float>         noise standard deviation\n")
+        _T("                              (default=%.2f, 0 or 0.5 - 100)\n")
+        _T("      block_step=<int>      stride between reference patches\n")
+        _T("                              (default=%d, 1 - 8)\n")
+        _T("      group_size=<int>      max similar blocks per 3D group\n")
+        _T("                              (default=%d, 1 - 32)\n")
+        _T("      bm_range=<int>        half side of the block match window\n")
+        _T("                              (default=%d, 1 - 32)\n")
+        _T("      radius=<int>          temporal radius (default=%d, 0 - 4).\n")
+        _T("                              0 = spatial only, >0 enables V-BM3D.\n")
+        _T("      chroma=<bool>         also denoise chroma (default=%s)\n"),
+        FILTER_DEFAULT_DENOISE_BM3D_SIGMA,
+        FILTER_DEFAULT_DENOISE_BM3D_BLOCK_STEP,
+        FILTER_DEFAULT_DENOISE_BM3D_GROUP_SIZE,
+        FILTER_DEFAULT_DENOISE_BM3D_BM_RANGE,
+        FILTER_DEFAULT_DENOISE_BM3D_RADIUS,
+        FILTER_DEFAULT_DENOISE_BM3D_CHROMA ? _T("true") : _T("false"));
 #endif
 #if ENABLE_VPP_FILTER_HQDN3D
     str += strsprintf(_T("\n")

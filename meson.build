@@ -635,6 +635,7 @@ qsvpipeline_sources = files(
   'QSVPipeline/rgy_filter_decimate.cpp',
   'QSVPipeline/rgy_filter_decomb.cpp',
   'QSVPipeline/rgy_filter_delogo.cpp',
+  'QSVPipeline/rgy_filter_denoise_bm3d.cpp',
   'QSVPipeline/rgy_filter_denoise_dct.cpp',
   'QSVPipeline/rgy_filter_denoise_fft3d.cpp',
   'QSVPipeline/rgy_filter_denoise_hqdn3d.cpp',

@@ -242,6 +242,7 @@
   - [--vpp-convolution3d \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-convolution3d-param1value1param2value2)
   - [--vpp-smooth \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-smooth-param1value1param2value2)
   - [--vpp-denoise-dct \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-denoise-dct-param1value1param2value2)
+  - [--vpp-bm3d \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-bm3d-param1value1param2value2)
   - [--vpp-fft3d \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-fft3d-param1value1param2value2)
   - [--vpp-msmooth \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-msmooth-param1value1param2value2)
   - [--vpp-knn \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-knn-param1value1param2value2)
@@ -1877,6 +1878,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
   - [--vpp-convolution3d](#--vpp-convolution3d-param1value1param2value2)
   - [--vpp-smooth](#--vpp-smooth-param1value1param2value2)
   - [--vpp-denoise-dct](#--vpp-denoise-dct-param1value1param2value2)
+  - [--vpp-bm3d](#--vpp-bm3d-param1value1param2value2)
   - [--vpp-fft3d](#--vpp-fft3d-param1value1param2value2)
   - [--vpp-msmooth](#--vpp-msmooth-param1value1param2value2)
   - [--vpp-knn](#--vpp-knn-param1value1param2value2)
@@ -2944,6 +2946,24 @@ Non local means noise reduction filter.
   --vpp-nlmeans d=1,search_t=7
   ```
 
+### --vpp-bm3d [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+BM3D denoising using block matching and collaborative 3D filtering. The filter runs a hard-threshold basic estimate followed by a Wiener final estimate. Planar YUV formats up to 12-bit are supported.
+
+- **Parameters**
+  - profile=&lt;string&gt; (default=fast)  
+    Set `block_step`, `group_size`, and `bm_range` together: `fast`, `lc`, `np`, or `high`. Parameters written after `profile` override the preset.
+  - sigma=&lt;float&gt; (default=3.0, 0 or 0.5-100)  
+    Noise standard deviation in 8-bit scale. `0` performs a bit-exact copy.
+  - block_step=&lt;int&gt; (default=8, 1-8)  
+    Stride between reference patches. The block size itself is fixed at 8.
+  - group_size=&lt;int&gt; (default=8, 1-32)  
+    Maximum number of similar blocks in one group. Temporal mode limits it to 16.
+  - bm_range=&lt;int&gt; (default=9, 1-32)  
+    Block matching search radius.
+  - radius=&lt;int&gt; (default=0, 0-4)  
+    Temporal history radius. `0` selects spatial BM3D. Processing starts with the available history, so the first `radius` frames use a partially filled history instead of falling back to spatial BM3D.
+  - chroma=&lt;bool&gt; (default=false)  
+    Also denoise the chroma planes.
 ### --vpp-pmd [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
 Rather weak noise reduction by modified pmd method, aimed to preserve edge while noise reduction.
 

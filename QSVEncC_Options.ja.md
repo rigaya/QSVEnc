@@ -242,6 +242,7 @@
   - [--vpp-convolution3d \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-convolution3d-param1value1param2value2)
   - [--vpp-smooth \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-smooth-param1value1param2value2)
   - [--vpp-denoise-dct \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-denoise-dct-param1value1param2value2)
+  - [--vpp-bm3d \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-bm3d-param1value1param2value2)
   - [--vpp-fft3d \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-fft3d-param1value1param2value2)
   - [--vpp-msmooth \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-msmooth-param1value1param2value2)
   - [--vpp-knn \[\<param1\>=\<value1\>\[,\<param2\>=\<value2\>\]...\]](#--vpp-knn-param1value1param2value2)
@@ -1889,6 +1890,7 @@ vppフィルタの適用順は固定で、コマンドラインの順序によ�
   - [--vpp-convolution3d](#--vpp-convolution3d-param1value1param2value2)
   - [--vpp-smooth](#--vpp-smooth-param1value1param2value2)
   - [--vpp-denoise-dct](#--vpp-denoise-dct-param1value1param2value2)
+  - [--vpp-bm3d](#--vpp-bm3d-param1value1param2value2)
   - [--vpp-fft3d](#--vpp-fft3d-param1value1param2value2)
   - [--vpp-msmooth](#--vpp-msmooth-param1value1param2value2)
   - [--vpp-nlmeans](#--vpp-nlmeans-param1value1param2value2)
@@ -2995,6 +2997,24 @@ Non local meansを用いたノイズ除去フィルタ。
   --vpp-nlmeans d=1,search_t=7
   ```
 
+### --vpp-bm3d [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+ブロックマッチングと3次元協調フィルタリングによるBM3Dノイズ除去。ハードしきい値による基本推定の後、Wienerフィルタで最終推定を行う。12bit以下のplanar YUV形式に対応する。
+
+- **パラメータ**
+  - profile=&lt;string&gt; (default=fast)
+    `block_step`、`group_size`、`bm_range`をまとめて設定する。`fast`、`lc`、`np`、`high`から選択する。`profile`より後に書いた個別パラメータを優先する。
+  - sigma=&lt;float&gt; (default=3.0, 0 または 0.5-100)  
+    8bit換算のノイズ標準偏差。`0`ではbit完全一致のコピーとなる。
+  - block_step=&lt;int&gt; (default=8, 1-8)  
+    参照パッチ間の間隔。ブロックサイズ自体は8固定。
+  - group_size=&lt;int&gt; (default=8, 1-32)  
+    1グループに含める類似ブロックの最大数。時間方向処理では16まで。
+  - bm_range=&lt;int&gt; (default=9, 1-32)  
+    ブロックマッチングの探索半径。
+  - radius=&lt;int&gt; (default=0, 0-4)  
+    時間方向の履歴半径。`0`では空間方向のみ処理する。先頭から利用可能な履歴を使うため、最初の`radius`フレームも空間版へ戻さず、蓄積済みの履歴だけで時間方向処理する。
+  - chroma=&lt;bool&gt; (default=false)  
+    色差プレーンもノイズ除去する。
 ### --vpp-pmd [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
 正則化pmd法によるノイズ除去。弱めのノイズ除去を行いたいときに使用する。
 

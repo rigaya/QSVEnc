@@ -88,6 +88,7 @@ RGY_DISABLE_WARNING_POP
 #include "rgy_filter_delogo.h"
 #include "rgy_filter_convolution3d.h"
 #include "rgy_filter_denoise_dct.h"
+#include "rgy_filter_denoise_bm3d.h"
 #include "rgy_filter_smooth.h"
 #include "rgy_filter_denoise_fft3d.h"
 #include "rgy_filter_msmooth.h"
@@ -2538,6 +2539,7 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vpp.nlmeans.enable)    filterPipeline.push_back(VppType::CL_DENOISE_NLMEANS);
     if (inputParam->vpp.pmd.enable)        filterPipeline.push_back(VppType::CL_DENOISE_PMD);
     if (inputParam->vpp.hqdn3d.enable)     filterPipeline.push_back(VppType::CL_DENOISE_HQDN3D);
+    if (inputParam->vpp.bm3d.enable)       filterPipeline.push_back(VppType::CL_DENOISE_BM3D);
     if (inputParam->vpp.descale.enable)    filterPipeline.push_back(VppType::CL_DESCALE);
     if (inputParam->vpp.anime4k.enable)    filterPipeline.push_back(VppType::CL_ANIME4K);
     if (inputParam->vpp.onnx.enable)      filterPipeline.push_back(VppType::CL_ONNX);
@@ -3409,6 +3411,24 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         inputFrame = param->frameOut;
         m_encFps = param->baseFps;
         //登録
+        clfilters.push_back(std::move(filter));
+        return RGY_ERR_NONE;
+    }
+    //bm3d
+    if (vppType == VppType::CL_DENOISE_BM3D) {
+        unique_ptr<RGYFilter> filter(new RGYFilterDenoiseBm3d(m_cl));
+        shared_ptr<RGYFilterParamDenoiseBm3d> param(new RGYFilterParamDenoiseBm3d());
+        param->bm3d = params->vpp.bm3d;
+        param->frameIn = inputFrame;
+        param->frameOut = inputFrame;
+        param->baseFps = m_encFps;
+        param->bOutOverwrite = false;
+        auto sts = filter->init(param, m_pQSVLog);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        inputFrame = param->frameOut;
+        m_encFps = param->baseFps;
         clfilters.push_back(std::move(filter));
         return RGY_ERR_NONE;
     }

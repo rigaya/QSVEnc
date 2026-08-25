@@ -79,6 +79,7 @@ _BINARY_VPP_FILTER_FILE(rgy_filter_deband_gen_rand_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_decimate_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_decomb_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_delogo_cl);
+_BINARY_VPP_FILTER_FILE(rgy_filter_denoise_bm3d_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_dct_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_fft3d_cl);
 _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_hqdn3d_cl);
@@ -220,6 +221,7 @@ static const RGYResourceData RGY_RESOURCE_DATA[] = {
     { _T("EXE_DATA"), _T("RGY_FILTER_DECOMB_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_decomb_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_DELOGO_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_delogo_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_DENOISE_DCT_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_dct_cl) },
+    { _T("EXE_DATA"), _T("RGY_FILTER_DENOISE_BM3D_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_bm3d_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_DENOISE_FFT3D_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_fft3d_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_DENOISE_HQDN3D_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_denoise_hqdn3d_cl) },
     { _T("EXE_DATA"), _T("RGY_FILTER_ANIME4K_CL"), _BINARY_VPP_FILTER_FILE(rgy_filter_anime4k_cl) },

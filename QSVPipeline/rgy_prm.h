@@ -92,6 +92,7 @@ static const int RGY_AUDIO_QUALITY_DEFAULT = 0;
 #define ENABLE_VPP_FILTER_RIFE_OV      ((ENABLE_OPENVINO && ENCODER_QSV) || (ENABLE_ONNXRUNTIME && (ENCODER_NVENC || ENCODER_VCEENC)))
 #define ENABLE_VPP_FILTER_ONNX_DEINT      ((ENABLE_OPENVINO && ENCODER_QSV) || (ENABLE_ONNXRUNTIME && ENCODER_VCEENC))
 #define ENABLE_VPP_FILTER_DENOISE_DCT  (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
+#define ENABLE_VPP_FILTER_DENOISE_BM3D (ENCODER_QSV)
 #define ENABLE_VPP_FILTER_SMOOTH       (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
 #define ENABLE_VPP_FILTER_FFT3D        (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP)
 #define ENABLE_VPP_FILTER_MSMOOTH      (ENCODER_QSV   || ENCODER_NVENC || ENCODER_VCEENC || ENCODER_MPP || CLFILTERS_AUF)
@@ -217,6 +218,7 @@ enum class VppType : int {
     CL_RIFE_OV,
 
     CL_DENOISE_DCT,
+    CL_DENOISE_BM3D,
     CL_DENOISE_SMOOTH,
     CL_DENOISE_FFT3D,
     CL_DEGRAIN,
@@ -517,6 +519,18 @@ static const float FILTER_DEFAULT_SMOOTH_B_RATIO = 0.5f;
 static const int   FILTER_DEFAULT_SMOOTH_MAX_QPTABLE_ERR = 10;
 
 static const float FILTER_DEFAULT_DENOISE_DCT_SIGMA = 4.0f;
+
+// BM3D: block-matching + 3D collaborative filter, from Dabov 2007,
+// "Image denoising by sparse 3D transform-domain collaborative
+// filtering". Two step: a hard-threshold basic estimate then a Wiener
+// final estimate. radius>0 enables the V-BM3D temporal extension.
+// Defaults match the reference plugin's "fast" profile.
+static const float FILTER_DEFAULT_DENOISE_BM3D_SIGMA      = 3.0f;
+static const int   FILTER_DEFAULT_DENOISE_BM3D_BLOCK_STEP = 8;
+static const int   FILTER_DEFAULT_DENOISE_BM3D_GROUP_SIZE = 8;
+static const int   FILTER_DEFAULT_DENOISE_BM3D_BM_RANGE   = 9;
+static const int   FILTER_DEFAULT_DENOISE_BM3D_RADIUS     = 0;
+static const bool  FILTER_DEFAULT_DENOISE_BM3D_CHROMA     = false;
 static const float FILTER_DEFAULT_DENOISE_DCT_SIGMA2 = 0.0f; // 0 = follow sigma
 static const float FILTER_DEFAULT_DENOISE_DCT_SIGMA3 = 0.0f; // 0 = follow sigma
 static const float FILTER_DEFAULT_DENOISE_DCT_SIGMA4 = 0.0f; // 0 = follow sigma
@@ -2829,6 +2843,20 @@ struct VppPmd {
     tstring print() const;
 };
 
+struct VppDenoiseBm3d {
+    bool  enable;
+    float sigma;
+    int   block_step;
+    int   group_size;
+    int   bm_range;
+    int   radius;
+    bool  chroma;
+    VppDenoiseBm3d();
+    bool operator==(const VppDenoiseBm3d &x) const;
+    bool operator!=(const VppDenoiseBm3d &x) const;
+    tstring print() const;
+};
+
 struct VppHqdn3d {
     bool enable;
     float luma_spatial;
@@ -4047,6 +4075,7 @@ struct RGYParamVpp {
     VppNLMeans nlmeans;
     VppPmd pmd;
     VppHqdn3d hqdn3d;
+    VppDenoiseBm3d bm3d;
     VppDescale descale;
     VppAnime4k anime4k;
     VppOnnx onnx;

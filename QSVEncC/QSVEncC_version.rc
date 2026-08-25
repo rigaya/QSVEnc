@@ -30,6 +30,7 @@ RGY_FILTER_MAA_CL             EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_
 RGY_FILTER_DELOGO_CL          EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_delogo.cl"
 RGY_FILTER_CONVOLUTION3D_CL   EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_convolution3d.cl"
 RGY_FILTER_DENOISE_DCT_CL     EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_denoise_dct.cl"
+RGY_FILTER_DENOISE_BM3D_CL    EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_denoise_bm3d.cl"
 RGY_FILTER_DENOISE_FFT3D_CL   EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_denoise_fft3d.cl"
 RGY_FILTER_DENOISE_HQDN3D_CL  EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_denoise_hqdn3d.cl"
 RGY_FILTER_DESCALE_CL         EXE_DATA DISCARDABLE "..\\QSVPipeline\\rgy_filter_descale.cl"

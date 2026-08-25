@@ -117,6 +117,7 @@ static const auto VPPTYPE_TO_STR = make_array<std::pair<VppType, tstring>>(
     std::make_pair(VppType::CL_ONNX,                 _T("onnx")),
     std::make_pair(VppType::CL_RIFE_OV,              _T("rife-ov")),
     std::make_pair(VppType::CL_DENOISE_DCT,          _T("denoise-dct")),
+    std::make_pair(VppType::CL_DENOISE_BM3D,         _T("bm3d")),
     std::make_pair(VppType::CL_DENOISE_SMOOTH,       _T("smooth")),
     std::make_pair(VppType::CL_DENOISE_FFT3D,        _T("fft3d")),
     std::make_pair(VppType::CL_DEGRAIN,            _T("degrain")),
@@ -2029,6 +2030,35 @@ bool VppHqdn3d::operator==(const VppHqdn3d& x) const {
 }
 bool VppHqdn3d::operator!=(const VppHqdn3d& x) const {
     return !(*this == x);
+}
+
+VppDenoiseBm3d::VppDenoiseBm3d() :
+    enable(false),
+    sigma(FILTER_DEFAULT_DENOISE_BM3D_SIGMA),
+    block_step(FILTER_DEFAULT_DENOISE_BM3D_BLOCK_STEP),
+    group_size(FILTER_DEFAULT_DENOISE_BM3D_GROUP_SIZE),
+    bm_range(FILTER_DEFAULT_DENOISE_BM3D_BM_RANGE),
+    radius(FILTER_DEFAULT_DENOISE_BM3D_RADIUS),
+    chroma(FILTER_DEFAULT_DENOISE_BM3D_CHROMA) {
+}
+
+bool VppDenoiseBm3d::operator==(const VppDenoiseBm3d &x) const {
+    return enable     == x.enable
+        && sigma      == x.sigma
+        && block_step == x.block_step
+        && group_size == x.group_size
+        && bm_range   == x.bm_range
+        && radius     == x.radius
+        && chroma     == x.chroma;
+}
+bool VppDenoiseBm3d::operator!=(const VppDenoiseBm3d &x) const {
+    return !(*this == x);
+}
+
+tstring VppDenoiseBm3d::print() const {
+    return strsprintf(_T("bm3d: sigma %.2f, block_step %d, group %d, bm_range %d, radius %d, chroma %s"),
+        sigma, block_step, group_size, bm_range, radius,
+        chroma ? _T("on") : _T("off"));
 }
 
 tstring VppHqdn3d::print() const {
@@ -4192,6 +4222,7 @@ bool RGYParamVpp::operator==(const RGYParamVpp& x) const {
         && nlmeans == x.nlmeans
         && pmd == x.pmd
         && hqdn3d == x.hqdn3d
+        && bm3d == x.bm3d
         && descale == x.descale
         && anime4k == x.anime4k
         && onnx == x.onnx
