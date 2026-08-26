@@ -2147,6 +2147,13 @@ RGY_ERR CQSVPipeline::InitInput(sInputParams *inputParam, DeviceCodecCsp& HWDecC
     //入力モジュールが、エンコーダに返すべき色空間をセット
     inputParam->input.csp = getEncoderCsp(inputParam, &inputParam->input.bitdepth);
 
+    // 入力CSPでインタレ解除する場合、リーダー内で出力CSPへ先行変換せず、
+    // インタレ解除後にVPPフィルタ列内で変換する。
+    const bool useInputCspForDeint = inputParam->vpp.deintCsp == VppDeintCsp::Input && hasVppDeinterlacer(inputParam, true);
+    if (useInputCspForDeint) {
+        inputParam->input.csp = RGY_CSP_NA;
+    }
+
     // インタレ解除が指定され、かつインタレの指定がない場合は、自動的にインタレの情報取得を行う
     if (hasVppDeinterlacer(inputParam, false) && ((inputParam->input.picstruct & RGY_PICSTRUCT_INTERLACED) == 0)) {
         inputParam->input.picstruct = RGY_PICSTRUCT_AUTO;
