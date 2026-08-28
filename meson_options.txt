@@ -1,7 +1,7 @@
 option('enable_vapoursynth', type: 'boolean', value: true, description: 'Enable VapourSynth support')
 option('enable_avisynth', type: 'boolean', value: true, description: 'Enable AviSynth support')
 option('enable_libass', type: 'boolean', value: true, description: 'Enable libass subtitle burn support')
-option('libass_static', type: 'boolean', value: true, description: 'Linuxでlibassを静的リンクする')
+option('libass_static', type: 'boolean', value: false, description: 'Linuxでlibassを静的リンクする')
 option('enable_libplacebo', type: 'boolean', value: false, description: 'Enable libplacebo support')
 option('libplacebo_static_link', type: 'boolean', value: true, description: 'libplaceboを静的リンクする（falseで実行時に動的ロード）')
 option('enable_vulkan', type: 'boolean', value: false, description: 'Enable Vulkan support (required for libplacebo)')

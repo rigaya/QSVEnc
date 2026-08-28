@@ -80,7 +80,7 @@ jobs:
             --workdir /work \
             --name build_pkg ${{ steps.prep.outputs.base_image }}
           docker exec -e PKG_CONFIG_PATH=${{ env.FFMPEG_PREFIX }}/lib/pkgconfig build_pkg bash -lc '
-            meson setup ./build . --buildtype=release -Db_lto=true -Dcpp_args="['\''-I/work/AviSynthPlus/avs_core/include'\'','\''-I/work/vapoursynth/include'\'']"
+            meson setup ./build . --buildtype=release -Db_lto=true -Dlibass_static=true -Dcpp_args="['\''-I/work/AviSynthPlus/avs_core/include'\'','\''-I/work/vapoursynth/include'\'']"
           '
           docker exec build_pkg bash -lc "meson compile -C ./build -j${{ steps.prep.outputs.nproc }}"
           docker exec build_pkg ldd ./build/qsvencc
