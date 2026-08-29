@@ -314,6 +314,33 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2026.08.29 (8.28)
+[QSVEncC]
+- --vpp-bm3dを追加。
+- --vpp-dehazeを追加。
+- --vpp-claheを追加。
+- --vpp-guidedfilterを追加。
+- --vpp-nnedi-upscale(NNEDIによる2倍拡大)を追加。
+- --vpp-resizeにarea補間を追加。
+- --vpp-resizeにdpid (detail preserving downscaling)を追加。
+- --vpp-rife-ovに任意フレームレート変換を追加。
+- --vpp-rife-ovの10bit入力に対応。
+- --vpp-deblockにブロック境界間隔指定を追加。
+- --vpp-tweakにvibrance調整を追加。
+- --vpp-lenscorrectionに周辺減光補正を追加。
+- --vpp-colorfixに光源色温度の指定temperature=を追加。
+- --timecode出力のraw出力への拡張。
+- --vpp-deint-csp inputで入力深度を維持するよう修正。
+- --vpp-resizeのサブパラメータ解析がOpenCLのみの構成で効かないのを修正。
+- --vpp-rife-ov変換時の末尾フレーム欠落を修正。
+- --vpp-ivtcの末尾フレーム欠落を修正。
+- P010のMFX VPPフレーム情報を修正。
+- raw出力(y4m)でP010サーフェスを正しく10bitとして出力するよう修正。
+- libass_staticのデフォルトをfalseに。
+
+[QSVEnc.auo]
+- システム全体のハンドル数が非常に多い環境でのエラー回避。
+
 2026.08.15 (8.27)
 [QSVEncC]
 - 使用するffmpegのライブラリを更新。

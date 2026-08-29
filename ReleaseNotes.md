@@ -1,5 +1,31 @@
 # QSVEnc Release Notes
 
+## 8.28
+
+- Support track exclusion with `!` for audio/subtitle/data selection ([--audio-copy](./QSVEncC_Options.en.md#--audio-copy-intstringintstring), [--audio-codec](./QSVEncC_Options.en.md#--audio-codec-intstringstringstringstringstringstring), [--sub-copy](./QSVEncC_Options.en.md#--sub-copy-intstringintstring), [--sub-codec](./QSVEncC_Options.en.md#--sub-codec-intstringstring), [--data-copy](./QSVEncC_Options.en.md#--data-copy-intstringintstring)). ( #305 )
+- Fix [--vpp-deint-csp](./QSVEncC_Options.en.md#--vpp-deint-csp-string) input to preserve input bit depth.
+- Fix P010 MFX VPP frame information.
+- Fix raw (y4m) output of P010 surfaces as 10bit.
+- Change the default of `libass_static` to false. ( #310 )
+- Add new filter features and some filter fixes.
+  - Add [--vpp-bm3d](./QSVEncC_Options.en.md#--vpp-bm3d-param1value1param2value2).
+  - Add [--vpp-dehaze](./QSVEncC_Options.en.md#--vpp-dehaze-param1value1param2value2).
+  - Add [--vpp-clahe](./QSVEncC_Options.en.md#--vpp-clahe-param1value1param2value2).
+  - Add [--vpp-guidedfilter](./QSVEncC_Options.en.md#--vpp-guidedfilter-param1value1param2value2).
+  - Add [--vpp-nnedi-upscale](./QSVEncC_Options.en.md#--vpp-nnedi-upscale-param1value1param2value2) (2x upscale by NNEDI).
+  - Add area interpolation to [--vpp-resize](./QSVEncC_Options.en.md#--vpp-resize-string).
+  - Add dpid (detail preserving downscaling) to [--vpp-resize](./QSVEncC_Options.en.md#--vpp-resize-string).
+  - Add arbitrary frame rate conversion to [--vpp-rife-ov](./QSVEncC_Options.en.md#--vpp-rife-ov-param1value1param2value2).
+  - Add 10bit input support to [--vpp-rife-ov](./QSVEncC_Options.en.md#--vpp-rife-ov-param1value1param2value2).
+  - Add block interval parameter to [--vpp-deblock](./QSVEncC_Options.en.md#--vpp-deblock-param1value1param2value2).
+  - Add vibrance adjustment to [--vpp-tweak](./QSVEncC_Options.en.md#--vpp-tweak-param1value1param2value2).
+  - Add vignetting correction to [--vpp-lenscorrection](./QSVEncC_Options.en.md#--vpp-lenscorrection-param1value1param2value2).
+  - Add light source color temperature `temperature=` to [--vpp-colorfix](./QSVEncC_Options.en.md#--vpp-colorfix-param1value1param2value2).
+  - Extend [--timecode](./QSVEncC_Options.en.md#--timecode-string) output to raw output.
+  - Fix [--vpp-resize](./QSVEncC_Options.en.md#--vpp-resize-string) sub-parameter parsing on OpenCL-only builds.
+  - Fix missing last frames in [--vpp-rife-ov](./QSVEncC_Options.en.md#--vpp-rife-ov-param1value1param2value2) conversion.
+  - Fix missing last frames in [--vpp-ivtc](./QSVEncC_Options.en.md#--vpp-ivtc-param1value1param2value2).
+
 ## 8.27
 
 - Add frame durations to [--y4m-timestamp](./QSVEncC_Options.en.md#--y4m-timestamp) output and improve the default y4m input timebase.

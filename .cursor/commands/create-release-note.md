@@ -27,6 +27,8 @@
     - オプション名(--xxx)が出るときは、QSVEncC_Options.en.md へのリンクを作成する。
       オプションのリストとリンクは、QSVEncC_Options.en.md 上部の (## Command line exampleまで)に記載がある
   　　例: [--vpp-afs](./QSVEncC_Options.en.md#--vpp-afs-param1value1param2value2)
+    - githubのissue (#xxx)が含まれる変更は下記のように記載する
+      例: Fix ~ error in [--vpp-afs](./QSVEncC_Options.en.md#--vpp-afs-param1value1param2value2). ( #xxx )
   
   - ブログに記載する文章例を作成する。
     - QSVEnc/QSVEnc_readme.txt に記載した内容をHTML形式で記載。
@@ -35,6 +37,19 @@
         - OK: `<strong>- XXXという機能を追加。</strong>(--option-name)`
         - OK: `<strong>- --option-nameの機能を修正。</strong>`
         - NG: `<strong>- --option-nameの機能を修正。</strong>(--option-name)`
+
+    - githubのissue (#xxx)が含まれる変更は下記のように記載する
+      例1
+      ```
+      <strong>- --vpp-afsの～を修正。</strong>
+      <a class=blue href="https://github.com/rigaya/QSVEnc/issues/xxx" target="_blank" title="ご指摘いただいた問題">ご指摘いただいた問題</a>の修正。
+      ```
+      例2
+      ```
+      <strong>- --vpp-afsに～を追加。</strong>
+      <a class=blue href="https://github.com/rigaya/QSVEnc/issues/xxx" target="_blank" title="ご要望いただいた機能">ご要望いただいた機能</a>の追加。
+      ```
+
     - ```<br>```は使用せず、かわりに通常の改行を用いること。
     - 最後に下記を記載する。
       ```
