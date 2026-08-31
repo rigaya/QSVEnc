@@ -35,25 +35,13 @@
 
 #define PIXEL_MAX ((1 << (bit_depth)) - 1)
 
-// Horizontal pass: solves the per-row inverse system. One work-item
-// per row of the source image. The inner loop is sequential and
-// runs three sub-loops per row:
-//   1. A' b (matrix-vector product against the sparse upscale weights)
-//   2. forward substitution    LD y = A' b
-//   3. back substitution       L' x = y
-// The per-row state lives entirely in this work-item's slice of the
-// global pDst buffer (one float row at offset iy * dstPitchFloats);
-// the read-after-write within a single work-item is well-defined.
+// 水平方向の逆行列計算。A' b は taps カーネルで計算済みなので、
+// 1 work-itemごとに1行の前進・後退代入だけを直列に処理する。
 __kernel void kernel_descale_h(
     __global float *restrict pDst, const int dstPitchFloats,
-    const __global uchar *pSrc, const int srcPitch,
     const int src_h,
     const int dst_w,
     const int c_band,
-    const int weights_columns,
-    const __global float *weights,
-    const __global int   *left_idx,
-    const __global int   *right_idx,
     const __global float *lower,
     const __global float *upper,
     const __global float *diagonal) {
@@ -61,17 +49,11 @@ __kernel void kernel_descale_h(
     if (iy >= src_h) return;
 
     __global float *dstRow = pDst + iy * dstPitchFloats;
-    const __global Type *srcRow = (const __global Type *)(pSrc + iy * srcPitch);
 
-    // Forward sweep: A' b followed immediately by LD y = A' b.
+    // Forward sweep: LD y = A' b, with A' b already in dstRow from
+    // kernel_descale_h_taps. The substitution itself is unchanged.
     for (int j = 0; j < dst_w; ++j) {
-        const int lj = left_idx[j];
-        const int rj = right_idx[j];
-        float sum = 0.0f;
-        for (int k = lj; k < rj; ++k) {
-            const float src_f = (float)srcRow[k] * (1.0f / (float)PIXEL_MAX);
-            sum += weights[j * weights_columns + (k - lj)] * src_f;
-        }
+        float sum = dstRow[j];
         int start = j - c_band;
         if (start < 0) start = 0;
         for (int k = start; k < j; ++k) {
@@ -92,28 +74,41 @@ __kernel void kernel_descale_h(
     }
 }
 
-// Vertical pass: solves the per-column inverse system on the H-pass
-// float intermediate. One work-item per column. Internally writes
-// the column's full dst_h-row settled values to the float scratch
-// buffer pVScratch, then converts to Type at the end to populate
-// the final output buffer.
-//
-// pVScratch is sized dst_w * dst_h floats. Each work-item touches
-// only its own column (column ix), so the RAW reads from this
-// buffer during the inverse sweeps are within-work-item and need
-// no synchronization.
-__kernel void kernel_descale_v(
-    __global uchar *restrict pDst, const int dstPitch,
-    __global float *pVScratch, const int scratchPitchFloats,
-    const __global float *pSrc, const int srcPitchFloats,
+// A' b for the horizontal pass. One work-item per output element, so the
+// whole product is parallel; adjacent work-items in dimension 0 hold
+// adjacent j and therefore write adjacent addresses.
+__kernel void kernel_descale_h_taps(
+    __global float *restrict pDst, const int dstPitchFloats,
+    const __global uchar *pSrc, const int srcPitch,
     const int src_h,
     const int dst_w,
-    const int dst_h,
-    const int c_band,
     const int weights_columns,
     const __global float *weights,
     const __global int   *left_idx,
-    const __global int   *right_idx,
+    const __global int   *right_idx) {
+    const int j  = get_global_id(0);
+    const int iy = get_global_id(1);
+    if (j >= dst_w || iy >= src_h) return;
+    const __global Type *srcRow = (const __global Type *)(pSrc + iy * srcPitch);
+    const int lj = left_idx[j];
+    const int rj = right_idx[j];
+    float sum = 0.0f;
+    for (int k = lj; k < rj; ++k) {
+        const float src_f = (float)srcRow[k] * (1.0f / (float)PIXEL_MAX);
+        sum += weights[j * weights_columns + (k - lj)] * src_f;
+    }
+    pDst[iy * dstPitchFloats + j] = sum;
+}
+
+// 垂直方向の逆行列計算。A' b は taps カーネルで計算済みなので、
+// 1 work-itemごとに1列の前進・後退代入だけを直列に処理する。
+// pVScratch の列ごとの読み書きは同一work-item内で完結する。
+__kernel void kernel_descale_v(
+    __global uchar *restrict pDst, const int dstPitch,
+    __global float *pVScratch, const int scratchPitchFloats,
+    const int dst_w,
+    const int dst_h,
+    const int c_band,
     const __global float *lower,
     const __global float *upper,
     const __global float *diagonal,
@@ -132,14 +127,10 @@ __kernel void kernel_descale_v(
     const int ix = get_global_id(0);
     if (ix >= dst_w) return;
 
-    // Forward sweep on the column.
+    // Forward sweep on the column, with A' b already in pVScratch from
+    // kernel_descale_v_taps. The substitution itself is unchanged.
     for (int j = 0; j < dst_h; ++j) {
-        const int lj = left_idx[j];
-        const int rj = right_idx[j];
-        float sum = 0.0f;
-        for (int k = lj; k < rj; ++k) {
-            sum += weights[j * weights_columns + (k - lj)] * pSrc[k * srcPitchFloats + ix];
-        }
+        float sum = pVScratch[j * scratchPitchFloats + ix];
         int start = j - c_band;
         if (start < 0) start = 0;
         for (int k = start; k < j; ++k) {
@@ -148,7 +139,14 @@ __kernel void kernel_descale_v(
         pVScratch[j * scratchPitchFloats + ix] = sum * diagonal[j];
     }
 
-    // Back sweep.
+    // Back sweep, with the integer conversion folded in: each row's value
+    // is final the moment it is computed, so it is converted and written
+    // here instead of in a third pass over the settled column.
+    if (writeIntegerOutput != 0) {
+        const float vLast = clamp(pVScratch[(dst_h - 1) * scratchPitchFloats + ix], 0.0f, 1.0f);
+        __global Type *outPtrLast = (__global Type *)(pDst + (dst_h - 1) * dstPitch);
+        outPtrLast[ix] = (Type)(vLast * (float)PIXEL_MAX + 0.5f);
+    }
     for (int j = dst_h - 2; j >= 0; --j) {
         int end = j + c_band;
         if (end > dst_h - 1) end = dst_h - 1;
@@ -156,20 +154,38 @@ __kernel void kernel_descale_v(
         for (int k = end; k > j; --k) {
             sum += upper[(k - j - 1) * dst_h + j] * pVScratch[k * scratchPitchFloats + ix];
         }
-        pVScratch[j * scratchPitchFloats + ix] -= sum;
-    }
-
-    // Convert settled column from float to the output bit depth.
-    // Skipped on the probe path (writeIntegerOutput == 0) because
-    // pDst is never read by the downstream re-upscale kernels.
-    if (writeIntegerOutput != 0) {
-        for (int j = 0; j < dst_h; ++j) {
-            float v = pVScratch[j * scratchPitchFloats + ix];
-            v = clamp(v, 0.0f, 1.0f);
+        const float xj = pVScratch[j * scratchPitchFloats + ix] - sum;
+        pVScratch[j * scratchPitchFloats + ix] = xj;
+        if (writeIntegerOutput != 0) {
+            const float v = clamp(xj, 0.0f, 1.0f);
             __global Type *outPtr = (__global Type *)(pDst + j * dstPitch);
             outPtr[ix] = (Type)(v * (float)PIXEL_MAX + 0.5f);
         }
     }
+}
+
+// A' b for the vertical pass. One work-item per output element; adjacent
+// work-items in dimension 0 hold adjacent ix, so both the reads from the
+// horizontal intermediate and the writes are coalesced.
+__kernel void kernel_descale_v_taps(
+    __global float *pVScratch, const int scratchPitchFloats,
+    const __global float *pSrc, const int srcPitchFloats,
+    const int dst_w,
+    const int dst_h,
+    const int weights_columns,
+    const __global float *weights,
+    const __global int   *left_idx,
+    const __global int   *right_idx) {
+    const int ix = get_global_id(0);
+    const int j  = get_global_id(1);
+    if (ix >= dst_w || j >= dst_h) return;
+    const int lj = left_idx[j];
+    const int rj = right_idx[j];
+    float sum = 0.0f;
+    for (int k = lj; k < rj; ++k) {
+        sum += weights[j * weights_columns + (k - lj)] * pSrc[k * srcPitchFloats + ix];
+    }
+    pVScratch[j * scratchPitchFloats + ix] = sum;
 }
 
 // --- auto-detect probe kernels -------------------------------------------

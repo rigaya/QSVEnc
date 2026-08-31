@@ -42,6 +42,12 @@
 #include "rgy_filter_input_probe.h"
 
 static const int DESCALE_BLOCK = 32;
+static const int DESCALE_TAPS_BLOCK_Y = 8;
+// The substitution sweeps are serial per row or column, so a work group is
+// only ever one useful work-item wide; a small group spreads the rows over
+// more of the device. Measured across 8 to 256 at both test resolutions, 8
+// is the best on this hardware and 256 is clearly worse.
+static const int DESCALE_SOLVE_BLOCK = 8;
 
 // --- LDLT init helpers (host CPU only) -----------------------------------
 
@@ -575,18 +581,36 @@ RGY_ERR RGYFilterDescale::scoreCandidates(std::vector<ProbeCandidate> &candidate
             const auto &luma_buf = lumaBufs[fi];
             const auto &edge_buf = edgeWeightsBufs[fi];
             {
-                RGYWorkSize local(32, 1);
-                RGYWorkSize global(src_h, 1);
-                m_descale.get()->kernel("kernel_descale_h").config(queue, local, global, {}, nullptr).launch(
+                RGYWorkSize local(DESCALE_BLOCK, DESCALE_TAPS_BLOCK_Y);
+                RGYWorkSize global(c.width, src_h);
+                m_descale.get()->kernel("kernel_descale_h_taps").config(queue, local, global, {}, nullptr).launch(
                     bufDescaleH->mem(), c.width,
                     luma_buf->mem(), src_pitch_bytes,
                     src_h, c.width,
-                    coreH.c, coreH.weights_columns,
-                    coreH.weights->mem(), coreH.left_idx->mem(), coreH.right_idx->mem(),
+                    coreH.weights_columns,
+                    coreH.weights->mem(), coreH.left_idx->mem(), coreH.right_idx->mem());
+            }
+            {
+                RGYWorkSize local(DESCALE_SOLVE_BLOCK, 1);
+                RGYWorkSize global(src_h, 1);
+                m_descale.get()->kernel("kernel_descale_h").config(queue, local, global, {}, nullptr).launch(
+                    bufDescaleH->mem(), c.width,
+                    src_h, c.width,
+                    coreH.c,
                     coreH.lower->mem(), coreH.upper->mem(), coreH.diagonal->mem());
             }
             {
-                RGYWorkSize local(32, 1);
+                RGYWorkSize local(DESCALE_BLOCK, DESCALE_TAPS_BLOCK_Y);
+                RGYWorkSize global(c.width, c.height);
+                m_descale.get()->kernel("kernel_descale_v_taps").config(queue, local, global, {}, nullptr).launch(
+                    bufDescaleV->mem(), c.width,
+                    bufDescaleH->mem(), c.width,
+                    c.width, c.height,
+                    coreV.weights_columns,
+                    coreV.weights->mem(), coreV.left_idx->mem(), coreV.right_idx->mem());
+            }
+            {
+                RGYWorkSize local(DESCALE_SOLVE_BLOCK, 1);
                 RGYWorkSize global(c.width, 1);
                 // pDst stub: reuse bufDescaleV's cl_mem (the kernel never
                 // touches pDst when writeIntegerOutput=0). pitch is also
@@ -597,10 +621,8 @@ RGY_ERR RGYFilterDescale::scoreCandidates(std::vector<ProbeCandidate> &candidate
                 m_descale.get()->kernel("kernel_descale_v").config(queue, local, global, {}, nullptr).launch(
                     bufDescaleV->mem(), c.width * src_pixel_bytes,
                     bufDescaleV->mem(), c.width,
-                    bufDescaleH->mem(), c.width,
-                    src_h, c.width, c.height,
-                    coreV.c, coreV.weights_columns,
-                    coreV.weights->mem(), coreV.left_idx->mem(), coreV.right_idx->mem(),
+                    c.width, c.height,
+                    coreV.c,
                     coreV.lower->mem(), coreV.upper->mem(), coreV.diagonal->mem(),
                     0 /* writeIntegerOutput: probe path skips the integer quantise */);
             }
@@ -1907,16 +1929,30 @@ RGY_ERR RGYFilterDescale::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
 RGY_ERR RGYFilterDescale::runHPlane(RGYFrameInfo *pIntermediateFloat, const RGYFrameInfo *pInputPlane,
                                     const RGYFilterDescaleCore &core,
                                     RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+    {   // A' b, fully parallel over the output elements
+        const char *taps_name = "kernel_descale_h_taps";
+        RGYWorkSize tapsLocal(DESCALE_BLOCK, DESCALE_TAPS_BLOCK_Y);
+        RGYWorkSize tapsGlobal(core.dst_dim, pInputPlane->height);
+        auto errTaps = m_descale.get()->kernel(taps_name).config(queue, tapsLocal, tapsGlobal, wait_events, nullptr).launch(
+            (cl_mem)pIntermediateFloat->ptr[0], pIntermediateFloat->pitch[0] / (int)sizeof(float),
+            (cl_mem)pInputPlane->ptr[0], pInputPlane->pitch[0],
+            pInputPlane->height,
+            core.dst_dim,
+            core.weights_columns,
+            core.weights->mem(), core.left_idx->mem(), core.right_idx->mem());
+        if (errTaps != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at %s: %s.\n"), char_to_tstring(taps_name).c_str(), get_err_mes(errTaps));
+            return errTaps;
+        }
+    }
     const char *kernel_name = "kernel_descale_h";
-    RGYWorkSize local(DESCALE_BLOCK, 1);
+    RGYWorkSize local(DESCALE_SOLVE_BLOCK, 1);
     RGYWorkSize global(pInputPlane->height, 1);
-    auto err = m_descale.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
+    auto err = m_descale.get()->kernel(kernel_name).config(queue, local, global, {}, event).launch(
         (cl_mem)pIntermediateFloat->ptr[0], pIntermediateFloat->pitch[0] / (int)sizeof(float),
-        (cl_mem)pInputPlane->ptr[0], pInputPlane->pitch[0],
         pInputPlane->height,
         core.dst_dim,
-        core.c, core.weights_columns,
-        core.weights->mem(), core.left_idx->mem(), core.right_idx->mem(),
+        core.c,
         core.lower->mem(), core.upper->mem(), core.diagonal->mem());
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("error at %s: %s.\n"), char_to_tstring(kernel_name).c_str(), get_err_mes(err));
@@ -1929,23 +1965,34 @@ RGY_ERR RGYFilterDescale::runVPlane(RGYFrameInfo *pOutputPlane, const RGYFrameIn
                                     RGYCLBuf *pVScratch,
                                     const RGYFilterDescaleCore &core,
                                     RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
-    const int src_h = core.src_dim;
     const int dst_h = core.dst_dim;
     const int dst_w = pOutputPlane->width;
     const int src_pitch_floats = pIntermediateFloat->pitch[0] / (int)sizeof(float);
     const int scratch_pitch_floats = dst_w;
 
+    {   // A' b, fully parallel over the output elements
+        const char *taps_name = "kernel_descale_v_taps";
+        RGYWorkSize tapsLocal(DESCALE_BLOCK, DESCALE_TAPS_BLOCK_Y);
+        RGYWorkSize tapsGlobal(dst_w, dst_h);
+        auto errTaps = m_descale.get()->kernel(taps_name).config(queue, tapsLocal, tapsGlobal, wait_events, nullptr).launch(
+            pVScratch->mem(), scratch_pitch_floats,
+            (cl_mem)pIntermediateFloat->ptr[0], src_pitch_floats,
+            dst_w, dst_h,
+            core.weights_columns,
+            core.weights->mem(), core.left_idx->mem(), core.right_idx->mem());
+        if (errTaps != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at %s: %s.\n"), char_to_tstring(taps_name).c_str(), get_err_mes(errTaps));
+            return errTaps;
+        }
+    }
     const char *kernel_name = "kernel_descale_v";
-    RGYWorkSize local(DESCALE_BLOCK, 1);
+    RGYWorkSize local(DESCALE_SOLVE_BLOCK, 1);
     RGYWorkSize global(dst_w, 1);
-    auto err = m_descale.get()->kernel(kernel_name).config(queue, local, global, wait_events, event).launch(
+    auto err = m_descale.get()->kernel(kernel_name).config(queue, local, global, {}, event).launch(
         (cl_mem)pOutputPlane->ptr[0], pOutputPlane->pitch[0],
         pVScratch->mem(), scratch_pitch_floats,
-        (cl_mem)pIntermediateFloat->ptr[0], src_pitch_floats,
-        src_h,
         dst_w, dst_h,
-        core.c, core.weights_columns,
-        core.weights->mem(), core.left_idx->mem(), core.right_idx->mem(),
+        core.c,
         core.lower->mem(), core.upper->mem(), core.diagonal->mem(),
         1 /* writeIntegerOutput: live filter path feeds the next stage */);
     if (err != RGY_ERR_NONE) {
