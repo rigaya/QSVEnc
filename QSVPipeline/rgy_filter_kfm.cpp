@@ -4041,11 +4041,16 @@ RGY_ERR RGYFilterKfm::analyzeAvailableSource(bool drain, RGYOpenCLQueue &queue) 
     if (!m_analyzer || m_cachedSourceFrames <= 0) {
         return RGY_ERR_NONE;
     }
+    const auto prm = std::dynamic_pointer_cast<RGYFilterParamKfm>(m_param);
+    // 固定60pは全フィールドをRTGMCへ送るため、通常出力ではKFMパターン判定を参照しない。
+    // FMCount/result dumpを要求された場合だけ、従来どおり解析を実行する。
+    if (prm && prm->kfm.mode == VppKfmMode::P60 && m_fpFMCount == nullptr && m_fpResult == nullptr) {
+        return RGY_ERR_NONE;
+    }
 
     const int readyCycles = drain
         ? divCeil(m_cachedSourceFrames, 5)
         : (m_cachedSourceFrames >= 8 ? ((m_cachedSourceFrames - 8) / 5 + 1) : 0);
-    const auto prm = std::dynamic_pointer_cast<RGYFilterParamKfm>(m_param);
     const auto timing = prm ? prm->kfm.timing : VppKfmTiming::Realtime;
     while (m_nextFMCountSubmitCycle < readyCycles) {
         KfmProfileScope profile(m_kfmProfile, m_kfmProfile.submitFMCounts, m_nextFMCountSubmitCycle);
@@ -7597,7 +7602,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                 superWaitEvents.push_back(deintEvent);
             }
             RGYOpenCLEvent superEvent;
-            sts = renderTelecineSuper24(super24, m_nextTelecine24Frame, drain, queue, superWaitEvents, &superEvent);
+            sts = getCachedCleanSuper(KFM_CLEAN_SUPER_24, m_nextTelecine24Frame, super24, &super24, drain, queue, superWaitEvents, &superEvent);
             if (sts == RGY_ERR_MORE_DATA) {
                 break;
             }
@@ -7633,7 +7638,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                 if (sts != RGY_ERR_NONE) {
                     return sts;
                 }
-                sts = renderTelecineSuper24(superPrev24, m_nextTelecine24Frame - 1, true, queue, superWaitEvents, &prevSuperEvent);
+                sts = getCachedCleanSuper(KFM_CLEAN_SUPER_24, m_nextTelecine24Frame - 1, superPrev24, &superPrev24, true, queue, superWaitEvents, &prevSuperEvent);
                 if (sts != RGY_ERR_NONE) {
                     return sts;
                 }
@@ -7647,7 +7652,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                 if (sts != RGY_ERR_NONE) {
                     return sts;
                 }
-                sts = renderTelecineSuper24(superNext24, m_nextTelecine24Frame + 1, drain, queue, superWaitEvents, &nextSuperEvent);
+                sts = getCachedCleanSuper(KFM_CLEAN_SUPER_24, m_nextTelecine24Frame + 1, superNext24, &superNext24, drain, queue, superWaitEvents, &nextSuperEvent);
                 if (sts == RGY_ERR_MORE_DATA) {
                     break;
                 }
@@ -7668,11 +7673,22 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                 return sts;
             }
             RGYOpenCLEvent maskEvent;
-            sts = renderMaskBranch(switchFlag, containsCombe, combeMask, superPrev24, super24, superNext24, "switch-flag-min", "contains-combe", "combe-mask-min", true, queue, maskWaitEvents, &maskEvent);
+            cl_uint containsCombeCount = 0;
+            KfmContainsCombeReadback containsCombeReadback;
+            const bool patchCombe24Enabled = kfmDeint60BranchEnabled() && m_deint60Rtgmc && m_analyzer;
+            const bool needsContainsCombeCount = patchCombe24Enabled && prm->kfm.debugStage == VppKfmDebugStage::None;
+            const int maskDumpFrameIndex = super24->inputFrameId >= 0 ? super24->inputFrameId : m_nextTelecine24Frame;
+            bool fullCombeMaskGenerated = !kfmUseLazyCombeMask()
+                || prm->kfm.debugStage == VppKfmDebugStage::CombeMask
+                || m_fpFrameInfo != nullptr
+                || stageDumpRequested(maskDumpFrameIndex);
+            sts = renderMaskBranch(switchFlag, containsCombe, combeMask, superPrev24, super24, superNext24,
+                "switch-flag-min", "contains-combe", "combe-mask-min", fullCombeMaskGenerated,
+                queue, maskWaitEvents, &maskEvent, needsContainsCombeCount ? &containsCombeReadback : nullptr);
             if (sts != RGY_ERR_NONE) {
                 return sts;
             }
-            if (maskEvent() != nullptr) {
+            if (fullCombeMaskGenerated && maskEvent() != nullptr) {
                 removeWaitEvents.push_back(maskEvent);
             }
             RGYOpenCLEvent outputEvent;
@@ -7685,10 +7701,23 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
             } else {
                 sts = removeCombe24(out, deint24, super24, m_nextTelecine24Frame, queue, removeWaitEvents, &outputEvent);
                 if (sts != RGY_ERR_NONE) {
+                    resolveContainsCombeCount(containsCombeReadback, nullptr);
                     return sts;
                 }
+                if (needsContainsCombeCount) {
+                    // 判定のreadback待ち中にも、先行投入したcombe除去を進める。
+                    sts = queue.flush();
+                    if (sts != RGY_ERR_NONE) {
+                        resolveContainsCombeCount(containsCombeReadback, nullptr);
+                        return sts;
+                    }
+                    sts = resolveContainsCombeCount(containsCombeReadback, &containsCombeCount);
+                    if (sts != RGY_ERR_NONE) {
+                        return sts;
+                    }
+                }
                 int patchN60 = -1;
-                if (kfmDeint60BranchEnabled() && m_deint60Rtgmc && m_analyzer) {
+                if (patchCombe24Enabled && containsCombeCount > 0) {
                     try {
                         static const int patchFieldIndex[4] = { 1, 3, 6, 8 };
                         const int frame24Cycle = m_nextTelecine24Frame / 4;
@@ -7714,6 +7743,17 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                     if (outputEvent() != nullptr) {
                         patchWaitEvents.push_back(outputEvent);
                     }
+                    if (!fullCombeMaskGenerated) {
+                        RGYOpenCLEvent fullMaskEvent;
+                        sts = renderCombeMask(combeMask, switchFlag, super24, "combe-mask-min", queue, { maskEvent }, &fullMaskEvent);
+                        if (sts != RGY_ERR_NONE) {
+                            return sts;
+                        }
+                        fullCombeMaskGenerated = true;
+                        if (fullMaskEvent() != nullptr) {
+                            patchWaitEvents.push_back(fullMaskEvent);
+                        }
+                    }
                     const auto *deint60 = findDeint60Frame(patchN60, &patchWaitEvents);
                     if (!deint60 || !deint60->ptr[0]) {
                         break;
@@ -7737,6 +7777,9 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                     out = &m_patchCombeFrames[patchIndex]->frame;
                     outputEvent = patchEvent;
                 }
+                if (!fullCombeMaskGenerated) {
+                    m_kfmProfile.fullCombeMaskAvoided++;
+                }
             }
             if (prm->kfm.ucf && m_analyzer && !m_analyzerOutputResults.empty()) {
                 try {
@@ -7751,6 +7794,16 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                     sts = resolveUcfNoiseResults((lastUcfN60 >> 1) + 1, queue);
                     if (sts != RGY_ERR_NONE) {
                         return sts;
+                    }
+                    const auto ucf24Plan = planUcfDecomb24Frame(frameInfo);
+                    if (ucf24Plan.type == KFM_UCF24_SELECT_FRAME && ucf24Plan.n60 >= 0) {
+                        sts = ensureUcfRtgmcRange(ucf24Plan.lane, ucf24Plan.n60, ucf24Plan.n60 + 1, queue);
+                        if (sts == RGY_ERR_MORE_DATA) {
+                            break;
+                        }
+                        if (sts != RGY_ERR_NONE) {
+                            return sts;
+                        }
                     }
                     const auto ucf24 = selectUcfDecomb24Frame(frameInfo, out, &ucfWaitEvents);
                     if (ucf24.type == KFM_UCF24_SELECT_FRAME && ucf24.frame && ucf24.frame != out) {
