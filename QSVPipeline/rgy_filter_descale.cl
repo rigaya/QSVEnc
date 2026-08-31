@@ -56,6 +56,7 @@ __kernel void kernel_descale_h(
         float sum = dstRow[j];
         int start = j - c_band;
         if (start < 0) start = 0;
+        #pragma unroll 2
         for (int k = start; k < j; ++k) {
             sum -= lower[(k - j + c_band) * dst_w + j] * dstRow[k];
         }
@@ -67,6 +68,7 @@ __kernel void kernel_descale_h(
         int end = j + c_band;
         if (end > dst_w - 1) end = dst_w - 1;
         float sum = 0.0f;
+        #pragma unroll 2
         for (int k = end; k > j; --k) {
             sum += upper[(k - j - 1) * dst_w + j] * dstRow[k];
         }
@@ -133,6 +135,7 @@ __kernel void kernel_descale_v(
         float sum = pVScratch[j * scratchPitchFloats + ix];
         int start = j - c_band;
         if (start < 0) start = 0;
+        #pragma unroll 2
         for (int k = start; k < j; ++k) {
             sum -= lower[(k - j + c_band) * dst_h + j] * pVScratch[k * scratchPitchFloats + ix];
         }
@@ -151,6 +154,7 @@ __kernel void kernel_descale_v(
         int end = j + c_band;
         if (end > dst_h - 1) end = dst_h - 1;
         float sum = 0.0f;
+        #pragma unroll 2
         for (int k = end; k > j; --k) {
             sum += upper[(k - j - 1) * dst_h + j] * pVScratch[k * scratchPitchFloats + ix];
         }
