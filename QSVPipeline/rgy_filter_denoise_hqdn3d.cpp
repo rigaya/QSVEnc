@@ -36,7 +36,11 @@
 // Workgroup shapes. The spatial passes launch one work-item per
 // row (H) / column (V) so the inner loop runs sequentially per
 // work-item. The temporal pass is a standard 2D parallel kernel.
-static const int HQDN3D_BLOCK_LINEAR = 32;
+// h/vパスのglobal sizeは画像の高さ/幅そのもの(1080程度)しかないため、
+// work groupを大きくすると総group数が減り、実行ユニットへの割り当て粒度が
+// 粗くなって負荷が偏る。小さくして行/列をデバイス全体に散らす方が速い。
+// Arc A770/B580の両方、640x480と1920x1080の両方で4が最良だった。
+static const int HQDN3D_BLOCK_LINEAR = 4;
 static const int HQDN3D_TBLOCK_X = 32;
 static const int HQDN3D_TBLOCK_Y = 8;
 
