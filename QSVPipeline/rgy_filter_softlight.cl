@@ -68,25 +68,27 @@ __kernel void kernel_reduce_rgb_u16(
     const __global uchar *pG, const int pitchG,
     const __global uchar *pB, const int pitchB,
     const int width, const int height,
-    __global long *out_partials
+    __global uint *out_partials
 ) {
-    __local long sh0[softlight_block_x * softlight_block_y];
-    __local long sh1[softlight_block_x * softlight_block_y];
-    __local long sh2[softlight_block_x * softlight_block_y];
-    __local long sh3[softlight_block_x * softlight_block_y];
-    __local long sh4[softlight_block_x * softlight_block_y];
-    __local long sh5[softlight_block_x * softlight_block_y];
+    // 1 work group内の各チャンネル合計は32*8*65535で約1.7e7に留まり、
+    // uintの上限を超えないため、部分和を32bit化しても厳密性は失われない。
+    __local uint sh0[softlight_block_x * softlight_block_y];
+    __local uint sh1[softlight_block_x * softlight_block_y];
+    __local uint sh2[softlight_block_x * softlight_block_y];
+    __local uint sh3[softlight_block_x * softlight_block_y];
+    __local uint sh4[softlight_block_x * softlight_block_y];
+    __local uint sh5[softlight_block_x * softlight_block_y];
 
     const int x = get_global_id(0);
     const int y = get_global_id(1);
     const int lid = get_local_id(1) * softlight_block_x + get_local_id(0);
-    long sumR = 0, sumG = 0, sumB = 0;
-    long blackR = 0, blackG = 0, blackB = 0;
+    uint sumR = 0, sumG = 0, sumB = 0;
+    uint blackR = 0, blackG = 0, blackB = 0;
     if (x < width && y < height) {
         const ushort r = *((const __global ushort *)(pR + y * pitchR + x * sizeof(ushort)));
         const ushort g = *((const __global ushort *)(pG + y * pitchG + x * sizeof(ushort)));
         const ushort b = *((const __global ushort *)(pB + y * pitchB + x * sizeof(ushort)));
-        sumR = (long)r; sumG = (long)g; sumB = (long)b;
+        sumR = (uint)r; sumG = (uint)g; sumB = (uint)b;
         blackR = (r == 0); blackG = (g == 0); blackB = (b == 0);
     }
 
@@ -140,12 +142,16 @@ __kernel void kernel_softlight_fused_u16(
     __global uchar *pB, const int pitchB,
     const int width, const int height,
     const int mode,
-    const float bR, const float bG, const float bB,
+    const __global float *bVals,
     const int formula
 ) {
     const int x = get_global_id(0);
     const int y = get_global_id(1);
     if (x < width && y < height) {
+        // saturationは強度を参照しないが、分岐を単純に保つため先に読み込む。
+        const float bR = bVals[0];
+        const float bG = bVals[1];
+        const float bB = bVals[2];
         __global ushort *ptrR = (__global ushort *)(pR + y * pitchR + x * sizeof(ushort));
         __global ushort *ptrG = (__global ushort *)(pG + y * pitchG + x * sizeof(ushort));
         __global ushort *ptrB = (__global ushort *)(pB + y * pitchB + x * sizeof(ushort));
@@ -198,5 +204,47 @@ __kernel void kernel_softlight_fused_u16(
         ptrR[0] = softlight_to_u16(ro);
         ptrG[0] = softlight_to_u16(go);
         ptrB[0] = softlight_to_u16(bo);
+    }
+}
+
+// work groupごとの部分和から強度をデバイス上で算出し、フレームごとの
+// readbackとwaitによるOpenCLキューのドレインを除去する。
+__kernel void kernel_softlight_finalize_b(
+    const __global uint *partials, const int numGroups,
+    const long totalPx, const int skipblack,
+    __global float *bVals
+) {
+    __local long shSum[3][softlight_finalize_threads];
+    // 黒画素数は全画素を合計してもuintに収まるため、SLM使用量を抑える。
+    __local uint shBlack[3][softlight_finalize_threads];
+    const int tid = get_local_id(0);
+    long sum[3] = { 0, 0, 0 };
+    uint black[3] = { 0, 0, 0 };
+    for (int g = tid; g < numGroups; g += softlight_finalize_threads) {
+        for (int i = 0; i < 3; i++) {
+            sum[i] += (long)partials[g * 6 + i];
+            black[i] += partials[g * 6 + 3 + i];
+        }
+    }
+    for (int i = 0; i < 3; i++) {
+        shSum[i][tid] = sum[i];
+        shBlack[i][tid] = black[i];
+    }
+    barrier(CLK_LOCAL_MEM_FENCE);
+    for (int offset = softlight_finalize_threads >> 1; offset > 0; offset >>= 1) {
+        if (tid < offset) {
+            for (int i = 0; i < 3; i++) {
+                shSum[i][tid] += shSum[i][tid + offset];
+                shBlack[i][tid] += shBlack[i][tid + offset];
+            }
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+    if (tid == 0) {
+        for (int i = 0; i < 3; i++) {
+            const long denom = totalPx - (skipblack ? (long)shBlack[i][0] : 0L);
+            const float mean = (denom > 0) ? ((float)shSum[i][0] / (float)denom) * (1.0f / 65535.0f) : 0.0f;
+            bVals[i] = 1.0f - mean;
+        }
     }
 }

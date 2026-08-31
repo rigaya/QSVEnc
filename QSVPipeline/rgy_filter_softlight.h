@@ -28,7 +28,6 @@
 
 #pragma once
 
-#include <array>
 #include "rgy_filter_cl.h"
 #include "rgy_prm.h"
 
@@ -53,12 +52,12 @@ protected:
 
     RGY_ERR checkParam(const std::shared_ptr<RGYFilterParamSoftLight> prm);
     RGY_ERR allocWork(const RGYFrameInfo& rgbFrame);
-    RGY_ERR finaliseReduction(RGYOpenCLQueue &queue, std::array<long long, 6>& host);
     RGY_ERR procFrame(RGYFrameInfo *pFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
 
     std::unique_ptr<RGYFilterCspCrop> m_convIn;
     std::unique_ptr<RGYFilterCspCrop> m_convOut;
     std::unique_ptr<RGYCLBuf> m_reduce;
+    std::unique_ptr<RGYCLBuf> m_bVals;
     RGYOpenCLProgramAsync m_softlight;
     int m_numGroupsLastDispatch;
 };

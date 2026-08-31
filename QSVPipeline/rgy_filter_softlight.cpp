@@ -26,19 +26,20 @@
 //
 // -----------------------------------------------------------------------------------------
 
-#include <array>
 #include <vector>
 #include "convert_csp.h"
 #include "rgy_filter_softlight.h"
 
 static const int SOFTLIGHT_BLOCK_X = 32;
 static const int SOFTLIGHT_BLOCK_Y = 8;
+static const int SOFTLIGHT_FINALIZE_THREADS = 256;
 
 RGYFilterSoftLight::RGYFilterSoftLight(shared_ptr<RGYOpenCLContext> context) :
     RGYFilter(context),
     m_convIn(),
     m_convOut(),
     m_reduce(),
+    m_bVals(),
     m_softlight(),
     m_numGroupsLastDispatch(0) {
     m_name = _T("softlight");
@@ -73,8 +74,18 @@ RGY_ERR RGYFilterSoftLight::allocWork(const RGYFrameInfo& rgbFrame) {
     };
     const int wgX = (rgbFrame.width  + SOFTLIGHT_BLOCK_X - 1) / SOFTLIGHT_BLOCK_X;
     const int wgY = (rgbFrame.height + SOFTLIGHT_BLOCK_Y - 1) / SOFTLIGHT_BLOCK_Y;
-    const size_t reduceBytes = (size_t)wgX * wgY * 6 * sizeof(long long);
-    return allocBuf(m_reduce, reduceBytes, _T("reduce"));
+    const size_t reduceBytes = (size_t)wgX * wgY * 6 * sizeof(uint32_t);
+    auto sts = allocBuf(m_reduce, reduceBytes, _T("reduce"));
+    if (sts != RGY_ERR_NONE) return sts;
+    if (!m_bVals) {
+        float zero[3] = {};
+        m_bVals = m_cl->createBuffer(sizeof(zero), CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, zero);
+        if (!m_bVals) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to allocate strength buffer.\n"));
+            return RGY_ERR_MEMORY_ALLOC;
+        }
+    }
+    return RGY_ERR_NONE;
 }
 
 RGY_ERR RGYFilterSoftLight::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) {
@@ -139,11 +150,13 @@ RGY_ERR RGYFilterSoftLight::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<R
     const auto options = strsprintf("-D softlight_block_x=%d -D softlight_block_y=%d"
         " -D SOFTLIGHT_MODE_NEUTRALIZE=%d -D SOFTLIGHT_MODE_LIGHTNESS=%d"
         " -D SOFTLIGHT_MODE_NEUTRALIZE_BOOST_SAT=%d -D SOFTLIGHT_MODE_NEUTRALIZE_FULL=%d"
-        " -D SOFTLIGHT_MODE_NEUTRALIZE_BOOST=%d -D SOFTLIGHT_MODE_SATURATION=%d",
+        " -D SOFTLIGHT_MODE_NEUTRALIZE_BOOST=%d -D SOFTLIGHT_MODE_SATURATION=%d"
+        " -D softlight_finalize_threads=%d",
         SOFTLIGHT_BLOCK_X, SOFTLIGHT_BLOCK_Y,
         (int)VppSoftLightMode::NEUTRALIZE, (int)VppSoftLightMode::LIGHTNESS,
         (int)VppSoftLightMode::NEUTRALIZE_BOOST_SAT, (int)VppSoftLightMode::NEUTRALIZE_FULL,
-        (int)VppSoftLightMode::NEUTRALIZE_BOOST, (int)VppSoftLightMode::SATURATION);
+        (int)VppSoftLightMode::NEUTRALIZE_BOOST, (int)VppSoftLightMode::SATURATION,
+        SOFTLIGHT_FINALIZE_THREADS);
     m_softlight.set(m_cl->buildResourceAsync(_T("RGY_FILTER_SOFTLIGHT_CL"), _T("EXE_DATA"), options.c_str()));
 
     sts = AllocFrameBuf(prm->frameOut, 1);
@@ -168,32 +181,6 @@ RGY_ERR RGYFilterSoftLight::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<R
     setFilterInfo(info);
     m_param = prm;
     return sts;
-}
-
-RGY_ERR RGYFilterSoftLight::finaliseReduction(RGYOpenCLQueue &queue, std::array<long long, 6>& host) {
-    const size_t bytes = (size_t)m_numGroupsLastDispatch * host.size() * sizeof(host[0]);
-    std::vector<long long> partials(m_numGroupsLastDispatch * host.size(), 0);
-
-    RGYOpenCLEvent readEvent;
-    auto clerr = clEnqueueReadBuffer(queue.get(), m_reduce->mem(),
-        CL_FALSE, 0, bytes, partials.data(), 0, nullptr, readEvent.reset_ptr());
-    if (clerr != CL_SUCCESS) {
-        AddMessage(RGY_LOG_ERROR, _T("softlight reduction readback failed: %s.\n"), cl_errmes(clerr));
-        return err_cl_to_rgy(clerr);
-    }
-    auto sts = readEvent.wait();
-    if (sts != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("softlight reduction readback wait failed: %s.\n"), get_err_mes(sts));
-        return sts;
-    }
-
-    host = {};
-    for (int g = 0; g < m_numGroupsLastDispatch; g++) {
-        for (int i = 0; i < (int)host.size(); i++) {
-            host[i] += partials[g * host.size() + i];
-        }
-    }
-    return RGY_ERR_NONE;
 }
 
 RGY_ERR RGYFilterSoftLight::procFrame(RGYFrameInfo *pFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
@@ -251,7 +238,6 @@ RGY_ERR RGYFilterSoftLight::procFrame(RGYFrameInfo *pFrame, RGYOpenCLQueue &queu
     // boost以外は各プレーンを単一の融合カーネルで処理する。
     // boostには削除できる中間処理がないため、従来の3回のin-place起動を維持する。
     if (mode != VppSoftLightMode::BOOST) {
-        std::array<float, 3> b = { 0.0f, 0.0f, 0.0f };
         if (neutralize) {
             const int wgX = (width  + SOFTLIGHT_BLOCK_X - 1) / SOFTLIGHT_BLOCK_X;
             const int wgY = (height + SOFTLIGHT_BLOCK_Y - 1) / SOFTLIGHT_BLOCK_Y;
@@ -263,22 +249,21 @@ RGY_ERR RGYFilterSoftLight::procFrame(RGYFrameInfo *pFrame, RGYOpenCLQueue &queu
             if (launchErr(reduce_name, errReduce) != RGY_ERR_NONE) return errReduce;
             setPrevEvent(&prevEvent);
 
-            std::array<long long, 6> host = {};
-            auto sts = finaliseReduction(queue, host);
-            if (sts != RGY_ERR_NONE) return sts;
-            kernelWait.clear();
-
-            const double totalPx = (double)((int64_t)width * height);
-            for (int i = 0; i < 3; i++) {
-                const double denom = totalPx - (prm->softlight.skipblack ? (double)host[3 + i] : 0.0);
-                const double mean = (denom > 0.0) ? ((double)host[i] / denom) / 65535.0 : 0.0;
-                b[i] = (float)(1.0 - mean);
-            }
+            // 強度計算も同じキューへ投入し、ホストreadbackによるキュードレインを避ける。
+            const char *finalize_name = "kernel_softlight_finalize_b";
+            RGYWorkSize finalizeLocal(SOFTLIGHT_FINALIZE_THREADS, 1);
+            RGYWorkSize finalizeGlobal(SOFTLIGHT_FINALIZE_THREADS, 1);
+            const cl_long totalPx = (cl_long)width * height;
+            auto errFinalize = m_softlight.get()->kernel(finalize_name).config(queue, finalizeLocal, finalizeGlobal, kernelWait, &prevEvent).launch(
+                m_reduce->mem(), m_numGroupsLastDispatch, totalPx, prm->softlight.skipblack ? 1 : 0, m_bVals->mem());
+            if (launchErr(finalize_name, errFinalize) != RGY_ERR_NONE) return errFinalize;
+            setPrevEvent(&prevEvent);
         }
+        // saturationは強度を使わない。m_bValsは確保時にゼロ初期化して将来の変更にも備える。
         const char *kernel_name = "kernel_softlight_fused_u16";
         auto err = m_softlight.get()->kernel(kernel_name).config(queue, local, global, kernelWait, event).launch(
             (cl_mem)planeR.ptr[0], planeR.pitch[0], (cl_mem)planeG.ptr[0], planeG.pitch[0], (cl_mem)planeB.ptr[0], planeB.pitch[0],
-            width, height, modeInt, b[0], b[1], b[2], formulaInt);
+            width, height, modeInt, m_bVals->mem(), formulaInt);
         if (launchErr(kernel_name, err) != RGY_ERR_NONE) return err;
         return RGY_ERR_NONE;
     }
@@ -365,6 +350,7 @@ void RGYFilterSoftLight::close() {
     m_convIn.reset();
     m_convOut.reset();
     m_reduce.reset();
+    m_bVals.reset();
     m_softlight.clear();
     m_frameBuf.clear();
     m_cl.reset();
