@@ -32,6 +32,12 @@
 #include "rgy_filter_maa.h"
 #include "rgy_filter_resize.h"
 
+// 1 work-itemで処理する連続出力数。隣接出力が共有する6列の縦和を再利用する。
+// Arc B580では2/4/8の比較で8が両解像度とも約3%速かったため、この値を採用する。
+// ただし最適値はGPUに依存し、Arc A770では640x480に限り4がわずかに優位だった
+// (1080pでは8が優位)。値を上げるとcolsum[]のレジスタ使用量が増えるため、
+// レジスタの少ない世代で退行が出た場合はまずこの値を下げて確認すること。
+static const int MAA_SMOOTH_X_PER_ITEM = 8;
 static const int MAA_BLOCK_X = 32;
 static const int MAA_BLOCK_Y = 8;
 
@@ -169,10 +175,11 @@ RGY_ERR RGYFilterMaa::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog>
     if (!prmPrev
         || RGY_CSP_BIT_DEPTH[prmPrev->frameOut.csp] != RGY_CSP_BIT_DEPTH[pParam->frameOut.csp]) {
         const int maxVal = peak;
-        m_maaBuildOptions = strsprintf("-D Type=%s -D bit_depth=%d -D max_val=%d -D maa_block_x=%d -D maa_block_y=%d",
+        m_maaBuildOptions = strsprintf("-D Type=%s -D bit_depth=%d -D max_val=%d -D maa_block_x=%d -D maa_block_y=%d"
+            " -D MAA_SMOOTH_X_PER_ITEM=%d",
             bitDepth > 8 ? "ushort" : "uchar",
             bitDepth, maxVal,
-            MAA_BLOCK_X, MAA_BLOCK_Y);
+            MAA_BLOCK_X, MAA_BLOCK_Y, MAA_SMOOTH_X_PER_ITEM);
         AddMessage(RGY_LOG_DEBUG, _T("Starting async build for RGY_FILTER_MAA_CL: %s\n"),
             char_to_tstring(m_maaBuildOptions).c_str());
         m_maa.set(m_cl->buildResourceAsync(_T("RGY_FILTER_MAA_CL"), _T("EXE_DATA"), m_maaBuildOptions.c_str()));
@@ -467,7 +474,7 @@ RGY_ERR RGYFilterMaa::sangnomPassPlane(const RGYFrameInfo *pSrc, RGYFrameInfo *p
     // invoked here.
     {
         RGYWorkSize local(MAA_BLOCK_X, MAA_BLOCK_Y, 1);
-        RGYWorkSize global(bufW, bufH, MAA_NUM_COST_BUFFERS);
+        RGYWorkSize global((bufW + MAA_SMOOTH_X_PER_ITEM - 1) / MAA_SMOOTH_X_PER_ITEM, bufH, MAA_NUM_COST_BUFFERS);
         auto err = m_maa.get()->kernel("maa_sangnom_smooth_3d")
             .config(queue, local, global, {}, nullptr).launch(
                 m_costRawPacked->mem(),

@@ -303,17 +303,19 @@ __kernel void maa_sangnom_smooth_3d(
     int bufPitch, int bufSliceBytes,
     int bufW, int bufH
 ) {
-    const int x        = get_global_id(0);
+    const int x0       = get_global_id(0) * MAA_SMOOTH_X_PER_ITEM;
     const int ybuf     = get_global_id(1);
     const int bufIndex = get_global_id(2);
-    if (x >= bufW || ybuf >= bufH || bufIndex >= 9) return;
+    if (x0 >= bufW || ybuf >= bufH || bufIndex >= 9) return;
 
     const __global uchar *pBufIn  = pCostPacked   + bufIndex * bufSliceBytes;
     __global       uchar *pBufOut = pSmoothPacked + bufIndex * bufSliceBytes;
 
-    int hsum = 0;
-    for (int dx = -3; dx <= 3; dx++) {
-        int xc = x + dx;
+    // 隣接する出力は7列中6列を共有するため、列ごとの縦和を一度だけ計算して再利用する。
+    // 各出力では従来と同じ7個の縦和を同じ順序で加算するため、結果はビット一致する。
+    int colsum[MAA_SMOOTH_X_PER_ITEM + 6];
+    for (int i = 0; i < MAA_SMOOTH_X_PER_ITEM + 6; i++) {
+        int xc = x0 - 3 + i;
         if (xc < 0)     xc = 0;
         if (xc >= bufW) xc = bufW - 1;
         int vsum = 0;
@@ -323,15 +325,24 @@ __kernel void maa_sangnom_smooth_3d(
             if (yc >= bufH) yc = bufH - 1;
             vsum += (int)(*(const __global Type *)(pBufIn + yc * bufPitch + xc * sizeof(Type)));
         }
-        hsum += vsum;
+        colsum[i] = vsum;
     }
 
-    int out = hsum >> 4;          // /16 (asymmetric normalization)
-    if (out < 0)        out = 0;
-    if (out > max_val)  out = max_val;
-
     __global Type *outRow = (__global Type *)(pBufOut + ybuf * bufPitch);
-    outRow[x] = (Type)out;
+    for (int k = 0; k < MAA_SMOOTH_X_PER_ITEM; k++) {
+        const int x = x0 + k;
+        if (x >= bufW) break;
+        int hsum = 0;
+        for (int dx = 0; dx < 7; dx++) {
+            hsum += colsum[k + dx];
+        }
+
+        int out = hsum >> 4;          // /16 (asymmetric normalization)
+        if (out < 0)        out = 0;
+        if (out > max_val)  out = max_val;
+
+        outRow[x] = (Type)out;
+    }
 }
 
 // [MAA-LOCAL-SMOOTH] Prototype: smooth kernel with __local-memory tile.
