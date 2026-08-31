@@ -469,9 +469,7 @@ RGY_ERR RGYFilterMaa::sangnomPassPlane(const RGYFrameInfo *pSrc, RGYFrameInfo *p
     // separate (bufW, bufH) dispatches. The kernel now uses
     // get_global_id(2) for the slice index. Each pass drops 8 of the 9
     // per-slice enqueue calls; over 2 passes per frame that is 16 fewer
-    // CL enqueue operations per frame. The 2-D fallback kernel
-    // `maa_sangnom_smooth` is kept in the .cl for reference but is not
-    // invoked here.
+    // CL enqueue operations per frame.
     {
         RGYWorkSize local(MAA_BLOCK_X, MAA_BLOCK_Y, 1);
         RGYWorkSize global((bufW + MAA_SMOOTH_X_PER_ITEM - 1) / MAA_SMOOTH_X_PER_ITEM, bufH, MAA_NUM_COST_BUFFERS);

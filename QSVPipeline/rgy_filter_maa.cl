@@ -250,53 +250,13 @@ __kernel void maa_sangnom_prepare(
 // Sums fit in int32 comfortably: 21 × max_val ≤ 21 × 65535 ≈ 1.4 M.
 // The output is clamped to [0, max_val] so it fits back into Type.
 //
-// Caller dispatches this kernel 9 times — once per cost slice — with the
-// matching `bufIndex` (0..8). Both input and output use the SAME packed
-// layout, so a single `pitch` and `sliceBytes` describe both.
-__kernel void maa_sangnom_smooth(
-    const __global uchar *pCostPacked,
-    __global       uchar *pSmoothPacked,
-    int bufPitch, int bufSliceBytes,
-    int bufIndex,
-    int bufW, int bufH
-) {
-    const int x    = get_global_id(0);
-    const int ybuf = get_global_id(1);
-    if (x >= bufW || ybuf >= bufH) return;
-
-    const __global uchar *pBufIn  = pCostPacked   + bufIndex * bufSliceBytes;
-    __global       uchar *pBufOut = pSmoothPacked + bufIndex * bufSliceBytes;
-
-    int hsum = 0;
-    for (int dx = -3; dx <= 3; dx++) {
-        int xc = x + dx;
-        if (xc < 0)     xc = 0;
-        if (xc >= bufW) xc = bufW - 1;
-        int vsum = 0;
-        for (int dy = -1; dy <= 1; dy++) {
-            int yc = ybuf + dy;
-            if (yc < 0)     yc = 0;
-            if (yc >= bufH) yc = bufH - 1;
-            vsum += (int)(*(const __global Type *)(pBufIn + yc * bufPitch + xc * sizeof(Type)));
-        }
-        hsum += vsum;
-    }
-
-    int out = hsum >> 4;          // /16 (asymmetric normalization)
-    if (out < 0)        out = 0;
-    if (out > max_val)  out = max_val;
-
-    __global Type *outRow = (__global Type *)(pBufOut + ybuf * bufPitch);
-    outRow[x] = (Type)out;
-}
-
-// [MAA-3D-SMOOTH] 3-D dispatch variant: same math as maa_sangnom_smooth,
-// but the bufIndex parameter is replaced by `get_global_id(2)`. The host
-// dispatches a single (bufW, bufH, 9) grid instead of 9 separate
-// (bufW, bufH) grids, dropping 8 of the 9 per-pass enqueue calls.
+// Both input and output use the SAME packed layout, so a single `pitch`
+// and `sliceBytes` describe both.
 //
-// The old maa_sangnom_smooth kernel is kept for fallback / reference
-// (build option, debug toggle, future work) but is not currently called.
+// [MAA-3D-SMOOTH] 3-D dispatch: the slice index comes from
+// `get_global_id(2)`, so the host dispatches a single (bufW, bufH, 9)
+// grid instead of 9 separate (bufW, bufH) grids, dropping 8 of the 9
+// per-pass enqueue calls.
 __kernel void maa_sangnom_smooth_3d(
     const __global uchar *pCostPacked,
     __global       uchar *pSmoothPacked,
@@ -343,142 +303,6 @@ __kernel void maa_sangnom_smooth_3d(
 
         outRow[x] = (Type)out;
     }
-}
-
-// [MAA-LOCAL-SMOOTH] Prototype: smooth kernel with __local-memory tile.
-//
-// Status: NOT WIRED. Built into the program but not dispatched. Kept as a
-// candidate optimisation behind profiler data.
-//
-// Measured (Arc A770, --vpp-perf-monitor, --trim 0:500) at every
-// resolution that meaningfully exercises this pipeline:
-//
-//   Resolution  Pixels   global us   SLM us    delta
-//   640x480     307K     840         ~1490     +75%   (SD anime DVD source)
-//   1280x720    922K     2560        ~4500     +75%   (HD test source)
-//   1920x1080   2074K    5593        ~9800     +75%   (HD test source)
-//   3840x2160   8294K    23346       ~40900    +75%   (upscaled to 4K)
-//
-// The slowdown is consistently ~75% across all four resolutions; the
-// SLM variant never wins. The bandwidth-math hypothesis at the bottom
-// of this comment ("21 global reads collapse to ~1.5 via SLM") does
-// not predict real performance because on Arc A770 those 21 reads
-// are L2 hits even at 4K -- the per-frame working set of the 3x7
-// stencil stays inside the 16 MB L2 at every tested resolution. The
-// cooperative tile load + workgroup barrier overhead added by SLM
-// costs more than the L2 reads it replaces, at every scale we can
-// test on this device.
-//
-// FineDehalo and HQDering edge kernels were tested with the same
-// SLM-vs-global swap across the same four resolutions:
-//   FineDehalo: indistinguishable from baseline at all resolutions.
-//   HQDering: +12% at 480p, growing to +31% at 4K (the small SLM
-//             overhead becomes a larger share of the kernel's total
-//             work as resolution increases).
-//
-// Conclusion: SLM tile-load is the wrong optimisation for this
-// hardware on neighbourhood operators with this working-set size.
-// Re-evaluate only on devices with a substantially smaller L2 (so
-// L2 misses actually dominate the global path), or for operators
-// with neighbourhoods large enough that the unique pixel footprint
-// of a workgroup exceeds the L2 budget. float4 vectorisation was
-// also skipped on the same reasoning -- with reads hitting L2,
-// load width is not the bottleneck either.
-//
-// Design rationale: the existing maa_sangnom_smooth_3d issues 21 global-
-// memory loads per work-item (3-row × 7-col stencil) for the read side.
-// Within a workgroup, neighbouring work-items overlap by 6 columns and 2
-// rows, so the unique pixel footprint of a (BX × BY) workgroup is only
-// (BX + 6) × (BY + 2). For (32, 8) that is 38 × 10 = 380 unique reads
-// vs 256 × 21 = 5376 redundant reads — about 14× more global traffic
-// than necessary. Loading once into __local then computing from there
-// should significantly reduce DRAM bandwidth (only when L2 misses).
-//
-// Local-memory cost per workgroup (one slice at a time, since z is
-// fixed per workgroup in the 3-D dispatch):
-//   8-bit:  380 bytes  (well under 64 KiB on Arc / Iris)
-//   16-bit: 760 bytes
-//
-// This prototype uses fixed compile-time tile dimensions for clarity:
-// MAA_LOCAL_BX = 32, MAA_LOCAL_BY = 8 (matching the default workgroup
-// size). If the workgroup-size experiment (RGY_MAA_WG_X/Y) settles on
-// a different size, the tile sizes here must be updated to match before
-// wiring. A more flexible version would use dynamic local memory, but
-// the static form is easier to reason about for the prototype.
-#define MAA_LOCAL_BX 32
-#define MAA_LOCAL_BY  8
-#define MAA_LOCAL_TILE_W (MAA_LOCAL_BX + 6)   // 32 + 2*3 (horizontal halo)
-#define MAA_LOCAL_TILE_H (MAA_LOCAL_BY + 2)   // 8  + 2*1 (vertical halo)
-
-__kernel
-__attribute__((reqd_work_group_size(MAA_LOCAL_BX, MAA_LOCAL_BY, 1)))
-void maa_sangnom_smooth_local(
-    const __global uchar *pCostPacked,
-    __global       uchar *pSmoothPacked,
-    int bufPitch, int bufSliceBytes,
-    int bufW, int bufH
-) {
-    const int gx       = get_global_id(0);
-    const int gy       = get_global_id(1);
-    const int bufIndex = get_global_id(2);
-    const int lx       = get_local_id(0);
-    const int ly       = get_local_id(1);
-    const int wgBaseX  = gx - lx;
-    const int wgBaseY  = gy - ly;
-
-    if (bufIndex >= 9) return;
-    const __global uchar *pBufIn  = pCostPacked   + bufIndex * bufSliceBytes;
-    __global       uchar *pBufOut = pSmoothPacked + bufIndex * bufSliceBytes;
-
-    __local Type tile[MAA_LOCAL_TILE_H][MAA_LOCAL_TILE_W];
-
-    // Cooperative tile load: each work-item loads one or more tile slots.
-    // The tile is (BX+6) × (BY+2) entries — slightly larger than the WG.
-    // We use a 2-D loop where each work-item strides by (BX, BY) until
-    // the whole tile is covered. For BX=32, BY=8: TILE_W=38, TILE_H=10
-    // → 380/(32*8)=380/256≈1.48 loads/work-item on average; some
-    // work-items do 2 loads, most do 1.
-    for (int dy = ly; dy < MAA_LOCAL_TILE_H; dy += MAA_LOCAL_BY) {
-        const int srcY = wgBaseY + dy - 1;          // -1 for top halo
-        const int yc   = (srcY < 0)        ? 0
-                       : (srcY >= bufH)    ? bufH - 1
-                       :                     srcY;
-        const __global Type *row = (const __global Type *)(pBufIn + yc * bufPitch);
-        for (int dx = lx; dx < MAA_LOCAL_TILE_W; dx += MAA_LOCAL_BX) {
-            const int srcX = wgBaseX + dx - 3;      // -3 for left halo
-            const int xc   = (srcX < 0)        ? 0
-                           : (srcX >= bufW)    ? bufW - 1
-                           :                     srcX;
-            tile[dy][dx] = row[xc];
-        }
-    }
-
-    barrier(CLK_LOCAL_MEM_FENCE);
-
-    // Out-of-bounds work-items still helped fill the tile above; only
-    // skip the write here. (This guard is after the tile load so other
-    // work-items that needed our halo cooperation have completed.)
-    if (gx >= bufW || gy >= bufH) return;
-
-    // 3×7 sum using __local reads. Tile coordinates: my pixel sits at
-    // (lx + 3, ly + 1) — the +3/+1 accounts for the halo offset.
-    const int tx = lx + 3;
-    const int ty = ly + 1;
-    int hsum = 0;
-    for (int dx = -3; dx <= 3; dx++) {
-        int vsum = 0;
-        for (int dy = -1; dy <= 1; dy++) {
-            vsum += (int)tile[ty + dy][tx + dx];
-        }
-        hsum += vsum;
-    }
-
-    int out = hsum >> 4;          // /16 (asymmetric normalization)
-    if (out < 0)        out = 0;
-    if (out > max_val)  out = max_val;
-
-    __global Type *outRow = (__global Type *)(pBufOut + gy * bufPitch);
-    outRow[gx] = (Type)out;
 }
 
 // Stage 3 — finalize: pick the min-cost direction (with vertical bail-out
