@@ -118,19 +118,6 @@ __kernel void kernel_reduce_rgb_u16(
     }
 }
 
-__kernel void kernel_softlight_scalar_u16(
-    __global uchar *pPlane, const int pitch, const int width, const int height,
-    const float b, const int formula
-) {
-    const int x = get_global_id(0);
-    const int y = get_global_id(1);
-    if (x < width && y < height) {
-        __global ushort *ptr = (__global ushort *)(pPlane + y * pitch + x * sizeof(ushort));
-        const float a = (float)ptr[0] * (1.0f / 65535.0f);
-        ptr[0] = softlight_to_u16(softlight_func(a, b, formula));
-    }
-}
-
 __kernel void kernel_softlight_self_u16(
     __global uchar *pPlane, const int pitch, const int width, const int height,
     const int formula
@@ -144,91 +131,72 @@ __kernel void kernel_softlight_self_u16(
     }
 }
 
-__kernel void kernel_softlight_self_f32(__global float *pPlane, const int width, const int height, const int formula) {
-    const int x = get_global_id(0);
-    const int y = get_global_id(1);
-    if (x < width && y < height) {
-        const int idx = y * width + x;
-        const float a = pPlane[idx];
-        pPlane[idx] = fmin(fmax(softlight_func(a, a, formula), 0.0f), 1.0f);
-    }
-}
-
-__kernel void kernel_rgb_to_v_u16(
-    const __global uchar *pR, const int pitchR,
-    const __global uchar *pG, const int pitchG,
-    const __global uchar *pB, const int pitchB,
-    const int width, const int height,
-    __global float *pV
-) {
-    const int x = get_global_id(0);
-    const int y = get_global_id(1);
-    if (x < width && y < height) {
-        const float r = (float)(*((const __global ushort *)(pR + y * pitchR + x * sizeof(ushort)))) * (1.0f / 65535.0f);
-        const float g = (float)(*((const __global ushort *)(pG + y * pitchG + x * sizeof(ushort)))) * (1.0f / 65535.0f);
-        const float b = (float)(*((const __global ushort *)(pB + y * pitchB + x * sizeof(ushort)))) * (1.0f / 65535.0f);
-        pV[y * width + x] = fmax(r, fmax(g, b));
-    }
-}
-
-__kernel void kernel_rgb_to_hs_u16(
-    const __global uchar *pR, const int pitchR,
-    const __global uchar *pG, const int pitchG,
-    const __global uchar *pB, const int pitchB,
-    const int width, const int height,
-    __global float *pH, __global float *pS
-) {
-    const int x = get_global_id(0);
-    const int y = get_global_id(1);
-    if (x < width && y < height) {
-        float h, s, v;
-        const float r = (float)(*((const __global ushort *)(pR + y * pitchR + x * sizeof(ushort)))) * (1.0f / 65535.0f);
-        const float g = (float)(*((const __global ushort *)(pG + y * pitchG + x * sizeof(ushort)))) * (1.0f / 65535.0f);
-        const float b = (float)(*((const __global ushort *)(pB + y * pitchB + x * sizeof(ushort)))) * (1.0f / 65535.0f);
-        rgb_to_hsv_value(r, g, b, &h, &s, &v);
-        const int idx = y * width + x;
-        pH[idx] = h;
-        pS[idx] = s;
-    }
-}
-
-__kernel void kernel_rgb_to_hsv_u16(
-    const __global uchar *pR, const int pitchR,
-    const __global uchar *pG, const int pitchG,
-    const __global uchar *pB, const int pitchB,
-    const int width, const int height,
-    __global float *pH, __global float *pS, __global float *pV
-) {
-    const int x = get_global_id(0);
-    const int y = get_global_id(1);
-    if (x < width && y < height) {
-        float h, s, v;
-        const float r = (float)(*((const __global ushort *)(pR + y * pitchR + x * sizeof(ushort)))) * (1.0f / 65535.0f);
-        const float g = (float)(*((const __global ushort *)(pG + y * pitchG + x * sizeof(ushort)))) * (1.0f / 65535.0f);
-        const float b = (float)(*((const __global ushort *)(pB + y * pitchB + x * sizeof(ushort)))) * (1.0f / 65535.0f);
-        rgb_to_hsv_value(r, g, b, &h, &s, &v);
-        const int idx = y * width + x;
-        pH[idx] = h;
-        pS[idx] = s;
-        pV[idx] = v;
-    }
-}
-
-__kernel void kernel_hsv_to_rgb_u16(
+// boost以外の各モードを、フル解像度の中間バッファを介さずレジスタ内で処理する。
+// 旧処理が16bitプレーンへ中間値を書いていた地点では、同じsoftlight_to_u16()で
+// 再量子化してから後段へ渡す。丸め位置を旧処理と合わせることでビット一致を保つ。
+__kernel void kernel_softlight_fused_u16(
     __global uchar *pR, const int pitchR,
     __global uchar *pG, const int pitchG,
     __global uchar *pB, const int pitchB,
     const int width, const int height,
-    const __global float *pH, const __global float *pS, const __global float *pV
+    const int mode,
+    const float bR, const float bG, const float bB,
+    const int formula
 ) {
     const int x = get_global_id(0);
     const int y = get_global_id(1);
     if (x < width && y < height) {
-        const int idx = y * width + x;
-        float r, g, b;
-        hsv_to_rgb_value(pH[idx], pS[idx], pV[idx], &r, &g, &b);
-        *((__global ushort *)(pR + y * pitchR + x * sizeof(ushort))) = softlight_to_u16(r);
-        *((__global ushort *)(pG + y * pitchG + x * sizeof(ushort))) = softlight_to_u16(g);
-        *((__global ushort *)(pB + y * pitchB + x * sizeof(ushort))) = softlight_to_u16(b);
+        __global ushort *ptrR = (__global ushort *)(pR + y * pitchR + x * sizeof(ushort));
+        __global ushort *ptrG = (__global ushort *)(pG + y * pitchG + x * sizeof(ushort));
+        __global ushort *ptrB = (__global ushort *)(pB + y * pitchB + x * sizeof(ushort));
+        const float r = (float)ptrR[0] * (1.0f / 65535.0f);
+        const float g = (float)ptrG[0] * (1.0f / 65535.0f);
+        const float b = (float)ptrB[0] * (1.0f / 65535.0f);
+        float ro = r, go = g, bo = b;
+        if (mode == SOFTLIGHT_MODE_NEUTRALIZE) {
+            const float vOrig = fmax(r, fmax(g, b));
+            const float rm = (float)softlight_to_u16(softlight_func(r, bR, formula)) * (1.0f / 65535.0f);
+            const float gm = (float)softlight_to_u16(softlight_func(g, bG, formula)) * (1.0f / 65535.0f);
+            const float bm = (float)softlight_to_u16(softlight_func(b, bB, formula)) * (1.0f / 65535.0f);
+            float h, sVal, vMod;
+            rgb_to_hsv_value(rm, gm, bm, &h, &sVal, &vMod);
+            hsv_to_rgb_value(h, sVal, vOrig, &ro, &go, &bo);
+        } else if (mode == SOFTLIGHT_MODE_LIGHTNESS) {
+            float h, sVal, vOrig;
+            rgb_to_hsv_value(r, g, b, &h, &sVal, &vOrig);
+            const float rm = (float)softlight_to_u16(softlight_func(r, bR, formula)) * (1.0f / 65535.0f);
+            const float gm = (float)softlight_to_u16(softlight_func(g, bG, formula)) * (1.0f / 65535.0f);
+            const float bm = (float)softlight_to_u16(softlight_func(b, bB, formula)) * (1.0f / 65535.0f);
+            const float vMod = fmax(rm, fmax(gm, bm));
+            hsv_to_rgb_value(h, sVal, vMod, &ro, &go, &bo);
+        } else if (mode == SOFTLIGHT_MODE_NEUTRALIZE_BOOST_SAT) {
+            const float vOrig = fmax(r, fmax(g, b));
+            const float rm = (float)softlight_to_u16(softlight_func(r, bR, formula)) * (1.0f / 65535.0f);
+            const float gm = (float)softlight_to_u16(softlight_func(g, bG, formula)) * (1.0f / 65535.0f);
+            const float bm = (float)softlight_to_u16(softlight_func(b, bB, formula)) * (1.0f / 65535.0f);
+            float h, sVal, vMod;
+            rgb_to_hsv_value(rm, gm, bm, &h, &sVal, &vMod);
+            const float sB = fmin(fmax(softlight_func(sVal, sVal, formula), 0.0f), 1.0f);
+            hsv_to_rgb_value(h, sB, vOrig, &ro, &go, &bo);
+        } else if (mode == SOFTLIGHT_MODE_NEUTRALIZE_FULL) {
+            ro = softlight_func(r, bR, formula);
+            go = softlight_func(g, bG, formula);
+            bo = softlight_func(b, bB, formula);
+        } else if (mode == SOFTLIGHT_MODE_NEUTRALIZE_BOOST) {
+            const float rm = (float)softlight_to_u16(softlight_func(r, bR, formula)) * (1.0f / 65535.0f);
+            const float gm = (float)softlight_to_u16(softlight_func(g, bG, formula)) * (1.0f / 65535.0f);
+            const float bm = (float)softlight_to_u16(softlight_func(b, bB, formula)) * (1.0f / 65535.0f);
+            ro = softlight_func(rm, rm, formula);
+            go = softlight_func(gm, gm, formula);
+            bo = softlight_func(bm, bm, formula);
+        } else { // SOFTLIGHT_MODE_SATURATION
+            float h, sVal, vOrig;
+            rgb_to_hsv_value(r, g, b, &h, &sVal, &vOrig);
+            const float sB = fmin(fmax(softlight_func(sVal, sVal, formula), 0.0f), 1.0f);
+            hsv_to_rgb_value(h, sB, vOrig, &ro, &go, &bo);
+        }
+        ptrR[0] = softlight_to_u16(ro);
+        ptrG[0] = softlight_to_u16(go);
+        ptrB[0] = softlight_to_u16(bo);
     }
 }

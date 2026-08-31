@@ -38,9 +38,6 @@ RGYFilterSoftLight::RGYFilterSoftLight(shared_ptr<RGYOpenCLContext> context) :
     RGYFilter(context),
     m_convIn(),
     m_convOut(),
-    m_hsvH(),
-    m_hsvS(),
-    m_hsvV(),
     m_reduce(),
     m_softlight(),
     m_numGroupsLastDispatch(0) {
@@ -64,7 +61,6 @@ RGY_ERR RGYFilterSoftLight::checkParam(const std::shared_ptr<RGYFilterParamSoftL
 }
 
 RGY_ERR RGYFilterSoftLight::allocWork(const RGYFrameInfo& rgbFrame) {
-    const auto frameSize = (size_t)rgbFrame.width * rgbFrame.height * sizeof(float);
     auto allocBuf = [&](std::unique_ptr<RGYCLBuf>& buf, const size_t size, const TCHAR *name) {
         if (!buf || buf->size() < size) {
             buf = m_cl->createBuffer(size, CL_MEM_READ_WRITE);
@@ -75,13 +71,6 @@ RGY_ERR RGYFilterSoftLight::allocWork(const RGYFrameInfo& rgbFrame) {
         }
         return RGY_ERR_NONE;
     };
-    auto sts = allocBuf(m_hsvH, frameSize, _T("HSV H"));
-    if (sts != RGY_ERR_NONE) return sts;
-    sts = allocBuf(m_hsvS, frameSize, _T("HSV S"));
-    if (sts != RGY_ERR_NONE) return sts;
-    sts = allocBuf(m_hsvV, frameSize, _T("HSV V"));
-    if (sts != RGY_ERR_NONE) return sts;
-
     const int wgX = (rgbFrame.width  + SOFTLIGHT_BLOCK_X - 1) / SOFTLIGHT_BLOCK_X;
     const int wgY = (rgbFrame.height + SOFTLIGHT_BLOCK_Y - 1) / SOFTLIGHT_BLOCK_Y;
     const size_t reduceBytes = (size_t)wgX * wgY * 6 * sizeof(long long);
@@ -147,7 +136,14 @@ RGY_ERR RGYFilterSoftLight::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<R
     if ((sts = allocWork(rgbFrame)) != RGY_ERR_NONE) {
         return sts;
     }
-    const auto options = strsprintf("-D softlight_block_x=%d -D softlight_block_y=%d", SOFTLIGHT_BLOCK_X, SOFTLIGHT_BLOCK_Y);
+    const auto options = strsprintf("-D softlight_block_x=%d -D softlight_block_y=%d"
+        " -D SOFTLIGHT_MODE_NEUTRALIZE=%d -D SOFTLIGHT_MODE_LIGHTNESS=%d"
+        " -D SOFTLIGHT_MODE_NEUTRALIZE_BOOST_SAT=%d -D SOFTLIGHT_MODE_NEUTRALIZE_FULL=%d"
+        " -D SOFTLIGHT_MODE_NEUTRALIZE_BOOST=%d -D SOFTLIGHT_MODE_SATURATION=%d",
+        SOFTLIGHT_BLOCK_X, SOFTLIGHT_BLOCK_Y,
+        (int)VppSoftLightMode::NEUTRALIZE, (int)VppSoftLightMode::LIGHTNESS,
+        (int)VppSoftLightMode::NEUTRALIZE_BOOST_SAT, (int)VppSoftLightMode::NEUTRALIZE_FULL,
+        (int)VppSoftLightMode::NEUTRALIZE_BOOST, (int)VppSoftLightMode::SATURATION);
     m_softlight.set(m_cl->buildResourceAsync(_T("RGY_FILTER_SOFTLIGHT_CL"), _T("EXE_DATA"), options.c_str()));
 
     sts = AllocFrameBuf(prm->frameOut, 1);
@@ -233,9 +229,6 @@ RGY_ERR RGYFilterSoftLight::procFrame(RGYFrameInfo *pFrame, RGYOpenCLQueue &queu
         || mode == VppSoftLightMode::NEUTRALIZE_BOOST_SAT
         || mode == VppSoftLightMode::NEUTRALIZE_FULL
         || mode == VppSoftLightMode::NEUTRALIZE_BOOST;
-    const bool rgbBoost =
-        mode == VppSoftLightMode::NEUTRALIZE_BOOST
-        || mode == VppSoftLightMode::BOOST;
 
     RGYWorkSize local(SOFTLIGHT_BLOCK_X, SOFTLIGHT_BLOCK_Y);
     RGYWorkSize global(width, height);
@@ -255,129 +248,50 @@ RGY_ERR RGYFilterSoftLight::procFrame(RGYFrameInfo *pFrame, RGYOpenCLQueue &queu
         return err;
     };
 
-    if (mode == VppSoftLightMode::NEUTRALIZE || mode == VppSoftLightMode::NEUTRALIZE_BOOST_SAT) {
-        const char *kernel_name = "kernel_rgb_to_v_u16";
-        auto err = m_softlight.get()->kernel(kernel_name).config(queue, local, global, kernelWait, &prevEvent).launch(
-            (cl_mem)planeR.ptr[0], planeR.pitch[0], (cl_mem)planeG.ptr[0], planeG.pitch[0], (cl_mem)planeB.ptr[0], planeB.pitch[0],
-            width, height, m_hsvV->mem());
-        if (launchErr(kernel_name, err) != RGY_ERR_NONE) return err;
-        setPrevEvent(&prevEvent);
-    } else if (mode == VppSoftLightMode::LIGHTNESS) {
-        const char *kernel_name = "kernel_rgb_to_hs_u16";
-        auto err = m_softlight.get()->kernel(kernel_name).config(queue, local, global, kernelWait, &prevEvent).launch(
-            (cl_mem)planeR.ptr[0], planeR.pitch[0], (cl_mem)planeG.ptr[0], planeG.pitch[0], (cl_mem)planeB.ptr[0], planeB.pitch[0],
-            width, height, m_hsvH->mem(), m_hsvS->mem());
-        if (launchErr(kernel_name, err) != RGY_ERR_NONE) return err;
-        setPrevEvent(&prevEvent);
-    }
-
-    if (neutralize) {
-        const int wgX = (width  + SOFTLIGHT_BLOCK_X - 1) / SOFTLIGHT_BLOCK_X;
-        const int wgY = (height + SOFTLIGHT_BLOCK_Y - 1) / SOFTLIGHT_BLOCK_Y;
-        m_numGroupsLastDispatch = wgX * wgY;
-        const char *kernel_name = "kernel_reduce_rgb_u16";
-        auto err = m_softlight.get()->kernel(kernel_name).config(queue, local, global, kernelWait, &prevEvent).launch(
-            (cl_mem)planeR.ptr[0], planeR.pitch[0], (cl_mem)planeG.ptr[0], planeG.pitch[0], (cl_mem)planeB.ptr[0], planeB.pitch[0],
-            width, height, m_reduce->mem());
-        if (launchErr(kernel_name, err) != RGY_ERR_NONE) return err;
-        setPrevEvent(&prevEvent);
-
-        std::array<long long, 6> host = {};
-        auto sts = finaliseReduction(queue, host);
-        if (sts != RGY_ERR_NONE) return sts;
-        kernelWait.clear();
-
-        const double totalPx = (double)((int64_t)width * height);
-        std::array<float, 3> b = {};
-        for (int i = 0; i < 3; i++) {
-            const double denom = totalPx - (prm->softlight.skipblack ? (double)host[3 + i] : 0.0);
-            const double mean = (denom > 0.0) ? ((double)host[i] / denom) / 65535.0 : 0.0;
-            b[i] = (float)(1.0 - mean);
-        }
-        const struct {
-            const char *name;
-            const RGYFrameInfo *plane;
-            float b;
-        } channels[] = {
-            { "kernel_softlight_scalar_u16", &planeR, b[0] },
-            { "kernel_softlight_scalar_u16", &planeG, b[1] },
-            { "kernel_softlight_scalar_u16", &planeB, b[2] },
-        };
-        for (const auto& ch : channels) {
-            err = m_softlight.get()->kernel(ch.name).config(queue, local, global, kernelWait, &prevEvent).launch(
-                (cl_mem)ch.plane->ptr[0], ch.plane->pitch[0], width, height, ch.b, formulaInt);
-            if (launchErr(ch.name, err) != RGY_ERR_NONE) return err;
-            setPrevEvent(&prevEvent);
-        }
-    }
-
-    if (rgbBoost) {
-        const RGYFrameInfo *planes[] = { &planeR, &planeG, &planeB };
-        for (const auto plane : planes) {
-            const char *kernel_name = "kernel_softlight_self_u16";
-            auto err = m_softlight.get()->kernel(kernel_name).config(queue, local, global, kernelWait, &prevEvent).launch(
-                (cl_mem)plane->ptr[0], plane->pitch[0], width, height, formulaInt);
-            if (launchErr(kernel_name, err) != RGY_ERR_NONE) return err;
-            setPrevEvent(&prevEvent);
-        }
-    }
-
-    if (mode == VppSoftLightMode::NEUTRALIZE || mode == VppSoftLightMode::NEUTRALIZE_BOOST_SAT) {
-        {
-            const char *kernel_name = "kernel_rgb_to_hs_u16";
-            auto err = m_softlight.get()->kernel(kernel_name).config(queue, local, global, kernelWait, &prevEvent).launch(
+    // boost以外は各プレーンを単一の融合カーネルで処理する。
+    // boostには削除できる中間処理がないため、従来の3回のin-place起動を維持する。
+    if (mode != VppSoftLightMode::BOOST) {
+        std::array<float, 3> b = { 0.0f, 0.0f, 0.0f };
+        if (neutralize) {
+            const int wgX = (width  + SOFTLIGHT_BLOCK_X - 1) / SOFTLIGHT_BLOCK_X;
+            const int wgY = (height + SOFTLIGHT_BLOCK_Y - 1) / SOFTLIGHT_BLOCK_Y;
+            m_numGroupsLastDispatch = wgX * wgY;
+            const char *reduce_name = "kernel_reduce_rgb_u16";
+            auto errReduce = m_softlight.get()->kernel(reduce_name).config(queue, local, global, kernelWait, &prevEvent).launch(
                 (cl_mem)planeR.ptr[0], planeR.pitch[0], (cl_mem)planeG.ptr[0], planeG.pitch[0], (cl_mem)planeB.ptr[0], planeB.pitch[0],
-                width, height, m_hsvH->mem(), m_hsvS->mem());
-            if (launchErr(kernel_name, err) != RGY_ERR_NONE) return err;
+                width, height, m_reduce->mem());
+            if (launchErr(reduce_name, errReduce) != RGY_ERR_NONE) return errReduce;
             setPrevEvent(&prevEvent);
+
+            std::array<long long, 6> host = {};
+            auto sts = finaliseReduction(queue, host);
+            if (sts != RGY_ERR_NONE) return sts;
+            kernelWait.clear();
+
+            const double totalPx = (double)((int64_t)width * height);
+            for (int i = 0; i < 3; i++) {
+                const double denom = totalPx - (prm->softlight.skipblack ? (double)host[3 + i] : 0.0);
+                const double mean = (denom > 0.0) ? ((double)host[i] / denom) / 65535.0 : 0.0;
+                b[i] = (float)(1.0 - mean);
+            }
         }
-        if (mode == VppSoftLightMode::NEUTRALIZE_BOOST_SAT) {
-            const char *kernel_name = "kernel_softlight_self_f32";
-            auto err = m_softlight.get()->kernel(kernel_name).config(queue, local, global, kernelWait, &prevEvent).launch(
-                m_hsvS->mem(), width, height, formulaInt);
-            if (launchErr(kernel_name, err) != RGY_ERR_NONE) return err;
-            setPrevEvent(&prevEvent);
-        }
-        const char *kernel_name = "kernel_hsv_to_rgb_u16";
+        const char *kernel_name = "kernel_softlight_fused_u16";
         auto err = m_softlight.get()->kernel(kernel_name).config(queue, local, global, kernelWait, event).launch(
             (cl_mem)planeR.ptr[0], planeR.pitch[0], (cl_mem)planeG.ptr[0], planeG.pitch[0], (cl_mem)planeB.ptr[0], planeB.pitch[0],
-            width, height, m_hsvH->mem(), m_hsvS->mem(), m_hsvV->mem());
+            width, height, modeInt, b[0], b[1], b[2], formulaInt);
         if (launchErr(kernel_name, err) != RGY_ERR_NONE) return err;
-    } else if (mode == VppSoftLightMode::LIGHTNESS) {
-        {
-            const char *kernel_name = "kernel_rgb_to_v_u16";
-            auto err = m_softlight.get()->kernel(kernel_name).config(queue, local, global, kernelWait, &prevEvent).launch(
-                (cl_mem)planeR.ptr[0], planeR.pitch[0], (cl_mem)planeG.ptr[0], planeG.pitch[0], (cl_mem)planeB.ptr[0], planeB.pitch[0],
-                width, height, m_hsvV->mem());
-            if (launchErr(kernel_name, err) != RGY_ERR_NONE) return err;
-            setPrevEvent(&prevEvent);
-        }
-        const char *kernel_name = "kernel_hsv_to_rgb_u16";
-        auto err = m_softlight.get()->kernel(kernel_name).config(queue, local, global, kernelWait, event).launch(
-            (cl_mem)planeR.ptr[0], planeR.pitch[0], (cl_mem)planeG.ptr[0], planeG.pitch[0], (cl_mem)planeB.ptr[0], planeB.pitch[0],
-            width, height, m_hsvH->mem(), m_hsvS->mem(), m_hsvV->mem());
+        return RGY_ERR_NONE;
+    }
+
+    // boost経路
+    const RGYFrameInfo *planes[] = { &planeR, &planeG, &planeB };
+    for (int i = 0; i < 3; i++) {
+        const char *kernel_name = "kernel_softlight_self_u16";
+        const bool last = (i == 2);
+        auto err = m_softlight.get()->kernel(kernel_name).config(queue, local, global, kernelWait, last ? event : &prevEvent).launch(
+            (cl_mem)planes[i]->ptr[0], planes[i]->pitch[0], width, height, formulaInt);
         if (launchErr(kernel_name, err) != RGY_ERR_NONE) return err;
-    } else if (mode == VppSoftLightMode::SATURATION) {
-        {
-            const char *kernel_name = "kernel_rgb_to_hsv_u16";
-            auto err = m_softlight.get()->kernel(kernel_name).config(queue, local, global, kernelWait, &prevEvent).launch(
-                (cl_mem)planeR.ptr[0], planeR.pitch[0], (cl_mem)planeG.ptr[0], planeG.pitch[0], (cl_mem)planeB.ptr[0], planeB.pitch[0],
-                width, height, m_hsvH->mem(), m_hsvS->mem(), m_hsvV->mem());
-            if (launchErr(kernel_name, err) != RGY_ERR_NONE) return err;
-            setPrevEvent(&prevEvent);
-        }
-        {
-            const char *kernel_name = "kernel_softlight_self_f32";
-            auto err = m_softlight.get()->kernel(kernel_name).config(queue, local, global, kernelWait, &prevEvent).launch(
-                m_hsvS->mem(), width, height, formulaInt);
-            if (launchErr(kernel_name, err) != RGY_ERR_NONE) return err;
-            setPrevEvent(&prevEvent);
-        }
-        const char *kernel_name = "kernel_hsv_to_rgb_u16";
-        auto err = m_softlight.get()->kernel(kernel_name).config(queue, local, global, kernelWait, event).launch(
-            (cl_mem)planeR.ptr[0], planeR.pitch[0], (cl_mem)planeG.ptr[0], planeG.pitch[0], (cl_mem)planeB.ptr[0], planeB.pitch[0],
-            width, height, m_hsvH->mem(), m_hsvS->mem(), m_hsvV->mem());
-        if (launchErr(kernel_name, err) != RGY_ERR_NONE) return err;
+        if (!last) setPrevEvent(&prevEvent);
     }
     return RGY_ERR_NONE;
 }
@@ -450,9 +364,6 @@ RGY_ERR RGYFilterSoftLight::run_filter(const RGYFrameInfo *pInputFrame, RGYFrame
 void RGYFilterSoftLight::close() {
     m_convIn.reset();
     m_convOut.reset();
-    m_hsvH.reset();
-    m_hsvS.reset();
-    m_hsvV.reset();
     m_reduce.reset();
     m_softlight.clear();
     m_frameBuf.clear();

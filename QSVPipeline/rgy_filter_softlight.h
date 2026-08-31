@@ -58,9 +58,6 @@ protected:
 
     std::unique_ptr<RGYFilterCspCrop> m_convIn;
     std::unique_ptr<RGYFilterCspCrop> m_convOut;
-    std::unique_ptr<RGYCLBuf> m_hsvH;
-    std::unique_ptr<RGYCLBuf> m_hsvS;
-    std::unique_ptr<RGYCLBuf> m_hsvV;
     std::unique_ptr<RGYCLBuf> m_reduce;
     RGYOpenCLProgramAsync m_softlight;
     int m_numGroupsLastDispatch;
