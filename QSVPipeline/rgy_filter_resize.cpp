@@ -766,6 +766,12 @@ RGY_ERR RGYFilterResize::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
         }
     }
     if (isLibplaceboResizeFiter(pResizeParam->interp)) {
+        // 内部でこのフィルタを生成する呼び出し元はlibplaceboResampleを設定しない場合があるため、
+        // libplacebo系アルゴリズムで空のshared_ptrを参照しないよう検証する。
+        if (!pResizeParam->libplaceboResample) {
+            AddMessage(RGY_LOG_ERROR, _T("This resize path was created without libplacebo parameters, cannot use a libplacebo algorithm here.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
         if (!m_libplaceboResample) {
             m_libplaceboResample = std::make_unique<RGYFilterLibplaceboResample>(m_cl);
         }
