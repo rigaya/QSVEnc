@@ -170,6 +170,19 @@ public:
     }
 };
 
+class RGYFrameMFXCLHost : public RGYFrameMFXSurf {
+private:
+    std::unique_ptr<RGYCLBuf> m_hostBuffer;
+    std::unique_ptr<RGYCLFrame> m_clFrame;
+public:
+    RGYFrameMFXCLHost(mfxFrameSurface1& surf, std::unique_ptr<RGYCLBuf>&& hostBuffer, std::unique_ptr<RGYCLFrame>&& clFrame)
+        : RGYFrameMFXSurf(surf), m_hostBuffer(std::move(hostBuffer)), m_clFrame(std::move(clFrame)) {};
+    RGYCLBuf *hostBuffer() { return m_hostBuffer.get(); }
+    const RGYCLBuf *hostBuffer() const { return m_hostBuffer.get(); }
+    RGYCLFrame *clFrame() { return m_clFrame.get(); }
+    const RGYCLFrame *clFrame() const { return m_clFrame.get(); }
+};
+
 class PipelineTaskSurface {
 private:
     RGYFrame *surf;
@@ -197,6 +210,8 @@ public:
     bool operator ==(std::nullptr_t) const { return frame() == nullptr; }
     const RGYFrameMFXSurf *mfx() const { return dynamic_cast<const RGYFrameMFXSurf*>(surf); }
     RGYFrameMFXSurf *mfx() { return dynamic_cast<RGYFrameMFXSurf*>(surf); }
+    const RGYFrameMFXCLHost *mfxCLHost() const { return dynamic_cast<const RGYFrameMFXCLHost*>(surf); }
+    RGYFrameMFXCLHost *mfxCLHost() { return dynamic_cast<RGYFrameMFXCLHost*>(surf); }
     const RGYCLFrame *cl() const { return dynamic_cast<const RGYCLFrame*>(surf); }
     RGYCLFrame *cl() { return dynamic_cast<RGYCLFrame*>(surf); }
     const RGYFrame *frame() const { return surf; }
@@ -248,6 +263,13 @@ public:
         }
     }
     void setSurfaces(std::vector<std::unique_ptr<RGYCLFrame>>& surfs) {
+        clear();
+        m_surfaces.resize(surfs.size());
+        for (size_t i = 0; i < m_surfaces.size(); i++) {
+            m_surfaces[i] = std::make_unique<PipelineTaskSurfacesPair>(std::move(surfs[i]));
+        }
+    }
+    void setSurfaces(std::vector<std::unique_ptr<RGYFrameMFXCLHost>>& surfs) {
         clear();
         m_surfaces.resize(surfs.size());
         for (size_t i = 0; i < m_surfaces.size(); i++) {
@@ -622,13 +644,14 @@ protected:
         if (!m_workSurfs.isAllFree()) {
             return RGY_ERR_UNSUPPORTED;
         }
-        if (m_allocator && m_workSurfs.bufCount() > 0) {
+        if (m_allocator && m_allocResponse.NumFrameActual > 0) {
             auto err = err_to_rgy(m_allocator->Free(m_allocator->pthis, &m_allocResponse));
             if (err != RGY_ERR_NONE) {
                 return err;
             }
-            m_workSurfs.clear();
         }
+        m_workSurfs.clear();
+        memset(&m_allocResponse, 0, sizeof(m_allocResponse));
         return RGY_ERR_NONE;
     }
 public:
@@ -686,6 +709,83 @@ public:
         m_workSurfs.setSurfaces(frames);
         m_workSurfAllocWidth = frame.width;
         m_workSurfAllocHeight = frame.height;
+        return RGY_ERR_NONE;
+    }
+    RGY_ERR workSurfacesAllocCLMFXHost(const int numFrames, const mfxFrameInfo& mfxInfo, const RGYFrameInfo& visibleFrame, RGYOpenCLContext *cl) {
+        auto sts = workSurfacesClear();
+        if (sts != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("allocWorkSurfaces:   Failed to clear old host-backed surfaces: %s.\n"), get_err_mes(sts));
+            return sts;
+        }
+
+        int bytesPerPixel = 0;
+        switch (mfxInfo.FourCC) {
+        case MFX_FOURCC_AYUV:
+        case MFX_FOURCC_Y410:
+            bytesPerPixel = 4;
+            break;
+        case MFX_FOURCC_Y416:
+            bytesPerPixel = 8;
+            break;
+        default:
+            return RGY_ERR_UNSUPPORTED;
+        }
+        if (csp_rgy_to_enc(visibleFrame.csp) != mfxInfo.FourCC || RGY_CSP_PLANES[visibleFrame.csp] != 1) {
+            return RGY_ERR_UNSUPPORTED;
+        }
+
+        const int pitchAlignment = std::max(cl->platform()->dev(0).info().image_pitch_alignment, 256);
+        const int pitch = ALIGN(mfxInfo.Width * bytesPerPixel, pitchAlignment);
+        const size_t bufferSize = (size_t)pitch * mfxInfo.Height;
+
+        std::vector<std::unique_ptr<RGYFrameMFXCLHost>> frames(numFrames);
+        for (auto& frame : frames) {
+            auto hostBuffer = cl->createBuffer(bufferSize, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR);
+            if (!hostBuffer) {
+                return RGY_ERR_MEMORY_ALLOC;
+            }
+            sts = hostBuffer->queueMapBuffer(cl->queue(), CL_MAP_WRITE, {}, RGY_CL_MAP_BLOCK_NONE, "opencl_enc_host_init");
+            if (sts == RGY_ERR_NONE) {
+                sts = hostBuffer->mapEvent().wait();
+            }
+            if (sts != RGY_ERR_NONE || hostBuffer->mappedPtr() == nullptr) {
+                return (sts == RGY_ERR_NONE) ? RGY_ERR_NULL_PTR : sts;
+            }
+            memset(hostBuffer->mappedPtr(), 0, bufferSize);
+            sts = hostBuffer->unmapBuffer(cl->queue());
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            cl_int clerr = CL_SUCCESS;
+            const cl_buffer_region frameRegion = { 0, bufferSize };
+            auto frameBuffer = clCreateSubBuffer(hostBuffer->mem(), CL_MEM_READ_WRITE, CL_BUFFER_CREATE_TYPE_REGION, &frameRegion, &clerr);
+            if (clerr != CL_SUCCESS || frameBuffer == nullptr) {
+                PrintMes(RGY_LOG_ERROR, _T("allocWorkSurfaces:   Failed to create frame sub-buffer: %s.\n"), cl_errmes(clerr));
+                return (clerr == CL_SUCCESS) ? RGY_ERR_MEMORY_ALLOC : err_cl_to_rgy(clerr);
+            }
+            auto allocFrame = visibleFrame;
+            allocFrame.width = mfxInfo.Width;
+            allocFrame.height = mfxInfo.Height;
+            allocFrame.mem_type = RGY_MEM_TYPE_GPU;
+            memset(allocFrame.ptr, 0, sizeof(allocFrame.ptr));
+            memset(allocFrame.pitch, 0, sizeof(allocFrame.pitch));
+            allocFrame.ptr[0] = reinterpret_cast<uint8_t *>(frameBuffer);
+            allocFrame.pitch[0] = pitch;
+            auto clFrame = std::make_unique<RGYCLFrame>(allocFrame, CL_MEM_READ_WRITE);
+            mfxFrameSurface1 mfxSurf = {};
+            mfxSurf.Info = mfxInfo;
+            mfxSurf.Data.MemType = MFX_MEMTYPE_SYSTEM_MEMORY;
+            frame = std::make_unique<RGYFrameMFXCLHost>(mfxSurf, std::move(hostBuffer), std::move(clFrame));
+        }
+        sts = cl->queue().finish();
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        m_workSurfs.setSurfaces(frames);
+        m_workSurfAllocWidth = mfxInfo.Width;
+        m_workSurfAllocHeight = mfxInfo.Height;
+        PrintMes(RGY_LOG_DEBUG, _T("allocWorkSurfaces:   allocated %d OpenCL host-backed MFX frames (%s, %d-byte pitch, %zu bytes each).\n"),
+            numFrames, ColorFormatToStr(mfxInfo.FourCC), pitch, bufferSize);
         return RGY_ERR_NONE;
     }
 
@@ -2703,6 +2803,7 @@ protected:
     bool m_acquireQueuesClosed;
     bool m_releaseQueuesClosed;
     MemType m_memType;
+    bool m_encHostOutput;
     bool useAcquireWorker() const {
         return m_openclTaskThreads >= 2 && m_acquireThread != nullptr;
     }
@@ -3272,6 +3373,58 @@ protected:
                         }
                     }
                     RGYOpenCLEvent releaseEvent;
+                    std::vector<RGYOpenCLEvent> hostMapEvents(releaseWorks.size());
+                    if (err == RGY_ERR_NONE) {
+                        for (size_t i = 0; i < releaseWorks.size(); i++) {
+                            auto hostSurf = releaseWorks[i]->surf.mfxCLHost();
+                            if (hostSurf == nullptr) {
+                                continue;
+                            }
+                            auto hostBuffer = hostSurf->hostBuffer();
+                            err = hostBuffer->queueMapBuffer(m_releaseQueue, CL_MAP_READ, {}, RGY_CL_MAP_BLOCK_NONE, "opencl_enc_host");
+                            if (err == RGY_ERR_NONE) {
+                                err = hostBuffer->mapEvent().wait();
+                            }
+                            if (err != RGY_ERR_NONE) {
+                                PrintMes(RGY_LOG_ERROR, _T("Failed to map OpenCL encoder input: %s.\n"), get_err_mes(err));
+                                break;
+                            }
+                            auto mapped = reinterpret_cast<uint8_t *>(hostBuffer->mappedPtr());
+                            const auto pitch = hostSurf->clFrame()->frameInfo().pitch[0];
+                            if (mapped == nullptr || pitch <= 0 || ((uintptr_t)mapped & 15) != 0) {
+                                PrintMes(RGY_LOG_ERROR, _T("Mapped OpenCL encoder input does not satisfy MFX pointer or pitch constraints.\n"));
+                                err = RGY_ERR_UNSUPPORTED;
+                                break;
+                            }
+                            auto mfxSurf = hostSurf->surf();
+                            switch (mfxSurf->Info.FourCC) {
+                            case MFX_FOURCC_AYUV:
+                                mfxSurf->Data.V = mapped;
+                                mfxSurf->Data.U = mapped + 1;
+                                mfxSurf->Data.Y = mapped + 2;
+                                mfxSurf->Data.A = mapped + 3;
+                                break;
+                            case MFX_FOURCC_Y410:
+                                mfxSurf->Data.Y = nullptr;
+                                mfxSurf->Data.Y410 = reinterpret_cast<mfxY410 *>(mapped);
+                                mfxSurf->Data.V = nullptr;
+                                mfxSurf->Data.A = nullptr;
+                                break;
+                            case MFX_FOURCC_Y416:
+                                mfxSurf->Data.U16 = reinterpret_cast<mfxU16 *>(mapped);
+                                mfxSurf->Data.Y16 = mfxSurf->Data.U16 + 1;
+                                mfxSurf->Data.V16 = mfxSurf->Data.Y16 + 1;
+                                mfxSurf->Data.A = reinterpret_cast<mfxU8 *>(mfxSurf->Data.V16 + 1);
+                                break;
+                            default:
+                                err = RGY_ERR_UNSUPPORTED;
+                                break;
+                            }
+                            mfxSurf->Data.PitchHigh = (mfxU16)(pitch >> 16);
+                            mfxSurf->Data.PitchLow = (mfxU16)(pitch & 0xffff);
+                            hostMapEvents[i] = hostBuffer->mapEvent();
+                        }
+                    }
                     if (err == RGY_ERR_NONE) {
                         std::vector<RGYCLFrameInterop *> interopFrames;
                         for (const auto& work : releaseWorks) {
@@ -3303,7 +3456,9 @@ protected:
                     }
                     for (size_t i = 0; i < releaseWorks.size(); i++) {
                         auto& work = releaseWorks[i];
-                        auto doneEvent = (work->interop != nullptr) ? releaseEvent : work->cropDoneEvent;
+                        auto doneEvent = (work->surf.mfxCLHost() != nullptr)
+                            ? hostMapEvents[i]
+                            : ((work->interop != nullptr) ? releaseEvent : work->cropDoneEvent);
                         work->surf.frame()->setTimestamp(work->encSurfaceInfo.timestamp);
                         work->surf.frame()->setInputFrameId(work->encSurfaceInfo.inputFrameId);
                         work->surf.frame()->setPicstruct(work->encSurfaceInfo.picstruct);
@@ -3352,13 +3507,28 @@ protected:
                 std::vector<RGYCLFrameInterop *> interopFrames;
                 {
                     std::unique_lock<std::recursive_mutex> interopLock(m_cl->interopMutex(), std::defer_lock);
-                    if (m_memType == D3D11_MEMORY) {
+                    if (m_memType == D3D11_MEMORY && !m_encHostOutput) {
                         interopLock.lock();
                     }
                     for (auto& acquire : acquireWorks) {
                         auto ready = std::make_unique<ReleaseReady>();
                         ready->surf = acquire->surf;
-                        if (auto mfxsurfOut = (ready->surf.mfx()) ? ready->surf.mfx()->surf() : nullptr; mfxsurfOut != nullptr) {
+                        if (auto hostSurf = ready->surf.mfxCLHost(); hostSurf != nullptr) {
+                            auto hostBuffer = hostSurf->hostBuffer();
+                            if (hostBuffer->isMapped()) {
+                                RGYOpenCLEvent unmapEvent;
+                                batchErr = hostBuffer->unmapBuffer(m_releaseQueue, {}, &unmapEvent);
+                                if (batchErr == RGY_ERR_NONE) {
+                                    ready->acquireEvent = unmapEvent;
+                                    ready->waitAcquireEvent = ready->acquireEvent();
+                                }
+                            }
+                            auto mfxSurf = hostSurf->surf();
+                            mfxSurf->Data.Y = nullptr;
+                            mfxSurf->Data.Y410 = nullptr;
+                            mfxSurf->Data.V = nullptr;
+                            mfxSurf->Data.A = nullptr;
+                        } else if (auto mfxsurfOut = (ready->surf.mfx()) ? ready->surf.mfx()->surf() : nullptr; mfxsurfOut != nullptr) {
                             if (m_surfVppOutInterop.count(mfxsurfOut) == 0) {
                                 m_surfVppOutInterop[mfxsurfOut] = getOpenCLFrameInterop(mfxsurfOut, m_memType, CL_MEM_WRITE_ONLY, m_allocator, m_cl.get(), m_releaseQueue, acquire->frameOut);
                             }
@@ -3648,8 +3818,8 @@ protected:
         return RGY_ERR_NONE;
     }
 public:
-    PipelineTaskOpenCL(std::vector<std::unique_ptr<RGYFilter>>& vppfilters, RGYFilterSsim *videoMetric, std::shared_ptr<RGYOpenCLContext> cl, int openclTaskThreads, MemType memType, QSVAllocator *allocator, MFXVideoSession *mfxSession, int outMaxQueueSize, std::shared_ptr<RGYLog> log) :
-        PipelineTask(PipelineTaskType::OPENCL, outMaxQueueSize, mfxSession, MFX_LIB_VERSION_0_0, log), m_cl(cl), m_vpFilters(vppfilters), m_surfVppInInterop(), m_surfVppOutInterop(), m_prevInputFrame(), m_prevAcquireFrame(), m_videoMetric(videoMetric), m_normalizeTargetFrame(), m_normalizeResizeParam(), m_normalizeResizeIdx(-1), m_resChangeFlush(false), m_openclTaskThreads(openclTaskThreads), m_acquireQueue(), m_acquireInQueue(), m_acquireReadyQueue(), m_acquireFreeQueue(), m_acquireThread(), m_acquireErr(RGY_ERR_NONE), m_acquireThreadAbort(false), m_releaseQueue(), m_releaseAcquireQueue(), m_releaseReadyQueue(), m_releaseWorkQueue(), m_releaseDoneQueue(), m_releaseThread(), m_releaseErr(RGY_ERR_NONE), m_releaseThreadAbort(false), m_releaseAcquirePending(0), m_releaseWorkInFlight(0), m_releaseOutputPending(0), m_acquireFrameInInfo(), m_acquireDrainSent(false), m_acquireDrainReady(false), m_acquireQueuesClosed(false), m_releaseQueuesClosed(false), m_memType(memType) {
+    PipelineTaskOpenCL(std::vector<std::unique_ptr<RGYFilter>>& vppfilters, RGYFilterSsim *videoMetric, std::shared_ptr<RGYOpenCLContext> cl, int openclTaskThreads, MemType memType, bool encHostOutput, QSVAllocator *allocator, MFXVideoSession *mfxSession, int outMaxQueueSize, std::shared_ptr<RGYLog> log) :
+        PipelineTask(PipelineTaskType::OPENCL, outMaxQueueSize, mfxSession, MFX_LIB_VERSION_0_0, log), m_cl(cl), m_vpFilters(vppfilters), m_surfVppInInterop(), m_surfVppOutInterop(), m_prevInputFrame(), m_prevAcquireFrame(), m_videoMetric(videoMetric), m_normalizeTargetFrame(), m_normalizeResizeParam(), m_normalizeResizeIdx(-1), m_resChangeFlush(false), m_openclTaskThreads(openclTaskThreads), m_acquireQueue(), m_acquireInQueue(), m_acquireReadyQueue(), m_acquireFreeQueue(), m_acquireThread(), m_acquireErr(RGY_ERR_NONE), m_acquireThreadAbort(false), m_releaseQueue(), m_releaseAcquireQueue(), m_releaseReadyQueue(), m_releaseWorkQueue(), m_releaseDoneQueue(), m_releaseThread(), m_releaseErr(RGY_ERR_NONE), m_releaseThreadAbort(false), m_releaseAcquirePending(0), m_releaseWorkInFlight(0), m_releaseOutputPending(0), m_acquireFrameInInfo(), m_acquireDrainSent(false), m_acquireDrainReady(false), m_acquireQueuesClosed(false), m_releaseQueuesClosed(false), m_memType(memType), m_encHostOutput(encHostOutput) {
         m_allocator = allocator;
         //解像度変更時に「戻すべき解像度」は初期化時点のチェーン先頭の出力。ここで控えておかないと、
         //先頭CspCropを再初期化した後では取得できなくなる。
@@ -3679,6 +3849,7 @@ public:
     void setVideoQualityMetricFilter(RGYFilterSsim *videoMetric) {
         m_videoMetric = videoMetric;
     }
+    bool encHostOutput() const { return m_encHostOutput; }
     void setNormalizeResizeParam(const std::shared_ptr<RGYFilterParamResize>& resizeParam) {
         if (resizeParam == nullptr) {
             m_normalizeResizeParam.reset();
@@ -4014,6 +4185,7 @@ public:
             }
             PipelineTaskSurface surfVppOut;
             RGYCLFrameInterop *clFrameOutInterop = nullptr;
+            RGYCLFrame *clFrameOutHost = nullptr;
             std::unique_ptr<ReleaseReady> releaseReady;
             if (useReleaseWorker()) {
                 auto err = feedReleaseAcquireQueue();
@@ -4039,7 +4211,13 @@ public:
                 surfVppOut = getWorkSurf();
             }
             auto mfxsurfOut = (surfVppOut.mfx()) ? surfVppOut.mfx()->surf() : nullptr;
-            if (!useReleaseWorker() && mfxsurfOut != nullptr) {
+            if (auto hostSurf = surfVppOut.mfxCLHost(); hostSurf != nullptr) {
+                clFrameOutHost = hostSurf->clFrame();
+                if (!useReleaseWorker()) {
+                    PrintMes(RGY_LOG_ERROR, _T("OpenCL host-backed encoder output requires the release worker.\n"));
+                    return RGY_ERR_UNSUPPORTED;
+                }
+            } else if (!useReleaseWorker() && mfxsurfOut != nullptr) {
                 // 通常のmfxフレームの場合
                 if (m_surfVppOutInterop.count(mfxsurfOut) == 0) {
                     m_surfVppOutInterop[mfxsurfOut] = getOpenCLFrameInterop(mfxsurfOut, m_memType, CL_MEM_WRITE_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_vpFilters.back()->GetFilterParam()->frameOut);
@@ -4067,7 +4245,15 @@ public:
             }
             //エンコードバッファのポインタを渡す
             int nOutFrames = 0;
-            auto encSurfaceInfo = (clFrameOutInterop) ? clFrameOutInterop->frameInfo() : surfVppOut.cl()->frameInfo();
+            auto encSurfaceInfo = (clFrameOutHost != nullptr)
+                ? clFrameOutHost->frameInfo()
+                : ((clFrameOutInterop) ? clFrameOutInterop->frameInfo() : surfVppOut.cl()->frameInfo());
+            if (clFrameOutHost != nullptr) {
+                // bufferはMFXの整列寸法で確保し、最終filterには表示領域だけを渡す。
+                const auto& visibleFrame = lastFilter->GetFilterParam()->frameOut;
+                encSurfaceInfo.width = visibleFrame.width;
+                encSurfaceInfo.height = visibleFrame.height;
+            }
             RGYFrameInfo *outInfo[1];
             outInfo[0] = &encSurfaceInfo;
             RGYOpenCLEvent clevent; // 最終フィルタの処理完了を伝えるevent
@@ -4111,7 +4297,7 @@ public:
                 m_prevAcquireFrame.back().waitEvent = true;
             }
 
-            if (useReleaseWorker() && clFrameOutInterop) {
+            if (useReleaseWorker() && (clFrameOutInterop || clFrameOutHost)) {
                 m_cl->queue().flush();
                 auto err = pushReleaseWork(surfVppOut, clFrameOutInterop, clevent, encSurfaceInfo);
                 if (err != RGY_ERR_NONE) {

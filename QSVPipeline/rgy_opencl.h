@@ -632,6 +632,7 @@ public:
     bool isMapped() const { return m_mapped != nullptr; }
     RGY_ERR unmapBuffer();
     RGY_ERR unmapBuffer(RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events = {});
+    RGY_ERR unmapBuffer(RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     RGYCLMemObjInfo getMemObjectInfo() const;
 protected:
     RGYCLBuf(const RGYCLBuf &) = delete;

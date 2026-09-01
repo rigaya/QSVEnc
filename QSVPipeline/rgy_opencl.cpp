@@ -1930,7 +1930,13 @@ RGY_ERR RGYCLBuf::unmapBuffer() {
     return err;
 }
 RGY_ERR RGYCLBuf::unmapBuffer(RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events) {
+    return unmapBuffer(queue, wait_events, nullptr);
+}
+RGY_ERR RGYCLBuf::unmapBuffer(RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     auto err = m_mapped->unmap(queue, wait_events);
+    if (event != nullptr && err == RGY_ERR_NONE) {
+        *event = m_mapped->event();
+    }
     m_mapped.reset();
     return err;
 }

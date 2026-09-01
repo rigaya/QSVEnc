@@ -403,6 +403,32 @@ RGY_ERR RGYFilterCspCrop::convertCspFromYUV444(RGYFrameInfo *pOutputFrame, const
         }
         return RGY_ERR_NONE;
     }
+    if (pOutputFrame->csp == RGY_CSP_Y410 || pOutputFrame->csp == RGY_CSP_Y416) {
+        if (pOutputFrame->mem_type != RGY_MEM_TYPE_GPU) {
+            AddMessage(RGY_LOG_ERROR, _T("packed YUV444 output requires an OpenCL buffer: %s.\n"), RGY_CSP_NAMES[pOutputFrame->csp]);
+            return RGY_ERR_UNSUPPORTED;
+        }
+        auto planeSrcY = getPlane(pInputFrame, RGY_PLANE_Y);
+        auto planeSrcU = getPlane(pInputFrame, RGY_PLANE_U);
+        auto planeSrcV = getPlane(pInputFrame, RGY_PLANE_V);
+        const char *kernelName = (pOutputFrame->csp == RGY_CSP_Y410)
+            ? "kernel_crop_yuv444_y410"
+            : "kernel_crop_yuv444_y416";
+        RGYWorkSize local(32, 8);
+        RGYWorkSize global(pOutputFrame->width, pOutputFrame->height);
+        auto err = copyProgram->kernel(kernelName).config(queue, local, global, wait_events, event).launch(
+            (cl_mem)pOutputFrame->ptr[0],
+            pOutputFrame->pitch[0], pOutputFrame->width, pOutputFrame->height,
+            (cl_mem)planeSrcY.ptr[0], (cl_mem)planeSrcU.ptr[0], (cl_mem)planeSrcV.ptr[0],
+            pInputFrame->pitch[0], pInputFrame->width, pInputFrame->height,
+            pCropParam->crop.e.left, pCropParam->crop.e.up);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at %s (convertCspFromYUV444(%s -> %s)): %s.\n"),
+                char_to_tstring(kernelName).c_str(), RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], get_err_mes(err));
+            return err;
+        }
+        return RGY_ERR_NONE;
+    }
     static const auto supportedCspAYUV444 = make_array<RGY_CSP>(RGY_CSP_VUYA, RGY_CSP_VUYA_16);
     if (std::find(supportedCspAYUV444.begin(), supportedCspAYUV444.end(), pCropParam->frameOut.csp) != supportedCspAYUV444.end()) {
         auto planeSrcY = getPlane(pInputFrame, RGY_PLANE_Y);

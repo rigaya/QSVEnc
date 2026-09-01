@@ -2292,6 +2292,72 @@ __kernel void kernel_crop_yuv444_ayuv(
     }
 }
 
+__kernel void kernel_crop_yuv444_y410(
+    __global uchar *dst,
+    int dstPitch,
+    int dstWidth,
+    int dstHeight,
+#if IMAGE_SRC
+    __read_only image2d_t srcY,
+    __read_only image2d_t srcU,
+    __read_only image2d_t srcV,
+#else
+    __global uchar *srcY,
+    __global uchar *srcU,
+    __global uchar *srcV,
+#endif
+    int srcPitch,
+    int srcWidth,
+    int srcHeight,
+    int cropX,
+    int cropY
+) {
+    const int dst_x = get_global_id(0);
+    const int dst_y = get_global_id(1);
+
+    if (dst_x < dstWidth && dst_y < dstHeight) {
+        const int loadx = dst_x + cropX;
+        const int loady = dst_y + cropY;
+        const uint pixY = (uint)BIT_DEPTH_CONV(LOAD(srcY, loadx, loady));
+        const uint pixU = (uint)BIT_DEPTH_CONV(LOAD(srcU, loadx, loady));
+        const uint pixV = (uint)BIT_DEPTH_CONV(LOAD(srcV, loadx, loady));
+        *(__global uint *)(&dst[dst_y * dstPitch + dst_x * sizeof(uint)]) = pixU | (pixY << 10) | (pixV << 20);
+    }
+}
+
+__kernel void kernel_crop_yuv444_y416(
+    __global uchar *dst,
+    int dstPitch,
+    int dstWidth,
+    int dstHeight,
+#if IMAGE_SRC
+    __read_only image2d_t srcY,
+    __read_only image2d_t srcU,
+    __read_only image2d_t srcV,
+#else
+    __global uchar *srcY,
+    __global uchar *srcU,
+    __global uchar *srcV,
+#endif
+    int srcPitch,
+    int srcWidth,
+    int srcHeight,
+    int cropX,
+    int cropY
+) {
+    const int dst_x = get_global_id(0);
+    const int dst_y = get_global_id(1);
+
+    if (dst_x < dstWidth && dst_y < dstHeight) {
+        const int loadx = dst_x + cropX;
+        const int loady = dst_y + cropY;
+        const ushort pixY = (ushort)BIT_DEPTH_CONV(LOAD(srcY, loadx, loady));
+        const ushort pixU = (ushort)BIT_DEPTH_CONV(LOAD(srcU, loadx, loady));
+        const ushort pixV = (ushort)BIT_DEPTH_CONV(LOAD(srcV, loadx, loady));
+        *(__global ushort4 *)(&dst[dst_y * dstPitch + dst_x * sizeof(ushort4)]) = (ushort4)(pixU, pixY, pixV, 0);
+    }
+}
+
 __kernel void kernel_crop_rgb_rgb32(
 #if IMAGE_DST
     __write_only image2d_t dst,
