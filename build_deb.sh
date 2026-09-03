@@ -5,7 +5,7 @@ PACKAGE_BIN=qsvencc
 PACKAGE_MAINTAINER=rigaya
 PACKAGE_DESCRIPTION=
 PACKAGE_ROOT=.debpkg
-PACKAGE_VERSION=`git describe --tags | cut -f 1 --delim="-"`
+PACKAGE_VERSION=`./scripts/get-version.sh`
 PACKAGE_ARCH=`uname -m`
 PACKAGE_ARCH=`echo ${PACKAGE_ARCH} | sed -e 's/x86_64/amd64/g'`
 

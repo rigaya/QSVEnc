@@ -7,7 +7,7 @@ PACKAGE_MAINTAINER=rigaya
 PACKAGE_DEPENDS="libva"
 PACKAGE_DESCRIPTION=
 PACKAGE_ROOT=.rpmpkg
-PACKAGE_VERSION=`git describe --tags | cut -f 1 --delim="-"`
+PACKAGE_VERSION=`./scripts/get-version.sh`
 PACKAGE_ARCH=`uname -m`
 PACKAGE_LICENSE=MIT
 

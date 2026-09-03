@@ -1,12 +1,18 @@
-name: Build Windows Releases
+name: Build Releases / Prepare Release
 
 on:
   push:
     branches:
       - master
       - actions
-    tags:
-      - '*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.event_name == 'workflow_dispatch' && 'prepare-release' || format('build-releases-{0}', github.ref) }}
+  cancel-in-progress: false
 
 jobs:
   get_version_name:
@@ -15,36 +21,146 @@ jobs:
     outputs:
       rev_count: ${{ steps.rev.outputs.rev_count }}
       version_name: ${{ steps.rev.outputs.version_name }}
+      release_sha: ${{ steps.rev.outputs.release_sha }}
+      version: ${{ steps.rev.outputs.version }}
+      tag: ${{ steps.rev.outputs.tag }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
+        ref: ${{ github.sha }}
         fetch-depth: 0
 
-    - name: Verify tag matches VER_STR_FILEVERSION
-      if: startsWith(github.ref, 'refs/tags/')
-      run: |
-        cd ${{ github.workspace }}
-        TAG=$(echo ${{ github.ref }} | sed -e "s#refs/tags/##g")
-        VER=$(sed -n 's/^#define VER_STR_FILEVERSION[ \t]*"\([^"]*\)".*$/\1/p' QSVPipeline/rgy_version.h | tr -d '\r\n')
-        if [ "$TAG" = "$VER" ] || [ "${TAG#v}" = "$VER" ]; then
-          echo "Version OK: tag=${TAG}, header=${VER}"
-        else
-          echo "ERROR: Tag version (${TAG}) does not match VER_STR_FILEVERSION (${VER})" >&2
-          exit 1
-        fi
     - name: Set version name
       id: rev
+      shell: bash
       run: |
-        cd ${{ github.workspace }}
-        REVCOUNT=`git rev-list --count HEAD`
-        echo "rev_count=${REVCOUNT}" >> $GITHUB_OUTPUT
-        if [[ "${{ github.ref }}" =~ "refs/tags/" ]]; then
-          VERSION=$(echo ${{ github.ref }} | sed -e "s#refs/tags/##g")
-        else
-          VERSION=r${REVCOUNT}
+        set -euo pipefail
+        cd "${{ github.workspace }}"
+
+        RELEASE_SHA="$(git rev-parse HEAD)"
+        if [ "$RELEASE_SHA" != "${{ github.sha }}" ]; then
+          echo "ERROR: checkoutしたcommit ($RELEASE_SHA) が対象commit (${{ github.sha }}) と一致しません。" >&2
+          exit 1
         fi
-        echo "version_name=${VERSION}" >> $GITHUB_OUTPUT
+
+        REVCOUNT="$(git rev-list --count HEAD)"
+        echo "rev_count=$REVCOUNT" >> "$GITHUB_OUTPUT"
+        echo "release_sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
+
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          VERSION="$(./scripts/get-version.sh)"
+          TAG="$VERSION"
+          VERSION_NAME="$VERSION"
+        else
+          VERSION=""
+          TAG=""
+          VERSION_NAME="r$REVCOUNT"
+        fi
+
+        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+        echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+        echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+
+    - name: Check release preconditions
+      if: github.event_name == 'workflow_dispatch'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        VERSION: ${{ steps.rev.outputs.version }}
+        TAG: ${{ steps.rev.outputs.tag }}
+        RELEASE_SHA: ${{ steps.rev.outputs.release_sha }}
+      run: |
+        set -euo pipefail
+        RUN_MARKER="github-actions-run:$GITHUB_RUN_ID"
+        RESUMING_TAG=false
+
+        set +e
+        git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1
+        TAG_STATUS=$?
+        set -e
+        if [ "$TAG_STATUS" -eq 0 ]; then
+          if [ "$GITHUB_RUN_ATTEMPT" -le 1 ]; then
+            echo "ERROR: version $VERSION は tag $TAG として既にリリース済みです。" >&2
+            echo "Release準備の前にバージョン定義を更新してcommitしてください。" >&2
+            exit 1
+          fi
+
+          REF_JSON="$(gh api "/repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG")"
+          REF_TYPE="$(jq -r '.object.type' <<< "$REF_JSON")"
+          REF_SHA="$(jq -r '.object.sha' <<< "$REF_JSON")"
+          if [ "$REF_TYPE" != "tag" ]; then
+            echo "ERROR: tag $TAG はこのworkflow runが作成したannotated tagではありません。" >&2
+            exit 1
+          fi
+          TAG_JSON="$(gh api "/repos/$GITHUB_REPOSITORY/git/tags/$REF_SHA")"
+          if [ "$(jq -r '.object.sha' <<< "$TAG_JSON")" != "$RELEASE_SHA" ] || \
+             [ "$(jq -r '.message' <<< "$TAG_JSON")" != "$RUN_MARKER" ]; then
+            echo "ERROR: tag $TAG のcommitまたはworkflow runが一致しません。" >&2
+            exit 1
+          fi
+          RESUMING_TAG=true
+          echo "同じworkflow runが作成済みのtag $TAG を確認しました。"
+        elif [ "$TAG_STATUS" -ne 2 ]; then
+          echo "ERROR: remote tagの確認に失敗しました。" >&2
+          exit 1
+        fi
+
+        RELEASE_ERROR="$(mktemp)"
+        if RELEASE_JSON="$(gh api "/repos/$GITHUB_REPOSITORY/releases/tags/$TAG" 2>"$RELEASE_ERROR")"; then
+          if [ "$GITHUB_RUN_ATTEMPT" -le 1 ] || [ "$RESUMING_TAG" != "true" ]; then
+            echo "ERROR: Release $TAG は既に存在します。" >&2
+            exit 1
+          fi
+          if [ "$(jq -r '.draft' <<< "$RELEASE_JSON")" != "true" ]; then
+            echo "ERROR: Release $TAG は既に公開済みです。" >&2
+            exit 1
+          fi
+          RELEASE_BODY="$(jq -r '.body // ""' <<< "$RELEASE_JSON")"
+          if [ "$(jq -r '.tag_name' <<< "$RELEASE_JSON")" != "$TAG" ] || \
+             [[ "$RELEASE_BODY" != *"<!-- $RUN_MARKER -->"* ]]; then
+            echo "ERROR: Draft Release $TAG はこのworkflow runのものではありません。" >&2
+            exit 1
+          fi
+          echo "同じworkflow runが作成済みのDraft Release $TAG を確認しました。"
+        elif ! grep -q '(HTTP 404)' "$RELEASE_ERROR"; then
+          echo "ERROR: Releaseの存在確認に失敗しました。" >&2
+          sed 's/^/  /' "$RELEASE_ERROR" >&2
+          exit 1
+        fi
+
+    - name: Check RELEASE_PAT
+      if: github.event_name == 'workflow_dispatch'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+      run: |
+        set -euo pipefail
+        if [ -z "${GH_TOKEN:-}" ]; then
+          echo "ERROR: Actions secret RELEASE_PAT が設定されていません。" >&2
+          exit 1
+        fi
+        if [ "$(gh api "/repos/$GITHUB_REPOSITORY" --jq '.permissions.push')" != "true" ]; then
+          echo "ERROR: RELEASE_PAT に対象リポジトリの Contents: Read and write 権限がありません。" >&2
+          exit 1
+        fi
+
+    - name: Write job summary
+      shell: bash
+      env:
+        RELEASE_SHA: ${{ steps.rev.outputs.release_sha }}
+        VERSION_NAME: ${{ steps.rev.outputs.version_name }}
+        TAG: ${{ steps.rev.outputs.tag }}
+      run: |
+        {
+          echo "## Build対象"
+          echo
+          echo "- commit: \`$RELEASE_SHA\`"
+          echo "- version: \`$VERSION_NAME\`"
+          if [ -n "$TAG" ]; then
+            echo "- tag: \`$TAG\`"
+          fi
+        } >> "$GITHUB_STEP_SUMMARY"
 
   build:
     name: Upload Release Asset
@@ -68,6 +184,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          ref: ${{ needs.get_version_name.outputs.release_sha }}
           submodules: true
           fetch-depth: 0
 
@@ -139,19 +256,10 @@ jobs:
           "%QSVENCC_EXE%" --check-cmd-parse
 
       - name: Check Version
-        if: startsWith(github.ref, 'refs/tags/')
+        if: github.event_name == 'workflow_dispatch'
         id: check_ver
         run: |
           powershell "$ver = (Get-ItemProperty .\QSVEncC_Release\QSVEncC*.exe).VersionInfo.FileVersion; if ($ver -eq '${{ needs.get_version_name.outputs.version_name }}') { exit 0; } exit 1;"
-
-      - name: Upload Release Asset
-        id: upload-release-asset 
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          files: QSVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z
 
       - name: Calc hash
         id: calc_hash
@@ -163,6 +271,7 @@ jobs:
         with:
           name: QSVEncC_release_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}
           path: QSVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z
+          retention-days: 14
 
 
   upload_aviutl_release:
@@ -192,6 +301,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          ref: ${{ needs.get_version_name.outputs.release_sha }}
           submodules: true
           fetch-depth: 0
 
@@ -233,13 +343,13 @@ jobs:
         if: matrix.platform == 'Win32'
         with:
           name: QSVEncC_release_${{ needs.get_version_name.outputs.version_name }}_Win32
-          path: QSVEncC_${{ needs.get_version_name.outputs.version_name }}_Win32.7z
+          path: .
 
       - name: Download QSVEncC x64
         uses: actions/download-artifact@v4
         with:
           name: QSVEncC_release_${{ needs.get_version_name.outputs.version_name }}_x64
-          path: QSVEncC_${{ needs.get_version_name.outputs.version_name }}_x64.7z
+          path: .
           
       - name: Create package Win32
         id: archieve_win32
@@ -287,7 +397,7 @@ jobs:
 
       - name: Check Version
         id: check_ver
-        if: startsWith(github.ref, 'refs/tags/')
+        if: github.event_name == 'workflow_dispatch'
         run: |
           powershell "$ver = (Get-ItemProperty .\_build\${{ matrix.platform }}\Release\QSVEnc.${{ matrix.outext }}).VersionInfo.FileVersion; if ($ver -eq '${{ needs.get_version_name.outputs.version_name }}') { exit 0; } exit 1;"
 
@@ -316,32 +426,13 @@ jobs:
         run: |
           7z h -scrc*  Aviutl2_QSVEnc_${{ needs.get_version_name.outputs.version_name }}_install.exe
 
-      - name: Upload Release Asset Win32
-        id: upload-release-asset-win32
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/') && matrix.platform == 'Win32'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          files: |
-            Aviutl_QSVEnc_${{ needs.get_version_name.outputs.version_name }}.zip
-
-      - name: Upload Release Asset x64
-        id: upload-release-asset-x64
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/') && matrix.platform == 'x64'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          files: |
-            Aviutl2_QSVEnc_${{ needs.get_version_name.outputs.version_name }}_install.exe
-
       - name: Upload artifact Win32
         uses: actions/upload-artifact@v4
         if: matrix.platform == 'Win32'
         with:
           name: Aviutl_QSVEnc_${{ needs.get_version_name.outputs.version_name }}
           path: Aviutl_QSVEnc_${{ needs.get_version_name.outputs.version_name }}.zip
+          retention-days: 14
 
       - name: Upload artifact x64
         uses: actions/upload-artifact@v4
@@ -349,3 +440,178 @@ jobs:
         with:
           name: Aviutl2_QSVEnc_${{ needs.get_version_name.outputs.version_name }}_install
           path: Aviutl2_QSVEnc_${{ needs.get_version_name.outputs.version_name }}_install.exe
+          retention-days: 14
+
+  build_linux_packages:
+    name: Build Linux packages
+    needs: get_version_name
+    uses: ./.github/workflows/build_packages.yml
+    with:
+      release_sha: ${{ needs.get_version_name.outputs.release_sha }}
+
+  release:
+    name: Create draft release
+    if: github.event_name == 'workflow_dispatch'
+    needs: [ get_version_name, build, upload_aviutl_release, build_linux_packages ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download release assets
+        uses: actions/download-artifact@v4
+        with:
+          path: downloaded-assets
+
+      - name: Validate release assets
+        shell: bash
+        env:
+          VERSION: ${{ needs.get_version_name.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          mapfile -d '' ASSETS < <(find downloaded-assets -type f -print0)
+          if [ "${#ASSETS[@]}" -ne 6 ]; then
+            echo "ERROR: Release成果物は6個必要ですが、${#ASSETS[@]}個でした。" >&2
+            find downloaded-assets -type f -print >&2
+            exit 1
+          fi
+
+          if find downloaded-assets -type f -empty -print -quit | grep -q .; then
+            echo "ERROR: 空のRelease成果物があります。" >&2
+            find downloaded-assets -type f -empty -print >&2
+            exit 1
+          fi
+
+          DUPLICATES="$(find downloaded-assets -type f -printf '%f\n' | sort | uniq -d)"
+          if [ -n "$DUPLICATES" ]; then
+            echo "ERROR: 同名のRelease成果物があります。" >&2
+            echo "$DUPLICATES" >&2
+            exit 1
+          fi
+
+          for REQUIRED in \
+            "QSVEncC_${VERSION}_Win32.7z" \
+            "QSVEncC_${VERSION}_x64.7z" \
+            "Aviutl_QSVEnc_${VERSION}.zip" \
+            "Aviutl2_QSVEnc_${VERSION}_install.exe"; do
+            if ! find downloaded-assets -type f -name "$REQUIRED" -print -quit | grep -q .; then
+              echo "ERROR: 必須のRelease成果物 $REQUIRED がありません。" >&2
+              exit 1
+            fi
+          done
+
+          if [ "$(find downloaded-assets -type f -name '*.deb' | wc -l)" -ne 1 ] || \
+             [ "$(find downloaded-assets -type f -name '*.rpm' | wc -l)" -ne 1 ]; then
+            echo "ERROR: debとrpmのRelease成果物が1個ずつ必要です。" >&2
+            exit 1
+          fi
+
+          mkdir release-assets
+          for ASSET in "${ASSETS[@]}"; do
+            cp "$ASSET" release-assets/
+          done
+          find release-assets -maxdepth 1 -type f -printf '%f\n' | sort
+
+      - name: Create or resume draft release
+        id: draft
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+          TAG: ${{ needs.get_version_name.outputs.tag }}
+          RELEASE_SHA: ${{ needs.get_version_name.outputs.release_sha }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "ERROR: Actions secret RELEASE_PAT が設定されていません。" >&2
+            exit 1
+          fi
+
+          RUN_MARKER="github-actions-run:$GITHUB_RUN_ID"
+          REF_ERROR="$(mktemp)"
+          if REF_JSON="$(gh api "/repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" 2>"$REF_ERROR")"; then
+            REF_TYPE="$(jq -r '.object.type' <<< "$REF_JSON")"
+            REF_SHA="$(jq -r '.object.sha' <<< "$REF_JSON")"
+            if [ "$REF_TYPE" != "tag" ]; then
+              echo "ERROR: tag $TAG はこのworkflow runが作成したannotated tagではありません。" >&2
+              exit 1
+            fi
+
+            TAG_JSON="$(gh api "/repos/$GITHUB_REPOSITORY/git/tags/$REF_SHA")"
+            TAG_TARGET="$(jq -r '.object.sha' <<< "$TAG_JSON")"
+            TAG_MESSAGE="$(jq -r '.message' <<< "$TAG_JSON")"
+            if [ "$TAG_TARGET" != "$RELEASE_SHA" ]; then
+              echo "ERROR: tag $TAG は別のcommit ($TAG_TARGET) を指しています。" >&2
+              exit 1
+            fi
+            if [ "$TAG_MESSAGE" != "$RUN_MARKER" ]; then
+              echo "ERROR: tag $TAG はこのworkflow runが作成したものではありません。" >&2
+              exit 1
+            fi
+            echo "同じworkflow runが作成済みのtag $TAG を再利用します。"
+          elif grep -q '(HTTP 404)' "$REF_ERROR"; then
+            TAG_OBJECT_JSON="$(gh api --method POST "/repos/$GITHUB_REPOSITORY/git/tags" \
+              -f tag="$TAG" \
+              -f message="$RUN_MARKER" \
+              -f object="$RELEASE_SHA" \
+              -f type=commit)"
+            TAG_OBJECT_SHA="$(jq -r '.sha' <<< "$TAG_OBJECT_JSON")"
+            gh api --method POST "/repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref="refs/tags/$TAG" \
+              -f sha="$TAG_OBJECT_SHA" >/dev/null
+            echo "commit $RELEASE_SHA にtag $TAG を作成しました。"
+          else
+            echo "ERROR: tag $TAG の確認に失敗しました。" >&2
+            sed 's/^/  /' "$REF_ERROR" >&2
+            exit 1
+          fi
+
+          RELEASE_ERROR="$(mktemp)"
+          if RELEASE_JSON="$(gh api "/repos/$GITHUB_REPOSITORY/releases/tags/$TAG" 2>"$RELEASE_ERROR")"; then
+            if [ "$(jq -r '.draft' <<< "$RELEASE_JSON")" != "true" ]; then
+              echo "ERROR: Release $TAG は既に公開済みです。" >&2
+              exit 1
+            fi
+            if [ "$(jq -r '.tag_name' <<< "$RELEASE_JSON")" != "$TAG" ]; then
+              echo "ERROR: Draft Releaseの対象tagが $TAG と一致しません。" >&2
+              exit 1
+            fi
+            RELEASE_BODY="$(jq -r '.body // ""' <<< "$RELEASE_JSON")"
+            if [[ "$RELEASE_BODY" != *"<!-- $RUN_MARKER -->"* ]]; then
+              echo "ERROR: Draft Release $TAG はこのworkflow runが作成したものではありません。" >&2
+              exit 1
+            fi
+            echo "同じworkflow runが作成済みのDraft Release $TAG を再利用します。"
+          elif grep -q '(HTTP 404)' "$RELEASE_ERROR"; then
+            gh release create "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$RELEASE_SHA" \
+              --verify-tag \
+              --draft \
+              --title "$TAG" \
+              --notes "<!-- $RUN_MARKER -->
+
+          成果物を確認し、リリースノートを記入してから公開してください。"
+          else
+            echo "ERROR: Release $TAG の確認に失敗しました。" >&2
+            sed 's/^/  /' "$RELEASE_ERROR" >&2
+            exit 1
+          fi
+
+          gh release upload "$TAG" release-assets/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
+          RELEASE_URL="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url --jq '.url')"
+          echo "release_url=$RELEASE_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Write release summary
+        shell: bash
+        env:
+          RELEASE_URL: ${{ steps.draft.outputs.release_url }}
+          TAG: ${{ needs.get_version_name.outputs.tag }}
+          RELEASE_SHA: ${{ needs.get_version_name.outputs.release_sha }}
+        run: |
+          {
+            echo "## Draft Releaseを準備しました"
+            echo
+            echo "- tag: \`$TAG\`"
+            echo "- commit: \`$RELEASE_SHA\`"
+            echo "- Draft Release: $RELEASE_URL"
+          } >> "$GITHUB_STEP_SUMMARY"

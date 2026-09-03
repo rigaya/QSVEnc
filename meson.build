@@ -1,5 +1,5 @@
 project('qsvencc', ['c', 'cpp'],
-  version: run_command('git', 'describe', '--tags', '--abbrev=0', check: true).stdout().strip(),
+  version: run_command('sh', 'scripts/get-version.sh', check: true).stdout().strip(),
   license: 'MIT',
   meson_version: '>=0.61.0',
   default_options: [
