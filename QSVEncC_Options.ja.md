@@ -156,6 +156,14 @@
   - [--tile-col \<int\>](#--tile-col-int)
   - [--ssim](#--ssim)
   - [--psnr](#--psnr)
+  - [--vmaf [\<param1\>=\<value1\>][,\<param2\>=\<value2\>]...](#--vmaf-param1value1param2value2)
+  - [--no-vmaf](#--no-vmaf)
+  - [--vship-ssimulacra2](#--vship-ssimulacra2)
+  - [--no-vship-ssimulacra2](#--no-vship-ssimulacra2)
+  - [--vship-butteraugli [\<param1\>=\<value1\>][,\<param2\>=\<value2\>]...](#--vship-butteraugli-param1value1param2value2)
+  - [--no-vship-butteraugli](#--no-vship-butteraugli)
+  - [--vship-cvvdp [\<param1\>=\<value1\>][,\<param2\>=\<value2\>]...](#--vship-cvvdp-param1value1param2value2)
+  - [--no-vship-cvvdp](#--no-vship-cvvdp)
 - [入出力 / 音声 / 字幕などのオプション](#入出力--音声--字幕などのオプション)
   - [--input-analyze \<float\>](#--input-analyze-float)
   - [--input-probesize \<int\>](#--input-probesize-int)
@@ -1169,6 +1177,53 @@ HEVCエンコードでPフレームとしてGPBの代わりに通常のPフレ�
 
 ### --psnr
 エンコード結果のPSNRを計算。
+
+### --vmaf [\<param1\>=\<value1\>][,\<param2\>=\<value2\>]...
+エンコード前の最終VPP出力と、エンコード後に再デコードした画像からVMAFを計算する。VMAFはCPUで計算するため、CPU負荷が高くエンコード速度が低下することがある。VMAF機能が有効なビルドとlibvmafの実行時ライブラリが必要。
+
+- model=\<string\> (デフォルト: vmaf_v0.6.1)
+  使用するVMAFモデル名またはモデルファイルのパス。
+- threads=\<int\> (デフォルト: 0)
+  VMAF計算に使用するCPUスレッド数。0は物理CPUコア数を自動使用する。
+- subsample=\<int\> (デフォルト: 1)
+  VMAFの評価間隔。1以上を指定する。
+- phone_model=\<bool\> (デフォルト: false)
+  phone modelを使用する。
+- enable_transform=\<bool\> (デフォルト: false)
+  VMAFのtransformを有効にする。`enable_transform`だけを指定した場合も有効になる。
+
+### --no-vmaf
+VMAF計算を無効にする。
+
+### --vship-ssimulacra2
+libvshipを使用してSSIMULACRA2を計算する。libvshipはGPU 0で計算し、QSVEncの`--device`で選択するQSVデバイスとは独立している。libvship機能が有効なビルドと対応するlibvship実行時ライブラリが必要。
+
+### --no-vship-ssimulacra2
+SSIMULACRA2計算を無効にする。
+
+### --vship-butteraugli [\<param1\>=\<value1\>][,\<param2\>=\<value2\>]...
+libvshipを使用してButteraugliを計算する。
+
+- Qnorm=\<int\> (デフォルト: 2)
+  Butteraugliスコア集計に使用するノルム。正の値を指定する。
+- intensity_multiplier=\<float\> (デフォルト: 80.0)
+  Butteraugli計算のintensity multiplier。有限の正の値を指定する。
+
+### --no-vship-butteraugli
+Butteraugli計算を無効にする。
+
+### --vship-cvvdp [\<param1\>=\<value1\>][,\<param2\>=\<value2\>]...
+libvshipを使用してColorVideoVDPを計算する。エンコード後のフレームレートと出力の色情報を使用する。
+
+- model=\<string\> (デフォルト: standard_4k)
+  使用するColorVideoVDPモデル名。空文字列は指定できない。
+- model_config_json=\<string\> (デフォルト: 空)
+  ColorVideoVDPモデル設定JSONのパス。
+- resize=\<bool\> (デフォルト: false)
+  ColorVideoVDP計算前にフレームをリサイズする。
+
+### --no-vship-cvvdp
+ColorVideoVDP計算を無効にする。
 
 
 ## 入出力 / 音声 / 字幕などのオプション
@@ -4411,7 +4466,7 @@ AIベースのフレーム補間を用いて、フレームレートを倍にす
   - --tcfile-inオプションが指定されている場合
   - --keyfileオプションが指定されている場合
   - --key-on-chapterオプションが有効な場合
-  - ssim/psnr/vmafが有効な場合
+  - ssim/psnr/VMAF/libvshipの評価が有効な場合
   - --vpp-subburn（字幕焼きこみ）が指定されている場合
   - --vpp-fruc（フレーム補間）が有効な場合
 
@@ -4571,7 +4626,7 @@ avsw/avhw読み込み時のデバッグ情報出力。
   - output ... 出力用スレッド
   - audio ... 音声処理用スレッド
   - perfmonitor ... パフォーマンス測定用スレッド
-  - videoquality ... ssim/psnr/vmaf算出用スレッド
+  - videoquality ... ssim/psnr/VMAF/libvship算出用スレッド
   
 - **スレッドアフィニティ** (&lt;string2&gt;)
   - all ... 全スレッド(制限なし)
@@ -4616,7 +4671,7 @@ avsw/avhw読み込み時のデバッグ情報出力。
   - output ... 出力用スレッド
   - audio ... 音声処理用スレッド
   - perfmonitor ... パフォーマンス測定用スレッド
-  - videoquality ... ssim/psnr/vmaf算出用スレッド
+  - videoquality ... ssim/psnr/VMAF/libvship算出用スレッド
   
 - **優先度** (&lt;string2&gt;)
   - background, idle, lowest, belownormal, normal (default), abovenormal, highest
@@ -4636,7 +4691,7 @@ avsw/avhw読み込み時のデバッグ情報出力。
   - output ... 出力用スレッド
   - audio ... 音声処理用スレッド
   - perfmonitor ... パフォーマンス測定用スレッド
-  - videoquality ... ssim/psnr/vmaf算出用スレッド
+  - videoquality ... ssim/psnr/VMAF/libvship算出用スレッド
   
 - **優先度** (&lt;string2&gt;)
   - unset (default) ... エンコード設定により自動的に決定

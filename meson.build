@@ -24,6 +24,10 @@ enable_vapoursynth = get_option('enable_vapoursynth')
 enable_avisynth = get_option('enable_avisynth')
 enable_libass = get_option('enable_libass')
 enable_libplacebo = get_option('enable_libplacebo')
+enable_vmaf_option = get_option('enable_vmaf')
+vmaf_include_dir = get_option('vmaf_include_dir')
+enable_libvship_option = get_option('enable_libvship')
+libvship_include_dir = get_option('libvship_include_dir')
 enable_vulkan = get_option('enable_vulkan')
 opencl_headers = get_option('opencl_headers')
 enable_openvino = get_option('enable_openvino')
@@ -339,6 +343,81 @@ int main(void) { return 0; }
   endif
 endif
 
+# VMAF / libvship は実行時に動的ロードする。ライブラリ本体へはリンクせず、
+# APIヘッダだけを検出する。外部SDKの場所は公開リポジトリに固定しない。
+have_vmaf_headers = false
+vmaf_compile_dep = declare_dependency()
+if enable_vmaf_option != 'disabled'
+  vmaf_headers_code = '''
+#include <libvmaf/libvmaf.h>
+int main(void) {
+  VmafConfiguration cfg = { 0 };
+  VmafPicture pic;
+  (void)cfg;
+  (void)pic;
+  return 0;
+}
+'''
+  if vmaf_include_dir != ''
+    vmaf_candidate_dep = declare_dependency(compile_args: ['-I' + vmaf_include_dir])
+    have_vmaf_headers = cpp.compiles(vmaf_headers_code, dependencies: vmaf_candidate_dep, args: get_option('cpp_args'))
+    if have_vmaf_headers
+      vmaf_compile_dep = vmaf_candidate_dep
+      message('Using VMAF headers from: ' + vmaf_include_dir)
+    endif
+  endif
+  if not have_vmaf_headers
+    vmaf_pkg_dep = dependency('libvmaf', required: false)
+    if vmaf_pkg_dep.found()
+      vmaf_pkg_compile_dep = vmaf_pkg_dep.partial_dependency(includes: true, compile_args: true)
+      have_vmaf_headers = cpp.compiles(vmaf_headers_code, dependencies: vmaf_pkg_compile_dep, args: get_option('cpp_args'))
+      if have_vmaf_headers
+        vmaf_compile_dep = vmaf_pkg_compile_dep
+        message('Using VMAF headers from libvmaf dependency')
+      endif
+    endif
+  endif
+  if not have_vmaf_headers
+    have_vmaf_headers = cpp.compiles(vmaf_headers_code, args: get_option('cpp_args'))
+    if have_vmaf_headers
+      message('Using VMAF headers from the default include path')
+    endif
+  endif
+  if enable_vmaf_option == 'enabled' and not have_vmaf_headers
+    error('VMAF headers not found (libvmaf/libvmaf.h)')
+  endif
+endif
+
+have_libvship_headers = false
+libvship_compile_dep = declare_dependency()
+if enable_libvship_option != 'disabled'
+  libvship_headers_code = '''
+#include "VshipAPI.h"
+int main(void) {
+  Vship_Version version;
+  (void)version;
+  return 0;
+}
+'''
+  if libvship_include_dir != ''
+    libvship_candidate_dep = declare_dependency(compile_args: ['-I' + libvship_include_dir])
+    have_libvship_headers = cpp.compiles(libvship_headers_code, dependencies: libvship_candidate_dep, args: get_option('cpp_args'))
+    if have_libvship_headers
+      libvship_compile_dep = libvship_candidate_dep
+      message('Using libvship headers from: ' + libvship_include_dir)
+    endif
+  endif
+  if not have_libvship_headers
+    have_libvship_headers = cpp.compiles(libvship_headers_code, args: get_option('cpp_args'))
+    if have_libvship_headers
+      message('Using libvship headers from the default include path')
+    endif
+  endif
+  if enable_libvship_option == 'enabled' and not have_libvship_headers
+    error('libvship headers not found (VshipAPI.h)')
+  endif
+endif
+
 # libdovi / libhdr10plus: system優先、なければ同梱build (configure互換)
 cargo_prog = find_program('cargo', required: false)
 if cargo_prog.found()
@@ -497,6 +576,8 @@ conf_data.set10('ENABLE_LIBHDR10PLUS', libhdr10plus_dep.found())
 conf_data.set10('ENABLE_VULKAN', vulkan_dep.found() and libplacebo_dep.found())
 conf_data.set10('ENABLE_LIBPLACEBO', libplacebo_dep.found())
 conf_data.set10('ENABLE_OPENVINO', enable_openvino and have_openvino_headers)
+conf_data.set10('ENABLE_VMAF', have_vmaf_headers)
+conf_data.set10('ENABLE_LIBVSHIP', have_libvship_headers)
 
 if enable_avisynth and have_avisynth_headers
   conf_data.set('AVS_INTERF_VER', 12)
@@ -718,6 +799,8 @@ qsvpipeline_sources = files(
   'QSVPipeline/rgy_libdovi.cpp',
   'QSVPipeline/rgy_libass.cpp',
   'QSVPipeline/rgy_libplacebo.cpp',
+  'QSVPipeline/rgy_libvmaf.cpp',
+  'QSVPipeline/rgy_libvship.cpp',
   'QSVPipeline/rgy_log.cpp',
   'QSVPipeline/rgy_memmem.cpp',
   'QSVPipeline/rgy_model_registry.cpp',
@@ -858,6 +941,12 @@ endif
 if libplacebo_dep.found()
   all_deps += libplacebo_build_dep
 endif
+if have_vmaf_headers
+  all_deps += vmaf_compile_dep
+endif
+if have_libvship_headers
+  all_deps += libvship_compile_dep
+endif
 if libdovi_dep.found()
   all_deps += libdovi_dep
 endif
@@ -890,6 +979,8 @@ summary({
   'libass': libass_dep.found(),
   'libass static': libass_dep.found() and get_option('libass_static'),
   'libplacebo': libplacebo_dep.found(),
+  'VMAF': have_vmaf_headers,
+  'libvship': have_libvship_headers,
   'Vulkan': vulkan_dep.found(),
   'libdovi': libdovi_dep.found(),
   'libhdr10plus': libhdr10plus_dep.found(),

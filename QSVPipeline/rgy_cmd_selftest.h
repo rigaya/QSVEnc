@@ -79,11 +79,22 @@ struct RGYCmdSelfTestResult {
     int skipped = 0;        // 診断対象外のオプション
 };
 
+// 値の組み合わせを指定して確認する往復テスト用ケース。
+// expected は再生成結果に必ず含まれる文字列、unexpected は含まれてはいけない文字列を表す。
+struct RGYCmdSelfTestRoundTripCase {
+    tstring name;
+    std::vector<tstring> args;
+    bool saveDisabledPrm;
+    std::vector<tstring> expected;
+    std::vector<tstring> unexpected;
+};
+
 template<typename T>
 class RGYCmdSelfTest {
 public:
     using ParseFunc = std::function<int(T *, const std::vector<tstring>&)>;
     using GenFunc = std::function<tstring(const T *)>;
+    using GenWithSaveDisabledFunc = std::function<tstring(const T *, bool)>;
 
     // argsPrefix は入出力ファイル名など、パースを通すために常に必要な引数
     // codecList はコーデックによって有効・無効が変わるオプションのために順に試すコーデック
@@ -160,6 +171,68 @@ public:
             res.total, res.ok, res.ngRoundTrip, res.ngNotGenerated, res.ngUnknownParam, res.noValue, res.except, res.skipped);
         return (res.ngRoundTrip + res.ngNotGenerated + res.ngUnknownParam > 0) ? -1 : 1;
 #endif
+    }
+
+    // 通常の自動探索では表現しにくい、複数パラメータ・空白を含む値・無効化状態を指定して確認する。
+    int runRoundTripCases(const std::vector<RGYCmdSelfTestRoundTripCase>& cases, const GenWithSaveDisabledFunc& gen) {
+        auto& errInfo = rgy_cmd_error_info();
+        const auto quiet = errInfo.quiet;
+        errInfo.quiet = true;
+        int ng = 0;
+        for (const auto& test : cases) {
+            bool ok = false;
+            tstring detail;
+            for (m_prefixIdx = 0; m_prefixIdx < m_argsPrefixList.size(); m_prefixIdx++) {
+                T prm;
+                errInfo.reset();
+                const auto args = withPrefix(test.args);
+                if (m_parse(&prm, args) != 0 || errInfo.errorOccurred) {
+                    continue;
+                }
+                const auto cmd1 = gen(&prm, test.saveDisabledPrm);
+                for (const auto& expected : test.expected) {
+                    if (cmd1.find(expected) == tstring::npos) {
+                        detail = _T("再生成結果に必要な指定がない: ") + expected + _T("\n    in :") + concatArgs(args) + _T("\n    gen:") + cmd1;
+                        break;
+                    }
+                }
+                if (detail.empty()) {
+                    for (const auto& unexpected : test.unexpected) {
+                        if (cmd1.find(unexpected) != tstring::npos) {
+                            detail = _T("再生成結果に無効化されるべき指定が残っている: ") + unexpected + _T("\n    in :") + concatArgs(args) + _T("\n    gen:") + cmd1;
+                            break;
+                        }
+                    }
+                }
+                if (!detail.empty()) {
+                    break;
+                }
+                T prm2;
+                errInfo.reset();
+                const auto genArgs = splitCommandLine(trim(cmd1).c_str());
+                if (m_parse(&prm2, genArgs) != 0 || errInfo.errorOccurred) {
+                    detail = _T("再生成したコマンドラインを再度パースできない\n    in :") + concatArgs(args) + _T("\n    gen:") + cmd1;
+                    break;
+                }
+                const auto cmd2 = gen(&prm2, test.saveDisabledPrm);
+                if (cmd1 != cmd2) {
+                    detail = _T("再生成したコマンドラインが一致しない\n    in  :") + concatArgs(args) + _T("\n    gen1:") + cmd1 + _T("\n    gen2:") + cmd2;
+                    break;
+                }
+                ok = true;
+                break;
+            }
+            if (ok) {
+                printResult(_T("OK"), test.name, _T("指定値を含む往復に成功"));
+            } else {
+                ng++;
+                printResult(_T("NG"), test.name, detail.empty() ? _T("テスト前提のコマンドラインをパースできない") : detail);
+            }
+        }
+        m_prefixIdx = 0;
+        errInfo.quiet = quiet;
+        _ftprintf(stdout, _T("metric roundtrip total %d, NG %d\n"), (int)cases.size(), ng);
+        return (ng == 0) ? 1 : -1;
     }
 
 private:

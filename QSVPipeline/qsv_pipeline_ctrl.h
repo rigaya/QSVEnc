@@ -44,6 +44,7 @@
 #include "qsv_opencl.h"
 #include "qsv_query.h"
 #include "qsv_allocator.h"
+#include "qsv_allocator_d3d11.h"
 #include "rgy_util.h"
 #include "rgy_thread.h"
 #include "rgy_timecode.h"
@@ -459,9 +460,23 @@ public:
         }
         if (videoQualityMetric) {
             if (!videoQualityMetric->decodeStarted()) {
-                videoQualityMetric->initDecode(m_bs.get());
+                const auto err = videoQualityMetric->initDecode(m_bs.get());
+                if (err != RGY_ERR_NONE) {
+                    return err;
+                }
             }
-            videoQualityMetric->addBitstream(m_bs.get());
+            {
+                const auto err = videoQualityMetric->addBitstream(m_bs.get());
+                if (err != RGY_ERR_NONE) {
+                    return err;
+                }
+            }
+            {
+                const auto err = videoQualityMetric->metricStatus();
+                if (err != RGY_ERR_NONE) {
+                    return err;
+                }
+            }
         }
         return writer->WriteNextFrame(m_bs.get());
     }
@@ -637,6 +652,18 @@ public:
         }
     }
 protected:
+    RGY_ERR waitForD3D11Completion() {
+#if MFX_D3D11_SUPPORT && (defined(_WIN32) || defined(_WIN64))
+        auto allocatorD3D11 = dynamic_cast<QSVAllocatorD3D11 *>(m_allocator);
+        if (allocatorD3D11 == nullptr) {
+            return RGY_ERR_NOT_INITIALIZED;
+        }
+        return err_to_rgy(allocatorD3D11->WaitForD3D11Completion());
+#else
+        return RGY_ERR_UNSUPPORTED;
+#endif
+    }
+
     RGY_ERR workSurfacesClear() {
         if (m_outQeueue.size() != 0) {
             return RGY_ERR_UNSUPPORTED;
@@ -2319,6 +2346,13 @@ public:
         RGYFrameInfo inputFrame;
         mfxFrameSurface1 *surfVppIn = taskSurf->surf().mfx()->surf();
         if (surfVppIn != nullptr) {
+            if (m_memType == D3D11_MEMORY) {
+                const auto waitErr = waitForD3D11Completion();
+                if (waitErr != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to wait for D3D11 input before video metric: %s.\n"), get_err_mes(waitErr));
+                    return waitErr;
+                }
+            }
             if (m_surfVppInInterop.count(surfVppIn) == 0) {
                 m_surfVppInInterop[surfVppIn] = getOpenCLFrameInterop(surfVppIn, m_memType, CL_MEM_READ_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_videoMetric->GetFilterParam()->frameIn);
             }
@@ -2350,11 +2384,24 @@ public:
         auto err = m_videoMetric->filter(&inputFrame, nullptr, &dummy, m_cl->queue(), &inputReleaseEvent);
         if (err != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("Failed to send frame for video metric calcualtion: %s.\n"), get_err_mes(err));
+            if (clFrameInInterop) {
+                const auto releaseErr = clFrameInInterop->release(&inputReleaseEvent);
+                clFrameInInterop = nullptr;
+                if (releaseErr != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to release OpenCL interop [in] after metric error: %s.\n"), get_err_mes(releaseErr));
+                } else if (const auto waitErr = inputReleaseEvent.wait(); waitErr != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to wait for OpenCL interop [in] release after metric error: %s.\n"), get_err_mes(waitErr));
+                }
+            }
             return err;
         }
         if (clFrameInInterop) {
-            clFrameInInterop->release(&inputReleaseEvent); // input frameの解放
+            const auto releaseErr = clFrameInInterop->release(&inputReleaseEvent); // input frameの解放
             clFrameInInterop = nullptr;
+            if (releaseErr != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to release OpenCL interop [in]: %s.\n"), get_err_mes(releaseErr));
+                return releaseErr;
+            }
         }
         //eventを入力フレームを使用し終わったことの合図として登録する
         taskSurf->addClEvent(inputReleaseEvent);
@@ -3138,6 +3185,15 @@ protected:
                         continue;
                     }
                     if (taskSurf->surf().mfx()) {
+                        if (m_videoMetric && m_memType == D3D11_MEMORY) {
+                            const auto waitErr = waitForD3D11Completion();
+                            if (waitErr != RGY_ERR_NONE) {
+                                PrintMes(RGY_LOG_ERROR, _T("Failed to wait for D3D11 input before OpenCL video metric: %s.\n"), get_err_mes(waitErr));
+                                batchErr = waitErr;
+                                readies.push_back(std::move(ready));
+                                continue;
+                            }
+                        }
                         mfxFrameSurface1 *surfVppIn = taskSurf->surf().mfx()->surf();
                         if (m_surfVppInInterop.count(surfVppIn) == 0) {
                             // interopのreleaseは生成時のqueueに発行されるため、worker専用queueで生成する。
@@ -3898,6 +3954,9 @@ public:
     }
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
         if (m_stopwatch) m_stopwatch->set(0);
+        if (frame && m_videoMetric) {
+            frame->depend_clear();
+        }
         clearPrevInputFrame();
         collectReleaseDone(false);
         if (m_stopwatch) m_stopwatch->add(0, 0);
@@ -4039,6 +4098,13 @@ public:
                 return RGY_ERR_NULL_PTR;
             }
             if (taskSurf->surf().mfx()) {
+                if (m_videoMetric && m_memType == D3D11_MEMORY) {
+                    const auto waitErr = waitForD3D11Completion();
+                    if (waitErr != RGY_ERR_NONE) {
+                        PrintMes(RGY_LOG_ERROR, _T("Failed to wait for D3D11 input before OpenCL video metric: %s.\n"), get_err_mes(waitErr));
+                        return waitErr;
+                    }
+                }
                 mfxFrameSurface1 *surfVppIn = taskSurf->surf().mfx()->surf();
                 if (m_surfVppInInterop.count(surfVppIn) == 0) {
                     m_surfVppInInterop[surfVppIn] = getOpenCLFrameInterop(surfVppIn, m_memType, CL_MEM_READ_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_vpFilters.front()->GetFilterParam()->frameIn);

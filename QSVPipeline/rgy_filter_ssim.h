@@ -47,7 +47,16 @@ struct RGYBitstream;
 #include <array>
 #include <thread>
 #include <deque>
+#include <vector>
 #include <mutex>
+#include <condition_variable>
+#include <atomic>
+#if ENABLE_VMAF
+#include "rgy_libvmaf.h"
+#endif
+#if ENABLE_LIBVSHIP
+#include "rgy_libvship.h"
+#endif
 
 class RGYFilterParamSsim : public RGYFilterParam {
 public:
@@ -79,6 +88,8 @@ public:
     virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
     virtual RGY_ERR initDecode(const RGYBitstream *bitstream);
     bool decodeStarted() { return m_decodeStarted; }
+    RGY_ERR finish();
+    RGY_ERR metricStatus() const;
     virtual void showResult();
     RGY_ERR thread_func(RGYParamThread threadParam);
     RGY_ERR thread_func_compare_frames();
@@ -96,6 +107,11 @@ protected:
     RGY_ERR calc_psnr_plane(const RGYFrameInfo *p0, const RGYFrameInfo *p1, std::unique_ptr<RGYCLBuf> &tmp, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent> &wait_events);
     RGY_ERR calc_psnr_frame(const RGYFrameInfo *p0, const RGYFrameInfo *p1);
     RGY_ERR calc_ssim_psnr(const RGYFrameInfo *p0, const RGYFrameInfo *p1);
+    RGY_ERR init_metric_worker();
+    RGY_ERR submit_metric_frame(RGYCLFrame *reference, RGYCLFrame *distorted, const std::vector<RGYOpenCLEvent> &referenceWaitEvents, const std::vector<RGYOpenCLEvent> &distortedWaitEvents);
+    RGY_ERR metric_worker();
+    RGY_ERR finish_metric_worker();
+    void close_metric_resources();
 
     bool m_decodeStarted; //デコードが開始したか
     int m_deviceId;       //SSIM計算で使用するCUDA device ID
@@ -110,6 +126,7 @@ protected:
     int m_inputEnc;
     std::deque<std::unique_ptr<RGYCLFrame>> m_input;  //使用中のフレームバッファ(オリジナルフレーム格納用)
     std::deque<std::unique_ptr<RGYCLFrame>> m_unused; //使っていないフレームバッファ(オリジナルフレーム格納用)
+    std::deque<RGYOpenCLEvent> m_inputReady;           //原画像のコピー・変換完了イベント
 #if ENCODER_VCEENC
     amf::AMFTrace *m_trace;
     amf::AMFFactory *m_factory;
@@ -139,6 +156,81 @@ protected:
     std::array<double, 3> m_psnrTotalPlane; // 評価結果の累積値 YUV
     double m_psnrTotal;                     // 評価結果の累積値 All
     int m_frames;                           // 評価したフレーム数
+    bool m_finishCalled;
+    RGY_ERR m_finishResult;
+
+#if ENABLE_VMAF || ENABLE_LIBVSHIP
+    struct MetricHostFrame {
+        RGY_CSP csp;
+        int width;
+        int height;
+        std::array<int, 3> planeWidth;
+        std::array<int, 3> planeHeight;
+        std::array<int64_t, 3> pitch;
+        std::array<std::vector<uint8_t>, 3> plane;
+        MetricHostFrame() : csp(RGY_CSP_NA), width(0), height(0), planeWidth(), planeHeight(), pitch(), plane() {}
+    };
+    struct MetricHostPair {
+        MetricHostFrame reference;
+        MetricHostFrame distorted;
+        int index;
+        MetricHostPair() : reference(), distorted(), index(-1) {}
+    };
+    RGY_ERR copy_metric_frame(RGYCLFrame *source, const std::vector<RGYOpenCLEvent> &waitEvents, MetricHostFrame& destination);
+    RGY_ERR process_metric_pair(const MetricHostPair& pair);
+#if ENABLE_VMAF
+    RGY_ERR init_vmaf_metric();
+    RGY_ERR finish_vmaf_metric();
+    RGY_ERR process_vmaf_metric(const MetricHostPair& pair);
+#endif
+#if ENABLE_LIBVSHIP
+    RGY_ERR init_vship_metric();
+    RGY_ERR process_vship_metric(const MetricHostPair& pair);
+    RGY_ERR finish_vship_metric();
+#endif
+    std::array<MetricHostPair, 2> m_metricSlots;
+    std::deque<int> m_metricReady;
+    std::deque<int> m_metricFree;
+    std::thread m_metricThread;
+    mutable std::mutex m_metricMutex;
+    std::condition_variable m_metricReadyCv;
+    std::condition_variable m_metricFreeCv;
+    std::condition_variable m_metricInitCv;
+    bool m_metricInputFin;
+    bool m_metricStop;
+    bool m_metricWorkerReady;
+    bool m_metricWorkerDone;
+    bool m_metricFinishCalled;
+    int m_metricNextIndex;
+    RGY_ERR m_metricError;
+    RGY_ERR m_metricFinishResult;
+#if ENABLE_VMAF
+    RGYLibVMAFLoader m_libvmaf;
+    VmafContext *m_vmafContext;
+    VmafModel *m_vmafModel;
+    VmafModelCollection *m_vmafModelCollection;
+    double m_vmafScore;
+    int m_vmafFrames;
+#endif
+#if ENABLE_LIBVSHIP
+    RGYLibVshipLoader m_libvship;
+    Vship_SSIMU2Handler m_vshipSsimu2;
+    Vship_ButteraugliHandler m_vshipButteraugli;
+    Vship_CVVDPHandler m_vshipCvvdp;
+    bool m_vshipSsimu2Initialized;
+    bool m_vshipButteraugliInitialized;
+    bool m_vshipCvvdpInitialized;
+    double m_vshipSsimu2Total;
+    int m_vshipSsimu2Frames;
+    std::vector<double> m_vshipSsimu2Scores;
+    double m_vshipButteraugliNormQ;
+    double m_vshipButteraugliNorm3;
+    double m_vshipButteraugliNormInf;
+    int m_vshipButteraugliFrames;
+    double m_vshipCvvdpScore;
+    int m_vshipCvvdpFrames;
+#endif
+#endif
 
     RGYOpenCLProgramAsync m_kernel;
 };

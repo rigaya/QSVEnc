@@ -4807,6 +4807,9 @@ bool invalid_with_raw_out(const RGYParamCommon &prm, shared_ptr<RGYLog> log) {
     INVALID_WITH_RAW_OUT(prm.metric.ssim, "--ssim");
     INVALID_WITH_RAW_OUT(prm.metric.psnr, "--psnr");
     INVALID_WITH_RAW_OUT(prm.metric.vmaf.enable, "--vmaf");
+    INVALID_WITH_RAW_OUT(prm.metric.vshipSsimu2.enable, "--vship-ssimulacra2");
+    INVALID_WITH_RAW_OUT(prm.metric.vshipButteraugli.enable, "--vship-butteraugli");
+    INVALID_WITH_RAW_OUT(prm.metric.vshipCvvdp.enable, "--vship-cvvdp");
 
     return error;
 }

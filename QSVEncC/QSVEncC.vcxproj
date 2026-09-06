@@ -666,6 +666,24 @@ if exist "$(OPENVINO_PATH)\bin\intel64\Release\openvino_c.dll" copy /y "$(OPENVI
       </Message>
     </PreBuildEvent>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Platform)'=='x64' and ('$(Configuration)'=='Debug' or '$(Configuration)'=='Release' or '$(Configuration)'=='DebugStatic' or '$(Configuration)'=='ReleaseStatic') and '$(QSVEncVmafIncludeDir)'!='' and Exists('$(QSVEncVmafIncludeDir)\\libvmaf\\libvmaf.h')">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(QSVEncVmafIncludeDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>QSVENC_ENABLE_VMAF=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Platform)'=='x64' and ('$(Configuration)'=='Debug' or '$(Configuration)'=='Release' or '$(Configuration)'=='DebugStatic' or '$(Configuration)'=='ReleaseStatic') and '$(QSVEncVshipIncludeDir)'!='' and Exists('$(QSVEncVshipIncludeDir)\\VshipAPI.h')">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(QSVEncVshipIncludeDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>QSVENC_ENABLE_LIBVSHIP=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <Target Name="ValidateQSVEncCMetricHeaders" BeforeTargets="ClCompile" Condition="'$(QSVEncVmafIncludeDir)'!='' and !Exists('$(QSVEncVmafIncludeDir)\\libvmaf\\libvmaf.h')">
+    <Error Text="QSVEncVmafIncludeDir に libvmaf/libvmaf.h がありません: $(QSVEncVmafIncludeDir)" />
+  </Target>
+  <Target Name="ValidateQSVEncCMetricHeadersVship" BeforeTargets="ClCompile" Condition="'$(QSVEncVshipIncludeDir)'!='' and !Exists('$(QSVEncVshipIncludeDir)\\VshipAPI.h')">
+    <Error Text="QSVEncVshipIncludeDir に VshipAPI.h がありません: $(QSVEncVshipIncludeDir)" />
+  </Target>
   <ItemGroup>
     <ClCompile Include="QSVEncC.cpp" />
   </ItemGroup>

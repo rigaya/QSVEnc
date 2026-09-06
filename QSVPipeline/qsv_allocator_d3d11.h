@@ -103,6 +103,8 @@ private:
 #if (defined(_WIN32) || defined(_WIN64))
 
 #include <d3d11.h>
+#include <memory>
+#include <mutex>
 #include <vector>
 #include <map>
 
@@ -125,6 +127,13 @@ public:
 };
 
 class QSVAllocatorD3D11 : public QSVAllocator {
+    struct D3D11QueryDeleter {
+        void operator()(ID3D11Query *query) const {
+            if (query) {
+                query->Release();
+            }
+        }
+    };
 public:
     QSVAllocatorD3D11();
     virtual ~QSVAllocatorD3D11();
@@ -137,6 +146,8 @@ public:
     virtual mfxStatus FrameLock(mfxMemId mid, mfxFrameData *ptr) override;
     virtual mfxStatus FrameUnlock(mfxMemId mid, mfxFrameData *ptr) override;
     virtual mfxStatus GetFrameHDL(mfxMemId mid, mfxHDL *handle) override;
+    // CL_CONTEXT_INTEROP_USER_SYNC時、OpenCLへ渡す前にD3D11の直前の書き込み完了を待つ。
+    mfxStatus WaitForD3D11Completion();
 
 protected:
     virtual mfxStatus CheckRequestType(mfxFrameAllocRequest *request) override;
@@ -145,6 +156,8 @@ protected:
 
     QSVAllocatorParamsD3D11 m_initParams;
     ID3D11DeviceContext *m_pDeviceContext;
+    std::unique_ptr<ID3D11Query, D3D11QueryDeleter> m_completionQuery;
+    std::mutex m_deviceContextMutex;
 
     struct TextureResource {
         std::vector<mfxMemId> outerMids;

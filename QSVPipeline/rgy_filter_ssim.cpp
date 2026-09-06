@@ -27,6 +27,10 @@
 // ------------------------------------------------------------------------------------------
 
 #include <map>
+#include <cmath>
+#include <numeric>
+#include "rgy_filesystem.h"
+#include "cpu_info.h"
 #include "rgy_avutil.h"
 #include "rgy_filter_ssim.h"
 #if ENCODER_QSV
@@ -71,6 +75,10 @@ tstring RGYFilterParamSsim::print() const {
     tstring str;
     if (metric.ssim) str += _T("ssim ");
     if (metric.psnr) str += _T("psnr ");
+    if (metric.vmaf.enable) str += _T("vmaf ");
+    if (metric.vshipSsimu2.enable) str += _T("vship-ssimulacra2 ");
+    if (metric.vshipButteraugli.enable) str += _T("vship-butteraugli ");
+    if (metric.vshipCvvdp.enable) str += _T("vship-cvvdp ");
     return str;
 }
 
@@ -86,6 +94,7 @@ RGYFilterSsim::RGYFilterSsim(shared_ptr<RGYOpenCLContext> context) :
     m_inputEnc(0),
     m_input(),
     m_unused(),
+    m_inputReady(),
 #if ENCODER_VCEENC
     m_trace(nullptr),
     m_factory(nullptr),
@@ -114,6 +123,52 @@ RGYFilterSsim::RGYFilterSsim(shared_ptr<RGYOpenCLContext> context) :
     m_psnrTotalPlane(),
     m_psnrTotal(0.0),
     m_frames(0),
+    m_finishCalled(false),
+    m_finishResult(RGY_ERR_NONE),
+#if ENABLE_VMAF || ENABLE_LIBVSHIP
+    m_metricSlots(),
+    m_metricReady(),
+    m_metricFree(),
+    m_metricThread(),
+    m_metricMutex(),
+    m_metricReadyCv(),
+    m_metricFreeCv(),
+    m_metricInitCv(),
+    m_metricInputFin(false),
+    m_metricStop(false),
+    m_metricWorkerReady(false),
+    m_metricWorkerDone(false),
+    m_metricFinishCalled(false),
+    m_metricNextIndex(0),
+    m_metricError(RGY_ERR_NONE),
+    m_metricFinishResult(RGY_ERR_NONE),
+#if ENABLE_VMAF
+    m_libvmaf(),
+    m_vmafContext(nullptr),
+    m_vmafModel(nullptr),
+    m_vmafModelCollection(nullptr),
+    m_vmafScore(0.0),
+    m_vmafFrames(0),
+#endif
+#if ENABLE_LIBVSHIP
+    m_libvship(),
+    m_vshipSsimu2(),
+    m_vshipButteraugli(),
+    m_vshipCvvdp(),
+    m_vshipSsimu2Initialized(false),
+    m_vshipButteraugliInitialized(false),
+    m_vshipCvvdpInitialized(false),
+    m_vshipSsimu2Total(0.0),
+    m_vshipSsimu2Frames(0),
+    m_vshipSsimu2Scores(),
+    m_vshipButteraugliNormQ(0.0),
+    m_vshipButteraugliNorm3(0.0),
+    m_vshipButteraugliNormInf(0.0),
+    m_vshipButteraugliFrames(0),
+    m_vshipCvvdpScore(0.0),
+    m_vshipCvvdpFrames(0),
+#endif
+#endif
     m_kernel() {
     m_name = _T("ssim/psnr");
 }
@@ -138,8 +193,26 @@ RGY_ERR RGYFilterSsim::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     }
 
     m_deviceId = prm->deviceId;
+    m_finishCalled = false;
+    m_finishResult = RGY_ERR_NONE;
     m_cropOrg.reset();
     m_cropDec.reset();
+    if (prm->metric.vmaf.enable) {
+        if (prm->metric.vmaf.model.empty() || prm->metric.vmaf.threads < 0 || prm->metric.vmaf.subsample < 1) {
+            AddMessage(RGY_LOG_ERROR, _T("Invalid VMAF parameters.\n"));
+            return RGY_ERR_INVALID_PARAM;
+        }
+    }
+    if (prm->metric.vshipButteraugli.enable
+        && (prm->metric.vshipButteraugli.Qnorm <= 0 || !std::isfinite(prm->metric.vshipButteraugli.intensity_multiplier) || prm->metric.vshipButteraugli.intensity_multiplier <= 0.0f)) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid Butteraugli parameters.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (prm->metric.vshipCvvdp.enable
+        && (prm->metric.vshipCvvdp.model.empty() || prm->baseFps.n() <= 0 || prm->baseFps.d() <= 0)) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid CVVDP parameters.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
     if (pParam->frameOut.csp == RGY_CSP_NV12) {
         pParam->frameOut.csp = RGY_CSP_YV12;
     } else if (pParam->frameOut.csp == RGY_CSP_P010) {
@@ -341,8 +414,10 @@ RGY_ERR RGYFilterSsim::init_cl_resources() {
             q = m_cl->createQueue(m_cl->queue().devid(), m_cl->queue().getProperties());
         }
     }
-    if (auto err = build_kernel(m_param->frameOut.csp); err != RGY_ERR_NONE) {
-        return err;
+    if (prm->metric.ssim || prm->metric.psnr) {
+        if (auto err = build_kernel(m_param->frameOut.csp); err != RGY_ERR_NONE) {
+            return err;
+        }
     }
 #if ENCODER_VCEENC
     auto codec_uvd_name = codec_rgy_to_dec(prm->input.codec);
@@ -422,11 +497,20 @@ RGY_ERR RGYFilterSsim::init_cl_resources() {
         return sts;
     }
 #endif //#if ENCODER_QSV
+    if (prm->metric.vmaf.enable || prm->metric.vshipEnabled()) {
+        auto sts = init_metric_worker();
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+    }
     AddMessage(RGY_LOG_DEBUG, _T("Initialized decoder\n"));
     return RGY_ERR_NONE;
 }
 
 void RGYFilterSsim::close_cl_resources() {
+#if ENCODER_QSV
+    m_surfVppInInterop.clear();
+#endif
     m_queueCrop.clear();
     m_cropEvent.reset();
     for (auto &q : m_queueCalcSsim) {
@@ -444,6 +528,7 @@ void RGYFilterSsim::close_cl_resources() {
     m_decFrameCopy.reset();
     m_input.clear();
     m_unused.clear();
+    m_inputReady.clear();
     m_kernel.clear();
 #if ENCODER_VCEENC
     m_decoder.Release();
@@ -454,7 +539,6 @@ void RGYFilterSsim::close_cl_resources() {
 #if ENCODER_QSV
     m_taskDec.reset();
     m_mfxDEC.reset();
-    m_surfVppInInterop.clear();
 #endif //#if ENCODER_QSV
 }
 
@@ -530,8 +614,13 @@ RGY_ERR RGYFilterSsim::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo 
             m_unused.push_back(m_cl->createFrameBuffer(m_param->frameOut));
         }
         auto &copyFrame = m_unused.front();
+        RGYOpenCLEvent inputReady;
         if (m_param->frameOut.csp == pInputFrame->csp) {
-            m_cl->copyFrame(&copyFrame->frame, pInputFrame, nullptr, queue, wait_events, event);
+            sts = m_cl->copyFrame(&copyFrame->frame, pInputFrame, nullptr, queue, wait_events, &inputReady);
+            if (sts != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to copy original frame: %s.\n"), get_err_mes(sts));
+                return sts;
+            }
         } else {
             if (!m_cropOrg) {
                 unique_ptr<RGYFilterCspCrop> filterCrop(new RGYFilterCspCrop(m_cl));
@@ -551,7 +640,7 @@ RGY_ERR RGYFilterSsim::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo 
             int cropFilterOutputNum = 0;
             RGYFrameInfo *outInfo[1] = { &copyFrame->frame };
             RGYFrameInfo cropInput = *pInputFrame;
-            auto sts_filter = m_cropOrg->filter(&cropInput, (RGYFrameInfo **)&outInfo, &cropFilterOutputNum, queue, wait_events, event);
+            auto sts_filter = m_cropOrg->filter(&cropInput, (RGYFrameInfo **)&outInfo, &cropFilterOutputNum, queue, wait_events, &inputReady);
             if (outInfo[0] == nullptr || cropFilterOutputNum != 1) {
                 AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_cropOrg->name().c_str());
                 return sts_filter;
@@ -561,11 +650,14 @@ RGY_ERR RGYFilterSsim::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo 
                 return sts_filter;
             }
         }
-
         //フレームをm_unusedからm_inputに移す
         m_input.push_back(std::move(copyFrame));
+        m_inputReady.push_back(inputReady);
         m_unused.pop_front();
         m_inputOriginal++;
+        if (event) {
+            *event = inputReady;
+        }
     }
 
     if (m_decodeStarted) {
@@ -588,17 +680,12 @@ void RGYFilterSsim::showResult() {
     if (!prm) {
         return;
     }
-    if (m_thread.joinable()) {
-        AddMessage(RGY_LOG_DEBUG, _T("Waiting for ssim/psnr calculation thread to finish.\n"));
-        m_thread.join();
-    } else {
-        //シングルスレッド動作時はここで最終処理を行う
-        auto sts = RGY_ERR_NONE;
-        while (sts == RGY_ERR_NONE) {
-            sts = compare_frames();
-        }
+    const auto finishStatus = finish();
+    if (finishStatus != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("Video quality metric failed: %s.\n"), get_err_mes(finishStatus));
+        return;
     }
-    if (prm->metric.ssim) {
+    if (prm->metric.ssim && m_frames > 0) {
         auto str = strsprintf(_T("\nSSIM YUV:"));
         for (int i = 0; i < RGY_CSP_PLANES[m_param->frameOut.csp]; i++) {
             str += strsprintf(_T(" %f (%f),"), m_ssimTotalPlane[i] / m_frames, ssim_db(m_ssimTotalPlane[i], (double)m_frames));
@@ -606,7 +693,7 @@ void RGYFilterSsim::showResult() {
         str += strsprintf(_T(" All: %f (%f), (Frames: %d)\n"), m_ssimTotal / m_frames, ssim_db(m_ssimTotal, (double)m_frames), m_frames);
         AddMessage(RGY_LOG_INFO, _T("%s\n"), str.c_str());
     }
-    if (prm->metric.psnr) {
+    if (prm->metric.psnr && m_frames > 0) {
         auto str = strsprintf(_T("\nPSNR YUV:"));
         for (int i = 0; i < RGY_CSP_PLANES[m_param->frameOut.csp]; i++) {
             str += strsprintf(_T(" %f,"), get_psnr(m_psnrTotalPlane[i], m_frames, (1 << RGY_CSP_BIT_DEPTH[prm->frameOut.csp]) - 1));
@@ -614,6 +701,37 @@ void RGYFilterSsim::showResult() {
         str += strsprintf(_T(" Avg: %f, (Frames: %d)\n"), get_psnr(m_psnrTotal, m_frames, (1 << RGY_CSP_BIT_DEPTH[prm->frameOut.csp]) - 1), m_frames);
         AddMessage(RGY_LOG_INFO, _T("%s\n"), str.c_str());
     }
+#if ENABLE_VMAF
+    if (prm->metric.vmaf.enable) {
+        AddMessage(RGY_LOG_INFO, _T("VMAF Score %.6f (Frames: %d)\n"), m_vmafScore, m_vmafFrames);
+    }
+#endif
+#if ENABLE_LIBVSHIP
+    if (prm->metric.vshipSsimu2.enable) {
+        auto scores = m_vshipSsimu2Scores;
+        std::sort(scores.begin(), scores.end());
+        const auto percentile = [&scores](const double p) {
+            const auto position = (scores.size() - 1) * p;
+            const auto lower = (size_t)std::floor(position);
+            const auto upper = (size_t)std::ceil(position);
+            return scores[lower] + (scores[upper] - scores[lower]) * (position - lower);
+        };
+        const auto average = m_vshipSsimu2Total / m_vshipSsimu2Frames;
+        double variance = 0.0;
+        for (const auto score : scores) variance += (score - average) * (score - average);
+        AddMessage(RGY_LOG_INFO, _T("SSIMULACRA2: Avg %.6f, StdDev %.6f, Median %.6f, P5 %.6f, P95 %.6f, Min %.6f, Max %.6f (Frames: %d)\n"),
+            average, std::sqrt(variance / scores.size()),
+            percentile(0.5), percentile(0.05), percentile(0.95), scores.front(), scores.back(), m_vshipSsimu2Frames);
+    }
+    if (prm->metric.vshipButteraugli.enable) {
+        AddMessage(RGY_LOG_INFO, _T("Butteraugli normQ: %.6f, norm3: %.6f, norminf: %.6f (Frames: %d)\n"),
+            m_vshipButteraugliNormQ / m_vshipButteraugliFrames, m_vshipButteraugliNorm3 / m_vshipButteraugliFrames,
+            m_vshipButteraugliNormInf / m_vshipButteraugliFrames, m_vshipButteraugliFrames);
+    }
+    if (prm->metric.vshipCvvdp.enable) {
+        AddMessage(RGY_LOG_INFO, _T("CVVDP Score %.6f\n"), m_vshipCvvdpScore);
+    }
+#endif
 }
 
 RGY_ERR RGYFilterSsim::thread_func(RGYParamThread threadParam) {
@@ -648,6 +766,11 @@ RGY_ERR RGYFilterSsim::thread_func_compare_frames() {
 }
 
 RGY_ERR RGYFilterSsim::compare_frames() {
+    auto prm = std::dynamic_pointer_cast<RGYFilterParamSsim>(m_param);
+    if (!prm) {
+        AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
 #if ENCODER_VCEENC
     if (!m_decoder) {
         return RGY_ERR_MORE_DATA;
@@ -725,15 +848,39 @@ RGY_ERR RGYFilterSsim::compare_frames() {
         }
 
         //比較用のキューの先頭に積まれているものから順次比較していく
-        std::lock_guard<std::mutex> lock(m_mtx); //ロックを忘れないこと
-        auto &originalFrame = m_input.front();
+        RGYCLFrame *originalFrame = nullptr;
+        RGYOpenCLEvent originalReady;
+        {
+            std::lock_guard<std::mutex> lock(m_mtx);
+            if (m_input.empty() || m_inputReady.empty()) {
+                AddMessage(RGY_LOG_ERROR, _T("Original frame to be compared is missing.\n"));
+                return RGY_ERR_UNKNOWN;
+            }
+            originalFrame = m_input.front().get();
+            originalReady = m_inputReady.front();
+        }
+        if (prm->metric.ssim || prm->metric.psnr) {
+            if ((sts_filter = originalReady.wait()) != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to wait for original frame: %s.\n"), get_err_mes(sts_filter));
+                return sts_filter;
+            }
+        }
         sts_filter = calc_ssim_psnr(&originalFrame->frame, &m_decFrameCopy->frame);
         if (sts_filter != RGY_ERR_NONE) {
             return sts_filter;
         }
+        if (prm->metric.vmaf.enable || prm->metric.vshipEnabled()) {
+            if ((sts_filter = submit_metric_frame(originalFrame, m_decFrameCopy.get(), { originalReady }, { m_cropEvent })) != RGY_ERR_NONE) {
+                return sts_filter;
+            }
+        }
         //フレームをm_inputからm_unusedに移す
-        m_unused.push_back(std::move(originalFrame));
-        m_input.pop_front();
+        {
+            std::lock_guard<std::mutex> lock(m_mtx);
+            m_unused.push_back(std::move(m_input.front()));
+            m_input.pop_front();
+            m_inputReady.pop_front();
+        }
         m_frames++;
     }
 #endif //#if ENCODER_VCEENC
@@ -795,14 +942,14 @@ RGY_ERR RGYFilterSsim::compare_frames() {
             return RGY_ERR_NULL_PTR;
         }
         if (m_surfVppInInterop.count(surfVppIn) == 0) {
-            m_surfVppInInterop[surfVppIn] = getOpenCLFrameInterop(surfVppIn, m_mfxDEC->memType(), CL_MEM_READ_ONLY, m_mfxDEC->allocator(), m_cl.get(), m_cl->queue(), m_cropDec->GetFilterParam()->frameIn);
+            m_surfVppInInterop[surfVppIn] = getOpenCLFrameInterop(surfVppIn, m_mfxDEC->memType(), CL_MEM_READ_ONLY, m_mfxDEC->allocator(), m_cl.get(), m_queueCrop, m_cropDec->GetFilterParam()->frameIn);
         }
         clFrameInInterop = m_surfVppInInterop[surfVppIn].get();
         if (!clFrameInInterop) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [in].\n"));
             return RGY_ERR_NULL_PTR;
         }
-        err = clFrameInInterop->acquire(m_cl->queue());
+        err = clFrameInInterop->acquire(m_queueCrop);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [in]: %s.\n"), get_err_mes(err));
             return RGY_ERR_NULL_PTR;
@@ -816,30 +963,59 @@ RGY_ERR RGYFilterSsim::compare_frames() {
         RGYFrameInfo decFrameInfo = clFrameInInterop->frameInfo();
         auto sts_filter = m_cropDec->filter(&decFrameInfo, (RGYFrameInfo **)&outInfo, &cropFilterOutputNum, m_queueCrop, &m_cropEvent);
         if (outInfo[0] == nullptr || cropFilterOutputNum != 1) {
+            clFrameInInterop->release();
             AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_cropDec->name().c_str());
             return sts_filter;
         }
         if (sts_filter != RGY_ERR_NONE || cropFilterOutputNum != 1) {
+            clFrameInInterop->release();
             AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_cropDec->name().c_str());
             return sts_filter;
         }
         if (clFrameInInterop) {
             RGYOpenCLEvent event;
-            clFrameInInterop->release(&event);
+            if ((err = clFrameInInterop->release(&event)) != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to release OpenCL interop [in]: %s.\n"), get_err_mes(err));
+                return err;
+            }
             clFrameInInterop = nullptr;
             taskSurf->addClEvent(event);
         }
 
         //比較用のキューの先頭に積まれているものから順次比較していく
-        std::lock_guard<std::mutex> lock(m_mtx); //ロックを忘れないこと
-        auto &originalFrame = m_input.front();
+        RGYCLFrame *originalFrame = nullptr;
+        RGYOpenCLEvent originalReady;
+        {
+            std::lock_guard<std::mutex> lock(m_mtx);
+            if (m_input.empty() || m_inputReady.empty()) {
+                AddMessage(RGY_LOG_ERROR, _T("Original frame to be compared is missing.\n"));
+                return RGY_ERR_UNKNOWN;
+            }
+            originalFrame = m_input.front().get();
+            originalReady = m_inputReady.front();
+        }
+        if (prm->metric.ssim || prm->metric.psnr) {
+            if ((sts_filter = originalReady.wait()) != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to wait for original frame: %s.\n"), get_err_mes(sts_filter));
+                return sts_filter;
+            }
+        }
         sts_filter = calc_ssim_psnr(&originalFrame->frame, &m_decFrameCopy->frame);
         if (sts_filter != RGY_ERR_NONE) {
             return sts_filter;
         }
+        if (prm->metric.vmaf.enable || prm->metric.vshipEnabled()) {
+            if ((sts_filter = submit_metric_frame(originalFrame, m_decFrameCopy.get(), { originalReady }, { m_cropEvent })) != RGY_ERR_NONE) {
+                return sts_filter;
+            }
+        }
         //フレームをm_inputからm_unusedに移す
-        m_unused.push_back(std::move(originalFrame));
-        m_input.pop_front();
+        {
+            std::lock_guard<std::mutex> lock(m_mtx);
+            m_unused.push_back(std::move(m_input.front()));
+            m_input.pop_front();
+            m_inputReady.pop_front();
+        }
         AddMessage(RGY_LOG_TRACE, _T("compared %d: 0x%p.\n"), m_frames, surfVppIn);
         m_frames++;
     }
@@ -952,7 +1128,7 @@ RGY_ERR RGYFilterSsim::calc_ssim_psnr(const RGYFrameInfo *p0, const RGYFrameInfo
         return RGY_ERR_INVALID_PARAM;
     }
     auto err = RGY_ERR_NONE;
-    if (!m_kernel.get()) {
+    if ((prm->metric.ssim || prm->metric.psnr) && !m_kernel.get()) {
         AddMessage(RGY_LOG_ERROR, _T("failed to load RGY_FILTER_SSIM_CL\n"));
         return RGY_ERR_OPENCL_CRUSH;
     }
@@ -1015,8 +1191,759 @@ RGY_ERR RGYFilterSsim::calc_ssim_psnr(const RGYFrameInfo *p0, const RGYFrameInfo
     return RGY_ERR_NONE;
 }
 
+RGY_ERR RGYFilterSsim::metricStatus() const {
+#if ENABLE_VMAF || ENABLE_LIBVSHIP
+    std::lock_guard<std::mutex> lock(m_metricMutex);
+    return m_metricError;
+#else
+    return RGY_ERR_NONE;
+#endif
+}
+
+RGY_ERR RGYFilterSsim::init_metric_worker() {
+#if ENABLE_VMAF || ENABLE_LIBVSHIP
+    std::unique_lock<std::mutex> lock(m_metricMutex);
+    if (m_metricThread.joinable()) {
+        return m_metricError;
+    }
+    m_metricReady.clear();
+    m_metricFree = { 0, 1 };
+    m_metricInputFin = false;
+    m_metricStop = false;
+    m_metricWorkerReady = false;
+    m_metricWorkerDone = false;
+    m_metricFinishCalled = false;
+    m_metricNextIndex = 0;
+    m_metricError = RGY_ERR_NONE;
+    m_metricFinishResult = RGY_ERR_NONE;
+    m_metricThread = std::thread(&RGYFilterSsim::metric_worker, this);
+    m_metricInitCv.wait(lock, [this]() { return m_metricWorkerReady; });
+    return m_metricError;
+#else
+    return RGY_ERR_NONE;
+#endif
+}
+
+#if ENABLE_VMAF || ENABLE_LIBVSHIP
+RGY_ERR RGYFilterSsim::copy_metric_frame(RGYCLFrame *source, const std::vector<RGYOpenCLEvent> &waitEvents, MetricHostFrame& destination) {
+    if (!source) {
+        return RGY_ERR_NULL_PTR;
+    }
+    auto sts = source->queueMapBuffer(m_queueCrop, CL_MAP_READ, waitEvents, RGY_CL_MAP_BLOCK_NONE);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to map metric frame: %s.\n"), get_err_mes(sts));
+        return sts;
+    }
+    sts = source->mapWait();
+    if (sts != RGY_ERR_NONE) {
+        source->unmapBuffer(m_queueCrop);
+        AddMessage(RGY_LOG_ERROR, _T("Failed to wait for mapped metric frame: %s.\n"), get_err_mes(sts));
+        return sts;
+    }
+    const auto& mapped = source->mappedHost()->host();
+    destination.csp = mapped.csp;
+    destination.width = mapped.width;
+    destination.height = mapped.height;
+    const auto pixelSize = (RGY_CSP_BIT_DEPTH[mapped.csp] > 8) ? 2 : 1;
+    for (int i = 0; i < RGY_CSP_PLANES[mapped.csp]; i++) {
+        const auto plane = getPlane(&mapped, (RGY_PLANE)i);
+        const auto rowBytes = (size_t)plane.width * pixelSize;
+        destination.planeWidth[i] = plane.width;
+        destination.planeHeight[i] = plane.height;
+        destination.pitch[i] = (int64_t)rowBytes;
+        destination.plane[i].resize(rowBytes * plane.height);
+        for (int y = 0; y < plane.height; y++) {
+            memcpy(destination.plane[i].data() + rowBytes * y, plane.ptr[0] + plane.pitch[0] * y, rowBytes);
+        }
+    }
+    if ((sts = source->unmapBuffer(m_queueCrop)) != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to unmap metric frame: %s.\n"), get_err_mes(sts));
+        return sts;
+    }
+    return m_queueCrop.finish();
+}
+#endif
+
+RGY_ERR RGYFilterSsim::submit_metric_frame(RGYCLFrame *reference, RGYCLFrame *distorted, const std::vector<RGYOpenCLEvent> &referenceWaitEvents, const std::vector<RGYOpenCLEvent> &distortedWaitEvents) {
+#if ENABLE_VMAF || ENABLE_LIBVSHIP
+    if (auto sts = metricStatus(); sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    int slotIndex = -1;
+    {
+        std::unique_lock<std::mutex> lock(m_metricMutex);
+        m_metricFreeCv.wait(lock, [this]() { return !m_metricFree.empty() || m_metricStop || m_metricError != RGY_ERR_NONE; });
+        if (m_metricError != RGY_ERR_NONE) {
+            return m_metricError;
+        }
+        if (m_metricStop || m_metricFree.empty()) {
+            return RGY_ERR_ABORTED;
+        }
+        slotIndex = m_metricFree.front();
+        m_metricFree.pop_front();
+    }
+    auto& slot = m_metricSlots[slotIndex];
+    auto restoreSlot = [&]() {
+        std::lock_guard<std::mutex> lock(m_metricMutex);
+        m_metricFree.push_back(slotIndex);
+        m_metricFreeCv.notify_one();
+    };
+    if (auto sts = copy_metric_frame(reference, referenceWaitEvents, slot.reference); sts != RGY_ERR_NONE) {
+        restoreSlot();
+        return sts;
+    }
+    if (auto sts = copy_metric_frame(distorted, distortedWaitEvents, slot.distorted); sts != RGY_ERR_NONE) {
+        restoreSlot();
+        return sts;
+    }
+    RGY_ERR finalStatus = RGY_ERR_NONE;
+    {
+        std::lock_guard<std::mutex> lock(m_metricMutex);
+        if (m_metricError != RGY_ERR_NONE) {
+            finalStatus = m_metricError;
+        } else if (m_metricStop) {
+            finalStatus = RGY_ERR_ABORTED;
+        } else {
+            slot.index = m_metricNextIndex++;
+            m_metricReady.push_back(slotIndex);
+        }
+    }
+    if (finalStatus != RGY_ERR_NONE) {
+        restoreSlot();
+        return finalStatus;
+    }
+    m_metricReadyCv.notify_one();
+    return RGY_ERR_NONE;
+#else
+    UNREFERENCED_PARAMETER(reference);
+    UNREFERENCED_PARAMETER(distorted);
+    UNREFERENCED_PARAMETER(referenceWaitEvents);
+    UNREFERENCED_PARAMETER(distortedWaitEvents);
+    return RGY_ERR_NONE;
+#endif
+}
+
+RGY_ERR RGYFilterSsim::finish_metric_worker() {
+#if ENABLE_VMAF || ENABLE_LIBVSHIP
+    {
+        std::lock_guard<std::mutex> lock(m_metricMutex);
+        m_metricInputFin = true;
+    }
+    m_metricReadyCv.notify_all();
+    m_metricFreeCv.notify_all();
+    if (m_metricThread.joinable()) {
+        m_metricThread.join();
+    }
+    std::lock_guard<std::mutex> lock(m_metricMutex);
+    return m_metricError;
+#else
+    return RGY_ERR_NONE;
+#endif
+}
+
+#if ENABLE_VMAF || ENABLE_LIBVSHIP
+RGY_ERR RGYFilterSsim::metric_worker() {
+    try {
+    auto workerPrm = std::dynamic_pointer_cast<RGYFilterParamSsim>(m_param);
+    if (!workerPrm) {
+        {
+            std::lock_guard<std::mutex> lock(m_metricMutex);
+            m_metricError = RGY_ERR_INVALID_PARAM;
+            m_metricStop = true;
+            m_metricWorkerReady = true;
+            m_metricWorkerDone = true;
+        }
+        m_metricInitCv.notify_all();
+        m_metricReadyCv.notify_all();
+        m_metricFreeCv.notify_all();
+        return RGY_ERR_INVALID_PARAM;
+    }
+    workerPrm->threadParam.apply(GetCurrentThread());
+    AddMessage(RGY_LOG_DEBUG, _T("Set video quality metric worker param: %s.\n"), workerPrm->threadParam.desc().c_str());
+    RGY_ERR sts = RGY_ERR_NONE;
+#if ENABLE_VMAF
+    auto prm = std::dynamic_pointer_cast<RGYFilterParamSsim>(m_param);
+    if (prm && prm->metric.vmaf.enable) {
+        sts = init_vmaf_metric();
+    }
+#endif
+#if ENABLE_LIBVSHIP
+    if (sts == RGY_ERR_NONE) {
+        auto prm = std::dynamic_pointer_cast<RGYFilterParamSsim>(m_param);
+        if (prm && prm->metric.vshipEnabled()) {
+            sts = init_vship_metric();
+        }
+    }
+#endif
+    {
+        std::lock_guard<std::mutex> lock(m_metricMutex);
+        if (sts != RGY_ERR_NONE) {
+            m_metricError = sts;
+            m_metricStop = true;
+        }
+        m_metricWorkerReady = true;
+    }
+    m_metricInitCv.notify_all();
+    m_metricFreeCv.notify_all();
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+
+    for (;;) {
+        int slotIndex = -1;
+        {
+            std::unique_lock<std::mutex> lock(m_metricMutex);
+            m_metricReadyCv.wait(lock, [this]() { return m_metricStop || !m_metricReady.empty() || m_metricInputFin; });
+            if (m_metricStop) {
+                break;
+            }
+            if (m_metricReady.empty()) {
+                if (m_metricInputFin) {
+                    break;
+                }
+                continue;
+            }
+            slotIndex = m_metricReady.front();
+            m_metricReady.pop_front();
+        }
+        sts = process_metric_pair(m_metricSlots[slotIndex]);
+        {
+            std::lock_guard<std::mutex> lock(m_metricMutex);
+            m_metricFree.push_back(slotIndex);
+            if (sts != RGY_ERR_NONE && m_metricError == RGY_ERR_NONE) {
+                m_metricError = sts;
+                m_metricStop = true;
+            }
+        }
+        m_metricFreeCv.notify_all();
+        m_metricReadyCv.notify_all();
+        if (sts != RGY_ERR_NONE) {
+            break;
+        }
+    }
+    if (sts == RGY_ERR_NONE) {
+#if ENABLE_VMAF
+        auto prm = std::dynamic_pointer_cast<RGYFilterParamSsim>(m_param);
+        if (prm && prm->metric.vmaf.enable) {
+            sts = finish_vmaf_metric();
+        }
+#endif
+#if ENABLE_LIBVSHIP
+        if (sts == RGY_ERR_NONE) {
+            auto prm = std::dynamic_pointer_cast<RGYFilterParamSsim>(m_param);
+            if (prm && prm->metric.vshipEnabled()) {
+                sts = finish_vship_metric();
+            }
+        }
+#endif
+    }
+    {
+        std::lock_guard<std::mutex> lock(m_metricMutex);
+        if (sts != RGY_ERR_NONE && m_metricError == RGY_ERR_NONE) {
+            m_metricError = sts;
+        }
+        m_metricWorkerDone = true;
+    }
+    m_metricFreeCv.notify_all();
+    m_metricReadyCv.notify_all();
+    return sts;
+    } catch (...) {
+        {
+            std::lock_guard<std::mutex> lock(m_metricMutex);
+            if (m_metricError == RGY_ERR_NONE) {
+                m_metricError = RGY_ERR_MEMORY_ALLOC;
+            }
+            m_metricStop = true;
+            m_metricWorkerReady = true;
+            m_metricWorkerDone = true;
+        }
+        m_metricInitCv.notify_all();
+        m_metricReadyCv.notify_all();
+        m_metricFreeCv.notify_all();
+        AddMessage(RGY_LOG_ERROR, _T("Video quality metric worker failed unexpectedly.\n"));
+        return RGY_ERR_MEMORY_ALLOC;
+    }
+}
+
+RGY_ERR RGYFilterSsim::process_metric_pair(const MetricHostPair& pair) {
+    auto prm = std::dynamic_pointer_cast<RGYFilterParamSsim>(m_param);
+    if (!prm) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+#if ENABLE_VMAF
+    if (prm->metric.vmaf.enable) {
+        if (auto sts = process_vmaf_metric(pair); sts != RGY_ERR_NONE) {
+            return sts;
+        }
+    }
+#endif
+#if ENABLE_LIBVSHIP
+    if (prm->metric.vshipEnabled()) {
+        if (auto sts = process_vship_metric(pair); sts != RGY_ERR_NONE) {
+            return sts;
+        }
+    }
+#endif
+    return RGY_ERR_NONE;
+}
+#endif
+
+#if ENABLE_VMAF
+static VmafPixelFormat metric_vmaf_pixfmt(const RGY_CSP csp) {
+    switch (RGY_CSP_CHROMA_FORMAT[csp]) {
+    case RGY_CHROMAFMT_YUV420: return VMAF_PIX_FMT_YUV420P;
+    case RGY_CHROMAFMT_YUV422: return VMAF_PIX_FMT_YUV422P;
+    case RGY_CHROMAFMT_YUV444: return VMAF_PIX_FMT_YUV444P;
+    default: return VMAF_PIX_FMT_UNKNOWN;
+    }
+}
+
+RGY_ERR RGYFilterSsim::init_vmaf_metric() {
+    auto prm = std::dynamic_pointer_cast<RGYFilterParamSsim>(m_param);
+    if (!prm || !m_libvmaf.load()) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to load %s.\n"), RGY_LIBVMAF_FILENAME);
+        return RGY_ERR_FILE_OPEN;
+    }
+    VmafConfiguration config = {};
+    config.log_level = (enum VmafLogLevel)VMAF_LOG_LEVEL_INFO;
+    config.n_threads = (prm->metric.vmaf.threads == 0) ? get_cpu_info().physical_cores : prm->metric.vmaf.threads;
+    config.n_subsample = prm->metric.vmaf.subsample;
+    config.cpumask = 0;
+    if (m_libvmaf.p_vmaf_init()(&m_vmafContext, config) != 0) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to initialize VMAF context.\n"));
+        return RGY_ERR_UNKNOWN;
+    }
+    std::string model;
+    if (tchar_to_string(prm->metric.vmaf.model.c_str(), model) == 0) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to convert VMAF model name.\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
+    VmafModelConfig modelConfig = {};
+    modelConfig.name = "vmaf";
+    modelConfig.flags = (prm->metric.vmaf.enable_transform || prm->metric.vmaf.phone_model) ? VMAF_MODEL_FLAG_ENABLE_TRANSFORM : VMAF_MODEL_FLAGS_DEFAULT;
+    const bool modelPath = rgy_file_exists(model);
+    const auto lowerModel = [&model]() {
+        auto value = model;
+        std::transform(value.begin(), value.end(), value.begin(), [](const unsigned char c) { return (char)std::tolower(c); });
+        return value;
+    }();
+    if (!modelPath && lowerModel.size() >= 5 && lowerModel.substr(lowerModel.size() - 5) == ".json") {
+        AddMessage(RGY_LOG_ERROR, _T("VMAF model file not found: %s.\n"), prm->metric.vmaf.model.c_str());
+        return RGY_ERR_FILE_OPEN;
+    }
+    int err = modelPath
+        ? m_libvmaf.p_vmaf_model_load_from_path()(&m_vmafModel, &modelConfig, model.c_str())
+        : m_libvmaf.p_vmaf_model_load()(&m_vmafModel, &modelConfig, model.c_str());
+    if (err != 0 && m_libvmaf.version_class() == RGYLibVMAFVersion::V3_OR_LATER) {
+        err = modelPath
+            ? m_libvmaf.p_vmaf_model_collection_load_from_path()(&m_vmafModel, &m_vmafModelCollection, &modelConfig, model.c_str())
+            : m_libvmaf.p_vmaf_model_collection_load()(&m_vmafModel, &m_vmafModelCollection, &modelConfig, model.c_str());
+    }
+    if (err != 0 || !m_vmafModel) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to load VMAF model: %s.\n"), prm->metric.vmaf.model.c_str());
+        return RGY_ERR_UNKNOWN;
+    }
+    err = m_vmafModelCollection
+        ? m_libvmaf.p_vmaf_use_features_from_model_collection()(m_vmafContext, m_vmafModelCollection)
+        : m_libvmaf.p_vmaf_use_features_from_model()(m_vmafContext, m_vmafModel);
+    if (err != 0) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to load VMAF model features.\n"));
+        return RGY_ERR_UNKNOWN;
+    }
+    AddMessage(RGY_LOG_DEBUG, _T("Loaded %s (%s), CPU feature extraction.\n"), RGY_LIBVMAF_FILENAME, char_to_tstring(m_libvmaf.version()).c_str());
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterSsim::process_vmaf_metric(const MetricHostPair& pair) {
+    const auto pixfmt = metric_vmaf_pixfmt(pair.reference.csp);
+    if (pixfmt == VMAF_PIX_FMT_UNKNOWN || pair.reference.csp != pair.distorted.csp) {
+        AddMessage(RGY_LOG_ERROR, _T("Unsupported format for VMAF.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    VmafPicture reference = {};
+    VmafPicture distorted = {};
+    const auto bitDepth = RGY_CSP_BIT_DEPTH[pair.reference.csp];
+    const auto referenceAllocated = m_libvmaf.p_vmaf_picture_alloc()(&reference, pixfmt, bitDepth, pair.reference.width, pair.reference.height) == 0;
+    const auto distortedAllocated = referenceAllocated && m_libvmaf.p_vmaf_picture_alloc()(&distorted, pixfmt, bitDepth, pair.distorted.width, pair.distorted.height) == 0;
+    if (!referenceAllocated || !distortedAllocated) {
+        if (referenceAllocated) m_libvmaf.p_vmaf_picture_unref()(&reference);
+        if (distortedAllocated) m_libvmaf.p_vmaf_picture_unref()(&distorted);
+        AddMessage(RGY_LOG_ERROR, _T("Failed to allocate VMAF pictures.\n"));
+        return RGY_ERR_MEMORY_ALLOC;
+    }
+    const auto copyPicture = [](VmafPicture& picture, const MetricHostFrame& source) {
+        const int pixelSize = (RGY_CSP_BIT_DEPTH[source.csp] > 8) ? 2 : 1;
+        for (int i = 0; i < RGY_CSP_PLANES[source.csp]; i++) {
+            const auto bytes = (size_t)source.planeWidth[i] * pixelSize;
+            for (int y = 0; y < source.planeHeight[i]; y++) {
+                memcpy((uint8_t *)picture.data[i] + picture.stride[i] * y, source.plane[i].data() + source.pitch[i] * y, bytes);
+            }
+        }
+    };
+    copyPicture(reference, pair.reference);
+    copyPicture(distorted, pair.distorted);
+    const auto err = m_libvmaf.p_vmaf_read_pictures()(m_vmafContext, &reference, &distorted, pair.index);
+    if (err != 0) {
+        m_libvmaf.p_vmaf_picture_unref()(&reference);
+        m_libvmaf.p_vmaf_picture_unref()(&distorted);
+        AddMessage(RGY_LOG_ERROR, _T("Failed to submit VMAF picture %d.\n"), pair.index);
+        return RGY_ERR_UNKNOWN;
+    }
+    m_vmafFrames++;
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterSsim::finish_vmaf_metric() {
+    if (m_vmafFrames == 0) {
+        AddMessage(RGY_LOG_ERROR, _T("No frames were provided to VMAF.\n"));
+        return RGY_ERR_UNKNOWN;
+    }
+    if (m_libvmaf.p_vmaf_read_pictures()(m_vmafContext, nullptr, nullptr, 0) != 0) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to finalize VMAF score.\n"));
+        return RGY_ERR_UNKNOWN;
+    }
+    if (m_vmafModelCollection) {
+        VmafModelCollectionScore collectionScore = {};
+        if (m_libvmaf.p_vmaf_score_pooled_model_collection()(m_vmafContext, m_vmafModelCollection, VMAF_POOL_METHOD_MEAN, &collectionScore, 0, m_vmafFrames - 1) != 0) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to finalize VMAF model collection.\n"));
+            return RGY_ERR_UNKNOWN;
+        }
+    }
+    if (m_libvmaf.p_vmaf_score_pooled()(m_vmafContext, m_vmafModel, VMAF_POOL_METHOD_MEAN, &m_vmafScore, 0, m_vmafFrames - 1) != 0) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to finalize VMAF score.\n"));
+        return RGY_ERR_UNKNOWN;
+    }
+    if (!std::isfinite(m_vmafScore)) {
+        auto prm = std::dynamic_pointer_cast<RGYFilterParamSsim>(m_param);
+        double scoreSum = 0.0;
+        int scoreCount = 0;
+        for (int index = 0; index < m_vmafFrames; index++) {
+            if (prm->metric.vmaf.subsample > 1 && (index % prm->metric.vmaf.subsample) != 0) {
+                continue;
+            }
+            double score = 0.0;
+            if (m_libvmaf.p_vmaf_score_at_index()(m_vmafContext, m_vmafModel, &score, index) != 0) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to get VMAF score at frame %d.\n"), index);
+                return RGY_ERR_UNKNOWN;
+            }
+            if (std::isfinite(score)) {
+                scoreSum += score;
+                scoreCount++;
+            }
+        }
+        if (scoreCount == 0) {
+            AddMessage(RGY_LOG_ERROR, _T("VMAF returned no finite frame scores.\n"));
+            return RGY_ERR_UNKNOWN;
+        }
+        m_vmafScore = scoreSum / scoreCount;
+        AddMessage(RGY_LOG_WARN, _T("VMAF pooled score was non-finite; recalculated from %d frame scores.\n"), scoreCount);
+    }
+    return RGY_ERR_NONE;
+}
+#endif
+
+#if ENABLE_LIBVSHIP
+static RGY_ERR metric_vship_colorspace(Vship_Colorspace_t& colorspace, const RGYFrameInfo& frame, const VideoVUIInfo& vui) {
+    colorspace = {};
+    colorspace.width = frame.width;
+    colorspace.height = frame.height;
+    colorspace.target_width = -1;
+    colorspace.target_height = -1;
+    switch (RGY_CSP_BIT_DEPTH[frame.csp]) {
+    case 8:  colorspace.sample = Vship_SampleUINT8; break;
+    case 9:  colorspace.sample = Vship_SampleUINT9; break;
+    case 10: colorspace.sample = Vship_SampleUINT10; break;
+    case 12: colorspace.sample = Vship_SampleUINT12; break;
+    case 14: colorspace.sample = Vship_SampleUINT14; break;
+    case 16: colorspace.sample = Vship_SampleUINT16; break;
+    default: return RGY_ERR_UNSUPPORTED;
+    }
+    switch (vui.colorrange) {
+    case RGY_COLORRANGE_FULL: colorspace.range = Vship_RangeFull; break;
+    case RGY_COLORRANGE_LIMITED:
+    case RGY_COLORRANGE_UNSPECIFIED:
+    case RGY_COLORRANGE_AUTO: colorspace.range = Vship_RangeLimited; break;
+    default: return RGY_ERR_UNSUPPORTED;
+    }
+    switch (RGY_CSP_CHROMA_FORMAT[frame.csp]) {
+    case RGY_CHROMAFMT_YUV420: colorspace.subsampling = { 1, 1 }; break;
+    case RGY_CHROMAFMT_YUV422: colorspace.subsampling = { 1, 0 }; break;
+    case RGY_CHROMAFMT_YUV444: colorspace.subsampling = { 0, 0 }; break;
+    default: return RGY_ERR_UNSUPPORTED;
+    }
+    switch (vui.chromaloc) {
+    case RGY_CHROMALOC_UNSPECIFIED:
+    case RGY_CHROMALOC_AUTO:
+    case RGY_CHROMALOC_LEFT: colorspace.chromaLocation = Vship_ChromaLoc_Left; break;
+    case RGY_CHROMALOC_CENTER: colorspace.chromaLocation = Vship_ChromaLoc_Center; break;
+    case RGY_CHROMALOC_TOPLEFT: colorspace.chromaLocation = Vship_ChromaLoc_TopLeft; break;
+    case RGY_CHROMALOC_TOP: colorspace.chromaLocation = Vship_ChromaLoc_Top; break;
+    default: return RGY_ERR_UNSUPPORTED;
+    }
+    colorspace.colorFamily = Vship_ColorYUV;
+    switch (vui.matrix) {
+    case RGY_MATRIX_AUTO:
+    case RGY_MATRIX_UNSPECIFIED:
+    case RGY_MATRIX_BT709: colorspace.YUVMatrix = Vship_MATRIX_BT709; break;
+    case RGY_MATRIX_BT470_BG: colorspace.YUVMatrix = Vship_MATRIX_BT470_BG; break;
+    case RGY_MATRIX_ST170_M: colorspace.YUVMatrix = Vship_MATRIX_ST170_M; break;
+    case RGY_MATRIX_BT2020_NCL: colorspace.YUVMatrix = Vship_MATRIX_BT2020_NCL; break;
+    case RGY_MATRIX_BT2020_CL: colorspace.YUVMatrix = Vship_MATRIX_BT2020_CL; break;
+    case RGY_MATRIX_ICTCP: colorspace.YUVMatrix = Vship_MATRIX_BT2100_ICTCP; break;
+    default: return RGY_ERR_UNSUPPORTED;
+    }
+    switch (vui.transfer) {
+    case RGY_TRANSFER_AUTO:
+    case RGY_TRANSFER_UNSPECIFIED:
+    case RGY_TRANSFER_BT709: colorspace.transferFunction = Vship_TRC_BT709; break;
+    case RGY_TRANSFER_BT470_M: colorspace.transferFunction = Vship_TRC_BT470_M; break;
+    case RGY_TRANSFER_BT470_BG: colorspace.transferFunction = Vship_TRC_BT470_BG; break;
+    case RGY_TRANSFER_BT601: colorspace.transferFunction = Vship_TRC_BT601; break;
+    case RGY_TRANSFER_ST240_M: colorspace.transferFunction = Vship_TRC_ST240_M; break;
+    case RGY_TRANSFER_LINEAR: colorspace.transferFunction = Vship_TRC_Linear; break;
+    case RGY_TRANSFER_IEC61966_2_1: colorspace.transferFunction = Vship_TRC_sRGB; break;
+    case RGY_TRANSFER_ST2084: colorspace.transferFunction = Vship_TRC_PQ; break;
+    case RGY_TRANSFER_ARIB_B67: colorspace.transferFunction = Vship_TRC_HLG; break;
+    default: return RGY_ERR_UNSUPPORTED;
+    }
+    switch (vui.colorprim) {
+    case RGY_PRIM_AUTO:
+    case RGY_PRIM_UNSPECIFIED:
+    case RGY_PRIM_BT709: colorspace.primaries = Vship_PRIMARIES_BT709; break;
+    case RGY_PRIM_BT470_M: colorspace.primaries = Vship_PRIMARIES_BT470_M; break;
+    case RGY_PRIM_BT470_BG: colorspace.primaries = Vship_PRIMARIES_BT470_BG; break;
+    case RGY_PRIM_ST170_M: colorspace.primaries = Vship_PRIMARIES_ST170_M; break;
+    case RGY_PRIM_ST240_M: colorspace.primaries = Vship_PRIMARIES_ST240_M; break;
+    case RGY_PRIM_BT2020: colorspace.primaries = Vship_PRIMARIES_BT2020; break;
+    case RGY_PRIM_ST432_1: colorspace.primaries = Vship_PRIMARIES_DisplayP3; break;
+    default: return RGY_ERR_UNSUPPORTED;
+    }
+    colorspace.crop = { 0, 0, 0, 0 };
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterSsim::init_vship_metric() {
+    auto prm = std::dynamic_pointer_cast<RGYFilterParamSsim>(m_param);
+    if (!prm || !m_libvship.load()) {
+        AddMessage(RGY_LOG_ERROR, _T("Failed to load %s.\n"), RGY_LIBVSHIP_DLL_NAME);
+        return RGY_ERR_FILE_OPEN;
+    }
+    int deviceCount = 0;
+    if (m_libvship.p_Vship_GetDeviceCount()(&deviceCount) != Vship_NoError || deviceCount <= 0
+        || m_libvship.p_Vship_GPUFullCheck()(0) != Vship_NoError
+        || m_libvship.p_Vship_SetDevice()(0) != Vship_NoError) {
+        AddMessage(RGY_LOG_ERROR, _T("libvship GPU 0 is unavailable.\n"));
+        return RGY_ERR_DEVICE_NOT_FOUND;
+    }
+    Vship_DeviceInfo deviceInfo = {};
+    if (m_libvship.p_Vship_GetDeviceInfo()(&deviceInfo, 0) == Vship_NoError) {
+        AddMessage(RGY_LOG_DEBUG, _T("libvship uses GPU 0: %s.\n"), char_to_tstring(deviceInfo.name).c_str());
+    }
+    // 未指定値だけを解像度から既定化し、明示された未対応値は下の変換で拒否する。
+    auto vui = prm->input.vui;
+    const auto defaultVui = VideoVUIInfo()
+        .to((CspMatrix)COLOR_VALUE_AUTO_RESOLUTION)
+        .to((CspColorprim)COLOR_VALUE_AUTO_RESOLUTION)
+        .to((CspTransfer)COLOR_VALUE_AUTO_RESOLUTION);
+    vui.setIfUnsetUnknwonAuto(defaultVui);
+    vui.apply_auto(VideoVUIInfo(), m_param->frameOut.height);
+    Vship_Colorspace_t colorspace = {};
+    if (auto sts = metric_vship_colorspace(colorspace, m_param->frameOut, vui); sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("Unsupported colorspace for libvship: matrix %d, transfer %d, primaries %d, range %d, chroma location %d.\n"),
+            vui.matrix, vui.transfer, vui.colorprim, vui.colorrange, vui.chromaloc);
+        return sts;
+    }
+    if (prm->metric.vshipSsimu2.enable) {
+        if (m_libvship.p_Vship_SSIMU2Init2()(&m_vshipSsimu2, colorspace, colorspace, 0) != Vship_NoError) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to initialize SSIMULACRA2.\n"));
+            return RGY_ERR_UNKNOWN;
+        }
+        m_vshipSsimu2Initialized = true;
+    }
+    if (prm->metric.vshipButteraugli.enable) {
+        if (m_libvship.p_Vship_ButteraugliInit2()(&m_vshipButteraugli, colorspace, colorspace, prm->metric.vshipButteraugli.Qnorm, prm->metric.vshipButteraugli.intensity_multiplier, 0) != Vship_NoError) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to initialize Butteraugli.\n"));
+            return RGY_ERR_UNKNOWN;
+        }
+        m_vshipButteraugliInitialized = true;
+    }
+    if (prm->metric.vshipCvvdp.enable) {
+        std::string model, config;
+        tchar_to_string(prm->metric.vshipCvvdp.model.c_str(), model);
+        tchar_to_string(prm->metric.vshipCvvdp.model_config_json.c_str(), config);
+        const auto fps = (float)prm->baseFps.n() / prm->baseFps.d();
+        if (m_libvship.p_Vship_CVVDPInit3()(&m_vshipCvvdp, colorspace, colorspace, fps, prm->metric.vshipCvvdp.resize, model.c_str(), config.empty() ? nullptr : config.c_str(), 0) != Vship_NoError) {
+            AddMessage(RGY_LOG_ERROR, _T("Failed to initialize CVVDP.\n"));
+            return RGY_ERR_UNKNOWN;
+        }
+        m_vshipCvvdpInitialized = true;
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterSsim::process_vship_metric(const MetricHostPair& pair) {
+    const uint8_t *reference[3] = { nullptr, nullptr, nullptr };
+    const uint8_t *distorted[3] = { nullptr, nullptr, nullptr };
+    int64_t referencePitch[3] = { 0, 0, 0 };
+    int64_t distortedPitch[3] = { 0, 0, 0 };
+    for (int i = 0; i < RGY_CSP_PLANES[pair.reference.csp]; i++) {
+        reference[i] = pair.reference.plane[i].data();
+        distorted[i] = pair.distorted.plane[i].data();
+        referencePitch[i] = pair.reference.pitch[i];
+        distortedPitch[i] = pair.distorted.pitch[i];
+    }
+    if (m_vshipSsimu2Initialized) {
+        double score = 0.0;
+        if (m_libvship.p_Vship_ComputeSSIMU2()(m_vshipSsimu2, &score, reference, distorted, referencePitch, distortedPitch) != Vship_NoError || !std::isfinite(score)) {
+            AddMessage(RGY_LOG_ERROR, _T("SSIMULACRA2 failed at frame %d.\n"), pair.index);
+            return RGY_ERR_UNKNOWN;
+        }
+        m_vshipSsimu2Total += score;
+        m_vshipSsimu2Scores.push_back(score);
+        m_vshipSsimu2Frames++;
+    }
+    if (m_vshipButteraugliInitialized) {
+        Vship_ButteraugliScore score = {};
+        if (m_libvship.p_Vship_ComputeButteraugli()(m_vshipButteraugli, &score, nullptr, 0, reference, distorted, referencePitch, distortedPitch) != Vship_NoError
+            || !std::isfinite(score.normQ) || !std::isfinite(score.norm3) || !std::isfinite(score.norminf)) {
+            AddMessage(RGY_LOG_ERROR, _T("Butteraugli failed at frame %d.\n"), pair.index);
+            return RGY_ERR_UNKNOWN;
+        }
+        m_vshipButteraugliNormQ += score.normQ;
+        m_vshipButteraugliNorm3 += score.norm3;
+        m_vshipButteraugliNormInf += score.norminf;
+        m_vshipButteraugliFrames++;
+    }
+    if (m_vshipCvvdpInitialized) {
+        if (m_libvship.p_Vship_ComputeCVVDP()(m_vshipCvvdp, &m_vshipCvvdpScore, nullptr, 0, reference, distorted, referencePitch, distortedPitch) != Vship_NoError || !std::isfinite(m_vshipCvvdpScore)) {
+            AddMessage(RGY_LOG_ERROR, _T("CVVDP failed at frame %d.\n"), pair.index);
+            return RGY_ERR_UNKNOWN;
+        }
+        m_vshipCvvdpFrames++;
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterSsim::finish_vship_metric() {
+    if ((m_vshipSsimu2Initialized && m_vshipSsimu2Frames == 0)
+        || (m_vshipButteraugliInitialized && m_vshipButteraugliFrames == 0)
+        || (m_vshipCvvdpInitialized && m_vshipCvvdpFrames == 0)) {
+        AddMessage(RGY_LOG_ERROR, _T("No frames were provided to libvship.\n"));
+        return RGY_ERR_UNKNOWN;
+    }
+    if (m_vshipCvvdpInitialized) m_libvship.p_Vship_CVVDPFree()(m_vshipCvvdp);
+    if (m_vshipButteraugliInitialized) m_libvship.p_Vship_ButteraugliFree()(m_vshipButteraugli);
+    if (m_vshipSsimu2Initialized) m_libvship.p_Vship_SSIMU2Free()(m_vshipSsimu2);
+    m_vshipCvvdpInitialized = false;
+    m_vshipButteraugliInitialized = false;
+    m_vshipSsimu2Initialized = false;
+    return RGY_ERR_NONE;
+}
+#endif
+
+void RGYFilterSsim::close_metric_resources() {
+#if ENABLE_VMAF || ENABLE_LIBVSHIP
+    {
+        std::lock_guard<std::mutex> lock(m_metricMutex);
+        m_metricStop = true;
+        m_metricInputFin = true;
+    }
+    m_metricReadyCv.notify_all();
+    m_metricFreeCv.notify_all();
+    if (m_metricThread.joinable()) {
+        m_metricThread.join();
+    }
+#if ENABLE_VMAF
+    if (m_vmafModelCollection) {
+        m_libvmaf.p_vmaf_model_collection_destroy()(m_vmafModelCollection);
+        m_vmafModelCollection = nullptr;
+    }
+    if (m_vmafModel) {
+        m_libvmaf.p_vmaf_model_destroy()(m_vmafModel);
+        m_vmafModel = nullptr;
+    }
+    if (m_vmafContext) {
+        m_libvmaf.p_vmaf_close()(m_vmafContext);
+        m_vmafContext = nullptr;
+    }
+    m_libvmaf.close();
+#endif
+#if ENABLE_LIBVSHIP
+    if (m_libvship.loaded()) {
+        if (m_vshipCvvdpInitialized) m_libvship.p_Vship_CVVDPFree()(m_vshipCvvdp);
+        if (m_vshipButteraugliInitialized) m_libvship.p_Vship_ButteraugliFree()(m_vshipButteraugli);
+        if (m_vshipSsimu2Initialized) m_libvship.p_Vship_SSIMU2Free()(m_vshipSsimu2);
+    }
+    m_vshipCvvdpInitialized = false;
+    m_vshipButteraugliInitialized = false;
+    m_vshipSsimu2Initialized = false;
+    m_libvship.close();
+#endif
+#endif
+}
+
+RGY_ERR RGYFilterSsim::finish() {
+    auto prm = std::dynamic_pointer_cast<RGYFilterParamSsim>(m_param);
+    if (!prm) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+    if (m_finishCalled) {
+        return m_finishResult;
+    }
+    RGY_ERR result = metricStatus();
+    const bool compareThreadJoined = m_thread.joinable();
+    if (compareThreadJoined) {
+        m_thread.join();
+    }
+    if (result == RGY_ERR_NONE && m_decodeStarted && !compareThreadJoined) {
+        for (;;) {
+            const auto sts = compare_frames();
+            if (sts == RGY_ERR_NONE) {
+                continue;
+            }
+            if (sts == RGY_ERR_MORE_DATA) {
+                break;
+            }
+            result = sts;
+            break;
+        }
+    }
+    if (result == RGY_ERR_NONE && !m_input.empty()) {
+        AddMessage(RGY_LOG_ERROR, _T("Decoded frame count does not match original frames.\n"));
+        result = RGY_ERR_UNKNOWN;
+    }
+    if (result == RGY_ERR_NONE && m_frames == 0) {
+        AddMessage(RGY_LOG_ERROR, _T("評価対象なし: video quality metric received no frame pairs.\n"));
+        result = RGY_ERR_UNKNOWN;
+    }
+    if (result == RGY_ERR_NONE) {
+        result = finish_metric_worker();
+    } else {
+#if ENABLE_VMAF || ENABLE_LIBVSHIP
+        {
+            std::lock_guard<std::mutex> lock(m_metricMutex);
+            m_metricStop = true;
+        }
+        m_metricReadyCv.notify_all();
+        m_metricFreeCv.notify_all();
+        finish_metric_worker();
+#endif
+    }
+#if ENABLE_VMAF || ENABLE_LIBVSHIP
+    {
+        std::lock_guard<std::mutex> lock(m_metricMutex);
+        m_metricFinishCalled = true;
+        m_metricFinishResult = result;
+    }
+#endif
+    m_finishCalled = true;
+    m_finishResult = result;
+    return result;
+}
+
 
 void RGYFilterSsim::close() {
+    close_metric_resources();
     if (m_thread.joinable()) {
         AddMessage(RGY_LOG_DEBUG, _T("Waiting for ssim/psnr calculation thread to finish.\n"));
         m_abort = true;

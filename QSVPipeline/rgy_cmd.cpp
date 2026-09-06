@@ -12785,7 +12785,7 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
     }
     if (IS_OPTION("vmaf")) {
         common->metric.vmaf.enable = true;
-        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('\0') || strInput[i + 1][0] == _T('-')) {
             return 0;
         }
         i++;
@@ -12879,18 +12879,28 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
     }
     if (IS_OPTION("vship-butteraugli")) {
         common->metric.vshipButteraugli.enable = true;
-        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('\0') || strInput[i + 1][0] == _T('-')) {
             return 0;
         }
         i++;
 
-        const auto paramList = std::vector<std::string>{ "Qnorm", "intensity_multiplier" };
+        const auto paramList = std::vector<std::string>{ "enable", "Qnorm", "intensity_multiplier" };
 
         for (const auto &param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
             if (pos != std::string::npos) {
                 auto param_arg = param.substr(0, pos);
                 auto param_val = param.substr(pos + 1);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        common->metric.vshipButteraugli.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
                 if (param_arg == _T("Qnorm")) {
                     try {
                         common->metric.vshipButteraugli.Qnorm = std::stoi(param_val);
@@ -12924,18 +12934,28 @@ int parse_one_common_option(const TCHAR *option_name, const TCHAR *strInput[], i
     }
     if (IS_OPTION("vship-cvvdp")) {
         common->metric.vshipCvvdp.enable = true;
-        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('-')) {
+        if (i + 1 >= nArgNum || strInput[i + 1][0] == _T('\0') || strInput[i + 1][0] == _T('-')) {
             return 0;
         }
         i++;
 
-        const auto paramList = std::vector<std::string>{ "model", "model_config_json", "resize" };
+        const auto paramList = std::vector<std::string>{ "enable", "model", "model_config_json", "resize" };
 
         for (const auto &param : split(strInput[i], _T(","))) {
             auto pos = param.find_first_of(_T("="));
             if (pos != std::string::npos) {
                 auto param_arg = param.substr(0, pos);
                 auto param_val = param.substr(pos + 1);
+                if (param_arg == _T("enable")) {
+                    bool b = false;
+                    if (!cmd_string_to_bool(&b, param_val)) {
+                        common->metric.vshipCvvdp.enable = b;
+                    } else {
+                        print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
+                        return 1;
+                    }
+                    continue;
+                }
                 if (param_arg == _T("model")) {
                     common->metric.vshipCvvdp.model = trim(param_val, _T("\""));
                     continue;
@@ -16332,6 +16352,7 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
     OPT_BOOL(_T("--ssim"), _T("--no-ssim"), metric.ssim);
     OPT_BOOL(_T("--psnr"), _T("--no-psnr"), metric.psnr);
 
+#if ENABLE_VMAF
     if (param->metric.vmaf != defaultPrm->metric.vmaf) {
         tmp.str(tstring());
         if (!param->metric.vmaf.enable && save_disabled_prm) {
@@ -16346,8 +16367,11 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vmaf ") << tmp.str().substr(1);
+        } else if (param->metric.vmaf.enable) {
+            cmd << _T(" --vmaf");
         }
     }
+#endif //#if ENABLE_VMAF
 #if ENABLE_LIBVSHIP
     OPT_BOOL(_T("--vship-ssimulacra2"), _T("--no-vship-ssimulacra2"), metric.vshipSsimu2.enable);
     if (param->metric.vshipButteraugli != defaultPrm->metric.vshipButteraugli) {
@@ -16361,6 +16385,8 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vship-butteraugli ") << tmp.str().substr(1);
+        } else if (param->metric.vshipButteraugli.enable) {
+            cmd << _T(" --vship-butteraugli");
         }
     }
     if (param->metric.vshipCvvdp != defaultPrm->metric.vshipCvvdp) {
@@ -16370,11 +16396,13 @@ tstring gen_cmd(const RGYParamCommon *param, const RGYParamCommon *defaultPrm, b
         }
         if (param->metric.vshipCvvdp.enable || save_disabled_prm) {
             ADD_STR(_T("model"), metric.vshipCvvdp.model);
-            ADD_STR(_T("model_config_json"), metric.vshipCvvdp.model_config_json);
+            ADD_PATH(_T("model_config_json"), metric.vshipCvvdp.model_config_json.c_str());
             ADD_BOOL(_T("resize"), metric.vshipCvvdp.resize);
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vship-cvvdp ") << tmp.str().substr(1);
+        } else if (param->metric.vshipCvvdp.enable) {
+            cmd << _T(" --vship-cvvdp");
         }
     }
 #endif //#if ENABLE_LIBVSHIP
@@ -16872,7 +16900,8 @@ tstring gen_cmd_help_common() {
         _T("      threads=<int>             cpu thread(s) to calculate vmaf score.\n")
         _T("      subsample=<int>           interval for frame subsampling calculating vmaf score.\n")
         _T("      phone_model=<bool>        use phone model which generate higher vmaf score.\n")
-        _T("      enable_transform=<bool>   enable transform when calculating vmaf score.\n"),
+        _T("      enable_transform=<bool>   enable transform when calculating vmaf score.\n")
+        _T("   --no-vmaf                    disable vmaf score calculation.\n"),
         VMAF_DEFAULT_MODEL_VERSION);
 #endif //#if ENABLE_VMAF
 #if ENABLE_LIBVSHIP
@@ -16886,6 +16915,7 @@ tstring gen_cmd_help_common() {
         _T("      Qnorm=<int>               norm for Butteraugli score aggregation [default:2].\n")
         _T("      intensity_multiplier=<float>\n")
         _T("                                intensity multiplier for Butteraugli [default:80.0].\n")
+        _T("   --no-vship-butteraugli       disable Butteraugli score calculation.\n")
         _T("\n")
         _T("   --vship-cvvdp [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     Calc ColorVideoVDP score using libvship.\n")
@@ -16893,6 +16923,7 @@ tstring gen_cmd_help_common() {
         _T("      model=<string>            set cvvdp model name [default:standard_4k].\n")
         _T("      model_config_json=<string> set path to cvvdp model config json.\n")
         _T("      resize=<bool>             resize frames before cvvdp calculation [default:false].\n")
+        _T("   --no-vship-cvvdp             disable ColorVideoVDP score calculation.\n")
         _T("\n");
 #endif //#if ENABLE_LIBVSHIP
     return str;

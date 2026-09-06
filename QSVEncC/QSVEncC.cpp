@@ -554,7 +554,45 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const QSVDe
                 return parse_cmd(prm, argv.data(), (int)argv.size() - 1);
             },
             [](const sInputParams *prm) { return gen_cmd(prm, false); });
-        return selftest.run((arg1[0] != _T('-')) ? arg1 : _T(""));
+        const tstring filter = (arg1[0] != _T('-')) ? arg1 : _T("");
+        if (filter == _T("metric")) {
+#if ENABLE_VMAF && ENABLE_LIBVSHIP
+            return selftest.runRoundTripCases({
+                {
+                    _T("VMAF: 無効化状態と保存パラメータ"),
+                    { _T("--vmaf"), _T("enable=false,model=\"vmaf model.json\",threads=3,subsample=2,phone_model=true,enable_transform") },
+                    true,
+                    { _T("--vmaf"), _T("enable=false"), _T("model=\"vmaf model.json\""), _T("threads=3"), _T("subsample=2"), _T("phone_model=true"), _T("enable_transform=true") },
+                    {}
+                },
+                {
+                    _T("libvship: 有効時のパラメータ"),
+                    { _T("--vship-ssimulacra2"), _T("--vship-butteraugli"), _T("Qnorm=3,intensity_multiplier=12.5"), _T("--vship-cvvdp"), _T("model=standard_4k,model_config_json=\"metric config.json\",resize=true") },
+                    false,
+                    { _T("--vship-ssimulacra2"), _T("--vship-butteraugli Qnorm=3"), _T("intensity_multiplier=12.5"), _T("--vship-cvvdp"), _T("model_config_json=\"metric config.json\""), _T("resize=true") },
+                    {}
+                },
+                {
+                    _T("VMAF/libvship: 既定パラメータでの有効化"),
+                    { _T("--vmaf"), _T("--vship-butteraugli"), _T("--vship-cvvdp") },
+                    false,
+                    { _T("--vmaf"), _T("--vship-butteraugli"), _T("--vship-cvvdp") },
+                    {}
+                },
+                {
+                    _T("libvship: 全指標の無効化状態と保存パラメータ"),
+                    { _T("--vship-ssimulacra2"), _T("--no-vship-ssimulacra2"), _T("--vship-butteraugli"), _T("Qnorm=3,intensity_multiplier=12.5"), _T("--no-vship-butteraugli"), _T("--vship-cvvdp"), _T("model_config_json=\"metric config.json\",resize=true"), _T("--no-vship-cvvdp") },
+                    true,
+                    { _T("--vship-butteraugli enable=false"), _T("Qnorm=3"), _T("intensity_multiplier=12.5"), _T("--vship-cvvdp enable=false"), _T("model_config_json=\"metric config.json\""), _T("resize=true") },
+                    { _T("--vship-ssimulacra2") }
+                }
+            }, [](const sInputParams *prm, bool saveDisabledPrm) { return gen_cmd(prm, saveDisabledPrm); });
+#else
+            _ftprintf(stdout, _T("メトリクス往復テストにはVMAFとlibvshipの両方が必要です。\n"));
+            return 1;
+#endif
+        }
+        return selftest.run(filter);
     }
     if (0 == _tcscmp(option_name, _T("check-features"))) {
         tstring output = (arg1[0] != _T('-')) ? arg1 : _T("");

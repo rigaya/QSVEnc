@@ -37,8 +37,10 @@
 #include <initguid.h>
 #include <assert.h>
 #include <algorithm>
+#include <chrono>
 #include <functional>
 #include <iterator>
+#include <thread>
 #include "qsv_allocator_d3d11.h"
 #include "qsv_util.h"
 
@@ -69,6 +71,7 @@ static const std::map<mfxU32, DXGI_FORMAT> fourccToDXGIFormat = {
 
 QSVAllocatorD3D11::QSVAllocatorD3D11() {
     m_pDeviceContext = nullptr;
+    m_completionQuery.reset();
     m_name = _T("allocD3D11");
 }
 
@@ -99,6 +102,7 @@ mfxStatus QSVAllocatorD3D11::Init(mfxAllocatorParams *pParams, shared_ptr<RGYLog
     }
 
     m_initParams = *pd3d11Params;
+    m_completionQuery.reset();
     IUnknownSafeRelease(m_pDeviceContext);
     pd3d11Params->pDevice->GetImmediateContext(&m_pDeviceContext);
 
@@ -112,11 +116,55 @@ mfxStatus QSVAllocatorD3D11::Close() {
     }
     m_resourcesByRequest.clear();
     m_memIdMap.clear();
+    m_completionQuery.reset();
     IUnknownSafeRelease(m_pDeviceContext);
     return sts;
 }
 
+mfxStatus QSVAllocatorD3D11::WaitForD3D11Completion() {
+    std::lock_guard<std::mutex> lock(m_deviceContextMutex);
+    if (m_pDeviceContext == nullptr || m_initParams.pDevice == nullptr) {
+        return MFX_ERR_NOT_INITIALIZED;
+    }
+    if (m_completionQuery == nullptr) {
+        D3D11_QUERY_DESC desc = {};
+        desc.Query = D3D11_QUERY_EVENT;
+        ID3D11Query *query = nullptr;
+        const auto hr = m_initParams.pDevice->CreateQuery(&desc, &query);
+        if (FAILED(hr)) {
+            AddMessage(RGY_LOG_ERROR, _T("QSVAllocatorD3D11::WaitForD3D11Completion failed to create event query: 0x%08x.\n"), hr);
+            return MFX_ERR_DEVICE_FAILED;
+        }
+        m_completionQuery.reset(query);
+    }
+
+    // USER_SYNCではAcquire前にD3D11操作の完了をアプリ側で保証する必要がある。
+    m_pDeviceContext->End(m_completionQuery.get());
+    m_pDeviceContext->Flush();
+    const auto waitStart = std::chrono::steady_clock::now();
+    for (;;) {
+        const auto hr = m_pDeviceContext->GetData(m_completionQuery.get(), nullptr, 0, 0);
+        if (hr == S_OK) {
+            return MFX_ERR_NONE;
+        }
+        if (hr != S_FALSE) {
+            AddMessage(RGY_LOG_ERROR, _T("QSVAllocatorD3D11::WaitForD3D11Completion failed to wait event query: 0x%08x.\n"), hr);
+            return MFX_ERR_DEVICE_FAILED;
+        }
+        if (m_initParams.pDevice->GetDeviceRemovedReason() != S_OK) {
+            AddMessage(RGY_LOG_ERROR, _T("QSVAllocatorD3D11::WaitForD3D11Completion detected removed D3D11 device.\n"));
+            return MFX_ERR_DEVICE_LOST;
+        }
+        if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - waitStart).count() >= 60000) {
+            AddMessage(RGY_LOG_ERROR, _T("QSVAllocatorD3D11::WaitForD3D11Completion timed out.\n"));
+            return MFX_ERR_DEVICE_FAILED;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+}
+
 mfxStatus QSVAllocatorD3D11::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
+    std::lock_guard<std::mutex> lock(m_deviceContextMutex);
     TextureSubResource sr = GetResourceFromMid(mid);
     if (!sr.GetTexture()) {
         return MFX_ERR_LOCK_MEMORY;
@@ -279,6 +327,7 @@ mfxStatus QSVAllocatorD3D11::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
 }
 
 mfxStatus QSVAllocatorD3D11::FrameUnlock(mfxMemId mid, mfxFrameData *ptr) {
+    std::lock_guard<std::mutex> lock(m_deviceContextMutex);
     TextureSubResource sr = GetResourceFromMid(mid);
     if (!sr.GetTexture()) {
         return MFX_ERR_LOCK_MEMORY;
