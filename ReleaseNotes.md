@@ -1,5 +1,11 @@
 # QSVEnc Release Notes
 
+## 8.29
+
+- Fix OpenCL VPP filters failing with [--output-csp](./QSVEncC_Options.en.md#--output-csp-string) yuv444. ( #311 )
+- Speed up [--vpp-kfm](./QSVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) mode=24.
+- Fix issues with timestamp when using y4m reader.
+
 ## 8.28
 
 - Support track exclusion with `!` for audio/subtitle/data selection ([--audio-copy](./QSVEncC_Options.en.md#--audio-copy-intstringintstring), [--audio-codec](./QSVEncC_Options.en.md#--audio-codec-intstringstringstringstringstringstring), [--sub-copy](./QSVEncC_Options.en.md#--sub-copy-intstringintstring), [--sub-codec](./QSVEncC_Options.en.md#--sub-codec-intstringstring), [--data-copy](./QSVEncC_Options.en.md#--data-copy-intstringintstring)). ( #305 )
