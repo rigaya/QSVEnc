@@ -102,6 +102,15 @@ RGY_ERR RGYInputRaw::ParseY4MHeader(char *buf, VideoInfo *pInfo) {
                 return RGY_ERR_INVALID_COLOR_FORMAT;
             }
             break;
+        case 'X':
+            if (strncmp(p, "XTIMEBASE=", 10) == 0) {
+                int n = 0, d = 0;
+                if ((sscanf_s(p + 10, "%d:%d", &n, &d) == 2 || sscanf_s(p + 10, "%d/%d", &n, &d) == 2)
+                    && n > 0 && d > 0) {
+                    m_y4mHeaderTimebase = rgy_rational<int>(n, d);
+                }
+            }
+            break;
         default:
             break;
         }
@@ -120,7 +129,8 @@ RGYInputRaw::RGYInputRaw() :
     m_pBuffer(),
     m_isPipe(false),
     m_chunkPipeHandle(),
-    m_firstKeyPts(-1) {
+    m_firstKeyPts(-1),
+    m_y4mHeaderTimebase({ 0, 0 }) {
     m_readerName = _T("raw");
 }
 
@@ -135,6 +145,7 @@ void RGYInputRaw::Close() {
     }
     m_pBuffer.reset();
     m_nBufSize = 0;
+    m_y4mHeaderTimebase = rgy_rational<int>(0, 0);
     RGYInput::Close();
 }
 
@@ -207,7 +218,7 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
     if (m_inputVideoInfo.type == RGY_INPUT_FMT_Y4M) {
         //read y4m header
         auto orig_picstruct = m_inputVideoInfo.picstruct; // ParseY4MHeaderで書き換えられるので退避
-        char buf[128] = { 0 };
+        char buf[256] = { 0 };
         if (fread(buf, 1, strlen("YUV4MPEG2"), m_fSource) != strlen("YUV4MPEG2")
             || strcmp(buf, "YUV4MPEG2") != 0
             || !fgets(buf, sizeof(buf), m_fSource)
@@ -219,6 +230,11 @@ RGY_ERR RGYInputRaw::Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const
             m_inputVideoInfo.picstruct = orig_picstruct; // 自動あるいはデフォルト値でない場合、復帰させる
         }
         m_inputCsp = m_inputVideoInfo.csp;
+        // XTIMEBASEは書き出し側の出力timebaseそのもの。Xts/Xdurの単位と一致させるため、--timebaseより優先する
+        if (m_y4mHeaderTimebase.is_valid()) {
+            m_timebase = m_y4mHeaderTimebase;
+            AddMessage(RGY_LOG_DEBUG, _T("y4m header XTIMEBASE %d/%d.\n"), m_y4mHeaderTimebase.n(), m_y4mHeaderTimebase.d());
+        }
     } else {
         auto rawprm = reinterpret_cast<const RGYInputPrmRaw *>(prm);
         m_inputCsp = (rawprm->inputCsp == RGY_CSP_NA) ? RGY_CSP_YV12 : rawprm->inputCsp; //input-cspで指定されたraw読み込みの値

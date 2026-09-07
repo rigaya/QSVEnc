@@ -1196,7 +1196,7 @@ Specify output format for muxer.
 Since the output format is automatically determined by the output extension, it is usually not necessary to specify it, but you can force the output format with this option.
 
 ### --y4m-timestamp
-Add the presentation timestamp relative to the stream start as `Xts=<seconds>` and the frame duration as `Xdur=<seconds>` to each y4m FRAME line. `Xdur` is omitted when the duration is unavailable.
+Add the presentation timestamp relative to the stream start as `Xts=<seconds>` and the frame duration as `Xdur=<seconds>` to each y4m FRAME line. `Xdur` is omitted when the duration is unavailable. Also writes `XTIMEBASE=<num>:<den>` to the y4m header. When this tag is present on input, the stream is treated as VFR using that timebase.
 This option is effective only with `-c raw --output-format y4m`.
 
 Available formats can be checked with [--check-formats](#--check-formats). To output H.264 / HEVC as an Elementary Stream, specify "raw".

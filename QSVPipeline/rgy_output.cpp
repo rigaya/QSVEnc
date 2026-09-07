@@ -43,7 +43,7 @@ static const uint8_t AUD_HEVC_PRIMARY[] = { 0x00, 0x00, 0x00, 0x01, 0x46, 0x01 }
 // P010は10bitの値を16bitコンテナのMSB側に詰めて保持するため、LSB詰め10bitに戻す際のシフト量
 static const int RGY_CSP_P010_SHIFT_TO_10BIT = 6;
 
-static RGY_ERR WriteY4MHeader(FILE *fp, const VideoInfo *info, const RGY_CSP csp) {
+static RGY_ERR WriteY4MHeader(FILE *fp, const VideoInfo *info, const RGY_CSP csp, const rgy_rational<int>& timebase = rgy_rational<int>(0, 0)) {
     char buffer[256] = { 0 };
     char *ptr = buffer;
     uint32_t len = 0;
@@ -60,6 +60,9 @@ static RGY_ERR WriteY4MHeader(FILE *fp, const VideoInfo *info, const RGY_CSP csp
     }
     strcpy_s(ptr+len, sizeof(buffer)-len, picstruct); len += 3;
     len += sprintf_s(ptr+len, sizeof(buffer)-len, "A%d:%d ", info->sar[0], info->sar[1]);
+    if (timebase.is_valid()) {
+        len += sprintf_s(ptr+len, sizeof(buffer)-len, "XTIMEBASE=%d:%d ", timebase.n(), timebase.d());
+    }
     const auto cspHeader = csp_rgy_to_y4mheader(csp);
     if (!cspHeader) return RGY_ERR_INVALID_COLOR_FORMAT;
 
@@ -1137,7 +1140,7 @@ RGY_ERR RGYOutFrame::WriteNextFrame(RGYFrame *pSurface) {
             } else if (csp == RGY_CSP_P010) {
                 csp = RGY_CSP_YV12_10;
             }
-            WriteY4MHeader(m_fDest.get(), &m_VideoOutputInfo, csp);
+            WriteY4MHeader(m_fDest.get(), &m_VideoOutputInfo, csp, m_y4mTimestamp ? m_outputTimebase : rgy_rational<int>(0, 0));
             m_y4mHeaderWritten = true;
         }
         if (m_y4mTimestamp) {

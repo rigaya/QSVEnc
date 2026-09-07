@@ -60,12 +60,10 @@ public:
     virtual bool timestampStable() const override {
         return true;
     }
-    virtual rgy_rational<int> getInputTimebase() const override {
-        if (m_timebase.is_valid()) return m_timebase;
-        return (m_inputVideoInfo.type == RGY_INPUT_FMT_Y4M)
-            ? rgy_rational<int>(1, 1200000) : RGYInput::getInputTimebase();
-    }
     virtual int64_t GetVideoFirstKeyPts() const override;
+    bool y4mHeaderHasTimebase() const {
+        return m_y4mHeaderTimebase.is_valid();
+    }
 
 protected:
     virtual RGY_ERR Init(const TCHAR *strFileName, VideoInfo *pInputInfo, const RGYInputPrm *prm) override;
@@ -79,6 +77,7 @@ protected:
     bool m_isPipe;
     RGYParamParallelEncPipeHandle m_chunkPipeHandle;
     int64_t m_firstKeyPts;
+    rgy_rational<int> m_y4mHeaderTimebase;
 };
 
 #endif //ENABLE_RAW_READER
