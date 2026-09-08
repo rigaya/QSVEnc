@@ -396,6 +396,12 @@ RGYFilterKfm::RGYFilterKfm(shared_ptr<RGYOpenCLContext> context) :
     m_rffAnchorOutputPts(0),
     m_rffRunIndex(0),
     m_rffLastOutputPts(-1),
+    m_p24InputOriginPts(-1),
+    m_p24InputEndPts(-1),
+    m_p60LastProcessedSourceIndex(-1),
+    m_p60LastRffSourceIndex(-1),
+    m_p60LastRtgmcSourceIndex(-1),
+    m_p60RtgmcFieldInSource(0),
     m_hasLastSwitchTiming(false),
     m_lastSwitchStart60(0),
     m_lastSwitchDuration60(0),
@@ -407,6 +413,7 @@ RGYFilterKfm::RGYFilterKfm(shared_ptr<RGYOpenCLContext> context) :
     m_stageDumpTargetFrames(),
     m_nextTelecine24Frame(0),
     m_nextTelecine24Pts(0),
+    m_telecine24OutputDurations(),
     m_telecineSuperBufferIndex(0),
     m_maskBranchBufferIndex(0),
     m_patchCombeBufferIndex(0),
@@ -1140,6 +1147,12 @@ RGY_ERR RGYFilterKfm::initAnalyzer(const RGYFilterParamKfm& prm) {
     m_nextSwitchPts = 0;
     m_switchPtsOffset = 0;
     resetRffTiming();
+    m_p24InputOriginPts = -1;
+    m_p24InputEndPts = -1;
+    m_p60LastProcessedSourceIndex = -1;
+    m_p60LastRffSourceIndex = -1;
+    m_p60LastRtgmcSourceIndex = -1;
+    m_p60RtgmcFieldInSource = 0;
     m_hasLastSwitchTiming = false;
     m_lastSwitchStart60 = 0;
     m_lastSwitchDuration60 = 0;
@@ -1147,6 +1160,7 @@ RGY_ERR RGYFilterKfm::initAnalyzer(const RGYFilterParamKfm& prm) {
     m_lastSwitchIsFrame24 = false;
     m_nextTelecine24Frame = 0;
     m_nextTelecine24Pts = 0;
+    m_telecine24OutputDurations.clear();
     m_telecineSuperBufferIndex = 0;
     m_cleanSuperCache.clear();
     m_cleanSuperCacheGeneration = 0;
@@ -1593,12 +1607,12 @@ RGY_ERR RGYFilterKfm::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog>
             return sts;
         }
         initStageDumpConfig(*prm);
-        sts = AllocFrameBuf(prm->frameOut, 8);
+        sts = AllocFrameBuf(prm->frameOut, 16);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM output buffer: %s.\n"), get_err_mes(sts));
             return RGY_ERR_MEMORY_ALLOC;
         }
-        sts = allocWorkFrameBuf(prm->frameOut, 8);
+        sts = allocWorkFrameBuf(prm->frameOut, 16);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM work buffer: %s.\n"), get_err_mes(sts));
             return RGY_ERR_MEMORY_ALLOC;
@@ -1810,6 +1824,13 @@ RGY_ERR RGYFilterKfm::cacheSourceFrame(const RGYFrameInfo *frame, RGYOpenCLQueue
     entry.sourceIndex = m_cachedSourceFrames++;
     entry.inputFrameId = frame->inputFrameId;
     entry.timestamp = frame->timestamp;
+    const auto prm = std::dynamic_pointer_cast<RGYFilterParamKfm>(m_param);
+    if (prm && prm->kfm.mode == VppKfmMode::P24 && frame->timestamp >= 0) {
+        if (m_p24InputOriginPts < 0) {
+            m_p24InputOriginPts = frame->timestamp;
+        }
+        m_p24InputEndPts = std::max(m_p24InputEndPts, frame->timestamp + rffInputDuration(frame->flags));
+    }
     entry.slot = acquireKfmSourceSlot(*frame, CL_MEM_READ_WRITE);
     if (!entry.slot || !entry.slot->sourceFrame || !entry.slot->paddedFrame) {
         return RGY_ERR_MEMORY_ALLOC;
@@ -1903,29 +1924,19 @@ int RGYFilterKfm::sourceCacheTrimFloor() const {
         }
         trimFloor = std::max(0, (m_nextSwitchN60 >> 1) - KFM_VFR_SOURCE_TRIM_LOOKBEHIND - lazyLookbehind);
     } else if (prm->kfm.mode == VppKfmMode::P24) {
-        if (!m_analyzer || m_nextTelecine24Frame <= 0 || m_analyzerOutputResults.empty()) {
+        if (m_nextSwitchN60 <= 0) {
             return 0;
         }
-        const int frame24Index = m_nextTelecine24Frame - 1;
-        try {
-            const auto& result = m_analyzerOutputResults[clamp(frame24Index / 4, 0, (int)m_analyzerOutputResults.size() - 1)];
-            const auto info = m_analyzer->patterns().getFrame24(result.pattern, frame24Index);
-            const int firstField = info.cycleIndex * 10 + info.fieldStartIndex;
-            // 次の24pフレームではcycle境界のparity sourceも参照するため、
-            // 直前フレームの先頭より十分前まで保持する。
-            trimFloor = std::max(0, ((firstField & ~1) >> 1) - KFM_VFR_SOURCE_TRIM_LOOKBEHIND);
-        } catch (...) {
-            return 0;
-        }
+        // RFF直通では解析24p番号とsource位置が一致しないため、実際に消費したsource位置を基準にする。
+        trimFloor = std::max(0, (m_nextSwitchN60 >> 1) - KFM_VFR_SOURCE_TRIM_LOOKBEHIND);
     } else if (prm->kfm.mode == VppKfmMode::P60) {
         int lookbehind = KFM_VFR_SOURCE_TRIM_LOOKBEHIND;
         if (prm->kfm.ucf && (m_before60Rtgmc || m_after60Rtgmc)) {
             lookbehind += std::max(m_before60Lane.requiredPrimingSourceFrames(), m_after60Lane.requiredPrimingSourceFrames())
                 + KFM_UCF_SHARED_ANALYSIS_SOURCE_DELAY + 4;
         }
-        // P60 does not advance m_nextSwitchN60. Use emitted 60p output position
-        // instead, otherwise source slots stay live for the whole clip.
-        trimFloor = std::max(0, (m_timecodeFrameIndex >> 1) - lookbehind);
+        // RFFでは1 sourceから3枚出るため、60p出力番号ではなく処理済みsource位置を基準にする。
+        trimFloor = std::max(0, m_p60LastProcessedSourceIndex - lookbehind);
     } else {
         return 0;
     }
@@ -1956,23 +1967,14 @@ int RGYFilterKfm::deint60CacheTrimFloor() const {
         return std::max(0, m_nextSwitchN60 - KFM_VFR_DEINT60_TRIM_LOOKBEHIND);
     }
     if (prm->kfm.mode == VppKfmMode::P24) {
-        if (!m_analyzer || m_nextTelecine24Frame <= 0 || m_analyzerOutputResults.empty()) {
+        if (m_nextSwitchN60 <= 0) {
             return 0;
         }
-        const int frame24Index = m_nextTelecine24Frame - 1;
-        try {
-            const auto& result = m_analyzerOutputResults[clamp(frame24Index / 4, 0, (int)m_analyzerOutputResults.size() - 1)];
-            const auto info = m_analyzer->patterns().getFrame24(result.pattern, frame24Index);
-            const int firstField = info.cycleIndex * 10 + info.fieldStartIndex;
-            return std::max(0, firstField - KFM_VFR_DEINT60_TRIM_LOOKBEHIND);
-        } catch (...) {
-            return 0;
-        }
+        return std::max(0, m_nextSwitchN60 - KFM_VFR_DEINT60_TRIM_LOOKBEHIND);
     }
     if (prm->kfm.mode == VppKfmMode::P60) {
-        // P60 emits one output per n60, so m_timecodeFrameIndex is the deint60
-        // progress marker used to retire old lane cache entries.
-        return std::max(0, m_timecodeFrameIndex - KFM_VFR_DEINT60_TRIM_LOOKBEHIND);
+        const int nominalN60 = m_p60LastProcessedSourceIndex * 2 + std::min(m_p60RtgmcFieldInSource, 1);
+        return std::max(0, nominalN60 - KFM_VFR_DEINT60_TRIM_LOOKBEHIND);
     }
     return 0;
 }
@@ -4466,6 +4468,45 @@ bool RGYFilterKfm::deriveSwitchTimingAt(KfmSwitchTiming& timing, int n60, int to
     return false;
 }
 
+bool RGYFilterKfm::deriveTelecine24TimingAt(KfmSwitchTiming& timing, int n60, int total60, bool afterRff) const {
+    timing = KfmSwitchTiming();
+    if (!m_analyzer || m_analyzerOutputResults.empty() || total60 <= 0 || n60 < 0 || n60 >= total60) {
+        return false;
+    }
+    const int analyzedFrames = static_cast<int>(m_analyzerOutputResults.size()) * 4;
+    const int cycle = n60 / 10;
+    const int firstCandidate = std::max(0, cycle * 4 - 2);
+    const int lastCandidate = std::min(analyzedFrames, (cycle + 2) * 4 + 2);
+    for (int frame24Index = firstCandidate; frame24Index < lastCandidate; frame24Index++) {
+        const int resultIndex = frame24Index / 4;
+        const auto& result = m_analyzerOutputResults[resultIndex];
+        RGYKFM::Frame24Info info;
+        try {
+            info = m_analyzer->patterns().getFrame24(result.pattern, frame24Index);
+        } catch (...) {
+            continue;
+        }
+        const int firstField = info.cycleIndex * 10 + info.fieldStartIndex;
+        const int endField = firstField + info.numFields;
+        if (endField <= n60 || (afterRff && firstField < n60)) {
+            continue;
+        }
+        timing.start60 = n60;
+        timing.start120 = n60 * 2;
+        timing.sourceIndex = (firstField & ~1) >> 1;
+        timing.frame24Index = frame24Index;
+        timing.baseType = KFM_FRAME_24;
+        timing.sourceStart = timing.sourceIndex;
+        timing.numSourceFrames = std::max(1, ((endField - 1) >> 1) - timing.sourceIndex + 1);
+        timing.duration60 = std::max(1, endField - n60);
+        timing.duration120 = timing.duration60 * 2;
+        timing.isFrame24 = true;
+        timing.isFrame60 = false;
+        return true;
+    }
+    return false;
+}
+
 std::vector<RGYFilterKfm::KfmSwitchTiming> RGYFilterKfm::deriveSwitchTimings(int total60) const {
     std::vector<KfmSwitchTiming> timings;
     if (!m_analyzer || m_analyzerOutputResults.empty() || total60 <= 0) {
@@ -4564,20 +4605,8 @@ void RGYFilterKfm::writeTelecine24DurationDump() {
         AddMessage(RGY_LOG_WARN, _T("failed to open KFM duration dump file \"%s\".\n"), m_switchDurationPath.c_str());
         return;
     }
-    for (int frame24Index = 0; frame24Index < m_nextTelecine24Frame; frame24Index++) {
-        if (frame24Index / 4 >= (int)m_analyzerOutputResults.size()) {
-            break;
-        }
-        const auto& result = m_analyzerOutputResults[frame24Index / 4];
-        try {
-            const auto info = m_analyzer->patterns().getFrame24(result.pattern, frame24Index);
-            const int firstField = info.cycleIndex * 10 + info.fieldStartIndex;
-            const int totalFields = m_cachedSourceFrames * 2;
-            const int availableFields = (totalFields > firstField) ? std::min(info.numFields, totalFields - firstField) : info.numFields;
-            fprintf(fp, "%d\n", std::max(1, availableFields));
-        } catch (...) {
-            fprintf(fp, "2\n");
-        }
+    for (const auto duration60 : m_telecine24OutputDurations) {
+        fprintf(fp, "%d\n", std::max(1, duration60));
     }
     fclose(fp);
     m_switchTimingDumped = true;
@@ -4737,6 +4766,27 @@ bool RGYFilterKfm::isRffTimestampContinuous(const KfmCachedSource *prev, const K
     return std::llabs((current->timestamp - prev->timestamp) - expected) <= tolerance;
 }
 
+int64_t RGYFilterKfm::rffInputDuration(RGY_FRAME_FLAGS flags) const {
+    const auto prm = std::dynamic_pointer_cast<RGYFilterParamKfm>(m_param);
+    if (!prm) {
+        return 1;
+    }
+    const int fields = (flags & RGY_FRAME_FLAG_RFF) ? 3 : 2;
+    const int64_t numerator = static_cast<int64_t>(prm->timebase.d()) * 1001 * fields;
+    const int64_t denominator = static_cast<int64_t>(prm->timebase.n()) * 60000;
+    return denominator > 0 ? std::max<int64_t>(1, (numerator + denominator / 2) / denominator) : 1;
+}
+
+int64_t RGYFilterKfm::rffFieldOffset(int64_t fieldIndex) const {
+    const auto prm = std::dynamic_pointer_cast<RGYFilterParamKfm>(m_param);
+    if (!prm || fieldIndex <= 0) {
+        return 0;
+    }
+    const int64_t numerator = static_cast<int64_t>(prm->timebase.d()) * 1001;
+    const int64_t denominator = static_cast<int64_t>(prm->timebase.n()) * 60000;
+    return denominator > 0 ? (fieldIndex * numerator + denominator / 2) / denominator : fieldIndex;
+}
+
 int64_t RGYFilterKfm::rffFilmOffset(int64_t frameIndex) const {
     const auto prm = std::dynamic_pointer_cast<RGYFilterParamKfm>(m_param);
     if (!prm || frameIndex <= 0) {
@@ -4747,6 +4797,32 @@ int64_t RGYFilterKfm::rffFilmOffset(int64_t frameIndex) const {
     return denominator > 0 ? (frameIndex * numerator + denominator / 2) / denominator : frameIndex;
 }
 
+int64_t RGYFilterKfm::p24SlotAtInputPts(int64_t inputPts) const {
+    const auto prm = std::dynamic_pointer_cast<RGYFilterParamKfm>(m_param);
+    if (!prm || m_p24InputOriginPts < 0 || inputPts <= m_p24InputOriginPts) {
+        return 0;
+    }
+    const int64_t relativePts = inputPts - m_p24InputOriginPts;
+    const long double slotEstimate = static_cast<long double>(relativePts)
+        * static_cast<long double>(prm->timebase.n()) * 24000.0L
+        / (static_cast<long double>(prm->timebase.d()) * 1001.0L);
+    const int64_t estimatedSlot = std::max<int64_t>(0, static_cast<int64_t>(std::llround(slotEstimate)));
+    int64_t bestSlot = estimatedSlot;
+    int64_t bestDistance = std::llabs(rffFilmOffset(bestSlot) - relativePts);
+    for (int delta = -1; delta <= 1; delta += 2) {
+        const int64_t candidate = estimatedSlot + delta;
+        if (candidate < 0) {
+            continue;
+        }
+        const int64_t distance = std::llabs(rffFilmOffset(candidate) - relativePts);
+        if (distance < bestDistance) {
+            bestSlot = candidate;
+            bestDistance = distance;
+        }
+    }
+    return bestSlot;
+}
+
 void RGYFilterKfm::resetRffTiming() {
     m_rffPrevSourceIndex = -1;
     m_rffPrevInputPts = -1;
@@ -4754,6 +4830,83 @@ void RGYFilterKfm::resetRffTiming() {
     m_rffAnchorOutputPts = 0;
     m_rffRunIndex = 0;
     m_rffLastOutputPts = -1;
+}
+
+RGY_ERR RGYFilterKfm::prepareRffDirect24(KfmRffDirectOutput& direct, RGYFrameInfo *output, int sourceIndex, int start60, int64_t nextOutputPts, bool useInputTimestamp,
+    RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& waitEvents, RGYOpenCLEvent *event) {
+    direct = KfmRffDirectOutput();
+    const auto prm = std::dynamic_pointer_cast<RGYFilterParamKfm>(m_param);
+    const auto *source = findSourceByIndexExact(sourceIndex);
+    if (!prm || !output || !source || !source->frame || !source->frame->frame.ptr[0]) {
+        return RGY_ERR_MORE_DATA;
+    }
+
+    auto copyWaitEvents = waitEvents;
+    if (source->event() != nullptr) {
+        copyWaitEvents.push_back(source->event);
+    }
+    auto sts = m_cl->copyFrame(output, &source->frame->frame, nullptr, queue, copyWaitEvents, event, RGYFrameCopyMode::FRAME, "kfm.rff_output");
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to copy KFM RFF output frame: %s.\n"), get_err_mes(sts));
+        return sts;
+    }
+    copyFramePropWithoutRes(output, &source->frame->frame);
+
+    const auto *prevSource = findSourceByIndexExact(sourceIndex - 1);
+    const bool adjacentRff = m_rffPrevSourceIndex + 1 == sourceIndex;
+    direct.anchorOutputPts = m_rffAnchorOutputPts;
+    direct.runIndex = m_rffRunIndex;
+    if (adjacentRff && isRffTimestampContinuous(prevSource, source)) {
+        direct.runIndex++;
+    } else if (useInputTimestamp && adjacentRff && m_rffLastOutputPts >= 0 && m_rffPrevInputPts >= 0 && source->timestamp >= 0) {
+        direct.anchorOutputPts = source->timestamp + (m_rffLastOutputPts - m_rffPrevInputPts);
+        direct.runIndex = 0;
+    } else {
+        direct.anchorOutputPts = useInputTimestamp && source->timestamp >= 0 ? std::max(source->timestamp, nextOutputPts) : nextOutputPts;
+        direct.runIndex = 0;
+    }
+    direct.outputPts = direct.anchorOutputPts + rffFilmOffset(direct.runIndex);
+    if (direct.outputPts < nextOutputPts) {
+        direct.outputPts = nextOutputPts;
+        direct.anchorOutputPts = direct.outputPts;
+        direct.runIndex = 0;
+    }
+    direct.outputDuration = std::max<int64_t>(1, rffFilmOffset(direct.runIndex + 1) - rffFilmOffset(direct.runIndex));
+    direct.sourceIndex = sourceIndex;
+    direct.inputPts = source->timestamp;
+    direct.inputFlags = source->frame->frame.flags;
+    direct.inputDuration = rffInputDuration(direct.inputFlags);
+    direct.timing.start60 = start60;
+    direct.timing.start120 = start60 * 2;
+    direct.timing.sourceIndex = sourceIndex;
+    direct.timing.baseType = KFM_FRAME_RFF_24;
+    direct.timing.sourceStart = sourceIndex;
+    direct.timing.numSourceFrames = 1;
+    direct.timing.duration60 = 2;
+    direct.timing.duration120 = 5;
+    direct.timing.isFrame24 = true;
+    direct.timing.isFrame60 = false;
+
+    output->timestamp = direct.outputPts;
+    output->duration = direct.outputDuration;
+    output->picstruct = RGY_PICSTRUCT_FRAME;
+    output->flags = (RGY_FRAME_FLAGS)(output->flags & ~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF));
+    attachSwitchFrameData(output, direct.timing, nullptr);
+    writeFrameInfoDump("rff-direct", output, nullptr);
+    return RGY_ERR_NONE;
+}
+
+void RGYFilterKfm::commitRffDirect24(const KfmRffDirectOutput& direct, int64_t nextOutputPts) {
+    m_rffAnchorOutputPts = direct.anchorOutputPts;
+    m_rffRunIndex = direct.runIndex;
+    m_rffPrevSourceIndex = direct.sourceIndex;
+    m_rffPrevInputPts = direct.inputPts;
+    m_rffPrevFlags = direct.inputFlags;
+    m_rffLastOutputPts = direct.outputPts;
+    if (direct.inputPts >= 0) {
+        m_switchPtsOffset = nextOutputPts - (direct.inputPts + direct.inputDuration);
+    }
+    m_hasLastSwitchTiming = false;
 }
 
 void RGYFilterKfm::attachSwitchFrameData(RGYFrameInfo *frame, const KfmSwitchTiming& timing, const RGYKFM::KFMResult *result) const {
@@ -5157,10 +5310,12 @@ RGY_ERR RGYFilterKfm::renderTelecine24(RGYFrameInfo *pOutputFrame, int frame24In
     if (!pOutputFrame || !m_analyzer || !m_programs[KFM_PROG_RENDER].get()) {
         return RGY_ERR_INVALID_CALL;
     }
-    if (frame24Index < 0 || frame24Index / 4 >= (int)m_analyzerOutputResults.size()) {
+    if (frame24Index < 0 || m_analyzerOutputResults.empty()
+        || (!drain && frame24Index / 4 >= (int)m_analyzerOutputResults.size())
+        || (drain && frame24Index / 4 > (int)m_analyzerOutputResults.size())) {
         return RGY_ERR_MORE_DATA;
     }
-    const auto& result = m_analyzerOutputResults[frame24Index / 4];
+    const auto& result = m_analyzerOutputResults[clamp(frame24Index / 4, 0, (int)m_analyzerOutputResults.size() - 1)];
     RGYKFM::Frame24Info info;
     try {
         info = m_analyzer->patterns().getFrame24(result.pattern, frame24Index);
@@ -5601,10 +5756,12 @@ RGY_ERR RGYFilterKfm::renderTelecineSuper24(RGYFrameInfo *pOutputFrame, int fram
     if (!pOutputFrame || !m_analyzer || !m_programs[KFM_PROG_ANALYZE].get() || !m_programs[KFM_PROG_RENDER].get()) {
         return RGY_ERR_INVALID_CALL;
     }
-    if (frame24Index < 0 || frame24Index / 4 >= (int)m_analyzerOutputResults.size()) {
+    if (frame24Index < 0 || m_analyzerOutputResults.empty()
+        || (!drain && frame24Index / 4 >= (int)m_analyzerOutputResults.size())
+        || (drain && frame24Index / 4 > (int)m_analyzerOutputResults.size())) {
         return RGY_ERR_MORE_DATA;
     }
-    const auto& result = m_analyzerOutputResults[frame24Index / 4];
+    const auto& result = m_analyzerOutputResults[clamp(frame24Index / 4, 0, (int)m_analyzerOutputResults.size() - 1)];
     RGYKFM::Frame24Info info;
     try {
         info = m_analyzer->patterns().getFrame24(result.pattern, frame24Index);
@@ -5678,11 +5835,13 @@ RGY_ERR RGYFilterKfm::getCachedCleanSuper(KfmCleanSuperMode mode, int frameIndex
     key.height = pFallbackFrame->height;
     key.csp = pFallbackFrame->csp;
     if (mode == KFM_CLEAN_SUPER_24) {
-        if (!m_analyzer || frameIndex < 0 || frameIndex / 4 >= (int)m_analyzerOutputResults.size()) {
+        if (!m_analyzer || frameIndex < 0 || m_analyzerOutputResults.empty()
+            || (!drain && frameIndex / 4 >= (int)m_analyzerOutputResults.size())
+            || (drain && frameIndex / 4 > (int)m_analyzerOutputResults.size())) {
             return RGY_ERR_MORE_DATA;
         }
         try {
-            const auto& result = m_analyzerOutputResults[frameIndex / 4];
+            const auto& result = m_analyzerOutputResults[clamp(frameIndex / 4, 0, (int)m_analyzerOutputResults.size() - 1)];
             const auto info = m_analyzer->patterns().getFrame24(result.pattern, frameIndex);
             key.firstField = info.cycleIndex * 10 + info.fieldStartIndex;
             key.lastField = key.firstField + info.numFields - 2;
@@ -5832,10 +5991,11 @@ RGY_ERR RGYFilterKfm::removeCombe24(RGYFrameInfo *pOutputFrame, const RGYFrameIn
     if (!pOutputFrame || !pDeint24Frame || !pTelecineSuperFrame || !m_analyzer) {
         return RGY_ERR_INVALID_CALL;
     }
-    if (frame24Index < 0 || frame24Index / 4 >= (int)m_analyzerOutputResults.size()) {
+    if (frame24Index < 0 || m_analyzerOutputResults.empty()
+        || frame24Index / 4 > (int)m_analyzerOutputResults.size()) {
         return RGY_ERR_MORE_DATA;
     }
-    const auto& result = m_analyzerOutputResults[frame24Index / 4];
+    const auto& result = m_analyzerOutputResults[clamp(frame24Index / 4, 0, (int)m_analyzerOutputResults.size() - 1)];
     RGYKFM::Frame24Info info;
     try {
         info = m_analyzer->patterns().getFrame24(result.pattern, frame24Index);
@@ -6417,7 +6577,7 @@ RGY_ERR RGYFilterKfm::renderCombeMask(RGYFrameInfo *pCombeMaskFrame, const RGYFr
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYFilterKfm::processMainRtgmcOutputs(const RGYFilterParamKfm& prm, RGYFrameInfo **rtgmcOutFrames, int rtgmcOutNum,
+RGY_ERR RGYFilterKfm::processMainRtgmcOutputs(const RGYFilterParamKfm& prm, RGYFrameInfo **rtgmcOutFrames, int rtgmcOutNum, bool drain,
     RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     if (rtgmcOutNum <= 0) {
         return RGY_ERR_NONE;
@@ -6432,16 +6592,82 @@ RGY_ERR RGYFilterKfm::processMainRtgmcOutputs(const RGYFilterParamKfm& prm, RGYF
         mergeWaitEvents.push_back(staticEvent);
     }
     for (int i = 0; i < rtgmcOutNum; i++) {
+        const KfmCachedSource *sourceEntry = nullptr;
+        for (auto it = m_sourceCache.rbegin(); it != m_sourceCache.rend(); ++it) {
+            if (it->inputFrameId == rtgmcOutFrames[i]->inputFrameId && it->timestamp == rtgmcOutFrames[i]->timestamp) {
+                sourceEntry = &(*it);
+                break;
+            }
+        }
+        if (!sourceEntry) {
+            for (auto it = m_sourceCache.rbegin(); it != m_sourceCache.rend(); ++it) {
+                if (it->inputFrameId == rtgmcOutFrames[i]->inputFrameId) {
+                    sourceEntry = &(*it);
+                    break;
+                }
+            }
+        }
+        if (!sourceEntry || !sourceEntry->frame || !sourceEntry->frame->frame.ptr[0]) {
+            AddMessage(RGY_LOG_ERROR, _T("KFM source frame is missing for output inputFrameId=%d.\n"), rtgmcOutFrames[i]->inputFrameId);
+            return RGY_ERR_INVALID_CALL;
+        }
+        m_p60LastProcessedSourceIndex = std::max(m_p60LastProcessedSourceIndex, sourceEntry->sourceIndex);
+        if (m_p60LastRtgmcSourceIndex != sourceEntry->sourceIndex) {
+            m_p60LastRtgmcSourceIndex = sourceEntry->sourceIndex;
+            m_p60RtgmcFieldInSource = 0;
+        } else {
+            m_p60RtgmcFieldInSource++;
+        }
+        const int nominalN60 = sourceEntry->sourceIndex * 2 + std::min(m_p60RtgmcFieldInSource, 1);
+        if (prm.kfm.mode == VppKfmMode::P60 && prm.kfm.rff && isRffProgressiveSource(sourceEntry->sourceIndex, drain)) {
+            if (m_p60LastRffSourceIndex == sourceEntry->sourceIndex) {
+                continue;
+            }
+            m_p60LastRffSourceIndex = sourceEntry->sourceIndex;
+            if (prm.kfm.ucf) {
+                sts = resolveUcfNoiseResults(sourceEntry->sourceIndex + 3, queue);
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
+            }
+            const auto& sourceFrame = sourceEntry->frame->frame;
+            const int outputFields = (sourceFrame.flags & RGY_FRAME_FLAG_RFF) ? 3 : 2;
+            const int64_t basePts = sourceFrame.timestamp >= 0 ? sourceFrame.timestamp : rtgmcOutFrames[i]->timestamp;
+            for (int field = 0; field < outputFields; field++) {
+                auto out = nextWorkFrame();
+                if (!out) {
+                    return RGY_ERR_INVALID_CALL;
+                }
+                auto directWaitEvents = wait_events;
+                if (sourceEntry->event() != nullptr) {
+                    directWaitEvents.push_back(sourceEntry->event);
+                }
+                RGYOpenCLEvent directEvent;
+                sts = m_cl->copyFrame(out, &sourceFrame, nullptr, queue, directWaitEvents, &directEvent, RGYFrameCopyMode::FRAME, "kfm.p60.rff_output");
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
+                copyFramePropWithoutRes(out, &sourceFrame);
+                out->timestamp = basePts + rffFieldOffset(field);
+                out->duration = std::max<int64_t>(1, rffFieldOffset(field + 1) - rffFieldOffset(field));
+                out->picstruct = RGY_PICSTRUCT_FRAME;
+                out->flags = (RGY_FRAME_FLAGS)(out->flags & ~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF));
+                sts = emitOutputFrame(out, ppOutputFrames, pOutputFrameNum, queue, directEvent, event);
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
+            }
+            continue;
+        }
         auto out = nextWorkFrame();
         if (!out) {
             return RGY_ERR_INVALID_CALL;
         }
         auto frameWaitEvents = mergeWaitEvents;
-        const auto source = findSourceFrame(rtgmcOutFrames[i], &frameWaitEvents);
-        if (!source) {
-            AddMessage(RGY_LOG_ERROR, _T("KFM source frame is missing for output inputFrameId=%d.\n"), rtgmcOutFrames[i]->inputFrameId);
-            return RGY_ERR_INVALID_CALL;
+        if (sourceEntry->event() != nullptr) {
+            frameWaitEvents.push_back(sourceEntry->event);
         }
+        const auto source = &sourceEntry->frame->frame;
         RGYOpenCLEvent mergeEvent;
         sts = mergeStatic(out, rtgmcOutFrames[i], source, queue, frameWaitEvents, &mergeEvent);
         if (sts != RGY_ERR_NONE) {
@@ -6456,11 +6682,11 @@ RGY_ERR RGYFilterKfm::processMainRtgmcOutputs(const RGYFilterParamKfm& prm, RGYF
             if (mergeEvent() != nullptr) {
                 ucfWaitEvents.push_back(mergeEvent);
             }
-            sts = resolveUcfNoiseResults((m_timecodeFrameIndex >> 1) + 3, queue);
+            sts = resolveUcfNoiseResults((nominalN60 >> 1) + 3, queue);
             if (sts != RGY_ERR_NONE) {
                 return sts;
             }
-            const auto *ucfInput = selectUcfDecomb60Frame(m_timecodeFrameIndex, out, &ucfWaitEvents);
+            const auto *ucfInput = selectUcfDecomb60Frame(nominalN60, out, &ucfWaitEvents);
             RGYOpenCLEvent ucfEvent;
             sts = copyUcfFrame(prm, ucfOut, ucfInput, queue, ucfWaitEvents, &ucfEvent);
             if (sts != RGY_ERR_NONE) {
@@ -6502,7 +6728,7 @@ RGY_ERR RGYFilterKfm::drainMainRtgmcBranch(const RGYFilterParamKfm& prm, RGYFram
         if (rtgmcEvent() != nullptr) {
             processWaitEvents.push_back(rtgmcEvent);
         }
-        sts = processMainRtgmcOutputs(prm, rtgmcOutFrames, rtgmcOutNum, ppOutputFrames, pOutputFrameNum, queue, processWaitEvents, event);
+        sts = processMainRtgmcOutputs(prm, rtgmcOutFrames, rtgmcOutNum, true, ppOutputFrames, pOutputFrameNum, queue, processWaitEvents, event);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
@@ -6559,7 +6785,8 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
         if (rtgmcEvent() != nullptr) {
             processWaitEvents.push_back(rtgmcEvent);
         }
-        sts = processMainRtgmcOutputs(*prm, rtgmcOutFrames, rtgmcOutNum, ppOutputFrames, pOutputFrameNum, queue, processWaitEvents, event);
+        sts = processMainRtgmcOutputs(*prm, rtgmcOutFrames, rtgmcOutNum, pInputFrame == nullptr || pInputFrame->ptr[0] == nullptr,
+            ppOutputFrames, pOutputFrameNum, queue, processWaitEvents, event);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
@@ -6699,89 +6926,32 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
         while (*pOutputFrameNum < maxOutputFrames) {
             if (prm->kfm.rff && (m_nextSwitchN60 & 1) == 0) {
                 const int rffSourceIndex = m_nextSwitchN60 >> 1;
-                const auto *rffSource = findSourceByIndexExact(rffSourceIndex);
                 if (isRffProgressiveSource(rffSourceIndex, drain)) {
                     if (!drain && m_nextSwitchN60 + 2 >= availableN60) {
                         m_vfrRunStats.tailHoldBreaks++;
-                        break;
-                    }
-                    if (!rffSource || !rffSource->frame || !rffSource->frame->frame.ptr[0]) {
-                        m_vfrRunStats.sourceMissingFallbackBreaks++;
                         break;
                     }
                     auto out = nextWorkFrame();
                     if (!out) {
                         return RGY_ERR_INVALID_CALL;
                     }
-                    std::vector<RGYOpenCLEvent> copyWaitEvents = wait_events;
-                    if (rffSource->event() != nullptr) {
-                        copyWaitEvents.push_back(rffSource->event);
-                    }
+                    KfmRffDirectOutput direct;
                     RGYOpenCLEvent outputEvent;
-                    sts = m_cl->copyFrame(out, &rffSource->frame->frame, nullptr, queue, copyWaitEvents, &outputEvent, RGYFrameCopyMode::FRAME, "kfm.vfr.rff_output");
+                    sts = prepareRffDirect24(direct, out, rffSourceIndex, m_nextSwitchN60, m_nextSwitchPts, true, queue, wait_events, &outputEvent);
+                    if (sts == RGY_ERR_MORE_DATA) {
+                        m_vfrRunStats.sourceMissingFallbackBreaks++;
+                        break;
+                    }
                     if (sts != RGY_ERR_NONE) {
-                        AddMessage(RGY_LOG_ERROR, _T("failed to copy KFM VFR RFF output frame: %s.\n"), get_err_mes(sts));
                         return sts;
                     }
-                    copyFramePropWithoutRes(out, &rffSource->frame->frame);
-
-                    const auto *prevSource = findSourceByIndexExact(rffSourceIndex - 1);
-                    const bool adjacentRff = m_rffPrevSourceIndex + 1 == rffSourceIndex;
-                    if (adjacentRff && isRffTimestampContinuous(prevSource, rffSource)) {
-                        m_rffRunIndex++;
-                    } else if (adjacentRff && m_rffLastOutputPts >= 0 && m_rffPrevInputPts >= 0 && rffSource->timestamp >= 0) {
-                        const int64_t inputOffset = m_rffLastOutputPts - m_rffPrevInputPts;
-                        m_rffAnchorOutputPts = rffSource->timestamp + inputOffset;
-                        m_rffRunIndex = 0;
-                    } else {
-                        m_rffAnchorOutputPts = rffSource->timestamp >= 0
-                            ? std::max(rffSource->timestamp, m_nextSwitchPts)
-                            : m_nextSwitchPts;
-                        m_rffRunIndex = 0;
-                    }
-                    int64_t outputPts = m_rffAnchorOutputPts + rffFilmOffset(m_rffRunIndex);
-                    if (outputPts < m_nextSwitchPts) {
-                        outputPts = m_nextSwitchPts;
-                        m_rffAnchorOutputPts = outputPts;
-                        m_rffRunIndex = 0;
-                    }
-                    out->timestamp = outputPts;
-                    out->duration = std::max<int64_t>(1, rffFilmOffset(m_rffRunIndex + 1) - rffFilmOffset(m_rffRunIndex));
-                    out->picstruct = RGY_PICSTRUCT_FRAME;
-                    out->flags = (RGY_FRAME_FLAGS)(out->flags & ~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF));
-
-                    KfmSwitchTiming rffTiming;
-                    rffTiming.start60 = m_nextSwitchN60;
-                    rffTiming.start120 = m_nextSwitchN60 * 2;
-                    rffTiming.sourceIndex = rffSourceIndex;
-                    rffTiming.baseType = KFM_FRAME_RFF_24;
-                    rffTiming.sourceStart = rffSourceIndex;
-                    rffTiming.numSourceFrames = 1;
-                    rffTiming.duration60 = 2;
-                    rffTiming.duration120 = 5;
-                    rffTiming.isFrame24 = true;
-                    attachSwitchFrameData(out, rffTiming, nullptr);
-                    writeFrameInfoDump("rff-direct", out, nullptr);
                     sts = queueVfrOutputFrame(out, queue, outputEvent);
                     if (sts != RGY_ERR_NONE) {
                         return sts;
                     }
 
                     m_nextSwitchPts = out->timestamp + out->duration;
-                    if (rffSource->timestamp >= 0) {
-                        const int inputFields = (rffSource->frame->frame.flags & RGY_FRAME_FLAG_RFF) ? 3 : 2;
-                        const int64_t inputDurationNumerator = static_cast<int64_t>(prm->timebase.d()) * 1001 * inputFields;
-                        const int64_t inputDurationDenominator = static_cast<int64_t>(prm->timebase.n()) * 60000;
-                        const int64_t inputDuration = inputDurationDenominator > 0
-                            ? (inputDurationNumerator + inputDurationDenominator / 2) / inputDurationDenominator
-                            : out->duration;
-                        m_switchPtsOffset = m_nextSwitchPts - (rffSource->timestamp + inputDuration);
-                    }
-                    m_rffPrevSourceIndex = rffSourceIndex;
-                    m_rffPrevInputPts = rffSource->timestamp;
-                    m_rffPrevFlags = rffSource->frame->frame.flags;
-                    m_rffLastOutputPts = out->timestamp;
-                    m_hasLastSwitchTiming = false;
+                    commitRffDirect24(direct, m_nextSwitchPts);
                     m_nextSwitchN60 += 2;
                     sts = emitReadyPending(drain ? 0 : vfrOutputDelay);
                     if (sts != RGY_ERR_NONE) {
@@ -7567,8 +7737,184 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
 
         *pOutputFrameNum = 0;
         const bool drain = pInputFrame == nullptr || pInputFrame->ptr[0] == nullptr;
+        const int rawAvailableN60 = drain
+            ? m_cachedSourceFrames * 2
+            : std::min(m_cachedSourceFrames * 2, static_cast<int>(m_analyzerOutputResults.size()) * 10);
+        const int availableN60 = drain ? rawAvailableN60 : std::max(0, rawAvailableN60 - 4);
         const int maxOutputFrames = std::min<int>((int)m_frameBuf.size(), KFM_MAX_OUTPUT_FRAMES);
-        while (*pOutputFrameNum < maxOutputFrames && m_nextTelecine24Frame < telecine24FrameCount(drain)) {
+        auto emitTelecine24Hold = [&](int boundaryN60, const KfmSwitchTiming& timing, const char *stage) -> RGY_ERR {
+            const int boundaryField = std::max(0, boundaryN60 - 1);
+            if (lazyDeint60) {
+                auto holdSts = m_deint60Lane.ensureRange(boundaryField, boundaryField + 1, queue);
+                if (holdSts != RGY_ERR_NONE) {
+                    return holdSts;
+                }
+            }
+            std::vector<RGYOpenCLEvent> holdWaitEvents = wait_events;
+            const RGYFrameInfo *holdFrame = findDeint60Frame(boundaryField, &holdWaitEvents);
+            if (!holdFrame || !holdFrame->ptr[0]) {
+                const auto *source = findSourceByIndex(boundaryField >> 1);
+                if (source && source->frame && source->frame->frame.ptr[0]) {
+                    holdFrame = &source->frame->frame;
+                    if (source->event() != nullptr) {
+                        holdWaitEvents.push_back(source->event);
+                    }
+                }
+            }
+            if (!holdFrame || !holdFrame->ptr[0]) {
+                return RGY_ERR_MORE_DATA;
+            }
+            auto out = nextWorkFrame();
+            if (!out) {
+                return RGY_ERR_INVALID_CALL;
+            }
+            RGYOpenCLEvent outputEvent;
+            auto holdSts = m_cl->copyFrame(out, holdFrame, nullptr, queue, holdWaitEvents, &outputEvent, RGYFrameCopyMode::FRAME, "kfm.p24.rff_boundary");
+            if (holdSts != RGY_ERR_NONE) {
+                return holdSts;
+            }
+            copyFramePropWithoutRes(out, holdFrame);
+            out->timestamp = m_nextSwitchPts;
+            out->duration = std::max<int64_t>(1,
+                rffFilmOffset(m_nextTelecine24Frame + 1) - rffFilmOffset(m_nextTelecine24Frame));
+            out->picstruct = RGY_PICSTRUCT_FRAME;
+            out->flags = RGY_FRAME_FLAG_NONE;
+            const RGYKFM::KFMResult *result = nullptr;
+            if (!m_analyzerOutputResults.empty()) {
+                result = &m_analyzerOutputResults[clamp(timing.frame24Index / 4, 0, static_cast<int>(m_analyzerOutputResults.size()) - 1)];
+            }
+            attachSwitchFrameData(out, timing, result);
+            writeFrameInfoDump(stage, out, result);
+            holdSts = emitOutputFrame(out, ppOutputFrames, pOutputFrameNum, queue, outputEvent, event);
+            if (holdSts != RGY_ERR_NONE) {
+                return holdSts;
+            }
+            m_nextSwitchPts = out->timestamp + out->duration;
+            m_nextTelecine24Pts = m_nextSwitchPts;
+            m_telecine24OutputDurations.push_back(std::max(1, timing.duration60));
+            m_nextTelecine24Frame++;
+            return RGY_ERR_NONE;
+        };
+        while (*pOutputFrameNum < maxOutputFrames && m_nextSwitchN60 < availableN60) {
+            if (prm->kfm.rff && (m_nextSwitchN60 & 1) == 0) {
+                const int rffSourceIndex = m_nextSwitchN60 >> 1;
+                if (isRffProgressiveSource(rffSourceIndex, drain)) {
+                    if (!drain && m_nextSwitchN60 + 2 >= availableN60) {
+                        break;
+                    }
+                    auto out = nextWorkFrame();
+                    if (!out) {
+                        return RGY_ERR_INVALID_CALL;
+                    }
+                    KfmRffDirectOutput direct;
+                    RGYOpenCLEvent outputEvent;
+                    sts = prepareRffDirect24(direct, out, rffSourceIndex, m_nextSwitchN60, m_nextSwitchPts, false, queue, wait_events, &outputEvent);
+                    if (sts == RGY_ERR_MORE_DATA) {
+                        break;
+                    }
+                    if (sts != RGY_ERR_NONE) {
+                        return sts;
+                    }
+                    sts = emitOutputFrame(out, ppOutputFrames, pOutputFrameNum, queue, outputEvent, event);
+                    if (sts != RGY_ERR_NONE) {
+                        return sts;
+                    }
+                    m_nextSwitchPts = out->timestamp + out->duration;
+                    m_nextTelecine24Pts = m_nextSwitchPts;
+                    commitRffDirect24(direct, m_nextSwitchPts);
+                    m_nextSwitchN60 += 2;
+                    m_telecine24OutputDurations.push_back(direct.timing.duration60);
+                    m_nextTelecine24Frame++;
+                    continue;
+                }
+            }
+
+            KfmSwitchTiming outputTiming;
+            const bool afterRff = m_rffPrevSourceIndex >= 0 && m_nextSwitchN60 == (m_rffPrevSourceIndex + 1) * 2;
+            if (!deriveTelecine24TimingAt(outputTiming, m_nextSwitchN60, availableN60, afterRff)) {
+                const int remaining60 = availableN60 - m_nextSwitchN60;
+                if (drain && remaining60 > 0 && !m_analyzerOutputResults.empty()) {
+                    // 解析済み最終cycleの位相を延長し、未消費の末尾fieldに対応する次の24p planを生成する。
+                    const int frame24Index = static_cast<int>(m_analyzerOutputResults.size()) * 4;
+                    const auto& result = m_analyzerOutputResults.back();
+                    try {
+                        const auto info = m_analyzer->patterns().getFrame24(result.pattern, frame24Index);
+                        const int firstField = info.cycleIndex * 10 + info.fieldStartIndex;
+                        outputTiming.start60 = m_nextSwitchN60;
+                        outputTiming.start120 = m_nextSwitchN60 * 2;
+                        outputTiming.sourceIndex = (firstField & ~1) >> 1;
+                        outputTiming.frame24Index = frame24Index;
+                        outputTiming.baseType = KFM_FRAME_24;
+                        outputTiming.sourceStart = outputTiming.sourceIndex;
+                        outputTiming.numSourceFrames = 1;
+                        outputTiming.duration60 = remaining60;
+                        outputTiming.duration120 = remaining60 * 2;
+                        outputTiming.isFrame24 = true;
+                        outputTiming.isFrame60 = false;
+                    } catch (...) {
+                        m_nextSwitchN60 = availableN60;
+                        break;
+                    }
+                } else if (drain) {
+                    m_nextSwitchN60 = availableN60;
+                    break;
+                } else {
+                    break;
+                }
+            }
+            int rffBoundaryN60 = -1;
+            int nextRffN60 = -1;
+            for (int candidateRffN60 = (m_nextSwitchN60 + 2) & ~1;
+                candidateRffN60 <= outputTiming.start60 + outputTiming.duration60; candidateRffN60 += 2) {
+                if (isRffProgressiveSource(candidateRffN60 >> 1, drain)) {
+                    nextRffN60 = candidateRffN60;
+                    break;
+                }
+            }
+            if (nextRffN60 >= 0) {
+                const auto *rffSource = findSourceByIndexExact(nextRffN60 >> 1);
+                const int64_t targetSlot = rffSource && rffSource->timestamp >= 0
+                    ? p24SlotAtInputPts(rffSource->timestamp)
+                    : m_nextTelecine24Frame + 1;
+                if (m_nextTelecine24Frame >= targetSlot) {
+                    m_nextSwitchN60 = nextRffN60;
+                    continue;
+                }
+                if (nextRffN60 < outputTiming.start60 + outputTiming.duration60
+                    || targetSlot - m_nextTelecine24Frame > 1) {
+                    rffBoundaryN60 = nextRffN60;
+                    outputTiming.duration60 = nextRffN60 - outputTiming.start60;
+                    outputTiming.duration120 = outputTiming.duration60 * 2;
+                }
+            }
+            if (drain && nextRffN60 < 0
+                && outputTiming.start60 + outputTiming.duration60 >= availableN60
+                && m_p24InputEndPts >= m_p24InputOriginPts
+                && m_nextTelecine24Frame >= p24SlotAtInputPts(m_p24InputEndPts)) {
+                m_nextSwitchN60 = availableN60;
+                break;
+            }
+            if (!drain && outputTiming.start60 + outputTiming.duration60 >= availableN60) {
+                break;
+            }
+            const int frame24Index = outputTiming.frame24Index;
+            if (rffBoundaryN60 >= 0) {
+                sts = emitTelecine24Hold(rffBoundaryN60, outputTiming, "rff-boundary");
+                if (sts == RGY_ERR_MORE_DATA) {
+                    break;
+                }
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
+                const auto *rffSource = findSourceByIndexExact(rffBoundaryN60 >> 1);
+                const int64_t targetSlot = rffSource && rffSource->timestamp >= 0
+                    ? p24SlotAtInputPts(rffSource->timestamp)
+                    : m_nextTelecine24Frame;
+                if (m_nextTelecine24Frame >= targetSlot) {
+                    m_nextSwitchN60 = rffBoundaryN60;
+                }
+                continue;
+            }
             auto deint24 = nextWorkFrame();
             auto out = nextWorkFrame();
             if (!deint24 || !out) {
@@ -7589,7 +7935,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
             auto super24 = &m_telecineSuperFrames[superIndex]->frame;
 
             RGYOpenCLEvent deintEvent;
-            sts = renderTelecine24(deint24, m_nextTelecine24Frame, drain, queue, wait_events, &deintEvent);
+            sts = renderTelecine24(deint24, frame24Index, drain, queue, wait_events, &deintEvent);
             if (sts == RGY_ERR_MORE_DATA) {
                 break;
             }
@@ -7602,7 +7948,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                 superWaitEvents.push_back(deintEvent);
             }
             RGYOpenCLEvent superEvent;
-            sts = getCachedCleanSuper(KFM_CLEAN_SUPER_24, m_nextTelecine24Frame, super24, &super24, drain, queue, superWaitEvents, &superEvent);
+            sts = getCachedCleanSuper(KFM_CLEAN_SUPER_24, frame24Index, super24, &super24, drain, queue, superWaitEvents, &superEvent);
             if (sts == RGY_ERR_MORE_DATA) {
                 break;
             }
@@ -7632,13 +7978,13 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                 *frame = &m_telecineSuperNeighborFrames[index]->frame;
                 return RGY_ERR_NONE;
             };
-            if (m_nextTelecine24Frame > 0) {
+            if (frame24Index > 0 && !afterRff) {
                 RGYOpenCLEvent prevSuperEvent;
                 sts = ensureNeighborSuper(0, &superPrev24);
                 if (sts != RGY_ERR_NONE) {
                     return sts;
                 }
-                sts = getCachedCleanSuper(KFM_CLEAN_SUPER_24, m_nextTelecine24Frame - 1, superPrev24, &superPrev24, true, queue, superWaitEvents, &prevSuperEvent);
+                sts = getCachedCleanSuper(KFM_CLEAN_SUPER_24, frame24Index - 1, superPrev24, &superPrev24, true, queue, superWaitEvents, &prevSuperEvent);
                 if (sts != RGY_ERR_NONE) {
                     return sts;
                 }
@@ -7646,13 +7992,15 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                     maskWaitEvents.push_back(prevSuperEvent);
                 }
             }
-            if (m_nextTelecine24Frame + 1 < telecine24FrameCount(drain)) {
+            const int nextTimingN60 = outputTiming.start60 + outputTiming.duration60;
+            const bool nextIsRff = prm->kfm.rff && (nextTimingN60 & 1) == 0 && isRffProgressiveSource(nextTimingN60 >> 1, drain);
+            if (!nextIsRff && frame24Index + 1 < static_cast<int>(m_analyzerOutputResults.size()) * 4) {
                 RGYOpenCLEvent nextSuperEvent;
                 sts = ensureNeighborSuper(1, &superNext24);
                 if (sts != RGY_ERR_NONE) {
                     return sts;
                 }
-                sts = getCachedCleanSuper(KFM_CLEAN_SUPER_24, m_nextTelecine24Frame + 1, superNext24, &superNext24, drain, queue, superWaitEvents, &nextSuperEvent);
+                sts = getCachedCleanSuper(KFM_CLEAN_SUPER_24, frame24Index + 1, superNext24, &superNext24, drain, queue, superWaitEvents, &nextSuperEvent);
                 if (sts == RGY_ERR_MORE_DATA) {
                     break;
                 }
@@ -7662,7 +8010,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                 if (nextSuperEvent() != nullptr) {
                     maskWaitEvents.push_back(nextSuperEvent);
                 }
-            } else if (!drain) {
+            } else if (!nextIsRff && !drain) {
                 break;
             }
             RGYFrameInfo *switchFlag = nullptr;
@@ -7677,7 +8025,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
             KfmContainsCombeReadback containsCombeReadback;
             const bool patchCombe24Enabled = kfmDeint60BranchEnabled() && m_deint60Rtgmc && m_analyzer;
             const bool needsContainsCombeCount = patchCombe24Enabled && prm->kfm.debugStage == VppKfmDebugStage::None;
-            const int maskDumpFrameIndex = super24->inputFrameId >= 0 ? super24->inputFrameId : m_nextTelecine24Frame;
+            const int maskDumpFrameIndex = super24->inputFrameId >= 0 ? super24->inputFrameId : frame24Index;
             bool fullCombeMaskGenerated = !kfmUseLazyCombeMask()
                 || prm->kfm.debugStage == VppKfmDebugStage::CombeMask
                 || m_fpFrameInfo != nullptr
@@ -7699,7 +8047,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                 out = debugOut;
                 outputEvent = maskEvent;
             } else {
-                sts = removeCombe24(out, deint24, super24, m_nextTelecine24Frame, queue, removeWaitEvents, &outputEvent);
+                sts = removeCombe24(out, deint24, super24, frame24Index, queue, removeWaitEvents, &outputEvent);
                 if (sts != RGY_ERR_NONE) {
                     resolveContainsCombeCount(containsCombeReadback, nullptr);
                     return sts;
@@ -7720,10 +8068,10 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                 if (patchCombe24Enabled && containsCombeCount > 0) {
                     try {
                         static const int patchFieldIndex[4] = { 1, 3, 6, 8 };
-                        const int frame24Cycle = m_nextTelecine24Frame / 4;
-                        const int frame24InCycle = m_nextTelecine24Frame & 3;
+                        const int frame24Cycle = frame24Index / 4;
+                        const int frame24InCycle = frame24Index & 3;
                         const auto& patchResult = m_analyzerOutputResults[clamp(frame24Cycle, 0, (int)m_analyzerOutputResults.size() - 1)];
-                        const auto frameInfo = m_analyzer->patterns().getFrame24(patchResult.pattern, m_nextTelecine24Frame);
+                        const auto frameInfo = m_analyzer->patterns().getFrame24(patchResult.pattern, frame24Index);
                         patchN60 = clamp(patchFieldIndex[frame24InCycle], frameInfo.fieldStartIndex, frameInfo.fieldStartIndex + frameInfo.numFields - 1) + frameInfo.cycleIndex * 10;
                     } catch (...) {
                         patchN60 = -1;
@@ -7770,7 +8118,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                         }
                     }
                     RGYOpenCLEvent patchEvent;
-                    sts = patchCombe(&m_patchCombeFrames[patchIndex]->frame, out, deint60, combeMask, m_nextTelecine24Frame, "patch-combe", queue, patchWaitEvents, &patchEvent);
+                    sts = patchCombe(&m_patchCombeFrames[patchIndex]->frame, out, deint60, combeMask, frame24Index, "patch-combe", queue, patchWaitEvents, &patchEvent);
                     if (sts != RGY_ERR_NONE) {
                         return sts;
                     }
@@ -7783,9 +8131,9 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
             }
             if (prm->kfm.ucf && m_analyzer && !m_analyzerOutputResults.empty()) {
                 try {
-                    const int frame24Cycle = m_nextTelecine24Frame / 4;
+                    const int frame24Cycle = frame24Index / 4;
                     const auto& ucfResult = m_analyzerOutputResults[clamp(frame24Cycle, 0, (int)m_analyzerOutputResults.size() - 1)];
-                    const auto frameInfo = m_analyzer->patterns().getFrame24(ucfResult.pattern, m_nextTelecine24Frame);
+                    const auto frameInfo = m_analyzer->patterns().getFrame24(ucfResult.pattern, frame24Index);
                     std::vector<RGYOpenCLEvent> ucfWaitEvents;
                     if (outputEvent() != nullptr) {
                         ucfWaitEvents.push_back(outputEvent);
@@ -7886,14 +8234,55 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                 } catch (...) {
                 }
             }
+            out->timestamp = m_nextSwitchPts;
+            out->duration = std::max<int64_t>(1,
+                rffFilmOffset(m_nextTelecine24Frame + 1) - rffFilmOffset(m_nextTelecine24Frame));
+            out->picstruct = RGY_PICSTRUCT_FRAME;
+            out->flags = RGY_FRAME_FLAG_NONE;
+            const auto *result = &m_analyzerOutputResults[clamp(frame24Index / 4, 0, static_cast<int>(m_analyzerOutputResults.size()) - 1)];
+            attachSwitchFrameData(out, outputTiming, result);
             sts = emitOutputFrame(out, ppOutputFrames, pOutputFrameNum, queue, outputEvent, event);
             if (sts != RGY_ERR_NONE) {
                 return sts;
             }
-            m_nextTelecine24Pts += std::max<int64_t>(1, out->duration);
+            m_nextSwitchPts = out->timestamp + out->duration;
+            m_nextTelecine24Pts = m_nextSwitchPts;
+            m_nextSwitchN60 += outputTiming.duration60;
+            m_telecine24OutputDurations.push_back(outputTiming.duration60);
             m_nextTelecine24Frame++;
         }
-        if (drain && m_nextTelecine24Frame >= telecine24FrameCount(true)) {
+        int64_t targetP24Count = m_nextTelecine24Frame;
+        if (drain && m_nextSwitchN60 >= availableN60 && m_p24InputEndPts >= m_p24InputOriginPts) {
+            targetP24Count = p24SlotAtInputPts(m_p24InputEndPts);
+            const int64_t tailFrames = targetP24Count - m_nextTelecine24Frame;
+            if (tailFrames < 0) {
+                targetP24Count = m_nextTelecine24Frame;
+            } else if (tailFrames > 2) {
+                // TSの不連続PTSや上流のtimestamp異常で、末尾に大量の静止画を生成しない。
+                AddMessage(RGY_LOG_WARN, _T("KFM P24 ignored implausible timestamp tail adjustment: %lld frames.\n"), (long long)tailFrames);
+                targetP24Count = m_nextTelecine24Frame;
+            }
+            while (*pOutputFrameNum < maxOutputFrames && m_nextTelecine24Frame < targetP24Count) {
+                KfmSwitchTiming holdTiming;
+                holdTiming.start60 = availableN60;
+                holdTiming.start120 = availableN60 * 2;
+                holdTiming.sourceIndex = std::max(0, m_cachedSourceFrames - 1);
+                holdTiming.sourceStart = holdTiming.sourceIndex;
+                holdTiming.numSourceFrames = 1;
+                holdTiming.duration60 = 1;
+                holdTiming.duration120 = 2;
+                holdTiming.baseType = KFM_FRAME_24;
+                holdTiming.isFrame24 = true;
+                sts = emitTelecine24Hold(availableN60, holdTiming, "p24-tail-hold");
+                if (sts == RGY_ERR_MORE_DATA) {
+                    break;
+                }
+                if (sts != RGY_ERR_NONE) {
+                    return sts;
+                }
+            }
+        }
+        if (drain && m_nextSwitchN60 >= m_cachedSourceFrames * 2 && m_nextTelecine24Frame >= targetP24Count) {
             writeTelecine24DurationDump();
             if (*pOutputFrameNum == 0) {
                 sts = drainNrFilter(ppOutputFrames, pOutputFrameNum, queue, event);
@@ -8212,6 +8601,12 @@ void RGYFilterKfm::close() {
     m_after60Lane.reset();
     m_nextSwitchN60 = 0;
     m_nextSwitchPts = 0;
+    m_p24InputOriginPts = -1;
+    m_p24InputEndPts = -1;
+    m_p60LastProcessedSourceIndex = -1;
+    m_p60LastRffSourceIndex = -1;
+    m_p60LastRtgmcSourceIndex = -1;
+    m_p60RtgmcFieldInSource = 0;
     m_hasLastSwitchTiming = false;
     m_lastSwitchStart60 = 0;
     m_lastSwitchDuration60 = 0;
@@ -8219,6 +8614,7 @@ void RGYFilterKfm::close() {
     m_lastSwitchIsFrame24 = false;
     m_nextTelecine24Frame = 0;
     m_nextTelecine24Pts = 0;
+    m_telecine24OutputDurations.clear();
     m_telecineSuperBufferIndex = 0;
     m_maskBranchBufferIndex = 0;
     m_patchCombeBufferIndex = 0;

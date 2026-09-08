@@ -2164,11 +2164,13 @@ RGY_ERR CQSVPipeline::InitInput(sInputParams *inputParam, DeviceCodecCsp& HWDecC
 
     const bool vpp_ivtc_expand_active =
         (ENABLE_VPP_FILTER_IVTC && inputParam->vpp.ivtc.enable && inputParam->vpp.ivtc.expand > 0);
+    const bool vpp_kfm_rff_aware =
+        (ENABLE_VPP_FILTER_KFM && inputParam->vpp.kfm.enable && inputParam->vpp.kfm.rff);
 
     auto sts = initReaders(m_pFileReader, m_AudioReaders, &inputParam->input, &inputParam->inprm, inputCspOfRawReader,
         m_pStatus, &inputParam->common, &inputParam->ctrl, HWDecCodecCsp, subburnTrackId,
-        (ENABLE_VPP_FILTER_RFF) ? inputParam->vpp.rff.enable : false,
         (ENABLE_VPP_FILTER_AFS) ? inputParam->vpp.afs.enable : false,
+        ((ENABLE_VPP_FILTER_RFF) ? inputParam->vpp.rff.enable : false) || vpp_kfm_rff_aware,
         inputParam->vpp.libplacebo_tonemapping.enable,
         vpp_ivtc_expand_active,
         m_poolPkt.get(), m_poolFrame.get(),

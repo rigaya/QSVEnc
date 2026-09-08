@@ -172,6 +172,19 @@ protected:
 
         KfmSwitchTiming() : start60(0), start120(0), sourceIndex(0), frame24Index(-1), baseType(KFM_FRAME_60), sourceStart(0), numSourceFrames(1), duration60(1), duration120(2), isFrame24(false), isFrame60(false) {};
     };
+    struct KfmRffDirectOutput {
+        KfmSwitchTiming timing;
+        int sourceIndex;
+        int64_t inputPts;
+        int64_t inputDuration;
+        int64_t outputPts;
+        int64_t outputDuration;
+        int64_t anchorOutputPts;
+        int64_t runIndex;
+        RGY_FRAME_FLAGS inputFlags;
+
+        KfmRffDirectOutput() : timing(), sourceIndex(-1), inputPts(-1), inputDuration(0), outputPts(0), outputDuration(0), anchorOutputPts(0), runIndex(0), inputFlags(RGY_FRAME_FLAG_NONE) {};
+    };
     struct KfmContainsCombeReadback {
         bool submitted;
 
@@ -245,7 +258,7 @@ protected:
     RGY_ERR runUcfRtgmcBranches(const RGYFrameInfo *frame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
     RGY_ERR runUcfRtgmcBranch(KfmRtgmcLane& lane, const RGYFrameInfo *frame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
     RGY_ERR drainUcfRtgmcBranch(KfmRtgmcLane& lane, RGYOpenCLQueue &queue);
-    RGY_ERR processMainRtgmcOutputs(const RGYFilterParamKfm& prm, RGYFrameInfo **rtgmcOutFrames, int rtgmcOutNum,
+    RGY_ERR processMainRtgmcOutputs(const RGYFilterParamKfm& prm, RGYFrameInfo **rtgmcOutFrames, int rtgmcOutNum, bool drain,
         RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     RGY_ERR drainMainRtgmcBranch(const RGYFilterParamKfm& prm, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
     size_t sourceCacheLimit() const;
@@ -260,8 +273,14 @@ protected:
     bool isRffProgressiveCandidate(const KfmCachedSource *source) const;
     bool isRffProgressiveSource(int sourceIndex, bool drain) const;
     bool isRffTimestampContinuous(const KfmCachedSource *prev, const KfmCachedSource *current) const;
+    int64_t rffInputDuration(RGY_FRAME_FLAGS flags) const;
+    int64_t rffFieldOffset(int64_t fieldIndex) const;
     int64_t rffFilmOffset(int64_t frameIndex) const;
+    int64_t p24SlotAtInputPts(int64_t inputPts) const;
     void resetRffTiming();
+    RGY_ERR prepareRffDirect24(KfmRffDirectOutput& direct, RGYFrameInfo *output, int sourceIndex, int start60, int64_t nextOutputPts, bool useInputTimestamp,
+        RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& waitEvents, RGYOpenCLEvent *event);
+    void commitRffDirect24(const KfmRffDirectOutput& direct, int64_t nextOutputPts);
     const KfmCachedDeint60 *findCachedDeint60Frame(const KfmRtgmcLane& lane, int n60, std::vector<RGYOpenCLEvent> *wait_events) const;
     const KfmUcfNoiseDumpRecord *findUcfNoiseResult(int sourceIndex) const;
     RGY_ERR runUcfNoiseAnalysisFromSource(const RGYFrameInfo *frame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
@@ -282,6 +301,7 @@ protected:
     void appendAnalyzerResults(size_t resultCount, bool dump, bool mark60p);
     void logKfmProfileStats();
     bool deriveSwitchTimingAt(KfmSwitchTiming& timing, int n60, int total60) const;
+    bool deriveTelecine24TimingAt(KfmSwitchTiming& timing, int n60, int total60, bool afterRff) const;
     std::vector<KfmSwitchTiming> deriveSwitchTimings(int total60) const;
     int64_t sourceFrameDuration(const KfmCachedSource *source) const;
     bool isSwitchSingleFrameN60(int n60) const;
@@ -646,6 +666,12 @@ protected:
     int64_t m_rffAnchorOutputPts;
     int64_t m_rffRunIndex;
     int64_t m_rffLastOutputPts;
+    int64_t m_p24InputOriginPts;
+    int64_t m_p24InputEndPts;
+    int m_p60LastProcessedSourceIndex;
+    int m_p60LastRffSourceIndex;
+    int m_p60LastRtgmcSourceIndex;
+    int m_p60RtgmcFieldInSource;
     bool m_hasLastSwitchTiming;
     int m_lastSwitchStart60;
     int m_lastSwitchDuration60;
@@ -657,6 +683,7 @@ protected:
     std::unordered_set<int> m_stageDumpTargetFrames;
     int m_nextTelecine24Frame;
     int64_t m_nextTelecine24Pts;
+    std::vector<int> m_telecine24OutputDurations;
     int m_telecineSuperBufferIndex;
     int m_maskBranchBufferIndex;
     int m_patchCombeBufferIndex;
