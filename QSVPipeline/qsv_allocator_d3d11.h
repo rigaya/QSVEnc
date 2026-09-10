@@ -148,6 +148,8 @@ public:
     virtual mfxStatus GetFrameHDL(mfxMemId mid, mfxHDL *handle) override;
     // CL_CONTEXT_INTEROP_USER_SYNC時、OpenCLへ渡す前にD3D11の直前の書き込み完了を待つ。
     mfxStatus WaitForD3D11Completion();
+    // 指定したサブリソースをOpenCL共有用テクスチャへコピーし、発行済みコマンドの完了を待つ。
+    mfxStatus CopyFrameSurfaceToTexture(mfxMemId mid, ID3D11Texture2D *dst, ID3D11Query *completionQuery);
 
 protected:
     virtual mfxStatus CheckRequestType(mfxFrameAllocRequest *request) override;

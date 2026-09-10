@@ -106,6 +106,9 @@ RGYFilterSsim::RGYFilterSsim(shared_ptr<RGYOpenCLContext> context) :
     m_encBitstreamUnused(),
     m_mfxDEC(),
     m_taskDec(),
+#if (defined(_WIN32) || defined(_WIN64)) && ENABLE_RGY_OPENCL_D3D11
+    m_inputCopy(),
+#endif
     m_surfVppInInterop(),
 #endif
     m_cropOrg(),
@@ -509,6 +512,10 @@ RGY_ERR RGYFilterSsim::init_cl_resources() {
 
 void RGYFilterSsim::close_cl_resources() {
 #if ENCODER_QSV
+#if (defined(_WIN32) || defined(_WIN64)) && ENABLE_RGY_OPENCL_D3D11
+    // interopが参照するqueueとデコーダーを破棄する前に専用共有面を解放する。
+    m_inputCopy.reset();
+#endif
     m_surfVppInInterop.clear();
 #endif
     m_queueCrop.clear();
@@ -941,10 +948,23 @@ RGY_ERR RGYFilterSsim::compare_frames() {
             AddMessage(RGY_LOG_ERROR, _T("Failed to get mfx surface pointer.\n"));
             return RGY_ERR_NULL_PTR;
         }
-        if (m_surfVppInInterop.count(surfVppIn) == 0) {
-            m_surfVppInInterop[surfVppIn] = getOpenCLFrameInterop(surfVppIn, m_mfxDEC->memType(), CL_MEM_READ_ONLY, m_mfxDEC->allocator(), m_cl.get(), m_queueCrop, m_cropDec->GetFilterParam()->frameIn);
+#if (defined(_WIN32) || defined(_WIN64)) && ENABLE_RGY_OPENCL_D3D11
+        if (m_mfxDEC->memType() == D3D11_MEMORY) {
+            if (!m_inputCopy) m_inputCopy = std::make_unique<QSVOpenCLInputCopy>();
+            const auto copyErr = m_inputCopy->prepare(surfVppIn, m_mfxDEC->allocator(), m_cl.get(), m_queueCrop, m_cropDec->GetFilterParam()->frameIn);
+            if (copyErr != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("画質評価用デコード面のOpenCL共有用コピーに失敗しました: %s。\n"), get_err_mes(copyErr));
+                return copyErr;
+            }
+            clFrameInInterop = m_inputCopy->interop();
+        } else
+#endif
+        {
+            if (m_surfVppInInterop.count(surfVppIn) == 0) {
+                m_surfVppInInterop[surfVppIn] = getOpenCLFrameInterop(surfVppIn, m_mfxDEC->memType(), CL_MEM_READ_ONLY, m_mfxDEC->allocator(), m_cl.get(), m_queueCrop, m_cropDec->GetFilterParam()->frameIn);
+            }
+            clFrameInInterop = m_surfVppInInterop[surfVppIn].get();
         }
-        clFrameInInterop = m_surfVppInInterop[surfVppIn].get();
         if (!clFrameInInterop) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [in].\n"));
             return RGY_ERR_NULL_PTR;
@@ -958,28 +978,46 @@ RGY_ERR RGYFilterSsim::compare_frames() {
         clFrameInInterop->frame.timestamp = taskSurf->surf().frame()->timestamp();
         clFrameInInterop->frame.inputFrameId = taskSurf->surf().frame()->inputFrameId();
         clFrameInInterop->frame.picstruct = taskSurf->surf().frame()->picstruct();
+        auto releaseInputInterop = [&]() {
+            RGYOpenCLEvent event;
+            const auto releaseErr = clFrameInInterop->release(&event);
+            if (releaseErr != RGY_ERR_NONE) {
+                return releaseErr;
+            }
+#if (defined(_WIN32) || defined(_WIN64)) && ENABLE_RGY_OPENCL_D3D11
+            if (m_inputCopy && m_inputCopy->interop() == clFrameInInterop) {
+                m_inputCopy->setReleaseEvent(event);
+            }
+#endif
+            clFrameInInterop = nullptr;
+            taskSurf->addClEvent(event);
+            return RGY_ERR_NONE;
+        };
         int cropFilterOutputNum = 0;
         RGYFrameInfo *outInfo[1] = { &m_decFrameCopy->frame };
         RGYFrameInfo decFrameInfo = clFrameInInterop->frameInfo();
         auto sts_filter = m_cropDec->filter(&decFrameInfo, (RGYFrameInfo **)&outInfo, &cropFilterOutputNum, m_queueCrop, &m_cropEvent);
         if (outInfo[0] == nullptr || cropFilterOutputNum != 1) {
-            clFrameInInterop->release();
+            if ((err = releaseInputInterop()) != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to release OpenCL interop [in]: %s.\n"), get_err_mes(err));
+                return err;
+            }
             AddMessage(RGY_LOG_ERROR, _T("Unknown behavior \"%s\".\n"), m_cropDec->name().c_str());
             return sts_filter;
         }
         if (sts_filter != RGY_ERR_NONE || cropFilterOutputNum != 1) {
-            clFrameInInterop->release();
+            if ((err = releaseInputInterop()) != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("Failed to release OpenCL interop [in]: %s.\n"), get_err_mes(err));
+                return err;
+            }
             AddMessage(RGY_LOG_ERROR, _T("Error while running filter \"%s\".\n"), m_cropDec->name().c_str());
             return sts_filter;
         }
         if (clFrameInInterop) {
-            RGYOpenCLEvent event;
-            if ((err = clFrameInInterop->release(&event)) != RGY_ERR_NONE) {
+            if ((err = releaseInputInterop()) != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("Failed to release OpenCL interop [in]: %s.\n"), get_err_mes(err));
                 return err;
             }
-            clFrameInInterop = nullptr;
-            taskSurf->addClEvent(event);
         }
 
         //比較用のキューの先頭に積まれているものから順次比較していく

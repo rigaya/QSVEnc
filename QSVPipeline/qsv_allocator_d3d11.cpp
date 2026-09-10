@@ -163,6 +163,73 @@ mfxStatus QSVAllocatorD3D11::WaitForD3D11Completion() {
     }
 }
 
+mfxStatus QSVAllocatorD3D11::CopyFrameSurfaceToTexture(mfxMemId mid, ID3D11Texture2D *dst, ID3D11Query *completionQuery) {
+    std::lock_guard<std::mutex> lock(m_deviceContextMutex);
+    if (m_pDeviceContext == nullptr || m_initParams.pDevice == nullptr) {
+        return MFX_ERR_NOT_INITIALIZED;
+    }
+    if (dst == nullptr || completionQuery == nullptr) {
+        return MFX_ERR_NULL_PTR;
+    }
+
+    const auto src = GetResourceFromMid(mid);
+    if (src.GetTexture() == nullptr) {
+        AddMessage(RGY_LOG_ERROR, _T("OpenCL共有用テクスチャへのコピー元D3D11面を取得できませんでした。\n"));
+        return MFX_ERR_INVALID_HANDLE;
+    }
+
+    D3D11_TEXTURE2D_DESC srcDesc = {};
+    D3D11_TEXTURE2D_DESC dstDesc = {};
+    src.GetTexture()->GetDesc(&srcDesc);
+    dst->GetDesc(&dstDesc);
+    const auto srcSubresource = src.GetSubResource();
+    if (srcDesc.MipLevels == 0 || srcSubresource >= srcDesc.MipLevels * srcDesc.ArraySize) {
+        AddMessage(RGY_LOG_ERROR, _T("OpenCL共有用テクスチャへのコピー元サブリソースが不正です: %u。\n"), srcSubresource);
+        return MFX_ERR_INVALID_HANDLE;
+    }
+    const auto srcMip = srcSubresource % srcDesc.MipLevels;
+    const auto srcWidth = (std::max)(1u, srcDesc.Width >> srcMip);
+    const auto srcHeight = (std::max)(1u, srcDesc.Height >> srcMip);
+    if (dstDesc.Width != srcWidth || dstDesc.Height != srcHeight
+        || dstDesc.Format != srcDesc.Format
+        || dstDesc.SampleDesc.Count != srcDesc.SampleDesc.Count
+        || dstDesc.SampleDesc.Quality != srcDesc.SampleDesc.Quality) {
+        AddMessage(RGY_LOG_ERROR, _T("OpenCL共有用テクスチャの記述がコピー元と一致しません。\n"));
+        return MFX_ERR_INVALID_VIDEO_PARAM;
+    }
+
+    m_pDeviceContext->CopySubresourceRegion(dst, 0, 0, 0, 0, src.GetTexture(), srcSubresource, nullptr);
+    // event queryは、ここまでにimmediate contextへ発行されたコマンドの完了を示す。
+    m_pDeviceContext->End(completionQuery);
+    m_pDeviceContext->Flush();
+
+    const auto waitStart = std::chrono::steady_clock::now();
+    for (;;) {
+        const auto hr = m_pDeviceContext->GetData(completionQuery, nullptr, 0, 0);
+        if (hr == S_OK) {
+            return MFX_ERR_NONE;
+        }
+        if (hr != S_FALSE) {
+            AddMessage(RGY_LOG_ERROR, _T("OpenCL共有用テクスチャへのコピー完了待機に失敗しました: 0x%08x。\n"), hr);
+            return MFX_ERR_DEVICE_FAILED;
+        }
+        if (m_initParams.pDevice->GetDeviceRemovedReason() != S_OK) {
+            AddMessage(RGY_LOG_ERROR, _T("OpenCL共有用テクスチャへのコピー中にD3D11デバイスが失われました。\n"));
+            return MFX_ERR_DEVICE_LOST;
+        }
+        const auto elapsed = std::chrono::steady_clock::now() - waitStart;
+        if (elapsed >= std::chrono::seconds(60)) {
+            AddMessage(RGY_LOG_ERROR, _T("OpenCL共有用テクスチャへのコピー完了待機がタイムアウトしました。\n"));
+            return MFX_ERR_DEVICE_FAILED;
+        }
+        if (elapsed < std::chrono::microseconds(200)) {
+            std::this_thread::yield();
+        } else {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+    }
+}
+
 mfxStatus QSVAllocatorD3D11::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
     std::lock_guard<std::mutex> lock(m_deviceContextMutex);
     TextureSubResource sr = GetResourceFromMid(mid);

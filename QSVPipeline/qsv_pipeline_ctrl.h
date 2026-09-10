@@ -34,6 +34,7 @@
 #include "qsv_util.h"
 #include "qsv_prm.h"
 #include <deque>
+#include <array>
 #include <set>
 #include <optional>
 #include <atomic>
@@ -2319,6 +2320,9 @@ class PipelineTaskVideoQualityMetric : public PipelineTask {
 private:
     std::shared_ptr<RGYOpenCLContext> m_cl;
     RGYFilterSsim *m_videoMetric;
+#if ENABLE_RGY_OPENCL_D3D11
+    std::unique_ptr<QSVOpenCLInputCopy> m_inputCopy;
+#endif
     std::unordered_map<mfxFrameSurface1 *, std::unique_ptr<RGYCLFrameInterop>> m_surfVppInInterop;
     MemType m_memType;
 public:
@@ -2346,17 +2350,23 @@ public:
         RGYFrameInfo inputFrame;
         mfxFrameSurface1 *surfVppIn = taskSurf->surf().mfx()->surf();
         if (surfVppIn != nullptr) {
+#if ENABLE_RGY_OPENCL_D3D11
             if (m_memType == D3D11_MEMORY) {
-                const auto waitErr = waitForD3D11Completion();
-                if (waitErr != RGY_ERR_NONE) {
-                    PrintMes(RGY_LOG_ERROR, _T("Failed to wait for D3D11 input before video metric: %s.\n"), get_err_mes(waitErr));
-                    return waitErr;
+                if (!m_inputCopy) m_inputCopy = std::make_unique<QSVOpenCLInputCopy>();
+                const auto copyErr = m_inputCopy->prepare(surfVppIn, m_allocator, m_cl.get(), m_cl->queue(), m_videoMetric->GetFilterParam()->frameIn);
+                if (copyErr != RGY_ERR_NONE) {
+                    PrintMes(RGY_LOG_ERROR, _T("Failed to copy D3D11 input before video metric: %s.\n"), get_err_mes(copyErr));
+                    return copyErr;
                 }
+                clFrameInInterop = m_inputCopy->interop();
+            } else
+#endif
+            {
+                if (m_surfVppInInterop.count(surfVppIn) == 0) {
+                    m_surfVppInInterop[surfVppIn] = getOpenCLFrameInterop(surfVppIn, m_memType, CL_MEM_READ_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_videoMetric->GetFilterParam()->frameIn);
+                }
+                clFrameInInterop = m_surfVppInInterop[surfVppIn].get();
             }
-            if (m_surfVppInInterop.count(surfVppIn) == 0) {
-                m_surfVppInInterop[surfVppIn] = getOpenCLFrameInterop(surfVppIn, m_memType, CL_MEM_READ_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_videoMetric->GetFilterParam()->frameIn);
-            }
-            clFrameInInterop = m_surfVppInInterop[surfVppIn].get();
             if (!clFrameInInterop) {
                 PrintMes(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [in].\n"));
                 return RGY_ERR_NULL_PTR;
@@ -2386,6 +2396,9 @@ public:
             PrintMes(RGY_LOG_ERROR, _T("Failed to send frame for video metric calcualtion: %s.\n"), get_err_mes(err));
             if (clFrameInInterop) {
                 const auto releaseErr = clFrameInInterop->release(&inputReleaseEvent);
+#if ENABLE_RGY_OPENCL_D3D11
+                if (m_inputCopy && releaseErr == RGY_ERR_NONE) m_inputCopy->setReleaseEvent(inputReleaseEvent);
+#endif
                 clFrameInInterop = nullptr;
                 if (releaseErr != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Failed to release OpenCL interop [in] after metric error: %s.\n"), get_err_mes(releaseErr));
@@ -2397,6 +2410,9 @@ public:
         }
         if (clFrameInInterop) {
             const auto releaseErr = clFrameInInterop->release(&inputReleaseEvent); // input frameの解放
+#if ENABLE_RGY_OPENCL_D3D11
+            if (m_inputCopy && releaseErr == RGY_ERR_NONE) m_inputCopy->setReleaseEvent(inputReleaseEvent);
+#endif
             clFrameInInterop = nullptr;
             if (releaseErr != RGY_ERR_NONE) {
                 PrintMes(RGY_LOG_ERROR, _T("Failed to release OpenCL interop [in]: %s.\n"), get_err_mes(releaseErr));
@@ -2816,6 +2832,10 @@ protected:
     std::shared_ptr<RGYOpenCLContext> m_cl;
     std::vector<std::unique_ptr<RGYFilter>>& m_vpFilters;
     std::unordered_map<mfxFrameSurface1 *, std::unique_ptr<RGYCLFrameInterop>> m_surfVppInInterop;
+#if ENABLE_RGY_OPENCL_D3D11
+    // デコーダーの参照面をOpenCLへ渡さず、同時に処理する入力数だけ専用共有面を保持する。
+    std::array<std::unique_ptr<QSVOpenCLInputCopy>, OPENCL_ACQUIRE_BATCH_SIZE> m_inputCopies;
+#endif
     std::unordered_map<mfxFrameSurface1 *, std::unique_ptr<RGYCLFrameInterop>> m_surfVppOutInterop;
     std::deque<std::unique_ptr<PipelineTaskOutput>> m_prevInputFrame; //前回投入されたフレーム、完了通知を待ってから解放するため、参照を保持する
     std::deque<AcquireFrameHold> m_prevAcquireFrame;
@@ -2853,6 +2873,54 @@ protected:
     bool m_encHostOutput;
     bool useAcquireWorker() const {
         return m_openclTaskThreads >= 2 && m_acquireThread != nullptr;
+    }
+    RGY_ERR prepareInputInterop(mfxFrameSurface1 *surface, RGYOpenCLQueue& queue, const RGYFrameInfo& frameInfo,
+        const size_t slot, RGYCLFrameInterop *&interop) {
+        interop = nullptr;
+#if ENABLE_RGY_OPENCL_D3D11
+        if (m_memType == D3D11_MEMORY) {
+            if (slot >= m_inputCopies.size()) return RGY_ERR_INVALID_PARAM;
+            auto& copy = m_inputCopies[slot];
+            if (!copy) copy = std::make_unique<QSVOpenCLInputCopy>();
+            const auto err = copy->prepare(surface, m_allocator, m_cl.get(), queue, frameInfo);
+            if (err != RGY_ERR_NONE) return err;
+            interop = copy->interop();
+            return interop ? RGY_ERR_NONE : RGY_ERR_NULL_PTR;
+        }
+#endif
+        auto& input = m_surfVppInInterop[surface];
+        if (!input) {
+            input = getOpenCLFrameInterop(surface, m_memType, CL_MEM_READ_ONLY, m_allocator, m_cl.get(), queue, frameInfo);
+        }
+        interop = input.get();
+        return interop ? RGY_ERR_NONE : RGY_ERR_NULL_PTR;
+    }
+    void rememberInputRelease(RGYCLFrameInterop *interop, const RGYOpenCLEvent& event) {
+#if ENABLE_RGY_OPENCL_D3D11
+        for (auto& copy : m_inputCopies) {
+            if (copy && copy->interop() == interop) {
+                copy->setReleaseEvent(event);
+                break;
+            }
+        }
+#endif
+    }
+    RGY_ERR releaseInputInterop(RGYCLFrameInterop *&interop, RGYOpenCLEvent& event) {
+        if (!interop) return RGY_ERR_NONE;
+        const auto err = interop->release(&event);
+        if (err != RGY_ERR_NONE) return err;
+        rememberInputRelease(interop, event);
+        interop = nullptr;
+        if (!m_prevInputFrame.empty() && m_prevInputFrame.back()) {
+            dynamic_cast<PipelineTaskOutputSurf *>(m_prevInputFrame.back().get())->addClEvent(event);
+        }
+        return RGY_ERR_NONE;
+    }
+    void clearInputInterop() {
+        m_surfVppInInterop.clear();
+#if ENABLE_RGY_OPENCL_D3D11
+        for (auto& copy : m_inputCopies) copy.reset();
+#endif
     }
     bool useReleaseWorker() const {
         return m_openclTaskThreads >= 2 && m_releaseThread != nullptr;
@@ -3185,24 +3253,13 @@ protected:
                         continue;
                     }
                     if (taskSurf->surf().mfx()) {
-                        if (m_videoMetric && m_memType == D3D11_MEMORY) {
-                            const auto waitErr = waitForD3D11Completion();
-                            if (waitErr != RGY_ERR_NONE) {
-                                PrintMes(RGY_LOG_ERROR, _T("Failed to wait for D3D11 input before OpenCL video metric: %s.\n"), get_err_mes(waitErr));
-                                batchErr = waitErr;
-                                readies.push_back(std::move(ready));
-                                continue;
-                            }
-                        }
                         mfxFrameSurface1 *surfVppIn = taskSurf->surf().mfx()->surf();
-                        if (m_surfVppInInterop.count(surfVppIn) == 0) {
-                            // interopのreleaseは生成時のqueueに発行されるため、worker専用queueで生成する。
-                            m_surfVppInInterop[surfVppIn] = getOpenCLFrameInterop(surfVppIn, m_memType, CL_MEM_READ_ONLY, m_allocator, m_cl.get(), m_acquireQueue, m_acquireFrameInInfo);
-                        }
-                        auto clFrameInInterop = m_surfVppInInterop[surfVppIn].get();
-                        if (!clFrameInInterop) {
+                        RGYCLFrameInterop *clFrameInInterop = nullptr;
+                        // 複製入力も別スロットに置き、同一共有面の二重acquireを避ける。
+                        const auto inputErr = prepareInputInterop(surfVppIn, m_acquireQueue, m_acquireFrameInInfo, interopItems.size(), clFrameInInterop);
+                        if (inputErr != RGY_ERR_NONE) {
                             PrintMes(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [in].\n"));
-                            batchErr = RGY_ERR_NULL_PTR;
+                            batchErr = inputErr;
                             readies.push_back(std::move(ready));
                             continue;
                         }
@@ -3275,6 +3332,10 @@ protected:
                         if (releaseErr != RGY_ERR_NONE) {
                             PrintMes(RGY_LOG_ERROR, _T("Failed to release OpenCL interop input batch: %s.\n"), get_err_mes(releaseErr));
                             return releaseErr;
+                        }
+                        // コピー失敗時も、発行済みの解放が完了するまでは専用面を保持する。
+                        for (size_t i = begin; i < end; i++) {
+                            rememberInputRelease(interopItems[i].interop, inputReleaseEvent);
                         }
                         if (copyErr != RGY_ERR_NONE) {
                             return copyErr;
@@ -3889,7 +3950,7 @@ public:
         stopWorkers();
         m_prevInputFrame.clear();
         m_prevAcquireFrame.clear();
-        m_surfVppInInterop.clear();
+        clearInputInterop();
         m_surfVppOutInterop.clear();
         m_acquireQueue.clear();
         m_releaseQueue.clear();
@@ -4024,7 +4085,7 @@ public:
                         clearPrevInputFrame();
                     }
                     //入力側のinteropは旧解像度でmfxFrameSurface1と紐づいているため、破棄して次回の入力から作り直させる
-                    m_surfVppInInterop.clear();
+                    clearInputInterop();
 
                     auto sts = reconstructFilterChain(newInputFrame);
                     if (sts != RGY_ERR_NONE) {
@@ -4042,6 +4103,20 @@ public:
 
         deque<std::pair<RGYFrameInfo, uint32_t>> filterframes;
         RGYCLFrameInterop *clFrameInInterop = nullptr;
+        // フィルタの途中エラーでも、入力面をacquireしたまま破棄しない。
+        struct InputInteropGuard {
+            PipelineTaskOpenCL *task;
+            RGYCLFrameInterop *&interop;
+            ~InputInteropGuard() {
+                if (interop) {
+                    RGYOpenCLEvent event;
+                    const auto err = task->releaseInputInterop(interop, event);
+                    if (err != RGY_ERR_NONE) {
+                        task->PrintMes(RGY_LOG_ERROR, _T("Failed to release OpenCL input on exit: %s.\n"), get_err_mes(err));
+                    }
+                }
+            }
+        } inputInteropGuard{ this, clFrameInInterop };
         std::unique_ptr<AcquireReady> acquireReady;
         std::vector<RGYOpenCLEvent> firstFilterWaitEvents;
 
@@ -4098,21 +4173,11 @@ public:
                 return RGY_ERR_NULL_PTR;
             }
             if (taskSurf->surf().mfx()) {
-                if (m_videoMetric && m_memType == D3D11_MEMORY) {
-                    const auto waitErr = waitForD3D11Completion();
-                    if (waitErr != RGY_ERR_NONE) {
-                        PrintMes(RGY_LOG_ERROR, _T("Failed to wait for D3D11 input before OpenCL video metric: %s.\n"), get_err_mes(waitErr));
-                        return waitErr;
-                    }
-                }
                 mfxFrameSurface1 *surfVppIn = taskSurf->surf().mfx()->surf();
-                if (m_surfVppInInterop.count(surfVppIn) == 0) {
-                    m_surfVppInInterop[surfVppIn] = getOpenCLFrameInterop(surfVppIn, m_memType, CL_MEM_READ_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_vpFilters.front()->GetFilterParam()->frameIn);
-                }
-                clFrameInInterop = m_surfVppInInterop[surfVppIn].get();
-                if (!clFrameInInterop) {
+                const auto inputErr = prepareInputInterop(surfVppIn, m_cl->queue(), m_vpFilters.front()->GetFilterParam()->frameIn, 0, clFrameInInterop);
+                if (inputErr != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Failed to get OpenCL interop [in].\n"));
-                    return RGY_ERR_NULL_PTR;
+                    return inputErr;
                 }
                 auto err = RGY_ERR_NONE;
                 {
@@ -4120,6 +4185,7 @@ public:
                 }
                 if (err != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [in]: %s.\n"), get_err_mes(err));
+                    clFrameInInterop = nullptr;
                     return RGY_ERR_NULL_PTR;
                 }
                 clFrameInInterop->frame.flags = taskSurf->surf().frame()->flags();
@@ -4186,14 +4252,8 @@ public:
                 }
                 if (clFrameInInterop) {
                     RGYOpenCLEvent inputReleaseEvent;
-                    {
-                        clFrameInInterop->release(&inputReleaseEvent); // input frameの解放
-                    }
-                    clFrameInInterop = nullptr;
-                    if (!m_prevInputFrame.empty() && m_prevInputFrame.back()) {
-                        //解放処理のeventを入力フレームを使用し終わったことの合図として登録する
-                        dynamic_cast<PipelineTaskOutputSurf *>(m_prevInputFrame.back().get())->addClEvent(inputReleaseEvent);
-                    }
+                    const auto releaseErr = releaseInputInterop(clFrameInInterop, inputReleaseEvent);
+                    if (releaseErr != RGY_ERR_NONE) return releaseErr;
                 }
                 if (nOutFrames == 0) {
                     if (drainFrame) {
@@ -4394,15 +4454,10 @@ public:
         }
         if (clFrameInInterop) {
             RGYOpenCLEvent clevent;
-            {
-                clFrameInInterop->release(&clevent); // input frameの解放
-            }
+            const auto releaseErr = releaseInputInterop(clFrameInInterop, clevent);
+            if (releaseErr != RGY_ERR_NONE) return releaseErr;
             for (auto& surf : outputSurfs) {
                 surf->addClEvent(clevent);
-            }
-            if (!m_prevInputFrame.empty() && m_prevInputFrame.back()) {
-                //解放処理のeventを入力フレームを使用し終わったことの合図として登録する
-                dynamic_cast<PipelineTaskOutputSurf *>(m_prevInputFrame.back().get())->addClEvent(clevent);
             }
         }
         queueOutputSurfs();
@@ -4432,10 +4487,8 @@ public:
         RGYOpenCLEvent clevent;
         m_cl->copyFrame(&encSurfaceInfo, &inputSurface, nullptr, m_cl->queue(), &clevent);
         if (clFrameInInterop) {
-            clFrameInInterop->release(&clevent);
-            if (!m_prevInputFrame.empty() && m_prevInputFrame.back()) {
-                dynamic_cast<PipelineTaskOutputSurf *>(m_prevInputFrame.back().get())->addClEvent(clevent);
-            }
+            const auto releaseErr = releaseInputInterop(clFrameInInterop, clevent);
+            if (releaseErr != RGY_ERR_NONE) return releaseErr;
         }
         clFrameOutInterop->release(&clevent);
         m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, frame, clevent));
