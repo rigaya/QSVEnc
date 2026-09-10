@@ -816,7 +816,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
     if (IS_OPTION("vpp-resize")
         || (IS_OPTION("vpp-scaling") && ENCODER_QSV)) {
         i++;
-        if (ENABLE_LIBPLACEBO || ENABLE_OPENCL) {
+        if (ENABLE_LIBPLACEBO || ENABLE_OPENCL || ENCODER_NVENC) {
             ///////////////////////////////////////////////////////////////////////////////////////
             // パラメータを追加したら、paramsResizeLibPlaceboにも追加する！！
             ///////////////////////////////////////////////////////////////////////////////////////
@@ -16900,8 +16900,7 @@ tstring gen_cmd_help_common() {
         _T("      threads=<int>             cpu thread(s) to calculate vmaf score.\n")
         _T("      subsample=<int>           interval for frame subsampling calculating vmaf score.\n")
         _T("      phone_model=<bool>        use phone model which generate higher vmaf score.\n")
-        _T("      enable_transform=<bool>   enable transform when calculating vmaf score.\n")
-        _T("   --no-vmaf                    disable vmaf score calculation.\n"),
+        _T("      enable_transform=<bool>   enable transform when calculating vmaf score.\n"),
         VMAF_DEFAULT_MODEL_VERSION);
 #endif //#if ENABLE_VMAF
 #if ENABLE_LIBVSHIP
@@ -16915,7 +16914,6 @@ tstring gen_cmd_help_common() {
         _T("      Qnorm=<int>               norm for Butteraugli score aggregation [default:2].\n")
         _T("      intensity_multiplier=<float>\n")
         _T("                                intensity multiplier for Butteraugli [default:80.0].\n")
-        _T("   --no-vship-butteraugli       disable Butteraugli score calculation.\n")
         _T("\n")
         _T("   --vship-cvvdp [<param1>=<value>][,<param2>=<value>][...]\n")
         _T("     Calc ColorVideoVDP score using libvship.\n")
@@ -16923,7 +16921,6 @@ tstring gen_cmd_help_common() {
         _T("      model=<string>            set cvvdp model name [default:standard_4k].\n")
         _T("      model_config_json=<string> set path to cvvdp model config json.\n")
         _T("      resize=<bool>             resize frames before cvvdp calculation [default:false].\n")
-        _T("   --no-vship-cvvdp             disable ColorVideoVDP score calculation.\n")
         _T("\n");
 #endif //#if ENABLE_LIBVSHIP
     return str;
@@ -17537,7 +17534,7 @@ tstring gen_cmd_help_vpp() {
         FILTER_DEFAULT_MPDECIMATE_FRAC, FILTER_DEFAULT_MPDECIMATE_MAX,
         FILTER_DEFAULT_DECIMATE_LOG ? _T("on") : _T("off"));
 #endif
-#if ENABLE_NVVFX || ENABLE_NVSDKNGX || ENCODER_QSV || ENCODER_VCEENC
+#if ENABLE_NVVFX || ENABLE_NVSDKNGX || ENCODER_NVENC || ENCODER_QSV || ENCODER_VCEENC
     {
         str += strsprintf(_T("\n")
             _T("--vpp-resize <string> or [<param1>=<value>][,<param2>=<value>][...]\n")
