@@ -50,8 +50,10 @@
 #include "nvml.h"
 #if defined(_WIN32) || defined(_WIN64)
 #define NVML_DLL_PATH _T(R"(C:\Program Files\NVIDIA Corporation\nvsmi\nvml.dll)")
+#define NVML_DLL_PATH_FALLBACK _T("nvml.dll")
 #else
 #define NVML_DLL_PATH _T("libnvidia-ml.so")
+#define NVML_DLL_PATH_FALLBACK _T("libnvidia-ml.so.1")
 #endif
 #endif
 #define NVSMI_PATH _T(R"(C:\Program Files\NVIDIA Corporation\nvsmi\nvidia-smi.exe)")
@@ -286,15 +288,22 @@ private:
     HMODULE m_hDll;
     NVMLFuncList m_func;
     nvmlDevice_t m_device;
+    std::string m_lastErrorFunction;
+    std::string m_lastErrorDetail;
+    std::shared_ptr<RGYLog> m_log;
+    RGYLogType m_logType;
 
     nvmlReturn_t LoadDll();
     void Close();
 public:
-    NVMLMonitor() : m_hDll(NULL), m_func({ 0 }) {};
+    NVMLMonitor(std::shared_ptr<RGYLog> log = nullptr, RGYLogType logType = RGY_LOGT_CORE) :
+        m_hDll(NULL), m_func({ 0 }), m_device(nullptr), m_lastErrorFunction(), m_lastErrorDetail(), m_log(log), m_logType(logType) {};
     ~NVMLMonitor() {
         Close();
     }
     nvmlReturn_t Init(const std::string& pciBusId);
+    const std::string& lastErrorFunction() const { return m_lastErrorFunction; }
+    const std::string& lastErrorDetail() const { return m_lastErrorDetail; }
     nvmlReturn_t getData(NVMLMonitorInfo *info);
     nvmlReturn_t getDriverVersionx1000(int& ver);
     nvmlReturn_t getMaxPCIeLink(int& gen, int& width);

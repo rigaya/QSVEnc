@@ -82,6 +82,15 @@ const TCHAR *nvmlErrStr(nvmlReturn_t ret) {
     }
 }
 
+static std::string nvmlLoaderError() {
+#if defined(_WIN32) || defined(_WIN64)
+    return std::string();
+#else
+    const auto error = dlerror();
+    return (error != nullptr) ? error : std::string();
+#endif
+}
+
 
 nvmlReturn_t NVMLMonitor::LoadDll() {
     if (m_hDll) {
@@ -89,24 +98,60 @@ nvmlReturn_t NVMLMonitor::LoadDll() {
     }
     m_hDll = RGY_LOAD_LIBRARY(NVML_DLL_PATH);
     if (m_hDll == NULL) {
-#if defined(_WIN32) || defined(_WIN64)
-        m_hDll = RGY_LOAD_LIBRARY(_T("nvml.dll"));
-#endif //#if defined(_WIN32) || defined(_WIN64)
-        if (m_hDll == NULL) {
-            return NVML_ERROR_NOT_FOUND;
+        const auto primaryLoadError = nvmlLoaderError();
+        if (m_log) {
+            if (primaryLoadError.length() > 0) {
+                m_log->write(RGY_LOG_DEBUG, m_logType, _T("NVML: failed to load \"%s\": %s; trying \"%s\".\n"),
+                    NVML_DLL_PATH, char_to_tstring(primaryLoadError).c_str(), NVML_DLL_PATH_FALLBACK);
+            } else {
+                m_log->write(RGY_LOG_DEBUG, m_logType, _T("NVML: failed to load \"%s\", trying \"%s\".\n"), NVML_DLL_PATH, NVML_DLL_PATH_FALLBACK);
+            }
         }
+        m_hDll = RGY_LOAD_LIBRARY(NVML_DLL_PATH_FALLBACK);
+        if (m_hDll == NULL) {
+            const auto fallbackLoadError = nvmlLoaderError();
+            m_lastErrorFunction = "LoadLibrary(" + tchar_to_string(NVML_DLL_PATH) + ", " + tchar_to_string(NVML_DLL_PATH_FALLBACK) + ")";
+            m_lastErrorDetail = primaryLoadError;
+            if (m_lastErrorDetail.length() > 0 && fallbackLoadError.length() > 0) {
+                m_lastErrorDetail += "; ";
+            }
+            m_lastErrorDetail += fallbackLoadError;
+            return NVML_ERROR_LIBRARY_NOT_FOUND;
+        }
+        if (m_log) {
+            m_log->write(RGY_LOG_DEBUG, m_logType, _T("NVML: loaded \"%s\".\n"), NVML_DLL_PATH_FALLBACK);
+        }
+    } else if (m_log) {
+        m_log->write(RGY_LOG_DEBUG, m_logType, _T("NVML: loaded \"%s\".\n"), NVML_DLL_PATH);
     }
 #define LOAD_NVML_FUNC(x) { \
     if ( NULL == (m_func.f_ ## x = (pf ## x)RGY_GET_PROC_ADDRESS(m_hDll, #x )) ) { \
         memset(&m_func, 0, sizeof(m_func)); \
-        return NVML_ERROR_NOT_FOUND; \
+        m_lastErrorFunction = #x; \
+        m_lastErrorDetail = nvmlLoaderError(); \
+        return NVML_ERROR_FUNCTION_NOT_FOUND; \
     } \
 }
-    LOAD_NVML_FUNC(nvmlInit);
+#define LOAD_NVML_FUNC_VERSIONED(x, versioned_name) { \
+    m_func.f_ ## x = (pf ## x)RGY_GET_PROC_ADDRESS(m_hDll, versioned_name); \
+    /* バージョン付きエントリポイントを持たない旧ドライバとの互換性を維持する。 */ \
+    if (m_func.f_ ## x == NULL) { \
+        m_func.f_ ## x = (pf ## x)RGY_GET_PROC_ADDRESS(m_hDll, #x); \
+    } \
+    if (m_func.f_ ## x == NULL) { \
+        memset(&m_func, 0, sizeof(m_func)); \
+        m_lastErrorFunction = versioned_name; \
+        m_lastErrorDetail = nvmlLoaderError(); \
+        return NVML_ERROR_FUNCTION_NOT_FOUND; \
+    } \
+}
+    // nvml.hではこれらのAPIは_v2に置換されるが、LOAD_NVML_FUNC内で文字列化すると
+    // マクロ展開が抑止され、旧APIをロードしてしまう。
+    LOAD_NVML_FUNC_VERSIONED(nvmlInit, "nvmlInit_v2");
     LOAD_NVML_FUNC(nvmlShutdown);
     LOAD_NVML_FUNC(nvmlErrorString);
-    LOAD_NVML_FUNC(nvmlDeviceGetCount);
-    LOAD_NVML_FUNC(nvmlDeviceGetHandleByPciBusId);
+    LOAD_NVML_FUNC_VERSIONED(nvmlDeviceGetCount, "nvmlDeviceGetCount_v2");
+    LOAD_NVML_FUNC_VERSIONED(nvmlDeviceGetHandleByPciBusId, "nvmlDeviceGetHandleByPciBusId_v2");
     LOAD_NVML_FUNC(nvmlDeviceGetUtilizationRates);
     LOAD_NVML_FUNC(nvmlDeviceGetEncoderUtilization);
     LOAD_NVML_FUNC(nvmlDeviceGetDecoderUtilization);
@@ -119,24 +164,38 @@ nvmlReturn_t NVMLMonitor::LoadDll() {
     LOAD_NVML_FUNC(nvmlDeviceGetMaxPcieLinkWidth);
     LOAD_NVML_FUNC(nvmlSystemGetDriverVersion);
     LOAD_NVML_FUNC(nvmlSystemGetNVMLVersion);
+    if (m_log) {
+        m_log->write(RGY_LOG_DEBUG, m_logType, _T("NVML: loaded API functions.\n"));
+    }
 
     return NVML_SUCCESS;
 
 #undef LOAD_NVML_FUNC
+#undef LOAD_NVML_FUNC_VERSIONED
 }
 
 nvmlReturn_t NVMLMonitor::Init(const std::string& pciBusId) {
+    m_lastErrorFunction.clear();
+    m_lastErrorDetail.clear();
     auto ret = LoadDll();
     if (ret != NVML_SUCCESS) {
         return ret;
     }
     ret = m_func.f_nvmlInit();
     if (ret != NVML_SUCCESS) {
+        m_lastErrorFunction = "nvmlInit_v2";
         return ret;
+    }
+    if (m_log) {
+        m_log->write(RGY_LOG_DEBUG, m_logType, _T("NVML: nvmlInit: success.\n"));
     }
     ret = m_func.f_nvmlDeviceGetHandleByPciBusId(pciBusId.c_str(), &m_device);
     if (ret != NVML_SUCCESS) {
+        m_lastErrorFunction = "nvmlDeviceGetHandleByPciBusId_v2";
         return ret;
+    }
+    if (m_log) {
+        m_log->write(RGY_LOG_DEBUG, m_logType, _T("NVML: nvmlDeviceGetHandleByPciBusId(\"%s\"): success.\n"), char_to_tstring(pciBusId).c_str());
     }
     return NVML_SUCCESS;
 }
@@ -626,13 +685,20 @@ int CPerfMonitor::init(tstring filename, const TCHAR *pPythonPath,
     }
 #if ENABLE_NVML
     if (prm->pciBusId.length() > 0) {
-        m_nvmlMonitor = std::make_unique<NVMLMonitor>();
+        m_nvmlMonitor = std::make_unique<NVMLMonitor>(m_pRGYLog, RGY_LOGT_PERF_MONITOR);
         auto nvml_ret = m_nvmlMonitor->Init(prm->pciBusId);
         if (nvml_ret != NVML_SUCCESS) {
-            AddMessage(RGY_LOG_INFO, _T("Failed to start NVML Monitoring for \"%s\": %s.\n"), char_to_tstring(prm->pciBusId).c_str(), nvmlErrStr(nvml_ret));
+            if (m_nvmlMonitor->lastErrorDetail().length() > 0) {
+                AddMessage(RGY_LOG_INFO, _T("Failed to start NVML Monitoring for \"%s\" at %s: %s (%s).\n"),
+                    char_to_tstring(prm->pciBusId).c_str(), char_to_tstring(m_nvmlMonitor->lastErrorFunction()).c_str(), nvmlErrStr(nvml_ret),
+                    char_to_tstring(m_nvmlMonitor->lastErrorDetail()).c_str());
+            } else {
+                AddMessage(RGY_LOG_INFO, _T("Failed to start NVML Monitoring for \"%s\" at %s: %s.\n"),
+                    char_to_tstring(prm->pciBusId).c_str(), char_to_tstring(m_nvmlMonitor->lastErrorFunction()).c_str(), nvmlErrStr(nvml_ret));
+            }
             m_nvmlMonitor.reset();
         } else {
-            AddMessage(RGY_LOG_DEBUG, _T("Eanble NVML Monitoring\n"));
+            AddMessage(RGY_LOG_DEBUG, _T("Enabled NVML Monitoring\n"));
         }
     }
 #else
