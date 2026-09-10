@@ -31,6 +31,7 @@
 #include "rgy_language.h"
 #include "convert_csp.h"
 #include "rgy_parallel_enc.h"
+#include <fcntl.h>
 #include <filesystem>
 #if defined(_M_IX86) || defined(_M_X64) || defined(__x86_64)
 #include <smmintrin.h>
@@ -1089,6 +1090,12 @@ RGYOutFrame::~RGYOutFrame() {
 RGY_ERR RGYOutFrame::Init(const TCHAR *strFileName, const VideoInfo *pVideoOutputInfo, const void *prm) {
     UNREFERENCED_PARAMETER(pVideoOutputInfo);
     if (_tcscmp(strFileName, _T("-")) == 0) {
+#if defined(_WIN32) || defined(_WIN64)
+        if (_setmode(_fileno(stdout), _O_BINARY) < 0) {
+            AddMessage(RGY_LOG_ERROR, _T("failed to switch stdout to binary mode.\n"));
+            return RGY_ERR_UNDEFINED_BEHAVIOR;
+        }
+#endif //#if defined(_WIN32) || defined(_WIN64)
         m_fDest.reset(stdout);
         m_outputIsStdout = true;
         AddMessage(RGY_LOG_DEBUG, _T("using stdout\n"));
