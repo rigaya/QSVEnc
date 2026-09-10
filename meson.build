@@ -25,6 +25,7 @@ enable_avisynth = get_option('enable_avisynth')
 enable_libass = get_option('enable_libass')
 enable_libplacebo = get_option('enable_libplacebo')
 enable_vmaf_option = get_option('enable_vmaf')
+libvmaf_static = get_option('libvmaf_static')
 vmaf_include_dir = get_option('vmaf_include_dir')
 enable_libvship_option = get_option('enable_libvship')
 libvship_include_dir = get_option('libvship_include_dir')
@@ -343,10 +344,12 @@ int main(void) { return 0; }
   endif
 endif
 
-# VMAF / libvship は実行時に動的ロードする。ライブラリ本体へはリンクせず、
-# APIヘッダだけを検出する。外部SDKの場所は公開リポジトリに固定しない。
+# VMAFは通常実行時に動的ロードし、配布ビルドでは静的リンクする。
+# libvshipはAPIヘッダだけを参照し、ライブラリ本体を実行時に動的ロードする。
 have_vmaf_headers = false
 vmaf_compile_dep = declare_dependency()
+vmaf_link_dep = declare_dependency()
+have_vmaf_link = false
 if enable_vmaf_option != 'disabled'
   vmaf_headers_code = '''
 #include <libvmaf/libvmaf.h>
@@ -358,7 +361,21 @@ int main(void) {
   return 0;
 }
 '''
-  if vmaf_include_dir != ''
+  vmaf_pkg_dep = dependency('libvmaf', required: false, static: libvmaf_static)
+  vmaf_pkg_libdirs = []
+  if vmaf_pkg_dep.found()
+    vmaf_pkg_compile_dep = vmaf_pkg_dep.partial_dependency(includes: true, compile_args: true)
+    vmaf_pkg_libdir = vmaf_pkg_dep.get_variable(pkgconfig: 'libdir', default_value: '')
+    if vmaf_pkg_libdir != ''
+      vmaf_pkg_libdirs += vmaf_pkg_libdir
+    endif
+    have_vmaf_headers = cpp.compiles(vmaf_headers_code, dependencies: vmaf_pkg_compile_dep, args: get_option('cpp_args'))
+    if have_vmaf_headers
+      vmaf_compile_dep = vmaf_pkg_compile_dep
+      message('Using VMAF headers from libvmaf dependency')
+    endif
+  endif
+  if not have_vmaf_headers and vmaf_include_dir != '' and (not libvmaf_static or not vmaf_pkg_dep.found())
     vmaf_candidate_dep = declare_dependency(compile_args: ['-I' + vmaf_include_dir])
     have_vmaf_headers = cpp.compiles(vmaf_headers_code, dependencies: vmaf_candidate_dep, args: get_option('cpp_args'))
     if have_vmaf_headers
@@ -366,21 +383,29 @@ int main(void) {
       message('Using VMAF headers from: ' + vmaf_include_dir)
     endif
   endif
-  if not have_vmaf_headers
-    vmaf_pkg_dep = dependency('libvmaf', required: false)
-    if vmaf_pkg_dep.found()
-      vmaf_pkg_compile_dep = vmaf_pkg_dep.partial_dependency(includes: true, compile_args: true)
-      have_vmaf_headers = cpp.compiles(vmaf_headers_code, dependencies: vmaf_pkg_compile_dep, args: get_option('cpp_args'))
-      if have_vmaf_headers
-        vmaf_compile_dep = vmaf_pkg_compile_dep
-        message('Using VMAF headers from libvmaf dependency')
-      endif
-    endif
-  endif
-  if not have_vmaf_headers
+  if not have_vmaf_headers and (not libvmaf_static or not vmaf_pkg_dep.found())
     have_vmaf_headers = cpp.compiles(vmaf_headers_code, args: get_option('cpp_args'))
     if have_vmaf_headers
       message('Using VMAF headers from the default include path')
+    endif
+  endif
+  if libvmaf_static
+    vmaf_static_probe = cpp.find_library('vmaf', static: true, dirs: vmaf_pkg_libdirs, required: false)
+    have_vmaf_link = vmaf_static_probe.found()
+    if have_vmaf_link
+      if vmaf_pkg_dep.found()
+        vmaf_link_dep = vmaf_pkg_dep
+      else
+        vmaf_link_dep = declare_dependency(dependencies: vmaf_static_probe)
+      endif
+    endif
+    if enable_vmaf_option == 'enabled' and not have_vmaf_link
+      error('Static libvmaf not found')
+    endif
+    if have_vmaf_headers and not have_vmaf_link
+      message('Static libvmaf not found, disabling VMAF support')
+      have_vmaf_headers = false
+      vmaf_compile_dep = declare_dependency()
     endif
   endif
   if enable_vmaf_option == 'enabled' and not have_vmaf_headers
@@ -578,6 +603,7 @@ conf_data.set10('ENABLE_LIBPLACEBO', libplacebo_dep.found())
 conf_data.set10('ENABLE_OPENVINO', enable_openvino and have_openvino_headers)
 conf_data.set10('ENABLE_VMAF', have_vmaf_headers)
 conf_data.set10('ENABLE_LIBVSHIP', have_libvship_headers)
+conf_data.set10('LIBVMAF_STATIC_LINK', have_vmaf_headers and libvmaf_static and have_vmaf_link)
 
 if enable_avisynth and have_avisynth_headers
   conf_data.set('AVS_INTERF_VER', 12)
@@ -944,6 +970,9 @@ endif
 if have_vmaf_headers
   all_deps += vmaf_compile_dep
 endif
+if have_vmaf_link
+  all_deps += vmaf_link_dep
+endif
 if have_libvship_headers
   all_deps += libvship_compile_dep
 endif
@@ -980,6 +1009,7 @@ summary({
   'libass static': libass_dep.found() and get_option('libass_static'),
   'libplacebo': libplacebo_dep.found(),
   'VMAF': have_vmaf_headers,
+  'VMAF static': have_vmaf_headers and libvmaf_static and have_vmaf_link,
   'libvship': have_libvship_headers,
   'Vulkan': vulkan_dep.found(),
   'libdovi': libdovi_dep.found(),

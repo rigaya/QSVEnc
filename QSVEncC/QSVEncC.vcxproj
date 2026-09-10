@@ -666,23 +666,19 @@ if exist "$(OPENVINO_PATH)\bin\intel64\Release\openvino_c.dll" copy /y "$(OPENVI
       </Message>
     </PreBuildEvent>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Platform)'=='x64' and ('$(Configuration)'=='Debug' or '$(Configuration)'=='Release' or '$(Configuration)'=='DebugStatic' or '$(Configuration)'=='ReleaseStatic') and '$(QSVEncVmafIncludeDir)'!='' and Exists('$(QSVEncVmafIncludeDir)\\libvmaf\\libvmaf.h')">
+  <ItemDefinitionGroup Condition="'$(Platform)'=='x64' and ('$(Configuration)'=='Debug' or '$(Configuration)'=='Release' or '$(Configuration)'=='DebugStatic' or '$(Configuration)'=='ReleaseStatic')">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(QSVEncVmafIncludeDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>QSVENC_ENABLE_VMAF=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(VSHIP_DIR)\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>QSVENC_ENABLE_VMAF=1;QSVENC_ENABLE_LIBVSHIP=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Platform)'=='x64' and ('$(Configuration)'=='Debug' or '$(Configuration)'=='Release' or '$(Configuration)'=='DebugStatic' or '$(Configuration)'=='ReleaseStatic') and '$(QSVEncVshipIncludeDir)'!='' and Exists('$(QSVEncVshipIncludeDir)\\VshipAPI.h')">
-    <ClCompile>
-      <AdditionalIncludeDirectories>$(QSVEncVshipIncludeDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>QSVENC_ENABLE_LIBVSHIP=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-    </ClCompile>
-  </ItemDefinitionGroup>
-  <Target Name="ValidateQSVEncCMetricHeaders" BeforeTargets="ClCompile" Condition="'$(QSVEncVmafIncludeDir)'!='' and !Exists('$(QSVEncVmafIncludeDir)\\libvmaf\\libvmaf.h')">
-    <Error Text="QSVEncVmafIncludeDir に libvmaf/libvmaf.h がありません: $(QSVEncVmafIncludeDir)" />
+  <Target Name="ValidateQSVEncCMetricHeaders" BeforeTargets="ClCompile" Condition="'$(Platform)'=='x64' and ('$(Configuration)'=='Debug' or '$(Configuration)'=='Release' or '$(Configuration)'=='DebugStatic' or '$(Configuration)'=='ReleaseStatic')">
+    <Error Condition="!Exists('$(SolutionDir)ffmpeg_lgpl\include\libvmaf\libvmaf.h')" Text="ffmpeg_lgpl/include に libvmaf/libvmaf.h がありません。" />
+    <Error Condition="!Exists('$(VSHIP_DIR)\src\VshipAPI.h')" Text="VSHIP_DIR/src に VshipAPI.h がありません: $(VSHIP_DIR)" />
   </Target>
-  <Target Name="ValidateQSVEncCMetricHeadersVship" BeforeTargets="ClCompile" Condition="'$(QSVEncVshipIncludeDir)'!='' and !Exists('$(QSVEncVshipIncludeDir)\\VshipAPI.h')">
-    <Error Text="QSVEncVshipIncludeDir に VshipAPI.h がありません: $(QSVEncVshipIncludeDir)" />
+  <Target Name="CopyQSVEncCMetricRuntime" AfterTargets="Build" Condition="'$(Platform)'=='x64' and ('$(Configuration)'=='Debug' or '$(Configuration)'=='Release' or '$(Configuration)'=='DebugStatic' or '$(Configuration)'=='ReleaseStatic')">
+    <Error Condition="!Exists('$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libvmaf.dll')" Text="ffmpeg_lgpl/lib/$(PlatformName) に libvmaf.dll がありません。" />
+    <Copy SourceFiles="$(SolutionDir)ffmpeg_lgpl\lib\$(PlatformName)\libvmaf.dll" DestinationFolder="$(OutDir)" />
   </Target>
   <ItemGroup>
     <ClCompile Include="QSVEncC.cpp" />

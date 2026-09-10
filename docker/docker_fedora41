@@ -6,6 +6,7 @@ ARG FFMPEG_DLL_REPO=https://github.com/rigaya/build_scripts.git
 ARG FFMPEG_DLL_REF=master
 ARG BUILD_SCRIPTS_DIR=/opt/build_scripts
 ARG FFMPEG_PREFIX=/opt/build_scripts/ffmpeg_dll/build_dll/x64/build
+ARG VMAF_PREFIX=/opt/build_scripts/ffmpeg_dll/x64/build
 
 RUN dnf update -y \
     && dnf install -y \
@@ -31,6 +32,7 @@ RUN dnf update -y \
       pkgconfig \
       nasm \
       yasm \
+      vim-common \
       patch \
       xz \
       p7zip p7zip-plugins \
@@ -62,13 +64,20 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
 RUN git clone --depth 1 --branch ${FFMPEG_DLL_REF} ${FFMPEG_DLL_REPO} ${BUILD_SCRIPTS_DIR} \
     && cd ${BUILD_SCRIPTS_DIR}/ffmpeg_dll \
     && sed -i 's/\r$//' ./build_ffmpeg_dll.sh \
+    && sed -i 's/\r$//' ./build_libvmaf.sh \
     && export NUMBER_OF_PROCESSORS="$(nproc)" \
     && bash ./build_ffmpeg_dll.sh --skip-src-archive \
+    && bash ./build_libvmaf.sh --skip-src-archive --disable-cuda \
     && test -f "${FFMPEG_PREFIX}/lib/pkgconfig/libavutil.pc" \
+    && test -f "${VMAF_PREFIX}/lib/pkgconfig/libvmaf.pc" \
+    && test -f "${VMAF_PREFIX}/lib/libvmaf.a" \
+    && test -f "${VMAF_PREFIX}/include/libvmaf/libvmaf.h" \
     && find "${BUILD_SCRIPTS_DIR}" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll" -exec rm -rf {} + \
-    && find "${BUILD_SCRIPTS_DIR}/ffmpeg_dll" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_dll" -exec rm -rf {} + \
+    && find "${BUILD_SCRIPTS_DIR}/ffmpeg_dll" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_dll" ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/x64" -exec rm -rf {} + \
     && find "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_dll" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_dll/x64" -exec rm -rf {} + \
-    && find "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_dll/x64" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_dll/x64/build" -exec rm -rf {} +
+    && find "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_dll/x64" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_dll/x64/build" -exec rm -rf {} + \
+    && find "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/x64" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/x64/build" -exec rm -rf {} +
 
 ENV FFMPEG_PREFIX=${FFMPEG_PREFIX}
+ENV VMAF_PREFIX=${VMAF_PREFIX}
 WORKDIR /work

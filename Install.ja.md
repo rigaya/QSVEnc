@@ -17,11 +17,11 @@
 
 実行時は展開したフォルダからそのまま実行できます。
 
-VMAFまたはlibvship評価を使用する場合は、QSVEncC64.exeと同じフォルダに、それぞれ`libvmaf.dll`または`libvship.dll`を配置してください。libvshipを使用する場合は、選択したlibvship backendが要求する追加DLLも同じ環境で利用可能にします。評価を使用しない通常のエンコードにはこれらのDLLは不要です。
+64bit版の配布archiveには`libvmaf.dll`とNVIDIA backend版の`libvship.dll`が含まれます。VMAF評価はCPUで実行できますが、同梱のlibvshipによる評価にはNVIDIA GPUと対応ドライバが必要です。評価を使用しない通常のエンコードにはこれらのDLLは不要です。
 
 ## Linux (Ubuntu 22.04 - 24.04)
 
-VMAFまたはlibvship評価を使用する場合は、実行時ローダーが`libvmaf.so`または`libvship.so`と、libvship backendが必要とする共有ライブラリを検索できる場所へ配置します（システムのライブラリ検索パス、または`LD_LIBRARY_PATH`）。ビルド時のSDKヘッダ指定は評価機能を有効にするためだけのもので、実行時ライブラリはコピーされません。評価機能を使用しない通常のエンコードには、これらのライブラリは不要です。
+公式配布パッケージではlibvmafを静的リンクするため、VMAF評価に`libvmaf.so`は不要です。libvship評価を使用する場合は、実行時ローダーが`libvship.so`と、選択したbackendが必要とする共有ライブラリを検索できる場所へ配置します（システムのライブラリ検索パス、または`LD_LIBRARY_PATH`）。ソースから通常設定でビルドした場合はlibvmafを動的ロードするため、VMAF評価には`libvmaf.so`も必要です。評価を使用しない通常のエンコードには、これらのライブラリは不要です。
 
 ### 1. Intel Media ドライバ用のリポジトリの登録
 

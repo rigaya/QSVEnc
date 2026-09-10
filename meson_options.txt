@@ -5,6 +5,7 @@ option('libass_static', type: 'boolean', value: false, description: 'Linuxでlib
 option('enable_libplacebo', type: 'boolean', value: false, description: 'Enable libplacebo support')
 option('libplacebo_static_link', type: 'boolean', value: true, description: 'libplaceboを静的リンクする（falseで実行時に動的ロード）')
 option('enable_vmaf', type: 'combo', choices: ['auto', 'enabled', 'disabled'], value: 'auto', description: 'VMAF評価を有効化する（autoはヘッダを検出した場合に有効）')
+option('libvmaf_static', type: 'boolean', value: false, description: 'Linuxでlibvmafを静的リンクする')
 option('vmaf_include_dir', type: 'string', value: '', description: 'libvmaf/include への追加パス')
 option('enable_libvship', type: 'combo', choices: ['auto', 'enabled', 'disabled'], value: 'auto', description: 'libvship評価を有効化する（autoはヘッダを検出した場合に有効）')
 option('libvship_include_dir', type: 'string', value: '', description: 'VshipAPI.h を含む追加パス')

@@ -30,6 +30,7 @@ jobs:
       PKG_TYPE: ${{ matrix.pkgtype }}
       BASE_IMAGE_REPO: ghcr.io/${{ github.repository_owner }}/qsvenc-build
       FFMPEG_PREFIX: /opt/build_scripts/ffmpeg_dll/build_dll/x64/build
+      VMAF_PREFIX: /opt/build_scripts/ffmpeg_dll/x64/build
 
     name: Upload Release Asset
     runs-on: ubuntu-latest
@@ -85,11 +86,22 @@ jobs:
             -u "$(id -u):$(id -g)" \
             --workdir /work \
             --name build_pkg ${{ steps.prep.outputs.base_image }}
-          docker exec -e PKG_CONFIG_PATH=${{ env.FFMPEG_PREFIX }}/lib/pkgconfig build_pkg bash -lc '
-            meson setup ./build . --buildtype=release -Db_lto=true -Dlibass_static=true -Dcpp_args="['\''-I/work/AviSynthPlus/avs_core/include'\'','\''-I/work/vapoursynth/include'\'']"
+          docker exec build_pkg bash -lc '
+            VMAFPKG="${{ env.VMAF_PREFIX }}/lib/pkgconfig"
+            FFPKG="${{ env.FFMPEG_PREFIX }}/lib/pkgconfig:${{ env.FFMPEG_PREFIX }}/lib/x86_64-linux-gnu/pkgconfig"
+            export PKG_CONFIG_PATH="${VMAFPKG}:${FFPKG}${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
+            meson setup ./build . --buildtype=release -Db_lto=true -Dlibass_static=true -Denable_vmaf=enabled -Dlibvmaf_static=true -Dcpp_args="['\''-I/work/AviSynthPlus/avs_core/include'\'','\''-I/work/vapoursynth/include'\'']"
+            grep -F "#define LIBVMAF_STATIC_LINK 1" ./build/rgy_config.h
           '
           docker exec build_pkg bash -lc "meson compile -C ./build -j${{ steps.prep.outputs.nproc }}"
-          docker exec build_pkg ldd ./build/qsvencc
+          docker exec build_pkg bash -lc '
+            set -e
+            ldd ./build/qsvencc
+            if readelf -d ./build/qsvencc | grep -F "(NEEDED)" | grep -F "libvmaf" >/dev/null; then
+              echo "libvmafは静的リンクが必要ですが、共有ライブラリ依存が残っています。" >&2
+              exit 1
+            fi
+          '
           docker exec build_pkg ./build/qsvencc --version
           docker exec build_pkg ./check_options.py -exe ./build/qsvencc
           docker exec build_pkg ./build/qsvencc --check-cmd-parse

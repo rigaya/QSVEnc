@@ -48,19 +48,17 @@ setx OPENVINO_PATH "C:\Program Files (x86)\Intel\openvino_2026"
 直接ダウンロードする場合は、[OpenVINO Toolkitのダウンロードページ](https://www.intel.com/content/www/us/en/download/753640/intel-distribution-of-openvino-toolkit.html) または [OpenVINOのGitHub Releases](https://github.com/openvinotoolkit/openvino/releases) からWindows用archiveを取得できます。
 `setx` の変更をVisual Studioに反映するには、Visual Studioを起動し直してください。実行時に `--vpp-onnx` を使用する場合は、OpenVINOの `setupvars.bat` を実行するか、OpenVINO RuntimeのDLLにPATHが通っている必要があります。
 
-VMAFまたはlibvshipの評価を有効にする64bit版QSVEncCのビルドでは、それぞれのAPIヘッダを用意します。VMAFは[Netflix/vmaf](https://github.com/Netflix/vmaf)のリリースに含まれる`libvmaf/include`、libvshipは[Line-fr/Vship](https://codeberg.org/Line-fr/Vship)の`src`を使用します。QSVEncはどちらのライブラリも静的リンクしません。
-
-ヘッダの場所は、環境変数またはMSBuildプロパティで指定します。QSVEnc.auo/AviUtl2向け構成とWin32構成では評価機能を有効にしません。
+64bit版QSVEncCではVMAFとlibvshipの評価が常に有効です。VMAFのAPIヘッダと`libvmaf.dll`は`ffmpeg_lgpl` archiveに含まれるものを使用します。libvshipは[Line-fr/Vship](https://codeberg.org/Line-fr/Vship)の`src`を用意し、環境変数`VSHIP_DIR`にはその親ディレクトリを指定します。必要なヘッダがない場合はビルドエラーになります。QSVEnc.auo/AviUtl2向け構成とWin32構成では評価機能を有効にしません。
 
 ```Batchfile
-setx QSVEncVmafIncludeDir "C:\path\to\vmaf\libvmaf\include"
-setx QSVEncVshipIncludeDir "C:\path\to\Vship\src"
+setx VSHIP_DIR "C:\path\to\Vship"
 ```
 
-コマンドラインから指定する場合は、例えば次のようにします。
+コマンドラインから指定する場合は、例えば次のようにします。ビルド後、`libvmaf.dll`はQSVEncC64.exeの出力先へ自動的にコピーされます。
 
 ```Batchfile
-msbuild QSVEnc.sln /p:Configuration=ReleaseStatic /p:Platform=x64 /p:QSVEncVmafIncludeDir=C:\path\to\vmaf\libvmaf\include /p:QSVEncVshipIncludeDir=C:\path\to\Vship\src
+set VSHIP_DIR=C:\path\to\Vship
+msbuild QSVEnc.sln /p:Configuration=ReleaseStatic /p:Platform=x64
 ```
 
 ### 1. ソースのダウンロード
@@ -101,13 +99,19 @@ QSVEnc.slnを開きます。
   - libass9
   - [Optional] VapourSynth
 
-VMAFまたはlibvshipの評価をビルドする場合は、対応するAPIヘッダも必要です。VMAFは`libvmaf/include`、libvshipは`VshipAPI.h`を含む`src`を指定します。どちらも実行時に動的ロードするため、ビルド時には本体ライブラリをリンクしません。
+VMAFまたはlibvshipの評価をビルドする場合は、対応するAPIヘッダも必要です。VMAFは`libvmaf/include`、libvshipは`VshipAPI.h`を含む`src`を指定します。通常ビルドではどちらも実行時に動的ロードします。配布用ビルドなどでVMAFを静的リンクする場合は、ヘッダと`libvmaf.a`を含む同じprefixの`libvmaf.pc`を`PKG_CONFIG_PATH`から検出できるようにします。
 
 Mesonでは、ヘッダを検出できれば既定の`auto`で有効になります。明示的に切り替えるには以下を指定します。
 
 ```Shell
 meson setup build -Denable_vmaf=enabled -Dvmaf_include_dir=/path/to/vmaf/libvmaf/include
 meson setup build -Denable_libvship=enabled -Dlibvship_include_dir=/path/to/Vship/src
+```
+
+VMAFを静的リンクする場合は次のように指定します。この場合、`vmaf_include_dir`よりpkg-configで検出した同一prefixのヘッダを優先します。
+
+```Shell
+PKG_CONFIG_PATH=/path/to/vmaf-prefix/lib/pkgconfig meson setup build -Denable_vmaf=enabled -Dlibvmaf_static=true
 ```
 
 ヘッダを指定しない通常ビルドでは`-Denable_vmaf=disabled -Denable_libvship=disabled`を指定できます。`enabled`でヘッダを見つけられない場合、Mesonは構成時にエラーにします。
