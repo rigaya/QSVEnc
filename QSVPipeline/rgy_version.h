@@ -113,12 +113,12 @@ const char *get_encoder_version();
 #define ENABLE_OPENVINO 1
 #endif
 
-#if defined(_M_X64) && !defined(BUILD_AUO) && !defined(QSVENC_AUO) && defined(QSVENC_ENABLE_VMAF)
+#if defined(_M_X64) && !defined(BUILD_AUO) && !defined(QSVENC_AUO)
 #define ENABLE_VMAF 1
 #else
 #define ENABLE_VMAF 0
 #endif
-#if defined(_M_X64) && !defined(BUILD_AUO) && !defined(QSVENC_AUO) && defined(QSVENC_ENABLE_LIBVSHIP)
+#if defined(_M_X64) && !defined(BUILD_AUO) && !defined(QSVENC_AUO)
 #define ENABLE_LIBVSHIP 1
 #else
 #define ENABLE_LIBVSHIP 0

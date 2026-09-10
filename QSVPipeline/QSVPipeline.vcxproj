@@ -410,13 +410,8 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
   <ItemDefinitionGroup Condition="'$(Platform)'=='x64' and ('$(Configuration)'=='DebugStatic' or '$(Configuration)'=='ReleaseStatic')">
     <ClCompile>
       <AdditionalIncludeDirectories>$(VSHIP_DIR)\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>QSVENC_ENABLE_VMAF=1;QSVENC_ENABLE_LIBVSHIP=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
   </ItemDefinitionGroup>
-  <Target Name="ValidateQSVPipelineMetricHeaders" BeforeTargets="ClCompile" Condition="'$(Platform)'=='x64' and ('$(Configuration)'=='DebugStatic' or '$(Configuration)'=='ReleaseStatic')">
-    <Error Condition="!Exists('$(SolutionDir)ffmpeg_lgpl\include\libvmaf\libvmaf.h')" Text="ffmpeg_lgpl/include に libvmaf/libvmaf.h がありません。" />
-    <Error Condition="!Exists('$(VSHIP_DIR)\src\VshipAPI.h')" Text="VSHIP_DIR/src に VshipAPI.h がありません: $(VSHIP_DIR)" />
-  </Target>
   <ItemGroup>
     <ClCompile Include="api_hook.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
