@@ -53,6 +53,8 @@ int block_sum_int(int val, __local int *shared) {
 		value_count /= SUB_GROUP_SIZE;
 		if (value_count <= 1) break;
         val = (lid < value_count) ? shared[lane] : 0;
+        // 全subgroupの読み取りが終わるまで、次の反復で共有領域を上書きしない。
+        barrier(CLK_LOCAL_MEM_FENCE);
 	}
 #else
     shared[lid] = val;
