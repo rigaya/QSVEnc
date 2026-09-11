@@ -314,8 +314,21 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2026.09.11 (8.30)
+[QSVEncC]
+- --vmafによる画質評価を追加。
+- --vpp-kfmのmode=24/60のRFF対応。
+- D3D11入力のOpenCL共有面を分離して映像破損を防ぐ。
+- --vpp-afsのsubgroup集計で共有領域の読み書き競合を修正。
+- --vpp-onnxのout_res=のresizeにOpenCL系以外を指定できてしまう不具合を修正。
+- --vpp-descaleを高速化。
+- --vpp-maaを高速化。
+- --vpp-softlightを高速化。
+- --vpp-hqdn3dを高速化。
+
 2026.09.07 (8.29)
 [QSVEncC]
+- --output-csp yuv444でOpenCLのVPPフィルタが失敗する問題を修正。
 - --vpp-kfmのmode=24を高速化。
 - y4m入力を使用するとタイムスタンプがおかしくなっていた問題を修正。
 

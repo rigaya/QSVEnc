@@ -1,5 +1,18 @@
 # QSVEnc Release Notes
 
+## 8.30
+
+- Add [--vmaf](./QSVEncC_Options.en.md#--vmaf-param1value1param2value2) to calculate VMAF of the encoded video.
+- Add RFF support to [--vpp-kfm](./QSVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) mode=24/60.
+- Separate D3D11 input OpenCL shared surfaces to prevent video corruption.
+- Fix a race in subgroup reduction of [--vpp-afs](./QSVEncC_Options.en.md#--vpp-afs-param1value1param2value2).
+- Fix [--vpp-onnx](./QSVEncC_Options.en.md#--vpp-onnx-param1value1param2value2) to reject non-OpenCL resize algorithms for `out_res=`.
+- Speed up some VPP filters.
+  - [--vpp-descale](./QSVEncC_Options.en.md#--vpp-descale-param1value1param2value2)
+  - [--vpp-maa](./QSVEncC_Options.en.md#--vpp-maa-param1value1param2value2)
+  - [--vpp-softlight](./QSVEncC_Options.en.md#--vpp-softlight-param1value1param2value2)
+  - [--vpp-hqdn3d](./QSVEncC_Options.en.md#--vpp-hqdn3d-param1value1param2value2)
+
 ## 8.29
 
 - Fix OpenCL VPP filters failing with [--output-csp](./QSVEncC_Options.en.md#--output-csp-string) yuv444. ( #311 )

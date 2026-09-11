@@ -156,6 +156,8 @@
   - [--tile-col \<int\>](#--tile-col-int)
   - [--ssim](#--ssim)
   - [--psnr](#--psnr)
+  - [--vmaf [\<param1\>=\<value1\>][,\<param2\>=\<value2\>]...](#--vmaf-param1value1param2value2)
+  - [--no-vmaf](#--no-vmaf)
 - [IO / Audio / Subtitle Options](#io--audio--subtitle-options)
   - [--input-analyze \<float\>](#--input-analyze-float)
   - [--input-probesize \<int\>](#--input-probesize-int)
@@ -1143,6 +1145,23 @@ Calculate ssim of the encoded video.
 
 ### --psnr
 Calculate psnr of the encoded video.
+
+### --vmaf [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;]...
+Calculate VMAF from the final VPP output before encoding and the re-decoded encoded frames. VMAF is computed on CPU, so CPU load can be high and encoding speed may drop. A build with VMAF enabled and the libvmaf runtime library are required.
+
+- model=&lt;string&gt; (default: vmaf_v0.6.1)
+  VMAF model name or path to a model file.
+- threads=&lt;int&gt; (default: 0)
+  Number of CPU threads for VMAF. 0 uses the number of physical CPU cores.
+- subsample=&lt;int&gt; (default: 1)
+  VMAF evaluation interval. Specify 1 or larger.
+- phone_model=&lt;bool&gt; (default: false)
+  Use the phone model.
+- enable_transform=&lt;bool&gt; (default: false)
+  Enable VMAF transform. Specifying `enable_transform` alone also enables it.
+
+### --no-vmaf
+Disable VMAF calculation.
 
 The libvship-based quality metric options are experimental and currently disabled in official builds.
 
