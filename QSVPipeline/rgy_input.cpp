@@ -517,6 +517,14 @@ RGY_ERR initReaders(
         }
     }
 
+#if ENCODER_VCEENC
+    // VCEではhwデコーダ使用時はrffの処理に対応していないため、
+    // 入力形式の自動判定後にavhwを無効化する。
+    if (input->type == RGY_INPUT_FMT_AVANY && vpp_rff) {
+        input->type = RGY_INPUT_FMT_AVSW;
+    }
+#endif
+
     //Check if selected format is enabled
     if (input->type == RGY_INPUT_FMT_AVS && !ENABLE_AVISYNTH_READER) {
         log->write(RGY_LOG_ERROR, RGY_LOGT_IN, _T("avs reader not compiled in this binary.\n"));

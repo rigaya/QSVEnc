@@ -2061,6 +2061,16 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                 AddMessage(RGY_LOG_INFO, _T("Using avsw reader as --tcfile-in is used.\n"));
             }
         }
+#if ENCODER_VCEENC
+        // 一部のAMD世代では、AMFのMPEG-2 HWデコーダがfield-pictureを含むストリームで
+        // 入力を受理し続けながら出力を停止する。入力方式が自動の場合はAVSWを選び、
+        // 明示的な--avhw指定はそのまま尊重する。
+        if (m_inputVideoInfo.type == RGY_INPUT_FMT_AVANY
+            && m_Demux.video.stream->codecpar->codec_id == AV_CODEC_ID_MPEG2VIDEO) {
+            AddMessage(RGY_LOG_INFO, _T("MPEG-2 input defaults to software decoding in VCEEnc; use --avhw to force hardware decoding.\n"));
+            m_inputVideoInfo.type = RGY_INPUT_FMT_AVSW;
+        }
+#endif
         if (m_inputVideoInfo.type != RGY_INPUT_FMT_AVSW) {
             for (const auto& devCodecCsp : *input_prm->HWDecCodecCsp) {
                 //VC-1では、pixelFormatがAV_PIX_FMT_NONEとなっている場合があるので、その場合は試しにAV_PIX_FMT_YUV420Pとして処理してみる
