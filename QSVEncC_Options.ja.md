@@ -158,12 +158,6 @@
   - [--psnr](#--psnr)
   - [--vmaf [\<param1\>=\<value1\>][,\<param2\>=\<value2\>]...](#--vmaf-param1value1param2value2)
   - [--no-vmaf](#--no-vmaf)
-  - [--vship-ssimulacra2](#--vship-ssimulacra2)
-  - [--no-vship-ssimulacra2](#--no-vship-ssimulacra2)
-  - [--vship-butteraugli [\<param1\>=\<value1\>][,\<param2\>=\<value2\>]...](#--vship-butteraugli-param1value1param2value2)
-  - [--no-vship-butteraugli](#--no-vship-butteraugli)
-  - [--vship-cvvdp [\<param1\>=\<value1\>][,\<param2\>=\<value2\>]...](#--vship-cvvdp-param1value1param2value2)
-  - [--no-vship-cvvdp](#--no-vship-cvvdp)
 - [入出力 / 音声 / 字幕などのオプション](#入出力--音声--字幕などのオプション)
   - [--input-analyze \<float\>](#--input-analyze-float)
   - [--input-probesize \<int\>](#--input-probesize-int)
@@ -1195,35 +1189,7 @@ HEVCエンコードでPフレームとしてGPBの代わりに通常のPフレ�
 ### --no-vmaf
 VMAF計算を無効にする。
 
-### --vship-ssimulacra2
-libvshipを使用してSSIMULACRA2を計算する。libvshipはGPU 0で計算し、QSVEncの`--device`で選択するQSVデバイスとは独立している。libvship機能が有効なビルドと対応するlibvship実行時ライブラリが必要。
-
-### --no-vship-ssimulacra2
-SSIMULACRA2計算を無効にする。
-
-### --vship-butteraugli [\<param1\>=\<value1\>][,\<param2\>=\<value2\>]...
-libvshipを使用してButteraugliを計算する。
-
-- Qnorm=\<int\> (デフォルト: 2)
-  Butteraugliスコア集計に使用するノルム。正の値を指定する。
-- intensity_multiplier=\<float\> (デフォルト: 80.0)
-  Butteraugli計算のintensity multiplier。有限の正の値を指定する。
-
-### --no-vship-butteraugli
-Butteraugli計算を無効にする。
-
-### --vship-cvvdp [\<param1\>=\<value1\>][,\<param2\>=\<value2\>]...
-libvshipを使用してColorVideoVDPを計算する。エンコード後のフレームレートと出力の色情報を使用する。
-
-- model=\<string\> (デフォルト: standard_4k)
-  使用するColorVideoVDPモデル名。空文字列は指定できない。
-- model_config_json=\<string\> (デフォルト: 空)
-  ColorVideoVDPモデル設定JSONのパス。
-- resize=\<bool\> (デフォルト: false)
-  ColorVideoVDP計算前にフレームをリサイズする。
-
-### --no-vship-cvvdp
-ColorVideoVDP計算を無効にする。
+libvshipを使用する品質評価オプションは実験的な実装のため、公式配布ビルドでは現在無効。
 
 
 ## 入出力 / 音声 / 字幕などのオプション

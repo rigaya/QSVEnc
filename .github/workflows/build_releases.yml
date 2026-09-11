@@ -195,10 +195,6 @@ jobs:
           git clone --depth 1 https://github.com/AviSynth/AviSynthPlus.git ..\AviSynthPlus
           git clone -b R72 --depth 1 https://github.com/vapoursynth/vapoursynth.git ..\vapoursynth
           git clone --depth 1 https://github.com/KhronosGroup/OpenCL-Headers.git ..\openclheaders
-          curl -s -o hwenc_headers_20260411.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20250830/hwenc_headers_20260411.7z
-          7z x -o.. -y hwenc_headers_20260411.7z
-          if "${{ matrix.arch }}" == "x64" curl -s -o libvship_nvidia_5_0.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20250830/libvship_nvidia_5_0.7z
-          if "${{ matrix.arch }}" == "x64" 7z x -olibvship_nvidia_5_0 -y libvship_nvidia_5_0.7z
 
       - name: Download OpenVINO
         if: matrix.platform == 'x64'
@@ -226,7 +222,6 @@ jobs:
           set AVISYNTH_SDK=${{ github.workspace }}\..\AviSynthPlus\avs_core
           set VAPOURSYNTH_SDK=${{ github.workspace }}\..\vapoursynth
           set OPENCL_HEADERS=${{ github.workspace }}\..\openclheaders
-          set VSHIP_DIR=${{ github.workspace }}\..\vship
           if "${{ matrix.platform }}" == "x64" set OPENVINO_PATH=${{ github.workspace }}\..\openvino\runtime
           msbuild QSVEnc.sln /t:build /p:configuration=ReleaseStatic /p:Platform=${{ matrix.platform }} -maxcpucount
 
@@ -238,7 +233,6 @@ jobs:
           copy _build\${{ matrix.platform }}\ReleaseStatic\*.dll QSVEncC_Release
           copy resource\nnedi3_weight\nnedi3_weights.bin QSVEncC_Release
           if "${{ matrix.platform }}" == "x64" (
-            copy libvship_nvidia_5_0\*.dll QSVEncC_Release
             copy ${{ github.workspace }}\..\openvino\runtime\bin\intel64\Release\openvino.dll QSVEncC_Release
             copy ${{ github.workspace }}\..\openvino\runtime\bin\intel64\Release\openvino_onnx_frontend.dll QSVEncC_Release
             copy ${{ github.workspace }}\..\openvino\runtime\bin\intel64\Release\openvino_ir_frontend.dll QSVEncC_Release
@@ -247,7 +241,6 @@ jobs:
             copy ${{ github.workspace }}\..\openvino\runtime\bin\intel64\Release\openvino_auto_plugin.dll QSVEncC_Release
             copy ${{ github.workspace }}\..\openvino\runtime\3rdparty\tbb\bin\tbb12.dll QSVEncC_Release
             if not exist QSVEncC_Release\libvmaf.dll exit /b 1
-            if not exist QSVEncC_Release\libvship.dll exit /b 1
           )
           7z a -mx9 QSVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z .\QSVEncC_Release\*
 

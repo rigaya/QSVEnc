@@ -118,11 +118,7 @@ const char *get_encoder_version();
 #else
 #define ENABLE_VMAF 0
 #endif
-#if defined(_M_X64) && !defined(BUILD_AUO) && !defined(QSVENC_AUO)
-#define ENABLE_LIBVSHIP 1
-#else
 #define ENABLE_LIBVSHIP 0
-#endif
 
 #ifdef BUILD_AUO
 #define ENCODER_NAME             "QSVEnc"
