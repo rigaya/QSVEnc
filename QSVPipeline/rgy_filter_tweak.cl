@@ -37,7 +37,9 @@ __kernel void kernel_tweak_y(
     const int ix = get_global_id(0);
     const int iy = get_global_id(1);
 
-    if (ix < width && iy < height) {
+    // ixはType4単位。切り上げられた余剰work-itemが次行へ書き込まないよう、
+    // 画素単位のwidthではなくType4単位の論理幅で判定する。
+    if (ix < ((width + 3) >> 2) && iy < height) {
         __global Type4 *ptr = (__global Type4 *)(pFrame + iy * pitch + ix * sizeof(Type4));
         Type4 src = ptr[0];
 
@@ -100,7 +102,9 @@ __kernel void kernel_tweak_uv(
     const int ix = get_global_id(0);
     const int iy = get_global_id(1);
 
-    if (ix < width && iy < height) {
+    // ixはType4単位。切り上げられた余剰work-itemが次行へ書き込まないよう、
+    // 画素単位のwidthではなくType4単位の論理幅で判定する。
+    if (ix < ((width + 3) >> 2) && iy < height) {
         __global Type4 *ptrU = (__global Type4 *)(pFrameU + iy * pitch + ix * sizeof(Type4));
         __global Type4 *ptrV = (__global Type4 *)(pFrameV + iy * pitch + ix * sizeof(Type4));
 
