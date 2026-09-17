@@ -101,6 +101,11 @@ QSVAllocatorVA::QSVAllocatorVA()
     , m_libva(new MfxLoader::VA_Proxy)
     , m_export_mode(QSVAllocatorParamsVA::DONOT_EXPORT)
     , m_exporter(NULL)
+#if VA_CHECK_VERSION(1, 10, 0)
+    , m_openCLCopySurfaceSupported(m_libva->vaCopy != nullptr)
+#else
+    , m_openCLCopySurfaceSupported(false)
+#endif
 {
     m_name = _T("allocVA");
 }
@@ -149,6 +154,110 @@ mfxStatus QSVAllocatorVA::CheckRequestType(mfxFrameAllocRequest *request)
 mfxStatus QSVAllocatorVA::Close()
 {
     return QSVAllocator::Close();
+}
+
+static mfxStatus GetVAFourcc(mfxU32 fourcc, unsigned int &va_fourcc);
+
+bool QSVAllocatorVA::IsOpenCLCopySurfaceSupported() const
+{
+    return m_openCLCopySurfaceSupported.load();
+}
+
+mfxStatus QSVAllocatorVA::CreateOpenCLCopySurface(const mfxFrameInfo& info, VASurfaceID *surface)
+{
+    if (surface == nullptr) return MFX_ERR_NULL_PTR;
+    *surface = VA_INVALID_SURFACE;
+
+    unsigned int va_fourcc = 0;
+    auto sts = GetVAFourcc(info.FourCC, va_fourcc);
+    if (sts != MFX_ERR_NONE) return sts;
+    if (va_fourcc == VA_FOURCC_P208) {
+        m_openCLCopySurfaceSupported.store(false);
+        return MFX_ERR_UNSUPPORTED;
+    }
+
+    unsigned int format = va_fourcc;
+    if (va_fourcc == VA_FOURCC_NV12) {
+        format = VA_RT_FORMAT_YUV420;
+    } else if (va_fourcc == VA_FOURCC_UYVY || va_fourcc == VA_FOURCC_YUY2) {
+        format = VA_RT_FORMAT_YUV422;
+    } else if (info.FourCC == MFX_FOURCC_A2RGB10) {
+        format = VA_RT_FORMAT_RGB32_10BPP;
+    } else if (info.FourCC == MFX_FOURCC_RGBP) {
+        format = VA_RT_FORMAT_RGBP;
+    }
+
+    VASurfaceAttrib attrib = {};
+    attrib.type = VASurfaceAttribPixelFormat;
+    attrib.flags = VA_SURFACE_ATTRIB_SETTABLE;
+    attrib.value.type = VAGenericValueTypeInteger;
+    attrib.value.value.i = va_fourcc;
+
+    std::lock_guard<std::mutex> lock(m_copyMutex);
+    const auto va_res = m_libva->vaCreateSurfaces(m_dpy, format, info.Width, info.Height, surface, 1, &attrib, 1);
+    if (va_res != VA_STATUS_SUCCESS) {
+        AddMessage(RGY_LOG_ERROR, _T("OpenCL共有用VA面の作成に失敗しました: %d。\n"), va_res);
+    }
+    const auto mfx_res = va_to_mfx_status(va_res);
+    if (mfx_res == MFX_ERR_UNSUPPORTED) {
+        m_openCLCopySurfaceSupported.store(false);
+    }
+    return mfx_res;
+}
+
+mfxStatus QSVAllocatorVA::CopyFrameSurfaceToSurface(mfxMemId mid, VASurfaceID dst)
+{
+    if (mid == nullptr || dst == VA_INVALID_SURFACE) return MFX_ERR_INVALID_HANDLE;
+#if !VA_CHECK_VERSION(1, 10, 0)
+    return MFX_ERR_UNSUPPORTED;
+#else
+    if (!m_openCLCopySurfaceSupported.load() || m_libva->vaCopy == nullptr) return MFX_ERR_UNSUPPORTED;
+    const auto vaapi_mid = reinterpret_cast<vaapiMemId *>(mid);
+    if (vaapi_mid->m_surface == nullptr || *vaapi_mid->m_surface == VA_INVALID_SURFACE) {
+        return MFX_ERR_INVALID_HANDLE;
+    }
+    const auto src = *vaapi_mid->m_surface;
+
+    std::lock_guard<std::mutex> lock(m_copyMutex);
+    auto va_res = m_libva->vaSyncSurface(m_dpy, src);
+    if (va_res != VA_STATUS_SUCCESS) {
+        AddMessage(RGY_LOG_ERROR, _T("OpenCL共有用VA面のコピー元同期に失敗しました: %d。\n"), va_res);
+        return va_to_mfx_status(va_res);
+    }
+
+    VACopyObject srcObject = {};
+    srcObject.obj_type = VACopyObjectSurface;
+    srcObject.object.surface_id = src;
+    VACopyObject dstObject = {};
+    dstObject.obj_type = VACopyObjectSurface;
+    dstObject.object.surface_id = dst;
+    VACopyOption option = {};
+    option.bits.va_copy_sync = VA_EXEC_SYNC;
+    option.bits.va_copy_mode = VA_EXEC_MODE_DEFAULT;
+    va_res = m_libva->vaCopy(m_dpy, &dstObject, &srcObject, option);
+    if (va_res != VA_STATUS_SUCCESS) {
+        if (va_res == VA_STATUS_ERROR_UNIMPLEMENTED) {
+            m_openCLCopySurfaceSupported.store(false);
+            AddMessage(RGY_LOG_WARN, _T("vaCopyが未実装のため、従来のOpenCL共有経路へ戻します。\n"));
+            return MFX_ERR_UNSUPPORTED;
+        }
+        AddMessage(RGY_LOG_ERROR, _T("OpenCL共有用VA面へのコピーに失敗しました: %d。\n"), va_res);
+        return va_to_mfx_status(va_res);
+    }
+    va_res = m_libva->vaSyncSurface(m_dpy, dst);
+    if (va_res != VA_STATUS_SUCCESS) {
+        AddMessage(RGY_LOG_ERROR, _T("OpenCL共有用VA面のコピー完了待機に失敗しました: %d。\n"), va_res);
+    }
+    return va_to_mfx_status(va_res);
+#endif
+}
+
+mfxStatus QSVAllocatorVA::DestroyOpenCLCopySurface(VASurfaceID surface)
+{
+    if (surface == VA_INVALID_SURFACE) return MFX_ERR_NONE;
+    std::lock_guard<std::mutex> lock(m_copyMutex);
+    const auto va_res = m_libva->vaDestroySurfaces(m_dpy, &surface, 1);
+    return va_to_mfx_status(va_res);
 }
 
 static mfxStatus GetVAFourcc(mfxU32 fourcc, unsigned int &va_fourcc)

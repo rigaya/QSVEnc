@@ -2320,7 +2320,7 @@ class PipelineTaskVideoQualityMetric : public PipelineTask {
 private:
     std::shared_ptr<RGYOpenCLContext> m_cl;
     RGYFilterSsim *m_videoMetric;
-#if ENABLE_RGY_OPENCL_D3D11
+#if ENABLE_QSV_OPENCL_INPUT_COPY
     std::unique_ptr<QSVOpenCLInputCopy> m_inputCopy;
 #endif
     std::unordered_map<mfxFrameSurface1 *, std::unique_ptr<RGYCLFrameInterop>> m_surfVppInInterop;
@@ -2350,18 +2350,23 @@ public:
         RGYFrameInfo inputFrame;
         mfxFrameSurface1 *surfVppIn = taskSurf->surf().mfx()->surf();
         if (surfVppIn != nullptr) {
-#if ENABLE_RGY_OPENCL_D3D11
-            if (m_memType == D3D11_MEMORY) {
+#if ENABLE_QSV_OPENCL_INPUT_COPY
+            if (useQSVOpenCLInputCopy(m_memType, m_allocator)) {
                 if (!m_inputCopy) m_inputCopy = std::make_unique<QSVOpenCLInputCopy>();
                 const auto copyErr = m_inputCopy->prepare(surfVppIn, m_allocator, m_cl.get(), m_cl->queue(), m_videoMetric->GetFilterParam()->frameIn);
                 if (copyErr != RGY_ERR_NONE) {
-                    PrintMes(RGY_LOG_ERROR, _T("Failed to copy D3D11 input before video metric: %s.\n"), get_err_mes(copyErr));
-                    return copyErr;
+                    if (m_memType == VA_MEMORY && copyErr == RGY_ERR_UNSUPPORTED) {
+                        m_inputCopy.reset();
+                    } else {
+                        PrintMes(RGY_LOG_ERROR, _T("Failed to copy input surface before video metric: %s.\n"), get_err_mes(copyErr));
+                        return copyErr;
+                    }
+                } else {
+                    clFrameInInterop = m_inputCopy->interop();
                 }
-                clFrameInInterop = m_inputCopy->interop();
-            } else
+            }
 #endif
-            {
+            if (!clFrameInInterop) {
                 if (m_surfVppInInterop.count(surfVppIn) == 0) {
                     m_surfVppInInterop[surfVppIn] = getOpenCLFrameInterop(surfVppIn, m_memType, CL_MEM_READ_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_videoMetric->GetFilterParam()->frameIn);
                 }
@@ -2396,7 +2401,7 @@ public:
             PrintMes(RGY_LOG_ERROR, _T("Failed to send frame for video metric calcualtion: %s.\n"), get_err_mes(err));
             if (clFrameInInterop) {
                 const auto releaseErr = clFrameInInterop->release(&inputReleaseEvent);
-#if ENABLE_RGY_OPENCL_D3D11
+#if ENABLE_QSV_OPENCL_INPUT_COPY
                 if (m_inputCopy && releaseErr == RGY_ERR_NONE) m_inputCopy->setReleaseEvent(inputReleaseEvent);
 #endif
                 clFrameInInterop = nullptr;
@@ -2410,7 +2415,7 @@ public:
         }
         if (clFrameInInterop) {
             const auto releaseErr = clFrameInInterop->release(&inputReleaseEvent); // input frameの解放
-#if ENABLE_RGY_OPENCL_D3D11
+#if ENABLE_QSV_OPENCL_INPUT_COPY
             if (m_inputCopy && releaseErr == RGY_ERR_NONE) m_inputCopy->setReleaseEvent(inputReleaseEvent);
 #endif
             clFrameInInterop = nullptr;
@@ -2832,7 +2837,7 @@ protected:
     std::shared_ptr<RGYOpenCLContext> m_cl;
     std::vector<std::unique_ptr<RGYFilter>>& m_vpFilters;
     std::unordered_map<mfxFrameSurface1 *, std::unique_ptr<RGYCLFrameInterop>> m_surfVppInInterop;
-#if ENABLE_RGY_OPENCL_D3D11
+#if ENABLE_QSV_OPENCL_INPUT_COPY
     // デコーダーの参照面をOpenCLへ渡さず、同時に処理する入力数だけ専用共有面を保持する。
     std::array<std::unique_ptr<QSVOpenCLInputCopy>, OPENCL_ACQUIRE_BATCH_SIZE> m_inputCopies;
 #endif
@@ -2877,15 +2882,18 @@ protected:
     RGY_ERR prepareInputInterop(mfxFrameSurface1 *surface, RGYOpenCLQueue& queue, const RGYFrameInfo& frameInfo,
         const size_t slot, RGYCLFrameInterop *&interop) {
         interop = nullptr;
-#if ENABLE_RGY_OPENCL_D3D11
-        if (m_memType == D3D11_MEMORY) {
+#if ENABLE_QSV_OPENCL_INPUT_COPY
+        if (useQSVOpenCLInputCopy(m_memType, m_allocator)) {
             if (slot >= m_inputCopies.size()) return RGY_ERR_INVALID_PARAM;
             auto& copy = m_inputCopies[slot];
             if (!copy) copy = std::make_unique<QSVOpenCLInputCopy>();
             const auto err = copy->prepare(surface, m_allocator, m_cl.get(), queue, frameInfo);
-            if (err != RGY_ERR_NONE) return err;
-            interop = copy->interop();
-            return interop ? RGY_ERR_NONE : RGY_ERR_NULL_PTR;
+            if (err == RGY_ERR_NONE) {
+                interop = copy->interop();
+                return interop ? RGY_ERR_NONE : RGY_ERR_NULL_PTR;
+            }
+            if (m_memType != VA_MEMORY || err != RGY_ERR_UNSUPPORTED) return err;
+            copy.reset();
         }
 #endif
         auto& input = m_surfVppInInterop[surface];
@@ -2896,7 +2904,7 @@ protected:
         return interop ? RGY_ERR_NONE : RGY_ERR_NULL_PTR;
     }
     void rememberInputRelease(RGYCLFrameInterop *interop, const RGYOpenCLEvent& event) {
-#if ENABLE_RGY_OPENCL_D3D11
+#if ENABLE_QSV_OPENCL_INPUT_COPY
         for (auto& copy : m_inputCopies) {
             if (copy && copy->interop() == interop) {
                 copy->setReleaseEvent(event);
@@ -2918,7 +2926,7 @@ protected:
     }
     void clearInputInterop() {
         m_surfVppInInterop.clear();
-#if ENABLE_RGY_OPENCL_D3D11
+#if ENABLE_QSV_OPENCL_INPUT_COPY
         for (auto& copy : m_inputCopies) copy.reset();
 #endif
     }

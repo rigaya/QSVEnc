@@ -23,6 +23,8 @@ or https://software.intel.com/en-us/media-client-solutions-support.
 #if defined(LIBVA_SUPPORT)
 
 #include <stdlib.h>
+#include <atomic>
+#include <mutex>
 #include <va/va.h>
 #include <va/va_drmcommon.h>
 
@@ -88,6 +90,13 @@ public:
     virtual mfxStatus Init(mfxAllocatorParams *pParams, std::shared_ptr<RGYLog> pQSVLog) override;
     virtual mfxStatus Close() override;
 
+    bool IsOpenCLCopySurfaceSupported() const;
+    // デコーダー参照面をOpenCLへ直接渡さないための専用VA面を作成する。
+    mfxStatus CreateOpenCLCopySurface(const mfxFrameInfo& info, VASurfaceID *surface);
+    // 入力面を専用VA面へ同期コピーする。
+    mfxStatus CopyFrameSurfaceToSurface(mfxMemId mid, VASurfaceID dst);
+    mfxStatus DestroyOpenCLCopySurface(VASurfaceID surface);
+
 protected:
     DISALLOW_COPY_AND_ASSIGN(QSVAllocatorVA);
 
@@ -104,6 +113,8 @@ protected:
     MfxLoader::VA_Proxy * m_libva;
     mfxU32 m_export_mode;
     QSVAllocatorParamsVA::Exporter* m_exporter;
+    std::atomic<bool> m_openCLCopySurfaceSupported;
+    std::mutex m_copyMutex;
 };
 
 #endif //#if defined(LIBVA_SUPPORT)

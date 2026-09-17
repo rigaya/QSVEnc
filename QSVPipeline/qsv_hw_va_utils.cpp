@@ -56,6 +56,11 @@ void * SimpleLoader::GetFunction(const char * name)
     return fn_ptr;
 }
 
+void * SimpleLoader::GetFunctionOptional(const char * name)
+{
+    return dlsym(so_handle, name);
+}
+
 SimpleLoader::~SimpleLoader()
 {
     dlclose(so_handle);
@@ -69,6 +74,7 @@ SimpleLoader::~SimpleLoader()
 
 // Following macro applied on vaInitialize will give:  vaInitialize((vaInitialize_type)lib.GetFunction("vaInitialize"))
 #define SIMPLE_LOADER_FUNCTION(name) name( (SIMPLE_LOADER_DECORATOR(name, type)) lib.GetFunction(SIMPLE_LOADER_STRINGIFY(name)) )
+#define SIMPLE_LOADER_OPTIONAL_FUNCTION(name) name( (SIMPLE_LOADER_DECORATOR(name, type)) lib.GetFunctionOptional(SIMPLE_LOADER_STRINGIFY(name)) )
 
 
 #if defined(LIBVA_SUPPORT)
@@ -87,6 +93,9 @@ VA_Proxy::VA_Proxy()
     , SIMPLE_LOADER_FUNCTION(vaMapBuffer)
     , SIMPLE_LOADER_FUNCTION(vaUnmapBuffer)
     , SIMPLE_LOADER_FUNCTION(vaSyncSurface)
+#if VA_CHECK_VERSION(1, 10, 0)
+    , SIMPLE_LOADER_OPTIONAL_FUNCTION(vaCopy)
+#endif
     , SIMPLE_LOADER_FUNCTION(vaDeriveImage)
     , SIMPLE_LOADER_FUNCTION(vaDestroyImage)
     , SIMPLE_LOADER_FUNCTION(vaGetLibFunc)
@@ -246,6 +255,7 @@ XLib_Proxy::~XLib_Proxy()
 #endif
 
 #undef SIMPLE_LOADER_FUNCTION
+#undef SIMPLE_LOADER_OPTIONAL_FUNCTION
 
 } // MfxLoader
 

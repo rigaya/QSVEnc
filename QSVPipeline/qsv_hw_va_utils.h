@@ -95,6 +95,7 @@ namespace MfxLoader
         SimpleLoader(const char * name);
 
         void * GetFunction(const char * name);
+        void * GetFunctionOptional(const char * name);
 
         ~SimpleLoader();
 
@@ -124,6 +125,9 @@ namespace MfxLoader
         typedef VAStatus (*vaMapBuffer_type)(VADisplay, VABufferID, void **pbuf);
         typedef VAStatus (*vaUnmapBuffer_type)(VADisplay, VABufferID);
         typedef VAStatus (*vaSyncSurface_type)(VADisplay, VASurfaceID);
+#if VA_CHECK_VERSION(1, 10, 0)
+        typedef VAStatus (*vaCopy_type)(VADisplay, VACopyObject *, VACopyObject *, VACopyOption);
+#endif
         typedef VAStatus (*vaDeriveImage_type)(VADisplay, VASurfaceID, VAImage *);
         typedef VAStatus (*vaDestroyImage_type)(VADisplay, VAImageID);
         typedef VAStatus (*vaGetLibFunc_type)(VADisplay, const char *func);
@@ -171,6 +175,9 @@ namespace MfxLoader
         const vaMapBuffer_type              vaMapBuffer;
         const vaUnmapBuffer_type            vaUnmapBuffer;
         const vaSyncSurface_type            vaSyncSurface;
+#if VA_CHECK_VERSION(1, 10, 0)
+        const vaCopy_type                   vaCopy;
+#endif
         const vaDeriveImage_type            vaDeriveImage;
         const vaDestroyImage_type           vaDestroyImage;
         const vaGetLibFunc_type             vaGetLibFunc;

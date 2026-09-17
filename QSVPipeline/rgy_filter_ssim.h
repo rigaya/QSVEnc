@@ -40,7 +40,7 @@
 class QSVMfxDec;
 class PipelineTaskMFXDecode;
 struct RGYBitstream;
-#if (defined(_WIN32) || defined(_WIN64)) && ENABLE_RGY_OPENCL_D3D11
+#if ENABLE_RGY_OPENCL_D3D11 || ENABLE_RGY_OPENCL_VA
 class QSVOpenCLInputCopy;
 #endif
 #endif
@@ -141,7 +141,7 @@ protected:
     RGYQueueMPMP<RGYBitstream> m_encBitstreamUnused;
     std::unique_ptr<QSVMfxDec> m_mfxDEC;
     std::unique_ptr<PipelineTaskMFXDecode> m_taskDec;
-#if (defined(_WIN32) || defined(_WIN64)) && ENABLE_RGY_OPENCL_D3D11
+#if ENABLE_RGY_OPENCL_D3D11 || ENABLE_RGY_OPENCL_VA
     std::unique_ptr<QSVOpenCLInputCopy> m_inputCopy;
 #endif
     std::unordered_map<mfxFrameSurface1 *, std::unique_ptr<RGYCLFrameInterop>> m_surfVppInInterop;

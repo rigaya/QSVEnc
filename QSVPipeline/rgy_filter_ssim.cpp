@@ -106,7 +106,7 @@ RGYFilterSsim::RGYFilterSsim(shared_ptr<RGYOpenCLContext> context) :
     m_encBitstreamUnused(),
     m_mfxDEC(),
     m_taskDec(),
-#if (defined(_WIN32) || defined(_WIN64)) && ENABLE_RGY_OPENCL_D3D11
+#if ENABLE_QSV_OPENCL_INPUT_COPY
     m_inputCopy(),
 #endif
     m_surfVppInInterop(),
@@ -512,7 +512,7 @@ RGY_ERR RGYFilterSsim::init_cl_resources() {
 
 void RGYFilterSsim::close_cl_resources() {
 #if ENCODER_QSV
-#if (defined(_WIN32) || defined(_WIN64)) && ENABLE_RGY_OPENCL_D3D11
+#if ENABLE_QSV_OPENCL_INPUT_COPY
     // interopが参照するqueueとデコーダーを破棄する前に専用共有面を解放する。
     m_inputCopy.reset();
 #endif
@@ -948,18 +948,23 @@ RGY_ERR RGYFilterSsim::compare_frames() {
             AddMessage(RGY_LOG_ERROR, _T("Failed to get mfx surface pointer.\n"));
             return RGY_ERR_NULL_PTR;
         }
-#if (defined(_WIN32) || defined(_WIN64)) && ENABLE_RGY_OPENCL_D3D11
-        if (m_mfxDEC->memType() == D3D11_MEMORY) {
+#if ENABLE_QSV_OPENCL_INPUT_COPY
+        if (useQSVOpenCLInputCopy(m_mfxDEC->memType(), m_mfxDEC->allocator())) {
             if (!m_inputCopy) m_inputCopy = std::make_unique<QSVOpenCLInputCopy>();
             const auto copyErr = m_inputCopy->prepare(surfVppIn, m_mfxDEC->allocator(), m_cl.get(), m_queueCrop, m_cropDec->GetFilterParam()->frameIn);
             if (copyErr != RGY_ERR_NONE) {
-                AddMessage(RGY_LOG_ERROR, _T("画質評価用デコード面のOpenCL共有用コピーに失敗しました: %s。\n"), get_err_mes(copyErr));
-                return copyErr;
+                if (m_mfxDEC->memType() == VA_MEMORY && copyErr == RGY_ERR_UNSUPPORTED) {
+                    m_inputCopy.reset();
+                } else {
+                    AddMessage(RGY_LOG_ERROR, _T("画質評価用デコード面のOpenCL共有用コピーに失敗しました: %s。\n"), get_err_mes(copyErr));
+                    return copyErr;
+                }
+            } else {
+                clFrameInInterop = m_inputCopy->interop();
             }
-            clFrameInInterop = m_inputCopy->interop();
-        } else
+        }
 #endif
-        {
+        if (!clFrameInInterop) {
             if (m_surfVppInInterop.count(surfVppIn) == 0) {
                 m_surfVppInInterop[surfVppIn] = getOpenCLFrameInterop(surfVppIn, m_mfxDEC->memType(), CL_MEM_READ_ONLY, m_mfxDEC->allocator(), m_cl.get(), m_queueCrop, m_cropDec->GetFilterParam()->frameIn);
             }
@@ -984,7 +989,7 @@ RGY_ERR RGYFilterSsim::compare_frames() {
             if (releaseErr != RGY_ERR_NONE) {
                 return releaseErr;
             }
-#if (defined(_WIN32) || defined(_WIN64)) && ENABLE_RGY_OPENCL_D3D11
+#if ENABLE_QSV_OPENCL_INPUT_COPY
             if (m_inputCopy && m_inputCopy->interop() == clFrameInInterop) {
                 m_inputCopy->setReleaseEvent(event);
             }
