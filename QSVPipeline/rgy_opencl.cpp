@@ -28,6 +28,7 @@
 
 #include "rgy_tchar.h"
 #include <algorithm>
+#include <cstdio>
 #include <vector>
 #include <atomic>
 #include <fstream>
@@ -74,6 +75,18 @@
 #define CL_DEVICE_MAX_WORK_GROUP_SIZE_AMD               0x4031
 #define CL_DEVICE_PREFERRED_CONSTANT_BUFFER_SIZE_AMD    0x4033
 #define CL_DEVICE_PCIE_ID_AMD                           0x4034
+#endif
+
+// cl_amd_device_attribute_query defines the topology layout in AMD's OpenCL
+// headers, but the Khronos OpenCL-Headers only provide the query constant.
+#if ENCODER_VCEENC || CLFILTERS_AUF
+union RGYCLDeviceTopologyAMD { // cl_device_topology_amd
+    struct { cl_uint type; cl_uint data[5]; } raw;
+    struct { cl_uint type; cl_uchar unused[17]; cl_uchar bus; cl_uchar device; cl_uchar function; } pcie;
+};
+#ifndef CL_DEVICE_TOPOLOGY_TYPE_PCIE_AMD
+#define CL_DEVICE_TOPOLOGY_TYPE_PCIE_AMD (1)
+#endif
 #endif
 
 
@@ -819,7 +832,25 @@ RGYOpenCLDeviceInfo RGYOpenCLDevice::info() const {
         clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_INTEGRATED_MEMORY_NV, &info.integrated_mem_nv);
 #endif
 #if ENCODER_VCEENC || CLFILTERS_AUF
-        clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_TOPOLOGY_AMD, &info.topology_amd);
+        RGYCLDeviceTopologyAMD topology = {};
+        if (clGetDeviceInfo(m_device, CL_DEVICE_TOPOLOGY_AMD, sizeof(topology), &topology, nullptr) == CL_SUCCESS
+            && topology.raw.type == CL_DEVICE_TOPOLOGY_TYPE_PCIE_AMD) {
+            char pciBusId[32] = {};
+            std::snprintf(pciBusId, sizeof(pciBusId), "0000:%02x:%02x.%x",
+                (unsigned char)topology.pcie.bus, (unsigned char)topology.pcie.device, (unsigned char)topology.pcie.function);
+            info.topology_amd = pciBusId;
+        }
+#ifdef CL_DEVICE_PCI_BUS_INFO_KHR
+        if (info.topology_amd.empty()) {
+            cl_device_pci_bus_info_khr pciBusInfo = {};
+            if (clGetDeviceInfo(m_device, CL_DEVICE_PCI_BUS_INFO_KHR, sizeof(pciBusInfo), &pciBusInfo, nullptr) == CL_SUCCESS) {
+                char pciBusId[32] = {};
+                std::snprintf(pciBusId, sizeof(pciBusId), "%04x:%02x:%02x.%x",
+                    pciBusInfo.pci_domain, pciBusInfo.pci_bus, pciBusInfo.pci_device, pciBusInfo.pci_function);
+                info.topology_amd = pciBusId;
+            }
+        }
+#endif
         clGetInfo(clGetDeviceInfo, m_device, CL_DEVICE_BOARD_NAME_AMD, &info.board_name_amd);
         info.board_name_amd = str_replace(info.board_name_amd, "(TM)", "");
         info.board_name_amd = str_replace(info.board_name_amd, "(R)", "");
@@ -3478,7 +3509,7 @@ RGYOpenCL::~RGYOpenCL() {
 
 std::vector<shared_ptr<RGYOpenCLPlatform>> RGYOpenCL::getPlatforms(const char *vendor) {
     std::vector<shared_ptr<RGYOpenCLPlatform>> platform_list;
-    if (RGYOpenCL::openCLCrush) {
+    if (RGYOpenCL::openCLCrush || RGYOpenCL::openCLHandle == nullptr) {
         return platform_list;
     }
 
@@ -3488,7 +3519,8 @@ std::vector<shared_ptr<RGYOpenCLPlatform>> RGYOpenCL::getPlatforms(const char *v
     //OpenCLのドライバは場合によってはクラッシュする可能性がある
     try {
         if (CL_SUCCESS != (ret = clGetPlatformIDs(0, NULL, &platform_count))) {
-            CL_LOG(RGY_LOG_ERROR, _T("Error (clGetPlatformIDs): %s\n"), cl_errmes(ret));
+            // ICD が1つもない環境 (OpenCL なしで動かす VA-API など) では -1001 が返る。異常ではないので ERROR にしない
+            CL_LOG((ret == RGY_CL_PLATFORM_NOT_FOUND_KHR) ? RGY_LOG_DEBUG : RGY_LOG_ERROR, _T("Error (clGetPlatformIDs): %s\n"), cl_errmes(ret));
             return platform_list;
         }
     } catch (...) {

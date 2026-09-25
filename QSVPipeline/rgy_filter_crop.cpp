@@ -895,6 +895,37 @@ RGY_ERR RGYFilterCspCrop::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
         return RGY_ERR_INVALID_PARAM;
     }
 
+    // CPUからGPUへ転送しながら色形式も変換する経路はないため、先に入力形式のまま全体を転送し、GPU上でcrop/変換する。
+    // VA-APIの解像度変更追従では、バイパス解除後にSYSフレームがこの先頭フィルタへ入る。
+    if (getMemcpyKind(pCropParam->frameIn.mem_type, pCropParam->frameOut.mem_type) == RGYCLMemcpyH2D
+        && pCropParam->frameIn.csp != pCropParam->frameOut.csp) {
+        auto uploadedFrame = pCropParam->frameIn;
+        uploadedFrame.mem_type = pCropParam->frameOut.mem_type;
+        auto uploadFilter = std::make_unique<RGYFilterCspCrop>(m_cl);
+        auto uploadParam = std::make_shared<RGYFilterParamCrop>();
+        uploadParam->frameIn = pCropParam->frameIn;
+        uploadParam->frameOut = uploadedFrame;
+        uploadParam->baseFps = pCropParam->baseFps;
+        uploadParam->matrix = pCropParam->matrix;
+        uploadParam->colorrange = pCropParam->colorrange;
+        uploadParam->chroma420Interpolate = pCropParam->chroma420Interpolate;
+        uploadParam->crop = initCrop();
+        uploadParam->bOutOverwrite = pCropParam->bOutOverwrite;
+        auto sts = uploadFilter->init(uploadParam, pPrintMes);
+        if (sts != RGY_ERR_NONE) return sts;
+        m_cropChain.push_back(std::move(uploadFilter));
+
+        auto convertFilter = std::make_unique<RGYFilterCspCrop>(m_cl);
+        auto convertParam = std::make_shared<RGYFilterParamCrop>(*pCropParam);
+        convertParam->frameIn = uploadParam->frameOut;
+        sts = convertFilter->init(convertParam, pPrintMes);
+        if (sts != RGY_ERR_NONE) return sts;
+        pCropParam->frameOut = convertParam->frameOut;
+        m_cropChain.push_back(std::move(convertFilter));
+        m_param = pCropParam;
+        return RGY_ERR_NONE;
+    }
+
     if (!cropAlignedToCsp(pCropParam->crop, pCropParam->frameIn.csp)) {
         if (interlaced(pCropParam->frameIn)
             || !cspCanUseYUV444IntermediateForCrop(pCropParam->frameIn.csp)

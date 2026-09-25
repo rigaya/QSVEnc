@@ -418,7 +418,13 @@ class RGYOpenCLQueue;
 typedef std::unique_ptr<std::remove_pointer<cl_context>::type, decltype(clReleaseContext)> unique_context;
 typedef std::unique_ptr<std::remove_pointer<cl_command_queue>::type, decltype(clReleaseCommandQueue)> unique_queue;
 
+// ICD loader が platform を見つけられないときの戻り値 (cl_khr_icd)。RGY_ERR には対応する値がないため、ここで文字列にする
+static const cl_int RGY_CL_PLATFORM_NOT_FOUND_KHR = -1001;
+
 static const TCHAR *cl_errmes(cl_int err) {
+    if (err == RGY_CL_PLATFORM_NOT_FOUND_KHR) {
+        return _T("no OpenCL platform found (CL_PLATFORM_NOT_FOUND_KHR).");
+    }
     return get_err_mes(err_cl_to_rgy(err));
 }
 
@@ -490,6 +496,16 @@ public:
 
     RGY_ERR wait() const {
         return err_cl_to_rgy(clWaitForEvents(1, event_.get()));
+    }
+    RGY_ERR isComplete(bool& complete) const {
+        complete = true;
+        if (event_ == nullptr || *event_ == nullptr) return RGY_ERR_NONE;
+        cl_int status = CL_QUEUED;
+        const auto err = clGetEventInfo(*event_, CL_EVENT_COMMAND_EXECUTION_STATUS, sizeof(status), &status, nullptr);
+        if (err != CL_SUCCESS) return err_cl_to_rgy(err);
+        if (status < 0) return RGY_ERR_DEVICE_FAILED;
+        complete = status == CL_COMPLETE;
+        return RGY_ERR_NONE;
     }
     void reset() {
         if (*event_ != nullptr) {
