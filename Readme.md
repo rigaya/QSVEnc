@@ -121,7 +121,7 @@ This depends on the version of QSVEnc, the generation of the GPU, and also the G
 | AlderLake   | Gen12    | [i9 12900K](./GPUFeatures/QSVEnc_ADL_i9_12900K_Win.txt) [i3 N305](./GPUFeatures/QSVEnc_ADL_i3_N305_Win.txt) | [i9 12900K](./GPUFeatures/QSVEnc_ADL_i9_12900K_Ubuntu2204.txt) [i3 N305](./GPUFeatures/QSVEnc_ADL_i3_N305_Ubuntu2404.txt) |
 | ArrowLake   | Gen12.74 | [u5 245K](./GPUFeatures/QSVEnc_ARL_u5_245K_Win.txt) |  |
 | Alchemist   | DG2(ACM) | [Arc A380](./GPUFeatures/QSVEnc_DG2_Arc_A380_Win.txt)   | [Arc A380](./GPUFeatures/QSVEnc_DG2_Arc_A380_Ubuntu2204.txt) [Arc A310](./GPUFeatures/QSVEnc_DG2_Arc_A310_Ubuntu2404.txt)  |
-| Battlemage  | BMG      | [Arc A580](./GPUFeatures/QSVEnc_BMG_Arc_A580_Win.txt)   |  |
+| Battlemage  | BMG      | [Arc B580](./GPUFeatures/QSVEnc_BMG_Arc_B580_Win.txt)   |  |
 
 ## Supported HW Encoder (@ Windows OS)
 
