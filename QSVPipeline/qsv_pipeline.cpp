@@ -1691,22 +1691,28 @@ RGY_ERR CQSVPipeline::InitOpenCL(const bool enableOpenCL, const int openCLBuildT
     tstring clErrMessage;
     for (auto& platform : platforms) {
         if (m_device->memType() == D3D9_MEMORY && ENABLE_RGY_OPENCL_D3D9) {
-            if (platform->createDeviceListD3D9(CL_DEVICE_TYPE_GPU, (void *)hdl) != CL_SUCCESS || platform->devs().size() == 0) {
-                auto mes = strsprintf(_T("Failed to find d3d9 device in platform %s.\n"), char_to_tstring(platform->info().name).c_str());
+            const auto err = platform->createDeviceListD3D9(CL_DEVICE_TYPE_GPU, (void *)hdl, true);
+            if (err != RGY_ERR_NONE || platform->devs().size() == 0) {
+                auto mes = strsprintf(_T("Failed to find d3d9 device in platform %s: %s (code %d, devices %d).\n"),
+                    char_to_tstring(platform->info().name).c_str(), err == RGY_ERR_NONE ? _T("no device") : get_err_mes(err), (int)err, (int)platform->devs().size());
                 PrintMes(RGY_LOG_DEBUG, mes.c_str());
                 clErrMessage += mes;
                 continue;
             }
         } else if (m_device->memType() == D3D11_MEMORY && ENABLE_RGY_OPENCL_D3D11) {
-            if (platform->createDeviceListD3D11(CL_DEVICE_TYPE_GPU, (void *)hdl) != CL_SUCCESS || platform->devs().size() == 0) {
-                auto mes = strsprintf(_T("Failed to find d3d11 device in platform %s.\n"), char_to_tstring(platform->info().name).c_str());
+            const auto err = platform->createDeviceListD3D11(CL_DEVICE_TYPE_GPU, (void *)hdl, true);
+            if (err != RGY_ERR_NONE || platform->devs().size() == 0) {
+                auto mes = strsprintf(_T("Failed to find d3d11 device in platform %s: %s (code %d, devices %d).\n"),
+                    char_to_tstring(platform->info().name).c_str(), err == RGY_ERR_NONE ? _T("no device") : get_err_mes(err), (int)err, (int)platform->devs().size());
                 PrintMes(RGY_LOG_DEBUG, mes.c_str());
                 clErrMessage += mes;
                 continue;
             }
         } else if (m_device->memType() == VA_MEMORY && ENABLE_RGY_OPENCL_VA) {
-            if (platform->createDeviceListVA(CL_DEVICE_TYPE_GPU, (void *)hdl) != CL_SUCCESS || platform->devs().size() == 0) {
-                auto mes = strsprintf(_T("Failed to find va device in platform %s.\n"), char_to_tstring(platform->info().name).c_str());
+            const auto err = platform->createDeviceListVA(CL_DEVICE_TYPE_GPU, (void *)hdl, true);
+            if (err != RGY_ERR_NONE || platform->devs().size() == 0) {
+                auto mes = strsprintf(_T("Failed to find va device in platform %s: %s (code %d, devices %d).\n"),
+                    char_to_tstring(platform->info().name).c_str(), err == RGY_ERR_NONE ? _T("no device") : get_err_mes(err), (int)err, (int)platform->devs().size());
                 PrintMes(RGY_LOG_DEBUG, mes.c_str());
                 clErrMessage += mes;
                 continue;
