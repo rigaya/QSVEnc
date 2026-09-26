@@ -752,6 +752,8 @@ enum RGYCLFrameInteropType {
     RGY_INTEROP_VULKAN,
 };
 
+class RGYOpenCLPlatform;
+
 struct RGYCLFrameInterop : public RGYCLFrame {
 protected:
     RGYCLFrameInteropType m_interop;
@@ -759,9 +761,11 @@ protected:
     std::recursive_mutex& m_interop_mutex;
     std::shared_ptr<RGYLog> m_log;
     bool m_acquired;
+    // platform の寿命を共有フレームの解放まで保持する。
+    shared_ptr<RGYOpenCLPlatform> m_platform;
 public:
-    RGYCLFrameInterop(const RGYFrameInfo &info, cl_mem_flags flags, RGYCLFrameInteropType interop, RGYOpenCLQueue& interop_queue, std::recursive_mutex& interop_mutex, shared_ptr<RGYLog> log)
-        : RGYCLFrame(info, flags), m_interop(interop), m_interop_queue(interop_queue), m_interop_mutex(interop_mutex), m_log(log), m_acquired(false) {
+    RGYCLFrameInterop(const RGYFrameInfo &info, cl_mem_flags flags, RGYCLFrameInteropType interop, RGYOpenCLQueue& interop_queue, std::recursive_mutex& interop_mutex, shared_ptr<RGYLog> log, shared_ptr<RGYOpenCLPlatform> platform)
+        : RGYCLFrame(info, flags), m_interop(interop), m_interop_queue(interop_queue), m_interop_mutex(interop_mutex), m_log(log), m_acquired(false), m_platform(std::move(platform)) {
     };
     RGY_ERR acquire(RGYOpenCLQueue &queue, RGYOpenCLEvent *event = nullptr);
     static RGY_ERR acquire(const std::vector<RGYCLFrameInterop *>& frames, RGYOpenCLQueue& queue, RGYOpenCLEvent *event = nullptr);
@@ -902,6 +906,33 @@ enum class RGYOpenCLSubGroupSupport {
     STD22,     // OpenCL 2.2 core
 };
 
+struct RGYOpenCLPlatformExtFuncs {
+#if ENABLE_RGY_OPENCL_D3D9
+    decltype(::f_clGetDeviceIDsFromDX9MediaAdapterKHR) clGetDeviceIDsFromDX9MediaAdapterKHR = nullptr;
+    decltype(::f_clCreateFromDX9MediaSurfaceKHR) clCreateFromDX9MediaSurfaceKHR = nullptr;
+    decltype(::f_clEnqueueAcquireDX9MediaSurfacesKHR) clEnqueueAcquireDX9MediaSurfacesKHR = nullptr;
+    decltype(::f_clEnqueueReleaseDX9MediaSurfacesKHR) clEnqueueReleaseDX9MediaSurfacesKHR = nullptr;
+    decltype(::f_clGetDeviceIDsFromDX9INTEL) clGetDeviceIDsFromDX9INTEL = nullptr;
+    decltype(::f_clCreateFromDX9MediaSurfaceINTEL) clCreateFromDX9MediaSurfaceINTEL = nullptr;
+    decltype(::f_clEnqueueAcquireDX9ObjectsINTEL) clEnqueueAcquireDX9ObjectsINTEL = nullptr;
+    decltype(::f_clEnqueueReleaseDX9ObjectsINTEL) clEnqueueReleaseDX9ObjectsINTEL = nullptr;
+#endif
+#if ENABLE_RGY_OPENCL_D3D11
+    decltype(::f_clGetDeviceIDsFromD3D11KHR) clGetDeviceIDsFromD3D11KHR = nullptr;
+    decltype(::f_clCreateFromD3D11BufferKHR) clCreateFromD3D11BufferKHR = nullptr;
+    decltype(::f_clCreateFromD3D11Texture2DKHR) clCreateFromD3D11Texture2DKHR = nullptr;
+    decltype(::f_clCreateFromD3D11Texture3DKHR) clCreateFromD3D11Texture3DKHR = nullptr;
+    decltype(::f_clEnqueueAcquireD3D11ObjectsKHR) clEnqueueAcquireD3D11ObjectsKHR = nullptr;
+    decltype(::f_clEnqueueReleaseD3D11ObjectsKHR) clEnqueueReleaseD3D11ObjectsKHR = nullptr;
+#endif
+#if ENABLE_RGY_OPENCL_VA
+    decltype(::f_clGetDeviceIDsFromVA_APIMediaAdapterINTEL) clGetDeviceIDsFromVA_APIMediaAdapterINTEL = nullptr;
+    decltype(::f_clCreateFromVA_APIMediaSurfaceINTEL) clCreateFromVA_APIMediaSurfaceINTEL = nullptr;
+    decltype(::f_clEnqueueAcquireVA_APIMediaSurfacesINTEL) clEnqueueAcquireVA_APIMediaSurfacesINTEL = nullptr;
+    decltype(::f_clEnqueueReleaseVA_APIMediaSurfacesINTEL) clEnqueueReleaseVA_APIMediaSurfacesINTEL = nullptr;
+#endif
+};
+
 class RGYOpenCLPlatform {
 public:
     RGYOpenCLPlatform(cl_platform_id platform, shared_ptr<RGYLog> pLog);
@@ -911,6 +942,7 @@ public:
     RGY_ERR createDeviceListD3D11(cl_device_type device_type, void *d3d11dev, const bool tryMode = false);
     RGY_ERR createDeviceListVA(cl_device_type device_type, void *devVA, const bool tryMode = false);
     RGY_ERR loadSubGroupKHR();
+    const RGYOpenCLPlatformExtFuncs& ext() const { return m_ext; }
     RGYOpenCLSubGroupSupport checkSubGroupSupport(const cl_device_id devid);
     cl_platform_id get() const { return m_platform; };
     const void *d3d9dev() const { return m_d3d9dev; };
@@ -929,6 +961,7 @@ public:
 protected:
 
     cl_platform_id m_platform;
+    RGYOpenCLPlatformExtFuncs m_ext;
     void *m_d3d9dev;
     void *m_d3d11dev;
     void *m_vadev;
