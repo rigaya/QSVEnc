@@ -212,6 +212,12 @@ mfxStatus QSVAllocatorVA::CopyFrameSurfaceToSurface(mfxMemId mid, VASurfaceID ds
     return MFX_ERR_UNSUPPORTED;
 #else
     if (!m_openCLCopySurfaceSupported.load() || m_libva->vaCopy == nullptr) return MFX_ERR_UNSUPPORTED;
+    // UNSUPPORTED による旧経路への切り替えは、面の作成不可または未検証の vaCopy 失敗に限定する。
+    // 同期失敗や検証済みコピーの障害を UNSUPPORTED にすると、実行時障害まで隠してしまう。
+    const auto runtimeError = [](VAStatus status) {
+        const auto mapped = va_to_mfx_status(status);
+        return mapped == MFX_ERR_UNSUPPORTED ? MFX_ERR_DEVICE_FAILED : mapped;
+    };
     const auto vaapi_mid = reinterpret_cast<vaapiMemId *>(mid);
     if (vaapi_mid->m_surface == nullptr || *vaapi_mid->m_surface == VA_INVALID_SURFACE) {
         return MFX_ERR_INVALID_HANDLE;
@@ -219,10 +225,12 @@ mfxStatus QSVAllocatorVA::CopyFrameSurfaceToSurface(mfxMemId mid, VASurfaceID ds
     const auto src = *vaapi_mid->m_surface;
 
     std::lock_guard<std::mutex> lock(m_copyMutex);
+    // 並行呼び出しが初回失敗を検出済みなら、再試行や重複した警告を避ける。
+    if (!m_openCLCopySurfaceSupported.load()) return MFX_ERR_UNSUPPORTED;
     auto va_res = m_libva->vaSyncSurface(m_dpy, src);
     if (va_res != VA_STATUS_SUCCESS) {
         AddMessage(RGY_LOG_ERROR, _T("OpenCL共有用VA面のコピー元同期に失敗しました: %d。\n"), va_res);
-        return va_to_mfx_status(va_res);
+        return runtimeError(va_res);
     }
 
     VACopyObject srcObject = {};
@@ -236,19 +244,22 @@ mfxStatus QSVAllocatorVA::CopyFrameSurfaceToSurface(mfxMemId mid, VASurfaceID ds
     option.bits.va_copy_mode = VA_EXEC_MODE_DEFAULT;
     va_res = m_libva->vaCopy(m_dpy, &dstObject, &srcObject, option);
     if (va_res != VA_STATUS_SUCCESS) {
-        if (va_res == VA_STATUS_ERROR_UNIMPLEMENTED) {
+        // 未検証のドライバでは、エラー種別によらず従来経路へ戻す。
+        // 一度成功した後の失敗は実行時障害として扱い、隠さない。
+        if (!m_openCLCopySurfaceVerified.load()) {
             m_openCLCopySurfaceSupported.store(false);
-            AddMessage(RGY_LOG_WARN, _T("vaCopyが未実装のため、従来のOpenCL共有経路へ戻します。\n"));
+            AddMessage(RGY_LOG_WARN, _T("vaCopyが使用できないため (エラー %d)、従来のOpenCL共有経路へ戻します。\n"), va_res);
             return MFX_ERR_UNSUPPORTED;
         }
         AddMessage(RGY_LOG_ERROR, _T("OpenCL共有用VA面へのコピーに失敗しました: %d。\n"), va_res);
-        return va_to_mfx_status(va_res);
+        return runtimeError(va_res);
     }
+    m_openCLCopySurfaceVerified.store(true);
     va_res = m_libva->vaSyncSurface(m_dpy, dst);
     if (va_res != VA_STATUS_SUCCESS) {
         AddMessage(RGY_LOG_ERROR, _T("OpenCL共有用VA面のコピー完了待機に失敗しました: %d。\n"), va_res);
     }
-    return va_to_mfx_status(va_res);
+    return runtimeError(va_res);
 #endif
 }
 

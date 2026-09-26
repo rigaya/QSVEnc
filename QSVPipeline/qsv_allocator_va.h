@@ -114,6 +114,7 @@ protected:
     mfxU32 m_export_mode;
     QSVAllocatorParamsVA::Exporter* m_exporter;
     std::atomic<bool> m_openCLCopySurfaceSupported;
+    std::atomic<bool> m_openCLCopySurfaceVerified{ false };
     std::mutex m_copyMutex;
 };
 
