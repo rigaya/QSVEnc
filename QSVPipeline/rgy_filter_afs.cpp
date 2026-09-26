@@ -173,12 +173,19 @@ RGY_ERR afsSourceCache::copyFrame(RGYCLFrame *pOut, int srcFrame, RGYOpenCLQueue
 
 void afsSourceCache::clear() {
     for (int i = 0; i < (int)m_sourceArray.size(); i++) {
-        m_sourceArray[i].y->clear();
+        if (m_sourceArray[i].y) {
+            m_sourceArray[i].y->clear();
+        }
+        // YUV444 では色差も y に保持するため、フィールド別 cb/cr は未割り当て。
         for (const auto &cache : m_sourceArray[i].cb) {
-            cache->clear();
+            if (cache) {
+                cache->clear();
+            }
         }
         for (const auto &cache : m_sourceArray[i].cr) {
-            cache->clear();
+            if (cache) {
+                cache->clear();
+            }
         }
     }
     m_nFramesInput = 0;
