@@ -109,7 +109,7 @@ RGY_ERR afsSourceCache::add(const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &que
         RGYFrameInfo frameU = getPlane(pInputFrame, RGY_PLANE_U);
         RGYFrameInfo frameV = getPlane(pInputFrame, RGY_PLANE_V);
 
-        ret = m_cl->copyPlane(&pDstFrame->y->frame, &frameY, nullptr, queue_main, &event);
+        ret = m_cl->copyPlane(&pDstFrame->y->frame, &frameY, nullptr, queue_main, wait_events, &event);
         if (ret != RGY_ERR_NONE) return ret;
 
         auto copyProgram = m_cl->getCspCopyProgram(pDstFrame->cb[0]->frame, frameU);
@@ -131,7 +131,26 @@ RGY_ERR afsSourceCache::add(const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &que
     } else {
         return RGY_ERR_UNSUPPORTED;
     }
-    return ret;
+    if (ret != RGY_ERR_NONE) return ret;
+    const int bit_depth = RGY_CSP_BIT_DEPTH[m_csp];
+    // キャッシュへの書き込みと同じキューで一度だけ image を更新する。
+    auto makeImage = [&](RGYCLPlaneImage& image, RGYCLFrame *frame, int plane, bool rgba) {
+        return m_cl->createImageFromPlane(image, frame->mem(plane), bit_depth, rgba ? CL_RGBA : CL_R, !rgba,
+            frame->frame.pitch[plane], rgba ? (frame->frame.width + 3) / 4 : frame->frame.width,
+            frame->frame.height, CL_MEM_READ_ONLY, queue_main);
+    };
+    if ((ret = makeImage(pDstFrame->imgY, pDstFrame->y.get(), 0, true)) != RGY_ERR_NONE) return ret;
+    if (RGY_CSP_CHROMA_FORMAT[m_csp] == RGY_CHROMAFMT_YUV444) {
+        if ((ret = makeImage(pDstFrame->imgU, pDstFrame->y.get(), 1, true)) != RGY_ERR_NONE) return ret;
+        if ((ret = makeImage(pDstFrame->imgV, pDstFrame->y.get(), 2, true)) != RGY_ERR_NONE) return ret;
+    } else {
+        for (int field = 0; field < 2; field++) {
+            if ((ret = makeImage(pDstFrame->imgCb[field], pDstFrame->cb[field].get(), 0, false)) != RGY_ERR_NONE) return ret;
+            if ((ret = makeImage(pDstFrame->imgCr[field], pDstFrame->cr[field].get(), 0, false)) != RGY_ERR_NONE) return ret;
+        }
+    }
+    // 別キューの analyze が、buffer だけでなく image の準備完了も待てるイベントにする。
+    return err_cl_to_rgy(clEnqueueMarkerWithWaitList(queue_main.get(), 0, nullptr, event.reset_ptr()));
 }
 
 RGY_ERR afsSourceCache::copyFrame(RGYCLFrame *pOut, int srcFrame, RGYOpenCLQueue &queue, RGYOpenCLEvent *event) {
@@ -173,6 +192,15 @@ RGY_ERR afsSourceCache::copyFrame(RGYCLFrame *pOut, int srcFrame, RGYOpenCLQueue
 
 void afsSourceCache::clear() {
     for (int i = 0; i < (int)m_sourceArray.size(); i++) {
+        m_sourceArray[i].imgY.release();
+        m_sourceArray[i].imgU.release();
+        m_sourceArray[i].imgV.release();
+        for (auto& image : m_sourceArray[i].imgCb) {
+            image.release();
+        }
+        for (auto& image : m_sourceArray[i].imgCr) {
+            image.release();
+        }
         if (m_sourceArray[i].y) {
             m_sourceArray[i].y->clear();
         }

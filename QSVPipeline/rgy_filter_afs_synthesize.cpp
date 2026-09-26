@@ -73,7 +73,7 @@ static RGY_ERR run_synthesize(uint8_t **dst,
     const int *dstPitch, const int sipPitch,
     const int tb_order, const uint8_t status, const AFS_TUNE_MODE tune_mode, const RGY_CSP csp,
     int mode,
-    RGYOpenCLQueue &queue, RGYOpenCLProgram *synthesize, RGYOpenCLContext *cl) {
+    RGYOpenCLQueue &queue, RGYOpenCLProgram *synthesize) {
     auto err = RGY_ERR_NONE;
 
     if (mode < 0) {
@@ -108,35 +108,15 @@ static RGY_ERR run_synthesize(uint8_t **dst,
     } else {
         const RGYWorkSize local(SYN_BLOCK_INT_X, SYN_BLOCK_Y);
         const RGYWorkSize global(divCeil(width, 8), divCeil(height, 2));
-        const int bit_depth = RGY_CSP_BIT_DEPTH[csp];
 
         if (RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_YUV420) {
-            cl_mem texP0U0, texP0U1, texP0V0, texP0V1, texP1U0, texP1U1, texP1V0,texP1V1;
-            if ((err = cl->createImageFromPlane(texP0U0, p0->cb[0]->mem(0), bit_depth, CL_R, true, p0->cb[0]->frame.pitch[0], p0->cb[0]->frame.width, p0->cb[0]->frame.height, CL_MEM_READ_ONLY)) != RGY_ERR_NONE) return err;
-            if ((err = cl->createImageFromPlane(texP0U1, p0->cb[1]->mem(0), bit_depth, CL_R, true, p0->cb[1]->frame.pitch[0], p0->cb[1]->frame.width, p0->cb[1]->frame.height, CL_MEM_READ_ONLY)) != RGY_ERR_NONE) return err;
-            if ((err = cl->createImageFromPlane(texP0V0, p0->cr[0]->mem(0), bit_depth, CL_R, true, p0->cr[0]->frame.pitch[0], p0->cr[0]->frame.width, p0->cr[0]->frame.height, CL_MEM_READ_ONLY)) != RGY_ERR_NONE) return err;
-            if ((err = cl->createImageFromPlane(texP0V1, p0->cr[1]->mem(0), bit_depth, CL_R, true, p0->cr[1]->frame.pitch[0], p0->cr[1]->frame.width, p0->cr[1]->frame.height, CL_MEM_READ_ONLY)) != RGY_ERR_NONE) return err;
-            if ((err = cl->createImageFromPlane(texP1U0, p1->cb[0]->mem(0), bit_depth, CL_R, true, p1->cb[0]->frame.pitch[0], p1->cb[0]->frame.width, p1->cb[0]->frame.height, CL_MEM_READ_ONLY)) != RGY_ERR_NONE) return err;
-            if ((err = cl->createImageFromPlane(texP1U1, p1->cb[1]->mem(0), bit_depth, CL_R, true, p1->cb[1]->frame.pitch[0], p1->cb[1]->frame.width, p1->cb[1]->frame.height, CL_MEM_READ_ONLY)) != RGY_ERR_NONE) return err;
-            if ((err = cl->createImageFromPlane(texP1V0, p1->cr[0]->mem(0), bit_depth, CL_R, true, p1->cr[0]->frame.pitch[0], p1->cr[0]->frame.width, p1->cr[0]->frame.height, CL_MEM_READ_ONLY)) != RGY_ERR_NONE) return err;
-            if ((err = cl->createImageFromPlane(texP1V1, p1->cr[1]->mem(0), bit_depth, CL_R, true, p1->cr[1]->frame.pitch[0], p1->cr[1]->frame.width, p1->cr[1]->frame.height, CL_MEM_READ_ONLY)) != RGY_ERR_NONE) return err;
-
             err = synthesize->kernel("kernel_synthesize_mode_1234_yuv420").config(queue, local, global).launch(
                 (cl_mem)dst[0], (cl_mem)dst[1], (cl_mem)dst[2],
                 p0->y->mem(0), p1->y->mem(0), (cl_mem)sip,
-                texP0U0, texP0U1, texP1U0, texP1U1,
-                texP0V0, texP0V1, texP1V0, texP1V1,
+                p0->imgCb[0].mem(), p0->imgCb[1].mem(), p1->imgCb[0].mem(), p1->imgCb[1].mem(),
+                p0->imgCr[0].mem(), p0->imgCr[1].mem(), p1->imgCr[0].mem(), p1->imgCr[1].mem(),
                 width, height, p0->y->frame.pitch[0], dstPitch[0], dstPitch[1], sipPitch,
                 tb_order, status);
-
-            clReleaseMemObject(texP0U0);
-            clReleaseMemObject(texP0U1);
-            clReleaseMemObject(texP0V0);
-            clReleaseMemObject(texP0V1);
-            clReleaseMemObject(texP1U0);
-            clReleaseMemObject(texP1U1);
-            clReleaseMemObject(texP1V0);
-            clReleaseMemObject(texP1V1);
         } else {
             err = synthesize->kernel("kernel_synthesize_mode_1234_yuv444").config(queue, local, global).launch(
                 (cl_mem)dst[0], (cl_mem)dst[1], (cl_mem)dst[2],
@@ -179,6 +159,6 @@ RGY_ERR RGYFilterAfs::synthesize(int iframe, RGYCLFrame *pOut, afsSourceCacheFra
         pOut->frame.ptr, p0, p1, targetSp.ptr[0],
         p1->frameinfo().width, p1->frameinfo().height,
         pOut->frame.pitch, targetSp.pitch[0],
-        pAfsPrm->afs.tb_order, m_status[iframe], pAfsPrm->afs.tune, pOut->frame.csp, mode, queue, m_synthesize.get(), m_cl.get());
+        pAfsPrm->afs.tb_order, m_status[iframe], pAfsPrm->afs.tune, pOut->frame.csp, mode, queue, m_synthesize.get());
     return err;
 }

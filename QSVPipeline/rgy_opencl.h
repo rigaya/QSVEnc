@@ -209,6 +209,8 @@ CL_EXTERN cl_int (CL_API_CALL* f_clReleaseContext) (cl_context context);
 CL_EXTERN cl_command_queue (CL_API_CALL* f_clCreateCommandQueue)(cl_context context, cl_device_id device, cl_command_queue_properties properties, cl_int * errcode_ret);
 CL_EXTERN cl_int (CL_API_CALL* f_clGetCommandQueueInfo)(cl_command_queue command_queue, cl_command_queue_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
 CL_EXTERN cl_int (CL_API_CALL* f_clReleaseCommandQueue) (cl_command_queue command_queue);
+CL_EXTERN cl_int (CL_API_CALL* f_clRetainCommandQueue) (cl_command_queue command_queue);
+CL_EXTERN cl_int (CL_API_CALL* f_clEnqueueMarkerWithWaitList) (cl_command_queue command_queue, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
 CL_EXTERN cl_int (CL_API_CALL* f_clGetSupportedImageFormats)(cl_context context, cl_mem_flags flags, cl_mem_object_type image_type, cl_uint num_entries, cl_image_format * image_formats, cl_uint * num_image_formats);
 
 CL_EXTERN cl_program(CL_API_CALL* f_clCreateProgramWithSource) (cl_context context, cl_uint count, const char **strings, const size_t *lengths, cl_int *errcode_ret);
@@ -315,6 +317,8 @@ CL_EXTERN cl_int(CL_API_CALL* f_clEnqueueReleaseVA_APIMediaSurfacesINTEL)(cl_com
 #define clCreateCommandQueue f_clCreateCommandQueue
 #define clGetCommandQueueInfo f_clGetCommandQueueInfo
 #define clReleaseCommandQueue f_clReleaseCommandQueue
+#define clRetainCommandQueue f_clRetainCommandQueue
+#define clEnqueueMarkerWithWaitList f_clEnqueueMarkerWithWaitList
 #define clGetSupportedImageFormats f_clGetSupportedImageFormats
 
 #define clCreateProgramWithSource f_clCreateProgramWithSource
@@ -661,6 +665,24 @@ protected:
 };
 
 class RGYCLFrameMap;
+
+// 平面 image を保持し、コピー先をフレーム間で再利用する。
+class RGYCLPlaneImage {
+public:
+    RGYCLPlaneImage() = default;
+    ~RGYCLPlaneImage();
+    RGYCLPlaneImage(const RGYCLPlaneImage&) = delete;
+    RGYCLPlaneImage& operator=(const RGYCLPlaneImage&) = delete;
+    cl_mem mem() const { return m_image; }
+    void release();
+private:
+    friend class RGYOpenCLContext;
+    cl_mem m_image = nullptr;
+    bool m_owned_copy = false;
+    cl_image_format m_fmt = {};
+    int m_width = 0, m_height = 0;
+    cl_command_queue m_queue = nullptr;
+};
 
 struct RGYCLFrame : public RGYFrame {
 public:
@@ -1268,6 +1290,8 @@ public:
     std::unique_ptr<RGYCLBuf> createBuffer(size_t size, cl_mem_flags flags = CL_MEM_READ_WRITE, void *host_ptr = nullptr);
     std::unique_ptr<RGYCLBuf> copyDataToBuffer(const void *host_ptr, size_t size, cl_mem_flags flags = CL_MEM_READ_WRITE, cl_command_queue queue = 0);
     RGY_ERR createImageFromPlane(cl_mem& image, const cl_mem buffer, const int bit_depth, const int channel_order, const bool normalized, const int pitch, const int width, const int height, const cl_mem_flags flags);
+    RGY_ERR createImageFromPlane(RGYCLPlaneImage& image, const cl_mem buffer, const int bit_depth, const int channel_order, const bool normalized, const int pitch, const int width, const int height, const cl_mem_flags flags,
+        RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events = {});
     RGY_ERR createImageFromFrame(RGYFrameInfo& frameImage, const RGYFrameInfo& frame, const bool normalized, const bool cl_image2d_from_buffer_support, const cl_mem_flags flags);
     std::unique_ptr<RGYCLFrame, RGYCLImageFromBufferDeleter> createImageFromFrameBuffer(const RGYFrameInfo &frame, const bool normalized, const cl_mem_flags flags, RGYCLFramePool *imgpool);
     std::unique_ptr<RGYCLFrame> createFrameBuffer(const int width, const int height, const RGY_CSP csp, const int bitdepth, const cl_mem_flags flags = CL_MEM_READ_WRITE);
@@ -1313,6 +1337,7 @@ public:
 
 protected:
     std::unique_ptr<RGYOpenCLProgram> buildProgram(std::string datacopy, const std::string options, const std::string name_hint = std::string());
+    bool imageFromBufferSupported();
 
     shared_ptr<RGYOpenCLPlatform> m_platform;
     unique_context m_context;
@@ -1323,6 +1348,10 @@ protected:
     std::unique_ptr<RGYThreadPool> m_threadPool;
     int m_buildThreads;
     HMODULE m_hmodule;
+    std::once_flag m_imageFromBufferSupportOnce;
+    bool m_imageFromBufferSupport = false;
+    std::once_flag m_planeImageCopyOnce;
+    std::unique_ptr<RGYOpenCLProgram> m_planeImageCopy;
 };
 
 class RGYOpenCL {

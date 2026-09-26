@@ -34,6 +34,7 @@
 #include <fstream>
 #include <chrono>
 #include <mutex>
+#include <limits>
 #include "rgy_osdep.h"
 #define CL_EXTERN
 #include "rgy_opencl.h"
@@ -354,6 +355,8 @@ int initOpenCLGlobal() {
 
     LOAD(clCreateCommandQueue);
     LOAD(clReleaseCommandQueue);
+    LOAD(clRetainCommandQueue);
+    LOAD(clEnqueueMarkerWithWaitList);
     LOAD(clCreateContext);
     LOAD(clGetCommandQueueInfo);
     LOAD(clReleaseContext);
@@ -3199,6 +3202,131 @@ RGY_ERR RGYOpenCLContext::createImageFromPlane(cl_mem &image, const cl_mem buffe
     return err_cl_to_rgy(err);
 }
 
+RGYCLPlaneImage::~RGYCLPlaneImage() {
+    release();
+}
+
+void RGYCLPlaneImage::release() {
+    if (m_image) {
+        clReleaseMemObject(m_image);
+        m_image = nullptr;
+    }
+    if (m_queue) {
+        clReleaseCommandQueue(m_queue);
+        m_queue = nullptr;
+    }
+    m_owned_copy = false;
+    m_fmt = {};
+    m_width = m_height = 0;
+}
+
+bool RGYOpenCLContext::imageFromBufferSupported() {
+    std::call_once(m_imageFromBufferSupportOnce, [this]() {
+        const auto device = RGYOpenCLDevice(queue().devid());
+        // OpenCL 3.0 / 1.2 では拡張が必要、2.x では必須機能。
+        const bool optional = device.checkVersion(3, 0) || !device.checkVersion(2, 0);
+        m_imageFromBufferSupport = !optional || device.checkExtension("cl_khr_image2d_from_buffer");
+    });
+    return m_imageFromBufferSupport;
+}
+
+RGY_ERR RGYOpenCLContext::createImageFromPlane(RGYCLPlaneImage& image, const cl_mem buffer, const int bit_depth,
+    const int channel_order, const bool normalized, const int pitch, const int width, const int height,
+    const cl_mem_flags flags, RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events) {
+    if (!buffer) return RGY_ERR_NULL_PTR;
+    if (width <= 0 || height <= 0 || pitch <= 0 || bit_depth <= 0 || bit_depth > 16) return RGY_ERR_INVALID_PARAM;
+    if (imageFromBufferSupported()) {
+        image.release();
+        return createImageFromPlane(image.m_image, buffer, bit_depth, channel_order, normalized, pitch, width, height, flags);
+    }
+
+    const size_t channels = (channel_order == CL_R) ? 1 : (channel_order == CL_RGBA) ? 4 : 0;
+    if (channels == 0) return RGY_ERR_UNSUPPORTED;
+    const size_t element = channels * ((bit_depth > 8) ? 2 : 1);
+    if ((size_t)width > (size_t)pitch / element) return RGY_ERR_INVALID_PARAM;
+    const size_t row = (size_t)width * element;
+    if (row > (size_t)pitch || (size_t)height > std::numeric_limits<size_t>::max() / row) return RGY_ERR_INVALID_PARAM;
+    const cl_image_format format = {
+        (cl_channel_order)channel_order,
+        (cl_channel_type)((normalized) ? ((bit_depth > 8) ? CL_UNORM_INT16 : CL_UNORM_INT8)
+                                      : ((bit_depth > 8) ? CL_UNSIGNED_INT16 : CL_UNSIGNED_INT8))
+    };
+    if (!image.m_image || !image.m_owned_copy || image.m_width != width || image.m_height != height
+        || image.m_fmt.image_channel_order != format.image_channel_order
+        || image.m_fmt.image_channel_data_type != format.image_channel_data_type) {
+        image.release();
+        const auto err = createImageFromPlane(image.m_image, nullptr, bit_depth, channel_order, normalized, 0, width, height, CL_MEM_READ_WRITE);
+        if (err != RGY_ERR_NONE) return err;
+        image.m_owned_copy = true;
+        image.m_fmt = format;
+        image.m_width = width;
+        image.m_height = height;
+    }
+    // カーネルと同じ in-order キューでコピーする。キュー変更時は旧キューの読み出し完了を待つ。
+    RGYOpenCLEvent previous_queue_done;
+    if (image.m_queue != queue.get()) {
+        if (image.m_queue) {
+            auto err = clEnqueueMarkerWithWaitList(image.m_queue, 0, nullptr, previous_queue_done.reset_ptr());
+            if (err != CL_SUCCESS) return err_cl_to_rgy(err);
+            // 別キューで待つイベントを発行したキューを明示的に送信する。
+            err = clFlush(image.m_queue);
+            if (err != CL_SUCCESS) return err_cl_to_rgy(err);
+            // 後続の確保やコピーが失敗しても、再試行時に旧キューへの依存を失わないよう先に接続する。
+            err = clEnqueueMarkerWithWaitList(queue.get(), 1, previous_queue_done.ptr(), nullptr);
+            if (err != CL_SUCCESS) return err_cl_to_rgy(err);
+        }
+        const auto err = clRetainCommandQueue(queue.get());
+        if (err != CL_SUCCESS) return err_cl_to_rgy(err);
+        if (image.m_queue) clReleaseCommandQueue(image.m_queue);
+        image.m_queue = queue.get();
+    }
+    // カーネルはコピー API と違い範囲外を検出しないため、最後の行までの容量を先に確認する。
+    if ((size_t)(height - 1) > (std::numeric_limits<size_t>::max() - row) / (size_t)pitch) return RGY_ERR_INVALID_PARAM;
+    size_t buffer_size = 0;
+    const auto size_err = clGetMemObjectInfo(buffer, CL_MEM_SIZE, sizeof(buffer_size), &buffer_size, nullptr);
+    if (size_err != CL_SUCCESS) return err_cl_to_rgy(size_err);
+    if (buffer_size < (size_t)(height - 1) * pitch + row) return RGY_ERR_INVALID_PARAM;
+    std::call_once(m_planeImageCopyOnce, [this]() {
+        // 1 texel をそのまま読むので RGBA の幅/4 と CL_R の両方を扱える。
+        const std::string source = R"(
+__kernel void kernel_copy_plane_image(__global const uchar *src, __write_only image2d_t dst,
+    int pitch, int width, int height, int channels, int wide, int normalized) {
+    const int x = get_global_id(0), y = get_global_id(1);
+    if (x >= width || y >= height) return;
+    __global const uchar *line = src + (size_t)y * pitch;
+    uint4 value = (uint4)(0);
+    if (wide) {
+        uint components[4] = { 0, 0, 0, 0 };
+        // 奇数 pitch でも未整列の ushort アクセスを避け、元のバイト順で値を復元する。
+        for (int channel = 0; channel < channels; channel++) {
+            const uchar2 bytes = vload2(x * channels + channel, line);
+#ifdef __ENDIAN_LITTLE__
+            components[channel] = (uint)bytes.s0 | ((uint)bytes.s1 << 8);
+#else
+            components[channel] = ((uint)bytes.s0 << 8) | (uint)bytes.s1;
+#endif
+        }
+        value = (uint4)(components[0], components[1], components[2], components[3]);
+    } else {
+        value = channels == 4 ? convert_uint4(vload4(x, line)) : (uint4)(line[x], 0, 0, 0);
+    }
+    if (normalized) {
+        write_imagef(dst, (int2)(x, y), convert_float4(value) / (wide ? 65535.0f : 255.0f));
+    } else {
+        write_imageui(dst, (int2)(x, y), value);
+    }
+}
+)";
+        m_planeImageCopy = build(source, "");
+    });
+    if (!m_planeImageCopy) return RGY_ERR_OPENCL_CRUSH;
+    // pitch 詰めと image への書き込みを一度で行い、ステージングへの中間転送をなくす。
+    std::vector<RGYOpenCLEvent> copy_events = wait_events;
+    if (previous_queue_done() != nullptr) copy_events.push_back(previous_queue_done);
+    return m_planeImageCopy->kernel("kernel_copy_plane_image").config(queue, RGYWorkSize(32, 8), RGYWorkSize(width, height), copy_events).launch(
+        buffer, image.m_image, pitch, width, height, (int)channels, (int)(bit_depth > 8), (int)normalized);
+}
+
 RGY_ERR RGYOpenCLContext::createImageFromFrame(RGYFrameInfo& frameImage, const RGYFrameInfo& frame, const bool normalized, const bool cl_image2d_from_buffer_support, const cl_mem_flags flags) {
     frameImage = frame;
     frameImage.mem_type = (normalized) ? RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED : RGY_MEM_TYPE_GPU_IMAGE;
@@ -3231,11 +3359,7 @@ RGY_ERR RGYOpenCLContext::createImageFromFrame(RGYFrameInfo& frameImage, const R
 }
 
 std::unique_ptr<RGYCLFrame, RGYCLImageFromBufferDeleter> RGYOpenCLContext::createImageFromFrameBuffer(const RGYFrameInfo &frame, const bool normalized, const cl_mem_flags flags, RGYCLFramePool *imgpool) {
-    const auto device = RGYOpenCLDevice(queue().devid());
-    // cl_khr_image2d_from_buffer は OpenCL 3.0 / 1.2 ではオプション、2.0 では必須
-    // cl_khr_image2d_from_buffer のサポートがない場合は新しいimageをつくり、コピーする必要がある
-    const bool cl_not_version_2_0 = device.checkVersion(3, 0) || !device.checkVersion(2, 0);
-    const bool cl_image2d_from_buffer_support = (cl_not_version_2_0) ? device.checkExtension("cl_khr_image2d_from_buffer") : true;
+    const bool cl_image2d_from_buffer_support = imageFromBufferSupported();
 
     if (cl_image2d_from_buffer_support) {
         RGYFrameInfo frameImage;

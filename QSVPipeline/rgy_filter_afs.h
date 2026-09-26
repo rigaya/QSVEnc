@@ -87,6 +87,9 @@ struct afsSourceCacheFrame {
     unique_ptr<RGYCLFrame> y;                 //フレーム状態、YUV420時はYのみ、YUV444時はYUVすべて
     std::array<unique_ptr<RGYCLFrame>, 2> cb; //YUV420時のみ使用、フィールド分離状態
     std::array<unique_ptr<RGYCLFrame>, 2> cr; //YUV420時のみ使用、フィールド分離状態
+    // source cache の書き込み時に image を準備し、analyze と synthesize で共有する。
+    RGYCLPlaneImage imgY, imgU, imgV;
+    std::array<RGYCLPlaneImage, 2> imgCb, imgCr;
     RGYFrameInfo frameinfo() const { return (y) ? y->frame : RGYFrameInfo(); };
 };
 

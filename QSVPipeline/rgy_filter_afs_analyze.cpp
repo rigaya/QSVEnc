@@ -121,39 +121,15 @@ RGY_ERR run_analyze_stripe(uint8_t *dst,
 
     const int srcWidth  = p0->y->frame.width;
     const int srcHeight = p0->y->frame.height;
-    cl_mem texP0Y = 0;
-    cl_mem texP1Y = 0;
-    if ((err = cl->createImageFromPlane(texP0Y, p0->y->mem(0), bit_depth, CL_RGBA, false, p0->y->frame.pitch[0], (p0->y->frame.width + 3) / 4, p0->y->frame.height, CL_MEM_READ_ONLY)) != RGY_ERR_NONE) return err;
-    if ((err = cl->createImageFromPlane(texP1Y, p1->y->mem(0), bit_depth, CL_RGBA, false, p1->y->frame.pitch[0], (p1->y->frame.width + 3) / 4, p1->y->frame.height, CL_MEM_READ_ONLY)) != RGY_ERR_NONE) return err;
-
-    cl_mem texP0U0 = 0;
-    cl_mem texP0U1 = 0; //yuv444では使用されない
-    cl_mem texP0V0 = 0;
-    cl_mem texP0V1 = 0; //yuv444では使用されない
-    cl_mem texP1U0 = 0;
-    cl_mem texP1U1 = 0; //yuv444では使用されない
-    cl_mem texP1V0 = 0;
-    cl_mem texP1V1 = 0; //yuv444では使用されない
-    if (yuv420) {
-        if ((err = cl->createImageFromPlane(texP0U0, p0->cb[0]->mem(0), bit_depth, CL_R, true, p0->cb[0]->frame.pitch[0], p0->cb[0]->frame.width, p0->cb[0]->frame.height, CL_MEM_READ_ONLY)) != RGY_ERR_NONE) return err;
-        if ((err = cl->createImageFromPlane(texP0U1, p0->cb[1]->mem(0), bit_depth, CL_R, true, p0->cb[1]->frame.pitch[0], p0->cb[1]->frame.width, p0->cb[1]->frame.height, CL_MEM_READ_ONLY)) != RGY_ERR_NONE) return err;
-        if ((err = cl->createImageFromPlane(texP0V0, p0->cr[0]->mem(0), bit_depth, CL_R, true, p0->cr[0]->frame.pitch[0], p0->cr[0]->frame.width, p0->cr[0]->frame.height, CL_MEM_READ_ONLY)) != RGY_ERR_NONE) return err;
-        if ((err = cl->createImageFromPlane(texP0V1, p0->cr[1]->mem(0), bit_depth, CL_R, true, p0->cr[1]->frame.pitch[0], p0->cr[1]->frame.width, p0->cr[1]->frame.height, CL_MEM_READ_ONLY)) != RGY_ERR_NONE) return err;
-        if ((err = cl->createImageFromPlane(texP1U0, p1->cb[0]->mem(0), bit_depth, CL_R, true, p1->cb[0]->frame.pitch[0], p1->cb[0]->frame.width, p1->cb[0]->frame.height, CL_MEM_READ_ONLY)) != RGY_ERR_NONE) return err;
-        if ((err = cl->createImageFromPlane(texP1U1, p1->cb[1]->mem(0), bit_depth, CL_R, true, p1->cb[1]->frame.pitch[0], p1->cb[1]->frame.width, p1->cb[1]->frame.height, CL_MEM_READ_ONLY)) != RGY_ERR_NONE) return err;
-        if ((err = cl->createImageFromPlane(texP1V0, p1->cr[0]->mem(0), bit_depth, CL_R, true, p1->cr[0]->frame.pitch[0], p1->cr[0]->frame.width, p1->cr[0]->frame.height, CL_MEM_READ_ONLY)) != RGY_ERR_NONE) return err;
-        if ((err = cl->createImageFromPlane(texP1V1, p1->cr[1]->mem(0), bit_depth, CL_R, true, p1->cr[1]->frame.pitch[0], p1->cr[1]->frame.width, p1->cr[1]->frame.height, CL_MEM_READ_ONLY)) != RGY_ERR_NONE) return err;
-    } else {
-        if ((err = cl->createImageFromPlane(texP0U0, p0->y->mem(1), bit_depth, CL_RGBA, false, p0->y->frame.pitch[1], (p0->y->frame.width + 3) / 4, p0->y->frame.height, CL_MEM_READ_ONLY)) != RGY_ERR_NONE) return err;
-        if ((err = cl->createImageFromPlane(texP0V0, p0->y->mem(2), bit_depth, CL_RGBA, false, p0->y->frame.pitch[2], (p0->y->frame.width + 3) / 4, p0->y->frame.height, CL_MEM_READ_ONLY)) != RGY_ERR_NONE) return err;
-        if ((err = cl->createImageFromPlane(texP1U0, p1->y->mem(1), bit_depth, CL_RGBA, false, p1->y->frame.pitch[1], (p1->y->frame.width + 3) / 4, p1->y->frame.height, CL_MEM_READ_ONLY)) != RGY_ERR_NONE) return err;
-        if ((err = cl->createImageFromPlane(texP1V0, p1->y->mem(2), bit_depth, CL_RGBA, false, p1->y->frame.pitch[2], (p1->y->frame.width + 3) / 4, p1->y->frame.height, CL_MEM_READ_ONLY)) != RGY_ERR_NONE) return err;
-        //以下はyuv444では本来使用しないが、ダミーで入れておかないとsetArg時にエラーになる
-        texP0U1 = texP0U0; 
-        texP0V1 = texP0V0;
-        texP1U1 = texP1U0;
-        texP1V1 = texP1V0;
-    }
+    const cl_mem texP0U0 = yuv420 ? p0->imgCb[0].mem() : p0->imgU.mem();
+    const cl_mem texP0V0 = yuv420 ? p0->imgCr[0].mem() : p0->imgV.mem();
+    const cl_mem texP1U0 = yuv420 ? p1->imgCb[0].mem() : p1->imgU.mem();
+    const cl_mem texP1V0 = yuv420 ? p1->imgCr[0].mem() : p1->imgV.mem();
+    // YUV444 の未使用フィールドにも有効な image を渡し、setArg の検証を満たす。
+    const cl_mem texP0U1 = yuv420 ? p0->imgCb[1].mem() : texP0U0;
+    const cl_mem texP0V1 = yuv420 ? p0->imgCr[1].mem() : texP0V0;
+    const cl_mem texP1U1 = yuv420 ? p1->imgCb[1].mem() : texP1U0;
+    const cl_mem texP1V1 = yuv420 ? p1->imgCr[1].mem() : texP1V0;
 
     const RGYWorkSize local(BLOCK_INT_X, BLOCK_Y);
     //横方向は1スレッドで4pixel処理する
@@ -191,25 +167,13 @@ RGY_ERR run_analyze_stripe(uint8_t *dst,
 
     err = analyze->kernel(AFS_ANALYZE_KERNEL_NAME).config(queue, local, global, wait_event, &event).launch(
         (cl_mem)dst, count_motion->mem(),
-        texP0Y, texP0U0, texP0U1, texP0V0, texP0V1,
-        texP1Y, texP1U0, texP1U1, texP1V0, texP1V1,
+        p0->imgY.mem(), texP0U0, texP0U1, texP0V0, texP0V1,
+        p1->imgY.mem(), texP1U0, texP1U1, texP1V0, texP1V1,
         divCeil(srcWidth, 4), (int)(dstPitch / sizeof(uint32_t)), srcHeight,
         thre_Ymotion_yuv, thre_deint_yuv, thre_shift_yuv,
         thre_Cmotion_yuv, thre_Cmotion_yuvf, thre_deint_yuvf, thre_shift_yuvf,
         scan_left, scan_top, scan_width, scan_height);
 
-    clReleaseMemObject(texP0Y);
-    clReleaseMemObject(texP1Y);
-    clReleaseMemObject(texP0U0);
-    clReleaseMemObject(texP0V0);
-    clReleaseMemObject(texP1U0);
-    clReleaseMemObject(texP1V0);
-    if (yuv420) {
-        clReleaseMemObject(texP0U1);
-        clReleaseMemObject(texP0V1);
-        clReleaseMemObject(texP1U1);
-        clReleaseMemObject(texP1V1);
-    }
     return err;
 }
 
