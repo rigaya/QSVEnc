@@ -26,6 +26,8 @@ QSVEncC could be run directly from the extracted directory.
 
 Intel repository will provide the latest user mode driver, but intel-opencl-icd 24.35 supports only Gen12 or later, resulting failure when detecting Gen11 iGPU or before. Please use standard Ubuntu repo which provides intel-opencl-icd 23.43 (Ubuntu 24.04) or 22.14 (Ubuntu 22.04).
 
+If Gen11 or earlier and Gen12 or later GPUs are mixed in the same PC, perform this section, and then add the OpenCL runtime for Gen11 or earlier following [3-1.](#3-1-when-mixing-gen11-or-earlier-and-gen12-or-later-gpus).
+
 - Gen11 or before: Broadwell, Skylake, Kaby Lake, Coffee Lake, Apollo Lake, Gemini Lake, Ice Lake, Elkhart Lake
 - Gen12 or later: Tiger Lake, Rocket Lake, Alder Lake, Raptor Lake, Arc dGPU など
 ::
@@ -70,6 +72,30 @@ sudo apt install ./qsvencc_x.xx_Ubuntu24.04_amd64.deb
 # Ubuntu 22.04
 sudo apt install ./qsvencc_x.xx_Ubuntu22.04_amd64.deb
 ```
+
+### 3-1. When mixing Gen11 or earlier and Gen12 or later GPUs
+
+When Gen11 or earlier GPUs (e.g. Kaby Lake iGPU) and Gen12 or later GPUs (e.g. Arc dGPU) are mixed in the same PC, intel-opencl-icd from the standard Ubuntu repo does not support newer Gen12 or later GPUs, while intel-opencl-icd from the Intel repository cannot detect Gen11 or earlier OpenCL devices.
+
+In this case, install intel-opencl-icd for Gen12 or later from the Intel repository registered in section 1, and then add the OpenCL runtime for Gen11 or earlier (legacy1) provided by Intel. legacy1 is a separate package with a separate ICD (```/etc/OpenCL/vendors/intel_legacy1.icd```) from the normal intel-opencl-icd, so both can coexist. Note that QSVEncC 8.31 or later is required, which supports environments with multiple Intel OpenCL platforms.
+
+```Shell
+mkdir -p ~/neo-legacy1 && cd ~/neo-legacy1
+wget https://github.com/intel/intel-graphics-compiler/releases/download/igc-1.0.17537.24/intel-igc-core_1.0.17537.24_amd64.deb
+wget https://github.com/intel/intel-graphics-compiler/releases/download/igc-1.0.17537.24/intel-igc-opencl_1.0.17537.24_amd64.deb
+wget https://github.com/intel/compute-runtime/releases/download/24.35.30872.36/intel-opencl-icd-legacy1_24.35.30872.36_amd64.deb
+wget https://github.com/intel/compute-runtime/releases/download/24.35.30872.36/ww35.sum
+
+# Verify checksum
+grep intel-opencl-icd-legacy1_ ww35.sum | sha256sum -c -
+
+sudo apt install ./intel-igc-core_1.0.17537.24_amd64.deb ./intel-igc-opencl_1.0.17537.24_amd64.deb ./intel-opencl-icd-legacy1_24.35.30872.36_amd64.deb
+
+# intel-igc-* is installed to /usr/local/lib, so update the library cache
+sudo ldconfig
+```
+
+After installation, check that both Gen11 or earlier and Gen12 or later GPUs are listed by ```clinfo -l```.
 
 ### 4. Addtional Tools
 

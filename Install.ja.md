@@ -30,6 +30,8 @@
 
 Intel repositoryは最新のuser mode driverを提供しますが、intel-opencl-icd 24.35以降はGen12以降向けとなっているため、OpenCLデバイスを検出できない場合があります。Gen11以前のGPUを含む環境では、Ubuntu標準repoを使用してください。
 
+Gen11以前とGen12以降のGPUが同じPCに混在する場合は、この工程を実施したうえで、[3-1.](#3-1-gen11以前とgen12以降のgpuを併存させる場合) の手順でGen11以前向けのOpenCLランタイムを追加してください。
+
 - Gen11以前: Broadwell, Skylake, Kaby Lake, Coffee Lake, Apollo Lake, Gemini Lake, Ice Lake, Elkhart Lake
 - Gen12以降: Tiger Lake, Rocket Lake, Alder Lake, Raptor Lake, Arc dGPU など
 ::
@@ -76,6 +78,30 @@ sudo apt install ./qsvencc_x.xx_Ubuntu24.04_amd64.deb
 # Ubuntu 22.04
 sudo apt install ./qsvencc_x.xx_Ubuntu22.04_amd64.deb
 ```
+
+### 3-1. Gen11以前とGen12以降のGPUを併存させる場合
+
+Gen11以前 (例: Kaby LakeのiGPU) とGen12以降 (例: Arc dGPU) が同じPCに混在する場合、Ubuntu標準repoのintel-opencl-icdではGen12以降の新しいGPUに対応できず、Intel repositoryのintel-opencl-icdではGen11以前のOpenCLデバイスを検出できません。
+
+この場合は、1. の手順でIntel repositoryを登録してGen12以降向けのintel-opencl-icdを導入したうえで、Intelが公開しているGen11以前向けのOpenCLランタイム (legacy1) を追加します。legacy1は通常のintel-opencl-icdとは別パッケージ・別ICD (```/etc/OpenCL/vendors/intel_legacy1.icd```) となっており、併存させることができます。なお、複数のIntel OpenCLプラットフォームが存在する環境に対応したQSVEncC 8.31以降が必要です。
+
+```Shell
+mkdir -p ~/neo-legacy1 && cd ~/neo-legacy1
+wget https://github.com/intel/intel-graphics-compiler/releases/download/igc-1.0.17537.24/intel-igc-core_1.0.17537.24_amd64.deb
+wget https://github.com/intel/intel-graphics-compiler/releases/download/igc-1.0.17537.24/intel-igc-opencl_1.0.17537.24_amd64.deb
+wget https://github.com/intel/compute-runtime/releases/download/24.35.30872.36/intel-opencl-icd-legacy1_24.35.30872.36_amd64.deb
+wget https://github.com/intel/compute-runtime/releases/download/24.35.30872.36/ww35.sum
+
+# チェックサムの確認
+grep intel-opencl-icd-legacy1_ ww35.sum | sha256sum -c -
+
+sudo apt install ./intel-igc-core_1.0.17537.24_amd64.deb ./intel-igc-opencl_1.0.17537.24_amd64.deb ./intel-opencl-icd-legacy1_24.35.30872.36_amd64.deb
+
+# intel-igc-* は /usr/local/lib に導入されるため、ライブラリキャッシュを更新
+sudo ldconfig
+```
+
+導入後、```clinfo -l``` でGen11以前とGen12以降の両方のGPUが表示されることを確認してください。
 
 ### 4. 追加オプション
 下記機能を使用するには、追加でインストールが必要です。
