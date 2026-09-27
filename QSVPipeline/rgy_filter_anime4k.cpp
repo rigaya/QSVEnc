@@ -1,4 +1,4 @@
-// -----------------------------------------------------------------------------------------
+﻿// -----------------------------------------------------------------------------------------
 // NVEnc by rigaya
 // -----------------------------------------------------------------------------------------
 //
@@ -335,7 +335,7 @@ RGY_ERR RGYFilterAnime4k::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
         const size_t scratchBytes = (size_t)outW * outH * 4 * sizeof(float);
         m_scratchA = m_cl->createBuffer(scratchBytes, CL_MEM_READ_WRITE);
         m_scratchB = m_cl->createBuffer(scratchBytes, CL_MEM_READ_WRITE);
-        if (!m_scratchA || !m_scratchB) {
+        if (!m_scratchA || !m_scratchA->mem() || !m_scratchB || !m_scratchB->mem()) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to allocate scratch buffers (%zu bytes each).\n"), scratchBytes);
             return RGY_ERR_MEMORY_ALLOC;
         }
@@ -363,7 +363,7 @@ RGY_ERR RGYFilterAnime4k::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
         w.A = m_cl->createBuffer(bytesF4, CL_MEM_READ_WRITE);
         w.B = m_cl->createBuffer(bytesF4, CL_MEM_READ_WRITE);
         w.luma = m_cl->createBuffer(bytesY, CL_MEM_READ_WRITE);
-        if (!w.A || !w.B || !w.luma) {
+        if (!w.A || !w.A->mem() || !w.B || !w.B->mem() || !w.luma || !w.luma->mem()) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to allocate %s work scratches (%dx%d).\n"),
                 label, w.workW, w.workH);
             return RGY_ERR_MEMORY_ALLOC;
@@ -385,7 +385,7 @@ RGY_ERR RGYFilterAnime4k::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
         w.A = m_cl->createBuffer(bytesH4, CL_MEM_READ_WRITE);
         w.B = m_cl->createBuffer(bytesH4, CL_MEM_READ_WRITE);
         w.luma = m_cl->createBuffer(bytesY, CL_MEM_READ_WRITE);
-        if (!w.A || !w.B || !w.luma) {
+        if (!w.A || !w.A->mem() || !w.B || !w.B->mem() || !w.luma || !w.luma->mem()) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to allocate %s FP16 work scratches (%dx%d).\n"),
                 label, w.workW, w.workH);
             return RGY_ERR_MEMORY_ALLOC;
@@ -433,7 +433,7 @@ RGY_ERR RGYFilterAnime4k::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
         m_dtdSrcLumaPitch = srcW * typeBytes;
         const size_t bytes = (size_t)m_dtdSrcH * m_dtdSrcLumaPitch;
         m_dtdSrcLuma = m_cl->createBuffer(bytes, CL_MEM_READ_WRITE);
-        if (!m_dtdSrcLuma) {
+        if (!m_dtdSrcLuma || !m_dtdSrcLuma->mem()) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to allocate dtd source luma scratch (%dx%d).\n"),
                 m_dtdSrcW, m_dtdSrcH);
             return RGY_ERR_MEMORY_ALLOC;
@@ -450,7 +450,7 @@ RGY_ERR RGYFilterAnime4k::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
         m_chromaLowresPitch = m_chromaLowresW * typeBytes;
         const size_t bytes = (size_t)m_chromaLowresH * m_chromaLowresPitch;
         m_chromaLumaLowres = m_cl->createBuffer(bytes, CL_MEM_READ_WRITE);
-        if (!m_chromaLumaLowres) {
+        if (!m_chromaLumaLowres || !m_chromaLumaLowres->mem()) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to allocate chroma joint-bilateral luma scratch (%dx%d).\n"),
                 m_chromaLowresW, m_chromaLowresH);
             return RGY_ERR_MEMORY_ALLOC;
@@ -476,7 +476,7 @@ RGY_ERR RGYFilterAnime4k::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
         const size_t refBytes   = (size_t)srcW * srcH * 4 * sizeof(float);
         m_prefilterPlane = m_cl->createBuffer(planeBytes, CL_MEM_READ_WRITE);
         m_prefilterRef   = m_cl->createBuffer(refBytes,   CL_MEM_READ_WRITE);
-        if (!m_prefilterPlane || !m_prefilterRef) {
+        if (!m_prefilterPlane || !m_prefilterPlane->mem() || !m_prefilterRef || !m_prefilterRef->mem()) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to allocate prefilter denoise scratches.\n"));
             return RGY_ERR_MEMORY_ALLOC;
         }
@@ -496,7 +496,7 @@ RGY_ERR RGYFilterAnime4k::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
         const size_t bytes_1ch = (size_t)srcW * srcH * sizeof(uint16_t);
         m_clampStatsMaxH = m_cl->createBuffer(bytes_1ch, CL_MEM_READ_WRITE);
         m_clampStatsMax  = m_cl->createBuffer(bytes_1ch, CL_MEM_READ_WRITE);
-        if (!m_clampStatsMaxH || !m_clampStatsMax) {
+        if (!m_clampStatsMaxH || !m_clampStatsMaxH->mem() || !m_clampStatsMax || !m_clampStatsMax->mem()) {
             AddMessage(RGY_LOG_ERROR, _T("Failed to allocate clamp_highlights scratches.\n"));
             return RGY_ERR_MEMORY_ALLOC;
         }
@@ -1495,7 +1495,10 @@ RGY_ERR RGYFilterAnime4k::runPlaneY(RGYFrameInfo *pOutputPlaneY, const RGYFrameI
     // returns a self-managing wrapper; the pool reuses the underlying
     // image2d_from_buffer object across frames when the OpenCL driver
     // supports cl_khr_image2d_from_buffer (zero-copy).
-    auto srcImage = m_cl->createImageFromFrameBuffer(*pInputPlaneY, true, CL_MEM_READ_ONLY, &m_srcImagePool);
+    // 平面を取り出しても元のCSPは残るため、色差のnullバッファをコピーしないよう単平面化する。
+    auto srcPlane = *pInputPlaneY;
+    srcPlane.csp = RGY_CSP_BIT_DEPTH[pInputPlaneY->csp] > 8 ? RGY_CSP_Y16 : RGY_CSP_Y8;
+    auto srcImage = m_cl->createImageFromFrameBuffer(srcPlane, true, CL_MEM_READ_ONLY, &m_srcImagePool);
     if (!srcImage) {
         AddMessage(RGY_LOG_ERROR, _T("failed to wrap input luma plane as image.\n"));
         return RGY_ERR_MEM_OBJECT_ALLOCATION_FAILURE;

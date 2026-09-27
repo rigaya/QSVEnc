@@ -3328,6 +3328,13 @@ __kernel void kernel_copy_plane_image(__global const uchar *src, __write_only im
 }
 
 RGY_ERR RGYOpenCLContext::createImageFromFrame(RGYFrameInfo& frameImage, const RGYFrameInfo& frame, const bool normalized, const bool cl_image2d_from_buffer_support, const cl_mem_flags flags) {
+    // 確保前に全平面を検査し、不完全なフレームをGPUのコピー処理へ渡さない。
+    for (int i = 0; i < RGY_CSP_PLANES[frame.csp]; i++) {
+        if (getPlane(&frame, (RGY_PLANE)i).ptr[0] == nullptr) {
+            CL_LOG(RGY_LOG_ERROR, _T("Cannot create image: source plane %d is null.\n"), i);
+            return RGY_ERR_INVALID_PARAM;
+        }
+    }
     frameImage = frame;
     frameImage.mem_type = (normalized) ? RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED : RGY_MEM_TYPE_GPU_IMAGE;
 
@@ -3381,6 +3388,14 @@ std::unique_ptr<RGYCLFrame, RGYCLImageFromBufferDeleter> RGYOpenCLContext::creat
             return nullptr;
         }
         imgFrame = std::unique_ptr<RGYCLFrame, RGYCLImageFromBufferDeleter>(new RGYCLFrame(frameImage, flags), RGYCLImageFromBufferDeleter(imgpool));
+    }
+    // プールから再利用する場合も、コピー元とコピー先の全平面を検査する。
+    for (int i = 0; i < RGY_CSP_PLANES[frame.csp]; i++) {
+        if (getPlane(&frame, (RGY_PLANE)i).ptr[0] == nullptr
+            || getPlane(&imgFrame->frame, (RGY_PLANE)i).ptr[0] == nullptr) {
+            CL_LOG(RGY_LOG_ERROR, _T("Cannot copy frame to image: plane %d is null.\n"), i);
+            return nullptr;
+        }
     }
     // メモリコピーが必要
     auto err = copyFrame(&imgFrame->frame, &frame);
