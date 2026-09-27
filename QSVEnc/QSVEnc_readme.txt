@@ -314,6 +314,17 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2026.09.27 (8.31)
+[QSVEncC]
+- 複数のIntel OpenCL platformが存在する環境で、OpenCL interopが失敗する問題を修正。
+- 複数のIntel OpenCL platformが存在する環境で、デバイスが見つからないplatformの探索結果がエラーとして表示されていたのを修正。
+- cl_khr_image2d_from_buffer非対応環境(Mesa rusticlなど)で、--vpp-afsが失敗する問題を修正。
+- --vpp-afsの非決定的な挙動を修正。
+- --vpp-afsで、YUV444時に終了処理でクラッシュする問題を修正。
+- 画素フォーマット変換の不具合を修正。
+- --framesと--trimを同時に指定したときに、初期化直後の空のtrimリストを参照していた問題を修正。
+- --vpp-tweakの行末越境書き込みを修正。( #313 )
+
 2026.09.11 (8.30)
 [QSVEncC]
 - --vmafによる画質評価を追加。

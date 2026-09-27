@@ -1,5 +1,16 @@
 # QSVEnc Release Notes
 
+## 8.31
+
+- Fix OpenCL interop failure when multiple Intel OpenCL platforms are present.
+- Fix device-not-found platform search results being reported as errors when multiple Intel OpenCL platforms are present.
+- Fix [--vpp-afs](./QSVEncC_Options.en.md#--vpp-afs-param1value1param2value2) failure on environments without `cl_khr_image2d_from_buffer`.
+- Fix [--vpp-afs](./QSVEncC_Options.en.md#--vpp-afs-param1value1param2value2) non deterministic behaviour.
+- Fix a crash on exit in [--vpp-afs](./QSVEncC_Options.en.md#--vpp-afs-param1value1param2value2) with YUV444.
+- Fix pixel format conversion.
+- Fix [--frames](./QSVEncC_Options.en.md#--frames-int) used together with [--trim](./QSVEncC_Options.en.md#--trim-intintintintintint) referring to the empty trim list just after initialization.
+- Fix an out-of-bounds write at the end of a row in [--vpp-tweak](./QSVEncC_Options.en.md#--vpp-tweak-param1value1param2value2). ( #313 )
+
 ## 8.30
 
 - Add [--vmaf](./QSVEncC_Options.en.md#--vmaf-param1value1param2value2) to calculate VMAF of the encoded video.
