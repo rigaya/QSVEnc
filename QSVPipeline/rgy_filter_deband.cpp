@@ -317,7 +317,9 @@ RGY_ERR RGYFilterDeband::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYL
             //includeの反映
             mrg31k3p_clh = str_replace(mrg31k3p_clh, "#include <clRNG/clRNG.clh>", clrng_clh);
             mrg31k3p_clh = str_replace(mrg31k3p_clh, "#include <clRNG/private/mrg31k3p.c.h>", mrg31k3p_private_c_h);
-            if (ENCODER_QSV || ENCODER_MPP || CLFILTERS_AUF) {
+            // fp64 非対応デバイスでは、未使用の double 定義もビルド前に取り除く。
+            if (ENCODER_QSV || ENCODER_MPP || CLFILTERS_AUF
+                || !RGYOpenCLDevice(m_cl->queue().devid()).checkExtension("cl_khr_fp64")) {
                 auto mrg31k3p_clh_lines = split(mrg31k3p_clh, "\n");
                 mrg31k3p_clh.clear();
                 for (auto& line : mrg31k3p_clh_lines) {
