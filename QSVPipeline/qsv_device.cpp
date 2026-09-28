@@ -201,6 +201,7 @@ QSVDevice::QSVDevice() :
     m_hwdev(),
 #if ENABLE_VAAPI
     m_va(),
+    m_vaCLPlatform(),
 #endif
     m_devInfo(),
 #if ENABLE_VULKAN
@@ -237,6 +238,7 @@ void QSVDevice::close() {
 #endif
     m_devInfo.reset();
 #if ENABLE_VAAPI
+    m_vaCLPlatform.reset();
     m_va.reset();
 #endif
     PrintMes(RGY_LOG_DEBUG, _T("Device %d closed.\n"), (int)m_devNum);
@@ -531,12 +533,57 @@ RGY_ERR QSVDevice::initVA(const RGYVADeviceInfo& info, const bool enableOpenCL, 
     if (enableOpenCL) {
         RGYOpenCL cl(m_log);
         if (RGYOpenCL::openCLloaded()) {
-            for (auto& platform : cl.getPlatforms("Intel")) {
+            // Mesa ICD が初回の platform 列挙で設定を読むため、先に iris を有効にする。
+            if (getenv("RUSTICL_ENABLE") == nullptr) {
+                setenv("RUSTICL_ENABLE", "iris", 0);
+            }
+            const auto platforms = cl.getPlatforms(nullptr);
+            const auto selectDevice = [&](const std::shared_ptr<RGYOpenCLPlatform>& platform, const int index, const TCHAR *match) {
+                platform->setDev(platform->devs()[index]);
+                m_vaCLPlatform = platform;
+                m_devInfo = std::make_unique<RGYOpenCLDeviceInfo>(platform->dev(0).info());
+                m_log->write(RGY_LOG_INFO, RGY_LOGT_DEV, _T("VA-API OpenCL: %s (%s, %s).\n"),
+                    char_to_tstring(m_devInfo->name).c_str(), char_to_tstring(platform->info().name).c_str(), match);
+            };
+            // VA sharing で同じ GPU を選べる Intel platform を先に試す。
+            for (const auto& platform : platforms) {
+                if (!platform->isVendor("Intel")) continue;
                 if (platform->createDeviceListVA(CL_DEVICE_TYPE_GPU, m_va->display(), true) == CL_SUCCESS && !platform->devs().empty()) {
-                    m_devInfo = std::make_unique<RGYOpenCLDeviceInfo>(platform->dev(0).info());
+                    selectDevice(platform, 0, _T("VA sharing"));
                     break;
                 }
             }
+            // sharing が使えなければ、Intel、rusticl の順で PCI バス ID を照合する。
+            for (const auto preferIntel : { true, false }) {
+                if (m_devInfo || info.pciBusId.empty()) break;
+                for (const auto& candidate : platforms) {
+                    const bool isIntel = candidate->isVendor("Intel");
+                    const bool isRusticl = candidate->info().name.find("rusticl") != std::string::npos;
+                    if (preferIntel ? !isIntel : (!isRusticl || isIntel)) continue;
+                    // VA sharing の照合失敗で残った display を、PCI の通常 context に持ち込まない。
+                    const auto platform = std::make_shared<RGYOpenCLPlatform>(candidate->get(), m_log);
+                    if (platform->createDeviceList(CL_DEVICE_TYPE_GPU) != RGY_ERR_NONE) continue;
+                    for (int index = 0; index < (int)platform->devs().size(); index++) {
+#ifdef CL_DEVICE_PCI_BUS_INFO_KHR
+                        const auto device = platform->dev(index);
+                        if (!device.checkExtension("cl_khr_pci_bus_info")) continue;
+                        cl_device_pci_bus_info_khr pciInfo = {};
+                        if (clGetDeviceInfo(device.id(), CL_DEVICE_PCI_BUS_INFO_KHR, sizeof(pciInfo), &pciInfo, nullptr) != CL_SUCCESS) continue;
+                        char pciBusId[32] = {};
+                        std::snprintf(pciBusId, sizeof(pciBusId), "%04x:%02x:%02x.%x",
+                            pciInfo.pci_domain, pciInfo.pci_bus, pciInfo.pci_device, pciInfo.pci_function);
+                        if (info.pciBusId == pciBusId) {
+                            selectDevice(platform, index, _T("PCI bus ID"));
+                            break;
+                        }
+#endif
+                    }
+                    if (m_devInfo) break;
+                }
+            }
+        }
+        if (!m_devInfo) {
+            m_log->write(RGY_LOG_WARN, RGY_LOGT_DEV, _T("Could not match VA-API device #%d to an OpenCL device; OpenCL is disabled.\n"), info.id);
         }
     }
     return RGY_ERR_NONE;

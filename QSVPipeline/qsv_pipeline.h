@@ -115,6 +115,7 @@ public:
 protected:
     mfxVersion m_mfxVer;
     std::unique_ptr<QSVDevice> m_device;
+    QSVBackend m_backend;
     std::vector<tstring> m_devNames;
     shared_ptr<EncodeStatus> m_pStatus;
     shared_ptr<CPerfMonitor> m_pPerfMonitor;
@@ -214,6 +215,9 @@ protected:
     MFXVideoSession *encoderSession();
     RGY_ERR checkGPUListByEncoder(sInputParams *inputParam, std::vector<std::unique_ptr<QSVDevice>>& deviceList);
     RGY_ERR deviceAutoSelect(const sInputParams *inputParam, std::vector<std::unique_ptr<QSVDevice>>& deviceList, const RGYDeviceUsageLockManager *lock);
+#if ENABLE_VAAPI
+    RGY_ERR initBackendVA(sInputParams *pParams, std::vector<std::unique_ptr<QSVDevice>>& deviceList, std::shared_ptr<QSVDeviceInfoCache>& deviceInfoCache);
+#endif
     virtual RGY_ERR InitSession(sInputParams *inputParam, std::vector<std::unique_ptr<QSVDevice>>& deviceList);
     virtual RGY_ERR InitVideoQualityMetric(sInputParams *pParams);
     void applyInputVUIToColorspaceParams(sInputParams *inputParam);

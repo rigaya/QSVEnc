@@ -64,6 +64,7 @@ public:
 #if ENABLE_VAAPI
     RGY_ERR initVA(const RGYVADeviceInfo& info, bool enableOpenCL, std::shared_ptr<RGYLog> log);
     RGYDeviceVA *va() const { return m_va.get(); }
+    std::shared_ptr<RGYOpenCLPlatform> vaCLPlatform() const { return m_vaCLPlatform; }
 #endif
     CodecCsp getDecodeCodecCsp(const bool skipHWDecodeCheck);
     QSVEncFeatures getEncodeFeature(const int ratecontrol, const RGY_CODEC codec, const bool lowpower);
@@ -118,6 +119,7 @@ protected:
     std::unique_ptr<CQSVHWDevice> m_hwdev;
 #if ENABLE_VAAPI
     std::unique_ptr<RGYDeviceVA> m_va;
+    std::shared_ptr<RGYOpenCLPlatform> m_vaCLPlatform;
 #endif
     std::unique_ptr<RGYOpenCLDeviceInfo> m_devInfo;
 #if ENABLE_VULKAN

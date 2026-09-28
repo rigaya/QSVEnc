@@ -1663,12 +1663,18 @@ RGY_ERR CQSVPipeline::InitOpenCL(const bool enableOpenCL, const int openCLBuildT
         PrintMes(RGY_LOG_DEBUG, _T("OpenCL disabled.\n"));
         return RGY_ERR_NONE;
     }
-    if (!CPUGenOpenCLSupported(m_device->CPUGen())) {
+    if (m_backend != QSVBackend::VAAPI && !CPUGenOpenCLSupported(m_device->CPUGen())) {
         PrintMes(RGY_LOG_DEBUG, _T("Skip OpenCL init as OpenCL is not supported in %s platform.\n"), CPU_GEN_STR[m_device->CPUGen()]);
         return RGY_ERR_NONE;
     }
     const mfxHandleType hdl_t = mfxHandleTypeFromMemType(m_device->memType(), true);
     mfxHDL hdl = nullptr;
+#if ENABLE_VAAPI
+    if (m_backend == QSVBackend::VAAPI) {
+        hdl = m_device->va()->display();
+        PrintMes(RGY_LOG_DEBUG, _T("VA-API display for OpenCL: %p.\n"), hdl);
+    } else
+#endif
     if (hdl_t) {
         auto sts = err_to_rgy(m_device->hwdev()->GetHandle((hdl_t == MFX_HANDLE_DIRECT3D_DEVICE_MANAGER9) ? (mfxHandleType)0 : hdl_t, &hdl));
         RGY_ERR(sts, _T("Failed to get HW device handle."));
@@ -1680,7 +1686,19 @@ RGY_ERR CQSVPipeline::InitOpenCL(const bool enableOpenCL, const int openCLBuildT
         PrintMes(RGY_LOG_WARN, _T("Skip OpenCL init as OpenCL is not supported on this platform.\n"));
         return RGY_ERR_NONE;
     }
-    auto platforms = cl.getPlatforms("Intel");
+    std::vector<std::shared_ptr<RGYOpenCLPlatform>> platforms;
+#if ENABLE_VAAPI
+    if (m_backend == QSVBackend::VAAPI) {
+        if (!m_device->vaCLPlatform()) {
+            PrintMes(RGY_LOG_DEBUG, _T("OpenCL disabled: no matching VA-API device.\n"));
+            return RGY_ERR_NONE;
+        }
+        platforms = { m_device->vaCLPlatform() };
+    } else
+#endif
+    {
+        platforms = cl.getPlatforms("Intel");
+    }
     if (platforms.size() == 0) {
         PrintMes(RGY_LOG_WARN, _T("Skip OpenCL init as OpenCL platforms not found.\n"));
         return RGY_ERR_NONE;
@@ -1690,6 +1708,11 @@ RGY_ERR CQSVPipeline::InitOpenCL(const bool enableOpenCL, const int openCLBuildT
     std::shared_ptr<RGYOpenCLPlatform> selectedPlatform;
     tstring clErrMessage;
     for (auto& platform : platforms) {
+#if ENABLE_VAAPI
+        if (m_backend == QSVBackend::VAAPI) {
+            // initVA で選択済みのデバイスをそのまま使う。
+        } else
+#endif
         if (m_device->memType() == D3D9_MEMORY && ENABLE_RGY_OPENCL_D3D9) {
             const auto err = platform->createDeviceListD3D9(CL_DEVICE_TYPE_GPU, (void *)hdl, true);
             if (err != RGY_ERR_NONE || platform->devs().size() == 0) {
@@ -1956,6 +1979,7 @@ RGY_ERR CQSVPipeline::AllocFrames(const std::pair<int, int>& adaptResolution) {
 CQSVPipeline::CQSVPipeline() :
     m_mfxVer({ 0 }),
     m_device(),
+    m_backend(QSVBackend::QSV),
     m_devNames(),
     m_pStatus(),
     m_pPerfMonitor(),
@@ -5265,6 +5289,26 @@ RGY_ERR CQSVPipeline::SetPerfMonitorThreadHandles() {
     return RGY_ERR_NONE;
 }
 
+#if ENABLE_VAAPI
+RGY_ERR CQSVPipeline::initBackendVA(sInputParams *pParams, std::vector<std::unique_ptr<QSVDevice>>& deviceList, std::shared_ptr<QSVDeviceInfoCache>& deviceInfoCache) {
+    // QSV のリソースは VA デバイスを開く前に解放する。
+    deviceList.clear();
+    deviceInfoCache.reset();
+    if (pParams->backend == QSVBackend::Auto) {
+        PrintMes(RGY_LOG_WARN, _T("QSV runtime unavailable or disabled; using VA-API.\n"));
+    }
+    m_backend = QSVBackend::VAAPI;
+    PrintMes(RGY_LOG_INFO, _T("backend=vaapi\n"));
+    deviceList = getDeviceListVA(pParams->device, pParams->ctrl.enableOpenCL, m_pQSVLog);
+    if (deviceList.empty()) return RGY_ERR_DEVICE_NOT_FOUND;
+    m_device = std::move(deviceList.front());
+    const auto sts = InitOpenCL(pParams->ctrl.enableOpenCL, pParams->ctrl.openclBuildThreads, pParams->vpp.checkPerformance, pParams->ctrl.clPerfDumpDir, pParams->ctrl.clPerfTimelineSec);
+    if (sts < RGY_ERR_NONE) return sts;
+    PrintMes(RGY_LOG_ERROR, _T("VA-API encoding will be implemented in Step 4.\n"));
+    return RGY_ERR_UNSUPPORTED;
+}
+#endif
+
 RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     if (pParams == nullptr) {
         return RGY_ERR_NULL_PTR;
@@ -5339,7 +5383,17 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     m_nAVSyncMode = pParams->common.AVSyncMode;
 
     DeviceCodecCsp HWDecCodecCsp;
-    auto deviceInfoCache = std::make_shared<QSVDeviceInfoCache>();
+    std::shared_ptr<QSVDeviceInfoCache> deviceInfoCache;
+    std::vector<std::unique_ptr<QSVDevice>> deviceList;
+    m_backend = QSVBackend::QSV;
+#if ENABLE_VAAPI
+    const auto vplDisabled = std::getenv("QSVENC_VPL_DISABLE");
+    if (pParams->backend == QSVBackend::VAAPI
+        || (pParams->backend == QSVBackend::Auto && vplDisabled && std::strcmp(vplDisabled, "1") == 0)) {
+        return initBackendVA(pParams, deviceList, deviceInfoCache);
+    }
+#endif
+    deviceInfoCache = std::make_shared<QSVDeviceInfoCache>();
     if ((sts = deviceInfoCache->loadCacheFile()) != RGY_ERR_NONE) {
         if (sts == RGY_ERR_FILE_OPEN) { // ファイルは存在するが開けない
             deviceInfoCache.reset(); // キャッシュの存在を無視して進める
@@ -5348,9 +5402,8 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
         HWDecCodecCsp = deviceInfoCache->getDeviceDecCodecCsp();
         PrintMes(RGY_LOG_DEBUG, _T("HW dec codec csp support read from cache file.\n"));
     }
-    m_pQSVLog->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Device Info Cache size: %d\n"), (int)deviceInfoCache->getDeviceIds().size());
+    m_pQSVLog->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Device Info Cache size: %d\n"), deviceInfoCache ? (int)deviceInfoCache->getDeviceIds().size() : 0);
 
-    std::vector<std::unique_ptr<QSVDevice>> deviceList;
     auto getDevInfo = [&deviceList]() {
         std::map<int, RGYDeviceInfoCacheKey> devInfo;
         for (const auto& dev : deviceList) {
@@ -5361,11 +5414,14 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     if (deviceInfoCache
         && (deviceInfoCache->getDeviceIds().size() == 0
         || (pParams->device == QSVDeviceNum::AUTO && deviceInfoCache->getDeviceIds().size() != HWDecCodecCsp.size())
-        || (pParams->device != QSVDeviceNum::AUTO && 
+        || (pParams->device != QSVDeviceNum::AUTO &&
             std::find_if(HWDecCodecCsp.begin(), HWDecCodecCsp.end(), [dev = (int)pParams->device](const std::pair<int, CodecCsp>& data) { return data.first == dev; }) == HWDecCodecCsp.end()))) {
         deviceList = getDeviceList((deviceInfoCache->getDeviceIds().size() == 0) ? QSVDeviceNum::AUTO : pParams->device, pParams->ctrl.enableOpenCL, pParams->ctrl.enableVulkan, pParams->memType, m_sessionParams, deviceInfoCache, m_pQSVLog);
         if (deviceList.size() == 0) {
             PrintMes(RGY_LOG_DEBUG, _T("No device found for QSV encoding!\n"));
+#if ENABLE_VAAPI
+            if (pParams->backend == QSVBackend::Auto) return initBackendVA(pParams, deviceList, deviceInfoCache);
+#endif
             return RGY_ERR_DEVICE_NOT_FOUND;
         }
         HWDecCodecCsp = getHWDecCodecCsp(pParams->ctrl.skipHWDecodeCheck, deviceList);
@@ -5398,6 +5454,13 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
         deviceList = getDeviceList(pParams->device, pParams->ctrl.enableOpenCL, pParams->ctrl.enableVulkan, pParams->memType, m_sessionParams, deviceInfoCache, m_pQSVLog);
         if (deviceList.size() == 0) {
             PrintMes(RGY_LOG_INFO, _T("No device found for QSV encoding!\n"));
+#if ENABLE_VAAPI
+            if (pParams->backend == QSVBackend::Auto) {
+                // 入力スレッドが使うパラメータの更新を待ってから VA を初期化する。
+                input_ret.wait();
+                return initBackendVA(pParams, deviceList, deviceInfoCache);
+            }
+#endif
             return RGY_ERR_DEVICE_NOT_FOUND;
         }
         if (deviceInfoCache) {
@@ -5405,6 +5468,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
         }
     }
 
+    PrintMes(RGY_LOG_INFO, _T("backend=qsv\n"));
     m_devNames.clear();
     for (const auto& dev : deviceList) {
         m_devNames.push_back(dev->name());
@@ -5575,6 +5639,10 @@ void CQSVPipeline::Close() {
     m_DecInputBitstream.clear();
 
     PrintMes(RGY_LOG_DEBUG, _T("Closing device...\n"));
+#if ENABLE_VAAPI
+    // sharing context が参照する VA display より先に OpenCL を解放する。
+    if (m_backend == QSVBackend::VAAPI) m_cl.reset();
+#endif
     m_device.reset();
     m_deviceUsage.reset();
     m_parallelEnc.reset();
@@ -6400,6 +6468,9 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
 #define PRINT_INFO(fmt, ...) { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, fmt, __VA_ARGS__); }
 #define PRINT_INT_AUTO(fmt, i) { if ((i) != 0) { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, fmt, i); } else { info_len += _stprintf_s(info + info_len, _countof(info) - info_len, (fmt[_tcslen(fmt)-1]=='\n') ? _T("Auto\n") : _T("Auto")); } }
     PRINT_INFO(    _T("%s\n"), get_encoder_version());
+#if ENABLE_VAAPI
+    PRINT_INFO(    _T("Backend        %s\n"), m_backend == QSVBackend::VAAPI ? _T("vaapi") : _T("qsv"));
+#endif
 #if defined(_WIN32) || defined(_WIN64)
     OSVERSIONINFOEXW osversioninfo = { 0 };
     tstring osversionstr = getOSVersion(&osversioninfo);

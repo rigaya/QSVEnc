@@ -470,11 +470,11 @@ Show version of ffmpeg dll
 ### --backend &lt;auto|qsv|vaapi&gt;
 Linux 版のバックエンドを指定する。既定値は `auto`。VA-API を無効にしてビルドした場合、このオプションは使用できない。
 
-- `auto`: QSV を使用する。
+- `auto`: QSV を使用し、デバイスが見つからなければ VA-API に切り替える。`QSVENC_VPL_DISABLE=1` で QSV の列挙を省略し、VA-API への切り替えを確認できる。
 - `qsv`: oneVPL による QSV を使用する。
 - `vaapi`: VA-API を使用する。
 
-`--check-hw` / `--check-features` / `--check-device` と組み合わせると、指定したバックエンドのデバイス情報を表示する。現在の VA-API 対応はこの情報表示までで、エンコード経路への接続と `auto` による VA-API への切り替えは今後対応する。
+`--check-hw` / `--check-features` / `--check-device` と組み合わせると、指定したバックエンドのデバイス情報を表示する。現在の VA-API 対応はデバイス・OpenCL の初期化までで、エンコードを指定すると未実装のエラーで終了する。エンコード経路への接続は今後対応する。
 
 ### -d, --device &lt;string&gt; or &lt;int&gt;
 Select device number to use. (auto(default), 1, 2, 3, ...)
