@@ -76,6 +76,7 @@ const char *get_encoder_version();
 #define ENABLE_D3D11 (MFX_D3D11_SUPPORT)
 
 #define LIBVA_SUPPORT 0
+#define ENABLE_VAAPI 0
 
 #define ENABLE_ADVANCED_DEINTERLACE 0
 
@@ -158,6 +159,7 @@ const char *get_encoder_version();
 #endif //#ifdef BUILD_AUO
 
 #else //#if defined(WIN32) || defined(WIN64)
+#define ENABLE_VAAPI 1
 #define USE_ONEVPL 1
 #define ONEVPL_EXPERIMENTAL 1
 #define D3D_SURFACES_SUPPORT 0

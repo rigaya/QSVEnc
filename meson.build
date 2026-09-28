@@ -822,6 +822,7 @@ qsvpipeline_sources = files(
   'QSVPipeline/rgy_input_sm.cpp',
   'QSVPipeline/rgy_input_vpy.cpp',
   'QSVPipeline/rgy_language.cpp',
+  'QSVPipeline/rgy_libavcodec_vaapi.cpp',
   'QSVPipeline/rgy_libdovi.cpp',
   'QSVPipeline/rgy_libass.cpp',
   'QSVPipeline/rgy_libplacebo.cpp',
