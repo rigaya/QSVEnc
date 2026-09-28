@@ -30,6 +30,106 @@
 #if ENABLE_VAAPI
 #include <algorithm>
 
+RGY_ERR qsvVACheckParam(sInputParams& prm, std::shared_ptr<RGYLog> log) {
+    const sInputParams defaults;
+    auto unsupported = [&](const TCHAR *option) {
+        if (log) log->write(RGY_LOG_ERROR, RGY_LOGT_DEV,
+            _T("%s is not supported with --backend vaapi.\n"), option);
+        return RGY_ERR_UNSUPPORTED;
+    };
+    if (prm.outputCsp != RGY_CHROMAFMT_YUV420) return unsupported(_T("--output-csp (non-420)"));
+    if (prm.outputDepth != 8 && prm.outputDepth != 10) return unsupported(_T("--output-depth (other than 8 / 10)"));
+    // 品質指標は既存の QSVMfxDec と MFX セッションを必要とするため、Phase 1 では拒否する。
+    if (prm.input.type == RGY_INPUT_FMT_AVHW) return unsupported(_T("--avhw"));
+    if (!prm.dynamicRC.empty()) return unsupported(_T("--dynamic-rc"));
+    if (prm.rcParam.encMode == MFX_RATECONTROL_LA || prm.rcParam.encMode == MFX_RATECONTROL_LA_ICQ || prm.rcParam.encMode == MFX_RATECONTROL_LA_HRD || prm.rcParam.encMode == MFX_RATECONTROL_VCM) return unsupported(_T("LA / LA-ICQ / LA-HRD / VCM"));
+    if (prm.common.adaptResolution != defaults.common.adaptResolution) return unsupported(_T("--adapt-resolution"));
+    const bool deinterlaceCL = prm.vpp.afs.enable || prm.vpp.nnedi.enable || prm.vpp.yadif.enable
+        || prm.vpp.bwdif.enable || prm.vpp.rtgmc.enable || prm.vpp.kfm.enable || prm.vpp.rtgmc_bob.enable
+        || prm.vpp.decomb.enable || prm.vpp.onnxDeint.enable || prm.vpp.ivtc.enable;
+    if ((prm.input.picstruct & RGY_PICSTRUCT_INTERLACED) != 0 && !deinterlaceCL) return unsupported(_T("--interlace"));
+    if (prm.common.metric.enabled()) return unsupported(_T("--ssim / --psnr / --vmaf"));
+    if (prm.ctrl.parallelEnc.isEnabled()) return unsupported(_T("--parallel"));
+    if (prm.vppmfx.deinterlace != defaults.vppmfx.deinterlace || prm.vppmfx.deinterlaceMode != defaults.vppmfx.deinterlaceMode) return unsupported(_T("--vpp-deinterlace"));
+    if (prm.vppmfx.denoise.enable) return unsupported(_T("--vpp-denoise"));
+    if (prm.vppmfx.mctf.enable) return unsupported(_T("--vpp-mctf"));
+    if (prm.vppmfx.detail.enable) return unsupported(_T("--vpp-detail-enhance"));
+    if (prm.vppmfx.imageStabilizer != defaults.vppmfx.imageStabilizer) return unsupported(_T("--vpp-image-stab"));
+    if (prm.vppmfx.fpsConversion != defaults.vppmfx.fpsConversion) return unsupported(_T("--vpp-fps-conv"));
+    if (prm.vppmfx.rotate != defaults.vppmfx.rotate || prm.vppmfx.halfTurn) return unsupported(_T("--vpp-rotate"));
+    if (prm.vppmfx.mirrorType != defaults.vppmfx.mirrorType) return unsupported(_T("--vpp-mirror"));
+    if (prm.vppmfx.useProAmp) return unsupported(_T("MFX ProAmp"));
+    if (prm.vppmfx.colorspace.enable) return unsupported(_T("--vpp-colorspace (mfx)"));
+    if (prm.vppmfx.aiSuperRes.enable) return unsupported(_T("--vpp-ai-superres"));
+    if (prm.vppmfx.aiFrameInterpolation.enable) return unsupported(_T("--vpp-ai-frameinterp"));
+    if (prm.vppmfx.percPreEnc) return unsupported(_T("--vpp-perc-pre-enc"));
+    if (prm.vppmfx.mfxInsertCLCopy != defaults.vppmfx.mfxInsertCLCopy) return unsupported(_T("--vpp-mfx-insert-clcopy"));
+    if (isQSVMFXResizeFiter(prm.vpp.resize_algo) || isQSVMFXResizeFiter((RGY_VPP_RESIZE_ALGO)prm.vppmfx.resizeInterp) || prm.vppmfx.resizeMode != defaults.vppmfx.resizeMode) return unsupported(_T("--vpp-resize (mfx)"));
+    auto warnUnsupported = [&](const TCHAR *option, bool changed) {
+        if (changed && log) log->write(RGY_LOG_WARN, RGY_LOGT_DEV,
+            _T("WARN: %s is not supported with --backend vaapi, ignored.\n"), option);
+    };
+    warnUnsupported(_T("IDR interval"), prm.nIdrInterval != defaults.nIdrInterval);
+    warnUnsupported(_T("MVC flags"), prm.MVC_flags != defaults.MVC_flags);
+    warnUnsupported(_T("--b-pyramid"), prm.bBPyramid != defaults.bBPyramid);
+    warnUnsupported(_T("--mbbrc"), prm.bMBBRC != defaults.bMBBRC);
+    warnUnsupported(_T("--extbrc"), prm.extBRC != defaults.extBRC);
+    warnUnsupported(_T("--adapt-ref"), prm.adaptiveRef != defaults.adaptiveRef);
+    warnUnsupported(_T("--adapt-ltr"), prm.adaptiveLTR != defaults.adaptiveLTR);
+    warnUnsupported(_T("--adapt-cqm"), prm.adaptiveCQM != defaults.adaptiveCQM);
+    warnUnsupported(_T("--i-adapt"), prm.bAdaptiveI != defaults.bAdaptiveI);
+    warnUnsupported(_T("--b-adapt"), prm.bAdaptiveB != defaults.bAdaptiveB);
+    warnUnsupported(_T("--weightp"), prm.nWeightP != defaults.nWeightP);
+    warnUnsupported(_T("--weightb"), prm.nWeightB != defaults.nWeightB);
+    warnUnsupported(_T("--fade-detect"), prm.nFadeDetect != defaults.nFadeDetect);
+    warnUnsupported(_T("--trellis"), prm.nTrellis != defaults.nTrellis);
+    warnUnsupported(_T("--intra-refresh-cycle"), prm.intraRefreshCycle != defaults.intraRefreshCycle);
+    warnUnsupported(_T("--tune"), prm.tuneQuality != defaults.tuneQuality);
+    warnUnsupported(_T("--scenario-info"), prm.scenarioInfo != defaults.scenarioInfo);
+    warnUnsupported(_T("--open-gop"), prm.openGOP != defaults.openGOP);
+    warnUnsupported(_T("--strict-gop"), prm.bforceGOPSettings != defaults.bforceGOPSettings);
+    warnUnsupported(_T("--cavlc"), prm.bCAVLC != defaults.bCAVLC);
+    warnUnsupported(_T("--rdo"), prm.bRDO != defaults.bRDO);
+    warnUnsupported(_T("--bluray"), prm.nBluray != defaults.nBluray);
+    warnUnsupported(_T("--repartition-check"), prm.nRepartitionCheck != defaults.nRepartitionCheck);
+    warnUnsupported(_T("--max-framesize"), prm.maxFrameSize != defaults.maxFrameSize);
+    warnUnsupported(_T("--max-framesize-i"), prm.maxFrameSizeI != defaults.maxFrameSizeI);
+    warnUnsupported(_T("--max-framesize-p"), prm.maxFrameSizeP != defaults.maxFrameSizeP);
+    warnUnsupported(_T("--la-window-size"), prm.nWinBRCSize != defaults.nWinBRCSize);
+    warnUnsupported(_T("--no-deblock"), prm.bNoDeblock != defaults.bNoDeblock);
+    warnUnsupported(_T("--ctu"), prm.hevc_ctu != defaults.hevc_ctu);
+    warnUnsupported(_T("--sao"), prm.hevc_sao != defaults.hevc_sao);
+    warnUnsupported(_T("--tskip"), prm.hevc_tskip != defaults.hevc_tskip);
+    warnUnsupported(_T("--hevc-gpb"), prm.hevc_gpb != defaults.hevc_gpb);
+    warnUnsupported(_T("--mv-scaling"), prm.nMVCostScaling != defaults.nMVCostScaling || prm.bGlobalMotionAdjust != defaults.bGlobalMotionAdjust);
+    warnUnsupported(_T("--direct-bias-adjust"), prm.bDirectBiasAdjust != defaults.bDirectBiasAdjust);
+    warnUnsupported(_T("--inter-pred"), prm.nInterPred != defaults.nInterPred);
+    warnUnsupported(_T("--intra-pred"), prm.nIntraPred != defaults.nIntraPred);
+    warnUnsupported(_T("--mv-precision"), prm.nMVPrecision != defaults.nMVPrecision);
+    warnUnsupported(_T("--mv-search"), prm.MVSearchWindow != defaults.MVSearchWindow);
+    warnUnsupported(_T("--sharpness"), prm.nVP8Sharpness != defaults.nVP8Sharpness);
+    warnUnsupported(_T("--pic-struct"), prm.bOutputPicStruct != defaults.bOutputPicStruct);
+    warnUnsupported(_T("--buf-period"), prm.bufPeriodSEI != defaults.bufPeriodSEI);
+    warnUnsupported(_T("--repeat-headers"), prm.repeatHeaders != defaults.repeatHeaders);
+    warnUnsupported(_T("--la-depth"), prm.nLookaheadDepth != defaults.nLookaheadDepth);
+    warnUnsupported(_T("--la-quality"), prm.nLookaheadDS != defaults.nLookaheadDS);
+    warnUnsupported(_T("--gpu-copy"), prm.gpuCopy != defaults.gpuCopy);
+    warnUnsupported(_T("--session-threads"), prm.nSessionThreads != defaults.nSessionThreads);
+    warnUnsupported(_T("--session-thread-priority"), prm.nSessionThreadPriority != defaults.nSessionThreadPriority);
+    warnUnsupported(_T("--fallback-rc"), prm.fallbackRC != defaults.fallbackRC);
+    warnUnsupported(_T("--workaround-hevc10bit-enctools"), prm.workaroundHevc10bitEnctools != defaults.workaroundHevc10bitEnctools);
+    warnUnsupported(_T("--hyper-mode"), prm.hyperMode != defaults.hyperMode);
+    warnUnsupported(_T("--avbr-unitsize"), prm.rcParam.avbrConvergence != defaults.rcParam.avbrConvergence);
+    warnUnsupported(_T("--avbr-accuracy"), prm.rcParam.avbrAccuarcy != defaults.rcParam.avbrAccuarcy);
+    warnUnsupported(_T("--ai-enc-ctrl"), prm.aiEncCtrl.enable != defaults.aiEncCtrl.enable
+        || prm.aiEncCtrl.saliencyEncoder != defaults.aiEncCtrl.saliencyEncoder
+        || prm.aiEncCtrl.adaptiveTargetUsage != defaults.aiEncCtrl.adaptiveTargetUsage);
+    warnUnsupported(_T("--qp-offset"), !std::equal(std::begin(prm.pQPOffset), std::end(prm.pQPOffset), std::begin(defaults.pQPOffset)));
+    warnUnsupported(_T("--tile-row"), prm.av1.tile_row != defaults.av1.tile_row);
+    warnUnsupported(_T("--tile-col"), prm.av1.tile_col != defaults.av1.tile_col);
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR qsvVAEncParam(RGYVAEncParam& dst, const sInputParams& prm, RGYDeviceVA *dev,
     int width, int height, rgy_rational<int> fps, rgy_rational<int> sar,
     rgy_rational<int> timebase, const VideoVUIInfo& vui, std::shared_ptr<RGYLog> log) {

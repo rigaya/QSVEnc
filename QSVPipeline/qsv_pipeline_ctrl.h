@@ -633,7 +633,10 @@ public:
             if (sync) {
                 out->waitsync();
             }
-            out->depend_clear();
+            // VA の SYS 出力は、転送イベントと参照をエンコードタスクへ渡す。
+            if (m_mfxSession != nullptr || m_type != PipelineTaskType::OPENCL || sync) {
+                out->depend_clear();
+            }
             m_outFrames++;
             output.push_back(std::move(out));
         }
@@ -1028,6 +1031,11 @@ public:
         // エラー時は下流に中途半端な解像度を残さないよう、入ってきたときの解像度に戻す。
         if (err == RGY_ERR_NONE) {
             const auto [readerWidth, readerHeight] = getReaderOutputResolution();
+            if (m_mfxSession == nullptr && (readerWidth != m_workSurfAllocWidth || readerHeight != m_workSurfAllocHeight)) {
+                PrintMes(RGY_LOG_ERROR, _T("Input resolution changed from %dx%d to %dx%d, which is not supported by VA-API yet.\n"),
+                    m_workSurfAllocWidth, m_workSurfAllocHeight, readerWidth, readerHeight);
+                return RGY_ERR_UNSUPPORTED;
+            }
             printInputResolutionChange(readerWidth, readerHeight);
             clframe->frame.width = readerWidth;
             clframe->frame.height = readerHeight;
@@ -1088,6 +1096,7 @@ public:
 #if ENABLE_VAAPI
 class PipelineTaskVAAPIEncode : public PipelineTask {
     RGY_CODEC m_encCodec;
+    bool m_aud;
     RGYTimecode *m_timecode;
     RGYTimestamp *m_encTimestamp;
     rgy_rational<int> m_outputTimebase;
@@ -1129,11 +1138,11 @@ class PipelineTaskVAAPIEncode : public PipelineTask {
     bool m_drainSent;
     std::deque<std::unique_ptr<PipelineTaskOutput>> m_pendingFrames;
 public:
-    PipelineTaskVAAPIEncode(RGYEncoderVA *enc, RGY_CODEC codec, int outMaxQueueSize,
+    PipelineTaskVAAPIEncode(RGYEncoderVA *enc, RGY_CODEC codec, bool aud, int outMaxQueueSize,
         RGYTimecode *timecode, RGYTimestamp *encTimestamp, rgy_rational<int> outputTimebase,
         const RGYHDR10Plus *hdr10plus, const DOVIRpu *doviRpu, std::shared_ptr<RGYLog> log)
         : PipelineTask(PipelineTaskType::VAAPIENC, outMaxQueueSize, nullptr, mfxVersion{ 0 }, log),
-            m_encCodec(codec), m_timecode(timecode), m_encTimestamp(encTimestamp), m_outputTimebase(outputTimebase),
+            m_encCodec(codec), m_aud(aud), m_timecode(timecode), m_encTimestamp(encTimestamp), m_outputTimebase(outputTimebase),
             m_hdr10plus(hdr10plus), m_doviRpu(doviRpu), m_encoder(enc), m_receiveStatus(RGY_ERR_NONE), m_drainSent(false), m_pendingFrames() {}
     virtual void setStopWatch() override {
         m_stopwatch = std::make_unique<PipelineTaskStopWatch>(
@@ -1156,7 +1165,21 @@ public:
         info = request->Info;
         return RGY_ERR_NONE;
     }
-    void queueBitstream(std::shared_ptr<RGYBitstream>& bs) {
+    RGY_ERR queueBitstream(std::shared_ptr<RGYBitstream>& bs) {
+        if (m_aud && m_encCodec == RGY_CODEC_HEVC) {
+            // Intel VA の HEVC aud=1 では、実測で P フレームの Annex B 区切りが壊れた。
+            // FFmpeg 側の AUD を無効にした経路に、I/P/B を許す pic_type=2 の AUD を補う。
+            static const uint8_t aud[] = { 0, 0, 0, 1, 0x46, 0x01, 0x50 };
+            std::vector<uint8_t> packet;
+            try {
+                packet.insert(packet.end(), std::begin(aud), std::end(aud));
+                packet.insert(packet.end(), bs->data(), bs->data() + bs->size());
+            } catch (const std::bad_alloc&) {
+                return RGY_ERR_MEMORY_ALLOC;
+            }
+            const auto err = bs->copy(packet.data(), packet.size());
+            if (err != RGY_ERR_NONE) return err;
+        }
         // エンコーダ内部は outputTimebase、既存 QSV writer との受け渡しは 90 kHz にそろえる。
         const auto nativeTimebase = rgy_rational<int>(1, HW_TIMEBASE);
         if (bs->pts() != AV_NOPTS_VALUE) {
@@ -1165,6 +1188,7 @@ public:
         // writer に videoDelay から DTS を生成させ、最初の packet DTS による上書きを防ぐ。
         bs->setDts(MFX_TIMESTAMP_UNKNOWN);
         m_outQeueue.push_back(std::make_unique<PipelineTaskOutputBitstream>(nullptr, std::move(bs), nullptr));
+        return RGY_ERR_NONE;
     }
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
         if (m_stopwatch) m_stopwatch->set(0);
@@ -1189,7 +1213,8 @@ public:
                     if (err == RGY_ERR_MORE_BITSTREAM) return RGY_ERR_DEVICE_FAILED;
                     if (err != RGY_ERR_NONE) return err;
                     received = true;
-                    queueBitstream(bs);
+                    err = queueBitstream(bs);
+                    if (err != RGY_ERR_NONE) return err;
                 }
                 if (!received) return RGY_ERR_DEVICE_FAILED;
             }
@@ -1239,7 +1264,8 @@ public:
                 break;
             }
             if (err != RGY_ERR_NONE) return err;
-            queueBitstream(bs);
+            err = queueBitstream(bs);
+            if (err != RGY_ERR_NONE) return err;
         }
         if (m_stopwatch) m_stopwatch->add(1, 0);
         return (m_drainSent && m_receiveStatus == RGY_ERR_MORE_DATA) ? RGY_ERR_MORE_DATA : RGY_ERR_NONE;
@@ -3194,6 +3220,11 @@ protected:
     void clearPrevInputFrame() {
         if (m_prevInputFrame.size() > 0) {
             // 前回投入したフレームの処理が完了していることを確認したうえで参照を破棄することでロックを解放する
+            if (m_mfxSession == nullptr) {
+                bool ready = false;
+                const auto err = m_prevInputFrame.front()->isDependReady(ready);
+                if (err != RGY_ERR_NONE || !ready) return;
+            }
             auto prevframe = std::move(m_prevInputFrame.front());
             m_prevInputFrame.pop_front();
             prevframe->depend_clear();
@@ -4183,6 +4214,8 @@ public:
     };
     virtual ~PipelineTaskOpenCL() {
         stopWorkers();
+        // VA のエラー終了時も、DtoH が SYS バッファを使い終わってから解放する。
+        if (m_mfxSession == nullptr && m_cl) m_cl->queue().finish();
         m_prevInputFrame.clear();
         m_prevAcquireFrame.clear();
         clearInputInterop();
@@ -4266,6 +4299,11 @@ public:
             if (taskSurf != nullptr && filterParam != nullptr) {
                 const auto inputFrame = taskSurf->surf().frame();
                 if (inputFrame->width() != filterParam->frameIn.width || inputFrame->height() != filterParam->frameIn.height) {
+                    if (m_mfxSession == nullptr) {
+                        PrintMes(RGY_LOG_ERROR, _T("Input resolution changed from %dx%d to %dx%d, which is not supported by VA-API yet.\n"),
+                            filterParam->frameIn.width, filterParam->frameIn.height, inputFrame->width(), inputFrame->height());
+                        return RGY_ERR_UNSUPPORTED;
+                    }
                     const auto newInputFrame = inputFrame->frameInfo();
                     const int oldInputWidth = filterParam->frameIn.width;
                     const int oldInputHeight = filterParam->frameIn.height;
@@ -4596,6 +4634,8 @@ public:
                     PrintMes(RGY_LOG_ERROR, _T("Failed to acquire OpenCL interop [out]: %s.\n"), get_err_mes(err));
                     return RGY_ERR_NULL_PTR;
                 }
+            } else if (surfVppOut.sys() != nullptr) {
+                // VA エンコードへの DtoH 先は SYS サーフェスのプレーンと pitch をそのまま渡す。
             } else if (surfVppOut.cl() != nullptr) {
                 //OpenCLフレームが出てきた時の場合...特にすることはない
             } else if (useReleaseWorker() && clFrameOutInterop != nullptr) {
@@ -4608,7 +4648,8 @@ public:
             int nOutFrames = 0;
             auto encSurfaceInfo = (clFrameOutHost != nullptr)
                 ? clFrameOutHost->frameInfo()
-                : ((clFrameOutInterop) ? clFrameOutInterop->frameInfo() : surfVppOut.cl()->frameInfo());
+                : ((clFrameOutInterop) ? clFrameOutInterop->frameInfo()
+                    : (surfVppOut.sys() ? surfVppOut.sys()->frameInfo() : surfVppOut.cl()->frameInfo()));
             if (clFrameOutHost != nullptr) {
                 // bufferはMFXの整列寸法で確保し、最終filterには表示領域だけを渡す。
                 const auto& visibleFrame = lastFilter->GetFilterParam()->frameOut;
@@ -4671,7 +4712,23 @@ public:
                 surfVppOut.frame()->setPicstruct(encSurfaceInfo.picstruct);
                 surfVppOut.frame()->setFlags(encSurfaceInfo.flags);
                 surfVppOut.frame()->setDataList(encSurfaceInfo.dataList);
-                outputSurfs.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, frame, clevent));
+                if (surfVppOut.sys()) {
+                    surfVppOut.frame()->setDuration(encSurfaceInfo.duration);
+                    // 入力プールが転送完了前に再利用されないよう、出力ごとに入力の参照を保持する。
+                    std::unique_ptr<PipelineTaskOutput> dependency;
+                    if (!m_prevInputFrame.empty()) {
+                        auto input = dynamic_cast<PipelineTaskOutputSurf *>(m_prevInputFrame.back().get());
+                        if (input) {
+                            dependency = std::make_unique<PipelineTaskOutputSurf>(nullptr, input->surf(), nullptr);
+                            input->addClEvent(clevent);
+                        }
+                    }
+                    outputSurfs.push_back(std::make_unique<PipelineTaskOutputSurf>(nullptr, surfVppOut, dependency, clevent));
+                    const auto flushErr = m_cl->queue().flush();
+                    if (flushErr != RGY_ERR_NONE) return flushErr;
+                } else {
+                    outputSurfs.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, frame, clevent));
+                }
             }
             if (drain) {
                 // Flush may receive several frames from one filter call (for example KFM VFR emits up to 4).

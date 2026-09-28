@@ -33,6 +33,9 @@
 #include "qsv_prm.h"
 #include "rgy_libavcodec_vaapi.h"
 
+// 入力の初期化後に、VA 非対応の指定と読み取った映像形式をまとめて検証する。
+RGY_ERR qsvVACheckParam(sInputParams& prm, std::shared_ptr<RGYLog> log);
+
 // 入力の初期化後に確定した出力情報を使い、QSV の指定を共通 VA パラメータへ変換する。
 RGY_ERR qsvVAEncParam(RGYVAEncParam& dst, const sInputParams& prm, RGYDeviceVA *dev,
     int width, int height, rgy_rational<int> fps, rgy_rational<int> sar,

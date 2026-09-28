@@ -1897,7 +1897,9 @@ RGY_ERR CQSVPipeline::AllocFrames(const std::pair<int, int>& adaptResolution) {
             && openclTask->encHostOutput()
             && t1->taskType() == PipelineTaskType::MFXENCODE;
 #if ENABLE_VAAPI
-        if (m_backend == QSVBackend::VAAPI && t0->taskType() == PipelineTaskType::INPUT) {
+        if (m_backend == QSVBackend::VAAPI
+            && (t0->taskType() == PipelineTaskType::OPENCL
+                || (t0->taskType() == PipelineTaskType::INPUT && t1->taskType() == PipelineTaskType::VAAPIENC))) {
             const RGYFrameInfo frame(m_encWidth, m_encHeight, csp_enc_to_rgy(allocRequest.Info.FourCC),
                 m_vaEncParam.bitdepth, RGY_PICSTRUCT_FRAME);
             const auto sts = t0->workSurfacesAllocSYS(requestNumFrames, frame);
@@ -2726,6 +2728,16 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
     if (inputParam->vppmfx.aiFrameInterpolation.enable) filterPipeline.push_back(VppType::MFX_AI_FRAMEINTERP);
 
     // AviUtlの共有メモリ入力は開始時に解像度が固定されるため、待機用VPPを追加する必要はない。
+#if ENABLE_VAAPI
+    if (m_backend == QSVBackend::VAAPI) {
+        for (auto& filter : filterPipeline) {
+            if (filter == VppType::MFX_RESIZE) filter = VppType::CL_RESIZE;
+            if (filter == VppType::MFX_CROP) filter = VppType::CL_CROP;
+            if (filter == VppType::MFX_COLORSPACE) filter = VppType::CL_COLORSPACE;
+        }
+        return filterPipeline;
+    }
+#endif
     if (filterPipeline.size() == 0 && inputParam->input.type != RGY_INPUT_FMT_SM) {
         // フィルタが一つもない構成(input/decode -> encodeの直結)では解像度変更を吸収する場所がないため、
         // 正規化に使えるMFX VPPブロックをここで常設しておく。
@@ -4618,12 +4630,12 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
                 param->crop = *inputCrop;
                 inputCrop = nullptr;
             }
-            param->frameIn.mem_type = RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED;
+            param->frameIn.mem_type = m_backend == QSVBackend::VAAPI ? RGY_MEM_TYPE_GPU : RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED;
             param->frameOut.mem_type = RGY_MEM_TYPE_GPU;
         } else {
             param->frameOut.bitdepth = targetBitdepth;
             param->frameIn.mem_type = RGY_MEM_TYPE_GPU;
-            param->frameOut.mem_type = RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED;
+            param->frameOut.mem_type = m_backend == QSVBackend::VAAPI ? RGY_MEM_TYPE_GPU : RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED;
         }
         param->baseFps = m_encFps;
         param->bOutOverwrite = false;
@@ -4683,6 +4695,21 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
                 if (sts != RGY_ERR_NONE) {
                     return sts;
                 }
+#if ENABLE_VAAPI
+                if (m_backend == QSVBackend::VAAPI) {
+                    auto filter = std::make_unique<RGYFilterCspCrop>(m_cl);
+                    auto param = std::make_shared<RGYFilterParamCrop>();
+                    param->frameIn = inputFrame;
+                    param->frameOut = inputFrame;
+                    param->frameOut.mem_type = RGY_MEM_TYPE_CPU;
+                    param->baseFps = m_encFps;
+                    param->bOutOverwrite = false;
+                    sts = filter->init(param, m_pQSVLog);
+                    if (sts != RGY_ERR_NONE) return sts;
+                    inputFrame = param->frameOut;
+                    vppOpenCLFilters.push_back(std::move(filter));
+                }
+#endif
                 // ブロックに追加する
                 m_vpFilters.push_back(VppVilterBlock(vppOpenCLFilters));
                 vppOpenCLFilters.clear();
@@ -4696,7 +4723,7 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
     // そのままでは途中の解像度変更を吸収する場所がなく、デコード面がエンコーダへ直結してしまうため、
     // フィルタ指定なしの場合と同じ待機用MFX COPYを追加する。
     // すべてno-opだった場合も、解像度が固定される共有メモリ入力には待機用VPPを追加しない。
-    if (m_vpFilters.empty() && inputParam->input.type != RGY_INPUT_FMT_SM) {
+    if (m_backend != QSVBackend::VAAPI && m_vpFilters.empty() && inputParam->input.type != RGY_INPUT_FMT_SM) {
         auto [err, vppmfx] = AddFilterMFX(inputFrame, m_encFps, VppType::MFX_COPY, &inputParam->vppmfx,
             getEncoderCsp(inputParam), getEncoderBitdepth(inputParam), nullptr, resize, blocksize);
         if (err != RGY_ERR_NONE) {
@@ -5362,22 +5389,10 @@ RGY_ERR CQSVPipeline::InitVA(sInputParams *pParams) {
     auto sts = InitInput(pParams, decodeCaps);
     if (sts != RGY_ERR_NONE) return sts;
     pParams->applyDOVIProfile(m_pFileReader->getInputDOVIProfile());
-    applyInputVUIToColorspaceParams(pParams);
-    m_encWidth = pParams->input.srcWidth;
-    m_encHeight = pParams->input.srcHeight;
-    m_encFps = m_inputFps;
-    m_encPicstruct = RGY_PICSTRUCT_FRAME;
-    if (m_encWidth <= 0 || m_encHeight <= 0 || !m_encFps.is_valid()
-        || (m_encWidth & 1) || (m_encHeight & 1)) return RGY_ERR_INVALID_VIDEO_PARAM;
-    if ((pParams->input.dstWidth > 0 && pParams->input.dstWidth != m_encWidth)
-        || (pParams->input.dstHeight > 0 && pParams->input.dstHeight != m_encHeight)
-        || cropEnabled(pParams->input.crop)) {
-        PrintMes(RGY_LOG_ERROR, _T("VA-API crop / resize requires filter support.\n"));
-        return RGY_ERR_UNSUPPORTED;
-    }
-    m_encVUI = pParams->common.out_vui;
-    m_encVUI.apply_auto(pParams->input.vui, m_encHeight);
-    m_encVUI.setDescriptPreset();
+    if ((sts = qsvVACheckParam(*pParams, m_pQSVLog)) != RGY_ERR_NONE) return sts;
+    if ((sts = CheckParam(pParams)) != RGY_ERR_NONE) return sts;
+    if ((sts = InitFilters(pParams)) != RGY_ERR_NONE) return sts;
+    m_openclTaskThreads = 0;
     auto sar = std::make_pair(pParams->nPAR[0], pParams->nPAR[1]);
     if (!sar.first || !sar.second) sar = { pParams->input.sar[0], pParams->input.sar[1] };
     adjust_sar(&sar.first, &sar.second, m_encWidth, m_encHeight);
@@ -5386,7 +5401,11 @@ RGY_ERR CQSVPipeline::InitVA(sInputParams *pParams) {
         m_encFps, { sar.first, sar.second }, m_outputTimebase, m_encVUI, m_pQSVLog);
     if (sts != RGY_ERR_NONE) return sts;
     m_encVA = std::make_unique<RGYEncoderVA>();
-    sts = m_encVA->init(m_device->va(), m_vaEncParam, m_pQSVLog);
+    auto encoderPrm = m_vaEncParam;
+    // Intel の HEVC では FFmpeg の AUD 出力で区切りが壊れるため、タスクで AUD を付加する。
+    const auto driver = m_device->va()->driver();
+    if (encoderPrm.codec == RGY_CODEC_HEVC && (driver == RGYVADriver::IntelIHD || driver == RGYVADriver::IntelI965)) encoderPrm.aud = false;
+    sts = m_encVA->init(m_device->va(), encoderPrm, m_pQSVLog);
     if (sts != RGY_ERR_NONE) return sts;
     // 出力情報を参照する既存 API 用の記述だけ作り、MFX コンポーネントは初期化しない。
     const RGYFrameInfo frame(m_encWidth, m_encHeight, getEncoderCsp(pParams), m_vaEncParam.bitdepth, RGY_PICSTRUCT_FRAME);
@@ -5982,7 +6001,7 @@ RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
 
 #if ENABLE_VAAPI
     if (m_backend == QSVBackend::VAAPI) {
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskInput>(nullptr, nullptr, -1ll, 0, m_pFileReader.get(), m_mfxVer, nullptr, m_pQSVLog));
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskInput>(nullptr, nullptr, -1ll, 0, m_pFileReader.get(), m_mfxVer, m_vpFilters.empty() ? nullptr : m_cl, m_pQSVLog));
         if (!m_pFileWriterListAudio.empty()) {
             m_pipelineTasks.push_back(std::make_unique<PipelineTaskAudio>(m_pFileReader.get(), m_AudioReaders, m_pFileWriterListAudio, m_vpFilters, 0, m_mfxVer, m_pQSVLog));
         }
@@ -5990,10 +6009,17 @@ RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
         if (!m_trimParam.list.empty() || prm->common.seekToSec > 0.0f) {
             m_pipelineTasks.push_back(std::make_unique<PipelineTaskTrim>(m_trimParam, m_pFileReader.get(), nullptr, srcTimebase, 0, m_mfxVer, m_pQSVLog));
         }
-        const auto duration = std::max<int64_t>(1, rational_rescale(1, m_encFps.inv(), m_outputTimebase));
+        const auto duration = std::max<int64_t>(1, rational_rescale(1, m_inputFps.inv(), m_outputTimebase));
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(nullptr, srcTimebase, m_outputTimebase, duration,
             m_nAVSyncMode, m_timestampPassThrough, false, m_mfxVer, m_pQSVLog));
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskVAAPIEncode>(m_encVA.get(), m_vaEncParam.codec, 1,
+        for (auto& block : m_vpFilters) {
+            if (block.type != VppFilterType::FILTER_OPENCL) return RGY_ERR_UNSUPPORTED;
+            m_pipelineTasks.push_back(std::make_unique<PipelineTaskOpenCL>(block.vppcl, nullptr, m_cl, 0,
+                SYSTEM_MEMORY, false, nullptr, nullptr, 1, m_pQSVLog));
+        }
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskVAAPIEncode>(m_encVA.get(), m_vaEncParam.codec,
+            m_vaEncParam.aud && m_vaEncParam.codec == RGY_CODEC_HEVC
+                && (m_device->va()->driver() == RGYVADriver::IntelIHD || m_device->va()->driver() == RGYVADriver::IntelI965), 1,
             m_timecode.get(), m_encTimestamp.get(), m_outputTimebase, m_hdr10plus.get(), m_dovirpu.get(), m_pQSVLog));
         return RGY_ERR_NONE;
     }
