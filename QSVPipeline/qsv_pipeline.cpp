@@ -4994,6 +4994,13 @@ RGY_ERR CQSVPipeline::deviceAutoSelect(const sInputParams *prm, std::vector<std:
 }
 
 RGY_ERR CQSVPipeline::InitSession(sInputParams *inputParam, std::vector<std::unique_ptr<QSVDevice>>& deviceList) {
+#if ENABLE_VAAPI
+    if (m_backend == QSVBackend::VAAPI) {
+        if (deviceList.empty()) return RGY_ERR_DEVICE_NOT_FOUND;
+        m_device = std::move(deviceList.front());
+        return RGY_ERR_NONE;
+    }
+#endif
     auto err = RGY_ERR_NONE;
     std::unique_ptr<RGYDeviceUsageLockManager> devUsageLock;
     if (deviceList.size() > 1) {
@@ -5364,40 +5371,26 @@ RGY_ERR CQSVPipeline::initBackendVA(sInputParams *pParams, std::vector<std::uniq
     PrintMes(RGY_LOG_INFO, _T("backend=vaapi\n"));
     deviceList = getDeviceListVA(pParams->device, pParams->ctrl.enableOpenCL, m_pQSVLog);
     if (deviceList.empty()) return RGY_ERR_DEVICE_NOT_FOUND;
-    m_device = std::move(deviceList.front());
-    const auto sts = InitOpenCL(pParams->ctrl.enableOpenCL, pParams->ctrl.openclBuildThreads, pParams->vpp.checkPerformance, pParams->ctrl.clPerfDumpDir, pParams->ctrl.clPerfTimelineSec);
-    if (sts < RGY_ERR_NONE) return sts;
-    deviceList.clear();
-    m_devNames = { m_device->name() };
-    return InitVA(pParams);
+    return RGY_ERR_NONE;
 }
 
-RGY_ERR CQSVPipeline::InitVA(sInputParams *pParams) {
-    if (pParams->common.adaptResolution.first > 0 || pParams->common.adaptResolution.second > 0) {
-        PrintMes(RGY_LOG_ERROR, _T("--adapt-resolution is not supported with --backend vaapi yet.\n"));
-        return RGY_ERR_UNSUPPORTED;
-    }
-    if (pParams->input.type == RGY_INPUT_FMT_AVHW) {
-        PrintMes(RGY_LOG_ERROR, _T("--avhw is not supported with --backend vaapi; use --avsw.\n"));
-        return RGY_ERR_UNSUPPORTED;
-    }
-    if (pParams->input.type == RGY_INPUT_FMT_AVANY) pParams->input.type = RGY_INPUT_FMT_AVSW;
-    // キャッシュ後の auto 切り替えでは、QSV 用に開いた入力を閉じて HW decode caps なしで開き直す。
+RGY_ERR CQSVPipeline::ReopenInputVA(sInputParams *pParams, const VideoInfo& originalInput) {
+    // QSV 用に開いた入力と、その初期化で変更された設定を破棄して開き直す。
     m_pFileReader.reset();
     m_AudioReaders.clear();
+    pParams->input = originalInput;
     DeviceCodecCsp decodeCaps;
     auto sts = InitInput(pParams, decodeCaps);
-    if (sts != RGY_ERR_NONE) return sts;
-    pParams->applyDOVIProfile(m_pFileReader->getInputDOVIProfile());
-    if ((sts = qsvVACheckParam(*pParams, m_pQSVLog)) != RGY_ERR_NONE) return sts;
-    if ((sts = CheckParam(pParams)) != RGY_ERR_NONE) return sts;
-    if ((sts = InitFilters(pParams)) != RGY_ERR_NONE) return sts;
-    m_openclTaskThreads = 0;
+    if (sts == RGY_ERR_NONE) pParams->applyDOVIProfile(m_pFileReader->getInputDOVIProfile());
+    return sts;
+}
+
+RGY_ERR CQSVPipeline::InitEncodeVA(sInputParams *pParams) {
     auto sar = std::make_pair(pParams->nPAR[0], pParams->nPAR[1]);
     if (!sar.first || !sar.second) sar = { pParams->input.sar[0], pParams->input.sar[1] };
     adjust_sar(&sar.first, &sar.second, m_encWidth, m_encHeight);
     if (sar.first <= 0 || sar.second <= 0) sar = { 1, 1 };
-    sts = qsvVAEncParam(m_vaEncParam, *pParams, m_device->va(), m_encWidth, m_encHeight,
+    auto sts = qsvVAEncParam(m_vaEncParam, *pParams, m_device->va(), m_encWidth, m_encHeight,
         m_encFps, { sar.first, sar.second }, m_outputTimebase, m_encVUI, m_pQSVLog);
     if (sts != RGY_ERR_NONE) return sts;
     m_encVA = std::make_unique<RGYEncoderVA>();
@@ -5411,18 +5404,7 @@ RGY_ERR CQSVPipeline::InitVA(sInputParams *pParams) {
     const RGYFrameInfo frame(m_encWidth, m_encHeight, getEncoderCsp(pParams), m_vaEncParam.bitdepth, RGY_PICSTRUCT_FRAME);
     m_encParams.videoPrm.mfx.FrameInfo = frameinfo_rgy_to_enc(frame, m_encFps, m_vaEncParam.sar, 1);
     m_encParams.videoPrm.mfx.CodecId = codec_rgy_to_enc(m_vaEncParam.codec);
-    m_encTimestamp = std::make_unique<RGYTimestamp>(pParams->common.timestampPassThrough, false);
-    if ((sts = InitChapters(pParams)) != RGY_ERR_NONE) return sts;
-    if ((sts = InitPerfMonitor(pParams)) != RGY_ERR_NONE) return sts;
-    if ((sts = InitOutput(pParams)) != RGY_ERR_NONE) return sts;
-    m_nProcSpeedLimit = pParams->ctrl.procSpeedLimit;
-    m_taskPerfMonitor = pParams->ctrl.taskPerfMonitor;
-    m_nAsyncDepth = pParams->ctrl.lowLatency ? 1 : clamp_param_int(pParams->nAsyncDepth, 0, QSV_ASYNC_DEPTH_MAX, _T("async-depth"));
-    if (m_nAsyncDepth == 0) m_nAsyncDepth = QSV_DEFAULT_ASYNC_DEPTH;
-    if ((sts = CreatePipeline(pParams)) != RGY_ERR_NONE) return sts;
-    if ((sts = AllocFrames({ 0, 0 })) != RGY_ERR_NONE) return sts;
-    pParams->ctrl.threadParams.get(RGYThreadType::MAIN).apply(GetCurrentThread());
-    return SetPerfMonitorThreadHandles();
+    return RGY_ERR_NONE;
 }
 #endif
 
@@ -5507,15 +5489,15 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     const auto vplDisabled = std::getenv("QSVENC_VPL_DISABLE");
     if (pParams->backend == QSVBackend::VAAPI
         || (pParams->backend == QSVBackend::Auto && vplDisabled && std::strcmp(vplDisabled, "1") == 0)) {
-        return initBackendVA(pParams, deviceList, deviceInfoCache);
+        if ((sts = initBackendVA(pParams, deviceList, deviceInfoCache)) != RGY_ERR_NONE) return sts;
     }
 #endif
-    deviceInfoCache = std::make_shared<QSVDeviceInfoCache>();
-    if ((sts = deviceInfoCache->loadCacheFile()) != RGY_ERR_NONE) {
+    if (m_backend == QSVBackend::QSV) deviceInfoCache = std::make_shared<QSVDeviceInfoCache>();
+    if (deviceInfoCache && (sts = deviceInfoCache->loadCacheFile()) != RGY_ERR_NONE) {
         if (sts == RGY_ERR_FILE_OPEN) { // ファイルは存在するが開けない
             deviceInfoCache.reset(); // キャッシュの存在を無視して進める
         }
-    } else {
+    } else if (deviceInfoCache) {
         HWDecCodecCsp = deviceInfoCache->getDeviceDecCodecCsp();
         PrintMes(RGY_LOG_DEBUG, _T("HW dec codec csp support read from cache file.\n"));
     }
@@ -5537,27 +5519,32 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
         if (deviceList.size() == 0) {
             PrintMes(RGY_LOG_DEBUG, _T("No device found for QSV encoding!\n"));
 #if ENABLE_VAAPI
-            if (pParams->backend == QSVBackend::Auto) return initBackendVA(pParams, deviceList, deviceInfoCache);
+            if (pParams->backend == QSVBackend::Auto) {
+                if ((sts = initBackendVA(pParams, deviceList, deviceInfoCache)) != RGY_ERR_NONE) return sts;
+            } else
 #endif
             return RGY_ERR_DEVICE_NOT_FOUND;
         }
-        HWDecCodecCsp = getHWDecCodecCsp(pParams->ctrl.skipHWDecodeCheck, deviceList);
-        const auto devInfo = getDevInfo();
-        deviceInfoCache->setDeviceInfos(devInfo);
-        deviceInfoCache->setDecCodecCsp(devInfo, HWDecCodecCsp);
-        deviceInfoCache->saveCacheFile();
-        PrintMes(RGY_LOG_DEBUG, _T("HW dec codec csp support saved to cache file.\n"));
-        if (pParams->device != QSVDeviceNum::AUTO) {
-            for (auto it = deviceList.begin(); it != deviceList.end();) {
-                if ((*it)->deviceNum() != pParams->device) {
-                    it = deviceList.erase(it);
-                } else {
-                    it++;
+        if (m_backend == QSVBackend::QSV) {
+            HWDecCodecCsp = getHWDecCodecCsp(pParams->ctrl.skipHWDecodeCheck, deviceList);
+            const auto devInfo = getDevInfo();
+            deviceInfoCache->setDeviceInfos(devInfo);
+            deviceInfoCache->setDecCodecCsp(devInfo, HWDecCodecCsp);
+            deviceInfoCache->saveCacheFile();
+            PrintMes(RGY_LOG_DEBUG, _T("HW dec codec csp support saved to cache file.\n"));
+            if (pParams->device != QSVDeviceNum::AUTO) {
+                for (auto it = deviceList.begin(); it != deviceList.end();) {
+                    if ((*it)->deviceNum() != pParams->device) {
+                        it = deviceList.erase(it);
+                    } else {
+                        it++;
+                    }
                 }
             }
         }
     }
 
+    if (m_backend == QSVBackend::VAAPI) HWDecCodecCsp.clear();
     const auto originalInput = pParams->input;
     auto input_ret = std::async(std::launch::async, [&] {
         threadParamThrottleDsiabled.apply(GetCurrentThread());
@@ -5568,17 +5555,18 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
         return sts;
     });
 
-    if (deviceList.size() == 0) {
+    if (m_backend == QSVBackend::QSV && deviceList.size() == 0) {
         deviceList = getDeviceList(pParams->device, pParams->ctrl.enableOpenCL, pParams->ctrl.enableVulkan, pParams->memType, m_sessionParams, deviceInfoCache, m_pQSVLog);
         if (deviceList.size() == 0) {
             PrintMes(RGY_LOG_INFO, _T("No device found for QSV encoding!\n"));
 #if ENABLE_VAAPI
             if (pParams->backend == QSVBackend::Auto) {
                 // 入力スレッドが使うパラメータの更新を待ってから VA を初期化する。
-                input_ret.wait();
-                pParams->input = originalInput;
-                return initBackendVA(pParams, deviceList, deviceInfoCache);
-            }
+                input_ret.get();
+                if ((sts = initBackendVA(pParams, deviceList, deviceInfoCache)) != RGY_ERR_NONE) return sts;
+                HWDecCodecCsp.clear();
+                input_ret = std::async(std::launch::deferred, [&] { return ReopenInputVA(pParams, originalInput); });
+            } else
 #endif
             return RGY_ERR_DEVICE_NOT_FOUND;
         }
@@ -5587,7 +5575,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
         }
     }
 
-    PrintMes(RGY_LOG_INFO, _T("backend=qsv\n"));
+    if (m_backend == QSVBackend::QSV) PrintMes(RGY_LOG_INFO, _T("backend=qsv\n"));
     m_devNames.clear();
     for (const auto& dev : deviceList) {
         m_devNames.push_back(dev->name());
@@ -5600,7 +5588,9 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     sts = InitOpenCL(pParams->ctrl.enableOpenCL, pParams->ctrl.parallelEnc.isParent() ? 1 : pParams->ctrl.openclBuildThreads, pParams->vpp.checkPerformance, pParams->ctrl.clPerfDumpDir, pParams->ctrl.clPerfTimelineSec);
     if (sts < RGY_ERR_NONE) return sts;
     PrintMes(RGY_LOG_DEBUG, _T("InitOpenCL: Success.\n"));
-    if (pParams->ctrl.openclTaskThreads < 0) {
+    if (m_backend == QSVBackend::VAAPI) {
+        m_openclTaskThreads = 0;
+    } else if (pParams->ctrl.openclTaskThreads < 0) {
         const auto cpuGen = m_device->CPUGen();
         const bool hevcFFSupported = !!m_device->getEncodeFeature(MFX_RATECONTROL_CQP, RGY_CODEC_HEVC, true);
         m_openclTaskThreads = (cpuGen >= CPU_GEN_ICELAKE || hevcFFSupported) ? 2 : 0;
@@ -5611,6 +5601,13 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     }
 
     sts = input_ret.get();
+#if ENABLE_VAAPI
+    if (m_backend == QSVBackend::VAAPI) {
+        // 入力の初期化結果より先に明示された非対応設定を報告し、並列処理の開始も防ぐ。
+        const auto check = qsvVACheckParam(*pParams, m_pQSVLog);
+        if (check != RGY_ERR_NONE) return check;
+    }
+#endif
     if (sts < RGY_ERR_NONE) return sts;
     PrintMes(RGY_LOG_DEBUG, _T("InitInput: Success.\n"));
 
@@ -5625,7 +5622,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     if (sts != RGY_ERR_NONE) return sts;
     PrintMes(RGY_LOG_DEBUG, _T("CheckParam: Success.\n"));
 
-    sts = InitMfxDecParams(pParams->common.adaptResolution);
+    sts = m_backend == QSVBackend::VAAPI ? RGY_ERR_NONE : InitMfxDecParams(pParams->common.adaptResolution);
     if (sts < RGY_ERR_NONE) return sts;
     PrintMes(RGY_LOG_DEBUG, _T("InitMfxDecParams: Success.\n"));
 
@@ -5633,7 +5630,11 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     if (sts < RGY_ERR_NONE) return sts;
     PrintMes(RGY_LOG_DEBUG, _T("InitFilters: Success.\n"));
 
+#if ENABLE_VAAPI
+    sts = m_backend == QSVBackend::VAAPI ? InitEncodeVA(pParams) : InitMfxEncodeParams(pParams, deviceList);
+#else
     sts = InitMfxEncodeParams(pParams, deviceList);
+#endif
     if (sts < RGY_ERR_NONE) return sts;
     PrintMes(RGY_LOG_DEBUG, _T("InitMfxEncodeParams: Success.\n"));
 
@@ -5671,7 +5672,11 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
         pParams->bDisableTimerPeriodTuning = false;
     }
 
-    const int nPipelineElements = !!m_mfxDEC + (int)m_vpFilters.size() + !!m_pmfxENC;
+    const int nPipelineElements = !!m_mfxDEC + (int)m_vpFilters.size() + !!m_pmfxENC
+#if ENABLE_VAAPI
+        + !!m_encVA
+#endif
+        ;
     if (nPipelineElements == 0) {
         PrintMes(RGY_LOG_ERROR, _T("None of the pipeline element (DEC,VPP,ENC) are activated!\n"));
         return RGY_ERR_INVALID_VIDEO_PARAM;
@@ -5910,6 +5915,12 @@ RGY_ERR CQSVPipeline::ResetMFXComponents(sInputParams* pParams) {
     PrintMes(RGY_LOG_DEBUG, _T("ResetMFXComponents: Start...\n"));
 
     m_pipelineTasks.clear();
+#if ENABLE_VAAPI
+    if (m_backend == QSVBackend::VAAPI) {
+        if ((err = CreatePipeline(pParams)) != RGY_ERR_NONE) return err;
+        return AllocFrames(pParams->common.adaptResolution);
+    }
+#endif
 
     if (m_pmfxENC) {
         err = err_to_rgy(m_pmfxENC->Close());

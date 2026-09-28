@@ -220,7 +220,8 @@ protected:
     RGY_ERR checkGPUListByEncoder(sInputParams *inputParam, std::vector<std::unique_ptr<QSVDevice>>& deviceList);
     RGY_ERR deviceAutoSelect(const sInputParams *inputParam, std::vector<std::unique_ptr<QSVDevice>>& deviceList, const RGYDeviceUsageLockManager *lock);
 #if ENABLE_VAAPI
-    RGY_ERR InitVA(sInputParams *pParams);
+    RGY_ERR InitEncodeVA(sInputParams *pParams);
+    RGY_ERR ReopenInputVA(sInputParams *pParams, const VideoInfo& originalInput);
     RGY_ERR initBackendVA(sInputParams *pParams, std::vector<std::unique_ptr<QSVDevice>>& deviceList, std::shared_ptr<QSVDeviceInfoCache>& deviceInfoCache);
 #endif
     virtual RGY_ERR InitSession(sInputParams *inputParam, std::vector<std::unique_ptr<QSVDevice>>& deviceList);
