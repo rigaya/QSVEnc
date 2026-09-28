@@ -111,7 +111,7 @@ sudo ldconfig
 sudo apt install --no-install-recommends libva2 libva-drm2 libva-x11-2 intel-media-va-driver
 ```
 
-`libva-x11-2` は既存のビルド済みバイナリのリンク依存に含まれるため、画面を使わない場合も導入します。ソースからビルドしたバイナリは、`ldd ./qsvencc` で表示される追加の共有ライブラリも必要です。上記は VA-API 経路の実行要件であり、公式 deb パッケージの依存関係は QSV / OpenCL 用のパッケージも含むため、deb をインストールするとそれらも導入されます。
+`libva-x11-2` は既存のビルド済みバイナリのリンク依存に含まれるため、画面を使わない場合も導入します。ソースからビルドしたバイナリは、`ldd ./qsvencc` で表示される追加の共有ライブラリも必要です。公式 deb パッケージでは QSV / OpenCL 用のランタイムは Recommends (推奨パッケージ) です。VA-API だけで使う場合は、上記のドライバを導入したうえで `sudo apt install --no-install-recommends ./qsvencc_x.xx_Ubuntu24.04_amd64.deb` とすると、推奨パッケージの自動導入を省略できます。
 
 ビルド時と実行時の libva の互換性も必要です。新しい libva でビルドして `vaMapBuffer2` を参照するバイナリは、Ubuntu 24.04 標準の libva 2.20 では起動できません。その場合は対応する libva を用意するか、実行環境の libva に合わせてビルドしてください。
 

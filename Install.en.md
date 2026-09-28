@@ -105,7 +105,7 @@ When using only `--backend vaapi` or the VA-API path selected by `auto`, oneVPL 
 sudo apt install --no-install-recommends libva2 libva-drm2 libva-x11-2 intel-media-va-driver
 ```
 
-Existing prebuilt binaries link to `libva-x11-2`, so install it even for headless operation. For binaries built from source, also install any additional shared libraries listed by `ldd ./qsvencc`. These are runtime requirements for the VA-API path; official deb packages also declare dependencies for QSV / OpenCL and will install those packages as well.
+Existing prebuilt binaries link to `libva-x11-2`, so install it even for headless operation. For binaries built from source, also install any additional shared libraries listed by `ldd ./qsvencc`. Official deb packages list QSV / OpenCL runtimes under Recommends. For VA-API-only operation, install the driver above and use `sudo apt install --no-install-recommends ./qsvencc_x.xx_Ubuntu24.04_amd64.deb` to skip automatic installation of recommended packages.
 
 The runtime libva must also be compatible with the build. A binary built against a newer libva that references `vaMapBuffer2` cannot start with Ubuntu 24.04's standard libva 2.20. Use a compatible libva or build against the libva provided by the target environment.
 
