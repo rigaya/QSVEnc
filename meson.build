@@ -704,6 +704,7 @@ qsvpipeline_sources = files(
   'QSVPipeline/qsv_mfx_dec.cpp',
   'QSVPipeline/qsv_pipeline.cpp',
   'QSVPipeline/qsv_prm.cpp',
+  'QSVPipeline/qsv_vaapi.cpp',
   'QSVPipeline/qsv_query.cpp',
   'QSVPipeline/qsv_session.cpp',
   'QSVPipeline/qsv_util.cpp',

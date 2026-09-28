@@ -835,8 +835,12 @@ tstring RGYEncoderVA::paramString() const {
         }
         mes += _T("\n");
     } else {
-        mes += strsprintf(_T("%s:           %lld kbps\n"), char_to_tstring(rc_mode_name(m_rateControl)).c_str(), (long long)(m_codecCtx->bit_rate / 1000));
-        if (m_rateControl == RGY_VA_RC_QVBR || m_rateControl == RGY_VA_RC_ICQ) {
+        if (m_rateControl == RGY_VA_RC_ICQ) {
+            mes += strsprintf(_T("ICQ:           Quality %d\n"), m_qp);
+        } else {
+            mes += strsprintf(_T("%-15s%lld kbps\n"), (char_to_tstring(rc_mode_name(m_rateControl)) + _T(":")).c_str(), (long long)(m_codecCtx->bit_rate / 1000));
+        }
+        if (m_rateControl == RGY_VA_RC_QVBR) {
             mes += strsprintf(_T("Quality level: %d\n"), m_qp);
         }
         if (m_codecCtx->rc_max_rate > 0) {

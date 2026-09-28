@@ -60,6 +60,7 @@
 #include "qsv_mfx_dec.h"
 #include "qsv_vpp_mfx.h"
 #include "rgy_parallel_enc.h"
+#include "rgy_libavcodec_vaapi.h"
 
 const uint32_t MSDK_DEC_WAIT_INTERVAL = 60000;
 const uint32_t MSDK_ENC_WAIT_INTERVAL = 10000;
@@ -108,7 +109,8 @@ enum class PipelineTaskOutputType {
 enum class PipelineTaskSurfaceType {
     UNKNOWN,
     CL,
-    MFX
+    MFX,
+    SYS
 };
 
 class PipelineTaskStopWatch {
@@ -218,6 +220,8 @@ public:
     RGYCLFrame *cl() { return dynamic_cast<RGYCLFrame*>(surf); }
     const RGYFrame *frame() const { return surf; }
     RGYFrame *frame() { return surf; }
+    const RGYSysFrame *sys() const { return dynamic_cast<const RGYSysFrame*>(surf); }
+    RGYSysFrame *sys() { return dynamic_cast<RGYSysFrame*>(surf); }
 };
 
 // アプリ用の独自参照カウンタと組み合わせたクラス
@@ -246,6 +250,7 @@ private:
             if (!surf_) return PipelineTaskSurfaceType::UNKNOWN;
             if (dynamic_cast<const RGYCLFrame*>(surf_.get())) return PipelineTaskSurfaceType::CL;
             if (dynamic_cast<const RGYFrameMFXSurf*>(surf_.get())) return PipelineTaskSurfaceType::MFX;
+            if (dynamic_cast<const RGYSysFrame*>(surf_.get())) return PipelineTaskSurfaceType::SYS;
             return PipelineTaskSurfaceType::UNKNOWN;
         }
     };
@@ -276,6 +281,13 @@ public:
         m_surfaces.resize(surfs.size());
         for (size_t i = 0; i < m_surfaces.size(); i++) {
             m_surfaces[i] = std::make_unique<PipelineTaskSurfacesPair>(std::move(surfs[i]));
+        }
+    }
+
+    void setSurfaces(std::vector<std::unique_ptr<RGYSysFrame>>& surfs) {
+        clear();
+        for (auto& surf : surfs) {
+            m_surfaces.push_back(std::make_unique<PipelineTaskSurfacesPair>(std::move(surf)));
         }
     }
 
@@ -354,6 +366,7 @@ public:
         return err_to_rgy(err);
     }
     virtual void depend_clear() {};
+    virtual RGY_ERR isDependReady(bool& ready) const { ready = true; return RGY_ERR_NONE; }
     mfxSyncPoint syncpoint() const { return m_syncpoint; }
     PipelineTaskOutputType type() const { return m_type; }
     const PipelineTaskOutputDataCustom *customdata() const { return m_customData.get(); }
@@ -393,6 +406,21 @@ public:
         RGYOpenCLEvent::wait(m_clevents);
         m_clevents.clear();
         m_dependencyFrame.reset();
+    }
+
+    virtual RGY_ERR isDependReady(bool& ready) const override {
+        ready = true;
+        for (const auto& event : m_clevents) {
+            bool complete = false;
+            auto err = event.isComplete(complete);
+            if (err != RGY_ERR_NONE) return err;
+            if (!complete) {
+                ready = false;
+                return RGY_ERR_NONE;
+            }
+        }
+        if (m_dependencyFrame) return m_dependencyFrame->isDependReady(ready);
+        return RGY_ERR_NONE;
     }
 
     RGY_ERR writeMFX(RGYOutput *writer, QSVAllocator *allocator) {
@@ -498,6 +526,7 @@ enum class PipelineTaskType {
     OPENCL,
     VIDEOMETRIC,
     PECOLLECT,
+    VAAPIENC,
 };
 
 static const TCHAR *getPipelineTaskTypeName(PipelineTaskType type) {
@@ -506,6 +535,7 @@ static const TCHAR *getPipelineTaskTypeName(PipelineTaskType type) {
     case PipelineTaskType::MFXDEC:      return _T("MFXDEC");
     case PipelineTaskType::MFXENC:      return _T("MFXENC");
     case PipelineTaskType::MFXENCODE:   return _T("MFXENCODE");
+    case PipelineTaskType::VAAPIENC:    return _T("VAAPIENC");
     case PipelineTaskType::INPUT:       return _T("INPUT");
     case PipelineTaskType::INPUTCL:     return _T("INPUTCL");
     case PipelineTaskType::CHECKPTS:    return _T("CHECKPTS");
@@ -717,6 +747,21 @@ public:
         m_workSurfs.setSurfaces(workSurfs);
         m_workSurfAllocWidth = allocRequest.Info.Width;
         m_workSurfAllocHeight = allocRequest.Info.Height;
+        return RGY_ERR_NONE;
+    }
+    RGY_ERR workSurfacesAllocSYS(const int numFrames, const RGYFrameInfo& info) {
+        auto err = workSurfacesClear();
+        if (err != RGY_ERR_NONE) return err;
+        std::vector<std::unique_ptr<RGYSysFrame>> frames;
+        for (int i = 0; i < numFrames; i++) {
+            auto frame = std::make_unique<RGYSysFrame>();
+            err = frame->allocate(info);
+            if (err != RGY_ERR_NONE) return err;
+            frames.push_back(std::move(frame));
+        }
+        m_workSurfs.setSurfaces(frames);
+        m_workSurfAllocWidth = info.width;
+        m_workSurfAllocHeight = info.height;
         return RGY_ERR_NONE;
     }
     RGY_ERR workSurfacesAllocCL(const int numFrames, const RGYFrameInfo &frame, RGYOpenCLContext *cl) {
@@ -993,6 +1038,25 @@ public:
         if (m_stopwatch) m_stopwatch->add(0, 5);
         return err;
     }
+    RGY_ERR LoadNextFrameSys(PipelineTaskSurface& surfWork) {
+        auto *sys = surfWork.sys();
+        if (!sys) return RGY_ERR_UNSUPPORTED;
+        auto err = m_input->LoadNextFrame(sys);
+        if (err == RGY_ERR_MORE_DATA) return RGY_ERR_MORE_BITSTREAM;
+        if (err != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("Error in reader: %s.\n"), get_err_mes(err));
+            return err;
+        }
+        const auto [readerWidth, readerHeight] = getReaderOutputResolution();
+        if (readerWidth != m_workSurfAllocWidth || readerHeight != m_workSurfAllocHeight) {
+            PrintMes(RGY_LOG_ERROR, _T("Input resolution changed from %dx%d to %dx%d, which is not supported by VA-API yet.\n"),
+                m_workSurfAllocWidth, m_workSurfAllocHeight, readerWidth, readerHeight);
+            return RGY_ERR_UNSUPPORTED;
+        }
+        printInputResolutionChange(readerWidth, readerHeight);
+        sys->setResolution(readerWidth, readerHeight);
+        return RGY_ERR_NONE;
+    }
     virtual RGY_ERR sendFrame([[maybe_unused]] std::unique_ptr<PipelineTaskOutput>& frame) override {
         if (m_stopwatch) m_stopwatch->set(0);
         auto surfWork = getWorkSurf();
@@ -1001,7 +1065,8 @@ public:
             return RGY_ERR_NOT_ENOUGH_BUFFER;
         }
         if (m_stopwatch) m_stopwatch->add(0, 0);
-        auto err = (surfWork.mfx() != nullptr) ? loadNextFrameMFX(surfWork) : loadNextFrameCL(surfWork);
+        auto err = surfWork.sys() ? LoadNextFrameSys(surfWork)
+            : ((surfWork.mfx() != nullptr) ? loadNextFrameMFX(surfWork) : loadNextFrameCL(surfWork));
         if (err == RGY_ERR_NONE) {
             if (m_endPts >= 0
                 && (int64_t)surfWork.frame()->timestamp() != AV_NOPTS_VALUE // timestampが設定されていない場合は無視
@@ -1019,6 +1084,168 @@ public:
         return RGY_ERR_NONE;
     }
 };
+
+#if ENABLE_VAAPI
+class PipelineTaskVAAPIEncode : public PipelineTask {
+    RGY_CODEC m_encCodec;
+    RGYTimecode *m_timecode;
+    RGYTimestamp *m_encTimestamp;
+    rgy_rational<int> m_outputTimebase;
+    const RGYHDR10Plus *m_hdr10plus;
+    const DOVIRpu *m_doviRpu;
+    RGY_ERR registerEncodeFrame(RGYFrame *frame, int64_t pts, int64_t duration, int inputFrameId) {
+        if (inputFrameId < 0) {
+            PrintMes(RGY_LOG_ERROR, _T("Invalid inputFrameId: %d.\n"), inputFrameId);
+            return RGY_ERR_UNKNOWN;
+        }
+        std::vector<std::shared_ptr<RGYFrameData>> metadatalist;
+        if ((m_encCodec == RGY_CODEC_HEVC || m_encCodec == RGY_CODEC_AV1) && frame) {
+            metadatalist = frame->dataList();
+            if (m_hdr10plus) {
+                // 外部からHDR10+を読み込む場合、metadatalist 内のHDR10+の削除
+                metadatalist.erase(std::remove_if(metadatalist.begin(), metadatalist.end(), [](const auto& data) {
+                    return data->dataType() == RGY_FRAME_DATA_HDR10PLUS;
+                }), metadatalist.end());
+            }
+            if (m_doviRpu) {
+                // 外部からdoviを読み込む場合、metadatalist 内のdovi rpuの削除
+                metadatalist.erase(std::remove_if(metadatalist.begin(), metadatalist.end(), [](const auto& data) {
+                    return data->dataType() == RGY_FRAME_DATA_DOVIRPU;
+                }), metadatalist.end());
+            }
+        }
+        if (m_timecode) m_timecode->write(pts, m_outputTimebase);
+        // QSV の出力 writer は、登録時刻と期間を HW_NATIVE_TIMEBASE として扱う。
+        const auto nativeTimebase = rgy_rational<int>(1, HW_TIMEBASE);
+        m_encTimestamp->add(rational_rescale(pts, m_outputTimebase, nativeTimebase), inputFrameId, m_inFrames,
+            rational_rescale(duration, m_outputTimebase, nativeTimebase), metadatalist);
+        m_inFrames++;
+        //エンコーダまでたどり着いたフレームについてはdataListを解放
+        if (frame) frame->clearDataList();
+        return RGY_ERR_NONE;
+    }
+    RGYEncoderVA *m_encoder;
+    RGY_ERR m_receiveStatus;
+    bool m_drainSent;
+    std::deque<std::unique_ptr<PipelineTaskOutput>> m_pendingFrames;
+public:
+    PipelineTaskVAAPIEncode(RGYEncoderVA *enc, RGY_CODEC codec, int outMaxQueueSize,
+        RGYTimecode *timecode, RGYTimestamp *encTimestamp, rgy_rational<int> outputTimebase,
+        const RGYHDR10Plus *hdr10plus, const DOVIRpu *doviRpu, std::shared_ptr<RGYLog> log)
+        : PipelineTask(PipelineTaskType::VAAPIENC, outMaxQueueSize, nullptr, mfxVersion{ 0 }, log),
+            m_encCodec(codec), m_timecode(timecode), m_encTimestamp(encTimestamp), m_outputTimebase(outputTimebase),
+            m_hdr10plus(hdr10plus), m_doviRpu(doviRpu), m_encoder(enc), m_receiveStatus(RGY_ERR_NONE), m_drainSent(false), m_pendingFrames() {}
+    virtual void setStopWatch() override {
+        m_stopwatch = std::make_unique<PipelineTaskStopWatch>(
+            std::vector<tstring>{ _T("eventReady"), _T("SubmitInput"), _T("Drain") },
+            std::vector<tstring>{ _T("Receive") }
+        );
+    }
+    virtual std::optional<mfxFrameAllocRequest> requiredSurfIn() override {
+        if (!m_encoder) return std::nullopt;
+        mfxFrameAllocRequest request = {};
+        const auto csp = m_encoder->bitdepth() > 8 ? RGY_CSP_P010 : RGY_CSP_NV12;
+        request.Info = frameinfo_rgy_to_enc(RGYFrameInfo(m_encoder->width(), m_encoder->height(), csp,
+            m_encoder->bitdepth(), RGY_PICSTRUCT_FRAME, RGY_MEM_TYPE_CPU), { 0, 1 }, { 1, 1 }, 1);
+        return request;
+    }
+    virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() override { return std::nullopt; }
+    virtual RGY_ERR getOutputFrameInfo(mfxFrameInfo& info) override {
+        auto request = requiredSurfIn();
+        if (!request) return RGY_ERR_NOT_INITIALIZED;
+        info = request->Info;
+        return RGY_ERR_NONE;
+    }
+    void queueBitstream(std::shared_ptr<RGYBitstream>& bs) {
+        // エンコーダ内部は outputTimebase、既存 QSV writer との受け渡しは 90 kHz にそろえる。
+        const auto nativeTimebase = rgy_rational<int>(1, HW_TIMEBASE);
+        if (bs->pts() != AV_NOPTS_VALUE) {
+            bs->setPts(rational_rescale(bs->pts(), m_outputTimebase, nativeTimebase));
+        }
+        // writer に videoDelay から DTS を生成させ、最初の packet DTS による上書きを防ぐ。
+        bs->setDts(MFX_TIMESTAMP_UNKNOWN);
+        m_outQeueue.push_back(std::make_unique<PipelineTaskOutputBitstream>(nullptr, std::move(bs), nullptr));
+    }
+    virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) override {
+        if (m_stopwatch) m_stopwatch->set(0);
+        const bool drain = frame == nullptr;
+        if (frame && frame->type() != PipelineTaskOutputType::SURFACE) return RGY_ERR_UNSUPPORTED;
+        if (frame) {
+            auto *surface = dynamic_cast<PipelineTaskOutputSurf *>(frame.get());
+            if (!surface || !surface->surf().sys()) return RGY_ERR_UNSUPPORTED;
+            m_pendingFrames.push_back(std::move(frame));
+        }
+        auto submitAndCollect = [&](RGYFrame *submitFrame) {
+            for (;;) {
+                if (m_stopwatch) m_stopwatch->set(0);
+                auto err = m_encoder->submit(submitFrame);
+                if (m_stopwatch) m_stopwatch->add(0, 1);
+                if (err != RGY_ERR_MORE_DATA) return err;
+                bool received = false;
+                for (;;) {
+                    std::shared_ptr<RGYBitstream> bs;
+                    err = m_encoder->receive(bs);
+                    if (err == RGY_ERR_MORE_DATA) break;
+                    if (err == RGY_ERR_MORE_BITSTREAM) return RGY_ERR_DEVICE_FAILED;
+                    if (err != RGY_ERR_NONE) return err;
+                    received = true;
+                    queueBitstream(bs);
+                }
+                if (!received) return RGY_ERR_DEVICE_FAILED;
+            }
+        };
+        while (!m_pendingFrames.empty()) {
+            bool ready = false;
+            auto err = m_pendingFrames.front()->isDependReady(ready);
+            if (err != RGY_ERR_NONE) return err;
+            if (!ready) {
+                if (!drain) break;
+                std::this_thread::yield();
+                continue;
+            }
+            auto pending = std::move(m_pendingFrames.front());
+            m_pendingFrames.pop_front();
+            pending->depend_clear();
+            auto *surface = dynamic_cast<PipelineTaskOutputSurf *>(pending.get());
+            if (!surface || !surface->surf().sys()) return RGY_ERR_UNSUPPORTED;
+            auto *input = surface->surf().frame();
+            if (input->width() != m_encoder->width() || input->height() != m_encoder->height()) {
+                PrintMes(RGY_LOG_ERROR, _T("Input resolution changed from %dx%d to %dx%d, which is not supported by VA-API yet.\n"),
+                    m_encoder->width(), m_encoder->height(), input->width(), input->height());
+                return RGY_ERR_UNSUPPORTED;
+            }
+            err = registerEncodeFrame(input, input->timestamp(), input->duration(), input->inputFrameId());
+            if (err != RGY_ERR_NONE) return err;
+            if (m_stopwatch) m_stopwatch->add(0, 0);
+            err = submitAndCollect(input);
+            if (err != RGY_ERR_NONE) return err;
+        }
+        if (drain && m_pendingFrames.empty() && !m_drainSent) {
+            if (m_stopwatch) m_stopwatch->add(0, 0);
+            if (m_stopwatch) m_stopwatch->set(0);
+            auto err = submitAndCollect(nullptr);
+            if (err != RGY_ERR_NONE) return err;
+            m_drainSent = true;
+            if (m_stopwatch) m_stopwatch->add(0, 2);
+        }
+        if (m_stopwatch) m_stopwatch->add(0, 0);
+        if (m_stopwatch) m_stopwatch->set(1);
+        for (;;) {
+            std::shared_ptr<RGYBitstream> bs;
+            auto err = m_encoder->receive(bs);
+            if (err == RGY_ERR_MORE_DATA) break;
+            if (err == RGY_ERR_MORE_BITSTREAM) {
+                m_receiveStatus = RGY_ERR_MORE_DATA;
+                break;
+            }
+            if (err != RGY_ERR_NONE) return err;
+            queueBitstream(bs);
+        }
+        if (m_stopwatch) m_stopwatch->add(1, 0);
+        return (m_drainSent && m_receiveStatus == RGY_ERR_MORE_DATA) ? RGY_ERR_MORE_DATA : RGY_ERR_NONE;
+    }
+};
+#endif
 
 class PipelineTaskMFXDecode : public PipelineTask {
 protected:

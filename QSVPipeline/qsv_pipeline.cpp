@@ -150,6 +150,7 @@ RGY_DISABLE_WARNING_POP
 #include "rgy_avlog.h"
 #include "rgy_chapter.h"
 #include "rgy_timecode.h"
+#include "qsv_vaapi.h"
 #include "rgy_aspect_ratio.h"
 #include "rgy_codepage.h"
 #if defined(_WIN32) || defined(_WIN64)
@@ -1895,6 +1896,14 @@ RGY_ERR CQSVPipeline::AllocFrames(const std::pair<int, int>& adaptResolution) {
         const bool allocateOpenCLMFXHost = openclTask != nullptr
             && openclTask->encHostOutput()
             && t1->taskType() == PipelineTaskType::MFXENCODE;
+#if ENABLE_VAAPI
+        if (m_backend == QSVBackend::VAAPI && t0->taskType() == PipelineTaskType::INPUT) {
+            const RGYFrameInfo frame(m_encWidth, m_encHeight, csp_enc_to_rgy(allocRequest.Info.FourCC),
+                m_vaEncParam.bitdepth, RGY_PICSTRUCT_FRAME);
+            const auto sts = t0->workSurfacesAllocSYS(requestNumFrames, frame);
+            if (sts != RGY_ERR_NONE) return sts;
+        } else
+#endif
         if (allocateOpenCLMFXHost) {
             const RGYFrameInfo visibleFrame(allocRequest.Info.CropW, allocRequest.Info.CropH,
                 csp_enc_to_rgy(allocRequest.Info.FourCC),
@@ -2140,19 +2149,42 @@ RGY_CSP CQSVPipeline::getEncoderCsp(const sInputParams *pParams, int *pShift) co
 }
 
 RGY_ERR CQSVPipeline::InitOutput(sInputParams *inputParams) {
-    auto [err, outFrameInfo] = GetOutputVideoInfo();
-    if (err != RGY_ERR_NONE) {
-        PrintMes(RGY_LOG_ERROR, _T("Failed to get output frame info!\n"));
-        return err;
-    }
-    if (!m_pmfxENC) {
-        outFrameInfo->videoPrm.mfx.CodecId = MFX_CODEC_RAW; //エンコードしない場合は出力コーデックはraw(=0)
-    }
-    auto outputVideoInfo = (outFrameInfo->isVppParam) ? videooutputinfo(outFrameInfo->videoPrmVpp.vpp.Out) : videooutputinfo(outFrameInfo->videoPrm.mfx, m_encParams.videoSignalInfo, m_encParams.chromaLocInfo);
-    if (m_pmfxENC
-        && m_encVUI.chromaloc != RGY_CHROMALOC_AUTO
-        && m_encVUI.chromaloc != RGY_CHROMALOC_UNSPECIFIED) {
-        outputVideoInfo.vui.chromaloc = m_encVUI.chromaloc;
+    RGY_ERR err = RGY_ERR_NONE;
+    VideoInfo outputVideoInfo;
+#if ENABLE_VAAPI
+    if (m_backend == QSVBackend::VAAPI) {
+        if (!m_encVA) return RGY_ERR_NOT_INITIALIZED;
+        outputVideoInfo.codec = m_vaEncParam.codec;
+        outputVideoInfo.codecProfile = m_vaEncParam.profile;
+        outputVideoInfo.codecLevel = m_vaEncParam.level;
+        outputVideoInfo.dstWidth = m_encVA->width();
+        outputVideoInfo.dstHeight = m_encVA->height();
+        outputVideoInfo.fpsN = m_vaEncParam.fps.n();
+        outputVideoInfo.fpsD = m_vaEncParam.fps.d();
+        outputVideoInfo.sar[0] = m_vaEncParam.sar.n();
+        outputVideoInfo.sar[1] = m_vaEncParam.sar.d();
+        outputVideoInfo.bitdepth = m_encVA->bitdepth();
+        outputVideoInfo.csp = outputVideoInfo.bitdepth > 8 ? RGY_CSP_P010 : RGY_CSP_NV12;
+        outputVideoInfo.picstruct = RGY_PICSTRUCT_FRAME;
+        outputVideoInfo.vui = m_encVUI;
+        outputVideoInfo.videoDelay = m_encVA->videoDelay();
+    } else
+#endif
+    {
+        auto [outputErr, outFrameInfo] = GetOutputVideoInfo();
+        if (outputErr != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to get output frame info!\n"));
+            return outputErr;
+        }
+        if (!m_pmfxENC) {
+            outFrameInfo->videoPrm.mfx.CodecId = MFX_CODEC_RAW; //エンコードしない場合は出力コーデックはraw(=0)
+        }
+        outputVideoInfo = (outFrameInfo->isVppParam) ? videooutputinfo(outFrameInfo->videoPrmVpp.vpp.Out) : videooutputinfo(outFrameInfo->videoPrm.mfx, m_encParams.videoSignalInfo, m_encParams.chromaLocInfo);
+        if (m_pmfxENC
+            && m_encVUI.chromaloc != RGY_CHROMALOC_AUTO
+            && m_encVUI.chromaloc != RGY_CHROMALOC_UNSPECIFIED) {
+            outputVideoInfo.vui.chromaloc = m_encVUI.chromaloc;
+        }
     }
     if (outputVideoInfo.codec == RGY_CODEC_RAW) {
         inputParams->common.AVMuxTarget &= ~RGY_MUX_VIDEO;
@@ -2180,7 +2212,11 @@ RGY_ERR CQSVPipeline::InitOutput(sInputParams *inputParams) {
         m_Chapters,
 #endif //#if ENABLE_AVSW_READER
         m_hdrseiOut.get(), m_hdr10plus.get(), m_dovirpu.get(), m_encTimestamp.get(),
+#if ENABLE_VAAPI
+        m_backend == QSVBackend::VAAPI || !check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6),
+#else
         !check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6),
+#endif
         inputParams->bBenchmark, false, 0, false,
         muxerCmdline, m_poolPkt.get(), m_poolFrame.get(),
         m_pStatus, m_pPerfMonitor, m_pQSVLog);
@@ -5304,8 +5340,70 @@ RGY_ERR CQSVPipeline::initBackendVA(sInputParams *pParams, std::vector<std::uniq
     m_device = std::move(deviceList.front());
     const auto sts = InitOpenCL(pParams->ctrl.enableOpenCL, pParams->ctrl.openclBuildThreads, pParams->vpp.checkPerformance, pParams->ctrl.clPerfDumpDir, pParams->ctrl.clPerfTimelineSec);
     if (sts < RGY_ERR_NONE) return sts;
-    PrintMes(RGY_LOG_ERROR, _T("VA-API encoding will be implemented in Step 4.\n"));
-    return RGY_ERR_UNSUPPORTED;
+    deviceList.clear();
+    m_devNames = { m_device->name() };
+    return InitVA(pParams);
+}
+
+RGY_ERR CQSVPipeline::InitVA(sInputParams *pParams) {
+    if (pParams->common.adaptResolution.first > 0 || pParams->common.adaptResolution.second > 0) {
+        PrintMes(RGY_LOG_ERROR, _T("--adapt-resolution is not supported with --backend vaapi yet.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (pParams->input.type == RGY_INPUT_FMT_AVHW) {
+        PrintMes(RGY_LOG_ERROR, _T("--avhw is not supported with --backend vaapi; use --avsw.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    if (pParams->input.type == RGY_INPUT_FMT_AVANY) pParams->input.type = RGY_INPUT_FMT_AVSW;
+    // キャッシュ後の auto 切り替えでは、QSV 用に開いた入力を閉じて HW decode caps なしで開き直す。
+    m_pFileReader.reset();
+    m_AudioReaders.clear();
+    DeviceCodecCsp decodeCaps;
+    auto sts = InitInput(pParams, decodeCaps);
+    if (sts != RGY_ERR_NONE) return sts;
+    pParams->applyDOVIProfile(m_pFileReader->getInputDOVIProfile());
+    applyInputVUIToColorspaceParams(pParams);
+    m_encWidth = pParams->input.srcWidth;
+    m_encHeight = pParams->input.srcHeight;
+    m_encFps = m_inputFps;
+    m_encPicstruct = RGY_PICSTRUCT_FRAME;
+    if (m_encWidth <= 0 || m_encHeight <= 0 || !m_encFps.is_valid()
+        || (m_encWidth & 1) || (m_encHeight & 1)) return RGY_ERR_INVALID_VIDEO_PARAM;
+    if ((pParams->input.dstWidth > 0 && pParams->input.dstWidth != m_encWidth)
+        || (pParams->input.dstHeight > 0 && pParams->input.dstHeight != m_encHeight)
+        || cropEnabled(pParams->input.crop)) {
+        PrintMes(RGY_LOG_ERROR, _T("VA-API crop / resize requires filter support.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    m_encVUI = pParams->common.out_vui;
+    m_encVUI.apply_auto(pParams->input.vui, m_encHeight);
+    m_encVUI.setDescriptPreset();
+    auto sar = std::make_pair(pParams->nPAR[0], pParams->nPAR[1]);
+    if (!sar.first || !sar.second) sar = { pParams->input.sar[0], pParams->input.sar[1] };
+    adjust_sar(&sar.first, &sar.second, m_encWidth, m_encHeight);
+    if (sar.first <= 0 || sar.second <= 0) sar = { 1, 1 };
+    sts = qsvVAEncParam(m_vaEncParam, *pParams, m_device->va(), m_encWidth, m_encHeight,
+        m_encFps, { sar.first, sar.second }, m_outputTimebase, m_encVUI, m_pQSVLog);
+    if (sts != RGY_ERR_NONE) return sts;
+    m_encVA = std::make_unique<RGYEncoderVA>();
+    sts = m_encVA->init(m_device->va(), m_vaEncParam, m_pQSVLog);
+    if (sts != RGY_ERR_NONE) return sts;
+    // 出力情報を参照する既存 API 用の記述だけ作り、MFX コンポーネントは初期化しない。
+    const RGYFrameInfo frame(m_encWidth, m_encHeight, getEncoderCsp(pParams), m_vaEncParam.bitdepth, RGY_PICSTRUCT_FRAME);
+    m_encParams.videoPrm.mfx.FrameInfo = frameinfo_rgy_to_enc(frame, m_encFps, m_vaEncParam.sar, 1);
+    m_encParams.videoPrm.mfx.CodecId = codec_rgy_to_enc(m_vaEncParam.codec);
+    m_encTimestamp = std::make_unique<RGYTimestamp>(pParams->common.timestampPassThrough, false);
+    if ((sts = InitChapters(pParams)) != RGY_ERR_NONE) return sts;
+    if ((sts = InitPerfMonitor(pParams)) != RGY_ERR_NONE) return sts;
+    if ((sts = InitOutput(pParams)) != RGY_ERR_NONE) return sts;
+    m_nProcSpeedLimit = pParams->ctrl.procSpeedLimit;
+    m_taskPerfMonitor = pParams->ctrl.taskPerfMonitor;
+    m_nAsyncDepth = pParams->ctrl.lowLatency ? 1 : clamp_param_int(pParams->nAsyncDepth, 0, QSV_ASYNC_DEPTH_MAX, _T("async-depth"));
+    if (m_nAsyncDepth == 0) m_nAsyncDepth = QSV_DEFAULT_ASYNC_DEPTH;
+    if ((sts = CreatePipeline(pParams)) != RGY_ERR_NONE) return sts;
+    if ((sts = AllocFrames({ 0, 0 })) != RGY_ERR_NONE) return sts;
+    pParams->ctrl.threadParams.get(RGYThreadType::MAIN).apply(GetCurrentThread());
+    return SetPerfMonitorThreadHandles();
 }
 #endif
 
@@ -5441,6 +5539,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
         }
     }
 
+    const auto originalInput = pParams->input;
     auto input_ret = std::async(std::launch::async, [&] {
         threadParamThrottleDsiabled.apply(GetCurrentThread());
         auto sts = InitInput(pParams, HWDecCodecCsp);
@@ -5458,6 +5557,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
             if (pParams->backend == QSVBackend::Auto) {
                 // 入力スレッドが使うパラメータの更新を待ってから VA を初期化する。
                 input_ret.wait();
+                pParams->input = originalInput;
                 return initBackendVA(pParams, deviceList, deviceInfoCache);
             }
 #endif
@@ -5623,6 +5723,9 @@ void CQSVPipeline::Close() {
     //この中でフレームの解放がなされる
     PrintMes(RGY_LOG_DEBUG, _T("Clear pipeline tasks and allocated frames...\n"));
     m_pipelineTasks.clear();
+#if ENABLE_VAAPI
+    m_encVA.reset();
+#endif
     m_encSession.Close();
     m_encSessionSeparate = false;
     m_openclEncHostOutput = false;
@@ -5876,6 +5979,25 @@ bool CQSVPipeline::VppAfsRffAware() const {
 
 RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
     m_pipelineTasks.clear();
+
+#if ENABLE_VAAPI
+    if (m_backend == QSVBackend::VAAPI) {
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskInput>(nullptr, nullptr, -1ll, 0, m_pFileReader.get(), m_mfxVer, nullptr, m_pQSVLog));
+        if (!m_pFileWriterListAudio.empty()) {
+            m_pipelineTasks.push_back(std::make_unique<PipelineTaskAudio>(m_pFileReader.get(), m_AudioReaders, m_pFileWriterListAudio, m_vpFilters, 0, m_mfxVer, m_pQSVLog));
+        }
+        const auto srcTimebase = m_pFileReader->getInputTimebase().is_valid() ? m_pFileReader->getInputTimebase() : m_inputFps.inv();
+        if (!m_trimParam.list.empty() || prm->common.seekToSec > 0.0f) {
+            m_pipelineTasks.push_back(std::make_unique<PipelineTaskTrim>(m_trimParam, m_pFileReader.get(), nullptr, srcTimebase, 0, m_mfxVer, m_pQSVLog));
+        }
+        const auto duration = std::max<int64_t>(1, rational_rescale(1, m_encFps.inv(), m_outputTimebase));
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(nullptr, srcTimebase, m_outputTimebase, duration,
+            m_nAVSyncMode, m_timestampPassThrough, false, m_mfxVer, m_pQSVLog));
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskVAAPIEncode>(m_encVA.get(), m_vaEncParam.codec, 1,
+            m_timecode.get(), m_encTimestamp.get(), m_outputTimebase, m_hdr10plus.get(), m_dovirpu.get(), m_pQSVLog));
+        return RGY_ERR_NONE;
+    }
+#endif
 
     if (m_parallelEnc && m_parallelEnc->id() < 0) {
         // 親プロセスの子プロセスのデータ回収用
@@ -6341,6 +6463,13 @@ void CQSVPipeline::PrintMes(RGYLogLevel log_level, const TCHAR *format, ...) {
 }
 
 void CQSVPipeline::GetEncodeLibInfo(mfxVersion *ver, bool *hardware) {
+#if ENABLE_VAAPI
+    if (m_backend == QSVBackend::VAAPI) {
+        if (ver) *ver = {};
+        if (hardware) *hardware = true;
+        return;
+    }
+#endif
     if (NULL != ver && NULL != hardware) {
         mfxIMPL impl;
         m_device->mfxSession().QueryIMPL(&impl);
@@ -6370,6 +6499,12 @@ const TCHAR *CQSVPipeline::GetInputMessage() {
 }
 
 std::pair<RGY_ERR, std::unique_ptr<QSVVideoParam>> CQSVPipeline::GetOutputVideoInfo() {
+#if ENABLE_VAAPI
+    if (m_backend == QSVBackend::VAAPI) {
+        // 表示・パイプラインの寸法取得に使う値だけ返し、MFX セッションへは問い合わせない。
+        return { RGY_ERR_NONE, std::make_unique<QSVVideoParam>(m_encParams) };
+    }
+#endif
     if (m_pmfxENC) {
         auto prmset = std::make_unique<QSVVideoParam>(m_encParams);
         auto sts = err_to_rgy(m_pmfxENC->GetVideoParam(&prmset->videoPrm));
@@ -6428,6 +6563,19 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVideoParam>> CQSVPipeline::GetOutputVideoI
 }
 
 RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
+#if ENABLE_VAAPI
+    if (m_backend == QSVBackend::VAAPI) {
+        if (!m_encVA) return RGY_ERR_NOT_INITIALIZED;
+        auto info = strsprintf(_T("%s\nBackend        vaapi\nGPU Info       %s\nOutput Info    %s, %s, %dx%d, %d-bit, %d/%d fps\n"),
+            get_encoder_version(), m_device->name().c_str(), CodecToStr(m_vaEncParam.codec).c_str(),
+            m_encVA->profileString().c_str(), m_encVA->width(), m_encVA->height(), m_encVA->bitdepth(),
+            m_vaEncParam.fps.n(), m_vaEncParam.fps.d());
+        info += m_encVA->paramString();
+        PrintMes(RGY_LOG_INFO, _T("%s"), info.c_str());
+        if (str && bufSize > 0) _tcscpy_s(str, bufSize, info.c_str());
+        return RGY_ERR_NONE;
+    }
+#endif
     mfxIMPL impl;
     m_device->mfxSession().QueryIMPL(&impl);
 
