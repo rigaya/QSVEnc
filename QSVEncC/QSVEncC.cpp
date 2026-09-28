@@ -512,8 +512,63 @@ int ParseDeviceOption(const TCHAR *option_name, const TCHAR *arg1, QSVDeviceNum&
     return 0;
 }
 
-int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const QSVDeviceNum deviceNum, RGYParamLogLevel& loglevel) {
+#if ENABLE_VAAPI
+static int printVAInfo(const TCHAR *option_name, const TCHAR *arg1, QSVDeviceNum deviceNum, const RGYParamLogLevel& loglevel) {
+    const auto devices = getDeviceListVA(deviceNum, false, std::make_shared<RGYLog>(nullptr, loglevel));
+    if (devices.empty()) {
+        _ftprintf(stderr, _T("Error: VA-API (hw encoding) unavailable\n"));
+        return -1;
+    }
+    const bool features = _tcscmp(option_name, _T("check-features")) == 0;
+    const bool hw = _tcscmp(option_name, _T("check-hw")) == 0 || _tcscmp(option_name, _T("hw-check")) == 0;
+    tstring text;
+    bool available = false;
+    for (const auto& dev : devices) {
+        text += strsprintf(_T("device #%d: %s (%s)\n"), (int)dev->deviceNum(), dev->name().c_str(), dev->va()->info().renderNode.c_str());
+        if (features || hw) {
+            for (const auto codec : { RGY_CODEC_H264, RGY_CODEC_HEVC, RGY_CODEC_AV1, RGY_CODEC_VP9 }) {
+                const auto& caps = dev->va()->encCaps(codec);
+                available |= caps.available;
+                if (features) {
+                    text += CodecToStr(codec) + _T(" encode features\n") + dev->va()->capsString(codec) + _T("\n\n");
+                } else if (caps.available) {
+                    text += CodecToStr(codec) + _T("\n");
+                }
+            }
+            if (features) {
+                text += _T("Decode features:\n");
+                for (const auto& dec : HW_DECODE_LIST) {
+                    text += CodecToStr(dec.rgy_codec) + _T(" decode features\n") + dev->va()->decCapsString(dec.rgy_codec) + _T("\n\n");
+                }
+            }
+        }
+    }
+    if (hw) {
+        text = (available ? _T("Success: VA-API (hw encoding) available\n") : _T("Error: VA-API (hw encoding) unavailable\n")) + text;
+    }
+    FILE *fp = stdout;
+    if (features && arg1[0] != _T('\0') && arg1[0] != _T('-')) {
+        fp = _tfopen(arg1, _T("w"));
+        if (!fp) {
+            _ftprintf(stderr, _T("Failed to open feature output: %s\n"), arg1);
+            return -1;
+        }
+    }
+    _ftprintf(fp, _T("%s"), text.c_str());
+    if (fp != stdout) fclose(fp);
+    return hw && !available ? -1 : 1;
+}
+#endif
 
+int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const QSVDeviceNum deviceNum, RGYParamLogLevel& loglevel, [[maybe_unused]] QSVBackend backend) {
+
+#if ENABLE_VAAPI
+    if (backend == QSVBackend::VAAPI
+        && (_tcscmp(option_name, _T("check-hw")) == 0 || _tcscmp(option_name, _T("hw-check")) == 0
+            || _tcscmp(option_name, _T("check-features")) == 0 || _tcscmp(option_name, _T("check-device")) == 0)) {
+        return printVAInfo(option_name, arg1, deviceNum, loglevel);
+    }
+#endif
     // process multi-character options
     if (0 == _tcscmp(option_name, _T("help"))) {
         show_version();
@@ -1150,6 +1205,24 @@ int run(int argc, TCHAR *argv[]) {
         }
     }
 
+    // 照会オプションより後に指定された backend も反映する。
+    QSVBackend backendPrint = QSVBackend::Auto;
+    for (int iarg = 1; iarg < argc; iarg++) {
+        if (_tcscmp(argv[iarg], _T("--backend")) != 0) continue;
+#if ENABLE_VAAPI
+        const auto value = iarg + 1 < argc ? get_value_from_chr(list_qsv_backend, argv[iarg + 1]) : PARSE_ERROR_FLAG;
+        if (value == PARSE_ERROR_FLAG) {
+            print_cmd_error_invalid_value(_T("backend"), iarg + 1 < argc ? argv[iarg + 1] : _T(""), list_qsv_backend);
+            return 1;
+        }
+        backendPrint = (QSVBackend)value;
+        iarg++;
+#else
+        _ftprintf(stderr, _T("Unknown option: --backend\n"));
+        return 1;
+#endif
+    }
+
     // device IDの取得
     QSVDeviceNum deviceNum = QSVDeviceNum::AUTO;
     for (int iarg = 1; iarg < argc; iarg++) {
@@ -1187,7 +1260,7 @@ int run(int argc, TCHAR *argv[]) {
             }
         }
         if (option_name != nullptr) {
-            int ret = parse_print_options(option_name, (iarg+1 < argc) ? argv[iarg+1] : _T(""), deviceNum, loglevelPrint);
+            int ret = parse_print_options(option_name, (iarg+1 < argc) ? argv[iarg+1] : _T(""), deviceNum, loglevelPrint, backendPrint);
             if (ret != 0) {
                 return ret == 1 ? 0 : 1;
             }

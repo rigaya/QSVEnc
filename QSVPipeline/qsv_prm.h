@@ -299,6 +299,12 @@ struct QSVRCParam {
 };
 tstring printParams(const std::vector<QSVRCParam> &dynamicRC);
 
+enum class QSVBackend {
+    Auto,
+    QSV,
+    VAAPI,
+};
+
 enum class QSVFunctionMode {
     Auto,
     PG,
@@ -319,6 +325,7 @@ struct sInputParams {
     RGYParamVpp vpp;
     sVppParams vppmfx;
     QSVDeviceNum device;
+    QSVBackend backend;
     QSVRCParam rcParam;
     int nTargetUsage;  // Quality
     RGY_CODEC codec;
@@ -781,6 +788,15 @@ const CX_DESC list_priority[] = {
     { _T("high"),   MFX_PRIORITY_HIGH   },
     { NULL, 0 }
 };
+
+#if ENABLE_VAAPI
+const CX_DESC list_qsv_backend[] = {
+    { _T("auto"),  (int)QSVBackend::Auto  },
+    { _T("qsv"),   (int)QSVBackend::QSV   },
+    { _T("vaapi"), (int)QSVBackend::VAAPI },
+    { NULL, 0 }
+};
+#endif
 
 const CX_DESC list_qsv_function_mode[] = {
     { _T("auto"),  (int)QSVFunctionMode::Auto  },

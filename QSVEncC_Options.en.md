@@ -35,6 +35,7 @@
   - [--check-filters](#--check-filters)
   - [--check-avversion](#--check-avversion)
 - [Basic encoding options](#basic-encoding-options)
+  - [--backend \<auto|qsv|vaapi\>](#--backend-autoqsvvaapi)
   - [-d, --device \<string\> or \<int\>](#-d---device-string-or-int)
   - [-c, --codec \<string\>](#-c---codec-string)
   - [-o, --output \<string\>](#-o---output-string)
@@ -465,6 +466,15 @@ Show available audio filters
 Show version of ffmpeg dll
 
 ## Basic encoding options
+
+### --backend &lt;auto|qsv|vaapi&gt;
+Linux 版のバックエンドを指定する。既定値は `auto`。VA-API を無効にしてビルドした場合、このオプションは使用できない。
+
+- `auto`: QSV を使用する。
+- `qsv`: oneVPL による QSV を使用する。
+- `vaapi`: VA-API を使用する。
+
+`--check-hw` / `--check-features` / `--check-device` と組み合わせると、指定したバックエンドのデバイス情報を表示する。現在の VA-API 対応はこの情報表示までで、エンコード経路への接続と `auto` による VA-API への切り替えは今後対応する。
 
 ### -d, --device &lt;string&gt; or &lt;int&gt;
 Select device number to use. (auto(default), 1, 2, 3, ...)

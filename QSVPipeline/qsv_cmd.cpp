@@ -250,6 +250,10 @@ tstring encoder_help() {
         _T("Basic Encoding Options: \n"));
     str += gen_cmd_help_input();
     str += strsprintf(_T("\n")
+#if ENABLE_VAAPI
+        _T("   --backend <string>           set encode backend (Linux only)\n")
+        _T("                                 - auto(default), qsv, vaapi\n")
+#endif
         _T("-d,--device <string> or <int>   set device number to encode\n")
         _T("                                 - auto(default), 1, 2, 3, 4\n")
         _T("-c,--codec <string>             set encode codec\n")
@@ -907,6 +911,22 @@ int parse_one_vppmfx_option(const TCHAR *option_name, const TCHAR *strInput[], i
 }
 
 int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, int nArgNum, sInputParams* pParams, sArgsData *argData) {
+#if ENABLE_VAAPI
+    if (0 == _tcscmp(option_name, _T("backend"))) {
+        if (i + 1 >= nArgNum || strInput[i + 1] == nullptr || strInput[i + 1][0] == _T('-')) {
+            print_cmd_error_invalid_value(option_name, _T(""), list_qsv_backend);
+            return 1;
+        }
+        i++;
+        const auto value = get_value_from_chr(list_qsv_backend, strInput[i]);
+        if (value == PARSE_ERROR_FLAG) {
+            print_cmd_error_invalid_value(option_name, strInput[i], list_qsv_backend);
+            return 1;
+        }
+        pParams->backend = (QSVBackend)value;
+        return 0;
+    }
+#endif
     if (0 == _tcscmp(option_name, _T("device"))) {
         i++;
         if (0 == _tcsnccmp(strInput[i], _T("auto"), _tcslen(_T("auto")))) {
@@ -2573,6 +2593,9 @@ tstring gen_cmd(const sInputParams *pParams, bool save_disabled_prm, RGYDisableG
 #define OPT_STR_PATH(str, opt) if (!rgy_disable_gen_cmd(disable_flags, RGYDisableGenCmdFlags::FilePath) && pParams->opt.length() > 0) cmd << _T(" ") << str << _T(" \"") << (pParams->opt.c_str()) << _T("\"");
 
     OPT_NUM(_T("-d"), device);
+#if ENABLE_VAAPI
+    OPT_LST(_T("--backend"), backend, list_qsv_backend);
+#endif
     if (pParams->codec == RGY_CODEC_AVCODEC) {
         cmd << _T(" -c av_") << char_to_tstring(pParams->common.avVideoCodec);
     } else {

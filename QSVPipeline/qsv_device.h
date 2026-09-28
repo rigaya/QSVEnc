@@ -30,6 +30,7 @@
 
 #include "rgy_version.h"
 #include "qsv_util.h"
+#include "rgy_libavcodec_vaapi.h"
 #include "qsv_session.h"
 #include "qsv_query.h"
 #include "rgy_device_vulkan.h"
@@ -60,6 +61,10 @@ public:
     RGY_ERR init(const QSVDeviceNum dev, const bool enableOpenCL, const RGYParamInitVulkan enableVulkan, const bool suppressErrorMessage);
     RGY_ERR init(const QSVDeviceNum dev, const bool enableOpenCL, const RGYParamInitVulkan enableVulkan, MemType memType, const MFXVideoSession2Params& params, std::shared_ptr<QSVDeviceInfoCache> devInfoCache, std::shared_ptr<RGYLog> m_log, const bool suppressErrorMessage);
 
+#if ENABLE_VAAPI
+    RGY_ERR initVA(const RGYVADeviceInfo& info, bool enableOpenCL, std::shared_ptr<RGYLog> log);
+    RGYDeviceVA *va() const { return m_va.get(); }
+#endif
     CodecCsp getDecodeCodecCsp(const bool skipHWDecodeCheck);
     QSVEncFeatures getEncodeFeature(const int ratecontrol, const RGY_CODEC codec, const bool lowpower);
 
@@ -111,6 +116,9 @@ protected:
     }
     QSVDeviceNum m_devNum;
     std::unique_ptr<CQSVHWDevice> m_hwdev;
+#if ENABLE_VAAPI
+    std::unique_ptr<RGYDeviceVA> m_va;
+#endif
     std::unique_ptr<RGYOpenCLDeviceInfo> m_devInfo;
 #if ENABLE_VULKAN
     std::unique_ptr<DeviceVulkan> m_vulkan;
@@ -126,5 +134,9 @@ protected:
 };
 
 std::vector<std::unique_ptr<QSVDevice>> getDeviceList(const QSVDeviceNum dev, const bool enableOpenCL, const RGYParamInitVulkan enableVulkan, const MemType memType, const MFXVideoSession2Params& params, std::shared_ptr<QSVDeviceInfoCache> devInfoCache, std::shared_ptr<RGYLog> log);
+
+#if ENABLE_VAAPI
+std::vector<std::unique_ptr<QSVDevice>> getDeviceListVA(QSVDeviceNum deviceNum, bool enableOpenCL, std::shared_ptr<RGYLog> log);
+#endif
 
 #endif //_QSV_DEVICE_H_

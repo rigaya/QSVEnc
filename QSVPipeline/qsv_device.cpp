@@ -199,6 +199,9 @@ std::vector<QSVEncFeatureData> QSVDeviceInfoCache::getEncodeFeatures(const QSVDe
 QSVDevice::QSVDevice() :
     m_devNum(QSVDeviceNum::AUTO),
     m_hwdev(),
+#if ENABLE_VAAPI
+    m_va(),
+#endif
     m_devInfo(),
 #if ENABLE_VULKAN
     m_vulkan(),
@@ -233,6 +236,9 @@ void QSVDevice::close() {
     m_vulkan.reset();
 #endif
     m_devInfo.reset();
+#if ENABLE_VAAPI
+    m_va.reset();
+#endif
     PrintMes(RGY_LOG_DEBUG, _T("Device %d closed.\n"), (int)m_devNum);
     m_log.reset();
 }
@@ -368,6 +374,11 @@ RGY_ERR QSVDevice::init(const QSVDeviceNum dev, const bool enableOpenCL, [[maybe
 }
 
 tstring QSVDevice::name() const {
+#if ENABLE_VAAPI
+    if (m_va) {
+        return m_va->driver() == RGYVADriver::IntelI965 ? _T("Intel GPU (i965)") : m_va->info().name;
+    }
+#endif
     if (m_devInfo) {
         auto gpu_name = m_devInfo->name;
         gpu_name = str_replace(gpu_name, "(R)", "");
@@ -378,10 +389,16 @@ tstring QSVDevice::name() const {
 }
 
 QSV_CPU_GEN QSVDevice::CPUGen() {
+#if ENABLE_VAAPI
+    if (m_va) return CPU_GEN_UNKNOWN;
+#endif
     return getCPUGen(&m_session);
 }
 
 int QSVDevice::adapterType() {
+#if ENABLE_VAAPI
+    if (m_va) return MFX_MEDIA_UNKNOWN;
+#endif
     mfxPlatform platform = { 0 };
     m_session.QueryPlatform(&platform);
     return platform.MediaAdapterType;
@@ -414,6 +431,9 @@ RGYDeviceInfoCacheKey QSVDevice::cacheInfo() const {
 }
 
 CodecCsp QSVDevice::getDecodeCodecCsp(const bool skipHWDecodeCheck) {
+#if ENABLE_VAAPI
+    if (m_va) return m_va->decCaps();
+#endif
     if (m_devInfoCache) {
         if (const auto cachedDecCsp = m_devInfoCache->getDecCodecCsp((int)m_devNum, cacheInfo()); cachedDecCsp != nullptr) {
             return *cachedDecCsp;
@@ -432,6 +452,10 @@ CodecCsp QSVDevice::getDecodeCodecCsp(const bool skipHWDecodeCheck) {
 }
 
 QSVEncFeatures QSVDevice::getEncodeFeature(const int ratecontrol, const RGY_CODEC codec, const bool lowpower) {
+#if ENABLE_VAAPI
+    // VA のエンコード能力は va()->encCaps() で扱い、MFX のフラグへ変換しない。
+    if (m_va) return QSVEncFeatures();
+#endif
     auto target = std::find_if(m_featureData.begin(), m_featureData.end(), [codec, lowpower](const QSVEncFeatureData& data) {
         return data.codec == codec && data.lowPwer == lowpower;
         });
@@ -491,3 +515,47 @@ std::vector<std::unique_ptr<QSVDevice>> getDeviceList(const QSVDeviceNum deviceN
     }
     return devList;
 }
+
+#if ENABLE_VAAPI
+RGY_ERR QSVDevice::initVA(const RGYVADeviceInfo& info, const bool enableOpenCL, std::shared_ptr<RGYLog> log) {
+    close();
+    m_log = std::move(log);
+    m_devNum = (QSVDeviceNum)info.id;
+    m_memType = VA_MEMORY;
+    m_externalAlloc = false;
+    m_va = std::make_unique<RGYDeviceVA>();
+    if (const auto err = m_va->open(info, m_log); err != RGY_ERR_NONE) {
+        m_va.reset();
+        return err;
+    }
+    if (enableOpenCL) {
+        RGYOpenCL cl(m_log);
+        if (RGYOpenCL::openCLloaded()) {
+            for (auto& platform : cl.getPlatforms("Intel")) {
+                if (platform->createDeviceListVA(CL_DEVICE_TYPE_GPU, m_va->display(), true) == CL_SUCCESS && !platform->devs().empty()) {
+                    m_devInfo = std::make_unique<RGYOpenCLDeviceInfo>(platform->dev(0).info());
+                    break;
+                }
+            }
+        }
+    }
+    return RGY_ERR_NONE;
+}
+
+std::vector<std::unique_ptr<QSVDevice>> getDeviceListVA(const QSVDeviceNum deviceNum, const bool enableOpenCL, std::shared_ptr<RGYLog> log) {
+    std::vector<std::unique_ptr<QSVDevice>> devices;
+    tstring openError;
+    const auto infos = enumerateVADevices(0x8086, 1, log.get(), &openError);
+    for (const auto& info : infos) {
+        if (deviceNum != QSVDeviceNum::AUTO && (int)deviceNum != info.id) continue;
+        auto dev = std::make_unique<QSVDevice>();
+        if (dev->initVA(info, enableOpenCL, log) == RGY_ERR_NONE) {
+            devices.push_back(std::move(dev));
+        }
+    }
+    if (devices.empty()) {
+        log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("VA-API device unavailable. %s\n"), openError.c_str());
+    }
+    return devices;
+}
+#endif

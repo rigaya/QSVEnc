@@ -258,6 +258,7 @@ sInputParams::sInputParams() :
     vpp(),
     vppmfx(),
     device(QSVDeviceNum::AUTO),
+    backend(QSVBackend::Auto),
     rcParam(QSVRCParam(
         MFX_RATECONTROL_ICQ, QSV_DEFAULT_BITRATE, QSV_DEFAULT_MAX_BITRATE, 0,
         QSV_DEFAULT_ACCURACY, QSV_DEFAULT_CONVERGENCE,
