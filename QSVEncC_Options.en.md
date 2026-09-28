@@ -468,13 +468,17 @@ Show version of ffmpeg dll
 ## Basic encoding options
 
 ### --backend &lt;auto|qsv|vaapi&gt;
-Linux 版のバックエンドを指定する。既定値は `auto`。VA-API を無効にしてビルドした場合、このオプションは使用できない。
+Select the backend on Linux. The default is `auto`. This option is unavailable when built without VA-API support.
 
-- `auto`: QSV を使用し、デバイスが見つからなければ VA-API に切り替える。`QSVENC_VPL_DISABLE=1` で QSV の列挙を省略し、VA-API への切り替えを確認できる。
-- `qsv`: oneVPL による QSV を使用する。
-- `vaapi`: VA-API を使用する。
+- `auto`: Enumerate QSV devices through oneVPL and switch to VA-API with a warning if no QSV device is found. With `QSVENC_VPL_DISABLE=1`, skip QSV enumeration and use VA-API directly. Encoding errors after QSV has been selected do not trigger a switch.
+- `qsv`: Use QSV through oneVPL.
+- `vaapi`: Use VA-API on an Intel GPU. No oneVPL / Media SDK runtime is required.
 
-`--check-hw` / `--check-features` / `--check-device` と組み合わせると、指定したバックエンドのデバイス情報を表示する。現在の VA-API 対応はデバイス・OpenCL の初期化までで、エンコードを指定すると未実装のエラーで終了する。エンコード経路への接続は今後対応する。
+Combine this option with `--check-hw`, `--check-features`, or `--check-device` to display device information for the selected backend. Use `--backend vaapi --check-features` to check the codecs, bit depths, rate control modes, EncSlice / LP support, and qualityLevels exposed by the driver.
+
+VA-API accepts raw and `--avsw` input; automatic input selection also uses software decoding. H.264 / HEVC / VP9 / AV1, 8 / 10-bit YUV 4:2:0, and CQP / CBR / VBR / ICQ / QVBR / AVBR are available according to GPU and driver capabilities. If ICQ is unavailable, a warning is issued and CQP is used instead. With OpenCL available, `--crop`, `--output-res`, and OpenCL filters such as `--vpp-resize` / `--vpp-colorspace` are supported. Encoding without filters does not require OpenCL; requesting an OpenCL filter when OpenCL is disabled produces an error. HEVC HDR10 / HDR10+ / Dolby Vision metadata is also supported.
+
+VA-API does not support `--avhw`, MFX VPP (`--vpp-mfx-*` and MFX deinterlacing, denoising, AI processing, etc.), LA / LA-ICQ / LA-HRD / VCM, `--dynamic-rc`, `--adapt-resolution`, `--parallel`, or `--ssim` / `--psnr` / `--vmaf`. Encoding that preserves interlacing and input resolution changes also produce errors (OpenCL deinterlacing is supported). Unsupported encoder options such as `--b-pyramid` are ignored with a warning when changed from their defaults.
 
 ### -d, --device &lt;string&gt; or &lt;int&gt;
 Select device number to use. (auto(default), 1, 2, 3, ...)

@@ -97,6 +97,27 @@ sudo ldconfig
 
 After installation, check that both Gen11 or earlier and Gen12 or later GPUs are listed by ```clinfo -l```.
 
+### 3-2. Packages required for VA-API-only operation
+
+When using only `--backend vaapi` or the VA-API path selected by `auto`, oneVPL / Media SDK runtimes (`libvpl2`, `libmfx-gen1.2`, etc.) are not required. On Ubuntu 24.04, install the VA-API libraries and Intel driver from the standard repository:
+
+```Shell
+sudo apt install --no-install-recommends libva2 libva-drm2 libva-x11-2 intel-media-va-driver
+```
+
+Existing prebuilt binaries link to `libva-x11-2`, so install it even for headless operation. For binaries built from source, also install any additional shared libraries listed by `ldd ./qsvencc`. These are runtime requirements for the VA-API path; official deb packages also declare dependencies for QSV / OpenCL and will install those packages as well.
+
+The runtime libva must also be compatible with the build. A binary built against a newer libva that references `vaMapBuffer2` cannot start with Ubuntu 24.04's standard libva 2.20. Use a compatible libva or build against the libva provided by the target environment.
+
+To use OpenCL filters, additionally install an OpenCL runtime appropriate for the GPU, such as `intel-opencl-icd`. It is optional for encoding without filters. Follow the group settings in section 2 so the user can access `/dev/dri/renderD*`.
+
+Encoding capabilities may differ between the free `intel-media-va-driver` and its non-free variant. Check the actual driver's capabilities with `qsvencc --backend vaapi --check-features`.
+
+```Shell
+qsvencc --backend vaapi --check-features
+qsvencc --backend vaapi --avsw -i input.mp4 -c h264 --cqp 25 -o output.mp4
+```
+
 ### 4. Addtional Tools
 
 There are some features which require additional installations.  

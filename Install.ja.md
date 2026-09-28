@@ -103,6 +103,27 @@ sudo ldconfig
 
 導入後、```clinfo -l``` でGen11以前とGen12以降の両方のGPUが表示されることを確認してください。
 
+### 3-2. VA-API だけで動かす場合に必要なパッケージ
+
+`--backend vaapi` または `auto` の VA-API 経路だけを使用する場合、oneVPL / Media SDK のランタイム (`libvpl2`、`libmfx-gen1.2` など) は不要です。Ubuntu 24.04 の標準リポジトリでは、VA-API のライブラリと Intel のドライバを次のように導入できます。
+
+```Shell
+sudo apt install --no-install-recommends libva2 libva-drm2 libva-x11-2 intel-media-va-driver
+```
+
+`libva-x11-2` は既存のビルド済みバイナリのリンク依存に含まれるため、画面を使わない場合も導入します。ソースからビルドしたバイナリは、`ldd ./qsvencc` で表示される追加の共有ライブラリも必要です。上記は VA-API 経路の実行要件であり、公式 deb パッケージの依存関係は QSV / OpenCL 用のパッケージも含むため、deb をインストールするとそれらも導入されます。
+
+ビルド時と実行時の libva の互換性も必要です。新しい libva でビルドして `vaMapBuffer2` を参照するバイナリは、Ubuntu 24.04 標準の libva 2.20 では起動できません。その場合は対応する libva を用意するか、実行環境の libva に合わせてビルドしてください。
+
+OpenCL フィルタも使用する場合は、GPU に対応する OpenCL ランタイム (例: `intel-opencl-icd`) を追加してください。フィルタなしなら不要です。`/dev/dri/renderD*` にアクセスできるよう、2. のグループ設定も行ってください。
+
+free 版の `intel-media-va-driver` と non-free 版ではエンコードの対応範囲が異なる場合があります。`qsvencc --backend vaapi --check-features` で実際のドライバの能力を確認してください。
+
+```Shell
+qsvencc --backend vaapi --check-features
+qsvencc --backend vaapi --avsw -i input.mp4 -c h264 --cqp 25 -o output.mp4
+```
+
 ### 4. 追加オプション
 下記機能を使用するには、追加でインストールが必要です。
 
