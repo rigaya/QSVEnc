@@ -189,6 +189,7 @@ protected:
     std::vector<VppType> m_vppFilterList;
     std::vector<VppVilterBlock> m_vpFilters;
     bool m_vppMfxBypassForResChange; //解像度変更対応のためだけに常設したMFX VPPブロックかどうか。trueならPipelineTaskMFXVppは解像度変更が起こるまでVPPを通さず素通しする
+    bool m_clFilterBypassForResChange; // VA の常設 OpenCL ブロックを解像度変更までは SYS で素通しする
     unique_ptr<RGYFilterSsim> m_videoQualityMetric;
 
     std::vector<std::unique_ptr<PipelineTask>> m_pipelineTasks;

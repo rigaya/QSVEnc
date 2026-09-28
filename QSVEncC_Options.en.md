@@ -478,7 +478,7 @@ Combine this option with `--check-hw`, `--check-features`, or `--check-device` t
 
 VA-API accepts raw and `--avsw` input; automatic input selection also uses software decoding. H.264 / HEVC / VP9 / AV1, 8 / 10-bit YUV 4:2:0, and CQP / CBR / VBR / ICQ / QVBR / AVBR are available according to GPU and driver capabilities. If ICQ is unavailable, a warning is issued and CQP is used instead. With OpenCL available, `--crop`, `--output-res`, and OpenCL filters such as `--vpp-resize` / `--vpp-colorspace` are supported. Encoding without filters does not require OpenCL; requesting an OpenCL filter when OpenCL is disabled produces an error. HEVC HDR10 / HDR10+ / Dolby Vision metadata is also supported.
 
-VA-API does not support `--avhw`, MFX VPP (`--vpp-mfx-*` and MFX deinterlacing, denoising, AI processing, etc.), LA / LA-ICQ / LA-HRD / VCM, `--dynamic-rc`, `--adapt-resolution`, `--parallel`, or `--ssim` / `--psnr` / `--vmaf`. Encoding that preserves interlacing and input resolution changes also produce errors (OpenCL deinterlacing is supported). Unsupported encoder options such as `--b-pyramid` are ignored with a warning when changed from their defaults.
+VA-API does not support `--avhw`, MFX VPP (`--vpp-mfx-*` and MFX deinterlacing, denoising, AI processing, etc.), LA / LA-ICQ / LA-HRD / VCM, `--dynamic-rc`, `--parallel`, or `--ssim` / `--psnr` / `--vmaf`. Encoding that preserves interlacing produces an error (OpenCL deinterlacing is supported). For avsw input (including automatic input selection), OpenCL normalizes resolution changes to the initial output resolution. Use `--adapt-resolution` to specify the maximum dimensions when input grows beyond its initial resolution. Resolution changes without OpenCL produce an error. Unsupported encoder options such as `--b-pyramid` are ignored with a warning when changed from their defaults.
 
 ### -d, --device &lt;string&gt; or &lt;int&gt;
 Select device number to use. (auto(default), 1, 2, 3, ...)
@@ -1869,6 +1869,7 @@ switch hevc bitstream filter used for hw decoder input. (for debug purpose)
 Preallocates input surfaces at the specified maximum resolution to handle resolution changes in the input stream.
 Frames after a resolution change are resized to the initial output resolution, so the output resolution does not change.
 When omitted, the initial input resolution is used as the maximum. The specified resolution must not be smaller than the initial input resolution.
+With `--backend vaapi`, this option requires avsw input (including automatic input selection) and OpenCL. The encoder resolution remains fixed while OpenCL normalizes input resolution changes.
 
 ### --input-pixel-format &lt;string&gt;
 Set "pixel_format" for input avdevice. (not intended on other situations)

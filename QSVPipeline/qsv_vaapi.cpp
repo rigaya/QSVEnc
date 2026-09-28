@@ -43,7 +43,10 @@ RGY_ERR qsvVACheckParam(sInputParams& prm, std::shared_ptr<RGYLog> log) {
     if (prm.input.type == RGY_INPUT_FMT_AVHW) return unsupported(_T("--avhw"));
     if (!prm.dynamicRC.empty()) return unsupported(_T("--dynamic-rc"));
     if (prm.rcParam.encMode == MFX_RATECONTROL_LA || prm.rcParam.encMode == MFX_RATECONTROL_LA_ICQ || prm.rcParam.encMode == MFX_RATECONTROL_LA_HRD || prm.rcParam.encMode == MFX_RATECONTROL_VCM) return unsupported(_T("LA / LA-ICQ / LA-HRD / VCM"));
-    if (prm.common.adaptResolution != defaults.common.adaptResolution) return unsupported(_T("--adapt-resolution"));
+    if (prm.common.adaptResolution != defaults.common.adaptResolution && prm.input.type != RGY_INPUT_FMT_AVSW && prm.input.type != RGY_INPUT_FMT_AVANY)
+        return unsupported(_T("--adapt-resolution (non-avsw input)"));
+    if (prm.common.adaptResolution != defaults.common.adaptResolution && !prm.ctrl.enableOpenCL)
+        return unsupported(_T("--adapt-resolution (OpenCL disabled)"));
     const bool deinterlaceCL = prm.vpp.afs.enable || prm.vpp.nnedi.enable || prm.vpp.yadif.enable
         || prm.vpp.bwdif.enable || prm.vpp.rtgmc.enable || prm.vpp.kfm.enable || prm.vpp.rtgmc_bob.enable
         || prm.vpp.decomb.enable || prm.vpp.onnxDeint.enable || prm.vpp.ivtc.enable;

@@ -1899,7 +1899,8 @@ RGY_ERR CQSVPipeline::AllocFrames(const std::pair<int, int>& adaptResolution) {
 #if ENABLE_VAAPI
         if (m_backend == QSVBackend::VAAPI
             && (t0->taskType() == PipelineTaskType::OPENCL
-                || (t0->taskType() == PipelineTaskType::INPUT && t1->taskType() == PipelineTaskType::VAAPIENC))) {
+                || (t0->taskType() == PipelineTaskType::INPUT
+                    && (t1->taskType() == PipelineTaskType::VAAPIENC || m_clFilterBypassForResChange)))) {
             const RGYFrameInfo frame(m_encWidth, m_encHeight, csp_enc_to_rgy(allocRequest.Info.FourCC),
                 m_vaEncParam.bitdepth, RGY_PICSTRUCT_FRAME);
             const auto sts = t0->workSurfacesAllocSYS(requestNumFrames, frame);
@@ -2047,6 +2048,7 @@ CQSVPipeline::CQSVPipeline() :
     m_openclTaskThreads(0),
     m_vpFilters(),
     m_vppMfxBypassForResChange(false),
+    m_clFilterBypassForResChange(false),
     m_videoQualityMetric(),
     m_pipelineTasks() {
     m_trimParam.offset = 0;
@@ -2734,6 +2736,13 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
             if (filter == VppType::MFX_RESIZE) filter = VppType::CL_RESIZE;
             if (filter == VppType::MFX_CROP) filter = VppType::CL_CROP;
             if (filter == VppType::MFX_COLORSPACE) filter = VppType::CL_COLORSPACE;
+        }
+        if (filterPipeline.empty() && (m_cl || inputParam->common.adaptResolution.first > 0)
+            && m_pFileReader->GetInputFrameInfo().type == RGY_INPUT_FMT_AVSW) {
+            // フィルタなしでも変更を吸収するチェーンを用意し、変更前は SYS のまま渡す。
+            filterPipeline.push_back(VppType::CL_CROP);
+            m_clFilterBypassForResChange = inputParam->common.adaptResolution.first == 0
+                && inputParam->common.adaptResolution.second == 0;
         }
         return filterPipeline;
     }
@@ -4475,6 +4484,7 @@ RGY_ERR CQSVPipeline::createOpenCLCopyFilterForPreVideoMetric() {
 
 RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
     m_vppMfxBypassForResChange = false;
+    m_clFilterBypassForResChange = false;
     const bool cropRequired = cropEnabled(inputParam->input.crop)
         && m_pFileReader->getInputCodec() != RGY_CODEC_UNKNOWN;
 
@@ -4630,7 +4640,9 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
                 param->crop = *inputCrop;
                 inputCrop = nullptr;
             }
-            param->frameIn.mem_type = m_backend == QSVBackend::VAAPI ? RGY_MEM_TYPE_GPU : RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED;
+            param->frameIn.mem_type = m_backend == QSVBackend::VAAPI
+                ? (m_clFilterBypassForResChange ? RGY_MEM_TYPE_CPU : RGY_MEM_TYPE_GPU)
+                : RGY_MEM_TYPE_GPU_IMAGE_NORMALIZED;
             param->frameOut.mem_type = RGY_MEM_TYPE_GPU;
         } else {
             param->frameOut.bitdepth = targetBitdepth;
@@ -6010,9 +6022,45 @@ bool CQSVPipeline::VppAfsRffAware() const {
 RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
     m_pipelineTasks.clear();
 
+    // 入力途中の解像度変更時に、フィルタチェーン先頭の直後へ挿入して元の解像度へ戻すための正規化resizeパラメータ。
+    // 解像度変更が起こらなければ一度も使われないので、遅延生成にしてOpenCLブロックが複数ある場合も同じものを共有する。
+    std::shared_ptr<RGYFilterParamResize> normalizeResizeParam;
+    auto getNormalizeResizeParam = [&]() {
+        if (normalizeResizeParam != nullptr) {
+            return normalizeResizeParam;
+        }
+        normalizeResizeParam = std::make_shared<RGYFilterParamResize>();
+        const auto resizeAlgo = prm->vpp.resize_algo;
+        // ユーザー指定のアルゴリズムを流用するが、OpenCL実装でないもの(MFX系など)はここでは使えず、
+        // FSR1/NISは拡大専用・追加パラメータ前提で正規化(主に縮小)用途に向かないため、いずれもspline36へfallbackする。
+        if (resizeAlgo == RGY_VPP_RESIZE_AUTO) {
+            normalizeResizeParam->interp = RGY_VPP_RESIZE_SPLINE36;
+            PrintMes(RGY_LOG_DEBUG, _T("resolution change: OpenCL normalization resize uses spline36 for auto resize mode.\n"));
+        } else if (getVppResizeType(resizeAlgo) != RGY_VPP_RESIZE_TYPE_OPENCL
+            || resizeAlgo == RGY_VPP_RESIZE_FSR1
+            || resizeAlgo == RGY_VPP_RESIZE_NIS) {
+            normalizeResizeParam->interp = RGY_VPP_RESIZE_SPLINE36;
+            PrintMes(RGY_LOG_WARN, _T("resolution change: OpenCL normalization resize falls back from %s to spline36.\n"),
+                get_chr_from_value(list_vpp_resize, resizeAlgo));
+        } else {
+            normalizeResizeParam->interp = resizeAlgo;
+        }
+        normalizeResizeParam->fsr1 = prm->vpp.resize_fsr1;
+        normalizeResizeParam->nis = prm->vpp.resize_nis;
+        normalizeResizeParam->bicubic = prm->vpp.resize_bicubic;
+        normalizeResizeParam->vui = prm->input.vui;
+        normalizeResizeParam->baseFps = m_encFps;
+        normalizeResizeParam->bOutOverwrite = false;
+        return normalizeResizeParam;
+    };
+
+
 #if ENABLE_VAAPI
     if (m_backend == QSVBackend::VAAPI) {
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskInput>(nullptr, nullptr, -1ll, 0, m_pFileReader.get(), m_mfxVer, m_vpFilters.empty() ? nullptr : m_cl, m_pQSVLog));
+        auto taskInput = std::make_unique<PipelineTaskInput>(nullptr, nullptr, -1ll, 0, m_pFileReader.get(), m_mfxVer,
+            m_vpFilters.empty() || m_clFilterBypassForResChange ? nullptr : m_cl, m_pQSVLog);
+        if (m_clFilterBypassForResChange) taskInput->setAllowResolutionChange();
+        m_pipelineTasks.push_back(std::move(taskInput));
         if (!m_pFileWriterListAudio.empty()) {
             m_pipelineTasks.push_back(std::make_unique<PipelineTaskAudio>(m_pFileReader.get(), m_AudioReaders, m_pFileWriterListAudio, m_vpFilters, 0, m_mfxVer, m_pQSVLog));
         }
@@ -6025,8 +6073,11 @@ RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
             m_nAVSyncMode, m_timestampPassThrough, false, m_mfxVer, m_pQSVLog));
         for (auto& block : m_vpFilters) {
             if (block.type != VppFilterType::FILTER_OPENCL) return RGY_ERR_UNSUPPORTED;
-            m_pipelineTasks.push_back(std::make_unique<PipelineTaskOpenCL>(block.vppcl, nullptr, m_cl, 0,
-                SYSTEM_MEMORY, false, nullptr, nullptr, 1, m_pQSVLog));
+            auto taskOpenCL = std::make_unique<PipelineTaskOpenCL>(block.vppcl, nullptr, m_cl, 0,
+                SYSTEM_MEMORY, false, nullptr, nullptr, 1, m_pQSVLog);
+            taskOpenCL->setNormalizeResizeParam(getNormalizeResizeParam());
+            if (m_clFilterBypassForResChange) taskOpenCL->setBypassUntilResolutionChange();
+            m_pipelineTasks.push_back(std::move(taskOpenCL));
         }
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskVAAPIEncode>(m_encVA.get(), m_vaEncParam.codec,
             m_vaEncParam.aud && m_vaEncParam.codec == RGY_CODEC_HEVC
@@ -6072,37 +6123,6 @@ RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
     }
     m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(&m_device->mfxSession(), srcTimebase, m_outputTimebase, outFrameDuration, m_nAVSyncMode, m_timestampPassThrough, VppAfsRffAware() && m_pFileReader->rffAware(), m_mfxVer, m_pQSVLog));
 
-    // 入力途中の解像度変更時に、フィルタチェーン先頭の直後へ挿入して元の解像度へ戻すための正規化resizeパラメータ。
-    // 解像度変更が起こらなければ一度も使われないので、遅延生成にしてOpenCLブロックが複数ある場合も同じものを共有する。
-    std::shared_ptr<RGYFilterParamResize> normalizeResizeParam;
-    auto getNormalizeResizeParam = [&]() {
-        if (normalizeResizeParam != nullptr) {
-            return normalizeResizeParam;
-        }
-        normalizeResizeParam = std::make_shared<RGYFilterParamResize>();
-        const auto resizeAlgo = prm->vpp.resize_algo;
-        // ユーザー指定のアルゴリズムを流用するが、OpenCL実装でないもの(MFX系など)はここでは使えず、
-        // FSR1/NISは拡大専用・追加パラメータ前提で正規化(主に縮小)用途に向かないため、いずれもspline36へfallbackする。
-        if (resizeAlgo == RGY_VPP_RESIZE_AUTO) {
-            normalizeResizeParam->interp = RGY_VPP_RESIZE_SPLINE36;
-            PrintMes(RGY_LOG_DEBUG, _T("resolution change: OpenCL normalization resize uses spline36 for auto resize mode.\n"));
-        } else if (getVppResizeType(resizeAlgo) != RGY_VPP_RESIZE_TYPE_OPENCL
-            || resizeAlgo == RGY_VPP_RESIZE_FSR1
-            || resizeAlgo == RGY_VPP_RESIZE_NIS) {
-            normalizeResizeParam->interp = RGY_VPP_RESIZE_SPLINE36;
-            PrintMes(RGY_LOG_WARN, _T("resolution change: OpenCL normalization resize falls back from %s to spline36.\n"),
-                get_chr_from_value(list_vpp_resize, resizeAlgo));
-        } else {
-            normalizeResizeParam->interp = resizeAlgo;
-        }
-        normalizeResizeParam->fsr1 = prm->vpp.resize_fsr1;
-        normalizeResizeParam->nis = prm->vpp.resize_nis;
-        normalizeResizeParam->bicubic = prm->vpp.resize_bicubic;
-        normalizeResizeParam->vui = prm->input.vui;
-        normalizeResizeParam->baseFps = m_encFps;
-        normalizeResizeParam->bOutOverwrite = false;
-        return normalizeResizeParam;
-    };
 
     for (auto& filterBlock : m_vpFilters) {
         if (filterBlock.type == VppFilterType::FILTER_MFX) {

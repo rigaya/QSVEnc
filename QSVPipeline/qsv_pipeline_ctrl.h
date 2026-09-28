@@ -907,10 +907,11 @@ class PipelineTaskInput : public PipelineTask {
     // 前回リーダーから受け取ったフレームの解像度(crop適用後)。解像度変更のログを変化時のみ出すために保持する
     int m_lastInputWidth;
     int m_lastInputHeight;
+    bool m_allowResolutionChange;
 public:
     PipelineTaskInput(MFXVideoSession *mfxSession, QSVAllocator *allocator, int64_t endPts, int outMaxQueueSize, RGYInput *input, mfxVersion mfxVer, std::shared_ptr<RGYOpenCLContext> cl, std::shared_ptr<RGYLog> log)
         : PipelineTask(PipelineTaskType::INPUT, outMaxQueueSize, mfxSession, mfxVer, log), m_input(input), m_allocator(allocator), m_endPts(endPts), m_allocatorD3D11(IS_ALLOCATOR_D3D11(allocator)), m_cl(cl),
-        m_lastInputWidth(0), m_lastInputHeight(0) {
+        m_lastInputWidth(0), m_lastInputHeight(0), m_allowResolutionChange(false) {
 
     };
     // リーダーが出力するフレームの解像度を得る
@@ -934,6 +935,7 @@ public:
             m_lastInputHeight = newHeight;
         }
     }
+    void setAllowResolutionChange() { m_allowResolutionChange = true; }
     virtual ~PipelineTaskInput() {};
     virtual void setStopWatch() override {
         m_stopwatch = std::make_unique<PipelineTaskStopWatch>(
@@ -1031,11 +1033,6 @@ public:
         // エラー時は下流に中途半端な解像度を残さないよう、入ってきたときの解像度に戻す。
         if (err == RGY_ERR_NONE) {
             const auto [readerWidth, readerHeight] = getReaderOutputResolution();
-            if (m_mfxSession == nullptr && (readerWidth != m_workSurfAllocWidth || readerHeight != m_workSurfAllocHeight)) {
-                PrintMes(RGY_LOG_ERROR, _T("Input resolution changed from %dx%d to %dx%d, which is not supported by VA-API yet.\n"),
-                    m_workSurfAllocWidth, m_workSurfAllocHeight, readerWidth, readerHeight);
-                return RGY_ERR_UNSUPPORTED;
-            }
             printInputResolutionChange(readerWidth, readerHeight);
             clframe->frame.width = readerWidth;
             clframe->frame.height = readerHeight;
@@ -1049,6 +1046,8 @@ public:
     RGY_ERR LoadNextFrameSys(PipelineTaskSurface& surfWork) {
         auto *sys = surfWork.sys();
         if (!sys) return RGY_ERR_UNSUPPORTED;
+        // 再利用する面の論理寸法を、読み込み中は確保寸法へ戻す。
+        sys->setResolution(m_workSurfAllocWidth, m_workSurfAllocHeight);
         auto err = m_input->LoadNextFrame(sys);
         if (err == RGY_ERR_MORE_DATA) return RGY_ERR_MORE_BITSTREAM;
         if (err != RGY_ERR_NONE) {
@@ -1056,8 +1055,8 @@ public:
             return err;
         }
         const auto [readerWidth, readerHeight] = getReaderOutputResolution();
-        if (readerWidth != m_workSurfAllocWidth || readerHeight != m_workSurfAllocHeight) {
-            PrintMes(RGY_LOG_ERROR, _T("Input resolution changed from %dx%d to %dx%d, which is not supported by VA-API yet.\n"),
+        if (!m_allowResolutionChange && (readerWidth != m_workSurfAllocWidth || readerHeight != m_workSurfAllocHeight)) {
+            PrintMes(RGY_LOG_ERROR, _T("Input resolution changed from %dx%d to %dx%d, but OpenCL is unavailable for VA-API resolution normalization.\n"),
                 m_workSurfAllocWidth, m_workSurfAllocHeight, readerWidth, readerHeight);
             return RGY_ERR_UNSUPPORTED;
         }
@@ -1224,7 +1223,10 @@ public:
             auto err = m_pendingFrames.front()->isDependReady(ready);
             if (err != RGY_ERR_NONE) return err;
             if (!ready) {
-                if (!drain) break;
+                // 未完了の DtoH 出力を溜めすぎると、OpenCL が出力面の空きを待ち、
+                // このタスクへ制御が戻らず循環待ちになる。最小4枚の出力プールでも
+                // OpenCL 側のキューと次の出力用の面が残るよう、2枚目で待って保留を最大1枚に戻す。
+                if (!drain && m_pendingFrames.size() < 2) break;
                 std::this_thread::yield();
                 continue;
             }
@@ -3103,6 +3105,7 @@ protected:
     std::shared_ptr<RGYFilterParamResize> m_normalizeResizeParam;     //正規化resizeのパラメータ雛形。qsv_pipeline.cpp側で生成されsetNormalizeResizeParam()で渡される
     int m_normalizeResizeIdx;                                         //挿入済みの正規化resizeのm_vpFilters内index。-1なら未挿入(=まだ解像度変更が起きていない)
     bool m_resChangeFlush;                                            //解像度変更に伴うフィルタのflush中かどうか。flush中はsendFrame()の出力キューの扱いを変える必要がある
+    bool m_bypassActive; // VA のフィルタなし構成では、解像度が変わるまで SYS 面をそのまま渡す。
     int m_openclTaskThreads;
     RGYOpenCLQueue m_acquireQueue;
     RGYQueueMPMP<AcquireWork *> m_acquireInQueue;
@@ -4202,7 +4205,7 @@ protected:
     }
 public:
     PipelineTaskOpenCL(std::vector<std::unique_ptr<RGYFilter>>& vppfilters, RGYFilterSsim *videoMetric, std::shared_ptr<RGYOpenCLContext> cl, int openclTaskThreads, MemType memType, bool encHostOutput, QSVAllocator *allocator, MFXVideoSession *mfxSession, int outMaxQueueSize, std::shared_ptr<RGYLog> log) :
-        PipelineTask(PipelineTaskType::OPENCL, outMaxQueueSize, mfxSession, MFX_LIB_VERSION_0_0, log), m_cl(cl), m_vpFilters(vppfilters), m_surfVppInInterop(), m_surfVppOutInterop(), m_prevInputFrame(), m_prevAcquireFrame(), m_videoMetric(videoMetric), m_normalizeTargetFrame(), m_normalizeResizeParam(), m_normalizeResizeIdx(-1), m_resChangeFlush(false), m_openclTaskThreads(openclTaskThreads), m_acquireQueue(), m_acquireInQueue(), m_acquireReadyQueue(), m_acquireFreeQueue(), m_acquireThread(), m_acquireErr(RGY_ERR_NONE), m_acquireThreadAbort(false), m_releaseQueue(), m_releaseAcquireQueue(), m_releaseReadyQueue(), m_releaseWorkQueue(), m_releaseDoneQueue(), m_releaseThread(), m_releaseErr(RGY_ERR_NONE), m_releaseThreadAbort(false), m_releaseAcquirePending(0), m_releaseWorkInFlight(0), m_releaseOutputPending(0), m_acquireFrameInInfo(), m_acquireDrainSent(false), m_acquireDrainReady(false), m_acquireQueuesClosed(false), m_releaseQueuesClosed(false), m_memType(memType), m_encHostOutput(encHostOutput) {
+        PipelineTask(PipelineTaskType::OPENCL, outMaxQueueSize, mfxSession, MFX_LIB_VERSION_0_0, log), m_cl(cl), m_vpFilters(vppfilters), m_surfVppInInterop(), m_surfVppOutInterop(), m_prevInputFrame(), m_prevAcquireFrame(), m_videoMetric(videoMetric), m_normalizeTargetFrame(), m_normalizeResizeParam(), m_normalizeResizeIdx(-1), m_resChangeFlush(false), m_bypassActive(false), m_openclTaskThreads(openclTaskThreads), m_acquireQueue(), m_acquireInQueue(), m_acquireReadyQueue(), m_acquireFreeQueue(), m_acquireThread(), m_acquireErr(RGY_ERR_NONE), m_acquireThreadAbort(false), m_releaseQueue(), m_releaseAcquireQueue(), m_releaseReadyQueue(), m_releaseWorkQueue(), m_releaseDoneQueue(), m_releaseThread(), m_releaseErr(RGY_ERR_NONE), m_releaseThreadAbort(false), m_releaseAcquirePending(0), m_releaseWorkInFlight(0), m_releaseOutputPending(0), m_acquireFrameInInfo(), m_acquireDrainSent(false), m_acquireDrainReady(false), m_acquireQueuesClosed(false), m_releaseQueuesClosed(false), m_memType(memType), m_encHostOutput(encHostOutput) {
         m_allocator = allocator;
         //解像度変更時に「戻すべき解像度」は初期化時点のチェーン先頭の出力。ここで控えておかないと、
         //先頭CspCropを再初期化した後では取得できなくなる。
@@ -4235,6 +4238,8 @@ public:
         m_videoMetric = videoMetric;
     }
     bool encHostOutput() const { return m_encHostOutput; }
+    void setBypassUntilResolutionChange() { m_bypassActive = true; }
+    virtual bool mayBypass() const override { return m_bypassActive; }
     void setNormalizeResizeParam(const std::shared_ptr<RGYFilterParamResize>& resizeParam) {
         if (resizeParam == nullptr) {
             m_normalizeResizeParam.reset();
@@ -4290,6 +4295,9 @@ public:
         collectReleaseDone(false);
         if (m_stopwatch) m_stopwatch->add(0, 0);
 
+        // バイパス中はフィルタ内に保留フレームがないため、直ちに drain 完了にする。
+        if (!frame && m_bypassActive) return RGY_ERR_MORE_DATA;
+
         // 入力途中の解像度変更の検出と追従。上流から流れてきたフレームの解像度がチェーン先頭の期待する入力解像度と違えば、
         // (1)チェーン内に残っている旧解像度のフレームをすべて吐き出し (2)チェーンを再構築して新解像度を受け入れる、という順で処理する。
         // 再構築後は正規化resizeが入るため、この関数の出力解像度は変わらない(=下流のtaskは何も知らずに済む)。
@@ -4299,11 +4307,6 @@ public:
             if (taskSurf != nullptr && filterParam != nullptr) {
                 const auto inputFrame = taskSurf->surf().frame();
                 if (inputFrame->width() != filterParam->frameIn.width || inputFrame->height() != filterParam->frameIn.height) {
-                    if (m_mfxSession == nullptr) {
-                        PrintMes(RGY_LOG_ERROR, _T("Input resolution changed from %dx%d to %dx%d, which is not supported by VA-API yet.\n"),
-                            filterParam->frameIn.width, filterParam->frameIn.height, inputFrame->width(), inputFrame->height());
-                        return RGY_ERR_UNSUPPORTED;
-                    }
                     const auto newInputFrame = inputFrame->frameInfo();
                     const int oldInputWidth = filterParam->frameIn.width;
                     const int oldInputHeight = filterParam->frameIn.height;
@@ -4369,7 +4372,11 @@ public:
                     m_acquireDrainSent = false;
                     m_acquireDrainReady = false;
                     flushGuard.release();
+                    m_bypassActive = false;
                     PrintMes(RGY_LOG_DEBUG, _T("resolution change: OpenCL filter processing resumed.\n"));
+                } else if (m_bypassActive) {
+                    m_outQeueue.push_back(std::move(frame));
+                    return RGY_ERR_NONE;
                 }
             }
         }
@@ -4470,6 +4477,9 @@ public:
             } else if (auto clframe = taskSurf->surf().cl(); clframe != nullptr) {
                 //OpenCLフレームが出てきた時の場合
                 filterframes.push_back(std::make_pair(clframe->frameInfo(), 0u));
+            } else if (auto sysframe = taskSurf->surf().sys(); sysframe != nullptr) {
+                // バイパス解除後も入力面は SYS のままなので、先頭 CspCrop で HtoD を行う。
+                filterframes.push_back(std::make_pair(sysframe->frameInfo(), 0u));
             } else {
                 PrintMes(RGY_LOG_ERROR, _T("Invalid input frame.\n"));
                 return RGY_ERR_NULL_PTR;
