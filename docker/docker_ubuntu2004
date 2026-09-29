@@ -43,7 +43,6 @@ RUN apt-get update \
       libigfxcmrt7 \
       libva-dev \
       libdrm-dev \
-      opencl-headers \
       build-essential \
       openssl \
       libssl-dev \
