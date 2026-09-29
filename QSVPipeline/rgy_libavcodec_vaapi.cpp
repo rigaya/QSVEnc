@@ -41,6 +41,7 @@
 #include <fstream>
 #include <fcntl.h>
 #include <mutex>
+#include <limits>
 #include <string>
 #include <unistd.h>
 
@@ -367,7 +368,7 @@ RGYVAEncCaps::RGYVAEncCaps() :
 }
 
 std::vector<RGYVADeviceInfo> enumerateVADevices(uint32_t vendorId, int idBase, RGYLog *log, tstring *openErrorMessage,
-    const std::map<int, std::string>& preferredIds) {
+    const std::map<int, std::string>& preferredIds, const bool probeDevices) {
     if (openErrorMessage != nullptr) openErrorMessage->clear();
     std::vector<std::filesystem::path> nodes;
     std::error_code ec;
@@ -390,13 +391,20 @@ std::vector<RGYVADeviceInfo> enumerateVADevices(uint32_t vendorId, int idBase, R
         if (!is_vendor_render_node(node, vendorId)) continue;
         tstring name;
         int openErrno = 0;
-        if (!probe_va_device(node, name, openErrno, log)) {
-            if (openErrno != 0) {
-                lastOpenErrno = openErrno;
-                lastOpenFailedNode = node;
-            }
-            continue;
+        bool usable = true;
+        if (probeDevices) {
+            usable = probe_va_device(node, name, openErrno, log);
+        } else {
+            // 権限の診断だけを行う。VA 初期化はせず、開けない node も番号を消費させる。
+            const int fd = ::open(node.c_str(), O_RDWR | O_CLOEXEC);
+            if (fd < 0) openErrno = errno;
+            else ::close(fd);
         }
+        if (openErrno != 0) {
+            lastOpenErrno = openErrno;
+            lastOpenFailedNode = node;
+        }
+        if (!usable) continue;
         RGYVADeviceInfo info;
         info.id = idBase + (int)devices.size();
         info.renderNode = char_to_tstring(node.string());
@@ -425,14 +433,14 @@ std::vector<RGYVADeviceInfo> enumerateVADevices(uint32_t vendorId, int idBase, R
     // 指定ベンダーの render node がすべて使えず、その原因が open() の失敗だった場合は、
     // "VA-API unavailable" だけでは原因が分からないため、errno とヒントを出す。
     // ほかのベンダーの node は対象外。
-    if (devices.empty() && lastOpenErrno != 0) {
+    if ((!probeDevices || devices.empty()) && lastOpenErrno != 0) {
         auto message = strsprintf(_T("Failed to open render node %s: %s.\n"),
             char_to_tstring(lastOpenFailedNode.string()).c_str(), char_to_tstring(strerror(lastOpenErrno)).c_str());
         if (lastOpenErrno == EACCES || lastOpenErrno == EPERM) {
             message += _T("  Add the user to the \"render\" group (e.g. sudo usermod -aG render $USER) and log in again.\n");
         }
         if (log != nullptr) {
-            log->write(RGY_LOG_WARN, RGY_LOGT_DEV, _T("%s"), message.c_str());
+            log->write(probeDevices ? RGY_LOG_WARN : RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("%s"), message.c_str());
         }
         if (openErrorMessage != nullptr) {
             *openErrorMessage = message;
@@ -455,19 +463,20 @@ RGYDeviceVA::RGYDeviceVA() :
 RGYDeviceVA::~RGYDeviceVA() {
 }
 
-RGY_ERR RGYDeviceVA::open(const RGYVADeviceInfo& info, std::shared_ptr<RGYLog> log) {
+RGY_ERR RGYDeviceVA::open(const RGYVADeviceInfo& info, std::shared_ptr<RGYLog> log, const RGYLogLevel errorLogLevel, tstring *openErrorMessage) {
+    if (openErrorMessage) openErrorMessage->clear();
     m_info = info;
     m_log = std::move(log);
     AVBufferRef *deviceRaw = nullptr;
     const auto devicePath = tchar_to_string(m_info.renderNode);
     const int result = av_hwdevice_ctx_create(&deviceRaw, AV_HWDEVICE_TYPE_VAAPI, devicePath.c_str(), nullptr, 0);
     if (result < 0 || deviceRaw == nullptr) {
-        if (m_log != nullptr) {
-            char errbuf[AV_ERROR_MAX_STRING_SIZE] = {};
-            av_strerror(result, errbuf, sizeof(errbuf));
-            m_log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("Failed to open VA-API device %s (%s).\n"),
-                m_info.renderNode.c_str(), char_to_tstring(errbuf).c_str());
-        }
+        char errbuf[AV_ERROR_MAX_STRING_SIZE] = {};
+        av_strerror(result, errbuf, sizeof(errbuf));
+        const auto message = strsprintf(_T("Failed to open VA-API device %s (%s).\n"),
+            m_info.renderNode.c_str(), char_to_tstring(errbuf).c_str());
+        if (m_log) m_log->write(errorLogLevel, RGY_LOGT_DEV, _T("%s"), message.c_str());
+        if (openErrorMessage) *openErrorMessage = message;
         return RGY_ERR_DEVICE_NOT_FOUND;
     }
     m_hwdevice.reset(deviceRaw);
@@ -480,6 +489,7 @@ RGY_ERR RGYDeviceVA::open(const RGYVADeviceInfo& info, std::shared_ptr<RGYLog> l
     }
     const char *vendor = vaQueryVendorString((VADisplay)m_display);
     m_vendorString = vendor ? char_to_tstring(vendor) : _T("unknown");
+    if (m_info.name.empty()) m_info.name = get_device_name(vendor);
     return RGY_ERR_NONE;
 }
 
@@ -630,6 +640,11 @@ RGY_ERR RGYEncoderVA::init(RGYDeviceVA *dev, const RGYVAEncParam& prm, std::shar
     m_qpMin = prm.qpMin;
     m_qpMax = prm.qpMax;
 
+    AVCodecContext *ctxRaw = avcodec_alloc_context3(codec);
+    if (ctxRaw == nullptr) return RGY_ERR_NULL_PTR;
+    m_codecCtx.reset(ctxRaw);
+    auto *ctx = m_codecCtx.get();
+
     AVBufferRef *framesRaw = av_hwframe_ctx_alloc(dev->hwdevice());
     if (framesRaw == nullptr) return RGY_ERR_NULL_PTR;
     m_hwframes.reset(framesRaw);
@@ -638,14 +653,19 @@ RGY_ERR RGYEncoderVA::init(RGYDeviceVA *dev, const RGYVAEncParam& prm, std::shar
     frames->sw_format = prm.bitdepth > 8 ? AV_PIX_FMT_P010 : AV_PIX_FMT_NV12;
     frames->width = prm.width;
     frames->height = prm.height;
-    frames->initial_pool_size = VA_ENCODER_FRAME_POOL_SIZE;
+    int64_t asyncDepth = 1;
+    av_opt_get_int(ctx->priv_data, "async_depth", 0, &asyncDepth);
+    // FFmpeg の hw_base_encode は b_per_p (= max_b_frames) + 1 面を並べ替えに必要とし、
+    // vaapi_encode の encode_fifo は async_depth 面を保持する (既定値は 2)。
+    // 次のアップロード用に 1 面を加え、従来の VCEEnc の下限 8 面を維持する。
+    const int64_t poolSize = (std::max)(int64_t(VA_ENCODER_FRAME_POOL_SIZE), int64_t(maxBFrames) + (std::max)(int64_t(1), asyncDepth) + 2);
+    if (poolSize > (std::numeric_limits<int>::max)()) return RGY_ERR_INVALID_PARAM;
+    frames->initial_pool_size = (int)poolSize;
+    if (m_log) m_log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("VA-API input frame pool: %d (bframes=%d, async_depth=%lld).\n"),
+        frames->initial_pool_size, maxBFrames, (long long)asyncDepth);
     int ret = av_hwframe_ctx_init(m_hwframes.get());
     if (ret < 0) return RGY_ERR_DEVICE_FAILED;
 
-    AVCodecContext *ctxRaw = avcodec_alloc_context3(codec);
-    if (ctxRaw == nullptr) return RGY_ERR_NULL_PTR;
-    m_codecCtx.reset(ctxRaw);
-    auto *ctx = m_codecCtx.get();
     ctx->width = prm.width;
     ctx->height = prm.height;
     ctx->bit_rate = (int64_t)prm.bitrateKbps * 1000;

@@ -496,6 +496,8 @@ Linux 版のバックエンドを指定する。既定値は `auto`。VA-API を
 
 `--check-hw` / `--check-features` / `--check-device` と組み合わせると、指定したバックエンドのデバイス情報を表示する。`--backend vaapi --check-features` で、ドライバが対応するコーデック、ビット深度、RC、EncSlice / LP、qualityLevels を確認できる。
 
+`-d` の番号はバックエンドごとの列挙順で決まるため、QSV と VA-API で異なる場合がある。VPL ランタイムのない GPU を選ぶには `--backend vaapi` を指定し、`--backend vaapi --check-device` で番号を確認する。
+
 VA-API では raw / `--avsw` 入力を使い、入力の自動選択もソフトウェアデコードになる。H.264 / HEVC / VP9 / AV1、8 / 10bit の YUV 4:2:0、CQP / CBR / VBR / ICQ / QVBR / AVBR は、GPU とドライバの対応範囲で使用できる。ICQ 非対応時は WARN を表示して CQP に切り替える。OpenCL が使用できれば、`--crop` / `--output-res`、`--vpp-resize` / `--vpp-colorspace` などの OpenCL フィルタも使用できる。フィルタなしのエンコードには OpenCL は不要だが、無効時に OpenCL フィルタを指定するとエラーになる。HEVC の HDR10 / HDR10+ / Dolby Vision メタデータにも対応する。
 
 VA-API では `--avhw`、MFX VPP (`--vpp-mfx-*`、MFX のインターレース解除・ノイズ除去・AI 処理など)、LA / LA-ICQ / LA-HRD / VCM、`--dynamic-rc`、`--parallel`、`--ssim` / `--psnr` / `--vmaf` は使用できない。インターレースを保持したエンコードはエラーになる (OpenCL でのインターレース解除は使用可能)。avsw 入力 (自動選択を含む) の解像度変更は OpenCL で起動時の出力解像度へリサイズする。初期解像度を超えて拡大する入力には `--adapt-resolution` で最大寸法を指定する。OpenCL がない場合の解像度変更はエラーになる。`--b-pyramid` など、対応していないエンコードオプションを既定値から変更すると WARN を表示して無視する。

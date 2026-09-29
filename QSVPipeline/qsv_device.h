@@ -62,7 +62,7 @@ public:
     RGY_ERR init(const QSVDeviceNum dev, const bool enableOpenCL, const RGYParamInitVulkan enableVulkan, MemType memType, const MFXVideoSession2Params& params, std::shared_ptr<QSVDeviceInfoCache> devInfoCache, std::shared_ptr<RGYLog> m_log, const bool suppressErrorMessage);
 
 #if ENABLE_VAAPI
-    RGY_ERR initVA(const RGYVADeviceInfo& info, bool enableOpenCL, std::shared_ptr<RGYLog> log);
+    RGY_ERR initVA(const RGYVADeviceInfo& info, bool enableOpenCL, std::shared_ptr<RGYLog> log, tstring *openErrorMessage = nullptr);
     RGYDeviceVA *va() const { return m_va.get(); }
     std::shared_ptr<RGYOpenCLPlatform> vaCLPlatform() const { return m_vaCLPlatform; }
 #endif

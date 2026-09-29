@@ -80,14 +80,15 @@ struct RGYVAEncCaps {
 
 // 指定ベンダーの render node を idBase 始まりで列挙する。preferredIds は既存 backend の PCI バス ID と番号の対応。
 // openErrorMessage は対象 node を開けなかった理由を返す。
+// probeDevices=false は VA を開かず、ベンダーが一致した全 node を番号付きで返す (名前は空)。
 std::vector<RGYVADeviceInfo> enumerateVADevices(uint32_t vendorId, int idBase, RGYLog *log, tstring *openErrorMessage = nullptr,
-    const std::map<int, std::string>& preferredIds = {});
+    const std::map<int, std::string>& preferredIds = {}, bool probeDevices = true);
 
 class RGYDeviceVA {
 public:
     RGYDeviceVA();
     ~RGYDeviceVA();
-    RGY_ERR open(const RGYVADeviceInfo& info, std::shared_ptr<RGYLog> log);
+    RGY_ERR open(const RGYVADeviceInfo& info, std::shared_ptr<RGYLog> log, RGYLogLevel errorLogLevel = RGY_LOG_ERROR, tstring *openErrorMessage = nullptr);
     const RGYVAEncCaps& encCaps(RGY_CODEC codec);
     tstring capsString(RGY_CODEC codec);
     const CodecCsp& decCaps();

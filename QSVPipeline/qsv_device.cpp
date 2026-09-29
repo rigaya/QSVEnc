@@ -519,14 +519,14 @@ std::vector<std::unique_ptr<QSVDevice>> getDeviceList(const QSVDeviceNum deviceN
 }
 
 #if ENABLE_VAAPI
-RGY_ERR QSVDevice::initVA(const RGYVADeviceInfo& info, const bool enableOpenCL, std::shared_ptr<RGYLog> log) {
+RGY_ERR QSVDevice::initVA(const RGYVADeviceInfo& info, const bool enableOpenCL, std::shared_ptr<RGYLog> log, tstring *openErrorMessage) {
     close();
     m_log = std::move(log);
     m_devNum = (QSVDeviceNum)info.id;
     m_memType = VA_MEMORY;
     m_externalAlloc = false;
     m_va = std::make_unique<RGYDeviceVA>();
-    if (const auto err = m_va->open(info, m_log); err != RGY_ERR_NONE) {
+    if (const auto err = m_va->open(info, m_log, RGY_LOG_DEBUG, openErrorMessage); err != RGY_ERR_NONE) {
         m_va.reset();
         return err;
     }
@@ -591,17 +591,20 @@ RGY_ERR QSVDevice::initVA(const RGYVADeviceInfo& info, const bool enableOpenCL, 
 
 std::vector<std::unique_ptr<QSVDevice>> getDeviceListVA(const QSVDeviceNum deviceNum, const bool enableOpenCL, std::shared_ptr<RGYLog> log) {
     std::vector<std::unique_ptr<QSVDevice>> devices;
-    tstring openError;
-    const auto infos = enumerateVADevices(0x8086, 1, log.get(), &openError);
+    // i965 は生きた display がない状態で非対応 GPU の初期化に失敗すると、
+    // 以後の初期化も失敗する。probe と開き直しを避け、成功したデバイスを保持したまま次へ進む。
+    // 番号はベンダーが一致した node 順で決め、指定時はその node だけを開く。
+    tstring openError, vaOpenError;
+    const auto infos = enumerateVADevices(0x8086, 1, log.get(), &openError, {}, false);
     for (const auto& info : infos) {
         if (deviceNum != QSVDeviceNum::AUTO && (int)deviceNum != info.id) continue;
         auto dev = std::make_unique<QSVDevice>();
-        if (dev->initVA(info, enableOpenCL, log) == RGY_ERR_NONE) {
+        if (dev->initVA(info, enableOpenCL, log, &vaOpenError) == RGY_ERR_NONE) {
             devices.push_back(std::move(dev));
         }
     }
     if (devices.empty()) {
-        log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("VA-API device unavailable. %s\n"), openError.c_str());
+        log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("VA-API device unavailable. %s%s\n"), vaOpenError.c_str(), openError.c_str());
     }
     return devices;
 }
