@@ -29,6 +29,7 @@
 #define _QSV_SESSION_H_
 
 #include "rgy_version.h"
+#include <map>
 #include "qsv_util.h"
 #include "qsv_hw_device.h"
 #include "qsv_allocator.h"
@@ -70,6 +71,11 @@ protected:
 };
 
 std::vector<mfxImplDescription> getVPLImplList(std::shared_ptr<RGYLog>& log);
+
+#if ENABLE_VAAPI
+// セッションを作らず、QSV のデバイス番号と VPL のアダプター番号の対応を返す。
+std::map<int, int> getVPLDeviceAdapterIds(mfxAccelerationMode accelerationMode);
+#endif
 
 RGY_ERR InitSession(MFXVideoSession2& mfxSession, const MFXVideoSession2Params& params, const mfxIMPL implAcceleration, const QSVDeviceNum dev, std::shared_ptr<RGYLog>& log, const bool suppressErrorMessage = false);
 

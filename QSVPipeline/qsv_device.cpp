@@ -32,6 +32,13 @@
 #include "qsv_device.h"
 #include "gpu_info.h"
 #include "rgy_avutil.h"
+#if ENABLE_VAAPI
+#include "qsv_hw_va_utils_drm.h"
+#include <filesystem>
+#include <sys/stat.h>
+#include <sys/sysmacros.h>
+#include <unistd.h>
+#endif
 
 QSVDeviceInfoCache::QSVDeviceInfoCache() : RGYDeviceInfoCache(), m_featureData() { }
 QSVDeviceInfoCache::~QSVDeviceInfoCache() { }
@@ -589,13 +596,38 @@ RGY_ERR QSVDevice::initVA(const RGYVADeviceInfo& info, const bool enableOpenCL, 
     return RGY_ERR_NONE;
 }
 
+static std::map<int, std::string> getVPLDevicePciBusIds(std::shared_ptr<RGYLog>& log) {
+    std::map<int, std::string> pciBusIds;
+    // 無効指定時は loader の作成も実装列挙も行わず、VA の node 順を使う。
+    const auto disabled = std::getenv("QSVENC_VPL_DISABLE");
+    if (disabled && std::strcmp(disabled, "1") == 0) return pciBusIds;
+    for (const auto& [deviceId, adapterId] : getVPLDeviceAdapterIds(MFX_ACCEL_MODE_VIA_VAAPI)) {
+        // QSV と同じ node 解決を使う。fd は PCI 情報の取得にだけ使い、VA は初期化しない。
+        const int fd = open_target_intel_adapter(MFX_LIBVA_DRM, adapterId, log.get());
+        if (fd < 0) continue;
+        struct stat info = {};
+        const int status = fstat(fd, &info);
+        close(fd);
+        if (status != 0) continue;
+        std::error_code ec;
+        const auto path = std::filesystem::path("/sys/dev/char")
+            / (std::to_string(major(info.st_rdev)) + ":" + std::to_string(minor(info.st_rdev))) / "device";
+        const auto pciPath = std::filesystem::canonical(path, ec);
+        if (ec) continue;
+        pciBusIds[deviceId] = pciPath.filename().string();
+        log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("VA-API preferred device #%d: VPL adapter %d, PCI %s.\n"),
+            deviceId, adapterId, char_to_tstring(pciBusIds[deviceId]).c_str());
+    }
+    return pciBusIds;
+}
+
 std::vector<std::unique_ptr<QSVDevice>> getDeviceListVA(const QSVDeviceNum deviceNum, const bool enableOpenCL, std::shared_ptr<RGYLog> log) {
     std::vector<std::unique_ptr<QSVDevice>> devices;
     // i965 は生きた display がない状態で非対応 GPU の初期化に失敗すると、
     // 以後の初期化も失敗する。probe と開き直しを避け、成功したデバイスを保持したまま次へ進む。
-    // 番号はベンダーが一致した node 順で決め、指定時はその node だけを開く。
+    // VPL で使える GPU は QSV の番号を優先し、それ以外は後ろへ付ける。指定時はその node だけを開く。
     tstring openError, vaOpenError;
-    const auto infos = enumerateVADevices(0x8086, 1, log.get(), &openError, {}, false);
+    const auto infos = enumerateVADevices(0x8086, 1, log.get(), &openError, getVPLDevicePciBusIds(log), false);
     for (const auto& info : infos) {
         if (deviceNum != QSVDeviceNum::AUTO && (int)deviceNum != info.id) continue;
         auto dev = std::make_unique<QSVDevice>();

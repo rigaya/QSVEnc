@@ -154,6 +154,44 @@ mfxLoader MFXLoaderProvider::loader = nullptr;
 bool MFXLoaderProvider::d3d9Checked = false;
 bool MFXLoaderProvider::d3d11FilterSet = false;
 
+#if USE_ONEVPL
+static constexpr int VPL_MAX_DEV_CHECK = 1000;
+
+// 実装列挙でアダプター番号が変わるたびに QSV の番号を進める規則を共有する。
+static int getVPLAdapterId(const mfxImplDescription& desc, int& deviceId, int& adapterIdPrev, int& deviceCount) {
+    int adapterId = -1;
+    if (sscanf_s(desc.Dev.DeviceID, "%x/%d", &deviceId, &adapterId) == 2) {
+        if (adapterIdPrev != adapterId) deviceCount++;
+        adapterIdPrev = adapterId;
+    }
+    return adapterId;
+}
+#endif
+
+#if ENABLE_VAAPI
+std::map<int, int> getVPLDeviceAdapterIds(const mfxAccelerationMode accelerationMode) {
+    std::map<int, int> adapters;
+#if USE_ONEVPL
+    auto loader = MFXLoaderProvider::getLoader();
+    if (!loader) return adapters;
+    int adapterIdPrev = -1, deviceCount = 0;
+    for (int implIndex = 0; implIndex < VPL_MAX_DEV_CHECK; implIndex++) {
+        mfxImplDescription *desc = nullptr;
+        const auto sts = MFXEnumImplementations(loader, implIndex, MFX_IMPLCAPS_IMPLDESCSTRUCTURE, (mfxHDL *)&desc);
+        if (sts == MFX_ERR_UNSUPPORTED || sts == MFX_ERR_NOT_FOUND) break;
+        if (sts != MFX_ERR_NONE || !desc) continue;
+        int deviceId = -1;
+        const int adapterId = getVPLAdapterId(*desc, deviceId, adapterIdPrev, deviceCount);
+        if (desc->Impl == MFX_IMPL_TYPE_HARDWARE && desc->AccelerationMode == accelerationMode && adapterId >= 0) {
+            adapters[deviceCount] = adapterId;
+        }
+        MFXDispReleaseImplDescription(loader, desc);
+    }
+#endif
+    return adapters;
+}
+#endif
+
 MFXVideoSession2Params::MFXVideoSession2Params() : threads(0), threadPriority(0), deviceCopy(false) {};
 
 void MFXVideoSession2::PrintMes(RGYLogLevel log_level, const TCHAR *format, ...) {
@@ -292,10 +330,9 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
             }
         }
 
-        const int MAX_DEV_CHECK = 1000;
         int adapterIDPrev = -1;
         int deviceCount = 0;
-        for (int impl_idx = 0; impl_idx < MAX_DEV_CHECK; impl_idx++) {
+        for (int impl_idx = 0; impl_idx < VPL_MAX_DEV_CHECK; impl_idx++) {
             mfxImplDescription *impl_desc = nullptr;
             sts = MFXEnumImplementations(loader, impl_idx, MFX_IMPLCAPS_IMPLDESCSTRUCTURE, (mfxHDL *)&impl_desc);
             if (sts == MFX_ERR_UNSUPPORTED || sts == MFX_ERR_NOT_FOUND) {
@@ -303,13 +340,8 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
             } else if (sts != MFX_ERR_NONE) {
                 continue;
             }
-            int id1 = -1, adapterID = -1;
-            if (sscanf_s(impl_desc->Dev.DeviceID, "%x/%d", &id1, &adapterID) == 2) {
-                if (adapterIDPrev != adapterID) {
-                    deviceCount++;
-                }
-                adapterIDPrev = adapterID;
-            }
+            int id1 = -1;
+            const int adapterID = getVPLAdapterId(*impl_desc, id1, adapterIDPrev, deviceCount);
             m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("Found deviceID %s, adapterID %d/%d -> device count %d\n"), impl_desc->Dev.DeviceID, id1, adapterID, deviceCount);
 
             tstring devDesc = strsprintf(_T("Dev[%s] %s, SubDevCount: %d"),

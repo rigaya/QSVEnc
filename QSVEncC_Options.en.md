@@ -476,7 +476,7 @@ Select the backend on Linux. The default is `auto`. This option is unavailable w
 
 Combine this option with `--check-hw`, `--check-features`, or `--check-device` to display device information for the selected backend. Use `--backend vaapi --check-features` to check the codecs, bit depths, rate control modes, EncSlice / LP support, and qualityLevels exposed by the driver.
 
-Device numbers for `-d` follow each backend's enumeration order and may differ between QSV and VA-API. To select a GPU without a VPL runtime, specify `--backend vaapi` and check its number with `--backend vaapi --check-device`.
+With VA-API, `-d` uses the same numbers as QSV for GPUs available through VPL; other GPUs are assigned subsequent numbers. Check them with `--backend vaapi --check-device`. When VPL is unavailable or `QSVENC_VPL_DISABLE=1` is set, Intel render node order is used.
 
 VA-API accepts raw and `--avsw` input; automatic input selection also uses software decoding. H.264 / HEVC / VP9 / AV1, 8 / 10-bit YUV 4:2:0, and CQP / CBR / VBR / ICQ / QVBR / AVBR are available according to GPU and driver capabilities. If ICQ is unavailable, a warning is issued and CQP is used instead. With OpenCL available, `--crop`, `--output-res`, and OpenCL filters such as `--vpp-resize` / `--vpp-colorspace` are supported. Encoding without filters does not require OpenCL; requesting an OpenCL filter when OpenCL is disabled produces an error. HEVC HDR10 / HDR10+ / Dolby Vision metadata is also supported.
 
