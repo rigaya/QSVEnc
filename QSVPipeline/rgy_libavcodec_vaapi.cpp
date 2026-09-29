@@ -550,8 +550,10 @@ tstring RGYDeviceVA::capsString(RGY_CODEC codec) {
     appendMode(caps.rcModes & RGY_VA_RC_ICQ, _T("ICQ"));
     appendMode(caps.rcModes & RGY_VA_RC_AVBR, _T("AVBR"));
     if (rcModes.empty()) rcModes = _T("none");
-    return strsprintf(_T("  available: %s\n  10-bit: %s\n  rate control: %s\n  max ref (L0/L1): %d/%d\n  max resolution: %dx%d\n  EncSlice/EncSliceLP: %s/%s\n  quality levels: %d"),
-        caps.available ? _T("yes") : _T("no"), caps.support10bit ? _T("yes") : _T("no"), rcModes.c_str(), caps.maxRefL0, caps.maxRefL1, caps.maxWidth, caps.maxHeight,
+    // i965 など VAConfigAttribMaxPictureWidth/Height を返さないドライバでは 0 のままなので unknown と表示する。
+    const tstring maxRes = (caps.maxWidth > 0 && caps.maxHeight > 0) ? strsprintf(_T("%dx%d"), caps.maxWidth, caps.maxHeight) : tstring(_T("unknown"));
+    return strsprintf(_T("  available: %s\n  10-bit: %s\n  rate control: %s\n  max ref (L0/L1): %d/%d\n  max resolution: %s\n  EncSlice/EncSliceLP: %s/%s\n  quality levels: %d"),
+        caps.available ? _T("yes") : _T("no"), caps.support10bit ? _T("yes") : _T("no"), rcModes.c_str(), caps.maxRefL0, caps.maxRefL1, maxRes.c_str(),
         caps.hasEncSlice ? _T("yes") : _T("no"), caps.hasEncSliceLP ? _T("yes") : _T("no"), caps.qualityLevels);
 }
 
