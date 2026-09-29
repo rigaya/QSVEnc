@@ -496,7 +496,7 @@ Linux 版のバックエンドを指定する。既定値は `auto`。VA-API を
 
 `--check-hw` / `--check-features` / `--check-device` と組み合わせると、指定したバックエンドのデバイス情報を表示する。`--backend vaapi --check-features` で、ドライバが対応するコーデック、ビット深度、RC、EncSlice / LP、qualityLevels を確認できる。
 
-VA-API の `-d` は、VPL で使用できる GPU に QSV と同じ番号を割り当て、それ以外の GPU は後ろの番号にする。`--backend vaapi --check-device` で番号を確認できる。VPL が使用できない場合や `QSVENC_VPL_DISABLE=1` の場合は、Intel の render node 順になる。
+VA-API の `-d` は、VPL で使用できる GPU に QSV と同じ番号を割り当て、それ以外の GPU は後ろの番号にする。`--backend vaapi --check-device` で番号を確認できる。VPL が使用できない場合、`QSVENC_VPL_DISABLE=1` の場合、または `LIBVA_DRIVER_NAME` に `iHD` 以外を指定した場合（大文字小文字は無視）は、Intel の render node 順になる。`iHD` 以外の指定時は VPL を使用せず、`auto` は直接 VA-API を選択する。明示した `--backend qsv` は従来どおり QSV を試行する。
 
 VA-API では raw / `--avsw` 入力を使い、入力の自動選択もソフトウェアデコードになる。H.264 / HEVC / VP9 / AV1、8 / 10bit の YUV 4:2:0、CQP / CBR / VBR / ICQ / QVBR / AVBR は、GPU とドライバの対応範囲で使用できる。ICQ 非対応時は WARN を表示して CQP に切り替える。OpenCL が使用できれば、`--crop` / `--output-res`、`--vpp-resize` / `--vpp-colorspace` などの OpenCL フィルタも使用できる。フィルタなしのエンコードには OpenCL は不要だが、無効時に OpenCL フィルタを指定するとエラーになる。HEVC の HDR10 / HDR10+ / Dolby Vision メタデータにも対応する。
 

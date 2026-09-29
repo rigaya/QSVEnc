@@ -35,6 +35,7 @@
 #if ENABLE_VAAPI
 #include "qsv_hw_va_utils_drm.h"
 #include <filesystem>
+#include <strings.h>
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
 #include <unistd.h>
@@ -596,11 +597,17 @@ RGY_ERR QSVDevice::initVA(const RGYVADeviceInfo& info, const bool enableOpenCL, 
     return RGY_ERR_NONE;
 }
 
+bool qsvVPLDriverCompatible() {
+    // mfx-gen は iHD 前提。i965 で非対応 GPU を初期化すると、以後の VA 初期化まで失敗する。
+    const auto driver = std::getenv("LIBVA_DRIVER_NAME");
+    return driver == nullptr || strcasecmp(driver, "iHD") == 0;
+}
+
 static std::map<int, std::string> getVPLDevicePciBusIds(std::shared_ptr<RGYLog>& log) {
     std::map<int, std::string> pciBusIds;
-    // 無効指定時は loader の作成も実装列挙も行わず、VA の node 順を使う。
+    // 無効指定時と iHD 以外の指定時は VPL を触らず、VA の node 順を使う。
     const auto disabled = std::getenv("QSVENC_VPL_DISABLE");
-    if (disabled && std::strcmp(disabled, "1") == 0) return pciBusIds;
+    if ((disabled && std::strcmp(disabled, "1") == 0) || !qsvVPLDriverCompatible()) return pciBusIds;
     for (const auto& [deviceId, adapterId] : getVPLDeviceAdapterIds(MFX_ACCEL_MODE_VIA_VAAPI)) {
         // QSV と同じ node 解決を使う。fd は PCI 情報の取得にだけ使い、VA は初期化しない。
         const int fd = open_target_intel_adapter(MFX_LIBVA_DRM, adapterId, log.get());
@@ -632,6 +639,8 @@ std::vector<std::unique_ptr<QSVDevice>> getDeviceListVA(const QSVDeviceNum devic
         if (deviceNum != QSVDeviceNum::AUTO && (int)deviceNum != info.id) continue;
         auto dev = std::make_unique<QSVDevice>();
         if (dev->initVA(info, enableOpenCL, log, &vaOpenError) == RGY_ERR_NONE) {
+            log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("VA-API device #%d: %s (%s).\n"),
+                info.id, dev->name().c_str(), char_to_tstring(info.renderNode).c_str());
             devices.push_back(std::move(dev));
         }
     }

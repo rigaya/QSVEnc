@@ -138,6 +138,7 @@ protected:
 std::vector<std::unique_ptr<QSVDevice>> getDeviceList(const QSVDeviceNum dev, const bool enableOpenCL, const RGYParamInitVulkan enableVulkan, const MemType memType, const MFXVideoSession2Params& params, std::shared_ptr<QSVDeviceInfoCache> devInfoCache, std::shared_ptr<RGYLog> log);
 
 #if ENABLE_VAAPI
+bool qsvVPLDriverCompatible();
 std::vector<std::unique_ptr<QSVDevice>> getDeviceListVA(QSVDeviceNum deviceNum, bool enableOpenCL, std::shared_ptr<RGYLog> log);
 #endif
 

@@ -5505,8 +5505,14 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     m_backend = QSVBackend::QSV;
 #if ENABLE_VAAPI
     const auto vplDisabled = std::getenv("QSVENC_VPL_DISABLE");
+    const bool vplDriverCompatible = qsvVPLDriverCompatible();
+    if (pParams->backend == QSVBackend::Auto && !vplDriverCompatible) {
+        PrintMes(RGY_LOG_INFO, _T("LIBVA_DRIVER_NAME=%s is incompatible with VPL; skipping QSV and using VA-API.\n"),
+            char_to_tstring(std::getenv("LIBVA_DRIVER_NAME")).c_str());
+    }
     if (pParams->backend == QSVBackend::VAAPI
-        || (pParams->backend == QSVBackend::Auto && vplDisabled && std::strcmp(vplDisabled, "1") == 0)) {
+        || (pParams->backend == QSVBackend::Auto
+            && ((vplDisabled && std::strcmp(vplDisabled, "1") == 0) || !vplDriverCompatible))) {
         if ((sts = initBackendVA(pParams, deviceList, deviceInfoCache)) != RGY_ERR_NONE) return sts;
     }
 #endif
