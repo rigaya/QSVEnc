@@ -4595,6 +4595,9 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
     if (!m_cl && clfilterCount > 0) {
         if (!inputParam->ctrl.enableOpenCL) {
             PrintMes(RGY_LOG_ERROR, _T("OpenCL filter not enabled.\n"));
+        } else if (m_backend == QSVBackend::VAAPI) {
+            // VA 時は CPU 世代が不明 (空文字列) なので付けない。理由は直前の OpenCL の初期化のログに出ている。
+            PrintMes(RGY_LOG_ERROR, _T("OpenCL filter not supported on this device.\n"));
         } else {
             PrintMes(RGY_LOG_ERROR, _T("OpenCL filter not supported on this platform: %s.\n"), CPU_GEN_STR[m_device->CPUGen()]);
         }
@@ -4757,6 +4760,9 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
         if (!m_cl) {
             if (!inputParam->ctrl.enableOpenCL) {
                 PrintMes(RGY_LOG_WARN, _T("OpenCL filter not enabled, mfxInsertCLCopy will be ignored.\n"));
+            } else if (m_backend == QSVBackend::VAAPI) {
+                PrintMes(RGY_LOG_ERROR, _T("OpenCL filter not supported on this device.\n"));
+                return RGY_ERR_UNSUPPORTED;
             } else {
                 PrintMes(RGY_LOG_ERROR, _T("OpenCL filter not supported on this platform: %s.\n"), CPU_GEN_STR[m_device->CPUGen()]);
                 return RGY_ERR_UNSUPPORTED;
@@ -6665,6 +6671,16 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
 
     TCHAR gpu_info[1024] = { 0 };
     if (Check_HWUsed(impl)) {
+#if LIBVA_SUPPORT
+        // getGPUInfo() は Linux では別の VA ディスプレイを初期化せずに開こうとして、ドライバ名が空になる。
+        // また、複数 GPU の環境で使用中のデバイスと一致する保証もないため、
+        // セッションが使っている VA ディスプレイから直接取得する。
+        mfxHDL vaDisplay = nullptr;
+        if (m_device->hwdev() && m_device->hwdev()->GetHandle(MFX_HANDLE_VA_DISPLAY, &vaDisplay) == MFX_ERR_NONE && vaDisplay) {
+            const char *vendor = vaQueryVendorString((VADisplay)vaDisplay);
+            _stprintf_s(gpu_info, _countof(gpu_info), _T("%s / Driver : %s"), m_device->name().c_str(), (vendor) ? char_to_tstring(vendor).c_str() : _T("unknown"));
+        } else
+#endif
         getGPUInfo("Intel", gpu_info, _countof(gpu_info), GetAdapterID(m_device->mfxSession().get()), (m_cl) ? m_cl->platform() : nullptr, (m_cl) ? false : true, m_device->intelDeviceInfo());
     }
     TCHAR info[4096] = { 0 };

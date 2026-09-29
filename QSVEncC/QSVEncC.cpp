@@ -1364,7 +1364,11 @@ int run(int argc, TCHAR *argv[]) {
 int _tmain(int argc, TCHAR *argv[]) {
     int ret = 0;
     if (0 != (ret = run(argc, argv))) {
+#if defined(_WIN32) || defined(_WIN64)
         rgy_print_stderr(RGY_LOG_ERROR, _T("QSVEncC.exe finished with error!\n"));
+#else
+        rgy_print_stderr(RGY_LOG_ERROR, _T("qsvencc finished with error!\n"));
+#endif
     }
     return ret;
 }
