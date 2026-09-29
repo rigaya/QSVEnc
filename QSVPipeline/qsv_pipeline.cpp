@@ -5507,8 +5507,12 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     const auto vplDisabled = std::getenv("QSVENC_VPL_DISABLE");
     const bool vplDriverCompatible = qsvVPLDriverCompatible();
     if (pParams->backend == QSVBackend::Auto && !vplDriverCompatible) {
-        PrintMes(RGY_LOG_INFO, _T("LIBVA_DRIVER_NAME=%s is incompatible with VPL; skipping QSV and using VA-API.\n"),
-            char_to_tstring(std::getenv("LIBVA_DRIVER_NAME")).c_str());
+        if (const auto driver = std::getenv("LIBVA_DRIVER_NAME"); driver != nullptr) {
+            PrintMes(RGY_LOG_INFO, _T("LIBVA_DRIVER_NAME=%s is incompatible with VPL; skipping QSV and using VA-API.\n"),
+                char_to_tstring(driver).c_str());
+        } else {
+            PrintMes(RGY_LOG_INFO, _T("iHD_drv_video.so was not found in VA-API driver search paths; skipping QSV and using VA-API.\n"));
+        }
     }
     if (pParams->backend == QSVBackend::VAAPI
         || (pParams->backend == QSVBackend::Auto

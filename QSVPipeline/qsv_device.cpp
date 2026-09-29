@@ -600,12 +600,37 @@ RGY_ERR QSVDevice::initVA(const RGYVADeviceInfo& info, const bool enableOpenCL, 
 bool qsvVPLDriverCompatible() {
     // mfx-gen は iHD 前提。i965 で非対応 GPU を初期化すると、以後の VA 初期化まで失敗する。
     const auto driver = std::getenv("LIBVA_DRIVER_NAME");
-    return driver == nullptr || strcasecmp(driver, "iHD") == 0;
+    if (driver != nullptr) return strcasecmp(driver, "iHD") == 0;
+    // libva の i915 は iHD → i965 の順に試す。iHD がないときは VPL を触らない。
+    // 非標準の探索先を見落としても auto が VA になるだけで、明示 qsv は使用できる。
+    std::vector<std::string> paths;
+    if (const auto driverPaths = std::getenv("LIBVA_DRIVERS_PATH"); driverPaths != nullptr) {
+        std::istringstream stream(driverPaths);
+        for (std::string path; std::getline(stream, path, ':'); ) {
+            if (!path.empty()) paths.push_back(path);
+        }
+    } else {
+        paths = { "/usr/lib64/dri", "/usr/lib/dri", "/usr/local/lib64/dri", "/usr/local/lib/dri" };
+#if defined(__x86_64__)
+        paths.push_back("/usr/lib/x86_64-linux-gnu/dri");
+        paths.push_back("/usr/local/lib/x86_64-linux-gnu/dri");
+#elif defined(__i386__)
+        paths.push_back("/usr/lib/i386-linux-gnu/dri");
+        paths.push_back("/usr/local/lib/i386-linux-gnu/dri");
+#elif defined(__aarch64__)
+        paths.push_back("/usr/lib/aarch64-linux-gnu/dri");
+        paths.push_back("/usr/local/lib/aarch64-linux-gnu/dri");
+#endif
+    }
+    return std::any_of(paths.begin(), paths.end(), [](const auto& path) {
+        std::error_code ec;
+        return std::filesystem::is_regular_file(std::filesystem::path(path) / "iHD_drv_video.so", ec);
+    });
 }
 
 static std::map<int, std::string> getVPLDevicePciBusIds(std::shared_ptr<RGYLog>& log) {
     std::map<int, std::string> pciBusIds;
-    // 無効指定時と iHD 以外の指定時は VPL を触らず、VA の node 順を使う。
+    // 無効指定時と iHD を選べないときは VPL を触らず、VA の node 順を使う。
     const auto disabled = std::getenv("QSVENC_VPL_DISABLE");
     if ((disabled && std::strcmp(disabled, "1") == 0) || !qsvVPLDriverCompatible()) return pciBusIds;
     for (const auto& [deviceId, adapterId] : getVPLDeviceAdapterIds(MFX_ACCEL_MODE_VIA_VAAPI)) {
@@ -634,7 +659,12 @@ std::vector<std::unique_ptr<QSVDevice>> getDeviceListVA(const QSVDeviceNum devic
     // 以後の初期化も失敗する。probe と開き直しを避け、成功したデバイスを保持したまま次へ進む。
     // VPL で使える GPU は QSV の番号を優先し、それ以外は後ろへ付ける。指定時はその node だけを開く。
     tstring openError, vaOpenError;
-    const auto infos = enumerateVADevices(0x8086, 1, log.get(), &openError, getVPLDevicePciBusIds(log), false);
+    auto infos = enumerateVADevices(0x8086, 1, log.get(), &openError, getVPLDevicePciBusIds(log), false);
+    // 番号合わせで非対応 GPU が先頭になっても、i965 のために node 順で開いて display を保持する。
+    std::sort(infos.begin(), infos.end(), [](const auto& a, const auto& b) {
+        return std::stoi(std::filesystem::path(a.renderNode).filename().string().substr(7))
+            < std::stoi(std::filesystem::path(b.renderNode).filename().string().substr(7));
+    });
     for (const auto& info : infos) {
         if (deviceNum != QSVDeviceNum::AUTO && (int)deviceNum != info.id) continue;
         auto dev = std::make_unique<QSVDevice>();
@@ -644,6 +674,8 @@ std::vector<std::unique_ptr<QSVDevice>> getDeviceListVA(const QSVDeviceNum devic
             devices.push_back(std::move(dev));
         }
     }
+    // 開く順序だけを変え、呼び出し側へ返す順序はデバイス番号順を維持する。
+    std::sort(devices.begin(), devices.end(), [](const auto& a, const auto& b) { return a->deviceNum() < b->deviceNum(); });
     if (devices.empty()) {
         log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("VA-API device unavailable. %s%s\n"), vaOpenError.c_str(), openError.c_str());
     }
