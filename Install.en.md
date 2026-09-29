@@ -3,10 +3,10 @@
 
 - [Windows 10](./Install.en.md#windows)
 - Linux
-  - [Linux (Ubuntu 22.04 - 26.04)](./Install.en.md#linux-ubuntu-2204---2604)
+  - [Linux (Ubuntu 20.04 and later)](./Install.en.md#linux-ubuntu-2004-and-later)
   - [Linux (Fedora 32)](./Install.en.md#linux-fedora-32)
   - Other Linux OS  
-    For other Linux OS, building from source will be needed. Please check the [build instrcutions](./Build.en.md).
+    For Linux distributions that cannot use the distributed deb, building from source will be needed. Please check the [build instrcutions](./Build.en.md).
 
 
 ## Windows 10
@@ -17,7 +17,7 @@ Windows binary can be found from [this link](https://github.com/rigaya/QSVEnc/re
 
 QSVEncC could be run directly from the extracted directory.
   
-## Linux (Ubuntu 22.04 - 26.04)
+## Linux (Ubuntu 20.04 and later)
 
 On Linux, Intel GPU encoding can use either QSV or VA-API.
 
@@ -111,7 +111,7 @@ OpenCL hardware testing on 26.04 used `intel-opencl-icd` 26.31 from the kobuk-te
 
 Mesa rusticl (`sudo apt install mesa-opencl-icd clinfo`) is another option. `qsvencc` automatically sets `RUSTICL_ENABLE=iris` if the variable is unset. However, it was much slower than Intel OpenCL in the tested environment. If no OpenCL runtime supports the GPU, use encoding without filters.
 
-Existing prebuilt binaries link to `libva-x11-2`, so it is needed even for headless operation. Binaries built from source also need any additional shared libraries listed by `ldd ./qsvencc`. A binary referencing the newer libva symbol `vaMapBuffer2` cannot start with Ubuntu 24.04's standard libva 2.20; use a binary and libva compatible with the target environment.
+Official deb packages list `libva-x11-2` as a dependency, so it is needed even for headless operation. They are built on an Ubuntu 20.04 base and use the system libva at runtime. When building from source, use libva compatible with the target environment and install any additional shared libraries listed by `ldd ./qsvencc`. See the [build instructions](./Build.en.md).
 
 ### 2. Add the user to GPU access groups
 
@@ -126,19 +126,15 @@ sudo gpasswd -a ${USER} render
 
 ### 3. Install qsvencc
 
-The distributed deb packages in this section target Ubuntu 22.04 / 24.04. For Ubuntu 26.04, [build from source](./Build.en.md). Testing on 26.04 used binaries built from source.
+The official distribution provides a single deb built on an Ubuntu 20.04 base. Use the same deb on Ubuntu 20.04 and later (including 26.04), and on apt-based distributions where the required dependencies are available. GPU-specific drivers and runtimes are still required.
 
 Download deb package from [this link](https://github.com/rigaya/QSVEnc/releases), and install running the following command line. Please note "x.xx" should be replaced to the target version name.
 
 ```Shell
-# Ubuntu 24.04
-sudo apt install ./qsvencc_x.xx_Ubuntu24.04_amd64.deb
-
-# Ubuntu 22.04
-sudo apt install ./qsvencc_x.xx_Ubuntu22.04_amd64.deb
+sudo apt install ./qsvencc_x.xx_amd64.deb
 ```
 
-Official deb packages list QSV / OpenCL runtimes under Recommends. For VA-API-only operation, install the driver from section 1-2 and use `sudo apt install --no-install-recommends ./qsvencc_x.xx_Ubuntu24.04_amd64.deb` to skip recommended packages. Adjust the filename to the package you downloaded.
+Official deb packages list QSV / OpenCL runtimes under Recommends. For VA-API-only operation, install the driver from section 1-2 and use `sudo apt install --no-install-recommends ./qsvencc_x.xx_amd64.deb` to skip recommended packages. Adjust the filename to the package you downloaded.
 
 ### 3-1. When mixing Gen11 or earlier and Gen12 or later GPUs
 

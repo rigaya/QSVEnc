@@ -3,10 +3,10 @@
 
 - [Windows](./Install.ja.md#windows)
 - Linux
-  - [Linux (Ubuntu 22.04 - 26.04)](./Install.ja.md#linux-ubuntu-2204---2604)
+  - [Linux (Ubuntu 20.04 以降)](./Install.ja.md#linux-ubuntu-2004-以降)
   - [Linux (Fedora 32)](./Install.ja.md#linux-fedora-32)
   - その他のLinux OS  
-    その他のLinux OS向けには、ソースコードからビルドする必要があります。ビルド方法については、[こちら](./Build.ja.md)を参照してください。
+    配布 deb を利用できない Linux OS 向けには、ソースコードからビルドする必要があります。ビルド方法については、[こちら](./Build.ja.md)を参照してください。
 
 
 ## Windows 
@@ -19,7 +19,7 @@
 
 64bit版の配布archiveには`libvmaf.dll`とNVIDIA backend版の`libvship.dll`が含まれます。VMAF評価はCPUで実行できますが、同梱のlibvshipによる評価にはNVIDIA GPUと対応ドライバが必要です。評価を使用しない通常のエンコードにはこれらのDLLは不要です。
 
-## Linux (Ubuntu 22.04 - 26.04)
+## Linux (Ubuntu 20.04 以降)
 
 Linux では、Intel GPU のエンコードに QSV と VA-API の 2 種類を使えます。
 
@@ -115,7 +115,7 @@ sudo apt install intel-opencl-icd-legacy clinfo
 
 代わりに Mesa の rusticl (`sudo apt install mesa-opencl-icd clinfo`) も使用できます。`qsvencc` は `RUSTICL_ENABLE` が未設定なら `iris` を自動設定します。ただし、確認した環境では Intel OpenCL より大幅に遅くなりました。GPU に対応する OpenCL がない場合はフィルタなしで使用してください。
 
-`libva-x11-2` は既存のビルド済みバイナリのリンク依存のため、画面を使わない場合も必要です。ソースからビルドした場合は、`ldd ./qsvencc` が示す追加の共有ライブラリも必要です。新しい libva の `vaMapBuffer2` を参照するバイナリは Ubuntu 24.04 標準の libva 2.20 では起動できないため、実行環境に対応するバイナリ・libva を使用してください。
+`libva-x11-2` は公式 deb の依存パッケージに含まれるため、画面を使わない場合も必要です。公式 deb は Ubuntu 20.04 をベースにビルドし、実行時はシステムの libva を使用します。ソースからビルドする場合は、実行環境に対応する libva を使用し、`ldd ./qsvencc` が示す追加の共有ライブラリも導入してください。ビルド方法は [こちら](./Build.ja.md) を参照してください。
 
 ### 2. GPU を使うため、ユーザーを下記グループに追加
 
@@ -130,21 +130,17 @@ sudo gpasswd -a ${USER} render
 
 ### 3. qsvenccのインストール
 
-この節の配布 deb は Ubuntu 22.04 / 24.04 向けです。Ubuntu 26.04 は [ソースからビルド](./Build.ja.md)してください。26.04 での確認は、ソースからビルドしたバイナリで行っています。
+公式配布は Ubuntu 20.04 をベースにビルドした 1 つの deb です。Ubuntu 20.04 以降（26.04 を含む）と、必要な依存パッケージを導入できる apt 系ディストリビューションで共通の deb を使用します。GPU に対応するドライバ・ランタイムは別途必要です。
 
 qsvenccのdebファイルを[こちら](https://github.com/rigaya/QSVEnc/releases)からダウンロードします。
 
 その後、下記のようにインストールします。"x.xx"はインストールするバージョンに置き換えてください。
 
 ```Shell
-# Ubuntu 24.04
-sudo apt install ./qsvencc_x.xx_Ubuntu24.04_amd64.deb
-
-# Ubuntu 22.04
-sudo apt install ./qsvencc_x.xx_Ubuntu22.04_amd64.deb
+sudo apt install ./qsvencc_x.xx_amd64.deb
 ```
 
-公式 deb の QSV / OpenCL ランタイムは Recommends (推奨パッケージ) です。VA-API だけで使用する場合は、1-2. のドライバを導入してから `sudo apt install --no-install-recommends ./qsvencc_x.xx_Ubuntu24.04_amd64.deb` で推奨パッケージの自動導入を省略できます。ファイル名は使用する配布パッケージに合わせてください。
+公式 deb の QSV / OpenCL ランタイムは Recommends (推奨パッケージ) です。VA-API だけで使用する場合は、1-2. のドライバを導入してから `sudo apt install --no-install-recommends ./qsvencc_x.xx_amd64.deb` で推奨パッケージの自動導入を省略できます。ファイル名は使用する配布パッケージに合わせてください。
 
 ### 3-1. Gen11以前とGen12以降のGPUを併存させる場合
 

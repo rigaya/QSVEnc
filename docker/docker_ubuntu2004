@@ -6,6 +6,9 @@ ARG FFMPEG_DLL_REF=master
 ARG BUILD_SCRIPTS_DIR=/opt/build_scripts
 ARG FFMPEG_PREFIX=/opt/build_scripts/ffmpeg_dll/build_dll/x64/build
 ARG VMAF_PREFIX=/opt/build_scripts/ffmpeg_dll/x64/build
+ARG LIBVA_VERSION=2.24.1
+ARG LIBVA_BUILD_PREFIX=/opt/libva-build
+ARG OPENCL_HEADERS_VERSION=v2026.05.29
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -72,8 +75,27 @@ ENV RUSTUP_HOME=/usr/local/rustup
 ENV CARGO_HOME=/usr/local/cargo
 ENV PATH=/usr/local/cargo/bin:$PATH
 
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
-      | sh -s -- -y --profile minimal \
+# 実行時の libva は配布先のシステム版を使い、ここでは新しいヘッダとリンク情報だけを用意する。
+RUN git clone --depth 1 --branch ${LIBVA_VERSION} https://github.com/intel/libva.git /tmp/libva-src \
+    && meson setup /tmp/libva-src/build /tmp/libva-src --prefix=${LIBVA_BUILD_PREFIX} \
+      --libdir=lib -Dwith_x11=no -Dwith_glx=no -Dwith_wayland=no -Dwith_win32=no \
+    && meson compile -C /tmp/libva-src/build \
+    && meson install -C /tmp/libva-src/build \
+    && test -f ${LIBVA_BUILD_PREFIX}/lib/pkgconfig/libva-drm.pc \
+    && rm -r /tmp/libva-src
+
+# 20.04 の opencl-headers は古く cl_khr_pci_bus_info などが未定義で、該当処理が黙ってビルドから抜けるため、
+# Khronos の新しいヘッダを使う。OpenCL は実行時に dlopen するので、ヘッダの更新は実行環境に影響しない。
+RUN git clone --depth 1 --branch ${OPENCL_HEADERS_VERSION} https://github.com/KhronosGroup/OpenCL-Headers.git /tmp/opencl-headers \
+    && cp -r /tmp/opencl-headers/CL /usr/local/include/ \
+    && grep -q CL_DEVICE_PCI_BUS_INFO_KHR /usr/local/include/CL/cl_ext.h \
+    && rm -r /tmp/opencl-headers
+
+ENV LIBVA_BUILD_PREFIX=${LIBVA_BUILD_PREFIX}
+ENV PKG_CONFIG_PATH=${LIBVA_BUILD_PREFIX}/lib/pkgconfig
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o /tmp/rustup-init.sh \
+    && sh /tmp/rustup-init.sh -y --profile minimal \
     && /usr/local/cargo/bin/rustup show \
     && /usr/local/cargo/bin/cargo --version \
     && /usr/local/cargo/bin/cargo install cargo-c --version '0.10.18+cargo-0.92.0' --locked \
@@ -85,6 +107,8 @@ RUN git clone --depth 1 --branch ${FFMPEG_DLL_REF} ${FFMPEG_DLL_REPO} ${BUILD_SC
     && sed -i 's/\r$//' ./build_libvmaf.sh \
     && export NUMBER_OF_PROCESSORS="$(nproc)" \
     && bash ./build_ffmpeg_dll.sh --skip-src-archive --disable-pgo \
+    && grep -F '#define CONFIG_AV1_VAAPI_ENCODER 1' ./build_dll/x64/ffmpeg/config_components.h \
+    && grep -F '#define CONFIG_AV1_VAAPI_HWACCEL 1' ./build_dll/x64/ffmpeg/config_components.h \
     && bash ./build_libvmaf.sh --skip-src-archive --disable-cuda \
     && test -f "${FFMPEG_PREFIX}/lib/pkgconfig/libavutil.pc" \
     && test -f "${VMAF_PREFIX}/lib/pkgconfig/libvmaf.pc" \
@@ -96,5 +120,6 @@ RUN git clone --depth 1 --branch ${FFMPEG_DLL_REF} ${FFMPEG_DLL_REPO} ${BUILD_SC
     && find "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_dll/x64" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/build_dll/x64/build" -exec rm -rf {} + \
     && find "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/x64" -mindepth 1 -maxdepth 1 ! -path "${BUILD_SCRIPTS_DIR}/ffmpeg_dll/x64/build" -exec rm -rf {} +
 
+ENV FFMPEG_PREFIX=${FFMPEG_PREFIX}
 ENV VMAF_PREFIX=${VMAF_PREFIX}
 WORKDIR /work

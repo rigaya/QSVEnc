@@ -449,6 +449,7 @@ jobs:
     uses: ./.github/workflows/build_packages.yml
     with:
       release_sha: ${{ needs.get_version_name.outputs.release_sha }}
+      package_version: ${{ needs.get_version_name.outputs.version }}
 
   release:
     name: Create draft release
@@ -502,6 +503,10 @@ jobs:
           if [ "$(find downloaded-assets -type f -name '*.deb' | wc -l)" -ne 1 ] || \
              [ "$(find downloaded-assets -type f -name '*.rpm' | wc -l)" -ne 1 ]; then
             echo "ERROR: debとrpmのRelease成果物が1個ずつ必要です。" >&2
+            exit 1
+          fi
+          if [ "$(find downloaded-assets -type f -name "qsvencc_${VERSION}_amd64.deb" | wc -l)" -ne 1 ]; then
+            echo "ERROR: 共通debパッケージ qsvencc_${VERSION}_amd64.deb が見つかりません。" >&2
             exit 1
           fi
 

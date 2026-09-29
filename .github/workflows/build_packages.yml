@@ -10,6 +10,11 @@ on:
         description: Release対象commit
         required: true
         type: string
+      package_version:
+        description: パッケージのバージョン（省略時はソースから取得）
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
@@ -35,22 +40,6 @@ jobs:
     name: Upload Release Asset
     runs-on: ubuntu-latest
     steps:
-      - name: Prepare
-        id: prep
-        run: |
-          REPOSITORY=$(echo ${{ github.repository }} | sed -e "s#.*/##")
-          VERSION=$(echo ${{ github.ref }} | sed -e "s#refs/tags/##g")
-          NPROC=$(grep 'processor' /proc/cpuinfo | wc -l)
-          OUTPUT_DIR=`pwd`/output
-          LOCAL_USER_ID=$(id -u)
-          LOCAL_GROUP_ID=$(id -g)
-          BASE_IMAGE="${{ env.BASE_IMAGE_REPO }}:${{ env.DOCKER_IMAGE }}"
-          echo "base_image=${BASE_IMAGE}" >> $GITHUB_OUTPUT
-          echo "nproc=${NPROC}" >> $GITHUB_OUTPUT
-          echo "output_dir=${OUTPUT_DIR}" >> $GITHUB_OUTPUT
-          echo "local_user_id=${LOCAL_USER_ID}" >> $GITHUB_OUTPUT
-          echo "local_group_id=${LOCAL_GROUP_ID}" >> $GITHUB_OUTPUT
-
       - name: Checkout code
         uses: actions/checkout@v4
         with:
@@ -70,6 +59,29 @@ jobs:
             exit 1
           fi
 
+      - name: Prepare
+        id: prep
+        env:
+          PACKAGE_VERSION: ${{ inputs.package_version }}
+        run: |
+          set -euo pipefail
+          if [ -z "$PACKAGE_VERSION" ]; then
+            PACKAGE_VERSION=$(./scripts/get-version.sh)
+          fi
+          echo "PACKAGE_VERSION=$PACKAGE_VERSION" >> "$GITHUB_ENV"
+          REPOSITORY=$(echo ${{ github.repository }} | sed -e "s#.*/##")
+          VERSION=$(echo ${{ github.ref }} | sed -e "s#refs/tags/##g")
+          NPROC=$(grep 'processor' /proc/cpuinfo | wc -l)
+          OUTPUT_DIR=`pwd`/output
+          LOCAL_USER_ID=$(id -u)
+          LOCAL_GROUP_ID=$(id -g)
+          BASE_IMAGE="${{ env.BASE_IMAGE_REPO }}:${{ env.DOCKER_IMAGE }}"
+          echo "base_image=${BASE_IMAGE}" >> $GITHUB_OUTPUT
+          echo "nproc=${NPROC}" >> $GITHUB_OUTPUT
+          echo "output_dir=${OUTPUT_DIR}" >> $GITHUB_OUTPUT
+          echo "local_user_id=${LOCAL_USER_ID}" >> $GITHUB_OUTPUT
+          echo "local_group_id=${LOCAL_GROUP_ID}" >> $GITHUB_OUTPUT
+
       - name: Pull base image
         run: docker pull ${{ steps.prep.outputs.base_image }}
 
@@ -80,13 +92,16 @@ jobs:
       - name: Build Exec
         id: build_exec
         run: |
+          set -euo pipefail
           docker run -dit --rm \
             -v ${{ github.workspace }}:/work \
             -v ${{ steps.prep.outputs.output_dir }}:/output \
+            -e "PACKAGE_VERSION=${PACKAGE_VERSION}" \
             -u "$(id -u):$(id -g)" \
             --workdir /work \
             --name build_pkg ${{ steps.prep.outputs.base_image }}
           docker exec build_pkg bash -lc '
+            set -e
             VMAFPKG="${{ env.VMAF_PREFIX }}/lib/pkgconfig"
             FFPKG="${{ env.FFMPEG_PREFIX }}/lib/pkgconfig:${{ env.FFMPEG_PREFIX }}/lib/x86_64-linux-gnu/pkgconfig"
             export PKG_CONFIG_PATH="${VMAFPKG}:${FFPKG}${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
@@ -102,10 +117,23 @@ jobs:
               exit 1
             fi
           '
-          docker exec build_pkg ./build/qsvencc --version
-          docker exec build_pkg ./check_options.py -exe ./build/qsvencc
-          docker exec build_pkg ./build/qsvencc --check-cmd-parse
-          docker exec build_pkg cp ./build/qsvencc ./qsvencc
+          docker exec build_pkg meson install -C ./build --destdir /tmp/qsvencc-install
+          docker exec build_pkg cp /tmp/qsvencc-install/usr/local/bin/qsvencc ./qsvencc
+          docker exec build_pkg bash -lc '
+            set -e
+            if [ -n "${LIBVA_BUILD_PREFIX:-}" ] && readelf -d ./qsvencc | grep -E "RPATH|RUNPATH" | grep -F "${LIBVA_BUILD_PREFIX}"; then
+              echo "配布バイナリがビルド専用 libva を参照しています。" >&2
+              exit 1
+            fi
+            ldd_output=$(ldd -r ./qsvencc 2>&1) || { echo "$ldd_output"; exit 1; }
+            echo "$ldd_output"
+            if echo "$ldd_output" | grep -E "not found|undefined symbol"; then
+              exit 1
+            fi
+          '
+          docker exec build_pkg ./qsvencc --version
+          docker exec build_pkg ./check_options.py -exe ./qsvencc
+          docker exec build_pkg ./qsvencc --check-cmd-parse
           docker exec build_pkg ./build_${{ env.PKG_TYPE }}.sh
           docker exec build_pkg bash -lc "cp -v ./*.${{ env.PKG_TYPE }} /output/"
           PKGFILE=`ls ${{ steps.prep.outputs.output_dir }}/*.${{ env.PKG_TYPE }}`

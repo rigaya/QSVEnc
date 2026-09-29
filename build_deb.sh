@@ -2,10 +2,11 @@
 
 PACKAGE_NAME=qsvencc
 PACKAGE_BIN=qsvencc
+PACKAGE_SOURCE_BIN=${PACKAGE_SOURCE_BIN:-${PACKAGE_BIN}}
 PACKAGE_MAINTAINER=rigaya
 PACKAGE_DESCRIPTION=
 PACKAGE_ROOT=.debpkg
-PACKAGE_VERSION=`./scripts/get-version.sh`
+PACKAGE_VERSION=${PACKAGE_VERSION:-`./scripts/get-version.sh`}
 PACKAGE_ARCH=`uname -m`
 PACKAGE_ARCH=`echo ${PACKAGE_ARCH} | sed -e 's/x86_64/amd64/g'`
 
@@ -16,9 +17,8 @@ if [ -e /etc/lsb-release ]; then
     PACKAGE_OS_ID=`cat /etc/lsb-release | grep DISTRIB_ID | cut -f 2 --delim="="`
     PACKAGE_OS_VER=`cat /etc/lsb-release | grep DISTRIB_RELEASE | cut -f 2 --delim="="`
     PACKAGE_OS_CODENAME=`cat /etc/lsb-release | grep DISTRIB_CODENAME | cut -f 2 --delim="="`
-    PACKAGE_OS="_${PACKAGE_OS_ID}${PACKAGE_OS_VER}"
     case "${PACKAGE_OS_CODENAME}" in
-        focal|jammy|noble) ;;
+        focal|jammy|noble|resolute) ;;
         *)
             echo "${PACKAGE_OS_ID}${PACKAGE_OS_VER} ${PACKAGE_OS_CODENAME} not supported in this script!"
             exit 1
@@ -26,8 +26,8 @@ if [ -e /etc/lsb-release ]; then
     esac
 fi
 
-if [ ! -e ${PACKAGE_BIN} ]; then
-    echo "${PACKAGE_BIN} does not exist!"
+if [ ! -e "${PACKAGE_SOURCE_BIN}" ]; then
+    echo "${PACKAGE_SOURCE_BIN} does not exist!"
     exit 1
 fi
 
@@ -46,7 +46,7 @@ build_pkg/replace.py \
 sed -i "/^Depends:/a Recommends: ${PACKAGE_RECOMMENDS}" ${PACKAGE_ROOT}/DEBIAN/control
 
 mkdir -p ${PACKAGE_ROOT}/usr/bin
-cp ${PACKAGE_BIN} ${PACKAGE_ROOT}/usr/bin
+cp "${PACKAGE_SOURCE_BIN}" "${PACKAGE_ROOT}/usr/bin/${PACKAGE_BIN}"
 chmod +x ${PACKAGE_ROOT}/usr/bin/${PACKAGE_BIN}
 
 DEB_FILE="${PACKAGE_NAME}_${PACKAGE_VERSION}_${PACKAGE_ARCH}.deb"
