@@ -1186,22 +1186,8 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         m_encParams.videoPrm.mfx.GopRefDist = (mfxU16)clamp_param_int(pInParams->GopRefDist, 1, 33, _T("GopRefDist"));
     }
 
-    // packed YUV444のD3D surfaceはOpenCL interopできないため、最後のOpenCLブロックから
-    // host-backed bufferを経由してsystem memory surfaceとしてエンコーダへ渡す。
-    const auto encFourCC = csp_rgy_to_enc(getEncoderCsp(pInParams));
-    const bool packedYUV444 = RGY_CSP_CHROMA_FORMAT[getEncoderCsp(pInParams)] == RGY_CHROMAFMT_YUV444
-        && (encFourCC == MFX_FOURCC_AYUV || encFourCC == MFX_FOURCC_Y410 || encFourCC == MFX_FOURCC_Y416);
-    m_openclEncHostOutput = packedYUV444
-        && !m_vpFilters.empty()
-        && m_vpFilters.back().type == VppFilterType::FILTER_OPENCL
-        && (pInParams->memType == D3D11_MEMORY || pInParams->memType == SYSTEM_MEMORY);
-    if (m_openclEncHostOutput && m_openclTaskThreads < 2) {
-        PrintMes(RGY_LOG_WARN, _T("OpenCL host-backed encoder output requires the release worker; switching OpenCL task threads to 2.\n"));
-        m_openclTaskThreads = 2;
-    }
-    m_encParams.videoPrm.IOPattern = (mfxU16)((pInParams->memType == SYSTEM_MEMORY || m_openclEncHostOutput)
-        ? MFX_IOPATTERN_IN_SYSTEM_MEMORY
-        : MFX_IOPATTERN_IN_VIDEO_MEMORY);
+    // specify memory type
+    m_encParams.videoPrm.IOPattern = (mfxU16)((pInParams->memType != SYSTEM_MEMORY) ? MFX_IOPATTERN_IN_VIDEO_MEMORY : MFX_IOPATTERN_IN_SYSTEM_MEMORY);
 
     // frame info parameters
     m_encParams.videoPrm.mfx.FrameInfo.ChromaFormat = mfx_fourcc_to_chromafmt(csp_rgy_to_enc(getEncoderCsp(pInParams)));
@@ -1629,23 +1615,7 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         m_encParams.videoPrm.mfx.FrameInfo.BitDepthLuma, m_encParams.videoPrm.mfx.FrameInfo.Shift, MFXPicStructToStr(m_encParams.videoPrm.mfx.FrameInfo.PicStruct).c_str());
     PrintMes(RGY_LOG_DEBUG, _T("InitMfxEncParams: set all enc params.\n"));
 
-    if (m_openclEncHostOutput && pInParams->memType == D3D11_MEMORY) {
-#if MFX_D3D11_SUPPORT
-        // D3D11 sessionへsystem surfaceを混在させず、エンコーダだけ独立sessionへ分離する。
-        auto encSessionErr = ::InitSession(m_encSession, m_sessionParams, MFX_IMPL_VIA_D3D11, m_device->deviceNum(), m_pQSVLog);
-        if (encSessionErr != RGY_ERR_NONE) {
-            PrintMes(RGY_LOG_ERROR, _T("Failed to initialize the system-memory encode session for OpenCL host output: %s.\n"), get_err_mes(encSessionErr));
-            m_encSession.Close();
-            return encSessionErr;
-        }
-        m_encSessionSeparate = true;
-        PrintMes(RGY_LOG_DEBUG, _T("OpenCL packed YUV444 output uses a separate system-memory encode session.\n"));
-#else
-        return RGY_ERR_UNSUPPORTED;
-#endif
-    }
-
-    m_pmfxENC.reset(new MFXVideoENCODE(*encoderSession()));
+    m_pmfxENC.reset(new MFXVideoENCODE(m_device->mfxSession()));
     if (!m_pmfxENC) {
         return RGY_ERR_MEMORY_ALLOC;
     }
@@ -1892,10 +1862,6 @@ RGY_ERR CQSVPipeline::AllocFrames(const std::pair<int, int>& adaptResolution) {
             allocRequest.Info.Height = (mfxU16)std::max<int>(allocRequest.Info.Height, ALIGN(adaptResolution.second, 16));
         }
         const int requestNumFrames = std::max(1, t0RequestNumFrame + t1RequestNumFrame + t2RequestNumFrame + t0->additionalOutputSurfaces() + t1->additionalInputSurfaces() + m_nAsyncDepth + 1);
-        const auto openclTask = dynamic_cast<PipelineTaskOpenCL *>(t0);
-        const bool allocateOpenCLMFXHost = openclTask != nullptr
-            && openclTask->encHostOutput()
-            && t1->taskType() == PipelineTaskType::MFXENCODE;
 #if ENABLE_VAAPI
         if (m_backend == QSVBackend::VAAPI
             && (t0->taskType() == PipelineTaskType::OPENCL
@@ -1907,20 +1873,7 @@ RGY_ERR CQSVPipeline::AllocFrames(const std::pair<int, int>& adaptResolution) {
             if (sts != RGY_ERR_NONE) return sts;
         } else
 #endif
-        if (allocateOpenCLMFXHost) {
-            const RGYFrameInfo visibleFrame(allocRequest.Info.CropW, allocRequest.Info.CropH,
-                csp_enc_to_rgy(allocRequest.Info.FourCC),
-                (allocRequest.Info.BitDepthLuma > 0) ? allocRequest.Info.BitDepthLuma : 8,
-                picstruct_enc_to_rgy(allocRequest.Info.PicStruct));
-            PrintMes(RGY_LOG_DEBUG, _T("AllocFrames: %s-%s, type: CL host/MFX system, %s %dx%d, request %d frames\n"),
-                t0->print().c_str(), t1->print().c_str(), RGY_CSP_NAMES[visibleFrame.csp],
-                visibleFrame.width, visibleFrame.height, requestNumFrames);
-            auto sts = t0->workSurfacesAllocCLMFXHost(requestNumFrames, allocRequest.Info, visibleFrame, m_cl.get());
-            if (sts != RGY_ERR_NONE) {
-                PrintMes(RGY_LOG_ERROR, _T("AllocFrames:   Failed to allocate host-backed frames for %s-%s: %s."), t0->print().c_str(), t1->print().c_str(), get_err_mes(sts));
-                return sts;
-            }
-        } else if (allocateOpenCLFrame) { // OpenCLフレームを介してやり取りする場合
+        if (allocateOpenCLFrame) { // OpenCLフレームを介してやり取りする場合
             // OpenCLフレームにはMFXのWidth/HeightとCropW/CropHのような「確保寸法と論理寸法」の
             // 別パラメータがなく、RGYFrameInfo::width/heightから実バッファサイズを決める。このためINPUT直後は
             // 初回のCropサイズではなく上限サイズでcreateFrameBufferする必要がある。後の読み込み経路では、
@@ -2016,9 +1969,6 @@ CQSVPipeline::CQSVPipeline() :
     m_timestampPassThrough(false),
     m_encParams(MFX_LIB_VERSION_0_0),
     m_mfxDEC(),
-    m_encSession(),
-    m_encSessionSeparate(false),
-    m_openclEncHostOutput(false),
     m_pmfxENC(),
     m_mfxVPP(),
     m_dynamicRC(),
@@ -5778,9 +5728,6 @@ void CQSVPipeline::Close() {
 #if ENABLE_VAAPI
     m_encVA.reset();
 #endif
-    m_encSession.Close();
-    m_encSessionSeparate = false;
-    m_openclEncHostOutput = false;
 
     m_dummyLoad.reset();
 
@@ -5898,12 +5845,6 @@ RGY_ERR CQSVPipeline::InitMfxEncode() {
     RGY_ERR(sts, _T("Failed to initialize encoder."));
     PrintMes(RGY_LOG_DEBUG, _T("Encoder initialized.\n"));
     return RGY_ERR_NONE;
-}
-
-MFXVideoSession *CQSVPipeline::encoderSession() {
-    return m_encSessionSeparate
-        ? static_cast<MFXVideoSession *>(&m_encSession)
-        : static_cast<MFXVideoSession *>(&m_device->mfxSession());
 }
 
 RGY_ERR CQSVPipeline::InitMfxVpp() {
@@ -6090,7 +6031,7 @@ RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
         for (auto& block : m_vpFilters) {
             if (block.type != VppFilterType::FILTER_OPENCL) return RGY_ERR_UNSUPPORTED;
             auto taskOpenCL = std::make_unique<PipelineTaskOpenCL>(block.vppcl, nullptr, m_cl, 0,
-                SYSTEM_MEMORY, false, nullptr, nullptr, 1, m_pQSVLog);
+                SYSTEM_MEMORY, nullptr, nullptr, 1, m_pQSVLog);
             taskOpenCL->setNormalizeResizeParam(getNormalizeResizeParam());
             if (m_clFilterBypassForResChange) taskOpenCL->setBypassUntilResolutionChange();
             m_pipelineTasks.push_back(std::move(taskOpenCL));
@@ -6153,8 +6094,7 @@ RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
                 PrintMes(RGY_LOG_ERROR, _T("OpenCL not enabled, OpenCL filters cannot be used.\n"), CPU_GEN_STR[m_device->CPUGen()]);
                 return RGY_ERR_UNSUPPORTED;
             }
-            const bool encHostOutput = &filterBlock == &m_vpFilters.back() && m_openclEncHostOutput;
-            auto taskOpenCL = std::make_unique<PipelineTaskOpenCL>(filterBlock.vppcl, nullptr, m_cl, m_openclTaskThreads, m_device->memType(), encHostOutput, m_device->allocator(), &m_device->mfxSession(), 1, m_pQSVLog);
+            auto taskOpenCL = std::make_unique<PipelineTaskOpenCL>(filterBlock.vppcl, nullptr, m_cl, m_openclTaskThreads, m_device->memType(), m_device->allocator(), &m_device->mfxSession(), 1, m_pQSVLog);
             taskOpenCL->setNormalizeResizeParam(getNormalizeResizeParam());
             m_pipelineTasks.push_back(std::move(taskOpenCL));
         } else {
@@ -6182,7 +6122,7 @@ RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
                 PrintMes(RGY_LOG_ERROR, _T("m_vpFilters.size() != 1.\n"));
                 return RGY_ERR_UNDEFINED_BEHAVIOR;
             }
-            auto taskOpenCL = std::make_unique<PipelineTaskOpenCL>(m_vpFilters.front().vppcl, m_videoQualityMetric.get(), m_cl, m_openclTaskThreads, m_device->memType(), false, m_device->allocator(), &m_device->mfxSession(), 1, m_pQSVLog);
+            auto taskOpenCL = std::make_unique<PipelineTaskOpenCL>(m_vpFilters.front().vppcl, m_videoQualityMetric.get(), m_cl, m_openclTaskThreads, m_device->memType(), m_device->allocator(), &m_device->mfxSession(), 1, m_pQSVLog);
             taskOpenCL->setNormalizeResizeParam(getNormalizeResizeParam());
             m_pipelineTasks.push_back(std::move(taskOpenCL));
         } else if (m_pipelineTasks[prevtask]->taskType() == PipelineTaskType::OPENCL) {
@@ -6197,7 +6137,7 @@ RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
         }
     }
     if (m_pmfxENC) {
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXEncode>(encoderSession(), 1, m_pmfxENC.get(), m_mfxVer, m_encParams, m_timecode.get(), m_encTimestamp.get(), m_outputTimebase, m_dynamicRC, m_hdr10plus.get(), m_dovirpu.get(), m_pQSVLog));
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXEncode>(&m_device->mfxSession(), 1, m_pmfxENC.get(), m_mfxVer, m_encParams, m_timecode.get(), m_encTimestamp.get(), m_outputTimebase, m_dynamicRC, m_hdr10plus.get(), m_dovirpu.get(), m_pQSVLog));
     } else {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskOutputRaw>(&m_device->mfxSession(), m_pFileWriter.get(), m_timecode.get(), m_outputTimebase, 1, m_mfxVer, m_pQSVLog));
     }
@@ -6476,9 +6416,6 @@ RGY_ERR CQSVPipeline::RunEncode2() {
         it->reset();
     }
     m_pipelineTasks.clear();
-    m_encSession.Close();
-    m_encSessionSeparate = false;
-    m_openclEncHostOutput = false;
     PrintMes(RGY_LOG_DEBUG, _T("Waiting for writer to finish...\n"));
     m_pFileWriter->WaitFin();
     PrintMes(RGY_LOG_DEBUG, _T("Write results...\n"));

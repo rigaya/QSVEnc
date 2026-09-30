@@ -145,9 +145,6 @@ protected:
 
     QSVVideoParam m_encParams;
     std::unique_ptr<QSVMfxDec> m_mfxDEC;
-    MFXVideoSession2 m_encSession;
-    bool m_encSessionSeparate;
-    bool m_openclEncHostOutput;
     std::unique_ptr<MFXVideoENCODE> m_pmfxENC;
 #if ENABLE_VAAPI
     std::unique_ptr<RGYEncoderVA> m_encVA;
@@ -217,7 +214,6 @@ protected:
     virtual RGY_ERR InitMfxDec();
     virtual RGY_ERR InitMfxVpp();
     virtual RGY_ERR InitMfxEncode();
-    MFXVideoSession *encoderSession();
     RGY_ERR checkGPUListByEncoder(sInputParams *inputParam, std::vector<std::unique_ptr<QSVDevice>>& deviceList);
     RGY_ERR deviceAutoSelect(const sInputParams *inputParam, std::vector<std::unique_ptr<QSVDevice>>& deviceList, const RGYDeviceUsageLockManager *lock);
 #if ENABLE_VAAPI
