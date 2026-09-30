@@ -6637,30 +6637,24 @@ std::pair<RGY_ERR, std::unique_ptr<QSVVideoParam>> CQSVPipeline::GetOutputVideoI
 
 RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
 #if ENABLE_VAAPI
-    if (m_backend == QSVBackend::VAAPI) {
-        if (!m_encVA) return RGY_ERR_NOT_INITIALIZED;
-        auto info = strsprintf(_T("%s\nBackend        vaapi\nGPU Info       %s\nOutput Info    %s, %s, %dx%d, %d-bit, %d/%d fps\n"),
-            get_encoder_version(), m_device->name().c_str(), CodecToStr(m_vaEncParam.codec).c_str(),
-            m_encVA->profileString().c_str(), m_encVA->width(), m_encVA->height(), m_encVA->bitdepth(),
-            m_vaEncParam.fps.n(), m_vaEncParam.fps.d());
-        info += m_encVA->paramString();
-        PrintMes(RGY_LOG_INFO, _T("%s"), info.c_str());
-        if (str && bufSize > 0) _tcscpy_s(str, bufSize, info.c_str());
-        return RGY_ERR_NONE;
-    }
+    const bool vaapi = m_backend == QSVBackend::VAAPI;
+    if (vaapi && !m_encVA) return RGY_ERR_NOT_INITIALIZED;
+#else
+    const bool vaapi = false;
 #endif
-    mfxIMPL impl;
-    m_device->mfxSession().QueryIMPL(&impl);
-
-    mfxFrameInfo DstPicInfo = m_encParams.videoPrm.mfx.FrameInfo;
-
-    auto [ err, outFrameInfo ] = GetOutputVideoInfo();
-    if (err != RGY_ERR_NONE) {
-        PrintMes(RGY_LOG_ERROR, _T("Failed to get output frame info!: %s\n"), get_err_mes(err));
-        return err;
+    mfxIMPL impl = 0;
+    mfxFrameInfo DstPicInfo = {};
+    std::unique_ptr<QSVVideoParam> outFrameInfo;
+    if (!vaapi) {
+        m_device->mfxSession().QueryIMPL(&impl);
+        auto [err, frameInfo] = GetOutputVideoInfo();
+        if (err != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to get output frame info!: %s\n"), get_err_mes(err));
+            return err;
+        }
+        outFrameInfo = std::move(frameInfo);
+        DstPicInfo = (outFrameInfo->isVppParam) ? outFrameInfo->videoPrmVpp.vpp.Out : outFrameInfo->videoPrm.mfx.FrameInfo;
     }
-
-    DstPicInfo = (outFrameInfo->isVppParam) ? outFrameInfo->videoPrmVpp.vpp.Out : outFrameInfo->videoPrm.mfx.FrameInfo;
 
     const int workSurfaceCount = std::accumulate(m_pipelineTasks.begin(), m_pipelineTasks.end(), 0, [](int sum, std::unique_ptr<PipelineTask>& task) {
         return sum + (int)task->workSurfacesCount();
@@ -6677,9 +6671,16 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
     }
 
     TCHAR cpuInfo[256] = { 0 };
-    getCPUInfo(cpuInfo, _countof(cpuInfo), &m_device->mfxSession());
+    getCPUInfo(cpuInfo, _countof(cpuInfo), vaapi ? nullptr : &m_device->mfxSession());
 
     TCHAR gpu_info[1024] = { 0 };
+#if ENABLE_VAAPI
+    if (vaapi) {
+        const auto clName = m_cl ? char_to_tstring(RGYOpenCLDevice(m_cl->queue().devid()).info().name) : tstring();
+        _stprintf_s(gpu_info, _countof(gpu_info), _T("%sDriver : %s"),
+            clName.empty() ? _T("") : (clName + _T(" / ")).c_str(), m_device->va()->vendorString().c_str());
+    } else
+#endif
     if (Check_HWUsed(impl)) {
 #if LIBVA_SUPPORT
         // getGPUInfo() は Linux では別の VA ディスプレイを初期化せずに開こうとして、ドライバ名が空になる。
@@ -6710,7 +6711,7 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
     PRINT_INFO(    _T("OS             %s %s\n"), getOSVersion().c_str(), rgy_is_64bit_os() ? _T("x64") : _T("x86"));
 #endif
     PRINT_INFO(    _T("CPU Info       %s\n"), cpuInfo);
-    if (Check_HWUsed(impl)) {
+    if (vaapi || Check_HWUsed(impl)) {
         PRINT_INFO(_T("GPU Info       %s\n"), gpu_info);
         if (m_parallelEnc && m_parallelEnc->id() < 0) { // 並列エンコードの親スレッドの場合のみ
             for (const auto& devName : m_devNames) {
@@ -6720,28 +6721,44 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
             }
         }
 
-        auto gpu_num_str = [](int id, int adaptor_type) {
-            const TCHAR *adaptorTypeStr = nullptr;
-            switch (adaptor_type) {
-            case MFX_MEDIA_INTEGRATED: adaptorTypeStr = _T("i"); break;
-            case MFX_MEDIA_DISCRETE: adaptorTypeStr = _T("d"); break;
+        {
+            auto gpu_num_str = [](int id, int adaptor_type) {
+                const TCHAR *adaptorTypeStr = nullptr;
+                switch (adaptor_type) {
+                case MFX_MEDIA_INTEGRATED: adaptorTypeStr = _T("i"); break;
+                case MFX_MEDIA_DISCRETE: adaptorTypeStr = _T("d"); break;
+                }
+                static const TCHAR * const NUM_APPENDIX[] = { _T("st"), _T("nd"), _T("rd"), _T("th") };
+                auto str = strsprintf(_T("%d%s"), id, NUM_APPENDIX[clamp(id-1, 0, _countof(NUM_APPENDIX) - 1)]);
+                if (adaptorTypeStr) {
+                    str += strsprintf(_T("(%s)"), adaptorTypeStr);
+                }
+                return str;
+            };
+#if ENABLE_VAAPI
+            if (vaapi) {
+                const auto gpuNumStr = gpu_num_str((int)m_device->deviceNum(), MFX_MEDIA_UNKNOWN);
+                const int lowPower = m_encVA->lowPower();
+                PRINT_INFO(_T("VA-API         %s, %s GPU\n"), lowPower == 1 ? _T("FF") : lowPower == 0 ? _T("PG") : _T("auto"), gpuNumStr.c_str());
+            } else
+#endif
+            {
+                tstring gpuNumStr = gpu_num_str((int)m_device->deviceNum(), m_device->adapterType());
+                PRINT_INFO(_T("Media SDK      QuickSyncVideo API v%d.%02d,%s, %s GPU\n"), m_mfxVer.Major, m_mfxVer.Minor,
+                    get_low_power_str(outFrameInfo->videoPrm.mfx.LowPower), gpuNumStr.c_str());
             }
-            static const TCHAR * const NUM_APPENDIX[] = { _T("st"), _T("nd"), _T("rd"), _T("th") };
-            auto str = strsprintf(_T("%d%s"), id, NUM_APPENDIX[clamp(id-1, 0, _countof(NUM_APPENDIX) - 1)]);
-            if (adaptorTypeStr) {
-                str += strsprintf(_T("(%s)"), adaptorTypeStr);
-            }
-            return str;
-        };
-        tstring gpuNumStr = gpu_num_str((int)m_device->deviceNum(), m_device->adapterType());
-        PRINT_INFO(_T("Media SDK      QuickSyncVideo API v%d.%02d,%s, %s GPU\n"), m_mfxVer.Major, m_mfxVer.Minor,
-            get_low_power_str(outFrameInfo->videoPrm.mfx.LowPower), gpuNumStr.c_str());
+        }
     }
+#if ENABLE_VAAPI
+    if (vaapi) {
+        PRINT_INFO(_T("Async Depth    %d frames\n"), m_encVA->asyncDepth());
+    } else
+#endif
     PRINT_INFO(    _T("Async Depth    %d frames\n"), m_nAsyncDepth);
-    if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_5)) {
+    if (!vaapi && check_lib_version(m_mfxVer, MFX_LIB_VERSION_2_5)) {
         PRINT_INFO(_T("Hyper Mode     %s\n"), get_cx_desc(list_hyper_mode, outFrameInfo->hyperModePrm.Mode));
     }
-    PRINT_INFO(    _T("Buffer Memory  %s, %d work buffer\n"), MemTypeToStr(m_device->memType()), workSurfaceCount);
+    PRINT_INFO(    _T("Buffer Memory  %s, %d work buffer\n"), vaapi ? _T("system") : MemTypeToStr(m_device->memType()), workSurfaceCount);
     //PRINT_INFO(    _T("Input Frame Format   %s\n"), ColorFormatToStr(m_pFileReader->m_ColorFormat));
     //PRINT_INFO(    _T("Input Frame Type     %s\n"), list_interlaced_mfx[get_cx_index(list_interlaced_mfx, SrcPicInfo.PicStruct)].desc);
     tstring inputMes = m_pFileReader->GetInputMessage();
@@ -6803,6 +6820,17 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
             get_level_list(enc_codec)[get_cx_index(get_level_list(enc_codec), outFrameInfo->videoPrm.mfx.CodecLevel & 0xff)].desc,
             (enc_codec == RGY_CODEC_HEVC && (outFrameInfo->videoPrm.mfx.CodecLevel & MFX_TIER_HEVC_HIGH)) ? _T(" (high tier)") : _T(""));
     }
+#if ENABLE_VAAPI
+    if (vaapi) {
+        PRINT_INFO(_T("Output         %s%s %s @ Level %s%s\n"), CodecToStr(m_encVA->codec()).c_str(),
+            m_encVA->bitdepth() > 8 ? strsprintf(_T("(yuv420 %dbit)"), m_encVA->bitdepth()).c_str() : _T("(yuv420)"),
+            qsvVAProfileString(*m_encVA).c_str(), m_encVA->levelString().c_str(),
+            m_encVA->tierString() == _T("high") ? _T(" (high tier)") : _T(""));
+        PRINT_INFO(_T("               %dx%dp %d:%d %0.3ffps (%d/%dfps)\n"),
+            m_encVA->width(), m_encVA->height(), m_vaEncParam.sar.n(), m_vaEncParam.sar.d(),
+            m_vaEncParam.fps.n() / (double)m_vaEncParam.fps.d(), m_vaEncParam.fps.n(), m_vaEncParam.fps.d());
+    } else
+#endif
     PRINT_INFO(_T("%s         %dx%d%s %d:%d %0.3ffps (%d/%dfps)%s%s\n"),
         (m_pmfxENC) ? _T("      ") : _T("Output"),
         DstPicInfo.CropW, DstPicInfo.CropH, (DstPicInfo.PicStruct & MFX_PICSTRUCT_PROGRESSIVE) ? _T("p") : _T("i"),
@@ -7005,6 +7033,18 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
         if (enc_codec == RGY_CODEC_VP8) {
             PRINT_INFO(_T("Sharpness      %d\n"), outFrameInfo->copVp8.SharpnessLevel);
         }
+    }
+#if ENABLE_VAAPI
+    else if (vaapi) {
+        PRINT_INFO(_T("%s"), qsvVAEncInfo(*m_encVA).c_str());
+    }
+#endif
+    if (m_pmfxENC || vaapi) {
+#if ENABLE_VAAPI
+        const auto enc_codec = vaapi ? m_encVA->codec() : codec_enc_to_rgy(outFrameInfo->videoPrm.mfx.CodecId);
+#else
+        const auto enc_codec = codec_enc_to_rgy(outFrameInfo->videoPrm.mfx.CodecId);
+#endif
         { const auto &vui_str = m_encVUI.print_all();
         if (vui_str.length() > 0) {
             PRINT_INFO(_T("VUI            %s\n"), vui_str.c_str());
@@ -7050,6 +7090,9 @@ RGY_ERR CQSVPipeline::CheckCurrentVideoParam(TCHAR *str, mfxU32 bufSize) {
             PRINT_INFO(_T("dovi rpu       %s\n"), _T("copy"));
         }
 
+    }
+    if (m_pmfxENC) {
+        const auto enc_codec = codec_enc_to_rgy(outFrameInfo->videoPrm.mfx.CodecId);
         //last line
         tstring extFeatures;
         if (check_lib_version(m_mfxVer, MFX_LIB_VERSION_1_6)) {

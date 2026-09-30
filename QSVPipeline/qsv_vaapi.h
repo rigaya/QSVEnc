@@ -40,4 +40,7 @@ RGY_ERR qsvVACheckParam(sInputParams& prm, std::shared_ptr<RGYLog> log);
 RGY_ERR qsvVAEncParam(RGYVAEncParam& dst, const sInputParams& prm, RGYDeviceVA *dev,
     int width, int height, rgy_rational<int> fps, rgy_rational<int> sar,
     rgy_rational<int> timebase, const VideoVUIInfo& vui, std::shared_ptr<RGYLog> log);
+// 初期化済みのエンコーダ設定をQSVのログ書式に整形する。
+tstring qsvVAEncInfo(const RGYEncoderVA& enc);
+tstring qsvVAProfileString(const RGYEncoderVA& enc);
 #endif

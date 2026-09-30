@@ -842,47 +842,46 @@ tstring RGYEncoderVA::tierString() const {
     return m_codec == RGY_CODEC_HEVC ? (m_tier ? _T("high") : _T("main")) : _T("");
 }
 
-tstring RGYEncoderVA::paramString() const {
-    if (!m_codecCtx) return _T("VA-API encoder is not initialized.\n");
-    tstring mes = strsprintf(_T("Compression:   %d\n"), m_compressionLevel);
-    if (m_rateControl == RGY_VA_RC_CQP) {
-        const int qpP = m_codecCtx->global_quality / FF_QP2LAMBDA;
-        const int qpI = (int)(qpP * m_codecCtx->i_quant_factor);
-        const int qpB = (int)(qpP * m_codecCtx->b_quant_factor);
-        mes += strsprintf(_T("CQP:           %s:%d, %s:%d"),
-            m_codec == RGY_CODEC_AV1 ? _T("Intra") : _T("I"), qpI,
-            m_codec == RGY_CODEC_AV1 ? _T("Inter") : _T("P"), qpP);
-        if (m_bframes > 0) {
-            mes += strsprintf(_T(", %s:%d"), m_codec == RGY_CODEC_AV1 ? _T("InterB") : _T("B"), qpB);
-        }
-        mes += _T("\n");
-    } else {
-        if (m_rateControl == RGY_VA_RC_ICQ) {
-            mes += strsprintf(_T("ICQ:           Quality %d\n"), m_qp);
-        } else {
-            mes += strsprintf(_T("%-15s%lld kbps\n"), (char_to_tstring(rc_mode_name(m_rateControl)) + _T(":")).c_str(), (long long)(m_codecCtx->bit_rate / 1000));
-        }
-        if (m_rateControl == RGY_VA_RC_QVBR) {
-            mes += strsprintf(_T("Quality level: %d\n"), m_qp);
-        }
-        if (m_codecCtx->rc_max_rate > 0) {
-            mes += strsprintf(_T("Max bitrate:   %lld kbps\n"), (long long)(m_codecCtx->rc_max_rate / 1000));
-        }
-        if (m_qpMin.has_value() || m_qpMax.has_value()) {
-            const auto qmin = m_qpMin.has_value() ? strsprintf(_T("%d"), m_qpMin.value()) : tstring(_T("auto"));
-            const auto qmax = m_qpMax.has_value() ? strsprintf(_T("%d"), m_qpMax.value()) : tstring(_T("auto"));
-            mes += strsprintf(_T("QP:            Min: %s:%s, Max: %s:%s\n"), qmin.c_str(), qmin.c_str(), qmax.c_str(), qmax.c_str());
-        }
+RGYQPSet RGYEncoderVA::qp() const {
+    if (!m_codecCtx) return RGYQPSet();
+    const int qpP = m_codecCtx->global_quality / FF_QP2LAMBDA;
+    return RGYQPSet((int)(qpP * m_codecCtx->i_quant_factor), qpP, (int)(qpP * m_codecCtx->b_quant_factor));
+}
+
+int64_t RGYEncoderVA::bitrateKbps() const {
+    return m_codecCtx ? m_codecCtx->bit_rate / 1000 : 0;
+}
+
+int64_t RGYEncoderVA::maxBitrateKbps() const {
+    return m_codecCtx ? m_codecCtx->rc_max_rate / 1000 : 0;
+}
+
+int RGYEncoderVA::vbvBufKbits() const {
+    return m_codecCtx ? m_codecCtx->rc_buffer_size / 1000 : 0;
+}
+
+int RGYEncoderVA::gopLen() const {
+    return m_codecCtx ? m_codecCtx->gop_size : 0;
+}
+
+int RGYEncoderVA::asyncDepth() const {
+    int64_t depth = 0;
+    if (m_codecCtx && m_codecCtx->priv_data) {
+        av_opt_get_int(m_codecCtx->priv_data, "async_depth", 0, &depth);
     }
-    if (m_codecCtx->rc_buffer_size > 0) {
-        mes += strsprintf(_T("VBV Bufsize:   %d kb\n"), m_codecCtx->rc_buffer_size / 1000);
+    return (int)depth;
+}
+
+int RGYEncoderVA::profile() const {
+    return m_codecCtx ? m_codecCtx->profile : AV_PROFILE_UNKNOWN;
+}
+
+int RGYEncoderVA::lowPower() const {
+    int64_t lowPower = -1;
+    if (m_codecCtx && m_codecCtx->priv_data) {
+        av_opt_get_int(m_codecCtx->priv_data, "low_power", 0, &lowPower);
     }
-    // H.264でBフレームを使わない場合はBframesの行を出さない。
-    if (m_bframes > 0 || m_codec != RGY_CODEC_H264) {
-        mes += strsprintf(_T("Bframes:       %d frames\n"), m_bframes);
-    }
-    mes += strsprintf(_T("Ref frames:    %d frames\nGOP Len:       %d frames\n"), m_refs, m_codecCtx->gop_size);
-    return mes;
+    return (int)lowPower;
 }
 
 #endif // ENABLE_VAAPI

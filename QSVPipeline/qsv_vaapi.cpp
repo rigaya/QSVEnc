@@ -29,6 +29,7 @@
 
 #if ENABLE_VAAPI
 #include <algorithm>
+#include "qsv_util.h"
 
 RGY_ERR qsvVACheckParam(sInputParams& prm, std::shared_ptr<RGYLog> log) {
     const sInputParams defaults;
@@ -250,5 +251,75 @@ RGY_ERR qsvVAEncParam(RGYVAEncParam& dst, const sInputParams& prm, RGYDeviceVA *
     }
     if (log) log->write(RGY_LOG_INFO, RGY_LOGT_DEV, _T("VA-API compression_level=%d, low_power=%d.\n"), dst.compressionLevel, dst.lowPower);
     return RGY_ERR_NONE;
+}
+
+tstring qsvVAEncInfo(const RGYEncoderVA& enc) {
+    uint32_t mode = 0;
+    switch (enc.rateControl()) {
+    case RGY_VA_RC_CQP:  mode = MFX_RATECONTROL_CQP; break;
+    case RGY_VA_RC_CBR:  mode = MFX_RATECONTROL_CBR; break;
+    case RGY_VA_RC_VBR:  mode = MFX_RATECONTROL_VBR; break;
+    case RGY_VA_RC_ICQ:  mode = MFX_RATECONTROL_ICQ; break;
+    case RGY_VA_RC_QVBR: mode = MFX_RATECONTROL_QVBR; break;
+    case RGY_VA_RC_AVBR: mode = MFX_RATECONTROL_AVBR; break;
+    default: break;
+    }
+    tstring mes = strsprintf(_T("Target usage   %s\nEncode Mode    %s\n"), TargetUsageToStr(enc.compressionLevel()), EncmodeToStr(mode));
+    if (enc.rateControl() == RGY_VA_RC_CQP) {
+        const auto qp = enc.qp();
+        mes += strsprintf(_T("CQP Value      I:%d  P:%d  B:%d\n"), qp.qpI, qp.qpP, qp.qpB);
+    } else if (enc.rateControl() == RGY_VA_RC_ICQ) {
+        mes += strsprintf(_T("ICQ Quality    %d\n"), enc.quality());
+    } else {
+        mes += strsprintf(_T("Bitrate        %lld kbps\n"), (long long)enc.bitrateKbps());
+        if (enc.rateControl() != RGY_VA_RC_AVBR) {
+            mes += _T("Max Bitrate    ");
+            mes += enc.maxBitrateKbps() > 0 ? strsprintf(_T("%lld kbps\n"), (long long)enc.maxBitrateKbps()) : _T("Auto\n");
+        }
+        if (enc.rateControl() == RGY_VA_RC_QVBR) {
+            mes += strsprintf(_T("QVBR Quality   %d\n"), enc.quality());
+        }
+    }
+    if (enc.vbvBufKbits() > 0) {
+        mes += strsprintf(_T("VBV Bufsize    %d kb\n"), enc.vbvBufKbits());
+    }
+    const auto qmin = enc.qpMin().has_value() && enc.qpMin().value() != 0 ? strsprintf(_T("%d"), enc.qpMin().value()) : tstring(_T("none"));
+    const auto qmax = enc.qpMax().has_value() && enc.qpMax().value() != 0 ? strsprintf(_T("%d"), enc.qpMax().value()) : tstring(_T("none"));
+    mes += strsprintf(_T("QP Limit       min: %s, max: %s\nRef frames     %d frames\n"), qmin.c_str(), qmax.c_str(), enc.refs());
+    mes += enc.bframes() > 0 ? strsprintf(_T("Bframes        %d frame%s\n"), enc.bframes(), enc.bframes() > 1 ? _T("s") : _T("")) : _T("Bframes        none\n");
+    mes += strsprintf(_T("Max GOP Length %d frames\n"), enc.gopLen());
+    return mes;
+}
+
+tstring qsvVAProfileString(const RGYEncoderVA& enc) {
+    int profile = 0;
+    switch (enc.codec()) {
+    case RGY_CODEC_H264:
+        switch (enc.profile()) {
+        case AV_PROFILE_H264_BASELINE: profile = MFX_PROFILE_AVC_BASELINE; break;
+        case AV_PROFILE_H264_MAIN: profile = MFX_PROFILE_AVC_MAIN; break;
+        case AV_PROFILE_H264_HIGH: profile = MFX_PROFILE_AVC_HIGH; break;
+        default: return enc.profileString();
+        }
+        break;
+    case RGY_CODEC_HEVC:
+        switch (enc.profile()) {
+        case AV_PROFILE_HEVC_MAIN: profile = MFX_PROFILE_HEVC_MAIN; break;
+        case AV_PROFILE_HEVC_MAIN_10: profile = MFX_PROFILE_HEVC_MAIN10; break;
+        default: return enc.profileString();
+        }
+        break;
+    case RGY_CODEC_VP9:
+        if (enc.profile() < AV_PROFILE_VP9_0 || enc.profile() > AV_PROFILE_VP9_3) return enc.profileString();
+        profile = MFX_PROFILE_VP9_0 + enc.profile();
+        break;
+    case RGY_CODEC_AV1:
+        if (enc.profile() < AV_PROFILE_AV1_MAIN || enc.profile() > AV_PROFILE_AV1_PROFESSIONAL) return enc.profileString();
+        profile = MFX_PROFILE_AV1_MAIN + enc.profile();
+        break;
+    default: return enc.profileString();
+    }
+    const auto desc = get_cx_desc(get_profile_list(enc.codec()), profile);
+    return desc ? tstring(desc) : enc.profileString();
 }
 #endif

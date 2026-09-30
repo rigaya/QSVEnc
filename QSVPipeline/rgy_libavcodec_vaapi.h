@@ -137,13 +137,28 @@ public:
     RGY_ERR init(RGYDeviceVA *dev, const RGYVAEncParam& prm, std::shared_ptr<RGYLog> log);
     RGY_ERR submit(RGYFrame *frame);
     RGY_ERR receive(std::shared_ptr<RGYBitstream>& bs);
-    tstring paramString() const;
     tstring profileString() const;
     tstring levelString() const;
     tstring tierString() const;
     int width() const { return m_width; }
     int height() const { return m_height; }
     int bitdepth() const { return m_bitdepth; }
+    RGY_CODEC codec() const { return m_codec; }
+    RGYVAEncRCMode rateControl() const { return m_rateControl; }
+    int quality() const { return m_qp; }
+    int bframes() const { return m_bframes; }
+    int refs() const { return m_refs; }
+    int compressionLevel() const { return m_compressionLevel; }
+    std::optional<int> qpMin() const { return m_qpMin; }
+    std::optional<int> qpMax() const { return m_qpMax; }
+    RGYQPSet qp() const;
+    int64_t bitrateKbps() const;
+    int64_t maxBitrateKbps() const;
+    int vbvBufKbits() const;
+    int gopLen() const;
+    int asyncDepth() const;
+    int profile() const;
+    int lowPower() const;
     int videoDelay() const { return (m_codec != RGY_CODEC_AV1 && m_bframes > 0) ? 1 : 0; }
 protected:
     std::unique_ptr<AVCodecContext, RGYAVDeleter<AVCodecContext>> m_codecCtx;
