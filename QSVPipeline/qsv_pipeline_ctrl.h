@@ -3006,6 +3006,8 @@ protected:
     int m_normalizeResizeIdx;                                         //挿入済みの正規化resizeのm_vpFilters内index。-1なら未挿入(=まだ解像度変更が起きていない)
     bool m_resChangeFlush;                                            //解像度変更に伴うフィルタのflush中かどうか。flush中はsendFrame()の出力キューの扱いを変える必要がある
     bool m_bypassActive; // VA のフィルタなし構成では、解像度が変わるまで SYS 面をそのまま渡す。
+    bool m_encUploadViaHost;
+    std::unique_ptr<RGYCLFrame> m_encUploadFrame;
     int m_openclTaskThreads;
     RGYOpenCLQueue m_acquireQueue;
     RGYQueueMPMP<AcquireWork *> m_acquireInQueue;
@@ -3037,6 +3039,12 @@ protected:
     RGY_ERR prepareInputInterop(mfxFrameSurface1 *surface, RGYOpenCLQueue& queue, const RGYFrameInfo& frameInfo,
         const size_t slot, RGYCLFrameInterop *&interop) {
         interop = nullptr;
+        if (surface && (surface->Info.FourCC == MFX_FOURCC_AYUV || surface->Info.FourCC == MFX_FOURCC_Y410
+            || surface->Info.FourCC == MFX_FOURCC_Y416)) {
+            // packed444の入力面はinteropできない。入力側のホスト転送は別途実装が必要。
+            PrintMes(RGY_LOG_ERROR, _T("packed YUV444 input surfaces cannot be shared with OpenCL. Please use --avsw.\n"));
+            return RGY_ERR_UNSUPPORTED;
+        }
 #if ENABLE_QSV_OPENCL_INPUT_COPY
         if (useQSVOpenCLInputCopy(m_memType, m_allocator)) {
             if (slot >= m_inputCopies.size()) return RGY_ERR_INVALID_PARAM;
@@ -3085,8 +3093,72 @@ protected:
         for (auto& copy : m_inputCopies) copy.reset();
 #endif
     }
+    RGY_ERR uploadToEncSurface(mfxFrameSurface1 *surf, const RGYOpenCLEvent& filterDone) {
+        if (!surf || !m_allocator || !m_encUploadFrame) return RGY_ERR_NULL_PTR;
+        const auto mid = surf->Data.MemId;
+        const bool allocatorD3D11 = IS_ALLOCATOR_D3D11(m_allocator);
+        if (mid) {
+            // MFXReadWriteMidはD3D11専用で、呼び出しが終わるまで一時オブジェクトを保持する。
+            const auto err = err_to_rgy(m_allocator->Lock(m_allocator->pthis,
+                allocatorD3D11 ? (mfxMemId)MFXReadWriteMid(mid, MFXReadWriteMid::write) : mid, &surf->Data));
+            if (err != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to lock encoder input surface: %s.\n"), get_err_mes(err));
+                return err;
+            }
+        }
+        const auto& src = m_encUploadFrame->frameInfo();
+        auto host = src;
+        host.mem_type = RGY_MEM_TYPE_CPU;
+        host.ptr[0] = nullptr;
+        host.pitch[0] = ((uint32_t)surf->Data.PitchHigh << 16) | surf->Data.PitchLow;
+        switch (surf->Info.FourCC) {
+        case MFX_FOURCC_AYUV:
+            host.ptr[0] = (std::min)((std::min)(surf->Data.Y, surf->Data.U), (std::min)(surf->Data.V, surf->Data.A));
+            break;
+        case MFX_FOURCC_Y410: host.ptr[0] = (uint8_t *)surf->Data.Y410; break;
+        case MFX_FOURCC_Y416: host.ptr[0] = (uint8_t *)surf->Data.U16; break;
+        default: break;
+        }
+        auto err = RGY_ERR_NONE;
+        // copyFrameはpacked形式の行幅を画素成分1個分で計算するため、ここではバイト幅を指定して直接転送する。
+        const size_t bytesPerPixel = src.csp == RGY_CSP_Y416 ? 8 : 4;
+        const size_t origin[3] = { 0, 0, 0 };
+        const size_t region[3] = { (size_t)src.width * bytesPerPixel, (size_t)src.height, 1 };
+        if (!host.ptr[0] || host.pitch[0] < region[0] || src.pitch[0] < region[0]
+            || src.width > surf->Info.Width || src.height > surf->Info.Height) {
+            PrintMes(RGY_LOG_ERROR, _T("Invalid encoder input surface pointer, pitch, or allocation size.\n"));
+            err = RGY_ERR_INVALID_PARAM;
+        } else {
+            if (!mid) {
+                // システムメモリ面は確保時にLock済みなので、既存のDataへ直接書き込む。
+                PrintMes(RGY_LOG_TRACE, _T("Uploading to an already locked surface with MemId=null.\n"));
+            }
+            const cl_event waitEvent = filterDone();
+            RGYOpenCLEvent copyDone;
+            err = err_cl_to_rgy(clEnqueueReadBufferRect(m_cl->queue().get(), (cl_mem)src.ptr[0], CL_FALSE,
+                origin, origin, region, src.pitch[0], 0, host.pitch[0], 0, host.ptr[0],
+                waitEvent ? 1 : 0, waitEvent ? &waitEvent : nullptr, copyDone.reset_ptr()));
+            if (err == RGY_ERR_NONE) {
+                err = copyDone.wait();
+                // 待機エラー時も、Mapした領域への転送が終わるまでUnlockしない。
+                if (err != RGY_ERR_NONE) m_cl->queue().finish();
+            }
+            if (err != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to upload to encoder input surface: %s.\n"), get_err_mes(err));
+            }
+        }
+        if (mid) {
+            const auto unlockErr = err_to_rgy(m_allocator->Unlock(m_allocator->pthis,
+                allocatorD3D11 ? (mfxMemId)MFXReadWriteMid(mid, MFXReadWriteMid::write) : mid, &surf->Data));
+            if (unlockErr != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to unlock encoder input surface: %s.\n"), get_err_mes(unlockErr));
+                if (err == RGY_ERR_NONE) err = unlockErr;
+            }
+        }
+        return err;
+    }
     bool useReleaseWorker() const {
-        return m_openclTaskThreads >= 2 && m_releaseThread != nullptr;
+        return !m_encUploadViaHost && m_openclTaskThreads >= 2 && m_releaseThread != nullptr;
     }
     void setAcquireWorkerError(RGY_ERR err) {
         if (err != RGY_ERR_NONE) {
@@ -4035,7 +4107,7 @@ protected:
     }
 public:
     PipelineTaskOpenCL(std::vector<std::unique_ptr<RGYFilter>>& vppfilters, RGYFilterSsim *videoMetric, std::shared_ptr<RGYOpenCLContext> cl, int openclTaskThreads, MemType memType, QSVAllocator *allocator, MFXVideoSession *mfxSession, int outMaxQueueSize, std::shared_ptr<RGYLog> log) :
-        PipelineTask(PipelineTaskType::OPENCL, outMaxQueueSize, mfxSession, MFX_LIB_VERSION_0_0, log), m_cl(cl), m_vpFilters(vppfilters), m_surfVppInInterop(), m_surfVppOutInterop(), m_prevInputFrame(), m_prevAcquireFrame(), m_videoMetric(videoMetric), m_normalizeTargetFrame(), m_normalizeResizeParam(), m_normalizeResizeIdx(-1), m_resChangeFlush(false), m_bypassActive(false), m_openclTaskThreads(openclTaskThreads), m_acquireQueue(), m_acquireInQueue(), m_acquireReadyQueue(), m_acquireFreeQueue(), m_acquireThread(), m_acquireErr(RGY_ERR_NONE), m_acquireThreadAbort(false), m_releaseQueue(), m_releaseAcquireQueue(), m_releaseReadyQueue(), m_releaseWorkQueue(), m_releaseDoneQueue(), m_releaseThread(), m_releaseErr(RGY_ERR_NONE), m_releaseThreadAbort(false), m_releaseAcquirePending(0), m_releaseWorkInFlight(0), m_releaseOutputPending(0), m_acquireFrameInInfo(), m_acquireDrainSent(false), m_acquireDrainReady(false), m_acquireQueuesClosed(false), m_releaseQueuesClosed(false), m_memType(memType) {
+        PipelineTask(PipelineTaskType::OPENCL, outMaxQueueSize, mfxSession, MFX_LIB_VERSION_0_0, log), m_cl(cl), m_vpFilters(vppfilters), m_surfVppInInterop(), m_surfVppOutInterop(), m_prevInputFrame(), m_prevAcquireFrame(), m_videoMetric(videoMetric), m_normalizeTargetFrame(), m_normalizeResizeParam(), m_normalizeResizeIdx(-1), m_resChangeFlush(false), m_bypassActive(false), m_encUploadViaHost(false), m_encUploadFrame(), m_openclTaskThreads(openclTaskThreads), m_acquireQueue(), m_acquireInQueue(), m_acquireReadyQueue(), m_acquireFreeQueue(), m_acquireThread(), m_acquireErr(RGY_ERR_NONE), m_acquireThreadAbort(false), m_releaseQueue(), m_releaseAcquireQueue(), m_releaseReadyQueue(), m_releaseWorkQueue(), m_releaseDoneQueue(), m_releaseThread(), m_releaseErr(RGY_ERR_NONE), m_releaseThreadAbort(false), m_releaseAcquirePending(0), m_releaseWorkInFlight(0), m_releaseOutputPending(0), m_acquireFrameInInfo(), m_acquireDrainSent(false), m_acquireDrainReady(false), m_acquireQueuesClosed(false), m_releaseQueuesClosed(false), m_memType(memType) {
         m_allocator = allocator;
         //解像度変更時に「戻すべき解像度」は初期化時点のチェーン先頭の出力。ここで控えておかないと、
         //先頭CspCropを再初期化した後では取得できなくなる。
@@ -4053,6 +4125,7 @@ public:
         m_prevAcquireFrame.clear();
         clearInputInterop();
         m_surfVppOutInterop.clear();
+        m_encUploadFrame.reset();
         m_acquireQueue.clear();
         m_releaseQueue.clear();
         m_cl.reset();
@@ -4066,6 +4139,12 @@ public:
     }
     void setVideoQualityMetricFilter(RGYFilterSsim *videoMetric) {
         m_videoMetric = videoMetric;
+    }
+    void setEncUploadViaHost() {
+        // 設定はフレーム投入前に行い、入力側のacquireワーカーはそのまま使う。
+        stopReleaseWorker();
+        m_encUploadViaHost = true;
+        PrintMes(RGY_LOG_DEBUG, _T("Enabled host upload to encoder input surfaces.\n"));
     }
     void setBypassUntilResolutionChange() { m_bypassActive = true; }
     virtual bool mayBypass() const override { return m_bypassActive; }
@@ -4448,7 +4527,22 @@ public:
                 surfVppOut = getWorkSurf();
             }
             auto mfxsurfOut = (surfVppOut.mfx()) ? surfVppOut.mfx()->surf() : nullptr;
-            if (!useReleaseWorker() && mfxsurfOut != nullptr) {
+            if (m_encUploadViaHost && !mfxsurfOut) {
+                PrintMes(RGY_LOG_ERROR, _T("Encoder input surface is null for host upload.\n"));
+                return RGY_ERR_NULL_PTR;
+            }
+            if (m_encUploadViaHost && mfxsurfOut != nullptr) {
+                auto frameOut = lastFilter->GetFilterParam()->frameOut;
+                frameOut.mem_type = RGY_MEM_TYPE_GPU;
+                if (!m_encUploadFrame || m_encUploadFrame->frameInfo().width != frameOut.width
+                    || m_encUploadFrame->frameInfo().height != frameOut.height
+                    || m_encUploadFrame->frameInfo().csp != frameOut.csp) {
+                    m_encUploadFrame = m_cl->createFrameBuffer(frameOut);
+                    if (!m_encUploadFrame) return RGY_ERR_MEMORY_ALLOC;
+                }
+                mfxsurfOut->Info.CropW = (mfxU16)frameOut.width;
+                mfxsurfOut->Info.CropH = (mfxU16)frameOut.height;
+            } else if (!useReleaseWorker() && mfxsurfOut != nullptr) {
                 // 通常のmfxフレームの場合
                 if (m_surfVppOutInterop.count(mfxsurfOut) == 0) {
                     m_surfVppOutInterop[mfxsurfOut] = getOpenCLFrameInterop(mfxsurfOut, m_memType, CL_MEM_WRITE_ONLY, m_allocator, m_cl.get(), m_cl->queue(), m_vpFilters.back()->GetFilterParam()->frameOut);
@@ -4478,7 +4572,8 @@ public:
             }
             //エンコードバッファのポインタを渡す
             int nOutFrames = 0;
-            auto encSurfaceInfo = (clFrameOutInterop) ? clFrameOutInterop->frameInfo()
+            auto encSurfaceInfo = m_encUploadViaHost ? m_encUploadFrame->frameInfo()
+                : (clFrameOutInterop) ? clFrameOutInterop->frameInfo()
                 : (surfVppOut.sys() ? surfVppOut.sys()->frameInfo() : surfVppOut.cl()->frameInfo());
             RGYFrameInfo *outInfo[1];
             outInfo[0] = &encSurfaceInfo;
@@ -4508,6 +4603,10 @@ public:
             }
             filterframes.pop_front();
 
+            if (m_encUploadViaHost) {
+                const auto err = uploadToEncSurface(mfxsurfOut, clevent);
+                if (err != RGY_ERR_NONE) return err;
+            }
             if (clFrameOutInterop && !useReleaseWorker()) {
                 auto err = RGY_ERR_NONE;
                 {
@@ -4536,7 +4635,10 @@ public:
                 surfVppOut.frame()->setPicstruct(encSurfaceInfo.picstruct);
                 surfVppOut.frame()->setFlags(encSurfaceInfo.flags);
                 surfVppOut.frame()->setDataList(encSurfaceInfo.dataList);
-                if (surfVppOut.sys()) {
+                if (m_encUploadViaHost) {
+                    // 転送は完了済みなので、出力surfaceにOpenCLのeventや入力依存を持たせる必要はない。
+                    outputSurfs.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, nullptr));
+                } else if (surfVppOut.sys()) {
                     surfVppOut.frame()->setDuration(encSurfaceInfo.duration);
                     // 入力プールが転送完了前に再利用されないよう、出力ごとに入力の参照を保持する。
                     std::unique_ptr<PipelineTaskOutput> dependency;

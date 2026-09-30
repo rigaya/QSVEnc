@@ -2037,6 +2037,80 @@ __kernel void kernel_crop_ayuv_yuv444(
     }
 }
 
+__kernel void kernel_crop_y410_yuv444(
+#if IMAGE_DST
+    __write_only image2d_t dstY,
+    __write_only image2d_t dstU,
+    __write_only image2d_t dstV,
+#else
+    __global uchar *dstY,
+    __global uchar *dstU,
+    __global uchar *dstV,
+#endif
+    int dstPitch,
+    int dstWidth,
+    int dstHeight,
+    __global uchar *src,
+    int srcPitch,
+    int srcWidth,
+    int srcHeight,
+    int cropX,
+    int cropY
+) {
+    const int dst_x = get_global_id(0);
+    const int dst_y = get_global_id(1);
+
+    if (dst_x < dstWidth && dst_y < dstHeight) {
+        const int loadx = dst_x + cropX;
+        const int loady = dst_y + cropY;
+        // Y410は下位からU、Y、Vの10bit成分と2bitのアルファ。
+        const uint pix = ((__global uint *)(src + loady * srcPitch))[loadx];
+        TypeOut pixY = (TypeOut)BIT_DEPTH_CONV((pix >> 10) & 1023u);
+        TypeOut pixU = (TypeOut)BIT_DEPTH_CONV(pix & 1023u);
+        TypeOut pixV = (TypeOut)BIT_DEPTH_CONV((pix >> 20) & 1023u);
+        STORE(dstY, dst_x, dst_y, pixY);
+        STORE(dstU, dst_x, dst_y, pixU);
+        STORE(dstV, dst_x, dst_y, pixV);
+    }
+}
+
+__kernel void kernel_crop_y416_yuv444(
+#if IMAGE_DST
+    __write_only image2d_t dstY,
+    __write_only image2d_t dstU,
+    __write_only image2d_t dstV,
+#else
+    __global uchar *dstY,
+    __global uchar *dstU,
+    __global uchar *dstV,
+#endif
+    int dstPitch,
+    int dstWidth,
+    int dstHeight,
+    __global uchar *src,
+    int srcPitch,
+    int srcWidth,
+    int srcHeight,
+    int cropX,
+    int cropY
+) {
+    const int dst_x = get_global_id(0);
+    const int dst_y = get_global_id(1);
+
+    if (dst_x < dstWidth && dst_y < dstHeight) {
+        const int loadx = dst_x + cropX;
+        const int loady = dst_y + cropY;
+        // Y416はU、Y、V、アルファの順に16bit成分を格納する。
+        const ushort4 pix = ((__global ushort4 *)(src + loady * srcPitch))[loadx];
+        TypeOut pixY = (TypeOut)BIT_DEPTH_CONV(pix.y);
+        TypeOut pixU = (TypeOut)BIT_DEPTH_CONV(pix.x);
+        TypeOut pixV = (TypeOut)BIT_DEPTH_CONV(pix.z);
+        STORE(dstY, dst_x, dst_y, pixY);
+        STORE(dstU, dst_x, dst_y, pixU);
+        STORE(dstV, dst_x, dst_y, pixV);
+    }
+}
+
 __kernel void kernel_crop_rgb32_rgb(
 #if IMAGE_DST
     __write_only image2d_t dstR,

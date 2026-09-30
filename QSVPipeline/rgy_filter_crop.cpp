@@ -580,6 +580,11 @@ RGY_ERR RGYFilterCspCrop::convertCspFromAYUVPacked444(RGYFrameInfo *pOutputFrame
         AddMessage(RGY_LOG_ERROR, _T("Invalid parameter type.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+    const bool packedHighBit = pInputFrame->csp == RGY_CSP_Y410 || pInputFrame->csp == RGY_CSP_Y416;
+    if (packedHighBit && pInputFrame->mem_type != RGY_MEM_TYPE_GPU) {
+        AddMessage(RGY_LOG_ERROR, _T("Y410/Y416 input conversion requires an OpenCL buffer.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
     static const auto supportedCspAYUV444 = make_array<RGY_CSP>(RGY_CSP_VUYA, RGY_CSP_VUYA_16);
     if (pOutputFrame->csp == pInputFrame->csp
         && std::find(supportedCspAYUV444.begin(), supportedCspAYUV444.end(), pCropParam->frameOut.csp) != supportedCspAYUV444.end()) {
@@ -604,17 +609,19 @@ RGY_ERR RGYFilterCspCrop::convertCspFromAYUVPacked444(RGYFrameInfo *pOutputFrame
     if (std::find(supportedCspYUV444.begin(), supportedCspYUV444.end(), pCropParam->frameOut.csp) != supportedCspYUV444.end()) {
         RGYWorkSize local(32, 8);
         RGYWorkSize global(pInputFrame->width, pInputFrame->height);
-        auto err = copyProgram->kernel("kernel_crop_ayuv_yuv444").config(queue, local, global, wait_events, event).launch(
+        const char *kernelName = pInputFrame->csp == RGY_CSP_Y410 ? "kernel_crop_y410_yuv444"
+            : pInputFrame->csp == RGY_CSP_Y416 ? "kernel_crop_y416_yuv444" : "kernel_crop_ayuv_yuv444";
+        auto err = copyProgram->kernel(kernelName).config(queue, local, global, wait_events, event).launch(
             (cl_mem)planeDstY.ptr[0], (cl_mem)planeDstU.ptr[0], (cl_mem)planeDstV.ptr[0],
             planeDstY.pitch[0], planeDstY.width, planeDstY.height,
             (cl_mem)pInputFrame->ptr[0], pInputFrame->pitch[0], pInputFrame->width, pInputFrame->height,
             pCropParam->crop.e.left, pCropParam->crop.e.up);
         if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("error at kernel_crop_ayuv_yuv444 (convertCspFromAYUVPacked444(%s -> %s)): %s.\n"),
+            AddMessage(RGY_LOG_ERROR, _T("error at packed YUV444 conversion (convertCspFromAYUVPacked444(%s -> %s)): %s.\n"),
                 RGY_CSP_NAMES[pInputFrame->csp], RGY_CSP_NAMES[pOutputFrame->csp], get_err_mes(err));
             return err;
         }
-    } else if (std::find(supportedCspYV12.begin(), supportedCspYV12.end(), pCropParam->frameOut.csp) != supportedCspYV12.end()) {
+    } else if (!packedHighBit && std::find(supportedCspYV12.begin(), supportedCspYV12.end(), pCropParam->frameOut.csp) != supportedCspYV12.end()) {
         RGYWorkSize local(32, 8);
         RGYWorkSize global(planeDstU.width, planeDstU.height);
         auto err = copyProgram->kernel("kernel_crop_ayuv_yv12").config(queue, local, global, wait_events, event).launch(
@@ -1092,7 +1099,8 @@ RGY_ERR RGYFilterCspCrop::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
             sts = convertCspFromYV12(ppOutputFrames[0], pInputFrame, queue, wait_events, event);
         } else if (std::find(supportedCspYUV444.begin(), supportedCspYUV444.end(), pCropParam->frameIn.csp) != supportedCspYUV444.end()) {
             sts = convertCspFromYUV444(ppOutputFrames[0], pInputFrame, queue, wait_events, event);
-        } else if (std::find(supportedCspAYUV444.begin(), supportedCspAYUV444.end(), pCropParam->frameIn.csp) != supportedCspAYUV444.end()) {
+        } else if (pCropParam->frameIn.csp == RGY_CSP_Y410 || pCropParam->frameIn.csp == RGY_CSP_Y416
+            || std::find(supportedCspAYUV444.begin(), supportedCspAYUV444.end(), pCropParam->frameIn.csp) != supportedCspAYUV444.end()) {
             sts = convertCspFromAYUVPacked444(ppOutputFrames[0], pInputFrame, queue, wait_events, event);
 #if 0
         } else if (std::find(supportedCspNV16.begin(), supportedCspNV16.end(), pCropParam->frameIn.csp) != supportedCspNV16.end()) {

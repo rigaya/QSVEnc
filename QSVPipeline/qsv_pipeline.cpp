@@ -6145,6 +6145,17 @@ RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
         }
     }
     if (m_pmfxENC) {
+        const auto fourcc = m_encParams.videoPrm.mfx.FrameInfo.FourCC;
+        if (fourcc == MFX_FOURCC_AYUV || fourcc == MFX_FOURCC_Y410 || fourcc == MFX_FOURCC_Y416) {
+            // エンコーダへ直接出力する最後のOpenCLタスクだけをホスト経由にする。
+            for (auto it = m_pipelineTasks.rbegin(); it != m_pipelineTasks.rend(); ++it) {
+                if ((*it)->isPassThrough()) continue;
+                if (auto taskOpenCL = dynamic_cast<PipelineTaskOpenCL *>(it->get())) {
+                    taskOpenCL->setEncUploadViaHost();
+                }
+                break;
+            }
+        }
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXEncode>(&m_device->mfxSession(), 1, m_pmfxENC.get(), m_mfxVer, m_encParams, m_timecode.get(), m_encTimestamp.get(), m_outputTimebase, m_dynamicRC, m_hdr10plus.get(), m_dovirpu.get(), m_pQSVLog));
     } else {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskOutputRaw>(&m_device->mfxSession(), m_pFileWriter.get(), m_timecode.get(), m_outputTimebase, 1, m_mfxVer, m_pQSVLog));
