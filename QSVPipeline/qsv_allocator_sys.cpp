@@ -209,10 +209,11 @@ mfxStatus QSVAllocatorSys::FrameLock(mfxMemId mid, mfxFrameData *ptr) {
         ptr->PitchLow = (mfxU16)WidthAlign * 2;
         break;
     case MFX_FOURCC_AYUV:
-        ptr->Y = ptr->B;
-        ptr->U = ptr->Y + 1;
-        ptr->V = ptr->Y + 2;
-        ptr->A = ptr->Y + 3;
+        // D3D面と同じVUYA順に揃える。BはVと同じunionなので、先頭のまま保持する。
+        ptr->V = ptr->B;
+        ptr->U = ptr->V + 1;
+        ptr->Y = ptr->V + 2;
+        ptr->A = ptr->V + 3;
         ptr->PitchHigh = (mfxU16)((4 * WidthAlign) / (1 << 16));
         ptr->PitchLow = (mfxU16)((4 * WidthAlign) % (1 << 16));
         break;

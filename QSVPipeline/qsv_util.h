@@ -484,7 +484,10 @@ static inline RGYFrameInfo frameinfo_enc_to_rgy(const mfxFrameSurface1& mfx) {
     info.inputFrameId = mfx.Data.FrameOrder;
     info.flags = (RGY_FRAME_FLAGS)mfx.Data.DataFlag;
     memset(info.ptr, 0, sizeof(info.ptr));
-    if (mfx.Info.FourCC == MFX_FOURCC_Y410) {
+    if (mfx.Info.FourCC == MFX_FOURCC_AYUV) {
+        // packed VUYAの先頭はYポインタではなく、全成分ポインタの最小値。
+        info.ptr[0] = (std::min)((std::min)(mfx.Data.Y, mfx.Data.U), (std::min)(mfx.Data.V, mfx.Data.A));
+    } else if (mfx.Info.FourCC == MFX_FOURCC_Y410) {
         info.ptr[0] = (uint8_t *)mfx.Data.Y410;
     } else if (mfx.Info.FourCC == MFX_MAKEFOURCC('R','G','B','3') // MFX_FOURCC_RGB3
             || mfx.Info.FourCC == MFX_FOURCC_RGB4) {
