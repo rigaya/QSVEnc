@@ -793,6 +793,14 @@ RGY_ERR CQSVPipeline::InitMfxEncodeParams(sInputParams *pInParams, std::vector<s
         default:             pInParams->GopRefDist = QSV_DEFAULT_H264_GOP_REF_DIST; break;
         }
     }
+    // ICQ では LookAheadDepth を渡さない。ffmpeg の qsvenc も ICQ ではこのフィールドを設定しない。
+    // Intel Graphics Driver 32.0.101.9033 では AV1 ICQ + LookAheadDepth がエンコード開始時に停止する。
+    if (pInParams->rcParam.encMode == MFX_RATECONTROL_ICQ
+        && pInParams->nLookaheadDepth > 0) {
+        PrintMes(RGY_LOG_WARN, _T("LookaheadDepth is not used with ICQ mode and will be disabled.\n"));
+        PrintMes(RGY_LOG_WARN, _T("If LookaheadDepth is required, use a bitrate mode such as --vbr or --cbr.\n"));
+        pInParams->nLookaheadDepth = 0;
+    }
 #if defined(_WIN32) || defined(_WIN64)
     // Intel Graphics Driver 32.0.101.8801でHEVC + Bframes + LookaheadDepthがGPU hangする問題の回避。
     if (pInParams->codec == RGY_CODEC_HEVC

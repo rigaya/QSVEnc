@@ -866,10 +866,10 @@ best, higher, high, balanced(default), fast, faster, fastest
 あらかじめ分析するフレームの枚数を指定する。(10-100)  
 インタレ保持の場合には、上限は半分の50となる。
 
-AV1でlookaheadを使用したい場合は、従来の`--la` / `--la-icq` / `--la-hrd`レート制御モードではなく、EncToolsのLookAheadDepthとして`--la-depth`を`--vbr` / `--cbr` / `--icq`などに重ねて使用する。IntelのFFmpeg QSV向け例ではExtBRCと組み合わせて有効化しているため、`--extbrc`と併用する。AV1の画質重視の例:
+AV1でlookaheadを使用したい場合は、従来の`--la` / `--la-icq` / `--la-hrd`レート制御モードではなく、EncToolsのLookAheadDepthとして`--la-depth`を`--vbr` / `--cbr`に重ねて使用する。`--icq`では`--la-depth`は使われず、警告のうえ 0 に戻される。IntelのFFmpeg QSV向け例ではExtBRCと組み合わせて有効化しているため、`--extbrc`と併用する。例:
 
 ```
---codec av1 --icq 24 --la-depth 40 --extbrc --i-adapt --b-adapt
+--codec av1 --vbr 4000 --la-depth 40 --extbrc --i-adapt --b-adapt
 ```
 
 ### --la-window-size &lt;int&gt; 0(自動)
