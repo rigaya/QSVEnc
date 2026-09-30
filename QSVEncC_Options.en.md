@@ -4214,7 +4214,7 @@ OpenVINO-backed CNN filter, loads an ONNX/IR model directly and runs it on the G
 
 Models can be downloaded from [https://github.com/rigaya/HWEnc-onnx-models/releases](https://github.com/rigaya/HWEnc-onnx-models/releases), and the extracted directory should be specified by [`--vpp-onnx-model-dir`](#--vpp-onnx-model-dir-string).
 
-On Linux, OpenVINO Runtime must be installed separately. For Ubuntu installation instructions, see [Additional Tools in the installation guide](./Install.en.md#4-addtional-tools).
+On Linux, OpenVINO Runtime must be installed separately. For Ubuntu installation instructions, see [Additional Tools in the installation guide](./Install.en.md#6-additional-tools).
 
 Pre/post processing is inferred from the model channel count: 1ch=luma SR, 3ch=RGB, 4ch=RGB+noise, 2ch=gray+noise, 3→2ch=chroma.
 

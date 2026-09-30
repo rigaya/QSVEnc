@@ -19,55 +19,51 @@ QSVEncC could be run directly from the extracted directory.
   
 ## Linux (Ubuntu 20.04 and later)
 
-On Linux, Intel GPU encoding can use either QSV or VA-API.
+On Linux, QSV and VA-API can be used to encode with Intel GPUs.
 
-| Backend | QSV | VA-API |
+| Method | QSV | VA-API |
 |:--|:--|:--|
-| Required runtime | VPL (`libmfx-gen`) for Tiger Lake and later; Media SDK (`libmfx1`) for supported earlier GPUs | VA driver (`iHD` / `i965`) only; no VPL / Media SDK runtime |
-| HW decoding (`--avhw`) | Supported | Unsupported; `--avsw` and automatic input selection use software decoding |
-| Filters | MFX VPP / OpenCL | OpenCL only; encoding without filters if OpenCL is unavailable |
-| Encoder settings | Detailed MFX settings | Basic rate control, GOP and quality settings; unsupported MFX-specific settings are ignored with a warning, while some produce an error |
+| Required runtime | VPL (`libmfx-gen`) for Tiger Lake and later, Media SDK (`libmfx1`) for earlier supported GPUs | VA driver (`iHD` / `i965`) only. VPL / Media SDK are not required |
+| HW decode (`--avhw`) | Supported | Not supported. `--avsw` and automatic reader selection use software decode |
+| Filters | MFX VPP / OpenCL | OpenCL only. Without OpenCL, encode without filters |
+| Encode settings | Detailed MFX settings | Basic settings such as rate control, GOP and quality only. Some options are not supported |
 
-See [--backend](./QSVEncC_Options.en.md#--backend-autoqsvvaapi) for detailed support. As a performance reference, encoding the same input with `--avsw` on Arc A310 / Ubuntu 26.04 / iHD 26.3.2 from the kobuk-team PPA reached approximately 96% of QSV speed for H.264 and 101% for HEVC. Results depend on the GPU, driver and settings.
+See [--backend](./QSVEncC_Options.en.md#--backend-autoqsvvaapi) for details.
 
-Use VA-API when the GPU or distribution has no VPL runtime, or when an older GPU can only use i965. For example, Ubuntu 26.04 has no `libmfx1` package, leaving Kaby Lake (Gen9, including HD 630) without a VPL runtime. VA-API was verified in Ubuntu 24.04 Docker containers with the standard 24.1 driver and on Ubuntu 26.04 hardware with iHD 26.3.2 from the kobuk-team PPA. Operation with Ubuntu 26.04's standard iHD 26.1.2 driver has not been verified.
+Use VA-API for GPUs / distributions without a VPL runtime, and for older generations that can only use i965. For example, Ubuntu 26.04 does not provide `libmfx1`, so Gen11 and earlier iGPUs have no VPL runtime there.
 
-The default `--backend auto` tries QSV and switches to VA-API if no device is available. It skips QSV and selects VA-API directly in these cases:
+The default `--backend auto` tries QSV, and switches to VA-API if the device is not available. VA-API is selected without trying QSV in the following cases.
 
 - `QSVENC_VPL_DISABLE=1` is set.
 - `LIBVA_DRIVER_NAME` is set to a value other than `iHD` (case-insensitive).
-- `iHD_drv_video.so` is not found in the driver search paths, such as an i965-only installation.
+- `iHD_drv_video.so` is not found in the driver search path (e.g. environments with i965 only).
 
-Encoding errors after QSV has been selected do not trigger a switch. If the VPL runtime crashes at startup, use `QSVENC_VPL_DISABLE=1 qsvencc ...` to avoid loading it. Select VA-API explicitly with `--backend vaapi`, or QSV with `--backend qsv`.
+If the VPL runtime crashes at startup, use `QSVENC_VPL_DISABLE=1 qsvencc ...` to avoid loading VPL. Use `--backend vaapi` to select VA-API explicitly, or `--backend qsv` to select QSV explicitly.
 
-### 1. Preparation
+### 1. Drivers
 
-#### 1-1. Using QSV: Add the Intel Media driver repository
+Available methods and required packages depend on the GPU generation.
 
-The Intel repository commands below are for Ubuntu 22.04 / 24.04. For VA-API-only operation, proceed to section 1-2.
+| GPU | QSV | VA-API |
+|:--|:--|:--|
+| Gen12 and later<br>(Tiger Lake, Rocket Lake, Alder Lake, Raptor Lake, Arc dGPU, etc.) | iHD + VPL | iHD |
+| Gen8 - Gen11<br>(Broadwell, Skylake, Kaby Lake, Coffee Lake, Apollo Lake, Gemini Lake, Ice Lake, Elkhart Lake, etc.) | iHD + Media SDK<br>(not available on Ubuntu 26.04, as `libmfx1` is not provided) | iHD |
+| Haswell and earlier | Not available | i965 |
 
-:::note warn  
-**If your system includes Gen11 or earlier GPUs, skip this section and proceed to section 2.**
+The package source depends on the Ubuntu version.
 
-Intel repository will provide the latest user mode driver, but intel-opencl-icd 24.35 supports only Gen12 or later, resulting failure when detecting Gen11 iGPU or before. Please use standard Ubuntu repo which provides intel-opencl-icd 23.43 (Ubuntu 24.04) or 22.14 (Ubuntu 22.04).
+| Ubuntu | Source |
+|:--|:--|
+| 22.04 / 24.04 | Intel repository (register in 1-1.) |
+| 26.04 | Ubuntu standard repository |
 
-If Gen11 or earlier and Gen12 or later GPUs are mixed in the same PC, perform this section, and then add the OpenCL runtime for Gen11 or earlier following [3-1.](#3-1-when-mixing-gen11-or-earlier-and-gen12-or-later-gpus).
+#### 1-1. Register the Intel repository (Ubuntu 22.04 / 24.04)
 
-- Gen11 or before: Broadwell, Skylake, Kaby Lake, Coffee Lake, Apollo Lake, Gemini Lake, Ice Lake, Elkhart Lake
-- Gen12 or later: Tiger Lake, Rocket Lake, Alder Lake, Raptor Lake, Arc dGPU など
-::
-
-Intel media driver can be installed following instruction on [this link](https://dgpu-docs.intel.com/driver/client/overview.html).
-
-First, install required tools.
+Register the repository following [this link](https://dgpu-docs.intel.com/driver/client/overview.html). It can be registered regardless of the GPU generation (for OpenCL on Gen11 and earlier, see the table in 2-1.).
 
 ```Shell
 sudo apt-get install -y gpg-agent wget
-```
 
-Next, add Intel package repository.
-
-```Shell
 # Ubuntu 24.04
 wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | sudo gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
 echo "deb [arch=amd64,i386 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu noble unified" | \
@@ -77,72 +73,65 @@ echo "deb [arch=amd64,i386 signed-by=/usr/share/keyrings/intel-graphics.gpg] htt
 wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | sudo gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
 echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy unified" | \
   sudo tee /etc/apt/sources.list.d/intel-gpu-jammy.list
+
+sudo apt update
 ```
 
-#### 1-2. Using VA-API
+#### 1-2. Install drivers
 
-Install a VA driver from the standard Ubuntu 24.04 / 26.04 repositories. For iHD, use `intel-media-va-driver-non-free` (multiverse, recommended) or the free `intel-media-va-driver` package.
+Install the packages required in the table of 1.
+
+| Component | Package |
+|:--|:--|
+| iHD | `intel-media-va-driver-non-free` |
+| VPL | `libmfxgen1` (Intel repository) / `libmfx-gen1.2` (Ubuntu standard) |
+| Media SDK | `libmfx1` |
+| i965 | `i965-va-driver-shaders` |
 
 ```Shell
-sudo apt install --no-install-recommends libva2 libva-drm2 libva-x11-2 intel-media-va-driver-non-free vainfo
+# Common
+sudo apt install libva2 libva-drm2 libva-x11-2 vainfo
+
+# Gen12 and later (QSV / VA-API)
+sudo apt install intel-media-va-driver-non-free libmfxgen1      # 22.04 / 24.04 (Intel repository)
+sudo apt install intel-media-va-driver-non-free libmfx-gen1.2   # 26.04
+
+# Gen8 - Gen11
+sudo apt install intel-media-va-driver-non-free libmfx1         # 22.04 / 24.04 (QSV / VA-API)
+sudo apt install intel-media-va-driver-non-free                 # 26.04 (VA-API only, as libmfx1 is not provided)
+
+# Haswell and earlier (VA-API only)
+sudo apt install i965-va-driver-shaders
 ```
 
-For the free version, replace the driver package above with `intel-media-va-driver`. Capabilities depend on the GPU and driver version. On i3-N305 with Ubuntu 24.04, the free 24.1 driver exposed only EncSliceLP for H.264 / HEVC, without ICQ / AVBR. The non-free version exposed EncSlice / EncSliceLP and ICQ, plus AVBR for H.264. Check the actual capabilities with `--check-features` in section 5.
+For i965, use `i965-va-driver-shaders` (includes prebuilt shaders).
 
-For older GPUs using i965, install `i965-va-driver-shaders` (multiverse, with prebuilt shaders), which was verified for encoding on hardware. The universe package `i965-va-driver` does not include shaders and may not encode on some generations; it is not recommended here because operation has not been verified.
+### 2. OpenCL
+
+OpenCL filters require an OpenCL runtime that supports the GPU. If no OpenCL runtime supports the GPU, encode without filters.
+
+#### 2-1. Intel (recommended)
+
+The package depends on the GPU generation and the Ubuntu version.
+
+| GPU | 22.04 / 24.04 (Intel repository) | 26.04 |
+|:--|:--|:--|
+| Gen12 and later | `intel-opencl-icd` | `intel-opencl-icd` |
+| Gen9 - Gen11 | legacy1 (distributed by Intel, installed manually as below) | `intel-opencl-icd-legacy` |
+| Mixed | Use both of the above | Use both of the above |
+| Gen8 and earlier | None | None |
+
+`intel-opencl-icd` in the Intel repository supports Gen12 and later only, so install the legacy runtime separately for Gen9 - Gen11. The legacy runtime is a separate package with a separate ICD from the one for Gen12 and later, so both can coexist. QSVEncC 8.31 or later is required for environments with multiple Intel OpenCL platforms.
 
 ```Shell
-sudo apt install --no-install-recommends libva2 libva-drm2 libva-x11-2 i965-va-driver-shaders vainfo
-```
-
-OpenCL filters and handling resolution changes during avsw input also require an OpenCL runtime that supports the GPU. It is optional for encoding without filters when input resolution remains constant.
-
-```Shell
+# Gen12 and later
 sudo apt install intel-opencl-icd clinfo
-```
 
-For Gen9 GPUs (including HD 630) on Ubuntu 26.04, use [intel-opencl-icd-legacy](https://packages.ubuntu.com/resolute/intel-opencl-icd-legacy) from the standard universe repository instead of the regular `intel-opencl-icd`.
-
-```Shell
+# Gen9 - Gen11 (26.04)
 sudo apt install intel-opencl-icd-legacy clinfo
 ```
 
-OpenCL hardware testing on 26.04 used `intel-opencl-icd` 26.31 from the kobuk-team PPA and the Intel-provided runtime in [3-1.](#3-1-when-mixing-gen11-or-earlier-and-gen12-or-later-gpus). Operation with the standard `intel-opencl-icd` 26.05 / `intel-opencl-icd-legacy` packages has not been verified.
-
-Mesa rusticl (`sudo apt install mesa-opencl-icd clinfo`) is another option. `qsvencc` automatically sets `RUSTICL_ENABLE=iris` if the variable is unset. However, it was much slower than Intel OpenCL in the tested environment. If no OpenCL runtime supports the GPU, use encoding without filters.
-
-Official deb packages list `libva-x11-2` as a dependency, so it is needed even for headless operation. They are built on an Ubuntu 20.04 base and use the system libva at runtime. When building from source, use libva compatible with the target environment and install any additional shared libraries listed by `ldd ./qsvencc`. See the [build instructions](./Build.en.md).
-
-### 2. Add the user to GPU access groups
-
-Set up the `video` and `render` groups for QSV / VA-API / OpenCL access. Log out and back in after changing group membership.
-
-```Shell
-# QSV
-sudo gpasswd -a ${USER} video
-# OpenCL
-sudo gpasswd -a ${USER} render
-```
-
-### 3. Install qsvencc
-
-The official distribution provides a single deb built on an Ubuntu 20.04 base. Use the same deb on Ubuntu 20.04 and later (including 26.04), and on apt-based distributions where the required dependencies are available. GPU-specific drivers and runtimes are still required.
-
-Download deb package from [this link](https://github.com/rigaya/QSVEnc/releases), and install running the following command line. Please note "x.xx" should be replaced to the target version name.
-
-```Shell
-sudo apt install ./qsvencc_x.xx_amd64.deb
-```
-
-Official deb packages list QSV / OpenCL runtimes under Recommends. For VA-API-only operation, install the driver from section 1-2 and use `sudo apt install --no-install-recommends ./qsvencc_x.xx_amd64.deb` to skip recommended packages. Adjust the filename to the package you downloaded.
-
-### 3-1. When mixing Gen11 or earlier and Gen12 or later GPUs
-
-The following procedure manually installs Intel's `intel-opencl-icd-legacy1` package. This method was also verified for OpenCL on HD 630 with Ubuntu 26.04. Its package name differs from `intel-opencl-icd-legacy` in the standard repository.
-
-On Ubuntu 22.04 / 24.04, when Gen11 or earlier GPUs (e.g. Kaby Lake iGPU) and Gen12 or later GPUs (e.g. Arc dGPU) are mixed in the same PC, intel-opencl-icd from the standard Ubuntu repo does not support newer Gen12 or later GPUs, while intel-opencl-icd from the Intel repository cannot detect Gen11 or earlier OpenCL devices.
-
-In this case, install intel-opencl-icd for Gen12 or later from the Intel repository registered in section 1, and then add the OpenCL runtime for Gen11 or earlier (legacy1) provided by Intel. legacy1 is a separate package with a separate ICD (```/etc/OpenCL/vendors/intel_legacy1.icd```) from the normal intel-opencl-icd, so both can coexist. Note that QSVEncC 8.31 or later is required, which supports environments with multiple Intel OpenCL platforms.
+Install legacy1 for Gen9 - Gen11 on 22.04 / 24.04 as below. Its package name differs from `intel-opencl-icd-legacy` in the Ubuntu standard repository.
 
 ```Shell
 mkdir -p ~/neo-legacy1 && cd ~/neo-legacy1
@@ -160,25 +149,77 @@ sudo apt install ./intel-igc-core_1.0.17537.24_amd64.deb ./intel-igc-opencl_1.0.
 sudo ldconfig
 ```
 
-After installation, check that both Gen11 or earlier and Gen12 or later GPUs are listed by ```clinfo -l```.
+After installation, check that the target GPUs are listed by `clinfo -l`.
 
-### 3-2. Check VA-API / OpenCL detection
+#### 2-2. Mesa
 
-Use `vainfo` to check that the target GPU lists `VAEntrypointEncSlice` or `VAEntrypointEncSliceLP` for the codec. With multiple GPUs, replace `renderD128` with the target node, such as `renderD129`.
+Mesa OpenCL (rusticl) can also be used. However, it was much slower than Intel OpenCL in the tested environment.
+
+```Shell
+sudo apt install mesa-opencl-icd clinfo
+```
+
+Intel GPUs are disabled in rusticl by default, but `qsvencc` automatically sets `RUSTICL_ENABLE=iris` if the variable is unset.
+
+### 3. Add the user to groups
+
+`video` and `render` groups are required to use QSV / VA-API / OpenCL. Log in again after the change.
+
+```Shell
+sudo gpasswd -a ${USER} video
+sudo gpasswd -a ${USER} render
+```
+
+### 4. Install qsvencc
+
+A common deb is used for Ubuntu 20.04 and later (including 26.04) and apt-based distributions where the required dependencies can be installed.
+
+Download the deb file from [this link](https://github.com/rigaya/QSVEnc/releases), and install as below. Replace "x.xx" with the version to install.
+
+```Shell
+sudo apt install ./qsvencc_x.xx_amd64.deb
+```
+
+### 5. Check QSV / VA-API / OpenCL detection
+
+Check with `vainfo` that `VAEntrypointEncSlice` or `VAEntrypointEncSliceLP` is listed for the codecs of the target GPU. With multiple GPUs, replace `renderD128` with the target node (e.g. `renderD129`). Check OpenCL with `clinfo -l`.
 
 ```Shell
 vainfo --display drm --device /dev/dri/renderD128
 clinfo -l
 ```
 
-Set `LIBVA_DRIVER_NAME=i965` to use i965; use this setting for `qsvencc` too. When checking rusticl with `clinfo`, explicitly set `RUSTICL_ENABLE=iris`, since it is not set automatically for this tool.
+Set `LIBVA_DRIVER_NAME=i965` to use i965; use this setting for `qsvencc` too. When checking rusticl with `clinfo`, set `RUSTICL_ENABLE=iris` explicitly, since it is not set automatically for this tool.
 
 ```Shell
 LIBVA_DRIVER_NAME=i965 vainfo --display drm --device /dev/dri/renderD128
 RUSTICL_ENABLE=iris clinfo -l
 ```
 
-### 4. Addtional Tools
+Check encoding availability, device numbers and detailed capabilities with qsvencc.
+
+```Shell
+# QSV
+qsvencc --backend qsv --check-hw
+qsvencc --backend qsv --check-device
+qsvencc --backend qsv --check-features
+
+# VA-API
+qsvencc --backend vaapi --check-hw
+qsvencc --backend vaapi --check-device
+qsvencc --backend vaapi --check-features
+```
+
+With VA-API, `-d` assigns QSV's numbers to GPUs available through VPL, and subsequent numbers to other GPUs. If VPL is unavailable (including an explicit disable, a non-iHD driver setting, or a missing iHD driver), Intel render node order is used. After switching backends or drivers, check the numbers with `--backend vaapi --check-device`.
+
+```Shell
+LIBVA_DRIVER_NAME=i965 qsvencc --backend vaapi --check-device
+LIBVA_DRIVER_NAME=i965 qsvencc --backend vaapi -d 1 --avsw -i input.mp4 -c h264 --cqp 25 -o output.mp4
+```
+
+If opening the GPU fails with `Permission denied`, check the `render` / `video` group settings in 3.
+
+### 6. Additional Tools
 
 There are some features which require additional installations.  
 
@@ -207,27 +248,7 @@ sudo apt update
 sudo apt install openvino
 ```
 
-### 5. Check detection in qsvencc
-
-Select VA-API explicitly to check encoding availability, device numbers and detailed capabilities.
-
-```Shell
-qsvencc --backend vaapi --check-hw
-qsvencc --backend vaapi --check-device
-qsvencc --backend vaapi --check-features
-qsvencc --backend vaapi --avsw -i input.mp4 -c h264 --cqp 25 -o output.mp4
-```
-
-Use `qsvencc --backend qsv --check-hw` to check QSV. With VA-API, `-d` assigns QSV's numbers to GPUs available through VPL, and subsequent numbers to other GPUs. If VPL is unavailable (including an explicit disable, a non-iHD driver setting, or a missing iHD driver), Intel render node order is used. After switching backends or drivers, check the numbers with `--backend vaapi --check-device`.
-
-```Shell
-LIBVA_DRIVER_NAME=i965 qsvencc --backend vaapi --check-device
-LIBVA_DRIVER_NAME=i965 qsvencc --backend vaapi -d 1 --avsw -i input.mp4 -c h264 --cqp 25 -o output.mp4
-```
-
-If opening the GPU fails with `Permission denied`, check the `render` / `video` group settings in section 2.
-
-### 6. Others
+### 7. Others
 
 - Error: "Failed to load OpenCL." when running qsvencc  
   Please check if /lib/x86_64-linux-gnu/libOpenCL.so exists. There are some cases that only libOpenCL.so.1 exists. In that case, please create a link using following command line.

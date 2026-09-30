@@ -4272,7 +4272,7 @@ OpenVINOバックエンドのCNNフィルタ。ONNX/IRモデルを読み込みGP
 
 モデルファイルを [https://github.com/rigaya/HWEnc-onnx-models/releases](https://github.com/rigaya/HWEnc-onnx-models/releases) からダウンロードし、[`--vpp-onnx-model-dir`](#--vpp-onnx-model-dir-string) で展開場所を指定してください。
 
-LinuxではOpenVINO Runtimeの追加インストールが必要です。Ubuntuでの導入方法は[インストール方法の追加オプション](./Install.ja.md#4-追加オプション)を参照してください。
+LinuxではOpenVINO Runtimeの追加インストールが必要です。Ubuntuでの導入方法は[インストール方法の追加オプション](./Install.ja.md#6-追加オプション)を参照してください。
 
 モデルのチャンネル数から前処理/後処理が自動推定されます(1ch=輝度SR, 3ch=RGB, 4ch=RGB+ノイズ, 2ch=グレー+ノイズ, 3→2ch=クロマ)。
 
