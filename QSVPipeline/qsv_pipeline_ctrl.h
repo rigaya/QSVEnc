@@ -2863,6 +2863,16 @@ public:
             PrintMes(RGY_LOG_ERROR, _T("Invalid frame type.\n"));
             return RGY_ERR_UNSUPPORTED;
         }
+        // Wait for the producer's (VPP) syncpoint before handing the surface to the encoder.
+        // Workaround: with several sessions on one GPU, the encoder could otherwise encode a stale input surface (#308).
+        // Measurements show a timing window (an unrelated delay also hides it), so this is not a proven missing dependency.
+        if (frame) { // frame is nullptr on the flush call
+            auto err = frame->waitsync();
+            if (err != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to wait for the input frame before encoding: %s.\n"), get_err_mes(err));
+                return err;
+            }
+        }
 
         auto bsOut = m_bitStreamOut.get([enc = m_encode, log = m_log](RGYBitstream *bs) {
             mfxVideoParam par = { 0 };
