@@ -264,7 +264,8 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::buildKernel(const std::shared_ptr<RGYFilt
         " -D RTGMC_SEARCH_REFINE2_GAUSS_W1=%.9ff"
         " -D RTGMC_SEARCH_REFINE2_GAUSS_W2=%.9ff"
         " -D RTGMC_SEARCH_REFINE2_GAUSS_W3=%.9ff"
-        " -D RTGMC_SEARCH_REFINE2_GAUSS_W4=%.9ff",
+        " -D RTGMC_SEARCH_REFINE2_GAUSS_W4=%.9ff"
+        " -D RTGMC_SEARCH_REPAIR_RESTORE=%d",
         bitdepth > 8 ? "ushort" : "uchar",
         pixelMax,
         limitedYMin,
@@ -277,7 +278,8 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::buildKernel(const std::shared_ptr<RGYFilt
         gaussWeights[1],
         gaussWeights[2],
         gaussWeights[3],
-        gaussWeights[4]);
+        gaussWeights[4],
+        (prm->repairProfile.restoreFlags & RGY_RTGMC_REPAIR_RESTORE_ENABLED) ? 1 : 0);
     AddMessage(RGY_LOG_DEBUG, _T("Starting async build for RGY_FILTER_RTGMC_SEARCH_PREFILTER_CL: %s\n"),
         char_to_tstring(m_buildOptions).c_str());
     m_prefilter.set(m_cl->buildResourceAsync(_T("RGY_FILTER_RTGMC_SEARCH_PREFILTER_CL"), _T("EXE_DATA"), m_buildOptions.c_str()));

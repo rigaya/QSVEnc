@@ -66,6 +66,16 @@
 #define RTGMC_SEARCH_REFINE2_GAUSS_W4 0.024685025f
 #endif
 
+// RTGMC_SEARCH_REPAIR_RESTORE: 修復経路(field correction)を使うかどうか。
+// repairProfileはフィルタ初期化時に確定するので、使わない場合はhost側から0を渡し、修復経路をprogramから物理的に除外する。
+// 修復経路は近傍の近傍を画素ごとに再計算する巨大な入れ子ステンシルで、programに含まれているだけで
+// IGCがprogram全体の関数のインライン展開を諦めてstack call化し、pixel_loadのような小関数を含め
+// 全カーネルが関数呼び出し+scratch退避で大幅に遅くなる(B580で時間3tapのみのfield_stable_searchが約750us)。
+// 実行時の分岐やrepairProfileの定数化だけでは関数群がprogramに残るため改善しない。
+#ifndef RTGMC_SEARCH_REPAIR_RESTORE
+#define RTGMC_SEARCH_REPAIR_RESTORE 1
+#endif
+
 #define RTGMC_SEARCH_PREFILTER_SCENECHANGE 28
 #define RTGMC_SEARCH_PREFILTER_BLOCK_PIXELS (rtgmc_search_prefilter_block_x * rtgmc_search_prefilter_block_y)
 #define RTGMC_SEARCH_REPAIR_THIN_WIDE_CORE (1u << 0)
@@ -919,12 +929,14 @@ static inline int rtgmc_search_prefilter_field_corrected_search_value(
     const int py,
     const int smoothRadius,
     const uint repairProfile) {
+#if RTGMC_SEARCH_REPAIR_RESTORE
     if (rtgmc_search_repair_profile_restore_flags(repairProfile) & RTGMC_SEARCH_REPAIR_RESTORE_ENABLED) {
         return rtgmc_search_prefilter_apply_field_correction_value(
             srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
             srcWidth, srcHeight,
             px, py, smoothRadius, repairProfile);
     }
+#endif
     return rtgmc_search_prefilter_temporal_candidate_value(
         srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
         srcWidth, srcHeight,
@@ -1765,10 +1777,15 @@ __kernel void kernel_rtgmc_search_prefilter_debug_positive_correction_gate(
     if (x >= width || y >= height) {
         return;
     }
+#if RTGMC_SEARCH_REPAIR_RESTORE
     const int value = rtgmc_search_prefilter_correction_gate_value(
         prev2, prev, cur, next, next2, pitch,
         width, height,
         x, y, tr0, repairProfile, 1);
+#else
+    // 修復経路を除外したprogramでは補正ゲートは使われないので、中立値(差分0)を出力する。
+    const int value = rtgmc_search_prefilter_range_half();
+#endif
     rtgmc_search_prefilter_pixel_store(dst, pitch, x, y, value);
 }
 
@@ -1790,10 +1807,15 @@ __kernel void kernel_rtgmc_search_prefilter_debug_negative_correction_gate(
     if (x >= width || y >= height) {
         return;
     }
+#if RTGMC_SEARCH_REPAIR_RESTORE
     const int value = rtgmc_search_prefilter_correction_gate_value(
         prev2, prev, cur, next, next2, pitch,
         width, height,
         x, y, tr0, repairProfile, 0);
+#else
+    // 修復経路を除外したprogramでは補正ゲートは使われないので、中立値(差分0)を出力する。
+    const int value = rtgmc_search_prefilter_range_half();
+#endif
     rtgmc_search_prefilter_pixel_store(dst, pitch, x, y, value);
 }
 
