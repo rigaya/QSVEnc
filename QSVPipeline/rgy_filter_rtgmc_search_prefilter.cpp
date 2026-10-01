@@ -75,6 +75,31 @@ static bool rtgmcSearchPrefilterMergeSearchRefine2TileEnabled() {
     return env == nullptr || env[0] != '0';
 }
 
+// 修復経路(rgy_filter_rtgmc_search_prefilter.clのcorrection_gate_value以下)を全展開したときの、
+// 1画素・1極性あたりの補正量(search_correction_delta)評価回数。.cl側の入れ子構造に合わせた概算。
+static int rtgmcSearchRepairInlineCost(const RGYRtgmcRepairProfile &profile) {
+    if (!(profile.restoreFlags & RGY_RTGMC_REPAIR_RESTORE_ENABLED)) {
+        return 0;
+    }
+    if (profile.restoreFlags & RGY_RTGMC_REPAIR_RESTORE_LEVEL4_PATH) {
+        return 5 * (5 + 5 * 10); // 縦5 x (core + mean3x3(core))
+    }
+    const int thinCore = (profile.thinRejectFlags & RGY_RTGMC_REPAIR_THIN_WIDE_CORE) ? 7 : 5;
+    const int coreBlend = thinCore * ((profile.thinRejectFlags & RGY_RTGMC_REPAIR_THIN_CORE_BLEND) ? 10 : 1);
+    const int mid = coreBlend * ((profile.thinRejectFlags & RGY_RTGMC_REPAIR_THIN_RANK_LIMIT) ? 9 : 1);
+    const int base = mid * ((profile.restoreFlags & RGY_RTGMC_REPAIR_RESTORE_WIDE_ENVELOPE) ? 7 : 5);
+    switch (profile.restorePaddingLevel) {
+    case 0: return base;
+    case 1: return base * 10;
+    case 2: return base * 100;
+    default: return base * 9;
+    }
+}
+
+// これ以下ならrepairProfileを定数化してalways_inlineで全展開する。
+// 実測(B580): 550(preset slow以上のlevel4経路)まではビルド約0.3秒、2250(rep0-thin=2)はコンパイルが5分以上終わらない。
+static constexpr int RTGMC_SEARCH_REPAIR_INLINE_COST_MAX = 600;
+
 static std::array<float, 5> rtgmcSearchPrefilterGaussWeights(const float gaussP) {
     std::array<float, 5> weights = {};
     float sum = 0.0f;
@@ -251,6 +276,10 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::buildKernel(const std::shared_ptr<RGYFilt
     const int limitedCOffset = (bitdepth >= 16) ? (128 << 8) : (128 << std::max(bitdepth - 8, 0));
     const int limitedCRange = (bitdepth >= 16) ? (112 << 8) : (112 << std::max(bitdepth - 8, 0));
     const auto gaussWeights = rtgmcSearchPrefilterGaussWeights(2.0f);
+    const int repairInlineCost = rtgmcSearchRepairInlineCost(prm->repairProfile);
+    const std::string repairProfileOption = (repairInlineCost > 0 && repairInlineCost <= RTGMC_SEARCH_REPAIR_INLINE_COST_MAX)
+        ? strsprintf(" -D RTGMC_SEARCH_REPAIR_PROFILE=0x%08xu", rgy_rtgmc_repair_profile_pack(prm->repairProfile))
+        : std::string();
     m_buildOptions = strsprintf(
         "-D TypePixel=%s"
         " -D RTGMC_SEARCH_PREFILTER_PIXEL_MAX=%d"
@@ -265,7 +294,8 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::buildKernel(const std::shared_ptr<RGYFilt
         " -D RTGMC_SEARCH_REFINE2_GAUSS_W2=%.9ff"
         " -D RTGMC_SEARCH_REFINE2_GAUSS_W3=%.9ff"
         " -D RTGMC_SEARCH_REFINE2_GAUSS_W4=%.9ff"
-        " -D RTGMC_SEARCH_REPAIR_RESTORE=%d",
+        " -D RTGMC_SEARCH_REPAIR_RESTORE=%d"
+        "%s",
         bitdepth > 8 ? "ushort" : "uchar",
         pixelMax,
         limitedYMin,
@@ -279,7 +309,8 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::buildKernel(const std::shared_ptr<RGYFilt
         gaussWeights[2],
         gaussWeights[3],
         gaussWeights[4],
-        (prm->repairProfile.restoreFlags & RGY_RTGMC_REPAIR_RESTORE_ENABLED) ? 1 : 0);
+        (prm->repairProfile.restoreFlags & RGY_RTGMC_REPAIR_RESTORE_ENABLED) ? 1 : 0,
+        repairProfileOption.c_str());
     AddMessage(RGY_LOG_DEBUG, _T("Starting async build for RGY_FILTER_RTGMC_SEARCH_PREFILTER_CL: %s\n"),
         char_to_tstring(m_buildOptions).c_str());
     m_prefilter.set(m_cl->buildResourceAsync(_T("RGY_FILTER_RTGMC_SEARCH_PREFILTER_CL"), _T("EXE_DATA"), m_buildOptions.c_str()));
