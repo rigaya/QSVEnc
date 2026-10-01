@@ -357,11 +357,12 @@ public:
 class PipelineTaskOutputSurf : public PipelineTaskOutput {
 protected:
     PipelineTaskSurface m_surf;
+    const bool m_isMfxVppOutput = false; // バイパスされた復号出力をVPP出力と区別する。
     std::unique_ptr<PipelineTaskOutput> m_dependencyFrame;
     std::vector<RGYOpenCLEvent> m_clevents;
 public:
-    PipelineTaskOutputSurf(MFXVideoSession *mfxSession, PipelineTaskSurface surf, mfxSyncPoint syncpoint) :
-        PipelineTaskOutput(mfxSession, PipelineTaskOutputType::SURFACE, syncpoint), m_surf(surf), m_dependencyFrame(), m_clevents() { };
+    PipelineTaskOutputSurf(MFXVideoSession *mfxSession, PipelineTaskSurface surf, mfxSyncPoint syncpoint, bool mfxVppOutput = false) :
+        PipelineTaskOutput(mfxSession, PipelineTaskOutputType::SURFACE, syncpoint), m_surf(surf), m_isMfxVppOutput(mfxVppOutput), m_dependencyFrame(), m_clevents() { };
     PipelineTaskOutputSurf(MFXVideoSession *mfxSession, PipelineTaskSurface surf, mfxSyncPoint syncpoint, std::unique_ptr<PipelineTaskOutputDataCustom>& customData) :
         PipelineTaskOutput(mfxSession, PipelineTaskOutputType::SURFACE, syncpoint, customData), m_surf(surf), m_dependencyFrame(), m_clevents() { };
     PipelineTaskOutputSurf(MFXVideoSession *mfxSession, PipelineTaskSurface surf, std::unique_ptr<PipelineTaskOutput>& dependencyFrame, RGYOpenCLEvent& clevent) :
@@ -375,6 +376,7 @@ public:
     };
 
     PipelineTaskSurface& surf() { return m_surf; }
+    bool isMfxVppOutput() const { return m_isMfxVppOutput; }
 
     void addClEvent(RGYOpenCLEvent& clevent) {
         m_clevents.push_back(clevent);
@@ -2463,7 +2465,8 @@ public:
                 surfVppOut.frame()->setTimestamp(tsMap.timestamp);
                 surfVppOut.frame()->setInputFrameId((int)tsMap.inputFrameId);
                 surfVppOut.frame()->setDataList(m_lastFrameDataList);
-                m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, lastSyncPoint));
+                // 実際のVPP出力だけを識別し、バイパス時の復号出力には追加同期しない。
+                m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, surfVppOut, lastSyncPoint, true));
             }
             if (m_stopwatch) m_stopwatch->add(0, 4);
         } while (vppMoreOutput);
@@ -2638,16 +2641,17 @@ protected:
     const RGYHDR10Plus *m_hdr10plus;
     const DOVIRpu *m_doviRpu;
     encCtrlData m_encCtrlData;
+    const bool m_syncInput;
 public:
     PipelineTaskMFXEncode(
         MFXVideoSession *mfxSession, int outMaxQueueSize, MFXVideoENCODE *mfxencode, mfxVersion mfxVer, QSVVideoParam& encParams,
         RGYTimecode *timecode, RGYTimestamp *encTimestamp, rgy_rational<int> outputTimebase, std::vector<QSVRCParam>& dynamicRC,
-        const RGYHDR10Plus *hdr10plus, const DOVIRpu *doviRpu, std::shared_ptr<RGYLog> log)
+        const RGYHDR10Plus *hdr10plus, const DOVIRpu *doviRpu, bool syncInput, std::shared_ptr<RGYLog> log)
         : PipelineTask(PipelineTaskType::MFXENCODE, outMaxQueueSize, mfxSession, mfxVer, log),
         m_encode(mfxencode), m_timecode(timecode), m_encTimestamp(encTimestamp), m_encParams(encParams), m_outputTimebase(outputTimebase), m_bitStreamOut(),
         m_baseRC(getRCParam(encParams)), m_dynamicRC(dynamicRC), m_appliedDynamicRC(-1),
         m_hdr10plus(hdr10plus), m_doviRpu(doviRpu),
-        m_encCtrlData() {
+        m_encCtrlData(), m_syncInput(syncInput) {
     };
     virtual ~PipelineTaskMFXEncode() {
         m_outQeueue.clear(); // m_bitStreamOutが解放されるよう前にこちらを解放する
@@ -2762,6 +2766,17 @@ public:
         if (frame && frame->type() != PipelineTaskOutputType::SURFACE) {
             PrintMes(RGY_LOG_ERROR, _T("Invalid frame type.\n"));
             return RGY_ERR_UNSUPPORTED;
+        }
+
+        // VAのMFX VPP出力は、暗黙同期だけでエンコーダへ渡すと並列実行時に旧フレームが混入する。
+        // 出力キューによる非同期実行は維持し、エンコーダへ投入する直前に変換の完了を確認する。 (#308)
+        if (frame && m_syncInput && dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->isMfxVppOutput()) {
+            const auto err = frame->waitsync();
+            if (err != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("エンコーダ入力の同期に失敗しました: %s.\n"), get_err_mes(err));
+                // 時間切れの警告も停止扱いにし、入力を破棄したまま正常終了することを防ぐ。
+                return (err < RGY_ERR_NONE) ? err : RGY_ERR_GPU_HANG;
+            }
         }
 
         auto bsOut = m_bitStreamOut.get([enc = m_encode, log = m_log](RGYBitstream *bs) {

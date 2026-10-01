@@ -6156,7 +6156,15 @@ RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
                 break;
             }
         }
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXEncode>(&m_device->mfxSession(), 1, m_pmfxENC.get(), m_mfxVer, m_encParams, m_timecode.get(), m_encTimestamp.get(), m_outputTimebase, m_dynamicRC, m_hdr10plus.get(), m_dovirpu.get(), m_pQSVLog));
+        // VAメモリのMFX VPPは、暗黙同期だけで後段へ渡すと色変換やリサイズで
+        // 並列エンコード時に以前の映像が混入することがあるため、完了を待つ。 (#308)
+        bool syncVppInput = false;
+#if LIBVA_SUPPORT
+        syncVppInput = m_device->memType() == VA_MEMORY
+            && !m_vpFilters.empty()
+            && m_vpFilters.back().type == VppFilterType::FILTER_MFX;
+#endif
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXEncode>(&m_device->mfxSession(), 1, m_pmfxENC.get(), m_mfxVer, m_encParams, m_timecode.get(), m_encTimestamp.get(), m_outputTimebase, m_dynamicRC, m_hdr10plus.get(), m_dovirpu.get(), syncVppInput, m_pQSVLog));
     } else {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskOutputRaw>(&m_device->mfxSession(), m_pFileWriter.get(), m_timecode.get(), m_outputTimebase, 1, m_mfxVer, m_pQSVLog));
     }
