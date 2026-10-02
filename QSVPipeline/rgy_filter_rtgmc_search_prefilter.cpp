@@ -317,6 +317,119 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::buildKernel(const std::shared_ptr<RGYFilt
     return RGY_ERR_NONE;
 }
 
+bool RGYFilterRtgmcSearchPrefilter::useRepairMultipass(const RGYFilterParamRtgmcSearchPrefilter &prm) const {
+    // pad=2/3とthin=4,pad=0の専用level4経路はStep2まで旧経路へ戻す。
+    return !m_repairLegacy && prm.rep0Pad <= 1
+        && (prm.repairProfile.restoreFlags & RGY_RTGMC_REPAIR_RESTORE_ENABLED)
+        && !(prm.repairProfile.restoreFlags & RGY_RTGMC_REPAIR_RESTORE_LEVEL4_PATH);
+}
+
+RGY_ERR RGYFilterRtgmcSearchPrefilter::setupRepairResources(const RGYFilterParamRtgmcSearchPrefilter &prm, const bool processChroma) {
+    for (auto &resources : m_repairPlaneResources) resources.clear();
+    if (!useRepairMultipass(prm)) return RGY_ERR_NONE;
+    const auto setupPlane = [&](int planeIndex, RGY_PLANE plane) -> RGY_ERR {
+        auto info = rtgmcSearchPrefilterPlaneFrameInfo(getPlane(&prm.frameIn, plane));
+        auto &resources = m_repairPlaneResources[planeIndex];
+        resources.temporal = createPlaneFrame(info);
+        resources.delta = createPlaneFrame(info);
+        if (!resources.temporal || !resources.delta) return RGY_ERR_MEMORY_ALLOC;
+        if (resources.temporal->frame.pitch[0] != resources.delta->frame.pitch[0]) return RGY_ERR_INVALID_PARAM;
+        // Step1のFCは画面内のmotionGuideだけが読むため、必要なFCハローは0。
+        // 後段の参照半径を逆順に加算し、画面外でも評価座標をクランプしない。
+        int hx = 0, hy = 0;
+        for (int stage = 4; stage >= 0; stage--) {
+            auto &target = resources.stages[stage];
+            target.hx = hx;
+            target.hy = hy;
+            auto padded = info;
+            padded.width += 2 * hx;
+            padded.height += 2 * hy;
+            for (auto &frame : target.polarity) {
+                frame = createPlaneFrame(padded);
+                if (!frame) return RGY_ERR_MEMORY_ALLOC;
+            }
+            if (target.polarity[0]->frame.pitch[0] != target.polarity[1]->frame.pitch[0]) return RGY_ERR_INVALID_PARAM;
+            if (stage == 4 && prm.rep0Pad == 1) { hx++; hy++; }
+            if (stage == 3) hy += 2 + ((prm.repairProfile.restoreFlags & RGY_RTGMC_REPAIR_RESTORE_WIDE_ENVELOPE) ? 1 : 0);
+            if (stage == 2 && (prm.repairProfile.thinRejectFlags & RGY_RTGMC_REPAIR_THIN_RANK_LIMIT)) { hx++; hy++; }
+            if (stage == 1 && (prm.repairProfile.thinRejectFlags & RGY_RTGMC_REPAIR_THIN_CORE_BLEND)) { hx++; hy++; }
+            // TはDの縦近傍を読むが、Dだけは元画素と同様にクランプしてよい。
+        }
+        return RGY_ERR_NONE;
+    };
+    auto sts = setupPlane(0, RGY_PLANE_Y);
+    if (sts == RGY_ERR_NONE && processChroma) sts = setupPlane(1, RGY_PLANE_U);
+    return sts;
+}
+
+RGY_ERR RGYFilterRtgmcSearchPrefilter::emitFieldStableSearch(const int planeIndex,
+    const RGYFrameInfo &prev2, const RGYFrameInfo &prev, const RGYFrameInfo &cur,
+    const RGYFrameInfo &next, const RGYFrameInfo &next2, const RGYFrameInfo &dst,
+    const RGYFilterParamRtgmcSearchPrefilter &prm, RGYOpenCLQueue &queue,
+    const std::vector<RGYOpenCLEvent> &waitEvents, RGYOpenCLEvent *event) {
+    const auto profile = rgy_rtgmc_repair_profile_pack(prm.repairProfile);
+    const RGYWorkSize local(RTGMC_SEARCH_PREFILTER_BLOCK_X, RTGMC_SEARCH_PREFILTER_BLOCK_Y);
+    if (!useRepairMultipass(prm)) {
+        return m_prefilter.get()->kernel("kernel_rtgmc_search_prefilter_field_stable_search").config(
+            queue, local, RGYWorkSize(cur.width, cur.height), waitEvents, event).launch(
+                (cl_mem)prev2.ptr[0], (cl_mem)prev.ptr[0], (cl_mem)cur.ptr[0],
+                (cl_mem)next.ptr[0], (cl_mem)next2.ptr[0], cur.pitch[0], (cl_mem)dst.ptr[0],
+                cur.width, cur.height, prm.tr0, profile);
+    }
+    auto &resources = m_repairPlaneResources[planeIndex];
+    if (!resources.temporal || !resources.delta) return RGY_ERR_NULL_PTR;
+    const auto &tc = resources.temporal->frame;
+    const auto &delta = resources.delta->frame;
+    auto dependencies = waitEvents;
+    // 同じ中間領域を次のフレームやU/Vで再利用する前に、前回のFC完了を待つ。
+    if (resources.lastEvent() != nullptr) dependencies.push_back(resources.lastEvent);
+    RGYOpenCLEvent previous;
+    auto sts = m_prefilter.get()->kernel("kernel_rtgmc_search_prefilter_repair_temporal").config(
+        queue, local, RGYWorkSize(cur.width, cur.height), dependencies, &previous).launch(
+            (cl_mem)prev2.ptr[0], (cl_mem)prev.ptr[0], (cl_mem)cur.ptr[0],
+            (cl_mem)next.ptr[0], (cl_mem)next2.ptr[0], cur.pitch[0],
+            (cl_mem)tc.ptr[0], (cl_mem)delta.ptr[0], tc.pitch[0], cur.width, cur.height, prm.tr0);
+    if (sts != RGY_ERR_NONE) return sts;
+    resources.lastEvent = previous;
+    for (int stage = 0; stage < 5; stage++) {
+        const auto &target = resources.stages[stage];
+        const auto &positive = target.polarity[1]->frame;
+        const auto &negative = target.polarity[0]->frame;
+        const auto *sourcePos = &delta;
+        const auto *sourceNeg = &delta;
+        int sourceHx = 0, sourceHy = 0;
+        if (stage > 0) {
+            const auto &source = resources.stages[stage - 1];
+            sourcePos = &source.polarity[1]->frame;
+            sourceNeg = &source.polarity[0]->frame;
+            sourceHx = source.hx;
+            sourceHy = source.hy;
+        }
+        RGYOpenCLEvent completed;
+        sts = m_prefilter.get()->kernel("kernel_rtgmc_search_prefilter_repair_stage").config(
+            queue, local, RGYWorkSize(positive.width, positive.height), { previous }, &completed).launch(
+                (cl_mem)sourcePos->ptr[0], (cl_mem)sourceNeg->ptr[0], sourcePos->pitch[0], sourceHx, sourceHy,
+                (cl_mem)positive.ptr[0], (cl_mem)negative.ptr[0], positive.pitch[0], target.hx, target.hy,
+                cur.width, cur.height, profile, stage);
+        if (sts != RGY_ERR_NONE) return sts;
+        previous = completed;
+        resources.lastEvent = completed;
+    }
+    const auto &gate = resources.stages[4];
+    RGYOpenCLEvent completed;
+    sts = m_prefilter.get()->kernel("kernel_rtgmc_search_prefilter_repair_apply").config(
+        queue, local, RGYWorkSize(dst.width, dst.height), { previous }, &completed).launch(
+            (cl_mem)tc.ptr[0], (cl_mem)delta.ptr[0], tc.pitch[0],
+            (cl_mem)gate.polarity[1]->frame.ptr[0], (cl_mem)gate.polarity[0]->frame.ptr[0],
+            gate.polarity[1]->frame.pitch[0], gate.hx, gate.hy,
+            (cl_mem)dst.ptr[0], dst.pitch[0], 0, 0, cur.width, cur.height, profile);
+    if (sts == RGY_ERR_NONE) {
+        resources.lastEvent = completed;
+        if (event) *event = completed;
+    }
+    return sts;
+}
+
 RGY_ERR RGYFilterRtgmcSearchPrefilter::allocCacheFrames(const RGYFrameInfo &frameInfo) {
     bool reuse = true;
     for (const auto &frame : m_cacheFrames) {
@@ -457,6 +570,8 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::init(shared_ptr<RGYFilterParam> pParam, s
     prm->repairProfile = rgy_rtgmc_repair_profile_from_levels(prm->rep0Thin, prm->rep0Pad);
 
     close();
+    const char *legacy = std::getenv("RGY_RTGMC_SEARCH_REPAIR_LEGACY");
+    m_repairLegacy = legacy != nullptr && std::string(legacy) == "1";
 
     sts = buildKernel(prm);
     if (sts != RGY_ERR_NONE) {
@@ -469,6 +584,11 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::init(shared_ptr<RGYFilterParam> pParam, s
         return sts;
     }
     const bool processChroma = prm->chromaMotion && RGY_CSP_PLANES[prm->frameIn.csp] > 1;
+    sts = setupRepairResources(*prm, processChroma);
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("修復の中間プレーンを確保できません: %s.\n"), get_err_mes(sts));
+        return sts;
+    }
     if (RTGMC_SEARCH_PREFILTER_USE_SEARCH_REFINE1_CHAIN && prm->searchRefine == 1) {
         sts = setupSearchRefine1Resources(prm->frameIn, processChroma);
         if (sts != RGY_ERR_NONE) {
@@ -1075,22 +1195,8 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::emitPrefilteredFrame(PendingSearchPrefilt
             return sts;
         }
         RGYOpenCLEvent motionGuideEvent;
-        sts = m_prefilter.get()->kernel("kernel_rtgmc_search_prefilter_field_stable_search").config(
-            queue,
-            RGYWorkSize(RTGMC_SEARCH_PREFILTER_BLOCK_X, RTGMC_SEARCH_PREFILTER_BLOCK_Y),
-            RGYWorkSize(planeMotionGuide.width, planeMotionGuide.height),
-            planeWaitEvents,
-            &motionGuideEvent).launch(
-                (cl_mem)planePrev2Src.ptr[0],
-                (cl_mem)planePrevSrc.ptr[0],
-                (cl_mem)planeCurSrc.ptr[0],
-                (cl_mem)planeNextSrc.ptr[0],
-                (cl_mem)planeNext2Src.ptr[0],
-                planeCurSrc.pitch[0],
-                (cl_mem)planeMotionGuide.ptr[0],
-                planeCurSrc.width, planeCurSrc.height,
-                prm->tr0,
-                repairProfile);
+        sts = emitFieldStableSearch(planeIndex, planePrev2Src, planePrevSrc, planeCurSrc,
+            planeNextSrc, planeNext2Src, planeMotionGuide, *prm, queue, planeWaitEvents, &motionGuideEvent);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at %s plane %d: %s.\n"),
                 _T("kernel_rtgmc_search_prefilter_field_stable_search"), planeIndex, get_err_mes(sts));
@@ -1172,22 +1278,8 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::emitPrefilteredFrame(PendingSearchPrefilt
             return sts;
         }
         RGYOpenCLEvent motionGuideEvent;
-        sts = m_prefilter.get()->kernel("kernel_rtgmc_search_prefilter_field_stable_search").config(
-            queue,
-            RGYWorkSize(RTGMC_SEARCH_PREFILTER_BLOCK_X, RTGMC_SEARCH_PREFILTER_BLOCK_Y),
-            RGYWorkSize(planeMotionGuide.width, planeMotionGuide.height),
-            planeWaitEvents,
-            &motionGuideEvent).launch(
-                (cl_mem)planePrev2Src.ptr[0],
-                (cl_mem)planePrevSrc.ptr[0],
-                (cl_mem)planeCurSrc.ptr[0],
-                (cl_mem)planeNextSrc.ptr[0],
-                (cl_mem)planeNext2Src.ptr[0],
-                planeCurSrc.pitch[0],
-                (cl_mem)planeMotionGuide.ptr[0],
-                planeCurSrc.width, planeCurSrc.height,
-                prm->tr0,
-                repairProfile);
+        sts = emitFieldStableSearch(planeIndex, planePrev2Src, planePrevSrc, planeCurSrc,
+            planeNextSrc, planeNext2Src, planeMotionGuide, *prm, queue, planeWaitEvents, &motionGuideEvent);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at %s plane %d: %s.\n"),
                 _T("kernel_rtgmc_search_prefilter_field_stable_search"), planeIndex, get_err_mes(sts));
@@ -1844,6 +1936,7 @@ void RGYFilterRtgmcSearchPrefilter::close() {
     m_prefilter.clear();
     m_buildOptions.clear();
     m_sceneChangeBufferPool.clear();
+    for (auto &resources : m_repairPlaneResources) resources.clear();
     if (m_searchLumaPool) {
         m_searchLumaPool->clear();
     }

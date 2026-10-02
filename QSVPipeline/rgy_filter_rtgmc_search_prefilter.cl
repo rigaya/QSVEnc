@@ -1309,6 +1309,150 @@ RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_to_full_range(
     return value;
 }
 
+// 中間プレーンは仮想座標をそのまま格納する。画面内へのクランプはTC/Dの参照だけで行う。
+static inline int rtgmc_search_prefilter_repair_plane_load(
+    __global const uchar *src, const int pitch,
+    const int hx, const int hy, const int x, const int y) {
+    return (int)(*(__global const TypePixel *)(src + (y + hy) * pitch + (x + hx) * (int)sizeof(TypePixel)));
+}
+
+// 端の判定にはハロー内の格納座標ではなく、旧実装と同じ仮想的な評価座標を使う。
+static inline int rtgmc_search_prefilter_repair_plane_mean3x3(
+    __global const uchar *src, const int pitch, const int hx, const int hy,
+    const int width, const int height, const int x, const int y) {
+    if (x <= 0 || y <= 0 || x >= width - 1 || y >= height - 1) {
+        return rtgmc_search_prefilter_repair_plane_load(src, pitch, hx, hy, x, y);
+    }
+    int sum = 0;
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            sum += rtgmc_search_prefilter_repair_plane_load(src, pitch, hx, hy, x + dx, y + dy);
+        }
+    }
+    return (sum + 4) / 9;
+}
+
+__attribute__((reqd_work_group_size(rtgmc_search_prefilter_block_x, rtgmc_search_prefilter_block_y, 1)))
+__kernel void kernel_rtgmc_search_prefilter_repair_temporal(
+    __global const uchar *prev2, __global const uchar *prev, __global const uchar *cur,
+    __global const uchar *next, __global const uchar *next2, const int srcPitch,
+    __global uchar *tc, __global uchar *delta, const int planePitch,
+    const int width, const int height, const int tr0) {
+    const int x = (int)get_global_id(0);
+    const int y = (int)get_global_id(1);
+    if (x >= width || y >= height) {
+        return;
+    }
+    const int value = rtgmc_search_prefilter_temporal_candidate_value(
+        prev2, prev, cur, next, next2, srcPitch, width, height, x, y, tr0);
+    const int ref = rtgmc_search_prefilter_pixel_load(cur, srcPitch, width, height, x, y);
+    rtgmc_search_prefilter_pixel_store(tc, planePitch, x, y, value);
+    rtgmc_search_prefilter_pixel_store(delta, planePitch, x, y, rtgmc_search_prefilter_makediff_value(ref, value));
+}
+
+static inline int rtgmc_search_prefilter_repair_stage_value(
+    __global const uchar *src, const int pitch, const int hx, const int hy,
+    const int width, const int height, const int x, const int y,
+    const uint repairProfile, const int stage, const int positive) {
+    const uint thinFlags = rtgmc_search_repair_profile_thin_reject_flags(repairProfile);
+    const uint restoreFlags = rtgmc_search_repair_profile_restore_flags(repairProfile);
+    if (stage == 0) {
+        const int radius = 2 + ((thinFlags & RTGMC_SEARCH_REPAIR_THIN_WIDE_CORE) ? 1 : 0);
+        int value = rtgmc_search_prefilter_polarity_core_seed(positive);
+        for (int dy = -radius; dy <= radius; dy++) {
+            // Dだけは画面サイズ。旧実装の入力画素読み込みと同じクランプを保つ。
+            const int sample = rtgmc_search_prefilter_pixel_load(src, pitch, width, height, x, y + dy);
+            value = rtgmc_search_prefilter_polarity_core_merge(value, sample, positive);
+        }
+        return value;
+    }
+    if (stage == 3) {
+        const int radius = 2 + ((restoreFlags & RTGMC_SEARCH_REPAIR_RESTORE_WIDE_ENVELOPE) ? 1 : 0);
+        int value = rtgmc_search_prefilter_polarity_envelope_seed(positive);
+        for (int dy = -radius; dy <= radius; dy++) {
+            const int sample = rtgmc_search_prefilter_repair_plane_load(src, pitch, hx, hy, x, y + dy);
+            value = rtgmc_search_prefilter_polarity_envelope_merge(value, sample, positive);
+        }
+        return value;
+    }
+    const int center = rtgmc_search_prefilter_repair_plane_load(src, pitch, hx, hy, x, y);
+    if (stage == 1 && (thinFlags & RTGMC_SEARCH_REPAIR_THIN_CORE_BLEND)) {
+        const int mean = rtgmc_search_prefilter_repair_plane_mean3x3(src, pitch, hx, hy, width, height, x, y);
+        return rtgmc_search_prefilter_polarity_core_merge(center, mean, positive);
+    }
+    if (stage == 2 && (thinFlags & RTGMC_SEARCH_REPAIR_THIN_RANK_LIMIT)) {
+        if (x <= 0 || y <= 0 || x >= width - 1 || y >= height - 1) {
+            return center;
+        }
+        int v[8];
+        int count = 0;
+        for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -1; dx <= 1; dx++) {
+                if (dx != 0 || dy != 0) {
+                    v[count++] = rtgmc_search_prefilter_repair_plane_load(src, pitch, hx, hy, x + dx, y + dy);
+                }
+            }
+        }
+        rtgmc_search_prefilter_sort8(v);
+        return clamp(center, v[3], v[4]);
+    }
+    if (stage == 4 && rtgmc_search_repair_profile_restore_padding_level(repairProfile) == 1) {
+        const int mean = rtgmc_search_prefilter_repair_plane_mean3x3(src, pitch, hx, hy, width, height, x, y);
+        return rtgmc_search_prefilter_extreme_merge(center, mean, positive);
+    }
+    // Step1はpad=0,1のみ。pad=2,3とlevel4経路はホスト側で旧実装へ戻す。
+    return center;
+}
+
+__attribute__((reqd_work_group_size(rtgmc_search_prefilter_block_x, rtgmc_search_prefilter_block_y, 1)))
+__kernel void kernel_rtgmc_search_prefilter_repair_stage(
+    __global const uchar *srcPos, __global const uchar *srcNeg,
+    const int srcPitch, const int srcHx, const int srcHy,
+    __global uchar *dstPos, __global uchar *dstNeg,
+    const int dstPitch, const int dstHx, const int dstHy,
+    const int width, const int height, const uint repairProfile, const int stage) {
+    const int sx = (int)get_global_id(0);
+    const int sy = (int)get_global_id(1);
+    if (sx >= width + 2 * dstHx || sy >= height + 2 * dstHy) {
+        return;
+    }
+    const int x = sx - dstHx;
+    const int y = sy - dstHy;
+    const int positive = rtgmc_search_prefilter_repair_stage_value(
+        srcPos, srcPitch, srcHx, srcHy, width, height, x, y, repairProfile, stage, 1);
+    const int negative = rtgmc_search_prefilter_repair_stage_value(
+        srcNeg, srcPitch, srcHx, srcHy, width, height, x, y, repairProfile, stage, 0);
+    rtgmc_search_prefilter_pixel_store(dstPos, dstPitch, sx, sy, positive);
+    rtgmc_search_prefilter_pixel_store(dstNeg, dstPitch, sx, sy, negative);
+}
+
+__attribute__((reqd_work_group_size(rtgmc_search_prefilter_block_x, rtgmc_search_prefilter_block_y, 1)))
+__kernel void kernel_rtgmc_search_prefilter_repair_apply(
+    __global const uchar *tc, __global const uchar *delta, const int temporalPitch,
+    __global const uchar *gatePos, __global const uchar *gateNeg,
+    const int gatePitch, const int gateHx, const int gateHy,
+    __global uchar *dst, const int dstPitch, const int dstHx, const int dstHy,
+    const int width, const int height, const uint repairProfile) {
+    const int sx = (int)get_global_id(0);
+    const int sy = (int)get_global_id(1);
+    if (sx >= width + 2 * dstHx || sy >= height + 2 * dstHy) {
+        return;
+    }
+    const int x = sx - dstHx;
+    const int y = sy - dstHy;
+    const int base = rtgmc_search_prefilter_pixel_load(tc, temporalPitch, width, height, x, y);
+    int value = base;
+    if (rtgmc_search_repair_profile_restore_flags(repairProfile) & RTGMC_SEARCH_REPAIR_RESTORE_ENABLED) {
+        const int rangeHalf = rtgmc_search_prefilter_range_half();
+        const int diff = rtgmc_search_prefilter_pixel_load(delta, temporalPitch, width, height, x, y);
+        const int positive = rtgmc_search_prefilter_repair_plane_load(gatePos, gatePitch, gateHx, gateHy, x, y);
+        const int negative = rtgmc_search_prefilter_repair_plane_load(gateNeg, gatePitch, gateHx, gateHy, x, y);
+        value = rtgmc_search_prefilter_apply_signed_correction(
+            base, diff - rangeHalf, positive - rangeHalf, negative - rangeHalf, rtgmc_search_prefilter_range_scale());
+    }
+    rtgmc_search_prefilter_pixel_store(dst, dstPitch, sx, sy, value);
+}
+
 __attribute__((reqd_work_group_size(rtgmc_search_prefilter_block_x, rtgmc_search_prefilter_block_y, 1)))
 __kernel void kernel_rtgmc_search_prefilter_field_stable_search(
     __global const uchar *prev2,

@@ -104,6 +104,27 @@ protected:
         }
     };
 
+    // 段のハローは仮想座標を保持するための領域。正負は同じ寸法・pitchで確保する。
+    struct RepairPlane {
+        std::array<std::unique_ptr<RGYCLFrame>, 2> polarity;
+        int hx = 0;
+        int hy = 0;
+    };
+    struct RepairPlaneResources {
+        std::unique_ptr<RGYCLFrame> temporal;
+        std::unique_ptr<RGYCLFrame> delta;
+        std::array<RepairPlane, 5> stages;
+        RGYOpenCLEvent lastEvent;
+        void clear() {
+            temporal.reset();
+            delta.reset();
+            for (auto &stage : stages) {
+                for (auto &frame : stage.polarity) frame.reset();
+            }
+            lastEvent.reset();
+        }
+    };
+
     struct SharedFramePool : public std::enable_shared_from_this<SharedFramePool> {
         struct Entry {
             std::unique_ptr<RGYCLFrame> frame;
@@ -151,6 +172,12 @@ protected:
 
     RGY_ERR checkParam(const std::shared_ptr<RGYFilterParamRtgmcSearchPrefilter> &prm);
     RGY_ERR buildKernel(const std::shared_ptr<RGYFilterParamRtgmcSearchPrefilter> &prm);
+    bool useRepairMultipass(const RGYFilterParamRtgmcSearchPrefilter &prm) const;
+    RGY_ERR setupRepairResources(const RGYFilterParamRtgmcSearchPrefilter &prm, bool processChroma);
+    RGY_ERR emitFieldStableSearch(int planeIndex, const RGYFrameInfo &prev2, const RGYFrameInfo &prev,
+        const RGYFrameInfo &cur, const RGYFrameInfo &next, const RGYFrameInfo &next2,
+        const RGYFrameInfo &dst, const RGYFilterParamRtgmcSearchPrefilter &prm,
+        RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &waitEvents, RGYOpenCLEvent *event);
     RGY_ERR allocCacheFrames(const RGYFrameInfo &frameInfo);
     RGY_ERR setupSearchRefine1Resources(const RGYFrameInfo &frameInfo, bool processChroma);
     RGY_ERR setupSearchRefine2Resources(const RGYFrameInfo &frameInfo, bool processChroma);
@@ -192,6 +219,8 @@ protected:
     std::array<std::unique_ptr<RGYFilterResizePlaneProxy>, 2> m_searchRefine2ResizeEdgeSoftenedSearch;
     std::shared_ptr<SharedFramePool> m_cacheFramePool;
     std::shared_ptr<SharedFramePool> m_searchLumaPool;
+    std::array<RepairPlaneResources, 2> m_repairPlaneResources;
+    bool m_repairLegacy = false;
     RGYOpenCLProgramAsync m_prefilter;
     std::string m_buildOptions;
     std::ofstream m_searchLumaDump;
