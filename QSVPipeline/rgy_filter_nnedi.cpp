@@ -854,17 +854,28 @@ RGY_ERR RGYFilterNnedi::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo
         return RGY_ERR_NONE;
     }
     for (int i = 0; i < outputFrames; i++) {
-        if (!doubleHeight) {
-            err = m_cl->copyFrame(&m_frameBuf[i]->frame, pInputFrame, nullptr, queue, (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>(), nullptr, RGYFrameCopyMode::FRAME, "nnedi.output_init_copy");
-            if (err != RGY_ERR_NONE) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to initialize NNEDI output frame %d: %s.\n"), i, get_err_mes(err));
-                return err;
-            }
-        }
         RGYNnediFrameMap frameMap;
         err = rgy_nnedi_map_output_frame(&frameMap, topology, i);
         if (err != RGY_ERR_NONE) {
             return err;
+        }
+        if (!doubleHeight) {
+            // 処理するplaneの生成側フィールドは、prescreen(cubic)とpredictorで全画素が書かれる。
+            // そのため出力の初期化は、処理するplaneでは残す側(copyField)のフィールドだけをコピーすればよい
+            // (コピー量が半分になる)。処理しないplaneはソースのまま残すため全体をコピーする。
+            const auto fieldCopyMode = (frameMap.copyField == RGYNnediField::Top) ? RGYFrameCopyMode::FIELD_TOP : RGYFrameCopyMode::FIELD_BOTTOM;
+            auto pOutInit = &m_frameBuf[i]->frame;
+            for (int iplane = 0; iplane < RGY_CSP_PLANES[pInputFrame->csp]; iplane++) {
+                auto dstPlane = getPlane(pOutInit, (RGY_PLANE)iplane);
+                const auto srcPlane = getPlane(pInputFrame, (RGY_PLANE)iplane);
+                const auto initCopyMode = nnediPlaneEnabled(prm->nnedi, iplane) ? fieldCopyMode : RGYFrameCopyMode::FRAME;
+                // 同一in-orderキューなので入力待ちは最初のコピーだけに付ければよい
+                err = m_cl->copyPlane(&dstPlane, &srcPlane, nullptr, queue, (i == 0 && iplane == 0) ? wait_events : std::vector<RGYOpenCLEvent>(), nullptr, initCopyMode, "nnedi.output_init_copy");
+                if (err != RGY_ERR_NONE) {
+                    AddMessage(RGY_LOG_ERROR, _T("failed to initialize NNEDI output frame %d plane %d: %s.\n"), i, iplane, get_err_mes(err));
+                    return err;
+                }
+            }
         }
         err = prepareFieldReference(pInputFrame, i, frameMap, queue, (doubleHeight && i == 0) ? wait_events : std::vector<RGYOpenCLEvent>(), nullptr);
         if (err != RGY_ERR_NONE) {
