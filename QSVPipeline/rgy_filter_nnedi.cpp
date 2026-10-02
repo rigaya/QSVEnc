@@ -766,6 +766,26 @@ RGY_ERR RGYFilterNnedi::resolveClassifiedPixels(const RGYFrameInfo *pInputFrame,
                     char_to_tstring(m_nnediBuildOptions).c_str());
                 return RGY_ERR_OPENCL_CRUSH;
             }
+        } else if (RGYOpenCLDevice(queue.devid()).checkExtension("cl_intel_required_subgroup_size")) {
+            // 自動選択の幅が16/32でない場合でも、幅を指定できるデバイスでは16を要求してサブグループ版を使う
+            const int requiredSubgroupSize = 16;
+            const auto subgroupBuildOptions = m_nnediBuildOptions + strsprintf(
+                " -cl-std=CL2.0 -D NNEDI_PRED_SUBGROUP_OPT=1 -D NNEDI_PRED_SUBGROUP_SIZE=%d -D NNEDI_PRED_REQD_SUBGROUP_SIZE=%d",
+                requiredSubgroupSize, requiredSubgroupSize);
+            auto requiredProgram = m_cl->buildResource(_T("RGY_FILTER_NNEDI_CL"), _T("EXE_DATA"), subgroupBuildOptions);
+            const auto builtSubgroupSize = requiredProgram ? (int)requiredProgram->kernel(kernelName).config(queue, local, local).subGroupSize() : 0;
+            if (builtSubgroupSize == requiredSubgroupSize) {
+                AddMessage(RGY_LOG_DEBUG, _T("Rebuilt RGY_FILTER_NNEDI_CL with required predictor subgroup size %d (auto size %d).\n"), requiredSubgroupSize, subgroupSize);
+                std::promise<std::unique_ptr<RGYOpenCLProgram>> builtProgram;
+                builtProgram.set_value(std::move(requiredProgram));
+                m_nnedi.set(builtProgram.get_future());
+                m_nnediBuildOptions = subgroupBuildOptions;
+                m_nnediPredictorSubgroupSize = requiredSubgroupSize;
+                nnediProgram = m_nnedi.get();
+            } else {
+                m_nnediPredictorSubgroupSize = -1;
+                AddMessage(RGY_LOG_DEBUG, _T("NNEDI predictor subgroup optimization skipped: subgroup size %d, required build %d.\n"), subgroupSize, builtSubgroupSize);
+            }
         } else {
             m_nnediPredictorSubgroupSize = -1;
             AddMessage(RGY_LOG_DEBUG, _T("NNEDI predictor subgroup optimization skipped: subgroup size %d.\n"), subgroupSize);

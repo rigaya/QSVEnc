@@ -730,6 +730,11 @@ __kernel void kernel_nnedi_prescreen_cubic(
 }
 
 __attribute__((reqd_work_group_size(NNEDI_PRED_LOCAL_X, NNEDI_PRED_LOCAL_Y, 1)))
+#if defined(NNEDI_PRED_REQD_SUBGROUP_SIZE) && NNEDI_PRED_REQD_SUBGROUP_SIZE > 0
+// コンパイラが自動選択するSIMD幅 (Arc A310ではSIMD8) ではサブグループ版を使えないため、
+// cl_intel_required_subgroup_size対応デバイスではホストが幅を指定してビルドする
+__attribute__((intel_reqd_sub_group_size(NNEDI_PRED_REQD_SUBGROUP_SIZE)))
+#endif
 __kernel void kernel_nnedi_predictor_network(
     __global uchar *restrict pDst, const int dstPitch, const int dstOffset,
     const __global uchar *restrict pRef, const int refPitch, const int refOffset,
