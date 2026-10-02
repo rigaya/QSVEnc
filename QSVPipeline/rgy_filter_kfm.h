@@ -467,9 +467,13 @@ protected:
 
     struct KfmPendingFMCount {
         int cycle;
+        int countParity;
+        bool completeWindow;
+        bool reusePrevious;
+        std::array<int, 6> tailSourceIndices;
         std::unique_ptr<RGYCLBuf> countBuf;
 
-        KfmPendingFMCount() : cycle(-1), countBuf() {};
+        KfmPendingFMCount() : cycle(-1), countParity(0), completeWindow(false), reusePrevious(false), tailSourceIndices(), countBuf() {};
     };
 
     struct KfmPendingVfrOutput {
@@ -619,6 +623,8 @@ protected:
     std::array<std::unique_ptr<RGYCLBuf>, 2> m_analyzeFlags;
     RGYOpenCLQueue m_fmCountQueue;
     std::deque<KfmPendingFMCount> m_pendingFMCounts;
+    std::array<RGYKFM::FMCount, 18> m_previousFMCounts;
+    int m_previousFMCountCycle;
     std::deque<KfmPendingVfrOutput> m_pendingVfrOutputs;
     KfmVfrRunStats m_vfrRunStats;
     mutable KfmProfileStats m_kfmProfile;

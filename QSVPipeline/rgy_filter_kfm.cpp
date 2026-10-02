@@ -346,6 +346,8 @@ RGYFilterKfm::RGYFilterKfm(shared_ptr<RGYOpenCLContext> context) :
     m_analyzeFlags(),
     m_fmCountQueue(),
     m_pendingFMCounts(),
+    m_previousFMCounts(),
+    m_previousFMCountCycle(-1),
     m_pendingVfrOutputs(),
     m_telecineSuperRaw(),
     m_telecineSuperFrames(),
@@ -3201,6 +3203,8 @@ void RGYFilterKfm::releaseUcfNoiseResultBuf(std::unique_ptr<RGYCLBuf>&& buf) {
 }
 
 RGY_ERR RGYFilterKfm::clearPendingFMCounts() {
+    m_previousFMCounts = {};
+    m_previousFMCountCycle = -1;
     if (m_pendingFMCounts.empty()) {
         return RGY_ERR_NONE;
     }
@@ -3832,6 +3836,22 @@ RGY_ERR RGYFilterKfm::submitFMCounts(int cycle, bool drain, RGYOpenCLQueue &queu
     const size_t countBytes = sizeof(RGYKFM::FMCount) * KFM_FMCOUNT_PAIRS * 2;
     KfmPendingFMCount pending;
     pending.cycle = cycle;
+    pending.countParity = kfmFrameParity(&src[3]->frame->frame);
+    pending.completeWindow = !drain;
+    for (int i = 0; i < 6; i++) {
+        pending.tailSourceIndices[i] = src[i + 5]->sourceIndex;
+    }
+    // 周期は5フレームずつ進むため、先頭4組は直前周期の末尾4組と同じ画像を読む。
+    // 全入力が揃う通常経路でparityも同じ場合だけ再利用し、drainでは全組を計算する。
+    if (!drain && !m_pendingFMCounts.empty()) {
+        const auto& previous = m_pendingFMCounts.back();
+        pending.reusePrevious = previous.cycle + 1 == cycle
+            && previous.completeWindow && previous.countParity == pending.countParity;
+        // cache端へのクランプで別画像になる場合は、要求番号が重なっても再計算する。
+        for (int i = 0; pending.reusePrevious && i < 6; i++) {
+            pending.reusePrevious = src[i]->sourceIndex == previous.tailSourceIndices[i];
+        }
+    }
     RGYOpenCLEvent countBufReadyEvent;
     pending.countBuf = acquireFMCountBuf(countBytes, &countBufReadyEvent);
     if (!pending.countBuf) {
@@ -3855,7 +3875,7 @@ RGY_ERR RGYFilterKfm::submitFMCounts(int cycle, bool drain, RGYOpenCLQueue &queu
     const bool useFusedFMCount = kfmUseFusedFMCount();
     std::vector<RGYOpenCLEvent> pairCountEvents;
     pairCountEvents.reserve(KFM_FMCOUNT_PAIRS);
-    for (int pair = 0; pair < KFM_FMCOUNT_PAIRS; pair++) {
+    for (int pair = pending.reusePrevious ? 4 : 0; pair < KFM_FMCOUNT_PAIRS; pair++) {
         RGYOpenCLEvent prevCountEvent = initEvent;
         const int dstOffset = pair * 2;
         const auto csp = src[pair + 1]->frame->frame.csp;
@@ -4038,12 +4058,21 @@ RGY_ERR RGYFilterKfm::readbackFMCounts(std::array<RGYKFM::FMCount, 18>& counts, 
         AddMessage(RGY_LOG_ERROR, _T("failed to access KFM FMCount buffer.\n"));
         return RGY_ERR_NULL_PTR;
     }
+    // 読み戻しは周期順なので、直前周期の解決済み整数カウントを同期追加なしで補える。
+    if (pending.reusePrevious && m_previousFMCountCycle + 1 != pending.cycle) {
+        fmCountBuf->unmapBuffer(mapQueue);
+        AddMessage(RGY_LOG_ERROR, _T("KFM previous FMCount cycle is missing.\n"));
+        return RGY_ERR_INVALID_CALL;
+    }
     for (int pair = 0; pair < KFM_FMCOUNT_PAIRS; pair++) {
         const int countFrameIndex = pending.cycle * 5 - 3 + pair + 1;
         if (countFrameIndex >= 0) {
             counts[pair * 2 + 0] = gpuCounts[pair * 2 + 0];
             counts[pair * 2 + 1] = gpuCounts[pair * 2 + 1];
         }
+    }
+    if (pending.reusePrevious) {
+        std::copy_n(m_previousFMCounts.begin() + 10, 8, counts.begin());
     }
     const int firstSourceIndex = pending.cycle * 5 - 3;
     const int firstValidPair = std::max(0, -(firstSourceIndex + 1));
@@ -4067,6 +4096,8 @@ RGY_ERR RGYFilterKfm::readbackFMCounts(std::array<RGYKFM::FMCount, 18>& counts, 
         AddMessage(RGY_LOG_ERROR, _T("failed to flush KFM FMCount readback queue: %s.\n"), get_err_mes(sts));
         return sts;
     }
+    m_previousFMCounts = counts;
+    m_previousFMCountCycle = pending.cycle;
     releaseFMCountBuf(std::move(fmCountBuf), unmapEvent);
     m_pendingFMCounts.pop_front();
     return RGY_ERR_NONE;
