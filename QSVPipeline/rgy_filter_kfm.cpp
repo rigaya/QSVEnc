@@ -3694,6 +3694,18 @@ RGY_ERR RGYFilterKfm::queueVfrOutputFrame(const RGYFrameInfo *pFrame, RGYOpenCLQ
             AddMessage(RGY_LOG_ERROR, _T("KFM VFR output buffer slot %d is already reserved.\n"), pending.outputFrameIndex);
             return RGY_ERR_INVALID_CALL;
         }
+        // 完成画像を持つwork枠と予約済みoutput枠の所有権を交換する。
+        // 画像と完了イベントをそのまま渡し、pending中の枠は既存の予約判定で保護する。
+        const auto work = std::find_if(m_workFrameBuf.begin(), m_workFrameBuf.end(), [pFrame](const auto& frame) {
+            return frame && &frame->frame == pFrame;
+        });
+        if (work != m_workFrameBuf.end()) {
+            std::swap(*work, m_frameBuf[pending.outputFrameIndex]);
+            pendingFrame = nextOutputFrame();
+            pending.event = frameEvent;
+            m_pendingVfrOutputs.push_back(std::move(pending));
+            return RGY_ERR_NONE;
+        }
         pendingFrame = nextOutputFrame();
         if (!pendingFrame || !pendingFrame->ptr[0]) {
             return RGY_ERR_INVALID_CALL;
