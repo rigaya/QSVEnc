@@ -210,6 +210,7 @@ CL_EXTERN cl_command_queue (CL_API_CALL* f_clCreateCommandQueue)(cl_context cont
 CL_EXTERN cl_int (CL_API_CALL* f_clGetCommandQueueInfo)(cl_command_queue command_queue, cl_command_queue_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
 CL_EXTERN cl_int (CL_API_CALL* f_clReleaseCommandQueue) (cl_command_queue command_queue);
 CL_EXTERN cl_int (CL_API_CALL* f_clRetainCommandQueue) (cl_command_queue command_queue);
+CL_EXTERN cl_int (CL_API_CALL* f_clEnqueueBarrierWithWaitList) (cl_command_queue command_queue, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
 CL_EXTERN cl_int (CL_API_CALL* f_clEnqueueMarkerWithWaitList) (cl_command_queue command_queue, cl_uint num_events_in_wait_list, const cl_event *event_wait_list, cl_event *event);
 CL_EXTERN cl_int (CL_API_CALL* f_clGetSupportedImageFormats)(cl_context context, cl_mem_flags flags, cl_mem_object_type image_type, cl_uint num_entries, cl_image_format * image_formats, cl_uint * num_image_formats);
 
@@ -318,6 +319,7 @@ CL_EXTERN cl_int(CL_API_CALL* f_clEnqueueReleaseVA_APIMediaSurfacesINTEL)(cl_com
 #define clGetCommandQueueInfo f_clGetCommandQueueInfo
 #define clReleaseCommandQueue f_clReleaseCommandQueue
 #define clRetainCommandQueue f_clRetainCommandQueue
+#define clEnqueueBarrierWithWaitList f_clEnqueueBarrierWithWaitList
 #define clEnqueueMarkerWithWaitList f_clEnqueueMarkerWithWaitList
 #define clGetSupportedImageFormats f_clGetSupportedImageFormats
 
@@ -652,6 +654,8 @@ public:
     bool isMapped() const { return m_mapped != nullptr; }
     RGY_ERR unmapBuffer();
     RGY_ERR unmapBuffer(RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events = {});
+    // unmap完了イベントを返す版。呼び出し側で後続の書き込みに依存を付け、clFinishを避けるために使う
+    RGY_ERR unmapBuffer(RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     RGYCLMemObjInfo getMemObjectInfo() const;
 protected:
     RGYCLBuf(const RGYCLBuf &) = delete;
@@ -1200,7 +1204,27 @@ public:
     }
     RGYOpenCLQueueInfo getInfo() const;
     cl_command_queue_properties getProperties() const;
+    // wait(): このキューの後続コマンドを、eventの完了まで実行させない (clEnqueueWaitForEvents)。
+    //   仕様上はデバイス側の待ちを積むだけのAPIだが、Intel NEOドライバ (Arc A310, 26.31で確認) では
+    //   eventの完了までホスト側でもブロックする。そのため次の性質を持つ。
+    //   - 狙い/利点: 別キューのeventを待つ場合でも、producer側の投入・完了がホスト上で確定してから戻るため、
+    //     キュー間の順序付けを確実に行える (現状 qsv_pipeline_ctrl.h のrelease workerがこの用途で使用)。
+    //   - 注意点: 毎フレーム呼ぶような高頻度経路で使うと、そのたびにGPUの処理完了までホストが止まり、
+    //     先行投入ができずGPUが遊ぶ。--vpp-kfm (rtgmc/degrain経路) ではフィルタスレッドの約半分がここで
+    //     止まっていた (doc/qsvenc_kfm_optimize_20261002.md)。同一キュー内の順序付けならenqueueWait()を使う。
+    //   - 他ドライバではホストをブロックしない実装もあり得るため、「ホスト同期の手段」としては使わないこと
+    //     (ホストで完了を待ちたい場合は RGYOpenCLEvent::wait() を使う)。
     RGY_ERR wait(const RGYOpenCLEvent& event) const;
+    // enqueueWait(): キューにeventの完了待ち (barrier) を積むだけで、ホストは待たない (clEnqueueBarrierWithWaitList)。
+    //   - 狙い: 後続コマンドの実行順序だけを保証し、ホストは次のコマンド投入を続けられるようにする。
+    //     wait()がホストをブロックする環境でも先行投入が途切れない (--vpp-kfmでtest1 +7.7%)。
+    //   - barrierなので、out-of-orderキューでも後続コマンドすべてに依存が付く (markerではそうならない)。
+    //   - 注意点: 別キューのeventを待つ場合、producer側キューがflush済みでないと、いつまでも実行されない
+    //     可能性がある (wait()ではホスト待ちが暗黙にこれを解決していた)。呼び出し側でflushを保証すること。
+    //   - 注意点: ホストは待たないので、戻った時点でeventは未完了のことがある。CPUがmap済みメモリを読む、
+    //     バッファを解放/別用途に渡すなど、ホスト側の処理の前提には使えない。
+    //   - OpenCL 1.2 API。
+    RGY_ERR enqueueWait(const RGYOpenCLEvent& event) const;
     RGY_ERR getmarker(RGYOpenCLEvent& event) const;
     RGY_ERR flush() const;
     RGY_ERR finish() const;

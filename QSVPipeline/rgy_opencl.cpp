@@ -356,6 +356,7 @@ int initOpenCLGlobal() {
     LOAD(clCreateCommandQueue);
     LOAD(clReleaseCommandQueue);
     LOAD(clRetainCommandQueue);
+    LOAD(clEnqueueBarrierWithWaitList);
     LOAD(clEnqueueMarkerWithWaitList);
     LOAD(clCreateContext);
     LOAD(clGetCommandQueueInfo);
@@ -1986,6 +1987,15 @@ RGY_ERR RGYCLBuf::unmapBuffer(RGYOpenCLQueue &queue, const std::vector<RGYOpenCL
     m_mapped.reset();
     return err;
 }
+RGY_ERR RGYCLBuf::unmapBuffer(RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+    auto err = m_mapped->unmap(queue, wait_events);
+    if (event) {
+        // m_mappedの破棄でイベントが失われる前に取り出す
+        *event = m_mapped->event();
+    }
+    m_mapped.reset();
+    return err;
+}
 
 RGYCLMemObjInfo RGYCLBuf::getMemObjectInfo() const {
     return getRGYCLMemObjectInfo(m_mem);
@@ -2439,6 +2449,10 @@ cl_command_queue_properties RGYOpenCLQueue::getProperties() const {
 
 RGY_ERR RGYOpenCLQueue::wait(const RGYOpenCLEvent& event) const {
     return err_cl_to_rgy(clEnqueueWaitForEvents(m_queue.get(), 1, event.ptr()));
+}
+
+RGY_ERR RGYOpenCLQueue::enqueueWait(const RGYOpenCLEvent& event) const {
+    return err_cl_to_rgy(clEnqueueBarrierWithWaitList(m_queue.get(), 1, event.ptr(), nullptr));
 }
 
 RGY_ERR RGYOpenCLQueue::getmarker(RGYOpenCLEvent& event) const {

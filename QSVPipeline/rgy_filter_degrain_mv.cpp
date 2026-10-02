@@ -100,7 +100,7 @@ std::unique_ptr<RGYCLBuf> RGYDegrainBufferPool::acquire(size_t size, cl_mem_flag
     if (pooled != m_buffers.end()) {
         if (pooled->readyEvent() != nullptr) {
             const auto readyEvent = pooled->readyEvent;
-            const auto err = queue ? queue->wait(readyEvent) : RGY_ERR_NULL_PTR;
+            const auto err = queue ? queue->enqueueWait(readyEvent) : RGY_ERR_NULL_PTR;
             if (err != RGY_ERR_NONE) {
                 readyEvent.wait();
             }

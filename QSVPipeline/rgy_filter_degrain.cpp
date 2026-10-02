@@ -774,7 +774,7 @@ RGY_ERR RGYFilterDegrain::pushCacheFrame(const RGYFrameInfo *pInputFrame, RGYOpe
         if (zeroCopyOwner) {
             for (const auto &waitEvent : wait_events) {
                 if (waitEvent() != nullptr) {
-                    const auto err = queue.wait(waitEvent);
+                    const auto err = queue.enqueueWait(waitEvent); // 同一キューのイベントなのでホスト同期不要
                     if (err != RGY_ERR_NONE) {
                         AddMessage(RGY_LOG_ERROR, _T("failed to wait degrain zero-copy cache input event: %s.\n"), get_err_mes(err));
                         return err;

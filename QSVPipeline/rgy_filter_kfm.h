@@ -340,8 +340,8 @@ protected:
     RGY_ERR resolveUcfNoiseResults(int sourceIndex, RGYOpenCLQueue &queue);
     RGY_ERR resolveAllUcfNoiseResults(RGYOpenCLQueue &queue);
     RGY_ERR clearPendingFMCounts();
-    std::unique_ptr<RGYCLBuf> acquireFMCountBuf(size_t requiredBytes);
-    void releaseFMCountBuf(std::unique_ptr<RGYCLBuf>&& buf);
+    std::unique_ptr<RGYCLBuf> acquireFMCountBuf(size_t requiredBytes, RGYOpenCLEvent *readyEvent);
+    void releaseFMCountBuf(std::unique_ptr<RGYCLBuf>&& buf, const RGYOpenCLEvent& readyEvent = RGYOpenCLEvent());
     std::unique_ptr<RGYCLBuf> acquireUcfNoiseResultBuf(size_t requiredBytes);
     void releaseUcfNoiseResultBuf(std::unique_ptr<RGYCLBuf>&& buf);
     void pushUcfNoiseResultDump(int sourceIndex, const RGYKFM::NoiseResult (&results)[2], const RGYKFM::UCFNoiseMeta& meta);
@@ -607,7 +607,9 @@ protected:
     std::deque<KfmMainIntermediateGroup> m_deint60IntermediateQueue;
     std::deque<KfmCachedUcfNoise> m_ucfNoiseCache;
     std::deque<KfmPendingUcfNoiseResult> m_pendingUcfNoiseResults;
-    std::deque<std::unique_ptr<RGYCLBuf>> m_fmCountBufPool;
+    // 読み戻し用バッファのプール。unmapはm_fmCountQueueで行うため、
+    // 再利用時はunmap完了イベント(second)を書き込み側の待ちに渡す
+    std::deque<std::pair<std::unique_ptr<RGYCLBuf>, RGYOpenCLEvent>> m_fmCountBufPool;
     std::deque<std::unique_ptr<RGYCLBuf>> m_ucfNoiseResultBufPool;
     std::deque<KfmUcfNoiseDumpRecord> m_ucfNoiseResultCache;
     KfmUcfNoiseDumpRecord m_pendingUcfNoiseDump;
@@ -636,6 +638,7 @@ protected:
     std::array<std::unique_ptr<RGYCLBuf>, 4> m_switchFlagWork;
     RGYOpenCLEvent m_switchFlagWorkEvent;
     std::unique_ptr<RGYCLBuf> m_containsCombeCount;
+    RGYOpenCLEvent m_containsCombeCountUnmapEvent; // m_fmCountQueueでのunmap完了。次の初期化カーネルはこれを待つ
     FILE *m_fpResult;
     FILE *m_fpFMCount;
     FILE *m_fpTimecode;

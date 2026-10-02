@@ -366,6 +366,7 @@ RGYFilterKfm::RGYFilterKfm(shared_ptr<RGYOpenCLContext> context) :
     m_switchFlagWork(),
     m_switchFlagWorkEvent(),
     m_containsCombeCount(),
+    m_containsCombeCountUnmapEvent(),
     m_fpResult(nullptr),
     m_fpFMCount(nullptr),
     m_fpTimecode(nullptr),
@@ -3154,25 +3155,31 @@ std::unique_ptr<RGYCLBuf> RGYFilterKfm::acquireUcfNoiseResultBuf(size_t required
     return m_cl->createBuffer(requiredBytes, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR);
 }
 
-std::unique_ptr<RGYCLBuf> RGYFilterKfm::acquireFMCountBuf(size_t requiredBytes) {
+std::unique_ptr<RGYCLBuf> RGYFilterKfm::acquireFMCountBuf(size_t requiredBytes, RGYOpenCLEvent *readyEvent) {
+    if (readyEvent) {
+        *readyEvent = RGYOpenCLEvent();
+    }
     auto it = std::find_if(m_fmCountBufPool.begin(), m_fmCountBufPool.end(),
-        [requiredBytes](const std::unique_ptr<RGYCLBuf>& buf) {
-            return buf && buf->size() >= requiredBytes;
+        [requiredBytes](const std::pair<std::unique_ptr<RGYCLBuf>, RGYOpenCLEvent>& entry) {
+            return entry.first && entry.first->size() >= requiredBytes;
         });
     if (it != m_fmCountBufPool.end()) {
-        auto buf = std::move(*it);
+        auto buf = std::move(it->first);
+        if (readyEvent) {
+            *readyEvent = it->second;
+        }
         m_fmCountBufPool.erase(it);
         return buf;
     }
     return m_cl->createBuffer(requiredBytes, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR);
 }
 
-void RGYFilterKfm::releaseFMCountBuf(std::unique_ptr<RGYCLBuf>&& buf) {
+void RGYFilterKfm::releaseFMCountBuf(std::unique_ptr<RGYCLBuf>&& buf, const RGYOpenCLEvent& readyEvent) {
     if (!buf) {
         return;
     }
     static constexpr size_t KFM_FMCOUNT_BUF_POOL_MAX = KFM_FMCOUNT_PAIRS * 2;
-    m_fmCountBufPool.push_back(std::move(buf));
+    m_fmCountBufPool.emplace_back(std::move(buf), readyEvent);
     while (m_fmCountBufPool.size() > KFM_FMCOUNT_BUF_POOL_MAX) {
         m_fmCountBufPool.pop_front();
     }
@@ -3809,7 +3816,8 @@ RGY_ERR RGYFilterKfm::submitFMCounts(int cycle, bool drain, RGYOpenCLQueue &queu
     const size_t countBytes = sizeof(RGYKFM::FMCount) * KFM_FMCOUNT_PAIRS * 2;
     KfmPendingFMCount pending;
     pending.cycle = cycle;
-    pending.countBuf = acquireFMCountBuf(countBytes);
+    RGYOpenCLEvent countBufReadyEvent;
+    pending.countBuf = acquireFMCountBuf(countBytes, &countBufReadyEvent);
     if (!pending.countBuf) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM FMCount buffer.\n"));
         return RGY_ERR_MEMORY_ALLOC;
@@ -3817,7 +3825,12 @@ RGY_ERR RGYFilterKfm::submitFMCounts(int cycle, bool drain, RGYOpenCLQueue &queu
 
     const cl_int zero = 0;
     RGYOpenCLEvent initEvent;
-    sts = m_cl->setBuf(&zero, sizeof(zero), countBytes, pending.countBuf.get(), queue, &initEvent);
+    // 再利用バッファは別キュー(m_fmCountQueue)でのunmap完了後に書き込む
+    std::vector<RGYOpenCLEvent> initWaitEvents;
+    if (countBufReadyEvent() != nullptr) {
+        initWaitEvents.push_back(countBufReadyEvent);
+    }
+    sts = m_cl->setBuf(&zero, sizeof(zero), countBytes, pending.countBuf.get(), queue, initWaitEvents, &initEvent);
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to clear KFM FMCount buffer: %s.\n"), get_err_mes(sts));
         return sts;
@@ -4024,17 +4037,21 @@ RGY_ERR RGYFilterKfm::readbackFMCounts(std::array<RGYKFM::FMCount, 18>& counts, 
             counts[pair * 2 + 1] = counts[firstValidPair * 2 + 1];
         }
     }
-    sts = fmCountBuf->unmapBuffer(mapQueue);
+    // 以前はunmap後にmapQueue.finish()でホスト同期していたが、unmap完了イベントを
+    // プールに持たせ、次の書き込み(submitFMCountsのsetBuf)にデバイス側で待たせる
+    RGYOpenCLEvent unmapEvent;
+    sts = fmCountBuf->unmapBuffer(mapQueue, {}, &unmapEvent);
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to unmap KFM FMCount buffer: %s.\n"), get_err_mes(sts));
         return sts;
     }
-    sts = mapQueue.finish();
+    // 別キューから待たれるのでunmapを投入しておく
+    sts = mapQueue.flush();
     if (sts != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to finish KFM FMCount readback queue: %s.\n"), get_err_mes(sts));
+        AddMessage(RGY_LOG_ERROR, _T("failed to flush KFM FMCount readback queue: %s.\n"), get_err_mes(sts));
         return sts;
     }
-    releaseFMCountBuf(std::move(fmCountBuf));
+    releaseFMCountBuf(std::move(fmCountBuf), unmapEvent);
     m_pendingFMCounts.pop_front();
     return RGY_ERR_NONE;
 }
@@ -6156,9 +6173,10 @@ RGY_ERR RGYFilterKfm::resolveContainsCombeCount(KfmContainsCombeReadback& readba
     if (containsCombeCount) {
         *containsCombeCount = *mappedCount;
     }
-    auto unmapSts = m_containsCombeCount->unmapBuffer(m_fmCountQueue);
+    // unmap後のfinishは行わず、完了イベントを次のkernel_kfm_contains_combe_initに待たせる
+    auto unmapSts = m_containsCombeCount->unmapBuffer(m_fmCountQueue, {}, &m_containsCombeCountUnmapEvent);
     if (unmapSts == RGY_ERR_NONE) {
-        unmapSts = m_fmCountQueue.finish();
+        unmapSts = m_fmCountQueue.flush();
     }
     readback.submitted = false;
     if (unmapSts != RGY_ERR_NONE) {
@@ -6425,7 +6443,11 @@ RGY_ERR RGYFilterKfm::renderMaskBranch(RGYFrameInfo *pSwitchFlagFrame, RGYFrameI
         }
     }
     RGYOpenCLEvent initEvent;
-    sts = m_programs[KFM_PROG_MASK].get()->kernel("kernel_kfm_contains_combe_init").config(queue, RGYWorkSize(1), RGYWorkSize(1), {}, &initEvent).launch(
+    std::vector<RGYOpenCLEvent> containsCombeInitWaitEvents;
+    if (m_containsCombeCountUnmapEvent() != nullptr) {
+        containsCombeInitWaitEvents.push_back(m_containsCombeCountUnmapEvent);
+    }
+    sts = m_programs[KFM_PROG_MASK].get()->kernel("kernel_kfm_contains_combe_init").config(queue, RGYWorkSize(1), RGYWorkSize(1), containsCombeInitWaitEvents, &initEvent).launch(
         (cl_mem)m_containsCombeCount->mem());
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_contains_combe_init: %s.\n"), get_err_mes(sts));
@@ -8552,6 +8574,7 @@ void RGYFilterKfm::close() {
     }
     m_switchFlagWorkEvent = RGYOpenCLEvent();
     m_containsCombeCount.reset();
+    m_containsCombeCountUnmapEvent = RGYOpenCLEvent();
     m_fmCountQueue.clear();
     if (m_fpResult) {
         fclose(m_fpResult);
