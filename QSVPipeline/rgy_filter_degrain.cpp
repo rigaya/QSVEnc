@@ -188,7 +188,6 @@ RGYFilterDegrain::RGYFilterDegrain(shared_ptr<RGYOpenCLContext> context) :
     m_cacheFrameOwners(),
     m_degrain(),
     m_degrainChroma(),
-    m_degrainPel1(),
     m_degrainMotionSearchPrograms(),
     m_analysis(),
     m_directAnalyzeResultSet(),
@@ -485,10 +484,6 @@ RGY_ERR RGYFilterDegrain::buildKernels(const std::shared_ptr<RGYFilterParamDegra
         m_degrainChroma.clear();
         m_useDegrainChromaProgram = false;
     }
-    const auto optionsPel1 = makeOptions(1, 1, 1);
-    m_degrainPel1.set(m_cl->threadPool()->enqueue([cl = m_cl, log = m_pLog, optionsPel1]() {
-        return buildDegrainCLProgram(cl, log, optionsPel1);
-    }));
     return RGY_ERR_NONE;
 }
 
@@ -496,18 +491,55 @@ RGYOpenCLProgram *RGYFilterDegrain::degrainRenderProgram(RGY_PLANE plane) {
     return (plane != RGY_PLANE_Y && m_useDegrainChromaProgram) ? m_degrainChroma.get() : m_degrain.get();
 }
 
-RGYOpenCLProgram *RGYFilterDegrain::getDegrainMotionSearchProgram(const std::string &normalizedBuildOptions) {
+void RGYFilterDegrain::requestDegrainMotionSearchProgram(const std::string &normalizedBuildOptions,
+    const RGYWorkSize &local, const RGYWorkSize &global, const bool specializeSubgroup, const TCHAR *levelName) {
     if (normalizedBuildOptions.empty()) {
         AddMessage(RGY_LOG_ERROR, _T("degrain motion search build options are empty.\n"));
-        return nullptr;
+        return;
     }
+    if (m_degrainMotionSearchPrograms.find(normalizedBuildOptions) != m_degrainMotionSearchPrograms.end()) {
+        return;
+    }
+    const auto level = levelName ? tstring(levelName) : tstring(_T("unknown"));
+    auto &asyncProgram = m_degrainMotionSearchPrograms[normalizedBuildOptions];
+    asyncProgram.set(m_cl->threadPool()->enqueue([cl = m_cl, log = m_pLog, normalizedBuildOptions, local, global, specializeSubgroup, level]() {
+        auto program = buildDegrainCLProgram(cl, log, normalizedBuildOptions);
+        if (!program || !specializeSubgroup) {
+            return program;
+        }
+        const auto subgroupSizeSearchParallel = program->kernel("kernel_degrain_mv_search_parallel").config(cl->queue(), local, global).subGroupSize();
+        const auto subgroupSizeSpatialRefine = program->kernel("kernel_degrain_mv_spatial_refine").config(cl->queue(), local, global).subGroupSize();
+        if (subgroupSizeSearchParallel == 0 || subgroupSizeSearchParallel != subgroupSizeSpatialRefine) {
+            if (log) {
+                log->write(RGY_LOG_DEBUG, RGY_LOGT_VPP,
+                    _T("degrain motion search %s subgroup size specialization skipped: search_parallel=%d, spatial_refine=%d.\n"),
+                    level.c_str(), (int)subgroupSizeSearchParallel, (int)subgroupSizeSpatialRefine);
+            }
+            return program;
+        }
+        const auto specializedOptions = normalizedBuildOptions
+            + strsprintf(" -D DEGRAIN_MOTION_SEARCH_SUBGROUP_SIZE=%d", (int)subgroupSizeSearchParallel);
+        auto specializedProgram = buildDegrainCLProgram(cl, log, specializedOptions);
+        if (!specializedProgram) {
+            if (log) {
+                log->write(RGY_LOG_DEBUG, RGY_LOGT_VPP,
+                    _T("degrain motion search %s subgroup size specialization build failed; using generic subgroup build.\n"), level.c_str());
+            }
+            return program;
+        }
+        if (log) {
+            log->write(RGY_LOG_DEBUG, RGY_LOGT_VPP, _T("degrain motion search %s subgroup size specialized: %d.\n"),
+                level.c_str(), (int)subgroupSizeSearchParallel);
+        }
+        return specializedProgram;
+    }));
+}
+
+RGYOpenCLProgram *RGYFilterDegrain::getDegrainMotionSearchProgram(const std::string &normalizedBuildOptions) {
     auto program = m_degrainMotionSearchPrograms.find(normalizedBuildOptions);
     if (program == m_degrainMotionSearchPrograms.end()) {
-        auto &asyncProgram = m_degrainMotionSearchPrograms[normalizedBuildOptions];
-        asyncProgram.set(m_cl->threadPool()->enqueue([cl = m_cl, log = m_pLog, normalizedBuildOptions]() {
-            return buildDegrainCLProgram(cl, log, normalizedBuildOptions);
-        }));
-        return asyncProgram.get();
+        AddMessage(RGY_LOG_ERROR, _T("degrain motion search program was not requested during initialization.\n"));
+        return nullptr;
     }
     return program->second.get();
 }
@@ -1388,7 +1420,6 @@ void RGYFilterDegrain::resetTemporalState() {
 void RGYFilterDegrain::close() {
     m_degrain.clear();
     m_degrainChroma.clear();
-    m_degrainPel1.clear();
     m_degrainMotionSearchPrograms.clear();
     m_useDegrainChromaProgram = false;
     clearPendingSceneChange();

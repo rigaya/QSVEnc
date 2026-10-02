@@ -267,6 +267,7 @@ protected:
     int deint60CacheTrimFloor() const;
     bool lazyDeint60Enabled(const RGYFilterParamKfm& prm) const;
     const RGYFrameInfo *findDeint60Frame(int n60, std::vector<RGYOpenCLEvent> *wait_events) const;
+    const KfmCachedSource *findSourceByFrame(const RGYFrameInfo *frame) const;
     const RGYFrameInfo *findSourceFrame(const RGYFrameInfo *frame, std::vector<RGYOpenCLEvent> *wait_events);
     const KfmCachedSource *findSourceByIndex(int sourceIndex) const;
     const KfmCachedSource *findSourceByIndexExact(int sourceIndex) const;
@@ -590,7 +591,7 @@ protected:
         KfmProfileStats() : enabled(false), cleanSuperCacheHits(0), cleanSuperCacheMisses(0), cleanSuperCacheAvoidedFields(0), fullCombeMaskGenerated(0), fullCombeMaskAvoided(0) {};
     };
 
-    std::array<RGYOpenCLProgramAsync, 8> m_programs;
+    std::array<RGYOpenCLProgramAsync, 7> m_programs;
     std::unique_ptr<RGYFilterRtgmc> m_rtgmc;
     std::unique_ptr<RGYFilterRtgmc> m_deint60Rtgmc;
     std::unique_ptr<RGYFilterRtgmc> m_before60Rtgmc;

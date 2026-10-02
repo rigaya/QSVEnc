@@ -38,8 +38,7 @@
 #include <exception>
 #include <limits>
 
-static const std::array<const TCHAR *, 8> KFM_RESOURCE_NAMES = {
-    _T("RGY_FILTER_KFM_COMMON_CL"),
+static const std::array<const TCHAR *, 7> KFM_RESOURCE_NAMES = {
     _T("RGY_FILTER_KFM_PAD_CL"),
     _T("RGY_FILTER_KFM_STATIC_CL"),
     _T("RGY_FILTER_KFM_ANALYZE_CL"),
@@ -50,8 +49,7 @@ static const std::array<const TCHAR *, 8> KFM_RESOURCE_NAMES = {
 };
 
 enum KfmProgramIndex {
-    KFM_PROG_COMMON = 0,
-    KFM_PROG_PAD,
+    KFM_PROG_PAD = 0,
     KFM_PROG_STATIC,
     KFM_PROG_ANALYZE,
     KFM_PROG_RENDER,
@@ -521,7 +519,7 @@ RGY_ERR RGYFilterKfm::KfmRtgmcLane::drain(RGYOpenCLQueue &queue, int maxDrainIte
     }
     for (int iter = 0; !m_rtgmc->drainComplete(); iter++) {
         if (iter >= maxDrainIterations) {
-            m_owner->AddMessage(RGY_LOG_ERROR, _T("KFM %S RTGMC drain did not complete after %d iterations.\n"), m_stage, maxDrainIterations);
+            m_owner->AddMessage(RGY_LOG_ERROR, _T("KFM %s RTGMC drain did not complete after %d iterations.\n"), char_to_tstring(m_stage).c_str(), maxDrainIterations);
             return RGY_ERR_INVALID_CALL;
         }
         int drainedFrames = 0;
@@ -543,8 +541,8 @@ RGY_ERR RGYFilterKfm::KfmRtgmcLane::drainTo(int n60end, RGYOpenCLQueue &queue) {
     const auto maxDrainIterations = std::max(256, m_owner ? m_owner->m_cachedSourceFrames * 4 + 256 : 256);
     for (int iter = 0; m_nextOutputN60 < n60end && !m_rtgmc->drainComplete(); iter++) {
         if (iter >= maxDrainIterations) {
-            m_owner->AddMessage(RGY_LOG_ERROR, _T("KFM %S RTGMC demand drain did not reach n60=%d after %d iterations.\n"),
-                m_stage, n60end, maxDrainIterations);
+            m_owner->AddMessage(RGY_LOG_ERROR, _T("KFM %s RTGMC demand drain did not reach n60=%d after %d iterations.\n"),
+                char_to_tstring(m_stage).c_str(), n60end, maxDrainIterations);
             return RGY_ERR_INVALID_CALL;
         }
         auto sts = feed(nullptr, queue, {});
@@ -635,8 +633,8 @@ RGY_ERR RGYFilterKfm::KfmRtgmcLane::ensureRange(int n60begin, int n60end, RGYOpe
                 return ensureSts;
             }
             if (!m_owner->pushDeint60Intermediates(m_rtgmc, source->sourceIndex, &intermediateGeneration)) {
-                m_owner->AddMessage(RGY_LOG_WARN, _T("KFM %S RTGMC skipped sourceIndex=%d because deint60 intermediates were not ready.\n"),
-                    m_stage, source->sourceIndex);
+                m_owner->AddMessage(RGY_LOG_WARN, _T("KFM %s RTGMC skipped sourceIndex=%d because deint60 intermediates were not ready.\n"),
+                    char_to_tstring(m_stage).c_str(), source->sourceIndex);
                 return RGY_ERR_MORE_DATA;
             }
         }
@@ -676,8 +674,8 @@ RGY_ERR RGYFilterKfm::KfmRtgmcLane::feedHot(RGYOpenCLQueue &queue) {
             return RGY_ERR_NONE;
         }
         if (!m_owner->pushDeint60Intermediates(m_rtgmc, source->sourceIndex, &intermediateGeneration)) {
-            m_owner->AddMessage(RGY_LOG_WARN, _T("KFM %S RTGMC hot feed stopped at sourceIndex=%d because deint60 intermediates were not ready.\n"),
-                m_stage, source->sourceIndex);
+            m_owner->AddMessage(RGY_LOG_WARN, _T("KFM %s RTGMC hot feed stopped at sourceIndex=%d because deint60 intermediates were not ready.\n"),
+                char_to_tstring(m_stage).c_str(), source->sourceIndex);
             return RGY_ERR_NONE;
         }
     }
@@ -705,7 +703,13 @@ RGY_ERR RGYFilterKfm::KfmRtgmcLane::cacheFrame(const RGYFrameInfo *frame, RGYOpe
     }
 
     if (m_owner && (m_rtgmc == m_owner->m_before60Rtgmc.get() || m_rtgmc == m_owner->m_after60Rtgmc.get()) && frame->inputFrameId >= 0) {
-        const int frameN60Base = frame->inputFrameId * 2;
+        // trim後の入力番号は内部のsourceIndexと異なり、複数区間では途中でも飛ぶ。
+        const auto *source = m_owner->findSourceByFrame(frame);
+        if (!source) {
+            m_owner->AddMessage(RGY_LOG_ERROR, _T("KFM UCFの元フレームが見つかりません: inputFrameId=%d。\n"), frame->inputFrameId);
+            return RGY_ERR_INVALID_CALL;
+        }
+        const int frameN60Base = source->sourceIndex * 2;
         if (m_submittedFrames < frameN60Base || m_submittedFrames > frameN60Base + 1) {
             m_submittedFrames = frameN60Base;
         }
@@ -728,8 +732,8 @@ RGY_ERR RGYFilterKfm::KfmRtgmcLane::cacheFrame(const RGYFrameInfo *frame, RGYOpe
     const int sourceIndex = entry.n60 >> 1;
     const auto *source = m_owner->findSourceByIndexExact(sourceIndex);
     if (!source) {
-        m_owner->AddMessage(RGY_LOG_ERROR, _T("KFM source frame is missing for %S output n60=%d, sourceIndex=%d, inputFrameId=%d.\n"),
-            m_stage, entry.n60, sourceIndex, frame->inputFrameId);
+        m_owner->AddMessage(RGY_LOG_ERROR, _T("KFM source frame is missing for %s output n60=%d, sourceIndex=%d, inputFrameId=%d.\n"),
+            char_to_tstring(m_stage).c_str(), entry.n60, sourceIndex, frame->inputFrameId);
         return RGY_ERR_INVALID_CALL;
     }
     if (source->event() != nullptr) {
@@ -759,7 +763,7 @@ RGY_ERR RGYFilterKfm::KfmRtgmcLane::cacheFrame(const RGYFrameInfo *frame, RGYOpe
     }
     sts = m_owner->mergeStatic(&entry.frame->frame, frame, &source->frame->frame, queue, mergeWaitEvents, &entry.event);
     if (sts != RGY_ERR_NONE) {
-        m_owner->AddMessage(RGY_LOG_ERROR, _T("failed to merge/cache KFM %S frame: %s.\n"), m_stage, get_err_mes(sts));
+        m_owner->AddMessage(RGY_LOG_ERROR, _T("failed to merge/cache KFM %s frame: %s.\n"), char_to_tstring(m_stage).c_str(), get_err_mes(sts));
         return sts;
     }
     if (event && entry.event() != nullptr) {
@@ -1803,7 +1807,7 @@ RGY_ERR RGYFilterKfm::padSourceFrame(RGYFrameInfo *pPaddedFrame, const RGYFrameI
             ? kernel.launch((cl_mem)dst.ptr[0], dst.pitch[0], dst.width, src.height, vpad)
             : kernel.launch((cl_mem)dst.ptr[0], dst.pitch[0], (cl_mem)src.ptr[0], src.pitch[0], dst.width, src.height, vpad);
         if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("error at %S (plane %d): %s.\n"), kernelName, iplane, get_err_mes(err));
+            AddMessage(RGY_LOG_ERROR, _T("error at %s (plane %d): %s.\n"), char_to_tstring(kernelName).c_str(), iplane, get_err_mes(err));
             return err;
         }
         prevEvent = planeEvent;
@@ -2228,8 +2232,8 @@ bool RGYFilterKfm::pushDeint60Intermediates(RGYFilterRtgmc *rtgmc, int sourceInd
             return true;
         }
     }
-    const char *stage = (rtgmc == m_before60Rtgmc.get()) ? "before60" : ((rtgmc == m_after60Rtgmc.get()) ? "after60" : "unknown");
-    AddMessage(RGY_LOG_WARN, _T("KFM %S RTGMC shared-analysis intermediates missing for sourceIndex=%d; feed postponed.\n"),
+    const TCHAR *stage = (rtgmc == m_before60Rtgmc.get()) ? _T("before60") : ((rtgmc == m_after60Rtgmc.get()) ? _T("after60") : _T("unknown"));
+    AddMessage(RGY_LOG_WARN, _T("KFM %s RTGMC shared-analysis intermediates missing for sourceIndex=%d; feed postponed.\n"),
         stage, sourceIndex);
     return false;
 }
@@ -2306,7 +2310,7 @@ RGY_ERR RGYFilterKfm::copyUcfFrame(const RGYFilterParamKfm& prm, RGYFrameInfo *p
             (cl_mem)src.ptr[0], src.pitch[0],
             dst.width, dst.height);
         if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("error at %S (plane %d): %s.\n"), kernelName, iplane, get_err_mes(err));
+            AddMessage(RGY_LOG_ERROR, _T("error at %s (plane %d): %s.\n"), char_to_tstring(kernelName).c_str(), iplane, get_err_mes(err));
             return err;
         }
         prevEvent = planeEvent;
@@ -3279,7 +3283,7 @@ void RGYFilterKfm::writeUcfNoiseResultDump(const KfmUcfNoiseDumpRecord& record, 
             hasCalc1 = true;
         }
     } catch (const std::exception& e) {
-        AddMessage(RGY_LOG_WARN, _T("failed to calculate KFM UCF classification dump for frame %d: %S.\n"), record.sourceIndex, e.what());
+        AddMessage(RGY_LOG_WARN, _T("failed to calculate KFM UCF classification dump for frame %d: %s.\n"), record.sourceIndex, char_to_tstring(e.what()).c_str());
     }
     static const char *planeNames[2] = { "Y", "UV" };
     for (int i = 0; i < 2; i++) {
@@ -4119,7 +4123,7 @@ RGY_ERR RGYFilterKfm::analyzeAvailableSource(bool drain, RGYOpenCLQueue &queue) 
                 }
             }
         } catch (const std::exception& e) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to analyze KFM cycle %d: %S.\n"), m_nextAnalyzeCycle, e.what());
+            AddMessage(RGY_LOG_ERROR, _T("failed to analyze KFM cycle %d: %s.\n"), m_nextAnalyzeCycle, char_to_tstring(e.what()).c_str());
             return RGY_ERR_INVALID_CALL;
         }
         m_nextAnalyzeCycle++;
@@ -4693,27 +4697,32 @@ void RGYFilterKfm::writeContainsCombeDump(const char *stage, const KfmSwitchTimi
     fflush(m_fpContainsCombe);
 }
 
-const RGYFrameInfo *RGYFilterKfm::findSourceFrame(const RGYFrameInfo *frame, std::vector<RGYOpenCLEvent> *wait_events) {
+const RGYFilterKfm::KfmCachedSource *RGYFilterKfm::findSourceByFrame(const RGYFrameInfo *frame) const {
     if (!frame) {
         return nullptr;
     }
     for (auto it = m_sourceCache.rbegin(); it != m_sourceCache.rend(); ++it) {
         if (it->inputFrameId == frame->inputFrameId && it->timestamp == frame->timestamp) {
-            if (wait_events && it->event() != nullptr) {
-                wait_events->push_back(it->event);
-            }
-            return &it->frame->frame;
+            return &(*it);
         }
     }
     for (auto it = m_sourceCache.rbegin(); it != m_sourceCache.rend(); ++it) {
         if (it->inputFrameId == frame->inputFrameId) {
-            if (wait_events && it->event() != nullptr) {
-                wait_events->push_back(it->event);
-            }
-            return &it->frame->frame;
+            return &(*it);
         }
     }
     return nullptr;
+}
+
+const RGYFrameInfo *RGYFilterKfm::findSourceFrame(const RGYFrameInfo *frame, std::vector<RGYOpenCLEvent> *wait_events) {
+    const auto *source = findSourceByFrame(frame);
+    if (!source) {
+        return nullptr;
+    }
+    if (wait_events && source->event() != nullptr) {
+        wait_events->push_back(source->event);
+    }
+    return &source->frame->frame;
 }
 
 const RGYFilterKfm::KfmCachedSource *RGYFilterKfm::findSourceByIndex(int sourceIndex) const {
@@ -5337,7 +5346,7 @@ RGY_ERR RGYFilterKfm::renderTelecine24(RGYFrameInfo *pOutputFrame, int frame24In
     try {
         info = m_analyzer->patterns().getFrame24(result.pattern, frame24Index);
     } catch (const std::exception& e) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to resolve KFM 24p frame %d: %S.\n"), frame24Index, e.what());
+        AddMessage(RGY_LOG_ERROR, _T("failed to resolve KFM 24p frame %d: %s.\n"), frame24Index, char_to_tstring(e.what()).c_str());
         return RGY_ERR_INVALID_CALL;
     }
     const int firstField = info.cycleIndex * 10 + info.fieldStartIndex;
@@ -5783,7 +5792,7 @@ RGY_ERR RGYFilterKfm::renderTelecineSuper24(RGYFrameInfo *pOutputFrame, int fram
     try {
         info = m_analyzer->patterns().getFrame24(result.pattern, frame24Index);
     } catch (const std::exception& e) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to resolve KFM 24p super frame %d: %S.\n"), frame24Index, e.what());
+        AddMessage(RGY_LOG_ERROR, _T("failed to resolve KFM 24p super frame %d: %s.\n"), frame24Index, char_to_tstring(e.what()).c_str());
         return RGY_ERR_INVALID_CALL;
     }
     const int firstField = info.cycleIndex * 10 + info.fieldStartIndex;
@@ -5864,7 +5873,7 @@ RGY_ERR RGYFilterKfm::getCachedCleanSuper(KfmCleanSuperMode mode, int frameIndex
             key.lastField = key.firstField + info.numFields - 2;
             key.propSourceIndex = (key.firstField & ~1) >> 1;
         } catch (const std::exception& e) {
-            AddMessage(RGY_LOG_ERROR, _T("failed to resolve KFM 24p clean-super cache key %d: %S.\n"), frameIndex, e.what());
+            AddMessage(RGY_LOG_ERROR, _T("failed to resolve KFM 24p clean-super cache key %d: %s.\n"), frameIndex, char_to_tstring(e.what()).c_str());
             return RGY_ERR_INVALID_CALL;
         }
     } else if (mode == KFM_CLEAN_SUPER_30) {
@@ -6017,7 +6026,7 @@ RGY_ERR RGYFilterKfm::removeCombe24(RGYFrameInfo *pOutputFrame, const RGYFrameIn
     try {
         info = m_analyzer->patterns().getFrame24(result.pattern, frame24Index);
     } catch (const std::exception& e) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to resolve KFM 24p frame %d: %S.\n"), frame24Index, e.what());
+        AddMessage(RGY_LOG_ERROR, _T("failed to resolve KFM 24p frame %d: %s.\n"), frame24Index, char_to_tstring(e.what()).c_str());
         return RGY_ERR_INVALID_CALL;
     }
     const int firstField = info.cycleIndex * 10 + info.fieldStartIndex;
@@ -6614,21 +6623,7 @@ RGY_ERR RGYFilterKfm::processMainRtgmcOutputs(const RGYFilterParamKfm& prm, RGYF
         mergeWaitEvents.push_back(staticEvent);
     }
     for (int i = 0; i < rtgmcOutNum; i++) {
-        const KfmCachedSource *sourceEntry = nullptr;
-        for (auto it = m_sourceCache.rbegin(); it != m_sourceCache.rend(); ++it) {
-            if (it->inputFrameId == rtgmcOutFrames[i]->inputFrameId && it->timestamp == rtgmcOutFrames[i]->timestamp) {
-                sourceEntry = &(*it);
-                break;
-            }
-        }
-        if (!sourceEntry) {
-            for (auto it = m_sourceCache.rbegin(); it != m_sourceCache.rend(); ++it) {
-                if (it->inputFrameId == rtgmcOutFrames[i]->inputFrameId) {
-                    sourceEntry = &(*it);
-                    break;
-                }
-            }
-        }
+        const auto *sourceEntry = findSourceByFrame(rtgmcOutFrames[i]);
         if (!sourceEntry || !sourceEntry->frame || !sourceEntry->frame->frame.ptr[0]) {
             AddMessage(RGY_LOG_ERROR, _T("KFM source frame is missing for output inputFrameId=%d.\n"), rtgmcOutFrames[i]->inputFrameId);
             return RGY_ERR_INVALID_CALL;

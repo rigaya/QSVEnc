@@ -141,14 +141,6 @@ bool degrainMotionSearchSpatialReusePreviousSadEnabled() {
     return enabled;
 }
 
-bool degrainMotionSearchBuildOptionsSubgroupEnabled(const std::string &options) {
-    return options.find("DEGRAIN_MOTION_SEARCH_SUBGROUP=1") != std::string::npos;
-}
-
-bool degrainMotionSearchBuildOptionsHasSubgroupSize(const std::string &options) {
-    return options.find("DEGRAIN_MOTION_SEARCH_SUBGROUP_SIZE=") != std::string::npos;
-}
-
 size_t degrainMotionSearchLocalSize(const RGYDegrainBlockLayout &layout) {
     return (size_t)std::max(layout.blockSize, 1) * 8u;
 }
@@ -472,6 +464,13 @@ RGY_ERR RGYFilterDegrain::allocAnalysisBuffers(const std::shared_ptr<RGYFilterPa
         motionSearchWorkspace.buildOptionsLevel0 += subgroupOptions;
         motionSearchWorkspace.buildOptionsLevel1 += subgroupOptions;
     }
+    const bool specializeSubgroup = degrainMotionSearchSubgroupEnabled(m_cl);
+    requestDegrainMotionSearchProgram(motionSearchWorkspace.buildOptionsLevel0,
+        degrainMotionSearchLocalWorkSize(m_analysis.layout), degrainMotionSearchGlobalWorkSize(m_analysis.layout),
+        specializeSubgroup && m_analysis.layout.blockCount() > 0 && m_analysis.layout.blocksX > 0, _T("level0"));
+    requestDegrainMotionSearchProgram(motionSearchWorkspace.buildOptionsLevel1,
+        degrainMotionSearchLocalWorkSize(m_analysis.layoutLevel1), degrainMotionSearchGlobalWorkSize(m_analysis.layoutLevel1),
+        specializeSubgroup && m_analysis.layoutLevel1.blockCount() > 0 && m_analysis.layoutLevel1.blocksX > 0, _T("level1"));
     auto allocLevelWorkspace = [&](RGYDegrainMotionSearchLevelWorkspace &levelWorkspace, const RGYDegrainBlockLayout &layout, const TCHAR *levelName) {
         const size_t planeCount = (size_t)layout.temporalDirections;
         const size_t blockCount = layout.blockCount();
@@ -1137,35 +1136,6 @@ RGY_ERR RGYFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo &p
         AddMessage(RGY_LOG_ERROR, _T("failed to build degrain motion search program.\n"));
         return RGY_ERR_UNSUPPORTED;
     }
-    auto specializeSubgroupSize = [&](RGYOpenCLProgram *program, std::string &buildOptions, const RGYDegrainBlockLayout &layout, const TCHAR *levelName) {
-        if (!program || !degrainMotionSearchBuildOptionsSubgroupEnabled(buildOptions)
-            || degrainMotionSearchBuildOptionsHasSubgroupSize(buildOptions)
-            || layout.blockCount() == 0 || layout.blocksX <= 0) {
-            return program;
-        }
-        const auto local = degrainMotionSearchLocalWorkSize(layout);
-        const auto globalParallel = degrainMotionSearchGlobalWorkSize(layout);
-        const auto subgroupSizeSearchParallel = program->kernel("kernel_degrain_mv_search_parallel").config(queue, local, globalParallel).subGroupSize();
-        const auto subgroupSizeSpatialRefine = program->kernel("kernel_degrain_mv_spatial_refine").config(queue, local, globalParallel).subGroupSize();
-        if (subgroupSizeSearchParallel == 0
-            || subgroupSizeSearchParallel != subgroupSizeSpatialRefine) {
-            AddMessage(RGY_LOG_DEBUG,
-                _T("degrain motion search %s subgroup size specialization skipped: search_parallel=%d, spatial_refine=%d.\n"),
-                levelName, (int)subgroupSizeSearchParallel, (int)subgroupSizeSpatialRefine);
-            return program;
-        }
-        const auto specializedOptions = buildOptions + strsprintf(" -D DEGRAIN_MOTION_SEARCH_SUBGROUP_SIZE=%d", (int)subgroupSizeSearchParallel);
-        auto specializedProgram = getDegrainMotionSearchProgram(specializedOptions);
-        if (!specializedProgram) {
-            AddMessage(RGY_LOG_DEBUG, _T("degrain motion search %s subgroup size specialization build failed; using generic subgroup build.\n"), levelName);
-            return program;
-        }
-        AddMessage(RGY_LOG_DEBUG, _T("degrain motion search %s subgroup size specialized: %d.\n"), levelName, (int)subgroupSizeSearchParallel);
-        buildOptions = specializedOptions;
-        return specializedProgram;
-    };
-    programL0 = specializeSubgroupSize(programL0, ws.buildOptionsLevel0, m_analysis.layout, _T("level0"));
-    programL1 = specializeSubgroupSize(programL1, ws.buildOptionsLevel1, m_analysis.layoutLevel1, _T("level1"));
     if (!ws.level0.vectors || !ws.level0.vectorsPrev || !ws.level0.vectorsFinal || !ws.level0.sads
         || !ws.level1.vectors || !ws.level1.vectorsPrev || !ws.level1.vectorsFinal || !ws.level1.sads
         || !ws.frameAverageMV || !m_analysis.mv || !m_analysis.sad) {

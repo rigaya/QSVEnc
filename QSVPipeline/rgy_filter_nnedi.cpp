@@ -264,7 +264,6 @@ RGYFilterNnedi::RGYFilterNnedi(shared_ptr<RGYOpenCLContext> context) :
     m_weights(),
     m_nnedi(),
     m_nnediBuildOptions(),
-    m_nnediPredictorSubgroupSize(0),
     m_refBuf(),
     m_prescreenerWeightBuf(),
     m_predictorWeightBuf(),
@@ -511,10 +510,57 @@ RGY_ERR RGYFilterNnedi::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLo
         m_tileRows,
         m_predLocalX,
         m_predLocalY);
-    m_nnediPredictorSubgroupSize = 0;
     AddMessage(RGY_LOG_DEBUG, _T("Starting async build for RGY_FILTER_NNEDI_CL: %s\n"),
         char_to_tstring(m_nnediBuildOptions).c_str());
-    m_nnedi.set(m_cl->buildResourceAsync(_T("RGY_FILTER_NNEDI_CL"), _T("EXE_DATA"), m_nnediBuildOptions.c_str()));
+    m_nnedi.set(m_cl->threadPool()->enqueue([
+        cl = m_cl, log = m_pLog, buildOptions = m_nnediBuildOptions,
+        predLocalX = m_predLocalX, predLocalY = m_predLocalY]() {
+        auto program = cl->buildResource(_T("RGY_FILTER_NNEDI_CL"), _T("EXE_DATA"), buildOptions.c_str());
+        if (!program) {
+            return program;
+        }
+        const auto kernelName = "kernel_nnedi_predictor_network";
+        const RGYWorkSize local(predLocalX, predLocalY);
+        const auto subgroupSize = (int)program->kernel(kernelName).config(cl->queue(), local, local).subGroupSize();
+        if (subgroupSize != 16 && subgroupSize != 32) {
+            if (RGYOpenCLDevice(cl->queue().devid()).checkExtension("cl_intel_required_subgroup_size")) {
+                // 自動選択の幅が16/32でない場合 (Arc A310ではSIMD8) でも、幅を指定できるデバイスでは16を要求してサブグループ版を使う
+                const int requiredSubgroupSize = 16;
+                const auto requiredBuildOptions = buildOptions + strsprintf(
+                    " -cl-std=CL2.0 -D NNEDI_PRED_SUBGROUP_OPT=1 -D NNEDI_PRED_SUBGROUP_SIZE=%d -D NNEDI_PRED_REQD_SUBGROUP_SIZE=%d",
+                    requiredSubgroupSize, requiredSubgroupSize);
+                auto requiredProgram = cl->buildResource(_T("RGY_FILTER_NNEDI_CL"), _T("EXE_DATA"), requiredBuildOptions.c_str());
+                const auto builtSubgroupSize = requiredProgram ? (int)requiredProgram->kernel(kernelName).config(cl->queue(), local, local).subGroupSize() : 0;
+                if (builtSubgroupSize == requiredSubgroupSize) {
+                    if (log) {
+                        log->write(RGY_LOG_DEBUG, RGY_LOGT_VPP,
+                            _T("Built RGY_FILTER_NNEDI_CL with required predictor subgroup size %d (auto size %d).\n"), requiredSubgroupSize, subgroupSize);
+                    }
+                    return requiredProgram;
+                }
+            }
+            if (log) {
+                log->write(RGY_LOG_DEBUG, RGY_LOGT_VPP,
+                    _T("NNEDI predictor subgroup optimization skipped: subgroup size %d.\n"), subgroupSize);
+            }
+            return program;
+        }
+        const auto subgroupBuildOptions = buildOptions + strsprintf(
+            " -cl-std=CL2.0 -D NNEDI_PRED_SUBGROUP_OPT=1 -D NNEDI_PRED_SUBGROUP_SIZE=%d", subgroupSize);
+        if (log) {
+            log->write(RGY_LOG_DEBUG, RGY_LOGT_VPP,
+                _T("Building RGY_FILTER_NNEDI_CL with predictor subgroup size %d.\n"), subgroupSize);
+        }
+        auto subgroupProgram = cl->buildResource(_T("RGY_FILTER_NNEDI_CL"), _T("EXE_DATA"), subgroupBuildOptions.c_str());
+        if (!subgroupProgram) {
+            if (log) {
+                log->write(RGY_LOG_WARN, RGY_LOGT_VPP,
+                    _T("failed to build subgroup RGY_FILTER_NNEDI_CL; using generic program.\n"));
+            }
+            return program;
+        }
+        return subgroupProgram;
+    }));
     setFilterInfo(prm->nnedi.print());
 
     const int outputSlots = topology.frameMultiplier;
@@ -750,47 +796,6 @@ RGY_ERR RGYFilterNnedi::resolveClassifiedPixels(const RGYFrameInfo *pInputFrame,
     const int lastEnabledPlane = nnediFindEnabledPlane(prm->nnedi, pInputFrame->csp, true);
     const auto kernelName = "kernel_nnedi_predictor_network";
     RGYWorkSize local(m_predLocalX, m_predLocalY);
-    if (m_nnediPredictorSubgroupSize == 0) {
-        const auto subgroupSize = (int)nnediProgram->kernel(kernelName).config(queue, local, local).subGroupSize();
-        if (subgroupSize == 16 || subgroupSize == 32) {
-            const auto subgroupBuildOptions = m_nnediBuildOptions + strsprintf(
-                " -cl-std=CL2.0 -D NNEDI_PRED_SUBGROUP_OPT=1 -D NNEDI_PRED_SUBGROUP_SIZE=%d",
-                subgroupSize);
-            AddMessage(RGY_LOG_DEBUG, _T("Rebuilding RGY_FILTER_NNEDI_CL with predictor subgroup size %d.\n"), subgroupSize);
-            m_nnedi.set(m_cl->buildResourceAsync(_T("RGY_FILTER_NNEDI_CL"), _T("EXE_DATA"), subgroupBuildOptions.c_str()));
-            m_nnediBuildOptions = subgroupBuildOptions;
-            m_nnediPredictorSubgroupSize = subgroupSize;
-            nnediProgram = m_nnedi.get();
-            if (!nnediProgram) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to build/load subgroup RGY_FILTER_NNEDI_CL (options: %s).\n"),
-                    char_to_tstring(m_nnediBuildOptions).c_str());
-                return RGY_ERR_OPENCL_CRUSH;
-            }
-        } else if (RGYOpenCLDevice(queue.devid()).checkExtension("cl_intel_required_subgroup_size")) {
-            // 自動選択の幅が16/32でない場合でも、幅を指定できるデバイスでは16を要求してサブグループ版を使う
-            const int requiredSubgroupSize = 16;
-            const auto subgroupBuildOptions = m_nnediBuildOptions + strsprintf(
-                " -cl-std=CL2.0 -D NNEDI_PRED_SUBGROUP_OPT=1 -D NNEDI_PRED_SUBGROUP_SIZE=%d -D NNEDI_PRED_REQD_SUBGROUP_SIZE=%d",
-                requiredSubgroupSize, requiredSubgroupSize);
-            auto requiredProgram = m_cl->buildResource(_T("RGY_FILTER_NNEDI_CL"), _T("EXE_DATA"), subgroupBuildOptions);
-            const auto builtSubgroupSize = requiredProgram ? (int)requiredProgram->kernel(kernelName).config(queue, local, local).subGroupSize() : 0;
-            if (builtSubgroupSize == requiredSubgroupSize) {
-                AddMessage(RGY_LOG_DEBUG, _T("Rebuilt RGY_FILTER_NNEDI_CL with required predictor subgroup size %d (auto size %d).\n"), requiredSubgroupSize, subgroupSize);
-                std::promise<std::unique_ptr<RGYOpenCLProgram>> builtProgram;
-                builtProgram.set_value(std::move(requiredProgram));
-                m_nnedi.set(builtProgram.get_future());
-                m_nnediBuildOptions = subgroupBuildOptions;
-                m_nnediPredictorSubgroupSize = requiredSubgroupSize;
-                nnediProgram = m_nnedi.get();
-            } else {
-                m_nnediPredictorSubgroupSize = -1;
-                AddMessage(RGY_LOG_DEBUG, _T("NNEDI predictor subgroup optimization skipped: subgroup size %d, required build %d.\n"), subgroupSize, builtSubgroupSize);
-            }
-        } else {
-            m_nnediPredictorSubgroupSize = -1;
-            AddMessage(RGY_LOG_DEBUG, _T("NNEDI predictor subgroup optimization skipped: subgroup size %d.\n"), subgroupSize);
-        }
-    }
     for (int iplane = 0; iplane < planes; iplane++) {
         if (!nnediPlaneEnabled(prm->nnedi, iplane)) {
             continue;
@@ -926,7 +931,6 @@ void RGYFilterNnedi::close() {
     m_transformedWeights = RGYFilterNnediTransformedWeights();
     m_nnedi.clear();
     m_nnediBuildOptions.clear();
-    m_nnediPredictorSubgroupSize = 0;
     m_refBuf.clear();
     m_prescreenerWeightBuf.reset();
     m_predictorWeightBuf.reset();

@@ -186,6 +186,8 @@ protected:
     RGY_ERR unsupportedModeError(VppDegrainMode mode);
     void loadDebugEnv();
     RGY_ERR buildKernels(const std::shared_ptr<RGYFilterParamDegrain> &prm);
+    void requestDegrainMotionSearchProgram(const std::string &normalizedBuildOptions,
+        const RGYWorkSize &local, const RGYWorkSize &global, bool specializeSubgroup, const TCHAR *levelName);
     RGYOpenCLProgram *getDegrainMotionSearchProgram(const std::string &normalizedBuildOptions);
     RGYOpenCLProgram *degrainRenderProgram(RGY_PLANE plane);
     RGY_ERR allocAnalysisBuffers(const std::shared_ptr<RGYFilterParamDegrain> &prm);
@@ -254,7 +256,6 @@ protected:
     std::array<std::shared_ptr<RGYCLFrame>, DEGRAIN_CACHE_SIZE> m_cacheFrameOwners;
     RGYOpenCLProgramAsync m_degrain;
     RGYOpenCLProgramAsync m_degrainChroma;
-    RGYOpenCLProgramAsync m_degrainPel1;
     std::unordered_map<std::string, RGYOpenCLProgramAsync> m_degrainMotionSearchPrograms;
     RGYDegrainAnalysisState m_analysis;
     RGYDegrainAnalyzeResultSet m_directAnalyzeResultSet;

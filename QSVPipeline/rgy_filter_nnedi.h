@@ -105,7 +105,6 @@ protected:
     RGYFilterNnediTransformedWeights m_transformedWeights;
     RGYOpenCLProgramAsync m_nnedi;
     std::string m_nnediBuildOptions;
-    int m_nnediPredictorSubgroupSize;
     std::vector<std::unique_ptr<RGYCLFrame>> m_refBuf;
     std::unique_ptr<RGYCLBuf> m_prescreenerWeightBuf;
     std::unique_ptr<RGYCLBuf> m_predictorWeightBuf;
