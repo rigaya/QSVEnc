@@ -1174,7 +1174,7 @@ RGY_ERR RGYFilterResize::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInf
     //フィールドごとに分離してresizeし、再度インターリーブして戻す。
     //インタレ解除を使わない構成で、入力途中の解像度変更に伴う正規化resizeが挿入される場合にこの経路が必要となる。
     if (interlaced(*pInputFrame)) {
-        return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], queue);
+        return filter_as_interlaced_pair(pInputFrame, ppOutputFrames[0], queue, wait_events, event);
     }
     const auto memcpyKind = getMemcpyKind(pInputFrame->mem_type, ppOutputFrames[0]->mem_type);
     if (memcpyKind != RGYCLMemcpyD2D) {

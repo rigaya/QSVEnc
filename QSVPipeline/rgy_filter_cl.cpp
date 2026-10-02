@@ -145,7 +145,7 @@ void RGYFilter::setCheckPerformance(const bool check) {
 //インタレフレームをtop/bottomの2フィールドに分離し、各フィールドを単体のprogressiveフレームとしてrun_filter()に通してから、
 //結果を元のインタレ配置に戻す。フィールドをまたいで画素を混ぜてはいけないフィルタ(resize等)をインタレ入力に適用するために使う。
 //run_filter()を1フレームにつき2回呼ぶため、run_filter()側は「1入力→1出力」であることが前提(nFieldOutで確認)。
-RGY_ERR RGYFilter::filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, RGYFrameInfo *pOutputFrame, RGYOpenCLQueue &queue) {
+RGY_ERR RGYFilter::filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, RGYFrameInfo *pOutputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     //フィールドペア用バッファは、入力仕様が変化した場合にも再確保する。
     //(入力途中の解像度変更でこの関数への入力解像度が変わりうるため、初回のみ確保する実装では足りない)
     auto allocFieldPairBuf = [this](std::unique_ptr<RGYCLFrame>& fieldPairBuf, const RGYFrameInfo *frameInfo, const TCHAR *bufName) {
@@ -179,8 +179,10 @@ RGY_ERR RGYFilter::filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, RG
     for (int i = 0; i < 2; i++) {
         const auto fieldMode = (i == 0) ? RGYFrameCopyMode::FIELD_TOP : RGYFrameCopyMode::FIELD_BOTTOM;
         //src側はインタレフレームの片フィールド(1行おき)、dst側は詰まったフレーム全体。src/dstで異なるモードを指定する必要がある
+        //同じ順序付きキューで両フィールドを処理するため、最初の分離コピーで入力の依存を待つ。
         auto err = m_cl->copyFrameField(&m_pFieldPairIn->frame, pInputFrame,
-            fieldMode, RGYFrameCopyMode::FRAME, nullptr, queue);
+            fieldMode, RGYFrameCopyMode::FRAME, nullptr, queue,
+            (i == 0) ? wait_events : std::vector<RGYOpenCLEvent>());
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to separate field(%d): %s.\n"), i, get_err_mes(err));
             return err;
@@ -196,8 +198,10 @@ RGY_ERR RGYFilter::filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, RG
             return RGY_ERR_UNKNOWN;
         }
         //分離時とは逆に、詰まったフレームを出力フレームの片フィールドへ書き戻す
+        //最後のフィールドの全プレーン書き戻し完了を、後続処理へ渡す。
         err = m_cl->copyFrameField(pOutputFrame, pFieldOut,
-            RGYFrameCopyMode::FRAME, fieldMode, nullptr, queue);
+            RGYFrameCopyMode::FRAME, fieldMode, nullptr, queue, {},
+            (i == 1) ? event : nullptr);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to merge field(%d): %s.\n"), i, get_err_mes(err));
             return err;

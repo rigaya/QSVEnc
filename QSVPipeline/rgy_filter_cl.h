@@ -63,7 +63,7 @@ public:
 protected:
     virtual RGY_ERR AllocFrameBuf(const RGYFrameInfo &frame, int frames) override;
     //インタレフレームをフィールド単位に分離してrun_filter()を2回適用する。実装はrgy_filter_cl.cpp参照
-    RGY_ERR filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, RGYFrameInfo *pOutputFrame, RGYOpenCLQueue &queue);
+    RGY_ERR filter_as_interlaced_pair(const RGYFrameInfo *pInputFrame, RGYFrameInfo *pOutputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) = 0;
 
     std::shared_ptr<RGYOpenCLContext> m_cl;

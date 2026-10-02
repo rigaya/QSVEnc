@@ -120,11 +120,13 @@ static RGY_CSP rtgmcSearchLumaCsp(const RGYFrameInfo &frameInfo) {
 }
 
 static RGYFrameInfo rtgmcSearchPrefilterPlaneFrameInfo(const RGYFrameInfo &planeInfo) {
-    return RGYFrameInfo(planeInfo.width, planeInfo.height, rtgmcSearchLumaCsp(planeInfo), planeInfo.bitdepth, planeInfo.picstruct, planeInfo.mem_type);
+    return RGYFrameInfo(planeInfo.width, planeInfo.height, rtgmcSearchLumaCsp(planeInfo), planeInfo.bitdepth, RGY_PICSTRUCT_FRAME, planeInfo.mem_type);
 }
 
 static RGYFrameInfo rtgmcSearchPrefilterSearchFrameInfo(const RGYFrameInfo &frameInfo, const bool includeChroma) {
-    return includeChroma ? frameInfo : rtgmcSearchPrefilterPlaneFrameInfo(frameInfo);
+    auto info = includeChroma ? frameInfo : rtgmcSearchPrefilterPlaneFrameInfo(frameInfo);
+    info.picstruct = RGY_PICSTRUCT_FRAME;
+    return info;
 }
 
 RGYFilterRtgmcSearchPrefilter::RGYFilterRtgmcSearchPrefilter(shared_ptr<RGYOpenCLContext> context) :
@@ -800,7 +802,10 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::dumpSearchLumaFrame(RGYCLFrame *searchLum
 }
 
 std::unique_ptr<RGYCLFrame> RGYFilterRtgmcSearchPrefilter::createPlaneFrame(const RGYFrameInfo &frameInfo) {
-    return m_cl->createFrameBuffer(frameInfo);
+    // 動き探索の中間画像はフレーム座標で計算済みなので、内部resizeで再びフィールド分離しない。
+    auto planeInfo = frameInfo;
+    planeInfo.picstruct = RGY_PICSTRUCT_FRAME;
+    return m_cl->createFrameBuffer(planeInfo);
 }
 
 std::shared_ptr<RGYCLFrame> RGYFilterRtgmcSearchPrefilter::createSearchLumaFrame(const RGYFrameInfo &frameInfo, const bool includeChroma) {
@@ -1181,6 +1186,7 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::emitPrefilteredFrame(PendingSearchPrefilt
             return RGY_ERR_MEMORY_ALLOC;
         }
         copyFramePropWithoutRes(&searchLumaFrame->frame, cur);
+        searchLumaFrame->frame.picstruct = RGY_PICSTRUCT_FRAME;
         searchLumaFrame->frame.dataList.clear();
     }
 
