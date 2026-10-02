@@ -30,6 +30,8 @@
 
 #include <array>
 #include <fstream>
+#include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -141,6 +143,9 @@ protected:
 
     RGYOpenCLProgramAsync m_retouch;
     std::string m_buildOptions;
+    // kernel_rtgmc_retouch_limit_inline_comp用に、動き補償パラメータを定数化したプログラム。
+    // キーは追加ビルドオプション。ビルド失敗時はnullptrを入れ、汎用のm_retouchを使う。
+    std::map<std::string, std::unique_ptr<RGYOpenCLProgram>> m_retouchInlineCompPrograms;
     std::ofstream m_lumaDump;
     std::string m_lumaDumpPath;
     std::string m_lumaDumpStage;

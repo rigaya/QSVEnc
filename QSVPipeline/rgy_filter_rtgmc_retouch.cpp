@@ -992,9 +992,23 @@ RGY_ERR RGYFilterRtgmcRetouch::processFrame(RGYFrameInfo *pOutputFrame, const RG
         const auto srcPlane = getPlane(srcFrame, (RGY_PLANE)iplane);
         const auto refPlane = getPlane(refLimitFrame, (RGY_PLANE)iplane);
         const auto &compParams = m_temporalLimitFrames.inlineCompParams[iplane];
+        // 動き補償パラメータを定数化したプログラムを (組み合わせごとに初回だけ) ビルドして使う
+        const auto specOptions = strsprintf(" -D RTGMC_COMP_BLOCK_SIZE=%d -D RTGMC_COMP_OVERLAP=%d -D RTGMC_COMP_STEP=%d"
+            " -D RTGMC_COMP_PLANE_SCALE_X=%d -D RTGMC_COMP_PLANE_SCALE_Y=%d -D RTGMC_COMP_REFS=%d -D RTGMC_COMP_PEL=%d",
+            compParams.blockSize, compParams.overlap, compParams.step,
+            compParams.planeScaleX, compParams.planeScaleY, compParams.refs, compParams.pel);
+        auto specProgram = m_retouchInlineCompPrograms.find(specOptions);
+        if (specProgram == m_retouchInlineCompPrograms.end()) {
+            auto program = m_cl->buildResource(_T("RGY_FILTER_RTGMC_RETOUCH_CL"), _T("EXE_DATA"), m_buildOptions + specOptions);
+            if (!program) {
+                AddMessage(RGY_LOG_DEBUG, _T("failed to build specialized kernel_rtgmc_retouch_limit_inline_comp, using generic build.\n"));
+            }
+            specProgram = m_retouchInlineCompPrograms.emplace(specOptions, std::move(program)).first;
+        }
+        auto inlineCompProgram = specProgram->second ? specProgram->second.get() : m_retouch.get();
         RGYWorkSize local(RTGMC_RETOUCH_BLOCK_X, RTGMC_RETOUCH_BLOCK_Y);
         RGYWorkSize global(dstPlane.width, dstPlane.height);
-        auto err = m_retouch.get()->kernel("kernel_rtgmc_retouch_limit_inline_comp").config(queue, local, global, {}, nullptr).launch(
+        auto err = inlineCompProgram->kernel("kernel_rtgmc_retouch_limit_inline_comp").config(queue, local, global, {}, nullptr).launch(
             (cl_mem)dstPlane.ptr[0], dstPlane.pitch[0],
             (cl_mem)srcPlane.ptr[0], srcPlane.pitch[0],
             (cl_mem)refPlane.ptr[0], refPlane.pitch[0],
@@ -1406,6 +1420,7 @@ void RGYFilterRtgmcRetouch::resetTemporalState() {
 }
 
 void RGYFilterRtgmcRetouch::close() {
+    m_retouchInlineCompPrograms.clear();
     m_retouch.clear();
     m_buildOptions.clear();
     if (m_lumaDump.is_open()) {
