@@ -314,6 +314,22 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2026.10.02 (8.32)
+[QSVEncC]
+- LinuxでVA-APIによるエンコードに対応。
+- debパッケージの依存を見直し、VA-APIだけの環境にもインストールできるようにする。
+- ICQ使用時に--la-depthを自動的に無効化。
+- LinuxのVAメモリで、MFX VPPの出力をエンコード前に同期し、色変換や同一形式のリサイズで旧フレームが混入する問題を修正。( #308 )
+- LinuxでのCPU使用率の取得を改善。
+- 音声PTS欠損時の推定基準を分離しTrueHDの丸め誤差累積を修正。
+- --vpp-rtgmcのsearch-prefilterを高速化。
+- --vpp-kfmのホスト同期待ちを減らし、GPUへの先行投入を途切れさせないようにする。
+- --vpp-degrainの動き探索を高速化。
+- --vpp-nnediの出力初期化コピーを、処理するplaneでは残す側のフィールドだけに減らす。
+- --vpp-nnediのpredictorで、自動選択のSIMD幅が16/32でないデバイスでも高速化。
+- エンコーダの出力キュー深さを広げ、エンコード待ちとフィルタ処理を重ねる。
+- インタレース入力のresizeで完了イベントが返らない問題と、--vpp-rtgmc-search-prefilterのsearch_refine=3が0フレームになる問題を修正。
+
 2026.09.27 (8.31)
 [QSVEncC]
 - 複数のIntel OpenCL platformが存在する環境で、OpenCL interopが失敗する問題を修正。

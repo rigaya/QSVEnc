@@ -1,5 +1,21 @@
 # QSVEnc Release Notes
 
+## 8.32
+
+- Add VA-API encoding support on Linux. ([--backend](./QSVEncC_Options.en.md#--backend-autoqsvvaapi))
+- Relax deb package dependencies so it can be installed on VA-API-only systems.
+- Disable [--la-depth](./QSVEncC_Options.en.md#--la-depth-int) in ICQ mode. ICQ with LookaheadDepth can stall before encode starts on some Intel graphics drivers. ( #315 )
+- Synchronize MFX VPP output before encode on Linux VA memory, fixing old frames mixed in by color conversion and same-format resize. ( #308 )
+- Improve CPU utilization information on Linux systems.
+- Fix TrueHD audio timestamp calculation.
+- Optimize [--vpp-rtgmc](./QSVEncC_Options.en.md#--vpp-rtgmc-param1value1) search-prefilter. Exclude the repair path from the program when it is unused (about 8x), and inline it for profiles with small expansion.
+- Reduce host sync waits in [--vpp-kfm](./QSVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) so GPU submission stays continuous.
+- Optimize motion search in [--vpp-degrain](./QSVEncC_Options.en.md#--vpp-degrain-param1value1).
+- Reduce [--vpp-nnedi](./QSVEncC_Options.en.md#--vpp-nnedi-param1value1param2value2) output initialization to the kept field on processed planes.
+- Use the subgroup predictor in [--vpp-nnedi](./QSVEncC_Options.en.md#--vpp-nnedi-param1value1param2value2) even when the auto-selected SIMD width is not 16 or 32.
+- Deepen the encoder output queue so encode waits overlap filter processing.
+- Fix missing completion events for interlaced [--vpp-resize](./QSVEncC_Options.en.md#--vpp-resize-string), and fix [--vpp-rtgmc-search-prefilter](./QSVEncC_Options.en.md#--vpp-rtgmc-search-prefilter-param1value1) `search_refine=3` producing 0 frames.
+
 ## 8.31
 
 - Fix OpenCL interop failure when multiple Intel OpenCL platforms are present.
