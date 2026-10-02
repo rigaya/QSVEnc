@@ -559,13 +559,17 @@ static inline uint degrain_motion_search_sum_candidate_sad_lanes(
     }
     barrier(CLK_LOCAL_MEM_FENCE);
 
-    for (int offset = DEGRAIN_BLK_SIZE >> 1; offset > 0; offset >>= 1) {
-        if (candidateIsValid && sadLane < offset) {
-            candidateLaneSums[partialBase + sadLane] += candidateLaneSums[partialBase + sadLane + offset];
+    // 各候補グループの先頭レーンがDEGRAIN_BLK_SIZE個を逐次加算する。
+    // 以前の木構造リダクションはlog2(DEGRAIN_BLK_SIZE)回のworkgroup barrierを要し、
+    // 1ブロック=1 workgroupの探索ではbarrier待ちが支配的だった。整数加算なので結果は同一。
+    // 呼び出し元はすべて、この後candidateLaneSumsへ再度書き込む前にbarrierを置いていること。
+    uint totalSad = 0u;
+    if (candidateIsValid && sadLane == 0) {
+        for (int i = 0; i < DEGRAIN_BLK_SIZE; i++) {
+            totalSad += candidateLaneSums[partialBase + i];
         }
-        barrier(CLK_LOCAL_MEM_FENCE);
     }
-    return (candidateIsValid && sadLane == 0) ? candidateLaneSums[partialBase] : 0u;
+    return totalSad;
 }
 
 static inline int degrain_motion_search_candidate_cost_magnitude(
@@ -928,29 +932,44 @@ static inline uint degrain_motion_search_source_block_variance_parallel(
     __local uint *laneSums,
     const int localThreadId) {
     const int count = DEGRAIN_BLK_SIZE * DEGRAIN_BLK_SIZE;
-    uint partialSum = 0u;
 #if DEGRAIN_PIXEL_BYTES == 1
-    uint partialSumSq = 0u;
+    // 8bit画素: 列ごとの和/2乗和をDEGRAIN_BLK_SIZEレーンで求め、1回のbarrierで集約する。
+    // 以前はworkgroup全体(256レーン)の木構造リダクションを2回行っており、barrierが約20回発生して
+    // L0探索カーネルの約1/4をこの判定だけで消費していた。整数加算なので集約順序を変えても結果は同一。
+    // 列の2乗和は最大 DEGRAIN_BLK_SIZE * 255^2 で32bitに収まる。
+    if (localThreadId < DEGRAIN_BLK_SIZE) {
+        uint columnSum = 0u;
+        uint columnSumSq = 0u;
+        for (int y = 0; y < DEGRAIN_BLK_SIZE; y++) {
+            const uint value = (uint)sourceBlockPixels[y * DEGRAIN_BLK_SIZE + localThreadId];
+            columnSum += value;
+            columnSumSq += value * value;
+        }
+        laneSums[localThreadId] = columnSum;
+        laneSums[DEGRAIN_BLK_SIZE + localThreadId] = columnSumSq;
+    }
+    barrier(CLK_LOCAL_MEM_FENCE);
+    long sum = 0;
+    long sumSq = 0;
+    for (int i = 0; i < DEGRAIN_BLK_SIZE; i++) {
+        sum += laneSums[i];
+        sumSq += laneSums[DEGRAIN_BLK_SIZE + i];
+    }
+    // 呼び出し元がlaneSumsを再利用するため、全スレッドの読み出し完了を待つ
+    barrier(CLK_LOCAL_MEM_FENCE);
 #else
+    uint partialSum = 0u;
     // 16bit画素は2乗和の合計が32bitを超えるため、v^2 (32bitに収まる) を上位/下位に分けて総和する
     uint partialSumSqLo = 0u;
     uint partialSumSqHi = 0u;
-#endif
     for (int i = localThreadId; i < count; i += DEGRAIN_MOTION_SEARCH_SEARCH_LOCAL_SIZE) {
         const uint value = (uint)sourceBlockPixels[i];
         partialSum += value;
-#if DEGRAIN_PIXEL_BYTES == 1
-        partialSumSq += value * value;
-#else
         const uint valueSq = value * value;
         partialSumSqLo += valueSq & 0xffffu;
         partialSumSqHi += valueSq >> 16;
-#endif
     }
     const long sum = (long)degrain_motion_search_workgroup_reduce_add(laneSums, partialSum, localThreadId);
-#if DEGRAIN_PIXEL_BYTES == 1
-    const long sumSq = (long)degrain_motion_search_workgroup_reduce_add(laneSums, partialSumSq, localThreadId);
-#else
     const long sumSqLo = (long)degrain_motion_search_workgroup_reduce_add(laneSums, partialSumSqLo, localThreadId);
     const long sumSqHi = (long)degrain_motion_search_workgroup_reduce_add(laneSums, partialSumSqHi, localThreadId);
     const long sumSq = (sumSqHi << 16) + sumSqLo;
