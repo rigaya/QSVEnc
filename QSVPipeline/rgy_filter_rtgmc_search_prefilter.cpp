@@ -318,10 +318,9 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::buildKernel(const std::shared_ptr<RGYFilt
 }
 
 bool RGYFilterRtgmcSearchPrefilter::useRepairMultipass(const RGYFilterParamRtgmcSearchPrefilter &prm) const {
-    // pad=2/3とthin=4,pad=0の専用level4経路はStep2まで旧経路へ戻す。
-    return !m_repairLegacy && prm.rep0Pad <= 1
-        && (prm.repairProfile.restoreFlags & RGY_RTGMC_REPAIR_RESTORE_ENABLED)
-        && !(prm.repairProfile.restoreFlags & RGY_RTGMC_REPAIR_RESTORE_LEVEL4_PATH);
+    // 修復が有効な全プロファイルを多段化し、比較用の環境変数だけで旧経路を選ぶ。
+    return !m_repairLegacy
+        && (prm.repairProfile.restoreFlags & RGY_RTGMC_REPAIR_RESTORE_ENABLED);
 }
 
 RGY_ERR RGYFilterRtgmcSearchPrefilter::setupRepairResources(const RGYFilterParamRtgmcSearchPrefilter &prm, const bool processChroma) {
@@ -334,10 +333,12 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::setupRepairResources(const RGYFilterParam
         resources.delta = createPlaneFrame(info);
         if (!resources.temporal || !resources.delta) return RGY_ERR_MEMORY_ALLOC;
         if (resources.temporal->frame.pitch[0] != resources.delta->frame.pitch[0]) return RGY_ERR_INVALID_PARAM;
-        // Step1のFCは画面内のmotionGuideだけが読むため、必要なFCハローは0。
+        // FCは画面内のmotionGuideだけが読むため、必要なFCハローは0。
         // 後段の参照半径を逆順に加算し、画面外でも評価座標をクランプしない。
+        const bool level4 = (prm.repairProfile.restoreFlags & RGY_RTGMC_REPAIR_RESTORE_LEVEL4_PATH) != 0;
+        resources.stageCount = level4 ? 4 : ((prm.rep0Pad == 2) ? 6 : 5);
         int hx = 0, hy = 0;
-        for (int stage = 4; stage >= 0; stage--) {
+        for (int stage = resources.stageCount - 1; stage >= 0; stage--) {
             auto &target = resources.stages[stage];
             target.hx = hx;
             target.hy = hy;
@@ -349,11 +350,19 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::setupRepairResources(const RGYFilterParam
                 if (!frame) return RGY_ERR_MEMORY_ALLOC;
             }
             if (target.polarity[0]->frame.pitch[0] != target.polarity[1]->frame.pitch[0]) return RGY_ERR_INVALID_PARAM;
-            if (stage == 4 && prm.rep0Pad == 1) { hx++; hy++; }
-            if (stage == 3) hy += 2 + ((prm.repairProfile.restoreFlags & RGY_RTGMC_REPAIR_RESTORE_WIDE_ENVELOPE) ? 1 : 0);
-            if (stage == 2 && (prm.repairProfile.thinRejectFlags & RGY_RTGMC_REPAIR_THIN_RANK_LIMIT)) { hx++; hy++; }
-            if (stage == 1 && (prm.repairProfile.thinRejectFlags & RGY_RTGMC_REPAIR_THIN_CORE_BLEND)) { hx++; hy++; }
-            // TはDの縦近傍を読むが、Dだけは元画素と同様にクランプしてよい。
+            if (level4) {
+                // 縦envelope→mid→mean→core。midはmeanと同座標のcoreを直接読む。
+                // sampleYの端での置換はカーネルで行い、ここでは最大半径を確保する。
+                if (stage == 3) hy += 2;
+                if (stage == 1) { hx++; hy++; }
+            } else {
+                // pad=2はR2→R1→Bで半径を2回加算する。pad=3はBの3x3極値。
+                if (stage == 5 || (stage == 4 && prm.rep0Pad != 0)) { hx++; hy++; }
+                if (stage == 3) hy += 2 + ((prm.repairProfile.restoreFlags & RGY_RTGMC_REPAIR_RESTORE_WIDE_ENVELOPE) ? 1 : 0);
+                if (stage == 2 && (prm.repairProfile.thinRejectFlags & RGY_RTGMC_REPAIR_THIN_RANK_LIMIT)) { hx++; hy++; }
+                if (stage == 1 && (prm.repairProfile.thinRejectFlags & RGY_RTGMC_REPAIR_THIN_CORE_BLEND)) { hx++; hy++; }
+            }
+            // coreはDの縦近傍を読むが、Dだけは元画素と同様にクランプしてよい。
         }
         return RGY_ERR_NONE;
     };
@@ -391,7 +400,7 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::emitFieldStableSearch(const int planeInde
             (cl_mem)tc.ptr[0], (cl_mem)delta.ptr[0], tc.pitch[0], cur.width, cur.height, prm.tr0);
     if (sts != RGY_ERR_NONE) return sts;
     resources.lastEvent = previous;
-    for (int stage = 0; stage < 5; stage++) {
+    for (int stage = 0; stage < resources.stageCount; stage++) {
         const auto &target = resources.stages[stage];
         const auto &positive = target.polarity[1]->frame;
         const auto &negative = target.polarity[0]->frame;
@@ -405,17 +414,20 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::emitFieldStableSearch(const int planeInde
             sourceHx = source.hx;
             sourceHy = source.hy;
         }
+        const auto &core = resources.stages[0];
         RGYOpenCLEvent completed;
         sts = m_prefilter.get()->kernel("kernel_rtgmc_search_prefilter_repair_stage").config(
             queue, local, RGYWorkSize(positive.width, positive.height), { previous }, &completed).launch(
                 (cl_mem)sourcePos->ptr[0], (cl_mem)sourceNeg->ptr[0], sourcePos->pitch[0], sourceHx, sourceHy,
                 (cl_mem)positive.ptr[0], (cl_mem)negative.ptr[0], positive.pitch[0], target.hx, target.hy,
-                cur.width, cur.height, profile, stage);
+                cur.width, cur.height, profile, stage,
+                (cl_mem)core.polarity[1]->frame.ptr[0], (cl_mem)core.polarity[0]->frame.ptr[0],
+                core.polarity[1]->frame.pitch[0], core.hx, core.hy);
         if (sts != RGY_ERR_NONE) return sts;
         previous = completed;
         resources.lastEvent = completed;
     }
-    const auto &gate = resources.stages[4];
+    const auto &gate = resources.stages[resources.stageCount - 1];
     RGYOpenCLEvent completed;
     sts = m_prefilter.get()->kernel("kernel_rtgmc_search_prefilter_repair_apply").config(
         queue, local, RGYWorkSize(dst.width, dst.height), { previous }, &completed).launch(

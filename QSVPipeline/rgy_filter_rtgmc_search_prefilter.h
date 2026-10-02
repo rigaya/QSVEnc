@@ -113,9 +113,11 @@ protected:
     struct RepairPlaneResources {
         std::unique_ptr<RGYCLFrame> temporal;
         std::unique_ptr<RGYCLFrame> delta;
-        std::array<RepairPlane, 5> stages;
+        std::array<RepairPlane, 6> stages;
+        int stageCount = 0;
         RGYOpenCLEvent lastEvent;
         void clear() {
+            stageCount = 0;
             temporal.reset();
             delta.reset();
             for (auto &stage : stages) {

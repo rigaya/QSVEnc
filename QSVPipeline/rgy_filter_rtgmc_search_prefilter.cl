@@ -1353,9 +1353,34 @@ __kernel void kernel_rtgmc_search_prefilter_repair_temporal(
 static inline int rtgmc_search_prefilter_repair_stage_value(
     __global const uchar *src, const int pitch, const int hx, const int hy,
     const int width, const int height, const int x, const int y,
-    const uint repairProfile, const int stage, const int positive) {
+    const uint repairProfile, const int stage, const int positive,
+    __global const uchar *core, const int corePitch, const int coreHx, const int coreHy) {
     const uint thinFlags = rtgmc_search_repair_profile_thin_reject_flags(repairProfile);
     const uint restoreFlags = rtgmc_search_repair_profile_restore_flags(repairProfile);
+    if (restoreFlags & RTGMC_SEARCH_REPAIR_RESTORE_LEVEL4_PATH) {
+        if (stage == 0 || stage == 3) {
+            int value = (stage == 0) ? rtgmc_search_prefilter_polarity_core_seed(positive)
+                : rtgmc_search_prefilter_polarity_envelope_seed(positive);
+            for (int dy = -2; dy <= 2; dy++) {
+                // はみ出した行は評価行へ戻す。例えばy=1,dy=-2では0ではなく1を読む。
+                // Dの画面クランプとは別の置換であり、仮想座標での評価でもこの順序を保つ。
+                const int sampleY = (y + dy < 0 || y + dy >= height) ? y : y + dy;
+                const int sample = (stage == 0)
+                    ? rtgmc_search_prefilter_pixel_load(src, pitch, width, height, x, sampleY)
+                    : rtgmc_search_prefilter_repair_plane_load(src, pitch, hx, hy, x, sampleY);
+                value = (stage == 0) ? rtgmc_search_prefilter_polarity_core_merge(value, sample, positive)
+                    : rtgmc_search_prefilter_polarity_envelope_merge(value, sample, positive);
+            }
+            return value;
+        }
+        if (stage == 1) {
+            return rtgmc_search_prefilter_repair_plane_mean3x3(src, pitch, hx, hy, width, height, x, y);
+        }
+        // level4のmidは前段の平均とstage0のcoreを合成する。平均だけをcoreと再合成してはいけない。
+        const int mean = rtgmc_search_prefilter_repair_plane_load(src, pitch, hx, hy, x, y);
+        const int center = rtgmc_search_prefilter_repair_plane_load(core, corePitch, coreHx, coreHy, x, y);
+        return rtgmc_search_prefilter_polarity_core_merge(center, mean, positive);
+    }
     if (stage == 0) {
         const int radius = 2 + ((thinFlags & RTGMC_SEARCH_REPAIR_THIN_WIDE_CORE) ? 1 : 0);
         int value = rtgmc_search_prefilter_polarity_core_seed(positive);
@@ -1396,11 +1421,23 @@ static inline int rtgmc_search_prefilter_repair_stage_value(
         rtgmc_search_prefilter_sort8(v);
         return clamp(center, v[3], v[4]);
     }
-    if (stage == 4 && rtgmc_search_repair_profile_restore_padding_level(repairProfile) == 1) {
+    const int padding = rtgmc_search_repair_profile_restore_padding_level(repairProfile);
+    if ((stage == 4 && (padding == 1 || padding == 2)) || stage == 5) {
+        // pad=2ではR1を保持した後、同じ端分岐と整数丸めでR2を別段として評価する。
         const int mean = rtgmc_search_prefilter_repair_plane_mean3x3(src, pitch, hx, hy, width, height, x, y);
         return rtgmc_search_prefilter_extreme_merge(center, mean, positive);
     }
-    // Step1はpad=0,1のみ。pad=2,3とlevel4経路はホスト側で旧実装へ戻す。
+    if (stage == 4 && padding >= 3) {
+        // area envelopeには平均の端分岐がない。画面外のBも仮想座標のまま参照する。
+        int value = rtgmc_search_prefilter_extreme_seed(positive);
+        for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -1; dx <= 1; dx++) {
+                const int sample = rtgmc_search_prefilter_repair_plane_load(src, pitch, hx, hy, x + dx, y + dy);
+                value = rtgmc_search_prefilter_extreme_merge(value, sample, positive);
+            }
+        }
+        return value;
+    }
     return center;
 }
 
@@ -1410,7 +1447,9 @@ __kernel void kernel_rtgmc_search_prefilter_repair_stage(
     const int srcPitch, const int srcHx, const int srcHy,
     __global uchar *dstPos, __global uchar *dstNeg,
     const int dstPitch, const int dstHx, const int dstHy,
-    const int width, const int height, const uint repairProfile, const int stage) {
+    const int width, const int height, const uint repairProfile, const int stage,
+    __global const uchar *corePos, __global const uchar *coreNeg,
+    const int corePitch, const int coreHx, const int coreHy) {
     const int sx = (int)get_global_id(0);
     const int sy = (int)get_global_id(1);
     if (sx >= width + 2 * dstHx || sy >= height + 2 * dstHy) {
@@ -1419,9 +1458,9 @@ __kernel void kernel_rtgmc_search_prefilter_repair_stage(
     const int x = sx - dstHx;
     const int y = sy - dstHy;
     const int positive = rtgmc_search_prefilter_repair_stage_value(
-        srcPos, srcPitch, srcHx, srcHy, width, height, x, y, repairProfile, stage, 1);
+        srcPos, srcPitch, srcHx, srcHy, width, height, x, y, repairProfile, stage, 1, corePos, corePitch, coreHx, coreHy);
     const int negative = rtgmc_search_prefilter_repair_stage_value(
-        srcNeg, srcPitch, srcHx, srcHy, width, height, x, y, repairProfile, stage, 0);
+        srcNeg, srcPitch, srcHx, srcHy, width, height, x, y, repairProfile, stage, 0, coreNeg, corePitch, coreHx, coreHy);
     rtgmc_search_prefilter_pixel_store(dstPos, dstPitch, sx, sy, positive);
     rtgmc_search_prefilter_pixel_store(dstNeg, dstPitch, sx, sy, negative);
 }
