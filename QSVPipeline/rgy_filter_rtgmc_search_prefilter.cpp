@@ -75,31 +75,6 @@ static bool rtgmcSearchPrefilterMergeSearchRefine2TileEnabled() {
     return env == nullptr || env[0] != '0';
 }
 
-// 修復経路(rgy_filter_rtgmc_search_prefilter.clのcorrection_gate_value以下)を全展開したときの、
-// 1画素・1極性あたりの補正量(search_correction_delta)評価回数。.cl側の入れ子構造に合わせた概算。
-static int rtgmcSearchRepairInlineCost(const RGYRtgmcRepairProfile &profile) {
-    if (!(profile.restoreFlags & RGY_RTGMC_REPAIR_RESTORE_ENABLED)) {
-        return 0;
-    }
-    if (profile.restoreFlags & RGY_RTGMC_REPAIR_RESTORE_LEVEL4_PATH) {
-        return 5 * (5 + 5 * 10); // 縦5 x (core + mean3x3(core))
-    }
-    const int thinCore = (profile.thinRejectFlags & RGY_RTGMC_REPAIR_THIN_WIDE_CORE) ? 7 : 5;
-    const int coreBlend = thinCore * ((profile.thinRejectFlags & RGY_RTGMC_REPAIR_THIN_CORE_BLEND) ? 10 : 1);
-    const int mid = coreBlend * ((profile.thinRejectFlags & RGY_RTGMC_REPAIR_THIN_RANK_LIMIT) ? 9 : 1);
-    const int base = mid * ((profile.restoreFlags & RGY_RTGMC_REPAIR_RESTORE_WIDE_ENVELOPE) ? 7 : 5);
-    switch (profile.restorePaddingLevel) {
-    case 0: return base;
-    case 1: return base * 10;
-    case 2: return base * 100;
-    default: return base * 9;
-    }
-}
-
-// これ以下ならrepairProfileを定数化してalways_inlineで全展開する。
-// 実測(B580): 550(preset slow以上のlevel4経路)まではビルド約0.3秒、2250(rep0-thin=2)はコンパイルが5分以上終わらない。
-static constexpr int RTGMC_SEARCH_REPAIR_INLINE_COST_MAX = 600;
-
 static std::array<float, 5> rtgmcSearchPrefilterGaussWeights(const float gaussP) {
     std::array<float, 5> weights = {};
     float sum = 0.0f;
@@ -276,10 +251,6 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::buildKernel(const std::shared_ptr<RGYFilt
     const int limitedCOffset = (bitdepth >= 16) ? (128 << 8) : (128 << std::max(bitdepth - 8, 0));
     const int limitedCRange = (bitdepth >= 16) ? (112 << 8) : (112 << std::max(bitdepth - 8, 0));
     const auto gaussWeights = rtgmcSearchPrefilterGaussWeights(2.0f);
-    const int repairInlineCost = rtgmcSearchRepairInlineCost(prm->repairProfile);
-    const std::string repairProfileOption = (repairInlineCost > 0 && repairInlineCost <= RTGMC_SEARCH_REPAIR_INLINE_COST_MAX)
-        ? strsprintf(" -D RTGMC_SEARCH_REPAIR_PROFILE=0x%08xu", rgy_rtgmc_repair_profile_pack(prm->repairProfile))
-        : std::string();
     m_buildOptions = strsprintf(
         "-D TypePixel=%s"
         " -D RTGMC_SEARCH_PREFILTER_PIXEL_MAX=%d"
@@ -293,9 +264,7 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::buildKernel(const std::shared_ptr<RGYFilt
         " -D RTGMC_SEARCH_REFINE2_GAUSS_W1=%.9ff"
         " -D RTGMC_SEARCH_REFINE2_GAUSS_W2=%.9ff"
         " -D RTGMC_SEARCH_REFINE2_GAUSS_W3=%.9ff"
-        " -D RTGMC_SEARCH_REFINE2_GAUSS_W4=%.9ff"
-        " -D RTGMC_SEARCH_REPAIR_RESTORE=%d"
-        "%s",
+        " -D RTGMC_SEARCH_REFINE2_GAUSS_W4=%.9ff",
         bitdepth > 8 ? "ushort" : "uchar",
         pixelMax,
         limitedYMin,
@@ -308,24 +277,16 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::buildKernel(const std::shared_ptr<RGYFilt
         gaussWeights[1],
         gaussWeights[2],
         gaussWeights[3],
-        gaussWeights[4],
-        (prm->repairProfile.restoreFlags & RGY_RTGMC_REPAIR_RESTORE_ENABLED) ? 1 : 0,
-        repairProfileOption.c_str());
+        gaussWeights[4]);
     AddMessage(RGY_LOG_DEBUG, _T("Starting async build for RGY_FILTER_RTGMC_SEARCH_PREFILTER_CL: %s\n"),
         char_to_tstring(m_buildOptions).c_str());
     m_prefilter.set(m_cl->buildResourceAsync(_T("RGY_FILTER_RTGMC_SEARCH_PREFILTER_CL"), _T("EXE_DATA"), m_buildOptions.c_str()));
     return RGY_ERR_NONE;
 }
 
-bool RGYFilterRtgmcSearchPrefilter::useRepairMultipass(const RGYFilterParamRtgmcSearchPrefilter &prm) const {
-    // 修復が有効な全プロファイルを多段化し、比較用の環境変数だけで旧経路を選ぶ。
-    return !m_repairLegacy
-        && (prm.repairProfile.restoreFlags & RGY_RTGMC_REPAIR_RESTORE_ENABLED);
-}
 
 RGY_ERR RGYFilterRtgmcSearchPrefilter::setupRepairResources(const RGYFilterParamRtgmcSearchPrefilter &prm, const bool processChroma) {
     for (auto &resources : m_repairPlaneResources) resources.clear();
-    if (!useRepairMultipass(prm)) return RGY_ERR_NONE;
     const auto setupPlane = [&](int planeIndex, RGY_PLANE plane) -> RGY_ERR {
         auto info = rtgmcSearchPrefilterPlaneFrameInfo(getPlane(&prm.frameIn, plane));
         auto &resources = m_repairPlaneResources[planeIndex];
@@ -333,11 +294,20 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::setupRepairResources(const RGYFilterParam
         resources.delta = createPlaneFrame(info);
         if (!resources.temporal || !resources.delta) return RGY_ERR_MEMORY_ALLOC;
         if (resources.temporal->frame.pitch[0] != resources.delta->frame.pitch[0]) return RGY_ERR_INVALID_PARAM;
-        // FCは画面内のmotionGuideだけが読むため、必要なFCハローは0。
+        // 半解像度の4タップは寸法が4未満だと画面外を評価する。
+        // 通常寸法はハロー0、極小プレーンだけ必要な仮想座標までFCを持つ。
+        resources.fcHx = std::max(4 - info.width, 0);
+        resources.fcHy = std::max(4 - info.height, 0);
+        auto correctedInfo = info;
+        correctedInfo.width += 2 * resources.fcHx;
+        correctedInfo.height += 2 * resources.fcHy;
+        resources.corrected = createPlaneFrame(correctedInfo);
+        if (!resources.corrected) return RGY_ERR_MEMORY_ALLOC;
         // 後段の参照半径を逆順に加算し、画面外でも評価座標をクランプしない。
         const bool level4 = (prm.repairProfile.restoreFlags & RGY_RTGMC_REPAIR_RESTORE_LEVEL4_PATH) != 0;
-        resources.stageCount = level4 ? 4 : ((prm.rep0Pad == 2) ? 6 : 5);
-        int hx = 0, hy = 0;
+        const bool repairEnabled = (prm.repairProfile.restoreFlags & RGY_RTGMC_REPAIR_RESTORE_ENABLED) != 0;
+        resources.stageCount = repairEnabled ? (level4 ? 4 : ((prm.rep0Pad == 2) ? 6 : 5)) : 0;
+        int hx = resources.fcHx, hy = resources.fcHy;
         for (int stage = resources.stageCount - 1; stage >= 0; stage--) {
             auto &target = resources.stages[stage];
             target.hx = hx;
@@ -376,17 +346,33 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::emitFieldStableSearch(const int planeInde
     const RGYFrameInfo &next, const RGYFrameInfo &next2, const RGYFrameInfo &dst,
     const RGYFilterParamRtgmcSearchPrefilter &prm, RGYOpenCLQueue &queue,
     const std::vector<RGYOpenCLEvent> &waitEvents, RGYOpenCLEvent *event) {
+    const RGYWorkSize local(RTGMC_SEARCH_PREFILTER_BLOCK_X, RTGMC_SEARCH_PREFILTER_BLOCK_Y);
+    RGYOpenCLEvent ready;
+    auto sts = emitRepairFC(planeIndex, prev2, prev, cur, next, next2, prm, queue, waitEvents, &ready);
+    if (sts != RGY_ERR_NONE) return sts;
+    auto &resources = m_repairPlaneResources[planeIndex];
+    const auto &fc = resources.corrected->frame;
+    RGYOpenCLEvent completed;
+    sts = m_prefilter.get()->kernel("kernel_rtgmc_search_prefilter_copy_from_plane").config(
+        queue, local, RGYWorkSize(cur.width, cur.height), { ready }, &completed).launch(
+            (cl_mem)fc.ptr[0], fc.pitch[0], resources.fcHx, resources.fcHy,
+            (cl_mem)dst.ptr[0], dst.pitch[0], cur.width, cur.height, 0);
+    if (sts == RGY_ERR_NONE) {
+        resources.lastEvent = completed;
+        if (event) *event = completed;
+    }
+    return sts;
+}
+
+RGY_ERR RGYFilterRtgmcSearchPrefilter::emitRepairFC(const int planeIndex,
+    const RGYFrameInfo &prev2, const RGYFrameInfo &prev, const RGYFrameInfo &cur,
+    const RGYFrameInfo &next, const RGYFrameInfo &next2,
+    const RGYFilterParamRtgmcSearchPrefilter &prm, RGYOpenCLQueue &queue,
+    const std::vector<RGYOpenCLEvent> &waitEvents, RGYOpenCLEvent *event) {
     const auto profile = rgy_rtgmc_repair_profile_pack(prm.repairProfile);
     const RGYWorkSize local(RTGMC_SEARCH_PREFILTER_BLOCK_X, RTGMC_SEARCH_PREFILTER_BLOCK_Y);
-    if (!useRepairMultipass(prm)) {
-        return m_prefilter.get()->kernel("kernel_rtgmc_search_prefilter_field_stable_search").config(
-            queue, local, RGYWorkSize(cur.width, cur.height), waitEvents, event).launch(
-                (cl_mem)prev2.ptr[0], (cl_mem)prev.ptr[0], (cl_mem)cur.ptr[0],
-                (cl_mem)next.ptr[0], (cl_mem)next2.ptr[0], cur.pitch[0], (cl_mem)dst.ptr[0],
-                cur.width, cur.height, prm.tr0, profile);
-    }
     auto &resources = m_repairPlaneResources[planeIndex];
-    if (!resources.temporal || !resources.delta) return RGY_ERR_NULL_PTR;
+    if (!resources.temporal || !resources.delta || !resources.corrected) return RGY_ERR_NULL_PTR;
     const auto &tc = resources.temporal->frame;
     const auto &delta = resources.delta->frame;
     auto dependencies = waitEvents;
@@ -427,14 +413,47 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::emitFieldStableSearch(const int planeInde
         previous = completed;
         resources.lastEvent = completed;
     }
-    const auto &gate = resources.stages[resources.stageCount - 1];
+    const auto &dst = resources.corrected->frame;
+    // 無修復ではgateを読まない。引数には有効なTCバッファを渡す。
+    const auto *gatePos = &tc;
+    const auto *gateNeg = &tc;
+    int gateHx = 0, gateHy = 0;
+    if (resources.stageCount > 0) {
+        const auto &gate = resources.stages[resources.stageCount - 1];
+        gatePos = &gate.polarity[1]->frame;
+        gateNeg = &gate.polarity[0]->frame;
+        gateHx = gate.hx;
+        gateHy = gate.hy;
+    }
     RGYOpenCLEvent completed;
     sts = m_prefilter.get()->kernel("kernel_rtgmc_search_prefilter_repair_apply").config(
         queue, local, RGYWorkSize(dst.width, dst.height), { previous }, &completed).launch(
             (cl_mem)tc.ptr[0], (cl_mem)delta.ptr[0], tc.pitch[0],
-            (cl_mem)gate.polarity[1]->frame.ptr[0], (cl_mem)gate.polarity[0]->frame.ptr[0],
-            gate.polarity[1]->frame.pitch[0], gate.hx, gate.hy,
-            (cl_mem)dst.ptr[0], dst.pitch[0], 0, 0, cur.width, cur.height, profile);
+            (cl_mem)gatePos->ptr[0], (cl_mem)gateNeg->ptr[0], gatePos->pitch[0], gateHx, gateHy,
+            (cl_mem)dst.ptr[0], dst.pitch[0], resources.fcHx, resources.fcHy, cur.width, cur.height, profile);
+    if (sts == RGY_ERR_NONE) {
+        resources.lastEvent = completed;
+        if (event) *event = completed;
+    }
+    return sts;
+}
+
+RGY_ERR RGYFilterRtgmcSearchPrefilter::emitLumaSearch(const int planeIndex,
+    const RGYFrameInfo &prev2, const RGYFrameInfo &prev, const RGYFrameInfo &cur,
+    const RGYFrameInfo &next, const RGYFrameInfo &next2, const RGYFrameInfo &dst,
+    const RGYFilterParamRtgmcSearchPrefilter &prm, const int fullRangeMode, RGYOpenCLQueue &queue,
+    const std::vector<RGYOpenCLEvent> &waitEvents, RGYOpenCLEvent *event) {
+    const RGYWorkSize local(RTGMC_SEARCH_PREFILTER_BLOCK_X, RTGMC_SEARCH_PREFILTER_BLOCK_Y);
+    RGYOpenCLEvent ready;
+    auto sts = emitRepairFC(planeIndex, prev2, prev, cur, next, next2, prm, queue, waitEvents, &ready);
+    if (sts != RGY_ERR_NONE) return sts;
+    auto &resources = m_repairPlaneResources[planeIndex];
+    const auto &fc = resources.corrected->frame;
+    RGYOpenCLEvent completed;
+    sts = m_prefilter.get()->kernel("kernel_rtgmc_search_prefilter_luma_from_fc").config(
+        queue, local, RGYWorkSize(dst.width, dst.height), { ready }, &completed).launch(
+            (cl_mem)fc.ptr[0], fc.pitch[0], resources.fcHx, resources.fcHy,
+            (cl_mem)dst.ptr[0], dst.pitch[0], cur.width, cur.height, prm.searchRefine, fullRangeMode);
     if (sts == RGY_ERR_NONE) {
         resources.lastEvent = completed;
         if (event) *event = completed;
@@ -582,8 +601,6 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::init(shared_ptr<RGYFilterParam> pParam, s
     prm->repairProfile = rgy_rtgmc_repair_profile_from_levels(prm->rep0Thin, prm->rep0Pad);
 
     close();
-    const char *legacy = std::getenv("RGY_RTGMC_SEARCH_REPAIR_LEGACY");
-    m_repairLegacy = legacy != nullptr && std::string(legacy) == "1";
 
     sts = buildKernel(prm);
     if (sts != RGY_ERR_NONE) {
@@ -1185,7 +1202,6 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::emitPrefilteredFrame(PendingSearchPrefilt
     const bool useSearchRefine2Chain = rtgmcSearchPrefilterUseSearchRefine2Chain(*prm);
     const bool mergeSearchRefine = rtgmcSearchPrefilterMergeSearchRefineEnabled();
     const bool mergeSearchRefine2Tile = rtgmcSearchPrefilterMergeSearchRefine2TileEnabled();
-    const auto repairProfile = rgy_rtgmc_repair_profile_pack(prm->repairProfile);
     auto emitSearchRefine1Plane = [&](const int planeIndex,
         const RGYFrameInfo &planePrev2Src, const RGYFrameInfo &planePrevSrc, const RGYFrameInfo &planeCurSrc,
         const RGYFrameInfo &planeNextSrc, const RGYFrameInfo &planeNext2Src, const RGYFrameInfo &planeDstSrc,
@@ -1211,23 +1227,22 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::emitPrefilteredFrame(PendingSearchPrefilt
             planeNextSrc, planeNext2Src, planeMotionGuide, *prm, queue, planeWaitEvents, &motionGuideEvent);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at %s plane %d: %s.\n"),
-                _T("kernel_rtgmc_search_prefilter_field_stable_search"), planeIndex, get_err_mes(sts));
+                _T("FCプレーン生成"), planeIndex, get_err_mes(sts));
             return sts;
         }
 
         RGYOpenCLEvent halfSearchBaseEvent;
-        sts = m_prefilter.get()->kernel("kernel_rtgmc_search_prefilter_half_search_base_from_guide").config(
-            queue,
-            RGYWorkSize(RTGMC_SEARCH_PREFILTER_BLOCK_X, RTGMC_SEARCH_PREFILTER_BLOCK_Y),
-            RGYWorkSize(planeHalfSearchBase.width, planeHalfSearchBase.height),
-            { motionGuideEvent },
-            &halfSearchBaseEvent).launch(
-                (cl_mem)planeMotionGuide.ptr[0], planeMotionGuide.pitch[0],
-                (cl_mem)planeHalfSearchBase.ptr[0], planeHalfSearchBase.pitch[0],
-                planeMotionGuide.width, planeMotionGuide.height);
+        auto &repair = m_repairPlaneResources[planeIndex];
+        const auto &fc = repair.corrected->frame;
+        sts = m_prefilter.get()->kernel("kernel_rtgmc_search_prefilter_half_search_base_from_fc").config(
+            queue, RGYWorkSize(RTGMC_SEARCH_PREFILTER_BLOCK_X, RTGMC_SEARCH_PREFILTER_BLOCK_Y),
+            RGYWorkSize(planeHalfSearchBase.width, planeHalfSearchBase.height), { motionGuideEvent }, &halfSearchBaseEvent).launch(
+                (cl_mem)fc.ptr[0], fc.pitch[0], repair.fcHx, repair.fcHy,
+                (cl_mem)planeHalfSearchBase.ptr[0], planeHalfSearchBase.pitch[0], planeMotionGuide.width, planeMotionGuide.height);
+        if (sts == RGY_ERR_NONE) repair.lastEvent = halfSearchBaseEvent;
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at %s plane %d: %s.\n"),
-                _T("kernel_rtgmc_search_prefilter_half_search_base_from_guide"), planeIndex, get_err_mes(sts));
+                _T("kernel_rtgmc_search_prefilter_half_search_base_from_fc"), planeIndex, get_err_mes(sts));
             return sts;
         }
 
@@ -1294,7 +1309,7 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::emitPrefilteredFrame(PendingSearchPrefilt
             planeNextSrc, planeNext2Src, planeMotionGuide, *prm, queue, planeWaitEvents, &motionGuideEvent);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at %s plane %d: %s.\n"),
-                _T("kernel_rtgmc_search_prefilter_field_stable_search"), planeIndex, get_err_mes(sts));
+                _T("FCプレーン生成"), planeIndex, get_err_mes(sts));
             return sts;
         }
 
@@ -1454,7 +1469,6 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::emitPrefilteredFrame(PendingSearchPrefilt
     if (err != RGY_ERR_NONE) {
         return err;
     }
-    const int pitchY = planeCur.pitch[0];
     const auto lumaSceneFlags = sceneChangeFlagsForPlane(pending, RGY_PLANE_Y);
     const auto &planePrev2Eff = lumaSceneFlags[2] ? planeCur : planePrev2;
     const auto &planePrevEff = lumaSceneFlags[0] ? planeCur : planePrev;
@@ -1476,30 +1490,9 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::emitPrefilteredFrame(PendingSearchPrefilt
             return err;
         }
     } else {
-        const char *kernelName = "kernel_rtgmc_search_prefilter_luma";
-        err = m_prefilter.get()->kernel(kernelName).config(
-            queue,
-            RGYWorkSize(RTGMC_SEARCH_PREFILTER_BLOCK_X, RTGMC_SEARCH_PREFILTER_BLOCK_Y),
-            RGYWorkSize(planeDst.width, planeDst.height),
-            { copyEvent },
-            &lumaEvent).launch(
-                (cl_mem)planePrev2Eff.ptr[0],
-                (cl_mem)planePrevEff.ptr[0],
-                (cl_mem)planeCur.ptr[0],
-                (cl_mem)planeNextEff.ptr[0],
-                (cl_mem)planeNext2Eff.ptr[0],
-                pitchY,
-                (cl_mem)planeDst.ptr[0],
-                planeCur.width, planeCur.height,
-                prm->tr0,
-                prm->searchRefine,
-                repairProfile,
-                prm->tvRange ? 1 : 0);
-        if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("error at %s: %s.\n"),
-                char_to_tstring(kernelName).c_str(), get_err_mes(err));
-            return err;
-        }
+        err = emitLumaSearch(0, planePrev2Eff, planePrevEff, planeCur, planeNextEff, planeNext2Eff,
+            planeDst, *prm, prm->tvRange ? 1 : 0, queue, { copyEvent }, &lumaEvent);
+        if (err != RGY_ERR_NONE) return err;
     }
 
     RGYCLFrame *dumpFrame = searchLumaFrame ? searchLumaFrame.get() : outFrameBuf;
@@ -1525,24 +1518,16 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::emitPrefilteredFrame(PendingSearchPrefilt
         }
         auto planeDebugDump = getPlane(&debugDumpFrame->frame, RGY_PLANE_Y);
         const char *kernelName = (m_searchLumaDumpStage == "half_search_base")
-            ? "kernel_rtgmc_search_prefilter_half_search_base"
-            : "kernel_rtgmc_search_prefilter_half_search_smoothed";
+            ? "kernel_rtgmc_search_prefilter_half_search_base_from_fc"
+            : "kernel_rtgmc_search_prefilter_half_search_smoothed_from_fc";
+        auto &repair = m_repairPlaneResources[0];
+        const auto &fc = repair.corrected->frame;
         err = m_prefilter.get()->kernel(kernelName).config(
-            queue,
-            RGYWorkSize(RTGMC_SEARCH_PREFILTER_BLOCK_X, RTGMC_SEARCH_PREFILTER_BLOCK_Y),
-            RGYWorkSize(planeDebugDump.width, planeDebugDump.height),
-            { copyEvent },
-            &dumpEvent).launch(
-                (cl_mem)planePrev2Eff.ptr[0],
-                (cl_mem)planePrevEff.ptr[0],
-                (cl_mem)planeCur.ptr[0],
-                (cl_mem)planeNextEff.ptr[0],
-                (cl_mem)planeNext2Eff.ptr[0],
-                pitchY,
-                (cl_mem)planeDebugDump.ptr[0], planeDebugDump.pitch[0],
-                planeCur.width, planeCur.height,
-                prm->tr0,
-                repairProfile);
+            queue, RGYWorkSize(RTGMC_SEARCH_PREFILTER_BLOCK_X, RTGMC_SEARCH_PREFILTER_BLOCK_Y),
+            RGYWorkSize(planeDebugDump.width, planeDebugDump.height), { lumaEvent }, &dumpEvent).launch(
+                (cl_mem)fc.ptr[0], fc.pitch[0], repair.fcHx, repair.fcHy,
+                (cl_mem)planeDebugDump.ptr[0], planeDebugDump.pitch[0], planeCur.width, planeCur.height);
+        if (err == RGY_ERR_NONE) repair.lastEvent = dumpEvent;
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at %s: %s.\n"),
                 char_to_tstring(kernelName).c_str(), get_err_mes(err));
@@ -1600,32 +1585,30 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::emitPrefilteredFrame(PendingSearchPrefilt
             return RGY_ERR_NULL_PTR;
         }
         auto planeDebugDump = getPlane(&debugDumpFrame->frame, RGY_PLANE_Y);
-        const char *kernelName = (debugStage == 9) ? "kernel_rtgmc_search_prefilter_debug_temporal_candidate"
-            : (debugStage == 11) ? "kernel_rtgmc_search_prefilter_debug_search_correction_delta"
-            : (debugStage == 12) ? "kernel_rtgmc_search_prefilter_debug_positive_correction_gate"
-            : (debugStage == 13) ? "kernel_rtgmc_search_prefilter_debug_negative_correction_gate"
-            : "kernel_rtgmc_search_prefilter_debug_field_stable_search";
-        err = checkSameResolutionPlanePitches(_T("debug full-resolution dump"),
-            { &planePrev2Eff, &planePrevEff, &planeCur, &planeNextEff, &planeNext2Eff, &planeDebugDump });
-        if (err != RGY_ERR_NONE) {
-            return err;
+        const char *kernelName = "kernel_rtgmc_search_prefilter_copy_from_plane";
+        auto &repair = m_repairPlaneResources[0];
+        const auto *source = &repair.corrected->frame;
+        int hx = repair.fcHx, hy = repair.fcHy, neutral = 0;
+        if (debugStage == 9 || debugStage == 11) {
+            source = (debugStage == 9) ? &repair.temporal->frame : &repair.delta->frame;
+            hx = hy = 0;
+        } else if (debugStage == 12 || debugStage == 13) {
+            if (repair.stageCount > 0) {
+                const auto &gate = repair.stages[repair.stageCount - 1];
+                source = &gate.polarity[debugStage == 12 ? 1 : 0]->frame;
+                hx = gate.hx;
+                hy = gate.hy;
+            } else {
+                // 修復無効時のdebug gateは旧programと同じ中立値を表示する。
+                neutral = 1;
+            }
         }
-        err = m_prefilter.get()->kernel(kernelName).config(
-            queue,
-            RGYWorkSize(RTGMC_SEARCH_PREFILTER_BLOCK_X, RTGMC_SEARCH_PREFILTER_BLOCK_Y),
-            RGYWorkSize(planeDebugDump.width, planeDebugDump.height),
-            { copyEvent },
-            &dumpEvent).launch(
-                (cl_mem)planePrev2Eff.ptr[0],
-                (cl_mem)planePrevEff.ptr[0],
-                (cl_mem)planeCur.ptr[0],
-                (cl_mem)planeNextEff.ptr[0],
-                (cl_mem)planeNext2Eff.ptr[0],
-                pitchY,
-                (cl_mem)planeDebugDump.ptr[0],
-                planeCur.width, planeCur.height,
-                prm->tr0,
-                repairProfile);
+        err = m_prefilter.get()->kernel("kernel_rtgmc_search_prefilter_copy_from_plane").config(
+            queue, RGYWorkSize(RTGMC_SEARCH_PREFILTER_BLOCK_X, RTGMC_SEARCH_PREFILTER_BLOCK_Y),
+            RGYWorkSize(planeDebugDump.width, planeDebugDump.height), { lumaEvent }, &dumpEvent).launch(
+                (cl_mem)source->ptr[0], source->pitch[0], hx, hy,
+                (cl_mem)planeDebugDump.ptr[0], planeDebugDump.pitch[0], planeCur.width, planeCur.height, neutral);
+        if (err == RGY_ERR_NONE) repair.lastEvent = dumpEvent;
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at %s: %s.\n"),
                 char_to_tstring(kernelName).c_str(), get_err_mes(err));
@@ -1677,7 +1660,6 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::emitPrefilteredFrame(PendingSearchPrefilt
             if (err != RGY_ERR_NONE) {
                 return err;
             }
-            const int pitchUV = planeCurC.pitch[0];
             std::vector<RGYOpenCLEvent> chromaWaitEvents = { lumaEvent };
             const auto chromaSceneFlags = sceneChangeFlagsForPlane(pending, (RGY_PLANE)iplane);
             const auto &planePrev2CEff = chromaSceneFlags[2] ? planeCurC : planePrev2C;
@@ -1700,30 +1682,9 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::emitPrefilteredFrame(PendingSearchPrefilt
                     return err;
                 }
             } else {
-                const char *kernelName = "kernel_rtgmc_search_prefilter_luma";
-                err = m_prefilter.get()->kernel(kernelName).config(
-                    queue,
-                    RGYWorkSize(RTGMC_SEARCH_PREFILTER_BLOCK_X, RTGMC_SEARCH_PREFILTER_BLOCK_Y),
-                    RGYWorkSize(planeDstC.width, planeDstC.height),
-                    chromaWaitEvents,
-                    &chromaEvent).launch(
-                        (cl_mem)planePrev2CEff.ptr[0],
-                        (cl_mem)planePrevCEff.ptr[0],
-                        (cl_mem)planeCurC.ptr[0],
-                        (cl_mem)planeNextCEff.ptr[0],
-                        (cl_mem)planeNext2CEff.ptr[0],
-                        pitchUV,
-                        (cl_mem)planeDstC.ptr[0],
-                        planeCurC.width, planeCurC.height,
-                        prm->tr0,
-                        prm->searchRefine,
-                        repairProfile,
-                        prm->tvRange ? 2 : 0);
-                if (err != RGY_ERR_NONE) {
-                    AddMessage(RGY_LOG_ERROR, _T("error at %s chroma plane %d: %s.\n"),
-                        char_to_tstring(kernelName).c_str(), iplane, get_err_mes(err));
-                    return err;
-                }
+                err = emitLumaSearch(1, planePrev2CEff, planePrevCEff, planeCurC, planeNextCEff, planeNext2CEff,
+                    planeDstC, *prm, prm->tvRange ? 2 : 0, queue, chromaWaitEvents, &chromaEvent);
+                if (err != RGY_ERR_NONE) return err;
             }
             lumaEvent = chromaEvent;
             outputEvent = chromaEvent;

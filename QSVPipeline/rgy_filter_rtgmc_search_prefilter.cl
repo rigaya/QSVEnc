@@ -66,28 +66,6 @@
 #define RTGMC_SEARCH_REFINE2_GAUSS_W4 0.024685025f
 #endif
 
-// RTGMC_SEARCH_REPAIR_RESTORE: 修復経路(field correction)を使うかどうか。
-// repairProfileはフィルタ初期化時に確定するので、使わない場合はhost側から0を渡し、修復経路をprogramから物理的に除外する。
-// 修復経路は近傍の近傍を画素ごとに再計算する巨大な入れ子ステンシルで、programに含まれているだけで
-// IGCがprogram全体の関数のインライン展開を諦めてstack call化し、pixel_loadのような小関数を含め
-// 全カーネルが関数呼び出し+scratch退避で大幅に遅くなる(B580で時間3tapのみのfield_stable_searchが約750us)。
-// 実行時の分岐やrepairProfileの定数化だけでは関数群がprogramに残るため改善しない。
-#ifndef RTGMC_SEARCH_REPAIR_RESTORE
-#define RTGMC_SEARCH_REPAIR_RESTORE 1
-#endif
-
-// RTGMC_SEARCH_REPAIR_PROFILE: 修復経路を使う場合に、展開量が小さいプロファイルならhost側からrepairProfileを定数で渡す。
-// 定数化したうえで全関数をalways_inlineにすると、使うプロファイルの経路だけが展開されてstack callが消え、
-// preset fast(rep0-thin=3)のfield_stable_searchが約93ms -> 約0.4ms/frame(B580)になる。
-// 展開量の大きいプロファイル(rank limit, rep0-pad=2など)はコンパイルが終わらなくなるため従来どおりとする(host側で判定)。
-#ifdef RTGMC_SEARCH_REPAIR_PROFILE
-#define RTGMC_SEARCH_INLINE static inline __attribute__((always_inline))
-#define RTGMC_SEARCH_REPAIR_PROFILE_VALUE(repairProfile) ((uint)(RTGMC_SEARCH_REPAIR_PROFILE))
-#else
-#define RTGMC_SEARCH_INLINE static inline
-#define RTGMC_SEARCH_REPAIR_PROFILE_VALUE(repairProfile) (repairProfile)
-#endif
-
 #define RTGMC_SEARCH_PREFILTER_SCENECHANGE 28
 #define RTGMC_SEARCH_PREFILTER_BLOCK_PIXELS (rtgmc_search_prefilter_block_x * rtgmc_search_prefilter_block_y)
 #define RTGMC_SEARCH_REPAIR_THIN_WIDE_CORE (1u << 0)
@@ -97,27 +75,23 @@
 #define RTGMC_SEARCH_REPAIR_RESTORE_LEVEL4_PATH (1u << 1)
 #define RTGMC_SEARCH_REPAIR_RESTORE_ENABLED (1u << 2)
 
-RTGMC_SEARCH_INLINE int rtgmc_search_repair_profile_thin_reject_level(const uint repairProfile) {
-    return (int)(RTGMC_SEARCH_REPAIR_PROFILE_VALUE(repairProfile) & 0xffu);
+static inline int rtgmc_search_repair_profile_restore_padding_level(const uint repairProfile) {
+    return (int)(((repairProfile) >> 8) & 0xffu);
 }
 
-RTGMC_SEARCH_INLINE int rtgmc_search_repair_profile_restore_padding_level(const uint repairProfile) {
-    return (int)((RTGMC_SEARCH_REPAIR_PROFILE_VALUE(repairProfile) >> 8) & 0xffu);
+static inline uint rtgmc_search_repair_profile_thin_reject_flags(const uint repairProfile) {
+    return ((repairProfile) >> 16) & 0xffu;
 }
 
-RTGMC_SEARCH_INLINE uint rtgmc_search_repair_profile_thin_reject_flags(const uint repairProfile) {
-    return (RTGMC_SEARCH_REPAIR_PROFILE_VALUE(repairProfile) >> 16) & 0xffu;
+static inline uint rtgmc_search_repair_profile_restore_flags(const uint repairProfile) {
+    return ((repairProfile) >> 24) & 0xffu;
 }
 
-RTGMC_SEARCH_INLINE uint rtgmc_search_repair_profile_restore_flags(const uint repairProfile) {
-    return (RTGMC_SEARCH_REPAIR_PROFILE_VALUE(repairProfile) >> 24) & 0xffu;
-}
-
-RTGMC_SEARCH_INLINE TypePixel rtgmc_search_prefilter_clamp_pixel(const int value) {
+static inline TypePixel rtgmc_search_prefilter_clamp_pixel(const int value) {
     return (TypePixel)clamp(value, 0, RTGMC_SEARCH_PREFILTER_PIXEL_MAX);
 }
 
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_pixel_load(
+static inline int rtgmc_search_prefilter_pixel_load(
     __global const uchar *src,
     const int pitch,
     const int width,
@@ -129,7 +103,7 @@ RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_pixel_load(
     return (int)(*(__global const TypePixel *)(src + py * pitch + px * (int)sizeof(TypePixel)));
 }
 
-RTGMC_SEARCH_INLINE void rtgmc_search_prefilter_pixel_store(
+static inline void rtgmc_search_prefilter_pixel_store(
     __global uchar *dst,
     const int pitch,
     const int x,
@@ -138,7 +112,7 @@ RTGMC_SEARCH_INLINE void rtgmc_search_prefilter_pixel_store(
     *(__global TypePixel *)(dst + y * pitch + x * (int)sizeof(TypePixel)) = rtgmc_search_prefilter_clamp_pixel(value);
 }
 
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_blur3x3_weighted(
+static inline int rtgmc_search_prefilter_blur3x3_weighted(
     const int p00,
     const int p10,
     const int p20,
@@ -155,55 +129,46 @@ RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_blur3x3_weighted(
     return (sum + 8) >> 4;
 }
 
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_edge_soften_cross(
-    const int left,
-    const int up,
-    const int center,
-    const int down,
-    const int right) {
-    return (left + up + 4 * center + down + right + 4) >> 3;
-}
-
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_range_half(void) {
+static inline int rtgmc_search_prefilter_range_half(void) {
     return (RTGMC_SEARCH_PREFILTER_PIXEL_MAX + 1) >> 1;
 }
 
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_range_scale(void) {
+static inline int rtgmc_search_prefilter_range_scale(void) {
     return max((RTGMC_SEARCH_PREFILTER_PIXEL_MAX + 1) >> 8, 1);
 }
 
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_extreme_seed(const int highSide) {
+static inline int rtgmc_search_prefilter_extreme_seed(const int highSide) {
     return highSide ? 0 : RTGMC_SEARCH_PREFILTER_PIXEL_MAX;
 }
 
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_extreme_merge(const int value, const int sample, const int highSide) {
+static inline int rtgmc_search_prefilter_extreme_merge(const int value, const int sample, const int highSide) {
     return highSide ? max(value, sample) : min(value, sample);
 }
 
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_polarity_core_seed(const int positive) {
+static inline int rtgmc_search_prefilter_polarity_core_seed(const int positive) {
     return rtgmc_search_prefilter_extreme_seed(!positive);
 }
 
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_polarity_core_merge(const int value, const int sample, const int positive) {
+static inline int rtgmc_search_prefilter_polarity_core_merge(const int value, const int sample, const int positive) {
     return rtgmc_search_prefilter_extreme_merge(value, sample, !positive);
 }
 
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_polarity_envelope_seed(const int positive) {
+static inline int rtgmc_search_prefilter_polarity_envelope_seed(const int positive) {
     return rtgmc_search_prefilter_extreme_seed(positive);
 }
 
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_polarity_envelope_merge(const int value, const int sample, const int positive) {
+static inline int rtgmc_search_prefilter_polarity_envelope_merge(const int value, const int sample, const int positive) {
     return rtgmc_search_prefilter_extreme_merge(value, sample, positive);
 }
 
-RTGMC_SEARCH_INLINE void rtgmc_search_prefilter_sort2(__private int *a, __private int *b) {
+static inline void rtgmc_search_prefilter_sort2(__private int *a, __private int *b) {
     const int lo = min(*a, *b);
     const int hi = max(*a, *b);
     *a = lo;
     *b = hi;
 }
 
-RTGMC_SEARCH_INLINE void rtgmc_search_prefilter_sort2_desc(__private int *a, __private int *b) {
+static inline void rtgmc_search_prefilter_sort2_desc(__private int *a, __private int *b) {
     const int lo = min(*a, *b);
     const int hi = max(*a, *b);
     *a = hi;
@@ -211,7 +176,7 @@ RTGMC_SEARCH_INLINE void rtgmc_search_prefilter_sort2_desc(__private int *a, __p
 }
 
 // Batcher's Bitonic Sort (1968), 8 elements / 24 comparisons / depth 6.
-RTGMC_SEARCH_INLINE void rtgmc_search_prefilter_sort8(__private int *v) {
+static inline void rtgmc_search_prefilter_sort8(__private int *v) {
     rtgmc_search_prefilter_sort2     (&v[0], &v[1]); rtgmc_search_prefilter_sort2_desc(&v[2], &v[3]); rtgmc_search_prefilter_sort2     (&v[4], &v[5]); rtgmc_search_prefilter_sort2_desc(&v[6], &v[7]);
     rtgmc_search_prefilter_sort2     (&v[0], &v[2]); rtgmc_search_prefilter_sort2     (&v[1], &v[3]); rtgmc_search_prefilter_sort2_desc(&v[4], &v[6]); rtgmc_search_prefilter_sort2_desc(&v[5], &v[7]);
     rtgmc_search_prefilter_sort2     (&v[0], &v[1]); rtgmc_search_prefilter_sort2     (&v[2], &v[3]); rtgmc_search_prefilter_sort2_desc(&v[4], &v[5]); rtgmc_search_prefilter_sort2_desc(&v[6], &v[7]);
@@ -220,7 +185,7 @@ RTGMC_SEARCH_INLINE void rtgmc_search_prefilter_sort8(__private int *v) {
     rtgmc_search_prefilter_sort2     (&v[0], &v[1]); rtgmc_search_prefilter_sort2     (&v[2], &v[3]); rtgmc_search_prefilter_sort2     (&v[4], &v[5]); rtgmc_search_prefilter_sort2     (&v[6], &v[7]);
 }
 
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_temporal_sample(
+static inline int rtgmc_search_prefilter_temporal_sample(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -246,7 +211,7 @@ RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_temporal_sample(
     }
 }
 
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_temporal_weighted_value(
+static inline int rtgmc_search_prefilter_temporal_weighted_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -279,7 +244,7 @@ RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_temporal_weighted_value(
     return (sum + 2) >> 2;
 }
 
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_temporal_candidate_value(
+static inline int rtgmc_search_prefilter_temporal_candidate_value(
     __global const uchar *srcPrev2,
     __global const uchar *srcPrev,
     __global const uchar *srcCur,
@@ -304,15 +269,11 @@ RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_temporal_candidate_value(
     return rtgmc_search_prefilter_pixel_load(srcCur, pitch, srcWidth, srcHeight, px, py);
 }
 
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_makediff_value(const int ref, const int src) {
+static inline int rtgmc_search_prefilter_makediff_value(const int ref, const int src) {
     return clamp(ref - src + rtgmc_search_prefilter_range_half(), 0, RTGMC_SEARCH_PREFILTER_PIXEL_MAX);
 }
 
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_adddiff_value(const int src, const int diff) {
-    return clamp(src + diff - rtgmc_search_prefilter_range_half(), 0, RTGMC_SEARCH_PREFILTER_PIXEL_MAX);
-}
-
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_select_signed_correction(
+static inline int rtgmc_search_prefilter_select_signed_correction(
     const int proposedSigned,
     const int positiveMaskSigned,
     const int negativeMaskSigned,
@@ -326,7 +287,7 @@ RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_select_signed_correction(
     return 0;
 }
 
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_apply_signed_correction(
+static inline int rtgmc_search_prefilter_apply_signed_correction(
     const int src,
     const int proposedSigned,
     const int positiveMaskSigned,
@@ -340,823 +301,17 @@ RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_apply_signed_correction(
     return clamp(src + appliedSigned, 0, RTGMC_SEARCH_PREFILTER_PIXEL_MAX);
 }
 
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_round_float_to_pixel(const float value) {
+static inline int rtgmc_search_prefilter_round_float_to_pixel(const float value) {
     return clamp((int)(value + 0.5f), 0, RTGMC_SEARCH_PREFILTER_PIXEL_MAX);
 }
 
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_mean3x3_diff_value(
-    __global const uchar *srcPrev2,
-    __global const uchar *srcPrev,
-    __global const uchar *srcCur,
-    __global const uchar *srcNext,
-    __global const uchar *srcNext2,
-    const int pitch,
-    const int srcWidth,
-    const int srcHeight,
-    const int px,
-    const int py,
-    const int smoothRadius) {
-    if (px <= 0 || py <= 0 || px >= srcWidth - 1 || py >= srcHeight - 1) {
-        const int src = rtgmc_search_prefilter_temporal_candidate_value(
-            srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-            srcWidth, srcHeight,
-            px, py, smoothRadius);
-        const int ref = rtgmc_search_prefilter_pixel_load(srcCur, pitch, srcWidth, srcHeight, px, py);
-        return rtgmc_search_prefilter_makediff_value(ref, src);
-    }
-    int sum = 0;
-    for (int iy = -1; iy <= 1; iy++) {
-        for (int ix = -1; ix <= 1; ix++) {
-            const int src = rtgmc_search_prefilter_temporal_candidate_value(
-                srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-                srcWidth, srcHeight,
-                px + ix, py + iy, smoothRadius);
-            const int ref = rtgmc_search_prefilter_pixel_load(srcCur, pitch, srcWidth, srcHeight, px + ix, py + iy);
-            sum += rtgmc_search_prefilter_makediff_value(ref, src);
-        }
-    }
-    return (sum + 4) / 9;
-}
-
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_search_correction_delta_value(
-    __global const uchar *srcPrev2,
-    __global const uchar *srcPrev,
-    __global const uchar *srcCur,
-    __global const uchar *srcNext,
-    __global const uchar *srcNext2,
-    const int pitch,
-    const int srcWidth,
-    const int srcHeight,
-    const int px,
-    const int py,
-    const int smoothRadius) {
-    const int src = rtgmc_search_prefilter_temporal_candidate_value(
-        srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-        srcWidth, srcHeight,
-        px, py, smoothRadius);
-    const int ref = rtgmc_search_prefilter_pixel_load(srcCur, pitch, srcWidth, srcHeight, px, py);
-    return rtgmc_search_prefilter_makediff_value(ref, src);
-}
-
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_removegrain4_diff_value(
-    __global const uchar *srcPrev2,
-    __global const uchar *srcPrev,
-    __global const uchar *srcCur,
-    __global const uchar *srcNext,
-    __global const uchar *srcNext2,
-    const int pitch,
-    const int srcWidth,
-    const int srcHeight,
-    const int px,
-    const int py,
-    const int smoothRadius) {
-    const int s = rtgmc_search_prefilter_search_correction_delta_value(
-        srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-        srcWidth, srcHeight,
-        px, py, smoothRadius);
-    if (px <= 0 || py <= 0 || px >= srcWidth - 1 || py >= srcHeight - 1) {
-        return s;
-    }
-    int v[8];
-    int count = 0;
-#pragma unroll
-    for (int dy = -1; dy <= 1; dy++) {
-#pragma unroll
-        for (int dx = -1; dx <= 1; dx++) {
-            if (dx != 0 || dy != 0) {
-                v[count++] = rtgmc_search_prefilter_search_correction_delta_value(
-                    srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-                    srcWidth, srcHeight, px + dx, py + dy, smoothRadius);
-            }
-        }
-    }
-    rtgmc_search_prefilter_sort8(v);
-    return clamp(s, v[3], v[4]);
-}
-
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_vertical_thin_reject_diff_value(
-    __global const uchar *srcPrev2,
-    __global const uchar *srcPrev,
-    __global const uchar *srcCur,
-    __global const uchar *srcNext,
-    __global const uchar *srcNext2,
-    const int pitch,
-    const int srcWidth,
-    const int srcHeight,
-    const int px,
-    const int py,
-    const int smoothRadius,
-    const int radius,
-    const int positive) {
-    int value = rtgmc_search_prefilter_polarity_core_seed(positive);
-    for (int iy = -radius; iy <= radius; iy++) {
-        const int diff = rtgmc_search_prefilter_search_correction_delta_value(
-            srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-            srcWidth, srcHeight,
-            px, py + iy, smoothRadius);
-        value = rtgmc_search_prefilter_polarity_core_merge(value, diff, positive);
-    }
-    return value;
-}
-
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_vertical_restore_diff_value(
-    __global const uchar *srcPrev2,
-    __global const uchar *srcPrev,
-    __global const uchar *srcCur,
-    __global const uchar *srcNext,
-    __global const uchar *srcNext2,
-    const int pitch,
-    const int srcWidth,
-    const int srcHeight,
-    const int px,
-    const int py,
-    const int smoothRadius,
-    const int thinRejectRadius,
-    const int restorePaddingRadius,
-    const int positive) {
-    int value = rtgmc_search_prefilter_polarity_envelope_seed(positive);
-    for (int iy = -restorePaddingRadius; iy <= restorePaddingRadius; iy++) {
-        const int diff = rtgmc_search_prefilter_vertical_thin_reject_diff_value(
-            srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-            srcWidth, srcHeight,
-            px, py + iy, smoothRadius, thinRejectRadius, positive);
-        value = rtgmc_search_prefilter_polarity_envelope_merge(value, diff, positive);
-    }
-    return value;
-}
-
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_area_envelope_diff_value(
-    __global const uchar *srcPrev2,
-    __global const uchar *srcPrev,
-    __global const uchar *srcCur,
-    __global const uchar *srcNext,
-    __global const uchar *srcNext2,
-    const int pitch,
-    const int srcWidth,
-    const int srcHeight,
-    const int px,
-    const int py,
-    const int smoothRadius,
-    const int positive) {
-    int value = rtgmc_search_prefilter_polarity_envelope_seed(positive);
-    for (int iy = -1; iy <= 1; iy++) {
-        for (int ix = -1; ix <= 1; ix++) {
-            const int diff = rtgmc_search_prefilter_search_correction_delta_value(
-                srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-                srcWidth, srcHeight,
-                px + ix, py + iy, smoothRadius);
-            value = rtgmc_search_prefilter_polarity_envelope_merge(value, diff, positive);
-        }
-    }
-    return value;
-}
-
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_correction_gate_thin_core_value(
-    __global const uchar *srcPrev2,
-    __global const uchar *srcPrev,
-    __global const uchar *srcCur,
-    __global const uchar *srcNext,
-    __global const uchar *srcNext2,
-    const int pitch,
-    const int srcWidth,
-    const int srcHeight,
-    const int px,
-    const int py,
-    const int smoothRadius,
-    const uint repairProfile,
-    const int positive) {
-    const int thinRejectRadius = 2 + ((rtgmc_search_repair_profile_thin_reject_flags(repairProfile) & RTGMC_SEARCH_REPAIR_THIN_WIDE_CORE) ? 1 : 0);
-    return rtgmc_search_prefilter_vertical_thin_reject_diff_value(
-        srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-        srcWidth, srcHeight,
-        px, py, smoothRadius, thinRejectRadius, positive);
-}
-
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_mean3x3_correction_gate_thin_core_value(
-    __global const uchar *srcPrev2,
-    __global const uchar *srcPrev,
-    __global const uchar *srcCur,
-    __global const uchar *srcNext,
-    __global const uchar *srcNext2,
-    const int pitch,
-    const int srcWidth, const int srcHeight,
-    const int px, const int py, const int smoothRadius,
-    const uint repairProfile, const int positive) {
-    if (px <= 0 || py <= 0 || px >= srcWidth - 1 || py >= srcHeight - 1) {
-        return rtgmc_search_prefilter_correction_gate_thin_core_value(
-            srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-            srcWidth, srcHeight, px, py, smoothRadius, repairProfile, positive);
-    }
-    int sum = 0;
-    for (int iy = -1; iy <= 1; iy++) {
-        for (int ix = -1; ix <= 1; ix++) {
-            sum += rtgmc_search_prefilter_correction_gate_thin_core_value(
-                srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-                srcWidth, srcHeight, px + ix, py + iy, smoothRadius, repairProfile, positive);
-        }
-    }
-    return (sum + 4) / 9;
-}
-
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_correction_gate_mid_before_rank_limit_value(
-    __global const uchar *srcPrev2,
-    __global const uchar *srcPrev,
-    __global const uchar *srcCur,
-    __global const uchar *srcNext,
-    __global const uchar *srcNext2,
-    const int pitch,
-    const int srcWidth, const int srcHeight,
-    const int px, const int py, const int smoothRadius,
-    const uint repairProfile, const int positive) {
-    int value = rtgmc_search_prefilter_correction_gate_thin_core_value(
-        srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-        srcWidth, srcHeight, px, py, smoothRadius, repairProfile, positive);
-    if (rtgmc_search_repair_profile_thin_reject_flags(repairProfile) & RTGMC_SEARCH_REPAIR_THIN_CORE_BLEND) {
-        const int mean3x3 = rtgmc_search_prefilter_mean3x3_correction_gate_thin_core_value(
-            srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-            srcWidth, srcHeight, px, py, smoothRadius, repairProfile, positive);
-        value = rtgmc_search_prefilter_polarity_core_merge(value, mean3x3, positive);
-    }
-    return value;
-}
-
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_rank_limit4_correction_gate_mid_value(
-    __global const uchar *srcPrev2,
-    __global const uchar *srcPrev,
-    __global const uchar *srcCur,
-    __global const uchar *srcNext,
-    __global const uchar *srcNext2,
-    const int pitch,
-    const int srcWidth, const int srcHeight,
-    const int px, const int py, const int smoothRadius,
-    const uint repairProfile, const int positive) {
-    const int s = rtgmc_search_prefilter_correction_gate_mid_before_rank_limit_value(
-        srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-        srcWidth, srcHeight, px, py, smoothRadius, repairProfile, positive);
-    if (px <= 0 || py <= 0 || px >= srcWidth - 1 || py >= srcHeight - 1) {
-        return s;
-    }
-    int v[8] = {
-        rtgmc_search_prefilter_correction_gate_mid_before_rank_limit_value(srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch, srcWidth, srcHeight, px - 1, py - 1, smoothRadius, repairProfile, positive),
-        rtgmc_search_prefilter_correction_gate_mid_before_rank_limit_value(srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch, srcWidth, srcHeight, px + 0, py - 1, smoothRadius, repairProfile, positive),
-        rtgmc_search_prefilter_correction_gate_mid_before_rank_limit_value(srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch, srcWidth, srcHeight, px + 1, py - 1, smoothRadius, repairProfile, positive),
-        rtgmc_search_prefilter_correction_gate_mid_before_rank_limit_value(srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch, srcWidth, srcHeight, px - 1, py + 0, smoothRadius, repairProfile, positive),
-        rtgmc_search_prefilter_correction_gate_mid_before_rank_limit_value(srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch, srcWidth, srcHeight, px + 1, py + 0, smoothRadius, repairProfile, positive),
-        rtgmc_search_prefilter_correction_gate_mid_before_rank_limit_value(srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch, srcWidth, srcHeight, px - 1, py + 1, smoothRadius, repairProfile, positive),
-        rtgmc_search_prefilter_correction_gate_mid_before_rank_limit_value(srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch, srcWidth, srcHeight, px + 0, py + 1, smoothRadius, repairProfile, positive),
-        rtgmc_search_prefilter_correction_gate_mid_before_rank_limit_value(srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch, srcWidth, srcHeight, px + 1, py + 1, smoothRadius, repairProfile, positive)
-    };
-    rtgmc_search_prefilter_sort8(v);
-    return clamp(s, v[3], v[4]);
-}
-
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_correction_gate_mid_value(
-    __global const uchar *srcPrev2,
-    __global const uchar *srcPrev,
-    __global const uchar *srcCur,
-    __global const uchar *srcNext,
-    __global const uchar *srcNext2,
-    const int pitch,
-    const int srcWidth, const int srcHeight,
-    const int px, const int py, const int smoothRadius,
-    const uint repairProfile, const int positive) {
-    // Keep the rank limiter before the restore envelope so isolated thin residuals do not expand first.
-    if (rtgmc_search_repair_profile_thin_reject_flags(repairProfile) & RTGMC_SEARCH_REPAIR_THIN_RANK_LIMIT) {
-        return rtgmc_search_prefilter_rank_limit4_correction_gate_mid_value(
-            srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-            srcWidth, srcHeight, px, py, smoothRadius, repairProfile, positive);
-    }
-    return rtgmc_search_prefilter_correction_gate_mid_before_rank_limit_value(
-        srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-        srcWidth, srcHeight, px, py, smoothRadius, repairProfile, positive);
-}
-
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_correction_gate_base_value(
-    __global const uchar *srcPrev2,
-    __global const uchar *srcPrev,
-    __global const uchar *srcCur,
-    __global const uchar *srcNext,
-    __global const uchar *srcNext2,
-    const int pitch,
-    const int srcWidth, const int srcHeight,
-    const int px, const int py, const int smoothRadius,
-    const uint repairProfile, const int positive) {
-    // Build a restore envelope around the rejected core; higher levels widen it by one row.
-    const int restorePaddingRadius = 2 + ((rtgmc_search_repair_profile_restore_flags(repairProfile) & RTGMC_SEARCH_REPAIR_RESTORE_WIDE_ENVELOPE) ? 1 : 0);
-    int value = rtgmc_search_prefilter_polarity_envelope_seed(positive);
-    for (int iy = -restorePaddingRadius; iy <= restorePaddingRadius; iy++) {
-        const int cur = rtgmc_search_prefilter_correction_gate_mid_value(
-            srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-            srcWidth, srcHeight, px, py + iy, smoothRadius, repairProfile, positive);
-        value = rtgmc_search_prefilter_polarity_envelope_merge(value, cur, positive);
-    }
-    return value;
-}
-
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_mean3x3_correction_gate_base_value(
-    __global const uchar *srcPrev2,
-    __global const uchar *srcPrev,
-    __global const uchar *srcCur,
-    __global const uchar *srcNext,
-    __global const uchar *srcNext2,
-    const int pitch,
-    const int srcWidth, const int srcHeight,
-    const int px, const int py, const int smoothRadius,
-    const uint repairProfile, const int positive) {
-    if (px <= 0 || py <= 0 || px >= srcWidth - 1 || py >= srcHeight - 1) {
-        return rtgmc_search_prefilter_correction_gate_base_value(
-            srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-            srcWidth, srcHeight, px, py, smoothRadius, repairProfile, positive);
-    }
-    int sum = 0;
-    for (int iy = -1; iy <= 1; iy++) {
-        for (int ix = -1; ix <= 1; ix++) {
-            sum += rtgmc_search_prefilter_correction_gate_base_value(
-                srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-                srcWidth, srcHeight, px + ix, py + iy, smoothRadius, repairProfile, positive);
-        }
-    }
-    return (sum + 4) / 9;
-}
-
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_correction_gate_rank_smooth1_value(
-    __global const uchar *srcPrev2,
-    __global const uchar *srcPrev,
-    __global const uchar *srcCur,
-    __global const uchar *srcNext,
-    __global const uchar *srcNext2,
-    const int pitch,
-    const int srcWidth, const int srcHeight,
-    const int px, const int py, const int smoothRadius,
-    const uint repairProfile, const int positive, const int useMax) {
-    const int s = rtgmc_search_prefilter_correction_gate_base_value(
-        srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-        srcWidth, srcHeight, px, py, smoothRadius, repairProfile, positive);
-    const int mean3x3 = rtgmc_search_prefilter_mean3x3_correction_gate_base_value(
-        srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-        srcWidth, srcHeight, px, py, smoothRadius, repairProfile, positive);
-    return rtgmc_search_prefilter_extreme_merge(s, mean3x3, useMax);
-}
-
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_mean3x3_correction_gate_rank_smooth1_value(
-    __global const uchar *srcPrev2,
-    __global const uchar *srcPrev,
-    __global const uchar *srcCur,
-    __global const uchar *srcNext,
-    __global const uchar *srcNext2,
-    const int pitch,
-    const int srcWidth, const int srcHeight,
-    const int px, const int py, const int smoothRadius,
-    const uint repairProfile, const int positive, const int useMax) {
-    if (px <= 0 || py <= 0 || px >= srcWidth - 1 || py >= srcHeight - 1) {
-        return rtgmc_search_prefilter_correction_gate_rank_smooth1_value(
-            srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-            srcWidth, srcHeight, px, py, smoothRadius, repairProfile, positive, useMax);
-    }
-    int sum = 0;
-    for (int iy = -1; iy <= 1; iy++) {
-        for (int ix = -1; ix <= 1; ix++) {
-            sum += rtgmc_search_prefilter_correction_gate_rank_smooth1_value(
-                srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-                srcWidth, srcHeight, px + ix, py + iy, smoothRadius, repairProfile, positive, useMax);
-        }
-    }
-    return (sum + 4) / 9;
-}
-
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_correction_gate_rank_smooth2_value(
-    __global const uchar *srcPrev2,
-    __global const uchar *srcPrev,
-    __global const uchar *srcCur,
-    __global const uchar *srcNext,
-    __global const uchar *srcNext2,
-    const int pitch,
-    const int srcWidth, const int srcHeight,
-    const int px, const int py, const int smoothRadius,
-    const uint repairProfile, const int positive, const int useMax) {
-    const int s = rtgmc_search_prefilter_correction_gate_rank_smooth1_value(
-        srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-        srcWidth, srcHeight, px, py, smoothRadius, repairProfile, positive, useMax);
-    const int mean3x3 = rtgmc_search_prefilter_mean3x3_correction_gate_rank_smooth1_value(
-        srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-        srcWidth, srcHeight, px, py, smoothRadius, repairProfile, positive, useMax);
-    return rtgmc_search_prefilter_extreme_merge(s, mean3x3, useMax);
-}
-
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_correction_gate_area_envelope_value(
-    __global const uchar *srcPrev2,
-    __global const uchar *srcPrev,
-    __global const uchar *srcCur,
-    __global const uchar *srcNext,
-    __global const uchar *srcNext2,
-    const int pitch,
-    const int srcWidth, const int srcHeight,
-    const int px, const int py, const int smoothRadius,
-    const uint repairProfile, const int positive, const int useMax) {
-    int value = rtgmc_search_prefilter_extreme_seed(useMax);
-    for (int iy = -1; iy <= 1; iy++) {
-        for (int ix = -1; ix <= 1; ix++) {
-            const int cur = rtgmc_search_prefilter_correction_gate_base_value(
-                srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-                srcWidth, srcHeight, px + ix, py + iy, smoothRadius, repairProfile, positive);
-            value = rtgmc_search_prefilter_extreme_merge(value, cur, useMax);
-        }
-    }
-    return value;
-}
-
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_correction_gate_level4_core_value(
-    __global const uchar *srcPrev2,
-    __global const uchar *srcPrev,
-    __global const uchar *srcCur,
-    __global const uchar *srcNext,
-    __global const uchar *srcNext2,
-    const int pitch,
-    const int srcWidth, const int srcHeight,
-    const int px, const int py, const int smoothRadius,
-    const int positive) {
-    int value = rtgmc_search_prefilter_polarity_core_seed(positive);
-    for (int iy = -2; iy <= 2; iy++) {
-        const int sampleY = ((py + iy) < 0 || (py + iy) >= srcHeight) ? py : (py + iy);
-        const int diff = rtgmc_search_prefilter_search_correction_delta_value(
-            srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-            srcWidth, srcHeight, px, sampleY, smoothRadius);
-        value = rtgmc_search_prefilter_polarity_core_merge(value, diff, positive);
-    }
-    return value;
-}
-
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_correction_gate_level4_mean3x3_value(
-    __global const uchar *srcPrev2,
-    __global const uchar *srcPrev,
-    __global const uchar *srcCur,
-    __global const uchar *srcNext,
-    __global const uchar *srcNext2,
-    const int pitch,
-    const int srcWidth, const int srcHeight,
-    const int px, const int py, const int smoothRadius,
-    const int positive) {
-    const int s = rtgmc_search_prefilter_correction_gate_level4_core_value(
-        srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-        srcWidth, srcHeight, px, py, smoothRadius, positive);
-    if (px <= 0 || py <= 0 || px >= srcWidth - 1 || py >= srcHeight - 1) {
-        return s;
-    }
-    int sum = 0;
-    for (int iy = -1; iy <= 1; iy++) {
-        for (int ix = -1; ix <= 1; ix++) {
-            sum += rtgmc_search_prefilter_correction_gate_level4_core_value(
-                srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-                srcWidth, srcHeight, px + ix, py + iy, smoothRadius, positive);
-        }
-    }
-    return (sum + 4) / 9;
-}
-
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_correction_gate_level4_mid_value(
-    __global const uchar *srcPrev2,
-    __global const uchar *srcPrev,
-    __global const uchar *srcCur,
-    __global const uchar *srcNext,
-    __global const uchar *srcNext2,
-    const int pitch,
-    const int srcWidth, const int srcHeight,
-    const int px, const int py, const int smoothRadius,
-    const int positive) {
-    const int s = rtgmc_search_prefilter_correction_gate_level4_core_value(
-        srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-        srcWidth, srcHeight, px, py, smoothRadius, positive);
-    const int mean3x3 = rtgmc_search_prefilter_correction_gate_level4_mean3x3_value(
-        srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-        srcWidth, srcHeight, px, py, smoothRadius, positive);
-    return rtgmc_search_prefilter_polarity_core_merge(s, mean3x3, positive);
-}
-
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_correction_gate_level4_value(
-    __global const uchar *srcPrev2,
-    __global const uchar *srcPrev,
-    __global const uchar *srcCur,
-    __global const uchar *srcNext,
-    __global const uchar *srcNext2,
-    const int pitch,
-    const int srcWidth, const int srcHeight,
-    const int px, const int py, const int smoothRadius,
-    const int positive) {
-    int value = rtgmc_search_prefilter_polarity_envelope_seed(positive);
-    for (int iy = -2; iy <= 2; iy++) {
-        const int sampleY = ((py + iy) < 0 || (py + iy) >= srcHeight) ? py : (py + iy);
-        const int cur = rtgmc_search_prefilter_correction_gate_level4_mid_value(
-            srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-            srcWidth, srcHeight, px, sampleY, smoothRadius, positive);
-        value = rtgmc_search_prefilter_polarity_envelope_merge(value, cur, positive);
-    }
-    return value;
-}
-
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_correction_gate_value(
-    __global const uchar *srcPrev2,
-    __global const uchar *srcPrev,
-    __global const uchar *srcCur,
-    __global const uchar *srcNext,
-    __global const uchar *srcNext2,
-    const int pitch,
-    const int srcWidth, const int srcHeight,
-    const int px, const int py, const int smoothRadius,
-    const uint repairProfile, const int positive) {
-    const int restorePaddingLevel = rtgmc_search_repair_profile_restore_padding_level(repairProfile);
-    if (rtgmc_search_repair_profile_restore_flags(repairProfile) & RTGMC_SEARCH_REPAIR_RESTORE_LEVEL4_PATH) {
-        return rtgmc_search_prefilter_correction_gate_level4_value(
-            srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-            srcWidth, srcHeight, px, py, smoothRadius, positive);
-    }
-    switch (restorePaddingLevel) {
-    case 0:
-        return rtgmc_search_prefilter_correction_gate_base_value(
-            srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-            srcWidth, srcHeight, px, py, smoothRadius, repairProfile, positive);
-    case 1:
-        return rtgmc_search_prefilter_correction_gate_rank_smooth1_value(
-            srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-            srcWidth, srcHeight, px, py, smoothRadius, repairProfile, positive, positive);
-    case 2:
-        return rtgmc_search_prefilter_correction_gate_rank_smooth2_value(
-            srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-            srcWidth, srcHeight, px, py, smoothRadius, repairProfile, positive, positive);
-    default:
-        return rtgmc_search_prefilter_correction_gate_area_envelope_value(
-            srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-            srcWidth, srcHeight, px, py, smoothRadius, repairProfile, positive, positive);
-    }
-}
-
-// Field-parity correction for the temporal-search prefilter.
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_apply_field_correction_value(
-    __global const uchar *srcPrev2,
-    __global const uchar *srcPrev,
-    __global const uchar *srcCur,
-    __global const uchar *srcNext,
-    __global const uchar *srcNext2,
-    const int pitch,
-    const int srcWidth,
-    const int srcHeight,
-    const int px,
-    const int py,
-    const int smoothRadius,
-    const uint repairProfile) {
-    const int base = rtgmc_search_prefilter_temporal_candidate_value(
-        srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-        srcWidth, srcHeight,
-        px, py, smoothRadius);
-    const int diff = rtgmc_search_prefilter_search_correction_delta_value(
-        srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-        srcWidth, srcHeight,
-        px, py, smoothRadius);
-    const int positiveMask = rtgmc_search_prefilter_correction_gate_value(
-        srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-        srcWidth, srcHeight,
-        px, py, smoothRadius, repairProfile, 1);
-    const int negativeMask = rtgmc_search_prefilter_correction_gate_value(
-        srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-        srcWidth, srcHeight,
-        px, py, smoothRadius, repairProfile, 0);
-    const int rangeHalf = rtgmc_search_prefilter_range_half();
-    return rtgmc_search_prefilter_apply_signed_correction(
-        base,
-        diff - rangeHalf,
-        positiveMask - rangeHalf,
-        negativeMask - rangeHalf,
-        rtgmc_search_prefilter_range_scale());
-}
-
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_field_corrected_search_value(
-    __global const uchar *srcPrev2,
-    __global const uchar *srcPrev,
-    __global const uchar *srcCur,
-    __global const uchar *srcNext,
-    __global const uchar *srcNext2,
-    const int pitch,
-    const int srcWidth,
-    const int srcHeight,
-    const int px,
-    const int py,
-    const int smoothRadius,
-    const uint repairProfile) {
-#if RTGMC_SEARCH_REPAIR_RESTORE
-    if (rtgmc_search_repair_profile_restore_flags(repairProfile) & RTGMC_SEARCH_REPAIR_RESTORE_ENABLED) {
-        return rtgmc_search_prefilter_apply_field_correction_value(
-            srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-            srcWidth, srcHeight,
-            px, py, smoothRadius, repairProfile);
-    }
-#endif
-    return rtgmc_search_prefilter_temporal_candidate_value(
-        srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-        srcWidth, srcHeight,
-        px, py, smoothRadius);
-}
-
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_half_search_base_value(
-    __global const uchar *srcPrev2,
-    __global const uchar *srcPrev,
-    __global const uchar *srcCur,
-    __global const uchar *srcNext,
-    __global const uchar *srcNext2,
-    const int pitch,
-    const int srcWidth,
-    const int srcHeight,
-    const int hx,
-    const int hy,
-    const int smoothRadius,
-    const uint repairProfile) {
-    const int filterSize = 4;
-    const float filterSupport = 2.0f;
-    const float filterStep = 0.5f;
-    const float posY = 0.5f + 2.0f * (float)hy;
-    int endY = (int)(posY + filterSupport);
-    endY = min(endY, srcHeight - 1);
-    int startY = max(endY - filterSize + 1, 0);
-    const float okPosY = clamp(posY, 0.0f, (float)(srcHeight - 1));
-
-    float totalY = 0.0f;
-    float coeffY[4];
-    for (int iy = 0; iy < filterSize; iy++) {
-        const float d = fabs(((float)(startY + iy) - okPosY) * filterStep);
-        coeffY[iy] = (d < 1.0f) ? (1.0f - d) : 0.0f;
-        totalY += coeffY[iy];
-    }
-    totalY = (totalY == 0.0f) ? 1.0f : totalY;
-
-    const float posX = 0.5f + 2.0f * (float)hx;
-    int endX = (int)(posX + filterSupport);
-    endX = min(endX, srcWidth - 1);
-    int startX = max(endX - filterSize + 1, 0);
-    const float okPosX = clamp(posX, 0.0f, (float)(srcWidth - 1));
-
-    float totalX = 0.0f;
-    float coeffX[4];
-    for (int ix = 0; ix < filterSize; ix++) {
-        const float d = fabs(((float)(startX + ix) - okPosX) * filterStep);
-        coeffX[ix] = (d < 1.0f) ? (1.0f - d) : 0.0f;
-        totalX += coeffX[ix];
-    }
-    totalX = (totalX == 0.0f) ? 1.0f : totalX;
-
-    float sumY = 0.5f;
-    for (int iy = 0; iy < filterSize; iy++) {
-        float sumX = 0.5f;
-        for (int ix = 0; ix < filterSize; ix++) {
-            const int sample = rtgmc_search_prefilter_field_corrected_search_value(
-                srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-                srcWidth, srcHeight,
-                startX + ix, startY + iy, smoothRadius, repairProfile);
-            sumX += (coeffX[ix] / totalX) * (float)sample;
-        }
-        const int rowValue = clamp((int)sumX, 0, RTGMC_SEARCH_PREFILTER_PIXEL_MAX);
-        sumY += (coeffY[iy] / totalY) * (float)rowValue;
-    }
-    return clamp((int)sumY, 0, RTGMC_SEARCH_PREFILTER_PIXEL_MAX);
-}
-
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_half_search_smoothed_value(
-    __global const uchar *srcPrev2,
-    __global const uchar *srcPrev,
-    __global const uchar *srcCur,
-    __global const uchar *srcNext,
-    __global const uchar *srcNext2,
-    const int pitch,
-    const int srcWidth,
-    const int srcHeight,
-    const int hx,
-    const int hy,
-    const int smoothRadius,
-    const uint repairProfile) {
-    const int halfWidth = max(srcWidth >> 1, 1);
-    const int halfHeight = max(srcHeight >> 1, 1);
-    if (hx <= 0 || hy <= 0 || hx >= halfWidth - 1 || hy >= halfHeight - 1) {
-        return rtgmc_search_prefilter_half_search_base_value(
-            srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch, srcWidth, srcHeight,
-            clamp(hx, 0, halfWidth - 1), clamp(hy, 0, halfHeight - 1), smoothRadius, repairProfile);
-    }
-    const int x0 = clamp(hx - 1, 0, halfWidth - 1);
-    const int x1 = clamp(hx,     0, halfWidth - 1);
-    const int x2 = clamp(hx + 1, 0, halfWidth - 1);
-    const int y0 = clamp(hy - 1, 0, halfHeight - 1);
-    const int y1 = clamp(hy,     0, halfHeight - 1);
-    const int y2 = clamp(hy + 1, 0, halfHeight - 1);
-    const int p00 = rtgmc_search_prefilter_half_search_base_value(srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch, srcWidth, srcHeight, x0, y0, smoothRadius, repairProfile);
-    const int p10 = rtgmc_search_prefilter_half_search_base_value(srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch, srcWidth, srcHeight, x1, y0, smoothRadius, repairProfile);
-    const int p20 = rtgmc_search_prefilter_half_search_base_value(srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch, srcWidth, srcHeight, x2, y0, smoothRadius, repairProfile);
-    const int p01 = rtgmc_search_prefilter_half_search_base_value(srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch, srcWidth, srcHeight, x0, y1, smoothRadius, repairProfile);
-    const int p11 = rtgmc_search_prefilter_half_search_base_value(srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch, srcWidth, srcHeight, x1, y1, smoothRadius, repairProfile);
-    const int p21 = rtgmc_search_prefilter_half_search_base_value(srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch, srcWidth, srcHeight, x2, y1, smoothRadius, repairProfile);
-    const int p02 = rtgmc_search_prefilter_half_search_base_value(srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch, srcWidth, srcHeight, x0, y2, smoothRadius, repairProfile);
-    const int p12 = rtgmc_search_prefilter_half_search_base_value(srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch, srcWidth, srcHeight, x1, y2, smoothRadius, repairProfile);
-    const int p22 = rtgmc_search_prefilter_half_search_base_value(srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch, srcWidth, srcHeight, x2, y2, smoothRadius, repairProfile);
-    return rtgmc_search_prefilter_blur3x3_weighted(p00, p10, p20, p01, p11, p21, p02, p12, p22);
-}
-
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_half_resolution_search_value(
-    __global const uchar *srcPrev2,
-    __global const uchar *srcPrev,
-    __global const uchar *srcCur,
-    __global const uchar *srcNext,
-    __global const uchar *srcNext2,
-    const int pitch,
-    const int srcWidth,
-    const int srcHeight,
-    const int px,
-    const int py,
-    const int smoothRadius,
-    const uint repairProfile) {
-    const int halfWidth = max(srcWidth >> 1, 1);
-    const int halfHeight = max(srcHeight >> 1, 1);
-    const int filterSize = 2;
-    const float filterSupport = 1.0f;
-    const float posY = -0.25f + 0.5f * (float)py;
-    int endY = (int)(posY + filterSupport);
-    endY = min(endY, halfHeight - 1);
-    int startY = max(endY - filterSize + 1, 0);
-    const float okPosY = clamp(posY, 0.0f, (float)(halfHeight - 1));
-
-    float totalY = 0.0f;
-    float coeffY[2];
-    for (int iy = 0; iy < filterSize; iy++) {
-        const float d = fabs((float)(startY + iy) - okPosY);
-        coeffY[iy] = (d < 1.0f) ? (1.0f - d) : 0.0f;
-        totalY += coeffY[iy];
-    }
-    totalY = (totalY == 0.0f) ? 1.0f : totalY;
-
-    const float posX = -0.25f + 0.5f * (float)px;
-    int endX = (int)(posX + filterSupport);
-    endX = min(endX, halfWidth - 1);
-    int startX = max(endX - filterSize + 1, 0);
-    const float okPosX = clamp(posX, 0.0f, (float)(halfWidth - 1));
-
-    float totalX = 0.0f;
-    float coeffX[2];
-    for (int ix = 0; ix < filterSize; ix++) {
-        const float d = fabs((float)(startX + ix) - okPosX);
-        coeffX[ix] = (d < 1.0f) ? (1.0f - d) : 0.0f;
-        totalX += coeffX[ix];
-    }
-    totalX = (totalX == 0.0f) ? 1.0f : totalX;
-
-    float sumY = 0.5f;
-    for (int iy = 0; iy < filterSize; iy++) {
-        float sumX = 0.5f;
-        for (int ix = 0; ix < filterSize; ix++) {
-            const int sample = rtgmc_search_prefilter_half_search_smoothed_value(
-                srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-                srcWidth, srcHeight,
-                clamp(startX + ix, 0, halfWidth - 1),
-                clamp(startY + iy, 0, halfHeight - 1),
-                smoothRadius, repairProfile);
-            sumX += (coeffX[ix] / totalX) * (float)sample;
-        }
-        const int rowValue = clamp((int)sumX, 0, RTGMC_SEARCH_PREFILTER_PIXEL_MAX);
-        sumY += (coeffY[iy] / totalY) * (float)rowValue;
-    }
-    return clamp((int)sumY, 0, RTGMC_SEARCH_PREFILTER_PIXEL_MAX);
-}
-
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_field_corrected_search_weighted3x3_value(
-    __global const uchar *srcPrev2,
-    __global const uchar *srcPrev,
-    __global const uchar *srcCur,
-    __global const uchar *srcNext,
-    __global const uchar *srcNext2,
-    const int pitch,
-    const int srcWidth,
-    const int srcHeight,
-    const int px,
-    const int py,
-    const int smoothRadius,
-    const uint repairProfile) {
-    if (px <= 0 || py <= 0 || px >= srcWidth - 1 || py >= srcHeight - 1) {
-        return rtgmc_search_prefilter_field_corrected_search_value(
-            srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-            srcWidth, srcHeight, px, py, smoothRadius, repairProfile);
-    }
-    const int p00 = rtgmc_search_prefilter_field_corrected_search_value(srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch, srcWidth, srcHeight, px - 1, py - 1, smoothRadius, repairProfile);
-    const int p10 = rtgmc_search_prefilter_field_corrected_search_value(srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch, srcWidth, srcHeight, px,     py - 1, smoothRadius, repairProfile);
-    const int p20 = rtgmc_search_prefilter_field_corrected_search_value(srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch, srcWidth, srcHeight, px + 1, py - 1, smoothRadius, repairProfile);
-    const int p01 = rtgmc_search_prefilter_field_corrected_search_value(srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch, srcWidth, srcHeight, px - 1, py,     smoothRadius, repairProfile);
-    const int p11 = rtgmc_search_prefilter_field_corrected_search_value(srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch, srcWidth, srcHeight, px,     py,     smoothRadius, repairProfile);
-    const int p21 = rtgmc_search_prefilter_field_corrected_search_value(srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch, srcWidth, srcHeight, px + 1, py,     smoothRadius, repairProfile);
-    const int p02 = rtgmc_search_prefilter_field_corrected_search_value(srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch, srcWidth, srcHeight, px - 1, py + 1, smoothRadius, repairProfile);
-    const int p12 = rtgmc_search_prefilter_field_corrected_search_value(srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch, srcWidth, srcHeight, px,     py + 1, smoothRadius, repairProfile);
-    const int p22 = rtgmc_search_prefilter_field_corrected_search_value(srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch, srcWidth, srcHeight, px + 1, py + 1, smoothRadius, repairProfile);
-    return rtgmc_search_prefilter_blur3x3_weighted(p00, p10, p20, p01, p11, p21, p02, p12, p22);
-}
-
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_motion_guide_blend_value(const int spatialGuide, const int motionGuide) {
+static inline int rtgmc_search_prefilter_motion_guide_blend_value(const int spatialGuide, const int motionGuide) {
     const float guideWeight = 0.10f;
     const float value = mix((float)spatialGuide, (float)motionGuide, guideWeight);
     return clamp(convert_int_rte(value), 0, RTGMC_SEARCH_PREFILTER_PIXEL_MAX);
 }
 
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_search_smoothed3x3_value(
+static inline int rtgmc_search_prefilter_search_smoothed3x3_value(
     __global const uchar *src,
     const int src_pitch,
     const int width,
@@ -1178,7 +333,7 @@ RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_search_smoothed3x3_value(
     return rtgmc_search_prefilter_blur3x3_weighted(p00, p10, p20, p01, p11, p21, p02, p12, p22);
 }
 
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_motion_guide_stabilize_value(
+static inline int rtgmc_search_prefilter_motion_guide_stabilize_value(
     const int motionGuide,
     const int fieldGuide,
     const int spatialGuide) {
@@ -1200,38 +355,12 @@ RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_motion_guide_stabilize_value(
     return rtgmc_search_prefilter_round_float_to_pixel(ret * scale);
 }
 
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_motion_guide_blend_stabilized_value(
+static inline int rtgmc_search_prefilter_motion_guide_blend_stabilized_value(
     const int spatialGuide,
     const int motionGuide,
     const int fieldGuide) {
     const int blendedGuide = rtgmc_search_prefilter_motion_guide_blend_value(spatialGuide, motionGuide);
     return rtgmc_search_prefilter_motion_guide_stabilize_value(motionGuide, fieldGuide, blendedGuide);
-}
-
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_value(
-    __global const uchar *srcPrev2,
-    __global const uchar *srcPrev,
-    __global const uchar *srcCur,
-    __global const uchar *srcNext,
-    __global const uchar *srcNext2,
-    const int pitch,
-    const int srcWidth,
-    const int srcHeight,
-    const int px,
-    const int py,
-    const int smoothRadius,
-    const int search_refine,
-    const uint repairProfile) {
-    if (search_refine >= 1) {
-        return rtgmc_search_prefilter_half_resolution_search_value(
-            srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-            srcWidth, srcHeight,
-            px, py, smoothRadius, repairProfile);
-    }
-    return rtgmc_search_prefilter_field_corrected_search_value(
-        srcPrev2, srcPrev, srcCur, srcNext, srcNext2, pitch,
-        srcWidth, srcHeight,
-        px, py, smoothRadius, repairProfile);
 }
 
 __attribute__((reqd_work_group_size(rtgmc_search_prefilter_block_x, rtgmc_search_prefilter_block_y, 1)))
@@ -1291,7 +420,7 @@ __kernel void kernel_rtgmc_search_prefilter_scenechange(
     }
 }
 
-RTGMC_SEARCH_INLINE int rtgmc_search_prefilter_to_full_range(
+static inline int rtgmc_search_prefilter_to_full_range(
     const int value,
     const int planeMode) {
     if (planeMode == 1) {
@@ -1492,29 +621,190 @@ __kernel void kernel_rtgmc_search_prefilter_repair_apply(
     rtgmc_search_prefilter_pixel_store(dst, dstPitch, sx, sy, value);
 }
 
+static inline int rtgmc_search_prefilter_half_search_base_from_fc_value(
+    __global const uchar *fc, const int fcPitch, const int fcHx, const int fcHy,
+    const int srcWidth, const int srcHeight, const int hx, const int hy) {
+    const int filterSize = 4;
+    const float filterSupport = 2.0f;
+    const float filterStep = 0.5f;
+    const float posY = 0.5f + 2.0f * (float)hy;
+    int endY = (int)(posY + filterSupport);
+    endY = min(endY, srcHeight - 1);
+    int startY = max(endY - filterSize + 1, 0);
+    const float okPosY = clamp(posY, 0.0f, (float)(srcHeight - 1));
+
+    float totalY = 0.0f;
+    float coeffY[4];
+    for (int iy = 0; iy < filterSize; iy++) {
+        const float d = fabs(((float)(startY + iy) - okPosY) * filterStep);
+        coeffY[iy] = (d < 1.0f) ? (1.0f - d) : 0.0f;
+        totalY += coeffY[iy];
+    }
+    totalY = (totalY == 0.0f) ? 1.0f : totalY;
+
+    const float posX = 0.5f + 2.0f * (float)hx;
+    int endX = (int)(posX + filterSupport);
+    endX = min(endX, srcWidth - 1);
+    int startX = max(endX - filterSize + 1, 0);
+    const float okPosX = clamp(posX, 0.0f, (float)(srcWidth - 1));
+
+    float totalX = 0.0f;
+    float coeffX[4];
+    for (int ix = 0; ix < filterSize; ix++) {
+        const float d = fabs(((float)(startX + ix) - okPosX) * filterStep);
+        coeffX[ix] = (d < 1.0f) ? (1.0f - d) : 0.0f;
+        totalX += coeffX[ix];
+    }
+    totalX = (totalX == 0.0f) ? 1.0f : totalX;
+
+    float sumY = 0.5f;
+    for (int iy = 0; iy < filterSize; iy++) {
+        float sumX = 0.5f;
+        for (int ix = 0; ix < filterSize; ix++) {
+            // 小寸法では4タップが画面外へ出る。FCハローの仮想座標をクランプせず読む。
+            const int sample = rtgmc_search_prefilter_repair_plane_load(
+                fc, fcPitch, fcHx, fcHy, startX + ix, startY + iy);
+            sumX += (coeffX[ix] / totalX) * (float)sample;
+        }
+        const int rowValue = clamp((int)sumX, 0, RTGMC_SEARCH_PREFILTER_PIXEL_MAX);
+        sumY += (coeffY[iy] / totalY) * (float)rowValue;
+    }
+    return clamp((int)sumY, 0, RTGMC_SEARCH_PREFILTER_PIXEL_MAX);
+}
+
+static inline int rtgmc_search_prefilter_half_search_smoothed_from_fc_value(
+    __global const uchar *fc, const int fcPitch, const int fcHx, const int fcHy,
+    const int srcWidth, const int srcHeight, const int hx, const int hy) {
+    const int halfWidth = max(srcWidth >> 1, 1);
+    const int halfHeight = max(srcHeight >> 1, 1);
+    if (hx <= 0 || hy <= 0 || hx >= halfWidth - 1 || hy >= halfHeight - 1) {
+        return rtgmc_search_prefilter_half_search_base_from_fc_value(
+            fc, fcPitch, fcHx, fcHy, srcWidth, srcHeight,
+            clamp(hx, 0, halfWidth - 1), clamp(hy, 0, halfHeight - 1));
+    }
+    const int x0 = clamp(hx - 1, 0, halfWidth - 1);
+    const int x1 = clamp(hx,     0, halfWidth - 1);
+    const int x2 = clamp(hx + 1, 0, halfWidth - 1);
+    const int y0 = clamp(hy - 1, 0, halfHeight - 1);
+    const int y1 = clamp(hy,     0, halfHeight - 1);
+    const int y2 = clamp(hy + 1, 0, halfHeight - 1);
+    const int p00 = rtgmc_search_prefilter_half_search_base_from_fc_value(fc, fcPitch, fcHx, fcHy, srcWidth, srcHeight, x0, y0);
+    const int p10 = rtgmc_search_prefilter_half_search_base_from_fc_value(fc, fcPitch, fcHx, fcHy, srcWidth, srcHeight, x1, y0);
+    const int p20 = rtgmc_search_prefilter_half_search_base_from_fc_value(fc, fcPitch, fcHx, fcHy, srcWidth, srcHeight, x2, y0);
+    const int p01 = rtgmc_search_prefilter_half_search_base_from_fc_value(fc, fcPitch, fcHx, fcHy, srcWidth, srcHeight, x0, y1);
+    const int p11 = rtgmc_search_prefilter_half_search_base_from_fc_value(fc, fcPitch, fcHx, fcHy, srcWidth, srcHeight, x1, y1);
+    const int p21 = rtgmc_search_prefilter_half_search_base_from_fc_value(fc, fcPitch, fcHx, fcHy, srcWidth, srcHeight, x2, y1);
+    const int p02 = rtgmc_search_prefilter_half_search_base_from_fc_value(fc, fcPitch, fcHx, fcHy, srcWidth, srcHeight, x0, y2);
+    const int p12 = rtgmc_search_prefilter_half_search_base_from_fc_value(fc, fcPitch, fcHx, fcHy, srcWidth, srcHeight, x1, y2);
+    const int p22 = rtgmc_search_prefilter_half_search_base_from_fc_value(fc, fcPitch, fcHx, fcHy, srcWidth, srcHeight, x2, y2);
+    return rtgmc_search_prefilter_blur3x3_weighted(p00, p10, p20, p01, p11, p21, p02, p12, p22);
+}
+
+static inline int rtgmc_search_prefilter_half_resolution_search_from_fc_value(
+    __global const uchar *fc, const int fcPitch, const int fcHx, const int fcHy,
+    const int srcWidth, const int srcHeight, const int px, const int py) {
+    const int halfWidth = max(srcWidth >> 1, 1);
+    const int halfHeight = max(srcHeight >> 1, 1);
+    const int filterSize = 2;
+    const float filterSupport = 1.0f;
+    const float posY = -0.25f + 0.5f * (float)py;
+    int endY = (int)(posY + filterSupport);
+    endY = min(endY, halfHeight - 1);
+    int startY = max(endY - filterSize + 1, 0);
+    const float okPosY = clamp(posY, 0.0f, (float)(halfHeight - 1));
+
+    float totalY = 0.0f;
+    float coeffY[2];
+    for (int iy = 0; iy < filterSize; iy++) {
+        const float d = fabs((float)(startY + iy) - okPosY);
+        coeffY[iy] = (d < 1.0f) ? (1.0f - d) : 0.0f;
+        totalY += coeffY[iy];
+    }
+    totalY = (totalY == 0.0f) ? 1.0f : totalY;
+
+    const float posX = -0.25f + 0.5f * (float)px;
+    int endX = (int)(posX + filterSupport);
+    endX = min(endX, halfWidth - 1);
+    int startX = max(endX - filterSize + 1, 0);
+    const float okPosX = clamp(posX, 0.0f, (float)(halfWidth - 1));
+
+    float totalX = 0.0f;
+    float coeffX[2];
+    for (int ix = 0; ix < filterSize; ix++) {
+        const float d = fabs((float)(startX + ix) - okPosX);
+        coeffX[ix] = (d < 1.0f) ? (1.0f - d) : 0.0f;
+        totalX += coeffX[ix];
+    }
+    totalX = (totalX == 0.0f) ? 1.0f : totalX;
+
+    float sumY = 0.5f;
+    for (int iy = 0; iy < filterSize; iy++) {
+        float sumX = 0.5f;
+        for (int ix = 0; ix < filterSize; ix++) {
+            const int sample = rtgmc_search_prefilter_half_search_smoothed_from_fc_value(
+                fc, fcPitch, fcHx, fcHy,
+                srcWidth, srcHeight,
+                clamp(startX + ix, 0, halfWidth - 1),
+                clamp(startY + iy, 0, halfHeight - 1));
+            sumX += (coeffX[ix] / totalX) * (float)sample;
+        }
+        const int rowValue = clamp((int)sumX, 0, RTGMC_SEARCH_PREFILTER_PIXEL_MAX);
+        sumY += (coeffY[iy] / totalY) * (float)rowValue;
+    }
+    return clamp((int)sumY, 0, RTGMC_SEARCH_PREFILTER_PIXEL_MAX);
+}
+
+// FCを読む経路は入力画像群を参照しない。丸めと係数の加算順序は旧経路に合わせる。
 __attribute__((reqd_work_group_size(rtgmc_search_prefilter_block_x, rtgmc_search_prefilter_block_y, 1)))
-__kernel void kernel_rtgmc_search_prefilter_field_stable_search(
-    __global const uchar *prev2,
-    __global const uchar *prev,
-    __global const uchar *cur,
-    __global const uchar *next,
-    __global const uchar *next2,
-    const int pitch,
-    __global uchar *dst,
-    const int width,
-    const int height,
-    const int tr0,
-    const uint repairProfile) {
+__kernel void kernel_rtgmc_search_prefilter_half_search_base_from_fc(
+    __global const uchar *fc, const int fcPitch, const int fcHx, const int fcHy,
+    __global uchar *dst, const int dstPitch, const int width, const int height) {
     const int x = (int)get_global_id(0);
     const int y = (int)get_global_id(1);
-    if (x >= width || y >= height) {
-        return;
-    }
-    const int value = rtgmc_search_prefilter_field_corrected_search_value(
-        prev2, prev, cur, next, next2, pitch,
-        width, height,
-        x, y, tr0, repairProfile);
-    rtgmc_search_prefilter_pixel_store(dst, pitch, x, y, value);
+    if (x >= max(width >> 1, 1) || y >= max(height >> 1, 1)) return;
+    const int value = rtgmc_search_prefilter_half_search_base_from_fc_value(
+        fc, fcPitch, fcHx, fcHy, width, height, x, y);
+    rtgmc_search_prefilter_pixel_store(dst, dstPitch, x, y, value);
+}
+
+__attribute__((reqd_work_group_size(rtgmc_search_prefilter_block_x, rtgmc_search_prefilter_block_y, 1)))
+__kernel void kernel_rtgmc_search_prefilter_half_search_smoothed_from_fc(
+    __global const uchar *fc, const int fcPitch, const int fcHx, const int fcHy,
+    __global uchar *dst, const int dstPitch, const int width, const int height) {
+    const int x = (int)get_global_id(0);
+    const int y = (int)get_global_id(1);
+    if (x >= max(width >> 1, 1) || y >= max(height >> 1, 1)) return;
+    const int value = rtgmc_search_prefilter_half_search_smoothed_from_fc_value(
+        fc, fcPitch, fcHx, fcHy, width, height, x, y);
+    rtgmc_search_prefilter_pixel_store(dst, dstPitch, x, y, value);
+}
+
+__attribute__((reqd_work_group_size(rtgmc_search_prefilter_block_x, rtgmc_search_prefilter_block_y, 1)))
+__kernel void kernel_rtgmc_search_prefilter_luma_from_fc(
+    __global const uchar *fc, const int fcPitch, const int fcHx, const int fcHy,
+    __global uchar *dst, const int dstPitch, const int width, const int height,
+    const int search_refine, const int fullRangeMode) {
+    const int x = (int)get_global_id(0);
+    const int y = (int)get_global_id(1);
+    if (x >= width || y >= height) return;
+    const int value = (search_refine >= 1)
+        ? rtgmc_search_prefilter_half_resolution_search_from_fc_value(fc, fcPitch, fcHx, fcHy, width, height, x, y)
+        : rtgmc_search_prefilter_repair_plane_load(fc, fcPitch, fcHx, fcHy, x, y);
+    rtgmc_search_prefilter_pixel_store(dst, dstPitch, x, y,
+        rtgmc_search_prefilter_to_full_range(value, fullRangeMode));
+}
+
+// TC/D/G/FCのデバッグ表示と画面内への出力を共通化する。無修復のゲートだけ中立値にする。
+__attribute__((reqd_work_group_size(rtgmc_search_prefilter_block_x, rtgmc_search_prefilter_block_y, 1)))
+__kernel void kernel_rtgmc_search_prefilter_copy_from_plane(
+    __global const uchar *src, const int srcPitch, const int srcHx, const int srcHy,
+    __global uchar *dst, const int dstPitch, const int width, const int height, const int neutral) {
+    const int x = (int)get_global_id(0);
+    const int y = (int)get_global_id(1);
+    if (x >= width || y >= height) return;
+    const int value = neutral ? rtgmc_search_prefilter_range_half()
+        : rtgmc_search_prefilter_repair_plane_load(src, srcPitch, srcHx, srcHy, x, y);
+    rtgmc_search_prefilter_pixel_store(dst, dstPitch, x, y, value);
 }
 
 __attribute__((reqd_work_group_size(rtgmc_search_prefilter_block_x, rtgmc_search_prefilter_block_y, 1)))
@@ -1670,146 +960,6 @@ __kernel void kernel_rtgmc_search_prefilter_stabilized_search(
     rtgmc_search_prefilter_pixel_store(dst, pitch, x, y, value);
 }
 
-__attribute__((reqd_work_group_size(rtgmc_search_prefilter_block_x, rtgmc_search_prefilter_block_y, 1)))
-__kernel void kernel_rtgmc_search_prefilter_half_search_base(
-    __global const uchar *prev2,
-    __global const uchar *prev,
-    __global const uchar *cur,
-    __global const uchar *next,
-    __global const uchar *next2,
-    const int src_pitch,
-    __global uchar *dst,
-    const int dst_pitch,
-    const int width,
-    const int height,
-    const int tr0,
-    const uint repairProfile) {
-    const int x = (int)get_global_id(0);
-    const int y = (int)get_global_id(1);
-    const int halfWidth = max(width >> 1, 1);
-    const int halfHeight = max(height >> 1, 1);
-    if (x >= halfWidth || y >= halfHeight) {
-        return;
-    }
-    const int value = rtgmc_search_prefilter_half_search_base_value(
-        prev2, prev, cur, next, next2, src_pitch,
-        width, height,
-        x, y, tr0, repairProfile);
-    rtgmc_search_prefilter_pixel_store(dst, dst_pitch, x, y, value);
-}
-
-__attribute__((reqd_work_group_size(rtgmc_search_prefilter_block_x, rtgmc_search_prefilter_block_y, 1)))
-__kernel void kernel_rtgmc_search_prefilter_half_search_smoothed(
-    __global const uchar *prev2,
-    __global const uchar *prev,
-    __global const uchar *cur,
-    __global const uchar *next,
-    __global const uchar *next2,
-    const int src_pitch,
-    __global uchar *dst,
-    const int dst_pitch,
-    const int width,
-    const int height,
-    const int tr0,
-    const uint repairProfile) {
-    const int x = (int)get_global_id(0);
-    const int y = (int)get_global_id(1);
-    const int halfWidth = max(width >> 1, 1);
-    const int halfHeight = max(height >> 1, 1);
-    if (x >= halfWidth || y >= halfHeight) {
-        return;
-    }
-    const int value = rtgmc_search_prefilter_half_search_smoothed_value(
-        prev2, prev, cur, next, next2, src_pitch,
-        width, height,
-        x, y, tr0, repairProfile);
-    rtgmc_search_prefilter_pixel_store(dst, dst_pitch, x, y, value);
-}
-
-__attribute__((reqd_work_group_size(rtgmc_search_prefilter_block_x, rtgmc_search_prefilter_block_y, 1)))
-__kernel void kernel_rtgmc_search_prefilter_range_convert(
-    __global uchar *dst,
-    const int dst_pitch,
-    const int width,
-    const int height,
-    const int fullRangeMode) {
-    const int x = (int)get_global_id(0);
-    const int y = (int)get_global_id(1);
-    if (x >= width || y >= height) {
-        return;
-    }
-    const int value = rtgmc_search_prefilter_to_full_range(
-        rtgmc_search_prefilter_pixel_load(dst, dst_pitch, width, height, x, y),
-        fullRangeMode);
-    rtgmc_search_prefilter_pixel_store(dst, dst_pitch, x, y, value);
-}
-
-// search_refine=1 段階実行用: half_search_base_value と同一の係数・丸め手順で、
-// 実体化済みのfield-corrected planeから半解像度baseを生成する。
-// (モノリシック版と加算順序・行単位のint丸めまで一致させてビット一致を保つ)
-__attribute__((reqd_work_group_size(rtgmc_search_prefilter_block_x, rtgmc_search_prefilter_block_y, 1)))
-__kernel void kernel_rtgmc_search_prefilter_half_search_base_from_guide(
-    __global const uchar *guide,
-    const int guidePitch,
-    __global uchar *dst,
-    const int dstPitch,
-    const int srcWidth,
-    const int srcHeight) {
-    const int hx = (int)get_global_id(0);
-    const int hy = (int)get_global_id(1);
-    const int halfWidth = max(srcWidth >> 1, 1);
-    const int halfHeight = max(srcHeight >> 1, 1);
-    if (hx >= halfWidth || hy >= halfHeight) {
-        return;
-    }
-    const int filterSize = 4;
-    const float filterSupport = 2.0f;
-    const float filterStep = 0.5f;
-    const float posY = 0.5f + 2.0f * (float)hy;
-    int endY = (int)(posY + filterSupport);
-    endY = min(endY, srcHeight - 1);
-    int startY = max(endY - filterSize + 1, 0);
-    const float okPosY = clamp(posY, 0.0f, (float)(srcHeight - 1));
-
-    float totalY = 0.0f;
-    float coeffY[4];
-    for (int iy = 0; iy < filterSize; iy++) {
-        const float d = fabs(((float)(startY + iy) - okPosY) * filterStep);
-        coeffY[iy] = (d < 1.0f) ? (1.0f - d) : 0.0f;
-        totalY += coeffY[iy];
-    }
-    totalY = (totalY == 0.0f) ? 1.0f : totalY;
-
-    const float posX = 0.5f + 2.0f * (float)hx;
-    int endX = (int)(posX + filterSupport);
-    endX = min(endX, srcWidth - 1);
-    int startX = max(endX - filterSize + 1, 0);
-    const float okPosX = clamp(posX, 0.0f, (float)(srcWidth - 1));
-
-    float totalX = 0.0f;
-    float coeffX[4];
-    for (int ix = 0; ix < filterSize; ix++) {
-        const float d = fabs(((float)(startX + ix) - okPosX) * filterStep);
-        coeffX[ix] = (d < 1.0f) ? (1.0f - d) : 0.0f;
-        totalX += coeffX[ix];
-    }
-    totalX = (totalX == 0.0f) ? 1.0f : totalX;
-
-    float sumY = 0.5f;
-    for (int iy = 0; iy < filterSize; iy++) {
-        float sumX = 0.5f;
-        for (int ix = 0; ix < filterSize; ix++) {
-            const int sample = rtgmc_search_prefilter_pixel_load(
-                guide, guidePitch, srcWidth, srcHeight, startX + ix, startY + iy);
-            sumX += (coeffX[ix] / totalX) * (float)sample;
-        }
-        const int rowValue = clamp((int)sumX, 0, RTGMC_SEARCH_PREFILTER_PIXEL_MAX);
-        sumY += (coeffY[iy] / totalY) * (float)rowValue;
-    }
-    rtgmc_search_prefilter_pixel_store(dst, dstPitch, hx, hy,
-        clamp((int)sumY, 0, RTGMC_SEARCH_PREFILTER_PIXEL_MAX));
-}
-
 // search_refine=1 段階実行用: half_resolution_search_value と同一の係数・丸め手順で
 // 半解像度smoothed planeからフル解像度へ戻し、fullRangeModeも同時に適用する。
 __attribute__((reqd_work_group_size(rtgmc_search_prefilter_block_x, rtgmc_search_prefilter_block_y, 1)))
@@ -1877,168 +1027,4 @@ __kernel void kernel_rtgmc_search_prefilter_half_resolution_upsample(
         clamp((int)sumY, 0, RTGMC_SEARCH_PREFILTER_PIXEL_MAX),
         fullRangeMode);
     rtgmc_search_prefilter_pixel_store(dst, dstPitch, px, py, value);
-}
-
-__attribute__((reqd_work_group_size(rtgmc_search_prefilter_block_x, rtgmc_search_prefilter_block_y, 1)))
-__kernel void kernel_rtgmc_search_prefilter_debug_temporal_candidate(
-    __global const uchar *prev2,
-    __global const uchar *prev,
-    __global const uchar *cur,
-    __global const uchar *next,
-    __global const uchar *next2,
-    const int pitch,
-    __global uchar *dst,
-    const int width,
-    const int height,
-    const int tr0,
-    const uint repairProfile) {
-    const int x = (int)get_global_id(0);
-    const int y = (int)get_global_id(1);
-    if (x >= width || y >= height) {
-        return;
-    }
-    const int value = rtgmc_search_prefilter_temporal_candidate_value(
-        prev2, prev, cur, next, next2, pitch,
-        width, height,
-        x, y, tr0);
-    rtgmc_search_prefilter_pixel_store(dst, pitch, x, y, value);
-}
-
-__attribute__((reqd_work_group_size(rtgmc_search_prefilter_block_x, rtgmc_search_prefilter_block_y, 1)))
-__kernel void kernel_rtgmc_search_prefilter_debug_field_stable_search(
-    __global const uchar *prev2,
-    __global const uchar *prev,
-    __global const uchar *cur,
-    __global const uchar *next,
-    __global const uchar *next2,
-    const int pitch,
-    __global uchar *dst,
-    const int width,
-    const int height,
-    const int tr0,
-    const uint repairProfile) {
-    const int x = (int)get_global_id(0);
-    const int y = (int)get_global_id(1);
-    if (x >= width || y >= height) {
-        return;
-    }
-    const int value = rtgmc_search_prefilter_field_corrected_search_value(
-        prev2, prev, cur, next, next2, pitch,
-        width, height,
-        x, y, tr0, repairProfile);
-    rtgmc_search_prefilter_pixel_store(dst, pitch, x, y, value);
-}
-
-__attribute__((reqd_work_group_size(rtgmc_search_prefilter_block_x, rtgmc_search_prefilter_block_y, 1)))
-__kernel void kernel_rtgmc_search_prefilter_debug_search_correction_delta(
-    __global const uchar *prev2,
-    __global const uchar *prev,
-    __global const uchar *cur,
-    __global const uchar *next,
-    __global const uchar *next2,
-    const int pitch,
-    __global uchar *dst,
-    const int width,
-    const int height,
-    const int tr0,
-    const uint repairProfile) {
-    const int x = (int)get_global_id(0);
-    const int y = (int)get_global_id(1);
-    if (x >= width || y >= height) {
-        return;
-    }
-    const int value = rtgmc_search_prefilter_search_correction_delta_value(
-        prev2, prev, cur, next, next2, pitch,
-        width, height,
-        x, y, tr0);
-    rtgmc_search_prefilter_pixel_store(dst, pitch, x, y, value);
-}
-
-__attribute__((reqd_work_group_size(rtgmc_search_prefilter_block_x, rtgmc_search_prefilter_block_y, 1)))
-__kernel void kernel_rtgmc_search_prefilter_debug_positive_correction_gate(
-    __global const uchar *prev2,
-    __global const uchar *prev,
-    __global const uchar *cur,
-    __global const uchar *next,
-    __global const uchar *next2,
-    const int pitch,
-    __global uchar *dst,
-    const int width,
-    const int height,
-    const int tr0,
-    const uint repairProfile) {
-    const int x = (int)get_global_id(0);
-    const int y = (int)get_global_id(1);
-    if (x >= width || y >= height) {
-        return;
-    }
-#if RTGMC_SEARCH_REPAIR_RESTORE
-    const int value = rtgmc_search_prefilter_correction_gate_value(
-        prev2, prev, cur, next, next2, pitch,
-        width, height,
-        x, y, tr0, repairProfile, 1);
-#else
-    // 修復経路を除外したprogramでは補正ゲートは使われないので、中立値(差分0)を出力する。
-    const int value = rtgmc_search_prefilter_range_half();
-#endif
-    rtgmc_search_prefilter_pixel_store(dst, pitch, x, y, value);
-}
-
-__attribute__((reqd_work_group_size(rtgmc_search_prefilter_block_x, rtgmc_search_prefilter_block_y, 1)))
-__kernel void kernel_rtgmc_search_prefilter_debug_negative_correction_gate(
-    __global const uchar *prev2,
-    __global const uchar *prev,
-    __global const uchar *cur,
-    __global const uchar *next,
-    __global const uchar *next2,
-    const int pitch,
-    __global uchar *dst,
-    const int width,
-    const int height,
-    const int tr0,
-    const uint repairProfile) {
-    const int x = (int)get_global_id(0);
-    const int y = (int)get_global_id(1);
-    if (x >= width || y >= height) {
-        return;
-    }
-#if RTGMC_SEARCH_REPAIR_RESTORE
-    const int value = rtgmc_search_prefilter_correction_gate_value(
-        prev2, prev, cur, next, next2, pitch,
-        width, height,
-        x, y, tr0, repairProfile, 0);
-#else
-    // 修復経路を除外したprogramでは補正ゲートは使われないので、中立値(差分0)を出力する。
-    const int value = rtgmc_search_prefilter_range_half();
-#endif
-    rtgmc_search_prefilter_pixel_store(dst, pitch, x, y, value);
-}
-
-__attribute__((reqd_work_group_size(rtgmc_search_prefilter_block_x, rtgmc_search_prefilter_block_y, 1)))
-__kernel void kernel_rtgmc_search_prefilter_luma(
-    __global const uchar *prev2,
-    __global const uchar *prev,
-    __global const uchar *cur,
-    __global const uchar *next,
-    __global const uchar *next2,
-    const int pitch,
-    __global uchar *dst,
-    const int width,
-    const int height,
-    const int tr0,
-    const int search_refine,
-    const uint repairProfile,
-    const int fullRangeMode) {
-    const int x = (int)get_global_id(0);
-    const int y = (int)get_global_id(1);
-    if (x >= width || y >= height) {
-        return;
-    }
-
-    int value = rtgmc_search_prefilter_value(
-        prev2, prev, cur, next, next2, pitch,
-        width, height,
-        x, y, tr0, search_refine, repairProfile);
-    value = rtgmc_search_prefilter_to_full_range(value, fullRangeMode);
-    rtgmc_search_prefilter_pixel_store(dst, pitch, x, y, value);
 }

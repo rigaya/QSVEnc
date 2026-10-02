@@ -113,6 +113,9 @@ protected:
     struct RepairPlaneResources {
         std::unique_ptr<RGYCLFrame> temporal;
         std::unique_ptr<RGYCLFrame> delta;
+        std::unique_ptr<RGYCLFrame> corrected;
+        int fcHx = 0;
+        int fcHy = 0;
         std::array<RepairPlane, 6> stages;
         int stageCount = 0;
         RGYOpenCLEvent lastEvent;
@@ -120,6 +123,7 @@ protected:
             stageCount = 0;
             temporal.reset();
             delta.reset();
+            corrected.reset();
             for (auto &stage : stages) {
                 for (auto &frame : stage.polarity) frame.reset();
             }
@@ -174,11 +178,18 @@ protected:
 
     RGY_ERR checkParam(const std::shared_ptr<RGYFilterParamRtgmcSearchPrefilter> &prm);
     RGY_ERR buildKernel(const std::shared_ptr<RGYFilterParamRtgmcSearchPrefilter> &prm);
-    bool useRepairMultipass(const RGYFilterParamRtgmcSearchPrefilter &prm) const;
     RGY_ERR setupRepairResources(const RGYFilterParamRtgmcSearchPrefilter &prm, bool processChroma);
     RGY_ERR emitFieldStableSearch(int planeIndex, const RGYFrameInfo &prev2, const RGYFrameInfo &prev,
         const RGYFrameInfo &cur, const RGYFrameInfo &next, const RGYFrameInfo &next2,
         const RGYFrameInfo &dst, const RGYFilterParamRtgmcSearchPrefilter &prm,
+        RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &waitEvents, RGYOpenCLEvent *event);
+    RGY_ERR emitRepairFC(int planeIndex, const RGYFrameInfo &prev2, const RGYFrameInfo &prev,
+        const RGYFrameInfo &cur, const RGYFrameInfo &next, const RGYFrameInfo &next2,
+        const RGYFilterParamRtgmcSearchPrefilter &prm, RGYOpenCLQueue &queue,
+        const std::vector<RGYOpenCLEvent> &waitEvents, RGYOpenCLEvent *event);
+    RGY_ERR emitLumaSearch(int planeIndex, const RGYFrameInfo &prev2, const RGYFrameInfo &prev,
+        const RGYFrameInfo &cur, const RGYFrameInfo &next, const RGYFrameInfo &next2,
+        const RGYFrameInfo &dst, const RGYFilterParamRtgmcSearchPrefilter &prm, int fullRangeMode,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &waitEvents, RGYOpenCLEvent *event);
     RGY_ERR allocCacheFrames(const RGYFrameInfo &frameInfo);
     RGY_ERR setupSearchRefine1Resources(const RGYFrameInfo &frameInfo, bool processChroma);
@@ -222,7 +233,6 @@ protected:
     std::shared_ptr<SharedFramePool> m_cacheFramePool;
     std::shared_ptr<SharedFramePool> m_searchLumaPool;
     std::array<RepairPlaneResources, 2> m_repairPlaneResources;
-    bool m_repairLegacy = false;
     RGYOpenCLProgramAsync m_prefilter;
     std::string m_buildOptions;
     std::ofstream m_searchLumaDump;
