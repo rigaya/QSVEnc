@@ -344,7 +344,6 @@ RGYFilterKfm::RGYFilterKfm(shared_ptr<RGYOpenCLContext> context) :
     m_staticFlag(),
     m_staticWorkFrames(),
     m_analyzeFlags(),
-    m_fmCountQueue(),
     m_pendingFMCounts(),
     m_previousFMCounts(),
     m_previousFMCountCycle(-1),
@@ -3210,7 +3209,7 @@ RGY_ERR RGYFilterKfm::clearPendingFMCounts() {
     }
 
     RGY_ERR sts = RGY_ERR_NONE;
-    RGYOpenCLQueue *queue = m_fmCountQueue.get() ? &m_fmCountQueue : nullptr;
+    RGYOpenCLQueue *queue = m_cl ? &m_cl->queue() : nullptr;
     for (auto& pending : m_pendingFMCounts) {
         auto& fmCountBuf = pending.countBuf;
         if (!fmCountBuf) {
@@ -3790,18 +3789,6 @@ RGY_ERR RGYFilterKfm::drainNrFilter(RGYFrameInfo **ppOutputFrames, int *pOutputF
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYFilterKfm::ensureFMCountQueue() {
-    if (m_fmCountQueue.get()) {
-        return RGY_ERR_NONE;
-    }
-    m_fmCountQueue = m_cl->createQueue(m_cl->queue().devid(), m_cl->queue().getProperties());
-    if (!m_fmCountQueue.get()) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to create KFM FMCount readback queue.\n"));
-        return RGY_ERR_OPENCL_CRUSH;
-    }
-    return RGY_ERR_NONE;
-}
-
 RGY_ERR RGYFilterKfm::submitFMCounts(int cycle, bool drain, RGYOpenCLQueue &queue) {
     if (!m_programs[KFM_PROG_ANALYZE].get()) {
         return RGY_ERR_INVALID_CALL;
@@ -3828,10 +3815,7 @@ RGY_ERR RGYFilterKfm::submitFMCounts(int cycle, bool drain, RGYOpenCLQueue &queu
         }
     }
 
-    auto sts = ensureFMCountQueue();
-    if (sts != RGY_ERR_NONE) {
-        return sts;
-    }
+    auto sts = RGY_ERR_NONE;
 
     const size_t countBytes = sizeof(RGYKFM::FMCount) * KFM_FMCOUNT_PAIRS * 2;
     KfmPendingFMCount pending;
@@ -3861,7 +3845,7 @@ RGY_ERR RGYFilterKfm::submitFMCounts(int cycle, bool drain, RGYOpenCLQueue &queu
 
     const cl_int zero = 0;
     RGYOpenCLEvent initEvent;
-    // 再利用バッファは別キュー(m_fmCountQueue)でのunmap完了後に書き込む
+    // 再利用バッファへの書き込みは同じ生成キューのunmap完了後に行う
     std::vector<RGYOpenCLEvent> initWaitEvents;
     if (countBufReadyEvent() != nullptr) {
         initWaitEvents.push_back(countBufReadyEvent);
@@ -4016,13 +4000,14 @@ RGY_ERR RGYFilterKfm::submitFMCounts(int cycle, bool drain, RGYOpenCLQueue &queu
             pairCountEvents.push_back(prevCountEvent);
         }
     }
-    sts = pending.countBuf->queueMapBuffer(m_fmCountQueue, CL_MAP_READ, pairCountEvents, RGY_CL_MAP_BLOCK_NONE, "kfm.fmcount.cycle");
+    // ROCmでは、別キューのmapがwait-listの完了を待たずにCL_COMPLETEになり、
+    // 未完成の値を読むことがあった(ALLOC_HOST_PTRバッファ)。生成と同じキューでmapする。
+    sts = pending.countBuf->queueMapBuffer(queue, CL_MAP_READ, pairCountEvents, RGY_CL_MAP_BLOCK_NONE, "kfm.fmcount.cycle");
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to map KFM FMCount buffer: %s.\n"), get_err_mes(sts));
         return sts;
     }
     queue.flush();
-    m_fmCountQueue.flush();
     m_pendingFMCounts.push_back(std::move(pending));
     return RGY_ERR_NONE;
 }
@@ -4037,7 +4022,7 @@ RGY_ERR RGYFilterKfm::readbackFMCounts(std::array<RGYKFM::FMCount, 18>& counts, 
 
     auto& pending = m_pendingFMCounts.front();
     counts = {};
-    RGYOpenCLQueue& mapQueue = m_fmCountQueue.get() ? m_fmCountQueue : queue;
+    RGYOpenCLQueue& mapQueue = queue;
     RGY_ERR sts = RGY_ERR_NONE;
     auto& fmCountBuf = pending.countBuf;
     if (!fmCountBuf) {
@@ -4090,7 +4075,7 @@ RGY_ERR RGYFilterKfm::readbackFMCounts(std::array<RGYKFM::FMCount, 18>& counts, 
         AddMessage(RGY_LOG_ERROR, _T("failed to unmap KFM FMCount buffer: %s.\n"), get_err_mes(sts));
         return sts;
     }
-    // 別キューから待たれるのでunmapを投入しておく
+    // 再利用時の依存が進むよう、unmapを生成キューへ投入しておく
     sts = mapQueue.flush();
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to flush KFM FMCount readback queue: %s.\n"), get_err_mes(sts));
@@ -6194,7 +6179,7 @@ RGY_ERR RGYFilterKfm::ensureMaskBranchFrames(RGYFrameInfo **ppSwitchFlagFrame, R
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYFilterKfm::resolveContainsCombeCount(KfmContainsCombeReadback& readback, cl_uint *containsCombeCount) {
+RGY_ERR RGYFilterKfm::resolveContainsCombeCount(KfmContainsCombeReadback& readback, cl_uint *containsCombeCount, RGYOpenCLQueue &queue) {
     if (!readback.submitted) {
         if (containsCombeCount) {
             *containsCombeCount = 0;
@@ -6208,16 +6193,16 @@ RGY_ERR RGYFilterKfm::resolveContainsCombeCount(KfmContainsCombeReadback& readba
     }
     const auto waitSts = m_containsCombeCount->mapEvent().wait();
     if (waitSts != RGY_ERR_NONE) {
-        m_containsCombeCount->unmapBuffer(m_fmCountQueue);
-        m_fmCountQueue.finish();
+        m_containsCombeCount->unmapBuffer(queue);
+        queue.finish();
         readback.submitted = false;
         AddMessage(RGY_LOG_ERROR, _T("failed to wait KFM contains-combe count readback: %s.\n"), get_err_mes(waitSts));
         return waitSts;
     }
     const auto *mappedCount = reinterpret_cast<const cl_uint *>(m_containsCombeCount->mappedPtr());
     if (!mappedCount) {
-        m_containsCombeCount->unmapBuffer(m_fmCountQueue);
-        m_fmCountQueue.finish();
+        m_containsCombeCount->unmapBuffer(queue);
+        queue.finish();
         readback.submitted = false;
         AddMessage(RGY_LOG_ERROR, _T("failed to access KFM contains-combe count readback.\n"));
         return RGY_ERR_NULL_PTR;
@@ -6226,9 +6211,9 @@ RGY_ERR RGYFilterKfm::resolveContainsCombeCount(KfmContainsCombeReadback& readba
         *containsCombeCount = *mappedCount;
     }
     // unmap後のfinishは行わず、完了イベントを次のkernel_kfm_contains_combe_initに待たせる
-    auto unmapSts = m_containsCombeCount->unmapBuffer(m_fmCountQueue, {}, &m_containsCombeCountUnmapEvent);
+    auto unmapSts = m_containsCombeCount->unmapBuffer(queue, {}, &m_containsCombeCountUnmapEvent);
     if (unmapSts == RGY_ERR_NONE) {
-        unmapSts = m_fmCountQueue.flush();
+        unmapSts = queue.flush();
     }
     readback.submitted = false;
     if (unmapSts != RGY_ERR_NONE) {
@@ -6529,20 +6514,16 @@ RGY_ERR RGYFilterKfm::renderMaskBranch(RGYFrameInfo *pSwitchFlagFrame, RGYFrameI
         if (!containsCombeReadback) {
             return RGY_ERR_NONE;
         }
-        return resolveContainsCombeCount(*containsCombeReadback, nullptr);
+        return resolveContainsCombeCount(*containsCombeReadback, nullptr, queue);
     };
     if (containsCombeReadback) {
-        auto readSts = ensureFMCountQueue();
-        if (readSts != RGY_ERR_NONE) {
-            return readSts;
-        }
-        readSts = m_containsCombeCount->queueMapBuffer(m_fmCountQueue, CL_MAP_READ, { countEvent }, RGY_CL_MAP_BLOCK_NONE, "kfm.contains_combe.count");
+        // ホストメモリを持つバッファへ変更しても別キューmapの待機漏れを起こさないよう、生成キューで読む。
+        auto readSts = m_containsCombeCount->queueMapBuffer(queue, CL_MAP_READ, { countEvent }, RGY_CL_MAP_BLOCK_NONE, "kfm.contains_combe.count");
         if (readSts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to submit KFM contains-combe count readback: %s.\n"), get_err_mes(readSts));
             return readSts;
         }
         queue.flush();
-        m_fmCountQueue.flush();
         containsCombeReadback->submitted = true;
     }
 
@@ -7200,7 +7181,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                     removeWaitEvents.push_back(maskEvent);
                 }
                 auto resolveContainsCombeDuration = [&]() -> RGY_ERR {
-                    auto readSts = resolveContainsCombeCount(containsCombeReadback, needsContainsCombeCount ? &containsCombeCount : nullptr);
+                    auto readSts = resolveContainsCombeCount(containsCombeReadback, needsContainsCombeCount ? &containsCombeCount : nullptr, queue);
                     if (readSts != RGY_ERR_NONE) {
                         return readSts;
                     }
@@ -7220,7 +7201,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                 m_nextTelecine24Frame = savedTelecine24Frame;
                 m_nextTelecine24Pts = savedTelecine24Pts;
                 if (sts == RGY_ERR_MORE_DATA) {
-                    const auto cleanupSts = resolveContainsCombeCount(containsCombeReadback, nullptr);
+                    const auto cleanupSts = resolveContainsCombeCount(containsCombeReadback, nullptr, queue);
                     if (cleanupSts != RGY_ERR_NONE) { return cleanupSts; }
                     m_vfrRunStats.moreData24RenderBreaks++;
                     m_workBufferIndex = savedWorkBufferIndex;
@@ -7228,7 +7209,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                     break;
                 }
                 if (sts != RGY_ERR_NONE) {
-                    resolveContainsCombeCount(containsCombeReadback, nullptr);
+                    resolveContainsCombeCount(containsCombeReadback, nullptr, queue);
                     return sts;
                 }
 
@@ -7252,13 +7233,13 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                 } else {
                     sts = removeCombe24(out, deint24, super24, outputTiming.frame24Index, queue, removeWaitEvents, &outputEvent);
                     if (sts != RGY_ERR_NONE) {
-                        resolveContainsCombeCount(containsCombeReadback, nullptr);
+                        resolveContainsCombeCount(containsCombeReadback, nullptr, queue);
                         return sts;
                     }
-                    // 別queueの判定readback待ち中にも、先行投入したcombe除去を確実に進める。
+                    // 判定readback待ち中にも、先行投入したcombe除去を確実に進める。
                     sts = queue.flush();
                     if (sts != RGY_ERR_NONE) {
-                        resolveContainsCombeCount(containsCombeReadback, nullptr);
+                        resolveContainsCombeCount(containsCombeReadback, nullptr, queue);
                         return sts;
                     }
                     sts = resolveContainsCombeDuration();
@@ -7588,7 +7569,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                     }
                     sts = queueDeint30Copy();
                     if (sts != RGY_ERR_NONE) {
-                        resolveContainsCombeCount(containsCombeReadback, nullptr);
+                        resolveContainsCombeCount(containsCombeReadback, nullptr, queue);
                         return sts;
                     }
                     if (deintEvent() != nullptr) {
@@ -7599,19 +7580,19 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                         sts = m_cl->copyFrame(out, deint30, nullptr, queue, copyWaitEvents, &outputEvent, RGYFrameCopyMode::FRAME, "kfm.vfr.deint30_output");
                         if (sts != RGY_ERR_NONE) {
                             AddMessage(RGY_LOG_ERROR, _T("failed to copy KFM VFR deint30 output frame: %s.\n"), get_err_mes(sts));
-                            resolveContainsCombeCount(containsCombeReadback, nullptr);
+                            resolveContainsCombeCount(containsCombeReadback, nullptr, queue);
                             return sts;
                         }
                         copyFramePropWithoutRes(out, deint30);
                         baseCopyQueued30 = true;
-                        // 別queueの判定readback待ち中にも、先行投入したbase copyを確実に進める。
+                        // 判定readback待ち中にも、先行投入したbase copyを確実に進める。
                         sts = queue.flush();
                         if (sts != RGY_ERR_NONE) {
-                            resolveContainsCombeCount(containsCombeReadback, nullptr);
+                            resolveContainsCombeCount(containsCombeReadback, nullptr, queue);
                             return sts;
                         }
                     }
-                    sts = resolveContainsCombeCount(containsCombeReadback, needsContainsCombeCount ? &containsCombeCount : nullptr);
+                    sts = resolveContainsCombeCount(containsCombeReadback, needsContainsCombeCount ? &containsCombeCount : nullptr, queue);
                     if (sts != RGY_ERR_NONE) {
                         return sts;
                     }
@@ -8131,17 +8112,17 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
             } else {
                 sts = removeCombe24(out, deint24, super24, frame24Index, queue, removeWaitEvents, &outputEvent);
                 if (sts != RGY_ERR_NONE) {
-                    resolveContainsCombeCount(containsCombeReadback, nullptr);
+                    resolveContainsCombeCount(containsCombeReadback, nullptr, queue);
                     return sts;
                 }
                 if (needsContainsCombeCount) {
                     // 判定のreadback待ち中にも、先行投入したcombe除去を進める。
                     sts = queue.flush();
                     if (sts != RGY_ERR_NONE) {
-                        resolveContainsCombeCount(containsCombeReadback, nullptr);
+                        resolveContainsCombeCount(containsCombeReadback, nullptr, queue);
                         return sts;
                     }
-                    sts = resolveContainsCombeCount(containsCombeReadback, &containsCombeCount);
+                    sts = resolveContainsCombeCount(containsCombeReadback, &containsCombeCount, queue);
                     if (sts != RGY_ERR_NONE) {
                         return sts;
                     }
@@ -8635,7 +8616,6 @@ void RGYFilterKfm::close() {
     m_switchFlagWorkEvent = RGYOpenCLEvent();
     m_containsCombeCount.reset();
     m_containsCombeCountUnmapEvent = RGYOpenCLEvent();
-    m_fmCountQueue.clear();
     if (m_fpResult) {
         fclose(m_fpResult);
         m_fpResult = nullptr;

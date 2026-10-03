@@ -293,7 +293,6 @@ protected:
     bool pushDeint60Intermediates(RGYFilterRtgmc *rtgmc, int sourceIndex, uint64_t *generation = nullptr);
     void purgeDeint60Intermediates(int sourceBegin, int sourceEnd);
     void trimDeint60Intermediates();
-    RGY_ERR ensureFMCountQueue();
     RGY_ERR submitFMCounts(int cycle, bool drain, RGYOpenCLQueue &queue);
     RGY_ERR readbackFMCounts(std::array<RGYKFM::FMCount, 18>& counts, int cycle, bool drain, RGYOpenCLQueue &queue);
     RGY_ERR analyzeAvailableSource(bool drain, RGYOpenCLQueue &queue);
@@ -384,7 +383,7 @@ protected:
     RGY_ERR ensureMaskBranchFrames(RGYFrameInfo **ppSwitchFlagFrame, RGYFrameInfo **ppContainsCombeFrame, RGYFrameInfo **ppCombeMaskFrame, const RGYFrameInfo *pTelecineSuperFrame, const TCHAR *stageLabel);
     RGY_ERR renderMaskBranch(RGYFrameInfo *pSwitchFlagFrame, RGYFrameInfo *pContainsCombeFrame, RGYFrameInfo *pCombeMaskFrame, const RGYFrameInfo *pTelecineSuperPrevFrame, const RGYFrameInfo *pTelecineSuperFrame, const RGYFrameInfo *pTelecineSuperNextFrame, const char *switchFlagStage, const char *containsCombeStage, const char *combeMaskStage, bool generateCombeMask, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event, KfmContainsCombeReadback *containsCombeReadback = nullptr);
     RGY_ERR renderCombeMask(RGYFrameInfo *pCombeMaskFrame, const RGYFrameInfo *pSwitchFlagFrame, const RGYFrameInfo *pTelecineSuperFrame, const char *combeMaskStage, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    RGY_ERR resolveContainsCombeCount(KfmContainsCombeReadback& readback, cl_uint *containsCombeCount);
+    RGY_ERR resolveContainsCombeCount(KfmContainsCombeReadback& readback, cl_uint *containsCombeCount, RGYOpenCLQueue &queue);
     RGY_ERR patchCombe(RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pBaseFrame, const RGYFrameInfo *pPatchFrame, const RGYFrameInfo *pMaskFrame, int frameIndex, const char *stageName, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     int telecine24FrameCount(bool drain) const;
     std::shared_ptr<RGYCLFrame> acquireKfmFrame(const RGYFrameInfo& info, const TCHAR *label, cl_mem_flags flags = CL_MEM_READ_WRITE);
@@ -612,7 +611,7 @@ protected:
     std::deque<KfmMainIntermediateGroup> m_deint60IntermediateQueue;
     std::deque<KfmCachedUcfNoise> m_ucfNoiseCache;
     std::deque<KfmPendingUcfNoiseResult> m_pendingUcfNoiseResults;
-    // 読み戻し用バッファのプール。unmapはm_fmCountQueueで行うため、
+    // 読み戻し用バッファのプール。unmapは生成キューで行い、
     // 再利用時はunmap完了イベント(second)を書き込み側の待ちに渡す
     std::deque<std::pair<std::unique_ptr<RGYCLBuf>, RGYOpenCLEvent>> m_fmCountBufPool;
     std::deque<std::unique_ptr<RGYCLBuf>> m_ucfNoiseResultBufPool;
@@ -621,7 +620,6 @@ protected:
     std::unique_ptr<RGYCLFrame> m_staticFlag;
     std::array<std::unique_ptr<RGYCLFrame>, 5> m_staticWorkFrames;
     std::array<std::unique_ptr<RGYCLBuf>, 2> m_analyzeFlags;
-    RGYOpenCLQueue m_fmCountQueue;
     std::deque<KfmPendingFMCount> m_pendingFMCounts;
     std::array<RGYKFM::FMCount, 18> m_previousFMCounts;
     int m_previousFMCountCycle;
@@ -645,7 +643,7 @@ protected:
     std::array<std::unique_ptr<RGYCLBuf>, 4> m_switchFlagWork;
     RGYOpenCLEvent m_switchFlagWorkEvent;
     std::unique_ptr<RGYCLBuf> m_containsCombeCount;
-    RGYOpenCLEvent m_containsCombeCountUnmapEvent; // m_fmCountQueueでのunmap完了。次の初期化カーネルはこれを待つ
+    RGYOpenCLEvent m_containsCombeCountUnmapEvent; // 生成キューでのunmap完了。次の初期化カーネルはこれを待つ
     FILE *m_fpResult;
     FILE *m_fpFMCount;
     FILE *m_fpTimecode;
