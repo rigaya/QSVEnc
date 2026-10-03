@@ -2797,10 +2797,14 @@ bool RGYInputAvcodec::checkTimeSeekTo(int64_t pts, rgy_rational<int> timebase, f
         || !m_Demux.video.gotFirstKeyframe) {
         return true;
     }
-    const float pts_sec = pts * timebase.qfloat();
     const AVRational vid_pkt_timebase = (m_Demux.video.stream) ? m_Demux.video.stream->time_base : av_inv_q(m_Demux.video.nAvgFramerate);
-    const float vid_first_pts_sec = m_Demux.video.beforeSeekStreamFirstKeyPts * vid_pkt_timebase.num / (float)vid_pkt_timebase.den;
-    return (pts_sec - vid_first_pts_sec) < m_seek.second + marginSec;
+    // seektoは動画の先頭(最初のキーフレーム)からの時刻、--seekしていない場合はstreamFirstKeyPtsが先頭
+    const int64_t vid_first_pts = (m_seek.first > 0.0f) ? m_Demux.video.beforeSeekStreamFirstKeyPts : m_Demux.video.streamFirstKeyPts;
+    // floatで比較すると、seektoちょうどのフレームが誤差で範囲内と判定されることがあるので、整数で比較する
+    const int64_t seekto_pts = vid_first_pts
+        + av_rescale_q(1, av_d2q(m_seek.second, 1<<24), vid_pkt_timebase)
+        + av_rescale_q(1, av_d2q(marginSec, 1<<24), vid_pkt_timebase);
+    return av_compare_ts(pts, AVRational{ timebase.n(), timebase.d() }, seekto_pts, vid_pkt_timebase) < 0;
 }
 
 bool RGYInputAvcodec::checkTimeSeekTo(int64_t pts, AVRational timebase, float marginSec) {
