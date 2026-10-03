@@ -2268,6 +2268,12 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
             m_Demux.video.streamFirstKeyPts = 0;
         }
 
+        // getFirstFramePosAndFrameRateで読み込んだ音声等のパケットもseektoで判定されるよう、ここで設定しておく
+        m_seek.second = input_prm->seekToSec;
+        if (input_prm->seekToSec > 0.0f) {
+            AddMessage(RGY_LOG_DEBUG, _T("set seekto %s.\n"), print_time(input_prm->seekToSec).c_str());
+        }
+
         //parserはseek後に初期化すること
         //parserが使用されていれば、ここでも使用するようにする
         //たとえば、入力がrawcodecなどでは使用しない
@@ -2327,11 +2333,6 @@ RGY_ERR RGYInputAvcodec::Init(const TCHAR *strFileName, VideoInfo *inputInfo, co
                 m_trimParam.list.push_back({ 0, TRIM_MAX });
             }
             AddMessage(RGY_LOG_DEBUG, _T("adjust trim by offset %d.\n"), m_trimParam.offset);
-        }
-
-        m_seek.second = input_prm->seekToSec;
-        if (input_prm->seekToSec > 0.0f) {
-            AddMessage(RGY_LOG_DEBUG, _T("set seekto %s.\n"), print_time(input_prm->seekSec).c_str());
         }
 
         m_Demux.video.simdCsp = input_prm->simdCsp;
