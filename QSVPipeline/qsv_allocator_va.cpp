@@ -196,7 +196,7 @@ mfxStatus QSVAllocatorVA::CreateOpenCLCopySurface(const mfxFrameInfo& info, VASu
     std::lock_guard<std::mutex> lock(m_copyMutex);
     const auto va_res = m_libva->vaCreateSurfaces(m_dpy, format, info.Width, info.Height, surface, 1, &attrib, 1);
     if (va_res != VA_STATUS_SUCCESS) {
-        AddMessage(RGY_LOG_ERROR, _T("OpenCL共有用VA面の作成に失敗しました: %d。\n"), va_res);
+        AddMessage(RGY_LOG_ERROR, _T("Failed to create OpenCL shared VA surface: %d。\n"), va_res);
     }
     const auto mfx_res = va_to_mfx_status(va_res);
     if (mfx_res == MFX_ERR_UNSUPPORTED) {
@@ -229,7 +229,7 @@ mfxStatus QSVAllocatorVA::CopyFrameSurfaceToSurface(mfxMemId mid, VASurfaceID ds
     if (!m_openCLCopySurfaceSupported.load()) return MFX_ERR_UNSUPPORTED;
     auto va_res = m_libva->vaSyncSurface(m_dpy, src);
     if (va_res != VA_STATUS_SUCCESS) {
-        AddMessage(RGY_LOG_ERROR, _T("OpenCL共有用VA面のコピー元同期に失敗しました: %d。\n"), va_res);
+        AddMessage(RGY_LOG_ERROR, _T("Failed to synchronize the source surface for OpenCL shared VA surface: %d。\n"), va_res);
         return runtimeError(va_res);
     }
 
@@ -248,16 +248,16 @@ mfxStatus QSVAllocatorVA::CopyFrameSurfaceToSurface(mfxMemId mid, VASurfaceID ds
         // 一度成功した後の失敗は実行時障害として扱い、隠さない。
         if (!m_openCLCopySurfaceVerified.load()) {
             m_openCLCopySurfaceSupported.store(false);
-            AddMessage(RGY_LOG_WARN, _T("vaCopyが使用できないため (エラー %d)、従来のOpenCL共有経路へ戻します。\n"), va_res);
+            AddMessage(RGY_LOG_WARN, _T("va vaCopy is unavailable (error %d), falling back to the conventional OpenCL shared path.\n"), va_res);
             return MFX_ERR_UNSUPPORTED;
         }
-        AddMessage(RGY_LOG_ERROR, _T("OpenCL共有用VA面へのコピーに失敗しました: %d。\n"), va_res);
+        AddMessage(RGY_LOG_ERROR, _T("Failed to copy to OpenCL shared VA surface: %d。\n"), va_res);
         return runtimeError(va_res);
     }
-    m_openCLCopySurfaceVerified.store(true);
+    m_openCLCopySurfaceVerified.store(true);    
     va_res = m_libva->vaSyncSurface(m_dpy, dst);
     if (va_res != VA_STATUS_SUCCESS) {
-        AddMessage(RGY_LOG_ERROR, _T("OpenCL共有用VA面のコピー完了待機に失敗しました: %d。\n"), va_res);
+        AddMessage(RGY_LOG_ERROR, _T("Failed to synchronize the destination surface for OpenCL shared VA surface: %d。\n"), va_res);
     }
     return runtimeError(va_res);
 #endif
