@@ -2498,6 +2498,12 @@ public:
         }
         //明示的に待機が必要
         frame->depend_clear();
+        // このタスクはpass-throughのため、VPP(MFX)→エンコーダ(MFX)間ではパイプライン側の同期が行われない。
+        // 未完了の面を読むと、前のフレームの内容と比較したりvaSyncSurfaceが失敗したりするので、ここで完了を待つ。
+        if (const auto syncErr = frame->waitsync(); syncErr != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to sync input frame before video metric: %s.\n"), get_err_mes(syncErr));
+            return (syncErr < RGY_ERR_NONE) ? syncErr : RGY_ERR_GPU_HANG;
+        }
 
         RGYCLFrameInterop *clFrameInInterop = nullptr;
         PipelineTaskOutputSurf *taskSurf = dynamic_cast<PipelineTaskOutputSurf *>(frame.get());
