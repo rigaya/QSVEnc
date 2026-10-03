@@ -137,7 +137,8 @@ __kernel void kernel_ssim(
         }
     }
     barrier(CLK_LOCAL_MEM_FENCE);
-    if (imgx < (width - 4) && imgy < height) {
+    // imgyは2段目のブロックの先頭。2x2ブロックがすべて画像内に収まる窓だけを数える (除数((w>>2)-1)*((h>>2)-1)と一致させる)。
+    if (imgx + 8 <= width && imgy + 4 <= height) {
         long4 sx0y0 = STMP(lx + 0, ly + 0);
         long4 sx1y0 = STMP(lx + 1, ly + 0);
         long4 sx0y1 = STMP(lx + 0, ly + 1);
