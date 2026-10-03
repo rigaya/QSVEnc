@@ -780,6 +780,7 @@ struct AVDemuxVideo {
     int                       extradataSize;         //動画のヘッダサイズ
     AVRational                nAvgFramerate;         //動画のフレームレート
     uint32_t                  findPosLastIdx;        //findpos用のindex
+    int64_t                   decFrameOutCount;      //swデコーダから出力したフレーム数
 
     int                       nSampleGetCount;       //sampleをGetNextBitstreamで取得した数
     int                       decRFFStatus;          //swデコード時にRFF展開中かどうか

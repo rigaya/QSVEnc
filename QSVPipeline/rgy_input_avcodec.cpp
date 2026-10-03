@@ -176,6 +176,7 @@ AVDemuxVideo::AVDemuxVideo() :
     extradataSize(0),
     nAvgFramerate({ 0 }),
     findPosLastIdx(0),
+    decFrameOutCount(0),
     nSampleGetCount(0),
     decRFFStatus(0),
     pParserCtx(nullptr),
@@ -3534,9 +3535,11 @@ std::tuple<int, std::unique_ptr<AVPacket, RGYAVDeleter<AVPacket>>> RGYInputAvcod
                     AddMessage(RGY_LOG_DEBUG, _T("found first key frame: timestamp %lld (%s), offset %d\n"),
                         (long long int)m_Demux.video.streamFirstKeyPts, getTimestampString(m_Demux.video.streamFirstKeyPts, m_Demux.video.stream->time_base).c_str(),
                         m_trimParam.offset);
-                } else if (auto timestamp = (pkt->pts == AV_NOPTS_VALUE) ? pkt->dts : pkt->pts; timestamp != AV_NOPTS_VALUE && timestamp < m_Demux.video.streamFirstKeyPts) {
+                } else if (auto timestamp = (pkt->pts == AV_NOPTS_VALUE) ? pkt->dts : pkt->pts; timestamp != AV_NOPTS_VALUE && timestamp < m_Demux.video.streamFirstKeyPts
+                    && m_seek.first <= 0.0f) {
                     // OpenGOP等で、最初のキーフレームより前にBフレームがある場合がある
                     // こうした場合にoffsetを加算しておかないとtrimがずれる
+                    // --seekした場合は、シーク位置(最初のキーフレーム)からフレームを数えるので、それより前のフレームはoffsetに含めない
                     // PAFF等でAV_NOPTS_VALUEが一部のフレームで来る場合( RGY_PTS_HALF_INVALID )はきちんと考慮できていないが、そこはあきらめる
                     m_trimParam.offset++;
                 }
@@ -4041,6 +4044,15 @@ RGY_ERR RGYInputAvcodec::LoadNextFrameInternal(RGYFrame *pSurface) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to receive frame from video decoder: %s.\n"), qsv_av_err2str(ret).c_str());
                 return RGY_ERR_UNDEFINED_BEHAVIOR;
             }
+            // 最初のフレームはOpenGOPのBフレーム(RADL等)のために最初のキーフレームより前の場合があるので、その場合はフレームを無視する
+            // (hwデコーダと同様の処理、これらのフレームはm_trimParam.offsetで考慮されている)
+            if (m_Demux.video.decFrameOutCount == 0
+                && m_Demux.video.frame->pts != AV_NOPTS_VALUE
+                && m_Demux.video.frame->pts < m_Demux.video.streamFirstKeyPts) {
+                av_frame_unref(m_Demux.video.frame);
+                continue;
+            }
+            m_Demux.video.decFrameOutCount++;
             got_frame = TRUE;
         }
         const auto *decodedFramesCtx = m_Demux.video.frame->hw_frames_ctx
