@@ -30,33 +30,37 @@
 #define Type uchar
 #endif
 
+#define KFM_CAT_(a, b) a##b
+#define KFM_CAT(a, b) KFM_CAT_(a, b)
+#define Type16 KFM_CAT(Type, 16)
+
 typedef struct {
     int move;
     int shima;
     int lshima;
 } FMCount;
 
-static inline int kfm_absdiff(const Type a, const Type b) {
-    return abs((int)a - (int)b);
+static inline int8 kfm_absdiff(const int8 a, const int8 b) {
+    return convert_int8(abs(a - b));
 }
 
-static inline int kfm_calc_combe(
-    const Type L0, const Type L1, const Type L2, const Type L3,
-    const Type L4, const Type L5, const Type L6, const Type L7) {
-    const int diff8 = kfm_absdiff(L0, L7);
-    const int diffT =
+static inline int8 kfm_calc_combe(
+    const int8 L0, const int8 L1, const int8 L2, const int8 L3,
+    const int8 L4, const int8 L5, const int8 L6, const int8 L7) {
+    const int8 diff8 = kfm_absdiff(L0, L7);
+    const int8 diffT =
         kfm_absdiff(L0, L1) + kfm_absdiff(L1, L2) + kfm_absdiff(L2, L3) + kfm_absdiff(L3, L4) +
         kfm_absdiff(L4, L5) + kfm_absdiff(L5, L6) + kfm_absdiff(L6, L7) - diff8;
-    const int diffE =
+    const int8 diffE =
         kfm_absdiff(L0, L2) + kfm_absdiff(L2, L4) + kfm_absdiff(L4, L6) + kfm_absdiff(L6, L7) - diff8;
-    const int diffO =
+    const int8 diffO =
         kfm_absdiff(L0, L1) + kfm_absdiff(L1, L3) + kfm_absdiff(L3, L5) + kfm_absdiff(L5, L7) - diff8;
     return diffT - diffE - diffO;
 }
 
-static inline int kfm_calc_diff(
-    const Type L00, const Type L10, const Type L01, const Type L11,
-    const Type L02, const Type L12, const Type L03, const Type L13) {
+static inline int8 kfm_calc_diff(
+    const int8 L00, const int8 L10, const int8 L01, const int8 L11,
+    const int8 L02, const int8 L12, const int8 L03, const int8 L13) {
     return kfm_absdiff(L00, L10) + kfm_absdiff(L01, L11) + kfm_absdiff(L02, L12) + kfm_absdiff(L03, L13);
 }
 
@@ -84,92 +88,44 @@ static inline uchar4 kfm_analyze_block(
     const int bx,
     const int by) {
     const int shift = bit_depth - 8 + 4;
-    const int srcPitchT = srcPitch / (int)sizeof(Type);
+    const int pitch = srcPitch / (int)sizeof(Type);
     const __global Type *f0 = (const __global Type *)src0;
     const __global Type *f1 = (const __global Type *)src1;
-
-    int sum0 = 0;
-    int sum1 = 0;
-    int sum2 = 0;
-    int sum3 = 0;
     const int xBase = bx * 4;
     const int yBase = by * 4;
-
-    for (int tx = 0; tx < 8; ++tx) {
-        const int x = xBase + tx;
-        const int srcIdx0 = x * pixelStep + pixelOffset + yBase * srcPitchT;
-        const int srcIdx1 = srcIdx0 + srcPitchT;
-        const int srcIdx2 = srcIdx1 + srcPitchT;
-        const int srcIdx3 = srcIdx2 + srcPitchT;
-        const int srcIdx4 = srcIdx3 + srcPitchT;
-        const int srcIdx5 = srcIdx4 + srcPitchT;
-        const int srcIdx6 = srcIdx5 + srcPitchT;
-        const int srcIdx7 = srcIdx6 + srcPitchT;
-
-        {
-            const Type T00 = f0[srcIdx0];
-            const Type B00 = f0[srcIdx1];
-            const Type T01 = f0[srcIdx2];
-            const Type B01 = f0[srcIdx3];
-            const Type T02 = f0[srcIdx4];
-            const Type B02 = f0[srcIdx5];
-            const Type T03 = f0[srcIdx6];
-            const Type B03 = f0[srcIdx7];
-            const int tmp = kfm_calc_combe(T00, B00, T01, B01, T02, B02, T03, B03);
-            if (parity) {
-                sum0 += tmp;
-            } else {
-                sum2 += tmp;
-            }
+    int8 row0[8];
+    int8 row1[8];
+    // 行単位で8列を読み、各列の解析はレジスタ上で同じ整数演算を行う。
+    if (pixelStep == 1) {
+        #pragma unroll
+        for (int r = 0; r < 8; ++r) {
+            const int offset = xBase + pixelOffset + (yBase + r) * pitch;
+            row0[r] = convert_int8(vload8(0, f0 + offset));
+            row1[r] = convert_int8(vload8(0, f1 + offset));
         }
-
-        if (parity) {
-            const Type T10 = f1[srcIdx0];
-            const Type B00 = f0[srcIdx1];
-            const Type T11 = f1[srcIdx2];
-            const Type B01 = f0[srcIdx3];
-            const Type T12 = f1[srcIdx4];
-            const Type B02 = f0[srcIdx5];
-            const Type T13 = f1[srcIdx6];
-            const Type B03 = f0[srcIdx7];
-            sum2 += kfm_calc_combe(T10, B00, T11, B01, T12, B02, T13, B03);
-        } else {
-            const Type T00 = f0[srcIdx0];
-            const Type B10 = f1[srcIdx1];
-            const Type T01 = f0[srcIdx2];
-            const Type B11 = f1[srcIdx3];
-            const Type T02 = f0[srcIdx4];
-            const Type B12 = f1[srcIdx5];
-            const Type T03 = f0[srcIdx6];
-            const Type B13 = f1[srcIdx7];
-            sum0 += kfm_calc_combe(T00, B10, T01, B11, T02, B12, T03, B13);
-        }
-
-        {
-            const Type T00 = f0[srcIdx0];
-            const Type T10 = f1[srcIdx0];
-            const Type T01 = f0[srcIdx2];
-            const Type T11 = f1[srcIdx2];
-            const Type T02 = f0[srcIdx4];
-            const Type T12 = f1[srcIdx4];
-            const Type T03 = f0[srcIdx6];
-            const Type T13 = f1[srcIdx6];
-            sum1 += kfm_calc_diff(T00, T10, T01, T11, T02, T12, T03, T13);
-        }
-
-        {
-            const Type B00 = f0[srcIdx1];
-            const Type B10 = f1[srcIdx1];
-            const Type B01 = f0[srcIdx3];
-            const Type B11 = f1[srcIdx3];
-            const Type B02 = f0[srcIdx5];
-            const Type B12 = f1[srcIdx5];
-            const Type B03 = f0[srcIdx7];
-            const Type B13 = f1[srcIdx7];
-            sum3 += kfm_calc_diff(B00, B10, B01, B11, B02, B12, B03, B13);
+    } else {
+        // UVのV成分もペアの先頭から読み、最終列の外へ読み越さないようoddを選ぶ。
+        #pragma unroll
+        for (int r = 0; r < 8; ++r) {
+            const int offset = xBase * 2 + (yBase + r) * pitch;
+            const Type16 v0 = vload16(0, f0 + offset);
+            const Type16 v1 = vload16(0, f1 + offset);
+            row0[r] = convert_int8(pixelOffset == 0 ? v0.even : v0.odd);
+            row1[r] = convert_int8(pixelOffset == 0 ? v1.even : v1.odd);
         }
     }
-
+    const int8 same = kfm_calc_combe(row0[0], row0[1], row0[2], row0[3], row0[4], row0[5], row0[6], row0[7]);
+    const int8 mixed = parity
+        ? kfm_calc_combe(row1[0], row0[1], row1[2], row0[3], row1[4], row0[5], row1[6], row0[7])
+        : kfm_calc_combe(row0[0], row1[1], row0[2], row1[3], row0[4], row1[5], row0[6], row1[7]);
+    const int8 move0 = kfm_calc_diff(row0[0], row1[0], row0[2], row1[2], row0[4], row1[4], row0[6], row1[6]);
+    const int8 move1 = kfm_calc_diff(row0[1], row1[1], row0[3], row1[3], row0[5], row1[5], row0[7], row1[7]);
+    const int8 combe0 = parity ? same : mixed;
+    const int8 combe1 = parity ? mixed : same;
+    const int sum0 = combe0.s0 + combe0.s1 + combe0.s2 + combe0.s3 + combe0.s4 + combe0.s5 + combe0.s6 + combe0.s7;
+    const int sum1 = move0.s0 + move0.s1 + move0.s2 + move0.s3 + move0.s4 + move0.s5 + move0.s6 + move0.s7;
+    const int sum2 = combe1.s0 + combe1.s1 + combe1.s2 + combe1.s3 + combe1.s4 + combe1.s5 + combe1.s6 + combe1.s7;
+    const int sum3 = move1.s0 + move1.s1 + move1.s2 + move1.s3 + move1.s4 + move1.s5 + move1.s6 + move1.s7;
     return (uchar4)(
         kfm_clamp_u8(sum0 >> shift),
         kfm_clamp_u8(sum1 >> shift),
