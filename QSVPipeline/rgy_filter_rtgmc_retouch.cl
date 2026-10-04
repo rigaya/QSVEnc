@@ -1016,6 +1016,18 @@ static inline int rtgmc_retouch_detail_ref_value(
     return rtgmc_retouch_precise_clamp_value(detailRef, srcPix);
 }
 
+// 縦3画素の整数丸めを保ちながら、隣接3列をレジスタ上でまとめて処理する。
+static inline int3 rtgmc_retouch_detail_ref_triad3(
+    const int3 upper, const int3 center, const int3 lower, const int precise
+) {
+    const int3 median = max(min(upper, center), min(max(upper, center), lower));
+    int3 value = (upper + center + lower - median + 1) >> 1;
+    if (precise != 0) {
+        value = clamp(value + ((value < center) & 1) - ((value > center) & 1), 0, max_val);
+    }
+    return value;
+}
+
 static inline int rtgmc_retouch_detail_ref_blur_value(
     const __global uchar *src, const int x, const int y,
     const int pitch, const int width, const int height,
@@ -1023,6 +1035,19 @@ static inline int rtgmc_retouch_detail_ref_blur_value(
 ) {
     if (x <= 0 || y <= 0 || x >= width - 1 || y >= height - 1) {
         return rtgmc_retouch_detail_ref_value(src, x, y, pitch, width, height, precise);
+    }
+    if (y >= 2 && y < height - 2) {
+        // 9点の縦近傍に重複する読出しを5行×3列にまとめる。端の行は従来の処理を使う。
+        const int3 r0 = convert_int3(vload3(0, (const __global Type *)(src + (y - 2) * pitch) + x - 1));
+        const int3 r1 = convert_int3(vload3(0, (const __global Type *)(src + (y - 1) * pitch) + x - 1));
+        const int3 r2 = convert_int3(vload3(0, (const __global Type *)(src + y * pitch) + x - 1));
+        const int3 r3 = convert_int3(vload3(0, (const __global Type *)(src + (y + 1) * pitch) + x - 1));
+        const int3 r4 = convert_int3(vload3(0, (const __global Type *)(src + (y + 2) * pitch) + x - 1));
+        const int3 p0 = rtgmc_retouch_detail_ref_triad3(r0, r1, r2, precise);
+        const int3 p1 = rtgmc_retouch_detail_ref_triad3(r1, r2, r3, precise);
+        const int3 p2 = rtgmc_retouch_detail_ref_triad3(r2, r3, r4, precise);
+        const int3 sum = p0 + 2 * p1 + p2;
+        return (sum.s0 + 2 * sum.s1 + sum.s2 + 8) >> 4;
     }
     const int p00 = rtgmc_retouch_detail_ref_value(src, x - 1, y - 1, pitch, width, height, precise);
     const int p10 = rtgmc_retouch_detail_ref_value(src, x,     y - 1, pitch, width, height, precise);
