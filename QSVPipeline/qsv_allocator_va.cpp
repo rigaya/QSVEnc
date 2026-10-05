@@ -228,7 +228,11 @@ mfxStatus QSVAllocatorVA::CopyFrameSurfaceToSurface(mfxMemId mid, VASurfaceID ds
     // 並行呼び出しが初回失敗を検出済みなら、再試行や重複した警告を避ける。
     if (!m_openCLCopySurfaceSupported.load()) return MFX_ERR_UNSUPPORTED;
     auto va_res = m_libva->vaSyncSurface(m_dpy, src);
-    if (va_res != VA_STATUS_SUCCESS) {
+    // デコード破損の通知でも同期は完了しており、復号済み画像をコピーできる。
+    // 録画終端などの不完全なフレームで、フィルタやエンコーダの残りまで失わないよう継続する。
+    if (va_res == VA_STATUS_ERROR_DECODING_ERROR) {
+        AddMessage(RGY_LOG_WARN, _T("OpenCL共有用VA面のコピー元にデコード破損があります。復号済み画像で処理を継続します。\n"));
+    } else if (va_res != VA_STATUS_SUCCESS) {
         AddMessage(RGY_LOG_ERROR, _T("Failed to synchronize the source surface for OpenCL shared VA surface: %d。\n"), va_res);
         return runtimeError(va_res);
     }
