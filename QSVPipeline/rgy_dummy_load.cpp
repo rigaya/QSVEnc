@@ -95,7 +95,11 @@ RGY_ERR RGYDummyLoadCL::run(const float targetLoadPercent, std::shared_ptr<RGYLo
 #endif //#if defined(_WIN32) || defined(_WIN64)
 
         //最初のうちは高速なので、5秒ほど待つ
-        std::this_thread::sleep_for(std::chrono::seconds(5));
+        //close()で中断できるよう、sleep_forではなくイベントで待つ (短いエンコードで終了時に最大5秒待たされるのを避ける)
+        if (WaitForSingleObject(m_event.get(), 5000) != WAIT_TIMEOUT || m_abort) {
+            m_log->write(RGY_LOG_DEBUG, RGY_LOGT_PERF_MONITOR, _T("RGYDummyLoadCL::run() aborted before start.\n"));
+            return RGY_ERR_NONE;
+        }
 
         m_prog.set(m_cl->buildResourceAsync(_T("RGY_DUMMY_LOAD_CL"), _T("EXE_DATA"), ""));
 
