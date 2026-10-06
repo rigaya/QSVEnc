@@ -1568,6 +1568,9 @@ RGY_ERR RGYFilterKfm::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog>
         return RGY_ERR_INVALID_PARAM;
     }
 
+    // 実フレームだけでなく、後段フィルタと出力ヘッダへ渡す情報もプログレッシブにする。
+    prm->frameOut.picstruct = RGY_PICSTRUCT_FRAME;
+
     if (prm->kfm.ucf) {
         AddMessage(RGY_LOG_INFO, _T("--vpp-kfm ucf=true enables the UCF debug field/crop noise pre-stage.\n"));
     }
