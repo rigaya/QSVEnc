@@ -2921,7 +2921,8 @@ public:
             if (MFX_ERR_NONE < enc_sts && lastSyncP == nullptr) {
                 bDeviceBusy = true;
                 if (enc_sts == MFX_WRN_DEVICE_BUSY) {
-                    sleep_hybrid(i);
+                    // キュー拡大時のビジー再試行でCPUを占有しないよう、短時間待ってから再投入する。
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
                     if (!device_busy) {
                         device_busy = std::make_unique<std::chrono::system_clock::time_point>(std::chrono::system_clock::now());
                     } else if ((i & 1023) == 0) {
