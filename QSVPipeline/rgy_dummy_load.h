@@ -29,6 +29,8 @@
 #ifndef __RGY_DUMMY_LOAD_H__
 #define __RGY_DUMMY_LOAD_H__
 
+#include <atomic>
+
 #include "rgy_opencl.h"
 #include "rgy_event.h"
 
@@ -46,7 +48,7 @@ protected:
     std::thread m_thread;
     unique_event m_event;
     std::shared_ptr<RGYLog> m_log;
-    bool m_abort;
+    std::atomic<bool> m_abort;
     int m_bufElemSize;
     std::unique_ptr<RGYCLBuf> m_clBuf;
 };
