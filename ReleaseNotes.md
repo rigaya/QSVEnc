@@ -1,5 +1,21 @@
 # QSVEnc Release Notes
 
+## 8.33
+
+- Improve [--seek](./QSVEncC_Options.en.md#--seek-intintintint) and [--seekto](./QSVEncC_Options.en.md#--seekto-intintintint) accuracy on mpegts/mp4 input. ( #326, #328 )
+- Improve [--trim](./QSVEncC_Options.en.md#--trim-intintintintintint) behavior on short mpegts videos. ( #330 )
+- Sync the VPP output before [--ssim](./QSVEncC_Options.en.md#--ssim), [--psnr](./QSVEncC_Options.en.md#--psnr), or [--vmaf](./QSVEncC_Options.en.md#--vmaf-param1value1param2value2) reads it, fixing failures and wrong scores. ( #319 )
+- Fix [--ssim](./QSVEncC_Options.en.md#--ssim) over 1.0 when the plane size is not a multiple of 4. ( #322 )
+- Stop the encode with an error instead of dropping frames and exiting successfully when a task fails during pipeline flush. ( #320 )
+- Fix [--avoid-idle-clock](./QSVEncC_Options.en.md#--avoid-idle-clock-stringfloat) waiting up to 5 seconds on exit.
+- Wait 1 ms on encoder busy retry so CPU usage does not increase. ( #334 )
+- Continue OpenCL processing on a VA decode-error report so trailing frames are not lost. ( #333 )
+- Fix cases where the encoder waited 5 seconds before exiting. ( #332 )
+- Fix error log output on Linux when IO statistics are unavailable. ( NVEnc#807 )
+- Fix [--vpp-kfm](./QSVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) output information to progressive, and inherit SAR for raw output.
+- Speed up block analysis in [--vpp-kfm](./QSVEncC_Options.en.md#--vpp-kfm-param1value1param2value2).
+- Speed up the detail-reference blur in [--vpp-rtgmc-retouch](./QSVEncC_Options.en.md#--vpp-rtgmc-retouch-param1value1).
+
 ## 8.32
 
 - Add VA-API encoding support on Linux. ([--backend](./QSVEncC_Options.en.md#--backend-autoqsvvaapi))
