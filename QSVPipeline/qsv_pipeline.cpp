@@ -6289,7 +6289,11 @@ RGY_ERR CQSVPipeline::RunEncode2() {
                         break;
                     }
                     if (err == RGY_ERR_NONE) {
-                        auto output = task->getOutput(requireSync(d.task));
+                        std::vector<std::unique_ptr<PipelineTaskOutput>> output;
+                        if (const auto outputErr = task->getOutput(requireSync(d.task), output); outputErr != RGY_ERR_NONE) {
+                            err = outputErr;
+                            break;
+                        }
                         if (output.size() == 0) break;
                         //出てきたものは先頭に追加していく
                         std::for_each(output.rbegin(), output.rend(), [itask = d.task, &dataqueue](auto&& o) {
@@ -6305,11 +6309,15 @@ RGY_ERR CQSVPipeline::RunEncode2() {
                     if (stopwatchOutput) stopwatchOutput->add(0, 0);
                 }
             }
-            if (dataqueue.empty()) {
+            if (dataqueue.empty() && checkContinue(err)) {
                 // taskを前方からひとつづつ出力が残っていないかチェック(主にcheckptsの処理のため)
                 for (size_t itask = 0; itask < m_pipelineTasks.size(); itask++) {
                     auto& task = m_pipelineTasks[itask];
-                    auto output = task->getOutput(requireSync(itask));
+                    std::vector<std::unique_ptr<PipelineTaskOutput>> output;
+                    if (const auto outputErr = task->getOutput(requireSync(itask), output); outputErr != RGY_ERR_NONE) {
+                        err = outputErr;
+                        break;
+                    }
                     if (output.size() > 0) {
                         //出てきたものは先頭に追加していく
                         std::for_each(output.rbegin(), output.rend(), [itask, &dataqueue](auto&& o) {
@@ -6355,7 +6363,12 @@ RGY_ERR CQSVPipeline::RunEncode2() {
                         if (d.task == flushedTaskSend) flushedTaskSend++;
                         break;
                     }
-                    auto output = task->getOutput(requireSync(d.task));
+                    std::vector<std::unique_ptr<PipelineTaskOutput>> output;
+                    if (const auto outputErr = task->getOutput(requireSync(d.task), output); outputErr != RGY_ERR_NONE) {
+                        err = outputErr;
+                        flushFailed = true;
+                        break;
+                    }
                     if (output.size() == 0) break;
                     //出てきたものは先頭に追加していく
                     std::for_each(output.rbegin(), output.rend(), [itask = d.task, &dataqueue](auto&& o) {
@@ -6379,7 +6392,12 @@ RGY_ERR CQSVPipeline::RunEncode2() {
                 // taskを前方からひとつづつ出力が残っていないかチェック(主にcheckptsの処理のため)
                 for (size_t itask = flushedTaskGet; itask < m_pipelineTasks.size(); itask++) {
                     auto& task = m_pipelineTasks[itask];
-                    auto output = task->getOutput(requireSync(itask));
+                    std::vector<std::unique_ptr<PipelineTaskOutput>> output;
+                    if (const auto outputErr = task->getOutput(requireSync(itask), output); outputErr != RGY_ERR_NONE) {
+                        err = outputErr;
+                        flushFailed = true;
+                        break;
+                    }
                     if (output.size() > 0) {
                         //出てきたものは先頭に追加していく
                         std::for_each(output.rbegin(), output.rend(), [itask, &dataqueue](auto&& o) {
@@ -6392,6 +6410,9 @@ RGY_ERR CQSVPipeline::RunEncode2() {
                         flushedTaskGet++;
                     }
                 }
+            }
+            if (flushFailed) {
+                break;
             }
         }
     }

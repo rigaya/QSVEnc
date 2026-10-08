@@ -340,7 +340,9 @@ public:
             return RGY_ERR_NONE;
         }
         auto err = m_mfxSession->SyncOperation(m_syncpoint, wait);
-        m_syncpoint = nullptr;
+        if (err == MFX_ERR_NONE) {
+            m_syncpoint = nullptr;
+        }
         return err_to_rgy(err);
     }
     virtual void depend_clear() {};
@@ -604,15 +606,25 @@ public:
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() = 0;
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) = 0;
     virtual RGY_ERR getOutputFrameInfo(mfxFrameInfo& info) { info = { 0 }; return RGY_ERR_INVALID_CALL; }
-    virtual std::vector<std::unique_ptr<PipelineTaskOutput>> getOutput(const bool sync) {
+    RGY_ERR syncOutput(PipelineTaskOutput *output) {
+        const auto err = output->waitsync();
+        if (err != RGY_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("Failed to synchronize output: %s.\n"), get_err_mes(err));
+            // タイムアウトの警告も停止扱いにし、未完了の出力を後段へ渡さない。
+            return (err < RGY_ERR_NONE) ? err : RGY_ERR_GPU_HANG;
+        }
+        return RGY_ERR_NONE;
+    }
+    virtual RGY_ERR getOutput(const bool sync, std::vector<std::unique_ptr<PipelineTaskOutput>>& output) {
         if (m_stopwatch) m_stopwatch->set(1);
-        std::vector<std::unique_ptr<PipelineTaskOutput>> output;
         while ((int)m_outQeueue.size() > m_outMaxQueueSize) {
+            if (sync) {
+                if (const auto err = syncOutput(m_outQeueue.front().get()); err != RGY_ERR_NONE) {
+                    return err;
+                }
+            }
             auto out = std::move(m_outQeueue.front());
             m_outQeueue.pop_front();
-            if (sync) {
-                out->waitsync();
-            }
             // VA の SYS 出力は、転送イベントと参照をエンコードタスクへ渡す。
             if (m_mfxSession != nullptr || m_type != PipelineTaskType::OPENCL || sync) {
                 out->depend_clear();
@@ -621,7 +633,7 @@ public:
             output.push_back(std::move(out));
         }
         if (m_stopwatch) m_stopwatch->add(1, 0);
-        return output;
+        return RGY_ERR_NONE;
     }
     bool isMFXTask(const PipelineTaskType task) const {
         return task == PipelineTaskType::MFXDEC
@@ -1706,15 +1718,16 @@ public:
     //これは--avsync frocecfrでフレームを参照コピーする際、
     //mfxSurface1自体は同じデータを指すため、複数のタイムスタンプを持つことができないため、
     //1フレームずつgetOutputし、都度タイムスタンプを上書きしてすぐに後続のタスクに投入してタイムスタンプを反映させる必要があるため
-    virtual std::vector<std::unique_ptr<PipelineTaskOutput>> getOutput(const bool sync) override {
+    virtual RGY_ERR getOutput(const bool sync, std::vector<std::unique_ptr<PipelineTaskOutput>>& output) override {
         if (m_stopwatch) m_stopwatch->set(1);
-        std::vector<std::unique_ptr<PipelineTaskOutput>> output;
         if ((int)m_outQeueue.size() > m_outMaxQueueSize) {
+            if (sync) {
+                if (const auto err = syncOutput(m_outQeueue.front().get()); err != RGY_ERR_NONE) {
+                    return err;
+                }
+            }
             auto out = std::move(m_outQeueue.front());
             m_outQeueue.pop_front();
-            if (sync) {
-                out->waitsync();
-            }
             out->depend_clear();
             if (out->customdata() != nullptr) {
                 const auto dataCheckPts = dynamic_cast<const PipelineTaskOutputDataCheckPts *>(out->customdata());
@@ -1732,7 +1745,7 @@ public:
             PrintMes(RGY_LOG_ERROR, _T("output queue more than 1, invalid!\n"));
         }
         if (m_stopwatch) m_stopwatch->add(1, 0);
-        return output;
+        return RGY_ERR_NONE;
     }
 };
 
@@ -2921,6 +2934,18 @@ public:
             if (MFX_ERR_NONE < enc_sts && lastSyncP == nullptr) {
                 bDeviceBusy = true;
                 if (enc_sts == MFX_WRN_DEVICE_BUSY) {
+                    // 保留中の出力を同期してエンコーダの空きを作る。単に再投入を繰り返すと、
+                    // 同期を待っているタスクが残ったままビジー状態から復帰できないことがある。
+                    auto pending = std::find_if(m_outQeueue.begin(), m_outQeueue.end(), [](const auto& output) {
+                        return output->syncpoint() != nullptr;
+                    });
+                    if (pending != m_outQeueue.end()) {
+                        if (const auto err = syncOutput(pending->get()); err != RGY_ERR_NONE) {
+                            return err;
+                        }
+                        device_busy.reset();
+                        continue;
+                    }
                     // キュー拡大時のビジー再試行でCPUを占有しないよう、短時間待ってから再投入する。
                     std::this_thread::sleep_for(std::chrono::milliseconds(1));
                     if (!device_busy) {
@@ -2930,7 +2955,7 @@ public:
                         const auto now = std::chrono::system_clock::now();
                         const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - *device_busy).count();
                         if (elapsed > 15) {
-                            PrintMes(RGY_LOG_ERROR, _T("device kept on busy for 30s, unknown error occurred.\n"));
+                            PrintMes(RGY_LOG_ERROR, _T("device kept on busy for 15s, unknown error occurred.\n"));
                             return RGY_ERR_GPU_HANG;
                         }
                     }

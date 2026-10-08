@@ -935,7 +935,10 @@ RGY_ERR RGYFilterSsim::compare_frames() {
     if (!m_decFrameCopy) {
         m_decFrameCopy = m_cl->createFrameBuffer(m_cropDec->GetFilterParam()->frameOut);
     }
-    auto outputFrames = m_taskDec->getOutput(true);
+    std::vector<std::unique_ptr<PipelineTaskOutput>> outputFrames;
+    if (const auto outputErr = m_taskDec->getOutput(true, outputFrames); outputErr != RGY_ERR_NONE) {
+        return outputErr;
+    }
     for (auto& out : outputFrames) {
         PipelineTaskOutputSurf *taskSurf = dynamic_cast<PipelineTaskOutputSurf *>(out.get());
         if (taskSurf == nullptr) {
