@@ -10,7 +10,7 @@
     - [パイプ利用の例](#パイプ利用の例)
     - [ffmpegからパイプ渡し](#ffmpegからパイプ渡し)
     - [ffmpegから映像と音声を両方パイプ渡したい](#ffmpegから映像と音声を両方パイプ渡したい)
-    - [ffmpegにNVEncCでのフィルタ処理の結果を渡したい](#ffmpegにnvenccでのフィルタ処理の結果を渡したい)
+    - [ffmpegにQSEncCでのフィルタ処理の結果を渡したい](#ffmpegにqsvenccでのフィルタ処理の結果を渡したい)
     - [可能な限り入力ファイルから音声・字幕・metadataなどをコピーする](#可能な限り入力ファイルから音声字幕metadataなどをコピーする)
     - [raw H.264/ESのmux](#raw-h264esのmux)
 - [オプションの指定方法](#オプションの指定方法)
@@ -376,16 +376,16 @@ ffmpeg -y -i "<ソース動画>" -an -pix_fmt yuv420p -f yuv4mpegpipe - | QSVEnc
 ffmpeg -y -i "<input>" <options for ffmpeg> -codec:a copy -codec:v rawvideo -pix_fmt yuv420p -f nut - | QSVEncC --avsw -i - --audio-codec aac -o "<outfilename.mp4>"
 ```
 
-#### ffmpegにNVEncCでのフィルタ処理の結果を渡したい
+#### ffmpegにQSVEncCでのフィルタ処理の結果を渡したい
 --> "nut"フォーマットでフレームと音声を渡すとよいでしょう。
 ```Batchfile
-NVEncC -i "<input>" <filter options> --audio-copy -c raw --output-format nut -o - | ffmpeg -y -f nut -i - <encode options for ffmpeg> -o output.mp4
+QSVEncC -i "<input>" <filter options> --audio-copy -c raw --output-format nut -o - | ffmpeg -y -f nut -i - <encode options for ffmpeg> -o output.mp4
 ```
 
 #### 可能な限り入力ファイルから音声・字幕・metadataなどをコピーする
 
 ```Batchfile
-NVEncC -i "<input>" <encode options> --colormatrix auto --transfer auto --colorprim auto --chromaloc auto --max-cll copy --master-display copy --dhdr10-info copy --dolby-vision-rpu copy --video-metadata copy --audio-copy --audio-metadata copy  --sub-copy --sub-metadata copy --data-copy --attachment-copy --chapter-copy -o output.mkv
+QSVEncC -i "<input>" <encode options> --colormatrix auto --transfer auto --colorprim auto --chromaloc auto --max-cll copy --master-display copy --dhdr10-info copy --dolby-vision-rpu copy --video-metadata copy --audio-copy --audio-metadata copy  --sub-copy --sub-metadata copy --data-copy --attachment-copy --chapter-copy -o output.mkv
 ```
 
 #### raw H.264/ESのmux
@@ -2790,7 +2790,7 @@ GPUによるインタレ解除を使用する。"normal", "bob"はわりとき�
 
 ### --vpp-mpdecimate [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]  
 連続した重複フレームを削除し、VFR動画を作ることで、実効的なエンコード速度の向上と圧縮率向上を測ります。
-なお、このフィルタを使用すると[--avsync](./NVEncC_Options.ja.md#--avsync-string) vfrが自動で有効になります。
+なお、このフィルタを使用すると[--avsync](./QSVEncC_Options.ja.md#--avsync-string) vfrが自動で有効になります。
 
 - **パラメータ**
   - hi=&lt;int&gt;  (デフォルト: 768)  
