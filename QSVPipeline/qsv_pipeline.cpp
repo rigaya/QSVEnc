@@ -5666,6 +5666,11 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
         m_nAsyncDepth = QSV_DEFAULT_ASYNC_DEPTH;
         PrintMes(RGY_LOG_DEBUG, _T("async depth automatically set to %d\n"), m_nAsyncDepth);
     }
+    // 出力の保持数と同じ非同期深度を、QueryIOSurfとInitより前にエンコーダへ指定する。
+    // フィルタ初期化後に設定し、MFX VPPの非同期深度は変更しない。
+    if (m_pmfxENC) {
+        m_encParams.videoPrm.AsyncDepth = (mfxU16)m_nAsyncDepth;
+    }
     if (pParams->ctrl.lowLatency) {
         pParams->bDisableTimerPeriodTuning = false;
     }
@@ -5863,6 +5868,19 @@ RGY_ERR CQSVPipeline::InitMfxEncode() {
         sts = RGY_ERR_NONE;
     }
     RGY_ERR(sts, _T("Failed to initialize encoder."));
+    mfxVideoParam applied = {};
+    sts = err_to_rgy(m_pmfxENC->GetVideoParam(&applied));
+    RGY_ERR(sts, _T("Failed to get encoder async depth."));
+    // ドライバが深度を縮めた場合は出力の保持数も縮める。拡大された場合も指定値を上限にする。
+    // 0は未指定なので、その場合は初期化時に指定した深度を維持する。
+    const int encAsyncDepth = applied.AsyncDepth > 0 ? std::min(m_nAsyncDepth, (int)applied.AsyncDepth) : m_nAsyncDepth;
+    for (auto& task : m_pipelineTasks) {
+        if (task->taskType() == PipelineTaskType::MFXENCODE) {
+            task->setOutputMaxQueueSize(std::max(0, encAsyncDepth - 1));
+        }
+    }
+    PrintMes(RGY_LOG_DEBUG, _T("Encoder async depth: requested %d, applied %d, output queue %d.\n"),
+        m_nAsyncDepth, applied.AsyncDepth, std::max(0, encAsyncDepth - 1));
     PrintMes(RGY_LOG_DEBUG, _T("Encoder initialized.\n"));
     return RGY_ERR_NONE;
 }
@@ -6178,8 +6196,9 @@ RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
 #endif
         // エンコーダの出力キューが1だと、フレームNを投入した直後にフレームN-1のビットストリームを同期待ちしてしまい、
         // その間メインスレッドが次のフレームのデコード・フィルタを投入できない(--vpp-kfmで実時間の約30%)。
-        // async depthぶん(エンコーダが同時に抱えられる数)まで同期を遅らせ、エンコードとGPUフィルタ処理を重ねる。
-        m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXEncode>(&m_device->mfxSession(), std::max(1, m_nAsyncDepth - 1), m_pmfxENC.get(), m_mfxVer, m_encParams, m_timecode.get(), m_encTimestamp.get(), m_outputTimebase, m_dynamicRC, m_hdr10plus.get(), m_dovirpu.get(), syncVppInput, m_pQSVLog));
+        // エンコーダへ指定した深度に達したら最古の出力を同期する。深度1では出力を保留しない。
+        // Init後にドライバの実適用値を確認し、必要なら保持数をさらに縮める。
+        m_pipelineTasks.push_back(std::make_unique<PipelineTaskMFXEncode>(&m_device->mfxSession(), std::max(0, (int)m_encParams.videoPrm.AsyncDepth - 1), m_pmfxENC.get(), m_mfxVer, m_encParams, m_timecode.get(), m_encTimestamp.get(), m_outputTimebase, m_dynamicRC, m_hdr10plus.get(), m_dovirpu.get(), syncVppInput, m_pQSVLog));
     } else {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskOutputRaw>(&m_device->mfxSession(), m_pFileWriter.get(), m_timecode.get(), m_outputTimebase, 1, m_mfxVer, m_pQSVLog));
     }
