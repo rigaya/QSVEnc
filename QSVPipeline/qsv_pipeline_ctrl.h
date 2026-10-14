@@ -606,8 +606,12 @@ public:
     virtual std::optional<mfxFrameAllocRequest> requiredSurfOut() = 0;
     virtual RGY_ERR sendFrame(std::unique_ptr<PipelineTaskOutput>& frame) = 0;
     virtual RGY_ERR getOutputFrameInfo(mfxFrameInfo& info) { info = { 0 }; return RGY_ERR_INVALID_CALL; }
-    RGY_ERR syncOutput(PipelineTaskOutput *output) {
-        const auto err = output->waitsync();
+    RGY_ERR syncOutput(PipelineTaskOutput *output, uint32_t wait = MSDK_WAIT_INTERVAL) {
+        const auto err = output->waitsync(wait);
+        // 非ブロッキング確認の未完了は正常。同期点と出力を保持して次回へ回す。
+        if (wait == 0 && err == RGY_WRN_IN_EXECUTION) {
+            return err;
+        }
         if (err != RGY_ERR_NONE) {
             PrintMes(RGY_LOG_ERROR, _T("Failed to synchronize output: %s.\n"), get_err_mes(err));
             // タイムアウトの警告も停止扱いにし、未完了の出力を後段へ渡さない。
@@ -2676,6 +2680,32 @@ public:
         m_outQeueue.clear(); // m_bitStreamOutが解放されるよう前にこちらを解放する
     };
     void setEnc(MFXVideoENCODE *mfxencode) { m_encode = mfxencode; };
+    virtual RGY_ERR getOutput(const bool sync, std::vector<std::unique_ptr<PipelineTaskOutput>>& output) override {
+        if (!sync) {
+            return PipelineTask::getOutput(sync, output);
+        }
+        if (m_stopwatch) m_stopwatch->set(1);
+        while (!m_outQeueue.empty()) {
+            // 保持上限以下でも同期APIを呼び、未開始の処理を進めつつ完了済み出力を回収する。
+            // 未完了なら後続のフィルタ処理を進め、上限超過時だけ最古の出力を同期待ちする。
+            // 終端処理は保持上限を0にするため、残りの出力をすべて同期待ちして回収できる。
+            const auto wait = (int)m_outQeueue.size() > m_outMaxQueueSize ? MSDK_WAIT_INTERVAL : 0;
+            const auto err = syncOutput(m_outQeueue.front().get(), wait);
+            if (err == RGY_WRN_IN_EXECUTION) {
+                break;
+            }
+            if (err != RGY_ERR_NONE) {
+                return err;
+            }
+            auto out = std::move(m_outQeueue.front());
+            m_outQeueue.pop_front();
+            out->depend_clear();
+            m_outFrames++;
+            output.push_back(std::move(out));
+        }
+        if (m_stopwatch) m_stopwatch->add(1, 0);
+        return RGY_ERR_NONE;
+    }
     virtual void setStopWatch() override {
         m_stopwatch = std::make_unique<PipelineTaskStopWatch>(
             std::vector<tstring>{ _T("GetBitstream"), _T("Reset"), _T("EncodeFrameAsync"), _T("EncoderBusy") },
