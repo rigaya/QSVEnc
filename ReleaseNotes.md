@@ -1,5 +1,9 @@
 # QSVEnc Release Notes
 
+## 8.34
+
+- Improve stability when the encoder is busy.
+
 ## 8.33
 
 - Improve [--seek](./QSVEncC_Options.en.md#--seek-intintintint) and [--seekto](./QSVEncC_Options.en.md#--seekto-intintintint) accuracy on mpegts/mp4 input. ( #326, #328 )
