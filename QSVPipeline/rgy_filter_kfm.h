@@ -325,24 +325,24 @@ protected:
     RGY_ERR createUcfGaussProgram(KfmUcfGaussProgram& program, int sourceSize, double cropSize, int targetSize, double p);
     RGY_ERR prepareUcfNoiseFieldCropFrame(RGYFrameInfo **ppFieldFrame, int sourceIndex, int parity, const RGYFrameInfo *pInputFrame,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    RGY_ERR prepareUcfNoiseGaussFrameFromSource(RGYFrameInfo **ppGaussFrame, int sourceIndex, int parity, const RGYFrameInfo *pInputFrame,
-        RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    RGY_ERR runUcfNoisePreprocessFromSource(const RGYFrameInfo *pInputFrame, int fieldIndex, int parity,
+        RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
     RGY_ERR prepareUcfNoiseGaussFrame(RGYFrameInfo **ppGaussFrame, int parity, const RGYFrameInfo *pInputFrame,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    RGY_ERR runUcfNoiseLimitStageFromSource(const RGYFilterParamKfm& prm, const RGYFrameInfo *pSrcFrame, const RGYFrameInfo *pNoiseFrame,
-        int fieldIndex, int parity, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
     RGY_ERR runUcfNoiseLimitStage(const RGYFilterParamKfm& prm, const RGYFrameInfo *pSrcFrame, const RGYFrameInfo *pNoiseFrame,
         int fieldIndex, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
     RGY_ERR analyzeUcfNoiseDebug(RGYOpenCLQueue &queue);
     RGY_ERR submitUcfNoiseResult(const KfmCachedUcfNoise& noise0, const KfmCachedUcfNoise& noise1, const KfmCachedUcfNoise& noise2,
         const KfmCachedSource& source0, const KfmCachedSource& source1, RGYOpenCLQueue &queue);
+    RGY_ERR submitUcfNoiseResultFused(const KfmCachedUcfNoise& noise0, const KfmCachedUcfNoise& noise1, const KfmCachedUcfNoise& noise2,
+        const KfmCachedSource& source0, const KfmCachedSource& source1, KfmPendingUcfNoiseResult&& pending, RGYOpenCLQueue &queue);
     RGY_ERR resolveUcfNoiseResult(KfmPendingUcfNoiseResult& pending, RGYOpenCLQueue &queue);
     RGY_ERR resolveUcfNoiseResults(int sourceIndex, RGYOpenCLQueue &queue);
     RGY_ERR resolveAllUcfNoiseResults(RGYOpenCLQueue &queue);
     RGY_ERR clearPendingFMCounts();
     std::unique_ptr<RGYCLBuf> acquireFMCountBuf(size_t requiredBytes, RGYOpenCLEvent *readyEvent);
     void releaseFMCountBuf(std::unique_ptr<RGYCLBuf>&& buf, const RGYOpenCLEvent& readyEvent = RGYOpenCLEvent());
-    std::unique_ptr<RGYCLBuf> acquireUcfNoiseResultBuf(size_t requiredBytes);
+    std::unique_ptr<RGYCLBuf> acquireUcfNoiseResultBuf(size_t requiredBytes, cl_mem_flags flags = CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR);
     void releaseUcfNoiseResultBuf(std::unique_ptr<RGYCLBuf>&& buf);
     void pushUcfNoiseResultDump(int sourceIndex, const RGYKFM::NoiseResult (&results)[2], const RGYKFM::UCFNoiseMeta& meta);
     void writeUcfNoiseResultDump(const KfmUcfNoiseDumpRecord& record, const KfmUcfNoiseDumpRecord *nextRecord);
@@ -448,10 +448,11 @@ protected:
         };
         int sourceIndex;
         std::unique_ptr<RGYCLBuf> resultBuf;
+        std::unique_ptr<RGYCLBuf> partialBuf;
         std::vector<Segment> segments;
         RGYKFM::UCFNoiseMeta meta;
 
-        KfmPendingUcfNoiseResult() : sourceIndex(-1), resultBuf(), segments(), meta() {};
+        KfmPendingUcfNoiseResult() : sourceIndex(-1), resultBuf(), partialBuf(), segments(), meta() {};
     };
 
     struct KfmUcfGaussProgram {

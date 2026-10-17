@@ -2038,46 +2038,44 @@ RGY_ERR RGYFilterKfm::runUcfNoiseAnalysisFromSource(const RGYFrameInfo *frame, R
     for (int parity = 0; parity < 2; parity++) {
         const int fieldIndex = sourceIndex * 2 + parity;
         const bool useFusedUcfPreprocess = kfmUseFusedUcfPreprocess() && !stageDumpRequested(fieldIndex);
+        if (useFusedUcfPreprocess && !kfmUcfNoGaussForTest()) {
+            sts = runUcfNoisePreprocessFromSource(frame, fieldIndex, parity, queue, wait_events);
+            if (sts != RGY_ERR_NONE) {
+                return sts;
+            }
+            continue;
+        }
         RGYFrameInfo *gaussFrame = nullptr;
         RGYOpenCLEvent gaussEvent;
         RGYFrameInfo *fieldFrame = nullptr;
-        if (useFusedUcfPreprocess && !kfmUcfNoGaussForTest()) {
-            sts = prepareUcfNoiseGaussFrameFromSource(&gaussFrame, sourceIndex, parity, frame, queue, wait_events, &gaussEvent);
+        RGYOpenCLEvent fieldEvent;
+        sts = prepareUcfNoiseFieldCropFrame(&fieldFrame, sourceIndex, parity, frame, queue, wait_events, &fieldEvent);
+        if (sts != RGY_ERR_NONE) {
+            return sts;
+        }
+        std::vector<RGYOpenCLEvent> gaussWaitEvents;
+        if (fieldEvent() != nullptr) {
+            gaussWaitEvents.push_back(fieldEvent);
+        }
+        if (kfmUcfNoGaussForTest()) {
+            gaussFrame = fieldFrame;
+            gaussEvent = fieldEvent;
+            writeFrameInfoDump("ucf-noise-gauss", gaussFrame);
+            sts = dumpStageFrame("ucf-noise-gauss", gaussFrame, fieldIndex, queue, gaussWaitEvents);
             if (sts != RGY_ERR_NONE) {
                 return sts;
             }
         } else {
-            RGYOpenCLEvent fieldEvent;
-            sts = prepareUcfNoiseFieldCropFrame(&fieldFrame, sourceIndex, parity, frame, queue, wait_events, &fieldEvent);
+            sts = prepareUcfNoiseGaussFrame(&gaussFrame, parity, fieldFrame, queue, gaussWaitEvents, &gaussEvent);
             if (sts != RGY_ERR_NONE) {
                 return sts;
-            }
-            std::vector<RGYOpenCLEvent> gaussWaitEvents;
-            if (fieldEvent() != nullptr) {
-                gaussWaitEvents.push_back(fieldEvent);
-            }
-            if (kfmUcfNoGaussForTest()) {
-                gaussFrame = fieldFrame;
-                gaussEvent = fieldEvent;
-                writeFrameInfoDump("ucf-noise-gauss", gaussFrame);
-                sts = dumpStageFrame("ucf-noise-gauss", gaussFrame, fieldIndex, queue, gaussWaitEvents);
-                if (sts != RGY_ERR_NONE) {
-                    return sts;
-                }
-            } else {
-                sts = prepareUcfNoiseGaussFrame(&gaussFrame, parity, fieldFrame, queue, gaussWaitEvents, &gaussEvent);
-                if (sts != RGY_ERR_NONE) {
-                    return sts;
-                }
             }
         }
         std::vector<RGYOpenCLEvent> deintWaitEvents;
         if (gaussEvent() != nullptr) {
             deintWaitEvents.push_back(gaussEvent);
         }
-        sts = (useFusedUcfPreprocess && fieldFrame == nullptr)
-            ? runUcfNoiseLimitStageFromSource(*prm, frame, gaussFrame, fieldIndex, parity, queue, deintWaitEvents)
-            : runUcfNoiseLimitStage(*prm, fieldFrame, gaussFrame, fieldIndex, queue, deintWaitEvents);
+        sts = runUcfNoiseLimitStage(*prm, fieldFrame, gaussFrame, fieldIndex, queue, deintWaitEvents);
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
@@ -2600,12 +2598,11 @@ RGY_ERR RGYFilterKfm::prepareUcfNoiseGaussFrame(RGYFrameInfo **ppGaussFrame, int
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYFilterKfm::prepareUcfNoiseGaussFrameFromSource(RGYFrameInfo **ppGaussFrame, int sourceIndex, int parity, const RGYFrameInfo *pInputFrame,
-    RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
-    if (!ppGaussFrame || !pInputFrame || !pInputFrame->ptr[0] || !m_programs[KFM_PROG_UCF].get()) {
+RGY_ERR RGYFilterKfm::runUcfNoisePreprocessFromSource(const RGYFrameInfo *pInputFrame, int fieldIndex, int parity,
+    RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events) {
+    if (!pInputFrame || !pInputFrame->ptr[0] || !m_programs[KFM_PROG_UCF].get()) {
         return RGY_ERR_INVALID_CALL;
     }
-    *ppGaussFrame = nullptr;
     const int cropX = 4;
     const int cropY = 4;
     RGYFrameInfo fieldInfo = *pInputFrame;
@@ -2623,35 +2620,16 @@ RGY_ERR RGYFilterKfm::prepareUcfNoiseGaussFrameFromSource(RGYFrameInfo **ppGauss
     writeFrameInfoDump("ucf-field", &fieldInfo);
 
     const int frameIndex = parity & 1;
-    RGYFrameInfo gaussInfo = fieldInfo;
-    for (int i = 0; i < RGY_MAX_PLANES; i++) {
-        gaussInfo.ptr[i] = nullptr;
-        gaussInfo.pitch[i] = 0;
+    KfmCachedUcfNoise entry;
+    entry.fieldIndex = fieldIndex;
+    entry.inputFrameId = pInputFrame->inputFrameId;
+    entry.timestamp = pInputFrame->timestamp;
+    entry.frame = acquireKfmFrame(fieldInfo, _T("UCF融合前処理"));
+    if (!entry.frame) {
+        return RGY_ERR_MEMORY_ALLOC;
     }
-    auto allocFrame = [&](std::unique_ptr<RGYCLFrame>& frame, const TCHAR *label) -> RGY_ERR {
-        if (!frame
-            || frame->frame.width != gaussInfo.width
-            || frame->frame.height != gaussInfo.height
-            || frame->frame.csp != gaussInfo.csp) {
-            frame = m_cl->createFrameBuffer(gaussInfo);
-            if (!frame) {
-                AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM UCF %s frame.\n"), label);
-                return RGY_ERR_MEMORY_ALLOC;
-            }
-        }
-        return RGY_ERR_NONE;
-    };
-    auto sts = allocFrame(m_ucfNoiseGaussTmpFrames[frameIndex], _T("gauss temporary"));
-    if (sts != RGY_ERR_NONE) {
-        return sts;
-    }
-    sts = allocFrame(m_ucfNoiseGaussFrames[frameIndex], _T("gauss output"));
-    if (sts != RGY_ERR_NONE) {
-        return sts;
-    }
-
-    auto *pTmpFrame = &m_ucfNoiseGaussTmpFrames[frameIndex]->frame;
-    auto *pGaussFrame = &m_ucfNoiseGaussFrames[frameIndex]->frame;
+    auto sts = RGY_ERR_NONE;
+    auto *pGaussFrame = &entry.frame->frame;
     const int planes = RGY_CSP_PLANES[pInputFrame->csp];
     const bool interleavedUV = kfmCspHasInterleavedUV(pInputFrame->csp);
     const auto chromaFmt = RGY_CSP_CHROMA_FORMAT[pInputFrame->csp];
@@ -2660,9 +2638,8 @@ RGY_ERR RGYFilterKfm::prepareUcfNoiseGaussFrameFromSource(RGYFrameInfo **ppGauss
     for (int iplane = 0; iplane < planes; iplane++) {
         const auto planeType = (RGY_PLANE)iplane;
         const auto src = getPlane(pInputFrame, planeType);
-        const auto tmp = getPlane(pTmpFrame, planeType);
         const auto dst = getPlane(pGaussFrame, planeType);
-        if (!src.ptr[0] || !tmp.ptr[0] || !dst.ptr[0]) {
+        if (!src.ptr[0] || !dst.ptr[0]) {
             continue;
         }
         const bool chromaPlane = planeType != RGY_PLANE_Y && chromaFmt != RGY_CHROMAFMT_MONOCHROME;
@@ -2698,135 +2675,31 @@ RGY_ERR RGYFilterKfm::prepareUcfNoiseGaussFrameFromSource(RGYFrameInfo **ppGauss
         const auto waitHere = (iplane == 0)
             ? wait_events
             : (prevEvent() != nullptr ? std::vector<RGYOpenCLEvent>{ prevEvent } : std::vector<RGYOpenCLEvent>());
-        RGYOpenCLEvent evV;
-        auto err = m_programs[KFM_PROG_UCF].get()->kernel("kernel_kfm_ucf_field_crop_gaussresize_v")
-            .config(queue, RGYWorkSize(32, 8), RGYWorkSize(tmp.width, tmp.height), waitHere, &evV)
-            .launch((cl_mem)tmp.ptr[0], tmp.pitch[0],
-                (cl_mem)src.ptr[0], src.pitch[0],
-                tmp.width, tmp.height,
-                srcXOffset, srcYOffset, srcYStep,
-                progV.offset->mem(), progV.coeff->mem(), progV.filterSize);
-        if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_ucf_field_crop_gaussresize_v (plane %d): %s.\n"), iplane, get_err_mes(err));
-            return err;
+        // 微小なcrop補正を含む既存テーブルとV/H各段の丸めを維持する。
+        // 現在の等倍リサンプラーは9 tap。タイルの左右には8画素ずつ余裕を取る。
+        if (progV.filterSize != 9 || progH.filterSize != 9) {
+            return RGY_ERR_UNSUPPORTED;
         }
-        RGYOpenCLEvent evH;
-        if (interleavedUVPlane) {
-            err = m_programs[KFM_PROG_UCF].get()->kernel("kernel_kfm_ucf_gaussresize_h_uv_interleaved")
-                .config(queue, RGYWorkSize(32, 8), RGYWorkSize(dst.width, dst.height), { evV }, &evH)
-                .launch((cl_mem)dst.ptr[0], dst.pitch[0],
-                    (cl_mem)tmp.ptr[0], tmp.pitch[0],
-                    dst.width, dst.height, dstWidthForGauss,
-                    progH.offset->mem(), progH.coeff->mem(), progH.filterSize);
-        } else {
-            err = m_programs[KFM_PROG_UCF].get()->kernel("kernel_kfm_ucf_gaussresize_h")
-                .config(queue, RGYWorkSize(32, 8), RGYWorkSize(dst.width, dst.height), { evV }, &evH)
-                .launch((cl_mem)dst.ptr[0], dst.pitch[0],
-                    (cl_mem)tmp.ptr[0], tmp.pitch[0],
-                    dst.width, dst.height,
-                    progH.offset->mem(), progH.coeff->mem(), progH.filterSize);
-        }
-        if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("error at KFM UCF fused gauss h (plane %d): %s.\n"), iplane, get_err_mes(err));
-            return err;
-        }
-        prevEvent = evH;
-    }
-
-    copyFramePropWithoutRes(pGaussFrame, &fieldInfo);
-    pGaussFrame->dataList = pInputFrame->dataList;
-    kfmEraseRtgmcSearchLumaFrameData(pGaussFrame);
-    writeFrameInfoDump("ucf-noise-gauss", pGaussFrame);
-    sts = dumpStageFrame("ucf-noise-gauss", pGaussFrame, sourceIndex * 2 + frameIndex, queue,
-        (prevEvent() != nullptr) ? std::vector<RGYOpenCLEvent>{ prevEvent } : std::vector<RGYOpenCLEvent>());
-    if (sts != RGY_ERR_NONE) {
-        return sts;
-    }
-    if (event && prevEvent() != nullptr) {
-        *event = prevEvent;
-    }
-    *ppGaussFrame = pGaussFrame;
-    return RGY_ERR_NONE;
-}
-
-RGY_ERR RGYFilterKfm::runUcfNoiseLimitStageFromSource(const RGYFilterParamKfm& prm, const RGYFrameInfo *pSrcFrame, const RGYFrameInfo *pNoiseFrame,
-    int fieldIndex, int parity, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events) {
-    (void)prm;
-    if (!pSrcFrame || !pNoiseFrame || !pSrcFrame->ptr[0] || !pNoiseFrame->ptr[0]) {
-        return RGY_ERR_NONE;
-    }
-    if (!m_programs[KFM_PROG_UCF].get()) {
-        return RGY_ERR_INVALID_CALL;
-    }
-    const int cropX = 4;
-    const int cropY = 4;
-    if (pSrcFrame->width - cropX * 2 != pNoiseFrame->width || (pSrcFrame->height >> 1) - cropY * 2 != pNoiseFrame->height
-        || pSrcFrame->csp != pNoiseFrame->csp) {
-        AddMessage(RGY_LOG_ERROR, _T("invalid KFM UCF fused noise limit input pair (src %dx%d %s, noise %dx%d %s).\n"),
-            pSrcFrame->width, pSrcFrame->height, RGY_CSP_NAMES[pSrcFrame->csp],
-            pNoiseFrame->width, pNoiseFrame->height, RGY_CSP_NAMES[pNoiseFrame->csp]);
-        return RGY_ERR_INVALID_PARAM;
-    }
-    KfmCachedUcfNoise entry;
-    entry.fieldIndex = fieldIndex;
-    entry.inputFrameId = pSrcFrame->inputFrameId;
-    entry.timestamp = pSrcFrame->timestamp;
-    entry.frame = acquireKfmFrame(*pNoiseFrame, _T("UCF fused noise limit"));
-    if (!entry.frame) {
-        return RGY_ERR_MEMORY_ALLOC;
-    }
-
-    auto *pOutputFrame = &entry.frame->frame;
-    const auto planes = RGY_CSP_PLANES[pOutputFrame->csp];
-    const bool interleavedUV = kfmCspHasInterleavedUV(pSrcFrame->csp);
-    const auto chromaFmt = RGY_CSP_CHROMA_FORMAT[pSrcFrame->csp];
-    const int fieldParity = parity & 1;
-    RGYOpenCLEvent prevEvent;
-    for (int iplane = 0; iplane < planes; iplane++) {
-        const auto planeType = (RGY_PLANE)iplane;
-        const auto dst = getPlane(pOutputFrame, planeType);
-        const auto src = getPlane(pSrcFrame, planeType);
-        const auto noise = getPlane(pNoiseFrame, planeType);
-        if (!dst.ptr[0] || !src.ptr[0] || !noise.ptr[0]) {
-            continue;
-        }
-        const bool chromaPlane = planeType != RGY_PLANE_Y && chromaFmt != RGY_CHROMAFMT_MONOCHROME;
-        const int xShift = (chromaPlane && !interleavedUV
-            && (chromaFmt == RGY_CHROMAFMT_YUV420 || chromaFmt == RGY_CHROMAFMT_YUV422)) ? 1 : 0;
-        const int yShift = (chromaPlane && chromaFmt == RGY_CHROMAFMT_YUV420) ? 1 : 0;
-        const int srcXOffset = cropX >> xShift;
-        const int srcYOffset = ((cropY >> yShift) << 1) + fieldParity;
-        const int srcYStep = 2;
-        const auto waitHere = (iplane == 0)
-            ? wait_events
-            : (prevEvent() != nullptr ? std::vector<RGYOpenCLEvent>{ prevEvent } : std::vector<RGYOpenCLEvent>());
         RGYOpenCLEvent planeEvent;
-        auto err = m_programs[KFM_PROG_UCF].get()->kernel("kernel_kfm_ucf_source_crop_noise_limit").config(queue, RGYWorkSize(32, 8), RGYWorkSize(dst.width, dst.height), waitHere, &planeEvent).launch(
-            (cl_mem)dst.ptr[0], dst.pitch[0],
-            (cl_mem)src.ptr[0], src.pitch[0],
-            (cl_mem)noise.ptr[0], noise.pitch[0],
-            dst.width, dst.height,
-            srcXOffset, srcYOffset, srcYStep,
-            KFM_UCF_NOISE_LIMIT_NMIN, KFM_UCF_NOISE_LIMIT_RANGE);
+        auto err = m_programs[KFM_PROG_UCF].get()->kernel("kernel_kfm_ucf_preprocess")
+            .config(queue, RGYWorkSize(32, 8), RGYWorkSize(dst.width, dst.height), waitHere, &planeEvent)
+            .launch((cl_mem)dst.ptr[0], dst.pitch[0], (cl_mem)src.ptr[0], src.pitch[0],
+                dst.width, dst.height, srcXOffset, srcYOffset, srcYStep, interleavedUVPlane ? 2 : 1,
+                progV.offset->mem(), progV.coeff->mem(),
+                progH.offset->mem(), progH.coeff->mem(),
+                KFM_UCF_NOISE_LIMIT_NMIN, KFM_UCF_NOISE_LIMIT_RANGE);
         if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_ucf_source_crop_noise_limit (plane %d): %s.\n"), iplane, get_err_mes(err));
+            AddMessage(RGY_LOG_ERROR, _T("UCF融合前処理に失敗 (plane %d): %s.\n"), iplane, get_err_mes(err));
             return err;
         }
         prevEvent = planeEvent;
     }
 
-    copyFramePropWithoutRes(pOutputFrame, pNoiseFrame);
-    pOutputFrame->dataList = pSrcFrame->dataList;
-    kfmEraseRtgmcSearchLumaFrameData(pOutputFrame);
-    writeFrameInfoDump("ucf-noise-clip", pOutputFrame);
-    auto sts = dumpStageFrame("ucf-noise-clip", pOutputFrame, fieldIndex, queue,
-        (prevEvent() != nullptr) ? std::vector<RGYOpenCLEvent>{ prevEvent } : std::vector<RGYOpenCLEvent>());
-    if (sts != RGY_ERR_NONE) {
-        return sts;
-    }
-    if (prevEvent() != nullptr) {
-        entry.event = prevEvent;
-    }
+    copyFramePropWithoutRes(pGaussFrame, &fieldInfo);
+    pGaussFrame->dataList = pInputFrame->dataList;
+    kfmEraseRtgmcSearchLumaFrameData(pGaussFrame);
+    writeFrameInfoDump("ucf-noise-clip", pGaussFrame);
+    entry.event = prevEvent;
     m_ucfNoiseCache.push_back(std::move(entry));
     while (m_ucfNoiseCache.size() > sourceCacheLimit()) {
         m_ucfNoiseCache.pop_front();
@@ -2948,6 +2821,10 @@ RGY_ERR RGYFilterKfm::submitUcfNoiseResult(const KfmCachedUcfNoise& noise0, cons
     pending.meta.noiseh = noiseY.height;
     pending.meta.noiseUVw = noiseUV.ptr[0] ? (kfmCspHasInterleavedUV(noise0.frame->frame.csp) ? (noiseUV.width >> 1) : noiseUV.width) : 0;
     pending.meta.noiseUVh = noiseUV.ptr[0] ? noiseUV.height : 0;
+
+    if (kfmUseFusedUcfPreprocess() && !stageDumpRequested(noise0.fieldIndex)) {
+        return submitUcfNoiseResultFused(noise0, noise1, noise2, source0, source1, std::move(pending), queue);
+    }
 
     std::vector<RGYOpenCLEvent> events;
     int partialCount = 0;
@@ -3089,6 +2966,92 @@ RGY_ERR RGYFilterKfm::submitUcfNoiseResult(const KfmCachedUcfNoise& noise0, cons
     return RGY_ERR_NONE;
 }
 
+RGY_ERR RGYFilterKfm::submitUcfNoiseResultFused(const KfmCachedUcfNoise& noise0, const KfmCachedUcfNoise& noise1, const KfmCachedUcfNoise& noise2,
+    const KfmCachedSource& source0, const KfmCachedSource& source1, KfmPendingUcfNoiseResult&& pending, RGYOpenCLQueue &queue) {
+    const int localX = 32;
+    const int localY = 8;
+    const int planes = RGY_CSP_PLANES[noise0.frame->frame.csp];
+    int partialCount = 0;
+    for (int i = 0; i < planes; i++) {
+        const auto n = getPlane(&noise0.frame->frame, (RGY_PLANE)i);
+        const auto d = getPlane(&source0.paddedFrame->frame, (RGY_PLANE)i);
+        partialCount += divCeil(std::max(n.width, d.width) >> 2, localX) * divCeil(d.height, localY);
+    }
+    if (partialCount <= 0) {
+        return RGY_ERR_INVALID_PARAM;
+    }
+    pending.partialBuf = acquireUcfNoiseResultBuf(sizeof(RGYKFM::NoiseResult) * partialCount, CL_MEM_READ_WRITE);
+    pending.resultBuf = acquireUcfNoiseResultBuf(sizeof(RGYKFM::NoiseResult) * 2);
+    if (!pending.partialBuf || !pending.resultBuf) {
+        return RGY_ERR_MEMORY_ALLOC;
+    }
+    std::vector<RGYOpenCLEvent> waits;
+    if (noise0.event() != nullptr) waits.push_back(noise0.event);
+    if (noise1.event() != nullptr) waits.push_back(noise1.event);
+    if (noise2.event() != nullptr) waits.push_back(noise2.event);
+    if (source0.paddedEvent() != nullptr) waits.push_back(source0.paddedEvent);
+    if (source1.paddedEvent() != nullptr) waits.push_back(source1.paddedEvent);
+    int offset = 0;
+    int lumaCount = 0;
+    std::vector<RGYOpenCLEvent> events;
+    for (int i = 0; i < planes; i++) {
+        const auto plane = (RGY_PLANE)i;
+        const auto n0 = getPlane(&noise0.frame->frame, plane);
+        const auto n1 = getPlane(&noise1.frame->frame, plane);
+        const auto n2 = getPlane(&noise2.frame->frame, plane);
+        const auto d0 = getPlane(&source0.paddedFrame->frame, plane);
+        const auto d1 = getPlane(&source1.paddedFrame->frame, plane);
+        const auto chromaFmt = RGY_CSP_CHROMA_FORMAT[source0.paddedFrame->frame.csp];
+        const int yShift = (i != 0 && chromaFmt == RGY_CHROMAFMT_YUV420) ? 1 : 0;
+        const int vpad = KFM_SOURCE_VPAD >> yShift;
+        const int height = d0.height - vpad * 2;
+        if (!n0.ptr[0] || !n1.ptr[0] || !n2.ptr[0] || !d0.ptr[0] || !d1.ptr[0]
+            || n0.width != n1.width || n0.width != n2.width || n0.height != n1.height || n0.height != n2.height
+            || d0.width != d1.width || d0.height != d1.height) {
+            return RGY_ERR_INVALID_PARAM;
+        }
+        // 元の部分集計と同じく4画素単位で扱えないplaneは寄与させない。
+        const int noiseWidth4 = ((n0.width & 3) == 0) ? n0.width >> 2 : 0;
+        const int diffWidth4 = ((d0.width & 3) == 0) ? d0.width >> 2 : 0;
+        const int width4 = std::max(noiseWidth4, diffWidth4);
+        const int workHeight = std::max(n0.height, height);
+        if (width4 <= 0 || workHeight <= 0) {
+            continue;
+        }
+        const int count = divCeil(width4, localX) * divCeil(workHeight, localY);
+        RGYOpenCLEvent event;
+        auto sts = m_programs[KFM_PROG_UCF].get()->kernel("kernel_kfm_ucf_analyze_partial")
+            .config(queue, RGYWorkSize(localX, localY), RGYWorkSize(width4, workHeight), waits, &event)
+            .launch(pending.partialBuf->mem(), offset,
+                (cl_mem)n0.ptr[0], (cl_mem)n1.ptr[0], (cl_mem)n2.ptr[0], n0.pitch[0], noiseWidth4, n0.height,
+                (cl_mem)d0.ptr[0], (cl_mem)d1.ptr[0], d0.pitch[0], diffWidth4, height, vpad);
+        if (sts != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("UCF融合部分集計に失敗 (plane %d): %s.\n"), i, get_err_mes(sts));
+            return sts;
+        }
+        offset += count;
+        if (i == 0) lumaCount = count;
+        events.push_back(event);
+    }
+    // YとUVを別のwork groupで最終集計し、CPUへは96バイトだけ戻す。
+    RGYOpenCLEvent reduced;
+    auto sts = m_programs[KFM_PROG_UCF].get()->kernel("kernel_kfm_ucf_analyze_reduce")
+        .config(queue, RGYWorkSize(256), RGYWorkSize(512), events, &reduced)
+        .launch(pending.resultBuf->mem(), pending.partialBuf->mem(), lumaCount, offset - lumaCount);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    pending.segments.push_back({ 0, 1, 0 });
+    pending.segments.push_back({ 1, 1, 1 });
+    sts = pending.resultBuf->queueMapBuffer(queue, CL_MAP_READ, { reduced }, RGY_CL_MAP_BLOCK_NONE, "kfm.ucf.noise.result");
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    queue.flush();
+    m_pendingUcfNoiseResults.push_back(std::move(pending));
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR RGYFilterKfm::resolveUcfNoiseResult(KfmPendingUcfNoiseResult& pending, RGYOpenCLQueue &queue) {
     if (!pending.resultBuf) {
         return RGY_ERR_NULL_PTR;
@@ -3124,6 +3087,7 @@ RGY_ERR RGYFilterKfm::resolveUcfNoiseResult(KfmPendingUcfNoiseResult& pending, R
         return sts;
     }
     pushUcfNoiseResultDump(pending.sourceIndex, results, pending.meta);
+    releaseUcfNoiseResultBuf(std::move(pending.partialBuf));
     releaseUcfNoiseResultBuf(std::move(pending.resultBuf));
     return RGY_ERR_NONE;
 }
@@ -3150,17 +3114,17 @@ RGY_ERR RGYFilterKfm::resolveAllUcfNoiseResults(RGYOpenCLQueue &queue) {
     return RGY_ERR_NONE;
 }
 
-std::unique_ptr<RGYCLBuf> RGYFilterKfm::acquireUcfNoiseResultBuf(size_t requiredBytes) {
+std::unique_ptr<RGYCLBuf> RGYFilterKfm::acquireUcfNoiseResultBuf(size_t requiredBytes, cl_mem_flags flags) {
     auto it = std::find_if(m_ucfNoiseResultBufPool.begin(), m_ucfNoiseResultBufPool.end(),
-        [requiredBytes](const std::unique_ptr<RGYCLBuf>& buf) {
-            return buf && buf->size() >= requiredBytes;
+        [requiredBytes, flags](const std::unique_ptr<RGYCLBuf>& buf) {
+            return buf && buf->size() == requiredBytes && buf->flags() == flags;
         });
     if (it != m_ucfNoiseResultBufPool.end()) {
         auto buf = std::move(*it);
         m_ucfNoiseResultBufPool.erase(it);
         return buf;
     }
-    return m_cl->createBuffer(requiredBytes, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR);
+    return m_cl->createBuffer(requiredBytes, flags);
 }
 
 std::unique_ptr<RGYCLBuf> RGYFilterKfm::acquireFMCountBuf(size_t requiredBytes, RGYOpenCLEvent *readyEvent) {
@@ -3197,7 +3161,7 @@ void RGYFilterKfm::releaseUcfNoiseResultBuf(std::unique_ptr<RGYCLBuf>&& buf) {
     if (!buf) {
         return;
     }
-    static constexpr size_t KFM_UCF_NOISE_RESULT_BUF_POOL_MAX = 8;
+    static constexpr size_t KFM_UCF_NOISE_RESULT_BUF_POOL_MAX = 16;
     m_ucfNoiseResultBufPool.push_back(std::move(buf));
     while (m_ucfNoiseResultBufPool.size() > KFM_UCF_NOISE_RESULT_BUF_POOL_MAX) {
         m_ucfNoiseResultBufPool.pop_front();
