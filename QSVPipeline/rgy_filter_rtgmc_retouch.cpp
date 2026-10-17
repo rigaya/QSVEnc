@@ -41,6 +41,16 @@
 
 namespace {
 static constexpr int RTGMC_RETOUCH_BLOCK_X = 32;
+static constexpr int RTGMC_RETOUCH_TILE_W = 64;
+static constexpr int RTGMC_RETOUCH_TILE_H = 16;
+static constexpr int RTGMC_RETOUCH_TILE_LOCAL_Y = 4;
+static bool rtgmcRetouchDetailBoostTileEnabled() {
+    static const bool enabled = []() {
+        const char *value = std::getenv("QSVENC_RTGMC_RETOUCH_DETAIL_TILE");
+        return !(value && value[0] == '0' && value[1] == '\0');
+    }();
+    return enabled;
+}
 static constexpr int RTGMC_RETOUCH_BLOCK_Y = 8;
 static constexpr int RTGMC_RETOUCH_FRAMEBUF_COUNT = 5;
 static constexpr float RTGMC_RETOUCH_BACKBLEND_GAUSS_P = 5.0f;
@@ -885,6 +895,24 @@ RGY_ERR RGYFilterRtgmcRetouch::processFrame(RGYFrameInfo *pOutputFrame, const RG
         const std::vector<RGYOpenCLEvent> &wait) {
         const auto dstPlane = getPlane(dstFrame, (RGY_PLANE)iplane);
         const auto srcPlane = getPlane(srcFrame, (RGY_PLANE)iplane);
+        if (prm.rtgmc_retouch.smode == 2 && rtgmcRetouchDetailBoostTileEnabled()) {
+            // detail_refを共有するタイル版 (出力は同じ)。QSVENC_RTGMC_RETOUCH_DETAIL_TILE=0で従来版に戻せる。
+            const RGYWorkSize tileLocal(RTGMC_RETOUCH_TILE_W, RTGMC_RETOUCH_TILE_LOCAL_Y);
+            const RGYWorkSize tileGlobal(
+                (size_t)divCeil(dstPlane.width, RTGMC_RETOUCH_TILE_W) * RTGMC_RETOUCH_TILE_W,
+                (size_t)divCeil(dstPlane.height, RTGMC_RETOUCH_TILE_H) * RTGMC_RETOUCH_TILE_LOCAL_Y);
+            auto err = m_retouch.get()->kernel("kernel_rtgmc_retouch_detail_boost_ref_blur_tile").config(queue, tileLocal, tileGlobal, wait, nullptr).launch(
+                (cl_mem)dstPlane.ptr[0], dstPlane.pitch[0],
+                (cl_mem)srcPlane.ptr[0], srcPlane.pitch[0],
+                dstPlane.width, dstPlane.height,
+                prm.rtgmc_retouch.precise ? 1 : 0,
+                detailGain);
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("error at %s (plane %d): %s.\n"),
+                    _T("kernel_rtgmc_retouch_detail_boost_ref_blur_tile"), iplane, get_err_mes(err));
+            }
+            return err;
+        }
         RGYWorkSize local(RTGMC_RETOUCH_BLOCK_X, RTGMC_RETOUCH_BLOCK_Y);
         RGYWorkSize global(dstPlane.width, dstPlane.height);
         auto err = m_retouch.get()->kernel("kernel_rtgmc_retouch_detail_boost_fused").config(queue, local, global, wait, nullptr).launch(
