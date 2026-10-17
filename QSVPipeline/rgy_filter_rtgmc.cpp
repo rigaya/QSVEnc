@@ -839,7 +839,8 @@ int RGYFilterRtgmc::sourceFieldForFrame(const RGYFrameInfo *frame) const {
 }
 
 size_t RGYFilterRtgmc::sourceCacheCapacity() const {
-    const auto requiredFrames = requiredPrimingSourceFrames() + RGY_RTGMC_MAX_OUT_FRAMES + RGY_RTGMC_MAX_RETURN_FRAMES;
+    // キャッシュ容量はprimingの下限撤去前と同じ値を保つ。
+    const auto requiredFrames = std::max(8, requiredPrimingSourceFrames()) + RGY_RTGMC_MAX_OUT_FRAMES + RGY_RTGMC_MAX_RETURN_FRAMES;
     return std::min(m_sourceCache.size(), (size_t)std::max(8, requiredFrames));
 }
 
@@ -2514,7 +2515,10 @@ int RGYFilterRtgmc::requiredPrimingSourceFrames() const {
         std::max(0, rtgmc.matchTR2)
     });
     const int sourceMatchMargin = std::max(0, rtgmc.sourceMatch) * std::max({ 1, std::max(0, rtgmc.matchTR1), std::max(0, rtgmc.matchTR2) });
-    return std::max(8, temporalRadius + sourceMatchMargin + 4);
+    // 以前は max(8, ...) の下限を設けていたが、faster等では式の値(5)より大きく、
+    // kfmのlazy reset/UCF置換のたびに余分なprimingが走って重くなっていたため下限を外した。
+    // (lazy/eagerの出力比較で、式の値でも既定と同等であることを確認済み)
+    return temporalRadius + sourceMatchMargin + 4;
 }
 
 void RGYFilterRtgmc::resetTemporalState() {
