@@ -50,6 +50,15 @@ uint32_t degrainDisableMask(const RGYDegrainRefDisableArray &disableRefs, const 
     return mask;
 }
 
+// degrainの重ね合わせ描画で、ブロック単位の混合重みを前計算するか。QSVENC_DEGRAIN_MIX_PLAN=0で従来の画素ごとの計算に戻せる。
+static bool degrainMixPlanEnabled() {
+    static const bool enabled = []() {
+        const char *value = std::getenv("QSVENC_DEGRAIN_MIX_PLAN");
+        return !(value && value[0] == '0' && value[1] == '\0');
+    }();
+    return enabled;
+}
+
 bool degrainTraceEnvEnabled(const char *name) {
     const auto value = std::getenv(name);
     return value != nullptr && value[0] != '\0' && value[0] != '0';
@@ -1290,6 +1299,61 @@ RGY_ERR RGYFilterDegrain::emitDegrainFrame(const RGYFilterDegrainFrameSet &frame
                     }
                 }
             }
+        }
+        if (windowRamp && degrainMixPlanEnabled()) {
+            // ブロック単位で一定の混合重みを前計算し、画素ごとの重み計算 (除算を含む) を省く (出力は同じ)。
+            auto &planState = (plane == RGY_PLANE_Y) ? m_analysis.temporalMixPlanY : m_analysis.temporalMixPlanC;
+            const size_t planBytes = degrainTemporalMixPlanBytes(analysisLayout());
+            if (!planState.plan || planState.bytes != planBytes) {
+                planState.plan = m_cl->createBuffer(planBytes, CL_MEM_READ_WRITE);
+                planState.bytes = planBytes;
+                if (!planState.plan) {
+                    planState.reset();
+                    AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain mix plan buffer.\n"));
+                    return RGY_ERR_MEMORY_ALLOC;
+                }
+            }
+            const int planBlockCount = (int)analysisLayout().blockCount();
+            RGYOpenCLEvent planEvent;
+            auto planErr = program->kernel("kernel_degrain_build_mix_plan_exact").config(
+                queue, RGYWorkSize(256), RGYWorkSize(planBlockCount), planeWaitEvents, &planEvent).launch(
+                    planState.plan->mem(), mv->mem(), sad->mem(), m_analysis.temporalMixPrior->mem(),
+                    planBlockCount, scaledThSad, disableMaskBuf->mem());
+            if (planErr != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to build degrain mix plan: %s.\n"), get_err_mes(planErr));
+                return planErr;
+            }
+            return program->kernel("kernel_degrain_degrain_overlap_plane_ramp_plan").config(
+                queue, local, global, { planEvent }, planeEvent).launch(
+                (cl_mem)planeDst.ptr[0], planeDst.pitch[0],
+                (cl_mem)planeCur.ptr[0], planePitch,
+                (cl_mem)refPlanes[0].ptr[0],
+                (cl_mem)refPlanes[1].ptr[0],
+                (cl_mem)refPlanes[2].ptr[0],
+                (cl_mem)refPlanes[3].ptr[0],
+                (cl_mem)refPlanes[4].ptr[0],
+                (cl_mem)refPlanes[5].ptr[0],
+                (cl_mem)refPlanes[6].ptr[0],
+                (cl_mem)refPlanes[7].ptr[0],
+                (cl_mem)refPlanes[8].ptr[0],
+                (cl_mem)refPlanes[9].ptr[0],
+                planeDst.width, planeDst.height,
+                mv->mem(),
+                sad->mem(),
+                m_analysis.temporalMixPrior->mem(),
+                analysisLayout().blocksX,
+                analysisLayout().blocksY,
+                analysisLayout().blockSize,
+                analysisLayout().overlap,
+                analysisLayout().step,
+                degrainScaleCovered(analysisLayout().coveredWidth, planeScaleX),
+                degrainScaleCovered(analysisLayout().coveredHeight, planeScaleY),
+                planeScaleX,
+                planeScaleY,
+                windowRamp->mem(),
+                scaledThSad,
+                disableMaskBuf->mem(),
+                planState.plan->mem());
         }
         if (windowRamp) {
             return program->kernel("kernel_degrain_degrain_overlap_plane_ramp").config(

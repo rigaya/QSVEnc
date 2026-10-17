@@ -129,6 +129,38 @@ __kernel void kernel_degrain_build_temporal_mix_plan(
     temporalMixPlan[planOffset] = sourceMixNorm;
 }
 
+// degrain_degrain_block_sampleと同じ式で、ブロックごとの混合重み (src, 参照ごと) を求める。
+// plan[block*(DEGRAIN_REFS+1)] = srcの重み、以降は参照ごとの重み (信頼度0以下の参照は0)。
+__kernel void kernel_degrain_build_mix_plan_exact(
+    __global float *mixPlan,
+    __global const degrain_mv_t *mv,
+    __global const degrain_sad_t *sad,
+    __global const float *temporalMixPrior,
+    const int blockCount,
+    const uint thsad,
+    __global const uint *disableMaskPtr) {
+    const int block = (int)get_global_id(0);
+    if (block >= blockCount) {
+        return;
+    }
+    const uint disableMask = disableMaskPtr[0];
+    const float sourceConfidenceRaw = degrain_temporal_mix_prior_center(temporalMixPrior);
+    float referenceConfidenceRaw[DEGRAIN_REFS];
+    float confidenceTotal = sourceConfidenceRaw;
+    for (int referenceDirection = 0; referenceDirection < DEGRAIN_REFS; referenceDirection++) {
+        const float temporalMixPriorRef = degrain_temporal_mix_prior_ref(temporalMixPrior, referenceDirection);
+        referenceConfidenceRaw[referenceDirection] = degrain_reference_mix_affinity(mv, sad, block, referenceDirection, thsad, degrain_ref_direction_disabled(disableMask, referenceDirection)) * temporalMixPriorRef;
+        confidenceTotal += referenceConfidenceRaw[referenceDirection];
+    }
+    const float invTotal = (confidenceTotal > 0.0f) ? (1.0f / confidenceTotal) : 0.0f;
+    const int planOffset = block * (DEGRAIN_REFS + 1);
+    mixPlan[planOffset] = sourceConfidenceRaw * invTotal;
+    for (int referenceDirection = 0; referenceDirection < DEGRAIN_REFS; referenceDirection++) {
+        mixPlan[planOffset + 1 + referenceDirection] = (referenceConfidenceRaw[referenceDirection] > 0.0f)
+            ? referenceConfidenceRaw[referenceDirection] * invTotal : 0.0f;
+    }
+}
+
 __kernel void kernel_degrain_scene_change_count(
     __global uint *sceneChangeCounts,
     __global const degrain_sad_t *sad,
@@ -848,7 +880,8 @@ static inline void degrain_degrain_overlap_plane_ramp_generic(
     const uint disableMask,
     const int originX,
     const int originY,
-    const int compactTopLeftBorder) {
+    const int compactTopLeftBorder,
+    __global const float *mixPlan) {
     const int globalX = (int)get_global_id(0);
     const int globalY = (int)get_global_id(1);
     int x = originX + globalX;
@@ -955,18 +988,31 @@ static inline void degrain_degrain_overlap_plane_ramp_generic(
                 continue;
             }
             const int block = blockRow - bxIndex;
-            const int sample = degrain_degrain_block_sample(
-                cur, cur_pitch,
-                refBackward1, refForward1,
-                refBackward2, refForward2,
-                refBackward3, refForward3,
-                refBackward4, refForward4,
-                refBackward5, refForward5,
-                width, height,
-                mv, sad, block, thsad, disableMask,
-                temporalMixPrior,
-                planeScaleX, planeScaleY,
-                x, y);
+            // mixPlanがあれば前計算した混合重みを使う (kernel_degrain_degrain_overlap_plane_ramp_plan)。
+            const int sample = mixPlan
+                ? degrain_degrain_block_sample_plan(
+                    cur, cur_pitch,
+                    refBackward1, refForward1,
+                    refBackward2, refForward2,
+                    refBackward3, refForward3,
+                    refBackward4, refForward4,
+                    refBackward5, refForward5,
+                    width, height,
+                    mv, block, mixPlan,
+                    planeScaleX, planeScaleY,
+                    x, y)
+                : degrain_degrain_block_sample(
+                    cur, cur_pitch,
+                    refBackward1, refForward1,
+                    refBackward2, refForward2,
+                    refBackward3, refForward3,
+                    refBackward4, refForward4,
+                    refBackward5, refForward5,
+                    width, height,
+                    mv, sad, block, thsad, disableMask,
+                    temporalMixPrior,
+                    planeScaleX, planeScaleY,
+                    x, y);
             degrain_accumulate_weighted_sample_fp32(&sampleSum, &weightSum, sample, wx[bxIndex] * wy[byIndex]);
         }
     }
@@ -1023,7 +1069,59 @@ __kernel void kernel_degrain_degrain_overlap_plane_ramp(
         coveredWidth, coveredHeight,
         planeScaleX, planeScaleY,
         windowRamp, thsad, disableMask,
-        0, 0, 0);
+        0, 0, 0, (__global const float *)0);
+}
+
+// 混合重みを前計算 (kernel_degrain_build_mix_plan_exact) して使う版。引数は末尾のmixPlan以外同じ。
+__kernel void kernel_degrain_degrain_overlap_plane_ramp_plan(
+    __global TypePixel *dst,
+    const int dst_pitch,
+    __global const uchar *cur,
+    const int cur_pitch,
+    __global const uchar *refBackward1,
+    __global const uchar *refForward1,
+    __global const uchar *refBackward2,
+    __global const uchar *refForward2,
+    __global const uchar *refBackward3,
+    __global const uchar *refForward3,
+    __global const uchar *refBackward4,
+    __global const uchar *refForward4,
+    __global const uchar *refBackward5,
+    __global const uchar *refForward5,
+    const int width,
+    const int height,
+    __global const degrain_mv_t *mv,
+    __global const degrain_sad_t *sad,
+    __global const float *temporalMixPrior,
+    const int blocksX,
+    const int blocksY,
+    const int blockSize,
+    const int overlap,
+    const int step,
+    const int coveredWidth,
+    const int coveredHeight,
+    const int planeScaleX,
+    const int planeScaleY,
+    __global const float *windowRamp,
+    const uint thsad,
+    __global const uint *disableMaskPtr,
+    __global const float *mixPlan) {
+    degrain_degrain_overlap_plane_ramp_generic(
+        dst, dst_pitch,
+        cur, cur_pitch,
+        refBackward1, refForward1,
+        refBackward2, refForward2,
+        refBackward3, refForward3,
+        refBackward4, refForward4,
+        refBackward5, refForward5,
+        width, height,
+        mv, sad, temporalMixPrior,
+        blocksX, blocksY,
+        blockSize, overlap, step,
+        coveredWidth, coveredHeight,
+        planeScaleX, planeScaleY,
+        windowRamp, thsad, 0u,
+        0, 0, 0, mixPlan);
 }
 
 __kernel void kernel_degrain_pixel_trace(

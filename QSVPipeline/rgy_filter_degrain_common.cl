@@ -940,6 +940,52 @@ static inline int degrain_degrain_block_sample(
     return degrain_clamp_pixel(convert_int_rte(mixedValue));
 }
 
+// degrain_degrain_block_sampleの混合重み (ブロック単位で一定) を、kernel_degrain_build_mix_plan_exactで前計算した版。
+// 重みは同じ式で求めてあり、画素側の合成 (cur * src、参照ごとのfma) も同じ順序なので、出力は一致する。
+// 重みが0の参照は、元の実装で参照の信頼度が0以下として飛ばしていたものに当たる。
+static inline int degrain_degrain_block_sample_plan(
+    __global const uchar *cur,
+    const int pitch,
+    __global const uchar *refBackward1,
+    __global const uchar *refForward1,
+    __global const uchar *refBackward2,
+    __global const uchar *refForward2,
+    __global const uchar *refBackward3,
+    __global const uchar *refForward3,
+    __global const uchar *refBackward4,
+    __global const uchar *refForward4,
+    __global const uchar *refBackward5,
+    __global const uchar *refForward5,
+    const int width,
+    const int height,
+    __global const degrain_mv_t *mv,
+    const int block,
+    __global const float *mixPlan,
+    const int planeScaleX,
+    const int planeScaleY,
+    const int x,
+    const int y) {
+    const int currentSample = degrain_pixel_load(cur, pitch, width, height, x, y);
+    const int planOffset = block * (DEGRAIN_REFS + 1);
+    float mixedValue = (float)currentSample * mixPlan[planOffset];
+    for (int referenceDirection = 0; referenceDirection < DEGRAIN_REFS; referenceDirection++) {
+        const float referenceMixNorm = mixPlan[planOffset + 1 + referenceDirection];
+        if (referenceMixNorm <= 0.0f) {
+            continue;
+        }
+        __global const uchar *referencePlane = degrain_ref_plane_ptr_same_pitch(
+            refBackward1, refForward1,
+            refBackward2, refForward2,
+            refBackward3, refForward3,
+            refBackward4, refForward4,
+            refBackward5, refForward5,
+            referenceDirection);
+        const float referenceSample = (float)degrain_compensated_sample(referencePlane, pitch, width, height, mv, block, referenceDirection, planeScaleX, planeScaleY, x, y);
+        mixedValue = fma(referenceSample, referenceMixNorm, mixedValue);
+    }
+    return degrain_clamp_pixel(convert_int_rte(mixedValue));
+}
+
 static inline int degrain_temporal_mix_plan_offset(const int block) {
     return block * (DEGRAIN_REFS + 1);
 }
