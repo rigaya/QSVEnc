@@ -6930,7 +6930,12 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
             m_deint60Rtgmc->clearCapturedIntermediates();
         }
         if (prm->kfm.ucf) {
-            sts = runUcfRtgmcBranches(pInputFrame, queue, wait_events);
+            // lazy時のbefore60/after60レーンはensureUcfRtgmcRangeで必要な区間だけfeed/drainする。
+            // ここで全入力をfeedすると、需要側が別区間をfeedしているRTGMCに無関係なフレームが混ざり、
+            // 終端のdrainで既にsourceキャッシュから外れた古いフレームが出てきてエラーになる。
+            sts = lazyDeint60
+                ? runUcfNoiseAnalysisFromSource(pInputFrame, queue, wait_events)
+                : runUcfRtgmcBranches(pInputFrame, queue, wait_events);
             if (sts != RGY_ERR_NONE) {
                 return sts;
             }
@@ -7781,7 +7786,7 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
-        if (prm->kfm.ucf && m_deint60Rtgmc) {
+        if (!lazyDeint60 && prm->kfm.ucf && m_deint60Rtgmc) {
             for (auto &captured : m_deint60Rtgmc->getCapturedIntermediates()) {
                 if (m_before60Rtgmc) m_before60Rtgmc->pushIntermediateInput(captured);
                 if (m_after60Rtgmc) m_after60Rtgmc->pushIntermediateInput(captured);
@@ -7789,7 +7794,12 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
             m_deint60Rtgmc->clearCapturedIntermediates();
         }
         if (prm->kfm.ucf) {
-            sts = runUcfRtgmcBranches(pInputFrame, queue, wait_events);
+            // lazy時のbefore60/after60レーンはensureUcfRtgmcRangeで必要な区間だけfeed/drainする。
+            // ここで全入力をfeedすると、需要側が別区間をfeedしているRTGMCに無関係なフレームが混ざり、
+            // 終端のdrainで既にsourceキャッシュから外れた古いフレームが出てきてエラーになる。
+            sts = lazyDeint60
+                ? runUcfNoiseAnalysisFromSource(pInputFrame, queue, wait_events)
+                : runUcfRtgmcBranches(pInputFrame, queue, wait_events);
             if (sts != RGY_ERR_NONE) {
                 return sts;
             }
