@@ -121,6 +121,22 @@ bool degrainMotionSearchSubgroupEnabled(const std::shared_ptr<RGYOpenCLContext> 
         || support == RGYOpenCLSubGroupSupport::STD20KHR;
 }
 
+// sgblock版 (1 subgroup = 1 block) を使うか。2: Intel拡張 (OpenCL C 1.2)、1: KHR (OpenCL C 2.0)、0: 使わない。
+// QSVENC_DEGRAIN_MOTION_SEARCH_SGBLOCK=0 で無効化できる。
+static int degrainMotionSearchSgblockMode(const std::shared_ptr<RGYOpenCLContext> &cl) {
+    if (!degrainEnvFlagNotDisabled("QSVENC_DEGRAIN_MOTION_SEARCH_SGBLOCK") || !cl || !cl->platform()) {
+        return 0;
+    }
+    const auto support = cl->platform()->checkSubGroupSupport(cl->queue().devid());
+    if (support == RGYOpenCLSubGroupSupport::INTEL_EXT) {
+        return 2;
+    }
+    if (support == RGYOpenCLSubGroupSupport::STD22 || support == RGYOpenCLSubGroupSupport::STD20KHR) {
+        return 1;
+    }
+    return 0;
+}
+
 bool degrainMotionSearchSubgroupDirectReduceEnabled() {
     static const bool enabled = degrainEnvFlagNotDisabled("QSVENC_DEGRAIN_MOTION_SEARCH_SUBGROUP_DIRECT_REDUCE");
     return enabled;
@@ -463,6 +479,22 @@ RGY_ERR RGYFilterDegrain::allocAnalysisBuffers(const std::shared_ptr<RGYFilterPa
             degrainMotionSearchSubgroupDirectReduceEnabled() ? 1 : 0);
         motionSearchWorkspace.buildOptionsLevel0 += subgroupOptions;
         motionSearchWorkspace.buildOptionsLevel1 += subgroupOptions;
+    }
+    // sgblock版のオプションは、ビルド失敗時に取り除けるよう必ず末尾に付ける (requestDegrainMotionSearchProgram参照)。
+    const int sgblockMode = degrainMotionSearchSgblockMode(m_cl);
+    if (sgblockMode > 0) {
+        auto sgblockOptions = strsprintf("%s%d -D DEGRAIN_MOTION_SEARCH_SGBLOCK_LOCAL_SIZE=%d",
+            DEGRAIN_MOTION_SEARCH_SGBLOCK_OPTION_PREFIX, sgblockMode, DEGRAIN_MOTION_SEARCH_SGBLOCK_LOCAL_SIZE);
+        // subgroup幅を16に固定できれば、work-group内のblock数が確定し、local memoryを必要な分だけ確保できる。
+        if (sgblockMode == 2 && RGYOpenCLDevice(m_cl->queue().devid()).checkExtension("cl_intel_required_subgroup_size")) {
+            sgblockOptions += " -D DEGRAIN_MOTION_SEARCH_SGBLOCK_REQD_SG=16";
+        }
+        for (auto *options : { &motionSearchWorkspace.buildOptionsLevel0, &motionSearchWorkspace.buildOptionsLevel1 }) {
+            *options += sgblockOptions;
+            if (sgblockMode == 1 && options->find("-cl-std=CL2.0") == std::string::npos) {
+                *options += " -cl-std=CL2.0";
+            }
+        }
     }
     const bool specializeSubgroup = degrainMotionSearchSubgroupEnabled(m_cl);
     requestDegrainMotionSearchProgram(motionSearchWorkspace.buildOptionsLevel0,
@@ -1288,6 +1320,14 @@ RGY_ERR RGYFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo &p
     const auto searchGlobal0 = degrainMotionSearchGlobalWorkSize(m_analysis.layout);
     const auto searchLocal1 = degrainMotionSearchLocalWorkSize(m_analysis.layoutLevel1);
     const auto searchGlobal1 = degrainMotionSearchGlobalWorkSize(m_analysis.layoutLevel1);
+    // sgblock版は1 work-groupで (local size / subgroup幅) block を処理する。
+    const int sgblockL0 = getDegrainMotionSearchSgblockSubgroupSize(ws.buildOptionsLevel0);
+    const int sgblockL1 = getDegrainMotionSearchSgblockSubgroupSize(ws.buildOptionsLevel1);
+    const RGYWorkSize sgblockLocal(DEGRAIN_MOTION_SEARCH_SGBLOCK_LOCAL_SIZE);
+    const auto sgblockGlobal = [](const int blockCount, const int subgroupSize) {
+        const int blocksPerGroup = DEGRAIN_MOTION_SEARCH_SGBLOCK_LOCAL_SIZE / subgroupSize;
+        return RGYWorkSize((size_t)((blockCount + blocksPerGroup - 1) / blocksPerGroup) * DEGRAIN_MOTION_SEARCH_SGBLOCK_LOCAL_SIZE);
+    };
     const int planeStride0 = 2 + blockCount0;
     const int planeStride1 = 2 + blockCount1;
     const auto levelPlaneBase = [](const int dir, const int planeStride) { return dir * planeStride; };
@@ -1414,8 +1454,8 @@ RGY_ERR RGYFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo &p
         RGYOpenCLEvent searchLevel1Event;
         profileStepStart = profileNow();
         std::vector<RGYOpenCLEvent> searchLevel1Wait = { seedLevel1Event, downsampleEvents[0], downsampleEvents[dir + 1] };
-        err = programL1->kernel("kernel_degrain_mv_search_parallel").config(
-            queue, searchLocal1, searchGlobal1,
+        err = programL1->kernel(sgblockL1 > 0 ? "kernel_degrain_mv_search_sgblock" : "kernel_degrain_mv_search_parallel").config(
+            queue, sgblockL1 > 0 ? sgblockLocal : searchLocal1, sgblockL1 > 0 ? sgblockGlobal(blockCount1, sgblockL1) : searchGlobal1,
             searchLevel1Wait, &searchLevel1Event).launch(
                 m_analysis.lumaLevel1[0]->mem(),
                 m_analysis.lumaLevel1[dir + 1]->mem(),
@@ -1555,8 +1595,9 @@ RGY_ERR RGYFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo &p
 
         RGYOpenCLEvent searchLevel0Event;
         profileStepStart = profileNow();
-        err = programL0->kernel("kernel_degrain_mv_search_parallel").config(
-            queue, searchLocal0, searchGlobal0, { interpolateEvent }, &searchLevel0Event).launch(
+        err = programL0->kernel(sgblockL0 > 0 ? "kernel_degrain_mv_search_sgblock" : "kernel_degrain_mv_search_parallel").config(
+            queue, sgblockL0 > 0 ? sgblockLocal : searchLocal0, sgblockL0 > 0 ? sgblockGlobal(blockCount0, sgblockL0) : searchGlobal0,
+            { interpolateEvent }, &searchLevel0Event).launch(
                 planeMem(planeCur),
                 planeMem(refPlanes[dir]),
                 useSubpelPlanes ? ws.subpelLevel0->mem() : planeMem(refPlanes[dir]),

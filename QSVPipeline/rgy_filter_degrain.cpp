@@ -501,9 +501,12 @@ void RGYFilterDegrain::requestDegrainMotionSearchProgram(const std::string &norm
         return;
     }
     const auto level = levelName ? tstring(levelName) : tstring(_T("unknown"));
+    auto sgblockSubgroupSize = std::make_shared<std::atomic<int>>(0);
+    m_degrainMotionSearchSgblockSubgroupSize[normalizedBuildOptions] = sgblockSubgroupSize;
     auto &asyncProgram = m_degrainMotionSearchPrograms[normalizedBuildOptions];
-    asyncProgram.set(m_cl->threadPool()->enqueue([cl = m_cl, log = m_pLog, normalizedBuildOptions, local, global, specializeSubgroup, level]() {
-        auto program = buildDegrainCLProgram(cl, log, normalizedBuildOptions);
+    asyncProgram.set(m_cl->threadPool()->enqueue([cl = m_cl, log = m_pLog, normalizedBuildOptions, local, global, specializeSubgroup, level, sgblockSubgroupSize]() {
+    auto buildProgram = [&](const std::string &buildOptions) -> std::unique_ptr<RGYOpenCLProgram> {
+        auto program = buildDegrainCLProgram(cl, log, buildOptions);
         if (!program || !specializeSubgroup) {
             return program;
         }
@@ -517,7 +520,7 @@ void RGYFilterDegrain::requestDegrainMotionSearchProgram(const std::string &norm
             }
             return program;
         }
-        const auto specializedOptions = normalizedBuildOptions
+        const auto specializedOptions = buildOptions
             + strsprintf(" -D DEGRAIN_MOTION_SEARCH_SUBGROUP_SIZE=%d", (int)subgroupSizeSearchParallel);
         auto specializedProgram = buildDegrainCLProgram(cl, log, specializedOptions);
         if (!specializedProgram) {
@@ -532,7 +535,35 @@ void RGYFilterDegrain::requestDegrainMotionSearchProgram(const std::string &norm
                 level.c_str(), (int)subgroupSizeSearchParallel);
         }
         return specializedProgram;
+    };
+    // sgblock版 (kernel_degrain_mv_search_sgblock) のオプションは末尾に付けている。
+    // ビルドに失敗した場合や、subgroup幅が想定外の場合は従来のkernel_degrain_mv_search_parallelを使う。
+    const auto sgblockPos = normalizedBuildOptions.find(DEGRAIN_MOTION_SEARCH_SGBLOCK_OPTION_PREFIX);
+    auto program = buildProgram(normalizedBuildOptions);
+    if (sgblockPos != std::string::npos) {
+        if (!program) {
+            if (log) {
+                log->write(RGY_LOG_DEBUG, RGY_LOGT_VPP, _T("degrain motion search %s sgblock build failed; rebuilding without sgblock.\n"), level.c_str());
+            }
+            program = buildProgram(normalizedBuildOptions.substr(0, sgblockPos));
+        } else {
+            const RGYWorkSize sgblockLocal(DEGRAIN_MOTION_SEARCH_SGBLOCK_LOCAL_SIZE);
+            const int subgroupSize = (int)program->kernel("kernel_degrain_mv_search_sgblock").config(cl->queue(), sgblockLocal, sgblockLocal).subGroupSize();
+            const bool usable = subgroupSize >= 8 && (DEGRAIN_MOTION_SEARCH_SGBLOCK_LOCAL_SIZE % subgroupSize) == 0;
+            sgblockSubgroupSize->store(usable ? subgroupSize : 0);
+            if (log) {
+                log->write(RGY_LOG_DEBUG, RGY_LOGT_VPP, _T("degrain motion search %s sgblock: subgroup size %d (%s).\n"),
+                    level.c_str(), subgroupSize, usable ? _T("used") : _T("not used"));
+            }
+        }
+    }
+    return program;
     }));
+}
+
+int RGYFilterDegrain::getDegrainMotionSearchSgblockSubgroupSize(const std::string &normalizedBuildOptions) const {
+    const auto it = m_degrainMotionSearchSgblockSubgroupSize.find(normalizedBuildOptions);
+    return (it != m_degrainMotionSearchSgblockSubgroupSize.end() && it->second) ? it->second->load() : 0;
 }
 
 RGYOpenCLProgram *RGYFilterDegrain::getDegrainMotionSearchProgram(const std::string &normalizedBuildOptions) {

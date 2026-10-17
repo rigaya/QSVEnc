@@ -29,12 +29,18 @@
 #pragma once
 
 #include <array>
+#include <atomic>
+#include <memory>
 #include <string>
 #include <unordered_map>
 
 #include "rgy_filter_cl.h"
 #include "rgy_filter_degrain_mv.h"
 #include "rgy_prm.h"
+
+// 動き探索のsgblock版 (1 subgroup = 1 block) の設定。ホスト側とカーネル側で一致させる。
+static constexpr int DEGRAIN_MOTION_SEARCH_SGBLOCK_LOCAL_SIZE = 64;
+static constexpr const char *DEGRAIN_MOTION_SEARCH_SGBLOCK_OPTION_PREFIX = " -D DEGRAIN_MOTION_SEARCH_SGBLOCK=";
 
 class RGYFilterParamDegrain : public RGYFilterParam {
 public:
@@ -189,6 +195,8 @@ protected:
     void requestDegrainMotionSearchProgram(const std::string &normalizedBuildOptions,
         const RGYWorkSize &local, const RGYWorkSize &global, bool specializeSubgroup, const TCHAR *levelName);
     RGYOpenCLProgram *getDegrainMotionSearchProgram(const std::string &normalizedBuildOptions);
+    // kernel_degrain_mv_search_sgblockを使う場合のsubgroup幅 (使わない場合は0)。getDegrainMotionSearchProgramの後に呼ぶこと。
+    int getDegrainMotionSearchSgblockSubgroupSize(const std::string &normalizedBuildOptions) const;
     RGYOpenCLProgram *degrainRenderProgram(RGY_PLANE plane);
     RGY_ERR allocAnalysisBuffers(const std::shared_ptr<RGYFilterParamDegrain> &prm);
     bool modeImplemented(VppDegrainMode mode) const;
@@ -257,6 +265,7 @@ protected:
     RGYOpenCLProgramAsync m_degrain;
     RGYOpenCLProgramAsync m_degrainChroma;
     std::unordered_map<std::string, RGYOpenCLProgramAsync> m_degrainMotionSearchPrograms;
+    std::unordered_map<std::string, std::shared_ptr<std::atomic<int>>> m_degrainMotionSearchSgblockSubgroupSize;
     RGYDegrainAnalysisState m_analysis;
     RGYDegrainAnalyzeResultSet m_directAnalyzeResultSet;
     RGYDegrainAnalyzeResult m_boundAnalyzeResult;
