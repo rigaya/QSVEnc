@@ -486,8 +486,13 @@ RGY_ERR RGYFilterDegrain::allocAnalysisBuffers(const std::shared_ptr<RGYFilterPa
         auto sgblockOptions = strsprintf("%s%d -D DEGRAIN_MOTION_SEARCH_SGBLOCK_LOCAL_SIZE=%d",
             DEGRAIN_MOTION_SEARCH_SGBLOCK_OPTION_PREFIX, sgblockMode, DEGRAIN_MOTION_SEARCH_SGBLOCK_LOCAL_SIZE);
         // subgroup幅を16に固定できれば、work-group内のblock数が確定し、local memoryを必要な分だけ確保できる。
+        // 幅16を要求できないデバイスではビルドが失敗し、従来版に戻る (requestDegrainMotionSearchProgram)。
         if (sgblockMode == 2 && RGYOpenCLDevice(m_cl->queue().devid()).checkExtension("cl_intel_required_subgroup_size")) {
-            sgblockOptions += " -D DEGRAIN_MOTION_SEARCH_SGBLOCK_REQD_SG=16";
+            const char *reqdEnv = std::getenv("QSVENC_DEGRAIN_MOTION_SEARCH_SGBLOCK_REQD_SG"); // 検証用: 8/16/32、0で指定しない
+            const int reqdSubgroupSize = reqdEnv ? std::atoi(reqdEnv) : 16;
+            if (reqdSubgroupSize > 0) {
+                sgblockOptions += strsprintf("%s%d", DEGRAIN_MOTION_SEARCH_SGBLOCK_REQD_SG_OPTION, reqdSubgroupSize);
+            }
         }
         for (auto *options : { &motionSearchWorkspace.buildOptionsLevel0, &motionSearchWorkspace.buildOptionsLevel1 }) {
             *options += sgblockOptions;
@@ -1320,12 +1325,11 @@ RGY_ERR RGYFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo &p
     const auto searchGlobal0 = degrainMotionSearchGlobalWorkSize(m_analysis.layout);
     const auto searchLocal1 = degrainMotionSearchLocalWorkSize(m_analysis.layoutLevel1);
     const auto searchGlobal1 = degrainMotionSearchGlobalWorkSize(m_analysis.layoutLevel1);
-    // sgblock版は1 work-groupで (local size / subgroup幅) block を処理する。
-    const int sgblockL0 = getDegrainMotionSearchSgblockSubgroupSize(ws.buildOptionsLevel0);
-    const int sgblockL1 = getDegrainMotionSearchSgblockSubgroupSize(ws.buildOptionsLevel1);
+    // sgblock版は1 work-groupでsubgroup数ぶんのblockを処理する。
+    const int sgblockL0 = getDegrainMotionSearchSgblockBlocksPerGroup(ws.buildOptionsLevel0);
+    const int sgblockL1 = getDegrainMotionSearchSgblockBlocksPerGroup(ws.buildOptionsLevel1);
     const RGYWorkSize sgblockLocal(DEGRAIN_MOTION_SEARCH_SGBLOCK_LOCAL_SIZE);
-    const auto sgblockGlobal = [](const int blockCount, const int subgroupSize) {
-        const int blocksPerGroup = DEGRAIN_MOTION_SEARCH_SGBLOCK_LOCAL_SIZE / subgroupSize;
+    const auto sgblockGlobal = [](const int blockCount, const int blocksPerGroup) {
         return RGYWorkSize((size_t)((blockCount + blocksPerGroup - 1) / blocksPerGroup) * DEGRAIN_MOTION_SEARCH_SGBLOCK_LOCAL_SIZE);
     };
     const int planeStride0 = 2 + blockCount0;

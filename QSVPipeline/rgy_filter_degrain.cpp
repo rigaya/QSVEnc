@@ -501,10 +501,10 @@ void RGYFilterDegrain::requestDegrainMotionSearchProgram(const std::string &norm
         return;
     }
     const auto level = levelName ? tstring(levelName) : tstring(_T("unknown"));
-    auto sgblockSubgroupSize = std::make_shared<std::atomic<int>>(0);
-    m_degrainMotionSearchSgblockSubgroupSize[normalizedBuildOptions] = sgblockSubgroupSize;
+    auto sgblockBlocksPerGroup = std::make_shared<std::atomic<int>>(0);
+    m_degrainMotionSearchSgblockBlocksPerGroup[normalizedBuildOptions] = sgblockBlocksPerGroup;
     auto &asyncProgram = m_degrainMotionSearchPrograms[normalizedBuildOptions];
-    asyncProgram.set(m_cl->threadPool()->enqueue([cl = m_cl, log = m_pLog, normalizedBuildOptions, local, global, specializeSubgroup, level, sgblockSubgroupSize]() {
+    asyncProgram.set(m_cl->threadPool()->enqueue([cl = m_cl, log = m_pLog, normalizedBuildOptions, local, global, specializeSubgroup, level, sgblockBlocksPerGroup]() {
     auto buildProgram = [&](const std::string &buildOptions) -> std::unique_ptr<RGYOpenCLProgram> {
         auto program = buildDegrainCLProgram(cl, log, buildOptions);
         if (!program || !specializeSubgroup) {
@@ -547,13 +547,23 @@ void RGYFilterDegrain::requestDegrainMotionSearchProgram(const std::string &norm
             }
             program = buildProgram(normalizedBuildOptions.substr(0, sgblockPos));
         } else {
+            // 1 work-groupで処理するblock数は、実際のsubgroup数そのもの。
+            // カーネルはsubgroup幅8以上を前提にlocal memoryを確保しているので (幅を固定した場合はその幅)、
+            // 幅と数の積がwork-groupに一致し、数が確保した範囲に収まる場合だけ使う。それ以外は従来版にする。
             const RGYWorkSize sgblockLocal(DEGRAIN_MOTION_SEARCH_SGBLOCK_LOCAL_SIZE);
-            const int subgroupSize = (int)program->kernel("kernel_degrain_mv_search_sgblock").config(cl->queue(), sgblockLocal, sgblockLocal).subGroupSize();
-            const bool usable = subgroupSize >= 8 && (DEGRAIN_MOTION_SEARCH_SGBLOCK_LOCAL_SIZE % subgroupSize) == 0;
-            sgblockSubgroupSize->store(usable ? subgroupSize : 0);
+            auto kernel = program->kernel("kernel_degrain_mv_search_sgblock").config(cl->queue(), sgblockLocal, sgblockLocal);
+            const int subgroupSize = (int)kernel.subGroupSize();
+            const int subgroupCount = (int)kernel.subGroupCount();
+            const auto reqdPos = normalizedBuildOptions.find(DEGRAIN_MOTION_SEARCH_SGBLOCK_REQD_SG_OPTION);
+            const int minSubgroupSize = (reqdPos != std::string::npos)
+                ? std::atoi(normalizedBuildOptions.c_str() + reqdPos + strlen(DEGRAIN_MOTION_SEARCH_SGBLOCK_REQD_SG_OPTION)) : 8;
+            const bool usable = subgroupSize >= minSubgroupSize && subgroupCount >= 1
+                && subgroupSize * subgroupCount == DEGRAIN_MOTION_SEARCH_SGBLOCK_LOCAL_SIZE
+                && subgroupCount <= DEGRAIN_MOTION_SEARCH_SGBLOCK_LOCAL_SIZE / minSubgroupSize;
+            sgblockBlocksPerGroup->store(usable ? subgroupCount : 0);
             if (log) {
-                log->write(RGY_LOG_DEBUG, RGY_LOGT_VPP, _T("degrain motion search %s sgblock: subgroup size %d (%s).\n"),
-                    level.c_str(), subgroupSize, usable ? _T("used") : _T("not used"));
+                log->write(RGY_LOG_DEBUG, RGY_LOGT_VPP, _T("degrain motion search %s sgblock: subgroup size %d, count %d (%s).\n"),
+                    level.c_str(), subgroupSize, subgroupCount, usable ? _T("used") : _T("not used"));
             }
         }
     }
@@ -561,9 +571,9 @@ void RGYFilterDegrain::requestDegrainMotionSearchProgram(const std::string &norm
     }));
 }
 
-int RGYFilterDegrain::getDegrainMotionSearchSgblockSubgroupSize(const std::string &normalizedBuildOptions) const {
-    const auto it = m_degrainMotionSearchSgblockSubgroupSize.find(normalizedBuildOptions);
-    return (it != m_degrainMotionSearchSgblockSubgroupSize.end() && it->second) ? it->second->load() : 0;
+int RGYFilterDegrain::getDegrainMotionSearchSgblockBlocksPerGroup(const std::string &normalizedBuildOptions) const {
+    const auto it = m_degrainMotionSearchSgblockBlocksPerGroup.find(normalizedBuildOptions);
+    return (it != m_degrainMotionSearchSgblockBlocksPerGroup.end() && it->second) ? it->second->load() : 0;
 }
 
 RGYOpenCLProgram *RGYFilterDegrain::getDegrainMotionSearchProgram(const std::string &normalizedBuildOptions) {
