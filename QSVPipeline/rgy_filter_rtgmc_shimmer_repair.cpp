@@ -54,6 +54,16 @@ static bool rtgmcShimmerRepairEnvFlagNotDisabled(const char *name) {
     return !(value && value[0] == '0' && value[1] == '\0');
 }
 
+// staged経路の3段を1カーネルで行うタイル版 (kernel_rtgmc_shimmer_repair_staged_tile) を使うか。
+// QSVENC_RTGMC_SHIMMER_REPAIR_TILE=0 で3段版に戻せる。
+static bool rtgmcShimmerRepairTileEnabled() {
+    static const bool enabled = rtgmcShimmerRepairEnvFlagNotDisabled("QSVENC_RTGMC_SHIMMER_REPAIR_TILE");
+    return enabled;
+}
+static constexpr int RTGMC_SHIMMER_REPAIR_TILE_W = 64;
+static constexpr int RTGMC_SHIMMER_REPAIR_TILE_H = 16;
+static constexpr int RTGMC_SHIMMER_REPAIR_TILE_LOCAL_Y = 4;
+
 static bool rtgmcShimmerRepairStagedEnabled() {
     static const bool enabled = rtgmcShimmerRepairEnvFlagNotDisabled("QSVENC_RTGMC_SHIMMER_REPAIR_STAGED");
     return enabled;
@@ -429,6 +439,27 @@ RGY_ERR RGYFilterRtgmcShimmerRepair::launchRtgmcShimmerRepairStaged(
     const auto inputPlane = getPlane(pInputFrame, (RGY_PLANE)iplane);
     const auto refPlane = getPlane(pRefFrame, (RGY_PLANE)iplane);
     const int stagedHeight = outPlane.height + RTGMC_SHIMMER_REPAIR_STAGE_Y_OFFSET * 2;
+    const bool fused = pCorrectionDeltaFrame != nullptr
+        && pPositiveCorrectionGateFrame != nullptr
+        && pNegativeCorrectionGateFrame != nullptr;
+    if (!fused && rtgmcShimmerRepairTileEnabled()) {
+        // 中間バッファを使わず、タイル単位で3段をまとめて行う (出力は3段版と同じ)。
+        const RGYWorkSize tileLocal(RTGMC_SHIMMER_REPAIR_TILE_W, RTGMC_SHIMMER_REPAIR_TILE_LOCAL_Y);
+        const RGYWorkSize tileGlobal(
+            (size_t)divCeil(outPlane.width, RTGMC_SHIMMER_REPAIR_TILE_W) * RTGMC_SHIMMER_REPAIR_TILE_W,
+            (size_t)divCeil(outPlane.height, RTGMC_SHIMMER_REPAIR_TILE_H) * RTGMC_SHIMMER_REPAIR_TILE_LOCAL_Y);
+        auto err = m_shimmerRepair.get()->kernel("kernel_rtgmc_shimmer_repair_staged_tile").config(
+            queue, tileLocal, tileGlobal, wait_events, event).launch(
+                (cl_mem)outPlane.ptr[0], outPlane.pitch[0],
+                (cl_mem)inputPlane.ptr[0], inputPlane.pitch[0],
+                (cl_mem)refPlane.ptr[0], refPlane.pitch[0],
+                outPlane.width, outPlane.height);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("error at kernel_rtgmc_shimmer_repair_staged_tile (plane %d): %s.\n"),
+                iplane, get_err_mes(err));
+        }
+        return err;
+    }
     const int pixelBytes = (RGY_CSP_BIT_DEPTH[pOutputFrame->csp] > 8) ? 2 : 1;
     if (m_stagedPitch < outPlane.width * pixelBytes || m_stagedHeight < stagedHeight) {
         AddMessage(RGY_LOG_ERROR, _T("rtgmc shimmer repair staged buffer is too small for plane %d.\n"), iplane);
@@ -468,9 +499,6 @@ RGY_ERR RGYFilterRtgmcShimmerRepair::launchRtgmcShimmerRepairStaged(
         return err;
     }
 
-    const bool fused = pCorrectionDeltaFrame != nullptr
-        && pPositiveCorrectionGateFrame != nullptr
-        && pNegativeCorrectionGateFrame != nullptr;
     if (fused) {
         const auto deltaPlane = getPlane(pCorrectionDeltaFrame, (RGY_PLANE)iplane);
         const auto positivePlane = getPlane(pPositiveCorrectionGateFrame, (RGY_PLANE)iplane);
