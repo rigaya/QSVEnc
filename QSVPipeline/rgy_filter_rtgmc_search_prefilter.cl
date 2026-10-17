@@ -413,10 +413,36 @@ __kernel void kernel_rtgmc_search_prefilter_scenechange(
     }
 
     if (lid == 0 && groupIndex < groupCount) {
-        partial[groupIndex + groupCount * 0] = sadPrev[0];
-        partial[groupIndex + groupCount * 1] = sadNext[0];
-        partial[groupIndex + groupCount * 2] = sadPrev2[0];
-        partial[groupIndex + groupCount * 3] = sadNext2[0];
+        partial[4 + groupIndex + groupCount * 0] = sadPrev[0];
+        partial[4 + groupIndex + groupCount * 1] = sadNext[0];
+        partial[4 + groupIndex + groupCount * 2] = sadPrev2[0];
+        partial[4 + groupIndex + groupCount * 3] = sadNext2[0];
+    }
+}
+
+// 先頭4要素へ判定を保存し、部分和の読み戻しを不要にする。
+__attribute__((reqd_work_group_size(256, 1, 1)))
+__kernel void kernel_rtgmc_search_prefilter_scenechange_reduce(
+    __global uint *state, const int groupCount, const ulong sceneThreshold, const int smoothRadius) {
+    const int lid = (int)get_local_id(0);
+    const int direction = (int)get_group_id(0);
+    __local ulong sums[256];
+    ulong sum = 0;
+    if (smoothRadius >= 1 && (direction < 2 || smoothRadius >= 2)) {
+        for (int i = lid; i < groupCount; i += 256) {
+            sum += (ulong)state[4 + direction * groupCount + i];
+        }
+    }
+    sums[lid] = sum;
+    barrier(CLK_LOCAL_MEM_FENCE);
+    for (int stride = 128; stride > 0; stride >>= 1) {
+        if (lid < stride) {
+            sums[lid] += sums[lid + stride];
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+    if (lid == 0) {
+        state[direction] = (smoothRadius >= 1 && (direction < 2 || smoothRadius >= 2) && sums[0] >= sceneThreshold) ? 1u : 0u;
     }
 }
 
@@ -466,11 +492,20 @@ __kernel void kernel_rtgmc_search_prefilter_repair_temporal(
     __global const uchar *prev2, __global const uchar *prev, __global const uchar *cur,
     __global const uchar *next, __global const uchar *next2, const int srcPitch,
     __global uchar *tc, __global uchar *delta, const int planePitch,
-    const int width, const int height, const int tr0) {
+    const int width, const int height, const int tr0, __global const uint *sceneFlags) {
     const int x = (int)get_global_id(0);
     const int y = (int)get_global_id(1);
     if (x >= width || y >= height) {
         return;
+    }
+    // tr0で使う近傍だけを置換する。参照なしの経路ではflagsを渡さなくてよい。
+    if (sceneFlags != 0 && tr0 >= 1) {
+        prev = sceneFlags[0] ? cur : prev;
+        next = sceneFlags[1] ? cur : next;
+        if (tr0 >= 2) {
+            prev2 = sceneFlags[2] ? cur : prev2;
+            next2 = sceneFlags[3] ? cur : next2;
+        }
     }
     const int value = rtgmc_search_prefilter_temporal_candidate_value(
         prev2, prev, cur, next, next2, srcPitch, width, height, x, y, tr0);

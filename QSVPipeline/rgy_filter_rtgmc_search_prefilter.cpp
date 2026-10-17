@@ -346,11 +346,11 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::setupRepairResources(const RGYFilterParam
 RGY_ERR RGYFilterRtgmcSearchPrefilter::emitFieldStableSearch(const int planeIndex,
     const RGYFrameInfo &prev2, const RGYFrameInfo &prev, const RGYFrameInfo &cur,
     const RGYFrameInfo &next, const RGYFrameInfo &next2, const RGYFrameInfo &dst,
-    const RGYFilterParamRtgmcSearchPrefilter &prm, RGYOpenCLQueue &queue,
+    const cl_mem sceneFlags, const RGYFilterParamRtgmcSearchPrefilter &prm, RGYOpenCLQueue &queue,
     const std::vector<RGYOpenCLEvent> &waitEvents, RGYOpenCLEvent *event) {
     const RGYWorkSize local(RTGMC_SEARCH_PREFILTER_BLOCK_X, RTGMC_SEARCH_PREFILTER_BLOCK_Y);
     RGYOpenCLEvent ready;
-    auto sts = emitRepairFC(planeIndex, prev2, prev, cur, next, next2, prm, queue, waitEvents, &ready);
+    auto sts = emitRepairFC(planeIndex, prev2, prev, cur, next, next2, sceneFlags, prm, queue, waitEvents, &ready);
     if (sts != RGY_ERR_NONE) return sts;
     auto &resources = m_repairPlaneResources[planeIndex];
     const auto &fc = resources.corrected->frame;
@@ -369,7 +369,7 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::emitFieldStableSearch(const int planeInde
 RGY_ERR RGYFilterRtgmcSearchPrefilter::emitRepairFC(const int planeIndex,
     const RGYFrameInfo &prev2, const RGYFrameInfo &prev, const RGYFrameInfo &cur,
     const RGYFrameInfo &next, const RGYFrameInfo &next2,
-    const RGYFilterParamRtgmcSearchPrefilter &prm, RGYOpenCLQueue &queue,
+    const cl_mem sceneFlags, const RGYFilterParamRtgmcSearchPrefilter &prm, RGYOpenCLQueue &queue,
     const std::vector<RGYOpenCLEvent> &waitEvents, RGYOpenCLEvent *event) {
     const auto profile = rgy_rtgmc_repair_profile_pack(prm.repairProfile);
     const RGYWorkSize local(RTGMC_SEARCH_PREFILTER_BLOCK_X, RTGMC_SEARCH_PREFILTER_BLOCK_Y);
@@ -385,7 +385,7 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::emitRepairFC(const int planeIndex,
         queue, local, RGYWorkSize(cur.width, cur.height), dependencies, &previous).launch(
             (cl_mem)prev2.ptr[0], (cl_mem)prev.ptr[0], (cl_mem)cur.ptr[0],
             (cl_mem)next.ptr[0], (cl_mem)next2.ptr[0], cur.pitch[0],
-            (cl_mem)tc.ptr[0], (cl_mem)delta.ptr[0], tc.pitch[0], cur.width, cur.height, prm.tr0);
+            (cl_mem)tc.ptr[0], (cl_mem)delta.ptr[0], tc.pitch[0], cur.width, cur.height, prm.tr0, sceneFlags);
     if (sts != RGY_ERR_NONE) return sts;
     resources.lastEvent = previous;
     for (int stage = 0; stage < resources.stageCount; stage++) {
@@ -443,11 +443,11 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::emitRepairFC(const int planeIndex,
 RGY_ERR RGYFilterRtgmcSearchPrefilter::emitLumaSearch(const int planeIndex,
     const RGYFrameInfo &prev2, const RGYFrameInfo &prev, const RGYFrameInfo &cur,
     const RGYFrameInfo &next, const RGYFrameInfo &next2, const RGYFrameInfo &dst,
-    const RGYFilterParamRtgmcSearchPrefilter &prm, const int fullRangeMode, RGYOpenCLQueue &queue,
+    const cl_mem sceneFlags, const RGYFilterParamRtgmcSearchPrefilter &prm, const int fullRangeMode, RGYOpenCLQueue &queue,
     const std::vector<RGYOpenCLEvent> &waitEvents, RGYOpenCLEvent *event) {
     const RGYWorkSize local(RTGMC_SEARCH_PREFILTER_BLOCK_X, RTGMC_SEARCH_PREFILTER_BLOCK_Y);
     RGYOpenCLEvent ready;
-    auto sts = emitRepairFC(planeIndex, prev2, prev, cur, next, next2, prm, queue, waitEvents, &ready);
+    auto sts = emitRepairFC(planeIndex, prev2, prev, cur, next, next2, sceneFlags, prm, queue, waitEvents, &ready);
     if (sts != RGY_ERR_NONE) return sts;
     auto &resources = m_repairPlaneResources[planeIndex];
     const auto &fc = resources.corrected->frame;
@@ -891,21 +891,23 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::checkTemporalPlanePitches(const TCHAR *pl
         { prev2, prev, cur, next, next2 });
 }
 
-std::unique_ptr<RGYCLBuf> RGYFilterRtgmcSearchPrefilter::getSceneChangeBuffer(const size_t requiredSize) {
-    auto pooled = std::find_if(m_sceneChangeBufferPool.begin(), m_sceneChangeBufferPool.end(), [requiredSize](const std::unique_ptr<RGYCLBuf> &buf) {
-        return buf && buf->size() >= requiredSize;
+std::unique_ptr<RGYCLBuf> RGYFilterRtgmcSearchPrefilter::getSceneChangeBuffer(const size_t requiredSize, RGYOpenCLEvent *readyEvent) {
+    auto pooled = std::find_if(m_sceneChangeBufferPool.begin(), m_sceneChangeBufferPool.end(), [requiredSize](const SceneChangeBufferEntry &entry) {
+        return entry.buffer && entry.buffer->size() >= requiredSize;
     });
     if (pooled != m_sceneChangeBufferPool.end()) {
-        auto buf = std::move(*pooled);
+        auto buf = std::move(pooled->buffer);
+        if (readyEvent) *readyEvent = pooled->readyEvent;
         m_sceneChangeBufferPool.erase(pooled);
         return buf;
     }
-    return m_cl->createBuffer(requiredSize, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR);
+    if (readyEvent) readyEvent->reset();
+    return m_cl->createBuffer(requiredSize, CL_MEM_READ_WRITE);
 }
 
-void RGYFilterRtgmcSearchPrefilter::recycleSceneChangeBuffer(std::unique_ptr<RGYCLBuf> &&buf) {
+void RGYFilterRtgmcSearchPrefilter::recycleSceneChangeBuffer(std::unique_ptr<RGYCLBuf> &&buf, const RGYOpenCLEvent &readyEvent) {
     if (buf) {
-        m_sceneChangeBufferPool.emplace_back(std::move(buf));
+        m_sceneChangeBufferPool.push_back({ std::move(buf), readyEvent });
     }
 }
 
@@ -919,7 +921,6 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::submitSceneChangePlane(PendingSceneChange
     pending->plane = plane;
     pending->planeName = planeName ? planeName : _T("plane");
     pending->smoothRadius = smoothRadius;
-    pending->flags.fill(0);
     if (smoothRadius <= 0) {
         return RGY_ERR_NONE;
     }
@@ -934,8 +935,8 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::submitSceneChangePlane(PendingSceneChange
     const int groupCountX = divCeil(cur->width, RTGMC_SEARCH_PREFILTER_BLOCK_X);
     const int groupCountY = divCeil(cur->height, RTGMC_SEARCH_PREFILTER_BLOCK_Y);
     const int groupCount = std::max(groupCountX * groupCountY, 1);
-    const size_t requiredSize = (size_t)groupCount * 4 * sizeof(cl_uint);
-    pending->partial = getSceneChangeBuffer(requiredSize);
+    const size_t requiredSize = ((size_t)groupCount + 1) * 4 * sizeof(cl_uint);
+    pending->partial = getSceneChangeBuffer(requiredSize, &pending->readyEvent);
     if (!pending->partial) {
         return RGY_ERR_MEMORY_ALLOC;
     }
@@ -943,12 +944,14 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::submitSceneChangePlane(PendingSceneChange
     pending->sceneThreshold = 28ull * (uint64_t)cur->width * (uint64_t)cur->height;
 
     const char *kernelName = "kernel_rtgmc_search_prefilter_scenechange";
+    auto dependencies = wait_events;
+    if (pending->readyEvent() != nullptr) dependencies.push_back(pending->readyEvent);
     RGYOpenCLEvent sceneEvent;
     auto err = m_prefilter.get()->kernel(kernelName).config(
         queue,
         RGYWorkSize(RTGMC_SEARCH_PREFILTER_BLOCK_X, RTGMC_SEARCH_PREFILTER_BLOCK_Y),
         RGYWorkSize(groupCountX * RTGMC_SEARCH_PREFILTER_BLOCK_X, groupCountY * RTGMC_SEARCH_PREFILTER_BLOCK_Y),
-        wait_events,
+        dependencies,
         &sceneEvent).launch(
             (cl_mem)prev2->ptr[0],
             (cl_mem)prev->ptr[0],
@@ -962,81 +965,64 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::submitSceneChangePlane(PendingSceneChange
             cur->height);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("error at %s: %s.\n"), char_to_tstring(kernelName).c_str(), get_err_mes(err));
-        recycleSceneChangeBuffer(std::move(pending->partial));
+        recycleSceneChangeBuffer(std::move(pending->partial), pending->readyEvent);
         return err;
     }
 
-    err = pending->partial->queueMapBuffer(queue, CL_MAP_READ, { sceneEvent }, RGY_CL_MAP_BLOCK_NONE, "rtgmc.search.scene_change");
+    pending->readyEvent = sceneEvent;
+    err = m_prefilter.get()->kernel("kernel_rtgmc_search_prefilter_scenechange_reduce").config(
+        queue, RGYWorkSize(256), RGYWorkSize(256 * 4), { sceneEvent }, &pending->readyEvent).launch(
+            pending->partial->mem(), groupCount, (cl_ulong)pending->sceneThreshold, smoothRadius);
     if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to map rtgmc-search-prefilter scene-change buffer: %s.\n"), get_err_mes(err));
-        recycleSceneChangeBuffer(std::move(pending->partial));
+        AddMessage(RGY_LOG_ERROR, _T("failed to reduce rtgmc-search-prefilter scene change: %s.\n"), get_err_mes(err));
+        recycleSceneChangeBuffer(std::move(pending->partial), sceneEvent);
         return err;
     }
-    pending->mapEvent = pending->partial->mapEvent();
-    pending->mapSubmitted = true;
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYFilterRtgmcSearchPrefilter::resolveSceneChangePlane(PendingSceneChangePlane *pending, RGYOpenCLQueue &queue) {
-    if (!pending) {
-        return RGY_ERR_INVALID_PARAM;
-    }
-    pending->flags.fill(0);
-    if (!pending->mapSubmitted) {
-        recycleSceneChangeBuffer(std::move(pending->partial));
-        return RGY_ERR_NONE;
-    }
-
-    auto err = pending->mapEvent.wait();
-    if (err != RGY_ERR_NONE) {
-        pending->partial->unmapBuffer(queue);
-        pending->mapSubmitted = false;
-        recycleSceneChangeBuffer(std::move(pending->partial));
-        AddMessage(RGY_LOG_ERROR, _T("failed to wait rtgmc-search-prefilter scene-change readback: %s.\n"), get_err_mes(err));
-        return err;
-    }
-
-    const auto *partial = reinterpret_cast<const cl_uint *>(pending->partial->mappedPtr());
-    if (!partial) {
-        pending->partial->unmapBuffer(queue);
-        pending->mapSubmitted = false;
-        recycleSceneChangeBuffer(std::move(pending->partial));
-        AddMessage(RGY_LOG_ERROR, _T("failed to access rtgmc-search-prefilter scene-change buffer.\n"));
-        return RGY_ERR_NULL_PTR;
-    }
-
-    for (int i = 0; i < 4; i++) {
-        if ((pending->smoothRadius < 2) && i >= 2) {
-            continue;
+RGY_ERR RGYFilterRtgmcSearchPrefilter::checkSceneChangePlane(PendingSceneChangePlane *pending, const int currentFrame, RGYOpenCLQueue &queue) {
+    if (!pending || !pending->partial) return RGY_ERR_NONE;
+    auto err = pending->partial->queueMapBuffer(queue, CL_MAP_READ, { pending->readyEvent }, RGY_CL_MAP_BLOCK_NONE, "rtgmc.search.scene_change.check");
+    if (err != RGY_ERR_NONE) return err;
+    err = pending->partial->mapEvent().wait();
+    const auto *state = reinterpret_cast<const cl_uint *>(pending->partial->mappedPtr());
+    bool matched = err == RGY_ERR_NONE && state != nullptr;
+    if (matched) {
+        for (int dir = 0; dir < 4; dir++) {
+            uint64_t sum = 0;
+            for (int group = 0; group < pending->groupCount; group++) {
+                sum += state[4 + (size_t)dir * pending->groupCount + group];
+            }
+            const cl_uint expected = pending->smoothRadius > 0 && (dir < 2 || pending->smoothRadius >= 2) && sum >= pending->sceneThreshold;
+            matched &= state[dir] == expected;
         }
-        uint64_t sum = 0;
-        const auto *refPartial = partial + (size_t)i * pending->groupCount;
-        for (int group = 0; group < pending->groupCount; group++) {
-            sum += refPartial[group];
-        }
-        pending->flags[i] = (sum >= pending->sceneThreshold) ? 1 : 0;
+        AddMessage(RGY_LOG_DEBUG, _T("scene-check frame=%d plane=%s flags=%u,%u,%u,%u match=%d\n"),
+            currentFrame, pending->planeName.c_str(), state[0], state[1], state[2], state[3], matched ? 1 : 0);
     }
-
-    err = pending->partial->unmapBuffer(queue);
-    pending->mapSubmitted = false;
-    if (err != RGY_ERR_NONE) {
-        recycleSceneChangeBuffer(std::move(pending->partial));
-        AddMessage(RGY_LOG_ERROR, _T("failed to unmap rtgmc-search-prefilter scene-change buffer: %s.\n"), get_err_mes(err));
-        return err;
+    RGYOpenCLEvent unmapped;
+    const auto unmapErr = pending->partial->unmapBuffer(queue, {}, &unmapped);
+    if (unmapErr == RGY_ERR_NONE) pending->readyEvent = unmapped;
+    if (unmapErr != RGY_ERR_NONE) {
+        // 診断用mapの解除に失敗したバッファは再利用しない。
+        pending->partial.reset();
+        pending->readyEvent.reset();
+        return unmapErr;
     }
-    recycleSceneChangeBuffer(std::move(pending->partial));
+    if (err != RGY_ERR_NONE) return err;
+    if (!matched) {
+        AddMessage(RGY_LOG_ERROR, _T("rtgmc-search-prefilter scene flags differ from CPU reference.\n"));
+        return RGY_ERR_UNKNOWN;
+    }
     return RGY_ERR_NONE;
 }
 
-std::array<int, 4> RGYFilterRtgmcSearchPrefilter::sceneChangeFlagsForPlane(const PendingSearchPrefilterFrame &pending, const RGY_PLANE plane) const {
+const RGYFilterRtgmcSearchPrefilter::PendingSceneChangePlane *RGYFilterRtgmcSearchPrefilter::sceneChangeForPlane(
+    const PendingSearchPrefilterFrame &pending, const RGY_PLANE plane) const {
     for (const auto &planeFlags : pending.scenePlanes) {
-        if (planeFlags.plane == plane) {
-            return planeFlags.flags;
-        }
+        if (planeFlags.plane == plane) return &planeFlags;
     }
-    std::array<int, 4> flags = {};
-    flags.fill(0);
-    return flags;
+    return nullptr;
 }
 
 RGY_ERR RGYFilterRtgmcSearchPrefilter::dumpSearchYuvFrame(const RGYFrameInfo &yFrame, const RGYFrameInfo *chromaFrame,
@@ -1211,7 +1197,7 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::emitPrefilteredFrame(PendingSearchPrefilt
     auto emitSearchRefine1Plane = [&](const int planeIndex,
         const RGYFrameInfo &planePrev2Src, const RGYFrameInfo &planePrevSrc, const RGYFrameInfo &planeCurSrc,
         const RGYFrameInfo &planeNextSrc, const RGYFrameInfo &planeNext2Src, const RGYFrameInfo &planeDstSrc,
-        const int fullRangeMode, const std::vector<RGYOpenCLEvent> &planeWaitEvents, RGYOpenCLEvent *planeEvent) -> RGY_ERR {
+        const cl_mem sceneFlags, const int fullRangeMode, const std::vector<RGYOpenCLEvent> &planeWaitEvents, RGYOpenCLEvent *planeEvent) -> RGY_ERR {
         auto &resources = m_searchRefine1PlaneResources[planeIndex];
         if (!resources.motionGuide || !resources.halfSearchBase || !resources.halfSearchSmoothed) {
             AddMessage(RGY_LOG_ERROR, _T("rtgmc-search-prefilter search_refine1 resources are not ready for plane %d.\n"), planeIndex);
@@ -1230,7 +1216,7 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::emitPrefilteredFrame(PendingSearchPrefilt
         }
         RGYOpenCLEvent motionGuideEvent;
         sts = emitFieldStableSearch(planeIndex, planePrev2Src, planePrevSrc, planeCurSrc,
-            planeNextSrc, planeNext2Src, planeMotionGuide, *prm, queue, planeWaitEvents, &motionGuideEvent);
+            planeNextSrc, planeNext2Src, planeMotionGuide, sceneFlags, *prm, queue, planeWaitEvents, &motionGuideEvent);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at %s plane %d: %s.\n"),
                 _T("FCプレーン生成"), planeIndex, get_err_mes(sts));
@@ -1292,7 +1278,7 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::emitPrefilteredFrame(PendingSearchPrefilt
     auto emitSearchRefine2Plane = [&](const int planeIndex,
         const RGYFrameInfo &planePrev2Src, const RGYFrameInfo &planePrevSrc, const RGYFrameInfo &planeCurSrc,
         const RGYFrameInfo &planeNextSrc, const RGYFrameInfo &planeNext2Src, const RGYFrameInfo &planeDstSrc,
-        const int fullRangeMode, const std::vector<RGYOpenCLEvent> &planeWaitEvents, RGYOpenCLEvent *planeEvent) -> RGY_ERR {
+        const cl_mem sceneFlags, const int fullRangeMode, const std::vector<RGYOpenCLEvent> &planeWaitEvents, RGYOpenCLEvent *planeEvent) -> RGY_ERR {
         auto &resources = m_searchRefine2PlaneResources[planeIndex];
         auto *resizeEdgeSoftenedSearch = m_searchRefine2ResizeEdgeSoftenedSearch[planeIndex].get();
         if (!resizeEdgeSoftenedSearch || !resources.motionGuide || !resources.searchSmoothed3x3 || !resources.edgeSoftenedSearch || !resources.preStabilizedSearch) {
@@ -1312,7 +1298,7 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::emitPrefilteredFrame(PendingSearchPrefilt
         }
         RGYOpenCLEvent motionGuideEvent;
         sts = emitFieldStableSearch(planeIndex, planePrev2Src, planePrevSrc, planeCurSrc,
-            planeNextSrc, planeNext2Src, planeMotionGuide, *prm, queue, planeWaitEvents, &motionGuideEvent);
+            planeNextSrc, planeNext2Src, planeMotionGuide, sceneFlags, *prm, queue, planeWaitEvents, &motionGuideEvent);
         if (sts != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("error at %s plane %d: %s.\n"),
                 _T("FCプレーン生成"), planeIndex, get_err_mes(sts));
@@ -1475,29 +1461,28 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::emitPrefilteredFrame(PendingSearchPrefilt
     if (err != RGY_ERR_NONE) {
         return err;
     }
-    const auto lumaSceneFlags = sceneChangeFlagsForPlane(pending, RGY_PLANE_Y);
-    const auto &planePrev2Eff = lumaSceneFlags[2] ? planeCur : planePrev2;
-    const auto &planePrevEff = lumaSceneFlags[0] ? planeCur : planePrev;
-    const auto &planeNextEff = lumaSceneFlags[1] ? planeCur : planeNext;
-    const auto &planeNext2Eff = lumaSceneFlags[3] ? planeCur : planeNext2;
+    const auto *lumaScene = sceneChangeForPlane(pending, RGY_PLANE_Y);
+    const cl_mem lumaSceneFlags = (lumaScene && lumaScene->partial) ? lumaScene->partial->mem() : nullptr;
+    std::vector<RGYOpenCLEvent> lumaWaitEvents = { copyEvent };
+    if (lumaScene && lumaScene->readyEvent() != nullptr) lumaWaitEvents.push_back(lumaScene->readyEvent);
     RGYOpenCLEvent lumaEvent;
     if (useSearchRefine1Chain) {
         err = emitSearchRefine1Plane(0,
-            planePrev2Eff, planePrevEff, planeCur, planeNextEff, planeNext2Eff, planeDst,
-            prm->tvRange ? 1 : 0, { copyEvent }, &lumaEvent);
+            planePrev2, planePrev, planeCur, planeNext, planeNext2, planeDst,
+            lumaSceneFlags, prm->tvRange ? 1 : 0, lumaWaitEvents, &lumaEvent);
         if (err != RGY_ERR_NONE) {
             return err;
         }
     } else if (useSearchRefine2Chain) {
         err = emitSearchRefine2Plane(0,
-            planePrev2Eff, planePrevEff, planeCur, planeNextEff, planeNext2Eff, planeDst,
-            prm->tvRange ? 1 : 0, { copyEvent }, &lumaEvent);
+            planePrev2, planePrev, planeCur, planeNext, planeNext2, planeDst,
+            lumaSceneFlags, prm->tvRange ? 1 : 0, lumaWaitEvents, &lumaEvent);
         if (err != RGY_ERR_NONE) {
             return err;
         }
     } else {
-        err = emitLumaSearch(0, planePrev2Eff, planePrevEff, planeCur, planeNextEff, planeNext2Eff,
-            planeDst, *prm, prm->tvRange ? 1 : 0, queue, { copyEvent }, &lumaEvent);
+        err = emitLumaSearch(0, planePrev2, planePrev, planeCur, planeNext, planeNext2,
+            planeDst, lumaSceneFlags, *prm, prm->tvRange ? 1 : 0, queue, lumaWaitEvents, &lumaEvent);
         if (err != RGY_ERR_NONE) return err;
     }
 
@@ -1667,29 +1652,27 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::emitPrefilteredFrame(PendingSearchPrefilt
                 return err;
             }
             std::vector<RGYOpenCLEvent> chromaWaitEvents = { lumaEvent };
-            const auto chromaSceneFlags = sceneChangeFlagsForPlane(pending, (RGY_PLANE)iplane);
-            const auto &planePrev2CEff = chromaSceneFlags[2] ? planeCurC : planePrev2C;
-            const auto &planePrevCEff = chromaSceneFlags[0] ? planeCurC : planePrevC;
-            const auto &planeNextCEff = chromaSceneFlags[1] ? planeCurC : planeNextC;
-            const auto &planeNext2CEff = chromaSceneFlags[3] ? planeCurC : planeNext2C;
+            const auto *chromaScene = sceneChangeForPlane(pending, (RGY_PLANE)iplane);
+            const cl_mem chromaSceneFlags = (chromaScene && chromaScene->partial) ? chromaScene->partial->mem() : nullptr;
+            if (chromaScene && chromaScene->readyEvent() != nullptr) chromaWaitEvents.push_back(chromaScene->readyEvent);
             RGYOpenCLEvent chromaEvent;
             if (useSearchRefine1Chain) {
                 err = emitSearchRefine1Plane(1,
-                    planePrev2CEff, planePrevCEff, planeCurC, planeNextCEff, planeNext2CEff, planeDstC,
-                    prm->tvRange ? 2 : 0, chromaWaitEvents, &chromaEvent);
+                    planePrev2C, planePrevC, planeCurC, planeNextC, planeNext2C, planeDstC,
+                    chromaSceneFlags, prm->tvRange ? 2 : 0, chromaWaitEvents, &chromaEvent);
                 if (err != RGY_ERR_NONE) {
                     return err;
                 }
             } else if (useSearchRefine2Chain) {
                 err = emitSearchRefine2Plane(1,
-                    planePrev2CEff, planePrevCEff, planeCurC, planeNextCEff, planeNext2CEff, planeDstC,
-                    prm->tvRange ? 2 : 0, chromaWaitEvents, &chromaEvent);
+                    planePrev2C, planePrevC, planeCurC, planeNextC, planeNext2C, planeDstC,
+                    chromaSceneFlags, prm->tvRange ? 2 : 0, chromaWaitEvents, &chromaEvent);
                 if (err != RGY_ERR_NONE) {
                     return err;
                 }
             } else {
-                err = emitLumaSearch(1, planePrev2CEff, planePrevCEff, planeCurC, planeNextCEff, planeNext2CEff,
-                    planeDstC, *prm, prm->tvRange ? 2 : 0, queue, chromaWaitEvents, &chromaEvent);
+                err = emitLumaSearch(1, planePrev2C, planePrevC, planeCurC, planeNextC, planeNext2C,
+                    planeDstC, chromaSceneFlags, *prm, prm->tvRange ? 2 : 0, queue, chromaWaitEvents, &chromaEvent);
                 if (err != RGY_ERR_NONE) return err;
             }
             lumaEvent = chromaEvent;
@@ -1751,12 +1734,7 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::submitPendingSearchPrefilterFrame(const i
 
     const auto clearLocalPending = [&]() {
         for (auto &plane : pending.scenePlanes) {
-            if (plane.mapSubmitted && plane.partial) {
-                plane.mapEvent.wait();
-                plane.partial->unmapBuffer();
-                plane.mapSubmitted = false;
-            }
-            recycleSceneChangeBuffer(std::move(plane.partial));
+            recycleSceneChangeBuffer(std::move(plane.partial), plane.readyEvent);
         }
         pending.scenePlanes.clear();
     };
@@ -1817,15 +1795,28 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::resolvePendingSearchPrefilterFrame(RGYFra
     }
 
     auto &pending = m_pendingSearchPrefilterFrames.front();
-    for (auto &plane : pending.scenePlanes) {
-        auto err = resolveSceneChangePlane(&plane, queue);
-        if (err != RGY_ERR_NONE) {
-            m_pendingSearchPrefilterFrames.pop_front();
-            return err;
+    const char *checkScene = std::getenv("RGY_RTGMC_SEARCH_SCENE_CHECK");
+    if (checkScene && checkScene[0] != '0') {
+        for (auto &plane : pending.scenePlanes) {
+            const auto err = checkSceneChangePlane(&plane, pending.currentFrame, queue);
+            if (err != RGY_ERR_NONE) return err;
         }
     }
 
-    auto err = emitPrefilteredFrame(pending, ppOutputFrames, pOutputFrameNum, queue, {}, event);
+    // 旧map待機が保証していた入力コピーの完了も、出力コピーのGPU依存へ移す。
+    std::vector<RGYOpenCLEvent> inputReadyEvents;
+    for (const auto &plane : pending.scenePlanes) {
+        if (plane.readyEvent() != nullptr) inputReadyEvents.push_back(plane.readyEvent);
+    }
+    RGYOpenCLEvent completed;
+    auto err = emitPrefilteredFrame(pending, ppOutputFrames, pOutputFrameNum, queue, inputReadyEvents, &completed);
+    // flagsは最後の消費まで保持し、次の生成はこのGPUイベントへ依存させる。
+    // 途中失敗時も投入済みカーネルが触る可能性があるため、キューのmarkerで保護する。
+    const auto retireErr = (err == RGY_ERR_NONE) ? RGY_ERR_NONE : queue.getmarker(completed);
+    for (auto &plane : pending.scenePlanes) {
+        if (retireErr == RGY_ERR_NONE) recycleSceneChangeBuffer(std::move(plane.partial), completed);
+    }
+    if (event && err == RGY_ERR_NONE) *event = completed;
     m_pendingSearchPrefilterFrames.pop_front();
     return err;
 }
@@ -1833,12 +1824,7 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::resolvePendingSearchPrefilterFrame(RGYFra
 void RGYFilterRtgmcSearchPrefilter::clearPendingSearchPrefilterFrames() {
     for (auto &pending : m_pendingSearchPrefilterFrames) {
         for (auto &plane : pending.scenePlanes) {
-            if (plane.mapSubmitted && plane.partial) {
-                plane.mapEvent.wait();
-                plane.partial->unmapBuffer();
-                plane.mapSubmitted = false;
-            }
-            recycleSceneChangeBuffer(std::move(plane.partial));
+            recycleSceneChangeBuffer(std::move(plane.partial), plane.readyEvent);
         }
     }
     m_pendingSearchPrefilterFrames.clear();

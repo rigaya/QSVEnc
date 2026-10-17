@@ -144,22 +144,23 @@ protected:
         void recycle(RGYCLFrame *frame);
         void clear();
     };
+    struct SceneChangeBufferEntry {
+        std::unique_ptr<RGYCLBuf> buffer;
+        RGYOpenCLEvent readyEvent;
+    };
     struct PendingSceneChangePlane {
         RGY_PLANE plane;
         tstring planeName;
         int smoothRadius;
         int groupCount;
         uint64_t sceneThreshold;
-        std::array<int, 4> flags;
+        // 先頭4要素がflags、続く領域が4方向の部分和。GPU上だけで受け渡す。
         std::unique_ptr<RGYCLBuf> partial;
-        RGYOpenCLEvent mapEvent;
-        bool mapSubmitted;
+        RGYOpenCLEvent readyEvent;
 
         PendingSceneChangePlane() :
-            plane(RGY_PLANE_Y), planeName(), smoothRadius(0), groupCount(0), sceneThreshold(0), flags(),
-            partial(), mapEvent(), mapSubmitted(false) {
-            flags.fill(0);
-        }
+            plane(RGY_PLANE_Y), planeName(), smoothRadius(0), groupCount(0), sceneThreshold(0),
+            partial(), readyEvent() {}
     };
     struct PendingSearchPrefilterFrame {
         int currentFrame;
@@ -181,15 +182,15 @@ protected:
     RGY_ERR setupRepairResources(const RGYFilterParamRtgmcSearchPrefilter &prm, bool processChroma);
     RGY_ERR emitFieldStableSearch(int planeIndex, const RGYFrameInfo &prev2, const RGYFrameInfo &prev,
         const RGYFrameInfo &cur, const RGYFrameInfo &next, const RGYFrameInfo &next2,
-        const RGYFrameInfo &dst, const RGYFilterParamRtgmcSearchPrefilter &prm,
+        const RGYFrameInfo &dst, cl_mem sceneFlags, const RGYFilterParamRtgmcSearchPrefilter &prm,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &waitEvents, RGYOpenCLEvent *event);
     RGY_ERR emitRepairFC(int planeIndex, const RGYFrameInfo &prev2, const RGYFrameInfo &prev,
         const RGYFrameInfo &cur, const RGYFrameInfo &next, const RGYFrameInfo &next2,
-        const RGYFilterParamRtgmcSearchPrefilter &prm, RGYOpenCLQueue &queue,
+        cl_mem sceneFlags, const RGYFilterParamRtgmcSearchPrefilter &prm, RGYOpenCLQueue &queue,
         const std::vector<RGYOpenCLEvent> &waitEvents, RGYOpenCLEvent *event);
     RGY_ERR emitLumaSearch(int planeIndex, const RGYFrameInfo &prev2, const RGYFrameInfo &prev,
         const RGYFrameInfo &cur, const RGYFrameInfo &next, const RGYFrameInfo &next2,
-        const RGYFrameInfo &dst, const RGYFilterParamRtgmcSearchPrefilter &prm, int fullRangeMode,
+        const RGYFrameInfo &dst, cl_mem sceneFlags, const RGYFilterParamRtgmcSearchPrefilter &prm, int fullRangeMode,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &waitEvents, RGYOpenCLEvent *event);
     RGY_ERR allocCacheFrames(const RGYFrameInfo &frameInfo);
     RGY_ERR setupSearchRefine1Resources(const RGYFrameInfo &frameInfo, bool processChroma);
@@ -200,17 +201,17 @@ protected:
     RGY_ERR checkSameResolutionPlanePitches(const TCHAR *stageName, const std::vector<const RGYFrameInfo *> &planes);
     RGY_ERR checkTemporalPlanePitches(const TCHAR *planeName,
         const RGYFrameInfo *prev2, const RGYFrameInfo *prev, const RGYFrameInfo *cur, const RGYFrameInfo *next, const RGYFrameInfo *next2);
-    std::unique_ptr<RGYCLBuf> getSceneChangeBuffer(size_t requiredSize);
-    void recycleSceneChangeBuffer(std::unique_ptr<RGYCLBuf> &&buf);
+    std::unique_ptr<RGYCLBuf> getSceneChangeBuffer(size_t requiredSize, RGYOpenCLEvent *readyEvent);
+    void recycleSceneChangeBuffer(std::unique_ptr<RGYCLBuf> &&buf, const RGYOpenCLEvent &readyEvent);
     RGY_ERR submitSceneChangePlane(PendingSceneChangePlane *pending,
         const RGYFrameInfo *prev2, const RGYFrameInfo *prev, const RGYFrameInfo *cur, const RGYFrameInfo *next, const RGYFrameInfo *next2,
         RGY_PLANE plane, const TCHAR *planeName, int smoothRadius, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
-    RGY_ERR resolveSceneChangePlane(PendingSceneChangePlane *pending, RGYOpenCLQueue &queue);
+    RGY_ERR checkSceneChangePlane(PendingSceneChangePlane *pending, int currentFrame, RGYOpenCLQueue &queue);
     RGY_ERR submitPendingSearchPrefilterFrame(int currentFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
     RGY_ERR resolvePendingSearchPrefilterFrame(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
     void clearPendingSearchPrefilterFrames();
-    std::array<int, 4> sceneChangeFlagsForPlane(const PendingSearchPrefilterFrame &pending, RGY_PLANE plane) const;
+    const PendingSceneChangePlane *sceneChangeForPlane(const PendingSearchPrefilterFrame &pending, RGY_PLANE plane) const;
     RGY_ERR emitPrefilteredFrame(PendingSearchPrefilterFrame &pending, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     RGY_ERR initSearchLumaDump(const RGYFrameInfo &frameInfo, const RGYFilterParamRtgmcSearchPrefilter &prm);
@@ -225,7 +226,7 @@ protected:
     int drainFrameCount() const;
 
     std::array<std::shared_ptr<RGYCLFrame>, RTGMC_SEARCH_PREFILTER_CACHE_SIZE> m_cacheFrames;
-    std::deque<std::unique_ptr<RGYCLBuf>> m_sceneChangeBufferPool;
+    std::deque<SceneChangeBufferEntry> m_sceneChangeBufferPool;
     std::deque<PendingSearchPrefilterFrame> m_pendingSearchPrefilterFrames;
     std::array<SearchRefine1PlaneResources, 2> m_searchRefine1PlaneResources;
     std::array<SearchRefine2PlaneResources, 2> m_searchRefine2PlaneResources;
