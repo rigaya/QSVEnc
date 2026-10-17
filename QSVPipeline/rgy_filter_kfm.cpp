@@ -908,8 +908,49 @@ RGY_ERR RGYFilterKfm::loadPrograms(const RGYFilterParamKfm& prm) {
     const auto options = strsprintf("-D Type=%s -D bit_depth=%d",
         bitDepth > 8 ? "ushort" : "uchar",
         bitDepth);
+    const auto subgroupSupport = m_cl->platform()->checkSubGroupSupport(m_cl->queue().devid());
     for (size_t i = 0; i < KFM_RESOURCE_NAMES.size(); ++i) {
-        m_programs[i].set(m_cl->buildResourceAsync(KFM_RESOURCE_NAMES[i], _T("EXE_DATA"), options.c_str()));
+        auto programOptions = options;
+        if (i == KFM_PROG_UCF) {
+            // C 1.2ではcl_khr_subgroupsのマクロだけではIntel拡張を検出できない。
+            if (subgroupSupport == RGYOpenCLSubGroupSupport::INTEL_EXT) {
+                programOptions += " -D KFM_UCF_SUBGROUP=2";
+            } else if (subgroupSupport == RGYOpenCLSubGroupSupport::STD20KHR
+                || subgroupSupport == RGYOpenCLSubGroupSupport::STD22) {
+                programOptions += " -cl-std=CL2.0 -D KFM_UCF_SUBGROUP=1";
+            }
+        }
+        if (i == KFM_PROG_UCF && programOptions != options) {
+            m_programs[i].set(m_cl->threadPool()->enqueue([
+                cl = m_cl, log = m_pLog, baseOptions = options, subgroupOptions = programOptions]() {
+                auto program = cl->buildResource(_T("RGY_FILTER_KFM_UCF_CL"), _T("EXE_DATA"), subgroupOptions);
+                if (program) {
+                    const RGYWorkSize local(32, 8);
+                    const int subgroupSize = (int)program->kernel("kernel_kfm_ucf_analyze_partial")
+                        .config(cl->queue(), local, local).subGroupSize();
+                    if (log) {
+                        log->write(RGY_LOG_DEBUG, RGY_LOGT_VPP,
+                            _T("kfm: UCFノイズ集計はsubgroup経路を選択 (SG %d)。\n"), subgroupSize);
+                    }
+                    return program;
+                }
+                if (log) {
+                    log->write(RGY_LOG_DEBUG, RGY_LOGT_VPP,
+                        _T("kfm: UCFのsubgroupビルドに失敗したためlocal集計版を再ビルドする。\n"));
+                }
+                program = cl->buildResource(_T("RGY_FILTER_KFM_UCF_CL"), _T("EXE_DATA"), baseOptions);
+                if (program && log) {
+                    log->write(RGY_LOG_DEBUG, RGY_LOGT_VPP,
+                        _T("kfm: UCFノイズ集計はlocal経路へフォールバックした。\n"));
+                }
+                return program;
+            }));
+        } else {
+            if (i == KFM_PROG_UCF) {
+                AddMessage(RGY_LOG_DEBUG, _T("UCFノイズ集計はlocal経路を選択。\n"));
+            }
+            m_programs[i].set(m_cl->buildResourceAsync(KFM_RESOURCE_NAMES[i], _T("EXE_DATA"), programOptions.c_str()));
+        }
     }
     return RGY_ERR_NONE;
 }
@@ -2380,7 +2421,7 @@ RGY_ERR RGYFilterKfm::copyUcfFrame(const RGYFilterParamKfm& prm, RGYFrameInfo *p
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYFilterKfm::createUcfGaussProgram(KfmUcfGaussProgram& program, int sourceSize, double cropSize, int targetSize, double p) {
+RGY_ERR RGYFilterKfm::createUcfGaussProgram(KfmUcfGaussProgram& program, int sourceSize, double cropSize, int targetSize, double p, bool transposeCoeff) {
     const double cropStart = 0.0;
     const double filterScale = (double)targetSize / cropSize;
     const double filterStep = std::min(filterScale, 1.0);
@@ -2427,7 +2468,20 @@ RGY_ERR RGYFilterKfm::createUcfGaussProgram(KfmUcfGaussProgram& program, int sou
     program.filterSize = filterSize;
     program.offset = m_cl->copyDataToBuffer(offset.data(), offset.size() * sizeof(offset[0]), CL_MEM_READ_ONLY, m_cl->queue().get());
     program.coeff = m_cl->copyDataToBuffer(coeff.data(), coeff.size() * sizeof(coeff[0]), CL_MEM_READ_ONLY, m_cl->queue().get());
-    if (!program.offset || !program.offset->mem() || !program.coeff || !program.coeff->mem()) {
+    program.coeffVec4.reset();
+    if (transposeCoeff) {
+        // 係数値は変えずtap別に並べ、連続する4出力分をまとめてロードする。
+        const int coeffPitch = (targetSize + 3) & ~3;
+        std::vector<float> coeffVec4((size_t)coeffPitch * filterSize);
+        for (int tap = 0; tap < filterSize; tap++) {
+            for (int x = 0; x < coeffPitch; x++) {
+                coeffVec4[(size_t)tap * coeffPitch + x] = coeff[(size_t)std::min(x, targetSize - 1) * filterSize + tap];
+            }
+        }
+        program.coeffVec4 = m_cl->copyDataToBuffer(coeffVec4.data(), coeffVec4.size() * sizeof(float), CL_MEM_READ_ONLY, m_cl->queue().get());
+    }
+    if (!program.offset || !program.offset->mem() || !program.coeff || !program.coeff->mem()
+        || (transposeCoeff && (!program.coeffVec4 || !program.coeffVec4->mem()))) {
         AddMessage(RGY_LOG_ERROR, _T("failed to upload KFM UCF gaussresize coefficients.\n"));
         return RGY_ERR_MEMORY_ALLOC;
     }
@@ -2720,8 +2774,8 @@ RGY_ERR RGYFilterKfm::runUcfNoisePreprocessFromSource(const RGYFrameInfo *pInput
                 return sts;
             }
         }
-        if (!progH.offset || progH.sourceSize != dstWidthForGauss || progH.targetSize != dstWidthForGauss) {
-            sts = createUcfGaussProgram(progH, dstWidthForGauss, cropWidth, dstWidthForGauss, KFM_UCF_GAUSS_P);
+        if (!progH.offset || !progH.coeffVec4 || progH.sourceSize != dstWidthForGauss || progH.targetSize != dstWidthForGauss) {
+            sts = createUcfGaussProgram(progH, dstWidthForGauss, cropWidth, dstWidthForGauss, KFM_UCF_GAUSS_P, true);
             if (sts != RGY_ERR_NONE) {
                 return sts;
             }
@@ -2736,11 +2790,11 @@ RGY_ERR RGYFilterKfm::runUcfNoisePreprocessFromSource(const RGYFrameInfo *pInput
         }
         RGYOpenCLEvent planeEvent;
         auto err = m_programs[KFM_PROG_UCF].get()->kernel("kernel_kfm_ucf_preprocess")
-            .config(queue, RGYWorkSize(32, 8), RGYWorkSize(dst.width, dst.height), waitHere, &planeEvent)
+            .config(queue, RGYWorkSize(32, 4), RGYWorkSize(divCeil(dst.width, 4), dst.height), waitHere, &planeEvent)
             .launch((cl_mem)dst.ptr[0], dst.pitch[0], (cl_mem)src.ptr[0], src.pitch[0],
                 dst.width, dst.height, srcXOffset, srcYOffset, srcYStep, interleavedUVPlane ? 2 : 1,
                 progV.offset->mem(), progV.coeff->mem(),
-                progH.offset->mem(), progH.coeff->mem(),
+                progH.offset->mem(), progH.coeffVec4->mem(),
                 KFM_UCF_NOISE_LIMIT_NMIN, KFM_UCF_NOISE_LIMIT_RANGE);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("UCF融合前処理に失敗 (plane %d): %s.\n"), iplane, get_err_mes(err));
@@ -3029,7 +3083,7 @@ RGY_ERR RGYFilterKfm::submitUcfNoiseResultFused(const KfmCachedUcfNoise& noise0,
     for (int i = 0; i < planes; i++) {
         const auto n = getPlane(&noise0.frame->frame, (RGY_PLANE)i);
         const auto d = getPlane(&source0.paddedFrame->frame, (RGY_PLANE)i);
-        partialCount += divCeil(std::max(n.width, d.width) >> 2, localX) * divCeil(d.height, localY);
+        partialCount += divCeil(divCeil(std::max(n.width, d.width) >> 2, 4), localX) * divCeil(d.height, localY);
     }
     if (partialCount <= 0) {
         return RGY_ERR_INVALID_PARAM;
@@ -3072,10 +3126,10 @@ RGY_ERR RGYFilterKfm::submitUcfNoiseResultFused(const KfmCachedUcfNoise& noise0,
         if (width4 <= 0 || workHeight <= 0) {
             continue;
         }
-        const int count = divCeil(width4, localX) * divCeil(workHeight, localY);
+        const int count = divCeil(divCeil(width4, 4), localX) * divCeil(workHeight, localY);
         RGYOpenCLEvent event;
         auto sts = m_programs[KFM_PROG_UCF].get()->kernel("kernel_kfm_ucf_analyze_partial")
-            .config(queue, RGYWorkSize(localX, localY), RGYWorkSize(width4, workHeight), waits, &event)
+            .config(queue, RGYWorkSize(localX, localY), RGYWorkSize(divCeil(width4, 4), workHeight), waits, &event)
             .launch(pending.partialBuf->mem(), offset,
                 (cl_mem)n0.ptr[0], (cl_mem)n1.ptr[0], (cl_mem)n2.ptr[0], n0.pitch[0], noiseWidth4, n0.height,
                 (cl_mem)d0.ptr[0], (cl_mem)d1.ptr[0], d0.pitch[0], diffWidth4, height, vpad);

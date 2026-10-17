@@ -323,7 +323,7 @@ protected:
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
     RGY_ERR copyUcfFrame(const RGYFilterParamKfm& prm, RGYFrameInfo *pOutputFrame, const RGYFrameInfo *pInputFrame,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
-    RGY_ERR createUcfGaussProgram(KfmUcfGaussProgram& program, int sourceSize, double cropSize, int targetSize, double p);
+    RGY_ERR createUcfGaussProgram(KfmUcfGaussProgram& program, int sourceSize, double cropSize, int targetSize, double p, bool transposeCoeff = false);
     RGY_ERR prepareUcfNoiseFieldCropFrame(RGYFrameInfo **ppFieldFrame, int sourceIndex, int parity, const RGYFrameInfo *pInputFrame,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     RGY_ERR runUcfNoisePreprocessFromSource(const RGYFrameInfo *pInputFrame, int fieldIndex, int parity,
@@ -462,8 +462,9 @@ protected:
         int filterSize;
         std::unique_ptr<RGYCLBuf> offset;
         std::unique_ptr<RGYCLBuf> coeff;
+        std::unique_ptr<RGYCLBuf> coeffVec4;
 
-        KfmUcfGaussProgram() : sourceSize(0), targetSize(0), filterSize(0), offset(), coeff() {};
+        KfmUcfGaussProgram() : sourceSize(0), targetSize(0), filterSize(0), offset(), coeff(), coeffVec4() {};
     };
 
     struct KfmPendingFMCount {
