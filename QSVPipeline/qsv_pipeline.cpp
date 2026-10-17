@@ -5663,7 +5663,9 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     m_taskPerfMonitor = pParams->ctrl.taskPerfMonitor;
     m_nAsyncDepth = clamp_param_int((pParams->ctrl.lowLatency) ? 1 : pParams->nAsyncDepth, 0, QSV_ASYNC_DEPTH_MAX, _T("async-depth"));
     if (m_nAsyncDepth == 0) {
-        m_nAsyncDepth = QSV_DEFAULT_ASYNC_DEPTH;
+        // KFM/RTGMCのような重いOpenCLフィルタでは、OpenCLとエンコーダの間でのサーフェス受け渡し待ちが律速になりやすい。
+        // 回すサーフェスを増やしてGPUへの先行投入を途切れさせないようにする (A310で3→8で+2〜4%)。
+        m_nAsyncDepth = (pParams->vpp.kfm.enable || pParams->vpp.rtgmc.enable) ? QSV_DEFAULT_ASYNC_DEPTH_HEAVY_CL_FILTER : QSV_DEFAULT_ASYNC_DEPTH;
         PrintMes(RGY_LOG_DEBUG, _T("async depth automatically set to %d\n"), m_nAsyncDepth);
     }
     // 出力の保持数と同じ非同期深度を、QueryIOSurfとInitより前にエンコーダへ指定する。

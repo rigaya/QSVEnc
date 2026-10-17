@@ -4423,7 +4423,7 @@ Disables an automatic --parallel count limit when one is applied for filters wit
 Use this only when enough GPU memory is available, as it can increase the risk of GPU memory allocation errors or performance drops.
 
 ### --async-depth &lt;int&gt;
-set async depth for QSV pipeline. default: 0 (=auto, 3frames)
+set async depth for QSV pipeline. default: 0 (=auto, 3frames, 8frames when --vpp-kfm / --vpp-rtgmc is used)
 
 ### --input-buf &lt;int&gt;
 Buffer size for input in frames.　(default = 3)

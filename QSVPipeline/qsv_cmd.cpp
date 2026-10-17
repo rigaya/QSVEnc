@@ -341,7 +341,7 @@ tstring encoder_help() {
         _T("                                HEVC FF encoding on older GPUs to avoid\n")
         _T("                                image corruption. enabled by default.\n")
         _T("-a,--async-depth                set async depth for QSV pipeline.\n")
-        _T("                                 default: 0 (=auto, %d)\n")
+        _T("                                 default: 0 (=auto, %d, %d with --vpp-kfm/--vpp-rtgmc)\n")
         _T("   --max-bitrate <int>          set max bitrate(kbps)\n")
         _T("   --qp-min <int> or            set min QP, default 0 (= unset)\n")
         _T("           <int>:<int>:<int>\n")
@@ -428,7 +428,7 @@ tstring encoder_help() {
         _T("   --tile-col <int>             [av1] number of tile columns\n")
         //_T("   --sharpness <int>            [vp8] set sharpness level for vp8 enc\n")
         _T("\n"),
-        QSV_DEFAULT_ASYNC_DEPTH,
+        QSV_DEFAULT_ASYNC_DEPTH, QSV_DEFAULT_ASYNC_DEPTH_HEAVY_CL_FILTER,
         QSV_LOOKAHEAD_DEPTH_MIN, QSV_LOOKAHEAD_DEPTH_MAX,
         QSV_DEFAULT_REF,
         QSV_DEFAULT_GOP_LEN);

@@ -1008,6 +1008,7 @@ const int QSV_DEFAULT_VQP_SENSITIVITY = 50;
 const int QSV_DEFAULT_SC_SENSITIVITY = 80;
 
 const int QSV_DEFAULT_ASYNC_DEPTH = 3;
+const int QSV_DEFAULT_ASYNC_DEPTH_HEAVY_CL_FILTER = 8; // --vpp-kfm / --vpp-rtgmc 使用時の自動設定値
 const int QSV_ASYNC_DEPTH_MAX = 1024;
 const int QSV_SESSION_THREAD_MAX = 64;
 
