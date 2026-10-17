@@ -198,6 +198,7 @@ RGYFilterRtgmc::RGYFilterRtgmc(shared_ptr<RGYOpenCLContext> context) :
     m_sharedAnalysisMode(false),
     m_sharedData(),
     m_captureIntermediate(false),
+    m_analysisOnly(false),
     m_capturedIntermediates(),
     m_pendingIntermediateInputs() {
     m_name = _T("rtgmc");
@@ -229,6 +230,10 @@ RGYFilterRtgmc::RtgmcSharedAnalysisData RGYFilterRtgmc::getSharedAnalysisData() 
 
 void RGYFilterRtgmc::enableIntermediateCapture(bool enable) {
     m_captureIntermediate = enable;
+}
+
+void RGYFilterRtgmc::setAnalysisOnly(bool enable) {
+    m_analysisOnly = enable;
 }
 
 const std::vector<RGYFilterRtgmc::RtgmcCapturedIntermediate>& RGYFilterRtgmc::getCapturedIntermediates() const {
@@ -2258,6 +2263,9 @@ RGY_ERR RGYFilterRtgmc::runThrough(size_t filterIdx, RGYFrameInfo *pInputFrame, 
             if (sts != RGY_ERR_NONE) {
                 return sts;
             }
+            if (m_analysisOnly && filterIdx == RTGMC_FILTER_INPUTTYPE_BLEND) {
+                continue; // 中間データのキャプチャまでで止める (setAnalysisOnly参照)
+            }
             sts = runThrough(filterIdx + 1, childOutFrames[i], ppOutputFrames, pOutputFrameNum, queue, nextWaitEvents, event, storePending);
             if (sts != RGY_ERR_NONE) {
                 return sts;
@@ -2527,6 +2535,17 @@ int RGYFilterRtgmc::requiredPrimingSourceFrames() const {
     const int dependFields = (m_sharedAnalysisMode ? 0 : analysisFields) + postFields;
     // 1 sourceは2フィールド。境界での丸めの余裕として1 source足す。
     return (dependFields + 1) / 2 + 1;
+}
+
+int RGYFilterRtgmc::requiredAnalysisPrimingSourceFrames() const {
+    // setAnalysisOnly時に中間データ(解析段の出力)を連続処理と同等にするためのpriming量。
+    // 考え方はrequiredPrimingSourceFramesと同じで、解析段の分だけを数える。
+    const auto prm = std::dynamic_pointer_cast<RGYFilterParamRtgmc>(m_param);
+    if (!prm) {
+        return 8;
+    }
+    const int analysisFields = std::max(0, prm->rtgmc.searchPrefilter.tr0) + std::max(0, prm->rtgmc.analyze.delta);
+    return (analysisFields + 1) / 2 + 1;
 }
 
 void RGYFilterRtgmc::resetTemporalState() {

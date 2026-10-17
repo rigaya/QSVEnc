@@ -211,6 +211,7 @@ protected:
         RGY_ERR drainTo(int n60end, RGYOpenCLQueue &queue);
         RGY_ERR ensureRange(int n60begin, int n60end, RGYOpenCLQueue &queue);
         RGY_ERR feedHot(RGYOpenCLQueue &queue);
+        RGY_ERR feedIntermediatesOnly(int sourceBegin, int sourceEnd, RGYOpenCLQueue &queue);
         RGY_ERR cacheFrame(const RGYFrameInfo *frame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
         const KfmCachedDeint60 *find(int n60, std::vector<RGYOpenCLEvent> *wait_events) const;
         void trim(int n60floor, size_t cacheLimit);
