@@ -491,15 +491,14 @@ static inline int4 kfm_ucf_limiter4(const int4 x, const int neutral, const int m
 }
 
 // 1 work-itemで横4画素を扱い、V段と入出力のアドレス計算をまとめる。
-__attribute__((reqd_work_group_size(32, 4, 1)))
-__kernel void kernel_kfm_ucf_preprocess(
+static inline void kfm_ucf_preprocess(
     __global uchar *dst, const int dstPitch,
     const __global uchar *src, const int srcPitch,
     const int width, const int height,
     const int srcXOffset, const int srcYOffset, const int srcYStep, const int channels,
     const __global int *offsetV, const __global float *coeffV,
     const __global int *offsetH, const __global float *coeffH,
-    const int nmin, const int range) {
+    const int nmin, const int range, __local Type vertical[4][152]) {
     const int lx = get_local_id(0);
     const int ly = get_local_id(1);
     const int x = get_global_id(0) * 4;
@@ -513,8 +512,6 @@ __kernel void kernel_kfm_ucf_preprocess(
     const int tileOrigin = ((tileBegin * channels + srcXOffset) & ~3) - srcXOffset;
     const int tileWidth = tileEnd * channels - tileOrigin;
     const int maxValue = (1 << bit_depth) - 1;
-    // UVのhaloとアラインメント調整分（最大147）に余裕を持たせ、packed単位でV結果を保存する。
-    __local Type vertical[4][152] __attribute__((aligned(16)));
     const int4 hx = min((int4)(x, x + 1, x + 2, x + 3) >> channelShift, (int4)(planeWidth - 1));
     if (y < height) {
         const int begin = offsetV[y];
@@ -595,6 +592,40 @@ __kernel void kernel_kfm_ucf_preprocess(
             if (x + i < width) out[x + i] = limited[i];
         }
     }
+}
+
+// plane形式ごとにchannelsを定数化し、共通本体の分岐とアドレス計算を減らす。
+__attribute__((reqd_work_group_size(32, 4, 1)))
+__kernel void kernel_kfm_ucf_preprocess(
+    __global uchar *dst, const int dstPitch,
+    const __global uchar *src, const int srcPitch,
+    const int width, const int height,
+    const int srcXOffset, const int srcYOffset, const int srcYStep,
+    const __global int *offsetV, const __global float *coeffV,
+    const __global int *offsetH, const __global float *coeffH,
+    const int nmin, const int range) {
+    // UVのhaloとアラインメント調整分（最大147）に余裕を持たせる。
+    __local Type vertical[4][152] __attribute__((aligned(16)));
+    kfm_ucf_preprocess(dst, dstPitch, src, srcPitch, width, height,
+        srcXOffset, srcYOffset, srcYStep, 1, offsetV, coeffV, offsetH, coeffH,
+        nmin, range, vertical);
+}
+
+// plane形式ごとにchannelsを定数化し、共通本体の分岐とアドレス計算を減らす。
+__attribute__((reqd_work_group_size(32, 4, 1)))
+__kernel void kernel_kfm_ucf_preprocess_uv(
+    __global uchar *dst, const int dstPitch,
+    const __global uchar *src, const int srcPitch,
+    const int width, const int height,
+    const int srcXOffset, const int srcYOffset, const int srcYStep,
+    const __global int *offsetV, const __global float *coeffV,
+    const __global int *offsetH, const __global float *coeffH,
+    const int nmin, const int range) {
+    // UVのhaloとアラインメント調整分（最大147）に余裕を持たせる。
+    __local Type vertical[4][152] __attribute__((aligned(16)));
+    kfm_ucf_preprocess(dst, dstPitch, src, srcPitch, width, height,
+        srcXOffset, srcYOffset, srcYStep, 2, offsetV, coeffV, offsetH, coeffH,
+        nmin, range, vertical);
 }
 
 #ifndef KFM_UCF_SUBGROUP

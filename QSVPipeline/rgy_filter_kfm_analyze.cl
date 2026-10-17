@@ -40,27 +40,27 @@ typedef struct {
     int lshima;
 } FMCount;
 
-static inline int8 kfm_absdiff(const int8 a, const int8 b) {
-    return convert_int8(abs(a - b));
+static inline int kfm_absdiff(const int a, const int b) {
+    return convert_int(abs(a - b));
 }
 
-static inline int8 kfm_calc_combe(
-    const int8 L0, const int8 L1, const int8 L2, const int8 L3,
-    const int8 L4, const int8 L5, const int8 L6, const int8 L7) {
-    const int8 diff8 = kfm_absdiff(L0, L7);
-    const int8 diffT =
+static inline int kfm_calc_combe(
+    const int L0, const int L1, const int L2, const int L3,
+    const int L4, const int L5, const int L6, const int L7) {
+    const int diff8 = kfm_absdiff(L0, L7);
+    const int diffT =
         kfm_absdiff(L0, L1) + kfm_absdiff(L1, L2) + kfm_absdiff(L2, L3) + kfm_absdiff(L3, L4) +
         kfm_absdiff(L4, L5) + kfm_absdiff(L5, L6) + kfm_absdiff(L6, L7) - diff8;
-    const int8 diffE =
+    const int diffE =
         kfm_absdiff(L0, L2) + kfm_absdiff(L2, L4) + kfm_absdiff(L4, L6) + kfm_absdiff(L6, L7) - diff8;
-    const int8 diffO =
+    const int diffO =
         kfm_absdiff(L0, L1) + kfm_absdiff(L1, L3) + kfm_absdiff(L3, L5) + kfm_absdiff(L5, L7) - diff8;
     return diffT - diffE - diffO;
 }
 
-static inline int8 kfm_calc_diff(
-    const int8 L00, const int8 L10, const int8 L01, const int8 L11,
-    const int8 L02, const int8 L12, const int8 L03, const int8 L13) {
+static inline int kfm_calc_diff(
+    const int L00, const int L10, const int L01, const int L11,
+    const int L02, const int L12, const int L03, const int L13) {
     return kfm_absdiff(L00, L10) + kfm_absdiff(L01, L11) + kfm_absdiff(L02, L12) + kfm_absdiff(L03, L13);
 }
 
@@ -93,44 +93,28 @@ static inline uchar4 kfm_analyze_block(
     const __global Type *f1 = (const __global Type *)src1;
     const int xBase = bx * 4;
     const int yBase = by * 4;
-    int8 row0[8];
-    int8 row1[8];
-    // 行単位で8列を読み、各列の解析はレジスタ上で同じ整数演算を行う。
-    if (pixelStep == 1) {
+    // 8列を同時に保持するとレジスタから溢れるため、列を順に処理して整数和を保つ。
+    int4 totals = 0;
+    #pragma unroll 1
+    for (int column = 0; column < 8; column++) {
+        int row0[8];
+        int row1[8];
         #pragma unroll
-        for (int r = 0; r < 8; ++r) {
-            const int offset = xBase + pixelOffset + (yBase + r) * pitch;
-            row0[r] = convert_int8(vload8(0, f0 + offset));
-            row1[r] = convert_int8(vload8(0, f1 + offset));
+        for (int r = 0; r < 8; r++) {
+            row0[r] = kfm_load_src(f0, pitch, xBase + column, yBase + r, pixelStep, pixelOffset);
+            row1[r] = kfm_load_src(f1, pitch, xBase + column, yBase + r, pixelStep, pixelOffset);
         }
-    } else {
-        // UVのV成分もペアの先頭から読み、最終列の外へ読み越さないようoddを選ぶ。
-        #pragma unroll
-        for (int r = 0; r < 8; ++r) {
-            const int offset = xBase * 2 + (yBase + r) * pitch;
-            const Type16 v0 = vload16(0, f0 + offset);
-            const Type16 v1 = vload16(0, f1 + offset);
-            row0[r] = convert_int8(pixelOffset == 0 ? v0.even : v0.odd);
-            row1[r] = convert_int8(pixelOffset == 0 ? v1.even : v1.odd);
-        }
+        const int same = kfm_calc_combe(row0[0], row0[1], row0[2], row0[3], row0[4], row0[5], row0[6], row0[7]);
+        const int mixed = parity
+            ? kfm_calc_combe(row1[0], row0[1], row1[2], row0[3], row1[4], row0[5], row1[6], row0[7])
+            : kfm_calc_combe(row0[0], row1[1], row0[2], row1[3], row0[4], row1[5], row0[6], row1[7]);
+        const int move0 = kfm_calc_diff(row0[0], row1[0], row0[2], row1[2], row0[4], row1[4], row0[6], row1[6]);
+        const int move1 = kfm_calc_diff(row0[1], row1[1], row0[3], row1[3], row0[5], row1[5], row0[7], row1[7]);
+        const int combe0 = parity ? same : mixed;
+        const int combe1 = parity ? mixed : same;
+        totals += (int4)(combe0, move0, combe1, move1);
     }
-    const int8 same = kfm_calc_combe(row0[0], row0[1], row0[2], row0[3], row0[4], row0[5], row0[6], row0[7]);
-    const int8 mixed = parity
-        ? kfm_calc_combe(row1[0], row0[1], row1[2], row0[3], row1[4], row0[5], row1[6], row0[7])
-        : kfm_calc_combe(row0[0], row1[1], row0[2], row1[3], row0[4], row1[5], row0[6], row1[7]);
-    const int8 move0 = kfm_calc_diff(row0[0], row1[0], row0[2], row1[2], row0[4], row1[4], row0[6], row1[6]);
-    const int8 move1 = kfm_calc_diff(row0[1], row1[1], row0[3], row1[3], row0[5], row1[5], row0[7], row1[7]);
-    const int8 combe0 = parity ? same : mixed;
-    const int8 combe1 = parity ? mixed : same;
-    const int sum0 = combe0.s0 + combe0.s1 + combe0.s2 + combe0.s3 + combe0.s4 + combe0.s5 + combe0.s6 + combe0.s7;
-    const int sum1 = move0.s0 + move0.s1 + move0.s2 + move0.s3 + move0.s4 + move0.s5 + move0.s6 + move0.s7;
-    const int sum2 = combe1.s0 + combe1.s1 + combe1.s2 + combe1.s3 + combe1.s4 + combe1.s5 + combe1.s6 + combe1.s7;
-    const int sum3 = move1.s0 + move1.s1 + move1.s2 + move1.s3 + move1.s4 + move1.s5 + move1.s6 + move1.s7;
-    return (uchar4)(
-        kfm_clamp_u8(sum0 >> shift),
-        kfm_clamp_u8(sum1 >> shift),
-        kfm_clamp_u8(sum2 >> shift),
-        kfm_clamp_u8(sum3 >> shift));
+    return convert_uchar4(clamp(totals >> shift, (int4)0, (int4)255));
 }
 
 __kernel void kernel_kfm_analyze(

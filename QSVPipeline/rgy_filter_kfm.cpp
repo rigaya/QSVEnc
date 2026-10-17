@@ -2789,10 +2789,10 @@ RGY_ERR RGYFilterKfm::runUcfNoisePreprocessFromSource(const RGYFrameInfo *pInput
             return RGY_ERR_UNSUPPORTED;
         }
         RGYOpenCLEvent planeEvent;
-        auto err = m_programs[KFM_PROG_UCF].get()->kernel("kernel_kfm_ucf_preprocess")
+        auto err = m_programs[KFM_PROG_UCF].get()->kernel(interleavedUVPlane ? "kernel_kfm_ucf_preprocess_uv" : "kernel_kfm_ucf_preprocess")
             .config(queue, RGYWorkSize(32, 4), RGYWorkSize(divCeil(dst.width, 4), dst.height), waitHere, &planeEvent)
             .launch((cl_mem)dst.ptr[0], dst.pitch[0], (cl_mem)src.ptr[0], src.pitch[0],
-                dst.width, dst.height, srcXOffset, srcYOffset, srcYStep, interleavedUVPlane ? 2 : 1,
+                dst.width, dst.height, srcXOffset, srcYOffset, srcYStep,
                 progV.offset->mem(), progV.coeff->mem(),
                 progH.offset->mem(), progH.coeffVec4->mem(),
                 KFM_UCF_NOISE_LIMIT_NMIN, KFM_UCF_NOISE_LIMIT_RANGE);

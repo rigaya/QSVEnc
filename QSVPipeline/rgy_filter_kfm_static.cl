@@ -180,6 +180,15 @@ __kernel void kernel_kfm_temporal_min_diff5_3(
     const int4 v5 = kfm_to_int4(((const __global Type4 *)src5)[off]);
     const int4 v6 = kfm_to_int4(((const __global Type4 *)src6)[off]);
 
+#if bit_depth <= 8
+    // 共通する中央3フレームの極値を再利用する。16bitでは改善しなかったため元の式を維持する。
+    const int4 min234 = min(v2, min(v3, v4));
+    const int4 max234 = max(v2, max(v3, v4));
+    const int4 diff0 = max(max(v0, v1), max234) - min(min(v0, v1), min234);
+    const int4 diff1 = max(max(v1, v5), max234) - min(min(v1, v5), min234);
+    const int4 diff2 = max(max(v5, v6), max234) - min(min(v5, v6), min234);
+    ((__global Type4 *)dst)[y * (dstPitch / (int)sizeof(Type4)) + x] = kfm_to_type4(min(diff0, min(diff1, diff2)));
+#else
     const int4 min0 = min(min(v0, v1), min(v2, min(v3, v4)));
     const int4 max0 = max(max(v0, v1), max(v2, max(v3, v4)));
     const int4 diff0 = max0 - min0;
@@ -193,6 +202,7 @@ __kernel void kernel_kfm_temporal_min_diff5_3(
     const int4 diff2 = max2 - min2;
 
     ((__global Type4 *)dst)[y * (dstPitch / (int)sizeof(Type4)) + x] = kfm_to_type4(min(diff0, min(diff1, diff2)));
+#endif
 }
 
 __kernel void kernel_kfm_min_frames3(
