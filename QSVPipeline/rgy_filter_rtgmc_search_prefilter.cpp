@@ -158,6 +158,17 @@ std::shared_ptr<RGYCLFrame> RGYFilterRtgmcSearchPrefilter::SharedFramePool::get(
     auto pooled = std::find_if(frames.begin(), frames.end(), [&frameInfo](const Entry &candidate) {
         return candidate.frame && !cmpFrameInfoCspResolution(&candidate.frame->frame, &frameInfo);
     });
+    // 返却直後の画像は、前の使用がGPUでまだ終わっていない場合がある。
+    // 即再利用によるreadyEventのホスト待ちは投入を途切れさせ、OpenCLとエンコーダ間の
+    // 受け渡しのまとめ方(interopのbatch)にも影響し得るため、再利用に余裕を設ける。
+    // 不要なSearchLumaの添付を外した状態では、即再利用(N=0)はmode=60で最大16%遅かった。
+    // N=8もmode=24で最大4%遅く、ucf on/offとmode vfr/24/60の12条件で
+    // 平均順位と最速からの最大遅れがともに最良だったN=4を再利用の余裕にする。
+    // FIFOに空き4枚を残し、同形式・同寸法の最も古い画像を再利用する。
+    constexpr size_t reuseLag = 4;
+    if (frames.size() <= reuseLag) {
+        pooled = frames.end();
+    }
     std::unique_ptr<RGYCLFrame> frame;
     if (pooled != frames.end()) {
         if (pooled->readyEvent() != nullptr) {

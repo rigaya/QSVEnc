@@ -98,6 +98,43 @@ static void eraseRtgmcInvalidSourceTwinFrameData(RGYFrameInfo *frame) {
     }), frame->dataList.end());
 }
 
+static void eraseRtgmcUnusedSearchLumaFrameData(RGYFrameInfo *frame, const int sourceMatch,
+    const std::array<const RGYFilter *, 4>& consumers) {
+    // source_match有効時は、別半径の入れ子解析がfallbackで探索画像を読む場合があるため残す。
+    if (!frame || sourceMatch != 0) {
+        return;
+    }
+    const auto result = rgy_degrain_get_analyze_result(frame);
+    if (!result.valid() || !result.hasFrameIdentity()
+        || result.inputFrameId != frame->inputFrameId
+        || result.timestamp != frame->timestamp || result.duration != frame->duration) {
+        return;
+    }
+    // 添付解析のidentityと全consumerのlayoutが互換で、MV/SADをそのまま使える場合だけ外す。
+    // 不一致時のfallbackは元のSearchLumaを読むため残し、判定ではコピーや解析を起動しない。
+    for (const auto *consumer : consumers) {
+        if (!consumer) {
+            continue;
+        }
+        const auto prm = dynamic_cast<const RGYFilterParamDegrain *>(consumer->GetFilterParam());
+        if (!prm) {
+            return;
+        }
+        auto layout = rgy_degrain_make_block_layout(prm->frameOut, prm->degrain);
+        if (result.layout.temporalDirections < layout.temporalDirections) {
+            return;
+        }
+        layout.temporalDirections = result.layout.temporalDirections;
+        if (!rgy_degrain_layout_equal(result.layout, layout)) {
+            return;
+        }
+    }
+    // Analyze内部cacheと共有データ本体は維持し、EDI/KFM履歴へ渡る独立出力だけから外す。
+    frame->dataList.erase(std::remove_if(frame->dataList.begin(), frame->dataList.end(), [](const std::shared_ptr<RGYFrameData>& data) {
+        return data && data->dataType() == RGY_FRAME_DATA_RTGMC_SEARCH_LUMA;
+    }), frame->dataList.end());
+}
+
 static void eraseRtgmcInternalFrameData(RGYFrameInfo *frame) {
     if (!frame) {
         return;
@@ -2142,6 +2179,16 @@ RGY_ERR RGYFilterRtgmc::runNestedFilter(size_t filterIdx, RGYFrameInfo *pInputFr
     return m_filters[filterIdx]->filter(pInputFrame, ppOutputFrames, pOutputFrameNum, queue, wait_events, event);
 }
 
+void RGYFilterRtgmc::eraseAnalyzeOutputUnusedFrameData(RGYFrameInfo *frame) {
+    eraseRtgmcInvalidSourceTwinFrameData(frame);
+    const auto prm = std::dynamic_pointer_cast<RGYFilterParamRtgmc>(m_param);
+    if (prm) {
+        eraseRtgmcUnusedSearchLumaFrameData(frame, prm->rtgmc.sourceMatch,
+            { m_filters[RTGMC_FILTER_TR1].get(), m_filters[RTGMC_FILTER_TR2].get(),
+              m_retouchCompFilters[0].get(), m_retouchCompFilters[1].get() });
+    }
+}
+
 RGY_ERR RGYFilterRtgmc::runThrough(size_t filterIdx, RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
     RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event, bool storePending) {
     if (filterIdx >= m_filters.size()) {
@@ -2196,7 +2243,7 @@ RGY_ERR RGYFilterRtgmc::runThrough(size_t filterIdx, RGYFrameInfo *pInputFrame, 
     for (int i = 0; i < childOutFrameNum; i++) {
         propagateRtgmcInternalFrameData(childOutFrames[i], pInputFrame);
         if (filterIdx == RTGMC_FILTER_ANALYZE) {
-            eraseRtgmcInvalidSourceTwinFrameData(childOutFrames[i]);
+            eraseAnalyzeOutputUnusedFrameData(childOutFrames[i]);
         }
         auto nextWaitEvents = childWaitEvents;
         attachStoredEdiReference(childOutFrames[i], &nextWaitEvents);
@@ -2311,7 +2358,7 @@ RGY_ERR RGYFilterRtgmc::drainFrom(size_t filterIdx, RGYFrameInfo **ppOutputFrame
         for (int i = 0; i < childOutFrameNum; i++) {
             propagateRtgmcInternalFrameData(childOutFrames[i], drainFrame);
             if (currentFilterIdx == RTGMC_FILTER_ANALYZE) {
-                eraseRtgmcInvalidSourceTwinFrameData(childOutFrames[i]);
+                eraseAnalyzeOutputUnusedFrameData(childOutFrames[i]);
             }
             auto nextWaitEvents = childWaitEvents;
             attachStoredEdiReference(childOutFrames[i], &nextWaitEvents);
