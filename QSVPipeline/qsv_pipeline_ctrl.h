@@ -575,6 +575,8 @@ public:
         m_type(type), m_outQeueue(), m_workSurfs(), m_mfxSession(mfxSession), m_allocator(nullptr), m_allocResponse({ 0 }), m_inFrames(0), m_outFrames(0), m_outMaxQueueSize(outMaxQueueSize), m_mfxVer(mfxVer), m_log(log), m_stopwatch(), m_workSurfAllocWidth(0), m_workSurfAllocHeight(0) {
     };
     virtual ~PipelineTask() {
+        // 出力が参照するフレームと参照カウンタを解放する前に、残った出力を破棄する。
+        m_outQeueue.clear();
         if (m_allocator) {
             m_allocator->Free(m_allocator->pthis, &m_allocResponse);
         }

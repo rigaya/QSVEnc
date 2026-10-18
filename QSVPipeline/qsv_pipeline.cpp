@@ -6437,6 +6437,12 @@ RGY_ERR CQSVPipeline::RunEncode2() {
             }
         }
     }
+    // 中断時も、フィルタやMFXを解放する前に共有面を使うworkerを停止・joinする。
+    for (auto& task : m_pipelineTasks) {
+        if (auto openclTask = dynamic_cast<PipelineTaskOpenCL *>(task.get()); openclTask != nullptr) {
+            openclTask->stopWorkers();
+        }
+    }
     // エラー終了の場合も含めキューをすべて開放する (m_pipelineTasksを解放する前に行う)
     dataqueue.clear();
 
