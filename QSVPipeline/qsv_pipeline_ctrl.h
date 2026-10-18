@@ -40,6 +40,7 @@
 #include <atomic>
 #include <thread>
 #include <mutex>
+#include <condition_variable>
 #include "qsv_hw_device.h"
 #include "rgy_opencl.h"
 #include "qsv_opencl.h"
@@ -3016,7 +3017,84 @@ public:
 };
 
 class PipelineTaskOpenCL : public PipelineTask {
+    // rgy_yield()はx86では_mm_pause()で、OSへ実行権を譲らない。調査時はthreads=2の
+    // workerが各約70%のCPUを消費したが、全待ちのブロック化は受け渡しごとの起床遅延が
+    // 重なってKFMを4～6%遅くした。個別比較で速度を保てたreleaseの入力待ちとacquireの
+    // 入力待ちだけをCV化し、元からspinだった受け渡しはspinを残す。
+    // mainの入力枠・ready待ちは従来と同じくイベントでブロックし、error/abortも確認する。
+    // 試作時のKFMのCPU時間は34～39%減、4条件の速度差は-0.7～+0.6%だった。
+    // Sleep(1)はWindowsで1～15.6msに延び得て、Linuxでも少し遅かったため通知で起こす。
+    // 待機者なしではmutex/notifyを省き、世代と待つ直前の再確認で取りこぼしを防ぐ。
+    // 1msのタイムアウトは保険で、停止・エラー時はnotify_allで確実に起こす。
+    class WorkerProgress {
+        std::mutex m_mutex;
+        std::condition_variable m_changed;
+        std::atomic<uint64_t> m_generation{0};
+        std::atomic<unsigned int> m_waiters{0};
+    public:
+        uint64_t generation() const { return m_generation.load(); }
+        void notify(bool all = false) {
+            m_generation.fetch_add(1);
+            // 待機登録より前の通知も世代で検出する。待機者がいなければロックと起床処理は省く。
+            if (!all && m_waiters.load() == 0) {
+                return;
+            }
+            {
+                // predicate確認とCVの待機登録の間で通知を取りこぼさないよう、同じmutexで同期する。
+                std::lock_guard<std::mutex> lock(m_mutex);
+            }
+            if (all) {
+                m_changed.notify_all();
+            } else {
+                m_changed.notify_one();
+            }
+        }
+        void wait(uint64_t generation, const std::atomic<bool>& abort, const std::atomic<RGY_ERR>& error) {
+            std::unique_lock<std::mutex> lock(m_mutex);
+            // 登録後に世代と終了条件を再確認する。通知側が待機者なしを観測した場合も、世代差で待たずに戻る。
+            m_waiters.fetch_add(1);
+            struct WaiterGuard {
+                std::atomic<unsigned int>& count;
+                ~WaiterGuard() { count.fetch_sub(1); }
+            } guard{m_waiters};
+            m_changed.wait_for(lock, std::chrono::milliseconds(1), [&] {
+                return m_generation.load() != generation || abort.load() || error.load() != RGY_ERR_NONE;
+            });
+        }
+    };
+    class WorkerBackoff {
+        unsigned int m_count = 0;
+        static constexpr unsigned int PAUSE_COUNT = 1024;
+        static constexpr unsigned int YIELD_COUNT = 4;
+    public:
+        void reset() { m_count = 0; }
+        void wait(WorkerProgress& progress, uint64_t generation, const std::atomic<bool>& abort, const std::atomic<RGY_ERR>& error) {
+            if (abort.load() || error.load() != RGY_ERR_NONE) {
+                return;
+            }
+            if (m_count < PAUSE_COUNT) {
+                m_count++;
+                rgy_yield();
+            } else if (m_count < PAUSE_COUNT + YIELD_COUNT) {
+                m_count++;
+                std::this_thread::yield();
+            } else {
+                progress.wait(generation, abort, error);
+            }
+        }
+    };
 protected:
+    WorkerProgress m_acquireProgress;
+    WorkerProgress m_releaseProgress;
+    // 共通queueのpopイベントは非公開なので、入力枠の空きはQSV内のCVでmainへ通知する。
+    WorkerProgress m_acquireSpaceProgress;
+    void notifyWorkerStop() {
+        // 待機方針はWorkerProgressの説明を参照。abort/error設定後にworkerとmainを起こす。
+        m_acquireProgress.notify(true);
+        m_releaseProgress.notify(true);
+        m_acquireSpaceProgress.notify(true);
+    }
+
     static const int OPENCL_ACQUIRE_QUEUE_DEPTH = 3;
     static const int OPENCL_RELEASE_QUEUE_DEPTH = 3;
     // 入力は4件で安定したが、出力は4件でArc B580の終盤ハングを確認したため2件に抑える。
@@ -3242,11 +3320,13 @@ protected:
     void setAcquireWorkerError(RGY_ERR err) {
         if (err != RGY_ERR_NONE) {
             m_acquireErr.store(err);
+            notifyWorkerStop();
         }
     }
     void setReleaseWorkerError(RGY_ERR err) {
         if (err != RGY_ERR_NONE) {
             m_releaseErr.store(err);
+            notifyWorkerStop();
         }
     }
     RGY_ERR checkAcquireWorkerError() {
@@ -3385,6 +3465,7 @@ public:
     void stopAcquireWorker() {
         if (m_acquireThread) {
             m_acquireThreadAbort.store(true);
+            notifyWorkerStop();
             if (m_acquireInQueue.size() < m_acquireInQueue.capacity()) {
                 auto work = std::make_unique<AcquireWork>();
                 work->stop = true;
@@ -3424,6 +3505,7 @@ public:
     void stopReleaseWorker() {
         if (m_releaseThread) {
             m_releaseThreadAbort.store(true);
+            notifyWorkerStop();
             if (m_releaseAcquireQueue.size() < m_releaseAcquireQueue.capacity()) {
                 auto work = std::make_unique<ReleaseAcquireWork>();
                 work->stop = true;
@@ -3478,7 +3560,8 @@ public:
     }
 protected:
     bool pushAcquireReady(std::unique_ptr<AcquireReady>& ready) {
-        while (!m_acquireThreadAbort.load()) {
+        // ready満杯は受け渡しの遅延が速度に直結するためspin。待機方針はWorkerProgressを参照。
+        while (!m_acquireThreadAbort.load() && m_acquireErr.load() == RGY_ERR_NONE) {
             if (m_acquireReadyQueue.size() < m_acquireReadyQueue.capacity()) {
                 auto readyPtr = ready.get();
                 if (m_acquireReadyQueue.push(readyPtr)) {
@@ -3509,11 +3592,18 @@ protected:
         while (true) {
             std::vector<std::unique_ptr<AcquireWork>> works;
             AcquireWork *workPtr = nullptr;
-            while (!m_acquireInQueue.front_copy_and_pop_no_lock(&workPtr)) {
+            // 入力空は短いpause/yield後にCVへ。世代取得後にキューを再確認する。
+            WorkerBackoff backoff;
+            while (true) {
+                const auto generation = m_acquireProgress.generation();
+                if (m_acquireInQueue.front_copy_and_pop_no_lock(&workPtr)) {
+                    m_acquireSpaceProgress.notify();
+                    break;
+                }
                 if (m_acquireThreadAbort.load()) {
                     return;
                 }
-                m_acquireInQueue.wait_for_push();
+                backoff.wait(m_acquireProgress, generation, m_acquireThreadAbort, m_acquireErr);
             }
             if (workPtr != nullptr) {
                 works.emplace_back(workPtr);
@@ -3526,6 +3616,7 @@ protected:
                 if (!m_acquireInQueue.front_copy_and_pop_no_lock(&workPtr)) {
                     break;
                 }
+                m_acquireSpaceProgress.notify();
                 if (workPtr != nullptr) {
                     works.emplace_back(workPtr);
                 }
@@ -3701,6 +3792,27 @@ protected:
             }
         }
     }
+    RGY_ERR pushAcquireInput(AcquireWork *work) {
+        // mainは元も入力枠の空きイベントを待っていた。spinへ変えず、各待機でerror/abortを確認する。
+        while (true) {
+            const auto generation = m_acquireSpaceProgress.generation();
+            if (const auto err = checkWorkerErrors(); err != RGY_ERR_NONE) {
+                return err;
+            }
+            if (m_acquireThreadAbort.load()) {
+                return RGY_ERR_ABORTED;
+            }
+            // queue.push内の無期限の再試行を避け、QSV側で空き待ちと終了検知を両立する。
+            if (m_acquireInQueue.size() < m_acquireInQueue.capacity()) {
+                if (!m_acquireInQueue.push(work)) {
+                    return RGY_ERR_MEMORY_ALLOC;
+                }
+                m_acquireProgress.notify();
+                return RGY_ERR_NONE;
+            }
+            m_acquireSpaceProgress.wait(generation, m_acquireThreadAbort, m_acquireErr);
+        }
+    }
     RGY_ERR pushAcquireWork(std::unique_ptr<PipelineTaskOutput>& frame) {
         if (frame) {
             auto work = std::make_unique<AcquireWork>();
@@ -3710,16 +3822,16 @@ protected:
             }
             work->frame = std::move(frame);
             auto workPtr = work.get();
-            if (!m_acquireInQueue.push(workPtr)) {
-                return RGY_ERR_MEMORY_ALLOC;
+            if (const auto err = pushAcquireInput(workPtr); err != RGY_ERR_NONE) {
+                return err;
             }
             work.release();
         } else if (!m_acquireDrainSent) {
             auto work = std::make_unique<AcquireWork>();
             work->drain = true;
             auto workPtr = work.get();
-            if (!m_acquireInQueue.push(workPtr)) {
-                return RGY_ERR_MEMORY_ALLOC;
+            if (const auto err = pushAcquireInput(workPtr); err != RGY_ERR_NONE) {
+                return err;
             }
             work.release();
             m_acquireDrainSent = true;
@@ -3727,17 +3839,25 @@ protected:
         return RGY_ERR_NONE;
     }
     std::unique_ptr<AcquireReady> popAcquireReady(bool wait) {
+        // mainは従来どおりqueueの入力イベントを待ち、待機の前後でerror/abortを確認する。
         AcquireReady *readyPtr = nullptr;
         while (!m_acquireReadyQueue.front_copy_and_pop_no_lock(&readyPtr)) {
             if (!wait) {
                 return nullptr;
             }
+            if (checkWorkerErrors() != RGY_ERR_NONE || m_acquireThreadAbort.load()) {
+                return nullptr;
+            }
             m_acquireReadyQueue.wait_for_push();
+            if (checkWorkerErrors() != RGY_ERR_NONE || m_acquireThreadAbort.load()) {
+                return nullptr;
+            }
         }
         return std::unique_ptr<AcquireReady>(readyPtr);
     }
     bool pushReleaseReady(std::unique_ptr<ReleaseReady>& ready) {
-        while (!m_releaseThreadAbort.load()) {
+        // ready満杯は起床待ちを挟まずspinし、mainへの受け渡しを優先する。
+        while (!m_releaseThreadAbort.load() && m_releaseErr.load() == RGY_ERR_NONE) {
             if (m_releaseReadyQueue.size() < m_releaseReadyQueue.capacity()) {
                 auto readyPtr = ready.get();
                 if (m_releaseReadyQueue.push(readyPtr)) {
@@ -3750,7 +3870,8 @@ protected:
         return false;
     }
     bool pushReleaseDone(std::unique_ptr<PipelineTaskOutputSurf>& done) {
-        while (!m_releaseThreadAbort.load()) {
+        // done満杯も受け渡しの待ちなのでspin。待機方針はWorkerProgressを参照。
+        while (!m_releaseThreadAbort.load() && m_releaseErr.load() == RGY_ERR_NONE) {
             if (m_releaseDoneQueue.size() < m_releaseDoneQueue.capacity()) {
                 auto donePtr = done.get();
                 if (m_releaseDoneQueue.push(donePtr)) {
@@ -3763,7 +3884,10 @@ protected:
         return false;
     }
     void runReleaseWorker() {
+        // 2つの入力が空のときだけCVで待つ。待機方針はWorkerProgressを参照。
+        WorkerBackoff backoff;
         while (!m_releaseThreadAbort.load()) {
+            const auto generation = m_releaseProgress.generation();
             bool processed = false;
             bool stopAfterBatch = false;
             std::vector<std::unique_ptr<ReleaseWork>> releaseWorks;
@@ -3948,7 +4072,9 @@ protected:
                 }
             }
             if (!processed) {
-                rgy_yield();
+                backoff.wait(m_releaseProgress, generation, m_releaseThreadAbort, m_releaseErr);
+            } else {
+                backoff.reset();
             }
         }
     }
@@ -3979,13 +4105,18 @@ protected:
                 m_releaseAcquirePending--;
                 return RGY_ERR_MEMORY_ALLOC;
             }
+            m_releaseProgress.notify();
             work.release();
         }
         return RGY_ERR_NONE;
     }
     std::unique_ptr<ReleaseReady> popReleaseReady(bool wait) {
+        // mainのready待ちはspinとし、done回収も続けてキュー間の循環待ちを避ける。
         ReleaseReady *readyPtr = nullptr;
-        while (!m_releaseReadyQueue.front_copy_and_pop_no_lock(&readyPtr)) {
+        while (true) {
+            if (m_releaseReadyQueue.front_copy_and_pop_no_lock(&readyPtr)) {
+                break;
+            }
             if (!wait) {
                 return nullptr;
             }
@@ -4001,6 +4132,7 @@ protected:
         return std::unique_ptr<ReleaseReady>(readyPtr);
     }
     RGY_ERR pushReleaseWork(PipelineTaskSurface& surf, RGYCLFrameInterop *interop, const RGYOpenCLEvent& cropDoneEvent, const RGYFrameInfo& encSurfaceInfo) {
+        // work満杯はspinしながらdoneを回収する。待機方針はWorkerProgressを参照。
         auto work = std::make_unique<ReleaseWork>();
         work->surf = surf;
         work->interop = interop;
@@ -4009,9 +4141,10 @@ protected:
         work->encSurfaceInfo = encSurfaceInfo;
         auto workPtr = work.get();
         m_releaseOutputPending++;
-        while (!m_releaseThreadAbort.load()) {
+        while (!m_releaseThreadAbort.load() && m_releaseErr.load() == RGY_ERR_NONE) {
             if (m_releaseWorkQueue.size() < m_releaseWorkQueue.capacity()) {
                 if (m_releaseWorkQueue.push(workPtr)) {
+                    m_releaseProgress.notify();
                     work.release();
                     return RGY_ERR_NONE;
                 }
@@ -4020,7 +4153,7 @@ protected:
             rgy_yield();
         }
         m_releaseOutputPending--;
-        return RGY_ERR_ABORTED;
+        return m_releaseErr.load() != RGY_ERR_NONE ? m_releaseErr.load() : RGY_ERR_ABORTED;
     }
     void collectReleaseDone(bool wait) {
         if (!useReleaseWorker()) {
@@ -4407,7 +4540,7 @@ public:
                     acquireReady = popAcquireReady(drain);
                 }
                 if (!acquireReady) {
-                    return RGY_ERR_NONE;
+                    return checkWorkerErrors();
                 }
                 if ((err = checkWorkerErrors()) != RGY_ERR_NONE) {
                     return err;
