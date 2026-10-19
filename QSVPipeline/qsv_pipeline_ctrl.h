@@ -3166,6 +3166,7 @@ protected:
     bool m_encUploadViaHost;
     std::unique_ptr<RGYCLFrame> m_encUploadFrame;
     int m_openclTaskThreads;
+    RGYParamThread m_threadParam;
     RGYOpenCLQueue m_acquireQueue;
     RGYQueueMPMP<AcquireWork *> m_acquireInQueue;
     RGYQueueMPMP<AcquireReady *> m_acquireReadyQueue;
@@ -3589,6 +3590,7 @@ protected:
         return m_cl->createFrameBuffer(bufInfo);
     }
     void runAcquireWorker() {
+        m_threadParam.apply(GetCurrentThread());
         while (true) {
             std::vector<std::unique_ptr<AcquireWork>> works;
             AcquireWork *workPtr = nullptr;
@@ -3884,6 +3886,7 @@ protected:
         return false;
     }
     void runReleaseWorker() {
+        m_threadParam.apply(GetCurrentThread());
         // 2つの入力が空のときだけCVで待つ。待機方針はWorkerProgressを参照。
         WorkerBackoff backoff;
         while (!m_releaseThreadAbort.load()) {
@@ -4318,8 +4321,8 @@ protected:
         return RGY_ERR_NONE;
     }
 public:
-    PipelineTaskOpenCL(std::vector<std::unique_ptr<RGYFilter>>& vppfilters, RGYFilterSsim *videoMetric, std::shared_ptr<RGYOpenCLContext> cl, int openclTaskThreads, MemType memType, QSVAllocator *allocator, MFXVideoSession *mfxSession, int outMaxQueueSize, std::shared_ptr<RGYLog> log) :
-        PipelineTask(PipelineTaskType::OPENCL, outMaxQueueSize, mfxSession, MFX_LIB_VERSION_0_0, log), m_cl(cl), m_vpFilters(vppfilters), m_surfVppInInterop(), m_surfVppOutInterop(), m_prevInputFrame(), m_prevAcquireFrame(), m_videoMetric(videoMetric), m_normalizeTargetFrame(), m_normalizeResizeParam(), m_normalizeResizeIdx(-1), m_resChangeFlush(false), m_bypassActive(false), m_encUploadViaHost(false), m_encUploadFrame(), m_openclTaskThreads(openclTaskThreads), m_acquireQueue(), m_acquireInQueue(), m_acquireReadyQueue(), m_acquireFreeQueue(), m_acquireThread(), m_acquireErr(RGY_ERR_NONE), m_acquireThreadAbort(false), m_releaseQueue(), m_releaseAcquireQueue(), m_releaseReadyQueue(), m_releaseWorkQueue(), m_releaseDoneQueue(), m_releaseThread(), m_releaseErr(RGY_ERR_NONE), m_releaseThreadAbort(false), m_releaseAcquirePending(0), m_releaseWorkInFlight(0), m_releaseOutputPending(0), m_acquireFrameInInfo(), m_acquireDrainSent(false), m_acquireDrainReady(false), m_acquireQueuesClosed(false), m_releaseQueuesClosed(false), m_memType(memType) {
+    PipelineTaskOpenCL(std::vector<std::unique_ptr<RGYFilter>>& vppfilters, RGYFilterSsim *videoMetric, std::shared_ptr<RGYOpenCLContext> cl, int openclTaskThreads, const RGYParamThread& threadParam, MemType memType, QSVAllocator *allocator, MFXVideoSession *mfxSession, int outMaxQueueSize, std::shared_ptr<RGYLog> log) :
+        PipelineTask(PipelineTaskType::OPENCL, outMaxQueueSize, mfxSession, MFX_LIB_VERSION_0_0, log), m_cl(cl), m_vpFilters(vppfilters), m_surfVppInInterop(), m_surfVppOutInterop(), m_prevInputFrame(), m_prevAcquireFrame(), m_videoMetric(videoMetric), m_normalizeTargetFrame(), m_normalizeResizeParam(), m_normalizeResizeIdx(-1), m_resChangeFlush(false), m_bypassActive(false), m_encUploadViaHost(false), m_encUploadFrame(), m_openclTaskThreads(openclTaskThreads), m_threadParam(threadParam), m_acquireQueue(), m_acquireInQueue(), m_acquireReadyQueue(), m_acquireFreeQueue(), m_acquireThread(), m_acquireErr(RGY_ERR_NONE), m_acquireThreadAbort(false), m_releaseQueue(), m_releaseAcquireQueue(), m_releaseReadyQueue(), m_releaseWorkQueue(), m_releaseDoneQueue(), m_releaseThread(), m_releaseErr(RGY_ERR_NONE), m_releaseThreadAbort(false), m_releaseAcquirePending(0), m_releaseWorkInFlight(0), m_releaseOutputPending(0), m_acquireFrameInInfo(), m_acquireDrainSent(false), m_acquireDrainReady(false), m_acquireQueuesClosed(false), m_releaseQueuesClosed(false), m_memType(memType) {
         m_allocator = allocator;
         //解像度変更時に「戻すべき解像度」は初期化時点のチェーン先頭の出力。ここで控えておかないと、
         //先頭CspCropを再初期化した後では取得できなくなる。

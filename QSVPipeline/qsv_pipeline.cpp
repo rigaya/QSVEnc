@@ -6070,7 +6070,7 @@ RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
             m_nAVSyncMode, m_timestampPassThrough, false, m_mfxVer, m_pQSVLog));
         for (auto& block : m_vpFilters) {
             if (block.type != VppFilterType::FILTER_OPENCL) return RGY_ERR_UNSUPPORTED;
-            auto taskOpenCL = std::make_unique<PipelineTaskOpenCL>(block.vppcl, nullptr, m_cl, 0,
+            auto taskOpenCL = std::make_unique<PipelineTaskOpenCL>(block.vppcl, nullptr, m_cl, 0, prm->ctrl.threadParams.get(RGYThreadType::CL_TASK),
                 SYSTEM_MEMORY, nullptr, nullptr, 1, m_pQSVLog);
             taskOpenCL->setNormalizeResizeParam(getNormalizeResizeParam());
             if (m_clFilterBypassForResChange) taskOpenCL->setBypassUntilResolutionChange();
@@ -6134,7 +6134,7 @@ RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
                 PrintMes(RGY_LOG_ERROR, _T("OpenCL not enabled, OpenCL filters cannot be used.\n"), CPU_GEN_STR[m_device->CPUGen()]);
                 return RGY_ERR_UNSUPPORTED;
             }
-            auto taskOpenCL = std::make_unique<PipelineTaskOpenCL>(filterBlock.vppcl, nullptr, m_cl, m_openclTaskThreads, m_device->memType(), m_device->allocator(), &m_device->mfxSession(), 1, m_pQSVLog);
+            auto taskOpenCL = std::make_unique<PipelineTaskOpenCL>(filterBlock.vppcl, nullptr, m_cl, m_openclTaskThreads, prm->ctrl.threadParams.get(RGYThreadType::CL_TASK), m_device->memType(), m_device->allocator(), &m_device->mfxSession(), 1, m_pQSVLog);
             taskOpenCL->setNormalizeResizeParam(getNormalizeResizeParam());
             m_pipelineTasks.push_back(std::move(taskOpenCL));
         } else {
@@ -6162,7 +6162,7 @@ RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
                 PrintMes(RGY_LOG_ERROR, _T("m_vpFilters.size() != 1.\n"));
                 return RGY_ERR_UNDEFINED_BEHAVIOR;
             }
-            auto taskOpenCL = std::make_unique<PipelineTaskOpenCL>(m_vpFilters.front().vppcl, m_videoQualityMetric.get(), m_cl, m_openclTaskThreads, m_device->memType(), m_device->allocator(), &m_device->mfxSession(), 1, m_pQSVLog);
+            auto taskOpenCL = std::make_unique<PipelineTaskOpenCL>(m_vpFilters.front().vppcl, m_videoQualityMetric.get(), m_cl, m_openclTaskThreads, prm->ctrl.threadParams.get(RGYThreadType::CL_TASK), m_device->memType(), m_device->allocator(), &m_device->mfxSession(), 1, m_pQSVLog);
             taskOpenCL->setNormalizeResizeParam(getNormalizeResizeParam());
             m_pipelineTasks.push_back(std::move(taskOpenCL));
         } else if (m_pipelineTasks[prevtask]->taskType() == PipelineTaskType::OPENCL) {

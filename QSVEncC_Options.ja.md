@@ -4610,6 +4610,7 @@ avsw/avhw読み込み時のデバッグ情報出力。
   - audio ... 音声処理用スレッド
   - perfmonitor ... パフォーマンス測定用スレッド
   - videoquality ... ssim/psnr/VMAF/libvship算出用スレッド
+  - cltask ... OpenCLタスクのacquire/releaseワーカー(--opencl-task-threadsで有効化)
   
 - **スレッドアフィニティ** (&lt;string2&gt;)
   - all ... 全スレッド(制限なし)
@@ -4655,6 +4656,7 @@ avsw/avhw読み込み時のデバッグ情報出力。
   - audio ... 音声処理用スレッド
   - perfmonitor ... パフォーマンス測定用スレッド
   - videoquality ... ssim/psnr/VMAF/libvship算出用スレッド
+  - cltask ... OpenCLタスクのacquire/releaseワーカー(--opencl-task-threadsで有効化)
   
 - **優先度** (&lt;string2&gt;)
   - background, idle, lowest, belownormal, normal (default), abovenormal, highest
@@ -4675,6 +4677,7 @@ avsw/avhw読み込み時のデバッグ情報出力。
   - audio ... 音声処理用スレッド
   - perfmonitor ... パフォーマンス測定用スレッド
   - videoquality ... ssim/psnr/VMAF/libvship算出用スレッド
+  - cltask ... OpenCLタスクのacquire/releaseワーカー(--opencl-task-threadsで有効化)
   
 - **優先度** (&lt;string2&gt;)
   - unset (default) ... エンコード設定により自動的に決定
@@ -4773,6 +4776,8 @@ OpenCLタスクのスレッドモードを指定する。
   - auto ... IceLake以降、またはHEVC FFエンコード対応GPUでは2、それ以外では0を選択する (デフォルト)
   - 0 ... 従来のシングルスレッド経路
   - 2 ... acquire + release ワーカー
+
+acquire/releaseワーカーは`--thread-affinity cltask=...`、`--thread-priority cltask=...`、`--thread-throttling cltask=...`で制御できる。デフォルトはそれぞれ`all`、`normal`、`on`。優先度と電力効率の設定はWindowsのみ有効。
 
 ### --cl-perf-dump &lt;dir&gt;
 OpenCL kernel performance dumpを指定したディレクトリに出力し、エンコード後に`report.html`を自動生成する。

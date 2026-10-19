@@ -1165,15 +1165,15 @@ Calculate psnr of the encoded video.
 ### --vmaf [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;]...
 Calculate VMAF from the final VPP output before encoding and the re-decoded encoded frames. VMAF is computed on CPU, so CPU load can be high and encoding speed may drop. A build with VMAF enabled and the libvmaf runtime library are required.
 
-- model=&lt;string&gt; (default: vmaf_v0.6.1)
+- model=&lt;string&gt; (default: vmaf_v0.6.1)  
   VMAF model name or path to a model file.
-- threads=&lt;int&gt; (default: 0)
+- threads=&lt;int&gt; (default: 0)  
   Number of CPU threads for VMAF. 0 uses the number of physical CPU cores.
-- subsample=&lt;int&gt; (default: 1)
+- subsample=&lt;int&gt; (default: 1)  
   VMAF evaluation interval. Specify 1 or larger.
-- phone_model=&lt;bool&gt; (default: false)
+- phone_model=&lt;bool&gt; (default: false)  
   Use the phone model.
-- enable_transform=&lt;bool&gt; (default: false)
+- enable_transform=&lt;bool&gt; (default: false)  
   Enable VMAF transform. Specifying `enable_transform` alone also enables it.
 
 ### --no-vmaf
@@ -4551,6 +4551,7 @@ Set thread affinity to the process or threads of the application.
   - audio ... audio processing threads
   - perfmonitor ... performance monitoring threads
   - videoquality ... ssim/psnr/vmaf calculation thread
+  - cltask ... OpenCLタスクのacquire/releaseワーカー(--opencl-task-threadsで有効化)
   
 - **thread affinity** (&lt;string2&gt;)
   - all ... All cores(no limit)
@@ -4596,6 +4597,7 @@ Set priority to the process or threads of the application. [Windows OS only]
   - audio ... audio processing threads
   - perfmonitor ... performance monitoring threads
   - videoquality ... ssim/psnr/vmaf calculation thread
+  - cltask ... OpenCLタスクのacquire/releaseワーカー(--opencl-task-threadsで有効化)
   
 - **Priority** (&lt;string2&gt;)
   - background, idle, lowest, belownormal, normal (default), abovenormal, highest
@@ -4625,6 +4627,7 @@ Set power throttling mode to the threads of the application. [Windows OS only]
   - audio ... audio processing threads
   - perfmonitor ... performance monitoring threads
   - videoquality ... ssim/psnr/vmaf calculation thread
+  - cltask ... OpenCLタスクのacquire/releaseワーカー(--opencl-task-threadsで有効化)
   
 - **mode** (&lt;string2&gt;)
   - unset (default) ... mode will be set automatically depending on the encode target.
@@ -4717,6 +4720,8 @@ Set OpenCL task thread mode.
   - auto ... selects 2 on IceLake or later GPUs, or GPUs supporting HEVC FF encoding; otherwise selects 0 (default)
   - 0 ... legacy single-thread path
   - 2 ... acquire + release workers
+
+acquire/releaseワーカーは`--thread-affinity cltask=...`、`--thread-priority cltask=...`、`--thread-throttling cltask=...`で制御できる。デフォルトはそれぞれ`all`、`normal`、`on`。優先度と電力効率の設定はWindowsのみ有効。
 
 ### --cl-perf-dump &lt;dir&gt;
 Write OpenCL kernel performance dumps to the specified directory and automatically generate `report.html` after encoding.
