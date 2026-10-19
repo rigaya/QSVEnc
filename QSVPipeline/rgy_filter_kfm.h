@@ -287,7 +287,7 @@ protected:
     const KfmUcfNoiseDumpRecord *findUcfNoiseResult(int sourceIndex) const;
     RGY_ERR runUcfNoiseAnalysisFromSource(const RGYFrameInfo *frame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events);
     RGY_ERR ensureUcfRtgmcRange(KfmUcfLaneType laneType, int n60begin, int n60end, RGYOpenCLQueue &queue);
-    void captureDeint60Intermediates(int sourceIndex);
+    void captureDeint60Intermediates();
     bool hasDeint60Intermediate(int sourceIndex, uint64_t *generation = nullptr) const;
     bool hasDeint60Intermediates(int sourceBegin, int sourceEnd) const;
     RGY_ERR ensureDeint60IntermediateForSource(int sourceIndex, RGYOpenCLQueue &queue);
