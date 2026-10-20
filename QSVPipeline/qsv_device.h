@@ -44,6 +44,10 @@ public:
     RGY_ERR addEncFeature(const std::vector<QSVEncFeatureData>& encFeatures);
     std::pair<RGY_ERR, QSVEncFeatures> getEncodeFeature(const QSVDeviceNum dev, const int ratecontrol, const RGY_CODEC codec, const bool lowpower);
     std::vector<QSVEncFeatureData> getEncodeFeatures(const QSVDeviceNum dev, const RGYDeviceInfoCacheKey& deviceInfo);
+#if ENABLE_VAAPI
+    void setBackend(const std::string& backend, const std::string& environment);
+    std::string getBackend(const std::string& environment) const { return m_backendEnvironment == environment ? m_backend : std::string(); }
+#endif
 protected:
     virtual RGY_ERR parseEncFeatures(std::ifstream& cacheFile) override;
     virtual void writeEncFeatures(std::ofstream& cacheFile) override;
@@ -51,6 +55,10 @@ protected:
     virtual void clearFeatureCache() override;
 
     std::vector<QSVEncFeatureData> m_featureData;
+#if ENABLE_VAAPI
+    std::string m_backend;
+    std::string m_backendEnvironment;
+#endif
 };
 
 class QSVDevice {
@@ -139,6 +147,8 @@ std::vector<std::unique_ptr<QSVDevice>> getDeviceList(const QSVDeviceNum dev, co
 
 #if ENABLE_VAAPI
 bool qsvVPLDriverCompatible();
+std::string qsvBackendCacheEnvironment(QSVDeviceNum deviceNum);
+bool qsvVPLRuntimeAvailable(QSVDeviceNum deviceNum, const QSVDeviceInfoCache *cache, RGYLog *log, std::string& environment);
 std::vector<std::unique_ptr<QSVDevice>> getDeviceListVA(QSVDeviceNum deviceNum, bool enableOpenCL, std::shared_ptr<RGYLog> log);
 #endif
 

@@ -36,7 +36,10 @@ The default `--backend auto` tries QSV, and switches to VA-API if the device is 
 
 - `QSVENC_VPL_DISABLE=1` is set.
 - `LIBVA_DRIVER_NAME` is set to a value other than `iHD` (case-insensitive).
-- `iHD_drv_video.so` is not found in the driver search path (e.g. environments with i965 only).
+
+If `iHD_drv_video.so` is not found in the driver search path, QSV initialization is tested in a separate process. This uses the actual library search behavior, allowing bundled drivers in nonstandard locations to be detected. VA-API is selected if the probe fails or terminates abnormally.
+
+The feature information cache also records the selected backend. The separate-process probe is skipped when the cache passes the existing version and boot-time checks, contains `Backend qsv`, and matches the executable, search paths, and related library file metadata. Environment information is stored as labeled plain text on a single `Backend Environment` line. A VA-API record alone does not skip the probe.
 
 If the VPL runtime crashes at startup, use `QSVENC_VPL_DISABLE=1 qsvencc ...` to avoid loading VPL. Use `--backend vaapi` to select VA-API explicitly, or `--backend qsv` to select QSV explicitly.
 

@@ -5359,6 +5359,10 @@ RGY_ERR CQSVPipeline::initBackendVA(sInputParams *pParams, std::vector<std::uniq
     PrintMes(RGY_LOG_INFO, _T("backend=vaapi\n"));
     deviceList = getDeviceListVA(pParams->device, pParams->ctrl.enableOpenCL, m_pQSVLog);
     if (deviceList.empty()) return RGY_ERR_DEVICE_NOT_FOUND;
+    // VA の選択は記録するが、次回の QSV 検査を省く根拠には使わない。
+    QSVDeviceInfoCache backendCache;
+    backendCache.setBackend("vaapi", qsvBackendCacheEnvironment(pParams->device));
+    backendCache.updateCacheFile();
     return RGY_ERR_NONE;
 }
 
@@ -5474,22 +5478,30 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     std::vector<std::unique_ptr<QSVDevice>> deviceList;
     m_backend = QSVBackend::QSV;
 #if ENABLE_VAAPI
-    const auto vplDisabled = std::getenv("QSVENC_VPL_DISABLE");
-    const bool vplDriverCompatible = qsvVPLDriverCompatible();
-    if (pParams->backend == QSVBackend::Auto && !vplDriverCompatible) {
-        if (const auto driver = std::getenv("LIBVA_DRIVER_NAME"); driver != nullptr) {
-            PrintMes(RGY_LOG_INFO, _T("LIBVA_DRIVER_NAME=%s is incompatible with VPL; skipping QSV and using VA-API.\n"),
-                char_to_tstring(driver).c_str());
-        } else {
-            PrintMes(RGY_LOG_INFO, _T("iHD_drv_video.so was not found in VA-API driver search paths; skipping QSV and using VA-API.\n"));
-        }
+    deviceInfoCache = std::make_shared<QSVDeviceInfoCache>();
+    const auto cacheStatus = deviceInfoCache->loadCacheFile();
+    if (cacheStatus == RGY_ERR_FILE_OPEN) {
+        deviceInfoCache.reset(); // 開けないキャッシュへの書き込みも避ける。
+    } else if (cacheStatus != RGY_ERR_NONE) {
+        // 途中まで読めた情報も、自動判定や機能情報の再利用には使わない。
+        deviceInfoCache = std::make_shared<QSVDeviceInfoCache>();
     }
+    std::string backendEnvironment;
+    const auto vplDisabled = std::getenv("QSVENC_VPL_DISABLE");
     if (pParams->backend == QSVBackend::VAAPI
         || (pParams->backend == QSVBackend::Auto
-            && ((vplDisabled && std::strcmp(vplDisabled, "1") == 0) || !vplDriverCompatible))) {
+            && ((vplDisabled && std::strcmp(vplDisabled, "1") == 0)
+                || !qsvVPLRuntimeAvailable(pParams->device, deviceInfoCache.get(), m_pQSVLog.get(), backendEnvironment)))) {
+        if (pParams->backend == QSVBackend::Auto) {
+            PrintMes(RGY_LOG_INFO, _T("QSV is disabled, incompatible with the selected VA driver, or unavailable after probing; using VA-API.\n"));
+        }
         if ((sts = initBackendVA(pParams, deviceList, deviceInfoCache)) != RGY_ERR_NONE) return sts;
     }
-#endif
+    if (deviceInfoCache && cacheStatus == RGY_ERR_NONE) {
+        HWDecCodecCsp = deviceInfoCache->getDeviceDecCodecCsp();
+        PrintMes(RGY_LOG_DEBUG, _T("HW dec codec csp support read from cache file.\n"));
+    }
+#else
     if (m_backend == QSVBackend::QSV) deviceInfoCache = std::make_shared<QSVDeviceInfoCache>();
     if (deviceInfoCache && (sts = deviceInfoCache->loadCacheFile()) != RGY_ERR_NONE) {
         if (sts == RGY_ERR_FILE_OPEN) { // ファイルは存在するが開けない
@@ -5499,6 +5511,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
         HWDecCodecCsp = deviceInfoCache->getDeviceDecCodecCsp();
         PrintMes(RGY_LOG_DEBUG, _T("HW dec codec csp support read from cache file.\n"));
     }
+#endif
     m_pQSVLog->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Device Info Cache size: %d\n"), deviceInfoCache ? (int)deviceInfoCache->getDeviceIds().size() : 0);
 
     auto getDevInfo = [&deviceList]() {
@@ -5582,6 +5595,13 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     sts = InitSession(pParams, deviceList);
     RGY_ERR(sts, _T("Failed to initialize encode session."));
     PrintMes(RGY_LOG_DEBUG, _T("InitSession: Success.\n"));
+#if ENABLE_VAAPI
+    if (m_backend == QSVBackend::QSV && deviceInfoCache) {
+        // 実際のセッション初期化成功後にだけ、次回の検査省略を許可する。
+        deviceInfoCache->setBackend("qsv", backendEnvironment.empty() ? qsvBackendCacheEnvironment(pParams->device) : backendEnvironment);
+        deviceInfoCache->updateCacheFile();
+    }
+#endif
 
     sts = InitOpenCL(pParams->ctrl.enableOpenCL, pParams->ctrl.parallelEnc.isParent() ? 1 : pParams->ctrl.openclBuildThreads, pParams->vpp.checkPerformance, pParams->ctrl.clPerfDumpDir, pParams->ctrl.clPerfTimelineSec);
     if (sts < RGY_ERR_NONE) return sts;

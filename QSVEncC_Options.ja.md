@@ -494,6 +494,8 @@ Linux 版のバックエンドを指定する。既定値は `auto`。VA-API を
 - `qsv`: oneVPL による QSV を使用する。
 - `vaapi`: Intel GPU の VA-API を使用する。oneVPL / Media SDK のランタイムは不要。
 
+`auto` では最初にドライバの配置を確認する。`iHD_drv_video.so` が見つからない場合は、別プロセスで QSV の初期化を検査する。有効な機能情報キャッシュに `Backend qsv` の記録があり、保存した探索パス・関連ライブラリの更新情報などが一致すれば、この検査を省略する。VA-API の記録だけでは検査を省略しない。
+
 `--check-hw` / `--check-features` / `--check-device` と組み合わせると、指定したバックエンドのデバイス情報を表示する。`--backend vaapi --check-features` で、ドライバが対応するコーデック、ビット深度、RC、EncSlice / LP、qualityLevels を確認できる。
 
 VA-API の `-d` は、VPL で使用できる GPU に QSV と同じ番号を割り当て、それ以外の GPU は後ろの番号にする。`--backend vaapi --check-device` で番号を確認できる。VPL が使用できない場合、`QSVENC_VPL_DISABLE=1` の場合、または `LIBVA_DRIVER_NAME` に `iHD` 以外を指定した場合（大文字小文字は無視）は、Intel の render node 順になる。`iHD` 以外の指定時は VPL を使用せず、`auto` は直接 VA-API を選択する。明示した `--backend qsv` は従来どおり QSV を試行する。

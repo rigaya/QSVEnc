@@ -314,11 +314,8 @@ int RGYPipeProcessLinux::waitAndGetExitCode() {
     if (waitpid(m_phandle, &status, 0) == -1) {
         return 1; // waitpid() failed
     }
-    int ret = 0;
-    if (WIFEXITED(status)) {
-        ret = WEXITSTATUS(status);
-    }
-    return ret;
+    // シグナルによる異常終了は成功として扱わない。
+    return WIFEXITED(status) ? WEXITSTATUS(status) : 1;
 }
 
 int RGYPipeProcessLinux::wait(uint32_t timeout) {

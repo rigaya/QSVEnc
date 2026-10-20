@@ -34,21 +34,59 @@
 #include "rgy_avutil.h"
 #if ENABLE_VAAPI
 #include "qsv_hw_va_utils_drm.h"
+#include "rgy_pipe.h"
+#include "rgy_filesystem.h"
 #include <filesystem>
+#include <iomanip>
+#include <dlfcn.h>
 #include <strings.h>
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
 #include <unistd.h>
 #endif
 
-QSVDeviceInfoCache::QSVDeviceInfoCache() : RGYDeviceInfoCache(), m_featureData() { }
-QSVDeviceInfoCache::~QSVDeviceInfoCache() { }
+QSVDeviceInfoCache::QSVDeviceInfoCache() : RGYDeviceInfoCache(), m_featureData()
+#if ENABLE_VAAPI
+    , m_backend(), m_backendEnvironment()
+#endif
+{ }
+QSVDeviceInfoCache::~QSVDeviceInfoCache() {
+#if ENABLE_VAAPI
+    // 派生クラスの書き出し処理が有効なうちにバックエンドと機能情報を保存する。
+    updateCacheFile();
+#endif
+}
+
+#if ENABLE_VAAPI
+void QSVDeviceInfoCache::setBackend(const std::string& backend, const std::string& environment) {
+    if (m_backend != backend || m_backendEnvironment != environment) {
+        m_backend = backend;
+        m_backendEnvironment = environment;
+        m_dataUpdated = true;
+    }
+}
+#endif
 
 RGY_ERR QSVDeviceInfoCache::parseEncFeatures(std::ifstream& cacheFile) {
     m_featureData.clear();
+#if ENABLE_VAAPI
+    m_backend.clear();
+    m_backendEnvironment.clear();
+#endif
 
     std::string line;
     while (std::getline(cacheFile, line)) {
+#if ENABLE_VAAPI
+        if (line.compare(0, 20, "Backend Environment ") == 0) {
+            m_backendEnvironment = line.substr(20);
+            continue;
+        }
+        if (line.compare(0, 8, "Backend ") == 0) {
+            m_backend = line.substr(8);
+            if (m_backend != "qsv" && m_backend != "vaapi") return RGY_ERR_INVALID_FORMAT;
+            continue;
+        }
+#endif
         QSVEncFeatureData featureData;
 
         std::istringstream iss(line);
@@ -105,6 +143,12 @@ RGY_ERR QSVDeviceInfoCache::parseEncFeatures(std::ifstream& cacheFile) {
 
 void QSVDeviceInfoCache::writeEncFeatures(std::ofstream& cacheFile) {
     cacheFile << ENC_FEATURES_START_LINE << std::endl;
+#if ENABLE_VAAPI
+    if (!m_backend.empty()) {
+        cacheFile << "Backend " << m_backend << std::endl;
+        cacheFile << "Backend Environment " << m_backendEnvironment << std::endl;
+    }
+#endif
 
     for (const auto& featureData : m_featureData) {
         for (const auto& feature : featureData.feature) {
@@ -601,8 +645,8 @@ bool qsvVPLDriverCompatible() {
     // mfx-gen は iHD 前提。i965 で非対応 GPU を初期化すると、以後の VA 初期化まで失敗する。
     const auto driver = std::getenv("LIBVA_DRIVER_NAME");
     if (driver != nullptr) return strcasecmp(driver, "iHD") == 0;
-    // libva の i915 は iHD → i965 の順に試す。iHD がないときは VPL を触らない。
-    // 非標準の探索先を見落としても auto が VA になるだけで、明示 qsv は使用できる。
+    // libva の i915 は iHD → i965 の順に試す。ここでは iHD の配置だけを確認する。
+    // 非標準の探索先は、呼び出し側でキャッシュまたは別プロセス検査により補完する。
     std::vector<std::string> paths;
     if (const auto driverPaths = std::getenv("LIBVA_DRIVERS_PATH"); driverPaths != nullptr) {
         std::istringstream stream(driverPaths);
@@ -626,6 +670,131 @@ bool qsvVPLDriverCompatible() {
         std::error_code ec;
         return std::filesystem::is_regular_file(std::filesystem::path(path) / "iHD_drv_video.so", ec);
     });
+}
+
+// バックエンドの再利用は、実行ファイル・探索環境・デバイスが同じ場合だけ許可する。
+std::string qsvBackendCacheEnvironment(const QSVDeviceNum deviceNum) {
+    std::ostringstream context;
+    context << "device=" << (int)deviceNum << " uid=" << getuid() << " gid=" << getgid()
+        << " euid=" << geteuid() << " egid=" << getegid();
+    const int groupCount = getgroups(0, nullptr);
+    std::vector<gid_t> groups(groupCount > 0 ? groupCount : 0);
+    if (groupCount > 0 && getgroups(groupCount, groups.data()) == groupCount) {
+        std::sort(groups.begin(), groups.end());
+        context << " groups=";
+        for (const auto group : groups) context << group << ',';
+    }
+    const auto appendPath = [&](const std::string& path) {
+        struct stat info = {};
+        context << " path=" << std::quoted(path);
+        if (stat(path.c_str(), &info) == 0) {
+            context << " dev=" << info.st_dev << " inode=" << info.st_ino << " mode=" << info.st_mode
+                << " uid=" << info.st_uid << " gid=" << info.st_gid;
+            // ディレクトリ内の無関係なログ・出力ファイルの作成では無効化しない。
+            // 関連ライブラリの一覧と個々の更新時刻は別に記録する。
+            if (!S_ISDIR(info.st_mode)) {
+                context << " size=" << info.st_size << " mtime=" << info.st_mtim.tv_sec << '.' << info.st_mtim.tv_nsec
+                    << " ctime=" << info.st_ctim.tv_sec << '.' << info.st_ctim.tv_nsec;
+            }
+        } else {
+            context << " missing";
+        }
+    };
+    appendPath("/proc/self/exe");
+    // 同じ版でも別の場所に展開したバイナリは、同梱ライブラリが異なる可能性がある。
+    std::error_code ec;
+    context << " executable=" << std::quoted(std::filesystem::read_symlink("/proc/self/exe", ec).string());
+    for (const auto name : { "LIBVA_DRIVER_NAME", "LIBVA_DRIVERS_PATH", "LD_LIBRARY_PATH",
+        "LD_PRELOAD", "ONEVPL_SEARCH_PATH", "ONEVPL_PRIORITY_PATH", "QSVENC_VPL_DISABLE" }) {
+        const auto value = std::getenv(name);
+        context << ' ' << name << '=';
+        if (value) context << std::quoted(std::string(value));
+        else context << "unset";
+    }
+    appendPath("/dev/dri");
+    std::vector<std::filesystem::path> nodes;
+    for (std::filesystem::directory_iterator it("/dev/dri", ec), end; !ec && it != end; it.increment(ec)) {
+        if (it->path().filename().string().find("renderD") == 0) nodes.push_back(it->path());
+    }
+    std::sort(nodes.begin(), nodes.end());
+    for (const auto& node : nodes) appendPath(node.string());
+    Dl_info libva = {};
+    if (dladdr(reinterpret_cast<void *>(&vaInitialize), &libva) && libva.dli_fname) {
+        appendPath(libva.dli_fname);
+        appendPath((std::filesystem::path(libva.dli_fname).parent_path() / "dri/iHD_drv_video.so").string());
+    }
+    // 探索先が同じでも、同梱ドライバやランタイムの更新・削除では再検査する。
+    std::vector<std::filesystem::path> directories = {
+        "/usr/lib64/dri", "/usr/lib/dri", "/usr/local/lib64/dri", "/usr/local/lib/dri",
+        "/usr/lib/x86_64-linux-gnu", "/usr/lib64", "/usr/lib",
+        "/usr/local/lib/x86_64-linux-gnu", "/usr/local/lib64", "/usr/local/lib"
+    };
+    for (const auto name : { "LIBVA_DRIVERS_PATH", "LD_LIBRARY_PATH", "ONEVPL_SEARCH_PATH", "ONEVPL_PRIORITY_PATH" }) {
+        if (const auto value = std::getenv(name)) {
+            std::istringstream paths(value);
+            for (std::string path; std::getline(paths, path, ':'); ) {
+                directories.emplace_back(path.empty() ? "." : path);
+            }
+        }
+    }
+    ec.clear();
+    const auto executable = std::filesystem::read_symlink("/proc/self/exe", ec);
+    if (!ec) {
+        directories.push_back(executable.parent_path());
+        directories.push_back(executable.parent_path() / "../Library");
+    }
+    if (libva.dli_fname) directories.push_back(std::filesystem::path(libva.dli_fname).parent_path());
+    const auto baseDirectories = directories;
+    for (const auto& directory : baseDirectories) {
+        directories.push_back(directory / "dri");
+        directories.push_back(directory / "libmfx-gen");
+    }
+    std::sort(directories.begin(), directories.end());
+    directories.erase(std::unique(directories.begin(), directories.end()), directories.end());
+    for (const auto& directory : directories) {
+        appendPath(directory.string());
+        std::vector<std::filesystem::path> libraries;
+        ec.clear();
+        for (std::filesystem::directory_iterator it(directory, ec), end; !ec && it != end; it.increment(ec)) {
+            const auto name = it->path().filename().string();
+            if (name.find("libmfx") == 0 || name.find("libvpl") == 0 || name.find("libva") == 0
+                || name.find("iHD_drv_video") == 0 || name.find("libigdgmm") == 0) {
+                libraries.push_back(it->path());
+            }
+        }
+        std::sort(libraries.begin(), libraries.end());
+        for (const auto& library : libraries) appendPath(library.string());
+    }
+    auto result = context.str();
+    result = str_replace(result, "\r", "\\r");
+    result = str_replace(result, "\n", "\\n");
+    return result;
+}
+
+bool qsvVPLRuntimeAvailable(const QSVDeviceNum deviceNum, const QSVDeviceInfoCache *cache, RGYLog *log, std::string& environment) {
+    // 明示したドライバを優先する。通常の配置で見つかれば追加プロセスは起動しない。
+    const bool compatible = qsvVPLDriverCompatible();
+    if (std::getenv("LIBVA_DRIVER_NAME") || compatible) return compatible;
+    environment = qsvBackendCacheEnvironment(deviceNum);
+    if (cache && cache->getBackend(environment) == "qsv") {
+        log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("QSV backend cache matched; skipping isolated QSV probe.\n"));
+        return true;
+    }
+    log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("iHD was not found in known paths; probing QSV in a separate process.\n"));
+    auto process = createRGYPipeProcess();
+    process->init(PIPE_MODE_DISABLE, PIPE_MODE_DISABLE, PIPE_MODE_ENABLE);
+    // 親と同じく、機能キャッシュが空の場合は全 GPU を列挙する。
+    const auto probeDevice = cache && cache->getDeviceIds().empty() ? QSVDeviceNum::AUTO : deviceNum;
+    const std::vector<tstring> args = { getExePath(), _T("--check-qsv-backend"), std::to_string((int)probeDevice) };
+    if (process->run(args, nullptr, 0, true, false) != 0) {
+        log->write(RGY_LOG_WARN, RGY_LOGT_DEV, _T("Could not start QSV probe.\n"));
+        return false;
+    }
+    std::vector<uint8_t> output;
+    while (process->stdErrRead(output) >= 0) output.clear();
+    const bool available = process->waitAndGetExitCode() == 0;
+    log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Isolated QSV probe: %s.\n"), available ? _T("available") : _T("unavailable"));
+    return available;
 }
 
 static std::map<int, std::string> getVPLDevicePciBusIds(std::shared_ptr<RGYLog>& log) {

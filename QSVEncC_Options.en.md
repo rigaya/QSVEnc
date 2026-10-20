@@ -474,6 +474,8 @@ Select the backend on Linux. The default is `auto`. This option is unavailable w
 - `qsv`: Use QSV through oneVPL.
 - `vaapi`: Use VA-API on an Intel GPU. No oneVPL / Media SDK runtime is required.
 
+With `auto`, driver locations are checked first. If `iHD_drv_video.so` is not found, QSV initialization is tested in a separate process. This probe is skipped when a valid feature information cache contains `Backend qsv` and the saved search paths, related library file metadata, and other environment information match. A VA-API record alone does not skip the probe.
+
 Combine this option with `--check-hw`, `--check-features`, or `--check-device` to display device information for the selected backend. Use `--backend vaapi --check-features` to check the codecs, bit depths, rate control modes, EncSlice / LP support, and qualityLevels exposed by the driver.
 
 With VA-API, `-d` uses the same numbers as QSV for GPUs available through VPL; other GPUs are assigned subsequent numbers. Check them with `--backend vaapi --check-device`. When VPL is unavailable, `QSVENC_VPL_DISABLE=1` is set, or `LIBVA_DRIVER_NAME` is set to a value other than `iHD` (case-insensitive), Intel render node order is used. With a non-`iHD` driver, VPL is skipped and `auto` selects VA-API directly. An explicit `--backend qsv` still attempts QSV.

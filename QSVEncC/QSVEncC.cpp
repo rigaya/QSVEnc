@@ -1361,7 +1361,37 @@ int run(int argc, TCHAR *argv[]) {
     return sts;
 }
 
+#if defined(__linux__) && ENABLE_VAAPI
+// 別プロセスで検査し、VPL の初期化失敗が呼び出し元の VA-API に影響しないようにする。
+static int check_qsv_backend(int argc, TCHAR *argv[]) {
+    if (argc != 3 || argv[2][0] == _T('\0')) {
+        return 2;
+    }
+    int deviceId = 0;
+    for (const TCHAR *ptr = argv[2]; *ptr != _T('\0'); ptr++) {
+        if (*ptr < _T('0') || *ptr > _T('9')) {
+            return 2;
+        }
+        deviceId = deviceId * 10 + (*ptr - _T('0'));
+        if (deviceId > (int)QSVDeviceNum::MAX) {
+            return 2;
+        }
+    }
+
+    // 親と同じ列挙処理を使い、OpenCL・Vulkan・機能キャッシュは使用しない。
+    auto log = std::make_shared<RGYLog>(nullptr, RGY_LOG_QUIET);
+    const auto devices = getDeviceList((QSVDeviceNum)deviceId, false, RGYParamInitVulkan::Disable,
+        VA_MEMORY, MFXVideoSession2Params(), nullptr, log);
+    return devices.empty() ? 1 : 0;
+}
+#endif
+
 int _tmain(int argc, TCHAR *argv[]) {
+#if defined(__linux__) && ENABLE_VAAPI
+    if (argc >= 2 && _tcscmp(argv[1], _T("--check-qsv-backend")) == 0) {
+        return check_qsv_backend(argc, argv);
+    }
+#endif
     int ret = 0;
     if (0 != (ret = run(argc, argv))) {
 #if defined(_WIN32) || defined(_WIN64)
