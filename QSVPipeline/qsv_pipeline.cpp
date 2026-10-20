@@ -2220,6 +2220,12 @@ DeviceCodecCsp CQSVPipeline::getHWDecCodecCsp(const bool skipHWDecodeCheck, std:
 
 RGY_ERR CQSVPipeline::InitInput(sInputParams *inputParam, DeviceCodecCsp& HWDecCodecCsp) {
 #if ENABLE_RAW_READER
+#if ENABLE_VAAPI
+    if (m_backend == QSVBackend::VAAPI && inputParam->input.type == RGY_INPUT_FMT_AVHW) {
+        PrintMes(RGY_LOG_WARN, _T("--avhw is unavailable with the VA-API backend; switching to --avsw (software decoding).\n"));
+        inputParam->input.type = RGY_INPUT_FMT_AVSW;
+    }
+#endif
     m_pStatus = std::make_shared<EncodeStatus>();
 
     int subburnTrackId = 0;

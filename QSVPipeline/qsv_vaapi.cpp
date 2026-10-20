@@ -40,8 +40,6 @@ RGY_ERR qsvVACheckParam(sInputParams& prm, std::shared_ptr<RGYLog> log) {
     };
     if (prm.outputCsp != RGY_CHROMAFMT_YUV420) return unsupported(_T("--output-csp (non-420)"));
     if (prm.outputDepth != 8 && prm.outputDepth != 10) return unsupported(_T("--output-depth (other than 8 / 10)"));
-    // 品質指標は既存の QSVMfxDec と MFX セッションを必要とするため、Phase 1 では拒否する。
-    if (prm.input.type == RGY_INPUT_FMT_AVHW) return unsupported(_T("--avhw"));
     if (!prm.dynamicRC.empty()) return unsupported(_T("--dynamic-rc"));
     if (prm.rcParam.encMode == MFX_RATECONTROL_LA || prm.rcParam.encMode == MFX_RATECONTROL_LA_ICQ || prm.rcParam.encMode == MFX_RATECONTROL_LA_HRD || prm.rcParam.encMode == MFX_RATECONTROL_VCM) return unsupported(_T("LA / LA-ICQ / LA-HRD / VCM"));
     if (prm.common.adaptResolution != defaults.common.adaptResolution && prm.input.type != RGY_INPUT_FMT_AVSW && prm.input.type != RGY_INPUT_FMT_AVANY)

@@ -500,9 +500,9 @@ Linux 版のバックエンドを指定する。既定値は `auto`。VA-API を
 
 VA-API の `-d` は、VPL で使用できる GPU に QSV と同じ番号を割り当て、それ以外の GPU は後ろの番号にする。`--backend vaapi --check-device` で番号を確認できる。VPL が使用できない場合、`QSVENC_VPL_DISABLE=1` の場合、または `LIBVA_DRIVER_NAME` に `iHD` 以外を指定した場合（大文字小文字は無視）は、Intel の render node 順になる。`iHD` 以外の指定時は VPL を使用せず、`auto` は直接 VA-API を選択する。明示した `--backend qsv` は従来どおり QSV を試行する。
 
-VA-API では raw / `--avsw` 入力を使い、入力の自動選択もソフトウェアデコードになる。H.264 / HEVC / VP9 / AV1、8 / 10bit の YUV 4:2:0、CQP / CBR / VBR / ICQ / QVBR / AVBR は、GPU とドライバの対応範囲で使用できる。ICQ 非対応時は WARN を表示して CQP に切り替える。OpenCL が使用できれば、`--crop` / `--output-res`、`--vpp-resize` / `--vpp-colorspace` などの OpenCL フィルタも使用できる。フィルタなしのエンコードには OpenCL は不要だが、無効時に OpenCL フィルタを指定するとエラーになる。HEVC の HDR10 / HDR10+ / Dolby Vision メタデータにも対応する。
+VA-API では raw / `--avsw` 入力を使い、入力の自動選択もソフトウェアデコードになる。`--avhw` を指定した場合は警告を表示して `--avsw` に変更する。明示的な VA-API 選択と `auto` からの切り替えの両方に適用する。H.264 / HEVC / VP9 / AV1、8 / 10bit の YUV 4:2:0、CQP / CBR / VBR / ICQ / QVBR / AVBR は、GPU とドライバの対応範囲で使用できる。ICQ 非対応時は WARN を表示して CQP に切り替える。OpenCL が使用できれば、`--crop` / `--output-res`、`--vpp-resize` / `--vpp-colorspace` などの OpenCL フィルタも使用できる。フィルタなしのエンコードには OpenCL は不要だが、無効時に OpenCL フィルタを指定するとエラーになる。HEVC の HDR10 / HDR10+ / Dolby Vision メタデータにも対応する。
 
-VA-API では `--avhw`、MFX VPP (`--vpp-mfx-*`、MFX のインターレース解除・ノイズ除去・AI 処理など)、LA / LA-ICQ / LA-HRD / VCM、`--dynamic-rc`、`--parallel`、`--ssim` / `--psnr` / `--vmaf` は使用できない。インターレースを保持したエンコードはエラーになる (OpenCL でのインターレース解除は使用可能)。avsw 入力 (自動選択を含む) の解像度変更は OpenCL で起動時の出力解像度へリサイズする。初期解像度を超えて拡大する入力には `--adapt-resolution` で最大寸法を指定する。OpenCL がない場合の解像度変更はエラーになる。`--b-pyramid` など、対応していないエンコードオプションを既定値から変更すると WARN を表示して無視する。
+VA-API では MFX VPP (`--vpp-mfx-*`、MFX のインターレース解除・ノイズ除去・AI 処理など)、LA / LA-ICQ / LA-HRD / VCM、`--dynamic-rc`、`--parallel`、`--ssim` / `--psnr` / `--vmaf` は使用できない。インターレースを保持したエンコードはエラーになる (OpenCL でのインターレース解除は使用可能)。avsw 入力 (自動選択を含む) の解像度変更は OpenCL で起動時の出力解像度へリサイズする。初期解像度を超えて拡大する入力には `--adapt-resolution` で最大寸法を指定する。OpenCL がない場合の解像度変更はエラーになる。`--b-pyramid` など、対応していないエンコードオプションを既定値から変更すると WARN を表示して無視する。
 
 ### -d, --device &lt;string&gt; or &lt;int&gt;
 使用するデバイス番号の指定 (auto(デフォルト), 1, 2, 3, ...)
