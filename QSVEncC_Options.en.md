@@ -4722,7 +4722,6 @@ Set OpenCL task thread mode.
   - auto ... selects 2 on IceLake or later GPUs, or GPUs supporting HEVC FF encoding; otherwise selects 0 (default)
   - 0 ... legacy single-thread path
   - 2 ... acquire + release workers
-  - 3 ... 検証用。2と同じワーカー構成で、入力待ちをイベント待ちから空回りに切り替える
 
 acquire/releaseワーカーは`--thread-affinity cltask=...`、`--thread-priority cltask=...`、`--thread-throttling cltask=...`で制御できる。デフォルトはそれぞれ`all`、`normal`、`on`。優先度と電力効率の設定はWindowsのみ有効。
 

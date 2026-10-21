@@ -18708,7 +18708,6 @@ tstring gen_cmd_help_ctrl() {
         _T("                                  auto: 2 on IceLake or HEVC FF capable GPUs, otherwise 0 (default)\n")
         _T("                                  0: legacy single-thread path\n")
         _T("                                  2: acquire + release workers\n")
-        _T("                                  3: 検証用。2と同じ構成でワーカーの入力待ちを空回りにする\n")
 #endif
         _T("   --cl-perf-dump <dir>         dump OpenCL kernel performance data to <dir>.\n")
         _T("                                 enables CL_QUEUE_PROFILING_ENABLE automatically.\n")

@@ -4778,7 +4778,6 @@ OpenCLタスクのスレッドモードを指定する。
   - auto ... IceLake以降、またはHEVC FFエンコード対応GPUでは2、それ以外では0を選択する (デフォルト)
   - 0 ... 従来のシングルスレッド経路
   - 2 ... acquire + release ワーカー
-  - 3 ... 検証用。2と同じワーカー構成で、入力待ちをイベント待ちから空回りに切り替える
 
 acquire/releaseワーカーは`--thread-affinity cltask=...`、`--thread-priority cltask=...`、`--thread-throttling cltask=...`で制御できる。デフォルトはそれぞれ`all`、`normal`、`on`。優先度と電力効率の設定はWindowsのみ有効。
 
