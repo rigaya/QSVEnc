@@ -39,6 +39,7 @@
 #include <optional>
 #include <atomic>
 #include <thread>
+#include <chrono>
 #include <mutex>
 #include "qsv_hw_device.h"
 #include "rgy_opencl.h"
@@ -3023,6 +3024,32 @@ protected:
     // いずれも1へ戻せば従来の単一フレーム処理になる。
     static const int OPENCL_ACQUIRE_BATCH_SIZE = 4;
     static const int OPENCL_RELEASE_BATCH_SIZE = 1;
+    // 入力の先読みが満杯の間だけ段階的にCPUを明け渡す。
+    // 1枚補充するたびにSleep(1)を入れると供給速度に上限ができるため、復帰後8msは休止を抑える。
+    class WorkerWait {
+        uint32_t m_count;
+        bool m_allowSleep;
+        std::chrono::steady_clock::time_point& m_lastSleepEnd;
+    public:
+        WorkerWait(bool allowSleep, std::chrono::steady_clock::time_point& lastSleep) :
+            m_count(0), m_allowSleep(allowSleep), m_lastSleepEnd(lastSleep) {}
+        void wait() {
+            rgy_yield();
+#if defined(_WIN32) || defined(_WIN64)
+            if ((++m_count & 255) == 0) {
+                if (m_allowSleep && m_count >= 1024) {
+                    const auto now = std::chrono::steady_clock::now();
+                    if (now - m_lastSleepEnd >= std::chrono::milliseconds(8)) {
+                        Sleep(1);
+                        m_lastSleepEnd = std::chrono::steady_clock::now();
+                        return;
+                    }
+                }
+                Sleep(0);
+            }
+#endif
+        }
+    };
     struct AcquireWork {
         std::unique_ptr<PipelineTaskOutput> frame;
         RGYFrameInfo frameInfo;
@@ -3094,6 +3121,7 @@ protected:
     RGYQueueMPMP<AcquireReady *> m_acquireReadyQueue;
     RGYQueueMPMP<AcquireFrameHold *> m_acquireFreeQueue;
     std::unique_ptr<std::thread> m_acquireThread;
+    std::chrono::steady_clock::time_point m_acquireLastSleepEnd;
     std::atomic<RGY_ERR> m_acquireErr;
     std::atomic<bool> m_acquireThreadAbort;
     RGYOpenCLQueue m_releaseQueue;
@@ -3317,9 +3345,17 @@ protected:
             m_openclTaskThreads = 0;
             return;
         }
-        m_acquireInQueue.init(OPENCL_ACQUIRE_QUEUE_DEPTH + 1, OPENCL_ACQUIRE_QUEUE_DEPTH + 1);
-        m_acquireReadyQueue.init(OPENCL_ACQUIRE_QUEUE_DEPTH + 1, OPENCL_ACQUIRE_QUEUE_DEPTH + 1);
-        m_acquireFreeQueue.init(OPENCL_ACQUIRE_QUEUE_DEPTH + 2, OPENCL_ACQUIRE_QUEUE_DEPTH + 2);
+        // KFMなどの複数出力処理中はmainの入力回収が止まる。その出力数分を先読みし、
+        // workerの休止中も入力消費の再開時にmainを枯らさないようにする。
+        int queueSize = OPENCL_ACQUIRE_QUEUE_DEPTH + 1;
+#if defined(_WIN32) || defined(_WIN64)
+        for (const auto& filter : m_vpFilters) {
+            queueSize = (std::max)(queueSize, filter->requiredOutputFrames());
+        }
+#endif
+        m_acquireInQueue.init(queueSize, queueSize);
+        m_acquireReadyQueue.init(queueSize, queueSize);
+        m_acquireFreeQueue.init(queueSize + 1, queueSize + 1);
         m_acquireThread = std::make_unique<std::thread>(&PipelineTaskOpenCL::runAcquireWorker, this);
     }
     void startReleaseWorker() {
@@ -3479,6 +3515,7 @@ public:
     }
 protected:
     bool pushAcquireReady(std::unique_ptr<AcquireReady>& ready) {
+        WorkerWait queueWait(m_acquireReadyQueue.capacity() > OPENCL_ACQUIRE_QUEUE_DEPTH + 1, m_acquireLastSleepEnd);
         while (!m_acquireThreadAbort.load()) {
             if (m_acquireReadyQueue.size() < m_acquireReadyQueue.capacity()) {
                 auto readyPtr = ready.get();
@@ -3487,7 +3524,7 @@ protected:
                     return true;
                 }
             }
-            rgy_yield();
+            queueWait.wait();
         }
         return false;
     }
@@ -4189,7 +4226,7 @@ protected:
     }
 public:
     PipelineTaskOpenCL(std::vector<std::unique_ptr<RGYFilter>>& vppfilters, RGYFilterSsim *videoMetric, std::shared_ptr<RGYOpenCLContext> cl, int openclTaskThreads, const RGYParamThread& threadParam, MemType memType, QSVAllocator *allocator, MFXVideoSession *mfxSession, int outMaxQueueSize, std::shared_ptr<RGYLog> log) :
-        PipelineTask(PipelineTaskType::OPENCL, outMaxQueueSize, mfxSession, MFX_LIB_VERSION_0_0, log), m_cl(cl), m_vpFilters(vppfilters), m_surfVppInInterop(), m_surfVppOutInterop(), m_prevInputFrame(), m_prevAcquireFrame(), m_videoMetric(videoMetric), m_normalizeTargetFrame(), m_normalizeResizeParam(), m_normalizeResizeIdx(-1), m_resChangeFlush(false), m_bypassActive(false), m_encUploadViaHost(false), m_encUploadFrame(), m_openclTaskThreads(openclTaskThreads), m_threadParam(threadParam), m_acquireQueue(), m_acquireInQueue(), m_acquireReadyQueue(), m_acquireFreeQueue(), m_acquireThread(), m_acquireErr(RGY_ERR_NONE), m_acquireThreadAbort(false), m_releaseQueue(), m_releaseAcquireQueue(), m_releaseReadyQueue(), m_releaseWorkQueue(), m_releaseDoneQueue(), m_releaseThread(), m_releaseErr(RGY_ERR_NONE), m_releaseThreadAbort(false), m_releaseAcquirePending(0), m_releaseWorkInFlight(0), m_releaseOutputPending(0), m_acquireFrameInInfo(), m_acquireDrainSent(false), m_acquireDrainReady(false), m_acquireQueuesClosed(false), m_releaseQueuesClosed(false), m_memType(memType) {
+        PipelineTask(PipelineTaskType::OPENCL, outMaxQueueSize, mfxSession, MFX_LIB_VERSION_0_0, log), m_cl(cl), m_vpFilters(vppfilters), m_surfVppInInterop(), m_surfVppOutInterop(), m_prevInputFrame(), m_prevAcquireFrame(), m_videoMetric(videoMetric), m_normalizeTargetFrame(), m_normalizeResizeParam(), m_normalizeResizeIdx(-1), m_resChangeFlush(false), m_bypassActive(false), m_encUploadViaHost(false), m_encUploadFrame(), m_openclTaskThreads(openclTaskThreads), m_threadParam(threadParam), m_acquireQueue(), m_acquireInQueue(), m_acquireReadyQueue(), m_acquireFreeQueue(), m_acquireThread(), m_acquireLastSleepEnd(), m_acquireErr(RGY_ERR_NONE), m_acquireThreadAbort(false), m_releaseQueue(), m_releaseAcquireQueue(), m_releaseReadyQueue(), m_releaseWorkQueue(), m_releaseDoneQueue(), m_releaseThread(), m_releaseErr(RGY_ERR_NONE), m_releaseThreadAbort(false), m_releaseAcquirePending(0), m_releaseWorkInFlight(0), m_releaseOutputPending(0), m_acquireFrameInInfo(), m_acquireDrainSent(false), m_acquireDrainReady(false), m_acquireQueuesClosed(false), m_releaseQueuesClosed(false), m_memType(memType) {
         m_allocator = allocator;
         //解像度変更時に「戻すべき解像度」は初期化時点のチェーン先頭の出力。ここで控えておかないと、
         //先頭CspCropを再初期化した後では取得できなくなる。
@@ -4271,7 +4308,8 @@ public:
             frames += filter->requiredOutputFrames();
         }
         if (m_openclTaskThreads >= 2) {
-            frames += 2 * (OPENCL_ACQUIRE_QUEUE_DEPTH + 1) + 2;
+            // フィルタの出力数に応じて拡張した入力キューの滞留分も確保する。
+            frames += (int)(m_acquireInQueue.capacity() + m_acquireReadyQueue.capacity()) + 2;
             frames += 2 * (OPENCL_RELEASE_QUEUE_DEPTH + 1) + 2 + (OPENCL_RELEASE_BATCH_SIZE - 1);
         }
         return frames;
