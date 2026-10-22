@@ -40,6 +40,9 @@
 #include <atomic>
 #include <thread>
 #include <chrono>
+#if !defined(_WIN32) && !defined(_WIN64)
+#include <time.h>
+#endif
 #include <mutex>
 #include "qsv_hw_device.h"
 #include "rgy_opencl.h"
@@ -3025,7 +3028,7 @@ protected:
     static const int OPENCL_ACQUIRE_BATCH_SIZE = 4;
     static const int OPENCL_RELEASE_BATCH_SIZE = 1;
     // 入力の先読みが満杯の間だけ段階的にCPUを明け渡す。
-    // 1枚補充するたびにSleep(1)を入れると供給速度に上限ができるため、復帰後8msは休止を抑える。
+    // 1枚補充するたびに1ms休止すると供給速度に上限ができるため、復帰後8msは休止を抑える。
     class WorkerWait {
         uint32_t m_count;
         bool m_allowSleep;
@@ -3035,19 +3038,26 @@ protected:
             m_count(0), m_allowSleep(allowSleep), m_lastSleepEnd(lastSleep) {}
         void wait() {
             rgy_yield();
-#if defined(_WIN32) || defined(_WIN64)
             if ((++m_count & 255) == 0) {
                 if (m_allowSleep && m_count >= 1024) {
                     const auto now = std::chrono::steady_clock::now();
                     if (now - m_lastSleepEnd >= std::chrono::milliseconds(8)) {
+#if defined(_WIN32) || defined(_WIN64)
                         Sleep(1);
+#else
+                        const timespec duration = { 0, 1000000 };
+                        nanosleep(&duration, nullptr);
+#endif
                         m_lastSleepEnd = std::chrono::steady_clock::now();
                         return;
                     }
                 }
+#if defined(_WIN32) || defined(_WIN64)
                 Sleep(0);
-            }
+#else
+                sched_yield();
 #endif
+            }
         }
     };
     struct AcquireWork {
@@ -3348,11 +3358,9 @@ protected:
         // KFMなどの複数出力処理中はmainの入力回収が止まる。その出力数分を先読みし、
         // workerの休止中も入力消費の再開時にmainを枯らさないようにする。
         int queueSize = OPENCL_ACQUIRE_QUEUE_DEPTH + 1;
-#if defined(_WIN32) || defined(_WIN64)
         for (const auto& filter : m_vpFilters) {
             queueSize = (std::max)(queueSize, filter->requiredOutputFrames());
         }
-#endif
         m_acquireInQueue.init(queueSize, queueSize);
         m_acquireReadyQueue.init(queueSize, queueSize);
         m_acquireFreeQueue.init(queueSize + 1, queueSize + 1);
