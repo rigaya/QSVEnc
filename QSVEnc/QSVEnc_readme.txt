@@ -314,6 +314,19 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2026.10.23 (8.35)
+[QSVEncC]
+- --vpp-kfm/--vpp-rtgmcの再構成処理の高速化。
+- --vpp-kfmのucf=on時の処理を高速化。
+- --vpp-kfm/--vpp-rtgmcのメモリ使用量を削減。
+- --opencl-task-threads 2のCPU使用率を削減。
+- LinuxでiHDドライバが非標準配置の場合にQSVを利用できずエンコードに失敗する問題を修正。
+- VA-API選択時に--avhw指定でエンコードに失敗する問題を修正。
+- 中断時に異常終了する問題を修正。
+- --vpp-kfm mode=24,ucf=onで出力が停止する問題を修正。
+- --vpp-kfm ucf=onのVFR/P24出力で終端でエラー終了する問題を修正。
+- --vpp-kfmで24p・UCF・高bit-depthで出力が停止する問題を修正。
+
 2026.10.15 (8.34)
 [QSVEncC]
 - エンコーダがbusyとなったときの安定化に向けた調整を実施。

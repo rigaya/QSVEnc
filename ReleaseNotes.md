@@ -1,5 +1,18 @@
 # QSVEnc Release Notes
 
+## 8.35
+
+- Speed up reconstruction in [--vpp-kfm](./QSVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) and [--vpp-rtgmc](./QSVEncC_Options.en.md#--vpp-rtgmc-param1value1).
+- Speed up [--vpp-kfm](./QSVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) when `ucf=on`.
+- Reduce memory use of [--vpp-kfm](./QSVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) and [--vpp-rtgmc](./QSVEncC_Options.en.md#--vpp-rtgmc-param1value1).
+- Reduce CPU usage of [--opencl-task-threads](./QSVEncC_Options.en.md#--opencl-task-threads-autoint) 2.
+- Fix encode failure on Linux when the iHD driver is in a non-standard location and QSV cannot be used. ( KonomiTV#301 )
+- Fix encode failure when [--avhw](./QSVEncC_Options.en.md#--avhw) is specified with VA-API selected. ( KonomiTV#301 )
+- Fix abnormal exit on interrupt.
+- Fix [--vpp-kfm](./QSVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) `mode=24,ucf=on` stopping output.
+- Fix [--vpp-kfm](./QSVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) `ucf=on` exiting with an error at the end of VFR/P24 output.
+- Fix [--vpp-kfm](./QSVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) 24p, UCF, and high bit-depth output stopping.
+
 ## 8.34
 
 - Improve stability when the encoder is busy.
