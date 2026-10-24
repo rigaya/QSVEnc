@@ -1610,6 +1610,7 @@ RGY_ERR RGYFilterKfm::initNrFilter(const std::shared_ptr<RGYFilterParamKfm>& prm
     for (auto& cache : m_nrBaseCache) cache.clear();
     for (auto& pool : m_nrBasePool) pool.clear();
     m_nrResults = {};
+    m_nrRunLastIndex.fill(-1);
     for (auto& work : m_nrBaseWork) work.reset();
     for (auto& work : m_nrSuperWork) work.reset();
     m_branchNrStats = {};
@@ -4233,9 +4234,14 @@ RGY_ERR RGYFilterKfm::renderBranchNr(RGYFrameInfo **output, KfmSwitchTiming& tim
     }
     auto& result = m_nrResults[branch];
     if (!result.frame || result.index != index) {
+        const bool continuous = m_nrRunLastIndex[branch] >= 0 && index == m_nrRunLastIndex[branch] + 1;
+        // feed/filter後の失敗や入力待ちをまたいで、未完成のrunを連続扱いしない。
+        // 所有結果へのコピーまで成功したときだけ、末尾で中央kを確定する。
+        m_nrRunLastIndex[branch] = -1;
         std::array<std::shared_ptr<RGYCLFrame>, 3> bases;
         std::array<RGYOpenCLEvent, 3> ready;
-        const int begin = index > 0 ? 0 : 1;
+        // 連続runでは前回filterへ渡した次画像が今回の中央なので、新しい次画像だけを足す。
+        const int begin = continuous ? 2 : index > 0 ? 0 : 1;
         const int end = index + 1 < length ? 3 : 2;
         for (int i = begin; i < end; i++) {
             const auto beforeDraws = m_branchNrStats.baseDraws;
@@ -4244,10 +4250,15 @@ RGY_ERR RGYFilterKfm::renderBranchNr(RGYFrameInfo **output, KfmSwitchTiming& tim
             if (sts != RGY_ERR_NONE) return sts;
         }
         auto& nr = m_nrBranches[branch];
-        nr->resetTemporalState();
-        for (int i = begin; i <= 1; i++) {
-            const auto sts = nr->feedFrameOnly(&bases[i]->frame, queue, { ready[i] });
-            if (sts != RGY_ERR_NONE) return sts;
+        if (continuous) {
+            m_branchNrStats.continuousFeeds++;
+        } else {
+            nr->resetTemporalState();
+            m_branchNrStats.nrResets++;
+            for (int i = begin; i <= 1; i++) {
+                const auto sts = nr->feedFrameOnly(&bases[i]->frame, queue, { ready[i] });
+                if (sts != RGY_ERR_NONE) return sts;
+            }
         }
         RGYFrameInfo *nrOutput[2] = {};
         int count = 0;
@@ -4263,6 +4274,7 @@ RGY_ERR RGYFilterKfm::renderBranchNr(RGYFrameInfo **output, KfmSwitchTiming& tim
         if (sts != RGY_ERR_NONE) return sts;
         copyFramePropWithoutRes(&result.frame->frame, nrOutput[0]);
         result.index = index;
+        m_nrRunLastIndex[branch] = index;
         m_branchNrStats.nrFrames++;
     } else {
         m_branchNrStats.resultHits++;
@@ -9323,6 +9335,8 @@ void RGYFilterKfm::close() {
             (unsigned long long)m_branchNrStats.maxSource, (unsigned long long)sourceCacheLimit());
         AddMessage(RGY_LOG_INFO, _T("KFM single判定保持最大: live=%llu film=%llu。\n"),
             (unsigned long long)m_branchNrStats.maxSingleLive, (unsigned long long)m_branchNrStats.maxSinglePlan);
+        AddMessage(RGY_LOG_INFO, _T("KFM NR run再利用: continuousFeed=%lld reset=%lld。\n"),
+            (long long)m_branchNrStats.continuousFeeds, (long long)m_branchNrStats.nrResets);
         AddMessage(RGY_LOG_INFO, _T("KFM NR base pool: GPU確保=%lld 再利用=%lld。\n"),
             (long long)m_branchNrStats.baseAllocations, (long long)m_branchNrStats.baseReuses);
         if (m_nrFilmNormalCount || m_nrFilmRffCount) {
@@ -9337,6 +9351,7 @@ void RGYFilterKfm::close() {
     for (auto& counts : m_nrMaskCounts) counts.clear();
     resetNrFilmPlan();
     m_nrResults = {};
+    m_nrRunLastIndex.fill(-1);
     for (auto& work : m_nrBaseWork) work.reset();
     for (auto& work : m_nrSuperWork) work.reset();
     m_branchNrStats = {};
