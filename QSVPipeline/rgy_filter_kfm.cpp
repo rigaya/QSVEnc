@@ -8442,7 +8442,11 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                         }
                         ucf30 = selectUcfDecomb30Frame(outputTiming.sourceIndex, deint30, &copyWaitEvents);
                     }
-                    if (!baseCopyQueued30) {
+                    if (!baseCopyQueued30 && ucf30 == deint30) {
+                        // 完成済みの同じwork画像はコピーせず、既存のpending/output枠へ移管する。
+                        out = deint30;
+                        outputEvent = deintEvent;
+                    } else if (!baseCopyQueued30) {
                         sts = m_cl->copyFrame(out, ucf30, nullptr, queue, copyWaitEvents, &outputEvent, RGYFrameCopyMode::FRAME, "kfm.vfr.deint30_output");
                         if (sts != RGY_ERR_NONE) {
                             AddMessage(RGY_LOG_ERROR, _T("failed to copy KFM VFR deint30 output frame: %s.\n"), get_err_mes(sts));
