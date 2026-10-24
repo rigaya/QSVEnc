@@ -369,6 +369,8 @@ RGYFilterKfm::RGYFilterKfm(shared_ptr<RGYOpenCLContext> context) :
     m_fpResult(nullptr),
     m_fpFMCount(nullptr),
     m_fpTimecode(nullptr),
+    m_fpSwitchDuration(nullptr),
+    m_switchDurationNext60(0),
     m_fpFrameInfo(nullptr),
     m_fpContainsCombe(nullptr),
     m_fpUcfNoise(nullptr),
@@ -1212,6 +1214,11 @@ RGY_ERR RGYFilterKfm::initAnalyzer(const RGYFilterParamKfm& prm) {
     m_hasLastAnalyzeResult = false;
     m_analyzerFinalized = false;
     m_switchTimingDumped = false;
+    if (m_fpSwitchDuration) {
+        fclose(m_fpSwitchDuration);
+        m_fpSwitchDuration = nullptr;
+    }
+    m_switchDurationNext60 = 0;
     m_switchDurationPath.clear();
     m_switchTimecodePath.clear();
     m_stageDumpDir.clear();
@@ -1606,6 +1613,8 @@ RGY_ERR RGYFilterKfm::initNrFilter(const std::shared_ptr<RGYFilterParamKfm>& prm
     for (auto& work : m_nrBaseWork) work.reset();
     for (auto& work : m_nrSuperWork) work.reset();
     m_branchNrStats = {};
+    for (auto& counts : m_nrMaskCounts) counts.clear();
+    resetNrFilmPlan();
     // 参照実装の固定60p経路ではNRを適用しない。
     if (!prm->kfm.nr || prm->kfm.mode == VppKfmMode::P60) {
         return RGY_ERR_NONE;
@@ -1645,7 +1654,7 @@ RGY_ERR RGYFilterKfm::initNrFilter(const std::shared_ptr<RGYFilterParamKfm>& prm
             const auto sts = m_nrBranches[i]->init(std::make_shared<RGYFilterParamDegrain>(*nrParam), m_pLog);
             if (sts != RGY_ERR_NONE) return sts;
         }
-        AddMessage(RGY_LOG_INFO, _T("KFM NR: 24p/30pの枝でUCF→NR→patchを適用（段階2、rff=off限定）。\n"));
+        AddMessage(RGY_LOG_INFO, _T("KFM NR: 24p/30pの枝でUCF→NR→patchを適用（RFF原画はUCF/patchを省略）。\n"));
         return RGY_ERR_NONE;
     }
     auto nrFilter = std::make_unique<RGYFilterDegrain>(m_cl);
@@ -3729,8 +3738,7 @@ RGYFilterKfm::KfmUcf24Selection RGYFilterKfm::planUcfDecomb24Frame(const RGYKFM:
 }
 
 bool RGYFilterKfm::branchNrEnabled(const RGYFilterParamKfm& prm) const {
-    // 段階2ではRFF有効の列全体を旧方式へ戻す。段階3のfilm-plan対応後にこの制限を外す。
-    return prm.kfm.nr && !prm.kfm.rff && prm.kfm.debugStage == VppKfmDebugStage::None
+    return prm.kfm.nr && prm.kfm.debugStage == VppKfmDebugStage::None
         && (prm.kfm.mode == VppKfmMode::VFR || prm.kfm.mode == VppKfmMode::P24);
 }
 
@@ -3744,6 +3752,15 @@ RGY_ERR RGYFilterKfm::getNrBase(int branch, int index, bool drain, RGYOpenCLQueu
     std::shared_ptr<RGYCLFrame>& frame, RGYOpenCLEvent& event) {
     auto prm = std::dynamic_pointer_cast<RGYFilterParamKfm>(m_param);
     if (!prm || index < 0 || branch < 0 || branch > 1) return RGY_ERR_INVALID_PARAM;
+    int imageIndex = index;
+    bool rffImage = false;
+    if (branch == 0 && prm->kfm.rff) {
+        if (index < m_nrFilmOffset) return RGY_ERR_INVALID_CALL;
+        if (index - m_nrFilmOffset >= (int)m_nrFilmImages.size()) return RGY_ERR_MORE_DATA;
+        const auto plan = m_nrFilmImages[index - m_nrFilmOffset];
+        imageIndex = plan.index;
+        rffImage = plan.baseType == KFM_FRAME_RFF_24;
+    }
     for (const auto& entry : m_nrBaseCache[branch]) {
         if (entry.index == index) {
             frame = entry.frame;
@@ -3795,32 +3812,32 @@ RGY_ERR RGYFilterKfm::getNrBase(int branch, int index, bool drain, RGYOpenCLQueu
     if (reuseReady() != nullptr) waits.push_back(reuseReady);
     RGYOpenCLEvent ready;
     RGYKFM::Frame24Info film = {};
-    if (branch == 0) {
+    if (branch == 0 && !rffImage) {
         const auto savedFrame = m_nextTelecine24Frame;
         const auto savedPts = m_nextTelecine24Pts;
-        sts = renderTelecine24(raw, index, drain, queue, waits, &ready);
+        sts = renderTelecine24(raw, imageIndex, drain, queue, waits, &ready);
         m_nextTelecine24Frame = savedFrame;
         m_nextTelecine24Pts = savedPts;
         if (sts != RGY_ERR_NONE) return sts;
         if (ready() != nullptr) waits.push_back(ready);
         RGYFrameInfo *super = &m_nrSuperWork[0]->frame;
         RGYOpenCLEvent superEvent;
-        sts = getCachedCleanSuper(KFM_CLEAN_SUPER_24, index, super, &super, drain, queue, waits, &superEvent);
+        sts = getCachedCleanSuper(KFM_CLEAN_SUPER_24, imageIndex, super, &super, drain, queue, waits, &superEvent);
         if (sts != RGY_ERR_NONE) return sts;
         if (superEvent() != nullptr) waits.push_back(superEvent);
-        sts = removeCombe24(&candidate->frame, raw, super, index, queue, waits, &ready);
+        sts = removeCombe24(&candidate->frame, raw, super, imageIndex, queue, waits, &ready);
         if (sts != RGY_ERR_NONE) return sts;
-        const auto& result = m_analyzerOutputResults[clamp(index / 4, 0, (int)m_analyzerOutputResults.size() - 1)];
-        film = m_analyzer->patterns().getFrame24(result.pattern, index);
+        const auto& result = m_analyzerOutputResults[clamp(imageIndex / 4, 0, (int)m_analyzerOutputResults.size() - 1)];
+        film = m_analyzer->patterns().getFrame24(result.pattern, imageIndex);
     } else {
-        const auto *source = findSourceByIndexExact(index);
+        const auto *source = findSourceByIndexExact(imageIndex);
         if (!source || !source->frame) return RGY_ERR_MORE_DATA;
         if (source->event() != nullptr) waits.push_back(source->event);
         sts = m_cl->copyFrame(&candidate->frame, &source->frame->frame, nullptr, queue, waits, &ready);
         if (sts != RGY_ERR_NONE) return sts;
         copyFramePropWithoutRes(&candidate->frame, &source->frame->frame);
     }
-    if (prm->kfm.ucf) {
+    if (prm->kfm.ucf && !rffImage) {
         const int noiseEnd = branch == 0 ? ((film.cycleIndex * 10 + film.fieldStartIndex + film.numFields - 2) >> 1) + 1 : index;
         sts = resolveUcfNoiseResults(noiseEnd, queue);
         if (sts != RGY_ERR_NONE) return sts;
@@ -3859,6 +3876,11 @@ RGY_ERR RGYFilterKfm::getNrBase(int branch, int index, bool drain, RGYOpenCLQueu
     // RTGMC等が付けたMVや探索画像を別の枝の解析へ持ち込まない。
     candidate->frame.dataList.clear();
     candidate->frame.inputFrameId = index;
+    if (branch == 0 && prm->kfm.rff) {
+        candidate->frame.timestamp = rffFilmOffset(index);
+        candidate->frame.duration = std::max<int64_t>(1, rffFilmOffset(index + 1) - rffFilmOffset(index));
+    }
+    if (rffImage) m_branchNrStats.rffBaseDraws++;
     m_nrBaseCache[branch].push_back({ index, candidate, ready });
     while (m_nrBaseCache[branch].size() > 3) m_nrBaseCache[branch].pop_front();
     frame = candidate;
@@ -3867,16 +3889,348 @@ RGY_ERR RGYFilterKfm::getNrBase(int branch, int index, bool drain, RGYOpenCLQueu
     return RGY_ERR_NONE;
 }
 
+void RGYFilterKfm::resetNrFilmPlan() {
+    m_nrFilmImages.clear();
+    m_nrFilmNormalKeys.clear();
+    m_nrFilmRffKeys.clear();
+    m_nrFilmOffset = 0;
+    m_nrFilmRetiredNormal = m_nrFilmRetiredRff = m_nrFilmLastNormal = -1;
+    m_nrFilmNormalCount = m_nrFilmRffCount = 0;
+    m_nrFilmPeak = 0;
+    m_nrFilmCursor = KfmNrFilmCursor();
+}
+
+int RGYFilterKfm::nrFilmImageKey(int baseType, int index) const {
+    const auto& keys = baseType == KFM_FRAME_RFF_24 ? m_nrFilmRffKeys : m_nrFilmNormalKeys;
+    const auto found = keys.find(index);
+    return found != keys.end() ? found->second : -1;
+}
+
+void RGYFilterKfm::trimNrFilmPlan(int keepK) {
+    // live n60から13 source前より古い画像だけを退役させる。現在窓の最大後退6 sourceを覆う。
+    // floor直前の1画像は境界の前隣接として残し、resolve中は要求k-1も明示的に保護する。
+    const int floor = branchNrSourceFloor();
+    while (m_nrFilmImages.size() > 1
+        && m_nrFilmImages[0].lastSource < floor && m_nrFilmImages[1].lastSource < floor
+        && (keepK < 0 || m_nrFilmOffset < keepK)) {
+        const auto old = m_nrFilmImages.front();
+        const bool rff = old.baseType == KFM_FRAME_RFF_24;
+        auto& keys = rff ? m_nrFilmRffKeys : m_nrFilmNormalKeys;
+        auto& retired = rff ? m_nrFilmRetiredRff : m_nrFilmRetiredNormal;
+        keys.erase(old.index);
+        retired = std::max(retired, old.index);
+        m_nrFilmImages.pop_front();
+        m_nrFilmOffset++;
+    }
+}
+
+RGY_ERR RGYFilterKfm::appendNrFilmImage(int baseType, int index, int keepK) {
+    if (index < 0) return RGY_ERR_INVALID_PARAM;
+    const bool rff = baseType == KFM_FRAME_RFF_24;
+    auto& keys = rff ? m_nrFilmRffKeys : m_nrFilmNormalKeys;
+    if (keys.find(index) != keys.end()) return RGY_ERR_NONE;
+    // floorを越えて退役した物理画像への後退は、別kへの再登録で隠さず検出する。
+    const int retired = rff ? m_nrFilmRetiredRff : m_nrFilmRetiredNormal;
+    if (index <= retired) {
+        AddMessage(RGY_LOG_ERROR, _T("NR filmの退役済み画像が再要求されました (type=%d, image=%d, retired=%d)。\n"), baseType, index, retired);
+        return RGY_ERR_INVALID_CALL;
+    }
+    int lastSource = index;
+    if (!rff) {
+        if (!m_analyzer || m_analyzerOutputResults.empty()) return RGY_ERR_MORE_DATA;
+        try {
+            const auto& result = m_analyzerOutputResults[clamp(index / 4, 0, (int)m_analyzerOutputResults.size() - 1)];
+            const auto info = m_analyzer->patterns().getFrame24(result.pattern, index);
+            lastSource = std::max(0, (info.cycleIndex * 10 + info.fieldStartIndex + info.numFields - 1) >> 1);
+        } catch (...) { return RGY_ERR_INVALID_CALL; }
+        m_nrFilmLastNormal = std::max(m_nrFilmLastNormal, index);
+        m_nrFilmNormalCount++;
+    } else {
+        m_nrFilmRffCount++;
+    }
+    keys[index] = m_nrFilmOffset + (int)m_nrFilmImages.size();
+    m_nrFilmImages.push_back({ baseType, index, lastSource });
+    trimNrFilmPlan(keepK);
+    m_nrFilmPeak = std::max(m_nrFilmPeak, m_nrFilmImages.size());
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterKfm::appendNrFilmCoverage(const KfmSwitchTiming& timing, bool drain, int keepK) {
+    if (!m_analyzer || m_analyzerOutputResults.empty()) return RGY_ERR_MORE_DATA;
+    const int count = m_cachedSourceFrames / 5 * 4 + m_cachedSourceFrames % 5;
+    const int begin = std::max(0, (timing.start60 / 10 - 1) * 4);
+    const int end = std::min(count, ((timing.start60 + timing.duration60) / 10 + 2) * 4);
+    std::vector<int> images;
+    for (int j = begin; j < end; j++) {
+        if (!drain && j / 4 >= (int)m_analyzerOutputResults.size()) continue;
+        const auto& result = m_analyzerOutputResults[clamp(j / 4, 0, (int)m_analyzerOutputResults.size() - 1)];
+        try {
+            const auto info = m_analyzer->patterns().getFrame24(result.pattern, j);
+            const int first = info.cycleIndex * 10 + info.fieldStartIndex;
+            const int total = m_cachedSourceFrames * 2;
+            const int beginField = drain ? clamp(first, 0, std::max(0, total - 1)) : std::max(0, first);
+            const int endField = drain ? clamp(first + info.numFields, beginField + 1, total) : std::max(beginField + 1, first + info.numFields);
+            if (beginField < timing.start60 + timing.duration60 && endField > timing.start60) images.push_back(j);
+        } catch (...) { return RGY_ERR_INVALID_CALL; }
+    }
+    // 選択n60がcanonical範囲を外れる位相でも、実画像のキーを近傍へ置き換えない。
+    if (timing.baseType == KFM_FRAME_24) images.push_back(timing.frame24Index);
+    std::sort(images.begin(), images.end());
+    for (const int j : images) {
+        const auto sts = appendNrFilmImage(KFM_FRAME_24, j, keepK);
+        if (sts != RGY_ERR_NONE) return sts;
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterKfm::advanceNrFilmPlan(bool drain, RGYOpenCLQueue& queue, int keepK) {
+    const auto prm = std::dynamic_pointer_cast<RGYFilterParamKfm>(m_param);
+    if (!prm || !m_analyzer) return RGY_ERR_INVALID_CALL;
+    auto& cursor = m_nrFilmCursor;
+    if (cursor.complete) return RGY_ERR_NONE;
+    // timing導出は現在位置から最大3 fieldだけ過去を読む。再試行に必要な範囲だけ残す。
+    cursor.singleFrames.erase(cursor.singleFrames.begin(), cursor.singleFrames.lower_bound(std::max(0, cursor.n60 - 3)));
+    const int total = m_cachedSourceFrames * 2;
+    const int available = drain ? total : std::min(total, (int)m_analyzerOutputResults.size() * 10);
+    auto finish = [&]() -> RGY_ERR {
+        // 未出力の通常末尾はfilmの隣接として残す。hold画像を足す処理ではない。
+        if (m_cachedSourceFrames > 0 && (!isRffProgressiveSource(m_cachedSourceFrames - 1, true) || cursor.lastBaseType == KFM_FRAME_24)) {
+            const int count = m_cachedSourceFrames / 5 * 4 + m_cachedSourceFrames % 5;
+            // 最後のRFF原画より前へ未選択weaveを復活させない。末尾の通常領域だけを補完する。
+            const int afterRffField = (cursor.lastRffSource + 1) * 2;
+            const int begin = std::max(m_nrFilmLastNormal + 1, std::max(0, (afterRffField / 10 - 1) * 4));
+            for (int j = begin; j < count; j++) {
+                try {
+                    const auto& result = m_analyzerOutputResults[clamp(j / 4, 0, (int)m_analyzerOutputResults.size() - 1)];
+                    const auto info = m_analyzer->patterns().getFrame24(result.pattern, j);
+                    if (cursor.lastRffSource >= 0 && info.cycleIndex * 10 + info.fieldStartIndex < afterRffField) continue;
+                } catch (...) { return RGY_ERR_INVALID_CALL; }
+                const auto sts = appendNrFilmImage(KFM_FRAME_24, j, keepK);
+                if (sts != RGY_ERR_NONE) return sts;
+            }
+        }
+        cursor.n60 = total;
+        cursor.complete = true;
+        return RGY_ERR_NONE;
+    };
+    if (cursor.n60 >= available) {
+        if (drain && cursor.n60 >= total) return finish();
+        return RGY_ERR_MORE_DATA;
+    }
+    if (m_analyzerOutputResults.empty()) return RGY_ERR_MORE_DATA;
+    if ((cursor.n60 & 1) == 0 && isRffProgressiveSource(cursor.n60 >> 1, drain)) {
+        if (!drain && cursor.n60 + 2 >= available) return RGY_ERR_MORE_DATA;
+        const auto sts = appendNrFilmImage(KFM_FRAME_RFF_24, cursor.n60 >> 1, keepK);
+        if (sts != RGY_ERR_NONE) return sts;
+        cursor.lastRffSource = cursor.n60 >> 1;
+        cursor.lastBaseType = KFM_FRAME_RFF_24;
+        cursor.n60 += 2;
+        cursor.slot++;
+        return RGY_ERR_NONE;
+    }
+    KfmSwitchTiming timing;
+    if (prm->kfm.mode == VppKfmMode::VFR) {
+        if (!deriveSwitchTimingAtWithSingleFrames(timing, cursor.n60, available, cursor.singleFrames)) return RGY_ERR_MORE_DATA;
+        if (!drain && timing.start60 + timing.duration60 >= available) return RGY_ERR_MORE_DATA;
+        if (timing.baseType == KFM_FRAME_24 || timing.baseType == KFM_FRAME_30) {
+            cl_uint count = 0;
+            const auto sts = prepareNrMask(timing.baseType == KFM_FRAME_24 ? 0 : 1,
+                timing.baseType == KFM_FRAME_24 ? timing.frame24Index : timing.sourceIndex, drain, false, queue, count, nullptr, nullptr);
+            if (sts != RGY_ERR_NONE) return sts;
+            if (count > 0 && (switchSingleFrameDurationEnabled() || (kfmDeint60BranchEnabled() && m_deint60Rtgmc))) {
+                for (int n = timing.start60; n < timing.start60 + timing.duration60; n++) {
+                    cursor.singleFrames.insert(n);
+                }
+                m_branchNrStats.maxSinglePlan = std::max(m_branchNrStats.maxSinglePlan, cursor.singleFrames.size());
+                timing.duration60 = 1;
+                timing.duration120 = 2;
+                timing.numSourceFrames = 1;
+            }
+        }
+        const auto sts = appendNrFilmCoverage(timing, drain, keepK);
+        if (sts != RGY_ERR_NONE) return sts;
+        cursor.n60 += timing.duration60;
+        cursor.lastBaseType = timing.baseType;
+        return RGY_ERR_NONE;
+    }
+    const bool afterRff = cursor.lastRffSource >= 0 && cursor.n60 == (cursor.lastRffSource + 1) * 2;
+    if (!deriveTelecine24TimingAt(timing, cursor.n60, available, afterRff)) {
+        if (!drain) return RGY_ERR_MORE_DATA;
+        try {
+            const int j = (int)m_analyzerOutputResults.size() * 4;
+            const auto info = m_analyzer->patterns().getFrame24(m_analyzerOutputResults.back().pattern, j);
+            timing.start60 = cursor.n60;
+            timing.frame24Index = j;
+            timing.sourceIndex = (info.cycleIndex * 10 + info.fieldStartIndex) >> 1;
+            timing.duration60 = available - cursor.n60;
+            timing.baseType = KFM_FRAME_24;
+        } catch (...) { return finish(); }
+    }
+    int nextRff = -1;
+    for (int n = (cursor.n60 + 2) & ~1; n <= timing.start60 + timing.duration60; n += 2) {
+        if (isRffProgressiveSource(n >> 1, drain)) { nextRff = n; break; }
+    }
+    if (nextRff >= 0) {
+        const auto* source = findSourceByIndexExact(nextRff >> 1);
+        const int64_t target = source && source->timestamp >= 0 ? p24SlotAtInputPts(source->timestamp) : cursor.slot + 1;
+        if (cursor.slot >= target) { cursor.n60 = nextRff; return RGY_ERR_NONE; }
+        if (nextRff < timing.start60 + timing.duration60 || target - cursor.slot > 1) {
+            // 境界holdは画像列へ登録しない。私有slotだけ進め、同じ境界の補完をまとめる。
+            cursor.slot = std::max<int64_t>(cursor.slot + 1, target);
+            cursor.n60 = nextRff;
+            return RGY_ERR_NONE;
+        }
+    }
+    if (drain && nextRff < 0 && timing.start60 + timing.duration60 >= available
+        && m_p24InputEndPts >= m_p24InputOriginPts && cursor.slot >= p24SlotAtInputPts(m_p24InputEndPts)) {
+        return finish();
+    }
+    if (!drain && timing.start60 + timing.duration60 >= available) return RGY_ERR_MORE_DATA;
+    // 通常領域の位相変更で出力されないcanonical jも、NRの隣接として残す。
+    // RFF直後だけはafterRffでskipしたweaveを復活させず、最初の選択jから新しい通常領域を始める。
+    const int begin = cursor.lastRffSource < 0 || cursor.lastBaseType == KFM_FRAME_24
+        ? std::min(timing.frame24Index, m_nrFilmLastNormal + 1) : timing.frame24Index;
+    for (int j = begin; j <= timing.frame24Index; j++) {
+        const auto sts = appendNrFilmImage(KFM_FRAME_24, j, keepK);
+        if (sts != RGY_ERR_NONE) return sts;
+    }
+    cursor.n60 += timing.duration60;
+    cursor.lastBaseType = KFM_FRAME_24;
+    cursor.slot++;
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterKfm::ensureNrFilmPlanThrough(int n60, bool drain, RGYOpenCLQueue& queue) {
+    trimNrFilmPlan();
+    while (!m_nrFilmCursor.complete && m_nrFilmCursor.n60 <= n60) {
+        const int beforeN60 = m_nrFilmCursor.n60;
+        const int64_t beforeSlot = m_nrFilmCursor.slot;
+        const auto sts = advanceNrFilmPlan(drain, queue);
+        if (sts != RGY_ERR_NONE) return sts;
+        // 成功はsource消費、境界slot補完、EOF確定のいずれか。入力長による固定回数制限は置かない。
+        if (!m_nrFilmCursor.complete && m_nrFilmCursor.n60 <= beforeN60 && m_nrFilmCursor.slot <= beforeSlot) return RGY_ERR_INVALID_CALL;
+        // 長い60p区間でもlive位置より古い潜在画像を溜め続けない。
+        trimNrFilmPlan();
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterKfm::resolveNrFilmWindow(const KfmSwitchTiming& timing, bool drain, RGYOpenCLQueue& queue,
+    int& index, int& length) {
+    auto sts = ensureNrFilmPlanThrough(timing.start60, drain, queue);
+    if (sts != RGY_ERR_NONE) return sts;
+    const int image = timing.baseType == KFM_FRAME_RFF_24 ? timing.sourceIndex : timing.frame24Index;
+    index = nrFilmImageKey(timing.baseType, image);
+    if (index < 0) {
+        AddMessage(RGY_LOG_ERROR, _T("NR film計画に画像キーがありません (type=%d, image=%d, n60=%d)。\n"), timing.baseType, image, timing.start60);
+        return RGY_ERR_INVALID_CALL;
+    }
+    while (index + 1 >= m_nrFilmOffset + (int)m_nrFilmImages.size() && !m_nrFilmCursor.complete) {
+        const int beforeN60 = m_nrFilmCursor.n60;
+        const int64_t beforeSlot = m_nrFilmCursor.slot;
+        sts = advanceNrFilmPlan(drain, queue, std::max(0, index - 1));
+        if (sts != RGY_ERR_NONE) return sts;
+        if (!m_nrFilmCursor.complete && m_nrFilmCursor.n60 <= beforeN60 && m_nrFilmCursor.slot <= beforeSlot) return RGY_ERR_INVALID_CALL;
+    }
+    length = m_nrFilmOffset + (int)m_nrFilmImages.size();
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterKfm::prepareNrMask(int branch, int index, bool drain, bool needMask, RGYOpenCLQueue& queue,
+    cl_uint& count, RGYFrameInfo **mask, RGYOpenCLEvent *event) {
+    const auto prm = std::dynamic_pointer_cast<RGYFilterParamKfm>(m_param);
+    if (!prm || branch < 0 || branch > 1 || index < 0) return RGY_ERR_INVALID_PARAM;
+    count = 0;
+    if (mask) *mask = nullptr;
+    if (event) *event = RGYOpenCLEvent();
+    const bool useCache = prm->kfm.rff;
+    bool found = false;
+    if (useCache) {
+        for (const auto& entry : m_nrMaskCounts[branch]) {
+            if (entry.index == index) { count = entry.count; found = true; break; }
+        }
+    }
+    const bool forceFullMask = !kfmUseLazyCombeMask() || m_fpFrameInfo != nullptr || stageDumpRequested(index);
+    const bool canPatch = kfmDeint60BranchEnabled() && m_deint60Rtgmc;
+    if (found && (!needMask || (!forceFullMask && (!canPatch || count == 0)))) {
+        if (needMask) m_kfmProfile.fullCombeMaskAvoided++;
+        return RGY_ERR_NONE;
+    }
+    auto sts = RGY_ERR_NONE;
+    const int length = branch == 0
+        ? (prm->kfm.rff ? (int)m_analyzerOutputResults.size() * 4 : m_cachedSourceFrames / 5 * 4 + m_cachedSourceFrames % 5)
+        : m_cachedSourceFrames;
+    std::array<RGYFrameInfo *, 3> supers = {};
+    std::vector<RGYOpenCLEvent> maskWaits;
+    for (int i = 0; i < 3; i++) {
+        const int neighbor = index + i - 1;
+        if (neighbor < 0 || (drain && neighbor >= length && (i != 1 || !prm->kfm.rff))) continue;
+        if (!m_nrSuperWork[i]) {
+            auto info = prm->frameOut;
+            info.width = std::max(1, info.width >> 1);
+            info.height = std::max(1, info.height >> 2);
+            m_nrSuperWork[i] = m_cl->createFrameBuffer(info);
+            if (!m_nrSuperWork[i]) return RGY_ERR_MEMORY_ALLOC;
+        }
+        supers[i] = &m_nrSuperWork[i]->frame;
+        RGYOpenCLEvent ready;
+        sts = getCachedCleanSuper(branch == 0 ? KFM_CLEAN_SUPER_24 : KFM_CLEAN_SUPER_30,
+            neighbor, supers[i], &supers[i], drain, queue, {}, &ready);
+        if (sts != RGY_ERR_NONE) return sts;
+        if (ready() != nullptr) maskWaits.push_back(ready);
+    }
+    if (!supers[1]) return RGY_ERR_INVALID_CALL;
+    if (!supers[0]) supers[0] = supers[1];
+    if (!supers[2]) supers[2] = supers[1];
+    RGYFrameInfo *flag = nullptr, *contains = nullptr, *fullMask = nullptr;
+    sts = ensureMaskBranchFrames(&flag, &contains, &fullMask, supers[1], branch == 0 ? _T("24p") : _T("30p"));
+    if (sts != RGY_ERR_NONE) return sts;
+    KfmContainsCombeReadback readback;
+    RGYOpenCLEvent maskEvent;
+    // 旧24/30p経路と同じく、patch不要ならfull maskを生成しない。診断出力時は従来どおり生成する。
+    bool fullMaskGenerated = needMask && (forceFullMask || (found && count > 0 && canPatch));
+    sts = renderMaskBranch(flag, contains, fullMask, supers[0], supers[1], supers[2],
+        "nr-switch-flag", "nr-contains-combe", "nr-combe-mask", fullMaskGenerated, queue, maskWaits, &maskEvent, found ? nullptr : &readback);
+    if (sts != RGY_ERR_NONE) return sts;
+    if (!found) {
+        KfmProfileScope profile(m_kfmProfile, m_kfmProfile.nrMaskWait);
+        sts = queue.flush();
+        if (sts != RGY_ERR_NONE) { resolveContainsCombeCount(readback, nullptr, queue); return sts; }
+        sts = resolveContainsCombeCount(readback, &count, queue);
+    }
+    if (sts != RGY_ERR_NONE) return sts;
+    if (useCache && !found) {
+        m_nrMaskCounts[branch].push_back({ index, count });
+        while (m_nrMaskCounts[branch].size() > 64) m_nrMaskCounts[branch].pop_front();
+    }
+    if (needMask && canPatch && count > 0 && !fullMaskGenerated) {
+        RGYOpenCLEvent fullMaskEvent;
+        sts = renderCombeMask(fullMask, flag, supers[1], "nr-combe-mask", queue, { maskEvent }, &fullMaskEvent);
+        if (sts != RGY_ERR_NONE) return sts;
+        maskEvent = fullMaskEvent;
+        fullMaskGenerated = true;
+    }
+    if (needMask && !fullMaskGenerated) m_kfmProfile.fullCombeMaskAvoided++;
+    if (mask && fullMaskGenerated) *mask = fullMask;
+    if (event) *event = maskEvent;
+    return RGY_ERR_NONE;
+}
+
 RGY_ERR RGYFilterKfm::renderBranchNr(RGYFrameInfo **output, KfmSwitchTiming& timing, bool drain, bool fixed24,
     RGYOpenCLQueue& queue, RGYOpenCLEvent *event) {
     auto prm = std::dynamic_pointer_cast<RGYFilterParamKfm>(m_param);
     if (!prm || !output) return RGY_ERR_INVALID_PARAM;
-    const int branch = timing.baseType == KFM_FRAME_24 ? 0 : 1;
-    const int index = branch == 0 ? timing.frame24Index : timing.sourceIndex;
-    if (index < 0 || !m_nrBranches[branch]) return RGY_ERR_INVALID_CALL;
-    // 非RFFのfilm列長はN/5*4+N%5。出力に選ばれない末尾も隣接baseになり得る。
-    const int length = branch == 0 ? m_cachedSourceFrames / 5 * 4 + m_cachedSourceFrames % 5 : m_cachedSourceFrames;
-    if (index >= length || (!drain && index + 1 >= length)) return RGY_ERR_MORE_DATA;
+    const int branch = timing.baseType == KFM_FRAME_24 || timing.baseType == KFM_FRAME_RFF_24 ? 0 : 1;
+    const int imageIndex = timing.baseType == KFM_FRAME_24 ? timing.frame24Index : timing.sourceIndex;
+    int index = imageIndex;
+    int length = branch == 0 ? m_cachedSourceFrames / 5 * 4 + m_cachedSourceFrames % 5 : m_cachedSourceFrames;
+    if (!m_nrBranches[branch]) return RGY_ERR_INVALID_CALL;
+    if (branch == 0 && prm->kfm.rff) {
+        const auto sts = resolveNrFilmWindow(timing, drain, queue, index, length);
+        if (sts != RGY_ERR_NONE) return sts;
+    } else if (index < 0 || index >= length || (!drain && index + 1 >= length)) {
+        return RGY_ERR_MORE_DATA;
+    }
     auto& result = m_nrResults[branch];
     if (!result.frame || result.index != index) {
         std::array<std::shared_ptr<RGYCLFrame>, 3> bases;
@@ -3919,62 +4273,25 @@ RGY_ERR RGYFilterKfm::renderBranchNr(RGYFrameInfo **output, KfmSwitchTiming& tim
     auto sts = m_cl->copyFrame(out, &result.frame->frame, nullptr, queue, { result.event }, &outEvent);
     if (sts != RGY_ERR_NONE) return sts;
     copyFramePropWithoutRes(out, &result.frame->frame);
-    // マスクはNRに依存しない。元のclean-superから生成し、UCF→NRの後へpatchする。
-    std::array<RGYFrameInfo *, 3> supers = {};
-    std::vector<RGYOpenCLEvent> maskWaits;
-    for (int i = 0; i < 3; i++) {
-        const int neighbor = index + i - 1;
-        if (neighbor < 0 || (drain && neighbor >= length)) continue;
-        if (!m_nrSuperWork[i]) {
-            auto info = prm->frameOut;
-            info.width = std::max(1, info.width >> 1);
-            info.height = std::max(1, info.height >> 2);
-            m_nrSuperWork[i] = m_cl->createFrameBuffer(info);
-            if (!m_nrSuperWork[i]) return RGY_ERR_MEMORY_ALLOC;
-        }
-        supers[i] = &m_nrSuperWork[i]->frame;
-        RGYOpenCLEvent ready;
-        sts = getCachedCleanSuper(branch == 0 ? KFM_CLEAN_SUPER_24 : KFM_CLEAN_SUPER_30,
-            neighbor, supers[i], &supers[i], drain, queue, {}, &ready);
-        if (sts != RGY_ERR_NONE) return sts;
-        if (ready() != nullptr) maskWaits.push_back(ready);
+    // NR内部の連続kを外へ漏らさず、通常画像の識別番号を維持する。
+    if (branch == 0) out->inputFrameId = imageIndex;
+    if (timing.baseType == KFM_FRAME_RFF_24) {
+        *output = out;
+        if (event) *event = outEvent;
+        return RGY_ERR_NONE;
     }
-    if (!supers[1]) return RGY_ERR_INVALID_CALL;
-    if (!supers[0]) supers[0] = supers[1];
-    if (!supers[2]) supers[2] = supers[1];
-    RGYFrameInfo *flag = nullptr, *contains = nullptr, *mask = nullptr;
-    sts = ensureMaskBranchFrames(&flag, &contains, &mask, supers[1], branch == 0 ? _T("24p") : _T("30p"));
-    if (sts != RGY_ERR_NONE) return sts;
-    KfmContainsCombeReadback readback;
+    RGYFrameInfo *mask = nullptr;
     RGYOpenCLEvent maskEvent;
-    // 旧24/30p経路と同じく、patch不要ならfull maskを生成しない。診断出力時は従来どおり生成する。
-    const bool fullMaskGenerated = !kfmUseLazyCombeMask() || m_fpFrameInfo != nullptr || stageDumpRequested(index);
-    sts = renderMaskBranch(flag, contains, mask, supers[0], supers[1], supers[2],
-        "nr-switch-flag", "nr-contains-combe", "nr-combe-mask", fullMaskGenerated, queue, maskWaits, &maskEvent, &readback);
-    if (sts != RGY_ERR_NONE) return sts;
     cl_uint count = 0;
-    {
-        KfmProfileScope profile(m_kfmProfile, m_kfmProfile.nrMaskWait);
-        sts = queue.flush();
-        if (sts != RGY_ERR_NONE) { resolveContainsCombeCount(readback, nullptr, queue); return sts; }
-        sts = resolveContainsCombeCount(readback, &count, queue);
-    }
+    sts = prepareNrMask(branch, imageIndex, drain, true, queue, count, &mask, &maskEvent);
     if (sts != RGY_ERR_NONE) return sts;
     const bool patch = kfmDeint60BranchEnabled() && m_deint60Rtgmc && count > 0;
-    if (patch && !fullMaskGenerated) {
-        RGYOpenCLEvent fullMaskEvent;
-        sts = renderCombeMask(mask, flag, supers[1], "nr-combe-mask", queue, { maskEvent }, &fullMaskEvent);
-        if (sts != RGY_ERR_NONE) return sts;
-        maskEvent = fullMaskEvent;
-    } else if (!fullMaskGenerated) {
-        m_kfmProfile.fullCombeMaskAvoided++;
-    }
     int patchN60 = timing.start60;
     if (count > 0 && !fixed24 && (switchSingleFrameDurationEnabled() || (kfmDeint60BranchEnabled() && m_deint60Rtgmc))) {
         applyCombedSingleFrameDuration(timing);
     }
     if (patch && fixed24) {
-        patchN60 = telecine24PatchN60(index);
+        patchN60 = telecine24PatchN60(imageIndex);
     }
     if (patch && patchN60 >= 0) {
         sts = lazyDeint60Enabled(*prm) ? m_deint60Lane.ensureRange(patchN60, patchN60 + 1, queue) : RGY_ERR_NONE;
@@ -3984,7 +4301,7 @@ RGY_ERR RGYFilterKfm::renderBranchNr(RGYFrameInfo **output, KfmSwitchTiming& tim
         if (!deint60) return RGY_ERR_MORE_DATA;
         auto patched = nextWorkFrame();
         if (!patched) return RGY_ERR_INVALID_CALL;
-        sts = patchCombe(patched, out, deint60, mask, index, "nr-patch-combe", queue, waits, &outEvent);
+        sts = patchCombe(patched, out, deint60, mask, imageIndex, "nr-patch-combe", queue, waits, &outEvent);
         if (sts != RGY_ERR_NONE) return sts;
         out = patched;
     }
@@ -4813,6 +5130,10 @@ void RGYFilterKfm::writeFrameTimecode(const RGYFrameInfo *frame) {
 }
 
 bool RGYFilterKfm::deriveSwitchTimingAt(KfmSwitchTiming& timing, int n60, int total60) const {
+    return deriveSwitchTimingAtWithSingleFrames(timing, n60, total60, m_switchSingleFrameN60);
+}
+
+bool RGYFilterKfm::deriveSwitchTimingAtWithSingleFrames(KfmSwitchTiming& timing, int n60, int total60, const std::set<int>& singleFrames) const {
     timing = KfmSwitchTiming();
     if (!m_analyzer || m_analyzerOutputResults.empty() || total60 <= 0 || n60 < 0 || n60 >= total60) {
         return false;
@@ -4879,7 +5200,7 @@ bool RGYFilterKfm::deriveSwitchTimingAt(KfmSwitchTiming& timing, int n60, int to
 
     auto deriveFromStart = [&](int current) {
         auto info = frameInfoAt(current, resultAt(current / 10));
-        const bool forceSingle = (info.baseType == KFM_FRAME_24 || info.baseType == KFM_FRAME_30) && isSwitchSingleFrameN60(current);
+        const bool forceSingle = (info.baseType == KFM_FRAME_24 || info.baseType == KFM_FRAME_30) && singleFrames.find(current) != singleFrames.end();
         const int maxDuration = forceSingle ? 1 : info.baseType == KFM_FRAME_24 ? 4 : info.baseType == KFM_FRAME_30 ? 2 : 1;
         int duration = maxDuration;
         for (int i = 1; i < maxDuration; i++) {
@@ -4958,40 +5279,6 @@ bool RGYFilterKfm::deriveTelecine24TimingAt(KfmSwitchTiming& timing, int n60, in
     return false;
 }
 
-std::vector<RGYFilterKfm::KfmSwitchTiming> RGYFilterKfm::deriveSwitchTimings(int total60) const {
-    std::vector<KfmSwitchTiming> timings;
-    if (!m_analyzer || m_analyzerOutputResults.empty() || total60 <= 0) {
-        return timings;
-    }
-    int current = 0;
-    while (current < total60) {
-        KfmSwitchTiming info;
-        if (!deriveSwitchTimingAt(info, current, total60)) {
-            break;
-        }
-        timings.push_back(info);
-        current += info.duration60;
-    }
-
-    const auto prm = std::dynamic_pointer_cast<RGYFilterParamKfm>(m_param);
-    if (prm && prm->kfm.is120) {
-        for (size_t i = 1; i < timings.size(); ++i) {
-            if (timings[i - 1].isFrame24 && timings[i].isFrame24
-                && timings[i - 1].duration60 >= 2 && timings[i].duration60 >= 2
-                && timings[i - 1].duration60 + timings[i].duration60 == 5) {
-                timings[i].start120 = timings[i - 1].start120 + 5;
-            }
-        }
-        for (size_t i = 0; i + 1 < timings.size(); ++i) {
-            const int duration120 = timings[i + 1].start120 - timings[i].start120;
-            if (duration120 > 0) {
-                timings[i].duration120 = duration120;
-            }
-        }
-    }
-    return timings;
-}
-
 int64_t RGYFilterKfm::sourceFrameDuration(const KfmCachedSource *source) const {
     if (!source || !source->frame) {
         return 1;
@@ -5011,17 +5298,12 @@ int64_t RGYFilterKfm::sourceFrameDuration(const KfmCachedSource *source) const {
     return 1;
 }
 
-bool RGYFilterKfm::isSwitchSingleFrameN60(int n60) const {
-    return std::find(m_switchSingleFrameN60.begin(), m_switchSingleFrameN60.end(), n60) != m_switchSingleFrameN60.end();
-}
-
 void RGYFilterKfm::markSwitchSingleFrameN60Range(int start60, int duration60) {
     for (int i = 0; i < duration60; i++) {
         const int n60 = start60 + i;
-        if (!isSwitchSingleFrameN60(n60)) {
-            m_switchSingleFrameN60.push_back(n60);
-        }
+        m_switchSingleFrameN60.insert(n60);
     }
+    m_branchNrStats.maxSingleLive = std::max(m_branchNrStats.maxSingleLive, m_switchSingleFrameN60.size());
 }
 
 void RGYFilterKfm::applyCombedSingleFrameDuration(KfmSwitchTiming& timing) {
@@ -5048,22 +5330,39 @@ bool RGYFilterKfm::switchSingleFrameDurationEnabled() const {
     return prm && prm->kfm.thswitch >= 0.0f && !kfmDisableCCDuration();
 }
 
+void RGYFilterKfm::appendSwitchTimingDump(int end60) {
+    if (m_switchTimingDumped || m_switchDurationPath.empty()) return;
+    if (!m_fpSwitchDuration && (_tfopen_s(&m_fpSwitchDuration, m_switchDurationPath.c_str(), _T("wb")) != 0 || !m_fpSwitchDuration)) {
+        AddMessage(RGY_LOG_WARN, _T("KFM duration dumpを開けません: \"%s\"。\n"), m_switchDurationPath.c_str());
+        m_switchTimingDumped = true;
+        return;
+    }
+    while (m_switchDurationNext60 < end60) {
+        KfmSwitchTiming timing;
+        if (!deriveSwitchTimingAt(timing, m_switchDurationNext60, m_cachedSourceFrames * 2)
+            || timing.start60 + timing.duration60 > end60) break;
+        fprintf(m_fpSwitchDuration, "%d\n", timing.duration60);
+        m_switchDurationNext60 += timing.duration60;
+    }
+}
+
+void RGYFilterKfm::trimSwitchSingleFrames() {
+    const int floor = std::max(0, m_nextSwitchN60 - 3);
+    // 旧duration診断はEOFで全区間を再導出していた。古いsingle判定を捨てる前に同じ列を逐次保存する。
+    appendSwitchTimingDump(floor);
+    const int keep = !m_switchDurationPath.empty() && !m_switchTimingDumped
+        ? std::min(floor, std::max(0, m_switchDurationNext60 - 3)) : floor;
+    m_switchSingleFrameN60.erase(m_switchSingleFrameN60.begin(), m_switchSingleFrameN60.lower_bound(keep));
+}
+
 void RGYFilterKfm::writeSwitchTimingDump() {
-    if (m_switchTimingDumped || m_switchDurationPath.empty()) {
-        return;
+    if (m_switchTimingDumped || m_switchDurationPath.empty()) return;
+    appendSwitchTimingDump(m_cachedSourceFrames * 2);
+    if (m_fpSwitchDuration) {
+        fclose(m_fpSwitchDuration);
+        m_fpSwitchDuration = nullptr;
     }
-    const auto timings = deriveSwitchTimings(m_cachedSourceFrames * 2);
-    FILE *fp = nullptr;
-    if (_tfopen_s(&fp, m_switchDurationPath.c_str(), _T("wb")) != 0 || fp == nullptr) {
-        AddMessage(RGY_LOG_WARN, _T("failed to open KFM duration dump file \"%s\".\n"), m_switchDurationPath.c_str());
-        return;
-    }
-    for (const auto& timing : timings) {
-        fprintf(fp, "%d\n", timing.duration60);
-    }
-    fclose(fp);
     m_switchTimingDumped = true;
-    AddMessage(RGY_LOG_DEBUG, _T("wrote KFM switch duration dump file \"%s\".\n"), m_switchDurationPath.c_str());
 }
 
 void RGYFilterKfm::writeTelecine24DurationDump() {
@@ -5307,26 +5606,15 @@ void RGYFilterKfm::resetRffTiming() {
     m_rffLastOutputPts = -1;
 }
 
-RGY_ERR RGYFilterKfm::prepareRffDirect24(KfmRffDirectOutput& direct, RGYFrameInfo *output, int sourceIndex, int start60, int64_t nextOutputPts, bool useInputTimestamp,
-    RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& waitEvents, RGYOpenCLEvent *event) {
+RGY_ERR RGYFilterKfm::planRffDirect24(KfmRffDirectOutput& direct, int sourceIndex, int start60, int64_t nextOutputPts, bool useInputTimestamp) const {
     direct = KfmRffDirectOutput();
     const auto prm = std::dynamic_pointer_cast<RGYFilterParamKfm>(m_param);
     const auto *source = findSourceByIndexExact(sourceIndex);
-    if (!prm || !output || !source || !source->frame || !source->frame->frame.ptr[0]) {
+    if (!prm || !source || !source->frame || !source->frame->frame.ptr[0]) {
         return RGY_ERR_MORE_DATA;
     }
 
-    auto copyWaitEvents = waitEvents;
-    if (source->event() != nullptr) {
-        copyWaitEvents.push_back(source->event);
-    }
-    auto sts = m_cl->copyFrame(output, &source->frame->frame, nullptr, queue, copyWaitEvents, event, RGYFrameCopyMode::FRAME, "kfm.rff_output");
-    if (sts != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("failed to copy KFM RFF output frame: %s.\n"), get_err_mes(sts));
-        return sts;
-    }
-    copyFramePropWithoutRes(output, &source->frame->frame);
-
+    // 先読みは計画だけを作り、出力clockやcadenceの状態はcommit時まで変更しない。
     const auto *prevSource = findSourceByIndexExact(sourceIndex - 1);
     const bool adjacentRff = m_rffPrevSourceIndex + 1 == sourceIndex;
     direct.anchorOutputPts = m_rffAnchorOutputPts;
@@ -5361,12 +5649,51 @@ RGY_ERR RGYFilterKfm::prepareRffDirect24(KfmRffDirectOutput& direct, RGYFrameInf
     direct.timing.duration120 = 5;
     direct.timing.isFrame24 = true;
     direct.timing.isFrame60 = false;
+    return RGY_ERR_NONE;
+}
 
+RGY_ERR RGYFilterKfm::applyRffDirect24Properties(RGYFrameInfo *output, const KfmRffDirectOutput& direct) const {
+    const auto *source = findSourceByIndexExact(direct.sourceIndex);
+    if (!output || !source || !source->frame || !source->frame->frame.ptr[0]) {
+        return RGY_ERR_MORE_DATA;
+    }
+
+    // NR後の完成画像にも、元の直通と同じ入力由来metadataと出力時刻を適用する。
+    copyFramePropWithoutRes(output, &source->frame->frame);
     output->timestamp = direct.outputPts;
     output->duration = direct.outputDuration;
     output->picstruct = RGY_PICSTRUCT_FRAME;
     output->flags = (RGY_FRAME_FLAGS)(output->flags & ~(RGY_FRAME_FLAG_RFF | RGY_FRAME_FLAG_RFF_COPY | RGY_FRAME_FLAG_RFF_TFF | RGY_FRAME_FLAG_RFF_BFF));
     attachSwitchFrameData(output, direct.timing, nullptr);
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterKfm::prepareRffDirect24(KfmRffDirectOutput& direct, RGYFrameInfo *output, int sourceIndex, int start60, int64_t nextOutputPts, bool useInputTimestamp,
+    RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& waitEvents, RGYOpenCLEvent *event) {
+    direct = KfmRffDirectOutput();
+    const auto prm = std::dynamic_pointer_cast<RGYFilterParamKfm>(m_param);
+    const auto *source = findSourceByIndexExact(sourceIndex);
+    if (!prm || !output || !source || !source->frame || !source->frame->frame.ptr[0]) {
+        return RGY_ERR_MORE_DATA;
+    }
+
+    auto copyWaitEvents = waitEvents;
+    if (source->event() != nullptr) {
+        copyWaitEvents.push_back(source->event);
+    }
+    auto sts = m_cl->copyFrame(output, &source->frame->frame, nullptr, queue, copyWaitEvents, event, RGYFrameCopyMode::FRAME, "kfm.rff_output");
+    if (sts != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to copy KFM RFF output frame: %s.\n"), get_err_mes(sts));
+        return sts;
+    }
+    sts = planRffDirect24(direct, sourceIndex, start60, nextOutputPts, useInputTimestamp);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
+    sts = applyRffDirect24Properties(output, direct);
+    if (sts != RGY_ERR_NONE) {
+        return sts;
+    }
     writeFrameInfoDump("rff-direct", output, nullptr);
     return RGY_ERR_NONE;
 }
@@ -7392,6 +7719,12 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
             return sts;
         }
         while (*pOutputFrameNum < maxOutputFrames) {
+            trimSwitchSingleFrames();
+            if (branchNrEnabled(*prm) && prm->kfm.rff) {
+                sts = ensureNrFilmPlanThrough(m_nextSwitchN60, drain, queue);
+                if (sts == RGY_ERR_MORE_DATA) break;
+                if (sts != RGY_ERR_NONE) return sts;
+            }
             if (prm->kfm.rff && (m_nextSwitchN60 & 1) == 0) {
                 const int rffSourceIndex = m_nextSwitchN60 >> 1;
                 if (isRffProgressiveSource(rffSourceIndex, drain)) {
@@ -7399,13 +7732,22 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
                         m_vfrRunStats.tailHoldBreaks++;
                         break;
                     }
-                    auto out = nextWorkFrame();
-                    if (!out) {
-                        return RGY_ERR_INVALID_CALL;
-                    }
+                    RGYFrameInfo *out = nullptr;
                     KfmRffDirectOutput direct;
                     RGYOpenCLEvent outputEvent;
-                    sts = prepareRffDirect24(direct, out, rffSourceIndex, m_nextSwitchN60, m_nextSwitchPts, true, queue, wait_events, &outputEvent);
+                    if (branchNrEnabled(*prm)) {
+                        sts = planRffDirect24(direct, rffSourceIndex, m_nextSwitchN60, m_nextSwitchPts, true);
+                        if (sts == RGY_ERR_NONE) {
+                            auto timing = direct.timing;
+                            sts = renderBranchNr(&out, timing, drain, false, queue, &outputEvent);
+                        }
+                        if (sts == RGY_ERR_NONE) sts = applyRffDirect24Properties(out, direct);
+                        if (sts == RGY_ERR_NONE) writeFrameInfoDump("rff-direct", out, nullptr);
+                    } else {
+                        out = nextWorkFrame();
+                        if (!out) return RGY_ERR_INVALID_CALL;
+                        sts = prepareRffDirect24(direct, out, rffSourceIndex, m_nextSwitchN60, m_nextSwitchPts, true, queue, wait_events, &outputEvent);
+                    }
                     if (sts == RGY_ERR_MORE_DATA) {
                         m_vfrRunStats.sourceMissingFallbackBreaks++;
                         break;
@@ -8289,19 +8631,33 @@ RGY_ERR RGYFilterKfm::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
             return RGY_ERR_NONE;
         };
         while (*pOutputFrameNum < maxOutputFrames && m_nextSwitchN60 < availableN60) {
+            if (branchNrEnabled(*prm) && prm->kfm.rff) {
+                sts = ensureNrFilmPlanThrough(m_nextSwitchN60, drain, queue);
+                if (sts == RGY_ERR_MORE_DATA) break;
+                if (sts != RGY_ERR_NONE) return sts;
+            }
             if (prm->kfm.rff && (m_nextSwitchN60 & 1) == 0) {
                 const int rffSourceIndex = m_nextSwitchN60 >> 1;
                 if (isRffProgressiveSource(rffSourceIndex, drain)) {
                     if (!drain && m_nextSwitchN60 + 2 >= availableN60) {
                         break;
                     }
-                    auto out = nextWorkFrame();
-                    if (!out) {
-                        return RGY_ERR_INVALID_CALL;
-                    }
+                    RGYFrameInfo *out = nullptr;
                     KfmRffDirectOutput direct;
                     RGYOpenCLEvent outputEvent;
-                    sts = prepareRffDirect24(direct, out, rffSourceIndex, m_nextSwitchN60, m_nextSwitchPts, false, queue, wait_events, &outputEvent);
+                    if (branchNrEnabled(*prm)) {
+                        sts = planRffDirect24(direct, rffSourceIndex, m_nextSwitchN60, m_nextSwitchPts, false);
+                        if (sts == RGY_ERR_NONE) {
+                            auto timing = direct.timing;
+                            sts = renderBranchNr(&out, timing, drain, true, queue, &outputEvent);
+                        }
+                        if (sts == RGY_ERR_NONE) sts = applyRffDirect24Properties(out, direct);
+                        if (sts == RGY_ERR_NONE) writeFrameInfoDump("rff-direct", out, nullptr);
+                    } else {
+                        out = nextWorkFrame();
+                        if (!out) return RGY_ERR_INVALID_CALL;
+                        sts = prepareRffDirect24(direct, out, rffSourceIndex, m_nextSwitchN60, m_nextSwitchPts, false, queue, wait_events, &outputEvent);
+                    }
                     if (sts == RGY_ERR_MORE_DATA) {
                         break;
                     }
@@ -8965,12 +9321,21 @@ void RGYFilterKfm::close() {
             (long long)m_branchNrStats.resultHits, (long long)m_branchNrStats.nrFrames,
             (long long)(m_branchNrStats.baseDraws - m_branchNrStats.nrFrames),
             (unsigned long long)m_branchNrStats.maxSource, (unsigned long long)sourceCacheLimit());
+        AddMessage(RGY_LOG_INFO, _T("KFM single判定保持最大: live=%llu film=%llu。\n"),
+            (unsigned long long)m_branchNrStats.maxSingleLive, (unsigned long long)m_branchNrStats.maxSinglePlan);
         AddMessage(RGY_LOG_INFO, _T("KFM NR base pool: GPU確保=%lld 再利用=%lld。\n"),
             (long long)m_branchNrStats.baseAllocations, (long long)m_branchNrStats.baseReuses);
+        if (m_nrFilmNormalCount || m_nrFilmRffCount) {
+            AddMessage(RGY_LOG_INFO, _T("KFM NR film計画: 通常=%lld RFF=%lld RFF原画描画=%lld 保持最大=%llu。\n"),
+                (long long)m_nrFilmNormalCount, (long long)m_nrFilmRffCount, (long long)m_branchNrStats.rffBaseDraws,
+                (unsigned long long)m_nrFilmPeak);
+        }
     }
     for (auto& nr : m_nrBranches) nr.reset();
     for (auto& cache : m_nrBaseCache) cache.clear();
     for (auto& pool : m_nrBasePool) pool.clear();
+    for (auto& counts : m_nrMaskCounts) counts.clear();
+    resetNrFilmPlan();
     m_nrResults = {};
     for (auto& work : m_nrBaseWork) work.reset();
     for (auto& work : m_nrSuperWork) work.reset();
@@ -9086,6 +9451,11 @@ void RGYFilterKfm::close() {
         fclose(m_fpUcfNoise);
         m_fpUcfNoise = nullptr;
     }
+    if (m_fpSwitchDuration) {
+        fclose(m_fpSwitchDuration);
+        m_fpSwitchDuration = nullptr;
+    }
+    m_switchDurationNext60 = 0;
     m_switchDurationPath.clear();
     m_switchTimecodePath.clear();
     m_stageDumpDir.clear();

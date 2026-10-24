@@ -33,6 +33,7 @@
 #include <array>
 #include <cstdio>
 #include <deque>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -280,6 +281,8 @@ protected:
     int64_t rffFilmOffset(int64_t frameIndex) const;
     int64_t p24SlotAtInputPts(int64_t inputPts) const;
     void resetRffTiming();
+    RGY_ERR planRffDirect24(KfmRffDirectOutput& direct, int sourceIndex, int start60, int64_t nextOutputPts, bool useInputTimestamp) const;
+    RGY_ERR applyRffDirect24Properties(RGYFrameInfo *output, const KfmRffDirectOutput& direct) const;
     RGY_ERR prepareRffDirect24(KfmRffDirectOutput& direct, RGYFrameInfo *output, int sourceIndex, int start60, int64_t nextOutputPts, bool useInputTimestamp,
         RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& waitEvents, RGYOpenCLEvent *event);
     void commitRffDirect24(const KfmRffDirectOutput& direct, int64_t nextOutputPts);
@@ -302,14 +305,15 @@ protected:
     void appendAnalyzerResults(size_t resultCount, bool dump, bool mark60p);
     void logKfmProfileStats();
     bool deriveSwitchTimingAt(KfmSwitchTiming& timing, int n60, int total60) const;
+    bool deriveSwitchTimingAtWithSingleFrames(KfmSwitchTiming& timing, int n60, int total60, const std::set<int>& singleFrames) const;
     bool deriveTelecine24TimingAt(KfmSwitchTiming& timing, int n60, int total60, bool afterRff) const;
-    std::vector<KfmSwitchTiming> deriveSwitchTimings(int total60) const;
     int64_t sourceFrameDuration(const KfmCachedSource *source) const;
-    bool isSwitchSingleFrameN60(int n60) const;
     void markSwitchSingleFrameN60Range(int start60, int duration60);
     void applyCombedSingleFrameDuration(KfmSwitchTiming& timing);
     int telecine24PatchN60(int frame24Index) const;
     bool switchSingleFrameDurationEnabled() const;
+    void trimSwitchSingleFrames();
+    void appendSwitchTimingDump(int end60);
     void writeSwitchTimingDump();
     void writeTelecine24DurationDump();
     void writeFMCountDump(const std::array<RGYKFM::FMCount, 18>& counts, int cycle);
@@ -615,7 +619,9 @@ protected:
     struct KfmBranchNrStats {
         int64_t baseDraws = 0, neighborDraws = 0, baseHits = 0, resultHits = 0, nrFrames = 0;
         int64_t baseAllocations = 0, baseReuses = 0;
+        int64_t rffBaseDraws = 0;
         size_t maxSource = 0;
+        size_t maxSingleLive = 0, maxSinglePlan = 0;
     };
     std::array<std::unique_ptr<RGYFilterDegrain>, 2> m_nrBranches;
     std::array<std::deque<KfmNrCacheEntry>, 2> m_nrBaseCache;
@@ -624,6 +630,46 @@ protected:
     std::array<std::unique_ptr<RGYCLFrame>, 1> m_nrBaseWork;
     std::array<std::unique_ptr<RGYCLFrame>, 3> m_nrSuperWork;
     KfmBranchNrStats m_branchNrStats;
+    struct KfmNrMaskCount {
+        int index;
+        cl_uint count;
+    };
+    std::array<std::deque<KfmNrMaskCount>, 2> m_nrMaskCounts;
+    struct KfmNrFilmImage {
+        int baseType;
+        int index;
+        int lastSource;
+    };
+    struct KfmNrFilmCursor {
+        int n60 = 0;
+        int64_t slot = 0;
+        int lastRffSource = -1;
+        int lastBaseType = KFM_FRAME_60;
+        bool complete = false;
+        std::set<int> singleFrames;
+    };
+    std::deque<KfmNrFilmImage> m_nrFilmImages;
+    std::unordered_map<int, int> m_nrFilmNormalKeys;
+    std::unordered_map<int, int> m_nrFilmRffKeys;
+    int m_nrFilmOffset = 0;
+    int m_nrFilmRetiredNormal = -1;
+    int m_nrFilmRetiredRff = -1;
+    int m_nrFilmLastNormal = -1;
+    int64_t m_nrFilmNormalCount = 0;
+    int64_t m_nrFilmRffCount = 0;
+    size_t m_nrFilmPeak = 0;
+    KfmNrFilmCursor m_nrFilmCursor;
+    void resetNrFilmPlan();
+    int nrFilmImageKey(int baseType, int index) const;
+    void trimNrFilmPlan(int keepK = -1);
+    RGY_ERR appendNrFilmImage(int baseType, int index, int keepK = -1);
+    RGY_ERR appendNrFilmCoverage(const KfmSwitchTiming& timing, bool drain, int keepK = -1);
+    RGY_ERR advanceNrFilmPlan(bool drain, RGYOpenCLQueue& queue, int keepK = -1);
+    RGY_ERR ensureNrFilmPlanThrough(int n60, bool drain, RGYOpenCLQueue& queue);
+    RGY_ERR resolveNrFilmWindow(const KfmSwitchTiming& timing, bool drain, RGYOpenCLQueue& queue,
+        int& index, int& length);
+    RGY_ERR prepareNrMask(int branch, int index, bool drain, bool needMask, RGYOpenCLQueue& queue,
+        cl_uint& count, RGYFrameInfo **mask, RGYOpenCLEvent *event);
     bool branchNrEnabled(const RGYFilterParamKfm& prm) const;
     int branchNrSourceFloor() const;
     RGY_ERR getNrBase(int branch, int index, bool drain, RGYOpenCLQueue& queue,
@@ -677,6 +723,8 @@ protected:
     FILE *m_fpResult;
     FILE *m_fpFMCount;
     FILE *m_fpTimecode;
+    FILE *m_fpSwitchDuration;
+    int m_switchDurationNext60;
     FILE *m_fpFrameInfo;
     FILE *m_fpContainsCombe;
     FILE *m_fpUcfNoise;
@@ -715,7 +763,7 @@ protected:
     int m_lastSwitchDuration60;
     int64_t m_lastSwitchStart120;
     bool m_lastSwitchIsFrame24;
-    std::vector<int> m_switchSingleFrameN60;
+    std::set<int> m_switchSingleFrameN60;
     std::unordered_map<std::string, int> m_stageDumpFrameCounts;
     std::unordered_map<std::string, std::unordered_set<int>> m_stageDumpFrameIndices;
     std::unordered_set<int> m_stageDumpTargetFrames;
