@@ -32,6 +32,7 @@
 #include "rgy_filter_cl.h"
 #include "rgy_prm.h"
 #include "rgy_openvino.h"
+#include "rgy_filter_bwdif.h"
 #include <array>
 #include <memory>
 #include <vector>
@@ -57,12 +58,13 @@ public:
     tstring device;
     tstring precision;
     VppOnnxDeintMode mode;
+    bool vhsRestore;
     CspMatrix colormatrix;
     CspColorRange colorrange;
     rgy_rational<int> timebase;
 
     RGYFilterParamOnnxDeint() :
-        modelFile(), modelDir(), device(_T("GPU.0")), precision(_T("fp32")), mode(VppOnnxDeintMode::Bob),
+        modelFile(), modelDir(), device(_T("GPU.0")), precision(_T("fp32")), mode(VppOnnxDeintMode::Bob), vhsRestore(false),
         colormatrix(RGY_MATRIX_AUTO), colorrange(RGY_COLORRANGE_AUTO), timebase() {};
     virtual ~RGYFilterParamOnnxDeint() {};
     virtual tstring print() const override;
@@ -88,6 +90,8 @@ protected:
         const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event);
     RGY_ERR convertFromRgb(RGYFrameInfo *output, RGYOpenCLQueue& queue,
         const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event);
+    RGY_ERR runVhsRestore(const RGYFrameInfo *input, RGYFrameInfo **outputs, int *outputCount,
+        RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event);
     RGY_ERR runOcl(const RGYFrameInfo *input, RGYFrameInfo **outputs, int outputCount,
         RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event);
 
@@ -113,6 +117,7 @@ protected:
         RGYOpenCLQueue& queue, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event);
 
     std::unique_ptr<RGYOpenVINO> m_ov;
+    std::unique_ptr<RGYFilterBwdif> m_bwdif;
     std::unique_ptr<RGYFilterCspCrop> m_cropToRgb;
     std::unique_ptr<RGYFilterCspCrop> m_cropFromRgb;
     int m_width;

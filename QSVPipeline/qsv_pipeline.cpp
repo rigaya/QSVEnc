@@ -3219,6 +3219,7 @@ RGY_ERR CQSVPipeline::AddFilterOpenCL(std::vector<std::unique_ptr<RGYFilter>>& c
         param->device = params->vpp.onnxDeint.device;
         param->precision = params->vpp.onnxDeint.precision;
         param->mode = params->vpp.onnxDeint.mode;
+        param->vhsRestore = params->vpp.onnxDeint.operation == VppOnnxDeintOperation::VhsRestore;
         param->colormatrix = params->vpp.onnxDeint.colormatrix;
         param->colorrange = params->vpp.onnxDeint.colorrange;
         param->frameIn = inputFrame;

@@ -291,6 +291,7 @@
   - [--vpp-anime4k-shader \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-anime4k-shader-param1value1param2value2)
   - [--vpp-onnx \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-onnx-param1value1param2value2)
   - [--vpp-onnx-deint \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-onnx-deint-param1value1param2value2)
+  - [--vpp-vhs-restore \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-vhs-restore-param1value1param2value2)
   - [--vpp-onnx-model-dir \<string\>](#--vpp-onnx-model-dir-string)
   - [--vpp-onnx-cache-dir \<string\>](#--vpp-onnx-cache-dir-string)
   - [--vpp-ai-frameinterp \[\<param1\>=\<value1\>\]\[,\<param2\>=\<value2\>\],...](#--vpp-ai-frameinterp-param1value1param2value2)
@@ -1962,6 +1963,7 @@ Vpp filters will be applied in fixed order, regardless of the order in the comma
   - [--vpp-anime4k-shader](#--vpp-anime4k-shader-param1value1param2value2)
   - [--vpp-onnx](#--vpp-onnx-param1value1param2value2)
   - [--vpp-onnx-deint](#--vpp-onnx-deint-param1value1param2value2)
+  - [--vpp-vhs-restore](#--vpp-vhs-restore-param1value1param2value2)
   - [--vpp-onnx-model-dir](#--vpp-onnx-model-dir-string)
   - [--vpp-onnx-cache-dir](#--vpp-onnx-cache-dir-string)
   - [--vpp-ai-frameinterp](#--vpp-ai-frameinterp-param1value1param2value2)
@@ -4298,6 +4300,7 @@ OpenVINO ONNX model deinterlacing filter. The model is selected by its registere
 
 The `stdeint` and `stdeint_fast` registrations use ST-DeInt (3-channel input, 6-channel half-height output). The `DDD` registration uses DDD (three-field, transposed 9-channel input and 3-channel output). `mode=bob` outputs two progressive frames per input frame and doubles the frame rate; `mode=normal` outputs one frame using the first displayed field. TFF and BFF field order are preserved. Progressive input is passed through without neural deinterlacing.
 
+
 This filter accepts 8-bit YUV420 input only, with an even frame height (at least 4). ST-DeInt uses the selected OpenVINO device and normally uses the GPU; CPU is also available through `device=CPU`. DDD keeps tensor packing and output weaving on host memory, while inference still uses the selected device. OpenVINO Runtime is required on Linux.
 
 - **Parameters**
@@ -4316,12 +4319,33 @@ This filter accepts 8-bit YUV420 input only, with an even frame height (at least
   - colorrange=&lt;string&gt; (default: auto)  
     Input color range: auto / limited (tv) / full (pc).
 
-Neither QSVEnc nor the HWEnc-onnx-models release archives include ST-DeInt or DDD model files. ST-DeInt is excluded because its upstream license is Unknown; DDD's distribution source and license are unconfirmed. Generate ST-DeInt or place a separately obtained DDD model yourself after checking the applicable rights and licenses. Run `run_all.py` in the [HWEnc-onnx-models repository](https://github.com/rigaya/HWEnc-onnx-models) to generate `onnx_deint_models.json`; DDD is registered only when `ddd/DDD.onnx` has been supplied externally.
+DDDとvhs-restoreのモデル・ライセンス・`onnx_deint_models.json`は、[HWEnc-onnx-models](https://github.com/rigaya/HWEnc-onnx-models)のデインターレース用アーカイブに収録する。ST-DeIntはライセンスが未確定のため標準の取得・生成・配布対象に含めない。
 
 ```
 --vpp-onnx-model-dir C:\models\HWEnc-onnx-models
---vpp-onnx-deint model=stdeint,mode=bob,device=GPU.0,precision=fp32
 --vpp-onnx-deint model=DDD,mode=normal,device=CPU,precision=auto
+```
+
+VHS修復モデルはこのオプションでは使用できない。[`--vpp-vhs-restore`](#--vpp-vhs-restore-param1value1param2value2)を使用すること。
+
+### --vpp-vhs-restore [&lt;param1&gt;=&lt;value1&gt;][,&lt;param2&gt;=&lt;value2&gt;],...
+PAL/SECAM向けのVHS修復モデルを適用し、その後にGPU版Bwdifでデインターレースする。修復モデル自体は欠落フィールドを生成するデインターレースモデルではない。`--vpp-onnx-deint`および他のデインターレースフィルターとは併用できない。
+
+偶数行のフィールドを上段、奇数行を下段へ配置して推論し、元の行順へ戻してからBwdifを適用する。ノイズ除去は追加しない。映像の並べ替え・推論・補間は共有OpenCLのGPU経路で実行し、ホスト経路へフォールバックしない。
+
+入力は8bit YUV420、高さは4の倍数。TFF/BFFを維持し、Bwdifの前後フレーム参照により1フレーム遅延する。プログレッシブ入力は修復せず、bobでは2枚に複製して出力する。
+
+- model=&lt;string&gt;（必須）：`vhs_restore_pal`または`vhs_restore_secam`。モデル配置先は[`--vpp-onnx-model-dir`](#--vpp-onnx-model-dir-string)で指定する。
+- enable=&lt;bool&gt;：true（デフォルト）/ false。
+- mode=&lt;string&gt;：bob（デフォルト、倍フレームレート）/ normal（元のフレームレート）。
+- precision=&lt;string&gt;：fp32（デフォルト）/ auto。
+- colormatrix=&lt;string&gt;：auto（デフォルト）/ auto_res / bt709 / smpte170m / bt470bg / bt2020nc。
+- colorrange=&lt;string&gt;：auto（デフォルト）/ limited（tv）/ full（pc）。
+- device=&lt;string&gt;：GPU.0（デフォルト）/ GPU / AUTO。共有GPU経路が必要で、CPUは使用できない。
+
+```
+--vpp-onnx-model-dir C:\models\HWEnc-onnx-models
+--vpp-vhs-restore model=vhs_restore_pal,mode=bob,precision=fp32
 ```
 
 ### --vpp-onnx-model-dir &lt;string&gt;
@@ -4332,7 +4356,7 @@ This option must be specified when using short model names with `--vpp-onnx mode
 Model files can be downloaded from [https://github.com/rigaya/HWEnc-onnx-models/releases](https://github.com/rigaya/HWEnc-onnx-models/releases).
 Download the zip archive, extract it to an arbitrary directory, and specify that directory.
 
-The release archives do not contain ST-DeInt or DDD models, or the deinterlacer manifest. ST-DeInt's upstream license is Unknown, and DDD's distribution source and license are unconfirmed. Generate or place those files separately, verify their rights and licenses, and generate `onnx_deint_models.json` with `run_all.py` before using `--vpp-onnx-deint`.
+`--vpp-onnx-deint`と`--vpp-vhs-restore`では、デインターレース用アーカイブを展開したルートディレクトリを指定する。`vhs_restore_pal`/`vhs_restore_secam`とDDDは同梱の`onnx_deint_models.json`から解決する。
 
 ```
 --vpp-onnx-model-dir C:\models\HWEnc-onnx-models

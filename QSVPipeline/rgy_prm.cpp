@@ -2245,6 +2245,7 @@ const CX_DESC list_vpp_onnx_deint_mode[] = {
 
 VppOnnxDeint::VppOnnxDeint() :
     enable(false),
+    operation(VppOnnxDeintOperation::Unspecified),
     modelFile(),
     device(_T("GPU.0")),
     precision(_T("fp32")),
@@ -2255,6 +2256,7 @@ VppOnnxDeint::VppOnnxDeint() :
 
 bool VppOnnxDeint::operator==(const VppOnnxDeint& x) const {
     return enable == x.enable
+        && (operation == VppOnnxDeintOperation::VhsRestore) == (x.operation == VppOnnxDeintOperation::VhsRestore)
         && modelFile == x.modelFile
         && device == x.device
         && precision == x.precision
