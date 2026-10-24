@@ -476,6 +476,22 @@ struct RGYDegrainMotionSearchWorkspace {
     }
 };
 
+// Degrain自身が生成した解析Yの、同じslot・生成世代だけを半解像度cacheへ再利用する。
+struct RGYDegrainLevel1LumaKey {
+    int sourceSlot = -1;
+    uint64_t generation = 0;
+    uint64_t epoch = 0;
+    bool valid() const { return sourceSlot >= 0 && generation != 0; }
+    bool operator==(const RGYDegrainLevel1LumaKey& other) const {
+        return sourceSlot == other.sourceSlot && generation == other.generation && epoch == other.epoch;
+    }
+};
+
+struct RGYDegrainLevel1LumaCacheEntry {
+    RGYDegrainLevel1LumaKey key;
+    RGYOpenCLEvent ready;
+};
+
 struct RGYDegrainAnalysisState {
     VppDegrainMode mode;
     RGYDegrainBlockLayout layout;
@@ -492,6 +508,13 @@ struct RGYDegrainAnalysisState {
     std::array<RGYFrameInfo, RGY_DEGRAIN_ANALYSIS_LUMA_CACHE_SIZE> analysisLumaFrame;
     std::array<int, RGY_DEGRAIN_ANALYSIS_LUMA_CACHE_SIZE> analysisLumaFrameNumbers;
     std::array<std::unique_ptr<RGYCLBuf>, RGY_DEGRAIN_MAX_LEVEL1_LUMA_FRAMES> lumaLevel1;
+    std::array<uint64_t, RGY_DEGRAIN_ANALYSIS_LUMA_CACHE_SIZE> analysisLumaGenerations;
+    std::array<RGYDegrainLevel1LumaCacheEntry, RGY_DEGRAIN_MAX_LEVEL1_LUMA_FRAMES> lumaLevel1Cache;
+    uint64_t analysisLumaGenerationCounter;
+    uint64_t lumaLevel1Epoch;
+    uint64_t lumaLevel1CacheHits;
+    uint64_t lumaLevel1Generated;
+    cl_command_queue lumaLevel1CacheQueue;
     std::array<RGYOpenCLEvent, RGY_DEGRAIN_ANALYSIS_LUMA_CACHE_SIZE> analysisLumaEvents;
     RGYDegrainRefDisableArray lastAvailabilityDisableRefs;
     RGYOpenCLEvent analysisLumaEvent;
@@ -528,6 +551,13 @@ struct RGYDegrainAnalysisState {
         analysisLumaFrame(),
         analysisLumaFrameNumbers(),
         lumaLevel1(),
+        analysisLumaGenerations(),
+        lumaLevel1Cache(),
+        analysisLumaGenerationCounter(0),
+        lumaLevel1Epoch(0),
+        lumaLevel1CacheHits(0),
+        lumaLevel1Generated(0),
+        lumaLevel1CacheQueue(nullptr),
         analysisLumaEvents(),
         analysisLumaEvent(),
         event(),
@@ -548,6 +578,11 @@ struct RGYDegrainAnalysisState {
         lastDuration(0) {
         analysisLumaFrameNumbers.fill(-1);
         lastAvailabilityDisableRefs.fill(true);
+    }
+    void invalidateLevel1LumaCache() {
+        ++lumaLevel1Epoch;
+        lumaLevel1CacheQueue = nullptr;
+        for (auto& entry : lumaLevel1Cache) entry = RGYDegrainLevel1LumaCacheEntry();
     }
 };
 

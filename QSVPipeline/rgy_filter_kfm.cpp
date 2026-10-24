@@ -1606,11 +1606,11 @@ RGY_ERR RGYFilterKfm::initRtgmc(const std::shared_ptr<RGYFilterParamKfm>& prm, s
 
 RGY_ERR RGYFilterKfm::initNrFilter(const std::shared_ptr<RGYFilterParamKfm>& prm) {
     m_nrFilter.reset();
+    m_nrResults = {};
+    m_nrRunLastIndex.fill(-1);
     for (auto& nr : m_nrBranches) nr.reset();
     for (auto& cache : m_nrBaseCache) cache.clear();
     for (auto& pool : m_nrBasePool) pool.clear();
-    m_nrResults = {};
-    m_nrRunLastIndex.fill(-1);
     for (auto& work : m_nrBaseWork) work.reset();
     for (auto& work : m_nrSuperWork) work.reset();
     m_branchNrStats = {};
@@ -1649,6 +1649,7 @@ RGY_ERR RGYFilterKfm::initNrFilter(const std::shared_ptr<RGYFilterParamKfm>& prm
     if (branchNrEnabled(*prm)) {
         // resetして前・現・次の3枚だけを投入する有限窓。通常の16枚cacheは不要。
         nrParam->inputCacheSize = 3;
+        nrParam->zeroCopyCache = true;
         const int count = prm->kfm.mode == VppKfmMode::VFR ? 2 : 1;
         for (int i = 0; i < count; i++) {
             m_nrBranches[i] = std::make_unique<RGYFilterDegrain>(m_cl);
@@ -3834,7 +3835,7 @@ RGY_ERR RGYFilterKfm::getNrBase(int branch, int index, bool drain, RGYOpenCLQueu
         const auto *source = findSourceByIndexExact(imageIndex);
         if (!source || !source->frame) return RGY_ERR_MORE_DATA;
         if (source->event() != nullptr) waits.push_back(source->event);
-        sts = m_cl->copyFrame(&candidate->frame, &source->frame->frame, nullptr, queue, waits, &ready);
+        sts = m_cl->copyFrame(&candidate->frame, &source->frame->frame, nullptr, queue, waits, &ready, RGYFrameCopyMode::FRAME, rffImage ? "kfm.nr.rff_source_to_base" : "kfm.nr.source30_to_base");
         if (sts != RGY_ERR_NONE) return sts;
         copyFramePropWithoutRes(&candidate->frame, &source->frame->frame);
     }
@@ -3853,7 +3854,7 @@ RGY_ERR RGYFilterKfm::getNrBase(int branch, int index, bool drain, RGYOpenCLQueu
         if (branch == 0) selected = selectUcfDecomb24Frame(film, &candidate->frame, &waits).frame;
         else selected = selectUcfDecomb30Frame(index, &candidate->frame, &waits);
         if (selection.type == KFM_UCF24_SELECT_FRAME && selected && selected != &candidate->frame) {
-            sts = m_cl->copyFrame(&candidate->frame, selected, nullptr, queue, waits, &ready);
+            sts = m_cl->copyFrame(&candidate->frame, selected, nullptr, queue, waits, &ready, RGYFrameCopyMode::FRAME, branch == 0 ? "kfm.nr.ucf24_to_base" : "kfm.nr.ucf30_to_base");
             if (sts != RGY_ERR_NONE) return sts;
         } else if (branch == 0 && selection.type == KFM_UCF24_SELECT_DWEAVE && selection.n60 >= 0) {
             // 元のrawはcandidateへ合成済み。同じscratchをDWEAVE用に再利用できる。
@@ -4235,12 +4236,18 @@ RGY_ERR RGYFilterKfm::renderBranchNr(RGYFrameInfo **output, KfmSwitchTiming& tim
     auto& result = m_nrResults[branch];
     if (!result.frame || result.index != index) {
         const bool continuous = m_nrRunLastIndex[branch] >= 0 && index == m_nrRunLastIndex[branch] + 1;
-        // feed/filter後の失敗や入力待ちをまたいで、未完成のrunを連続扱いしない。
-        // 所有結果へのコピーまで成功したときだけ、末尾で中央kを確定する。
+        // 借用したNR出力は次の同枝mutationで書き換わる。失敗時にも旧keyで返さない。
+        result = {};
         m_nrRunLastIndex[branch] = -1;
+        auto& nr = m_nrBranches[branch];
+        if (!continuous) {
+            // 旧zero-copy cacheがbaseをpinしたまま新しい3枚を確保しない。
+            nr->resetTemporalState();
+            m_branchNrStats.nrResets++;
+        }
         std::array<std::shared_ptr<RGYCLFrame>, 3> bases;
         std::array<RGYOpenCLEvent, 3> ready;
-        // 連続runでは前回filterへ渡した次画像が今回の中央なので、新しい次画像だけを足す。
+        std::array<RGYFrameInfo, 3> inputViews;
         const int begin = continuous ? 2 : index > 0 ? 0 : 1;
         const int end = index + 1 < length ? 3 : 2;
         for (int i = begin; i < end; i++) {
@@ -4248,31 +4255,29 @@ RGY_ERR RGYFilterKfm::renderBranchNr(RGYFrameInfo **output, KfmSwitchTiming& tim
             const auto sts = getNrBase(branch, index + i - 1, drain, queue, bases[i], ready[i]);
             if (i != 1) m_branchNrStats.neighborDraws += m_branchNrStats.baseDraws - beforeDraws;
             if (sts != RGY_ERR_NONE) return sts;
+            // base自身のdataListには付けず、cacheへの受渡しviewだけで所有者を渡す。
+            inputViews[i] = bases[i]->frame;
+            inputViews[i].dataList.push_back(std::make_shared<RGYFrameDataDegrainInputRef>(bases[i]));
         }
-        auto& nr = m_nrBranches[branch];
         if (continuous) {
             m_branchNrStats.continuousFeeds++;
         } else {
-            nr->resetTemporalState();
-            m_branchNrStats.nrResets++;
             for (int i = begin; i <= 1; i++) {
-                const auto sts = nr->feedFrameOnly(&bases[i]->frame, queue, { ready[i] });
+                const auto sts = nr->feedFrameOnly(&inputViews[i], queue, { ready[i] });
                 if (sts != RGY_ERR_NONE) return sts;
             }
         }
         RGYFrameInfo *nrOutput[2] = {};
         int count = 0;
         RGYOpenCLEvent nrEvent;
-        auto sts = nr->filter(end == 3 ? &bases[2]->frame : nullptr, nrOutput, &count, queue,
+        auto sts = nr->filter(end == 3 ? &inputViews[2] : nullptr, nrOutput, &count, queue,
             end == 3 ? std::vector<RGYOpenCLEvent>{ ready[2] } : std::vector<RGYOpenCLEvent>{}, &nrEvent);
         if (sts != RGY_ERR_NONE) return sts;
         if (count != 1 || !nrOutput[0] || nrOutput[0]->inputFrameId != index) return RGY_ERR_INVALID_CALL;
-        if (!result.frame) result.frame = std::shared_ptr<RGYCLFrame>(m_cl->createFrameBuffer(prm->frameOut));
-        if (!result.frame) return RGY_ERR_MEMORY_ALLOC;
-        // 同じin-order queueで所有結果へのコピーを先に投入し、次の窓によるNR出力再利用を直列化する。
-        sts = m_cl->copyFrame(&result.frame->frame, nrOutput[0], nullptr, queue, { nrEvent }, &result.event);
-        if (sts != RGY_ERR_NONE) return sts;
-        copyFramePropWithoutRes(&result.frame->frame, nrOutput[0]);
+        // 同kはfilterを呼ばず保持される。workへの読取りは次filterの書込みより先に
+        // 同じin-order queueへ投入するため、中間の所有画像へのコピーは不要。
+        result.frame = nrOutput[0];
+        result.event = nrEvent;
         result.index = index;
         m_nrRunLastIndex[branch] = index;
         m_branchNrStats.nrFrames++;
@@ -4282,9 +4287,9 @@ RGY_ERR RGYFilterKfm::renderBranchNr(RGYFrameInfo **output, KfmSwitchTiming& tim
     auto out = nextWorkFrame();
     if (!out) return RGY_ERR_INVALID_CALL;
     RGYOpenCLEvent outEvent;
-    auto sts = m_cl->copyFrame(out, &result.frame->frame, nullptr, queue, { result.event }, &outEvent);
+    auto sts = m_cl->copyFrame(out, result.frame, nullptr, queue, { result.event }, &outEvent, RGYFrameCopyMode::FRAME, "kfm.nr.result_to_work");
     if (sts != RGY_ERR_NONE) return sts;
-    copyFramePropWithoutRes(out, &result.frame->frame);
+    copyFramePropWithoutRes(out, result.frame);
     // NR内部の連続kを外へ漏らさず、通常画像の識別番号を維持する。
     if (branch == 0) out->inputFrameId = imageIndex;
     if (timing.baseType == KFM_FRAME_RFF_24) {
@@ -9345,13 +9350,13 @@ void RGYFilterKfm::close() {
                 (unsigned long long)m_nrFilmPeak);
         }
     }
+    m_nrResults = {};
+    m_nrRunLastIndex.fill(-1);
     for (auto& nr : m_nrBranches) nr.reset();
     for (auto& cache : m_nrBaseCache) cache.clear();
     for (auto& pool : m_nrBasePool) pool.clear();
     for (auto& counts : m_nrMaskCounts) counts.clear();
     resetNrFilmPlan();
-    m_nrResults = {};
-    m_nrRunLastIndex.fill(-1);
     for (auto& work : m_nrBaseWork) work.reset();
     for (auto& work : m_nrSuperWork) work.reset();
     m_branchNrStats = {};

@@ -274,6 +274,22 @@ static bool degrainSubpelPlanesEnabledFromEnv() {
     return enabled;
 }
 
+static RGYDegrainLevel1LumaKey degrainOwnedAnalysisLumaKey(const RGYDegrainAnalysisState& state, const RGYFrameInfo& plane) {
+    if (plane.width != state.analysisLumaWidth || plane.height != state.analysisLumaHeight
+        || plane.pitch[0] != state.analysisLumaPitch) return {};
+    for (int slot = 0; slot < (int)state.analysisLuma.size(); slot++) {
+        if (state.analysisLuma[slot] && state.analysisLumaFrameNumbers[slot] >= 0
+            && state.analysisLumaGenerations[slot] != 0
+            && plane.ptr[0] == reinterpret_cast<uint8_t*>(state.analysisLuma[slot]->mem())
+            && plane.bitdepth == state.analysisLumaFrame[slot].bitdepth
+            && plane.csp == state.analysisLumaFrame[slot].csp
+            && plane.mem_type == state.analysisLumaFrame[slot].mem_type) {
+            return { slot, state.analysisLumaGenerations[slot], state.lumaLevel1Epoch };
+        }
+    }
+    return {};
+}
+
 bool allocDegrainMotionSearchWorkspaceBuffer(
     const std::shared_ptr<RGYOpenCLContext> &cl,
     std::unique_ptr<RGYCLBuf> &buf,
@@ -384,6 +400,8 @@ std::string makeDegrainMotionSearchBuildOptions(const RGYDegrainMotionSearchConf
 }
 
 RGY_ERR RGYFilterDegrain::allocAnalysisBuffers(const std::shared_ptr<RGYFilterParamDegrain> &prm) {
+    m_analysis.invalidateLevel1LumaCache();
+    m_analysis.analysisLumaGenerations.fill(0);
     m_analysis.mode = prm->degrain.mode;
     m_analysis.layout = rgy_degrain_make_block_layout(prm->frameOut, prm->degrain);
     m_analysis.layoutLevel1 = rgy_degrain_make_pyramid_block_layout(prm->frameOut, prm->degrain);
@@ -745,6 +763,7 @@ RGY_ERR RGYFilterDegrain::generateAnalysisLumaFrame(const int centerFrame, RGYOp
     analysisFrame.width = m_analysis.analysisLumaWidth;
     analysisFrame.height = m_analysis.analysisLumaHeight;
     m_analysis.analysisLumaFrameNumbers[slot] = centerFrame;
+    m_analysis.analysisLumaGenerations[slot] = ++m_analysis.analysisLumaGenerationCounter;
     m_analysis.analysisLumaGeneratedUntil = centerFrame;
     m_analysis.analysisLumaEvents[slot] = lumaEvent;
     m_analysis.analysisLumaEvent = lumaEvent;
@@ -1297,7 +1316,73 @@ RGY_ERR RGYFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo &p
         level0Planes[dir + 1] = refPlanes[dir];
     }
     std::vector<RGYOpenCLEvent> downsampleEvents(level1FrameCount);
+    std::array<RGYCLBuf*, RGY_DEGRAIN_MAX_LEVEL1_LUMA_FRAMES> level1Planes = {};
+    std::array<RGYDegrainLevel1LumaKey, RGY_DEGRAIN_MAX_LEVEL1_LUMA_FRAMES> requestedKeys = {};
+    bool useLevel1Cache = refs == 2 && prm->degrain.pel == 1
+        && useAnalysisLumaCache() && !m_lastAnalysisUsedSearchLuma;
+    // queueを変更した呼出側は、従来どおり旧queueのreader完了を保証する。異queueのhitは使わない。
+    if (m_analysis.lumaLevel1CacheQueue != nullptr && m_analysis.lumaLevel1CacheQueue != queue.get()) {
+        m_analysis.invalidateLevel1LumaCache();
+    }
     for (int i = 0; i < level1FrameCount; i++) {
+        requestedKeys[i] = degrainOwnedAnalysisLumaKey(m_analysis, level0Planes[i]);
+        useLevel1Cache = useLevel1Cache && requestedKeys[i].valid();
+        level1Planes[i] = m_analysis.lumaLevel1[i].get();
+    }
+    // slotの上書きを前回readerより後へ置くため、再利用はin-order queueに限定する。
+    if (useLevel1Cache && m_analysis.lumaLevel1CacheQueue != queue.get()
+        && (queue.getProperties() & CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE)) useLevel1Cache = false;
+    if (!useLevel1Cache) {
+        // 外部探索Y・生Y・別設定のscratch上書きで、以前の半解像度keyを残さない。
+        m_analysis.invalidateLevel1LumaCache();
+    } else {
+        m_analysis.lumaLevel1CacheQueue = queue.get();
+    }
+    std::array<int, RGY_DEGRAIN_MAX_LEVEL1_LUMA_FRAMES> roleSlots;
+    roleSlots.fill(-1);
+    std::array<bool, RGY_DEGRAIN_MAX_LEVEL1_LUMA_FRAMES> pinned = {};
+    if (useLevel1Cache) {
+        // 必要な全hitを先にpinし、後続roleで必要なentryをmissのvictimにしない。
+        for (int i = 0; i < level1FrameCount; i++) {
+            for (int slot = 0; slot < level1FrameCount; slot++) {
+                const auto& entry = m_analysis.lumaLevel1Cache[slot];
+                if (entry.key.valid() && entry.key == requestedKeys[i] && entry.ready() != nullptr) {
+                    roleSlots[i] = slot;
+                    pinned[slot] = true;
+                    level1Planes[i] = m_analysis.lumaLevel1[slot].get();
+                    downsampleEvents[i] = entry.ready;
+                    m_analysis.lumaLevel1CacheHits++;
+                    break;
+                }
+            }
+        }
+    }
+    for (int i = 0; i < level1FrameCount; i++) {
+        if (roleSlots[i] >= 0) continue;
+        if (useLevel1Cache) {
+            // EOF/先頭で同じ解析Yを指すroleは、同一呼出し中の新規生成も共有する。
+            for (int previous = 0; previous < i; previous++) {
+                if (requestedKeys[previous] == requestedKeys[i]) {
+                    roleSlots[i] = roleSlots[previous];
+                    level1Planes[i] = level1Planes[previous];
+                    downsampleEvents[i] = downsampleEvents[previous];
+                    m_analysis.lumaLevel1CacheHits++;
+                    break;
+                }
+            }
+            if (roleSlots[i] >= 0) continue;
+        }
+        int slot = i;
+        if (useLevel1Cache) {
+            slot = 0;
+            while (slot < level1FrameCount && pinned[slot]) slot++;
+            if (slot >= level1FrameCount) return RGY_ERR_INVALID_CALL;
+            pinned[slot] = true;
+            roleSlots[i] = slot;
+            // launch失敗時に、上書き途中の画像へ古いkeyでhitさせない。
+            m_analysis.lumaLevel1Cache[slot] = RGYDegrainLevel1LumaCacheEntry();
+        }
+        level1Planes[i] = m_analysis.lumaLevel1[slot].get();
         const auto profileStepStart = profileNow();
         auto err = m_degrain.get()->kernel("kernel_degrain_downsample_luma2x").config(
             queue,
@@ -1306,12 +1391,17 @@ RGY_ERR RGYFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo &p
             wait_events,
             &downsampleEvents[i]).launch(
                 (cl_mem)level0Planes[i].ptr[0], level0Planes[i].pitch[0],
-                m_analysis.lumaLevel1[i]->mem(), m_analysis.lumaLevel1Pitch,
+                level1Planes[i]->mem(), m_analysis.lumaLevel1Pitch,
                 level0Planes[i].width, level0Planes[i].height,
                 m_analysis.lumaLevel1Width, m_analysis.lumaLevel1Height);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to downsample degrain motion search level1 luma: %s.\n"), get_err_mes(err));
             return err;
+        }
+        m_analysis.lumaLevel1Generated++;
+        if (useLevel1Cache) {
+            m_analysis.lumaLevel1Cache[slot].key = requestedKeys[i];
+            m_analysis.lumaLevel1Cache[slot].ready = downsampleEvents[i];
         }
         err = profileFinishStep(_T("downsample"), profileDownsampleMs, profileStepStart, -1);
         if (err != RGY_ERR_NONE) {
@@ -1420,7 +1510,7 @@ RGY_ERR RGYFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo &p
             errSubpel = programL1->kernel("kernel_degrain_mv_build_subpel_planes").config(
                 queue, RGYWorkSize(DEGRAIN_DEBUG_BLOCK_X, DEGRAIN_DEBUG_BLOCK_Y),
                 RGYWorkSize(m_analysis.lumaLevel1Width, m_analysis.lumaLevel1Height)).launch(
-                    m_analysis.lumaLevel1[dir + 1]->mem(),
+                    level1Planes[dir + 1]->mem(),
                     m_analysis.lumaLevel1Pitch,
                     ws.subpelLevel1->mem(),
                     subpelL1Stride,
@@ -1461,9 +1551,9 @@ RGY_ERR RGYFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo &p
         err = programL1->kernel(sgblockL1 > 0 ? "kernel_degrain_mv_search_sgblock" : "kernel_degrain_mv_search_parallel").config(
             queue, sgblockL1 > 0 ? sgblockLocal : searchLocal1, sgblockL1 > 0 ? sgblockGlobal(blockCount1, sgblockL1) : searchGlobal1,
             searchLevel1Wait, &searchLevel1Event).launch(
-                m_analysis.lumaLevel1[0]->mem(),
-                m_analysis.lumaLevel1[dir + 1]->mem(),
-                useSubpelPlanes ? ws.subpelLevel1->mem() : m_analysis.lumaLevel1[dir + 1]->mem(),
+                level1Planes[0]->mem(),
+                level1Planes[dir + 1]->mem(),
+                useSubpelPlanes ? ws.subpelLevel1->mem() : level1Planes[dir + 1]->mem(),
                 useSubpelPlanes ? subpelL1Stride : 0,
                 ws.level1.vectors->mem(),
                 m_analysis.lumaLevel1Pitch,
@@ -1494,9 +1584,9 @@ RGY_ERR RGYFilterDegrain::prepareAnalysisStateMotionSearch(const RGYFrameInfo &p
             RGYOpenCLEvent refineEvent;
             err = programL1->kernel("kernel_degrain_mv_spatial_refine").config(
                 queue, searchLocal1, searchGlobal1, { level1VectorReadyEvent }, &refineEvent).launch(
-                    m_analysis.lumaLevel1[0]->mem(),
-                    m_analysis.lumaLevel1[dir + 1]->mem(),
-                    useSubpelPlanes ? ws.subpelLevel1->mem() : m_analysis.lumaLevel1[dir + 1]->mem(),
+                    level1Planes[0]->mem(),
+                    level1Planes[dir + 1]->mem(),
+                    useSubpelPlanes ? ws.subpelLevel1->mem() : level1Planes[dir + 1]->mem(),
                     useSubpelPlanes ? subpelL1Stride : 0,
                     ws.level1.vectors->mem(),
                     ws.level1.vectorsPrev->mem(),

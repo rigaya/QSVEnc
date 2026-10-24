@@ -616,6 +616,12 @@ protected:
         std::shared_ptr<RGYCLFrame> frame;
         RGYOpenCLEvent event;
     };
+    struct KfmNrResult {
+        int index = -1;
+        // 枝Degrainが所有する最終出力。次の同枝filter/reset前にkeyを無効化する。
+        RGYFrameInfo *frame = nullptr;
+        RGYOpenCLEvent event;
+    };
     struct KfmBranchNrStats {
         int64_t baseDraws = 0, neighborDraws = 0, baseHits = 0, resultHits = 0, nrFrames = 0;
         int64_t baseAllocations = 0, baseReuses = 0;
@@ -628,7 +634,7 @@ protected:
     std::array<int, 2> m_nrRunLastIndex = { -1, -1 };
     std::array<std::deque<KfmNrCacheEntry>, 2> m_nrBaseCache;
     std::array<std::vector<std::shared_ptr<RGYCLFrame>>, 2> m_nrBasePool;
-    std::array<KfmNrCacheEntry, 2> m_nrResults;
+    std::array<KfmNrResult, 2> m_nrResults;
     std::array<std::unique_ptr<RGYCLFrame>, 1> m_nrBaseWork;
     std::array<std::unique_ptr<RGYCLFrame>, 3> m_nrSuperWork;
     KfmBranchNrStats m_branchNrStats;

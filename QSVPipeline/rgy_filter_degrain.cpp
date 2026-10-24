@@ -808,6 +808,11 @@ int RGYFilterDegrain::drainFrameCount() const {
 RGY_ERR RGYFilterDegrain::pushCacheFrame(const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     const auto prm = std::dynamic_pointer_cast<RGYFilterParamDegrain>(m_param);
     const int index = cacheIndex(m_inputCount);
+    const auto clearInputOwner = [](RGYFrameInfo& frame) {
+        frame.dataList.erase(std::remove_if(frame.dataList.begin(), frame.dataList.end(), [](const auto& data) {
+            return std::dynamic_pointer_cast<RGYFrameDataDegrainInputRef>(data) != nullptr;
+        }), frame.dataList.end());
+    };
     if (prm && prm->zeroCopyCache) {
         // アンカー判定はいずれもptr[0]の一致検証を必須とする。dataListは
         // FILTER_PATHTHROUGH_DATAで別バッファのフレームへ継承され得るため、
@@ -815,6 +820,20 @@ RGY_ERR RGYFilterDegrain::pushCacheFrame(const RGYFrameInfo *pInputFrame, RGYOpe
         RGYFrameInfo zeroCopyRef;
         std::shared_ptr<RGYCLFrame> zeroCopyOwner;
         auto owner = rtgmcGetAttachedFrameRef(pInputFrame);
+        for (const auto& data : pInputFrame->dataList) {
+            const auto ref = std::dynamic_pointer_cast<RGYFrameDataDegrainInputRef>(data);
+            const auto borrowed = ref ? ref->frameRef() : nullptr;
+            bool sameStorage = borrowed && !cmpFrameInfoCspResolution(&borrowed->frame, pInputFrame)
+                && borrowed->frame.bitdepth == pInputFrame->bitdepth;
+            for (int plane = 0; sameStorage && plane < RGY_CSP_PLANES[pInputFrame->csp]; plane++) {
+                sameStorage = borrowed->frame.ptr[plane] && borrowed->frame.ptr[plane] == pInputFrame->ptr[plane]
+                    && borrowed->frame.pitch[plane] == pInputFrame->pitch[plane];
+            }
+            if (sameStorage) {
+                owner = borrowed;
+                break;
+            }
+        }
         if (owner && owner->frame.ptr[0]
             && owner->frame.ptr[0] == pInputFrame->ptr[0]
             && !cmpFrameInfoCspResolution(&owner->frame, pInputFrame)
@@ -867,6 +886,8 @@ RGY_ERR RGYFilterDegrain::pushCacheFrame(const RGYFrameInfo *pInputFrame, RGYOpe
                     return err;
                 }
             }
+            // 解析lumaやNR出力がdataListをコピーしても、baseを長期pinしない。
+            clearInputOwner(zeroCopyRef);
             m_cacheFrameRefs[index] = zeroCopyRef;
             m_cacheFrameOwners[index] = zeroCopyOwner;
             return RGY_ERR_NONE;
@@ -882,6 +903,7 @@ RGY_ERR RGYFilterDegrain::pushCacheFrame(const RGYFrameInfo *pInputFrame, RGYOpe
         return err;
     }
     copyFrameProp(pCacheFrame, pInputFrame);
+    clearInputOwner(*pCacheFrame);
     return RGY_ERR_NONE;
 }
 
@@ -1435,6 +1457,8 @@ RGY_ERR RGYFilterDegrain::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameIn
 }
 
 void RGYFilterDegrain::resetTemporalState() {
+    m_analysis.invalidateLevel1LumaCache();
+    m_analysis.analysisLumaGenerations.fill(0);
     // Reset time-dependent state only; GPU buffer allocations and built kernels are preserved.
     clearPendingSceneChange();
     m_sceneChangeReadbackSADIndex = 0;
@@ -1465,6 +1489,11 @@ void RGYFilterDegrain::resetTemporalState() {
 }
 
 void RGYFilterDegrain::close() {
+    m_analysis.invalidateLevel1LumaCache();
+    m_analysis.analysisLumaGenerations.fill(0);
+    m_analysis.analysisLumaGenerationCounter = 0;
+    m_analysis.lumaLevel1CacheHits = 0;
+    m_analysis.lumaLevel1Generated = 0;
     m_degrain.clear();
     m_degrainChroma.clear();
     m_degrainMotionSearchPrograms.clear();

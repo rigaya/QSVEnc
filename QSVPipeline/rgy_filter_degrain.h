@@ -33,6 +33,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "rgy_filter_cl.h"
@@ -43,6 +44,16 @@
 static constexpr int DEGRAIN_MOTION_SEARCH_SGBLOCK_LOCAL_SIZE = 64;
 static constexpr const char *DEGRAIN_MOTION_SEARCH_SGBLOCK_OPTION_PREFIX = " -D DEGRAIN_MOTION_SEARCH_SGBLOCK=";
 static constexpr const char *DEGRAIN_MOTION_SEARCH_SGBLOCK_REQD_SG_OPTION = " -D DEGRAIN_MOTION_SEARCH_SGBLOCK_REQD_SG=";
+
+// 一時入力viewの所有者。cacheの専用shared_ptrへ移した後はdataListから外し、
+// 解析画像や出力へ所有参照を伝搬させない。所有frame自身へ添付すると自己循環する。
+class RGYFrameDataDegrainInputRef : public RGYFrameData {
+public:
+    explicit RGYFrameDataDegrainInputRef(std::shared_ptr<RGYCLFrame> frame) : m_frame(std::move(frame)) {}
+    std::shared_ptr<RGYCLFrame> frameRef() const { return m_frame; }
+private:
+    std::shared_ptr<RGYCLFrame> m_frame;
+};
 
 class RGYFilterParamDegrain : public RGYFilterParam {
 public:

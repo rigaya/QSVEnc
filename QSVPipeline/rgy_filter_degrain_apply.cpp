@@ -1151,7 +1151,42 @@ RGY_ERR RGYFilterDegrain::emitDegrainFrame(const RGYFilterDegrainFrameSet &frame
         initialWaitEvents.push_back(analysisEvent());
     }
     auto err = RGY_ERR_NONE;
-    if (copyDegrainOutput) {
+    const auto chromaFormat = RGY_CSP_CHROMA_FORMAT[frames.cur->csp];
+    bool copyChromaOnly = copyDegrainOutput && !m_debugEnv.forceDegrainCopy && !processChroma
+        && !rgy_csp_has_alpha(frames.cur->csp) && RGY_CSP_PLANES[frames.cur->csp] == 3
+        && (chromaFormat == RGY_CHROMAFMT_YUV420 || chromaFormat == RGY_CHROMAFMT_YUV422 || chromaFormat == RGY_CHROMAFMT_YUV444)
+        && frames.cur->csp == ppOutputFrames[0]->csp;
+    const std::array<RGY_PLANE, 2> chromaPlanes = { RGY_PLANE_U, RGY_PLANE_V };
+    std::array<RGYFrameInfo, 2> chromaDst, chromaCur;
+    if (copyChromaOnly) {
+        for (size_t i = 0; i < chromaPlanes.size(); i++) {
+            chromaDst[i] = getPlane(ppOutputFrames[0], chromaPlanes[i]);
+            chromaCur[i] = getPlane(frames.cur, chromaPlanes[i]);
+            const auto &dst = chromaDst[i];
+            const auto &cur = chromaCur[i];
+            const int bytesPerPixel = cur.bitdepth > 8 ? 2 : 1;
+            copyChromaOnly = copyChromaOnly && dst.ptr[0] != nullptr && cur.ptr[0] != nullptr
+                && cur.width > 0 && cur.height > 0 && dst.width == cur.width && dst.height == cur.height
+                && cur.bitdepth > 0 && cur.bitdepth <= 16 && dst.bitdepth == cur.bitdepth
+                && cur.pitch[0] / bytesPerPixel >= cur.width && dst.pitch[0] / bytesPerPixel >= dst.width;
+        }
+    }
+    if (copyChromaOnly) {
+        // Yは全画素を描画し、解析範囲外も現在画像で埋めるため、保持するUVだけをコピーする。
+        std::vector<RGYOpenCLEvent> chromaCopyEvents;
+        for (size_t i = 0; i < chromaPlanes.size(); i++) {
+            RGYOpenCLEvent chromaCopyEvent;
+            err = m_cl->copyPlane(&chromaDst[i], &chromaCur[i], nullptr, queue, initialWaitEvents, &chromaCopyEvent,
+                RGYFrameCopyMode::FRAME, "degrain.degrain_prepare_copy");
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to prepare degrain degrain output: %s.\n"), get_err_mes(err));
+                return err;
+            }
+            chromaCopyEvents.push_back(chromaCopyEvent);
+        }
+        // 両平面の完了をY描画へ接続し、in-order queueの暗黙の順序には依存しない。
+        initialWaitEvents = std::move(chromaCopyEvents);
+    } else if (copyDegrainOutput) {
         err = m_cl->copyFrame(ppOutputFrames[0], frames.cur, nullptr, queue, initialWaitEvents, &copyEvent, RGYFrameCopyMode::FRAME, "degrain.degrain_prepare_copy");
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to prepare degrain degrain output: %s.\n"), get_err_mes(err));
