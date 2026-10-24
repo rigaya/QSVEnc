@@ -209,7 +209,7 @@ protected:
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     void eraseAnalyzeOutputUnusedFrameData(RGYFrameInfo *frame);
     RGY_ERR runThrough(size_t filterIdx, RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
-        RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event, bool storePending);
+        RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event, bool storePending, bool finalOutputWritten = false);
     RGY_ERR drainFrom(size_t filterIdx, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
     RGY_ERR returnPendingFrames(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum);

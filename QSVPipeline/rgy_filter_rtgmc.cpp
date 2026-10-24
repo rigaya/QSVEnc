@@ -2190,7 +2190,7 @@ void RGYFilterRtgmc::eraseAnalyzeOutputUnusedFrameData(RGYFrameInfo *frame) {
 }
 
 RGY_ERR RGYFilterRtgmc::runThrough(size_t filterIdx, RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
-    RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event, bool storePending) {
+    RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event, bool storePending, bool finalOutputWritten) {
     if (filterIdx >= m_filters.size()) {
         if (m_pendingOutputFrames.size() >= m_frameBuf.size()) {
             AddMessage(RGY_LOG_ERROR, _T("Too many pending output frames fromchain.\n"));
@@ -2203,7 +2203,7 @@ RGY_ERR RGYFilterRtgmc::runThrough(size_t filterIdx, RGYFrameInfo *pInputFrame, 
         const int outputIndex = m_outputBufferIndex;
         m_outputBufferIndex = (m_outputBufferIndex + 1) % (int)m_frameBuf.size();
         auto pOut = &m_frameBuf[outputIndex]->frame;
-        auto err = copyFinalOutput(pOut, pInputFrame, queue, wait_events, event);
+        auto err = finalOutputWritten ? RGY_ERR_NONE : copyFinalOutput(pOut, pInputFrame, queue, wait_events, event);
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("failed to copyfinal output: %s.\n"), get_err_mes(err));
             return err;
@@ -2232,13 +2232,24 @@ RGY_ERR RGYFilterRtgmc::runThrough(size_t filterIdx, RGYFrameInfo *pInputFrame, 
         return RGY_ERR_NONE;
     }
 
+    const auto prm = std::dynamic_pointer_cast<RGYFilterParamRtgmc>(m_param);
+    // TR2有効時の遅延/drain経路は今回の対象外とし、末尾がRep2だけの場合に限定する。
+    auto directOutput = filterIdx == RTGMC_FILTER_POST_TR2_SHIMMER_REPAIR && prm && !prm->rtgmc.border
+        && prm->rtgmc.tr2.delta <= 0 && !m_filters[RTGMC_FILTER_POST_TR2_LIMIT]
+        && prm->rtgmc.lossless != 1 && !m_filters[RTGMC_FILTER_ADD_NOISE2]
+        && m_pendingOutputFrames.size() < m_frameBuf.size()
+        && (storePending || *pOutputFrameNum < RGY_RTGMC_MAX_OUT_FRAMES)
+        ? &m_frameBuf[m_outputBufferIndex]->frame : nullptr;
     int childOutFrameNum = 0;
     RGYFrameInfo *childOutFrames[RGY_RTGMC_MAX_OUT_FRAMES] = { 0 };
+    childOutFrames[0] = directOutput;
     RGYOpenCLEvent childEvent;
     auto sts = runNestedFilter(filterIdx, pInputFrame, childOutFrames, &childOutFrameNum, queue, wait_events, &childEvent);
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
+    const bool directWritten = directOutput && childOutFrameNum == 1 && childOutFrames[0] == directOutput;
+    if (directWritten && event) *event = childEvent;
     auto childWaitEvents = rtgmcPropagateWaitEvents(wait_events, childEvent);
     for (int i = 0; i < childOutFrameNum; i++) {
         propagateRtgmcInternalFrameData(childOutFrames[i], pInputFrame);
@@ -2330,7 +2341,8 @@ RGY_ERR RGYFilterRtgmc::runThrough(size_t filterIdx, RGYFrameInfo *pInputFrame, 
             if (m_analysisOnly && filterIdx == RTGMC_FILTER_INPUTTYPE_BLEND) {
                 continue; // 中間データのキャプチャまでで止める (setAnalysisOnly参照)
             }
-            sts = runThrough(filterIdx + 1, childOutFrames[i], ppOutputFrames, pOutputFrameNum, queue, nextWaitEvents, event, storePending);
+            sts = runThrough(directWritten ? m_filters.size() : filterIdx + 1, childOutFrames[i],
+                ppOutputFrames, pOutputFrameNum, queue, nextWaitEvents, event, storePending, directWritten);
             if (sts != RGY_ERR_NONE) {
                 return sts;
             }

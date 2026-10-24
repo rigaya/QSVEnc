@@ -715,9 +715,9 @@ RGY_ERR RGYFilterRtgmcShimmerRepair::run_filter(const RGYFrameInfo *pInputFrame,
     int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events,
     RGYOpenCLEvent *event) {
     *pOutputFrameNum = 0;
-    ppOutputFrames[0] = nullptr;
 
     if (!pInputFrame || !pInputFrame->ptr[0] || !pRefFrame || !pRefFrame->ptr[0]) {
+        ppOutputFrames[0] = nullptr;
         return RGY_ERR_NONE;
     }
     if (m_useKernel && !m_shimmerRepair.get()) {
@@ -732,15 +732,16 @@ RGY_ERR RGYFilterRtgmcShimmerRepair::run_filter(const RGYFrameInfo *pInputFrame,
         return RGY_ERR_INVALID_PARAM;
     }
 
-    auto pOutFrame = m_frameBuf[0].get();
-    ppOutputFrames[0] = &pOutFrame->frame;
+    auto pOutFrame = prm->stage == RGYRtgmcShimmerRepairStage::PostTR2 && ppOutputFrames[0]
+        ? ppOutputFrames[0] : &m_frameBuf[0]->frame;
+    ppOutputFrames[0] = pOutFrame;
     *pOutputFrameNum = 1;
 
     if (m_useKernel) {
-        const auto memcpyKind = getMemcpyKind(pInputFrame->mem_type, m_frameBuf[0]->frame.mem_type);
-        const auto refMemcpyKind = getMemcpyKind(pRefFrame->mem_type, m_frameBuf[0]->frame.mem_type);
+        const auto memcpyKind = getMemcpyKind(pInputFrame->mem_type, pOutFrame->mem_type);
+        const auto refMemcpyKind = getMemcpyKind(pRefFrame->mem_type, pOutFrame->mem_type);
         if (memcpyKind == RGYCLMemcpyD2D && refMemcpyKind == RGYCLMemcpyD2D) {
-            auto err = processFrame(&pOutFrame->frame, pInputFrame, pRefFrame, *prm, queue, wait_events, event);
+            auto err = processFrame(pOutFrame, pInputFrame, pRefFrame, *prm, queue, wait_events, event);
             if (err != RGY_ERR_NONE) {
                 return err;
             }
@@ -763,7 +764,7 @@ RGY_ERR RGYFilterRtgmcShimmerRepair::run_filter(const RGYFrameInfo *pInputFrame,
             AddMessage(RGY_LOG_ERROR, _T("failed to copy rtgmc-shimmer-repair reference frame: %s.\n"), get_err_mes(copyErr));
             return copyErr;
         }
-        auto err = processFrame(&pOutFrame->frame, pInputTmp, pRefTmp, *prm, queue, { inputCopyEvent, refCopyEvent }, event);
+        auto err = processFrame(pOutFrame, pInputTmp, pRefTmp, *prm, queue, { inputCopyEvent, refCopyEvent }, event);
         if (err != RGY_ERR_NONE) {
             return err;
         }
