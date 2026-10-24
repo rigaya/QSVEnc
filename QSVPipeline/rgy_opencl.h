@@ -52,6 +52,7 @@
 #endif
 
 #include "rgy_osdep.h"
+#include <atomic>
 #include <mutex>
 #ifndef CL_TARGET_OPENCL_VERSION
 #define CL_TARGET_OPENCL_VERSION 210
@@ -1064,6 +1065,7 @@ public:
 
     size_t subGroupSize() const;
     size_t subGroupCount() const;
+    RGYOpenCLKernelLauncher& setPerfLabel(const char *label);
     RGY_ERR launch(std::vector<void *> arg_ptrs = std::vector<void *>(), std::vector<size_t> arg_size = std::vector<size_t>(), std::vector<std::type_index> = std::vector<std::type_index>());
 
     template <typename... ArgTypes>
@@ -1081,6 +1083,7 @@ public:
 protected:
     cl_kernel m_kernel;
     std::string m_kernelName;
+    std::string m_perfLabel;
     RGYOpenCLQueue &m_queue;
     RGYWorkSize m_local;
     RGYWorkSize m_global;
@@ -1362,6 +1365,8 @@ public:
 protected:
     std::unique_ptr<RGYOpenCLProgram> buildProgram(std::string datacopy, const std::string options, const std::string name_hint = std::string());
     bool imageFromBufferSupported();
+    bool copyFrameKernel(RGYFrameInfo *dst, const RGYFrameInfo *src, RGYOpenCLQueue& queue,
+        const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event, const char *perfLabel);
 
     shared_ptr<RGYOpenCLPlatform> m_platform;
     unique_context m_context;
@@ -1369,6 +1374,7 @@ protected:
     std::recursive_mutex m_interopMutex;
     std::shared_ptr<RGYLog> m_log;
     std::unordered_map<std::string, RGYOpenCLProgramAsync> m_copy;
+    std::atomic<bool> m_frameCopyKernelFailed{ false };
     std::unique_ptr<RGYThreadPool> m_threadPool;
     int m_buildThreads;
     HMODULE m_hmodule;

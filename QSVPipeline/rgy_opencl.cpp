@@ -1524,7 +1524,13 @@ RGYOpenCLQueue RGYOpenCLContext::createQueue(const cl_device_id devid, const cl_
 }
 
 RGYOpenCLKernelLauncher::RGYOpenCLKernelLauncher(cl_kernel kernel, std::string kernelName, RGYOpenCLQueue &queue, const RGYWorkSize &local, const RGYWorkSize &global, shared_ptr<RGYLog> pLog, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event, uint64_t program_id) :
-    m_kernel(kernel), m_kernelName(kernelName), m_queue(queue), m_local(local), m_global(global), m_log(pLog), m_wait_events(toVec(wait_events)), m_event(event), m_program_id(program_id) {
+    m_kernel(kernel), m_kernelName(kernelName), m_perfLabel(), m_queue(queue), m_local(local), m_global(global), m_log(pLog), m_wait_events(toVec(wait_events)), m_event(event), m_program_id(program_id) {
+}
+
+RGYOpenCLKernelLauncher& RGYOpenCLKernelLauncher::setPerfLabel(const char *label) {
+    // 表示名だけを変え、実kernel名・引数・program cacheのkeyは変更しない。
+    if (label && label[0] && RGYOpenCLPerfCollector::instance().isEnabled()) m_perfLabel = label;
+    return *this;
 }
 
 size_t RGYOpenCLKernelLauncher::subGroupSize() const {
@@ -1599,7 +1605,8 @@ RGY_ERR RGYOpenCLKernelLauncher::launch(std::vector<void *> arg_ptrs, std::vecto
     }
     if (perf_enabled) {
         RGYOpenCLEvent& ev_ref = m_event ? *m_event : perf_event_local;
-        perf_collector.recordLaunch(m_program_id, m_kernelName, m_local, globalCeiled, m_kernel, m_queue.devid(), ev_ref,
+        const auto taggedName = m_perfLabel.empty() ? std::string() : m_kernelName + ":" + m_perfLabel;
+        perf_collector.recordLaunch(m_program_id, m_perfLabel.empty() ? m_kernelName : taggedName, m_local, globalCeiled, m_kernel, m_queue.devid(), ev_ref,
             host_abs_start, host_abs_end, (uint64_t)(uintptr_t)m_queue.get());
     }
     return err;
@@ -2787,6 +2794,69 @@ RGY_ERR RGYOpenCLContext::copyPlaneField(RGYFrameInfo *planeDstOrg, const RGYFra
     }
     return err_cl_to_rgy(err);
 }
+// フレーム全体を1回でコピーできる限定経路。対象外・build/投入失敗は従来経路へ戻す。
+bool RGYOpenCLContext::copyFrameKernel(RGYFrameInfo *dst, const RGYFrameInfo *src, RGYOpenCLQueue& queue,
+    const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event, const char *perfLabel) {
+    static const bool enabled = []() {
+        const auto value = std::getenv("RGY_OPENCL_COPY_FRAME_KERNEL");
+        return !value || std::atoi(value) != 0;
+    }();
+    if (!enabled || m_frameCopyKernelFailed.load(std::memory_order_relaxed) || src->mem_type != RGY_MEM_TYPE_GPU || dst->mem_type != RGY_MEM_TYPE_GPU
+        || src->singleAlloc || dst->singleAlloc || src->width != dst->width || src->height != dst->height) return false;
+    const int planes = RGY_CSP_PLANES[src->csp];
+    const int depth = RGY_CSP_BIT_DEPTH[src->csp];
+    const auto chroma = RGY_CSP_CHROMA_FORMAT[src->csp];
+    const bool planar = planes == 3 && (chroma == RGY_CHROMAFMT_YUV420 || chroma == RGY_CHROMAFMT_YUV422 || chroma == RGY_CHROMAFMT_YUV444);
+    const bool semiPlanar = planes == 2 && (src->csp == RGY_CSP_NV12 || src->csp == RGY_CSP_P010
+        || src->csp == RGY_CSP_NV16 || src->csp == RGY_CSP_P210);
+    if (depth <= 0 || depth > 16 || (!planar && !semiPlanar) || rgy_csp_has_alpha(src->csp)) return false;
+    std::array<RGYFrameInfo, 3> source = {}, target = {};
+    std::array<int, 3> rowBytes = {}, rows = {};
+    std::array<cl_mem, 6> buffers = {};
+    int maxBytes = 0;
+    uint64_t totalRows = 0;
+    const int pixelBytes = depth > 8 ? 2 : 1;
+    for (int i = 0; i < planes; i++) {
+        source[i] = getPlane(src, (RGY_PLANE)i);
+        target[i] = getPlane(dst, (RGY_PLANE)i);
+        if (!source[i].ptr[0] || !target[i].ptr[0] || source[i].width <= 0 || source[i].height <= 0
+            || source[i].width != target[i].width || source[i].height != target[i].height
+            || source[i].pitch[0] <= 0 || target[i].pitch[0] <= 0
+            || source[i].width > source[i].pitch[0] / pixelBytes || source[i].width > target[i].pitch[0] / pixelBytes) return false;
+        rowBytes[i] = source[i].width * pixelBytes;
+        rows[i] = source[i].height;
+        maxBytes = std::max(maxBytes, rowBytes[i]);
+        totalRows += rows[i];
+        buffers[i * 2] = (cl_mem)source[i].ptr[0];
+        buffers[i * 2 + 1] = (cl_mem)target[i].ptr[0];
+    }
+    if (totalRows > (size_t)std::numeric_limits<int>::max()) return false;
+    // 同じbufferをplane間で並列に書かず、alias時は旧コピーの順序を維持する。
+    // 別handleが指す重複領域は記述子だけでは判定できないため、呼出側は非重複を保証する。
+    for (int i = 0; i < planes * 2; i++) {
+        for (int j = 0; j < i; j++) if (buffers[i] == buffers[j]) return false;
+    }
+    auto program = getCspCopyProgram(*dst, *src);
+    if (!program) {
+        m_frameCopyKernelFailed.store(true, std::memory_order_relaxed);
+        return false;
+    }
+    auto kernel = program->kernel("kernel_copy_frame_all");
+    if (!kernel.get() || !kernel.get()->get()) {
+        m_frameCopyKernelFailed.store(true, std::memory_order_relaxed);
+        return false;
+    }
+    const auto sts = kernel.config(queue, RGYWorkSize(32, 4), RGYWorkSize(divCeil((size_t)maxBytes, (size_t)16), (size_t)totalRows), wait_events, event)
+        .setPerfLabel(perfLabel).launch(
+            (cl_mem)target[0].ptr[0], (cl_mem)target[1].ptr[0], (cl_mem)target[2].ptr[0],
+            (cl_mem)source[0].ptr[0], (cl_mem)source[1].ptr[0], (cl_mem)source[2].ptr[0],
+            target[0].pitch[0], target[1].pitch[0], target[2].pitch[0],
+            source[0].pitch[0], source[1].pitch[0], source[2].pitch[0],
+            rowBytes[0], rowBytes[1], rowBytes[2], rows[0], rows[1], rows[2]);
+    if (sts != RGY_ERR_NONE) m_frameCopyKernelFailed.store(true, std::memory_order_relaxed);
+    return sts == RGY_ERR_NONE;
+}
+
 RGY_ERR RGYOpenCLContext::copyFrame(RGYFrameInfo *dst, const RGYFrameInfo *src) {
     return copyFrame(dst, src, nullptr);
 }
@@ -2813,7 +2883,9 @@ RGY_ERR RGYOpenCLContext::copyFrameField(RGYFrameInfo *dst, const RGYFrameInfo *
     }
 
     RGY_ERR err = RGY_ERR_NONE;
-    for (int i = 0; i < RGY_CSP_PLANES[dst->csp]; i++) {
+    const bool copied = srcMode == RGYFrameCopyMode::FRAME && dstMode == RGYFrameCopyMode::FRAME && srcCrop == nullptr
+        && copyFrameKernel(dst, src, queue, wait_events, event, perfLabel);
+    for (int i = 0; !copied && i < RGY_CSP_PLANES[dst->csp]; i++) {
         auto planeDst = getPlane(dst, (RGY_PLANE)i);
         auto planeSrc = getPlane(src, (RGY_PLANE)i);
         sInputCrop planeCrop = initCrop();

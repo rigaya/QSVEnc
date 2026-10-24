@@ -2780,3 +2780,33 @@ __kernel void kernel_set_plane_nv12(
     }
 }
 
+
+// バッファ型の全planeを一度にコピーする。paddingには触れず、16byte未満の端も範囲内だけを書く。
+__kernel void kernel_copy_frame_all(
+    __global uchar *d0, __global uchar *d1, __global uchar *d2,
+    __global const uchar *s0, __global const uchar *s1, __global const uchar *s2,
+    int dp0, int dp1, int dp2, int sp0, int sp1, int sp2,
+    int w0, int w1, int w2, int h0, int h1, int h2) {
+    int y = (int)get_global_id(1);
+    const int x = (int)get_global_id(0) * 16;
+    __global uchar *dst = d0;
+    __global const uchar *src = s0;
+    int dstPitch = dp0, srcPitch = sp0, width = w0;
+    if (y >= h0) {
+        y -= h0;
+        dst = d1; src = s1; dstPitch = dp1; srcPitch = sp1; width = w1;
+        if (y >= h1) {
+            y -= h1;
+            if (y >= h2) return;
+            dst = d2; src = s2; dstPitch = dp2; srcPitch = sp2; width = w2;
+        }
+    }
+    if (x >= width) return;
+    dst += (size_t)y * dstPitch + x;
+    src += (size_t)y * srcPitch + x;
+    if (width - x >= 16) {
+        vstore16(vload16(0, src), 0, dst);
+    } else {
+        for (int i = 0; i < width - x; i++) dst[i] = src[i];
+    }
+}
