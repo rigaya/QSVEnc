@@ -2388,6 +2388,19 @@ void RGYCLSharedFramePool::recycle(RGYCLFrame *frame) {
     }
 }
 
+void RGYCLSharedFramePool::trim(size_t maxFreeFrames) {
+    // 古い返却画像を残し、余剰の新しい画像だけを安全に解放する。貸出中の画像には触れない。
+    while (m_frames.size() > maxFreeFrames) {
+        auto& entry = m_frames.back();
+        if (entry.readyEvent() != nullptr) {
+            entry.readyEvent.wait();
+            entry.readyEvent.reset();
+        }
+        if (entry.frame) entry.frame->frame.dataList.clear();
+        m_frames.pop_back();
+    }
+}
+
 void RGYCLSharedFramePool::clear() {
     for (auto& entry : m_frames) {
         if (entry.readyEvent() != nullptr) {

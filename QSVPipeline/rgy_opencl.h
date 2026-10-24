@@ -1272,6 +1272,7 @@ public:
     std::shared_ptr<RGYCLFrame> acquire(const RGYFrameInfo *frame, cl_mem_flags flags = CL_MEM_READ_WRITE);
     std::shared_ptr<RGYCLFrame> acquire(const RGYFrameInfo &frame, cl_mem_flags flags = CL_MEM_READ_WRITE);
     void recycle(RGYCLFrame *frame);
+    void trim(size_t maxFreeFrames);
     void clear();
 private:
     struct Entry {

@@ -327,6 +327,11 @@ RGY_ERR RGYFilterDegrain::checkParam(const std::shared_ptr<RGYFilterParamDegrain
         AddMessage(RGY_LOG_ERROR, _T("degrain tr0 must be 0, 1, or 2.\n"));
         return RGY_ERR_INVALID_PARAM;
     }
+    const int cacheRadius = prm->degrain.delta + (modeRequiresAnalysis(prm->degrain.mode) ? prm->degrain.tr0 : 0);
+    if (prm->inputCacheSize < 2 * cacheRadius + 1 || prm->inputCacheSize > DEGRAIN_CACHE_SIZE) {
+        AddMessage(RGY_LOG_ERROR, _T("Degrainの入力cache枚数が時間窓を満たしていません。\n"));
+        return RGY_ERR_INVALID_PARAM;
+    }
     if (prm->degrain.rep0 < 0 || prm->degrain.rep0 > 7) {
         AddMessage(RGY_LOG_ERROR, _T("degrain rep0 must be 0 - 7.\n"));
         return RGY_ERR_INVALID_PARAM;
@@ -371,8 +376,8 @@ RGY_ERR RGYFilterDegrain::checkParam(const std::shared_ptr<RGYFilterParamDegrain
     return RGY_ERR_NONE;
 }
 
-RGY_ERR RGYFilterDegrain::allocCacheFrames(const RGYFrameInfo &frameInfo) {
-    bool reuse = true;
+RGY_ERR RGYFilterDegrain::allocCacheFrames(const RGYFrameInfo &frameInfo, int cacheSize) {
+    bool reuse = (int)m_cacheFrames.size() == cacheSize;
     for (const auto &frame : m_cacheFrames) {
         if (!frame || cmpFrameInfoCspResolution(&frame->frame, &frameInfo)) {
             reuse = false;
@@ -395,6 +400,7 @@ RGY_ERR RGYFilterDegrain::allocCacheFrames(const RGYFrameInfo &frameInfo) {
     for (auto &frame : m_cacheFrames) {
         frame.reset();
     }
+    m_cacheFrames.resize(cacheSize);
     for (auto &frame : m_cacheFrames) {
         frame = m_cl->createFrameBuffer(frameInfo);
         if (!frame) {
@@ -586,7 +592,7 @@ RGYOpenCLProgram *RGYFilterDegrain::getDegrainMotionSearchProgram(const std::str
 }
 
 int RGYFilterDegrain::cacheIndex(int frame) const {
-    return frame % DEGRAIN_CACHE_SIZE;
+    return frame % (int)m_cacheFrames.size();
 }
 
 const RGYFrameInfo *RGYFilterDegrain::cacheFrame(int frame) const {
@@ -1293,7 +1299,7 @@ RGY_ERR RGYFilterDegrain::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGY
         return sts;
     }
 
-    sts = allocCacheFrames(prm->frameIn);
+    sts = allocCacheFrames(prm->frameIn, prm->inputCacheSize);
     if (sts != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed to allocate degrain cache: %s.\n"), get_err_mes(sts));
         return sts;

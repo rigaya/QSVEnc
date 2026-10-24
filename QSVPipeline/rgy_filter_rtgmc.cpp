@@ -2641,7 +2641,13 @@ void RGYFilterRtgmc::resetTemporalState() {
     m_pendingOutputFrames.clear();
     m_pendingSourceMatchFrameProps.clear();
     if (m_ediSideDataFramePool) {
-        m_ediSideDataFramePool->clear();
+        const auto prm = std::dynamic_pointer_cast<RGYFilterParamRtgmc>(m_param);
+        if (prm && prm->ediPoolResetRetainFrames > 0) {
+            // 窓の巻き戻し後に使う分だけ残し、高水位の余剰を持ち越さない。
+            m_ediSideDataFramePool->trim(prm->ediPoolResetRetainFrames);
+        } else {
+            m_ediSideDataFramePool->clear();
+        }
     }
     for (auto &frame : m_sourceCache) {
         frame.key = RtgmcFrameKey();

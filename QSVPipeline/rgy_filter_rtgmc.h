@@ -60,8 +60,10 @@ public:
     VppRtgmc rtgmc;
     rgy_rational<int> timebase;
     bool sharedAnalysisMode;
+    // 内部利用時のresetで残す返却済みEDI画像数。通常経路は従来どおり全解放する。
+    size_t ediPoolResetRetainFrames;
 
-    RGYFilterParamRtgmc() : rtgmc(), timebase(), sharedAnalysisMode(false) {}
+    RGYFilterParamRtgmc() : rtgmc(), timebase(), sharedAnalysisMode(false), ediPoolResetRetainFrames(0) {}
     virtual ~RGYFilterParamRtgmc() {}
     virtual tstring print() const override { return rtgmc.print(); }
 };

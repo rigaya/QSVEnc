@@ -33,6 +33,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "rgy_filter_cl.h"
 #include "rgy_filter_degrain_mv.h"
@@ -48,8 +49,10 @@ public:
     VppDegrain degrain;
     bool attachAnalysisData;
     bool zeroCopyCache;
+    // 内部呼出側が必要な時間窓に絞る場合のみ指定する。通常のストリームは16枚。
+    int inputCacheSize;
 
-    RGYFilterParamDegrain() : degrain(), attachAnalysisData(true), zeroCopyCache(false) {};
+    RGYFilterParamDegrain() : degrain(), attachAnalysisData(true), zeroCopyCache(false), inputCacheSize(16) {};
     virtual ~RGYFilterParamDegrain() {};
     virtual tstring print() const override {
         auto str = degrain.print();
@@ -94,7 +97,7 @@ public:
 protected:
 
     RGY_ERR checkParam(const std::shared_ptr<RGYFilterParamDegrain> &prm);
-    RGY_ERR allocCacheFrames(const RGYFrameInfo &frameInfo);
+    RGY_ERR allocCacheFrames(const RGYFrameInfo &frameInfo, int cacheSize);
     RGY_ERR pushCacheFrame(const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event = nullptr);
     const RGYFrameInfo *cacheFrame(int frame) const;
     RGY_ERR emitSourceFrame(const RGYFrameInfo *pCurrentFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
@@ -260,7 +263,7 @@ protected:
         }
     };
 
-    std::array<std::unique_ptr<RGYCLFrame>, DEGRAIN_CACHE_SIZE> m_cacheFrames;
+    std::vector<std::unique_ptr<RGYCLFrame>> m_cacheFrames;
     std::array<RGYFrameInfo, DEGRAIN_CACHE_SIZE> m_cacheFrameRefs;
     std::array<std::shared_ptr<RGYCLFrame>, DEGRAIN_CACHE_SIZE> m_cacheFrameOwners;
     RGYOpenCLProgramAsync m_degrain;

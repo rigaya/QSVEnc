@@ -307,6 +307,8 @@ protected:
     int64_t sourceFrameDuration(const KfmCachedSource *source) const;
     bool isSwitchSingleFrameN60(int n60) const;
     void markSwitchSingleFrameN60Range(int start60, int duration60);
+    void applyCombedSingleFrameDuration(KfmSwitchTiming& timing);
+    int telecine24PatchN60(int frame24Index) const;
     bool switchSingleFrameDurationEnabled() const;
     void writeSwitchTimingDump();
     void writeTelecine24DurationDump();
@@ -588,6 +590,8 @@ protected:
         KfmProfileCounter deriveTimings;
         KfmProfileCounter emitPending;
         KfmProfileCounter vfrScheduler;
+        KfmProfileCounter containsCombeWait;
+        KfmProfileCounter nrMaskWait;
         int64_t cleanSuperCacheHits;
         int64_t cleanSuperCacheMisses;
         int64_t cleanSuperCacheAvoidedFields;
@@ -603,6 +607,29 @@ protected:
     std::unique_ptr<RGYFilterRtgmc> m_before60Rtgmc;
     std::unique_ptr<RGYFilterRtgmc> m_after60Rtgmc;
     std::unique_ptr<RGYFilterDegrain> m_nrFilter;
+    struct KfmNrCacheEntry {
+        int index = -1;
+        std::shared_ptr<RGYCLFrame> frame;
+        RGYOpenCLEvent event;
+    };
+    struct KfmBranchNrStats {
+        int64_t baseDraws = 0, neighborDraws = 0, baseHits = 0, resultHits = 0, nrFrames = 0;
+        int64_t baseAllocations = 0, baseReuses = 0;
+        size_t maxSource = 0;
+    };
+    std::array<std::unique_ptr<RGYFilterDegrain>, 2> m_nrBranches;
+    std::array<std::deque<KfmNrCacheEntry>, 2> m_nrBaseCache;
+    std::array<std::vector<std::shared_ptr<RGYCLFrame>>, 2> m_nrBasePool;
+    std::array<KfmNrCacheEntry, 2> m_nrResults;
+    std::array<std::unique_ptr<RGYCLFrame>, 1> m_nrBaseWork;
+    std::array<std::unique_ptr<RGYCLFrame>, 3> m_nrSuperWork;
+    KfmBranchNrStats m_branchNrStats;
+    bool branchNrEnabled(const RGYFilterParamKfm& prm) const;
+    int branchNrSourceFloor() const;
+    RGY_ERR getNrBase(int branch, int index, bool drain, RGYOpenCLQueue& queue,
+        std::shared_ptr<RGYCLFrame>& frame, RGYOpenCLEvent& event);
+    RGY_ERR renderBranchNr(RGYFrameInfo **output, KfmSwitchTiming& timing, bool drain, bool fixed24,
+        RGYOpenCLQueue& queue, RGYOpenCLEvent *event);
     std::unique_ptr<RGYKFM::KFMAnalyze> m_analyzer;
     std::shared_ptr<RGYCLSharedFramePool> m_kfmFramePool;
     std::deque<std::shared_ptr<KfmSourceSlot>> m_kfmSourceSlotFree;
