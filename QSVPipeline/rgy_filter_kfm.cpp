@@ -1590,7 +1590,8 @@ RGY_ERR RGYFilterKfm::initRtgmc(const std::shared_ptr<RGYFilterParamKfm>& prm, s
 
 RGY_ERR RGYFilterKfm::initNrFilter(const std::shared_ptr<RGYFilterParamKfm>& prm) {
     m_nrFilter.reset();
-    if (!prm->kfm.nr) {
+    // 参照実装の固定60p経路ではNRを適用しない。
+    if (!prm->kfm.nr || prm->kfm.mode == VppKfmMode::P60) {
         return RGY_ERR_NONE;
     }
 
