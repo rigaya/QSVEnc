@@ -526,12 +526,6 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         const int guessedScale = std::max(1, (int)(std::round((double)outW / (double)inW)));
         const int cropW = guessedScale * inW - outW;
         const int cropH = guessedScale * inH - outH;
-        // 複数色チャンネルのパディングはまだ共有経路に対応していない。
-        if (fastOcl && m_io != OnnxIO::LumaSR && m_io != OnnxIO::GrayNoise) {
-            AddMessage(RGY_LOG_WARN, _T("onnx: model output %dx%d needs edge padding; falling back to host path.\n"),
-                outW, outH);
-            fastOcl = false;
-        }
         if (guessedScale <= 0 || cropW <= 0 || cropH <= 0 || cropW != cropH || (cropW % guessedScale) != 0) {
             AddMessage(RGY_LOG_ERROR, _T("onnx: model output %dx%d is not an integer upscale of input %dx%d.\n"),
                 outW, outH, inW, inH);
@@ -598,7 +592,7 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         const size_t inPlaneBytes = (size_t)inW * inH * sizeof(float);
         const size_t outPlaneBytes = (size_t)outW * outH * sizeof(float);
         // sub-bufferの位置を揃えられない場合も、独立したプレーンとデバイス内コピーを使う。
-        m_inPlanesSeparate = (inPlaneBytes % alignBytes) != 0;
+        m_inPlanesSeparate = (inPlaneBytes % alignBytes) != 0 || m_modelInW != inW || m_modelInH != inH;
         m_outPlanesSeparate = (outPlaneBytes % alignBytes) != 0;
     }
     m_useOcl = fastOcl && (m_io == OnnxIO::LumaSR || m_io == OnnxIO::GrayNoise
@@ -632,7 +626,7 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
             AddMessage(RGY_LOG_ERROR, _T("onnx: failed to bind shared GPU tensors.\n"));
             return err;
         }
-        if (m_io == OnnxIO::LumaSR || m_io == OnnxIO::GrayNoise) {
+        if (m_io == OnnxIO::LumaSR || m_io == OnnxIO::GrayNoise || m_modelInW != inW || m_modelInH != inH) {
             const auto clBuildOptions = strsprintf("-D Type=%s -D bit_depth=%d",
                 (prm->frameIn.bitdepth > 8) ? "ushort" : "uchar", prm->frameIn.bitdepth);
             m_program = m_cl->buildResource(_T("RGY_FILTER_ONNX_CL"), _T("EXE_DATA"), clBuildOptions);
@@ -640,7 +634,8 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
                 AddMessage(RGY_LOG_ERROR, _T("onnx: failed to build RGY_FILTER_ONNX_CL.\n"));
                 return RGY_ERR_OPENCL_CRUSH;
             }
-        } else if (m_io == OnnxIO::Chroma || m_ycbcr) {
+        }
+        if (m_io == OnnxIO::Chroma || m_ycbcr) {
             err = createFloatPlanes(m_inPlanesSeparate ? nullptr : m_inBufCL.get(), inW, inH, 3, m_inYuvPlanes);
             if (err == RGY_ERR_NONE) {
                 err = (m_io == OnnxIO::Chroma)
@@ -985,6 +980,17 @@ RGY_ERR RGYFilterOnnx::copyTensorPlanes(RGYOpenCLQueue &queue, RGYCLBuf *tensor,
     return RGY_ERR_NONE;
 }
 
+RGY_ERR RGYFilterOnnx::padTensorPlanes(RGYOpenCLQueue &queue,
+    const std::array<std::unique_ptr<RGYCLBuf>, 3>& planes, const int width, const int height) {
+    RGYWorkSize local(32, 8);
+    RGYWorkSize global(m_modelInW, m_modelInH);
+    auto err = m_program->kernel("pad_float_planes").config(queue, local, global, {}, nullptr).launch(
+        planes[0]->mem(), planes[1]->mem(), planes[2]->mem(), m_inBufCL->mem(), width, height,
+        m_modelInW, m_modelInH, m_padL, m_padT);
+    if (err != RGY_ERR_NONE) AddMessage(RGY_LOG_ERROR, _T("onnx: 入力テンソルのパディングに失敗しました: %s。\n"), get_err_mes(err));
+    return err;
+}
+
 RGYFrameInfo RGYFilterOnnx::rgbFrame(const std::array<std::unique_ptr<RGYCLBuf>, 3>& planes,
     const int width, const int height) const {
     RGYFrameInfo frame;
@@ -1031,12 +1037,14 @@ RGY_ERR RGYFilterOnnx::runOclRGB(const RGYFrameInfo *in, RGYFrameInfo *out,
     }
 
     if (m_inPlanesSeparate) {
-        err = copyTensorPlanes(queue, m_inBufCL.get(), m_inRgbPlanes, in->width, in->height, 3, true);
+        err = (m_modelInW != in->width || m_modelInH != in->height)
+            ? padTensorPlanes(queue, m_inRgbPlanes, in->width, in->height)
+            : copyTensorPlanes(queue, m_inBufCL.get(), m_inRgbPlanes, in->width, in->height, 3, true);
         if (err != RGY_ERR_NONE) return err;
     }
 
     if (m_io == OnnxIO::RGBNoise) {
-        const size_t planeBytes = (size_t)in->width * in->height * sizeof(float);
+        const size_t planeBytes = (size_t)m_modelInW * m_modelInH * sizeof(float);
         const auto clerr = clEnqueueFillBuffer(queue.get(), m_inBufCL->mem(), &m_sigmaNorm, sizeof(m_sigmaNorm),
             3 * planeBytes, planeBytes, 0, nullptr, nullptr);
         if (clerr != CL_SUCCESS) {
@@ -1081,7 +1089,9 @@ RGY_ERR RGYFilterOnnx::runOclYuv444(const RGYFrameInfo *in, RGYFrameInfo *out,
     }
 
     if (m_inPlanesSeparate) {
-        err = copyTensorPlanes(queue, m_inBufCL.get(), m_inYuvPlanes, in->width, in->height, 3, true);
+        err = (m_modelInW != in->width || m_modelInH != in->height)
+            ? padTensorPlanes(queue, m_inYuvPlanes, in->width, in->height)
+            : copyTensorPlanes(queue, m_inBufCL.get(), m_inYuvPlanes, in->width, in->height, 3, true);
         if (err != RGY_ERR_NONE) return err;
     }
 

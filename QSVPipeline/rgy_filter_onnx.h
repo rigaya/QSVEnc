@@ -96,6 +96,7 @@ protected:
         std::array<std::unique_ptr<RGYCLBuf>, 3>& planes);
     RGY_ERR copyTensorPlanes(RGYOpenCLQueue &queue, RGYCLBuf *tensor,
         const std::array<std::unique_ptr<RGYCLBuf>, 3>& planes, int width, int height, int count, bool toTensor);
+    RGY_ERR padTensorPlanes(RGYOpenCLQueue &queue, const std::array<std::unique_ptr<RGYCLBuf>, 3>& planes, int width, int height);
     RGYFrameInfo rgbFrame(const std::array<std::unique_ptr<RGYCLBuf>, 3>& planes,
         int width, int height) const;
     RGYFrameInfo yuv444Frame(const std::array<std::unique_ptr<RGYCLBuf>, 3>& planes,

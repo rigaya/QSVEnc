@@ -18,6 +18,22 @@ __kernel void unpack_denorm_y(__global const float *src,
     dstY[y * dstPitch + x] = (Type)clamp(v, 0, (1 << bit_depth) - 1);
 }
 
+__kernel void pad_float_planes(__global const float *src0, __global const float *src1,
+                               __global const float *src2, __global float *dst,
+                               int srcW, int srcH, int W, int H, int padL, int padT) {
+    int x = get_global_id(0);
+    int y = get_global_id(1);
+    if (x >= W || y >= H) return;
+    int sx = clamp(x - padL, 0, srcW - 1);
+    int sy = clamp(y - padT, 0, srcH - 1);
+    int srcIndex = sy * srcW + sx;
+    int dstIndex = y * W + x;
+    int planeSize = W * H;
+    dst[dstIndex] = src0[srcIndex];
+    dst[planeSize + dstIndex] = src1[srcIndex];
+    dst[2 * planeSize + dstIndex] = src2[srcIndex];
+}
+
 __kernel void chroma_bilinear(__global const Type *src, int srcPitch, int srcStride, int srcOffset,
                               __global Type *dst, int dstPitch, int dstStride, int dstOffset,
                               int sw, int sh, int scale) {
