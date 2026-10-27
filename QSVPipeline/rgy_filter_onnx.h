@@ -79,10 +79,7 @@ protected:
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;
     virtual void close() override;
 
-    // host-readback path (correctness baseline; works on any device incl. CPU,
-    // and handles every OnnxIO mode)
-    RGY_ERR runHost(const RGYFrameInfo *in, RGYFrameInfo *out,
-        RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
+    RGY_ERR inferOcl(RGYOpenCLQueue &queue);
     // 輝度モデルとGray+Noiseモデルのゼロコピー経路。
     RGY_ERR runOcl(const RGYFrameInfo *in, RGYFrameInfo *out,
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
@@ -100,14 +97,8 @@ protected:
     RGYFrameInfo yuv444Frame(const std::array<std::unique_ptr<RGYCLBuf>, 3>& planes,
         int width, int height) const;
 
-    // host pre/post, dispatched on m_io. fillInputHost packs the mapped input
-    // frame into m_inBuf (inC*inW*inH, CHW); writeOutputHost unpacks m_outBuf
-    // (outC*outW*outH, CHW) into the mapped output frame.
-    void fillInputHost(const RGYFrameInfo &hin);
+    // マスクおよび複数フレーム経路のホスト出力変換。
     void writeOutputHost(const RGYFrameInfo &hout, const RGYFrameInfo &hin);
-    // 8/16-bit bodies of the above (TPix = uint8_t / uint16_t); the plain
-    // versions dispatch on m_bitdepth.
-    template<typename TPix> void fillInputHostT(const RGYFrameInfo &hin);
     template<typename TPix> void writeOutputHostT(const RGYFrameInfo &hout, const RGYFrameInfo &hin);
     // compute the YUV<->RGB matrix + range coefficients (mirrors the native
     // anime4k RGB bookend exactly).
@@ -144,6 +135,7 @@ protected:
     int   m_padL, m_padT;                       // edge-replication padding before packing host input
     float m_maxval;                             // (1<<bitdepth)-1
     int   m_bitdepth;                           // 8 (yv12/nv12) or 16 (yv12(16bit)/p010)
+    bool  m_sharedIO;
     bool  m_useOcl;                             // 初期化時に選択したゼロコピー経路を使用するか
     bool  m_ycbcr;                              // 3ch model fed as planar YCbCr instead of RGB
     float m_sigmaNorm;                          // noise sigma / 255 for the conditioning channel
