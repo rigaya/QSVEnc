@@ -94,6 +94,8 @@ protected:
         RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     RGY_ERR createFloatPlanes(RGYCLBuf *parent, int width, int height, int planeCount,
         std::array<std::unique_ptr<RGYCLBuf>, 3>& planes);
+    RGY_ERR copyTensorPlanes(RGYOpenCLQueue &queue, RGYCLBuf *tensor,
+        const std::array<std::unique_ptr<RGYCLBuf>, 3>& planes, int width, int height, int count, bool toTensor);
     RGYFrameInfo rgbFrame(const std::array<std::unique_ptr<RGYCLBuf>, 3>& planes,
         int width, int height) const;
     RGYFrameInfo yuv444Frame(const std::array<std::unique_ptr<RGYCLBuf>, 3>& planes,
@@ -163,6 +165,7 @@ protected:
     std::unique_ptr<RGYOpenCLProgram> m_program;  // pack / unpack / chroma kernels
     std::unique_ptr<RGYCLBuf>         m_inBufCL;  // f32 network input  (inC*inW*inH)
     std::unique_ptr<RGYCLBuf>         m_outBufCL; // f32 network output (outC*outW*outH)
+    bool m_inPlanesSeparate, m_outPlanesSeparate;
     std::array<std::unique_ptr<RGYCLBuf>, 3> m_inRgbPlanes;
     std::array<std::unique_ptr<RGYCLBuf>, 3> m_outRgbPlanes;
     std::array<std::unique_ptr<RGYCLBuf>, 3> m_inYuvPlanes;

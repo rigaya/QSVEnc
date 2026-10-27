@@ -48,7 +48,7 @@ RGYFilterOnnx::RGYFilterOnnx(shared_ptr<RGYOpenCLContext> context) :
     m_matVR(0), m_matUG(0), m_matVG(0), m_matUB(0),
     m_matRY(0), m_matGY(0), m_matBY(0), m_matRU(0), m_matGU(0), m_matBU(0), m_matRV(0), m_matGV(0), m_matBV(0),
     m_inStaging(), m_outStaging(), m_inBuf(), m_outBuf(), m_u444(), m_v444(),
-    m_program(), m_inBufCL(), m_outBufCL(), m_inRgbPlanes(), m_outRgbPlanes(), m_inYuvPlanes(), m_outYuvPlanes(), m_outChromaPlanes(),
+    m_program(), m_inBufCL(), m_outBufCL(), m_inPlanesSeparate(false), m_outPlanesSeparate(false), m_inRgbPlanes(), m_outRgbPlanes(), m_inYuvPlanes(), m_outYuvPlanes(), m_outChromaPlanes(),
     m_cropToRgb(), m_cropFromRgb(), m_cropToYuv444(), m_cropFromYuv444(),
     m_temporalT(1), m_ringBaseIdx(0), m_recvCount(0), m_emitCount(0),
     m_ovm(), m_maskModelW(0), m_maskModelH(0), m_imgPortIdx(0), m_mskPortIdx(1), m_outScale(0.0f) {
@@ -590,15 +590,16 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     const bool rangeTV = (prm->onnx.colorrange != RGY_COLORRANGE_FULL);
     setupColorCoeffs(matrixSel, matrixSelOut, rangeTV, (int)m_maxval);
 
+    m_inPlanesSeparate = false;
+    m_outPlanesSeparate = false;
     if (fastOcl && (m_io == OnnxIO::Chroma || m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise)) {
         const auto alignBits = std::max(1, RGYOpenCLDevice(m_cl->queue().devid()).info().mem_base_addr_align);
         const size_t alignBytes = std::max<size_t>(1, (alignBits + 7) / 8);
         const size_t inPlaneBytes = (size_t)inW * inH * sizeof(float);
         const size_t outPlaneBytes = (size_t)outW * outH * sizeof(float);
-        if ((inPlaneBytes % alignBytes) != 0 || (outPlaneBytes % alignBytes) != 0) {
-            AddMessage(RGY_LOG_WARN, _T("onnx: tensor plane offsetがOpenCLのアラインメントを満たさないため、ホスト経路へ切り替えます。\n"));
-            fastOcl = false;
-        }
+        // sub-bufferの位置を揃えられない場合も、独立したプレーンとデバイス内コピーを使う。
+        m_inPlanesSeparate = (inPlaneBytes % alignBytes) != 0;
+        m_outPlanesSeparate = (outPlaneBytes % alignBytes) != 0;
     }
     m_useOcl = fastOcl && (m_io == OnnxIO::LumaSR || m_io == OnnxIO::GrayNoise
         || m_io == OnnxIO::Chroma
@@ -640,11 +641,11 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
                 return RGY_ERR_OPENCL_CRUSH;
             }
         } else if (m_io == OnnxIO::Chroma || m_ycbcr) {
-            err = createFloatPlanes(m_inBufCL.get(), inW, inH, 3, m_inYuvPlanes);
+            err = createFloatPlanes(m_inPlanesSeparate ? nullptr : m_inBufCL.get(), inW, inH, 3, m_inYuvPlanes);
             if (err == RGY_ERR_NONE) {
                 err = (m_io == OnnxIO::Chroma)
-                    ? createFloatPlanes(m_outBufCL.get(), outW, outH, 2, m_outChromaPlanes)
-                    : createFloatPlanes(m_outBufCL.get(), outW, outH, 3, m_outYuvPlanes);
+                    ? createFloatPlanes(m_outPlanesSeparate ? nullptr : m_outBufCL.get(), outW, outH, 2, m_outChromaPlanes)
+                    : createFloatPlanes(m_outPlanesSeparate ? nullptr : m_outBufCL.get(), outW, outH, 3, m_outYuvPlanes);
             }
             if (err != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("onnx: YUV tensor plane viewの作成に失敗しました。\n"));
@@ -678,9 +679,9 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
                 return err;
             }
         } else if (m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise) {
-            err = createFloatPlanes(m_inBufCL.get(), inW, inH, 3, m_inRgbPlanes);
+            err = createFloatPlanes(m_inPlanesSeparate ? nullptr : m_inBufCL.get(), inW, inH, 3, m_inRgbPlanes);
             if (err == RGY_ERR_NONE) {
-                err = createFloatPlanes(m_outBufCL.get(), outW, outH, 3, m_outRgbPlanes);
+                err = createFloatPlanes(m_outPlanesSeparate ? nullptr : m_outBufCL.get(), outW, outH, 3, m_outRgbPlanes);
             }
             if (err != RGY_ERR_NONE) {
                 AddMessage(RGY_LOG_ERROR, _T("onnx: RGB tensor plane viewの作成に失敗しました。\n"));
@@ -952,6 +953,11 @@ RGY_ERR RGYFilterOnnx::createFloatPlanes(RGYCLBuf *parent, const int width, cons
     }
     const size_t planeBytes = (size_t)width * height * sizeof(float);
     for (int i = 0; i < planeCount; i++) {
+        if (parent == nullptr) {
+            planes[i] = m_cl->createBuffer(planeBytes);
+            if (!planes[i]) return RGY_ERR_MEMORY_ALLOC;
+            continue;
+        }
         cl_buffer_region region = { (size_t)i * planeBytes, planeBytes };
         cl_int clerr = CL_SUCCESS;
         auto subbuf = clCreateSubBuffer(parent->mem(), CL_MEM_READ_WRITE, CL_BUFFER_CREATE_TYPE_REGION, &region, &clerr);
@@ -960,6 +966,21 @@ RGY_ERR RGYFilterOnnx::createFloatPlanes(RGYCLBuf *parent, const int width, cons
             return (clerr == CL_SUCCESS) ? RGY_ERR_MEMORY_ALLOC : err_cl_to_rgy(clerr);
         }
         planes[i] = std::make_unique<RGYCLBuf>(subbuf, CL_MEM_READ_WRITE, planeBytes);
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterOnnx::copyTensorPlanes(RGYOpenCLQueue &queue, RGYCLBuf *tensor,
+    const std::array<std::unique_ptr<RGYCLBuf>, 3>& planes, const int width, const int height, const int count, const bool toTensor) {
+    const size_t planeBytes = (size_t)width * height * sizeof(float);
+    for (int i = 0; i < count; i++) {
+        const auto err = clEnqueueCopyBuffer(queue.get(), toTensor ? planes[i]->mem() : tensor->mem(),
+            toTensor ? tensor->mem() : planes[i]->mem(), toTensor ? 0 : i * planeBytes,
+            toTensor ? i * planeBytes : 0, planeBytes, 0, nullptr, nullptr);
+        if (err != CL_SUCCESS) {
+            AddMessage(RGY_LOG_ERROR, _T("onnx: テンソルプレーンのコピーに失敗しました: %s。\n"), cl_errmes(err));
+            return err_cl_to_rgy(err);
+        }
     }
     return RGY_ERR_NONE;
 }
@@ -1009,6 +1030,11 @@ RGY_ERR RGYFilterOnnx::runOclRGB(const RGYFrameInfo *in, RGYFrameInfo *out,
         return err;
     }
 
+    if (m_inPlanesSeparate) {
+        err = copyTensorPlanes(queue, m_inBufCL.get(), m_inRgbPlanes, in->width, in->height, 3, true);
+        if (err != RGY_ERR_NONE) return err;
+    }
+
     if (m_io == OnnxIO::RGBNoise) {
         const size_t planeBytes = (size_t)in->width * in->height * sizeof(float);
         const auto clerr = clEnqueueFillBuffer(queue.get(), m_inBufCL->mem(), &m_sigmaNorm, sizeof(m_sigmaNorm),
@@ -1023,6 +1049,11 @@ RGY_ERR RGYFilterOnnx::runOclRGB(const RGYFrameInfo *in, RGYFrameInfo *out,
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("onnx: inference failed.\n"));
         return err;
+    }
+
+    if (m_outPlanesSeparate) {
+        err = copyTensorPlanes(queue, m_outBufCL.get(), m_outRgbPlanes, out->width, out->height, 3, false);
+        if (err != RGY_ERR_NONE) return err;
     }
 
     auto outputRgb = rgbFrame(m_outRgbPlanes, out->width, out->height);
@@ -1049,10 +1080,21 @@ RGY_ERR RGYFilterOnnx::runOclYuv444(const RGYFrameInfo *in, RGYFrameInfo *out,
         return err;
     }
 
+    if (m_inPlanesSeparate) {
+        err = copyTensorPlanes(queue, m_inBufCL.get(), m_inYuvPlanes, in->width, in->height, 3, true);
+        if (err != RGY_ERR_NONE) return err;
+    }
+
     err = m_ov->inferShared();
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("onnx: 推論に失敗しました。\n"));
         return err;
+    }
+
+    if (m_outPlanesSeparate) {
+        const auto &planes = (m_io == OnnxIO::Chroma) ? m_outChromaPlanes : m_outYuvPlanes;
+        err = copyTensorPlanes(queue, m_outBufCL.get(), planes, out->width, out->height, m_outC, false);
+        if (err != RGY_ERR_NONE) return err;
     }
 
     auto outputYuv444 = (m_io == OnnxIO::Chroma)
