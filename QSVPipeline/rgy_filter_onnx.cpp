@@ -48,8 +48,8 @@ RGYFilterOnnx::RGYFilterOnnx(shared_ptr<RGYOpenCLContext> context) :
     m_matVR(0), m_matUG(0), m_matVG(0), m_matUB(0),
     m_matRY(0), m_matGY(0), m_matBY(0), m_matRU(0), m_matGU(0), m_matBU(0), m_matRV(0), m_matGV(0), m_matBV(0),
     m_inStaging(), m_outStaging(), m_inBuf(), m_outBuf(), m_u444(), m_v444(),
-    m_program(), m_inBufCL(), m_outBufCL(), m_inPlanesSeparate(false), m_outPlanesSeparate(false), m_inRgbPlanes(), m_outRgbPlanes(), m_inYuvPlanes(), m_outYuvPlanes(), m_outChromaPlanes(),
-    m_cropToRgb(), m_cropFromRgb(), m_cropToYuv444(), m_cropFromYuv444(),
+    m_program(), m_inBufCL(), m_outBufCL(), m_inPlanesSeparate(false), m_outPlanesSeparate(false), m_inYuvPlanes(), m_outYuvPlanes(), m_outChromaPlanes(),
+    m_cropToYuv444(), m_cropFromYuv444(),
     m_temporalT(1), m_ringBaseIdx(0), m_recvCount(0), m_emitCount(0),
     m_ovm(), m_maskModelW(0), m_maskModelH(0), m_imgPortIdx(0), m_mskPortIdx(1), m_outScale(0.0f) {
     m_name = _T("onnx");
@@ -99,15 +99,6 @@ static bool onnx_supported_colorrange(CspColorRange range) {
     return range == RGY_COLORRANGE_AUTO
         || range == RGY_COLORRANGE_LIMITED
         || range == RGY_COLORRANGE_FULL;
-}
-
-static CspMatrix onnx_coeff_id_to_matrix(const int matrixSel) {
-    switch (matrixSel) {
-    case 601:  return RGY_MATRIX_ST170_M;
-    case 2020: return RGY_MATRIX_BT2020_NCL;
-    case 709:
-    default:   return RGY_MATRIX_BT709;
-    }
 }
 
 // Bilinear upscale of one channel from (sw x sh) to (sw*scale x sh*scale)
@@ -586,7 +577,7 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
 
     m_inPlanesSeparate = false;
     m_outPlanesSeparate = false;
-    if (fastOcl && (m_io == OnnxIO::Chroma || m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise)) {
+    if (fastOcl && (m_io == OnnxIO::Chroma || m_ycbcr)) {
         const auto alignBits = std::max(1, RGYOpenCLDevice(m_cl->queue().devid()).info().mem_base_addr_align);
         const size_t alignBytes = std::max<size_t>(1, (alignBits + 7) / 8);
         const size_t inPlaneBytes = (size_t)inW * inH * sizeof(float);
@@ -626,7 +617,7 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
             AddMessage(RGY_LOG_ERROR, _T("onnx: failed to bind shared GPU tensors.\n"));
             return err;
         }
-        if (m_io == OnnxIO::LumaSR || m_io == OnnxIO::GrayNoise || m_modelInW != inW || m_modelInH != inH) {
+        if (m_io == OnnxIO::LumaSR || m_io == OnnxIO::GrayNoise || (m_io == OnnxIO::RGB && !m_ycbcr) || m_io == OnnxIO::RGBNoise || m_modelInW != inW || m_modelInH != inH) {
             const auto clBuildOptions = strsprintf("-D Type=%s -D bit_depth=%d",
                 (prm->frameIn.bitdepth > 8) ? "ushort" : "uchar", prm->frameIn.bitdepth);
             m_program = m_cl->buildResource(_T("RGY_FILTER_ONNX_CL"), _T("EXE_DATA"), clBuildOptions);
@@ -670,40 +661,6 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
             cropFromYuv444Param->baseFps = prm->baseFps;
             m_cropFromYuv444 = std::make_unique<RGYFilterCspCrop>(m_cl);
             err = m_cropFromYuv444->init(cropFromYuv444Param, m_pLog);
-            if (err != RGY_ERR_NONE) {
-                return err;
-            }
-        } else if (m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise) {
-            err = createFloatPlanes(m_inPlanesSeparate ? nullptr : m_inBufCL.get(), inW, inH, 3, m_inRgbPlanes);
-            if (err == RGY_ERR_NONE) {
-                err = createFloatPlanes(m_outPlanesSeparate ? nullptr : m_outBufCL.get(), outW, outH, 3, m_outRgbPlanes);
-            }
-            if (err != RGY_ERR_NONE) {
-                AddMessage(RGY_LOG_ERROR, _T("onnx: RGB tensor plane viewの作成に失敗しました。\n"));
-                return err;
-            }
-
-            auto cropToRgbParam = std::make_shared<RGYFilterParamCrop>();
-            cropToRgbParam->frameIn = prm->frameIn;
-            cropToRgbParam->frameOut = rgbFrame(m_inRgbPlanes, inW, inH);
-            cropToRgbParam->baseFps = prm->baseFps;
-            cropToRgbParam->matrix = onnx_coeff_id_to_matrix(matrixSel);
-            cropToRgbParam->colorrange = rangeTV ? RGY_COLORRANGE_LIMITED : RGY_COLORRANGE_FULL;
-            cropToRgbParam->chroma420Interpolate = true;
-            m_cropToRgb = std::make_unique<RGYFilterCspCrop>(m_cl);
-            err = m_cropToRgb->init(cropToRgbParam, m_pLog);
-            if (err != RGY_ERR_NONE) {
-                return err;
-            }
-
-            auto cropFromRgbParam = std::make_shared<RGYFilterParamCrop>();
-            cropFromRgbParam->frameIn = rgbFrame(m_outRgbPlanes, outW, outH);
-            cropFromRgbParam->frameOut = frameOut;
-            cropFromRgbParam->baseFps = prm->baseFps;
-            cropFromRgbParam->matrix = onnx_coeff_id_to_matrix(matrixSelOut);
-            cropFromRgbParam->colorrange = cropToRgbParam->colorrange;
-            m_cropFromRgb = std::make_unique<RGYFilterCspCrop>(m_cl);
-            err = m_cropFromRgb->init(cropFromRgbParam, m_pLog);
             if (err != RGY_ERR_NONE) {
                 return err;
             }
@@ -991,22 +948,6 @@ RGY_ERR RGYFilterOnnx::padTensorPlanes(RGYOpenCLQueue &queue,
     return err;
 }
 
-RGYFrameInfo RGYFilterOnnx::rgbFrame(const std::array<std::unique_ptr<RGYCLBuf>, 3>& planes,
-    const int width, const int height) const {
-    RGYFrameInfo frame;
-    frame.width = width;
-    frame.height = height;
-    frame.csp = RGY_CSP_RGB_F32;
-    frame.bitdepth = 32;
-    frame.mem_type = RGY_MEM_TYPE_GPU;
-    frame.picstruct = RGY_PICSTRUCT_FRAME;
-    for (int i = 0; i < 3; i++) {
-        frame.ptr[i] = (uint8_t *)planes[i]->mem();
-        frame.pitch[i] = width * sizeof(float);
-    }
-    return frame;
-}
-
 RGYFrameInfo RGYFilterOnnx::yuv444Frame(const std::array<std::unique_ptr<RGYCLBuf>, 3>& planes,
     const int width, const int height) const {
     RGYFrameInfo frame;
@@ -1025,54 +966,45 @@ RGYFrameInfo RGYFilterOnnx::yuv444Frame(const std::array<std::unique_ptr<RGYCLBu
 
 RGY_ERR RGYFilterOnnx::runOclRGB(const RGYFrameInfo *in, RGYFrameInfo *out,
     RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
-    auto inputYuv = *in;
-    inputYuv.picstruct = RGY_PICSTRUCT_FRAME;
-    auto inputRgb = rgbFrame(m_inRgbPlanes, in->width, in->height);
-    RGYFrameInfo *inputRgbOut[1] = { &inputRgb };
-    int outputCount = 0;
-    auto err = m_cropToRgb->filter(&inputYuv, inputRgbOut, &outputCount, queue, wait_events, nullptr);
-    if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("onnx: YUV to RGB conversion failed: %s.\n"), get_err_mes(err));
-        return err;
-    }
-
-    if (m_inPlanesSeparate) {
-        err = (m_modelInW != in->width || m_modelInH != in->height)
-            ? padTensorPlanes(queue, m_inRgbPlanes, in->width, in->height)
-            : copyTensorPlanes(queue, m_inBufCL.get(), m_inRgbPlanes, in->width, in->height, 3, true);
-        if (err != RGY_ERR_NONE) return err;
-    }
+    const bool interleaved = (in->csp == RGY_CSP_NV12 || in->csp == RGY_CSP_P010);
+    const int pixSize = (m_bitdepth > 8) ? 2 : 1;
+    const int stride = interleaved ? 2 : 1;
+    const auto srcU = (cl_mem)in->ptr[1];
+    const auto srcV = (cl_mem)(interleaved ? in->ptr[1] : in->ptr[2]);
+    const auto dstU = (cl_mem)out->ptr[1];
+    const auto dstV = (cl_mem)(interleaved ? out->ptr[1] : out->ptr[2]);
+    const int inPitchV = (interleaved ? in->pitch[1] : in->pitch[2]) / pixSize;
+    const int outPitchV = (interleaved ? out->pitch[1] : out->pitch[2]) / pixSize;
+    RGYWorkSize local(32, 8);
+    RGYWorkSize inputSize(m_modelInW, m_modelInH);
+    // ホスト経路と同じ色差補間とクリップ順序で入力テンソルを作る。
+    auto err = m_program->kernel("pack_rgb").config(queue, local, inputSize, wait_events, nullptr).launch(
+        (cl_mem)in->ptr[0], in->pitch[0] / pixSize, srcU, in->pitch[1] / pixSize, srcV, inPitchV,
+        stride, interleaved ? 1 : 0, m_inBufCL->mem(), in->width, in->height,
+        m_modelInW, m_modelInH, m_padL, m_padT, m_yOff, m_yScale, m_cOff, m_cScale,
+        m_matVR, m_matUG, m_matVG, m_matUB);
+    if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: RGB入力変換に失敗しました: %s。\n"), get_err_mes(err)); return err; }
 
     if (m_io == OnnxIO::RGBNoise) {
         const size_t planeBytes = (size_t)m_modelInW * m_modelInH * sizeof(float);
         const auto clerr = clEnqueueFillBuffer(queue.get(), m_inBufCL->mem(), &m_sigmaNorm, sizeof(m_sigmaNorm),
             3 * planeBytes, planeBytes, 0, nullptr, nullptr);
-        if (clerr != CL_SUCCESS) {
-            AddMessage(RGY_LOG_ERROR, _T("onnx: ノイズ強度平面の設定に失敗しました: %s。\n"), cl_errmes(clerr));
-            return err_cl_to_rgy(clerr);
-        }
+        if (clerr != CL_SUCCESS) { AddMessage(RGY_LOG_ERROR, _T("onnx: ノイズ強度平面の設定に失敗しました: %s。\n"), cl_errmes(clerr)); return err_cl_to_rgy(clerr); }
     }
-
     err = m_ov->inferShared();
-    if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("onnx: inference failed.\n"));
-        return err;
-    }
+    if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: 推論に失敗しました: %s。\n"), get_err_mes(err)); return err; }
 
-    if (m_outPlanesSeparate) {
-        err = copyTensorPlanes(queue, m_outBufCL.get(), m_outRgbPlanes, out->width, out->height, 3, false);
-        if (err != RGY_ERR_NONE) return err;
-    }
-
-    auto outputRgb = rgbFrame(m_outRgbPlanes, out->width, out->height);
-    RGYFrameInfo *outputYuv[1] = { out };
-    outputCount = 0;
-    err = m_cropFromRgb->filter(&outputRgb, outputYuv, &outputCount, queue, {}, event);
-    if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("onnx: RGB to YUV conversion failed: %s.\n"), get_err_mes(err));
-        return err;
-    }
-    return RGY_ERR_NONE;
+    RGYWorkSize outputSize(out->width, out->height);
+    err = m_program->kernel("unpack_rgb_y").config(queue, local, outputSize, {}, nullptr).launch(
+        m_outBufCL->mem(), (cl_mem)out->ptr[0], out->pitch[0] / pixSize, out->width, out->height,
+        m_matRY, m_matGY, m_matBY, m_yRange, m_yOff);
+    if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: RGB出力の輝度変換に失敗しました: %s。\n"), get_err_mes(err)); return err; }
+    RGYWorkSize chromaSize(out->width / 2, out->height / 2);
+    err = m_program->kernel("unpack_rgb_uv").config(queue, local, chromaSize, {}, event).launch(
+        m_outBufCL->mem(), dstU, out->pitch[1] / pixSize, dstV, outPitchV, stride, interleaved ? 1 : 0,
+        out->width, out->height, m_matRU, m_matGU, m_matBU, m_matRV, m_matGV, m_matBV, m_cRange, m_cOff);
+    if (err != RGY_ERR_NONE) AddMessage(RGY_LOG_ERROR, _T("onnx: RGB出力の色差変換に失敗しました: %s。\n"), get_err_mes(err));
+    return err;
 }
 
 RGY_ERR RGYFilterOnnx::runOclYuv444(const RGYFrameInfo *in, RGYFrameInfo *out,
@@ -1900,12 +1832,8 @@ RGY_ERR RGYFilterOnnx::runHost(const RGYFrameInfo *in, RGYFrameInfo *out,
 
 void RGYFilterOnnx::close() {
     m_postResize.reset();
-    m_cropToRgb.reset();
-    m_cropFromRgb.reset();
     m_cropToYuv444.reset();
     m_cropFromYuv444.reset();
-    for (auto& plane : m_inRgbPlanes) plane.reset();
-    for (auto& plane : m_outRgbPlanes) plane.reset();
     for (auto& plane : m_inYuvPlanes) plane.reset();
     for (auto& plane : m_outYuvPlanes) plane.reset();
     for (auto& plane : m_outChromaPlanes) plane.reset();

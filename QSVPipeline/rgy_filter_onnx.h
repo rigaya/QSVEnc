@@ -97,8 +97,6 @@ protected:
     RGY_ERR copyTensorPlanes(RGYOpenCLQueue &queue, RGYCLBuf *tensor,
         const std::array<std::unique_ptr<RGYCLBuf>, 3>& planes, int width, int height, int count, bool toTensor);
     RGY_ERR padTensorPlanes(RGYOpenCLQueue &queue, const std::array<std::unique_ptr<RGYCLBuf>, 3>& planes, int width, int height);
-    RGYFrameInfo rgbFrame(const std::array<std::unique_ptr<RGYCLBuf>, 3>& planes,
-        int width, int height) const;
     RGYFrameInfo yuv444Frame(const std::array<std::unique_ptr<RGYCLBuf>, 3>& planes,
         int width, int height) const;
 
@@ -167,13 +165,9 @@ protected:
     std::unique_ptr<RGYCLBuf>         m_inBufCL;  // f32 network input  (inC*inW*inH)
     std::unique_ptr<RGYCLBuf>         m_outBufCL; // f32 network output (outC*outW*outH)
     bool m_inPlanesSeparate, m_outPlanesSeparate;
-    std::array<std::unique_ptr<RGYCLBuf>, 3> m_inRgbPlanes;
-    std::array<std::unique_ptr<RGYCLBuf>, 3> m_outRgbPlanes;
     std::array<std::unique_ptr<RGYCLBuf>, 3> m_inYuvPlanes;
     std::array<std::unique_ptr<RGYCLBuf>, 3> m_outYuvPlanes;
     std::array<std::unique_ptr<RGYCLBuf>, 3> m_outChromaPlanes;
-    std::unique_ptr<RGYFilterCspCrop> m_cropToRgb;
-    std::unique_ptr<RGYFilterCspCrop> m_cropFromRgb;
     std::unique_ptr<RGYFilterCspCrop> m_cropToYuv444;
     std::unique_ptr<RGYFilterCspCrop> m_cropFromYuv444;
 
