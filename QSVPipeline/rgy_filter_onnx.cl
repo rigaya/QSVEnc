@@ -1,9 +1,12 @@
 ﻿__kernel void pack_norm_y(__global const Type *srcY, int srcPitch,
-                          __global float *dst, int W, int H, float maxval) {
+                          __global float *dst, int srcW, int srcH,
+                          int W, int H, int padL, int padT, float maxval) {
     int x = get_global_id(0);
     int y = get_global_id(1);
     if (x >= W || y >= H) return;
-    dst[y * W + x] = (float)srcY[y * srcPitch + x] / maxval;
+    int sx = clamp(x - padL, 0, srcW - 1);
+    int sy = clamp(y - padT, 0, srcH - 1);
+    dst[y * W + x] = (float)srcY[sy * srcPitch + sx] / maxval;
 }
 
 __kernel void unpack_denorm_y(__global const float *src,

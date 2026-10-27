@@ -526,9 +526,8 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         const int guessedScale = std::max(1, (int)(std::round((double)outW / (double)inW)));
         const int cropW = guessedScale * inW - outW;
         const int cropH = guessedScale * inH - outH;
-        // 共有経路はエッジパディングに対応していないため、既存のホスト経路へ切り替える。
-        // m_useOcl はこのブロックより後で設定されるので、ここでは fastOcl を判定する。
-        if (fastOcl) {
+        // 複数色チャンネルのパディングはまだ共有経路に対応していない。
+        if (fastOcl && m_io != OnnxIO::LumaSR && m_io != OnnxIO::GrayNoise) {
             AddMessage(RGY_LOG_WARN, _T("onnx: model output %dx%d needs edge padding; falling back to host path.\n"),
                 outW, outH);
             fastOcl = false;
@@ -545,6 +544,12 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         m_modelInH = inH + padTotal;
         errMsg.clear();
         err = initModel(m_modelInH, m_modelInW);
+        if (err != RGY_ERR_NONE && fastOcl) {
+            AddMessage(RGY_LOG_WARN, _T("onnx: padded shared OpenCL context is unavailable, falling back to host path: %s\n"), errMsg.c_str());
+            fastOcl = false;
+            errMsg.clear();
+            err = initModel(m_modelInH, m_modelInW);
+        }
         if (err != RGY_ERR_NONE) {
             AddMessage(RGY_LOG_ERROR, _T("onnx: failed to load/compile padded model (%s, input %dx%d): %s\n"),
                 effectiveDevice.c_str(), m_modelInW, m_modelInH, errMsg.c_str());
@@ -615,7 +620,7 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     }
 
     if (m_useOcl) {
-        m_inBufCL  = m_cl->createBuffer((size_t)m_inC  * inW  * inH  * sizeof(float));
+        m_inBufCL  = m_cl->createBuffer((size_t)m_inC * m_modelInW * m_modelInH * sizeof(float));
         m_outBufCL = m_cl->createBuffer((size_t)m_outC * outW * outH * sizeof(float));
         if (!m_inBufCL || !m_outBufCL) {
             AddMessage(RGY_LOG_ERROR, _T("onnx: failed to allocate network buffers.\n"));
@@ -887,14 +892,15 @@ RGY_ERR RGYFilterOnnx::runOcl(const RGYFrameInfo *in, RGYFrameInfo *out,
     // 1. pack + normalise the input luma into the network input buffer.
     {
         RGYWorkSize local(32, 8);
-        RGYWorkSize global(inW, inH);
+        RGYWorkSize global(m_modelInW, m_modelInH);
         auto err = m_program->kernel("pack_norm_y").config(queue, local, global, wait_events, nullptr).launch(
-            (cl_mem)in->ptr[0], in->pitch[0] / pixSize, m_inBufCL->mem(), inW, inH, m_maxval);
+            (cl_mem)in->ptr[0], in->pitch[0] / pixSize, m_inBufCL->mem(), inW, inH,
+            m_modelInW, m_modelInH, m_padL, m_padT, m_maxval);
         if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: pack_norm_y failed: %s.\n"), get_err_mes(err)); return err; }
     }
 
     if (m_io == OnnxIO::GrayNoise) {
-        const size_t planeBytes = (size_t)inW * inH * sizeof(float);
+        const size_t planeBytes = (size_t)m_modelInW * m_modelInH * sizeof(float);
         const auto clerr = clEnqueueFillBuffer(queue.get(), m_inBufCL->mem(), &m_sigmaNorm, sizeof(m_sigmaNorm),
             planeBytes, planeBytes, 0, nullptr, nullptr);
         if (clerr != CL_SUCCESS) {
