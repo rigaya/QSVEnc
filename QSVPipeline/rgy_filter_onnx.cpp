@@ -43,11 +43,11 @@ tstring RGYFilterParamOnnx::print() const {
 RGYFilterOnnx::RGYFilterOnnx(shared_ptr<RGYOpenCLContext> context) :
     RGYFilter(context), m_ov(), m_io(OnnxIO::LumaSR), m_inC(1), m_outC(1),
     m_scale(1), m_modelInW(0), m_modelInH(0), m_padL(0), m_padT(0),
-    m_maxval(255.0f), m_bitdepth(8), m_sharedIO(false), m_useOcl(false), m_ycbcr(false), m_sigmaNorm(0.0f),
+    m_maxval(255.0f), m_bitdepth(8), m_sharedIO(false), m_ycbcr(false), m_sigmaNorm(0.0f),
     m_yOff(0.0f), m_yScale(1.0f), m_yRange(255.0f), m_cOff(128.0f), m_cScale(1.0f), m_cRange(255.0f),
     m_matVR(0), m_matUG(0), m_matVG(0), m_matUB(0),
     m_matRY(0), m_matGY(0), m_matBY(0), m_matRU(0), m_matGU(0), m_matBU(0), m_matRV(0), m_matGV(0), m_matBV(0),
-    m_inStaging(), m_outStaging(), m_inBuf(), m_outBuf(), m_u444(), m_v444(),
+    m_inBuf(), m_outBuf(),
     m_program(), m_inBufCL(), m_outBufCL(), m_inPlanesSeparate(false), m_outPlanesSeparate(false), m_inYuvPlanes(), m_outYuvPlanes(), m_outChromaPlanes(),
     m_cropToYuv444(), m_cropFromYuv444(),
     m_temporalT(1), m_ringBaseIdx(0), m_recvCount(0), m_emitCount(0),
@@ -60,15 +60,6 @@ RGYFilterOnnx::~RGYFilterOnnx() {
 }
 
 namespace {
-static inline int clampi(int v, int lo, int hi) { return v < lo ? lo : (v > hi ? hi : v); }
-static inline float clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
-static inline int sample_x(const int x, const int padL, const int width) {
-    return clampi(x - padL, 0, width - 1);
-}
-static inline int sample_y(const int y, const int padT, const int height) {
-    return clampi(y - padT, 0, height - 1);
-}
-
 static const TCHAR *cx_desc_or_unknown(const CX_DESC *list, int value) {
     const auto desc = get_cx_desc(list, value);
     return (desc != nullptr) ? desc : _T("unknown");
@@ -101,116 +92,6 @@ static bool onnx_supported_colorrange(CspColorRange range) {
         || range == RGY_COLORRANGE_FULL;
 }
 
-// Bilinear upscale of one channel from (sw x sh) to (sw*scale x sh*scale)
-// on the CPU (host path). Mirrors the chroma_bilinear kernel above.
-// Pitches in bytes, strides in samples (2 for an nv12/p010-interleaved channel).
-template<typename TPix>
-static void upscale_bilinear(uint8_t *dst, const int dstPitch, const int dstStride,
-                             const uint8_t *src, const int srcPitch, const int srcStride,
-                             const int sw, const int sh, const int scale, const int pixMax) {
-    const int dw = sw * scale;
-    const int dh = sh * scale;
-    const float inv = 1.0f / (float)scale;
-    for (int dy = 0; dy < dh; dy++) {
-        float sy = (dy + 0.5f) * inv - 0.5f;
-        int y0 = (int)std::floor(sy);
-        float fy = sy - (float)y0;
-        const TPix *row0 = (const TPix *)(src + (size_t)clampi(y0,     0, sh - 1) * srcPitch);
-        const TPix *row1 = (const TPix *)(src + (size_t)clampi(y0 + 1, 0, sh - 1) * srcPitch);
-        TPix *drow = (TPix *)(dst + (size_t)dy * dstPitch);
-        for (int dx = 0; dx < dw; dx++) {
-            float sx = (dx + 0.5f) * inv - 0.5f;
-            int x0 = (int)std::floor(sx);
-            float fx = sx - (float)x0;
-            const int x0c = clampi(x0,     0, sw - 1) * srcStride;
-            const int x1c = clampi(x0 + 1, 0, sw - 1) * srcStride;
-            const float a = row0[x0c], b = row0[x1c];
-            const float c = row1[x0c], d = row1[x1c];
-            const float top = a + (b - a) * fx;
-            const float bot = c + (d - c) * fx;
-            const int v = (int)(top + (bot - top) * fy + 0.5f);
-            drow[dx * dstStride] = (TPix)clampi(v, 0, pixMax);
-        }
-    }
-}
-
-// Bilinearly sample one chroma channel (half-res, 4:2:0) at the location
-// of luma pixel (lx, ly), upsampling x2. Returns the raw value (0..pixmax) as a
-// float. plane/pitch/stride address the channel (pitch in bytes; stride 2 for
-// nv12/p010-interleaved, 1 for planar). Matches the (d+0.5)/scale-0.5
-// convention of the OCL chroma_bilinear kernel.
-template<typename TPix>
-static inline float sample_chroma_up2(const uint8_t *plane, const int pitch, const int stride,
-                                      const int cw, const int ch, const int lx, const int ly) {
-    const float cx = (lx + 0.5f) * 0.5f - 0.5f;
-    const float cy = (ly + 0.5f) * 0.5f - 0.5f;
-    const int x0 = (int)std::floor(cx); const float fx = cx - (float)x0;
-    const int y0 = (int)std::floor(cy); const float fy = cy - (float)y0;
-    const int x0c = clampi(x0,     0, cw - 1) * stride;
-    const int x1c = clampi(x0 + 1, 0, cw - 1) * stride;
-    const TPix *r0 = (const TPix *)(plane + (size_t)clampi(y0,     0, ch - 1) * pitch);
-    const TPix *r1 = (const TPix *)(plane + (size_t)clampi(y0 + 1, 0, ch - 1) * pitch);
-    const float a = r0[x0c], b = r0[x1c];
-    const float c = r1[x0c], d = r1[x1c];
-    const float top = a + (b - a) * fx;
-    const float bot = c + (d - c) * fx;
-    return top + (bot - top) * fy;
-}
-
-// 2x2 box-downsample a full-res normalised channel to a half-res chroma
-// plane, encoding each averaged value as v*encScale + encOff (rounded, clamped).
-// dstPitch in bytes, dstStride in samples.
-//
-// This function must round in strict float32. The project builds with /fp:fast,
-// under which MSVC keeps `avg * encScale + encOff` in a wider intermediate; when
-// the float32 value of `avg * encScale + encOff` lands exactly on a .5 boundary
-// the wider value falls just short of it and the truncating (int) cast drops a
-// level. It is rare (about 1e-6 of samples, always by one) but it makes this
-// function disagree with its own source text, and with the OpenCL kernel that
-// mirrors it. Forcing the whole function precise is the only form that helps:
-// a (float) cast on the intermediate, a volatile temporary, and a precise-only
-// rounding helper were all measured and all still produce the wrong level.
-#if defined(_MSC_VER)
-#pragma float_control(precise, on, push)
-#endif
-template<typename TPix>
-static void downsample420_encode(uint8_t *dst, const int dstPitch, const int dstStride,
-                                 const float *srcFull, const int fullW, const int fullH,
-                                 const float encScale, const float encOff, const int pixMax) {
-    const int cw = fullW / 2;
-    const int ch = fullH / 2;
-    for (int cy = 0; cy < ch; cy++) {
-        const float *s0 = srcFull + (size_t)(2 * cy)     * fullW;
-        const float *s1 = srcFull + (size_t)(2 * cy + 1) * fullW;
-        TPix *drow = (TPix *)(dst + (size_t)cy * dstPitch);
-        for (int cx = 0; cx < cw; cx++) {
-            const int x0 = 2 * cx;
-            const float avg = (s0[x0] + s0[x0 + 1] + s1[x0] + s1[x0 + 1]) * 0.25f;
-            const int v = (int)(avg * encScale + encOff + 0.5f);
-            drow[cx * dstStride] = (TPix)clampi(v, 0, pixMax);
-        }
-    }
-}
-#if defined(_MSC_VER)
-#pragma float_control(pop)
-#endif
-
-// Copy one plane (row-by-row, honouring pitches). width is in samples,
-// pitches in bytes, srcStride/dstStride 1 for planar, 2 for nv12/p010-interleaved.
-template<typename TPix>
-static void copy_plane(uint8_t *dst, const int dstPitch, const int dstStride,
-                       const uint8_t *src, const int srcPitch, const int srcStride,
-                       const int width, const int height) {
-    for (int y = 0; y < height; y++) {
-        const TPix *srow = (const TPix *)(src + (size_t)y * srcPitch);
-        TPix *drow = (TPix *)(dst + (size_t)y * dstPitch);
-        if (srcStride == 1 && dstStride == 1) {
-            memcpy(drow, srow, (size_t)width * sizeof(TPix));
-        } else {
-            for (int x = 0; x < width; x++) drow[x * dstStride] = srow[x * srcStride];
-        }
-    }
-}
 } // namespace
 
 RGY_ERR RGYFilterOnnx::checkParam(const std::shared_ptr<RGYFilterParamOnnx> prm) {
@@ -401,7 +282,8 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     bool fastOcl = deviceWantsGpu && m_cl
         && ((peekIn == 1 && peekOut == 1) || (peekIn == 2 && peekOut == 1)
             || (peekIn == 3 && peekOut == 2) || (peekIn == 3 && peekOut == 3)
-            || (peekIn == 4 && peekOut == 3));
+            || (peekIn == 4 && peekOut == 3)
+            || (prm->onnx.frames > 1 && peekIn == prm->onnx.frames * 3 && peekOut == 3));
 
     auto initModel = [&](const int modelInH, const int modelInW) {
         if (fastOcl) {
@@ -586,8 +468,7 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         m_inPlanesSeparate = (inPlaneBytes % alignBytes) != 0 || m_modelInW != inW || m_modelInH != inH;
         m_outPlanesSeparate = (outPlaneBytes % alignBytes) != 0;
     }
-    m_useOcl = (m_temporalT == 1);
-    m_sharedIO = m_useOcl && fastOcl;
+    m_sharedIO = fastOcl;
 
     // Output frame buffer at the (possibly upscaled) resolution.
     auto frameOut = prm->frameOut;
@@ -604,7 +485,7 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
         prm->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
 
-    if (m_useOcl) {
+    {
         m_inBufCL  = m_cl->createBuffer((size_t)m_inC * m_modelInW * m_modelInH * sizeof(float));
         m_outBufCL = m_cl->createBuffer((size_t)m_outC * outW * outH * sizeof(float));
         if (!m_inBufCL || !m_outBufCL) {
@@ -629,7 +510,7 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
             m_inBuf.resize((size_t)m_inC * m_modelInW * m_modelInH);
             m_outBuf.resize(m_ov->outElemCount());
         }
-        if (m_io == OnnxIO::LumaSR || m_io == OnnxIO::GrayNoise || (m_io == OnnxIO::RGB && !m_ycbcr) || m_io == OnnxIO::RGBNoise || m_modelInW != inW || m_modelInH != inH) {
+        if (m_temporalT > 1 || m_io == OnnxIO::LumaSR || m_io == OnnxIO::GrayNoise || (m_io == OnnxIO::RGB && !m_ycbcr) || m_io == OnnxIO::RGBNoise || m_modelInW != inW || m_modelInH != inH) {
             const auto clBuildOptions = strsprintf("-D Type=%s -D bit_depth=%d",
                 (prm->frameIn.bitdepth > 8) ? "ushort" : "uchar", prm->frameIn.bitdepth);
             m_program = m_cl->buildResource(_T("RGY_FILTER_ONNX_CL"), _T("EXE_DATA"), clBuildOptions);
@@ -638,7 +519,7 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
                 return RGY_ERR_OPENCL_CRUSH;
             }
         }
-        if (m_io == OnnxIO::Chroma || m_ycbcr) {
+        if (m_temporalT == 1 && (m_io == OnnxIO::Chroma || m_ycbcr)) {
             err = createFloatPlanes(m_inPlanesSeparate ? nullptr : m_inBufCL.get(), inW, inH, 3, m_inYuvPlanes);
             if (err == RGY_ERR_NONE) {
                 err = (m_io == OnnxIO::Chroma)
@@ -676,22 +557,6 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
             if (err != RGY_ERR_NONE) {
                 return err;
             }
-        }
-    } else {
-        // host-readback scratch
-        m_inBuf.resize((size_t)m_inC * m_modelInW * m_modelInH);
-        m_outBuf.resize(m_ov->outElemCount());
-        // RGB->YUV post needs normalised chroma at output luma res before the
-        // 4:2:0 downsample (only when we synthesise chroma from RGB).
-        if ((m_io == OnnxIO::RGB || m_io == OnnxIO::RGBNoise) && !m_ycbcr) {
-            m_u444.resize((size_t)outW * outH);
-            m_v444.resize((size_t)outW * outH);
-        }
-        m_inStaging  = m_cl->createFrameBuffer(inW,  inH,  inCsp, prm->frameIn.bitdepth, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR);
-        m_outStaging = m_cl->createFrameBuffer(outW, outH, inCsp, prm->frameIn.bitdepth, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR);
-        if (!m_inStaging || !m_outStaging) {
-            AddMessage(RGY_LOG_ERROR, _T("onnx: failed to allocate staging frame buffers.\n"));
-            return RGY_ERR_MEMORY_ALLOC;
         }
     }
 
@@ -750,7 +615,7 @@ RGY_ERR RGYFilterOnnx::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog
     tstring info = strsprintf(_T("onnx: %s  %dx%d -> %dx%d (x%d)  io=%s%s  path=%s"),
         PathGetFilename(prm->onnx.modelFile).c_str(), inW, inH, outW, outH, m_scale,
         ioName[(int)m_io], (m_ycbcr && m_io == OnnxIO::RGB) ? _T("(ycbcr)") : _T(""),
-        m_useOcl ? (m_sharedIO ? _T("ocl") : _T("ocl-copy")) : _T("host"));
+        m_sharedIO ? _T("ocl") : _T("ocl-copy"));
     if (prm->frameIn.bitdepth > 8) {
         info += strsprintf(_T(" %dbit"), prm->frameIn.bitdepth);
     }
@@ -1104,104 +969,6 @@ RGY_ERR RGYFilterOnnx::runOclYuv444(const RGYFrameInfo *in, RGYFrameInfo *out,
     return RGY_ERR_NONE;
 }
 
-void RGYFilterOnnx::writeOutputHost(const RGYFrameInfo &hout, const RGYFrameInfo &hin) {
-    if (m_bitdepth > 8) {
-        writeOutputHostT<uint16_t>(hout, hin);
-    } else {
-        writeOutputHostT<uint8_t>(hout, hin);
-    }
-}
-
-template<typename TPix>
-void RGYFilterOnnx::writeOutputHostT(const RGYFrameInfo &hout, const RGYFrameInfo &hin) {
-    const int outW = hout.width;
-    const int outH = hout.height;
-    const size_t chSize = (size_t)outW * outH;
-    const bool nv12 = (hout.csp == RGY_CSP_NV12 || hout.csp == RGY_CSP_P010);
-    const int pixMax = (int)m_maxval;
-    const float *ob = m_outBuf.data();
-    uint8_t *oU = hout.ptr[1];
-    uint8_t *oV = nv12 ? (hout.ptr[1] + sizeof(TPix)) : hout.ptr[2];
-    const int oStride = nv12 ? 2 : 1;
-    const int oPitchU = hout.pitch[1];
-    const int oPitchV = nv12 ? hout.pitch[1] : hout.pitch[2];
-
-    switch (m_io) {
-    case OnnxIO::LumaSR: {
-        // out 1ch luma; chroma bilinear-upscaled at the model's integer scale.
-        for (int y = 0; y < outH; y++) {
-            const float *srow = ob + (size_t)y * outW;
-            TPix *drow = (TPix *)(hout.ptr[0] + (size_t)y * hout.pitch[0]);
-            for (int x = 0; x < outW; x++) { int v = (int)(srow[x] * m_maxval + 0.5f); drow[x] = (TPix)clampi(v, 0, pixMax); }
-        }
-        const int cInW = hin.width / 2, cInH = hin.height / 2;
-        if (!nv12) {
-            upscale_bilinear<TPix>(hout.ptr[1], hout.pitch[1], 1, hin.ptr[1], hin.pitch[1], 1, cInW, cInH, m_scale, pixMax);
-            upscale_bilinear<TPix>(hout.ptr[2], hout.pitch[2], 1, hin.ptr[2], hin.pitch[2], 1, cInW, cInH, m_scale, pixMax);
-        } else {
-            upscale_bilinear<TPix>(hout.ptr[1], hout.pitch[1], 2, hin.ptr[1], hin.pitch[1], 2, cInW, cInH, m_scale, pixMax);
-            upscale_bilinear<TPix>(hout.ptr[1] + sizeof(TPix), hout.pitch[1], 2, hin.ptr[1] + sizeof(TPix), hin.pitch[1], 2, cInW, cInH, m_scale, pixMax);
-        }
-        break;
-    }
-    case OnnxIO::GrayNoise: {
-        // out 1ch luma (scale=1); chroma copied straight through.
-        for (int y = 0; y < outH; y++) {
-            const float *srow = ob + (size_t)y * outW;
-            TPix *drow = (TPix *)(hout.ptr[0] + (size_t)y * hout.pitch[0]);
-            for (int x = 0; x < outW; x++) { int v = (int)(srow[x] * m_maxval + 0.5f); drow[x] = (TPix)clampi(v, 0, pixMax); }
-        }
-        const int cw = hin.width / 2, chh = hin.height / 2;
-        const uint8_t *iU = hin.ptr[1];
-        const uint8_t *iV = nv12 ? (hin.ptr[1] + sizeof(TPix)) : hin.ptr[2];
-        const int iStride = nv12 ? 2 : 1;
-        const int iPitchU = hin.pitch[1], iPitchV = nv12 ? hin.pitch[1] : hin.pitch[2];
-        copy_plane<TPix>(oU, oPitchU, oStride, iU, iPitchU, iStride, cw, chh);
-        copy_plane<TPix>(oV, oPitchV, oStride, iV, iPitchV, iStride, cw, chh);
-        break;
-    }
-    case OnnxIO::Chroma:
-        // out 2ch [Cb,Cr] at full res (scale=1); luma passes through; chroma -> 4:2:0.
-        copy_plane<TPix>(hout.ptr[0], hout.pitch[0], 1, hin.ptr[0], hin.pitch[0], 1, outW, outH);
-        downsample420_encode<TPix>(oU, oPitchU, oStride, ob + 0 * chSize, outW, outH, m_maxval, 0.0f, pixMax);
-        downsample420_encode<TPix>(oV, oPitchV, oStride, ob + 1 * chSize, outW, outH, m_maxval, 0.0f, pixMax);
-        break;
-    case OnnxIO::RGB:
-    case OnnxIO::RGBNoise:
-        if (m_ycbcr) {
-            // out planar YCbCr 0..1 -> Y plane, chroma -> 4:2:0.
-            for (int y = 0; y < outH; y++) {
-                const float *srow = ob + (size_t)y * outW;
-                TPix *drow = (TPix *)(hout.ptr[0] + (size_t)y * hout.pitch[0]);
-                for (int x = 0; x < outW; x++) { int v = (int)(srow[x] * m_maxval + 0.5f); drow[x] = (TPix)clampi(v, 0, pixMax); }
-            }
-            downsample420_encode<TPix>(oU, oPitchU, oStride, ob + 1 * chSize, outW, outH, m_maxval, 0.0f, pixMax);
-            downsample420_encode<TPix>(oV, oPitchV, oStride, ob + 2 * chSize, outW, outH, m_maxval, 0.0f, pixMax);
-        } else {
-            // RGB -> YUV bookend. Y written directly; U,V stored normalised then 4:2:0-downsampled.
-            for (int y = 0; y < outH; y++) {
-                const float *rr = ob + 0 * chSize + (size_t)y * outW;
-                const float *gg = ob + 1 * chSize + (size_t)y * outW;
-                const float *bb = ob + 2 * chSize + (size_t)y * outW;
-                TPix *yd = (TPix *)(hout.ptr[0] + (size_t)y * hout.pitch[0]);
-                float *un = m_u444.data() + (size_t)y * outW;
-                float *vn = m_v444.data() + (size_t)y * outW;
-                for (int x = 0; x < outW; x++) {
-                    const float R = rr[x], G = gg[x], B = bb[x];
-                    const float Yn = m_matRY * R + m_matGY * G + m_matBY * B;
-                    un[x] = m_matRU * R + m_matGU * G + m_matBU * B;
-                    vn[x] = m_matRV * R + m_matGV * G + m_matBV * B;
-                    const int v = (int)(Yn * m_yRange + m_yOff + 0.5f);
-                    yd[x] = (TPix)clampi(v, 0, pixMax);
-                }
-            }
-            downsample420_encode<TPix>(oU, oPitchU, oStride, m_u444.data(), outW, outH, m_cRange, m_cOff, pixMax);
-            downsample420_encode<TPix>(oV, oPitchV, oStride, m_v444.data(), outW, outH, m_cRange, m_cOff, pixMax);
-        }
-        break;
-    }
-}
-
 // -------------------- two-input inpainting mode (mask=) --------------------
 #if ENABLE_AVSW_READER
 // Decode the first video frame of an image file (png/bmp/jpg and friends) with the
@@ -1549,66 +1316,6 @@ RGY_ERR RGYFilterOnnx::runMask(const RGYFrameInfo *pInputFrame, RGYFrameInfo **p
 }
 
 // -------------------- multi-frame temporal window (frames= > 1) --------------------
-// Pack one mapped input frame's YUV as planar RGB [0,1] CHW into dst
-// (3*modelInW*modelInH floats).
-void RGYFilterOnnx::packFrameRGB(const RGYFrameInfo &hin, float *dst) {
-    if (m_bitdepth > 8) {
-        packFrameRGBT<uint16_t>(hin, dst);
-    } else {
-        packFrameRGBT<uint8_t>(hin, dst);
-    }
-}
-
-template<typename TPix>
-void RGYFilterOnnx::packFrameRGBT(const RGYFrameInfo &hin, float *dst) {
-    const int srcW = hin.width;
-    const int srcH = hin.height;
-    const int inW = m_modelInW;
-    const int inH = m_modelInH;
-    const size_t chSize = (size_t)inW * inH;
-    const bool nv12 = (hin.csp == RGY_CSP_NV12 || hin.csp == RGY_CSP_P010);
-    const int cw = srcW / 2, ch = srcH / 2;
-    const uint8_t *pU = hin.ptr[1];
-    const uint8_t *pV = nv12 ? (hin.ptr[1] + sizeof(TPix)) : hin.ptr[2];
-    const int cStride = nv12 ? 2 : 1;
-    const int cPitchU = hin.pitch[1];
-    const int cPitchV = nv12 ? hin.pitch[1] : hin.pitch[2];
-    if (m_ycbcr) {
-        // planar YCbCr 0..1 (Y, Cb, Cr)
-        for (int y = 0; y < inH; y++) {
-            const int sy = sample_y(y, m_padT, srcH);
-            const TPix *yrow = (const TPix *)(hin.ptr[0] + (size_t)sy * hin.pitch[0]);
-            float *c0 = dst + (size_t)y * inW;
-            float *c1 = dst + chSize + (size_t)y * inW;
-            float *c2 = dst + 2 * chSize + (size_t)y * inW;
-            for (int x = 0; x < inW; x++) {
-                const int sx = sample_x(x, m_padL, srcW);
-                c0[x] = (float)yrow[sx] / m_maxval;
-                c1[x] = sample_chroma_up2<TPix>(pU, cPitchU, cStride, cw, ch, sx, sy) / m_maxval;
-                c2[x] = sample_chroma_up2<TPix>(pV, cPitchV, cStride, cw, ch, sx, sy) / m_maxval;
-            }
-        }
-    } else {
-        // YUV -> RGB bookend (same maths as the native anime4k RGB pipeline).
-        for (int y = 0; y < inH; y++) {
-            const int sy = sample_y(y, m_padT, srcH);
-            const TPix *yrow = (const TPix *)(hin.ptr[0] + (size_t)sy * hin.pitch[0]);
-            float *rd = dst + (size_t)y * inW;
-            float *gd = dst + chSize + (size_t)y * inW;
-            float *bd = dst + 2 * chSize + (size_t)y * inW;
-            for (int x = 0; x < inW; x++) {
-                const int sx = sample_x(x, m_padL, srcW);
-                const float yn = ((float)yrow[sx] - m_yOff) * m_yScale;
-                const float un = (sample_chroma_up2<TPix>(pU, cPitchU, cStride, cw, ch, sx, sy) - m_cOff) * m_cScale;
-                const float vn = (sample_chroma_up2<TPix>(pV, cPitchV, cStride, cw, ch, sx, sy) - m_cOff) * m_cScale;
-                rd[x] = clampf(yn + m_matVR * vn, 0.0f, 1.0f);
-                gd[x] = clampf(yn + m_matUG * un + m_matVG * vn, 0.0f, 1.0f);
-                bd[x] = clampf(yn + m_matUB * un, 0.0f, 1.0f);
-            }
-        }
-    }
-}
-
 // Buffer the last T RGB frames and emit a centred temporal window (k=(T-1)/2 frames
 // on each side, edges replicated). 1-in-1-out with a k-frame latency: output i is
 // produced when input i+k arrives, and the trailing k outputs are drained at flush,
@@ -1620,24 +1327,36 @@ RGY_ERR RGYFilterOnnx::runTemporal(const RGYFrameInfo *pInputFrame, RGYFrameInfo
     const size_t chSize = (size_t)m_modelInW * m_modelInH;
 
     if (pInputFrame->ptr[0] != nullptr) {
-        // real frame: copy to host-mappable staging, map, pack as RGB, buffer it.
-        auto err = m_cl->copyFrame(&m_inStaging->frame, pInputFrame, nullptr, queue, wait_events, nullptr);
-        if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: copy input to staging failed: %s.\n"), get_err_mes(err)); return err; }
-        err = m_inStaging->queueMapBuffer(queue, CL_MAP_READ, {}, RGY_CL_MAP_BLOCK_ALL);
-        if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: map input staging failed: %s.\n"), get_err_mes(err)); return err; }
-        const RGYFrameInfo &hin = m_inStaging->mappedHost()->host();
-
         RingFrame rf;
-        rf.rgb.resize(3 * chSize);
-        packFrameRGB(hin, rf.rgb.data());
-        rf.timestamp    = pInputFrame->timestamp;
-        rf.duration     = pInputFrame->duration;
-        rf.picstruct    = pInputFrame->picstruct;
-        rf.flags        = pInputFrame->flags;
+        rf.rgb = m_cl->createBuffer(3 * chSize * sizeof(float));
+        if (!rf.rgb) return RGY_ERR_MEMORY_ALLOC;
+        const bool interleaved = pInputFrame->csp == RGY_CSP_NV12 || pInputFrame->csp == RGY_CSP_P010;
+        const int pixSize = m_bitdepth > 8 ? 2 : 1;
+        const auto v = (cl_mem)(interleaved ? pInputFrame->ptr[1] : pInputFrame->ptr[2]);
+        const int pitchV = (interleaved ? pInputFrame->pitch[1] : pInputFrame->pitch[2]) / pixSize;
+        RGYWorkSize local(32, 8), global(m_modelInW, m_modelInH);
+        RGY_ERR err;
+        if (m_ycbcr) {
+            err = m_program->kernel("temporal_pack_ycbcr").config(queue, local, global, wait_events, nullptr).launch(
+                (cl_mem)pInputFrame->ptr[0], pInputFrame->pitch[0] / pixSize, (cl_mem)pInputFrame->ptr[1],
+                pInputFrame->pitch[1] / pixSize, v, pitchV, interleaved ? 2 : 1, interleaved ? 1 : 0,
+                rf.rgb->mem(), pInputFrame->width, pInputFrame->height, m_modelInW, m_modelInH, m_padL, m_padT, m_maxval);
+        } else {
+            err = m_program->kernel("pack_rgb").config(queue, local, global, wait_events, nullptr).launch(
+                (cl_mem)pInputFrame->ptr[0], pInputFrame->pitch[0] / pixSize, (cl_mem)pInputFrame->ptr[1],
+                pInputFrame->pitch[1] / pixSize, v, pitchV, interleaved ? 2 : 1, interleaved ? 1 : 0,
+                rf.rgb->mem(), pInputFrame->width, pInputFrame->height, m_modelInW, m_modelInH, m_padL, m_padT,
+                m_yOff, m_yScale, m_cOff, m_cScale, m_matVR, m_matUG, m_matVG, m_matUB);
+        }
+        if (err != RGY_ERR_NONE) return err;
+        // 出力待ちのフレームでも入力の再利用前に読み込み完了を保証する。
+        const auto clerr = clFinish(queue.get());
+        if (clerr != CL_SUCCESS) return err_cl_to_rgy(clerr);
+        rf.timestamp = pInputFrame->timestamp;
+        rf.duration = pInputFrame->duration;
+        rf.picstruct = pInputFrame->picstruct;
+        rf.flags = pInputFrame->flags;
         rf.inputFrameId = pInputFrame->inputFrameId;
-
-        err = m_inStaging->unmapBuffer(queue);
-        if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: unmap input staging failed: %s.\n"), get_err_mes(err)); return err; }
 
         m_ring.push_back(std::move(rf));
         m_recvCount++;
@@ -1670,36 +1389,41 @@ RGY_ERR RGYFilterOnnx::emitTemporalOutput(int64_t outIdx, RGYFrameInfo **ppOutpu
     const int ringN = (int)m_ring.size();
     if (ringN <= 0) { *pOutputFrameNum = 0; return RGY_ERR_NONE; }
 
-    // 1. gather the window [outIdx-k .. outIdx+k] from the ring, replicating at the
-    //    sequence edges, into m_inBuf [T*3, H, W] (frame-major on the channel axis).
+    // 時間窓をデバイス内コピーで組み立て、端では先頭・末尾を複製する。
+    const size_t frameBytes = 3 * chSize * sizeof(float);
     for (int j = 0; j < T; j++) {
-        int64_t g = outIdx - k + j;
-        int64_t r = g - m_ringBaseIdx;
+        int64_t r = outIdx - k + j - m_ringBaseIdx;
         if (r < 0) r = 0; else if (r >= ringN) r = ringN - 1;
-        const std::vector<float> &src = m_ring[(size_t)r].rgb;
-        std::copy(src.begin(), src.end(), m_inBuf.begin() + (size_t)j * 3 * chSize);
+        const auto clerr = clEnqueueCopyBuffer(queue.get(), m_ring[(size_t)r].rgb->mem(), m_inBufCL->mem(),
+            0, (size_t)j * frameBytes, frameBytes, 0, nullptr, nullptr);
+        if (clerr != CL_SUCCESS) return err_cl_to_rgy(clerr);
     }
-
-    // 2. map output staging, run inference, unpack RGB -> YUV into it.
-    auto pOutFrame = m_frameBuf[0].get();
-    RGYFrameInfo *coreFrame = &pOutFrame->frame;
-    auto err = m_outStaging->queueMapBuffer(queue, CL_MAP_WRITE, {}, RGY_CL_MAP_BLOCK_ALL);
-    if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: map output staging failed: %s.\n"), get_err_mes(err)); return err; }
-    const RGYFrameInfo &hout = m_outStaging->mappedHost()->host();
-    err = m_ov->infer(m_inBuf.data(), m_outBuf.data());
-    if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: inference failed.\n")); m_outStaging->unmapBuffer(queue); return err; }
-    writeOutputHost(hout, hout); // RGB mode synthesises all planes from the output; the 2nd arg is unused
-    err = m_outStaging->unmapBuffer(queue);
-    if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: unmap output staging failed: %s.\n"), get_err_mes(err)); return err; }
-
-    // 3. staging -> device output; when a post-resize follows, it carries the event.
+    auto err = inferOcl(queue);
+    if (err != RGY_ERR_NONE) return err;
+    auto coreFrame = &m_frameBuf[0]->frame;
+    const int w = coreFrame->width, h = coreFrame->height, pixSize = m_bitdepth > 8 ? 2 : 1;
+    const bool interleaved = coreFrame->csp == RGY_CSP_NV12 || coreFrame->csp == RGY_CSP_P010;
+    const int stride = interleaved ? 2 : 1, voffset = interleaved ? 1 : 0;
+    const auto v = (cl_mem)(interleaved ? coreFrame->ptr[1] : coreFrame->ptr[2]);
+    const int pitchV = (interleaved ? coreFrame->pitch[1] : coreFrame->pitch[2]) / pixSize;
     RGYOpenCLEvent *coreEvent = m_postResize ? nullptr : event;
-    err = m_cl->copyFrame(coreFrame, &m_outStaging->frame, nullptr, queue, {}, coreEvent);
-    if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: copy staging to output failed: %s.\n"), get_err_mes(err)); return err; }
+    RGYWorkSize local(32, 8), full(w, h), chroma(w / 2, h / 2);
+    if (m_ycbcr) {
+        err = m_program->kernel("unpack_denorm_y").config(queue, local, full, {}, nullptr).launch(
+            m_outBufCL->mem(), (cl_mem)coreFrame->ptr[0], coreFrame->pitch[0] / pixSize, w, h, m_maxval);
+        if (err == RGY_ERR_NONE) err = m_program->kernel("temporal_unpack_ycbcr_uv").config(queue, local, chroma, {}, coreEvent).launch(
+            m_outBufCL->mem(), (cl_mem)coreFrame->ptr[1], coreFrame->pitch[1] / pixSize, v, pitchV, stride, voffset, w, h, m_maxval);
+    } else {
+        err = m_program->kernel("unpack_rgb_y").config(queue, local, full, {}, nullptr).launch(
+            m_outBufCL->mem(), (cl_mem)coreFrame->ptr[0], coreFrame->pitch[0] / pixSize, w, h,
+            m_matRY, m_matGY, m_matBY, m_yRange, m_yOff);
+        if (err == RGY_ERR_NONE) err = m_program->kernel("unpack_rgb_uv").config(queue, local, chroma, {}, coreEvent).launch(
+            m_outBufCL->mem(), (cl_mem)coreFrame->ptr[1], coreFrame->pitch[1] / pixSize, v, pitchV, stride, voffset,
+            w, h, m_matRU, m_matGU, m_matBU, m_matRV, m_matGV, m_matBV, m_cRange, m_cOff);
+    }
+    if (err != RGY_ERR_NONE) return err;
 
-    // 4. centre-frame metadata for the emitted output. Stamp AFTER copyFrame: copyFrame
-    //    overwrites every frame property (incl. inputFrameId) from the staging buffer,
-    //    so any stamping before it would be clobbered.
+    // 出力には時間窓の中央フレームの情報を設定する。
     int64_t cr = outIdx - m_ringBaseIdx;
     if (cr < 0) cr = 0; else if (cr >= ringN) cr = ringN - 1;
     const RingFrame &centre = m_ring[(size_t)cr];
@@ -1730,8 +1454,6 @@ void RGYFilterOnnx::close() {
     for (auto& plane : m_inYuvPlanes) plane.reset();
     for (auto& plane : m_outYuvPlanes) plane.reset();
     for (auto& plane : m_outChromaPlanes) plane.reset();
-    m_inStaging.reset();
-    m_outStaging.reset();
     m_ovm.reset();
     m_inBufCL.reset();
     m_outBufCL.reset();
@@ -1739,8 +1461,6 @@ void RGYFilterOnnx::close() {
     m_ov.reset();
     m_inBuf.clear();
     m_outBuf.clear();
-    m_u444.clear();
-    m_v444.clear();
     m_maskFrameCL.reset(); m_maskModelCL.reset(); m_frameRGBCL.reset(); m_compositeCL.reset(); m_maskRangeCL.reset();
     m_maskFrame.clear();
     m_maskModel.clear();

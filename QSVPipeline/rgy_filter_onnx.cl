@@ -170,3 +170,27 @@ __kernel void mask_composite(__global const float *frame, __global const float *
             ? clamp(onnx_sample_float(model + c * mw * mh, mw, mh, mx, my) * scale, 0.0f, 1.0f)
             : frame[c * fw * fh + i];
 }
+
+__kernel void temporal_pack_ycbcr(__global const Type *yp, int ypitch,
+    __global const Type *up, int upitch, __global const Type *vp, int vpitch,
+    int stride, int voffset, __global float *dst, int sw, int sh, int w, int h,
+    int padL, int padT, float maxval) {
+    int x = get_global_id(0), y = get_global_id(1);
+    if (x >= w || y >= h) return;
+    int sx = clamp(x - padL, 0, sw - 1), sy = clamp(y - padT, 0, sh - 1);
+    int i = y * w + x, plane = w * h;
+    dst[i] = yp[sy * ypitch + sx] / maxval;
+    dst[plane + i] = onnx_sample_chroma(up, upitch, stride, 0, sw / 2, sh / 2, sx, sy) / maxval;
+    dst[2 * plane + i] = onnx_sample_chroma(vp, vpitch, stride, voffset, sw / 2, sh / 2, sx, sy) / maxval;
+}
+
+__kernel void temporal_unpack_ycbcr_uv(__global const float *src, __global Type *u, int upitch,
+    __global Type *v, int vpitch, int stride, int voffset, int w, int h, float maxval) {
+    int x = get_global_id(0), y = get_global_id(1);
+    if (x >= w / 2 || y >= h / 2) return;
+    int plane = w * h, i = 2 * y * w + 2 * x;
+    float su = (src[plane+i] + src[plane+i+1] + src[plane+i+w] + src[plane+i+w+1]) * 0.25f;
+    float sv = (src[2*plane+i] + src[2*plane+i+1] + src[2*plane+i+w] + src[2*plane+i+w+1]) * 0.25f;
+    u[y * upitch + x * stride] = (Type)clamp((int)(su * maxval + 0.5f), 0, (1 << bit_depth) - 1);
+    v[y * vpitch + x * stride + voffset] = (Type)clamp((int)(sv * maxval + 0.5f), 0, (1 << bit_depth) - 1);
+}
