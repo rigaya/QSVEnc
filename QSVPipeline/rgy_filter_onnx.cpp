@@ -841,7 +841,15 @@ RGY_ERR RGYFilterOnnx::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo 
 }
 
 RGY_ERR RGYFilterOnnx::inferOcl(RGYOpenCLQueue &queue) {
-    if (m_sharedIO) return m_ov->inferShared();
+    if (m_sharedIO) {
+        if (m_ovm) {
+            tstring msg;
+            const auto err = m_ovm->inferShared(msg);
+            if (err != RGY_ERR_NONE) AddMessage(RGY_LOG_ERROR, _T("onnx: 推論に失敗しました: %s\n"), msg.c_str());
+            return err;
+        }
+        return m_ov->inferShared();
+    }
     // 読み戻しと書き込みを待ち、ホストテンソルの寿命とキュー順序を保証する。
     auto clerr = clEnqueueReadBuffer(queue.get(), m_inBufCL->mem(), CL_TRUE, 0,
         m_inBuf.size() * sizeof(float), m_inBuf.data(), 0, nullptr, nullptr);
@@ -849,7 +857,17 @@ RGY_ERR RGYFilterOnnx::inferOcl(RGYOpenCLQueue &queue) {
         AddMessage(RGY_LOG_ERROR, _T("onnx: 入力テンソルの読み戻しに失敗しました: %s。\n"), cl_errmes(clerr));
         return err_cl_to_rgy(clerr);
     }
-    auto err = m_ov->infer(m_inBuf.data(), m_outBuf.data());
+    RGY_ERR err;
+    if (m_ovm) {
+        std::vector<const float *> inputs(2);
+        inputs[m_imgPortIdx] = m_inBuf.data();
+        inputs[m_mskPortIdx] = m_maskModel.data();
+        tstring msg;
+        err = m_ovm->infer(inputs, { m_outBuf.data() }, msg);
+        if (err != RGY_ERR_NONE) AddMessage(RGY_LOG_ERROR, _T("onnx: マスク推論に失敗しました: %s\n"), msg.c_str());
+    } else {
+        err = m_ov->infer(m_inBuf.data(), m_outBuf.data());
+    }
     if (err != RGY_ERR_NONE) return err;
     clerr = clEnqueueWriteBuffer(queue.get(), m_outBufCL->mem(), CL_TRUE, 0,
         m_outBuf.size() * sizeof(float), m_outBuf.data(), 0, nullptr, nullptr);
@@ -1298,21 +1316,6 @@ static void resizeBilinearPlaneF(const float *src, const int srcW, const int src
     }
 }
 
-// bilinear point sample of a float plane at (fx, fy) in source pixel coordinates
-static inline float sampleBilinearF(const float *src, const int srcW, const int srcH, const float fx, const float fy) {
-    int x0 = (int)std::floor(fx);
-    int y0 = (int)std::floor(fy);
-    const float wx = fx - x0;
-    const float wy = fy - y0;
-    const int x1 = std::min(x0 + 1, srcW - 1);
-    const int y1 = std::min(y0 + 1, srcH - 1);
-    x0 = std::max(x0, 0);
-    y0 = std::max(y0, 0);
-    const float a = src[(size_t)y0 * srcW + x0] * (1.0f - wx) + src[(size_t)y0 * srcW + x1] * wx;
-    const float b = src[(size_t)y1 * srcW + x0] * (1.0f - wx) + src[(size_t)y1 * srcW + x1] * wx;
-    return a * (1.0f - wy) + b * wy;
-}
-
 RGY_ERR RGYFilterOnnx::initMask(std::shared_ptr<RGYFilterParamOnnx> prm, const int inW, const int inH, const RGY_CSP inCsp) {
     if (!RGYOpenVINOMultiIO::available()) {
         AddMessage(RGY_LOG_ERROR, _T("onnx: this OpenVINO runtime lacks the multi-tensor C API needed for mask=.\n"));
@@ -1325,14 +1328,14 @@ RGY_ERR RGYFilterOnnx::initMask(std::shared_ptr<RGYFilterParamOnnx> prm, const i
     tstring errMsg;
     m_ovm = std::make_unique<RGYOpenVINOMultiIO>();
     const auto &dev = prm->onnx.device;
-    m_useOcl = m_cl && (dev.substr(0, 3) == _T("GPU") || dev == _T("AUTO"));
-    auto err = m_useOcl ? m_ovm->initShared(prm->onnx.modelFile, (void *)m_cl->queue().get(),
+    m_sharedIO = m_cl && (dev.substr(0, 3) == _T("GPU") || dev == _T("AUTO"));
+    auto err = m_sharedIO ? m_ovm->initShared(prm->onnx.modelFile, (void *)m_cl->queue().get(),
         (void *)m_cl->context(), errMsg, prm->onnx.precision) : RGY_ERR_UNSUPPORTED;
-    if (m_useOcl && err != RGY_ERR_NONE) {
+    if (m_sharedIO && err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_WARN, _T("onnx: マスク共有経路を初期化できないためホスト経路を使用します: %s\n"), errMsg.c_str());
     }
     if (err != RGY_ERR_NONE) {
-        m_useOcl = false;
+        m_sharedIO = false;
         errMsg.clear();
         err = m_ovm->init(prm->onnx.modelFile, prm->onnx.device, errMsg, prm->onnx.precision);
     }
@@ -1415,7 +1418,7 @@ RGY_ERR RGYFilterOnnx::initMask(std::shared_ptr<RGYFilterParamOnnx> prm, const i
     const bool rangeTV = (prm->onnx.colorrange != RGY_COLORRANGE_FULL);
     setupColorCoeffs(matrixSel, matrixSelOut, rangeTV, (int)m_maxval);
 
-    if (m_useOcl) {
+    {
         const size_t frameBytes = (size_t)inW * inH * sizeof(float);
         const size_t modelBytes = (size_t)m_maskModelW * m_maskModelH * sizeof(float);
         m_frameRGBCL = m_cl->createBuffer(3 * frameBytes);
@@ -1431,21 +1434,26 @@ RGY_ERR RGYFilterOnnx::initMask(std::shared_ptr<RGYFilterParamOnnx> prm, const i
         if (clEnqueueWriteBuffer(q, m_maskFrameCL->mem(), CL_TRUE, 0, frameBytes, m_maskFrame.data(), 0, nullptr, nullptr) != CL_SUCCESS
             || clEnqueueWriteBuffer(q, m_maskModelCL->mem(), CL_TRUE, 0, modelBytes, m_maskModel.data(), 0, nullptr, nullptr) != CL_SUCCESS
             || clEnqueueWriteBuffer(q, m_maskRangeCL->mem(), CL_TRUE, 0, sizeof(zero), &zero, 0, nullptr, nullptr) != CL_SUCCESS) return RGY_ERR_OPENCL_CRUSH;
-        std::vector<void *> inputs(2);
-        inputs[m_imgPortIdx] = (void *)m_inBufCL->mem();
-        inputs[m_mskPortIdx] = (void *)m_maskModelCL->mem();
-        err = m_ovm->setSharedIO(inputs, { (void *)m_outBufCL->mem() }, errMsg);
-        if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: マスク共有テンソルの設定に失敗しました: %s\n"), errMsg.c_str()); return err; }
+        if (m_sharedIO) {
+            std::vector<void *> inputs(2);
+            inputs[m_imgPortIdx] = (void *)m_inBufCL->mem();
+            inputs[m_mskPortIdx] = (void *)m_maskModelCL->mem();
+            err = m_ovm->setSharedIO(inputs, { (void *)m_outBufCL->mem() }, errMsg);
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_WARN, _T("onnx: マスク共有テンソルを設定できないためコピー経路を使用します: %s\n"), errMsg.c_str());
+                m_sharedIO = false;
+                errMsg.clear();
+                err = m_ovm->init(prm->onnx.modelFile, prm->onnx.device, errMsg, prm->onnx.precision);
+                if (err != RGY_ERR_NONE) return err;
+            }
+        }
+        if (!m_sharedIO) {
+            m_inBuf.resize(3 * modelBytes / sizeof(float));
+            m_outBuf.resize(3 * modelBytes / sizeof(float));
+        }
         const auto opts = strsprintf("-D Type=%s -D bit_depth=%d", m_bitdepth > 8 ? "ushort" : "uchar", m_bitdepth);
         m_program = m_cl->buildResource(_T("RGY_FILTER_ONNX_CL"), _T("EXE_DATA"), opts);
         if (!m_program) return RGY_ERR_OPENCL_CRUSH;
-    } else {
-        m_frameRGB.resize((size_t)3 * inW * inH);
-        m_modelIn.resize((size_t)3 * m_maskModelW * m_maskModelH);
-        m_modelOut.resize((size_t)3 * m_maskModelW * m_maskModelH);
-        m_outBuf.resize((size_t)3 * inW * inH);
-        m_u444.resize((size_t)inW * inH);
-        m_v444.resize((size_t)inW * inH);
     }
 
     auto frameOut = prm->frameOut;
@@ -1461,18 +1469,9 @@ RGY_ERR RGYFilterOnnx::initMask(std::shared_ptr<RGYFilterParamOnnx> prm, const i
     for (int i = 0; i < RGY_CSP_PLANES[m_frameBuf[0]->frame.csp]; i++) {
         prm->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
-    if (!m_useOcl) {
-        m_inStaging  = m_cl->createFrameBuffer(inW, inH, inCsp, prm->frameIn.bitdepth, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR);
-        m_outStaging = m_cl->createFrameBuffer(inW, inH, inCsp, prm->frameIn.bitdepth, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR);
-        if (!m_inStaging || !m_outStaging) {
-            AddMessage(RGY_LOG_ERROR, _T("onnx: failed to allocate staging frame buffers.\n"));
-            return RGY_ERR_MEMORY_ALLOC;
-        }
-    }
-
     tstring info = strsprintf(_T("onnx: %s  %dx%d  io=rgb+mask (model %dx%d)  device=%s"),
         PathGetFilename(prm->onnx.modelFile).c_str(), inW, inH, m_maskModelW, m_maskModelH, prm->onnx.device.c_str());
-    info += strsprintf(_T(" matrix=bt%d range=%s path=%s"), matrixSel, rangeTV ? _T("tv") : _T("pc"), m_useOcl ? _T("ocl") : _T("host"));
+    info += strsprintf(_T(" matrix=bt%d range=%s path=%s"), matrixSel, rangeTV ? _T("tv") : _T("pc"), m_sharedIO ? _T("ocl") : _T("ocl-copy"));
     if (prm->frameIn.bitdepth > 8) {
         info += strsprintf(_T(" %dbit"), prm->frameIn.bitdepth);
     }
@@ -1493,7 +1492,7 @@ RGY_ERR RGYFilterOnnx::runMask(const RGYFrameInfo *pInputFrame, RGYFrameInfo **p
         *pOutputFrameNum = 0;
         return RGY_ERR_NONE;
     }
-    if (m_useOcl) {
+    {
         auto out = &m_frameBuf[0]->frame;
         const int fw = pInputFrame->width, fh = pInputFrame->height;
         const bool interleaved = pInputFrame->csp == RGY_CSP_NV12 || pInputFrame->csp == RGY_CSP_P010;
@@ -1513,9 +1512,8 @@ RGY_ERR RGYFilterOnnx::runMask(const RGYFrameInfo *pInputFrame, RGYFrameInfo **p
         err = m_program->kernel("mask_resize_rgb").config(queue, local, modelSize, {}, nullptr).launch(
             m_frameRGBCL->mem(), m_inBufCL->mem(), fw, fh, m_maskModelW, m_maskModelH);
         if (err != RGY_ERR_NONE) return err;
-        tstring errMsg;
-        err = m_ovm->inferShared(errMsg);
-        if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: マスク推論に失敗しました: %s\n"), errMsg.c_str()); return err; }
+        err = inferOcl(queue);
+        if (err != RGY_ERR_NONE) return err;
         // 初回の出力範囲判定をデバイス上に保持し、以降のフレームでも同じ判定を使う。
         if (m_outScale == 0.0f) {
             const int count = 3 * m_maskModelW * m_maskModelH;
@@ -1548,94 +1546,6 @@ RGY_ERR RGYFilterOnnx::runMask(const RGYFrameInfo *pInputFrame, RGYFrameInfo **p
         *pOutputFrameNum = 1;
         return RGY_ERR_NONE;
     }
-    const int fw = m_modelInW; // frame resolution (the mask path packs at frame size)
-    const int fh = m_modelInH;
-    const size_t chFrame = (size_t)fw * fh;
-    const size_t chModel = (size_t)m_maskModelW * m_maskModelH;
-
-    auto err = m_cl->copyFrame(&m_inStaging->frame, pInputFrame, nullptr, queue, wait_events, nullptr);
-    if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: copy input to staging failed: %s.\n"), get_err_mes(err)); return err; }
-    err = m_inStaging->queueMapBuffer(queue, CL_MAP_READ, {}, RGY_CL_MAP_BLOCK_ALL);
-    if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: map input staging failed: %s.\n"), get_err_mes(err)); return err; }
-    err = m_outStaging->queueMapBuffer(queue, CL_MAP_WRITE, {}, RGY_CL_MAP_BLOCK_ALL);
-    if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: map output staging failed: %s.\n"), get_err_mes(err)); return err; }
-    const RGYFrameInfo &hin  = m_inStaging->mappedHost()->host();
-    const RGYFrameInfo &hout = m_outStaging->mappedHost()->host();
-
-    // 1. frame -> planar RGB [0,1] at frame resolution, then resample each channel
-    //    to the model's own input size.
-    packFrameRGB(hin, m_frameRGB.data());
-    for (int c = 0; c < 3; c++) {
-        resizeBilinearPlaneF(m_frameRGB.data() + c * chFrame, fw, fh,
-                             m_modelIn.data() + c * chModel, m_maskModelW, m_maskModelH);
-    }
-
-    // 2. inference: frame + mask, bound to their ports by index.
-    std::vector<const float *> ins(2);
-    ins[m_imgPortIdx] = m_modelIn.data();
-    ins[m_mskPortIdx] = m_maskModel.data();
-    std::vector<float *> outs = { m_modelOut.data() };
-    tstring errMsg;
-    err = m_ovm->infer(ins, outs, errMsg);
-    if (err != RGY_ERR_NONE) {
-        AddMessage(RGY_LOG_ERROR, _T("onnx: inference failed: %s\n"), errMsg.c_str());
-        m_inStaging->unmapBuffer(queue);
-        m_outStaging->unmapBuffer(queue);
-        return err;
-    }
-
-    // 3. exported inpainting models disagree on output range ([0,1] vs [0,255]);
-    //    settle it once from the first frame's maximum.
-    if (m_outScale == 0.0f) {
-        float maxv = 0.0f;
-        for (auto v : m_modelOut) maxv = std::max(maxv, v);
-        m_outScale = (maxv > 2.0f) ? (1.0f / 255.0f) : 1.0f;
-        AddMessage(RGY_LOG_DEBUG, _T("onnx: model output range detected as [0,%d].\n"), (maxv > 2.0f) ? 255 : 1);
-    }
-
-    // 4. composite: masked pixels take the (resampled) model result; everything
-    //    else keeps the frame's own RGB, so unmasked content never passes through
-    //    the model or its resampling.
-    for (int c = 0; c < 3; c++) {
-        const float *modelOut = m_modelOut.data() + c * chModel;
-        const float *frameRGB = m_frameRGB.data() + c * chFrame;
-        float *dst = m_outBuf.data() + c * chFrame;
-        for (int y = 0; y < fh; y++) {
-            const float my = ((y + 0.5f) * m_maskModelH) / fh - 0.5f;
-            for (int x = 0; x < fw; x++) {
-                const size_t i = (size_t)y * fw + x;
-                if (m_maskFrame[i] > 0.5f) {
-                    const float mx = ((x + 0.5f) * m_maskModelW) / fw - 0.5f;
-                    dst[i] = clampf(sampleBilinearF(modelOut, m_maskModelW, m_maskModelH, mx, my) * m_outScale, 0.0f, 1.0f);
-                } else {
-                    dst[i] = frameRGB[i];
-                }
-            }
-        }
-    }
-
-    // 5. RGB -> YUV into the mapped output frame (the standard RGB unpack).
-    writeOutputHost(hout, hout);
-
-    err = m_inStaging->unmapBuffer(queue);
-    if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: unmap input staging failed: %s.\n"), get_err_mes(err)); return err; }
-    err = m_outStaging->unmapBuffer(queue);
-    if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: unmap output staging failed: %s.\n"), get_err_mes(err)); return err; }
-
-    auto pOutFrame = m_frameBuf[0].get();
-    RGYFrameInfo *coreFrame = &pOutFrame->frame;
-    err = m_cl->copyFrame(coreFrame, &m_outStaging->frame, nullptr, queue, {}, event);
-    if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: copy staging to output failed: %s.\n"), get_err_mes(err)); return err; }
-    // metadata AFTER the copy: copyFrame overwrites frame props from its source
-    coreFrame->picstruct    = pInputFrame->picstruct;
-    coreFrame->timestamp    = pInputFrame->timestamp;
-    coreFrame->duration     = pInputFrame->duration;
-    coreFrame->flags        = pInputFrame->flags;
-    coreFrame->inputFrameId = pInputFrame->inputFrameId;
-
-    ppOutputFrames[0] = coreFrame;
-    *pOutputFrameNum = 1;
-    return RGY_ERR_NONE;
 }
 
 // -------------------- multi-frame temporal window (frames= > 1) --------------------
@@ -1834,9 +1744,6 @@ void RGYFilterOnnx::close() {
     m_maskFrameCL.reset(); m_maskModelCL.reset(); m_frameRGBCL.reset(); m_compositeCL.reset(); m_maskRangeCL.reset();
     m_maskFrame.clear();
     m_maskModel.clear();
-    m_frameRGB.clear();
-    m_modelIn.clear();
-    m_modelOut.clear();
     m_outScale = 0.0f;
     m_ring.clear();
     m_ringBaseIdx = 0;

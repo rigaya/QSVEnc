@@ -136,7 +136,7 @@ protected:
     float m_maxval;                             // (1<<bitdepth)-1
     int   m_bitdepth;                           // 8 (yv12/nv12) or 16 (yv12(16bit)/p010)
     bool  m_sharedIO;
-    bool  m_useOcl;                             // 初期化時に選択したゼロコピー経路を使用するか
+    bool  m_useOcl;                             // 単一フレームのOpenCL前後処理を使用するか
     bool  m_ycbcr;                              // 3ch model fed as planar YCbCr instead of RGB
     float m_sigmaNorm;                          // noise sigma / 255 for the conditioning channel
 
@@ -186,10 +186,6 @@ protected:
     float m_outScale;                // model output range: 1.0 = [0,1], 1/255 = [0,255] (settled on the first frame; 0 = not yet)
     std::vector<float> m_maskFrame;  // mask at frame resolution, 0/1 (composite selector)
     std::vector<float> m_maskModel;  // mask at model resolution, 0/1 (network input)
-    std::vector<float> m_frameRGB;   // current frame, planar RGB [0,1] CHW at frame resolution
-    std::vector<float> m_modelIn;    // network image input (3*maskModelW*maskModelH)
-    std::vector<float> m_modelOut;   // network output      (3*maskModelW*maskModelH)
-
     // opt-in end-of-chain resize (out_res=): runs after the network core, fitting
     // the integer-scaled output to the requested final resolution. Reuses the
     // shared resampler family; null when out_res= is not used.
