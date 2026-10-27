@@ -51,7 +51,7 @@ RGYFilterOnnx::RGYFilterOnnx(shared_ptr<RGYOpenCLContext> context) :
     m_program(), m_inBufCL(), m_outBufCL(), m_inPlanesSeparate(false), m_outPlanesSeparate(false), m_inYuvPlanes(), m_outYuvPlanes(), m_outChromaPlanes(),
     m_cropToYuv444(), m_cropFromYuv444(),
     m_temporalT(1), m_ringBaseIdx(0), m_recvCount(0), m_emitCount(0),
-    m_ovm(), m_maskModelW(0), m_maskModelH(0), m_imgPortIdx(0), m_mskPortIdx(1), m_outScale(0.0f) {
+    m_ovm(), m_maskFrameCL(), m_maskModelCL(), m_frameRGBCL(), m_compositeCL(), m_maskRangeCL(), m_maskModelW(0), m_maskModelH(0), m_imgPortIdx(0), m_mskPortIdx(1), m_outScale(0.0f) {
     m_name = _T("onnx");
 }
 
@@ -1395,7 +1395,18 @@ RGY_ERR RGYFilterOnnx::initMask(std::shared_ptr<RGYFilterParamOnnx> prm, const i
     }
     tstring errMsg;
     m_ovm = std::make_unique<RGYOpenVINOMultiIO>();
-    auto err = m_ovm->init(prm->onnx.modelFile, prm->onnx.device, errMsg, prm->onnx.precision);
+    const auto &dev = prm->onnx.device;
+    m_useOcl = m_cl && (dev.substr(0, 3) == _T("GPU") || dev == _T("AUTO"));
+    auto err = m_useOcl ? m_ovm->initShared(prm->onnx.modelFile, (void *)m_cl->queue().get(),
+        (void *)m_cl->context(), errMsg, prm->onnx.precision) : RGY_ERR_UNSUPPORTED;
+    if (m_useOcl && err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_WARN, _T("onnx: マスク共有経路を初期化できないためホスト経路を使用します: %s\n"), errMsg.c_str());
+    }
+    if (err != RGY_ERR_NONE) {
+        m_useOcl = false;
+        errMsg.clear();
+        err = m_ovm->init(prm->onnx.modelFile, prm->onnx.device, errMsg, prm->onnx.precision);
+    }
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("onnx: failed to load/compile model (%s): %s\n"),
             prm->onnx.device.c_str(), errMsg.c_str());
@@ -1463,7 +1474,6 @@ RGY_ERR RGYFilterOnnx::initMask(std::shared_ptr<RGYFilterParamOnnx> prm, const i
     m_padT = 0;
     m_maxval = (float)((1 << prm->frameIn.bitdepth) - 1);
     m_bitdepth = prm->frameIn.bitdepth;
-    m_useOcl = false;
     m_outScale = 0.0f;
     int matrixSel = 0;
     int matrixSelOut = 0;
@@ -1476,12 +1486,38 @@ RGY_ERR RGYFilterOnnx::initMask(std::shared_ptr<RGYFilterParamOnnx> prm, const i
     const bool rangeTV = (prm->onnx.colorrange != RGY_COLORRANGE_FULL);
     setupColorCoeffs(matrixSel, matrixSelOut, rangeTV, (int)m_maxval);
 
-    m_frameRGB.resize((size_t)3 * inW * inH);
-    m_modelIn.resize((size_t)3 * m_maskModelW * m_maskModelH);
-    m_modelOut.resize((size_t)3 * m_maskModelW * m_maskModelH);
-    m_outBuf.resize((size_t)3 * inW * inH);
-    m_u444.resize((size_t)inW * inH);
-    m_v444.resize((size_t)inW * inH);
+    if (m_useOcl) {
+        const size_t frameBytes = (size_t)inW * inH * sizeof(float);
+        const size_t modelBytes = (size_t)m_maskModelW * m_maskModelH * sizeof(float);
+        m_frameRGBCL = m_cl->createBuffer(3 * frameBytes);
+        m_compositeCL = m_cl->createBuffer(3 * frameBytes);
+        m_maskFrameCL = m_cl->createBuffer(frameBytes);
+        m_maskModelCL = m_cl->createBuffer(modelBytes);
+        m_inBufCL = m_cl->createBuffer(3 * modelBytes);
+        m_outBufCL = m_cl->createBuffer(3 * modelBytes);
+        m_maskRangeCL = m_cl->createBuffer(sizeof(cl_int));
+        if (!m_frameRGBCL || !m_compositeCL || !m_maskFrameCL || !m_maskModelCL || !m_inBufCL || !m_outBufCL || !m_maskRangeCL) return RGY_ERR_MEMORY_ALLOC;
+        auto q = m_cl->queue().get();
+        const cl_int zero = 0;
+        if (clEnqueueWriteBuffer(q, m_maskFrameCL->mem(), CL_TRUE, 0, frameBytes, m_maskFrame.data(), 0, nullptr, nullptr) != CL_SUCCESS
+            || clEnqueueWriteBuffer(q, m_maskModelCL->mem(), CL_TRUE, 0, modelBytes, m_maskModel.data(), 0, nullptr, nullptr) != CL_SUCCESS
+            || clEnqueueWriteBuffer(q, m_maskRangeCL->mem(), CL_TRUE, 0, sizeof(zero), &zero, 0, nullptr, nullptr) != CL_SUCCESS) return RGY_ERR_OPENCL_CRUSH;
+        std::vector<void *> inputs(2);
+        inputs[m_imgPortIdx] = (void *)m_inBufCL->mem();
+        inputs[m_mskPortIdx] = (void *)m_maskModelCL->mem();
+        err = m_ovm->setSharedIO(inputs, { (void *)m_outBufCL->mem() }, errMsg);
+        if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: マスク共有テンソルの設定に失敗しました: %s\n"), errMsg.c_str()); return err; }
+        const auto opts = strsprintf("-D Type=%s -D bit_depth=%d", m_bitdepth > 8 ? "ushort" : "uchar", m_bitdepth);
+        m_program = m_cl->buildResource(_T("RGY_FILTER_ONNX_CL"), _T("EXE_DATA"), opts);
+        if (!m_program) return RGY_ERR_OPENCL_CRUSH;
+    } else {
+        m_frameRGB.resize((size_t)3 * inW * inH);
+        m_modelIn.resize((size_t)3 * m_maskModelW * m_maskModelH);
+        m_modelOut.resize((size_t)3 * m_maskModelW * m_maskModelH);
+        m_outBuf.resize((size_t)3 * inW * inH);
+        m_u444.resize((size_t)inW * inH);
+        m_v444.resize((size_t)inW * inH);
+    }
 
     auto frameOut = prm->frameOut;
     frameOut.csp    = inCsp;
@@ -1496,16 +1532,18 @@ RGY_ERR RGYFilterOnnx::initMask(std::shared_ptr<RGYFilterParamOnnx> prm, const i
     for (int i = 0; i < RGY_CSP_PLANES[m_frameBuf[0]->frame.csp]; i++) {
         prm->frameOut.pitch[i] = m_frameBuf[0]->frame.pitch[i];
     }
-    m_inStaging  = m_cl->createFrameBuffer(inW, inH, inCsp, prm->frameIn.bitdepth, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR);
-    m_outStaging = m_cl->createFrameBuffer(inW, inH, inCsp, prm->frameIn.bitdepth, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR);
-    if (!m_inStaging || !m_outStaging) {
-        AddMessage(RGY_LOG_ERROR, _T("onnx: failed to allocate staging frame buffers.\n"));
-        return RGY_ERR_MEMORY_ALLOC;
+    if (!m_useOcl) {
+        m_inStaging  = m_cl->createFrameBuffer(inW, inH, inCsp, prm->frameIn.bitdepth, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR);
+        m_outStaging = m_cl->createFrameBuffer(inW, inH, inCsp, prm->frameIn.bitdepth, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR);
+        if (!m_inStaging || !m_outStaging) {
+            AddMessage(RGY_LOG_ERROR, _T("onnx: failed to allocate staging frame buffers.\n"));
+            return RGY_ERR_MEMORY_ALLOC;
+        }
     }
 
     tstring info = strsprintf(_T("onnx: %s  %dx%d  io=rgb+mask (model %dx%d)  device=%s"),
         PathGetFilename(prm->onnx.modelFile).c_str(), inW, inH, m_maskModelW, m_maskModelH, prm->onnx.device.c_str());
-    info += strsprintf(_T(" matrix=bt%d range=%s"), matrixSel, rangeTV ? _T("tv") : _T("pc"));
+    info += strsprintf(_T(" matrix=bt%d range=%s path=%s"), matrixSel, rangeTV ? _T("tv") : _T("pc"), m_useOcl ? _T("ocl") : _T("host"));
     if (prm->frameIn.bitdepth > 8) {
         info += strsprintf(_T(" %dbit"), prm->frameIn.bitdepth);
     }
@@ -1524,6 +1562,61 @@ RGY_ERR RGYFilterOnnx::runMask(const RGYFrameInfo *pInputFrame, RGYFrameInfo **p
     RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
     if (pInputFrame->ptr[0] == nullptr) {
         *pOutputFrameNum = 0;
+        return RGY_ERR_NONE;
+    }
+    if (m_useOcl) {
+        auto out = &m_frameBuf[0]->frame;
+        const int fw = pInputFrame->width, fh = pInputFrame->height;
+        const bool interleaved = pInputFrame->csp == RGY_CSP_NV12 || pInputFrame->csp == RGY_CSP_P010;
+        const int pixSize = m_bitdepth > 8 ? 2 : 1;
+        const int stride = interleaved ? 2 : 1;
+        const auto srcV = (cl_mem)(interleaved ? pInputFrame->ptr[1] : pInputFrame->ptr[2]);
+        const auto dstV = (cl_mem)(interleaved ? out->ptr[1] : out->ptr[2]);
+        const int srcPitchV = (interleaved ? pInputFrame->pitch[1] : pInputFrame->pitch[2]) / pixSize;
+        const int dstPitchV = (interleaved ? out->pitch[1] : out->pitch[2]) / pixSize;
+        RGYWorkSize local(32, 8), frameSize(fw, fh), modelSize(m_maskModelW, m_maskModelH);
+        auto err = m_program->kernel("pack_rgb").config(queue, local, frameSize, wait_events, nullptr).launch(
+            (cl_mem)pInputFrame->ptr[0], pInputFrame->pitch[0] / pixSize,
+            (cl_mem)pInputFrame->ptr[1], pInputFrame->pitch[1] / pixSize, srcV, srcPitchV,
+            stride, interleaved ? 1 : 0, m_frameRGBCL->mem(), fw, fh, fw, fh, 0, 0,
+            m_yOff, m_yScale, m_cOff, m_cScale, m_matVR, m_matUG, m_matVG, m_matUB);
+        if (err != RGY_ERR_NONE) return err;
+        err = m_program->kernel("mask_resize_rgb").config(queue, local, modelSize, {}, nullptr).launch(
+            m_frameRGBCL->mem(), m_inBufCL->mem(), fw, fh, m_maskModelW, m_maskModelH);
+        if (err != RGY_ERR_NONE) return err;
+        tstring errMsg;
+        err = m_ovm->inferShared(errMsg);
+        if (err != RGY_ERR_NONE) { AddMessage(RGY_LOG_ERROR, _T("onnx: マスク推論に失敗しました: %s\n"), errMsg.c_str()); return err; }
+        // 初回の出力範囲判定をデバイス上に保持し、以降のフレームでも同じ判定を使う。
+        if (m_outScale == 0.0f) {
+            const int count = 3 * m_maskModelW * m_maskModelH;
+            RGYWorkSize rangeLocal(256), rangeGlobal(count);
+            err = m_program->kernel("mask_detect_range").config(queue, rangeLocal, rangeGlobal, {}, nullptr).launch(
+                m_outBufCL->mem(), count, m_maskRangeCL->mem());
+            if (err != RGY_ERR_NONE) return err;
+            m_outScale = 1.0f;
+        }
+        err = m_program->kernel("mask_composite").config(queue, local, frameSize, {}, nullptr).launch(
+            m_frameRGBCL->mem(), m_outBufCL->mem(), m_maskFrameCL->mem(), m_maskRangeCL->mem(),
+            m_compositeCL->mem(), fw, fh, m_maskModelW, m_maskModelH);
+        if (err != RGY_ERR_NONE) return err;
+        err = m_program->kernel("unpack_rgb_y").config(queue, local, frameSize, {}, nullptr).launch(
+            m_compositeCL->mem(), (cl_mem)out->ptr[0], out->pitch[0] / pixSize, fw, fh,
+            m_matRY, m_matGY, m_matBY, m_yRange, m_yOff);
+        if (err != RGY_ERR_NONE) return err;
+        RGYWorkSize chromaSize(fw / 2, fh / 2);
+        err = m_program->kernel("unpack_rgb_uv").config(queue, local, chromaSize, {}, event).launch(
+            m_compositeCL->mem(), (cl_mem)out->ptr[1], out->pitch[1] / pixSize, dstV, dstPitchV,
+            stride, interleaved ? 1 : 0, fw, fh, m_matRU, m_matGU, m_matBU,
+            m_matRV, m_matGV, m_matBV, m_cRange, m_cOff);
+        if (err != RGY_ERR_NONE) return err;
+        out->picstruct = pInputFrame->picstruct;
+        out->timestamp = pInputFrame->timestamp;
+        out->duration = pInputFrame->duration;
+        out->flags = pInputFrame->flags;
+        out->inputFrameId = pInputFrame->inputFrameId;
+        ppOutputFrames[0] = out;
+        *pOutputFrameNum = 1;
         return RGY_ERR_NONE;
     }
     const int fw = m_modelInW; // frame resolution (the mask path packs at frame size)
@@ -1839,6 +1932,7 @@ void RGYFilterOnnx::close() {
     for (auto& plane : m_outChromaPlanes) plane.reset();
     m_inStaging.reset();
     m_outStaging.reset();
+    m_ovm.reset();
     m_inBufCL.reset();
     m_outBufCL.reset();
     m_program.reset();
@@ -1847,7 +1941,7 @@ void RGYFilterOnnx::close() {
     m_outBuf.clear();
     m_u444.clear();
     m_v444.clear();
-    m_ovm.reset();
+    m_maskFrameCL.reset(); m_maskModelCL.reset(); m_frameRGBCL.reset(); m_compositeCL.reset(); m_maskRangeCL.reset();
     m_maskFrame.clear();
     m_maskModel.clear();
     m_frameRGB.clear();

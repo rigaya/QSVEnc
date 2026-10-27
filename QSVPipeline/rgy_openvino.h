@@ -141,6 +141,12 @@ public:
     RGY_ERR init(const tstring &modelPath, const tstring &device, tstring &errMessage,
                  const tstring &precision = _T("auto"));
 
+    // 複数入出力を同一 OpenCL キューの共有テンソルとして使用する。
+    RGY_ERR initShared(const tstring &modelPath, void *clQueue, void *clContext,
+                       tstring &errMessage, const tstring &precision = _T("auto"));
+    RGY_ERR setSharedIO(const std::vector<void *> &inputs, const std::vector<void *> &outputs, tstring &errMessage);
+    RGY_ERR inferShared(tstring &errMessage);
+
     // Enumerated ports (valid after a successful init), in model port order.
     const std::vector<std::string> &inputNames()  const;
     const std::vector<std::string> &outputNames() const;
@@ -167,6 +173,8 @@ private:
     RGYOpenVINOMultiIO(const RGYOpenVINOMultiIO &) = delete;
     void operator=(const RGYOpenVINOMultiIO &) = delete;
 
+    RGY_ERR initInternal(const tstring &modelPath, const tstring &device, tstring &errMessage,
+                         const tstring &precision, void *clQueue, void *clContext);
     class Impl;
     std::unique_ptr<Impl> m_impl;
 };

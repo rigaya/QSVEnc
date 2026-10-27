@@ -122,3 +122,51 @@ __kernel void chroma_bilinear(__global const Type *src, int srcPitch, int srcStr
     int v = (int)(top + (bot - top) * fy + 0.5f);
     dst[dy * dstPitch + dx * dstStride + dstOffset] = (Type)clamp(v, 0, (1 << bit_depth) - 1);
 }
+
+float onnx_sample_float(__global const float *src, int w, int h, float x, float y) {
+    int x0 = (int)floor(x), y0 = (int)floor(y);
+    float wx = x - x0, wy = y - y0;
+    int xa = clamp(x0, 0, w - 1), xb = clamp(x0 + 1, 0, w - 1);
+    int ya = clamp(y0, 0, h - 1), yb = clamp(y0 + 1, 0, h - 1);
+    float a = src[ya * w + xa] * (1.0f - wx) + src[ya * w + xb] * wx;
+    float b = src[yb * w + xa] * (1.0f - wx) + src[yb * w + xb] * wx;
+    return a * (1.0f - wy) + b * wy;
+}
+
+__kernel void mask_resize_rgb(__global const float *src, __global float *dst,
+                              int sw, int sh, int dw, int dh) {
+    int x = get_global_id(0), y = get_global_id(1);
+    if (x >= dw || y >= dh) return;
+    float sx = dw > 1 ? ((x + 0.5f) * sw) / dw - 0.5f : 0.0f;
+    float sy = dh > 1 ? ((y + 0.5f) * sh) / dh - 0.5f : 0.0f;
+    for (int c = 0; c < 3; c++)
+        dst[c * dw * dh + y * dw + x] = onnx_sample_float(src + c * sw * sh, sw, sh, sx, sy);
+}
+
+// 256 要素ごとに集約してから全体の判定値へ反映する。
+__kernel void mask_detect_range(__global const float *src, int count, volatile __global int *large) {
+    __local int found[256];
+    int i = get_global_id(0), lane = get_local_id(0);
+    found[lane] = i < count && src[i] > 2.0f;
+    barrier(CLK_LOCAL_MEM_FENCE);
+    for (int step = 128; step > 0; step >>= 1) {
+        if (lane < step) found[lane] |= found[lane + step];
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+    if (lane == 0 && found[0]) atomic_or(large, 1);
+}
+
+__kernel void mask_composite(__global const float *frame, __global const float *model,
+                             __global const float *mask, __global const int *large,
+                             __global float *dst, int fw, int fh, int mw, int mh) {
+    int x = get_global_id(0), y = get_global_id(1);
+    if (x >= fw || y >= fh) return;
+    int i = y * fw + x;
+    float mx = ((x + 0.5f) * mw) / fw - 0.5f;
+    float my = ((y + 0.5f) * mh) / fh - 0.5f;
+    float scale = *large ? (1.0f / 255.0f) : 1.0f;
+    for (int c = 0; c < 3; c++)
+        dst[c * fw * fh + i] = mask[i] > 0.5f
+            ? clamp(onnx_sample_float(model + c * mw * mh, mw, mh, mx, my) * scale, 0.0f, 1.0f)
+            : frame[c * fw * fh + i];
+}

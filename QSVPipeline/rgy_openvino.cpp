@@ -1093,15 +1093,19 @@ public:
         return RGY_ERR_NONE;
     }
 
+    struct RemoteDeleter { void operator()(ov_remote_context_t *p) const { if (p) ovLoader().remote_context_free(p); } };
+    struct TensorDeleter { void operator()(ov_tensor_t *p) const { if (p) ovLoader().tensor_free(p); } };
     struct CoreDeleter     { void operator()(ov_core_t *p)           const { if (p) ovLoader().core_free(p); } };
     struct ModelDeleter    { void operator()(ov_model_t *p)          const { if (p) ovLoader().model_free(p); } };
     struct CompiledDeleter { void operator()(ov_compiled_model_t *p) const { if (p) ovLoader().compiled_model_free(p); } };
     struct RequestDeleter  { void operator()(ov_infer_request_t *p)  const { if (p) ovLoader().infer_request_free(p); } };
 
     std::unique_ptr<ov_core_t, CoreDeleter> core;
+    std::unique_ptr<ov_remote_context_t, RemoteDeleter> remote;
     std::unique_ptr<ov_model_t, ModelDeleter> model;
     std::unique_ptr<ov_compiled_model_t, CompiledDeleter> compiled;
     std::unique_ptr<ov_infer_request_t, RequestDeleter> req;
+    std::vector<std::unique_ptr<ov_tensor_t, TensorDeleter>> tensors;
     std::vector<std::string> inNames, outNames;
     std::vector<std::vector<int64_t>> inShapes, outShapes;
     tstring devName;
@@ -1114,6 +1118,16 @@ RGYOpenVINOMultiIO::~RGYOpenVINOMultiIO() {}
 
 RGY_ERR RGYOpenVINOMultiIO::init(const tstring &modelPath, const tstring &device,
                                  tstring &errMessage, const tstring &precision) {
+    return initInternal(modelPath, device, errMessage, precision, nullptr, nullptr);
+}
+
+RGY_ERR RGYOpenVINOMultiIO::initShared(const tstring &modelPath, void *clQueue, void *clContext,
+                                       tstring &errMessage, const tstring &precision) {
+    return initInternal(modelPath, _T("GPU"), errMessage, precision, clQueue, clContext);
+}
+
+RGY_ERR RGYOpenVINOMultiIO::initInternal(const tstring &modelPath, const tstring &device,
+                                 tstring &errMessage, const tstring &precision, void *clQueue, void *clContext) {
     auto ret = ensureOpenVINO(errMessage);
     if (ret != RGY_ERR_NONE) {
         return ret;
@@ -1128,7 +1142,7 @@ RGY_ERR RGYOpenVINOMultiIO::init(const tstring &modelPath, const tstring &device
         errMessage = I.loadErr;
         return RGY_ERR_UNSUPPORTED;
     }
-    I.req.reset(); I.compiled.reset(); I.model.reset();
+    I.req.reset(); I.tensors.clear(); I.compiled.reset(); I.model.reset(); I.remote.reset();
     I.inNames.clear(); I.outNames.clear(); I.inShapes.clear(); I.outShapes.clear();
     I.devName.clear(); I.precision.clear();
 
@@ -1148,7 +1162,26 @@ RGY_ERR RGYOpenVINOMultiIO::init(const tstring &modelPath, const tstring &device
     // ACCURACY keeps the maths in fp32 where it matters.
     ov_compiled_model_t *compiledRaw = nullptr;
     const auto precisionHint = precisionHintValue(precision);
-    if (precisionHint.empty()) {
+    if (clQueue && clContext) {
+        if (!ov.core_create_context || !ov.core_compile_model_with_context || !ov.remote_context_free || !ov.remote_context_create_tensor) {
+            errMessage = _T("OpenVINO の OpenCL 共有 API を使用できません");
+            return RGY_ERR_UNSUPPORTED;
+        }
+        ov_remote_context_t *remoteRaw = nullptr;
+        ret = ovCheck(ov.core_create_context(I.core.get(), "GPU", 6, &remoteRaw,
+            const_cast<char *>("CONTEXT_TYPE"), const_cast<char *>("OCL"),
+            const_cast<char *>("OCL_CONTEXT"), clContext, const_cast<char *>("OCL_QUEUE"), clQueue), errMessage);
+        if (ret != RGY_ERR_NONE) return ret;
+        I.remote.reset(remoteRaw);
+        if (precisionHint.empty()) {
+            ret = ovCheck(ov.core_compile_model_with_context(I.core.get(), I.model.get(), I.remote.get(), 2, &compiledRaw,
+                const_cast<char *>("EXECUTION_MODE_HINT"), const_cast<char *>("ACCURACY")), errMessage);
+        } else {
+            ret = ovCheck(ov.core_compile_model_with_context(I.core.get(), I.model.get(), I.remote.get(), 4, &compiledRaw,
+                const_cast<char *>("EXECUTION_MODE_HINT"), const_cast<char *>("ACCURACY"),
+                const_cast<char *>("INFERENCE_PRECISION_HINT"), const_cast<char *>(precisionHint.c_str())), errMessage);
+        }
+    } else if (precisionHint.empty()) {
         ret = ovCheck(ov.core_compile_model(I.core.get(), I.model.get(), deviceA.c_str(), 2, &compiledRaw,
             const_cast<char *>("EXECUTION_MODE_HINT"), const_cast<char *>("ACCURACY")), errMessage);
     } else {
@@ -1173,8 +1206,15 @@ RGY_ERR RGYOpenVINOMultiIO::init(const tstring &modelPath, const tstring &device
         return ret;
     }
 
+    std::string actualDevice = deviceA;
+    if (I.remote && ov.remote_context_get_device_name) {
+        char *remoteName = nullptr;
+        if (ov.remote_context_get_device_name(I.remote.get(), &remoteName) == OK) {
+            actualDevice = tchar_to_string(getAndFreeProperty(remoteName));
+        }
+    }
     char *property = nullptr;
-    if (ov.core_get_property(I.core.get(), deviceA.c_str(), "FULL_DEVICE_NAME", &property) == OK) {
+    if (ov.core_get_property(I.core.get(), actualDevice.c_str(), "FULL_DEVICE_NAME", &property) == OK) {
         I.devName = getAndFreeProperty(property);
     }
     property = nullptr;
@@ -1182,6 +1222,38 @@ RGY_ERR RGYOpenVINOMultiIO::init(const tstring &modelPath, const tstring &device
         I.precision = getAndFreeProperty(property);
     }
     return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYOpenVINOMultiIO::setSharedIO(const std::vector<void *> &inputs,
+    const std::vector<void *> &outputs, tstring &errMessage) {
+    auto &I = *m_impl;
+    auto &ov = ovLoader();
+    if (!I.remote || !I.req || inputs.size() != I.inNames.size() || outputs.size() != I.outNames.size()) return RGY_ERR_INVALID_PARAM;
+    I.tensors.clear();
+    auto bind = [&](void *mem, const std::vector<int64_t> &dims, const std::string &name) -> RGY_ERR {
+        if (!mem) return RGY_ERR_INVALID_PARAM;
+        ov_tensor_t *raw = nullptr;
+        auto ret = ovCheck(ov.remote_context_create_tensor(I.remote.get(), F32, makeShape(dims), 4, &raw,
+            const_cast<char *>("SHARED_MEM_TYPE"), const_cast<char *>("OCL_BUFFER"),
+            const_cast<char *>("MEM_HANDLE"), mem), errMessage);
+        if (ret != RGY_ERR_NONE) return ret;
+        I.tensors.emplace_back(raw);
+        return ovCheck(ov.infer_request_set_tensor(I.req.get(), name.c_str(), raw), errMessage);
+    };
+    for (size_t i = 0; i < inputs.size(); i++) {
+        auto ret = bind(inputs[i], I.inShapes[i], I.inNames[i]);
+        if (ret != RGY_ERR_NONE) return ret;
+    }
+    for (size_t i = 0; i < outputs.size(); i++) {
+        auto ret = bind(outputs[i], I.outShapes[i], I.outNames[i]);
+        if (ret != RGY_ERR_NONE) return ret;
+    }
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYOpenVINOMultiIO::inferShared(tstring &errMessage) {
+    if (!m_impl || !m_impl->req || m_impl->tensors.size() != m_impl->inNames.size() + m_impl->outNames.size()) return RGY_ERR_INVALID_CALL;
+    return ovCheck(ovLoader().infer_request_infer(m_impl->req.get()), errMessage);
 }
 
 RGY_ERR RGYOpenVINOMultiIO::infer(const std::vector<const float *> &inputs,
@@ -1307,6 +1379,9 @@ RGY_ERR RGYOpenVINOMultiIO::init(const tstring &, const tstring &, tstring &errM
     errMessage = _T("this build of QSVEnc does not include OpenVINO support");
     return RGY_ERR_UNSUPPORTED;
 }
+RGY_ERR RGYOpenVINOMultiIO::initShared(const tstring &, void *, void *, tstring &errMessage, const tstring &) { errMessage = _T("OpenVINO is disabled"); return RGY_ERR_UNSUPPORTED; }
+RGY_ERR RGYOpenVINOMultiIO::setSharedIO(const std::vector<void *> &, const std::vector<void *> &, tstring &) { return RGY_ERR_UNSUPPORTED; }
+RGY_ERR RGYOpenVINOMultiIO::inferShared(tstring &) { return RGY_ERR_UNSUPPORTED; }
 RGY_ERR RGYOpenVINOMultiIO::infer(const std::vector<const float *> &, const std::vector<float *> &, tstring &errMessage) {
     errMessage = _T("this build of QSVEnc does not include OpenVINO support");
     return RGY_ERR_UNSUPPORTED;

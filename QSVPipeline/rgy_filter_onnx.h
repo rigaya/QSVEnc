@@ -188,6 +188,7 @@ protected:
 
     // --- two-input inpainting mode state (only used when mask= is set) --------
     std::unique_ptr<RGYOpenVINOMultiIO> m_ovm; // multi-port backend (replaces m_ov)
+    std::unique_ptr<RGYCLBuf> m_maskFrameCL, m_maskModelCL, m_frameRGBCL, m_compositeCL, m_maskRangeCL;
     int m_maskModelW, m_maskModelH;  // the model's own (static) spatial size
     int m_imgPortIdx, m_mskPortIdx;  // input port order of the frame / mask tensors
     float m_outScale;                // model output range: 1.0 = [0,1], 1/255 = [0,255] (settled on the first frame; 0 = not yet)
