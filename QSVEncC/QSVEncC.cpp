@@ -46,6 +46,8 @@
 #include "qsv_pipeline.h"
 #include "qsv_cmd.h"
 #include "rgy_cmd_selftest.h"
+#include "rgy_preview_server.h"
+#include "mfxdispatcher.h"
 #include "qsv_prm.h"
 #include "qsv_query.h"
 #include "rgy_version.h"
@@ -1163,10 +1165,75 @@ RGY_ERR run_benchmark(sInputParams *params) {
     return sts;
 }
 
+static RGY_ERR run_encode_params(sInputParams& Params, std::atomic<bool> *previewAbort = nullptr) {
+    unique_ptr<CQSVPipeline> pPipeline(new CQSVPipeline);
+    if (!pPipeline) {
+        return RGY_ERR_MEMORY_ALLOC;
+    }
+
+    auto sts = pPipeline->Init(&Params);
+    if (sts < RGY_ERR_NONE) return sts;
+
+    if (previewAbort) {
+        pPipeline->SetPreviewAbortFlagPointer(previewAbort);
+    } else {
+        pPipeline->SetAbortFlagPointer(&g_signal_abort);
+        set_signal_handler();
+    }
+
+    if ((sts = pPipeline->CheckCurrentVideoParam()) != RGY_ERR_NONE) {
+        return sts;
+    }
+
+    if ((sts = pPipeline->Run()) != RGY_ERR_NONE) {
+        return sts;
+    }
+
+    pPipeline->Close();
+    if (!Params.ctrl.parallelEnc.isChild()) {
+        cl_perf_generate_report(Params.ctrl.clPerfDumpDir, Params.ctrl.clPerfDisasmTool, Params.ctrl.clPerfOclocPath, Params.ctrl.clPerfRgaPath, Params.ctrl.pythonPath);
+    }
+    pPipeline->PrintMes(RGY_LOG_INFO, _T("\nProcessing finished\n"));
+    return sts;
+}
+
 int run(int argc, TCHAR *argv[]) {
 #if defined(_WIN32) || defined(_WIN64)
     _tsetlocale(LC_CTYPE, _T(".UTF8"));
 #endif //#if defined(_WIN32) || defined(_WIN64)
+
+    bool previewServer = false;
+    for (int iarg = 1; iarg < argc; iarg++) {
+        if (_tcscmp(argv[iarg], _T("--preview-server")) == 0) previewServer = true;
+    }
+    if (previewServer) {
+        std::vector<tstring> defaults;
+        for (int iarg = 1; iarg < argc; iarg++) {
+            if (_tcscmp(argv[iarg], _T("--preview-server")) == 0) continue;
+            if (_tcscmp(argv[iarg], _T("--log-level")) != 0 || iarg + 1 >= argc) {
+                _ftprintf(stderr, _T("--preview-server: Invalid startup arguments.\n"));
+                return 1;
+            }
+            defaults.push_back(argv[iarg]);
+            defaults.push_back(argv[++iarg]);
+        }
+        rgy_output_set_preview_server_mode(true);
+        // 要求間でもVPLランタイムの参照を保持する。
+        const auto loader = MFXLoad();
+        auto callback = [defaults](const std::vector<tstring>& args, std::atomic<bool> *abort) -> RGY_ERR {
+            auto mergedArgs = defaults;
+            mergedArgs.insert(mergedArgs.end(), args.begin(), args.end());
+            auto previewArgv = rgy_cmd_selftest_argv(mergedArgs);
+            sInputParams params;
+            if (parse_cmd(&params, previewArgv.data(), (int)previewArgv.size() - 1) != 0) {
+                return RGY_ERR_INVALID_PARAM;
+            }
+            return run_encode_params(params, abort);
+        };
+        const int result = rgy_preview_server_main(callback, "QSVEnc", VER_STR_FILEVERSION);
+        if (loader) MFXUnload(loader);
+        return result;
+    }
 
     if (argc == 1) {
         show_version();
@@ -1334,31 +1401,7 @@ int run(int argc, TCHAR *argv[]) {
     if (Params.bBenchmark) {
         return run_benchmark(&Params);
     }
-    unique_ptr<CQSVPipeline> pPipeline(new CQSVPipeline);
-    if (!pPipeline) {
-        return MFX_ERR_MEMORY_ALLOC;
-    }
-
-    auto sts = pPipeline->Init(&Params);
-    if (sts < RGY_ERR_NONE) return sts;
-
-    pPipeline->SetAbortFlagPointer(&g_signal_abort);
-    set_signal_handler();
-
-    if ((sts = pPipeline->CheckCurrentVideoParam()) != RGY_ERR_NONE) {
-        return sts;
-    }
-
-    if ((sts = pPipeline->Run()) != RGY_ERR_NONE) {
-        return sts;
-    }
-
-    pPipeline->Close();
-    if (!Params.ctrl.parallelEnc.isChild()) {
-        cl_perf_generate_report(Params.ctrl.clPerfDumpDir, Params.ctrl.clPerfDisasmTool, Params.ctrl.clPerfOclocPath, Params.ctrl.clPerfRgaPath, Params.ctrl.pythonPath);
-    }
-    pPipeline->PrintMes(RGY_LOG_INFO, _T("\nProcessing finished\n"));
-    return sts;
+    return run_encode_params(Params);
 }
 
 #if defined(__linux__) && ENABLE_VAAPI
