@@ -196,7 +196,9 @@ mfxStatus CQSVD3D11Device::getIntelDeviceInfo() {
     }
 
     // Intel Device Counter //
-    ID3D11Counter *pIntelCounter = NULL;
+    // 生ポインタのままだとReleaseされず、カウンタがD3D11デバイスへの参照を保持し続けて
+    // デバイス一式がリークする (同一プロセスでパイプラインを作り直す常駐プレビューで顕在化)。
+    CComPtr<ID3D11Counter> pIntelCounter;
 
     // Create the appropriate counter
     hr = m_pD3D11Device->CreateCounter(&pIntelCounterDesc, &pIntelCounter);
