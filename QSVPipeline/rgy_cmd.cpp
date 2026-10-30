@@ -15851,7 +15851,8 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             if (!tmp.str().empty()) {
                 cmd << _T(" --vpp-overlay ") << tmp.str().substr(1);
             } else if (param->overlay[i].enable) {
-                cmd << _T(" --vpp-overlay");
+                // 値なし指定ではパーサが要素を追加しないため、既定値だけでも有効な要素を復元する。
+                cmd << _T(" --vpp-overlay alpha_mode=") << get_chr_from_value(list_vpp_overlay_alpha_mode, (int)param->overlay[i].alphaMode);
             }
         }
     }

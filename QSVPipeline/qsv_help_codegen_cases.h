@@ -14,6 +14,55 @@ static inline int rgy_help_codegen_cases() {
         [](const sInputParams *prm) { return gen_cmd(prm, false); });
     const auto roundTrips = checker.runRoundTripCases({
         {
+            _T("overlay preserves explicit default alpha mode"),
+            { _T("--vpp-overlay"), _T("alpha_mode=override") },
+            false,
+            { _T("--vpp-overlay"), _T("alpha_mode=override") }, {}
+        },
+        {
+            _T("overlay preserves multiply alpha mode"),
+            { _T("--vpp-overlay"), _T("alpha_mode=mul") },
+            false,
+            { _T("alpha_mode=mul") }, {}
+        },
+        {
+            _T("overlay preserves luma key alpha mode"),
+            { _T("--vpp-overlay"), _T("alpha_mode=lumakey") },
+            false,
+            { _T("alpha_mode=lumakey") }, {}
+        },
+        {
+            _T("overlay preserves all canonical parameters"),
+            { _T("--vpp-overlay"), _T("file=overlay.png,pos=12x34,size=320x180,alpha=0.625,alpha_mode=lumakey,lumakey_threshold=0.3,lumakey_tolerance=0.15,lumakey_softness=0.2,loop=true") },
+            false,
+            { _T("file=\"overlay.png\""), _T("pos=12x34"), _T("size=320x180"), _T("alpha=0.625"), _T("alpha_mode=lumakey"),
+              _T("lumakey_threshold=0.3"), _T("lumakey_tolerance=0.15"), _T("lumakey_softness=0.2"), _T("loop=true") }, {}
+        },
+        {
+            _T("overlay normalizes position and size aliases"),
+            { _T("--vpp-overlay"), _T("posx=12,posy=34,width=320,height=180") },
+            false,
+            { _T("pos=12x34"), _T("size=320x180") }, {}
+        },
+        {
+            _T("overlay preserves multiple default elements"),
+            { _T("--vpp-overlay"), _T("alpha_mode=override"), _T("--vpp-overlay"), _T("alpha_mode=override") },
+            false,
+            { _T("--vpp-overlay alpha_mode=override --vpp-overlay alpha_mode=override") }, {}
+        },
+        {
+            _T("overlay saves disabled alpha mode"),
+            { _T("--vpp-overlay"), _T("enable=false,alpha_mode=mul") },
+            true,
+            { _T("--vpp-overlay"), _T("enable=false"), _T("alpha_mode=mul") }, {}
+        },
+        {
+            _T("overlay omits disabled alpha mode without save flag"),
+            { _T("--vpp-overlay"), _T("enable=false,alpha_mode=mul") },
+            false,
+            {}, { _T("--vpp-overlay") }
+        },
+        {
             _T("colorspace default desat_base keeps double precision"),
             { _T("--vpp-colorspace"), _T("desat_base=0.18") },
             false,
