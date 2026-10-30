@@ -6215,14 +6215,25 @@ RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
                 break;
             }
         }
-        // VAメモリのMFX VPPは、暗黙同期だけで後段へ渡すと色変換やリサイズで
-        // 並列エンコード時に以前の映像が混入することがあるため、完了を待つ。 (#308)
-        const bool syncVppInput =
+        // VAメモリでは並列エンコード時の旧フレーム混入を避けるため、MFX VPPの完了を待つ。 (#308)
+        // D3D11でもAV1 10bitで旧フレーム混入を確認したため、コーデックや色形式に依存せず
+        // 最終VPPの完了済み出力をエンコーダへ渡し、暗黙同期への依存を避ける。
+        const bool syncVppInput = !m_vpFilters.empty() && m_vpFilters.back().type == VppFilterType::FILTER_MFX && (
 #if LIBVA_SUPPORT
-        m_device->memType() == VA_MEMORY && !m_vpFilters.empty() && m_vpFilters.back().type == VppFilterType::FILTER_MFX;
-#else
-        false;
+            m_device->memType() == VA_MEMORY ||
 #endif
+            m_device->memType() == D3D11_MEMORY);
+        if (syncVppInput && m_device->memType() == D3D11_MEMORY) {
+            // 最終VPPへ先行投入し、完了済みの出力からエンコーダへ渡す。
+            // 毎フレーム投入直前に待つ場合と異なり、VPPとエンコードの並列性を保つ。
+            for (auto it = m_pipelineTasks.rbegin(); it != m_pipelineTasks.rend(); ++it) {
+                if ((*it)->isPassThrough()) continue;
+                if (auto taskVpp = dynamic_cast<PipelineTaskMFXVpp *>(it->get())) {
+                    taskVpp->setSyncOutput(std::max(0, m_nAsyncDepth - 1));
+                }
+                break;
+            }
+        }
         // エンコーダの出力キューが1だと、フレームNを投入した直後にフレームN-1のビットストリームを同期待ちしてしまい、
         // その間メインスレッドが次のフレームのデコード・フィルタを投入できない(--vpp-kfmで実時間の約30%)。
         // エンコーダへ指定した深度に達したら最古の出力を同期する。深度1では出力を保留しない。

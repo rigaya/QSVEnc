@@ -2248,6 +2248,7 @@ public:
 class PipelineTaskMFXVpp : public PipelineTask {
 protected:
     QSVVppMfx *m_vpp;
+    bool m_syncOutput;
     rgy_rational<int> m_outputTimebase;
     RGYTimestamp m_timestamp;
     mfxVideoParam& m_mfxVppParams;
@@ -2260,10 +2261,39 @@ public:
     // timestampはgetOutput直後のみ有効という前提で動いているため、ここで1フレームでも抱えると
     // 次のcheckptsのgetOutputでtimestamp/durationが上書きされて壊れる。
     PipelineTaskMFXVpp(MFXVideoSession *mfxSession, int outMaxQueueSize, QSVVppMfx *mfxvpp, mfxVideoParam& vppParams, mfxVersion mfxVer, rgy_rational<int> outputTimebase, bool timestampPassThrough, bool bypass, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::MFXVPP, bypass ? 0 : outMaxQueueSize, mfxSession, mfxVer, log), m_vpp(mfxvpp), m_outputTimebase(outputTimebase), m_timestamp(RGYTimestamp(timestampPassThrough, false)), m_mfxVppParams(vppParams), m_lastFrameDataList(), m_bypass(bypass), m_outMaxQueueSizeOrig(outMaxQueueSize) {
+        : PipelineTask(PipelineTaskType::MFXVPP, bypass ? 0 : outMaxQueueSize, mfxSession, mfxVer, log), m_vpp(mfxvpp), m_syncOutput(false), m_outputTimebase(outputTimebase), m_timestamp(RGYTimestamp(timestampPassThrough, false)), m_mfxVppParams(vppParams), m_lastFrameDataList(), m_bypass(bypass), m_outMaxQueueSizeOrig(outMaxQueueSize) {
     };
     virtual ~PipelineTaskMFXVpp() {};
     void setVpp(QSVVppMfx *mfxvpp) { m_vpp = mfxvpp; };
+    void setSyncOutput(const int maxQueueSize) {
+        m_syncOutput = true;
+        m_outMaxQueueSizeOrig = std::max(0, maxQueueSize);
+        // バイパス中は同一サーフェスの時刻を保持できないため、即座に後段へ渡す。
+        if (!m_bypass) setOutputMaxQueueSize(m_outMaxQueueSizeOrig);
+    }
+    virtual int additionalOutputSurfaces() const override {
+        // 従来の1枚保持に加えて先行投入する分を、共有サーフェスの確保に反映する。
+        return m_syncOutput ? std::max(0, m_outMaxQueueSizeOrig - 1) : 0;
+    }
+    virtual RGY_ERR getOutput(const bool sync, std::vector<std::unique_ptr<PipelineTaskOutput>>& output) override {
+        if (!m_syncOutput || m_bypass) return PipelineTask::getOutput(sync, output);
+        if (m_stopwatch) m_stopwatch->set(1);
+        while (!m_outQeueue.empty()) {
+            // 上限以下では完了だけを確認し、未完了なら次の入力処理へ戻る。
+            // 上限超過時と、上限を0にする終端処理だけは最古の出力を待つ。
+            const auto wait = (int)m_outQeueue.size() > m_outMaxQueueSize ? MSDK_WAIT_INTERVAL : 0;
+            const auto err = syncOutput(m_outQeueue.front().get(), wait);
+            if (err == RGY_WRN_IN_EXECUTION) break;
+            if (err != RGY_ERR_NONE) return err;
+            auto out = std::move(m_outQeueue.front());
+            m_outQeueue.pop_front();
+            out->depend_clear();
+            m_outFrames++;
+            output.push_back(std::move(out));
+        }
+        if (m_stopwatch) m_stopwatch->add(1, 0);
+        return RGY_ERR_NONE;
+    }
     virtual bool mayBypass() const override { return m_bypass; }
     virtual void setStopWatch() override {
         m_stopwatch = std::make_unique<PipelineTaskStopWatch>(
@@ -2457,8 +2487,17 @@ public:
                 if (m_stopwatch) m_stopwatch->add(0, 2);
 
                 if (MFX_ERR_NONE < vpp_sts && !VppSyncPoint) {
-                    if (MFX_WRN_DEVICE_BUSY == vpp_sts)
-                        sleep_hybrid(i);
+                    if (MFX_WRN_DEVICE_BUSY == vpp_sts) {
+                        // 先行投入でVPPが埋まった場合、未同期の出力を進めて空きを作る。
+                        auto pending = m_syncOutput ? std::find_if(m_outQeueue.begin(), m_outQeueue.end(), [](const auto& output) {
+                            return output->syncpoint() != nullptr;
+                        }) : m_outQeueue.end();
+                        if (pending != m_outQeueue.end()) {
+                            if (const auto err = syncOutput(pending->get()); err != RGY_ERR_NONE) return err;
+                        } else {
+                            sleep_hybrid(i);
+                        }
+                    }
                     if (i > 1024 * 1024 * 30) {
                         PrintMes(RGY_LOG_ERROR, _T("device kept on busy for 30s, unknown error occurred.\n"));
                         return RGY_ERR_GPU_HANG;
@@ -2823,7 +2862,7 @@ public:
             return RGY_ERR_UNSUPPORTED;
         }
 
-        // VAのMFX VPP出力は、暗黙同期だけでエンコーダへ渡すと並列実行時に旧フレームが混入する。
+        // MFX VPP出力の暗黙同期で旧フレームが混入する経路では、変換完了を明示的に待つ。
         // 出力キューによる非同期実行は維持し、エンコーダへ投入する直前に変換の完了を確認する。 (#308)
         if (frame && m_syncInput && dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->isMfxVppOutput()) {
             const auto err = frame->waitsync();
