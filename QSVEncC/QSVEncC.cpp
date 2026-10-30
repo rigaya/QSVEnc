@@ -46,6 +46,7 @@
 #include "qsv_pipeline.h"
 #include "qsv_cmd.h"
 #include "rgy_cmd_selftest.h"
+#include "rgy_help_selftest_cases.h"
 #include "qsv_help_codegen_cases.h"
 #include "rgy_preview_server.h"
 #include "mfxdispatcher.h"
@@ -606,14 +607,21 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const QSVDe
     }
     if (0 == _tcscmp(option_name, _T("check-cmd-parse"))) {
         // コマンドラインのパーサと生成の対応関係を自己診断する
+        const tstring filter = (arg1[0] != _T('-')) ? arg1 : _T("");
+        if (filter == _T("help-test")) return rgy_help_selftest_cases();
+        if (filter == _T("help-codegen-test")) return rgy_help_codegen_cases();
+        const bool helpMode = filter == _T("help") || filter.compare(0, 5, _T("help:")) == 0;
         RGYCmdSelfTest<sInputParams> selftest(
             [](sInputParams *prm, const std::vector<tstring>& args) {
                 auto argv = rgy_cmd_selftest_argv(args);
                 return parse_cmd(prm, argv.data(), (int)argv.size() - 1);
             },
-            [](const sInputParams *prm) { return gen_cmd(prm, false); });
-        const tstring filter = (arg1[0] != _T('-')) ? arg1 : _T("");
-        if (filter == _T("help-codegen-test")) return rgy_help_codegen_cases();
+            // help診断では無効な状態のパラメータも保存し、生成省略による偽の一致を避ける。
+            [helpMode](const sInputParams *prm) { return gen_cmd(prm, helpMode); });
+        // helpは書式と既定値を独立に検証し、既存の往復診断のフィルタ指定は維持する。
+        if (filter == _T("help") || filter.compare(0, 5, _T("help:")) == 0) {
+            return selftest.runHelpValidation(encoder_help(), filter == _T("help") ? tstring() : filter.substr(5));
+        }
         if (filter == _T("metric")) {
 #if ENABLE_VMAF && ENABLE_LIBVSHIP
             return selftest.runRoundTripCases({

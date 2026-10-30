@@ -127,62 +127,65 @@ static tstring PrintMultipleListOptions(const TCHAR *option_name, const TCHAR *o
 }
 
 tstring gen_cmd_help_vppmfx() {
+    const VppDenoise denoise;
+    const VppDetailEnhance detail;
+    const MFXVppAIFrameInterpolation interpolation;
     tstring str = strsprintf(_T("")
-        _T("   --vpp-denoise <int> or\n")
-        _T("                [<param1 >= <value>][, <param2 >= <value>][...]\n")
-        _T("     use vpp denoise, short form will set strength(%d - %d)\n")
+        _T("  [denoise] Denoise\n")
+        _T("   --vpp-denoise [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     Intel denoise filter. A single integer sets strength.\n")
         _T("    params\n")
-        _T("      mode=<string>         denoise mode\n")
-        _T("        legacy(default), auto, auto_bdrate, auto_subjective, auto_adjust, pre, post\n")
-        _T("      strength=<int>        set strength(%d - %d)\n"),
-        QSV_VPP_DENOISE_MIN, QSV_VPP_DENOISE_MAX,
-        QSV_VPP_DENOISE_MIN, QSV_VPP_DENOISE_MAX);
-    str += strsprintf(_T("")
-        _T("   --vpp-mctf [\"auto\" or <int>] use vpp motion compensated temporal filter(mctf)\n")
-        _T("                                  set strength (%d-%d), default: %d (auto)\n"),
-        QSV_VPP_MCTF_MIN, QSV_VPP_MCTF_MAX, QSV_VPP_MCTF_AUTO);
-    str += strsprintf(_T("")
-        _T("   --vpp-detail-enhance <int>   use vpp detail enahancer, set strength (%d-%d)\n")
-        _T("   --vpp-deinterlace <string>   set vpp deinterlace mode\n"),
-        QSV_VPP_DETAIL_ENHANCE_MIN, QSV_VPP_DETAIL_ENHANCE_MAX);
-    str += strsprintf(_T("")
-        _T("                                 - none     disable deinterlace\n")
-        _T("                                 - normal   normal deinterlace\n")
-        _T("                                 - bob      double framerate\n")
-        _T("                                 - it       inverse telecine\n")
+        _T("      mode=<string>         denoise mode (default: %s)\n")
+        _T("                              values: legacy, auto, auto_bdrate, auto_subjective, auto_adjust, pre, post\n")
+        _T("      strength=<int>        denoise strength (default: %d, range: %d..%d)\n"),
+        get_cx_desc(list_vpp_mfx_denoise_mode, denoise.mode),
+        denoise.strength, QSV_VPP_DENOISE_MIN, QSV_VPP_DENOISE_MAX);
+    str += strsprintf(_T("\n")
+        _T("  [denoise] Denoise\n")
+        _T("   --vpp-mctf [<int|auto>]    motion-compensated temporal filter strength (default: auto, range: %d..%d)\n")
+        _T("                              values: auto\n")
+        _T("     auto selects the strength automatically; it is represented by 0.\n"),
+        QSV_VPP_MCTF_MIN, QSV_VPP_MCTF_MAX);
+    str += strsprintf(_T("\n")
+        _T("  [edge] Edge enhancement\n")
+        _T("   --vpp-detail-enhance <int> detail enhancement strength (default: %d, range: %d..%d)\n"),
+        detail.strength, QSV_VPP_DETAIL_ENHANCE_MIN, QSV_VPP_DETAIL_ENHANCE_MAX);
+    str += _T("\n")
+        _T("  [deinterlace] Deinterlace\n")
+        _T("   --vpp-deinterlace <string> Intel deinterlace mode (default: none)\n")
+        _T("                              values: none, normal, normal_tff, normal_bff, it, it_tff, it_bff, bob, bob_tff, bob_bff, auto, auto_double, auto-bob, advanced, advanced_noref, advanced_scd, simple_bob, simple\n")
+        _T("     bob and auto_double double the output frame rate.\n")
+        _T("     The _tff and _bff suffixes override the input field order.\n");
 #if ENABLE_ADVANCED_DEINTERLACE
-        _T("                                 - it-manual <string>\n")
-        _T("                                     \"32\", \"2332\", \"repeat\", \"41\"\n")
-        _T("                                 - auto     auto deinterlace\n")
-        _T("                                 - auto_double auto bob deinterlace\n")
-        _T("                                 - auto-bob  alias of auto_double\n")
-        _T("                                 - advanced advanced deinterlace\n")
-        _T("                                 - advanced_noref advanced deinterlace (no refs)\n")
-        _T("                                 - advanced_scd advanced deinterlace (scene change detection)\n")
-        _T("                                 - simple    deinterlace only mode\n")
-        _T("                                 - simple_bob deinterlace only mode\n")
+    str += _T("     it-manual also accepts a following telecine pattern: 32, 2332, repeat, or 41.\n")
+        _T("     Example: --vpp-deinterlace it-manual 32\n");
 #endif
 #if ENABLE_FPS_CONVERSION
-        _T("   --vpp-fps-conv <string>      set fps conversion mode\n")
-        _T("                                enabled only when input is progressive\n")
-        _T("                                 - none, x2, x2.5\n")
+    str += _T("\n")
+        _T("  [framerate] Frame rate and interpolation\n")
+        _T("   --vpp-fps-conv <string>    Intel frame rate conversion (default: off)\n")
+        _T("                              values: off, x2, x2.5\n")
+        _T("     Available only for progressive input.\n");
 #endif
-        _T("   --vpp-image-stab <string>    set image stabilizer mode\n")
-        _T("                                 - none, upscale, box\n"));
-    str += strsprintf(_T("")
-        _T("   --vpp-ai-frameinterp [<param1>=<value>][, <param2>=<value>][...]\n")
-        _T("     set ai frame interpolation mode\n")
-        _T("     params\n")
-        _T("       scd=<bool>     enable scene change detection\n")
-        _T("         default: false\n"));
-    str += strsprintf(_T("")
-        _T("   --vpp-perc-pre-enc           enable perceptual pre enc filter\n")
-        _T("   --vpp-mfx-insert-clcopy [<int>]\n")
-        _T("                                insert OpenCL copy after the last MFX filter block\n")
-        _T("                                 - 0: disabled (default)\n")
-        _T("                                 - 1: enable only when d3d11 support is disabled\n")
-        _T("                                      (used when value is omitted)\n")
-        _T("                                 - 2: enable even when d3d11 support is enabled\n"));
+    str += _T("\n")
+        _T("  [resize] Resize and geometry\n")
+        _T("   --vpp-image-stab <string>  Intel image stabilization mode (default: none)\n")
+        _T("                              values: none, upscale, box\n");
+    str += strsprintf(_T("\n")
+        _T("  [framerate] Frame rate and interpolation\n")
+        _T("   --vpp-ai-frameinterp [<param1>=<value>][,<param2>=<value>][...]\n")
+        _T("     Intel AI frame interpolation.\n")
+        _T("    params\n")
+        _T("      scd=<bool>            enable scene change detection (default: %s)\n"),
+        interpolation.enableScd ? _T("true") : _T("false"));
+    str += _T("\n")
+        _T("  [denoise] Denoise\n")
+        _T("   --vpp-perc-pre-enc         enable perceptual pre-encoding filter\n")
+        _T("\n")
+        _T("  [other] Other settings\n")
+        _T("   --vpp-mfx-insert-clcopy [<int>] insert OpenCL copy after MFX filters (default: 1, range: 0..2)\n")
+        _T("     0 disables the copy; 1 enables it only without D3D11 support; 2 always enables it.\n")
+        _T("     Without this option, the copy is disabled.\n");
     return str;
 }
 
@@ -465,8 +468,7 @@ tstring encoder_help() {
     str += _T("\n");
 
     str += strsprintf(_T("\nVPP Options:\n"));
-    str += gen_cmd_help_vppmfx();
-    str += gen_cmd_help_vpp();
+    str += rgy_cmd_help_vpp_sections(gen_cmd_help_vppmfx() + gen_cmd_help_vpp());
 
     str += strsprintf(_T("\n")
         _T("   --input-buf <int>            buffer size for input in frames (%d-%d)\n")
