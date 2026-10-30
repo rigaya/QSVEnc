@@ -46,6 +46,7 @@
 #include "qsv_pipeline.h"
 #include "qsv_cmd.h"
 #include "rgy_cmd_selftest.h"
+#include "qsv_help_codegen_cases.h"
 #include "rgy_preview_server.h"
 #include "mfxdispatcher.h"
 #include "qsv_prm.h"
@@ -612,6 +613,7 @@ int parse_print_options(const TCHAR *option_name, const TCHAR *arg1, const QSVDe
             },
             [](const sInputParams *prm) { return gen_cmd(prm, false); });
         const tstring filter = (arg1[0] != _T('-')) ? arg1 : _T("");
+        if (filter == _T("help-codegen-test")) return rgy_help_codegen_cases();
         if (filter == _T("metric")) {
 #if ENABLE_VMAF && ENABLE_LIBVSHIP
             return selftest.runRoundTripCases({

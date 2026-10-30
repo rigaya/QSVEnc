@@ -2529,6 +2529,8 @@ tstring gen_cmd(const sVppParams *param, const sVppParams *defaultPrm, RGY_VPP_R
         }
         if (!tmp.str().empty()) {
             cmd << _T(" --vpp-ai-frameinterp ") << tmp.str().substr(1);
+        } else if (param->aiFrameInterpolation.enable) {
+            cmd << _T(" --vpp-ai-frameinterp");
         }
     }
 

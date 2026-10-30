@@ -1298,7 +1298,7 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
                 }
                 if (param_arg == _T("desat_base")) {
                     try {
-                        float desat_base = std::stof(param_val);
+                        double desat_base = std::stod(param_val);
                         vpp->colorspace.hdr2sdr.desat_base = desat_base;
                     } catch (...) {
                         print_cmd_error_invalid_value(tstring(option_name) + _T(" ") + param_arg + _T("="), param_val);
@@ -15790,6 +15790,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
                 ADD_NUM(_T("dither_c"), deband.ditherC);
             }
             ADD_NUM(_T("sample"), deband.sample);
+                ADD_NUM(_T("seed"), deband.seed);
             ADD_BOOL(_T("blurfirst"), deband.blurFirst);
             ADD_BOOL(_T("rand_each_frame"), deband.randEachFrame);
         }
@@ -15849,7 +15850,7 @@ tstring gen_cmd(const RGYParamVpp *param, const RGYParamVpp *defaultPrm, bool sa
             }
             if (!tmp.str().empty()) {
                 cmd << _T(" --vpp-overlay ") << tmp.str().substr(1);
-            } else if (param->deband.enable) {
+            } else if (param->overlay[i].enable) {
                 cmd << _T(" --vpp-overlay");
             }
         }
