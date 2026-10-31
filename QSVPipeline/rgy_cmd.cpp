@@ -850,8 +850,11 @@ int parse_one_vpp_option(const TCHAR *option_name, const TCHAR *strInput[], int 
             for (size_t ielem = 0; ielem < _countof(paramsResizeBicubic); ielem++) {
                 paramList.push_back(paramsResizeBicubic[ielem]);
             }
+            // 無効なlibplaceboの候補は除き、共通のalgoだけは残す。
             for (size_t ielem = 0; ielem < _countof(paramsResizeLibPlacebo); ielem++) {
-                paramList.push_back(paramsResizeLibPlacebo[ielem]);
+                if (ENABLE_LIBPLACEBO || std::string(paramsResizeLibPlacebo[ielem]) == "algo") {
+                    paramList.push_back(paramsResizeLibPlacebo[ielem]);
+                }
             }
             RGY_VPP_RESIZE_ALGO preScanAlgo = vpp->resize_algo;
             for (const auto& param : split(strInput[i], _T(","))) {
@@ -17452,12 +17455,10 @@ tstring gen_cmd_help_vpp() {
 #endif
 #if ENABLE_NVVFX || ENABLE_NVSDKNGX || ENCODER_NVENC || ENCODER_QSV || ENCODER_VCEENC
     {
-    str += _T("\n  [resize] Resize and geometry\n   --vpp-resize [<param1>=<value>][,<param2>=<value>][...]\n     Select a resizing algorithm and its parameters.\n    params\n      algo=<string> Resizing algorithm. (default: auto)\n        values: ");
-        for (int ia = 0; list_vpp_resize[ia].desc; ++ia) {
-            if (ia != 0) str += _T(", ");
-            str += list_vpp_resize[ia].desc;
-        }
-    str += _T("\n        The short form is --vpp-resize <algorithm>[,<param>=<value>].\n        Gaussian resizing uses p=2.0.\n");
+    str += _T("\n  [resize] Resize and geometry\n   --vpp-resize [<param1>=<value>][,<param2>=<value>][...]\n     Select a resizing algorithm and its parameters.\n    params\n      algo=<string> Resizing algorithm. (default: auto)\n");
+    // OpenCLとハードウェアで同じ綴りの候補があっても、表示は一度だけにする。
+    str += rgy_cmd_help_values(list_vpp_resize);
+    str += _T("        The short form is --vpp-resize <algorithm>[,<param>=<value>].\n        Gaussian resizing uses p=2.0.\n");
     str += strsprintf(_T("      sharpness=<float> RCAS strength for fsr1 or USM strength for nis. (default: %.2f, range: 0.0..1.0)\n"), FILTER_DEFAULT_RESIZE_FSR1_SHARPNESS);
     str += _T("        The fsr1 and nis parameters have the same initial strength.\n");
     str += strsprintf(_T("      dpid_lambda=<float> Detail-preservation strength for dpid; 0 is area-equivalent. (default: %.2f, range: 0.0..4.0)\n"), FILTER_DEFAULT_RESIZE_DPID_LAMBDA);
@@ -17495,12 +17496,8 @@ tstring gen_cmd_help_vpp() {
         }
     }
 #else
-    str += _T("\n  [resize] Resize and geometry\n   --vpp-resize <string> Resizing algorithm. (default: auto)\n     values: ");
-    for (int ia = 0; list_vpp_resize_help[ia].desc; ++ia) {
-        if (ia != 0) str += _T(", ");
-        str += list_vpp_resize_help[ia].desc;
-    }
-    str += _T("\n");
+    str += _T("\n  [resize] Resize and geometry\n   --vpp-resize <string> Resizing algorithm. (default: auto)\n");
+    str += rgy_cmd_help_values(list_vpp_resize_help);
 #endif
 #if ENCODER_QSV
     str += _T("\n  [other] Other settings\n   --vpp-resize-mode <string> QSV hardware resizing mode. (default: auto)\n     values: auto, lowpower, quality\n");

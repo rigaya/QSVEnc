@@ -114,13 +114,14 @@ public:
 
     // argsPrefix は入出力ファイル名など、パースを通すために常に必要な引数
     // codecList はコーデックによって有効・無効が変わるオプションのために順に試すコーデック
+    // extraList はレート制御などの追加前提。Bフレーム非対応のエンコーダでも指定できる。
     RGYCmdSelfTest(ParseFunc parse, GenFunc gen,
         const std::vector<tstring>& argsPrefix = { _T("-i"), _T("rgy_selftest_input.yuv"), _T("-o"), _T("rgy_selftest_output.raw") },
-        const std::vector<tstring>& codecList = { _T("h264"), _T("hevc"), _T("av1") }) :
+        const std::vector<tstring>& codecList = { _T("h264"), _T("hevc"), _T("av1") },
+        const std::vector<std::vector<tstring>>& extraList = { {}, { _T("--vbr"), _T("5000"), _T("-b"), _T("3") } }) :
         m_parse(parse), m_gen(gen), m_argsPrefixList(), m_cmdDefaultList(), m_prefixIdx(0) {
         // レート制御やBフレームの有無によって生成されるかどうかが変わるオプションがあるため、それらを指定した前提も用意する
-        // (パースできない組み合わせは run() 側で対象から外すので、エンコーダごとに変える必要はない)
-        static const std::vector<std::vector<tstring>> extraList = { {}, { _T("--vbr"), _T("5000"), _T("-b"), _T("3") } };
+        // パースできない組み合わせはrun()側で対象から外す。
         for (const auto& extra : extraList) {
             for (const auto& codec : codecList) {
                 auto prefix = argsPrefix;
@@ -315,7 +316,12 @@ public:
                 if (needsDefault) helpCheck(0, field.hasDefault, name, _T("required default is missing"));
                 if (field.hasDefault) helpCheck(0, field.canonicalDefault, name, _T("default must be on the declaration line as (default: X[, range: A..B])"));
                 if (constrainedString) helpCheck(0, field.hasValues, name, _T("constrained string requires values:"));
-                if (field.hasValues) helpCheck(0, field.canonicalValues, name, _T("values: must immediately follow the declaration"));
+                if (field.hasValues) {
+                    helpCheck(0, field.canonicalValues, name, _T("values: must immediately follow the declaration"));
+                    // 候補を正規化した後で比較し、引用符や空白の違いで重複を見逃さない。
+                    const std::set<tstring> uniqueValues(field.values.begin(), field.values.end());
+                    helpCheck(0, uniqueValues.size() == field.values.size(), name, _T("duplicate value in values:"));
+                }
                 if (!field.structured) for (const auto& type : types) {
                     if (type == _T("int") || type == _T("float") || type == _T("bool") || type == _T("string") || type == _T("path")) continue;
                     helpCheck(0, std::find(field.values.begin(), field.values.end(), type) != field.values.end(), name, _T("literal type alternative is missing from values:"));
