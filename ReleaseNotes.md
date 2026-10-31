@@ -1,5 +1,12 @@
 # QSVEnc Release Notes
 
+## 8.36
+
+- Fix old frames mixed in when using [--vpp-kfm](./QSVEncC_Options.en.md#--vpp-kfm-param1value1param2value2).
+- Speed up [--vpp-kfm](./QSVEncC_Options.en.md#--vpp-kfm-param1value1param2value2).
+- Run single-frame, multi-frame, and mask pre/post processing of [--vpp-onnx](./QSVEncC_Options.en.md#--vpp-onnx-param1value1param2value2) on the OpenCL path.
+- Add [--vpp-vhs-restore](./QSVEncC_Options.en.md#--vpp-vhs-restore-param1value1param2value2). ( HWEnc-onnx-models#1 )
+
 ## 8.35
 
 - Speed up reconstruction in [--vpp-kfm](./QSVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) and [--vpp-rtgmc](./QSVEncC_Options.en.md#--vpp-rtgmc-param1value1).

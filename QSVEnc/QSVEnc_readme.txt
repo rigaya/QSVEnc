@@ -314,6 +314,13 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2026.10.31 (8.36)
+[QSVEncC]
+- --vpp-kfm使用時に過去フレームが混入する問題を修正。
+- --vpp-kfmの高速化。
+- --vpp-onnxの単一フレーム・複数フレーム・マスクの前後処理をOpenCL経路に統一。
+- --vpp-vhs-restoreを追加。( HWEnc-onnx-models#1 )
+
 2026.10.23 (8.35)
 [QSVEncC]
 - --vpp-kfm/--vpp-rtgmcの再構成処理の高速化。
