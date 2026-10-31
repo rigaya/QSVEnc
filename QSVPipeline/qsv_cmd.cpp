@@ -578,7 +578,12 @@ int parse_one_vppmfx_option(const TCHAR *option_name, const TCHAR *strInput[], i
         for (size_t ielem = 0; ielem < _countof(paramsResizeBicubic); ielem++) {
             paramListResizeBicubic.push_back(paramsResizeBicubic[ielem]);
         }
-        std::vector<std::string> paramList = paramListResizeLibPlacebo;
+        // libplaceboが無効なビルドではpl-*を受理しないので、エラー時の候補にも出さない
+        // (paramsResizeLibPlaceboにはalgoも含まれるため、algoだけは常に残す)
+        std::vector<std::string> paramList;
+        for (const auto& prm : paramListResizeLibPlacebo) {
+            if (ENABLE_LIBPLACEBO || prm == "algo") paramList.push_back(prm);
+        }
         for (size_t ielem = 0; ielem < _countof(paramsResizeQSVEnc); ielem++) {
             paramList.push_back(paramsResizeQSVEnc[ielem]);
         }
