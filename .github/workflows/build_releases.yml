@@ -256,6 +256,12 @@ jobs:
           if "${{ matrix.platform }}" == "Win32" set QSVENCC_EXE=QSVEncC_Release\QSVEncC.exe
           "%QSVENCC_EXE%" --check-cmd-parse
 
+      - name: Check help format
+        run: |
+          set QSVENCC_EXE=QSVEncC_Release\QSVEncC64.exe
+          if "${{ matrix.platform }}" == "Win32" set QSVENCC_EXE=QSVEncC_Release\QSVEncC.exe
+          "%QSVENCC_EXE%" --check-cmd-parse help
+
       - name: Check Version
         if: github.event_name == 'workflow_dispatch'
         id: check_ver

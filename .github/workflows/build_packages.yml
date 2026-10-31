@@ -134,6 +134,7 @@ jobs:
           docker exec build_pkg ./qsvencc --version
           docker exec build_pkg ./check_options.py -exe ./qsvencc
           docker exec build_pkg ./qsvencc --check-cmd-parse
+          docker exec build_pkg ./qsvencc --check-cmd-parse help
           docker exec build_pkg ./build_${{ env.PKG_TYPE }}.sh
           docker exec build_pkg bash -lc "cp -v ./*.${{ env.PKG_TYPE }} /output/"
           PKGFILE=`ls ${{ steps.prep.outputs.output_dir }}/*.${{ env.PKG_TYPE }}`
