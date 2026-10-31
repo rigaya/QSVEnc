@@ -3096,7 +3096,7 @@ Set image stabilizer mode.
   - box
 
 ### --vpp-mctf ["auto" or &lt;int&gt;]
-Enable Motion Compensate Temporal Filter (MCTF), if no param specified, then strength will automatically adjusted by the filter. You can also force filter strength by setting value between 1 (week) - 20 (strong). (default: 0 as auto)
+Enable Motion Compensate Temporal Filter (MCTF), if no param specified, then strength will automatically adjusted by the filter. You can also force filter strength by setting value between 1 (weak) - 20 (strong). (default: 0 as auto)
 
 ### --vpp-subburn [&lt;param1&gt;=&lt;value1&gt;[,&lt;param2&gt;=&lt;value2&gt;]...]
 "Burn in" specified subtitle to the video. Text type subtitles will be rendered by [libass](https://github.com/libass/libass).
