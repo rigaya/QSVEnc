@@ -293,6 +293,30 @@ public:
     }
     size_t bufCount() const { return m_surfaces.size(); }
 
+    // 確保済みテクスチャはそのままに、MFXへ渡すInfoの寸法だけを実シーケンスへ合わせる。
+    // Sandy Bridge / Ivy Bridgeは、--adapt-resolutionで広げた上限サイズのInfoのまま渡した
+    // サーフェスをビットストリームと不一致としてDecodeFrameAsyncで拒否する。Haswell以降は
+    // 上限サイズのInfoのままでもCrop更新だけでデコードできるため、この書き換えは不要。
+    // 出力待ち(使用中)のフレームまで書き換えると、切り替え前のCropが失われて後段が前の絵を
+    // 新しい解像度として扱ってしまう。空きサーフェスだけを更新し、今から渡す1枚は呼び出し側が合わせる。
+    void setMfxInfoFrom(const mfxFrameInfo& info) {
+        for (auto& s : m_surfaces) {
+            auto mfx = dynamic_cast<RGYFrameMFXSurf*>(s->surf());
+            if (!mfx || !mfx->surf()) continue;
+            if (!s->isFree()) continue;
+            auto& dst = mfx->surf()->Info;
+            dst.Width = info.Width;
+            dst.Height = info.Height;
+            dst.CropX = info.CropX;
+            dst.CropY = info.CropY;
+            dst.CropW = info.CropW;
+            dst.CropH = info.CropH;
+            dst.AspectRatioW = info.AspectRatioW;
+            dst.AspectRatioH = info.AspectRatioH;
+            if (info.PicStruct) dst.PicStruct = info.PicStruct;
+        }
+    }
+
     bool isAllFree() const {
         for (const auto& s : m_surfaces) {
             if (!s->isFree()) {
@@ -1218,6 +1242,12 @@ protected:
     //前回のデコード出力解像度。--avhwでの解像度変更検知ログ用で、追従処理そのものは後段(MFX VPP / OpenCLフィルタ)で行う
     mfxU16 m_prevOutputCropWidth;
     mfxU16 m_prevOutputCropHeight;
+    // 0: 上限寸法のままデコード, 2: デコーダを実シーケンス寸法で再初期化済み。
+    // 再初期化の回数では制限しない。放送TSは1920→1280→1920のように2回以上変わる。
+    // 対象はSandy BridgeとIvy Bridge。Haswell以降は上限寸法のInitのまま問題なく、ここは0のまま終わる。
+    int m_decSizeFallback;
+    bool m_decSubmitValid;
+    mfxFrameInfo m_decSubmitInfo;
     int64_t m_firstPts;
     bool m_gotFirstPts;
     int64_t m_endPts; // 並列処理時用の終了時刻 (この時刻は含まないようにする) -1の場合は制限なし(最後まで)
@@ -1226,7 +1256,7 @@ protected:
     RGYQueueMPMP<FrameFlags> m_dataFlag;
 public:
     PipelineTaskMFXDecode(MFXVideoSession *mfxSession, int outMaxQueueSize, MFXVideoDECODE *mfxdec, mfxVideoParam& decParams, bool skipAV1C, int64_t endPts, RGYInput *input, mfxVersion mfxVer, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::MFXDEC, outMaxQueueSize, mfxSession, mfxVer, log), m_dec(mfxdec), m_mfxDecParams(decParams), m_input(input), m_skipAV1C(skipAV1C), m_getNextBitstream(true), m_decFrameOutCount(0), m_decRemoveRemainingBytesWarnCount(0), m_prevOutputCropWidth(0), m_prevOutputCropHeight(0), m_firstPts(0), m_gotFirstPts(false), m_endPts(endPts), m_decInputBitstream(), m_queueHDR10plusMetadata(), m_dataFlag() {
+        : PipelineTask(PipelineTaskType::MFXDEC, outMaxQueueSize, mfxSession, mfxVer, log), m_dec(mfxdec), m_mfxDecParams(decParams), m_input(input), m_skipAV1C(skipAV1C), m_getNextBitstream(true), m_decFrameOutCount(0), m_decRemoveRemainingBytesWarnCount(0), m_prevOutputCropWidth(0), m_prevOutputCropHeight(0), m_decSizeFallback(0), m_decSubmitValid(false), m_decSubmitInfo(), m_firstPts(0), m_gotFirstPts(false), m_endPts(endPts), m_decInputBitstream(), m_queueHDR10plusMetadata(), m_dataFlag() {
         m_decInputBitstream.init(AVCODEC_READER_INPUT_BUF_SIZE);
         m_dataFlag.init();
         //TimeStampはQSVに自動的に計算させる
@@ -1333,6 +1363,250 @@ public:
         return sendBitstream();
     }
 protected:
+    void applyDecSubmitInfo(mfxFrameSurface1 *surf) const {
+        if (!surf || !m_decSubmitValid) return;
+        surf->Info.Width = m_decSubmitInfo.Width;
+        surf->Info.Height = m_decSubmitInfo.Height;
+        surf->Info.CropX = m_decSubmitInfo.CropX;
+        surf->Info.CropY = m_decSubmitInfo.CropY;
+        surf->Info.CropW = m_decSubmitInfo.CropW;
+        surf->Info.CropH = m_decSubmitInfo.CropH;
+        surf->Info.AspectRatioW = m_decSubmitInfo.AspectRatioW;
+        surf->Info.AspectRatioH = m_decSubmitInfo.AspectRatioH;
+        if (m_decSubmitInfo.PicStruct) surf->Info.PicStruct = m_decSubmitInfo.PicStruct;
+    }
+    void storeDecSubmitInfo(const mfxFrameInfo& info) {
+        m_decSubmitInfo.Width = info.Width;
+        m_decSubmitInfo.Height = info.Height;
+        m_decSubmitInfo.CropX = info.CropX;
+        m_decSubmitInfo.CropY = info.CropY;
+        m_decSubmitInfo.CropW = info.CropW;
+        m_decSubmitInfo.CropH = info.CropH;
+        m_decSubmitInfo.AspectRatioW = info.AspectRatioW;
+        m_decSubmitInfo.AspectRatioH = info.AspectRatioH;
+        m_decSubmitInfo.PicStruct = info.PicStruct;
+        m_decSubmitValid = info.Width > 0 && info.Height > 0;
+        m_workSurfs.setMfxInfoFrom(m_decSubmitInfo);
+    }
+    bool frameInfoGeometryDiffers(const mfxFrameInfo& a, const mfxFrameInfo& b) const {
+        return a.Width != b.Width || a.Height != b.Height || a.CropW != b.CropW || a.CropH != b.CropH;
+    }
+    bool readBitstreamFrameInfo(mfxBitstream *bitstream, mfxFrameInfo& info) {
+        mfxVideoParam headerParam = {};
+        headerParam.mfx.CodecId = m_mfxDecParams.mfx.CodecId;
+        headerParam.IOPattern = m_mfxDecParams.IOPattern;
+        const auto hdrSts = m_dec->DecodeHeader(bitstream, &headerParam);
+        if (hdrSts < MFX_ERR_NONE || headerParam.mfx.FrameInfo.Width == 0 || headerParam.mfx.FrameInfo.Height == 0) {
+            return false;
+        }
+        info = headerParam.mfx.FrameInfo;
+        return true;
+    }
+    // デコード結果を出力キューへ載せる。endPtsに達したらtrue。
+    // syncPがnullの場合は、デコーダClose前にSyncOperation済みである前提。
+    bool pushDecodedSurface(mfxFrameSurface1 *surfDecOut, mfxSyncPoint syncP) {
+        if (surfDecOut == nullptr) return false;
+        if (surfDecOut->Info.CropW != m_prevOutputCropWidth || surfDecOut->Info.CropH != m_prevOutputCropHeight) {
+            PrintMes(RGY_LOG_DEBUG, _T("decoder output resolution changed: %dx%d -> %dx%d.\n"),
+                (int)m_prevOutputCropWidth, (int)m_prevOutputCropHeight,
+                (int)surfDecOut->Info.CropW, (int)surfDecOut->Info.CropH);
+            m_prevOutputCropWidth = surfDecOut->Info.CropW;
+            m_prevOutputCropHeight = surfDecOut->Info.CropH;
+        }
+        const int64_t surfDecOutTimestamp = (int64_t)surfDecOut->Data.TimeStamp;
+        if (m_endPts >= 0 && surfDecOutTimestamp >= m_endPts) {
+            m_getNextBitstream = false;
+            return true;
+        }
+        // 最初のフレームはOpenGOPのBフレームのために投入フレーム以前のデータの場合があるので、その場合はフレームを無視する
+        if (m_gotFirstPts && m_firstPts > surfDecOutTimestamp && m_decFrameOutCount == 0) {
+            return false;
+        }
+        auto taskSurf = useTaskSurf(surfDecOut);
+        const auto picstruct = taskSurf.mfx()->surf()->Info.PicStruct;
+        auto flags = RGY_FRAME_FLAG_NONE;
+        // RFFの場合、MFX_PICSTRUCT_PROGRESSIVEに加えて、MFX_PICSTRUCT_FIELD_TFFまたはMFX_PICSTRUCT_FIELD_BFF、MFX_PICSTRUCT_FIELD_REPEATEDが立っている
+        // picstructにはprogressiveを設定し、flagsにRFF関係の情報を設定しなおす
+        // この情報の取得には、m_mfxDecParams.mfx.ExtendedPicStruct = 1 としてデコーダを初期化する必要がある
+        if ((picstruct & MFX_PICSTRUCT_PROGRESSIVE) && (picstruct & (MFX_PICSTRUCT_FIELD_TFF | MFX_PICSTRUCT_FIELD_BFF))) {
+            taskSurf.frame()->setPicstruct(RGY_PICSTRUCT_FRAME);
+            if (picstruct & MFX_PICSTRUCT_FIELD_REPEATED) {
+                flags |= RGY_FRAME_FLAG_RFF;
+            }
+        }
+        if (picstruct & MFX_PICSTRUCT_FIELD_TFF) {
+            flags |= RGY_FRAME_FLAG_RFF_TFF;
+        }
+        if (picstruct & MFX_PICSTRUCT_FIELD_BFF) {
+            flags |= RGY_FRAME_FLAG_RFF_BFF;
+        }
+        taskSurf.frame()->setInputFrameId(m_decFrameOutCount++);
+        if (getDataFlag(surfDecOutTimestamp) & RGY_FRAME_FLAG_RFF) {
+            flags |= RGY_FRAME_FLAG_RFF;
+        }
+        taskSurf.frame()->setFlags(flags);
+        taskSurf.frame()->setDuration(0); // QSVはdurationを返さない
+        taskSurf.frame()->clearDataList();
+        if (auto data = getMetadata(RGY_FRAME_DATA_HDR10PLUS, surfDecOutTimestamp); data) {
+            taskSurf.frame()->dataList().push_back(data);
+        }
+        if (auto data = getMetadata(RGY_FRAME_DATA_DOVIRPU, surfDecOutTimestamp); data) {
+            taskSurf.frame()->dataList().push_back(data);
+        }
+        m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, taskSurf, syncP));
+        return false;
+    }
+    // Sandy/Ivyで解像度が変わるたびにデコーダをCloseする前の排出。失敗時は-1。
+    // Closeは未完了の同期点を無効にし、デコーダ内部に残ったフレーム(並び替えで数枚)を捨てる。
+    // これを省略すると切り替えの回数だけフレームが欠け、Haswell以降(再初期化しない側)と枚数が揃わない。
+    // 手順は、キューに出したフレームを先にSyncOperationして同期点を消し、続いてbitstream=NULLの
+    // DecodeFrameAsyncで内部残留を出し切ってから同期する。NULLでの排出はビットストリーム位置を動かさない。
+    int drainDecoderBeforeReinit() {
+        for (auto& queued : m_outQeueue) {
+            if (const auto err = syncOutput(queued.get()); err != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("DecodeFrameAsync: failed to sync queued output before decoder reinit: %s.\n"), get_err_mes(err));
+                return -1;
+            }
+        }
+        int drained = 0;
+        for (int i = 0; i < 64; i++) {
+            auto work = getWorkSurf();
+            if (work == nullptr) return -1;
+            auto mfxWork = work.mfx()->surf();
+            if (m_decSubmitValid) {
+                applyDecSubmitInfo(mfxWork);
+            }
+            mfxWork->Data.TimeStamp = (mfxU64)MFX_TIMESTAMP_UNKNOWN;
+            mfxWork->Data.DataFlag |= MFX_FRAMEDATA_ORIGINAL_TIMESTAMP;
+            mfxStatus sts = MFX_ERR_NONE;
+            mfxSyncPoint syncP = nullptr;
+            mfxFrameSurface1 *surfOut = nullptr;
+            for (int busy = 0; ; busy++) {
+                syncP = nullptr;
+                surfOut = nullptr;
+                sts = m_dec->DecodeFrameAsync(nullptr, mfxWork, &surfOut, &syncP);
+                if (sts != MFX_WRN_DEVICE_BUSY) break;
+                if (busy > 1024) {
+                    PrintMes(RGY_LOG_ERROR, _T("DecodeFrameAsync: device busy while draining decoder.\n"));
+                    return -1;
+                }
+                sleep_hybrid(busy);
+            }
+            if (sts == MFX_ERR_MORE_SURFACE) continue;
+            if (sts == MFX_ERR_MORE_DATA || sts < MFX_ERR_NONE) break;
+            if (!surfOut || !syncP) break;
+            const auto syncSts = m_mfxSession->SyncOperation(syncP, MSDK_WAIT_INTERVAL);
+            if (syncSts < MFX_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("DecodeFrameAsync: failed to sync drained frame: %s.\n"), get_err_mes(syncSts));
+                return -1;
+            }
+            if (pushDecodedSurface(surfOut, nullptr)) break;
+            drained++;
+        }
+        return drained;
+    }
+    // MFX_ERR_INCOMPATIBLE_VIDEO_PARAMのとき、ビットストリームの実寸へデコーダを作り直せるならtrue。
+    //
+    // なぜ必要か:
+    // --adapt-resolutionは、後から現れる最大解像度までデコーダInitのWidth/Heightと入力サーフェスを
+    // 広げておく。Haswell以降はこのWidth/Heightをシーケンス上限とみなすので、上限以内なら
+    // DecodeFrameAsyncが成功し、出力サーフェスのCropだけが変わる。追加の再初期化は要らない。
+    // Sandy BridgeとIvy Bridgeは同じWidth/Heightを「現在の符号化寸法」として検査する。
+    // 初期化寸法とビットストリームが違う最初の1枚でも、途中でシーケンスヘッダの寸法が変わった
+    // 枚でも、DecodeFrameAsyncがMFX_ERR_INCOMPATIBLE_VIDEO_PARAMを返してデコードが止まる。
+    // 確認したのはSandy Bridge (Media SDK API 1.04)。Ivy Bridgeも同じ世代差の対象で、
+    // Haswell以降は従来の上限Initだけで問題になっていない。
+    //
+    // 対応は、確保済みの大きいプールはそのままに、デコーダだけを実シーケンスのWidth/Height/Cropで
+    // CloseしてからInitし直す。渡すサーフェスInfoも実寸へ合わせる。使用中サーフェスのCropは
+    // setMfxInfoFromが触らない。実寸が確保サイズを超える場合は再初期化せず失敗させる。
+    //
+    // 新しいヘッダの探し方:
+    // DecodeFrameAsyncが止めた「呼び出し後」の位置を先にDecodeHeaderする。呼び出し前のoffsetへ
+    // 戻してから読むと、同じバッファ内の古いシーケンスヘッダに当たり、寸法が変わっていないと
+    // 誤認して再初期化しない。その結果、最初の切り替えで停止した。戻り位置でも違う寸法が
+    // 得られないときは、保存してある範囲の後続にあるMPEG-2シーケンス開始符号(00 00 01 B3)を探す。
+    // 今回問題になった放送TSはMPEG-2だった。他コーデックは呼び出し後位置のDecodeHeaderが本線。
+    //
+    // Closeの前にdrainDecoderBeforeReinitで古いシーケンスの滞留フレームを出す。出さずに閉じると
+    // 切り替えごとにそのフレームが失われる。再初期化の回数に上限は設けない。
+    bool alignDecoderToBitstream(mfxBitstream *bitstream, mfxFrameSurface1 *surf, mfxU32 savedOffset, mfxU32 savedLength) {
+        if (!bitstream || !m_dec || bitstream->Data == nullptr) return false;
+        const mfxU32 currentOffset = bitstream->DataOffset;
+        const mfxU32 currentLength = bitstream->DataLength;
+        mfxFrameInfo src = {};
+        bool found = readBitstreamFrameInfo(bitstream, src) && frameInfoGeometryDiffers(src, m_mfxDecParams.mfx.FrameInfo);
+        if (!found) {
+            bitstream->DataOffset = savedOffset;
+            bitstream->DataLength = savedLength;
+            found = readBitstreamFrameInfo(bitstream, src) && frameInfoGeometryDiffers(src, m_mfxDecParams.mfx.FrameInfo);
+        }
+        if (!found && bitstream->Data != nullptr && savedLength > 4) {
+            const mfxU8 *data = bitstream->Data;
+            const mfxU32 begin = savedOffset;
+            const mfxU32 end = savedOffset + savedLength;
+            for (mfxU32 i = begin; i + 4 < end; i++) {
+                if (data[i] != 0 || data[i + 1] != 0 || data[i + 2] != 1 || data[i + 3] != 0xB3) continue;
+                if (i == savedOffset || i == currentOffset) continue;
+                bitstream->DataOffset = i;
+                bitstream->DataLength = end - i;
+                if (readBitstreamFrameInfo(bitstream, src) && frameInfoGeometryDiffers(src, m_mfxDecParams.mfx.FrameInfo)) {
+                    found = true;
+                    break;
+                }
+            }
+        }
+        if (!found) {
+            bitstream->DataOffset = currentOffset;
+            bitstream->DataLength = currentLength;
+            PrintMes(RGY_LOG_DEBUG, _T("DecodeFrameAsync: incompatible parameters, but no new sequence header was found.\n"));
+            return false;
+        }
+        if (m_workSurfAllocWidth > 0
+            && (src.Width > m_workSurfAllocWidth || src.Height > m_workSurfAllocHeight)) {
+            PrintMes(RGY_LOG_ERROR,
+                _T("DecodeFrameAsync: bitstream resolution %dx%d exceeds the allocated surface %dx%d.\n"),
+                (int)src.Width, (int)src.Height, m_workSurfAllocWidth, m_workSurfAllocHeight);
+            return false;
+        }
+        const auto& cur = m_mfxDecParams.mfx.FrameInfo;
+        const int curWidth = (int)cur.Width;
+        const int curHeight = (int)cur.Height;
+        const int curCropW = (int)cur.CropW;
+        const int curCropH = (int)cur.CropH;
+        // 寸法を書き換える前に、古いシーケンスの滞留フレームを出す。
+        const int drained = drainDecoderBeforeReinit();
+        if (drained < 0) return false;
+        PrintMes(RGY_LOG_INFO,
+            _T("DecodeFrameAsync: reinit decoder %dx%d [%d,%d] -> %dx%d [%d,%d], drained %d frames.\n"),
+            curWidth, curHeight, curCropW, curCropH,
+            (int)src.Width, (int)src.Height, (int)src.CropW, (int)src.CropH, drained);
+        auto& dst = m_mfxDecParams.mfx.FrameInfo;
+        dst.Width = src.Width;
+        dst.Height = src.Height;
+        dst.CropX = src.CropX;
+        dst.CropY = src.CropY;
+        dst.CropW = src.CropW;
+        dst.CropH = src.CropH;
+        dst.AspectRatioW = src.AspectRatioW;
+        dst.AspectRatioH = src.AspectRatioH;
+        if (src.PicStruct) dst.PicStruct = src.PicStruct;
+        if (src.ChromaFormat) dst.ChromaFormat = src.ChromaFormat;
+        storeDecSubmitInfo(src);
+        applyDecSubmitInfo(surf);
+        const auto closeSts = m_dec->Close();
+        if (closeSts < MFX_ERR_NONE && closeSts != MFX_ERR_NOT_INITIALIZED) {
+            PrintMes(RGY_LOG_ERROR, _T("DecodeFrameAsync: failed to close decoder before reinit: %s.\n"), get_err_mes(closeSts));
+            return false;
+        }
+        const auto initSts = m_dec->Init(&m_mfxDecParams);
+        if (initSts < MFX_ERR_NONE) {
+            PrintMes(RGY_LOG_ERROR, _T("DecodeFrameAsync: failed to reinitialize decoder: %s.\n"), get_err_mes(initSts));
+            return false;
+        }
+        m_decSizeFallback = 2;
+        return true;
+    }
     RGY_ERR sendBitstream() {
         m_getNextBitstream |= m_decInputBitstream.size() > 0;
 
@@ -1345,6 +1619,9 @@ protected:
         surfDecWork.frame()->clearDataList();
         mfxBitstream *inputBitstream = (m_getNextBitstream) ? &m_decInputBitstream.bitstream() : nullptr;
         auto mfxSurfDecWork = surfDecWork.mfx()->surf();
+        if (m_decSubmitValid) {
+            applyDecSubmitInfo(mfxSurfDecWork);
+        }
         if (!m_mfxDecParams.mfx.FrameInfo.FourCC) {
             //デコード前には、デコード用のパラメータでFrameInfoを更新
             copy_crop_info(mfxSurfDecWork, &m_mfxDecParams.mfx.FrameInfo);
@@ -1384,9 +1661,11 @@ protected:
         mfxStatus dec_sts = MFX_ERR_NONE;
         mfxSyncPoint lastSyncP = nullptr;
         mfxFrameSurface1 *surfDecOut = nullptr;
+        int decReinitTries = 0;
         for (int i = 0; ; i++) {
             if (m_stopwatch) m_stopwatch->set(0);
             const auto inputDataLen = (inputBitstream) ? inputBitstream->DataLength : 0;
+            const mfxU32 inputDataOffset = (inputBitstream) ? inputBitstream->DataOffset : 0;
             mfxSyncPoint decSyncPoint = nullptr;
             dec_sts = m_dec->DecodeFrameAsync(inputBitstream, mfxSurfDecWork, &surfDecOut, &decSyncPoint);
             lastSyncP = decSyncPoint;
@@ -1403,6 +1682,22 @@ protected:
                 dec_sts = MFX_ERR_NONE; //出力があれば、警告は無視する
                 break;
             } else if (dec_sts < MFX_ERR_NONE && (dec_sts != MFX_ERR_MORE_DATA && dec_sts != MFX_ERR_MORE_SURFACE)) {
+                if (dec_sts == MFX_ERR_INCOMPATIBLE_VIDEO_PARAM && inputBitstream && decReinitTries < 4) {
+                    // Sandy/Ivyだけがここへ来る。Haswell以降は上限以内の解像度変化をエラーにしない。
+                    // この呼び出し自体が古いシーケンスのフレームを出している場合は、Close前にキューへ載せる。
+                    // alignDecoderToBitstreamが同期点を無効化する前に載せておかないと、その1枚が消える。
+                    if (surfDecOut != nullptr && decSyncPoint != nullptr) {
+                        if (pushDecodedSurface(surfDecOut, decSyncPoint)) {
+                            return RGY_ERR_MORE_BITSTREAM;
+                        }
+                        surfDecOut = nullptr;
+                        lastSyncP = nullptr;
+                    }
+                    if (alignDecoderToBitstream(inputBitstream, mfxSurfDecWork, inputDataOffset, inputDataLen)) {
+                        decReinitTries++;
+                        continue;
+                    }
+                }
                 PrintMes(RGY_LOG_ERROR, _T("DecodeFrameAsync error: %s.\n"), get_err_mes(dec_sts));
                 break;
             } else {
@@ -1424,59 +1719,9 @@ protected:
         }
         if (m_stopwatch) m_stopwatch->add(0, 3);
         //MFXデコーダは解像度変更をエラーとせず、Info.CropW/CropHを更新したサーフェスをそのまま出してくる。
-        //ここではログを出すだけで下流へそのまま流し、追従は後段のMFX VPP / OpenCLフィルタで行う。
-        if (surfDecOut != nullptr
-            && (surfDecOut->Info.CropW != m_prevOutputCropWidth || surfDecOut->Info.CropH != m_prevOutputCropHeight)) {
-            PrintMes(RGY_LOG_DEBUG, _T("decoder output resolution changed: %dx%d -> %dx%d.\n"),
-                (int)m_prevOutputCropWidth, (int)m_prevOutputCropHeight,
-                (int)surfDecOut->Info.CropW, (int)surfDecOut->Info.CropH);
-            m_prevOutputCropWidth = surfDecOut->Info.CropW;
-            m_prevOutputCropHeight = surfDecOut->Info.CropH;
-        }
-        const int64_t surfDecOutTimestamp = (surfDecOut != nullptr) ? (int64_t)surfDecOut->Data.TimeStamp : AV_NOPTS_VALUE;
-        if (m_endPts >= 0
-            && surfDecOut != nullptr
-            && surfDecOutTimestamp >= m_endPts) { // m_endPtsは含まないようにする(重要)
-            m_getNextBitstream = false;
+        //追従は後段のMFX VPP / OpenCLフィルタで行う。
+        if (surfDecOut != nullptr && lastSyncP != nullptr && pushDecodedSurface(surfDecOut, lastSyncP)) {
             return RGY_ERR_MORE_BITSTREAM; //入力ビットストリームは終了
-        }
-        if (surfDecOut != nullptr && lastSyncP != nullptr
-            // 最初のフレームはOpenGOPのBフレームのために投入フレーム以前のデータの場合があるので、その場合はフレームを無視する
-            && (!m_gotFirstPts || m_firstPts <= surfDecOutTimestamp || m_decFrameOutCount > 0)) {
-            auto taskSurf = useTaskSurf(surfDecOut);
-            const auto picstruct = taskSurf.mfx()->surf()->Info.PicStruct;
-            auto flags = RGY_FRAME_FLAG_NONE;
-            // RFFの場合、MFX_PICSTRUCT_PROGRESSIVEに加えて、MFX_PICSTRUCT_FIELD_TFFまたはMFX_PICSTRUCT_FIELD_BFF、MFX_PICSTRUCT_FIELD_REPEATEDが立っている
-            // picstructにはprogressiveを設定し、flagsにRFF関係の情報を設定しなおす
-            // この情報の取得には、m_mfxDecParams.mfx.ExtendedPicStruct = 1 としてデコーダを初期化する必要がある
-            if ((picstruct & MFX_PICSTRUCT_PROGRESSIVE) && (picstruct & (MFX_PICSTRUCT_FIELD_TFF| MFX_PICSTRUCT_FIELD_BFF))) {
-                taskSurf.frame()->setPicstruct(RGY_PICSTRUCT_FRAME);
-                if (picstruct & MFX_PICSTRUCT_FIELD_REPEATED) {
-                    flags |= RGY_FRAME_FLAG_RFF;
-                }
-            }
-            if (picstruct & MFX_PICSTRUCT_FIELD_TFF) {
-                flags |= RGY_FRAME_FLAG_RFF_TFF;
-            }
-            if (picstruct & MFX_PICSTRUCT_FIELD_BFF) {
-                flags |= RGY_FRAME_FLAG_RFF_BFF;
-            }
-            taskSurf.frame()->setInputFrameId(m_decFrameOutCount++);
-
-            if (getDataFlag(surfDecOutTimestamp) & RGY_FRAME_FLAG_RFF) {
-                flags |= RGY_FRAME_FLAG_RFF;
-            }
-            taskSurf.frame()->setFlags(flags);
-            taskSurf.frame()->setDuration(0); // QSVはdurationを返さない
-
-            taskSurf.frame()->clearDataList();
-            if (auto data = getMetadata(RGY_FRAME_DATA_HDR10PLUS, surfDecOutTimestamp); data) {
-                taskSurf.frame()->dataList().push_back(data);
-            }
-            if (auto data = getMetadata(RGY_FRAME_DATA_DOVIRPU, surfDecOutTimestamp); data) {
-                taskSurf.frame()->dataList().push_back(data);
-            }
-            m_outQeueue.push_back(std::make_unique<PipelineTaskOutputSurf>(m_mfxSession, taskSurf, lastSyncP));
         }
         if (m_stopwatch) m_stopwatch->add(0, 4);
         return err_to_rgy(dec_sts);

@@ -489,11 +489,19 @@ RGY_ERR CQSVPipeline::InitMfxDecParams(const std::pair<int, int>& adaptResolutio
             // ここでは前者だけを上限まで広げ、CropW/CropHは初回シーケンスの解像度のままにする。
             // Crop側も広げると、VPPや出力解像度の初期化に「上限値が現在の映像サイズ」として伝播してしまう。
             //
-            // ハマった点: QueryIOSurf用の外部サーフェスだけを大きくしても不十分。MFXデコーダは
-            // Init時のFrameInfoもシーケンス上限として保持し、それを超える切り替えを
-            // MFX_ERR_INCOMPATIBLE_VIDEO_PARAMで拒否する。そのためSetParamがヘッダから値を決めた後、
-            // QueryIOSurf/Initより前のこの位置で書き換える必要がある。
+            // ハマった点: QueryIOSurf用の外部サーフェスだけを大きくしても不十分。Haswell以降の
+            // Media SDK / oneVPLは、Init時のFrameInfo.Width/Heightを「そのセッションで受け入れる
+            // シーケンス上限」として保持し、上限以内の解像度切り替えはCropの更新だけで通す。
+            // 上限を超える切り替えだけがMFX_ERR_INCOMPATIBLE_VIDEO_PARAMになる。そのため
+            // SetParamがヘッダから値を決めた後、QueryIOSurf/Initより前のこの位置で広げる。
             // 16アライン後もmfxU16に収まることは、initReaders後の入力パラメータ検査で保証している。
+            //
+            // この上限の解釈はHaswell以降の話である。Sandy BridgeとIvy BridgeはWidth/Heightを
+            // 上限ではなく「今デコードする符号化寸法」として検査する。ここを1920x1088に広げた
+            // まま1440x1080や720x480を渡すと、最初のDecodeFrameAsyncからINCOMPATIBLEになる。
+            // 途中のシーケンスヘッダ変化(1920→1280、1440→720など)でも同じエラーで停止する。
+            // そちらの追従はPipelineTaskMFXDecode::alignDecoderToBitstreamが、確保済みプールは
+            // 維持したままデコーダだけ実寸でClose/Initし直す。Haswell以降はこの経路に入らない。
             auto& frameInfo = m_mfxDEC->mfxparams().mfx.FrameInfo;
             frameInfo.Width = (mfxU16)std::max<int>(frameInfo.Width, ALIGN(adaptResolution.first, 16));
             frameInfo.Height = (mfxU16)std::max<int>(frameInfo.Height, ALIGN(adaptResolution.second, 16));
@@ -2000,6 +2008,7 @@ CQSVPipeline::CQSVPipeline() :
     m_taskPerfMonitor(false),
     m_dummyLoad(),
     m_pAbortByUser(nullptr),
+    m_pPreviewAbort(nullptr),
     m_heAbort(),
     m_DecInputBitstream(),
     m_cl(),
@@ -2031,6 +2040,10 @@ CQSVPipeline::~CQSVPipeline() {
 
 void CQSVPipeline::SetAbortFlagPointer(bool *abortFlag) {
     m_pAbortByUser = abortFlag;
+}
+
+void CQSVPipeline::SetPreviewAbortFlagPointer(std::atomic<bool> *abortFlag) {
+    m_pPreviewAbort = abortFlag;
 }
 
 RGY_ERR CQSVPipeline::readChapterFile(tstring chapfile) {
@@ -5856,6 +5869,7 @@ void CQSVPipeline::Close() {
     m_sessionParams.threads = 0;
     m_sessionParams.deviceCopy = false;
     m_pAbortByUser = nullptr;
+    m_pPreviewAbort = nullptr;
     m_nAVSyncMode = RGY_AVSYNC_AUTO;
     m_nProcSpeedLimit = 0;
     m_taskPerfMonitor = false;
@@ -6267,9 +6281,9 @@ RGY_ERR CQSVPipeline::RunEncode2() {
     TCHAR handleEvent[256];
     _stprintf_s(handleEvent, QSVENCC_ABORT_EVENT, GetCurrentProcessId());
     auto heAbort = std::unique_ptr<std::remove_pointer<HANDLE>::type, handle_deleter>((HANDLE)CreateEvent(nullptr, TRUE, FALSE, handleEvent));
-    auto checkAbort = [pabort = m_pAbortByUser, &heAbort]() { return ((pabort != nullptr && *pabort) || WaitForSingleObject(heAbort.get(), 0) == WAIT_OBJECT_0) ? true : false; };
+    auto checkAbort = [pabort = m_pAbortByUser, previewAbort = m_pPreviewAbort, &heAbort]() { return ((previewAbort && previewAbort->load()) || (pabort != nullptr && *pabort) || WaitForSingleObject(heAbort.get(), 0) == WAIT_OBJECT_0) ? true : false; };
 #else
-    auto checkAbort = [pabort = m_pAbortByUser]() { return  (pabort != nullptr && *pabort); };
+    auto checkAbort = [pabort = m_pAbortByUser, previewAbort = m_pPreviewAbort]() { return (previewAbort && previewAbort->load()) || (pabort != nullptr && *pabort); };
 #endif
     m_pStatus->SetStart();
 
@@ -6323,8 +6337,9 @@ RGY_ERR CQSVPipeline::RunEncode2() {
     std::vector<char> firstSendFrame(m_pipelineTasks.size(), false);
     std::deque<PipelineTaskData> dataqueue;
     {
-        auto checkContinue = [&checkAbort](RGY_ERR& err) {
-            if (checkAbort() || stdInAbort()) { err = RGY_ERR_ABORTED; return false; }
+        auto checkContinue = [&checkAbort, this](RGY_ERR& err) {
+            // 常駐時の標準入力は要求受信スレッドだけが読む。
+            if (checkAbort() || (!m_pPreviewAbort && stdInAbort())) { err = RGY_ERR_ABORTED; return false; }
             return err >= RGY_ERR_NONE || err == RGY_ERR_MORE_DATA || err == RGY_ERR_MORE_SURFACE;
             };
         while (checkContinue(err)) {

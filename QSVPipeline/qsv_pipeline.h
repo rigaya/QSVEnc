@@ -64,6 +64,7 @@
 #include "qsv_session.h"
 #include "qsv_device.h"
 
+#include <atomic>
 #include <vector>
 #include <memory>
 #include <string>
@@ -101,6 +102,7 @@ public:
     virtual RGY_ERR CheckCurrentVideoParam(TCHAR *buf = NULL, mfxU32 bufSize = 0);
 
     virtual void SetAbortFlagPointer(bool *abort);
+    void SetPreviewAbortFlagPointer(std::atomic<bool> *abort);
 
     virtual RGY_ERR GetEncodeStatusData(EncodeStatusData *data);
     virtual void GetEncodeLibInfo(mfxVersion *ver, bool *hardware);
@@ -177,6 +179,7 @@ protected:
     std::unique_ptr<RGYDummyLoadCL> m_dummyLoad;
 
     bool *m_pAbortByUser;
+    std::atomic<bool> *m_pPreviewAbort;
     unique_ptr<std::remove_pointer<HANDLE>::type, handle_deleter> m_heAbort;
 
     RGYBitstream m_DecInputBitstream;
@@ -206,6 +209,8 @@ protected:
     virtual RGY_ERR createOpenCLCopyFilterForPreVideoMetric();
     virtual RGY_ERR InitOutput(sInputParams *pParams);
     // adaptResolutionは現在のCropではなく、MFXデコーダの符号化・確保寸法の上限として使う。
+    // Haswell以降はこの上限Initだけで解像度変化に追従する。Sandy BridgeとIvy Bridgeは
+    // Width/Heightを現在の符号化寸法として検査するため、別途デコーダの再初期化が必要。
     virtual RGY_ERR InitMfxDecParams(const std::pair<int, int>& adaptResolution);
     std::pair<RGY_ERR, QSVEncFeatures> CheckMFXRCMode(QSVRCParam& rcParam, sInputParams *pParams, const int codecMaxQP);
     virtual RGY_ERR InitMfxEncodeParams(sInputParams *pParams, std::vector<std::unique_ptr<QSVDevice>>& devList);
