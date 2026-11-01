@@ -5808,18 +5808,15 @@ void CQSVPipeline::Close() {
     m_DecInputBitstream.clear();
 
     PrintMes(RGY_LOG_DEBUG, _T("Closing device...\n"));
-#if ENABLE_VAAPI
-    // sharing context が参照する VA display より先に OpenCL を解放する。
-    if (m_backend == QSVBackend::VAAPI) m_cl.reset();
-#endif
+    // 共有先のD3D11デバイスやVA displayが生きている間にOpenCLコンテキストを解放する。
+    // D3D11でデバイスを先に破棄すると、常駐プレビューで要求を繰り返したときにドライバ内でヒープ破壊が起きうる。
+    m_cl.reset();
     m_device.reset();
     m_deviceUsage.reset();
     m_parallelEnc.reset();
 
     m_trimParam.list.clear();
     m_trimParam.offset = 0;
-
-    m_cl.reset();
 
     PrintMes(RGY_LOG_DEBUG, _T("Closing audio readers (if used)...\n"));
     m_AudioReaders.clear();
