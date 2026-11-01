@@ -286,6 +286,8 @@ protected:
     RGYOpenCLEvent m_eventMergeScan;
     int m_nFrame;
     int64_t m_nPts;
+    int64_t m_inputOriginPts;
+    bool m_inputOriginValid;
 
     afsSourceCache  m_source;
     afsScanCache    m_scan;
