@@ -1,5 +1,9 @@
 # QSVEnc Release Notes
 
+## 8.37
+
+- Fix failure to decode resolution-changing streams on Sandy Bridge/Ivy Bridge when using [--adapt-resolution](./QSVEncC_Options.en.md#--adapt-resolution-intxint).
+
 ## 8.36
 
 - Fix old frames mixed in when using [--vpp-kfm](./QSVEncC_Options.en.md#--vpp-kfm-param1value1param2value2).

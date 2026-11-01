@@ -314,6 +314,10 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2026.11.01 (8.37)
+[QSVEncC]
+- --adapt-resolution使用時、Sandy Bridge/Ivy Bridgeで解像度の変わるストリームをデコードできない問題を修正。
+
 2026.10.31 (8.36)
 [QSVEncC]
 - --vpp-kfm使用時に過去フレームが混入する問題を修正。
