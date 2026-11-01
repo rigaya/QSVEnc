@@ -6459,7 +6459,9 @@ RGY_ERR CQSVPipeline::RunEncode2() {
                     if (stopwatchOutput) stopwatchOutput->add(0, 0);
                 }
             }
-            if (flushFailed) {
+            // whileの条件で中断した場合も外側を抜け、ABORTEDを次のerr初期化で失わないようにする。
+            // 進捗なしで再反復すると、未処理のflush作業が蓄積して終了できなくなる。
+            if (flushFailed || err == RGY_ERR_ABORTED) {
                 break;
             }
             if (dataqueue.empty()) {
