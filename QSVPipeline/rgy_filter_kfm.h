@@ -373,6 +373,7 @@ protected:
         RGYOpenCLQueue &queue, RGYOpenCLEvent *event, int keepFrames);
     RGY_ERR drainNrFilter(RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
         RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
+    void invalidateStaticFlagCache();
     RGY_ERR clearStaticFlag(RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event = nullptr);
     RGY_ERR analyzeStaticFlag(int sourceIndex, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
     RGY_ERR analyzeStaticFlag(RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event);
@@ -702,6 +703,10 @@ protected:
     std::deque<KfmUcfNoiseDumpRecord> m_ucfNoiseResultCache;
     KfmUcfNoiseDumpRecord m_pendingUcfNoiseDump;
     std::unique_ptr<RGYCLFrame> m_staticFlag;
+    // 同じ元フレームの2フィールドで共有する。端のclamp先が変われば再計算する。
+    std::array<int, 3> m_staticFlagCacheKey;
+    RGYOpenCLEvent m_staticFlagCacheEvent;
+    bool m_staticFlagCacheValid;
     std::array<std::unique_ptr<RGYCLFrame>, 5> m_staticWorkFrames;
     std::array<std::unique_ptr<RGYCLBuf>, 2> m_analyzeFlags;
     std::deque<KfmPendingFMCount> m_pendingFMCounts;

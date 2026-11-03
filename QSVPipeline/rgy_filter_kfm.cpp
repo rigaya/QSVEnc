@@ -342,6 +342,9 @@ RGYFilterKfm::RGYFilterKfm(shared_ptr<RGYOpenCLContext> context) :
     m_ucfNoiseResultCache(),
     m_pendingUcfNoiseDump(),
     m_staticFlag(),
+    m_staticFlagCacheKey(),
+    m_staticFlagCacheEvent(),
+    m_staticFlagCacheValid(false),
     m_staticWorkFrames(),
     m_analyzeFlags(),
     m_pendingFMCounts(),
@@ -1193,6 +1196,7 @@ RGYFrameInfo *RGYFilterKfm::nextWorkFrame() {
 }
 
 RGY_ERR RGYFilterKfm::initAnalyzer(const RGYFilterParamKfm& prm) {
+    invalidateStaticFlagCache();
     if (m_cl && !m_pendingUcfNoiseResults.empty()) {
         auto sts = resolveAllUcfNoiseResults(m_cl->queue());
         if (sts != RGY_ERR_NONE) {
@@ -1751,6 +1755,7 @@ RGY_ERR RGYFilterKfm::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog>
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
+        invalidateStaticFlagCache();
         m_staticFlag = m_cl->createFrameBuffer(prm->frameOut);
         if (!m_staticFlag) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM static flag frame.\n"));
@@ -1820,6 +1825,7 @@ RGY_ERR RGYFilterKfm::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog>
         if (sts != RGY_ERR_NONE) {
             return sts;
         }
+        invalidateStaticFlagCache();
         m_staticFlag = m_cl->createFrameBuffer(prm->frameOut);
         if (!m_staticFlag) {
             AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM static flag frame.\n"));
@@ -1852,6 +1858,7 @@ RGY_ERR RGYFilterKfm::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog>
         m_before60Lane.init(this, m_before60Rtgmc.get(), "before60", _T("before60"), false);
         m_after60Lane.init(this, m_after60Rtgmc.get(), "after60", _T("after60"), false);
         if (!m_staticFlag) {
+            invalidateStaticFlagCache();
             m_staticFlag = m_cl->createFrameBuffer(prm->frameOut);
             if (!m_staticFlag) {
                 AddMessage(RGY_LOG_ERROR, _T("failed to allocate KFM static flag frame.\n"));
@@ -5777,7 +5784,13 @@ int RGYFilterKfm::telecine24FrameCount(bool drain) const {
     return readyFrames;
 }
 
+void RGYFilterKfm::invalidateStaticFlagCache() {
+    m_staticFlagCacheValid = false;
+    m_staticFlagCacheEvent = RGYOpenCLEvent();
+}
+
 RGY_ERR RGYFilterKfm::clearStaticFlag(RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) {
+    invalidateStaticFlagCache();
     if (!m_staticFlag || !m_programs[KFM_PROG_STATIC].get()) {
         return RGY_ERR_INVALID_CALL;
     }
@@ -5837,16 +5850,30 @@ RGY_ERR RGYFilterKfm::analyzeStaticFlag(int sourceIndex, RGYOpenCLQueue &queue, 
         }
     }
 
+    std::array<int, 3> cacheKey = { sourceIndex, 0, 0 };
     std::vector<RGYOpenCLEvent> sourceWaitEvents = wait_events;
     for (int offset = -3; offset <= 3; offset++) {
         const auto *src = findSourceByIndex(sourceIndex + offset);
         if (!src || !src->frame || !src->frame->frame.ptr[0]) {
             return clearStaticFlag(queue, wait_events, event);
         }
+        if (offset == -3) {
+            cacheKey[1] = src->sourceIndex;
+        } else if (offset == 3) {
+            cacheKey[2] = src->sourceIndex;
+        }
         if (src->event() != nullptr) {
             sourceWaitEvents.push_back(src->event);
         }
     }
+    if (m_staticFlagCacheValid && m_staticFlagCacheKey == cacheKey) {
+        if (event) {
+            *event = m_staticFlagCacheEvent;
+        }
+        return RGY_ERR_NONE;
+    }
+    // 以後の投入が途中で失敗しても、上書き途中のflagを再利用しない。
+    invalidateStaticFlagCache();
     if (cur->paddedEvent() != nullptr) {
         sourceWaitEvents.push_back(cur->paddedEvent);
     }
@@ -6069,11 +6096,17 @@ RGY_ERR RGYFilterKfm::analyzeStaticFlag(int sourceIndex, RGYOpenCLQueue &queue, 
             AddMessage(RGY_LOG_ERROR, _T("error at kernel_kfm_apply_uv_coefs_420: %s.\n"), get_err_mes(err));
             return err;
         }
+        m_staticFlagCacheKey = cacheKey;
+        m_staticFlagCacheEvent = applyEvent;
+        m_staticFlagCacheValid = true;
         if (event && applyEvent() != nullptr) {
             *event = applyEvent;
         }
         return RGY_ERR_NONE;
     }
+    m_staticFlagCacheKey = cacheKey;
+    m_staticFlagCacheEvent = andEvent;
+    m_staticFlagCacheValid = true;
     if (event && andEvent() != nullptr) {
         *event = andEvent;
     }
@@ -9289,6 +9322,7 @@ void RGYFilterKfm::logKfmProfileStats() {
 }
 
 void RGYFilterKfm::close() {
+    invalidateStaticFlagCache();
     if (m_cl && !m_pendingUcfNoiseResults.empty()) {
         auto sts = resolveAllUcfNoiseResults(m_cl->queue());
         if (sts != RGY_ERR_NONE) {
