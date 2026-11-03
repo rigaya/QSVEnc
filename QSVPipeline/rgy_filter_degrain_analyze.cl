@@ -326,49 +326,116 @@ __kernel void kernel_degrain_temporal_smooth_luma(
     const int rep0) {
     const int x = (int)get_global_id(0);
     const int y = (int)get_global_id(1);
+#if DEGRAIN_SEARCH_REFINE == 0 && DEGRAIN_REP0 == 0
     if (x >= width || y >= height) {
         return;
     }
-
-    const int analysisValue =
-#if DEGRAIN_REP0 >= 1
-        degrain_rep0_repair_value(
-            prev2, src_pitch,
-            prev, src_pitch,
-            cur, src_pitch,
-            next, src_pitch,
-            next2, src_pitch,
-            width, height,
-            x, y, tr0, search_refine);
-#elif DEGRAIN_REP0 == 0
-        degrain_analysis_prefilter_value(
-            prev2, src_pitch,
-            prev, src_pitch,
-            cur, src_pitch,
-            next, src_pitch,
-            next2, src_pitch,
-            width, height,
-            x, y, tr0, search_refine);
+    const int analysisValue = degrain_temporal_smooth_value(
+        prev2, src_pitch, prev, src_pitch, cur, src_pitch,
+        next, src_pitch, next2, src_pitch, width, height, x, y, tr0);
 #else
-        (rep0 >= 1)
-            ? degrain_rep0_repair_value(
-            prev2, src_pitch,
-            prev, src_pitch,
-            cur, src_pitch,
-            next, src_pitch,
-            next2, src_pitch,
-            width, height,
-            x, y, tr0, search_refine)
-        : degrain_analysis_prefilter_value(
-            prev2, src_pitch,
-            prev, src_pitch,
-            cur, src_pitch,
-            next, src_pitch,
-            next2, src_pitch,
-            width, height,
-            x, y, tr0, search_refine);
+    // 仮想座標のまま各段を評価する。先に座標を丸めると端のrefine/repairが変わる。
+    enum { tileWidth = 16, tileHeight = 16,
+#if DEGRAIN_REP0 == 0
+        repairHalo = 0,
+#else
+        repairHalo = 2,
 #endif
-
+        prefilterHeight = tileHeight + 2 * repairHalo };
+    const int lx = (int)get_local_id(0);
+    const int ly = (int)get_local_id(1);
+    const int originX = (int)get_group_id(0) * tileWidth;
+    const int originY = (int)get_group_id(1) * tileHeight;
+    const int localIndex = ly * tileWidth + lx;
+#if DEGRAIN_SEARCH_REFINE >= 1
+    const int refineEnabled = 1;
+#elif DEGRAIN_SEARCH_REFINE == 0
+    const int refineEnabled = 0;
+#else
+    const int refineEnabled = search_refine >= 1;
+#endif
+#if DEGRAIN_SEARCH_REFINE != 0
+    enum { temporalWidth = tileWidth + 2, temporalHeight = prefilterHeight + 2 };
+    __local int temporal[temporalHeight][temporalWidth];
+    for (int i = localIndex; i < temporalWidth * temporalHeight; i += tileWidth * tileHeight) {
+        const int tx = i % temporalWidth;
+        const int ty = i / temporalWidth;
+        temporal[ty][tx] = degrain_temporal_smooth_value(
+            prev2, src_pitch, prev, src_pitch, cur, src_pitch,
+            next, src_pitch, next2, src_pitch, width, height,
+            originX + tx - 1, originY + ty - repairHalo - 1, tr0);
+    }
+    // 範囲外のwork-itemもhaloの生成と同期に参加させる。
+    barrier(CLK_LOCAL_MEM_FENCE);
+#endif
+#if DEGRAIN_REP0 != 0
+    __local int prefilter[prefilterHeight][tileWidth];
+#endif
+    int analysisValue = 0;
+    for (int i = localIndex; i < tileWidth * prefilterHeight; i += tileWidth * tileHeight) {
+        const int px = i % tileWidth;
+        const int py = i / tileWidth;
+        int value;
+#if DEGRAIN_SEARCH_REFINE != 0
+        const int p11 = temporal[py + 1][px + 1];
+        value = p11;
+        if (refineEnabled) {
+            const int p00 = temporal[py][px];
+            const int p10 = temporal[py][px + 1];
+            const int p20 = temporal[py][px + 2];
+            const int p01 = temporal[py + 1][px];
+            const int p21 = temporal[py + 1][px + 2];
+            const int p02 = temporal[py + 2][px];
+            const int p12 = temporal[py + 2][px + 1];
+            const int p22 = temporal[py + 2][px + 2];
+            const int blur = degrain_blur3x3_weighted(p00, p10, p20, p01, p11, p21, p02, p12, p22);
+            const int edgeSoft = degrain_edge_soften_cross(p01, p10, p11, p12, p21);
+            value = degrain_search_refine1_blend(p11, blur, edgeSoft, p01, p10, p21, p12);
+        }
+#else
+        value = degrain_temporal_smooth_value(
+            prev2, src_pitch, prev, src_pitch, cur, src_pitch,
+            next, src_pitch, next2, src_pitch, width, height,
+            originX + px, originY + py - repairHalo, tr0);
+#endif
+#if DEGRAIN_REP0 != 0
+        prefilter[py][px] = value;
+#else
+        analysisValue = value;
+#endif
+    }
+#if DEGRAIN_REP0 != 0
+    barrier(CLK_LOCAL_MEM_FENCE);
+    analysisValue = prefilter[ly + repairHalo][lx];
+#if DEGRAIN_REP0 >= 1
+    const int repairEnabled = 1;
+#else
+    const int repairEnabled = rep0 >= 1;
+#endif
+    if (repairEnabled) {
+        const int p0 = analysisValue;
+        const int p1u = prefilter[ly + 1][lx];
+        const int p1d = prefilter[ly + 3][lx];
+        const int p2u = prefilter[ly][lx];
+        const int p2d = prefilter[ly + 4][lx];
+        const int vertAvg = (p1u + p1d + 1) >> 1;
+        const int nearDiff = abs(p1u - p1d);
+        const int farDiff = abs(p2u - p2d);
+        const int centerDiff = abs(p0 - vertAvg);
+        const int flatness = nearDiff + (farDiff >> 1);
+        const int threshold = max(flatness + max(DEGRAIN_PIXEL_MAX / 64, 1), max(DEGRAIN_PIXEL_MAX / 32, 1));
+        if (centerDiff > threshold) {
+            const int repair = (p0 + 3 * vertAvg + 2) >> 2;
+            const int lo = min(min(p1u, p1d), min(p2u, p2d));
+            const int hi = max(max(p1u, p1d), max(p2u, p2d));
+            analysisValue = clamp(repair, lo, hi);
+        }
+    }
+#endif
+    if (x >= width || y >= height) {
+        return;
+    }
+#endif
     *(__global TypePixel *)(dst + y * dst_pitch + x * (int)sizeof(TypePixel)) =
         degrain_clamp_pixel(degrain_analysis_luma_to_full_range(analysisValue));
 }
