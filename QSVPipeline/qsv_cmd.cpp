@@ -179,10 +179,8 @@ tstring gen_cmd_help_vppmfx() {
         _T("      scd=<bool>            enable scene change detection (default: %s)\n"),
         interpolation.enableScd ? _T("true") : _T("false"));
     str += _T("\n")
-        _T("  [denoise] Denoise\n")
-        _T("   --vpp-perc-pre-enc         enable perceptual pre-encoding filter\n")
-        _T("\n")
         _T("  [other] Other settings\n")
+        _T("   --vpp-perc-pre-enc         enable perceptual pre-encoding filter\n")
         _T("   --vpp-mfx-insert-clcopy [<int>] insert OpenCL copy after MFX filters (default: 1, range: 0..2)\n")
         _T("     0 disables the copy; 1 enables it only without D3D11 support; 2 always enables it.\n")
         _T("     Without this option, the copy is disabled.\n");
