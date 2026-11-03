@@ -363,6 +363,18 @@ static inline int rtgmc_search_prefilter_motion_guide_blend_stabilized_value(
     return rtgmc_search_prefilter_motion_guide_stabilize_value(motionGuide, fieldGuide, blendedGuide);
 }
 
+#ifndef RTGMC_SEARCH_PREFILTER_SCENE_RADIUS
+#define RTGMC_SEARCH_PREFILTER_SCENE_RADIUS 2
+#endif
+#ifndef RTGMC_SEARCH_PREFILTER_SCENE_SUBGROUP
+#define RTGMC_SEARCH_PREFILTER_SCENE_SUBGROUP 0
+#endif
+#if RTGMC_SEARCH_PREFILTER_SCENE_SUBGROUP == 2
+#pragma OPENCL EXTENSION cl_intel_subgroups : enable
+#elif RTGMC_SEARCH_PREFILTER_SCENE_SUBGROUP == 1
+#pragma OPENCL EXTENSION cl_khr_subgroups : enable
+#endif
+
 __attribute__((reqd_work_group_size(rtgmc_search_prefilter_block_x, rtgmc_search_prefilter_block_y, 1)))
 __kernel void kernel_rtgmc_search_prefilter_scenechange(
     __global const uchar *prev2,
@@ -382,41 +394,103 @@ __kernel void kernel_rtgmc_search_prefilter_scenechange(
 
     __local uint sadPrev[RTGMC_SEARCH_PREFILTER_BLOCK_PIXELS];
     __local uint sadNext[RTGMC_SEARCH_PREFILTER_BLOCK_PIXELS];
+#if RTGMC_SEARCH_PREFILTER_SCENE_RADIUS >= 2
     __local uint sadPrev2[RTGMC_SEARCH_PREFILTER_BLOCK_PIXELS];
     __local uint sadNext2[RTGMC_SEARCH_PREFILTER_BLOCK_PIXELS];
+#endif
 
     uint diffPrev = 0;
     uint diffNext = 0;
+#if RTGMC_SEARCH_PREFILTER_SCENE_RADIUS >= 2
     uint diffPrev2 = 0;
     uint diffNext2 = 0;
+#endif
     if (x < width && y < height) {
         const int value = rtgmc_search_prefilter_pixel_load(cur, src_pitch, width, height, x, y);
         diffPrev = (uint)abs(value - rtgmc_search_prefilter_pixel_load(prev, src_pitch, width, height, x, y));
         diffNext = (uint)abs(value - rtgmc_search_prefilter_pixel_load(next, src_pitch, width, height, x, y));
+#if RTGMC_SEARCH_PREFILTER_SCENE_RADIUS >= 2
         diffPrev2 = (uint)abs(value - rtgmc_search_prefilter_pixel_load(prev2, src_pitch, width, height, x, y));
         diffNext2 = (uint)abs(value - rtgmc_search_prefilter_pixel_load(next2, src_pitch, width, height, x, y));
+#endif
     }
+#if RTGMC_SEARCH_PREFILTER_SCENE_SUBGROUP
+    const int subgroup = (int)get_sub_group_id();
+    const int lane = (int)get_sub_group_local_id();
+    uint sumPrev = sub_group_reduce_add(diffPrev);
+    uint sumNext = sub_group_reduce_add(diffNext);
+#if RTGMC_SEARCH_PREFILTER_SCENE_RADIUS >= 2
+    uint sumPrev2 = sub_group_reduce_add(diffPrev2);
+    uint sumNext2 = sub_group_reduce_add(diffNext2);
+#endif
+    if (lane == 0) {
+        sadPrev[subgroup] = sumPrev;
+        sadNext[subgroup] = sumNext;
+#if RTGMC_SEARCH_PREFILTER_SCENE_RADIUS >= 2
+        sadPrev2[subgroup] = sumPrev2;
+        sadNext2[subgroup] = sumNext2;
+#endif
+    }
+    barrier(CLK_LOCAL_MEM_FENCE);
+    if (subgroup == 0) {
+        sumPrev = 0;
+        sumNext = 0;
+#if RTGMC_SEARCH_PREFILTER_SCENE_RADIUS >= 2
+        sumPrev2 = 0;
+        sumNext2 = 0;
+#endif
+        for (int i = lane; i < (int)get_num_sub_groups(); i += (int)get_sub_group_size()) {
+            sumPrev += sadPrev[i];
+            sumNext += sadNext[i];
+#if RTGMC_SEARCH_PREFILTER_SCENE_RADIUS >= 2
+            sumPrev2 += sadPrev2[i];
+            sumNext2 += sadNext2[i];
+#endif
+        }
+        sumPrev = sub_group_reduce_add(sumPrev);
+        sumNext = sub_group_reduce_add(sumNext);
+#if RTGMC_SEARCH_PREFILTER_SCENE_RADIUS >= 2
+        sumPrev2 = sub_group_reduce_add(sumPrev2);
+        sumNext2 = sub_group_reduce_add(sumNext2);
+#endif
+    }
+    const int writer = subgroup == 0 && lane == 0;
+#else
     sadPrev[lid] = diffPrev;
     sadNext[lid] = diffNext;
+#if RTGMC_SEARCH_PREFILTER_SCENE_RADIUS >= 2
     sadPrev2[lid] = diffPrev2;
     sadNext2[lid] = diffNext2;
+#endif
     barrier(CLK_LOCAL_MEM_FENCE);
 
     for (int stride = RTGMC_SEARCH_PREFILTER_BLOCK_PIXELS >> 1; stride > 0; stride >>= 1) {
         if (lid < stride) {
             sadPrev[lid] += sadPrev[lid + stride];
             sadNext[lid] += sadNext[lid + stride];
+#if RTGMC_SEARCH_PREFILTER_SCENE_RADIUS >= 2
             sadPrev2[lid] += sadPrev2[lid + stride];
             sadNext2[lid] += sadNext2[lid + stride];
+#endif
         }
         barrier(CLK_LOCAL_MEM_FENCE);
     }
 
-    if (lid == 0 && groupIndex < groupCount) {
-        partial[4 + groupIndex + groupCount * 0] = sadPrev[0];
-        partial[4 + groupIndex + groupCount * 1] = sadNext[0];
-        partial[4 + groupIndex + groupCount * 2] = sadPrev2[0];
-        partial[4 + groupIndex + groupCount * 3] = sadNext2[0];
+    const uint sumPrev = sadPrev[0];
+    const uint sumNext = sadNext[0];
+#if RTGMC_SEARCH_PREFILTER_SCENE_RADIUS >= 2
+    const uint sumPrev2 = sadPrev2[0];
+    const uint sumNext2 = sadNext2[0];
+#endif
+    const int writer = lid == 0;
+#endif
+    if (writer && groupIndex < groupCount) {
+        partial[4 + groupIndex + groupCount * 0] = sumPrev;
+        partial[4 + groupIndex + groupCount * 1] = sumNext;
+#if RTGMC_SEARCH_PREFILTER_SCENE_RADIUS >= 2
+        partial[4 + groupIndex + groupCount * 2] = sumPrev2;
+        partial[4 + groupIndex + groupCount * 3] = sumNext2;
+#endif
     }
 }
 

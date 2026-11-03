@@ -291,9 +291,23 @@ RGY_ERR RGYFilterRtgmcSearchPrefilter::buildKernel(const std::shared_ptr<RGYFilt
         gaussWeights[2],
         gaussWeights[3],
         gaussWeights[4]);
+    m_buildOptions += strsprintf(" -D RTGMC_SEARCH_PREFILTER_SCENE_RADIUS=%d", prm->tr0);
     AddMessage(RGY_LOG_DEBUG, _T("Starting async build for RGY_FILTER_RTGMC_SEARCH_PREFILTER_CL: %s\n"),
         char_to_tstring(m_buildOptions).c_str());
-    m_prefilter.set(m_cl->buildResourceAsync(_T("RGY_FILTER_RTGMC_SEARCH_PREFILTER_CL"), _T("EXE_DATA"), m_buildOptions.c_str()));
+    auto subgroupOptions = m_buildOptions;
+    const auto support = m_cl->platform()->checkSubGroupSupport(m_cl->queue().devid());
+    if (support == RGYOpenCLSubGroupSupport::INTEL_EXT) {
+        subgroupOptions += " -D RTGMC_SEARCH_PREFILTER_SCENE_SUBGROUP=2";
+    } else if (support == RGYOpenCLSubGroupSupport::STD20KHR || support == RGYOpenCLSubGroupSupport::STD22) {
+        subgroupOptions += " -cl-std=CL2.0 -D RTGMC_SEARCH_PREFILTER_SCENE_SUBGROUP=1";
+    }
+    m_prefilter.set(m_cl->threadPool()->enqueue([cl = m_cl, baseOptions = m_buildOptions, subgroupOptions]() {
+        auto program = cl->buildResource(_T("RGY_FILTER_RTGMC_SEARCH_PREFILTER_CL"), _T("EXE_DATA"), subgroupOptions);
+        if (!program && subgroupOptions != baseOptions) {
+            program = cl->buildResource(_T("RGY_FILTER_RTGMC_SEARCH_PREFILTER_CL"), _T("EXE_DATA"), baseOptions);
+        }
+        return program;
+    }));
     return RGY_ERR_NONE;
 }
 
