@@ -2162,6 +2162,8 @@ RGY_ERR CQSVPipeline::InitOutput(sInputParams *inputParams) {
         }
     }
     if (outputVideoInfo.codec == RGY_CODEC_RAW) {
+        // rawのフレーム情報にはVUIがないため、フィルタ後に解決した値を出力へ渡す。
+        outputVideoInfo.vui = m_encVUI;
         inputParams->common.AVMuxTarget &= ~RGY_MUX_VIDEO;
         // OpenCLのフレーム情報にはSARがないため、エンコード時と同じ規則で補う。
         auto sar = std::make_pair(inputParams->nPAR[0], inputParams->nPAR[1]);
@@ -2559,24 +2561,37 @@ RGY_ERR CQSVPipeline::CheckParam(sInputParams *inputParam) {
 }
 
 void CQSVPipeline::applyInputVUIToColorspaceParams(sInputParams *inputParam) {
+    // 書かなかった項目は変えず、MFXとOpenCLの振り分け前に同じ値へ解決する。
+    const auto inheritMissing = [&](VideoVUIInfo value, const VideoVUIInfo& previous) {
+        if (value.matrix == RGY_MATRIX_UNSPECIFIED) value.matrix = previous.matrix;
+        if (value.colorprim == RGY_PRIM_UNSPECIFIED) value.colorprim = previous.colorprim;
+        if (value.transfer == RGY_TRANSFER_UNSPECIFIED) value.transfer = previous.transfer;
+        if (value.colorrange == RGY_COLORRANGE_UNSPECIFIED) value.colorrange = previous.colorrange;
+        if (value.chromaloc == RGY_CHROMALOC_UNSPECIFIED) value.chromaloc = previous.chromaloc;
+        value.apply_auto(previous, inputParam->input.srcHeight);
+        return value;
+    };
+    // 特殊演算の行列・色域・伝達特性の既定出力は、専用処理に任せる。
+    const bool specialOutput = inputParam->vpp.colorspace.hdr2sdr.tonemap != HDR2SDR_DISABLED || !inputParam->vpp.colorspace.lut3d.table_file.empty();
     auto currentVUI = inputParam->input.vui;
     for (size_t i = 0; i < inputParam->vpp.colorspace.convs.size(); i++) {
-        auto conv_from = inputParam->vpp.colorspace.convs[i].from;
-        conv_from.apply_auto(currentVUI, inputParam->input.srcHeight);
-        if (i == 0) {
-            inputParam->vppmfx.colorspace.from.matrix = conv_from.matrix;
-            inputParam->vppmfx.colorspace.from.range = conv_from.colorrange;
-        }
-
-        auto conv_to = inputParam->vpp.colorspace.convs[i].to;
-        const bool is_last_conversion = i == (inputParam->vpp.colorspace.convs.size() - 1);
-        if (is_last_conversion) {
-            conv_to.apply_auto(m_encVUI, m_encHeight);
-            inputParam->vppmfx.colorspace.to.matrix = conv_to.matrix;
-            inputParam->vppmfx.colorspace.to.range = conv_to.colorrange;
+        auto& conversion = inputParam->vpp.colorspace.convs[i];
+        conversion.from = inheritMissing(conversion.from, currentVUI);
+        if (!specialOutput) {
+            conversion.to = inheritMissing(conversion.to, conversion.from);
         } else {
-            conv_to.apply_auto(conv_from, inputParam->input.srcHeight);
+            if (conversion.to.colorrange == RGY_COLORRANGE_UNSPECIFIED) conversion.to.colorrange = conversion.from.colorrange;
+            if (conversion.to.chromaloc == RGY_CHROMALOC_UNSPECIFIED) conversion.to.chromaloc = conversion.from.chromaloc;
         }
+        if (i == 0) {
+            inputParam->vppmfx.colorspace.from.matrix = conversion.from.matrix;
+            inputParam->vppmfx.colorspace.from.range = conversion.from.colorrange;
+        }
+        if (i == inputParam->vpp.colorspace.convs.size() - 1) {
+            inputParam->vppmfx.colorspace.to.matrix = conversion.to.matrix;
+            inputParam->vppmfx.colorspace.to.range = conversion.to.colorrange;
+        }
+        currentVUI = conversion.to;
     }
 }
 
@@ -2590,17 +2605,16 @@ std::vector<VppType> CQSVPipeline::InitFiltersCreateVppList(const sInputParams *
         if (inputParam->vpp.colorspace.enable) {
             bool requireOpenCL = inputParam->vpp.colorspace.hdr2sdr.tonemap != HDR2SDR_DISABLED || inputParam->vpp.colorspace.lut3d.table_file.length() > 0;
             if (!requireOpenCL) {
-                auto currentVUI = inputParam->input.vui;
                 for (size_t i = 0; i < inputParam->vpp.colorspace.convs.size(); i++) {
                     auto conv_from = inputParam->vpp.colorspace.convs[i].from;
                     auto conv_to = inputParam->vpp.colorspace.convs[i].to;
+                    // MFXは601/709しか扱えず、同値の未対応行列も709へ丸めてしまう。
                     if (conv_from.chromaloc != conv_to.chromaloc
                         || conv_from.colorprim != conv_to.colorprim
                         || conv_from.transfer != conv_to.transfer) {
                         requireOpenCL = true;
-                    } else if (conv_from.matrix != conv_to.matrix
-                        && (conv_from.matrix != RGY_MATRIX_ST170_M && conv_from.matrix != RGY_MATRIX_BT709)
-                        && (conv_to.matrix != RGY_MATRIX_ST170_M && conv_to.matrix != RGY_MATRIX_BT709)) {
+                    } else if ((conv_from.matrix != RGY_MATRIX_ST170_M && conv_from.matrix != RGY_MATRIX_BT709)
+                        || (conv_to.matrix != RGY_MATRIX_ST170_M && conv_to.matrix != RGY_MATRIX_BT709)) {
                         requireOpenCL = true;
                     }
                 }
@@ -4561,18 +4575,20 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
 
     //VUI情報
     auto VuiFiltered = inputParam->input.vui;
+    const auto resolveOutputVui = [&](const VideoVUIInfo& source) {
+        m_encVUI = inputParam->common.out_vui;
+        m_encVUI.apply_auto(source, m_encHeight);
+        m_encVUI.setDescriptPreset();
 
-    m_encVUI = inputParam->common.out_vui;
-    m_encVUI.apply_auto(inputParam->input.vui, m_encHeight);
-    m_encVUI.setDescriptPreset();
-
-    if (inputParam->outputCsp == RGY_CHROMAFMT_RGB) {
-        m_encVUI.descriptpresent = 1;
-        if (m_encVUI.matrix     == RGY_MATRIX_UNSPECIFIED     || m_encVUI.matrix     == RGY_MATRIX_AUTO)     m_encVUI.matrix     = RGY_MATRIX_RGB;
-        if (m_encVUI.colorprim  == RGY_PRIM_UNSPECIFIED       || m_encVUI.colorprim  == RGY_PRIM_AUTO)       m_encVUI.colorprim  = RGY_PRIM_BT709;
-        if (m_encVUI.transfer   == RGY_TRANSFER_UNSPECIFIED   || m_encVUI.transfer   == RGY_TRANSFER_AUTO)   m_encVUI.transfer   = RGY_TRANSFER_IEC61966_2_1;
-        if (m_encVUI.colorrange == RGY_COLORRANGE_UNSPECIFIED || m_encVUI.colorrange == RGY_COLORRANGE_AUTO) m_encVUI.colorrange = RGY_COLORRANGE_FULL;
-    }
+        if (inputParam->outputCsp == RGY_CHROMAFMT_RGB) {
+            m_encVUI.descriptpresent = 1;
+            if (m_encVUI.matrix     == RGY_MATRIX_UNSPECIFIED     || m_encVUI.matrix     == RGY_MATRIX_AUTO)     m_encVUI.matrix     = RGY_MATRIX_RGB;
+            if (m_encVUI.colorprim  == RGY_PRIM_UNSPECIFIED       || m_encVUI.colorprim  == RGY_PRIM_AUTO)       m_encVUI.colorprim  = RGY_PRIM_BT709;
+            if (m_encVUI.transfer   == RGY_TRANSFER_UNSPECIFIED   || m_encVUI.transfer   == RGY_TRANSFER_AUTO)   m_encVUI.transfer   = RGY_TRANSFER_IEC61966_2_1;
+            if (m_encVUI.colorrange == RGY_COLORRANGE_UNSPECIFIED || m_encVUI.colorrange == RGY_COLORRANGE_AUTO) m_encVUI.colorrange = RGY_COLORRANGE_FULL;
+        }
+    };
+    resolveOutputVui(inputParam->input.vui);
 
     m_vpFilters.clear();
 
@@ -4669,6 +4685,11 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
             }
             if (delayedCspConv) {
                 outputCspConverted = true;
+            }
+            if (filterPipeline[i] == VppType::MFX_COLORSPACE) {
+                // MFXはこの2項目だけを変換する。実際のVideoSignalInfoと同じ解決結果を後段へ渡す。
+                VuiFiltered.matrix = inputParam->vppmfx.colorspace.to.matrix == RGY_MATRIX_ST170_M ? RGY_MATRIX_ST170_M : RGY_MATRIX_BT709;
+                VuiFiltered.colorrange = inputParam->vppmfx.colorspace.to.range == RGY_COLORRANGE_FULL ? RGY_COLORRANGE_FULL : RGY_COLORRANGE_LIMITED;
             }
             if (vppmfx) {
                 // 入力解像度の変化を直接受けるのは、先頭のVPPブロックだけ。先頭がOpenCLならそこで
@@ -4785,6 +4806,8 @@ RGY_ERR CQSVPipeline::InitFilters(sInputParams *inputParam) {
 
     m_encWidth  = inputFrame.width;
     m_encHeight = inputFrame.height;
+    // 初期化中の推定は保ち、出力には色変換フィルタを通った後のVUIを使う。
+    resolveOutputVui(VuiFiltered);
     return RGY_ERR_NONE;
 }
 
