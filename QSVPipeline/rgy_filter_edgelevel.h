@@ -42,6 +42,8 @@ class RGYFilterEdgelevel : public RGYFilter {
 public:
     RGYFilterEdgelevel(shared_ptr<RGYOpenCLContext> context);
     virtual ~RGYFilterEdgelevel();
+    // 当該画像内の空間近傍だけを参照する。
+    virtual bool dependsOnHistory(const RGYParamVpp&) const override { return false; }
     virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;

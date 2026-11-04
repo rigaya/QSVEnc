@@ -90,6 +90,10 @@ const uint32_t QSV_PTS_SORT_SIZE = 16u;
 class CQSVPipeline
 {
 public:
+    // probeで入力VUI解決前のcolorspace経路を安全に確定できるか調べる。
+    static bool PreviewColorspaceNeedsVuiResolution(const sInputParams *inputParam);
+    // GPU初期化なしで有効処理の列挙だけを取得する。
+    static std::vector<VppType> CreateVppFilterOrder(const sInputParams *inputParam, const bool cspConvRequired, const bool cropRequired, const RGY_VPP_RESIZE_TYPE resizeRequired);
     CQSVPipeline();
     virtual ~CQSVPipeline();
 

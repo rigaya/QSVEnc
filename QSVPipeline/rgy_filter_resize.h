@@ -55,6 +55,8 @@ class RGYFilterResize : public RGYFilter {
 public:
     RGYFilterResize(shared_ptr<RGYOpenCLContext> context);
     virtual ~RGYFilterResize();
+    // OpenCLの空間resizeだけを許可し、auto・SDK・AI・libplaceboの経路は保守的に除外する。
+    virtual bool dependsOnHistory(const RGYParamVpp& vpp) const override { return getVppResizeType(vpp.resize_algo) != RGY_VPP_RESIZE_TYPE_OPENCL; }
     virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     struct RGYResizeGaussPlane {

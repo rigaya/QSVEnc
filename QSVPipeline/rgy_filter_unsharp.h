@@ -42,6 +42,8 @@ class RGYFilterUnsharp : public RGYFilter {
 public:
     RGYFilterUnsharp(shared_ptr<RGYOpenCLContext> context);
     virtual ~RGYFilterUnsharp();
+    // 固定係数による当該画像内の空間畳み込みだけを行う。
+    virtual bool dependsOnHistory(const RGYParamVpp&) const override { return false; }
     virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;

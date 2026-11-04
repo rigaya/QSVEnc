@@ -48,6 +48,8 @@ class RGYFilterDenoiseNLMeans : public RGYFilter {
 public:
     RGYFilterDenoiseNLMeans(shared_ptr<RGYOpenCLContext> context);
     virtual ~RGYFilterDenoiseNLMeans();
+    // d=0は空の時間参照列で処理し、d>0だけが前後画像とsearch_tを使う。
+    virtual bool dependsOnHistory(const RGYParamVpp& vpp) const override { return vpp.nlmeans.d != 0; }
     virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;

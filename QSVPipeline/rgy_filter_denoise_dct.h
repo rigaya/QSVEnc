@@ -44,6 +44,8 @@ class RGYFilterDenoiseDct : public RGYFilter {
 public:
     RGYFilterDenoiseDct(shared_ptr<RGYOpenCLContext> context);
     virtual ~RGYFilterDenoiseDct();
+    // 色変換とDCTの作業bufferは同じ入力内で完結する。
+    virtual bool dependsOnHistory(const RGYParamVpp&) const override { return false; }
     virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;

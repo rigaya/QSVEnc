@@ -47,6 +47,8 @@ class RGYFilterFineDehalo : public RGYFilter {
 public:
     RGYFilterFineDehalo(shared_ptr<RGYOpenCLContext> context);
     virtual ~RGYFilterFineDehalo();
+    // 当該画像のdehaloと空間maskを生成し、入力間の状態を使わない。
+    virtual bool dependsOnHistory(const RGYParamVpp&) const override { return false; }
     virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,

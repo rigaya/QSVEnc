@@ -137,6 +137,8 @@ class RGYFilterColorspace : public RGYFilter {
 public:
     RGYFilterColorspace(shared_ptr<RGYOpenCLContext> context);
     virtual ~RGYFilterColorspace();
+    // 固定変換列・LUTと当該画像だけを処理し、前画像や累積番号を参照しない。
+    virtual bool dependsOnHistory(const RGYParamVpp&) const override { return false; }
     virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
     virtual std::string genKernelCode();
     VideoVUIInfo VuiOut() const;

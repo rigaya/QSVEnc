@@ -45,6 +45,8 @@ class RGYFilterDenoiseKnn : public RGYFilter {
 public:
     RGYFilterDenoiseKnn(shared_ptr<RGYOpenCLContext> context);
     virtual ~RGYFilterDenoiseKnn();
+    // d=0は現在画像だけを処理し、d>0では前後画像cacheと遅延出力を使う。
+    virtual bool dependsOnHistory(const RGYParamVpp& vpp) const override { return vpp.knn.d != 0; }
     virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;

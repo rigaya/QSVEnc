@@ -50,6 +50,8 @@ class RGYFilter : public RGYFilterBase {
 public:
     RGYFilter(shared_ptr<RGYOpenCLContext> context);
     virtual ~RGYFilter();
+    // 初期化前の判定で、当該画像と固定設定以外への依存やフレームレート変更は保守的にありとする。
+    virtual bool dependsOnHistory(const RGYParamVpp&) const { return true; }
     RGY_ERR filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum);
     RGY_ERR filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue);
     RGY_ERR filter(RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, RGYOpenCLEvent *event);
@@ -97,6 +99,8 @@ class RGYFilterCspCrop : public RGYFilter {
 public:
     RGYFilterCspCrop(shared_ptr<RGYOpenCLContext> context);
     virtual ~RGYFilterCspCrop();
+    // 当該画像のcopy・crop・色変換だけを行う。
+    virtual bool dependsOnHistory(const RGYParamVpp&) const override { return false; }
     virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;
@@ -124,6 +128,8 @@ class RGYFilterPad : public RGYFilter {
 public:
     RGYFilterPad(shared_ptr<RGYOpenCLContext> context);
     virtual ~RGYFilterPad();
+    // 現在画像と固定余白値だけから出力を生成する。
+    virtual bool dependsOnHistory(const RGYParamVpp&) const override { return false; }
     virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;

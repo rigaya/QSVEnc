@@ -43,6 +43,8 @@ class RGYFilterTweak : public RGYFilter {
 public:
     RGYFilterTweak(shared_ptr<RGYOpenCLContext> context);
     virtual ~RGYFilterTweak();
+    // 当該画像内のYUV/RGB調整と色変換だけを行う。
+    virtual bool dependsOnHistory(const RGYParamVpp&) const override { return false; }
     virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;

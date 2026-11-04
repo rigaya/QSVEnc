@@ -81,6 +81,8 @@ class RGYFilterNnedi : public RGYFilter {
 public:
     RGYFilterNnedi(shared_ptr<RGYOpenCLContext> context);
     virtual ~RGYFilterNnedi();
+    // 現在入力のfieldと固定weightsだけを使うが、BOB系はフレームレートを変更するため依存ありとする。
+    virtual bool dependsOnHistory(const RGYParamVpp& vpp) const override { return vpp.nnedi.field != VPP_NNEDI_FIELD_AUTO && vpp.nnedi.field != VPP_NNEDI_FIELD_TOP && vpp.nnedi.field != VPP_NNEDI_FIELD_BOTTOM; }
     virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 
     RGY_ERR validateParam(const RGYNnediParam& prm);

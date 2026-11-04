@@ -42,6 +42,8 @@ class RGYFilterTransform : public RGYFilter {
 public:
     RGYFilterTransform(shared_ptr<RGYOpenCLContext> context);
     virtual ~RGYFilterTransform();
+    // 当該画像の座標変換だけを行い、出力枚数や時刻を変えない。
+    virtual bool dependsOnHistory(const RGYParamVpp&) const override { return false; }
     virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;

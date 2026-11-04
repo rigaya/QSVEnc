@@ -46,6 +46,8 @@ class RGYFilterDehalo : public RGYFilter {
 public:
     RGYFilterDehalo(shared_ptr<RGYOpenCLContext> context);
     virtual ~RGYFilterDehalo();
+    // 当該画像内のresize・morphology・maskとblendだけを使う。
+    virtual bool dependsOnHistory(const RGYParamVpp&) const override { return false; }
     virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,

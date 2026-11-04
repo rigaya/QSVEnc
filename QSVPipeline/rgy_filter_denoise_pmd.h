@@ -42,6 +42,8 @@ class RGYFilterDenoisePmd : public RGYFilter {
 public:
     RGYFilterDenoisePmd(shared_ptr<RGYOpenCLContext> context);
     virtual ~RGYFilterDenoisePmd();
+    // 反復用bufferは毎入力のGaussianと現在画像で上書きする作業領域である。
+    virtual bool dependsOnHistory(const RGYParamVpp&) const override { return false; }
     virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;

@@ -49,6 +49,7 @@
 #include "rgy_help_selftest_cases.h"
 #include "qsv_help_codegen_cases.h"
 #include "rgy_preview_server.h"
+#include "rgy_preview_history.h"
 #include "mfxdispatcher.h"
 #include "qsv_prm.h"
 #include "qsv_query.h"
@@ -1240,7 +1241,23 @@ int run(int argc, TCHAR *argv[]) {
             }
             return run_encode_params(params, abort);
         };
-        const int result = rgy_preview_server_main(callback, "QSVEnc", VER_STR_FILEVERSION);
+        auto probe = [defaults](const std::vector<tstring>& args, bool& history) -> RGY_ERR {
+            history = true;
+            auto mergedArgs = defaults;
+            mergedArgs.insert(mergedArgs.end(), args.begin(), args.end());
+            auto previewArgv = rgy_cmd_selftest_argv(mergedArgs);
+            sInputParams params;
+            if (parse_cmd(&params, previewArgv.data(), (int)previewArgv.size() - 1) != 0) return RGY_ERR_INVALID_PARAM;
+            if (rgy_preview_external_history(params)) return RGY_ERR_NONE;
+            if (CQSVPipeline::PreviewColorspaceNeedsVuiResolution(&params)) return RGY_ERR_NONE;
+            const auto filters = CQSVPipeline::CreateVppFilterOrder(&params, false, cropEnabled(params.input.crop), rgy_preview_resize_type(params.input, params.vpp));
+            for (const auto type : filters) {
+                if (rgy_preview_filter_depends_on_history(type, params.vpp)) return RGY_ERR_NONE;
+            }
+            history = false;
+            return RGY_ERR_NONE;
+        };
+        const int result = rgy_preview_server_main(callback, "QSVEnc", VER_STR_FILEVERSION, probe);
         if (loader) MFXUnload(loader);
         return result;
     }

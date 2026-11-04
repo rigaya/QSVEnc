@@ -53,6 +53,8 @@ class RGYFilterCurves : public RGYFilter {
 public:
     RGYFilterCurves(std::shared_ptr<RGYOpenCLContext> context);
     virtual ~RGYFilterCurves();
+    // 固定curve表と当該画像だけを使う。
+    virtual bool dependsOnHistory(const RGYParamVpp&) const override { return false; }
     virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue& queue_main, const std::vector<RGYOpenCLEvent>& wait_events, RGYOpenCLEvent *event) override;

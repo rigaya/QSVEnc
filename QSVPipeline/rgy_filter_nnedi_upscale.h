@@ -53,6 +53,8 @@ class RGYFilterNnediUpscale : public RGYFilter {
 public:
     RGYFilterNnediUpscale(shared_ptr<RGYOpenCLContext> context);
     virtual ~RGYFilterNnediUpscale();
+    // 固定NNEDIを縦横の空間拡大に使い、フレーム数や時刻を変えない。
+    virtual bool dependsOnHistory(const RGYParamVpp&) const override { return false; }
     virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_events, RGYOpenCLEvent *event) override;

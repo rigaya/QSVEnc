@@ -46,6 +46,8 @@ class RGYFilterDering : public RGYFilter {
 public:
     RGYFilterDering(shared_ptr<RGYOpenCLContext> context);
     virtual ~RGYFilterDering();
+    // 当該画像のblur・morphology・maskとblendだけを使う。
+    virtual bool dependsOnHistory(const RGYParamVpp&) const override { return false; }
     virtual RGY_ERR init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog> pPrintMes) override;
 protected:
     virtual RGY_ERR run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo **ppOutputFrames, int *pOutputFrameNum,
