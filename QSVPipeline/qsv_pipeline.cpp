@@ -5792,7 +5792,9 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
         threadParam.apply(GetCurrentThread());
         PrintMes(RGY_LOG_DEBUG, _T("Set main thread param: %s.\n"), threadParam.desc().c_str());
     }
-    {
+    // 常駐プレビューでは画像に影響しないMFX DLL向けのスレッド設定を省く。
+    // システム全体のスレッド列挙が1要求あたり約35msかかるため。
+    if (!rgy_output_is_preview_server_mode()) {
         const auto& threadParam = pParams->ctrl.threadParams.get(RGYThreadType::ENC);
 #if defined(_WIN32) || defined(_WIN64)
 #ifdef _M_IX86
