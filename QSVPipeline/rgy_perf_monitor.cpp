@@ -487,6 +487,8 @@ void CPerfMonitor::clear() {
         m_thCheck.join();
         AddMessage(RGY_LOG_DEBUG, _T("Closed thread.\n"));
     }
+    // workerの最終参照が終わってからStatusとMonitorの循環参照を切る。
+    m_pEncStatus.reset();
 #if ENABLE_PERF_COUNTER
     AddMessage(RGY_LOG_DEBUG, _T("Closing perf counter...\n"));
     m_perfCounter.reset();

@@ -5953,6 +5953,10 @@ void CQSVPipeline::Close() {
     m_timecode.reset();
 
     PrintMes(RGY_LOG_DEBUG, _T("Closing perf monitor...\n"));
+    // CSV/plotの循環参照はresetだけでは解放されないので、常駐だけ明示終了する。
+    if (rgy_output_is_preview_server_mode() && m_pPerfMonitor && m_pPerfMonitor->hasEncStatus()) {
+        m_pPerfMonitor->clear();
+    }
     m_pPerfMonitor.reset();
 
     m_encTimestamp.reset();

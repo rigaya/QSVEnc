@@ -345,6 +345,8 @@ public:
     ~CPerfMonitor();
 
     void SetEncStatus(std::shared_ptr<EncodeStatus> encStatus);
+    // CSV/plotで保持する参照の有無を、常駐Closeの循環解消に使う。
+    bool hasEncStatus() const { return m_pEncStatus != nullptr; }
     void SetThreadHandles(HANDLE thEncThread, HANDLE thInThread, HANDLE thOutThread, HANDLE thAudProcThread, HANDLE thAudEncThread);
     PerfQueueInfo *GetQueueInfoPtr() {
         return &m_QueueInfo;
