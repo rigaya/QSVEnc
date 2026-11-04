@@ -1386,15 +1386,15 @@ protected:
 
 class RGYOpenCL {
 public:
-    static HMODULE openCLHandle;
-    static bool openCLCrush;
+    static std::atomic<HMODULE> openCLHandle;
+    static std::atomic<bool> openCLCrush;
 
     RGYOpenCL();
     RGYOpenCL(shared_ptr<RGYLog> pLog);
     virtual ~RGYOpenCL();
 
     std::vector<shared_ptr<RGYOpenCLPlatform>> getPlatforms(const char *vendor = nullptr);
-    static bool openCLloaded() { return openCLHandle != nullptr; };
+    static bool openCLloaded() { return openCLHandle.load(std::memory_order_acquire) != nullptr; };
 protected:
     shared_ptr<RGYLog> m_log;
 };

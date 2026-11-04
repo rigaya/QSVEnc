@@ -93,7 +93,7 @@ union RGYCLDeviceTopologyAMD { // cl_device_topology_amd
 
 #define CL_LOG(level, ...)  { if (m_log) { m_log->write(level, RGY_LOGT_OPENCL, __VA_ARGS__); } }
 
-HMODULE RGYOpenCL::openCLHandle = nullptr;
+std::atomic<HMODULE> RGYOpenCL::openCLHandle{ nullptr };
 
 static uint64_t rgy_cl_perf_now_ns() {
     return (uint64_t)std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -115,7 +115,7 @@ static uint64_t rgy_cl_perf_end(const bool enabled, const uint64_t start_ns) {
 
 //OpenCLのドライバは場合によってはクラッシュする可能性がある
 //クラッシュしたことがあれば、このフラグを立て、以降OpenCLを使用しないようにする
-bool RGYOpenCL::openCLCrush = false;
+std::atomic<bool> RGYOpenCL::openCLCrush{ false };
 
 static void to_tchar(TCHAR *buf, uint32_t buf_size, const char *string) {
 #if UNICODE
@@ -322,109 +322,121 @@ static const std::array<const TCHAR *, 1> opencl_dll_names = { _T("OpenCL.dll") 
 static const std::array<const TCHAR *, 2> opencl_dll_names = { _T("libOpenCL.so"), _T("libOpenCL.so.1") };
 #endif
 
-int initOpenCLGlobal() {
-    if (RGYOpenCL::openCLHandle != nullptr) {
-        return 0;
-    }
+#define RGY_OPENCL_DLL_FUNCTIONS(REQUIRED, OPTIONAL) \
+    REQUIRED(clGetExtensionFunctionAddressForPlatform) \
+    REQUIRED(clGetDeviceInfo) \
+    REQUIRED(clGetPlatformIDs) \
+    REQUIRED(clGetDeviceIDs) \
+    REQUIRED(clGetPlatformInfo) \
+    OPTIONAL(clRetainDevice) \
+    OPTIONAL(clReleaseDevice) \
+    REQUIRED(clCreateCommandQueue) \
+    REQUIRED(clReleaseCommandQueue) \
+    REQUIRED(clRetainCommandQueue) \
+    REQUIRED(clEnqueueBarrierWithWaitList) \
+    REQUIRED(clEnqueueMarkerWithWaitList) \
+    REQUIRED(clCreateContext) \
+    REQUIRED(clGetCommandQueueInfo) \
+    REQUIRED(clReleaseContext) \
+    REQUIRED(clGetSupportedImageFormats) \
+    REQUIRED(clCreateProgramWithSource) \
+    REQUIRED(clBuildProgram) \
+    REQUIRED(clGetProgramBuildInfo) \
+    REQUIRED(clGetProgramInfo) \
+    REQUIRED(clReleaseProgram) \
+    REQUIRED(clCreateBuffer) \
+    REQUIRED(clCreateSubBuffer) \
+    REQUIRED(clCreateImage) \
+    OPTIONAL(clCreateImageWithProperties) \
+    REQUIRED(clReleaseMemObject) \
+    REQUIRED(clGetMemObjectInfo) \
+    REQUIRED(clGetImageInfo) \
+    REQUIRED(clCreateKernel) \
+    OPTIONAL(clCreateKernelsInProgram) \
+    OPTIONAL(clGetKernelInfo) \
+    OPTIONAL(clGetKernelWorkGroupInfo) \
+    REQUIRED(clReleaseKernel) \
+    REQUIRED(clSetKernelArg) \
+    REQUIRED(clEnqueueNDRangeKernel) \
+    REQUIRED(clEnqueueTask) \
+    REQUIRED(clEnqueueReadBuffer) \
+    REQUIRED(clEnqueueReadBufferRect) \
+    REQUIRED(clEnqueueWriteBuffer) \
+    REQUIRED(clEnqueueWriteBufferRect) \
+    REQUIRED(clEnqueueCopyBuffer) \
+    REQUIRED(clEnqueueCopyBufferRect) \
+    REQUIRED(clEnqueueFillBuffer) \
+    REQUIRED(clEnqueueReadImage) \
+    REQUIRED(clEnqueueWriteImage) \
+    REQUIRED(clEnqueueCopyImage) \
+    REQUIRED(clEnqueueCopyImageToBuffer) \
+    REQUIRED(clEnqueueCopyBufferToImage) \
+    REQUIRED(clEnqueueMapBuffer) \
+    REQUIRED(clEnqueueMapImage) \
+    REQUIRED(clEnqueueUnmapMemObject) \
+    REQUIRED(clWaitForEvents) \
+    REQUIRED(clGetEventInfo) \
+    REQUIRED(clCreateUserEvent) \
+    REQUIRED(clRetainEvent) \
+    REQUIRED(clReleaseEvent) \
+    REQUIRED(clSetUserEventStatus) \
+    REQUIRED(clGetEventProfilingInfo) \
+    REQUIRED(clEnqueueWaitForEvents) \
+    REQUIRED(clEnqueueMarker) \
+    OPTIONAL(clGetDeviceAndHostTimer) \
+    OPTIONAL(clCreateSemaphoreWithPropertiesKHR) \
+    OPTIONAL(clEnqueueWaitSemaphoresKHR) \
+    OPTIONAL(clEnqueueSignalSemaphoresKHR) \
+    OPTIONAL(clGetSemaphoreInfoKHR) \
+    OPTIONAL(clReleaseSemaphoreKHR) \
+    REQUIRED(clFlush) \
+    REQUIRED(clFinish) \
+    OPTIONAL(clGetKernelSubGroupInfo) \
+    OPTIONAL(clGetKernelSubGroupInfoKHR)
+
+// 必須関数をすべて解決してから公開し、失敗時に途中のtableや解放済みDLLへのpointerを残さない。
+static int loadOpenCLDll() {
+    std::unique_ptr<std::remove_pointer_t<HMODULE>, module_deleter> handle;
     for (const auto dll_name : opencl_dll_names) {
-        if ((RGYOpenCL::openCLHandle = RGY_LOAD_LIBRARY(dll_name)) != nullptr) {
-            break;
-        }
+        handle.reset(RGY_LOAD_LIBRARY(dll_name));
+        if (handle) break;
     }
-    if (RGYOpenCL::openCLHandle == nullptr) {
-        return 1;
-    }
+    if (!handle) return 1;
 
-#define LOAD(name) \
-    f_##name = (decltype(f_##name)) RGY_GET_PROC_ADDRESS(RGYOpenCL::openCLHandle, #name); \
-    if (f_##name == nullptr) { \
-        RGY_FREE_LIBRARY(RGYOpenCL::openCLHandle); \
-        RGYOpenCL::openCLHandle = nullptr; \
-        return 1; \
-    }
-#define LOAD_NO_CHECK(name) \
-    f_##name = (decltype(f_##name)) RGY_GET_PROC_ADDRESS(RGYOpenCL::openCLHandle, #name);
-
-    LOAD(clGetExtensionFunctionAddressForPlatform);
-    LOAD(clGetDeviceInfo);
-    LOAD(clGetPlatformIDs);
-    LOAD(clGetDeviceIDs);
-    LOAD(clGetPlatformInfo);
-    LOAD_NO_CHECK(clRetainDevice);
-    LOAD_NO_CHECK(clReleaseDevice);
-
-    LOAD(clCreateCommandQueue);
-    LOAD(clReleaseCommandQueue);
-    LOAD(clRetainCommandQueue);
-    LOAD(clEnqueueBarrierWithWaitList);
-    LOAD(clEnqueueMarkerWithWaitList);
-    LOAD(clCreateContext);
-    LOAD(clGetCommandQueueInfo);
-    LOAD(clReleaseContext);
-    LOAD(clGetSupportedImageFormats);
-
-    LOAD(clCreateProgramWithSource);
-    LOAD(clBuildProgram);
-    LOAD(clGetProgramBuildInfo);
-    LOAD(clGetProgramInfo);
-    LOAD(clReleaseProgram);
-
-    LOAD(clCreateBuffer);
-    LOAD(clCreateSubBuffer);
-    LOAD(clCreateImage);
-    LOAD_NO_CHECK(clCreateImageWithProperties);
-    LOAD(clReleaseMemObject);
-    LOAD(clGetMemObjectInfo);
-    LOAD(clGetImageInfo);
-    LOAD(clCreateKernel);
-    LOAD_NO_CHECK(clCreateKernelsInProgram);
-    LOAD_NO_CHECK(clGetKernelInfo);
-    LOAD_NO_CHECK(clGetKernelWorkGroupInfo);
-    LOAD(clReleaseKernel);
-    LOAD(clSetKernelArg);
-    LOAD(clEnqueueNDRangeKernel);
-    LOAD(clEnqueueTask);
-
-    LOAD(clEnqueueReadBuffer);
-    LOAD(clEnqueueReadBufferRect);
-    LOAD(clEnqueueWriteBuffer);
-    LOAD(clEnqueueWriteBufferRect);
-    LOAD(clEnqueueCopyBuffer);
-    LOAD(clEnqueueCopyBufferRect);
-    LOAD(clEnqueueFillBuffer);
-
-    LOAD(clEnqueueReadImage);
-    LOAD(clEnqueueWriteImage);
-    LOAD(clEnqueueCopyImage);
-    LOAD(clEnqueueCopyImageToBuffer);
-    LOAD(clEnqueueCopyBufferToImage);
-    LOAD(clEnqueueMapBuffer);
-    LOAD(clEnqueueMapImage);
-    LOAD(clEnqueueUnmapMemObject);
-
-    LOAD(clWaitForEvents);
-    LOAD(clGetEventInfo);
-    LOAD(clCreateUserEvent);
-    LOAD(clRetainEvent);
-    LOAD(clReleaseEvent);
-    LOAD(clSetUserEventStatus);
-    LOAD(clGetEventProfilingInfo);
-    LOAD(clEnqueueWaitForEvents);
-    LOAD(clEnqueueMarker);
-    LOAD_NO_CHECK(clGetDeviceAndHostTimer);
-
-    LOAD_NO_CHECK(clCreateSemaphoreWithPropertiesKHR);
-    LOAD_NO_CHECK(clEnqueueWaitSemaphoresKHR);
-    LOAD_NO_CHECK(clEnqueueSignalSemaphoresKHR);
-    LOAD_NO_CHECK(clGetSemaphoreInfoKHR);
-    LOAD_NO_CHECK(clReleaseSemaphoreKHR);
-
-    LOAD(clFlush);
-    LOAD(clFinish);
-
-    LOAD_NO_CHECK(clGetKernelSubGroupInfo);
-    LOAD_NO_CHECK(clGetKernelSubGroupInfoKHR);
+#define DECLARE(name) decltype(f_##name) local_##name = nullptr;
+    RGY_OPENCL_DLL_FUNCTIONS(DECLARE, DECLARE)
+#undef DECLARE
+#define LOAD_REQUIRED(name) \
+    local_##name = (decltype(f_##name))RGY_GET_PROC_ADDRESS(handle.get(), #name); \
+    if (local_##name == nullptr) return 1;
+#define LOAD_OPTIONAL(name) \
+    local_##name = (decltype(f_##name))RGY_GET_PROC_ADDRESS(handle.get(), #name);
+    RGY_OPENCL_DLL_FUNCTIONS(LOAD_REQUIRED, LOAD_OPTIONAL)
+#undef LOAD_REQUIRED
+#undef LOAD_OPTIONAL
+#define PUBLISH(name) f_##name = local_##name;
+    RGY_OPENCL_DLL_FUNCTIONS(PUBLISH, PUBLISH)
+#undef PUBLISH
+    // 成功handleのrelease公開とacquire読取りで、関数tableの完成も同時に可視にする。
+    RGYOpenCL::openCLHandle.store(handle.release(), std::memory_order_release);
     return 0;
+}
+#undef RGY_OPENCL_DLL_FUNCTIONS
+
+int initOpenCLGlobal() {
+    static std::once_flag once;
+    static int result = 1;
+    static thread_local bool loading = false;
+    // OS loaderのcallback等が同じthreadで戻ってきても、同じonceを待ってdeadlockしない。
+    if (loading) return 1;
+    std::call_once(once, []() {
+        loading = true;
+        try { result = loadOpenCLDll(); }
+        catch (...) { result = 1; }
+        loading = false;
+    });
+    // 初回失敗も固定し、同一process内では途中の関数tableを再構成しない。
+    return result;
 }
 
 #if defined(_WIN32) || defined(_WIN64)

@@ -91,6 +91,8 @@ public:
     QSVAllocator *allocator() { return m_allocator.get(); }
 #if ENABLE_VULKAN
     DeviceVulkan *vulkan() { return m_vulkan.get(); }
+    // Terminate単独は二重destroyするため、END前に所有pointerごと解放する。
+    void releaseVulkan() { m_vulkan.reset(); }
 #else
     DeviceVulkan *vulkan() { return nullptr; }
 #endif

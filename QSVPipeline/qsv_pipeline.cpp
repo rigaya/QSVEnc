@@ -4990,17 +4990,20 @@ RGY_ERR CQSVPipeline::deviceAutoSelect(const sInputParams *prm, std::vector<std:
     const tstring PEPrefix = (prm->ctrl.parallelEnc.isChild()) ? strsprintf(_T("Parallel Enc %d: "), prm->ctrl.parallelEnc.parallelId) : _T("");
 #if ENABLE_PERF_COUNTER
     PrintMes(RGY_LOG_DEBUG, _T("Auto select device from %d devices.\n"), (int)gpuList.size());
-    bool counterIsIntialized = m_pPerfMonitor->isPerfCounterInitialized();
-    for (int i = 0; i < 4 && !counterIsIntialized; i++) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        counterIsIntialized = m_pPerfMonitor->isPerfCounterInitialized();
-    }
     std::vector<CounterEntry> entries;
-    if (counterIsIntialized) {
-        while (!m_pPerfMonitor->isPerfCounterRefreshed()) {
+    // 常駐ではWMIを起動しないため、旧usageの解放後にWMI成分なしのscoreで選ぶ。
+    if (!rgy_output_is_preview_server_mode()) {
+        bool counterIsIntialized = m_pPerfMonitor->isPerfCounterInitialized();
+        for (int i = 0; i < 4 && !counterIsIntialized; i++) {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            counterIsIntialized = m_pPerfMonitor->isPerfCounterInitialized();
         }
-        entries = m_pPerfMonitor->GetPerfCountersSystem();
+        if (counterIsIntialized) {
+            while (!m_pPerfMonitor->isPerfCounterRefreshed()) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            }
+            entries = m_pPerfMonitor->GetPerfCountersSystem();
+        }
     }
 #endif //#if ENABLE_PERF_COUNTER
 
@@ -5531,7 +5534,8 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     threadParamThrottleDsiabled.apply(GetCurrentThread());
 
 #if defined(_WIN32) || defined(_WIN64)
-    if (!pParams->bDisableTimerPeriodTuning) {
+    // 常駐のtimerはserver全体で一度だけ取得する。
+    if (!pParams->bDisableTimerPeriodTuning && !rgy_output_is_preview_server_mode()) {
         m_bTimerPeriodTuning = true;
         timeBeginPeriod(1);
         PrintMes(RGY_LOG_DEBUG, _T("timeBeginPeriod(1)\n"));
@@ -5826,6 +5830,49 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     return RGY_ERR_NONE;
 }
 
+bool CQSVPipeline::CanDeferPreviewCleanup() const {
+#if defined(_WIN32) || defined(_WIN64)
+    if (!rgy_output_is_preview_server_mode() || m_backend != QSVBackend::QSV
+        || !m_device || m_device->memType() != D3D11_MEMORY || m_devNames.size() != 1) return false;
+    return true;
+#else
+    return false;
+#endif
+}
+
+bool CQSVPipeline::PreparePreviewCleanup() {
+    if (!CanDeferPreviewCleanup() || !m_pipelineTasks.empty() || !m_vpFilters.empty() || m_videoQualityMetric || !m_pFileWriter
+        || !m_pFileWriter->outputStdout() || dynamic_cast<RGYOutFrame *>(m_pFileWriter.get()) == nullptr) return false;
+    for (const auto& writer : m_pFileWriterListAudio) {
+        if (writer && writer != m_pFileWriter) return false;
+    }
+    // dummyloadのworker/joinと終了ログを、旧loggerをquietにする前に完了する。
+    if (m_dummyLoad) {
+        const auto started = std::chrono::steady_clock::now();
+        m_dummyLoad.reset();
+        const auto milliseconds = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
+        PrintMes(RGY_LOG_DEBUG, _T("Preview cleanup: dummy load closed in %.3f ms.\n"), milliseconds);
+    }
+    // Runのtask終了後、dup FILEのflush/closeをENDより先に完了させる。
+    m_pFileWriter->WaitFin();
+    m_pFileWriter->Close();
+    m_pFileWriterListAudio.clear();
+    m_pFileWriter.reset();
+    // demux/libavの終了ログを旧要求の区切り内に収める。
+    m_AudioReaders.clear();
+    if (m_pFileReader) {
+        m_pFileReader->Close();
+        m_pFileReader.reset();
+    }
+    m_poolFrame.reset();
+    m_poolPkt.reset();
+#if ENABLE_VULKAN
+    // 次Initのloader環境更新と旧Vulkan終了を重ねない。
+    m_device->releaseVulkan();
+#endif
+    return true;
+}
+
 void CQSVPipeline::Close() {
     // MFXのコンポーネントをm_pipelineTasksの解放(フレームの解放)前に実施する
     for (auto& task : m_pipelineTasks) {
@@ -5922,7 +5969,8 @@ void CQSVPipeline::Close() {
     m_nProcSpeedLimit = 0;
     m_taskPerfMonitor = false;
 #if ENABLE_AVSW_READER
-    av_qsv_log_free();
+    if (rgy_output_is_preview_server_mode()) av_qsv_log_free_owner(m_pQSVLog);
+    else av_qsv_log_free();
 #endif //#if ENABLE_AVSW_READER
     PrintMes(RGY_LOG_DEBUG, _T("Closed pipeline.\n"));
     if (m_pQSVLog.get() != nullptr) {

@@ -101,6 +101,9 @@ public:
     virtual RGY_ERR Init(sInputParams *pParams);
     virtual RGY_ERR Run();
     virtual void Close();
+    // 常駐raw要求のEND前解放と、残る後片付けの非同期化を判定する。
+    bool CanDeferPreviewCleanup() const;
+    bool PreparePreviewCleanup();
     virtual RGY_ERR ResetDevice();
     virtual RGY_ERR ResetMFXComponents(sInputParams* pParams);
     virtual RGY_ERR CheckCurrentVideoParam(TCHAR *buf = NULL, mfxU32 bufSize = 0);

@@ -30,6 +30,8 @@
 #include <signal.h>
 #include <cassert>
 #include <fstream>
+#include <future>
+#include <sstream>
 #include <filesystem>
 #include <iomanip>
 #include <set>
@@ -41,6 +43,7 @@
 #include "rgy_filesystem.h"
 #if defined(_WIN32) || defined(_WIN64)
 #include <shellapi.h>
+#include <dxgi1_2.h>
 #endif
 
 #include "qsv_pipeline.h"
@@ -1176,7 +1179,75 @@ RGY_ERR run_benchmark(sInputParams *params) {
     return sts;
 }
 
-static RGY_ERR run_encode_params(sInputParams& Params, std::atomic<bool> *previewAbort = nullptr) {
+// Paramsとabortはserverの次要求やcallbackのstackから独立して保持する。
+struct PreviewCleanupContext {
+    sInputParams params;
+    std::atomic<bool> abort{false};
+    std::unique_ptr<CQSVPipeline> pipeline;
+    std::shared_future<void> completion;
+    bool allowDeferred = false;
+};
+
+// GPU本体を初期化せず、現在のIntel adapter数と識別子を調べる。
+static bool preview_cleanup_topology(std::vector<tstring>& topology, int& count) {
+    topology.clear();
+    count = 0;
+#if defined(_WIN32) || defined(_WIN64)
+    IDXGIFactory1 *rawFactory = nullptr;
+    if (FAILED(CreateDXGIFactory1(__uuidof(IDXGIFactory1), reinterpret_cast<void **>(&rawFactory)))) return false;
+    auto releaseFactory = [](IDXGIFactory1 *p) { if (p) p->Release(); };
+    std::unique_ptr<IDXGIFactory1, decltype(releaseFactory)> factory(rawFactory, releaseFactory);
+    for (UINT index = 0;; index++) {
+        IDXGIAdapter1 *rawAdapter = nullptr;
+        const auto hr = factory->EnumAdapters1(index, &rawAdapter);
+        if (hr == DXGI_ERROR_NOT_FOUND) return true;
+        if (FAILED(hr)) return false;
+        auto releaseAdapter = [](IDXGIAdapter1 *p) { if (p) p->Release(); };
+        std::unique_ptr<IDXGIAdapter1, decltype(releaseAdapter)> adapter(rawAdapter, releaseAdapter);
+        DXGI_ADAPTER_DESC1 desc;
+        if (FAILED(adapter->GetDesc1(&desc))) return false;
+        if (desc.VendorId == 0x8086 && !(desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)) {
+            std::basic_ostringstream<TCHAR> value;
+            value << desc.AdapterLuid.HighPart << _T(':') << desc.AdapterLuid.LowPart;
+            topology.push_back(value.str());
+            count++;
+        }
+    }
+#else
+    return false;
+#endif
+}
+
+// process/sessionとloaderの設定だけを比較し、フィルタ編集や移動はbarrierにしない。
+static std::vector<tstring> preview_cleanup_signature(const sInputParams& p, std::vector<tstring> topology) {
+    std::basic_ostringstream<TCHAR> value;
+    value << (int)p.backend << _T(':') << (int)p.memType << _T(':') << (int)p.device
+        << _T(':') << p.nSessionThreads << _T(':') << p.nSessionThreadPriority << _T(':') << p.gpuCopy
+        << _T(':') << p.ctrl.enableOpenCL << _T(':') << (int)p.ctrl.enableVulkan;
+    topology.push_back(value.str());
+    const auto process = p.ctrl.threadParams.get(RGYThreadType::PROCESS);
+    topology.push_back(process.to_string(RGYParamThreadType::affinity));
+    topology.push_back(process.to_string(RGYParamThreadType::priority));
+    topology.push_back(process.to_string(RGYParamThreadType::throttling));
+    return topology;
+}
+
+static bool preview_cleanup_supported(const sInputParams& p) {
+#if defined(_WIN32) || defined(_WIN64)
+    // 未監査の外部runtimeとprocess共有profilingは同期経路に限定する。
+    return p.codec == RGY_CODEC_RAW && !p.ctrl.parallelEnc.isEnabled()
+        && !p.bBenchmark && !p.ctrl.perfMonitorSelect && !p.ctrl.perfMonitorSelectMatplot && !p.vpp.checkPerformance && p.ctrl.clPerfDumpDir.empty() && p.ctrl.clPerfTimelineSec == 0.0
+        && !p.vpp.onnx.enable && !p.vpp.onnxDeint.enable && !p.vpp.rife_ov.enable
+        && !p.vpp.libplacebo_tonemapping.enable && !p.vpp.libplacebo_deband.enable && p.vpp.libplacebo_shader.empty()
+        && getVppResizeType(p.vpp.resize_algo) != RGY_VPP_RESIZE_TYPE_LIBPLACEBO;
+#else
+    (void)p;
+    return false;
+#endif
+}
+
+static RGY_ERR run_encode_params(sInputParams& Params, std::atomic<bool> *previewAbort = nullptr,
+    const std::shared_ptr<PreviewCleanupContext>& context = {}, std::function<void()> *cleanup = nullptr) {
     unique_ptr<CQSVPipeline> pPipeline(new CQSVPipeline);
     if (!pPipeline) {
         return RGY_ERR_MEMORY_ALLOC;
@@ -1196,9 +1267,29 @@ static RGY_ERR run_encode_params(sInputParams& Params, std::atomic<bool> *previe
         return sts;
     }
 
-    if ((sts = pPipeline->Run()) != RGY_ERR_NONE) {
+    sts = pPipeline->Run();
+    if ((sts == RGY_ERR_NONE || sts == RGY_ERR_ABORTED)
+        && context && context->allowDeferred && cleanup && pPipeline->PreparePreviewCleanup()) {
+        context->abort.store(previewAbort->load());
+        pPipeline->SetPreviewAbortFlagPointer(&context->abort);
+        if (pPipeline->m_pQSVLog) pPipeline->m_pQSVLog->setLogLevelAll(RGYParamLogLevel(RGY_LOG_QUIET));
+        auto completed = std::make_shared<std::promise<void>>();
+        context->completion = completed->get_future().share();
+        context->pipeline = std::move(pPipeline);
+        *cleanup = [owned = context, completed]() mutable {
+            try {
+                // pipelineに続きparams/abortも破棄してからfenceを公開する。
+                owned->pipeline.reset();
+                owned.reset();
+                completed->set_value();
+            } catch (...) {
+                completed->set_exception(std::current_exception());
+                throw;
+            }
+        };
         return sts;
     }
+    if (sts != RGY_ERR_NONE) return sts;
 
     pPipeline->Close();
     if (!Params.ctrl.parallelEnc.isChild()) {
@@ -1229,17 +1320,42 @@ int run(int argc, TCHAR *argv[]) {
             defaults.push_back(argv[++iarg]);
         }
         rgy_output_set_preview_server_mode(true);
+#if defined(_WIN32) || defined(_WIN64)
+        // 要求の重複中も取得/解放の対を変えない、server固有のtimer lease。
+        struct PreviewTimerLease {
+            bool acquired = (timeBeginPeriod(1) == TIMERR_NOERROR);
+            ~PreviewTimerLease() { if (acquired) timeEndPeriod(1); }
+        } timerLease;
+#endif
         // 要求間でもVPLランタイムの参照を保持する。
         const auto loader = MFXLoad();
-        auto callback = [defaults](const std::vector<tstring>& args, std::atomic<bool> *abort) -> RGY_ERR {
+        std::shared_future<void> previousCleanup;
+        std::vector<tstring> previousSignature;
+        // adapter構成はserver起動時に一度だけ確認し、要求ごとにDXGIを作り直さない。
+        std::vector<tstring> topology;
+        int adapterCount = 0;
+        const auto topologyKnown = preview_cleanup_topology(topology, adapterCount);
+        auto callback = [defaults, &previousCleanup, &previousSignature, topology, adapterCount, topologyKnown](const std::vector<tstring>& args, std::atomic<bool> *abort) -> RGYPreviewRunResult {
             auto mergedArgs = defaults;
             mergedArgs.insert(mergedArgs.end(), args.begin(), args.end());
             auto previewArgv = rgy_cmd_selftest_argv(mergedArgs);
-            sInputParams params;
-            if (parse_cmd(&params, previewArgv.data(), (int)previewArgv.size() - 1) != 0) {
+            auto context = std::make_shared<PreviewCleanupContext>();
+            if (parse_cmd(&context->params, previewArgv.data(), (int)previewArgv.size() - 1) != 0) {
                 return RGY_ERR_INVALID_PARAM;
             }
-            return run_encode_params(params, abort);
+            context->allowDeferred = preview_cleanup_supported(context->params) && topologyKnown
+                && (context->params.device != QSVDeviceNum::AUTO || adapterCount == 1);
+            const auto signature = preview_cleanup_signature(context->params, topology);
+            // 通常成功時の待ちはここだけ。許可外は次Init前に旧資源を回収する。
+            const bool allowOverlap = context->allowDeferred && signature == previousSignature;
+            if (!allowOverlap && previousCleanup.valid()) previousCleanup.get();
+            RGYPreviewRunResult result;
+            result.rc = run_encode_params(context->params, abort, context, &result.cleanup);
+            if (result.cleanup) {
+                previousCleanup = context->completion;
+                previousSignature = signature;
+            }
+            return result;
         };
         auto probe = [defaults](const std::vector<tstring>& args, bool& history) -> RGY_ERR {
             history = true;
