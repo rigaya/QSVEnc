@@ -5847,12 +5847,7 @@ bool CQSVPipeline::PreparePreviewCleanup() {
         if (writer && writer != m_pFileWriter) return false;
     }
     // dummyloadのworker/joinと終了ログを、旧loggerをquietにする前に完了する。
-    if (m_dummyLoad) {
-        const auto started = std::chrono::steady_clock::now();
-        m_dummyLoad.reset();
-        const auto milliseconds = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
-        PrintMes(RGY_LOG_DEBUG, _T("Preview cleanup: dummy load closed in %.3f ms.\n"), milliseconds);
-    }
+    m_dummyLoad.reset();
     // Runのtask終了後、dup FILEのflush/closeをENDより先に完了させる。
     m_pFileWriter->WaitFin();
     m_pFileWriter->Close();
@@ -5973,8 +5968,9 @@ void CQSVPipeline::Close() {
     m_nProcSpeedLimit = 0;
     m_taskPerfMonitor = false;
 #if ENABLE_AVSW_READER
-    if (rgy_output_is_preview_server_mode()) av_qsv_log_free_owner(m_pQSVLog);
-    else av_qsv_log_free();
+    if (rgy_output_is_preview_server_mode()) {
+        if (m_pQSVLog) av_qsv_log_free(m_pQSVLog);
+    } else av_qsv_log_free();
 #endif //#if ENABLE_AVSW_READER
     PrintMes(RGY_LOG_DEBUG, _T("Closed pipeline.\n"));
     if (m_pQSVLog.get() != nullptr) {
