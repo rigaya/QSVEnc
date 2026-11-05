@@ -1333,9 +1333,10 @@ int run(int argc, TCHAR *argv[]) {
             sInputParams params;
             if (parse_cmd(&params, previewArgv.data(), (int)previewArgv.size() - 1) != 0) return RGY_ERR_INVALID_PARAM;
             if (rgy_preview_external_history(params)) return RGY_ERR_NONE;
-            if (CQSVPipeline::PreviewColorspaceNeedsVuiResolution(&params)) return RGY_ERR_NONE;
             const auto filters = CQSVPipeline::CreateVppFilterOrder(&params, false, cropEnabled(params.input.crop), rgy_preview_resize_type(params.input, params.vpp));
             for (const auto type : filters) {
+                // MFXとOpenCLの色変換はどちらも1枚で完結し、入力VUIによる分岐に依存しない。
+                if (type == VppType::MFX_COLORSPACE) continue;
                 if (rgy_preview_filter_depends_on_history(type, params.vpp)) return RGY_ERR_NONE;
             }
             history = false;

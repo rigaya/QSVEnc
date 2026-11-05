@@ -2595,22 +2595,6 @@ void CQSVPipeline::applyInputVUIToColorspaceParams(sInputParams *inputParam) {
     }
 }
 
-// 入力VUI適用前のprobe専用。未解決値でCreateVppFilterOrderのMFX/CL選択が変わりうるかを返す。
-bool CQSVPipeline::PreviewColorspaceNeedsVuiResolution(const sInputParams *inputParam) {
-    const auto& params = *inputParam;
-    const bool colorspaceForcesOpenCL = params.vpp.colorspace.hdr2sdr.tonemap != HDR2SDR_DISABLED || !params.vpp.colorspace.lut3d.table_file.empty();
-    if (params.vpp.colorspace.enable && !colorspaceForcesOpenCL) {
-        const auto unresolved = [](int value, int unspecified) { return value < 0 || value == unspecified || value == COLOR_VALUE_AUTO_RESOLUTION; };
-        for (const auto& conversion : params.vpp.colorspace.convs) {
-            if ((unresolved(conversion.from.matrix, RGY_MATRIX_UNSPECIFIED) || unresolved(conversion.to.matrix, RGY_MATRIX_UNSPECIFIED))
-                || (conversion.from.colorprim != conversion.to.colorprim && (unresolved(conversion.from.colorprim, RGY_PRIM_UNSPECIFIED) || unresolved(conversion.to.colorprim, RGY_PRIM_UNSPECIFIED)))
-                || (conversion.from.transfer != conversion.to.transfer && (unresolved(conversion.from.transfer, RGY_TRANSFER_UNSPECIFIED) || unresolved(conversion.to.transfer, RGY_TRANSFER_UNSPECIFIED)))
-                || (conversion.from.chromaloc != conversion.to.chromaloc && (unresolved(conversion.from.chromaloc, RGY_CHROMALOC_UNSPECIFIED) || unresolved(conversion.to.chromaloc, RGY_CHROMALOC_UNSPECIFIED)))) return true;
-        }
-    }
-    return false;
-}
-
 // デバイスに依存する置換より前の列挙を、通常経路とpreviewの履歴判定で共有する。
 std::vector<VppType> CQSVPipeline::CreateVppFilterOrder(const sInputParams *inputParam, const bool cspConvRequired, const bool cropRequired, const RGY_VPP_RESIZE_TYPE resizeRequired) {
     std::vector<VppType> filterPipeline;
@@ -2618,7 +2602,6 @@ std::vector<VppType> CQSVPipeline::CreateVppFilterOrder(const sInputParams *inpu
     const bool useInputCspForDeint = inputParam->vpp.deintCsp == VppDeintCsp::Input && hasVppDeinterlacer(inputParam, true);
     const bool delayCspConvForDeint = useInputCspForDeint && cspConvRequired;
 
-    // probeはPreviewColorspaceNeedsVuiResolutionで未確定な選択を除き、通常経路は入力VUI解決後にここへ来る。
     auto addColorspaceFilters = [&]() {
         if (inputParam->vpp.colorspace.enable) {
             bool requireOpenCL = inputParam->vpp.colorspace.hdr2sdr.tonemap != HDR2SDR_DISABLED || inputParam->vpp.colorspace.lut3d.table_file.length() > 0;
