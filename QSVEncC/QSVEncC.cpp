@@ -43,7 +43,6 @@
 #include "rgy_filesystem.h"
 #if defined(_WIN32) || defined(_WIN64)
 #include <shellapi.h>
-#include <dxgi1_2.h>
 #endif
 
 #include "qsv_pipeline.h"
@@ -1184,52 +1183,22 @@ struct PreviewCleanupContext {
     sInputParams params;
     std::atomic<bool> abort{false};
     std::unique_ptr<CQSVPipeline> pipeline;
-    std::shared_future<void> completion;
     bool allowDeferred = false;
 };
 
-// GPU本体を初期化せず、現在のIntel adapter数と識別子を調べる。
-static bool preview_cleanup_topology(std::vector<tstring>& topology, int& count) {
-    topology.clear();
-    count = 0;
-#if defined(_WIN32) || defined(_WIN64)
-    IDXGIFactory1 *rawFactory = nullptr;
-    if (FAILED(CreateDXGIFactory1(__uuidof(IDXGIFactory1), reinterpret_cast<void **>(&rawFactory)))) return false;
-    auto releaseFactory = [](IDXGIFactory1 *p) { if (p) p->Release(); };
-    std::unique_ptr<IDXGIFactory1, decltype(releaseFactory)> factory(rawFactory, releaseFactory);
-    for (UINT index = 0;; index++) {
-        IDXGIAdapter1 *rawAdapter = nullptr;
-        const auto hr = factory->EnumAdapters1(index, &rawAdapter);
-        if (hr == DXGI_ERROR_NOT_FOUND) return true;
-        if (FAILED(hr)) return false;
-        auto releaseAdapter = [](IDXGIAdapter1 *p) { if (p) p->Release(); };
-        std::unique_ptr<IDXGIAdapter1, decltype(releaseAdapter)> adapter(rawAdapter, releaseAdapter);
-        DXGI_ADAPTER_DESC1 desc;
-        if (FAILED(adapter->GetDesc1(&desc))) return false;
-        if (desc.VendorId == 0x8086 && !(desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)) {
-            std::basic_ostringstream<TCHAR> value;
-            value << desc.AdapterLuid.HighPart << _T(':') << desc.AdapterLuid.LowPart;
-            topology.push_back(value.str());
-            count++;
-        }
-    }
-#else
-    return false;
-#endif
-}
-
 // process/sessionとloaderの設定だけを比較し、フィルタ編集や移動はbarrierにしない。
-static std::vector<tstring> preview_cleanup_signature(const sInputParams& p, std::vector<tstring> topology) {
+static std::vector<tstring> preview_cleanup_signature(const sInputParams& p) {
+    std::vector<tstring> signature;
     std::basic_ostringstream<TCHAR> value;
     value << (int)p.backend << _T(':') << (int)p.memType << _T(':') << (int)p.device
         << _T(':') << p.nSessionThreads << _T(':') << p.nSessionThreadPriority << _T(':') << p.gpuCopy
         << _T(':') << p.ctrl.enableOpenCL << _T(':') << (int)p.ctrl.enableVulkan;
-    topology.push_back(value.str());
+    signature.push_back(value.str());
     const auto process = p.ctrl.threadParams.get(RGYThreadType::PROCESS);
-    topology.push_back(process.to_string(RGYParamThreadType::affinity));
-    topology.push_back(process.to_string(RGYParamThreadType::priority));
-    topology.push_back(process.to_string(RGYParamThreadType::throttling));
-    return topology;
+    signature.push_back(process.to_string(RGYParamThreadType::affinity));
+    signature.push_back(process.to_string(RGYParamThreadType::priority));
+    signature.push_back(process.to_string(RGYParamThreadType::throttling));
+    return signature;
 }
 
 static bool preview_cleanup_supported(const sInputParams& p) {
@@ -1247,7 +1216,7 @@ static bool preview_cleanup_supported(const sInputParams& p) {
 }
 
 static RGY_ERR run_encode_params(sInputParams& Params, std::atomic<bool> *previewAbort = nullptr,
-    const std::shared_ptr<PreviewCleanupContext>& context = {}, std::function<void()> *cleanup = nullptr) {
+    const std::shared_ptr<PreviewCleanupContext>& context = {}) {
     unique_ptr<CQSVPipeline> pPipeline(new CQSVPipeline);
     if (!pPipeline) {
         return RGY_ERR_MEMORY_ALLOC;
@@ -1269,24 +1238,11 @@ static RGY_ERR run_encode_params(sInputParams& Params, std::atomic<bool> *previe
 
     sts = pPipeline->Run();
     if ((sts == RGY_ERR_NONE || sts == RGY_ERR_ABORTED)
-        && context && context->allowDeferred && cleanup && pPipeline->PreparePreviewCleanup()) {
+        && context && context->allowDeferred && pPipeline->PreparePreviewCleanup()) {
         context->abort.store(previewAbort->load());
         pPipeline->SetPreviewAbortFlagPointer(&context->abort);
         if (pPipeline->m_pQSVLog) pPipeline->m_pQSVLog->setLogLevelAll(RGYParamLogLevel(RGY_LOG_QUIET));
-        auto completed = std::make_shared<std::promise<void>>();
-        context->completion = completed->get_future().share();
         context->pipeline = std::move(pPipeline);
-        *cleanup = [owned = context, completed]() mutable {
-            try {
-                // pipelineに続きparams/abortも破棄してからfenceを公開する。
-                owned->pipeline.reset();
-                owned.reset();
-                completed->set_value();
-            } catch (...) {
-                completed->set_exception(std::current_exception());
-                throw;
-            }
-        };
         return sts;
     }
     if (sts != RGY_ERR_NONE) return sts;
@@ -1329,13 +1285,9 @@ int run(int argc, TCHAR *argv[]) {
 #endif
         // 要求間でもVPLランタイムの参照を保持する。
         const auto loader = MFXLoad();
-        std::shared_future<void> previousCleanup;
+        std::future<void> previousCleanup;
         std::vector<tstring> previousSignature;
-        // adapter構成はserver起動時に一度だけ確認し、要求ごとにDXGIを作り直さない。
-        std::vector<tstring> topology;
-        int adapterCount = 0;
-        const auto topologyKnown = preview_cleanup_topology(topology, adapterCount);
-        auto callback = [defaults, &previousCleanup, &previousSignature, topology, adapterCount, topologyKnown](const std::vector<tstring>& args, std::atomic<bool> *abort) -> RGYPreviewRunResult {
+        auto callback = [defaults, &previousCleanup, &previousSignature](const std::vector<tstring>& args, std::atomic<bool> *abort) -> RGY_ERR {
             auto mergedArgs = defaults;
             mergedArgs.insert(mergedArgs.end(), args.begin(), args.end());
             auto previewArgv = rgy_cmd_selftest_argv(mergedArgs);
@@ -1343,18 +1295,34 @@ int run(int argc, TCHAR *argv[]) {
             if (parse_cmd(&context->params, previewArgv.data(), (int)previewArgv.size() - 1) != 0) {
                 return RGY_ERR_INVALID_PARAM;
             }
-            context->allowDeferred = preview_cleanup_supported(context->params) && topologyKnown
-                && (context->params.device != QSVDeviceNum::AUTO || adapterCount == 1);
-            const auto signature = preview_cleanup_signature(context->params, topology);
-            // 通常成功時の待ちはここだけ。許可外は次Init前に旧資源を回収する。
+            context->allowDeferred = preview_cleanup_supported(context->params);
+            const auto signature = preview_cleanup_signature(context->params);
             const bool allowOverlap = context->allowDeferred && signature == previousSignature;
-            if (!allowOverlap && previousCleanup.valid()) previousCleanup.get();
-            RGYPreviewRunResult result;
-            result.rc = run_encode_params(context->params, abort, context, &result.cleanup);
-            if (result.cleanup) {
-                previousCleanup = context->completion;
+            const bool logCleanup = context->params.ctrl.loglevel.get(RGY_LOGT_CORE) <= RGY_LOG_DEBUG;
+            const bool barrier = !allowOverlap && previousCleanup.valid();
+            // DEBUG時だけ、次Initの入口で旧解放が実行中だったかを確認する。
+            const bool overlap = logCleanup && allowOverlap && previousCleanup.valid()
+                && previousCleanup.wait_for(std::chrono::seconds(0)) != std::future_status::ready;
+            if (barrier) previousCleanup.get();
+            const auto result = run_encode_params(context->params, abort, context);
+            bool deferred = false;
+            bool fallback = false;
+            if (context->pipeline) {
+                // 旧解放を回収してから次の解放を開始し、パイプラインを最大2つに保つ。
+                if (previousCleanup.valid()) previousCleanup.get();
                 previousSignature = signature;
+                try {
+                    previousCleanup = std::async(std::launch::async, [context]() { context->pipeline.reset(); });
+                    deferred = true;
+                } catch (...) {
+                    // スレッドを作れない場合も、params/abortより先に同期解放する。
+                    context->pipeline.reset();
+                    previousSignature.clear();
+                    fallback = true;
+                }
             }
+            if (logCleanup) fprintf(stderr, "Preview cleanup: overlap=%d deferred=%d barrier=%d fallback=%d\n",
+                overlap, deferred, barrier, fallback);
             return result;
         };
         auto probe = [defaults](const std::vector<tstring>& args, bool& history) -> RGY_ERR {
@@ -1374,6 +1342,8 @@ int run(int argc, TCHAR *argv[]) {
             return RGY_ERR_NONE;
         };
         const int result = rgy_preview_server_main(callback, "QSVEnc", VER_STR_FILEVERSION, probe);
+        // contextのabort/paramsを含めて回収し、VPLを先にアンロードしない。
+        if (previousCleanup.valid()) previousCleanup.get();
         if (loader) MFXUnload(loader);
         return result;
     }
