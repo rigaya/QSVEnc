@@ -1287,7 +1287,7 @@ int run(int argc, TCHAR *argv[]) {
         const auto loader = MFXLoad();
         std::future<void> previousCleanup;
         std::vector<tstring> previousSignature;
-        auto callback = [defaults, &previousCleanup, &previousSignature](const std::vector<tstring>& args, std::atomic<bool> *abort) -> RGY_ERR {
+        auto callback = [defaults, &previousCleanup, &previousSignature](const std::vector<tstring>& args, std::atomic<bool> *abort, bool windowSeek) -> RGY_ERR {
             auto mergedArgs = defaults;
             mergedArgs.insert(mergedArgs.end(), args.begin(), args.end());
             auto previewArgv = rgy_cmd_selftest_argv(mergedArgs);
@@ -1304,6 +1304,7 @@ int run(int argc, TCHAR *argv[]) {
             const bool overlap = logCleanup && allowOverlap && previousCleanup.valid()
                 && previousCleanup.wait_for(std::chrono::seconds(0)) != std::future_status::ready;
             if (barrier) previousCleanup.get();
+            RGYPreviewInputScope windowScope(windowSeek, abort);
             const auto result = run_encode_params(context->params, abort, context);
             bool deferred = false;
             bool fallback = false;
@@ -1323,7 +1324,8 @@ int run(int argc, TCHAR *argv[]) {
             }
             if (logCleanup) fprintf(stderr, "Preview cleanup: overlap=%d deferred=%d barrier=%d fallback=%d\n",
                 overlap, deferred, barrier, fallback);
-            return result;
+            // 入力の非同期初期化で中断が上位の入力エラーへ丸められても、runの取消として返す。
+            return windowSeek && abort && abort->load() && result != RGY_ERR_NONE ? RGY_ERR_ABORTED : result;
         };
         auto probe = [defaults](const std::vector<tstring>& args, bool& history) -> RGY_ERR {
             history = true;
@@ -1342,7 +1344,7 @@ int run(int argc, TCHAR *argv[]) {
             history = false;
             return RGY_ERR_NONE;
         };
-        const int result = rgy_preview_server_main(callback, "QSVEnc", VER_STR_FILEVERSION, probe);
+        const int result = rgy_preview_server_main(callback, "QSVEnc", VER_STR_FILEVERSION, probe, true);
         // contextのabort/paramsを含めて回収し、VPLを先にアンロードしない。
         if (previousCleanup.valid()) previousCleanup.get();
         if (loader) MFXUnload(loader);

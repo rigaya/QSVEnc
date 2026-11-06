@@ -6182,7 +6182,7 @@ RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
             m_pipelineTasks.push_back(std::make_unique<PipelineTaskAudio>(m_pFileReader.get(), m_AudioReaders, m_pFileWriterListAudio, m_vpFilters, 0, m_mfxVer, m_pQSVLog));
         }
         const auto srcTimebase = m_pFileReader->getInputTimebase().is_valid() ? m_pFileReader->getInputTimebase() : m_inputFps.inv();
-        if (!m_trimParam.list.empty() || prm->common.seekToSec > 0.0f) {
+        if (!m_trimParam.list.empty() || prm->common.seekToSec > 0.0f || m_pFileReader->previewWindowEnabled()) {
             m_pipelineTasks.push_back(std::make_unique<PipelineTaskTrim>(m_trimParam, m_pFileReader.get(), nullptr, srcTimebase, 0, m_mfxVer, m_pQSVLog));
         }
         const auto duration = std::max<int64_t>(1, rational_rescale(1, m_inputFps.inv(), m_outputTimebase));
@@ -6235,7 +6235,7 @@ RGY_ERR CQSVPipeline::CreatePipeline(const sInputParams* prm) {
     const auto inputFrameInfo = m_pFileReader->GetInputFrameInfo();
     const auto inputFpsTimebase = rgy_rational<int>((int)inputFrameInfo.fpsD, (int)inputFrameInfo.fpsN);
     const auto srcTimebase = (m_pFileReader->getInputTimebase().n() > 0 && m_pFileReader->getInputTimebase().is_valid()) ? m_pFileReader->getInputTimebase() : inputFpsTimebase;
-    if (m_trimParam.list.size() > 0 || prm->common.seekToSec > 0.0f || m_parallelEnc) {
+    if (m_trimParam.list.size() > 0 || prm->common.seekToSec > 0.0f || m_parallelEnc || m_pFileReader->previewWindowEnabled()) {
         m_pipelineTasks.push_back(std::make_unique<PipelineTaskTrim>(m_trimParam, m_pFileReader.get(), m_parallelEnc.get(), srcTimebase, 0, m_mfxVer, m_pQSVLog));
     }
     m_pipelineTasks.push_back(std::make_unique<PipelineTaskCheckPTS>(&m_device->mfxSession(), srcTimebase, m_outputTimebase, outFrameDuration, m_nAVSyncMode, m_timestampPassThrough, VppAfsRffAware() && m_pFileReader->rffAware(), m_mfxVer, m_pQSVLog));

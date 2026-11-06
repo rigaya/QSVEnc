@@ -2470,6 +2470,10 @@ public:
         }
         m_inFrames++;
         PipelineTaskOutputSurf *taskSurf = dynamic_cast<PipelineTaskOutputSurf *>(frame.get());
+        bool keepPreview = true;
+        const auto previewErr = m_input->checkPreviewWindow(taskSurf->surf().frame()->timestamp(), m_srcTimebase, keepPreview);
+        if (previewErr != RGY_ERR_NONE) return previewErr;
+        if (!keepPreview) return RGY_ERR_NONE;
         if (!frame_inside_range(taskSurf->surf().frame()->inputFrameId(), m_trimParam.list).first) {
             return RGY_ERR_NONE;
         }
