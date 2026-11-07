@@ -1287,7 +1287,7 @@ int run(int argc, TCHAR *argv[]) {
         const auto loader = MFXLoad();
         std::future<void> previousCleanup;
         std::vector<tstring> previousSignature;
-        auto callback = [defaults, &previousCleanup, &previousSignature](const std::vector<tstring>& args, std::atomic<bool> *abort, bool windowSeek) -> RGY_ERR {
+        auto callback = [defaults, &previousCleanup, &previousSignature](const std::vector<tstring>& args, std::atomic<bool> *abort, bool windowSeek, int64_t outputStartUs) -> RGY_ERR {
             auto mergedArgs = defaults;
             mergedArgs.insert(mergedArgs.end(), args.begin(), args.end());
             auto previewArgv = rgy_cmd_selftest_argv(mergedArgs);
@@ -1295,6 +1295,10 @@ int run(int argc, TCHAR *argv[]) {
             if (parse_cmd(&context->params, previewArgv.data(), (int)previewArgv.size() - 1) != 0) {
                 return RGY_ERR_INVALID_PARAM;
             }
+            // 絶対出力境界を相対時計や明示trimへ適用しない。先頭は既存SafeStart=0を保つ。
+            if (outputStartUs != INT64_MIN && (!windowSeek || !context->params.common.timestampPassThrough
+                || context->params.common.seekSec <= 0 || context->params.common.seekRatio > 0
+                || context->params.common.nTrimCount > 0)) return RGY_ERR_INVALID_PARAM;
             context->allowDeferred = preview_cleanup_supported(context->params);
             const auto signature = preview_cleanup_signature(context->params);
             const bool allowOverlap = context->allowDeferred && signature == previousSignature;
@@ -1304,7 +1308,7 @@ int run(int argc, TCHAR *argv[]) {
             const bool overlap = logCleanup && allowOverlap && previousCleanup.valid()
                 && previousCleanup.wait_for(std::chrono::seconds(0)) != std::future_status::ready;
             if (barrier) previousCleanup.get();
-            RGYPreviewInputScope windowScope(windowSeek, abort);
+            RGYPreviewInputScope windowScope(windowSeek, abort, outputStartUs);
             const auto result = run_encode_params(context->params, abort, context);
             bool deferred = false;
             bool fallback = false;
@@ -1344,7 +1348,7 @@ int run(int argc, TCHAR *argv[]) {
             history = false;
             return RGY_ERR_NONE;
         };
-        const int result = rgy_preview_server_main(callback, "QSVEnc", VER_STR_FILEVERSION, probe, true);
+        const int result = rgy_preview_server_main(callback, "QSVEnc", VER_STR_FILEVERSION, probe, true, true);
         // contextのabort/paramsを含めて回収し、VPLを先にアンロードしない。
         if (previousCleanup.valid()) previousCleanup.get();
         if (loader) MFXUnload(loader);
