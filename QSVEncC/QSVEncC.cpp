@@ -1295,7 +1295,9 @@ int run(int argc, TCHAR *argv[]) {
             if (parse_cmd(&context->params, previewArgv.data(), (int)previewArgv.size() - 1) != 0) {
                 return RGY_ERR_INVALID_PARAM;
             }
-            // 絶対出力境界を相対時計や明示trimへ適用しない。先頭は既存SafeStart=0を保つ。
+            // 出力開始時刻(outputStartUs)は入力の絶対時刻なので、出力の時刻が入力の絶対時刻になる場合だけ受け付ける。
+            // 窓の読み込みと--timestamp-passthroughが必要で、--trimや割合指定の--seekとは組み合わせない。
+            // --seekなし(先頭から読む)の要求は、先頭のフレームから表示に使うので、出力開始時刻を指定する対象にしない。
             if (outputStartUs != INT64_MIN && (!windowSeek || !context->params.common.timestampPassThrough
                 || context->params.common.seekSec <= 0 || context->params.common.seekRatio > 0
                 || context->params.common.nTrimCount > 0)) return RGY_ERR_INVALID_PARAM;
