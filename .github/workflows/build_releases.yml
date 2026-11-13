@@ -225,6 +225,18 @@ jobs:
           if "${{ matrix.platform }}" == "x64" set OPENVINO_PATH=${{ github.workspace }}\..\openvino\runtime
           msbuild QSVEnc.sln /t:build /p:configuration=ReleaseStatic /p:Platform=${{ matrix.platform }} -maxcpucount
 
+      # 本体と同じフォルダにあるエンコーダをビューワーが自動で見つけるので、CLI版のx64パッケージにexeを並べて入れる。
+      # AviUtl向けのパッケージは、x64パッケージを展開するときに-x!HWEncVppPreview.exeで除いている。
+      - name: Download HWEncVppPreview
+        if: matrix.platform == 'x64'
+        env:
+          # 同梱するビューワーの版。ビューワーを更新したらここを書き換える。
+          HWENCVPPPREVIEW_VERSION: "0.01"
+        run: |
+          curl -s -f -o HWEncVppPreview.zip -L https://github.com/rigaya/HWEncVppPreview/releases/download/%HWENCVPPPREVIEW_VERSION%/HWEncVppPreview_%HWENCVPPPREVIEW_VERSION%_win-x64.zip || exit /b 1
+          7z x -oHWEncVppPreviewBin -y HWEncVppPreview.zip || exit /b 1
+          if not exist HWEncVppPreviewBin\HWEncVppPreview.exe exit /b 1
+
       - name: Create Archieve
         id: archieve
         run: |
@@ -240,6 +252,8 @@ jobs:
             copy ${{ github.workspace }}\..\openvino\runtime\bin\intel64\Release\openvino_intel_cpu_plugin.dll QSVEncC_Release
             copy ${{ github.workspace }}\..\openvino\runtime\bin\intel64\Release\openvino_auto_plugin.dll QSVEncC_Release
             copy ${{ github.workspace }}\..\openvino\runtime\3rdparty\tbb\bin\tbb12.dll QSVEncC_Release
+            copy HWEncVppPreviewBin\HWEncVppPreview.exe QSVEncC_Release
+            if not exist QSVEncC_Release\HWEncVppPreview.exe exit /b 1
             if not exist QSVEncC_Release\libvmaf.dll exit /b 1
           )
           7z a -mx9 QSVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z .\QSVEncC_Release\*
@@ -368,7 +382,7 @@ jobs:
           mkdir Aviutl_QSVEnc_release\exe_files\QSVEncC\x86
           mkdir Aviutl_QSVEnc_release\exe_files\QSVEncC\x64
           7z x -oAviutl_QSVEnc_release\exe_files\QSVEncC\x86\ QSVEncC_${{ needs.get_version_name.outputs.version_name }}_Win32.7z
-          7z x -oAviutl_QSVEnc_release\exe_files\QSVEncC\x64\ QSVEncC_${{ needs.get_version_name.outputs.version_name }}_x64.7z
+          7z x -oAviutl_QSVEnc_release\exe_files\QSVEncC\x64\ QSVEncC_${{ needs.get_version_name.outputs.version_name }}_x64.7z -x!HWEncVppPreview.exe
           copy /y _build\Win32\Release\QSVEnc.auo Aviutl_QSVEnc_release\plugins\
           copy /y QSVEnc\QSVEnc.ini Aviutl_QSVEnc_release\plugins\
           copy /y QSVEnc\QSVEnc.en.ini Aviutl_QSVEnc_release\plugins\
@@ -390,7 +404,7 @@ jobs:
           7z x -oAviutl_QSVEnc_release\ auo_setup.zip
           mkdir Aviutl_QSVEnc_release\Plugin\exe_files\QSVEncC
           mkdir Aviutl_QSVEnc_release\Plugin\exe_files\QSVEncC\x64
-          7z x -oAviutl_QSVEnc_release\Plugin\exe_files\QSVEncC\x64\ QSVEncC_${{ needs.get_version_name.outputs.version_name }}_x64.7z
+          7z x -oAviutl_QSVEnc_release\Plugin\exe_files\QSVEncC\x64\ QSVEncC_${{ needs.get_version_name.outputs.version_name }}_x64.7z -x!HWEncVppPreview.exe
           copy /y _build\x64\Release\QSVEnc.auo2 Aviutl_QSVEnc_release\Plugin\
           copy /y QSVEnc\QSVEnc.ini Aviutl_QSVEnc_release\Plugin\
           copy /y QSVEnc\QSVEnc.en.ini Aviutl_QSVEnc_release\Plugin\
