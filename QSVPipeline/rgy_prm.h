@@ -1007,7 +1007,8 @@ enum RGY_VPP_RESIZE_TYPE {
 RGY_VPP_RESIZE_TYPE getVppResizeType(RGY_VPP_RESIZE_ALGO resize);
 
 static bool isQSVMFXResizeFiter(const RGY_VPP_RESIZE_ALGO interp) {
-#if ENCODER_QSV && (!defined(_M_IX86) || FOR_AUO) || CUFILTERS || CLFILTERS_AUF
+    // MFXのリサイズはWin32 CLIでも有効。x86除外はNPP/NVVFX向けで、ここへ残すとsuperresの再生成が落ちる。
+#if ENCODER_QSV || CUFILTERS || CLFILTERS_AUF
     return getVppResizeType(interp) == RGY_VPP_RESIZE_TYPE_MFX;
 #else
     UNREFERENCED_PARAMETER(interp);
