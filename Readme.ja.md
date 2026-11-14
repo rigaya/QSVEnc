@@ -112,6 +112,12 @@ QSVEncを使用したことによる、いかなる損害・トラブルにつ�
 - libavcodec/libavformatを利用した音声処理に対応
 - libavcodec/libavformatを利用し、muxしながら出力が可能
 
+## VPPフィルタのプレビュー
+
+同梱の[HWEncVppPreview](https://github.com/rigaya/HWEncVppPreview)を使用してVPPフィルタのプレビューが可能です。
+
+<img src="https://github.com/rigaya/HWEncVppPreview/data/HWEncVppPreview_20261107_02.jpg" width="600">
+
 ## 各GPUで使用可能な機能
 
 ### サポートする機能の詳細

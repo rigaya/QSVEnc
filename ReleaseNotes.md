@@ -1,5 +1,17 @@
 # QSVEnc Release Notes
 
+## 8.38
+
+- Add preview of VPP filters. ( With [HWEncVppPreview](https://github.com/rigaya/HWEncVppPreview) )
+- Add [--seek](./QSVEncC_Options.en.md#--seek-intintintint) support for avi/avs/vpy input.
+- Improve [--vpp-colorspace](./QSVEncC_Options.en.md#--vpp-colorspace-param1value1param2value2) VUI output.
+- Fix error when multiple [--vpp-colorspace](./QSVEncC_Options.en.md#--vpp-colorspace-param1value1param2value2) filters are chained.
+- Fix [--vpp-colorspace](./QSVEncC_Options.en.md#--vpp-colorspace-param1value1param2value2) failing with no path when range and matrix (or similar) change in the same stage.
+- [--vpp-afs](./QSVEncC_Options.en.md#--vpp-afs-param1value1param2value2) and [--vpp-kfm](./QSVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) `mode=24` count output timestamps from the first input frame.
+- Fix [--vpp-afs](./QSVEncC_Options.en.md#--vpp-afs-param1value1param2value2) timestamp drift with [--avsync](./QSVEncC_Options.en.md#--avsync-string) vfr and a custom [--timebase](./QSVEncC_Options.en.md#--timebase-intint).
+- Fix GPU counter thread shutdown.
+- On pipeline shutdown, release the OpenCL context before the D3D11 device.
+
 ## 8.37
 
 - Fix failure to decode resolution-changing streams on Sandy Bridge/Ivy Bridge when using [--adapt-resolution](./QSVEncC_Options.en.md#--adapt-resolution-intxint).

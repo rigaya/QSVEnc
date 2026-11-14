@@ -314,6 +314,20 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2026.11.13 (8.38)
+[QSVEncC]
+- VPPフィルタのプレビューを可能に。(HWEncVppPreview)
+- --seekをavi/avs/vpy読み込みに対応。
+- --seekをavi/avs/vpy読み込みに対応。
+- --vpp-colorspaceで出力VUIも変換後の値にするように。
+- --vpp-colorspaceを複数並べると異常終了する問題を修正。
+- --vpp-colorspaceで1段のうちにrangeと行列などを同時に変えるとno pathになる問題を修正。
+- --vpp-afsと--vpp-kfm mode=24でのtimestamp出力を改善。
+- --vpp-afsで--avsync vfrや独自の--timebaseで時刻がずれる問題を修正。
+- VPPのhelpを用途別の見出しと既定値・範囲・選択肢の書式にそろえ、よく使うパラメータと有効条件を示すように。
+- GPUカウンタのスレッド終了処理を修正。
+- パイプライン終了時、D3D11でもOpenCLコンテキストをデバイスより先に解放するように。
+
 2026.11.01 (8.37)
 [QSVEncC]
 - --adapt-resolution使用時、Sandy Bridge/Ivy Bridgeで解像度の変わるストリームをデコードできない問題を修正。
