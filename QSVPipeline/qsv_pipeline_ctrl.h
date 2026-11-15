@@ -1254,22 +1254,40 @@ protected:
     RGYBitstream m_decInputBitstream;
     RGYQueueMPMP<RGYFrameDataMetadata*> m_queueHDR10plusMetadata;
     RGYQueueMPMP<FrameFlags> m_dataFlag;
+    // MPEG-2はシーケンスヘッダだけを先に渡すと DecodeFrameAsync が消費せず MORE_DATA を返す。
+    // 未消費バイトを捨てると、次のシーケンスヘッダ(次GOP)まで絵が出ない。ヘッダは最初の絵と一緒に渡す。
+    RGYBitstream m_mpeg2Header;
+    bool m_mpeg2AppendNext;
+    int m_mpeg2AppendCount;
+    enum : mfxU32 {
+        MPEG2_DEC_HOLD_MAX_BYTES = 2u * 1024u * 1024u
+    };
+    enum : int {
+        MPEG2_DEC_HOLD_MAX_APPEND = 2
+    };
 public:
     PipelineTaskMFXDecode(MFXVideoSession *mfxSession, int outMaxQueueSize, MFXVideoDECODE *mfxdec, mfxVideoParam& decParams, bool skipAV1C, int64_t endPts, RGYInput *input, mfxVersion mfxVer, std::shared_ptr<RGYLog> log)
-        : PipelineTask(PipelineTaskType::MFXDEC, outMaxQueueSize, mfxSession, mfxVer, log), m_dec(mfxdec), m_mfxDecParams(decParams), m_input(input), m_skipAV1C(skipAV1C), m_getNextBitstream(true), m_decFrameOutCount(0), m_decRemoveRemainingBytesWarnCount(0), m_prevOutputCropWidth(0), m_prevOutputCropHeight(0), m_decSizeFallback(0), m_decSubmitValid(false), m_decSubmitInfo(), m_firstPts(0), m_gotFirstPts(false), m_endPts(endPts), m_decInputBitstream(), m_queueHDR10plusMetadata(), m_dataFlag() {
+        : PipelineTask(PipelineTaskType::MFXDEC, outMaxQueueSize, mfxSession, mfxVer, log), m_dec(mfxdec), m_mfxDecParams(decParams), m_input(input), m_skipAV1C(skipAV1C), m_getNextBitstream(true), m_decFrameOutCount(0), m_decRemoveRemainingBytesWarnCount(0), m_prevOutputCropWidth(0), m_prevOutputCropHeight(0), m_decSizeFallback(0), m_decSubmitValid(false), m_decSubmitInfo(), m_firstPts(0), m_gotFirstPts(false), m_endPts(endPts), m_decInputBitstream(), m_queueHDR10plusMetadata(), m_dataFlag(), m_mpeg2Header(), m_mpeg2AppendNext(false), m_mpeg2AppendCount(0) {
         m_decInputBitstream.init(AVCODEC_READER_INPUT_BUF_SIZE);
         m_dataFlag.init();
         //TimeStampはQSVに自動的に計算させる
         m_decInputBitstream.setPts(MFX_TIMESTAMP_UNKNOWN);
-        //ヘッダーがあれば読み込んでおく
+        //ヘッダーがあれば読み込んでおく。MPEG-2は絵が揃ってから先頭に付ける。
         if (input) {
-            input->GetHeader(&m_decInputBitstream);
+            if (m_mfxDecParams.mfx.CodecId == MFX_CODEC_MPEG2) {
+                if (input->GetHeader(&m_mpeg2Header) != RGY_ERR_NONE || m_mpeg2Header.size() == 0) {
+                    m_mpeg2Header.clear();
+                }
+            } else {
+                input->GetHeader(&m_decInputBitstream);
+            }
         }
         m_queueHDR10plusMetadata.init(256);
     };
     virtual ~PipelineTaskMFXDecode() {
         m_queueHDR10plusMetadata.close([](RGYFrameDataMetadata **ptr) { if (*ptr) { delete *ptr; *ptr = nullptr; }; });
         m_decInputBitstream.clear();
+        m_mpeg2Header.clear();
     };
     void setDec(MFXVideoDECODE *mfxdec) { m_dec = mfxdec; };
     virtual void setStopWatch() override {
@@ -1302,15 +1320,25 @@ public:
         if (bitstream) {
             //m_DecInputBitstream.size() > 0のときにbitstreamを連結してしまうと
             //環境によっては正常にフレームが取り出せなくなることがある
-            if (m_getNextBitstream && m_decInputBitstream.size() <= 1) {
-                m_decInputBitstream.append(bitstream);
-                m_decInputBitstream.setPts(bitstream->pts());
+            //MPEG-2でシーケンスヘッダだけが残っているときだけ、次のアクセスユニットを後ろへ足す
+            if (m_getNextBitstream && (m_decInputBitstream.size() <= 1 || m_mpeg2AppendNext)) {
+                if (m_mpeg2AppendNext && m_decInputBitstream.size() > 1) {
+                    appendHeldMpeg2Packet(bitstream);
+                } else {
+                    m_decInputBitstream.append(bitstream);
+                    m_decInputBitstream.setPts(bitstream->pts());
+                }
                 bitstream->setSize(0);
                 bitstream->setOffset(0);
             }
         } else {
             //bitstream == nullptrの場合はflush
             //ただ、m_decInputBitstreamにデータが残っている場合はまずそちらを転送する
+            if (m_mpeg2AppendNext && countMpeg2StartCode(&m_decInputBitstream.bitstream(), 0x00) == 0) {
+                m_decInputBitstream.setSize(0);
+                m_decInputBitstream.setOffset(0);
+            }
+            m_mpeg2AppendNext = false;
             if (m_decInputBitstream.size() == 0) {
                 m_getNextBitstream = false; // m_decInputBitstreamのデータがなくなったらflushさせる
             }
@@ -1327,12 +1355,37 @@ public:
             //GetNextFrameのロックが抜けれらなくなる場合がある。
             //HWデコード時、本来GetNextFrameのロックは必要ないので、
             //これを無視する実装も併せて行った。
-            && (m_decInputBitstream.size() <= 1)) {
+            //MPEG-2で未消費のシーケンスヘッダを保持しているときだけ、sizeが残っていても次を連結する。
+            && (m_decInputBitstream.size() <= 1 || m_mpeg2AppendNext)) {
             auto ret = m_input->LoadNextFrame(nullptr);
             if (ret != RGY_ERR_NONE && ret != RGY_ERR_MORE_DATA && ret != RGY_ERR_MORE_BITSTREAM) {
                 PrintMes(RGY_LOG_ERROR, _T("Error in reader: %s.\n"), get_err_mes(ret));
                 return ret;
             }
+            const bool appendHeld = m_mpeg2AppendNext && m_decInputBitstream.size() > 1;
+            if (appendHeld) {
+                RGYBitstream next = RGYBitstreamInit();
+                ret = m_input->GetNextBitstream(&next);
+                if (ret == RGY_ERR_MORE_BITSTREAM) {
+                    m_getNextBitstream = false;
+                    m_mpeg2AppendNext = false;
+                    if (countMpeg2StartCode(&m_decInputBitstream.bitstream(), 0x00) == 0) {
+                        m_decInputBitstream.setSize(0);
+                        m_decInputBitstream.setOffset(0);
+                    }
+                    next.clear();
+                    return ret; //入力ビットストリームは終了
+                }
+                if (ret != RGY_ERR_NONE) {
+                    next.clear();
+                    PrintMes(RGY_LOG_ERROR, _T("Error on getting video bitstream: %s.\n"), get_err_mes(ret));
+                    return ret;
+                }
+                appendHeldMpeg2Packet(&next);
+                const auto flags = FrameFlags(m_decInputBitstream.pts(), (RGY_FRAME_FLAGS)next.dataflag());
+                m_dataFlag.push(flags);
+                next.clear();
+            } else {
             //この関数がMFX_ERR_NONE以外を返せば、入力ビットストリームは終了
             ret = m_input->GetNextBitstream(&m_decInputBitstream);
             if (ret == RGY_ERR_MORE_BITSTREAM) {
@@ -1358,6 +1411,7 @@ public:
             }
             const auto flags = FrameFlags(m_decInputBitstream.pts(), (RGY_FRAME_FLAGS)m_decInputBitstream.dataflag());
             m_dataFlag.push(flags);
+            }
         }
         if (m_stopwatch) m_stopwatch->add(0, 0);
         return sendBitstream();
@@ -1607,6 +1661,72 @@ protected:
         m_decSizeFallback = 2;
         return true;
     }
+    static int countMpeg2StartCode(const mfxBitstream *bs, uint8_t code) {
+        if (!bs || !bs->Data || bs->DataLength < 4) return 0;
+        const uint8_t *p = bs->Data + bs->DataOffset;
+        const mfxU32 n = bs->DataLength;
+        int count = 0;
+        for (mfxU32 i = 0; i + 4 <= n; i++) {
+            if (p[i] == 0 && p[i + 1] == 0 && p[i + 2] == 1 && p[i + 3] == code) {
+                count++;
+            }
+        }
+        return count;
+    }
+    bool isMpeg2Decode() const {
+        return m_mfxDecParams.mfx.CodecId == MFX_CODEC_MPEG2;
+    }
+    // extradataのシーケンスヘッダを、まだB3で始まっていない最初の絵の前に付ける。
+    // 絵が既にシーケンスヘッダを持っていれば、二重に付けない。
+    void prependPendingMpeg2Header() {
+        if (!isMpeg2Decode() || m_mpeg2Header.size() == 0 || m_decInputBitstream.size() == 0) {
+            return;
+        }
+        auto &bs = m_decInputBitstream.bitstream();
+        const uint8_t *p = bs.Data + bs.DataOffset;
+        if (bs.DataLength >= 4 && p[0] == 0 && p[1] == 0 && p[2] == 1 && p[3] == 0xB3) {
+            m_mpeg2Header.clear();
+            return;
+        }
+        const mfxU32 hdr = (mfxU32)m_mpeg2Header.size();
+        const mfxU32 body = bs.DataLength;
+        const mfxU32 need = hdr + body;
+        if (bs.MaxLength < need) {
+            if (m_decInputBitstream.resize(need) != RGY_ERR_NONE) {
+                PrintMes(RGY_LOG_ERROR, _T("Failed to prepend MPEG-2 sequence header.\n"));
+                return;
+            }
+        }
+        if (bs.DataOffset > 0) {
+            memmove(bs.Data, bs.Data + bs.DataOffset, bs.DataLength);
+            bs.DataOffset = 0;
+        }
+        memmove(bs.Data + hdr, bs.Data, body);
+        memcpy(bs.Data, m_mpeg2Header.data(), hdr);
+        bs.DataLength = need;
+        PrintMes(RGY_LOG_DEBUG, _T("Prepend MPEG-2 sequence header (%d bytes) to the first picture.\n"), (int)hdr);
+        m_mpeg2Header.clear();
+    }
+    // ピクチャ開始符号が1つだけのバッファは1枚分なので、次の開始符号を待たせずにデコードさせる。
+    void markMpeg2CompleteFrame(mfxBitstream *bs) {
+        if (!bs || !isMpeg2Decode()) return;
+        if (countMpeg2StartCode(bs, 0x00) == 1) {
+            bs->DataFlag = (mfxU16)(bs->DataFlag | MFX_BITSTREAM_COMPLETE_FRAME);
+        } else {
+            bs->DataFlag = (mfxU16)(bs->DataFlag & ~MFX_BITSTREAM_COMPLETE_FRAME);
+        }
+    }
+    void appendHeldMpeg2Packet(RGYBitstream *packet) {
+        const auto heldPts = m_decInputBitstream.pts();
+        const bool heldPtsUnknown = heldPts == (int64_t)MFX_TIMESTAMP_UNKNOWN || heldPts == (int64_t)AV_NOPTS_VALUE;
+        m_decInputBitstream.append(packet);
+        if (heldPtsUnknown) {
+            m_decInputBitstream.setPts(packet->pts());
+        }
+        m_mpeg2AppendNext = false;
+        m_mpeg2AppendCount++;
+        PrintMes(RGY_LOG_DEBUG, _T("Appended next MPEG-2 access unit (%d bytes) after an unconsumed sequence header.\n"), (int)packet->size());
+    }
     RGY_ERR sendBitstream() {
         m_getNextBitstream |= m_decInputBitstream.size() > 0;
 
@@ -1634,6 +1754,8 @@ protected:
             }
         }
         if (inputBitstream != nullptr) {
+            prependPendingMpeg2Header();
+            markMpeg2CompleteFrame(inputBitstream);
             if (m_skipAV1C && m_mfxDecParams.mfx.CodecId == MFX_CODEC_AV1 && inputBitstream->DataLength > 4 && (inputBitstream->Data[0] & 0x80)) {
                 // AV1ではそのままのヘッダだと、Decodeに失敗する場合がある QSVEnc #122
                 // その場合、4byte飛ばすと読めるかも?
@@ -1703,7 +1825,19 @@ protected:
             } else {
                 //pInputBitstreamの長さがDecodeFrameAsyncを経ても全く変わっていない場合は、そのデータは捨てる
                 //これを行わないとデコードが止まってしまう
+                //MPEG-2のシーケンスヘッダだけは捨てると先頭GOPが消える。絵の開始符号が付くまで次のパケットを足す。
                 if (dec_sts == MFX_ERR_MORE_DATA && inputBitstream && inputBitstream->DataLength == inputDataLen) {
+                    const bool holdMpeg2Header = isMpeg2Decode()
+                        && m_getNextBitstream
+                        && countMpeg2StartCode(inputBitstream, 0x00) == 0
+                        && inputDataLen > 0
+                        && inputDataLen < MPEG2_DEC_HOLD_MAX_BYTES
+                        && m_mpeg2AppendCount < MPEG2_DEC_HOLD_MAX_APPEND;
+                    if (holdMpeg2Header) {
+                        m_mpeg2AppendNext = true;
+                        PrintMes(RGY_LOG_DEBUG, _T("DecodeFrameAsync: keeping %d unconsumed MPEG-2 header bytes to append the next access unit.\n"), inputDataLen);
+                    } else {
+                    m_mpeg2AppendNext = false;
                     PrintMes((inputDataLen >= 10) ? RGY_LOG_WARN : ((m_decRemoveRemainingBytesWarnCount >= 10) ? RGY_LOG_TRACE : RGY_LOG_DEBUG),
                         _T("DecodeFrameAsync: removing %d bytes from input bitstream not read by decoder.\n"), inputDataLen);
                     inputBitstream->DataLength = 0;
@@ -1712,6 +1846,7 @@ protected:
                         PrintMes(RGY_LOG_DEBUG, _T("DecodeFrameAsync:   This message was shown 10 times, will be only shown in trace log after this when removing bytes is samller than 10bytes.\n"));
                     }
                     m_decRemoveRemainingBytesWarnCount++;
+                    }
                 }
                 break;
             }
