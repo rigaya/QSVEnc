@@ -210,7 +210,9 @@ bool DRMLibVA::init(const int targetIntelAdaptorNum) {
 
     if (MFX_ERR_NONE != sts) {
         if (m_va_dpy) m_libva.vaTerminate(m_va_dpy);
+        m_va_dpy = NULL;
         close(m_fd);
+        m_fd = -1;
         m_log->write(RGY_LOG_ERROR, RGY_LOGT_DEV, _T("DRMLibVA::DRMLibVA: Intel GPU was not found\n"));
         return false;
     }
