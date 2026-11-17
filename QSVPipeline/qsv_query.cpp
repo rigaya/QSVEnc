@@ -376,6 +376,7 @@ QSVVideoParam& QSVVideoParam::operator=(const QSVVideoParam &o) {
     hyperModePrm = o.hyperModePrm;
     tuneEncQualityPrm = o.tuneEncQualityPrm;
     aiEncCtrlPrm = o.aiEncCtrlPrm;
+    aiEncCtrlEnabled = o.aiEncCtrlEnabled;
 
     memcpy(spsbuf, o.spsbuf, sizeof(spsbuf));
     memcpy(ppsbuf, o.ppsbuf, sizeof(ppsbuf));
@@ -386,6 +387,15 @@ QSVVideoParam& QSVVideoParam::operator=(const QSVVideoParam &o) {
     buf.clear();
     for (auto& b : o.buf) {
         switch (b->BufferId) {
+        case MFX_EXTBUFF_VIDEO_SIGNAL_INFO:
+            buf.push_back((mfxExtBuffer *)&videoSignalInfo);
+            break;
+        case MFX_EXTBUFF_CHROMA_LOC_INFO:
+            buf.push_back((mfxExtBuffer *)&chromaLocInfo);
+            break;
+        case MFX_EXTBUFF_CODING_OPTION_SPSPPS:
+            buf.push_back((mfxExtBuffer *)&spspps);
+            break;
         case MFX_EXTBUFF_CODING_OPTION:
             buf.push_back((mfxExtBuffer *)&cop);
             break;
