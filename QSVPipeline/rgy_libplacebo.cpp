@@ -34,8 +34,17 @@
 
 #if ENABLE_LIBPLACEBO
 
+// pl_frame and pl_color_map_params changed layout in API 387,
+// so runtimes older than the headers can not be supported anymore
+#define RGY_PL_API_MIN ((PL_API_VER >= 387) ? 387 : 338)
+#define RGY_PL_LEGACY_ABI (PL_API_VER >= 360 && PL_API_VER < 387)
+
 #if defined(_WIN32) || defined(_WIN64)
+#if PL_API_VER >= 387
+const TCHAR *RGY_LIBPLACEBO_DLL_NAME = _T("libplacebo-387.dll");
+#else
 const TCHAR *RGY_LIBPLACEBO_DLL_NAME = _T("libplacebo-360.dll");
+#endif
 #elif LIBPLACEBO_STATIC_LINK
 const TCHAR *RGY_LIBPLACEBO_DLL_NAME = _T("libplacebo (static)");
 #else
@@ -180,52 +189,32 @@ bool RGYLibplaceboLoader::load() {
         return true;
     };
 
+    const TCHAR *libraryNames[] = {
 #if defined(_WIN32) || defined(_WIN64)
-    const TCHAR *libraryNames[] = {
-#if PL_API_VER >= 360
+        _T("libplacebo-387.dll"),
         _T("libplacebo-360.dll"),
-#endif
-#if PL_API_VER >= 351
         _T("libplacebo-351.dll"),
-#endif
-#if PL_API_VER >= 349
         _T("libplacebo-349.dll"),
-#endif
         _T("libplacebo-338.dll")
-    };
 #else
-    const TCHAR *libraryNames[] = {
-#if PL_API_VER >= 360
+        _T("libplacebo.so.387"),
         _T("libplacebo.so.360"),
-#endif
-#if PL_API_VER >= 351
         _T("libplacebo.so.351"),
-#endif
-#if PL_API_VER >= 349
         _T("libplacebo.so.349"),
-#endif
         _T("libplacebo.so.338"),
         _T("libplacebo.so")
+#endif
     };
-#endif
-    const int apiVersions[] = {
-#if PL_API_VER >= 360
-        360,
-#endif
-#if PL_API_VER >= 351
-        351,
-#endif
-#if PL_API_VER >= 349
-        349,
-#endif
-        338
-    };
+    const int apiVersions[] = { 387, 360, 351, 349, 338 };
     for (const auto libraryName : libraryNames) {
         m_hModule = RGY_LOAD_LIBRARY(libraryName);
         if (m_hModule == nullptr) {
             continue;
         }
         for (const auto apiVersion : apiVersions) {
+            if (apiVersion > PL_API_VER || apiVersion < RGY_PL_API_MIN) {
+                continue;
+            }
             char funcName[64] = { 0 };
             sprintf_s(funcName, "pl_log_create_%d", apiVersion);
             if (loadFunc(funcName, (void **)&m_pl_log_create)) {
@@ -333,7 +322,7 @@ void RGYLibplaceboLoader::close() {
     m_pl_dither_default_params = nullptr;
 }
 
-#if PL_API_VER >= 360
+#if RGY_PL_LEGACY_ABI
 #if defined(__GNUC__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
@@ -482,7 +471,7 @@ static pl_color_system color_system_from_legacy(const pl_color_system colorSyste
 #endif
 
 pl_render_params RGYLibplaceboLoader::p_render_default_params() const {
-#if PL_API_VER >= 360
+#if RGY_PL_LEGACY_ABI
     if (m_apiVersion < 360) {
         return render_params_from_legacy(m_pl_render_default_params, m_apiVersion);
     }
@@ -491,7 +480,7 @@ pl_render_params RGYLibplaceboLoader::p_render_default_params() const {
 }
 
 pl_peak_detect_params RGYLibplaceboLoader::p_peak_detect_default_params() const {
-#if PL_API_VER >= 360
+#if RGY_PL_LEGACY_ABI
     if (m_apiVersion < 349) {
         return peak_detect_params_from_338(*reinterpret_cast<const PLPeakDetectParams338 *>(m_pl_peak_detect_default_params));
     }
@@ -505,7 +494,7 @@ pl_d3d11 RGYLibplaceboLoader::create_d3d11(pl_log log, const pl_d3d11_params *pa
 }
 #elif ENABLE_VULKAN
 pl_vulkan RGYLibplaceboLoader::create_vulkan(pl_log log, const pl_vulkan_params *params) const {
-#if PL_API_VER >= 351
+#if PL_API_VER >= 351 && PL_API_VER < 387
     if (m_apiVersion < 351) {
         struct alignas(pl_vulkan_params) PLVulkanParamsLegacy {
             std::array<uint8_t, sizeof(pl_vulkan_params) - sizeof(uint32_t)> data;
@@ -525,7 +514,7 @@ pl_vulkan RGYLibplaceboLoader::create_vulkan(pl_log log, const pl_vulkan_params 
 #endif
 
 bool RGYLibplaceboLoader::render_image(pl_renderer renderer, const pl_frame *image, const pl_frame *target, const pl_render_params *params) const {
-#if PL_API_VER >= 360
+#if RGY_PL_LEGACY_ABI
     if (m_apiVersion < 360) {
         auto imageLegacy = *image;
         auto targetLegacy = *target;
@@ -547,7 +536,7 @@ bool RGYLibplaceboLoader::render_image(pl_renderer renderer, const pl_frame *ima
 }
 
 void RGYLibplaceboLoader::frame_set_chroma_location(pl_frame *frame, pl_chroma_location chroma_location) const {
-#if PL_API_VER >= 360
+#if RGY_PL_LEGACY_ABI
     if (m_apiVersion < 360) {
         auto legacy = *frame;
         legacy.repr.sys = color_system_to_legacy(legacy.repr.sys, m_apiVersion);
