@@ -26,7 +26,7 @@ jobs:
       tag: ${{ steps.rev.outputs.tag }}
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         ref: ${{ github.sha }}
         fetch-depth: 0
@@ -182,7 +182,7 @@ jobs:
     
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ needs.get_version_name.outputs.release_sha }}
           submodules: true
@@ -213,7 +213,7 @@ jobs:
           Write-Host "OpenVINO extracted to ${{ github.workspace }}\..\openvino"
 
       - name: Add msbuild to PATH
-        uses: microsoft/setup-msbuild@v2
+        uses: microsoft/setup-msbuild@v3
         with:
           msbuild-architecture: ${{ matrix.arch }}
 
@@ -288,7 +288,7 @@ jobs:
           7z h -scrc* QSVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: QSVEncC_release_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}
           path: QSVEncC_${{ needs.get_version_name.outputs.version_name }}_${{ matrix.platform }}.7z
@@ -320,7 +320,7 @@ jobs:
     steps:
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ needs.get_version_name.outputs.release_sha }}
           submodules: true
@@ -336,7 +336,7 @@ jobs:
           git clone https://github.com/KhronosGroup/OpenCL-Headers.git ..\openclheaders
 
       - name: Add msbuild to PATH
-        uses: microsoft/setup-msbuild@v2
+        uses: microsoft/setup-msbuild@v3
         with:
           msbuild-architecture: ${{ matrix.platform }}
 
@@ -360,14 +360,14 @@ jobs:
           curl -o auo_setup.zip -L https://github.com/rigaya/auo_setup/releases/download/2.04/auo_setup_2.04_x64.zip
 
       - name: Download QSVEncC Win32
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         if: matrix.platform == 'Win32'
         with:
           name: QSVEncC_release_${{ needs.get_version_name.outputs.version_name }}_Win32
           path: .
 
       - name: Download QSVEncC x64
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: QSVEncC_release_${{ needs.get_version_name.outputs.version_name }}_x64
           path: .
@@ -448,7 +448,7 @@ jobs:
           7z h -scrc*  Aviutl2_QSVEnc_${{ needs.get_version_name.outputs.version_name }}_install.exe
 
       - name: Upload artifact Win32
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: matrix.platform == 'Win32'
         with:
           name: Aviutl_QSVEnc_${{ needs.get_version_name.outputs.version_name }}
@@ -456,7 +456,7 @@ jobs:
           retention-days: 14
 
       - name: Upload artifact x64
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: matrix.platform == 'x64'
         with:
           name: Aviutl2_QSVEnc_${{ needs.get_version_name.outputs.version_name }}_install
@@ -478,7 +478,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download release assets
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: downloaded-assets
 
