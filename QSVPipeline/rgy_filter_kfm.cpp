@@ -82,6 +82,8 @@ static constexpr int KFM_MAX_OUTPUT_FRAMES = 16;
 static constexpr int KFM_UCF_NOISE_LIMIT_NMIN = 1;
 static constexpr int KFM_UCF_NOISE_LIMIT_RANGE = 128;
 static constexpr int KFM_UCF_SHARED_ANALYSIS_SOURCE_DELAY = 2;
+// UCFレーンの出力遅延を補う先読みsource数。
+static constexpr int KFM_UCF_LANE_FEED_LOOKAHEAD = 2;
 // UCFの需要駆動RTGMCが短い巻き戻しを行える余裕を残す。
 // 512フレーム保持は1080iで数GBの常駐を招くため、realtime+の履歴余裕2個分に抑える。
 static constexpr int KFM_UCF_LAZY_SOURCE_CACHE_MARGIN = KFM_REALTIMEPLUS_SOURCE_CACHE_MARGIN * 2;
@@ -677,10 +679,19 @@ RGY_ERR RGYFilterKfm::KfmRtgmcLane::feedIntermediatesOnly(int sourceBegin, int s
             return RGY_ERR_NONE;
         }
     }
+    // 解析段とUCFレーンの遅延分まで投入し、末尾の中間データを通常経路で作り直すのを防ぐ。
+    int feedEnd = sourceEnd;
+    while (feedEnd < sourceEnd + KFM_UCF_LANE_FEED_LOOKAHEAD + KFM_UCF_SHARED_ANALYSIS_SOURCE_DELAY) {
+        const auto *source = m_owner->findSourceByIndexExact(feedEnd);
+        if (!source || !source->frame || !source->frame->frame.ptr[0]) {
+            break;
+        }
+        feedEnd++;
+    }
     m_rtgmc->resetTemporalState();
     m_rtgmc->setAnalysisOnly(true);
     auto sts = RGY_ERR_NONE;
-    for (int sourceIndex = primeStart; sourceIndex < sourceEnd && sts == RGY_ERR_NONE; sourceIndex++) {
+    for (int sourceIndex = primeStart; sourceIndex < feedEnd && sts == RGY_ERR_NONE; sourceIndex++) {
         const auto *source = m_owner->findSourceByIndexExact(sourceIndex);
         std::vector<RGYOpenCLEvent> waitEvents;
         if (source->event() != nullptr) {
