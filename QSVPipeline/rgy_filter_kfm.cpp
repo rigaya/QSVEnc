@@ -2258,8 +2258,8 @@ RGY_ERR RGYFilterKfm::ensureUcfRtgmcRange(KfmUcfLaneType laneType, int n60begin,
     }
     const int sourceBegin = std::max(0, n60begin) >> 1;
     const int primeStart = std::max(0, sourceBegin - lane->requiredPrimingSourceFrames());
-    const int sourceEndDelay = (laneType == KFM_UCF_LANE_AFTER) ? KFM_UCF_SHARED_ANALYSIS_SOURCE_DELAY : 0;
-    const int sourceEnd = std::max(primeStart, divCeil(std::max(0, n60end), 2) + sourceEndDelay);
+    // ensureRangeが必要な出力まで投入するので、after60だけを余分に先回りしない。
+    const int sourceEnd = std::max(primeStart, divCeil(std::max(0, n60end), 2));
     if (!m_analyzerFinalized && m_cachedSourceFrames < sourceEnd) {
         return RGY_ERR_MORE_DATA;
     }
@@ -2287,8 +2287,7 @@ RGY_ERR RGYFilterKfm::ensureUcfRtgmcRange(KfmUcfLaneType laneType, int n60begin,
             return RGY_ERR_MORE_DATA;
         }
     }
-    const int sideN60End = (laneType == KFM_UCF_LANE_AFTER) ? std::max(n60end, sourceEnd * 2) : n60end;
-    auto sts = lane->ensureRange(n60begin, sideN60End, queue);
+    auto sts = lane->ensureRange(n60begin, n60end, queue);
     if (sts != RGY_ERR_NONE) {
         return sts;
     }
