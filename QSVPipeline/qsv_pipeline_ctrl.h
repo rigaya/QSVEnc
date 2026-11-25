@@ -2726,7 +2726,8 @@ public:
 
         mfxStatus vpp_sts = MFX_ERR_NONE;
 
-        const auto estDuration = av_rescale_q(1, av_make_q(m_outputTimebase.inv()), av_make_q(m_mfxVppParams.vpp.In.FrameRateExtN, m_mfxVppParams.vpp.In.FrameRateExtD));
+        const auto estDuration = rational_rescale(1, m_outputTimebase.inv(),
+            rgy_rational<int>(m_mfxVppParams.vpp.In.FrameRateExtN, m_mfxVppParams.vpp.In.FrameRateExtD));
 
         mfxFrameSurface1 *surfVppIn = (frame) ? dynamic_cast<PipelineTaskOutputSurf *>(frame.get())->surf().mfx()->surf() : nullptr;
         const int expectedInputWidth = m_vpp->inputWidthBeforeCrop();

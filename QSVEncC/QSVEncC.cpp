@@ -1551,6 +1551,8 @@ static int check_qsv_backend(int argc, TCHAR *argv[]) {
 }
 #endif
 
+#include "rgy_delay_load_hook.h"
+
 int _tmain(int argc, TCHAR *argv[]) {
 #if defined(__linux__) && ENABLE_VAAPI
     if (argc >= 2 && _tcscmp(argv[1], _T("--check-qsv-backend")) == 0) {
