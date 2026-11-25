@@ -578,6 +578,4 @@ const TCHAR *get_vpp_image_stab_mode_str(int mode);
 int getCPUInfoQSV(TCHAR *buffer, size_t nSize);
 int getCPUInfoQSV(TCHAR *buffer, size_t nSize, mfxSession session);
 
-int64_t rational_rescale(int64_t v, rgy_rational<int> from, rgy_rational<int> to);
-
 #endif //_QSV_UTIL_H_
