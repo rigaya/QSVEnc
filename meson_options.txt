@@ -12,3 +12,4 @@ option('libvship_include_dir', type: 'string', value: '', description: 'VshipAPI
 option('enable_vulkan', type: 'boolean', value: false, description: 'Enable Vulkan support (required for libplacebo)')
 option('opencl_headers', type: 'string', value: '', description: 'Additional include path for OpenCL headers')
 option('enable_openvino', type: 'boolean', value: true, description: 'Enable OpenVINO support (header-only, runtime is loaded dynamically)')
+option('qsvenc_probe', type: 'boolean', value: false, description: '診断専用の実行ファイルをビルドする')

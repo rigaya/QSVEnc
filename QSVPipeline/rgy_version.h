@@ -176,4 +176,8 @@ const char *get_encoder_version();
 #define DECODER_NAME              "qsv"
 #endif // #if defined(WIN32) || defined(WIN64)
 
+#ifndef ENABLE_PROBE_BUILD
+#define ENABLE_PROBE_BUILD 0
+#endif
+
 #endif //__RGY_VERSION_H__

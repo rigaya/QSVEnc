@@ -18,20 +18,21 @@ endif
 
 source_root = meson.project_source_root()
 build_root = meson.project_build_root()
+probe_build = get_option('qsvenc_probe')
 
 # Optional feature switches (configure互換)
-enable_vapoursynth = get_option('enable_vapoursynth')
-enable_avisynth = get_option('enable_avisynth')
-enable_libass = get_option('enable_libass')
-enable_libplacebo = get_option('enable_libplacebo')
-enable_vmaf_option = get_option('enable_vmaf')
+enable_vapoursynth = not probe_build and get_option('enable_vapoursynth')
+enable_avisynth = not probe_build and get_option('enable_avisynth')
+enable_libass = not probe_build and get_option('enable_libass')
+enable_libplacebo = not probe_build and get_option('enable_libplacebo')
+enable_vmaf_option = probe_build ? 'disabled' : get_option('enable_vmaf')
 libvmaf_static = get_option('libvmaf_static')
 vmaf_include_dir = get_option('vmaf_include_dir')
-enable_libvship_option = get_option('enable_libvship')
+enable_libvship_option = probe_build ? 'disabled' : get_option('enable_libvship')
 libvship_include_dir = get_option('libvship_include_dir')
 enable_vulkan = get_option('enable_vulkan')
 opencl_headers = get_option('opencl_headers')
-enable_openvino = get_option('enable_openvino')
+enable_openvino = not probe_build and get_option('enable_openvino')
 
 threads_dep = dependency('threads')
 dl_dep = cpp.find_library('dl', required: true)
@@ -41,7 +42,7 @@ stdcxxfs_dep = cpp.find_library('stdc++fs', required: false)
 # libva
 libva_dep = dependency('libva', required: true)
 libva_drm_dep = dependency('libva-drm', required: false)
-libva_x11_dep = dependency('libva-x11', required: false)
+libva_x11_dep = probe_build ? disabler() : dependency('libva-x11', required: false)
 libdrm_dep = dependency('libdrm', required: false)
 have_libva = libva_dep.found() or libva_drm_dep.found() or libva_x11_dep.found()
 
@@ -91,12 +92,13 @@ if not cpp.has_header('clRNG/clRNG.h', args: ['-I' + source_root / 'clRNG/src/in
 endif
 
 # FFmpeg (required)
-libavutil_dep = dependency('libavutil', required: true)
-libavcodec_dep = dependency('libavcodec', required: true)
-libavformat_dep = dependency('libavformat', required: true)
-libavfilter_dep = dependency('libavfilter', required: true)
-libavdevice_dep = dependency('libavdevice', required: true)
-libswresample_dep = dependency('libswresample', required: true)
+ffmpeg_dependency_args = probe_build ? {'static': true} : {}
+libavutil_dep = dependency('libavutil', required: true, kwargs: ffmpeg_dependency_args)
+libavcodec_dep = dependency('libavcodec', required: true, kwargs: ffmpeg_dependency_args)
+libavformat_dep = dependency('libavformat', required: true, kwargs: ffmpeg_dependency_args)
+libavfilter_dep = dependency('libavfilter', required: true, kwargs: ffmpeg_dependency_args)
+libavdevice_dep = dependency('libavdevice', required: true, kwargs: ffmpeg_dependency_args)
+libswresample_dep = dependency('libswresample', required: true, kwargs: ffmpeg_dependency_args)
 
 ffmpeg_deps = [
   libavutil_dep,
@@ -444,119 +446,125 @@ int main(void) {
 endif
 
 # libdovi / libhdr10plus: system優先、なければ同梱build (configure互換)
-cargo_prog = find_program('cargo', required: false)
-if cargo_prog.found()
-  cargo_home_dir = source_root / '.cargo_home'
-  cargo_c_check = run_command(
-    'env',
-    'CARGO_HOME=' + cargo_home_dir,
-    cargo_prog.full_path(),
-    'cinstall',
-    '--version',
-    check: false,
-  )
-  if cargo_c_check.returncode() != 0
-    cargo_c_install = run_command(
+libdovi_dep = disabler()
+libhdr10plus_dep = disabler()
+# 診断では映像の付加情報を扱わないため、依存ライブラリの検出や取得も省く。
+if not probe_build
+  cargo_prog = find_program('cargo', required: false)
+  if cargo_prog.found()
+    cargo_home_dir = source_root / '.cargo_home'
+    cargo_c_check = run_command(
       'env',
       'CARGO_HOME=' + cargo_home_dir,
       cargo_prog.full_path(),
-      'install',
-      'cargo-c',
-      '--locked',
+      'cinstall',
+      '--version',
       check: false,
     )
-    if cargo_c_install.returncode() != 0
-      error('Failed to install cargo-c (exit=' + cargo_c_install.returncode().to_string() + ')\nstdout:\n' + cargo_c_install.stdout().strip() + '\nstderr:\n' + cargo_c_install.stderr().strip())
+    if cargo_c_check.returncode() != 0
+      cargo_c_install = run_command(
+        'env',
+        'CARGO_HOME=' + cargo_home_dir,
+        cargo_prog.full_path(),
+        'install',
+        'cargo-c',
+        '--locked',
+        check: false,
+      )
+      if cargo_c_install.returncode() != 0
+        error('Failed to install cargo-c (exit=' + cargo_c_install.returncode().to_string() + ')\nstdout:\n' + cargo_c_install.stdout().strip() + '\nstderr:\n' + cargo_c_install.stderr().strip())
+      endif
     endif
   endif
-endif
 
-libdovi_dep = dependency('dovi', required: false)
-if not libdovi_dep.found()
-  if not cargo_prog.found()
-    error('cargo is required to build bundled libdovi when system dovi is not available')
+  libdovi_dep = dependency('dovi', required: false)
+  if not libdovi_dep.found()
+    if not cargo_prog.found()
+      error('cargo is required to build bundled libdovi when system dovi is not available')
+    endif
+    libdovi_install_dir = build_root / 'rust_libs' / 'libdovi'
+    libdovi_build_result = run_command(
+      'env',
+      'CARGO_HOME=' + cargo_home_dir,
+      'CARGO=' + cargo_prog.full_path(),
+      'bash',
+      source_root / 'build_libdovi.sh',
+      libdovi_install_dir,
+      check: false,
+    )
+    if libdovi_build_result.returncode() != 0
+      error('Failed to build bundled libdovi (exit=' + libdovi_build_result.returncode().to_string() + ')\nstdout:\n' + libdovi_build_result.stdout().strip() + '\nstderr:\n' + libdovi_build_result.stderr().strip())
+    endif
+    libdovi_lib_dirs = []
+    if fs.is_file(libdovi_install_dir / 'lib/x86_64-linux-gnu/libdovi.a')
+      libdovi_lib_dirs += libdovi_install_dir / 'lib/x86_64-linux-gnu'
+    elif fs.is_file(libdovi_install_dir / 'lib64/libdovi.a')
+      libdovi_lib_dirs += libdovi_install_dir / 'lib64'
+    elif fs.is_file(libdovi_install_dir / 'lib/libdovi.a')
+      libdovi_lib_dirs += libdovi_install_dir / 'lib'
+    endif
+    if libdovi_lib_dirs.length() == 0
+      error('Bundled libdovi build succeeded but libdovi.a was not found')
+    endif
+    libdovi_lib = cpp.find_library('dovi', dirs: libdovi_lib_dirs, static: true, required: true)
+    libdovi_dep = declare_dependency(
+      dependencies: libdovi_lib,
+      compile_args: ['-I' + (libdovi_install_dir / 'include')],
+    )
+    if not cpp.compiles(
+      '#include <libdovi/rpu_parser.h>\nint main(void){ dovi_parse_rpu(nullptr, 0); return 0; }',
+      dependencies: libdovi_dep,
+    )
+      error('Bundled libdovi check failed (libdovi/rpu_parser.h)')
+    endif
   endif
-  libdovi_install_dir = build_root / 'rust_libs' / 'libdovi'
-  libdovi_build_result = run_command(
-    'env',
-    'CARGO_HOME=' + cargo_home_dir,
-    'CARGO=' + cargo_prog.full_path(),
-    'bash',
-    source_root / 'build_libdovi.sh',
-    libdovi_install_dir,
-    check: false,
-  )
-  if libdovi_build_result.returncode() != 0
-    error('Failed to build bundled libdovi (exit=' + libdovi_build_result.returncode().to_string() + ')\nstdout:\n' + libdovi_build_result.stdout().strip() + '\nstderr:\n' + libdovi_build_result.stderr().strip())
-  endif
-  libdovi_lib_dirs = []
-  if fs.is_file(libdovi_install_dir / 'lib/x86_64-linux-gnu/libdovi.a')
-    libdovi_lib_dirs += libdovi_install_dir / 'lib/x86_64-linux-gnu'
-  elif fs.is_file(libdovi_install_dir / 'lib64/libdovi.a')
-    libdovi_lib_dirs += libdovi_install_dir / 'lib64'
-  elif fs.is_file(libdovi_install_dir / 'lib/libdovi.a')
-    libdovi_lib_dirs += libdovi_install_dir / 'lib'
-  endif
-  if libdovi_lib_dirs.length() == 0
-    error('Bundled libdovi build succeeded but libdovi.a was not found')
-  endif
-  libdovi_lib = cpp.find_library('dovi', dirs: libdovi_lib_dirs, static: true, required: true)
-  libdovi_dep = declare_dependency(
-    dependencies: libdovi_lib,
-    compile_args: ['-I' + (libdovi_install_dir / 'include')],
-  )
-  if not cpp.compiles(
-    '#include <libdovi/rpu_parser.h>\nint main(void){ dovi_parse_rpu(nullptr, 0); return 0; }',
-    dependencies: libdovi_dep,
-  )
-    error('Bundled libdovi check failed (libdovi/rpu_parser.h)')
-  endif
-endif
 
-libhdr10plus_dep = dependency('hdr10plus-rs', required: false)
-if not libhdr10plus_dep.found()
-  if not cargo_prog.found()
-    error('cargo is required to build bundled libhdr10plus-rs when system hdr10plus-rs is not available')
-  endif
-  libhdr10plus_install_dir = build_root / 'rust_libs' / 'libhdr10plus'
-  libhdr10plus_build_result = run_command(
-    'env',
-    'CARGO_HOME=' + cargo_home_dir,
-    'CARGO=' + cargo_prog.full_path(),
-    'bash',
-    source_root / 'build_libhdr10plus.sh',
-    libhdr10plus_install_dir,
-    check: false,
-  )
-  if libhdr10plus_build_result.returncode() != 0
-    error('Failed to build bundled libhdr10plus-rs (exit=' + libhdr10plus_build_result.returncode().to_string() + ')\nstdout:\n' + libhdr10plus_build_result.stdout().strip() + '\nstderr:\n' + libhdr10plus_build_result.stderr().strip())
-  endif
-  libhdr10plus_lib_dirs = []
-  if fs.is_file(libhdr10plus_install_dir / 'lib/x86_64-linux-gnu/libhdr10plus-rs.a')
-    libhdr10plus_lib_dirs += libhdr10plus_install_dir / 'lib/x86_64-linux-gnu'
-  elif fs.is_file(libhdr10plus_install_dir / 'lib64/libhdr10plus-rs.a')
-    libhdr10plus_lib_dirs += libhdr10plus_install_dir / 'lib64'
-  elif fs.is_file(libhdr10plus_install_dir / 'lib/libhdr10plus-rs.a')
-    libhdr10plus_lib_dirs += libhdr10plus_install_dir / 'lib'
-  endif
-  if libhdr10plus_lib_dirs.length() == 0
-    error('Bundled libhdr10plus-rs build succeeded but libhdr10plus-rs.a was not found')
-  endif
-  libhdr10plus_lib = cpp.find_library('hdr10plus-rs', dirs: libhdr10plus_lib_dirs, static: true, required: true)
-  libhdr10plus_dep = declare_dependency(
-    dependencies: libhdr10plus_lib,
-    compile_args: ['-I' + (libhdr10plus_install_dir / 'include')],
-  )
-  if not cpp.compiles(
-    '#include <libhdr10plus-rs/hdr10plus.h>\nint main(void){ hdr10plus_rs_parse_json(nullptr); return 0; }',
-    dependencies: libhdr10plus_dep,
-  )
-    error('Bundled libhdr10plus-rs check failed (libhdr10plus-rs/hdr10plus.h)')
+  libhdr10plus_dep = dependency('hdr10plus-rs', required: false)
+  if not libhdr10plus_dep.found()
+    if not cargo_prog.found()
+      error('cargo is required to build bundled libhdr10plus-rs when system hdr10plus-rs is not available')
+    endif
+    libhdr10plus_install_dir = build_root / 'rust_libs' / 'libhdr10plus'
+    libhdr10plus_build_result = run_command(
+      'env',
+      'CARGO_HOME=' + cargo_home_dir,
+      'CARGO=' + cargo_prog.full_path(),
+      'bash',
+      source_root / 'build_libhdr10plus.sh',
+      libhdr10plus_install_dir,
+      check: false,
+    )
+    if libhdr10plus_build_result.returncode() != 0
+      error('Failed to build bundled libhdr10plus-rs (exit=' + libhdr10plus_build_result.returncode().to_string() + ')\nstdout:\n' + libhdr10plus_build_result.stdout().strip() + '\nstderr:\n' + libhdr10plus_build_result.stderr().strip())
+    endif
+    libhdr10plus_lib_dirs = []
+    if fs.is_file(libhdr10plus_install_dir / 'lib/x86_64-linux-gnu/libhdr10plus-rs.a')
+      libhdr10plus_lib_dirs += libhdr10plus_install_dir / 'lib/x86_64-linux-gnu'
+    elif fs.is_file(libhdr10plus_install_dir / 'lib64/libhdr10plus-rs.a')
+      libhdr10plus_lib_dirs += libhdr10plus_install_dir / 'lib64'
+    elif fs.is_file(libhdr10plus_install_dir / 'lib/libhdr10plus-rs.a')
+      libhdr10plus_lib_dirs += libhdr10plus_install_dir / 'lib'
+    endif
+    if libhdr10plus_lib_dirs.length() == 0
+      error('Bundled libhdr10plus-rs build succeeded but libhdr10plus-rs.a was not found')
+    endif
+    libhdr10plus_lib = cpp.find_library('hdr10plus-rs', dirs: libhdr10plus_lib_dirs, static: true, required: true)
+    libhdr10plus_dep = declare_dependency(
+      dependencies: libhdr10plus_lib,
+      compile_args: ['-I' + (libhdr10plus_install_dir / 'include')],
+    )
+    if not cpp.compiles(
+      '#include <libhdr10plus-rs/hdr10plus.h>\nint main(void){ hdr10plus_rs_parse_json(nullptr); return 0; }',
+      dependencies: libhdr10plus_dep,
+    )
+      error('Bundled libhdr10plus-rs check failed (libhdr10plus-rs/hdr10plus.h)')
+    endif
   endif
 endif
 
 # FFmpeg API checks
 conf_data = configuration_data()
+conf_data.set10('ENABLE_PROBE_BUILD', probe_build)
 
 av_channel_layout_code = '''
 #include <libavutil/channel_layout.h>
@@ -598,7 +606,9 @@ conf_data.set10('ENABLE_CPP_REGEX', true)
 conf_data.set10('ENABLE_DTL', true)
 conf_data.set10('ENABLE_LIBDOVI', libdovi_dep.found())
 conf_data.set10('ENABLE_LIBHDR10PLUS', libhdr10plus_dep.found())
-conf_data.set10('ENABLE_VULKAN', vulkan_dep.found() and libplacebo_dep.found())
+# 診断構成でもデバイス初期化の有効条件は通常構成とそろえる。
+have_vulkan = vulkan_dep.found() and (libplacebo_dep.found() or (probe_build and get_option('enable_libplacebo')))
+conf_data.set10('ENABLE_VULKAN', have_vulkan)
 conf_data.set10('ENABLE_LIBPLACEBO', libplacebo_dep.found())
 conf_data.set10('ENABLE_OPENVINO', enable_openvino and have_openvino_headers)
 conf_data.set10('ENABLE_VMAF', have_vmaf_headers)
@@ -964,7 +974,7 @@ if libass_link_dep.found()
   all_deps += libass_link_dep
 endif
 if vulkan_dep.found()
-  all_deps += vulkan_dep
+  all_deps += probe_build ? vulkan_dep.partial_dependency(includes: true, compile_args: true) : vulkan_dep
 endif
 if libplacebo_dep.found()
   all_deps += libplacebo_build_dep
@@ -990,13 +1000,14 @@ endif
 
 subdir('meson_embed')
 
-executable('qsvencc',
+executable(probe_build ? 'qsvencc-probe' : 'qsvencc',
   qsvpipeline_sources + clrng_sources + tinyxml2_sources + qsvencc_sources + resource_objects,
   c_args: common_c_args,
   cpp_args: common_cpp_args,
   include_directories: common_include_dirs,
   dependencies: all_deps,
   link_with: simd_libs,
+  link_args: probe_build ? ['-static-libstdc++', '-static-libgcc'] : [],
   install: true,
 )
 

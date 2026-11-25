@@ -2,8 +2,17 @@
 
 embed_script = files('embed_resource.sh')
 
+nnedi3_weights = '../resource/nnedi3_weight/nnedi3_weights.bin'
+if probe_build
+  # 診断で使わない重みは、既存のシンボルを解決できるように1バイトだけ埋め込む。
+  nnedi3_weights = custom_target('nnedi3_probe_weights',
+    output: 'nnedi3_probe_weights.bin',
+    command: ['sh', '-c', 'head -c 1 /dev/zero > "$1"', 'sh', '@OUTPUT@'],
+  )
+endif
+
 resource_specs = [
-  ['nnedi3_weights', '../resource/nnedi3_weight/nnedi3_weights.bin', 'resource_nnedi3_weights_bin'],
+  ['nnedi3_weights', nnedi3_weights, 'resource_nnedi3_weights_bin'],
   ['perf_monitor', '../PerfMonitor/perf_monitor.pyw', 'PerfMonitor_perf_monitor_pyw'],
   ['cl_perf_common_py', '../cl_perf/cl_perf_common.py', 'cl_perf_cl_perf_common_py'],
   ['cl_perf_aggregate_py', '../cl_perf/cl_perf_aggregate.py', 'cl_perf_cl_perf_aggregate_py'],

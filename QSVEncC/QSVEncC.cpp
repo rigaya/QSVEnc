@@ -56,6 +56,9 @@
 #include "qsv_prm.h"
 #include "qsv_query.h"
 #include "rgy_version.h"
+#if ENABLE_PROBE_BUILD
+#include "rgy_probe_cli.h"
+#endif
 #include "rgy_avutil.h"
 #include "rgy_codepage.h"
 #include "rgy_resource.h"
@@ -1555,9 +1558,13 @@ static int check_qsv_backend(int argc, TCHAR *argv[]) {
 
 int _tmain(int argc, TCHAR *argv[]) {
 #if defined(__linux__) && ENABLE_VAAPI
+    // 自動選択が内部で起動する子プロセスは、診断専用バイナリの起動制限より先に処理する。
     if (argc >= 2 && _tcscmp(argv[1], _T("--check-qsv-backend")) == 0) {
         return check_qsv_backend(argc, argv);
     }
+#endif
+#if ENABLE_PROBE_BUILD
+    if (!rgy_probe_cli_args(argc, argv)) return 1;
 #endif
     int ret = 0;
     if (0 != (ret = run(argc, argv))) {
