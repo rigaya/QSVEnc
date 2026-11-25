@@ -1717,12 +1717,9 @@ protected:
         }
     }
     void appendHeldMpeg2Packet(RGYBitstream *packet) {
-        const auto heldPts = m_decInputBitstream.pts();
-        const bool heldPtsUnknown = heldPts == (int64_t)MFX_TIMESTAMP_UNKNOWN || heldPts == (int64_t)AV_NOPTS_VALUE;
+        // 保持したバッファにピクチャはない。連結後のPTSには次のパケットの値を使う。
         m_decInputBitstream.append(packet);
-        if (heldPtsUnknown) {
-            m_decInputBitstream.setPts(packet->pts());
-        }
+        m_decInputBitstream.setPts(packet->pts());
         m_mpeg2AppendNext = false;
         m_mpeg2AppendCount++;
         PrintMes(RGY_LOG_DEBUG, _T("Appended next MPEG-2 access unit (%d bytes) after an unconsumed sequence header.\n"), (int)packet->size());
@@ -1829,10 +1826,11 @@ protected:
                 if (dec_sts == MFX_ERR_MORE_DATA && inputBitstream && inputBitstream->DataLength == inputDataLen) {
                     const bool holdMpeg2Header = isMpeg2Decode()
                         && m_getNextBitstream
-                        && countMpeg2StartCode(inputBitstream, 0x00) == 0
-                        && inputDataLen > 0
                         && inputDataLen < MPEG2_DEC_HOLD_MAX_BYTES
-                        && m_mpeg2AppendCount < MPEG2_DEC_HOLD_MAX_APPEND;
+                        && m_mpeg2AppendCount < MPEG2_DEC_HOLD_MAX_APPEND
+                        // ピクチャの後ろに残った端数バイトをヘッダとして次のピクチャへ渡さない。
+                        && countMpeg2StartCode(inputBitstream, 0xB3) > 0
+                        && countMpeg2StartCode(inputBitstream, 0x00) == 0;
                     if (holdMpeg2Header) {
                         m_mpeg2AppendNext = true;
                         PrintMes(RGY_LOG_DEBUG, _T("DecodeFrameAsync: keeping %d unconsumed MPEG-2 header bytes to append the next access unit.\n"), inputDataLen);
