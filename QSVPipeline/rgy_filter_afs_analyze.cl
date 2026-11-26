@@ -392,8 +392,12 @@ __kernel void kernel_afs_analyze_12(
     //sharedの SHARED_Y-4 ～ SHARED_Y-1 (ブロック直前の4行) と、0 ～ 3 (ブロック先頭の4行) を埋める
     //generate_flags(ly) は ly-3 ～ ly を参照するため、ブロック直前の4行が未設定だと、
     //未初期化のlocalメモリを読んでブロック境界 (128行ごと) の判定が不定になる
+    //出力の行rは、解析結果の r-3 ～ r+4 行を使う (generate_flagsが -3 ～ 0、mask1が +4 行目)。
+    //そのためブロック直前の -4 行目は不要で、計算しない (1行 = BLOCK_INT_Xスレッドなので分岐はsubgroup単位で揃う)
+    //iy-4 がブロック先頭からの相対位置 (-4 ～ 3)、y_offset はこのスレッドの行(imgy)からの相対位置
     for (int iy = ly; iy < 8; iy += BLOCK_Y) {
-        const int y_offset = iy - ly - 4; //ブロック先頭からの相対位置 -4 ～ 3
+        if (iy - 4 == -4) continue;
+        const int y_offset = iy - ly - 4;
         const bool in_frame = imgy + y_offset >= 0; //フレーム上端より上は判定なし(0)とする
         ptr_shared[shared_int_idx(0, iy-4, 0)] = (in_frame) ? CALL_ANALYZE_Y(src_p0y, src_p1y, y_offset) : 0;
         ptr_shared[shared_int_idx(0, iy-4, 1)] = (in_frame) ? CALL_ANALYZE_C(src_p0u, src_p1u, y_offset) : 0;
@@ -404,20 +408,29 @@ __kernel void kernel_afs_analyze_12(
         ptr_dst += BLOCK_Y * si_pitch_int, imgy += BLOCK_Y,
         ly += BLOCK_Y
     ) {
+        //最後のループ(iloop == BLOCK_LOOP_Y)では、出力するのはブロック末尾の4行のみ。
+        //その4行が使う解析結果は前のループまでで揃っているので、解析は不要。
+        //マスクもその4行に必要な上半分(get_local_id(1) < 4)だけ作ればよい。
+        //(分岐はsubgroup単位で揃う。barrierは全スレッドが通るよう条件の外に置く)
+        const bool last_loop = iloop == BLOCK_LOOP_Y;
         { //差分情報を計算
-            ptr_shared[shared_int_idx(0, ly+4, 0)] = CALL_ANALYZE_Y(src_p0y, src_p1y, 4);
-            ptr_shared[shared_int_idx(0, ly+4, 1)] = CALL_ANALYZE_C(src_p0u, src_p1u, 4);
-            ptr_shared[shared_int_idx(0, ly+4, 2)] = CALL_ANALYZE_C(src_p0v, src_p1v, 4);
+            if (!last_loop) {
+                ptr_shared[shared_int_idx(0, ly+4, 0)] = CALL_ANALYZE_Y(src_p0y, src_p1y, 4);
+                ptr_shared[shared_int_idx(0, ly+4, 1)] = CALL_ANALYZE_C(src_p0u, src_p1u, 4);
+                ptr_shared[shared_int_idx(0, ly+4, 2)] = CALL_ANALYZE_C(src_p0v, src_p1v, 4);
+            }
             barrier(CLK_LOCAL_MEM_FENCE);
         }
-        Flag4U mask1;
+        Flag4U mask1 = 0;
         { //マスク生成
-            Flag4U masky = generate_flags(ly, 0, ptr_shared);
-            Flag4U masku = generate_flags(ly, 1, ptr_shared);
-            Flag4U maskv = generate_flags(ly, 2, ptr_shared);
-            Flag4U mask0;
-            merge_mask(masky, masku, maskv, &mask0, &mask1);
-            ptr_shared[shared_int_idx(0, ly, 3)] = mask0;
+            if (!last_loop || get_local_id(1) < 4) {
+                Flag4U masky = generate_flags(ly, 0, ptr_shared);
+                Flag4U masku = generate_flags(ly, 1, ptr_shared);
+                Flag4U maskv = generate_flags(ly, 2, ptr_shared);
+                Flag4U mask0;
+                merge_mask(masky, masku, maskv, &mask0, &mask1);
+                ptr_shared[shared_int_idx(0, ly, 3)] = mask0;
+            }
             barrier(CLK_LOCAL_MEM_FENCE);
         }
         { //最終出力
