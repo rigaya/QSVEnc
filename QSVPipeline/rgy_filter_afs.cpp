@@ -267,6 +267,7 @@ RGY_ERR afsScanCache::alloc(const RGYFrameInfo& frameInfo) {
 void afsScanCache::clear() {
     for (int i = 0; i < (int)m_scanArray.size(); i++) {
         m_scanArray[i].map.reset();
+        m_scanArray[i].buf_count_motion.reset();
         m_scanArray[i].event.reset();
         clearcache(i);
     }
@@ -562,7 +563,6 @@ RGYFilterAfs::RGYFilterAfs(shared_ptr<RGYOpenCLContext> context) :
     m_stripe(context),
     m_status(),
     m_streamsts(),
-    m_count_motion(),
     m_uv444(),
     m_fpTimecode(),
     m_mergeScan(),
@@ -820,18 +820,18 @@ RGY_ERR RGYFilterAfs::scan_frame(int iframe, int force, const RGYFilterParamAfs 
         err = get_uv444(iframe, queue, wait_event, &p0uv444);
         if (err != RGY_ERR_NONE) return err;
     }
-    auto err = analyze_stripe(p0, p1, p0uv444, p1uv444, sp, m_count_motion, pAfsPrm, queue, wait_event, m_eventScanFrame);
+    auto err = analyze_stripe(p0, p1, p0uv444, p1uv444, sp, sp->buf_count_motion, pAfsPrm, queue, wait_event, m_eventScanFrame);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed analyze_stripe: %s.\n"), get_err_mes(err));
         return err;
     }
     if (STREAM_OPT) {
-        err = m_count_motion->queueMapBuffer(m_queueCopy, CL_MAP_READ, { m_eventScanFrame });
+        err = sp->buf_count_motion->queueMapBuffer(m_queueCopy, CL_MAP_READ, { m_eventScanFrame });
         if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("failed m_count_motion.queueMapBuffer: %s.\n"), get_err_mes(err));
+            AddMessage(RGY_LOG_ERROR, _T("failed buf_count_motion.queueMapBuffer: %s.\n"), get_err_mes(err));
             return err;
         }
-        sp->event = m_count_motion->mapEvent();
+        sp->event = sp->buf_count_motion->mapEvent();
         sp = m_scan.get(iframe-1);
     }
 
@@ -850,18 +850,18 @@ RGY_ERR RGYFilterAfs::count_motion(AFS_SCAN_DATA *sp, const AFS_SCAN_CLIP *clip,
     if (STREAM_OPT) {
         sp->event.wait();
     } else {
-        err = m_count_motion->queueMapBuffer(queue, CL_MAP_READ, {});
+        err = sp->buf_count_motion->queueMapBuffer(queue, CL_MAP_READ, {});
         if (err != RGY_ERR_NONE) {
-            AddMessage(RGY_LOG_ERROR, _T("failed m_count_motion.queueMapBuffer: %s.\n"), get_err_mes(err));
+            AddMessage(RGY_LOG_ERROR, _T("failed buf_count_motion.queueMapBuffer: %s.\n"), get_err_mes(err));
             return err;
         }
-        m_count_motion->mapEvent().wait();
+        sp->buf_count_motion->mapEvent().wait();
     }
 
-    const int nSize = (int)(m_count_motion->size() / sizeof(uint32_t));
+    const int nSize = (int)(sp->buf_count_motion->size() / sizeof(uint32_t));
     int count0 = 0;
     int count1 = 0;
-    const uint32_t *ptrCount = (uint32_t *)m_count_motion->mappedPtr();
+    const uint32_t *ptrCount = (uint32_t *)sp->buf_count_motion->mappedPtr();
     for (int i = 0; i < nSize; i++) {
         uint32_t count = ptrCount[i];
         count0 += count & 0xffff;
@@ -869,7 +869,7 @@ RGY_ERR RGYFilterAfs::count_motion(AFS_SCAN_DATA *sp, const AFS_SCAN_CLIP *clip,
     }
     sp->ff_motion = count0;
     sp->lf_motion = count1;
-    m_count_motion->unmapBuffer();
+    sp->buf_count_motion->unmapBuffer();
     //AddMessage(RGY_LOG_INFO, _T("count_motion[%6d]: %6d - %6d (ff,lf)"), sp->frame, sp->ff_motion, sp->lf_motion);
 #if 0
     uint8_t *ptr = nullptr;
@@ -1290,7 +1290,6 @@ void RGYFilterAfs::close() {
     m_scan.clear();
     m_stripe.clear();
     m_status.clear();
-    m_count_motion.reset();
     for (auto& uv : m_uv444) {
         uv.imgU.release();
         uv.imgV.release();

@@ -132,6 +132,10 @@ struct AFS_SCAN_DATA {
     AFS_SCAN_CLIP clip;
     int ff_motion, lf_motion;
     RGYOpenCLEvent event;
+    //motion countの読み戻し先。フレームごとに持つ。
+    //(以前はフィルタで1つだけ共有していたため、STREAM_OPT時に、iの解析と読み戻しが、ホストがi-1の結果を読むより先に終わると、
+    // i-1の値としてiの値を読んでしまう競合があった)
+    unique_ptr<RGYCLBuf> buf_count_motion;
 };
 
 class afsScanCache {
@@ -307,7 +311,6 @@ protected:
     afsStripeCache  m_stripe;
     afsStatus       m_status;
     afsStreamStatus m_streamsts;
-    unique_ptr<RGYCLBuf> m_count_motion;
     std::array<afsUV444Frame, AFS_UV444_CACHE_NUM> m_uv444;
     unique_ptr<FILE, fp_deleter> m_fpTimecode;
     RGYOpenCLProgramAsync m_mergeScan;
