@@ -52,6 +52,7 @@ extern "C" {
 
 #include <va/va.h>
 #include <va/va_drm.h>
+#include "rgy_gpu_inventory.h"
 #if ENABLE_PROBE_BUILD
 #include "rgy_probe_cli.h"
 #include <va/va_backend.h>
@@ -255,9 +256,7 @@ tstring get_device_name(const char *vendorString) {
 
 std::string read_pci_bus_id(const std::filesystem::path& renderNode) {
     const auto sysfsDevice = std::filesystem::path("/sys/class/drm") / renderNode.filename() / "device";
-    std::error_code ec;
-    const auto resolved = std::filesystem::canonical(sysfsDevice, ec);
-    return ec ? std::string() : resolved.filename().string();
+    return rgy_gpu_inventory::device_name_from_link(sysfsDevice).value_or(std::string());
 }
 
 void va_info_callback(void *userContext, const char *message) {

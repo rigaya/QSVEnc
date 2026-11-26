@@ -45,6 +45,7 @@
 #include <strings.h>
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
+#include "rgy_gpu_inventory.h"
 #include <unistd.h>
 #endif
 
@@ -852,16 +853,10 @@ static std::map<int, std::string> getVPLDevicePciBusIds(std::shared_ptr<RGYLog>&
         // QSV と同じ node 解決を使う。fd は PCI 情報の取得にだけ使い、VA は初期化しない。
         const int fd = open_target_intel_adapter(MFX_LIBVA_DRM, adapterId, log.get());
         if (fd < 0) continue;
-        struct stat info = {};
-        const int status = fstat(fd, &info);
+        const auto pci = rgy_gpu_inventory::drm_device_name_from_fd(fd);
         close(fd);
-        if (status != 0) continue;
-        std::error_code ec;
-        const auto path = std::filesystem::path("/sys/dev/char")
-            / (std::to_string(major(info.st_rdev)) + ":" + std::to_string(minor(info.st_rdev))) / "device";
-        const auto pciPath = std::filesystem::canonical(path, ec);
-        if (ec) continue;
-        pciBusIds[deviceId] = pciPath.filename().string();
+        if (!pci) continue;
+        pciBusIds[deviceId] = *pci;
         log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("VA-API preferred device #%d: VPL adapter %d, PCI %s.\n"),
             deviceId, adapterId, char_to_tstring(pciBusIds[deviceId]).c_str());
     }
