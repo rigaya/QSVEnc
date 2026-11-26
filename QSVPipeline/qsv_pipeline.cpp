@@ -37,7 +37,9 @@
 #include <cassert>
 #include <climits>
 #include <deque>
+#include <filesystem>
 #include <mutex>
+#include <optional>
 #include "rgy_osdep.h"
 #include "rgy_util.h"
 #pragma warning(push)
@@ -5686,6 +5688,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
 
     if (m_backend == QSVBackend::VAAPI) HWDecCodecCsp.clear();
     const auto originalInput = pParams->input;
+    std::optional<RGY_ERR> pipeInputResult;
     auto input_ret = std::async(std::launch::async, [&] {
         threadParamThrottleDsiabled.apply(GetCurrentThread());
         auto sts = InitInput(pParams, HWDecCodecCsp);
@@ -5702,10 +5705,32 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
 #if ENABLE_VAAPI
             if (pParams->backend == QSVBackend::Auto) {
                 // 入力スレッドが使うパラメータの更新を待ってから VA を初期化する。
-                input_ret.get();
+                const auto inputResult = input_ret.get();
+                const auto isPipePath = [](const tstring& filename) {
+                    std::error_code error;
+                    return filename == _T("-") || filename.find(_T("pipe:")) == 0
+                        || rgy_path_is_windows_named_pipe(filename)
+                        || std::filesystem::is_fifo(std::filesystem::path(filename), error);
+                };
+                const auto isPipeSource = [&](const auto& source) { return isPipePath(source.filename); };
+                const auto& common = pParams->common;
+                const bool pipeInput = (m_pFileReader && m_pFileReader->isPipe())
+                    || isPipePath(common.inputFilename)
+                    || std::any_of(common.audioSource.begin(), common.audioSource.end(), isPipeSource)
+                    || std::any_of(common.subSource.begin(), common.subSource.end(), isPipeSource);
+                if (pipeInput && (originalInput.type == RGY_INPUT_FMT_AVHW
+                    || (m_pFileReader && m_pFileReader->GetInputFrameInfo().type == RGY_INPUT_FMT_AVHW))) {
+                    PrintMes(RGY_LOG_ERROR, _T("Cannot reopen pipe input for VA-API fallback after hardware decoding was selected. Use --avsw.\n"));
+                    return RGY_ERR_UNSUPPORTED;
+                }
                 if ((sts = initBackendVA(pParams, deviceList, deviceInfoCache)) != RGY_ERR_NONE) return sts;
                 HWDecCodecCsp.clear();
-                input_ret = std::async(std::launch::deferred, [&] { return ReopenInputVA(pParams, originalInput); });
+                if (pipeInput) {
+                    // パイプは巻き戻せないため、先読み済みのリーダーと確定した入力設定を引き継ぐ。
+                    pipeInputResult = inputResult;
+                } else {
+                    input_ret = std::async(std::launch::deferred, [&] { return ReopenInputVA(pParams, originalInput); });
+                }
             } else
 #endif
             return RGY_ERR_DEVICE_NOT_FOUND;
@@ -5747,7 +5772,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
         m_openclTaskThreads = pParams->ctrl.openclTaskThreads;
     }
 
-    sts = input_ret.get();
+    sts = pipeInputResult ? *pipeInputResult : input_ret.get();
 #if ENABLE_VAAPI
     if (m_backend == QSVBackend::VAAPI) {
         // 入力の初期化結果より先に明示された非対応設定を報告し、並列処理の開始も防ぐ。
