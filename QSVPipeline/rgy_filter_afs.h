@@ -37,6 +37,7 @@ static const bool STREAM_OPT = false;
 #define AFS_SOURCE_CACHE_NUM 16
 #define AFS_SCAN_CACHE_NUM   16
 #define AFS_STRIPE_CACHE_NUM 16
+#define AFS_UV444_CACHE_NUM   4 //scan_frameで使うのは直近2フレーム分 (p0, p1) のみ
 
 #define AFS_FLAG_SHIFT0      0x01
 #define AFS_FLAG_SHIFT1      0x02
@@ -91,6 +92,13 @@ struct afsSourceCacheFrame {
     RGYCLPlaneImage imgY, imgU, imgV;
     std::array<RGYCLPlaneImage, 2> imgCb, imgCr;
     RGYFrameInfo frameinfo() const { return (y) ? y->frame : RGYFrameInfo(); };
+};
+
+//yuv420入力時に、色差を輝度解像度へ拡大したもの。frameは入力フレーム番号 (未使用時は-1)
+struct afsUV444Frame {
+    unique_ptr<RGYCLFrame> u, v;
+    RGYCLPlaneImage imgU, imgV;
+    int frame = -1;
 };
 
 class afsSourceCache {
@@ -259,7 +267,9 @@ protected:
     RGY_ERR check_param(shared_ptr<RGYFilterParamAfs> pAfsParam);
 
     RGY_ERR build_analyze(const RGY_CSP csp, const bool tb_order, const AFS_TUNE_MODE tune_mode);
-    RGY_ERR analyze_stripe(afsSourceCacheFrame *p0, afsSourceCacheFrame *p1, AFS_SCAN_DATA *sp, unique_ptr<RGYCLBuf>& count_motion, const RGYFilterParamAfs *pAfsPrm, RGYOpenCLQueue &queue, std::vector<RGYOpenCLEvent> wait_event, RGYOpenCLEvent &event);
+    RGY_ERR analyze_stripe(afsSourceCacheFrame *p0, afsSourceCacheFrame *p1, const afsUV444Frame *p0uv444, const afsUV444Frame *p1uv444, AFS_SCAN_DATA *sp, unique_ptr<RGYCLBuf>& count_motion, const RGYFilterParamAfs *pAfsPrm, RGYOpenCLQueue &queue, std::vector<RGYOpenCLEvent> wait_event, RGYOpenCLEvent &event);
+    RGY_ERR upsample_uv420(afsUV444Frame *pDst, const afsSourceCacheFrame *pSrc, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_event);
+    RGY_ERR get_uv444(int iframe, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_event, const afsUV444Frame **ppUV444);
     bool scan_frame_result_cached(int iframe, const VppAfs *pAfsPrm);
     RGY_ERR scan_frame(int iframe, int force, const RGYFilterParamAfs *pAfsPrm, RGYOpenCLQueue &queue, std::vector<RGYOpenCLEvent> wait_event);
     RGY_ERR count_motion(AFS_SCAN_DATA *sp, const AFS_SCAN_CLIP *clip, RGYOpenCLQueue &queue_main);
@@ -298,6 +308,7 @@ protected:
     afsStatus       m_status;
     afsStreamStatus m_streamsts;
     unique_ptr<RGYCLBuf> m_count_motion;
+    std::array<afsUV444Frame, AFS_UV444_CACHE_NUM> m_uv444;
     unique_ptr<FILE, fp_deleter> m_fpTimecode;
     RGYOpenCLProgramAsync m_mergeScan;
     RGYOpenCLProgramAsync m_analyze;

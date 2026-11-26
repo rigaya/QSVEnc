@@ -563,6 +563,7 @@ RGYFilterAfs::RGYFilterAfs(shared_ptr<RGYOpenCLContext> context) :
     m_status(),
     m_streamsts(),
     m_count_motion(),
+    m_uv444(),
     m_fpTimecode(),
     m_mergeScan(),
     m_analyze(),
@@ -713,6 +714,22 @@ RGY_ERR RGYFilterAfs::init(shared_ptr<RGYFilterParam> pParam, shared_ptr<RGYLog>
     AddMessage(RGY_LOG_DEBUG, _T("allocated stripe buffer: %dx%d, pitch %d, %s.\n"),
         m_stripe.get(0)->map->frame.width, m_stripe.get(0)->map->frame.height, m_stripe.get(0)->map->frame.pitch[0], RGY_CSP_NAMES[m_stripe.get(0)->map->frame.csp]);
 
+    if (RGY_CSP_CHROMA_FORMAT[pAfsParam->frameOut.csp] == RGY_CHROMAFMT_YUV420) {
+        RGYFrameInfo frameUV444 = getPlane(&pAfsParam->frameOut, RGY_PLANE_Y);
+        frameUV444.csp = (RGY_CSP_BIT_DEPTH[pAfsParam->frameOut.csp] > 8) ? RGY_CSP_Y16 : RGY_CSP_Y8;
+        for (auto& uv : m_uv444) {
+            uv.frame = -1;
+            uv.u = m_cl->createFrameBuffer(frameUV444);
+            uv.v = m_cl->createFrameBuffer(frameUV444);
+            if (!uv.u || !uv.v) {
+                AddMessage(RGY_LOG_ERROR, _T("failed to allocate memory for uv444 buffer.\n"));
+                return RGY_ERR_MEMORY_ALLOC;
+            }
+        }
+        AddMessage(RGY_LOG_DEBUG, _T("allocated uv444 buffer: %dx%d, pitch %d, %s.\n"),
+            m_uv444[0].u->frame.width, m_uv444[0].u->frame.height, m_uv444[0].u->frame.pitch[0], RGY_CSP_NAMES[m_uv444[0].u->frame.csp]);
+    }
+
     if (RGY_ERR_NONE != (err = build_synthesize(pAfsParam->frameOut.csp, pAfsParam->afs.analyze, pAfsParam->afs.tune))) {
         return err;
     }
@@ -795,7 +812,15 @@ RGY_ERR RGYFilterAfs::scan_frame(int iframe, int force, const RGYFilterParamAfs 
     sp->thre_shift = pAfsPrm->afs.thre_shift, sp->thre_deint = pAfsPrm->afs.thre_deint;
     sp->thre_Ymotion = pAfsPrm->afs.thre_Ymotion, sp->thre_Cmotion = pAfsPrm->afs.thre_Cmotion;
     sp->clip.top = sp->clip.bottom = sp->clip.left = sp->clip.right = -1;
-    auto err = analyze_stripe(p0, p1, sp, m_count_motion, pAfsPrm, queue, wait_event, m_eventScanFrame);
+    const afsUV444Frame *p1uv444 = nullptr;
+    const afsUV444Frame *p0uv444 = nullptr;
+    if (RGY_CSP_CHROMA_FORMAT[m_source.csp()] == RGY_CHROMAFMT_YUV420) {
+        auto err = get_uv444(iframe - 1, queue, wait_event, &p1uv444);
+        if (err != RGY_ERR_NONE) return err;
+        err = get_uv444(iframe, queue, wait_event, &p0uv444);
+        if (err != RGY_ERR_NONE) return err;
+    }
+    auto err = analyze_stripe(p0, p1, p0uv444, p1uv444, sp, m_count_motion, pAfsPrm, queue, wait_event, m_eventScanFrame);
     if (err != RGY_ERR_NONE) {
         AddMessage(RGY_LOG_ERROR, _T("failed analyze_stripe: %s.\n"), get_err_mes(err));
         return err;
@@ -1266,6 +1291,13 @@ void RGYFilterAfs::close() {
     m_stripe.clear();
     m_status.clear();
     m_count_motion.reset();
+    for (auto& uv : m_uv444) {
+        uv.imgU.release();
+        uv.imgV.release();
+        uv.u.reset();
+        uv.v.reset();
+        uv.frame = -1;
+    }
     m_fpTimecode.reset();
     AddMessage(RGY_LOG_DEBUG, _T("closed afs filter.\n"));
 }

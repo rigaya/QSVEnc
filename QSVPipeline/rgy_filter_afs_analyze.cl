@@ -47,11 +47,6 @@
 // ビルドエラーになったらLOAD_IMAGEF=1にして、無理やり回避する
 
 __constant sampler_t sampler_y = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
-#if YUV420
-__constant sampler_t sampler_c = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_LINEAR;
-#else
-__constant sampler_t sampler_c = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
-#endif
 
 #ifndef SUB_GROUP_SIZE
 #define SUB_GROUP_SIZE (0)
@@ -96,13 +91,17 @@ int block_sum_int(int val, __local int *shared) {
 #if BIT_DEPTH > 8
 typedef ushort         DATA;
 typedef ushort4        DATA4;
+typedef ushort8        DATA8;
 #define CONVERT_DATA4 convert_ushort4
+#define CONVERT_DATA8 convert_ushort8
 #define CONVERT_FLAG4_SAT convert_uchar4_sat
 #define AS_DATA4      as_ushort4
 #else
 typedef uchar         DATA;
 typedef uchar4        DATA4;
+typedef uchar8        DATA8;
 #define CONVERT_DATA4 convert_uchar4
+#define CONVERT_DATA8 convert_uchar8
 #define CONVERT_FLAG4_SAT
 #define AS_DATA4      as_uchar4
 #endif
@@ -135,26 +134,11 @@ Flag4U analyze_motion(DATA4 p0, DATA4 p1, DATA thre_motion, DATA thre_shift) {
     return AS_FLAG4U(mask_motion) | AS_FLAG4U(mask_shift);
 }
 
-Flag4U analyze_motionf(float p0, float p1, const float thre_motionf, const float thre_shiftf, int flag_offset) {
-    const float absdata = fabs(p0 - p1);
-    Flag4 mask_motion = (thre_motionf > absdata) ? AS_FLAG4((uint)motion_flag  << flag_offset) : (Flag4)0;
-    Flag4 mask_shift  = (thre_shiftf  > absdata) ? AS_FLAG4((uint)motion_shift << flag_offset) : (Flag4)0;
-    return AS_FLAG4U(mask_motion) | AS_FLAG4U(mask_shift);
-}
-
 Flag4U analyze_stripe(DATA4 p0, DATA4 p1, Flag flag_sign, Flag flag_deint, Flag flag_shift, const DATA thre_deint, const DATA thre_shift) {
     DATA4 absdata = abs_diff(p0, p1);
     Flag4 new_sign   = CONVERT_FLAG4_SAT((p0 >= p1)                    ? (DATA4)flag_sign  : (DATA4)0);
     Flag4 mask_deint = CONVERT_FLAG4_SAT((absdata > (DATA4)thre_deint) ? (DATA4)flag_deint : (DATA4)0);
     Flag4 mask_shift = CONVERT_FLAG4_SAT((absdata > (DATA4)thre_shift) ? (DATA4)flag_shift : (DATA4)0);
-    return AS_FLAG4U(new_sign) | AS_FLAG4U(mask_deint) | AS_FLAG4U(mask_shift);
-}
-
-Flag4U analyze_stripef(float p0, float p1, Flag flag_sign, Flag flag_deint, Flag flag_shift, const float thre_deintf, const float thre_shiftf, int flag_offset) {
-    const float absdata = fabs(p1 - p0);
-    Flag4 new_sign   = (p0 >= p1)              ? AS_FLAG4((uint)flag_sign  << flag_offset) : (Flag4)0;
-    Flag4 mask_deint = (absdata > thre_deintf) ? AS_FLAG4((uint)flag_deint << flag_offset) : (Flag4)0;
-    Flag4 mask_shift = (absdata > thre_shiftf) ? AS_FLAG4((uint)flag_shift << flag_offset) : (Flag4)0;
     return AS_FLAG4U(new_sign) | AS_FLAG4U(mask_deint) | AS_FLAG4U(mask_shift);
 }
 
@@ -202,66 +186,66 @@ Flag4U analyze_y(
     return flag;
 }
 
-float get_uv(__read_only image2d_t src_p0_0, __read_only image2d_t src_p0_1, float ifx, int iy) {
-    //static const float WEIGHT[4] = {
-    //    7.0f / 8.0f,
-    //    5.0f / 8.0f,
-    //    3.0f / 8.0f,
-    //    1.0f / 8.0f
-    //};
-    //const float ifytex = ify + WEIGHT[iy & 3];
-    const float ify = ((iy - 2) >> 2) + 0.5f;
-    const float ifytex = ify + (3.5f - (float)(iy & 3)) * 0.25f;
-    if (iy & 1) {
-        return read_imagef(src_p0_1, sampler_c, (float2)(ifx, ifytex)).x;
-    } else {
-        return read_imagef(src_p0_0, sampler_c, (float2)(ifx, ifytex)).x;
-    }
+#if YUV420
+// 4:2:0の色差を、インターレースを考慮して輝度解像度(4:4:4相当)へ整数演算で拡大する。
+// 以前はanalyzeカーネル内で色差をread_imagefの線形補間で毎回求めていたが、
+// その結果をfloatのスカラーで判定するため、輝度のような4画素同時処理ができず、
+// 読み込み数と命令数がanalyzeの大半を占めていた。
+// ここで1フレームにつき1回だけ拡大しておき、analyzeでは輝度と同じ4画素単位の処理に乗せる。
+// 重みは従来の線形補間と同じ:
+//   縦: 輝度の行iy=4m+r に対し、同じフィールド(iy&1)の色差の行Fを使う (重みは1/8単位)
+//       r=0: F0[m-1]*1 + F0[m]*7, r=1: F1[m-1]*3 + F1[m]*5,
+//       r=2: F0[m]*5 + F0[m+1]*3, r=3: F1[m]*7 + F1[m+1]*1   (F0=偶数行, F1=奇数行, 端はclamp)
+//   横: 輝度の偶数画素は色差の画素そのまま、奇数画素は左右の色差の平均
+// 丸めは1回だけ行う (floatの値との差は許容する)。
+// 入力の色差はソースキャッシュでフィールド分離済み (src_x0=偶数行, src_x1=奇数行、高さはfield_height)
+// 1work itemで色差4画素(輝度8画素)を処理する。get_global_id(2)で 0:U, 1:V を選ぶ
+__kernel void kernel_afs_upsample_uv420(
+    __global uchar *restrict dst_u,
+    __global uchar *restrict dst_v,
+    const int dst_pitch,
+    __global const uchar *restrict src_u0,
+    __global const uchar *restrict src_u1,
+    __global const uchar *restrict src_v0,
+    __global const uchar *restrict src_v1,
+    const int src_pitch,
+    const int uv_width, const int field_height, const int height) {
+    const int cx = get_global_id(0) * 4; //色差のx
+    const int iy = get_global_id(1);     //輝度のy
+    const int plane = get_global_id(2);  //0:U, 1:V
+    if (cx >= uv_width || iy >= height) return;
+
+    const int field = iy & 1;
+    __global const uchar *src = (plane) ? ((field) ? src_v1 : src_v0) : ((field) ? src_u1 : src_u0);
+    __global uchar *dst = (plane) ? dst_v : dst_u;
+    const int m = iy >> 2;
+    const int r = iy & 3;
+    const int fa = (r < 2) ? m - 1 : m;
+    const int wb = 7 - 2 * r; // r=0:7, 1:5, 2:3, 3:1
+    const int wa = 8 - wb;
+    const int ya = clamp(fa,     0, field_height - 1);
+    const int yb = clamp(fa + 1, 0, field_height - 1);
+    __global const DATA *line_a = (__global const DATA *)(src + ya * src_pitch);
+    __global const DATA *line_b = (__global const DATA *)(src + yb * src_pitch);
+
+    //縦補間した値 (8倍) を5画素分求める。右端より先はpitch内のゴミなので、最後の有効画素で置き換える
+    const int4 v4 = (int4)wa * convert_int4(vload4(0, line_a + cx)) + (int4)wb * convert_int4(vload4(0, line_b + cx));
+    const int cx4 = min(cx + 4, uv_width - 1);
+    int v[5];
+    v[0] = v4.s0;
+    v[1] = (cx + 1 < uv_width) ? v4.s1 : v[0];
+    v[2] = (cx + 2 < uv_width) ? v4.s2 : v[1];
+    v[3] = (cx + 3 < uv_width) ? v4.s3 : v[2];
+    v[4] = (cx + 4 < uv_width) ? (wa * (int)line_a[cx4] + wb * (int)line_b[cx4]) : v[3];
+
+    int8 out;
+    out.s0 = (v[0] + 4) >> 3; out.s1 = (v[0] + v[1] + 8) >> 4;
+    out.s2 = (v[1] + 4) >> 3; out.s3 = (v[1] + v[2] + 8) >> 4;
+    out.s4 = (v[2] + 4) >> 3; out.s5 = (v[2] + v[3] + 8) >> 4;
+    out.s6 = (v[3] + 4) >> 3; out.s7 = (v[3] + v[4] + 8) >> 4;
+    vstore8(CONVERT_DATA8(out), 0, (__global DATA *)(dst + iy * dst_pitch) + cx * 2);
 }
-
-Flag4U analyze_c(
-    __read_only image2d_t src_p0_0,
-    __read_only image2d_t src_p0_1,
-    __read_only image2d_t src_p1_0,
-    __read_only image2d_t src_p1_1,
-    int ix, int iy,
-    const float thre_motionf, const float thre_deintf, const float thre_shiftf) {
-    Flag4U flag4 = 0;
-    float ifx = (ix << 1) + 0.5f; // ixは4ピクセル単位、その半分だがcは1ピクセル単位なので2倍する
-
-    #pragma unroll
-    for (int i = 0; i < 4; i++, ifx += 0.5f) {
-        //motion
-        float p0 = get_uv(src_p0_0, src_p0_1, ifx, iy);
-        float p1 = get_uv(src_p1_0, src_p1_1, ifx, iy);
-        float p2 = p1;
-        Flag4U flag = analyze_motionf(p0, p1, thre_motionf, thre_shiftf, i * 8);
-
-        if (iy > 0) {
-            //non-shift
-            p1 = get_uv(src_p0_0, src_p0_1, ifx, iy-1);
-            flag |= analyze_stripef(p0, p1, non_shift_sign, non_shift_deint, non_shift_shift, thre_deintf, thre_shiftf, i * 8);
-
-            //shift
-            if (TB_ORDER) {
-                if (iy & 1) {
-                    p0 = p2;
-                } else {
-                    p1 = get_uv(src_p1_0, src_p1_1, ifx, iy-1);
-                }
-            } else {
-                if (iy & 1) {
-                    p1 = get_uv(src_p1_0, src_p1_1, ifx, iy-1);
-                } else {
-                    p0 = p2;
-                }
-            }
-            flag |= analyze_stripef(p1, p0, shift_sign, shift_deint, shift_shift, thre_deintf, thre_shiftf, i * 8);
-        }
-        flag4 |= flag;
-    }
-    return flag4;
-}
+#endif //#if YUV420
 
 int shared_int_idx(int x, int y, int dep) {
     return dep * SHARED_INT_X * SHARED_Y + (y&15) * SHARED_INT_X + x;
@@ -374,22 +358,19 @@ void merge_mask(Flag4U masky, Flag4U masku, Flag4U maskv, Flag4U *restrict mask0
     *mask0 |= *mask1;
 }
 
+//色差はyuv420の場合もkernel_afs_upsample_uv420で輝度解像度に拡大したものを受け取り、輝度と同じ4画素単位の処理で判定する
 __kernel void kernel_afs_analyze_12(
     __global Flag4 *restrict ptr_dst,
     __global int *restrict ptr_count,
     __read_only image2d_t src_p0y,
-    __read_only image2d_t src_p0u0,
-    __read_only image2d_t src_p0u1, //yuv444では使用されない
-    __read_only image2d_t src_p0v0,
-    __read_only image2d_t src_p0v1, //yuv444では使用されない
+    __read_only image2d_t src_p0u,
+    __read_only image2d_t src_p0v,
     __read_only image2d_t src_p1y,
-    __read_only image2d_t src_p1u0,
-    __read_only image2d_t src_p1u1, //yuv444では使用されない
-    __read_only image2d_t src_p1v0,
-    __read_only image2d_t src_p1v1, //yuv444では使用されない
+    __read_only image2d_t src_p1u,
+    __read_only image2d_t src_p1v,
     const int width_int, const int si_pitch_int, const int h,
     const DATA thre_Ymotion, const DATA thre_deint, const DATA thre_shift,
-    const DATA thre_Cmotion, const float thre_Cmotionf, const float thre_deintf, const float thre_shiftf,
+    const DATA thre_Cmotion, const DATA thre_Cdeint, const DATA thre_Cshift,
     const uint scan_left, const uint scan_top, const uint scan_width, const uint scan_height) {
 
     __local int shared[SHARED_INT_X * SHARED_Y * 5]; //int単位でアクセスする
@@ -402,9 +383,7 @@ __kernel void kernel_afs_analyze_12(
     uint motion_count = 0;
 
 #define CALL_ANALYZE_Y(p0, p1, y_offset) analyze_y((p0), (p1), (imgx), (imgy+(y_offset)), thre_Ymotion,  thre_deint,  thre_shift)
-#define CALL_ANALYZE_C(p0_0, p0_1, p1_0, p1_1, y_offset) \
-    (YUV420) ? analyze_c((p0_0), (p0_1), (p1_0), (p1_1), (imgx), (imgy+(y_offset)), thre_Cmotionf, thre_deintf, thre_shiftf) \
-             : analyze_y((p0_0), (p1_0), (imgx), (imgy+(y_offset)), thre_Cmotion, thre_deint, thre_shift)
+#define CALL_ANALYZE_C(p0, p1, y_offset) analyze_y((p0), (p1), (imgx), (imgy+(y_offset)), thre_Cmotion, thre_Cdeint, thre_Cshift)
 
     __local Flag4U *ptr_shared = (__local Flag4U *)shared + shared_int_idx(lx,0,0);
     ptr_dst += (imgy-4) * si_pitch_int + imgx;
@@ -417,8 +396,8 @@ __kernel void kernel_afs_analyze_12(
         const int y_offset = iy - ly - 4; //ブロック先頭からの相対位置 -4 ～ 3
         const bool in_frame = imgy + y_offset >= 0; //フレーム上端より上は判定なし(0)とする
         ptr_shared[shared_int_idx(0, iy-4, 0)] = (in_frame) ? CALL_ANALYZE_Y(src_p0y, src_p1y, y_offset) : 0;
-        ptr_shared[shared_int_idx(0, iy-4, 1)] = (in_frame) ? CALL_ANALYZE_C(src_p0u0, src_p0u1, src_p1u0, src_p1u1, y_offset) : 0;
-        ptr_shared[shared_int_idx(0, iy-4, 2)] = (in_frame) ? CALL_ANALYZE_C(src_p0v0, src_p0v1, src_p1v0, src_p1v1, y_offset) : 0;
+        ptr_shared[shared_int_idx(0, iy-4, 1)] = (in_frame) ? CALL_ANALYZE_C(src_p0u, src_p1u, y_offset) : 0;
+        ptr_shared[shared_int_idx(0, iy-4, 2)] = (in_frame) ? CALL_ANALYZE_C(src_p0v, src_p1v, y_offset) : 0;
     }
 
     for (int iloop = 0; iloop <= BLOCK_LOOP_Y; iloop++,
@@ -427,8 +406,8 @@ __kernel void kernel_afs_analyze_12(
     ) {
         { //差分情報を計算
             ptr_shared[shared_int_idx(0, ly+4, 0)] = CALL_ANALYZE_Y(src_p0y, src_p1y, 4);
-            ptr_shared[shared_int_idx(0, ly+4, 1)] = CALL_ANALYZE_C(src_p0u0, src_p0u1, src_p1u0, src_p1u1, 4);
-            ptr_shared[shared_int_idx(0, ly+4, 2)] = CALL_ANALYZE_C(src_p0v0, src_p0v1, src_p1v0, src_p1v1, 4);
+            ptr_shared[shared_int_idx(0, ly+4, 1)] = CALL_ANALYZE_C(src_p0u, src_p1u, 4);
+            ptr_shared[shared_int_idx(0, ly+4, 2)] = CALL_ANALYZE_C(src_p0v, src_p1v, 4);
             barrier(CLK_LOCAL_MEM_FENCE);
         }
         Flag4U mask1;

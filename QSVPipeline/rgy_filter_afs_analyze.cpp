@@ -43,6 +43,7 @@ static const uint32_t SELECT_PLANE_U   = 0x02u;
 static const uint32_t SELECT_PLANE_V   = 0x04u;
 
 static const char* AFS_ANALYZE_KERNEL_NAME = "kernel_afs_analyze_12";
+static const char* AFS_UPSAMPLE_UV420_KERNEL_NAME = "kernel_afs_upsample_uv420";
 
 #pragma warning(push)
 #pragma warning(disable: 4127) //C4127: 条件式が定数です。
@@ -111,7 +112,9 @@ typedef uint8_t Flag;
 
 template<typename Type, bool yuv420>
 RGY_ERR run_analyze_stripe(uint8_t *dst,
-    afsSourceCacheFrame *p0, afsSourceCacheFrame *p1, const int bit_depth,
+    afsSourceCacheFrame *p0, afsSourceCacheFrame *p1,
+    const afsUV444Frame *p0uv444, const afsUV444Frame *p1uv444, //yuv420の場合の輝度解像度に拡大した色差
+    const int bit_depth,
     const int dstPitch,
     unique_ptr<RGYCLBuf> &count_motion,
     const VppAfs *pAfsPrm, RGYOpenCLQueue &queue,
@@ -121,15 +124,11 @@ RGY_ERR run_analyze_stripe(uint8_t *dst,
 
     const int srcWidth  = p0->y->frame.width;
     const int srcHeight = p0->y->frame.height;
-    const cl_mem texP0U0 = yuv420 ? p0->imgCb[0].mem() : p0->imgU.mem();
-    const cl_mem texP0V0 = yuv420 ? p0->imgCr[0].mem() : p0->imgV.mem();
-    const cl_mem texP1U0 = yuv420 ? p1->imgCb[0].mem() : p1->imgU.mem();
-    const cl_mem texP1V0 = yuv420 ? p1->imgCr[0].mem() : p1->imgV.mem();
-    // YUV444 の未使用フィールドにも有効な image を渡し、setArg の検証を満たす。
-    const cl_mem texP0U1 = yuv420 ? p0->imgCb[1].mem() : texP0U0;
-    const cl_mem texP0V1 = yuv420 ? p0->imgCr[1].mem() : texP0V0;
-    const cl_mem texP1U1 = yuv420 ? p1->imgCb[1].mem() : texP1U0;
-    const cl_mem texP1V1 = yuv420 ? p1->imgCr[1].mem() : texP1V0;
+    //yuv420の場合は、輝度解像度に拡大済みの色差を輝度と同じ形式で読む
+    const cl_mem texP0U = yuv420 ? p0uv444->imgU.mem() : p0->imgU.mem();
+    const cl_mem texP0V = yuv420 ? p0uv444->imgV.mem() : p0->imgV.mem();
+    const cl_mem texP1U = yuv420 ? p1uv444->imgU.mem() : p1->imgU.mem();
+    const cl_mem texP1V = yuv420 ? p1uv444->imgV.mem() : p1->imgV.mem();
 
     const RGYWorkSize local(BLOCK_INT_X, BLOCK_Y);
     //横方向は1スレッドで4pixel処理する
@@ -156,22 +155,26 @@ RGY_ERR run_analyze_stripe(uint8_t *dst,
     const Type thre_shift_yuv   = (Type)clamp((pAfsPrm->thre_shift   * 219 +  383)>>thre_rsft, 0, thre_max);
     const Type thre_deint_yuv   = (Type)clamp((pAfsPrm->thre_deint   * 219 +  383)>>thre_rsft, 0, thre_max);
     const Type thre_Ymotion_yuv = (Type)clamp((pAfsPrm->thre_Ymotion * 219 +  383)>>thre_rsft, 0, thre_max);
-    const Type thre_Cmotion_yuv = (Type)clamp((pAfsPrm->thre_Cmotion * 224 + 2112)>>thre_rsft, 0, thre_max);
-
-    //YC48 -> yuv420/yuv444(bit_depth)へのスケーリング
-    //色差はcudaReadModeNormalizedFloatをつ開くので、そのぶんのスケーリングも必要
-    const float thre_mul = (224.0f / (float)(4096 >> (bit_depth - 8))) * (1.0f / (1 << (sizeof(Type) * 8)));
-    const float thre_shift_yuvf   = std::max(0.0f, pAfsPrm->thre_shift * thre_mul);
-    const float thre_deint_yuvf   = std::max(0.0f, pAfsPrm->thre_deint * thre_mul);
-    const float thre_Cmotion_yuvf = std::max(0.0f, pAfsPrm->thre_Cmotion * thre_mul);
+    Type thre_Cmotion_yuv = (Type)clamp((pAfsPrm->thre_Cmotion * 224 + 2112)>>thre_rsft, 0, thre_max);
+    Type thre_Cdeint_yuv  = thre_deint_yuv;
+    Type thre_Cshift_yuv  = thre_shift_yuv;
+    if (yuv420) {
+        //以前のfloat版(色差のスケール 224/4096)の判定にできるだけ合わせた整数の閾値
+        //motion : (thre > abs) の判定なので切り上げ
+        //deint/shift : (abs > thre) の判定なので切り捨て
+        //(shiftはmotion側でも thre > abs で使うが、既定値では割り切れるので差は出ない)
+        thre_Cmotion_yuv = (Type)clamp((pAfsPrm->thre_Cmotion * 224 + (1 << thre_rsft) - 1) >> thre_rsft, 0, thre_max);
+        thre_Cdeint_yuv  = (Type)clamp((pAfsPrm->thre_deint   * 224) >> thre_rsft, 0, thre_max);
+        thre_Cshift_yuv  = (Type)clamp((pAfsPrm->thre_shift   * 224) >> thre_rsft, 0, thre_max);
+    }
 
     err = analyze->kernel(AFS_ANALYZE_KERNEL_NAME).config(queue, local, global, wait_event, &event).launch(
         (cl_mem)dst, count_motion->mem(),
-        p0->imgY.mem(), texP0U0, texP0U1, texP0V0, texP0V1,
-        p1->imgY.mem(), texP1U0, texP1U1, texP1V0, texP1V1,
+        p0->imgY.mem(), texP0U, texP0V,
+        p1->imgY.mem(), texP1U, texP1V,
         divCeil(srcWidth, 4), (int)(dstPitch / sizeof(uint32_t)), srcHeight,
         thre_Ymotion_yuv, thre_deint_yuv, thre_shift_yuv,
-        thre_Cmotion_yuv, thre_Cmotion_yuvf, thre_deint_yuvf, thre_shift_yuvf,
+        thre_Cmotion_yuv, thre_Cdeint_yuv, thre_Cshift_yuv,
         scan_left, scan_top, scan_width, scan_height);
 
     return err;
@@ -192,14 +195,64 @@ decltype(run_analyze_stripe<uint8_t, true>) *analyze_func::func[2][2] = {
     { run_analyze_stripe<uint16_t, false>, run_analyze_stripe<uint16_t, true> }
 };
 
-RGY_ERR RGYFilterAfs::analyze_stripe(afsSourceCacheFrame *p0, afsSourceCacheFrame *p1, AFS_SCAN_DATA *sp, unique_ptr<RGYCLBuf> &count_motion, const RGYFilterParamAfs *pAfsPrm, RGYOpenCLQueue &queue, std::vector<RGYOpenCLEvent> wait_event, RGYOpenCLEvent &event) {
+RGY_ERR RGYFilterAfs::upsample_uv420(afsUV444Frame *pDst, const afsSourceCacheFrame *pSrc, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_event) {
+    const auto &fieldU = pSrc->cb[0]->frame; //フィールド分離済みの色差 (cb/crで共通のサイズ・pitch)
+    const auto &dstU = pDst->u->frame;
+    if (fieldU.pitch[0] != pSrc->cb[1]->frame.pitch[0] || fieldU.pitch[0] != pSrc->cr[0]->frame.pitch[0] || fieldU.pitch[0] != pSrc->cr[1]->frame.pitch[0]
+        || dstU.pitch[0] != pDst->v->frame.pitch[0]) {
+        AddMessage(RGY_LOG_ERROR, _T("unexpected pitch for afs_upsample_uv420.\n"));
+        return RGY_ERR_UNSUPPORTED;
+    }
+    const RGYWorkSize local(32, 8, 1);
+    const RGYWorkSize global(divCeil(fieldU.width, 4), dstU.height, 2);
+    auto err = m_analyze.get()->kernel(AFS_UPSAMPLE_UV420_KERNEL_NAME).config(queue, local, global, wait_event).launch(
+        pDst->u->mem(0), pDst->v->mem(0), dstU.pitch[0],
+        pSrc->cb[0]->mem(0), pSrc->cb[1]->mem(0), pSrc->cr[0]->mem(0), pSrc->cr[1]->mem(0), fieldU.pitch[0],
+        fieldU.width, fieldU.height, dstU.height);
+    if (err != RGY_ERR_NONE) {
+        AddMessage(RGY_LOG_ERROR, _T("failed to run %s: %s.\n"), char_to_tstring(AFS_UPSAMPLE_UV420_KERNEL_NAME).c_str(), get_err_mes(err));
+        return err;
+    }
+    //analyzeは輝度と同じくRGBAのimageとして4画素ずつ読む
+    const int bit_depth = RGY_CSP_BIT_DEPTH[m_source.csp()];
+    auto makeImage = [&](RGYCLPlaneImage &image, RGYCLFrame *frame) {
+        return m_cl->createImageFromPlane(image, frame->mem(0), bit_depth, CL_RGBA, false,
+            frame->frame.pitch[0], (frame->frame.width + 3) / 4, frame->frame.height, CL_MEM_READ_ONLY, queue);
+    };
+    if ((err = makeImage(pDst->imgU, pDst->u.get())) != RGY_ERR_NONE) return err;
+    if ((err = makeImage(pDst->imgV, pDst->v.get())) != RGY_ERR_NONE) return err;
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterAfs::get_uv444(int iframe, RGYOpenCLQueue &queue, const std::vector<RGYOpenCLEvent> &wait_event, const afsUV444Frame **ppUV444) {
+    //m_source.get()と同じくclampした番号をキーにする
+    const int idx = clamp(iframe, 0, m_source.inframe() - 1);
+    auto uv = &m_uv444[idx & (AFS_UV444_CACHE_NUM - 1)];
+    if (uv->frame != idx) {
+        //scan_frameと同じキューで処理するので、前のanalyzeの読み込みとの順序は保証される
+        auto err = upsample_uv420(uv, m_source.get(idx), queue, wait_event);
+        if (err != RGY_ERR_NONE) {
+            AddMessage(RGY_LOG_ERROR, _T("failed upsample_uv420: %s.\n"), get_err_mes(err));
+            return err;
+        }
+        uv->frame = idx;
+    }
+    *ppUV444 = uv;
+    return RGY_ERR_NONE;
+}
+
+RGY_ERR RGYFilterAfs::analyze_stripe(afsSourceCacheFrame *p0, afsSourceCacheFrame *p1, const afsUV444Frame *p0uv444, const afsUV444Frame *p1uv444, AFS_SCAN_DATA *sp, unique_ptr<RGYCLBuf> &count_motion, const RGYFilterParamAfs *pAfsPrm, RGYOpenCLQueue &queue, std::vector<RGYOpenCLEvent> wait_event, RGYOpenCLEvent &event) {
     if (   RGY_CSP_CHROMA_FORMAT[m_source.csp()] != RGY_CHROMAFMT_YUV420
         && RGY_CSP_CHROMA_FORMAT[m_source.csp()] != RGY_CHROMAFMT_YUV444) {
         AddMessage(RGY_LOG_ERROR, _T("Invalid color format for afs synthesize: %s.\n"), RGY_CSP_NAMES[m_source.csp()]);
         return RGY_ERR_INVALID_COLOR_FORMAT;
     }
+    if (RGY_CSP_CHROMA_FORMAT[m_source.csp()] == RGY_CHROMAFMT_YUV420 && (p0uv444 == nullptr || p1uv444 == nullptr)) {
+        AddMessage(RGY_LOG_ERROR, _T("upsampled chroma buffer not set for afs_analyze_stripe.\n"));
+        return RGY_ERR_NULL_PTR;
+    }
     return analyze_func::get(m_source.csp())(
-        sp->map->frame.ptr[0], p0, p1, RGY_CSP_BIT_DEPTH[m_source.csp()],
+        sp->map->frame.ptr[0], p0, p1, p0uv444, p1uv444, RGY_CSP_BIT_DEPTH[m_source.csp()],
         sp->map->frame.pitch[0],
         count_motion, &pAfsPrm->afs, queue, wait_event, event, m_analyze.get(), m_cl.get());
 }
