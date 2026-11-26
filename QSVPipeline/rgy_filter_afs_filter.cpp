@@ -33,13 +33,13 @@
 #include "rgy_filter_afs.h"
 #include "rgy_opencl.h"
 
-#define FILTER_BLOCK_INT_X  (32) //work groupサイズ(x) = スレッド数/work group
-#define FILTER_BLOCK_Y       (8) //work groupサイズ(y) = スレッド数/work group
+#define MAPF_BLOCK_X  (64) //work groupサイズ(x) = スレッド数/work group
+#define MAPF_ROWS     (16) //1スレッドが縦方向に処理する行数
 
 RGY_ERR afsStripeCache::init(std::shared_ptr<RGYLog> log) {
     if (!m_analyzeMapFilter.get()) {
-        const auto options = strsprintf("-D FILTER_BLOCK_INT_X=%d -D FILTER_BLOCK_Y=%d",
-            FILTER_BLOCK_INT_X, FILTER_BLOCK_Y);
+        const auto options = strsprintf("-D MAPF_BLOCK_X=%d -D MAPF_ROWS=%d",
+            MAPF_BLOCK_X, MAPF_ROWS);
         m_analyzeMapFilter.set(m_cl->buildResourceAsync(_T("RGY_FILTER_AFS_FILTER_CL"), _T("EXE_DATA"), options.c_str()));
     }
     return RGY_ERR_NONE;
@@ -53,10 +53,12 @@ RGY_ERR afsStripeCache::map_filter(AFS_STRIPE_DATA *dst, AFS_STRIPE_DATA *sp, RG
     if (sp->map->frame.pitch[0] % sizeof(uint32_t) != 0) {
         return RGY_ERR_INVALID_IMAGE_SIZE;
     }
-    RGYWorkSize local(FILTER_BLOCK_INT_X, FILTER_BLOCK_Y);
-    RGYWorkSize global(sp->map->frame.width, sp->map->frame.height);
+    //横方向は1スレッドで1語(4画素)、縦方向は1スレッドでMAPF_ROWS行を処理する
+    const int widthWords = divCeil<int>(sp->map->frame.width, sizeof(uint32_t));
+    RGYWorkSize local(MAPF_BLOCK_X, 1);
+    RGYWorkSize global(widthWords, divCeil<int>(sp->map->frame.height, MAPF_ROWS));
     RGY_ERR err = m_analyzeMapFilter.get()->kernel("kernel_afs_analyze_map_filter").config(queue, local, global).launch(
         (cl_mem)dst->map->frame.ptr[0], (cl_mem)sp->map->frame.ptr[0],
-        divCeil<int>(sp->map->frame.width, sizeof(uint32_t)), divCeil<int>(sp->map->frame.pitch[0], sizeof(uint32_t)), sp->map->frame.height);
+        widthWords, divCeil<int>(sp->map->frame.pitch[0], sizeof(uint32_t)), sp->map->frame.height);
     return err;
 }
