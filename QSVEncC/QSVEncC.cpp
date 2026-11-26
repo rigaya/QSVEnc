@@ -1211,7 +1211,7 @@ static bool preview_cleanup_supported(const sInputParams& p) {
         && !p.bBenchmark && !p.ctrl.perfMonitorSelect && !p.ctrl.perfMonitorSelectMatplot && !p.vpp.checkPerformance && p.ctrl.clPerfDumpDir.empty() && p.ctrl.clPerfTimelineSec == 0.0
         && !p.vpp.onnx.enable && !p.vpp.onnxDeint.enable && !p.vpp.rife_ov.enable
         && !p.vpp.libplacebo_tonemapping.enable && !p.vpp.libplacebo_deband.enable && p.vpp.libplacebo_shader.empty()
-        && getVppResizeType(p.vpp.resize_algo) != RGY_VPP_RESIZE_TYPE_LIBPLACEBO;
+        && !isLibplaceboResizeFiter(p.vpp.resize_algo);
 #else
     (void)p;
     return false;
