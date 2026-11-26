@@ -916,7 +916,7 @@ int parse_one_vppmfx_option(const TCHAR *option_name, const TCHAR *strInput[], i
 }
 
 int ParseOneOption(const TCHAR *option_name, const TCHAR* strInput[], int& i, int nArgNum, sInputParams* pParams, sArgsData *argData) {
-#if ENABLE_VAAPI
+#if ENABLE_VAAPI || ENABLE_PROBE_BUILD
     if (0 == _tcscmp(option_name, _T("backend"))) {
         if (i + 1 >= nArgNum || strInput[i + 1] == nullptr || strInput[i + 1][0] == _T('-')) {
             print_cmd_error_invalid_value(option_name, _T(""), list_qsv_backend);

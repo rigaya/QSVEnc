@@ -52,6 +52,11 @@ extern "C" {
 
 #include <va/va.h>
 #include <va/va_drm.h>
+#if ENABLE_PROBE_BUILD
+#include "rgy_probe_cli.h"
+#include <va/va_backend.h>
+#include <va/va_drmcommon.h>
+#endif
 
 namespace {
 
@@ -392,6 +397,9 @@ std::vector<RGYVADeviceInfo> enumerateVADevices(uint32_t vendorId, int idBase, R
         tstring name;
         int openErrno = 0;
         bool usable = true;
+#if ENABLE_PROBE_BUILD
+        rgy_probe::event("open_device");
+#endif
         if (probeDevices) {
             usable = probe_va_device(node, name, openErrno, log);
         } else {
@@ -445,6 +453,12 @@ std::vector<RGYVADeviceInfo> enumerateVADevices(uint32_t vendorId, int idBase, R
         if (openErrorMessage != nullptr) {
             *openErrorMessage = message;
         }
+#if ENABLE_PROBE_BUILD
+        if (devices.empty()) {
+            const auto reason = (lastOpenErrno == EACCES || lastOpenErrno == EPERM) ? "permission_denied" : "device_not_visible";
+            rgy_probe::remember_failure(rgy_probe::failure(reason, "open", lastOpenErrno, rgy_probe::utf8(message.c_str())));
+        }
+#endif
     }
     return devices;
 }
@@ -469,6 +483,9 @@ RGY_ERR RGYDeviceVA::open(const RGYVADeviceInfo& info, std::shared_ptr<RGYLog> l
     m_log = std::move(log);
     AVBufferRef *deviceRaw = nullptr;
     const auto devicePath = tchar_to_string(m_info.renderNode);
+#if ENABLE_PROBE_BUILD
+    rgy_probe::event("open_device");
+#endif
     const int result = av_hwdevice_ctx_create(&deviceRaw, AV_HWDEVICE_TYPE_VAAPI, devicePath.c_str(), nullptr, 0);
     if (result < 0 || deviceRaw == nullptr) {
         char errbuf[AV_ERROR_MAX_STRING_SIZE] = {};
@@ -477,6 +494,10 @@ RGY_ERR RGYDeviceVA::open(const RGYVADeviceInfo& info, std::shared_ptr<RGYLog> l
             m_info.renderNode.c_str(), char_to_tstring(errbuf).c_str());
         if (m_log) m_log->write(errorLogLevel, RGY_LOGT_DEV, _T("%s"), message.c_str());
         if (openErrorMessage) *openErrorMessage = message;
+#if ENABLE_PROBE_BUILD
+        const auto reason = (result == AVERROR(EACCES) || result == AVERROR(EPERM)) ? "permission_denied" : "device_not_visible";
+        rgy_probe::remember_failure(rgy_probe::failure(reason, "av_hwdevice_ctx_create", result, rgy_probe::utf8(message.c_str())));
+#endif
         return RGY_ERR_DEVICE_NOT_FOUND;
     }
     m_hwdevice.reset(deviceRaw);
@@ -492,6 +513,22 @@ RGY_ERR RGYDeviceVA::open(const RGYVADeviceInfo& info, std::shared_ptr<RGYLog> l
     if (m_info.name.empty()) m_info.name = get_device_name(vendor);
     return RGY_ERR_NONE;
 }
+
+#if ENABLE_PROBE_BUILD
+int RGYDeviceVA::fd() const {
+    if (!m_display || !vaDisplayIsValid(m_display)) {
+        return -1;
+    }
+    const auto *display = static_cast<const VADisplayContext *>(m_display);
+    const auto *driver = display->pDriverContext;
+    if (!driver || (driver->display_type != VA_DISPLAY_DRM_RENDERNODES && driver->display_type != VA_DISPLAY_DRM)
+        || !driver->drm_state) {
+        return -1;
+    }
+    // FFmpegが開いて保持しているDRM記述子を、表示の識別にだけ借りる。
+    return static_cast<const drm_state *>(driver->drm_state)->fd;
+}
+#endif
 
 RGYVADriver RGYDeviceVA::driver() const {
     auto vendor = tchar_to_string(m_vendorString);

@@ -35,6 +35,9 @@
 #include "qsv_query.h"
 #include "rgy_device_vulkan.h"
 #include "rgy_device_info_cache.h"
+#if ENABLE_PROBE_BUILD
+#include "rgy_probe_cli.h"
+#endif
 
 class QSVDeviceInfoCache : public RGYDeviceInfoCache {
 public:
@@ -81,6 +84,9 @@ public:
 
     tstring name() const;
     LUID luid() const;
+#if ENABLE_PROBE_BUILD
+    rgy_probe::Json probeIdentity() const;
+#endif
     QSV_CPU_GEN CPUGen();
     int adapterType();
     RGYDeviceInfoCacheKey cacheInfo() const;

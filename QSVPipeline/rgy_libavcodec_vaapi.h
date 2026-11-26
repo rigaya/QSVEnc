@@ -95,6 +95,9 @@ public:
     tstring decCapsString(RGY_CODEC codec);
     RGYVADriver driver() const;
     void *display() const { return m_display; }
+#if ENABLE_PROBE_BUILD
+    int fd() const;
+#endif
     const RGYVADeviceInfo& info() const { return m_info; }
     const tstring& vendorString() const { return m_vendorString; }
     AVBufferRef *hwdevice() { return m_hwdevice.get(); }

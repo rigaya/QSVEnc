@@ -60,6 +60,9 @@ public:
     virtual void      SetMondelloInput(bool isMondelloInputEnabled) { }
 
     inline drmRenderer* getRenderer() { return m_rndr; }
+#if ENABLE_PROBE_BUILD
+    int drmFd() { return m_DRMLibVA.getFD(); }
+#endif
 protected:
     DRMLibVA m_DRMLibVA;
     drmRenderer * m_rndr;

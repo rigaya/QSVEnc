@@ -5116,6 +5116,9 @@ RGY_ERR CQSVPipeline::InitSession(sInputParams *inputParam, std::vector<std::uni
     if (m_backend == QSVBackend::VAAPI) {
         if (deviceList.empty()) return RGY_ERR_DEVICE_NOT_FOUND;
         m_device = std::move(deviceList.front());
+#if ENABLE_PROBE_BUILD
+        rgy_probe::set_device(m_device->probeIdentity());
+#endif
         return RGY_ERR_NONE;
     }
 #endif
@@ -5129,13 +5132,25 @@ RGY_ERR CQSVPipeline::InitSession(sInputParams *inputParam, std::vector<std::uni
         PrintMes(RGY_LOG_DEBUG, _T("No device found for QSV encoding!\n"));
         return RGY_ERR_DEVICE_NOT_FOUND;
     } else {
+#if ENABLE_PROBE_BUILD
+        rgy_probe::event("encoder_init");
+#endif
         if ((err = checkGPUListByEncoder(inputParam, deviceList)) != RGY_ERR_NONE) {
+#if ENABLE_PROBE_BUILD
+            if (err == RGY_ERR_UNSUPPORTED) {
+                rgy_probe::remember_failure(rgy_probe::failure("unsupported_codec", nullptr, int(err),
+                    rgy_probe::utf8(get_err_mes(err))));
+            }
+#endif
             return err;
         }
         if ((err = deviceAutoSelect(inputParam, deviceList, devUsageLock.get())) != RGY_ERR_NONE) {
             return err;
         }
         m_device = std::move(deviceList.front());
+#if ENABLE_PROBE_BUILD
+        rgy_probe::set_device(m_device->probeIdentity());
+#endif
         PrintMes(RGY_LOG_DEBUG, _T("InitSession: selected device #%d: %s.\n"), (int)m_device->deviceNum(), m_device->name().c_str());
     }
     if (m_deviceUsage) {
@@ -5486,13 +5501,19 @@ RGY_ERR CQSVPipeline::initBackendVA(sInputParams *pParams, std::vector<std::uniq
         PrintMes(RGY_LOG_WARN, _T("QSV runtime unavailable or disabled; using VA-API.\n"));
     }
     m_backend = QSVBackend::VAAPI;
+#if ENABLE_PROBE_BUILD
+    rgy_probe::clear_failure();
+    rgy_probe::set_backend_used(qsv_probe_backend_name(m_backend));
+#endif
     PrintMes(RGY_LOG_INFO, _T("backend=vaapi\n"));
     deviceList = getDeviceListVA(pParams->device, pParams->ctrl.enableOpenCL, m_pQSVLog);
     if (deviceList.empty()) return RGY_ERR_DEVICE_NOT_FOUND;
+#if !ENABLE_PROBE_BUILD
     // VA の選択は記録するが、次回の QSV 検査を省く根拠には使わない。
     QSVDeviceInfoCache backendCache;
     backendCache.setBackend("vaapi", qsvBackendCacheEnvironment(pParams->device));
     backendCache.updateCacheFile();
+#endif
     return RGY_ERR_NONE;
 }
 
@@ -5569,7 +5590,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     }
 
     m_pPerfMonitor = std::make_unique<CPerfMonitor>();
-#if ENABLE_PERF_COUNTER
+#if ENABLE_PERF_COUNTER && !ENABLE_PROBE_BUILD
     if (pParams->ctrl.parallelEnc.isChild()) {
         // 子スレッドの場合はパフォーマンスカウンタは親と共有するので初期化不要
         m_pPerfMonitor->setCounter(pParams->ctrl.parallelEnc.sendData->perfCounter);
@@ -5608,6 +5629,9 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     std::shared_ptr<QSVDeviceInfoCache> deviceInfoCache;
     std::vector<std::unique_ptr<QSVDevice>> deviceList;
     m_backend = QSVBackend::QSV;
+#if ENABLE_PROBE_BUILD
+    rgy_probe::set_backends(qsv_probe_backend_name(pParams->backend), nullptr);
+#endif
 #if ENABLE_VAAPI
     deviceInfoCache = std::make_shared<QSVDeviceInfoCache>();
     const auto cacheStatus = deviceInfoCache->loadCacheFile();
@@ -5657,6 +5681,9 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
         || (pParams->device == QSVDeviceNum::AUTO && deviceInfoCache->getDeviceIds().size() != HWDecCodecCsp.size())
         || (pParams->device != QSVDeviceNum::AUTO &&
             std::find_if(HWDecCodecCsp.begin(), HWDecCodecCsp.end(), [dev = (int)pParams->device](const std::pair<int, CodecCsp>& data) { return data.first == dev; }) == HWDecCodecCsp.end()))) {
+#if ENABLE_PROBE_BUILD
+        rgy_probe::set_backend_used("qsv");
+#endif
         deviceList = getDeviceList((deviceInfoCache->getDeviceIds().size() == 0) ? QSVDeviceNum::AUTO : pParams->device, pParams->ctrl.enableOpenCL, pParams->ctrl.enableVulkan, pParams->memType, m_sessionParams, deviceInfoCache, m_pQSVLog);
         if (deviceList.size() == 0) {
             PrintMes(RGY_LOG_DEBUG, _T("No device found for QSV encoding!\n"));
@@ -5699,6 +5726,9 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     });
 
     if (m_backend == QSVBackend::QSV && deviceList.size() == 0) {
+#if ENABLE_PROBE_BUILD
+        rgy_probe::set_backend_used("qsv");
+#endif
         deviceList = getDeviceList(pParams->device, pParams->ctrl.enableOpenCL, pParams->ctrl.enableVulkan, pParams->memType, m_sessionParams, deviceInfoCache, m_pQSVLog);
         if (deviceList.size() == 0) {
             PrintMes(RGY_LOG_INFO, _T("No device found for QSV encoding!\n"));
@@ -5749,7 +5779,7 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     sts = InitSession(pParams, deviceList);
     RGY_ERR(sts, _T("Failed to initialize encode session."));
     PrintMes(RGY_LOG_DEBUG, _T("InitSession: Success.\n"));
-#if ENABLE_VAAPI
+#if ENABLE_VAAPI && !ENABLE_PROBE_BUILD
     if (m_backend == QSVBackend::QSV && deviceInfoCache) {
         // 実際のセッション初期化成功後にだけ、次回の検査省略を許可する。
         deviceInfoCache->setBackend("qsv", backendEnvironment.empty() ? qsvBackendCacheEnvironment(pParams->device) : backendEnvironment);
@@ -5802,6 +5832,9 @@ RGY_ERR CQSVPipeline::Init(sInputParams *pParams) {
     if (sts < RGY_ERR_NONE) return sts;
     PrintMes(RGY_LOG_DEBUG, _T("InitFilters: Success.\n"));
 
+#if ENABLE_PROBE_BUILD
+    rgy_probe::event("encoder_init");
+#endif
 #if ENABLE_VAAPI
     sts = m_backend == QSVBackend::VAAPI ? InitEncodeVA(pParams) : InitMfxEncodeParams(pParams, deviceList);
 #else
@@ -6081,8 +6114,17 @@ RGY_ERR CQSVPipeline::InitMfxEncode() {
     }
     const auto log_level = logTemporarilyIgnoreErrorMes();
     m_prmSetIn = m_encParams;
-    auto sts = err_to_rgy(m_pmfxENC->Init(&m_encParams.videoPrm));
+    const auto initStatus = m_pmfxENC->Init(&m_encParams.videoPrm);
+    auto sts = err_to_rgy(initStatus);
     m_pQSVLog->setLogLevelAll(log_level);
+#if ENABLE_PROBE_BUILD
+    if (initStatus == MFX_WRN_PARTIAL_ACCELERATION) {
+        rgy_probe::add_warning("MFXVideoENCODE_Init", int(initStatus), get_err_mes(sts));
+    } else if (initStatus < MFX_ERR_NONE) {
+        rgy_probe::remember_failure(rgy_probe::failure(initStatus == MFX_ERR_UNSUPPORTED ? "unsupported_codec" : "encoder_init_failed",
+            "MFXVideoENCODE_Init", int(initStatus), rgy_probe::utf8(get_err_mes(sts))));
+    }
+#endif
     if (sts == RGY_WRN_PARTIAL_ACCELERATION) {
         PrintMes(RGY_LOG_WARN, _T("partial acceleration on Encoding.\n"));
         sts = RGY_ERR_NONE;
@@ -6125,6 +6167,9 @@ RGY_ERR CQSVPipeline::InitMfxDec() {
     auto sts = m_mfxDEC->Init();
     m_pQSVLog->setLogLevelAll(log_level);
     if (sts == RGY_WRN_PARTIAL_ACCELERATION) {
+#if ENABLE_PROBE_BUILD
+        rgy_probe::add_warning("MFXVideoDECODE_Init", MFX_WRN_PARTIAL_ACCELERATION, get_err_mes(sts));
+#endif
         PrintMes(RGY_LOG_WARN, _T("partial acceleration on decoding.\n"));
         sts = RGY_ERR_NONE;
     }
@@ -6214,6 +6259,9 @@ RGY_ERR CQSVPipeline::AllocateSufficientBuffer(mfxBitstream *pBS) {
 }
 
 RGY_ERR CQSVPipeline::Run() {
+#if ENABLE_PROBE_BUILD
+    rgy_probe::event("encode");
+#endif
     return RunEncode2();
 }
 
@@ -6583,6 +6631,9 @@ RGY_ERR CQSVPipeline::RunEncode2() {
     }
     // flush
     if (err == RGY_ERR_MORE_BITSTREAM) { // 読み込みの完了を示すフラグ
+#if ENABLE_PROBE_BUILD
+        rgy_probe::event("drain");
+#endif
         err = RGY_ERR_NONE;
         for (auto& task : m_pipelineTasks) {
             task->setOutputMaxQueueSize(0); //flushのため

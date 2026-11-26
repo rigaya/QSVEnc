@@ -305,6 +305,16 @@ enum class QSVBackend {
     VAAPI,
 };
 
+#if ENABLE_PROBE_BUILD
+inline const char *qsv_probe_backend_name(QSVBackend backend) {
+    switch (backend) {
+    case QSVBackend::QSV:   return "qsv";
+    case QSVBackend::VAAPI: return "vaapi";
+    default:                return "auto";
+    }
+}
+#endif
+
 enum class QSVFunctionMode {
     Auto,
     PG,
@@ -789,11 +799,13 @@ const CX_DESC list_priority[] = {
     { NULL, 0 }
 };
 
-#if ENABLE_VAAPI
+#if ENABLE_VAAPI || ENABLE_PROBE_BUILD
 const CX_DESC list_qsv_backend[] = {
     { _T("auto"),  (int)QSVBackend::Auto  },
     { _T("qsv"),   (int)QSVBackend::QSV   },
+#if ENABLE_VAAPI
     { _T("vaapi"), (int)QSVBackend::VAAPI },
+#endif
     { NULL, 0 }
 };
 #endif

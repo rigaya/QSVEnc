@@ -58,6 +58,7 @@
 #include "rgy_version.h"
 #if ENABLE_PROBE_BUILD
 #include "rgy_probe_cli.h"
+#include "rgy_rev.h"
 #endif
 #include "rgy_avutil.h"
 #include "rgy_codepage.h"
@@ -1401,7 +1402,7 @@ int run(int argc, TCHAR *argv[]) {
     QSVBackend backendPrint = QSVBackend::Auto;
     for (int iarg = 1; iarg < argc; iarg++) {
         if (_tcscmp(argv[iarg], _T("--backend")) != 0) continue;
-#if ENABLE_VAAPI
+#if ENABLE_VAAPI || ENABLE_PROBE_BUILD
         const auto value = iarg + 1 < argc ? get_value_from_chr(list_qsv_backend, argv[iarg + 1]) : PARSE_ERROR_FLAG;
         if (value == PARSE_ERROR_FLAG) {
             print_cmd_error_invalid_value(_T("backend"), iarg + 1 < argc ? argv[iarg + 1] : _T(""), list_qsv_backend);
@@ -1415,6 +1416,9 @@ int run(int argc, TCHAR *argv[]) {
 #endif
     }
 
+#if ENABLE_PROBE_BUILD
+    rgy_probe::set_backends(qsv_probe_backend_name(backendPrint), nullptr);
+#endif
     // device IDの取得
     QSVDeviceNum deviceNum = QSVDeviceNum::AUTO;
     for (int iarg = 1; iarg < argc; iarg++) {
@@ -1431,8 +1435,19 @@ int run(int argc, TCHAR *argv[]) {
             }
         }
         if (option_name != nullptr) {
-            int ret = ParseDeviceOption(option_name, (iarg + 1 < argc) ? argv[iarg + 1] : _T(""), deviceNum);
+            const auto *arg = (iarg + 1 < argc) ? argv[iarg + 1] : _T("");
+            int ret = ParseDeviceOption(option_name, arg, deviceNum);
             if (ret != 0) {
+#if ENABLE_PROBE_BUILD
+                if (rgy_probe::active() && _tcscmp(option_name, _T("device")) == 0) {
+                    TCHAR *end = nullptr;
+                    const auto device = _tcstol(arg, &end, 10);
+                    if (end != arg && *end == _T('\0') && device > (int)QSVDeviceNum::MAX) {
+                        continue;
+                    }
+                    return 1;
+                }
+#endif
                 return ret == 1 ? 0 : 1;
             }
         }
@@ -1495,6 +1510,20 @@ int run(int argc, TCHAR *argv[]) {
     if (ret >= 1) {
         return 1;
     }
+#if ENABLE_PROBE_BUILD
+    switch (Params.codec) {
+    case RGY_CODEC_H264: rgy_probe::set_codec("h264"); break;
+    case RGY_CODEC_HEVC: rgy_probe::set_codec("hevc"); break;
+    case RGY_CODEC_AV1:  rgy_probe::set_codec("av1"); break;
+    default: break;
+    }
+    rgy_probe::set_backends(qsv_probe_backend_name(Params.backend), nullptr);
+    if (rgy_probe::active() && (int)Params.device > (int)QSVDeviceNum::MAX) {
+        rgy_probe::event("enumerate");
+        rgy_probe::remember_failure(rgy_probe::failure("device_not_visible", nullptr, nullptr, "The requested device number is outside the supported range."));
+        return RGY_ERR_DEVICE_NOT_FOUND;
+    }
+#endif
 
 #if defined(_WIN32) || defined(_WIN64)
     //set stdin to binary mode when using pipe input
@@ -1526,7 +1555,11 @@ int run(int argc, TCHAR *argv[]) {
     if (Params.bBenchmark) {
         return run_benchmark(&Params);
     }
-    return run_encode_params(Params);
+    const auto result = run_encode_params(Params);
+#if ENABLE_PROBE_BUILD
+    rgy_probe::finish_report(result);
+#endif
+    return result;
 }
 
 #if defined(__linux__) && ENABLE_VAAPI
@@ -1556,6 +1589,39 @@ static int check_qsv_backend(int argc, TCHAR *argv[]) {
 
 #include "rgy_delay_load_hook.h"
 
+#if ENABLE_PROBE_BUILD
+static int qsv_probe_devices(const char *backend) {
+    auto log = std::make_shared<RGYLog>(nullptr, RGY_LOG_INFO);
+    std::vector<std::unique_ptr<QSVDevice>> devices;
+#if ENABLE_VAAPI
+    if (std::strcmp(backend, "vaapi") == 0) {
+        devices = getDeviceListVA(QSVDeviceNum::AUTO, false, log);
+    } else
+#else
+    (void)backend;
+#endif
+    {
+        devices = getDeviceList(QSVDeviceNum::AUTO, false, RGYParamInitVulkan::Disable,
+            sInputParams().memType, MFXVideoSession2Params(), nullptr, log);
+    }
+    auto list = rgy_probe::Json::array();
+    for (const auto& device : devices) {
+        auto item = device->probeIdentity();
+        const auto hwName = device->hwdev() ? device->hwdev()->GetName() : tstring();
+        item["name"] = rgy_probe::utf8((hwName.empty() ? device->name() : hwName).c_str());
+        list.push_back(std::move(item));
+    }
+    if (list.empty()) {
+        auto failure = rgy_probe::get_failure();
+        if (failure.is_null()) failure = rgy_probe::failure("device_not_visible");
+        rgy_probe::finish_list(std::move(list), std::move(failure));
+        return 1;
+    }
+    rgy_probe::finish_list(std::move(list));
+    return 0;
+}
+#endif
+
 int _tmain(int argc, TCHAR *argv[]) {
 #if defined(__linux__) && ENABLE_VAAPI
     // 自動選択が内部で起動する子プロセスは、診断専用バイナリの起動制限より先に処理する。
@@ -1564,8 +1630,14 @@ int _tmain(int argc, TCHAR *argv[]) {
     }
 #endif
 #if ENABLE_PROBE_BUILD
-    if (!rgy_probe_cli_args(argc, argv)) return 1;
+    return rgy_probe_main(argc, argv, "QSVEnc", VER_STR_FILEVERSION, ENCODER_REV, "qsv",
+        {
+            "qsv",
+#if ENABLE_VAAPI
+            "vaapi",
 #endif
+        }, nullptr, qsv_probe_devices, run, "auto");
+#else
     int ret = 0;
     if (0 != (ret = run(argc, argv))) {
 #if defined(_WIN32) || defined(_WIN64)
@@ -1575,4 +1647,5 @@ int _tmain(int argc, TCHAR *argv[]) {
 #endif
     }
     return ret;
+#endif
 }

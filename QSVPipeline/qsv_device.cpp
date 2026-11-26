@@ -32,6 +32,9 @@
 #include "qsv_device.h"
 #include "gpu_info.h"
 #include "rgy_avutil.h"
+#if ENABLE_PROBE_BUILD && defined(LIBVA_DRM_SUPPORT)
+#include "qsv_hw_va.h"
+#endif
 #if ENABLE_VAAPI
 #include "qsv_hw_va_utils_drm.h"
 #include "rgy_pipe.h"
@@ -462,6 +465,37 @@ LUID QSVDevice::luid() const {
     return (m_hwdev) ? m_hwdev->GetLUID() : LUID();
 }
 
+#if ENABLE_PROBE_BUILD
+rgy_probe::Json QSVDevice::probeIdentity() const {
+    rgy_probe::Json identity = {
+        {"encoder_device_index", static_cast<int>(m_devNum)},
+        {"pci_bdf", nullptr}, {"luid", nullptr}, {"drm_render_node", nullptr}
+    };
+#if defined(_WIN32)
+    if (m_memType == D3D11_MEMORY && m_hwdev) {
+        const auto adapter = luid();
+        identity["luid"] = rgy_probe::luid_string(adapter);
+        identity["pci_bdf"] = rgy_probe::pci_bdf_from_luid(adapter);
+    }
+#elif defined(LIBVA_DRM_SUPPORT)
+    int fd = -1;
+#if ENABLE_VAAPI
+    if (m_va) {
+        fd = m_va->fd();
+    } else
+#endif
+    if (auto *device = dynamic_cast<CVAAPIDeviceDRM *>(m_hwdev.get()); device) {
+        fd = device->drmFd();
+    }
+    if (fd >= 0) {
+        identity["pci_bdf"] = rgy_probe::pci_bdf_from_drm_fd(fd);
+        identity["drm_render_node"] = rgy_probe::drm_render_node_from_fd(fd);
+    }
+#endif
+    return identity;
+}
+#endif
+
 RGYDeviceInfoCacheKey QSVDevice::cacheInfo() const {
     auto luid_to_string = [](const LUID& luid) {
         return strsprintf("%08x-%08x", (uint32_t)luid.HighPart, (uint32_t)luid.LowPart);
@@ -549,6 +583,9 @@ std::optional<RGYOpenCLDeviceInfo> getDeviceCLInfoQSV(const QSVDeviceNum deviceN
 }
 
 std::vector<std::unique_ptr<QSVDevice>> getDeviceList(const QSVDeviceNum deviceNum, const bool enableOpenCL, const RGYParamInitVulkan enableVulkan, const MemType memType, const MFXVideoSession2Params& params, std::shared_ptr<QSVDeviceInfoCache> devInfoCache, std::shared_ptr<RGYLog> log) {
+#if ENABLE_PROBE_BUILD
+    rgy_probe::event("enumerate");
+#endif
     auto openCLAvail = enableOpenCL;
     if (enableOpenCL) {
         RGYOpenCL cl(std::make_shared<RGYLog>(nullptr, RGY_LOG_QUIET));
@@ -562,7 +599,13 @@ std::vector<std::unique_ptr<QSVDevice>> getDeviceList(const QSVDeviceNum deviceN
     for (int idev = idevstart; idev <= idevfin; idev++) {
         log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("Check device %d...\n"), idev);
         auto dev = std::make_unique<QSVDevice>();
-        if (dev->init((QSVDeviceNum)idev, enableOpenCL && openCLAvail, enableVulkan, memType, params, devInfoCache, log, idev != idevstart) != RGY_ERR_NONE) {
+        if (const auto err = dev->init((QSVDeviceNum)idev, enableOpenCL && openCLAvail, enableVulkan, memType, params, devInfoCache, log, idev != idevstart); err != RGY_ERR_NONE) {
+#if ENABLE_PROBE_BUILD
+            if (devList.empty() && rgy_probe::get_failure().is_null()) {
+                rgy_probe::remember_failure(rgy_probe::failure("device_not_visible", nullptr,
+                    static_cast<int>(err), rgy_probe::utf8(get_err_mes(err))));
+            }
+#endif
             break;
         }
         devList.push_back(std::move(dev));
@@ -775,11 +818,16 @@ bool qsvVPLRuntimeAvailable(const QSVDeviceNum deviceNum, const QSVDeviceInfoCac
     // 明示したドライバを優先する。通常の配置で見つかれば追加プロセスは起動しない。
     const bool compatible = qsvVPLDriverCompatible();
     if (std::getenv("LIBVA_DRIVER_NAME") || compatible) return compatible;
+#if ENABLE_PROBE_BUILD
+    (void)environment;
+    rgy_probe::event("load_library");
+#else
     environment = qsvBackendCacheEnvironment(deviceNum);
     if (cache && cache->getBackend(environment) == "qsv") {
         log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("QSV backend cache matched; skipping isolated QSV probe.\n"));
         return true;
     }
+#endif
     log->write(RGY_LOG_DEBUG, RGY_LOGT_DEV, _T("iHD was not found in known paths; probing QSV in a separate process.\n"));
     auto process = createRGYPipeProcess();
     process->init(PIPE_MODE_DISABLE, PIPE_MODE_DISABLE, PIPE_MODE_ENABLE);
@@ -827,6 +875,9 @@ std::vector<std::unique_ptr<QSVDevice>> getDeviceListVA(const QSVDeviceNum devic
     // i965 は生きた display がない状態で非対応 GPU の初期化に失敗すると、
     // 以後の初期化も失敗する。probe と開き直しを避け、成功したデバイスを保持したまま次へ進む。
     // VPL で使える GPU は QSV の番号を優先し、それ以外は後ろへ付ける。指定時はその node だけを開く。
+#if ENABLE_PROBE_BUILD
+    rgy_probe::event("enumerate");
+#endif
     tstring openError, vaOpenError;
     auto infos = enumerateVADevices(0x8086, 1, log.get(), &openError, getVPLDevicePciBusIds(log), false);
     // 番号合わせで非対応 GPU が先頭になっても、i965 のために node 順で開いて display を保持する。
