@@ -25,6 +25,7 @@
 //
 // --------------------------------------------------------------------------------------------
 
+#include <array>
 #include <fcntl.h>
 #include <math.h>
 #include <signal.h>
@@ -1586,6 +1587,37 @@ static int check_qsv_backend(int argc, TCHAR *argv[]) {
 #include "rgy_delay_load_hook.h"
 
 #if ENABLE_PROBE_BUILD
+static void qsv_probe_encode_caps(rgy_probe::Json& item, const QSVDevice& device, const std::shared_ptr<RGYLog>& log) {
+    constexpr std::array codecs = { RGY_CODEC_H264, RGY_CODEC_HEVC, RGY_CODEC_AV1 };
+#if ENABLE_VAAPI
+    if (device.va()) {
+        rgy_probe::set_encode_caps(item, device.va()->encCaps(codecs[0]).available,
+            device.va()->encCaps(codecs[1]).available, device.va()->encCaps(codecs[2]).available);
+        return;
+    }
+#endif
+    // --check-hwと同じCQPの照会を、列挙したデバイスに対して行う。
+    const auto features = MakeFeatureListPerCodec(device.deviceNum(), { MFX_RATECONTROL_CQP },
+        std::vector<RGY_CODEC>(codecs.begin(), codecs.end()), log, true);
+    std::array<bool, codecs.size()> available{};
+    for (size_t index = 0; index < codecs.size(); ++index) {
+        bool queried = false;
+        for (const auto& feature : features) {
+            if (feature.codec != codecs[index]) continue;
+            const auto cqp = feature.feature.find(MFX_RATECONTROL_CQP);
+            if (cqp == feature.feature.end()) continue;
+            queried = true;
+            available[index] |= (cqp->second & ENC_FEATURE_CURRENT_RC) != 0;
+        }
+        if (!queried) {
+            rgy_probe::set_encode_failure(item, rgy_probe::failure("session_open_failed", "MakeFeatureListPerCodec",
+                nullptr, "Could not query encode capabilities for this device."));
+            return;
+        }
+    }
+    rgy_probe::set_encode_caps(item, available[0], available[1], available[2]);
+}
+
 static int qsv_probe_devices(const char *backend) {
     auto log = std::make_shared<RGYLog>(nullptr, RGY_LOG_INFO);
     std::vector<std::unique_ptr<QSVDevice>> devices;
@@ -1605,6 +1637,7 @@ static int qsv_probe_devices(const char *backend) {
         auto item = device->probeIdentity();
         const auto hwName = device->hwdev() ? device->hwdev()->GetName() : tstring();
         item["name"] = rgy_probe::utf8((hwName.empty() ? device->name() : hwName).c_str());
+        qsv_probe_encode_caps(item, *device, log);
         list.push_back(std::move(item));
     }
     if (list.empty()) {
