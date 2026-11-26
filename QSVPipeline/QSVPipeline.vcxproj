@@ -1542,6 +1542,8 @@ if exist rgy_rev.h.%PID%.tmp del rgy_rev.h.%PID%.tmp &gt; nul 2&gt;&amp;1</Comma
     <ClInclude Include="rgy_timecode.h" />
     <ClInclude Include="rgy_util.h" />
     <ClInclude Include="rgy_err.h" />
+    <ClInclude Include="rgy_probe_cli.h" />
+    <ClInclude Include="rgy_gpu_inventory.h" />
     <ClInclude Include="rgy_version.h" />
     <ClInclude Include="rgy_vulkan.h" />
     <ClInclude Include="rgy_wav_parser.h" />

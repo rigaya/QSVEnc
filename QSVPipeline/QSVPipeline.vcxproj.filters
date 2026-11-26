@@ -668,6 +668,12 @@
     <ClInclude Include="rgy_delay_load_hook.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="rgy_probe_cli.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="rgy_gpu_inventory.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
     <ClInclude Include="rgy_version.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
