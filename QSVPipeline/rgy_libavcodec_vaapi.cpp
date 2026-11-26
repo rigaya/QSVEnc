@@ -397,9 +397,7 @@ std::vector<RGYVADeviceInfo> enumerateVADevices(uint32_t vendorId, int idBase, R
         tstring name;
         int openErrno = 0;
         bool usable = true;
-#if ENABLE_PROBE_BUILD
-        rgy_probe::event("open_device");
-#endif
+        RGY_PROBE(rgy_probe::event("open_device"));
         if (probeDevices) {
             usable = probe_va_device(node, name, openErrno, log);
         } else {
@@ -483,9 +481,7 @@ RGY_ERR RGYDeviceVA::open(const RGYVADeviceInfo& info, std::shared_ptr<RGYLog> l
     m_log = std::move(log);
     AVBufferRef *deviceRaw = nullptr;
     const auto devicePath = tchar_to_string(m_info.renderNode);
-#if ENABLE_PROBE_BUILD
-    rgy_probe::event("open_device");
-#endif
+    RGY_PROBE(rgy_probe::event("open_device"));
     const int result = av_hwdevice_ctx_create(&deviceRaw, AV_HWDEVICE_TYPE_VAAPI, devicePath.c_str(), nullptr, 0);
     if (result < 0 || deviceRaw == nullptr) {
         char errbuf[AV_ERROR_MAX_STRING_SIZE] = {};

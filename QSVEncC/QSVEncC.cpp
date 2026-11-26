@@ -1416,9 +1416,7 @@ int run(int argc, TCHAR *argv[]) {
 #endif
     }
 
-#if ENABLE_PROBE_BUILD
-    rgy_probe::set_backends(qsv_probe_backend_name(backendPrint), nullptr);
-#endif
+    RGY_PROBE(rgy_probe::set_backends(qsv_probe_backend_name(backendPrint), nullptr));
     // device IDの取得
     QSVDeviceNum deviceNum = QSVDeviceNum::AUTO;
     for (int iarg = 1; iarg < argc; iarg++) {
@@ -1556,9 +1554,7 @@ int run(int argc, TCHAR *argv[]) {
         return run_benchmark(&Params);
     }
     const auto result = run_encode_params(Params);
-#if ENABLE_PROBE_BUILD
-    rgy_probe::finish_report(result);
-#endif
+    RGY_PROBE(rgy_probe::finish_report(result));
     return result;
 }
 

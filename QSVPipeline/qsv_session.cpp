@@ -288,9 +288,7 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
 #endif
     PrintMes(RGY_LOG_DEBUG, _T("initHW(%s: dev#%d)...\n"), MFXAccelerationModeToStr(accelerationMode).c_str(), dev);
     auto sts = MFX_ERR_NONE;
-#if ENABLE_PROBE_BUILD
-    rgy_probe::event("load_library");
-#endif
+    RGY_PROBE(rgy_probe::event("load_library"));
     auto loader = MFXLoaderProvider::getLoader();
     auto cfg = MFXCreateConfig(loader);
 
@@ -322,9 +320,7 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
             sts = MFXSetConfigFilterProperty(cfg, (const mfxU8 *)"DXGIAdapterIndex", devID);
         }
         m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: try init by MFXCreateSession.\n"));
-#if ENABLE_PROBE_BUILD
-        rgy_probe::event("session_open");
-#endif
+        RGY_PROBE(rgy_probe::event("session_open"));
         sts = MFXCreateSession(loader, 0, (mfxSession *)&m_session);
     } else {
         if (m_prm.deviceCopy) {
@@ -343,9 +339,7 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
         int deviceCount = 0;
         for (int impl_idx = 0; impl_idx < VPL_MAX_DEV_CHECK; impl_idx++) {
             mfxImplDescription *impl_desc = nullptr;
-#if ENABLE_PROBE_BUILD
-            rgy_probe::event("enumerate");
-#endif
+            RGY_PROBE(rgy_probe::event("enumerate"));
             sts = MFXEnumImplementations(loader, impl_idx, MFX_IMPLCAPS_IMPLDESCSTRUCTURE, (mfxHDL *)&impl_desc);
             if (sts == MFX_ERR_UNSUPPORTED || sts == MFX_ERR_NOT_FOUND) {
                 break;
@@ -371,9 +365,7 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
 
             if (accelerationMode == acc && deviceCount == std::max((int)dev, 1/*AUTOの時は最初のデバイスを選択*/)) {
                 m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: try init by MFXCreateSession.\n"));
-#if ENABLE_PROBE_BUILD
-                rgy_probe::event("session_open");
-#endif
+                RGY_PROBE(rgy_probe::event("session_open"));
                 sts = MFXCreateSession(loader, impl_idx, (mfxSession *)&m_session);
                 if (sts == MFX_ERR_NONE) break;
             }
@@ -383,9 +375,7 @@ mfxStatus MFXVideoSession2::initHW(mfxIMPL& impl, const QSVDeviceNum dev) {
     m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: Failed to init by MFXCreateSession.\n"));
 #endif
     const auto impl2 = (impl & (~MFX_IMPL_BASETYPE(std::numeric_limits<mfxIMPL>::max())));
-#if ENABLE_PROBE_BUILD
-    rgy_probe::event("session_open");
-#endif
+    RGY_PROBE(rgy_probe::event("session_open"));
     auto implTest = impl2 | devNumToImpl(dev);
     m_log->write(RGY_LOG_DEBUG, RGY_LOGT_CORE, _T("MFXVideoSession2::init: try init by MFXInit: impl %s.\n"), MFXImplToStr(implTest).c_str());
     sts = Init(implTest, &verRequired);
@@ -544,9 +534,7 @@ RGY_ERR InitSessionAndDevice(std::unique_ptr<CQSVHWDevice>& hwdev, MFXVideoSessi
 
     hwdev.reset();
     if (memType != SYSTEM_MEMORY) {
-#if ENABLE_PROBE_BUILD
-        rgy_probe::event("open_device");
-#endif
+        RGY_PROBE(rgy_probe::event("open_device"));
 #if D3D_SURFACES_SUPPORT
 #if MFX_D3D11_SUPPORT
         if ((impl & MFX_IMPL_VIA_D3D11) == MFX_IMPL_VIA_D3D11

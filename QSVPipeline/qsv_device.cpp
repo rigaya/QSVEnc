@@ -583,9 +583,7 @@ std::optional<RGYOpenCLDeviceInfo> getDeviceCLInfoQSV(const QSVDeviceNum deviceN
 }
 
 std::vector<std::unique_ptr<QSVDevice>> getDeviceList(const QSVDeviceNum deviceNum, const bool enableOpenCL, const RGYParamInitVulkan enableVulkan, const MemType memType, const MFXVideoSession2Params& params, std::shared_ptr<QSVDeviceInfoCache> devInfoCache, std::shared_ptr<RGYLog> log) {
-#if ENABLE_PROBE_BUILD
-    rgy_probe::event("enumerate");
-#endif
+    RGY_PROBE(rgy_probe::event("enumerate"));
     auto openCLAvail = enableOpenCL;
     if (enableOpenCL) {
         RGYOpenCL cl(std::make_shared<RGYLog>(nullptr, RGY_LOG_QUIET));
@@ -875,9 +873,7 @@ std::vector<std::unique_ptr<QSVDevice>> getDeviceListVA(const QSVDeviceNum devic
     // i965 は生きた display がない状態で非対応 GPU の初期化に失敗すると、
     // 以後の初期化も失敗する。probe と開き直しを避け、成功したデバイスを保持したまま次へ進む。
     // VPL で使える GPU は QSV の番号を優先し、それ以外は後ろへ付ける。指定時はその node だけを開く。
-#if ENABLE_PROBE_BUILD
-    rgy_probe::event("enumerate");
-#endif
+    RGY_PROBE(rgy_probe::event("enumerate"));
     tstring openError, vaOpenError;
     auto infos = enumerateVADevices(0x8086, 1, log.get(), &openError, getVPLDevicePciBusIds(log), false);
     // 番号合わせで非対応 GPU が先頭になっても、i965 のために node 順で開いて display を保持する。
