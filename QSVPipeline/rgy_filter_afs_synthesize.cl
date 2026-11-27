@@ -408,6 +408,11 @@ __kernel void kernel_synthesize_mode_0(
     __global const uchar *__restrict__ p1Y,
     __global const uchar *__restrict__ p1U,
     __global const uchar *__restrict__ p1V,
+    //YUV420の場合、色差はフィールド分離済みで、p0U/p0V/p1U/p1Vが偶数行、以下が奇数行 (YUV444では使用しない)
+    __global const uchar *__restrict__ p0U1,
+    __global const uchar *__restrict__ p0V1,
+    __global const uchar *__restrict__ p1U1,
+    __global const uchar *__restrict__ p1V1,
     const int width, const int height,
     const int src_y_pitch, const int src_c_pitch,
     const int dst_y_pitch, const int dst_c_pitch,
@@ -418,15 +423,18 @@ __kernel void kernel_synthesize_mode_0(
     const int imgy = get_group_id(1) * SYN_BLOCK_Y     /*blockDim.y*/ + ly;
 
     if (imgx * 8 < width) {
+        //YUV420の色差の行imgyは、imgyの偶奇と同じフィールドのバッファの imgy>>1 行目にある
+        //(以前は偶数行のバッファだけを参照していたため、奇数行に偶数行の色差が入っていた)
+        const int field_c = imgy & 1;
         __global const uchar *src_y, *src_u, *src_v;
         if (is_latter_field(ly, tb_order) & (status & AFS_FLAG_SHIFT0)) {
             src_y = p1Y;
-            src_u = p1U;
-            src_v = p1V;
+            src_u = (YUV420 && field_c) ? p1U1 : p1U;
+            src_v = (YUV420 && field_c) ? p1V1 : p1V;
         } else {
             src_y = p0Y;
-            src_u = p0U;
-            src_v = p0V;
+            src_u = (YUV420 && field_c) ? p0U1 : p0U;
+            src_v = (YUV420 && field_c) ? p0V1 : p0V;
         }
         {
             //y

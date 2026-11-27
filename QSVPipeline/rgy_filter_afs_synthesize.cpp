@@ -93,6 +93,7 @@ static RGY_ERR run_synthesize(uint8_t **dst,
                 (cl_mem)dst[0], (cl_mem)dst[1], (cl_mem)dst[2],
                 p0->y->mem(0), p0->cb[0]->mem(0), p0->cr[0]->mem(0),
                 p1->y->mem(0), p1->cb[0]->mem(0), p1->cr[0]->mem(0),
+                p0->cb[1]->mem(0), p0->cr[1]->mem(0), p1->cb[1]->mem(0), p1->cr[1]->mem(0),
                 width, height, p0->y->frame.pitch[0], p0->cb[0]->frame.pitch[0], dstPitch[0], dstPitch[1],
                 tb_order, status);
         } else if (RGY_CSP_CHROMA_FORMAT[csp] == RGY_CHROMAFMT_YUV444) {
@@ -100,6 +101,7 @@ static RGY_ERR run_synthesize(uint8_t **dst,
                 (cl_mem)dst[0], (cl_mem)dst[1], (cl_mem)dst[2],
                 p0->y->mem(0), p0->y->mem(1), p0->y->mem(2),
                 p1->y->mem(0), p1->y->mem(1), p1->y->mem(2),
+                p0->y->mem(1), p0->y->mem(2), p1->y->mem(1), p1->y->mem(2), //YUV444では使用しない (setArgの検証を満たすため有効なbufferを渡す)
                 width, height, p0->y->frame.pitch[0], p0->y->frame.pitch[1], dstPitch[0], dstPitch[1],
                 tb_order, status);
         } else {
