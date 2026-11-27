@@ -84,7 +84,9 @@ int is_latter_field(int pos_y, int tb_order) {
 DATA8 deint8(DATA8 src1, DATA8 src3, DATA8 src4, DATA8 src5, DATA8 src7, Flag8 flag, Flag mask) {
     const int8 tmp2 = convert_int8(src1) + convert_int8(src7);
     const int8 tmp3 = convert_int8(src3) + convert_int8(src5);
-    const DATA8 tmp = CONVERT_DATA8((tmp3 - ((tmp2 - tmp3) >> 3) + (int8)1) >> 1);
+    //補間結果は範囲外になりうるので、画素値の範囲に収めてから変換する
+    //(以前はそのまま変換していたため、範囲外の値が回り込み、黒/白付近で大きく値が飛んでいた)
+    const DATA8 tmp = CONVERT_DATA8(clamp((tmp3 - ((tmp2 - tmp3) >> 3) + (int8)1) >> 1, (int8)0, (int8)((1 << BIT_DEPTH) - 1)));
     return (CONVERT_DATA8((flag & (Flag8)mask) == (Flag8)0) ? tmp : src4);
 }
 
