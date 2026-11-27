@@ -1135,6 +1135,23 @@ RGY_ERR RGYFilterAfs::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
         }
     }
 
+    static const int preread_len = 3;
+    if (pInputFrame->ptr[0] == nullptr) {
+        //終端の判定では、入力の範囲外のフレームのscanも参照する (analyze_frame(F)はF+5まで参照する)。
+        //開始時のscan_frame(-1)と同じく、範囲外のフレームは、ソースキャッシュのclampにより最後のフレーム同士を比較したもの
+        //(動きなし)としてscanしておく。
+        //(以前は範囲外のフレームをscanしていなかったため、scanのキャッシュに残った16フレーム前の結果を参照していた)
+        //参照されるのは m_nFrame-1 ～ scan_end で、scanのキャッシュ(AFS_SCAN_CACHE_NUM)に収まる
+        const int scan_end = std::max(iframe, m_nFrame + preread_len + 5);
+        for (int i = iframe; i <= scan_end; i++) {
+            auto err = scan_frame(i, false, pAfsParam.get(), (STREAM_OPT) ? m_queueAnalyze : queue_main, {});
+            if (err != RGY_ERR_NONE) {
+                AddMessage(RGY_LOG_ERROR, _T("failed on scan_frame(iframe=%d): %s.\n"), i, get_err_mes(err));
+                return RGY_ERR_CUDA;
+            }
+        }
+    }
+
     // statusの負値はdropを表すため、位相計算には原点を引いた時刻を渡す。
     const int64_t input_origin = m_inputOriginValid ? m_inputOriginPts : 0;
 
@@ -1146,7 +1163,6 @@ RGY_ERR RGYFilterAfs::run_filter(const RGYFrameInfo *pInputFrame, RGYFrameInfo *
             return RGY_ERR_CUDA;
         }
     }
-    static const int preread_len = 3;
     //十分な数のフレームがたまった、あるいはdrainモードならフレームを出力
     if (iframe >= (5+preread_len+STREAM_OPT) || pInputFrame->ptr[0] == nullptr) {
         int reverse[4] = { 0 }, assume_shift[4] = { 0 }, result_stat[4] = { 0 };
