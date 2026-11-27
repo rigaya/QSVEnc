@@ -3338,10 +3338,6 @@ public:
 
             const auto targetDynamicRC = getDynamicRCIndex(inputFrameId, timeSec);
             if (targetDynamicRC != m_appliedDynamicRC) {
-                // 指定にしたがってエンコーダのパラメータを変更する
-                setRCParam(m_encParams.videoPrm, (targetDynamicRC >= 0) ? m_dynamicRC[targetDynamicRC] : m_baseRC);
-                m_appliedDynamicRC = targetDynamicRC;
-
                 auto sts = RGY_ERR_NONE;
                 while (sts == RGY_ERR_NONE) {
                     auto flushFrame = std::unique_ptr<PipelineTaskOutput>();
@@ -3350,7 +3346,7 @@ public:
                         break; // flush 成功
                     } else if (sts != RGY_ERR_NONE) {
                         PrintMes(RGY_LOG_ERROR, _T("Failed to flush encoder for dynamic rc(%d): %s.\n"), targetDynamicRC, get_err_mes(sts));
-                        return sts;
+                        return (sts < RGY_ERR_NONE && sts != RGY_ERR_MORE_SURFACE) ? sts : RGY_ERR_UNKNOWN;
                     }
                 }
 
@@ -3358,15 +3354,21 @@ public:
                 sts = err_to_rgy(m_encode->Close());
                 if (sts != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Failed to close encoder for dynamic rc(%d): %s.\n"), targetDynamicRC, get_err_mes(sts));
-                    return sts;
+                    return (sts < RGY_ERR_NONE) ? sts : RGY_ERR_UNKNOWN;
                 }
 
+                const auto& targetRC = (targetDynamicRC >= 0) ? m_dynamicRC[targetDynamicRC] : m_baseRC;
+                setRCParam(m_encParams.videoPrm, targetRC);
                 sts = err_to_rgy(m_encode->Init(&m_encParams.videoPrm));
-                if (sts != RGY_ERR_NONE) {
+                if (sts == RGY_WRN_INCOMPATIBLE_VIDEO_PARAM || sts == RGY_WRN_PARTIAL_ACCELERATION) {
+                    // 初期化は完了しているので、切替境界のフレームもそのまま投入する。
+                    PrintMes(RGY_LOG_WARN, _T("Encoder initialized for dynamic rc(%d) with warning: %s.\n"), targetDynamicRC, get_err_mes(sts));
+                } else if (sts != RGY_ERR_NONE) {
                     PrintMes(RGY_LOG_ERROR, _T("Failed to init encoder for dynamic rc(%d): %s.\n"), targetDynamicRC, get_err_mes(sts));
-                    PrintMes(RGY_LOG_ERROR, _T("  parameter was %s.\n"), m_dynamicRC[targetDynamicRC].print().c_str());
-                    return sts;
+                    PrintMes(RGY_LOG_ERROR, _T("  parameter was %s.\n"), targetRC.print().c_str());
+                    return (sts < RGY_ERR_NONE) ? sts : RGY_ERR_UNKNOWN;
                 }
+                m_appliedDynamicRC = targetDynamicRC;
             }
             m_encTimestamp->add(surfEncodeIn->Data.TimeStamp, inputFrameId, m_inFrames, 0, metadatalist);
             m_inFrames++;
