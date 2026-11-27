@@ -88,16 +88,12 @@ struct afsSourceCacheFrame {
     unique_ptr<RGYCLFrame> y;                 //フレーム状態、YUV420時はYのみ、YUV444時はYUVすべて
     std::array<unique_ptr<RGYCLFrame>, 2> cb; //YUV420時のみ使用、フィールド分離状態
     std::array<unique_ptr<RGYCLFrame>, 2> cr; //YUV420時のみ使用、フィールド分離状態
-    // source cache の書き込み時に image を準備し、analyze で使用する。
-    // (YUV420の色差は、analyzeでは輝度解像度に拡大したもの(afsUV444Frame)を、synthesizeではcb/crのbufferを直接使う)
-    RGYCLPlaneImage imgY, imgU, imgV;
     RGYFrameInfo frameinfo() const { return (y) ? y->frame : RGYFrameInfo(); };
 };
 
 //yuv420入力時に、色差を輝度解像度へ拡大したもの。frameは入力フレーム番号 (未使用時は-1)
 struct afsUV444Frame {
     unique_ptr<RGYCLFrame> u, v;
-    RGYCLPlaneImage imgU, imgV;
     int frame = -1;
 };
 

@@ -124,11 +124,23 @@ RGY_ERR run_analyze_stripe(uint8_t *dst,
 
     const int srcWidth  = p0->y->frame.width;
     const int srcHeight = p0->y->frame.height;
-    //yuv420の場合は、輝度解像度に拡大済みの色差を輝度と同じ形式で読む
-    const cl_mem texP0U = yuv420 ? p0uv444->imgU.mem() : p0->imgU.mem();
-    const cl_mem texP0V = yuv420 ? p0uv444->imgV.mem() : p0->imgV.mem();
-    const cl_mem texP1U = yuv420 ? p1uv444->imgU.mem() : p1->imgU.mem();
-    const cl_mem texP1V = yuv420 ? p1uv444->imgV.mem() : p1->imgV.mem();
+    // 画像はこのカーネル投入の間だけ所有し、解析と合成の間で共有しない。
+    auto imageY0 = cl->createImageFromFrameBuffer(p0->y->frame, false, CL_MEM_READ_ONLY, nullptr, CL_RGBA, &queue, wait_event);
+    auto imageY1 = cl->createImageFromFrameBuffer(p1->y->frame, false, CL_MEM_READ_ONLY, nullptr, CL_RGBA, &queue, wait_event);
+    if (!imageY0 || !imageY1) return RGY_ERR_MEM_OBJECT_ALLOCATION_FAILURE;
+    //yuv420の場合は、輝度解像度に拡大済みの色差を輝度と同じ形式(RGBA)で読む
+    std::array<std::unique_ptr<RGYCLFrame, RGYCLImageFromBufferDeleter>, 4> imageUV444; //p0U, p0V, p1U, p1V
+    if (yuv420) {
+        const RGYCLFrame *uv444[4] = { p0uv444->u.get(), p0uv444->v.get(), p1uv444->u.get(), p1uv444->v.get() };
+        for (int i = 0; i < 4; i++) {
+            imageUV444[i] = cl->createImageFromFrameBuffer(uv444[i]->frame, false, CL_MEM_READ_ONLY, nullptr, CL_RGBA, &queue, wait_event);
+            if (!imageUV444[i]) return RGY_ERR_MEM_OBJECT_ALLOCATION_FAILURE;
+        }
+    }
+    const cl_mem texP0U = yuv420 ? imageUV444[0]->mem(0) : imageY0->mem(1);
+    const cl_mem texP0V = yuv420 ? imageUV444[1]->mem(0) : imageY0->mem(2);
+    const cl_mem texP1U = yuv420 ? imageUV444[2]->mem(0) : imageY1->mem(1);
+    const cl_mem texP1V = yuv420 ? imageUV444[3]->mem(0) : imageY1->mem(2);
 
     const RGYWorkSize local(BLOCK_INT_X, BLOCK_Y);
     //横方向は1スレッドで4pixel処理する
@@ -170,8 +182,8 @@ RGY_ERR run_analyze_stripe(uint8_t *dst,
 
     err = analyze->kernel(AFS_ANALYZE_KERNEL_NAME).config(queue, local, global, wait_event, &event).launch(
         (cl_mem)dst, count_motion->mem(),
-        p0->imgY.mem(), texP0U, texP0V,
-        p1->imgY.mem(), texP1U, texP1V,
+        imageY0->mem(0), texP0U, texP0V,
+        imageY1->mem(0), texP1U, texP1V,
         divCeil(srcWidth, 4), (int)(dstPitch / sizeof(uint32_t)), srcHeight,
         thre_Ymotion_yuv, thre_deint_yuv, thre_shift_yuv,
         thre_Cmotion_yuv, thre_Cdeint_yuv, thre_Cshift_yuv,
@@ -213,14 +225,7 @@ RGY_ERR RGYFilterAfs::upsample_uv420(afsUV444Frame *pDst, const afsSourceCacheFr
         AddMessage(RGY_LOG_ERROR, _T("failed to run %s: %s.\n"), char_to_tstring(AFS_UPSAMPLE_UV420_KERNEL_NAME).c_str(), get_err_mes(err));
         return err;
     }
-    //analyzeは輝度と同じくRGBAのimageとして4画素ずつ読む
-    const int bit_depth = RGY_CSP_BIT_DEPTH[m_source.csp()];
-    auto makeImage = [&](RGYCLPlaneImage &image, RGYCLFrame *frame) {
-        return m_cl->createImageFromPlane(image, frame->mem(0), bit_depth, CL_RGBA, false,
-            frame->frame.pitch[0], (frame->frame.width + 3) / 4, frame->frame.height, CL_MEM_READ_ONLY, queue);
-    };
-    if ((err = makeImage(pDst->imgU, pDst->u.get())) != RGY_ERR_NONE) return err;
-    if ((err = makeImage(pDst->imgV, pDst->v.get())) != RGY_ERR_NONE) return err;
+    //analyzeは輝度と同じくRGBAのimageとして4画素ずつ読む (imageはanalyzeのカーネル投入ごとに作る)
     return RGY_ERR_NONE;
 }
 
