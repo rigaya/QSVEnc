@@ -190,7 +190,7 @@ jobs:
 
       - name: Checkout dependencies
         run: |
-          curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20260812/ffmpeg_dlls_for_hwenc_20260812.7z
+          curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20261124/ffmpeg_dlls_for_hwenc_20261124.7z
           7z x -offmpeg_lgpl -y ffmpeg_lgpl.7z
           git clone --depth 1 https://github.com/AviSynth/AviSynthPlus.git ..\AviSynthPlus
           git clone -b R72 --depth 1 https://github.com/vapoursynth/vapoursynth.git ..\vapoursynth
@@ -231,7 +231,7 @@ jobs:
         if: matrix.platform == 'x64'
         env:
           # 同梱するビューワーの版。ビューワーを更新したらここを書き換える。
-          HWENCVPPPREVIEW_VERSION: "0.01"
+          HWENCVPPPREVIEW_VERSION: "0.02"
         run: |
           curl -s -f -o HWEncVppPreview.zip -L https://github.com/rigaya/HWEncVppPreview/releases/download/%HWENCVPPPREVIEW_VERSION%/HWEncVppPreview_%HWENCVPPPREVIEW_VERSION%_win-x64.zip || exit /b 1
           7z x -oHWEncVppPreviewBin -y HWEncVppPreview.zip || exit /b 1
@@ -328,7 +328,7 @@ jobs:
 
       - name: Checkout dependencies
         run: |
-          curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20260812/ffmpeg_dlls_for_hwenc_20260812.7z
+          curl -s -o ffmpeg_lgpl.7z -L https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/download/20261124/ffmpeg_dlls_for_hwenc_20261124.7z
           7z x -offmpeg_lgpl -y ffmpeg_lgpl.7z
           move ffmpeg5* ffmpeg_lgpl
           git clone https://github.com/AviSynth/AviSynthPlus.git ..\AviSynthPlus
