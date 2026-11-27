@@ -144,11 +144,6 @@ RGY_ERR afsSourceCache::add(const RGYFrameInfo *pInputFrame, RGYOpenCLQueue &que
     if (RGY_CSP_CHROMA_FORMAT[m_csp] == RGY_CHROMAFMT_YUV444) {
         if ((ret = makeImage(pDstFrame->imgU, pDstFrame->y.get(), 1, true)) != RGY_ERR_NONE) return ret;
         if ((ret = makeImage(pDstFrame->imgV, pDstFrame->y.get(), 2, true)) != RGY_ERR_NONE) return ret;
-    } else {
-        for (int field = 0; field < 2; field++) {
-            if ((ret = makeImage(pDstFrame->imgCb[field], pDstFrame->cb[field].get(), 0, false)) != RGY_ERR_NONE) return ret;
-            if ((ret = makeImage(pDstFrame->imgCr[field], pDstFrame->cr[field].get(), 0, false)) != RGY_ERR_NONE) return ret;
-        }
     }
     // 別キューの analyze が、buffer だけでなく image の準備完了も待てるイベントにする。
     return err_cl_to_rgy(clEnqueueMarkerWithWaitList(queue_main.get(), 0, nullptr, event.reset_ptr()));
@@ -196,12 +191,6 @@ void afsSourceCache::clear() {
         m_sourceArray[i].imgY.release();
         m_sourceArray[i].imgU.release();
         m_sourceArray[i].imgV.release();
-        for (auto& image : m_sourceArray[i].imgCb) {
-            image.release();
-        }
-        for (auto& image : m_sourceArray[i].imgCr) {
-            image.release();
-        }
         if (m_sourceArray[i].y) {
             m_sourceArray[i].y->clear();
         }

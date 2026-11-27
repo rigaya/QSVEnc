@@ -113,9 +113,9 @@ static RGY_ERR run_synthesize(uint8_t **dst,
             err = synthesize->kernel("kernel_synthesize_mode_1234_yuv420").config(queue, local, global).launch(
                 (cl_mem)dst[0], (cl_mem)dst[1], (cl_mem)dst[2],
                 p0->y->mem(0), p1->y->mem(0), (cl_mem)sip,
-                p0->imgCb[0].mem(), p0->imgCb[1].mem(), p1->imgCb[0].mem(), p1->imgCb[1].mem(),
-                p0->imgCr[0].mem(), p0->imgCr[1].mem(), p1->imgCr[0].mem(), p1->imgCr[1].mem(),
-                width, height, p0->y->frame.pitch[0], dstPitch[0], dstPitch[1], sipPitch,
+                p0->cb[0]->mem(0), p0->cb[1]->mem(0), p1->cb[0]->mem(0), p1->cb[1]->mem(0),
+                p0->cr[0]->mem(0), p0->cr[1]->mem(0), p1->cr[0]->mem(0), p1->cr[1]->mem(0),
+                width, height, p0->y->frame.pitch[0], p0->cb[0]->frame.pitch[0], dstPitch[0], dstPitch[1], sipPitch,
                 tb_order, status);
         } else {
             err = synthesize->kernel("kernel_synthesize_mode_1234_yuv444").config(queue, local, global).launch(

@@ -48,13 +48,6 @@
 // mode
 // BIT_DEPTH
 
-__constant sampler_t sampler_y = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
-#if YUV420
-__constant sampler_t sampler_c = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_LINEAR;
-#else
-__constant sampler_t sampler_c = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
-#endif
-
 #if BIT_DEPTH > 8
 typedef ushort        DATA;
 typedef ushort2       DATA2;
@@ -79,10 +72,6 @@ typedef uchar         Flag;
 typedef uchar4        Flag4;
 typedef uchar8        Flag8;
 
-float lerp(float v0, float v1, float t) {
-    return (1.0f - t) * v0 + t * v1;
-}
-
 uint blend_mask(uint a_if_0, uint b_if_1, uint mask) {
     return (a_if_0 & (~mask)) | (b_if_1 & (mask));
 }
@@ -99,38 +88,17 @@ DATA8 deint8(DATA8 src1, DATA8 src3, DATA8 src4, DATA8 src5, DATA8 src7, Flag8 f
     return (CONVERT_DATA8((flag & (Flag8)mask) == (Flag8)0) ? tmp : src4);
 }
 
-float deintf(float src1, float src3, float src4, float src5, float src7, Flag flag, Flag mask) {
-    //const float tmp2 = src1 + src7;
-    //const float tmp3 = src3 + src5;
-    //const float tmp = (tmp3 - ((tmp2 - tmp3) * 0.125f)) * 0.5f;
-    const float tmp = (src3 + src5) * 0.5625f - (src1 + src7) * 0.0625f;
-    return (((flag & mask) == 0) ? tmp : src4);
-}
-
 DATA8 blend8(DATA8 src1, DATA8 src2, DATA8 src3, Flag8 flag, Flag mask) {
     DATA8 tmp = CONVERT_DATA8((convert_int8(src1) + convert_int8(src3) + convert_int8(src2) + convert_int8(src2) + (int8)2) >> 2);
     return (CONVERT_DATA8((flag & (Flag8)mask) == (Flag8)0) ? tmp : src2);
-}
-
-float blendf(float src1, float src2, float src3, Flag flag, Flag mask) {
-    float tmp = (src1 + src3 + 2.0f * src2) * 0.25f;
-    return ((flag & mask) == 0) ? tmp : src2;
 }
 
 DATA8 mie_inter8(DATA8 src1, DATA8 src2, DATA8 src3, DATA8 src4) {
     return CONVERT_DATA8((convert_int8(src1) + convert_int8(src2) + convert_int8(src3) + convert_int8(src4) + (int8)2) >> 2);
 }
 
-float mie_interf(float src1, float src2, float src3, float src4) {
-    return (src1 + src2 + src3 + src4) * 0.25f;
-}
-
 DATA8 mie_spot8(DATA8 src1, DATA8 src2, DATA8 src3, DATA8 src4, DATA8 src_spot) {
     return CONVERT_DATA8((convert_int8(mie_inter8(src1, src2, src3, src4)) + convert_int8(src_spot) + (int8)1) >> 1);
-}
-
-float mie_spotf(float src1, float src2, float src3, float src4, float src_spot) {
-    return (mie_interf(src1, src2, src3, src4) + src_spot) * 0.5f;
 }
 
 DATA8 piny(
@@ -219,153 +187,103 @@ void proc_y(
 #undef pin
 }
 
-float get_uv(__read_only image2d_t src_p0_0, __read_only image2d_t src_p0_1, float ifx, int iy) {
-    //static const float WEIGHT[4] = {
-    //    7.0f / 8.0f,
-    //    5.0f / 8.0f,
-    //    3.0f / 8.0f,
-    //    1.0f / 8.0f
-    //};
-    //const float ifytex = ify + WEIGHT[iy & 3];
-    const float ify = ((iy - 2) >> 2) + 0.5f;
-    const float ifytex = ify + (3.5f - (float)(iy & 3)) * 0.25f;
-    if (iy & 1) {
-        return read_imagef(src_p0_1, sampler_c, (float2)(ifx, ifytex)).x;
+// YUV444のビルドでもkernel_synthesize_mode_1234_yuv420から参照されるため、#if YUV420では囲まないこと
+// 色差の合成は、420→422の補間値を8倍の整数で持ち回り、テクスチャ(image)、localメモリ、barrierを使わずに行う。
+// (以前はread_imagefでの補間結果をlocalメモリに置き、work group内で18回同期しながら処理していたため、
+//  localメモリの読み書きと同期待ちが律速になっていた)
+// 色差はソースキャッシュでフィールド分離済み (src0=偶数行, src1=奇数行、高さはlastFieldRow+1)
+
+// 422相当の行rowの補間値 (8倍) を、色差4画素(x*4～x*4+3)分求める
+// 縦方向の重みは従来の線形補間と同じ (同じフィールドの色差の行を 1/8単位で補間する)
+int4 load_uv_422(__global const uchar *src0, __global const uchar *src1, const int pitch, const int lastFieldRow, const int x, const int row) {
+    __global const uchar *src = (row & 1) ? src1 : src0;
+    const int base = (row - 2) >> 2;
+    const int weight = 7 - ((row & 3) << 1);
+    const int row0 = clamp(base,     0, lastFieldRow);
+    const int row1 = clamp(base + 1, 0, lastFieldRow);
+    const int4 a = convert_int4(vload4(x, (__global const DATA *)(src + row0 * pitch)));
+    const int4 b = convert_int4(vload4(x, (__global const DATA *)(src + row1 * pitch)));
+    return (int4)(8 - weight) * a + (int4)weight * b;
+}
+
+int4 mie_inter4(int4 src1, int4 src2, int4 src3, int4 src4) {
+    return (src1 + src2 + src3 + src4 + (int4)2) >> 2;
+}
+
+int4 mie_spot4(int4 src1, int4 src2, int4 src3, int4 src4, int4 src_spot) {
+    return (mie_inter4(src1, src2, src3, src4) + src_spot + (int4)1) >> 1;
+}
+
+int4 blend4(int4 src1, int4 src2, int4 src3, int4 flag, int mask) {
+    const int4 tmp = (src1 + src3 + src2 + src2 + (int4)2) >> 2;
+    return ((flag & (int4)mask) == (int4)0) ? tmp : src2;
+}
+
+// 422相当の行rowの合成結果 (8倍) を、色差4画素分求める
+// p0x/p1x: p0/p1のフィールド分離された色差 (x=0:偶数行, 1:奇数行)
+int4 synth_uv_422(
+    __global const uchar *p0_0, __global const uchar *p0_1,
+    __global const uchar *p1_0, __global const uchar *p1_1,
+    const int pitch, const int lastFieldRow, const int x, const int row,
+    const int4 flags, const int latter, const int shift) {
+    __global const uchar *center0   = (shift && latter)  ? p1_0 : p0_0;
+    __global const uchar *center1   = (shift && latter)  ? p1_1 : p0_1;
+    __global const uchar *neighbor0 = (shift && !latter) ? p1_0 : p0_0;
+    __global const uchar *neighbor1 = (shift && !latter) ? p1_1 : p0_1;
+    const int4 middle = load_uv_422(center0, center1, pitch, lastFieldRow, x, row);
+    if (mode == 1) {
+        const int4 top    = load_uv_422(neighbor0, neighbor1, pitch, lastFieldRow, x, row - 1);
+        const int4 bottom = load_uv_422(neighbor0, neighbor1, pitch, lastFieldRow, x, row + 1);
+        if (shift != latter) {
+            const int4 other = load_uv_422(p1_0, p1_1, pitch, lastFieldRow, x, row);
+            return mie_inter4(top, middle, bottom, other);
+        } else {
+            const int4 otherTop    = load_uv_422(p1_0, p1_1, pitch, lastFieldRow, x, row - 1);
+            const int4 otherBottom = load_uv_422(p1_0, p1_1, pitch, lastFieldRow, x, row + 1);
+            return mie_spot4(top, bottom, otherTop, otherBottom, middle);
+        }
+    } else if (mode == 4) {
+        if (shift != latter) {
+            const int4 top       = load_uv_422(neighbor0, neighbor1, pitch, lastFieldRow, x, row - 1);
+            const int4 bottom    = load_uv_422(neighbor0, neighbor1, pitch, lastFieldRow, x, row + 1);
+            const int4 farTop    = load_uv_422(neighbor0, neighbor1, pitch, lastFieldRow, x, row - 3);
+            const int4 farBottom = load_uv_422(neighbor0, neighbor1, pitch, lastFieldRow, x, row + 3);
+            const int mask = (shift) ? 0x06 : 0x05;
+            const int maxScaled = ((1 << (8 * sizeof(DATA))) - 1) * 8;
+            const int4 filtered = ((int4)9 * (top + bottom) - (farTop + farBottom) + (int4)8) >> 4;
+            return ((flags & (int4)mask) != (int4)0) ? middle : clamp(filtered, (int4)0, (int4)maxScaled);
+        } else {
+            return middle;
+        }
     } else {
-        return read_imagef(src_p0_0, sampler_c, (float2)(ifx, ifytex)).x;
+        const int4 top    = load_uv_422(neighbor0, neighbor1, pitch, lastFieldRow, x, row - 1);
+        const int4 bottom = load_uv_422(neighbor0, neighbor1, pitch, lastFieldRow, x, row + 1);
+        const int mask = (mode == 2) ? ((shift) ? 0x02 : 0x01) : ((shift) ? 0x06 : 0x05);
+        return blend4(top, middle, bottom, flags, mask);
     }
 }
 
-
-#define PREREAD_Y ((mode == 4) ? 6 : 2) //必要になる前後の行のぶん
-#define SHARED_C_Y (SYN_BLOCK_Y * 2 + PREREAD_Y)
-#define SHARED_C_XY (SHARED_C_Y * SYN_BLOCK_INT_X)
-
-void proc_uv(
-    __global uchar *__restrict__ dst,
-    __read_only image2d_t src_p0_0,
-    __read_only image2d_t src_p0_1,
-    __read_only image2d_t src_p1_0,
-    __read_only image2d_t src_p1_1,
-    __global const uchar *__restrict__ sip,
-    __local float s_tmp[3][SHARED_C_Y][SYN_BLOCK_INT_X],
-    __local DATA s_out[SYN_BLOCK_Y][SYN_BLOCK_INT_X * 4],
-    const int sip_pitch,
-    const int src_width, const int src_height,
-    const int imgx,  //グローバルスレッドID x
-    const int imgy,  //グローバルスレッドID y
-    const int lx, const int ly, //ローカルスレッドID
-    const int tb_order, const uchar status
-) {
-    //static_assert(-1 <= mode && mode <= 4, "mode should be -1 - 4");
-#define SOFFSET(x,y,depth) ((depth) * SHARED_C_XY + (y) * SYN_BLOCK_INT_X + (x))
-    __local float *pSharedX = (__local float *)&s_tmp[0][0][0] + SOFFSET(lx, 0, 0);
-    __local DATA *psOut = &s_out[ly][lx];
-    int ix = get_group_id(0) * SYN_BLOCK_INT_X * 4 + get_local_id(0); //YUV422ベースの色差インデックス 1スレッドは横方向に4つの色差pixelを担当
-    int iy = get_group_id(1) * SYN_BLOCK_Y * 2 + get_local_id(1);     //YUV422ベースの色差インデックス 1スレッドは縦方向に2つの色差pixelを担当 (出力時はYUV420なので1つの色差pixelを担当)
-    float ifx = (float)ix + 0.5f;
-
-    //この関数内でsipだけはYUV444のデータであることに注意
-    sip += iy * sip_pitch + ix * 2/*YUV444->YUV420*/ * sizeof(uchar);
-
-    //sharedメモリ上に、YUV422相当のデータ(32x(16+PREREAD))を縦方向のテクスチャ補間で作ってから、
-    //blendを実行して、YUV422相当の合成データ(32x16)を作り、
-    //その後YUV420相当のデータ(32x8)をs_outに出力する
-    //横方向に4回ループを回して、32pixel x4の出力結果をs_out(横:128pixel)に格納する
-    for (int i = 0; i < 4; i++, ifx += SYN_BLOCK_INT_X, psOut += SYN_BLOCK_INT_X, sip += SYN_BLOCK_INT_X * 2/*YUV444->YUV420*/) {
-        //shredメモリに値をロード
-        //縦方向のテクスチャ補間を使って、YUV422相当のデータとしてロード
-        //横方向には補間しない
-        if (ly < PREREAD_Y) {
-            __local float *pShared = pSharedX + SOFFSET(0, ly, 0);
-            pShared[SOFFSET(0, 0, 0)] = get_uv(src_p0_0, src_p0_1, ifx, iy - (PREREAD_Y >> 1));
-            pShared[SOFFSET(0, 0, 1)] = get_uv(src_p1_0, src_p1_1, ifx, iy - (PREREAD_Y >> 1));
-        }
-        __local float *pShared = pSharedX + SOFFSET(0, ly + PREREAD_Y, 0);
-        #pragma unroll
-        for (int j = 0; j < 2; j++) {
-            pShared[SOFFSET(0, j*SYN_BLOCK_Y, 0)] = get_uv(src_p0_0, src_p0_1, ifx, iy + (PREREAD_Y >> 1) + j * SYN_BLOCK_Y);
-            pShared[SOFFSET(0, j*SYN_BLOCK_Y, 1)] = get_uv(src_p1_0, src_p1_1, ifx, iy + (PREREAD_Y >> 1) + j * SYN_BLOCK_Y);
-        }
-        barrier(CLK_LOCAL_MEM_FENCE);
-
-        #pragma unroll
-        for (int j = 0; j < 2; j++) {
-            //sipのy (境界チェックに必要)
-            const int iy_sip = iy + j * SYN_BLOCK_Y;
-            __global const Flag *psip = sip + j * SYN_BLOCK_Y * sip_pitch;
-
-            // -1するのは、pinのlineは最小値が1だから
-            __local float *pShared = pSharedX + SOFFSET(0, ly-1+j*SYN_BLOCK_Y, 0);
-#define pin(plane, line) (pShared[SOFFSET(0,line,plane)])
-
-            float pout;
-            if (mode == 1) {
-                if (status & AFS_FLAG_SHIFT0) {
-                    if (!is_latter_field(ly, tb_order)) {
-                        pout = mie_interf(pin(0, 2), pin(1, 1), pin(1, 2), pin(1, 3));
-                    } else {
-                        pout = mie_spotf(pin(0, 1), pin(0, 3), pin(1, 1), pin(1, 3), pin(1, 2));
-                    }
-                } else {
-                    if (is_latter_field(ly, tb_order)) {
-                        pout = mie_interf(pin(0, 1), pin(0, 2), pin(0, 3), pin(1, 2));
-                    } else {
-                        pout = mie_spotf(pin(0, 1), pin(0, 3), pin(1, 1), pin(1, 3), pin(0, 2));
-                    }
-                }
-            } else if (mode == 2) {
-                const Flag sip0 = (iy_sip < src_height) ? *psip : 0;
-                if (status & AFS_FLAG_SHIFT0) {
-                    if (!is_latter_field(ly, tb_order)) {
-                        pout = blendf(pin(1, 1), pin(0, 2), pin(1, 3), sip0, 0x02);
-                    } else {
-                        pout = blendf(pin(0, 1), pin(1, 2), pin(0, 3), sip0, 0x02);
-                    }
-                } else {
-                    pout = blendf(pin(0, 1), pin(0, 2), pin(0, 3), sip0, 0x01);
-                }
-            } else if (mode == 3) {
-                const Flag sip0 = (iy_sip < src_height) ? *psip : 0;
-                if (status & AFS_FLAG_SHIFT0) {
-                    if (!is_latter_field(ly, tb_order)) {
-                        pout = blendf(pin(1, 1), pin(0, 2), pin(1, 3), sip0, 0x06);
-                    } else {
-                        pout = blendf(pin(0, 1), pin(1, 2), pin(0, 3), sip0, 0x06);
-                    }
-                } else {
-                    pout = blendf(pin(0, 1), pin(0, 2), pin(0, 3), sip0, 0x05);
-                }
-            } else if (mode == 4) {
-                const Flag sip0 = (iy_sip < src_height) ? *psip : 0;
-                if (status & AFS_FLAG_SHIFT0) {
-                    if (!is_latter_field(ly, tb_order)) {
-                        pout = deintf(pin(1, 1), pin(1, 3), pin(0, 4), pin(1, 5), pin(1, 7), sip0, 0x06);
-                    } else {
-                        pout = pin(1, 4);
-                    }
-                } else {
-                    if (is_latter_field(ly, tb_order)) {
-                        pout = deintf(pin(0, 1), pin(0, 3), pin(0, 4), pin(0, 5), pin(0, 7), sip0, 0x05);
-                    } else {
-                        pout = pin(0, 4);
-                    }
-                }
-            }
-            pSharedX[SOFFSET(0, ly+j*SYN_BLOCK_Y, 2)] = pout;
-        }
-        barrier(CLK_LOCAL_MEM_FENCE);
-        //sharedメモリ内でYUV422->YUV420
-        const int sy = (ly << 1) - (ly & 1);
-        pShared = pSharedX + SOFFSET(0, sy, 2);
-        psOut[0] = (DATA)(lerp(pShared[SOFFSET(0, 0, 0)], pShared[SOFFSET(0, 2, 0)], (ly & 1) ? 0.75f : 0.25f) * (float)(1<<(8*sizeof(DATA))) + 0.5f);
+// 422相当の行rowの、色差4画素に対応するsipのフラグ (sipは輝度解像度なので偶数画素のもの) を読む
+int4 load_uv_flags(__global const uchar *sip, const int sip_pitch, const int x, const int row, const int height) {
+    if (row >= height) {
+        return (int4)0;
     }
-    barrier(CLK_LOCAL_MEM_FENCE);
-    //s_outに出力したものをメモリに書き出す
-    if (imgx < (src_width >> 1) && imgy < (src_height >> 1)) {
-        *(__global DATA4 *)dst = *(__local DATA4 *)(&s_out[ly][lx << 2]);
-    }
-#undef SOFFSET
+    const uchar8 flags = vload8(x, sip + row * sip_pitch);
+    return convert_int4(flags.s0246);
+}
+
+// 出力(420)の行imgyの色差4画素を求める
+// 422相当の2行 (row, row+2) を合成してから、420へ縦に補間する
+DATA4 proc_uv(
+    __global const uchar *p0_0, __global const uchar *p0_1,
+    __global const uchar *p1_0, __global const uchar *p1_1,
+    const int pitch, const int lastFieldRow, const int x, const int row, const int odd,
+    const int4 flags0, const int4 flags1, const int latter, const int shift) {
+    const int4 s0 = synth_uv_422(p0_0, p0_1, p1_0, p1_1, pitch, lastFieldRow, x, row,     flags0, latter, shift);
+    const int4 s1 = synth_uv_422(p0_0, p0_1, p1_0, p1_1, pitch, lastFieldRow, x, row + 2, flags1, latter, shift);
+    const int4 v = (odd) ? (s0 + (int4)3 * s1) : ((int4)3 * s0 + s1);
+    // 整数の画素値に戻すため、旧経路の正規化分母と復元倍率の差による偏りがない。
+    return CONVERT_DATA4((v + (int4)16) >> 5);
 }
 
 void set_y_h_pos(const int imgx, const int y_h_center, int height, const int src_pitch, int *y_h1_pos, int *y_h2_pos, int *y_h3_pos, int *y_h4_pos, int *y_h5_pos, int *y_h6_pos, int *y_h7_pos, int *y_h8_pos) {
@@ -393,23 +311,21 @@ __kernel void kernel_synthesize_mode_1234_yuv420(
     __global const uchar *__restrict__ p0,
     __global const uchar *__restrict__ p1,
     __global const uchar *__restrict__ sip,
-    __read_only image2d_t src_u0_0,
-    __read_only image2d_t src_u0_1,
-    __read_only image2d_t src_u1_0,
-    __read_only image2d_t src_u1_1,
-    __read_only image2d_t src_v0_0,
-    __read_only image2d_t src_v0_1,
-    __read_only image2d_t src_v1_0,
-    __read_only image2d_t src_v1_1,
+    __global const uchar *__restrict__ p0U0, //色差はフィールド分離済み (x0:偶数行, x1:奇数行)
+    __global const uchar *__restrict__ p0U1,
+    __global const uchar *__restrict__ p1U0,
+    __global const uchar *__restrict__ p1U1,
+    __global const uchar *__restrict__ p0V0,
+    __global const uchar *__restrict__ p0V1,
+    __global const uchar *__restrict__ p1V0,
+    __global const uchar *__restrict__ p1V1,
     const int width, const int height,
-    const int src_y_pitch, const int dst_y_pitch, const int dst_c_pitch, const int sip_pitch,
+    const int src_y_pitch, const int src_c_pitch, const int dst_y_pitch, const int dst_c_pitch, const int sip_pitch,
     const int tb_order, const uchar status) {
     const int lx = get_local_id(0); //スレッド数=SYN_BLOCK_INT_X
     const int ly = get_local_id(1); //スレッド数=SYN_BLOCK_Y
     const int imgx = get_group_id(0) * SYN_BLOCK_INT_X /*blockDim.x*/ + lx; //グローバルスレッドID x
     const int imgy = get_group_id(1) * SYN_BLOCK_Y     /*blockDim.y*/ + ly; //グローバルスレッドID y
-    __local float s_tmp[3][SHARED_C_Y][SYN_BLOCK_INT_X];
-    __local DATA s_out[SYN_BLOCK_Y][SYN_BLOCK_INT_X * 4];
 
     if (imgx * 8 < width && imgy < (height >> 1)) {
         //y
@@ -423,18 +339,19 @@ __kernel void kernel_synthesize_mode_1234_yuv420(
         proc_y(dst_y +           0, p0, p1, sip_y +         0, tb_order + 0, status, y_h1_pos, y_h2_pos, y_h3_pos, y_h4_pos, y_h5_pos, y_h6_pos, y_h7_pos);
         proc_y(dst_y + dst_y_pitch, p0, p1, sip_y + sip_pitch, tb_order + 1, status, y_h2_pos, y_h3_pos, y_h4_pos, y_h5_pos, y_h6_pos, y_h7_pos, y_h8_pos);
     }
-    {
+    const int uv_height = height >> 1;
+    if (imgx * 8 < width && imgy < uv_height) {
+        //imgyは出力(420)の色差の行、rowは422相当の行 (420の行imgyは422の行 row と row+2 から補間する)
+        const int odd = imgy & 1;
+        const int row = 2 * imgy - odd;
+        const int lastFieldRow = (uv_height >> 1) - 1;
+        const int4 flags0 = (mode >= 2) ? load_uv_flags(sip, sip_pitch, imgx, row,     height) : (int4)0;
+        const int4 flags1 = (mode >= 2) ? load_uv_flags(sip, sip_pitch, imgx, row + 2, height) : (int4)0;
+        const int latter = is_latter_field(row, tb_order);
+        const int shift = (status & AFS_FLAG_SHIFT0) != 0;
         const int uv_pos_dst = imgy * dst_c_pitch + imgx * sizeof(DATA4);
-        dst_u += uv_pos_dst;
-        dst_v += uv_pos_dst;
-
-        //u
-        proc_uv(dst_u, src_u0_0, src_u0_1, src_u1_0, src_u1_1, sip, s_tmp, s_out, sip_pitch, width, height, imgx, imgy,
-            lx, ly, tb_order, status);
-
-        //v
-        proc_uv(dst_v, src_v0_0, src_v0_1, src_v1_0, src_v1_1, sip, s_tmp, s_out, sip_pitch, width, height, imgx, imgy,
-            lx, ly, tb_order, status);
+        *(__global DATA4 *)(dst_u + uv_pos_dst) = proc_uv(p0U0, p0U1, p1U0, p1U1, src_c_pitch, lastFieldRow, imgx, row, odd, flags0, flags1, latter, shift);
+        *(__global DATA4 *)(dst_v + uv_pos_dst) = proc_uv(p0V0, p0V1, p1V0, p1V1, src_c_pitch, lastFieldRow, imgx, row, odd, flags0, flags1, latter, shift);
     }
 }
 
