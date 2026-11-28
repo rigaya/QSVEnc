@@ -314,6 +314,26 @@ API v1.1  … Intel Media SDK v2.0
 
 
 【どうでもいいメモ】
+2026.11.28 (8.39)
+[QSVEncC]
+- --vpp-colorspaceのhdr2sdrにbt2446aとbt2446a-previewを追加。
+- --vpp-kfmのucf=onを高速化。
+- --vpp-afsを高速化。
+- --vpp-afsの細かな不具合を修正。
+- 使用するffmpegのライブラリを9.1に更新。
+- libplacebo API387に対応。
+- MPEG-2のHWデコードで先頭GOPが欠ける問題を修正。( #340 )
+- MPEG-2のHWデコードでパケット末尾の端数からPTSを誤って引き継ぐ問題を修正。
+- --parallelで--vpp-afsと--tcfile-inを使うと、timebaseの1/4が二重にかかり映像時間が4倍になる問題を修正。
+- LinuxのVAアロケータでUYVYを確保できない問題を修正。( #342 )
+- --dynamic-rcの再初期化で色情報やVUIが失われる問題を修正。( #343 )
+- --dynamic-rcの再初期化が警告を返したときフレームが欠落する問題を修正。( #345 )
+- LinuxでVA初期化に失敗したときの二重開放を修正。( #344 )
+- 音声フィルタ再初期化時のエンコードスレッドとの競合を修正。
+
+[QSVEnc.auo]
+- 時刻換算を切り上げから最近傍の丸めに変更。
+
 2026.11.13 (8.38)
 [QSVEncC]
 - VPPフィルタのプレビューを可能に。(HWEncVppPreview)

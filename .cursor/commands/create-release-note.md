@@ -29,6 +29,8 @@
   　　例: [--vpp-afs](./QSVEncC_Options.en.md#--vpp-afs-param1value1param2value2)
     - githubのissue (#xxx)が含まれる変更は下記のように記載する
       例: Fix ~ error in [--vpp-afs](./QSVEncC_Options.en.md#--vpp-afs-param1value1param2value2). ( #xxx )
+    - githubの作者 yyy によるpull request (#xxx)が含まれる変更は下記のように記載する
+      例: Fix ~ error in [--vpp-afs](./QSVEncC_Options.en.md#--vpp-afs-param1value1param2value2). ( #xxx ) by @yyy
   
   - ブログに記載する文章例を作成する。
     - QSVEnc/QSVEnc_readme.txt に記載した内容をHTML形式で記載。

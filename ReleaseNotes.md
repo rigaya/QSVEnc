@@ -1,5 +1,23 @@
 # QSVEnc Release Notes
 
+## 8.39
+
+- Add `bt2446a` and `bt2446a-preview` to `hdr2sdr` in [--vpp-colorspace](./QSVEncC_Options.en.md#--vpp-colorspace-param1value1param2value2).
+- Speed up [--vpp-kfm](./QSVEncC_Options.en.md#--vpp-kfm-param1value1param2value2) when `ucf=on`.
+- Speed up [--vpp-afs](./QSVEncC_Options.en.md#--vpp-afs-param1value1param2value2).
+- Fix minor issues in [--vpp-afs](./QSVEncC_Options.en.md#--vpp-afs-param1value1param2value2).
+- Update ffmpeg libraries to 9.1. -> [binaries and src](https://github.com/rigaya/ffmpeg_dlls_for_hwenc/releases/tag/20261124), [build_scripts](https://github.com/rigaya/build_scripts)
+- Support libplacebo API 387.
+- Fix MPEG-2 hardware decode dropping the first GOP. ( #340 )
+- Fix MPEG-2 hardware decode taking a PTS from the remainder at the end of a packet.
+- Fix video duration becoming 4x when [--parallel](./QSVEncC_Options.en.md#--parallel-int-or-string) is used with [--vpp-afs](./QSVEncC_Options.en.md#--vpp-afs-param1value1param2value2) and [--tcfile-in](./QSVEncC_Options.en.md#--tcfile-in-string), because timebase 1/4 was applied twice.
+- Fix UYVY allocation failure in the Linux VA allocator. ( #342 ) by @antonkesy
+- Fix [--dynamic-rc](./QSVEncC_Options.en.md#--dynamic-rc-intintintintparam1value1param2value2) re-initialization dropping color and VUI information. ( #343 ) by @antonkesy
+- Fix a frame dropped when [--dynamic-rc](./QSVEncC_Options.en.md#--dynamic-rc-intintintintparam1value1param2value2) re-initialization returns a warning. ( #345 )
+- Fix double free when VA initialization fails on Linux. ( #344 ) by @antonkesy
+- Fix a race between [--audio-filter](./QSVEncC_Options.en.md#--audio-filter-intstringstring) re-initialization and the encode thread.
+- Change AviUtl timestamp scaling from ceiling to nearest-integer rounding.
+
 ## 8.38
 
 - Add preview of VPP filters. ( With [HWEncVppPreview](https://github.com/rigaya/HWEncVppPreview) )
