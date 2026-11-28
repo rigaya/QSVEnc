@@ -4030,6 +4030,10 @@ vector<AVPktMuxData> RGYOutputAvcodec::AudioFilterFrame(vector<AVPktMuxData> inp
         AVMuxAudio *muxAudio = pktData.muxAudio;
         if (pktData.muxAudio->filterGraph == nullptr) {
             //フィルタリングなし
+            if (pktData.frame) {
+                pktData.frame->pts = av_rescale_q(pktData.frame->pts, av_make_q(1, muxAudio->outCodecDecodeCtx->sample_rate),
+                    muxAudio->outCodecEncodeCtx->time_base);
+            }
             outputFrames.push_back(pktData);
         } else {
             const bool flush = pktData.frame == nullptr;
@@ -4068,6 +4072,10 @@ vector<AVPktMuxData> RGYOutputAvcodec::AudioFilterFrame(vector<AVPktMuxData> inp
                     m_Mux.format.streamError = true;
                     break;
                 }
+                // フィルタを再初期化する前に、このフレームのPTSをエンコーダの時間基準に変換する。
+                // 別スレッドへ渡した後は、破棄されうるフィルタを参照しない。
+                filteredFrame->pts = av_rescale_q(filteredFrame->pts, av_buffersink_get_time_base(muxAudio->filterBufferSinkCtx),
+                    muxAudio->outCodecEncodeCtx->time_base);
                 AVPktMuxData pktFiltered = pktData;
                 pktFiltered.samples = filteredFrame->nb_samples;
                 pktFiltered.frame = filteredFrame.release();
@@ -4096,13 +4104,6 @@ vector<AVPktMuxData> RGYOutputAvcodec::AudioFilterFrameFlush(AVMuxAudio *muxAudi
 vector<AVPktMuxData> RGYOutputAvcodec::AudioEncodeFrame(AVMuxAudio *muxAudio, AVFrame *frame) {
     vector<AVPktMuxData> encPktDatas;
 
-    if (frame) {
-        //エンコーダのtimebaseに変換
-        const auto timebase_filter = (muxAudio->filterGraph)
-            ? av_buffersink_get_time_base(muxAudio->filterBufferSinkCtx)
-            : av_make_q(1, muxAudio->outCodecDecodeCtx->sample_rate);
-        frame->pts = av_rescale_q(frame->pts, timebase_filter, muxAudio->outCodecEncodeCtx->time_base);
-    }
     int ret = avcodec_send_frame(muxAudio->outCodecEncodeCtx, frame);
     if (ret == AVERROR_EOF) {
         return encPktDatas;
